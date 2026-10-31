@@ -1,7 +1,7 @@
 """Shared auth, region resolution, and routing helpers for the Amazon Bedrock Mantle provider.
 
 Mantle authenticates with a Bearer token when one is available
-(litellm_params.api_key, BEDROCK_MANTLE_API_KEY, or the standard
+(embrouter_params.api_key, BEDROCK_MANTLE_API_KEY, or the standard
 AWS_BEARER_TOKEN_BEDROCK); otherwise it falls back to AWS SigV4 (service
 "bedrock") over the standard credential chain (IAM role / access key / profile /
 web identity). The Chat Completions and Responses backends share this behaviour
@@ -23,9 +23,9 @@ from botocore.exceptions import (
     ProfileNotFound,
 )
 
-from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM, SignsRequestsWithAWS
-from litellm.llms.bedrock.common_utils import AmazonBedrockGlobalConfig
-from litellm.secret_managers.main import get_secret_str
+from embrouter.llms.bedrock.base_aws_llm import BaseAWSLLM, SignsRequestsWithAWS
+from embrouter.llms.bedrock.common_utils import AmazonBedrockGlobalConfig
+from embrouter.secret_managers.main import get_secret_str
 
 BEDROCK_MANTLE_DEFAULT_REGION: Final = "us-east-1"
 BEDROCK_REGIONS: Final = frozenset(AmazonBedrockGlobalConfig().get_all_regions())

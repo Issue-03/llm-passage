@@ -10,10 +10,10 @@ from unittest.mock import patch
 
 import pytest
 
-import litellm
-import litellm.utils
-from litellm.litellm_core_utils.get_model_cost_map import GetModelCostMap
-from litellm.llms.moonshot.chat.transformation import MoonshotChatConfig
+import embrouter
+import embrouter.utils
+from embrouter.embrouter_core_utils.get_model_cost_map import GetModelCostMap
+from embrouter.llms.moonshot.chat.transformation import MoonshotChatConfig
 
 
 class TestMoonshotConfig:
@@ -184,7 +184,7 @@ class TestMoonshotConfig:
         config = MoonshotChatConfig()
 
         with patch(
-            "litellm.llms.moonshot.chat.transformation.supports_reasoning",
+            "embrouter.llms.moonshot.chat.transformation.supports_reasoning",
             return_value=True,
         ):
             for temp in [0.0, 0.5, 1.0, 1.5]:
@@ -201,7 +201,7 @@ class TestMoonshotConfig:
         config = MoonshotChatConfig()
 
         with patch(
-            "litellm.llms.moonshot.chat.transformation.supports_reasoning",
+            "embrouter.llms.moonshot.chat.transformation.supports_reasoning",
             return_value=False,
         ):
             result = config.map_openai_params(
@@ -228,7 +228,7 @@ class TestMoonshotConfig:
             model="moonshot-v1-8k",
             messages=messages,
             optional_params=optional_params,
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -261,7 +261,7 @@ class TestMoonshotConfig:
             model="moonshot-v1-8k",
             messages=messages,
             optional_params=optional_params,
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -297,7 +297,7 @@ class TestMoonshotConfig:
                 model="moonshot-v1-8k",
                 messages=messages,
                 optional_params=optional_params,
-                litellm_params={},
+                embrouter_params={},
                 headers={},
             )
             # The returned request carries the extra message.
@@ -327,7 +327,7 @@ class TestMoonshotConfig:
                 model="moonshot-v1-8k",
                 messages=messages,
                 optional_params=optional_params,
-                litellm_params={},
+                embrouter_params={},
                 headers={},
             )
 
@@ -364,7 +364,7 @@ class TestMoonshotConfig:
             model="kimi-k2.5",
             messages=messages,
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -396,7 +396,7 @@ class TestMoonshotConfig:
             model="kimi-k2.5",
             messages=messages,
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -425,7 +425,7 @@ class TestMoonshotConfig:
             model="moonshot-v1-8k",
             messages=messages,
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -550,14 +550,14 @@ class TestMoonshotConfig:
         ]
 
         with patch(
-            "litellm.llms.moonshot.chat.transformation.supports_reasoning",
+            "embrouter.llms.moonshot.chat.transformation.supports_reasoning",
             return_value=True,
         ):
             result = config.transform_request(
                 model="kimi-k2-thinking",
                 messages=messages,
                 optional_params={},
-                litellm_params={},
+                embrouter_params={},
                 headers={},
             )
 
@@ -583,14 +583,14 @@ class TestMoonshotConfig:
         ]
 
         with patch(
-            "litellm.llms.moonshot.chat.transformation.supports_reasoning",
+            "embrouter.llms.moonshot.chat.transformation.supports_reasoning",
             return_value=False,
         ):
             result = config.transform_request(
                 model="moonshot-v1-8k",
                 messages=messages,
                 optional_params={},
-                litellm_params={},
+                embrouter_params={},
                 headers={},
             )
 
@@ -605,7 +605,7 @@ class TestMoonshotConfig:
         The issue was that 'reasoning_content' in msg doesn't work for Pydantic models
         because they don't support the 'in' operator the same way as dicts.
         """
-        from litellm.types.utils import Message
+        from embrouter.types.utils import Message
 
         config = MoonshotChatConfig()
 
@@ -635,8 +635,8 @@ class TestMoonshotConfig:
 
         This tests the complete flow: API response -> Message object -> dict -> fill_reasoning_content
         """
-        from litellm.types.utils import Message
-        from litellm.utils import convert_to_dict
+        from embrouter.types.utils import Message
+        from embrouter.utils import convert_to_dict
 
         config = MoonshotChatConfig()
 
@@ -654,7 +654,7 @@ class TestMoonshotConfig:
             ],
         }
 
-        # Convert to Message object (as LiteLLM does)
+        # Convert to Message object (as EmbRouter does)
         message_obj = Message(**api_response)
 
         # Convert back to dict (when building next request)
@@ -686,7 +686,7 @@ class TestKimiK26ModelRegistry:
 
 class TestMoonshotResponseSchemaSupport:
     """Every model currently live on api.moonshot.ai supports json_schema
-    response_format, which gates discovery via litellm.responses(). The flag
+    response_format, which gates discovery via embrouter.responses(). The flag
     must be true so the capability is advertised honestly."""
 
     LIVE_MODELS = [
@@ -713,7 +713,7 @@ class TestMoonshotReasoningEffort:
 
     @pytest.fixture(autouse=True)
     def force_local_model_cost(self, monkeypatch):
-        monkeypatch.setattr(litellm, "model_cost", GetModelCostMap.load_local_model_cost_map())
+        monkeypatch.setattr(embrouter, "model_cost", GetModelCostMap.load_local_model_cost_map())
 
     @pytest.mark.parametrize("model", ["kimi-k3", "kimi-k2.5", "kimi-k2.6"])
     def test_reasoning_model_supports_reasoning_effort(self, model):
@@ -725,7 +725,7 @@ class TestMoonshotReasoningEffort:
 
     @pytest.mark.parametrize("effort", ["low", "high", "max"])
     def test_declared_effort_reaches_optional_params(self, effort):
-        optional_params = litellm.get_optional_params(
+        optional_params = embrouter.get_optional_params(
             model="kimi-k3",
             custom_llm_provider="moonshot",
             reasoning_effort=effort,
@@ -735,8 +735,8 @@ class TestMoonshotReasoningEffort:
         assert optional_params["reasoning_effort"] == effort
 
     def test_non_reasoning_model_still_rejects_reasoning_effort(self):
-        with pytest.raises(litellm.UnsupportedParamsError):
-            litellm.get_optional_params(
+        with pytest.raises(embrouter.UnsupportedParamsError):
+            embrouter.get_optional_params(
                 model="moonshot-v1-8k",
                 custom_llm_provider="moonshot",
                 reasoning_effort="high",

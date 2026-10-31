@@ -20,15 +20,15 @@ import yaml
 from uvicorn.config import LOOP_FACTORIES
 from uvicorn.importer import import_from_string
 
-from litellm.proxy import proxy_cli
-from litellm.proxy.proxy_cli import ProxyInitializationHelpers, run_server
+from embrouter.proxy import proxy_cli
+from embrouter.proxy.proxy_cli import ProxyInitializationHelpers, run_server
 
 
 @pytest.fixture(autouse=True)
 def fork_reservation():
     """Reserving is irreversible: it would forbid native routes in this pytest worker for good"""
     with patch(  # test-quality-ok: process-global native state, a real reservation would poison every later test in the worker
-        "litellm.rust_bridge.fork_guard.reserve_process_for_forking"
+        "embrouter.rust_bridge.fork_guard.reserve_process_for_forking"
     ) as reserve:
         yield reserve
 
@@ -37,16 +37,16 @@ def fork_reservation():
 class TestProxyInitializationHelpers:
     @patch("importlib.metadata.version")
     @patch("click.echo")
-    def test_echo_litellm_version(self, mock_echo, mock_version):
+    def test_echo_embrouter_version(self, mock_echo, mock_version):
         # Setup
         mock_version.return_value = "1.0.0"
 
         # Execute
-        ProxyInitializationHelpers._echo_litellm_version()
+        ProxyInitializationHelpers._echo_embrouter_version()
 
         # Assert
-        mock_version.assert_called_once_with("litellm")
-        mock_echo.assert_called_once_with("\nLiteLLM: Current Version = 1.0.0\n")
+        mock_version.assert_called_once_with("embrouter")
+        mock_echo.assert_called_once_with("\nEmbRouter: Current Version = 1.0.0\n")
 
     @patch("httpx.get")
     @patch("builtins.print")
@@ -106,7 +106,7 @@ class TestProxyInitializationHelpers:
         args = ProxyInitializationHelpers._get_default_unvicorn_init_args(
             "localhost", 8000
         )
-        assert args["app"] == "litellm.proxy.proxy_server:app"
+        assert args["app"] == "embrouter.proxy.proxy_server:app"
         assert args["host"] == "localhost"
         assert args["port"] == 8000
         assert args["server_header"] is False
@@ -118,7 +118,7 @@ class TestProxyInitializationHelpers:
         assert args["log_config"] == "log_config.json"
 
         # Test with json_logs=True
-        with patch("litellm.json_logs", True):
+        with patch("embrouter.json_logs", True):
             args = ProxyInitializationHelpers._get_default_unvicorn_init_args(
                 "localhost", 8000
             )
@@ -166,15 +166,15 @@ class TestProxyInitializationHelpers:
                 lg.setLevel(level)
                 lg.propagate = propagate
 
-    def test_litellm_log_error_silences_uvicorn_info_lines(self, monkeypatch):
-        monkeypatch.setenv("LITELLM_LOG", "ERROR")
+    def test_embrouter_log_error_silences_uvicorn_info_lines(self, monkeypatch):
+        monkeypatch.setenv("EMBROUTER_LOG", "ERROR")
         args = ProxyInitializationHelpers._get_default_unvicorn_init_args("localhost", 8000)
 
         assert "log_config" not in args
         assert self._uvicorn_access_info_enabled(args) is False
 
-    def test_unset_litellm_log_keeps_uvicorn_default_info_lines(self, monkeypatch):
-        monkeypatch.delenv("LITELLM_LOG", raising=False)
+    def test_unset_embrouter_log_keeps_uvicorn_default_info_lines(self, monkeypatch):
+        monkeypatch.delenv("EMBROUTER_LOG", raising=False)
         args = ProxyInitializationHelpers._get_default_unvicorn_init_args("localhost", 8000)
 
         assert "log_level" not in args
@@ -227,8 +227,8 @@ class TestProxyInitializationHelpers:
 
         from uvicorn.supervisors.statreload import StatReload
 
-        if hasattr(StatReload, "_litellm_patched_config_paths"):
-            StatReload._litellm_patched_config_paths.clear()
+        if hasattr(StatReload, "_embrouter_patched_config_paths"):
+            StatReload._embrouter_patched_config_paths.clear()
 
         config_file = tmp_path / "config.yaml"
         config_file.write_text("model_list: []\n")
@@ -253,8 +253,8 @@ class TestProxyInitializationHelpers:
 
         from uvicorn.supervisors.statreload import StatReload
 
-        if hasattr(StatReload, "_litellm_patched_config_paths"):
-            StatReload._litellm_patched_config_paths.clear()
+        if hasattr(StatReload, "_embrouter_patched_config_paths"):
+            StatReload._embrouter_patched_config_paths.clear()
 
         env_file = tmp_path / ".env"
         env_file.write_text("FOO=bar\n")
@@ -274,8 +274,8 @@ class TestProxyInitializationHelpers:
     def test_patch_statreload_extra_paths_skips_falsy(self, tmp_path):
         from uvicorn.supervisors.statreload import StatReload
 
-        if hasattr(StatReload, "_litellm_patched_config_paths"):
-            StatReload._litellm_patched_config_paths.clear()
+        if hasattr(StatReload, "_embrouter_patched_config_paths"):
+            StatReload._embrouter_patched_config_paths.clear()
 
         assert ProxyInitializationHelpers._patch_statreload_extra_paths([]) is False
         assert (
@@ -288,8 +288,8 @@ class TestProxyInitializationHelpers:
 
         from uvicorn.supervisors.statreload import StatReload
 
-        if hasattr(StatReload, "_litellm_patched_config_paths"):
-            StatReload._litellm_patched_config_paths.clear()
+        if hasattr(StatReload, "_embrouter_patched_config_paths"):
+            StatReload._embrouter_patched_config_paths.clear()
 
         config_file = tmp_path / "config.yaml"
         config_file.write_text("model_list: []\n")
@@ -315,9 +315,9 @@ class TestProxyInitializationHelpers:
 
         from uvicorn.supervisors.statreload import StatReload
 
-        if hasattr(StatReload, "_litellm_patched_config_paths"):
-            StatReload._litellm_patched_config_paths.clear()
-        monkeypatch.delenv("LITELLM_DEV_ENV_HOT_RELOAD", raising=False)
+        if hasattr(StatReload, "_embrouter_patched_config_paths"):
+            StatReload._embrouter_patched_config_paths.clear()
+        monkeypatch.delenv("EMBROUTER_DEV_ENV_HOT_RELOAD", raising=False)
 
         config_file = tmp_path / "config.yaml"
         config_file.write_text("model_list: []\n")
@@ -326,12 +326,12 @@ class TestProxyInitializationHelpers:
         monkeypatch.chdir(tmp_path)
 
         uvicorn_args: dict = {}
-        with patch("litellm._logging.verbose_proxy_logger.warning") as mock_warning:
+        with patch("embrouter._logging.verbose_proxy_logger.warning") as mock_warning:
             ProxyInitializationHelpers._configure_dev_reload(
                 uvicorn_args, str(config_file)
             )
 
-        assert os.environ["LITELLM_DEV_ENV_HOT_RELOAD"] == "True"
+        assert os.environ["EMBROUTER_DEV_ENV_HOT_RELOAD"] == "True"
         assert uvicorn_args["reload"] is True
         assert ".env" in uvicorn_args["reload_includes"]
 
@@ -348,16 +348,16 @@ class TestProxyInitializationHelpers:
         assert config_file.resolve() in yielded_paths
 
     def test_dev_env_hot_reload_enabled_reads_flag(self, monkeypatch):
-        import litellm
+        import embrouter
 
-        monkeypatch.setenv("LITELLM_DEV_ENV_HOT_RELOAD", "True")
-        assert litellm._dev_env_hot_reload_enabled() is True
+        monkeypatch.setenv("EMBROUTER_DEV_ENV_HOT_RELOAD", "True")
+        assert embrouter._dev_env_hot_reload_enabled() is True
 
-        monkeypatch.setenv("LITELLM_DEV_ENV_HOT_RELOAD", "false")
-        assert litellm._dev_env_hot_reload_enabled() is False
+        monkeypatch.setenv("EMBROUTER_DEV_ENV_HOT_RELOAD", "false")
+        assert embrouter._dev_env_hot_reload_enabled() is False
 
-        monkeypatch.delenv("LITELLM_DEV_ENV_HOT_RELOAD", raising=False)
-        assert litellm._dev_env_hot_reload_enabled() is False
+        monkeypatch.delenv("EMBROUTER_DEV_ENV_HOT_RELOAD", raising=False)
+        assert embrouter._dev_env_hot_reload_enabled() is False
 
     @patch("asyncio.run")
     @patch("builtins.print")
@@ -398,7 +398,7 @@ class TestProxyInitializationHelpers:
             )
         mock_granian_cls.assert_called_once()
         call_kwargs = mock_granian_cls.call_args.kwargs
-        assert call_kwargs["target"] == "litellm.proxy.proxy_server:app"
+        assert call_kwargs["target"] == "embrouter.proxy.proxy_server:app"
         assert call_kwargs["address"] == "0.0.0.0"
         assert call_kwargs["port"] == 4000
         assert call_kwargs["workers"] == 2
@@ -526,7 +526,7 @@ class TestProxyInitializationHelpers:
             # This is simulating what happens in the run_server function when database_url is None
             import urllib.parse
 
-            from litellm.proxy.proxy_cli import append_query_params
+            from embrouter.proxy.proxy_cli import append_query_params
 
             database_host = os.environ["DATABASE_HOST"]
             database_username = os.environ["DATABASE_USERNAME"]
@@ -552,23 +552,23 @@ class TestProxyInitializationHelpers:
             assert "pool_timeout=60" in modified_url
 
     def test_append_query_params_handles_missing_url(self):
-        from litellm.proxy.proxy_cli import append_query_params
+        from embrouter.proxy.proxy_cli import append_query_params
 
         modified_url = append_query_params(None, {"connection_limit": 10})
         assert modified_url == ""
 
     @patch("uvicorn.run")
     @patch("atexit.register")  # critical
-    @patch("litellm.proxy.db.prisma_client.PrismaManager.setup_database")
+    @patch("embrouter.proxy.db.prisma_client.PrismaManager.setup_database")
     @patch(
-        "litellm.proxy.db.prisma_client.should_update_prisma_schema", return_value=False
+        "embrouter.proxy.db.prisma_client.should_update_prisma_schema", return_value=False
     )
     def test_skip_server_startup(
         self, mock_should_update, mock_setup_db, mock_atexit_register, mock_uvicorn_run
     ):
         from click.testing import CliRunner
 
-        from litellm.proxy.proxy_cli import run_server
+        from embrouter.proxy.proxy_cli import run_server
 
         runner = CliRunner()
 
@@ -598,15 +598,15 @@ class TestProxyInitializationHelpers:
                     # Prevent real import of proxy_server inside Click's
                     # isolation context (heavy side effects cause stream
                     # lifecycle issues with Click 8.2+)
-                    "litellm.proxy.proxy_server": mock_proxy_module,
+                    "embrouter.proxy.proxy_server": mock_proxy_module,
                 },
             ),
             patch(
-                "litellm.proxy.proxy_cli.ProxyInitializationHelpers._get_default_unvicorn_init_args"
+                "embrouter.proxy.proxy_cli.ProxyInitializationHelpers._get_default_unvicorn_init_args"
             ) as mock_get_args,
         ):
             mock_get_args.return_value = {
-                "app": "litellm.proxy.proxy_server:app",
+                "app": "embrouter.proxy.proxy_server:app",
                 "host": "localhost",
                 "port": 8000,
             }
@@ -641,8 +641,8 @@ class TestProxyInitializationHelpers:
 
     @patch("uvicorn.run")
     @patch("atexit.register")
-    @patch("litellm.proxy.db.prisma_client.PrismaManager.setup_database")
-    @patch("litellm.proxy.db.prisma_client.should_update_prisma_schema", return_value=False)
+    @patch("embrouter.proxy.db.prisma_client.PrismaManager.setup_database")
+    @patch("embrouter.proxy.db.prisma_client.should_update_prisma_schema", return_value=False)
     def test_script_boot_imports_the_package_proxy_server(
         self, mock_should_update, mock_setup_db, mock_atexit_register, mock_uvicorn_run
     ):
@@ -658,7 +658,7 @@ class TestProxyInitializationHelpers:
             patch.dict(os.environ, clean_env, clear=True),
             patch.dict(
                 "sys.modules",
-                {"proxy_server": sibling_proxy_server, "litellm.proxy.proxy_server": package_proxy_server},
+                {"proxy_server": sibling_proxy_server, "embrouter.proxy.proxy_server": package_proxy_server},
             ),
             patch.object(sys, "argv", ["proxy_cli.py", "--skip_server_startup"]),
             patch.object(sys, "path", list(sys.path)),
@@ -671,9 +671,9 @@ class TestProxyInitializationHelpers:
 
     @patch("uvicorn.run")
     @patch("atexit.register")
-    @patch("litellm.proxy.db.prisma_client.PrismaManager.setup_database")
+    @patch("embrouter.proxy.db.prisma_client.PrismaManager.setup_database")
     @patch(
-        "litellm.proxy.db.prisma_client.should_update_prisma_schema", return_value=False
+        "embrouter.proxy.db.prisma_client.should_update_prisma_schema", return_value=False
     )
     def test_limit_concurrency_passed_to_uvicorn(
         self, mock_should_update, mock_setup_db, mock_atexit_register, mock_uvicorn_run
@@ -682,7 +682,7 @@ class TestProxyInitializationHelpers:
         past the cap; omitted values stay absent and non-positive values are rejected."""
         from click.testing import CliRunner
 
-        from litellm.proxy.proxy_cli import run_server
+        from embrouter.proxy.proxy_cli import run_server
 
         runner = CliRunner()
         mock_proxy_module = MagicMock(
@@ -702,15 +702,15 @@ class TestProxyInitializationHelpers:
                 "sys.modules",
                 {
                     "proxy_server": mock_proxy_module,
-                    "litellm.proxy.proxy_server": mock_proxy_module,
+                    "embrouter.proxy.proxy_server": mock_proxy_module,
                 },
             ),
             patch(
-                "litellm.proxy.proxy_cli.ProxyInitializationHelpers._get_default_unvicorn_init_args"
+                "embrouter.proxy.proxy_cli.ProxyInitializationHelpers._get_default_unvicorn_init_args"
             ) as mock_get_args,
         ):
             mock_get_args.side_effect = lambda *a, **k: {
-                "app": "litellm.proxy.proxy_server:app",
+                "app": "embrouter.proxy.proxy_server:app",
                 "host": "localhost",
                 "port": 8000,
             }
@@ -746,9 +746,9 @@ class TestProxyInitializationHelpers:
     @patch("httpx.HTTPTransport.handle_request")
     @patch("atexit.register")
     @patch("subprocess.Popen")
-    @patch("litellm.proxy.db.prisma_client.PrismaManager.setup_database")  # test-quality-ok: run_server always wires the DB; same isolation as the sibling CLI tests above
+    @patch("embrouter.proxy.db.prisma_client.PrismaManager.setup_database")  # test-quality-ok: run_server always wires the DB; same isolation as the sibling CLI tests above
     @patch(  # test-quality-ok: run_server always wires the DB; same isolation as the sibling CLI tests above
-        "litellm.proxy.db.prisma_client.should_update_prisma_schema", return_value=False
+        "embrouter.proxy.db.prisma_client.should_update_prisma_schema", return_value=False
     )
     def test_prometheus_metrics_port_starts_separate_metrics_process(
         self,
@@ -760,13 +760,13 @@ class TestProxyInitializationHelpers:
         mock_uvicorn_run,
         tmp_path,
     ):
-        """--prometheus_metrics_port must spawn `python -m litellm.proxy.prometheus_metrics_server` on --host
+        """--prometheus_metrics_port must spawn `python -m embrouter.proxy.prometheus_metrics_server` on --host
         with the shared multiproc dir, wait for its /metrics response, and only then start uvicorn. It must stay off by
         default, refuse to share --port, and abort the proxy when the child dies before serving."""
         import httpx
         from click.testing import CliRunner
 
-        from litellm.proxy.proxy_cli import run_server
+        from embrouter.proxy.proxy_cli import run_server
 
         runner = CliRunner()
         mock_popen.return_value = MagicMock(pid=4242, **{"poll.return_value": None})
@@ -774,7 +774,7 @@ class TestProxyInitializationHelpers:
 
         def child_metrics(request: httpx.Request) -> httpx.Response:
             probed_urls.append(str(request.url))
-            return httpx.Response(200, headers={"x-litellm-metrics-pid": "4242"}, content=b"")
+            return httpx.Response(200, headers={"x-embrouter-metrics-pid": "4242"}, content=b"")
 
         mock_handle_request.side_effect = child_metrics
         mock_proxy_module = MagicMock(
@@ -795,15 +795,15 @@ class TestProxyInitializationHelpers:
                 "sys.modules",
                 {
                     "proxy_server": mock_proxy_module,
-                    "litellm.proxy.proxy_server": mock_proxy_module,
+                    "embrouter.proxy.proxy_server": mock_proxy_module,
                 },
             ),
             patch(  # test-quality-ok: same isolation as the sibling CLI tests above
-                "litellm.proxy.proxy_cli.ProxyInitializationHelpers._get_default_unvicorn_init_args"
+                "embrouter.proxy.proxy_cli.ProxyInitializationHelpers._get_default_unvicorn_init_args"
             ) as mock_get_args,
         ):
             mock_get_args.side_effect = lambda *a, **k: {
-                "app": "litellm.proxy.proxy_server:app",
+                "app": "embrouter.proxy.proxy_server:app",
                 "host": "localhost",
                 "port": 8000,
             }
@@ -817,7 +817,7 @@ class TestProxyInitializationHelpers:
             ), f"exit_code={result.exit_code}, output={result.output}"
             mock_popen.assert_called_once()
             spawned = list(mock_popen.call_args.args[0])
-            assert spawned[1:3] == ["-m", "litellm.proxy.prometheus_metrics_server"]
+            assert spawned[1:3] == ["-m", "embrouter.proxy.prometheus_metrics_server"]
             assert spawned[3:] == ["--host", "127.0.0.1", "--port", "4001", "--multiproc_dir", str(tmp_path)]
             assert probed_urls == ["http://127.0.0.1:4001/metrics"]
             assert "Serving Prometheus metrics on 127.0.0.1:4001/metrics (pid 4242)" in result.output
@@ -876,9 +876,9 @@ class TestProxyInitializationHelpers:
     )
     @patch("subprocess.run")
     @patch("atexit.register")
-    @patch("litellm.proxy.db.prisma_client.PrismaManager.setup_database")
+    @patch("embrouter.proxy.db.prisma_client.PrismaManager.setup_database")
     @patch(
-        "litellm.proxy.db.prisma_client.should_update_prisma_schema", return_value=False
+        "embrouter.proxy.db.prisma_client.should_update_prisma_schema", return_value=False
     )
     def test_db_timeout_settings_are_forwarded_to_pool_timeout(
         self,
@@ -891,7 +891,7 @@ class TestProxyInitializationHelpers:
     ):
         from click.testing import CliRunner
 
-        from litellm.proxy.proxy_cli import run_server
+        from embrouter.proxy.proxy_cli import run_server
 
         runner = CliRunner()
         mock_subprocess_run.return_value = MagicMock(returncode=0)
@@ -924,21 +924,21 @@ class TestProxyInitializationHelpers:
                 "sys.modules",
                 {
                     "proxy_server": mock_proxy_module,
-                    "litellm.proxy.proxy_server": mock_proxy_module,
+                    "embrouter.proxy.proxy_server": mock_proxy_module,
                 },
             ),
             patch(
-                "litellm.proxy.proxy_cli.ProxyInitializationHelpers._get_default_unvicorn_init_args"
+                "embrouter.proxy.proxy_cli.ProxyInitializationHelpers._get_default_unvicorn_init_args"
             ) as mock_get_args,
             patch(
-                "litellm.proxy.proxy_cli.append_query_params",
+                "embrouter.proxy.proxy_cli.append_query_params",
                 side_effect=lambda url, params: (
                     f"{url}?connection_limit={params['connection_limit']}&pool_timeout={params['pool_timeout']}"
                 ),
             ) as mock_append_query_params,
         ):
             mock_get_args.return_value = {
-                "app": "litellm.proxy.proxy_server:app",
+                "app": "embrouter.proxy.proxy_server:app",
                 "host": "localhost",
                 "port": 8000,
             }
@@ -957,13 +957,13 @@ class TestProxyInitializationHelpers:
             assert appended_params["pool_timeout"] == expected_timeout
 
     def test_build_db_connection_url_params_defaults(self):
-        from litellm.proxy.proxy_cli import _build_db_connection_url_params
+        from embrouter.proxy.proxy_cli import _build_db_connection_url_params
 
         params = _build_db_connection_url_params(connection_limit=10, pool_timeout=60)
         assert params == {"connection_limit": 10, "pool_timeout": 60}
 
     def test_build_db_connection_url_params_omits_none_timeouts(self):
-        from litellm.proxy.proxy_cli import _build_db_connection_url_params
+        from embrouter.proxy.proxy_cli import _build_db_connection_url_params
 
         params = _build_db_connection_url_params(
             connection_limit=10,
@@ -975,7 +975,7 @@ class TestProxyInitializationHelpers:
         assert "socket_timeout" not in params
 
     def test_build_db_connection_url_params_includes_optional_timeouts(self):
-        from litellm.proxy.proxy_cli import _build_db_connection_url_params
+        from embrouter.proxy.proxy_cli import _build_db_connection_url_params
 
         params = _build_db_connection_url_params(
             connection_limit=10,
@@ -987,7 +987,7 @@ class TestProxyInitializationHelpers:
         assert params["socket_timeout"] == 120
 
     def test_build_db_connection_url_params_extras_override_defaults(self):
-        from litellm.proxy.proxy_cli import _build_db_connection_url_params
+        from embrouter.proxy.proxy_cli import _build_db_connection_url_params
 
         params = _build_db_connection_url_params(
             connection_limit=10,
@@ -1004,9 +1004,9 @@ class TestProxyInitializationHelpers:
 
     @patch("subprocess.run")
     @patch("atexit.register")
-    @patch("litellm.proxy.db.prisma_client.PrismaManager.setup_database")
+    @patch("embrouter.proxy.db.prisma_client.PrismaManager.setup_database")
     @patch(
-        "litellm.proxy.db.prisma_client.should_update_prisma_schema", return_value=False
+        "embrouter.proxy.db.prisma_client.should_update_prisma_schema", return_value=False
     )
     def test_db_connection_extra_params_forwarded_to_url(
         self,
@@ -1017,7 +1017,7 @@ class TestProxyInitializationHelpers:
     ):
         from click.testing import CliRunner
 
-        from litellm.proxy.proxy_cli import run_server
+        from embrouter.proxy.proxy_cli import run_server
 
         runner = CliRunner()
         mock_subprocess_run.return_value = MagicMock(returncode=0)
@@ -1054,19 +1054,19 @@ class TestProxyInitializationHelpers:
                 "sys.modules",
                 {
                     "proxy_server": mock_proxy_module,
-                    "litellm.proxy.proxy_server": mock_proxy_module,
+                    "embrouter.proxy.proxy_server": mock_proxy_module,
                 },
             ),
             patch(
-                "litellm.proxy.proxy_cli.ProxyInitializationHelpers._get_default_unvicorn_init_args"
+                "embrouter.proxy.proxy_cli.ProxyInitializationHelpers._get_default_unvicorn_init_args"
             ) as mock_get_args,
             patch(
-                "litellm.proxy.proxy_cli.append_query_params",
+                "embrouter.proxy.proxy_cli.append_query_params",
                 side_effect=lambda url, params: str(url),
             ) as mock_append_query_params,
         ):
             mock_get_args.return_value = {
-                "app": "litellm.proxy.proxy_server:app",
+                "app": "embrouter.proxy.proxy_server:app",
                 "host": "localhost",
                 "port": 8000,
             }
@@ -1087,7 +1087,7 @@ class TestProxyInitializationHelpers:
             assert appended_params["statement_cache_size"] == 0
 
     def test_build_db_connection_url_params_disable_prepared_statements(self):
-        from litellm.proxy.proxy_cli import _build_db_connection_url_params
+        from embrouter.proxy.proxy_cli import _build_db_connection_url_params
 
         params = _build_db_connection_url_params(
             connection_limit=10,
@@ -1097,7 +1097,7 @@ class TestProxyInitializationHelpers:
         assert params["pgbouncer"] == "true"
 
     def test_build_db_connection_url_params_no_pgbouncer_by_default(self):
-        from litellm.proxy.proxy_cli import _build_db_connection_url_params
+        from embrouter.proxy.proxy_cli import _build_db_connection_url_params
 
         params = _build_db_connection_url_params(
             connection_limit=10,
@@ -1106,7 +1106,7 @@ class TestProxyInitializationHelpers:
         assert "pgbouncer" not in params
 
     def test_build_db_connection_url_params_extra_pgbouncer_overrides_flag(self):
-        from litellm.proxy.proxy_cli import _build_db_connection_url_params
+        from embrouter.proxy.proxy_cli import _build_db_connection_url_params
 
         params = _build_db_connection_url_params(
             connection_limit=10,
@@ -1128,9 +1128,9 @@ class TestProxyInitializationHelpers:
     )
     @patch("subprocess.run")
     @patch("atexit.register")
-    @patch("litellm.proxy.db.prisma_client.PrismaManager.setup_database")
+    @patch("embrouter.proxy.db.prisma_client.PrismaManager.setup_database")
     @patch(
-        "litellm.proxy.db.prisma_client.should_update_prisma_schema", return_value=False
+        "embrouter.proxy.db.prisma_client.should_update_prisma_schema", return_value=False
     )
     def test_disable_prepared_statements_forwarded_to_url(
         self,
@@ -1143,7 +1143,7 @@ class TestProxyInitializationHelpers:
     ):
         from click.testing import CliRunner
 
-        from litellm.proxy.proxy_cli import run_server
+        from embrouter.proxy.proxy_cli import run_server
 
         runner = CliRunner()
         mock_subprocess_run.return_value = MagicMock(returncode=0)
@@ -1175,19 +1175,19 @@ class TestProxyInitializationHelpers:
                 "sys.modules",
                 {
                     "proxy_server": mock_proxy_module,
-                    "litellm.proxy.proxy_server": mock_proxy_module,
+                    "embrouter.proxy.proxy_server": mock_proxy_module,
                 },
             ),
             patch(
-                "litellm.proxy.proxy_cli.ProxyInitializationHelpers._get_default_unvicorn_init_args"
+                "embrouter.proxy.proxy_cli.ProxyInitializationHelpers._get_default_unvicorn_init_args"
             ) as mock_get_args,
             patch(
-                "litellm.proxy.proxy_cli.append_query_params",
+                "embrouter.proxy.proxy_cli.append_query_params",
                 side_effect=lambda url, params: str(url),
             ) as mock_append_query_params,
         ):
             mock_get_args.return_value = {
-                "app": "litellm.proxy.proxy_server:app",
+                "app": "embrouter.proxy.proxy_server:app",
                 "host": "localhost",
                 "port": 8000,
             }
@@ -1220,9 +1220,9 @@ class TestProxyInitializationHelpers:
     )
     @patch("subprocess.run")
     @patch("atexit.register")
-    @patch("litellm.proxy.db.prisma_client.PrismaManager.setup_database")
+    @patch("embrouter.proxy.db.prisma_client.PrismaManager.setup_database")
     @patch(
-        "litellm.proxy.db.prisma_client.should_update_prisma_schema", return_value=False
+        "embrouter.proxy.db.prisma_client.should_update_prisma_schema", return_value=False
     )
     def test_disable_prepared_statements_env_var_forwarded_to_url(
         self,
@@ -1236,7 +1236,7 @@ class TestProxyInitializationHelpers:
     ):
         from click.testing import CliRunner
 
-        from litellm.proxy.proxy_cli import run_server
+        from embrouter.proxy.proxy_cli import run_server
 
         runner = CliRunner()
         mock_subprocess_run.return_value = MagicMock(returncode=0)
@@ -1268,19 +1268,19 @@ class TestProxyInitializationHelpers:
                 "sys.modules",
                 {
                     "proxy_server": mock_proxy_module,
-                    "litellm.proxy.proxy_server": mock_proxy_module,
+                    "embrouter.proxy.proxy_server": mock_proxy_module,
                 },
             ),
             patch(
-                "litellm.proxy.proxy_cli.ProxyInitializationHelpers._get_default_unvicorn_init_args"
+                "embrouter.proxy.proxy_cli.ProxyInitializationHelpers._get_default_unvicorn_init_args"
             ) as mock_get_args,
             patch(
-                "litellm.proxy.proxy_cli.append_query_params",
+                "embrouter.proxy.proxy_cli.append_query_params",
                 side_effect=lambda url, params: str(url),
             ) as mock_append_query_params,
         ):
             mock_get_args.return_value = {
-                "app": "litellm.proxy.proxy_server:app",
+                "app": "embrouter.proxy.proxy_server:app",
                 "host": "localhost",
                 "port": 8000,
             }
@@ -1301,9 +1301,9 @@ class TestProxyInitializationHelpers:
 
     @patch("subprocess.run")
     @patch("atexit.register")
-    @patch("litellm.proxy.db.prisma_client.PrismaManager.setup_database")
+    @patch("embrouter.proxy.db.prisma_client.PrismaManager.setup_database")
     @patch(
-        "litellm.proxy.db.prisma_client.should_update_prisma_schema", return_value=False
+        "embrouter.proxy.db.prisma_client.should_update_prisma_schema", return_value=False
     )
     def test_malformed_disable_prepared_statements_env_var_is_rejected_even_when_config_enables_it(
         self,
@@ -1314,7 +1314,7 @@ class TestProxyInitializationHelpers:
     ):
         from click.testing import CliRunner
 
-        from litellm.proxy.proxy_cli import run_server
+        from embrouter.proxy.proxy_cli import run_server
 
         runner = CliRunner()
         mock_subprocess_run.return_value = MagicMock(returncode=0)
@@ -1347,19 +1347,19 @@ class TestProxyInitializationHelpers:
                 "sys.modules",
                 {
                     "proxy_server": mock_proxy_module,
-                    "litellm.proxy.proxy_server": mock_proxy_module,
+                    "embrouter.proxy.proxy_server": mock_proxy_module,
                 },
             ),
             patch(
-                "litellm.proxy.proxy_cli.ProxyInitializationHelpers._get_default_unvicorn_init_args"
+                "embrouter.proxy.proxy_cli.ProxyInitializationHelpers._get_default_unvicorn_init_args"
             ) as mock_get_args,
             patch(
-                "litellm.proxy.proxy_cli.append_query_params",
+                "embrouter.proxy.proxy_cli.append_query_params",
                 side_effect=lambda url, params: str(url),
             ) as mock_append_query_params,
         ):
             mock_get_args.return_value = {
-                "app": "litellm.proxy.proxy_server:app",
+                "app": "embrouter.proxy.proxy_server:app",
                 "host": "localhost",
                 "port": 8000,
             }
@@ -1375,18 +1375,18 @@ class TestProxyInitializationHelpers:
 
     @patch("uvicorn.run")
     @patch("atexit.register")
-    @patch("litellm.proxy.db.prisma_client.PrismaManager.setup_database")
+    @patch("embrouter.proxy.db.prisma_client.PrismaManager.setup_database")
     @patch(
-        "litellm.proxy.db.prisma_client.should_update_prisma_schema", return_value=False
+        "embrouter.proxy.db.prisma_client.should_update_prisma_schema", return_value=False
     )
     def test_proxy_default_api_version_uses_azure_default(
         self, mock_should_update, mock_setup_db, mock_atexit_register, mock_uvicorn_run
     ):
-        """Proxy default api_version should match litellm.AZURE_DEFAULT_API_VERSION for consistency."""
+        """Proxy default api_version should match embrouter.AZURE_DEFAULT_API_VERSION for consistency."""
         from click.testing import CliRunner
 
-        import litellm
-        from litellm.proxy.proxy_cli import run_server
+        import embrouter
+        from embrouter.proxy.proxy_cli import run_server
 
         runner = CliRunner()
         mock_proxy_module = MagicMock(
@@ -1406,15 +1406,15 @@ class TestProxyInitializationHelpers:
                 "sys.modules",
                 {
                     "proxy_server": mock_proxy_module,
-                    "litellm.proxy.proxy_server": mock_proxy_module,
+                    "embrouter.proxy.proxy_server": mock_proxy_module,
                 },
             ),
             patch(
-                "litellm.proxy.proxy_cli.ProxyInitializationHelpers._get_default_unvicorn_init_args"
+                "embrouter.proxy.proxy_cli.ProxyInitializationHelpers._get_default_unvicorn_init_args"
             ) as mock_get_args,
         ):
             mock_get_args.return_value = {
-                "app": "litellm.proxy.proxy_server:app",
+                "app": "embrouter.proxy.proxy_server:app",
                 "host": "localhost",
                 "port": 8000,
             }
@@ -1424,13 +1424,13 @@ class TestProxyInitializationHelpers:
             ), f"exit_code={result.exit_code}, output={result.output}"
             mock_proxy_module.save_worker_config.assert_called_once()
             call_kwargs = mock_proxy_module.save_worker_config.call_args[1]
-            assert call_kwargs["api_version"] == litellm.AZURE_DEFAULT_API_VERSION
+            assert call_kwargs["api_version"] == embrouter.AZURE_DEFAULT_API_VERSION
 
     @patch("uvicorn.run")
     @patch("builtins.print")
-    @patch("litellm.proxy.db.prisma_client.PrismaManager.setup_database")
+    @patch("embrouter.proxy.db.prisma_client.PrismaManager.setup_database")
     @patch(
-        "litellm.proxy.db.prisma_client.should_update_prisma_schema", return_value=False
+        "embrouter.proxy.db.prisma_client.should_update_prisma_schema", return_value=False
     )
     def test_keepalive_timeout_flag(
         self, mock_should_update, mock_setup_db, mock_print, mock_uvicorn_run
@@ -1438,7 +1438,7 @@ class TestProxyInitializationHelpers:
         """Test that the keepalive_timeout flag is properly passed to uvicorn"""
         from click.testing import CliRunner
 
-        from litellm.proxy.proxy_cli import run_server
+        from embrouter.proxy.proxy_cli import run_server
 
         runner = CliRunner()
 
@@ -1471,15 +1471,15 @@ class TestProxyInitializationHelpers:
                 },
             ),
             patch(
-                "litellm.proxy.proxy_cli.ProxyInitializationHelpers._get_default_unvicorn_init_args"
+                "embrouter.proxy.proxy_cli.ProxyInitializationHelpers._get_default_unvicorn_init_args"
             ) as mock_get_args,
             patch(
-                "litellm.proxy.proxy_cli.ProxyInitializationHelpers._is_port_in_use",
+                "embrouter.proxy.proxy_cli.ProxyInitializationHelpers._is_port_in_use",
                 return_value=False,
             ),
         ):
             mock_get_args.return_value = {
-                "app": "litellm.proxy.proxy_server:app",
+                "app": "embrouter.proxy.proxy_server:app",
                 "host": "localhost",
                 "port": 8000,
                 "timeout_keep_alive": 30,
@@ -1503,9 +1503,9 @@ class TestProxyInitializationHelpers:
 
     @patch("uvicorn.run")
     @patch("builtins.print")
-    @patch("litellm.proxy.db.prisma_client.PrismaManager.setup_database")
+    @patch("embrouter.proxy.db.prisma_client.PrismaManager.setup_database")
     @patch(
-        "litellm.proxy.db.prisma_client.should_update_prisma_schema", return_value=False
+        "embrouter.proxy.db.prisma_client.should_update_prisma_schema", return_value=False
     )
     def test_timeout_worker_healthcheck_flag(
         self, mock_should_update, mock_setup_db, mock_print, mock_uvicorn_run
@@ -1513,7 +1513,7 @@ class TestProxyInitializationHelpers:
         """Test that the --timeout_worker_healthcheck flag is threaded through to the uvicorn init helper."""
         from click.testing import CliRunner
 
-        from litellm.proxy.proxy_cli import run_server
+        from embrouter.proxy.proxy_cli import run_server
 
         runner = CliRunner()
 
@@ -1546,15 +1546,15 @@ class TestProxyInitializationHelpers:
                 },
             ),
             patch(
-                "litellm.proxy.proxy_cli.ProxyInitializationHelpers._get_default_unvicorn_init_args"
+                "embrouter.proxy.proxy_cli.ProxyInitializationHelpers._get_default_unvicorn_init_args"
             ) as mock_get_args,
             patch(
-                "litellm.proxy.proxy_cli.ProxyInitializationHelpers._is_port_in_use",
+                "embrouter.proxy.proxy_cli.ProxyInitializationHelpers._is_port_in_use",
                 return_value=False,
             ),
         ):
             mock_get_args.return_value = {
-                "app": "litellm.proxy.proxy_server:app",
+                "app": "embrouter.proxy.proxy_server:app",
                 "host": "localhost",
                 "port": 8000,
             }
@@ -1574,14 +1574,14 @@ class TestProxyInitializationHelpers:
 
     @patch("uvicorn.run")
     @patch("builtins.print")
-    @patch("litellm.proxy.db.prisma_client.PrismaManager.setup_database")
+    @patch("embrouter.proxy.db.prisma_client.PrismaManager.setup_database")
     def test_max_requests_before_restart_flag(
         self, mock_setup_db, mock_print, mock_uvicorn_run
     ):
         """Test that the max_requests_before_restart flag is passed to uvicorn as limit_max_requests"""
         from click.testing import CliRunner
 
-        from litellm.proxy.proxy_cli import run_server
+        from embrouter.proxy.proxy_cli import run_server
 
         runner = CliRunner()
 
@@ -1613,11 +1613,11 @@ class TestProxyInitializationHelpers:
                 },
             ),
             patch(
-                "litellm.proxy.proxy_cli.ProxyInitializationHelpers._get_default_unvicorn_init_args"
+                "embrouter.proxy.proxy_cli.ProxyInitializationHelpers._get_default_unvicorn_init_args"
             ) as mock_get_args,
         ):
             mock_get_args.return_value = {
-                "app": "litellm.proxy.proxy_server:app",
+                "app": "embrouter.proxy.proxy_server:app",
                 "host": "localhost",
                 "port": 8000,
             }
@@ -1637,14 +1637,14 @@ class TestProxyInitializationHelpers:
 
     @patch("uvicorn.run")
     @patch("builtins.print")
-    @patch("litellm.proxy.db.prisma_client.PrismaManager.setup_database")
+    @patch("embrouter.proxy.db.prisma_client.PrismaManager.setup_database")
     def test_max_requests_before_restart_jitter_flag(
         self, mock_setup_db, mock_print, mock_uvicorn_run
     ):
         """--max_requests_before_restart_jitter maps to uvicorn limit_max_requests_jitter"""
         from click.testing import CliRunner
 
-        from litellm.proxy.proxy_cli import run_server
+        from embrouter.proxy.proxy_cli import run_server
 
         class _NewUvicornConfig:
             def __init__(self, limit_max_requests=None, limit_max_requests_jitter=0):
@@ -1671,11 +1671,11 @@ class TestProxyInitializationHelpers:
                 },
             ),
             patch(
-                "litellm.proxy.proxy_cli.ProxyInitializationHelpers._get_default_unvicorn_init_args"
+                "embrouter.proxy.proxy_cli.ProxyInitializationHelpers._get_default_unvicorn_init_args"
             ) as mock_get_args,
         ):
             mock_get_args.return_value = {
-                "app": "litellm.proxy.proxy_server:app",
+                "app": "embrouter.proxy.proxy_server:app",
                 "host": "localhost",
                 "port": 8000,
             }
@@ -1699,17 +1699,17 @@ class TestProxyInitializationHelpers:
             assert call_args[1]["limit_max_requests"] == 1000
             assert call_args[1]["limit_max_requests_jitter"] == 50
 
-    @patch("litellm.proxy.proxy_cli.ProxyInitializationHelpers._run_gunicorn_server")
+    @patch("embrouter.proxy.proxy_cli.ProxyInitializationHelpers._run_gunicorn_server")
     @patch("uvicorn.run")
     @patch("builtins.print")
-    @patch("litellm.proxy.db.prisma_client.PrismaManager.setup_database")
+    @patch("embrouter.proxy.db.prisma_client.PrismaManager.setup_database")
     def test_run_gunicorn_passes_max_requests_jitter(
         self, mock_setup_db, mock_print, mock_uvicorn_run, mock_run_gunicorn
     ):
         """--run_gunicorn threads jitter into _run_gunicorn_server, not uvicorn.run"""
         from click.testing import CliRunner
 
-        from litellm.proxy.proxy_cli import run_server
+        from embrouter.proxy.proxy_cli import run_server
 
         runner = CliRunner()
         clean_env = {
@@ -1731,11 +1731,11 @@ class TestProxyInitializationHelpers:
                 },
             ),
             patch(
-                "litellm.proxy.proxy_cli.ProxyInitializationHelpers._get_default_unvicorn_init_args"
+                "embrouter.proxy.proxy_cli.ProxyInitializationHelpers._get_default_unvicorn_init_args"
             ) as mock_get_args,
         ):
             mock_get_args.return_value = {
-                "app": "litellm.proxy.proxy_server:app",
+                "app": "embrouter.proxy.proxy_server:app",
                 "host": "localhost",
                 "port": 8000,
             }
@@ -1774,7 +1774,7 @@ class TestProxyInitializationHelpers:
         with (
             patch("gunicorn.app.base.BaseApplication.run", capture_run),
             patch(  # test-quality-ok: option tests must not start a thread or change the pytest worker's child ownership
-                "litellm.proxy.proxy_cli.start_query_engine_reaper"
+                "embrouter.proxy.proxy_cli.start_query_engine_reaper"
             ),
         ):
             ProxyInitializationHelpers._run_gunicorn_server(
@@ -1803,7 +1803,7 @@ class TestProxyInitializationHelpers:
         with (
             patch("gunicorn.app.base.BaseApplication.run", capture_run),
             patch(  # test-quality-ok: option tests must not start a thread or change the pytest worker's child ownership
-                "litellm.proxy.proxy_cli.start_query_engine_reaper"
+                "embrouter.proxy.proxy_cli.start_query_engine_reaper"
             ),
         ):
             ProxyInitializationHelpers._run_gunicorn_server(
@@ -1831,7 +1831,7 @@ class TestProxyInitializationHelpers:
             patch("gunicorn.app.base.BaseApplication.run", capture_run),
             patch("builtins.print") as mock_print,
             patch(  # test-quality-ok: option tests must not start a thread or change the pytest worker's child ownership
-                "litellm.proxy.proxy_cli.start_query_engine_reaper"
+                "embrouter.proxy.proxy_cli.start_query_engine_reaper"
             ),
         ):
             ProxyInitializationHelpers._run_gunicorn_server(
@@ -1897,7 +1897,7 @@ class TestProxyInitializationHelpers:
     @patch.dict(os.environ, {}, clear=True)
     def test_construct_database_url_from_env_vars(self):
         """Test the construct_database_url_from_env_vars function with various scenarios"""
-        from litellm.proxy.utils import construct_database_url_from_env_vars
+        from embrouter.proxy.utils import construct_database_url_from_env_vars
 
         # Test with all required variables present
         test_env = {
@@ -1961,7 +1961,7 @@ class TestProxyInitializationHelpers:
 
         from click.testing import CliRunner
 
-        from litellm.proxy.proxy_cli import run_server
+        from embrouter.proxy.proxy_cli import run_server
 
         runner = CliRunner()
 
@@ -1972,7 +1972,7 @@ class TestProxyInitializationHelpers:
 
         # Mock the ProxyConfig.get_config method to return a proper async config
         async def mock_get_config(config_file_path=None):
-            return {"general_settings": {}, "litellm_settings": {}}
+            return {"general_settings": {}, "embrouter_settings": {}}
 
         mock_proxy_config_instance = MagicMock()
         mock_proxy_config_instance.get_config = mock_get_config
@@ -1988,7 +1988,7 @@ class TestProxyInitializationHelpers:
         # Only remove DATABASE_URL and DIRECT_URL to prevent the database setup
         # code path from running. Do NOT use clear=True as it removes PATH, HOME,
         # etc., which causes imports inside run_server to break in CI (the real
-        # litellm.proxy.proxy_server import has heavy side effects that fail
+        # embrouter.proxy.proxy_server import has heavy side effects that fail
         # without a proper environment).
         env_overrides = {
             "DATABASE_URL": "",
@@ -2005,14 +2005,14 @@ class TestProxyInitializationHelpers:
             with (
                 patch.dict(
                     "sys.modules",
-                    {"litellm.proxy.proxy_server": mock_proxy_server_module},
+                    {"embrouter.proxy.proxy_server": mock_proxy_server_module},
                 ),
                 patch(
-                    "litellm.proxy.proxy_cli.ProxyInitializationHelpers._get_default_unvicorn_init_args"
+                    "embrouter.proxy.proxy_cli.ProxyInitializationHelpers._get_default_unvicorn_init_args"
                 ) as mock_get_args,
             ):
                 mock_get_args.return_value = {
-                    "app": "litellm.proxy.proxy_server:app",
+                    "app": "embrouter.proxy.proxy_server:app",
                     "host": "localhost",
                     "port": 8000,
                 }
@@ -2047,7 +2047,7 @@ class TestQueryEngineReaperWiring:
     def _invoke_run_server(self, args):
         from click.testing import CliRunner
 
-        from litellm.proxy.proxy_cli import run_server
+        from embrouter.proxy.proxy_cli import run_server
 
         runner = CliRunner()
         clean_env = {
@@ -2070,14 +2070,14 @@ class TestQueryEngineReaperWiring:
             ),
             patch("uvicorn.run") as mock_uvicorn_run,
             patch(
-                "litellm.proxy.proxy_cli.start_query_engine_reaper"
+                "embrouter.proxy.proxy_cli.start_query_engine_reaper"
             ) as mock_start_reaper,
             patch(
-                "litellm.proxy.proxy_cli.ProxyInitializationHelpers._get_default_unvicorn_init_args"
+                "embrouter.proxy.proxy_cli.ProxyInitializationHelpers._get_default_unvicorn_init_args"
             ) as mock_get_args,
         ):
             mock_get_args.return_value = {
-                "app": "litellm.proxy.proxy_server:app",
+                "app": "embrouter.proxy.proxy_server:app",
                 "host": "localhost",
                 "port": 8000,
             }
@@ -2107,7 +2107,7 @@ class TestQueryEngineReaperWiring:
         with (
             patch("gunicorn.app.base.BaseApplication.run"),
             patch(
-                "litellm.proxy.proxy_cli.start_query_engine_reaper"
+                "embrouter.proxy.proxy_cli.start_query_engine_reaper"
             ) as mock_start_reaper,
         ):
             ProxyInitializationHelpers._run_gunicorn_server(
@@ -2127,9 +2127,9 @@ class TestRunServerDbSetup:
 
     @patch("subprocess.run")
     @patch("atexit.register")
-    @patch("litellm.proxy.db.prisma_client.PrismaManager.setup_database")
-    @patch("litellm.proxy.db.check_migration.check_prisma_schema_diff")
-    @patch("litellm.proxy.db.prisma_client.should_update_prisma_schema")
+    @patch("embrouter.proxy.db.prisma_client.PrismaManager.setup_database")
+    @patch("embrouter.proxy.db.check_migration.check_prisma_schema_diff")
+    @patch("embrouter.proxy.db.prisma_client.should_update_prisma_schema")
     def test_use_prisma_db_push_flag_behavior(
         self,
         mock_should_update_schema,
@@ -2139,7 +2139,7 @@ class TestRunServerDbSetup:
         mock_subprocess_run,
     ):
         """Test that use_prisma_db_push flag correctly controls PrismaManager.setup_database use_migrate parameter"""
-        from litellm.proxy.proxy_cli import run_server
+        from embrouter.proxy.proxy_cli import run_server
 
         # Mock subprocess.run to simulate prisma being available
         mock_subprocess_run.return_value = MagicMock(returncode=0)
@@ -2167,15 +2167,15 @@ class TestRunServerDbSetup:
                 "sys.modules",
                 {
                     "proxy_server": mock_proxy_module,
-                    "litellm.proxy.proxy_server": mock_proxy_module,
+                    "embrouter.proxy.proxy_server": mock_proxy_module,
                 },
             ),
             patch(
-                "litellm.proxy.proxy_cli.ProxyInitializationHelpers._get_default_unvicorn_init_args"
+                "embrouter.proxy.proxy_cli.ProxyInitializationHelpers._get_default_unvicorn_init_args"
             ) as mock_get_args,
         ):
             mock_get_args.return_value = {
-                "app": "litellm.proxy.proxy_server:app",
+                "app": "embrouter.proxy.proxy_server:app",
                 "host": "localhost",
                 "port": 8000,
             }
@@ -2207,9 +2207,9 @@ class TestRunServerDbSetup:
             )
 
     @patch("atexit.register")
-    @patch("litellm.proxy.db.prisma_client.PrismaManager.setup_database")  # test-quality-ok: run_server always wires the DB; same isolation as the sibling CLI tests above
-    @patch("litellm.proxy.db.check_migration.check_prisma_schema_diff")  # test-quality-ok: run_server always wires the DB; same isolation as the sibling CLI tests above
-    @patch("litellm.proxy.db.prisma_client.should_update_prisma_schema")  # test-quality-ok: run_server always wires the DB; same isolation as the sibling CLI tests above
+    @patch("embrouter.proxy.db.prisma_client.PrismaManager.setup_database")  # test-quality-ok: run_server always wires the DB; same isolation as the sibling CLI tests above
+    @patch("embrouter.proxy.db.check_migration.check_prisma_schema_diff")  # test-quality-ok: run_server always wires the DB; same isolation as the sibling CLI tests above
+    @patch("embrouter.proxy.db.prisma_client.should_update_prisma_schema")  # test-quality-ok: run_server always wires the DB; same isolation as the sibling CLI tests above
     def test_migrations_run_when_the_prisma_cli_is_not_on_path(
         self,
         mock_should_update_schema,
@@ -2219,7 +2219,7 @@ class TestRunServerDbSetup:
         tmp_path,
         capsys,
     ):
-        from litellm.proxy.proxy_cli import run_server
+        from embrouter.proxy.proxy_cli import run_server
 
         mock_should_update_schema.return_value = True
         empty_bin = tmp_path / "emptybin"
@@ -2246,15 +2246,15 @@ class TestRunServerDbSetup:
                 "sys.modules",
                 {
                     "proxy_server": mock_proxy_module,
-                    "litellm.proxy.proxy_server": mock_proxy_module,
+                    "embrouter.proxy.proxy_server": mock_proxy_module,
                 },
             ),
             patch(  # test-quality-ok: same isolation as the sibling CLI tests above
-                "litellm.proxy.proxy_cli.ProxyInitializationHelpers._get_default_unvicorn_init_args"
+                "embrouter.proxy.proxy_cli.ProxyInitializationHelpers._get_default_unvicorn_init_args"
             ) as mock_get_args,
         ):
             mock_get_args.return_value = {
-                "app": "litellm.proxy.proxy_server:app",
+                "app": "embrouter.proxy.proxy_server:app",
                 "host": "localhost",
                 "port": 8000,
             }
@@ -2268,9 +2268,9 @@ class TestRunServerDbSetup:
 
     @patch("subprocess.run")
     @patch("atexit.register")
-    @patch("litellm.proxy.db.prisma_client.PrismaManager.setup_database")
-    @patch("litellm.proxy.db.check_migration.check_prisma_schema_diff")
-    @patch("litellm.proxy.db.prisma_client.should_update_prisma_schema")
+    @patch("embrouter.proxy.db.prisma_client.PrismaManager.setup_database")
+    @patch("embrouter.proxy.db.check_migration.check_prisma_schema_diff")
+    @patch("embrouter.proxy.db.prisma_client.should_update_prisma_schema")
     def test_startup_fails_when_db_setup_fails(
         self,
         mock_should_update_schema,
@@ -2280,7 +2280,7 @@ class TestRunServerDbSetup:
         mock_subprocess_run,
     ):
         """Test that proxy exits with code 1 when PrismaManager.setup_database returns False and --enforce_prisma_migration_check is set"""
-        from litellm.proxy.proxy_cli import run_server
+        from embrouter.proxy.proxy_cli import run_server
 
         mock_subprocess_run.return_value = MagicMock(returncode=0)
         mock_should_update_schema.return_value = True
@@ -2306,15 +2306,15 @@ class TestRunServerDbSetup:
                 "sys.modules",
                 {
                     "proxy_server": mock_proxy_module,
-                    "litellm.proxy.proxy_server": mock_proxy_module,
+                    "embrouter.proxy.proxy_server": mock_proxy_module,
                 },
             ),
             patch(
-                "litellm.proxy.proxy_cli.ProxyInitializationHelpers._get_default_unvicorn_init_args"
+                "embrouter.proxy.proxy_cli.ProxyInitializationHelpers._get_default_unvicorn_init_args"
             ) as mock_get_args,
         ):
             mock_get_args.return_value = {
-                "app": "litellm.proxy.proxy_server:app",
+                "app": "embrouter.proxy.proxy_server:app",
                 "host": "localhost",
                 "port": 8000,
             }
@@ -2335,9 +2335,9 @@ class TestRunServerDbSetup:
 
     @patch("subprocess.run")
     @patch("atexit.register")
-    @patch("litellm.proxy.db.prisma_client.PrismaManager.setup_database")
-    @patch("litellm.proxy.db.check_migration.check_prisma_schema_diff")
-    @patch("litellm.proxy.db.prisma_client.should_update_prisma_schema")
+    @patch("embrouter.proxy.db.prisma_client.PrismaManager.setup_database")
+    @patch("embrouter.proxy.db.check_migration.check_prisma_schema_diff")
+    @patch("embrouter.proxy.db.prisma_client.should_update_prisma_schema")
     def test_startup_exits_on_non_postgres_database_url(
         self,
         mock_should_update_schema,
@@ -2348,7 +2348,7 @@ class TestRunServerDbSetup:
     ):
         """A sqlite DATABASE_URL must exit immediately, before any prisma call,
         instead of stalling on a migration against the postgresql-only schema."""
-        from litellm.proxy.proxy_cli import run_server
+        from embrouter.proxy.proxy_cli import run_server
 
         mock_subprocess_run.return_value = MagicMock(returncode=0)
         mock_should_update_schema.return_value = True
@@ -2365,7 +2365,7 @@ class TestRunServerDbSetup:
             for k, v in os.environ.items()
             if k not in ("DATABASE_URL", "DIRECT_URL")
         }
-        clean_env["DATABASE_URL"] = "sqlite:///data/litellm.db"
+        clean_env["DATABASE_URL"] = "sqlite:///data/embrouter.db"
 
         with (
             patch.dict(os.environ, clean_env, clear=True),
@@ -2373,7 +2373,7 @@ class TestRunServerDbSetup:
                 "sys.modules",
                 {
                     "proxy_server": mock_proxy_module,
-                    "litellm.proxy.proxy_server": mock_proxy_module,
+                    "embrouter.proxy.proxy_server": mock_proxy_module,
                 },
             ),
         ):
@@ -2386,9 +2386,9 @@ class TestRunServerDbSetup:
 
     @patch("subprocess.run")
     @patch("atexit.register")
-    @patch("litellm.proxy.db.prisma_client.PrismaManager.setup_database")
-    @patch("litellm.proxy.db.check_migration.check_prisma_schema_diff")
-    @patch("litellm.proxy.db.prisma_client.should_update_prisma_schema")
+    @patch("embrouter.proxy.db.prisma_client.PrismaManager.setup_database")
+    @patch("embrouter.proxy.db.check_migration.check_prisma_schema_diff")
+    @patch("embrouter.proxy.db.prisma_client.should_update_prisma_schema")
     def test_v2_migration_resolver_opts_in_via_env_var(
         self,
         mock_should_update_schema,
@@ -2400,11 +2400,11 @@ class TestRunServerDbSetup:
     ):
         """USE_V2_MIGRATION_RESOLVER=true must select the v2 resolver.
 
-        The Helm migrations Job runs `python litellm/proxy/prisma_migration.py`,
+        The Helm migrations Job runs `python embrouter/proxy/prisma_migration.py`,
         which calls run_server with a fixed argv, so a deployment reaches the
         resolver through the env var rather than a CLI flag.
         """
-        from litellm.proxy.proxy_cli import run_server
+        from embrouter.proxy.proxy_cli import run_server
 
         mock_subprocess_run.return_value = MagicMock(returncode=0)
         mock_should_update_schema.return_value = True
@@ -2431,7 +2431,7 @@ class TestRunServerDbSetup:
                 "sys.modules",
                 {
                     "proxy_server": mock_proxy_module,
-                    "litellm.proxy.proxy_server": mock_proxy_module,
+                    "embrouter.proxy.proxy_server": mock_proxy_module,
                 },
             ),
         ):
@@ -2462,7 +2462,7 @@ class TestRunServerDbSetup:
         ],
     )
     def test_resolve_v2_migration_resolver(self, use_legacy_flag, env_value, expected):
-        from litellm.proxy.proxy_cli import resolve_v2_migration_resolver
+        from embrouter.proxy.proxy_cli import resolve_v2_migration_resolver
 
         assert (
             resolve_v2_migration_resolver(
@@ -2472,15 +2472,15 @@ class TestRunServerDbSetup:
         )
 
     def test_deprecated_v2_flag_not_reported_outside_a_cli_invocation(self):
-        from litellm.proxy.proxy_cli import deprecated_v2_flag_passed_on_cli
+        from embrouter.proxy.proxy_cli import deprecated_v2_flag_passed_on_cli
 
         assert deprecated_v2_flag_passed_on_cli() is False
 
     @patch("subprocess.run")
     @patch("atexit.register")
-    @patch("litellm.proxy.db.prisma_client.PrismaManager.setup_database")
-    @patch("litellm.proxy.db.check_migration.check_prisma_schema_diff")
-    @patch("litellm.proxy.db.prisma_client.should_update_prisma_schema")
+    @patch("embrouter.proxy.db.prisma_client.PrismaManager.setup_database")
+    @patch("embrouter.proxy.db.check_migration.check_prisma_schema_diff")
+    @patch("embrouter.proxy.db.prisma_client.should_update_prisma_schema")
     def test_legacy_resolver_flag_reaches_database_setup(
         self,
         mock_should_update_schema,
@@ -2494,7 +2494,7 @@ class TestRunServerDbSetup:
         The resolver decision itself is covered mock-free above; this is the
         one wiring check that the flag is threaded through run_server.
         """
-        from litellm.proxy.proxy_cli import run_server
+        from embrouter.proxy.proxy_cli import run_server
 
         mock_subprocess_run.return_value = MagicMock(returncode=0)
         mock_should_update_schema.return_value = True
@@ -2520,7 +2520,7 @@ class TestRunServerDbSetup:
                 "sys.modules",
                 {
                     "proxy_server": mock_proxy_module,
-                    "litellm.proxy.proxy_server": mock_proxy_module,
+                    "embrouter.proxy.proxy_server": mock_proxy_module,
                 },
             ),
         ):
@@ -2564,7 +2564,7 @@ def _failing_hook():
 
 
 class TestWorkerStartupHooks:
-    """Tests for the LITELLM_WORKER_STARTUP_HOOKS mechanism in proxy_startup_event."""
+    """Tests for the EMBROUTER_WORKER_STARTUP_HOOKS mechanism in proxy_startup_event."""
 
     @pytest.mark.asyncio
     async def test_should_run_worker_startup_hooks(self):
@@ -2572,10 +2572,10 @@ class TestWorkerStartupHooks:
         global _dummy_hook_called
         _dummy_hook_called = False
 
-        from litellm.proxy.proxy_server import proxy_startup_event
+        from embrouter.proxy.proxy_server import proxy_startup_event
 
         env_overrides = {
-            "LITELLM_WORKER_STARTUP_HOOKS": "tests.test_litellm.proxy.test_proxy_cli:_dummy_hook",
+            "EMBROUTER_WORKER_STARTUP_HOOKS": "tests.test_embrouter.proxy.test_proxy_cli:_dummy_hook",
         }
         # Remove DATABASE_URL to avoid real DB setup
         clean_env = {
@@ -2600,10 +2600,10 @@ class TestWorkerStartupHooks:
         global _dummy_async_hook_called
         _dummy_async_hook_called = False
 
-        from litellm.proxy.proxy_server import proxy_startup_event
+        from embrouter.proxy.proxy_server import proxy_startup_event
 
         env_overrides = {
-            "LITELLM_WORKER_STARTUP_HOOKS": "tests.test_litellm.proxy.test_proxy_cli:_dummy_async_hook",
+            "EMBROUTER_WORKER_STARTUP_HOOKS": "tests.test_embrouter.proxy.test_proxy_cli:_dummy_async_hook",
         }
         clean_env = {
             k: v
@@ -2624,10 +2624,10 @@ class TestWorkerStartupHooks:
     @pytest.mark.asyncio
     async def test_should_raise_on_failing_worker_startup_hook(self):
         """A failing worker startup hook propagates the error."""
-        from litellm.proxy.proxy_server import proxy_startup_event
+        from embrouter.proxy.proxy_server import proxy_startup_event
 
         env_overrides = {
-            "LITELLM_WORKER_STARTUP_HOOKS": "tests.test_litellm.proxy.test_proxy_cli:_failing_hook",
+            "EMBROUTER_WORKER_STARTUP_HOOKS": "tests.test_embrouter.proxy.test_proxy_cli:_failing_hook",
         }
         clean_env = {
             k: v
@@ -2642,16 +2642,16 @@ class TestWorkerStartupHooks:
                     pass
 
     def test_should_skip_when_no_hooks_set(self):
-        """When LITELLM_WORKER_STARTUP_HOOKS is not set, no hooks are executed."""
+        """When EMBROUTER_WORKER_STARTUP_HOOKS is not set, no hooks are executed."""
         global _dummy_hook_called
         _dummy_hook_called = False
 
         with patch.dict(os.environ, {}, clear=False):
-            os.environ.pop("LITELLM_WORKER_STARTUP_HOOKS", None)
+            os.environ.pop("EMBROUTER_WORKER_STARTUP_HOOKS", None)
             # The hook block should be skipped entirely when env var is absent
-            assert "LITELLM_WORKER_STARTUP_HOOKS" not in os.environ
+            assert "EMBROUTER_WORKER_STARTUP_HOOKS" not in os.environ
             # Verify that an empty env var value also results in no hook execution
-            assert os.environ.get("LITELLM_WORKER_STARTUP_HOOKS", "") == ""
+            assert os.environ.get("EMBROUTER_WORKER_STARTUP_HOOKS", "") == ""
 
     @pytest.mark.asyncio
     async def test_should_run_multiple_hooks(self):
@@ -2660,14 +2660,14 @@ class TestWorkerStartupHooks:
         _dummy_hook_called = False
         _dummy_async_hook_called = False
 
-        from litellm.proxy.proxy_server import proxy_startup_event
+        from embrouter.proxy.proxy_server import proxy_startup_event
 
         hooks = (
-            "tests.test_litellm.proxy.test_proxy_cli:_dummy_hook,"
-            "tests.test_litellm.proxy.test_proxy_cli:_dummy_async_hook"
+            "tests.test_embrouter.proxy.test_proxy_cli:_dummy_hook,"
+            "tests.test_embrouter.proxy.test_proxy_cli:_dummy_async_hook"
         )
         env_overrides = {
-            "LITELLM_WORKER_STARTUP_HOOKS": hooks,
+            "EMBROUTER_WORKER_STARTUP_HOOKS": hooks,
         }
         clean_env = {
             k: v
@@ -2748,7 +2748,7 @@ class TestPostgresStatementTimeoutOptions:
         ],
     )
     def test_pg_options_with_timeouts(self, existing, statement_timeout, lock_timeout, expected):
-        from litellm.proxy.proxy_cli import _pg_options_with_timeouts
+        from embrouter.proxy.proxy_cli import _pg_options_with_timeouts
 
         assert _pg_options_with_timeouts(existing, statement_timeout, lock_timeout) == expected
 
@@ -2877,13 +2877,13 @@ def _run_server_and_capture_urls(
             "sys.modules",
             {
                 "proxy_server": mock_proxy_module,
-                "litellm.proxy.proxy_server": mock_proxy_module,
+                "embrouter.proxy.proxy_server": mock_proxy_module,
             },
         ),
         patch("subprocess.run", return_value=MagicMock(returncode=0)),
         patch("atexit.register"),
-        patch("litellm.proxy.db.prisma_client.should_update_prisma_schema", return_value=False),
-        patch("litellm.proxy.db.check_migration.check_prisma_schema_diff"),
+        patch("embrouter.proxy.db.prisma_client.should_update_prisma_schema", return_value=False),
+        patch("embrouter.proxy.db.check_migration.check_prisma_schema_diff"),
     ):
         run_server.main(
             ["--config", config_path, "--local", "--skip_server_startup"],
@@ -3092,7 +3092,7 @@ class TestMaxIdleConnectionLifetimeDefault:
         assert query["max_idle_connection_lifetime"] == ["45"]
 
     def test_idle_lifetime_params_prefers_configured_value(self):
-        from litellm.proxy.db.db_url_settings import idle_lifetime_params
+        from embrouter.proxy.db.db_url_settings import idle_lifetime_params
 
         assert dict(idle_lifetime_params(45)) == {"max_idle_connection_lifetime": 45}
         assert dict(idle_lifetime_params(None)) == {"max_idle_connection_lifetime": 60}
@@ -3104,8 +3104,8 @@ class TestTokenAuthCliFlags:
     def _invoke_with_azure_host(self, args):
         from click.testing import CliRunner
 
-        from litellm.proxy.db.token_auth import build_azure_entra_token_provider
-        from litellm.proxy.proxy_cli import run_server
+        from embrouter.proxy.db.token_auth import build_azure_entra_token_provider
+        from embrouter.proxy.proxy_cli import run_server
 
         build_azure_entra_token_provider.cache_clear()
         clean_env = {
@@ -3121,8 +3121,8 @@ class TestTokenAuthCliFlags:
             )
         }
         clean_env["DATABASE_HOST"] = "writer.postgres.database.azure.com"
-        clean_env["DATABASE_USER"] = "litellm@contoso.onmicrosoft.com"
-        clean_env["DATABASE_NAME"] = "litellm_db"
+        clean_env["DATABASE_USER"] = "embrouter@contoso.onmicrosoft.com"
+        clean_env["DATABASE_NAME"] = "embrouter_db"
 
         mock_proxy_module = MagicMock(
             app=MagicMock(),
@@ -3136,22 +3136,22 @@ class TestTokenAuthCliFlags:
                 "sys.modules",
                 {
                     "proxy_server": mock_proxy_module,
-                    "litellm.proxy.proxy_server": mock_proxy_module,
+                    "embrouter.proxy.proxy_server": mock_proxy_module,
                 },
             ),
             patch(
-                "litellm.secret_managers.get_azure_ad_token_provider.get_azure_ad_token_provider",
+                "embrouter.secret_managers.get_azure_ad_token_provider.get_azure_ad_token_provider",
                 return_value=lambda: "ENTRA_TOKEN",
             ),
-            patch("litellm.proxy.db.prisma_client.should_update_prisma_schema", return_value=False),
-            patch("litellm.proxy.db.prisma_client.PrismaManager.setup_database"),
+            patch("embrouter.proxy.db.prisma_client.should_update_prisma_schema", return_value=False),
+            patch("embrouter.proxy.db.prisma_client.PrismaManager.setup_database"),
             patch("uvicorn.run"),
             patch(
-                "litellm.proxy.proxy_cli.ProxyInitializationHelpers._get_default_unvicorn_init_args"
+                "embrouter.proxy.proxy_cli.ProxyInitializationHelpers._get_default_unvicorn_init_args"
             ) as mock_get_args,
         ):
             mock_get_args.return_value = {
-                "app": "litellm.proxy.proxy_server:app",
+                "app": "embrouter.proxy.proxy_server:app",
                 "host": "localhost",
                 "port": 8000,
             }
@@ -3231,7 +3231,7 @@ class TestValidateConfigFlag:
     def test_validate_config_valid_config_exits_zero(self, tmp_path, monkeypatch):
         from click.testing import CliRunner
 
-        from litellm.proxy.proxy_cli import run_server
+        from embrouter.proxy.proxy_cli import run_server
 
         monkeypatch.delenv("DATABASE_URL", raising=False)
         monkeypatch.delenv("DIRECT_URL", raising=False)
@@ -3242,7 +3242,7 @@ class TestValidateConfigFlag:
                     "model_list": [
                         {
                             "model_name": "gpt-4o",
-                            "litellm_params": {
+                            "embrouter_params": {
                                 "model": "openai/gpt-4o",
                                 "api_key": "sk-fake",
                             },
@@ -3260,7 +3260,7 @@ class TestValidateConfigFlag:
     def test_validate_config_invalid_mcp_server_exits_one(self, tmp_path, monkeypatch):
         from click.testing import CliRunner
 
-        from litellm.proxy.proxy_cli import run_server
+        from embrouter.proxy.proxy_cli import run_server
 
         monkeypatch.delenv("DATABASE_URL", raising=False)
         monkeypatch.delenv("DIRECT_URL", raising=False)
@@ -3287,7 +3287,7 @@ class TestValidateConfigFlag:
     def test_validate_config_without_config_is_usage_error(self, monkeypatch):
         from click.testing import CliRunner
 
-        from litellm.proxy.proxy_cli import run_server
+        from embrouter.proxy.proxy_cli import run_server
 
         result = CliRunner().invoke(run_server, ["--validate_config"])
 
@@ -3298,7 +3298,7 @@ class TestValidateConfigFlag:
     def test_validate_config_with_ollama_model_does_not_start_ollama(self, mock_popen, tmp_path, monkeypatch):
         from click.testing import CliRunner
 
-        from litellm.proxy.proxy_cli import run_server
+        from embrouter.proxy.proxy_cli import run_server
 
         monkeypatch.delenv("DATABASE_URL", raising=False)
         monkeypatch.delenv("DIRECT_URL", raising=False)
@@ -3309,7 +3309,7 @@ class TestValidateConfigFlag:
                     "model_list": [
                         {
                             "model_name": "gpt-4o",
-                            "litellm_params": {
+                            "embrouter_params": {
                                 "model": "openai/gpt-4o",
                                 "api_key": "sk-fake",
                             },

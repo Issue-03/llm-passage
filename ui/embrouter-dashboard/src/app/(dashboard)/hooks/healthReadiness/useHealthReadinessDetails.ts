@@ -1,5 +1,5 @@
 import { useQuery, UseQueryResult } from "@tanstack/react-query";
-import { getGlobalLitellmHeaderName, getProxyBaseUrl } from "@/components/networking";
+import { getGlobalEmbrouterHeaderName, getProxyBaseUrl } from "@/components/networking";
 import { createQueryKeys } from "../common/queryKeysFactory";
 
 const healthReadinessDetailsKeys = createQueryKeys("healthReadinessDetails");
@@ -8,7 +8,7 @@ export interface HealthReadinessDetailsResponse {
   status: string;
   db?: string;
   cache?: unknown;
-  litellm_version?: string;
+  embrouter_version?: string;
   success_callbacks?: string[];
   use_aiohttp_transport?: boolean;
   log_level?: string;
@@ -22,7 +22,7 @@ const fetchHealthReadinessDetails = async (accessToken: string): Promise<HealthR
   const response = await fetch(`${baseUrl}/health/readiness/details`, {
     method: "GET",
     headers: {
-      [getGlobalLitellmHeaderName()]: `Bearer ${accessToken}`,
+      [getGlobalEmbrouterHeaderName()]: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
   });

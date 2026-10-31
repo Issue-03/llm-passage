@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Any
 
 import httpx
 
-from litellm.types.interactions import (
+from embrouter.types.interactions import (
     CancelInteractionResult,
     DeleteInteractionResult,
     InteractionInput,
@@ -23,18 +23,18 @@ from litellm.types.interactions import (
     InteractionsAPIResponse,
     InteractionsAPIStreamingResponse,
 )
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import LlmProviders
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import LlmProviders
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
 
     from ..chat.transformation import BaseLLMException as _BaseLLMException
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
     BaseLLMException = _BaseLLMException
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
     BaseLLMException = Any
 
 
@@ -84,7 +84,7 @@ class BaseInteractionsAPIConfig(ABC):
         """
 
     @abstractmethod
-    def validate_environment(self, headers: dict, model: str, litellm_params: GenericLiteLLMParams | None) -> dict:
+    def validate_environment(self, headers: dict, model: str, embrouter_params: GenericEmbRouterParams | None) -> dict:
         """
         Validate and prepare environment settings including headers.
         """
@@ -96,7 +96,7 @@ class BaseInteractionsAPIConfig(ABC):
         api_base: str | None,
         model: str | None,
         agent: str | None = None,
-        litellm_params: dict | None = None,
+        embrouter_params: dict | None = None,
         stream: bool | None = None,
     ) -> str:
         """
@@ -108,7 +108,7 @@ class BaseInteractionsAPIConfig(ABC):
             api_base: Base URL for the API
             model: The model name (for model interactions)
             agent: The agent name (for agent interactions)
-            litellm_params: LiteLLM parameters
+            embrouter_params: EmbRouter parameters
             stream: Whether this is a streaming request
 
         Returns:
@@ -125,7 +125,7 @@ class BaseInteractionsAPIConfig(ABC):
         agent: str | None,
         input: InteractionInput | None,
         optional_params: InteractionsAPIOptionalRequestParams,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> dict:
         """
@@ -140,7 +140,7 @@ class BaseInteractionsAPIConfig(ABC):
             agent: The agent name (for agent interactions)
             input: The input content (string, content object, or list)
             optional_params: Optional parameters for the request
-            litellm_params: LiteLLM-specific parameters
+            embrouter_params: EmbRouter-specific parameters
             headers: Request headers
 
         Returns:
@@ -152,7 +152,7 @@ class BaseInteractionsAPIConfig(ABC):
         self,
         model: str | None,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> InteractionsAPIResponse:
         """
         Transform the raw HTTP response into an InteractionsAPIResponse.
@@ -165,7 +165,7 @@ class BaseInteractionsAPIConfig(ABC):
         self,
         model: str | None,
         parsed_chunk: dict,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> InteractionsAPIStreamingResponse:
         """
         Transform a parsed streaming response chunk into an InteractionsAPIStreamingResponse.
@@ -182,7 +182,7 @@ class BaseInteractionsAPIConfig(ABC):
         self,
         interaction_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict]:
         """
@@ -198,7 +198,7 @@ class BaseInteractionsAPIConfig(ABC):
     def transform_get_interaction_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> InteractionsAPIResponse:
         """
         Transform the get interaction response.
@@ -213,7 +213,7 @@ class BaseInteractionsAPIConfig(ABC):
         self,
         interaction_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict]:
         """
@@ -229,7 +229,7 @@ class BaseInteractionsAPIConfig(ABC):
     def transform_delete_interaction_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         interaction_id: str,
     ) -> DeleteInteractionResult:
         """
@@ -245,7 +245,7 @@ class BaseInteractionsAPIConfig(ABC):
         self,
         interaction_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict]:
         """
@@ -259,7 +259,7 @@ class BaseInteractionsAPIConfig(ABC):
     def transform_cancel_interaction_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> CancelInteractionResult:
         """
         Transform the cancel interaction response.
@@ -288,7 +288,7 @@ class BaseInteractionsAPIConfig(ABC):
         custom_llm_provider: str | None = None,
     ) -> bool:
         """
-        Returns True if litellm should fake a stream for the given model.
+        Returns True if embrouter should fake a stream for the given model.
 
         Override in subclasses if the provider doesn't support native streaming.
         """

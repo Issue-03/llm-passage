@@ -1,16 +1,16 @@
 """
 Access group table model.
 
-Canonical definition for ``litellm_accessgrouptable``. Re-exported from
-``litellm.proxy._types`` for backwards compatibility.
+Canonical definition for ``embrouter_accessgrouptable``. Re-exported from
+``embrouter.proxy._types`` for backwards compatibility.
 """
 
 from datetime import datetime
 
-from litellm.types.llms.base import LiteLLMPydanticObjectBase
+from embrouter.types.llms.base import EmbRouterPydanticObjectBase
 
 
-class LiteLLM_AccessGroupTable(LiteLLMPydanticObjectBase):
+class EmbRouter_AccessGroupTable(EmbRouterPydanticObjectBase):
     access_group_id: str
     access_group_name: str
     description: str | None = None

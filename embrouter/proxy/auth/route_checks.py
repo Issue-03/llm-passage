@@ -4,13 +4,13 @@ from typing import Final
 
 from fastapi import HTTPException, Request, status
 
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy._types import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy._types import (
     CommonProxyErrors,
     KeyManagementRoutes,
-    LiteLLM_UserTable,
-    LiteLLMRoutes,
-    LitellmUserRoles,
+    EmbRouter_UserTable,
+    EmbRouterRoutes,
+    EmbrouterUserRoles,
     UserAPIKeyAuth,
 )
 
@@ -78,7 +78,7 @@ class RouteChecks:
         Check if management route is disabled and raise exception
         """
         try:
-            from litellm_enterprise.proxy.auth.route_checks import EnterpriseRouteChecks
+            from embrouter_enterprise.proxy.auth.route_checks import EnterpriseRouteChecks
 
             EnterpriseRouteChecks.should_call_route(route=route)
         except HTTPException as e:
@@ -115,13 +115,13 @@ class RouteChecks:
             if RouteChecks._route_matches_allowed_route(route=route, allowed_route=allowed_route):
                 return True
 
-        ## check if 'allowed_route' is a field name in LiteLLMRoutes
-        if any(allowed_route in LiteLLMRoutes._member_names_ for allowed_route in valid_token.allowed_routes):
+        ## check if 'allowed_route' is a field name in EmbRouterRoutes
+        if any(allowed_route in EmbRouterRoutes._member_names_ for allowed_route in valid_token.allowed_routes):
             for allowed_route in valid_token.allowed_routes:
-                if allowed_route in LiteLLMRoutes._member_names_:
+                if allowed_route in EmbRouterRoutes._member_names_:
                     if RouteChecks.check_route_access(
                         route=route,
-                        allowed_routes=LiteLLMRoutes._member_map_[allowed_route].value,
+                        allowed_routes=EmbRouterRoutes._member_map_[allowed_route].value,
                     ):
                         if (
                             allowed_route in _AUTH_ENFORCED_PASS_THROUGH_ROUTE_GROUPS
@@ -143,7 +143,7 @@ class RouteChecks:
                         if route == "/auto_router/session" and RouteChecks._get_request_method(request) == "GET":
                             return True
 
-                        from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+                        from embrouter.proxy.pass_through_endpoints.pass_through_endpoints import (
                             InitPassThroughEndpointHelpers,
                         )
 
@@ -182,7 +182,7 @@ class RouteChecks:
                         # enforce proxy-admin on writes and scope reads by role.
                         if RouteChecks.check_route_access(
                             route=route,
-                            allowed_routes=LiteLLMRoutes.agent_management_routes.value,
+                            allowed_routes=EmbRouterRoutes.agent_management_routes.value,
                         ):
                             return True
 
@@ -220,7 +220,7 @@ class RouteChecks:
         Returns:
             str: Masked user_id showing only first 2 and last 2 characters
         """
-        from litellm.litellm_core_utils.sensitive_data_masker import SensitiveDataMasker
+        from embrouter.embrouter_core_utils.sensitive_data_masker import SensitiveDataMasker
 
         if not user_id or len(user_id) <= 4:
             return "***"
@@ -232,14 +232,14 @@ class RouteChecks:
 
     @staticmethod
     def _raise_admin_only_route_exception(
-        user_obj: LiteLLM_UserTable | None,
+        user_obj: EmbRouter_UserTable | None,
         route: str,
     ) -> None:
         """
         Raise exception for routes that require proxy admin access
 
         Args:
-            user_obj (Optional[LiteLLM_UserTable]): The user object
+            user_obj (Optional[EmbRouter_UserTable]): The user object
             route (str): The route being accessed
 
         Raises:
@@ -258,8 +258,8 @@ class RouteChecks:
 
     @staticmethod
     def non_proxy_admin_allowed_routes_check(
-        user_obj: LiteLLM_UserTable | None,
-        _user_role: LitellmUserRoles | None,
+        user_obj: EmbRouter_UserTable | None,
+        _user_role: EmbrouterUserRoles | None,
         route: str,
         request: Request,
         valid_token: UserAPIKeyAuth,
@@ -298,7 +298,7 @@ class RouteChecks:
                 if (
                     user_id
                     and user_id != valid_token.user_id
-                    and _user_role != LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY.value
+                    and _user_role != EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY.value
                 ):
                     raise HTTPException(
                         status_code=status.HTTP_403_FORBIDDEN,
@@ -313,12 +313,12 @@ class RouteChecks:
             elif route == "/team/info":
                 pass  # handled by function itself
         elif (
-            route in LiteLLMRoutes.global_spend_tracking_routes.value
+            route in EmbRouterRoutes.global_spend_tracking_routes.value
             and getattr(valid_token, "permissions", None) is not None
             and "get_spend_routes" in getattr(valid_token, "permissions", [])
         ):
             pass
-        elif _user_role == LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY.value:
+        elif _user_role == EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY.value:
             RouteChecks._check_proxy_admin_viewer_access(
                 route=route,
                 _user_role=_user_role,
@@ -326,16 +326,16 @@ class RouteChecks:
                 request=request,
             )
         elif (
-            _user_role == LitellmUserRoles.INTERNAL_USER.value
-            and RouteChecks.check_route_access(route=route, allowed_routes=LiteLLMRoutes.internal_user_routes.value)
+            _user_role == EmbrouterUserRoles.INTERNAL_USER.value
+            and RouteChecks.check_route_access(route=route, allowed_routes=EmbRouterRoutes.internal_user_routes.value)
             or _user_is_org_admin(request_data=request_data, user_object=user_obj)
-            and RouteChecks.check_route_access(route=route, allowed_routes=LiteLLMRoutes.org_admin_allowed_routes.value)
-            or _user_role == LitellmUserRoles.INTERNAL_USER_VIEW_ONLY.value
+            and RouteChecks.check_route_access(route=route, allowed_routes=EmbRouterRoutes.org_admin_allowed_routes.value)
+            or _user_role == EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY.value
             and RouteChecks.check_route_access(
                 route=route,
-                allowed_routes=LiteLLMRoutes.internal_user_view_only_routes.value,
+                allowed_routes=EmbRouterRoutes.internal_user_view_only_routes.value,
             )
-            or RouteChecks.check_route_access(route=route, allowed_routes=LiteLLMRoutes.self_managed_routes.value)
+            or RouteChecks.check_route_access(route=route, allowed_routes=EmbRouterRoutes.self_managed_routes.value)
         ):
             pass
         elif route.startswith("/v1/mcp/") or route.startswith("/mcp-rest/"):
@@ -343,7 +343,7 @@ class RouteChecks:
         elif RouteChecks.check_passthrough_route_access(route=route, user_api_key_dict=valid_token) or (
             valid_token.is_team_service_account
             and RouteChecks.check_route_access(
-                route=route, allowed_routes=LiteLLMRoutes.team_service_account_key_routes.value
+                route=route, allowed_routes=EmbRouterRoutes.team_service_account_key_routes.value
             )
         ):
             pass
@@ -366,7 +366,7 @@ class RouteChecks:
 
     @staticmethod
     def custom_admin_only_route_check(route: str):
-        from litellm.proxy.proxy_server import general_settings, premium_user
+        from embrouter.proxy.proxy_server import general_settings, premium_user
 
         if "admin_only_routes" in general_settings:
             if premium_user is not True:
@@ -395,27 +395,27 @@ class RouteChecks:
         if not isinstance(route, str):
             return False
 
-        if route in LiteLLMRoutes.openai_routes.value:
+        if route in EmbRouterRoutes.openai_routes.value:
             return True
 
-        if route in LiteLLMRoutes.anthropic_routes.value:
+        if route in EmbRouterRoutes.anthropic_routes.value:
             return True
 
-        if route in LiteLLMRoutes.google_routes.value:
+        if route in EmbRouterRoutes.google_routes.value:
             return True
 
-        if RouteChecks.check_route_access(route=route, allowed_routes=LiteLLMRoutes.mcp_inference_routes.value):
+        if RouteChecks.check_route_access(route=route, allowed_routes=EmbRouterRoutes.mcp_inference_routes.value):
             return True
 
-        if RouteChecks.check_route_access(route=route, allowed_routes=LiteLLMRoutes.agent_inference_routes.value):
+        if RouteChecks.check_route_access(route=route, allowed_routes=EmbRouterRoutes.agent_inference_routes.value):
             return True
 
-        if route in LiteLLMRoutes.litellm_native_routes.value:
+        if route in EmbRouterRoutes.embrouter_native_routes.value:
             return True
 
         # fuzzy match routes like "/v1/threads/thread_49EIN5QF32s4mH20M7GFKdlZ"
         # Check for routes with placeholders or wildcard patterns
-        for openai_route in LiteLLMRoutes.openai_routes.value:
+        for openai_route in EmbRouterRoutes.openai_routes.value:
             # Replace placeholders with regex pattern
             # placeholders are written as "/threads/{thread_id}"
             if "{" in openai_route:
@@ -427,13 +427,13 @@ class RouteChecks:
                     return True
 
         # Check for Google routes with placeholders like "/v1beta/models/{model_name}:generateContent"
-        for google_route in LiteLLMRoutes.google_routes.value:
+        for google_route in EmbRouterRoutes.google_routes.value:
             if "{" in google_route:
                 if RouteChecks._route_matches_pattern(route=route, pattern=google_route):
                     return True
 
         # Check for Anthropic routes with placeholders
-        for anthropic_route in LiteLLMRoutes.anthropic_routes.value:
+        for anthropic_route in EmbRouterRoutes.anthropic_routes.value:
             if "{" in anthropic_route:
                 if RouteChecks._route_matches_pattern(route=route, pattern=anthropic_route):
                     return True
@@ -441,7 +441,7 @@ class RouteChecks:
         if RouteChecks._is_azure_openai_route(route=route):
             return True
 
-        for _llm_passthrough_route in LiteLLMRoutes.mapped_pass_through_routes.value:
+        for _llm_passthrough_route in EmbRouterRoutes.mapped_pass_through_routes.value:
             if route == _llm_passthrough_route or route.startswith(_llm_passthrough_route + "/"):
                 return True
         return False
@@ -474,14 +474,14 @@ class RouteChecks:
         """
         Check if route is a management route
         """
-        return RouteChecks.check_route_access(route=route, allowed_routes=LiteLLMRoutes.management_routes.value)
+        return RouteChecks.check_route_access(route=route, allowed_routes=EmbRouterRoutes.management_routes.value)
 
     @staticmethod
     def is_info_route(route: str) -> bool:
         """
         Check if route is an info route
         """
-        return route in LiteLLMRoutes.info_routes.value
+        return route in EmbRouterRoutes.info_routes.value
 
     @staticmethod
     def _is_azure_openai_route(route: str) -> bool:
@@ -674,7 +674,7 @@ class RouteChecks:
         must not inherit blanket ``openai_routes`` RBAC; access is gated by
         ``allowed_passthrough_routes`` on the key or team.
         """
-        from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+        from embrouter.proxy.pass_through_endpoints.pass_through_endpoints import (
             InitPassThroughEndpointHelpers,
         )
 
@@ -712,9 +712,9 @@ class RouteChecks:
         if valid_token.jwt_claims is None or valid_token.token is not None or valid_token.team_id is None:
             return ()
 
-        from litellm.proxy.proxy_server import jwt_handler
+        from embrouter.proxy.proxy_server import jwt_handler
 
-        return jwt_handler.litellm_jwtauth.team_allowed_routes
+        return jwt_handler.embrouter_jwtauth.team_allowed_routes
 
     @staticmethod
     def _require_auth_pass_through_access(
@@ -867,7 +867,7 @@ class RouteChecks:
             )
 
         # Check if this is a write operation on management routes
-        if RouteChecks.check_route_access(route=route, allowed_routes=LiteLLMRoutes.management_routes.value):
+        if RouteChecks.check_route_access(route=route, allowed_routes=EmbRouterRoutes.management_routes.value):
             # For management routes, only allow read operations or specific allowed updates
             if route == "/user/update":
                 # Check the Request params are valid for PROXY_ADMIN_VIEW_ONLY
@@ -933,9 +933,9 @@ class RouteChecks:
         # Legacy explicit-allow sets (kept for routes that are POST but
         # semantically read-only, e.g. /spend/calculate). Both admin_viewer_routes
         # and global_spend_tracking_routes are reads/listings.
-        if RouteChecks.check_route_access(route=route, allowed_routes=LiteLLMRoutes.admin_viewer_routes.value):
+        if RouteChecks.check_route_access(route=route, allowed_routes=EmbRouterRoutes.admin_viewer_routes.value):
             return
-        if RouteChecks.check_route_access(route=route, allowed_routes=LiteLLMRoutes.global_spend_tracking_routes.value):
+        if RouteChecks.check_route_access(route=route, allowed_routes=EmbRouterRoutes.global_spend_tracking_routes.value):
             return
 
         # NOTE: We intentionally do NOT fall back to allowing all

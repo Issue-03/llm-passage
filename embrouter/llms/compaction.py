@@ -6,10 +6,10 @@ from typing import TYPE_CHECKING, Final, Literal, Protocol, TypeAlias
 
 from pydantic import TypeAdapter
 
-from litellm.types.llms.openai import AllMessageValues
+from embrouter.types.llms.openai import AllMessageValues
 
 if TYPE_CHECKING:
-    from litellm.router import Router
+    from embrouter.router import Router
 
 CompactionProtocol: TypeAlias = Literal["chat", "messages"]
 _MAPPING: Final = TypeAdapter(Mapping[str, object])
@@ -27,7 +27,7 @@ class NativeCompactionProvider(Protocol):
 
 
 def get_native_compaction_provider(params: Mapping[str, object]) -> NativeCompactionProvider | None:
-    from litellm.llms.anthropic import compaction
+    from embrouter.llms.anthropic import compaction
 
     return compaction if compaction.supports_native_compaction(params) else None
 

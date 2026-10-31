@@ -3,8 +3,8 @@ from collections.abc import Callable, Coroutine
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any, Final, Protocol
 
-import litellm
-from litellm._logging import verbose_logger
+import embrouter
+from embrouter._logging import verbose_logger
 
 from .integrations.custom_logger import CustomLogger
 from .integrations.datadog.datadog import DataDogLogger
@@ -15,7 +15,7 @@ from .types.services import ServiceLoggerPayload, ServiceTypes
 if TYPE_CHECKING:
     from opentelemetry.trace import Span as _Span
 
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     Span = _Span | Any
     OTELClass = OpenTelemetry
@@ -51,13 +51,13 @@ class _ServiceSpanLogger(Protocol):
 def _get_otel_v2_class() -> type[_ServiceSpanLogger] | None:
     """Return the ``OpenTelemetryV2`` class, or ``None`` if the OTel SDK is absent.
 
-    Imported lazily: ``litellm.integrations.otel.logger`` imports the OpenTelemetry
+    Imported lazily: ``embrouter.integrations.otel.logger`` imports the OpenTelemetry
     SDK at module scope, so importing it eagerly would break installs without the
-    SDK. The V2 logger only exists when ``LITELLM_OTEL_V2`` is enabled (which
+    SDK. The V2 logger only exists when ``EMBROUTER_OTEL_V2`` is enabled (which
     requires the SDK), so a failed import simply means "no V2 logger in play".
     """
     try:
-        from litellm.integrations.otel.logger import OpenTelemetryV2
+        from embrouter.integrations.otel.logger import OpenTelemetryV2
 
         return OpenTelemetryV2
     except Exception:
@@ -66,7 +66,7 @@ def _get_otel_v2_class() -> type[_ServiceSpanLogger] | None:
 
 class ServiceLogging(CustomLogger):
     """
-    Separate class used for monitoring health of litellm-adjacent services (redis/postgres).
+    Separate class used for monitoring health of embrouter-adjacent services (redis/postgres).
     """
 
     def __init__(self, mock_testing: bool = False) -> None:
@@ -75,7 +75,7 @@ class ServiceLogging(CustomLogger):
         self.mock_testing_async_success_hook = 0
         self.mock_testing_sync_failure_hook = 0
         self.mock_testing_async_failure_hook = 0
-        if "prometheus_system" in litellm.service_callback:
+        if "prometheus_system" in embrouter.service_callback:
             self.prometheusServicesLogger = PrometheusServicesLogger()
 
     def _resolve_otel_service_logger(self, callback: object) -> _ServiceSpanLogger | None:
@@ -87,7 +87,7 @@ class ServiceLogging(CustomLogger):
         The V2 ``OpenTelemetryV2`` logger is a plain ``CustomLogger`` and is NOT a
         subclass of the legacy ``OpenTelemetry``, so the legacy ``isinstance``
         check alone misses it — which is why redis/postgres service spans never
-        showed up under ``LITELLM_OTEL_V2``. Match both the legacy and V2 types,
+        showed up under ``EMBROUTER_OTEL_V2``. Match both the legacy and V2 types,
         whether the callback is the logger instance itself or the ``"otel"`` string
         (which routes to the proxy's registered ``open_telemetry_logger``).
         """
@@ -104,7 +104,7 @@ class ServiceLogging(CustomLogger):
         if resolved_callback is not None:
             return resolved_callback
         if callback == "otel":
-            from litellm.proxy.proxy_server import open_telemetry_logger
+            from embrouter.proxy.proxy_server import open_telemetry_logger
 
             if open_telemetry_logger is not None:
                 return _as_otel_logger(open_telemetry_logger)
@@ -244,7 +244,7 @@ class ServiceLogging(CustomLogger):
         # present, unlike V1). Without this guard each such reference emits its own
         # span, so a single DB call shows up as duplicate ``postgres ...`` spans.
         emitted_otel_logger_ids: Final[set] = set()
-        for callback in litellm.service_callback:
+        for callback in embrouter.service_callback:
             if callback == "prometheus_system":
                 await self.init_prometheus_services_logger_if_none()
                 await self.prometheusServicesLogger.async_service_success_hook(payload=payload)
@@ -289,7 +289,7 @@ class ServiceLogging(CustomLogger):
         initializes dd_logger if it is None or no attribute exists on ServiceLogging Object
 
         """
-        from litellm.integrations.datadog.datadog import DataDogLogger
+        from embrouter.integrations.datadog.datadog import DataDogLogger
 
         if not hasattr(self, "dd_logger"):
             self.dd_logger: DataDogLogger = DataDogLogger()
@@ -299,7 +299,7 @@ class ServiceLogging(CustomLogger):
         initializes otel_logger if it is None or no attribute exists on ServiceLogging Object
 
         """
-        from litellm.proxy.proxy_server import open_telemetry_logger
+        from embrouter.proxy.proxy_server import open_telemetry_logger
 
         if not hasattr(self, "otel_logger"):
             if open_telemetry_logger is not None and isinstance(open_telemetry_logger, OpenTelemetry):
@@ -346,7 +346,7 @@ class ServiceLogging(CustomLogger):
         # Dedupe OTel loggers per event — see ``async_service_success_hook`` for why
         # the same logger can be referenced twice in ``service_callback``.
         emitted_otel_logger_ids: Final[set] = set()
-        for callback in litellm.service_callback:
+        for callback in embrouter.service_callback:
             if callback == "prometheus_system":
                 await self.init_prometheus_services_logger_if_none()
                 await self.prometheusServicesLogger.async_service_failure_hook(
@@ -390,7 +390,7 @@ class ServiceLogging(CustomLogger):
         traceback_str: str | None = None,
     ):
         """
-        Hook to track failed litellm-service calls
+        Hook to track failed embrouter-service calls
         """
         return await super().async_post_call_failure_hook(
             request_data,
@@ -400,7 +400,7 @@ class ServiceLogging(CustomLogger):
 
     async def async_log_success_event(self, kwargs, response_obj, start_time, end_time):
         """
-        Hook to track latency for litellm proxy llm api calls
+        Hook to track latency for embrouter proxy llm api calls
         """
         try:
             _duration = end_time - start_time
@@ -415,7 +415,7 @@ class ServiceLogging(CustomLogger):
             # Batch polling callbacks (check_batch_cost) don't include call_type in kwargs.
             # Use .get() to avoid KeyError.
             await self.async_service_success_hook(
-                service=ServiceTypes.LITELLM,
+                service=ServiceTypes.EMBROUTER,
                 duration=_duration,
                 call_type=kwargs.get("call_type", "unknown"),
                 start_time=start_time,

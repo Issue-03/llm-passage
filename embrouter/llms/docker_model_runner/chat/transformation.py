@@ -7,11 +7,11 @@ Docker Model Runner API Reference: https://docs.docker.com/ai/model-runner/api-r
 from collections.abc import Coroutine
 from typing import Any, Final, Literal, overload
 
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
     handle_messages_with_content_list_to_str_conversion,
 )
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.openai import AllMessageValues
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.openai import AllMessageValues
 
 from ...openai.chat.gpt_transformation import OpenAIGPTConfig
 
@@ -71,7 +71,7 @@ class DockerModelRunnerChatConfig(OpenAIGPTConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         """
@@ -88,7 +88,7 @@ class DockerModelRunnerChatConfig(OpenAIGPTConfig):
             api_key: API key (may not be required for local instances)
             model: Model name (e.g., "llama-3.1")
             optional_params: Optional parameters
-            litellm_params: LiteLLM parameters
+            embrouter_params: EmbRouter parameters
             stream: Whether streaming is enabled
 
         Returns:

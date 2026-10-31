@@ -10,13 +10,13 @@ from typing import Final, Literal, NamedTuple, Protocol, cast, overload
 
 from typing_extensions import ReadOnly, TypedDict
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.constants import DEFAULT_COMPETITOR_DISCOVERY_MODEL
-from litellm.types.proxy.management_endpoints.common_daily_activity import (
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.constants import DEFAULT_COMPETITOR_DISCOVERY_MODEL
+from embrouter.types.proxy.management_endpoints.common_daily_activity import (
     SpendAnalyticsPaginatedResponse,
 )
-from litellm.types.utils import ChatCompletionMessageToolCall
+from embrouter.types.utils import ChatCompletionMessageToolCall
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -24,9 +24,9 @@ from litellm.types.utils import ChatCompletionMessageToolCall
 
 USAGE_AI_TEMPERATURE: Final = 0.2
 
-TABLE_DAILY_USER_SPEND: Final = "litellm_dailyuserspend"
-TABLE_DAILY_TEAM_SPEND: Final = "litellm_dailyteamspend"
-TABLE_DAILY_TAG_SPEND: Final = "litellm_dailytagspend"
+TABLE_DAILY_USER_SPEND: Final = "embrouter_dailyuserspend"
+TABLE_DAILY_TEAM_SPEND: Final = "embrouter_dailyteamspend"
+TABLE_DAILY_TAG_SPEND: Final = "embrouter_dailytagspend"
 
 ENTITY_FIELD_USER: Final = "user_id"
 ENTITY_FIELD_TEAM: Final = "team_id"
@@ -202,7 +202,7 @@ def get_tools_for_role(is_admin: bool) -> list[_ToolDef]:
 
 
 _SYSTEM_PROMPT_BASE: Final = (
-    "You are an AI assistant embedded in the LiteLLM Usage dashboard. "
+    "You are an AI assistant embedded in the EmbRouter Usage dashboard. "
     "You help users understand their LLM API spend and usage data.\n\n"
     "ALWAYS call the appropriate tool(s) first to fetch data before answering. "
     "You may call multiple tools if the question spans different dimensions.\n\n"
@@ -258,11 +258,11 @@ async def _query_activity(
     use_aggregated: bool = False,
 ) -> SpendAnalyticsPaginatedResponse:
     """Shared helper that calls the daily activity query layer."""
-    from litellm.proxy.management_endpoints.common_daily_activity import (
+    from embrouter.proxy.management_endpoints.common_daily_activity import (
         get_daily_activity,
         get_daily_activity_aggregated,
     )
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if use_aggregated:
         return await get_daily_activity_aggregated(
@@ -535,7 +535,7 @@ async def _stream_final_response(model: str, chat_messages: list[Mapping[str, ob
     """Stream the final LLM response after tool results are appended."""
     yield _sse({"type": "status", "message": "Analyzing results..."})
 
-    response: Final = await litellm.acompletion(
+    response: Final = await embrouter.acompletion(
         model=model,
         messages=chat_messages,
         stream=True,
@@ -564,7 +564,7 @@ async def stream_usage_ai_chat(
     try:
         yield _sse({"type": "status", "message": "Thinking..."})
         tools: Final = get_tools_for_role(is_admin)
-        response: Final = await litellm.acompletion(
+        response: Final = await embrouter.acompletion(
             model=resolved_model,
             messages=chat_messages,
             tools=tools,

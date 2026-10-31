@@ -8,37 +8,37 @@ from typing import Final, Literal
 
 from fastapi import HTTPException
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.integrations.custom_guardrail import (
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.integrations.custom_guardrail import (
     DEFAULT_ADVISORY_MESSAGE,
     CustomGuardrail,
 )
-from litellm.llms.base_llm.guardrail_translation.utils import (
+from embrouter.llms.base_llm.guardrail_translation.utils import (
     effective_skip_system_message_for_guardrail,
     effective_skip_tool_message_for_guardrail,
     filter_messages_by_skip_flags,
     merge_guardrailed_scoped_messages,
 )
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.guardrails._content_utils import (
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.guardrails._content_utils import (
     apply_redacted_messages_back,
     build_inspection_messages,
     has_non_string_content,
 )
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.guardrails import GuardrailEventHooks, LitellmParams
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.proxy.guardrails.guardrail_hooks.lakera_ai_v2 import (
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.guardrails import GuardrailEventHooks, EmbrouterParams
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.proxy.guardrails.guardrail_hooks.lakera_ai_v2 import (
     LakeraAIBreakdownItem,
     LakeraAIRequest,
     LakeraAIResponse,
 )
-from litellm.types.utils import CallTypesLiteral, GuardrailStatus, ModelResponse
+from embrouter.types.utils import CallTypesLiteral, GuardrailStatus, ModelResponse
 
 _DETECTOR_CATEGORY_PHRASES: Final[Mapping[str, str]] = MappingProxyType(
     {
@@ -212,7 +212,7 @@ def _unmaskable_reason(
 
 def _build_lakera_inspection_messages(data: Mapping[str, object]) -> Sequence[Mapping[str, str]]:
     """Like build_inspection_messages, but also covers the Responses-API
-    ``instructions`` field, placed first since litellm later converts it
+    ``instructions`` field, placed first since embrouter later converts it
     into the model's leading system message and a prompt-injection detector
     should see the same conversation order the model actually receives.
 
@@ -304,9 +304,9 @@ class LakeraAIGuardrail(CustomGuardrail):
             breakdown=self.breakdown,
         )
 
-    def update_in_memory_litellm_params(self, litellm_params: LitellmParams) -> None:
+    def update_in_memory_embrouter_params(self, embrouter_params: EmbrouterParams) -> None:
         """
-        The base implementation blindly ``setattr``s every field on ``litellm_params``
+        The base implementation blindly ``setattr``s every field on ``embrouter_params``
         (including ``on_flagged``/``advisory_system_message``/``payload``/``breakdown``)
         onto this live instance with no revalidation, so an in-place config update (via
         the DB/UI, without a restart) could otherwise reintroduce the exact invalid
@@ -314,22 +314,22 @@ class LakeraAIGuardrail(CustomGuardrail):
         state *before* mutating, so a rejected update leaves the live instance untouched
         instead of raising after it's already been corrupted.
 
-        The base setattr also writes ``litellm_params.mode`` onto a new ``self.mode``
+        The base setattr also writes ``embrouter_params.mode`` onto a new ``self.mode``
         attribute rather than the ``self.event_hook`` dispatch actually reads
-        (LitellmParams has no field literally named ``event_hook``), so without the
+        (EmbrouterParams has no field literally named ``event_hook``), so without the
         explicit sync below a hot reload that changes mode would pass validation but
         keep dispatching on the stale event_hook.
         """
-        new_event_hook: Final = litellm_params.mode or self.event_hook
-        prospective_payload: Final = litellm_params.payload
-        prospective_breakdown: Final = litellm_params.breakdown
+        new_event_hook: Final = embrouter_params.mode or self.event_hook
+        prospective_payload: Final = embrouter_params.payload
+        prospective_breakdown: Final = embrouter_params.breakdown
         self._validate_advisory_config(
-            on_flagged=litellm_params.on_flagged or self.on_flagged,
-            advisory_system_message=litellm_params.advisory_system_message,
+            on_flagged=embrouter_params.on_flagged or self.on_flagged,
+            advisory_system_message=embrouter_params.advisory_system_message,
             payload=self.payload if prospective_payload is None else prospective_payload,
             breakdown=self.breakdown if prospective_breakdown is None else prospective_breakdown,
         )
-        super().update_in_memory_litellm_params(litellm_params=litellm_params)
+        super().update_in_memory_embrouter_params(embrouter_params=embrouter_params)
         self.event_hook = new_event_hook
 
     def _validate_advisory_config(
@@ -521,11 +521,11 @@ class LakeraAIGuardrail(CustomGuardrail):
     async def async_pre_call_hook(
         self,
         user_api_key_dict: UserAPIKeyAuth,
-        cache: litellm.DualCache,
+        cache: embrouter.DualCache,
         data: dict,
         call_type: CallTypesLiteral,
     ) -> Exception | str | dict | None:
-        from litellm.proxy.common_utils.callback_utils import (
+        from embrouter.proxy.common_utils.callback_utils import (
             add_guardrail_to_applied_guardrails_header,
         )
 
@@ -672,7 +672,7 @@ class LakeraAIGuardrail(CustomGuardrail):
         user_api_key_dict: UserAPIKeyAuth,
         call_type: CallTypesLiteral,
     ):
-        from litellm.proxy.common_utils.callback_utils import (
+        from embrouter.proxy.common_utils.callback_utils import (
             add_guardrail_to_applied_guardrails_header,
         )
 
@@ -749,7 +749,7 @@ class LakeraAIGuardrail(CustomGuardrail):
         """
         Post-call hook for Lakera guardrail.
         """
-        from litellm.proxy.common_utils.callback_utils import (
+        from embrouter.proxy.common_utils.callback_utils import (
             add_guardrail_to_applied_guardrails_header,
         )
 

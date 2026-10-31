@@ -4,12 +4,12 @@ from typing import Final, TypeAlias
 
 import pytest
 
-from litellm.rust_bridge import configuration
-from litellm.rust_bridge.bindings import NativeBinding
-from litellm.rust_bridge.catalog import Route, RouteContext, RouteRule, Rules, SecretManagerRule
-from litellm.rust_bridge.configuration import Rollout
-from litellm.rust_bridge.dispatch import PublicDispatch
-from litellm.rust_bridge.runtime import NO_PYTHON, NoPythonImplementationError
+from embrouter.rust_bridge import configuration
+from embrouter.rust_bridge.bindings import NativeBinding
+from embrouter.rust_bridge.catalog import Route, RouteContext, RouteRule, Rules, SecretManagerRule
+from embrouter.rust_bridge.configuration import Rollout
+from embrouter.rust_bridge.dispatch import PublicDispatch
+from embrouter.rust_bridge.runtime import NO_PYTHON, NoPythonImplementationError
 
 
 @dataclass(frozen=True, slots=True)

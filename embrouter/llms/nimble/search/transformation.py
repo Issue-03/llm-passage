@@ -13,16 +13,16 @@ from typing import TYPE_CHECKING, Final
 import httpx
 from pydantic import BaseModel, ConfigDict, TypeAdapter, ValidationError
 
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.base_llm.search.transformation import (
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.base_llm.search.transformation import (
     BaseSearchConfig,
     SearchResponse,
     SearchResult,
 )
-from litellm.secret_managers.main import get_secret_str
+from embrouter.secret_managers.main import get_secret_str
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
 
 _NIMBLE_DOCS_URL: Final = "https://docs.nimbleway.com/api-reference/search/search"
 
@@ -97,7 +97,7 @@ class NimbleSearchConfig(BaseSearchConfig):
         Validate environment and return headers.
 
         Returns a new dict rather than mutating ``headers``: the http handler calls this
-        a second time after ``litellm/search/main.py`` already did, so it has to be idempotent.
+        a second time after ``embrouter/search/main.py`` already did, so it has to be idempotent.
         """
         resolved_api_key: Final = self.resolve_server_api_key(
             caller_api_key=api_key,
@@ -113,7 +113,7 @@ class NimbleSearchConfig(BaseSearchConfig):
             "Authorization": f"Bearer {resolved_api_key}",
             "Content-Type": "application/json",
             # Nimble's client-attribution header: names the calling software, nothing else.
-            "X-Client-Source": "litellm",
+            "X-Client-Source": "embrouter",
         }
 
     def get_complete_url(
@@ -145,7 +145,7 @@ class NimbleSearchConfig(BaseSearchConfig):
         - max_tokens_per_page -> dropped (no Nimble equivalent)
 
         Everything else is forwarded as-is, so the rest of Nimble's surface stays reachable
-        without LiteLLM tracking it.
+        without EmbRouter tracking it.
         """
         unified_params: Final = self.get_supported_perplexity_optional_params()
         country: Final = optional_params.get("country")
@@ -167,11 +167,11 @@ class NimbleSearchConfig(BaseSearchConfig):
     def transform_search_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         **kwargs: object,  # kwargs-ok: BaseSearchConfig.transform_search_response signature
     ) -> SearchResponse:
         """
-        Transform Nimble API response to LiteLLM unified SearchResponse format.
+        Transform Nimble API response to EmbRouter unified SearchResponse format.
 
         `date` carries only the absolute `publish_date`. News results often carry a relative
         `publish_date_raw` ("1 day ago") instead, which is not a date, so the whole

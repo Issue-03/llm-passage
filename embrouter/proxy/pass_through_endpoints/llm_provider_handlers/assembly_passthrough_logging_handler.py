@@ -9,18 +9,18 @@ from urllib.parse import urlparse
 import httpx
 from typing_extensions import TypedDict
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.litellm_core_utils.litellm_logging import (
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.embrouter_core_utils.embrouter_logging import (
     get_standard_logging_object_payload,
 )
-from litellm.litellm_core_utils.thread_pool_executor import executor
-from litellm.types.passthrough_endpoints.assembly_ai import (
+from embrouter.embrouter_core_utils.thread_pool_executor import executor
+from embrouter.types.passthrough_endpoints.assembly_ai import (
     ASSEMBLY_AI_MAX_POLLING_ATTEMPTS,
     ASSEMBLY_AI_POLLING_INTERVAL,
 )
-from litellm.types.passthrough_endpoints.pass_through_endpoints import (
+from embrouter.types.passthrough_endpoints.pass_through_endpoints import (
     PassthroughStandardLoggingPayload,
 )
 
@@ -45,7 +45,7 @@ class AssemblyAIPassthroughLoggingHandler:
         self.polling_interval: float = ASSEMBLY_AI_POLLING_INTERVAL
         """
         The polling interval for the AssemblyAI API. 
-        litellm needs to poll the GET /transcript/{transcript_id} endpoint to get the status of the transcript.
+        embrouter needs to poll the GET /transcript/{transcript_id} endpoint to get the status of the transcript.
         """
 
         self.max_polling_attempts = ASSEMBLY_AI_MAX_POLLING_ATTEMPTS
@@ -57,7 +57,7 @@ class AssemblyAIPassthroughLoggingHandler:
         self,
         httpx_response: httpx.Response,
         response_body: dict,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         url_route: str,
         result: str,
         start_time: datetime,
@@ -85,7 +85,7 @@ class AssemblyAIPassthroughLoggingHandler:
         self,
         httpx_response: httpx.Response,
         response_body: dict,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         url_route: str,
         result: str,
         start_time: datetime,
@@ -177,7 +177,7 @@ class AssemblyAIPassthroughLoggingHandler:
         Returns:
             Optional[dict]: Transcript details if successful, None otherwise
         """
-        from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+        from embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
             passthrough_endpoint_router,
         )
 
@@ -253,7 +253,7 @@ class AssemblyAIPassthroughLoggingHandler:
         try:
             # First try with the provided speech model
             try:
-                model_info = litellm.get_model_info(
+                model_info = embrouter.get_model_info(
                     model=speech_model,
                     custom_llm_provider="assemblyai",
                 )
@@ -264,7 +264,7 @@ class AssemblyAIPassthroughLoggingHandler:
 
             # Fallback to assemblyai/nano if speech model info not found
             try:
-                model_info = litellm.get_model_info(
+                model_info = embrouter.get_model_info(
                     model="assemblyai/nano",
                     custom_llm_provider="assemblyai",
                 )
@@ -281,7 +281,7 @@ class AssemblyAIPassthroughLoggingHandler:
     @staticmethod
     def _should_log_request(request_method: str) -> bool:
         """
-        only POST transcription jobs are logged. litellm will POLL assembly to wait for the transcription to complete to log the complete response / cost
+        only POST transcription jobs are logged. embrouter will POLL assembly to wait for the transcription to complete to log the complete response / cost
         """
         return request_method == "POST"
 

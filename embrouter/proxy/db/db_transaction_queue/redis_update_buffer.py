@@ -13,9 +13,9 @@ from typing import TYPE_CHECKING, Any, Final, Literal, TypeAlias, TypeVar, cast
 
 from redis.exceptions import RedisError
 
-from litellm._logging import verbose_proxy_logger
-from litellm.caching import RedisCache
-from litellm.constants import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.caching import RedisCache
+from embrouter.constants import (
     MAX_REDIS_BUFFER_DEQUEUE_COUNT,
     REDIS_DAILY_AGENT_SPEND_UPDATE_BUFFER_KEY,
     REDIS_DAILY_END_USER_SPEND_UPDATE_BUFFER_KEY,
@@ -28,8 +28,8 @@ from litellm.constants import (
     REDIS_UPDATE_BUFFER_KEY,
     REDIS_WINDOW_SPEND_UPDATE_BUFFER_KEY,
 )
-from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
-from litellm.proxy._types import (
+from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps
+from embrouter.proxy._types import (
     BaseDailySpendTransaction,
     DailyAgentSpendTransaction,
     DailyEndUserSpendTransaction,
@@ -38,29 +38,29 @@ from litellm.proxy._types import (
     DailyTeamSpendTransaction,
     DailyUserSpendTransaction,
     DBSpendUpdateTransactions,
-    Litellm_EntityType,
+    Embrouter_EntityType,
     SpendUpdateQueueItem,
 )
-from litellm.proxy.db.db_transaction_queue.base_update_queue import service_logger_obj
-from litellm.proxy.db.db_transaction_queue.daily_spend_update_queue import (
+from embrouter.proxy.db.db_transaction_queue.base_update_queue import service_logger_obj
+from embrouter.proxy.db.db_transaction_queue.daily_spend_update_queue import (
     DailySpendUpdateQueue,
 )
-from litellm.proxy.db.db_transaction_queue.spend_update_queue import SpendUpdateQueue
-from litellm.proxy.db.db_transaction_queue.window_spend_update_queue import (
+from embrouter.proxy.db.db_transaction_queue.spend_update_queue import SpendUpdateQueue
+from embrouter.proxy.db.db_transaction_queue.window_spend_update_queue import (
     WindowSpendTransaction,
     WindowSpendUpdateQueue,
     to_wire_payload,
 )
-from litellm.proxy.db.spend_log_batching import SpendLogRow
-from litellm.secret_managers.main import str_to_bool
-from litellm.types.caching import (
+from embrouter.proxy.db.spend_log_batching import SpendLogRow
+from embrouter.secret_managers.main import str_to_bool
+from embrouter.types.caching import (
     RedisPipelineLpopOperation,
     RedisPipelineRpushOperation,
 )
-from litellm.types.services import ServiceTypes
+from embrouter.types.services import ServiceTypes
 
 if TYPE_CHECKING:
-    from litellm.proxy.utils import PrismaClient
+    from embrouter.proxy.utils import PrismaClient
 else:
     PrismaClient = Any
 
@@ -151,7 +151,7 @@ class RedisUpdateBuffer:
         This setting enables buffering database transactions in Redis
         to improve reliability and reduce database contention
         """
-        from litellm.proxy.proxy_server import general_settings
+        from embrouter.proxy.proxy_server import general_settings
 
         _use_redis_transaction_buffer: bool | str | None = general_settings.get("use_redis_transaction_buffer", False)
         if isinstance(_use_redis_transaction_buffer, str):
@@ -408,49 +408,49 @@ class RedisUpdateBuffer:
         because the source queues were already drained before the rpush.
         """
         if db_spend_update_transactions is not None:
-            entity_entries: Final[list[tuple[Litellm_EntityType, dict[str, float] | None]]] = [
+            entity_entries: Final[list[tuple[Embrouter_EntityType, dict[str, float] | None]]] = [
                 (
-                    Litellm_EntityType.USER,
+                    Embrouter_EntityType.USER,
                     db_spend_update_transactions.get("user_list_transactions"),
                 ),
                 (
-                    Litellm_EntityType.END_USER,
+                    Embrouter_EntityType.END_USER,
                     db_spend_update_transactions.get("end_user_list_transactions"),
                 ),
                 (
-                    Litellm_EntityType.KEY,
+                    Embrouter_EntityType.KEY,
                     db_spend_update_transactions.get("key_list_transactions"),
                 ),
                 (
-                    Litellm_EntityType.TEAM,
+                    Embrouter_EntityType.TEAM,
                     db_spend_update_transactions.get("team_list_transactions"),
                 ),
                 (
-                    Litellm_EntityType.TEAM_MEMBER,
+                    Embrouter_EntityType.TEAM_MEMBER,
                     db_spend_update_transactions.get("team_member_list_transactions"),
                 ),
                 (
-                    Litellm_EntityType.ORGANIZATION,
+                    Embrouter_EntityType.ORGANIZATION,
                     db_spend_update_transactions.get("org_list_transactions"),
                 ),
                 (
-                    Litellm_EntityType.ORGANIZATION_MEMBER,
+                    Embrouter_EntityType.ORGANIZATION_MEMBER,
                     db_spend_update_transactions.get("org_member_list_transactions"),
                 ),
                 (
-                    Litellm_EntityType.PROJECT,
+                    Embrouter_EntityType.PROJECT,
                     db_spend_update_transactions.get("project_list_transactions"),
                 ),
                 (
-                    Litellm_EntityType.TAG,
+                    Embrouter_EntityType.TAG,
                     db_spend_update_transactions.get("tag_list_transactions"),
                 ),
                 (
-                    Litellm_EntityType.AGENT,
+                    Embrouter_EntityType.AGENT,
                     db_spend_update_transactions.get("agent_list_transactions"),
                 ),
                 (
-                    Litellm_EntityType.MODEL_ACCESS_GROUP,
+                    Embrouter_EntityType.MODEL_ACCESS_GROUP,
                     db_spend_update_transactions.get("model_access_group_list_transactions"),
                 ),
             ]

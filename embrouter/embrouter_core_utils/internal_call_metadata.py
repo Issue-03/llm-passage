@@ -21,9 +21,9 @@ from collections.abc import Mapping
 from types import MappingProxyType
 from typing import Final
 
-from litellm.constants import INTERNAL_CALL_ORIGIN_METADATA_KEY, NON_INFERENCE_CALL_TYPES
-from litellm.litellm_core_utils.initialize_dynamic_callback_params import initialize_standard_callback_dynamic_params
-from litellm.types.utils import BACKGROUND_RESPONSE_COST_POLL_CALL_ORIGIN, InternalCallOrigin
+from embrouter.constants import INTERNAL_CALL_ORIGIN_METADATA_KEY, NON_INFERENCE_CALL_TYPES
+from embrouter.embrouter_core_utils.initialize_dynamic_callback_params import initialize_standard_callback_dynamic_params
+from embrouter.types.utils import BACKGROUND_RESPONSE_COST_POLL_CALL_ORIGIN, InternalCallOrigin
 
 BUDGET_RESERVATION_METADATA_KEYS: Final = frozenset({"user_api_key_budget_reservation"})
 
@@ -31,7 +31,7 @@ MODEL_ACCESS_GROUP_METADATA_KEY: Final = "user_api_key_matched_model_access_grou
 """Where auth records the model access groups that authorized the request, for the spend writer.
 
 The ``user_api_key`` prefix is load-bearing, not cosmetic: when a request carries both
-``metadata`` and ``litellm_metadata``, ``get_litellm_metadata_from_kwargs`` returns the latter and
+``metadata`` and ``embrouter_metadata``, ``get_embrouter_metadata_from_kwargs`` returns the latter and
 copies a key across only when ``user_api_key`` appears in its name."""
 
 _USER_API_KEY_AUTH_KEY: Final = "user_api_key_auth"
@@ -90,20 +90,20 @@ def is_unbilled_non_inference_call(
 
 def is_unbilled_non_inference_call_from_params(
     call_type: str | None,
-    litellm_params: Mapping[str, object] | None,
+    embrouter_params: Mapping[str, object] | None,
     response: object,
 ) -> bool:
-    """:func:`is_unbilled_non_inference_call` for callers holding raw ``litellm_params``.
+    """:func:`is_unbilled_non_inference_call` for callers holding raw ``embrouter_params``.
 
     The call-type membership test runs first so that inference traffic, which is every
     request in a normal workload, never pays for the metadata merge behind it.
     """
     if call_type not in NON_INFERENCE_CALL_TYPES:
         return False
-    from litellm.litellm_core_utils.litellm_logging import StandardLoggingPayloadSetup
+    from embrouter.embrouter_core_utils.embrouter_logging import StandardLoggingPayloadSetup
 
     metadata: Final = (
-        StandardLoggingPayloadSetup.merge_litellm_metadata(litellm_params) if litellm_params is not None else None
+        StandardLoggingPayloadSetup.merge_embrouter_metadata(embrouter_params) if embrouter_params is not None else None
     )
     return is_unbilled_non_inference_call(call_type, metadata, response)
 
@@ -147,7 +147,7 @@ def forwarded_internal_call_metadata(
 def parent_session_kwargs(request_kwargs: Mapping[str, object] | None) -> Mapping[str, str]:
     kwargs: Final = request_kwargs or MappingProxyType({})
     return MappingProxyType(
-        {k: v for k in ("litellm_session_id", "litellm_trace_id") if isinstance(v := kwargs.get(k), str)}
+        {k: v for k in ("embrouter_session_id", "embrouter_trace_id") if isinstance(v := kwargs.get(k), str)}
     )
 
 

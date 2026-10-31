@@ -2,13 +2,13 @@ import os
 
 from fastapi import Request
 
-from litellm.proxy._types import GenerateKeyRequest, UserAPIKeyAuth
+from embrouter.proxy._types import GenerateKeyRequest, UserAPIKeyAuth
 from typing import Final
 
 
 async def user_api_key_auth(request: Request, api_key: str) -> UserAPIKeyAuth:
     try:
-        modified_master_key: Final = f"{os.getenv('LITELLM_MASTER_KEY')}-1234"
+        modified_master_key: Final = f"{os.getenv('EMBROUTER_MASTER_KEY')}-1234"
         if api_key == modified_master_key:
             return UserAPIKeyAuth(api_key=api_key)
         raise Exception
@@ -49,5 +49,5 @@ async def generate_key_fn(data: GenerateKeyRequest):
     else:
         return {
             "decision": True,
-            "message": "This violates LiteLLM Proxy Rules. No team id provided.",
+            "message": "This violates EmbRouter Proxy Rules. No team id provided.",
         }

@@ -2,17 +2,17 @@
 
 from typing import Final
 
-import litellm
-from litellm.llms.base_llm.realtime.http_transformation import BaseRealtimeHTTPConfig
-from litellm.secret_managers.main import get_secret_str
+import embrouter
+from embrouter.llms.base_llm.realtime.http_transformation import BaseRealtimeHTTPConfig
+from embrouter.secret_managers.main import get_secret_str
 
 
 class AzureRealtimeHTTPConfig(BaseRealtimeHTTPConfig):
     def get_api_base(self, api_base: str | None, **kwargs) -> str:
-        return api_base or litellm.api_base or get_secret_str("AZURE_API_BASE") or ""
+        return api_base or embrouter.api_base or get_secret_str("AZURE_API_BASE") or ""
 
     def get_api_key(self, api_key: str | None, **kwargs) -> str:
-        return api_key or litellm.api_key or get_secret_str("AZURE_API_KEY") or ""
+        return api_key or embrouter.api_key or get_secret_str("AZURE_API_KEY") or ""
 
     def get_complete_url(self, api_base: str | None, model: str, api_version: str | None = None) -> str:
         base: Final = self.get_api_base(api_base).rstrip("/")

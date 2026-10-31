@@ -2,12 +2,12 @@
 Daily rollup for per-model PTU (provisioned throughput) flat cost.
 
 v1 reads PTU config straight off the model deployment
-(``LiteLLM_ProxyModelTable.model_info``): a deployment carrying ``ptu_count``
+(``EmbRouter_ProxyModelTable.model_info``): a deployment carrying ``ptu_count``
 and ``cost_per_ptu_per_hour`` accrues flat cost of
 ``ptu_count * cost_per_ptu_per_hour * active_hours`` for a given UTC day, where
 ``active_hours`` is the overlap between the day and the optional
 ``[ptu_effective_from, ptu_effective_to)`` window (a window opening at 23:00
-charges one hour that day). The amount is written to ``LiteLLM_DailyTeamSpend``
+charges one hour that day). The amount is written to ``EmbRouter_DailyTeamSpend``
 under a sentinel api_key so the rows are distinguishable from per-request rows
 and share the existing unique constraint.
 """
@@ -20,8 +20,8 @@ from datetime import date, datetime, time, timedelta, timezone
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Final
 
-from litellm._logging import verbose_proxy_logger
-from litellm.constants import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.constants import (
     PTU_LAPSED_ALERT_LIMIT,
     PTU_PRUNE_SKEW_GRACE_SECONDS,
     PTU_ROLLUP_JOB_ID,
@@ -29,29 +29,29 @@ from litellm.constants import (
     PTU_ROLLUP_MAX_BACKFILL_DAYS,
     PTU_SENTINEL_API_KEY,
 )
-from litellm.litellm_core_utils.ptu_pricing import ptu_terms
-from litellm.proxy.spend_tracking.ptu_feature_flag import is_ptu_cost_attribution_enabled
-from litellm.repositories.model_repository import ModelRepository
-from litellm.repositories.prisma_protocols import TableActions
-from litellm.repositories.table_repositories import PrismaTableRepository
+from embrouter.embrouter_core_utils.ptu_pricing import ptu_terms
+from embrouter.proxy.spend_tracking.ptu_feature_flag import is_ptu_cost_attribution_enabled
+from embrouter.repositories.model_repository import ModelRepository
+from embrouter.repositories.prisma_protocols import TableActions
+from embrouter.repositories.table_repositories import PrismaTableRepository
 
 if TYPE_CHECKING:
     from prisma import models as prisma_models
 
-    from litellm.proxy.db.db_transaction_queue.pod_lock_manager import PodLockManager
-    from litellm.proxy.utils import PrismaClient
+    from embrouter.proxy.db.db_transaction_queue.pod_lock_manager import PodLockManager
+    from embrouter.proxy.utils import PrismaClient
 
 
-class _DailyTeamSpendRepository(PrismaTableRepository["prisma_models.LiteLLM_DailyTeamSpend"]):
-    table_name = "litellm_dailyteamspend"
+class _DailyTeamSpendRepository(PrismaTableRepository["prisma_models.EmbRouter_DailyTeamSpend"]):
+    table_name = "embrouter_dailyteamspend"
 
 
-def _daily_team_spend_table(prisma_client: "PrismaClient") -> "TableActions[prisma_models.LiteLLM_DailyTeamSpend]":
+def _daily_team_spend_table(prisma_client: "PrismaClient") -> "TableActions[prisma_models.EmbRouter_DailyTeamSpend]":
     """The sentinel rows this rollup writes, reads back and prunes."""
     return _DailyTeamSpendRepository(prisma_client).table
 
 
-def _proxy_model_table(prisma_client: "PrismaClient") -> "TableActions[prisma_models.LiteLLM_ProxyModelTable]":
+def _proxy_model_table(prisma_client: "PrismaClient") -> "TableActions[prisma_models.EmbRouter_ProxyModelTable]":
     """The stored deployments the rollup scans for PTU config."""
     return ModelRepository(prisma_client).table
 
@@ -130,7 +130,7 @@ def _decode_model_info(raw: object) -> "Mapping[str, object] | None":
 class _PTUDeployment:
     """A deployment in the shape ``_parse_ptu_model`` reads, whatever declared it.
 
-    A ``LiteLLM_ProxyModelTable`` row already has it. A router entry does not: its id
+    A ``EmbRouter_ProxyModelTable`` row already has it. A router entry does not: its id
     lives in ``model_info.id`` rather than on the entry itself.
     """
 
@@ -242,7 +242,7 @@ async def _upsert_ptu_daily_row(
     date_str: str,
     flat_cost: float,
 ) -> None:
-    """Idempotent upsert of a sentinel-api_key row on LiteLLM_DailyTeamSpend.
+    """Idempotent upsert of a sentinel-api_key row on EmbRouter_DailyTeamSpend.
 
     ``model`` holds the deployment id because it is part of the table's unique key and a
     rename must not move the row. ``model_group`` carries the operator-facing name, which
@@ -346,7 +346,7 @@ class _LoadedDeployments:
 
 
 def _config_deployments(router: object | None, *, owned_by_db: frozenset[str]) -> tuple[_PTUDeployment, ...]:
-    """Deployments the router holds that no ``LiteLLM_ProxyModelTable`` row owns.
+    """Deployments the router holds that no ``EmbRouter_ProxyModelTable`` row owns.
 
     ``db_model`` is forced True on every deployment loaded from that table and defaults to
     False on ModelInfo, so the complement is what config.yaml declared. A per-request

@@ -8,22 +8,22 @@ from typing import TYPE_CHECKING, Final, Literal, Optional
 
 from fastapi import HTTPException
 
-from litellm._logging import verbose_proxy_logger
-from litellm.integrations.custom_guardrail import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.integrations.custom_guardrail import (
     CustomGuardrail,
     log_guardrail_information,
 )
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.utils import GenericGuardrailAPIInputs
+from embrouter.types.guardrails import GuardrailEventHooks
+from embrouter.types.utils import GenericGuardrailAPIInputs
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.types.guardrails import LitellmParams
-    from litellm.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.types.guardrails import EmbrouterParams
+    from embrouter.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
 
 DEFAULT_GUARDRAIL_TIMEOUT: Final = 5.0
 
@@ -102,9 +102,9 @@ class ZscalerAIGuard(CustomGuardrail):
 
         return timeout
 
-    def update_in_memory_litellm_params(self, litellm_params: "LitellmParams") -> None:
-        super().update_in_memory_litellm_params(litellm_params)
-        self.timeout = self._resolve_timeout(litellm_params.timeout)
+    def update_in_memory_embrouter_params(self, embrouter_params: "EmbrouterParams") -> None:
+        super().update_in_memory_embrouter_params(embrouter_params)
+        self.timeout = self._resolve_timeout(embrouter_params.timeout)
 
     @staticmethod
     def _resolve_metadata_value(request_data: dict | None, key: str) -> str | None:
@@ -112,27 +112,27 @@ class ZscalerAIGuard(CustomGuardrail):
         Resolve metadata value from request_data, checking both metadata locations.
 
         During pre-call: metadata is at request_data["metadata"][key]
-        During post-call: metadata is at request_data["litellm_metadata"][key]
+        During post-call: metadata is at request_data["embrouter_metadata"][key]
             (set by transform_user_api_key_dict_to_metadata which prefixes keys with 'user_api_key_')
 
         Also handles key name mapping for UserAPIKeyAuth fields:
-            - key_alias -> user_api_key_key_alias (in litellm_metadata)
+            - key_alias -> user_api_key_key_alias (in embrouter_metadata)
             - user_id -> user_api_key_user_id
             - team_id -> user_api_key_team_id
         """
         if request_data is None:
             return None
 
-        # Check litellm_metadata first (set during post-call by guardrail framework)
-        litellm_metadata: Final = request_data.get("litellm_metadata", {})
-        if litellm_metadata:
-            value = litellm_metadata.get(key)
+        # Check embrouter_metadata first (set during post-call by guardrail framework)
+        embrouter_metadata: Final = request_data.get("embrouter_metadata", {})
+        if embrouter_metadata:
+            value = embrouter_metadata.get(key)
             if value is not None:
                 return str(value).strip()
             # Handle key_alias -> user_api_key_key_alias mapping
             # transform_user_api_key_dict_to_metadata prefixes "key_alias" -> "user_api_key_key_alias"
             if key == "user_api_key_alias":
-                value = litellm_metadata.get("user_api_key_key_alias")
+                value = embrouter_metadata.get("user_api_key_key_alias")
                 if value is not None:
                     return str(value).strip()
 
@@ -151,7 +151,7 @@ class ZscalerAIGuard(CustomGuardrail):
         inputs: "GenericGuardrailAPIInputs",
         request_data: dict,
         input_type: Literal["request", "response"],
-        logging_obj: Optional["LiteLLMLoggingObj"] = None,
+        logging_obj: Optional["EmbRouterLoggingObj"] = None,
     ) -> "GenericGuardrailAPIInputs":
         """
         Apply Zscaler AI Guard guardrail to batch of texts.
@@ -387,7 +387,7 @@ class ZscalerAIGuard(CustomGuardrail):
 
     @staticmethod
     def get_config_model() -> type["GuardrailConfigModel"] | None:
-        from litellm.types.proxy.guardrails.guardrail_hooks.zscaler_ai_guard import (
+        from embrouter.types.proxy.guardrails.guardrail_hooks.zscaler_ai_guard import (
             ZscalerAIGuardConfigModel,
         )
 

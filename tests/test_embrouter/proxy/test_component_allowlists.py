@@ -28,8 +28,8 @@ import os
 import sys
 from typing import Final
 
-# Importing ``litellm.proxy.proxy_server`` runs its module-level setup, which
-# reads ``DATABASE_URL`` (Prisma) and ``LITELLM_MASTER_KEY``. Tier-zero CI
+# Importing ``embrouter.proxy.proxy_server`` runs its module-level setup, which
+# reads ``DATABASE_URL`` (Prisma) and ``EMBROUTER_MASTER_KEY``. Tier-zero CI
 # runners don't set these. We pin throwaway values before the import so the
 # test never depends on a live database or master key, then restore the prior
 # environment so the throwaway values don't leak into sibling tests sharing the
@@ -37,7 +37,7 @@ from typing import Final
 # treat a phantom database as available instead of skipping).
 _THROWAWAY_ENV = {
     "DATABASE_URL": "sqlite:///:memory:",
-    "LITELLM_MASTER_KEY": "sk-test-component-allowlist",
+    "EMBROUTER_MASTER_KEY": "sk-test-component-allowlist",
 }
 _PRE_EXISTING_ENV = {key: os.environ.get(key) for key in _THROWAWAY_ENV}
 for _key, _value in _THROWAWAY_ENV.items():
@@ -46,15 +46,15 @@ for _key, _value in _THROWAWAY_ENV.items():
 from fastapi.routing import Mount
 from prometheus_client import make_asgi_app
 
-# gateway/ and backend/ live at the repo root, not inside litellm/.
+# gateway/ and backend/ live at the repo root, not inside embrouter/.
 _REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
 from backend.routes.allowlist import BACKEND_MOUNT_PATHS
 from gateway.routes.allowlist import GATEWAY_MOUNT_PATHS
-from litellm.proxy.proxy_server import app
-from tests.test_litellm_rust.support.child_interpreter import run_child_interpreter
+from embrouter.proxy.proxy_server import app
+from tests.test_embrouter_rust.support.child_interpreter import run_child_interpreter
 
 for _key, _previous in _PRE_EXISTING_ENV.items():
     if _previous is None:
@@ -84,12 +84,12 @@ for _key, _previous in _PRE_DB_ENV.items():
 
 _COVERAGE_PROBE: Final = """
 import json, os, sys
-sys.path.insert(0, os.environ["LITELLM_COMPONENT_ALLOWLIST_REPO_ROOT"])
+sys.path.insert(0, os.environ["EMBROUTER_COMPONENT_ALLOWLIST_REPO_ROOT"])
 from fastapi.routing import Mount
 from backend.routes.allowlist import BACKEND_EXACT_PATHS, BACKEND_PATH_PREFIXES
 from gateway.routes.allowlist import GATEWAY_EXACT_PATHS, GATEWAY_PATH_PREFIXES
-from litellm.proxy._lazy_features import loaded_lazy_modules
-from litellm.proxy.proxy_server import app
+from embrouter.proxy._lazy_features import loaded_lazy_modules
+from embrouter.proxy.proxy_server import app
 
 all_paths = {
     r.path for r in app.router.routes
@@ -123,7 +123,7 @@ def test_gateway_plus_backend_covers_full_app():
     route table deterministic; nothing is subtracted, so every route the trim
     will actually see stays in the assertion.
     """
-    env: Final = {**os.environ, "LITELLM_COMPONENT_ALLOWLIST_REPO_ROOT": _REPO_ROOT}
+    env: Final = {**os.environ, "EMBROUTER_COMPONENT_ALLOWLIST_REPO_ROOT": _REPO_ROOT}
     for key, value in _THROWAWAY_ENV.items():
         env.setdefault(key, value)
 
@@ -215,7 +215,7 @@ def test_gateway_trim_keeps_metrics_mount():
 
 def test_gateway_drops_ui_and_swagger_mounts():
     """UI static and swagger Mounts must still be trimmed from the gateway."""
-    for path in ("/ui", "/_next", "/litellm-asset-prefix/_next", "/swagger"):
+    for path in ("/ui", "/_next", "/embrouter-asset-prefix/_next", "/swagger"):
         assert not _is_gateway_route(Mount(path, app=make_asgi_app())), \
             f"Mount {path} must not be served by the gateway"
 
@@ -243,7 +243,7 @@ def test_every_app_mount_is_assigned_to_a_component():
     a componentized deployment, which is exactly how the /metrics Mount was
     silently dropped.
     """
-    ui_served_prefixes = ("/ui", "/_next", "/litellm-asset-prefix")
+    ui_served_prefixes = ("/ui", "/_next", "/embrouter-asset-prefix")
     mounts = [*app.router.routes, Mount("/metrics", app=make_asgi_app())]
     unassigned = {
         path

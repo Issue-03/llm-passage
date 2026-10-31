@@ -1,5 +1,5 @@
 -- CreateTable
-CREATE TABLE IF NOT EXISTS "LiteLLM_DailyOrganizationSpend" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_DailyOrganizationSpend" (
     "id" TEXT NOT NULL,
     "organization_id" TEXT,
     "date" TEXT NOT NULL,
@@ -19,24 +19,24 @@ CREATE TABLE IF NOT EXISTS "LiteLLM_DailyOrganizationSpend" (
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
 
-    CONSTRAINT "LiteLLM_DailyOrganizationSpend_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "EmbRouter_DailyOrganizationSpend_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "LiteLLM_DailyOrganizationSpend_date_idx" ON "LiteLLM_DailyOrganizationSpend"("date");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyOrganizationSpend_date_idx" ON "EmbRouter_DailyOrganizationSpend"("date");
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "LiteLLM_DailyOrganizationSpend_organization_id_idx" ON "LiteLLM_DailyOrganizationSpend"("organization_id");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyOrganizationSpend_organization_id_idx" ON "EmbRouter_DailyOrganizationSpend"("organization_id");
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "LiteLLM_DailyOrganizationSpend_api_key_idx" ON "LiteLLM_DailyOrganizationSpend"("api_key");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyOrganizationSpend_api_key_idx" ON "EmbRouter_DailyOrganizationSpend"("api_key");
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "LiteLLM_DailyOrganizationSpend_model_idx" ON "LiteLLM_DailyOrganizationSpend"("model");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyOrganizationSpend_model_idx" ON "EmbRouter_DailyOrganizationSpend"("model");
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "LiteLLM_DailyOrganizationSpend_mcp_namespaced_tool_name_idx" ON "LiteLLM_DailyOrganizationSpend"("mcp_namespaced_tool_name");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyOrganizationSpend_mcp_namespaced_tool_name_idx" ON "EmbRouter_DailyOrganizationSpend"("mcp_namespaced_tool_name");
 
 -- CreateIndex
-CREATE UNIQUE INDEX IF NOT EXISTS "LiteLLM_DailyOrganizationSpend_organization_id_date_api_key_key" ON "LiteLLM_DailyOrganizationSpend"("organization_id", "date", "api_key", "model", "custom_llm_provider", "mcp_namespaced_tool_name");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_DailyOrganizationSpend_organization_id_date_api_key_key" ON "EmbRouter_DailyOrganizationSpend"("organization_id", "date", "api_key", "model", "custom_llm_provider", "mcp_namespaced_tool_name");
 

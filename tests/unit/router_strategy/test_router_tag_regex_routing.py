@@ -12,8 +12,8 @@ import pytest
 
 from unittest.mock import MagicMock
 
-from litellm.router_strategy import tag_based_routing
-from litellm.router_strategy.tag_based_routing import get_deployments_for_tag
+from embrouter.router_strategy import tag_based_routing
+from embrouter.router_strategy.tag_based_routing import get_deployments_for_tag
 
 _is_valid_deployment_tag_regex = tag_based_routing._is_valid_deployment_tag_regex
 
@@ -82,7 +82,7 @@ def test_regex_matches_version_range():
 
 CLAUDE_CODE_DEPLOYMENT = {
     "model_name": "claude-sonnet",
-    "litellm_params": {
+    "embrouter_params": {
         "model": "openai/claude-code-deployment",
         "api_key": "fake",
         "mock_response": "cc",
@@ -93,7 +93,7 @@ CLAUDE_CODE_DEPLOYMENT = {
 
 REGULAR_DEPLOYMENT = {
     "model_name": "claude-sonnet",
-    "litellm_params": {
+    "embrouter_params": {
         "model": "openai/regular-deployment",
         "api_key": "fake",
         "mock_response": "regular",
@@ -211,7 +211,7 @@ async def test_explicit_tag_match_takes_precedence_over_regex():
     """A deployment with both tags and tag_regex: exact tag match fires first."""
     deployment_with_both = {
         "model_name": "claude-sonnet",
-        "litellm_params": {
+        "embrouter_params": {
             "model": "openai/both-deployment",
             "api_key": "fake",
             "tags": ["premium"],
@@ -245,7 +245,7 @@ async def test_user_agent_present_no_tag_regex_deployments_does_not_raise():
     plain_tag_only_deployments = [
         {
             "model_name": "gpt-4",
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "openai/premium-deployment",
                 "api_key": "fake",
                 "tags": ["premium"],
@@ -254,7 +254,7 @@ async def test_user_agent_present_no_tag_regex_deployments_does_not_raise():
         },
         {
             "model_name": "gpt-4",
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "openai/free-deployment",
                 "api_key": "fake",
                 "tags": ["free"],
@@ -283,7 +283,7 @@ async def test_tag_routing_metadata_not_overwritten_for_multiple_matches():
     """
     deployment_a = {
         "model_name": "claude-sonnet",
-        "litellm_params": {
+        "embrouter_params": {
             "model": "openai/cc-deployment-a",
             "api_key": "fake",
             "tag_regex": [r"^User-Agent: claude-code\/"],
@@ -292,7 +292,7 @@ async def test_tag_routing_metadata_not_overwritten_for_multiple_matches():
     }
     deployment_b = {
         "model_name": "claude-sonnet",
-        "litellm_params": {
+        "embrouter_params": {
             "model": "openai/cc-deployment-b",
             "api_key": "fake",
             "tag_regex": [r"^User-Agent: claude-code\/"],
@@ -328,7 +328,7 @@ async def test_match_any_false_strict_tag_check_blocks_regex_fallback():
     """
     deployment_strict = {
         "model_name": "claude-sonnet",
-        "litellm_params": {
+        "embrouter_params": {
             "model": "openai/strict-deployment",
             "api_key": "fake",
             "tags": ["premium"],
@@ -338,7 +338,7 @@ async def test_match_any_false_strict_tag_check_blocks_regex_fallback():
     }
     default_deployment = {
         "model_name": "claude-sonnet",
-        "litellm_params": {
+        "embrouter_params": {
             "model": "openai/default-deployment",
             "api_key": "fake",
             "tags": ["default"],
@@ -374,7 +374,7 @@ async def test_match_any_false_regex_only_deployment_still_matches():
     """
     regex_only_deployment = {
         "model_name": "claude-sonnet",
-        "litellm_params": {
+        "embrouter_params": {
             "model": "openai/regex-only-deployment",
             "api_key": "fake",
             "tag_regex": [r"^User-Agent: claude-code\/"],

@@ -1,7 +1,7 @@
 import { useQuery, useMutation, UseMutationResult, useQueryClient } from "@tanstack/react-query";
 import { createQueryKeys } from "../common/queryKeysFactory";
 import useAuthorized from "../useAuthorized";
-import { proxyBaseUrl, getGlobalLitellmHeaderName, deriveErrorMessage, handleError } from "@/components/networking";
+import { proxyBaseUrl, getGlobalEmbrouterHeaderName, deriveErrorMessage, handleError } from "@/components/networking";
 
 /**
  * Enum for config types that can be fetched from the proxy config endpoint.
@@ -85,7 +85,7 @@ export const getProxyConfigCall = async (accessToken: string, configType: Config
     const response = await fetch(url, {
       method: "GET",
       headers: {
-        [getGlobalLitellmHeaderName()]: `Bearer ${accessToken}`,
+        [getGlobalEmbrouterHeaderName()]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
     });
@@ -123,7 +123,7 @@ export const deleteProxyConfigFieldCall = async (
     const response = await fetch(url, {
       method: "POST",
       headers: {
-        [getGlobalLitellmHeaderName()]: `Bearer ${accessToken}`,
+        [getGlobalEmbrouterHeaderName()]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(request),

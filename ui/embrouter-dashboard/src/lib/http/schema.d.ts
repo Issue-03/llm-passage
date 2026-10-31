@@ -53,7 +53,7 @@ export interface paths {
          * @description JSON Web Key Set endpoint.
          *
          *     Returns the RSA public key used by MCPJWTSigner to sign outbound MCP tokens.
-         *     MCP servers and gateways use this endpoint to verify liteLLM-issued JWTs.
+         *     MCP servers and gateways use this endpoint to verify embRouter-issued JWTs.
          *
          *     Returns an empty key set if MCPJWTSigner is not configured.
          */
@@ -66,7 +66,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/.well-known/litellm-cli-auth": {
+    "/.well-known/embrouter-cli-auth": {
         parameters: {
             query?: never;
             header?: never;
@@ -78,7 +78,7 @@ export interface paths {
          * @description The versioned contract a native client (``lite login --pkce``, or a CLI in any other
          *     language) reads to sign a user in through the browser and obtain a proxy credential.
          */
-        get: operations["native_client_auth_discovery__well_known_litellm_cli_auth_get"];
+        get: operations["native_client_auth_discovery__well_known_embrouter_cli_auth_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -87,7 +87,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/.well-known/litellm-ui-config": {
+    "/.well-known/embrouter-ui-config": {
         parameters: {
             query?: never;
             header?: never;
@@ -95,7 +95,7 @@ export interface paths {
             cookie?: never;
         };
         /** Get Ui Config */
-        get: operations["get_ui_config__well_known_litellm_ui_config_get"];
+        get: operations["get_ui_config__well_known_embrouter_ui_config_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -296,7 +296,7 @@ export interface paths {
         };
         /**
          * Oauth Protected Resource Mcp
-         * @description OAuth protected resource discovery endpoint using LiteLLM legacy URL pattern.
+         * @description OAuth protected resource discovery endpoint using EmbRouter legacy URL pattern.
          *
          *     Legacy pattern: /{server_name}/mcp
          *     Discovery path: /.well-known/oauth-protected-resource/{server_name}/mcp
@@ -389,8 +389,8 @@ export interface paths {
          *     - /.well-known/agent-card.json
          *     - /.well-known/agent.json
          *
-         *     The URL in the agent card is rewritten to point to the LiteLLM proxy,
-         *     so all subsequent A2A calls go through LiteLLM for logging and cost tracking.
+         *     The URL in the agent card is rewritten to point to the EmbRouter proxy,
+         *     so all subsequent A2A calls go through EmbRouter for logging and cost tracking.
          */
         get: operations["get_agent_card_a2a__agent_id___well_known_agent_card_json_get"];
         put?: never;
@@ -416,8 +416,8 @@ export interface paths {
          *     - /.well-known/agent-card.json
          *     - /.well-known/agent.json
          *
-         *     The URL in the agent card is rewritten to point to the LiteLLM proxy,
-         *     so all subsequent A2A calls go through LiteLLM for logging and cost tracking.
+         *     The URL in the agent card is rewritten to point to the EmbRouter proxy,
+         *     so all subsequent A2A calls go through EmbRouter for logging and cost tracking.
          */
         get: operations["get_agent_card_a2a__agent_id___well_known_agent_json_get"];
         put?: never;
@@ -740,7 +740,7 @@ export interface paths {
         };
         /**
          * Active Callbacks
-         * @description Returns a list of litellm level settings
+         * @description Returns a list of embrouter level settings
          *
          *     This is useful for debugging and ensuring the proxy server is configured correctly.
          *
@@ -748,17 +748,17 @@ export interface paths {
          *     ```
          *     {
          *         "alerting": _alerting,
-         *         "litellm.callbacks": litellm_callbacks,
-         *         "litellm.input_callback": litellm_input_callbacks,
-         *         "litellm.failure_callback": litellm_failure_callbacks,
-         *         "litellm.success_callback": litellm_success_callbacks,
-         *         "litellm._async_success_callback": litellm_async_success_callbacks,
-         *         "litellm._async_failure_callback": litellm_async_failure_callbacks,
-         *         "litellm._async_input_callback": litellm_async_input_callbacks,
-         *         "all_litellm_callbacks": all_litellm_callbacks,
-         *         "num_callbacks": len(all_litellm_callbacks),
+         *         "embrouter.callbacks": embrouter_callbacks,
+         *         "embrouter.input_callback": embrouter_input_callbacks,
+         *         "embrouter.failure_callback": embrouter_failure_callbacks,
+         *         "embrouter.success_callback": embrouter_success_callbacks,
+         *         "embrouter._async_success_callback": embrouter_async_success_callbacks,
+         *         "embrouter._async_failure_callback": embrouter_async_failure_callbacks,
+         *         "embrouter._async_input_callback": embrouter_async_input_callbacks,
+         *         "all_embrouter_callbacks": all_embrouter_callbacks,
+         *         "num_callbacks": len(all_embrouter_callbacks),
          *         "num_alerting": _num_alerting,
-         *         "litellm.request_timeout": litellm.request_timeout,
+         *         "embrouter.request_timeout": embrouter.request_timeout,
          *     }
          *     ```
          */
@@ -950,13 +950,13 @@ export interface paths {
          * @description Issue a short-lived, audience-scoped plugin session claim.
          *
          *     The claim contains {user_id, user_role, plugin, exp}.  It does NOT
-         *     contain the caller's litellm bearer token — a compromised plugin can
+         *     contain the caller's embrouter bearer token — a compromised plugin can
          *     only learn the caller's identity, not impersonate them against the proxy.
          *
-         *     Encrypted with a key derived from HMAC(LITELLM_SALT_KEY, plugin_name),
+         *     Encrypted with a key derived from HMAC(EMBROUTER_SALT_KEY, plugin_name),
          *     so each plugin holds only its own key and cannot forge claims for others.
          *
-         *     Requires LITELLM_SALT_KEY to be set; returns 503 otherwise.
+         *     Requires EMBROUTER_SALT_KEY to be set; returns 503 otherwise.
          */
         get: operations["plugin_auth_token_api_plugins_auth_token_get"];
         put?: never;
@@ -1320,7 +1320,7 @@ export interface paths {
          * @description One auto-routed session, for the key that ran it: the model its last turn was routed to and the
          *     session's spend against the router's savings baseline. Built for a coding agent's status line
          *     or stop hook, so any virtual key may call it and only ever sees rows written under its own
-         *     key hash. Reads the LiteLLM_AutoRouterSession rollup, which the asynchronous spend flush
+         *     key hash. Reads the EmbRouter_AutoRouterSession rollup, which the asynchronous spend flush
          *     fills a moment after each turn; a session with no flushed auto-routed turn yet is a 404. The
          *     id is bounded the way the writer bounded it, so an oversized client id still finds its row.
          */
@@ -1531,7 +1531,7 @@ export interface paths {
          *
          *     Just use `{PROXY_BASE_URL}/azure/{endpoint:path}`
          *
-         *     Checks if the deployment id in the url is a litellm model name. If so, it will route using the llm_router.allm_passthrough_route.
+         *     Checks if the deployment id in the url is a embrouter model name. If so, it will route using the llm_router.allm_passthrough_route.
          */
         get: operations["azure_proxy_route_azure__endpoint__get"];
         /**
@@ -1540,7 +1540,7 @@ export interface paths {
          *
          *     Just use `{PROXY_BASE_URL}/azure/{endpoint:path}`
          *
-         *     Checks if the deployment id in the url is a litellm model name. If so, it will route using the llm_router.allm_passthrough_route.
+         *     Checks if the deployment id in the url is a embrouter model name. If so, it will route using the llm_router.allm_passthrough_route.
          */
         put: operations["azure_proxy_route_azure__endpoint__put"];
         /**
@@ -1549,7 +1549,7 @@ export interface paths {
          *
          *     Just use `{PROXY_BASE_URL}/azure/{endpoint:path}`
          *
-         *     Checks if the deployment id in the url is a litellm model name. If so, it will route using the llm_router.allm_passthrough_route.
+         *     Checks if the deployment id in the url is a embrouter model name. If so, it will route using the llm_router.allm_passthrough_route.
          */
         post: operations["azure_proxy_route_azure__endpoint__post"];
         /**
@@ -1558,7 +1558,7 @@ export interface paths {
          *
          *     Just use `{PROXY_BASE_URL}/azure/{endpoint:path}`
          *
-         *     Checks if the deployment id in the url is a litellm model name. If so, it will route using the llm_router.allm_passthrough_route.
+         *     Checks if the deployment id in the url is a embrouter model name. If so, it will route using the llm_router.allm_passthrough_route.
          */
         delete: operations["azure_proxy_route_azure__endpoint__delete"];
         options?: never;
@@ -1569,7 +1569,7 @@ export interface paths {
          *
          *     Just use `{PROXY_BASE_URL}/azure/{endpoint:path}`
          *
-         *     Checks if the deployment id in the url is a litellm model name. If so, it will route using the llm_router.allm_passthrough_route.
+         *     Checks if the deployment id in the url is a embrouter model name. If so, it will route using the llm_router.allm_passthrough_route.
          */
         patch: operations["azure_proxy_route_azure__endpoint__patch"];
         trace?: never;
@@ -1587,7 +1587,7 @@ export interface paths {
          *
          *     Just use `{PROXY_BASE_URL}/azure/{endpoint:path}`
          *
-         *     Checks if the deployment id in the url is a litellm model name. If so, it will route using the llm_router.allm_passthrough_route.
+         *     Checks if the deployment id in the url is a embrouter model name. If so, it will route using the llm_router.allm_passthrough_route.
          */
         get: operations["azure_proxy_route_azure_ai__endpoint__get"];
         /**
@@ -1596,7 +1596,7 @@ export interface paths {
          *
          *     Just use `{PROXY_BASE_URL}/azure/{endpoint:path}`
          *
-         *     Checks if the deployment id in the url is a litellm model name. If so, it will route using the llm_router.allm_passthrough_route.
+         *     Checks if the deployment id in the url is a embrouter model name. If so, it will route using the llm_router.allm_passthrough_route.
          */
         put: operations["azure_proxy_route_azure_ai__endpoint__put"];
         /**
@@ -1605,7 +1605,7 @@ export interface paths {
          *
          *     Just use `{PROXY_BASE_URL}/azure/{endpoint:path}`
          *
-         *     Checks if the deployment id in the url is a litellm model name. If so, it will route using the llm_router.allm_passthrough_route.
+         *     Checks if the deployment id in the url is a embrouter model name. If so, it will route using the llm_router.allm_passthrough_route.
          */
         post: operations["azure_proxy_route_azure_ai__endpoint__post"];
         /**
@@ -1614,7 +1614,7 @@ export interface paths {
          *
          *     Just use `{PROXY_BASE_URL}/azure/{endpoint:path}`
          *
-         *     Checks if the deployment id in the url is a litellm model name. If so, it will route using the llm_router.allm_passthrough_route.
+         *     Checks if the deployment id in the url is a embrouter model name. If so, it will route using the llm_router.allm_passthrough_route.
          */
         delete: operations["azure_proxy_route_azure_ai__endpoint__delete"];
         options?: never;
@@ -1625,7 +1625,7 @@ export interface paths {
          *
          *     Just use `{PROXY_BASE_URL}/azure/{endpoint:path}`
          *
-         *     Checks if the deployment id in the url is a litellm model name. If so, it will route using the llm_router.allm_passthrough_route.
+         *     Checks if the deployment id in the url is a embrouter model name. If so, it will route using the llm_router.allm_passthrough_route.
          */
         patch: operations["azure_proxy_route_azure_ai__endpoint__patch"];
         trace?: never;
@@ -1644,7 +1644,7 @@ export interface paths {
          *     with the raw audio as the body, or `POST /azure_speech/speechtotext/v3.2/transcriptions`.
          *
          *     The body is forwarded byte for byte and the proxy injects its own
-         *     `Ocp-Apim-Subscription-Key`; the caller's `Authorization` header is the LiteLLM key
+         *     `Ocp-Apim-Subscription-Key`; the caller's `Authorization` header is the EmbRouter key
          *     and is never forwarded.
          *
          */
@@ -1656,7 +1656,7 @@ export interface paths {
          *     with the raw audio as the body, or `POST /azure_speech/speechtotext/v3.2/transcriptions`.
          *
          *     The body is forwarded byte for byte and the proxy injects its own
-         *     `Ocp-Apim-Subscription-Key`; the caller's `Authorization` header is the LiteLLM key
+         *     `Ocp-Apim-Subscription-Key`; the caller's `Authorization` header is the EmbRouter key
          *     and is never forwarded.
          *
          */
@@ -1668,7 +1668,7 @@ export interface paths {
          *     with the raw audio as the body, or `POST /azure_speech/speechtotext/v3.2/transcriptions`.
          *
          *     The body is forwarded byte for byte and the proxy injects its own
-         *     `Ocp-Apim-Subscription-Key`; the caller's `Authorization` header is the LiteLLM key
+         *     `Ocp-Apim-Subscription-Key`; the caller's `Authorization` header is the EmbRouter key
          *     and is never forwarded.
          *
          */
@@ -1680,7 +1680,7 @@ export interface paths {
          *     with the raw audio as the body, or `POST /azure_speech/speechtotext/v3.2/transcriptions`.
          *
          *     The body is forwarded byte for byte and the proxy injects its own
-         *     `Ocp-Apim-Subscription-Key`; the caller's `Authorization` header is the LiteLLM key
+         *     `Ocp-Apim-Subscription-Key`; the caller's `Authorization` header is the EmbRouter key
          *     and is never forwarded.
          *
          */
@@ -1694,7 +1694,7 @@ export interface paths {
          *     with the raw audio as the body, or `POST /azure_speech/speechtotext/v3.2/transcriptions`.
          *
          *     The body is forwarded byte for byte and the proxy injects its own
-         *     `Ocp-Apim-Subscription-Key`; the caller's `Authorization` header is the LiteLLM key
+         *     `Ocp-Apim-Subscription-Key`; the caller's `Authorization` header is the EmbRouter key
          *     and is never forwarded.
          *
          */
@@ -2006,7 +2006,7 @@ export interface paths {
         put?: never;
         /**
          * Cache Delete
-         * @description Endpoint for deleting a key from the cache. All responses from litellm proxy have `x-litellm-cache-key` in the headers
+         * @description Endpoint for deleting a key from the cache. All responses from embrouter proxy have `x-embrouter-cache-key` in the headers
          *
          *     Parameters:
          *     - **keys**: *Optional[List[str]]* - A list of keys to delete from the cache. Example {"keys": ["key1", "key2"]}
@@ -2112,7 +2112,7 @@ export interface paths {
          *
          *     This endpoint:
          *     1. Encrypts sensitive fields (passwords, etc.)
-         *     2. Saves to LiteLLM_CacheConfig table
+         *     2. Saves to EmbRouter_CacheConfig table
          *     3. Reinitializes cache with new settings
          */
         post: operations["update_cache_settings_cache_settings_post"];
@@ -2280,7 +2280,7 @@ export interface paths {
          *         ```bash
          *         claude plugin marketplace add http://localhost:4000/claude-code/marketplace.json
          *         claude plugin marketplace add "http://localhost:4000/claude-code/marketplace.json?key=sk-..."
-         *         claude plugin install my-plugin@litellm
+         *         claude plugin install my-plugin@embrouter
          *         ```
          */
         get: operations["get_marketplace_claude_code_marketplace_json_get"];
@@ -2313,9 +2313,9 @@ export interface paths {
         put?: never;
         /**
          * Register Plugin
-         * @description Register a new plugin in the LiteLLM marketplace.
+         * @description Register a new plugin in the EmbRouter marketplace.
          *
-         *     LiteLLM acts as a registry/discovery layer. Plugins are hosted on
+         *     EmbRouter acts as a registry/discovery layer. Plugins are hosted on
          *     GitHub/GitLab/Bitbucket or as a zip archive on any https host (e.g. S3).
          *     Claude Code clones the git source or downloads the archive when users install.
          *
@@ -2378,7 +2378,7 @@ export interface paths {
         get: operations["get_plugin_claude_code_plugins__plugin_name__get"];
         /**
          * Update Plugin
-         * @description Update an existing plugin in the LiteLLM marketplace.
+         * @description Update an existing plugin in the EmbRouter marketplace.
          *
          *     The plugin is identified by its name in the path, which is the resource
          *     identity and cannot be changed here. This is a full replace, not a merge:
@@ -2854,7 +2854,7 @@ export interface paths {
          * Get Cost Discount Config
          * @description Get current cost discount configuration.
          *
-         *     Returns the cost_discount_config from litellm_settings.
+         *     Returns the cost_discount_config from embrouter_settings.
          */
         get: operations["get_cost_discount_config_config_cost_discount_config_get"];
         put?: never;
@@ -2866,7 +2866,7 @@ export interface paths {
          * Update Cost Discount Config
          * @description Update cost discount configuration.
          *
-         *     Updates the cost_discount_config in litellm_settings.
+         *     Updates the cost_discount_config in embrouter_settings.
          *     Discounts should be between 0 and 1 (e.g., 0.05 = 5% discount).
          *
          *     Example:
@@ -2892,7 +2892,7 @@ export interface paths {
          * Get Cost Margin Config
          * @description Get current cost margin configuration.
          *
-         *     Returns the cost_margin_config from litellm_settings.
+         *     Returns the cost_margin_config from embrouter_settings.
          */
         get: operations["get_cost_margin_config_config_cost_margin_config_get"];
         put?: never;
@@ -2904,7 +2904,7 @@ export interface paths {
          * Update Cost Margin Config
          * @description Update cost margin configuration.
          *
-         *     Updates the cost_margin_config in litellm_settings.
+         *     Updates the cost_margin_config in embrouter_settings.
          *     Margins can be:
          *     - Percentage: {"openai": 0.10} = 10% margin
          *     - Fixed amount: {"openai": {"fixed_amount": 0.001}} = $0.001 per request
@@ -2935,7 +2935,7 @@ export interface paths {
         put?: never;
         /**
          * Delete Config General Settings
-         * @description Delete the db value of this field in litellm general settings. Resets it to it's initial default value on litellm.
+         * @description Delete the db value of this field in embrouter general settings. Resets it to it's initial default value on embrouter.
          */
         post: operations["delete_config_general_settings_config_field_delete_post"];
         delete?: never;
@@ -2972,7 +2972,7 @@ export interface paths {
         put?: never;
         /**
          * Update Config General Settings
-         * @description Update a specific field in litellm general settings
+         * @description Update a specific field in embrouter general settings
          */
         post: operations["update_config_general_settings_config_field_update_post"];
         delete?: never;
@@ -3088,7 +3088,7 @@ export interface paths {
          * Update Config
          * @description For Admin UI - allows admin to update config via UI.
          *
-         *     Writes only the sections present in the request body to LiteLLM_Config rows
+         *     Writes only the sections present in the request body to EmbRouter_Config rows
          *     (one row per top-level section). Sections the caller did not send are left
          *     untouched — this endpoint never persists pre-existing YAML values to DB as
          *     a side effect of an unrelated update.
@@ -3114,9 +3114,9 @@ export interface paths {
          *     Parameters:
          *
          *     The config.yaml object has the following attributes:
-         *     - **model_list**: *Optional[List[ModelParams]]* - A list of supported models on the server, along with model-specific configurations. ModelParams includes "model_name" (name of the model), "litellm_params" (litellm-specific parameters for the model), and "model_info" (additional info about the model such as id, mode, cost per token, etc).
+         *     - **model_list**: *Optional[List[ModelParams]]* - A list of supported models on the server, along with model-specific configurations. ModelParams includes "model_name" (name of the model), "embrouter_params" (embrouter-specific parameters for the model), and "model_info" (additional info about the model such as id, mode, cost per token, etc).
          *
-         *     - **litellm_settings**: *Optional[dict]*: Settings for the litellm module. You can specify multiple properties like "drop_params", "set_verbose", "api_base", "cache".
+         *     - **embrouter_settings**: *Optional[dict]*: Settings for the embrouter module. You can specify multiple properties like "drop_params", "set_verbose", "api_base", "cache".
          *
          *     - **general_settings**: *Optional[ConfigGeneralSettings]*: General settings for the server like "completion_model" (default model for chat completion calls), "use_azure_key_vault" (option to load keys from azure key vault), "master_key" (key required for all calls to proxy), and others.
          *
@@ -3424,7 +3424,7 @@ export interface paths {
          *     Parameters:
          *     - settings: dict - Redis connection params (host, port, username, password, url, ssl, startup_nodes, sentinel_nodes, sentinel_password, service_name). Values may be `os.environ/VAR` references, which are stored as written and resolved at startup
          *
-         *     The settings are written to the `general_settings` row of LiteLLM_Config,
+         *     The settings are written to the `general_settings` row of EmbRouter_Config,
          *     which startup merges over the yaml config; the proxy picks them up on its
          *     next restart.
          */
@@ -3813,7 +3813,7 @@ export interface paths {
          *
          *     Credential lookup order:
          *     1. passthrough_endpoint_router (config.yaml deployments with use_in_pass_through)
-         *     2. litellm.credential_list (credentials added via UI)
+         *     2. embrouter.credential_list (credentials added via UI)
          *     3. CURSOR_API_KEY environment variable
          */
         get: operations["cursor_proxy_route_cursor__endpoint__get"];
@@ -3837,7 +3837,7 @@ export interface paths {
          *
          *     Credential lookup order:
          *     1. passthrough_endpoint_router (config.yaml deployments with use_in_pass_through)
-         *     2. litellm.credential_list (credentials added via UI)
+         *     2. embrouter.credential_list (credentials added via UI)
          *     3. CURSOR_API_KEY environment variable
          */
         put: operations["cursor_proxy_route_cursor__endpoint__put"];
@@ -3861,7 +3861,7 @@ export interface paths {
          *
          *     Credential lookup order:
          *     1. passthrough_endpoint_router (config.yaml deployments with use_in_pass_through)
-         *     2. litellm.credential_list (credentials added via UI)
+         *     2. embrouter.credential_list (credentials added via UI)
          *     3. CURSOR_API_KEY environment variable
          */
         post: operations["cursor_proxy_route_cursor__endpoint__post"];
@@ -3885,7 +3885,7 @@ export interface paths {
          *
          *     Credential lookup order:
          *     1. passthrough_endpoint_router (config.yaml deployments with use_in_pass_through)
-         *     2. litellm.credential_list (credentials added via UI)
+         *     2. embrouter.credential_list (credentials added via UI)
          *     3. CURSOR_API_KEY environment variable
          */
         delete: operations["cursor_proxy_route_cursor__endpoint__delete"];
@@ -3911,7 +3911,7 @@ export interface paths {
          *
          *     Credential lookup order:
          *     1. passthrough_endpoint_router (config.yaml deployments with use_in_pass_through)
-         *     2. litellm.credential_list (credentials added via UI)
+         *     2. embrouter.credential_list (credentials added via UI)
          *     3. CURSOR_API_KEY environment variable
          */
         patch: operations["cursor_proxy_route_cursor__endpoint__patch"];
@@ -4018,7 +4018,7 @@ export interface paths {
          *
          *     Example curl:
          *     ```
-         *     curl -X GET 'http://localhost:4000/customer/info?end_user_id=test-litellm-user-4'         -H 'Authorization: Bearer sk-1234'
+         *     curl -X GET 'http://localhost:4000/customer/info?end_user_id=test-embrouter-user-4'         -H 'Authorization: Bearer sk-1234'
          *     ```
          */
         get: operations["end_user_info_customer_info_get"];
@@ -4087,7 +4087,7 @@ export interface paths {
          *     - soft_budget: Optional[float] - [Not Implemented Yet] Get alerts when customer crosses given budget, doesn't block requests.
          *     - spend: Optional[float] - Specify initial spend for a given customer.
          *     - budget_reset_at: Optional[str] - Specify the date and time when the budget should be reset.
-         *     - object_permission: Optional[LiteLLM_ObjectPermissionBase] - Customer-specific object permissions to control access to resources.
+         *     - object_permission: Optional[EmbRouter_ObjectPermissionBase] - Customer-specific object permissions to control access to resources.
          *         Supported fields:
          *         * mcp_servers: List[str] - List of allowed MCP server IDs
          *         * mcp_access_groups: List[str] - List of MCP access group names
@@ -4187,7 +4187,7 @@ export interface paths {
          *     - default_model: Optional[str] = (
          *         None  # if no equivalent model in allowed region - default all requests to this model
          *     )
-         *     - object_permission: Optional[LiteLLM_ObjectPermissionBase] - Customer-specific object permissions to control access to resources.
+         *     - object_permission: Optional[EmbRouter_ObjectPermissionBase] - Customer-specific object permissions to control access to resources.
          *         Supported fields:
          *         * mcp_servers: List[str] - List of allowed MCP server IDs
          *         * mcp_access_groups: List[str] - List of MCP access group names
@@ -4201,7 +4201,7 @@ export interface paths {
          *     Example curl:
          *     ```
          *     curl --location 'http://0.0.0.0:4000/customer/update'     --header 'Authorization: Bearer sk-1234'     --header 'Content-Type: application/json'     --data '{
-         *         "user_id": "test-litellm-user-4",
+         *         "user_id": "test-embrouter-user-4",
          *         "budget_id": "paid_tier"
          *     }'
          *
@@ -4370,8 +4370,8 @@ export interface paths {
         };
         /**
          * Get Debug Report
-         * @description The same LiteLLM-owned environment facts the bug report link puts in a GitHub issue:
-         *     versions, deployment kind, and config flags whose keys and values LiteLLM defines.
+         * @description The same EmbRouter-owned environment facts the bug report link puts in a GitHub issue:
+         *     versions, deployment kind, and config flags whose keys and values EmbRouter defines.
          *     Nothing from the operator's config values, request data, or errors
          *
          *     Example usage:
@@ -4578,7 +4578,7 @@ export interface paths {
          *
          *     Example curl:
          *     ```
-         *     curl -X GET 'http://localhost:4000/customer/info?end_user_id=test-litellm-user-4'         -H 'Authorization: Bearer sk-1234'
+         *     curl -X GET 'http://localhost:4000/customer/info?end_user_id=test-embrouter-user-4'         -H 'Authorization: Bearer sk-1234'
          *     ```
          */
         get: operations["end_user_info_end_user_info_get"];
@@ -4647,7 +4647,7 @@ export interface paths {
          *     - soft_budget: Optional[float] - [Not Implemented Yet] Get alerts when customer crosses given budget, doesn't block requests.
          *     - spend: Optional[float] - Specify initial spend for a given customer.
          *     - budget_reset_at: Optional[str] - Specify the date and time when the budget should be reset.
-         *     - object_permission: Optional[LiteLLM_ObjectPermissionBase] - Customer-specific object permissions to control access to resources.
+         *     - object_permission: Optional[EmbRouter_ObjectPermissionBase] - Customer-specific object permissions to control access to resources.
          *         Supported fields:
          *         * mcp_servers: List[str] - List of allowed MCP server IDs
          *         * mcp_access_groups: List[str] - List of MCP access group names
@@ -4747,7 +4747,7 @@ export interface paths {
          *     - default_model: Optional[str] = (
          *         None  # if no equivalent model in allowed region - default all requests to this model
          *     )
-         *     - object_permission: Optional[LiteLLM_ObjectPermissionBase] - Customer-specific object permissions to control access to resources.
+         *     - object_permission: Optional[EmbRouter_ObjectPermissionBase] - Customer-specific object permissions to control access to resources.
          *         Supported fields:
          *         * mcp_servers: List[str] - List of allowed MCP server IDs
          *         * mcp_access_groups: List[str] - List of MCP access group names
@@ -4761,7 +4761,7 @@ export interface paths {
          *     Example curl:
          *     ```
          *     curl --location 'http://0.0.0.0:4000/customer/update'     --header 'Authorization: Bearer sk-1234'     --header 'Content-Type: application/json'     --data '{
-         *         "user_id": "test-litellm-user-4",
+         *         "user_id": "test-embrouter-user-4",
          *         "budget_id": "paid_tier"
          *     }'
          *
@@ -4970,7 +4970,7 @@ export interface paths {
         /**
          * Fallback Login
          * @description Create Proxy API Keys using Google Workspace SSO. Requires setting PROXY_BASE_URL in .env
-         *     PROXY_BASE_URL should be the your deployed proxy endpoint, e.g. PROXY_BASE_URL="https://litellm-production-7002.up.railway.app/"
+         *     PROXY_BASE_URL should be the your deployed proxy endpoint, e.g. PROXY_BASE_URL="https://embrouter-production-7002.up.railway.app/"
          *     Example:
          */
         get: operations["fallback_login_fallback_login_get"];
@@ -5150,7 +5150,7 @@ export interface paths {
          *     This is the equivalent of GET https://api.openai.com/v1/fine_tuning/jobs
          *
          *     Supported Query Params:
-         *     - `custom_llm_provider`: Name of the LiteLLM provider
+         *     - `custom_llm_provider`: Name of the EmbRouter provider
          *     - `after`: Identifier for the last job from the previous pagination request.
          *     - `limit`: Number of fine-tuning jobs to retrieve (default is 20).
          */
@@ -5194,7 +5194,7 @@ export interface paths {
          *     This is the equivalent of GET https://api.openai.com/v1/fine_tuning/jobs/{fine_tuning_job_id}
          *
          *     Supported Query Params:
-         *     - `custom_llm_provider`: Name of the LiteLLM provider
+         *     - `custom_llm_provider`: Name of the EmbRouter provider
          *     - `fine_tuning_job_id`: The ID of the fine-tuning job to retrieve.
          */
         get: operations["retrieve_fine_tuning_job_fine_tuning_jobs__fine_tuning_job_id__get"];
@@ -5222,7 +5222,7 @@ export interface paths {
          *     This is the equivalent of POST https://api.openai.com/v1/fine_tuning/jobs/{fine_tuning_job_id}/cancel
          *
          *     Supported Query Params:
-         *     - `custom_llm_provider`: Name of the LiteLLM provider
+         *     - `custom_llm_provider`: Name of the EmbRouter provider
          *     - `fine_tuning_job_id`: The ID of the fine-tuning job to cancel.
          */
         post: operations["cancel_fine_tuning_job_fine_tuning_jobs__fine_tuning_job_id__cancel_post"];
@@ -5338,7 +5338,7 @@ export interface paths {
         };
         /**
          * Get Default Team Settings
-         * @description Get the default team parameters (litellm_settings.default_team_params).
+         * @description Get the default team parameters (embrouter_settings.default_team_params).
          *     Returns a structured object with values and descriptions for UI display.
          */
         get: operations["get_default_team_settings_get_default_team_settings_get"];
@@ -5359,7 +5359,7 @@ export interface paths {
         };
         /**
          * Get Internal User Settings
-         * @description Get all SSO settings from the litellm_settings configuration.
+         * @description Get all SSO settings from the embrouter_settings configuration.
          *     Returns a structured object with values and descriptions for UI display.
          */
         get: operations["get_internal_user_settings_get_internal_user_settings_get"];
@@ -5380,7 +5380,7 @@ export interface paths {
         };
         /**
          * Latest Release Info
-         * @description Latest stable LiteLLM GitHub release with its PR count split into new features, bug fixes and other updates.
+         * @description Latest stable EmbRouter GitHub release with its PR count split into new features, bug fixes and other updates.
          *     Returns null when GitHub can't be reached so the dashboard upgrade banner simply doesn't render.
          */
         get: operations["latest_release_info_get_latest_release_info_get"];
@@ -5422,7 +5422,7 @@ export interface paths {
         };
         /**
          * Get Mcp Tool Search Settings
-         * @description Get the `litellm_settings.mcp_tool_search` configuration used by the native `mcp_tool_search` virtual tool.
+         * @description Get the `embrouter_settings.mcp_tool_search` configuration used by the native `mcp_tool_search` virtual tool.
          */
         get: operations["get_mcp_tool_search_settings_get_mcp_tool_search_settings_get"];
         put?: never;
@@ -5484,7 +5484,7 @@ export interface paths {
         };
         /**
          * Get Ui Theme Settings
-         * @description Get UI theme configuration from the litellm_settings.
+         * @description Get UI theme configuration from the embrouter_settings.
          *     Returns current logo settings for UI customization.
          *
          *     Note: This endpoint is public (no authentication required) so all users can see custom branding.
@@ -6123,11 +6123,11 @@ export interface paths {
          * Global Spend Reset
          * @description ADMIN ONLY / MASTER KEY Only Endpoint
          *
-         *     Globally reset spend for All API Keys and Teams, maintain LiteLLM_SpendLogs
+         *     Globally reset spend for All API Keys and Teams, maintain EmbRouter_SpendLogs
          *
-         *     1. LiteLLM_SpendLogs will maintain the logs on spend, no data gets deleted from there
-         *     2. LiteLLM_VerificationTokens spend will be set = 0
-         *     3. LiteLLM_TeamTable spend will be set = 0
+         *     1. EmbRouter_SpendLogs will maintain the logs on spend, no data gets deleted from there
+         *     2. EmbRouter_VerificationTokens spend will be set = 0
+         *     3. EmbRouter_TeamTable spend will be set = 0
          */
         post: operations["global_spend_reset_global_spend_reset_post"];
         delete?: never;
@@ -6145,7 +6145,7 @@ export interface paths {
         };
         /**
          * Global View Spend Tags
-         * @description LiteLLM Enterprise - View Spend Per Request Tag. Used by LiteLLM UI
+         * @description EmbRouter Enterprise - View Spend Per Request Tag. Used by EmbRouter UI
          *
          *     Example Request:
          *     ```
@@ -6210,7 +6210,7 @@ export interface paths {
          *         -d '{
          *             "guardrail": {
          *                 "guardrail_name": "my-bedrock-guard",
-         *                 "litellm_params": {
+         *                 "embrouter_params": {
          *                     "guardrail": "bedrock",
          *                     "mode": "pre_call",
          *                     "guardrailIdentifier": "ff6ujrregl1q",
@@ -6229,7 +6229,7 @@ export interface paths {
          *     {
          *         "guardrail_id": "123e4567-e89b-12d3-a456-426614174000",
          *         "guardrail_name": "my-bedrock-guard",
-         *         "litellm_params": {
+         *         "embrouter_params": {
          *             "guardrail": "bedrock",
          *             "mode": "pre_call",
          *             "guardrailIdentifier": "ff6ujrregl1q",
@@ -6797,7 +6797,7 @@ export interface paths {
          *     {
          *         "guardrail_id": "123e4567-e89b-12d3-a456-426614174000",
          *         "guardrail_name": "my-bedrock-guard",
-         *         "litellm_params": {
+         *         "embrouter_params": {
          *             "guardrail": "bedrock",
          *             "mode": "pre_call",
          *             "guardrailIdentifier": "ff6ujrregl1q",
@@ -6826,7 +6826,7 @@ export interface paths {
          *         -d '{
          *             "guardrail": {
          *                 "guardrail_name": "updated-bedrock-guard",
-         *                 "litellm_params": {
+         *                 "embrouter_params": {
          *                     "guardrail": "bedrock",
          *                     "mode": "pre_call",
          *                     "guardrailIdentifier": "ff6ujrregl1q",
@@ -6845,7 +6845,7 @@ export interface paths {
          *     {
          *         "guardrail_id": "123e4567-e89b-12d3-a456-426614174000",
          *         "guardrail_name": "updated-bedrock-guard",
-         *         "litellm_params": {
+         *         "embrouter_params": {
          *             "guardrail": "bedrock",
          *             "mode": "pre_call",
          *             "guardrailIdentifier": "ff6ujrregl1q",
@@ -6913,7 +6913,7 @@ export interface paths {
          *     {
          *         "guardrail_id": "123e4567-e89b-12d3-a456-426614174000",
          *         "guardrail_name": "updated-name",
-         *         "litellm_params": {
+         *         "embrouter_params": {
          *             "guardrail": "bedrock",
          *             "mode": "pre_call",
          *             "guardrailIdentifier": "ff6ujrregl1q",
@@ -6954,7 +6954,7 @@ export interface paths {
          *     {
          *         "guardrail_id": "123e4567-e89b-12d3-a456-426614174000",
          *         "guardrail_name": "my-bedrock-guard",
-         *         "litellm_params": {
+         *         "embrouter_params": {
          *             "guardrail": "bedrock",
          *             "mode": "pre_call",
          *             "guardrailIdentifier": "ff6ujrregl1q",
@@ -7028,7 +7028,7 @@ export interface paths {
          *
          *     Use this to measure per-pod queue depth. A high value means the worker is
          *     processing many concurrent requests — requests arriving now will have to wait
-         *     for the event loop to get to them, adding latency before LiteLLM even starts
+         *     for the event loop to get to them, adding latency before EmbRouter even starts
          *     its own timer.
          */
         get: operations["health_backlog_health_backlog_get"];
@@ -7145,7 +7145,7 @@ export interface paths {
         };
         /**
          * Health License Endpoint
-         * @description Return metadata about the configured LiteLLM license without exposing the key.
+         * @description Return metadata about the configured EmbRouter license without exposing the key.
          */
         get: operations["health_license_endpoint_health_license_get"];
         put?: never;
@@ -7328,7 +7328,7 @@ export interface paths {
          *       -H 'Authorization: Bearer sk-1234' \
          *       -H 'Content-Type: application/json' \
          *       -d '{
-         *         "litellm_params": {
+         *         "embrouter_params": {
          *             "model": "gpt-4o"
          *         },
          *         "mode": "chat"
@@ -7341,7 +7341,7 @@ export interface paths {
          *       -H 'Authorization: Bearer sk-1234' \
          *       -H 'Content-Type: application/json' \
          *       -d '{
-         *         "litellm_params": {
+         *         "embrouter_params": {
          *             "model": "azure/gpt-4o",
          *             "api_key": "os.environ/AZURE_OPENAI_API_KEY",
          *             "api_base": "os.environ/AZURE_OPENAI_ENDPOINT",
@@ -7354,7 +7354,7 @@ export interface paths {
          *     Note:
          *     - If the model is configured in proxy_config.yaml, credentials (api_key, api_base, etc.)
          *       will be automatically loaded from the config (with resolved environment variables).
-         *     - A request naming a stored credential (`litellm_credential_name`) that the configuration
+         *     - A request naming a stored credential (`embrouter_credential_name`) that the configuration
          *       does not name is probed with that credential instead, and inherits no credentials
          *       from the configuration its model string happened to match.
          *     - You can override specific params by including them in the request.
@@ -7509,7 +7509,7 @@ export interface paths {
          * Introspect Endpoint
          * @description RFC 7662 introspection for gateway-issued session tokens (``llm_session_`` /
          *     ``llm_srefresh_``), so an external gateway can validate them without the signing
-         *     secret. The caller authenticates with a LiteLLM virtual key (section 2.1, enforced by
+         *     secret. The caller authenticates with a EmbRouter virtual key (section 2.1, enforced by
          *     the route dependency); any token the gateway cannot vouch for answers
          *     ``{"active": false}`` with no further detail.
          */
@@ -7535,7 +7535,7 @@ export interface paths {
          *
          *     ```
          *     curl -X POST 'http://localhost:4000/invitation/delete'         -H 'Content-Type: application/json'         -d '{
-         *             "invitation_id": "1234" // 👈 id of invitation in 'LiteLLM_InvitationTable'
+         *             "invitation_id": "1234" // 👈 id of invitation in 'EmbRouter_InvitationTable'
          *         }'
          *     ```
          */
@@ -7559,7 +7559,7 @@ export interface paths {
          *
          *     ```
          *     curl -X POST 'http://localhost:4000/invitation/new'         -H 'Content-Type: application/json'         -d '{
-         *             "user_id": "1234" // 👈 id of user in 'LiteLLM_UserTable'
+         *             "user_id": "1234" // 👈 id of user in 'EmbRouter_UserTable'
          *         }'
          *     ```
          */
@@ -7587,7 +7587,7 @@ export interface paths {
          *
          *     ```
          *     curl -X POST 'http://localhost:4000/invitation/new'         -H 'Content-Type: application/json'         -d '{
-         *             "user_id": "1234" // 👈 id of user in 'LiteLLM_UserTable'
+         *             "user_id": "1234" // 👈 id of user in 'EmbRouter_UserTable'
          *         }'
          *     ```
          */
@@ -7613,7 +7613,7 @@ export interface paths {
          *
          *     ```
          *     curl -X POST 'http://localhost:4000/invitation/update'         -H 'Content-Type: application/json'         -d '{
-         *             "invitation_id": "1234" // 👈 id of invitation in 'LiteLLM_InvitationTable'
+         *             "invitation_id": "1234" // 👈 id of invitation in 'EmbRouter_InvitationTable'
          *             "is_accepted": True // when invitation is accepted
          *         }'
          *     ```
@@ -7797,7 +7797,7 @@ export interface paths {
          *         - max_budget: Optional[float] - Max budget for key
          *         - team_id: Optional[str] - Team ID associated with key
          *         - tags: Optional[List[str]] - Tags for organizing keys
-         *         - object_permission: Optional[LiteLLM_ObjectPermissionBase] - key-specific object permission, as on /key/update
+         *         - object_permission: Optional[EmbRouter_ObjectPermissionBase] - key-specific object permission, as on /key/update
          *
          *     Only the fields an item carries are written: a field left out keeps its current value, and a field
          *     sent explicitly, null included, is applied exactly as /key/update applies it.
@@ -7894,7 +7894,7 @@ export interface paths {
          *     - organization_id: Optional[str] - The organization id of the key. If not set, and team_id is set, the organization id will be the same as the team id. If conflict, an error will be raised.
          *     - project_id: Optional[str] - The project id of the key. When set, models and max_budget are validated against the project's limits.
          *     - budget_id: Optional[str] - The budget id associated with the key. Created by calling `/budget/new`.
-         *     - end_user_budget_id: Optional[str] - Proxy admin only. Budget id applied to end users first seen through this key that carry no budget of their own. Takes precedence over `litellm_settings.max_end_user_budget_id`.
+         *     - end_user_budget_id: Optional[str] - Proxy admin only. Budget id applied to end users first seen through this key that carry no budget of their own. Takes precedence over `embrouter_settings.max_end_user_budget_id`.
          *     - models: Optional[list] - Model_name's a user is allowed to call. (if empty, key is allowed to call all models)
          *     - aliases: Optional[dict] - Any alias mappings, on top of anything in the config.yaml model list.
          *     - config: Optional[dict] - any key-specific configs, overrides config in config.yaml
@@ -7926,13 +7926,13 @@ export interface paths {
          *     - tpm_limit: Optional[int] - Specify tpm limit for a given key (Tokens per minute)
          *     - tpd_limit: Optional[int] - Specify tpd limit for a given key (Tokens per day). Charged by batch submissions instead of tpm_limit/rpm_limit.
          *     - soft_budget: Optional[float] - Specify soft budget for a given key. Will trigger a slack alert when this soft budget is reached.
-         *     - tags: Optional[List[str]] - Tags for [tracking spend](https://litellm.vercel.app/docs/proxy/enterprise#tracking-spend-for-custom-tags) and/or doing [tag-based routing](https://litellm.vercel.app/docs/proxy/tag_routing).
+         *     - tags: Optional[List[str]] - Tags for [tracking spend](https://embrouter.vercel.app/docs/proxy/enterprise#tracking-spend-for-custom-tags) and/or doing [tag-based routing](https://embrouter.vercel.app/docs/proxy/tag_routing).
          *     - prompts: Optional[List[str]] - List of prompts that the key is allowed to use.
          *     - enforced_params: Optional[List[str]] - List of enforced params for the key (Enterprise only).
          *     - prompts: Optional[List[str]] - List of prompts that the key is allowed to use.
          *     - allowed_routes: Optional[list] - List of allowed routes for the key. Store the actual route or store a wildcard pattern for a set of routes. Example - ["/chat/completions", "/embeddings", "/keys/*"]
          *     - allowed_passthrough_routes: Optional[list] - List of allowed pass through endpoints for the key. Store the actual endpoint or store a wildcard pattern for a set of endpoints. Example - ["/my-custom-endpoint"]. Use this instead of allowed_routes, if you just want to specify which pass through endpoints the key can access, without specifying the routes. If allowed_routes is specified, allowed_pass_through_endpoints is ignored.
-         *     - object_permission: Optional[LiteLLM_ObjectPermissionBase] - key-specific object permission. Example - {"vector_stores": ["vector_store_1", "vector_store_2"], "agents": ["agent_1", "agent_2"], "agent_access_groups": ["dev_group"]}. IF null or {} then no object permission.
+         *     - object_permission: Optional[EmbRouter_ObjectPermissionBase] - key-specific object permission. Example - {"vector_stores": ["vector_store_1", "vector_store_2"], "agents": ["agent_1", "agent_2"], "agent_access_groups": ["dev_group"]}. IF null or {} then no object permission.
          *     - key_type: Optional[str] - Type of key that determines default allowed routes. Options: "llm_api" (can call LLM API routes), "management" (can call management routes), "read_only" (can only call info/read routes), "default" (uses default allowed routes). Defaults to "default".
          *     - prompts: Optional[List[str]] - List of allowed prompts for the key. If specified, the key will only be able to use these specific prompts.
          *     - auto_rotate: Optional[bool] - Whether this key should be automatically rotated (regenerated)
@@ -8044,7 +8044,7 @@ export interface paths {
          *     Returns:
          *     - key: str - The key that was looked up, echoed back as it was passed in
          *     - info: dict - The key's row, minus the hashed token. Deleted keys are served from the
-         *       LiteLLM_DeletedVerificationToken archive and carry deleted_at / deleted_by
+         *       EmbRouter_DeletedVerificationToken archive and carry deleted_at / deleted_by
          *         - status: "active" | "expired" | "revoked" | "deleted" - Derived from blocked, expires and
          *           whether the row came from the archive
          *         - key_alias: str | None - User-friendly key alias
@@ -8105,7 +8105,7 @@ export interface paths {
          *     Parameters:
          *         expand: Optional[List[str]] - Expand related objects (e.g. 'user' to include user information)
          *         status: Optional[str] - Filter by status: "active", "expired", "revoked" (blocked) or "deleted".
-         *         "deleted" reads the LiteLLM_DeletedVerificationToken archive; the other values partition the
+         *         "deleted" reads the EmbRouter_DeletedVerificationToken archive; the other values partition the
          *         live key table, so every live key matches exactly one of them.
          *
          *     Returns:
@@ -8169,7 +8169,7 @@ export interface paths {
          *         - permissions: Optional[dict] - Key-specific permissions
          *         - guardrails: Optional[List[str]] - List of active guardrails for the key
          *         - blocked: Optional[bool] - Whether the key is blocked
-         *         - grace_period: Optional[str] - Duration to keep old key valid after rotation (e.g. "24h", "2d"). Omitted = immediate revoke. Env: LITELLM_KEY_ROTATION_GRACE_PERIOD
+         *         - grace_period: Optional[str] - Duration to keep old key valid after rotation (e.g. "24h", "2d"). Omitted = immediate revoke. Env: EMBROUTER_KEY_ROTATION_GRACE_PERIOD
          *
          *
          *     Returns:
@@ -8245,10 +8245,10 @@ export interface paths {
          *     - tpm_limit: Optional[int] - Specify tpm limit for a given key (Tokens per minute)
          *     - tpd_limit: Optional[int] - Specify tpd limit for a given key (Tokens per day). Charged by batch submissions instead of tpm_limit/rpm_limit.
          *     - soft_budget: Optional[float] - Specify soft budget for a given key. Will trigger a slack alert when this soft budget is reached.
-         *     - tags: Optional[List[str]] - Tags for [tracking spend](https://litellm.vercel.app/docs/proxy/enterprise#tracking-spend-for-custom-tags) and/or doing [tag-based routing](https://litellm.vercel.app/docs/proxy/tag_routing).
+         *     - tags: Optional[List[str]] - Tags for [tracking spend](https://embrouter.vercel.app/docs/proxy/enterprise#tracking-spend-for-custom-tags) and/or doing [tag-based routing](https://embrouter.vercel.app/docs/proxy/tag_routing).
          *     - enforced_params: Optional[List[str]] - List of enforced params for the key (Enterprise only).
          *     - allowed_routes: Optional[list] - List of allowed routes for the key. Store the actual route or store a wildcard pattern for a set of routes. Example - ["/chat/completions", "/embeddings", "/keys/*"]
-         *     - object_permission: Optional[LiteLLM_ObjectPermissionBase] - key-specific object permission. Example - {"vector_stores": ["vector_store_1", "vector_store_2"], "agents": ["agent_1", "agent_2"], "agent_access_groups": ["dev_group"]}. IF null or {} then no object permission.
+         *     - object_permission: Optional[EmbRouter_ObjectPermissionBase] - key-specific object permission. Example - {"vector_stores": ["vector_store_1", "vector_store_2"], "agents": ["agent_1", "agent_2"], "agent_access_groups": ["dev_group"]}. IF null or {} then no object permission.
          *     Examples:
          *     - allowed_vector_store_indexes: Optional[List[dict]] - List of allowed vector store indexes for the key. Example - [{"index_name": "my-index", "index_permissions": ["write", "read"]}]. If specified, the key will only be able to use these specific vector store indexes. Create index, using `/v1/indexes` endpoint.
          *
@@ -8391,14 +8391,14 @@ export interface paths {
          *     - enable_prompt_caching: Optional[bool] - Auto-inject prompt caching breakpoints (Anthropic cache_control markers) on requests made with this key. Supported Claude models on Anthropic, Bedrock, Vertex AI, and Azure AI only.
          *     - prompts: Optional[List[str]] - List of prompts that the key is allowed to use.
          *     - blocked: Optional[bool] - Whether the key is blocked
-         *     - aliases: Optional[dict] - Model aliases for the key - [Docs](https://litellm.vercel.app/docs/proxy/virtual_keys#model-aliases)
+         *     - aliases: Optional[dict] - Model aliases for the key - [Docs](https://embrouter.vercel.app/docs/proxy/virtual_keys#model-aliases)
          *     - config: Optional[dict] - [DEPRECATED PARAM] Key-specific config.
          *     - temp_budget_increase: Optional[float] - Temporary budget increase for the key (Enterprise only).
          *     - temp_budget_expiry: Optional[str] - Expiry time for the temporary budget increase (Enterprise only).
          *     - allowed_routes: Optional[list] - List of allowed routes for the key. Store the actual route or store a wildcard pattern for a set of routes. Example - ["/chat/completions", "/embeddings", "/keys/*"]
          *     - allowed_passthrough_routes: Optional[list] - List of allowed pass through routes for the key. Store the actual route or store a wildcard pattern for a set of routes. Example - ["/my-custom-endpoint"]. Use this instead of allowed_routes, if you just want to specify which pass through routes the key can access, without specifying the routes. If allowed_routes is specified, allowed_passthrough_routes is ignored.
          *     - prompts: Optional[List[str]] - List of allowed prompts for the key. If specified, the key will only be able to use these specific prompts.
-         *     - object_permission: Optional[LiteLLM_ObjectPermissionBase] - key-specific object permission. Example - {"vector_stores": ["vector_store_1", "vector_store_2"], "agents": ["agent_1", "agent_2"], "agent_access_groups": ["dev_group"]}. IF null or {} then no object permission.
+         *     - object_permission: Optional[EmbRouter_ObjectPermissionBase] - key-specific object permission. Example - {"vector_stores": ["vector_store_1", "vector_store_2"], "agents": ["agent_1", "agent_2"], "agent_access_groups": ["dev_group"]}. IF null or {} then no object permission.
          *     - auto_rotate: Optional[bool] - Whether this key should be automatically rotated
          *     - rotation_interval: Optional[str] - How often to rotate this key (e.g., '30d', '90d'). Required if auto_rotate=True
          *     - allowed_vector_store_indexes: Optional[List[dict]] - List of allowed vector store indexes for the key. Example - [{"index_name": "my-index", "index_permissions": ["write", "read"]}]. If specified, the key will only be able to use these specific vector store indexes. Create index, using `/v1/indexes` endpoint.
@@ -8466,7 +8466,7 @@ export interface paths {
          *         - permissions: Optional[dict] - Key-specific permissions
          *         - guardrails: Optional[List[str]] - List of active guardrails for the key
          *         - blocked: Optional[bool] - Whether the key is blocked
-         *         - grace_period: Optional[str] - Duration to keep old key valid after rotation (e.g. "24h", "2d"). Omitted = immediate revoke. Env: LITELLM_KEY_ROTATION_GRACE_PERIOD
+         *         - grace_period: Optional[str] - Duration to keep old key valid after rotation (e.g. "24h", "2d"). Omitted = immediate revoke. Env: EMBROUTER_KEY_ROTATION_GRACE_PERIOD
          *
          *
          *     Returns:
@@ -8516,25 +8516,25 @@ export interface paths {
         };
         /**
          * Langfuse Proxy Route
-         * @description Call Langfuse via LiteLLM proxy. Works with Langfuse SDK.
+         * @description Call Langfuse via EmbRouter proxy. Works with Langfuse SDK.
          *
          */
         get: operations["langfuse_proxy_route_langfuse__endpoint__get"];
         /**
          * Langfuse Proxy Route
-         * @description Call Langfuse via LiteLLM proxy. Works with Langfuse SDK.
+         * @description Call Langfuse via EmbRouter proxy. Works with Langfuse SDK.
          *
          */
         put: operations["langfuse_proxy_route_langfuse__endpoint__put"];
         /**
          * Langfuse Proxy Route
-         * @description Call Langfuse via LiteLLM proxy. Works with Langfuse SDK.
+         * @description Call Langfuse via EmbRouter proxy. Works with Langfuse SDK.
          *
          */
         post: operations["langfuse_proxy_route_langfuse__endpoint__post"];
         /**
          * Langfuse Proxy Route
-         * @description Call Langfuse via LiteLLM proxy. Works with Langfuse SDK.
+         * @description Call Langfuse via EmbRouter proxy. Works with Langfuse SDK.
          *
          */
         delete: operations["langfuse_proxy_route_langfuse__endpoint__delete"];
@@ -8542,7 +8542,7 @@ export interface paths {
         head?: never;
         /**
          * Langfuse Proxy Route
-         * @description Call Langfuse via LiteLLM proxy. Works with Langfuse SDK.
+         * @description Call Langfuse via EmbRouter proxy. Works with Langfuse SDK.
          *
          */
         patch: operations["langfuse_proxy_route_langfuse__endpoint__patch"];
@@ -8565,7 +8565,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/litellm/.well-known/litellm-ui-config": {
+    "/embrouter/.well-known/embrouter-ui-config": {
         parameters: {
             query?: never;
             header?: never;
@@ -8573,7 +8573,7 @@ export interface paths {
             cookie?: never;
         };
         /** Get Ui Config */
-        get: operations["get_ui_config_litellm__well_known_litellm_ui_config_get"];
+        get: operations["get_ui_config_embrouter__well_known_embrouter_ui_config_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -9235,7 +9235,7 @@ export interface paths {
          *     Response fields:
          *     - source: "local" (bundled backup) or "remote" (fetched from URL)
          *     - url: the remote URL that was attempted (null when env-forced local)
-         *     - is_env_forced: true if LITELLM_LOCAL_MODEL_COST_MAP=True forced local usage
+         *     - is_env_forced: true if EMBROUTER_LOCAL_MODEL_COST_MAP=True forced local usage
          *     - fallback_reason: human-readable reason why remote failed (null on success)
          *     - loaded_at: when this pod last loaded the map
          *     - source_revision: git blob id of the loaded file, what git rev-parse <commit>:<path> prints for it
@@ -9325,10 +9325,10 @@ export interface paths {
          * @description Provides more info about each model in /models, including config.yaml descriptions (except api key and api base)
          *
          *     Parameters:
-         *         litellm_model_id: Optional[str] = None (this is the value of `x-litellm-model-id` returned in response headers)
+         *         embrouter_model_id: Optional[str] = None (this is the value of `x-embrouter-model-id` returned in response headers)
          *
-         *         - When litellm_model_id is passed, it will return the info for that specific model
-         *         - When litellm_model_id is not passed, it will return the info for all models
+         *         - When embrouter_model_id is passed, it will return the info for that specific model
+         *         - When embrouter_model_id is not passed, it will return the info for all models
          *         - include_team_models: When true, filter to deployments the caller can use (same as /v2/model/info).
          *         - teamId: Filter to models accessible by the given team.
          *         - healthy_only: When true, hide models whose backing deployments are all marked
@@ -9337,7 +9337,7 @@ export interface paths {
          *           caller without the query parameter. Requires `background_health_checks: true`,
          *           plus either `model_list_healthy_only` or `enable_health_check_routing` to keep
          *           deployment health state cached; without health state the listing is returned
-         *           unfiltered (fail open). Ignored when `litellm_model_id` is passed, since that
+         *           unfiltered (fail open). Ignored when `embrouter_model_id` is passed, since that
          *           is a direct lookup of one deployment rather than a listing. Hiding is
          *           presentation-only: a hidden model can still be called directly.
          *
@@ -9353,7 +9353,7 @@ export interface paths {
          *         "data": [
          *                     {
          *                         "model_name": "fake-openai-endpoint",
-         *                         "litellm_params": {
+         *                         "embrouter_params": {
          *                             "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
          *                             "model": "openai/fake"
          *                         },
@@ -9582,7 +9582,7 @@ export interface paths {
         };
         /**
          * Model Group Info
-         * @description Get information about all the deployments on litellm proxy, including config.yaml descriptions (except api key and api base)
+         * @description Get information about all the deployments on embrouter proxy, including config.yaml descriptions (except api key and api base)
          *
          *     - /model_group/info returns all model groups. End users of proxy should use /model_group/info since those models will be used for /chat/completions, /embeddings, etc.
          *     - /model_group/info?model_group=rerank-english-v3.0 returns all model groups for a specific model group (`model_name` in config.yaml)
@@ -9943,7 +9943,7 @@ export interface paths {
         };
         /**
          * Nvidia Nim Proxy Route
-         * @description Relay a native NVIDIA NIM request through a LiteLLM model group.
+         * @description Relay a native NVIDIA NIM request through a EmbRouter model group.
          *
          *     `{PROXY_BASE_URL}/nvidia_nim/{model_group}/v1/infer` forwards the body unchanged to the deployment's
          *     `api_base`, so object detection and OCR NIMs whose payload carries no `model` field still go through
@@ -9952,7 +9952,7 @@ export interface paths {
         get: operations["nvidia_nim_proxy_route_nvidia_nim__endpoint__get"];
         /**
          * Nvidia Nim Proxy Route
-         * @description Relay a native NVIDIA NIM request through a LiteLLM model group.
+         * @description Relay a native NVIDIA NIM request through a EmbRouter model group.
          *
          *     `{PROXY_BASE_URL}/nvidia_nim/{model_group}/v1/infer` forwards the body unchanged to the deployment's
          *     `api_base`, so object detection and OCR NIMs whose payload carries no `model` field still go through
@@ -9961,7 +9961,7 @@ export interface paths {
         put: operations["nvidia_nim_proxy_route_nvidia_nim__endpoint__put"];
         /**
          * Nvidia Nim Proxy Route
-         * @description Relay a native NVIDIA NIM request through a LiteLLM model group.
+         * @description Relay a native NVIDIA NIM request through a EmbRouter model group.
          *
          *     `{PROXY_BASE_URL}/nvidia_nim/{model_group}/v1/infer` forwards the body unchanged to the deployment's
          *     `api_base`, so object detection and OCR NIMs whose payload carries no `model` field still go through
@@ -9970,7 +9970,7 @@ export interface paths {
         post: operations["nvidia_nim_proxy_route_nvidia_nim__endpoint__post"];
         /**
          * Nvidia Nim Proxy Route
-         * @description Relay a native NVIDIA NIM request through a LiteLLM model group.
+         * @description Relay a native NVIDIA NIM request through a EmbRouter model group.
          *
          *     `{PROXY_BASE_URL}/nvidia_nim/{model_group}/v1/infer` forwards the body unchanged to the deployment's
          *     `api_base`, so object detection and OCR NIMs whose payload carries no `model` field still go through
@@ -9981,7 +9981,7 @@ export interface paths {
         head?: never;
         /**
          * Nvidia Nim Proxy Route
-         * @description Relay a native NVIDIA NIM request through a LiteLLM model group.
+         * @description Relay a native NVIDIA NIM request through a EmbRouter model group.
          *
          *     `{PROXY_BASE_URL}/nvidia_nim/{model_group}/v1/infer` forwards the body unchanged to the deployment's
          *     `api_base`, so object detection and OCR NIMs whose payload carries no `model` field still go through
@@ -10021,7 +10021,7 @@ export interface paths {
          *     curl -X POST "http://localhost:4000/v1/ocr"         -H "Authorization: Bearer sk-1234"         -F "model=mistral-ocr"         -F "file=@document.pdf"
          *     ```
          *
-         *     Response format is normalized to the LiteLLM OCR schema by default. Providers
+         *     Response format is normalized to the EmbRouter OCR schema by default. Providers
          *     that support it (Azure Document Intelligence) can return their own payload
          *     instead, with cost tracking unchanged, via `x-req-format: native` (or
          *     `"req_format": "native"` in the body).
@@ -10414,14 +10414,14 @@ export interface paths {
          * @description Get a response by ID.
          *
          *     Supports both:
-         *     - Polling IDs (litellm_poll_*): Returns cumulative cached content from background responses
+         *     - Polling IDs (embrouter_poll_*): Returns cumulative cached content from background responses
          *     - Provider response IDs: Passes through to provider API
          *
          *     Follows the OpenAI Responses API spec: https://platform.openai.com/docs/api-reference/responses/get
          *
          *     ```bash
          *     # Get polling response
-         *     curl -X GET http://localhost:4000/v1/responses/litellm_poll_abc123     -H "Authorization: Bearer sk-1234"
+         *     curl -X GET http://localhost:4000/v1/responses/embrouter_poll_abc123     -H "Authorization: Bearer sk-1234"
          *
          *     # Get provider response
          *     curl -X GET http://localhost:4000/v1/responses/resp_abc123     -H "Authorization: Bearer sk-1234"
@@ -10435,7 +10435,7 @@ export interface paths {
          * @description Delete a response by ID.
          *
          *     Supports both:
-         *     - Polling IDs (litellm_poll_*): Deletes from Redis cache
+         *     - Polling IDs (embrouter_poll_*): Deletes from Redis cache
          *     - Provider response IDs: Passes through to provider API
          *
          *     Follows the OpenAI Responses API spec: https://platform.openai.com/docs/api-reference/responses/delete
@@ -10464,14 +10464,14 @@ export interface paths {
          * @description Cancel a response by ID.
          *
          *     Supports both:
-         *     - Polling IDs (litellm_poll_*): Cancels background response and updates status in Redis
+         *     - Polling IDs (embrouter_poll_*): Cancels background response and updates status in Redis
          *     - Provider response IDs: Passes through to provider API
          *
          *     Follows the OpenAI Responses API spec: https://platform.openai.com/docs/api-reference/responses/cancel
          *
          *     ```bash
          *     # Cancel polling response
-         *     curl -X POST http://localhost:4000/v1/responses/litellm_poll_abc123/cancel     -H "Authorization: Bearer sk-1234"
+         *     curl -X POST http://localhost:4000/v1/responses/embrouter_poll_abc123/cancel     -H "Authorization: Bearer sk-1234"
          *
          *     # Cancel provider response
          *     curl -X POST http://localhost:4000/v1/responses/resp_abc123/cancel     -H "Authorization: Bearer sk-1234"
@@ -10520,7 +10520,7 @@ export interface paths {
          *     - /openai_passthrough/{endpoint:path} - Dedicated passthrough route (recommended for Responses API)
          *
          *     Use /openai_passthrough/* when you need guaranteed passthrough to OpenAI without conflicts
-         *     with LiteLLM's native implementations (e.g., for the Responses API at /v1/responses).
+         *     with EmbRouter's native implementations (e.g., for the Responses API at /v1/responses).
          *
          *     Examples:
          *         Standard route:
@@ -10544,7 +10544,7 @@ export interface paths {
          *     - /openai_passthrough/{endpoint:path} - Dedicated passthrough route (recommended for Responses API)
          *
          *     Use /openai_passthrough/* when you need guaranteed passthrough to OpenAI without conflicts
-         *     with LiteLLM's native implementations (e.g., for the Responses API at /v1/responses).
+         *     with EmbRouter's native implementations (e.g., for the Responses API at /v1/responses).
          *
          *     Examples:
          *         Standard route:
@@ -10568,7 +10568,7 @@ export interface paths {
          *     - /openai_passthrough/{endpoint:path} - Dedicated passthrough route (recommended for Responses API)
          *
          *     Use /openai_passthrough/* when you need guaranteed passthrough to OpenAI without conflicts
-         *     with LiteLLM's native implementations (e.g., for the Responses API at /v1/responses).
+         *     with EmbRouter's native implementations (e.g., for the Responses API at /v1/responses).
          *
          *     Examples:
          *         Standard route:
@@ -10592,7 +10592,7 @@ export interface paths {
          *     - /openai_passthrough/{endpoint:path} - Dedicated passthrough route (recommended for Responses API)
          *
          *     Use /openai_passthrough/* when you need guaranteed passthrough to OpenAI without conflicts
-         *     with LiteLLM's native implementations (e.g., for the Responses API at /v1/responses).
+         *     with EmbRouter's native implementations (e.g., for the Responses API at /v1/responses).
          *
          *     Examples:
          *         Standard route:
@@ -10618,7 +10618,7 @@ export interface paths {
          *     - /openai_passthrough/{endpoint:path} - Dedicated passthrough route (recommended for Responses API)
          *
          *     Use /openai_passthrough/* when you need guaranteed passthrough to OpenAI without conflicts
-         *     with LiteLLM's native implementations (e.g., for the Responses API at /v1/responses).
+         *     with EmbRouter's native implementations (e.g., for the Responses API at /v1/responses).
          *
          *     Examples:
          *         Standard route:
@@ -10644,7 +10644,7 @@ export interface paths {
         };
         /**
          * Openai Passthrough Route
-         * @description Dedicated pass-through to the OpenAI API with no overlap with LiteLLM's native
+         * @description Dedicated pass-through to the OpenAI API with no overlap with EmbRouter's native
          *     implementations (e.g. the Responses API at /v1/responses).
          *
          *     Examples:
@@ -10656,7 +10656,7 @@ export interface paths {
         get: operations["openai_passthrough_route_openai_passthrough__endpoint__get"];
         /**
          * Openai Passthrough Route
-         * @description Dedicated pass-through to the OpenAI API with no overlap with LiteLLM's native
+         * @description Dedicated pass-through to the OpenAI API with no overlap with EmbRouter's native
          *     implementations (e.g. the Responses API at /v1/responses).
          *
          *     Examples:
@@ -10668,7 +10668,7 @@ export interface paths {
         put: operations["openai_passthrough_route_openai_passthrough__endpoint__put"];
         /**
          * Openai Passthrough Route
-         * @description Dedicated pass-through to the OpenAI API with no overlap with LiteLLM's native
+         * @description Dedicated pass-through to the OpenAI API with no overlap with EmbRouter's native
          *     implementations (e.g. the Responses API at /v1/responses).
          *
          *     Examples:
@@ -10680,7 +10680,7 @@ export interface paths {
         post: operations["openai_passthrough_route_openai_passthrough__endpoint__post"];
         /**
          * Openai Passthrough Route
-         * @description Dedicated pass-through to the OpenAI API with no overlap with LiteLLM's native
+         * @description Dedicated pass-through to the OpenAI API with no overlap with EmbRouter's native
          *     implementations (e.g. the Responses API at /v1/responses).
          *
          *     Examples:
@@ -10694,7 +10694,7 @@ export interface paths {
         head?: never;
         /**
          * Openai Passthrough Route
-         * @description Dedicated pass-through to the OpenAI API with no overlap with LiteLLM's native
+         * @description Dedicated pass-through to the OpenAI API with no overlap with EmbRouter's native
          *     implementations (e.g. the Responses API at /v1/responses).
          *
          *     Examples:
@@ -10854,7 +10854,7 @@ export interface paths {
          *
          *     - organization_id: str (required)
          *     - member: Union[List[Member], Member] (required)
-         *         - role: Literal[LitellmUserRoles] (required)
+         *         - role: Literal[EmbrouterUserRoles] (required)
          *         - user_id: Optional[str]
          *         - user_email: Optional[str]
          *
@@ -10875,8 +10875,8 @@ export interface paths {
          *     The following is executed in this function:
          *
          *     1. Check if organization exists
-         *     2. Creates a new Internal User if the user_id or user_email is not found in LiteLLM_UserTable
-         *     3. Add Internal User to the `LiteLLM_OrganizationMembership` table
+         *     2. Creates a new Internal User if the user_id or user_email is not found in EmbRouter_UserTable
+         *     3. Add Internal User to the `EmbRouter_OrganizationMembership` table
          */
         post: operations["organization_member_add_organization_member_add_post"];
         delete?: never;
@@ -10960,10 +10960,10 @@ export interface paths {
          *     - budget_duration: *Optional[str]* - Frequency of reseting org budget
          *     - metadata: *Optional[dict]* - Metadata for organization, store information for organization. Example metadata - {"extra_info": "some info"}
          *     - blocked: *bool* - Flag indicating if the org is blocked or not - will stop all calls from keys with this org_id.
-         *     - tags: *Optional[List[str]]* - Tags for [tracking spend](https://litellm.vercel.app/docs/proxy/enterprise#tracking-spend-for-custom-tags) and/or doing [tag-based routing](https://litellm.vercel.app/docs/proxy/tag_routing).
+         *     - tags: *Optional[List[str]]* - Tags for [tracking spend](https://embrouter.vercel.app/docs/proxy/enterprise#tracking-spend-for-custom-tags) and/or doing [tag-based routing](https://embrouter.vercel.app/docs/proxy/tag_routing).
          *     - organization_id: *Optional[str]* - The organization id of the team. Default is None. Create via `/organization/new`.
          *     - model_aliases: Optional[dict] - Model aliases for the team.
-         *     - object_permission: Optional[LiteLLM_ObjectPermissionBase] - organization-specific object permission. Example - {"vector_stores": ["vector_store_1", "vector_store_2"]}. IF null or {} then no object permission.
+         *     - object_permission: Optional[EmbRouter_ObjectPermissionBase] - organization-specific object permission. Example - {"vector_stores": ["vector_store_1", "vector_store_2"]}. IF null or {} then no object permission.
          *     - allowed_models: Optional[List[str]] - List of models the organization is allowed to access. If not set, defaults to the models field.
          *     - temp_budget_increase: *Optional[float]* - Stored on the org budget row but only enforced for team member budgets today.
          *     - temp_budget_expiry: *Optional[str]* - Stored on the org budget row but only enforced for team member budgets today.
@@ -11080,8 +11080,8 @@ export interface paths {
          *     talk to the plugin service directly via the iframe; this route is for
          *     administrative and server-to-server access only.
          *
-         *     The caller's litellm credential is stripped and replaced with the
-         *     plugin's own plugin_key so plugins never receive a live litellm API key.
+         *     The caller's embrouter credential is stripped and replaced with the
+         *     plugin's own plugin_key so plugins never receive a live embrouter API key.
          */
         get: operations["plugin_proxy_plugin_proxy__plugin_name___path__get"];
         /**
@@ -11093,8 +11093,8 @@ export interface paths {
          *     talk to the plugin service directly via the iframe; this route is for
          *     administrative and server-to-server access only.
          *
-         *     The caller's litellm credential is stripped and replaced with the
-         *     plugin's own plugin_key so plugins never receive a live litellm API key.
+         *     The caller's embrouter credential is stripped and replaced with the
+         *     plugin's own plugin_key so plugins never receive a live embrouter API key.
          */
         put: operations["plugin_proxy_plugin_proxy__plugin_name___path__put"];
         /**
@@ -11106,8 +11106,8 @@ export interface paths {
          *     talk to the plugin service directly via the iframe; this route is for
          *     administrative and server-to-server access only.
          *
-         *     The caller's litellm credential is stripped and replaced with the
-         *     plugin's own plugin_key so plugins never receive a live litellm API key.
+         *     The caller's embrouter credential is stripped and replaced with the
+         *     plugin's own plugin_key so plugins never receive a live embrouter API key.
          */
         post: operations["plugin_proxy_plugin_proxy__plugin_name___path__post"];
         /**
@@ -11119,8 +11119,8 @@ export interface paths {
          *     talk to the plugin service directly via the iframe; this route is for
          *     administrative and server-to-server access only.
          *
-         *     The caller's litellm credential is stripped and replaced with the
-         *     plugin's own plugin_key so plugins never receive a live litellm API key.
+         *     The caller's embrouter credential is stripped and replaced with the
+         *     plugin's own plugin_key so plugins never receive a live embrouter API key.
          */
         delete: operations["plugin_proxy_plugin_proxy__plugin_name___path__delete"];
         /**
@@ -11132,8 +11132,8 @@ export interface paths {
          *     talk to the plugin service directly via the iframe; this route is for
          *     administrative and server-to-server access only.
          *
-         *     The caller's litellm credential is stripped and replaced with the
-         *     plugin's own plugin_key so plugins never receive a live litellm API key.
+         *     The caller's embrouter credential is stripped and replaced with the
+         *     plugin's own plugin_key so plugins never receive a live embrouter API key.
          */
         options: operations["plugin_proxy_plugin_proxy__plugin_name___path__options"];
         /**
@@ -11145,8 +11145,8 @@ export interface paths {
          *     talk to the plugin service directly via the iframe; this route is for
          *     administrative and server-to-server access only.
          *
-         *     The caller's litellm credential is stripped and replaced with the
-         *     plugin's own plugin_key so plugins never receive a live litellm API key.
+         *     The caller's embrouter credential is stripped and replaced with the
+         *     plugin's own plugin_key so plugins never receive a live embrouter API key.
          */
         head: operations["plugin_proxy_plugin_proxy__plugin_name___path__head"];
         /**
@@ -11158,8 +11158,8 @@ export interface paths {
          *     talk to the plugin service directly via the iframe; this route is for
          *     administrative and server-to-server access only.
          *
-         *     The caller's litellm credential is stripped and replaced with the
-         *     plugin's own plugin_key so plugins never receive a live litellm API key.
+         *     The caller's embrouter credential is stripped and replaced with the
+         *     plugin's own plugin_key so plugins never receive a live embrouter API key.
          */
         patch: operations["plugin_proxy_plugin_proxy__plugin_name___path__patch"];
         trace?: never;
@@ -11794,7 +11794,7 @@ export interface paths {
          * @description Get policy templates for the UI (pre-configured guardrail combinations).
          *
          *     Fetches from GitHub with automatic fallback to local backup on failure.
-         *     Set LITELLM_LOCAL_POLICY_TEMPLATES=true to skip GitHub and use local backup only.
+         *     Set EMBROUTER_LOCAL_POLICY_TEMPLATES=true to skip GitHub and use local backup only.
          */
         get: operations["get_policy_templates_policy_templates_get"];
         put?: never;
@@ -12115,7 +12115,7 @@ export interface paths {
          *     - metadata: *Optional[dict]* - Metadata for project, store information for project. Example metadata - {"use_case_id": "SNOW-12345", "responsible_ai_id": "RAI-67890"}
          *     - tags: *Optional[list]* - Tags for the project. Example: ["production", "api"]
          *     - blocked: *bool* - Flag indicating if the project is blocked or not - will stop all calls from keys with this project_id.
-         *     - object_permission: Optional[LiteLLM_ObjectPermissionBase] - project-specific object permission. Example - {"vector_stores": ["vector_store_1", "vector_store_2"]}. IF null or {} then no object permission.
+         *     - object_permission: Optional[EmbRouter_ObjectPermissionBase] - project-specific object permission. Example - {"vector_stores": ["vector_store_1", "vector_store_2"]}. IF null or {} then no object permission.
          *
          *     Example 1: Create new project **without** a budget_id, with model-specific limits
          *
@@ -12197,7 +12197,7 @@ export interface paths {
          *     - model_tpm_limit: *Optional[dict]* - Updated TPM limits per model
          *     - budget_duration: *Optional[str]* - Updated budget duration
          *     - tags: *Optional[list]* - Updated list of tags for the project
-         *     - object_permission: Optional[LiteLLM_ObjectPermissionBase] - Updated object permission
+         *     - object_permission: Optional[EmbRouter_ObjectPermissionBase] - Updated object permission
          *
          *     Example:
          *     ```bash
@@ -12247,7 +12247,7 @@ export interface paths {
          *         -H "Content-Type: application/json" \
          *         -d '{
          *             "prompt_id": "my_prompt",
-         *             "litellm_params": {
+         *             "embrouter_params": {
          *                 "prompt_id": "my_prompt",
          *                 "prompt_integration": "dotprompt",
          *                 "prompt_data": {"content": "This is a prompt", "metadata": {"model": "gpt-4"}}
@@ -12288,7 +12288,7 @@ export interface paths {
          *         "prompts": [
          *             {
          *                 "prompt_id": "my_prompt_id",
-         *                 "litellm_params": {
+         *                 "embrouter_params": {
          *                     "prompt_id": "my_prompt_id",
          *                     "prompt_integration": "dotprompt",
          *                     "prompt_directory": "/path/to/prompts"
@@ -12371,7 +12371,7 @@ export interface paths {
          *         ```json
          *         {
          *             "prompt_id": "my_prompt_id",
-         *             "litellm_params": {
+         *             "embrouter_params": {
          *                 "prompt_id": "my_prompt_id",
          *                 "prompt_integration": "dotprompt",
          *                 "prompt_directory": "/path/to/prompts"
@@ -12400,7 +12400,7 @@ export interface paths {
          *         -H "Content-Type: application/json" \
          *         -d '{
          *             "prompt_id": "my_prompt",
-         *             "litellm_params": {
+         *             "embrouter_params": {
          *                 "prompt_id": "my_prompt",
          *                     "prompt_integration": "dotprompt",
          *                     "prompt_directory": "/path/to/prompts"
@@ -12442,7 +12442,7 @@ export interface paths {
          *
          *     This endpoint allows updating specific fields of a prompt without sending the entire object.
          *     Only the following fields can be updated:
-         *     - litellm_params: LiteLLM parameters for the prompt
+         *     - embrouter_params: EmbRouter parameters for the prompt
          *     - prompt_info: Additional information about the prompt
          *
          *     Example Request:
@@ -12482,7 +12482,7 @@ export interface paths {
          *         ```json
          *         {
          *             "prompt_id": "my_prompt_id",
-         *             "litellm_params": {
+         *             "embrouter_params": {
          *                 "prompt_id": "my_prompt_id",
          *                 "prompt_integration": "dotprompt",
          *                 "prompt_directory": "/path/to/prompts"
@@ -12531,14 +12531,14 @@ export interface paths {
          *         "prompts": [
          *             {
          *                 "prompt_id": "jack_success.v1",
-         *                 "litellm_params": {...},
+         *                 "embrouter_params": {...},
          *                 "prompt_info": {"prompt_type": "db"},
          *                 "created_at": "2023-11-09T12:34:56.789Z",
          *                 "updated_at": "2023-11-09T12:34:56.789Z"
          *             },
          *             {
          *                 "prompt_id": "jack_success.v2",
-         *                 "litellm_params": {...},
+         *                 "embrouter_params": {...},
          *                 "prompt_info": {"prompt_type": "db"},
          *                 "created_at": "2023-11-09T13:45:12.345Z",
          *                 "updated_at": "2023-11-09T13:45:12.345Z"
@@ -12668,9 +12668,9 @@ export interface paths {
          * Get Public Autorouter Presets
          * @description Return the auto-router preset catalog the dashboard's template picker renders.
          *
-         *     Resolved once per process, like the model cost map: fetched from ``litellm.autorouter_presets_url``
-         *     (override with ``LITELLM_AUTOROUTER_PRESETS_URL``) on the first request, falling back to the
-         *     catalog bundled with the package on any failure. Set ``LITELLM_LOCAL_AUTOROUTER_PRESETS=True``
+         *     Resolved once per process, like the model cost map: fetched from ``embrouter.autorouter_presets_url``
+         *     (override with ``EMBROUTER_AUTOROUTER_PRESETS_URL``) on the first request, falling back to the
+         *     catalog bundled with the package on any failure. Set ``EMBROUTER_LOCAL_AUTOROUTER_PRESETS=True``
          *     to serve the bundled catalog only. A restart picks up a newly published catalog.
          */
         get: operations["get_public_autorouter_presets_public_autorouter_presets_get"];
@@ -12728,7 +12728,7 @@ export interface paths {
         };
         /**
          * Get Supported Endpoints
-         * @description Return the list of LiteLLM proxy endpoints and which providers support each one.
+         * @description Return the list of EmbRouter proxy endpoints and which providers support each one.
          *
          *     Reads from the bundled local backup file. Result is cached in-process for
          *     the lifetime of the server process.
@@ -12742,7 +12742,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/public/litellm_blog_posts": {
+    "/public/embrouter_blog_posts": {
         parameters: {
             query?: never;
             header?: never;
@@ -12750,13 +12750,13 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Get Litellm Blog Posts
-         * @description Public endpoint to get the latest LiteLLM blog posts.
+         * Get Embrouter Blog Posts
+         * @description Public endpoint to get the latest EmbRouter blog posts.
          *
          *     Fetches from GitHub with a 1-hour in-process cache.
          *     Falls back to the bundled local backup on any failure.
          */
-        get: operations["get_litellm_blog_posts_public_litellm_blog_posts_get"];
+        get: operations["get_embrouter_blog_posts_public_embrouter_blog_posts_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -12765,7 +12765,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/public/litellm_model_cost_map": {
+    "/public/embrouter_model_cost_map": {
         parameters: {
             query?: never;
             header?: never;
@@ -12773,11 +12773,11 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Get Litellm Model Cost Map
-         * @description Public endpoint to get the LiteLLM model cost map.
+         * Get Embrouter Model Cost Map
+         * @description Public endpoint to get the EmbRouter model cost map.
          *     Returns pricing information for all supported models.
          */
-        get: operations["get_litellm_model_cost_map_public_litellm_model_cost_map_get"];
+        get: operations["get_embrouter_model_cost_map_public_embrouter_model_cost_map_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -12846,7 +12846,7 @@ export interface paths {
         };
         /**
          * Get Supported Providers
-         * @description Return a sorted list of all providers supported by LiteLLM.
+         * @description Return a sorted list of all providers supported by EmbRouter.
          */
         get: operations["get_supported_providers_public_providers_get"];
         put?: never;
@@ -13049,7 +13049,7 @@ export interface paths {
          *         -H "Content-Type: application/json" \
          *         -d '{
          *             "model": "gpt-4o-mini",
-         *             "messages": [{"role": "user", "content": "What is LiteLLM?"}],
+         *             "messages": [{"role": "user", "content": "What is EmbRouter?"}],
          *             "retrieval_config": {
          *                 "vector_store_id": "vs_abc123",
          *                 "custom_llm_provider": "openai",
@@ -13065,7 +13065,7 @@ export interface paths {
          *         -H "Content-Type: application/json" \
          *         -d '{
          *             "model": "gpt-4o-mini",
-         *             "messages": [{"role": "user", "content": "What is LiteLLM?"}],
+         *             "messages": [{"role": "user", "content": "What is EmbRouter?"}],
          *             "retrieval_config": {
          *                 "vector_store_id": "vs_abc123",
          *                 "custom_llm_provider": "openai",
@@ -13361,14 +13361,14 @@ export interface paths {
          * @description Get a response by ID.
          *
          *     Supports both:
-         *     - Polling IDs (litellm_poll_*): Returns cumulative cached content from background responses
+         *     - Polling IDs (embrouter_poll_*): Returns cumulative cached content from background responses
          *     - Provider response IDs: Passes through to provider API
          *
          *     Follows the OpenAI Responses API spec: https://platform.openai.com/docs/api-reference/responses/get
          *
          *     ```bash
          *     # Get polling response
-         *     curl -X GET http://localhost:4000/v1/responses/litellm_poll_abc123     -H "Authorization: Bearer sk-1234"
+         *     curl -X GET http://localhost:4000/v1/responses/embrouter_poll_abc123     -H "Authorization: Bearer sk-1234"
          *
          *     # Get provider response
          *     curl -X GET http://localhost:4000/v1/responses/resp_abc123     -H "Authorization: Bearer sk-1234"
@@ -13382,7 +13382,7 @@ export interface paths {
          * @description Delete a response by ID.
          *
          *     Supports both:
-         *     - Polling IDs (litellm_poll_*): Deletes from Redis cache
+         *     - Polling IDs (embrouter_poll_*): Deletes from Redis cache
          *     - Provider response IDs: Passes through to provider API
          *
          *     Follows the OpenAI Responses API spec: https://platform.openai.com/docs/api-reference/responses/delete
@@ -13411,14 +13411,14 @@ export interface paths {
          * @description Cancel a response by ID.
          *
          *     Supports both:
-         *     - Polling IDs (litellm_poll_*): Cancels background response and updates status in Redis
+         *     - Polling IDs (embrouter_poll_*): Cancels background response and updates status in Redis
          *     - Provider response IDs: Passes through to provider API
          *
          *     Follows the OpenAI Responses API spec: https://platform.openai.com/docs/api-reference/responses/cancel
          *
          *     ```bash
          *     # Cancel polling response
-         *     curl -X POST http://localhost:4000/v1/responses/litellm_poll_abc123/cancel     -H "Authorization: Bearer sk-1234"
+         *     curl -X POST http://localhost:4000/v1/responses/embrouter_poll_abc123/cancel     -H "Authorization: Bearer sk-1234"
          *
          *     # Cancel provider response
          *     curl -X POST http://localhost:4000/v1/responses/resp_abc123/cancel     -H "Authorization: Bearer sk-1234"
@@ -13984,7 +13984,7 @@ export interface paths {
          *
          *     Example with search_tool_name in URL (recommended - keeps body Perplexity-compatible):
          *     ```bash
-         *     curl -X POST "http://localhost:4000/v1/search/litellm-search"         -H "Authorization: Bearer sk-1234"         -H "Content-Type: application/json"         -d '{
+         *     curl -X POST "http://localhost:4000/v1/search/embrouter-search"         -H "Authorization: Bearer sk-1234"         -H "Content-Type: application/json"         -d '{
          *             "query": "latest AI developments 2024",
          *             "max_results": 5,
          *             "search_domain_filter": ["arxiv.org", "nature.com"],
@@ -13995,7 +13995,7 @@ export interface paths {
          *     Example with search_tool_name in body:
          *     ```bash
          *     curl -X POST "http://localhost:4000/v1/search"         -H "Authorization: Bearer sk-1234"         -H "Content-Type: application/json"         -d '{
-         *             "search_tool_name": "litellm-search",
+         *             "search_tool_name": "embrouter-search",
          *             "query": "latest AI developments 2024",
          *             "max_results": 5,
          *             "search_domain_filter": ["arxiv.org", "nature.com"],
@@ -14066,7 +14066,7 @@ export interface paths {
          *         "object": "list",
          *         "data": [
          *             {
-         *                 "search_tool_name": "litellm-search",
+         *                 "search_tool_name": "embrouter-search",
          *                 "search_provider": "perplexity",
          *                 "description": "Perplexity search tool"
          *             }
@@ -14105,7 +14105,7 @@ export interface paths {
          *
          *     Example with search_tool_name in URL (recommended - keeps body Perplexity-compatible):
          *     ```bash
-         *     curl -X POST "http://localhost:4000/v1/search/litellm-search"         -H "Authorization: Bearer sk-1234"         -H "Content-Type: application/json"         -d '{
+         *     curl -X POST "http://localhost:4000/v1/search/embrouter-search"         -H "Authorization: Bearer sk-1234"         -H "Content-Type: application/json"         -d '{
          *             "query": "latest AI developments 2024",
          *             "max_results": 5,
          *             "search_domain_filter": ["arxiv.org", "nature.com"],
@@ -14116,7 +14116,7 @@ export interface paths {
          *     Example with search_tool_name in body:
          *     ```bash
          *     curl -X POST "http://localhost:4000/v1/search"         -H "Authorization: Bearer sk-1234"         -H "Content-Type: application/json"         -d '{
-         *             "search_tool_name": "litellm-search",
+         *             "search_tool_name": "embrouter-search",
          *             "query": "latest AI developments 2024",
          *             "max_results": 5,
          *             "search_domain_filter": ["arxiv.org", "nature.com"],
@@ -14182,8 +14182,8 @@ export interface paths {
          *         -H "Content-Type: application/json" \
          *         -d '{
          *             "search_tool": {
-         *                 "search_tool_name": "litellm-search",
-         *                 "litellm_params": {
+         *                 "search_tool_name": "embrouter-search",
+         *                 "embrouter_params": {
          *                     "search_provider": "perplexity",
          *                     "api_key": "sk-..."
          *                 },
@@ -14198,8 +14198,8 @@ export interface paths {
          *     ```json
          *     {
          *         "search_tool_id": "123e4567-e89b-12d3-a456-426614174000",
-         *         "search_tool_name": "litellm-search",
-         *         "litellm_params": {
+         *         "search_tool_name": "embrouter-search",
+         *         "embrouter_params": {
          *             "search_provider": "perplexity",
          *             "api_key": "sk-..."
          *         },
@@ -14240,8 +14240,8 @@ export interface paths {
          *         "search_tools": [
          *             {
          *                 "search_tool_id": "123e4567-e89b-12d3-a456-426614174000",
-         *                 "search_tool_name": "litellm-search",
-         *                 "litellm_params": {
+         *                 "search_tool_name": "embrouter-search",
+         *                 "embrouter_params": {
          *                     "search_provider": "perplexity",
          *                     "api_key": "sk-***",
          *                     "api_base": "https://api.perplexity.ai"
@@ -14255,7 +14255,7 @@ export interface paths {
          *             },
          *             {
          *                 "search_tool_name": "config-search-tool",
-         *                 "litellm_params": {
+         *                 "embrouter_params": {
          *                     "search_provider": "tavily",
          *                     "api_key": "tvly-***"
          *                 },
@@ -14295,7 +14295,7 @@ export interface paths {
          *         -H "Authorization: Bearer <your_api_key>" \
          *         -H "Content-Type: application/json" \
          *         -d '{
-         *             "litellm_params": {
+         *             "embrouter_params": {
          *                 "search_provider": "perplexity",
          *                 "api_key": "sk-..."
          *             }
@@ -14393,8 +14393,8 @@ export interface paths {
          *     ```json
          *     {
          *         "search_tool_id": "123e4567-e89b-12d3-a456-426614174000",
-         *         "search_tool_name": "litellm-search",
-         *         "litellm_params": {
+         *         "search_tool_name": "embrouter-search",
+         *         "embrouter_params": {
          *             "search_provider": "perplexity",
          *             "api_key": "sk-***"
          *         },
@@ -14419,7 +14419,7 @@ export interface paths {
          *         -d '{
          *             "search_tool": {
          *                 "search_tool_name": "updated-search",
-         *                 "litellm_params": {
+         *                 "embrouter_params": {
          *                     "search_provider": "perplexity",
          *                     "api_key": "sk-new-key"
          *                 },
@@ -14435,7 +14435,7 @@ export interface paths {
          *     {
          *         "search_tool_id": "123e4567-e89b-12d3-a456-426614174000",
          *         "search_tool_name": "updated-search",
-         *         "litellm_params": {
+         *         "embrouter_params": {
          *             "search_provider": "perplexity",
          *             "api_key": "sk-new-key"
          *         },
@@ -14463,7 +14463,7 @@ export interface paths {
          *     ```json
          *     {
          *         "message": "Search tool 123e4567-e89b-12d3-a456-426614174000 deleted successfully",
-         *         "search_tool_name": "litellm-search"
+         *         "search_tool_name": "embrouter-search"
          *     }
          *     ```
          */
@@ -14507,7 +14507,7 @@ export interface paths {
         };
         /**
          * Active Callbacks
-         * @description Returns a list of litellm level settings
+         * @description Returns a list of embrouter level settings
          *
          *     This is useful for debugging and ensuring the proxy server is configured correctly.
          *
@@ -14515,17 +14515,17 @@ export interface paths {
          *     ```
          *     {
          *         "alerting": _alerting,
-         *         "litellm.callbacks": litellm_callbacks,
-         *         "litellm.input_callback": litellm_input_callbacks,
-         *         "litellm.failure_callback": litellm_failure_callbacks,
-         *         "litellm.success_callback": litellm_success_callbacks,
-         *         "litellm._async_success_callback": litellm_async_success_callbacks,
-         *         "litellm._async_failure_callback": litellm_async_failure_callbacks,
-         *         "litellm._async_input_callback": litellm_async_input_callbacks,
-         *         "all_litellm_callbacks": all_litellm_callbacks,
-         *         "num_callbacks": len(all_litellm_callbacks),
+         *         "embrouter.callbacks": embrouter_callbacks,
+         *         "embrouter.input_callback": embrouter_input_callbacks,
+         *         "embrouter.failure_callback": embrouter_failure_callbacks,
+         *         "embrouter.success_callback": embrouter_success_callbacks,
+         *         "embrouter._async_success_callback": embrouter_async_success_callbacks,
+         *         "embrouter._async_failure_callback": embrouter_async_failure_callbacks,
+         *         "embrouter._async_input_callback": embrouter_async_input_callbacks,
+         *         "all_embrouter_callbacks": all_embrouter_callbacks,
+         *         "num_callbacks": len(all_embrouter_callbacks),
          *         "num_alerting": _num_alerting,
-         *         "litellm.request_timeout": litellm.request_timeout,
+         *         "embrouter.request_timeout": embrouter.request_timeout,
          *     }
          *     ```
          */
@@ -14612,10 +14612,10 @@ export interface paths {
         };
         /**
          * Get Spend Capture Rate
-         * @description Compare the spend LiteLLM captured for a provider against that provider's own bill, per UTC day.
+         * @description Compare the spend EmbRouter captured for a provider against that provider's own bill, per UTC day.
          *
          *     Admin only. Reads the provider's billing API with the billing credential set on the proxy
-         *     (OpenAI: `OPENAI_ADMIN_KEY`) and sums `LiteLLM_DailyUserSpend` for the same days.
+         *     (OpenAI: `OPENAI_ADMIN_KEY`) and sums `EmbRouter_DailyUserSpend` for the same days.
          *
          *     Example:
          *     ```
@@ -14730,7 +14730,7 @@ export interface paths {
          *
          *     Returns:
          *         {
-         *             "data": List[LiteLLM_SpendLogs],
+         *             "data": List[EmbRouter_SpendLogs],
          *             "total": int,
          *             "page": int,
          *             "page_size": int,
@@ -14834,7 +14834,7 @@ export interface paths {
         };
         /**
          * View Spend Tags
-         * @description LiteLLM Enterprise - View Spend Per Request Tag
+         * @description EmbRouter Enterprise - View Spend Per Request Tag
          *
          *     Example Request:
          *     ```
@@ -15006,7 +15006,7 @@ export interface paths {
         /**
          * Debug Sso Login
          * @description Create Proxy API Keys using Google Workspace SSO. Requires setting PROXY_BASE_URL in .env
-         *     PROXY_BASE_URL should be the your deployed proxy endpoint, e.g. PROXY_BASE_URL="https://litellm-production-7002.up.railway.app/"
+         *     PROXY_BASE_URL should be the your deployed proxy endpoint, e.g. PROXY_BASE_URL="https://embrouter-production-7002.up.railway.app/"
          *     Example:
          */
         get: operations["debug_sso_login_sso_debug_login_get"];
@@ -15045,7 +15045,7 @@ export interface paths {
         /**
          * Google Login
          * @description Create Proxy API Keys using Google Workspace SSO. Requires setting PROXY_BASE_URL in .env
-         *     PROXY_BASE_URL should be the your deployed proxy endpoint, e.g. PROXY_BASE_URL="https://litellm-production-7002.up.railway.app/"
+         *     PROXY_BASE_URL should be the your deployed proxy endpoint, e.g. PROXY_BASE_URL="https://embrouter-production-7002.up.railway.app/"
          *     Example:
          */
         get: operations["google_login_sso_key_generate_get"];
@@ -15709,7 +15709,7 @@ export interface paths {
          *         user_api_key_dict (UserAPIKeyAuth): User authentication information
          *
          *     Returns:
-         *         List[LiteLLM_SpendLogs]: Paginated list of matching user records
+         *         List[EmbRouter_SpendLogs]: Paginated list of matching user records
          */
         get: operations["ui_view_teams_team_filter_ui_get"];
         put?: never;
@@ -16009,7 +16009,7 @@ export interface paths {
          *     - models: Optional[list] - A list of models associated with the team - all keys for this team_id will have at most, these models. If empty, assumes all models are allowed.
          *     - blocked: bool - Flag indicating if the team is blocked or not - will stop all calls from keys with this team_id.
          *     - members: Optional[List] - Control team members via `/team/member/add` and `/team/member/delete`.
-         *     - tags: Optional[List[str]] - Tags for [tracking spend](https://litellm.vercel.app/docs/proxy/enterprise#tracking-spend-for-custom-tags) and/or doing [tag-based routing](https://litellm.vercel.app/docs/proxy/tag_routing).
+         *     - tags: Optional[List[str]] - Tags for [tracking spend](https://embrouter.vercel.app/docs/proxy/enterprise#tracking-spend-for-custom-tags) and/or doing [tag-based routing](https://embrouter.vercel.app/docs/proxy/tag_routing).
          *     - prompts: Optional[List[str]] - List of prompts that the team is allowed to use.
          *     - organization_id: Optional[str] - The organization id of the team. Default is None. Create via `/organization/new`.
          *     - model_aliases: Optional[dict] - Model aliases for the team.
@@ -16017,7 +16017,7 @@ export interface paths {
          *     - guardrails: Optional[List[str]] - Guardrails for the team.
          *     - policies: Optional[List[str]] - Policies for the team.
          *     - disable_global_guardrails: Optional[bool] - Whether to disable global guardrails for the team. Proxy admin only.
-         *     - object_permission: Optional[LiteLLM_ObjectPermissionBase] - team-specific object permission. Example - {"vector_stores": ["vector_store_1", "vector_store_2"], "agents": ["agent_1", "agent_2"], "agent_access_groups": ["dev_group"]}. IF null or {} then no object permission.
+         *     - object_permission: Optional[EmbRouter_ObjectPermissionBase] - team-specific object permission. Example - {"vector_stores": ["vector_store_1", "vector_store_2"], "agents": ["agent_1", "agent_2"], "agent_access_groups": ["dev_group"]}. IF null or {} then no object permission.
          *     - team_member_budget: Optional[float] - The maximum budget allocated to an individual team member.
          *     - team_member_budget_duration: Optional[str] - The duration of the budget for the team member
          *     - team_member_rpm_limit: Optional[int] - The RPM (Requests Per Minute) limit for individual team members.
@@ -16237,14 +16237,14 @@ export interface paths {
          *     - models: Optional[list] - A list of models associated with the team - all keys for this team_id will have at most, these models. If empty, assumes all models are allowed.
          *     - prompts: Optional[List[str]] - List of prompts that the team is allowed to use.
          *     - blocked: bool - Flag indicating if the team is blocked or not - will stop all calls from keys with this team_id.
-         *     - tags: Optional[List[str]] - Tags for [tracking spend](https://litellm.vercel.app/docs/proxy/enterprise#tracking-spend-for-custom-tags) and/or doing [tag-based routing](https://litellm.vercel.app/docs/proxy/tag_routing).
+         *     - tags: Optional[List[str]] - Tags for [tracking spend](https://embrouter.vercel.app/docs/proxy/enterprise#tracking-spend-for-custom-tags) and/or doing [tag-based routing](https://embrouter.vercel.app/docs/proxy/tag_routing).
          *     - organization_id: Optional[str] - The organization id of the team. Default is None. Create via `/organization/new`.
          *     - model_aliases: Optional[dict] - Model aliases for the team.
          *     - model_max_budget: Optional[dict] - Per-model max budget every key on the team inherits unless the key sets its own for that model. Example: {"gpt-4o": {"max_budget": 10, "budget_duration": "1d"}}
          *     - guardrails: Optional[List[str]] - Guardrails for the team.
          *     - policies: Optional[List[str]] - Policies for the team.
          *     - disable_global_guardrails: Optional[bool] - Whether to disable global guardrails for the team. Proxy admin only.
-         *     - object_permission: Optional[LiteLLM_ObjectPermissionBase] - team-specific object permission. Example - {"vector_stores": ["vector_store_1", "vector_store_2"], "agents": ["agent_1", "agent_2"], "agent_access_groups": ["dev_group"]}. IF null or {} then no object permission.
+         *     - object_permission: Optional[EmbRouter_ObjectPermissionBase] - team-specific object permission. Example - {"vector_stores": ["vector_store_1", "vector_store_2"], "agents": ["agent_1", "agent_2"], "agent_access_groups": ["dev_group"]}. IF null or {} then no object permission.
          *     - team_member_budget: Optional[float] - The maximum budget allocated to an individual team member.
          *     - team_member_budget_duration: Optional[str] - The duration of the budget for the team member
          *     - team_member_rpm_limit: Optional[int] - The RPM (Requests Per Minute) limit for individual team members.
@@ -16384,7 +16384,7 @@ export interface paths {
          *         - langsmith_api_key: The API key for the Langsmith callback
          *         - langsmith_project: The project for the Langsmith callback
          *         - langsmith_base_url: The base URL for the Langsmith callback
-         *         - newrelic_api_key: The ingest license key for the team's New Relic account; routes both LLM/agent traces and cost metrics to that account. Requires the proxy to run with LITELLM_OTEL_V2=true, otherwise this callback is rejected with a 400
+         *         - newrelic_api_key: The ingest license key for the team's New Relic account; routes both LLM/agent traces and cost metrics to that account. Requires the proxy to run with EMBROUTER_OTEL_V2=true, otherwise this callback is rejected with a 400
          *         - newrelic_region: The New Relic region for the team's account ("us" or "eu"), riding the team's own key
          *
          *     Example curl:
@@ -16516,7 +16516,7 @@ export interface paths {
          * @description Reset a team member's tracked spend against their per-member budget.
          *
          *     A member's spend is tracked separately from both their own personal
-         *     budget and the team's own budget (LiteLLM_TeamMembership.spend), so
+         *     budget and the team's own budget (EmbRouter_TeamMembership.spend), so
          *     neither /user/update nor /team/update can clear it: this is the only
          *     endpoint that does. The cross-pod spend counter and cached membership
          *     reads are invalidated so the reset takes effect on the member's next
@@ -16753,7 +16753,7 @@ export interface paths {
          *     Supports PKCE flow by forwarding code_verifier to upstream provider.
          *
          *     1. Call the token endpoint with PKCE parameters
-         *     2. Store the user's token in the db - and generate a LiteLLM virtual key
+         *     2. Store the user's token in the db - and generate a EmbRouter virtual key
          *     3. Return the token
          *     4. Return a virtual key in this response
          */
@@ -16947,7 +16947,7 @@ export interface paths {
         head?: never;
         /**
          * Update Default Team Settings
-         * @description Update the default team parameters (litellm_settings.default_team_params).
+         * @description Update the default team parameters (embrouter_settings.default_team_params).
          *     Applied to every new team for fields not explicitly provided in the create request;
          *     `models` only applies to teams automatically created via SSO Groups.
          */
@@ -17011,7 +17011,7 @@ export interface paths {
         head?: never;
         /**
          * Update Mcp Tool Search Settings
-         * @description Update `litellm_settings.mcp_tool_search` in the database.
+         * @description Update `embrouter_settings.mcp_tool_search` in the database.
          *     Settings will be picked up by all pods within approximately 10 seconds via background polling.
          */
         patch: operations["update_mcp_tool_search_settings_update_mcp_tool_search_settings_patch"];
@@ -17381,7 +17381,7 @@ export interface paths {
          * @description Filter users based on partial match of user_id or email, or combined ``search``, with pagination.
          *
          *     Behaviour depends on the ``scope_user_search_to_org`` UI-setting flag
-         *     (stored in the ``litellm_uisettings`` table):
+         *     (stored in the ``embrouter_uisettings`` table):
          *
          *     * **Flag OFF (default):** any authenticated user can search all users.
          *     * **Flag ON:**
@@ -17486,7 +17486,7 @@ export interface paths {
         /**
          * New User
          * @description Use this to create a new INTERNAL user with a budget.
-         *     Internal Users can access LiteLLM Admin UI to make keys, request access to models.
+         *     Internal Users can access EmbRouter Admin UI to make keys, request access to models.
          *     This creates a new user and generates a new api key for the new user. The new api key is returned.
          *
          *     Returns user id, budget + new key.
@@ -17504,7 +17504,7 @@ export interface paths {
          *     - tpm_limit: Optional[int] - Specify tpm limit for a given user (Tokens per minute)
          *     - rpm_limit: Optional[int] - Specify rpm limit for a given user (Requests per minute)
          *     - auto_create_key: bool - Default=True. Flag used for returning a key as part of the /user/new response
-         *     - aliases: Optional[dict] - Model aliases for the user - [Docs](https://litellm.vercel.app/docs/proxy/virtual_keys#model-aliases)
+         *     - aliases: Optional[dict] - Model aliases for the user - [Docs](https://embrouter.vercel.app/docs/proxy/virtual_keys#model-aliases)
          *     - config: Optional[dict] - [DEPRECATED PARAM] User-specific config.
          *     - allowed_cache_controls: Optional[list] - List of allowed cache control values. Example - ["no-cache", "no-store"].
          *     - blocked: Optional[bool] - [Not Implemented Yet] Whether the user is blocked.
@@ -17525,7 +17525,7 @@ export interface paths {
          *     - duration: Optional[str] - Duration for the key auto-created on `/user/new`. Default is None.
          *     - key_alias: Optional[str] - Alias for the key auto-created on `/user/new`. Default is None.
          *     - sso_user_id: Optional[str] - The id of the user in the SSO provider.
-         *     - object_permission: Optional[LiteLLM_ObjectPermissionBase] - internal user-specific object permission. Example - {"vector_stores": ["vector_store_1"], "mcp_servers": ["github"], "mcp_tool_permissions": {"github": ["list_issues"]}}. The MCP grants act as a ceiling on every key this user holds. IF null or {} then no object permission.
+         *     - object_permission: Optional[EmbRouter_ObjectPermissionBase] - internal user-specific object permission. Example - {"vector_stores": ["vector_store_1"], "mcp_servers": ["github"], "mcp_tool_permissions": {"github": ["list_issues"]}}. The MCP grants act as a ceiling on every key this user holds. IF null or {} then no object permission.
          *     - prompts: Optional[List[str]] - List of allowed prompts for the user. If specified, the user will only be able to use these specific prompts.
          *     - organizations: List[str] - List of organization id's the user is a member of
          *     - budget_limits: Optional[list] - List of concurrent budget windows for the user. Each window specifies a budget_limit, time_period, and optional budget_duration. Example - [{"budget_limit": 10.0, "time_period": "1d"}, {"budget_limit": 50.0, "time_period": "7d"}].
@@ -17624,7 +17624,7 @@ export interface paths {
          *
          *     ```
          *     curl --location 'http://0.0.0.0:4000/user/update'     --header 'Authorization: Bearer sk-1234'     --header 'Content-Type: application/json'     --data '{
-         *         "user_id": "test-litellm-user-4",
+         *         "user_id": "test-embrouter-user-4",
          *         "user_role": "proxy_admin_viewer"
          *     }'
          *     ```
@@ -17643,7 +17643,7 @@ export interface paths {
          *         - tpm_limit: Optional[int] - Specify tpm limit for a given user (Tokens per minute)
          *         - rpm_limit: Optional[int] - Specify rpm limit for a given user (Requests per minute)
          *         - auto_create_key: bool - Default=True. Flag used for returning a key as part of the /user/new response
-         *         - aliases: Optional[dict] - Model aliases for the user - [Docs](https://litellm.vercel.app/docs/proxy/virtual_keys#model-aliases)
+         *         - aliases: Optional[dict] - Model aliases for the user - [Docs](https://embrouter.vercel.app/docs/proxy/virtual_keys#model-aliases)
          *         - config: Optional[dict] - [DEPRECATED PARAM] User-specific config.
          *         - allowed_cache_controls: Optional[list] - List of allowed cache control values. Example - ["no-cache", "no-store"].
          *         - blocked: Optional[bool] - [Not Implemented Yet] Whether the user is blocked.
@@ -17663,7 +17663,7 @@ export interface paths {
          *         - team_id: Optional[str] - [DEPRECATED PARAM] The team id of the user. Default is None.
          *         - duration: Optional[str] - [NOT IMPLEMENTED].
          *         - key_alias: Optional[str] - [NOT IMPLEMENTED].
-         *         - object_permission: Optional[LiteLLM_ObjectPermissionBase] - internal user-specific object permission. Example - {"vector_stores": ["vector_store_1"], "mcp_servers": ["github"], "mcp_tool_permissions": {"github": ["list_issues"]}}. The MCP grants act as a ceiling on every key this user holds. IF null or {} then no object permission.
+         *         - object_permission: Optional[EmbRouter_ObjectPermissionBase] - internal user-specific object permission. Example - {"vector_stores": ["vector_store_1"], "mcp_servers": ["github"], "mcp_tool_permissions": {"github": ["list_issues"]}}. The MCP grants act as a ceiling on every key this user holds. IF null or {} then no object permission.
          *         - prompts: Optional[List[str]] - List of allowed prompts for the user. If specified, the user will only be able to use these specific prompts.
          *         - budget_limits: Optional[list] - List of concurrent budget windows for the user. Each window specifies a budget_limit, time_period, and optional budget_duration. Example - [{"budget_limit": 10.0, "time_period": "1d"}, {"budget_limit": 50.0, "time_period": "7d"}].
          */
@@ -17710,7 +17710,7 @@ export interface paths {
          * Model Info Lookup
          * @description Returns the model cost map entry (token limits, pricing, supports_* capabilities) for any model
          *     in the cost map, whether or not it is registered on this proxy. `model_info` carries every
-         *     field of the raw cost map entry plus the typed fields `litellm.get_model_info` derives from it
+         *     field of the raw cost map entry plus the typed fields `embrouter.get_model_info` derives from it
          *     (`key`, `supported_openai_params`).
          *
          *     Example curl:
@@ -17736,7 +17736,7 @@ export interface paths {
         };
         /**
          * Supported Openai Params
-         * @description Returns supported openai params for a given litellm model name
+         * @description Returns supported openai params for a given embrouter model name
          *
          *     e.g. `gpt-4` vs `gpt-3.5-turbo`
          *
@@ -17971,7 +17971,7 @@ export interface paths {
          *                     }
          *                 ]
          *             },
-         *             "litellm_params": {
+         *             "embrouter_params": {
          *                 "make_public": true
          *             }
          *         }'
@@ -18012,7 +18012,7 @@ export interface paths {
          *     {
          *         "agent_id": "123e4567-e89b-12d3-a456-426614174000",
          *         "agent_name": "my-custom-agent",
-         *         "litellm_params": {
+         *         "embrouter_params": {
          *             "make_public": true
          *         },
          *         "agent_card_params": {...},
@@ -18072,7 +18072,7 @@ export interface paths {
          *                 },
          *                 "skills": []
          *             },
-         *             "litellm_params": {
+         *             "embrouter_params": {
          *                 "make_public": false
          *             }
          *         }'
@@ -18124,7 +18124,7 @@ export interface paths {
          *                 },
          *                 "skills": []
          *             },
-         *             "litellm_params": {
+         *             "embrouter_params": {
          *                 "make_public": false
          *             }
          *         }'
@@ -18146,8 +18146,8 @@ export interface paths {
          * Trigger Agent Kill Switch
          * @description Fire the agent's configured kill switch webhook. Proxy admin only.
          *
-         *     LiteLLM only makes the configured HTTP call and reports what came back; it
-         *     does not change the agent's state in LiteLLM. Returns 200 when the webhook
+         *     EmbRouter only makes the configured HTTP call and reports what came back; it
+         *     does not change the agent's state in EmbRouter. Returns 200 when the webhook
          *     answered 2xx, 502 with the same result body otherwise. Every attempt is
          *     written to the audit log as a `kill_switch_fired` row against the agent.
          *
@@ -18189,7 +18189,7 @@ export interface paths {
          *     {
          *         "agent_id": "123e4567-e89b-12d3-a456-426614174000",
          *         "agent_name": "my-custom-agent",
-         *         "litellm_params": {
+         *         "embrouter_params": {
          *             "make_public": true
          *         },
          *         "agent_card_params": {...},
@@ -18669,7 +18669,7 @@ export interface paths {
          * @description List evaluations with pagination.
          *
          *     Model-based routing (for multi-account support):
-         *     - Pass model via header: `x-litellm-model: gpt-4-account-1`
+         *     - Pass model via header: `x-embrouter-model: gpt-4-account-1`
          *     - Pass model via query: `?model=gpt-4-account-1`
          *     - Pass model via body: `{"model": "gpt-4-account-1"}`
          *
@@ -18687,7 +18687,7 @@ export interface paths {
          * @description Create a new evaluation.
          *
          *     Model-based routing (for multi-account support):
-         *     - Pass model via header: `x-litellm-model: gpt-4-account-1`
+         *     - Pass model via header: `x-embrouter-model: gpt-4-account-1`
          *     - Pass model via query: `?model=gpt-4-account-1`
          *     - Pass model via body: `{"model": "gpt-4-account-1"}`
          *
@@ -18721,7 +18721,7 @@ export interface paths {
          * @description Get a specific evaluation by ID.
          *
          *     Model-based routing (for multi-account support):
-         *     - Pass model via header: `x-litellm-model: gpt-4-account-1`
+         *     - Pass model via header: `x-embrouter-model: gpt-4-account-1`
          *     - Pass model via query: `?model=gpt-4-account-1`
          *     - Pass model via body: `{"model": "gpt-4-account-1"}`
          *
@@ -18739,7 +18739,7 @@ export interface paths {
          * @description Update an evaluation.
          *
          *     Model-based routing (for multi-account support):
-         *     - Pass model via header: `x-litellm-model: gpt-4-account-1`
+         *     - Pass model via header: `x-embrouter-model: gpt-4-account-1`
          *     - Pass model via query: `?model=gpt-4-account-1`
          *     - Pass model via body: `{"model": "gpt-4-account-1"}`
          *
@@ -18756,7 +18756,7 @@ export interface paths {
          * @description Delete an evaluation.
          *
          *     Model-based routing (for multi-account support):
-         *     - Pass model via header: `x-litellm-model: gpt-4-account-1`
+         *     - Pass model via header: `x-embrouter-model: gpt-4-account-1`
          *     - Pass model via query: `?model=gpt-4-account-1`
          *     - Pass model via body: `{"model": "gpt-4-account-1"}`
          *
@@ -18787,7 +18787,7 @@ export interface paths {
          * @description Cancel a running evaluation.
          *
          *     Model-based routing (for multi-account support):
-         *     - Pass model via header: `x-litellm-model: gpt-4-account-1`
+         *     - Pass model via header: `x-embrouter-model: gpt-4-account-1`
          *     - Pass model via query: `?model=gpt-4-account-1`
          *     - Pass model via body: `{"model": "gpt-4-account-1"}`
          *
@@ -18817,7 +18817,7 @@ export interface paths {
          * @description List all runs for an evaluation with pagination.
          *
          *     Model-based routing (for multi-account support):
-         *     - Pass model via header: `x-litellm-model: gpt-4-account-1`
+         *     - Pass model via header: `x-embrouter-model: gpt-4-account-1`
          *     - Pass model via query: `?model=gpt-4-account-1`
          *
          *     Example usage:
@@ -18834,7 +18834,7 @@ export interface paths {
          * @description Create a new run for an evaluation.
          *
          *     Model-based routing (for multi-account support):
-         *     - Pass model via header: `x-litellm-model: gpt-4-account-1`
+         *     - Pass model via header: `x-embrouter-model: gpt-4-account-1`
          *     - Pass model via query: `?model=gpt-4-account-1`
          *     - Pass model via body: `{"model": "gpt-4-account-1"}`
          *     - Pass model via completion.model: `{"completion": {"model": "gpt-4-account-1"}}`
@@ -18868,7 +18868,7 @@ export interface paths {
          * @description Get a specific run by ID.
          *
          *     Model-based routing (for multi-account support):
-         *     - Pass model via header: `x-litellm-model: gpt-4-account-1`
+         *     - Pass model via header: `x-embrouter-model: gpt-4-account-1`
          *     - Pass model via query: `?model=gpt-4-account-1`
          *
          *     Example usage:
@@ -18885,7 +18885,7 @@ export interface paths {
          * @description Cancel a running run.
          *
          *     Model-based routing (for multi-account support):
-         *     - Pass model via header: `x-litellm-model: gpt-4-account-1`
+         *     - Pass model via header: `x-embrouter-model: gpt-4-account-1`
          *     - Pass model via query: `?model=gpt-4-account-1`
          *
          *     Example usage:
@@ -18901,7 +18901,7 @@ export interface paths {
          * @description Delete a run.
          *
          *     Model-based routing (for multi-account support):
-         *     - Pass model via header: `x-litellm-model: gpt-4-account-1`
+         *     - Pass model via header: `x-embrouter-model: gpt-4-account-1`
          *     - Pass model via query: `?model=gpt-4-account-1`
          *
          *     Example usage:
@@ -19043,7 +19043,7 @@ export interface paths {
          *     This is the equivalent of GET https://api.openai.com/v1/fine_tuning/jobs
          *
          *     Supported Query Params:
-         *     - `custom_llm_provider`: Name of the LiteLLM provider
+         *     - `custom_llm_provider`: Name of the EmbRouter provider
          *     - `after`: Identifier for the last job from the previous pagination request.
          *     - `limit`: Number of fine-tuning jobs to retrieve (default is 20).
          */
@@ -19087,7 +19087,7 @@ export interface paths {
          *     This is the equivalent of GET https://api.openai.com/v1/fine_tuning/jobs/{fine_tuning_job_id}
          *
          *     Supported Query Params:
-         *     - `custom_llm_provider`: Name of the LiteLLM provider
+         *     - `custom_llm_provider`: Name of the EmbRouter provider
          *     - `fine_tuning_job_id`: The ID of the fine-tuning job to retrieve.
          */
         get: operations["retrieve_fine_tuning_job_v1_fine_tuning_jobs__fine_tuning_job_id__get"];
@@ -19115,7 +19115,7 @@ export interface paths {
          *     This is the equivalent of POST https://api.openai.com/v1/fine_tuning/jobs/{fine_tuning_job_id}/cancel
          *
          *     Supported Query Params:
-         *     - `custom_llm_provider`: Name of the LiteLLM provider
+         *     - `custom_llm_provider`: Name of the EmbRouter provider
          *     - `fine_tuning_job_id`: The ID of the fine-tuning job to cancel.
          */
         post: operations["cancel_fine_tuning_job_v1_fine_tuning_jobs__fine_tuning_job_id__cancel_post"];
@@ -19190,7 +19190,7 @@ export interface paths {
          *     ```bash
          *     curl -L -X POST 'http://0.0.0.0:4000/v1/indexes'         -H 'Content-Type: application/json'         -H 'Authorization: Bearer sk-1234'         -d '{
          *             "index_name": "dall-e-3",
-         *             "litellm_params": {
+         *             "embrouter_params": {
          *                 "vector_store_index": "real-index-name",
          *                 "vector_store_name": "azure-ai-search"
          *             }
@@ -19672,7 +19672,7 @@ export interface paths {
         post?: never;
         /**
          * Delete Mcp Gateway Sessions
-         * @description Force-close live stateful MCP gateway sessions on this proxy worker, selected by session id prefix and/or by the LiteLLM user that opened them (proxy admin only).
+         * @description Force-close live stateful MCP gateway sessions on this proxy worker, selected by session id prefix and/or by the EmbRouter user that opened them (proxy admin only).
          */
         delete: operations["delete_mcp_gateway_sessions_v1_mcp_sessions_delete"];
         options?: never;
@@ -19957,10 +19957,10 @@ export interface paths {
          * @description Provides more info about each model in /models, including config.yaml descriptions (except api key and api base)
          *
          *     Parameters:
-         *         litellm_model_id: Optional[str] = None (this is the value of `x-litellm-model-id` returned in response headers)
+         *         embrouter_model_id: Optional[str] = None (this is the value of `x-embrouter-model-id` returned in response headers)
          *
-         *         - When litellm_model_id is passed, it will return the info for that specific model
-         *         - When litellm_model_id is not passed, it will return the info for all models
+         *         - When embrouter_model_id is passed, it will return the info for that specific model
+         *         - When embrouter_model_id is not passed, it will return the info for all models
          *         - include_team_models: When true, filter to deployments the caller can use (same as /v2/model/info).
          *         - teamId: Filter to models accessible by the given team.
          *         - healthy_only: When true, hide models whose backing deployments are all marked
@@ -19969,7 +19969,7 @@ export interface paths {
          *           caller without the query parameter. Requires `background_health_checks: true`,
          *           plus either `model_list_healthy_only` or `enable_health_check_routing` to keep
          *           deployment health state cached; without health state the listing is returned
-         *           unfiltered (fail open). Ignored when `litellm_model_id` is passed, since that
+         *           unfiltered (fail open). Ignored when `embrouter_model_id` is passed, since that
          *           is a direct lookup of one deployment rather than a listing. Hiding is
          *           presentation-only: a hidden model can still be called directly.
          *
@@ -19985,7 +19985,7 @@ export interface paths {
          *         "data": [
          *                     {
          *                         "model_name": "fake-openai-endpoint",
-         *                         "litellm_params": {
+         *                         "embrouter_params": {
          *                             "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
          *                             "model": "openai/fake"
          *                         },
@@ -20136,7 +20136,7 @@ export interface paths {
          *     curl -X POST "http://localhost:4000/v1/ocr"         -H "Authorization: Bearer sk-1234"         -F "model=mistral-ocr"         -F "file=@document.pdf"
          *     ```
          *
-         *     Response format is normalized to the LiteLLM OCR schema by default. Providers
+         *     Response format is normalized to the EmbRouter OCR schema by default. Providers
          *     that support it (Azure Document Intelligence) can return their own payload
          *     instead, with cost tracking unchanged, via `x-req-format: native` (or
          *     `"req_format": "native"` in the body).
@@ -20223,7 +20223,7 @@ export interface paths {
          *         -H "Content-Type: application/json" \
          *         -d '{
          *             "model": "gpt-4o-mini",
-         *             "messages": [{"role": "user", "content": "What is LiteLLM?"}],
+         *             "messages": [{"role": "user", "content": "What is EmbRouter?"}],
          *             "retrieval_config": {
          *                 "vector_store_id": "vs_abc123",
          *                 "custom_llm_provider": "openai",
@@ -20239,7 +20239,7 @@ export interface paths {
          *         -H "Content-Type: application/json" \
          *         -d '{
          *             "model": "gpt-4o-mini",
-         *             "messages": [{"role": "user", "content": "What is LiteLLM?"}],
+         *             "messages": [{"role": "user", "content": "What is EmbRouter?"}],
          *             "retrieval_config": {
          *                 "vector_store_id": "vs_abc123",
          *                 "custom_llm_provider": "openai",
@@ -20472,14 +20472,14 @@ export interface paths {
          * @description Get a response by ID.
          *
          *     Supports both:
-         *     - Polling IDs (litellm_poll_*): Returns cumulative cached content from background responses
+         *     - Polling IDs (embrouter_poll_*): Returns cumulative cached content from background responses
          *     - Provider response IDs: Passes through to provider API
          *
          *     Follows the OpenAI Responses API spec: https://platform.openai.com/docs/api-reference/responses/get
          *
          *     ```bash
          *     # Get polling response
-         *     curl -X GET http://localhost:4000/v1/responses/litellm_poll_abc123     -H "Authorization: Bearer sk-1234"
+         *     curl -X GET http://localhost:4000/v1/responses/embrouter_poll_abc123     -H "Authorization: Bearer sk-1234"
          *
          *     # Get provider response
          *     curl -X GET http://localhost:4000/v1/responses/resp_abc123     -H "Authorization: Bearer sk-1234"
@@ -20493,7 +20493,7 @@ export interface paths {
          * @description Delete a response by ID.
          *
          *     Supports both:
-         *     - Polling IDs (litellm_poll_*): Deletes from Redis cache
+         *     - Polling IDs (embrouter_poll_*): Deletes from Redis cache
          *     - Provider response IDs: Passes through to provider API
          *
          *     Follows the OpenAI Responses API spec: https://platform.openai.com/docs/api-reference/responses/delete
@@ -20522,14 +20522,14 @@ export interface paths {
          * @description Cancel a response by ID.
          *
          *     Supports both:
-         *     - Polling IDs (litellm_poll_*): Cancels background response and updates status in Redis
+         *     - Polling IDs (embrouter_poll_*): Cancels background response and updates status in Redis
          *     - Provider response IDs: Passes through to provider API
          *
          *     Follows the OpenAI Responses API spec: https://platform.openai.com/docs/api-reference/responses/cancel
          *
          *     ```bash
          *     # Cancel polling response
-         *     curl -X POST http://localhost:4000/v1/responses/litellm_poll_abc123/cancel     -H "Authorization: Bearer sk-1234"
+         *     curl -X POST http://localhost:4000/v1/responses/embrouter_poll_abc123/cancel     -H "Authorization: Bearer sk-1234"
          *
          *     # Cancel provider response
          *     curl -X POST http://localhost:4000/v1/responses/resp_abc123/cancel     -H "Authorization: Bearer sk-1234"
@@ -20607,7 +20607,7 @@ export interface paths {
          *
          *     Example with search_tool_name in URL (recommended - keeps body Perplexity-compatible):
          *     ```bash
-         *     curl -X POST "http://localhost:4000/v1/search/litellm-search"         -H "Authorization: Bearer sk-1234"         -H "Content-Type: application/json"         -d '{
+         *     curl -X POST "http://localhost:4000/v1/search/embrouter-search"         -H "Authorization: Bearer sk-1234"         -H "Content-Type: application/json"         -d '{
          *             "query": "latest AI developments 2024",
          *             "max_results": 5,
          *             "search_domain_filter": ["arxiv.org", "nature.com"],
@@ -20618,7 +20618,7 @@ export interface paths {
          *     Example with search_tool_name in body:
          *     ```bash
          *     curl -X POST "http://localhost:4000/v1/search"         -H "Authorization: Bearer sk-1234"         -H "Content-Type: application/json"         -d '{
-         *             "search_tool_name": "litellm-search",
+         *             "search_tool_name": "embrouter-search",
          *             "query": "latest AI developments 2024",
          *             "max_results": 5,
          *             "search_domain_filter": ["arxiv.org", "nature.com"],
@@ -20689,7 +20689,7 @@ export interface paths {
          *         "object": "list",
          *         "data": [
          *             {
-         *                 "search_tool_name": "litellm-search",
+         *                 "search_tool_name": "embrouter-search",
          *                 "search_provider": "perplexity",
          *                 "description": "Perplexity search tool"
          *             }
@@ -20728,7 +20728,7 @@ export interface paths {
          *
          *     Example with search_tool_name in URL (recommended - keeps body Perplexity-compatible):
          *     ```bash
-         *     curl -X POST "http://localhost:4000/v1/search/litellm-search"         -H "Authorization: Bearer sk-1234"         -H "Content-Type: application/json"         -d '{
+         *     curl -X POST "http://localhost:4000/v1/search/embrouter-search"         -H "Authorization: Bearer sk-1234"         -H "Content-Type: application/json"         -d '{
          *             "query": "latest AI developments 2024",
          *             "max_results": 5,
          *             "search_domain_filter": ["arxiv.org", "nature.com"],
@@ -20739,7 +20739,7 @@ export interface paths {
          *     Example with search_tool_name in body:
          *     ```bash
          *     curl -X POST "http://localhost:4000/v1/search"         -H "Authorization: Bearer sk-1234"         -H "Content-Type: application/json"         -d '{
-         *             "search_tool_name": "litellm-search",
+         *             "search_tool_name": "embrouter-search",
          *             "query": "latest AI developments 2024",
          *             "max_results": 5,
          *             "search_domain_filter": ["arxiv.org", "nature.com"],
@@ -20799,7 +20799,7 @@ export interface paths {
          *     Requires `?beta=true` query parameter.
          *
          *     Model-based routing (for multi-account support):
-         *     - Pass model via header: `x-litellm-model: claude-account-1`
+         *     - Pass model via header: `x-embrouter-model: claude-account-1`
          *     - Pass model via query: `?model=claude-account-1`
          *     - Pass model via body: `{"model": "claude-account-1"}`
          *
@@ -20809,13 +20809,13 @@ export interface paths {
          *     curl "http://localhost:4000/v1/skills?beta=true&limit=10"       -H "Authorization: Bearer your-key"
          *
          *     # With model-based routing
-         *     curl "http://localhost:4000/v1/skills?beta=true&limit=10"       -H "Authorization: Bearer your-key"       -H "x-litellm-model: claude-account-1"
+         *     curl "http://localhost:4000/v1/skills?beta=true&limit=10"       -H "Authorization: Bearer your-key"       -H "x-embrouter-model: claude-account-1"
          *     ```
          *
-         *     Pass `?custom_llm_provider=litellm_proxy&query=<task>` to rank the LiteLLM-hosted skills you can
+         *     Pass `?custom_llm_provider=embrouter_proxy&query=<task>` to rank the EmbRouter-hosted skills you can
          *     access by semantic similarity instead of paging through the whole registry:
          *     ```bash
-         *     curl "http://localhost:4000/v1/skills?custom_llm_provider=litellm_proxy&query=summarize+a+pdf&top_k=5"       -H "Authorization: Bearer your-key"
+         *     curl "http://localhost:4000/v1/skills?custom_llm_provider=embrouter_proxy&query=summarize+a+pdf&top_k=5"       -H "Authorization: Bearer your-key"
          *     ```
          *
          *     Returns: ListSkillsResponse with list of skills
@@ -20829,7 +20829,7 @@ export interface paths {
          *     Requires `?beta=true` query parameter.
          *
          *     Model-based routing (for multi-account support):
-         *     - Pass model via header: `x-litellm-model: claude-account-1`
+         *     - Pass model via header: `x-embrouter-model: claude-account-1`
          *     - Pass model via query: `?model=claude-account-1`
          *     - Pass model via form field: `model=claude-account-1`
          *
@@ -20839,7 +20839,7 @@ export interface paths {
          *     curl -X POST "http://localhost:4000/v1/skills?beta=true"       -H "Content-Type: multipart/form-data"       -H "Authorization: Bearer your-key"       -F "display_title=My Skill"       -F "files[]=@skill.zip"
          *
          *     # With model-based routing
-         *     curl -X POST "http://localhost:4000/v1/skills?beta=true"       -H "Content-Type: multipart/form-data"       -H "Authorization: Bearer your-key"       -H "x-litellm-model: claude-account-1"       -F "display_title=My Skill"       -F "files[]=@skill.zip"
+         *     curl -X POST "http://localhost:4000/v1/skills?beta=true"       -H "Content-Type: multipart/form-data"       -H "Authorization: Bearer your-key"       -H "x-embrouter-model: claude-account-1"       -F "display_title=My Skill"       -F "files[]=@skill.zip"
          *     ```
          *
          *     Returns: Skill object with id, display_title, etc.
@@ -20865,7 +20865,7 @@ export interface paths {
          *     Requires `?beta=true` query parameter.
          *
          *     Model-based routing (for multi-account support):
-         *     - Pass model via header: `x-litellm-model: claude-account-1`
+         *     - Pass model via header: `x-embrouter-model: claude-account-1`
          *     - Pass model via query: `?model=claude-account-1`
          *     - Pass model via body: `{"model": "claude-account-1"}`
          *
@@ -20875,7 +20875,7 @@ export interface paths {
          *     curl "http://localhost:4000/v1/skills/skill_123?beta=true"       -H "Authorization: Bearer your-key"
          *
          *     # With model-based routing
-         *     curl "http://localhost:4000/v1/skills/skill_123?beta=true"       -H "Authorization: Bearer your-key"       -H "x-litellm-model: claude-account-1"
+         *     curl "http://localhost:4000/v1/skills/skill_123?beta=true"       -H "Authorization: Bearer your-key"       -H "x-embrouter-model: claude-account-1"
          *     ```
          *
          *     Returns: Skill object
@@ -20892,7 +20892,7 @@ export interface paths {
          *     Note: Anthropic does not allow deleting skills with existing versions.
          *
          *     Model-based routing (for multi-account support):
-         *     - Pass model via header: `x-litellm-model: claude-account-1`
+         *     - Pass model via header: `x-embrouter-model: claude-account-1`
          *     - Pass model via query: `?model=claude-account-1`
          *     - Pass model via body: `{"model": "claude-account-1"}`
          *
@@ -20902,7 +20902,7 @@ export interface paths {
          *     curl -X DELETE "http://localhost:4000/v1/skills/skill_123?beta=true"       -H "Authorization: Bearer your-key"
          *
          *     # With model-based routing
-         *     curl -X DELETE "http://localhost:4000/v1/skills/skill_123?beta=true"       -H "Authorization: Bearer your-key"       -H "x-litellm-model: claude-account-1"
+         *     curl -X DELETE "http://localhost:4000/v1/skills/skill_123?beta=true"       -H "Authorization: Bearer your-key"       -H "x-embrouter-model: claude-account-1"
          *     ```
          *
          *     Returns: DeleteSkillResponse with type="skill_deleted"
@@ -21109,7 +21109,7 @@ export interface paths {
          * Get Tool Spend
          * @description Spend attributed to each tool over a date range, for the Cost Optimization dashboard.
          *
-         *     Reads the ``LiteLLM_DailyToolSpend`` rollup, written at request time from invoked
+         *     Reads the ``EmbRouter_DailyToolSpend`` rollup, written at request time from invoked
          *     tools only (MCP tool calls and response tool_calls; declaring a tool without
          *     invoking it does not count). A request that invoked multiple tools counts its
          *     full spend toward each of them, so per-tool numbers are attributions and do not
@@ -21788,12 +21788,12 @@ export interface paths {
          * @description List all custom agents on the Gemini side.
          *
          *     Pass per-request Gemini credentials via the JSON-encoded
-         *     ``litellm_params_template`` query parameter. Flat query parameters
+         *     ``embrouter_params_template`` query parameter. Flat query parameters
          *     (e.g. ``?api_key=AIza...``) are intentionally ignored — see
          *     ``_merge_query_params_into_data`` for the rationale.
          *
          *     ```bash
-         *     curl "http://localhost:4000/v1beta/agents?litellm_params_template=%7B%22api_key%22%3A%22AIza...%22%7D" \
+         *     curl "http://localhost:4000/v1beta/agents?embrouter_params_template=%7B%22api_key%22%3A%22AIza...%22%7D" \
          *         -H "Authorization: Bearer sk-..."
          *     ```
          */
@@ -21841,12 +21841,12 @@ export interface paths {
          * @description Get a specific custom agent by name.
          *
          *     Pass per-request Gemini credentials via the JSON-encoded
-         *     ``litellm_params_template`` query parameter. Flat query parameters
+         *     ``embrouter_params_template`` query parameter. Flat query parameters
          *     (e.g. ``?api_key=AIza...``) are intentionally ignored — see
          *     ``_merge_query_params_into_data`` for the rationale.
          *
          *     ```bash
-         *     curl "http://localhost:4000/v1beta/agents/my-custom-slides-agent?litellm_params_template=%7B%22api_key%22%3A%22AIza...%22%7D" \
+         *     curl "http://localhost:4000/v1beta/agents/my-custom-slides-agent?embrouter_params_template=%7B%22api_key%22%3A%22AIza...%22%7D" \
          *         -H "Authorization: Bearer sk-..."
          *     ```
          */
@@ -21858,12 +21858,12 @@ export interface paths {
          * @description Delete a custom agent by name.
          *
          *     Pass per-request Gemini credentials via the JSON-encoded
-         *     ``litellm_params_template`` query parameter. Flat query parameters
+         *     ``embrouter_params_template`` query parameter. Flat query parameters
          *     (e.g. ``?api_key=AIza...``) are intentionally ignored — see
          *     ``_merge_query_params_into_data`` for the rationale.
          *
          *     ```bash
-         *     curl -X DELETE "http://localhost:4000/v1beta/agents/my-custom-slides-agent?litellm_params_template=%7B%22api_key%22%3A%22AIza...%22%7D" \
+         *     curl -X DELETE "http://localhost:4000/v1beta/agents/my-custom-slides-agent?embrouter_params_template=%7B%22api_key%22%3A%22AIza...%22%7D" \
          *         -H "Authorization: Bearer sk-..."
          *     ```
          */
@@ -21885,12 +21885,12 @@ export interface paths {
          * @description List versions of a custom agent.
          *
          *     Pass per-request Gemini credentials via the JSON-encoded
-         *     ``litellm_params_template`` query parameter. Flat query parameters
+         *     ``embrouter_params_template`` query parameter. Flat query parameters
          *     (e.g. ``?api_key=AIza...``) are intentionally ignored — see
          *     ``_merge_query_params_into_data`` for the rationale.
          *
          *     ```bash
-         *     curl "http://localhost:4000/v1beta/agents/my-custom-slides-agent/versions?litellm_params_template=%7B%22api_key%22%3A%22AIza...%22%7D" \
+         *     curl "http://localhost:4000/v1beta/agents/my-custom-slides-agent/versions?embrouter_params_template=%7B%22api_key%22%3A%22AIza...%22%7D" \
          *         -H "Authorization: Bearer sk-..."
          *     ```
          */
@@ -22076,7 +22076,7 @@ export interface paths {
          *             {
          *                 "guardrail_id": "123e4567-e89b-12d3-a456-426614174000",
          *                 "guardrail_name": "my-bedrock-guard",
-         *                 "litellm_params": {
+         *                 "embrouter_params": {
          *                     "guardrail": "bedrock",
          *                     "mode": "pre_call",
          *                     "guardrailIdentifier": "ff6ujrregl1q",
@@ -22170,7 +22170,7 @@ export interface paths {
          *             on each model and filter to deployments the caller can use.
          *         page / size: Pagination controls (defaults: page=1, size=50).
          *         search: Case-insensitive partial match on model name or team public name.
-         *         modelId: Return a single deployment by LiteLLM model id.
+         *         modelId: Return a single deployment by EmbRouter model id.
          *         teamId: Filter to models with direct access or team membership for this team id.
          *         sortBy / sortOrder: Sort by model_name, created_at, updated_at, costs, or status.
          *         access_group: Only return deployments in this model access group.
@@ -22188,10 +22188,10 @@ export interface paths {
          *         "data": [
          *             {
          *                 "model_name": "gpt-4",
-         *                 "litellm_params": {"model": "openai/gpt-4.1"},
+         *                 "embrouter_params": {"model": "openai/gpt-4.1"},
          *                 "model_info": {
          *                     "id": "abc123",
-         *                     "litellm_provider": "openai",
+         *                     "embrouter_provider": "openai",
          *                     "access_via_team_ids": ["team-1"],
          *                     "direct_access": true
          *                 }
@@ -22865,25 +22865,25 @@ export interface paths {
         };
         /**
          * Vertex Proxy Route
-         * @description Call LiteLLM proxy via Vertex AI SDK.
+         * @description Call EmbRouter proxy via Vertex AI SDK.
          *
          */
         get: operations["vertex_proxy_route_vertex_ai__endpoint__get"];
         /**
          * Vertex Proxy Route
-         * @description Call LiteLLM proxy via Vertex AI SDK.
+         * @description Call EmbRouter proxy via Vertex AI SDK.
          *
          */
         put: operations["vertex_proxy_route_vertex_ai__endpoint__put"];
         /**
          * Vertex Proxy Route
-         * @description Call LiteLLM proxy via Vertex AI SDK.
+         * @description Call EmbRouter proxy via Vertex AI SDK.
          *
          */
         post: operations["vertex_proxy_route_vertex_ai__endpoint__post"];
         /**
          * Vertex Proxy Route
-         * @description Call LiteLLM proxy via Vertex AI SDK.
+         * @description Call EmbRouter proxy via Vertex AI SDK.
          *
          */
         delete: operations["vertex_proxy_route_vertex_ai__endpoint__delete"];
@@ -22891,7 +22891,7 @@ export interface paths {
         head?: never;
         /**
          * Vertex Proxy Route
-         * @description Call LiteLLM proxy via Vertex AI SDK.
+         * @description Call EmbRouter proxy via Vertex AI SDK.
          *
          */
         patch: operations["vertex_proxy_route_vertex_ai__endpoint__patch"];
@@ -23370,7 +23370,7 @@ export interface paths {
          *     Supports PKCE flow by forwarding code_verifier to upstream provider.
          *
          *     1. Call the token endpoint with PKCE parameters
-         *     2. Store the user's token in the db - and generate a LiteLLM virtual key
+         *     2. Store the user's token in the db - and generate a EmbRouter virtual key
          *     3. Return the token
          *     4. Return a virtual key in this response
          */
@@ -24143,8 +24143,8 @@ export interface components {
             /** Extra Headers */
             extra_headers?: string[] | null;
             kill_switch?: components["schemas"]["AgentKillSwitchConfig"] | null;
-            /** Litellm Params */
-            litellm_params?: {
+            /** Embrouter Params */
+            embrouter_params?: {
                 [key: string]: unknown;
             };
             object_permission?: components["schemas"]["AgentObjectPermission"];
@@ -24171,8 +24171,8 @@ export interface components {
             credential_fields: components["schemas"]["AgentCredentialField"][];
             /** Description */
             description?: string | null;
-            /** Litellm Params Template */
-            litellm_params_template?: {
+            /** Embrouter Params Template */
+            embrouter_params_template?: {
                 [key: string]: string;
             } | null;
             /** Logo Url */
@@ -24190,8 +24190,8 @@ export interface components {
              * @enum {string}
              */
             field_type: "text" | "password" | "select" | "upload" | "textarea";
-            /** Include In Litellm Params */
-            include_in_litellm_params?: boolean | null;
+            /** Include In Embrouter Params */
+            include_in_embrouter_params?: boolean | null;
             /** Key */
             key: string;
             /** Label */
@@ -24325,7 +24325,7 @@ export interface components {
         };
         /**
          * AgentKillSwitchConfig
-         * @description Webhook an admin fires to shut an agent down out of band. LiteLLM only
+         * @description Webhook an admin fires to shut an agent down out of band. EmbRouter only
          *     makes the call; whatever the endpoint does with it is the agent's business.
          */
         AgentKillSwitchConfig: {
@@ -24449,8 +24449,8 @@ export interface components {
             /** Keys */
             keys?: components["schemas"]["AgentKeySummary"][] | null;
             kill_switch?: components["schemas"]["AgentKillSwitchConfig"] | null;
-            /** Litellm Params */
-            litellm_params?: {
+            /** Embrouter Params */
+            embrouter_params?: {
                 [key: string]: unknown;
             } | null;
             /** Object Permission */
@@ -25346,8 +25346,8 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
-        /** BaseLitellmParams */
-        BaseLitellmParams: {
+        /** BaseEmbrouterParams */
+        BaseEmbrouterParams: {
             /**
              * Additional Provider Specific Params
              * @description Additional provider-specific parameters for generic guardrail APIs
@@ -25478,7 +25478,7 @@ export interface components {
             on_violation?: ("warn" | "end_session" | "block" | "alert") | null;
             /**
              * Only Scan New Messages
-             * @description When True, the guardrail only scans messages that have not already been scanned earlier in the same session (identified by litellm_session_id / session_id). Message content is hashed per session and cached; only the diff (new or edited messages) is sent to the guardrail provider on follow-up calls. Falls back to a full scan when the request has no session id or the cache is unavailable. Intended for blocking/detection guardrails; not applied when mask_request_content is set.
+             * @description When True, the guardrail only scans messages that have not already been scanned earlier in the same session (identified by embrouter_session_id / session_id). Message content is hashed per session and cached; only the diff (new or edited messages) is sent to the guardrail provider on follow-up calls. Falls back to a full scan when the request has no session id or the cache is unavailable. Intended for blocking/detection guardrails; not applied when mask_request_content is set.
              * @default false
              */
             only_scan_new_messages: boolean | null;
@@ -25540,12 +25540,12 @@ export interface components {
             severity_threshold?: string | null;
             /**
              * Skip System Message In Guardrail
-             * @description When True, unified guardrails skip system-role messages when building evaluation inputs (texts and structured_messages). When False, system messages are included even if litellm_settings sets a global skip. When None, use the global litellm.skip_system_message_in_guardrail setting. For Anthropic /v1/messages, the flag applies only to the trusted top-level system prompt. In-sequence system entries are untrusted client input and remain in texts and structured_messages.
+             * @description When True, unified guardrails skip system-role messages when building evaluation inputs (texts and structured_messages). When False, system messages are included even if embrouter_settings sets a global skip. When None, use the global embrouter.skip_system_message_in_guardrail setting. For Anthropic /v1/messages, the flag applies only to the trusted top-level system prompt. In-sequence system entries are untrusted client input and remain in texts and structured_messages.
              */
             skip_system_message_in_guardrail?: boolean | null;
             /**
              * Skip Tool Message In Guardrail
-             * @description When True, unified guardrails skip tool-role messages when building evaluation inputs (texts and structured_messages). When False, tool messages are included even if litellm_settings sets a global skip. When None, use the global litellm.skip_tool_message_in_guardrail setting.
+             * @description When True, unified guardrails skip tool-role messages when building evaluation inputs (texts and structured_messages). When False, tool messages are included even if embrouter_settings sets a global skip. When None, use the global embrouter.skip_tool_message_in_guardrail setting.
              */
             skip_tool_message_in_guardrail?: boolean | null;
             /**
@@ -25670,7 +25670,7 @@ export interface components {
         /** BlockUsersResponse */
         BlockUsersResponse: {
             /** Blocked Users */
-            blocked_users: components["schemas"]["LiteLLM_EndUserTable"][];
+            blocked_users: components["schemas"]["EmbRouter_EndUserTable"][];
         };
         /**
          * BlockedWord
@@ -25741,8 +25741,8 @@ export interface components {
             custom_llm_provider: string;
             /** File */
             file: string;
-            /** Litellm Metadata */
-            litellm_metadata?: string | null;
+            /** Embrouter Metadata */
+            embrouter_metadata?: string | null;
             /**
              * Passthrough
              * @default false
@@ -25770,8 +25770,8 @@ export interface components {
             custom_llm_provider: string;
             /** File */
             file: string;
-            /** Litellm Metadata */
-            litellm_metadata?: string | null;
+            /** Embrouter Metadata */
+            embrouter_metadata?: string | null;
             /**
              * Passthrough
              * @default false
@@ -25799,8 +25799,8 @@ export interface components {
             custom_llm_provider: string;
             /** File */
             file: string;
-            /** Litellm Metadata */
-            litellm_metadata?: string | null;
+            /** Embrouter Metadata */
+            embrouter_metadata?: string | null;
             /**
              * Passthrough
              * @default false
@@ -25867,10 +25867,10 @@ export interface components {
         /** Body_test_model_connection_health_test_connection_post */
         Body_test_model_connection_health_test_connection_post: {
             /**
-             * Litellm Params
-             * @description Parameters for litellm.completion, litellm.embedding for the health check
+             * Embrouter Params
+             * @description Parameters for embrouter.completion, embrouter.embedding for the health check
              */
-            litellm_params?: {
+            embrouter_params?: {
                 [key: string]: unknown;
             };
             /**
@@ -26226,7 +26226,7 @@ export interface components {
              * @default []
              */
             models: unknown[] | null;
-            object_permission?: components["schemas"]["LiteLLM_ObjectPermissionBase"] | null;
+            object_permission?: components["schemas"]["EmbRouter_ObjectPermissionBase"] | null;
             /** Organizations */
             organizations?: string[] | null;
             /** Password */
@@ -26383,7 +26383,7 @@ export interface components {
             key: string;
             /** Max Budget */
             max_budget?: number | null;
-            object_permission?: components["schemas"]["LiteLLM_ObjectPermissionBase"] | null;
+            object_permission?: components["schemas"]["EmbRouter_ObjectPermissionBase"] | null;
             /** Tags */
             tags?: string[] | null;
             /** Team Id */
@@ -26560,8 +26560,8 @@ export interface components {
             health_check_cache_params?: {
                 [key: string]: unknown;
             } | null;
-            /** Litellm Cache Params */
-            litellm_cache_params?: string | null;
+            /** Embrouter Cache Params */
+            embrouter_cache_params?: string | null;
             /** Ping Response */
             ping_response?: boolean | null;
             /** Set Cache Response */
@@ -27803,8 +27803,8 @@ export interface components {
         ComplexityTier: "NON_REASONING" | "SIMPLE" | "MEDIUM" | "COMPLEX" | "REASONING";
         /** ComplexityTierModel */
         ComplexityTierModel: {
-            /** Litellm Params */
-            litellm_params?: {
+            /** Embrouter Params */
+            embrouter_params?: {
                 [key: string]: unknown;
             };
             /** Model Name */
@@ -28144,7 +28144,7 @@ export interface components {
             database_disable_prepared_statements?: boolean | null;
             /**
              * Database Extra Connection Params
-             * @description Escape hatch: extra key/value pairs appended verbatim to the Prisma DATABASE_URL / DIRECT_URL query string (e.g. `sslmode`, `pgbouncer`, `statement_cache_size`). Keys here override any default LiteLLM sets.
+             * @description Escape hatch: extra key/value pairs appended verbatim to the Prisma DATABASE_URL / DIRECT_URL query string (e.g. `sslmode`, `pgbouncer`, `statement_cache_size`). Keys here override any default EmbRouter sets.
              */
             database_extra_connection_params?: {
                 [key: string]: unknown;
@@ -28260,7 +28260,7 @@ export interface components {
             health_check_skip_disabled_background_models: boolean;
             /**
              * Include Call Id In Error Body
-             * @description opt-in to copy the x-litellm-call-id response header's value into JSON error bodies, as error.litellm_call_id on the OpenAI-shaped and /v1/messages routes and as a top-level litellm_call_id on pass-through routes, so an error a client prints names the request to look up. Off by default
+             * @description opt-in to copy the x-embrouter-call-id response header's value into JSON error bodies, as error.embrouter_call_id on the OpenAI-shaped and /v1/messages routes and as a top-level embrouter_call_id on pass-through routes, so an error a client prints names the request to look up. Off by default
              */
             include_call_id_in_error_body?: boolean | null;
             /**
@@ -28282,7 +28282,7 @@ export interface components {
             max_batch_file_size_mb?: number | null;
             /**
              * Max Failed Login Attempts Per Source
-             * @description Failed Admin UI sign-in attempts allowed from one source address, across every username, within `failed_login_window_seconds`. One more blocks that address for `failed_login_block_seconds`. Half this value, rounded down but at least 1, is the allowance for one username from that address; one more blocks that address for that username only, and its further failures stop counting toward the address limit, so a script stuck on one account does not block everyone behind a shared address. The per-address limit is only enforced when `trusted_proxy_ranges` is set: to the proxies in front of LiteLLM, or to an empty list when clients connect directly. Left unset, the peer address may be a shared ingress and only the per-username half runs. IPv6 addresses are grouped by /64. Set under `general_settings` in config.yaml. Defaults to 10
+             * @description Failed Admin UI sign-in attempts allowed from one source address, across every username, within `failed_login_window_seconds`. One more blocks that address for `failed_login_block_seconds`. Half this value, rounded down but at least 1, is the allowance for one username from that address; one more blocks that address for that username only, and its further failures stop counting toward the address limit, so a script stuck on one account does not block everyone behind a shared address. The per-address limit is only enforced when `trusted_proxy_ranges` is set: to the proxies in front of EmbRouter, or to an empty list when clients connect directly. Left unset, the peer address may be a shared ingress and only the per-username half runs. IPv6 addresses are grouped by /64. Set under `general_settings` in config.yaml. Defaults to 10
              */
             max_failed_login_attempts_per_source?: number | null;
             /**
@@ -28369,12 +28369,12 @@ export interface components {
             mcp_advertised_versions?: ("2024-11-05" | "2025-03-26" | "2025-06-18" | "2025-11-25")[] | null;
             /**
              * Mcp Allowed Clients
-             * @description MCP client applications admitted by the gateway, each an {alias, value} pair where alias is the name shown in the dashboard and logs and value is the identity that must match exactly. When set, every MCP request must carry a client identity equal to one of the values: a JWT caller is identified by the claim named in litellm_jwtauth.mcp_client_id_jwt_field, any other caller by the header named in mcp_client_id_header. A request with no resolvable identity, or an unlisted one, is rejected with 403. Unset means every client is admitted.
+             * @description MCP client applications admitted by the gateway, each an {alias, value} pair where alias is the name shown in the dashboard and logs and value is the identity that must match exactly. When set, every MCP request must carry a client identity equal to one of the values: a JWT caller is identified by the claim named in embrouter_jwtauth.mcp_client_id_jwt_field, any other caller by the header named in mcp_client_id_header. A request with no resolvable identity, or an unlisted one, is rejected with 403. Unset means every client is admitted.
              */
             mcp_allowed_clients?: components["schemas"]["MCPAllowedClient"][] | null;
             /**
              * Mcp Client Id Header
-             * @description Request header whose value names the calling MCP client application (for example 'x-mcp-client') for callers that did not authenticate with a JWT, used only while mcp_allowed_clients is set. The client picks this value itself, so it is a policy control rather than a security boundary; prefer litellm_jwtauth.mcp_client_id_jwt_field where callers use JWTs.
+             * @description Request header whose value names the calling MCP client application (for example 'x-mcp-client') for callers that did not authenticate with a JWT, used only while mcp_allowed_clients is set. The client picks this value itself, so it is a policy control rather than a security boundary; prefer embrouter_jwtauth.mcp_client_id_jwt_field where callers use JWTs.
              */
             mcp_client_id_header?: string | null;
             /**
@@ -28399,7 +28399,7 @@ export interface components {
             mcp_xff_num_trusted_hops?: number | null;
             /**
              * Missing Session Id
-             * @description What to do with LLM API requests that carry no session id (x-litellm-session-id header, metadata.session_id, etc.). 'generate' stamps one id into litellm_session_id, litellm_trace_id and metadata.session_id so SpendLogs and logging callbacks agree; 'reject' returns 400; 'omit' leaves SpendLogs.session_id null, matching callbacks such as Langfuse that only record a client-established metadata.session_id. Unset keeps the legacy behavior where SpendLogs falls back to the trace id while callbacks get no session id.
+             * @description What to do with LLM API requests that carry no session id (x-embrouter-session-id header, metadata.session_id, etc.). 'generate' stamps one id into embrouter_session_id, embrouter_trace_id and metadata.session_id so SpendLogs and logging callbacks agree; 'reject' returns 400; 'omit' leaves SpendLogs.session_id null, matching callbacks such as Langfuse that only record a client-established metadata.session_id. Unset keeps the legacy behavior where SpendLogs falls back to the trace id while callbacks get no session id.
              */
             missing_session_id?: ("generate" | "reject" | "omit") | null;
             /**
@@ -28470,7 +28470,7 @@ export interface components {
             reject_clientside_metadata_tags?: boolean | null;
             /** @description Spreads the proxy's scheduled background jobs (spend flushes, budget resets, config reloads, exports) across a window instead of firing them together on every replica. On by default; set to tune the window, pin a job, or turn it off. */
             scheduled_job_stagger?: components["schemas"]["ScheduledJobStaggerSettings"] | null;
-            /** @description Daily check of the spend LiteLLM captured against the provider's own bill (OpenAI via OPENAI_ADMIN_KEY). Publishes litellm_spend_capture_rate per provider and alerts when the ratio over the lookback window falls under the threshold (default 0.9). Off unless set. */
+            /** @description Daily check of the spend EmbRouter captured against the provider's own bill (OpenAI via OPENAI_ADMIN_KEY). Publishes embrouter_spend_capture_rate per provider and alerts when the ratio over the lookback window falls under the threshold (default 0.9). Off unless set. */
             spend_capture_rate_check?: components["schemas"]["SpendCaptureRateCheckSettings"] | null;
             /**
              * Store Model In Db
@@ -28515,7 +28515,7 @@ export interface components {
             use_google_kms?: boolean | null;
             /**
              * Use Spend Logs Partitioning
-             * @description If True and LiteLLM_SpendLogs has been converted to a range-partitioned table (db_scripts/partition_spend_logs.sql), retention cleanup drops expired partitions instead of deleting rows, and pre-creates upcoming partitions. Default is False.
+             * @description If True and EmbRouter_SpendLogs has been converted to a range-partitioned table (db_scripts/partition_spend_logs.sql), retention cleanup drops expired partitions instead of deleting rows, and pre-creates upcoming partitions. Default is False.
              */
             use_spend_logs_partitioning?: boolean | null;
             /**
@@ -28622,10 +28622,10 @@ export interface components {
             } | null;
             general_settings?: components["schemas"]["ConfigGeneralSettings"] | null;
             /**
-             * Litellm Settings
-             * @description litellm Module settings. See __init__.py for all, example litellm.drop_params=True, litellm.set_verbose=True, litellm.api_base, litellm.cache
+             * Embrouter Settings
+             * @description embrouter Module settings. See __init__.py for all, example embrouter.drop_params=True, embrouter.set_verbose=True, embrouter.api_base, embrouter.cache
              */
-            litellm_settings?: {
+            embrouter_settings?: {
                 [key: string]: unknown;
             } | null;
             /**
@@ -28633,7 +28633,7 @@ export interface components {
              * @description List of supported models on the server, with model-specific configs
              */
             model_list?: components["schemas"]["ModelParams"][] | null;
-            /** @description litellm router object settings. See router.py __init__ for all, example router.num_retries=5, router.timeout=5, router.max_retries=5, router.retry_after=5 */
+            /** @description embrouter router object settings. See router.py __init__ for all, example router.num_retries=5, router.timeout=5, router.max_retries=5, router.retry_after=5 */
             router_settings?: components["schemas"]["UpdateRouterConfig"] | null;
             /**
              * Worker Registry
@@ -28915,7 +28915,7 @@ export interface components {
          * CoordinationRedisParams
          * @description Connection params for the proxy's coordination Redis (cross-pod tpm/rpm rate
          *     limits, spend tracking, pod lock manager, shared health checks), configured
-         *     independently of the response-cache backend in `litellm_settings.cache_params`.
+         *     independently of the response-cache backend in `embrouter_settings.cache_params`.
          */
         CoordinationRedisParams: {
             /**
@@ -29427,7 +29427,7 @@ export interface components {
          *
          *     Nests the full budget response model so server-managed budget fields
          *     (budget_reset_at, created_at) survive response_model filtering, rather than
-         *     the narrow write-allowlist shape LiteLLM_EndUserTable carries for internal use.
+         *     the narrow write-allowlist shape EmbRouter_EndUserTable carries for internal use.
          */
         CustomerResponse: {
             /** Alias */
@@ -29440,8 +29440,8 @@ export interface components {
             budget_id?: string | null;
             /** Default Model */
             default_model?: string | null;
-            litellm_budget_table?: components["schemas"]["LiteLLM_BudgetTableFull"] | null;
-            object_permission?: components["schemas"]["LiteLLM_ObjectPermissionTable"] | null;
+            embrouter_budget_table?: components["schemas"]["EmbRouter_BudgetTableFull"] | null;
+            object_permission?: components["schemas"]["EmbRouter_ObjectPermissionTable"] | null;
             /** Object Permission Id */
             object_permission_id?: string | null;
             /**
@@ -29646,7 +29646,7 @@ export interface components {
         /**
          * DefaultTeamSSOParams
          * @description Default parameters applied to every /team/new call for fields not explicitly provided in the request.
-         *     `models` is the exception: it only applies to teams automatically created by LiteLLM via SSO Groups.
+         *     `models` is the exception: it only applies to teams automatically created by EmbRouter via SSO Groups.
          */
         DefaultTeamSSOParams: {
             /**
@@ -29811,8 +29811,8 @@ export interface components {
         };
         /** Deployment */
         Deployment: {
-            litellm_params: components["schemas"]["LiteLLM_Params"];
-            model_info: components["schemas"]["litellm__types__router__ModelInfo"];
+            embrouter_params: components["schemas"]["EmbRouter_Params"];
+            model_info: components["schemas"]["embrouter__types__router__ModelInfo"];
             /** Model Name */
             model_name: string;
         } & {
@@ -29958,12 +29958,12 @@ export interface components {
             billing_mode: "PROVISIONED_THROUGHPUT" | "PAY_PER_REQUEST";
             /**
              * Config Table Name
-             * @default LiteLLM_Config
+             * @default EmbRouter_Config
              */
             config_table_name: string;
             /**
              * Key Table Name
-             * @default LiteLLM_VerificationToken
+             * @default EmbRouter_VerificationToken
              */
             key_table_name: string;
             /** Read Capacity Units */
@@ -29972,14 +29972,14 @@ export interface components {
             region_name: string;
             /**
              * Spend Table Name
-             * @default LiteLLM_SpendLogs
+             * @default EmbRouter_SpendLogs
              */
             spend_table_name: string;
             /** Ssl Verify */
             ssl_verify?: boolean | null;
             /**
              * User Table Name
-             * @default LiteLLM_UserTable
+             * @default EmbRouter_UserTable
              */
             user_table_name: string;
             /** Write Capacity Units */
@@ -30070,15 +30070,15 @@ export interface components {
              */
             input: string[];
             /**
-             * Litellm Call Id
+             * Embrouter Call Id
              * @default null
              */
-            litellm_call_id: string | null;
+            embrouter_call_id: string | null;
             /**
-             * Litellm Logging Obj
+             * Embrouter Logging Obj
              * @default null
              */
-            litellm_logging_obj: {
+            embrouter_logging_obj: {
                 [key: string]: unknown;
             } | null;
             /**
@@ -30135,8 +30135,8 @@ export interface components {
             config_lines: string[];
             /** Deployment */
             deployment: string | null;
-            /** Litellm Version */
-            litellm_version: string;
+            /** Embrouter Version */
+            embrouter_version: string;
             /** Python Version */
             python_version: string;
             /**
@@ -30655,7 +30655,7 @@ export interface components {
              * @description Type of key that determines default allowed routes.
              * @default default
              */
-            key_type: components["schemas"]["LiteLLMKeyType"] | null;
+            key_type: components["schemas"]["EmbRouterKeyType"] | null;
             /** Max Budget */
             max_budget?: number | null;
             /** Max Parallel Requests */
@@ -30691,7 +30691,7 @@ export interface components {
              * @default []
              */
             models: unknown[] | null;
-            object_permission?: components["schemas"]["LiteLLM_ObjectPermissionBase"] | null;
+            object_permission?: components["schemas"]["EmbRouter_ObjectPermissionBase"] | null;
             /** Organization Id */
             organization_id?: string | null;
             /**
@@ -30823,8 +30823,8 @@ export interface components {
             key_name?: string | null;
             /** Key Type */
             key_type?: string | null;
-            /** Litellm Budget Table */
-            litellm_budget_table?: unknown | null;
+            /** Embrouter Budget Table */
+            embrouter_budget_table?: unknown | null;
             /** Max Budget */
             max_budget?: number | null;
             /** Max Parallel Requests */
@@ -30860,7 +30860,7 @@ export interface components {
              * @default []
              */
             models: unknown[] | null;
-            object_permission?: components["schemas"]["LiteLLM_ObjectPermissionBase"] | null;
+            object_permission?: components["schemas"]["EmbRouter_ObjectPermissionBase"] | null;
             /** Organization Id */
             organization_id?: string | null;
             /**
@@ -31024,7 +31024,7 @@ export interface components {
             } | null;
             /** Guardrail Name */
             guardrail_name: string;
-            litellm_params: components["schemas"]["LitellmParams"];
+            embrouter_params: components["schemas"]["EmbrouterParams"];
             /** Policy Template */
             policy_template?: string | null;
             /** Updated At */
@@ -31044,7 +31044,7 @@ export interface components {
             } | null;
             /** Guardrail Name */
             guardrail_name: string;
-            litellm_params?: components["schemas"]["BaseLitellmParams"] | null;
+            embrouter_params?: components["schemas"]["BaseEmbrouterParams"] | null;
             /** Updated At */
             updated_at?: string | null;
         };
@@ -31060,8 +31060,8 @@ export interface components {
             } | null;
             /** Guardrail Name */
             guardrail_name: string;
-            /** Litellm Params */
-            litellm_params?: {
+            /** Embrouter Params */
+            embrouter_params?: {
                 [key: string]: unknown;
             } | null;
             /** Reviewed At */
@@ -31318,8 +31318,8 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
-        /** IndexCreateLiteLLMParams */
-        IndexCreateLiteLLMParams: {
+        /** IndexCreateEmbRouterParams */
+        IndexCreateEmbRouterParams: {
             /** Vector Store Index */
             vector_store_index: string;
             /** Vector Store Name */
@@ -31333,12 +31333,12 @@ export interface components {
             } | null;
             /** Index Name */
             index_name: string;
-            litellm_params: components["schemas"]["IndexCreateLiteLLMParams"];
+            embrouter_params: components["schemas"]["IndexCreateEmbRouterParams"];
         };
         /** IndexListResponse */
         IndexListResponse: {
             /** Data */
-            data: components["schemas"]["LiteLLM_ManagedVectorStoreIndex"][];
+            data: components["schemas"]["EmbRouter_ManagedVectorStoreIndex"][];
             /**
              * Object
              * @default list
@@ -31603,7 +31603,7 @@ export interface components {
             /** Current Page */
             current_page?: number | null;
             /** Keys */
-            keys?: (string | components["schemas"]["UserAPIKeyAuth"] | components["schemas"]["LiteLLM_DeletedVerificationToken"])[];
+            keys?: (string | components["schemas"]["UserAPIKeyAuth"] | components["schemas"]["EmbRouter_DeletedVerificationToken"])[];
             /** Total Count */
             total_count?: number | null;
             /** Total Pages */
@@ -31955,8 +31955,8 @@ export interface components {
             /** Next Page */
             next_page?: string | null;
         };
-        /** LiteLLMFineTuningJobCreate */
-        LiteLLMFineTuningJobCreate: {
+        /** EmbRouterFineTuningJobCreate */
+        EmbRouterFineTuningJobCreate: {
             /** Custom Llm Provider */
             custom_llm_provider?: ("openai" | "azure" | "vertex_ai") | null;
             hyperparameters?: components["schemas"]["Hyperparameters"] | null;
@@ -31976,20 +31976,20 @@ export interface components {
             [key: string]: unknown;
         };
         /**
-         * LiteLLMKeyType
+         * EmbRouterKeyType
          * @description Enum for key types that determine what routes a key can access
          * @enum {string}
          */
-        LiteLLMKeyType: "llm_api" | "management" | "read_only" | "default";
+        EmbRouterKeyType: "llm_api" | "management" | "read_only" | "default";
         /**
-         * LiteLLM_BudgetTable
-         * @description Represents user-controllable params for a LiteLLM_BudgetTable record.
+         * EmbRouter_BudgetTable
+         * @description Represents user-controllable params for a EmbRouter_BudgetTable record.
          *
          *     Budget-write paths use `model_fields.keys()` on this class as an allowlist
          *     for user input. Keep server-managed fields (e.g. `budget_reset_at`) on
-         *     `LiteLLM_BudgetTableFull` so they aren't user-settable.
+         *     `EmbRouter_BudgetTableFull` so they aren't user-settable.
          */
-        LiteLLM_BudgetTable: {
+        EmbRouter_BudgetTable: {
             /** Allowed Models */
             allowed_models?: string[] | null;
             /** Budget Duration */
@@ -32018,10 +32018,10 @@ export interface components {
             tpm_limit?: number | null;
         };
         /**
-         * LiteLLM_BudgetTableFull
-         * @description LiteLLM_BudgetTable + server-managed fields returned on API responses.
+         * EmbRouter_BudgetTableFull
+         * @description EmbRouter_BudgetTable + server-managed fields returned on API responses.
          */
-        LiteLLM_BudgetTableFull: {
+        EmbRouter_BudgetTableFull: {
             /** Allowed Models */
             allowed_models?: string[] | null;
             /** Budget Duration */
@@ -32057,10 +32057,10 @@ export interface components {
             tpm_limit?: number | null;
         };
         /**
-         * LiteLLM_DeletedTeamTable
+         * EmbRouter_DeletedTeamTable
          * @description Audit record for deleted teams; mirrors the team plus deletion metadata.
          */
-        LiteLLM_DeletedTeamTable: {
+        EmbRouter_DeletedTeamTable: {
             /** Access Group Ids */
             access_group_ids?: string[] | null;
             /**
@@ -32096,9 +32096,9 @@ export interface components {
             deleted_by_api_key?: string | null;
             /** Id */
             id?: string | null;
-            /** Litellm Changed By */
-            litellm_changed_by?: string | null;
-            litellm_model_table?: components["schemas"]["LiteLLM_ModelTable"] | null;
+            /** Embrouter Changed By */
+            embrouter_changed_by?: string | null;
+            embrouter_model_table?: components["schemas"]["EmbRouter_ModelTable"] | null;
             /** Max Budget */
             max_budget?: number | null;
             /** Max Parallel Requests */
@@ -32138,7 +32138,7 @@ export interface components {
              * @default []
              */
             models: string[];
-            object_permission?: components["schemas"]["LiteLLM_ObjectPermissionTable"] | null;
+            object_permission?: components["schemas"]["EmbRouter_ObjectPermissionTable"] | null;
             /** Object Permission Id */
             object_permission_id?: string | null;
             /** Organization Id */
@@ -32169,10 +32169,10 @@ export interface components {
             updated_at?: string | null;
         };
         /**
-         * LiteLLM_DeletedVerificationToken
+         * EmbRouter_DeletedVerificationToken
          * @description Audit record for deleted keys; mirrors the token plus deletion metadata.
          */
-        LiteLLM_DeletedVerificationToken: {
+        EmbRouter_DeletedVerificationToken: {
             /** Access Group Ids */
             access_group_ids?: string[] | null;
             /** Agent Id */
@@ -32251,12 +32251,12 @@ export interface components {
             last_active?: string | null;
             /** Last Rotation At */
             last_rotation_at?: string | null;
-            /** Litellm Budget Table */
-            litellm_budget_table?: {
+            /** Embrouter Budget Table */
+            embrouter_budget_table?: {
                 [key: string]: unknown;
             } | null;
-            /** Litellm Changed By */
-            litellm_changed_by?: string | null;
+            /** Embrouter Changed By */
+            embrouter_changed_by?: string | null;
             /** Max Budget */
             max_budget?: number | null;
             /** Max Parallel Requests */
@@ -32287,7 +32287,7 @@ export interface components {
              * @default []
              */
             models: unknown[];
-            object_permission?: components["schemas"]["LiteLLM_ObjectPermissionTable"] | null;
+            object_permission?: components["schemas"]["EmbRouter_ObjectPermissionTable"] | null;
             /** Object Permission Id */
             object_permission_id?: string | null;
             /** Org Id */
@@ -32348,8 +32348,8 @@ export interface components {
             /** User Id */
             user_id?: string | null;
         };
-        /** LiteLLM_EndUserTable */
-        LiteLLM_EndUserTable: {
+        /** EmbRouter_EndUserTable */
+        EmbRouter_EndUserTable: {
             /** Alias */
             alias?: string | null;
             /** Allowed Model Region */
@@ -32360,8 +32360,8 @@ export interface components {
             budget_id?: string | null;
             /** Default Model */
             default_model?: string | null;
-            litellm_budget_table?: components["schemas"]["LiteLLM_BudgetTable"] | null;
-            object_permission?: components["schemas"]["LiteLLM_ObjectPermissionTable"] | null;
+            embrouter_budget_table?: components["schemas"]["EmbRouter_BudgetTable"] | null;
+            object_permission?: components["schemas"]["EmbRouter_ObjectPermissionTable"] | null;
             /** Object Permission Id */
             object_permission_id?: string | null;
             /**
@@ -32373,10 +32373,10 @@ export interface components {
             user_id: string;
         };
         /**
-         * LiteLLM_MCPServerTable
-         * @description Represents a LiteLLM_MCPServerTable record
+         * EmbRouter_MCPServerTable
+         * @description Represents a EmbRouter_MCPServerTable record
          */
-        LiteLLM_MCPServerTable: {
+        EmbRouter_MCPServerTable: {
             /** Alias */
             alias?: string | null;
             /**
@@ -32543,20 +32543,20 @@ export interface components {
             url?: string | null;
         };
         /**
-         * LiteLLM_ManagedVectorStore
-         * @description LiteLLM managed vector store object - this is is the object stored in the database
+         * EmbRouter_ManagedVectorStore
+         * @description EmbRouter managed vector store object - this is is the object stored in the database
          */
-        LiteLLM_ManagedVectorStore: {
+        EmbRouter_ManagedVectorStore: {
             /** Created At */
             created_at?: string | null;
             /** Custom Llm Provider */
             custom_llm_provider?: string;
             /** Is Config */
             is_config?: boolean;
-            /** Litellm Credential Name */
-            litellm_credential_name?: string | null;
-            /** Litellm Params */
-            litellm_params?: {
+            /** Embrouter Credential Name */
+            embrouter_credential_name?: string | null;
+            /** Embrouter Params */
+            embrouter_params?: {
                 [key: string]: unknown;
             } | null;
             /** Team Id */
@@ -32577,10 +32577,10 @@ export interface components {
             vector_store_name?: string | null;
         };
         /**
-         * LiteLLM_ManagedVectorStoreIndex
-         * @description LiteLLM managed vector store index object - this is is the object stored in the database
+         * EmbRouter_ManagedVectorStoreIndex
+         * @description EmbRouter managed vector store index object - this is is the object stored in the database
          */
-        LiteLLM_ManagedVectorStoreIndex: {
+        EmbRouter_ManagedVectorStoreIndex: {
             /** Created At */
             created_at?: string | null;
             /** Created By */
@@ -32593,21 +32593,21 @@ export interface components {
             } | null;
             /** Index Name */
             index_name: string;
-            litellm_params: components["schemas"]["IndexCreateLiteLLMParams"];
+            embrouter_params: components["schemas"]["IndexCreateEmbRouterParams"];
             /** Updated At */
             updated_at?: string | null;
             /** Updated By */
             updated_by?: string | null;
         };
         /**
-         * LiteLLM_ManagedVectorStoreListResponse
+         * EmbRouter_ManagedVectorStoreListResponse
          * @description Response format for listing vector stores
          */
-        LiteLLM_ManagedVectorStoreListResponse: {
+        EmbRouter_ManagedVectorStoreListResponse: {
             /** Current Page */
             current_page?: number | null;
             /** Data */
-            data?: components["schemas"]["LiteLLM_ManagedVectorStore"][];
+            data?: components["schemas"]["EmbRouter_ManagedVectorStore"][];
             /**
              * Object
              * @constant
@@ -32618,8 +32618,8 @@ export interface components {
             /** Total Pages */
             total_pages?: number | null;
         };
-        /** LiteLLM_ManagedVectorStoresTable */
-        LiteLLM_ManagedVectorStoresTable: {
+        /** EmbRouter_ManagedVectorStoresTable */
+        EmbRouter_ManagedVectorStoresTable: {
             /** Created At */
             created_at?: string | null;
             /** Custom Llm Provider */
@@ -32629,10 +32629,10 @@ export interface components {
              * @default false
              */
             is_config: boolean;
-            /** Litellm Credential Name */
-            litellm_credential_name?: string | null;
-            /** Litellm Params */
-            litellm_params?: {
+            /** Embrouter Credential Name */
+            embrouter_credential_name?: string | null;
+            /** Embrouter Params */
+            embrouter_params?: {
                 [key: string]: unknown;
             } | null;
             /** Team Id */
@@ -32652,8 +32652,8 @@ export interface components {
             /** Vector Store Name */
             vector_store_name?: string | null;
         };
-        /** LiteLLM_MemoryRow */
-        LiteLLM_MemoryRow: {
+        /** EmbRouter_MemoryRow */
+        EmbRouter_MemoryRow: {
             /** Created At */
             created_at?: string | null;
             /** Created By */
@@ -32675,8 +32675,8 @@ export interface components {
             /** Value */
             value: string;
         };
-        /** LiteLLM_ModelTable */
-        LiteLLM_ModelTable: {
+        /** EmbRouter_ModelTable */
+        EmbRouter_ModelTable: {
             /** Created By */
             created_by: string;
             /** Id */
@@ -32685,12 +32685,12 @@ export interface components {
             model_aliases?: string | {
                 [key: string]: unknown;
             } | null;
-            team?: components["schemas"]["LiteLLM_TeamTable"] | null;
+            team?: components["schemas"]["EmbRouter_TeamTable"] | null;
             /** Updated By */
             updated_by: string;
         };
-        /** LiteLLM_ObjectPermissionBase */
-        LiteLLM_ObjectPermissionBase: {
+        /** EmbRouter_ObjectPermissionBase */
+        EmbRouter_ObjectPermissionBase: {
             /** Agent Access Groups */
             agent_access_groups?: string[] | null;
             /** Agents */
@@ -32719,10 +32719,10 @@ export interface components {
             vector_stores?: string[] | null;
         };
         /**
-         * LiteLLM_ObjectPermissionTable
-         * @description Represents a LiteLLM_ObjectPermissionTable record
+         * EmbRouter_ObjectPermissionTable
+         * @description Represents a EmbRouter_ObjectPermissionTable record
          */
-        LiteLLM_ObjectPermissionTable: {
+        EmbRouter_ObjectPermissionTable: {
             /**
              * Agent Access Groups
              * @default []
@@ -32777,10 +32777,10 @@ export interface components {
             vector_stores: string[] | null;
         };
         /**
-         * LiteLLM_OrganizationMembershipTable
+         * EmbRouter_OrganizationMembershipTable
          * @description Tracks which organizations a user belongs to and their spend within it.
          */
-        LiteLLM_OrganizationMembershipTable: {
+        EmbRouter_OrganizationMembershipTable: {
             /** Budget Id */
             budget_id?: string | null;
             /**
@@ -32788,7 +32788,7 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
-            litellm_budget_table?: components["schemas"]["LiteLLM_BudgetTable"] | null;
+            embrouter_budget_table?: components["schemas"]["EmbRouter_BudgetTable"] | null;
             /** Organization Id */
             organization_id: string;
             /**
@@ -32811,10 +32811,10 @@ export interface components {
             user_role?: string | null;
         };
         /**
-         * LiteLLM_OrganizationTableWithMembers
+         * EmbRouter_OrganizationTableWithMembers
          * @description Returned by the /organization/info endpoint and /organization/list endpoint
          */
-        LiteLLM_OrganizationTableWithMembers: {
+        EmbRouter_OrganizationTableWithMembers: {
             /** Budget Id */
             budget_id: string;
             /**
@@ -32824,12 +32824,12 @@ export interface components {
             created_at: string;
             /** Created By */
             created_by: string;
-            litellm_budget_table?: components["schemas"]["LiteLLM_BudgetTable"] | null;
+            embrouter_budget_table?: components["schemas"]["EmbRouter_BudgetTable"] | null;
             /**
              * Members
              * @default []
              */
-            members: components["schemas"]["LiteLLM_OrganizationMembershipTable"][];
+            members: components["schemas"]["EmbRouter_OrganizationMembershipTable"][];
             /** Metadata */
             metadata?: {
                 [key: string]: unknown;
@@ -32846,7 +32846,7 @@ export interface components {
              * @default []
              */
             models: string[];
-            object_permission?: components["schemas"]["LiteLLM_ObjectPermissionTable"] | null;
+            object_permission?: components["schemas"]["EmbRouter_ObjectPermissionTable"] | null;
             /** Object Permission Id */
             object_permission_id?: string | null;
             /** Organization Alias */
@@ -32862,7 +32862,7 @@ export interface components {
              * Teams
              * @default []
              */
-            teams: components["schemas"]["LiteLLM_TeamTable"][];
+            teams: components["schemas"]["EmbRouter_TeamTable"][];
             /**
              * Updated At
              * Format: date-time
@@ -32871,13 +32871,13 @@ export interface components {
             /** Updated By */
             updated_by: string;
             /** Users */
-            users?: components["schemas"]["LiteLLM_UserTable"][] | null;
+            users?: components["schemas"]["EmbRouter_UserTable"][] | null;
         };
         /**
-         * LiteLLM_Params
-         * @description LiteLLM Params with 'model' requirement - used for completions
+         * EmbRouter_Params
+         * @description EmbRouter Params with 'model' requirement - used for completions
          */
-        LiteLLM_Params: {
+        EmbRouter_Params: {
             /** Adaptive Router Config */
             adaptive_router_config?: {
                 [key: string]: unknown;
@@ -33121,10 +33121,10 @@ export interface components {
             itpm?: number | null;
             /** Keepalive Seconds */
             keepalive_seconds?: number | null;
-            /** Litellm Credential Name */
-            litellm_credential_name?: string | null;
-            /** Litellm Trace Id */
-            litellm_trace_id?: string | null;
+            /** Embrouter Credential Name */
+            embrouter_credential_name?: string | null;
+            /** Embrouter Trace Id */
+            embrouter_trace_id?: string | null;
             /** Max Budget */
             max_budget?: number | null;
             /** Max File Size Mb */
@@ -33300,10 +33300,10 @@ export interface components {
              */
             use_in_pass_through: boolean | null;
             /**
-             * Use Litellm Proxy
+             * Use Embrouter Proxy
              * @default false
              */
-            use_litellm_proxy: boolean | null;
+            use_embrouter_proxy: boolean | null;
             /**
              * Use Xai Oauth
              * @description Use stored xAI OAuth credentials when no xAI API key is configured.
@@ -33338,10 +33338,10 @@ export interface components {
             [key: string]: unknown;
         };
         /**
-         * LiteLLM_ProjectTable
+         * EmbRouter_ProjectTable
          * @description Database model representation for project
          */
-        LiteLLM_ProjectTable: {
+        EmbRouter_ProjectTable: {
             /**
              * Blocked
              * @default false
@@ -33355,7 +33355,7 @@ export interface components {
             created_by?: string | null;
             /** Description */
             description?: string | null;
-            litellm_budget_table?: components["schemas"]["LiteLLM_BudgetTable"] | null;
+            embrouter_budget_table?: components["schemas"]["EmbRouter_BudgetTable"] | null;
             /** Metadata */
             metadata?: {
                 [key: string]: unknown;
@@ -33377,7 +33377,7 @@ export interface components {
              * @default []
              */
             models: string[];
-            object_permission?: components["schemas"]["LiteLLM_ObjectPermissionTable"] | null;
+            object_permission?: components["schemas"]["EmbRouter_ObjectPermissionTable"] | null;
             /** Object Permission Id */
             object_permission_id?: string | null;
             /** Project Alias */
@@ -33396,8 +33396,8 @@ export interface components {
             /** Updated By */
             updated_by?: string | null;
         };
-        /** LiteLLM_ProxyModelTable */
-        LiteLLM_ProxyModelTable: {
+        /** EmbRouter_ProxyModelTable */
+        EmbRouter_ProxyModelTable: {
             /**
              * Blocked
              * @default false
@@ -33407,8 +33407,8 @@ export interface components {
             created_at?: string | null;
             /** Created By */
             created_by?: string | null;
-            /** Litellm Params */
-            litellm_params: {
+            /** Embrouter Params */
+            embrouter_params: {
                 [key: string]: unknown;
             };
             /** Model Id */
@@ -33424,8 +33424,8 @@ export interface components {
             /** Updated By */
             updated_by?: string | null;
         };
-        /** LiteLLM_SpendLogs */
-        LiteLLM_SpendLogs: {
+        /** EmbRouter_SpendLogs */
+        EmbRouter_SpendLogs: {
             /**
              * Api Base
              * @default
@@ -33500,12 +33500,12 @@ export interface components {
              */
             user: string | null;
         };
-        /** LiteLLM_TeamMembership */
-        LiteLLM_TeamMembership: {
+        /** EmbRouter_TeamMembership */
+        EmbRouter_TeamMembership: {
             /** Budget Id */
             budget_id?: string | null;
-            /** Litellm Budget Table */
-            litellm_budget_table?: components["schemas"]["LiteLLM_BudgetTableFull"] | components["schemas"]["LiteLLM_BudgetTable"] | null;
+            /** Embrouter Budget Table */
+            embrouter_budget_table?: components["schemas"]["EmbRouter_BudgetTableFull"] | components["schemas"]["EmbRouter_BudgetTable"] | null;
             /**
              * Spend
              * @default 0
@@ -33521,8 +33521,8 @@ export interface components {
             /** User Id */
             user_id: string;
         };
-        /** LiteLLM_TeamTable */
-        LiteLLM_TeamTable: {
+        /** EmbRouter_TeamTable */
+        EmbRouter_TeamTable: {
             /** Access Group Ids */
             access_group_ids?: string[] | null;
             /**
@@ -33550,7 +33550,7 @@ export interface components {
             created_at?: string | null;
             /** Default Team Member Models */
             default_team_member_models?: string[] | null;
-            litellm_model_table?: components["schemas"]["LiteLLM_ModelTable"] | null;
+            embrouter_model_table?: components["schemas"]["EmbRouter_ModelTable"] | null;
             /** Max Budget */
             max_budget?: number | null;
             /** Max Parallel Requests */
@@ -33590,7 +33590,7 @@ export interface components {
              * @default []
              */
             models: string[];
-            object_permission?: components["schemas"]["LiteLLM_ObjectPermissionTable"] | null;
+            object_permission?: components["schemas"]["EmbRouter_ObjectPermissionTable"] | null;
             /** Object Permission Id */
             object_permission_id?: string | null;
             /** Organization Id */
@@ -33620,8 +33620,8 @@ export interface components {
             /** Updated At */
             updated_at?: string | null;
         };
-        /** LiteLLM_ToolTableRow */
-        LiteLLM_ToolTableRow: {
+        /** EmbRouter_ToolTableRow */
+        EmbRouter_ToolTableRow: {
             /** Assignments */
             assignments?: {
                 [key: string]: unknown;
@@ -33668,8 +33668,8 @@ export interface components {
             /** User Agent */
             user_agent?: string | null;
         };
-        /** LiteLLM_UserTable */
-        LiteLLM_UserTable: {
+        /** EmbRouter_UserTable */
+        EmbRouter_UserTable: {
             /**
              * Allowed Cache Controls
              * @default []
@@ -33710,13 +33710,13 @@ export interface components {
              * @default []
              */
             models: unknown[];
-            object_permission?: components["schemas"]["LiteLLM_ObjectPermissionTable"] | null;
+            object_permission?: components["schemas"]["EmbRouter_ObjectPermissionTable"] | null;
             /** Object Permission Id */
             object_permission_id?: string | null;
             /** Organization Id */
             organization_id?: string | null;
             /** Organization Memberships */
-            organization_memberships?: components["schemas"]["LiteLLM_OrganizationMembershipTable"][] | null;
+            organization_memberships?: components["schemas"]["EmbRouter_OrganizationMembershipTable"][] | null;
             /** Password Reset Required */
             password_reset_required?: boolean | null;
             /**
@@ -33753,15 +33753,15 @@ export interface components {
             /** User Role */
             user_role?: string | null;
         };
-        /** LiteLLM_UserTableFiltered */
-        LiteLLM_UserTableFiltered: {
+        /** EmbRouter_UserTableFiltered */
+        EmbRouter_UserTableFiltered: {
             /** User Email */
             user_email?: string | null;
             /** User Id */
             user_id: string;
         };
-        /** LiteLLM_UserTableWithKeyCount */
-        LiteLLM_UserTableWithKeyCount: {
+        /** EmbRouter_UserTableWithKeyCount */
+        EmbRouter_UserTableWithKeyCount: {
             /**
              * Allowed Cache Controls
              * @default []
@@ -33807,13 +33807,13 @@ export interface components {
              * @default []
              */
             models: unknown[];
-            object_permission?: components["schemas"]["LiteLLM_ObjectPermissionTable"] | null;
+            object_permission?: components["schemas"]["EmbRouter_ObjectPermissionTable"] | null;
             /** Object Permission Id */
             object_permission_id?: string | null;
             /** Organization Id */
             organization_id?: string | null;
             /** Organization Memberships */
-            organization_memberships?: components["schemas"]["LiteLLM_OrganizationMembershipTable"][] | null;
+            organization_memberships?: components["schemas"]["EmbRouter_OrganizationMembershipTable"][] | null;
             /** Password Reset Required */
             password_reset_required?: boolean | null;
             /**
@@ -33850,8 +33850,8 @@ export interface components {
             /** User Role */
             user_role?: string | null;
         };
-        /** LiteLLM_VerificationToken */
-        LiteLLM_VerificationToken: {
+        /** EmbRouter_VerificationToken */
+        EmbRouter_VerificationToken: {
             /** Access Group Ids */
             access_group_ids?: string[] | null;
             /** Agent Id */
@@ -33922,8 +33922,8 @@ export interface components {
             last_active?: string | null;
             /** Last Rotation At */
             last_rotation_at?: string | null;
-            /** Litellm Budget Table */
-            litellm_budget_table?: {
+            /** Embrouter Budget Table */
+            embrouter_budget_table?: {
                 [key: string]: unknown;
             } | null;
             /** Max Budget */
@@ -33956,7 +33956,7 @@ export interface components {
              * @default []
              */
             models: unknown[];
-            object_permission?: components["schemas"]["LiteLLM_ObjectPermissionTable"] | null;
+            object_permission?: components["schemas"]["EmbRouter_ObjectPermissionTable"] | null;
             /** Object Permission Id */
             object_permission_id?: string | null;
             /** Org Id */
@@ -34015,8 +34015,8 @@ export interface components {
             /** User Id */
             user_id?: string | null;
         };
-        /** LitellmParams */
-        LitellmParams: {
+        /** EmbrouterParams */
+        EmbrouterParams: {
             /**
              * Action
              * @description 'block' raises an error; 'mask' replaces the code block with a placeholder.
@@ -34095,7 +34095,7 @@ export interface components {
             application?: string | null;
             /**
              * Application Id
-             * @description Application ID for Noma Security. Defaults to 'litellm' if not provided
+             * @description Application ID for Noma Security. Defaults to 'embrouter' if not provided
              */
             application_id?: string | null;
             /**
@@ -34536,7 +34536,7 @@ export interface components {
             on_violation?: ("warn" | "end_session" | "block" | "alert") | null;
             /**
              * Only Scan New Messages
-             * @description When True, the guardrail only scans messages that have not already been scanned earlier in the same session (identified by litellm_session_id / session_id). Message content is hashed per session and cached; only the diff (new or edited messages) is sent to the guardrail provider on follow-up calls. Falls back to a full scan when the request has no session id or the cache is unavailable. Intended for blocking/detection guardrails; not applied when mask_request_content is set.
+             * @description When True, the guardrail only scans messages that have not already been scanned earlier in the same session (identified by embrouter_session_id / session_id). Message content is hashed per session and cached; only the diff (new or edited messages) is sent to the guardrail provider on follow-up calls. Falls back to a full scan when the request has no session id or the cache is unavailable. Intended for blocking/detection guardrails; not applied when mask_request_content is set.
              * @default false
              */
             only_scan_new_messages: boolean | null;
@@ -34544,7 +34544,7 @@ export interface components {
             optional_params?: components["schemas"]["CiscoAIDefenseGuardrailConfigModelOptionalParams"] | null;
             /**
              * Output Parse Pii
-             * @description When True, LiteLLM will replace the masked text with the original text in the response
+             * @description When True, EmbRouter will replace the masked text with the original text in the response
              */
             output_parse_pii?: boolean | null;
             /**
@@ -34766,12 +34766,12 @@ export interface components {
             singulr_guardrail_id?: string | null;
             /**
              * Skip System Message In Guardrail
-             * @description When True, unified guardrails skip system-role messages when building evaluation inputs (texts and structured_messages). When False, system messages are included even if litellm_settings sets a global skip. When None, use the global litellm.skip_system_message_in_guardrail setting. For Anthropic /v1/messages, the flag applies only to the trusted top-level system prompt. In-sequence system entries are untrusted client input and remain in texts and structured_messages.
+             * @description When True, unified guardrails skip system-role messages when building evaluation inputs (texts and structured_messages). When False, system messages are included even if embrouter_settings sets a global skip. When None, use the global embrouter.skip_system_message_in_guardrail setting. For Anthropic /v1/messages, the flag applies only to the trusted top-level system prompt. In-sequence system entries are untrusted client input and remain in texts and structured_messages.
              */
             skip_system_message_in_guardrail?: boolean | null;
             /**
              * Skip Tool Message In Guardrail
-             * @description When True, unified guardrails skip tool-role messages when building evaluation inputs (texts and structured_messages). When False, tool messages are included even if litellm_settings sets a global skip. When None, use the global litellm.skip_tool_message_in_guardrail setting.
+             * @description When True, unified guardrails skip tool-role messages when building evaluation inputs (texts and structured_messages). When False, tool messages are included even if embrouter_settings sets a global skip. When None, use the global embrouter.skip_tool_message_in_guardrail setting.
              */
             skip_tool_message_in_guardrail?: boolean | null;
             /**
@@ -34855,7 +34855,7 @@ export interface components {
             [key: string]: unknown;
         };
         /**
-         * LitellmUserRoles
+         * EmbrouterUserRoles
          * @description Admin Roles:
          *     PROXY_ADMIN: admin over the platform
          *     PROXY_ADMIN_VIEW_ONLY: can login, view all own keys, view all spend
@@ -34874,7 +34874,7 @@ export interface components {
          *     CUSTOMER: External users -> these are customers
          * @enum {string}
          */
-        LitellmUserRoles: "proxy_admin" | "proxy_admin_viewer" | "org_admin" | "internal_user" | "internal_user_viewer" | "team" | "customer";
+        EmbrouterUserRoles: "proxy_admin" | "proxy_admin_viewer" | "org_admin" | "internal_user" | "internal_user_viewer" | "team" | "customer";
         /** LocalEnvironment */
         LocalEnvironment: {
             /** Skills */
@@ -35051,7 +35051,7 @@ export interface components {
             alias: string;
             /**
              * Value
-             * @description Exact value of the JWT claim named in litellm_jwtauth.mcp_client_id_jwt_field, or of the mcp_client_id_header header, that identifies this client application. Matched case-sensitively.
+             * @description Exact value of the JWT claim named in embrouter_jwtauth.mcp_client_id_jwt_field, or of the mcp_client_id_header header, that identifies this client application. Matched case-sensitively.
              */
             value: string;
         };
@@ -35176,7 +35176,7 @@ export interface components {
          *
          *     Variables can be interpolated into ``static_headers`` using ``${NAME}``
          *     syntax. ``scope=global`` values are stored on the server. ``scope=user``
-         *     values are stored per-user in ``LiteLLM_MCPUserEnvVars`` and supplied by
+         *     values are stored per-user in ``EmbRouter_MCPUserEnvVars`` and supplied by
          *     each user.
          */
         MCPEnvVar: {
@@ -35391,7 +35391,7 @@ export interface components {
             /** Active */
             active: number;
             /** Items */
-            items: components["schemas"]["LiteLLM_MCPServerTable"][];
+            items: components["schemas"]["EmbRouter_MCPServerTable"][];
             /** Pending Review */
             pending_review: number;
             /** Rejected */
@@ -35401,7 +35401,7 @@ export interface components {
         };
         /**
          * MCPToolSearchSettings
-         * @description `litellm_settings.mcp_tool_search`: how the native `mcp_tool_search` virtual tool ranks the caller's tools.
+         * @description `embrouter_settings.mcp_tool_search`: how the native `mcp_tool_search` virtual tool ranks the caller's tools.
          */
         MCPToolSearchSettings: {
             /**
@@ -35794,7 +35794,7 @@ export interface components {
         /** MemoryListResponse */
         MemoryListResponse: {
             /** Memories */
-            memories: components["schemas"]["LiteLLM_MemoryRow"][];
+            memories: components["schemas"]["EmbRouter_MemoryRow"][];
             /** Total */
             total: number;
         };
@@ -35897,15 +35897,15 @@ export interface components {
              */
             deprecation_date: string;
             /**
-             * Litellm Model
-             * @description The underlying litellm model string the deprecation date is sourced from.
+             * Embrouter Model
+             * @description The underlying embrouter model string the deprecation date is sourced from.
              */
-            litellm_model?: string | null;
+            embrouter_model?: string | null;
             /**
-             * Litellm Provider
+             * Embrouter Provider
              * @description The provider this model belongs to.
              */
-            litellm_provider?: string | null;
+            embrouter_provider?: string | null;
             /**
              * Model Name
              * @description The public name of the model on the proxy (model_group).
@@ -36120,11 +36120,11 @@ export interface components {
         };
         /** ModelParams */
         ModelParams: {
-            /** Litellm Params */
-            litellm_params: {
+            /** Embrouter Params */
+            embrouter_params: {
                 [key: string]: unknown;
             };
-            model_info: components["schemas"]["litellm__proxy___types__ModelInfo"];
+            model_info: components["schemas"]["embrouter__proxy___types__ModelInfo"];
             /** Model Name */
             model_name: string;
         };
@@ -36258,7 +36258,7 @@ export interface components {
             model_max_budget?: {
                 [key: string]: components["schemas"]["BudgetConfig"];
             } | null;
-            object_permission?: components["schemas"]["LiteLLM_ObjectPermissionBase"] | null;
+            object_permission?: components["schemas"]["EmbRouter_ObjectPermissionBase"] | null;
             /**
              * Rpm Limit
              * @description Max requests per minute, allowed for this budget id.
@@ -36482,7 +36482,7 @@ export interface components {
              * @default []
              */
             models: unknown[];
-            object_permission?: components["schemas"]["LiteLLM_ObjectPermissionBase"] | null;
+            object_permission?: components["schemas"]["EmbRouter_ObjectPermissionBase"] | null;
             /** Organization Alias */
             organization_alias: string;
             /** Organization Id */
@@ -36511,7 +36511,7 @@ export interface components {
             created_at: string;
             /** Created By */
             created_by: string;
-            litellm_budget_table?: components["schemas"]["LiteLLM_BudgetTable"] | null;
+            embrouter_budget_table?: components["schemas"]["EmbRouter_BudgetTable"] | null;
             /** Metadata */
             metadata?: {
                 [key: string]: unknown;
@@ -36528,7 +36528,7 @@ export interface components {
              * @default []
              */
             models: string[];
-            object_permission?: components["schemas"]["LiteLLM_ObjectPermissionTable"] | null;
+            object_permission?: components["schemas"]["EmbRouter_ObjectPermissionTable"] | null;
             /** Object Permission Id */
             object_permission_id?: string | null;
             /** Organization Alias */
@@ -36548,7 +36548,7 @@ export interface components {
             /** Updated By */
             updated_by: string;
             /** Users */
-            users?: components["schemas"]["LiteLLM_UserTable"][] | null;
+            users?: components["schemas"]["EmbRouter_UserTable"][] | null;
         };
         /**
          * NewProjectRequest
@@ -36603,7 +36603,7 @@ export interface components {
              * @default []
              */
             models: string[];
-            object_permission?: components["schemas"]["LiteLLM_ObjectPermissionBase"] | null;
+            object_permission?: components["schemas"]["EmbRouter_ObjectPermissionBase"] | null;
             /** Policies */
             policies?: string[] | null;
             /** Project Alias */
@@ -36648,7 +36648,7 @@ export interface components {
             created_by?: string | null;
             /** Description */
             description?: string | null;
-            litellm_budget_table?: components["schemas"]["LiteLLM_BudgetTable"] | null;
+            embrouter_budget_table?: components["schemas"]["EmbRouter_BudgetTable"] | null;
             /** Metadata */
             metadata?: {
                 [key: string]: unknown;
@@ -36670,7 +36670,7 @@ export interface components {
              * @default []
              */
             models: string[];
-            object_permission?: components["schemas"]["LiteLLM_ObjectPermissionTable"] | null;
+            object_permission?: components["schemas"]["EmbRouter_ObjectPermissionTable"] | null;
             /** Object Permission Id */
             object_permission_id?: string | null;
             /** Project Alias */
@@ -36778,7 +36778,7 @@ export interface components {
              * @default []
              */
             models: string[];
-            object_permission?: components["schemas"]["LiteLLM_ObjectPermissionBase"] | null;
+            object_permission?: components["schemas"]["EmbRouter_ObjectPermissionBase"] | null;
             /** Organization Id */
             organization_id?: string | null;
             /** Policies */
@@ -36901,7 +36901,7 @@ export interface components {
              * @default []
              */
             models: unknown[] | null;
-            object_permission?: components["schemas"]["LiteLLM_ObjectPermissionBase"] | null;
+            object_permission?: components["schemas"]["EmbRouter_ObjectPermissionBase"] | null;
             /** Organizations */
             organizations?: string[] | null;
             /** Password */
@@ -37038,8 +37038,8 @@ export interface components {
             key_name?: string | null;
             /** Key Type */
             key_type?: string | null;
-            /** Litellm Budget Table */
-            litellm_budget_table?: unknown | null;
+            /** Embrouter Budget Table */
+            embrouter_budget_table?: unknown | null;
             /** Max Budget */
             max_budget?: number | null;
             /** Max Parallel Requests */
@@ -37072,7 +37072,7 @@ export interface components {
              * @default []
              */
             models: unknown[] | null;
-            object_permission?: components["schemas"]["LiteLLM_ObjectPermissionBase"] | null;
+            object_permission?: components["schemas"]["EmbRouter_ObjectPermissionBase"] | null;
             /** Organization Id */
             organization_id?: string | null;
             /**
@@ -37258,9 +37258,9 @@ export interface components {
             /** Organization Id */
             organization_id: string;
             /** Updated Organization Memberships */
-            updated_organization_memberships: components["schemas"]["LiteLLM_OrganizationMembershipTable"][];
+            updated_organization_memberships: components["schemas"]["EmbRouter_OrganizationMembershipTable"][];
             /** Updated Users */
-            updated_users: components["schemas"]["LiteLLM_UserTable"][];
+            updated_users: components["schemas"]["EmbRouter_UserTable"][];
         };
         /** OrganizationMemberAddRequest */
         OrganizationMemberAddRequest: {
@@ -37286,7 +37286,7 @@ export interface components {
             max_budget_in_organization?: number | null;
             /** Organization Id */
             organization_id: string;
-            role?: components["schemas"]["LitellmUserRoles"] | null;
+            role?: components["schemas"]["EmbrouterUserRoles"] | null;
             /** User Email */
             user_email?: string | null;
             /** User Id */
@@ -37322,7 +37322,7 @@ export interface components {
             } | null;
             /** Models */
             models?: string[] | null;
-            object_permission?: components["schemas"]["LiteLLM_ObjectPermissionBase"] | null;
+            object_permission?: components["schemas"]["EmbRouter_ObjectPermissionBase"] | null;
             /** Organization Alias */
             organization_alias?: string | null;
             /** Rpm Limit */
@@ -37604,7 +37604,7 @@ export interface components {
         PassThroughGenericEndpoint: {
             /**
              * Auth
-             * @description Whether authentication is required for the pass-through endpoint. Defaults to True so a pass-through silently created without an explicit value still requires a valid LiteLLM API key — set to False only if the endpoint is meant to be a public forwarder (e.g. an unauthenticated webhook target).
+             * @description Whether authentication is required for the pass-through endpoint. Defaults to True so a pass-through silently created without an explicit value still requires a valid EmbRouter API key — set to False only if the endpoint is meant to be a public forwarder (e.g. an unauthenticated webhook target).
              * @default true
              */
             auth: boolean;
@@ -37661,7 +37661,7 @@ export interface components {
             methods?: string[] | null;
             /**
              * Path
-             * @description The route to be added to the LiteLLM Proxy Server.
+             * @description The route to be added to the EmbRouter Proxy Server.
              */
             path: string;
             /**
@@ -37703,8 +37703,8 @@ export interface components {
             /** Extra Headers */
             extra_headers?: string[] | null;
             kill_switch?: components["schemas"]["AgentKillSwitchConfig"] | null;
-            /** Litellm Params */
-            litellm_params?: {
+            /** Embrouter Params */
+            embrouter_params?: {
                 [key: string]: unknown;
             };
             object_permission?: components["schemas"]["AgentObjectPermission"];
@@ -37729,11 +37729,11 @@ export interface components {
             } | null;
             /** Guardrail Name */
             guardrail_name?: string | null;
-            litellm_params?: components["schemas"]["BaseLitellmParams"] | null;
+            embrouter_params?: components["schemas"]["BaseEmbrouterParams"] | null;
         };
         /** PatchPromptRequest */
         PatchPromptRequest: {
-            litellm_params?: components["schemas"]["PromptLiteLLMParams"] | null;
+            embrouter_params?: components["schemas"]["PromptEmbRouterParams"] | null;
             prompt_info?: components["schemas"]["PromptInfo"] | null;
         };
         /**
@@ -37807,7 +37807,7 @@ export interface components {
             } | null;
             /** Models */
             models?: unknown[] | null;
-            object_permission?: components["schemas"]["LiteLLM_ObjectPermissionBase"] | null;
+            object_permission?: components["schemas"]["EmbRouter_ObjectPermissionBase"] | null;
             /** Organization Id */
             organization_id?: string | null;
             /** Policies */
@@ -38751,7 +38751,7 @@ export interface components {
         };
         /** Prompt */
         Prompt: {
-            litellm_params: components["schemas"]["PromptLiteLLMParams"];
+            embrouter_params: components["schemas"]["PromptEmbRouterParams"];
             /** Prompt Id */
             prompt_id: string;
             prompt_info?: components["schemas"]["PromptInfo"] | null;
@@ -38833,8 +38833,8 @@ export interface components {
             prompt_spec: components["schemas"]["PromptSpec"];
             raw_prompt_template?: components["schemas"]["PromptTemplateBase"] | null;
         };
-        /** PromptLiteLLMParams */
-        PromptLiteLLMParams: {
+        /** PromptEmbRouterParams */
+        PromptEmbRouterParams: {
             /** Api Base */
             api_base?: string | null;
             /** Api Key */
@@ -38887,7 +38887,7 @@ export interface components {
              * @default development
              */
             environment: string | null;
-            litellm_params: components["schemas"]["PromptLiteLLMParams"];
+            embrouter_params: components["schemas"]["PromptEmbRouterParams"];
             /** Prompt Id */
             prompt_id: string;
             prompt_info: components["schemas"]["PromptInfo"];
@@ -38900,8 +38900,8 @@ export interface components {
         PromptTemplateBase: {
             /** Content */
             content: string;
-            /** Litellm Prompt Id */
-            litellm_prompt_id: string;
+            /** Embrouter Prompt Id */
+            embrouter_prompt_id: string;
             /** Metadata */
             metadata?: {
                 [key: string]: unknown;
@@ -38954,8 +38954,8 @@ export interface components {
             credential_fields: components["schemas"]["ProviderCredentialField"][];
             /** Default Model Placeholder */
             default_model_placeholder?: string | null;
-            /** Litellm Provider */
-            litellm_provider: string;
+            /** Embrouter Provider */
+            embrouter_provider: string;
             /** Provider */
             provider: string;
             /** Provider Display Name */
@@ -38990,7 +38990,7 @@ export interface components {
         /**
          * ProxyChatCompletionRequest
          * @description Pydantic model for chat completion requests that includes both OpenAI standard fields
-         *     and LiteLLM-specific parameters. This replaces the previous TypedDict version.
+         *     and EmbRouter-specific parameters. This replaces the previous TypedDict version.
          */
         ProxyChatCompletionRequest: {
             /**
@@ -39157,8 +39157,8 @@ export interface components {
             custom_docs_description: string | null;
             /** Docs Title */
             docs_title: string;
-            /** Litellm Version */
-            litellm_version: string;
+            /** Embrouter Version */
+            embrouter_version: string;
             /** Useful Links */
             useful_links: {
                 [key: string]: string | {
@@ -39334,7 +39334,7 @@ export interface components {
              * @description Type of key that determines default allowed routes.
              * @default default
              */
-            key_type: components["schemas"]["LiteLLMKeyType"] | null;
+            key_type: components["schemas"]["EmbRouterKeyType"] | null;
             /** Max Budget */
             max_budget?: number | null;
             /** Max Parallel Requests */
@@ -39371,7 +39371,7 @@ export interface components {
             new_key?: string | null;
             /** New Master Key */
             new_master_key?: string | null;
-            object_permission?: components["schemas"]["LiteLLM_ObjectPermissionBase"] | null;
+            object_permission?: components["schemas"]["EmbRouter_ObjectPermissionBase"] | null;
             /** Organization Id */
             organization_id?: string | null;
             /**
@@ -39433,8 +39433,8 @@ export interface components {
             } | null;
             /** Guardrail Name */
             guardrail_name: string;
-            /** Litellm Params */
-            litellm_params: {
+            /** Embrouter Params */
+            embrouter_params: {
                 [key: string]: unknown;
             };
             /** Team Id */
@@ -39455,7 +39455,7 @@ export interface components {
          * RegisterPluginRequest
          * @description Request body for registering a plugin in the marketplace.
          *
-         *     LiteLLM acts as a registry/discovery layer. Plugins are hosted on
+         *     EmbRouter acts as a registry/discovery layer. Plugins are hosted on
          *     GitHub/GitLab/Bitbucket or as a zip archive on any https host and referenced by their source.
          */
         RegisterPluginRequest: {
@@ -39714,7 +39714,7 @@ export interface components {
             };
             /**
              * Embedding Model
-             * @description Embedding model (LiteLLM model name) used when semantic_keyword_matching is enabled
+             * @description Embedding model (EmbRouter model name) used when semantic_keyword_matching is enabled
              */
             embedding_model?: string | null;
             /**
@@ -39731,7 +39731,7 @@ export interface components {
             enable_non_reasoning_tier: boolean;
             /**
              * Escalation Keywords
-             * @description Case-sensitive phrases a user can include to force a bump to the next-higher complexity tier when they aren't satisfied with results (they can force a stronger model, but not choose which one). Defaults to ['LITELLM ESCALATE'] when unset; set to an empty list to disable.
+             * @description Case-sensitive phrases a user can include to force a bump to the next-higher complexity tier when they aren't satisfied with results (they can force a stronger model, but not choose which one). Defaults to ['EMBROUTER ESCALATE'] when unset; set to an empty list to disable.
              */
             escalation_keywords?: string[] | null;
             /**
@@ -39781,7 +39781,7 @@ export interface components {
             match_threshold: number;
             /**
              * Max Tokens From Tier Model
-             * @description Set max_tokens on every routed request to the output ceiling of the tier model it lands on, replacing whatever the caller sent. A caller behind an auto-router cannot pick one value that fits every tier: the smallest tier's ceiling starves a bigger tier's thinking budget, and a bigger tier's ceiling is rejected by the smallest. The ceiling is the smallest max_output_tokens across the tier model's deployments, read from each deployment's model_info and then the model cost map; a tier model with a deployment whose ceiling is unknown keeps the caller's value. A max_tokens, max_completion_tokens or max_output_tokens in the tier's own litellm_params still wins. Set false to forward the caller's value unchanged.
+             * @description Set max_tokens on every routed request to the output ceiling of the tier model it lands on, replacing whatever the caller sent. A caller behind an auto-router cannot pick one value that fits every tier: the smallest tier's ceiling starves a bigger tier's thinking budget, and a bigger tier's ceiling is rejected by the smallest. The ceiling is the smallest max_output_tokens across the tier model's deployments, read from each deployment's model_info and then the model cost map; a tier model with a deployment whose ceiling is unknown keeps the caller's value. A max_tokens, max_completion_tokens or max_output_tokens in the tier's own embrouter_params still wins. Set false to forward the caller's value unchanged.
              * @default true
              */
             max_tokens_from_tier_model: boolean;
@@ -40897,9 +40897,9 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
-        /** ResponseLiteLLM_ManagedVectorStore */
-        ResponseLiteLLM_ManagedVectorStore: {
-            vector_store?: components["schemas"]["LiteLLM_ManagedVectorStoresTable"];
+        /** ResponseEmbRouter_ManagedVectorStore */
+        ResponseEmbRouter_ManagedVectorStore: {
+            vector_store?: components["schemas"]["EmbRouter_ManagedVectorStoresTable"];
         };
         /**
          * ResponseLocalEnvironment
@@ -41234,7 +41234,7 @@ export interface components {
             /** Tool Choice */
             tool_choice?: ("none" | "auto" | "required") | components["schemas"]["ToolChoiceAllowedParam"] | components["schemas"]["ToolChoiceTypesParam"] | components["schemas"]["ToolChoiceFunctionParam"] | components["schemas"]["ToolChoiceMcpParam"] | components["schemas"]["ToolChoiceCustomParam"] | components["schemas"]["ToolChoiceApplyPatchParam"] | components["schemas"]["ToolChoiceShellParam"] | null;
             /** Tools */
-            tools?: (components["schemas"]["FunctionToolParam"] | components["schemas"]["FileSearchToolParam"] | components["schemas"]["openai__types__responses__computer_tool_param__ComputerToolParam"] | components["schemas"]["ComputerUsePreviewToolParam"] | components["schemas"]["WebSearchToolParam"] | components["schemas"]["Mcp"] | components["schemas"]["CodeInterpreter"] | components["schemas"]["ImageGeneration"] | components["schemas"]["LocalShell"] | components["schemas"]["FunctionShellToolParam"] | components["schemas"]["CustomToolParam"] | components["schemas"]["NamespaceToolParam"] | components["schemas"]["ToolSearchToolParam"] | components["schemas"]["WebSearchPreviewToolParam"] | components["schemas"]["ApplyPatchToolParam"] | components["schemas"]["litellm__types__llms__openai__ComputerToolParam"] | components["schemas"]["ShellToolParam"])[] | null;
+            tools?: (components["schemas"]["FunctionToolParam"] | components["schemas"]["FileSearchToolParam"] | components["schemas"]["openai__types__responses__computer_tool_param__ComputerToolParam"] | components["schemas"]["ComputerUsePreviewToolParam"] | components["schemas"]["WebSearchToolParam"] | components["schemas"]["Mcp"] | components["schemas"]["CodeInterpreter"] | components["schemas"]["ImageGeneration"] | components["schemas"]["LocalShell"] | components["schemas"]["FunctionShellToolParam"] | components["schemas"]["CustomToolParam"] | components["schemas"]["NamespaceToolParam"] | components["schemas"]["ToolSearchToolParam"] | components["schemas"]["WebSearchPreviewToolParam"] | components["schemas"]["ApplyPatchToolParam"] | components["schemas"]["embrouter__types__llms__openai__ComputerToolParam"] | components["schemas"]["ShellToolParam"])[] | null;
             /** Top Logprobs */
             top_logprobs?: number | null;
             /** Top P */
@@ -41476,14 +41476,14 @@ export interface components {
         };
         /**
          * RoleMappings
-         * @description Configuration for mapping SSO groups to LiteLLM roles.
+         * @description Configuration for mapping SSO groups to EmbRouter roles.
          *
          *     The system will look at the group_claim field in the SSO token to determine
          *     which role to assign the user based on the roles mapping.
          */
         RoleMappings: {
-            /** @description Default role to assign if user's groups don't match any role mappings. Must be a valid LitellmUserRoles value (e.g., 'proxy_admin', 'internal_user', 'proxy_admin_viewer') */
-            default_role?: components["schemas"]["LitellmUserRoles"] | null;
+            /** @description Default role to assign if user's groups don't match any role mappings. Must be a valid EmbrouterUserRoles value (e.g., 'proxy_admin', 'internal_user', 'proxy_admin_viewer') */
+            default_role?: components["schemas"]["EmbrouterUserRoles"] | null;
             /**
              * Group Claim
              * @description The field name in the SSO token that contains the groups array (e.g., 'groups', 'roles')
@@ -41496,7 +41496,7 @@ export interface components {
             provider: string;
             /**
              * Roles
-             * @description Mapping of LiteLLM role names to arrays of SSO group names. Example: {'proxy_admin': ['group-1', 'group-2'], 'proxy_admin_viewer': ['group-3']}
+             * @description Mapping of EmbRouter role names to arrays of SSO group names. Example: {'proxy_admin': ['group-1', 'group-2'], 'proxy_admin_viewer': ['group-3']}
              */
             roles?: {
                 [key: string]: string[];
@@ -42002,7 +42002,7 @@ export interface components {
              * @description Base URL of the proxy server for SSO redirects
              */
             proxy_base_url?: string | null;
-            /** @description Configuration for mapping SSO groups to LiteLLM roles based on group claims in the SSO token */
+            /** @description Configuration for mapping SSO groups to EmbRouter roles based on group claims in the SSO token */
             role_mappings?: components["schemas"]["RoleMappings"] | null;
             /**
              * Saml Allow Unsolicited
@@ -42129,8 +42129,8 @@ export interface components {
          *     Example:
          *         {
          *             "search_tool_id": "123e4567-e89b-12d3-a456-426614174000",
-         *             "search_tool_name": "litellm-search",
-         *             "litellm_params": {
+         *             "search_tool_name": "embrouter-search",
+         *             "embrouter_params": {
          *                 "search_provider": "perplexity",
          *                 "api_key": "sk-..."
          *             },
@@ -42142,7 +42142,7 @@ export interface components {
         SearchTool: {
             /** Created At */
             created_at?: string | null;
-            litellm_params: components["schemas"]["SearchToolLiteLLMParams"];
+            embrouter_params: components["schemas"]["SearchToolEmbRouterParams"];
             /** Search Tool Id */
             search_tool_id?: string | null;
             /** Search Tool Info */
@@ -42163,8 +42163,8 @@ export interface components {
             created_at?: string | null;
             /** Is From Config */
             is_from_config?: boolean | null;
-            /** Litellm Params */
-            litellm_params?: {
+            /** Embrouter Params */
+            embrouter_params?: {
                 [key: string]: unknown;
             };
             /** Search Tool Id */
@@ -42179,10 +42179,10 @@ export interface components {
             updated_at?: string | null;
         };
         /**
-         * SearchToolLiteLLMParams
-         * @description LiteLLM params for search tools configuration.
+         * SearchToolEmbRouterParams
+         * @description EmbRouter params for search tools configuration.
          */
-        SearchToolLiteLLMParams: {
+        SearchToolEmbRouterParams: {
             /** Api Base */
             api_base?: string | null;
             /** Api Key */
@@ -42411,7 +42411,7 @@ export interface components {
             avg_judge_confidence: number;
             /**
              * Cache Hit Turns
-             * @description Judged turns litellm's response cache served, excluded from both spends: an adopted router would be served by the same cache, so those turns cost the same either way
+             * @description Judged turns embrouter's response cache served, excluded from both spends: an adopted router would be served by the same cache, so those turns cost the same either way
              * @default 0
              */
             cache_hit_turns: number;
@@ -42419,7 +42419,7 @@ export interface components {
             group: string;
             /**
              * Real Spend
-             * @description USD the real arm billed on this slice's judged turns, completion plus its own routing classifier when it routed, excluding turns litellm's response cache served for free
+             * @description USD the real arm billed on this slice's judged turns, completion plus its own routing classifier when it routed, excluding turns embrouter's response cache served for free
              * @default 0
              */
             real_spend: number;
@@ -42592,7 +42592,7 @@ export interface components {
             lookback_days: number;
             /**
              * Openai Project Ids
-             * @description Scope the OpenAI bill to these project ids; empty compares against the whole organization. Captured spend is never scoped, so list every project LiteLLM's OpenAI keys belong to
+             * @description Scope the OpenAI bill to these project ids; empty compares against the whole organization. Captured spend is never scoped, so list every project EmbRouter's OpenAI keys belong to
              * @default []
              */
             openai_project_ids: string[];
@@ -42795,8 +42795,8 @@ export interface components {
             tier_boundaries?: components["schemas"]["StandardLoggingRoutingDecisionTierBoundaries"];
             /** Tier Label */
             tier_label?: string;
-            /** Tier Litellm Params */
-            tier_litellm_params?: {
+            /** Tier Embrouter Params */
+            tier_embrouter_params?: {
                 [key: string]: unknown;
             };
         };
@@ -43101,7 +43101,7 @@ export interface components {
             created_at?: string | null;
             /** Default Team Member Models */
             default_team_member_models?: string[] | null;
-            litellm_model_table?: components["schemas"]["LiteLLM_ModelTable"] | null;
+            embrouter_model_table?: components["schemas"]["EmbRouter_ModelTable"] | null;
             /** Max Budget */
             max_budget?: number | null;
             /** Max Parallel Requests */
@@ -43141,7 +43141,7 @@ export interface components {
              * @default []
              */
             models: string[];
-            object_permission?: components["schemas"]["LiteLLM_ObjectPermissionTable"] | null;
+            object_permission?: components["schemas"]["EmbRouter_ObjectPermissionTable"] | null;
             /** Object Permission Id */
             object_permission_id?: string | null;
             /** Organization Id */
@@ -43171,9 +43171,9 @@ export interface components {
             /** Updated At */
             updated_at?: string | null;
             /** Updated Team Memberships */
-            updated_team_memberships: components["schemas"]["LiteLLM_TeamMembership"][];
+            updated_team_memberships: components["schemas"]["EmbRouter_TeamMembership"][];
             /** Updated Users */
-            updated_users: components["schemas"]["LiteLLM_UserTable"][];
+            updated_users: components["schemas"]["EmbRouter_UserTable"][];
         };
         /** TeamCallbackDeleteResponse */
         TeamCallbackDeleteResponse: {
@@ -43238,7 +43238,7 @@ export interface components {
              * @default 0
              */
             keys_count: number;
-            litellm_model_table?: components["schemas"]["LiteLLM_ModelTable"] | null;
+            embrouter_model_table?: components["schemas"]["EmbRouter_ModelTable"] | null;
             /** Max Budget */
             max_budget?: number | null;
             /** Max Parallel Requests */
@@ -43283,7 +43283,7 @@ export interface components {
              * @default []
              */
             models: string[];
-            object_permission?: components["schemas"]["LiteLLM_ObjectPermissionTable"] | null;
+            object_permission?: components["schemas"]["EmbRouter_ObjectPermissionTable"] | null;
             /** Object Permission Id */
             object_permission_id?: string | null;
             /** Organization Id */
@@ -43323,7 +43323,7 @@ export interface components {
             /** Page Size */
             page_size: number;
             /** Teams */
-            teams: (components["schemas"]["TeamListItem"] | components["schemas"]["LiteLLM_TeamTable"] | components["schemas"]["LiteLLM_DeletedTeamTable"])[];
+            teams: (components["schemas"]["TeamListItem"] | components["schemas"]["EmbRouter_TeamTable"] | components["schemas"]["EmbRouter_DeletedTeamTable"])[];
             /** Total */
             total: number;
             /** Total Pages */
@@ -43489,8 +43489,8 @@ export interface components {
         TeamMemberInfoResponse: {
             /** Budget Id */
             budget_id?: string | null;
-            /** Litellm Budget Table */
-            litellm_budget_table?: components["schemas"]["LiteLLM_BudgetTableFull"] | components["schemas"]["LiteLLM_BudgetTable"] | null;
+            /** Embrouter Budget Table */
+            embrouter_budget_table?: components["schemas"]["EmbRouter_BudgetTableFull"] | components["schemas"]["EmbRouter_BudgetTable"] | null;
             /** Role */
             role?: string | null;
             /**
@@ -43817,8 +43817,8 @@ export interface components {
         };
         /** TestSearchToolConnectionRequest */
         TestSearchToolConnectionRequest: {
-            /** Litellm Params */
-            litellm_params: {
+            /** Embrouter Params */
+            embrouter_params: {
                 [key: string]: unknown;
             };
         };
@@ -44068,7 +44068,7 @@ export interface components {
         ToolDetailResponse: {
             /** Overrides */
             overrides?: components["schemas"]["ToolPolicyOverrideRow"][];
-            tool: components["schemas"]["LiteLLM_ToolTableRow"];
+            tool: components["schemas"]["EmbRouter_ToolTableRow"];
         };
         /** ToolFunction */
         ToolFunction: {
@@ -44093,7 +44093,7 @@ export interface components {
         /** ToolListResponse */
         ToolListResponse: {
             /** Tools */
-            tools: components["schemas"]["LiteLLM_ToolTableRow"][];
+            tools: components["schemas"]["EmbRouter_ToolTableRow"][];
             /** Total */
             total: number;
         };
@@ -44553,7 +44553,7 @@ export interface components {
             default_model?: string | null;
             /** Max Budget */
             max_budget?: number | null;
-            object_permission?: components["schemas"]["LiteLLM_ObjectPermissionBase"] | null;
+            object_permission?: components["schemas"]["EmbRouter_ObjectPermissionBase"] | null;
             /** User Id */
             user_id: string;
         };
@@ -44678,7 +44678,7 @@ export interface components {
              * @default []
              */
             models: unknown[] | null;
-            object_permission?: components["schemas"]["LiteLLM_ObjectPermissionBase"] | null;
+            object_permission?: components["schemas"]["EmbRouter_ObjectPermissionBase"] | null;
             /** Organization Id */
             organization_id?: string | null;
             /**
@@ -44973,7 +44973,7 @@ export interface components {
             } | null;
             /** Models */
             models?: string[] | null;
-            object_permission?: components["schemas"]["LiteLLM_ObjectPermissionBase"] | null;
+            object_permission?: components["schemas"]["EmbRouter_ObjectPermissionBase"] | null;
             /** Policies */
             policies?: string[] | null;
             /** Project Alias */
@@ -45167,7 +45167,7 @@ export interface components {
             } | null;
             /** Models */
             models?: unknown[] | null;
-            object_permission?: components["schemas"]["LiteLLM_ObjectPermissionBase"] | null;
+            object_permission?: components["schemas"]["EmbRouter_ObjectPermissionBase"] | null;
             /** Organization Id */
             organization_id?: string | null;
             /** Policies */
@@ -45291,7 +45291,7 @@ export interface components {
              * @default []
              */
             models: unknown[] | null;
-            object_permission?: components["schemas"]["LiteLLM_ObjectPermissionBase"] | null;
+            object_permission?: components["schemas"]["EmbRouter_ObjectPermissionBase"] | null;
             /** Password */
             password?: string | null;
             /**
@@ -45397,7 +45397,7 @@ export interface components {
              * @default []
              */
             models: unknown[] | null;
-            object_permission?: components["schemas"]["LiteLLM_ObjectPermissionBase"] | null;
+            object_permission?: components["schemas"]["EmbRouter_ObjectPermissionBase"] | null;
             /** Password */
             password?: string | null;
             /**
@@ -45709,7 +45709,7 @@ export interface components {
             end_user_model_max_budget?: {
                 [key: string]: unknown;
             } | null;
-            end_user_object_permission?: components["schemas"]["LiteLLM_ObjectPermissionTable"] | null;
+            end_user_object_permission?: components["schemas"]["EmbRouter_ObjectPermissionTable"] | null;
             /** End User Rpm Limit */
             end_user_rpm_limit?: number | null;
             /** End User Tpd Limit */
@@ -45741,8 +45741,8 @@ export interface components {
             last_refreshed_at?: number | null;
             /** Last Rotation At */
             last_rotation_at?: string | null;
-            /** Litellm Budget Table */
-            litellm_budget_table?: {
+            /** Embrouter Budget Table */
+            embrouter_budget_table?: {
                 [key: string]: unknown;
             } | null;
             /** Max Budget */
@@ -45775,7 +45775,7 @@ export interface components {
              * @default []
              */
             models: unknown[];
-            object_permission?: components["schemas"]["LiteLLM_ObjectPermissionTable"] | null;
+            object_permission?: components["schemas"]["EmbRouter_ObjectPermissionTable"] | null;
             /** Object Permission Id */
             object_permission_id?: string | null;
             /** Org Id */
@@ -45877,7 +45877,7 @@ export interface components {
              * @default []
              */
             team_models: unknown[];
-            team_object_permission?: components["schemas"]["LiteLLM_ObjectPermissionTable"] | null;
+            team_object_permission?: components["schemas"]["EmbRouter_ObjectPermissionTable"] | null;
             /** Team Object Permission Id */
             team_object_permission_id?: string | null;
             /** Team Rpm Limit */
@@ -45921,7 +45921,7 @@ export interface components {
             user_model_max_budget?: {
                 [key: string]: unknown;
             } | null;
-            user_role?: components["schemas"]["LitellmUserRoles"] | null;
+            user_role?: components["schemas"]["EmbrouterUserRoles"] | null;
             /** User Rpm Limit */
             user_rpm_limit?: number | null;
             /** User Spend */
@@ -46019,16 +46019,16 @@ export interface components {
         };
         /**
          * UserHeaderMapping
-         * @description Map an incoming HTTP header to a LiteLLM user role.
+         * @description Map an incoming HTTP header to a EmbRouter user role.
          */
         UserHeaderMapping: {
             /** Header Name */
             header_name: string;
             /**
-             * Litellm User Role
+             * Embrouter User Role
              * @enum {string}
              */
-            litellm_user_role: "internal_user" | "customer";
+            embrouter_user_role: "internal_user" | "customer";
         };
         /** UserInfoResponse */
         UserInfoResponse: {
@@ -46078,7 +46078,7 @@ export interface components {
              * @default []
              */
             models: string[];
-            object_permission?: components["schemas"]["LiteLLM_ObjectPermissionTable"] | null;
+            object_permission?: components["schemas"]["EmbRouter_ObjectPermissionTable"] | null;
             /**
              * Spend
              * @default 0
@@ -46116,7 +46116,7 @@ export interface components {
             /** Total Pages */
             total_pages: number;
             /** Users */
-            users: components["schemas"]["LiteLLM_UserTableWithKeyCount"][];
+            users: components["schemas"]["EmbRouter_UserTableWithKeyCount"][];
         };
         /**
          * UserUpdateResult
@@ -46508,7 +46508,7 @@ export interface components {
             status?: ("pending" | "running" | "paused" | "completed" | "failed") | null;
         };
         /** ModelInfo */
-        litellm__proxy___types__ModelInfo: {
+        embrouter__proxy___types__ModelInfo: {
             /** Base Model */
             base_model: ("gpt-4-1106-preview" | "gpt-4-32k" | "gpt-4" | "gpt-3.5-turbo-16k" | "gpt-3.5-turbo" | "text-embedding-ada-002") | null;
             /** Discoverable */
@@ -46536,7 +46536,7 @@ export interface components {
             [key: string]: unknown;
         };
         /** ComputerToolParam */
-        litellm__types__llms__openai__ComputerToolParam: {
+        embrouter__types__llms__openai__ComputerToolParam: {
             /** Display Height */
             display_height: number;
             /** Display Width */
@@ -46547,7 +46547,7 @@ export interface components {
             type: "computer_use_preview" | string;
         };
         /** ModelInfo */
-        litellm__types__router__ModelInfo: {
+        embrouter__types__router__ModelInfo: {
             /** Access Windows */
             access_windows?: components["schemas"]["ModelAccessWindow"][] | null;
             /** Allow Fail Open */
@@ -46709,13 +46709,13 @@ export interface components {
         updateDeployment: {
             /** Blocked */
             blocked?: boolean | null;
-            litellm_params?: components["schemas"]["updateLiteLLMParams"] | null;
-            model_info?: components["schemas"]["litellm__types__router__ModelInfo"] | null;
+            embrouter_params?: components["schemas"]["updateEmbRouterParams"] | null;
+            model_info?: components["schemas"]["embrouter__types__router__ModelInfo"] | null;
             /** Model Name */
             model_name?: string | null;
         };
-        /** updateLiteLLMParams */
-        updateLiteLLMParams: {
+        /** updateEmbRouterParams */
+        updateEmbRouterParams: {
             /** Adaptive Router Config */
             adaptive_router_config?: {
                 [key: string]: unknown;
@@ -46959,10 +46959,10 @@ export interface components {
             itpm?: number | null;
             /** Keepalive Seconds */
             keepalive_seconds?: number | null;
-            /** Litellm Credential Name */
-            litellm_credential_name?: string | null;
-            /** Litellm Trace Id */
-            litellm_trace_id?: string | null;
+            /** Embrouter Credential Name */
+            embrouter_credential_name?: string | null;
+            /** Embrouter Trace Id */
+            embrouter_trace_id?: string | null;
             /** Max Budget */
             max_budget?: number | null;
             /** Max File Size Mb */
@@ -47138,10 +47138,10 @@ export interface components {
              */
             use_in_pass_through: boolean | null;
             /**
-             * Use Litellm Proxy
+             * Use Embrouter Proxy
              * @default false
              */
-            use_litellm_proxy: boolean | null;
+            use_embrouter_proxy: boolean | null;
             /**
              * Use Xai Oauth
              * @description Use stored xAI OAuth credentials when no xAI API key is configured.
@@ -47244,7 +47244,7 @@ export interface operations {
             };
         };
     };
-    native_client_auth_discovery__well_known_litellm_cli_auth_get: {
+    native_client_auth_discovery__well_known_embrouter_cli_auth_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -47264,7 +47264,7 @@ export interface operations {
             };
         };
     };
-    get_ui_config__well_known_litellm_ui_config_get: {
+    get_ui_config__well_known_embrouter_ui_config_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -50262,8 +50262,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
-                "litellm-changed-by"?: string | null;
+                /** @description The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
+                "embrouter-changed-by"?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -51910,8 +51910,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
-                "litellm-changed-by"?: string | null;
+                /** @description The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
+                "embrouter-changed-by"?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -51948,8 +51948,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
-                "litellm-changed-by"?: string | null;
+                /** @description The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
+                "embrouter-changed-by"?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -52024,8 +52024,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
-                "litellm-changed-by"?: string | null;
+                /** @description The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
+                "embrouter-changed-by"?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -52060,8 +52060,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
-                "litellm-changed-by"?: string | null;
+                /** @description The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
+                "embrouter-changed-by"?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -52405,8 +52405,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
-                "litellm-changed-by"?: string | null;
+                /** @description The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
+                "embrouter-changed-by"?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -53571,15 +53571,15 @@ export interface operations {
                      */
                     input?: string[];
                     /**
-                     * Litellm Call Id
+                     * Embrouter Call Id
                      * @default null
                      */
-                    litellm_call_id?: string | null;
+                    embrouter_call_id?: string | null;
                     /**
-                     * Litellm Logging Obj
+                     * Embrouter Logging Obj
                      * @default null
                      */
-                    litellm_logging_obj?: {
+                    embrouter_logging_obj?: {
                         [key: string]: unknown;
                     } | null;
                     /**
@@ -54160,15 +54160,15 @@ export interface operations {
                      */
                     input?: string[];
                     /**
-                     * Litellm Call Id
+                     * Embrouter Call Id
                      * @default null
                      */
-                    litellm_call_id?: string | null;
+                    embrouter_call_id?: string | null;
                     /**
-                     * Litellm Logging Obj
+                     * Embrouter Logging Obj
                      * @default null
                      */
-                    litellm_logging_obj?: {
+                    embrouter_logging_obj?: {
                         [key: string]: unknown;
                     } | null;
                     /**
@@ -54854,7 +54854,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["LiteLLMFineTuningJobCreate"];
+                "application/json": components["schemas"]["EmbRouterFineTuningJobCreate"];
             };
         };
         responses: {
@@ -55617,7 +55617,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LiteLLM_SpendLogs"][];
+                    "application/json": components["schemas"]["EmbRouter_SpendLogs"][];
                 };
             };
             /** @description Validation Error */
@@ -55691,7 +55691,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LiteLLM_SpendLogs"][];
+                    "application/json": components["schemas"]["EmbRouter_SpendLogs"][];
                 };
             };
             /** @description Validation Error */
@@ -55727,7 +55727,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LiteLLM_SpendLogs"][];
+                    "application/json": components["schemas"]["EmbRouter_SpendLogs"][];
                 };
             };
             /** @description Validation Error */
@@ -55761,7 +55761,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LiteLLM_SpendLogs"][];
+                    "application/json": components["schemas"]["EmbRouter_SpendLogs"][];
                 };
             };
             /** @description Validation Error */
@@ -55830,7 +55830,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LiteLLM_SpendLogs"][];
+                    "application/json": components["schemas"]["EmbRouter_SpendLogs"][];
                 };
             };
         };
@@ -55984,7 +55984,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LiteLLM_SpendLogs"][];
+                    "application/json": components["schemas"]["EmbRouter_SpendLogs"][];
                 };
             };
             /** @description Validation Error */
@@ -56048,7 +56048,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LiteLLM_SpendLogs"][];
+                    "application/json": components["schemas"]["EmbRouter_SpendLogs"][];
                 };
             };
             /** @description Validation Error */
@@ -56104,7 +56104,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LiteLLM_SpendLogs"][];
+                    "application/json": components["schemas"]["EmbRouter_SpendLogs"][];
                 };
             };
             /** @description Validation Error */
@@ -57737,8 +57737,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
-                "litellm-changed-by"?: string | null;
+                /** @description The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
+                "embrouter-changed-by"?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -57755,7 +57755,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LiteLLM_VerificationToken"] | null;
+                    "application/json": components["schemas"]["EmbRouter_VerificationToken"] | null;
                 };
             };
             /** @description Validation Error */
@@ -57773,8 +57773,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
-                "litellm-changed-by"?: string | null;
+                /** @description The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
+                "embrouter-changed-by"?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -57809,8 +57809,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
-                "litellm-changed-by"?: string | null;
+                /** @description The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
+                "embrouter-changed-by"?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -57845,8 +57845,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
-                "litellm-changed-by"?: string | null;
+                /** @description The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
+                "embrouter-changed-by"?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -58005,8 +58005,8 @@ export interface operations {
                 key?: string | null;
             };
             header?: {
-                /** @description The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
-                "litellm-changed-by"?: string | null;
+                /** @description The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
+                "embrouter-changed-by"?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -58041,8 +58041,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
-                "litellm-changed-by"?: string | null;
+                /** @description The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
+                "embrouter-changed-by"?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -58115,8 +58115,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
-                "litellm-changed-by"?: string | null;
+                /** @description The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
+                "embrouter-changed-by"?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -58151,8 +58151,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
-                "litellm-changed-by"?: string | null;
+                /** @description The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
+                "embrouter-changed-by"?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -58187,8 +58187,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
-                "litellm-changed-by"?: string | null;
+                /** @description The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
+                "embrouter-changed-by"?: string | null;
             };
             path: {
                 key: string | null;
@@ -58225,8 +58225,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
-                "litellm-changed-by"?: string | null;
+                /** @description The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
+                "embrouter-changed-by"?: string | null;
             };
             path: {
                 key: string;
@@ -58447,7 +58447,7 @@ export interface operations {
             };
         };
     };
-    get_ui_config_litellm__well_known_litellm_ui_config_get: {
+    get_ui_config_embrouter__well_known_embrouter_ui_config_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -58626,8 +58626,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
-                "litellm-changed-by"?: string | null;
+                /** @description The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
+                "embrouter-changed-by"?: string | null;
             };
             path: {
                 team_id: string;
@@ -58698,7 +58698,7 @@ export interface operations {
             query?: never;
             header?: {
                 /** @description Who the caller is acting for; recorded on the audit log entries this call writes. */
-                "litellm-changed-by"?: string | null;
+                "embrouter-changed-by"?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -59561,8 +59561,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
-                "litellm-changed-by"?: string | null;
+                /** @description The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
+                "embrouter-changed-by"?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -59579,7 +59579,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LiteLLM_ProxyModelTable"] | null;
+                    "application/json": components["schemas"]["EmbRouter_ProxyModelTable"] | null;
                 };
             };
             /** @description Validation Error */
@@ -59680,7 +59680,7 @@ export interface operations {
     model_info_v1_model_info_get: {
         parameters: {
             query?: {
-                litellm_model_id?: string | null;
+                embrouter_model_id?: string | null;
                 /** @description When true, filter to deployments the caller can use via direct access or team membership. */
                 include_team_models?: boolean | null;
                 /** @description Filter models by team ID. Returns models with direct_access=True or teamId in access_via_team_ids */
@@ -59908,8 +59908,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
-                "litellm-changed-by"?: string | null;
+                /** @description The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
+                "embrouter-changed-by"?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -59926,7 +59926,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LiteLLM_ProxyModelTable"] | null;
+                    "application/json": components["schemas"]["EmbRouter_ProxyModelTable"] | null;
                 };
             };
             /** @description Validation Error */
@@ -60776,8 +60776,8 @@ export interface operations {
             /**
              * @description Unified rate-limit error.
              *
-             *     Every rate-limit condition surfaced by litellm — whether it originated from
-             *     an upstream LLM provider, a vendor batch endpoint, or one of litellm's own
+             *     Every rate-limit condition surfaced by embrouter — whether it originated from
+             *     an upstream LLM provider, a vendor batch endpoint, or one of embrouter's own
              *     proxy-side limiters (parallel-requests, dynamic-rate, batch-rate, budget,
              *     max-iterations, etc.) — is raised as an instance of this class.
              *
@@ -60893,15 +60893,15 @@ export interface operations {
                      */
                     input?: string[];
                     /**
-                     * Litellm Call Id
+                     * Embrouter Call Id
                      * @default null
                      */
-                    litellm_call_id?: string | null;
+                    embrouter_call_id?: string | null;
                     /**
-                     * Litellm Logging Obj
+                     * Embrouter Logging Obj
                      * @default null
                      */
-                    litellm_logging_obj?: {
+                    embrouter_logging_obj?: {
                         [key: string]: unknown;
                     } | null;
                     /**
@@ -61147,7 +61147,7 @@ export interface operations {
                     /** Tool Choice */
                     tool_choice?: ("none" | "auto" | "required") | components["schemas"]["ToolChoiceAllowedParam"] | components["schemas"]["ToolChoiceTypesParam"] | components["schemas"]["ToolChoiceFunctionParam"] | components["schemas"]["ToolChoiceMcpParam"] | components["schemas"]["ToolChoiceCustomParam"] | components["schemas"]["ToolChoiceApplyPatchParam"] | components["schemas"]["ToolChoiceShellParam"] | null;
                     /** Tools */
-                    tools?: (components["schemas"]["FunctionToolParam"] | components["schemas"]["FileSearchToolParam"] | components["schemas"]["openai__types__responses__computer_tool_param__ComputerToolParam"] | components["schemas"]["ComputerUsePreviewToolParam"] | components["schemas"]["WebSearchToolParam"] | components["schemas"]["Mcp"] | components["schemas"]["CodeInterpreter"] | components["schemas"]["ImageGeneration"] | components["schemas"]["LocalShell"] | components["schemas"]["FunctionShellToolParam"] | components["schemas"]["CustomToolParam"] | components["schemas"]["NamespaceToolParam"] | components["schemas"]["ToolSearchToolParam"] | components["schemas"]["WebSearchPreviewToolParam"] | components["schemas"]["ApplyPatchToolParam"] | components["schemas"]["litellm__types__llms__openai__ComputerToolParam"] | components["schemas"]["ShellToolParam"])[] | null;
+                    tools?: (components["schemas"]["FunctionToolParam"] | components["schemas"]["FileSearchToolParam"] | components["schemas"]["openai__types__responses__computer_tool_param__ComputerToolParam"] | components["schemas"]["ComputerUsePreviewToolParam"] | components["schemas"]["WebSearchToolParam"] | components["schemas"]["Mcp"] | components["schemas"]["CodeInterpreter"] | components["schemas"]["ImageGeneration"] | components["schemas"]["LocalShell"] | components["schemas"]["FunctionShellToolParam"] | components["schemas"]["CustomToolParam"] | components["schemas"]["NamespaceToolParam"] | components["schemas"]["ToolSearchToolParam"] | components["schemas"]["WebSearchPreviewToolParam"] | components["schemas"]["ApplyPatchToolParam"] | components["schemas"]["embrouter__types__llms__openai__ComputerToolParam"] | components["schemas"]["ShellToolParam"])[] | null;
                     /** Top Logprobs */
                     top_logprobs?: number | null;
                     /** Top P */
@@ -61858,7 +61858,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LiteLLM_OrganizationTableWithMembers"][];
+                    "application/json": components["schemas"]["EmbRouter_OrganizationTableWithMembers"][];
                 };
             };
             /** @description Validation Error */
@@ -61889,7 +61889,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LiteLLM_OrganizationTableWithMembers"];
+                    "application/json": components["schemas"]["EmbRouter_OrganizationTableWithMembers"];
                 };
             };
             /** @description Validation Error */
@@ -61956,7 +61956,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LiteLLM_OrganizationTableWithMembers"][];
+                    "application/json": components["schemas"]["EmbRouter_OrganizationTableWithMembers"][];
                 };
             };
             /** @description Validation Error */
@@ -62055,7 +62055,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LiteLLM_OrganizationMembershipTable"];
+                    "application/json": components["schemas"]["EmbRouter_OrganizationMembershipTable"];
                 };
             };
             /** @description Validation Error */
@@ -62155,7 +62155,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LiteLLM_OrganizationTableWithMembers"];
+                    "application/json": components["schemas"]["EmbRouter_OrganizationTableWithMembers"];
                 };
             };
         };
@@ -63303,7 +63303,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LiteLLM_ProjectTable"][];
+                    "application/json": components["schemas"]["EmbRouter_ProjectTable"][];
                 };
             };
             /** @description Validation Error */
@@ -63334,7 +63334,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LiteLLM_ProjectTable"];
+                    "application/json": components["schemas"]["EmbRouter_ProjectTable"];
                 };
             };
             /** @description Validation Error */
@@ -63363,7 +63363,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LiteLLM_ProjectTable"][];
+                    "application/json": components["schemas"]["EmbRouter_ProjectTable"][];
                 };
             };
         };
@@ -63420,7 +63420,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LiteLLM_ProjectTable"];
+                    "application/json": components["schemas"]["EmbRouter_ProjectTable"];
                 };
             };
             /** @description Validation Error */
@@ -63877,7 +63877,7 @@ export interface operations {
             };
         };
     };
-    get_litellm_blog_posts_public_litellm_blog_posts_get: {
+    get_embrouter_blog_posts_public_embrouter_blog_posts_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -63897,7 +63897,7 @@ export interface operations {
             };
         };
     };
-    get_litellm_model_cost_map_public_litellm_model_cost_map_get: {
+    get_embrouter_model_cost_map_public_embrouter_model_cost_map_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -64404,7 +64404,7 @@ export interface operations {
                     /** Tool Choice */
                     tool_choice?: ("none" | "auto" | "required") | components["schemas"]["ToolChoiceAllowedParam"] | components["schemas"]["ToolChoiceTypesParam"] | components["schemas"]["ToolChoiceFunctionParam"] | components["schemas"]["ToolChoiceMcpParam"] | components["schemas"]["ToolChoiceCustomParam"] | components["schemas"]["ToolChoiceApplyPatchParam"] | components["schemas"]["ToolChoiceShellParam"] | null;
                     /** Tools */
-                    tools?: (components["schemas"]["FunctionToolParam"] | components["schemas"]["FileSearchToolParam"] | components["schemas"]["openai__types__responses__computer_tool_param__ComputerToolParam"] | components["schemas"]["ComputerUsePreviewToolParam"] | components["schemas"]["WebSearchToolParam"] | components["schemas"]["Mcp"] | components["schemas"]["CodeInterpreter"] | components["schemas"]["ImageGeneration"] | components["schemas"]["LocalShell"] | components["schemas"]["FunctionShellToolParam"] | components["schemas"]["CustomToolParam"] | components["schemas"]["NamespaceToolParam"] | components["schemas"]["ToolSearchToolParam"] | components["schemas"]["WebSearchPreviewToolParam"] | components["schemas"]["ApplyPatchToolParam"] | components["schemas"]["litellm__types__llms__openai__ComputerToolParam"] | components["schemas"]["ShellToolParam"])[] | null;
+                    tools?: (components["schemas"]["FunctionToolParam"] | components["schemas"]["FileSearchToolParam"] | components["schemas"]["openai__types__responses__computer_tool_param__ComputerToolParam"] | components["schemas"]["ComputerUsePreviewToolParam"] | components["schemas"]["WebSearchToolParam"] | components["schemas"]["Mcp"] | components["schemas"]["CodeInterpreter"] | components["schemas"]["ImageGeneration"] | components["schemas"]["LocalShell"] | components["schemas"]["FunctionShellToolParam"] | components["schemas"]["CustomToolParam"] | components["schemas"]["NamespaceToolParam"] | components["schemas"]["ToolSearchToolParam"] | components["schemas"]["WebSearchPreviewToolParam"] | components["schemas"]["ApplyPatchToolParam"] | components["schemas"]["embrouter__types__llms__openai__ComputerToolParam"] | components["schemas"]["ShellToolParam"])[] | null;
                     /** Top Logprobs */
                     top_logprobs?: number | null;
                     /** Top P */
@@ -65891,7 +65891,7 @@ export interface operations {
                 provider?: "openai";
                 /** @description Ratio under which the report flags below_threshold */
                 threshold?: number;
-                /** @description Scope the OpenAI bill to these project ids; omit to compare against the whole organization. Captured spend is never scoped, so pass every project LiteLLM's OpenAI keys belong to */
+                /** @description Scope the OpenAI bill to these project ids; omit to compare against the whole organization. Captured spend is never scoped, so pass every project EmbRouter's OpenAI keys belong to */
                 project_ids?: string[] | null;
             };
             header?: never;
@@ -65968,7 +65968,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LiteLLM_SpendLogs"][];
+                    "application/json": components["schemas"]["EmbRouter_SpendLogs"][];
                 };
             };
             /** @description Validation Error */
@@ -66004,7 +66004,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LiteLLM_SpendLogs"][];
+                    "application/json": components["schemas"]["EmbRouter_SpendLogs"][];
                 };
             };
             /** @description Validation Error */
@@ -66051,7 +66051,7 @@ export interface operations {
                 span_type?: string | null;
                 /** @description Filter logs by model */
                 model?: string | null;
-                /** @description Filter logs by model ID (litellm model deployment id) */
+                /** @description Filter logs by model ID (embrouter model deployment id) */
                 model_id?: string | null;
                 /** @description Filter logs by model group */
                 model_group?: string | null;
@@ -66067,13 +66067,13 @@ export interface operations {
                 sort_by?: string;
                 /** @description Sort order: asc or desc */
                 sort_order?: string | null;
-                /** @description Exclude LiteLLM internal health check requests from results */
+                /** @description Exclude EmbRouter internal health check requests from results */
                 exclude_internal_health_checks?: boolean;
                 /** @description Paginate over sessions instead of raw logs: one representative row per session, total counts sessions */
                 group_by_session?: boolean;
                 /** @description Keyset cursor '<last_activity>|<api_key>|<session_key>' from a previous group_by_session page. UI route only, honored when sorting by startTime */
                 session_cursor?: string | null;
-                /** @description Match a log whose request_id, litellm_call_id, api_key (hash), team_id, user, end_user, session_id, or model_id equals this value. request_id matches across all time; the other columns match inside start_date/end_date, which stay required */
+                /** @description Match a log whose request_id, embrouter_call_id, api_key (hash), team_id, user, end_user, session_id, or model_id equals this value. request_id matches across all time; the other columns match inside start_date/end_date, which stay required */
                 search?: string | null;
             };
             header?: never;
@@ -66088,7 +66088,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LiteLLM_SpendLogs"][];
+                    "application/json": components["schemas"]["EmbRouter_SpendLogs"][];
                 };
             };
             /** @description Validation Error */
@@ -66171,7 +66171,7 @@ export interface operations {
                 span_type?: string | null;
                 /** @description Filter logs by model */
                 model?: string | null;
-                /** @description Filter logs by model ID (litellm model deployment id) */
+                /** @description Filter logs by model ID (embrouter model deployment id) */
                 model_id?: string | null;
                 /** @description Filter logs by model group */
                 model_group?: string | null;
@@ -66187,13 +66187,13 @@ export interface operations {
                 sort_by?: string;
                 /** @description Sort order: asc or desc */
                 sort_order?: string | null;
-                /** @description Exclude LiteLLM internal health check requests from results */
+                /** @description Exclude EmbRouter internal health check requests from results */
                 exclude_internal_health_checks?: boolean;
                 /** @description Paginate over sessions instead of raw logs: one representative row per session, total counts sessions */
                 group_by_session?: boolean;
                 /** @description Keyset cursor '<last_activity>|<api_key>|<session_key>' from a previous group_by_session page. UI route only, honored when sorting by startTime */
                 session_cursor?: string | null;
-                /** @description Match a log whose request_id, litellm_call_id, api_key (hash), team_id, user, end_user, session_id, or model_id equals this value. request_id matches across all time; the other columns match inside start_date/end_date, which stay required */
+                /** @description Match a log whose request_id, embrouter_call_id, api_key (hash), team_id, user, end_user, session_id, or model_id equals this value. request_id matches across all time; the other columns match inside start_date/end_date, which stay required */
                 search?: string | null;
             };
             header?: never;
@@ -66244,7 +66244,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LiteLLM_SpendLogs"][];
+                    "application/json": components["schemas"]["EmbRouter_SpendLogs"][];
                 };
             };
             /** @description Validation Error */
@@ -66358,7 +66358,7 @@ export interface operations {
                 team_id?: string | null;
             };
             header?: {
-                "x-litellm-cli-poll-secret"?: string | null;
+                "x-embrouter-cli-poll-secret"?: string | null;
             };
             path: {
                 key_id: string;
@@ -67170,8 +67170,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
-                "litellm-changed-by"?: string | null;
+                /** @description The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
+                "embrouter-changed-by"?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -67226,7 +67226,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LiteLLM_TeamTable"][];
+                    "application/json": components["schemas"]["EmbRouter_TeamTable"][];
                 };
             };
             /** @description Validation Error */
@@ -67278,8 +67278,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
-                "litellm-changed-by"?: string | null;
+                /** @description The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
+                "embrouter-changed-by"?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -67532,8 +67532,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
-                "litellm-changed-by"?: string | null;
+                /** @description The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
+                "embrouter-changed-by"?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -67550,7 +67550,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LiteLLM_TeamTable"];
+                    "application/json": components["schemas"]["EmbRouter_TeamTable"];
                 };
             };
             /** @description Validation Error */
@@ -67648,7 +67648,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LiteLLM_TeamTable"];
+                    "application/json": components["schemas"]["EmbRouter_TeamTable"];
                 };
             };
             /** @description Validation Error */
@@ -67770,8 +67770,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
-                "litellm-changed-by"?: string | null;
+                /** @description The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
+                "embrouter-changed-by"?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -67806,8 +67806,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
-                "litellm-changed-by"?: string | null;
+                /** @description The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
+                "embrouter-changed-by"?: string | null;
             };
             path: {
                 team_id: string;
@@ -67826,7 +67826,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LiteLLM_TeamTable"];
+                    "application/json": components["schemas"]["EmbRouter_TeamTable"];
                 };
             };
             /** @description Validation Error */
@@ -67875,8 +67875,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
-                "litellm-changed-by"?: string | null;
+                /** @description The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
+                "embrouter-changed-by"?: string | null;
             };
             path: {
                 team_id: string;
@@ -67913,8 +67913,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
-                "litellm-changed-by"?: string | null;
+                /** @description The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
+                "embrouter-changed-by"?: string | null;
             };
             path: {
                 team_id: string;
@@ -67948,8 +67948,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
-                "litellm-changed-by"?: string | null;
+                /** @description The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
+                "embrouter-changed-by"?: string | null;
             };
             path: {
                 team_id: string;
@@ -69172,8 +69172,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
-                "litellm-changed-by"?: string | null;
+                /** @description The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
+                "embrouter-changed-by"?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -69300,8 +69300,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
-                "litellm-changed-by"?: string | null;
+                /** @description The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
+                "embrouter-changed-by"?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -69360,7 +69360,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LiteLLM_UserTableFiltered"][];
+                    "application/json": components["schemas"]["EmbRouter_UserTableFiltered"][];
                 };
             };
             /** @description Validation Error */
@@ -70011,7 +70011,7 @@ export interface operations {
             query?: {
                 /** @description When true, performs a GET request to each agent's URL. Agents with reachable URLs (HTTP status < 500) and agents without a URL are returned; unreachable agents are filtered out. */
                 health_check?: boolean;
-                /** @description Describe the task in natural language to rank the agents you can reach by semantic similarity over their name, description, and skills. Each result carries a search_score. Requires litellm_settings.agent_search_embedding_model. */
+                /** @description Describe the task in natural language to rank the agents you can reach by semantic similarity over their name, description, and skills. Each result carries a search_score. Requires embrouter_settings.agent_search_embedding_model. */
                 query?: string | null;
                 /** @description With query: the maximum number of ranked agents to return. */
                 top_k?: number;
@@ -71109,15 +71109,15 @@ export interface operations {
                      */
                     input?: string[];
                     /**
-                     * Litellm Call Id
+                     * Embrouter Call Id
                      * @default null
                      */
-                    litellm_call_id?: string | null;
+                    embrouter_call_id?: string | null;
                     /**
-                     * Litellm Logging Obj
+                     * Embrouter Logging Obj
                      * @default null
                      */
-                    litellm_logging_obj?: {
+                    embrouter_logging_obj?: {
                         [key: string]: unknown;
                     } | null;
                     /**
@@ -71745,7 +71745,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["LiteLLMFineTuningJobCreate"];
+                "application/json": components["schemas"]["EmbRouterFineTuningJobCreate"];
             };
         };
         responses: {
@@ -72119,7 +72119,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LiteLLM_MCPServerTable"][];
+                    "application/json": components["schemas"]["EmbRouter_MCPServerTable"][];
                 };
             };
             /** @description Validation Error */
@@ -72137,8 +72137,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
-                "litellm-changed-by"?: string | null;
+                /** @description The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
+                "embrouter-changed-by"?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -72155,7 +72155,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LiteLLM_MCPServerTable"];
+                    "application/json": components["schemas"]["EmbRouter_MCPServerTable"];
                 };
             };
             /** @description Validation Error */
@@ -72173,8 +72173,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
-                "litellm-changed-by"?: string | null;
+                /** @description The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
+                "embrouter-changed-by"?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -72191,7 +72191,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LiteLLM_MCPServerTable"];
+                    "application/json": components["schemas"]["EmbRouter_MCPServerTable"];
                 };
             };
             /** @description Validation Error */
@@ -72276,8 +72276,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
-                "litellm-changed-by"?: string | null;
+                /** @description The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
+                "embrouter-changed-by"?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -72327,7 +72327,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LiteLLM_MCPServerTable"];
+                    "application/json": components["schemas"]["EmbRouter_MCPServerTable"];
                 };
             };
             /** @description Validation Error */
@@ -72381,7 +72381,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LiteLLM_MCPServerTable"];
+                    "application/json": components["schemas"]["EmbRouter_MCPServerTable"];
                 };
             };
             /** @description Validation Error */
@@ -72399,8 +72399,8 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                /** @description The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
-                "litellm-changed-by"?: string | null;
+                /** @description The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability */
+                "embrouter-changed-by"?: string | null;
             };
             path: {
                 server_id: string;
@@ -72446,7 +72446,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LiteLLM_MCPServerTable"];
+                    "application/json": components["schemas"]["EmbRouter_MCPServerTable"];
                 };
             };
             /** @description Validation Error */
@@ -72646,7 +72646,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LiteLLM_MCPServerTable"];
+                    "application/json": components["schemas"]["EmbRouter_MCPServerTable"];
                 };
             };
             /** @description Validation Error */
@@ -72952,7 +72952,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "litellm-changed-by"?: string | null;
+                "embrouter-changed-by"?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -72987,7 +72987,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "litellm-changed-by"?: string | null;
+                "embrouter-changed-by"?: string | null;
             };
             path?: never;
             cookie?: never;
@@ -73053,7 +73053,7 @@ export interface operations {
         parameters: {
             query?: never;
             header?: {
-                "litellm-changed-by"?: string | null;
+                "embrouter-changed-by"?: string | null;
             };
             path: {
                 toolset_id: string;
@@ -73179,7 +73179,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LiteLLM_MemoryRow"];
+                    "application/json": components["schemas"]["EmbRouter_MemoryRow"];
                 };
             };
             /** @description Validation Error */
@@ -73210,7 +73210,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LiteLLM_MemoryRow"];
+                    "application/json": components["schemas"]["EmbRouter_MemoryRow"];
                 };
             };
             /** @description Validation Error */
@@ -73245,7 +73245,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LiteLLM_MemoryRow"];
+                    "application/json": components["schemas"]["EmbRouter_MemoryRow"];
                 };
             };
             /** @description Validation Error */
@@ -73364,7 +73364,7 @@ export interface operations {
     model_info_v1_v1_model_info_get: {
         parameters: {
             query?: {
-                litellm_model_id?: string | null;
+                embrouter_model_id?: string | null;
                 /** @description When true, filter to deployments the caller can use via direct access or team membership. */
                 include_team_models?: boolean | null;
                 /** @description Filter models by team ID. Returns models with direct_access=True or teamId in access_via_team_ids */
@@ -73723,7 +73723,7 @@ export interface operations {
                     /** Tool Choice */
                     tool_choice?: ("none" | "auto" | "required") | components["schemas"]["ToolChoiceAllowedParam"] | components["schemas"]["ToolChoiceTypesParam"] | components["schemas"]["ToolChoiceFunctionParam"] | components["schemas"]["ToolChoiceMcpParam"] | components["schemas"]["ToolChoiceCustomParam"] | components["schemas"]["ToolChoiceApplyPatchParam"] | components["schemas"]["ToolChoiceShellParam"] | null;
                     /** Tools */
-                    tools?: (components["schemas"]["FunctionToolParam"] | components["schemas"]["FileSearchToolParam"] | components["schemas"]["openai__types__responses__computer_tool_param__ComputerToolParam"] | components["schemas"]["ComputerUsePreviewToolParam"] | components["schemas"]["WebSearchToolParam"] | components["schemas"]["Mcp"] | components["schemas"]["CodeInterpreter"] | components["schemas"]["ImageGeneration"] | components["schemas"]["LocalShell"] | components["schemas"]["FunctionShellToolParam"] | components["schemas"]["CustomToolParam"] | components["schemas"]["NamespaceToolParam"] | components["schemas"]["ToolSearchToolParam"] | components["schemas"]["WebSearchPreviewToolParam"] | components["schemas"]["ApplyPatchToolParam"] | components["schemas"]["litellm__types__llms__openai__ComputerToolParam"] | components["schemas"]["ShellToolParam"])[] | null;
+                    tools?: (components["schemas"]["FunctionToolParam"] | components["schemas"]["FileSearchToolParam"] | components["schemas"]["openai__types__responses__computer_tool_param__ComputerToolParam"] | components["schemas"]["ComputerUsePreviewToolParam"] | components["schemas"]["WebSearchToolParam"] | components["schemas"]["Mcp"] | components["schemas"]["CodeInterpreter"] | components["schemas"]["ImageGeneration"] | components["schemas"]["LocalShell"] | components["schemas"]["FunctionShellToolParam"] | components["schemas"]["CustomToolParam"] | components["schemas"]["NamespaceToolParam"] | components["schemas"]["ToolSearchToolParam"] | components["schemas"]["WebSearchPreviewToolParam"] | components["schemas"]["ApplyPatchToolParam"] | components["schemas"]["embrouter__types__llms__openai__ComputerToolParam"] | components["schemas"]["ShellToolParam"])[] | null;
                     /** Top Logprobs */
                     top_logprobs?: number | null;
                     /** Top P */
@@ -74034,7 +74034,7 @@ export interface operations {
                 after_id?: string | null;
                 before_id?: string | null;
                 custom_llm_provider?: string | null;
-                /** @description Describe what you need in natural language to rank the skills you can access by semantic similarity over their title and description. Each result carries a search_score. Only supported for custom_llm_provider=litellm_proxy. Requires litellm_settings.skill_search_embedding_model. */
+                /** @description Describe what you need in natural language to rank the skills you can access by semantic similarity over their title and description. Each result carries a search_score. Only supported for custom_llm_provider=embrouter_proxy. Requires embrouter_settings.skill_search_embedding_model. */
                 query?: string | null;
                 /** @description With query: the maximum number of ranked skills to return. */
                 top_k?: number;
@@ -74472,7 +74472,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LiteLLM_ToolTableRow"];
+                    "application/json": components["schemas"]["EmbRouter_ToolTableRow"];
                 };
             };
             /** @description Validation Error */
@@ -74757,7 +74757,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LiteLLM_ManagedVectorStoreListResponse"];
+                    "application/json": components["schemas"]["EmbRouter_ManagedVectorStoreListResponse"];
                 };
             };
             /** @description Validation Error */
@@ -76091,7 +76091,7 @@ export interface operations {
                 sortBy?: string | null;
                 /** @description Sort order. Options: asc, desc */
                 sortOrder?: string | null;
-                /** @description Omit auto-router deployments (litellm model prefixed `auto_router/`). They select among deployments rather than being deployments themselves, so a caller rendering a deployment list can leave them out. Defaults to false, so existing callers are unaffected */
+                /** @description Omit auto-router deployments (embrouter model prefixed `auto_router/`). They select among deployments rather than being deployments themselves, so a caller rendering a deployment list can leave them out. Defaults to false, so existing callers are unaffected */
                 exclude_auto_routers?: boolean | null;
                 /** @description Only return deployments whose `model_info.access_groups` contains this access group */
                 access_group?: string | null;
@@ -76145,7 +76145,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LiteLLM_OrganizationTableWithMembers"];
+                    "application/json": components["schemas"]["EmbRouter_OrganizationTableWithMembers"];
                 };
             };
             /** @description Validation Error */
@@ -76527,7 +76527,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ResponseLiteLLM_ManagedVectorStore"];
+                    "application/json": components["schemas"]["ResponseEmbRouter_ManagedVectorStore"];
                 };
             };
             /** @description Validation Error */
@@ -76559,7 +76559,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LiteLLM_ManagedVectorStoreListResponse"];
+                    "application/json": components["schemas"]["EmbRouter_ManagedVectorStoreListResponse"];
                 };
             };
             /** @description Validation Error */
@@ -76582,7 +76582,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["LiteLLM_ManagedVectorStore"];
+                "application/json": components["schemas"]["EmbRouter_ManagedVectorStore"];
             };
         };
         responses: {

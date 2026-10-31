@@ -6,24 +6,24 @@ from typing import TYPE_CHECKING, Any
 import httpx
 from httpx._types import FileContent, RequestFiles
 
-from litellm.types.responses.main import *
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.videos.main import VideoCreateOptionalRequestParams
+from embrouter.types.responses.main import *
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.videos.main import VideoCreateOptionalRequestParams
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-    from litellm.types.videos.main import CharacterObject as _CharacterObject
-    from litellm.types.videos.main import VideoObject as _VideoObject
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
+    from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+    from embrouter.types.videos.main import CharacterObject as _CharacterObject
+    from embrouter.types.videos.main import VideoObject as _VideoObject
 
     from ..chat.transformation import BaseLLMException as _BaseLLMException
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
     BaseLLMException = _BaseLLMException
     VideoObject = _VideoObject
     CharacterObject = _CharacterObject
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
     BaseLLMException = Any
     VideoObject = Any
     CharacterObject = Any
@@ -71,7 +71,7 @@ class BaseVideoConfig(ABC):
         headers: dict,
         model: str,
         api_key: str | None = None,
-        litellm_params: GenericLiteLLMParams | None = None,
+        embrouter_params: GenericEmbRouterParams | None = None,
     ) -> dict:
         return {}
 
@@ -80,7 +80,7 @@ class BaseVideoConfig(ABC):
         self,
         model: str,
         api_base: str | None,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> str:
         """
         OPTIONAL
@@ -108,7 +108,7 @@ class BaseVideoConfig(ABC):
         prompt: str,
         api_base: str,
         video_create_optional_request_params: dict,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[dict, RequestFiles, str]:
         pass
@@ -118,7 +118,7 @@ class BaseVideoConfig(ABC):
         self,
         model: str,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         custom_llm_provider: str | None = None,
         request_data: dict | None = None,
     ) -> VideoObject:
@@ -129,7 +129,7 @@ class BaseVideoConfig(ABC):
         self,
         video_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
         variant: str | None = None,
     ) -> tuple[str, dict]:
@@ -144,14 +144,14 @@ class BaseVideoConfig(ABC):
     def transform_video_content_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> bytes:
         pass
 
     async def async_transform_video_content_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> bytes:
         """
         Async transform video content download response to bytes.
@@ -179,7 +179,7 @@ class BaseVideoConfig(ABC):
         video_id: str,
         prompt: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
         extra_body: dict[str, object] | None = None,
     ) -> tuple[str, dict]:
@@ -194,7 +194,7 @@ class BaseVideoConfig(ABC):
     def transform_video_remix_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         custom_llm_provider: str | None = None,
     ) -> VideoObject:
         pass
@@ -203,7 +203,7 @@ class BaseVideoConfig(ABC):
     def transform_video_list_request(
         self,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
         after: str | None = None,
         limit: int | None = None,
@@ -221,7 +221,7 @@ class BaseVideoConfig(ABC):
     def transform_video_list_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         custom_llm_provider: str | None = None,
     ) -> dict[str, str]:
         pass
@@ -231,7 +231,7 @@ class BaseVideoConfig(ABC):
         self,
         video_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict]:
         """
@@ -245,7 +245,7 @@ class BaseVideoConfig(ABC):
     def transform_video_delete_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> VideoObject:
         pass
 
@@ -254,7 +254,7 @@ class BaseVideoConfig(ABC):
         self,
         video_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict]:
         """
@@ -268,7 +268,7 @@ class BaseVideoConfig(ABC):
     def transform_video_status_retrieve_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         custom_llm_provider: str | None = None,
         client: "HTTPHandler | None" = None,
     ) -> VideoObject:
@@ -277,7 +277,7 @@ class BaseVideoConfig(ABC):
     async def async_transform_video_status_retrieve_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         custom_llm_provider: str | None = None,
         client: "AsyncHTTPHandler | None" = None,
     ) -> VideoObject:
@@ -293,7 +293,7 @@ class BaseVideoConfig(ABC):
         name: str,
         video: Any,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, list]:
         """
@@ -307,7 +307,7 @@ class BaseVideoConfig(ABC):
     def transform_video_create_character_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> CharacterObject:
         raise NotImplementedError("video create character is not supported for this provider")
 
@@ -315,7 +315,7 @@ class BaseVideoConfig(ABC):
         self,
         character_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict]:
         """
@@ -329,7 +329,7 @@ class BaseVideoConfig(ABC):
     def transform_video_get_character_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> CharacterObject:
         raise NotImplementedError("video get character is not supported for this provider")
 
@@ -337,7 +337,7 @@ class BaseVideoConfig(ABC):
         self,
         video_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict] | None:
         """
@@ -355,7 +355,7 @@ class BaseVideoConfig(ABC):
         prompt: str,
         video_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
         video_file: FileContent | None = None,
         extra_body: dict[str, object] | None = None,
@@ -375,7 +375,7 @@ class BaseVideoConfig(ABC):
     def transform_video_edit_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         custom_llm_provider: str | None = None,
         request_data: dict | None = None,
     ) -> VideoObject:
@@ -387,7 +387,7 @@ class BaseVideoConfig(ABC):
         video_id: str,
         seconds: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
         extra_body: dict[str, object] | None = None,
     ) -> tuple[str, dict]:
@@ -402,7 +402,7 @@ class BaseVideoConfig(ABC):
     def transform_video_extension_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         custom_llm_provider: str | None = None,
     ) -> VideoObject:
         raise NotImplementedError("video extension is not supported for this provider")

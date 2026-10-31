@@ -6,8 +6,8 @@ this is OpenAI compatible - no translation needed / occurs
 
 from typing import Final
 
-from litellm.llms.openai.chat.gpt_transformation import OpenAIGPTConfig
-from litellm.utils import supports_reasoning
+from embrouter.llms.openai.chat.gpt_transformation import OpenAIGPTConfig
+from embrouter.utils import supports_reasoning
 
 
 class CerebrasConfig(OpenAIGPTConfig):

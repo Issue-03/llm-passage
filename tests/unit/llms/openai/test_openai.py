@@ -7,9 +7,9 @@ import httpx
 import pytest
 from openai import AsyncOpenAI, OpenAI
 
-import litellm
-from litellm.llms.openai.openai import OpenAIChatCompletion
-from litellm.types.utils import ImageResponse
+import embrouter
+from embrouter.llms.openai.openai import OpenAIChatCompletion
+from embrouter.types.utils import ImageResponse
 
 
 @pytest.mark.parametrize(
@@ -88,7 +88,7 @@ async def test_acompletion_returns_json_reply_over_injected_transport():
     async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as http_client:
         client: Final = AsyncOpenAI(api_key="transport-only", http_client=http_client)
         response: Final = await asyncio.wait_for(
-            litellm.acompletion(
+            embrouter.acompletion(
                 model="openai/gpt-5.6",
                 api_key="transport-only",
                 client=client,
@@ -144,7 +144,7 @@ async def test_acompletion_streams_text_deltas_over_injected_transport():
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as http_client:
         client: Final = AsyncOpenAI(api_key="transport-only", http_client=http_client)
-        stream: Final = await litellm.acompletion(
+        stream: Final = await embrouter.acompletion(
             model="openai/gpt-5.6",
             api_key="transport-only",
             client=client,
@@ -228,7 +228,7 @@ async def test_acompletion_streams_tool_call_arguments_over_injected_transport()
     async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as http_client:
         client: Final = AsyncOpenAI(api_key="transport-only", http_client=http_client)
         messages: Final = [{"role": "user", "content": "weather in Paris"}]
-        stream: Final = await litellm.acompletion(
+        stream: Final = await embrouter.acompletion(
             model="openai/gpt-4o",
             api_key="transport-only",
             client=client,
@@ -249,7 +249,7 @@ async def test_acompletion_streams_tool_call_arguments_over_injected_transport()
         assert request["stream"] is True
         assert request["tools"][0]["function"]["name"] == "get_weather"
         assert outbound.empty()
-        rebuilt: Final = litellm.stream_chunk_builder(chunks, messages=messages)
+        rebuilt: Final = embrouter.stream_chunk_builder(chunks, messages=messages)
         tool_call: Final = rebuilt.choices[0].message.tool_calls[0]
         assert tool_call.id == "call-1"
         assert tool_call.function.name == "get_weather"

@@ -6,9 +6,9 @@ import httpx
 import pytest
 from openai import AzureOpenAI
 
-import litellm
-from litellm.cost_calculator import completion_cost
-from litellm.litellm_core_utils.audio_utils.utils import calculate_request_duration
+import embrouter
+from embrouter.cost_calculator import completion_cost
+from embrouter.embrouter_core_utils.audio_utils.utils import calculate_request_duration
 
 AUDIO_FILE: Final = Path(__file__).parents[3] / "gettysburg.wav"
 WHISPER_COST_PER_SECOND: Final = 0.0001
@@ -28,7 +28,7 @@ def _transcription_client() -> AzureOpenAI:
 
 def test_azure_transcription_keeps_the_azure_provider():
     with AUDIO_FILE.open("rb") as audio:
-        response = litellm.transcription(
+        response = embrouter.transcription(
             model="azure/whisper-1",
             file=audio,
             api_base="https://example.openai.azure.com",

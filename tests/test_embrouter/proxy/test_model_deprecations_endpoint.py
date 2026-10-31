@@ -4,11 +4,11 @@ import pytest
 from fastapi.testclient import TestClient
 
 
-import litellm
-from litellm.proxy import proxy_server
-from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.proxy_server import app
+import embrouter
+from embrouter.proxy import proxy_server
+from embrouter.proxy._types import EmbrouterUserRoles, UserAPIKeyAuth
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.proxy_server import app
 
 client = TestClient(app)
 
@@ -16,19 +16,19 @@ client = TestClient(app)
 @pytest.fixture
 def authenticated_client(monkeypatch):
     app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-1234"
+        user_role=EmbrouterUserRoles.PROXY_ADMIN, api_key="sk-1234"
     )
     monkeypatch.setattr(
-        litellm,
+        embrouter,
         "model_cost",
         {
             "sunset-model": {
                 "deprecation_date": "2020-01-01",
-                "litellm_provider": "openai",
+                "embrouter_provider": "openai",
             },
             "future-model": {
                 "deprecation_date": "2099-01-01",
-                "litellm_provider": "openai",
+                "embrouter_provider": "openai",
             },
         },
     )
@@ -36,12 +36,12 @@ def authenticated_client(monkeypatch):
     router.get_model_list.return_value = [
         {
             "model_name": "sunset-alias",
-            "litellm_params": {"model": "sunset-model"},
+            "embrouter_params": {"model": "sunset-model"},
             "model_info": {"id": "1"},
         },
         {
             "model_name": "future-alias",
-            "litellm_params": {"model": "future-model"},
+            "embrouter_params": {"model": "future-model"},
             "model_info": {"id": "2"},
         },
     ]

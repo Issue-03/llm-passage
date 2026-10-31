@@ -1,15 +1,15 @@
 from typing import TYPE_CHECKING, Final
 
-from litellm.types.guardrails import SupportedGuardrailIntegrations
+from embrouter.types.guardrails import SupportedGuardrailIntegrations
 
 from .panw_prisma_airs import PanwPrismaAirsHandler
 
 if TYPE_CHECKING:
-    from litellm.types.guardrails import Guardrail, LitellmParams
+    from embrouter.types.guardrails import Guardrail, EmbrouterParams
 
 
-def initialize_guardrail(litellm_params: "LitellmParams", guardrail: "Guardrail"):
-    import litellm
+def initialize_guardrail(embrouter_params: "EmbrouterParams", guardrail: "Guardrail"):
+    import embrouter
 
     guardrail_name: Final = guardrail.get("guardrail_name")
 
@@ -19,13 +19,13 @@ def initialize_guardrail(litellm_params: "LitellmParams", guardrail: "Guardrail"
 
     _panw_callback: Final = PanwPrismaAirsHandler(
         **{
-            **litellm_params.model_dump(exclude_unset=True),
+            **embrouter_params.model_dump(exclude_unset=True),
             "guardrail_name": guardrail_name,
-            "event_hook": litellm_params.mode,
-            "default_on": litellm_params.default_on or False,
+            "event_hook": embrouter_params.mode,
+            "default_on": embrouter_params.default_on or False,
         }
     )
-    litellm.logging_callback_manager.add_litellm_callback(_panw_callback)
+    embrouter.logging_callback_manager.add_embrouter_callback(_panw_callback)
 
     return _panw_callback
 

@@ -1,7 +1,7 @@
 """
-Unit tests for litellm.proxy_auth module.
+Unit tests for embrouter.proxy_auth module.
 
-Tests the OAuth2/JWT token management for LiteLLM Proxy authentication.
+Tests the OAuth2/JWT token management for EmbRouter Proxy authentication.
 """
 
 import time
@@ -9,7 +9,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from litellm.proxy_auth import (
+from embrouter.proxy_auth import (
     AccessToken,
     AzureADCredential,
     GenericOAuth2Credential,
@@ -179,26 +179,26 @@ class TestGenericOAuth2Credential:
             assert mock_post.call_count == 1
 
 
-class TestLiteLLMIntegration:
-    """Tests for integration with litellm module."""
+class TestEmbRouterIntegration:
+    """Tests for integration with embrouter module."""
 
     def test_proxy_auth_variable_exists(self):
-        """Test that litellm.proxy_auth variable exists."""
-        import litellm
+        """Test that embrouter.proxy_auth variable exists."""
+        import embrouter
 
         # Should be None by default
-        assert hasattr(litellm, "proxy_auth")
+        assert hasattr(embrouter, "proxy_auth")
 
     def test_proxy_auth_can_be_set(self):
-        """Test that litellm.proxy_auth can be set to a ProxyAuthHandler."""
-        import litellm
+        """Test that embrouter.proxy_auth can be set to a ProxyAuthHandler."""
+        import embrouter
 
-        original_value = litellm.proxy_auth
+        original_value = embrouter.proxy_auth
         try:
             cred = MockCredential()
             handler = ProxyAuthHandler(credential=cred, scope="test")
-            litellm.proxy_auth = handler
+            embrouter.proxy_auth = handler
 
-            assert litellm.proxy_auth is handler
+            assert embrouter.proxy_auth is handler
         finally:
-            litellm.proxy_auth = original_value
+            embrouter.proxy_auth = original_value

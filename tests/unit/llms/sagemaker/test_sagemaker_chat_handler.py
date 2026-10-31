@@ -4,7 +4,7 @@ from unittest.mock import patch
 import boto3
 from botocore.exceptions import ClientError
 
-from litellm.llms.sagemaker.chat.handler import SagemakerChatHandler
+from embrouter.llms.sagemaker.chat.handler import SagemakerChatHandler
 
 
 def test_load_credentials_assumes_role_with_external_id(monkeypatch):
@@ -13,7 +13,7 @@ def test_load_credentials_assumes_role_with_external_id(monkeypatch):
 
     class FakeSTSClient:
         def get_caller_identity(self):
-            return {"Arn": "arn:aws:iam::111111111111:user/litellm-proxy-pod"}
+            return {"Arn": "arn:aws:iam::111111111111:user/embrouter-proxy-pod"}
 
         def assume_role(self, **params):
             if params.get("ExternalId") != "external-id-sm-chat":
@@ -34,8 +34,8 @@ def test_load_credentials_assumes_role_with_external_id(monkeypatch):
         "aws_access_key_id": "AKIASMCHATCALLERKEY",
         "aws_secret_access_key": "pod-caller-secret",
         "aws_region_name": "us-east-1",
-        "aws_role_name": "arn:aws:iam::999999999999:role/litellm-sm-chat-role",
-        "aws_session_name": "litellm-sm-chat-session",
+        "aws_role_name": "arn:aws:iam::999999999999:role/embrouter-sm-chat-role",
+        "aws_session_name": "embrouter-sm-chat-session",
         "aws_external_id": "external-id-sm-chat",
     }
 
@@ -56,7 +56,7 @@ def test_load_credentials_assumes_role_with_session_tags(monkeypatch):
 
     class FakeSTSClient:
         def get_caller_identity(self):
-            return {"Arn": "arn:aws:iam::111111111111:user/litellm-proxy-pod"}
+            return {"Arn": "arn:aws:iam::111111111111:user/embrouter-proxy-pod"}
 
         def assume_role(self, **params):
             if list(params.get("Tags", ())) != tags:
@@ -77,8 +77,8 @@ def test_load_credentials_assumes_role_with_session_tags(monkeypatch):
         "aws_access_key_id": "AKIASMCHATCALLERKEY",
         "aws_secret_access_key": "pod-caller-secret",
         "aws_region_name": "us-east-1",
-        "aws_role_name": "arn:aws:iam::999999999999:role/litellm-sm-chat-role",
-        "aws_session_name": "litellm-sm-chat-session",
+        "aws_role_name": "arn:aws:iam::999999999999:role/embrouter-sm-chat-role",
+        "aws_session_name": "embrouter-sm-chat-session",
         "aws_session_tags": tags,
     }
 

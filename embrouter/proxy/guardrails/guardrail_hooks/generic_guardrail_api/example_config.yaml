@@ -2,18 +2,18 @@
 
 model_list:
   - model_name: gpt-4
-    litellm_params:
+    embrouter_params:
       model: gpt-4
       api_key: os.environ/OPENAI_API_KEY
 
-litellm_settings:
+embrouter_settings:
   guardrails:
     - guardrail_name: "my-generic-guardrail"
-      litellm_params:
+      embrouter_params:
         guardrail: generic_guardrail_api
         mode: pre_call  # Options: pre_call, post_call, during_call, [pre_call, post_call]
         api_key: os.environ/GENERIC_GUARDRAIL_API_KEY  # Optional if using Bearer auth
-        api_base: http://localhost:8080  # Required. Endpoint /beta/litellm_basic_guardrail_api is automatically appended
+        api_base: http://localhost:8080  # Required. Endpoint /beta/embrouter_basic_guardrail_api is automatically appended
         unreachable_fallback: fail_closed  # Options: fail_closed (default, raise), fail_open (proceed if endpoint unreachable or upstream returns 502/503/504)
         default_on: false  # Set to true to apply to all requests by default
         additional_provider_specific_params:

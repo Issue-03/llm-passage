@@ -1,38 +1,38 @@
 """
-Project repository for database operations on LiteLLM_ProjectTable.
+Project repository for database operations on EmbRouter_ProjectTable.
 """
 
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Final
 
-from litellm.models.project import LiteLLM_ProjectTable
-from litellm.repositories.base_repository import BaseRepository
-from litellm.repositories.prisma_protocols import TableActions
+from embrouter.models.project import EmbRouter_ProjectTable
+from embrouter.repositories.base_repository import BaseRepository
+from embrouter.repositories.prisma_protocols import TableActions
 
 if TYPE_CHECKING:
     from prisma import models as prisma_models
 
 
-class ProjectRepository(BaseRepository[LiteLLM_ProjectTable]):
+class ProjectRepository(BaseRepository[EmbRouter_ProjectTable]):
     """Repository for project database operations."""
 
     @property
-    def table(self) -> TableActions["prisma_models.LiteLLM_ProjectTable"]:
-        return self.prisma_client.db.litellm_projecttable
+    def table(self) -> TableActions["prisma_models.EmbRouter_ProjectTable"]:
+        return self.prisma_client.db.embrouter_projecttable
 
     @property
-    def model_class(self) -> type[LiteLLM_ProjectTable]:
-        return LiteLLM_ProjectTable
+    def model_class(self) -> type[EmbRouter_ProjectTable]:
+        return EmbRouter_ProjectTable
 
-    async def find_by_id(self, project_id: str, id_field: str = "project_id") -> LiteLLM_ProjectTable | None:
+    async def find_by_id(self, project_id: str, id_field: str = "project_id") -> EmbRouter_ProjectTable | None:
         return await super().find_by_id(project_id, id_field)
 
-    async def find_by_alias(self, project_alias: str) -> LiteLLM_ProjectTable | None:
+    async def find_by_alias(self, project_alias: str) -> EmbRouter_ProjectTable | None:
         """Find a project by alias."""
         projects: Final = await self.find_many(where={"project_alias": project_alias})
         return projects[0] if projects else None
 
-    async def find_by_team_id(self, team_id: str) -> list[LiteLLM_ProjectTable]:
+    async def find_by_team_id(self, team_id: str) -> list[EmbRouter_ProjectTable]:
         """Find all projects belonging to a team."""
         return await self.find_many(where={"team_id": team_id})
 
@@ -49,7 +49,7 @@ class ProjectRepository(BaseRepository[LiteLLM_ProjectTable]):
         model_rpm_limit: dict[str, int] | None = None,
         model_tpm_limit: dict[str, int] | None = None,
         object_permission_id: str | None = None,
-    ) -> LiteLLM_ProjectTable:
+    ) -> EmbRouter_ProjectTable:
         """Create a new project."""
         data: Final[dict[str, object]] = {
             "created_by": created_by,
@@ -92,7 +92,7 @@ class ProjectRepository(BaseRepository[LiteLLM_ProjectTable]):
         model_tpm_limit: dict[str, int] | None = None,
         blocked: bool | None = None,
         object_permission_id: str | None = None,
-    ) -> LiteLLM_ProjectTable | None:
+    ) -> EmbRouter_ProjectTable | None:
         """Update a project."""
         data: Final[dict[str, object]] = {"updated_by": updated_by}
         if project_alias is not None:
@@ -118,10 +118,10 @@ class ProjectRepository(BaseRepository[LiteLLM_ProjectTable]):
 
         return await self.update(project_id, data, id_field="project_id")
 
-    async def delete_project(self, project_id: str) -> LiteLLM_ProjectTable | None:
+    async def delete_project(self, project_id: str) -> EmbRouter_ProjectTable | None:
         """Delete a project."""
         return await self.delete(project_id, id_field="project_id")
 
-    async def update_spend(self, project_id: str, spend: float) -> LiteLLM_ProjectTable | None:
+    async def update_spend(self, project_id: str, spend: float) -> EmbRouter_ProjectTable | None:
         """Update project spend."""
         return await self.update(project_id, {"spend": spend}, id_field="project_id")

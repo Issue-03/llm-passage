@@ -3,11 +3,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from litellm.exceptions import BadRequestError
-from litellm.llms.vertex_ai.vector_stores.search_api.transformation import (
+from embrouter.exceptions import BadRequestError
+from embrouter.llms.vertex_ai.vector_stores.search_api.transformation import (
     VertexSearchAPIVectorStoreConfig,
 )
-from litellm.types.vector_stores import VectorStoreSearchResponse
+from embrouter.types.vector_stores import VectorStoreSearchResponse
 
 
 def test_should_encode_vertex_search_vector_store_id_in_complete_url():
@@ -15,7 +15,7 @@ def test_should_encode_vertex_search_vector_store_id_in_complete_url():
 
     url = config.get_complete_url(
         api_base=None,
-        litellm_params={
+        embrouter_params={
             "vertex_project": "test-project",
             "vertex_location": "global",
             "vertex_collection_id": "default/collection",
@@ -37,7 +37,7 @@ def test_should_reject_dot_segment_vertex_search_vector_store_id():
     ):
         config.get_complete_url(
             api_base=None,
-            litellm_params={
+            embrouter_params={
                 "vertex_project": "test-project",
                 "vertex_location": "global",
                 "vector_store_id": "..",
@@ -50,7 +50,7 @@ def test_should_use_engines_url_when_engine_id_provided():
 
     url = config.get_complete_url(
         api_base=None,
-        litellm_params={
+        embrouter_params={
             "vertex_project": "test-project",
             "vertex_location": "global",
             "vertex_engine_id": "test-engine_1234",
@@ -69,7 +69,7 @@ def test_engine_id_takes_precedence_over_vector_store_id():
 
     url = config.get_complete_url(
         api_base=None,
-        litellm_params={
+        embrouter_params={
             "vertex_project": "test-project",
             "vertex_location": "global",
             "vertex_engine_id": "test-engine_1234",
@@ -87,7 +87,7 @@ def test_should_encode_vertex_engine_id_in_complete_url():
 
     url = config.get_complete_url(
         api_base=None,
-        litellm_params={
+        embrouter_params={
             "vertex_project": "test-project",
             "vertex_location": "global",
             "vertex_engine_id": "../../engines/other?x=1#frag",
@@ -109,7 +109,7 @@ def test_should_reject_dot_segment_vertex_engine_id():
     ):
         config.get_complete_url(
             api_base=None,
-            litellm_params={
+            embrouter_params={
                 "vertex_project": "test-project",
                 "vertex_location": "global",
                 "vertex_engine_id": "..",
@@ -126,7 +126,7 @@ def test_should_raise_when_neither_engine_id_nor_vector_store_id_provided():
     ):
         config.get_complete_url(
             api_base=None,
-            litellm_params={
+            embrouter_params={
                 "vertex_project": "test-project",
                 "vertex_location": "global",
             },
@@ -151,8 +151,8 @@ def _search_request(**overrides):
         query="hello",
         vector_store_search_optional_params={},
         api_base=_ENGINE_BASE,
-        litellm_logging_obj=SimpleNamespace(model_call_details={}),
-        litellm_params={"vertex_engine_id": "app-2"},
+        embrouter_logging_obj=SimpleNamespace(model_call_details={}),
+        embrouter_params={"vertex_engine_id": "app-2"},
     )
     kwargs.update(overrides)
     return VertexSearchAPIVectorStoreConfig().transform_search_vector_store_request(
@@ -167,8 +167,8 @@ def _datastore_search_request(**overrides):
         query="hello",
         vector_store_search_optional_params={},
         api_base=_DATASTORE_BASE,
-        litellm_logging_obj=SimpleNamespace(model_call_details={}),
-        litellm_params={},
+        embrouter_logging_obj=SimpleNamespace(model_call_details={}),
+        embrouter_params={},
     )
     kwargs.update(overrides)
     return VertexSearchAPIVectorStoreConfig().transform_search_vector_store_request(
@@ -294,7 +294,7 @@ def test_search_request_logs_effective_query_when_extra_body_overrides_query():
     _, body = _search_request(
         query="original",
         extra_body={"query": "from-extra-body"},
-        litellm_logging_obj=log,
+        embrouter_logging_obj=log,
     )
 
     assert body["query"] == "from-extra-body"
@@ -310,7 +310,7 @@ _CHUNK_NAME = (
 def _search_response(payload: Mapping[str, object]) -> VectorStoreSearchResponse:
     return VertexSearchAPIVectorStoreConfig().transform_search_vector_store_response(
         response=SimpleNamespace(json=lambda: payload, status_code=200, headers={}),
-        litellm_logging_obj=SimpleNamespace(model_call_details={"query": "hello"}),
+        embrouter_logging_obj=SimpleNamespace(model_call_details={"query": "hello"}),
     )
 
 

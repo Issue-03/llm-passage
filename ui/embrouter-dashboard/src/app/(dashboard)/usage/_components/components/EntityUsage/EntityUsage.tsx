@@ -285,7 +285,7 @@ const EntityUsage: React.FC<EntityUsageProps> = ({
     () =>
       selectedTags.length > 0
         ? selectedTags
-        : (teams ?? []).map((team) => team.team_id).filter((id) => id !== "litellm-dashboard"),
+        : (teams ?? []).map((team) => team.team_id).filter((id) => id !== "embrouter-dashboard"),
     [selectedTags, teams],
   );
   const providerSpend = useMemo(() => getProviderSpend(spendData.results), [spendData.results]);

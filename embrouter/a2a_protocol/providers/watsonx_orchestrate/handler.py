@@ -12,15 +12,15 @@ from typing import Any, Final, NamedTuple, Protocol
 import httpx
 from typing_extensions import NotRequired, ReadOnly, TypedDict
 
-from litellm._logging import verbose_logger
-from litellm.a2a_protocol.providers.watsonx_orchestrate.transformation import (
+from embrouter._logging import verbose_logger
+from embrouter.a2a_protocol.providers.watsonx_orchestrate.transformation import (
     WatsonxOrchestrateTransformation,
 )
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.llms.custom_httpx.http_handler import (
     AsyncHTTPHandler,
     get_async_httpx_client,
 )
-from litellm.types.llms.custom_http import httpxSpecialProvider
+from embrouter.types.llms.custom_http import httpxSpecialProvider
 
 _IBM_CLOUD_IAM_URL: Final = "https://iam.cloud.ibm.com/identity/token"
 _POLL_INTERVAL_S: Final = 2.0
@@ -39,8 +39,8 @@ class WXORequestParams(NamedTuple):
     thread_id: str | None
 
 
-class WXOLitellmParams(TypedDict, total=False):
-    """litellm_params keys read when routing an A2A request to watsonx Orchestrate."""
+class WXOEmbrouterParams(TypedDict, total=False):
+    """embrouter_params keys read when routing an A2A request to watsonx Orchestrate."""
 
     cp4d_host: ReadOnly[str]
     instance_id: ReadOnly[str]
@@ -144,7 +144,7 @@ class WatsonxOrchestrateHandler:
             ttl_s = int(iam_payload["ibm_cloud_token"].get("expires_in", 3600))
         else:
             if not username:
-                raise ValueError("'username' is required in litellm_params when auth_mode='cp4d'")
+                raise ValueError("'username' is required in embrouter_params when auth_mode='cp4d'")
             token_url: Final = f"{cp4d_host.rstrip('/')}/icp4d-api/v1/authorize"
             response = await client.post(
                 token_url,
@@ -247,38 +247,38 @@ class WatsonxOrchestrateHandler:
         return accumulated_text
 
     @staticmethod
-    def _extract_litellm_params(litellm_params: WXOLitellmParams) -> WXORequestParams:
-        cp4d_host: Final = litellm_params.get("cp4d_host") or ""
-        instance_id: Final = litellm_params.get("instance_id") or ""
-        wxo_agent_id: Final = litellm_params.get("wxo_agent_id") or ""
-        api_key: Final = litellm_params.get("api_key") or ""
+    def _extract_embrouter_params(embrouter_params: WXOEmbrouterParams) -> WXORequestParams:
+        cp4d_host: Final = embrouter_params.get("cp4d_host") or ""
+        instance_id: Final = embrouter_params.get("instance_id") or ""
+        wxo_agent_id: Final = embrouter_params.get("wxo_agent_id") or ""
+        api_key: Final = embrouter_params.get("api_key") or ""
 
         if not cp4d_host:
-            raise ValueError("'cp4d_host' is required in litellm_params for WXO agents")
+            raise ValueError("'cp4d_host' is required in embrouter_params for WXO agents")
         if not instance_id:
-            raise ValueError("'instance_id' is required in litellm_params for WXO agents")
+            raise ValueError("'instance_id' is required in embrouter_params for WXO agents")
         if not wxo_agent_id:
-            raise ValueError("'wxo_agent_id' is required in litellm_params for WXO agents")
+            raise ValueError("'wxo_agent_id' is required in embrouter_params for WXO agents")
         if not api_key:
-            raise ValueError("'api_key' is required in litellm_params for WXO agents")
+            raise ValueError("'api_key' is required in embrouter_params for WXO agents")
 
         return WXORequestParams(
             cp4d_host=cp4d_host,
             instance_id=instance_id,
             wxo_agent_id=wxo_agent_id,
             api_key=api_key,
-            username=litellm_params.get("username") or None,
-            auth_mode=litellm_params.get("auth_mode") or "cp4d",
-            thread_id=litellm_params.get("thread_id") or None,
+            username=embrouter_params.get("username") or None,
+            auth_mode=embrouter_params.get("auth_mode") or "cp4d",
+            thread_id=embrouter_params.get("thread_id") or None,
         )
 
     @staticmethod
     async def handle_non_streaming(
         request_id: str,
         params: dict[str, object],
-        litellm_params: WXOLitellmParams,
+        embrouter_params: WXOEmbrouterParams,
     ) -> dict[str, object]:
-        wxo: Final = WatsonxOrchestrateHandler._extract_litellm_params(litellm_params)
+        wxo: Final = WatsonxOrchestrateHandler._extract_embrouter_params(embrouter_params)
 
         client: Final = WatsonxOrchestrateHandler._http_client(timeout=90.0)
         token: Final = await WatsonxOrchestrateHandler._get_bearer_token(
@@ -323,11 +323,11 @@ class WatsonxOrchestrateHandler:
     async def handle_streaming(
         request_id: str,
         params: dict[str, object],
-        litellm_params: WXOLitellmParams,
+        embrouter_params: WXOEmbrouterParams,
         chunk_size: int = 50,
         delay_ms: int = 10,
     ) -> AsyncIterator[dict[str, object]]:
-        wxo: Final = WatsonxOrchestrateHandler._extract_litellm_params(litellm_params)
+        wxo: Final = WatsonxOrchestrateHandler._extract_embrouter_params(embrouter_params)
 
         client: Final = WatsonxOrchestrateHandler._http_client(timeout=120.0)
         token: Final = await WatsonxOrchestrateHandler._get_bearer_token(
@@ -365,7 +365,7 @@ class WatsonxOrchestrateHandler:
             result = await WatsonxOrchestrateHandler.handle_non_streaming(
                 request_id=request_id,
                 params=params,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
             )
             response_text: Final = WatsonxOrchestrateTransformation.extract_text_from_a2a_message_response(result)
             async for chunk in WatsonxOrchestrateTransformation.fake_streaming_from_text(

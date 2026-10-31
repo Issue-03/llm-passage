@@ -13,22 +13,22 @@ from pydantic import JsonValue, TypeAdapter
 from pydantic_core import to_jsonable_python
 from typing_extensions import TypedDict
 
-from litellm.caching.caching import DualCache
-from litellm.constants import PROMPT_CACHE_LOOKBACK_POSITIONS
-from litellm.litellm_core_utils.logging_utils import truncate_base64_in_messages
-from litellm.litellm_core_utils.token_counter import offload_token_count
-from litellm.types.llms.openai import AllMessageValues, ChatCompletionToolParam
+from embrouter.caching.caching import DualCache
+from embrouter.constants import PROMPT_CACHE_LOOKBACK_POSITIONS
+from embrouter.embrouter_core_utils.logging_utils import truncate_base64_in_messages
+from embrouter.embrouter_core_utils.token_counter import offload_token_count
+from embrouter.types.llms.openai import AllMessageValues, ChatCompletionToolParam
 
 if TYPE_CHECKING:
     from opentelemetry.trace import Span as _Span
 
-    from litellm.router import Router
+    from embrouter.router import Router
 
-    litellm_router = Router
+    embrouter_router = Router
     Span = _Span
 else:
     Span = Any
-    litellm_router = Any
+    embrouter_router = Any
 
 
 class PromptCachingCacheValue(TypedDict):

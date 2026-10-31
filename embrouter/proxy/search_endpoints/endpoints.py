@@ -6,10 +6,10 @@ import orjson
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import ORJSONResponse
 
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy._types import *
-from litellm.proxy.auth.user_api_key_auth import UserAPIKeyAuth, user_api_key_auth
-from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy._types import *
+from embrouter.proxy.auth.user_api_key_auth import UserAPIKeyAuth, user_api_key_auth
+from embrouter.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
 
 router: Final = APIRouter()
 
@@ -56,7 +56,7 @@ async def search(
     
     Example with search_tool_name in URL (recommended - keeps body Perplexity-compatible):
     ```bash
-    curl -X POST "http://localhost:4000/v1/search/litellm-search" \
+    curl -X POST "http://localhost:4000/v1/search/embrouter-search" \
         -H "Authorization: Bearer sk-1234" \
         -H "Content-Type: application/json" \
         -d '{
@@ -73,7 +73,7 @@ async def search(
         -H "Authorization: Bearer sk-1234" \
         -H "Content-Type: application/json" \
         -d '{
-            "search_tool_name": "litellm-search",
+            "search_tool_name": "embrouter-search",
             "query": "latest AI developments 2024",
             "max_results": 5,
             "search_domain_filter": ["arxiv.org", "nature.com"],
@@ -112,7 +112,7 @@ async def search(
     }
     ```
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         proxy_config,
@@ -139,7 +139,7 @@ async def search(
         search_tool_name_value: Final = data["search_tool_name"]
 
         # Authorization check: verify key can access this search tool
-        from litellm.proxy.auth.auth_checks import (
+        from embrouter.proxy.auth.auth_checks import (
             can_key_call_search_tool,
             can_team_call_search_tool,
             get_team_object,
@@ -154,7 +154,7 @@ async def search(
 
             # Check team-level access if key is associated with a team
             if user_api_key_dict.team_id:
-                from litellm.proxy.proxy_server import (
+                from embrouter.proxy.proxy_server import (
                     prisma_client,
                     proxy_logging_obj,
                     user_api_key_cache,
@@ -189,7 +189,7 @@ async def search(
 
             if matching_tools:
                 search_tool: Final = matching_tools[0]
-                search_provider: Final = search_tool.get("litellm_params", {}).get("search_provider")
+                search_provider: Final = search_tool.get("embrouter_params", {}).get("search_provider")
 
                 if search_provider:
                     data["custom_llm_provider"] = search_provider
@@ -199,7 +199,7 @@ async def search(
                 data["metadata"]["model_group"] = search_tool_name_value
 
     # Ensure team context is available to search router credential resolution.
-    # add_litellm_data_to_request() also injects these values, but this keeps
+    # add_embrouter_data_to_request() also injects these values, but this keeps
     # search endpoint behavior explicit and resilient for direct router paths.
     if "metadata" not in data or not isinstance(data.get("metadata"), dict):
         data["metadata"] = {}
@@ -273,7 +273,7 @@ async def list_search_tools(
         "object": "list",
         "data": [
             {
-                "search_tool_name": "litellm-search",
+                "search_tool_name": "embrouter-search",
                 "search_provider": "perplexity",
                 "description": "Perplexity search tool"
             }
@@ -281,7 +281,7 @@ async def list_search_tools(
     }
     ```
     """
-    from litellm.proxy.proxy_server import llm_router
+    from embrouter.proxy.proxy_server import llm_router
 
     try:
         search_tools_list: Final = []
@@ -290,7 +290,7 @@ async def list_search_tools(
             for tool in llm_router.search_tools:
                 tool_info = {
                     "search_tool_name": tool.get("search_tool_name"),
-                    "search_provider": tool.get("litellm_params", {}).get("search_provider"),
+                    "search_provider": tool.get("embrouter_params", {}).get("search_provider"),
                 }
 
                 # Add description if available
@@ -303,7 +303,7 @@ async def list_search_tools(
 
         return {"object": "list", "data": search_tools_list}
     except Exception as e:
-        from litellm._logging import verbose_proxy_logger
+        from embrouter._logging import verbose_proxy_logger
 
         verbose_proxy_logger.exception("Error listing search tools: %s", e)
         raise HTTPException(status_code=500, detail=str(e))

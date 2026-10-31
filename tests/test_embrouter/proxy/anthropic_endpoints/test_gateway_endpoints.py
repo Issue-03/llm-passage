@@ -17,22 +17,22 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from litellm.caching.dual_cache import DualCache
-from litellm.proxy._types import ProxyException
-from litellm.proxy.anthropic_endpoints import gateway_endpoints
-from litellm.proxy.management_endpoints.ui_sso import (
+from embrouter.caching.dual_cache import DualCache
+from embrouter.proxy._types import ProxyException
+from embrouter.proxy.anthropic_endpoints import gateway_endpoints
+from embrouter.proxy.management_endpoints.ui_sso import (
     _get_cli_sso_flow_cache_key,
     _hash_cli_sso_secret,
     _set_cli_sso_flow,
 )
-from litellm.proxy.middleware.prometheus_auth_middleware import PrometheusAuthMiddleware
+from embrouter.proxy.middleware.prometheus_auth_middleware import PrometheusAuthMiddleware
 
 _DEVICE_CODE_GRANT: Final = "urn:ietf:params:oauth:grant-type:device_code"
 _MASTER_KEY: Final = "sk-master-key"
 _SHARED_LOGIN_ID: Final = "cli-shared-login-code"
 _SHARED_POLL_SECRET: Final = "shared-poll-secret"
 _SHARED_DEVICE_CODE: Final = f"{_SHARED_LOGIN_ID}.{_SHARED_POLL_SECRET}"
-_MINT: Final = "litellm.proxy.auth.auth_checks.ExperimentalUIJWTToken.get_cli_jwt_auth_token"
+_MINT: Final = "embrouter.proxy.auth.auth_checks.ExperimentalUIJWTToken.get_cli_jwt_auth_token"
 _PROTOBUF_BODY: Final = b"\x0a\x05hello\x12\x03{{{"
 _COMPLETED_SESSION: Final = MappingProxyType(
     {
@@ -92,7 +92,7 @@ def _real_auth_proxy_attrs() -> Mapping[str, object]:
             "llm_router": None,
             "llm_model_list": [],
             "user_custom_auth": None,
-            "litellm_proxy_admin_name": "admin",
+            "embrouter_proxy_admin_name": "admin",
             "jwt_handler": None,
             "open_telemetry_logger": None,
             "model_max_budget_limiter": MagicMock(),
@@ -126,17 +126,17 @@ def _gateway_env(
     with ExitStack() as stack:
         stack.enter_context(
             patch(  # test-quality-ok: the gateway reads this proxy_server module global and has no injection seam
-                "litellm.proxy.proxy_server.general_settings", general_settings
+                "embrouter.proxy.proxy_server.general_settings", general_settings
             )
         )
         stack.enter_context(
             patch(  # test-quality-ok: the CLI SSO flow cache is this proxy_server module global shared with ui_sso
-                "litellm.proxy.proxy_server.cli_sso_session_cache", session_cache
+                "embrouter.proxy.proxy_server.cli_sso_session_cache", session_cache
             )
         )
         if real_auth:
             for name, value in _real_auth_proxy_attrs().items():
-                stack.enter_context(patch(f"litellm.proxy.proxy_server.{name}", value))
+                stack.enter_context(patch(f"embrouter.proxy.proxy_server.{name}", value))
         else:
             app.dependency_overrides[gateway_endpoints.user_api_key_auth] = _fake_auth
         with TestClient(app) as client:
@@ -216,7 +216,7 @@ def test_device_authorization_returns_rfc8628_shape_and_persists_flow():
         assert body["expires_in"] == 600
         assert body["interval"] == 5
         assert "verification_uri_complete" not in body
-        assert body["verification_uri"].endswith(f"/sso/key/generate?source=litellm-cli&key={login_id}")
+        assert body["verification_uri"].endswith(f"/sso/key/generate?source=embrouter-cli&key={login_id}")
         assert poll_secret not in body["verification_uri"]
         stored = cache.get_cache(key=_get_cli_sso_flow_cache_key(login_id))
         assert isinstance(stored, dict)
@@ -234,7 +234,7 @@ def test_verification_uri_complete_carries_the_user_code_only_when_the_operator_
         assert "verification_uri_complete" not in body
         return
     assert body["verification_uri_complete"].endswith(
-        f"/sso/key/generate?source=litellm-cli&key={login_id}&user_code={body['user_code']}"
+        f"/sso/key/generate?source=embrouter-cli&key={login_id}&user_code={body['user_code']}"
     )
     assert "user_code=" not in body["verification_uri"]
 
@@ -267,11 +267,11 @@ def test_token_success_mints_bearer_and_is_single_use():
         device_code = _start_device_flow(client)
         _complete_flow(cache, device_code)
 
-        with patch(_MINT, return_value="sk-litellm-session-token") as mint:
+        with patch(_MINT, return_value="sk-embrouter-session-token") as mint:
             resp = _request_token(client, device_code)
             assert resp.status_code == 200
             body = resp.json()
-            assert body["access_token"] == "sk-litellm-session-token"
+            assert body["access_token"] == "sk-embrouter-session-token"
             assert body["token_type"] == "Bearer"
             assert body["expires_in"] > 0
 
@@ -291,7 +291,7 @@ def test_token_teamless_user_mints_without_a_team():
     with _gateway_env() as (client, cache):
         device_code = _start_device_flow(client)
         _complete_flow(cache, device_code, session_data={**_COMPLETED_SESSION, "teams": [], "team_details": []})
-        with patch(_MINT, return_value="sk-litellm-session-token") as mint:
+        with patch(_MINT, return_value="sk-embrouter-session-token") as mint:
             resp = _request_token(client, device_code)
     assert resp.status_code == 200
     assert mint.call_args.kwargs["team_id"] is None

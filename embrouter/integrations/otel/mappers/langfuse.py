@@ -14,20 +14,20 @@ import json
 from collections.abc import Callable
 from typing import Final
 
-from litellm.integrations.otel.mappers.base import AttributeMap, AttrValue, SpanData
-from litellm.integrations.otel.mappers.utils import (
+from embrouter.integrations.otel.mappers.base import AttributeMap, AttrValue, SpanData
+from embrouter.integrations.otel.mappers.utils import (
     collect,
     drop_none_pairs,
     json_if,
     output_messages,
     serialize_messages,
 )
-from litellm.integrations.otel.model.payloads import (
+from embrouter.integrations.otel.model.payloads import (
     LLMCallSpanData,
     LLMRequestParams,
     LLMUsage,
 )
-from litellm.integrations.otel.model.trace_controls import TraceControls
+from embrouter.integrations.otel.model.trace_controls import TraceControls
 
 LANGFUSE_OBSERVATION_INPUT: Final = "langfuse.observation.input"
 LANGFUSE_OBSERVATION_OUTPUT: Final = "langfuse.observation.output"
@@ -56,7 +56,7 @@ class LangfuseMapper:
         "presence_penalty": lambda rp: rp.presence_penalty,
         "seed": lambda rp: rp.seed,
     }
-    # Langfuse prices every key, and litellm's prompt/completion counts include cache and reasoning tokens
+    # Langfuse prices every key, and embrouter's prompt/completion counts include cache and reasoning tokens
     _USAGE_FIELDS: dict[str, Callable[[LLMUsage], AttrValue | None]] = {
         "input": lambda u: u.uncached_input_tokens,
         "input_cached_tokens": lambda u: u.cache_read_input_tokens or None,

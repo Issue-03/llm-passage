@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { getProxyBaseUrl, getGlobalLitellmHeaderName, deriveErrorMessage, handleError } from "@/components/networking";
+import { getProxyBaseUrl, getGlobalEmbrouterHeaderName, deriveErrorMessage, handleError } from "@/components/networking";
 import useAuthorized from "@/app/(dashboard)/hooks/useAuthorized";
 import { createQueryKeys } from "../common/queryKeysFactory";
 
@@ -7,7 +7,7 @@ import { createQueryKeys } from "../common/queryKeysFactory";
 
 export interface RegisterGuardrailParams {
   guardrail_name: string;
-  litellm_params: Record<string, unknown>;
+  embrouter_params: Record<string, unknown>;
   guardrail_info?: Record<string, unknown>;
   team_id?: string;
 }
@@ -31,7 +31,7 @@ const registerGuardrail = async (
   const response = await fetch(url, {
     method: "POST",
     headers: {
-      [getGlobalLitellmHeaderName()]: `Bearer ${accessToken}`,
+      [getGlobalEmbrouterHeaderName()]: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify(params),

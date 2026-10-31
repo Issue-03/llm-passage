@@ -2,15 +2,15 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import litellm
-from litellm.llms.vertex_ai.batches.handler import VertexAIBatchPrediction
-from litellm.llms.vertex_ai.batches.transformation import VertexAIBatchTransformation
+import embrouter
+from embrouter.llms.vertex_ai.batches.handler import VertexAIBatchPrediction
+from embrouter.llms.vertex_ai.batches.transformation import VertexAIBatchTransformation
 
 
 def test_output_file_id_uses_predictions_jsonl_with_output_info():
     response = {
         "outputInfo": {
-            "gcsOutputDirectory": "gs://test-bucket/litellm-vertex-files/publishers/google/models/gemini-2.5-pro/prediction-model-123"
+            "gcsOutputDirectory": "gs://test-bucket/embrouter-vertex-files/publishers/google/models/gemini-2.5-pro/prediction-model-123"
         }
     }
 
@@ -22,7 +22,7 @@ def test_output_file_id_uses_predictions_jsonl_with_output_info():
 
     assert (
         output_file_id
-        == "gs://test-bucket/litellm-vertex-files/publishers/google/models/gemini-2.5-pro/prediction-model-123/predictions.jsonl"
+        == "gs://test-bucket/embrouter-vertex-files/publishers/google/models/gemini-2.5-pro/prediction-model-123/predictions.jsonl"
     )
 
 
@@ -31,7 +31,7 @@ def test_output_file_id_is_none_until_output_info():
         "outputInfo": {},
         "outputConfig": {
             "gcsDestination": {
-                "outputUriPrefix": "gs://test-bucket/litellm-vertex-files/publishers/google/models/gemini-2.5-pro"
+                "outputUriPrefix": "gs://test-bucket/embrouter-vertex-files/publishers/google/models/gemini-2.5-pro"
             }
         },
     }
@@ -62,7 +62,7 @@ def test_vertex_ai_cancel_batch():
     }
 
     with patch(
-        "litellm.llms.vertex_ai.batches.handler._get_httpx_client"
+        "embrouter.llms.vertex_ai.batches.handler._get_httpx_client"
     ) as mock_client:
         mock_client.return_value.post.return_value = mock_response
         mock_client.return_value.get.return_value = mock_response
@@ -107,7 +107,7 @@ def test_vertex_ai_cancel_batch_encodes_batch_id():
     }
 
     with patch(
-        "litellm.llms.vertex_ai.batches.handler._get_httpx_client"
+        "embrouter.llms.vertex_ai.batches.handler._get_httpx_client"
     ) as mock_client:
         mock_client.return_value.post.return_value = mock_response
         mock_client.return_value.get.return_value = mock_response
@@ -160,7 +160,7 @@ def test_vertex_ai_cancel_batch_custom_proxy_retrieve_url():
     }
 
     with patch(
-        "litellm.llms.vertex_ai.batches.handler._get_httpx_client"
+        "embrouter.llms.vertex_ai.batches.handler._get_httpx_client"
     ) as mock_client:
         mock_client.return_value.post.return_value = mock_response
         mock_client.return_value.get.return_value = mock_response
@@ -190,16 +190,16 @@ def test_vertex_ai_cancel_batch_custom_proxy_retrieve_url():
 
 
 @pytest.mark.asyncio
-async def test_litellm_cancel_batch_vertex_ai():
-    """Test that litellm.cancel_batch works with vertex_ai provider"""
+async def test_embrouter_cancel_batch_vertex_ai():
+    """Test that embrouter.cancel_batch works with vertex_ai provider"""
     mock_response = MagicMock()
     mock_response.id = "batch_123"
     mock_response.status = "cancelling"
 
-    with patch("litellm.batches.main.vertex_ai_batches_instance") as mock_instance:
+    with patch("embrouter.batches.main.vertex_ai_batches_instance") as mock_instance:
         mock_instance.cancel_batch.return_value = mock_response
 
-        response = litellm.cancel_batch(
+        response = embrouter.cancel_batch(
             batch_id="batch_123",
             custom_llm_provider="vertex_ai",
             vertex_project="test-project",

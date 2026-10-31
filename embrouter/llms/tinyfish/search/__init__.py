@@ -1,3 +1,3 @@
-from litellm.llms.tinyfish.search.transformation import TinyfishSearchConfig
+from embrouter.llms.tinyfish.search.transformation import TinyfishSearchConfig
 
 __all__ = ["TinyfishSearchConfig"]

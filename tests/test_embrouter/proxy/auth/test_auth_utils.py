@@ -10,8 +10,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi import Request
 
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.auth.auth_utils import (
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.auth.auth_utils import (
     _get_customer_id_from_standard_headers,
     abbreviate_api_key,
     check_complete_credentials,
@@ -78,7 +78,7 @@ class TestWarnOnceIfCustomAuthSkipsCommonChecks:
     @pytest.fixture(autouse=True)
     def _reset_sentinel(self, monkeypatch):
         monkeypatch.setattr(
-            "litellm.proxy.auth.auth_utils._custom_auth_common_checks_warning_emitted",
+            "embrouter.proxy.auth.auth_utils._custom_auth_common_checks_warning_emitted",
             False,
         )
 
@@ -107,12 +107,12 @@ class TestLogOnceIfBudgetReservationDisabled:
     @pytest.fixture(autouse=True)
     def _reset_sentinel(self, monkeypatch):
         monkeypatch.setattr(
-            "litellm.constants.budget_reservation_disabled_info_emitted",
+            "embrouter.constants.budget_reservation_disabled_info_emitted",
             False,
         )
 
     def test_logs_info_only_once_when_enabled(self, caplog):
-        with caplog.at_level(logging.INFO, logger="LiteLLM Proxy"):
+        with caplog.at_level(logging.INFO, logger="EmbRouter Proxy"):
             log_once_if_budget_reservation_disabled(disabled=False)
             assert not any(
                 "disable_budget_reservation is enabled" in record.message
@@ -335,7 +335,7 @@ class TestGetKeyModelTpmLimit:
         mock_router.get_model_list.return_value = [
             {
                 "model_name": "model1",
-                "litellm_params": {"default_api_key_tpm_limit": "not-a-number"},
+                "embrouter_params": {"default_api_key_tpm_limit": "not-a-number"},
             },
             _make_deployment_dict("model1", tpm=500),
         ]
@@ -348,15 +348,15 @@ class TestGetKeyModelTpmLimit:
 class TestGetCustomerIdFromStandardHeaders:
     """Tests for _get_customer_id_from_standard_headers helper function."""
 
-    def test_should_return_customer_id_from_x_litellm_customer_id_header(self):
-        """Should extract customer ID from x-litellm-customer-id header."""
-        headers = {"x-litellm-customer-id": "customer-123"}
+    def test_should_return_customer_id_from_x_embrouter_customer_id_header(self):
+        """Should extract customer ID from x-embrouter-customer-id header."""
+        headers = {"x-embrouter-customer-id": "customer-123"}
         result = _get_customer_id_from_standard_headers(request_headers=headers)
         assert result == "customer-123"
 
-    def test_should_return_customer_id_from_x_litellm_end_user_id_header(self):
-        """Should extract customer ID from x-litellm-end-user-id header."""
-        headers = {"x-litellm-end-user-id": "end-user-456"}
+    def test_should_return_customer_id_from_x_embrouter_end_user_id_header(self):
+        """Should extract customer ID from x-embrouter-end-user-id header."""
+        headers = {"x-embrouter-end-user-id": "end-user-456"}
         result = _get_customer_id_from_standard_headers(request_headers=headers)
         assert result == "end-user-456"
 
@@ -377,10 +377,10 @@ class TestGetEndUserIdFromRequestBodyWithStandardHeaders:
 
     def test_should_prioritize_standard_header_over_body_user(self):
         """Standard customer ID header should take precedence over body user field."""
-        headers = {"x-litellm-customer-id": "header-customer"}
+        headers = {"x-embrouter-customer-id": "header-customer"}
         request_body = {"user": "body-user"}
 
-        with patch("litellm.proxy.proxy_server.general_settings", {}):
+        with patch("embrouter.proxy.proxy_server.general_settings", {}):
             result = get_end_user_id_from_request_body(
                 request_body=request_body, request_headers=headers
             )
@@ -391,7 +391,7 @@ class TestGetEndUserIdFromRequestBodyWithStandardHeaders:
         headers = {"x-other-header": "value"}
         request_body = {"user": "body-user"}
 
-        with patch("litellm.proxy.proxy_server.general_settings", {}):
+        with patch("embrouter.proxy.proxy_server.general_settings", {}):
             result = get_end_user_id_from_request_body(
                 request_body=request_body, request_headers=headers
             )
@@ -405,20 +405,20 @@ def _request_dispatched_to(endpoint) -> Request:
 
 
 def _pass_through_endpoint():
-    from litellm.types.passthrough_endpoints.pass_through_endpoints import (
-        LITELLM_PASS_THROUGH_ENDPOINT_MARKER,
+    from embrouter.types.passthrough_endpoints.pass_through_endpoints import (
+        EMBROUTER_PASS_THROUGH_ENDPOINT_MARKER,
     )
 
     def endpoint():  # stand-in for create_pass_through_route's handler
         ...
 
-    setattr(endpoint, LITELLM_PASS_THROUGH_ENDPOINT_MARKER, True)
+    setattr(endpoint, EMBROUTER_PASS_THROUGH_ENDPOINT_MARKER, True)
     return endpoint
 
 
 def test_get_model_from_request_skips_pass_through_dispatched_request():
     """When FastAPI dispatched the request to a user-defined pass-through handler,
-    the body `model` names an upstream model and must not be treated as a LiteLLM
+    the body `model` names an upstream model and must not be treated as a EmbRouter
     model for allowlist/budget enforcement."""
     assert (
         get_model_from_request(
@@ -463,12 +463,12 @@ def test_get_model_from_request_no_request_extracts_model():
 
 
 def _cache_prediction_router():
-    from litellm.router import Router
+    from embrouter.router import Router
 
     return Router(model_list=[
         {
             "model_name": group,
-            "litellm_params": {"model": "anthropic/claude-sonnet-5", "api_key": "test-provider-key"},
+            "embrouter_params": {"model": "anthropic/claude-sonnet-5", "api_key": "test-provider-key"},
             "model_info": {"id": deployment_id, "team_id": team_id},
         }
         for group, deployment_id, team_id in (
@@ -507,25 +507,25 @@ def _cache_prediction_auth_app(
 
     from fastapi import FastAPI
 
-    import litellm.proxy.proxy_server as proxy_server
-    from litellm.caching.dual_cache import DualCache
-    from litellm.proxy._types import LiteLLM_TeamTableCachedObj, LiteLLM_UserTable, LitellmUserRoles, ProxyException
-    from litellm.proxy.auth import auth_checks
-    from litellm.proxy.hooks.parallel_request_limiter_v3 import _PROXY_MaxParallelRequestsHandler_v3
-    from litellm.proxy.management_endpoints import prompt_cache_prediction as endpoint
-    from litellm.proxy.utils import InternalUsageCache, ProxyLogging
+    import embrouter.proxy.proxy_server as proxy_server
+    from embrouter.caching.dual_cache import DualCache
+    from embrouter.proxy._types import EmbRouter_TeamTableCachedObj, EmbRouter_UserTable, EmbrouterUserRoles, ProxyException
+    from embrouter.proxy.auth import auth_checks
+    from embrouter.proxy.hooks.parallel_request_limiter_v3 import _PROXY_MaxParallelRequestsHandler_v3
+    from embrouter.proxy.management_endpoints import prompt_cache_prediction as endpoint
+    from embrouter.proxy.utils import InternalUsageCache, ProxyLogging
 
-    auth = importlib.import_module("litellm.proxy.auth.user_api_key_auth")
+    auth = importlib.import_module("embrouter.proxy.auth.user_api_key_auth")
     router = _cache_prediction_router()
     allowed_models = ["current-group", "candidate-group", "own-group"]
     token = UserAPIKeyAuth(
-        api_key="test-proxy-key-hash", user_id="prediction-user", user_role=LitellmUserRoles.INTERNAL_USER,
+        api_key="test-proxy-key-hash", user_id="prediction-user", user_role=EmbrouterUserRoles.INTERNAL_USER,
         models=allowed_models if key_models is None else key_models, team_id=team_id,
         team_models=allowed_models if team_models is None else team_models,
         allowed_routes=allowed_routes, metadata=metadata or {},
     )
-    user = LiteLLM_UserTable(
-        user_id=token.user_id, user_role=LitellmUserRoles.INTERNAL_USER.value, models=user_models,
+    user = EmbRouter_UserTable(
+        user_id=token.user_id, user_role=EmbrouterUserRoles.INTERNAL_USER.value, models=user_models,
     )
     async def authenticate(request, request_data, **_headers):
         await auth._enforce_key_and_fallback_model_access(
@@ -536,7 +536,7 @@ def _cache_prediction_auth_app(
 
     monkeypatch.setattr(auth, "_user_api_key_auth_builder", authenticate)
     monkeypatch.setattr(auth, "get_user_object", AsyncMock(return_value=user))
-    team = LiteLLM_TeamTableCachedObj(team_id=team_id, models=token.team_models) if team_id else None
+    team = EmbRouter_TeamTableCachedObj(team_id=team_id, models=token.team_models) if team_id else None
     monkeypatch.setattr(auth, "get_team_object", AsyncMock(return_value=team))
     monkeypatch.setattr(auth_checks, "get_team_object", AsyncMock(return_value=team))
     monkeypatch.setattr(auth_checks, "get_team_membership", AsyncMock(return_value=None))
@@ -676,7 +676,7 @@ async def test_cache_prediction_preserves_authenticated_header_and_key_tag_rpm(
         monkeypatch, ["/cost/predict-cache"], ["current-group", "candidate-group"],
         metadata={"tag_rpm_limit": {"limited": limit}, "tags": key_tags},
     )
-    headers = {"x-litellm-tags": header_tag} if header_tag else {}
+    headers = {"x-embrouter-tags": header_tag} if header_tag else {}
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
         response = await client.post("/cost/predict-cache", json=_cache_prediction_payload(), headers=headers)
         assert response.status_code == status_code, response.text
@@ -821,17 +821,17 @@ def test_get_model_from_request_bedrock_unparseable_endpoint_keeps_body_model():
 
 
 def _azure_relay_router():
-    from litellm.router import Router
+    from embrouter.router import Router
 
     return Router(
         model_list=[
             {
                 "model_name": "gpt",
-                "litellm_params": {"model": "azure_ai/gpt-5.4-mini", "api_base": "https://a.services.ai.azure.com", "api_key": "k"},
+                "embrouter_params": {"model": "azure_ai/gpt-5.4-mini", "api_base": "https://a.services.ai.azure.com", "api_key": "k"},
             },
             {
                 "model_name": "other-group",
-                "litellm_params": {"model": "azure/gpt-5.4", "api_base": "https://b.openai.azure.com", "api_key": "k"},
+                "embrouter_params": {"model": "azure/gpt-5.4", "api_base": "https://b.openai.azure.com", "api_key": "k"},
             },
         ]
     )
@@ -853,13 +853,13 @@ def test_get_model_from_request_azure_relay_routes_use_the_model_group_in_the_pa
 
 
 def _nvidia_nim_relay_router():
-    from litellm.router import Router
+    from embrouter.router import Router
 
     return Router(
         model_list=[
             {
                 "model_name": "nim-page-elements",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "nvidia_nim/nvidia/nemoretriever-page-elements-v2",
                     "api_base": "http://nim-a.internal:8000",
                     "api_key": "k",
@@ -867,7 +867,7 @@ def _nvidia_nim_relay_router():
             },
             {
                 "model_name": "nvidia/nemoretriever-table-structure-v1",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "nvidia_nim/nvidia/nemoretriever-table-structure-v1",
                     "api_base": "http://nim-b.internal:8000",
                     "api_key": "k",
@@ -875,11 +875,11 @@ def _nvidia_nim_relay_router():
             },
             {
                 "model_name": "gpt-4o",
-                "litellm_params": {"model": "openai/gpt-4o", "api_key": "k"},
+                "embrouter_params": {"model": "openai/gpt-4o", "api_key": "k"},
             },
             {
                 "model_name": "detect",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "nvidia_nim/nvidia/nemoretriever-page-elements-v2",
                     "api_base": "http://nim-a.internal:8000",
                     "api_key": "k",
@@ -887,7 +887,7 @@ def _nvidia_nim_relay_router():
             },
             {
                 "model_name": "detect",
-                "litellm_params": {"model": "openai/gpt-4o", "api_key": "k"},
+                "embrouter_params": {"model": "openai/gpt-4o", "api_key": "k"},
             },
         ]
     )
@@ -933,7 +933,7 @@ def test_get_model_from_request_includes_file_endpoint_header_model():
         get_model_from_request(
             request_data={},
             route="/v1/files",
-            request_headers={"X-LiteLLM-Model": "restricted-model"},
+            request_headers={"X-EmbRouter-Model": "restricted-model"},
         )
         == "restricted-model"
     )
@@ -944,7 +944,7 @@ def test_get_model_from_request_ignores_routing_header_on_standard_llm_routes():
         get_model_from_request(
             request_data={"model": "allowed-model"},
             route="/v1/chat/completions",
-            request_headers={"x-litellm-model": "restricted-model"},
+            request_headers={"x-embrouter-model": "restricted-model"},
         )
         == "allowed-model"
     )
@@ -954,7 +954,7 @@ def test_get_model_from_request_authorizes_all_file_routing_model_sources():
     models = get_model_from_request(
         request_data={"model": "body-model"},
         route="/v1/files",
-        request_headers={"x-litellm-model": "header-model"},
+        request_headers={"x-embrouter-model": "header-model"},
         request_query_params={"target_model_names": "query-model-a,query-model-b"},
     )
     assert isinstance(models, list)
@@ -967,7 +967,7 @@ def test_get_model_from_request_authorizes_all_file_routing_model_sources():
 
 
 def test_get_model_from_request_extracts_simple_encoded_file_id_model():
-    from litellm.proxy.openai_files_endpoints.common_utils import (
+    from embrouter.proxy.openai_files_endpoints.common_utils import (
         encode_file_id_with_model,
     )
 
@@ -987,7 +987,7 @@ def test_get_model_from_request_extracts_simple_encoded_file_id_model():
 
 def test_get_model_from_request_extracts_unified_file_id_models():
     raw_unified_file_id = (
-        "litellm_proxy:application/octet-stream;unified_id,test-id;"
+        "embrouter_proxy:application/octet-stream;unified_id,test-id;"
         "target_model_names,model-a,model-b;llm_output_file_id,file-provider-id"
     )
     encoded_unified_file_id = (
@@ -1022,7 +1022,7 @@ def test_get_model_from_request_includes_fine_tuning_target_model_query():
 
 
 def test_get_model_from_request_extracts_video_id_model():
-    from litellm.types.videos.utils import encode_video_id_with_provider
+    from embrouter.types.videos.utils import encode_video_id_with_provider
 
     video_id = encode_video_id_with_provider(
         video_id="video-provider-id",
@@ -1040,7 +1040,7 @@ def test_get_model_from_request_extracts_video_id_model():
 
 
 def test_get_model_from_request_resolves_video_id_model_with_router():
-    from litellm.types.videos.utils import encode_video_id_with_provider
+    from embrouter.types.videos.utils import encode_video_id_with_provider
 
     provider_video_id = (
         "projects/test-project/locations/us-central1/publishers/google/models/"
@@ -1073,20 +1073,20 @@ _BATCH_DEPLOYMENT_ID = "8d0eaa7e6c6f54a425dfd0062cb6b0dc"
 
 
 def _managed_batch_router():
-    from litellm.router import Router
+    from embrouter.router import Router
 
     return Router(
         model_list=[
             {
                 "model_name": "bedrock-batch-model",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "bedrock/global.anthropic.claude-haiku-4-5-20251001-v1:0",
                 },
                 "model_info": {"id": _BATCH_DEPLOYMENT_ID},
             },
             {
                 "model_name": "some-other-model",
-                "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "test-key"},
+                "embrouter_params": {"model": "openai/gpt-4o-mini", "api_key": "test-key"},
                 "model_info": {"id": "a-different-deployment-id"},
             },
         ]
@@ -1098,10 +1098,10 @@ def _encode_managed_id(decoded: str) -> str:
 
 
 _MANAGED_BATCH_ID = _encode_managed_id(
-    f"litellm_proxy;model_id:{_BATCH_DEPLOYMENT_ID};llm_batch_id:provider-batch-123"
+    f"embrouter_proxy;model_id:{_BATCH_DEPLOYMENT_ID};llm_batch_id:provider-batch-123"
 )
 _MANAGED_BATCH_OUTPUT_FILE_ID = _encode_managed_id(
-    f"litellm_proxy;model_id:{_BATCH_DEPLOYMENT_ID};llm_batch_id:provider-batch-123;"
+    f"embrouter_proxy;model_id:{_BATCH_DEPLOYMENT_ID};llm_batch_id:provider-batch-123;"
     "llm_output_file_id:provider-file-456"
 )
 
@@ -1143,8 +1143,8 @@ async def test_managed_batch_routes_pass_team_model_access_check(route, request_
     """End-to-end regression for #32580: a team scoped to the batch model group got
     ``team_model_access_denied`` on retrieve/cancel because the deployment id, not the
     model group, was authorized. Fails pre-fix with the deployment id in the message."""
-    from litellm.proxy._types import LiteLLM_TeamTable
-    from litellm.proxy.auth.auth_checks import can_team_access_model
+    from embrouter.proxy._types import EmbRouter_TeamTable
+    from embrouter.proxy.auth.auth_checks import can_team_access_model
 
     llm_router = _managed_batch_router()
     model = get_model_from_request(request_data=request_data, route=route, llm_router=llm_router)
@@ -1152,7 +1152,7 @@ async def test_managed_batch_routes_pass_team_model_access_check(route, request_
     assert (
         await can_team_access_model(
             model=model,
-            team_object=LiteLLM_TeamTable(team_id="team-batch", models=["bedrock-batch-model"]),
+            team_object=EmbRouter_TeamTable(team_id="team-batch", models=["bedrock-batch-model"]),
             llm_router=llm_router,
         )
         is True
@@ -1161,13 +1161,13 @@ async def test_managed_batch_routes_pass_team_model_access_check(route, request_
     with pytest.raises(Exception, match="is not available for this API key"):
         await can_team_access_model(
             model=model,
-            team_object=LiteLLM_TeamTable(team_id="team-other", models=["some-other-model"]),
+            team_object=EmbRouter_TeamTable(team_id="team-other", models=["some-other-model"]),
             llm_router=llm_router,
         )
 
 
 def test_get_model_from_request_resolves_character_id_model_with_router():
-    from litellm.types.videos.utils import encode_character_id_with_provider
+    from embrouter.types.videos.utils import encode_character_id_with_provider
 
     character_id = encode_character_id_with_provider(
         character_id="character-provider-id",
@@ -1195,11 +1195,11 @@ def test_get_model_from_request_resolves_character_id_model_with_router():
 def test_get_model_from_request_only_runs_media_decoders_for_matching_fields():
     with (
         patch(
-            "litellm.types.videos.utils.decode_video_id_with_provider",
+            "embrouter.types.videos.utils.decode_video_id_with_provider",
             return_value={"model_id": "video-model"},
         ) as video_decoder,
         patch(
-            "litellm.types.videos.utils.decode_character_id_with_provider",
+            "embrouter.types.videos.utils.decode_character_id_with_provider",
             return_value={"model_id": "character-model"},
         ) as character_decoder,
     ):
@@ -1239,15 +1239,15 @@ def test_get_model_from_request_only_runs_media_decoders_for_matching_fields():
 def test_get_model_from_request_handles_managed_id_decoder_failures():
     with (
         patch(
-            "litellm.proxy.openai_files_endpoints.common_utils.decode_model_from_file_id",
+            "embrouter.proxy.openai_files_endpoints.common_utils.decode_model_from_file_id",
             side_effect=Exception("decode failed"),
         ),
         patch(
-            "litellm.llms.base_llm.managed_resources.utils.parse_unified_id",
+            "embrouter.llms.base_llm.managed_resources.utils.parse_unified_id",
             side_effect=Exception("parse failed"),
         ),
         patch(
-            "litellm.types.videos.utils.decode_video_id_with_provider",
+            "embrouter.types.videos.utils.decode_video_id_with_provider",
             side_effect=Exception("video decode failed"),
         ),
     ):
@@ -1334,62 +1334,62 @@ def test_abbreviate_api_key_short_key_is_fully_masked():
 
 
 def test_get_customer_user_header_returns_none_when_no_customer_role():
-    from litellm.proxy.auth.auth_utils import get_customer_user_header_from_mapping
+    from embrouter.proxy.auth.auth_utils import get_customer_user_header_from_mapping
 
     mappings = [
-        {"header_name": "X-OpenWebUI-User-Id", "litellm_user_role": "internal_user"}
+        {"header_name": "X-OpenWebUI-User-Id", "embrouter_user_role": "internal_user"}
     ]
     result = get_customer_user_header_from_mapping(mappings)
     assert result is None
 
 
 def test_get_customer_user_header_returns_none_for_single_non_customer_mapping():
-    from litellm.proxy.auth.auth_utils import get_customer_user_header_from_mapping
+    from embrouter.proxy.auth.auth_utils import get_customer_user_header_from_mapping
 
-    mapping = {"header_name": "X-Only-Internal", "litellm_user_role": "internal_user"}
+    mapping = {"header_name": "X-Only-Internal", "embrouter_user_role": "internal_user"}
     result = get_customer_user_header_from_mapping(mapping)
     assert result is None
 
 
 def test_get_customer_user_header_from_mapping_returns_customer_header():
-    from litellm.proxy.auth.auth_utils import get_customer_user_header_from_mapping
+    from embrouter.proxy.auth.auth_utils import get_customer_user_header_from_mapping
 
     mappings = [
-        {"header_name": "X-OpenWebUI-User-Id", "litellm_user_role": "internal_user"},
-        {"header_name": "X-OpenWebUI-User-Email", "litellm_user_role": "customer"},
+        {"header_name": "X-OpenWebUI-User-Id", "embrouter_user_role": "internal_user"},
+        {"header_name": "X-OpenWebUI-User-Email", "embrouter_user_role": "customer"},
     ]
     result = get_customer_user_header_from_mapping(mappings)
     assert result == ["x-openwebui-user-email"]
 
 
 def test_get_customer_user_header_returns_customers_header_in_config_order_when_multiple_exist():
-    from litellm.proxy.auth.auth_utils import get_customer_user_header_from_mapping
+    from embrouter.proxy.auth.auth_utils import get_customer_user_header_from_mapping
 
     mappings = [
-        {"header_name": "X-OpenWebUI-User-Id", "litellm_user_role": "internal_user"},
-        {"header_name": "X-OpenWebUI-User-Email", "litellm_user_role": "customer"},
-        {"header_name": "X-User-Id", "litellm_user_role": "customer"},
+        {"header_name": "X-OpenWebUI-User-Id", "embrouter_user_role": "internal_user"},
+        {"header_name": "X-OpenWebUI-User-Email", "embrouter_user_role": "customer"},
+        {"header_name": "X-User-Id", "embrouter_user_role": "customer"},
     ]
     result = get_customer_user_header_from_mapping(mappings)
     assert result == ["x-openwebui-user-email", "x-user-id"]
 
 
 def test_get_end_user_id_returns_id_from_user_header_mappings():
-    from litellm.proxy.auth.auth_utils import get_end_user_id_from_request_body
+    from embrouter.proxy.auth.auth_utils import get_end_user_id_from_request_body
 
     mappings = [
-        {"header_name": "x-openwebui-user-id", "litellm_user_role": "internal_user"},
-        {"header_name": "x-openwebui-user-email", "litellm_user_role": "customer"},
+        {"header_name": "x-openwebui-user-id", "embrouter_user_role": "internal_user"},
+        {"header_name": "x-openwebui-user-email", "embrouter_user_role": "customer"},
     ]
     general_settings = {"user_header_mappings": mappings}
     headers = {"x-openwebui-user-email": "1234"}
 
     with (
         patch(
-            "litellm.proxy.auth.auth_utils._get_customer_id_from_standard_headers",
+            "embrouter.proxy.auth.auth_utils._get_customer_id_from_standard_headers",
             return_value=None,
         ),
-        patch("litellm.proxy.proxy_server.general_settings", general_settings),
+        patch("embrouter.proxy.proxy_server.general_settings", general_settings),
     ):
         result = get_end_user_id_from_request_body(
             request_body={}, request_headers=headers
@@ -1399,12 +1399,12 @@ def test_get_end_user_id_returns_id_from_user_header_mappings():
 
 
 def test_get_end_user_id_returns_first_customer_header_when_multiple_mappings_exist():
-    from litellm.proxy.auth.auth_utils import get_end_user_id_from_request_body
+    from embrouter.proxy.auth.auth_utils import get_end_user_id_from_request_body
 
     mappings = [
-        {"header_name": "x-openwebui-user-id", "litellm_user_role": "internal_user"},
-        {"header_name": "x-user-id", "litellm_user_role": "customer"},
-        {"header_name": "x-openwebui-user-email", "litellm_user_role": "customer"},
+        {"header_name": "x-openwebui-user-id", "embrouter_user_role": "internal_user"},
+        {"header_name": "x-user-id", "embrouter_user_role": "customer"},
+        {"header_name": "x-openwebui-user-email", "embrouter_user_role": "customer"},
     ]
     general_settings = {"user_header_mappings": mappings}
     headers = {
@@ -1414,10 +1414,10 @@ def test_get_end_user_id_returns_first_customer_header_when_multiple_mappings_ex
 
     with (
         patch(
-            "litellm.proxy.auth.auth_utils._get_customer_id_from_standard_headers",
+            "embrouter.proxy.auth.auth_utils._get_customer_id_from_standard_headers",
             return_value=None,
         ),
-        patch("litellm.proxy.proxy_server.general_settings", general_settings),
+        patch("embrouter.proxy.proxy_server.general_settings", general_settings),
     ):
         result = get_end_user_id_from_request_body(
             request_body={}, request_headers=headers
@@ -1427,20 +1427,20 @@ def test_get_end_user_id_returns_first_customer_header_when_multiple_mappings_ex
 
 
 def test_get_end_user_id_returns_none_when_no_customer_role_in_mappings():
-    from litellm.proxy.auth.auth_utils import get_end_user_id_from_request_body
+    from embrouter.proxy.auth.auth_utils import get_end_user_id_from_request_body
 
     mappings = [
-        {"header_name": "x-openwebui-user-id", "litellm_user_role": "internal_user"},
+        {"header_name": "x-openwebui-user-id", "embrouter_user_role": "internal_user"},
     ]
     general_settings = {"user_header_mappings": mappings}
     headers = {"x-openwebui-user-id": "user-789"}
 
     with (
         patch(
-            "litellm.proxy.auth.auth_utils._get_customer_id_from_standard_headers",
+            "embrouter.proxy.auth.auth_utils._get_customer_id_from_standard_headers",
             return_value=None,
         ),
-        patch("litellm.proxy.proxy_server.general_settings", general_settings),
+        patch("embrouter.proxy.proxy_server.general_settings", general_settings),
     ):
         result = get_end_user_id_from_request_body(
             request_body={}, request_headers=headers
@@ -1450,17 +1450,17 @@ def test_get_end_user_id_returns_none_when_no_customer_role_in_mappings():
 
 
 def test_get_end_user_id_falls_back_to_deprecated_user_header_name():
-    from litellm.proxy.auth.auth_utils import get_end_user_id_from_request_body
+    from embrouter.proxy.auth.auth_utils import get_end_user_id_from_request_body
 
     general_settings = {"user_header_name": "x-custom-user-id"}
     headers = {"x-custom-user-id": "user-legacy"}
 
     with (
         patch(
-            "litellm.proxy.auth.auth_utils._get_customer_id_from_standard_headers",
+            "embrouter.proxy.auth.auth_utils._get_customer_id_from_standard_headers",
             return_value=None,
         ),
-        patch("litellm.proxy.proxy_server.general_settings", general_settings),
+        patch("embrouter.proxy.proxy_server.general_settings", general_settings),
     ):
         result = get_end_user_id_from_request_body(
             request_body={}, request_headers=headers
@@ -1473,17 +1473,17 @@ class TestCoerceUserIdToStr:
     """Unit tests for the _coerce_user_id_to_str helper."""
 
     def test_plain_string_is_returned_verbatim(self):
-        from litellm.proxy.auth.auth_utils import _coerce_user_id_to_str
+        from embrouter.proxy.auth.auth_utils import _coerce_user_id_to_str
 
         assert _coerce_user_id_to_str("alice@example.com") == "alice@example.com"
 
     def test_string_is_stripped(self):
-        from litellm.proxy.auth.auth_utils import _coerce_user_id_to_str
+        from embrouter.proxy.auth.auth_utils import _coerce_user_id_to_str
 
         assert _coerce_user_id_to_str("  bob  ") == "bob"
 
     def test_codex_opaque_identifier_is_preserved(self):
-        from litellm.proxy.auth.auth_utils import _coerce_user_id_to_str
+        from embrouter.proxy.auth.auth_utils import _coerce_user_id_to_str
 
         codex_id = (
             "user_8a4a360c36621665b341e06fb76041d9b6def732bb183eea148d4abc9d97c1de"
@@ -1492,18 +1492,18 @@ class TestCoerceUserIdToStr:
         assert _coerce_user_id_to_str(codex_id) == codex_id
 
     def test_none_returns_none(self):
-        from litellm.proxy.auth.auth_utils import _coerce_user_id_to_str
+        from embrouter.proxy.auth.auth_utils import _coerce_user_id_to_str
 
         assert _coerce_user_id_to_str(None) is None
 
     def test_empty_string_returns_none(self):
-        from litellm.proxy.auth.auth_utils import _coerce_user_id_to_str
+        from embrouter.proxy.auth.auth_utils import _coerce_user_id_to_str
 
         assert _coerce_user_id_to_str("") is None
         assert _coerce_user_id_to_str("   ") is None
 
     def test_dict_returns_none(self):
-        from litellm.proxy.auth.auth_utils import _coerce_user_id_to_str
+        from embrouter.proxy.auth.auth_utils import _coerce_user_id_to_str
 
         payload = {
             "device_id": "abc",
@@ -1513,7 +1513,7 @@ class TestCoerceUserIdToStr:
         assert _coerce_user_id_to_str(payload) is None
 
     def test_list_returns_none(self):
-        from litellm.proxy.auth.auth_utils import _coerce_user_id_to_str
+        from embrouter.proxy.auth.auth_utils import _coerce_user_id_to_str
 
         assert _coerce_user_id_to_str(["a", "b"]) is None
 
@@ -1523,65 +1523,65 @@ class TestCoerceUserIdToStr:
         This preserves backwards compatibility: existing deployments that
         intentionally pass JSON-encoded user identifiers keep working.
         """
-        import litellm
-        from litellm.proxy.auth.auth_utils import _coerce_user_id_to_str
+        import embrouter
+        from embrouter.proxy.auth.auth_utils import _coerce_user_id_to_str
 
         blob = (
             '{"device_id":"d5abe9199ee7759a0558974e9371e78c7b38d7621aae26d6609c1de61af6afb0",'
             '"account_uuid":"","session_id":"c284b8cb-a050-4278-8599-cc4e016a10ab"}'
         )
-        original = litellm.validate_end_user_id_in_db
-        litellm.validate_end_user_id_in_db = False
+        original = embrouter.validate_end_user_id_in_db
+        embrouter.validate_end_user_id_in_db = False
         try:
             assert _coerce_user_id_to_str(blob) == blob
         finally:
-            litellm.validate_end_user_id_in_db = original
+            embrouter.validate_end_user_id_in_db = original
 
     def test_json_encoded_dict_string_returns_none_when_validation_enabled(self):
-        import litellm
-        from litellm.proxy.auth.auth_utils import _coerce_user_id_to_str
+        import embrouter
+        from embrouter.proxy.auth.auth_utils import _coerce_user_id_to_str
 
         # Same broken shape we saw in spend logs, but pre-stringified to JSON.
         blob = (
             '{"device_id":"d5abe9199ee7759a0558974e9371e78c7b38d7621aae26d6609c1de61af6afb0",'
             '"account_uuid":"","session_id":"c284b8cb-a050-4278-8599-cc4e016a10ab"}'
         )
-        original = litellm.validate_end_user_id_in_db
-        litellm.validate_end_user_id_in_db = True
+        original = embrouter.validate_end_user_id_in_db
+        embrouter.validate_end_user_id_in_db = True
         try:
             assert _coerce_user_id_to_str(blob) is None
         finally:
-            litellm.validate_end_user_id_in_db = original
+            embrouter.validate_end_user_id_in_db = original
 
     def test_json_encoded_list_string_passes_through_by_default(self):
-        import litellm
-        from litellm.proxy.auth.auth_utils import _coerce_user_id_to_str
+        import embrouter
+        from embrouter.proxy.auth.auth_utils import _coerce_user_id_to_str
 
-        original = litellm.validate_end_user_id_in_db
-        litellm.validate_end_user_id_in_db = False
+        original = embrouter.validate_end_user_id_in_db
+        embrouter.validate_end_user_id_in_db = False
         try:
             assert _coerce_user_id_to_str('["a","b"]') == '["a","b"]'
         finally:
-            litellm.validate_end_user_id_in_db = original
+            embrouter.validate_end_user_id_in_db = original
 
     def test_json_encoded_list_string_returns_none_when_validation_enabled(self):
-        import litellm
-        from litellm.proxy.auth.auth_utils import _coerce_user_id_to_str
+        import embrouter
+        from embrouter.proxy.auth.auth_utils import _coerce_user_id_to_str
 
-        original = litellm.validate_end_user_id_in_db
-        litellm.validate_end_user_id_in_db = True
+        original = embrouter.validate_end_user_id_in_db
+        embrouter.validate_end_user_id_in_db = True
         try:
             assert _coerce_user_id_to_str('["a","b"]') is None
         finally:
-            litellm.validate_end_user_id_in_db = original
+            embrouter.validate_end_user_id_in_db = original
 
     def test_int_returns_str(self):
-        from litellm.proxy.auth.auth_utils import _coerce_user_id_to_str
+        from embrouter.proxy.auth.auth_utils import _coerce_user_id_to_str
 
         assert _coerce_user_id_to_str(12345) == "12345"
 
     def test_bool_returns_none(self):
-        from litellm.proxy.auth.auth_utils import _coerce_user_id_to_str
+        from embrouter.proxy.auth.auth_utils import _coerce_user_id_to_str
 
         # bool is an int subclass — reject explicitly, never produce "True"/"False".
         assert _coerce_user_id_to_str(True) is None
@@ -1589,7 +1589,7 @@ class TestCoerceUserIdToStr:
 
     def test_brace_string_that_isnt_json_is_kept(self):
         """A string starting with `{` but failing to parse stays as-is."""
-        from litellm.proxy.auth.auth_utils import _coerce_user_id_to_str
+        from embrouter.proxy.auth.auth_utils import _coerce_user_id_to_str
 
         assert _coerce_user_id_to_str("{not json") == "{not json"
 
@@ -1598,16 +1598,16 @@ class TestGetEndUserIdDropsMalformedBodyValues:
     """Tests that get_end_user_id_from_request_body drops dict-shaped values
     rather than stringifying them into spend logs."""
 
-    def test_dict_user_falls_through_to_litellm_metadata(self):
+    def test_dict_user_falls_through_to_embrouter_metadata(self):
         request_body = {
             "user": {
                 "device_id": "abc",
                 "session_id": "c284b8cb",
             },
-            "litellm_metadata": {"user": "alice@example.com"},
+            "embrouter_metadata": {"user": "alice@example.com"},
         }
 
-        with patch("litellm.proxy.proxy_server.general_settings", {}):
+        with patch("embrouter.proxy.proxy_server.general_settings", {}):
             result = get_end_user_id_from_request_body(
                 request_body=request_body, request_headers={}
             )
@@ -1619,7 +1619,7 @@ class TestGetEndUserIdDropsMalformedBodyValues:
             "user": {"device_id": "abc", "session_id": "xyz"},
         }
 
-        with patch("litellm.proxy.proxy_server.general_settings", {}):
+        with patch("embrouter.proxy.proxy_server.general_settings", {}):
             result = get_end_user_id_from_request_body(
                 request_body=request_body, request_headers={}
             )
@@ -1629,11 +1629,11 @@ class TestGetEndUserIdDropsMalformedBodyValues:
     def test_json_encoded_user_string_passes_through_by_default(self):
         """JSON-encoded user strings pass through unless validation is opted in.
 
-        Gating behind ``litellm.validate_end_user_id_in_db`` keeps existing
+        Gating behind ``embrouter.validate_end_user_id_in_db`` keeps existing
         deployments that send JSON-encoded identifiers working until they
         explicitly opt into the stricter extraction.
         """
-        import litellm
+        import embrouter
 
         blob = (
             '{"device_id":"d5abe9199ee7759a","account_uuid":"",'
@@ -1641,20 +1641,20 @@ class TestGetEndUserIdDropsMalformedBodyValues:
         )
         request_body = {"user": blob}
 
-        original = litellm.validate_end_user_id_in_db
-        litellm.validate_end_user_id_in_db = False
+        original = embrouter.validate_end_user_id_in_db
+        embrouter.validate_end_user_id_in_db = False
         try:
-            with patch("litellm.proxy.proxy_server.general_settings", {}):
+            with patch("embrouter.proxy.proxy_server.general_settings", {}):
                 result = get_end_user_id_from_request_body(
                     request_body=request_body, request_headers={}
                 )
         finally:
-            litellm.validate_end_user_id_in_db = original
+            embrouter.validate_end_user_id_in_db = original
 
         assert result == blob
 
     def test_json_encoded_user_string_returns_none_when_validation_enabled(self):
-        import litellm
+        import embrouter
 
         request_body = {
             "user": (
@@ -1663,22 +1663,22 @@ class TestGetEndUserIdDropsMalformedBodyValues:
             ),
         }
 
-        original = litellm.validate_end_user_id_in_db
-        litellm.validate_end_user_id_in_db = True
+        original = embrouter.validate_end_user_id_in_db
+        embrouter.validate_end_user_id_in_db = True
         try:
-            with patch("litellm.proxy.proxy_server.general_settings", {}):
+            with patch("embrouter.proxy.proxy_server.general_settings", {}):
                 result = get_end_user_id_from_request_body(
                     request_body=request_body, request_headers={}
                 )
         finally:
-            litellm.validate_end_user_id_in_db = original
+            embrouter.validate_end_user_id_in_db = original
 
         assert result is None
 
     def test_plain_string_user_is_preserved(self):
         request_body = {"user": "alice@example.com"}
 
-        with patch("litellm.proxy.proxy_server.general_settings", {}):
+        with patch("embrouter.proxy.proxy_server.general_settings", {}):
             result = get_end_user_id_from_request_body(
                 request_body=request_body, request_headers={}
             )
@@ -1692,7 +1692,7 @@ class TestGetEndUserIdDropsMalformedBodyValues:
         )
         request_body = {"user": codex_id}
 
-        with patch("litellm.proxy.proxy_server.general_settings", {}):
+        with patch("embrouter.proxy.proxy_server.general_settings", {}):
             result = get_end_user_id_from_request_body(
                 request_body=request_body, request_headers={}
             )
@@ -1702,7 +1702,7 @@ class TestGetEndUserIdDropsMalformedBodyValues:
     def test_int_user_is_coerced_to_string(self):
         request_body = {"user": 12345}
 
-        with patch("litellm.proxy.proxy_server.general_settings", {}):
+        with patch("embrouter.proxy.proxy_server.general_settings", {}):
             result = get_end_user_id_from_request_body(
                 request_body=request_body, request_headers={}
             )
@@ -1715,7 +1715,7 @@ class TestGetEndUserIdDropsMalformedBodyValues:
             "safety_identifier": "alice@example.com",
         }
 
-        with patch("litellm.proxy.proxy_server.general_settings", {}):
+        with patch("embrouter.proxy.proxy_server.general_settings", {}):
             result = get_end_user_id_from_request_body(
                 request_body=request_body, request_headers={}
             )
@@ -1727,7 +1727,7 @@ class TestGetEndUserIdDropsMalformedBodyValues:
             "safety_identifier": {"device_id": "abc"},
         }
 
-        with patch("litellm.proxy.proxy_server.general_settings", {}):
+        with patch("embrouter.proxy.proxy_server.general_settings", {}):
             result = get_end_user_id_from_request_body(
                 request_body=request_body, request_headers={}
             )
@@ -1739,7 +1739,7 @@ class TestGetEndUserIdDropsMalformedBodyValues:
             "metadata": {"user_id": {"device_id": "abc"}},
         }
 
-        with patch("litellm.proxy.proxy_server.general_settings", {}):
+        with patch("embrouter.proxy.proxy_server.general_settings", {}):
             result = get_end_user_id_from_request_body(
                 request_body=request_body, request_headers={}
             )
@@ -1749,7 +1749,7 @@ class TestGetEndUserIdDropsMalformedBodyValues:
     def test_whitespace_user_falls_through(self):
         request_body = {"user": "   ", "safety_identifier": "alice@example.com"}
 
-        with patch("litellm.proxy.proxy_server.general_settings", {}):
+        with patch("embrouter.proxy.proxy_server.general_settings", {}):
             result = get_end_user_id_from_request_body(
                 request_body=request_body, request_headers={}
             )
@@ -1766,10 +1766,10 @@ class TestGetEndUserIdDropsMalformedBodyValues:
 
         with (
             patch(
-                "litellm.proxy.auth.auth_utils._get_customer_id_from_standard_headers",
+                "embrouter.proxy.auth.auth_utils._get_customer_id_from_standard_headers",
                 return_value=None,
             ),
-            patch("litellm.proxy.proxy_server.general_settings", general_settings),
+            patch("embrouter.proxy.proxy_server.general_settings", general_settings),
         ):
             result = get_end_user_id_from_request_body(
                 request_body=request_body, request_headers=headers
@@ -1782,15 +1782,15 @@ def _make_deployment_dict(
     model_name: str, tpm: Optional[int] = None, rpm: Optional[int] = None
 ) -> dict:
     """Helper to build a minimal deployment dict as returned by router.get_model_list."""
-    litellm_params: dict = {"model": model_name}
+    embrouter_params: dict = {"model": model_name}
     if tpm is not None:
-        litellm_params["default_api_key_tpm_limit"] = tpm
+        embrouter_params["default_api_key_tpm_limit"] = tpm
     if rpm is not None:
-        litellm_params["default_api_key_rpm_limit"] = rpm
-    return {"model_name": model_name, "litellm_params": litellm_params}
+        embrouter_params["default_api_key_rpm_limit"] = rpm
+    return {"model_name": model_name, "embrouter_params": embrouter_params}
 
 
-_ROUTER_PATCH = "litellm.proxy.proxy_server.llm_router"
+_ROUTER_PATCH = "embrouter.proxy.proxy_server.llm_router"
 
 
 class TestDeploymentDefaultRpmLimit:
@@ -1882,7 +1882,7 @@ class TestDeploymentDefaultRpmLimit:
         mock_router.get_model_list.return_value = [
             {
                 "model_name": "model1",
-                "litellm_params": {"default_api_key_rpm_limit": "not-a-number"},
+                "embrouter_params": {"default_api_key_rpm_limit": "not-a-number"},
             },
             _make_deployment_dict("model1", rpm=100),
         ]
@@ -2056,16 +2056,16 @@ class TestCheckCompleteCredentialsBlocksSSRF:
     the gate accepts ``api_key=anything`` plus a malicious target and the
     proxy is used as an SSRF pivot.
 
-    The check only runs when ``litellm.user_url_validation`` is True, so
+    The check only runs when ``embrouter.user_url_validation`` is True, so
     every test in this class flips the toggle. Tests stay mock-only — no
     real DNS is performed.
     """
 
     @pytest.fixture(autouse=True)
     def _enable_url_validation(self, monkeypatch):
-        import litellm
+        import embrouter
 
-        monkeypatch.setattr(litellm, "user_url_validation", True, raising=False)
+        monkeypatch.setattr(embrouter, "user_url_validation", True, raising=False)
 
     @pytest.mark.parametrize(
         "url_field",
@@ -2082,10 +2082,10 @@ class TestCheckCompleteCredentialsBlocksSSRF:
         ],
     )
     def test_rejects_private_or_metadata_targets(self, url_field, blocked_url):
-        from litellm.litellm_core_utils.url_utils import SSRFError
+        from embrouter.embrouter_core_utils.url_utils import SSRFError
 
         with patch(
-            "litellm.proxy.auth.auth_utils.validate_url",
+            "embrouter.proxy.auth.auth_utils.validate_url",
             side_effect=SSRFError(f"blocked: {blocked_url}"),
         ):
             with pytest.raises(ValueError, match='is rejected by the SSRF guard') as exc_info:
@@ -2102,7 +2102,7 @@ class TestCheckCompleteCredentialsBlocksSSRF:
     def test_allows_public_target_when_validate_url_passes(self):
         # ``validate_url`` is mocked so no real DNS is performed.
         with patch(
-            "litellm.proxy.auth.auth_utils.validate_url",
+            "embrouter.proxy.auth.auth_utils.validate_url",
             return_value=("https://api.openai.com/v1", "api.openai.com"),
         ):
             result = check_complete_credentials(
@@ -2118,11 +2118,11 @@ class TestCheckCompleteCredentialsBlocksSSRF:
         # Admins who disable ``user_url_validation`` (default) should not
         # have requests rejected at the proxy boundary even if the URL
         # would fail the SSRF guard.
-        import litellm
+        import embrouter
 
-        monkeypatch.setattr(litellm, "user_url_validation", False, raising=False)
+        monkeypatch.setattr(embrouter, "user_url_validation", False, raising=False)
         with patch(
-            "litellm.proxy.auth.auth_utils.validate_url",
+            "embrouter.proxy.auth.auth_utils.validate_url",
         ) as mocked:
             result = check_complete_credentials(
                 {
@@ -2135,7 +2135,7 @@ class TestCheckCompleteCredentialsBlocksSSRF:
         mocked.assert_not_called()
 
 
-class TestGetDynamicLitellmParamsClearsAdminConfigOnBaseOverride:
+class TestGetDynamicEmbrouterParamsClearsAdminConfigOnBaseOverride:
     """
     When the caller redirects ``api_base`` / ``base_url`` to their own
     server, admin-set fields like ``OpenAI-Organization``, ``extra_body``,
@@ -2144,8 +2144,8 @@ class TestGetDynamicLitellmParamsClearsAdminConfigOnBaseOverride:
     """
 
     def test_clears_admin_organization_and_extra_body_on_base_override(self):
-        from litellm.router_utils.clientside_credential_handler import (
-            get_dynamic_litellm_params,
+        from embrouter.router_utils.clientside_credential_handler import (
+            get_dynamic_embrouter_params,
         )
 
         admin_params = {
@@ -2156,8 +2156,8 @@ class TestGetDynamicLitellmParamsClearsAdminConfigOnBaseOverride:
             "extra_body": {"x-admin-secret": "super-secret"},
             "api_version": "2026-04-01",
         }
-        out = get_dynamic_litellm_params(
-            litellm_params=dict(admin_params),
+        out = get_dynamic_embrouter_params(
+            embrouter_params=dict(admin_params),
             request_kwargs={
                 "api_key": "sk-attacker",
                 "api_base": "https://attacker.example",
@@ -2170,8 +2170,8 @@ class TestGetDynamicLitellmParamsClearsAdminConfigOnBaseOverride:
         assert "api_version" not in out
 
     def test_clears_aws_and_vertex_secrets_on_base_override(self):
-        from litellm.router_utils.clientside_credential_handler import (
-            get_dynamic_litellm_params,
+        from embrouter.router_utils.clientside_credential_handler import (
+            get_dynamic_embrouter_params,
         )
 
         admin_params = {
@@ -2182,8 +2182,8 @@ class TestGetDynamicLitellmParamsClearsAdminConfigOnBaseOverride:
             "vertex_credentials": '{"private_key":"-----BEGIN..."}',
             "vertex_project": "admin-gcp-project",
         }
-        out = get_dynamic_litellm_params(
-            litellm_params=dict(admin_params),
+        out = get_dynamic_embrouter_params(
+            embrouter_params=dict(admin_params),
             request_kwargs={"base_url": "https://attacker.example", "api_key": "sk-caller"},
         )
         assert "aws_access_key_id" not in out
@@ -2193,8 +2193,8 @@ class TestGetDynamicLitellmParamsClearsAdminConfigOnBaseOverride:
         assert "vertex_project" not in out
 
     def test_clears_nvcf_function_id_on_base_override(self):
-        from litellm.router_utils.clientside_credential_handler import (
-            get_dynamic_litellm_params,
+        from embrouter.router_utils.clientside_credential_handler import (
+            get_dynamic_embrouter_params,
         )
 
         admin_params = {
@@ -2203,16 +2203,16 @@ class TestGetDynamicLitellmParamsClearsAdminConfigOnBaseOverride:
             "api_key": "nvapi-admin",
             "nvcf_function_id": "admin-pinned-function",
         }
-        out = get_dynamic_litellm_params(
-            litellm_params=dict(admin_params),
+        out = get_dynamic_embrouter_params(
+            embrouter_params=dict(admin_params),
             request_kwargs={"api_base": "self-hosted.example.com:50051", "api_key": "sk-caller"},
         )
         assert out["api_base"] == "self-hosted.example.com:50051"
         assert "nvcf_function_id" not in out
 
     def test_clears_use_ssl_on_base_override(self):
-        from litellm.router_utils.clientside_credential_handler import (
-            get_dynamic_litellm_params,
+        from embrouter.router_utils.clientside_credential_handler import (
+            get_dynamic_embrouter_params,
         )
 
         admin_params = {
@@ -2221,8 +2221,8 @@ class TestGetDynamicLitellmParamsClearsAdminConfigOnBaseOverride:
             "api_key": "nvapi-admin",
             "use_ssl": True,
         }
-        out = get_dynamic_litellm_params(
-            litellm_params=dict(admin_params),
+        out = get_dynamic_embrouter_params(
+            embrouter_params=dict(admin_params),
             request_kwargs={"api_base": "self-hosted.example.com:50051", "api_key": "sk-caller"},
         )
         assert out["api_base"] == "self-hosted.example.com:50051"
@@ -2236,12 +2236,12 @@ class TestGetDynamicLitellmParamsClearsAdminConfigOnBaseOverride:
         # the field name with any value (or empty string) to keep the
         # admin's value forwarded, which is the exfiltration vector this
         # test guards against.
-        from litellm.router_utils.clientside_credential_handler import (
-            get_dynamic_litellm_params,
+        from embrouter.router_utils.clientside_credential_handler import (
+            get_dynamic_embrouter_params,
         )
 
-        out = get_dynamic_litellm_params(
-            litellm_params={
+        out = get_dynamic_embrouter_params(
+            embrouter_params={
                 "api_base": "https://admin.upstream/v1",
                 "organization": "org-admin",
                 "extra_body": {"admin": "value"},
@@ -2259,13 +2259,13 @@ class TestGetDynamicLitellmParamsClearsAdminConfigOnBaseOverride:
     def test_field_echo_does_not_preserve_admin_value(self):
         # Regression: a caller that echoes an admin-config field name with
         # an *empty* value (or any value) must not be able to keep the
-        # admin's value in ``litellm_params``.
-        from litellm.router_utils.clientside_credential_handler import (
-            get_dynamic_litellm_params,
+        # admin's value in ``embrouter_params``.
+        from embrouter.router_utils.clientside_credential_handler import (
+            get_dynamic_embrouter_params,
         )
 
-        out = get_dynamic_litellm_params(
-            litellm_params={
+        out = get_dynamic_embrouter_params(
+            embrouter_params={
                 "api_base": "https://admin.upstream/v1",
                 "organization": "org-admin-secret",
                 "extra_body": {"x-admin-only": "secret"},
@@ -2282,14 +2282,14 @@ class TestGetDynamicLitellmParamsClearsAdminConfigOnBaseOverride:
         assert "org-admin-secret" not in str(out)
 
     def test_no_clearing_when_only_api_key_overridden(self):
-        from litellm.router_utils.clientside_credential_handler import (
-            get_dynamic_litellm_params,
+        from embrouter.router_utils.clientside_credential_handler import (
+            get_dynamic_embrouter_params,
         )
 
         # Caller only overrides api_key (BYOK pattern); admin's organization /
         # extra_body / region still apply because the destination is unchanged.
-        out = get_dynamic_litellm_params(
-            litellm_params={
+        out = get_dynamic_embrouter_params(
+            embrouter_params={
                 "api_base": "https://admin.upstream/v1",
                 "organization": "org-admin",
                 "api_version": "2026-04-01",
@@ -2301,12 +2301,12 @@ class TestGetDynamicLitellmParamsClearsAdminConfigOnBaseOverride:
         assert out["api_base"] == "https://admin.upstream/v1"
 
     def test_client_api_key_used_when_supplied_with_base_override(self):
-        from litellm.router_utils.clientside_credential_handler import (
-            get_dynamic_litellm_params,
+        from embrouter.router_utils.clientside_credential_handler import (
+            get_dynamic_embrouter_params,
         )
 
-        out = get_dynamic_litellm_params(
-            litellm_params={
+        out = get_dynamic_embrouter_params(
+            embrouter_params={
                 "model": "gpt-4",
                 "api_key": "sk-admin-secret",
                 "api_base": "https://admin.upstream/v1",
@@ -2335,13 +2335,13 @@ class TestClientsideBaseOverrideOutboundKey:
     when the caller overrides ``api_base``."""
 
     def _router(self):
-        from litellm import Router
+        from embrouter import Router
 
         return Router(
             model_list=[
                 {
                     "model_name": "gpt-4",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "openai/gpt-4",
                         "api_key": "sk-SERVER-CONFIG",
                         "api_base": "https://admin.upstream/v1",
@@ -2352,10 +2352,10 @@ class TestClientsideBaseOverrideOutboundKey:
 
     @pytest.fixture(autouse=True)
     def _ambient_server_key(self, monkeypatch):
-        import litellm
+        import embrouter
 
         monkeypatch.setenv("OPENAI_API_KEY", "sk-SERVER-ENV")
-        monkeypatch.setattr(litellm, "api_key", None, raising=False)
+        monkeypatch.setattr(embrouter, "api_key", None, raising=False)
 
     def test_caller_key_override_sends_caller_key_never_server_key(self):
         import httpx
@@ -2391,9 +2391,9 @@ class TestIsRequestBodySafeBlocksFallbackSmuggle:
 
     @pytest.fixture(autouse=True)
     def _disable_url_validation(self, monkeypatch):
-        import litellm
+        import embrouter
 
-        monkeypatch.setattr(litellm, "user_url_validation", False, raising=False)
+        monkeypatch.setattr(embrouter, "user_url_validation", False, raising=False)
 
     @pytest.mark.parametrize(
         "fallback_key",
@@ -2521,11 +2521,11 @@ class TestIsRequestBodySafeBlocksFallbackSmuggle:
     def test_nested_api_base_caught_across_router_fallback_rounds(self):
         """An ``api_base`` target nested ``ROUTER_MAX_FALLBACKS - 1`` rounds deep
         is still reached and rejected."""
-        import litellm
+        import embrouter
 
         with pytest.raises(ValueError, match="api_base"):
             is_request_body_safe(
-                request_body=_rounds_deep_api_base_payload(litellm.ROUTER_MAX_FALLBACKS - 1, "fallbacks"),
+                request_body=_rounds_deep_api_base_payload(embrouter.ROUTER_MAX_FALLBACKS - 1, "fallbacks"),
                 general_settings={},
                 llm_router=None,
                 model="gpt-4",
@@ -2625,9 +2625,9 @@ class TestIsRequestBodySafeBlocksEndpointTargetingFields:
         # The new banned-params entries should be rejected even when
         # ``user_url_validation`` is off — the gate isn't the URL guard,
         # it's the banned-params list.
-        import litellm
+        import embrouter
 
-        monkeypatch.setattr(litellm, "user_url_validation", False, raising=False)
+        monkeypatch.setattr(embrouter, "user_url_validation", False, raising=False)
 
     @pytest.mark.parametrize(
         "field",
@@ -2754,8 +2754,8 @@ class TestIsRequestBodySafeBlocksRustOptIn:
     """``rust`` hands the whole call to the Rust core, which signs and sends
     with its own HTTP client rather than the one the deployment configured, and
     reports no ``post_call``. The proxy splats the request body straight into
-    the router, and ``rust`` is a litellm param, so it lands in
-    ``litellm_params`` and the gate honours it: without this entry any
+    the router, and ``rust`` is a embrouter param, so it lands in
+    ``embrouter_params`` and the gate honours it: without this entry any
     authenticated caller picks a transport and a callback surface the admin
     never chose. It stays a deployment decision, liftable only by the same
     admin opt-in as the rest of the list."""
@@ -2896,7 +2896,7 @@ class TestIsRequestBodySafeBlocksNVCFFunctionOverride:
     def test_admin_opt_in_per_deployment_allows_nvcf_function_id(self, monkeypatch):
         """The error message lists per-deployment ``configurable_clientside_auth_params``
         as a second opt-in. Cover that path too so it can't silently regress."""
-        from litellm.proxy.auth import auth_utils
+        from embrouter.proxy.auth import auth_utils
 
         monkeypatch.setattr(
             auth_utils,
@@ -2949,7 +2949,7 @@ class TestIsRequestBodySafeBlocksRivaUseSsl:
         )
 
     def test_admin_opt_in_per_deployment_allows_use_ssl(self, monkeypatch):
-        from litellm.proxy.auth import auth_utils
+        from embrouter.proxy.auth import auth_utils
 
         monkeypatch.setattr(
             auth_utils,
@@ -3004,13 +3004,13 @@ class TestIsRequestBodySafeBlocksBedrockTags:
         )
 
     def test_admin_opt_in_per_deployment_allows_bedrock_tags(self):
-        from litellm import Router
+        from embrouter import Router
 
         router = Router(
             model_list=[
                 {
                     "model_name": "bedrock-batch-opus",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "bedrock/us.anthropic.claude-opus-4-7",
                         "configurable_clientside_auth_params": ["bedrock_tags"],
                     },
@@ -3031,13 +3031,13 @@ class TestIsRequestBodySafeBlocksBedrockTags:
         )
 
     def test_per_deployment_opt_in_for_other_param_still_rejects_bedrock_tags(self):
-        from litellm import Router
+        from embrouter import Router
 
         router = Router(
             model_list=[
                 {
                     "model_name": "bedrock-batch-opus",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "bedrock/us.anthropic.claude-opus-4-7",
                         "configurable_clientside_auth_params": ["api_base"],
                     },
@@ -3061,7 +3061,7 @@ class TestIsRequestBodySafeBlocksBedrockTags:
 
 class TestIsRequestBodySafeNestedConfig:
     """The Milvus vector store transformer unpacks
-    ``litellm_embedding_config`` as ``**kwargs`` into ``litellm.embedding(...)``
+    ``embrouter_embedding_config`` as ``**kwargs`` into ``embrouter.embedding(...)``
     — same SSRF / credential-exfil surface as a top-level ``api_base`` in
     the request body. ``is_request_body_safe`` must recurse into this
     nested dict so a banned param can't be smuggled in via nesting."""
@@ -3077,12 +3077,12 @@ class TestIsRequestBodySafeNestedConfig:
             )
 
     def test_nested_api_base_in_embedding_config_blocked(self):
-        """Smuggling ``api_base`` inside ``litellm_embedding_config`` is
+        """Smuggling ``api_base`` inside ``embrouter_embedding_config`` is
         the VERIA-6 bypass — must be blocked by the recursive check."""
         with pytest.raises(ValueError, match="api_base"):
             is_request_body_safe(
                 request_body={
-                    "litellm_embedding_config": {
+                    "embrouter_embedding_config": {
                         "api_base": "https://attacker.example.com",
                         "api_key": "leaked-key",
                     }
@@ -3101,7 +3101,7 @@ class TestIsRequestBodySafeNestedConfig:
             is_request_body_safe(
                 request_body={
                     "model": "nvidia_riva/parakeet",
-                    "litellm_metadata": {"nvcf_function_id": "attacker-via-metadata"},
+                    "embrouter_metadata": {"nvcf_function_id": "attacker-via-metadata"},
                 },
                 general_settings={},
                 llm_router=None,
@@ -3115,7 +3115,7 @@ class TestIsRequestBodySafeNestedConfig:
         with pytest.raises(ValueError, match="langfuse_host"):
             is_request_body_safe(
                 request_body={
-                    "litellm_embedding_config": {
+                    "embrouter_embedding_config": {
                         "langfuse_host": "https://attacker.example.com"
                     }
                 },
@@ -3130,7 +3130,7 @@ class TestIsRequestBodySafeNestedConfig:
         assert (
             is_request_body_safe(
                 request_body={
-                    "litellm_embedding_config": {
+                    "embrouter_embedding_config": {
                         "api_base": "https://my-azure.example.com"
                     }
                 },
@@ -3147,7 +3147,7 @@ class TestIsRequestBodySafeNestedConfig:
         assert (
             is_request_body_safe(
                 request_body={
-                    "litellm_embedding_config": {
+                    "embrouter_embedding_config": {
                         "api_version": "2024-02-15-preview",
                     }
                 },
@@ -3159,11 +3159,11 @@ class TestIsRequestBodySafeNestedConfig:
         )
 
     def test_non_dict_nested_config_does_not_break_check(self):
-        """A bogus type for ``litellm_embedding_config`` (string, list,
+        """A bogus type for ``embrouter_embedding_config`` (string, list,
         None) must not crash the validator — it should just fall through."""
         assert (
             is_request_body_safe(
-                request_body={"litellm_embedding_config": "not-a-dict"},
+                request_body={"embrouter_embedding_config": "not-a-dict"},
                 general_settings={},
                 llm_router=None,
                 model="x",
@@ -3173,15 +3173,15 @@ class TestIsRequestBodySafeNestedConfig:
 
     def test_deeply_nested_config_does_not_recurse(self):
         """Greptile P1: ``is_request_body_safe`` is iterative single-level —
-        a deeply-nested ``litellm_embedding_config`` cannot exhaust the
+        a deeply-nested ``embrouter_embedding_config`` cannot exhaust the
         Python call stack to trigger a 500 ``RecursionError``. Build a
         body 1000 levels deep; the validator must complete in O(1)
         descent."""
-        body = {"litellm_embedding_config": {}}
-        cur = body["litellm_embedding_config"]
+        body = {"embrouter_embedding_config": {}}
+        cur = body["embrouter_embedding_config"]
         for _ in range(1000):
-            cur["litellm_embedding_config"] = {}
-            cur = cur["litellm_embedding_config"]
+            cur["embrouter_embedding_config"] = {}
+            cur = cur["embrouter_embedding_config"]
         # Banned param at the deepest level shouldn't be reached — single
         # level only.
         cur["api_base"] = "https://attacker.example.com"
@@ -3204,11 +3204,11 @@ class TestIsRequestBodySafeNestedConfig:
 class TestObservabilityCallbackBans:
     """The proxy must reject observability credentials, hosts, and project
     identifiers regardless of whether they arrive at the request body root,
-    in ``metadata`` / ``litellm_metadata``, or in a JSON-string-encoded
+    in ``metadata`` / ``embrouter_metadata``, or in a JSON-string-encoded
     metadata blob (multipart/``extra_body`` path).
 
     The ban list is derived from
-    ``litellm.litellm_core_utils.initialize_dynamic_callback_params._supported_callback_params``
+    ``embrouter.embrouter_core_utils.initialize_dynamic_callback_params._supported_callback_params``
     minus a small ``_SAFE_CLIENT_CALLBACK_PARAMS`` allow-list, plus
     ``_EXTRA_BANNED_OBSERVABILITY_PARAMS`` for fields integrations read but
     that are not yet in the canonical allow-list. The derivation keeps the
@@ -3217,9 +3217,9 @@ class TestObservabilityCallbackBans:
 
     @pytest.fixture(autouse=True)
     def _disable_url_validation(self, monkeypatch):
-        import litellm
+        import embrouter
 
-        monkeypatch.setattr(litellm, "user_url_validation", False, raising=False)
+        monkeypatch.setattr(embrouter, "user_url_validation", False, raising=False)
 
     @pytest.mark.parametrize(
         "field",
@@ -3257,7 +3257,7 @@ class TestObservabilityCallbackBans:
 
     @pytest.mark.parametrize(
         "metadata_key",
-        ["metadata", "litellm_metadata"],
+        ["metadata", "embrouter_metadata"],
     )
     @pytest.mark.parametrize(
         "field",
@@ -3274,7 +3274,7 @@ class TestObservabilityCallbackBans:
         self, metadata_key, field
     ):
         # Verifies the metadata walk: a value smuggled inside ``metadata``
-        # or ``litellm_metadata`` is just as dangerous as the same field
+        # or ``embrouter_metadata`` is just as dangerous as the same field
         # at the body root, and must hit the same gate.
         with pytest.raises(ValueError, match='Rejected Request') as exc:
             is_request_body_safe(
@@ -3288,7 +3288,7 @@ class TestObservabilityCallbackBans:
             )
         assert field in str(exc.value)
 
-    @pytest.mark.parametrize("metadata_key", ["metadata", "litellm_metadata"])
+    @pytest.mark.parametrize("metadata_key", ["metadata", "embrouter_metadata"])
     @pytest.mark.parametrize(
         "field",
         ["phoenix_project_name", "phoenix_project_name_override"],
@@ -3310,12 +3310,12 @@ class TestObservabilityCallbackBans:
             is True
         )
 
-    def test_observability_field_in_litellm_params_metadata_is_rejected(self):
+    def test_observability_field_in_embrouter_params_metadata_is_rejected(self):
         with pytest.raises(ValueError, match='Rejected Request: turn_off_message_logging is not allowed') as exc:
             is_request_body_safe(
                 request_body={
                     "model": "gpt-4",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "metadata": {"turn_off_message_logging": False}
                     },
                 },
@@ -3327,7 +3327,7 @@ class TestObservabilityCallbackBans:
 
     @pytest.mark.parametrize(
         "metadata_key",
-        ["metadata", "litellm_metadata"],
+        ["metadata", "embrouter_metadata"],
     )
     def test_observability_field_in_json_string_metadata_is_rejected(
         self, metadata_key
@@ -3403,7 +3403,7 @@ def test_model_level_allow_does_not_skip_subsequent_banned_params(monkeypatch):
     where that bypass matters: a body pairing a model-level-allowed
     ``api_base`` with an observability credential like ``langfuse_host``
     must still reject on the second field, not silently pass."""
-    from litellm.proxy.auth import auth_utils
+    from embrouter.proxy.auth import auth_utils
 
     monkeypatch.setattr(
         auth_utils,
@@ -3432,11 +3432,11 @@ def test_observability_ban_covers_canonical_supported_callback_params():
     list are banned by default (the safe failure mode); flagging them as
     safe is an explicit decision recorded in
     ``_SAFE_CLIENT_CALLBACK_PARAMS``."""
-    from litellm.litellm_core_utils.initialize_dynamic_callback_params import (
+    from embrouter.embrouter_core_utils.initialize_dynamic_callback_params import (
         _request_blocked_callback_params,
         _supported_callback_params,
     )
-    from litellm.proxy.auth.auth_utils import (
+    from embrouter.proxy.auth.auth_utils import (
         _BANNED_REQUEST_BODY_PARAMS,
         _SAFE_CLIENT_CALLBACK_PARAMS,
     )
@@ -3461,12 +3461,12 @@ def test_observability_ban_covers_canonical_supported_callback_params():
 
 class TestPricingInjectionBlocked:
     """Authenticated clients must not be able to mutate the global
-    litellm.model_cost registry by supplying pricing fields in the request
-    body.  Any CustomPricingLiteLLMParams field (input_cost_per_token etc.)
+    embrouter.model_cost registry by supplying pricing fields in the request
+    body.  Any CustomPricingEmbRouterParams field (input_cost_per_token etc.)
     passed to completion() is forwarded to register_model(), which overwrites
     the shared global dict for ALL users on the instance.
 
-    Fix: all CustomPricingLiteLLMParams fields are in _BANNED_REQUEST_BODY_PARAMS,
+    Fix: all CustomPricingEmbRouterParams fields are in _BANNED_REQUEST_BODY_PARAMS,
     so is_request_body_safe() rejects them before they reach completion().
     """
 
@@ -3492,13 +3492,13 @@ class TestPricingInjectionBlocked:
         assert field in str(exc.value)
 
     def test_all_custom_pricing_fields_are_banned(self):
-        from litellm.proxy.auth.auth_utils import _BANNED_REQUEST_BODY_PARAMS
-        from litellm.types.utils import CustomPricingLiteLLMParams
+        from embrouter.proxy.auth.auth_utils import _BANNED_REQUEST_BODY_PARAMS
+        from embrouter.types.utils import CustomPricingEmbRouterParams
 
         banned = set(_BANNED_REQUEST_BODY_PARAMS)
-        for field in CustomPricingLiteLLMParams.model_fields:
+        for field in CustomPricingEmbRouterParams.model_fields:
             assert field in banned, (
-                f"CustomPricingLiteLLMParams.{field} is not in "
+                f"CustomPricingEmbRouterParams.{field} is not in "
                 "_BANNED_REQUEST_BODY_PARAMS — clients can poison the global "
                 "model cost registry by supplying it in the request body."
             )
@@ -3566,7 +3566,7 @@ class TestIsRequestBodySafeBlocksModelList:
                 request_body={
                     "model": "gpt-4",
                     "messages": [{"role": "user", "content": "hi"}],
-                    "model_list": [{"model_name": "x", "litellm_params": {}}],
+                    "model_list": [{"model_name": "x", "embrouter_params": {}}],
                 },
                 general_settings={},
                 llm_router=None,
@@ -3619,7 +3619,7 @@ class TestIsRequestBodySafeChecksBracketNotationMetadata:
     """Bracket notation is how multipart callers express nested metadata; it is
     validated the same way the dict form is."""
 
-    @pytest.mark.parametrize("metadata_key", ["metadata", "litellm_metadata"])
+    @pytest.mark.parametrize("metadata_key", ["metadata", "embrouter_metadata"])
     def test_bracket_notation_banned_param_is_rejected(self, metadata_key):
         with pytest.raises(ValueError, match="langfuse_host"):
             is_request_body_safe(
@@ -3635,7 +3635,7 @@ class TestIsRequestBodySafeChecksBracketNotationMetadata:
     def test_bracket_notation_api_base_is_rejected(self):
         with pytest.raises(ValueError, match="api_base"):
             is_request_body_safe(
-                request_body={"litellm_metadata[api_base]": "https://example.invalid"},
+                request_body={"embrouter_metadata[api_base]": "https://example.invalid"},
                 general_settings={},
                 llm_router=None,
                 model="gpt-4",
@@ -3644,7 +3644,7 @@ class TestIsRequestBodySafeChecksBracketNotationMetadata:
     def test_bracket_notation_allowed_under_proxy_wide_opt_in(self):
         assert (
             is_request_body_safe(
-                request_body={"litellm_metadata[langfuse_host]": "https://byok.example"},
+                request_body={"embrouter_metadata[langfuse_host]": "https://byok.example"},
                 general_settings={"allow_client_side_credentials": True},
                 llm_router=None,
                 model="gpt-4",
@@ -3657,8 +3657,8 @@ class TestIsRequestBodySafeChecksBracketNotationMetadata:
             is_request_body_safe(
                 request_body={
                     "purpose": "assistants",
-                    "litellm_metadata[spend_logs_metadata][owner]": "john",
-                    "litellm_metadata[tags]": "production",
+                    "embrouter_metadata[spend_logs_metadata][owner]": "john",
+                    "embrouter_metadata[tags]": "production",
                 },
                 general_settings={},
                 llm_router=None,
@@ -3671,10 +3671,10 @@ class TestIsRequestBodySafeChecksBracketNotationMetadata:
         """A value nested below the first level is treated the same either way:
         the check descends one level into metadata, for both encodings."""
         deep_bracket = {
-            "litellm_metadata[spend_logs_metadata][langfuse_host]": "https://example.invalid"
+            "embrouter_metadata[spend_logs_metadata][langfuse_host]": "https://example.invalid"
         }
         deep_json = {
-            "litellm_metadata": {"spend_logs_metadata": {"langfuse_host": "https://example.invalid"}}
+            "embrouter_metadata": {"spend_logs_metadata": {"langfuse_host": "https://example.invalid"}}
         }
         kwargs = dict(general_settings={}, llm_router=None, model="gpt-4")
         assert is_request_body_safe(request_body=deep_bracket, **kwargs) is True
@@ -3711,18 +3711,18 @@ class TestHasUserSetupSso:
             monkeypatch.delenv(key, raising=False)
 
     def test_false_when_no_sso_env(self):
-        from litellm.proxy.auth.auth_utils import has_user_setup_sso
+        from embrouter.proxy.auth.auth_utils import has_user_setup_sso
 
         assert has_user_setup_sso() is False
 
     def test_true_for_oauth_client_ids(self, monkeypatch):
-        from litellm.proxy.auth.auth_utils import has_user_setup_sso
+        from embrouter.proxy.auth.auth_utils import has_user_setup_sso
 
         monkeypatch.setenv("GOOGLE_CLIENT_ID", "google-client")
         assert has_user_setup_sso() is True
 
     def test_true_for_saml_metadata_url(self, monkeypatch):
-        from litellm.proxy.auth.auth_utils import has_user_setup_sso
+        from embrouter.proxy.auth.auth_utils import has_user_setup_sso
 
         monkeypatch.setenv(
             "SAML_IDP_METADATA_URL", "https://idp.example.com/metadata.xml"
@@ -3730,7 +3730,7 @@ class TestHasUserSetupSso:
         assert has_user_setup_sso() is True
 
     def test_true_for_saml_metadata_xml(self, monkeypatch):
-        from litellm.proxy.auth.auth_utils import has_user_setup_sso
+        from embrouter.proxy.auth.auth_utils import has_user_setup_sso
 
         monkeypatch.setenv("SAML_IDP_METADATA_XML", "<EntityDescriptor/>")
         assert has_user_setup_sso() is True
@@ -3762,38 +3762,38 @@ class TestIsSsoProviderFullyConfigured:
             monkeypatch.delenv(key, raising=False)
 
     def test_false_when_nothing_configured(self):
-        from litellm.proxy.auth.auth_utils import is_sso_provider_fully_configured
+        from embrouter.proxy.auth.auth_utils import is_sso_provider_fully_configured
 
         assert is_sso_provider_fully_configured() is False
 
     def test_google_client_id_alone_is_not_ready(self, monkeypatch):
-        from litellm.proxy.auth.auth_utils import is_sso_provider_fully_configured
+        from embrouter.proxy.auth.auth_utils import is_sso_provider_fully_configured
 
         monkeypatch.setenv("GOOGLE_CLIENT_ID", "google-client")
         assert is_sso_provider_fully_configured() is False
 
     def test_google_with_secret_is_ready(self, monkeypatch):
-        from litellm.proxy.auth.auth_utils import is_sso_provider_fully_configured
+        from embrouter.proxy.auth.auth_utils import is_sso_provider_fully_configured
 
         monkeypatch.setenv("GOOGLE_CLIENT_ID", "google-client")
         monkeypatch.setenv("GOOGLE_CLIENT_SECRET", "google-secret")
         assert is_sso_provider_fully_configured() is True
 
     def test_microsoft_client_id_alone_is_not_ready(self, monkeypatch):
-        from litellm.proxy.auth.auth_utils import is_sso_provider_fully_configured
+        from embrouter.proxy.auth.auth_utils import is_sso_provider_fully_configured
 
         monkeypatch.setenv("MICROSOFT_CLIENT_ID", "ms-client")
         assert is_sso_provider_fully_configured() is False
 
     def test_microsoft_missing_tenant_is_not_ready(self, monkeypatch):
-        from litellm.proxy.auth.auth_utils import is_sso_provider_fully_configured
+        from embrouter.proxy.auth.auth_utils import is_sso_provider_fully_configured
 
         monkeypatch.setenv("MICROSOFT_CLIENT_ID", "ms-client")
         monkeypatch.setenv("MICROSOFT_CLIENT_SECRET", "ms-secret")
         assert is_sso_provider_fully_configured() is False
 
     def test_microsoft_with_secret_and_tenant_is_ready(self, monkeypatch):
-        from litellm.proxy.auth.auth_utils import is_sso_provider_fully_configured
+        from embrouter.proxy.auth.auth_utils import is_sso_provider_fully_configured
 
         monkeypatch.setenv("MICROSOFT_CLIENT_ID", "ms-client")
         monkeypatch.setenv("MICROSOFT_CLIENT_SECRET", "ms-secret")
@@ -3801,13 +3801,13 @@ class TestIsSsoProviderFullyConfigured:
         assert is_sso_provider_fully_configured() is True
 
     def test_generic_client_id_alone_is_not_ready(self, monkeypatch):
-        from litellm.proxy.auth.auth_utils import is_sso_provider_fully_configured
+        from embrouter.proxy.auth.auth_utils import is_sso_provider_fully_configured
 
         monkeypatch.setenv("GENERIC_CLIENT_ID", "generic-client")
         assert is_sso_provider_fully_configured() is False
 
     def test_generic_missing_one_endpoint_is_not_ready(self, monkeypatch):
-        from litellm.proxy.auth.auth_utils import is_sso_provider_fully_configured
+        from embrouter.proxy.auth.auth_utils import is_sso_provider_fully_configured
 
         monkeypatch.setenv("GENERIC_CLIENT_ID", "generic-client")
         monkeypatch.setenv("GENERIC_CLIENT_SECRET", "generic-secret")
@@ -3817,7 +3817,7 @@ class TestIsSsoProviderFullyConfigured:
         assert is_sso_provider_fully_configured() is False
 
     def test_generic_with_every_endpoint_is_ready(self, monkeypatch):
-        from litellm.proxy.auth.auth_utils import is_sso_provider_fully_configured
+        from embrouter.proxy.auth.auth_utils import is_sso_provider_fully_configured
 
         monkeypatch.setenv("GENERIC_CLIENT_ID", "generic-client")
         monkeypatch.setenv("GENERIC_CLIENT_SECRET", "generic-secret")
@@ -3827,7 +3827,7 @@ class TestIsSsoProviderFullyConfigured:
         assert is_sso_provider_fully_configured() is True
 
     def test_saml_metadata_url_is_ready_when_runtime_installed(self, monkeypatch):
-        from litellm.proxy.auth import auth_utils
+        from embrouter.proxy.auth import auth_utils
 
         monkeypatch.setenv("SAML_IDP_METADATA_URL", "https://idp.example.com/metadata.xml")
         monkeypatch.setattr(auth_utils.importlib.util, "find_spec", lambda name: object())
@@ -3837,7 +3837,7 @@ class TestIsSsoProviderFullyConfigured:
         """Regression: python3-saml (``onelogin.saml2``) is an optional
         dependency; SAMLAuthHandler fails closed on every request when it is
         not installed, so IdP metadata alone must not read as ready."""
-        from litellm.proxy.auth import auth_utils
+        from embrouter.proxy.auth import auth_utils
 
         monkeypatch.setenv("SAML_IDP_METADATA_URL", "https://idp.example.com/metadata.xml")
         monkeypatch.setattr(auth_utils.importlib.util, "find_spec", lambda name: None)
@@ -3851,7 +3851,7 @@ class TestIsSsoProviderFullyConfigured:
         gate does not catch this, every password login 500s instead of
         falling back, on a deployment that configured SAML metadata but
         skipped the extra."""
-        from litellm.proxy.auth import auth_utils
+        from embrouter.proxy.auth import auth_utils
 
         def _raise(name: str):
             raise ModuleNotFoundError("No module named 'onelogin'")
@@ -3865,7 +3865,7 @@ class TestIsSsoProviderFullyConfigured:
         leftover from a migration) must not stop the check from reaching a
         fully configured Microsoft provider set alongside it — every
         provider is evaluated independently, not in a first-match order."""
-        from litellm.proxy.auth.auth_utils import is_sso_provider_fully_configured
+        from embrouter.proxy.auth.auth_utils import is_sso_provider_fully_configured
 
         monkeypatch.setenv("GOOGLE_CLIENT_ID", "google-client")
         monkeypatch.setenv("MICROSOFT_CLIENT_ID", "ms-client")

@@ -5,12 +5,12 @@ from types import MappingProxyType
 from typing import Any, Final, cast
 from urllib.parse import quote, unquote
 
-from litellm._uuid import uuid
+from embrouter._uuid import uuid
 
-VERTEX_AI_MANAGED_GCS_PREFIX: Final = "litellm-vertex-files/"
-BEDROCK_MANAGED_S3_BATCH_PREFIX: Final = "litellm-bedrock-files-"
-BEDROCK_MANAGED_S3_UPLOAD_PREFIX: Final = "litellm-bedrock-files/"
-BEDROCK_MANAGED_S3_OUTPUT_PREFIX: Final = "litellm-batch-outputs/"
+VERTEX_AI_MANAGED_GCS_PREFIX: Final = "embrouter-vertex-files/"
+BEDROCK_MANAGED_S3_BATCH_PREFIX: Final = "embrouter-bedrock-files-"
+BEDROCK_MANAGED_S3_UPLOAD_PREFIX: Final = "embrouter-bedrock-files/"
+BEDROCK_MANAGED_S3_OUTPUT_PREFIX: Final = "embrouter-batch-outputs/"
 BEDROCK_MANAGED_S3_PREFIXES: Final = (
     BEDROCK_MANAGED_S3_BATCH_PREFIX,
     BEDROCK_MANAGED_S3_UPLOAD_PREFIX,
@@ -116,11 +116,11 @@ def encode_s3_object_key_for_url(object_key: str) -> str:
 
 
 def should_allow_legacy_cloud_file_ids(
-    litellm_params: Mapping[str, Any] | None = None,
+    embrouter_params: Mapping[str, Any] | None = None,
 ) -> bool:
     value = None
-    if isinstance(litellm_params, Mapping):
-        trusted_model_credentials: Final = litellm_params.get("_litellm_internal_model_credentials")
+    if isinstance(embrouter_params, Mapping):
+        trusted_model_credentials: Final = embrouter_params.get("_embrouter_internal_model_credentials")
         if isinstance(trusted_model_credentials, _MAPPING_PROXY_TYPE):
             value = cast(Mapping[str, Any], trusted_model_credentials).get("allow_legacy_cloud_file_ids")
 
@@ -164,4 +164,4 @@ def validate_managed_cloud_file_id(
             raise ValueError("file_id object does not match the configured storage prefix")
         return bucket_name, object_name
 
-    raise ValueError("file_id must reference a LiteLLM-managed storage object")
+    raise ValueError("file_id must reference a EmbRouter-managed storage object")

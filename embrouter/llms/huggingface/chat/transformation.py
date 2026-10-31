@@ -4,16 +4,16 @@ from typing import TYPE_CHECKING, Any, Final
 
 import httpx
 
-from litellm.types.llms.openai import AllMessageValues, ChatCompletionRequest
+from embrouter.types.llms.openai import AllMessageValues, ChatCompletionRequest
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
 
-    LoggingClass = LiteLLMLoggingObj
+    LoggingClass = EmbRouterLoggingObj
 else:
     LoggingClass = Any
 
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
 
 from ...openai.chat.gpt_transformation import OpenAIGPTConfig
 from ..common_utils import HuggingFaceError, _fetch_inference_provider_mapping
@@ -49,7 +49,7 @@ class HuggingFaceChatConfig(OpenAIGPTConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
@@ -84,7 +84,7 @@ class HuggingFaceChatConfig(OpenAIGPTConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         """
@@ -125,10 +125,10 @@ class HuggingFaceChatConfig(OpenAIGPTConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
-        if litellm_params.get("api_base"):
+        if embrouter_params.get("api_base"):
             return dict(ChatCompletionRequest(model=model, messages=messages, **optional_params))
         if "max_retries" in optional_params:
             logger.warning("`max_retries` is not supported. It will be ignored.")

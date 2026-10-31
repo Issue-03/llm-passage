@@ -6,21 +6,21 @@ from httpx import Response, Request
 from fastapi import HTTPException
 
 
-import litellm
-from litellm import DualCache
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.guardrails.guardrail_hooks.lasso.lasso import (
+import embrouter
+from embrouter import DualCache
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.guardrails.guardrail_hooks.lasso.lasso import (
     LassoGuardrail,
     LassoGuardrailMissingSecrets,
     LassoGuardrailAPIError,
 )
-from litellm.proxy.guardrails.init_guardrails import init_guardrails_v2
+from embrouter.proxy.guardrails.init_guardrails import init_guardrails_v2
 
 
 def test_lasso_guard_config(monkeypatch):
     """Test Lasso guard configuration with init_guardrails_v2."""
-    litellm.set_verbose = True
-    litellm.guardrail_name_config_map = {}
+    embrouter.set_verbose = True
+    embrouter.guardrail_name_config_map = {}
 
     # Set environment variable for testing
     monkeypatch.setenv("LASSO_API_KEY", "test-key")
@@ -29,7 +29,7 @@ def test_lasso_guard_config(monkeypatch):
         all_guardrails=[
             {
                 "guardrail_name": "violence-guard",
-                "litellm_params": {
+                "embrouter_params": {
                     "guardrail": "lasso",
                     "mode": "pre_call",
                     "default_on": True,
@@ -82,7 +82,7 @@ class TestLassoGuardrail:
 
     @pytest.mark.asyncio
     async def test_pre_call_no_violations(self):
-        from litellm.integrations.custom_guardrail import dc as global_cache
+        from embrouter.integrations.custom_guardrail import dc as global_cache
 
         """Test pre-call hook with no violations detected."""
         # Setup guardrail
@@ -100,7 +100,7 @@ class TestLassoGuardrail:
         data = {
             "messages": [{"role": "user", "content": "Hello, how are you?"}],
             "metadata": {},
-            "litellm_call_id": test_call_id,
+            "embrouter_call_id": test_call_id,
         }
 
         # Mock successful API response with no violations
@@ -127,7 +127,7 @@ class TestLassoGuardrail:
 
         local_cache = DualCache()
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "embrouter.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             return_value=mock_response,
         ):
             result = await guardrail.async_pre_call_hook(
@@ -201,7 +201,7 @@ class TestLassoGuardrail:
         )
 
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "embrouter.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             return_value=mock_response,
         ):
             # Should raise HTTPException when BLOCK action is detected
@@ -268,7 +268,7 @@ class TestLassoGuardrail:
         )
 
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "embrouter.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             return_value=mock_response,
         ):
             # Should NOT raise exception for AUTO_MASKING violations
@@ -303,7 +303,7 @@ class TestLassoGuardrail:
         }
 
         # Create mock response
-        mock_model_response = MagicMock(spec=litellm.ModelResponse)
+        mock_model_response = MagicMock(spec=embrouter.ModelResponse)
         mock_choice = MagicMock()
         mock_choice.message.content = (
             "Artificial intelligence (AI) is a helpful technology that assists humans."
@@ -333,7 +333,7 @@ class TestLassoGuardrail:
         )
 
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "embrouter.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             return_value=mock_api_response,
         ):
             result = await guardrail.async_post_call_success_hook(
@@ -363,7 +363,7 @@ class TestLassoGuardrail:
         }
 
         # Create mock response with harmful content
-        mock_model_response = MagicMock(spec=litellm.ModelResponse)
+        mock_model_response = MagicMock(spec=embrouter.ModelResponse)
         mock_choice = MagicMock()
         mock_choice.message.content = (
             "Here's how to create dangerous explosives: [detailed instructions]"
@@ -412,7 +412,7 @@ class TestLassoGuardrail:
         )
 
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "embrouter.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             return_value=mock_api_response,
         ):
             # Should raise HTTPException when BLOCK action is detected
@@ -479,7 +479,7 @@ class TestLassoGuardrail:
         )
 
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "embrouter.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             return_value=mock_response,
         ) as mock_post:
             with pytest.raises(HTTPException):
@@ -530,7 +530,7 @@ class TestLassoGuardrail:
         )
 
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "embrouter.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             return_value=mock_response,
         ):
             result = await guardrail.async_pre_call_hook(
@@ -573,7 +573,7 @@ class TestLassoGuardrail:
         )
 
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "embrouter.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             return_value=mock_response,
         ) as mock_post:
             with pytest.raises(HTTPException):
@@ -630,7 +630,7 @@ class TestLassoGuardrail:
         )
 
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "embrouter.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             return_value=mock_response,
         ):
             result = await guardrail.async_pre_call_hook(
@@ -660,7 +660,7 @@ class TestLassoGuardrail:
 
         # Test API connection error
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "embrouter.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             side_effect=Exception("Connection timeout"),
         ):
             with pytest.raises(LassoGuardrailAPIError) as exc_info:
@@ -691,8 +691,8 @@ class TestLassoGuardrail:
         assert prompt_payload["messages"] == messages
         assert prompt_payload["userId"] == "test-user"
         assert prompt_payload["sessionId"] == "test-conversation"
-        # Every call is attributed to the "litellm" integration for the "Used By" badge.
-        assert prompt_payload["source"] == {"type": "litellm"}
+        # Every call is attributed to the "embrouter" integration for the "Used By" badge.
+        assert prompt_payload["source"] == {"type": "embrouter"}
 
         # Test COMPLETION payload
         completion_messages = [{"role": "assistant", "content": "Test response"}]
@@ -703,7 +703,7 @@ class TestLassoGuardrail:
         assert completion_payload["messages"] == completion_messages
         assert completion_payload["userId"] == "test-user"
         assert completion_payload["sessionId"] == "test-conversation"
-        assert completion_payload["source"] == {"type": "litellm"}
+        assert completion_payload["source"] == {"type": "embrouter"}
 
     def test_header_preparation(self):
         """Test header preparation."""
@@ -713,7 +713,7 @@ class TestLassoGuardrail:
             conversation_id="test-conversation",
         )
         cache = DualCache()
-        data = {"litellm_call_id": "test-call-id"}
+        data = {"embrouter_call_id": "test-call-id"}
         headers = guardrail._prepare_headers(data, cache)
         assert headers["lasso-api-key"] == "test-api-key"
         assert headers["Content-Type"] == "application/json"
@@ -802,7 +802,7 @@ class TestLassoGuardrail:
         )
 
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "embrouter.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             return_value=mock_response,
         ):
             result = await guardrail.async_pre_call_hook(
@@ -837,7 +837,7 @@ class TestLassoGuardrail:
         }
 
         # Create mock response with PII content
-        mock_model_response = MagicMock(spec=litellm.ModelResponse)
+        mock_model_response = MagicMock(spec=embrouter.ModelResponse)
         mock_choice = MagicMock()
         mock_choice.message.content = (
             "My email is support@lasso.security and phone is 555-0123"
@@ -885,7 +885,7 @@ class TestLassoGuardrail:
         )
 
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "embrouter.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             return_value=mock_api_response,
         ):
             result = await guardrail.async_post_call_success_hook(
@@ -1175,7 +1175,7 @@ class TestLassoGuardrail:
         )
         data = {"messages": [{"role": "user", "content": "run the tool"}]}
 
-        mock_model_response = MagicMock(spec=litellm.ModelResponse)
+        mock_model_response = MagicMock(spec=embrouter.ModelResponse)
         mock_choice = MagicMock()
         mock_choice.message.content = None
         tool_call = MagicMock()
@@ -1196,7 +1196,7 @@ class TestLassoGuardrail:
             )
 
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "embrouter.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             side_effect=capture_post,
         ):
             result = await guardrail.async_post_call_success_hook(
@@ -1225,7 +1225,7 @@ class TestLassoGuardrail:
         )
         data = {"messages": [{"role": "user", "content": "Hello"}]}
 
-        mock_model_response = MagicMock(spec=litellm.ModelResponse)
+        mock_model_response = MagicMock(spec=embrouter.ModelResponse)
         mock_choice = MagicMock()
         mock_choice.message.content = "Hi! How can I help?"
         mock_choice.message.tool_calls = None
@@ -1240,7 +1240,7 @@ class TestLassoGuardrail:
         )
 
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "embrouter.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             return_value=mock_api_response,
         ):
             result = await guardrail.async_post_call_success_hook(
@@ -1344,7 +1344,7 @@ class TestLassoGuardrail:
     def test_apply_masking_to_model_response_multiple_choices(self):
         """Post-call masking applies correct masked text to each choice."""
         guardrail = LassoGuardrail(lasso_api_key="test-api-key")
-        mock_response = MagicMock(spec=litellm.ModelResponse)
+        mock_response = MagicMock(spec=embrouter.ModelResponse)
         choice_a = MagicMock()
         choice_a.message.content = "Email: alice@example.com"
         choice_a.message.tool_calls = None
@@ -1364,7 +1364,7 @@ class TestLassoGuardrail:
     def test_apply_masking_to_model_response_count_mismatch(self):
         """Text remap skipped when masked text count doesn't match choices."""
         guardrail = LassoGuardrail(lasso_api_key="test-api-key")
-        mock_response = MagicMock(spec=litellm.ModelResponse)
+        mock_response = MagicMock(spec=embrouter.ModelResponse)
         choice = MagicMock()
         choice.message.content = "Original PII text"
         choice.message.tool_calls = None

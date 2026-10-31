@@ -12,11 +12,11 @@ from datetime import date, datetime, time, timezone
 from types import MappingProxyType
 from typing import Final
 
-from litellm.secret_managers.main import get_secret_bool
-from litellm.types.router import ModelInfo
-from litellm.types.utils import AzureSpillover, CustomPricingLiteLLMParams, MirroredPricingParams
+from embrouter.secret_managers.main import get_secret_bool
+from embrouter.types.router import ModelInfo
+from embrouter.types.utils import AzureSpillover, CustomPricingEmbRouterParams, MirroredPricingParams
 
-PTU_COST_ATTRIBUTION_ENV_VAR: Final = "LITELLM_ENABLE_PTU_COST_ATTRIBUTION"
+PTU_COST_ATTRIBUTION_ENV_VAR: Final = "EMBROUTER_ENABLE_PTU_COST_ATTRIBUTION"
 AZURE_SPILLOVER_HEADER: Final = "x-ms-is-spilled-over"
 AZURE_SPILLOVER_FROM_HEADER: Final = "x-ms-spillover-from-deployment"
 
@@ -41,10 +41,10 @@ PTU_EMPTIED_PRICING_FIELDS: Final = frozenset(("tiered_pricing",))
 # and written on every PTU deployment rather than only where a table is already stored.
 PTU_ZEROED_TABLE_FIELDS: Final = frozenset(("search_context_cost_per_query",))
 SEARCH_CONTEXT_SIZES: Final = ("search_context_size_low", "search_context_size_medium", "search_context_size_high")
-# Rate fields only. CustomPricingLiteLLMParams also carries settings that are not charges,
+# Rate fields only. CustomPricingEmbRouterParams also carries settings that are not charges,
 # and zeroing one of those would destroy the deployment's configuration rather than stop a
 # charge.
-CUSTOM_PRICING_FIELDS: Final = frozenset(f for f in CustomPricingLiteLLMParams.model_fields if "cost" in f)
+CUSTOM_PRICING_FIELDS: Final = frozenset(f for f in CustomPricingEmbRouterParams.model_fields if "cost" in f)
 PTU_ZEROED_PRICING: Final[Mapping[str, float | tuple[()] | Mapping[str, float]]] = MappingProxyType(
     {
         **dict.fromkeys(PTU_ZEROED_PRICING_FIELDS, 0.0),
@@ -101,7 +101,7 @@ def ptu_identity_error(
     """Why this config-declared reservation cannot be identified, else None.
 
     A deployment declared in config.yaml is otherwise keyed by a hash of its resolved
-    ``litellm_params``, so rotating a credential or editing an endpoint mints a second
+    ``embrouter_params``, so rotating a credential or editing an endpoint mints a second
     identity and the reservation is charged again under it. The flat cost is keyed by that
     id, and a charge already written is never retracted, so the duplicate is permanent.
 
@@ -112,7 +112,7 @@ def ptu_identity_error(
     if not declared_id:
         return _named(
             "model_info.id is required when PTU fields are set. Without one the deployment is "
-            "identified by a hash of its litellm_params, so rotating a credential bills the "
+            "identified by a hash of its embrouter_params, so rotating a credential bills the "
             "reservation a second time under the new identity. Set it to the id this deployment "
             f"already uses, {current_id or 'shown by GET /model/info'}, so the flat cost already "
             "written stays under one identity; any other value starts a second one",

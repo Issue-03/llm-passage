@@ -2,49 +2,49 @@
 Pass-Through Endpoint Message Handler for Unified Guardrails
 
 This module provides a handler for passthrough endpoint requests.
-It uses the field targeting configuration from litellm_logging_obj
+It uses the field targeting configuration from embrouter_logging_obj
 to extract specific fields for guardrail processing.
 """
 
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, Final, Optional
 
-from litellm._logging import verbose_proxy_logger
-from litellm.llms.base_llm.guardrail_translation.base_translation import BaseTranslation
-from litellm.proxy._types import PassThroughGuardrailSettings
-from litellm.types.utils import GenericGuardrailAPIInputs
+from embrouter._logging import verbose_proxy_logger
+from embrouter.llms.base_llm.guardrail_translation.base_translation import BaseTranslation
+from embrouter.proxy._types import PassThroughGuardrailSettings
+from embrouter.types.utils import GenericGuardrailAPIInputs
 
 if TYPE_CHECKING:
-    from litellm.integrations.custom_guardrail import CustomGuardrail
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.utils import ProxyLogging
+    from embrouter.integrations.custom_guardrail import CustomGuardrail
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy.utils import ProxyLogging
 
 
 class PassThroughEndpointHandler(BaseTranslation):
     """
     Handler for processing passthrough endpoint requests with guardrails.
 
-    Uses passthrough_guardrails_config from litellm_logging_obj
+    Uses passthrough_guardrails_config from embrouter_logging_obj
     to determine which fields to extract for guardrail processing.
     """
 
     def _get_guardrail_settings(
         self,
-        litellm_logging_obj: Optional["LiteLLMLoggingObj"],
+        embrouter_logging_obj: Optional["EmbRouterLoggingObj"],
         guardrail_name: str | None,
     ) -> PassThroughGuardrailSettings | None:
         """
         Get the guardrail settings for a specific guardrail from logging_obj.
         """
-        from litellm.proxy.pass_through_endpoints.passthrough_guardrails import (
+        from embrouter.proxy.pass_through_endpoints.passthrough_guardrails import (
             PassthroughGuardrailHandler,
         )
 
-        if litellm_logging_obj is None:
+        if embrouter_logging_obj is None:
             return None
 
-        passthrough_config: Final = getattr(litellm_logging_obj, "passthrough_guardrails_config", None)
+        passthrough_config: Final = getattr(embrouter_logging_obj, "passthrough_guardrails_config", None)
         if not passthrough_config or not guardrail_name:
             return None
 
@@ -61,7 +61,7 @@ class PassThroughEndpointHandler(BaseTranslation):
         If field_expressions provided, extracts only those fields.
         Otherwise, returns the full payload as JSON.
         """
-        from litellm.proxy.pass_through_endpoints.jsonpath_extractor import (
+        from embrouter.proxy.pass_through_endpoints.jsonpath_extractor import (
             JsonPathExtractor,
         )
 
@@ -77,10 +77,10 @@ class PassThroughEndpointHandler(BaseTranslation):
             return text
 
         # Use entire payload, excluding internal fields
-        from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
+        from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps
 
         payload_to_check: Final = {
-            k: v for k, v in data.items() if not k.startswith("_") and k not in ("metadata", "litellm_logging_obj")
+            k: v for k, v in data.items() if not k.startswith("_") and k not in ("metadata", "embrouter_logging_obj")
         }
         verbose_proxy_logger.debug("PassThroughEndpointHandler: Using full payload for guardrail")
         return safe_dumps(payload_to_check)
@@ -89,7 +89,7 @@ class PassThroughEndpointHandler(BaseTranslation):
         self,
         data: dict,
         guardrail_to_apply: "CustomGuardrail",
-        litellm_logging_obj: Optional["LiteLLMLoggingObj"] = None,
+        embrouter_logging_obj: Optional["EmbRouterLoggingObj"] = None,
     ) -> Mapping[str, object]:
         """
         Process input by applying guardrails to targeted fields or full payload.
@@ -101,7 +101,7 @@ class PassThroughEndpointHandler(BaseTranslation):
         )
 
         # Get field targeting settings for this guardrail
-        settings: Final = self._get_guardrail_settings(litellm_logging_obj, guardrail_name)
+        settings: Final = self._get_guardrail_settings(embrouter_logging_obj, guardrail_name)
         field_expressions: Final = settings.request_fields if settings else None
 
         # Extract text to check
@@ -121,7 +121,7 @@ class PassThroughEndpointHandler(BaseTranslation):
             inputs=inputs,
             request_data=data,
             input_type="request",
-            logging_obj=litellm_logging_obj,
+            logging_obj=embrouter_logging_obj,
         )
 
         return data
@@ -130,7 +130,7 @@ class PassThroughEndpointHandler(BaseTranslation):
         self,
         response: object,
         guardrail_to_apply: "CustomGuardrail",
-        litellm_logging_obj: Optional["LiteLLMLoggingObj"] = None,
+        embrouter_logging_obj: Optional["EmbRouterLoggingObj"] = None,
         user_api_key_dict: Optional["UserAPIKeyAuth"] = None,
         request_data: dict | None = None,
     ) -> object:
@@ -140,7 +140,7 @@ class PassThroughEndpointHandler(BaseTranslation):
         Args:
             response: The response to process
             guardrail_to_apply: The guardrail instance to apply
-            litellm_logging_obj: Optional logging object
+            embrouter_logging_obj: Optional logging object
             user_api_key_dict: User API key metadata to pass to guardrails
         """
         if not isinstance(response, dict):
@@ -154,7 +154,7 @@ class PassThroughEndpointHandler(BaseTranslation):
         )
 
         # Get field targeting settings for this guardrail
-        settings: Final = self._get_guardrail_settings(litellm_logging_obj, guardrail_name)
+        settings: Final = self._get_guardrail_settings(embrouter_logging_obj, guardrail_name)
         field_expressions: Final = settings.response_fields if settings else None
 
         # Extract text to check
@@ -172,10 +172,10 @@ class PassThroughEndpointHandler(BaseTranslation):
                 request_data["response"] = response if not isinstance(response, dict) else response.copy()
 
         # Add user API key metadata with prefixed keys
-        if "litellm_metadata" not in request_data:
+        if "embrouter_metadata" not in request_data:
             user_metadata: Final = self.transform_user_api_key_dict_to_metadata(user_api_key_dict)
             if user_metadata:
-                request_data["litellm_metadata"] = user_metadata
+                request_data["embrouter_metadata"] = user_metadata
 
         # Apply guardrail (pass-through doesn't modify the text, just checks it)
         inputs: Final = GenericGuardrailAPIInputs(texts=[text_to_check])
@@ -187,7 +187,7 @@ class PassThroughEndpointHandler(BaseTranslation):
             inputs=inputs,
             request_data=request_data,
             input_type="response",
-            logging_obj=litellm_logging_obj,
+            logging_obj=embrouter_logging_obj,
         )
 
         return response
@@ -199,7 +199,7 @@ _PROVIDER_HANDLERS: dict[str, type[BaseTranslation]] = {}
 def _get_provider_handlers() -> dict[str, type[BaseTranslation]]:
     global _PROVIDER_HANDLERS
     if not _PROVIDER_HANDLERS:
-        from litellm.llms.bedrock.passthrough.guardrail_translation.handler import (
+        from embrouter.llms.bedrock.passthrough.guardrail_translation.handler import (
             BedrockPassthroughGuardrailHandler,
         )
 
@@ -219,7 +219,7 @@ class LlmPassthroughRouteHandler(BaseTranslation):
         self,
         data: dict,
         guardrail_to_apply: "CustomGuardrail",
-        litellm_logging_obj: Optional["LiteLLMLoggingObj"] = None,
+        embrouter_logging_obj: Optional["EmbRouterLoggingObj"] = None,
     ) -> Any:
         provider: Final = data.get("custom_llm_provider")
         handler_cls: Final = _get_provider_handlers().get(provider or "")
@@ -232,14 +232,14 @@ class LlmPassthroughRouteHandler(BaseTranslation):
         return await handler_cls().process_input_messages(
             data=data,
             guardrail_to_apply=guardrail_to_apply,
-            litellm_logging_obj=litellm_logging_obj,
+            embrouter_logging_obj=embrouter_logging_obj,
         )
 
     async def process_output_response(
         self,
         response: object,
         guardrail_to_apply: "CustomGuardrail",
-        litellm_logging_obj: Optional["LiteLLMLoggingObj"] = None,
+        embrouter_logging_obj: Optional["EmbRouterLoggingObj"] = None,
         user_api_key_dict: Optional["UserAPIKeyAuth"] = None,
         request_data: dict | None = None,
     ) -> object:
@@ -254,7 +254,7 @@ class LlmPassthroughRouteHandler(BaseTranslation):
         return await handler_cls().process_output_response(
             response=response,
             guardrail_to_apply=guardrail_to_apply,
-            litellm_logging_obj=litellm_logging_obj,
+            embrouter_logging_obj=embrouter_logging_obj,
             user_api_key_dict=user_api_key_dict,
             request_data=request_data,
         )

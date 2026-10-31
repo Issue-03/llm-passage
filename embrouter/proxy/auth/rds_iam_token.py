@@ -14,10 +14,10 @@ def init_rds_client(
     aws_web_identity_token: str | None = None,
     timeout: float | httpx.Timeout | None = None,
 ):
-    from litellm.secret_managers.main import get_secret
+    from embrouter.secret_managers.main import get_secret
 
     # check for custom AWS_REGION_NAME and use it if not passed to init_bedrock_client
-    litellm_aws_region_name: Final = get_secret("AWS_REGION_NAME", None)
+    embrouter_aws_region_name: Final = get_secret("AWS_REGION_NAME", None)
     standard_aws_region_name: Final = get_secret("AWS_REGION", None)
     ## CHECK IS  'os.environ/' passed in
     # Define the list of parameters to check
@@ -50,8 +50,8 @@ def init_rds_client(
     region_name = aws_region_name
     if aws_region_name:
         region_name = aws_region_name
-    elif litellm_aws_region_name:
-        region_name = litellm_aws_region_name
+    elif embrouter_aws_region_name:
+        region_name = embrouter_aws_region_name
     elif standard_aws_region_name:
         region_name = standard_aws_region_name
     else:
@@ -120,7 +120,7 @@ def init_rds_client(
         )
     elif aws_access_key_id is not None:
         # uses auth params passed to completion
-        # aws_access_key_id is not None, assume user is trying to auth using litellm.completion
+        # aws_access_key_id is not None, assume user is trying to auth using embrouter.completion
 
         client = boto3.client(
             service_name="rds",

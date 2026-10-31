@@ -16,7 +16,7 @@ import { copyToClipboard, formatPerSecondCost } from "@/utils/dataUtils";
 
 export const MODEL_ID_COLUMN_ID = "model_info_id";
 export const MODEL_NAME_COLUMN_ID = "model_name";
-export const CREDENTIALS_COLUMN_ID = "litellm_credential_name";
+export const CREDENTIALS_COLUMN_ID = "embrouter_credential_name";
 export const CREATED_BY_COLUMN_ID = "model_info_created_by";
 export const UPDATED_AT_COLUMN_ID = "model_info_updated_at";
 export const COSTS_COLUMN_ID = "input_cost";
@@ -55,7 +55,7 @@ const formatShortDate = (value: string | null | undefined): string | null => {
 };
 
 function ModelInformationCell({ model, displayName }: { model: ModelData; displayName: string }) {
-  const litellmModelName = model.litellm_model_name || "-";
+  const embrouterModelName = model.embrouter_model_name || "-";
 
   return (
     <HoverCard>
@@ -75,8 +75,8 @@ function ModelInformationCell({ model, displayName }: { model: ModelData; displa
           <span className="max-w-60 truncate text-sm font-medium text-foreground" title={displayName}>
             {displayName}
           </span>
-          <span className="max-w-60 truncate font-mono text-xs text-muted-foreground" title={litellmModelName}>
-            {litellmModelName}
+          <span className="max-w-60 truncate font-mono text-xs text-muted-foreground" title={embrouterModelName}>
+            {embrouterModelName}
           </span>
         </span>
       </HoverCardTrigger>
@@ -95,15 +95,15 @@ function ModelInformationCell({ model, displayName }: { model: ModelData; displa
           <div className="flex flex-col gap-0.5">
             <span className="text-xs text-muted-foreground">EmbRouter Model Name</span>
             <span className="flex min-w-0 items-center gap-1.5">
-              <span className="truncate font-mono text-sm text-foreground" title={litellmModelName}>
-                {litellmModelName}
+              <span className="truncate font-mono text-sm text-foreground" title={embrouterModelName}>
+                {embrouterModelName}
               </span>
               <button
                 type="button"
                 aria-label="Copy EmbRouter model name"
-                data-testid={`copy-litellm-model-name-${model.model_info.id}`}
+                data-testid={`copy-embrouter-model-name-${model.model_info.id}`}
                 className="shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
-                onClick={() => void copyToClipboard(litellmModelName, "EmbRouter model name copied")}
+                onClick={() => void copyToClipboard(embrouterModelName, "EmbRouter model name copied")}
               >
                 <Copy className="size-3.5" />
               </button>
@@ -406,13 +406,13 @@ export const getModelsTableColumns = ({
   },
   {
     id: CREDENTIALS_COLUMN_ID,
-    accessorFn: (row) => row.litellm_params?.litellm_credential_name ?? "",
+    accessorFn: (row) => row.embrouter_params?.embrouter_credential_name ?? "",
     meta: { title: "Credentials" },
     header: () => <CredentialsHeader />,
     enableSorting: false,
     size: 180,
     minSize: 110,
-    cell: ({ row }) => <CredentialsCell credentialName={row.original.litellm_params?.litellm_credential_name} />,
+    cell: ({ row }) => <CredentialsCell credentialName={row.original.embrouter_params?.embrouter_credential_name} />,
   },
   {
     id: CREATED_BY_COLUMN_ID,

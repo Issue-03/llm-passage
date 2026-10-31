@@ -1,1 +1,1 @@
-"""APISerpent integration for LiteLLM."""
+"""APISerpent integration for EmbRouter."""

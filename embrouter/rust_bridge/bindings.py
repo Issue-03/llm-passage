@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Final, Generic, TypeVar
 
-from litellm.rust_bridge.loader import get_native_bridge
+from embrouter.rust_bridge.loader import get_native_bridge
 
 BindingT = TypeVar("BindingT")
 

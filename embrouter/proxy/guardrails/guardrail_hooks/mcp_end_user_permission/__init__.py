@@ -1,28 +1,28 @@
 from typing import TYPE_CHECKING, Any, Final, cast
 
-from litellm.types.guardrails import SupportedGuardrailIntegrations
+from embrouter.types.guardrails import SupportedGuardrailIntegrations
 
 from .mcp_end_user_permission import MCPEndUserPermissionGuardrail
 
 if TYPE_CHECKING:
-    from litellm.types.guardrails import Guardrail, LitellmParams
+    from embrouter.types.guardrails import Guardrail, EmbrouterParams
 
 
-def initialize_guardrail(litellm_params: "LitellmParams", guardrail: "Guardrail"):
-    import litellm
+def initialize_guardrail(embrouter_params: "EmbrouterParams", guardrail: "Guardrail"):
+    import embrouter
 
     # Default to always-on. Only disable if the user explicitly sets default_on: false.
-    # We check the raw guardrail dict because LitellmParams normalizes None → False,
-    # making it impossible to distinguish "not set" from "explicitly false" via litellm_params.
-    _raw_default_on: Final = cast(dict[str, Any], guardrail).get("litellm_params", {}).get("default_on")
+    # We check the raw guardrail dict because EmbrouterParams normalizes None → False,
+    # making it impossible to distinguish "not set" from "explicitly false" via embrouter_params.
+    _raw_default_on: Final = cast(dict[str, Any], guardrail).get("embrouter_params", {}).get("default_on")
     _default_on: Final = _raw_default_on is not False
 
     _callback: Final = MCPEndUserPermissionGuardrail(
         guardrail_name=guardrail.get("guardrail_name", ""),
-        event_hook=litellm_params.mode,
+        event_hook=embrouter_params.mode,
         default_on=_default_on,
     )
-    litellm.logging_callback_manager.add_litellm_callback(_callback)
+    embrouter.logging_callback_manager.add_embrouter_callback(_callback)
     return _callback
 
 

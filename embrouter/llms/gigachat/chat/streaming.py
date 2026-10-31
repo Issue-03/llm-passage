@@ -7,12 +7,12 @@ import uuid
 from collections.abc import Mapping, Sequence
 from typing import Any, Final
 
-from litellm.llms.gigachat.utils import convert_usage
-from litellm.types.llms.openai import (
+from embrouter.llms.gigachat.utils import convert_usage
+from embrouter.types.llms.openai import (
     ChatCompletionToolCallChunk,
     ChatCompletionToolCallFunctionChunk,
 )
-from litellm.types.utils import ChatCompletionUsageBlock, GenericStreamingChunk
+from embrouter.types.utils import ChatCompletionUsageBlock, GenericStreamingChunk
 
 
 class GigaChatModelResponseIterator:

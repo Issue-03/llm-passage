@@ -16,22 +16,22 @@ from typing import TYPE_CHECKING, Final, Protocol
 
 from fastapi import HTTPException
 
-from litellm._logging import verbose_logger
-from litellm.proxy._experimental.mcp_server.auth.token_endpoint_auth import (
+from embrouter._logging import verbose_logger
+from embrouter.proxy._experimental.mcp_server.auth.token_endpoint_auth import (
     TokenEndpointAuthConfigError,
 )
-from litellm.proxy._experimental.mcp_server.oauth_identity_binding import (
+from embrouter.proxy._experimental.mcp_server.oauth_identity_binding import (
     BindingValidator,
     RefreshTokenPresented,
     enforce_oauth_identity_binding,
 )
-from litellm.proxy._experimental.mcp_server.oauth_utils import build_upstream_oauth2_token_request
-from litellm.proxy._experimental.mcp_server.outbound_credentials.oauth_token_store import (
+from embrouter.proxy._experimental.mcp_server.oauth_utils import build_upstream_oauth2_token_request
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.oauth_token_store import (
     OAuthToken,
 )
 
 if TYPE_CHECKING:
-    from litellm.types.mcp_server.mcp_server_manager import MCPServer
+    from embrouter.types.mcp_server.mcp_server_manager import MCPServer
 
 ServerLookup = Callable[[str], "MCPServer | None"]
 TokenEndpointPost = Callable[[str, dict[str, str], dict[str, str]], Awaitable["dict[str, object] | None"]]
@@ -127,7 +127,7 @@ class AuthorizationCodeRefresher:
             await self._identity_validator(
                 server=server,
                 token_response={},
-                litellm_user_id=user_id,
+                embrouter_user_id=user_id,
                 grant_type="refresh_token",
                 refresh_ownership=RefreshTokenPresented(token.refresh_token),
             )
@@ -146,7 +146,7 @@ class AuthorizationCodeRefresher:
         binding_proof: Final = await self._identity_validator(
             server=server,
             token_response=body,
-            litellm_user_id=user_id,
+            embrouter_user_id=user_id,
             grant_type="refresh_token",
             refresh_ownership=RefreshTokenPresented(token.refresh_token),
         )

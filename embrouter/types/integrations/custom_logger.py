@@ -3,7 +3,7 @@ from typing import Any, Final
 
 from pydantic import BaseModel, Field
 
-from litellm.types.litellm_params import AgenticSurface
+from embrouter.types.embrouter_params import AgenticSurface
 
 CHAT_COMPLETION_AGENTIC_SURFACE: Final[AgenticSurface] = "chat_completions"
 RESPONSES_AGENTIC_SURFACE: Final[AgenticSurface] = "responses"
@@ -48,7 +48,7 @@ class AgenticLoopSafetyError(ValueError):
     callers that already catch the broader type keep working.
 
     Only the anthropic messages loop raises this today. The chat completions
-    loop in ``litellm_core_utils/chat_completion_agentic_loop.py`` still raises
+    loop in ``embrouter_core_utils/chat_completion_agentic_loop.py`` still raises
     a plain ``ValueError`` from its own copy of the same rails, so catching
     this type alone will not cover that surface until it is moved over.
     """

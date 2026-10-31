@@ -40,18 +40,18 @@ from typing import TYPE_CHECKING, Any, Final, NamedTuple, Union, cast
 from pydantic import BaseModel, ConfigDict, TypeAdapter, ValidationError
 from typing_extensions import ReadOnly, TypedDict
 
-from litellm._logging import verbose_proxy_logger
-from litellm.completion_extras.litellm_responses_transformation.transformation import (
-    LiteLLMResponsesTransformationHandler,
+from embrouter._logging import verbose_proxy_logger
+from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
+    EmbRouterResponsesTransformationHandler,
     OpenAiResponsesToChatCompletionStreamIterator,
     tool_call_dict_from_output_item,
 )
-from litellm.llms.base_llm.guardrail_translation.base_translation import (
+from embrouter.llms.base_llm.guardrail_translation.base_translation import (
     BaseTranslation,
     StreamingScanKey,
     StreamTransformSink,
 )
-from litellm.llms.base_llm.guardrail_translation.utils import (
+from embrouter.llms.base_llm.guardrail_translation.utils import (
     blocked_responses_stream_usage,
     effective_skip_system_message_for_guardrail,
     merge_guardrailed_scoped_messages,
@@ -62,13 +62,13 @@ from litellm.llms.base_llm.guardrail_translation.utils import (
     stream_item_items,
     unappliable_request_rewrite,
 )
-from litellm.llms.openai.responses.guardrail_translation.tool_merge import merge_guardrailed_tools
-from litellm.responses.litellm_completion_transformation.transformation import (
-    LiteLLMCompletionResponsesConfig,
+from embrouter.llms.openai.responses.guardrail_translation.tool_merge import merge_guardrailed_tools
+from embrouter.responses.embrouter_completion_transformation.transformation import (
+    EmbRouterCompletionResponsesConfig,
 )
-from litellm.types.llms.openai import (
+from embrouter.types.llms.openai import (
     AllMessageValues,
-    BaseLiteLLMOpenAIResponseObject,
+    BaseEmbRouterOpenAIResponseObject,
     ChatCompletionToolCallChunk,
     ChatCompletionToolParam,
     ContentPartAddedEvent,
@@ -87,22 +87,22 @@ from litellm.types.llms.openai import (
     ResponsesAPIStreamEvents,
     ResponsesAPIStreamingResponse,
 )
-from litellm.types.responses.main import (
+from embrouter.types.responses.main import (
     GenericResponseOutputItem,
     OutputText,
 )
-from litellm.types.utils import GenericGuardrailAPIInputs
+from embrouter.types.utils import GenericGuardrailAPIInputs
 
 if TYPE_CHECKING:
     from fastapi import HTTPException
 
-    from litellm.integrations.custom_guardrail import (
+    from embrouter.integrations.custom_guardrail import (
         CustomGuardrail,
         ModifyResponseException,
     )
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.types.llms.openai import ResponseInputParam
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.types.llms.openai import ResponseInputParam
 
 
 class _ToolCallShape(NamedTuple):
@@ -265,7 +265,7 @@ def _rewritten_input_item(item: Mapping[str, object], rewritten: object) -> Mapp
     if isinstance(item.get(field), str) and isinstance(rewritten_content, str):
         return {**item, field: rewritten_content}  # mutable-ok: request input items must stay JSON-plain dicts
     rewritten_row: Final = cast("AllMessageValues", rewritten)  # cast-ok: guardrails hand back chat-shaped rows
-    converted_items, _ = LiteLLMResponsesTransformationHandler().convert_chat_completion_messages_to_responses_api(
+    converted_items, _ = EmbRouterResponsesTransformationHandler().convert_chat_completion_messages_to_responses_api(
         [rewritten_row]  # mutable-ok: converter signature takes a list
     )
     if len(converted_items) != 1 or not isinstance(converted_items[0], Mapping):
@@ -326,14 +326,14 @@ def _input_item_provenance(
     if not all(isinstance(item, Mapping) for item in raw_input):
         return None
     solo_conversions: Final = tuple(
-        LiteLLMCompletionResponsesConfig.transform_responses_api_input_to_messages(
+        EmbRouterCompletionResponsesConfig.transform_responses_api_input_to_messages(
             input=cast("ResponseInputParam", [item]),  # cast-ok: items checked as Mappings above
             responses_api_request=_EMPTY_RESPONSES_REQUEST,
         )
         for item in raw_input
     )
     full_conversion: Final = tuple(
-        LiteLLMCompletionResponsesConfig.transform_responses_api_input_to_messages(
+        EmbRouterCompletionResponsesConfig.transform_responses_api_input_to_messages(
             input=cast("ResponseInputParam", list(raw_input)),  # cast-ok: items checked as Mappings above
             responses_api_request=_EMPTY_RESPONSES_REQUEST,
         )
@@ -345,7 +345,7 @@ def _input_item_provenance(
         tuple(solo_conversions[start])
         if end - start == 1
         else tuple(
-            LiteLLMCompletionResponsesConfig.transform_responses_api_input_to_messages(
+            EmbRouterCompletionResponsesConfig.transform_responses_api_input_to_messages(
                 input=cast("ResponseInputParam", list(raw_input[start:end])),  # cast-ok: checked as Mappings above
                 responses_api_request=_EMPTY_RESPONSES_REQUEST,
             )
@@ -452,7 +452,7 @@ def _patch_or_convert_request_fields(
     if patched is not None:
         return patched
     input_items, converted_instructions = (
-        LiteLLMResponsesTransformationHandler().convert_chat_completion_messages_to_responses_api(structured_messages)
+        EmbRouterResponsesTransformationHandler().convert_chat_completion_messages_to_responses_api(structured_messages)
     )
     return _RequestFields(input=tuple(input_items), instructions=converted_instructions)
 
@@ -489,7 +489,7 @@ class OpenAIResponsesHandler(BaseTranslation):
         input_data: Final = data.get("input")
         if input_data is None:
             return None
-        messages: Final = LiteLLMCompletionResponsesConfig.transform_responses_api_input_to_messages(
+        messages: Final = EmbRouterCompletionResponsesConfig.transform_responses_api_input_to_messages(
             input=input_data,
             responses_api_request=data,
         )
@@ -499,7 +499,7 @@ class OpenAIResponsesHandler(BaseTranslation):
         self,
         data: dict,
         guardrail_to_apply: "CustomGuardrail",
-        litellm_logging_obj: "LiteLLMLoggingObj | None" = None,
+        embrouter_logging_obj: "EmbRouterLoggingObj | None" = None,
     ) -> dict[str, object]:
         """
         Process input by applying guardrails to text content.
@@ -522,7 +522,7 @@ class OpenAIResponsesHandler(BaseTranslation):
             tuple(raw_tools) if isinstance(raw_tools, list) else ()
         )
         flattened_tool_groups: Final = tuple(
-            form.chat_tools for form in LiteLLMCompletionResponsesConfig.responses_tools_to_chat_forms(original_tools)
+            form.chat_tools for form in EmbRouterCompletionResponsesConfig.responses_tools_to_chat_forms(original_tools)
         )
         extracted: Final = self._extract_guardrail_inputs(
             data, input_data, flattened_tool_groups, skip_system=skip_system
@@ -535,7 +535,7 @@ class OpenAIResponsesHandler(BaseTranslation):
             inputs=extracted.inputs,
             request_data=data,
             input_type="request",
-            logging_obj=litellm_logging_obj,
+            logging_obj=embrouter_logging_obj,
         )
         self._apply_guardrailed_tools_to_data(
             data, original_tools, flattened_tool_groups, guardrailed_inputs.get("tools")
@@ -760,7 +760,7 @@ class OpenAIResponsesHandler(BaseTranslation):
         self,
         response: Union["ResponsesAPIResponse", ResponseOutputEnvelope],
         guardrail_to_apply: "CustomGuardrail",
-        litellm_logging_obj: "LiteLLMLoggingObj | None" = None,
+        embrouter_logging_obj: "EmbRouterLoggingObj | None" = None,
         user_api_key_dict: "UserAPIKeyAuth | None" = None,
         request_data: dict | None = None,
     ) -> Union["ResponsesAPIResponse", ResponseOutputEnvelope]:
@@ -768,9 +768,9 @@ class OpenAIResponsesHandler(BaseTranslation):
         Process output response by applying guardrails to text content and tool calls.
 
         Args:
-            response: LiteLLM ResponsesAPIResponse object
+            response: EmbRouter ResponsesAPIResponse object
             guardrail_to_apply: The guardrail instance to apply
-            litellm_logging_obj: Optional logging object
+            embrouter_logging_obj: Optional logging object
             user_api_key_dict: User API key metadata to pass to guardrails
 
         Returns:
@@ -826,10 +826,10 @@ class OpenAIResponsesHandler(BaseTranslation):
                     request_data["response"] = response
 
             # Add user API key metadata with prefixed keys
-            if "litellm_metadata" not in request_data:
+            if "embrouter_metadata" not in request_data:
                 user_metadata: Final = self.transform_user_api_key_dict_to_metadata(user_api_key_dict)
                 if user_metadata:
-                    request_data["litellm_metadata"] = user_metadata
+                    request_data["embrouter_metadata"] = user_metadata
 
             inputs: Final = GenericGuardrailAPIInputs(texts=texts_to_check)
             if images_to_check:
@@ -850,7 +850,7 @@ class OpenAIResponsesHandler(BaseTranslation):
                 inputs=inputs,
                 request_data=request_data,
                 input_type="response",
-                logging_obj=litellm_logging_obj,
+                logging_obj=embrouter_logging_obj,
             )
 
             guardrailed_texts: Final = guardrailed_inputs.get("texts", [])
@@ -880,7 +880,7 @@ class OpenAIResponsesHandler(BaseTranslation):
         self,
         responses_so_far: list[Any],
         guardrail_to_apply: "CustomGuardrail",
-        litellm_logging_obj: "LiteLLMLoggingObj | None" = None,
+        embrouter_logging_obj: "EmbRouterLoggingObj | None" = None,
         user_api_key_dict: "UserAPIKeyAuth | None" = None,
         request_data: dict | None = None,
         stream_transform_sink: StreamTransformSink | None = None,
@@ -911,7 +911,7 @@ class OpenAIResponsesHandler(BaseTranslation):
             return responses_so_far
 
         final_chunk: Final = responses_so_far[-1]
-        # Accept both plain dicts and Pydantic models (BaseLiteLLMOpenAIResponseObject
+        # Accept both plain dicts and Pydantic models (BaseEmbRouterOpenAIResponseObject
         # exposes a .get() shim, so all the .get() calls below work for both).
         if not (isinstance(final_chunk, dict) or hasattr(final_chunk, "get")):
             return responses_so_far
@@ -947,10 +947,10 @@ class OpenAIResponsesHandler(BaseTranslation):
                     request_data = {}
                 if "response" not in request_data:
                     request_data["response"] = response_obj
-                if "litellm_metadata" not in request_data:
+                if "embrouter_metadata" not in request_data:
                     user_metadata: Final = self.transform_user_api_key_dict_to_metadata(user_api_key_dict)
                     if user_metadata:
-                        request_data["litellm_metadata"] = user_metadata
+                        request_data["embrouter_metadata"] = user_metadata
 
                 inputs = GenericGuardrailAPIInputs(texts=texts_to_check)
                 if tool_calls_to_check:
@@ -964,7 +964,7 @@ class OpenAIResponsesHandler(BaseTranslation):
                     inputs=inputs,
                     request_data=request_data,
                     input_type="response",
-                    logging_obj=litellm_logging_obj,
+                    logging_obj=embrouter_logging_obj,
                 )
 
                 guardrailed_texts: Final = guardrailed_inputs.get("texts", [])
@@ -1023,7 +1023,7 @@ class OpenAIResponsesHandler(BaseTranslation):
                     inputs=inputs,
                     request_data=request_data if request_data is not None else {},
                     input_type="response",
-                    logging_obj=litellm_logging_obj,
+                    logging_obj=embrouter_logging_obj,
                 )
             if not deliver_ended_stream_rewrites:
                 return responses_so_far
@@ -1045,7 +1045,7 @@ class OpenAIResponsesHandler(BaseTranslation):
                 inputs=fallback_inputs,
                 request_data=request_data if request_data is not None else {},
                 input_type="response",
-                logging_obj=litellm_logging_obj,
+                logging_obj=embrouter_logging_obj,
             )
             fallback_texts: Final = fallback_outputs.get("texts")
             if deliver_ended_stream_rewrites and fallback_texts and tuple(fallback_texts) != (string_so_far,):
@@ -1089,7 +1089,7 @@ class OpenAIResponsesHandler(BaseTranslation):
         if len(placeable_positions) != len(scanned_positions) or any(
             stream_item_field(event, "type") not in _OUTPUT_TEXT_EVENT_TYPES for event in scanned_events
         ):
-            from litellm.proxy.policy_engine.pipeline_executor import UndeliverableStreamRewrite
+            from embrouter.proxy.policy_engine.pipeline_executor import UndeliverableStreamRewrite
 
             raise UndeliverableStreamRewrite(
                 guardrail_name,
@@ -1211,7 +1211,7 @@ class OpenAIResponsesHandler(BaseTranslation):
             event_call_ids=frozenset(call_id for call_id in event_call_ids if call_id is not None),
         )
         if undeliverable_reason is not None:
-            from litellm.proxy.policy_engine.pipeline_executor import UndeliverableStreamRewrite
+            from embrouter.proxy.policy_engine.pipeline_executor import UndeliverableStreamRewrite
 
             raise UndeliverableStreamRewrite(guardrail_name, undeliverable_reason)
         for output_item, rewrite in (
@@ -1361,7 +1361,7 @@ class OpenAIResponsesHandler(BaseTranslation):
         exc: "HTTPException",
         responses_so_far: Sequence[object] | None = None,
     ) -> Sequence[object] | None:
-        from litellm.proxy.common_request_processing import (
+        from embrouter.proxy.common_request_processing import (
             serialize_http_exception_detail,
         )
 
@@ -1601,7 +1601,7 @@ class OpenAIResponsesHandler(BaseTranslation):
 
     @staticmethod
     def _standalone_block_events(exc: "ModifyResponseException") -> Sequence[ResponsesAPIStreamingResponse]:
-        from litellm.responses.streaming_iterator import build_synthetic_response_events
+        from embrouter.responses.streaming_iterator import build_synthetic_response_events
 
         return build_synthetic_response_events(
             transformed=build_blocked_response(exc),
@@ -1635,7 +1635,7 @@ class OpenAIResponsesHandler(BaseTranslation):
                 item_id=item_id,
                 output_index=output_index,
                 content_index=0,
-                part=BaseLiteLLMOpenAIResponseObject.model_validate(part),
+                part=BaseEmbRouterOpenAIResponseObject.model_validate(part),
             ),
             OutputTextDeltaEvent(
                 type=ResponsesAPIStreamEvents.OUTPUT_TEXT_DELTA,
@@ -1850,7 +1850,7 @@ def _open_item_closing_events(responses_so_far: Sequence[object]) -> Sequence[Re
             OutputItemDoneEvent(
                 type=ResponsesAPIStreamEvents.OUTPUT_ITEM_DONE,
                 output_index=open_item.output_index,
-                item=BaseLiteLLMOpenAIResponseObject.model_validate(
+                item=BaseEmbRouterOpenAIResponseObject.model_validate(
                     MappingProxyType({**_incomplete_item_fields(open_item.payload), "status": "incomplete"})
                 ),
             ),

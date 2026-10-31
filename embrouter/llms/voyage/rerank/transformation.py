@@ -9,17 +9,17 @@ from typing import Final
 
 import httpx
 
-from litellm._uuid import uuid
-from litellm.llms.base_llm.chat.transformation import LiteLLMLoggingObj
-from litellm.llms.base_llm.rerank.transformation import BaseRerankConfig
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.rerank import (
+from embrouter._uuid import uuid
+from embrouter.llms.base_llm.chat.transformation import EmbRouterLoggingObj
+from embrouter.llms.base_llm.rerank.transformation import BaseRerankConfig
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.rerank import (
     RerankBilledUnits,
     RerankResponse,
     RerankResponseMeta,
     RerankTokens,
 )
-from litellm.types.utils import ModelInfo
+from embrouter.types.utils import ModelInfo
 
 from ..embedding.transformation import VoyageError
 
@@ -74,7 +74,7 @@ class VoyageRerankConfig(BaseRerankConfig):
         model: str,
         optional_rerank_params: dict,
         headers: dict,
-        litellm_params: dict | None = None,
+        embrouter_params: dict | None = None,
     ) -> dict:
         return {"model": model, **optional_rerank_params}
 
@@ -83,11 +83,11 @@ class VoyageRerankConfig(BaseRerankConfig):
         model: str,
         raw_response: httpx.Response,
         model_response: RerankResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_key: str | None = None,
         request_data: dict = {},
         optional_params: dict = {},
-        litellm_params: dict = {},
+        embrouter_params: dict = {},
     ) -> RerankResponse:
         if raw_response.status_code != 200:
             raise VoyageError(message=raw_response.text, status_code=raw_response.status_code)
@@ -107,7 +107,7 @@ class VoyageRerankConfig(BaseRerankConfig):
         if _results is None:
             raise ValueError(f"No results found in the response={_json_response}")
 
-        # Transform to LiteLLM format
+        # Transform to EmbRouter format
         transformed_results: Final = []
         for result in _results:
             transformed_result: dict[str, object] = {
@@ -139,7 +139,7 @@ class VoyageRerankConfig(BaseRerankConfig):
         model: str,
         api_key: str | None = None,
         optional_params: dict | None = None,
-        litellm_params: Mapping[str, object] | None = None,
+        embrouter_params: Mapping[str, object] | None = None,
     ) -> dict:
         if api_key is None:
             api_key = get_secret_str("VOYAGE_API_KEY") or get_secret_str("VOYAGE_AI_API_KEY")

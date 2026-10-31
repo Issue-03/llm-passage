@@ -11,7 +11,7 @@ describe("prepareModelAddRequest", () => {
       model_mappings: [
         {
           public_name: "Public Model",
-          litellm_model: "litellm/public",
+          embrouter_model: "embrouter/public",
         },
       ],
       model_name: "custom-model-name",
@@ -27,9 +27,9 @@ describe("prepareModelAddRequest", () => {
     expect(deployments).toHaveLength(1);
     const [deployment] = deployments!;
     expect(deployment.modelName).toBe("Public Model");
-    expect(deployment.litellmParamsObj.model).toBe("custom-model-name");
-    expect(deployment.litellmParamsObj.input_cost_per_token).toBe(2);
-    expect(deployment.litellmParamsObj.output_cost_per_token).toBe(1);
+    expect(deployment.embrouterParamsObj.model).toBe("custom-model-name");
+    expect(deployment.embrouterParamsObj.input_cost_per_token).toBe(2);
+    expect(deployment.embrouterParamsObj.output_cost_per_token).toBe(1);
     expect(deployment.modelInfoObj.base_model).toBe("gpt-4");
     expect(deployment.modelInfoObj.access_groups).toEqual(["group-1"]);
     expect(deployment.modelInfoObj.team_id).toBe("team-123");
@@ -40,7 +40,7 @@ describe("prepareModelAddRequest", () => {
       model_mappings: [
         {
           public_name: "Petals Model",
-          litellm_model: "petals/model",
+          embrouter_model: "petals/model",
         },
       ],
       model_name: "petals/model",
@@ -51,21 +51,21 @@ describe("prepareModelAddRequest", () => {
 
     expect(deployments).toHaveLength(1);
     const [deployment] = deployments!;
-    expect(deployment.litellmParamsObj.custom_llm_provider).toBe("petals");
+    expect(deployment.embrouterParamsObj.custom_llm_provider).toBe("petals");
   });
 
-  it("ignores litellm_credential_name inside EmbRouter Params JSON", async () => {
+  it("ignores embrouter_credential_name inside EmbRouter Params JSON", async () => {
     const formValues = {
       model_mappings: [
         {
           public_name: "Public Model",
-          litellm_model: "litellm/public",
+          embrouter_model: "embrouter/public",
         },
       ],
       model_name: "custom-model-name",
-      litellm_credential_name: "selected-credential",
-      litellm_extra_params: JSON.stringify({
-        litellm_credential_name: "from-json",
+      embrouter_credential_name: "selected-credential",
+      embrouter_extra_params: JSON.stringify({
+        embrouter_credential_name: "from-json",
         timeout: 5,
       }),
     };
@@ -74,32 +74,32 @@ describe("prepareModelAddRequest", () => {
 
     expect(deployments).toHaveLength(1);
     const [deployment] = deployments!;
-    expect(deployment.litellmParamsObj.litellm_credential_name).toBe("selected-credential");
-    expect(deployment.litellmParamsObj.timeout).toBe(5);
+    expect(deployment.embrouterParamsObj.embrouter_credential_name).toBe("selected-credential");
+    expect(deployment.embrouterParamsObj.timeout).toBe(5);
   });
 
-  it("keeps litellm_credential_name from EmbRouter Params JSON when no credential is selected", async () => {
+  it("keeps embrouter_credential_name from EmbRouter Params JSON when no credential is selected", async () => {
     const formValues = {
       model_mappings: [
         {
           public_name: "Public Model",
-          litellm_model: "litellm/public",
+          embrouter_model: "embrouter/public",
         },
       ],
       model_name: "custom-model-name",
-      litellm_extra_params: JSON.stringify({
-        litellm_credential_name: "from-json",
+      embrouter_extra_params: JSON.stringify({
+        embrouter_credential_name: "from-json",
         timeout: 5,
       }),
-      litellm_credential_name: null,
+      embrouter_credential_name: null,
     };
 
     const deployments = await prepareModelAddRequest({ ...formValues }, "token", null);
 
     expect(deployments).toHaveLength(1);
     const [deployment] = deployments!;
-    expect(deployment.litellmParamsObj.litellm_credential_name).toBe("from-json");
-    expect(deployment.litellmParamsObj.timeout).toBe(5);
+    expect(deployment.embrouterParamsObj.embrouter_credential_name).toBe("from-json");
+    expect(deployment.embrouterParamsObj.timeout).toBe(5);
   });
 
   it.each([
@@ -118,6 +118,6 @@ describe("prepareModelAddRequest", () => {
     expect(deployments).toHaveLength(1);
     const [deployment] = deployments!;
     expect(deployment.modelName).toBe(wildcardModel);
-    expect(deployment.litellmParamsObj.model).toBe(wildcardModel);
+    expect(deployment.embrouterParamsObj.model).toBe(wildcardModel);
   });
 });

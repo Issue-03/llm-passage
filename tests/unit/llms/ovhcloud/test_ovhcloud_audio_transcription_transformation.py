@@ -7,7 +7,7 @@ class TestOVHCloudDurationFieldMigration:
 
     def test_seconds_field_mapped_to_duration(self):
         """New `seconds` field should be normalized to `duration`."""
-        from litellm.llms.ovhcloud.audio_transcription.transformation import (
+        from embrouter.llms.ovhcloud.audio_transcription.transformation import (
             OVHCloudAudioTranscriptionConfig,
         )
         from unittest.mock import MagicMock
@@ -26,7 +26,7 @@ class TestOVHCloudDurationFieldMigration:
 
     def test_legacy_duration_field_still_works(self):
         """Legacy `duration` field should still be accepted."""
-        from litellm.llms.ovhcloud.audio_transcription.transformation import (
+        from embrouter.llms.ovhcloud.audio_transcription.transformation import (
             OVHCloudAudioTranscriptionConfig,
         )
         from unittest.mock import MagicMock
@@ -46,7 +46,7 @@ class TestOVHCloudDurationFieldMigration:
 
     def test_seconds_zero_mapped_to_duration(self):
         """seconds=0.0 must not be treated as falsy and lost."""
-        from litellm.llms.ovhcloud.audio_transcription.transformation import (
+        from embrouter.llms.ovhcloud.audio_transcription.transformation import (
             OVHCloudAudioTranscriptionConfig,
         )
         from unittest.mock import MagicMock

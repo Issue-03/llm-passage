@@ -2,7 +2,7 @@
 Unit Tests for the max iterations limiter for the proxy.
 
 Tests that session-scoped iteration counting works correctly:
-- Enforces max_iterations per session_id (read from agent litellm_params)
+- Enforces max_iterations per session_id (read from agent embrouter_params)
 - Different sessions have independent counters
 """
 
@@ -11,18 +11,18 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi import HTTPException
 
-from litellm.caching.caching import DualCache
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.hooks.max_iterations_limiter import _PROXY_MaxIterationsHandler
-from litellm.proxy.utils import InternalUsageCache
-from litellm.types.agents import AgentResponse
+from embrouter.caching.caching import DualCache
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.hooks.max_iterations_limiter import _PROXY_MaxIterationsHandler
+from embrouter.proxy.utils import InternalUsageCache
+from embrouter.types.agents import AgentResponse
 
 
 def _make_mock_agent(max_iterations: int) -> AgentResponse:
     return AgentResponse(
         agent_id="agent-test-123",
         agent_name="test-agent",
-        litellm_params={"max_iterations": max_iterations},
+        embrouter_params={"max_iterations": max_iterations},
         agent_card_params={"name": "test-agent", "version": "1.0.0"},
     )
 
@@ -47,7 +47,7 @@ async def test_max_iterations_basic_enforcement():
     mock_agent = _make_mock_agent(max_iterations=3)
 
     with patch(
-        "litellm.proxy.agent_endpoints.agent_registry.global_agent_registry"
+        "embrouter.proxy.agent_endpoints.agent_registry.global_agent_registry"
     ) as mock_registry:
         mock_registry.get_agent_by_id.return_value = mock_agent
 
@@ -92,7 +92,7 @@ async def test_max_iterations_different_sessions_independent():
     mock_agent = _make_mock_agent(max_iterations=2)
 
     with patch(
-        "litellm.proxy.agent_endpoints.agent_registry.global_agent_registry"
+        "embrouter.proxy.agent_endpoints.agent_registry.global_agent_registry"
     ) as mock_registry:
         mock_registry.get_agent_by_id.return_value = mock_agent
 

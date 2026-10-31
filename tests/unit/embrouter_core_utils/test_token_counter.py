@@ -1,5 +1,5 @@
 #### What this tests ####
-#    This tests litellm.token_counter.token_counter() function
+#    This tests embrouter.token_counter.token_counter() function
 import asyncio
 import base64
 import importlib
@@ -22,13 +22,13 @@ from tokenizers import Regex, Tokenizer, models, pre_tokenizers
 
 from unittest.mock import AsyncMock, patch
 
-import litellm
-from litellm import decode, encode, get_modified_max_tokens
-from litellm import token_counter as token_counter_old
-import litellm.constants
-from litellm.constants import TOKEN_COUNTER_MAX_CONCURRENT_COUNTS
-from litellm.litellm_core_utils.asyncify import asyncify
-from litellm.litellm_core_utils.token_counter import (
+import embrouter
+from embrouter import decode, encode, get_modified_max_tokens
+from embrouter import token_counter as token_counter_old
+import embrouter.constants
+from embrouter.constants import TOKEN_COUNTER_MAX_CONCURRENT_COUNTS
+from embrouter.embrouter_core_utils.asyncify import asyncify
+from embrouter.embrouter_core_utils.token_counter import (
     _encoding_count,
     _get_exact_count_function,
     _get_extrapolating_count_function,
@@ -37,14 +37,14 @@ from litellm.litellm_core_utils.token_counter import (
     high_detail_image_token_upper_bound,
     offload_token_count,
 )
-from litellm.litellm_core_utils.token_counter import token_counter as token_counter_new
+from embrouter.embrouter_core_utils.token_counter import token_counter as token_counter_new
 from tests.large_text import text
-from tests.unit.litellm_core_utils.event_loop_lag import (
+from tests.unit.embrouter_core_utils.event_loop_lag import (
     assert_loop_stayed_free,
     timed_with_loop_lags,
     warm_tokenizer,
 )
-from tests.unit.litellm_core_utils.messages_with_counts import (
+from tests.unit.embrouter_core_utils.messages_with_counts import (
     MESSAGES_TEXT,
     MESSAGES_WITH_IMAGES,
     MESSAGES_WITH_TOOLS,
@@ -84,13 +84,13 @@ def test_token_counter_large_repeated_text_is_encoded_in_bounded_chunks():
     text_length: Final = 1024 * 1024
     messages: Final = [{"role": "user", "content": [{"type": "text", "text": "A" * text_length}]}]
 
-    with patch("litellm.litellm_core_utils.token_counter._encoding_count", wraps=_encoding_count) as encoding_count:
+    with patch("embrouter.embrouter_core_utils.token_counter._encoding_count", wraps=_encoding_count) as encoding_count:
         tokens: Final = token_counter_new(model="us.anthropic.claude-sonnet-4-6", messages=messages)
 
     encoded_lengths: Final = tuple(len(call.args[1]) for call in encoding_count.call_args_list)
     assert tokens > 0
     assert sum(encoded_lengths) >= text_length
-    assert max(encoded_lengths) <= litellm.constants.TIKTOKEN_ENCODE_MAX_CHUNK_SIZE_CHARS
+    assert max(encoded_lengths) <= embrouter.constants.TIKTOKEN_ENCODE_MAX_CHUNK_SIZE_CHARS
 
 
 @pytest.mark.parametrize(
@@ -132,7 +132,7 @@ def test_invalid_chunk_size_config_stays_usable(monkeypatch, configured):
     """A misconfigured chunk size must not raise, count zero, or restore the quadratic encode cost."""
     monkeypatch.setenv("TIKTOKEN_ENCODE_CHUNK_SIZE_CHARS", configured)
     try:
-        reloaded = importlib.reload(litellm.constants)
+        reloaded = importlib.reload(embrouter.constants)
         chunk_size = reloaded.TIKTOKEN_ENCODE_CHUNK_SIZE_CHARS
         assert 1 <= chunk_size <= reloaded.TIKTOKEN_ENCODE_MAX_CHUNK_SIZE_CHARS
 
@@ -144,16 +144,16 @@ def test_invalid_chunk_size_config_stays_usable(monkeypatch, configured):
         assert count_tokens("The quick brown fox jumps over the lazy dog. " * 40) > 0
     finally:
         monkeypatch.delenv("TIKTOKEN_ENCODE_CHUNK_SIZE_CHARS")
-        importlib.reload(litellm.constants)
+        importlib.reload(embrouter.constants)
 
 
 def test_valid_chunk_size_config_is_honoured(monkeypatch):
     monkeypatch.setenv("TIKTOKEN_ENCODE_CHUNK_SIZE_CHARS", "2048")
     try:
-        assert importlib.reload(litellm.constants).TIKTOKEN_ENCODE_CHUNK_SIZE_CHARS == 2048
+        assert importlib.reload(embrouter.constants).TIKTOKEN_ENCODE_CHUNK_SIZE_CHARS == 2048
     finally:
         monkeypatch.delenv("TIKTOKEN_ENCODE_CHUNK_SIZE_CHARS")
-        importlib.reload(litellm.constants)
+        importlib.reload(embrouter.constants)
 
 
 async def test_huggingface_count_in_a_worker_thread_leaves_the_event_loop_free():
@@ -254,14 +254,14 @@ def test_offloaded_counts_finish_in_every_event_loop_that_shares_the_process():
 def test_max_concurrent_counts_config_is_honoured(monkeypatch: pytest.MonkeyPatch, configured: str, expected: int):
     monkeypatch.setenv("TOKEN_COUNTER_MAX_CONCURRENT_COUNTS", configured)
     try:
-        assert importlib.reload(litellm.constants).TOKEN_COUNTER_MAX_CONCURRENT_COUNTS == expected
+        assert importlib.reload(embrouter.constants).TOKEN_COUNTER_MAX_CONCURRENT_COUNTS == expected
     finally:
         monkeypatch.delenv("TOKEN_COUNTER_MAX_CONCURRENT_COUNTS")
-        importlib.reload(litellm.constants)
+        importlib.reload(embrouter.constants)
 
 
 def test_token_counter_applies_the_default_cap():
-    max_exact_chars: Final = litellm.constants.TOKEN_COUNTER_MAX_EXACT_CHARS
+    max_exact_chars: Final = embrouter.constants.TOKEN_COUNTER_MAX_EXACT_CHARS
     prose: Final = ("The quick brown fox jumps over the lazy dog. " * (max_exact_chars // 45 + 1))[:max_exact_chars]
     over_the_cap: Final = prose + "a" * 200_000
     exact: Final = _get_exact_count_function("gpt-5.6")(over_the_cap)
@@ -279,10 +279,10 @@ def test_token_counter_applies_the_default_cap():
 def test_max_exact_chars_config_is_honoured(monkeypatch: pytest.MonkeyPatch, configured: str, expected: int):
     monkeypatch.setenv("TOKEN_COUNTER_MAX_EXACT_CHARS", configured)
     try:
-        assert importlib.reload(litellm.constants).TOKEN_COUNTER_MAX_EXACT_CHARS == expected
+        assert importlib.reload(embrouter.constants).TOKEN_COUNTER_MAX_EXACT_CHARS == expected
     finally:
         monkeypatch.delenv("TOKEN_COUNTER_MAX_EXACT_CHARS")
-        importlib.reload(litellm.constants)
+        importlib.reload(embrouter.constants)
 
 
 def test_token_counter_with_prefix():
@@ -460,7 +460,7 @@ def test_token_counter_counts_gemini_function_declarations():
             },
         }
     ]
-    gemini_tools: Final = litellm.utils.get_optional_params(
+    gemini_tools: Final = embrouter.utils.get_optional_params(
         model="gemini-2.5-pro",
         custom_llm_provider="gemini",
         tools=openai_tools,
@@ -622,14 +622,14 @@ def test_get_modified_max_tokens(
     - Test when max_tokens > max_output => expect max_output
     """
     args = locals()
-    import litellm
+    import embrouter
 
-    litellm.token_counter = MagicMock()
+    embrouter.token_counter = MagicMock()
 
     def _mock_token_counter(*args, **kwargs):
         return input_tokens
 
-    litellm.token_counter.side_effect = _mock_token_counter
+    embrouter.token_counter.side_effect = _mock_token_counter
     print(f"_mock_token_counter: {_mock_token_counter()}")
     messages = [{"role": "user", "content": "Hello world!"}]
 
@@ -667,7 +667,7 @@ def test_empty_tools():
 )
 def test_gpt_4o_token_counter():
     with patch.object(
-        litellm.utils, "openai_token_counter", new=MagicMock()
+        embrouter.utils, "openai_token_counter", new=MagicMock()
     ) as mock_client:
         token_counter(
             model="gpt-4o-2024-05-13", messages=[{"role": "user", "content": "Hey!"}]
@@ -691,7 +691,7 @@ def test_img_url_token_counter(img_url, monkeypatch):
     third-party image URL goes away.
     """
     import base64
-    from litellm.litellm_core_utils.token_counter import get_image_dimensions
+    from embrouter.embrouter_core_utils.token_counter import get_image_dimensions
 
     # Minimal valid 1x1 PNG, served by the mocked safe_get for the URL case.
     _tiny_png = base64.b64decode(
@@ -707,7 +707,7 @@ def test_img_url_token_counter(img_url, monkeypatch):
                 return _tiny_png
 
         monkeypatch.setattr(
-            "litellm.litellm_core_utils.token_counter.safe_get",
+            "embrouter.embrouter_core_utils.token_counter.safe_get",
             lambda client, url, **kw: _FakeResponse(),
         )
 
@@ -757,7 +757,7 @@ def test_token_counter():
 
 import unittest
 
-from litellm.utils import _load_huggingface_tokenizer, _select_tokenizer_helper, claude_json_str, encoding
+from embrouter.utils import _load_huggingface_tokenizer, _select_tokenizer_helper, claude_json_str, encoding
 
 # Clear the cache at module load to ensure clean state
 _load_huggingface_tokenizer.cache_clear()
@@ -773,7 +773,7 @@ class TestTokenizerSelection(unittest.TestCase):
         """
         _load_huggingface_tokenizer.cache_clear()
 
-    @patch("litellm.utils.tokenizer_dispatch.from_pretrained")
+    @patch("embrouter.utils.tokenizer_dispatch.from_pretrained")
     def test_llama3_tokenizer_api_failure(self, mock_from_pretrained):
         # Setup mock to raise an error
         mock_from_pretrained.side_effect = Exception("Failed to load tokenizer")
@@ -788,13 +788,13 @@ class TestTokenizerSelection(unittest.TestCase):
         self.assertEqual(result["type"], "openai_tokenizer")
         self.assertEqual(result["tokenizer"], encoding)
 
-    @patch("litellm.utils.tokenizer_dispatch.from_pretrained")
+    @patch("embrouter.utils.tokenizer_dispatch.from_pretrained")
     def test_cohere_tokenizer_api_failure(self, mock_from_pretrained):
         # Setup mock to raise an error
         mock_from_pretrained.side_effect = Exception("Failed to load tokenizer")
 
         # Add Cohere model to the list for testing
-        litellm.cohere_models = ["command-r-v1"]
+        embrouter.cohere_models = ["command-r-v1"]
 
         # Test with Cohere model
         result = _select_tokenizer_helper("command-r-v1")
@@ -808,13 +808,13 @@ class TestTokenizerSelection(unittest.TestCase):
         self.assertEqual(result["type"], "openai_tokenizer")
         self.assertEqual(result["tokenizer"], encoding)
 
-    @patch("litellm.utils.tokenizer_dispatch.anthropic")
+    @patch("embrouter.utils.tokenizer_dispatch.anthropic")
     def test_claude_tokenizer_api_failure(self, mock_anthropic):
         # Setup mock to raise an error
         mock_anthropic.side_effect = Exception("Failed to load tokenizer")
 
         # Add Claude model to the list for testing
-        litellm.anthropic_models = ["claude-2"]
+        embrouter.anthropic_models = ["claude-2"]
 
         # Test with Claude model
         result = _select_tokenizer_helper("claude-2")
@@ -826,7 +826,7 @@ class TestTokenizerSelection(unittest.TestCase):
         self.assertEqual(result["type"], "openai_tokenizer")
         self.assertEqual(result["tokenizer"], encoding)
 
-    @patch("litellm.utils.tokenizer_dispatch.from_pretrained")
+    @patch("embrouter.utils.tokenizer_dispatch.from_pretrained")
     def test_llama2_tokenizer_api_failure(self, mock_from_pretrained):
         # Setup mock to raise an error
         mock_from_pretrained.side_effect = Exception("Failed to load tokenizer")
@@ -843,10 +843,10 @@ class TestTokenizerSelection(unittest.TestCase):
         self.assertEqual(result["type"], "openai_tokenizer")
         self.assertEqual(result["tokenizer"], encoding)
 
-    @patch("litellm.utils._return_huggingface_tokenizer")
+    @patch("embrouter.utils._return_huggingface_tokenizer")
     def test_disable_hf_tokenizer_download(self, mock_return_huggingface_tokenizer):
         monkeypatch = pytest.MonkeyPatch()
-        monkeypatch.setattr(litellm, "disable_hf_tokenizer_download", True)
+        monkeypatch.setattr(embrouter, "disable_hf_tokenizer_download", True)
         try:
             result = _select_tokenizer_helper("grok-32r22r")
             mock_return_huggingface_tokenizer.assert_not_called()
@@ -1251,7 +1251,7 @@ def test_count_content_list_rejects_unknown_type():
     enumerate the supported types (including `tool_reference`). This pins the
     catch-all contract so a future block type isn't silently dropped.
     """
-    from litellm.litellm_core_utils.token_counter import _count_content_list
+    from embrouter.embrouter_core_utils.token_counter import _count_content_list
 
     with pytest.raises(ValueError, match='Error getting number of tokens from content list: Invalid') as exc_info:
         _count_content_list(
@@ -1277,7 +1277,7 @@ def test_count_content_list_rejects_unknown_type():
 )
 def test_token_counter_with_anthropic_image_block(source: dict[str, str]):
     """Anthropic `image` blocks must count for every source variant, not raise `Invalid content item type` (which the router's context-window pre-call check swallows into an unfiltered dispatch)."""
-    from litellm.constants import DEFAULT_IMAGE_TOKEN_COUNT
+    from embrouter.constants import DEFAULT_IMAGE_TOKEN_COUNT
 
     messages = [
         {
@@ -1380,14 +1380,14 @@ def test_anthropic_image_block_nested_in_tool_result():
 )
 def test_anthropic_image_source_resolves_to_what_the_image_pricer_reads(source: dict[str, str], expected: str):
     """base64 sources become a data URI, url sources pass through, file sources resolve to an empty string."""
-    from litellm.litellm_core_utils.token_counter import _anthropic_image_source_data
+    from embrouter.embrouter_core_utils.token_counter import _anthropic_image_source_data
 
     assert _anthropic_image_source_data(source) == expected
 
 
 def test_anthropic_image_block_with_empty_base64_data():
     """A base64 source with empty `data` prices as an image rather than raising."""
-    from litellm.litellm_core_utils.token_counter import _count_content_list
+    from embrouter.embrouter_core_utils.token_counter import _count_content_list
 
     tokens = _count_content_list(
         count_function=len,
@@ -1402,7 +1402,7 @@ def test_anthropic_image_block_with_empty_base64_data():
 
 def test_anthropic_image_block_without_source_raises():
     """An `image` block with no `source` raises, matching the OpenAI `image_url`-without-`url` behavior."""
-    from litellm.litellm_core_utils.token_counter import _count_content_list
+    from embrouter.embrouter_core_utils.token_counter import _count_content_list
 
     with pytest.raises(ValueError, match="Error getting number of tokens from content list"):
         _count_content_list(
@@ -1425,7 +1425,7 @@ def test_anthropic_image_block_without_source_raises():
 
 
 def _count_user_content(content: list[dict]) -> int:
-    from litellm.litellm_core_utils.token_counter import token_counter
+    from embrouter.embrouter_core_utils.token_counter import token_counter
 
     return token_counter(
         model="anthropic/claude-fable-5",
@@ -1539,7 +1539,7 @@ import sys
 sys.path.insert(0, sys.argv[1])
 import httpx
 import huggingface_hub
-import litellm
+import embrouter
 served = json.loads(sys.argv[2])
 text = sys.argv[3]
 requested = []
@@ -1555,22 +1555,22 @@ huggingface_hub.set_client_factory(lambda: httpx.Client(transport=httpx.MockTran
 """
 
 HUB_TOKENIZER_SCRIPT: Final = HUB_SETUP_SCRIPT + """
-litellm.cohere_models = {"command-r-v1"}
-litellm.anthropic_models = {"claude-2"}
-custom = litellm.create_pretrained_tokenizer("Xenova/llama-3-tokenizer")
+embrouter.cohere_models = {"command-r-v1"}
+embrouter.anthropic_models = {"claude-2"}
+custom = embrouter.create_pretrained_tokenizer("Xenova/llama-3-tokenizer")
 print(json.dumps({
-    "llama2": litellm.token_counter(model="meta-llama/Llama-2-7b-chat", text=text),
-    "llama3": litellm.token_counter(model="meta-llama/llama-3-70b-instruct", text=text),
-    "cohere": litellm.token_counter(model="command-r-v1", text=text),
-    "anthropic": litellm.token_counter(model="claude-2", text=text),
-    "custom": litellm.token_counter(custom_tokenizer=custom, text=text),
+    "llama2": embrouter.token_counter(model="meta-llama/Llama-2-7b-chat", text=text),
+    "llama3": embrouter.token_counter(model="meta-llama/llama-3-70b-instruct", text=text),
+    "cohere": embrouter.token_counter(model="command-r-v1", text=text),
+    "anthropic": embrouter.token_counter(model="claude-2", text=text),
+    "custom": embrouter.token_counter(custom_tokenizer=custom, text=text),
     "requested": sorted(set(requested)),
 }))
 """
 
 HUB_ROUND_TRIP_SCRIPT: Final = HUB_SETUP_SCRIPT + """
-tokens = litellm.encode(model="meta-llama/Llama-2-7b-chat", text=text)
-print(json.dumps({"tokens": tokens, "decoded": litellm.decode(model="meta-llama/Llama-2-7b-chat", tokens=tokens), "requested": sorted(set(requested))}))
+tokens = embrouter.encode(model="meta-llama/Llama-2-7b-chat", text=text)
+print(json.dumps({"tokens": tokens, "decoded": embrouter.decode(model="meta-llama/Llama-2-7b-chat", tokens=tokens), "requested": sorted(set(requested))}))
 """
 
 
@@ -1591,7 +1591,7 @@ def _run_in_memory_hub(script: str, served: dict[str, str], text: str, tmp_path:
             "-I",
             "-c",
             script,
-            str(Path(litellm.__file__).parent.parent),
+            str(Path(embrouter.__file__).parent.parent),
             json.dumps(served),
             text,
         ],
@@ -1604,7 +1604,7 @@ def _run_in_memory_hub(script: str, served: dict[str, str], text: str, tmp_path:
             "HF_HUB_CACHE": str(tmp_path / "cache"),
             "HF_ENDPOINT": "http://127.0.0.1:9",
             "HF_HUB_OFFLINE": "0",
-            "LITELLM_LOCAL_MODEL_COST_MAP": "True",
+            "EMBROUTER_LOCAL_MODEL_COST_MAP": "True",
         },
     )
 
@@ -1621,7 +1621,7 @@ def test_token_counter_uses_the_tokenizer_of_each_model_family_and_of_a_custom_t
     }
     expected: Final = {repo: len(Tokenizer.from_str(payload).encode(sample).ids) for repo, payload in served.items()}
     anthropic_count: Final = len(Tokenizer.from_str(claude_json_str).encode(sample).ids)
-    tiktoken_count: Final = litellm.token_counter(model="gpt-3.5-turbo", text=sample)
+    tiktoken_count: Final = embrouter.token_counter(model="gpt-3.5-turbo", text=sample)
     assert len({*expected.values(), anthropic_count, tiktoken_count}) == len(expected) + 2
 
     counts: Final = _run_in_memory_hub(HUB_TOKENIZER_SCRIPT, served, sample, tmp_path)

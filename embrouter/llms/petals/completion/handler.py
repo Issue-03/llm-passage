@@ -2,17 +2,17 @@ import time
 from collections.abc import Callable
 from typing import Final
 
-import litellm
-from litellm.litellm_core_utils.prompt_templates.factory import (
+import embrouter
+from embrouter.embrouter_core_utils.prompt_templates.factory import (
     custom_prompt,
     prompt_factory,
 )
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.llms.custom_httpx.http_handler import (
     AsyncHTTPHandler,
     HTTPHandler,
     _get_httpx_client,
 )
-from litellm.utils import ModelResponse, Usage
+from embrouter.utils import ModelResponse, Usage
 
 from ..common_utils import PetalsError
 
@@ -27,21 +27,21 @@ def completion(
     logging_obj,
     optional_params: dict,
     stream=False,
-    litellm_params=None,
+    embrouter_params=None,
     logger_fn=None,
     client: HTTPHandler | AsyncHTTPHandler | None = None,
 ):
     ## Load Config
-    config: Final = litellm.PetalsConfig.get_config()
+    config: Final = embrouter.PetalsConfig.get_config()
     for k, v in config.items():
         if (
             k not in optional_params
         ):  # completion(top_k=3) > petals_config(top_k=3) <- allows for dynamic variables to be passed in
             optional_params[k] = v
 
-    if model in litellm.custom_prompt_dict:
+    if model in embrouter.custom_prompt_dict:
         # check if the model has a registered custom prompt
-        model_prompt_details: Final = litellm.custom_prompt_dict[model]
+        model_prompt_details: Final = embrouter.custom_prompt_dict[model]
         prompt = custom_prompt(
             role_dict=model_prompt_details["roles"],
             initial_prompt_value=model_prompt_details["initial_prompt_value"],

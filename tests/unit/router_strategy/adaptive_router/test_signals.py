@@ -4,8 +4,8 @@ from typing import List, Tuple
 
 import pytest
 
-from litellm.router_strategy.adaptive_router.config import TOOL_CALL_HISTORY_MAX
-from litellm.router_strategy.adaptive_router.signals import (
+from embrouter.router_strategy.adaptive_router.config import TOOL_CALL_HISTORY_MAX
+from embrouter.router_strategy.adaptive_router.signals import (
     SessionState,
     SignalDelta,
     Turn,

@@ -4,8 +4,8 @@ Utility functions for Interactions API.
 
 from typing import Any, Final, cast
 
-from litellm.llms.base_llm.interactions.transformation import BaseInteractionsAPIConfig
-from litellm.types.interactions import InteractionsAPIOptionalRequestParams
+from embrouter.llms.base_llm.interactions.transformation import BaseInteractionsAPIConfig
+from embrouter.types.interactions import InteractionsAPIOptionalRequestParams
 
 # Valid optional parameter keys per OpenAPI spec
 INTERACTIONS_API_OPTIONAL_PARAMS: Final = {
@@ -38,17 +38,17 @@ def get_provider_interactions_api_config(
     Returns:
         The provider-specific interactions API config, or None if not supported
     """
-    from litellm.types.utils import LlmProviders
+    from embrouter.types.utils import LlmProviders
 
     if provider == LlmProviders.GEMINI.value or provider == "gemini":
-        from litellm.llms.gemini.interactions.transformation import (
+        from embrouter.llms.gemini.interactions.transformation import (
             GoogleAIStudioInteractionsConfig,
         )
 
         return GoogleAIStudioInteractionsConfig()
 
     if provider in (LlmProviders.VERTEX_AI.value, LlmProviders.VERTEX_AI_BETA.value):
-        from litellm.llms.vertex_ai.interactions.transformation import (
+        from embrouter.llms.vertex_ai.interactions.transformation import (
             VertexAIInteractionsConfig,
         )
 
@@ -73,7 +73,7 @@ class InteractionsAPIRequestUtils:
         Returns:
             Dict with only the valid optional parameters
         """
-        from litellm.utils import PreProcessNonDefaultParams
+        from embrouter.utils import PreProcessNonDefaultParams
 
         custom_llm_provider: Final = params.pop("custom_llm_provider", None)
         special_params: Final = params.pop("kwargs", {})

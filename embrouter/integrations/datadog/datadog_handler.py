@@ -6,15 +6,15 @@ import os
 import re
 from typing import Final
 
-from litellm.types.utils import StandardLoggingPayload
+from embrouter.types.utils import StandardLoggingPayload
 
 
 def get_datadog_source() -> str:
-    return os.getenv("DD_SOURCE", "litellm")
+    return os.getenv("DD_SOURCE", "embrouter")
 
 
 def get_datadog_service() -> str:
-    return os.getenv("DD_SERVICE", "litellm-server")
+    return os.getenv("DD_SERVICE", "embrouter-server")
 
 
 def get_datadog_hostname() -> str:

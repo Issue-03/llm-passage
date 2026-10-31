@@ -3,8 +3,8 @@
 import re
 from typing import Final
 
-import litellm
-from litellm.utils import (
+import embrouter
+from embrouter.utils import (
     _supports_factory,
     declared_value_factory,
     is_explicitly_disabled_factory,
@@ -25,10 +25,10 @@ def _catalogue_declares_default_effort() -> bool:
 
     So the absence of the key is only meaningful once the catalogue is known to carry it at all.
     A map that has never heard of the key predates the feature, and the honest answer there is
-    the one litellm gave before it existed. Scanning costs ~80us on the largest published map and
+    the one embrouter gave before it existed. Scanning costs ~80us on the largest published map and
     only on the fallback path, which is noise beside the request it precedes.
     """
-    return any(isinstance(entry, dict) and "default_reasoning_effort" in entry for entry in litellm.model_cost.values())
+    return any(isinstance(entry, dict) and "default_reasoning_effort" in entry for entry in embrouter.model_cost.values())
 
 
 def _normalize_reasoning_effort_for_chat_completion(
@@ -227,7 +227,7 @@ class OpenAIGPT5Config(OpenAIGPTConfig):
                 "extra_headers",
             ]
 
-        from litellm.utils import supports_tool_choice
+        from embrouter.utils import supports_tool_choice
 
         base_gpt_series_params: Final = super().get_supported_openai_params(model=model)
         gpt_5_only_params: Final = ["reasoning_effort", "verbosity"]
@@ -289,11 +289,11 @@ class OpenAIGPT5Config(OpenAIGPTConfig):
         if effective_effort == "xhigh":
             # xhigh is an opt-in capability: only allow if model explicitly supports it.
             if not self._supports_reasoning_effort_level(model, effective_effort):
-                if litellm.drop_params or drop_params:
+                if embrouter.drop_params or drop_params:
                     non_default_params.pop("reasoning_effort", None)
                     optional_params.pop("reasoning_effort", None)
                 else:
-                    raise litellm.utils.UnsupportedParamsError(
+                    raise embrouter.utils.UnsupportedParamsError(
                         message=(f"reasoning_effort={effective_effort} is not supported for this model."),
                         status_code=400,
                     )
@@ -303,11 +303,11 @@ class OpenAIGPT5Config(OpenAIGPTConfig):
             # Example: gpt-5.5-pro only accepts {medium, high, xhigh}, so it sets
             # supports_low_reasoning_effort=false (and supports_minimal=false).
             if self._is_reasoning_effort_level_explicitly_disabled(model, effective_effort):
-                if litellm.drop_params or drop_params:
+                if embrouter.drop_params or drop_params:
                     non_default_params.pop("reasoning_effort", None)
                     optional_params.pop("reasoning_effort", None)
                 else:
-                    raise litellm.utils.UnsupportedParamsError(
+                    raise embrouter.utils.UnsupportedParamsError(
                         message=(f"reasoning_effort={effective_effort} is not supported for this model."),
                         status_code=400,
                     )
@@ -324,16 +324,16 @@ class OpenAIGPT5Config(OpenAIGPTConfig):
             sampling_params: Final = ["logprobs", "top_logprobs", "top_p"]
             has_sampling: Final = any(p in non_default_params for p in sampling_params)
             if has_sampling and not self.effort_resolves_to_none(model, effective_effort):
-                if litellm.drop_params or drop_params:
+                if embrouter.drop_params or drop_params:
                     for p in sampling_params:
                         non_default_params.pop(p, None)
                 else:
-                    raise litellm.utils.UnsupportedParamsError(
+                    raise embrouter.utils.UnsupportedParamsError(
                         message=(
                             f"{model} only supports logprobs, top_p, top_logprobs when reasoning_effort "
                             "resolves to 'none', either set explicitly on the request or declared as the "
                             f"model's default_reasoning_effort. Current reasoning_effort={effective_effort!r}. "
-                            "To drop unsupported params set `litellm.drop_params = True`"
+                            "To drop unsupported params set `embrouter.drop_params = True`"
                         ),
                         status_code=400,
                     )
@@ -345,16 +345,16 @@ class OpenAIGPT5Config(OpenAIGPTConfig):
                 # the model merely supporting it
                 if (supports_none and self.effort_resolves_to_none(model, effective_effort)) or temperature_value == 1:
                     optional_params["temperature"] = temperature_value
-                elif litellm.drop_params or drop_params:
+                elif embrouter.drop_params or drop_params:
                     pass
                 else:
-                    raise litellm.utils.UnsupportedParamsError(
+                    raise embrouter.utils.UnsupportedParamsError(
                         message=(
                             f"{model} doesn't support temperature={temperature_value} while reasoning is "
                             "active. Only temperature=1 is supported unless reasoning_effort resolves to "
                             "'none', either set explicitly on the request or declared as the model's "
                             "default_reasoning_effort. "
-                            "To drop unsupported params set `litellm.drop_params = True`"
+                            "To drop unsupported params set `embrouter.drop_params = True`"
                         ),
                         status_code=400,
                     )

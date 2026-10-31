@@ -6,23 +6,23 @@ from typing import TYPE_CHECKING, Final
 
 import httpx
 
-from litellm.llms.base_llm.passthrough.transformation import (
+from embrouter.llms.base_llm.passthrough.transformation import (
     BasePassthroughConfig,
     model_group_from,
     relayed_body,
     strip_leading_model_segment,
 )
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.router import DeploymentTypedDict
-from litellm.types.utils import LlmProviders, StandardPassThroughResponseObject
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.router import DeploymentTypedDict
+from embrouter.types.utils import LlmProviders, StandardPassThroughResponseObject
 
 if TYPE_CHECKING:
     from httpx import URL, Response
 
-    from litellm.litellm_core_utils.litellm_logging import Logging
-    from litellm.llms.base_llm.ocr.transformation import OCRResponse
-    from litellm.llms.base_llm.passthrough.transformation import LoggedRelayResponse
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging
+    from embrouter.llms.base_llm.ocr.transformation import OCRResponse
+    from embrouter.llms.base_llm.passthrough.transformation import LoggedRelayResponse
 
 
 API_VERSION_SEGMENT: Final = re.compile(r"^v\d+$")
@@ -31,8 +31,8 @@ NVIDIA_NIM_ROUTE_PREFIX: Final = re.compile(rf"^/{LlmProviders.NVIDIA_NIM.value}
 
 
 def is_nvidia_nim_deployment(deployment: DeploymentTypedDict) -> bool:
-    litellm_params: Final = deployment["litellm_params"]
-    return litellm_params.get("custom_llm_provider") == LlmProviders.NVIDIA_NIM.value or litellm_params.get(
+    embrouter_params: Final = deployment["embrouter_params"]
+    return embrouter_params.get("custom_llm_provider") == LlmProviders.NVIDIA_NIM.value or embrouter_params.get(
         "model", ""
     ).startswith(NVIDIA_NIM_MODEL_PREFIX)
 
@@ -86,12 +86,12 @@ class NvidiaNimPassthroughConfig(BasePassthroughConfig):
         model: str,
         endpoint: str,
         request_query_params: dict | None,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> tuple[URL, str]:
         base_target_url: Final = self.get_api_base(api_base)
         if base_target_url is None:
             raise ValueError("NVIDIA NIM api base not found: set `api_base` on the deployment or NVIDIA_NIM_API_BASE")
-        native_endpoint: Final = strip_leading_model_segment(endpoint, (model, model_group_from(litellm_params)))
+        native_endpoint: Final = strip_leading_model_segment(endpoint, (model, model_group_from(embrouter_params)))
         root: Final = without_repeated_version_prefix(base_target_url, native_endpoint)
         return (self.format_url(native_endpoint, root, request_query_params), root)
 
@@ -101,7 +101,7 @@ class NvidiaNimPassthroughConfig(BasePassthroughConfig):
         model: str,
         messages: Sequence[AllMessageValues],
         optional_params: Mapping[str, object],
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict[str, str]:  # mutable-ok: base class contract returns dict for httpx

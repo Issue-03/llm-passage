@@ -9,16 +9,16 @@ from typing import Final, cast
 
 from pydantic import TypeAdapter, ValidationError
 
-import litellm
-from litellm._logging import print_verbose, verbose_logger
-from litellm.constants import (
+import embrouter
+from embrouter._logging import print_verbose, verbose_logger
+from embrouter.constants import (
     MAX_S3_OBJECT_DOWNLOAD_FILENAME_BYTES,
     MAX_S3_OBJECT_KEY_BYTES,
     S3_BOUNDED_OBJECT_KEY_HEAD_BYTES,
     S3_LOG_PROMPTS_ONLY_ENV_VAR,
     S3_PREFIX_DIGEST_CHARS,
 )
-from litellm.types.utils import StandardLoggingPayload
+from embrouter.types.utils import StandardLoggingPayload
 
 _S3_BOOL: Final = TypeAdapter(bool)
 _UPLOAD_BOUND: Final = TypeAdapter(int)
@@ -157,15 +157,15 @@ class S3Logger:
         import boto3
 
         try:
-            verbose_logger.debug("in init s3 logger - s3_callback_params %s", litellm.s3_callback_params)
+            verbose_logger.debug("in init s3 logger - s3_callback_params %s", embrouter.s3_callback_params)
 
             s3_use_team_prefix = False
             params: Final = {
-                key: litellm.get_secret(value) if isinstance(value, str) and value.startswith("os.environ/") else value
-                for key, value in (litellm.s3_callback_params or {}).items()
+                key: embrouter.get_secret(value) if isinstance(value, str) and value.startswith("os.environ/") else value
+                for key, value in (embrouter.s3_callback_params or {}).items()
             }
 
-            if litellm.s3_callback_params is not None:
+            if embrouter.s3_callback_params is not None:
                 s3_bucket_name = params.get("s3_bucket_name")
                 s3_region_name = params.get("s3_region_name")
                 s3_api_version = params.get("s3_api_version")
@@ -217,16 +217,16 @@ class S3Logger:
 
             # construct payload to send to s3
             # follows the same params as langfuse.py
-            litellm_params: Final = kwargs.get("litellm_params", {})
-            metadata: Final = litellm_params.get("metadata", {}) or {}  # if litellm_params['metadata'] == None
+            embrouter_params: Final = kwargs.get("embrouter_params", {})
+            metadata: Final = embrouter_params.get("metadata", {}) or {}  # if embrouter_params['metadata'] == None
 
             # Clean Metadata before logging - never log raw metadata
             # the raw metadata can contain circular references which leads to infinite recursion
-            # we clean out all extra litellm metadata params before logging
+            # we clean out all extra embrouter metadata params before logging
             clean_metadata: Final = {}
             if isinstance(metadata, dict):
                 for key, value in metadata.items():
-                    # clean litellm metadata before logging
+                    # clean embrouter metadata before logging
                     if key in [
                         "headers",
                         "endpoint",
@@ -249,10 +249,10 @@ class S3Logger:
             team_alias: Final = payload["metadata"].get("user_api_key_team_alias")
 
             team_alias_prefix = ""
-            if litellm.enable_preview_features and self.s3_use_team_prefix and team_alias is not None:
+            if embrouter.enable_preview_features and self.s3_use_team_prefix and team_alias is not None:
                 team_alias_prefix = f"{team_alias}/"
 
-            s3_file_name: Final = litellm.utils.get_logging_id(start_time, payload) or ""
+            s3_file_name: Final = embrouter.utils.get_logging_id(start_time, payload) or ""
             s3_object_key: Final = get_s3_object_key(
                 cast(str | None, self.s3_path) or "",
                 team_alias_prefix,
@@ -262,7 +262,7 @@ class S3Logger:
 
             s3_object_download_filename: Final = get_s3_object_download_filename(start_time, payload["id"])
 
-            from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
+            from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps
 
             payload_str: Final = safe_dumps(
                 prompts_only_payload(payload) if resolve_s3_log_prompts_only(self.s3_log_prompts_only) else payload

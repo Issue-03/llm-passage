@@ -2,11 +2,11 @@ from collections.abc import Collection, Mapping
 from io import BufferedReader, BytesIO
 from typing import Any, Final, cast, get_type_hints
 
-import litellm
-from litellm.litellm_core_utils.token_counter import get_image_type
-from litellm.llms.base_llm.image_edit.transformation import BaseImageEditConfig
-from litellm.types.files import FILE_MIME_TYPES, FileType
-from litellm.types.images.main import ImageEditOptionalRequestParams
+import embrouter
+from embrouter.embrouter_core_utils.token_counter import get_image_type
+from embrouter.llms.base_llm.image_edit.transformation import BaseImageEditConfig
+from embrouter.types.files import FILE_MIME_TYPES, FileType
+from embrouter.types.images.main import ImageEditOptionalRequestParams
 
 
 class ImageEditRequestUtils:
@@ -33,7 +33,7 @@ class ImageEditRequestUtils:
         """
         supported_params: Final = image_edit_provider_config.get_supported_openai_params(model)
 
-        should_drop: Final = litellm.drop_params is True or drop_params is True
+        should_drop: Final = embrouter.drop_params is True or drop_params is True
 
         filtered_optional_params: Final = dict(image_edit_optional_params)
         if additional_drop_params:
@@ -47,7 +47,7 @@ class ImageEditRequestUtils:
                 for param in unsupported_params:
                     filtered_optional_params.pop(param, None)
             else:
-                raise litellm.UnsupportedParamsError(
+                raise embrouter.UnsupportedParamsError(
                     model=model,
                     message=f"The following parameters are not supported for model {model}: {', '.join(unsupported_params)}",
                 )
@@ -83,7 +83,7 @@ class ImageEditRequestUtils:
     @staticmethod
     def get_image_content_type(image_data: Any) -> str:
         """
-        Detect the content type of image data using existing LiteLLM utils.
+        Detect the content type of image data using existing EmbRouter utils.
 
         Args:
             image_data: Can be BytesIO, bytes, BufferedReader, or other file-like objects

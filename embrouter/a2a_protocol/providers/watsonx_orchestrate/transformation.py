@@ -12,7 +12,7 @@ from collections.abc import AsyncIterator, Mapping
 from typing import Any, Final
 from uuid import uuid4
 
-from litellm._logging import verbose_logger
+from embrouter._logging import verbose_logger
 
 
 class WatsonxOrchestrateTransformation:

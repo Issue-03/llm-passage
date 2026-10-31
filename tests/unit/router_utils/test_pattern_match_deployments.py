@@ -1,19 +1,19 @@
-"""Behavior pins for ``litellm/router_utils/pattern_match_deployments.py``."""
+"""Behavior pins for ``embrouter/router_utils/pattern_match_deployments.py``."""
 
 from __future__ import annotations
 
 from unittest.mock import Mock
 
-from litellm.litellm_core_utils import get_llm_provider_logic
-from litellm.router_utils.pattern_match_deployments import PatternMatchRouter, PatternUtils
+from embrouter.embrouter_core_utils import get_llm_provider_logic
+from embrouter.router_utils.pattern_match_deployments import PatternMatchRouter, PatternUtils
 
 
 def _wildcard_deployment(model_name: str) -> dict:
-    return {"model_name": model_name, "litellm_params": {"model": model_name}}
+    return {"model_name": model_name, "embrouter_params": {"model": model_name}}
 
 
 def _matched_models(matches: list[dict] | None) -> list[str]:
-    return [deployment["litellm_params"]["model"] for deployment in matches or []]
+    return [deployment["embrouter_params"]["model"] for deployment in matches or []]
 
 
 def test_get_pattern_never_resolves_declared_authenticating_providers(monkeypatch):
@@ -92,7 +92,7 @@ def test_route_never_sorts_and_the_most_specific_pattern_still_wins_after_regist
     router = PatternMatchRouter(pattern_utils=_CountingPatternUtils)
     router.add_pattern("openai/*", _wildcard_deployment("openai/*"))
     router.add_pattern("anthropic/*", _wildcard_deployment("anthropic/*"))
-    router.add_pattern("openai/gpt-*", {"model_name": "openai/gpt-*", "litellm_params": {"model": "azure/gpt-*"}})
+    router.add_pattern("openai/gpt-*", {"model_name": "openai/gpt-*", "embrouter_params": {"model": "azure/gpt-*"}})
     sorts_after_setup = _CountingPatternUtils.sorted_patterns.call_count
 
     for _ in range(3):

@@ -21,12 +21,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi import HTTPException
 
-import litellm
-from litellm.integrations.anthropic_cache_control_hook import (
+import embrouter
+from embrouter.integrations.anthropic_cache_control_hook import (
     AnthropicCacheControlHook,
 )
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.types.llms.openai import (
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.types.llms.openai import (
     AllMessageValues,
     ResponseInputParam,
 )
@@ -42,11 +42,11 @@ def _make_logging_obj(
     should_run: bool = True,
     merged_optional_params: dict = None,
 ) -> MagicMock:
-    """Return a mock LiteLLMLoggingObj pre-configured for prompt management."""
+    """Return a mock EmbRouterLoggingObj pre-configured for prompt management."""
     if merged_optional_params is None:
         merged_optional_params = {}
     logging_obj = MagicMock()
-    logging_obj.__class__ = LiteLLMLoggingObj
+    logging_obj.__class__ = EmbRouterLoggingObj
     logging_obj.should_run_prompt_management_hooks.return_value = should_run
     prompt_return = (merged_model, merged_messages, merged_optional_params)
     logging_obj.get_chat_completion_prompt.return_value = prompt_return
@@ -67,19 +67,19 @@ def _patch_responses_dispatch():
     """Patch everything after the prompt management block so tests stay unit-level."""
     return [
         patch.object(
-            import_module("litellm.responses.main").litellm, "get_llm_provider",
+            import_module("embrouter.responses.main").embrouter, "get_llm_provider",
             side_effect=_provider_by_model,
         ),
         patch.object(
-            import_module("litellm.responses.mcp.litellm_proxy_mcp_handler").LiteLLM_Proxy_MCP_Handler, "_should_use_litellm_mcp_gateway",
+            import_module("embrouter.responses.mcp.embrouter_proxy_mcp_handler").EmbRouter_Proxy_MCP_Handler, "_should_use_embrouter_mcp_gateway",
             return_value=False,
         ),
         patch.object(
-            import_module("litellm.responses.main").ProviderConfigManager, "get_provider_responses_api_config",
+            import_module("embrouter.responses.main").ProviderConfigManager, "get_provider_responses_api_config",
             return_value=None,
         ),
         patch.object(
-            import_module("litellm.responses.main").litellm_completion_transformation_handler, "response_api_handler",
+            import_module("embrouter.responses.main").embrouter_completion_transformation_handler, "response_api_handler",
             return_value=MagicMock(),
         ),
     ]
@@ -159,14 +159,14 @@ class TestResponsesAPIPromptManagement:
 
         patches = _patch_responses_dispatch()
         with patches[0], patches[1], patches[2], patches[3]:
-            import litellm
+            import embrouter
 
-            litellm.responses(
+            embrouter.responses(
                 input="Tell me about AI.",
                 model="gpt-4o",
                 prompt_id="summariser-prompt",
                 prompt_variables={},
-                litellm_logging_obj=logging_obj,
+                embrouter_logging_obj=logging_obj,
             )
 
         logging_obj.get_chat_completion_prompt.assert_called_once()
@@ -194,13 +194,13 @@ class TestResponsesAPIPromptManagement:
 
         patches = _patch_responses_dispatch()
         with patches[0], patches[1], patches[2], patches[3]:
-            import litellm
+            import embrouter
 
-            litellm.responses(
+            embrouter.responses(
                 input=client_messages,  # type: ignore[arg-type]
                 model="gpt-4o",
                 prompt_id="helper-prompt",
-                litellm_logging_obj=logging_obj,
+                embrouter_logging_obj=logging_obj,
             )
 
         logging_obj.get_chat_completion_prompt.assert_called_once()
@@ -217,12 +217,12 @@ class TestResponsesAPIPromptManagement:
 
         patches = _patch_responses_dispatch()
         with patches[0], patches[1], patches[2], patches[3]:
-            import litellm
+            import embrouter
 
-            litellm.responses(
+            embrouter.responses(
                 input="Hello",
                 model="gpt-4o",
-                litellm_logging_obj=logging_obj,
+                embrouter_logging_obj=logging_obj,
             )
 
         logging_obj.get_chat_completion_prompt.assert_not_called()
@@ -237,7 +237,7 @@ class TestResponsesAPIPromptManagement:
         merged_kwargs = {"temperature": 0.2}
 
         logging_obj = MagicMock()
-        logging_obj.__class__ = LiteLLMLoggingObj
+        logging_obj.__class__ = EmbRouterLoggingObj
         logging_obj.should_run_prompt_management_hooks.return_value = True
         logging_obj.get_chat_completion_prompt.return_value = (
             "openai/gpt-4o",
@@ -248,13 +248,13 @@ class TestResponsesAPIPromptManagement:
 
         patches = _patch_responses_dispatch()
         with patches[0], patches[1], patches[2], patches[3] as mock_handler:
-            import litellm
+            import embrouter
 
-            litellm.responses(
+            embrouter.responses(
                 input="Hello",
                 model="gpt-4o",
                 prompt_id="t",
-                litellm_logging_obj=logging_obj,
+                embrouter_logging_obj=logging_obj,
             )
 
         # temperature from the template should reach the downstream handler via local_vars
@@ -274,14 +274,14 @@ class TestResponsesAPIPromptManagement:
 
         patches = _patch_responses_dispatch()
         with patches[0], patches[1], patches[2], patches[3] as mock_handler:
-            import litellm
+            import embrouter
 
-            litellm.responses(
+            embrouter.responses(
                 input="What is AI?",
                 model="gpt-4o",
                 prompt_id="query-prompt",
                 prompt_variables={"query": "What is AI?"},
-                litellm_logging_obj=logging_obj,
+                embrouter_logging_obj=logging_obj,
             )
 
         # The model passed to the downstream handler should be the overridden one
@@ -306,13 +306,13 @@ class TestResponsesAPIPromptManagement:
 
         patches = _patch_responses_dispatch()
         with patches[0], patches[1], patches[2], patches[3]:
-            import litellm
+            import embrouter
 
-            litellm.responses(
+            embrouter.responses(
                 input=mixed_input,  # type: ignore[arg-type]
                 model="gpt-4o",
                 prompt_id="filter-test",
-                litellm_logging_obj=logging_obj,
+                embrouter_logging_obj=logging_obj,
             )
 
         call_kwargs = logging_obj.get_chat_completion_prompt.call_args.kwargs
@@ -329,12 +329,12 @@ class TestResponsesAPIPromptManagement:
 
         patches = _patch_responses_dispatch()
         with patches[0], patches[1], patches[2], patches[3] as mock_handler:
-            import litellm
+            import embrouter
 
-            litellm.responses(
+            embrouter.responses(
                 input=original_input,
                 model="azure/gpt-5-codex",
-                litellm_logging_obj=logging_obj,
+                embrouter_logging_obj=logging_obj,
                 cache_control_injection_points=[{"location": "message", "role": "system"}],
             )
 
@@ -369,13 +369,13 @@ class TestResponsesAPIPromptManagement:
 
         patches = _patch_responses_dispatch()
         with patches[0], patches[1], patches[2], patches[3] as mock_handler:
-            import litellm
+            import embrouter
 
-            litellm.responses(
+            embrouter.responses(
                 input=original_input,
                 model="gpt-4o",
                 prompt_id="all-non-message",
-                litellm_logging_obj=logging_obj,
+                embrouter_logging_obj=logging_obj,
             )
 
         assert mock_handler.call_args.kwargs["input"] == original_input
@@ -395,20 +395,20 @@ class TestResponsesAPIPromptManagement:
         patches = _patch_responses_dispatch()
         with (
             patch.object(
-                import_module("litellm.responses.main").litellm, "get_llm_provider",
+                import_module("embrouter.responses.main").embrouter, "get_llm_provider",
                 side_effect=_provider_by_model,
             ),
             patches[1],
             patches[2],
             patches[3] as mock_handler,
         ):
-            import litellm
+            import embrouter
 
-            litellm.responses(
+            embrouter.responses(
                 input="Hi",
                 model="gpt-4o",
                 prompt_id="cross-provider",
-                litellm_logging_obj=logging_obj,
+                embrouter_logging_obj=logging_obj,
             )
 
         handler_call_kwargs = mock_handler.call_args.kwargs
@@ -438,14 +438,14 @@ class TestAsyncResponsesAPIPromptManagement:
 
         patches = _patch_responses_dispatch()
         with patches[0], patches[1], patches[2], patches[3]:
-            import litellm
+            import embrouter
 
-            await litellm.aresponses(
+            await embrouter.aresponses(
                 input="Hi",
                 model="gpt-4o",
                 prompt_id="async-test",
                 prompt_variables={},
-                litellm_logging_obj=logging_obj,
+                embrouter_logging_obj=logging_obj,
             )
 
         logging_obj.async_get_chat_completion_prompt.assert_called_once()
@@ -468,13 +468,13 @@ class TestAsyncResponsesAPIPromptManagement:
 
         patches = _patch_responses_dispatch()
         with patches[0], patches[1], patches[2], patches[3] as mock_handler:
-            import litellm
+            import embrouter
 
-            await litellm.aresponses(
+            await embrouter.aresponses(
                 input="Hello",
                 model="gpt-4o",
                 prompt_id="async-temp",
-                litellm_logging_obj=logging_obj,
+                embrouter_logging_obj=logging_obj,
             )
 
         logging_obj.get_chat_completion_prompt.assert_not_called()
@@ -499,13 +499,13 @@ class TestAsyncResponsesAPIPromptManagement:
 
         patches = _patch_responses_dispatch()
         with patches[0], patches[1], patches[2], patches[3]:
-            import litellm
+            import embrouter
 
-            await litellm.aresponses(
+            await embrouter.aresponses(
                 input=mixed_input,  # type: ignore[arg-type]
                 model="gpt-4o",
                 prompt_id="async-filter",
-                litellm_logging_obj=logging_obj,
+                embrouter_logging_obj=logging_obj,
             )
 
         logging_obj.async_get_chat_completion_prompt.assert_called_once()
@@ -525,12 +525,12 @@ class TestAsyncResponsesAPIPromptManagement:
 
         patches = _patch_responses_dispatch()
         with patches[0], patches[1], patches[2], patches[3] as mock_handler:
-            import litellm
+            import embrouter
 
-            await litellm.aresponses(
+            await embrouter.aresponses(
                 input=original_input,
                 model="azure/gpt-5-codex",
-                litellm_logging_obj=logging_obj,
+                embrouter_logging_obj=logging_obj,
                 cache_control_injection_points=[{"location": "message", "role": "system"}],
             )
 
@@ -552,10 +552,10 @@ class TestAsyncResponsesAPIPromptManagement:
 
 
 def test_resolve_prompt_swapped_provider_raises_cross_provider_with_credentials():
-    import litellm
-    from litellm.responses.main import _resolve_prompt_swapped_provider
+    import embrouter
+    from embrouter.responses.main import _resolve_prompt_swapped_provider
 
-    with pytest.raises(litellm.BadRequestError, match="Refusing to send"):
+    with pytest.raises(embrouter.BadRequestError, match="Refusing to send"):
         _resolve_prompt_swapped_provider(
             original_model="anthropic/claude-haiku-4-5",
             swapped_model="gpt-4o-mini",
@@ -566,7 +566,7 @@ def test_resolve_prompt_swapped_provider_raises_cross_provider_with_credentials(
 
 
 def test_resolve_prompt_swapped_provider_allows_swap_without_credentials():
-    from litellm.responses.main import _resolve_prompt_swapped_provider
+    from embrouter.responses.main import _resolve_prompt_swapped_provider
 
     assert (
         _resolve_prompt_swapped_provider(
@@ -581,7 +581,7 @@ def test_resolve_prompt_swapped_provider_allows_swap_without_credentials():
 
 
 def test_resolve_prompt_swapped_provider_allows_same_provider_swap_with_credentials():
-    from litellm.responses.main import _resolve_prompt_swapped_provider
+    from embrouter.responses.main import _resolve_prompt_swapped_provider
 
     assert (
         _resolve_prompt_swapped_provider(
@@ -596,33 +596,33 @@ def test_resolve_prompt_swapped_provider_allows_same_provider_swap_with_credenti
 
 
 def test_sync_prompt_swap_resolves_credentials_for_swapped_provider(monkeypatch: pytest.MonkeyPatch):
-    import litellm
+    import embrouter
 
     monkeypatch.setenv("XAI_API_KEY", "sk-xai-test")
     logging_obj = _make_logging_obj("gpt-4o-mini", [{"role": "user", "content": "hi"}])
     with patch.object(  # test-quality-ok: handler boundary stub proves creds resolve for the swapped provider without network
-        import_module("litellm.responses.main").base_llm_http_handler, "response_api_handler", return_value=MagicMock()
+        import_module("embrouter.responses.main").base_llm_http_handler, "response_api_handler", return_value=MagicMock()
     ) as mock_handler:
-        litellm.responses(input="hi", model="xai/grok-4", prompt_id="p1", litellm_logging_obj=logging_obj)
+        embrouter.responses(input="hi", model="xai/grok-4", prompt_id="p1", embrouter_logging_obj=logging_obj)
 
     handler_kwargs = mock_handler.call_args.kwargs
     assert handler_kwargs["model"] == "gpt-4o-mini"
     assert handler_kwargs["custom_llm_provider"] == "openai"
-    assert handler_kwargs["litellm_params"].api_base is None
-    assert handler_kwargs["litellm_params"].api_key != "sk-xai-test"
+    assert handler_kwargs["embrouter_params"].api_base is None
+    assert handler_kwargs["embrouter_params"].api_key != "sk-xai-test"
 
 
 def test_sync_prompt_swap_cross_provider_with_credentials_raises():
-    import litellm
-    from litellm.responses.main import _apply_prompt_management_to_responses_call
+    import embrouter
+    from embrouter.responses.main import _apply_prompt_management_to_responses_call
 
     logging_obj = _make_logging_obj("gpt-4o-mini", [{"role": "user", "content": "hi"}])
-    with pytest.raises(litellm.BadRequestError, match="Refusing to send"):
+    with pytest.raises(embrouter.BadRequestError, match="Refusing to send"):
         _apply_prompt_management_to_responses_call(
             input="hi",
             model="anthropic/claude-haiku-4-5",
             custom_llm_provider="anthropic",
-            litellm_logging_obj=logging_obj,
+            embrouter_logging_obj=logging_obj,
             kwargs={"prompt_id": "p1", "api_key": "sk-ant-test"},
             local_vars={},
             use_chat_completions_api=False,
@@ -631,15 +631,15 @@ def test_sync_prompt_swap_cross_provider_with_credentials_raises():
 
 @pytest.mark.asyncio
 async def test_aresponses_prompt_swap_cross_provider_with_credentials_raises():
-    import litellm
+    import embrouter
 
     logging_obj = _make_logging_obj("gpt-4o-mini", [{"role": "user", "content": "hi"}])
     logging_obj.async_failure_handler = AsyncMock()
-    with pytest.raises(litellm.BadRequestError, match="Refusing to send"):
-        await litellm.aresponses(
+    with pytest.raises(embrouter.BadRequestError, match="Refusing to send"):
+        await embrouter.aresponses(
             input="hi",
             model="anthropic/claude-haiku-4-5",
-            litellm_logging_obj=logging_obj,
+            embrouter_logging_obj=logging_obj,
             prompt_id="p1",
             api_key="sk-ant-test",
         )
@@ -657,7 +657,7 @@ async def test_async_guardrail_block_from_prompt_hook_reaches_caller_unwrapped()
 
     patches = _patch_responses_dispatch()
     with patches[0], patches[1], patches[2], patches[3], pytest.raises(HTTPException) as exc_info:
-        await litellm.aresponses(input="Hi", model="gpt-4o", prompt_id="blocked", litellm_logging_obj=logging_obj)
+        await embrouter.aresponses(input="Hi", model="gpt-4o", prompt_id="blocked", embrouter_logging_obj=logging_obj)
 
     assert exc_info.value is block
 
@@ -669,6 +669,6 @@ def test_sync_guardrail_block_from_prompt_hook_reaches_caller_unwrapped():
 
     patches = _patch_responses_dispatch()
     with patches[0], patches[1], patches[2], patches[3], pytest.raises(HTTPException) as exc_info:
-        litellm.responses(input="Hi", model="gpt-4o", prompt_id="blocked", litellm_logging_obj=logging_obj)
+        embrouter.responses(input="Hi", model="gpt-4o", prompt_id="blocked", embrouter_logging_obj=logging_obj)
 
     assert exc_info.value is block

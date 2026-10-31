@@ -18,12 +18,12 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Final
 
-from litellm._logging import verbose_proxy_logger
-from litellm._version import version
-from litellm.constants import HIBP_RANGE_API_BASE
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, get_async_httpx_client
-from litellm.proxy._types import ProxyErrorTypes, ProxyException
-from litellm.types.llms.custom_http import httpxSpecialProvider
+from embrouter._logging import verbose_proxy_logger
+from embrouter._version import version
+from embrouter.constants import HIBP_RANGE_API_BASE
+from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler, get_async_httpx_client
+from embrouter.proxy._types import ProxyErrorTypes, ProxyException
+from embrouter.types.llms.custom_http import httpxSpecialProvider
 
 HIBP_TIMEOUT_SECONDS: Final = 5.0
 
@@ -127,7 +127,7 @@ async def _is_password_breached(password: str, client: AsyncHTTPHandler) -> bool
     sha1_hex: Final = hashlib.sha1(password.encode("utf-8"), usedforsecurity=False).hexdigest().upper()
     headers: Final = {  # mutable-ok: callee takes a bare dict (PEP 589)
         "Add-Padding": "true",
-        "User-Agent": f"litellm-proxy/{version}",
+        "User-Agent": f"embrouter-proxy/{version}",
     }
     try:
         response: Final = await client.get(

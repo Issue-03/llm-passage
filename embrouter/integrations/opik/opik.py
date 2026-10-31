@@ -10,9 +10,9 @@ from typing import Any, Final
 
 from typing_extensions import ReadOnly, TypedDict, Unpack
 
-from litellm._logging import verbose_logger
-from litellm.integrations.custom_batch_logger import CustomBatchLogger
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter._logging import verbose_logger
+from embrouter.integrations.custom_batch_logger import CustomBatchLogger
+from embrouter.llms.custom_httpx.http_handler import (
     _get_httpx_client,
     get_async_httpx_client,
     httpxSpecialProvider,
@@ -163,7 +163,7 @@ class OpikLogger(CustomBatchLogger):
                     total_cost=span_payload.total_cost,
                 )
             else:
-                # Add payloads to LiteLLM queue
+                # Add payloads to EmbRouter queue
                 if trace_payload is not None:
                     self.log_queue.append(trace_payload.__dict__)
                 self.log_queue.append(span_payload.__dict__)
@@ -245,7 +245,7 @@ class OpikLogger(CustomBatchLogger):
                     total_cost=span_payload.total_cost,
                 )
             else:
-                # Opik native client is not available, use LiteLLM queue to send data
+                # Opik native client is not available, use EmbRouter queue to send data
                 if trace_payload is not None:
                     self._sync_send(
                         url=self.trace_url,

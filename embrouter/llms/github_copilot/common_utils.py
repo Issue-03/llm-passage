@@ -7,7 +7,7 @@ from uuid import uuid4
 
 import httpx
 
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
 
 # Constants
 COPILOT_VERSION: Final = "0.26.7"

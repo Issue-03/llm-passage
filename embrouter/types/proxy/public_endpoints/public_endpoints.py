@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict
 class PublicModelHubInfo(BaseModel):
     docs_title: str
     custom_docs_description: str | None
-    litellm_version: str
+    embrouter_version: str
     # Supports both old format (Dict[str, str]) and new format (Dict[str, Dict[str, Any]])
     # New format: { "displayName": { "url": "...", "index": 0 } }
     # Old format: { "displayName": "url" } (for backward compatibility)
@@ -28,7 +28,7 @@ class ProviderCredentialField(BaseModel):
 class ProviderCreateInfo(BaseModel):
     provider: str
     provider_display_name: str
-    litellm_provider: str
+    embrouter_provider: str
     credential_fields: list[ProviderCredentialField]
     default_model_placeholder: str | None = None
 
@@ -42,7 +42,7 @@ class AgentCredentialField(BaseModel):
     field_type: Literal["text", "password", "select", "upload", "textarea"] = "text"
     options: list[str] | None = None
     default_value: str | None = None
-    include_in_litellm_params: bool | None = None
+    include_in_embrouter_params: bool | None = None
     validation_pattern: str | None = None
     validation_message: str | None = None
 
@@ -53,7 +53,7 @@ class AgentCreateInfo(BaseModel):
     description: str | None = None
     logo_url: str | None = None
     credential_fields: list[AgentCredentialField]
-    litellm_params_template: dict[str, str] | None = None
+    embrouter_params_template: dict[str, str] | None = None
     model_template: str | None = None
 
 

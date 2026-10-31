@@ -9,8 +9,8 @@ from unittest.mock import MagicMock
 import httpx
 import pytest
 
-from litellm.llms.deepinfra.rerank.transformation import DeepinfraRerankConfig
-from litellm.types.rerank import (
+from embrouter.llms.deepinfra.rerank.transformation import DeepinfraRerankConfig
+from embrouter.types.rerank import (
     OptionalRerankParams,
     RerankResponse,
 )

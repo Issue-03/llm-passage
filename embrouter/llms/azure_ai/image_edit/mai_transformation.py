@@ -3,23 +3,23 @@ from typing import TYPE_CHECKING, Any, Final
 import httpx
 from httpx._types import RequestFiles
 
-from litellm.llms.azure_ai.common_utils import (
+from embrouter.llms.azure_ai.common_utils import (
     AzureFoundryModelInfo,
     get_azure_ai_auth_headers,
 )
-from litellm.llms.azure_ai.image_generation.mai_transformation import (
+from embrouter.llms.azure_ai.image_generation.mai_transformation import (
     AzureFoundryMAIImageGenerationConfig,
 )
-from litellm.llms.openai.common_utils import OpenAIError
-from litellm.llms.openai.image_edit.transformation import OpenAIImageEditConfig
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.openai import FileTypes
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import ImageResponse
-from litellm.utils import convert_to_model_response_object
+from embrouter.llms.openai.common_utils import OpenAIError
+from embrouter.llms.openai.image_edit.transformation import OpenAIImageEditConfig
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.openai import FileTypes
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import ImageResponse
+from embrouter.utils import convert_to_model_response_object
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.logging import Logging as LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.logging import Logging as EmbRouterLoggingObj
 
 
 class AzureFoundryMAIImageEditConfig(OpenAIImageEditConfig):
@@ -33,13 +33,13 @@ class AzureFoundryMAIImageEditConfig(OpenAIImageEditConfig):
         headers: dict,
         model: str,
         api_key: str | None = None,
-        litellm_params: dict | None = None,
+        embrouter_params: dict | None = None,
         api_base: str | None = None,
     ) -> dict:
         headers.update(
             get_azure_ai_auth_headers(
                 api_key=AzureFoundryModelInfo.get_api_key(api_key),
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 api_key_header="api-key",
             )
         )
@@ -49,7 +49,7 @@ class AzureFoundryMAIImageEditConfig(OpenAIImageEditConfig):
         self,
         model: str,
         api_base: str | None,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> str:
         api_base = AzureFoundryModelInfo.get_api_base(api_base)
 
@@ -58,7 +58,7 @@ class AzureFoundryMAIImageEditConfig(OpenAIImageEditConfig):
                 "Azure AI API base is required. Set AZURE_AI_API_BASE environment variable or pass api_base parameter."
             )
 
-        api_version: Final = litellm_params.get("api_version") or get_secret_str("AZURE_AI_API_VERSION") or "preview"
+        api_version: Final = embrouter_params.get("api_version") or get_secret_str("AZURE_AI_API_VERSION") or "preview"
 
         return AzureFoundryMAIImageGenerationConfig.get_mai_image_edit_url(
             api_base=api_base,
@@ -71,7 +71,7 @@ class AzureFoundryMAIImageEditConfig(OpenAIImageEditConfig):
         prompt: str | None,
         image: FileTypes | None,
         image_edit_optional_request_params: dict,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[dict, RequestFiles]:
         request_params: Final = {
@@ -101,7 +101,7 @@ class AzureFoundryMAIImageEditConfig(OpenAIImageEditConfig):
         self,
         model: str,
         raw_response: httpx.Response,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
     ) -> ImageResponse:
         try:
             response: Final = raw_response.json()

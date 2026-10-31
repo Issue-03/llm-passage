@@ -1,7 +1,7 @@
 """Boundary coverage for reasoning effort normalization on the ``/v1/messages`` adapter.
 
 ``test_reasoning_effort_fields.py`` pins ``normalize_reasoning_effort_value`` itself. These tests
-sit one layer out, on the kwargs the handler actually hands to ``litellm.acompletion``, so the
+sit one layer out, on the kwargs the handler actually hands to ``embrouter.acompletion``, so the
 regression they guard is the one a caller sees: a tier the proxy advertises has to be the tier that
 leaves the adapter, in the shape the target expects.
 """
@@ -10,15 +10,15 @@ from typing import Final
 
 import pytest
 
-from litellm.llms.anthropic.pass_through.adapters.handler import (
-    LiteLLMMessagesToCompletionTransformationHandler,
+from embrouter.llms.anthropic.pass_through.adapters.handler import (
+    EmbRouterMessagesToCompletionTransformationHandler,
 )
 
 MESSAGES = [{"role": "user", "content": "hello"}]
 
 
 def _reasoning_effort_sent(model: str, provider: str, reasoning_effort: object) -> object:
-    completion_kwargs, _ = LiteLLMMessagesToCompletionTransformationHandler._prepare_completion_kwargs(
+    completion_kwargs, _ = EmbRouterMessagesToCompletionTransformationHandler._prepare_completion_kwargs(
         max_tokens=1024,
         messages=MESSAGES,
         model=model,
@@ -49,7 +49,7 @@ def _reasoning_effort_sent_for_thinking(
     extra_kwargs: Final = {
         key: value for key, value in (("custom_llm_provider", provider), ("api_base", api_base)) if value is not None
     }
-    completion_kwargs, _ = LiteLLMMessagesToCompletionTransformationHandler._prepare_completion_kwargs(
+    completion_kwargs, _ = EmbRouterMessagesToCompletionTransformationHandler._prepare_completion_kwargs(
         max_tokens=1024,
         messages=MESSAGES,
         model=model,
@@ -98,7 +98,7 @@ class TestTheSummaryWrappingOnlyRidesTheResponsesBridge:
     def test_auto_summary_stays_a_plain_tier_on_a_chat_target(
         self, local_model_cost_map: None, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setenv("LITELLM_REASONING_AUTO_SUMMARY", "true")
+        monkeypatch.setenv("EMBROUTER_REASONING_AUTO_SUMMARY", "true")
 
         sent = _reasoning_effort_sent_for_thinking("databricks/databricks-qwen35-122b-a10b", "databricks", PLAIN_THINKING)
 
@@ -120,7 +120,7 @@ class TestTheSummaryWrappingOnlyRidesTheResponsesBridge:
     def test_auto_summary_still_reaches_a_bridged_target(
         self, local_model_cost_map: None, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setenv("LITELLM_REASONING_AUTO_SUMMARY", "true")
+        monkeypatch.setenv("EMBROUTER_REASONING_AUTO_SUMMARY", "true")
 
         sent = _reasoning_effort_sent_for_thinking("azure/responses/gpt-5-mini", "azure", PLAIN_THINKING)
 
@@ -153,7 +153,7 @@ class TestTheSummaryWrappingOnlyRidesTheResponsesBridge:
         assert sent == "high"
 
     def test_a_chained_gateway_keeps_the_dict_for_its_own_bridge(self, local_model_cost_map: None) -> None:
-        sent = _reasoning_effort_sent_for_thinking("litellm_proxy/gpt-5.4", "litellm_proxy", SUMMARIZED_THINKING)
+        sent = _reasoning_effort_sent_for_thinking("embrouter_proxy/gpt-5.4", "embrouter_proxy", SUMMARIZED_THINKING)
 
         assert sent == {"effort": "high", "summary": "auto"}
 

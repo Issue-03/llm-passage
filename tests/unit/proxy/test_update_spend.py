@@ -1,18 +1,18 @@
 import asyncio
 from unittest.mock import Mock
-from litellm.proxy.utils import _get_redoc_url, _get_docs_url
+from embrouter.proxy.utils import _get_redoc_url, _get_docs_url
 
 import pytest
 from fastapi import Request
 
-import litellm
+import embrouter
 from unittest.mock import MagicMock, patch, AsyncMock
 
 
 import httpx
 import math
-from litellm.constants import SPEND_LOG_WRITE_BATCH_MAX_ROWS
-from litellm.proxy.utils import update_spend
+from embrouter.constants import SPEND_LOG_WRITE_BATCH_MAX_ROWS
+from embrouter.proxy.utils import update_spend
 
 # The flush chunks the queue by BATCH_SIZE and then splits each chunk by the row
 # budget, so statement counts below are derived from both rather than hardcoded.
@@ -29,8 +29,8 @@ class MockPrismaClient:
     def __init__(self):
         # Create AsyncMock for db operations
         self.db = AsyncMock()
-        self.db.litellm_spendlogs = AsyncMock()
-        self.db.litellm_spendlogs.create_many = AsyncMock()
+        self.db.embrouter_spendlogs = AsyncMock()
+        self.db.embrouter_spendlogs.create_many = AsyncMock()
 
         # Initialize transaction lists
         self.spend_log_transactions = []
@@ -107,7 +107,7 @@ async def test_update_spend_logs_connection_errors(error_type):
         None,  # Fourth attempt succeeds
     ]
 
-    prisma_client.db.litellm_spendlogs.create_many = create_many_mock
+    prisma_client.db.embrouter_spendlogs.create_many = create_many_mock
 
     # Execute
     await update_spend(prisma_client, None, proxy_logging_obj)
@@ -143,7 +143,7 @@ async def test_update_spend_logs_max_retries_exceeded(error_type):
     # Mock the database to always fail
     create_many_mock = AsyncMock(side_effect=error_type)
 
-    prisma_client.db.litellm_spendlogs.create_many = create_many_mock
+    prisma_client.db.embrouter_spendlogs.create_many = create_many_mock
 
     # Execute and verify it raises after max retries
     with pytest.raises(type(error_type)) as exc_info:
@@ -176,7 +176,7 @@ async def test_update_spend_logs_non_connection_error():
     unexpected_error = ValueError("Unexpected database error")
     create_many_mock = AsyncMock(side_effect=unexpected_error)
 
-    prisma_client.db.litellm_spendlogs.create_many = create_many_mock
+    prisma_client.db.embrouter_spendlogs.create_many = create_many_mock
 
     # Execute and verify it raises immediately without retrying
     with pytest.raises(ValueError, match='Unexpected database error') as exc_info:
@@ -216,7 +216,7 @@ async def test_update_spend_logs_exponential_backoff():
         ]
     )
 
-    prisma_client.db.litellm_spendlogs.create_many = create_many_mock
+    prisma_client.db.embrouter_spendlogs.create_many = create_many_mock
 
     # Apply mocks
     with patch("asyncio.sleep", mock_sleep):
@@ -249,7 +249,7 @@ async def test_update_spend_logs_multiple_batches_success():
     ]
 
     create_many_mock = AsyncMock(return_value=None)
-    prisma_client.db.litellm_spendlogs.create_many = create_many_mock
+    prisma_client.db.embrouter_spendlogs.create_many = create_many_mock
 
     # Execute
     await update_spend(prisma_client, None, proxy_logging_obj)
@@ -297,7 +297,7 @@ async def test_update_spend_logs_multiple_batches_with_failure():
         return None
 
     create_many_mock = AsyncMock(side_effect=create_many_side_effect)
-    prisma_client.db.litellm_spendlogs.create_many = create_many_mock
+    prisma_client.db.embrouter_spendlogs.create_many = create_many_mock
 
     # Execute
     await update_spend(prisma_client, None, proxy_logging_obj)

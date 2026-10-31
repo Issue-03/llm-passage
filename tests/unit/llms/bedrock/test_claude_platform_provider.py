@@ -8,8 +8,8 @@ import pytest
 from botocore.credentials import Credentials
 from pydantic import BaseModel, ConfigDict, ValidationError
 
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-from litellm.types.router import GenericLiteLLMParams
+from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from embrouter.types.router import GenericEmbRouterParams
 
 WORKSPACE_ALIASES: Final = ("workspace_id", "aws_workspace_id", "anthropic_workspace_id", "anthropic-workspace-id")
 
@@ -110,7 +110,7 @@ def _async_gateway_client(requests: list[dict]) -> AsyncHTTPHandler:
 
 
 def test_claude_platform_builds_default_messages_url_from_region():
-    from litellm.llms.bedrock.claude_platform.transformation import (
+    from embrouter.llms.bedrock.claude_platform.transformation import (
         BedrockClaudePlatformConfig,
     )
 
@@ -122,14 +122,14 @@ def test_claude_platform_builds_default_messages_url_from_region():
             api_key=None,
             model="claude-sonnet-4-6",
             optional_params={"aws_region_name": "us-west-2"},
-            litellm_params={},
+            embrouter_params={},
         )
         == "https://aws-external-anthropic.us-west-2.api.aws/v1/messages"
     )
 
 
 def test_claude_platform_ignores_standard_anthropic_base_url(monkeypatch):
-    from litellm.llms.bedrock.claude_platform.transformation import (
+    from embrouter.llms.bedrock.claude_platform.transformation import (
         BedrockClaudePlatformConfig,
     )
 
@@ -144,17 +144,17 @@ def test_claude_platform_ignores_standard_anthropic_base_url(monkeypatch):
             api_key=None,
             model="claude-sonnet-4-6",
             optional_params={"aws_region_name": "us-west-2"},
-            litellm_params={},
+            embrouter_params={},
         )
         == "https://aws-external-anthropic.us-west-2.api.aws/v1/messages"
     )
 
 
 def test_claude_platform_uses_bedrock_subroute():
-    import litellm
-    from litellm.llms.bedrock.common_utils import BedrockModelInfo
+    import embrouter
+    from embrouter.llms.bedrock.common_utils import BedrockModelInfo
 
-    model, provider, _, _ = litellm.get_llm_provider(model="bedrock/claude_platform/claude-sonnet-4-6")
+    model, provider, _, _ = embrouter.get_llm_provider(model="bedrock/claude_platform/claude-sonnet-4-6")
 
     assert provider == "bedrock"
     assert model == "claude_platform/claude-sonnet-4-6"
@@ -163,8 +163,8 @@ def test_claude_platform_uses_bedrock_subroute():
 
 
 def test_claude_platform_requires_workspace_header():
-    from litellm import AuthenticationError
-    from litellm.llms.bedrock.claude_platform.transformation import (
+    from embrouter import AuthenticationError
+    from embrouter.llms.bedrock.claude_platform.transformation import (
         BedrockClaudePlatformConfig,
     )
 
@@ -177,14 +177,14 @@ def test_claude_platform_requires_workspace_header():
             model="claude-sonnet-4-6",
             messages=[{"role": "user", "content": "hello"}],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
         )
 
     assert "workspace" in str(exc_info.value).lower()
 
 
 def test_claude_platform_api_key_auth_sets_workspace_and_key_headers():
-    from litellm.llms.bedrock.claude_platform.transformation import (
+    from embrouter.llms.bedrock.claude_platform.transformation import (
         BedrockClaudePlatformConfig,
     )
 
@@ -195,7 +195,7 @@ def test_claude_platform_api_key_auth_sets_workspace_and_key_headers():
         model="claude-sonnet-4-6",
         messages=[{"role": "user", "content": "hello"}],
         optional_params={"workspace_id": "wrkspc_test"},
-        litellm_params={},
+        embrouter_params={},
     )
 
     assert headers["x-api-key"] == "fake-platform-key"
@@ -204,7 +204,7 @@ def test_claude_platform_api_key_auth_sets_workspace_and_key_headers():
 
 
 def test_claude_platform_does_not_use_standard_anthropic_api_key(monkeypatch):
-    from litellm.llms.bedrock.claude_platform.transformation import (
+    from embrouter.llms.bedrock.claude_platform.transformation import (
         BedrockClaudePlatformConfig,
     )
 
@@ -217,14 +217,14 @@ def test_claude_platform_does_not_use_standard_anthropic_api_key(monkeypatch):
         model="claude-sonnet-4-6",
         messages=[{"role": "user", "content": "hello"}],
         optional_params={"workspace_id": "wrkspc_test"},
-        litellm_params={},
+        embrouter_params={},
     )
 
     assert "x-api-key" not in headers
 
 
 def test_claude_platform_sigv4_signs_transformed_request_body():
-    from litellm.llms.bedrock.claude_platform.transformation import (
+    from embrouter.llms.bedrock.claude_platform.transformation import (
         BedrockClaudePlatformConfig,
     )
 
@@ -257,7 +257,7 @@ def test_claude_platform_sigv4_signs_transformed_request_body():
 
 
 def test_claude_platform_standard_anthropic_api_key_does_not_skip_sigv4(monkeypatch):
-    from litellm.llms.bedrock.claude_platform.transformation import (
+    from embrouter.llms.bedrock.claude_platform.transformation import (
         BedrockClaudePlatformConfig,
     )
 
@@ -289,10 +289,10 @@ def test_claude_platform_standard_anthropic_api_key_does_not_skip_sigv4(monkeypa
 
 
 def test_bedrock_claude_platform_messages_config_round_trips_native_body():
-    import litellm
-    from litellm.types.utils import LlmProviders
+    import embrouter
+    from embrouter.types.utils import LlmProviders
 
-    config = litellm.ProviderConfigManager.get_provider_anthropic_messages_config(
+    config = embrouter.ProviderConfigManager.get_provider_anthropic_messages_config(
         model="claude_platform/claude-sonnet-4-6",
         provider=LlmProviders.BEDROCK,
     )
@@ -304,13 +304,13 @@ def test_bedrock_claude_platform_messages_config_round_trips_native_body():
         model="claude_platform/claude-sonnet-4-6",
         messages=[{"role": "user", "content": "hello"}],
         optional_params={"max_tokens": 10},
-        litellm_params={"workspace_id": "wrkspc_test"},
+        embrouter_params={"workspace_id": "wrkspc_test"},
     )
     request_body = config.transform_anthropic_messages_request(
         model="claude_platform/claude-sonnet-4-6",
         messages=[{"role": "user", "content": "hello"}],
         anthropic_messages_optional_request_params={"max_tokens": 10},
-        litellm_params=GenericLiteLLMParams(),
+        embrouter_params=GenericEmbRouterParams(),
         headers=headers,
     )
 
@@ -325,7 +325,7 @@ def test_bedrock_claude_platform_messages_config_round_trips_native_body():
 
 @pytest.mark.asyncio
 async def test_anthropic_messages_bedrock_claude_platform_forwards_anthropic_beta_verbatim():
-    import litellm
+    import embrouter
 
     requests = []
 
@@ -335,10 +335,10 @@ async def test_anthropic_messages_bedrock_claude_platform_forwards_anthropic_bet
 
     try:
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "embrouter.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             new=mock_post,
         ):
-            await litellm.anthropic_messages(
+            await embrouter.anthropic_messages(
                 model="bedrock/claude_platform/claude-sonnet-4-6",
                 messages=[{"role": "user", "content": "hello"}],
                 max_tokens=10,
@@ -349,7 +349,7 @@ async def test_anthropic_messages_bedrock_claude_platform_forwards_anthropic_bet
                 extra_headers={"anthropic-beta": "prompt-caching-scope-2026-01-05,mcp-client-2025-11-20"},
             )
     finally:
-        await litellm.close_litellm_async_clients()
+        await embrouter.close_embrouter_async_clients()
 
     assert len(requests) == 1
     assert requests[0]["headers"]["anthropic-beta"] == "mcp-client-2025-11-20,prompt-caching-scope-2026-01-05"
@@ -359,7 +359,7 @@ async def test_anthropic_messages_bedrock_claude_platform_forwards_anthropic_bet
 
 
 def test_claude_platform_strips_auth_params_from_request_body():
-    from litellm.llms.bedrock.claude_platform.transformation import (
+    from embrouter.llms.bedrock.claude_platform.transformation import (
         BedrockClaudePlatformConfig,
     )
 
@@ -374,7 +374,7 @@ def test_claude_platform_strips_auth_params_from_request_body():
         model="claude-sonnet-4-6",
         messages=[{"role": "user", "content": "hello"}],
         optional_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -383,10 +383,10 @@ def test_claude_platform_strips_auth_params_from_request_body():
 
 
 def test_claude_platform_messages_strips_auth_params_from_request_body():
-    import litellm
-    from litellm.types.utils import LlmProviders
+    import embrouter
+    from embrouter.types.utils import LlmProviders
 
-    config = litellm.ProviderConfigManager.get_provider_anthropic_messages_config(
+    config = embrouter.ProviderConfigManager.get_provider_anthropic_messages_config(
         model="claude_platform/claude-sonnet-4-6",
         provider=LlmProviders.BEDROCK,
     )
@@ -401,7 +401,7 @@ def test_claude_platform_messages_strips_auth_params_from_request_body():
         model="claude_platform/claude-sonnet-4-6",
         messages=[{"role": "user", "content": "hello"}],
         anthropic_messages_optional_request_params=input_params,
-        litellm_params=GenericLiteLLMParams(),
+        embrouter_params=GenericEmbRouterParams(),
         headers={},
     )
 
@@ -416,7 +416,7 @@ def test_claude_platform_messages_strips_auth_params_from_request_body():
 def test_claude_platform_strips_unsupported_context_management_param(caplog):
     import logging
 
-    from litellm.llms.bedrock.claude_platform.transformation import (
+    from embrouter.llms.bedrock.claude_platform.transformation import (
         BedrockClaudePlatformConfig,
     )
 
@@ -427,12 +427,12 @@ def test_claude_platform_strips_unsupported_context_management_param(caplog):
         "max_tokens": 10,
     }
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    with caplog.at_level(logging.WARNING, logger="EmbRouter"):
         request_body = config.transform_request(
             model="claude-sonnet-4-6",
             messages=[{"role": "user", "content": "hello"}],
             optional_params=optional_params,
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -445,10 +445,10 @@ def test_claude_platform_strips_unsupported_context_management_param(caplog):
 
 
 def test_claude_platform_messages_strips_unsupported_context_management_param():
-    import litellm
-    from litellm.types.utils import LlmProviders
+    import embrouter
+    from embrouter.types.utils import LlmProviders
 
-    config = litellm.ProviderConfigManager.get_provider_anthropic_messages_config(
+    config = embrouter.ProviderConfigManager.get_provider_anthropic_messages_config(
         model="claude_platform/claude-sonnet-4-6",
         provider=LlmProviders.BEDROCK,
     )
@@ -462,7 +462,7 @@ def test_claude_platform_messages_strips_unsupported_context_management_param():
         model="claude_platform/claude-sonnet-4-6",
         messages=[{"role": "user", "content": "hello"}],
         anthropic_messages_optional_request_params=input_params,
-        litellm_params=GenericLiteLLMParams(),
+        embrouter_params=GenericEmbRouterParams(),
         headers={},
     )
 
@@ -471,9 +471,9 @@ def test_claude_platform_messages_strips_unsupported_context_management_param():
     assert "context_management" in input_params
 
 
-@pytest.mark.parametrize("override_in", ["litellm_params", "optional_params"])
+@pytest.mark.parametrize("override_in", ["embrouter_params", "optional_params"])
 def test_claude_platform_unsupported_override_allows_context_management(override_in):
-    from litellm.llms.bedrock.claude_platform.transformation import (
+    from embrouter.llms.bedrock.claude_platform.transformation import (
         BedrockClaudePlatformConfig,
     )
 
@@ -489,7 +489,7 @@ def test_claude_platform_unsupported_override_allows_context_management(override
             "max_tokens": 10,
             **(override if override_in == "optional_params" else {}),
         },
-        litellm_params=override if override_in == "litellm_params" else {},
+        embrouter_params=override if override_in == "embrouter_params" else {},
         headers={},
     )
 
@@ -502,8 +502,8 @@ def test_claude_platform_unsupported_override_allows_context_management(override
 
 
 def test_claude_platform_unsupported_override_ignores_invalid_type():
-    from litellm.llms.bedrock.claude_platform import common_utils
-    from litellm.llms.bedrock.claude_platform.transformation import (
+    from embrouter.llms.bedrock.claude_platform import common_utils
+    from embrouter.llms.bedrock.claude_platform.transformation import (
         BedrockClaudePlatformConfig,
     )
 
@@ -516,7 +516,7 @@ def test_claude_platform_unsupported_override_ignores_invalid_type():
                 "context_management": {"edits": [{"type": "clear_tool_uses_20250919"}]},
                 "max_tokens": 10,
             },
-            litellm_params={"claude_platform_unsupported_params": "not_a_list"},
+            embrouter_params={"claude_platform_unsupported_params": "not_a_list"},
             headers={},
         )
 
@@ -527,10 +527,10 @@ def test_claude_platform_unsupported_override_ignores_invalid_type():
 
 
 def test_claude_platform_messages_does_not_advertise_beta_for_stripped_context_management():
-    import litellm
-    from litellm.types.utils import LlmProviders
+    import embrouter
+    from embrouter.types.utils import LlmProviders
 
-    config = litellm.ProviderConfigManager.get_provider_anthropic_messages_config(
+    config = embrouter.ProviderConfigManager.get_provider_anthropic_messages_config(
         model="claude_platform/claude-sonnet-4-6",
         provider=LlmProviders.BEDROCK,
     )
@@ -545,17 +545,17 @@ def test_claude_platform_messages_does_not_advertise_beta_for_stripped_context_m
             "max_tokens": 10,
             "context_management": {"edits": [{"type": "clear_tool_uses_20250919"}]},
         },
-        litellm_params={"workspace_id": "wrkspc_test"},
+        embrouter_params={"workspace_id": "wrkspc_test"},
     )
 
     assert "context-management-2025-06-27" not in headers.get("anthropic-beta", "")
 
 
 def test_claude_platform_messages_override_keeps_beta_for_context_management():
-    import litellm
-    from litellm.types.utils import LlmProviders
+    import embrouter
+    from embrouter.types.utils import LlmProviders
 
-    config = litellm.ProviderConfigManager.get_provider_anthropic_messages_config(
+    config = embrouter.ProviderConfigManager.get_provider_anthropic_messages_config(
         model="claude_platform/claude-sonnet-4-6",
         provider=LlmProviders.BEDROCK,
     )
@@ -570,7 +570,7 @@ def test_claude_platform_messages_override_keeps_beta_for_context_management():
             "max_tokens": 10,
             "context_management": {"edits": [{"type": "clear_tool_uses_20250919"}]},
         },
-        litellm_params={
+        embrouter_params={
             "workspace_id": "wrkspc_test",
             "claude_platform_unsupported_params": [],
         },
@@ -580,10 +580,10 @@ def test_claude_platform_messages_override_keeps_beta_for_context_management():
 
 
 def test_claude_platform_messages_unsupported_override_allows_context_management():
-    import litellm
-    from litellm.types.utils import LlmProviders
+    import embrouter
+    from embrouter.types.utils import LlmProviders
 
-    config = litellm.ProviderConfigManager.get_provider_anthropic_messages_config(
+    config = embrouter.ProviderConfigManager.get_provider_anthropic_messages_config(
         model="claude_platform/claude-sonnet-4-6",
         provider=LlmProviders.BEDROCK,
     )
@@ -596,7 +596,7 @@ def test_claude_platform_messages_unsupported_override_allows_context_management
             "context_management": {"edits": [{"type": "clear_tool_uses_20250919"}]},
             "max_tokens": 10,
         },
-        litellm_params=GenericLiteLLMParams.model_validate({"claude_platform_unsupported_params": []}),
+        embrouter_params=GenericEmbRouterParams.model_validate({"claude_platform_unsupported_params": []}),
         headers={},
     )
 
@@ -638,11 +638,11 @@ def _assert_gateway_accepted(request: dict, auth_kwargs: dict) -> None:
 @pytest.mark.parametrize("auth_kwargs", [API_KEY_KWARGS, SIGV4_KWARGS], ids=["api_key", "sigv4"])
 @pytest.mark.parametrize("workspace_alias", WORKSPACE_ALIASES)
 def test_chat_completion_claude_platform_sends_exact_body_through_strict_gateway(auth_kwargs, workspace_alias):
-    import litellm
+    import embrouter
 
     requests: list[dict] = []
 
-    response = litellm.completion(
+    response = embrouter.completion(
         model="bedrock/claude_platform/claude-sonnet-4-6",
         messages=[{"role": "user", "content": "hello"}],
         max_tokens=10,
@@ -661,11 +661,11 @@ def test_chat_completion_claude_platform_sends_exact_body_through_strict_gateway
 @pytest.mark.parametrize("auth_kwargs", [API_KEY_KWARGS, SIGV4_KWARGS], ids=["api_key", "sigv4"])
 @pytest.mark.parametrize("workspace_alias", WORKSPACE_ALIASES)
 async def test_anthropic_messages_claude_platform_sends_exact_body_through_strict_gateway(auth_kwargs, workspace_alias):
-    import litellm
+    import embrouter
 
     requests: list[dict] = []
 
-    response = await litellm.anthropic_messages(
+    response = await embrouter.anthropic_messages(
         model="bedrock/claude_platform/claude-sonnet-4-6",
         messages=[{"role": "user", "content": "hello"}],
         max_tokens=10,
@@ -681,11 +681,11 @@ async def test_anthropic_messages_claude_platform_sends_exact_body_through_stric
 
 
 def test_chat_completion_claude_platform_drops_context_management_and_gateway_accepts():
-    import litellm
+    import embrouter
 
     requests: list[dict] = []
 
-    litellm.completion(
+    embrouter.completion(
         model="bedrock/claude_platform/claude-sonnet-4-6",
         messages=[{"role": "user", "content": "hello"}],
         max_tokens=10,
@@ -699,12 +699,12 @@ def test_chat_completion_claude_platform_drops_context_management_and_gateway_ac
 
 
 def test_chat_completion_claude_platform_override_kwarg_is_honoured_and_not_sent():
-    import litellm
+    import embrouter
 
     requests: list[dict] = []
     context_management = {"edits": [{"type": "clear_tool_uses_20250919"}]}
 
-    litellm.completion(
+    embrouter.completion(
         model="bedrock/claude_platform/claude-sonnet-4-6",
         messages=[{"role": "user", "content": "hello"}],
         max_tokens=10,
@@ -732,7 +732,7 @@ def test_fake_claude_platform_gateway_rejects_leaked_internal_fields():
 
 
 def test_sigv4_no_duplicate_content_type_when_caller_sets_lowercase():
-    from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM
+    from embrouter.llms.bedrock.base_aws_llm import BaseAWSLLM
 
     llm = BaseAWSLLM()
     mock_credentials = Credentials("key", "secret", "token")

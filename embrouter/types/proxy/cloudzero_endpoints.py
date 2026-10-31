@@ -1,5 +1,5 @@
 """
-CloudZero endpoint types for LiteLLM Proxy
+CloudZero endpoint types for EmbRouter Proxy
 """
 
 from datetime import datetime

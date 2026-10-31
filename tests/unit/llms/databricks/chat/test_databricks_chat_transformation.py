@@ -5,13 +5,13 @@ from fastapi.testclient import TestClient
 
 from unittest.mock import MagicMock, patch
 
-import litellm
-from litellm.constants import (
+import embrouter
+from embrouter.constants import (
     DEFAULT_REASONING_EFFORT_HIGH_THINKING_BUDGET,
     DEFAULT_REASONING_EFFORT_LOW_THINKING_BUDGET,
     DEFAULT_REASONING_EFFORT_MEDIUM_THINKING_BUDGET,
 )
-from litellm.llms.databricks.chat.transformation import (
+from embrouter.llms.databricks.chat.transformation import (
     DatabricksChatResponseIterator,
     DatabricksConfig,
     _sanitize_empty_content,
@@ -23,8 +23,8 @@ import respx
 
 @pytest.fixture()
 def _use_local_model_cost_map(monkeypatch):
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
+    monkeypatch.setenv("EMBROUTER_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setattr(embrouter, "model_cost", embrouter.get_model_cost_map(url=""))
 
 
 def test_transform_choices():
@@ -276,7 +276,7 @@ def test_transform_request_preserves_unity_model_service_name():
         model="system.ai.kimi-k3",
         messages=[{"role": "user", "content": "hello"}],
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -284,7 +284,7 @@ def test_transform_request_preserves_unity_model_service_name():
 
 
 def test_transform_request_strips_thinking_blocks_and_reasoning_content():
-    """Regression for LIT-6762: replaying an assistant turn that litellm decorated with
+    """Regression for LIT-6762: replaying an assistant turn that embrouter decorated with
     `thinking_blocks` / `reasoning_content` made Databricks 400 with
     'messages.N.thinking_blocks: Extra inputs are not permitted'."""
     config = DatabricksConfig()
@@ -306,7 +306,7 @@ def test_transform_request_strips_thinking_blocks_and_reasoning_content():
         model="databricks-claude-opus-5",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )["messages"]
 
@@ -347,7 +347,7 @@ def test_transform_request_drops_thinking_only_assistant_turn_but_keeps_tool_cal
         model="databricks-claude-opus-5",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )["messages"]
 
@@ -409,7 +409,7 @@ def test_transform_request_splits_parallel_tool_calls_for_gpt():
         model="gpt-5.4-mini",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )["messages"]
 
@@ -438,7 +438,7 @@ def test_transform_request_pairs_out_of_order_parallel_results():
         model="gpt-5.4-mini",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )["messages"]
 
@@ -470,7 +470,7 @@ def test_transform_request_leaves_single_tool_call_untouched():
         model="gpt-5.4-mini",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )["messages"]
 
@@ -492,7 +492,7 @@ def test_transform_request_does_not_drop_tool_calls_on_incomplete_results():
         model="gpt-5.4-mini",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )["messages"]
 
@@ -512,7 +512,7 @@ def test_transform_request_keeps_parallel_tool_calls_for_claude():
         model="databricks-claude-3-7-sonnet",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )["messages"]
 
@@ -830,7 +830,7 @@ def test_completion_merges_leading_system_and_developer_messages_for_chat_templa
         )
     )
 
-    response: Final = litellm.completion(
+    response: Final = embrouter.completion(
         model="databricks/my-custom-model",
         messages=[
             {"role": "system", "content": "You are terse."},
@@ -866,7 +866,7 @@ def test_completion_merges_system_messages_when_one_has_empty_content(respx_mock
         )
     )
 
-    litellm.completion(
+    embrouter.completion(
         model="databricks/my-custom-model",
         messages=[
             {"role": "system", "content": "You are terse."},

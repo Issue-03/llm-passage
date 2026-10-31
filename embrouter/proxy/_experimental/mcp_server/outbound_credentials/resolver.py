@@ -28,42 +28,42 @@ import httpx
 import httpx2
 from typing_extensions import assert_never
 
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy._experimental.mcp_server.outbound_credentials.client_credentials import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.client_credentials import (
     ClientCredentialsBearerAuth,
     ClientCredentialsTokenSource,
 )
-from litellm.proxy._experimental.mcp_server.outbound_credentials.httpx_auth import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.httpx_auth import (
     NoOpAuth,
     StaticHeaderAuth,
 )
-from litellm.proxy._experimental.mcp_server.outbound_credentials.oauth_token_store import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.oauth_token_store import (
     OAuthToken,
     OAuthTokenStore,
     TokenStoreUnavailable,
 )
-from litellm.proxy._experimental.mcp_server.outbound_credentials.result import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.result import (
     Error,
     Ok,
     Result,
 )
-from litellm.proxy._experimental.mcp_server.outbound_credentials.sso_assertion_refresher import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.sso_assertion_refresher import (
     default_sso_assertion_store,
 )
-from litellm.proxy._experimental.mcp_server.outbound_credentials.sso_assertion_store import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.sso_assertion_store import (
     AssertionStoreUnavailable,
     SSOAssertionStore,
     assertion_expired,
 )
-from litellm.proxy._experimental.mcp_server.outbound_credentials.token_endpoint import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.token_endpoint import (
     ExchangedToken,
     ExchangedTokenCache,
     TokenEndpointClient,
 )
-from litellm.proxy._experimental.mcp_server.outbound_credentials.token_exchanger import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.token_exchanger import (
     TokenExchanger,
 )
-from litellm.proxy._experimental.mcp_server.outbound_credentials.types import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.types import (
     ApiKeyConfig,
     AuthorizationCodeConfig,
     AuthResolution,
@@ -178,7 +178,7 @@ class UpstreamCredentialProvider:
     def _passthrough(self, subject: Subject) -> Result[httpx2.Auth, CredError]:
         """Forward the caller's own upstream credential verbatim; the gateway mints nothing.
 
-        The inbound token is the caller's already-disambiguated ``Authorization`` (never the LiteLLM
+        The inbound token is the caller's already-disambiguated ``Authorization`` (never the EmbRouter
         admission credential; the edge adapter drops that before building the ``Subject``). When it is
         absent the request is sent unauthenticated so the upstream's own 401 surfaces, rather than the
         gateway challenging on the upstream's behalf.
@@ -211,7 +211,7 @@ class UpstreamCredentialProvider:
 
         A caller that presents its own IdP identity token wins: that is the strongest available
         assertion of who is calling. Otherwise the subject is the assertion captured for this user
-        at LiteLLM SSO login, which is what lets an agent holding a brokered LiteLLM credential
+        at EmbRouter SSO login, which is what lets an agent holding a brokered EmbRouter credential
         reach an upstream as the user it was issued for. The user is always taken from the
         authenticated principal, never from a caller-supplied field, so no caller can select whose
         identity is asserted upstream.
@@ -228,7 +228,7 @@ class UpstreamCredentialProvider:
             return Error(
                 CredError.of_precondition_required(
                     "ID-JAG requires an identified caller; this request carries neither an "
-                    "identity token nor a resolved LiteLLM user."
+                    "identity token nor a resolved EmbRouter user."
                 )
             )
         try:
@@ -250,14 +250,14 @@ class UpstreamCredentialProvider:
             return Error(
                 CredError.of_precondition_required(
                     "ID-JAG requires an IdP identity assertion for this user and none is stored. "
-                    "Sign in through LiteLLM SSO so the gateway captures one."
+                    "Sign in through EmbRouter SSO so the gateway captures one."
                 )
             )
         if assertion_expired(assertion, datetime.now(timezone.utc)):
             return Error(
                 CredError.of_precondition_required(
                     "The stored IdP identity assertion for this user has expired. Sign in through "
-                    "LiteLLM SSO again to capture a current one."
+                    "EmbRouter SSO again to capture a current one."
                 )
             )
         return Ok(assertion.id_token.get_secret_value())

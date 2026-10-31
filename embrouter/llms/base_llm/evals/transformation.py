@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING, Any
 
 import httpx
 
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.types.llms.openai_evals import (
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.types.llms.openai_evals import (
     CancelEvalResponse,
     CancelRunResponse,
     CreateEvalRequest,
@@ -23,15 +23,15 @@ from litellm.types.llms.openai_evals import (
     RunDeleteResponse,
     UpdateEvalRequest,
 )
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import LlmProviders
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import LlmProviders
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 
 class BaseEvalsAPIConfig(ABC):
@@ -46,13 +46,13 @@ class BaseEvalsAPIConfig(ABC):
         pass
 
     @abstractmethod
-    def validate_environment(self, headers: dict, litellm_params: GenericLiteLLMParams | None) -> dict:
+    def validate_environment(self, headers: dict, embrouter_params: GenericEmbRouterParams | None) -> dict:
         """
         Validate and update headers with provider-specific requirements
 
         Args:
             headers: Base headers dictionary
-            litellm_params: LiteLLM parameters
+            embrouter_params: EmbRouter parameters
 
         Returns:
             Updated headers dictionary
@@ -85,7 +85,7 @@ class BaseEvalsAPIConfig(ABC):
     def transform_create_eval_request(
         self,
         create_request: CreateEvalRequest,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> dict:
         """
@@ -93,7 +93,7 @@ class BaseEvalsAPIConfig(ABC):
 
         Args:
             create_request: Eval creation parameters
-            litellm_params: LiteLLM parameters
+            embrouter_params: EmbRouter parameters
             headers: Request headers
 
         Returns:
@@ -104,7 +104,7 @@ class BaseEvalsAPIConfig(ABC):
     def transform_create_eval_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> Eval:
         """
         Transform provider response to Eval object
@@ -121,7 +121,7 @@ class BaseEvalsAPIConfig(ABC):
     def transform_list_evals_request(
         self,
         list_params: ListEvalsParams,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict]:
         """
@@ -129,7 +129,7 @@ class BaseEvalsAPIConfig(ABC):
 
         Args:
             list_params: List parameters (pagination, filters)
-            litellm_params: LiteLLM parameters
+            embrouter_params: EmbRouter parameters
             headers: Request headers
 
         Returns:
@@ -140,7 +140,7 @@ class BaseEvalsAPIConfig(ABC):
     def transform_list_evals_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> ListEvalsResponse:
         """
         Transform provider response to ListEvalsResponse
@@ -158,7 +158,7 @@ class BaseEvalsAPIConfig(ABC):
         self,
         eval_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict]:
         """
@@ -167,7 +167,7 @@ class BaseEvalsAPIConfig(ABC):
         Args:
             eval_id: Eval ID
             api_base: Base API URL
-            litellm_params: LiteLLM parameters
+            embrouter_params: EmbRouter parameters
             headers: Request headers
 
         Returns:
@@ -178,7 +178,7 @@ class BaseEvalsAPIConfig(ABC):
     def transform_get_eval_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> Eval:
         """
         Transform provider response to Eval object
@@ -197,7 +197,7 @@ class BaseEvalsAPIConfig(ABC):
         eval_id: str,
         update_request: UpdateEvalRequest,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict, dict]:
         """
@@ -207,7 +207,7 @@ class BaseEvalsAPIConfig(ABC):
             eval_id: Eval ID
             update_request: Update parameters
             api_base: Base API URL
-            litellm_params: LiteLLM parameters
+            embrouter_params: EmbRouter parameters
             headers: Request headers
 
         Returns:
@@ -218,7 +218,7 @@ class BaseEvalsAPIConfig(ABC):
     def transform_update_eval_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> Eval:
         """
         Transform provider response to Eval object
@@ -236,7 +236,7 @@ class BaseEvalsAPIConfig(ABC):
         self,
         eval_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict]:
         """
@@ -245,7 +245,7 @@ class BaseEvalsAPIConfig(ABC):
         Args:
             eval_id: Eval ID
             api_base: Base API URL
-            litellm_params: LiteLLM parameters
+            embrouter_params: EmbRouter parameters
             headers: Request headers
 
         Returns:
@@ -256,7 +256,7 @@ class BaseEvalsAPIConfig(ABC):
     def transform_delete_eval_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> DeleteEvalResponse:
         """
         Transform provider response to DeleteEvalResponse
@@ -274,7 +274,7 @@ class BaseEvalsAPIConfig(ABC):
         self,
         eval_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict, dict]:
         """
@@ -283,7 +283,7 @@ class BaseEvalsAPIConfig(ABC):
         Args:
             eval_id: Eval ID
             api_base: Base API URL
-            litellm_params: LiteLLM parameters
+            embrouter_params: EmbRouter parameters
             headers: Request headers
 
         Returns:
@@ -294,7 +294,7 @@ class BaseEvalsAPIConfig(ABC):
     def transform_cancel_eval_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> CancelEvalResponse:
         """
         Transform provider response to CancelEvalResponse
@@ -313,7 +313,7 @@ class BaseEvalsAPIConfig(ABC):
         self,
         eval_id: str,
         create_request: CreateRunRequest,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict]:
         """
@@ -322,7 +322,7 @@ class BaseEvalsAPIConfig(ABC):
         Args:
             eval_id: Eval ID
             create_request: Run creation parameters
-            litellm_params: LiteLLM parameters
+            embrouter_params: EmbRouter parameters
             headers: Request headers
 
         Returns:
@@ -333,7 +333,7 @@ class BaseEvalsAPIConfig(ABC):
     def transform_create_run_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> Run:
         """
         Transform provider response to Run object
@@ -351,7 +351,7 @@ class BaseEvalsAPIConfig(ABC):
         self,
         eval_id: str,
         list_params: ListRunsParams,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict]:
         """
@@ -360,7 +360,7 @@ class BaseEvalsAPIConfig(ABC):
         Args:
             eval_id: Eval ID
             list_params: List parameters (pagination, filters)
-            litellm_params: LiteLLM parameters
+            embrouter_params: EmbRouter parameters
             headers: Request headers
 
         Returns:
@@ -371,7 +371,7 @@ class BaseEvalsAPIConfig(ABC):
     def transform_list_runs_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> ListRunsResponse:
         """
         Transform provider response to ListRunsResponse
@@ -390,7 +390,7 @@ class BaseEvalsAPIConfig(ABC):
         eval_id: str,
         run_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict]:
         """
@@ -400,7 +400,7 @@ class BaseEvalsAPIConfig(ABC):
             eval_id: Eval ID
             run_id: Run ID
             api_base: Base API URL
-            litellm_params: LiteLLM parameters
+            embrouter_params: EmbRouter parameters
             headers: Request headers
 
         Returns:
@@ -411,7 +411,7 @@ class BaseEvalsAPIConfig(ABC):
     def transform_get_run_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> Run:
         """
         Transform provider response to Run object
@@ -430,7 +430,7 @@ class BaseEvalsAPIConfig(ABC):
         eval_id: str,
         run_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict, dict]:
         """
@@ -440,7 +440,7 @@ class BaseEvalsAPIConfig(ABC):
             eval_id: Eval ID
             run_id: Run ID
             api_base: Base API URL
-            litellm_params: LiteLLM parameters
+            embrouter_params: EmbRouter parameters
             headers: Request headers
 
         Returns:
@@ -451,7 +451,7 @@ class BaseEvalsAPIConfig(ABC):
     def transform_cancel_run_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> CancelRunResponse:
         """
         Transform provider response to CancelRunResponse
@@ -470,7 +470,7 @@ class BaseEvalsAPIConfig(ABC):
         eval_id: str,
         run_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict, dict]:
         """
@@ -480,7 +480,7 @@ class BaseEvalsAPIConfig(ABC):
             eval_id: Eval ID
             run_id: Run ID
             api_base: Base API URL
-            litellm_params: LiteLLM parameters
+            embrouter_params: EmbRouter parameters
             headers: Request headers
 
         Returns:
@@ -491,7 +491,7 @@ class BaseEvalsAPIConfig(ABC):
     def transform_delete_run_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> "RunDeleteResponse":
         """
         Transform provider response to RunDeleteResponse

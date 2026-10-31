@@ -8,24 +8,24 @@ from datetime import datetime
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, ClassVar, Final, Literal, Optional, get_args
 
-from litellm._logging import verbose_logger
-from litellm.caching import DualCache
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.core_helpers import (
+from embrouter._logging import verbose_logger
+from embrouter.caching import DualCache
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.embrouter_core_utils.core_helpers import (
     get_metadata_variable_name_from_kwargs,
     get_or_create_metadata_bucket,
     redact_nested_match_and_regex_keys,
 )
-from litellm.secret_managers.main import str_to_bool
-from litellm.types.guardrails import (
+from embrouter.secret_managers.main import str_to_bool
+from embrouter.types.guardrails import (
     DynamicGuardrailParams,
     GuardrailEventHooks,
-    LitellmParams,
+    EmbrouterParams,
     Mode,
 )
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
-from litellm.types.utils import (
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
+from embrouter.types.utils import (
     CallTypes,
     GenericGuardrailAPIInputs,
     GuardrailStatus,
@@ -35,18 +35,18 @@ from litellm.types.utils import (
 )
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.llms.base_llm.guardrail_translation.base_translation import BaseTranslation
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.llms.base_llm.guardrail_translation.base_translation import BaseTranslation
+    from embrouter.proxy._types import UserAPIKeyAuth
 dc: Final = DualCache()
 
 
-from litellm.constants import (
+from embrouter.constants import (
     GUARDRAIL_SCANNED_MESSAGES_CACHE_TTL_SECONDS,
     LOGS_GUARDRAIL_INFORMATION_MARKER,
     PRE_CALL_EXECUTED_GUARDRAILS_KEY,
 )
-from litellm.exceptions import (
+from embrouter.exceptions import (
     BlockedPiiEntityError,
     GuardrailRaisedException,
     ModifyResponseException,
@@ -68,7 +68,7 @@ DEFAULT_ADVISORY_MESSAGE: Final = (
 )
 
 _guardrail_self_recorded: Final[contextvars.ContextVar[bool]] = contextvars.ContextVar(
-    "litellm_guardrail_self_recorded", default=False
+    "embrouter_guardrail_self_recorded", default=False
 )
 
 
@@ -102,13 +102,13 @@ def is_guardrail_intervention(e: Exception) -> bool:
         ),
     ):
         return True
-    from litellm.proxy.guardrails.exception_utils import is_fastapi_http_exception
+    from embrouter.proxy.guardrails.exception_utils import is_fastapi_http_exception
 
     return is_fastapi_http_exception(e, _GUARDRAIL_BLOCK_STATUS_CODES)
 
 
 def _user_api_key_auth_from_request(request_data: Mapping[str, object]) -> "UserAPIKeyAuth":
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     metadata: Final = request_data.get(get_metadata_variable_name_from_kwargs(request_data))
     stamped: Final[Mapping[str, object]] = metadata if isinstance(metadata, dict) else {}
@@ -130,18 +130,18 @@ def _unified_hook_fields(guardrail: "CustomGuardrail", request_data: Mapping[str
     metadata_bucket: Final = request_data.get(get_metadata_variable_name_from_kwargs(request_data))
     return {
         "guardrail_to_apply": guardrail,
-        **({"litellm_metadata": metadata_bucket} if isinstance(metadata_bucket, dict) else {}),
+        **({"embrouter_metadata": metadata_bucket} if isinstance(metadata_bucket, dict) else {}),
     }
 
 
 def _strict_guardrail_modes_enabled() -> bool:
     """Whether guardrail-mode validation raises (default) or logs a warning.
 
-    Set `LITELLM_STRICT_GUARDRAIL_MODES=false` to keep the pre-LIT-4226 behavior
+    Set `EMBROUTER_STRICT_GUARDRAIL_MODES=false` to keep the pre-LIT-4226 behavior
     for guardrails whose supported_event_hooks list newly includes their
     configured mode: log the mismatch and continue instead of raising at boot.
     """
-    raw: Final = os.environ.get("LITELLM_STRICT_GUARDRAIL_MODES")
+    raw: Final = os.environ.get("EMBROUTER_STRICT_GUARDRAIL_MODES")
     if raw is None:
         return True
     parsed: Final = str_to_bool(raw)
@@ -149,8 +149,8 @@ def _strict_guardrail_modes_enabled() -> bool:
 
 
 def get_session_id_from_request_data(request_data: dict[str, Any]) -> str | None:
-    """Extract session_id from request data (litellm_session_id or metadata)."""
-    session_id = request_data.get("litellm_session_id")
+    """Extract session_id from request data (embrouter_session_id or metadata)."""
+    session_id = request_data.get("embrouter_session_id")
     if session_id:
         return str(session_id)
 
@@ -159,8 +159,8 @@ def get_session_id_from_request_data(request_data: dict[str, Any]) -> str | None
     if session_id:
         return str(session_id)
 
-    litellm_metadata: Final = request_data.get("litellm_metadata") or {}
-    session_id = litellm_metadata.get("session_id")
+    embrouter_metadata: Final = request_data.get("embrouter_metadata") or {}
+    session_id = embrouter_metadata.get("session_id")
     if session_id:
         return str(session_id)
 
@@ -255,7 +255,7 @@ class CustomGuardrail(CustomLogger):
                 if _strict_guardrail_modes_enabled():
                     raise
                 verbose_logger.warning(
-                    "%s. LITELLM_STRICT_GUARDRAIL_MODES=false; continuing "
+                    "%s. EMBROUTER_STRICT_GUARDRAIL_MODES=false; continuing "
                     "with unsupported event_hook. Set the env var to true "
                     "(default) to enforce validation and fail at startup.",
                     validation_error,
@@ -668,13 +668,13 @@ class CustomGuardrail(CustomLogger):
 
         The proxy may inject admin metadata (user_api_key_metadata,
         user_api_key_team_metadata) into either ``metadata`` or
-        ``litellm_metadata`` depending on endpoint. Check both so a caller
+        ``embrouter_metadata`` depending on endpoint. Check both so a caller
         cannot shadow admin config by pre-populating the other key.
         Key-level settings override team-level.
         """
         team_meta: dict = {}
         key_meta: dict = {}
-        for key in ("metadata", "litellm_metadata"):
+        for key in ("metadata", "embrouter_metadata"):
             # Defensive: an unparsed JSON-string metadata could leak past the
             # proxy's normal parse path; don't AttributeError on .get().
             meta = data.get(key)
@@ -707,7 +707,7 @@ class CustomGuardrail(CustomLogger):
         Check if result is a valid LLMResponseTypes instance.
 
         Safely handles TypedDict types which don't support isinstance checks.
-        For non-LiteLLM responses (like passthrough httpx.Response), returns True
+        For non-EmbRouter responses (like passthrough httpx.Response), returns True
         to allow them through.
         """
         if result is None:
@@ -733,11 +733,11 @@ class CustomGuardrail(CustomLogger):
             return data["guardrails"]
         # Check both metadata locations. For regular endpoints move_guardrails_to_metadata
         # writes to "metadata"; for thread/assistant endpoints it writes to
-        # "litellm_metadata". We check the one that actually contains the "guardrails"
-        # key so that a non-empty litellm_metadata without guardrails does not shadow
+        # "embrouter_metadata". We check the one that actually contains the "guardrails"
+        # key so that a non-empty embrouter_metadata without guardrails does not shadow
         # the merged list stored in metadata (which would cause team guardrails to be
         # silently skipped while default_on=True policy guardrails still fire).
-        for meta_key in ("metadata", "litellm_metadata"):
+        for meta_key in ("metadata", "embrouter_metadata"):
             meta = data.get(meta_key) or {}
             if isinstance(meta, dict) and "guardrails" in meta:
                 return meta.get("guardrails") or []
@@ -776,7 +776,7 @@ class CustomGuardrail(CustomLogger):
         marker: Final = self._pre_call_marker()
         if marker is None:
             return
-        for meta_key in ("metadata", "litellm_metadata"):
+        for meta_key in ("metadata", "embrouter_metadata"):
             meta = data.get(meta_key)
             if isinstance(meta, dict):
                 executed = meta.get(PRE_CALL_EXECUTED_GUARDRAILS_KEY)
@@ -792,7 +792,7 @@ class CustomGuardrail(CustomLogger):
         marker: Final = self._pre_call_marker()
         if marker is None:
             return False
-        for meta_key in ("metadata", "litellm_metadata"):
+        for meta_key in ("metadata", "embrouter_metadata"):
             meta = data.get(meta_key)
             if isinstance(meta, dict):
                 executed = meta.get(PRE_CALL_EXECUTED_GUARDRAILS_KEY)
@@ -807,19 +807,19 @@ class CustomGuardrail(CustomLogger):
         if not self.uses_apply_guardrail_interface() or self.use_native_lifecycle_hooks:
             return self
         try:
-            from litellm.proxy.utils import unified_guardrail
+            from embrouter.proxy.utils import unified_guardrail
         except ImportError as e:
             raise ImportError(
                 f"Guardrail {self.guardrail_name or type(self).__name__} implements apply_guardrail, which needs "
-                "the litellm proxy dependencies to run at the deployment level. "
-                "Install them with: pip install 'litellm[proxy]'"
+                "the embrouter proxy dependencies to run at the deployment level. "
+                "Install them with: pip install 'embrouter[proxy]'"
             ) from e
         return unified_guardrail
 
     async def async_pre_call_deployment_hook(self, kwargs: dict[str, Any], call_type: CallTypes | None) -> dict | None:
         # should run guardrail
-        litellm_guardrails: Final = kwargs.get("guardrails")
-        if litellm_guardrails is None or not isinstance(litellm_guardrails, list):
+        embrouter_guardrails: Final = kwargs.get("guardrails")
+        if embrouter_guardrails is None or not isinstance(embrouter_guardrails, list):
             return kwargs
 
         if self._pre_call_hook_already_ran(kwargs):
@@ -852,7 +852,7 @@ class CustomGuardrail(CustomLogger):
         request_data: Mapping[str, object],
         messages: Sequence[AllMessageValues],
     ) -> tuple[AllMessageValues, ...]:
-        from litellm.proxy.guardrails.exception_utils import (
+        from embrouter.proxy.guardrails.exception_utils import (
             enrich_http_exception_with_guardrail_context,
             pre_call_rejection,
         )
@@ -903,8 +903,8 @@ class CustomGuardrail(CustomLogger):
         Allow modifying / reviewing the response just after it's received from the deployment.
         """
         # should run guardrail
-        litellm_guardrails: Final = request_data.get("guardrails")
-        if litellm_guardrails is None or not isinstance(litellm_guardrails, list):
+        embrouter_guardrails: Final = request_data.get("guardrails")
+        if embrouter_guardrails is None or not isinstance(embrouter_guardrails, list):
             return None
 
         if self.should_run_guardrail(data=request_data, event_type=GuardrailEventHooks.post_call) is not True:
@@ -935,7 +935,7 @@ class CustomGuardrail(CustomLogger):
         call_type: str,
     ) -> tuple[dict, object]:  # mutable-ok: CustomLogger.async_logging_hook contract
         """logging_only: run apply_guardrail on copies of the logged request/response and record the verdict."""
-        from litellm.llms import get_guardrail_translation_mapping
+        from embrouter.llms import get_guardrail_translation_mapping
 
         if not self.uses_apply_guardrail_interface():
             return kwargs, result
@@ -950,16 +950,16 @@ class CustomGuardrail(CustomLogger):
                 call_type,
             )
             return kwargs, result
-        litellm_params: Final = kwargs.get("litellm_params") or {}
+        embrouter_params: Final = kwargs.get("embrouter_params") or {}
         scratch_metadata: Final = {
             key: value
-            for key, value in (litellm_params.get("metadata") or {}).items()
+            for key, value in (embrouter_params.get("metadata") or {}).items()
             if key != "standard_logging_guardrail_information"
         }
         response: Final = (
             kwargs.get("async_complete_streaming_response") or kwargs.get("complete_streaming_response") or result
         )
-        from litellm.types.utils import ModelResponse
+        from embrouter.types.utils import ModelResponse
 
         output_translation: Final = (
             get_guardrail_translation_mapping(CallTypes.acompletion)()
@@ -996,7 +996,7 @@ class CustomGuardrail(CustomLogger):
             "messages": scratch_input,
             "input": scratch_input,
             "tools": copy.deepcopy(optional_params.get("tools")),
-            "litellm_call_id": kwargs.get("litellm_call_id"),
+            "embrouter_call_id": kwargs.get("embrouter_call_id"),
             "metadata": scratch_metadata,
         }
         await translation.process_input_messages(data=scratch_request, guardrail_to_apply=self)
@@ -1040,7 +1040,7 @@ class CustomGuardrail(CustomLogger):
         name: Final = self.guardrail_name
         if not name:
             return False
-        from litellm.proxy.guardrails.auto_router_compression import (
+        from embrouter.proxy.guardrails.auto_router_compression import (
             suppressed_compression_guardrails,
         )
 
@@ -1078,12 +1078,12 @@ class CustomGuardrail(CustomLogger):
             if self._event_hook_is_event_type(event_type):
                 if isinstance(self.event_hook, Mode):
                     try:
-                        from litellm_enterprise.integrations.custom_guardrail import (
+                        from embrouter_enterprise.integrations.custom_guardrail import (
                             EnterpriseCustomGuardrailHelper,
                         )
                     except ImportError:
                         raise ImportError(
-                            "Setting tag-based guardrails is only available in litellm-enterprise. You must be a premium user to use this feature."
+                            "Setting tag-based guardrails is only available in embrouter-enterprise. You must be a premium user to use this feature."
                         )
                     result = EnterpriseCustomGuardrailHelper._should_run_if_mode_by_tag(
                         data, self.event_hook, event_type
@@ -1105,12 +1105,12 @@ class CustomGuardrail(CustomLogger):
 
         if isinstance(self.event_hook, Mode):
             try:
-                from litellm_enterprise.integrations.custom_guardrail import (
+                from embrouter_enterprise.integrations.custom_guardrail import (
                     EnterpriseCustomGuardrailHelper,
                 )
             except ImportError:
                 raise ImportError(
-                    "Setting tag-based guardrails is only available in litellm-enterprise. You must be a premium user to use this feature."
+                    "Setting tag-based guardrails is only available in embrouter-enterprise. You must be a premium user to use this feature."
                 )
             result = EnterpriseCustomGuardrailHelper._should_run_if_mode_by_tag(data, self.event_hook, event_type)
             if result is not None:
@@ -1160,7 +1160,7 @@ class CustomGuardrail(CustomLogger):
         }
 
         Args:
-            request_data: The original `request_data` passed to LiteLLM Proxy
+            request_data: The original `request_data` passed to EmbRouter Proxy
         """
         requested_guardrails: Final = self.get_guardrail_from_metadata(request_data)
 
@@ -1188,7 +1188,7 @@ class CustomGuardrail(CustomLogger):
         """
         Returns True if the user is a premium user
         """
-        from litellm.proxy.proxy_server import CommonProxyErrors, premium_user
+        from embrouter.proxy.proxy_server import CommonProxyErrors, premium_user
 
         if premium_user is not True:
             verbose_logger.warning(
@@ -1220,7 +1220,7 @@ class CustomGuardrail(CustomLogger):
         """
         if isinstance(guardrail_json_response, Exception):
             guardrail_json_response = str(guardrail_json_response)
-        from litellm.types.utils import GuardrailMode
+        from embrouter.types.utils import GuardrailMode
 
         # Use event_type if provided, otherwise fall back to self.event_hook
         guardrail_mode: GuardrailEventHooks | GuardrailMode | list[GuardrailEventHooks]
@@ -1231,7 +1231,7 @@ class CustomGuardrail(CustomLogger):
         else:
             guardrail_mode = self.event_hook
 
-        from litellm.litellm_core_utils.core_helpers import (
+        from embrouter.embrouter_core_utils.core_helpers import (
             filter_exceptions_from_params,
         )
 
@@ -1254,7 +1254,7 @@ class CustomGuardrail(CustomLogger):
         # raw provider JSON so redaction is not duplicated upstream).
         clean_guardrail_response = redact_nested_match_and_regex_keys(clean_guardrail_response)
 
-        from litellm.litellm_core_utils.sensitive_data_masker import (
+        from embrouter.embrouter_core_utils.sensitive_data_masker import (
             mask_credentials_in_payload,
         )
 
@@ -1286,7 +1286,7 @@ class CustomGuardrail(CustomLogger):
 
         _, metadata_bucket = get_or_create_metadata_bucket(request_data)
         _append_guardrail_info(metadata_bucket)
-        _sync_guardrail_info_to_logging_obj(request_data, request_data.get("litellm_logging_obj"))
+        _sync_guardrail_info_to_logging_obj(request_data, request_data.get("embrouter_logging_obj"))
 
         _guardrail_self_recorded.set(True)
 
@@ -1294,7 +1294,7 @@ class CustomGuardrail(CustomLogger):
         # rather than relying on a post-call hook that does not fire on every path
         # (e.g. a pass-through request that passes its guardrails).
         try:
-            from litellm.integrations.otel.logger import emit_guardrail_span
+            from embrouter.integrations.otel.logger import emit_guardrail_span
 
             emit_guardrail_span(slg)
         except Exception:
@@ -1305,7 +1305,7 @@ class CustomGuardrail(CustomLogger):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict,
         input_type: Literal["request", "response"],
-        logging_obj: Optional["LiteLLMLoggingObj"] = None,
+        logging_obj: Optional["EmbRouterLoggingObj"] = None,
     ) -> GenericGuardrailAPIInputs:
         """
         Apply your guardrail logic to the given inputs
@@ -1454,11 +1454,11 @@ class CustomGuardrail(CustomLogger):
         # Mask the content
         return content_string[:start_index] + mask_string + content_string[end_index:]
 
-    def update_in_memory_litellm_params(self, litellm_params: LitellmParams) -> None:
+    def update_in_memory_embrouter_params(self, embrouter_params: EmbrouterParams) -> None:
         """
-        Update the guardrails litellm params in memory
+        Update the guardrails embrouter params in memory
         """
-        for key, value in vars(litellm_params).items():
+        for key, value in vars(embrouter_params).items():
             setattr(self, key, value)
 
     def get_guardrails_messages_for_call_type(
@@ -1486,20 +1486,20 @@ class CustomGuardrail(CustomLogger):
 
         #########################################################
         # /responses
-        # User/System messages are stored in the "input" key, use litellm transformation to get the messages
+        # User/System messages are stored in the "input" key, use embrouter transformation to get the messages
         #########################################################
         if call_type == CallTypes.responses.value or call_type == CallTypes.aresponses.value:
             from typing import cast
 
-            from litellm.responses.litellm_completion_transformation.transformation import (
-                LiteLLMCompletionResponsesConfig,
+            from embrouter.responses.embrouter_completion_transformation.transformation import (
+                EmbRouterCompletionResponsesConfig,
             )
 
             input_data: Final = data.get("input")
             if input_data is None:
                 return None
 
-            messages: Final = LiteLLMCompletionResponsesConfig.transform_responses_api_input_to_messages(
+            messages: Final = EmbRouterCompletionResponsesConfig.transform_responses_api_input_to_messages(
                 input=input_data,
                 responses_api_request=data,
             )
@@ -1507,8 +1507,8 @@ class CustomGuardrail(CustomLogger):
         return None
 
 
-def _append_slg_to_litellm_params(lp: object, entries: list) -> None:
-    """Merge guardrail entries into a single litellm_params dict."""
+def _append_slg_to_embrouter_params(lp: object, entries: list) -> None:
+    """Merge guardrail entries into a single embrouter_params dict."""
     if not isinstance(lp, dict):
         return
     if lp.get("metadata") is None:
@@ -1523,9 +1523,9 @@ def _sync_guardrail_info_to_logging_obj(request_data: dict, logging_obj: object)
     """Copy standard_logging_guardrail_information from request_data into logging_obj.
 
     The @log_guardrail_information decorator writes guardrail info to
-    request_data["metadata"] or request_data["litellm_metadata"].  For
+    request_data["metadata"] or request_data["embrouter_metadata"].  For
     passthrough routes (/v1/messages, /v1/responses) the spend-log payload is
-    built from logging_obj.litellm_params["metadata"], which is a separate dict
+    built from logging_obj.embrouter_params["metadata"], which is a separate dict
     that does not share identity with the one in request_data.  This helper
     bridges that gap so guardrail_information is non-null in spend logs for all
     routes, not just /v1/chat/completions.
@@ -1538,8 +1538,8 @@ def _sync_guardrail_info_to_logging_obj(request_data: dict, logging_obj: object)
         return
     entries: Final[list] = slg_info if isinstance(slg_info, list) else [slg_info]
     mcd: Final = getattr(logging_obj, "model_call_details", None) or {}
-    _append_slg_to_litellm_params(getattr(logging_obj, "litellm_params", None), entries)
-    _append_slg_to_litellm_params(mcd.get("litellm_params"), entries)
+    _append_slg_to_embrouter_params(getattr(logging_obj, "embrouter_params", None), entries)
+    _append_slg_to_embrouter_params(mcd.get("embrouter_params"), entries)
 
 
 _PRE_CALL_CONTENT_KEYS: Final = frozenset(
@@ -1628,7 +1628,7 @@ def log_guardrail_information(func):
         # Store original inputs for comparison (for apply_guardrail functions)
         original_inputs: Final = _original_inputs_for(func.__name__, kwargs, request_data, event_type)
 
-        logging_obj: Final = kwargs.get("logging_obj") or request_data.get("litellm_logging_obj")
+        logging_obj: Final = kwargs.get("logging_obj") or request_data.get("embrouter_logging_obj")
         self_recorded_token: Final = _guardrail_self_recorded.set(False)
         try:
             response: Final = await func(*args, **kwargs)
@@ -1668,7 +1668,7 @@ def log_guardrail_information(func):
         # Store original inputs for comparison (for apply_guardrail functions)
         original_inputs: Final = _original_inputs_for(func.__name__, kwargs, request_data, event_type)
 
-        logging_obj: Final = kwargs.get("logging_obj") or request_data.get("litellm_logging_obj")
+        logging_obj: Final = kwargs.get("logging_obj") or request_data.get("embrouter_logging_obj")
         self_recorded_token: Final = _guardrail_self_recorded.set(False)
         try:
             response: Final = func(*args, **kwargs)

@@ -7,12 +7,12 @@ from collections.abc import AsyncIterator
 from datetime import datetime
 from typing import TYPE_CHECKING, Final
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.a2a_protocol.cost_calculator import A2ACostCalculator
-from litellm.a2a_protocol.utils import A2ARequestUtils
-from litellm.litellm_core_utils.asyncify import asyncify
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.a2a_protocol.cost_calculator import A2ACostCalculator
+from embrouter.a2a_protocol.utils import A2ARequestUtils
+from embrouter.embrouter_core_utils.asyncify import asyncify
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
 
 if TYPE_CHECKING:
     from a2a.compat.v0_3.types import SendStreamingMessageRequest, SendStreamingMessageResponse
@@ -29,7 +29,7 @@ class A2AStreamingIterator:
         self,
         stream: AsyncIterator["SendStreamingMessageResponse"],
         request: "SendStreamingMessageRequest",
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         agent_name: str = "unknown",
     ):
         self.stream = stream
@@ -109,7 +109,7 @@ class A2AStreamingIterator:
             total_tokens: Final = prompt_tokens + completion_tokens
 
             # Create usage object
-            usage: Final = litellm.Usage(
+            usage: Final = embrouter.Usage(
                 prompt_tokens=prompt_tokens,
                 completion_tokens=completion_tokens,
                 total_tokens=total_tokens,
@@ -149,7 +149,7 @@ class A2AStreamingIterator:
         except Exception as e:
             verbose_logger.debug("Error in A2A streaming completion handler: %s", e)
 
-    def _build_logging_result(self, usage: litellm.Usage) -> dict[str, object]:
+    def _build_logging_result(self, usage: embrouter.Usage) -> dict[str, object]:
         """Build a result dict for logging."""
         result: Final[dict[str, object]] = {
             "id": getattr(self.request, "id", "unknown"),

@@ -7,7 +7,7 @@ import unicodedata
 from re import Pattern
 from typing import Any, Final, cast
 
-from litellm.types.proxy.guardrails.guardrail_hooks.litellm_content_filter import (
+from embrouter.types.proxy.guardrails.guardrail_hooks.embrouter_content_filter import (
     CompetitorActionHint,
     CompetitorIntentEvidenceEntry,
     CompetitorIntentResult,

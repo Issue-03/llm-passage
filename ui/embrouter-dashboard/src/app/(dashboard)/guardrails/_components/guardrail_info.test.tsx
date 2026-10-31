@@ -46,7 +46,7 @@ describe("Guardrail Info", () => {
     vi.mocked(networking.getGuardrailInfo).mockResolvedValue({
       guardrail_id: "123",
       guardrail_name: "Test Guardrail",
-      litellm_params: {
+      embrouter_params: {
         guardrail: "presidio",
         mode: "pre_call",
         default_on: true,
@@ -84,7 +84,7 @@ describe("Guardrail Info", () => {
     vi.mocked(networking.getGuardrailInfo).mockResolvedValue({
       guardrail_id: "123",
       guardrail_name: "Test Guardrail",
-      litellm_params: {
+      embrouter_params: {
         guardrail: "bedrock",
         mode: { tags: { "Service-Type: internal-service": "post_call" }, default: ["pre_call", "post_call"] },
         default_on: true,
@@ -112,7 +112,7 @@ describe("Guardrail Info", () => {
     vi.mocked(networking.getGuardrailInfo).mockResolvedValue({
       guardrail_id: "123",
       guardrail_name: "Test Guardrail",
-      litellm_params: {
+      embrouter_params: {
         guardrail: "presidio",
         mode: "pre_call",
         default_on: true,
@@ -142,7 +142,7 @@ describe("Guardrail Info", () => {
     vi.mocked(networking.getGuardrailInfo).mockResolvedValue({
       guardrail_id: "123",
       guardrail_name: "Test Guardrail",
-      litellm_params: {
+      embrouter_params: {
         guardrail: "presidio",
         mode: "pre_call",
         default_on: true,
@@ -189,7 +189,7 @@ describe("Guardrail Info", () => {
     vi.mocked(networking.getGuardrailInfo).mockResolvedValue({
       guardrail_id: "123",
       guardrail_name: "Test Guardrail",
-      litellm_params: {
+      embrouter_params: {
         guardrail: "presidio",
         mode: "pre_call",
         default_on: true,
@@ -223,8 +223,8 @@ describe("Guardrail Info", () => {
     vi.mocked(networking.getGuardrailInfo).mockResolvedValue({
       guardrail_id: "123",
       guardrail_name: "Content Filter Guardrail",
-      litellm_params: {
-        guardrail: "litellm_content_filter",
+      embrouter_params: {
+        guardrail: "embrouter_content_filter",
         mode: "pre_call",
         default_on: true,
         patterns: ["initial_pattern"],
@@ -280,11 +280,11 @@ describe("Guardrail Info", () => {
     // Verify attributes that definitely changed
     expect(firstCallArgs.guardrail_name).toBe("Updated Name");
 
-    // litellm_params might be undefined if empty, which is correct.
+    // embrouter_params might be undefined if empty, which is correct.
     // If it exists, ensure patterns/blocked_words are not in it.
-    if (firstCallArgs.litellm_params) {
-      expect(firstCallArgs.litellm_params.patterns).toBeUndefined();
-      expect(firstCallArgs.litellm_params.blocked_words).toBeUndefined();
+    if (firstCallArgs.embrouter_params) {
+      expect(firstCallArgs.embrouter_params.patterns).toBeUndefined();
+      expect(firstCallArgs.embrouter_params.blocked_words).toBeUndefined();
     }
 
     // Clear mocks to reset call count
@@ -309,16 +309,16 @@ describe("Guardrail Info", () => {
 
     // Verify call INCLUDES patterns and blocked_words
     const secondCallArgs: any = vi.mocked(networking.updateGuardrailCall).mock.calls[0][2];
-    expect(secondCallArgs.litellm_params).toBeDefined();
-    expect(secondCallArgs.litellm_params.patterns).toEqual(["new_pattern"]);
-    expect(secondCallArgs.litellm_params.blocked_words).toEqual(["new_word"]);
+    expect(secondCallArgs.embrouter_params).toBeDefined();
+    expect(secondCallArgs.embrouter_params.patterns).toEqual(["new_pattern"]);
+    expect(secondCallArgs.embrouter_params.blocked_words).toEqual(["new_word"]);
   });
 
   it("keeps the settings panel mounted while the overview tab is active", async () => {
     vi.mocked(networking.getGuardrailInfo).mockResolvedValue({
       guardrail_id: "123",
       guardrail_name: "Test Guardrail",
-      litellm_params: { guardrail: "presidio", mode: "pre_call", default_on: true },
+      embrouter_params: { guardrail: "presidio", mode: "pre_call", default_on: true },
       created_at: "2024-01-01T00:00:00Z",
       updated_at: "2024-01-01T00:00:00Z",
       guardrail_definition_location: "database",

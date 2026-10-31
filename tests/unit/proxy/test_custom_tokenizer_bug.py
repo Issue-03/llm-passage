@@ -13,12 +13,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import litellm
-import litellm.proxy.proxy_server
-import litellm.utils
-from litellm import Router
-from litellm.proxy._types import TokenCountRequest
-from litellm.proxy.proxy_server import token_counter
+import embrouter
+import embrouter.proxy.proxy_server
+import embrouter.utils
+from embrouter import Router
+from embrouter.proxy._types import TokenCountRequest
+from embrouter.proxy.proxy_server import token_counter
 
 
 def _fake_hf_tokenizer(num_tokens: int) -> MagicMock:
@@ -39,7 +39,7 @@ async def test_custom_tokenizer_from_model_info_is_used(monkeypatch):
         model_list=[
             {
                 "model_name": "my-embedding-model",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/self-hosted-embedder",
                     "api_base": "http://localhost:8080/v1",
                 },
@@ -54,9 +54,9 @@ async def test_custom_tokenizer_from_model_info_is_used(monkeypatch):
             }
         ]
     )
-    monkeypatch.setattr(litellm.proxy.proxy_server, "llm_router", llm_router)
+    monkeypatch.setattr(embrouter.proxy.proxy_server, "llm_router", llm_router)
 
-    with patch.object(litellm.utils, "tokenizer_dispatch") as mock_tokenizer_cls:
+    with patch.object(embrouter.utils, "tokenizer_dispatch") as mock_tokenizer_cls:
         mock_tokenizer_cls.from_pretrained.return_value = _fake_hf_tokenizer(7)
 
         response = await token_counter(
@@ -83,14 +83,14 @@ async def test_model_without_custom_tokenizer_uses_default(monkeypatch):
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {"model": "gpt-4"},
+                "embrouter_params": {"model": "gpt-4"},
                 "model_info": {},
             }
         ]
     )
-    monkeypatch.setattr(litellm.proxy.proxy_server, "llm_router", llm_router)
+    monkeypatch.setattr(embrouter.proxy.proxy_server, "llm_router", llm_router)
 
-    with patch.object(litellm.utils, "tokenizer_dispatch") as mock_tokenizer_cls:
+    with patch.object(embrouter.utils, "tokenizer_dispatch") as mock_tokenizer_cls:
         response = await token_counter(
             request=TokenCountRequest(
                 model="gpt-4",

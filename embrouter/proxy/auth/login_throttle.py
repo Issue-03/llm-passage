@@ -23,10 +23,10 @@ from fastapi import Request, status
 from pydantic import TypeAdapter, ValidationError
 from redis.exceptions import RedisError
 
-from litellm._logging import verbose_proxy_logger
-from litellm.caching.in_memory_cache import InMemoryCache
-from litellm.caching.redis_cache import RedisCache, RedisCircuitBreakerOpenError
-from litellm.constants import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.caching.in_memory_cache import InMemoryCache
+from embrouter.caching.redis_cache import RedisCache, RedisCircuitBreakerOpenError
+from embrouter.constants import (
     EMPTY_MAPPING,
     LOGIN_THROTTLE_CACHE_KEY_PREFIX,
     LOGIN_THROTTLE_MAX_TRACKED_BLOCKS,
@@ -34,9 +34,9 @@ from litellm.constants import (
     LOGIN_THROTTLE_NOT_BLOCKED,
     LOGIN_THROTTLE_UNKNOWN_SOURCE,
 )
-from litellm.proxy._types import ProxyErrorTypes, ProxyException
-from litellm.proxy.auth.network import TrustedProxyConfig, resolve_client_ip
-from litellm.secret_managers.main import get_secret_bool
+from embrouter.proxy._types import ProxyErrorTypes, ProxyException
+from embrouter.proxy.auth.network import TrustedProxyConfig, resolve_client_ip
+from embrouter.secret_managers.main import get_secret_bool
 
 DEFAULT_MAX_FAILED_LOGIN_ATTEMPTS_PER_SOURCE: Final = 10
 DEFAULT_FAILED_LOGIN_WINDOW_SECONDS: Final = 60
@@ -104,7 +104,7 @@ _BLOCKS: Final = InMemoryCache(
 
 @cache
 def _rate_limit_disabled() -> bool:
-    return get_secret_bool("LITELLM_DISABLE_LOGIN_RATE_LIMIT", default_value=False) is True
+    return get_secret_bool("EMBROUTER_DISABLE_LOGIN_RATE_LIMIT", default_value=False) is True
 
 
 @cache
@@ -122,14 +122,14 @@ def warn_login_counters_are_per_worker(num_workers: str) -> None:
 def warn_source_login_limit_is_off() -> None:
     verbose_proxy_logger.warning(
         "%s is not set or not a valid list of ranges, so failed Admin UI sign-in attempts are limited per "
-        "source address and username only. Set it to the address ranges of the proxies in front of LiteLLM, "
+        "source address and username only. Set it to the address ranges of the proxies in front of EmbRouter, "
         "or to an empty list when clients connect directly, to also limit each source address across usernames.",
         TRUSTED_PROXY_RANGES_KEY,
     )
 
 
 def declared_proxy_ranges(settings: Mapping[str, object]) -> tuple[str, ...] | None:
-    """What the operator says fronts LiteLLM: the proxy ranges, an empty tuple for none, None when unsaid.
+    """What the operator says fronts EmbRouter: the proxy ranges, an empty tuple for none, None when unsaid.
 
     Only a declared topology makes the source address trustworthy enough to limit across usernames.
     An unset key, a value that is not a list of ranges, or a list with an entry that is not an address

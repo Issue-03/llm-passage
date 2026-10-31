@@ -1,5 +1,5 @@
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.openai import AllMessageValues
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.openai import AllMessageValues
 
 from ..base_llm.base_utils import BaseLLMModelInfo
 from ..base_llm.chat.transformation import BaseLLMException
@@ -16,7 +16,7 @@ class TopazModelInfo(BaseLLMModelInfo):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:

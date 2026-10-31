@@ -1,12 +1,12 @@
 from typing import Final, Literal, Optional
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.proxy.proxy_server import DualCache, UserAPIKeyAuth
-from litellm.types.utils import CallTypesLiteral
+import embrouter
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.proxy.proxy_server import DualCache, UserAPIKeyAuth
+from embrouter.types.utils import CallTypesLiteral
 
 
-# This file includes the custom callbacks for LiteLLM Proxy
+# This file includes the custom callbacks for EmbRouter Proxy
 # Once defined, these can be passed in proxy_config.yaml
 class MyCustomHandler(CustomLogger):  #
     # Class variables or attributes

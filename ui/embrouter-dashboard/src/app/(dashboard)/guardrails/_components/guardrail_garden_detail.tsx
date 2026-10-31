@@ -19,11 +19,11 @@ const GuardrailDetailView: React.FC<GuardrailDetailViewProps> = ({ card, onBack,
   const [activeTab, setActiveTab] = useState("overview");
 
   const detailRows = [
-    { property: "Provider", value: card.category === "litellm" ? "LiteLLM Content Filter" : "Partner Guardrail" },
+    { property: "Provider", value: card.category === "embrouter" ? "EmbRouter Content Filter" : "Partner Guardrail" },
     ...(card.subcategory ? [{ property: "Subcategory", value: card.subcategory }] : []),
-    ...(card.category === "litellm" ? [{ property: "Cost", value: "$0 / request" }] : []),
-    ...(card.category === "litellm" ? [{ property: "External Dependencies", value: "None" }] : []),
-    ...(card.category === "litellm" ? [{ property: "Latency", value: card.eval?.latency || "<1ms" }] : []),
+    ...(card.category === "embrouter" ? [{ property: "Cost", value: "$0 / request" }] : []),
+    ...(card.category === "embrouter" ? [{ property: "External Dependencies", value: "None" }] : []),
+    ...(card.category === "embrouter" ? [{ property: "Latency", value: card.eval?.latency || "<1ms" }] : []),
   ];
 
   const evalRows = card.eval
@@ -120,14 +120,14 @@ const GuardrailDetailView: React.FC<GuardrailDetailViewProps> = ({ card, onBack,
             {/* Guardrail ID */}
             <div className="mb-7">
               <div className="mb-1 text-xs text-muted-foreground">Guardrail ID</div>
-              <div className="break-all text-[13px] text-foreground">litellm/{card.id}</div>
+              <div className="break-all text-[13px] text-foreground">embrouter/{card.id}</div>
             </div>
 
             {/* Type */}
             <div className="mb-7">
               <div className="mb-1 text-xs text-muted-foreground">Type</div>
               <div className="text-[13px] text-foreground">
-                {card.category === "litellm" ? "Content Filter" : "Partner"}
+                {card.category === "embrouter" ? "Content Filter" : "Partner"}
               </div>
             </div>
 

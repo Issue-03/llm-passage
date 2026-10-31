@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from litellm.rust_bridge import configuration
-from litellm.rust_bridge.responses import websocket as responses_websocket
+from embrouter.rust_bridge import configuration
+from embrouter.rust_bridge.responses import websocket as responses_websocket
 
 
 class _FakeNativeConnection:

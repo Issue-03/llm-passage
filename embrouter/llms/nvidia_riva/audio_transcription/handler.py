@@ -1,7 +1,7 @@
 """
 NVIDIA Riva STT handler.
 
-This module bridges litellm's transcription dispatch to NVIDIA Riva's gRPC
+This module bridges embrouter's transcription dispatch to NVIDIA Riva's gRPC
 streaming ASR API. We do *not* go through ``base_llm_http_handler`` because
 Riva is gRPC-only: HTTP-shaped abstractions (``httpx.Response``,
 ``api_base/v1/...`` URLs, multipart bodies) do not apply.
@@ -20,7 +20,7 @@ The handler is intentionally a thin orchestration layer:
 5. Return a normalized ``TranscriptionResponse`` with ``duration`` exposed
    on ``_hidden_params`` so cost calculation works.
 
-``riva-client`` is imported lazily so ``litellm`` core remains usable
+``riva-client`` is imported lazily so ``embrouter`` core remains usable
 without the optional STT extras installed.
 """
 
@@ -29,28 +29,28 @@ import inspect
 from collections.abc import Callable, Iterable
 from typing import TYPE_CHECKING, Any, Final, Protocol
 
-from litellm.litellm_core_utils.audio_utils.utils import (
+from embrouter.embrouter_core_utils.audio_utils.utils import (
     get_audio_file_name,
     process_audio_file,
 )
-from litellm.llms.nvidia_riva.audio_transcription.audio_utils import (
+from embrouter.llms.nvidia_riva.audio_transcription.audio_utils import (
     resample_to_riva_pcm,
 )
-from litellm.llms.nvidia_riva.audio_transcription.transformation import (
+from embrouter.llms.nvidia_riva.audio_transcription.transformation import (
     RIVA_TARGET_NUM_CHANNELS,
     RIVA_TARGET_SAMPLE_RATE_HZ,
     NvidiaRivaAudioTranscriptionConfig,
 )
-from litellm.llms.nvidia_riva.common_utils import (
+from embrouter.llms.nvidia_riva.common_utils import (
     NvidiaRivaException,
-    grpc_error_to_litellm_exception,
+    grpc_error_to_embrouter_exception,
 )
-from litellm.types.utils import FileTypes, TranscriptionResponse
-from litellm.utils import convert_to_model_response_object
+from embrouter.types.utils import FileTypes, TranscriptionResponse
+from embrouter.utils import convert_to_model_response_object
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import (
-        Logging as LiteLLMLoggingObj,
+    from embrouter.embrouter_core_utils.embrouter_logging import (
+        Logging as EmbRouterLoggingObj,
     )
 
 # Stream audio to Riva in ~50 ms slices (1600 samples at 16 kHz). Matches
@@ -60,7 +60,7 @@ _DEFAULT_CHUNK_SAMPLES: Final = 1600
 _DEFAULT_CHUNK_BYTES: Final = _DEFAULT_CHUNK_SAMPLES * 2  # int16 = 2 bytes/sample
 
 
-_RIVA_INSTALL_HINT = "NVIDIA Riva client is not installed. Install with `pip install 'litellm[stt-nvidia-riva]'`."
+_RIVA_INSTALL_HINT = "NVIDIA Riva client is not installed. Install with `pip install 'embrouter[stt-nvidia-riva]'`."
 
 
 class _RivaAuth(Protocol):
@@ -136,10 +136,10 @@ class NvidiaRivaAudioTranscription:
         model: str,
         audio_file: FileTypes,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         model_response: TranscriptionResponse,
         timeout: float,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
         api_key: str | None,
         api_base: str | None,
         atranscription: bool = False,
@@ -153,7 +153,7 @@ class NvidiaRivaAudioTranscription:
                 model=model,
                 audio_file=audio_file,
                 optional_params=optional_params,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 model_response=model_response,
                 timeout=timeout,
                 logging_obj=logging_obj,
@@ -166,7 +166,7 @@ class NvidiaRivaAudioTranscription:
             model=model,
             audio_file=audio_file,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             model_response=model_response,
             timeout=timeout,
             logging_obj=logging_obj,
@@ -181,10 +181,10 @@ class NvidiaRivaAudioTranscription:
         model: str,
         audio_file: FileTypes,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         model_response: TranscriptionResponse,
         timeout: float,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
         api_key: str | None,
         api_base: str | None,
         provider_config: NvidiaRivaAudioTranscriptionConfig | None = None,
@@ -196,7 +196,7 @@ class NvidiaRivaAudioTranscription:
             model=model,
             audio_file=audio_file,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             model_response=model_response,
             timeout=timeout,
             logging_obj=logging_obj,
@@ -211,10 +211,10 @@ class NvidiaRivaAudioTranscription:
         model: str,
         audio_file: FileTypes,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         model_response: TranscriptionResponse,
         timeout: float,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
         api_key: str | None,
         api_base: str | None,
         provider_config: NvidiaRivaAudioTranscriptionConfig,
@@ -226,7 +226,7 @@ class NvidiaRivaAudioTranscription:
                 message=(
                     "NVIDIA Riva requires `api_base` (host:port for the gRPC "
                     "endpoint, e.g. `grpc.nvcf.nvidia.com:443` or "
-                    "`localhost:50051`). Set it in litellm_params or via "
+                    "`localhost:50051`). Set it in embrouter_params or via "
                     "NVIDIA_RIVA_API_BASE."
                 ),
             )
@@ -238,8 +238,8 @@ class NvidiaRivaAudioTranscription:
             model=model,
             audio_file=audio_file,
             optional_params=optional_params,
-            litellm_params={
-                **litellm_params,
+            embrouter_params={
+                **embrouter_params,
                 "api_base": api_base,
                 "api_key": api_key,
             },
@@ -307,7 +307,7 @@ class NvidiaRivaAudioTranscription:
         except NvidiaRivaException:
             raise
         except Exception as e:
-            raise grpc_error_to_litellm_exception(e) from e
+            raise grpc_error_to_embrouter_exception(e) from e
 
         transcription: Final = NvidiaRivaAudioTranscriptionConfig.build_transcription_response(
             final_results=final_results,

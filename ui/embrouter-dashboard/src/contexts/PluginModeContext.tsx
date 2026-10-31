@@ -37,7 +37,7 @@ const PluginModeContext = createContext<PluginModeContextValue>({
   activePlugin: null,
 });
 
-const STORAGE_KEY = "litellm_plugin_mode";
+const STORAGE_KEY = "embrouter_plugin_mode";
 const pluginApiClient = createApiClient({ getBaseUrl: () => getProxyBaseUrl() ?? "" });
 
 function readStoredMode(): PluginMode {

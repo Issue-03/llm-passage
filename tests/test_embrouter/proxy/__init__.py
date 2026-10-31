@@ -1,1 +1,1 @@
-# This file makes the tests/test_litellm/proxy directory a Python package
+# This file makes the tests/test_embrouter/proxy directory a Python package

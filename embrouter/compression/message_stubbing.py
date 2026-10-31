@@ -5,7 +5,7 @@ Replace messages with compact stubs and extract human-readable keys.
 import re
 from typing import Final
 
-from litellm.compression.content_detection import detect_content_type
+from embrouter.compression.content_detection import detect_content_type
 
 # Patterns for extracting file paths from content
 _FILE_PATH_PATTERNS: Final = [
@@ -67,7 +67,7 @@ def stub_message(message: dict, key: str) -> dict:
 
     stub_content: Final = (
         f"[Compressed: {key} — {line_count} lines, {content_type}. "
-        f"Use litellm_content_retrieve tool to get full content.]"
+        f"Use embrouter_content_retrieve tool to get full content.]"
     )
 
     return {**message, "content": stub_content}

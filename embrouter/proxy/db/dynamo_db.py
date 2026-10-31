@@ -4,9 +4,9 @@ Deprecated. Only PostgresSQL is supported.
 
 from typing import Final
 
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy._types import DynamoDBArgs
-from litellm.proxy.db.base_client import CustomDB
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy._types import DynamoDBArgs
+from embrouter.proxy.db.base_client import CustomDB
 
 
 class DynamoDBWrapper(CustomDB):

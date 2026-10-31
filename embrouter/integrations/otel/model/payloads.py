@@ -12,8 +12,8 @@ from urllib.parse import urlsplit
 
 from typing_extensions import ReadOnly, TypedDict
 
-from litellm.integrations.otel.model.metadata import RequestContext, RequestIdentity
-from litellm.integrations.otel.model.semconv import (
+from embrouter.integrations.otel.model.metadata import RequestContext, RequestIdentity
+from embrouter.integrations.otel.model.semconv import (
     GenAIOperation,
     GenAIOutputType,
     MCPMethod,
@@ -21,8 +21,8 @@ from litellm.integrations.otel.model.semconv import (
     resolve_output_type,
     resolve_provider,
 )
-from litellm.integrations.otel.model.trace_controls import TraceControls
-from litellm.integrations.otel.model.utils import (
+from embrouter.integrations.otel.model.trace_controls import TraceControls
+from embrouter.integrations.otel.model.utils import (
     as_bool,
     as_float,
     as_int,
@@ -54,8 +54,8 @@ __all__ = [
 ]
 
 if TYPE_CHECKING:
-    from litellm.types.services import ServiceLoggerPayload
-    from litellm.types.utils import (
+    from embrouter.types.services import ServiceLoggerPayload
+    from embrouter.types.utils import (
         StandardLoggingGuardrailInformation,
         StandardLoggingPayload,
     )
@@ -175,7 +175,7 @@ class LLMUsage:
 @dataclass(frozen=True)
 class LLMCost:
     """Per-component cost breakdown, from the StandardLoggingPayload
-    ``cost_breakdown`` (``litellm.types.utils.CostBreakdown``).
+    ``cost_breakdown`` (``embrouter.types.utils.CostBreakdown``).
 
     Each field is the USD cost of one component, or ``None`` when the source did
     not report it — so the mapper omits absent components instead of emitting 0.
@@ -332,7 +332,7 @@ class ServiceSpanData:
     error: SpanError | None = None
     # Caller-supplied attributes to stamp on the service span, passed through
     # from ``async_service_*_hook(event_metadata=...)``. The mapper owns how
-    # these are namespaced: the canonical vocabulary uses ``litellm.metadata.*``
+    # these are namespaced: the canonical vocabulary uses ``embrouter.metadata.*``
     # keys, the semconv-ai / Traceloop vocabulary uses the bare key names.
     event_metadata: Mapping[str, str] = field(default_factory=dict)
 
@@ -422,7 +422,7 @@ class LLMCallSpanData:
     system_fingerprint: str | None = None
     time_to_first_chunk_seconds: float | None = None
     # The requested output modality, set only on the routes that pin one (image
-    # generation, speech, transcription, OCR), and the litellm route itself, which
+    # generation, speech, transcription, OCR), and the embrouter route itself, which
     # keeps routes the convention folds into one operation distinguishable.
     output_type: GenAIOutputType | None = None
     call_type: str | None = None

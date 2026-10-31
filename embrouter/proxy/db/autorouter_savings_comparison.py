@@ -7,13 +7,13 @@ from typing import TYPE_CHECKING, Final, Protocol, cast
 
 from pydantic import BaseModel, ConfigDict, TypeAdapter
 
-from litellm._logging import verbose_proxy_logger
-from litellm.constants import MAX_SPENDLOG_ROWS_TO_QUERY
-from litellm.proxy.db.autorouter_session_rollup import AUTOROUTER_SESSION_WINDOW_SQL
-from litellm.proxy.db.create_views import SupportsRawQueries
+from embrouter._logging import verbose_proxy_logger
+from embrouter.constants import MAX_SPENDLOG_ROWS_TO_QUERY
+from embrouter.proxy.db.autorouter_session_rollup import AUTOROUTER_SESSION_WINDOW_SQL
+from embrouter.proxy.db.create_views import SupportsRawQueries
 
 if TYPE_CHECKING:
-    from litellm.proxy.utils import PrismaClient
+    from embrouter.proxy.utils import PrismaClient
 
 
 class SessionSavingsComparison(BaseModel):
@@ -87,7 +87,7 @@ WITH {AUTOROUTER_SESSION_WINDOW_SQL}, scoped AS MATERIALIZED (
         logs.metadata::jsonb -> 'routing_decision' AS decision,
         logs.metadata::jsonb -> 'autorouter_savings' AS savings,
         logs.metadata::jsonb -> 'autorouter_savings_estimate' AS estimate
-    FROM scoped AS session JOIN "LiteLLM_SpendLogs" AS logs
+    FROM scoped AS session JOIN "EmbRouter_SpendLogs" AS logs
       ON logs.api_key = session.api_key
       AND CASE WHEN char_length(logs.session_id) > 256
           THEN 'sha256:' || encode(sha256(convert_to(logs.session_id, 'UTF8')), 'hex')

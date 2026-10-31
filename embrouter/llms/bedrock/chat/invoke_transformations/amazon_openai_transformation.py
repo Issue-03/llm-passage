@@ -11,22 +11,22 @@ from typing import TYPE_CHECKING, Any, Final
 
 import httpx
 
-from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM
-from litellm.llms.bedrock.common_utils import BedrockError
-from litellm.llms.bedrock.request_metadata import (
+from embrouter.llms.bedrock.base_aws_llm import BaseAWSLLM
+from embrouter.llms.bedrock.common_utils import BedrockError
+from embrouter.llms.bedrock.request_metadata import (
     bedrock_request_metadata_headers,
     merge_bedrock_invoke_headers,
 )
-from litellm.llms.openai.chat.gpt_transformation import OpenAIGPTConfig
-from litellm.passthrough.utils import CommonUtils
-from litellm.types.llms.openai import AllMessageValues
+from embrouter.llms.openai.chat.gpt_transformation import OpenAIGPTConfig
+from embrouter.passthrough.utils import CommonUtils
+from embrouter.types.llms.openai import AllMessageValues
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 
 class AmazonBedrockOpenAIConfig(OpenAIGPTConfig, BaseAWSLLM):
@@ -54,7 +54,7 @@ class AmazonBedrockOpenAIConfig(OpenAIGPTConfig, BaseAWSLLM):
 
     def _get_openai_model_id(self, model: str) -> str:
         """
-        Extract the actual model ID from the LiteLLM model name.
+        Extract the actual model ID from the EmbRouter model name.
 
         Input format: bedrock/openai/<model-id>
         Returns: <model-id>
@@ -73,7 +73,7 @@ class AmazonBedrockOpenAIConfig(OpenAIGPTConfig, BaseAWSLLM):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         """
@@ -136,7 +136,7 @@ class AmazonBedrockOpenAIConfig(OpenAIGPTConfig, BaseAWSLLM):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         """
@@ -156,7 +156,7 @@ class AmazonBedrockOpenAIConfig(OpenAIGPTConfig, BaseAWSLLM):
             model=self._get_openai_model_id(model),
             messages=messages,
             optional_params=inference_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
@@ -166,7 +166,7 @@ class AmazonBedrockOpenAIConfig(OpenAIGPTConfig, BaseAWSLLM):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
@@ -177,7 +177,7 @@ class AmazonBedrockOpenAIConfig(OpenAIGPTConfig, BaseAWSLLM):
         same ``/model/{id}/invoke`` endpoint as ``AmazonInvokeConfig``, so it owns the request
         metadata header on the same terms rather than letting a caller supply it.
         """
-        owned_names, metadata_headers = bedrock_request_metadata_headers(litellm_params)
+        owned_names, metadata_headers = bedrock_request_metadata_headers(embrouter_params)
         return merge_bedrock_invoke_headers(headers, (), metadata_headers, owned_names)
 
     def get_error_class(self, error_message: str, status_code: int, headers: dict | httpx.Headers) -> BedrockError:

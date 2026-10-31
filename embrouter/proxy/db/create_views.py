@@ -1,7 +1,7 @@
 from collections.abc import Mapping, Sequence
 from typing import Final, Protocol
 
-from litellm import verbose_logger
+from embrouter import verbose_logger
 
 
 class SupportsExecuteRaw(Protocol):
@@ -49,11 +49,11 @@ async def create_view_tolerating_race(db: SupportsExecuteRaw, view_name: str, dd
 async def create_missing_views(db: SupportsRawQueries) -> None:
     """
     --------------------------------------------------
-    NOTE: Copy of `litellm/db_scripts/create_views.py`.
+    NOTE: Copy of `embrouter/db_scripts/create_views.py`.
     --------------------------------------------------
-    Checks if the LiteLLM_VerificationTokenView and MonthlyGlobalSpend exists in the user's db.
+    Checks if the EmbRouter_VerificationTokenView and MonthlyGlobalSpend exists in the user's db.
 
-    LiteLLM_VerificationTokenView: This view is used for getting the token + team data in user_api_key_auth
+    EmbRouter_VerificationTokenView: This view is used for getting the token + team data in user_api_key_auth
 
     MonthlyGlobalSpend: This view is used for the admin view to see global spend for this month
 
@@ -62,8 +62,8 @@ async def create_missing_views(db: SupportsRawQueries) -> None:
 
     try:
         # Try to select one row from the view
-        await db.query_raw("""SELECT 1 FROM "LiteLLM_VerificationTokenView" LIMIT 1""")
-        verbose_logger.debug("LiteLLM_VerificationTokenView Exists!")
+        await db.query_raw("""SELECT 1 FROM "EmbRouter_VerificationTokenView" LIMIT 1""")
+        verbose_logger.debug("EmbRouter_VerificationTokenView Exists!")
     except Exception as e:
         error_msg = str(e).lower()
         if not any(marker in error_msg for marker in _VIEW_NOT_FOUND_MARKERS):
@@ -71,9 +71,9 @@ async def create_missing_views(db: SupportsRawQueries) -> None:
         # If an error occurs, the view does not exist, so create it
         await create_view_tolerating_race(
             db,
-            "LiteLLM_VerificationTokenView",
+            "EmbRouter_VerificationTokenView",
             """
-                CREATE VIEW "LiteLLM_VerificationTokenView" AS
+                CREATE VIEW "EmbRouter_VerificationTokenView" AS
                 SELECT
                 v.*,
                 t.spend AS team_spend,
@@ -83,9 +83,9 @@ async def create_missing_views(db: SupportsRawQueries) -> None:
                 t.rpm_limit AS team_rpm_limit,
                 t.tpd_limit AS team_tpd_limit,
                 p.project_alias AS project_alias
-                FROM "LiteLLM_VerificationToken" v
-                LEFT JOIN "LiteLLM_TeamTable" t ON v.team_id = t.team_id
-                LEFT JOIN "LiteLLM_ProjectTable" p ON v.project_id = p.project_id;
+                FROM "EmbRouter_VerificationToken" v
+                LEFT JOIN "EmbRouter_TeamTable" t ON v.team_id = t.team_id
+                LEFT JOIN "EmbRouter_ProjectTable" p ON v.project_id = p.project_id;
             """,
         )
 
@@ -102,7 +102,7 @@ async def create_missing_views(db: SupportsRawQueries) -> None:
         DATE("startTime") AS date, 
         SUM("spend") AS spend 
         FROM 
-        "LiteLLM_SpendLogs" 
+        "EmbRouter_SpendLogs" 
         WHERE 
         "startTime" >= (CURRENT_DATE - INTERVAL '30 days')
         GROUP BY 
@@ -125,9 +125,9 @@ async def create_missing_views(db: SupportsRawQueries) -> None:
         V."key_name",
         SUM(L."spend") AS total_spend
         FROM
-        "LiteLLM_SpendLogs" L
+        "EmbRouter_SpendLogs" L
         LEFT JOIN 
-        "LiteLLM_VerificationToken" V
+        "EmbRouter_VerificationToken" V
         ON
         L."api_key" = V."token"
         WHERE
@@ -152,7 +152,7 @@ async def create_missing_views(db: SupportsRawQueries) -> None:
         "model",
         SUM("spend") AS total_spend
         FROM
-        "LiteLLM_SpendLogs"
+        "EmbRouter_SpendLogs"
         WHERE
         "startTime" >= (CURRENT_DATE - INTERVAL '30 days')
         AND "model" != ''
@@ -176,7 +176,7 @@ async def create_missing_views(db: SupportsRawQueries) -> None:
             SUM("spend") AS spend,
             api_key as api_key
             FROM 
-            "LiteLLM_SpendLogs" 
+            "EmbRouter_SpendLogs" 
             WHERE 
             "startTime" >= (CURRENT_DATE - INTERVAL '30 days')
             GROUP BY 
@@ -199,7 +199,7 @@ async def create_missing_views(db: SupportsRawQueries) -> None:
             api_key as api_key,
             "user" as "user"
             FROM 
-            "LiteLLM_SpendLogs" 
+            "EmbRouter_SpendLogs" 
             WHERE 
             "startTime" >= (CURRENT_DATE - INTERVAL '30 days')
             GROUP BY 
@@ -223,7 +223,7 @@ async def create_missing_views(db: SupportsRawQueries) -> None:
             DATE(s."startTime") AS spend_date,
             COUNT(*) AS log_count,
             SUM(spend) AS total_spend
-        FROM "LiteLLM_SpendLogs" s
+        FROM "EmbRouter_SpendLogs" s
         GROUP BY individual_request_tag, DATE(s."startTime");
         """
         await create_view_tolerating_race(db, "DailyTagSpend", sql_query)
@@ -238,7 +238,7 @@ async def create_missing_views(db: SupportsRawQueries) -> None:
         sql_query = """
         CREATE VIEW "Last30dTopEndUsersSpend" AS
         SELECT end_user, COUNT(*) AS total_events, SUM(spend) AS total_spend
-        FROM "LiteLLM_SpendLogs"
+        FROM "EmbRouter_SpendLogs"
         WHERE end_user <> '' AND end_user <> user
         AND "startTime" >= CURRENT_DATE - INTERVAL '30 days'
         GROUP BY end_user
@@ -258,12 +258,12 @@ async def should_create_missing_views(db: SupportsRawQueries) -> bool:
     sql_query: Final = """
     SELECT reltuples::BIGINT
     FROM pg_class
-    WHERE oid = '"LiteLLM_SpendLogs"'::regclass;
+    WHERE oid = '"EmbRouter_SpendLogs"'::regclass;
     """
 
     result: Final = await db.query_raw(query=sql_query)
 
-    verbose_logger.debug("Estimated Row count of LiteLLM_SpendLogs = %s", result)
+    verbose_logger.debug("Estimated Row count of EmbRouter_SpendLogs = %s", result)
     if (
         result
         and isinstance(result, list)

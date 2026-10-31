@@ -5,10 +5,10 @@ Handles Azure AI Foundry Model Router flat cost and other Azure AI specific pric
 
 from typing import Final
 
-from litellm._logging import verbose_logger
-from litellm.litellm_core_utils.llm_cost_calc.utils import generic_cost_per_token
-from litellm.types.utils import Usage
-from litellm.utils import get_model_info
+from embrouter._logging import verbose_logger
+from embrouter.embrouter_core_utils.llm_cost_calc.utils import generic_cost_per_token
+from embrouter.types.utils import Usage
+from embrouter.utils import get_model_info
 
 
 def is_azure_model_router(model: str) -> bool:
@@ -107,7 +107,7 @@ def cost_per_token(
 
     Args:
         model: str, the model name without provider prefix (from response)
-        usage: LiteLLM Usage block
+        usage: EmbRouter Usage block
         response_time_ms: Optional response time in milliseconds
         request_model: Optional[str], the original request model name; a Model Router name adds the routing fee
         service_tier: Optional service tier the request was priced on

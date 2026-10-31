@@ -40,7 +40,7 @@ describe("ClassifierAuditView", () => {
     render(
       <ClassifierAuditView
         request={{
-          classifier_input: { system: "partial rubric...litellm_truncated" },
+          classifier_input: { system: "partial rubric...embrouter_truncated" },
           originating_request_masked: { input: "source" },
         }}
         response={{ tier: "SIMPLE" }}

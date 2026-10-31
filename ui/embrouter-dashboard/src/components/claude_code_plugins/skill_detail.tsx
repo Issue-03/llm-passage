@@ -208,7 +208,7 @@ const SkillDetail: React.FC<SkillDetailProps> = ({ skill, onBack }) => {
               If you see &quot;Plugin {skill.name} not found in marketplace&quot;, update the catalog first:
             </p>
             <pre className="m-0 bg-transparent font-mono text-[13px] text-foreground">
-              /plugin marketplace update litellm
+              /plugin marketplace update embrouter
             </pre>
           </div>
 

@@ -13,7 +13,7 @@ def test_check_migration_out_of_sync(mocker):
     # then patch the logger reference in that module directly (not the source
     # module) so the patch works regardless of import order or xdist worker
     # assignment.
-    from litellm.proxy.db import check_migration
+    from embrouter.proxy.db import check_migration
 
     # Mock the helper function to simulate out-of-sync state
     mock_logger = mocker.patch.object(
@@ -45,7 +45,7 @@ def test_migrate_diff_stops_at_its_budget_and_takes_its_process_tree_with_it(fak
     `prisma migrate diff` ran unbounded, so a database that never answers hung boot
     before uvicorn ever started, and interrupting the proxy orphaned the schema engine.
     """
-    from litellm.proxy.db.check_migration import check_prisma_schema_diff_helper
+    from embrouter.proxy.db.check_migration import check_prisma_schema_diff_helper
 
     monkeypatch.setenv("FAKE_PRISMA_HANG_FIRST", "1")
 
@@ -64,8 +64,8 @@ def test_migrate_diff_without_the_prisma_runner_skips_instead_of_crashing_boot(m
     """
     import sys
 
-    from litellm.proxy.db.check_migration import check_prisma_schema_diff_helper
+    from embrouter.proxy.db.check_migration import check_prisma_schema_diff_helper
 
-    monkeypatch.setitem(sys.modules, "litellm_proxy_extras.prisma_toolchain", None)
+    monkeypatch.setitem(sys.modules, "embrouter_proxy_extras.prisma_toolchain", None)
 
     assert check_prisma_schema_diff_helper("postgresql://u:p@localhost:9/x") == (False, [])

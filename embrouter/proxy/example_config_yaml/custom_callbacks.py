@@ -2,21 +2,21 @@ import os
 import sys
 import traceback
 
-# this file is to test litellm/proxy
+# this file is to test embrouter/proxy
 
 sys.path.insert(0, os.path.abspath("../.."))  # Adds the parent directory to the system path
 
 import inspect
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
+import embrouter
+from embrouter.integrations.custom_logger import CustomLogger
 from typing import Final
 
 
-# This file includes the custom callbacks for LiteLLM Proxy
+# This file includes the custom callbacks for EmbRouter Proxy
 # Once defined, these can be passed in proxy_config.yaml
 def print_verbose(print_statement):
-    if litellm.set_verbose:
+    if embrouter.set_verbose:
         print(print_statement)  # noqa
 
 
@@ -24,7 +24,7 @@ class MyCustomHandler(CustomLogger):
     def __init__(self):
         blue_color_code: Final = "\033[94m"
         reset_color_code: Final = "\033[0m"
-        print_verbose(f"{blue_color_code}Initialized LiteLLM custom logger")
+        print_verbose(f"{blue_color_code}Initialized EmbRouter custom logger")
         try:
             print_verbose("Logger Initialized with following methods:")
             methods: Final = [method for method in dir(self) if inspect.ismethod(getattr(self, method))]
@@ -50,7 +50,7 @@ class MyCustomHandler(CustomLogger):
 
     async def async_log_success_event(self, kwargs, response_obj, start_time, end_time):
         print_verbose("On Async Success!")
-        response_cost: Final = litellm.completion_cost(completion_response=response_obj)
+        response_cost: Final = embrouter.completion_cost(completion_response=response_obj)
         assert response_cost > 0.0
         return
 
@@ -64,6 +64,6 @@ class MyCustomHandler(CustomLogger):
 proxy_handler_instance: Final = MyCustomHandler()
 
 
-# need to set litellm.callbacks = [customHandler] # on the proxy
+# need to set embrouter.callbacks = [customHandler] # on the proxy
 
-# litellm.success_callback = [async_on_succes_logger]
+# embrouter.success_callback = [async_on_succes_logger]

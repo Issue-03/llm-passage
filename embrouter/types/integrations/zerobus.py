@@ -3,7 +3,7 @@ from typing import Final
 
 from pydantic import Field
 
-from litellm.types.integrations.custom_logger import StandardCustomLoggerInitParams
+from embrouter.types.integrations.custom_logger import StandardCustomLoggerInitParams
 
 RETRYABLE_INGEST_STATUS_CODES: Final = frozenset({408, 429, 500, 502, 503, 504})
 
@@ -12,7 +12,7 @@ TOKEN_REFRESH_LEEWAY_SECONDS: Final = 60
 
 class ZerobusInitParams(StandardCustomLoggerInitParams):
     """
-    Params for initializing a Databricks Zerobus logger on litellm.
+    Params for initializing a Databricks Zerobus logger on embrouter.
 
     Every connection field falls back to its ``ZEROBUS_*`` environment variable, which is
     what the proxy UI writes. ``table_name`` is the fully qualified ``catalog.schema.table``.

@@ -12,8 +12,8 @@ import asyncio
 from collections.abc import AsyncIterable, Iterable
 from typing import Final
 
-from litellm._logging import verbose_logger
-from litellm.integrations.mock_client_factory import (
+from embrouter._logging import verbose_logger
+from embrouter.integrations.mock_client_factory import (
     MockClientConfig,
     MockResponse,
     create_mock_client_factory,
@@ -147,7 +147,7 @@ def create_mock_gcs_client():
     """
     Monkey-patch AsyncHTTPHandler methods to intercept GCS calls.
 
-    AsyncHTTPHandler is used by LiteLLM's get_async_httpx_client() which is what
+    AsyncHTTPHandler is used by EmbRouter's get_async_httpx_client() which is what
     GCSBucketBase uses for making API calls.
 
     This function is idempotent - it only initializes mocks once, even if called multiple times.
@@ -164,7 +164,7 @@ def create_mock_gcs_client():
     verbose_logger.debug("[GCS MOCK] Initializing GCS GET/DELETE handlers...")
 
     # Patch GET and DELETE handlers (GCS-specific)
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+    from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler
 
     if _original_async_handler_get is None:
         _original_async_handler_get = AsyncHTTPHandler.get
@@ -189,7 +189,7 @@ def mock_vertex_auth_methods():
 
     This function is idempotent - it only patches once, even if called multiple times.
     """
-    from litellm.llms.vertex_ai.vertex_llm_base import VertexBase
+    from embrouter.llms.vertex_ai.vertex_llm_base import VertexBase
 
     # Store original methods if not already stored
     if not hasattr(VertexBase, "_original_ensure_access_token_async"):

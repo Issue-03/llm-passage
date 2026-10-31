@@ -19,12 +19,12 @@ from botocore.awsrequest import AWSRequest
 from botocore.credentials import Credentials
 from pydantic import JsonValue
 
-import litellm
-from litellm.rust_bridge import bindings
-from litellm.rust_bridge.bindings import NativeBinding
-from litellm.rust_bridge.catalog import Rules, SecretManagerRule
-from litellm.rust_bridge.configuration import Rollout
-from litellm.rust_bridge.secret_manager import (
+import embrouter
+from embrouter.rust_bridge import bindings
+from embrouter.rust_bridge.bindings import NativeBinding
+from embrouter.rust_bridge.catalog import Rules, SecretManagerRule
+from embrouter.rust_bridge.configuration import Rollout
+from embrouter.rust_bridge.secret_manager import (
     NativeSecretManagerFactory,
     NativeSecretManagerRuntime,
     capture_secret_manager,
@@ -33,23 +33,23 @@ from litellm.rust_bridge.secret_manager import (
     resolve_native_provider_writer,
     resolve_native_secret_manager,
 )
-from litellm.secret_managers.aws_secret_manager_v2 import AWSSecretsManagerV2
-from litellm.secret_managers.cyberark_secret_manager import CyberArkSecretManager
-from litellm.secret_managers.dispatch import get_secret_from_manager
-from litellm.secret_managers.hashicorp_secret_manager import HashicorpSecretManager
-from litellm.types.secret_managers.main import KeyManagementSettings, KeyManagementSystem
-from tests.test_litellm_rust.support.recording_server import ResponseSpec, recording_service
+from embrouter.secret_managers.aws_secret_manager_v2 import AWSSecretsManagerV2
+from embrouter.secret_managers.cyberark_secret_manager import CyberArkSecretManager
+from embrouter.secret_managers.dispatch import get_secret_from_manager
+from embrouter.secret_managers.hashicorp_secret_manager import HashicorpSecretManager
+from embrouter.types.secret_managers.main import KeyManagementSettings, KeyManagementSystem
+from tests.test_embrouter_rust.support.recording_server import ResponseSpec, recording_service
 
 
 @pytest.fixture(autouse=True)
 def preserve_manager_globals(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "secret_manager_client", litellm.secret_manager_client)
-    monkeypatch.setattr(litellm, "_key_management_system", litellm._key_management_system)
-    monkeypatch.setattr(litellm, "_key_management_settings", litellm._key_management_settings)
+    monkeypatch.setattr(embrouter, "secret_manager_client", embrouter.secret_manager_client)
+    monkeypatch.setattr(embrouter, "_key_management_system", embrouter._key_management_system)
+    monkeypatch.setattr(embrouter, "_key_management_settings", embrouter._key_management_settings)
 
 
 def _vault(monkeypatch: pytest.MonkeyPatch, address: str) -> HashicorpSecretManager:
-    from litellm.proxy import proxy_server
+    from embrouter.proxy import proxy_server
 
     monkeypatch.setattr(proxy_server, "premium_user", True)
     monkeypatch.setenv("HCP_VAULT_ADDR", address)
@@ -80,7 +80,7 @@ def _vault_body(value: str) -> dict[str, object]:
 
 @pytest.mark.parametrize("system", ("aws_secret_manager", "hashicorp_vault", "cyberark"))
 async def test_python_native_handle_reuses_backend_across_sync_and_async_reads(system: str) -> None:
-    native: Final = pytest.importorskip("litellm.rust_bridge._native")
+    native: Final = pytest.importorskip("embrouter.rust_bridge._native")
     with recording_service() as server:
         environment: Final = {
             "AWS_REGION_NAME": "us-east-1",
@@ -114,18 +114,18 @@ async def test_python_native_handle_reuses_backend_across_sync_and_async_reads(s
 
 
 def test_shared_initializer_captures_credentials_and_tracks_instance_settings(monkeypatch: pytest.MonkeyPatch) -> None:
-    native: Final = pytest.importorskip("litellm.rust_bridge._native")
+    native: Final = pytest.importorskip("embrouter.rust_bridge._native")
     with recording_service() as server:
         server.default_response = ResponseSpec(body={"SecretString": "native-value"})
         server.expected_requests = 2
         monkeypatch.setenv("AWS_ACCESS_KEY_ID", "captured-access")
         monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "captured-secret")
         monkeypatch.setenv("AWS_BEDROCK_RUNTIME_ENDPOINT", server.base_url)
-        from litellm.proxy.proxy_server import ProxyConfig
+        from embrouter.proxy.proxy_server import ProxyConfig
 
-        monkeypatch.setattr(litellm, "_key_management_settings", KeyManagementSettings(aws_region_name="us-east-1"))
+        monkeypatch.setattr(embrouter, "_key_management_settings", KeyManagementSettings(aws_region_name="us-east-1"))
         ProxyConfig().initialize_secret_manager(KeyManagementSystem.AWS_SECRET_MANAGER.value)
-        manager: Final = litellm.secret_manager_client
+        manager: Final = embrouter.secret_manager_client
         assert isinstance(manager, AWSSecretsManagerV2)
         monkeypatch.setenv("AWS_ACCESS_KEY_ID", "changed-access")
         monkeypatch.setenv("AWS_BEDROCK_RUNTIME_ENDPOINT", "http://127.0.0.1:1")
@@ -146,7 +146,7 @@ def test_shared_initializer_captures_credentials_and_tracks_instance_settings(mo
 def test_configuration_replacement_rebuilds_without_invalidating_existing_handles(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    native: Final = pytest.importorskip("litellm.rust_bridge._native")
+    native: Final = pytest.importorskip("embrouter.rust_bridge._native")
     with recording_service() as first_server, recording_service() as second_server:
         first_server.default_response = ResponseSpec(body=_vault_body("first"))
         second_server.default_response = ResponseSpec(body=_vault_body("second"))
@@ -185,7 +185,7 @@ def test_custom_subclass_keeps_its_python_reader_under_native_selection() -> Non
 
 
 def test_read_dispatch_uses_native_backend_with_explicit_rules(monkeypatch: pytest.MonkeyPatch) -> None:
-    native: Final = pytest.importorskip("litellm.rust_bridge._native")
+    native: Final = pytest.importorskip("embrouter.rust_bridge._native")
     with recording_service() as server:
         server.default_response = ResponseSpec(body=_vault_body("native-value"))
         manager: Final = _vault(monkeypatch, server.base_url)
@@ -199,19 +199,19 @@ def test_read_dispatch_uses_native_backend_with_explicit_rules(monkeypatch: pyte
 
 @pytest.mark.parametrize("system", ("google_secret_manager", "hashicorp_vault", "cyberark"))
 def test_enterprise_backends_cannot_initialize_without_entitlement(system: str) -> None:
-    native: Final = pytest.importorskip("litellm.rust_bridge._native")
+    native: Final = pytest.importorskip("embrouter.rust_bridge._native")
     with pytest.raises(ValueError, match=r"[Ee]nterprise|[Pp]remium"):
         native._SecretManagerRuntime.from_config(system, {"CYBERARK_API_KEY": "key"})
 
 
 def test_azure_factory_rejects_unencrypted_vault_endpoints() -> None:
-    native: Final = pytest.importorskip("litellm.rust_bridge._native")
+    native: Final = pytest.importorskip("embrouter.rust_bridge._native")
     with pytest.raises(ValueError, match="https"):
         native._SecretManagerRuntime.from_config("azure_key_vault", {"AZURE_KEY_VAULT_URI": "http://127.0.0.1:1"})
 
 
 def test_direct_builtin_constructor_can_use_native_without_registration(monkeypatch: pytest.MonkeyPatch) -> None:
-    native: Final = pytest.importorskip("litellm.rust_bridge._native")
+    native: Final = pytest.importorskip("embrouter.rust_bridge._native")
     with recording_service() as server:
         server.default_response = ResponseSpec(body=_vault_body("native-value"))
         manager: Final = _vault(monkeypatch, server.base_url)
@@ -221,7 +221,7 @@ def test_direct_builtin_constructor_can_use_native_without_registration(monkeypa
 
 
 def test_binding_rejects_a_different_backend_before_reading() -> None:
-    native: Final = pytest.importorskip("litellm.rust_bridge._native")
+    native: Final = pytest.importorskip("embrouter.rust_bridge._native")
     with recording_service() as server:
         server.expected_requests = 0
         handle: Final = native._SecretManagerRuntime.from_config(
@@ -262,7 +262,7 @@ def test_required_native_missing_extension_does_not_read_python(monkeypatch: pyt
 
 
 def test_native_failure_is_not_replayed_in_python(monkeypatch: pytest.MonkeyPatch) -> None:
-    pytest.importorskip("litellm.rust_bridge._native")
+    pytest.importorskip("embrouter.rust_bridge._native")
     with recording_service() as server:
         server.default_response = ResponseSpec(status=403, body={"errors": ["denied"]})
         manager: Final = _vault(monkeypatch, server.base_url)
@@ -420,7 +420,7 @@ def test_native_binding_accepts_a_callable_factory(monkeypatch: pytest.MonkeyPat
 
 @pytest.mark.parametrize("value", ("text", "", True, False, 42, 2**100, [1, "two"], {"nested": True}, None))
 async def test_aws_primary_values_match_python_handler(monkeypatch: pytest.MonkeyPatch, value: JsonValue) -> None:
-    native: Final = pytest.importorskip("litellm.rust_bridge._native")
+    native: Final = pytest.importorskip("embrouter.rust_bridge._native")
     with recording_service() as server:
         server.default_response = ResponseSpec(body={"SecretString": json.dumps({"KEY": value})})
         server.expected_requests = 3
@@ -459,7 +459,7 @@ async def test_aws_primary_values_match_python_handler(monkeypatch: pytest.Monke
 def test_aws_absence_and_failed_reads_match_python_without_environment_fallback(
     monkeypatch: pytest.MonkeyPatch, primary: str | None, status: int, body: dict[str, str]
 ) -> None:
-    pytest.importorskip("litellm.rust_bridge._native")
+    pytest.importorskip("embrouter.rust_bridge._native")
     with recording_service() as server:
         server.default_response = ResponseSpec(status=status, body=body)
         server.expected_requests = 2
@@ -469,22 +469,22 @@ def test_aws_absence_and_failed_reads_match_python_without_environment_fallback(
         monkeypatch.setenv("KEY", "must-not-fall-back")
         manager: Final = AWSSecretsManagerV2(aws_region_name="us-east-1")
         settings: Final = KeyManagementSettings(primary_secret_name=primary)
-        monkeypatch.setattr(litellm, "secret_manager_client", manager)
-        monkeypatch.setattr(litellm, "_key_management_system", KeyManagementSystem.AWS_SECRET_MANAGER)
-        monkeypatch.setattr(litellm, "_key_management_settings", settings)
-        main: Final = import_module("litellm.secret_managers.main")
+        monkeypatch.setattr(embrouter, "secret_manager_client", manager)
+        monkeypatch.setattr(embrouter, "_key_management_system", KeyManagementSystem.AWS_SECRET_MANAGER)
+        monkeypatch.setattr(embrouter, "_key_management_settings", settings)
+        main: Final = import_module("embrouter.secret_managers.main")
         monkeypatch.setattr(
             main,
             "get_secret_from_manager",
             partial(get_secret_from_manager, rules=(SecretManagerRule(Rollout.PYTHON_ONLY),)),
         )
-        reference: Final = litellm.get_secret("KEY", "must-not-default")
+        reference: Final = embrouter.get_secret("KEY", "must-not-default")
         monkeypatch.setattr(
             main,
             "get_secret_from_manager",
             partial(get_secret_from_manager, rules=(SecretManagerRule(Rollout.RUST_REQUIRED),)),
         )
-        actual: Final = litellm.get_secret("KEY", "must-not-default")
+        actual: Final = embrouter.get_secret("KEY", "must-not-default")
         assert actual == reference
         assert actual == ("" if primary is None and body.get("SecretString") == "" else None)
 
@@ -493,7 +493,7 @@ def test_aws_absence_and_failed_reads_match_python_without_environment_fallback(
 async def test_aws_primary_json_errors_preserve_python_exception_details(
     monkeypatch: pytest.MonkeyPatch, document: str
 ) -> None:
-    native: Final = pytest.importorskip("litellm.rust_bridge._native")
+    native: Final = pytest.importorskip("embrouter.rust_bridge._native")
     with recording_service() as server:
         server.default_response = ResponseSpec(body={"SecretString": document})
         server.expected_requests = 3
@@ -541,7 +541,7 @@ def _forbid_python_http(*args: object, **kwargs: object) -> Never:
 async def test_public_aws_reads_preserve_coroutines_and_per_call_credentials(
     monkeypatch: pytest.MonkeyPatch, rollout: Rollout
 ) -> None:
-    pytest.importorskip("litellm.rust_bridge._native")
+    pytest.importorskip("embrouter.rust_bridge._native")
     with recording_service() as initial, recording_service() as selected:
         initial.expected_requests = 0
         selected.expected_requests = 2
@@ -550,7 +550,7 @@ async def test_public_aws_reads_preserve_coroutines_and_per_call_credentials(
         monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "environment-secret")
         monkeypatch.setenv("AWS_BEDROCK_RUNTIME_ENDPOINT", initial.base_url)
         manager: Final = AWSSecretsManagerV2(aws_region_name="us-east-1")
-        _select_provider_reads(monkeypatch, "litellm.secret_managers.aws_secret_manager_v2", rollout)
+        _select_provider_reads(monkeypatch, "embrouter.secret_managers.aws_secret_manager_v2", rollout)
         options: Final = {
             "aws_region_name": "us-west-2",
             "aws_bedrock_runtime_endpoint": selected.base_url,
@@ -596,7 +596,7 @@ async def test_public_aws_reads_preserve_coroutines_and_per_call_credentials(
 async def test_public_aws_primary_reads_ignore_operation_overrides_like_python(
     monkeypatch: pytest.MonkeyPatch, rollout: Rollout
 ) -> None:
-    pytest.importorskip("litellm.rust_bridge._native")
+    pytest.importorskip("embrouter.rust_bridge._native")
     with recording_service() as server, recording_service() as unused:
         server.default_response = ResponseSpec(body={"SecretString": '{"KEY":true}'})
         server.expected_requests = 2
@@ -605,7 +605,7 @@ async def test_public_aws_primary_reads_ignore_operation_overrides_like_python(
         monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "test-secret")
         monkeypatch.setenv("AWS_BEDROCK_RUNTIME_ENDPOINT", server.base_url)
         manager: Final = AWSSecretsManagerV2(aws_region_name="us-east-1")
-        _select_provider_reads(monkeypatch, "litellm.secret_managers.aws_secret_manager_v2", rollout)
+        _select_provider_reads(monkeypatch, "embrouter.secret_managers.aws_secret_manager_v2", rollout)
         options: Final = {"aws_bedrock_runtime_endpoint": unused.base_url}
         assert manager.sync_read_secret("KEY", options, 0, "primary") is True
         assert (
@@ -619,7 +619,7 @@ async def test_public_aws_primary_reads_ignore_operation_overrides_like_python(
 async def test_public_aws_bootstrap_names_only_bypass_sync_reads(
     monkeypatch: pytest.MonkeyPatch, rollout: Rollout
 ) -> None:
-    pytest.importorskip("litellm.rust_bridge._native")
+    pytest.importorskip("embrouter.rust_bridge._native")
     with recording_service() as server:
         server.default_response = ResponseSpec(body={"SecretString": "remote-access"})
         server.expected_requests = 1
@@ -627,7 +627,7 @@ async def test_public_aws_bootstrap_names_only_bypass_sync_reads(
         monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "environment-secret")
         monkeypatch.setenv("AWS_BEDROCK_RUNTIME_ENDPOINT", server.base_url)
         manager: Final = AWSSecretsManagerV2(aws_region_name="us-east-1")
-        _select_provider_reads(monkeypatch, "litellm.secret_managers.aws_secret_manager_v2", rollout)
+        _select_provider_reads(monkeypatch, "embrouter.secret_managers.aws_secret_manager_v2", rollout)
         assert manager.sync_read_secret("AWS_ACCESS_KEY_ID") == "environment-access"
         assert server.requests == []
         assert await manager.async_read_secret("AWS_ACCESS_KEY_ID") == "remote-access"
@@ -638,7 +638,7 @@ async def test_public_aws_bootstrap_names_only_bypass_sync_reads(
 async def test_public_aws_read_timeouts_follow_the_python_http_handler(
     monkeypatch: pytest.MonkeyPatch, rollout: Rollout, timeout: float | httpx.Timeout
 ) -> None:
-    pytest.importorskip("litellm.rust_bridge._native")
+    pytest.importorskip("embrouter.rust_bridge._native")
     with recording_service() as server:
         server.default_response = ResponseSpec(body={"SecretString": "too-late"}, delay=0.25)
         server.expected_requests = 2
@@ -646,7 +646,7 @@ async def test_public_aws_read_timeouts_follow_the_python_http_handler(
         monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "test-secret")
         monkeypatch.setenv("AWS_BEDROCK_RUNTIME_ENDPOINT", server.base_url)
         manager: Final = AWSSecretsManagerV2(aws_region_name="us-east-1")
-        _select_provider_reads(monkeypatch, "litellm.secret_managers.aws_secret_manager_v2", rollout)
+        _select_provider_reads(monkeypatch, "embrouter.secret_managers.aws_secret_manager_v2", rollout)
         assert manager.sync_read_secret("KEY", timeout=timeout) is None
         assert await manager.async_read_secret("KEY", timeout=timeout) is None
 
@@ -655,12 +655,12 @@ async def test_public_aws_read_timeouts_follow_the_python_http_handler(
 async def test_public_vault_reads_keep_overrides_cache_and_coroutines(
     monkeypatch: pytest.MonkeyPatch, rollout: Rollout
 ) -> None:
-    pytest.importorskip("litellm.rust_bridge._native")
+    pytest.importorskip("embrouter.rust_bridge._native")
     with recording_service() as server:
         server.default_response = ResponseSpec(body=_vault_body("value"))
         server.expected_requests = 2
         manager: Final = _vault(monkeypatch, server.base_url)
-        _select_provider_reads(monkeypatch, "litellm.secret_managers.hashicorp_secret_manager", rollout)
+        _select_provider_reads(monkeypatch, "embrouter.secret_managers.hashicorp_secret_manager", rollout)
         options: Final = {"secret_manager_settings": {"mount": "team", "path_prefix": "keys", "data": "key"}}
         pending: Final = manager.async_read_secret("KEY", options)
         assert inspect.iscoroutine(pending)
@@ -677,12 +677,12 @@ async def test_public_vault_reads_keep_overrides_cache_and_coroutines(
 async def test_public_vault_failed_reads_return_none_without_replay(
     monkeypatch: pytest.MonkeyPatch, rollout: Rollout, status: int
 ) -> None:
-    pytest.importorskip("litellm.rust_bridge._native")
+    pytest.importorskip("embrouter.rust_bridge._native")
     with recording_service() as server:
         server.default_response = ResponseSpec(status=status, body={"errors": ["unavailable"]})
         server.expected_requests = 2
         manager: Final = _vault(monkeypatch, server.base_url)
-        _select_provider_reads(monkeypatch, "litellm.secret_managers.hashicorp_secret_manager", rollout)
+        _select_provider_reads(monkeypatch, "embrouter.secret_managers.hashicorp_secret_manager", rollout)
         assert manager.sync_read_secret("KEY") is None
         assert await manager.async_read_secret("KEY") is None
 
@@ -691,9 +691,9 @@ async def test_public_vault_failed_reads_return_none_without_replay(
 async def test_public_cyberark_reads_reuse_authentication_and_cached_values(
     monkeypatch: pytest.MonkeyPatch, rollout: Rollout
 ) -> None:
-    pytest.importorskip("litellm.rust_bridge._native")
-    from litellm.proxy import proxy_server
-    from litellm.secret_managers.cyberark_secret_manager import CyberArkSecretManager
+    pytest.importorskip("embrouter.rust_bridge._native")
+    from embrouter.proxy import proxy_server
+    from embrouter.secret_managers.cyberark_secret_manager import CyberArkSecretManager
 
     monkeypatch.setattr(proxy_server, "premium_user", True)
     with recording_service() as server:
@@ -705,7 +705,7 @@ async def test_public_cyberark_reads_reuse_authentication_and_cached_values(
         monkeypatch.setenv("CYBERARK_ACCOUNT", "account")
         monkeypatch.setenv("CYBERARK_USERNAME", "reader")
         manager: Final = CyberArkSecretManager()
-        _select_provider_reads(monkeypatch, "litellm.secret_managers.cyberark_secret_manager", rollout)
+        _select_provider_reads(monkeypatch, "embrouter.secret_managers.cyberark_secret_manager", rollout)
         pending: Final = manager.async_read_secret(secret_name="KEY", timeout=0)
         assert inspect.iscoroutine(pending)
         assert server.requests == []
@@ -725,7 +725,7 @@ async def test_public_native_selection_and_missing_extension_keep_the_python_met
 ) -> None:
     binding: Final[NativeBinding[NativeSecretManagerFactory]] = NativeBinding("unused", validate=lambda value: None)
     binding.override(None)
-    module: Final = import_module("litellm.secret_managers.aws_secret_manager_v2")
+    module: Final = import_module("embrouter.secret_managers.aws_secret_manager_v2")
     monkeypatch.setattr(
         module,
         "resolve_native_provider_reader",
@@ -747,7 +747,7 @@ async def test_public_native_selection_and_missing_extension_keep_the_python_met
 
 
 def test_public_aws_bootstrap_read_does_not_initialize_a_backend(monkeypatch: pytest.MonkeyPatch) -> None:
-    module: Final = import_module("litellm.secret_managers.aws_secret_manager_v2")
+    module: Final = import_module("embrouter.secret_managers.aws_secret_manager_v2")
     monkeypatch.setattr(module, "resolve_native_provider_reader", _forbid_python_http)
     monkeypatch.setenv("AWS_ACCESS_KEY_ID", "bootstrap-value")
     assert AWSSecretsManagerV2().sync_read_secret("AWS_ACCESS_KEY_ID") == "bootstrap-value"
@@ -758,13 +758,13 @@ def test_public_aws_bootstrap_read_does_not_initialize_a_backend(monkeypatch: py
 def test_public_vault_prefix_overrides_match_python_string_conversion(
     monkeypatch: pytest.MonkeyPatch, rollout: Rollout, override: str | int
 ) -> None:
-    pytest.importorskip("litellm.rust_bridge._native")
+    pytest.importorskip("embrouter.rust_bridge._native")
     monkeypatch.setenv("HCP_VAULT_PATH_PREFIX", "default-prefix")
     with recording_service() as server:
         server.default_response = ResponseSpec(body=_vault_body("value"))
         server.expected_requests = 1
         manager: Final = _vault(monkeypatch, server.base_url)
-        _select_provider_reads(monkeypatch, "litellm.secret_managers.hashicorp_secret_manager", rollout)
+        _select_provider_reads(monkeypatch, "embrouter.secret_managers.hashicorp_secret_manager", rollout)
         assert manager.sync_read_secret("KEY", {"path_prefix": override}) == "value"
         assert urlsplit(server.requests[0].path).path == (
             f"/v1/secret/data/{override}/KEY" if override else "/v1/secret/data/KEY"
@@ -775,8 +775,8 @@ def test_public_vault_prefix_overrides_match_python_string_conversion(
 def test_public_google_reader_uses_the_selected_binding_without_replaying_python(
     monkeypatch: pytest.MonkeyPatch, value: str | None
 ) -> None:
-    from litellm.proxy import proxy_server
-    from litellm.secret_managers.google_secret_manager import GoogleSecretManager
+    from embrouter.proxy import proxy_server
+    from embrouter.secret_managers.google_secret_manager import GoogleSecretManager
 
     class Manager(GoogleSecretManager):
         def sync_construct_request_headers(self) -> dict[str, str]:
@@ -812,7 +812,7 @@ def test_public_google_reader_uses_the_selected_binding_without_replaying_python
 
     binding: Final[NativeBinding[NativeSecretManagerFactory]] = NativeBinding("unused", validate=lambda value: None)
     binding.override(Factory)
-    module: Final = import_module("litellm.secret_managers.google_secret_manager")
+    module: Final = import_module("embrouter.secret_managers.google_secret_manager")
     monkeypatch.setattr(
         module,
         "resolve_native_provider_reader",
@@ -823,7 +823,7 @@ def test_public_google_reader_uses_the_selected_binding_without_replaying_python
 
 
 def _cyberark(monkeypatch: pytest.MonkeyPatch, address: str) -> CyberArkSecretManager:
-    from litellm.proxy import proxy_server
+    from embrouter.proxy import proxy_server
 
     monkeypatch.setattr(proxy_server, "premium_user", True)
     monkeypatch.setenv("CYBERARK_API_BASE", address)
@@ -834,7 +834,7 @@ def _cyberark(monkeypatch: pytest.MonkeyPatch, address: str) -> CyberArkSecretMa
 
 
 def _select_cyberark_mutations(monkeypatch: pytest.MonkeyPatch, rollout: Rollout) -> None:
-    module: Final = import_module("litellm.secret_managers.cyberark_secret_manager")
+    module: Final = import_module("embrouter.secret_managers.cyberark_secret_manager")
     _select_provider_reads(monkeypatch, module.__name__, rollout)
     monkeypatch.setattr(
         module,
@@ -848,7 +848,7 @@ async def test_public_cyberark_writes_and_deletes_share_the_read_cache(
     monkeypatch: pytest.MonkeyPatch,
     rollout: Rollout,
 ) -> None:
-    pytest.importorskip("litellm.rust_bridge._native")
+    pytest.importorskip("embrouter.rust_bridge._native")
     with recording_service() as server:
         for body in (b"token", b"old", {}, {}, b"provider-after-delete"):
             server.enqueue(ResponseSpec(body=body))
@@ -896,7 +896,7 @@ async def test_public_cyberark_write_errors_match_python_without_http_retries(
     status: int,
     authentication: bool,
 ) -> None:
-    pytest.importorskip("litellm.rust_bridge._native")
+    pytest.importorskip("embrouter.rust_bridge._native")
     with recording_service() as server:
         responses: Final = (
             (ResponseSpec(status=status, body={}),) * 2
@@ -927,7 +927,7 @@ async def test_public_cyberark_write_recovers_from_initial_policy_authentication
     monkeypatch: pytest.MonkeyPatch,
     rollout: Rollout,
 ) -> None:
-    pytest.importorskip("litellm.rust_bridge._native")
+    pytest.importorskip("embrouter.rust_bridge._native")
     with recording_service() as server:
         server.enqueue(ResponseSpec(status=401, body={}))
         server.enqueue(ResponseSpec(body=b"token"))
@@ -953,7 +953,7 @@ async def test_public_cyberark_write_rejects_unsafe_names_before_authentication(
     rollout: Rollout,
     name: str,
 ) -> None:
-    pytest.importorskip("litellm.rust_bridge._native")
+    pytest.importorskip("embrouter.rust_bridge._native")
     with recording_service() as server:
         server.expected_requests = 0
         manager: Final = _cyberark(monkeypatch, server.base_url)
@@ -971,7 +971,7 @@ async def test_public_cyberark_rotation_returns_the_write_response_and_retains_o
     rollout: Rollout,
     same_name: bool,
 ) -> None:
-    pytest.importorskip("litellm.rust_bridge._native")
+    pytest.importorskip("embrouter.rust_bridge._native")
     with recording_service() as server:
         for body in (b"token", b"old-value", {}, {}):
             server.enqueue(ResponseSpec(body=body))
@@ -1001,7 +1001,7 @@ async def test_public_cyberark_rotation_requires_a_fresh_matching_replacement(
     monkeypatch: pytest.MonkeyPatch,
     replacement: bytes | None,
 ) -> None:
-    pytest.importorskip("litellm.rust_bridge._native")
+    pytest.importorskip("embrouter.rust_bridge._native")
     with recording_service() as server:
         for body in (b"token", b"old-value", {}, {}):
             server.enqueue(ResponseSpec(body=body))
@@ -1027,7 +1027,7 @@ async def test_public_cyberark_cached_authentication_does_not_retry_denied_reads
     monkeypatch: pytest.MonkeyPatch,
     rollout: Rollout,
 ) -> None:
-    pytest.importorskip("litellm.rust_bridge._native")
+    pytest.importorskip("embrouter.rust_bridge._native")
     with recording_service() as server:
         server.enqueue(ResponseSpec(body=b"token"))
         server.enqueue(ResponseSpec(body=b"value"))
@@ -1042,7 +1042,7 @@ async def test_public_cyberark_cached_authentication_does_not_retry_denied_reads
 async def test_cyberark_handler_errors_match_python_after_cached_authentication_is_denied(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    pytest.importorskip("litellm.rust_bridge._native")
+    pytest.importorskip("embrouter.rust_bridge._native")
     with recording_service() as server:
         for response in (
             ResponseSpec(body=b"token"),
@@ -1068,7 +1068,7 @@ async def test_cyberark_handler_errors_match_python_after_cached_authentication_
 async def test_public_cyberark_connection_errors_match_python(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    pytest.importorskip("litellm.rust_bridge._native")
+    pytest.importorskip("embrouter.rust_bridge._native")
     with recording_service() as server:
         server.expected_requests = 0
         address: Final = server.base_url
@@ -1091,7 +1091,7 @@ async def test_public_cyberark_mutations_preserve_missing_extension_selection(
 ) -> None:
     binding: Final[NativeBinding[NativeSecretManagerFactory]] = NativeBinding("unused", validate=lambda value: None)
     binding.override(None)
-    module: Final = import_module("litellm.secret_managers.cyberark_secret_manager")
+    module: Final = import_module("embrouter.secret_managers.cyberark_secret_manager")
     _select_provider_reads(monkeypatch, module.__name__, Rollout.PYTHON_ONLY)
     monkeypatch.setattr(
         module,
@@ -1125,7 +1125,7 @@ async def test_public_cyberark_mutations_preserve_missing_extension_selection(
 
 
 async def test_public_cyberark_rotation_stops_after_a_failed_write(monkeypatch: pytest.MonkeyPatch) -> None:
-    pytest.importorskip("litellm.rust_bridge._native")
+    pytest.importorskip("embrouter.rust_bridge._native")
     with recording_service() as server:
         for body in (b"token", b"old-value", {}):
             server.enqueue(ResponseSpec(body=body))
@@ -1141,7 +1141,7 @@ async def test_public_cyberark_rotation_stops_after_a_failed_write(monkeypatch: 
 
 
 def _select_vault_mutations(monkeypatch: pytest.MonkeyPatch, rollout: Rollout) -> None:
-    module: Final = import_module("litellm.secret_managers.hashicorp_secret_manager")
+    module: Final = import_module("embrouter.secret_managers.hashicorp_secret_manager")
     _select_provider_reads(monkeypatch, module.__name__, rollout)
     monkeypatch.setattr(
         module,
@@ -1157,7 +1157,7 @@ async def test_public_vault_writes_preserve_complete_responses_and_request_field
     rollout: Rollout,
     description: str | None,
 ) -> None:
-    pytest.importorskip("litellm.rust_bridge._native")
+    pytest.importorskip("embrouter.rust_bridge._native")
     with recording_service() as server:
         response: Final = {
             "request_id": "test-request",
@@ -1199,7 +1199,7 @@ async def test_public_vault_mutation_http_errors_match_python_without_retry(
     operation: str,
     status: int,
 ) -> None:
-    pytest.importorskip("litellm.rust_bridge._native")
+    pytest.importorskip("embrouter.rust_bridge._native")
     with recording_service() as server:
         server.default_response = ResponseSpec(status=status, body={"errors": ["denied"]})
         server.expected_requests = 2
@@ -1229,7 +1229,7 @@ async def test_public_vault_write_response_conversion_matches_python(
     monkeypatch: pytest.MonkeyPatch,
     body: bytes,
 ) -> None:
-    pytest.importorskip("litellm.rust_bridge._native")
+    pytest.importorskip("embrouter.rust_bridge._native")
     with recording_service() as server:
         server.default_response = ResponseSpec(body=body)
         server.expected_requests = 2
@@ -1248,7 +1248,7 @@ async def test_public_vault_deletion_invalidates_cached_fields(
     monkeypatch: pytest.MonkeyPatch,
     rollout: Rollout,
 ) -> None:
-    pytest.importorskip("litellm.rust_bridge._native")
+    pytest.importorskip("embrouter.rust_bridge._native")
     with recording_service() as server:
         server.enqueue(ResponseSpec(body=_vault_body("old")))
         server.enqueue(ResponseSpec(status=204, body=b""))
@@ -1274,7 +1274,7 @@ async def test_public_vault_rotation_preserves_response_and_best_effort_deletion
     same_name: bool,
     delete_status: int,
 ) -> None:
-    pytest.importorskip("litellm.rust_bridge._native")
+    pytest.importorskip("embrouter.rust_bridge._native")
     with recording_service() as server:
         response: Final = {"request_id": "write-id", "data": {"version": 3}, "extra": [1, 2]}
         server.enqueue(ResponseSpec(body=b"current-existence-is-status-only"))
@@ -1306,7 +1306,7 @@ async def test_public_vault_rotation_failure_messages_and_request_counts_match_p
     stage: str,
     status: int,
 ) -> None:
-    pytest.importorskip("litellm.rust_bridge._native")
+    pytest.importorskip("embrouter.rust_bridge._native")
     with recording_service() as server:
         before: Final = (
             ()
@@ -1345,7 +1345,7 @@ async def test_public_vault_rotation_mismatches_do_not_delete_the_old_alias(
     monkeypatch: pytest.MonkeyPatch,
     value: JsonValue,
 ) -> None:
-    pytest.importorskip("litellm.rust_bridge._native")
+    pytest.importorskip("embrouter.rust_bridge._native")
     with recording_service() as server:
         responses: Final = (
             ResponseSpec(body=_vault_body("old")),
@@ -1371,7 +1371,7 @@ async def test_public_vault_mutation_timeouts_match_python(
     monkeypatch: pytest.MonkeyPatch,
     operation: str,
 ) -> None:
-    pytest.importorskip("litellm.rust_bridge._native")
+    pytest.importorskip("embrouter.rust_bridge._native")
     with recording_service() as server:
         server.default_response = ResponseSpec(body=_vault_body("value"), delay=0.25)
         server.expected_requests = 2
@@ -1413,7 +1413,7 @@ async def test_public_vault_unsafe_names_fail_before_authentication(
     rollout: Rollout,
     operation: str,
 ) -> None:
-    pytest.importorskip("litellm.rust_bridge._native")
+    pytest.importorskip("embrouter.rust_bridge._native")
     with recording_service() as server:
         server.expected_requests = 0
         manager: Final = _vault(monkeypatch, server.base_url)
@@ -1431,7 +1431,7 @@ async def test_public_vault_authentication_errors_match_python(
     monkeypatch: pytest.MonkeyPatch,
     operation: str,
 ) -> None:
-    pytest.importorskip("litellm.rust_bridge._native")
+    pytest.importorskip("embrouter.rust_bridge._native")
     monkeypatch.setenv("HCP_VAULT_APPROLE_ROLE_ID", "role")
     monkeypatch.setenv("HCP_VAULT_APPROLE_SECRET_ID", "secret-id")
     with recording_service() as server:
@@ -1459,7 +1459,7 @@ async def test_public_vault_authentication_errors_match_python(
 async def test_public_vault_rotation_stops_on_a_success_response_containing_an_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    pytest.importorskip("litellm.rust_bridge._native")
+    pytest.importorskip("embrouter.rust_bridge._native")
     with recording_service() as server:
         result: Final = {"status": "error", "message": "write rejected", "extra": 2**100}
         for response in (ResponseSpec(body=_vault_body("old")), ResponseSpec(body=result)) * 2:
@@ -1476,7 +1476,7 @@ async def test_public_vault_rotation_stops_on_a_success_response_containing_an_e
 
 
 async def test_public_native_vault_write_invalidates_stale_cached_values(monkeypatch: pytest.MonkeyPatch) -> None:
-    pytest.importorskip("litellm.rust_bridge._native")
+    pytest.importorskip("embrouter.rust_bridge._native")
     with recording_service() as server:
         server.enqueue(ResponseSpec(body=_vault_body("old")))
         server.enqueue(ResponseSpec(body={"data": {"version": 2}}))
@@ -1493,7 +1493,7 @@ async def test_public_native_vault_write_invalidates_stale_cached_values(monkeyp
 async def test_public_native_vault_write_rejects_description_overwriting_the_secret(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    pytest.importorskip("litellm.rust_bridge._native")
+    pytest.importorskip("embrouter.rust_bridge._native")
     with recording_service() as server:
         server.expected_requests = 0
         manager: Final = _vault(monkeypatch, server.base_url)
@@ -1513,7 +1513,7 @@ async def test_public_vault_mutations_preserve_missing_extension_selection(
 ) -> None:
     binding: Final[NativeBinding[NativeSecretManagerFactory]] = NativeBinding("unused", validate=lambda value: None)
     binding.override(None)
-    module: Final = import_module("litellm.secret_managers.hashicorp_secret_manager")
+    module: Final = import_module("embrouter.secret_managers.hashicorp_secret_manager")
     _select_provider_reads(monkeypatch, module.__name__, Rollout.PYTHON_ONLY)
     monkeypatch.setattr(
         module,
@@ -1550,7 +1550,7 @@ async def test_public_vault_rotation_preserves_malformed_verification_errors(
     monkeypatch: pytest.MonkeyPatch,
     body: JsonValue,
 ) -> None:
-    pytest.importorskip("litellm.rust_bridge._native")
+    pytest.importorskip("embrouter.rust_bridge._native")
     with recording_service() as server:
         responses: Final = (
             ResponseSpec(body=_vault_body("old")),

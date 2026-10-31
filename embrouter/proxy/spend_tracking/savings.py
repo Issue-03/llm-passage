@@ -16,22 +16,22 @@ from typing import TYPE_CHECKING, Final, Literal, NamedTuple
 
 from pydantic import BaseModel, ConfigDict, Field
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.constants import INTERNAL_CALL_ORIGIN_METADATA_KEY
-from litellm.litellm_core_utils.llm_cost_calc.utils import (
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.constants import INTERNAL_CALL_ORIGIN_METADATA_KEY
+from embrouter.embrouter_core_utils.llm_cost_calc.utils import (
     _get_cost_per_unit,
     calculate_prompt_caching_savings,
     generic_cost_per_token,
 )
-from litellm.types.integrations.anthropic_cache_control_hook import (
+from embrouter.types.integrations.anthropic_cache_control_hook import (
     GATEWAY_INJECTED_CACHE_METADATA_KEY,
     GATEWAY_INJECTED_FOR_EVERY_DEPLOYMENT,
 )
 
 if TYPE_CHECKING:
-    from litellm.router import Router
-from litellm.types.utils import ModelInfo, PromptTokensDetailsWrapper, Usage
+    from embrouter.router import Router
+from embrouter.types.utils import ModelInfo, PromptTokensDetailsWrapper, Usage
 
 
 class SavingsSpend(NamedTuple):
@@ -68,7 +68,7 @@ def _resolve_model(model: str | None, custom_llm_provider: str | None) -> _Model
     if not model:
         return None
     try:
-        resolved_model, provider, _, _ = litellm.get_llm_provider(model=model, custom_llm_provider=custom_llm_provider)
+        resolved_model, provider, _, _ = embrouter.get_llm_provider(model=model, custom_llm_provider=custom_llm_provider)
     except Exception as e:  # noqa: BLE001  # get_llm_provider raises for unroutable names; degrade to an unavailable estimate
         verbose_proxy_logger.debug(
             "savings: cannot resolve provider for model=%s custom_llm_provider=%s (%s)", model, custom_llm_provider, e
@@ -98,7 +98,7 @@ def _effective_model_info(router: "Router | None", deployment_id: str | None, mo
 def _model_info(model: _ModelIdentity) -> ModelInfo | None:
     """The public rates for ``model``, or ``None`` when it has none."""
     try:
-        return litellm.get_model_info(model=model.model, custom_llm_provider=model.provider)
+        return embrouter.get_model_info(model=model.model, custom_llm_provider=model.provider)
     except Exception as e:  # noqa: BLE001  # get_model_info raises bare Exception for unmapped models
         verbose_proxy_logger.debug("savings: no pricing for provider=%s model=%s (%s)", model.provider, model.model, e)
         return None
@@ -238,7 +238,7 @@ def _cost_of_usage(
     """What ``usage`` costs on ``model``, or ``None`` when the model has no pricing."""
     try:
         if model.provider == "anthropic":
-            from litellm.llms.anthropic.cost_calculation import cost_per_token
+            from embrouter.llms.anthropic.cost_calculation import cost_per_token
 
             prompt_cost, completion_cost = cost_per_token(
                 model=model.model,
@@ -398,7 +398,7 @@ def marks_gateway_injection(metadata: Mapping[str, object] | None, model_id: str
     ``AnthropicCacheControlHook.record_gateway_injection`` stamps the deployment it
     injected for, and a row carries the deployment it was billed for, so the two agree
     only on the leg that was actually injected. Every retry, failover and fallback of a
-    request shares one metadata bucket and one ``litellm_call_id``, so the deployment is
+    request shares one metadata bucket and one ``embrouter_call_id``, so the deployment is
     what tells those legs apart, and a marker left by a sibling reads here as no injection
     without anyone having to strip it. An injection that ran before any deployment was
     chosen is in the payload every leg sends, so it is marked for all of them and credits
@@ -464,7 +464,7 @@ def extract_cache_creation_tokens(usage_object: Mapping[str, object] | None) -> 
 def _proxy_llm_router() -> "Router | None":
     """The running proxy's router, or ``None`` outside a proxy (public rates only)."""
     try:
-        from litellm.proxy.proxy_server import llm_router
+        from embrouter.proxy.proxy_server import llm_router
     except Exception:  # noqa: BLE001  # SDK-only usage has no proxy module to import
         return None
     return llm_router
@@ -658,7 +658,7 @@ def compute_savings_spend(
     Caching is reported twice. ``prompt_caching`` is every net dollar caching saved,
     whoever caused it, which is what a customer means by "what did caching save me".
     ``gateway_injected_caching`` is the subset the gateway can claim credit for, carrying
-    a value only when ``gateway_injected_cache`` is set, i.e. litellm itself added the
+    a value only when ``gateway_injected_cache`` is set, i.e. embrouter itself added the
     ``cache_control`` breakpoints (configured injection points or the auto prompt-caching
     flag). A client that sent its own breakpoints, and a provider that
     caches implicitly (OpenAI, Gemini), produce the same usage shape with no gateway

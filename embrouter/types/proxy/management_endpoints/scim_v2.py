@@ -22,9 +22,9 @@ SCIM_MANAGED_TEAM_METADATA_KEY: Final = "scim_managed"
 SCIM_TEAM_DATA_METADATA_KEY: Final = "scim_data"
 
 
-class LiteLLM_UserScimMetadata(BaseModel):
+class EmbRouter_UserScimMetadata(BaseModel):
     """
-    Scim metadata stored in LiteLLM_UserTable.metadata
+    Scim metadata stored in EmbRouter_UserTable.metadata
     """
 
     givenName: str | None = None

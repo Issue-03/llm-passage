@@ -5,11 +5,11 @@ from typing import TYPE_CHECKING, Final
 
 from pydantic import BaseModel, ConfigDict, ValidationError
 
-import litellm
-from litellm.types.utils import ModelInfo
+import embrouter
+from embrouter.types.utils import ModelInfo
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObject
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObject
 
 OPENAI_MAX_PROMPT_CACHE_KEY_LENGTH: Final = 64
 
@@ -46,11 +46,11 @@ def prompt_cache_key_from_user_id(user_id: object) -> str | None:
         return None
 
 
-def litellm_logging_obj_from_kwargs(kwargs: Mapping[str, object]) -> "LiteLLMLoggingObject | None":
+def embrouter_logging_obj_from_kwargs(kwargs: Mapping[str, object]) -> "EmbRouterLoggingObject | None":
     """The logging object the bridged call logs through, when the caller supplied one."""
-    from litellm.litellm_core_utils.litellm_logging import Logging
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging
 
-    candidate: Final = kwargs.get("litellm_logging_obj")
+    candidate: Final = kwargs.get("embrouter_logging_obj")
     return candidate if isinstance(candidate, Logging) else None
 
 
@@ -61,7 +61,7 @@ def local_model_name(model: str, custom_llm_provider: object) -> str:
 
 def is_reasoning_auto_summary_enabled() -> bool:
     """Check whether the default 'summary: detailed' injection is enabled (opt-in)."""
-    return litellm.reasoning_auto_summary or os.getenv("LITELLM_REASONING_AUTO_SUMMARY", "false").lower() == "true"
+    return embrouter.reasoning_auto_summary or os.getenv("EMBROUTER_REASONING_AUTO_SUMMARY", "false").lower() == "true"
 
 
 def normalize_reasoning_effort_value(
@@ -85,8 +85,8 @@ def normalize_reasoning_effort_value(
     if chain is None:
         return effort
 
-    from litellm.router_utils.reasoning_effort_capability import resolve_supported_reasoning_efforts
-    from litellm.utils import get_model_info
+    from embrouter.router_utils.reasoning_effort_capability import resolve_supported_reasoning_efforts
+    from embrouter.utils import get_model_info
 
     try:
         model_info: Final[ModelInfo] = get_model_info(model=model, custom_llm_provider=custom_llm_provider)

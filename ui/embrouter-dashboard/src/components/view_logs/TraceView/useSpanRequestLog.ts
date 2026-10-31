@@ -16,7 +16,7 @@ export const spanLogWindow = (spanStartMs: number): { start_date: string; end_da
 });
 
 /**
- * The LiteLLM request log behind an LLM span, looked up around the span's own time rather than
+ * The EmbRouter request log behind an LLM span, looked up around the span's own time rather than
  * the Request Logs tab's window, so runs older than that window still resolve.
  */
 export function useSpanRequestLog(

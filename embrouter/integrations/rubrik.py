@@ -1,4 +1,4 @@
-"""Rubrik LiteLLM Plugin for prompt/response moderation and batch logging."""
+"""Rubrik EmbRouter Plugin for prompt/response moderation and batch logging."""
 
 import asyncio
 import os
@@ -15,24 +15,24 @@ from typing import TYPE_CHECKING, Final, Literal, Optional, Protocol, TypedDict,
 import httpx
 from typing_extensions import Never, ReadOnly, Required
 
-from litellm._logging import verbose_logger
-from litellm.integrations.custom_batch_logger import CustomBatchLogger
-from litellm.integrations.custom_guardrail import (
+from embrouter._logging import verbose_logger
+from embrouter.integrations.custom_batch_logger import CustomBatchLogger
+from embrouter.integrations.custom_guardrail import (
     CustomGuardrail,
     ModifyResponseException,
 )
-from litellm.litellm_core_utils.core_helpers import safe_deep_copy
-from litellm.litellm_core_utils.model_param_helper import ModelParamHelper
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+from embrouter.embrouter_core_utils.core_helpers import safe_deep_copy
+from embrouter.embrouter_core_utils.model_param_helper import ModelParamHelper
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
     convert_content_list_to_str,
 )
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.llms.openai import AllMessageValues, ChatCompletionToolCallChunk
-from litellm.types.utils import (
+from embrouter.types.guardrails import GuardrailEventHooks
+from embrouter.types.llms.openai import AllMessageValues, ChatCompletionToolCallChunk
+from embrouter.types.utils import (
     ChatCompletionMessageToolCall,
     Function,
     GenericGuardrailAPIInputs,
@@ -41,14 +41,14 @@ from litellm.types.utils import (
 )
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import (
-        Logging as LiteLLMLoggingObj,
+    from embrouter.embrouter_core_utils.embrouter_logging import (
+        Logging as EmbRouterLoggingObj,
     )
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
 _WEBHOOK_PATH_RESPONSE_MODERATION: Final = "/v1/after_completion/openai/v1"
 _WEBHOOK_PATH_PROMPT_MODERATION: Final = "/v1/before_prompt/openai/v1"
-_WEBHOOK_PATH_LOGGING_BATCH: Final = "/v1/litellm/batch"
+_WEBHOOK_PATH_LOGGING_BATCH: Final = "/v1/embrouter/batch"
 _MAX_QUEUE_SIZE: Final = 10_000
 _DROP_WARNING_INTERVAL_SECONDS: Final = 60.0
 _EMPTY_MAPPING: Final[Mapping[str, Never]] = MappingProxyType({})
@@ -73,11 +73,11 @@ class _ModerationResponse(TypedDict, total=False):
 
 class _LogEventKwargs(TypedDict, total=False):
     standard_logging_object: ReadOnly[Required[StandardLoggingPayload]]
-    litellm_call_id: ReadOnly[str]
+    embrouter_call_id: ReadOnly[str]
 
 
 class _HasCallId(Protocol):
-    def get(self, key: Literal["litellm_call_id"], /) -> str | None: ...
+    def get(self, key: Literal["embrouter_call_id"], /) -> str | None: ...
 
 
 class _HasModelAttr(Protocol):
@@ -181,7 +181,7 @@ class RubrikLogger(CustomGuardrail, CustomBatchLogger):
         kwargs.setdefault("guardrail_name", "rubrik")
         # `initialize_guardrail` always passes these kwargs explicitly, with
         # value `None` when the user omits `mode` / `default_on` from the
-        # guardrail config. Follow the standard litellm convention: omitted
+        # guardrail config. Follow the standard embrouter convention: omitted
         # resolves to False (off by default, user must opt in explicitly).
         kwargs["event_hook"] = kwargs.get("event_hook") or GuardrailEventHooks.post_call
         if kwargs.get("default_on") is None:
@@ -195,11 +195,11 @@ class RubrikLogger(CustomGuardrail, CustomBatchLogger):
         verbose_logger.debug("initializing rubrik logger")
 
         # Defining ``apply_guardrail`` routes streaming responses through
-        # litellm's ``unified_guardrail.async_post_call_streaming_iterator_hook``.
+        # embrouter's ``unified_guardrail.async_post_call_streaming_iterator_hook``.
         # By default that hook samples intermediate chunks
         # (``streaming_sampling_rate``, default 5) and also moderates at
         # end-of-stream, so a streamed response costs ~ceil(N/5)+1 Rubrik
-        # webhook round-trips. litellm reads this attribute via
+        # webhook round-trips. embrouter reads this attribute via
         # ``getattr(guardrail, "streaming_end_of_stream_only", False)``; when
         # True it yields chunks unprocessed and only moderates the fully
         # assembled response once at end of stream.
@@ -211,7 +211,7 @@ class RubrikLogger(CustomGuardrail, CustomBatchLogger):
         # ``streaming_buffer_until_moderated``
         # withholds all chunks until end-of-stream moderation passes, then
         # releases the original response (clean) or only the block message
-        # (blocked). On older litellm this attribute is ignored and we fall
+        # (blocked). On older embrouter this attribute is ignored and we fall
         # back to the detect-only behavior above.
         self.streaming_buffer_until_moderated = True
 
@@ -308,10 +308,10 @@ class RubrikLogger(CustomGuardrail, CustomBatchLogger):
         """Cancel the periodic flush task.
 
         ``moderation_client`` and ``async_httpx_client`` are shared objects
-        from LiteLLM's global HTTP-client cache (``get_async_httpx_client``
+        from EmbRouter's global HTTP-client cache (``get_async_httpx_client``
         uses the same cache key for all instances with equal parameters).
         Closing them here would close the shared connection pool for every
-        other logger instance; let LiteLLM manage their lifecycle instead.
+        other logger instance; let EmbRouter manage their lifecycle instead.
         """
         task: Final[asyncio.Task[None] | None] = getattr(self, "_periodic_flush_task", None)
         if task is not None:
@@ -324,7 +324,7 @@ class RubrikLogger(CustomGuardrail, CustomBatchLogger):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict,
         input_type: Literal["request", "response"],
-        logging_obj: Optional["LiteLLMLoggingObj"] = None,
+        logging_obj: Optional["EmbRouterLoggingObj"] = None,
     ) -> GenericGuardrailAPIInputs:
         """Moderate prompts (request) and responses (response); fail-open.
 
@@ -333,7 +333,7 @@ class RubrikLogger(CustomGuardrail, CustomBatchLogger):
         - ``response``: evaluate the assistant's response text and tool calls
           via the after_completion webhook and block on a policy violation.
 
-        litellm's guardrail-translation layer normalizes Anthropic and OpenAI
+        embrouter's guardrail-translation layer normalizes Anthropic and OpenAI
         requests/responses into ``inputs`` before this runs, so a single code
         path covers both wire formats. The configured guardrail ``mode``
         selects which surface(s) run.
@@ -391,7 +391,7 @@ class RubrikLogger(CustomGuardrail, CustomBatchLogger):
         self,
         inputs: GenericGuardrailAPIInputs,
         request_data: dict,
-        logging_obj: Optional["LiteLLMLoggingObj"],
+        logging_obj: Optional["EmbRouterLoggingObj"],
     ) -> GenericGuardrailAPIInputs:
         """Send response text + tool calls to the after_completion webhook and
         raise if either the response text or any tool call is blocked."""
@@ -412,7 +412,7 @@ class RubrikLogger(CustomGuardrail, CustomBatchLogger):
         # The moderation payload's ``id`` becomes the tool-blocking log's
         # correlation key (the S3 filename), so it must match the failure
         # (response) log written for the same blocked request. Both use
-        # ``litellm_call_id`` -- see ``_correlation_id``.
+        # ``embrouter_call_id`` -- see ``_correlation_id``.
         request_id: Final = self._correlation_id(call_details, request_data)
 
         response_data: Final = self._build_response_moderation_payload(message_tool_calls, sent_content, request_id)
@@ -437,13 +437,13 @@ class RubrikLogger(CustomGuardrail, CustomBatchLogger):
         self,
         inputs: GenericGuardrailAPIInputs,
         request_data: dict,
-        logging_obj: Optional["LiteLLMLoggingObj"],
+        logging_obj: Optional["EmbRouterLoggingObj"],
     ) -> GenericGuardrailAPIInputs:
         """Send the (normalized) prompt to the before_prompt webhook and raise
         if the prompt is blocked."""
         messages = inputs.get("structured_messages")
         if not messages:
-            # For non-chat request types (e.g. /v1/completions), litellm
+            # For non-chat request types (e.g. /v1/completions), embrouter
             # supplies the prompt as ``texts`` with no structured_messages.
             # Synthesise a user-message so the webhook can evaluate the prompt.
             texts: Final = inputs.get("texts")
@@ -471,7 +471,7 @@ class RubrikLogger(CustomGuardrail, CustomBatchLogger):
 
     @staticmethod
     def _stash_block_context(
-        logging_obj: Optional["LiteLLMLoggingObj"],
+        logging_obj: Optional["EmbRouterLoggingObj"],
         request_data: dict[str, object],
     ) -> None:
         """Stash signals so the deferred success-event skips this request and
@@ -481,7 +481,7 @@ class RubrikLogger(CustomGuardrail, CustomBatchLogger):
           success-event handler short-circuits.
         - Stashes a reference to ``logging_obj`` on ``request_data`` under a
           custom key. ``ProxyLogging.post_call_failure_hook`` pops only
-          ``litellm_logging_obj`` before iterating callbacks, so this key
+          ``embrouter_logging_obj`` before iterating callbacks, so this key
           survives.
 
         When ``logging_obj`` is ``None`` the success-event has no way to
@@ -491,9 +491,9 @@ class RubrikLogger(CustomGuardrail, CustomBatchLogger):
         if logging_obj is None:
             verbose_logger.error(
                 "Rubrik: moderation block fired with logging_obj=None for "
-                "litellm_call_id=%s; "
+                "embrouter_call_id=%s; "
                 "cannot suppress success event or attach failure payload.",
-                request_data.get("litellm_call_id"),
+                request_data.get("embrouter_call_id"),
             )
             request_data["_rubrik_logging_obj"] = None
             return
@@ -580,7 +580,7 @@ class RubrikLogger(CustomGuardrail, CustomBatchLogger):
     ) -> tuple[_FlattenedModerationMessage, ...]:
         """Collapse each message's content to a plain string for the webhook.
 
-        litellm normalizes Anthropic ``/v1/messages`` requests to OpenAI shape,
+        embrouter normalizes Anthropic ``/v1/messages`` requests to OpenAI shape,
         but a turn sent as content-parts (``[{"type": "text", ...}]``) stays a
         list. The before_prompt webhook reads ``content`` as a string and drops
         non-string content, so we flatten text parts here (images skipped, per
@@ -621,20 +621,20 @@ class RubrikLogger(CustomGuardrail, CustomBatchLogger):
         """Build the bare OpenAI request the before_prompt webhook consumes.
 
         Unlike the after_completion envelope, this endpoint takes a raw OpenAI
-        chat-completions request. ``structured_messages`` is litellm's
+        chat-completions request. ``structured_messages`` is embrouter's
         OpenAI-normalized view of the prompt, so this works for Anthropic
         ``/v1/messages`` requests too. Optional fields are sent only when
         present so the payload stays clean.
         """
         tools: Final = inputs.get("tools")
         user: Final = request_data.get("user")
-        # Fall back to litellm_call_id, the stable cross-provider join key the
-        # response/tool path uses (see _correlation_id). LiteLLM does not
-        # populate request_data["correlation_key"]; it carries litellm_call_id.
+        # Fall back to embrouter_call_id, the stable cross-provider join key the
+        # response/tool path uses (see _correlation_id). EmbRouter does not
+        # populate request_data["correlation_key"]; it carries embrouter_call_id.
         # The before_prompt webhook skips the *_prompt_moderation.json S3 write
         # when correlation_key is empty, so without this the block fires but no
         # log is ever written. An explicit correlation_key still wins.
-        correlation_key: Final = request_data.get("correlation_key") or request_data.get("litellm_call_id")
+        correlation_key: Final = request_data.get("correlation_key") or request_data.get("embrouter_call_id")
         return {
             "model": inputs.get("model") or request_data.get("model") or "",
             "messages": RubrikLogger._flatten_messages_for_moderation(inputs.get("structured_messages")),
@@ -672,7 +672,7 @@ class RubrikLogger(CustomGuardrail, CustomBatchLogger):
             tools = optional_params.get("tools")
 
         # The response moderation service consumes only messages/model/tools.
-        # Don't forward proxy_server_request -- in litellm >=1.83 its ``body``
+        # Don't forward proxy_server_request -- in embrouter >=1.83 its ``body``
         # snapshot carries a UserAPIKeyAuth instance that breaks json.dumps,
         # silently fail-opening the guardrail.
         return {
@@ -708,26 +708,26 @@ class RubrikLogger(CustomGuardrail, CustomBatchLogger):
         """The id that joins a blocked request's two S3 logs by filename: the
         moderation (``_blocking``) log and the failure (response) log.
 
-        Always ``litellm_call_id``. It is assigned at request start and is
+        Always ``embrouter_call_id``. It is assigned at request start and is
         present identically in both the guardrail path (``model_call_details``
         / ``request_data``) and the failure-hook path. Unlike ``response.id``
         or ``standard_logging_object["id"]`` it is immune to the race where a
         block fires before the response/logging object is populated, so the
         two logs correlate for every provider (OpenAI and Anthropic alike).
         """
-        return call_details.get("litellm_call_id") or (request_data or _EMPTY_MAPPING).get("litellm_call_id")
+        return call_details.get("embrouter_call_id") or (request_data or _EMPTY_MAPPING).get("embrouter_call_id")
 
     @classmethod
     def _apply_correlation_id(cls, payload: _CorrelatablePayload, source: _HasCallId | _LogEventKwargs) -> None:
-        """Pin ``payload["id"]`` to ``litellm_call_id`` in place so this log
+        """Pin ``payload["id"]`` to ``embrouter_call_id`` in place so this log
         shares its S3 filename id with the moderation (``_blocking``) and
         failure logs for the same request -- for every provider.
 
         ``standard_logging_object["id"]`` is the provider response id
-        (``response_obj.get("id", litellm_call_id)``), a ``chatcmpl-*`` value
-        for OpenAI, which would not correlate. ``litellm_call_id`` is assigned
+        (``response_obj.get("id", embrouter_call_id)``), a ``chatcmpl-*`` value
+        for OpenAI, which would not correlate. ``embrouter_call_id`` is assigned
         at request start and is identical across all log paths. Falls back to
-        the existing id when ``litellm_call_id`` is somehow absent rather than
+        the existing id when ``embrouter_call_id`` is somehow absent rather than
         writing a null filename key.
 
         ``source`` may be ``model_call_details`` directly or a ``kwargs`` dict
@@ -824,8 +824,8 @@ class RubrikLogger(CustomGuardrail, CustomBatchLogger):
         # skip here to avoid double-logging the pre-block response.
         if kwargs.get("_rubrik_blocked"):
             verbose_logger.debug(
-                "Rubrik: skipping success event for blocked request litellm_call_id=%s",
-                kwargs.get("litellm_call_id"),
+                "Rubrik: skipping success event for blocked request embrouter_call_id=%s",
+                kwargs.get("embrouter_call_id"),
             )
             return
         await self._enqueue_log_event(kwargs, "success")
@@ -849,7 +849,7 @@ class RubrikLogger(CustomGuardrail, CustomBatchLogger):
         (prompt blocks, response/tool blocks, streaming blocks).
 
         Carries the stashed ``_rubrik_logging_obj``. For every other
-        exception we no-op; LiteLLM's standard failure plumbing handles those.
+        exception we no-op; EmbRouter's standard failure plumbing handles those.
         """
         if not isinstance(original_exception, ModifyResponseException):
             return
@@ -870,11 +870,11 @@ class RubrikLogger(CustomGuardrail, CustomBatchLogger):
             # way we cannot build the payload.
             verbose_logger.warning(
                 "Rubrik: block exception without stashed logging_obj. "
-                "litellm_call_id=%s, "
+                "embrouter_call_id=%s, "
                 "model=%s, "
                 "user_id=%s, "
                 "raising_guardrail=%s",
-                request_data.get("litellm_call_id"),
+                request_data.get("embrouter_call_id"),
                 request_data.get("model"),
                 user_api_key_dict.user_id,
                 getattr(original_exception, "guardrail_name", None),
@@ -886,7 +886,7 @@ class RubrikLogger(CustomGuardrail, CustomBatchLogger):
 
     async def _build_and_enqueue_block_event(
         self,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
         exception: "ModifyResponseException",
         call_id: str | None,
         user_api_key_dict: "UserAPIKeyAuth",
@@ -900,11 +900,11 @@ class RubrikLogger(CustomGuardrail, CustomBatchLogger):
             # log the pre-block response -- the exact bug this hook exists to
             # prevent. The flag dies with model_call_details when the request
             # completes; there's nothing to clean up.
-            call_id = call_details.get("litellm_call_id")
+            call_id = call_details.get("embrouter_call_id")
             payload: Final = self._prepare_block_failure_payload(logging_obj, exception, user_api_key_dict)
         except (AttributeError, ImportError, KeyError, TypeError) as e:
             verbose_logger.error(
-                "Rubrik: failed to build blocked-tool payload for litellm_call_id=%s: %s. Event will NOT be logged.",
+                "Rubrik: failed to build blocked-tool payload for embrouter_call_id=%s: %s. Event will NOT be logged.",
                 call_id,
                 e,
                 exc_info=True,
@@ -915,7 +915,7 @@ class RubrikLogger(CustomGuardrail, CustomBatchLogger):
             await self._append_and_maybe_flush(payload)
         except Exception as e:
             verbose_logger.error(
-                "Rubrik: failed to enqueue blocked-tool event for litellm_call_id=%s: %s.",
+                "Rubrik: failed to enqueue blocked-tool event for embrouter_call_id=%s: %s.",
                 call_id,
                 e,
                 exc_info=True,
@@ -923,7 +923,7 @@ class RubrikLogger(CustomGuardrail, CustomBatchLogger):
 
     def _prepare_block_failure_payload(
         self,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
         exception: "ModifyResponseException",
         user_api_key_dict: "UserAPIKeyAuth",
     ) -> _BlockFailurePayload:
@@ -958,8 +958,8 @@ class RubrikLogger(CustomGuardrail, CustomBatchLogger):
         - ``model_id``: not available before the LLM returns hidden_params;
           defaults to empty string.
         - caller identity: ``_caller_metadata`` off the ``user_api_key_dict``
-          the failure hook is handed. The enriched litellm metadata lives under
-          ``call_details["litellm_params"]["metadata"]``, never at the top
+          the failure hook is handed. The enriched embrouter metadata lives under
+          ``call_details["embrouter_params"]["metadata"]``, never at the top
           level, so the previous top-level read resolved to an empty string for
           every block.
         - time fields: ``call_details["start_time"]`` reused for all three;
@@ -974,18 +974,18 @@ class RubrikLogger(CustomGuardrail, CustomBatchLogger):
         else:
             verbose_logger.debug(
                 "Rubrik: standard_logging_object not yet on model_call_details "
-                "for litellm_call_id=%s; "
+                "for embrouter_call_id=%s; "
                 "using best-effort fallback payload.",
-                call_details.get("litellm_call_id"),
+                call_details.get("embrouter_call_id"),
             )
             payload = self._build_fallback_payload(call_details, user_api_key_dict)
 
         payload["response"] = exception_text
 
-        # Pin the correlation key to litellm_call_id so this failure log shares
+        # Pin the correlation key to embrouter_call_id so this failure log shares
         # its S3 filename id with the moderation (``_blocking``) log for the
         # same request. The copied ``standard_logging_object["id"]`` is
-        # ``response_obj.get("id", litellm_call_id)`` -- a provider ``chatcmpl-*``
+        # ``response_obj.get("id", embrouter_call_id)`` -- a provider ``chatcmpl-*``
         # value for OpenAI -- which would not correlate; overwrite it.
         payload["id"] = self._correlation_id(call_details) or f"chatcmpl-{uuid.uuid4()}"
         self._prepend_system_prompt(payload, call_details)
@@ -1003,7 +1003,7 @@ class RubrikLogger(CustomGuardrail, CustomBatchLogger):
         Uses the same mapper the success path and the proxy spend logger use, so
         a block log and a success log agree on the caller key set.
 
-        The import is deferred because ``litellm/integrations/`` is SDK-side
+        The import is deferred because ``embrouter/integrations/`` is SDK-side
         while the mapper lives under ``proxy/``: ``rubrik.py`` is imported during
         guardrail discovery and must not pull proxy-only dependencies into its
         import chain. It is unguarded because the only dispatcher of this hook,
@@ -1011,9 +1011,9 @@ class RubrikLogger(CustomGuardrail, CustomBatchLogger):
         module scope, so there is no path where this hook runs and the mapper is
         missing.
         """
-        from litellm.proxy.litellm_pre_call_utils import LiteLLMProxyRequestSetup
+        from embrouter.proxy.embrouter_pre_call_utils import EmbRouterProxyRequestSetup
 
-        return LiteLLMProxyRequestSetup.get_sanitized_user_information_from_key(user_api_key_dict)
+        return EmbRouterProxyRequestSetup.get_sanitized_user_information_from_key(user_api_key_dict)
 
     @classmethod
     def _build_fallback_payload(
@@ -1026,7 +1026,7 @@ class RubrikLogger(CustomGuardrail, CustomBatchLogger):
         _raw_start: Final = call_details.get("start_time")
         _start: Final = _raw_start.timestamp() if _raw_start is not None else None
         return {
-            "id": call_details.get("litellm_call_id"),
+            "id": call_details.get("embrouter_call_id"),
             "model": call_details.get("model") or "",
             # model_group is set by the router inside acompletion(), which
             # hasn't run for a prompt block; use the model name instead.

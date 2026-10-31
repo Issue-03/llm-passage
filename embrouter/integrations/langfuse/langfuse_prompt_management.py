@@ -1,23 +1,23 @@
 """
-Call Hook for LiteLLM Proxy which allows Langfuse prompt management.
+Call Hook for EmbRouter Proxy which allows Langfuse prompt management.
 """
 
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Final, Literal, TypeAlias, cast
 
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.integrations.prompt_management_base import PromptManagementClient
-from litellm.litellm_core_utils.asyncify import run_async_function
-from litellm.llms.custom_httpx.http_handler import HTTPHandler
-from litellm.types.integrations.langfuse import LangfuseLoggedEvent
-from litellm.types.llms.openai import AllMessageValues, ChatCompletionSystemMessage
-from litellm.types.prompts.init_prompts import PromptSpec
-from litellm.types.utils import StandardCallbackDynamicParams, StandardLoggingPayload
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.integrations.prompt_management_base import PromptManagementClient
+from embrouter.embrouter_core_utils.asyncify import run_async_function
+from embrouter.llms.custom_httpx.http_handler import HTTPHandler
+from embrouter.types.integrations.langfuse import LangfuseLoggedEvent
+from embrouter.types.llms.openai import AllMessageValues, ChatCompletionSystemMessage
+from embrouter.types.prompts.init_prompts import PromptSpec
+from embrouter.types.utils import StandardCallbackDynamicParams, StandardLoggingPayload
 
-from ...litellm_core_utils.specialty_caches.dynamic_logging_cache import (
+from ...embrouter_core_utils.specialty_caches.dynamic_logging_cache import (
     DynamicLoggingCache,
 )
-from ...litellm_core_utils.specialty_caches.service_trace_id_cache import in_memory_trace_id_cache
+from ...embrouter_core_utils.specialty_caches.service_trace_id_cache import in_memory_trace_id_cache
 from ..prompt_management_base import PromptManagementBase
 from .langfuse import (
     LangFuseLogger,
@@ -33,7 +33,7 @@ from .langfuse_mock_client import create_mock_langfuse_client, should_use_langfu
 if TYPE_CHECKING:
     from langfuse.model import ChatPromptClient, TextPromptClient
 
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
 
     from .langfuse_sdk import LangfuseApiClient
 
@@ -43,7 +43,7 @@ if TYPE_CHECKING:
 else:
     PROMPT_CLIENT = Any
     LangfuseClass = Any
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 in_memory_dynamic_logger_cache: Final = DynamicLoggingCache()
 
 
@@ -103,11 +103,11 @@ def langfuse_client_init(
     )
 
 
-def _remember_trace_id(litellm_call_id: object, logged: LangfuseLoggedEvent) -> None:
+def _remember_trace_id(embrouter_call_id: object, logged: LangfuseLoggedEvent) -> None:
     trace_id: Final = logged["trace_id"]
-    if not isinstance(litellm_call_id, str) or trace_id is None:
+    if not isinstance(embrouter_call_id, str) or trace_id is None:
         return
-    in_memory_trace_id_cache.set_cache(litellm_call_id=litellm_call_id, service_name="langfuse", trace_id=trace_id)
+    in_memory_trace_id_cache.set_cache(embrouter_call_id=embrouter_call_id, service_name="langfuse", trace_id=trace_id)
 
 
 class LangfusePromptManagement(LangFuseLogger, PromptManagementBase, CustomLogger):
@@ -197,7 +197,7 @@ class LangfusePromptManagement(LangFuseLogger, PromptManagementBase, CustomLogge
         prompt_id: str | None,
         prompt_variables: dict | None,
         dynamic_callback_params: StandardCallbackDynamicParams,
-        litellm_logging_obj: LiteLLMLoggingObj,
+        embrouter_logging_obj: EmbRouterLoggingObj,
         prompt_spec: PromptSpec | None = None,
         tools: list[dict] | None = None,
         prompt_label: str | None = None,
@@ -325,9 +325,9 @@ class LangfusePromptManagement(LangFuseLogger, PromptManagementBase, CustomLogge
                 end_time=end_time,
                 user_id=kwargs.get("user", None),
             )
-            _remember_trace_id(litellm_call_id=kwargs.get("litellm_call_id"), logged=logged)
+            _remember_trace_id(embrouter_call_id=kwargs.get("embrouter_call_id"), logged=logged)
         except Exception as e:
-            from litellm._logging import verbose_logger
+            from embrouter._logging import verbose_logger
 
             verbose_logger.exception("Langfuse Layer Error - Exception occurred while logging success event: %s", e)
             self.handle_callback_failure(callback_name="langfuse")
@@ -356,9 +356,9 @@ class LangfusePromptManagement(LangFuseLogger, PromptManagementBase, CustomLogge
                 level="ERROR",
                 kwargs=kwargs,
             )
-            _remember_trace_id(litellm_call_id=kwargs.get("litellm_call_id"), logged=logged)
+            _remember_trace_id(embrouter_call_id=kwargs.get("embrouter_call_id"), logged=logged)
         except Exception as e:
-            from litellm._logging import verbose_logger
+            from embrouter._logging import verbose_logger
 
             verbose_logger.exception("Langfuse Layer Error - Exception occurred while logging failure event: %s", e)
             self.handle_callback_failure(callback_name="langfuse")

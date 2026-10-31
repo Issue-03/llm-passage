@@ -7,7 +7,7 @@ Specifically guards the four bugs found when wiring the example config
    semantic auto-router init path (which would crash on missing fields).
 2. The same prefix MUST trigger the adaptive-router init path.
 3. `init_adaptive_router_deployment` must read `input_cost_per_token`
-   from `litellm_params` (where users put it), not just `model_info`.
+   from `embrouter_params` (where users put it), not just `model_info`.
 4. `Router.async_pre_routing_hook` must dispatch to the matching entry in
    `self.adaptive_routers` when the inbound model matches a configured
    adaptive-router name, returning the underlying model the bandit picked.
@@ -17,8 +17,8 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from litellm import Router
-from litellm.types.router import LiteLLM_Params, RequestType
+from embrouter import Router
+from embrouter.types.router import EmbRouter_Params, RequestType
 
 
 def _adaptive(r, name):
@@ -29,7 +29,7 @@ def _adaptive(r, name):
 def _params(**overrides):
     base = {"model": "auto_router/adaptive_router"}
     base.update(overrides)
-    return LiteLLM_Params(**base)
+    return EmbRouter_Params(**base)
 
 
 # ---- Fix 1 & 2: opt-in prefix routing -----------------------------------
@@ -39,7 +39,7 @@ def test_auto_router_check_excludes_adaptive_router_prefix():
     r = Router(model_list=[])
     assert (
         r._is_auto_router_deployment(
-            litellm_params=_params(model="auto_router/adaptive_router")
+            embrouter_params=_params(model="auto_router/adaptive_router")
         )
         is False
     )
@@ -49,7 +49,7 @@ def test_auto_router_check_excludes_complexity_router_prefix():
     r = Router(model_list=[])
     assert (
         r._is_auto_router_deployment(
-            litellm_params=_params(model="auto_router/complexity_router")
+            embrouter_params=_params(model="auto_router/complexity_router")
         )
         is False
     )
@@ -59,7 +59,7 @@ def test_auto_router_check_still_matches_plain_auto_router_prefix():
     r = Router(model_list=[])
     assert (
         r._is_auto_router_deployment(
-            litellm_params=_params(model="auto_router/my-semantic-router")
+            embrouter_params=_params(model="auto_router/my-semantic-router")
         )
         is True
     )
@@ -69,7 +69,7 @@ def test_adaptive_router_check_recognizes_prefix():
     r = Router(model_list=[])
     assert (
         r._is_adaptive_router_deployment(
-            litellm_params=_params(model="auto_router/adaptive_router")
+            embrouter_params=_params(model="auto_router/adaptive_router")
         )
         is True
     )
@@ -78,7 +78,7 @@ def test_adaptive_router_check_recognizes_prefix():
 def test_adaptive_router_check_rejects_other_prefixes():
     r = Router(model_list=[])
     assert (
-        r._is_adaptive_router_deployment(litellm_params=_params(model="openai/gpt-4o"))
+        r._is_adaptive_router_deployment(embrouter_params=_params(model="openai/gpt-4o"))
         is False
     )
 
@@ -86,12 +86,12 @@ def test_adaptive_router_check_rejects_other_prefixes():
 # ---- Fix 3: cost field path --------------------------------------------
 
 
-def test_init_adaptive_router_reads_cost_from_litellm_params():
+def test_init_adaptive_router_reads_cost_from_embrouter_params():
     r = Router(
         model_list=[
             {
                 "model_name": "smart-cheap-router",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "auto_router/adaptive_router",
                     "adaptive_router_config": {
                         "available_models": ["fast", "smart"],
@@ -100,7 +100,7 @@ def test_init_adaptive_router_reads_cost_from_litellm_params():
             },
             {
                 "model_name": "fast",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-4o-mini",
                     "input_cost_per_token": 0.00000015,
                 },
@@ -113,7 +113,7 @@ def test_init_adaptive_router_reads_cost_from_litellm_params():
             },
             {
                 "model_name": "smart",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-4o",
                     "input_cost_per_token": 0.0000050,
                 },
@@ -135,13 +135,13 @@ def test_init_adaptive_router_reads_cost_from_litellm_params():
 
 def test_init_adaptive_router_falls_back_to_model_info_cost():
     """Custom pricing declared under model_info (the conventional location everywhere else in
-    LiteLLM: cost_calculator.py, add_deployment's litellm.model_cost registration) must still
+    EmbRouter: cost_calculator.py, add_deployment's embrouter.model_cost registration) must still
     feed cost-weighted routing, not silently zero it out."""
     r = Router(
         model_list=[
             {
                 "model_name": "smart-cheap-router",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "auto_router/adaptive_router",
                     "adaptive_router_config": {
                         "available_models": ["fast", "smart"],
@@ -150,12 +150,12 @@ def test_init_adaptive_router_falls_back_to_model_info_cost():
             },
             {
                 "model_name": "fast",
-                "litellm_params": {"model": "openai/gpt-4o-mini"},
+                "embrouter_params": {"model": "openai/gpt-4o-mini"},
                 "model_info": {"input_cost_per_token": 0.00000015},
             },
             {
                 "model_name": "smart",
-                "litellm_params": {"model": "openai/gpt-4o"},
+                "embrouter_params": {"model": "openai/gpt-4o"},
                 "model_info": {"input_cost_per_token": 0.0000050},
             },
         ]
@@ -177,7 +177,7 @@ async def test_pick_model_favors_the_cheaper_model_info_priced_deployment():
         model_list=[
             {
                 "model_name": "smart-cheap-router",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "auto_router/adaptive_router",
                     "adaptive_router_config": {
                         "available_models": ["smart", "fast"],
@@ -187,12 +187,12 @@ async def test_pick_model_favors_the_cheaper_model_info_priced_deployment():
             },
             {
                 "model_name": "smart",
-                "litellm_params": {"model": "openai/gpt-4o"},
+                "embrouter_params": {"model": "openai/gpt-4o"},
                 "model_info": {"input_cost_per_token": 0.0000050},
             },
             {
                 "model_name": "fast",
-                "litellm_params": {"model": "openai/gpt-4o-mini"},
+                "embrouter_params": {"model": "openai/gpt-4o-mini"},
                 "model_info": {"input_cost_per_token": 0.00000015},
             },
         ]
@@ -204,12 +204,12 @@ async def test_pick_model_favors_the_cheaper_model_info_priced_deployment():
     assert picks == ["fast"] * 10
 
 
-def test_init_adaptive_router_prefers_litellm_params_cost_over_model_info():
+def test_init_adaptive_router_prefers_embrouter_params_cost_over_model_info():
     r = Router(
         model_list=[
             {
                 "model_name": "smart-cheap-router",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "auto_router/adaptive_router",
                     "adaptive_router_config": {
                         "available_models": ["fast"],
@@ -218,7 +218,7 @@ def test_init_adaptive_router_prefers_litellm_params_cost_over_model_info():
             },
             {
                 "model_name": "fast",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-4o-mini",
                     "input_cost_per_token": 0.00000015,
                 },
@@ -237,7 +237,7 @@ def _router_with_adaptive() -> Router:
         model_list=[
             {
                 "model_name": "smart-cheap-router",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "auto_router/adaptive_router",
                     "adaptive_router_config": {
                         "available_models": ["fast", "smart"],
@@ -246,7 +246,7 @@ def _router_with_adaptive() -> Router:
             },
             {
                 "model_name": "fast",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-4o-mini",
                     "input_cost_per_token": 0.00000015,
                 },
@@ -259,7 +259,7 @@ def _router_with_adaptive() -> Router:
             },
             {
                 "model_name": "smart",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-4o",
                     "input_cost_per_token": 0.0000050,
                 },
@@ -282,7 +282,7 @@ async def test_async_pre_routing_hook_dispatches_to_adaptive_router():
 
     response = await r.async_pre_routing_hook(
         model="smart-cheap-router",
-        request_kwargs={"metadata": {"litellm_session_id": "sess-A"}},
+        request_kwargs={"metadata": {"embrouter_session_id": "sess-A"}},
         messages=[{"role": "user", "content": "Write a Python function"}],
     )
     assert response is not None
@@ -331,14 +331,14 @@ async def test_async_pre_routing_hook_stashes_chosen_model_in_metadata():
     """
     The adaptive-router branch must record the chosen logical model on
     `request_kwargs["metadata"]` so `_acompletion` can surface it as the
-    `x-litellm-adaptive-router-model` response header.
+    `x-embrouter-adaptive-router-model` response header.
     """
     r = _router_with_adaptive()
     _adaptive(r, "smart-cheap-router").pick_model = AsyncMock(  # type: ignore[assignment]
         return_value="smart"
     )
 
-    request_kwargs: dict = {"metadata": {"litellm_session_id": "sess-A"}}
+    request_kwargs: dict = {"metadata": {"embrouter_session_id": "sess-A"}}
     await r.async_pre_routing_hook(
         model="smart-cheap-router",
         request_kwargs=request_kwargs,
@@ -372,28 +372,28 @@ def test_two_adaptive_routers_can_coexist_on_one_router():
         model_list=[
             {
                 "model_name": "cheap-router",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "auto_router/adaptive_router",
                     "adaptive_router_config": {"available_models": ["fast"]},
                 },
             },
             {
                 "model_name": "premium-router",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "auto_router/adaptive_router",
                     "adaptive_router_config": {"available_models": ["smart"]},
                 },
             },
             {
                 "model_name": "fast",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-4o-mini",
                     "input_cost_per_token": 0.00000015,
                 },
             },
             {
                 "model_name": "smart",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-4o",
                     "input_cost_per_token": 0.0000050,
                 },
@@ -412,28 +412,28 @@ async def test_async_pre_routing_hook_dispatches_to_correct_router_when_multiple
         model_list=[
             {
                 "model_name": "cheap-router",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "auto_router/adaptive_router",
                     "adaptive_router_config": {"available_models": ["fast"]},
                 },
             },
             {
                 "model_name": "premium-router",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "auto_router/adaptive_router",
                     "adaptive_router_config": {"available_models": ["smart"]},
                 },
             },
             {
                 "model_name": "fast",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-4o-mini",
                     "input_cost_per_token": 0.00000015,
                 },
             },
             {
                 "model_name": "smart",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-4o",
                     "input_cost_per_token": 0.0000050,
                 },
@@ -464,13 +464,13 @@ async def test_async_pre_routing_hook_dispatches_to_correct_router_when_multiple
 
 def test_init_adaptive_router_rejects_duplicate_model_name():
     """Two adaptive-router deployments with the same model_name must error."""
-    from litellm.types.router import AdaptiveRouterConfig, Deployment
+    from embrouter.types.router import AdaptiveRouterConfig, Deployment
 
     r = Router(model_list=[])
     cfg = {"available_models": ["fast"]}
     deployment = Deployment(
         model_name="dup-router",
-        litellm_params=LiteLLM_Params(
+        embrouter_params=EmbRouter_Params(
             model="auto_router/adaptive_router",
             adaptive_router_config=cfg,
         ),
@@ -489,17 +489,17 @@ def test_finalize_adaptive_router_if_configured_initializes_and_is_idempotent():
         model_list=[
             {
                 "model_name": "fast",
-                "litellm_params": {"model": "openai/gpt-4o-mini"},
+                "embrouter_params": {"model": "openai/gpt-4o-mini"},
                 "model_info": {"input_cost_per_token": 0.00000015},
             },
             {
                 "model_name": "smart",
-                "litellm_params": {"model": "openai/gpt-4o"},
+                "embrouter_params": {"model": "openai/gpt-4o"},
                 "model_info": {"input_cost_per_token": 0.0000025},
             },
             {
                 "model_name": "my-router",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "auto_router/adaptive_router",
                     "adaptive_router_config": {
                         "available_models": ["fast", "smart"],
@@ -521,21 +521,21 @@ def test_finalize_adaptive_router_if_configured_initializes_and_is_idempotent():
 
 def test_finalize_prunes_stale_adaptive_router_hooks_from_callbacks():
     """Replacing the Router (hot-reload path) must not leave stale
-    AdaptiveRouterPostCallHook instances in `litellm.callbacks` — otherwise
+    AdaptiveRouterPostCallHook instances in `embrouter.callbacks` — otherwise
     every request double-fires signal recording."""
-    import litellm
-    from litellm.router_strategy.adaptive_router.hooks import (
+    import embrouter
+    from embrouter.router_strategy.adaptive_router.hooks import (
         AdaptiveRouterPostCallHook,
     )
 
     model_list = [
         {
             "model_name": "fast",
-            "litellm_params": {"model": "openai/gpt-4o-mini"},
+            "embrouter_params": {"model": "openai/gpt-4o-mini"},
         },
         {
             "model_name": "my-router",
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "auto_router/adaptive_router",
                 "adaptive_router_config": {"available_models": ["fast"]},
             },
@@ -545,10 +545,10 @@ def test_finalize_prunes_stale_adaptive_router_hooks_from_callbacks():
     # Snapshot any pre-existing AdaptiveRouterPostCallHook entries so we can
     # restore them — other tests may have registered hooks we shouldn't drop.
     pre_hooks = [
-        cb for cb in litellm.callbacks if isinstance(cb, AdaptiveRouterPostCallHook)
+        cb for cb in embrouter.callbacks if isinstance(cb, AdaptiveRouterPostCallHook)
     ]
     for cb in pre_hooks:
-        litellm.callbacks.remove(cb)
+        embrouter.callbacks.remove(cb)
 
     try:
         Router(model_list=model_list)
@@ -556,7 +556,7 @@ def test_finalize_prunes_stale_adaptive_router_hooks_from_callbacks():
 
         adaptive_hooks = [
             cb
-            for cb in litellm.callbacks
+            for cb in embrouter.callbacks
             if isinstance(cb, AdaptiveRouterPostCallHook)
         ]
         assert len(adaptive_hooks) == 1, (
@@ -565,11 +565,11 @@ def test_finalize_prunes_stale_adaptive_router_hooks_from_callbacks():
         )
     finally:
         # Best-effort cleanup: remove whatever this test added, then restore.
-        for cb in list(litellm.callbacks):
+        for cb in list(embrouter.callbacks):
             if isinstance(cb, AdaptiveRouterPostCallHook):
-                litellm.callbacks.remove(cb)
+                embrouter.callbacks.remove(cb)
         for cb in pre_hooks:
-            litellm.callbacks.append(cb)
+            embrouter.callbacks.append(cb)
 
 
 def test_finalize_adaptive_router_if_configured_noop_when_none_configured():
@@ -579,7 +579,7 @@ def test_finalize_adaptive_router_if_configured_noop_when_none_configured():
         model_list=[
             {
                 "model_name": "fast",
-                "litellm_params": {"model": "openai/gpt-4o-mini"},
+                "embrouter_params": {"model": "openai/gpt-4o-mini"},
             }
         ]
     )

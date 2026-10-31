@@ -9,18 +9,18 @@ from typing import (
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from litellm._logging import verbose_proxy_logger
-from litellm.litellm_core_utils.sensitive_data_masker import SensitiveDataMasker
-from litellm.proxy._types import CommonProxyErrors, LitellmUserRoles, UserAPIKeyAuth
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.common_utils.encrypt_decrypt_utils import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.embrouter_core_utils.sensitive_data_masker import SensitiveDataMasker
+from embrouter.proxy._types import CommonProxyErrors, EmbrouterUserRoles, UserAPIKeyAuth
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.common_utils.encrypt_decrypt_utils import (
     decrypt_value_helper,
     encrypt_value_helper,
 )
-from litellm.proxy.management_endpoints.common_utils import _user_has_admin_view
-from litellm.repositories.config_repository import ConfigRepository
-from litellm.repositories.prisma_protocols import TableActions
-from litellm.types.proxy.cloudzero_endpoints import (
+from embrouter.proxy.management_endpoints.common_utils import _user_has_admin_view
+from embrouter.repositories.config_repository import ConfigRepository
+from embrouter.repositories.prisma_protocols import TableActions
+from embrouter.types.proxy.cloudzero_endpoints import (
     CloudZeroExportRequest,
     CloudZeroExportResponse,
     CloudZeroInitRequest,
@@ -30,7 +30,7 @@ from litellm.types.proxy.cloudzero_endpoints import (
 )
 
 if TYPE_CHECKING:
-    from litellm.proxy.proxy_server import PrismaClient
+    from embrouter.proxy.proxy_server import PrismaClient
 
 router: Final = APIRouter()
 
@@ -40,7 +40,7 @@ _sensitive_masker: Final = SensitiveDataMasker()
 
 
 class _CloudZeroConfigRow(Protocol):
-    """The ``LiteLLM_Config`` row holding ``cloudzero_settings``, as this module reads it."""
+    """The ``EmbRouter_Config`` row holding ``cloudzero_settings``, as this module reads it."""
 
     @property
     def param_value(self) -> str | Mapping[str, str] | None: ...
@@ -60,7 +60,7 @@ async def _set_cloudzero_settings(api_key: str, connection_id: str, timezone: st
         connection_id: CloudZero connection ID
         timezone: Timezone for date handling
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(
@@ -96,7 +96,7 @@ async def _get_cloudzero_settings():
     Returns:
         dict: CloudZero settings with decrypted API key, or empty dict if not configured
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(
@@ -213,7 +213,7 @@ async def update_cloudzero_settings(
     Only admin users can update CloudZero settings.
     """
     # Validation
-    if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+    if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
         raise HTTPException(
             status_code=403,
             detail={"error": CommonProxyErrors.not_allowed_access.value},
@@ -282,7 +282,7 @@ async def is_cloudzero_setup_in_db() -> bool:
         bool: True if CloudZero is active, False otherwise
     """
     try:
-        from litellm.proxy.proxy_server import prisma_client
+        from embrouter.proxy.proxy_server import prisma_client
 
         if prisma_client is None:
             return False
@@ -309,9 +309,9 @@ def is_cloudzero_setup_in_config() -> bool:
     Returns:
         bool: True if CloudZero is configured, False otherwise
     """
-    import litellm
+    import embrouter
 
-    return "cloudzero" in litellm.callbacks
+    return "cloudzero" in embrouter.callbacks
 
 
 async def is_cloudzero_setup() -> bool:
@@ -366,7 +366,7 @@ async def init_cloudzero_settings(
     Only admin users can configure CloudZero settings.
     """
     # Validation
-    if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+    if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
         raise HTTPException(
             status_code=403,
             detail={"error": CommonProxyErrors.not_allowed_access.value},
@@ -419,7 +419,7 @@ async def cloudzero_dry_run_export(
     Only admin users can perform CloudZero exports.
     """
     # Validation
-    if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+    if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
         raise HTTPException(
             status_code=403,
             detail={"error": CommonProxyErrors.not_allowed_access.value},
@@ -427,7 +427,7 @@ async def cloudzero_dry_run_export(
 
     try:
         # Import and initialize CloudZero logger with credentials
-        from litellm.integrations.cloudzero.cloudzero import CloudZeroLogger
+        from embrouter.integrations.cloudzero.cloudzero import CloudZeroLogger
 
         # Initialize logger with credentials directly
         logger: Final = CloudZeroLogger()
@@ -472,7 +472,7 @@ async def cloudzero_export(
     Only admin users can perform CloudZero exports.
     """
 
-    if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+    if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
         raise HTTPException(
             status_code=403,
             detail={"error": CommonProxyErrors.not_allowed_access.value},
@@ -483,7 +483,7 @@ async def cloudzero_export(
         settings: Final = await _get_cloudzero_settings()
 
         # Import and initialize CloudZero logger with credentials
-        from litellm.integrations.cloudzero.cloudzero import CloudZeroLogger
+        from embrouter.integrations.cloudzero.cloudzero import CloudZeroLogger
 
         # Initialize logger with credentials directly
         logger: Final = CloudZeroLogger(
@@ -534,14 +534,14 @@ async def delete_cloudzero_settings(
     Only admin users can delete CloudZero settings.
     """
     # Validation
-    if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+    if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
         raise HTTPException(
             status_code=403,
             detail={"error": CommonProxyErrors.not_allowed_access.value},
         )
 
     try:
-        from litellm.proxy.proxy_server import prisma_client
+        from embrouter.proxy.proxy_server import prisma_client
 
         if prisma_client is None:
             raise HTTPException(

@@ -437,14 +437,14 @@ const AddGuardrailForm: React.FC<AddGuardrailFormProps> = ({ visible, onClose, a
       // Prepare the guardrail data with proper typings
       const guardrailData: {
         guardrail_name: string;
-        litellm_params: {
+        embrouter_params: {
           guardrail: string;
           [key: string]: unknown; // Allow dynamic properties
         };
         guardrail_info: Record<string, unknown>;
       } = {
         guardrail_name: asText(values.guardrail_name),
-        litellm_params: {
+        embrouter_params: {
           guardrail: guardrailProvider,
           mode: values.mode,
           default_on: values.default_on,
@@ -454,12 +454,12 @@ const AddGuardrailForm: React.FC<AddGuardrailFormProps> = ({ visible, onClose, a
 
       const skipForCreate = choiceToSkipSystemForCreate(asSkipChoice(values.skip_system_message_choice));
       if (skipForCreate !== undefined) {
-        guardrailData.litellm_params.skip_system_message_in_guardrail = skipForCreate;
+        guardrailData.embrouter_params.skip_system_message_in_guardrail = skipForCreate;
       }
 
       const skipToolForCreate = choiceToSkipToolForCreate(asSkipChoice(values.skip_tool_message_choice));
       if (skipToolForCreate !== undefined) {
-        guardrailData.litellm_params.skip_tool_message_in_guardrail = skipToolForCreate;
+        guardrailData.embrouter_params.skip_tool_message_in_guardrail = skipToolForCreate;
       }
 
       // For Presidio PII, add the entity and action configurations
@@ -469,14 +469,14 @@ const AddGuardrailForm: React.FC<AddGuardrailFormProps> = ({ visible, onClose, a
           piiEntitiesConfig[entity] = selectedActions[entity] || "MASK"; // Default to MASK if no action selected
         });
 
-        guardrailData.litellm_params.pii_entities_config = piiEntitiesConfig;
+        guardrailData.embrouter_params.pii_entities_config = piiEntitiesConfig;
 
         // Add Presidio API bases if provided
         if (values.presidio_analyzer_api_base) {
-          guardrailData.litellm_params.presidio_analyzer_api_base = values.presidio_analyzer_api_base;
+          guardrailData.embrouter_params.presidio_analyzer_api_base = values.presidio_analyzer_api_base;
         }
         if (values.presidio_anonymizer_api_base) {
-          guardrailData.litellm_params.presidio_anonymizer_api_base = values.presidio_anonymizer_api_base;
+          guardrailData.embrouter_params.presidio_anonymizer_api_base = values.presidio_anonymizer_api_base;
         }
       }
 
@@ -495,7 +495,7 @@ const AddGuardrailForm: React.FC<AddGuardrailFormProps> = ({ visible, onClose, a
         }
 
         if (selectedPatterns.length > 0) {
-          guardrailData.litellm_params.patterns = selectedPatterns.map((p) => ({
+          guardrailData.embrouter_params.patterns = selectedPatterns.map((p) => ({
             pattern_type: p.type === "prebuilt" ? "prebuilt" : "regex",
             pattern_name: p.type === "prebuilt" ? p.name : undefined,
             pattern: p.type === "custom" ? p.pattern : undefined,
@@ -504,14 +504,14 @@ const AddGuardrailForm: React.FC<AddGuardrailFormProps> = ({ visible, onClose, a
           }));
         }
         if (blockedWords.length > 0) {
-          guardrailData.litellm_params.blocked_words = blockedWords.map((w) => ({
+          guardrailData.embrouter_params.blocked_words = blockedWords.map((w) => ({
             keyword: w.keyword,
             action: w.action,
             description: w.description,
           }));
         }
         if (selectedContentCategories.length > 0) {
-          guardrailData.litellm_params.categories = selectedContentCategories.map((c) => ({
+          guardrailData.embrouter_params.categories = selectedContentCategories.map((c) => ({
             category: c.category,
             enabled: true,
             action: c.action,
@@ -519,7 +519,7 @@ const AddGuardrailForm: React.FC<AddGuardrailFormProps> = ({ visible, onClose, a
           }));
         }
         if (hasCompetitorIntent && competitorIntentConfig) {
-          guardrailData.litellm_params.competitor_intent_config = {
+          guardrailData.embrouter_params.competitor_intent_config = {
             competitor_intent_type: competitorIntentConfig.competitor_intent_type ?? "airline",
             brand_self: competitorIntentConfig.brand_self,
             locations:
@@ -540,7 +540,7 @@ const AddGuardrailForm: React.FC<AddGuardrailFormProps> = ({ visible, onClose, a
       else if (values.config) {
         try {
           const configObj = JSON.parse(asText(values.config));
-          // For some guardrails, the config values need to be in litellm_params
+          // For some guardrails, the config values need to be in embrouter_params
           guardrailData.guardrail_info = configObj;
         } catch (error) {
           toast.fromError("Invalid JSON in configuration");
@@ -562,10 +562,10 @@ const AddGuardrailForm: React.FC<AddGuardrailFormProps> = ({ visible, onClose, a
           setLoading(false);
           return;
         }
-        guardrailData.litellm_params.judge_model = values.judge_model;
-        guardrailData.litellm_params.overall_threshold = values.overall_threshold ?? 80;
-        guardrailData.litellm_params.on_failure = values.on_failure ?? "block";
-        guardrailData.litellm_params.criteria = criteria.map((c) => ({
+        guardrailData.embrouter_params.judge_model = values.judge_model;
+        guardrailData.embrouter_params.overall_threshold = values.overall_threshold ?? 80;
+        guardrailData.embrouter_params.on_failure = values.on_failure ?? "block";
+        guardrailData.embrouter_params.criteria = criteria.map((c) => ({
           name: c.name,
           weight: Number(c.weight),
           description: c.description || "",
@@ -578,24 +578,24 @@ const AddGuardrailForm: React.FC<AddGuardrailFormProps> = ({ visible, onClose, a
           setLoading(false);
           return;
         }
-        guardrailData.litellm_params.rules = toolPermissionConfig.rules;
-        guardrailData.litellm_params.default_action = toolPermissionConfig.default_action;
-        guardrailData.litellm_params.on_disallowed_action = toolPermissionConfig.on_disallowed_action;
+        guardrailData.embrouter_params.rules = toolPermissionConfig.rules;
+        guardrailData.embrouter_params.default_action = toolPermissionConfig.default_action;
+        guardrailData.embrouter_params.on_disallowed_action = toolPermissionConfig.on_disallowed_action;
         if (toolPermissionConfig.violation_message_template) {
-          guardrailData.litellm_params.violation_message_template = toolPermissionConfig.violation_message_template;
+          guardrailData.embrouter_params.violation_message_template = toolPermissionConfig.violation_message_template;
         }
       }
 
       // Endpoint Settings (realtime) — content filter only
       if (shouldRenderContentFilterConfigSettings(providerKey)) {
         if (endSessionAfterNFails !== undefined && endSessionAfterNFails > 0) {
-          guardrailData.litellm_params.end_session_after_n_fails = endSessionAfterNFails;
+          guardrailData.embrouter_params.end_session_after_n_fails = endSessionAfterNFails;
         }
         if (onViolation && selectedEndpointType === "realtime") {
-          guardrailData.litellm_params.on_violation = onViolation;
+          guardrailData.embrouter_params.on_violation = onViolation;
         }
         if (realtimeViolationMessage.trim()) {
-          guardrailData.litellm_params.realtime_violation_message = realtimeViolationMessage.trim();
+          guardrailData.embrouter_params.realtime_violation_message = realtimeViolationMessage.trim();
         }
       }
 
@@ -609,7 +609,7 @@ const AddGuardrailForm: React.FC<AddGuardrailFormProps> = ({ visible, onClose, a
        ******************************/
 
       // Use pre-fetched provider params to copy recognised params
-      // Skip for providers that handle their own litellm_params (llm_as_a_judge, tool_permission, content filter, PII)
+      // Skip for providers that handle their own embrouter_params (llm_as_a_judge, tool_permission, content filter, PII)
       if (providerParams && selectedProvider && guardrailProvider !== "llm_as_a_judge") {
         const providerKey = guardrail_provider_map[selectedProvider]?.toLowerCase();
         const providerSpecificParams = providerParams[providerKey] || {};
@@ -639,7 +639,7 @@ const AddGuardrailForm: React.FC<AddGuardrailFormProps> = ({ visible, onClose, a
               : directValue;
 
           if (paramValue !== undefined && paramValue !== null && paramValue !== "") {
-            guardrailData.litellm_params[paramName] = paramValue;
+            guardrailData.embrouter_params[paramName] = paramValue;
           }
         });
       }
@@ -779,7 +779,7 @@ const AddGuardrailForm: React.FC<AddGuardrailFormProps> = ({ visible, onClose, a
           name="skip_system_message_choice"
           label={labelWithHint(
             "Skip system messages in guardrail",
-            "Unified guardrails only: omit role: system from guardrail evaluation input (OpenAI chat + Anthropic messages). The model still receives full messages. Use global default follows litellm_settings.skip_system_message_in_guardrail.",
+            "Unified guardrails only: omit role: system from guardrail evaluation input (OpenAI chat + Anthropic messages). The model still receives full messages. Use global default follows embrouter_settings.skip_system_message_in_guardrail.",
           )}
         >
           {(fieldControl) => <SkipMessageSelect control={fieldControl} />}
@@ -790,7 +790,7 @@ const AddGuardrailForm: React.FC<AddGuardrailFormProps> = ({ visible, onClose, a
           name="skip_tool_message_choice"
           label={labelWithHint(
             "Skip tool messages in guardrail",
-            "Unified guardrails only: omit role: tool from guardrail evaluation input (OpenAI chat + Anthropic messages). The model still receives full messages. Use global default follows litellm_settings.skip_tool_message_in_guardrail.",
+            "Unified guardrails only: omit role: tool from guardrail evaluation input (OpenAI chat + Anthropic messages). The model still receives full messages. Use global default follows embrouter_settings.skip_tool_message_in_guardrail.",
           )}
         >
           {(fieldControl) => <SkipMessageSelect control={fieldControl} />}

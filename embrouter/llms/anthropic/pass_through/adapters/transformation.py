@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING, Any, Final, Literal, TypeAlias, TypeVar, cast
 
 from pydantic import JsonValue, TypeAdapter
 
-import litellm
-from litellm.llms.anthropic.pass_through.utils import (
+import embrouter
+from embrouter.llms.anthropic.pass_through.utils import (
     is_reasoning_auto_summary_enabled,
     prompt_cache_key_from_user_id,
 )
@@ -18,7 +18,7 @@ from litellm.llms.anthropic.pass_through.utils import (
 OPENAI_MAX_TOOL_NAME_LENGTH: Final = 64
 TOOL_NAME_HASH_LENGTH: Final = 8
 TOOL_NAME_PREFIX_LENGTH: Final = OPENAI_MAX_TOOL_NAME_LENGTH - TOOL_NAME_HASH_LENGTH - 1  # 55
-PROVIDERS_PROXYING_AN_UNKNOWN_BACKEND: Final = frozenset({"litellm_proxy"})
+PROVIDERS_PROXYING_AN_UNKNOWN_BACKEND: Final = frozenset({"embrouter_proxy"})
 _COMPACTION_BLOCK: Final = TypeAdapter(dict[str, JsonValue])
 
 
@@ -116,36 +116,36 @@ def create_tool_name_mapping(
 
 from openai.types.chat.chat_completion_chunk import Choice as OpenAIStreamingChoice
 
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
     anthropic_image_source_to_openai_url,
     parse_tool_call_arguments,
     reasoning_content_from_thinking_blocks,
     with_prompt_cache_breakpoint,
 )
-from litellm.litellm_core_utils.prompt_templates.factory import (
+from embrouter.embrouter_core_utils.prompt_templates.factory import (
     THOUGHT_SIGNATURE_SEPARATOR,
 )
-from litellm.litellm_core_utils.reasoning_effort_utils import (
+from embrouter.embrouter_core_utils.reasoning_effort_utils import (
     reasoning_effort_from_thinking_budget,
 )
-from litellm.llms.anthropic.common_utils import (
+from embrouter.llms.anthropic.common_utils import (
     eager_input_streaming_flag,
     is_empty_unsigned_thinking_block,
     normalize_anthropic_tool_use_id,
     strip_encrypted_reasoning_blocks_from_anthropic_messages,
 )
-from litellm.llms.anthropic.pass_through.context_management import (
+from embrouter.llms.anthropic.pass_through.context_management import (
     PolyfillResult,
 )
-from litellm.llms.anthropic.pass_through.messages.mid_conversation_system import (
+from embrouter.llms.anthropic.pass_through.messages.mid_conversation_system import (
     convert_mid_conversation_system_turns,
     is_system_role_message,
 )
-from litellm.llms.anthropic.pass_through.messages.utils import (
+from embrouter.llms.anthropic.pass_through.messages.utils import (
     openai_chat_refusal_text,
     refusal_stop_details,
 )
-from litellm.types.llms.anthropic import (
+from embrouter.types.llms.anthropic import (
     ANTHROPIC_HOSTED_TOOLS,
     AllAnthropicPassThroughMessageValues,
     AllAnthropicToolsValues,
@@ -172,11 +172,11 @@ from litellm.types.llms.anthropic import (
     UsageDelta,
     UsageIteration,
 )
-from litellm.types.llms.anthropic_messages.anthropic_response import (
+from embrouter.types.llms.anthropic_messages.anthropic_response import (
     AnthropicMessagesResponse,
     AnthropicUsage,
 )
-from litellm.types.llms.openai import (
+from embrouter.types.llms.openai import (
     AllMessageValues,
     ChatCompletionAssistantMessage,
     ChatCompletionAssistantToolCall,
@@ -198,14 +198,14 @@ from litellm.types.llms.openai import (
     ChatCompletionUserMessage,
     ToolMessageContentPart,
 )
-from litellm.types.utils import Choices, ModelResponse, StreamingChoices, Usage
-from litellm.utils import supports_mid_conversation_system
+from embrouter.types.utils import Choices, ModelResponse, StreamingChoices, Usage
+from embrouter.utils import supports_mid_conversation_system
 
 from .streaming_iterator import AnthropicSSEStream, AnthropicStreamWrapper
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObject
-    from litellm.types.llms.anthropic import ContentBlockContentBlockDict
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObject
+    from embrouter.types.llms.anthropic import ContentBlockContentBlockDict
 
 ToolResultContent: TypeAlias = str | list[ToolMessageContentPart]
 
@@ -274,7 +274,7 @@ class AnthropicAdapter:
         (
             translated_body,
             tool_name_mapping,
-        ) = LiteLLMAnthropicMessagesAdapter().translate_anthropic_to_openai(
+        ) = EmbRouterAnthropicMessagesAdapter().translate_anthropic_to_openai(
             anthropic_message_request=request_body,
             custom_llm_provider=custom_llm_provider,
         )
@@ -297,7 +297,7 @@ class AnthropicAdapter:
                               OpenAI's 64-char limit.
             polyfill_result: PolyfillResult from context_management polyfill.
         """
-        return LiteLLMAnthropicMessagesAdapter().translate_openai_response_to_anthropic(
+        return EmbRouterAnthropicMessagesAdapter().translate_openai_response_to_anthropic(
             response=response,
             tool_name_mapping=tool_name_mapping,
             polyfill_result=polyfill_result,
@@ -310,7 +310,7 @@ class AnthropicAdapter:
         tool_name_mapping: dict[str, str] | None = None,
         polyfill_result: PolyfillResult | None = None,
         is_async: bool = True,
-        litellm_logging_obj: "LiteLLMLoggingObject | None" = None,
+        embrouter_logging_obj: "EmbRouterLoggingObject | None" = None,
     ) -> AsyncIterator[bytes] | Iterator[bytes] | None:
         """
         Translate OpenAI streaming response to Anthropic format.
@@ -323,7 +323,7 @@ class AnthropicAdapter:
             is_async: When ``True`` (default, for back-compat with existing
                 async callers) returns an ``AsyncIterator[bytes]``. When
                 ``False`` returns a sync ``Iterator[bytes]`` so sync callers
-                (e.g. ``litellm.anthropic.messages.create(stream=True)`` via
+                (e.g. ``embrouter.anthropic.messages.create(stream=True)`` via
                 the sync handler) don't get back an async iterator they
                 can't iterate without an event loop.
         """
@@ -337,7 +337,7 @@ class AnthropicAdapter:
             applied_edits=applied_edits,
             compaction_block=compaction_block,
             iterations_usage=iterations_usage,
-            litellm_logging_obj=litellm_logging_obj,
+            embrouter_logging_obj=embrouter_logging_obj,
         )
         # Return the SSE-wrapped version for proper event formatting.
         if is_async:
@@ -348,7 +348,7 @@ class AnthropicAdapter:
 _BlockT: Final = TypeVar("_BlockT", bound=Mapping[str, object])
 
 
-class LiteLLMAnthropicMessagesAdapter:
+class EmbRouterAnthropicMessagesAdapter:
     def __init__(self):
         pass
 
@@ -720,17 +720,17 @@ class LiteLLMAnthropicMessagesAdapter:
         Returns:
             Dict with either 'thinking' or 'reasoning_effort' key
         """
-        if LiteLLMAnthropicMessagesAdapter.is_anthropic_claude_model(
+        if EmbRouterAnthropicMessagesAdapter.is_anthropic_claude_model(
             model
-        ) or LiteLLMAnthropicMessagesAdapter.is_bedrock_arn_model(model):
+        ) or EmbRouterAnthropicMessagesAdapter.is_bedrock_arn_model(model):
             return {"thinking": thinking}
         else:
-            reasoning_effort: Final = LiteLLMAnthropicMessagesAdapter.translate_anthropic_thinking_to_reasoning_effort(
+            reasoning_effort: Final = EmbRouterAnthropicMessagesAdapter.translate_anthropic_thinking_to_reasoning_effort(
                 thinking
             )
             if reasoning_effort:
                 return {
-                    "reasoning_effort": LiteLLMAnthropicMessagesAdapter._apply_reasoning_summary_wrapping(
+                    "reasoning_effort": EmbRouterAnthropicMessagesAdapter._apply_reasoning_summary_wrapping(
                         reasoning_effort, thinking
                     )
                 }
@@ -819,7 +819,7 @@ class LiteLLMAnthropicMessagesAdapter:
 
             raw_name = tool.get("name")
             if raw_name is None or (isinstance(raw_name, str) and not str(raw_name).strip()):
-                original_name = f"litellm_unnamed_tool_{idx}"
+                original_name = f"embrouter_unnamed_tool_{idx}"
             else:
                 original_name = str(raw_name)
             truncated_name = truncate_tool_name(original_name)
@@ -902,23 +902,23 @@ class LiteLLMAnthropicMessagesAdapter:
             schema["additionalProperties"] = False
             schema["required"] = list(schema["properties"].keys())
             for prop in schema["properties"].values():
-                LiteLLMAnthropicMessagesAdapter._add_additional_properties_false(prop)
+                EmbRouterAnthropicMessagesAdapter._add_additional_properties_false(prop)
 
         # Handle array items
         if "items" in schema:
-            LiteLLMAnthropicMessagesAdapter._add_additional_properties_false(schema["items"])
+            EmbRouterAnthropicMessagesAdapter._add_additional_properties_false(schema["items"])
 
         # Handle anyOf/oneOf/allOf
         for key in ("anyOf", "oneOf", "allOf"):
             if key in schema:
                 for sub_schema in schema[key]:
-                    LiteLLMAnthropicMessagesAdapter._add_additional_properties_false(sub_schema)
+                    EmbRouterAnthropicMessagesAdapter._add_additional_properties_false(sub_schema)
 
         # Handle $defs / definitions
         for key in ("$defs", "definitions"):
             if key in schema:
                 for def_schema in schema[key].values():
-                    LiteLLMAnthropicMessagesAdapter._add_additional_properties_false(def_schema)
+                    EmbRouterAnthropicMessagesAdapter._add_additional_properties_false(def_schema)
 
     def _translate_midturn_system_message_to_openai(
         self,
@@ -984,7 +984,7 @@ class LiteLLMAnthropicMessagesAdapter:
             return False
         if custom_llm_provider in PROVIDERS_PROXYING_AN_UNKNOWN_BACKEND:
             return False
-        supported_params: Final = litellm.get_supported_openai_params(
+        supported_params: Final = embrouter.get_supported_openai_params(
             model=model, custom_llm_provider=custom_llm_provider
         )
         return "prompt_cache_key" in (supported_params or ())
@@ -1009,7 +1009,7 @@ class LiteLLMAnthropicMessagesAdapter:
         """
         if not model or not custom_llm_provider:
             return False
-        supported_params: Final = litellm.get_supported_openai_params(
+        supported_params: Final = embrouter.get_supported_openai_params(
             model=model, custom_llm_provider=custom_llm_provider
         )
         return "reasoning_effort" in (supported_params or ())
@@ -1032,9 +1032,9 @@ class LiteLLMAnthropicMessagesAdapter:
                 ):
                     new_kwargs["prompt_cache_key"] = prompt_cache_key
 
-        if "litellm_metadata" in anthropic_message_request:
-            # metadata will be passed to litellm.acompletion(), it's a litellm_param
-            new_kwargs["metadata"] = anthropic_message_request.pop("litellm_metadata")
+        if "embrouter_metadata" in anthropic_message_request:
+            # metadata will be passed to embrouter.acompletion(), it's a embrouter_param
+            new_kwargs["metadata"] = anthropic_message_request.pop("embrouter_metadata")
 
     def _translate_tool_choice_to_openai(
         self,
@@ -1248,7 +1248,7 @@ class LiteLLMAnthropicMessagesAdapter:
             "model": anthropic_message_request["model"],
             "messages": new_messages,
         }
-        ## CONVERT METADATA (user_id + litellm metadata)
+        ## CONVERT METADATA (user_id + embrouter metadata)
         self._translate_metadata_to_openai(
             anthropic_message_request=anthropic_message_request,
             new_kwargs=new_kwargs,
@@ -1491,7 +1491,7 @@ class LiteLLMAnthropicMessagesAdapter:
 
     @classmethod
     def _get_web_search_request_count(cls, usage: Usage) -> int:
-        from litellm.litellm_core_utils.llm_cost_calc.utils import (
+        from embrouter.embrouter_core_utils.llm_cost_calc.utils import (
             get_web_search_requests_from_usage,
         )
 
@@ -1621,8 +1621,8 @@ class LiteLLMAnthropicMessagesAdapter:
         Literal["text", "tool_use", "thinking"],
         "ContentBlockContentBlockDict",
     ]:
-        from litellm._uuid import uuid
-        from litellm.types.llms.anthropic import TextBlock
+        from embrouter._uuid import uuid
+        from embrouter.types.llms.anthropic import TextBlock
 
         for choice in choices:
             if (
@@ -1738,13 +1738,13 @@ class LiteLLMAnthropicMessagesAdapter:
                 stop_reason=self._translate_openai_finish_reason_to_anthropic(response.choices[0].finish_reason),
             )
             if getattr(response, "usage", None) is not None:
-                litellm_usage_chunk: Usage | None = response.usage
+                embrouter_usage_chunk: Usage | None = response.usage
             elif hasattr(response, "_hidden_params") and "usage" in response._hidden_params:
-                litellm_usage_chunk = response._hidden_params["usage"]
+                embrouter_usage_chunk = response._hidden_params["usage"]
             else:
-                litellm_usage_chunk = None
-            if litellm_usage_chunk is not None:
-                usage_delta = self._translate_openai_usage_to_anthropic_usage_delta(litellm_usage_chunk)
+                embrouter_usage_chunk = None
+            if embrouter_usage_chunk is not None:
+                usage_delta = self._translate_openai_usage_to_anthropic_usage_delta(embrouter_usage_chunk)
             else:
                 usage_delta = UsageDelta(input_tokens=0, output_tokens=0)
             message_block: Final = MessageBlockDelta(

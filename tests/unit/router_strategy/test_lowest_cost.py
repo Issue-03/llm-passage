@@ -3,26 +3,26 @@ from datetime import datetime
 
 import pytest
 
-import litellm
-from litellm.caching.caching import DualCache
-from litellm.router_strategy.lowest_cost import LowestCostLoggingHandler
+import embrouter
+from embrouter.caching.caching import DualCache
+from embrouter.router_strategy.lowest_cost import LowestCostLoggingHandler
 
 DEPLOYMENT_ID = "9876"
 COST_KEY = "cost_map:gpt-5.5-pool"
 LATENCY_KEYS = ("gpt-5.5-pool_map", "gpt-5.5-pool_cost_map")
 KWARGS = {
-    "litellm_params": {
+    "embrouter_params": {
         "metadata": {"model_group": "gpt-5.5-pool"},
         "model_info": {"id": DEPLOYMENT_ID},
     }
 }
 
 
-def _chat_response_with_no_completion_tokens() -> litellm.ModelResponse:
-    return litellm.ModelResponse(
+def _chat_response_with_no_completion_tokens() -> embrouter.ModelResponse:
+    return embrouter.ModelResponse(
         model="gpt-5.5",
         choices=[{"index": 0, "message": {"role": "assistant", "content": ""}, "finish_reason": "length"}],
-        usage=litellm.Usage(prompt_tokens=12, completion_tokens=0, total_tokens=12),
+        usage=embrouter.Usage(prompt_tokens=12, completion_tokens=0, total_tokens=12),
     )
 
 
@@ -77,7 +77,7 @@ async def test_async_get_available_deployments_applies_rpm_limit_from_the_cost_e
     handler = LowestCostLoggingHandler(router_cache=cache)
     precise_minute = datetime.now().strftime("%Y-%m-%d-%H-%M")
     cache.set_cache(key=COST_KEY, value={DEPLOYMENT_ID: {precise_minute: {"tpm": 12, "rpm": 1}}})
-    healthy_deployments = [{"model_info": {"id": DEPLOYMENT_ID}, "litellm_params": {"model": "gpt-5.5", "rpm": 1}}]
+    healthy_deployments = [{"model_info": {"id": DEPLOYMENT_ID}, "embrouter_params": {"model": "gpt-5.5", "rpm": 1}}]
 
     picked = await handler.async_get_available_deployments(
         model_group="gpt-5.5-pool",

@@ -774,8 +774,8 @@ describe("buildUpdatedComplexityRouterConfig tier model params", () => {
     ...STORED,
     tiers: { SIMPLE: ["gpt-4o-mini"], MEDIUM: ["opus"], COMPLEX: ["opus"], REASONING: [] },
     tier_model_configs: {
-      MEDIUM: [{ model_name: "opus", litellm_params: { reasoning_effort: "medium" } }],
-      COMPLEX: [{ model_name: "opus", litellm_params: { reasoning_effort: "high" } }],
+      MEDIUM: [{ model_name: "opus", embrouter_params: { reasoning_effort: "medium" } }],
+      COMPLEX: [{ model_name: "opus", embrouter_params: { reasoning_effort: "high" } }],
     },
   };
   const formValueWithParams = {
@@ -815,7 +815,7 @@ describe("buildUpdatedComplexityRouterConfig tier model params", () => {
       hydratedState,
     );
     expect(result.tier_model_configs).toEqual({
-      MEDIUM: [{ model_name: "opus", litellm_params: { reasoning_effort: "medium" } }],
+      MEDIUM: [{ model_name: "opus", embrouter_params: { reasoning_effort: "medium" } }],
     });
   });
 
@@ -831,7 +831,7 @@ describe("managed keys survive an untouched open-and-save", () => {
   // applies, so an untouched open-and-save must return every one of them.
   const STORED_ALL_MANAGED: Record<string, unknown> = {
     tiers: { SIMPLE: ["gpt-4o-mini"], MEDIUM: ["gpt-4o"], COMPLEX: ["opus"], REASONING: ["o1"] },
-    tier_model_configs: { REASONING: [{ model_name: "o1", litellm_params: { reasoning_effort: "high" } }] },
+    tier_model_configs: { REASONING: [{ model_name: "o1", embrouter_params: { reasoning_effort: "high" } }] },
     default_model: "gpt-4o",
     plan_mode_min_tier: "COMPLEX",
     tier_labels: { SIMPLE: "Cheap" },
@@ -1119,7 +1119,7 @@ describe("LLM V2 configuration preservation", () => {
 describe("untouched save round trip", () => {
   const STORED_PRE_MANAGED_BOOLEANS: Record<string, unknown> = {
     tiers: { SIMPLE: ["gpt-4o-mini"], MEDIUM: ["gpt-4o"], COMPLEX: ["opus"], REASONING: ["o1"] },
-    tier_model_configs: { REASONING: [{ model_name: "o1", litellm_params: { reasoning_effort: "high" } }] },
+    tier_model_configs: { REASONING: [{ model_name: "o1", embrouter_params: { reasoning_effort: "high" } }] },
     default_model: "gpt-4o",
     plan_mode_min_tier: "COMPLEX",
     tier_labels: { SIMPLE: "Cheap" },

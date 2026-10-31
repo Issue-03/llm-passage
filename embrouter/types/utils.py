@@ -46,21 +46,21 @@ from pydantic import (
 from pydantic.main import IncEx
 from typing_extensions import NotRequired, ReadOnly, Required, TypedDict
 
-from litellm._logging import verbose_logger
-from litellm._uuid import uuid
-from litellm.constants import INTERNAL_KWARG_PREFIX
-from litellm.types.llms.base import (
-    BaseLiteLLMOpenAIResponseObject,
+from embrouter._logging import verbose_logger
+from embrouter._uuid import uuid
+from embrouter.constants import INTERNAL_KWARG_PREFIX
+from embrouter.types.llms.base import (
+    BaseEmbRouterOpenAIResponseObject,
     CachedTokensDetails,
-    LiteLLMPydanticObjectBase,
+    EmbRouterPydanticObjectBase,
 )
-from litellm.types.mcp import MCPServerCostInfo
+from embrouter.types.mcp import MCPServerCostInfo
 
-from ..litellm_core_utils.core_helpers import map_finish_reason, process_response_headers
-from . import litellm_params as _litellm_params
-from .agents import LiteLLMSendMessageResponse
+from ..embrouter_core_utils.core_helpers import map_finish_reason, process_response_headers
+from . import embrouter_params as _embrouter_params
+from .agents import EmbRouterSendMessageResponse
 from .guardrails import GuardrailEventHooks
-from .litellm_params import (
+from .embrouter_params import (
     AGENTIC_LOOP_KWARG_NAMES,
     BEDROCK_BATCH_KWARG_NAMES,
     KWARG_ARTIFACTS,
@@ -112,7 +112,7 @@ def _nested_selector(
 
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.tokenizer import Tokenizer
+    from embrouter.embrouter_core_utils.tokenizer import Tokenizer
 
     from .vector_stores import VectorStoreSearchResponse
 else:
@@ -146,8 +146,8 @@ class SafeAttributeModel:
             pass
 
 
-class LiteLLMCommonStrings(Enum):
-    redacted_by_litellm = "redacted by litellm. 'litellm.turn_off_message_logging=True'"
+class EmbRouterCommonStrings(Enum):
+    redacted_by_embrouter = "redacted by embrouter. 'embrouter.turn_off_message_logging=True'"
     llm_provider_not_provided = "Unmapped LLM provider for this endpoint. You passed model={model}, custom_llm_provider={custom_llm_provider}."
 
 
@@ -269,7 +269,7 @@ class OffPeakPricing(TypedDict, total=False):
 
 
 class ModelInfoBase(ProviderSpecificModelInfo, total=False):
-    key: Required[str]  # the key in litellm.model_cost which is returned
+    key: Required[str]  # the key in embrouter.model_cost which is returned
 
     max_tokens: Required[int | None]
     max_input_tokens: Required[int | None]
@@ -400,7 +400,7 @@ class ModelInfoBase(ProviderSpecificModelInfo, total=False):
     google_maps_grounding_cost_per_query: ReadOnly[float | None]
     citation_cost_per_token: float | None  # Cost per citation token for Perplexity
     tiered_pricing: list[dict[str, Any]] | None  # Tiered pricing structure for models like Dashscope
-    litellm_provider: Required[str]
+    embrouter_provider: Required[str]
     mode: Required[
         Literal[
             "completion",
@@ -425,7 +425,7 @@ class ModelInfoBase(ProviderSpecificModelInfo, total=False):
 
 class ModelInfo(ModelInfoBase, total=False):
     """
-    Model info for a given model, this is information found in litellm.model_prices_and_context_window.json
+    Model info for a given model, this is information found in embrouter.model_prices_and_context_window.json
     """
 
     supported_openai_params: Required[list[str] | None]
@@ -1669,7 +1669,7 @@ class Choices(SafeAttributeModel, OpenAIObject):
             elif isinstance(message, dict):
                 params["message"] = Message(**message)
             elif isinstance(message, BaseModel):
-                # Normalize provider/OpenAI SDK message models into LiteLLM's Message type.
+                # Normalize provider/OpenAI SDK message models into EmbRouter's Message type.
                 dump: Final = message.model_dump() if hasattr(message, "model_dump") else message.dict()
                 params["message"] = Message(**dump)
         if logprobs is not None:
@@ -2574,7 +2574,7 @@ class ImageObject(OpenAIImage):
             return self.dict()
 
 
-class ImageUsageInputTokensDetails(BaseLiteLLMOpenAIResponseObject):
+class ImageUsageInputTokensDetails(BaseEmbRouterOpenAIResponseObject):
     image_tokens: int
     """The number of image tokens in the input prompt."""
 
@@ -2582,7 +2582,7 @@ class ImageUsageInputTokensDetails(BaseLiteLLMOpenAIResponseObject):
     """The number of text tokens in the input prompt."""
 
 
-class ImageUsage(BaseLiteLLMOpenAIResponseObject):
+class ImageUsage(BaseEmbRouterOpenAIResponseObject):
     input_tokens: int
     """The number of tokens (images and text) in the input prompt."""
 
@@ -2599,12 +2599,12 @@ class ImageUsage(BaseLiteLLMOpenAIResponseObject):
 from openai.types.images_response import ImagesResponse as OpenAIImageResponse
 
 
-class ImageResponse(OpenAIImageResponse, BaseLiteLLMOpenAIResponseObject):
+class ImageResponse(OpenAIImageResponse, BaseEmbRouterOpenAIResponseObject):
     _hidden_params: dict = {}
 
     usage: ImageUsage | None = None
     """
-    Users might use litellm with older python versions, we don't want this to break for them.
+    Users might use embrouter with older python versions, we don't want this to break for them.
     Happens when their OpenAIImageResponse has the old OpenAI usage class.
     """
 
@@ -2775,14 +2775,14 @@ class ResponseFormatChunk(TypedDict, total=False):
     response_schema: dict
 
 
-class LoggedLiteLLMParams(TypedDict, total=False):
+class LoggedEmbRouterParams(TypedDict, total=False):
     force_timeout: float | None
     custom_llm_provider: str | None
     api_base: str | None
-    litellm_call_id: str | None
+    embrouter_call_id: str | None
     model_alias_map: dict | None
     metadata: dict | None
-    litellm_metadata: dict | None
+    embrouter_metadata: dict | None
     model_info: dict | None
     proxy_server_request: dict | None
     acompletion: bool | None
@@ -2830,7 +2830,7 @@ class AdapterCompletionStreamWrapper:
 
 
 class StandardLoggingUserAPIKeyMetadata(TypedDict):
-    user_api_key_hash: str | None  # hash of the litellm virtual key used
+    user_api_key_hash: str | None  # hash of the embrouter virtual key used
     user_api_key_alias: str | None
     user_api_key_spend: float | None
     user_api_key_max_budget: float | None
@@ -2875,7 +2875,7 @@ class StandardLoggingMCPToolCall(TypedDict, total=False):
     """
     Optional logo URL of the MCP server that the tool call was made to
 
-    (this is to render the logo on the logs page on litellm ui)
+    (this is to render the logo on the logs page on embrouter ui)
     """
 
     namespaced_tool_name: str | None
@@ -3059,7 +3059,7 @@ InternalCallOrigin = Literal[
     "llm_as_a_judge_guardrail",
     "background_response_cost_poll",
 ]
-"""Which internal litellm feature originated a billed sub-call, so a spend log row
+"""Which internal embrouter feature originated a billed sub-call, so a spend log row
 records that it is not traffic the caller sent."""
 
 AUTOROUTER_CLASSIFIER_CALL_ORIGIN: Final[InternalCallOrigin] = "autorouter_classifier"
@@ -3116,7 +3116,7 @@ class StandardLoggingRoutingDecision(TypedDict, total=False):
     conversation_continuing: bool
     savings_baseline_model: str
     savings_baseline_deployment_id: str
-    tier_litellm_params: Mapping[str, object]  # writable-ok: Pydantic warns on ReadOnly TypedDict fields
+    tier_embrouter_params: Mapping[str, object]  # writable-ok: Pydantic warns on ReadOnly TypedDict fields
 
 
 # Fields whose values quote the caller's prompt. Dropped when an operator turns message
@@ -3161,7 +3161,7 @@ DERIVED_ROUTING_DECISION_FIELDS: Final[frozenset[str]] = frozenset(
         "conversation_continuing",
         "savings_baseline_model",
         "savings_baseline_deployment_id",
-        "tier_litellm_params",
+        "tier_embrouter_params",
     }
 )
 
@@ -3209,12 +3209,12 @@ class StandardLoggingHiddenParams(TypedDict):
     cache_key: str | None
     api_base: str | None
     response_cost: str | float | None
-    litellm_overhead_time_ms: float | None
+    embrouter_overhead_time_ms: float | None
     additional_headers: StandardLoggingAdditionalHeaders | None
     batch_models: list[str] | None
     batch_successful_requests: ReadOnly[int | None]
     batch_failed_requests: ReadOnly[int | None]
-    litellm_model_name: str | None  # the model name sent to the provider by litellm
+    embrouter_model_name: str | None  # the model name sent to the provider by embrouter
     usage_object: dict | None
 
 
@@ -3258,15 +3258,15 @@ class StandardLoggingPayloadErrorInformation(TypedDict, total=False):
     error_provider_request_id: ReadOnly[str | None]
     # error_rate_limit_category:
     #   For 429 / rate-limit errors, the source of the rate limit. One of the
-    #   string values defined by `litellm.exceptions.RateLimitErrorCategory`
-    #   (vendor_rate_limit, vendor_batch_rate_limit, litellm_rate_limit,
-    #   litellm_batch_rate_limit). None for non-rate-limit exceptions.
+    #   string values defined by `embrouter.exceptions.RateLimitErrorCategory`
+    #   (vendor_rate_limit, vendor_batch_rate_limit, embrouter_rate_limit,
+    #   embrouter_batch_rate_limit). None for non-rate-limit exceptions.
     #   Surfaced here so custom callbacks / metrics consumers can switch on
     #   the rate-limit source without reaching for the raw exception.
     error_rate_limit_category: str | None
     # error_rate_limit_type:
     #   For 429 / rate-limit errors, the dimension that was exceeded. One of
-    #   the string values defined by `litellm.exceptions.RateLimitType`
+    #   the string values defined by `embrouter.exceptions.RateLimitType`
     #   (requests, tokens, concurrent_requests, budget, max_iterations).
     #   None for non-rate-limit exceptions and for rate-limit exceptions that
     #   did not classify the failure (e.g. legacy vendor 429 with no header
@@ -3291,7 +3291,7 @@ GuardrailStatus = Literal[
 
 # Fields on a guardrail record whose values can quote the caller's prompt: the payload sent to the
 # guardrail, the provider response that echoes it back, and the two first-party hooks that inline
-# prompt substrings (``block_code_execution`` and ``litellm_content_filter``). Every other field
+# prompt substrings (``block_code_execution`` and ``embrouter_content_filter``). Every other field
 # reports what the guardrail decided without reproducing the prompt, so redaction replaces these
 # four and keeps the rest of the record.
 PROMPT_CARRYING_GUARDRAIL_FIELDS: Final[frozenset[str]] = frozenset(
@@ -3558,8 +3558,8 @@ class ClassifierAudit(TypedDict, total=False):
 class StandardLoggingPayload(ClassifierAudit):
     id: str
     trace_id: str  # Trace multiple LLM calls belonging to same overall request (e.g. fallbacks/retries)
-    session_id: str  # End-user/conversation session id (litellm_session_id), independent of trace_id
-    litellm_call_id: str | None  # UUID returned in x-litellm-call-id response header
+    session_id: str  # End-user/conversation session id (embrouter_session_id), independent of trace_id
+    embrouter_call_id: str | None  # UUID returned in x-embrouter-call-id response header
     call_type: str
     stream: bool | None
     response_cost: float
@@ -3693,11 +3693,11 @@ class StandardCallbackDynamicParams(TypedDict, total=False):
 
     # Logging settings
     turn_off_message_logging: bool | None  # when true will not log messages
-    litellm_disabled_callbacks: list[str] | None
+    embrouter_disabled_callbacks: list[str] | None
 
 
 class MirroredPricingParams(BaseModel):
-    """Pricing overrides that ``Deployment.__init__`` mirrors from ``litellm_params``
+    """Pricing overrides that ``Deployment.__init__`` mirrors from ``embrouter_params``
     onto ``model_info``, so both blobs hold the same rate.
 
     Declared once and inherited by both sides of that mirror, so the two can't drift.
@@ -3712,7 +3712,7 @@ class MirroredPricingParams(BaseModel):
     tiered_pricing: list[dict[str, Any]] | None = None
 
 
-class CustomPricingLiteLLMParams(MirroredPricingParams):
+class CustomPricingEmbRouterParams(MirroredPricingParams):
     ## CUSTOM PRICING ##
     cost_per_second: float | None = None
     input_cost_per_second: float | None = None
@@ -3730,7 +3730,7 @@ class CustomPricingLiteLLMParams(MirroredPricingParams):
     output_cost_per_pixel: float | None = None
 
     # Include all ModelInfoBase fields as optional
-    # This allows any model_info parameter to be set in litellm_params
+    # This allows any model_info parameter to be set in embrouter_params
     input_cost_per_token_flex: float | None = None
     input_cost_per_token_priority: float | None = None
     input_cost_per_token_balanced: float | None = None
@@ -3835,7 +3835,7 @@ class CustomPricingLiteLLMParams(MirroredPricingParams):
         """Return a copy of ``model_info`` without per-deployment custom pricing fields.
 
         Used when registering a deployment's info under the shared
-        ``{provider}/{model}`` key in ``litellm.model_cost``, so one deployment's
+        ``{provider}/{model}`` key in ``embrouter.model_cost``, so one deployment's
         pricing overrides don't pollute sibling deployments that share the same
         backend model. Full pricing stays under the deployment's unique model id.
         """
@@ -3846,14 +3846,14 @@ DEPLOYMENT_SCOPED_PRICING_FIELDS: Final[frozenset[str]] = frozenset({"off_peak_p
 
 SHARED_BACKEND_MODEL_INFO_FIELDS: Final[frozenset[str]] = (
     frozenset(ModelInfoBase.__required_keys__ | ModelInfoBase.__optional_keys__)
-    - frozenset(CustomPricingLiteLLMParams.model_fields)
+    - frozenset(CustomPricingEmbRouterParams.model_fields)
     - DEPLOYMENT_SCOPED_PRICING_FIELDS
 )
 
 
 def shared_backend_model_info(model_info: dict[str, Any]) -> dict[str, Any]:
     """Return only the fields safe to register under a shared ``{provider}/{model}``
-    key in ``litellm.model_cost``: cost-map schema fields (``ModelInfoBase``) minus
+    key in ``embrouter.model_cost``: cost-map schema fields (``ModelInfoBase``) minus
     per-deployment pricing overrides and deployment-scoped pricing blocks such as
     ``off_peak_pricing``. Per-deployment metadata (``id``, ``access_via_team_ids``,
     arbitrary custom keys) never belongs on the shared key; it stays under the
@@ -3867,7 +3867,7 @@ ABOVE_THRESHOLD_COST_KEY_PATTERN: Final = re.compile(r"_above_\d+k?_tokens$")
 _PRICING_FIELD_EXEMPTIONS: Final[frozenset[str]] = frozenset({"output_vector_size"})
 
 SERVER_DERIVED_PRICING_FIELDS: Final[frozenset[str]] = (
-    frozenset(CustomPricingLiteLLMParams.model_fields) - _PRICING_FIELD_EXEMPTIONS
+    frozenset(CustomPricingEmbRouterParams.model_fields) - _PRICING_FIELD_EXEMPTIONS
 )
 
 
@@ -3893,7 +3893,7 @@ def without_server_derived_pricing(model_info: Mapping[str, Any]) -> Mapping[str
     Admin UI has a rate to show. Clients that echo that response back on save would
     otherwise persist the display value as a real per-deployment override, freezing the
     deployment at that day's price where no cost map refresh can reach it. A deployment's
-    own pricing belongs on ``litellm_params``, which is unaffected.
+    own pricing belongs on ``embrouter_params``, which is unaffected.
     """
     return MappingProxyType(
         {k: v for k, v in model_info.items() if k != PRICING_OVERRIDES_KEY and not is_server_derived_pricing_key(k)}
@@ -3903,10 +3903,10 @@ def without_server_derived_pricing(model_info: Mapping[str, Any]) -> Mapping[str
 def echoed_cost_map_pricing_fields(model_info: Mapping[str, object]) -> tuple[str, ...]:
     """Pricing fields a stored ``model_info`` blob copied from a ``/model/info`` response.
 
-    Only ``litellm.get_model_info`` emits ``key`` (the resolved cost-map entry), so a stored
+    Only ``embrouter.get_model_info`` emits ``key`` (the resolved cost-map entry), so a stored
     blob carrying it alongside pricing fields holds the cost map as it stood on the day the
     row was saved, not a price anyone typed. Rows saved before 1.102 through the Admin UI
-    edit form look exactly like this, and a price typed into ``litellm_params`` never does.
+    edit form look exactly like this, and a price typed into ``embrouter_params`` never does.
     """
     if COST_MAP_LOOKUP_KEY not in model_info:
         return ()
@@ -3918,7 +3918,7 @@ def echoed_cost_map_fields(
 ) -> tuple[str, ...]:
     """Fields a ``/model/info`` echo copied from the cost map unchanged.
 
-    Only ``litellm.get_model_info`` emits ``key``, so a blob carrying it is an echo of that
+    Only ``embrouter.get_model_info`` emits ``key``, so a blob carrying it is an echo of that
     response. Anything in it that still equals a resolved cost-map entry is a display value
     nobody typed; a value the operator edited differs from every entry and stays a real override.
     Callers pass both the live entry, which the router rewrites with each deployment's own
@@ -3941,23 +3941,23 @@ def pricing_override_fields(*sources: Mapping[str, object]) -> tuple[str, ...]:
     )
 
 
-agentic_loop_internal_litellm_params: Final = list(AGENTIC_LOOP_KWARG_NAMES)  # mutable-ok: public type stays a list
+agentic_loop_internal_embrouter_params: Final = list(AGENTIC_LOOP_KWARG_NAMES)  # mutable-ok: public type stays a list
 
-bedrock_batch_litellm_params: Final = BEDROCK_BATCH_KWARG_NAMES
+bedrock_batch_embrouter_params: Final = BEDROCK_BATCH_KWARG_NAMES
 
-TRUSTED_CALLBACK_VARS_FIELD: Final = _litellm_params.TRUSTED_CALLBACK_VARS_FIELD
-ADDRESSED_RESPONSE_ID_FIELD: Final = _litellm_params.ADDRESSED_RESPONSE_ID_FIELD
+TRUSTED_CALLBACK_VARS_FIELD: Final = _embrouter_params.TRUSTED_CALLBACK_VARS_FIELD
+ADDRESSED_RESPONSE_ID_FIELD: Final = _embrouter_params.ADDRESSED_RESPONSE_ID_FIELD
 
-all_litellm_params = [  # rebind-ok: two star imports in litellm/__init__.py re-bind it  # mutable-ok: callers concat
+all_embrouter_params = [  # rebind-ok: two star imports in embrouter/__init__.py re-bind it  # mutable-ok: callers concat
     *OWNED_KWARG_NAMES,
     *KWARG_ARTIFACTS,
     *StandardCallbackDynamicParams.__annotations__,
-    *CustomPricingLiteLLMParams.model_fields,
+    *CustomPricingEmbRouterParams.model_fields,
 ]
 
 
-def is_litellm_owned_kwarg(name: str) -> bool:
-    return name in all_litellm_params or name.startswith(INTERNAL_KWARG_PREFIX)
+def is_embrouter_owned_kwarg(name: str) -> bool:
+    return name in all_embrouter_params or name.startswith(INTERNAL_KWARG_PREFIX)
 
 
 class KeyGenerationConfig(TypedDict, total=False):
@@ -4089,7 +4089,7 @@ class LlmProviders(str, Enum):
     COMPACTIFAI = "compactifai"
     DOCKER_MODEL_RUNNER = "docker_model_runner"
     CUSTOM = "custom"
-    LITELLM_PROXY = "litellm_proxy"
+    EMBROUTER_PROXY = "embrouter_proxy"
     HOSTED_VLLM = "hosted_vllm"
     TENCENT = "tencent"
     LLAMAFILE = "llamafile"
@@ -4157,7 +4157,7 @@ class LlmProviders(str, Enum):
     DARKBLOOM = "darkbloom"
     META = "meta"
     SAIL = "sail"
-    LITELLM_AGENT = "litellm_agent"
+    EMBROUTER_AGENT = "embrouter_agent"
     CURSOR = "cursor"
     BEDROCK_MANTLE = "bedrock_mantle"
     GDC = "gdc"
@@ -4170,16 +4170,16 @@ LlmProvidersSet: Final = {provider.value for provider in LlmProviders}
 OPENAI_COMPATIBLE_BATCH_AND_FILES_PROVIDERS: set[str] = {
     LlmProviders.OPENAI.value,
     LlmProviders.HOSTED_VLLM.value,
-    LlmProviders.LITELLM_PROXY.value,
+    LlmProviders.EMBROUTER_PROXY.value,
 }
 
 FILE_CONTENT_STREAMING_PROVIDERS: Final[frozenset[str]] = frozenset(
     {*OPENAI_COMPATIBLE_BATCH_AND_FILES_PROVIDERS, LlmProviders.VERTEX_AI.value}
 )
 
-LITELLM_EXECUTED_BATCH_PROVIDERS: Final[frozenset[str]] = frozenset({LlmProviders.HOSTED_VLLM.value})
+EMBROUTER_EXECUTED_BATCH_PROVIDERS: Final[frozenset[str]] = frozenset({LlmProviders.HOSTED_VLLM.value})
 
-ListBatchesSupportedProvider = Literal["openai", "azure", "hosted_vllm", "litellm_proxy", "vertex_ai", "xai"]
+ListBatchesSupportedProvider = Literal["openai", "azure", "hosted_vllm", "embrouter_proxy", "vertex_ai", "xai"]
 
 LIST_BATCHES_SUPPORTED_PROVIDERS: Final[frozenset[str]] = frozenset(get_args(ListBatchesSupportedProvider))
 
@@ -4226,7 +4226,7 @@ class SandboxProviders(str, Enum):
     OPENSANDBOX = "opensandbox"
 
 
-class LiteLLMLoggingBaseClass:
+class EmbRouterLoggingBaseClass:
     """
     Base class for logging pre and post call
 
@@ -4240,7 +4240,7 @@ class LiteLLMLoggingBaseClass:
         pass
 
 
-class TokenCountResponse(LiteLLMPydanticObjectBase):
+class TokenCountResponse(EmbRouterPydanticObjectBase):
     total_tokens: int
     request_model: str
     model_used: str
@@ -4263,7 +4263,7 @@ class CustomHuggingfaceTokenizer(TypedDict):
     auth_token: str | None
 
 
-class LITELLM_IMAGE_VARIATION_PROVIDERS(Enum):
+class EMBROUTER_IMAGE_VARIATION_PROVIDERS(Enum):
     """
     Try using an enum for endpoints. This should make it easier to track what provider is supported for what endpoint.
     """
@@ -4289,7 +4289,7 @@ class SelectTokenizerResponse(TypedDict):
     tokenizer: ReadOnly["Tokenizer"]
 
 
-class LiteLLMFineTuningJob(FineTuningJob):
+class EmbRouterFineTuningJob(FineTuningJob):
     _hidden_params: dict = {}
     seed: int | None = None
 
@@ -4302,7 +4302,7 @@ class LiteLLMFineTuningJob(FineTuningJob):
         self._hidden_params = kwargs.get("_hidden_params", {})
 
 
-class LiteLLMBatch(Batch):
+class EmbRouterBatch(Batch):
     _hidden_params: dict = {}
     usage: Usage | None = None
 
@@ -4326,7 +4326,7 @@ class LiteLLMBatch(Batch):
             return self.dict()
 
 
-class LiteLLMRealtimeStreamLoggingObject(LiteLLMPydanticObjectBase):
+class EmbRouterRealtimeStreamLoggingObject(EmbRouterPydanticObjectBase):
     # Events are already well-formed provider dicts. Validating them against the
     # OpenAIRealtimeEvents union makes Pydantic try every member per event, which
     # floods thousands of ValidationErrors for events outside the union (e.g.
@@ -4367,11 +4367,11 @@ class RawRequestTypedDict(TypedDict, total=False):
     error: str | None
 
 
-from litellm.models.credentials import (  # noqa: E402
+from embrouter.models.credentials import (  # noqa: E402
     CreateCredentialItem as CreateCredentialItem,
 )
-from litellm.models.credentials import CredentialBase as CredentialBase  # noqa: E402
-from litellm.models.credentials import CredentialItem as CredentialItem  # noqa: E402
+from embrouter.models.credentials import CredentialBase as CredentialBase  # noqa: E402
+from embrouter.models.credentials import CredentialItem as CredentialItem  # noqa: E402
 
 
 class ExtractedFileData(TypedDict):
@@ -4392,24 +4392,24 @@ class ExtractedFileData(TypedDict):
 
 
 class SpecialEnums(Enum):
-    LITELM_MANAGED_FILE_ID_PREFIX = "litellm_proxy"
-    LITELLM_MANAGED_FILE_COMPLETE_STR = (
-        "litellm_proxy:{};unified_id,{};target_model_names,{};llm_output_file_id,{};llm_output_file_model_id,{}"
+    LITELM_MANAGED_FILE_ID_PREFIX = "embrouter_proxy"
+    EMBROUTER_MANAGED_FILE_COMPLETE_STR = (
+        "embrouter_proxy:{};unified_id,{};target_model_names,{};llm_output_file_id,{};llm_output_file_model_id,{}"
     )
 
-    LITELLM_MANAGED_RESPONSE_COMPLETE_STR = "litellm:custom_llm_provider:{};model_id:{};response_id:{}"
+    EMBROUTER_MANAGED_RESPONSE_COMPLETE_STR = "embrouter:custom_llm_provider:{};model_id:{};response_id:{}"
 
-    LITELLM_MANAGED_BATCH_COMPLETE_STR = "litellm_proxy;model_id:{};llm_batch_id:{}"
+    EMBROUTER_MANAGED_BATCH_COMPLETE_STR = "embrouter_proxy;model_id:{};llm_batch_id:{}"
 
-    LITELLM_MANAGED_RESPONSE_API_RESPONSE_ID_COMPLETE_STR = (
-        "litellm_proxy:responses_api:response_id:{};user_id:{};team_id:{}"
+    EMBROUTER_MANAGED_RESPONSE_API_RESPONSE_ID_COMPLETE_STR = (
+        "embrouter_proxy:responses_api:response_id:{};user_id:{};team_id:{}"
     )
 
-    LITELLM_MANAGED_GENERIC_RESPONSE_COMPLETE_STR = "litellm_proxy;model_id:{};generic_response_id:{}"  # generic implementation of 'managed batches' - used for finetuning and any future work.
+    EMBROUTER_MANAGED_GENERIC_RESPONSE_COMPLETE_STR = "embrouter_proxy;model_id:{};generic_response_id:{}"  # generic implementation of 'managed batches' - used for finetuning and any future work.
 
-    LITELLM_MANAGED_VIDEO_COMPLETE_STR = "litellm:custom_llm_provider:{};model_id:{};video_id:{}"
+    EMBROUTER_MANAGED_VIDEO_COMPLETE_STR = "embrouter:custom_llm_provider:{};model_id:{};video_id:{}"
 
-    LITELLM_PASSTHROUGH_MANAGED_ID_COMPLETE_STR = "litellm_proxy:passthrough;provider:{};unified_id,{};raw_id,{}"
+    EMBROUTER_PASSTHROUGH_MANAGED_ID_COMPLETE_STR = "embrouter_proxy:passthrough;provider:{};unified_id,{};raw_id,{}"
 
 
 class ServiceTier(Enum):
@@ -4442,11 +4442,11 @@ LLMResponseTypes = (
     | EmbeddingResponse
     | ImageResponse
     | OpenAIFileObject
-    | LiteLLMBatch
-    | LiteLLMFineTuningJob
+    | EmbRouterBatch
+    | EmbRouterFineTuningJob
     | AnthropicMessagesResponse
     | ResponsesAPIResponse
-    | LiteLLMSendMessageResponse
+    | EmbRouterSendMessageResponse
 )
 
 
@@ -4477,7 +4477,7 @@ class PriorityReservationDict(TypedDict, total=False):
     """
     Dictionary format for priority reservation values.
 
-    Used in litellm.priority_reservation to specify how much capacity to reserve
+    Used in embrouter.priority_reservation to specify how much capacity to reserve
     for each priority level. Supports three formats:
     1. Percentage-based: {"type": "percent", "value": 0.9} -> 90% of capacity
     2. RPM-based: {"type": "rpm", "value": 900} -> 900 requests per minute
@@ -4497,12 +4497,12 @@ class PriorityReservationSettings(BaseModel):
     Settings for priority-based rate limiting reservation.
 
     Defines what priority to assign to keys without explicit priority metadata.
-    The priority_reservation mapping is configured separately via litellm.priority_reservation.
+    The priority_reservation mapping is configured separately via embrouter.priority_reservation.
     """
 
     default_priority: float = Field(
         default=0.25,
-        description="Priority level to assign to API keys without explicit priority metadata. Should match a key in litellm.priority_reservation.",
+        description="Priority level to assign to API keys without explicit priority metadata. Should match a key in embrouter.priority_reservation.",
     )
 
     saturation_threshold: float = Field(

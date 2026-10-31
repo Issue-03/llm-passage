@@ -11,7 +11,7 @@ import httpx
 from pydantic import BaseModel, ConfigDict, Field
 from typing_extensions import TypedDict
 
-from litellm.types.llms.base import HiddenParams
+from embrouter.types.llms.base import HiddenParams
 
 if TYPE_CHECKING:
     import httpx2
@@ -117,13 +117,13 @@ class MCPAllowedClient(BaseModel):
     )
     value: str = Field(
         min_length=1,
-        description="Exact value of the JWT claim named in litellm_jwtauth.mcp_client_id_jwt_field, or of the "
+        description="Exact value of the JWT claim named in embrouter_jwtauth.mcp_client_id_jwt_field, or of the "
         "mcp_client_id_header header, that identifies this client application. Matched case-sensitively.",
     )
 
 
 class MCPToolSearchSettings(BaseModel):
-    """`litellm_settings.mcp_tool_search`: how the native `mcp_tool_search` virtual tool ranks the caller's tools."""
+    """`embrouter_settings.mcp_tool_search`: how the native `mcp_tool_search` virtual tool ranks the caller's tools."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -246,7 +246,7 @@ class MCPCredentials(TypedDict, total=False):
 
     upstream_token_header: str | None  # writable-ok: pydantic warns it cannot honour ReadOnly here
     """
-    Which upstream header carries the credential LiteLLM resolves for this server. Omitted when
+    Which upstream header carries the credential EmbRouter resolves for this server. Omitted when
     unset, which keeps RFC 6750's default of ``Authorization``. Set it when the upstream expects the
     gateway's token somewhere else (an ESB terminating its own credential on e.g. ``esb-oauth``), so
     a separate operator-configured ``Authorization`` reaches the origin untouched. Non-secret, so it
@@ -382,7 +382,7 @@ def credential_redirect_hook(
 
 MCP_ADMIN_CONFIG_CREDENTIAL_KEYS: Final[tuple[str, ...]] = ("upstream_resource", "upstream_token_header")
 """Non-secret credential keys returned on read so the admin form can show and clear them. Mirrors
-``ADMIN_CONFIG_CREDENTIAL_KEYS`` in ``ui/litellm-dashboard/src/components/mcp_tools/types.tsx``."""
+``ADMIN_CONFIG_CREDENTIAL_KEYS`` in ``ui/embrouter-dashboard/src/components/mcp_tools/types.tsx``."""
 
 
 class MCPServerCostInfo(TypedDict, total=False):

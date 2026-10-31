@@ -36,87 +36,87 @@ from websockets.exceptions import (
 )
 from websockets.frames import Close, CloseCode
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm._uuid import uuid
-from litellm.constants import (
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter._uuid import uuid
+from embrouter.constants import (
     MAXIMUM_TRACEBACK_LINES_TO_LOG,
     PASSTHROUGH_UPSTREAM_ERROR_BODY_MAX_LOG_CHARS,
-    REDACTED_BY_LITELLM,
+    REDACTED_BY_EMBROUTER,
     SESSION_ID_OMITTED_METADATA_KEY,
     WEBSOCKET_CLOSE_REASON_MAX_BYTES,
 )
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.core_helpers import (
+from embrouter.integrations.custom_guardrail import CustomGuardrail
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.embrouter_core_utils.core_helpers import (
     bind_budget_reservation_to_callbacks,
     get_metadata_variable_name_from_kwargs,
     get_or_create_metadata_bucket,
 )
-from litellm.litellm_core_utils.initialize_dynamic_callback_params import validate_no_callback_env_reference
-from litellm.litellm_core_utils.internal_call_metadata import MODEL_ACCESS_GROUP_METADATA_KEY
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.litellm_core_utils.litellm_logging import _get_masked_values
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-from litellm.litellm_core_utils.redact_messages import should_redact_message_logging
-from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
-from litellm.llms.base_llm.managed_resources.utils import (
+from embrouter.embrouter_core_utils.initialize_dynamic_callback_params import validate_no_callback_env_reference
+from embrouter.embrouter_core_utils.internal_call_metadata import MODEL_ACCESS_GROUP_METADATA_KEY
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.embrouter_core_utils.embrouter_logging import _get_masked_values
+from embrouter.embrouter_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from embrouter.embrouter_core_utils.redact_messages import should_redact_message_logging
+from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps
+from embrouter.llms.base_llm.managed_resources.utils import (
     resolve_passthrough_managed_id_provider,
 )
-from litellm.llms.custom_httpx.http_handler import get_async_httpx_client
-from litellm.passthrough import BasePassthroughUtils
-from litellm.proxy._types import (
+from embrouter.llms.custom_httpx.http_handler import get_async_httpx_client
+from embrouter.passthrough import BasePassthroughUtils
+from embrouter.proxy._types import (
     ConfigFieldInfo,
     ConfigFieldUpdate,
-    LiteLLMRoutes,
+    EmbRouterRoutes,
     PassThroughEndpointResponse,
     PassThroughGenericEndpoint,
     ProxyException,
     UserAPIKeyAuth,
 )
-from litellm.proxy.auth.auth_utils import request_dispatched_to_pass_through_endpoint
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.common_request_processing import (
+from embrouter.proxy.auth.auth_utils import request_dispatched_to_pass_through_endpoint
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.common_request_processing import (
     ProxyBaseLLMRequestProcessing,
     log_llm_api_exception,
     open_sse_before_first_byte,
-    resolve_litellm_call_id,
+    resolve_embrouter_call_id,
 )
-from litellm.proxy.common_utils.error_body_call_id import JSON_OBJECT, error_body_call_id, with_call_id
-from litellm.proxy.common_utils.http_parsing_utils import (
+from embrouter.proxy.common_utils.error_body_call_id import JSON_OBJECT, error_body_call_id, with_call_id
+from embrouter.proxy.common_utils.http_parsing_utils import (
     _read_request_body,
     _safe_get_request_headers,
 )
-from litellm.proxy.common_utils.openai_error_payload import (
-    LITELLM_CALL_ID_HEADER,
+from embrouter.proxy.common_utils.openai_error_payload import (
+    EMBROUTER_CALL_ID_HEADER,
     error_status_code,
-    litellm_call_id_headers,
+    embrouter_call_id_headers,
     openai_error_param,
     openai_error_type,
 )
-from litellm.proxy.common_utils.sse_keepalive import (
+from embrouter.proxy.common_utils.sse_keepalive import (
     wrap_passthrough_sse_bytes_with_keepalive_pings,
 )
-from litellm.proxy.litellm_pre_call_utils import (
-    LiteLLMProxyRequestSetup,
+from embrouter.proxy.embrouter_pre_call_utils import (
+    EmbRouterProxyRequestSetup,
     _get_dynamic_logging_metadata,  # pyright: ignore[reportPrivateUsage]  # shared proxy helper, same import style as _read_request_body above
 )
-from litellm.proxy.route_llm_request import ProxyModelNotFoundError
-from litellm.proxy.utils import normalize_route_for_root_path
-from litellm.repositories.team_repository import TeamRepository
-from litellm.secret_managers.main import get_secret_str
-from litellm.types import utils as types_utils
-from litellm.types.litellm_params import ProxyRequestState, wire_names
-from litellm.types.llms.custom_http import httpxSpecialProvider
-from litellm.types.passthrough_endpoints.pass_through_endpoints import (
-    LITELLM_PASS_THROUGH_CUSTOM_BODY_STATE_KEY,
-    LITELLM_PASS_THROUGH_DEPLOYMENT_MODEL_INFO_STATE_KEY,
-    LITELLM_PASS_THROUGH_ENDPOINT_MARKER,
-    LITELLM_PASS_THROUGH_RAW_BODY_STATE_KEY,
+from embrouter.proxy.route_llm_request import ProxyModelNotFoundError
+from embrouter.proxy.utils import normalize_route_for_root_path
+from embrouter.repositories.team_repository import TeamRepository
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types import utils as types_utils
+from embrouter.types.embrouter_params import ProxyRequestState, wire_names
+from embrouter.types.llms.custom_http import httpxSpecialProvider
+from embrouter.types.passthrough_endpoints.pass_through_endpoints import (
+    EMBROUTER_PASS_THROUGH_CUSTOM_BODY_STATE_KEY,
+    EMBROUTER_PASS_THROUGH_DEPLOYMENT_MODEL_INFO_STATE_KEY,
+    EMBROUTER_PASS_THROUGH_ENDPOINT_MARKER,
+    EMBROUTER_PASS_THROUGH_RAW_BODY_STATE_KEY,
     EndpointType,
     PassthroughStandardLoggingPayload,
 )
-from litellm.types.utils import TRUSTED_CALLBACK_VARS_FIELD, Usage
+from embrouter.types.utils import TRUSTED_CALLBACK_VARS_FIELD, Usage
 
 from .llm_provider_handlers.tinyfish_passthrough_logging_handler import (
     is_tinyfish_agent_url,
@@ -129,14 +129,14 @@ from .upstream_usage_headers import (
 )
 
 if TYPE_CHECKING:
-    from litellm.proxy.proxy_server import ProxyConfig
+    from embrouter.proxy.proxy_server import ProxyConfig
 
 router: Final = APIRouter()
 
 pass_through_endpoint_logging: Final = PassThroughEndpointLogging()
 
-_METADATA_KEYS: Final = frozenset(("litellm_metadata", "metadata"))
-_KEPT_OUT_OF_LITELLM_PARAMS: Final = _METADATA_KEYS | frozenset(wire_names(ProxyRequestState))
+_METADATA_KEYS: Final = frozenset(("embrouter_metadata", "metadata"))
+_KEPT_OUT_OF_EMBROUTER_PARAMS: Final = _METADATA_KEYS | frozenset(wire_names(ProxyRequestState))
 
 # Global registry to track registered pass-through routes and prevent memory leaks
 _registered_pass_through_routes: Final[dict[str, dict[str, str | bool | list[str] | Mapping[str, object]]]] = {}
@@ -163,7 +163,7 @@ async def set_env_variables_in_header(custom_headers: dict | None) -> dict | Non
         return None
     headers: Final = {}
     for key, value in custom_headers.items():
-        # langfuse Api requires base64 encoded headers - it's simpleer to just ask litellm users to set their langfuse public and secret keys
+        # langfuse Api requires base64 encoded headers - it's simpleer to just ask embrouter users to set their langfuse public and secret keys
         # we can then get the b64 encoded keys here
         if key == "LANGFUSE_PUBLIC_KEY" or key == "LANGFUSE_SECRET_KEY":
             # langfuse requires b64 encoded headers - we construct that here
@@ -202,8 +202,8 @@ async def chat_completion_pass_through_endpoint(
     adapter_id: str,
     user_api_key_dict: UserAPIKeyAuth,
 ):
-    from litellm.proxy.proxy_server import (
-        add_litellm_data_to_request,
+    from embrouter.proxy.proxy_server import (
+        add_embrouter_data_to_request,
         general_settings,
         llm_router,
         proxy_config,
@@ -216,8 +216,8 @@ async def chat_completion_pass_through_endpoint(
         version,
     )
 
-    litellm_call_id: Final = resolve_litellm_call_id(request.headers.get("x-litellm-call-id"))
-    data = {"litellm_call_id": litellm_call_id}
+    embrouter_call_id: Final = resolve_embrouter_call_id(request.headers.get("x-embrouter-call-id"))
+    data = {"embrouter_call_id": embrouter_call_id}
     try:
         body: Final = await request.body()
         body_str: Final = body.decode()
@@ -228,7 +228,7 @@ async def chat_completion_pass_through_endpoint(
 
         data["adapter_id"] = adapter_id
 
-        verbose_proxy_logger.debug("Request received by LiteLLM:\n%s", data)
+        verbose_proxy_logger.debug("Request received by EmbRouter:\n%s", data)
         data["model"] = (
             general_settings.get("completion_model", None)  # server default
             or user_model  # model name passed via cli args
@@ -237,7 +237,7 @@ async def chat_completion_pass_through_endpoint(
         if user_model:
             data["model"] = user_model
 
-        data = await add_litellm_data_to_request(
+        data = await add_embrouter_data_to_request(
             data=data,
             request=request,
             general_settings=general_settings,
@@ -259,8 +259,8 @@ async def chat_completion_pass_through_endpoint(
         ### MODEL ALIAS MAPPING ###
         # check if model name in model alias map
         # get the actual model name
-        if data["model"] in litellm.model_alias_map:
-            data["model"] = litellm.model_alias_map[data["model"]]
+        if data["model"] in embrouter.model_alias_map:
+            data["model"] = embrouter.model_alias_map[data["model"]]
 
         # Check key-specific aliases
         if (
@@ -280,7 +280,7 @@ async def chat_completion_pass_through_endpoint(
         router_model_names: Final = llm_router.model_names if llm_router is not None else []
         # skip router if user passed their key
         if "api_key" in data:
-            llm_response = asyncio.create_task(litellm.aadapter_completion(**data))
+            llm_response = asyncio.create_task(embrouter.aadapter_completion(**data))
         elif llm_router is not None and llm_router.is_recognized_model(data["model"]):
             llm_response = asyncio.create_task(llm_router.aadapter_completion(**data))
         elif (
@@ -293,8 +293,8 @@ async def chat_completion_pass_through_endpoint(
             llm_router is not None and data["model"] in llm_router.deployment_names
         ):  # model in router deployments, calling a specific deployment on the router (lowest priority)
             llm_response = asyncio.create_task(llm_router.aadapter_completion(**data, specific_deployment=True))
-        elif user_model is not None:  # `litellm --model <your-model-name>`
-            llm_response = asyncio.create_task(litellm.aadapter_completion(**data))
+        elif user_model is not None:  # `embrouter --model <your-model-name>`
+            llm_response = asyncio.create_task(embrouter.aadapter_completion(**data))
         else:
             raise ProxyModelNotFoundError(
                 route="completion", model_name=data.get("model", ""), retryable_with_model_read_through=False
@@ -310,7 +310,7 @@ async def chat_completion_pass_through_endpoint(
         response_cost: Final = hidden_params.get("response_cost", None) or ""
 
         ### ALERTING ###
-        asyncio.create_task(proxy_logging_obj.update_request_status(litellm_call_id=litellm_call_id, status="success"))
+        asyncio.create_task(proxy_logging_obj.update_request_status(embrouter_call_id=embrouter_call_id, status="success"))
 
         verbose_proxy_logger.debug("final response: %s", response)
 
@@ -325,19 +325,19 @@ async def chat_completion_pass_through_endpoint(
             )
         )
 
-        verbose_proxy_logger.debug("\nResponse from Litellm:\n%s", response)
+        verbose_proxy_logger.debug("\nResponse from Embrouter:\n%s", response)
         return response
     except Exception as e:
         await proxy_logging_obj.post_call_failure_hook(
             user_api_key_dict=user_api_key_dict, original_exception=e, request_data=data
         )
-        log_llm_api_exception(e, litellm_call_id)
+        log_llm_api_exception(e, embrouter_call_id)
         error_msg: Final = f"{e}"
         raise ProxyException(
             message=getattr(e, "message", error_msg),
             type=openai_error_type(e, error_status_code(e, 500)),
             param=openai_error_param(e),
-            headers=litellm_call_id_headers(litellm_call_id),
+            headers=embrouter_call_id_headers(embrouter_call_id),
             code=error_status_code(e, 500),
         )
 
@@ -346,7 +346,7 @@ class HttpPassThroughEndpointHelpers(BasePassthroughUtils):
     @staticmethod
     def get_response_headers(
         headers: httpx.Headers,
-        litellm_call_id: str | None = None,
+        embrouter_call_id: str | None = None,
         custom_headers: Mapping[str, str] | None = None,
     ) -> dict:
         # Exclude headers that uvicorn writes itself (server, date) and
@@ -365,8 +365,8 @@ class HttpPassThroughEndpointHelpers(BasePassthroughUtils):
         }
 
         return_headers: Final = {key: value for key, value in headers.items() if key.lower() not in excluded_headers}
-        if litellm_call_id:
-            return_headers["x-litellm-call-id"] = litellm_call_id
+        if embrouter_call_id:
+            return_headers["x-embrouter-call-id"] = embrouter_call_id
         if custom_headers:
             # Ensure custom headers don't override actual upstream response headers or let framework defaults (like content-length: 0) interfere.
             sanitized_custom_headers: Final = {
@@ -459,7 +459,7 @@ class HttpPassThroughEndpointHelpers(BasePassthroughUtils):
             return await async_client.send(get_request, stream=True)
         if HttpPassThroughEndpointHelpers.is_multipart(request) is True and forward_multipart:
             # Forward multipart via make_multipart_http_request even when _parsed_body is
-            # non-empty (pass_through_request always injects litellm_logging_obj, etc.).
+            # non-empty (pass_through_request always injects embrouter_logging_obj, etc.).
             # forward_multipart is False when custom_body was supplied (JSON body despite
             # multipart content-type) — those requests use the generic json= path.
             return await HttpPassThroughEndpointHelpers.make_multipart_http_request(
@@ -576,30 +576,30 @@ class HttpPassThroughEndpointHelpers(BasePassthroughUtils):
         request: Request,
         user_api_key_dict: UserAPIKeyAuth,
         passthrough_logging_payload: PassthroughStandardLoggingPayload,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         _parsed_body: dict | None = None,
-        litellm_call_id: str | None = None,
+        embrouter_call_id: str | None = None,
     ) -> dict:
         """
-        Filter out litellm params from the request body
+        Filter out embrouter params from the request body
         """
         _parsed_body = _parsed_body or {}
 
-        litellm_keys_in_body: Final = MappingProxyType(
-            {k: _parsed_body.pop(k) for k in types_utils.all_litellm_params if k in _parsed_body}
+        embrouter_keys_in_body: Final = MappingProxyType(
+            {k: _parsed_body.pop(k) for k in types_utils.all_embrouter_params if k in _parsed_body}
         )
-        litellm_params_in_body: Final = MappingProxyType(
-            {k: v for k, v in litellm_keys_in_body.items() if k not in _KEPT_OUT_OF_LITELLM_PARAMS}
+        embrouter_params_in_body: Final = MappingProxyType(
+            {k: v for k, v in embrouter_keys_in_body.items() if k not in _KEPT_OUT_OF_EMBROUTER_PARAMS}
         )
 
         _metadata = dict(
-            LiteLLMProxyRequestSetup.get_sanitized_user_information_from_key(user_api_key_dict=user_api_key_dict)
+            EmbRouterProxyRequestSetup.get_sanitized_user_information_from_key(user_api_key_dict=user_api_key_dict)
         )
 
-        litellm_metadata: Final = litellm_keys_in_body.get("litellm_metadata")
-        metadata: Final = litellm_keys_in_body.get("metadata")
-        if litellm_metadata:
-            _metadata.update(litellm_metadata)
+        embrouter_metadata: Final = embrouter_keys_in_body.get("embrouter_metadata")
+        metadata: Final = embrouter_keys_in_body.get("metadata")
+        if embrouter_metadata:
+            _metadata.update(embrouter_metadata)
         if metadata:
             _metadata.update(metadata)
 
@@ -612,8 +612,8 @@ class HttpPassThroughEndpointHelpers(BasePassthroughUtils):
         # body that mirrors them cannot clobber the authenticated key, the real
         # parent span, or the proxy's own session-id decision.
         _metadata.pop(SESSION_ID_OMITTED_METADATA_KEY, None)
-        _metadata["user_api_key"] = LiteLLMProxyRequestSetup.get_logged_api_key(user_api_key_dict)
-        _metadata["litellm_parent_otel_span"] = user_api_key_dict.parent_otel_span
+        _metadata["user_api_key"] = EmbRouterProxyRequestSetup.get_logged_api_key(user_api_key_dict)
+        _metadata["embrouter_parent_otel_span"] = user_api_key_dict.parent_otel_span
         _metadata["user_api_key_budget_reservation"] = user_api_key_dict.budget_reservation
         _metadata[MODEL_ACCESS_GROUP_METADATA_KEY] = user_api_key_dict.matched_model_access_groups
         # The per-model budget counters are keyed off these. get_sanitized_user_information_from_key
@@ -624,9 +624,9 @@ class HttpPassThroughEndpointHelpers(BasePassthroughUtils):
         # Only for the built-in provider routes. `get_model_from_request` returns
         # None for a user-defined pass-through, deliberately: its body is forwarded
         # verbatim, so `model` there names an UPSTREAM model rather than a
-        # LiteLLM-managed one. Enforcement is therefore skipped on those routes, and
+        # EmbRouter-managed one. Enforcement is therefore skipped on those routes, and
         # charging a counter anyway would track spend that nothing can refuse, and
-        # would attribute it to a budget the operator scoped to a LiteLLM model that
+        # would attribute it to a budget the operator scoped to a EmbRouter model that
         # merely shares the name.
         if not request_dispatched_to_pass_through_endpoint(request):
             _metadata["user_api_key_model_max_budget"] = user_api_key_dict.model_max_budget
@@ -634,18 +634,18 @@ class HttpPassThroughEndpointHelpers(BasePassthroughUtils):
             _metadata["user_api_key_user_model_max_budget"] = user_api_key_dict.user_model_max_budget
             _metadata["user_api_key_end_user_model_max_budget"] = user_api_key_dict.end_user_model_max_budget
         _metadata.update(
-            LiteLLMProxyRequestSetup.get_sanitized_user_information_from_key(user_api_key_dict=user_api_key_dict)
+            EmbRouterProxyRequestSetup.get_sanitized_user_information_from_key(user_api_key_dict=user_api_key_dict)
         )
         _request_state: Final = getattr(request, "state", None)
         deployment_model_info: Final = getattr(
-            _request_state, LITELLM_PASS_THROUGH_DEPLOYMENT_MODEL_INFO_STATE_KEY, None
+            _request_state, EMBROUTER_PASS_THROUGH_DEPLOYMENT_MODEL_INFO_STATE_KEY, None
         )
         if isinstance(deployment_model_info, Mapping):
             _metadata["model_info"] = dict(deployment_model_info)
 
         kwargs: Final = {
-            "litellm_params": {
-                **litellm_params_in_body,
+            "embrouter_params": {
+                **embrouter_params_in_body,
                 "metadata": _metadata,
                 "proxy_server_request": {
                     "url": str(request.url),
@@ -655,7 +655,7 @@ class HttpPassThroughEndpointHelpers(BasePassthroughUtils):
                 },
             },
             "call_type": "pass_through_endpoint",
-            "litellm_call_id": litellm_call_id,
+            "embrouter_call_id": embrouter_call_id,
             "passthrough_logging_payload": passthrough_logging_payload,
         }
 
@@ -767,15 +767,15 @@ def _carry_guardrail_logging_info(request_data: dict, guardrail_data: dict | Non
 def _build_passthrough_failure_request_payload(
     parsed_body: dict | None,
     kwargs: dict | None,
-    logging_obj: LiteLLMLoggingObj | None,
+    logging_obj: EmbRouterLoggingObj | None,
     custom_llm_provider: str | None,
     upstream_usage: UpstreamReportedUsage | None = None,
 ) -> dict:
     """Build the ``request_data`` dict passed to ``post_call_failure_hook``.
 
-    Shared by the outer exception handler (LiteLLM-internal failures) and
+    Shared by the outer exception handler (EmbRouter-internal failures) and
     upstream HTTP error logging, so both failure paths report the same shape
-    of request data (model, custom_llm_provider, litellm_logging_obj, ...).
+    of request data (model, custom_llm_provider, embrouter_logging_obj, ...).
 
     ``upstream_usage`` carries the cost and tokens an upstream reported on an
     error response. Spend tracking only attributes a recovered cost when it
@@ -785,7 +785,7 @@ def _build_passthrough_failure_request_payload(
     if kwargs:
         request_payload.update(kwargs)
     if logging_obj is not None:
-        request_payload["litellm_logging_obj"] = logging_obj
+        request_payload["embrouter_logging_obj"] = logging_obj
     if "model" not in request_payload and parsed_body and isinstance(parsed_body, dict):
         request_payload["model"] = parsed_body.get("model", "")
     if "custom_llm_provider" not in request_payload and custom_llm_provider:
@@ -810,7 +810,7 @@ def _resolve_team_callback_wiring(
 ) -> _TeamCallbackWiring:
     """Resolve key/team dynamic logging callbacks for a passthrough request.
 
-    Mirrors add_litellm_data_to_request: callback_vars are unpacked top-level
+    Mirrors add_embrouter_data_to_request: callback_vars are unpacked top-level
     (read by initialize_standard_callback_dynamic_params) and also stamped on
     the proxy-owned trusted-vars field (read by get_trusted_callback_params).
 
@@ -938,15 +938,15 @@ async def _log_passthrough_upstream_failure(
     response: httpx.Response,
     user_api_key_dict: UserAPIKeyAuth,
     request_payload: dict,
-    logging_obj: LiteLLMLoggingObj,
+    logging_obj: EmbRouterLoggingObj,
 ) -> httpx.Response:
     if response.status_code < 400:
         return response
-    from litellm.proxy.proxy_server import proxy_logging_obj
+    from embrouter.proxy.proxy_server import proxy_logging_obj
 
     preview_text, relay_response = await _error_body_preview_and_relay(response)
     upstream_error_body: Final = (
-        REDACTED_BY_LITELLM
+        REDACTED_BY_EMBROUTER
         if should_redact_message_logging(logging_obj.model_call_details)
         else _truncate_upstream_error_body(_sanitize_upstream_error_body(preview_text))
     )
@@ -992,7 +992,7 @@ async def _relay_reporting_failures(
     user_api_key_dict: UserAPIKeyAuth,
     request_payload: dict,  # mutable-ok: post_call_failure_hook lifts fields onto request_data in place
 ) -> AsyncGenerator[bytes, None]:
-    from litellm.proxy.proxy_server import proxy_logging_obj
+    from embrouter.proxy.proxy_server import proxy_logging_obj
 
     try:
         async for chunk in stream:
@@ -1015,7 +1015,7 @@ async def _relay_reporting_failures(
         raise
 
 
-from litellm.passthrough.timeout_utils import (
+from embrouter.passthrough.timeout_utils import (
     DEFAULT_PASS_THROUGH_REQUEST_TIMEOUT_SECONDS,  # noqa: F401 - re-exported for backward compat
     resolve_llm_passthrough_timeout,  # noqa: F401 - re-exported for backward compat
     resolve_pass_through_request_timeout,
@@ -1058,22 +1058,22 @@ async def pass_through_request(
         timeout: Optional per-endpoint timeout in seconds. Falls back to
             general_settings.pass_through_request_timeout, then 600s.
     """
-    from litellm.exceptions import ModifyResponseException
-    from litellm.litellm_core_utils.litellm_logging import Logging
-    from litellm.proxy.pass_through_endpoints.passthrough_guardrails import (
+    from embrouter.exceptions import ModifyResponseException
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging
+    from embrouter.proxy.pass_through_endpoints.passthrough_guardrails import (
         PassthroughGuardrailHandler,
     )
-    from litellm.proxy.proxy_server import proxy_config, proxy_logging_obj
+    from embrouter.proxy.proxy_server import proxy_config, proxy_logging_obj
 
     #########################################################
     # Initialize variables
     #########################################################
-    litellm_call_id: Final = str(uuid.uuid4())
+    embrouter_call_id: Final = str(uuid.uuid4())
     url: httpx.URL | None = None
 
     # parsed request body
     _parsed_body: dict | None = None
-    # kwargs for pass through endpoint, contains metadata, litellm_params, call_type, litellm_call_id, passthrough_logging_payload
+    # kwargs for pass through endpoint, contains metadata, embrouter_params, call_type, embrouter_call_id, passthrough_logging_payload
     kwargs: dict | None = None
     logging_obj: Logging | None = None
     # the dict post-call guardrails wrote their logging info into; the failure
@@ -1102,7 +1102,7 @@ async def pass_through_request(
         # values httpx accepts for `content=`.
         _request_state: Final = getattr(request, "state", None)
         state_raw_body: str | bytes | None = (
-            getattr(_request_state, LITELLM_PASS_THROUGH_RAW_BODY_STATE_KEY, None)
+            getattr(_request_state, EMBROUTER_PASS_THROUGH_RAW_BODY_STATE_KEY, None)
             if _request_state is not None
             else None
         )
@@ -1160,7 +1160,7 @@ async def pass_through_request(
             stream=False,
             call_type="pass_through_endpoint",
             start_time=start_time,
-            litellm_call_id=litellm_call_id,
+            embrouter_call_id=embrouter_call_id,
             function_id="1245",
             dynamic_success_callbacks=team_callbacks.success_callbacks,
             dynamic_failure_callbacks=team_callbacks.failure_callbacks,
@@ -1173,7 +1173,7 @@ async def pass_through_request(
         # Store logging_obj in data so guardrails can access it
         if _parsed_body is None:
             _parsed_body = {}
-        _parsed_body["litellm_logging_obj"] = logging_obj
+        _parsed_body["embrouter_logging_obj"] = logging_obj
 
         ### CALL HOOKS ### - modify incoming data / reject request before calling the model
         _parsed_body = await proxy_logging_obj.pre_call_hook(
@@ -1197,7 +1197,7 @@ async def pass_through_request(
             user_api_key_dict=user_api_key_dict,
             _parsed_body=_parsed_body,
             passthrough_logging_payload=passthrough_logging_payload,
-            litellm_call_id=litellm_call_id,
+            embrouter_call_id=embrouter_call_id,
             request=request,
             logging_obj=logging_obj,
         )
@@ -1205,27 +1205,27 @@ async def pass_through_request(
         # Store custom_llm_provider in kwargs and logging object if provided
         if custom_llm_provider:
             logging_obj.model_call_details["custom_llm_provider"] = custom_llm_provider
-            logging_obj.model_call_details["litellm_params"] = kwargs.get("litellm_params", {})
+            logging_obj.model_call_details["embrouter_params"] = kwargs.get("embrouter_params", {})
 
         # done for supporting 'parallel_request_limiter.py' with pass-through endpoints
         logging_obj.update_environment_variables(
             model=passthrough_model,
             user="unknown",
             optional_params={},
-            litellm_params=kwargs["litellm_params"],
+            embrouter_params=kwargs["embrouter_params"],
             call_type="pass_through_endpoint",
         )
-        logging_obj.model_call_details["litellm_call_id"] = litellm_call_id
+        logging_obj.model_call_details["embrouter_call_id"] = embrouter_call_id
 
         ## PASSTHROUGH MANAGED ID RESOLUTION (INPUT) ##
         # Resolve managed IDs in path, query params, and body back to raw
         # provider IDs before forwarding upstream.  Gated by feature flag and
         # enterprise managed-files hook.  Runs after pre_call_hook so
         # guardrails have already seen the managed IDs.
-        from litellm.proxy.proxy_server import (
+        from embrouter.proxy.proxy_server import (
             general_settings as proxy_general_settings,
         )
-        from litellm.proxy.proxy_server import (
+        from embrouter.proxy.proxy_server import (
             general_settings_view,
         )
 
@@ -1239,12 +1239,12 @@ async def pass_through_request(
             )
             _passthrough_managed_hook = proxy_logging_obj.get_proxy_hook("managed_files")
             if _passthrough_managed_hook is not None:
-                from litellm.proxy.pass_through_endpoints.managed_id_rewriter import (
+                from embrouter.proxy.pass_through_endpoints.managed_id_rewriter import (
                     rewrite_body_ids,
                     rewrite_path_ids,
                     rewrite_query_ids,
                 )
-                from litellm.proxy.proxy_server import (
+                from embrouter.proxy.proxy_server import (
                     prisma_client as _passthrough_prisma,
                 )
 
@@ -1317,12 +1317,12 @@ async def pass_through_request(
             and request.method == "GET"
             and proxy_logging_obj.get_proxy_hook("managed_files") is not None
         ):
-            from litellm.proxy.auth.auth_utils import get_request_route
-            from litellm.proxy.pass_through_endpoints.managed_id_rewriter import (
+            from embrouter.proxy.auth.auth_utils import get_request_route
+            from embrouter.proxy.pass_through_endpoints.managed_id_rewriter import (
                 is_passthrough_list_route,
                 list_passthrough_ids_from_db,
             )
-            from litellm.proxy.proxy_server import prisma_client as _list_prisma
+            from embrouter.proxy.proxy_server import prisma_client as _list_prisma
 
             if (
                 is_passthrough_list_route(_managed_id_provider, request.method, get_request_route(request))
@@ -1429,7 +1429,7 @@ async def pass_through_request(
             # Call response headers hook for streaming pass-through
             _response_headers = HttpPassThroughEndpointHelpers.get_response_headers(
                 headers=relay_response.headers,
-                litellm_call_id=litellm_call_id,
+                embrouter_call_id=embrouter_call_id,
             )
             callback_headers = await proxy_logging_obj.post_call_response_headers_hook(
                 data=_parsed_body or {},
@@ -1447,7 +1447,7 @@ async def pass_through_request(
                             stream=PassThroughStreamingHandler.chunk_processor(
                                 response=relay_response,
                                 request_body=_parsed_body,
-                                litellm_logging_obj=logging_obj,
+                                embrouter_logging_obj=logging_obj,
                                 endpoint_type=endpoint_type,
                                 start_time=start_time,
                                 passthrough_success_handler_obj=pass_through_endpoint_logging,
@@ -1466,7 +1466,7 @@ async def pass_through_request(
                         request=request,
                         user_api_key_dict=user_api_key_dict,
                     ),
-                    ping_interval_seconds=litellm.sse_keepalive_ping_interval_seconds,
+                    ping_interval_seconds=embrouter.sse_keepalive_ping_interval_seconds,
                     upstream_headers=relay_response.headers,
                 ),
                 headers=_response_headers,
@@ -1521,7 +1521,7 @@ async def pass_through_request(
             # Call response headers hook for detected streaming pass-through
             _response_headers = HttpPassThroughEndpointHelpers.get_response_headers(
                 headers=detected_relay_response.headers,
-                litellm_call_id=litellm_call_id,
+                embrouter_call_id=embrouter_call_id,
             )
             callback_headers = await proxy_logging_obj.post_call_response_headers_hook(
                 data=_parsed_body or {},
@@ -1539,7 +1539,7 @@ async def pass_through_request(
                             stream=PassThroughStreamingHandler.chunk_processor(
                                 response=detected_relay_response,
                                 request_body=_parsed_body,
-                                litellm_logging_obj=logging_obj,
+                                embrouter_logging_obj=logging_obj,
                                 endpoint_type=endpoint_type,
                                 start_time=start_time,
                                 passthrough_success_handler_obj=pass_through_endpoint_logging,
@@ -1558,7 +1558,7 @@ async def pass_through_request(
                         request=request,
                         user_api_key_dict=user_api_key_dict,
                     ),
-                    ping_interval_seconds=litellm.sse_keepalive_ping_interval_seconds,
+                    ping_interval_seconds=embrouter.sse_keepalive_ping_interval_seconds,
                     upstream_headers=detected_relay_response.headers,
                 ),
                 headers=_response_headers,
@@ -1568,7 +1568,7 @@ async def pass_through_request(
         if not _should_buffer_passthrough_response(response):
             relay_custom_headers: Final = ProxyBaseLLMRequestProcessing.get_custom_headers(
                 user_api_key_dict=user_api_key_dict,
-                call_id=litellm_call_id,
+                call_id=embrouter_call_id,
                 model_id=None,
                 cache_key=None,
                 api_base=str(url._uri_reference),
@@ -1674,11 +1674,11 @@ async def pass_through_request(
             )
             _passthrough_managed_hook = proxy_logging_obj.get_proxy_hook("managed_files")
             if _passthrough_managed_hook is not None:
-                from litellm.proxy.auth.auth_utils import get_request_route
-                from litellm.proxy.pass_through_endpoints.managed_id_rewriter import (
+                from embrouter.proxy.auth.auth_utils import get_request_route
+                from embrouter.proxy.pass_through_endpoints.managed_id_rewriter import (
                     rewrite_response_ids,
                 )
-                from litellm.proxy.proxy_server import (
+                from embrouter.proxy.proxy_server import (
                     prisma_client as _passthrough_prisma,
                 )
 
@@ -1736,12 +1736,12 @@ async def pass_through_request(
                     **kwargs,
                 )
             )
-            bind_budget_reservation_to_callbacks(logging_obj.litellm_params)
+            bind_budget_reservation_to_callbacks(logging_obj.embrouter_params)
 
-        ## CUSTOM HEADERS - `x-litellm-*`
+        ## CUSTOM HEADERS - `x-embrouter-*`
         custom_headers = ProxyBaseLLMRequestProcessing.get_custom_headers(
             user_api_key_dict=user_api_key_dict,
-            call_id=litellm_call_id,
+            call_id=embrouter_call_id,
             model_id=None,
             cache_key=None,
             api_base=str(url._uri_reference),
@@ -1762,7 +1762,7 @@ async def pass_through_request(
             custom_headers=custom_headers,
         )
         emitted_call_id: Final = (
-            JSON_OBJECT.validate_python(response_headers).get(LITELLM_CALL_ID_HEADER)
+            JSON_OBJECT.validate_python(response_headers).get(EMBROUTER_CALL_ID_HEADER)
             if response.status_code >= 400
             else None
         )
@@ -1815,7 +1815,7 @@ async def pass_through_request(
     except Exception as e:
         custom_headers = ProxyBaseLLMRequestProcessing.get_custom_headers(
             user_api_key_dict=user_api_key_dict,
-            call_id=litellm_call_id,
+            call_id=embrouter_call_id,
             model_id=None,
             cache_key=None,
             api_base=str(url._uri_reference) if url else None,
@@ -1827,7 +1827,7 @@ async def pass_through_request(
             )
         else:
             verbose_proxy_logger.exception(
-                "litellm.proxy.proxy_server.pass_through_endpoint(): Exception occured - %s", e
+                "embrouter.proxy.proxy_server.pass_through_endpoint(): Exception occured - %s", e
             )
 
         #########################################################
@@ -1835,12 +1835,12 @@ async def pass_through_request(
         # for pass through endpoint failure
         #########################################################
         request_payload: Final[dict] = _parsed_body or {}
-        # add user_api_key_dict, litellm_call_id, passthrough_logging_payloa for logging
+        # add user_api_key_dict, embrouter_call_id, passthrough_logging_payloa for logging
         if kwargs:
             for key, value in kwargs.items():
                 request_payload[key] = value
         if logging_obj is not None:
-            request_payload["litellm_logging_obj"] = logging_obj
+            request_payload["embrouter_logging_obj"] = logging_obj
 
         if "model" not in request_payload and _parsed_body and isinstance(_parsed_body, dict):
             request_payload["model"] = _parsed_body.get("model", "")
@@ -1886,7 +1886,7 @@ def _update_metadata_with_tags_in_header(request: Request, metadata: dict) -> di
     If tags are in the request headers, add them to the metadata
 
     Used for google and vertex JS SDKs, and Azure passthrough
-    Checks both 'tags' and 'x-litellm-tags' headers
+    Checks both 'tags' and 'x-embrouter-tags' headers
     """
     tags_to_add: Final = []
 
@@ -1895,7 +1895,7 @@ def _update_metadata_with_tags_in_header(request: Request, metadata: dict) -> di
     if _tags:
         tags_to_add.extend([tag.strip() for tag in _tags.split(",")])
 
-    _tags = request.headers.get("x-litellm-tags")
+    _tags = request.headers.get("x-embrouter-tags")
     if _tags:
         tags_to_add.extend([tag.strip() for tag in _tags.split(",")])
 
@@ -1991,8 +1991,8 @@ def create_pass_through_route(
     timeout: float | None = None,
 ):
     # check if target is an adapter.py or a url
-    from litellm._uuid import uuid
-    from litellm.proxy.types_utils.utils import get_instance_fn
+    from embrouter._uuid import uuid
+    from embrouter.proxy.types_utils.utils import get_instance_fn
 
     try:
         if isinstance(target, CustomLogger):
@@ -2000,7 +2000,7 @@ def create_pass_through_route(
         else:
             adapter = get_instance_fn(value=target, config_file_path=config_file_path)
         adapter_id: Final = str(uuid.uuid4())
-        litellm.adapters = [{"id": adapter_id, "adapter": adapter}]
+        embrouter.adapters = [{"id": adapter_id, "adapter": adapter}]
 
         async def endpoint_func(
             request: Request,
@@ -2024,10 +2024,10 @@ def create_pass_through_route(
             user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
             subpath: str = "",  # captures sub-paths when include_subpath=True
         ):
-            from litellm.proxy.auth.auth_utils import (  # noqa: PLC0415
+            from embrouter.proxy.auth.auth_utils import (  # noqa: PLC0415
                 get_request_route,
             )
-            from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+            from embrouter.proxy.pass_through_endpoints.pass_through_endpoints import (
                 InitPassThroughEndpointHelpers,
             )
 
@@ -2096,11 +2096,11 @@ def create_pass_through_route(
             final_query_params: Final = query_params_data if isinstance(query_params_data, dict) else {}
             if query_params:
                 final_query_params.update(query_params)
-            # Programmatic callers set LITELLM_PASS_THROUGH_CUSTOM_BODY_STATE_KEY on
+            # Programmatic callers set EMBROUTER_PASS_THROUGH_CUSTOM_BODY_STATE_KEY on
             # request.state (see Bedrock proxy). Parsed JSON envelope otherwise.
             state_custom_body: Final[dict | None] = getattr(
                 request.state,
-                LITELLM_PASS_THROUGH_CUSTOM_BODY_STATE_KEY,
+                EMBROUTER_PASS_THROUGH_CUSTOM_BODY_STATE_KEY,
                 None,
             )
             final_custom_body: dict | None = None
@@ -2130,22 +2130,22 @@ def create_pass_through_route(
                         timeout=cast(float | None, param_timeout),
                     )
                 finally:
-                    if hasattr(request.state, LITELLM_PASS_THROUGH_CUSTOM_BODY_STATE_KEY):
-                        delattr(request.state, LITELLM_PASS_THROUGH_CUSTOM_BODY_STATE_KEY)
-                    if hasattr(request.state, LITELLM_PASS_THROUGH_RAW_BODY_STATE_KEY):
-                        delattr(request.state, LITELLM_PASS_THROUGH_RAW_BODY_STATE_KEY)
-                    if hasattr(request.state, LITELLM_PASS_THROUGH_DEPLOYMENT_MODEL_INFO_STATE_KEY):
-                        delattr(request.state, LITELLM_PASS_THROUGH_DEPLOYMENT_MODEL_INFO_STATE_KEY)
+                    if hasattr(request.state, EMBROUTER_PASS_THROUGH_CUSTOM_BODY_STATE_KEY):
+                        delattr(request.state, EMBROUTER_PASS_THROUGH_CUSTOM_BODY_STATE_KEY)
+                    if hasattr(request.state, EMBROUTER_PASS_THROUGH_RAW_BODY_STATE_KEY):
+                        delattr(request.state, EMBROUTER_PASS_THROUGH_RAW_BODY_STATE_KEY)
+                    if hasattr(request.state, EMBROUTER_PASS_THROUGH_DEPLOYMENT_MODEL_INFO_STATE_KEY):
+                        delattr(request.state, EMBROUTER_PASS_THROUGH_DEPLOYMENT_MODEL_INFO_STATE_KEY)
 
             # The upstream withholds its response headers until its first token, so
             # the whole time-to-first-token is spent inside _relay with nothing on
             # the wire. Off unless an operator sets an interval.
             return await open_sse_before_first_byte(
                 _relay(),
-                ping_interval_seconds=(litellm.sse_keepalive_ping_interval_seconds if is_stream else None),
+                ping_interval_seconds=(embrouter.sse_keepalive_ping_interval_seconds if is_stream else None),
             )
 
-    setattr(endpoint_func, LITELLM_PASS_THROUGH_ENDPOINT_MARKER, True)
+    setattr(endpoint_func, EMBROUTER_PASS_THROUGH_ENDPOINT_MARKER, True)
     return endpoint_func
 
 
@@ -2170,7 +2170,7 @@ def create_websocket_passthrough_route(
     Returns:
         A WebSocket passthrough function that can be registered with app.websocket()
     """
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth_websocket
+    from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth_websocket
 
     async def websocket_endpoint_func(
         websocket: WebSocket,
@@ -2295,7 +2295,7 @@ _WEBSOCKET_FORWARDED_HEADERS: Final = frozenset(("x-goog-user-project",))
 
 def _with_trace_context(headers: Mapping[str, str], parent_span: object) -> dict[str, str]:
     try:
-        from litellm.integrations.otel.plumbing.context import inject_trace_context
+        from embrouter.integrations.otel.plumbing.context import inject_trace_context
     except ImportError:
         return dict(headers)  # mutable-ok: matches inject_trace_context's carrier return type
     return inject_trace_context(headers, parent_span=parent_span)
@@ -2325,16 +2325,16 @@ async def websocket_passthrough_request(
         cost_per_request: Optional field - cost per request to the target endpoint
         setup_model_rewriter: Optional rewrite of the setup frame's model before it reaches the upstream
     """
-    from litellm.litellm_core_utils.litellm_logging import Logging
-    from litellm.proxy.proxy_server import proxy_config, proxy_logging_obj
-    from litellm.types.passthrough_endpoints.pass_through_endpoints import (
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging
+    from embrouter.proxy.proxy_server import proxy_config, proxy_logging_obj
+    from embrouter.types.passthrough_endpoints.pass_through_endpoints import (
         PassthroughStandardLoggingPayload,
     )
 
     # Initialize tracking variables
     start_time: Final = datetime.now()
     websocket_messages: Final[list[dict[str, object]]] = []
-    litellm_call_id: Final = str(uuid.uuid4())
+    embrouter_call_id: Final = str(uuid.uuid4())
 
     verbose_proxy_logger.info("WebSocket passthrough (%s): Starting WebSocket connection to %s", endpoint, target)
 
@@ -2365,7 +2365,7 @@ async def websocket_passthrough_request(
         stream=True,  # WebSockets are inherently streaming
         call_type="pass_through_endpoint",
         start_time=start_time,
-        litellm_call_id=litellm_call_id,
+        embrouter_call_id=embrouter_call_id,
         function_id="websocket_passthrough",
         dynamic_success_callbacks=team_callbacks.success_callbacks,
         dynamic_failure_callbacks=team_callbacks.failure_callbacks,
@@ -2402,7 +2402,7 @@ async def websocket_passthrough_request(
         user_api_key_dict=user_api_key_dict,
         _parsed_body={},  # WebSocket doesn't have a traditional request body
         passthrough_logging_payload=passthrough_logging_payload,
-        litellm_call_id=litellm_call_id,
+        embrouter_call_id=embrouter_call_id,
         request=dummy_request,
         logging_obj=logging_obj,
     )
@@ -2412,10 +2412,10 @@ async def websocket_passthrough_request(
         model="unknown",
         user="unknown",
         optional_params={},
-        litellm_params=dict(kwargs.get("litellm_params", {})),
+        embrouter_params=dict(kwargs.get("embrouter_params", {})),
         call_type="pass_through_endpoint",
     )
-    logging_obj.model_call_details["litellm_call_id"] = litellm_call_id
+    logging_obj.model_call_details["embrouter_call_id"] = embrouter_call_id
 
     # Pre-call logging
     logging_obj.pre_call(
@@ -2618,8 +2618,8 @@ async def websocket_passthrough_request(
 
             # # Add user authentication context for database logging
             # if user_api_key_dict:
-            #     success_kwargs.setdefault('litellm_params', {})
-            #     success_kwargs['litellm_params'].update({
+            #     success_kwargs.setdefault('embrouter_params', {})
+            #     success_kwargs['embrouter_params'].update({
             #         'proxy_server_request': {
             #             'body': {
             #                 'user': user_api_key_dict.user_id,
@@ -2661,7 +2661,7 @@ async def websocket_passthrough_request(
                     **success_kwargs,
                 )
             )
-            bind_budget_reservation_to_callbacks(logging_obj.litellm_params)
+            bind_budget_reservation_to_callbacks(logging_obj.embrouter_params)
 
             # Call the proxy logging success hook
             if proxy_logging_obj:
@@ -2680,7 +2680,7 @@ async def websocket_passthrough_request(
             for key, value in kwargs.items():
                 request_payload[key] = value
         if logging_obj is not None:
-            request_payload["litellm_logging_obj"] = logging_obj
+            request_payload["embrouter_logging_obj"] = logging_obj
 
         # Log the connection failure using the same pattern as HTTP
         await proxy_logging_obj.post_call_failure_hook(
@@ -2708,7 +2708,7 @@ async def websocket_passthrough_request(
             for key, value in kwargs.items():
                 request_payload[key] = value
         if logging_obj is not None:
-            request_payload["litellm_logging_obj"] = logging_obj
+            request_payload["embrouter_logging_obj"] = logging_obj
 
         # Log the unexpected error using the same pattern as HTTP
         await proxy_logging_obj.post_call_failure_hook(
@@ -2740,7 +2740,7 @@ def _own_streamed_managed_ids(
     request: Request,
     user_api_key_dict: UserAPIKeyAuth,
 ) -> AsyncGenerator[bytes, None]:
-    from litellm.proxy.proxy_server import general_settings, prisma_client, proxy_logging_obj
+    from embrouter.proxy.proxy_server import general_settings, prisma_client, proxy_logging_obj
 
     if (
         managed_id_provider is None
@@ -2749,8 +2749,8 @@ def _own_streamed_managed_ids(
         or proxy_logging_obj.get_proxy_hook("managed_files") is None
     ):
         return stream
-    from litellm.proxy.auth.auth_utils import get_request_route
-    from litellm.proxy.pass_through_endpoints.managed_id_rewriter import (
+    from embrouter.proxy.auth.auth_utils import get_request_route
+    from embrouter.proxy.pass_through_endpoints.managed_id_rewriter import (
         rewrite_streamed_response_ids,
     )
 
@@ -2791,7 +2791,7 @@ async def _relay_passthrough_response_bytes(
     request_body: dict,
     url_route: str,
     start_time: datetime,
-    logging_obj: LiteLLMLoggingObj,
+    logging_obj: EmbRouterLoggingObj,
     custom_llm_provider: str | None,
     success_handler_kwargs: dict,
 ) -> AsyncGenerator[bytes, None]:
@@ -2833,7 +2833,7 @@ async def _relay_passthrough_response_bytes(
                 **success_handler_kwargs,
             )
         )
-        bind_budget_reservation_to_callbacks(logging_obj.litellm_params)
+        bind_budget_reservation_to_callbacks(logging_obj.embrouter_params)
 
 
 def _extract_model_from_vertex_ai_setup(setup_response: Mapping[str, object]) -> str | None:
@@ -3112,7 +3112,7 @@ class InitPassThroughEndpointHelpers:
     @staticmethod
     def remove_endpoint_routes(endpoint_id: str):
         """Remove all routes for a specific endpoint ID from the registry
-        and clean up corresponding entries from LiteLLMRoutes.openai_routes."""
+        and clean up corresponding entries from EmbRouterRoutes.openai_routes."""
         keys_to_remove: Final = [
             key for key, value in _registered_pass_through_routes.items() if value["endpoint_id"] == endpoint_id
         ]
@@ -3120,7 +3120,7 @@ class InitPassThroughEndpointHelpers:
             route_info = _registered_pass_through_routes[key]
             path = route_info.get("path")
             if isinstance(path, str):
-                openai_routes = LiteLLMRoutes.openai_routes.value
+                openai_routes = EmbRouterRoutes.openai_routes.value
                 if path in openai_routes:
                     openai_routes.remove(path)
                 if route_info.get("type") == "subpath":
@@ -3169,7 +3169,7 @@ class InitPassThroughEndpointHelpers:
         ## CHECK IF MAPPED PASS THROUGH ENDPOINT
         normalized_route: Final = normalize_route_for_root_path(route)
         if normalized_route is not None:
-            for mapped_route in LiteLLMRoutes.mapped_pass_through_routes.value:
+            for mapped_route in EmbRouterRoutes.mapped_pass_through_routes.value:
                 if normalized_route.startswith(mapped_route):
                     return True
 
@@ -3270,8 +3270,8 @@ async def _register_pass_through_endpoint(
         # unless the operator had a license. The safe option must always be free,
         # and unauthenticated forwarding should require explicit opt-in.
         dependencies = [Depends(user_api_key_auth)]
-        if path not in LiteLLMRoutes.openai_routes.value:
-            LiteLLMRoutes.openai_routes.value.append(path)
+        if path not in EmbRouterRoutes.openai_routes.value:
+            EmbRouterRoutes.openai_routes.value.append(path)
 
     if target is None:
         return
@@ -3307,8 +3307,8 @@ async def _register_pass_through_endpoint(
     if endpoint_data.get("include_subpath", False) is True:
         if auth is not None and str(auth).lower() == "true":
             wildcard_path: Final = path.rstrip("/") + "/*"
-            if wildcard_path not in LiteLLMRoutes.openai_routes.value:
-                LiteLLMRoutes.openai_routes.value.append(wildcard_path)
+            if wildcard_path not in EmbRouterRoutes.openai_routes.value:
+                EmbRouterRoutes.openai_routes.value.append(wildcard_path)
         InitPassThroughEndpointHelpers.add_subpath_route(
             app=app,
             path=path,
@@ -3355,7 +3355,7 @@ async def initialize_pass_through_endpoints(
         None
     """
     verbose_proxy_logger.debug("initializing pass through endpoints")
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         app,
         config_passthrough_endpoints,
         premium_user,
@@ -3408,7 +3408,7 @@ def _get_pass_through_endpoints_from_config() -> list[PassThroughGenericEndpoint
     """
     from pydantic import ValidationError
 
-    from litellm.proxy.proxy_server import config_passthrough_endpoints
+    from embrouter.proxy.proxy_server import config_passthrough_endpoints
 
     if config_passthrough_endpoints is None or len(config_passthrough_endpoints) == 0:
         return []
@@ -3447,12 +3447,12 @@ async def _get_pass_through_endpoints_from_db(
     endpoint_id: str | None = None,
     user_api_key_dict: UserAPIKeyAuth | None = None,
 ) -> list[PassThroughGenericEndpoint]:
-    from litellm.proxy._types import LitellmUserRoles
-    from litellm.proxy.proxy_server import get_config_general_settings
+    from embrouter.proxy._types import EmbrouterUserRoles
+    from embrouter.proxy.proxy_server import get_config_general_settings
 
     try:
         if user_api_key_dict is None:
-            user_api_key_dict = UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN)
+            user_api_key_dict = UserAPIKeyAuth(user_role=EmbrouterUserRoles.PROXY_ADMIN)
         response: Final[ConfigFieldInfo] = await get_config_general_settings(
             field_name="pass_through_endpoints", user_api_key_dict=user_api_key_dict
         )
@@ -3557,8 +3557,8 @@ async def get_pass_through_endpoints(
 
     If no endpoint_id given, return all configured endpoints.
     """  ## Get existing pass-through endpoint field value
-    from litellm.proxy._types import CommonProxyErrors
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy._types import CommonProxyErrors
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(
@@ -3606,7 +3606,7 @@ async def update_pass_through_endpoints(
     """
     Update a pass-through endpoint by ID.
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         get_config_general_settings,
         update_config_general_settings,
     )
@@ -3744,8 +3744,8 @@ async def create_pass_through_endpoints(
     """
     Create new pass-through endpoint
     """
-    from litellm._uuid import uuid
-    from litellm.proxy.proxy_server import (
+    from embrouter._uuid import uuid
+    from embrouter.proxy.proxy_server import (
         get_config_general_settings,
         update_config_general_settings,
     )
@@ -3838,7 +3838,7 @@ async def delete_pass_through_endpoints(
 
     Returns - the deleted endpoint
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         get_config_general_settings,
         update_config_general_settings,
     )

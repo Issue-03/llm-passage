@@ -13,7 +13,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from litellm.proxy import common_request_processing, proxy_server
+from embrouter.proxy import common_request_processing, proxy_server
 
 from .conftest import normalize  # type: ignore[import-not-found]
 

@@ -3,7 +3,7 @@ import traceback
 from datetime import datetime, timezone
 from typing import Final
 
-import litellm
+import embrouter
 
 
 class GreenscaleLogger:
@@ -32,7 +32,7 @@ class GreenscaleLogger:
 
             # Add additional metadata keys to tags
             tags: Final = []
-            metadata: Final = kwargs.get("litellm_params", {}).get("metadata", {})
+            metadata: Final = kwargs.get("embrouter_params", {}).get("metadata", {})
             for key, value in metadata.items():
                 if key.startswith("greenscale"):
                     if key == "greenscale_project":
@@ -47,7 +47,7 @@ class GreenscaleLogger:
             if self.greenscale_logging_url is None:
                 raise Exception("Greenscale Logger Error - No logging URL found")
 
-            response: Final = litellm.module_level_client.post(
+            response: Final = embrouter.module_level_client.post(
                 self.greenscale_logging_url,
                 headers=self.headers,
                 data=json.dumps(data, default=str),

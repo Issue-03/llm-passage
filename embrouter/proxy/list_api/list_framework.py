@@ -1,4 +1,4 @@
-"""Generic list handling for LiteLLM-defined collection routes.
+"""Generic list handling for EmbRouter-defined collection routes.
 
 A resource declares a `ListSpec`; `build_query_plan` turns query parameters into a
 `QueryPlan` or an RFC 9457 problem without touching a database, and `handle_list`
@@ -23,8 +23,8 @@ from fastapi import Request
 from pydantic import TypeAdapter, ValidationError
 from typing_extensions import assert_never
 
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.list_api.common import (
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.list_api.common import (
     PROBLEM_TYPE_BASE,
     ManagementProblem,
     build_list_links,
@@ -32,7 +32,7 @@ from litellm.proxy.list_api.common import (
     escape_like,
     unknown_query_param_problem,
 )
-from litellm.types.proxy.management_endpoints.management_v1 import (
+from embrouter.types.proxy.management_endpoints.management_v1 import (
     FacetListResponse,
     ListMeta,
     ListResponse,

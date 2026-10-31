@@ -4,16 +4,16 @@ import traceback
 from datetime import datetime
 from typing import Final
 
-from litellm import token_counter
-from litellm._logging import verbose_router_logger
-from litellm.caching.caching import DualCache
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.router_utils.batch_utils import is_batch_retrieve_call_type
-from litellm.types.utils import LiteLLMPydanticObjectBase
-from litellm.utils import print_verbose
+from embrouter import token_counter
+from embrouter._logging import verbose_router_logger
+from embrouter.caching.caching import DualCache
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.router_utils.batch_utils import is_batch_retrieve_call_type
+from embrouter.types.utils import EmbRouterPydanticObjectBase
+from embrouter.utils import print_verbose
 
 
-class RoutingArgs(LiteLLMPydanticObjectBase):
+class RoutingArgs(EmbRouterPydanticObjectBase):
     ttl: int = 1 * 60  # 1min (RPM/TPM expire key)
 
 
@@ -34,14 +34,14 @@ class LowestTPMLoggingHandler(CustomLogger):
             """
             Update TPM/RPM usage on success
             """
-            if "litellm_params" not in kwargs or kwargs["litellm_params"] is None:
+            if "embrouter_params" not in kwargs or kwargs["embrouter_params"] is None:
                 return
-            if kwargs["litellm_params"].get("metadata") is None:
+            if kwargs["embrouter_params"].get("metadata") is None:
                 pass
             else:
-                model_group: Final = kwargs["litellm_params"]["metadata"].get("model_group", None)
+                model_group: Final = kwargs["embrouter_params"]["metadata"].get("model_group", None)
 
-                id = kwargs["litellm_params"].get("model_info", {}).get("id", None)
+                id = kwargs["embrouter_params"].get("model_info", {}).get("id", None)
                 if model_group is None or id is None:
                     return
                 elif isinstance(id, int):
@@ -77,7 +77,7 @@ class LowestTPMLoggingHandler(CustomLogger):
                     self.logged_success += 1
         except Exception as e:
             verbose_router_logger.error(
-                "litellm.router_strategy.lowest_tpm_rpm.py::async_log_success_event(): Exception occured - %s", e
+                "embrouter.router_strategy.lowest_tpm_rpm.py::async_log_success_event(): Exception occured - %s", e
             )
             verbose_router_logger.debug(traceback.format_exc())
 
@@ -88,14 +88,14 @@ class LowestTPMLoggingHandler(CustomLogger):
             """
             Update TPM/RPM usage on success
             """
-            if "litellm_params" not in kwargs or kwargs["litellm_params"] is None:
+            if "embrouter_params" not in kwargs or kwargs["embrouter_params"] is None:
                 return
-            if kwargs["litellm_params"].get("metadata") is None:
+            if kwargs["embrouter_params"].get("metadata") is None:
                 pass
             else:
-                model_group: Final = kwargs["litellm_params"]["metadata"].get("model_group", None)
+                model_group: Final = kwargs["embrouter_params"]["metadata"].get("model_group", None)
 
-                model_info: Final = kwargs["litellm_params"].get("model_info")
+                model_info: Final = kwargs["embrouter_params"].get("model_info")
                 id = None
                 if model_info is not None and isinstance(model_info, dict):
                     id = model_info.get("id", None)
@@ -141,7 +141,7 @@ class LowestTPMLoggingHandler(CustomLogger):
                     self.logged_success += 1
         except Exception as e:
             verbose_router_logger.exception(
-                "litellm.router_strategy.lowest_tpm_rpm.py::async_log_success_event(): Exception occured - %s", e
+                "embrouter.router_strategy.lowest_tpm_rpm.py::async_log_success_event(): Exception occured - %s", e
             )
             verbose_router_logger.debug(traceback.format_exc())
 
@@ -207,7 +207,7 @@ class LowestTPMLoggingHandler(CustomLogger):
             if _deployment_tpm is None:
                 _deployment_tpm = _deployment.get("tpm")
             if _deployment_tpm is None:
-                _deployment_tpm = _deployment.get("litellm_params", {}).get("tpm")
+                _deployment_tpm = _deployment.get("embrouter_params", {}).get("tpm")
             if _deployment_tpm is None:
                 _deployment_tpm = _deployment.get("model_info", {}).get("tpm")
             if _deployment_tpm is None:
@@ -217,7 +217,7 @@ class LowestTPMLoggingHandler(CustomLogger):
             if _deployment_rpm is None:
                 _deployment_rpm = _deployment.get("rpm")
             if _deployment_rpm is None:
-                _deployment_rpm = _deployment.get("litellm_params", {}).get("rpm")
+                _deployment_rpm = _deployment.get("embrouter_params", {}).get("rpm")
             if _deployment_rpm is None:
                 _deployment_rpm = _deployment.get("model_info", {}).get("rpm")
             if _deployment_rpm is None:

@@ -1,25 +1,25 @@
 #!/usr/bin/env python3
 """
-OpenAI Moderation Guardrail Integration for LiteLLM
+OpenAI Moderation Guardrail Integration for EmbRouter
 """
 
 from typing import TYPE_CHECKING, Final, Literal, Optional
 
 from fastapi import HTTPException
 
-from litellm._logging import verbose_proxy_logger
-from litellm.integrations.custom_guardrail import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.integrations.custom_guardrail import (
     CustomGuardrail,
     log_guardrail_information,
 )
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.proxy.common_utils.callback_utils import add_guardrail_scan_id
-from litellm.types.guardrails import GuardrailEventHooks, SupportedGuardrailIntegrations
-from litellm.types.utils import (
+from embrouter.proxy.common_utils.callback_utils import add_guardrail_scan_id
+from embrouter.types.guardrails import GuardrailEventHooks, SupportedGuardrailIntegrations
+from embrouter.types.utils import (
     GenericGuardrailAPIInputs,
     GuardrailStatus,
     GuardrailTracingDetail,
@@ -28,13 +28,13 @@ from litellm.types.utils import (
 from .base import OpenAIGuardrailBase
 
 if TYPE_CHECKING:
-    from litellm.types.llms.openai import OpenAIModerationResponse
-    from litellm.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
+    from embrouter.types.llms.openai import OpenAIModerationResponse
+    from embrouter.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
 
 
 class OpenAIModerationGuardrail(OpenAIGuardrailBase, CustomGuardrail):
     """
-    LiteLLM Built-in Guardrail for OpenAI Content Moderation.
+    EmbRouter Built-in Guardrail for OpenAI Content Moderation.
 
     This guardrail scans prompts and responses using the OpenAI Moderation API to detect
     harmful content, including violence, hate, harassment, self-harm, sexual content, etc.
@@ -88,16 +88,16 @@ class OpenAIModerationGuardrail(OpenAIGuardrailBase, CustomGuardrail):
         )
 
     def _get_api_key(self) -> str | None:
-        """Get API key from environment variables or litellm configuration"""
+        """Get API key from environment variables or embrouter configuration"""
         import os
 
-        import litellm
-        from litellm.secret_managers.main import get_secret_str
+        import embrouter
+        from embrouter.secret_managers.main import get_secret_str
 
         return (
             os.environ.get("OPENAI_API_KEY")
-            or litellm.api_key
-            or litellm.openai_key
+            or embrouter.api_key
+            or embrouter.openai_key
             or get_secret_str("OPENAI_API_KEY")
         )
 
@@ -129,7 +129,7 @@ class OpenAIModerationGuardrail(OpenAIGuardrailBase, CustomGuardrail):
                 },
             )
 
-        from litellm.types.llms.openai import OpenAIModerationResponse
+        from embrouter.types.llms.openai import OpenAIModerationResponse
 
         return OpenAIModerationResponse(**response.json())
 
@@ -173,7 +173,7 @@ class OpenAIModerationGuardrail(OpenAIGuardrailBase, CustomGuardrail):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict,
         input_type: Literal["request", "response"],
-        logging_obj: Optional["LiteLLMLoggingObj"] = None,
+        logging_obj: Optional["EmbRouterLoggingObj"] = None,
     ) -> GenericGuardrailAPIInputs:
         """
         Apply OpenAI moderation guardrail using the unified guardrail interface.
@@ -341,7 +341,7 @@ class OpenAIModerationGuardrail(OpenAIGuardrailBase, CustomGuardrail):
         """
         Get the config model for the OpenAI Moderation guardrail.
         """
-        from litellm.types.proxy.guardrails.guardrail_hooks.openai.openai_moderation import (
+        from embrouter.types.proxy.guardrails.guardrail_hooks.openai.openai_moderation import (
             OpenAIModerationGuardrailConfigModel,
         )
 

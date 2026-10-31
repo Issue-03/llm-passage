@@ -226,7 +226,7 @@ def test_pre_push_accepts_conventional_branches(branch):
     "branch",
     [
         "random-branch-name",
-        "litellm_fix/optimize-streaming",  # legacy pattern is now rejected
+        "embrouter_fix/optimize-streaming",  # legacy pattern is now rejected
         "ui/navbar-notifications",         # not in the allow list
         "feature/",                        # empty description
         "Feature/foo",                     # type is case-sensitive

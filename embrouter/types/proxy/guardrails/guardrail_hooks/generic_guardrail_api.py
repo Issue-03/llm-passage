@@ -4,12 +4,12 @@ from typing import Any, Final, Literal, cast  # noqa: TID251  # JSON chat rows h
 from pydantic import BaseModel, ConfigDict, Field
 from typing_extensions import TypedDict
 
-from litellm.types.llms.openai import (
+from embrouter.types.llms.openai import (
     AllMessageValues,
     ChatCompletionToolCallChunk,
 )
-from litellm.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
-from litellm.types.utils import ChatCompletionMessageToolCall
+from embrouter.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
+from embrouter.types.utils import ChatCompletionMessageToolCall
 
 
 class GuardrailToolParam(BaseModel):
@@ -70,7 +70,7 @@ class GenericGuardrailAPIOptionalParams(BaseModel):
             "once at end of stream over the assembled response; lower cost and latency, "
             "but flagged content has already streamed to the client before the terminal "
             "block. Defaults are applied in GenericGuardrailAPI.__init__ when None so "
-            "unset optional_params does not shadow top-level litellm_params."
+            "unset optional_params does not shadow top-level embrouter_params."
         ),
     )
 
@@ -81,7 +81,7 @@ class GenericGuardrailAPIOptionalParams(BaseModel):
             "When streaming_end_of_stream_only is False, the guardrail runs every Nth "
             "streamed chunk. Ignored when streaming_end_of_stream_only is True. "
             "Must be >= 1 when set. Defaults to 5 in GenericGuardrailAPI.__init__ "
-            "when None so unset optional_params does not shadow top-level litellm_params."
+            "when None so unset optional_params does not shadow top-level embrouter_params."
         ),
     )
 
@@ -123,8 +123,8 @@ class GenericGuardrailAPIRequest(BaseModel):
     """Request model for the Generic Guardrail API"""
 
     input_type: Literal["request", "response"]
-    litellm_call_id: str | None = None  # the call id of the individual LLM call
-    litellm_trace_id: str | None = (
+    embrouter_call_id: str | None = None  # the call id of the individual LLM call
+    embrouter_trace_id: str | None = (
         None  # the trace id of the LLM call - useful if there are multiple LLM calls for the same conversation
     )
     structured_messages: list[AllMessageValues] | None = None
@@ -136,9 +136,9 @@ class GenericGuardrailAPIRequest(BaseModel):
         default=None,
         description="Sanitized inbound request headers from the original proxy request.",
     )
-    litellm_version: str | None = Field(
+    embrouter_version: str | None = Field(
         default=None,
-        description="LiteLLM library version running this proxy.",
+        description="EmbRouter library version running this proxy.",
     )
     additional_provider_specific_params: dict[str, Any] | None = None
     tool_calls: list[ChatCompletionToolCallChunk] | list[ChatCompletionMessageToolCall] | None = None

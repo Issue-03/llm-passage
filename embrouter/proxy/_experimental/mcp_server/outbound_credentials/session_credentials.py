@@ -4,7 +4,7 @@ The aggregate ``/mcp`` front door (``mcp_gateway_dcr``) issues the identity-only
 tokens defined in :mod:`.session_token`. The gateway token endpoint mints them (producer)
 after SSO sign-in, and at the MCP admission edge the gateway derives the session signing
 key from the proxy ``master_key``, opens the bearer, and admits the request under the
-recovered litellm user (consumer), reloading the live user record and policy before
+recovered embrouter user (consumer), reloading the live user record and policy before
 anything runs. This module is the pure surface for both sides; the token-endpoint and
 admission wiring live in their respective call sites.
 
@@ -22,7 +22,7 @@ from typing import Final, Literal, TypeAlias
 
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError
 
-from litellm.proxy._experimental.mcp_server.outbound_credentials.session_token import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.session_token import (
     AsymmetricSessionKeys,
     OpenedSessionToken,
     SessionExpired,
@@ -36,7 +36,7 @@ from litellm.proxy._experimental.mcp_server.outbound_credentials.session_token i
     open_session_token,
 )
 
-_SESSION_SIGNING_KEY_DOMAIN: Final = b"litellm-mcp-gateway:session-signing:"
+_SESSION_SIGNING_KEY_DOMAIN: Final = b"embrouter-mcp-gateway:session-signing:"
 
 # scrypt work factors (RFC 7914), identical to the envelope KDF: memory-hard so a captured
 # session token is not a cheap offline oracle for the master key.
@@ -106,7 +106,7 @@ class SessionSigningConfigError(BaseModel):
 def _resolve_key_material(value: str) -> str | None:
     if not value.startswith("os.environ/"):
         return value
-    from litellm.secret_managers.main import get_secret_str  # noqa: PLC0415  # heavy import kept off the pure path
+    from embrouter.secret_managers.main import get_secret_str  # noqa: PLC0415  # heavy import kept off the pure path
 
     return get_secret_str(value)
 
@@ -159,7 +159,7 @@ def active_session_signing_keys(master_key: str) -> SessionSigningKeys | Session
     """Wiring helper for the token endpoint and the admission edge: resolve the signing
     keys from the live ``general_settings.mcp_session_token_signing`` block, or derive the
     default HS256 key from ``master_key`` when the block is absent."""
-    from litellm.proxy.proxy_server import general_settings  # noqa: PLC0415  # circular import at module load
+    from embrouter.proxy.proxy_server import general_settings  # noqa: PLC0415  # circular import at module load
 
     return resolve_session_signing_keys(master_key, general_settings.get("mcp_session_token_signing"))
 

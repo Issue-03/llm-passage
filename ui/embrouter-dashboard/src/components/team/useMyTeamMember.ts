@@ -1,5 +1,5 @@
 import { useQuery, UseQueryResult } from "@tanstack/react-query";
-import { deriveErrorMessage, getGlobalLitellmHeaderName, getProxyBaseUrl } from "@/components/networking";
+import { deriveErrorMessage, getGlobalEmbrouterHeaderName, getProxyBaseUrl } from "@/components/networking";
 import useAuthorized from "@/app/(dashboard)/hooks/useAuthorized";
 
 export interface TeamMemberInfo {
@@ -11,7 +11,7 @@ export interface TeamMemberInfo {
   budget_id?: string | null;
   spend?: number | null;
   total_spend?: number | null;
-  litellm_budget_table?: {
+  embrouter_budget_table?: {
     budget_id?: string;
     soft_budget?: number | null;
     max_budget?: number | null;
@@ -34,7 +34,7 @@ const fetchMyTeamMember = async (accessToken: string, teamId: string): Promise<T
   const response = await fetch(url, {
     method: "GET",
     headers: {
-      [getGlobalLitellmHeaderName()]: `Bearer ${accessToken}`,
+      [getGlobalEmbrouterHeaderName()]: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
   });

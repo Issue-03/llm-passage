@@ -7,11 +7,11 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from litellm.proxy.anthropic_endpoints.streaming_model_restamp import (
+from embrouter.proxy.anthropic_endpoints.streaming_model_restamp import (
     AnthropicStreamModelRestamper,
     restamp_anthropic_stream_chunk_model,
 )
-from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+from embrouter.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
 
 
 def _message_start_frame(model: str, line_end: str = "\n") -> bytes:

@@ -6,8 +6,8 @@ Supports model-based conditions with exact match or regex patterns.
 
 import re
 
-from litellm._logging import verbose_proxy_logger
-from litellm.types.proxy.policy_engine import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.types.proxy.policy_engine import (
     PolicyCondition,
     PolicyMatchContext,
 )

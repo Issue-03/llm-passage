@@ -93,13 +93,13 @@ class RealtimeClientSecretRequest(BaseModel):
     """
     Request body for POST /v1/realtime/client_secrets.
 
-    LiteLLM also accepts a top-level `model` field for routing when
-    session.model is absent (LiteLLM extension, not forwarded to OpenAI).
+    EmbRouter also accepts a top-level `model` field for routing when
+    session.model is absent (EmbRouter extension, not forwarded to OpenAI).
     """
 
     expires_after: RealtimeExpiresAfter | None = None
     session: RealtimeSessionConfig | None = None
-    # LiteLLM-only routing hint — stripped before forwarding upstream
+    # EmbRouter-only routing hint — stripped before forwarding upstream
     model: str | None = None
 
 
@@ -122,14 +122,14 @@ class RealtimeTranscriptionSessionRequest(BaseModel):
     Request body for POST /v1/realtime/transcription_sessions.
 
     Mirrors OpenAI's RealtimeTranscriptionSessionCreateRequest. The model used
-    for routing is taken from the LiteLLM-only top-level `model` hint, falling
+    for routing is taken from the EmbRouter-only top-level `model` hint, falling
     back to `input_audio_transcription.model`. All other fields pass through
     unchanged to the provider.
     """
 
     model_config = {"extra": "allow"}
 
-    # LiteLLM-only routing hint — stripped before forwarding upstream.
+    # EmbRouter-only routing hint — stripped before forwarding upstream.
     model: str | None = None
     input_audio_transcription: dict[str, Any] | None = None
 

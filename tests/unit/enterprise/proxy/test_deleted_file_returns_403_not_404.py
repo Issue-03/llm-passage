@@ -13,7 +13,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 from fastapi import HTTPException
 
-from litellm.proxy._types import UserAPIKeyAuth
+from embrouter.proxy._types import UserAPIKeyAuth
 
 
 def _make_user_api_key_dict(user_id: str) -> UserAPIKeyAuth:
@@ -25,20 +25,20 @@ def _make_user_api_key_dict(user_id: str) -> UserAPIKeyAuth:
 
 
 def _make_unified_file_id() -> str:
-    raw = "litellm_proxy:application/octet-stream;unified_id,test-deleted-file;target_model_names,azure-gpt-4"
+    raw = "embrouter_proxy:application/octet-stream;unified_id,test-deleted-file;target_model_names,azure-gpt-4"
     return base64.b64encode(raw.encode()).decode()
 
 
 def _make_managed_files_with_no_db_record():
-    """Create a _PROXY_LiteLLMManagedFiles where the DB returns None (file was deleted)."""
-    from litellm_enterprise.proxy.hooks.managed_files import (
-        _PROXY_LiteLLMManagedFiles,
+    """Create a _PROXY_EmbRouterManagedFiles where the DB returns None (file was deleted)."""
+    from embrouter_enterprise.proxy.hooks.managed_files import (
+        _PROXY_EmbRouterManagedFiles,
     )
 
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_managedfiletable.find_first = AsyncMock(return_value=None)
+    mock_prisma.db.embrouter_managedfiletable.find_first = AsyncMock(return_value=None)
 
-    return _PROXY_LiteLLMManagedFiles(
+    return _PROXY_EmbRouterManagedFiles(
         internal_usage_cache=MagicMock(),
         prisma_client=mock_prisma,
     )
@@ -63,8 +63,8 @@ async def test_should_raise_404_for_deleted_file():
 @pytest.mark.asyncio
 async def test_should_allow_owner_access_when_record_exists():
     """Baseline: file owner can access their own file."""
-    from litellm_enterprise.proxy.hooks.managed_files import (
-        _PROXY_LiteLLMManagedFiles,
+    from embrouter_enterprise.proxy.hooks.managed_files import (
+        _PROXY_EmbRouterManagedFiles,
     )
 
     unified_file_id = _make_unified_file_id()
@@ -73,11 +73,11 @@ async def test_should_allow_owner_access_when_record_exists():
     mock_db_record.created_by = "user-A"
 
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_managedfiletable.find_first = AsyncMock(
+    mock_prisma.db.embrouter_managedfiletable.find_first = AsyncMock(
         return_value=mock_db_record
     )
 
-    managed_files = _PROXY_LiteLLMManagedFiles(
+    managed_files = _PROXY_EmbRouterManagedFiles(
         internal_usage_cache=MagicMock(),
         prisma_client=mock_prisma,
     )
@@ -92,8 +92,8 @@ async def test_should_allow_owner_access_when_record_exists():
 @pytest.mark.asyncio
 async def test_should_block_different_user_when_record_exists():
     """Baseline: different user cannot access another user's file."""
-    from litellm_enterprise.proxy.hooks.managed_files import (
-        _PROXY_LiteLLMManagedFiles,
+    from embrouter_enterprise.proxy.hooks.managed_files import (
+        _PROXY_EmbRouterManagedFiles,
     )
 
     unified_file_id = _make_unified_file_id()
@@ -102,11 +102,11 @@ async def test_should_block_different_user_when_record_exists():
     mock_db_record.created_by = "user-A"
 
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_managedfiletable.find_first = AsyncMock(
+    mock_prisma.db.embrouter_managedfiletable.find_first = AsyncMock(
         return_value=mock_db_record
     )
 
-    managed_files = _PROXY_LiteLLMManagedFiles(
+    managed_files = _PROXY_EmbRouterManagedFiles(
         internal_usage_cache=MagicMock(),
         prisma_client=mock_prisma,
     )

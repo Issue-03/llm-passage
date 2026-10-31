@@ -28,7 +28,7 @@ from dataclasses import KW_ONLY, dataclass
 from enum import Enum
 from typing import Final, Protocol
 
-from litellm.proxy._experimental.mcp_server.outbound_credentials.oauth_token_store import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.oauth_token_store import (
     OAuthToken,
 )
 

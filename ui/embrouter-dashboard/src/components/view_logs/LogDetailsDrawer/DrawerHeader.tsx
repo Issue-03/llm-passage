@@ -51,7 +51,7 @@ export function DrawerHeader({
   const showToggleWithProvider = isSidebarCollapsed && Boolean(providerInfo || log.model);
   const showToggleWithRequestId = isSidebarCollapsed && !showToggleWithProvider;
   const callId: string | null =
-    log.litellm_call_id && log.litellm_call_id !== log.request_id ? log.litellm_call_id : null;
+    log.embrouter_call_id && log.embrouter_call_id !== log.request_id ? log.embrouter_call_id : null;
 
   return (
     <div
@@ -95,9 +95,9 @@ export function DrawerHeader({
                 className="text-muted-foreground"
                 style={{ fontSize: FONT_SIZE_MEDIUM, fontFamily: FONT_FAMILY_MONO, whiteSpace: "nowrap" }}
               >
-                x-litellm-call-id:
+                x-embrouter-call-id:
               </span>
-              <CopyableId value={callId} label="x-litellm-call-id" fontSize={FONT_SIZE_MEDIUM} muted />
+              <CopyableId value={callId} label="x-embrouter-call-id" fontSize={FONT_SIZE_MEDIUM} muted />
             </div>
           )}
         </div>

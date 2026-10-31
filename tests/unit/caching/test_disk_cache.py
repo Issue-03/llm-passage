@@ -6,7 +6,7 @@ import pytest
 
 pytest.importorskip("diskcache")
 
-from litellm.caching.disk_cache import DiskCache
+from embrouter.caching.disk_cache import DiskCache
 
 
 class _SlowInt(int):

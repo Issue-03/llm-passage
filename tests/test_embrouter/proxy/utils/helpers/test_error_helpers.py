@@ -6,8 +6,8 @@ import pytest
 from fastapi import HTTPException
 from prisma.errors import DataError
 
-from litellm.proxy._types import ProxyErrorTypes, ProxyException
-from litellm.proxy.utils import get_error_message_str, handle_exception_on_proxy
+from embrouter.proxy._types import ProxyErrorTypes, ProxyException
+from embrouter.proxy.utils import get_error_message_str, handle_exception_on_proxy
 
 
 def normalize(value):
@@ -185,10 +185,10 @@ def test_handle_exception_on_proxy_error_path_none_input_wraps_as_500():
     ],
     ids=["http_exception", "generic_exception", "already_proxy_exception"],
 )
-def test_handle_exception_on_proxy_returns_the_litellm_call_id_header(exc: Exception):
+def test_handle_exception_on_proxy_returns_the_embrouter_call_id_header(exc: Exception):
     result = handle_exception_on_proxy(exc, "call-7836")
 
-    assert result.headers == {"x-litellm-call-id": "call-7836"}
+    assert result.headers == {"x-embrouter-call-id": "call-7836"}
 
 
 def test_handle_exception_on_proxy_sends_no_call_id_header_when_the_request_has_none():
@@ -201,7 +201,7 @@ async def test_handle_exception_on_proxy_read_only_transaction_forces_writer_rec
 ) -> None:
     prisma_client = MagicMock()
     prisma_client.recreate_read_only_writer = AsyncMock(return_value=True)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", prisma_client)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", prisma_client)
     exc = DataError(
         data={
             "user_facing_error": {
@@ -229,7 +229,7 @@ async def test_handle_exception_on_proxy_leaves_writer_alone_for_other_db_errors
 ) -> None:
     prisma_client = MagicMock()
     prisma_client.recreate_read_only_writer = AsyncMock(return_value=True)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", prisma_client)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", prisma_client)
 
     handle_exception_on_proxy(DataError(data={"user_facing_error": {"message": "deadlock detected"}}))
     await asyncio.sleep(0)

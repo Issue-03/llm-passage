@@ -2,12 +2,12 @@
 Azure Sentinel Integration - sends logs to Azure Log Analytics using Logs Ingestion API
 
 Azure Sentinel uses Log Analytics workspaces for data storage. This integration sends
-LiteLLM logs to the Log Analytics workspace using the Azure Monitor Logs Ingestion API.
+EmbRouter logs to the Log Analytics workspace using the Azure Monitor Logs Ingestion API.
 
 Reference API: https://learn.microsoft.com/en-us/azure/azure-monitor/logs/logs-ingestion-api-overview
 
-`async_log_success_event` - used by litellm proxy to send logs to Azure Sentinel
-`async_log_failure_event` - used by litellm proxy to send failure logs to Azure Sentinel
+`async_log_success_event` - used by embrouter proxy to send logs to Azure Sentinel
+`async_log_failure_event` - used by embrouter proxy to send failure logs to Azure Sentinel
 
 For batching specific details see CustomBatchLogger class
 """
@@ -23,21 +23,21 @@ from urllib.parse import urlparse
 
 import httpx
 
-from litellm._logging import verbose_logger
-from litellm.integrations.batch_utils import (
+from embrouter._logging import verbose_logger
+from embrouter.integrations.batch_utils import (
     BatchSendCancelled,
     send_batch_with_413_split,
     undelivered_after_http_error,
 )
-from litellm.integrations.custom_batch_logger import CustomBatchLogger
-from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.integrations.custom_batch_logger import CustomBatchLogger
+from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps
+from embrouter.llms.custom_httpx.http_handler import (
     MaskedHTTPStatusError,
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.types.integrations.azure_sentinel import AZURE_SENTINEL_MAX_PAYLOAD_SIZE_BYTES
-from litellm.types.utils import StandardAuditLogPayload, StandardLoggingPayload
+from embrouter.types.integrations.azure_sentinel import AZURE_SENTINEL_MAX_PAYLOAD_SIZE_BYTES
+from embrouter.types.utils import StandardAuditLogPayload, StandardLoggingPayload
 
 DEFAULT_AZURE_AUTHORITY_HOST: Final = "https://login.microsoftonline.com"
 DEFAULT_AZURE_MONITOR_SCOPE: Final = "https://monitor.azure.com/.default"
@@ -54,7 +54,7 @@ MONITOR_SCOPE_BY_AUTHORITY_HOST: Final[Mapping[str, str]] = MappingProxyType(
 
 class AzureSentinelLogger(CustomBatchLogger):
     """
-    Logger that sends LiteLLM logs to Azure Sentinel via Azure Monitor Logs Ingestion API
+    Logger that sends EmbRouter logs to Azure Sentinel via Azure Monitor Logs Ingestion API
     """
 
     def __init__(
@@ -75,8 +75,8 @@ class AzureSentinelLogger(CustomBatchLogger):
         Args:
             dcr_immutable_id (str, optional): Data Collection Rule (DCR) Immutable ID.
                 If not provided, will use AZURE_SENTINEL_DCR_IMMUTABLE_ID env var.
-            stream_name (str, optional): Stream name from DCR (e.g., "Custom-LiteLLM").
-                If not provided, will use AZURE_SENTINEL_STREAM_NAME env var or default to "Custom-LiteLLM".
+            stream_name (str, optional): Stream name from DCR (e.g., "Custom-EmbRouter").
+                If not provided, will use AZURE_SENTINEL_STREAM_NAME env var or default to "Custom-EmbRouter".
             endpoint (str, optional): Data Collection Endpoint (DCE) or DCR ingestion endpoint.
                 If not provided, will use AZURE_SENTINEL_ENDPOINT env var.
             tenant_id (str, optional): Azure Tenant ID for OAuth2 authentication.
@@ -95,7 +95,7 @@ class AzureSentinelLogger(CustomBatchLogger):
         self.async_httpx_client = get_async_httpx_client(llm_provider=httpxSpecialProvider.LoggingCallback)
 
         resolved_dcr_immutable_id: Final = dcr_immutable_id or os.getenv("AZURE_SENTINEL_DCR_IMMUTABLE_ID")
-        resolved_stream_name: Final = stream_name or os.getenv("AZURE_SENTINEL_STREAM_NAME") or "Custom-LiteLLM"
+        resolved_stream_name: Final = stream_name or os.getenv("AZURE_SENTINEL_STREAM_NAME") or "Custom-EmbRouter"
         resolved_audit_stream_name: Final = (
             audit_stream_name or os.getenv("AZURE_SENTINEL_AUDIT_STREAM_NAME") or resolved_stream_name
         )
@@ -172,7 +172,7 @@ class AzureSentinelLogger(CustomBatchLogger):
         """
         Normalize an authority host into an absolute URL with no trailing slash.
 
-        Accepts the scheme-qualified form litellm documents ("https://login.microsoftonline.us")
+        Accepts the scheme-qualified form embrouter documents ("https://login.microsoftonline.us")
         and the bare-host form the azure-identity AzureAuthorityHosts constants use.
         """
         stripped: Final = authority_host.strip().rstrip("/")
@@ -296,7 +296,7 @@ class AzureSentinelLogger(CustomBatchLogger):
 
     async def async_log_audit_log_event(self, audit_log: StandardAuditLogPayload) -> None:
         """
-        Async log LiteLLM audit log events to Azure Sentinel.
+        Async log EmbRouter audit log events to Azure Sentinel.
 
         Audit logs are queued separately from standard LLM logs so mixed callback
         usage never sends schema-mismatched records in the same ingestion batch.

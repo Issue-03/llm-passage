@@ -5,9 +5,9 @@ from datetime import datetime
 from types import MappingProxyType
 from typing import Final, Protocol
 
-from litellm.proxy._experimental.mcp_server.tool_outcome import WireCompat
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.types.mcp_server.mcp_server_manager import MCPServer
+from embrouter.proxy._experimental.mcp_server.tool_outcome import WireCompat
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.types.mcp_server.mcp_server_manager import MCPServer
 
 
 def copy_caller(auth: UserAPIKeyAuth | None) -> UserAPIKeyAuth | None:

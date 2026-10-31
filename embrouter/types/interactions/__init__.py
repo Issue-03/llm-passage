@@ -5,7 +5,7 @@ Auto-generated from OpenAPI spec: https://ai.google.dev/static/api/interactions.
 See README.md for regeneration instructions.
 """
 
-from litellm.types.interactions.generated import (
+from embrouter.types.interactions.generated import (
     AgentOption,
     Annotation,
     AudioContent,
@@ -68,8 +68,8 @@ from litellm.types.interactions.generated import (
     Usage,
     VideoContent,
 )
-from litellm.types.interactions.generated import (
-    Status3 as InteractionStatus,  # Main request/response types; Content types; Turn for multi-turn conversations; Tool types; Config types; Usage; Status enum; Events for streaming; Agent configs; Model/Agent options; Response modality; Annotation; LiteLLM types; Backwards compat aliases
+from embrouter.types.interactions.generated import (
+    Status3 as InteractionStatus,  # Main request/response types; Content types; Turn for multi-turn conversations; Tool types; Config types; Usage; Status enum; Events for streaming; Agent configs; Model/Agent options; Response modality; Annotation; EmbRouter types; Backwards compat aliases
 )
 
 __all__ = [
@@ -106,7 +106,7 @@ __all__ = [
     "Interaction",
     "InteractionCompleted",
     "InteractionCreated",
-    # LiteLLM types
+    # EmbRouter types
     "InteractionEnvironment",
     "InteractionEvent",
     "InteractionInProgress",

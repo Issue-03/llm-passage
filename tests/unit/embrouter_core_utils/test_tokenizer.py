@@ -10,11 +10,11 @@ import pytest
 import tiktoken
 from tokenizers import Tokenizer as ReferenceTokenizer
 
-import litellm
-from litellm.caching._embedding_router import truncate_embedding_input
-from litellm.litellm_core_utils.tokenizer import HuggingFaceTokenizer, OpenAIEncoding
-from litellm.utils import claude_json_str
-from tests.unit.litellm_core_utils.test_decode_special_tokens import TOKENIZER_JSON
+import embrouter
+from embrouter.caching._embedding_router import truncate_embedding_input
+from embrouter.embrouter_core_utils.tokenizer import HuggingFaceTokenizer, OpenAIEncoding
+from embrouter.utils import claude_json_str
+from tests.unit.embrouter_core_utils.test_decode_special_tokens import TOKENIZER_JSON
 
 
 ENCODINGS: Final = ("cl100k_base", "o200k_base", "p50k_base", "p50k_edit", "o200k_harmony")
@@ -72,13 +72,13 @@ def test_openai_partial_token_decoding_preserves_error_policy(errors: str) -> No
 
 
 def test_public_encoding_and_semantic_cache_preserve_truncated_unicode() -> None:
-    reference: Final = tiktoken.get_encoding(litellm.encoding.name)
+    reference: Final = tiktoken.get_encoding(embrouter.encoding.name)
     text: Final = "🙂"
     tokens: Final = reference.encode(text)
 
-    assert litellm.encoding.encode(text, disallowed_special=()) == tokens
-    assert litellm.encoding.encode_batch([text]) == [tokens]
-    assert litellm.decode(tokens=tokens[:1]) == reference.decode(tokens[:1])
+    assert embrouter.encoding.encode(text, disallowed_special=()) == tokens
+    assert embrouter.encoding.encode_batch([text]) == [tokens]
+    assert embrouter.decode(tokens=tokens[:1]) == reference.decode(tokens[:1])
     assert truncate_embedding_input(text, "", 1) == reference.decode(tokens[:1])
 
 
@@ -148,9 +148,9 @@ def test_caller_supplied_huggingface_tokenizer_preserves_public_encode_and_count
     custom: Final = {"type": "huggingface_tokenizer", "tokenizer": tokenizer}
     expected: Final = tokenizer.encode("Hello World").ids
 
-    assert litellm.encode(text="Hello World", custom_tokenizer=custom) == expected
-    assert litellm.token_counter(text="Hello World", custom_tokenizer=custom) == len(expected)
-    assert litellm.decode(tokens=expected, custom_tokenizer=custom) == "Hello World"
+    assert embrouter.encode(text="Hello World", custom_tokenizer=custom) == expected
+    assert embrouter.token_counter(text="Hello World", custom_tokenizer=custom) == len(expected)
+    assert embrouter.decode(tokens=expected, custom_tokenizer=custom) == "Hello World"
 
 
 def test_caller_supplied_tiktoken_treats_special_spellings_as_text() -> None:
@@ -158,11 +158,11 @@ def test_caller_supplied_tiktoken_treats_special_spellings_as_text() -> None:
     custom: Final = {"type": "openai_tokenizer", "tokenizer": tokenizer}
     text: Final = "<|endoftext|>"
 
-    assert litellm.encode(text=text, custom_tokenizer=custom) == tokenizer.encode(text, disallowed_special=())
+    assert embrouter.encode(text=text, custom_tokenizer=custom) == tokenizer.encode(text, disallowed_special=())
 
 
 def test_public_tokenizer_objects_survive_pickle_and_deepcopy(tmp_path: Path) -> None:
-    custom: Final = litellm.create_tokenizer(TOKENIZER_JSON)
+    custom: Final = embrouter.create_tokenizer(TOKENIZER_JSON)
     tokenizer: Final = custom["tokenizer"]
     path: Final = tmp_path / "tokenizer.json"
     tokenizer.save(str(path))
@@ -172,8 +172,8 @@ def test_public_tokenizer_objects_survive_pickle_and_deepcopy(tmp_path: Path) ->
         pickle.loads(pickle.dumps(custom))["tokenizer"].encode("Hello World").ids == tokenizer.encode("Hello World").ids
     )
     assert HuggingFaceTokenizer.from_file(str(path)).encode("Hello World").ids == tokenizer.encode("Hello World").ids
-    assert copy.deepcopy(litellm.encoding).encode("hello") == litellm.encoding.encode("hello")
-    assert pickle.loads(pickle.dumps(litellm.encoding)).encode("hello") == litellm.encoding.encode("hello")
+    assert copy.deepcopy(embrouter.encoding).encode("hello") == embrouter.encoding.encode("hello")
+    assert pickle.loads(pickle.dumps(embrouter.encoding)).encode("hello") == embrouter.encoding.encode("hello")
 
 
 @pytest.mark.parametrize("offline", ("0", "1"))
@@ -186,7 +186,7 @@ sys.path.insert(0, sys.argv[1])
 import httpx
 import huggingface_hub
 from huggingface_hub.errors import LocalEntryNotFoundError
-import litellm
+import embrouter
 payload = sys.argv[2].encode()
 offline = sys.argv[3] == "1"
 observed = []
@@ -200,7 +200,7 @@ def handle(request):
 if not offline:
     huggingface_hub.set_client_factory(lambda: httpx.Client(transport=httpx.MockTransport(handle)))
 try:
-    tokenizer = litellm.create_pretrained_tokenizer("test-fixture/tokenizer")["tokenizer"]
+    tokenizer = embrouter.create_pretrained_tokenizer("test-fixture/tokenizer")["tokenizer"]
 except LocalEntryNotFoundError:
     assert offline
     assert observed == []
@@ -217,7 +217,7 @@ print("compatible")
             "-I",
             "-c",
             script,
-            str(Path(litellm.__file__).parent.parent),
+            str(Path(embrouter.__file__).parent.parent),
             TOKENIZER_JSON,
             offline,
             str(tmp_path / "cache"),
@@ -233,7 +233,7 @@ print("compatible")
             "HF_TOKEN": "audit-fixture-token",
             "HF_HUB_OFFLINE": offline,
             "HF_HUB_DISABLE_IMPLICIT_TOKEN": "0",
-            "LITELLM_LOCAL_MODEL_COST_MAP": "True",
+            "EMBROUTER_LOCAL_MODEL_COST_MAP": "True",
         },
     )
     assert result.returncode == 0, result.stdout + result.stderr
@@ -252,37 +252,37 @@ def reject_network(event, args):
 sys.addaudithook(reject_network)
 class Block(importlib.abc.MetaPathFinder):
     def find_spec(self, fullname, path=None, target=None):
-        if fullname == "litellm.rust_bridge._native":
+        if fullname == "embrouter.rust_bridge._native":
             raise ImportError("native extension is unavailable")
 sys.meta_path.insert(0, Block())
-import litellm
-from litellm.rust_bridge.tokenizer import get_encoding
+import embrouter
+from embrouter.rust_bridge.tokenizer import get_encoding
 import tiktoken
 from tokenizers import Tokenizer
-assert isinstance(litellm.encoding, tiktoken.Encoding)
+assert isinstance(embrouter.encoding, tiktoken.Encoding)
 for name in ("cl100k_base", "o200k_base", "o200k_harmony", "p50k_base", "p50k_edit"):
     encoding = get_encoding(name)
     text = "offline café 漢字 🙂" + " " * 64
     assert encoding.decode(encoding.encode(text)) == text
-ids = litellm.encode(text="hello world")
-assert litellm.decode(tokens=ids) == "hello world"
-assert litellm.token_counter(model=None, text="hello world") == len(ids)
-custom = litellm.create_tokenizer(sys.argv[2])
+ids = embrouter.encode(text="hello world")
+assert embrouter.decode(tokens=ids) == "hello world"
+assert embrouter.token_counter(model=None, text="hello world") == len(ids)
+custom = embrouter.create_tokenizer(sys.argv[2])
 assert isinstance(custom["tokenizer"], Tokenizer)
 custom["tokenizer"].enable_padding(pad_id=0, pad_token="[UNK]")
-assert litellm.decode(tokens=litellm.encode(text="Hello World", custom_tokenizer=custom), custom_tokenizer=custom) == "Hello World"
+assert embrouter.decode(tokens=embrouter.encode(text="Hello World", custom_tokenizer=custom), custom_tokenizer=custom) == "Hello World"
 print("compatible")
 """
     result: Final = subprocess.run(
-        [sys.executable, "-I", "-c", script, str(Path(litellm.__file__).parent.parent), TOKENIZER_JSON],
+        [sys.executable, "-I", "-c", script, str(Path(embrouter.__file__).parent.parent), TOKENIZER_JSON],
         capture_output=True,
         text=True,
         timeout=30,
         cwd=tmp_path,
         env={
-            **{key: value for key, value in os.environ.items() if key != "LITELLM_RUST"},
-            **({"LITELLM_RUST": rust} if rust is not None else {}),
-            "LITELLM_LOCAL_MODEL_COST_MAP": "True",
+            **{key: value for key, value in os.environ.items() if key != "EMBROUTER_RUST"},
+            **({"EMBROUTER_RUST": rust} if rust is not None else {}),
+            "EMBROUTER_LOCAL_MODEL_COST_MAP": "True",
             "TIKTOKEN_CACHE_DIR": str(tmp_path / "unused-tokenizer-cache"),
         },
     )

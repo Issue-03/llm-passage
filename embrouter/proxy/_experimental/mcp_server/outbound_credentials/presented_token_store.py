@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from litellm.proxy._experimental.mcp_server.outbound_credentials.oauth_token_store import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.oauth_token_store import (
     OAuthToken,
 )
 

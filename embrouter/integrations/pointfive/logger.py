@@ -12,19 +12,19 @@ from collections.abc import Mapping
 from datetime import datetime
 from typing import Final
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.integrations.custom_batch_logger import CustomBatchLogger
-from litellm.integrations.pointfive.payload import chunk_lines, encode_lines, serialize_records
-from litellm.integrations.pointfive.upload_client import PointFiveUploadClient, PointFiveUploadError
-from litellm.litellm_core_utils.redact_messages import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.integrations.custom_batch_logger import CustomBatchLogger
+from embrouter.integrations.pointfive.payload import chunk_lines, encode_lines, serialize_records
+from embrouter.integrations.pointfive.upload_client import PointFiveUploadClient, PointFiveUploadError
+from embrouter.embrouter_core_utils.redact_messages import (
     redacted_standard_logging_payload,
     should_redact_message_logging,
 )
-from litellm.llms.custom_httpx.http_handler import get_async_httpx_client, httpxSpecialProvider
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.integrations.base_health_check import IntegrationHealthCheckStatus
-from litellm.types.integrations.pointfive import DEFAULT_API_URL, PointFiveInitParams, PointFiveUploadFailure
+from embrouter.llms.custom_httpx.http_handler import get_async_httpx_client, httpxSpecialProvider
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.integrations.base_health_check import IntegrationHealthCheckStatus
+from embrouter.types.integrations.pointfive import DEFAULT_API_URL, PointFiveInitParams, PointFiveUploadFailure
 
 _ENV_REFERENCE_PREFIX: Final = "os.environ/"
 
@@ -45,8 +45,8 @@ def _resolved_secret(value: str | None) -> str | None:
 
 
 def _configured_params() -> PointFiveInitParams:
-    """Read ``litellm.pointfive_params``, validating a raw config dict on the way through."""
-    configured: Final = litellm.pointfive_params
+    """Read ``embrouter.pointfive_params``, validating a raw config dict on the way through."""
+    configured: Final = embrouter.pointfive_params
     if isinstance(configured, PointFiveInitParams):
         return configured
     if isinstance(configured, Mapping):
@@ -76,7 +76,7 @@ def _upload_client_for(params: PointFiveInitParams) -> PointFiveUploadClient:
     if not api_key:
         raise ValueError(
             "pointfive logging requires an api key. Set POINTFIVE_API_KEY, or "
-            "litellm_settings.pointfive_params.api_key in config.yaml"
+            "embrouter_settings.pointfive_params.api_key in config.yaml"
         )
     return PointFiveUploadClient(
         api_key=api_key,
@@ -87,7 +87,7 @@ def _upload_client_for(params: PointFiveInitParams) -> PointFiveUploadClient:
 
 
 class PointFiveLogger(CustomBatchLogger):
-    """Batching callback that ships LiteLLM request logs to PointFive."""
+    """Batching callback that ships EmbRouter request logs to PointFive."""
 
     preserve_events_added_during_flush = True
 

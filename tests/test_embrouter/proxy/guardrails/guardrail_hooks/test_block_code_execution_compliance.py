@@ -12,8 +12,8 @@ from pathlib import Path
 import pytest
 from fastapi import HTTPException
 
-from litellm.integrations.custom_guardrail import ModifyResponseException
-from litellm.proxy.guardrails.guardrail_hooks.block_code_execution import (
+from embrouter.integrations.custom_guardrail import ModifyResponseException
+from embrouter.proxy.guardrails.guardrail_hooks.block_code_execution import (
     BlockCodeExecutionGuardrail,
 )
 

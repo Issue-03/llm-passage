@@ -1,7 +1,7 @@
-"""Conduct Guard as a LiteLLM guardrail, backed by the ``conduct-litellm-guard`` PyPI package.
+"""Conduct Guard as a EmbRouter guardrail, backed by the ``conduct-embrouter-guard`` PyPI package.
 
-Install: ``pip install "conduct-litellm-guard>=0.2.5"``
-Source:  https://github.com/sseshachala/conductai/tree/main/packages/conduct-litellm-guard
+Install: ``pip install "conduct-embrouter-guard>=0.2.5"``
+Source:  https://github.com/sseshachala/conductai/tree/main/packages/conduct-embrouter-guard
 """
 
 from __future__ import annotations
@@ -14,17 +14,17 @@ from typing import TYPE_CHECKING, Final, Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict
 
-from litellm.integrations.custom_guardrail import CustomGuardrail, log_guardrail_information
-from litellm.types.llms.openai import ChatCompletionUserMessage
-from litellm.types.proxy.guardrails.guardrail_hooks.conduct import ConductGuardrailConfigModel
+from embrouter.integrations.custom_guardrail import CustomGuardrail, log_guardrail_information
+from embrouter.types.llms.openai import ChatCompletionUserMessage
+from embrouter.types.proxy.guardrails.guardrail_hooks.conduct import ConductGuardrailConfigModel
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.types.utils import GenericGuardrailAPIInputs, GuardrailStatus
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.types.utils import GenericGuardrailAPIInputs, GuardrailStatus
 
 MISSING_PACKAGE_MESSAGE: Final = (
-    "conduct-litellm-guard>=0.2.5 is required for the Conduct guardrail. "
-    'Install it with: pip install "conduct-litellm-guard>=0.2.5"'
+    "conduct-embrouter-guard>=0.2.5 is required for the Conduct guardrail. "
+    'Install it with: pip install "conduct-embrouter-guard>=0.2.5"'
 )
 
 BLOCKING_VERDICTS: Final = frozenset({"block", "approval"})
@@ -102,7 +102,7 @@ def binds_unreachable_fallback(guardrail_cls: type[object]) -> bool:
 
 
 try:
-    from conduct_litellm_guard.guardrail import ConductGuard, ConductGuardBlocked
+    from conduct_embrouter_guard.guardrail import ConductGuard, ConductGuardBlocked
 
     if not binds_unreachable_fallback(ConductGuard):
         raise ImportError(MISSING_PACKAGE_MESSAGE)
@@ -130,7 +130,7 @@ else:
             inputs: GenericGuardrailAPIInputs,
             request_data: dict[str, object],  # mutable-ok: CustomGuardrail.apply_guardrail contract
             input_type: Literal["request", "response"],
-            logging_obj: LiteLLMLoggingObj | None = None,
+            logging_obj: EmbRouterLoggingObj | None = None,
         ) -> GenericGuardrailAPIInputs:
             return await apply_conduct_guardrail(
                 inputs,

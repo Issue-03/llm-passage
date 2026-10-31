@@ -7,7 +7,7 @@ from typing import Any, Final
 from fastapi import Request
 from pydantic import BaseModel, Field
 
-from litellm._logging import verbose_proxy_logger
+from embrouter._logging import verbose_proxy_logger
 
 TrustedProxyNetwork = ipaddress.IPv4Network | ipaddress.IPv6Network
 

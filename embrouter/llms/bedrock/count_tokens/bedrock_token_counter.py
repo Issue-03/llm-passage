@@ -5,11 +5,11 @@ Bedrock Token Counter implementation using the CountTokens API.
 from collections.abc import Mapping, Sequence
 from typing import Any, Final
 
-from litellm._logging import verbose_logger
-from litellm.llms.base_llm.base_utils import BaseTokenCounter
-from litellm.llms.bedrock.common_utils import BedrockError, get_bedrock_base_model
-from litellm.llms.bedrock.count_tokens.handler import BedrockCountTokensHandler
-from litellm.types.utils import LlmProviders, TokenCountResponse
+from embrouter._logging import verbose_logger
+from embrouter.llms.base_llm.base_utils import BaseTokenCounter
+from embrouter.llms.bedrock.common_utils import BedrockError, get_bedrock_base_model
+from embrouter.llms.bedrock.count_tokens.handler import BedrockCountTokensHandler
+from embrouter.types.utils import LlmProviders, TokenCountResponse
 
 
 class BedrockTokenCounter(BaseTokenCounter):
@@ -44,7 +44,7 @@ class BedrockTokenCounter(BaseTokenCounter):
             model_to_use: The model identifier
             messages: The messages to count tokens for
             contents: Alternative content format (not used for Bedrock)
-            deployment: Deployment configuration containing litellm_params
+            deployment: Deployment configuration containing embrouter_params
             request_model: The original request model name
 
         Returns:
@@ -54,7 +54,7 @@ class BedrockTokenCounter(BaseTokenCounter):
             return None
 
         deployment = deployment or {}
-        litellm_params: Final = deployment.get("litellm_params", {})
+        embrouter_params: Final = deployment.get("embrouter_params", {})
 
         # Build request data in the format expected by BedrockCountTokensHandler
         request_data: Final[dict[str, object]] = {
@@ -75,7 +75,7 @@ class BedrockTokenCounter(BaseTokenCounter):
             handler: Final = BedrockCountTokensHandler()
             result: Final = await handler.handle_count_tokens_request(
                 request_data=request_data,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 resolved_model=resolved_model,
             )
 

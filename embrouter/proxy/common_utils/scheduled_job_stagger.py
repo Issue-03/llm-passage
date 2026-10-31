@@ -19,7 +19,7 @@ The offset lives in the trigger rather than in a one-off ``next_run_time`` becau
 trigger recomputes each fire from the wall clock and would otherwise snap straight back
 onto the shared instant after its first shifted run.
 
-Only schedules LiteLLM itself chose are shifted. Interval jobs are always eligible; cron
+Only schedules EmbRouter itself chose are shifted. Interval jobs are always eligible; cron
 jobs only when their id is one of the product's own defaults, so an operator-supplied
 crontab keeps the exact instant it asks for. A job whose call site passed an explicit
 ``next_run_time`` already anchors itself and is left alone.
@@ -42,19 +42,19 @@ from apscheduler.triggers.base import BaseTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 from pydantic import ValidationError
 
-from litellm._logging import verbose_proxy_logger
-from litellm._uuid import uuid
-from litellm.constants import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter._uuid import uuid
+from embrouter.constants import (
     MONTHLY_SPEND_REPORT_JOB_ID,
     PROMETHEUS_FALLBACK_STATS_JOB_ID,
     PTU_ROLLUP_JOB_ID,
     PTU_ROLLUP_LOCK_TTL_SECONDS,
 )
-from litellm.proxy._types import ScheduledJobStaggerSettings
+from embrouter.proxy._types import ScheduledJobStaggerSettings
 
 GENERAL_SETTINGS_KEY: Final = "scheduled_job_stagger"
 
-#: Cron schedules LiteLLM picks on the operator's behalf, so shifting them changes nothing the
+#: Cron schedules EmbRouter picks on the operator's behalf, so shifting them changes nothing the
 #: operator asked for. Every other cron trigger is an operator-supplied crontab, preserved exactly.
 #:
 #: The value is the span over which a second firing would redo work the first already did, which

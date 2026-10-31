@@ -4,21 +4,21 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from litellm.proxy._types import LiteLLM_ObjectPermissionTable, LitellmUserRoles, UserAPIKeyAuth
-from litellm.proxy.anthropic_endpoints.claude_code_endpoints.claude_code_skill_access import (
+from embrouter.proxy._types import EmbRouter_ObjectPermissionTable, EmbrouterUserRoles, UserAPIKeyAuth
+from embrouter.proxy.anthropic_endpoints.claude_code_endpoints.claude_code_skill_access import (
     granted_skills,
     skill_visibility,
 )
 
 
-def _perm(skills: list[str] | None) -> LiteLLM_ObjectPermissionTable:
-    return LiteLLM_ObjectPermissionTable(object_permission_id="perm", skills=skills)
+def _perm(skills: list[str] | None) -> EmbRouter_ObjectPermissionTable:
+    return EmbRouter_ObjectPermissionTable(object_permission_id="perm", skills=skills)
 
 
 def _key(key_skills: list[str] | None, team_skills: list[str] | None) -> UserAPIKeyAuth:
     return UserAPIKeyAuth(
         api_key="sk-user",
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=EmbrouterUserRoles.INTERNAL_USER,
         object_permission=_perm(key_skills) if key_skills is not None else None,
         team_object_permission=_perm(team_skills) if team_skills is not None else None,
     )
@@ -58,7 +58,7 @@ def test_visibility_enabled_plugin_is_public_for_everyone():
 
 def test_visibility_disabled_plugin_needs_grant_or_admin():
     private = _plugin("private-skill", enabled=False)
-    admin = UserAPIKeyAuth(api_key="sk-1234", user_role=LitellmUserRoles.PROXY_ADMIN)
+    admin = UserAPIKeyAuth(api_key="sk-1234", user_role=EmbrouterUserRoles.PROXY_ADMIN)
 
     assert not skill_visibility(None).allows(private)
     assert not skill_visibility(_key(None, None)).allows(private)
@@ -70,7 +70,7 @@ def test_visibility_disabled_plugin_needs_grant_or_admin():
 
 
 def test_where_clause_bounds_the_plugin_query_to_what_the_caller_may_see():
-    admin = UserAPIKeyAuth(api_key="sk-1234", user_role=LitellmUserRoles.PROXY_ADMIN)
+    admin = UserAPIKeyAuth(api_key="sk-1234", user_role=EmbrouterUserRoles.PROXY_ADMIN)
 
     assert skill_visibility(None).where() == {"enabled": True}
     assert skill_visibility(_key(None, None)).where() == {"enabled": True}

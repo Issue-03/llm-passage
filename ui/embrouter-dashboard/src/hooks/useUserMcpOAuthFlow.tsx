@@ -44,11 +44,11 @@ interface UseUserMcpOAuthFlowResult {
   error: string | null;
 }
 
-const FLOW_STATE_KEY = "litellm-user-mcp-oauth-flow-state";
+const FLOW_STATE_KEY = "embrouter-user-mcp-oauth-flow-state";
 // Use a user-flow-specific key to avoid collisions with the admin OAuth flow
-// (useMcpOAuthFlow) which uses "litellm-mcp-oauth-result".
-const RESULT_KEY = "litellm-user-mcp-oauth-result";
-const RETURN_URL_KEY = "litellm-mcp-oauth-return-url";
+// (useMcpOAuthFlow) which uses "embrouter-mcp-oauth-result".
+const RESULT_KEY = "embrouter-user-mcp-oauth-result";
+const RETURN_URL_KEY = "embrouter-mcp-oauth-return-url";
 
 type StoredFlowState = {
   state: string;

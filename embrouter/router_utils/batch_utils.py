@@ -3,9 +3,9 @@ import json
 from os import PathLike
 from typing import Final
 
-from litellm._logging import verbose_logger
-from litellm.types.llms.openai import FileTypes, OpenAIFilesPurpose
-from litellm.types.utils import CallTypes
+from embrouter._logging import verbose_logger
+from embrouter.types.llms.openai import FileTypes, OpenAIFilesPurpose
+from embrouter.types.utils import CallTypes
 
 
 class InMemoryFile(io.BytesIO):
@@ -154,11 +154,11 @@ def _get_router_metadata_variable_name(function_name: str | None) -> str:
     """
     Helper to return what the "metadata" field should be called in the request data
 
-    For all /thread or /assistant endpoints we need to call this "litellm_metadata"
+    For all /thread or /assistant endpoints we need to call this "embrouter_metadata"
 
     For ALL other endpoints we call this "metadata
     """
-    ROUTER_METHODS_USING_LITELLM_METADATA: Final = set(
+    ROUTER_METHODS_USING_EMBROUTER_METADATA: Final = set(
         [
             "batch",
             "generic_api_call",
@@ -167,8 +167,8 @@ def _get_router_metadata_variable_name(function_name: str | None) -> str:
             "_ageneric_api_call_with_fallbacks",
         ]
     )
-    if function_name and any(method in function_name for method in ROUTER_METHODS_USING_LITELLM_METADATA):
-        return "litellm_metadata"
+    if function_name and any(method in function_name for method in ROUTER_METHODS_USING_EMBROUTER_METADATA):
+        return "embrouter_metadata"
     else:
         return "metadata"
 

@@ -6,20 +6,20 @@ from typing import Final
 
 from pydantic import BaseModel, Json, TypeAdapter, ValidationError
 
-from litellm.proxy.common_utils.encrypt_decrypt_utils import decrypt_value_helper
-from litellm.router_utils.auto_router_model_naming import (
+from embrouter.proxy.common_utils.encrypt_decrypt_utils import decrypt_value_helper
+from embrouter.router_utils.auto_router_model_naming import (
     GATED_AUTO_ROUTER_CAPABILITIES,
     capability_limit_violation,
     classify_strategy_router_model,
     count_capability_routers,
     gated_capability_of,
 )
-from litellm.router_utils.auto_router_tuning_baseline import (
+from embrouter.router_utils.auto_router_tuning_baseline import (
     is_mutable_tuned_candidate,
     mutable_tuned_identities,
     tuning_quota_violation,
 )
-from litellm.types.management_endpoints.auto_router_endpoints import (
+from embrouter.types.management_endpoints.auto_router_endpoints import (
     AutoRouterAllowance,
     AutoRouterAvailabilityResponse,
 )
@@ -32,7 +32,7 @@ class _CatalogModelInfo(BaseModel):
 class _CatalogSource(BaseModel):
     model_id: str
     created_by: str | None = None
-    litellm_params: Json[dict[str, object]] | dict[str, object]
+    embrouter_params: Json[dict[str, object]] | dict[str, object]
     model_info: Json[_CatalogModelInfo] | _CatalogModelInfo | None = None
 
 
@@ -62,11 +62,11 @@ def build_auto_router_catalog(rows: Sequence[object]) -> tuple[AutoRouterCatalog
             created_by=row.created_by,
             deployment=MappingProxyType(
                 {
-                    "litellm_params": MappingProxyType(
+                    "embrouter_params": MappingProxyType(
                         {
                             "model": model,
                             "complexity_router_config": _catalog_field(
-                                row.litellm_params.get("complexity_router_config"), "complexity_router_config"
+                                row.embrouter_params.get("complexity_router_config"), "complexity_router_config"
                             ),
                         }
                     ),
@@ -75,7 +75,7 @@ def build_auto_router_catalog(rows: Sequence[object]) -> tuple[AutoRouterCatalog
             ),
         )
         for row in sources
-        if isinstance(model := _catalog_field(row.litellm_params.get("model"), "model"), str)
+        if isinstance(model := _catalog_field(row.embrouter_params.get("model"), "model"), str)
         and classify_strategy_router_model(model) == "complexity"
     )
 
@@ -88,8 +88,8 @@ def auto_router_availability(
     baselines: Mapping[str, str] | None,
     limit: int | None,
 ) -> AutoRouterAvailabilityResponse:
-    existing_params: Final = None if existing is None else existing.get("litellm_params")
-    candidate_params: Final = candidate.get("litellm_params")
+    existing_params: Final = None if existing is None else existing.get("embrouter_params")
+    candidate_params: Final = candidate.get("embrouter_params")
     owned: Final = gated_capability_of(existing_params) if isinstance(existing_params, Mapping) else None
     claimed: Final = gated_capability_of(candidate_params) if isinstance(candidate_params, Mapping) else None
     counts: Final = tuple(

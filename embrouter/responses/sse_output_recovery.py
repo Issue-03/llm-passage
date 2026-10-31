@@ -2,7 +2,7 @@
 Shared helpers for recovering Responses API output items from raw SSE chunks.
 
 The same recovery logic is needed in multiple places (e.g. the ChatGPT
-Responses transformation and the LiteLLM Responses-to-Chat-Completions
+Responses transformation and the EmbRouter Responses-to-Chat-Completions
 bridge). Keep the implementation in a single module so a fix in one
 caller automatically applies to all of them.
 """
@@ -11,7 +11,7 @@ import json
 from collections.abc import Mapping
 from typing import Final, SupportsInt, TypeAlias, cast  # noqa: TID251  # int() re-checks the cast below at runtime
 
-from litellm.constants import STREAM_SSE_DONE_STRING
+from embrouter.constants import STREAM_SSE_DONE_STRING
 
 _MAX_CONTENT_INDEX: Final = 1024
 
@@ -27,7 +27,7 @@ def parse_sse_json_chunk(chunk: str) -> dict[str, object] | None:
     consistent across all callers.
     """
     # Import locally to avoid a circular import with the streaming handler.
-    from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
+    from embrouter.embrouter_core_utils.streaming_handler import CustomStreamWrapper
 
     stripped_chunk: Final = (CustomStreamWrapper._strip_sse_data_from_chunk(chunk.strip()) or "").strip()
     if not stripped_chunk or stripped_chunk == STREAM_SSE_DONE_STRING or stripped_chunk.startswith("event:"):

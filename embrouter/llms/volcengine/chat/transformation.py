@@ -1,6 +1,6 @@
 from typing import Final
 
-from litellm.llms.openai_like.chat.transformation import OpenAILikeChatConfig
+from embrouter.llms.openai_like.chat.transformation import OpenAILikeChatConfig
 
 
 class VolcEngineChatConfig(OpenAILikeChatConfig):

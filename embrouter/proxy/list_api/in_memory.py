@@ -13,7 +13,7 @@ from typing import Final, Generic, TypeAlias, TypeVar
 
 from typing_extensions import assert_never
 
-from litellm.proxy.list_api.list_framework import (
+from embrouter.proxy.list_api.list_framework import (
     AnyOf,
     Compare,
     ComparisonOp,

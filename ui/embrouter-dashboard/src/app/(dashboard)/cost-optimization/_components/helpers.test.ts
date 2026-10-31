@@ -6,9 +6,9 @@ describe("compressionGuardrailsOf", () => {
   it("keeps only headroom-provider guardrails and drops others", () => {
     const filtered = compressionGuardrailsOf({
       guardrails: [
-        { guardrail_id: "1", guardrail_name: "headroom-compression", litellm_params: { guardrail: "headroom" } },
-        { guardrail_id: "2", guardrail_name: "pii-masker", litellm_params: { guardrail: "presidio" } },
-        { guardrail_id: "3", guardrail_name: "no-params", litellm_params: null },
+        { guardrail_id: "1", guardrail_name: "headroom-compression", embrouter_params: { guardrail: "headroom" } },
+        { guardrail_id: "2", guardrail_name: "pii-masker", embrouter_params: { guardrail: "presidio" } },
+        { guardrail_id: "3", guardrail_name: "no-params", embrouter_params: null },
       ],
     });
 
@@ -26,7 +26,7 @@ describe("buildCompressionGuardrailPayload", () => {
 
     expect(payload).toEqual({
       guardrail_name: "headroom-compression",
-      litellm_params: {
+      embrouter_params: {
         guardrail: "headroom",
         mode: "pre_call",
         api_base: "https://compress",

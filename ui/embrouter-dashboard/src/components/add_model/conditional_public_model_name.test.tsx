@@ -33,7 +33,7 @@ describe("ConditionalPublicModelName", () => {
           model_mappings: [
             {
               public_name: "gpt-4",
-              litellm_model: "gpt-4",
+              embrouter_model: "gpt-4",
             },
           ],
         }}
@@ -56,7 +56,7 @@ describe("ConditionalPublicModelName", () => {
           model_mappings: [
             {
               public_name: "custom",
-              litellm_model: "custom",
+              embrouter_model: "custom",
             },
           ],
         }}
@@ -77,7 +77,7 @@ describe("ConditionalPublicModelName", () => {
       <MountedFormHost
         defaultValues={{
           model: ["gpt-4"],
-          model_mappings: [{ public_name: "gpt-4", litellm_model: "gpt-4" }],
+          model_mappings: [{ public_name: "gpt-4", embrouter_model: "gpt-4" }],
         }}
       >
         <ConditionalPublicModelName />

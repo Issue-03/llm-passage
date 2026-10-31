@@ -1,6 +1,6 @@
 
 
-from litellm.llms.fireworks_ai.completion.transformation import (
+from embrouter.llms.fireworks_ai.completion.transformation import (
     FireworksAITextCompletionConfig,
 )
 

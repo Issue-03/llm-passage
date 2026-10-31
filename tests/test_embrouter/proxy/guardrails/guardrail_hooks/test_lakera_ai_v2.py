@@ -1,7 +1,7 @@
 """
 Tests for Lakera AI v2 guardrail hook (post-call and shared behavior).
 
-PR checklist requires at least one test in tests/test_litellm/.
+PR checklist requires at least one test in tests/test_embrouter/.
 Additional tests live in tests/guardrails_tests/test_lakera_v2.py.
 """
 
@@ -11,19 +11,19 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi import HTTPException
 
-import litellm
-from litellm.caching.caching import DualCache
-from litellm.llms.base_llm.guardrail_translation.utils import (
+import embrouter
+from embrouter.caching.caching import DualCache
+from embrouter.llms.base_llm.guardrail_translation.utils import (
     filter_messages_by_skip_flags,
 )
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.guardrails.guardrail_hooks.lakera_ai_v2 import (
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.guardrails.guardrail_hooks.lakera_ai_v2 import (
     LakeraAIGuardrail,
     _build_lakera_inspection_messages,
     humanize_lakera_block_reasons,
 )
-from litellm.types.guardrails import LitellmParams, Mode
-from litellm.types.utils import ModelResponse
+from embrouter.types.guardrails import EmbrouterParams, Mode
+from embrouter.types.utils import ModelResponse
 
 
 @pytest.mark.asyncio
@@ -82,7 +82,7 @@ TOOL_MSG = {"role": "tool", "content": "tool result", "tool_call_id": "1"}
 
 class TestBuildLakeraInspectionMessages:
     """Bugbot/veria-ai findings: the Responses-API
-    instructions field must be inspected (litellm later converts it into the
+    instructions field must be inspected (embrouter later converts it into the
     model's leading system message), placed first to match that ordering, and
     kept local to Lakera rather than the shared _content_utils helper so
     other guardrails aren't exposed to a field their own masking write-back
@@ -112,7 +112,7 @@ class TestFilterSkippedMessages:
         assert was_skipped is True
 
     def test_keeps_system_when_flag_false_and_no_global_default(self, monkeypatch):
-        monkeypatch.setattr(litellm, "skip_system_message_in_guardrail", False)
+        monkeypatch.setattr(embrouter, "skip_system_message_in_guardrail", False)
         guardrail = LakeraAIGuardrail(api_key="test_key", skip_system_message_in_guardrail=False)
         filtered, was_skipped = guardrail._filter_skipped_messages([SYSTEM_MSG, USER_MSG])
         assert list(filtered) == [SYSTEM_MSG, USER_MSG]
@@ -135,7 +135,7 @@ class TestFilterSkippedMessages:
         assert was_skipped is True
 
     def test_global_default_used_when_per_instance_flag_is_none(self, monkeypatch):
-        monkeypatch.setattr(litellm, "skip_system_message_in_guardrail", True)
+        monkeypatch.setattr(embrouter, "skip_system_message_in_guardrail", True)
         guardrail = LakeraAIGuardrail(api_key="test_key")
         assert guardrail.skip_system_message_in_guardrail is None
         filtered, was_skipped = guardrail._filter_skipped_messages([SYSTEM_MSG, USER_MSG])
@@ -151,7 +151,7 @@ class TestFilterSkippedMessages:
 
 class TestSharedFilterMessagesBySkipFlagsUtil:
     def test_importable_directly_from_shared_utils_module(self):
-        from litellm.llms.base_llm.guardrail_translation import utils as guardrail_utils
+        from embrouter.llms.base_llm.guardrail_translation import utils as guardrail_utils
 
         assert guardrail_utils.filter_messages_by_skip_flags is filter_messages_by_skip_flags
 
@@ -159,7 +159,7 @@ class TestSharedFilterMessagesBySkipFlagsUtil:
         guardrail = LakeraAIGuardrail(api_key="test_key", skip_system_message_in_guardrail=True)
         sentinel = ([USER_MSG], True)
         with patch(  # test-quality-ok: asserts delegation to the specific shared collaborator, not an HTTP boundary
-            "litellm.proxy.guardrails.guardrail_hooks.lakera_ai_v2.filter_messages_by_skip_flags",
+            "embrouter.proxy.guardrails.guardrail_hooks.lakera_ai_v2.filter_messages_by_skip_flags",
             return_value=sentinel,
         ) as mock_shared:
             result = guardrail._filter_skipped_messages([SYSTEM_MSG, USER_MSG])
@@ -419,7 +419,7 @@ class TestPiiMaskingSafetyGuard:
         with (
             patch.object(guardrail, "call_v2_guard", new_callable=AsyncMock) as mock_call,
             patch(  # test-quality-ok: asserts the wholesale write-back path is never reached for this unsafe case
-                "litellm.proxy.guardrails.guardrail_hooks.lakera_ai_v2.apply_redacted_messages_back"
+                "embrouter.proxy.guardrails.guardrail_hooks.lakera_ai_v2.apply_redacted_messages_back"
             ) as mock_apply_redacted,
         ):
             mock_call.return_value = (PII_ONLY_LAKERA_RESPONSE, {})
@@ -451,7 +451,7 @@ class TestPiiMaskingSafetyGuard:
         with (
             patch.object(guardrail, "call_v2_guard", new_callable=AsyncMock) as mock_call,
             patch(  # test-quality-ok: asserts the wholesale write-back path is never reached for this unsafe case
-                "litellm.proxy.guardrails.guardrail_hooks.lakera_ai_v2.apply_redacted_messages_back"
+                "embrouter.proxy.guardrails.guardrail_hooks.lakera_ai_v2.apply_redacted_messages_back"
             ) as mock_apply_redacted,
         ):
             mock_call.return_value = (PII_ONLY_LAKERA_RESPONSE, {})
@@ -637,7 +637,7 @@ class TestPiiMaskingSafetyGuard:
         """Drive the monitor path and hand back the result plus the ERROR records it logged."""
         with (
             patch.object(guardrail, "call_v2_guard", new_callable=AsyncMock) as mock_call,
-            caplog.at_level(logging.ERROR, logger="LiteLLM Proxy"),
+            caplog.at_level(logging.ERROR, logger="EmbRouter Proxy"),
         ):
             mock_call.return_value = (lakera_response, {})
             result = await guardrail.async_pre_call_hook(
@@ -939,10 +939,10 @@ class TestAdvisorySystemMessageValidation:
         introduces a malformed advisory_system_message must succeed, not be
         rejected for a field the new on_flagged value never reads."""
         guardrail = LakeraAIGuardrail(api_key="test_key", on_flagged="inject_system_message")
-        updated_params = LitellmParams(
+        updated_params = EmbrouterParams(
             guardrail="lakera_v2", mode="pre_call", on_flagged="block", advisory_system_message="No placeholder here."
         )
-        guardrail.update_in_memory_litellm_params(litellm_params=updated_params)
+        guardrail.update_in_memory_embrouter_params(embrouter_params=updated_params)
         assert guardrail.on_flagged == "block"
 
 
@@ -989,8 +989,8 @@ class TestAdvisoryModeDuringCallDegradesGracefully:
 
     def test_in_memory_update_reintroducing_the_combo_is_allowed(self):
         guardrail = LakeraAIGuardrail(api_key="test_key", on_flagged="block", event_hook="during_call")
-        updated_params = LitellmParams(guardrail="lakera_v2", mode="during_call", on_flagged="inject_system_message")
-        guardrail.update_in_memory_litellm_params(litellm_params=updated_params)
+        updated_params = EmbrouterParams(guardrail="lakera_v2", mode="during_call", on_flagged="inject_system_message")
+        guardrail.update_in_memory_embrouter_params(embrouter_params=updated_params)
         assert guardrail.on_flagged == "inject_system_message"
 
     def test_in_memory_update_moving_off_during_call_in_the_same_update_is_allowed(self):
@@ -1001,13 +1001,13 @@ class TestAdvisoryModeDuringCallDegradesGracefully:
         target state and must not be rejected just because the instance was
         still during_call the instant before this update applied."""
         guardrail = LakeraAIGuardrail(api_key="test_key", on_flagged="block", event_hook="during_call")
-        updated_params = LitellmParams(guardrail="lakera_v2", mode="pre_call", on_flagged="inject_system_message")
-        guardrail.update_in_memory_litellm_params(litellm_params=updated_params)
+        updated_params = EmbrouterParams(guardrail="lakera_v2", mode="pre_call", on_flagged="inject_system_message")
+        guardrail.update_in_memory_embrouter_params(embrouter_params=updated_params)
         assert guardrail.on_flagged == "inject_system_message"
 
     def test_in_memory_update_actually_moves_dispatch_off_during_call(self):
         """
-        Veria-ai finding: LitellmParams has no field
+        Veria-ai finding: EmbrouterParams has no field
         literally named "event_hook" (it's "mode"), so the base setattr writes
         a new self.mode attribute rather than updating self.event_hook, which
         dispatch actually reads. Validation alone accepting the update is not
@@ -1015,8 +1015,8 @@ class TestAdvisoryModeDuringCallDegradesGracefully:
         keeps dispatching as during_call after a "successful" update believed
         to have moved it to pre_call."""
         guardrail = LakeraAIGuardrail(api_key="test_key", on_flagged="block", event_hook="during_call")
-        updated_params = LitellmParams(guardrail="lakera_v2", mode="pre_call", on_flagged="inject_system_message")
-        guardrail.update_in_memory_litellm_params(litellm_params=updated_params)
+        updated_params = EmbrouterParams(guardrail="lakera_v2", mode="pre_call", on_flagged="inject_system_message")
+        guardrail.update_in_memory_embrouter_params(embrouter_params=updated_params)
         assert guardrail.event_hook == "pre_call"
 
 
@@ -1055,40 +1055,40 @@ class TestAdvisoryModeRequiresPayloadAndBreakdown:
 
     def test_in_memory_update_reintroducing_payload_false_raises(self):
         guardrail = LakeraAIGuardrail(api_key="test_key", on_flagged="block", payload=False)
-        updated_params = LitellmParams(
+        updated_params = EmbrouterParams(
             guardrail="lakera_v2", mode="pre_call", on_flagged="inject_system_message", payload=False
         )
         with pytest.raises(ValueError, match="requires payload=True and breakdown=True"):
-            guardrail.update_in_memory_litellm_params(litellm_params=updated_params)
+            guardrail.update_in_memory_embrouter_params(embrouter_params=updated_params)
         assert guardrail.on_flagged == "block", "a rejected update must leave the live instance untouched"
 
     def test_in_memory_update_leaving_payload_unspecified_resets_to_the_model_default(self):
-        """LitellmParams.payload defaults to True (not None/unset), so an update
+        """EmbrouterParams.payload defaults to True (not None/unset), so an update
         that doesn't mention payload at all still carries payload=True through
         the base setattr -- it does not preserve the live instance's prior
         False value. That's a valid transition, not a bug: it's the same
         pydantic-default behavior every other field on this update already has."""
         guardrail = LakeraAIGuardrail(api_key="test_key", on_flagged="block", payload=False)
-        updated_params = LitellmParams(guardrail="lakera_v2", mode="pre_call", on_flagged="inject_system_message")
-        guardrail.update_in_memory_litellm_params(litellm_params=updated_params)
+        updated_params = EmbrouterParams(guardrail="lakera_v2", mode="pre_call", on_flagged="inject_system_message")
+        guardrail.update_in_memory_embrouter_params(embrouter_params=updated_params)
         assert guardrail.on_flagged == "inject_system_message"
         assert guardrail.payload is True
 
     def test_in_memory_update_disabling_breakdown_on_an_advisory_instance_raises(self):
         guardrail = LakeraAIGuardrail(api_key="test_key", on_flagged="inject_system_message")
-        updated_params = LitellmParams(
+        updated_params = EmbrouterParams(
             guardrail="lakera_v2", mode="pre_call", on_flagged="inject_system_message", breakdown=False
         )
         with pytest.raises(ValueError, match="requires payload=True and breakdown=True"):
-            guardrail.update_in_memory_litellm_params(litellm_params=updated_params)
+            guardrail.update_in_memory_embrouter_params(embrouter_params=updated_params)
         assert guardrail.breakdown is True, "a rejected update must leave the live instance untouched"
 
     def test_in_memory_update_enabling_both_while_flipping_on_flagged_is_allowed(self):
         guardrail = LakeraAIGuardrail(api_key="test_key", on_flagged="block", payload=False, breakdown=False)
-        updated_params = LitellmParams(
+        updated_params = EmbrouterParams(
             guardrail="lakera_v2", mode="pre_call", on_flagged="inject_system_message", payload=True, breakdown=True
         )
-        guardrail.update_in_memory_litellm_params(litellm_params=updated_params)
+        guardrail.update_in_memory_embrouter_params(embrouter_params=updated_params)
         assert guardrail.on_flagged == "inject_system_message"
 
 

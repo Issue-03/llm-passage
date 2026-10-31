@@ -4,11 +4,11 @@ from collections.abc import Mapping, Sequence
 from types import MappingProxyType
 from typing import Final
 
-from litellm.proxy.agent_endpoints.agent_registry import AgentRegistry
-from litellm.proxy.utils import PrismaClient
-from litellm.repositories.table_repositories import AgentsRepository, MCPServerRepository
-from litellm.repositories.verification_token_repository import VerificationTokenRepository
-from litellm.types.mcp_server.mcp_server_manager import MCPServer
+from embrouter.proxy.agent_endpoints.agent_registry import AgentRegistry
+from embrouter.proxy.utils import PrismaClient
+from embrouter.repositories.table_repositories import AgentsRepository, MCPServerRepository
+from embrouter.repositories.verification_token_repository import VerificationTokenRepository
+from embrouter.types.mcp_server.mcp_server_manager import MCPServer
 
 
 async def mcp_server_display_names(

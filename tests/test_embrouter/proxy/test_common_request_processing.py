@@ -13,22 +13,22 @@ import pytest
 from fastapi import HTTPException, Request, Response, status
 from fastapi.responses import JSONResponse, StreamingResponse
 
-import litellm
-from litellm._uuid import uuid
-from litellm.anthropic_interface.exceptions import AnthropicErrorSseFrame, anthropic_error_sse_frame
-from litellm.litellm_core_utils.bug_report import (
+import embrouter
+from embrouter._uuid import uuid
+from embrouter.anthropic_interface.exceptions import AnthropicErrorSseFrame, anthropic_error_sse_frame
+from embrouter.embrouter_core_utils.bug_report import (
     DISABLE_ENV_VAR,
     bug_report_notice,
     build_bug_report,
 )
-from litellm.constants import (
+from embrouter.constants import (
     CLIENT_REQUESTED_MODEL_SCOPE_KEY,
-    MAX_LITELLM_CALL_ID_LENGTH,
+    MAX_EMBROUTER_CALL_ID_LENGTH,
     RETURN_RAW_MODEL_NAME_METADATA_KEY,
 )
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.integrations.opentelemetry import UserAPIKeyAuth
-from litellm.proxy.common_request_processing import (
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.integrations.opentelemetry import UserAPIKeyAuth
+from embrouter.proxy.common_request_processing import (
     ProxyBaseLLMRequestProcessing,
     ProxyConfig,
     _await_llm_call_cancelling_on_disconnect,
@@ -44,7 +44,7 @@ from litellm.proxy.common_request_processing import (
     include_guardrail_response_requested,
     _is_azure_model_router_request,
     open_sse_before_first_byte,
-    resolve_litellm_call_id,
+    resolve_embrouter_call_id,
     ttft_keepalive_interval,
     _override_openai_response_model,
     _parse_event_data_for_error,
@@ -55,15 +55,15 @@ from litellm.proxy.common_request_processing import (
     create_response,
     sse_error_payload,
 )
-from litellm.proxy.common_utils.callback_utils import add_guardrail_to_applied_guardrails_header
-from litellm.proxy.common_utils.sse_keepalive import ANTHROPIC_PING_SSE_CHUNK
-from litellm.proxy.dd_span_tagger import DDSpanTagger
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.proxy._types import ProxyErrorTypes, ProxyException
-from litellm.proxy._types import UserAPIKeyAuth as ProxyUserAPIKeyAuth
-from litellm.proxy.utils import ProxyLogging
-from litellm.router import Router
-from litellm.router_utils.add_retry_fallback_headers import prepare_response_for_header_attachment
+from embrouter.proxy.common_utils.callback_utils import add_guardrail_to_applied_guardrails_header
+from embrouter.proxy.common_utils.sse_keepalive import ANTHROPIC_PING_SSE_CHUNK
+from embrouter.proxy.dd_span_tagger import DDSpanTagger
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.proxy._types import ProxyErrorTypes, ProxyException
+from embrouter.proxy._types import UserAPIKeyAuth as ProxyUserAPIKeyAuth
+from embrouter.proxy.utils import ProxyLogging
+from embrouter.router import Router
+from embrouter.router_utils.add_retry_fallback_headers import prepare_response_for_header_attachment
 
 ISSUE_URL_BASE = "https://issues.example.com/new"
 
@@ -71,7 +71,7 @@ ISSUE_URL_BASE = "https://issues.example.com/new"
 @pytest.fixture(autouse=True)
 def _bug_report_issue_url(monkeypatch: pytest.MonkeyPatch) -> None:
     """Bug report links are off unless an issue URL is configured; turn them on for these tests."""
-    monkeypatch.setenv("LITELLM_BUG_REPORT_ISSUE_URL", "https://issues.example.com/new")
+    monkeypatch.setenv("EMBROUTER_BUG_REPORT_ISSUE_URL", "https://issues.example.com/new")
 
 
 
@@ -81,24 +81,24 @@ def test_attach_guardrail_information_copies_recorded_entries_onto_model_respons
         {"guardrail_name": "first", "guardrail_status": "success"},
         {"guardrail_name": "second", "guardrail_status": "success"},
     ]
-    response = litellm.ModelResponse()
+    response = embrouter.ModelResponse()
 
     result = attach_guardrail_information(
         response=response,
         request_data={"metadata": {"standard_logging_guardrail_information": recorded}},
     )
 
-    assert isinstance(result, litellm.ModelResponse)
+    assert isinstance(result, embrouter.ModelResponse)
     assert result.model_dump()["guardrail_information"] == recorded
     assert "guardrail_information" not in response.model_dump()
 
 
 def test_attach_guardrail_information_reports_empty_list_when_nothing_ran():
-    response = litellm.ModelResponse()
+    response = embrouter.ModelResponse()
 
     result = attach_guardrail_information(response=response, request_data={})
 
-    assert isinstance(result, litellm.ModelResponse)
+    assert isinstance(result, embrouter.ModelResponse)
     assert result.model_dump()["guardrail_information"] == []
     assert "guardrail_information" not in response.model_dump()
 
@@ -162,18 +162,18 @@ def test_attach_guardrail_information_leaves_cached_dict_response_untouched():
     assert isinstance(result, dict)
     assert result["guardrail_information"] == recorded
 
-    original = litellm.ModelResponse()
+    original = embrouter.ModelResponse()
     copied = attach_guardrail_information(
         response=original,
         request_data={"metadata": {"standard_logging_guardrail_information": recorded}},
     )
 
     assert "guardrail_information" not in original.model_dump()
-    assert isinstance(copied, litellm.ModelResponse)
+    assert isinstance(copied, embrouter.ModelResponse)
     assert copied.model_dump()["guardrail_information"] == recorded
 
 
-def test_include_guardrail_response_requested_reads_flag_from_metadata_when_router_seeded_litellm_metadata():
+def test_include_guardrail_response_requested_reads_flag_from_metadata_when_router_seeded_embrouter_metadata():
     recorded = [
         {"guardrail_name": "first", "guardrail_status": "success"},
         {"guardrail_name": "second", "guardrail_status": "success"},
@@ -183,36 +183,36 @@ def test_include_guardrail_response_requested_reads_flag_from_metadata_when_rout
             "include_guardrail_response": True,
             "standard_logging_guardrail_information": recorded,
         },
-        "litellm_metadata": {},
+        "embrouter_metadata": {},
     }
 
     assert include_guardrail_response_requested(request_data) is True
 
-    response = litellm.ModelResponse()
+    response = embrouter.ModelResponse()
     result = attach_guardrail_information(response=response, request_data=request_data)
 
-    assert isinstance(result, litellm.ModelResponse)
+    assert isinstance(result, embrouter.ModelResponse)
     assert result.model_dump()["guardrail_information"] == recorded
 
 
 def test_include_guardrail_response_requested_is_false_without_exact_true():
     assert include_guardrail_response_requested(
-        {"metadata": {"include_guardrail_response": "true"}, "litellm_metadata": {}}
+        {"metadata": {"include_guardrail_response": "true"}, "embrouter_metadata": {}}
     ) is False
     assert include_guardrail_response_requested({}) is False
 
 
 class TestProxyBaseLLMRequestProcessing:
     @pytest.mark.asyncio
-    async def test_base_passthrough_process_llm_request_preserves_litellm_headers_for_non_streaming_response(
+    async def test_base_passthrough_process_llm_request_preserves_embrouter_headers_for_non_streaming_response(
         self, monkeypatch
     ):
         processing_obj = ProxyBaseLLMRequestProcessing(data={})
 
         async def fake_base_process_llm_request(**kwargs):
             passthrough_response = kwargs["fastapi_response"]
-            passthrough_response.headers["x-litellm-call-id"] = "test-call-id"
-            passthrough_response.headers["x-litellm-version"] = "test-version"
+            passthrough_response.headers["x-embrouter-call-id"] = "test-call-id"
+            passthrough_response.headers["x-embrouter-version"] = "test-version"
             return httpx.Response(
                 status_code=200,
                 content=b'{"ok":true}',
@@ -242,8 +242,8 @@ class TestProxyBaseLLMRequestProcessing:
         assert result.status_code == 200
         assert result.body == b'{"ok":true}'
         assert result.headers["x-amzn-requestid"] == "bedrock-request-id"
-        assert result.headers["x-litellm-call-id"] == "test-call-id"
-        assert result.headers["x-litellm-version"] == "test-version"
+        assert result.headers["x-embrouter-call-id"] == "test-call-id"
+        assert result.headers["x-embrouter-version"] == "test-version"
 
     @pytest.mark.asyncio
     async def test_base_passthrough_process_llm_request_returns_fastapi_response_from_guardrails(self, monkeypatch):
@@ -288,7 +288,7 @@ class TestProxyBaseLLMRequestProcessing:
         self, monkeypatch
     ):
         """The guardrail JSON path must forward upstream response headers (e.g.
-        x-amzn-requestid) alongside the x-litellm-* headers, matching the
+        x-amzn-requestid) alongside the x-embrouter-* headers, matching the
         non-guardrail passthrough path, while dropping length headers that no
         longer match the rewritten body."""
         processing_obj = ProxyBaseLLMRequestProcessing(
@@ -322,14 +322,14 @@ class TestProxyBaseLLMRequestProcessing:
             response=upstream,
             proxy_logging_obj=proxy_logging_obj,
             user_api_key_dict=MagicMock(spec=UserAPIKeyAuth),
-            custom_headers={"x-litellm-call-id": "test-call-id"},
+            custom_headers={"x-embrouter-call-id": "test-call-id"},
             request_headers={},
         )
 
         assert isinstance(result, Response)
         assert result.status_code == 200
         assert result.headers["x-amzn-requestid"] == "bedrock-request-id"
-        assert result.headers["x-litellm-call-id"] == "test-call-id"
+        assert result.headers["x-embrouter-call-id"] == "test-call-id"
         assert result.headers["content-length"] == str(len(result.body))
 
     @pytest.mark.asyncio
@@ -337,7 +337,7 @@ class TestProxyBaseLLMRequestProcessing:
         self, monkeypatch
     ):
         """The guardrail event-stream branch must also forward upstream response
-        headers alongside the x-litellm-* headers."""
+        headers alongside the x-embrouter-* headers."""
         processing_obj = ProxyBaseLLMRequestProcessing(
             data={"custom_llm_provider": "bedrock"}
         )
@@ -372,14 +372,14 @@ class TestProxyBaseLLMRequestProcessing:
             response=upstream,
             proxy_logging_obj=proxy_logging_obj,
             user_api_key_dict=MagicMock(spec=UserAPIKeyAuth),
-            custom_headers={"x-litellm-call-id": "test-call-id"},
+            custom_headers={"x-embrouter-call-id": "test-call-id"},
             request_headers={},
         )
 
         assert isinstance(result, Response)
         assert result.body == b"rewritten-frames"
         assert result.headers["x-amzn-requestid"] == "bedrock-request-id"
-        assert result.headers["x-litellm-call-id"] == "test-call-id"
+        assert result.headers["x-embrouter-call-id"] == "test-call-id"
 
     @pytest.mark.asyncio
     async def test_handle_non_streaming_allm_passthrough_route_applies_response_headers_hook(
@@ -410,31 +410,31 @@ class TestProxyBaseLLMRequestProcessing:
 
         proxy_logging_obj.post_call_success_hook = fake_post_call_success_hook
         proxy_logging_obj.post_call_response_headers_hook = AsyncMock(
-            return_value={"x-litellm-custom": "from-hook"}
+            return_value={"x-embrouter-custom": "from-hook"}
         )
 
         result = await processing_obj._handle_non_streaming_allm_passthrough_route(
             response=upstream,
             proxy_logging_obj=proxy_logging_obj,
             user_api_key_dict=MagicMock(spec=UserAPIKeyAuth),
-            custom_headers={"x-litellm-call-id": "test-call-id"},
+            custom_headers={"x-embrouter-call-id": "test-call-id"},
             request_headers={"authorization": "Bearer sk-test"},
         )
 
         assert isinstance(result, Response)
-        assert result.headers["x-litellm-custom"] == "from-hook"
-        assert result.headers["x-litellm-call-id"] == "test-call-id"
+        assert result.headers["x-embrouter-custom"] == "from-hook"
+        assert result.headers["x-embrouter-call-id"] == "test-call-id"
         proxy_logging_obj.post_call_response_headers_hook.assert_awaited_once()
         _, kwargs = proxy_logging_obj.post_call_response_headers_hook.call_args
         assert kwargs["request_headers"] == {"authorization": "Bearer sk-test"}
 
     @pytest.mark.asyncio
-    async def test_common_processing_pre_call_logic_pre_call_hook_receives_litellm_call_id(self, monkeypatch):
+    async def test_common_processing_pre_call_logic_pre_call_hook_receives_embrouter_call_id(self, monkeypatch):
         processing_obj = ProxyBaseLLMRequestProcessing(data={})
         mock_request = MagicMock(spec=Request)
         mock_request.headers = {}
 
-        async def mock_add_litellm_data_to_request(*args, **kwargs):
+        async def mock_add_embrouter_data_to_request(*args, **kwargs):
             return {}
 
         async def mock_common_processing_pre_call_logic(user_api_key_dict, data, call_type, skip_guardrails=False):
@@ -444,9 +444,9 @@ class TestProxyBaseLLMRequestProcessing:
         mock_proxy_logging_obj = MagicMock(spec=ProxyLogging)
         mock_proxy_logging_obj.pre_call_hook = AsyncMock(side_effect=mock_common_processing_pre_call_logic)
         monkeypatch.setattr(
-            litellm.proxy.common_request_processing,
-            "add_litellm_data_to_request",
-            mock_add_litellm_data_to_request,
+            embrouter.proxy.common_request_processing,
+            "add_embrouter_data_to_request",
+            mock_add_embrouter_data_to_request,
         )
         mock_general_settings = {}
         mock_user_api_key_dict = MagicMock(spec=UserAPIKeyAuth)
@@ -471,12 +471,12 @@ class TestProxyBaseLLMRequestProcessing:
         _, call_kwargs = mock_proxy_logging_obj.pre_call_hook.call_args
         data_passed = call_kwargs.get("data", {})
 
-        assert "litellm_call_id" in data_passed
+        assert "embrouter_call_id" in data_passed
         try:
-            uuid.UUID(data_passed["litellm_call_id"])
+            uuid.UUID(data_passed["embrouter_call_id"])
         except ValueError:
-            pytest.fail("litellm_call_id is not a valid UUID")
-        assert data_passed["litellm_call_id"] == returned_data["litellm_call_id"]
+            pytest.fail("embrouter_call_id is not a valid UUID")
+        assert data_passed["embrouter_call_id"] == returned_data["embrouter_call_id"]
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("requested_model", [{"bad": "value"}, ["gpt-5.2"], 1])
@@ -488,9 +488,9 @@ class TestProxyBaseLLMRequestProcessing:
         )
         mock_request = MagicMock(spec=Request)
         mock_request.headers = {}
-        add_litellm_data_to_request = AsyncMock()
+        add_embrouter_data_to_request = AsyncMock()
         monkeypatch.setattr(
-            litellm.proxy.common_request_processing, "add_litellm_data_to_request", add_litellm_data_to_request
+            embrouter.proxy.common_request_processing, "add_embrouter_data_to_request", add_embrouter_data_to_request
         )
 
         with pytest.raises(ProxyException) as exc_info:
@@ -505,7 +505,7 @@ class TestProxyBaseLLMRequestProcessing:
 
         assert exc_info.value.code == str(status.HTTP_400_BAD_REQUEST)
         assert exc_info.value.param == "model"
-        add_litellm_data_to_request.assert_not_awaited()
+        add_embrouter_data_to_request.assert_not_awaited()
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("safe_memory_mode", [False, True])
@@ -526,13 +526,13 @@ class TestProxyBaseLLMRequestProcessing:
         system_key: str,
         token_key: str,
     ) -> None:
-        from litellm.integrations.shadow_eval_logger import request_guardrail_fingerprint
+        from embrouter.integrations.shadow_eval_logger import request_guardrail_fingerprint
 
-        monkeypatch.setattr(litellm, "safe_memory_mode", safe_memory_mode)
+        monkeypatch.setattr(embrouter, "safe_memory_mode", safe_memory_mode)
         processing_obj: Final = ProxyBaseLLMRequestProcessing(data={})
         mock_request: Final = MagicMock(spec=Request)
         mock_request.headers = {}
-        metadata_key: Final = "metadata" if route_type == "acompletion" else "litellm_metadata"
+        metadata_key: Final = "metadata" if route_type == "acompletion" else "embrouter_metadata"
         raw_body: Final = {
             input_key: [{"role": "user", "content": "private input"}],
             system_key: "private system",
@@ -551,8 +551,8 @@ class TestProxyBaseLLMRequestProcessing:
             call_type: str,
             skip_guardrails: bool = False,
         ) -> dict[str, object]:
-            logging_obj: Final = data["litellm_logging_obj"]
-            assert isinstance(logging_obj, LiteLLMLoggingObj)
+            logging_obj: Final = data["embrouter_logging_obj"]
+            assert isinstance(logging_obj, EmbRouterLoggingObj)
             assert logging_obj.shadow_eval_request_snapshot is None
             return {
                 **{key: value for key, value in data.items() if key not in (system_key, "tool_choice")},
@@ -563,8 +563,8 @@ class TestProxyBaseLLMRequestProcessing:
         mock_proxy_logging_obj: Final = MagicMock(spec=ProxyLogging)
         mock_proxy_logging_obj.pre_call_hook = AsyncMock(side_effect=mock_pre_call_hook)
         monkeypatch.setattr(
-            litellm.proxy.common_request_processing,
-            "add_litellm_data_to_request",
+            embrouter.proxy.common_request_processing,
+            "add_embrouter_data_to_request",
             AsyncMock(return_value={**raw_body, metadata_key: {}, "proxy_server_request": {"body": raw_body}}),
         )
 
@@ -587,7 +587,7 @@ class TestProxyBaseLLMRequestProcessing:
         assert snapshot.fingerprint == request_guardrail_fingerprint(
             {"standard_logging_guardrail_information": recorded}
         )
-        assert "litellm_logging_obj" not in persisted_body
+        assert "embrouter_logging_obj" not in persisted_body
         assert "private" not in json.dumps(persisted_body)
         approved_messages[0]["content"] = "later input mutation"
         approved_tools[0]["description"] = "later tool mutation"
@@ -607,7 +607,7 @@ class TestProxyBaseLLMRequestProcessing:
         mock_request.headers = {}
         mock_request.scope = {"path": route}
 
-        async def mock_add_litellm_data_to_request(*args, **kwargs):
+        async def mock_add_embrouter_data_to_request(*args, **kwargs):
             return copy.deepcopy(request_body)
 
         async def mock_pre_call_hook(user_api_key_dict, data, call_type, skip_guardrails=False):
@@ -619,14 +619,14 @@ class TestProxyBaseLLMRequestProcessing:
         mock_proxy_config = MagicMock(spec=ProxyConfig)
         mock_proxy_config._get_hierarchical_router_settings = AsyncMock(return_value=None)
         monkeypatch.setattr(
-            litellm.proxy.common_request_processing,
-            "add_litellm_data_to_request",
-            mock_add_litellm_data_to_request,
+            embrouter.proxy.common_request_processing,
+            "add_embrouter_data_to_request",
+            mock_add_embrouter_data_to_request,
         )
         tag_budget_check = AsyncMock()
-        monkeypatch.setattr(litellm.proxy.common_request_processing, "tag_max_budget_check_for_tags", tag_budget_check)
-        monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", MagicMock())
-        monkeypatch.setattr("litellm.proxy.proxy_server.user_api_key_cache", MagicMock())
+        monkeypatch.setattr(embrouter.proxy.common_request_processing, "tag_max_budget_check_for_tags", tag_budget_check)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", MagicMock())
+        monkeypatch.setattr("embrouter.proxy.proxy_server.user_api_key_cache", MagicMock())
         return processing_obj, mock_request, mock_proxy_logging_obj, mock_proxy_config, tag_budget_check
 
     @staticmethod
@@ -635,12 +635,12 @@ class TestProxyBaseLLMRequestProcessing:
             model_list=[
                 {
                     "model_name": "free-model",
-                    "litellm_params": {"model": "openai/gpt-4.1-mini", "api_key": "sk-test"},
+                    "embrouter_params": {"model": "openai/gpt-4.1-mini", "api_key": "sk-test"},
                     "model_info": {"input_cost_per_token": 0, "output_cost_per_token": 0},
                 },
                 {
                     "model_name": "paid-model",
-                    "litellm_params": {"model": "openai/gpt-4.1-mini", "api_key": "sk-test"},
+                    "embrouter_params": {"model": "openai/gpt-4.1-mini", "api_key": "sk-test"},
                 },
             ]
         )
@@ -660,7 +660,7 @@ class TestProxyBaseLLMRequestProcessing:
                 guardrail_tags=["guardrail-tag"],
             )
         )
-        tag_budget_check.side_effect = litellm.BudgetExceededError(current_cost=10.0, max_budget=5.0)
+        tag_budget_check.side_effect = embrouter.BudgetExceededError(current_cost=10.0, max_budget=5.0)
         user_api_key_dict = ProxyUserAPIKeyAuth(api_key="sk-test")
 
         with pytest.raises(ProxyException) as exc_info:
@@ -787,16 +787,16 @@ class TestProxyBaseLLMRequestProcessing:
         assert first_pass_data["metadata"]["tags"] == ["existing-tag", "guardrail-tag"]
         tag_budget_check.reset_mock()
 
-        async def retry_add_litellm_data_to_request(*args, **kwargs):
+        async def retry_add_embrouter_data_to_request(*args, **kwargs):
             return first_pass_data
 
         async def idempotent_pre_call_hook(user_api_key_dict, data, call_type, skip_guardrails=False):
             return data
 
         monkeypatch.setattr(
-            litellm.proxy.common_request_processing,
-            "add_litellm_data_to_request",
-            retry_add_litellm_data_to_request,
+            embrouter.proxy.common_request_processing,
+            "add_embrouter_data_to_request",
+            retry_add_embrouter_data_to_request,
         )
         mock_proxy_logging_obj.pre_call_hook = AsyncMock(side_effect=idempotent_pre_call_hook)
 
@@ -816,12 +816,12 @@ class TestProxyBaseLLMRequestProcessing:
 
     @pytest.mark.asyncio
     async def test_enforce_guardrail_added_tag_budgets_checks_only_added_tags(self, monkeypatch):
-        from litellm.proxy.common_request_processing import _enforce_guardrail_added_tag_budgets
+        from embrouter.proxy.common_request_processing import _enforce_guardrail_added_tag_budgets
 
         tag_budget_check = AsyncMock()
-        monkeypatch.setattr(litellm.proxy.common_request_processing, "tag_max_budget_check_for_tags", tag_budget_check)
-        monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", MagicMock())
-        monkeypatch.setattr("litellm.proxy.proxy_server.user_api_key_cache", MagicMock())
+        monkeypatch.setattr(embrouter.proxy.common_request_processing, "tag_max_budget_check_for_tags", tag_budget_check)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", MagicMock())
+        monkeypatch.setattr("embrouter.proxy.proxy_server.user_api_key_cache", MagicMock())
 
         user_api_key_dict = ProxyUserAPIKeyAuth(api_key="sk-test")
         mock_proxy_logging_obj = MagicMock(spec=ProxyLogging)
@@ -853,13 +853,13 @@ class TestProxyBaseLLMRequestProcessing:
 
     @pytest.mark.asyncio
     async def test_enforce_guardrail_added_tag_budgets_raises_budget_exceeded_proxy_exception(self, monkeypatch):
-        from litellm.proxy.common_request_processing import _enforce_guardrail_added_tag_budgets
+        from embrouter.proxy.common_request_processing import _enforce_guardrail_added_tag_budgets
 
         monkeypatch.setattr(
-            litellm.proxy.common_request_processing,
+            embrouter.proxy.common_request_processing,
             "tag_max_budget_check_for_tags",
             AsyncMock(
-                side_effect=litellm.BudgetExceededError(
+                side_effect=embrouter.BudgetExceededError(
                     current_cost=2.0,
                     max_budget=1.0,
                     message="Budget has been exceeded! Tag=guardrail-tag Current cost: 2.0, Max budget: 1.0",
@@ -868,8 +868,8 @@ class TestProxyBaseLLMRequestProcessing:
                 )
             ),
         )
-        monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", MagicMock())
-        monkeypatch.setattr("litellm.proxy.proxy_server.user_api_key_cache", MagicMock())
+        monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", MagicMock())
+        monkeypatch.setattr("embrouter.proxy.proxy_server.user_api_key_cache", MagicMock())
 
         with pytest.raises(ProxyException) as exc_info:
             await _enforce_guardrail_added_tag_budgets(
@@ -887,12 +887,12 @@ class TestProxyBaseLLMRequestProcessing:
 
     @pytest.mark.asyncio
     async def test_enforce_guardrail_added_tag_budgets_still_checks_when_model_is_unparseable(self, monkeypatch):
-        from litellm.proxy.common_request_processing import _enforce_guardrail_added_tag_budgets
+        from embrouter.proxy.common_request_processing import _enforce_guardrail_added_tag_budgets
 
         tag_budget_check = AsyncMock()
-        monkeypatch.setattr(litellm.proxy.common_request_processing, "tag_max_budget_check_for_tags", tag_budget_check)
-        monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", MagicMock())
-        monkeypatch.setattr("litellm.proxy.proxy_server.user_api_key_cache", MagicMock())
+        monkeypatch.setattr(embrouter.proxy.common_request_processing, "tag_max_budget_check_for_tags", tag_budget_check)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", MagicMock())
+        monkeypatch.setattr("embrouter.proxy.proxy_server.user_api_key_cache", MagicMock())
 
         await _enforce_guardrail_added_tag_budgets(
             data={"model": 5, "metadata": {"tags": ["guardrail-tag"]}},
@@ -912,8 +912,8 @@ class TestProxyBaseLLMRequestProcessing:
         """arm_pre_call must run before pre_call_hook: an auto router's own compression
         policy has to be in `data["metadata"]` (naming the model-side guardrail so it
         runs even if it isn't default_on) by the time guardrails see the request."""
-        from litellm.integrations.custom_guardrail import CustomGuardrail
-        from litellm.proxy.guardrails import guardrail_registry
+        from embrouter.integrations.custom_guardrail import CustomGuardrail
+        from embrouter.proxy.guardrails import guardrail_registry
 
         # The model hop is only armed for a name that resolves to an active compression
         # guardrail, so arming it has to have a real one to resolve to.
@@ -922,13 +922,13 @@ class TestProxyBaseLLMRequestProcessing:
 
         monkeypatch.setitem(guardrail_registry.guardrail_class_registry, "headroom", _FakeCompressionGuardrail)
         active_guardrail = _FakeCompressionGuardrail(guardrail_name="headroom-model")
-        litellm.logging_callback_manager.add_litellm_callback(active_guardrail)
+        embrouter.logging_callback_manager.add_embrouter_callback(active_guardrail)
 
         processing_obj = ProxyBaseLLMRequestProcessing(data={})
         mock_request = MagicMock(spec=Request)
         mock_request.headers = {}
 
-        async def mock_add_litellm_data_to_request(*args, **kwargs):
+        async def mock_add_embrouter_data_to_request(*args, **kwargs):
             return {"model": "smart-router", "messages": [{"role": "user", "content": "hi"}]}
 
         seen_metadata: dict = {}
@@ -940,16 +940,16 @@ class TestProxyBaseLLMRequestProcessing:
         mock_proxy_logging_obj = MagicMock(spec=ProxyLogging)
         mock_proxy_logging_obj.pre_call_hook = AsyncMock(side_effect=mock_pre_call_hook)
         monkeypatch.setattr(
-            litellm.proxy.common_request_processing,
-            "add_litellm_data_to_request",
-            mock_add_litellm_data_to_request,
+            embrouter.proxy.common_request_processing,
+            "add_embrouter_data_to_request",
+            mock_add_embrouter_data_to_request,
         )
 
         fake_llm_router = MagicMock()
         fake_llm_router.deployments_for_request.return_value = [
             {
                 "model_name": "smart-router",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "auto_router/complexity_router",
                     "auto_router_routing_compression": "none",
                     "auto_router_model_compression": "headroom-model",
@@ -970,23 +970,23 @@ class TestProxyBaseLLMRequestProcessing:
                 llm_router=fake_llm_router,
             )
         finally:
-            litellm.logging_callback_manager.remove_callback_from_all_lists(active_guardrail)
+            embrouter.logging_callback_manager.remove_callback_from_all_lists(active_guardrail)
 
         assert seen_metadata.get("guardrails") == ["headroom-model"]
 
-    def test_add_dd_apm_tags_for_litellm_call_id_uses_dd_tracing_helper(self, monkeypatch):
+    def test_add_dd_apm_tags_for_embrouter_call_id_uses_dd_tracing_helper(self, monkeypatch):
         mock_set_active_span_tag = MagicMock(return_value=True)
-        import litellm.proxy.dd_span_tagger
+        import embrouter.proxy.dd_span_tagger
 
         monkeypatch.setattr(
-            litellm.proxy.dd_span_tagger,
+            embrouter.proxy.dd_span_tagger,
             "set_active_span_tag",
             mock_set_active_span_tag,
         )
 
         DDSpanTagger.tag_call_id("test-call-id")
 
-        mock_set_active_span_tag.assert_called_once_with("litellm.call_id", "test-call-id")
+        mock_set_active_span_tag.assert_called_once_with("embrouter.call_id", "test-call-id")
 
     @pytest.mark.asyncio
     async def test_should_apply_hierarchical_router_settings_as_override(self, monkeypatch):
@@ -1001,7 +1001,7 @@ class TestProxyBaseLLMRequestProcessing:
         mock_request = MagicMock(spec=Request)
         mock_request.headers = {}
 
-        async def mock_add_litellm_data_to_request(*args, **kwargs):
+        async def mock_add_embrouter_data_to_request(*args, **kwargs):
             return {}
 
         async def mock_common_processing_pre_call_logic(user_api_key_dict, data, call_type, skip_guardrails=False):
@@ -1011,9 +1011,9 @@ class TestProxyBaseLLMRequestProcessing:
         mock_proxy_logging_obj = MagicMock(spec=ProxyLogging)
         mock_proxy_logging_obj.pre_call_hook = AsyncMock(side_effect=mock_common_processing_pre_call_logic)
         monkeypatch.setattr(
-            litellm.proxy.common_request_processing,
-            "add_litellm_data_to_request",
-            mock_add_litellm_data_to_request,
+            embrouter.proxy.common_request_processing,
+            "add_embrouter_data_to_request",
+            mock_add_embrouter_data_to_request,
         )
 
         mock_general_settings = {}
@@ -1031,7 +1031,7 @@ class TestProxyBaseLLMRequestProcessing:
 
         mock_prisma_client = MagicMock()
         monkeypatch.setattr(
-            "litellm.proxy.proxy_server.prisma_client",
+            "embrouter.proxy.proxy_server.prisma_client",
             mock_prisma_client,
         )
 
@@ -1073,30 +1073,30 @@ class TestProxyBaseLLMRequestProcessing:
     @pytest.mark.asyncio
     async def test_stream_timeout_header_processing(self):
         """
-        Test that x-litellm-stream-timeout header gets processed and added to request data as stream_timeout.
+        Test that x-embrouter-stream-timeout header gets processed and added to request data as stream_timeout.
         """
-        from litellm.proxy.litellm_pre_call_utils import LiteLLMProxyRequestSetup
+        from embrouter.proxy.embrouter_pre_call_utils import EmbRouterProxyRequestSetup
 
         # Test with stream timeout header
-        headers_with_timeout = {"x-litellm-stream-timeout": "30.5"}
-        result = LiteLLMProxyRequestSetup._get_stream_timeout_from_request(headers_with_timeout)
+        headers_with_timeout = {"x-embrouter-stream-timeout": "30.5"}
+        result = EmbRouterProxyRequestSetup._get_stream_timeout_from_request(headers_with_timeout)
         assert result == 30.5
 
         # Test without stream timeout header
         headers_without_timeout = {}
-        result = LiteLLMProxyRequestSetup._get_stream_timeout_from_request(headers_without_timeout)
+        result = EmbRouterProxyRequestSetup._get_stream_timeout_from_request(headers_without_timeout)
         assert result is None
 
         # Test with invalid header value (should raise ValueError when converting to float)
-        headers_with_invalid = {"x-litellm-stream-timeout": "invalid"}
+        headers_with_invalid = {"x-embrouter-stream-timeout": "invalid"}
         with pytest.raises(ValueError, match="could not convert string to float: 'invalid"):
-            LiteLLMProxyRequestSetup._get_stream_timeout_from_request(headers_with_invalid)
+            EmbRouterProxyRequestSetup._get_stream_timeout_from_request(headers_with_invalid)
 
     @pytest.mark.asyncio
-    async def test_build_litellm_proxy_success_headers_from_llm_response(self):
+    async def test_build_embrouter_proxy_success_headers_from_llm_response(self):
         """
         Google native :generateContent uses this helper instead of base_process_llm_request;
-        ensure x-litellm-* headers and callback hooks merge like the main proxy path.
+        ensure x-embrouter-* headers and callback hooks merge like the main proxy path.
         """
         mock_request = MagicMock(spec=Request)
         mock_request.headers = {}
@@ -1111,7 +1111,7 @@ class TestProxyBaseLLMRequestProcessing:
             }
 
         logging_obj = MagicMock()
-        logging_obj.litellm_call_id = "call-id-test"
+        logging_obj.embrouter_call_id = "call-id-test"
 
         mock_user = MagicMock()
         mock_user.tpm_limit = None
@@ -1125,7 +1125,7 @@ class TestProxyBaseLLMRequestProcessing:
             return_value={"x-ratelimit-remaining-requests": "999"}
         )
 
-        headers = await ProxyBaseLLMRequestProcessing.build_litellm_proxy_success_headers_from_llm_response(
+        headers = await ProxyBaseLLMRequestProcessing.build_embrouter_proxy_success_headers_from_llm_response(
             response=_FakeGenaiResponse(),
             request_data={"model": "gemini/gemini-1.5-flash"},
             request=mock_request,
@@ -1135,15 +1135,15 @@ class TestProxyBaseLLMRequestProcessing:
             proxy_logging_obj=proxy_logging_obj,
         )
 
-        assert headers["x-litellm-call-id"] == "call-id-test"
-        assert headers["x-litellm-model-id"] == "deployment-model-id"
-        assert headers["x-litellm-version"] == "9.9.9"
+        assert headers["x-embrouter-call-id"] == "call-id-test"
+        assert headers["x-embrouter-model-id"] == "deployment-model-id"
+        assert headers["x-embrouter-version"] == "9.9.9"
         assert headers["llm_provider-ratelimit-requests"] == "1000"
         assert headers["x-ratelimit-remaining-requests"] == "999"
         proxy_logging_obj.post_call_response_headers_hook.assert_awaited_once()
 
     @pytest.mark.asyncio
-    async def test_build_litellm_proxy_success_headers_streaming_style_iterator(self):
+    async def test_build_embrouter_proxy_success_headers_streaming_style_iterator(self):
         """AsyncGoogleGenAIGenerateContentStreamingIterator sets _hidden_params at init; headers must propagate."""
 
         class _FakeStreamLike:
@@ -1164,7 +1164,7 @@ class TestProxyBaseLLMRequestProcessing:
         mock_request = MagicMock(spec=Request)
         mock_request.headers = {}
         logging_obj = MagicMock()
-        logging_obj.litellm_call_id = "cid-stream"
+        logging_obj.embrouter_call_id = "cid-stream"
         mock_user = MagicMock()
         mock_user.tpm_limit = None
         mock_user.rpm_limit = None
@@ -1174,7 +1174,7 @@ class TestProxyBaseLLMRequestProcessing:
         proxy_logging_obj = MagicMock(spec=ProxyLogging)
         proxy_logging_obj.post_call_response_headers_hook = AsyncMock(return_value={})
 
-        headers = await ProxyBaseLLMRequestProcessing.build_litellm_proxy_success_headers_from_llm_response(
+        headers = await ProxyBaseLLMRequestProcessing.build_embrouter_proxy_success_headers_from_llm_response(
             response=_FakeStreamLike(),
             request_data={"model": "gemini/gemini-2.0-flash"},
             request=mock_request,
@@ -1184,15 +1184,15 @@ class TestProxyBaseLLMRequestProcessing:
             proxy_logging_obj=proxy_logging_obj,
         )
 
-        assert headers["x-litellm-model-id"] == "stream-model-id"
-        assert headers["x-litellm-model-api-base"] == ("https://generativelanguage.googleapis.com/v1beta")
+        assert headers["x-embrouter-model-id"] == "stream-model-id"
+        assert headers["x-embrouter-model-api-base"] == ("https://generativelanguage.googleapis.com/v1beta")
         assert headers["llm_provider-x"] == "y"
 
     @pytest.mark.asyncio
-    async def test_build_litellm_proxy_success_headers_no_hidden_params_metadata_fallback(
+    async def test_build_embrouter_proxy_success_headers_no_hidden_params_metadata_fallback(
         self,
     ):
-        """When response has no _hidden_params, model_id can still come from litellm_metadata."""
+        """When response has no _hidden_params, model_id can still come from embrouter_metadata."""
 
         class _BareResponse:
             pass
@@ -1200,7 +1200,7 @@ class TestProxyBaseLLMRequestProcessing:
         mock_request = MagicMock(spec=Request)
         mock_request.headers = {}
         logging_obj = MagicMock()
-        logging_obj.litellm_call_id = "cid-meta"
+        logging_obj.embrouter_call_id = "cid-meta"
         mock_user = MagicMock()
         mock_user.tpm_limit = None
         mock_user.rpm_limit = None
@@ -1210,11 +1210,11 @@ class TestProxyBaseLLMRequestProcessing:
         proxy_logging_obj = MagicMock(spec=ProxyLogging)
         proxy_logging_obj.post_call_response_headers_hook = AsyncMock(return_value={})
 
-        headers = await ProxyBaseLLMRequestProcessing.build_litellm_proxy_success_headers_from_llm_response(
+        headers = await ProxyBaseLLMRequestProcessing.build_embrouter_proxy_success_headers_from_llm_response(
             response=_BareResponse(),
             request_data={
                 "model": "gemini/gemini-1.5-flash",
-                "litellm_metadata": {"model_info": {"id": "meta-model-id"}},
+                "embrouter_metadata": {"model_info": {"id": "meta-model-id"}},
             },
             request=mock_request,
             user_api_key_dict=mock_user,
@@ -1223,15 +1223,15 @@ class TestProxyBaseLLMRequestProcessing:
             proxy_logging_obj=proxy_logging_obj,
         )
 
-        assert headers["x-litellm-model-id"] == "meta-model-id"
+        assert headers["x-embrouter-model-id"] == "meta-model-id"
 
     @pytest.mark.asyncio
-    async def test_add_litellm_data_to_request_with_stream_timeout_header(self):
+    async def test_add_embrouter_data_to_request_with_stream_timeout_header(self):
         """
-        Test that x-litellm-stream-timeout header gets processed and added to request data
-        when calling add_litellm_data_to_request.
+        Test that x-embrouter-stream-timeout header gets processed and added to request data
+        when calling add_embrouter_data_to_request.
         """
-        from litellm.proxy.litellm_pre_call_utils import add_litellm_data_to_request
+        from embrouter.proxy.embrouter_pre_call_utils import add_embrouter_data_to_request
 
         # Create test data with a basic completion request
         test_data = {
@@ -1241,7 +1241,7 @@ class TestProxyBaseLLMRequestProcessing:
 
         # Mock request with stream timeout header
         mock_request = MagicMock(spec=Request)
-        mock_request.headers = {"x-litellm-stream-timeout": "45.0"}
+        mock_request.headers = {"x-embrouter-stream-timeout": "45.0"}
         mock_request.url.path = "/v1/chat/completions"
         mock_request.method = "POST"
         mock_request.query_params = {}
@@ -1275,7 +1275,7 @@ class TestProxyBaseLLMRequestProcessing:
         mock_proxy_config = MagicMock()
 
         # Call the actual function that processes headers and adds data
-        result_data = await add_litellm_data_to_request(
+        result_data = await add_embrouter_data_to_request(
             data=test_data,
             request=mock_request,
             general_settings=general_settings,
@@ -1297,8 +1297,8 @@ class TestProxyBaseLLMRequestProcessing:
         Test that discount information is correctly extracted from logging object
         and included in response headers.
         """
-        from litellm.litellm_core_utils.litellm_logging import (
-            Logging as LiteLLMLoggingObj,
+        from embrouter.embrouter_core_utils.embrouter_logging import (
+            Logging as EmbRouterLoggingObj,
         )
 
         # Create mock user API key dict
@@ -1309,13 +1309,13 @@ class TestProxyBaseLLMRequestProcessing:
         mock_user_api_key_dict.spend = 0
 
         # Create logging object with cost breakdown including discount
-        logging_obj = LiteLLMLoggingObj(
+        logging_obj = EmbRouterLoggingObj(
             model="vertex_ai/gemini-pro",
             messages=[{"role": "user", "content": "test"}],
             stream=False,
             call_type="completion",
             start_time=None,
-            litellm_call_id="test-call-id",
+            embrouter_call_id="test-call-id",
             function_id="test-function-id",
         )
 
@@ -1335,25 +1335,25 @@ class TestProxyBaseLLMRequestProcessing:
             user_api_key_dict=mock_user_api_key_dict,
             call_id="test-call-id",
             response_cost=0.000095,
-            litellm_logging_obj=logging_obj,
+            embrouter_logging_obj=logging_obj,
         )
 
         # Verify discount headers are present
-        assert "x-litellm-response-cost" in headers
-        assert float(headers["x-litellm-response-cost"]) == 0.000095
+        assert "x-embrouter-response-cost" in headers
+        assert float(headers["x-embrouter-response-cost"]) == 0.000095
 
-        assert "x-litellm-response-cost-original" in headers
-        assert float(headers["x-litellm-response-cost-original"]) == 0.0001
+        assert "x-embrouter-response-cost-original" in headers
+        assert float(headers["x-embrouter-response-cost-original"]) == 0.0001
 
-        assert "x-litellm-response-cost-discount-amount" in headers
-        assert float(headers["x-litellm-response-cost-discount-amount"]) == 0.000005
+        assert "x-embrouter-response-cost-discount-amount" in headers
+        assert float(headers["x-embrouter-response-cost-discount-amount"]) == 0.000005
 
     def test_get_custom_headers_without_discount_info(self):
         """
         Test that when no discount is applied, discount headers are not included.
         """
-        from litellm.litellm_core_utils.litellm_logging import (
-            Logging as LiteLLMLoggingObj,
+        from embrouter.embrouter_core_utils.embrouter_logging import (
+            Logging as EmbRouterLoggingObj,
         )
 
         # Create mock user API key dict
@@ -1364,13 +1364,13 @@ class TestProxyBaseLLMRequestProcessing:
         mock_user_api_key_dict.spend = 0
 
         # Create logging object without discount
-        logging_obj = LiteLLMLoggingObj(
+        logging_obj = EmbRouterLoggingObj(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "test"}],
             stream=False,
             call_type="completion",
             start_time=None,
-            litellm_call_id="test-call-id",
+            embrouter_call_id="test-call-id",
             function_id="test-function-id",
         )
 
@@ -1387,23 +1387,23 @@ class TestProxyBaseLLMRequestProcessing:
             user_api_key_dict=mock_user_api_key_dict,
             call_id="test-call-id",
             response_cost=0.0001,
-            litellm_logging_obj=logging_obj,
+            embrouter_logging_obj=logging_obj,
         )
 
         # Verify discount headers are NOT present
-        assert "x-litellm-response-cost" in headers
-        assert float(headers["x-litellm-response-cost"]) == 0.0001
+        assert "x-embrouter-response-cost" in headers
+        assert float(headers["x-embrouter-response-cost"]) == 0.0001
 
         # Discount headers should not be in the final dict
-        assert "x-litellm-response-cost-original" not in headers
-        assert "x-litellm-response-cost-discount-amount" not in headers
+        assert "x-embrouter-response-cost-original" not in headers
+        assert "x-embrouter-response-cost-discount-amount" not in headers
 
     def test_get_custom_headers_with_margin_info(self):
         """
         Test that margin headers are included when margin is applied.
         """
-        from litellm.litellm_core_utils.litellm_logging import (
-            Logging as LiteLLMLoggingObj,
+        from embrouter.embrouter_core_utils.embrouter_logging import (
+            Logging as EmbRouterLoggingObj,
         )
 
         # Create mock user API key dict
@@ -1414,13 +1414,13 @@ class TestProxyBaseLLMRequestProcessing:
         mock_user_api_key_dict.spend = 0
 
         # Create logging object with margin
-        logging_obj = LiteLLMLoggingObj(
+        logging_obj = EmbRouterLoggingObj(
             model="gpt-4",
             messages=[],
             stream=False,
             call_type="completion",
             start_time=None,
-            litellm_call_id="test-call-id-margin",
+            embrouter_call_id="test-call-id-margin",
             function_id="test-function",
         )
         logging_obj.set_cost_breakdown(
@@ -1436,25 +1436,25 @@ class TestProxyBaseLLMRequestProcessing:
         headers = ProxyBaseLLMRequestProcessing.get_custom_headers(
             user_api_key_dict=mock_user_api_key_dict,
             response_cost=0.00011,
-            litellm_logging_obj=logging_obj,
+            embrouter_logging_obj=logging_obj,
         )
 
         # Verify margin headers are present
-        assert "x-litellm-response-cost" in headers
-        assert float(headers["x-litellm-response-cost"]) == 0.00011
+        assert "x-embrouter-response-cost" in headers
+        assert float(headers["x-embrouter-response-cost"]) == 0.00011
 
-        assert "x-litellm-response-cost-margin-amount" in headers
-        assert float(headers["x-litellm-response-cost-margin-amount"]) == 0.00001
+        assert "x-embrouter-response-cost-margin-amount" in headers
+        assert float(headers["x-embrouter-response-cost-margin-amount"]) == 0.00001
 
-        assert "x-litellm-response-cost-margin-percent" in headers
-        assert float(headers["x-litellm-response-cost-margin-percent"]) == 0.10
+        assert "x-embrouter-response-cost-margin-percent" in headers
+        assert float(headers["x-embrouter-response-cost-margin-percent"]) == 0.10
 
     def test_get_custom_headers_without_margin_info(self):
         """
         Test that when no margin is applied, margin headers are not included.
         """
-        from litellm.litellm_core_utils.litellm_logging import (
-            Logging as LiteLLMLoggingObj,
+        from embrouter.embrouter_core_utils.embrouter_logging import (
+            Logging as EmbRouterLoggingObj,
         )
 
         # Create mock user API key dict
@@ -1465,13 +1465,13 @@ class TestProxyBaseLLMRequestProcessing:
         mock_user_api_key_dict.spend = 0
 
         # Create logging object without margin
-        logging_obj = LiteLLMLoggingObj(
+        logging_obj = EmbRouterLoggingObj(
             model="gpt-4",
             messages=[],
             stream=False,
             call_type="completion",
             start_time=None,
-            litellm_call_id="test-call-id-no-margin",
+            embrouter_call_id="test-call-id-no-margin",
             function_id="test-function",
         )
         logging_obj.set_cost_breakdown(
@@ -1484,12 +1484,12 @@ class TestProxyBaseLLMRequestProcessing:
         headers = ProxyBaseLLMRequestProcessing.get_custom_headers(
             user_api_key_dict=mock_user_api_key_dict,
             response_cost=0.0001,
-            litellm_logging_obj=logging_obj,
+            embrouter_logging_obj=logging_obj,
         )
 
         # Verify margin headers are not present
-        assert "x-litellm-response-cost-margin-amount" not in headers
-        assert "x-litellm-response-cost-margin-percent" not in headers
+        assert "x-embrouter-response-cost-margin-amount" not in headers
+        assert "x-embrouter-response-cost-margin-percent" not in headers
 
     def test_get_custom_headers_per_component_cost_breakdown(self):
         """Test per-component cost headers against the stored production breakdown.
@@ -1500,8 +1500,8 @@ class TestProxyBaseLLMRequestProcessing:
         input + cache_read + cache_creation + output + tool_usage == total, with
         reasoning remaining a subset of output.
         """
-        from litellm.litellm_core_utils.litellm_logging import (
-            Logging as LiteLLMLoggingObj,
+        from embrouter.embrouter_core_utils.embrouter_logging import (
+            Logging as EmbRouterLoggingObj,
         )
 
         mock_user_api_key_dict = MagicMock(spec=UserAPIKeyAuth)
@@ -1510,13 +1510,13 @@ class TestProxyBaseLLMRequestProcessing:
         mock_user_api_key_dict.max_budget = None
         mock_user_api_key_dict.spend = 0
 
-        logging_obj = LiteLLMLoggingObj(
+        logging_obj = EmbRouterLoggingObj(
             model="gpt-5.4-nano",
             messages=[{"role": "user", "content": "hello"}],
             stream=False,
             call_type="completion",
             start_time=None,
-            litellm_call_id="test-call-id-components",
+            embrouter_call_id="test-call-id-components",
             function_id="test-function",
         )
 
@@ -1543,44 +1543,44 @@ class TestProxyBaseLLMRequestProcessing:
             user_api_key_dict=mock_user_api_key_dict,
             call_id="test-call-id-components",
             response_cost=total_cost,
-            litellm_logging_obj=logging_obj,
+            embrouter_logging_obj=logging_obj,
         )
 
-        assert "x-litellm-response-cost" in headers
-        assert float(headers["x-litellm-response-cost"]) == pytest.approx(total_cost)
+        assert "x-embrouter-response-cost" in headers
+        assert float(headers["x-embrouter-response-cost"]) == pytest.approx(total_cost)
 
-        assert "x-litellm-response-cost-input" in headers
-        assert float(headers["x-litellm-response-cost-input"]) == pytest.approx(uncached_input_cost)
+        assert "x-embrouter-response-cost-input" in headers
+        assert float(headers["x-embrouter-response-cost-input"]) == pytest.approx(uncached_input_cost)
 
-        assert "x-litellm-response-cost-output" in headers
-        assert float(headers["x-litellm-response-cost-output"]) == pytest.approx(output_cost)
+        assert "x-embrouter-response-cost-output" in headers
+        assert float(headers["x-embrouter-response-cost-output"]) == pytest.approx(output_cost)
 
-        assert "x-litellm-response-cost-cache-read" in headers
-        assert float(headers["x-litellm-response-cost-cache-read"]) == pytest.approx(cache_read_cost)
+        assert "x-embrouter-response-cost-cache-read" in headers
+        assert float(headers["x-embrouter-response-cost-cache-read"]) == pytest.approx(cache_read_cost)
 
-        assert "x-litellm-response-cost-cache-creation" in headers
-        assert float(headers["x-litellm-response-cost-cache-creation"]) == pytest.approx(cache_creation_cost)
+        assert "x-embrouter-response-cost-cache-creation" in headers
+        assert float(headers["x-embrouter-response-cost-cache-creation"]) == pytest.approx(cache_creation_cost)
 
-        assert "x-litellm-response-cost-reasoning" in headers
-        assert float(headers["x-litellm-response-cost-reasoning"]) == pytest.approx(reasoning_cost)
+        assert "x-embrouter-response-cost-reasoning" in headers
+        assert float(headers["x-embrouter-response-cost-reasoning"]) == pytest.approx(reasoning_cost)
 
-        assert "x-litellm-response-cost-tool-usage" in headers
-        assert float(headers["x-litellm-response-cost-tool-usage"]) == pytest.approx(tool_usage_cost)
+        assert "x-embrouter-response-cost-tool-usage" in headers
+        assert float(headers["x-embrouter-response-cost-tool-usage"]) == pytest.approx(tool_usage_cost)
 
         component_sum: Final = (
-            float(headers["x-litellm-response-cost-input"])
-            + float(headers["x-litellm-response-cost-cache-read"])
-            + float(headers["x-litellm-response-cost-cache-creation"])
-            + float(headers["x-litellm-response-cost-output"])
-            + float(headers["x-litellm-response-cost-tool-usage"])
+            float(headers["x-embrouter-response-cost-input"])
+            + float(headers["x-embrouter-response-cost-cache-read"])
+            + float(headers["x-embrouter-response-cost-cache-creation"])
+            + float(headers["x-embrouter-response-cost-output"])
+            + float(headers["x-embrouter-response-cost-tool-usage"])
         )
-        assert component_sum == pytest.approx(float(headers["x-litellm-response-cost"]))
-        assert float(headers["x-litellm-response-cost-reasoning"]) <= float(headers["x-litellm-response-cost-output"])
+        assert component_sum == pytest.approx(float(headers["x-embrouter-response-cost"]))
+        assert float(headers["x-embrouter-response-cost-reasoning"]) <= float(headers["x-embrouter-response-cost-output"])
 
     def test_get_custom_headers_without_cost_breakdown_omits_component_headers(self):
-        """Test that when litellm_logging_obj has no cost_breakdown, component headers are omitted."""
-        from litellm.litellm_core_utils.litellm_logging import (
-            Logging as LiteLLMLoggingObj,
+        """Test that when embrouter_logging_obj has no cost_breakdown, component headers are omitted."""
+        from embrouter.embrouter_core_utils.embrouter_logging import (
+            Logging as EmbRouterLoggingObj,
         )
 
         mock_user_api_key_dict = MagicMock(spec=UserAPIKeyAuth)
@@ -1589,34 +1589,34 @@ class TestProxyBaseLLMRequestProcessing:
         mock_user_api_key_dict.max_budget = None
         mock_user_api_key_dict.spend = 0
 
-        logging_obj = LiteLLMLoggingObj(
+        logging_obj = EmbRouterLoggingObj(
             model="gpt-4",
             messages=[],
             stream=False,
             call_type="completion",
             start_time=None,
-            litellm_call_id="test-call-id-no-breakdown",
+            embrouter_call_id="test-call-id-no-breakdown",
             function_id="test-function",
         )
 
         headers = ProxyBaseLLMRequestProcessing.get_custom_headers(
             user_api_key_dict=mock_user_api_key_dict,
             response_cost=0.0001,
-            litellm_logging_obj=logging_obj,
+            embrouter_logging_obj=logging_obj,
         )
 
-        assert "x-litellm-response-cost" in headers
-        assert "x-litellm-response-cost-input" not in headers
-        assert "x-litellm-response-cost-output" not in headers
-        assert "x-litellm-response-cost-cache-read" not in headers
-        assert "x-litellm-response-cost-cache-creation" not in headers
-        assert "x-litellm-response-cost-reasoning" not in headers
-        assert "x-litellm-response-cost-tool-usage" not in headers
+        assert "x-embrouter-response-cost" in headers
+        assert "x-embrouter-response-cost-input" not in headers
+        assert "x-embrouter-response-cost-output" not in headers
+        assert "x-embrouter-response-cost-cache-read" not in headers
+        assert "x-embrouter-response-cost-cache-creation" not in headers
+        assert "x-embrouter-response-cost-reasoning" not in headers
+        assert "x-embrouter-response-cost-tool-usage" not in headers
 
     def test_get_custom_headers_per_component_with_discount_and_margin(self):
         """Test that component headers co-exist accurately with discount and margin headers."""
-        from litellm.litellm_core_utils.litellm_logging import (
-            Logging as LiteLLMLoggingObj,
+        from embrouter.embrouter_core_utils.embrouter_logging import (
+            Logging as EmbRouterLoggingObj,
         )
 
         mock_user_api_key_dict = MagicMock(spec=UserAPIKeyAuth)
@@ -1625,13 +1625,13 @@ class TestProxyBaseLLMRequestProcessing:
         mock_user_api_key_dict.max_budget = None
         mock_user_api_key_dict.spend = 0
 
-        logging_obj = LiteLLMLoggingObj(
+        logging_obj = EmbRouterLoggingObj(
             model="gpt-4",
             messages=[],
             stream=False,
             call_type="completion",
             start_time=None,
-            litellm_call_id="test-call-id-combined",
+            embrouter_call_id="test-call-id-combined",
             function_id="test-function",
         )
 
@@ -1650,29 +1650,29 @@ class TestProxyBaseLLMRequestProcessing:
         headers = ProxyBaseLLMRequestProcessing.get_custom_headers(
             user_api_key_dict=mock_user_api_key_dict,
             response_cost=0.000105,
-            litellm_logging_obj=logging_obj,
+            embrouter_logging_obj=logging_obj,
         )
 
-        assert float(headers["x-litellm-response-cost"]) == pytest.approx(0.000105)
-        assert float(headers["x-litellm-response-cost-original"]) == pytest.approx(0.0001)
-        assert float(headers["x-litellm-response-cost-discount-amount"]) == pytest.approx(0.000005)
-        assert float(headers["x-litellm-response-cost-margin-amount"]) == pytest.approx(0.00001)
-        assert float(headers["x-litellm-response-cost-margin-percent"]) == pytest.approx(0.10)
-        assert float(headers["x-litellm-response-cost-input"]) == pytest.approx(0.00006)
-        assert float(headers["x-litellm-response-cost-output"]) == pytest.approx(0.00004)
-        assert "x-litellm-response-cost-cache-read" not in headers
-        assert "x-litellm-response-cost-cache-creation" not in headers
-        assert "x-litellm-response-cost-reasoning" not in headers
-        assert float(headers["x-litellm-response-cost-tool-usage"]) == pytest.approx(0.0)
+        assert float(headers["x-embrouter-response-cost"]) == pytest.approx(0.000105)
+        assert float(headers["x-embrouter-response-cost-original"]) == pytest.approx(0.0001)
+        assert float(headers["x-embrouter-response-cost-discount-amount"]) == pytest.approx(0.000005)
+        assert float(headers["x-embrouter-response-cost-margin-amount"]) == pytest.approx(0.00001)
+        assert float(headers["x-embrouter-response-cost-margin-percent"]) == pytest.approx(0.10)
+        assert float(headers["x-embrouter-response-cost-input"]) == pytest.approx(0.00006)
+        assert float(headers["x-embrouter-response-cost-output"]) == pytest.approx(0.00004)
+        assert "x-embrouter-response-cost-cache-read" not in headers
+        assert "x-embrouter-response-cost-cache-creation" not in headers
+        assert "x-embrouter-response-cost-reasoning" not in headers
+        assert float(headers["x-embrouter-response-cost-tool-usage"]) == pytest.approx(0.0)
 
-    @pytest.mark.parametrize("metadata_key", ["metadata", "litellm_metadata"])
+    @pytest.mark.parametrize("metadata_key", ["metadata", "embrouter_metadata"])
     def test_get_custom_headers_classifier_cost_from_routing_decision(self, metadata_key):
         """The auto-router's LLM classifier cost must surface as its own header.
 
-        x-litellm-response-cost stays the final routed call's cost (it feeds the
+        x-embrouter-response-cost stays the final routed call's cost (it feeds the
         margin/discount family and chargeback); the classifier's cost is read from the
         routing_decision the pre-routing hook recorded in the request metadata. The
-        bucket is metadata on chat-style routes and litellm_metadata on messages-style
+        bucket is metadata on chat-style routes and embrouter_metadata on messages-style
         routes, so both must work.
         """
         mock_user_api_key_dict = MagicMock(spec=UserAPIKeyAuth)
@@ -1691,8 +1691,8 @@ class TestProxyBaseLLMRequestProcessing:
             },
         )
 
-        assert headers["x-litellm-classifier-cost"] == "8.1e-05"
-        assert float(headers["x-litellm-response-cost"]) == 0.00023
+        assert headers["x-embrouter-classifier-cost"] == "8.1e-05"
+        assert float(headers["x-embrouter-response-cost"]) == 0.00023
 
     @pytest.mark.parametrize(
         "request_data",
@@ -1720,24 +1720,24 @@ class TestProxyBaseLLMRequestProcessing:
             request_data=request_data,
         )
 
-        assert "x-litellm-classifier-cost" not in headers
+        assert "x-embrouter-classifier-cost" not in headers
 
     def test_get_cost_breakdown_from_logging_obj_helper(self):
         """
         Test the helper function that extracts cost breakdown information.
         """
-        from litellm.litellm_core_utils.litellm_logging import (
-            Logging as LiteLLMLoggingObj,
+        from embrouter.embrouter_core_utils.embrouter_logging import (
+            Logging as EmbRouterLoggingObj,
         )
 
         # Test with discount info
-        logging_obj = LiteLLMLoggingObj(
+        logging_obj = EmbRouterLoggingObj(
             model="vertex_ai/gemini-pro",
             messages=[{"role": "user", "content": "test"}],
             stream=False,
             call_type="completion",
             start_time=None,
-            litellm_call_id="test-call-id",
+            embrouter_call_id="test-call-id",
             function_id="test-function-id",
         )
         logging_obj.set_cost_breakdown(
@@ -1760,13 +1760,13 @@ class TestProxyBaseLLMRequestProcessing:
         assert breakdown.tool_usage_cost == 0.0
 
         # Test with margin info
-        logging_obj_with_margin = LiteLLMLoggingObj(
+        logging_obj_with_margin = EmbRouterLoggingObj(
             model="gpt-4",
             messages=[{"role": "user", "content": "test"}],
             stream=False,
             call_type="completion",
             start_time=None,
-            litellm_call_id="test-call-id-margin",
+            embrouter_call_id="test-call-id-margin",
             function_id="test-function-id-margin",
         )
         logging_obj_with_margin.set_cost_breakdown(
@@ -1786,13 +1786,13 @@ class TestProxyBaseLLMRequestProcessing:
         assert breakdown_with_margin.margin_percent == 0.10
 
         # Test with no discount or margin info
-        logging_obj_no_discount = LiteLLMLoggingObj(
+        logging_obj_no_discount = EmbRouterLoggingObj(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "test"}],
             stream=False,
             call_type="completion",
             start_time=None,
-            litellm_call_id="test-call-id-2",
+            embrouter_call_id="test-call-id-2",
             function_id="test-function-id-2",
         )
         logging_obj_no_discount.set_cost_breakdown(
@@ -1811,13 +1811,13 @@ class TestProxyBaseLLMRequestProcessing:
         assert breakdown_no_discount.output_cost == 0.00005
 
         # Test that cache components stored nested inside input_cost are subtracted out
-        logging_obj_with_cache = LiteLLMLoggingObj(
+        logging_obj_with_cache = EmbRouterLoggingObj(
             model="claude-haiku-4-5",
             messages=[{"role": "user", "content": "test"}],
             stream=False,
             call_type="completion",
             start_time=None,
-            litellm_call_id="test-call-id-cache",
+            embrouter_call_id="test-call-id-cache",
             function_id="test-function-id-cache",
         )
         logging_obj_with_cache.set_cost_breakdown(
@@ -1841,7 +1841,7 @@ class TestProxyBaseLLMRequestProcessing:
 
     def test_get_custom_headers_key_spend_includes_response_cost(self):
         """
-        Test that x-litellm-key-spend header includes the current request's response_cost.
+        Test that x-embrouter-key-spend header includes the current request's response_cost.
 
         This ensures that the spend header reflects the updated spend including the current
         request, even though spend tracking updates happen asynchronously after the response.
@@ -1861,10 +1861,10 @@ class TestProxyBaseLLMRequestProcessing:
             response_cost=response_cost_1,
         )
 
-        assert "x-litellm-key-spend" in headers_1
+        assert "x-embrouter-key-spend" in headers_1
         expected_spend_1 = 0.001 + 0.0005  # Initial spend + current request cost
-        assert float(headers_1["x-litellm-key-spend"]) == pytest.approx(expected_spend_1, abs=1e-10)
-        assert float(headers_1["x-litellm-response-cost"]) == response_cost_1
+        assert float(headers_1["x-embrouter-key-spend"]) == pytest.approx(expected_spend_1, abs=1e-10)
+        assert float(headers_1["x-embrouter-response-cost"]) == response_cost_1
 
         # Test case 2: response_cost is provided as string
         response_cost_2 = "0.0003"  # Current request cost as string
@@ -1874,9 +1874,9 @@ class TestProxyBaseLLMRequestProcessing:
             response_cost=response_cost_2,
         )
 
-        assert "x-litellm-key-spend" in headers_2
+        assert "x-embrouter-key-spend" in headers_2
         expected_spend_2 = 0.001 + 0.0003  # Initial spend + current request cost
-        assert float(headers_2["x-litellm-key-spend"]) == pytest.approx(expected_spend_2, abs=1e-10)
+        assert float(headers_2["x-embrouter-key-spend"]) == pytest.approx(expected_spend_2, abs=1e-10)
 
         # Test case 3: response_cost is None (should use original spend)
         headers_3 = ProxyBaseLLMRequestProcessing.get_custom_headers(
@@ -1885,8 +1885,8 @@ class TestProxyBaseLLMRequestProcessing:
             response_cost=None,
         )
 
-        assert "x-litellm-key-spend" in headers_3
-        assert float(headers_3["x-litellm-key-spend"]) == 0.001  # Should use original spend
+        assert "x-embrouter-key-spend" in headers_3
+        assert float(headers_3["x-embrouter-key-spend"]) == 0.001  # Should use original spend
 
         # Test case 4: response_cost is 0 (should not change spend)
         headers_4 = ProxyBaseLLMRequestProcessing.get_custom_headers(
@@ -1895,8 +1895,8 @@ class TestProxyBaseLLMRequestProcessing:
             response_cost=0.0,
         )
 
-        assert "x-litellm-key-spend" in headers_4
-        assert float(headers_4["x-litellm-key-spend"]) == 0.001  # Should remain unchanged for 0 cost
+        assert "x-embrouter-key-spend" in headers_4
+        assert float(headers_4["x-embrouter-key-spend"]) == 0.001  # Should remain unchanged for 0 cost
 
         # Test case 5: user_api_key_dict.spend is None (should default to 0.0)
         mock_user_api_key_dict.spend = None
@@ -1906,8 +1906,8 @@ class TestProxyBaseLLMRequestProcessing:
             response_cost=0.0002,
         )
 
-        assert "x-litellm-key-spend" in headers_5
-        assert float(headers_5["x-litellm-key-spend"]) == 0.0002  # 0.0 + 0.0002
+        assert "x-embrouter-key-spend" in headers_5
+        assert float(headers_5["x-embrouter-key-spend"]) == 0.0002  # 0.0 + 0.0002
 
         # Test case 6: response_cost is negative (should not be added, use original spend)
         mock_user_api_key_dict.spend = 0.001
@@ -1917,8 +1917,8 @@ class TestProxyBaseLLMRequestProcessing:
             response_cost=-0.0001,  # Negative cost (should not be added)
         )
 
-        assert "x-litellm-key-spend" in headers_6
-        assert float(headers_6["x-litellm-key-spend"]) == 0.001  # Should use original spend
+        assert "x-embrouter-key-spend" in headers_6
+        assert float(headers_6["x-embrouter-key-spend"]) == 0.001  # Should use original spend
 
         # Test case 7: response_cost is invalid string (should fallback to original spend)
         headers_7 = ProxyBaseLLMRequestProcessing.get_custom_headers(
@@ -1927,19 +1927,19 @@ class TestProxyBaseLLMRequestProcessing:
             response_cost="invalid",  # Invalid string
         )
 
-        assert "x-litellm-key-spend" in headers_7
-        assert float(headers_7["x-litellm-key-spend"]) == 0.001  # Should use original spend on error
+        assert "x-embrouter-key-spend" in headers_7
+        assert float(headers_7["x-embrouter-key-spend"]) == 0.001  # Should use original spend on error
 
     @pytest.mark.parametrize(
         ("hidden_params", "request_data", "expected_call_id"),
         [
             (
-                {"litellm_call_id": "call-from-hidden-params"},
-                {"litellm_call_id": "call-from-request"},
+                {"embrouter_call_id": "call-from-hidden-params"},
+                {"embrouter_call_id": "call-from-request"},
                 "call-from-hidden-params",
             ),
-            ({}, {"litellm_call_id": "call-from-request"}, "call-from-request"),
-            ({"model_id": "m-1"}, {"litellm_call_id": "call-from-request"}, "call-from-request"),
+            ({}, {"embrouter_call_id": "call-from-request"}, "call-from-request"),
+            ({"model_id": "m-1"}, {"embrouter_call_id": "call-from-request"}, "call-from-request"),
         ],
     )
     def test_get_custom_headers_call_id_falls_back_to_hidden_params_then_request_data(
@@ -1957,7 +1957,7 @@ class TestProxyBaseLLMRequestProcessing:
             request_data=request_data,
         )
 
-        assert headers["x-litellm-call-id"] == expected_call_id
+        assert headers["x-embrouter-call-id"] == expected_call_id
 
     def test_get_custom_headers_explicit_call_id_wins_over_fallbacks(self):
         mock_user_api_key_dict = MagicMock(spec=UserAPIKeyAuth)
@@ -1969,20 +1969,20 @@ class TestProxyBaseLLMRequestProcessing:
         headers = ProxyBaseLLMRequestProcessing.get_custom_headers(
             user_api_key_dict=mock_user_api_key_dict,
             call_id="explicit-call-id",
-            hidden_params={"litellm_call_id": "call-from-hidden-params"},
-            request_data={"litellm_call_id": "call-from-request"},
+            hidden_params={"embrouter_call_id": "call-from-hidden-params"},
+            request_data={"embrouter_call_id": "call-from-request"},
         )
 
-        assert headers["x-litellm-call-id"] == "explicit-call-id"
+        assert headers["x-embrouter-call-id"] == "explicit-call-id"
 
     @pytest.mark.asyncio
     async def test_queue_time_seconds_is_set_in_metadata(self, monkeypatch):
         """
         Test that queue_time_seconds is correctly calculated and stored in metadata
-        after add_litellm_data_to_request populates arrival_time.
+        after add_embrouter_data_to_request populates arrival_time.
 
         This verifies the fix for the bug where queue_time_seconds was always None
-        because arrival_time was read BEFORE add_litellm_data_to_request set it.
+        because arrival_time was read BEFORE add_embrouter_data_to_request set it.
         """
         processing_obj = ProxyBaseLLMRequestProcessing(data={})
         mock_request = MagicMock(spec=Request)
@@ -1990,9 +1990,9 @@ class TestProxyBaseLLMRequestProcessing:
         mock_request.url = MagicMock()
         mock_request.url.path = "/v1/chat/completions"
 
-        async def mock_add_litellm_data_to_request(*args, **kwargs):
+        async def mock_add_embrouter_data_to_request(*args, **kwargs):
             data = kwargs.get("data", args[0] if args else {})
-            # Simulate what add_litellm_data_to_request does: set arrival_time
+            # Simulate what add_embrouter_data_to_request does: set arrival_time
             import time
 
             data["proxy_server_request"] = {
@@ -2011,9 +2011,9 @@ class TestProxyBaseLLMRequestProcessing:
         mock_proxy_logging_obj = MagicMock(spec=ProxyLogging)
         mock_proxy_logging_obj.pre_call_hook = AsyncMock(side_effect=mock_pre_call_hook)
         monkeypatch.setattr(
-            litellm.proxy.common_request_processing,
-            "add_litellm_data_to_request",
-            mock_add_litellm_data_to_request,
+            embrouter.proxy.common_request_processing,
+            "add_embrouter_data_to_request",
+            mock_add_embrouter_data_to_request,
         )
         mock_general_settings = {}
         mock_user_api_key_dict = MagicMock(spec=UserAPIKeyAuth)
@@ -2044,7 +2044,7 @@ class TestProxyBaseLLMRequestProcessing:
         )
 
         # queue_time_seconds must end exactly where logging_obj.start_time begins
-        # (the same start_time litellm_request_total_latency_metric's window
+        # (the same start_time embrouter_request_total_latency_metric's window
         # starts from) so the two windows share a boundary, not an overlap.
         # A mutant that reintroduces a separately-captured processing_start_time
         # would make this assertion fail.
@@ -2301,7 +2301,7 @@ class TestCommonRequestProcessingHelpers:
 
     async def test_serialize_http_exception_detail_helper(self):
         """Direct unit coverage for the L1 helper across all branches."""
-        from litellm.proxy.common_request_processing import (
+        from embrouter.proxy.common_request_processing import (
             serialize_http_exception_detail,
         )
         import json as _json
@@ -2330,7 +2330,7 @@ class TestCommonRequestProcessingHelpers:
         """The shared HTTPException -> ProxyException conversion keeps a clean
         message, merges structured detail over existing provider_specific_fields,
         and passes headers through."""
-        from litellm.proxy.common_request_processing import (
+        from embrouter.proxy.common_request_processing import (
             proxy_exception_from_http_exception,
         )
 
@@ -2339,7 +2339,7 @@ class TestCommonRequestProcessingHelpers:
             detail={"error": "Content blocked", "guardrail": "keyword-block"},
         )
         exc.provider_specific_fields = {"existing": "field", "guardrail": "stale"}
-        result = proxy_exception_from_http_exception(exc, {"x-litellm-call-id": "abc"})
+        result = proxy_exception_from_http_exception(exc, {"x-embrouter-call-id": "abc"})
         assert result.message == "Content blocked"
         assert result.code == "400"
         assert result.provider_specific_fields == {
@@ -2347,7 +2347,7 @@ class TestCommonRequestProcessingHelpers:
             "error": "Content blocked",
             "guardrail": "keyword-block",
         }
-        assert result.headers == {"x-litellm-call-id": "abc"}
+        assert result.headers == {"x-embrouter-call-id": "abc"}
 
         plain = proxy_exception_from_http_exception(HTTPException(status_code=429, detail="slow down"), {})
         assert plain.message == "slow down"
@@ -2396,18 +2396,18 @@ class TestCommonRequestProcessingHelpers:
             yield "data: [DONE]\n\n"
 
         refresh_headers: Final = AsyncMock(
-            return_value={"x-litellm-model-id": "fallback-deployment", "llm_provider-x-request-id": "req-FALLBACK"}
+            return_value={"x-embrouter-model-id": "fallback-deployment", "llm_provider-x-request-id": "req-FALLBACK"}
         )
 
         response = await create_response(
             mock_generator(),
             "text/event-stream",
-            {"x-litellm-model-id": "failed-deployment", "llm_provider-x-request-id": "req-FAILED"},
+            {"x-embrouter-model-id": "failed-deployment", "llm_provider-x-request-id": "req-FAILED"},
             refresh_headers=refresh_headers,
         )
         assert isinstance(response, StreamingResponse)
         assert refresh_headers.await_count == 1
-        assert response.headers["x-litellm-model-id"] == "fallback-deployment"
+        assert response.headers["x-embrouter-model-id"] == "fallback-deployment"
         assert response.headers["llm_provider-x-request-id"] == "req-FALLBACK"
         # the buffering headers are still applied on top of the refreshed set
         assert response.headers["x-accel-buffering"] == "no"
@@ -2429,15 +2429,15 @@ class TestCommonRequestProcessingHelpers:
 
         async def refresh_headers():
             served = "fallback-deployment" if first_chunk_produced.is_set() else "failed-deployment"
-            return {"x-litellm-model-id": served}
+            return {"x-embrouter-model-id": served}
 
         response = await create_response(
             mock_generator(),
             "text/event-stream",
-            {"x-litellm-model-id": "failed-deployment"},
+            {"x-embrouter-model-id": "failed-deployment"},
             refresh_headers=refresh_headers,
         )
-        assert response.headers["x-litellm-model-id"] == "fallback-deployment"
+        assert response.headers["x-embrouter-model-id"] == "fallback-deployment"
 
     async def test_create_streaming_response_empty_stream_uses_refreshed_headers(self):
         """LIT-6767: a fallback that served nothing still gets to name itself.
@@ -2451,16 +2451,16 @@ class TestCommonRequestProcessingHelpers:
             yield  # make it an async generator
 
         async def refresh_headers():
-            return {"x-litellm-model-id": "fallback-deployment"}
+            return {"x-embrouter-model-id": "fallback-deployment"}
 
         response = await create_response(
             mock_generator(),
             "text/event-stream",
-            {"x-litellm-model-id": "failed-deployment"},
+            {"x-embrouter-model-id": "failed-deployment"},
             refresh_headers=refresh_headers,
         )
         assert isinstance(response, StreamingResponse)
-        assert response.headers["x-litellm-model-id"] == "fallback-deployment"
+        assert response.headers["x-embrouter-model-id"] == "fallback-deployment"
         assert response.headers["x-accel-buffering"] == "no"
 
     async def test_create_streaming_response_without_refresh_headers_is_unchanged(self):
@@ -2473,9 +2473,9 @@ class TestCommonRequestProcessingHelpers:
         response = await create_response(
             mock_generator(),
             "text/event-stream",
-            {"x-litellm-model-id": "failed-deployment"},
+            {"x-embrouter-model-id": "failed-deployment"},
         )
-        assert response.headers["x-litellm-model-id"] == "failed-deployment"
+        assert response.headers["x-embrouter-model-id"] == "failed-deployment"
 
     async def test_create_streaming_response_refresh_headers_failure_keeps_stream(self):
         """LIT-6767: the first chunk is already paid for, so a failing refresh
@@ -2491,12 +2491,12 @@ class TestCommonRequestProcessingHelpers:
         response = await create_response(
             mock_generator(),
             "text/event-stream",
-            {"x-litellm-model-id": "failed-deployment"},
+            {"x-embrouter-model-id": "failed-deployment"},
             refresh_headers=refresh_headers,
         )
         assert isinstance(response, StreamingResponse)
         assert response.status_code == status.HTTP_200_OK
-        assert response.headers["x-litellm-model-id"] == "failed-deployment"
+        assert response.headers["x-embrouter-model-id"] == "failed-deployment"
         assert await self.consume_stream(response) == [
             'data: {"content": "data"}\n\n',
             "data: [DONE]\n\n",
@@ -2512,16 +2512,16 @@ class TestCommonRequestProcessingHelpers:
             yield "data: [DONE]\n\n"
 
         async def refresh_headers():
-            return {"x-litellm-model-id": "fallback-deployment"}
+            return {"x-embrouter-model-id": "fallback-deployment"}
 
         response = await create_response(
             mock_generator(),
             "text/event-stream",
-            {"x-litellm-model-id": "failed-deployment"},
+            {"x-embrouter-model-id": "failed-deployment"},
             refresh_headers=refresh_headers,
         )
         assert isinstance(response, JSONResponse)
-        assert response.headers["x-litellm-model-id"] == "fallback-deployment"
+        assert response.headers["x-embrouter-model-id"] == "fallback-deployment"
 
     @staticmethod
     async def _first_chunk_error_response(**create_response_kwargs):
@@ -2532,7 +2532,7 @@ class TestCommonRequestProcessingHelpers:
         return await create_response(
             mock_generator(),
             "text/event-stream",
-            {"x-litellm-call-id": "call-8302"},
+            {"x-embrouter-call-id": "call-8302"},
             **create_response_kwargs,
         )
 
@@ -2544,16 +2544,16 @@ class TestCommonRequestProcessingHelpers:
 
         assert isinstance(response, JSONResponse)
         assert response.status_code == 403
-        assert response.headers["x-litellm-call-id"] == "call-8302"
+        assert response.headers["x-embrouter-call-id"] == "call-8302"
         assert json.loads(response.body) == {
-            "error": {"code": 403, "message": "forbidden", "litellm_call_id": "call-8302"}
+            "error": {"code": 403, "message": "forbidden", "embrouter_call_id": "call-8302"}
         }
 
     async def test_create_response_first_chunk_error_body_is_unchanged_by_default(self):
         response = await self._first_chunk_error_response()
 
         assert isinstance(response, JSONResponse)
-        assert response.headers["x-litellm-call-id"] == "call-8302"
+        assert response.headers["x-embrouter-call-id"] == "call-8302"
         assert json.loads(response.body) == {"error": {"code": 403, "message": "forbidden"}}
 
     async def test_a_stream_that_fails_before_its_first_byte_answers_as_an_anthropic_json_error(self):
@@ -2566,12 +2566,12 @@ class TestCommonRequestProcessingHelpers:
             yield ANTHROPIC_PING_SSE_CHUNK
 
         generator: Final = stream()
-        response = await create_response(generator, "text/event-stream", {"x-litellm-call-id": "call-8609"})
+        response = await create_response(generator, "text/event-stream", {"x-embrouter-call-id": "call-8609"})
 
         assert isinstance(response, JSONResponse)
         assert response.status_code == 503
         assert response.headers["content-type"] == "application/json"
-        assert response.headers["x-litellm-call-id"] == "call-8609"
+        assert response.headers["x-embrouter-call-id"] == "call-8609"
         assert json.loads(response.body) == {
             "type": "error",
             "error": {"type": "api_error", "message": "upstream unavailable"},
@@ -2585,7 +2585,7 @@ class TestCommonRequestProcessingHelpers:
         response = await create_response(
             stream(),
             "text/event-stream",
-            {"x-litellm-call-id": "call-8609"},
+            {"x-embrouter-call-id": "call-8609"},
             general_settings={"include_call_id_in_error_body": True},
         )
 
@@ -2593,7 +2593,7 @@ class TestCommonRequestProcessingHelpers:
         assert response.status_code == 429
         assert json.loads(response.body) == {
             "type": "error",
-            "error": {"type": "rate_limit_error", "message": "slow down", "litellm_call_id": "call-8609"},
+            "error": {"type": "rate_limit_error", "message": "slow down", "embrouter_call_id": "call-8609"},
         }
 
     async def test_an_error_event_after_a_keepalive_ping_still_streams(self):
@@ -2700,9 +2700,9 @@ class TestCommonRequestProcessingHelpers:
         # import from the real tracer, a NullTracer by default), so enable it
         # explicitly to exercise the tracing path.
         with (
-            patch("litellm.proxy.common_request_processing.tracer", mock_tracer),
+            patch("embrouter.proxy.common_request_processing.tracer", mock_tracer),
             patch(
-                "litellm.proxy.common_request_processing._DD_STREAMING_TRACE_ENABLED",
+                "embrouter.proxy.common_request_processing._DD_STREAMING_TRACE_ENABLED",
                 True,
             ),
         ):
@@ -2746,9 +2746,9 @@ class TestCommonRequestProcessingHelpers:
             yield "data: [DONE]\n\n"
 
         with (
-            patch("litellm.proxy.common_request_processing.tracer", mock_tracer),
+            patch("embrouter.proxy.common_request_processing.tracer", mock_tracer),
             patch(
-                "litellm.proxy.common_request_processing._DD_STREAMING_TRACE_ENABLED",
+                "embrouter.proxy.common_request_processing._DD_STREAMING_TRACE_ENABLED",
                 False,
             ),
         ):
@@ -2787,7 +2787,7 @@ class TestCommonRequestProcessingHelpers:
             yield "data: [DONE]\n\n"
 
         # Patch the tracer in the common_request_processing module
-        with patch("litellm.proxy.common_request_processing.tracer", mock_tracer):
+        with patch("embrouter.proxy.common_request_processing.tracer", mock_tracer):
             response = await create_response(mock_generator(), "text/event-stream", {})
 
             # Should return JSONResponse instead of StreamingResponse
@@ -2840,7 +2840,7 @@ class TestGuardrailBlockErrorPayloadNeverStringifiesNone:
     "None" for type and param instead of a real error type and JSON null."""
 
     def test_non_streaming_block_payload_carries_a_real_type_and_null_param(self):
-        from litellm.proxy.common_request_processing import (
+        from embrouter.proxy.common_request_processing import (
             proxy_exception_from_http_exception,
         )
 
@@ -2855,7 +2855,7 @@ class TestGuardrailBlockErrorPayloadNeverStringifiesNone:
         assert payload["message"] == "Violated guardrail policy"
 
     def test_streaming_block_frame_carries_a_real_type_and_null_param(self):
-        from litellm.proxy.common_request_processing import sse_error_payload
+        from embrouter.proxy.common_request_processing import sse_error_payload
 
         error_status, error_obj = sse_error_payload(_blocked_guardrail_exception())
         frame = json.loads(json.dumps({"error": dict(error_obj)}))
@@ -2869,8 +2869,8 @@ class TestGuardrailBlockErrorPayloadNeverStringifiesNone:
     def test_a_streaming_frame_keeps_the_status_a_proxy_exception_was_raised_with(self):
         """ProxyException stores its status as the string ``code``, so a 429 raised before the
         first chunk used to reach the SSE frame as a 500."""
-        from litellm.proxy._types import ProxyException
-        from litellm.proxy.common_request_processing import sse_error_payload
+        from embrouter.proxy._types import ProxyException
+        from embrouter.proxy.common_request_processing import sse_error_payload
 
         error_status, error_obj = sse_error_payload(
             ProxyException(message="Rate limit reached", type="rate_limit_error", param=None, code=429)
@@ -2892,7 +2892,7 @@ class TestGuardrailBlockErrorPayloadNeverStringifiesNone:
         ],
     )
     def test_status_code_decides_the_type_when_the_exception_carries_none(self, status_code, expected_type):
-        from litellm.proxy.common_request_processing import (
+        from embrouter.proxy.common_request_processing import (
             proxy_exception_from_http_exception,
         )
 
@@ -2904,7 +2904,7 @@ class TestGuardrailBlockErrorPayloadNeverStringifiesNone:
         assert payload["param"] is None
 
     def test_a_type_and_param_the_exception_carries_win_over_the_fallback(self):
-        from litellm.proxy.common_request_processing import (
+        from embrouter.proxy.common_request_processing import (
             proxy_exception_from_http_exception,
         )
 
@@ -3024,7 +3024,7 @@ class TestOverrideOpenAIResponseModel:
         [
             ({"metadata": {}}, False),
             ({"metadata": {RETURN_RAW_MODEL_NAME_METADATA_KEY: True}}, True),
-            ({"litellm_metadata": {RETURN_RAW_MODEL_NAME_METADATA_KEY: True}}, True),
+            ({"embrouter_metadata": {RETURN_RAW_MODEL_NAME_METADATA_KEY: True}}, True),
         ],
     )
     def test_raw_model_name_toggle_metadata(self, request_data, expected):
@@ -3034,7 +3034,7 @@ class TestOverrideOpenAIResponseModel:
         self,
     ):
         """
-        Test that when a fallback occurred (x-litellm-attempted-fallbacks > 0),
+        Test that when a fallback occurred (x-embrouter-attempted-fallbacks > 0),
         the actual model used (fallback model) is preserved instead of being
         overridden with the requested model.
 
@@ -3048,7 +3048,7 @@ class TestOverrideOpenAIResponseModel:
         # _hidden_params is an attribute (not a dict key) accessed via getattr
         response_obj = MagicMock()
         response_obj.model = fallback_model
-        response_obj._hidden_params = {"additional_headers": {"x-litellm-attempted-fallbacks": 1}}
+        response_obj._hidden_params = {"additional_headers": {"x-embrouter-attempted-fallbacks": 1}}
 
         # Call the function - should preserve fallback model
         _override_openai_response_model(
@@ -3074,7 +3074,7 @@ class TestOverrideOpenAIResponseModel:
         response_obj.model = fallback_model
         response_obj._hidden_params = {
             "additional_headers": {
-                "x-litellm-attempted-fallbacks": 2  # Multiple fallbacks
+                "x-embrouter-attempted-fallbacks": 2  # Multiple fallbacks
             }
         }
 
@@ -3150,7 +3150,7 @@ class TestOverrideOpenAIResponseModel:
         response_obj.model = downstream_model
         response_obj._hidden_params = {
             "additional_headers": {
-                "x-litellm-attempted-fallbacks": 0  # Zero means no fallback occurred
+                "x-embrouter-attempted-fallbacks": 0  # Zero means no fallback occurred
             }
         }
 
@@ -3175,7 +3175,7 @@ class TestOverrideOpenAIResponseModel:
         # Create a mock object response
         response_obj = MagicMock()
         response_obj.model = downstream_model
-        response_obj._hidden_params = {"additional_headers": {"x-litellm-attempted-fallbacks": None}}
+        response_obj._hidden_params = {"additional_headers": {"x-embrouter-attempted-fallbacks": None}}
 
         # Call the function - should override to requested model
         _override_openai_response_model(
@@ -3220,7 +3220,7 @@ class TestOverrideOpenAIResponseModel:
         # Create a mock object response
         response_obj = MagicMock()
         response_obj.model = fallback_model
-        response_obj._hidden_params = {"additional_headers": {"x-litellm-attempted-fallbacks": 1}}
+        response_obj._hidden_params = {"additional_headers": {"x-embrouter-attempted-fallbacks": 1}}
 
         # Call the function with None requested_model
         _override_openai_response_model(
@@ -3311,7 +3311,7 @@ class TestOverrideOpenAIResponseModel:
         name check alone only fires when the operator happened to put "model-router" in the
         alias. With the stamp on the response the actual model survives whatever it is named.
         """
-        from litellm.llms.azure_ai.common_utils import (
+        from embrouter.llms.azure_ai.common_utils import (
             AZURE_MODEL_ROUTER_SELECTED_MODEL_KEY,
         )
 
@@ -3366,7 +3366,7 @@ class TestOverrideOpenAIResponseModel:
         response_obj._hidden_params = {
             "fastest_response_batch_completion": True,
             "additional_headers": {
-                "x-litellm-model-group": winning_model_group,
+                "x-embrouter-model-group": winning_model_group,
             },
         }
 
@@ -3416,7 +3416,7 @@ class TestOverrideOpenAIResponseModel:
         response_obj.model = downstream_model
         response_obj._hidden_params = {
             "additional_headers": {
-                "x-litellm-model-group": "openai/gpt-4o",
+                "x-embrouter-model-group": "openai/gpt-4o",
             },
         }
 
@@ -3429,7 +3429,7 @@ class TestOverrideOpenAIResponseModel:
         assert response_obj.model == requested_model
 
     def test_skips_model_override_when_response_has_no_model_attribute(self):
-        from litellm.llms.base_llm.search.transformation import SearchResponse, SearchResult
+        from embrouter.llms.base_llm.search.transformation import SearchResponse, SearchResult
 
         response_obj = SearchResponse(
             results=[SearchResult(title="t", url="http://x.com", snippet="s")],
@@ -3494,15 +3494,15 @@ class TestIsAzureModelRouterRequest:
 
 class TestStreamingOverheadHeader:
     """
-    Tests that x-litellm-overhead-duration-ms is emitted in streaming responses.
+    Tests that x-embrouter-overhead-duration-ms is emitted in streaming responses.
 
     Regression tests for: streaming requests not including overhead header.
     """
 
     def test_get_custom_headers_includes_overhead_when_set(self):
         """
-        get_custom_headers() returns x-litellm-overhead-duration-ms
-        when litellm_overhead_time_ms is in hidden_params.
+        get_custom_headers() returns x-embrouter-overhead-duration-ms
+        when embrouter_overhead_time_ms is in hidden_params.
         """
         mock_user_api_key_dict = MagicMock(spec=UserAPIKeyAuth)
         mock_user_api_key_dict.tpm_limit = None
@@ -3512,7 +3512,7 @@ class TestStreamingOverheadHeader:
         mock_user_api_key_dict.allowed_model_region = None
 
         hidden_params = {
-            "litellm_overhead_time_ms": 42.5,
+            "embrouter_overhead_time_ms": 42.5,
             "_response_ms": 500.0,
             "model_id": "test-model-id",
             "api_base": "https://api.openai.com",
@@ -3530,20 +3530,20 @@ class TestStreamingOverheadHeader:
             hidden_params=hidden_params,
         )
 
-        assert "x-litellm-overhead-duration-ms" in headers
-        assert headers["x-litellm-overhead-duration-ms"] == "42.5"
+        assert "x-embrouter-overhead-duration-ms" in headers
+        assert headers["x-embrouter-overhead-duration-ms"] == "42.5"
 
     @staticmethod
     def _timing_logging_obj(timing_metrics):
-        from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+        from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
 
-        logging_obj = LiteLLMLoggingObj(
+        logging_obj = EmbRouterLoggingObj(
             model="openai/gpt-4o-mini",
             messages=[{"role": "user", "content": "hi"}],
             stream=True,
             call_type="anthropic_messages",
             start_time=None,
-            litellm_call_id="test-call-id",
+            embrouter_call_id="test-call-id",
             function_id="test-function-id",
         )
         logging_obj.set_response_timing_metrics(timing_metrics)
@@ -3565,13 +3565,13 @@ class TestStreamingOverheadHeader:
             user_api_key_dict=mock_user_api_key_dict,
             call_id="test-call-id",
             hidden_params={},
-            litellm_logging_obj=self._timing_logging_obj(
-                {"_response_ms": 500.0, "litellm_overhead_time_ms": 42.5}
+            embrouter_logging_obj=self._timing_logging_obj(
+                {"_response_ms": 500.0, "embrouter_overhead_time_ms": 42.5}
             ),
         )
 
-        assert headers["x-litellm-response-duration-ms"] == "500.0"
-        assert headers["x-litellm-overhead-duration-ms"] == "42.5"
+        assert headers["x-embrouter-response-duration-ms"] == "500.0"
+        assert headers["x-embrouter-overhead-duration-ms"] == "42.5"
 
     def test_get_custom_headers_skips_logging_obj_timing_on_the_failure_path(self):
         """LIT-5466: a failed request reports no timing, the same as /v1/chat/completions."""
@@ -3586,14 +3586,14 @@ class TestStreamingOverheadHeader:
             user_api_key_dict=mock_user_api_key_dict,
             call_id="test-call-id",
             hidden_params={},
-            litellm_logging_obj=self._timing_logging_obj(
-                {"_response_ms": 500.0, "litellm_overhead_time_ms": 42.5}
+            embrouter_logging_obj=self._timing_logging_obj(
+                {"_response_ms": 500.0, "embrouter_overhead_time_ms": 42.5}
             ),
             read_timing_from_logging_obj=False,
         )
 
-        assert "x-litellm-response-duration-ms" not in headers
-        assert "x-litellm-overhead-duration-ms" not in headers
+        assert "x-embrouter-response-duration-ms" not in headers
+        assert "x-embrouter-overhead-duration-ms" not in headers
 
     def test_get_custom_headers_takes_both_timing_values_from_one_source(self):
         """A response that timed itself but has no overhead (lazy provider streams) does not pick
@@ -3609,13 +3609,13 @@ class TestStreamingOverheadHeader:
             user_api_key_dict=mock_user_api_key_dict,
             call_id="test-call-id",
             hidden_params={"_response_ms": 300.0},
-            litellm_logging_obj=self._timing_logging_obj(
-                {"_response_ms": 500.0, "litellm_overhead_time_ms": 42.5}
+            embrouter_logging_obj=self._timing_logging_obj(
+                {"_response_ms": 500.0, "embrouter_overhead_time_ms": 42.5}
             ),
         )
 
-        assert headers["x-litellm-response-duration-ms"] == "300.0"
-        assert "x-litellm-overhead-duration-ms" not in headers
+        assert headers["x-embrouter-response-duration-ms"] == "300.0"
+        assert "x-embrouter-overhead-duration-ms" not in headers
 
     def test_get_custom_headers_survives_a_logging_object_without_timing_metrics(self):
         """Duck-typed logging objects (older custom code, test doubles) must not break headers."""
@@ -3627,17 +3627,17 @@ class TestStreamingOverheadHeader:
         mock_user_api_key_dict.allowed_model_region = None
 
         class _NoTimingLoggingObj:
-            litellm_call_id = "test-call-id"
-            litellm_params = {}
+            embrouter_call_id = "test-call-id"
+            embrouter_params = {}
 
         headers = ProxyBaseLLMRequestProcessing.get_custom_headers(
             user_api_key_dict=mock_user_api_key_dict,
             call_id="test-call-id",
             hidden_params={},
-            litellm_logging_obj=_NoTimingLoggingObj(),
+            embrouter_logging_obj=_NoTimingLoggingObj(),
         )
 
-        assert "x-litellm-overhead-duration-ms" not in headers
+        assert "x-embrouter-overhead-duration-ms" not in headers
 
     def test_get_custom_headers_prefers_response_hidden_params_over_logging_obj_timing(self):
         """A response that carries its own timing (chat completions) is not overridden."""
@@ -3651,14 +3651,14 @@ class TestStreamingOverheadHeader:
         headers = ProxyBaseLLMRequestProcessing.get_custom_headers(
             user_api_key_dict=mock_user_api_key_dict,
             call_id="test-call-id",
-            hidden_params={"_response_ms": 300.0, "litellm_overhead_time_ms": 7.5},
-            litellm_logging_obj=self._timing_logging_obj(
-                {"_response_ms": 500.0, "litellm_overhead_time_ms": 42.5}
+            hidden_params={"_response_ms": 300.0, "embrouter_overhead_time_ms": 7.5},
+            embrouter_logging_obj=self._timing_logging_obj(
+                {"_response_ms": 500.0, "embrouter_overhead_time_ms": 42.5}
             ),
         )
 
-        assert headers["x-litellm-response-duration-ms"] == "300.0"
-        assert headers["x-litellm-overhead-duration-ms"] == "7.5"
+        assert headers["x-embrouter-response-duration-ms"] == "300.0"
+        assert headers["x-embrouter-overhead-duration-ms"] == "7.5"
 
     def test_get_custom_headers_omits_timing_when_no_source_has_it(self):
         """No timing on the response and none on the logging object leaves both headers out."""
@@ -3673,16 +3673,16 @@ class TestStreamingOverheadHeader:
             user_api_key_dict=mock_user_api_key_dict,
             call_id="test-call-id",
             hidden_params={},
-            litellm_logging_obj=self._timing_logging_obj({}),
+            embrouter_logging_obj=self._timing_logging_obj({}),
         )
 
-        assert "x-litellm-response-duration-ms" not in headers
-        assert "x-litellm-overhead-duration-ms" not in headers
+        assert "x-embrouter-response-duration-ms" not in headers
+        assert "x-embrouter-overhead-duration-ms" not in headers
 
     def test_get_custom_headers_omits_overhead_when_none(self):
         """
-        get_custom_headers() omits x-litellm-overhead-duration-ms
-        when litellm_overhead_time_ms is not in hidden_params.
+        get_custom_headers() omits x-embrouter-overhead-duration-ms
+        when embrouter_overhead_time_ms is not in hidden_params.
         """
         mock_user_api_key_dict = MagicMock(spec=UserAPIKeyAuth)
         mock_user_api_key_dict.tpm_limit = None
@@ -3709,14 +3709,14 @@ class TestStreamingOverheadHeader:
         )
 
         # Should be absent (None gets filtered by exclude_values)
-        assert "x-litellm-overhead-duration-ms" not in headers
+        assert "x-embrouter-overhead-duration-ms" not in headers
 
     def test_update_response_metadata_sets_overhead_on_stream_wrapper(self):
         """
-        update_response_metadata() sets litellm_overhead_time_ms on
+        update_response_metadata() sets embrouter_overhead_time_ms on
         a streaming response's _hidden_params when llm_api_duration_ms is available.
         """
-        from litellm.litellm_core_utils.llm_response_utils.response_metadata import (
+        from embrouter.embrouter_core_utils.llm_response_utils.response_metadata import (
             update_response_metadata,
         )
 
@@ -3724,11 +3724,11 @@ class TestStreamingOverheadHeader:
         mock_logging_obj = MagicMock()
         mock_logging_obj.model_call_details = {
             "llm_api_duration_ms": 200.0,
-            "litellm_params": {},
+            "embrouter_params": {},
         }
         mock_logging_obj.caching_details = None
         mock_logging_obj.callback_duration_ms = None
-        mock_logging_obj.litellm_call_id = "test-call-id"
+        mock_logging_obj.embrouter_call_id = "test-call-id"
         mock_logging_obj._response_cost_calculator = MagicMock(return_value=0.001)
 
         # Simulate a streaming result object with _hidden_params (like CustomStreamWrapper)
@@ -3751,8 +3751,8 @@ class TestStreamingOverheadHeader:
             end_time=end_time,
         )
 
-        assert "litellm_overhead_time_ms" in stream_result._hidden_params
-        overhead = stream_result._hidden_params["litellm_overhead_time_ms"]
+        assert "embrouter_overhead_time_ms" in stream_result._hidden_params
+        overhead = stream_result._hidden_params["embrouter_overhead_time_ms"]
         assert overhead is not None
         assert isinstance(overhead, float)
         # overhead = total_response_ms (~300ms) - llm_api_duration_ms (200ms) = ~100ms
@@ -3762,7 +3762,7 @@ class TestStreamingOverheadHeader:
     async def test_streaming_response_includes_overhead_header(self):
         """
         StreamingResponse returned by create_response() includes
-        x-litellm-overhead-duration-ms in its headers.
+        x-embrouter-overhead-duration-ms in its headers.
         """
 
         async def mock_generator() -> AsyncGenerator[str, None]:
@@ -3770,9 +3770,9 @@ class TestStreamingOverheadHeader:
             yield "data: [DONE]\n\n"
 
         headers = {
-            "x-litellm-overhead-duration-ms": "42.5",
-            "x-litellm-call-id": "test-call-id",
-            "x-litellm-model-id": "test-model-id",
+            "x-embrouter-overhead-duration-ms": "42.5",
+            "x-embrouter-call-id": "test-call-id",
+            "x-embrouter-model-id": "test-model-id",
         }
 
         response = await create_response(
@@ -3782,15 +3782,15 @@ class TestStreamingOverheadHeader:
         )
 
         assert isinstance(response, StreamingResponse)
-        assert response.headers.get("x-litellm-overhead-duration-ms") == "42.5"
+        assert response.headers.get("x-embrouter-overhead-duration-ms") == "42.5"
 
     def test_streaming_overhead_header_in_custom_headers_from_stream_hidden_params(
         self,
     ):
         """
         Verifies that when get_custom_headers() is called with a streaming
-        response's hidden_params (containing litellm_overhead_time_ms),
-        the x-litellm-overhead-duration-ms header is correctly populated.
+        response's hidden_params (containing embrouter_overhead_time_ms),
+        the x-embrouter-overhead-duration-ms header is correctly populated.
 
         This tests the critical path: update_response_metadata sets the value
         → get_custom_headers reads it → StreamingResponse header is set.
@@ -3808,9 +3808,9 @@ class TestStreamingOverheadHeader:
             "model_id": "openai-gpt4o-deployment",
             "api_base": "https://api.openai.com",
             "additional_headers": {},
-            "litellm_overhead_time_ms": 55.3,  # set by update_response_metadata
+            "embrouter_overhead_time_ms": 55.3,  # set by update_response_metadata
             "_response_ms": 280.0,
-            "litellm_call_id": "test-call-id",
+            "embrouter_call_id": "test-call-id",
             "response_cost": 0.002,
             "cache_key": None,
             "fastest_response_batch_completion": None,
@@ -3830,18 +3830,18 @@ class TestStreamingOverheadHeader:
         )
 
         # The overhead header must be present and correct
-        assert "x-litellm-overhead-duration-ms" in custom_headers, (
-            "x-litellm-overhead-duration-ms header must be emitted during streaming. "
+        assert "x-embrouter-overhead-duration-ms" in custom_headers, (
+            "x-embrouter-overhead-duration-ms header must be emitted during streaming. "
             "It was missing — this is the streaming overhead header regression."
         )
-        assert custom_headers["x-litellm-overhead-duration-ms"] == "55.3"
+        assert custom_headers["x-embrouter-overhead-duration-ms"] == "55.3"
 
 
 class TestDDSpanTaggerTagRequest:
     """Tests for DDSpanTagger.tag_request - key/model DD span tagging."""
 
     def _make_user_api_key_dict(self, key_alias=None, token=None):
-        from litellm.proxy._types import UserAPIKeyAuth
+        from embrouter.proxy._types import UserAPIKeyAuth
 
         d = UserAPIKeyAuth()
         d.key_alias = key_alias
@@ -3852,21 +3852,21 @@ class TestDDSpanTaggerTagRequest:
         """key_alias and requested_model are set on the span when present."""
         user_key = self._make_user_api_key_dict(key_alias="my-prod-key", token="hashed123")
 
-        with patch("litellm.proxy.dd_span_tagger.set_active_span_tag") as mock_set_tag:
+        with patch("embrouter.proxy.dd_span_tagger.set_active_span_tag") as mock_set_tag:
             DDSpanTagger.tag_request(
                 user_api_key_dict=user_key,
                 requested_model="gpt-4o",
             )
 
-        mock_set_tag.assert_any_call("litellm.key_alias", "my-prod-key")
-        mock_set_tag.assert_any_call("litellm.key_hash", "hashed123")
-        mock_set_tag.assert_any_call("litellm.requested_model", "gpt-4o")
+        mock_set_tag.assert_any_call("embrouter.key_alias", "my-prod-key")
+        mock_set_tag.assert_any_call("embrouter.key_hash", "hashed123")
+        mock_set_tag.assert_any_call("embrouter.requested_model", "gpt-4o")
 
     def test_no_tags_when_key_absent(self):
         """No key tags are set when key_alias and token are None (e.g. 401 path)."""
         user_key = self._make_user_api_key_dict(key_alias=None, token=None)
 
-        with patch("litellm.proxy.dd_span_tagger.set_active_span_tag") as mock_set_tag:
+        with patch("embrouter.proxy.dd_span_tagger.set_active_span_tag") as mock_set_tag:
             DDSpanTagger.tag_request(
                 user_api_key_dict=user_key,
                 requested_model=None,
@@ -3878,13 +3878,13 @@ class TestDDSpanTaggerTagRequest:
         """requested_model is tagged even when there's no key info."""
         user_key = self._make_user_api_key_dict(key_alias=None, token=None)
 
-        with patch("litellm.proxy.dd_span_tagger.set_active_span_tag") as mock_set_tag:
+        with patch("embrouter.proxy.dd_span_tagger.set_active_span_tag") as mock_set_tag:
             DDSpanTagger.tag_request(
                 user_api_key_dict=user_key,
                 requested_model="claude-3-5-sonnet",
             )
 
-        mock_set_tag.assert_called_once_with("litellm.requested_model", "claude-3-5-sonnet")
+        mock_set_tag.assert_called_once_with("embrouter.requested_model", "claude-3-5-sonnet")
 
 
 class TestHasAttributeErrorInChain:
@@ -3944,7 +3944,7 @@ class TestHandleLLMApiExceptionDictDetail:
     """
 
     async def _invoke(self, exc: Exception, callback_headers: Optional[dict] = None):
-        from litellm.proxy._types import ProxyException, UserAPIKeyAuth
+        from embrouter.proxy._types import ProxyException, UserAPIKeyAuth
 
         processor = ProxyBaseLLMRequestProcessing(data={})
         user_api_key_dict = UserAPIKeyAuth(api_key="sk-test")
@@ -4004,7 +4004,7 @@ class TestHandleLLMApiExceptionDictDetail:
 
     async def test_not_found_error_preserves_404(self):
         """NotFoundError with status_code=404 should map to ProxyException code=404."""
-        from litellm.exceptions import NotFoundError
+        from embrouter.exceptions import NotFoundError
 
         exc = NotFoundError(
             message="Model gemini-3.1-flash-lite-preview not found",
@@ -4017,7 +4017,7 @@ class TestHandleLLMApiExceptionDictDetail:
 
     async def test_exception_with_status_code_propagates(self):
         """Exception with a statically-set status_code should propagate it and its message."""
-        from litellm.llms.vertex_ai.common_utils import VertexAIError
+        from embrouter.llms.vertex_ai.common_utils import VertexAIError
 
         exc = VertexAIError(
             status_code=429,
@@ -4039,15 +4039,15 @@ class TestHandleLLMApiExceptionDictDetail:
         """Regression for LIT-6747: an unclassified exception's credential, path, and host
         must not reach the client."""
         exc = RuntimeError(
-            "Failed to connect to postgresql://litellm_internal:S3cr3tPGPass@10.20.30.40:5432/litellm_prod "
-            "(config file /etc/litellm/secrets/db.yaml)"
+            "Failed to connect to postgresql://embrouter_internal:S3cr3tPGPass@10.20.30.40:5432/embrouter_prod "
+            "(config file /etc/embrouter/secrets/db.yaml)"
         )
         proxy_exc = await self._invoke(exc)
         assert proxy_exc.code == "500"
         assert "S3cr3tPGPass" not in proxy_exc.message
-        assert "litellm_internal" not in proxy_exc.message
+        assert "embrouter_internal" not in proxy_exc.message
         assert "10.20.30.40" not in proxy_exc.message
-        assert "/etc/litellm/secrets/db.yaml" not in proxy_exc.message
+        assert "/etc/embrouter/secrets/db.yaml" not in proxy_exc.message
         assert "REDACTED" in proxy_exc.message
 
     async def test_already_normalized_proxy_exception_is_honored(self):
@@ -4055,7 +4055,7 @@ class TestHandleLLMApiExceptionDictDetail:
         the OpenAI wire format. The funnel must re-raise it untouched instead of
         re-deriving the status from a (nonexistent) status_code attribute and
         defaulting to 500. Regression for LIT-3751."""
-        from litellm.proxy._types import ProxyException
+        from embrouter.proxy._types import ProxyException
 
         exc = ProxyException(
             message='"Leroy Jenkins" detected as name',
@@ -4277,8 +4277,8 @@ class TestStreamCloseOnDisconnect:
 
             async def __anext__(self):
                 raise RuntimeError(
-                    "Failed to connect to postgresql://litellm_internal:S3cr3tPGPass@10.20.30.40:5432/litellm_prod "
-                    "(config file /etc/litellm/secrets/db.yaml)"
+                    "Failed to connect to postgresql://embrouter_internal:S3cr3tPGPass@10.20.30.40:5432/embrouter_prod "
+                    "(config file /etc/embrouter/secrets/db.yaml)"
                 )
 
         ProxyLogging._callback_capabilities_cache.clear()
@@ -4298,7 +4298,7 @@ class TestStreamCloseOnDisconnect:
         message = captured[0].message
         assert "S3cr3tPGPass" not in message
         assert "10.20.30.40" not in message
-        assert "/etc/litellm/secrets/db.yaml" not in message
+        assert "/etc/embrouter/secrets/db.yaml" not in message
         assert "Traceback (most recent call last)" not in message
 
     @staticmethod
@@ -4476,7 +4476,7 @@ class TestHandleLLMApiExceptionRetryAfter:
     """RouterRateLimitError cooldown_time must surface as a retry-after header."""
 
     async def _invoke(self, exc: Exception, callback_headers: Optional[dict] = None):
-        from litellm.proxy._types import ProxyException, UserAPIKeyAuth
+        from embrouter.proxy._types import ProxyException, UserAPIKeyAuth
 
         processor = ProxyBaseLLMRequestProcessing(data={})
         user_api_key_dict = UserAPIKeyAuth(api_key="sk-test")
@@ -4497,7 +4497,7 @@ class TestHandleLLMApiExceptionRetryAfter:
         raise AssertionError("ProxyException was not raised")
 
     async def test_handle_llm_api_exception_sets_retry_after_from_cooldown_time(self):
-        from litellm.types.router import RouterRateLimitError
+        from embrouter.types.router import RouterRateLimitError
 
         exc = RouterRateLimitError(
             model="gpt-4",
@@ -4512,7 +4512,7 @@ class TestHandleLLMApiExceptionRetryAfter:
     async def test_handle_llm_api_exception_skips_retry_after_when_cooldown_is_zero(
         self,
     ):
-        from litellm.types.router import RouterRateLimitError
+        from embrouter.types.router import RouterRateLimitError
 
         exc = RouterRateLimitError(
             model="gpt-4",
@@ -4530,7 +4530,7 @@ class TestHandleLLMApiExceptionRetryAfter:
     async def test_handle_llm_api_exception_strips_bug_report_notice_from_client_message(self, caplog):
         report = build_bug_report(RuntimeError("boom"), surface="sdk")
         notice = bug_report_notice(report)
-        exc = litellm.APIConnectionError(
+        exc = embrouter.APIConnectionError(
             message=f"boom\n{notice}",
             model="gpt-4o",
             llm_provider="openai",
@@ -4543,7 +4543,7 @@ class TestHandleLLMApiExceptionRetryAfter:
         assert ISSUE_URL_BASE in caplog.text
 
     async def test_handle_llm_api_exception_retry_after_survives_callback_headers(self):
-        from litellm.types.router import RouterRateLimitError
+        from embrouter.types.router import RouterRateLimitError
 
         exc = RouterRateLimitError(
             model="gpt-4",
@@ -4558,7 +4558,7 @@ class TestHandleLLMApiExceptionRetryAfter:
         assert proxy_exc.headers["x-custom"] == "1"
 
     async def test_handle_llm_api_exception_names_cooldown_when_every_deployment_is_cooled_down(self):
-        from litellm.types.router import RouterRateLimitError
+        from embrouter.types.router import RouterRateLimitError
 
         exc = RouterRateLimitError(
             model="gpt-4",
@@ -4575,7 +4575,7 @@ class TestHandleLLMApiExceptionRetryAfter:
         assert proxy_exc.headers["retry-after"] == "120"
 
     async def test_handle_llm_api_exception_keeps_rate_limit_type_when_cooldown_is_partial(self):
-        from litellm.types.router import RouterRateLimitError
+        from embrouter.types.router import RouterRateLimitError
 
         exc = RouterRateLimitError(
             model="gpt-4",
@@ -4597,7 +4597,7 @@ class TestHandleLLMApiExceptionFramingHeaders:
     itself sets. Non-framing headers must survive unchanged."""
 
     async def _invoke(self, exc: Exception, callback_headers: Optional[dict] = None):
-        from litellm.proxy._types import ProxyException, UserAPIKeyAuth
+        from embrouter.proxy._types import ProxyException, UserAPIKeyAuth
 
         processor = ProxyBaseLLMRequestProcessing(data={})
         user_api_key_dict = UserAPIKeyAuth(api_key="sk-test")
@@ -4616,7 +4616,7 @@ class TestHandleLLMApiExceptionFramingHeaders:
         raise AssertionError("ProxyException was not raised")
 
     async def test_strips_framing_headers_preserves_others(self):
-        exc = litellm.RateLimitError(
+        exc = embrouter.RateLimitError(
             message="Resource exhausted",
             llm_provider="vertex_ai",
             model="gemini-2.0-flash",
@@ -4636,7 +4636,7 @@ class TestHandleLLMApiExceptionFramingHeaders:
         assert proxy_exc.headers["x-request-id"] == "abc-123"
 
     async def test_strips_framing_headers_on_existing_proxy_exception(self):
-        from litellm.proxy._types import ProxyException
+        from embrouter.proxy._types import ProxyException
 
         exc = ProxyException(
             message="Resource exhausted",
@@ -4655,7 +4655,7 @@ class TestHandleLLMApiExceptionFramingHeaders:
         assert proxy_exc.headers["x-request-id"] == "abc-123"
 
     async def test_strips_browser_security_headers(self):
-        exc = litellm.RateLimitError(
+        exc = embrouter.RateLimitError(
             message="Resource exhausted",
             llm_provider="vertex_ai",
             model="gemini-2.0-flash",
@@ -4677,7 +4677,7 @@ class TestHandleLLMApiExceptionFramingHeaders:
         assert proxy_exc.headers["x-request-id"] == "abc-123"
 
     async def test_strips_unsafe_headers_added_by_response_headers_hook(self):
-        exc = litellm.RateLimitError(
+        exc = embrouter.RateLimitError(
             message="Resource exhausted",
             llm_provider="vertex_ai",
             model="gemini-2.0-flash",
@@ -4709,7 +4709,7 @@ class TestAsyncStreamingDataGeneratorFastPath:
     async def test_fast_path_skips_per_chunk_hook(self, monkeypatch):
         """With no callbacks/guardrails/cost-injection, chunks pass through
         unchanged and the per-chunk hook is NOT awaited."""
-        monkeypatch.setattr(litellm, "callbacks", [])
+        monkeypatch.setattr(embrouter, "callbacks", [])
         ProxyLogging._callback_capabilities_cache.clear()
 
         proxy_logging_obj = ProxyLogging(user_api_key_cache=MagicMock())
@@ -4742,7 +4742,7 @@ class TestAsyncStreamingDataGeneratorFastPath:
                 return response
 
         cb = _StreamingCb()
-        monkeypatch.setattr(litellm, "callbacks", [cb])
+        monkeypatch.setattr(embrouter, "callbacks", [cb])
         ProxyLogging._callback_capabilities_cache.clear()
 
         proxy_logging_obj = ProxyLogging(user_api_key_cache=MagicMock())
@@ -4788,8 +4788,8 @@ class TestDisconnectGatherCleanup:
         """With cancel_on_disconnect enabled, base_process_llm_request returns 499."""
         import asyncio
 
-        import litellm.proxy.common_request_processing as cpr
-        from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+        import embrouter.proxy.common_request_processing as cpr
+        from embrouter.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
 
         async def slow_llm():
             await asyncio.sleep(9999)
@@ -4798,7 +4798,7 @@ class TestDisconnectGatherCleanup:
             return slow_llm()
 
         mock_logging_obj = MagicMock()
-        mock_logging_obj.litellm_call_id = "test-call-id"
+        mock_logging_obj.embrouter_call_id = "test-call-id"
         mock_logging_obj._defer_async_logging = False
 
         mock_proxy_logging = MagicMock(spec=ProxyLogging)
@@ -4838,14 +4838,14 @@ class TestDisconnectGatherCleanup:
     ):
         import asyncio
 
-        import litellm.proxy.common_request_processing as cpr
-        from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+        import embrouter.proxy.common_request_processing as cpr
+        from embrouter.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
 
         async def fake_gather(*_tasks, **_kwargs):
             raise asyncio.CancelledError()
 
         mock_logging_obj = MagicMock()
-        mock_logging_obj.litellm_call_id = "test-call-id"
+        mock_logging_obj.embrouter_call_id = "test-call-id"
         mock_logging_obj._defer_async_logging = False
 
         mock_proxy_logging = MagicMock(spec=ProxyLogging)
@@ -4888,8 +4888,8 @@ class TestDisconnectGatherCleanup:
     async def test_disconnect_cancels_during_call_hook_task(self, monkeypatch):
         import asyncio
 
-        import litellm.proxy.common_request_processing as cpr
-        from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+        import embrouter.proxy.common_request_processing as cpr
+        from embrouter.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
 
         hook_cancelled = False
 
@@ -4908,7 +4908,7 @@ class TestDisconnectGatherCleanup:
             return slow_llm()
 
         mock_logging_obj = MagicMock()
-        mock_logging_obj.litellm_call_id = "test-call-id"
+        mock_logging_obj.embrouter_call_id = "test-call-id"
         mock_logging_obj._defer_async_logging = False
 
         mock_proxy_logging = MagicMock(spec=ProxyLogging)
@@ -4945,7 +4945,7 @@ class TestDisconnectGatherCleanup:
     async def test_cancel_pending_gather_tasks_skips_already_done_tasks(self):
         import asyncio
 
-        from litellm.proxy.common_request_processing import _cancel_pending_gather_tasks
+        from embrouter.proxy.common_request_processing import _cancel_pending_gather_tasks
 
         async def failing_task():
             raise ValueError("llm api error")
@@ -4962,7 +4962,7 @@ class TestDisconnectGatherCleanup:
     ):
         import asyncio
 
-        from litellm.proxy.common_request_processing import _cancel_pending_gather_tasks
+        from embrouter.proxy.common_request_processing import _cancel_pending_gather_tasks
 
         async def hook_converts_cancel_to_runtime_error():
             try:
@@ -4979,8 +4979,8 @@ class TestDisconnectGatherCleanup:
     async def test_base_process_llm_request_preserves_llm_error_after_gather(
         self, monkeypatch
     ):
-        import litellm.proxy.common_request_processing as cpr
-        from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+        import embrouter.proxy.common_request_processing as cpr
+        from embrouter.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
 
         async def failing_llm():
             raise ValueError("llm api error")
@@ -4992,7 +4992,7 @@ class TestDisconnectGatherCleanup:
             return failing_llm()
 
         mock_logging_obj = MagicMock()
-        mock_logging_obj.litellm_call_id = "test-call-id"
+        mock_logging_obj.embrouter_call_id = "test-call-id"
         mock_logging_obj._defer_async_logging = False
 
         mock_proxy_logging = MagicMock(spec=ProxyLogging)
@@ -5035,17 +5035,17 @@ async def test_response_model_echoes_the_name_the_client_sent_before_auth_rewrot
 ):
     """LIT-3054: auth resolves router_settings.model_group_alias in the body, so the alias the
     client sent only survives in the request scope. The response must still echo it."""
-    import litellm.proxy.common_request_processing as cpr
+    import embrouter.proxy.common_request_processing as cpr
 
     async def llm():
-        return litellm.ModelResponse(
+        return embrouter.ModelResponse(
             model="gpt-4o-mini", choices=[{"message": {"role": "assistant", "content": "pong"}}]
         )
 
     async def fake_route_request(**_kwargs):
         return llm()
 
-    logging_obj = MagicMock(litellm_call_id="call-id", _defer_async_logging=False)
+    logging_obj = MagicMock(embrouter_call_id="call-id", _defer_async_logging=False)
     proxy_logging = MagicMock(spec=ProxyLogging)
     proxy_logging.during_call_hook = AsyncMock(return_value=None)
     proxy_logging.post_call_success_hook = AsyncMock(side_effect=lambda data, user_api_key_dict, response: response)
@@ -5078,19 +5078,19 @@ async def test_response_model_echoes_the_name_the_client_sent_before_auth_rewrot
 class TestStreamingClientDisconnectLogging:
     @pytest.mark.asyncio
     async def test_record_streaming_client_disconnect_sets_error_information(self):
-        from litellm.proxy.common_request_processing import (
+        from embrouter.proxy.common_request_processing import (
             _record_streaming_client_disconnect_if_needed,
         )
 
         mock_logging_obj = MagicMock()
-        mock_logging_obj.model_call_details = {"litellm_params": {}, "metadata": {}}
+        mock_logging_obj.model_call_details = {"embrouter_params": {}, "metadata": {}}
         mock_request = MagicMock(spec=Request)
         mock_request.is_disconnected = AsyncMock(return_value=True)
         request_data = {
-            "litellm_call_id": "test-call-id",
-            "litellm_logging_obj": mock_logging_obj,
+            "embrouter_call_id": "test-call-id",
+            "embrouter_logging_obj": mock_logging_obj,
             "metadata": {},
-            "litellm_params": {"metadata": {}},
+            "embrouter_params": {"metadata": {}},
         }
 
         recorded = await _record_streaming_client_disconnect_if_needed(
@@ -5103,7 +5103,7 @@ class TestStreamingClientDisconnectLogging:
             request_data["metadata"]["error_information"]["error_code"] == "499"
         )
         assert (
-            mock_logging_obj.model_call_details["litellm_params"]["metadata"][
+            mock_logging_obj.model_call_details["embrouter_params"]["metadata"][
                 "error_information"
             ]["error_code"]
             == "499"
@@ -5111,7 +5111,7 @@ class TestStreamingClientDisconnectLogging:
 
     @pytest.mark.asyncio
     async def test_record_streaming_client_disconnect_no_op_when_connected(self):
-        from litellm.proxy.common_request_processing import (
+        from embrouter.proxy.common_request_processing import (
             _record_streaming_client_disconnect_if_needed,
         )
 
@@ -5128,22 +5128,22 @@ class TestStreamingClientDisconnectLogging:
 
     @pytest.mark.asyncio
     async def test_record_streaming_client_disconnect_handles_none_metadata(self):
-        from litellm.proxy.common_request_processing import (
+        from embrouter.proxy.common_request_processing import (
             _record_streaming_client_disconnect_if_needed,
         )
 
         mock_logging_obj = MagicMock()
         mock_logging_obj.model_call_details = {
-            "litellm_params": {"metadata": None},
+            "embrouter_params": {"metadata": None},
             "metadata": None,
         }
         mock_request = MagicMock(spec=Request)
         mock_request.is_disconnected = AsyncMock(return_value=True)
         request_data = {
-            "litellm_call_id": "test-call-id",
-            "litellm_logging_obj": mock_logging_obj,
+            "embrouter_call_id": "test-call-id",
+            "embrouter_logging_obj": mock_logging_obj,
             "metadata": {},
-            "litellm_params": {"metadata": {}},
+            "embrouter_params": {"metadata": {}},
         }
 
         recorded = await _record_streaming_client_disconnect_if_needed(
@@ -5153,7 +5153,7 @@ class TestStreamingClientDisconnectLogging:
         assert recorded is True
         assert request_data["metadata"]["client_disconnected"] is True
         assert (
-            mock_logging_obj.model_call_details["litellm_params"]["metadata"][
+            mock_logging_obj.model_call_details["embrouter_params"]["metadata"][
                 "client_disconnected"
             ]
             is True
@@ -5165,16 +5165,16 @@ class TestStreamingClientDisconnectLogging:
 
     @pytest.mark.asyncio
     async def test_record_streaming_client_disconnect_handles_none_request_data_metadata(self):
-        from litellm.proxy.common_request_processing import (
+        from embrouter.proxy.common_request_processing import (
             _record_streaming_client_disconnect_if_needed,
         )
 
         mock_request = MagicMock(spec=Request)
         mock_request.is_disconnected = AsyncMock(return_value=True)
         request_data = {
-            "litellm_call_id": "test-call-id",
+            "embrouter_call_id": "test-call-id",
             "metadata": None,
-            "litellm_params": {"metadata": None},
+            "embrouter_params": {"metadata": None},
         }
 
         recorded = await _record_streaming_client_disconnect_if_needed(
@@ -5184,12 +5184,12 @@ class TestStreamingClientDisconnectLogging:
         assert recorded is True
         assert request_data["metadata"]["client_disconnected"] is True
         assert (
-            request_data["litellm_params"]["metadata"]["client_disconnected"] is True
+            request_data["embrouter_params"]["metadata"]["client_disconnected"] is True
         )
 
     @pytest.mark.asyncio
     async def test_apply_client_disconnect_metadata_none_returns_early(self):
-        from litellm.proxy.common_request_processing import (
+        from embrouter.proxy.common_request_processing import (
             _apply_client_disconnect_metadata,
         )
 
@@ -5199,13 +5199,13 @@ class TestStreamingClientDisconnectLogging:
     async def test_finalize_streaming_generator_cleanup_fires_deferred_logging(
         self, monkeypatch
     ):
-        from litellm.proxy.common_request_processing import (
+        from embrouter.proxy.common_request_processing import (
             ProxyBaseLLMRequestProcessing,
         )
 
         fire_spy = MagicMock()
         monkeypatch.setattr(
-            "litellm.proxy.utils.ProxyLogging._fire_deferred_stream_logging",
+            "embrouter.proxy.utils.ProxyLogging._fire_deferred_stream_logging",
             fire_spy,
         )
 
@@ -5215,8 +5215,8 @@ class TestStreamingClientDisconnectLogging:
         mock_response.aclose = AsyncMock()
         request_data = {
             "metadata": {},
-            "litellm_params": {"metadata": {}},
-            "litellm_logging_obj": MagicMock(model_call_details={"metadata": {}, "litellm_params": {}}),
+            "embrouter_params": {"metadata": {}},
+            "embrouter_logging_obj": MagicMock(model_call_details={"metadata": {}, "embrouter_params": {}}),
         }
 
         await ProxyBaseLLMRequestProcessing._finalize_streaming_generator_cleanup(
@@ -5233,13 +5233,13 @@ class TestStreamingClientDisconnectLogging:
     async def test_finalize_streaming_generator_cleanup_skips_disconnect_after_completion(
         self, monkeypatch
     ):
-        from litellm.proxy.common_request_processing import (
+        from embrouter.proxy.common_request_processing import (
             ProxyBaseLLMRequestProcessing,
         )
 
         fire_spy = MagicMock()
         monkeypatch.setattr(
-            "litellm.proxy.utils.ProxyLogging._fire_deferred_stream_logging",
+            "embrouter.proxy.utils.ProxyLogging._fire_deferred_stream_logging",
             fire_spy,
         )
 
@@ -5247,7 +5247,7 @@ class TestStreamingClientDisconnectLogging:
         mock_request.is_disconnected = AsyncMock(return_value=True)
         mock_response = MagicMock()
         mock_response.aclose = AsyncMock()
-        request_data = {"metadata": {}, "litellm_params": {"metadata": {}}}
+        request_data = {"metadata": {}, "embrouter_params": {"metadata": {}}}
 
         await ProxyBaseLLMRequestProcessing._finalize_streaming_generator_cleanup(
             request=mock_request,
@@ -5265,12 +5265,12 @@ class TestStreamingClientDisconnectLogging:
     async def test_async_streaming_data_generator_records_499_on_early_aclose(
         self, monkeypatch
     ):
-        from litellm.proxy.common_request_processing import (
+        from embrouter.proxy.common_request_processing import (
             ProxyBaseLLMRequestProcessing,
         )
 
         monkeypatch.setattr(
-            "litellm.proxy.utils.ProxyLogging._fire_deferred_stream_logging",
+            "embrouter.proxy.utils.ProxyLogging._fire_deferred_stream_logging",
             MagicMock(),
         )
 
@@ -5291,9 +5291,9 @@ class TestStreamingClientDisconnectLogging:
         request_data = {
             "model": "gemini-2.0-flash",
             "metadata": {},
-            "litellm_params": {"metadata": {}},
-            "litellm_logging_obj": MagicMock(
-                model_call_details={"metadata": {}, "litellm_params": {}}
+            "embrouter_params": {"metadata": {}},
+            "embrouter_logging_obj": MagicMock(
+                model_call_details={"metadata": {}, "embrouter_params": {}}
             ),
         }
 
@@ -5394,16 +5394,16 @@ class TestCancelOnDisconnect:
     async def _drive_base_process_llm_request(
         self, monkeypatch, general_settings: dict, llm_call, request: Request
     ):
-        from litellm.proxy._types import UserAPIKeyAuth
+        from embrouter.proxy._types import UserAPIKeyAuth
 
         logging_obj = MagicMock()
-        logging_obj.litellm_call_id = "test-cancel-on-disconnect"
+        logging_obj.embrouter_call_id = "test-cancel-on-disconnect"
         logging_obj._defer_async_logging = False
         logging_obj._on_deferred_stream_complete = None
         logging_obj.cost_breakdown = None
 
         processor = ProxyBaseLLMRequestProcessing(
-            data={"model": "fake-model", "litellm_logging_obj": logging_obj}
+            data={"model": "fake-model", "embrouter_logging_obj": logging_obj}
         )
 
         proxy_logging_obj = MagicMock(spec=ProxyLogging)
@@ -5420,7 +5420,7 @@ class TestCancelOnDisconnect:
             return llm_call()
 
         monkeypatch.setattr(
-            litellm.proxy.common_request_processing,
+            embrouter.proxy.common_request_processing,
             "route_request",
             fake_route_request,
         )
@@ -5438,7 +5438,7 @@ class TestCancelOnDisconnect:
 
     async def test_disconnect_ignored_when_flag_disabled(self, monkeypatch):
         upstream_cancelled = asyncio.Event()
-        model_response = litellm.ModelResponse()
+        model_response = embrouter.ModelResponse()
 
         async def llm_call():
             try:
@@ -5464,7 +5464,7 @@ class TestCancelOnDisconnect:
         async def llm_call():
             try:
                 await asyncio.sleep(5)
-                return litellm.ModelResponse()
+                return embrouter.ModelResponse()
             except asyncio.CancelledError:
                 upstream_cancelled.set()
                 raise
@@ -5484,7 +5484,7 @@ class TestCancelOnDisconnect:
         """Regression guard: the 499 path must NOT bypass post_call_failure_hook,
         which releases max_parallel_requests slots and fires spend/alerting
         callbacks (cf. #14457; P1 review finding on #25776/#27146)."""
-        from litellm.proxy._types import ProxyException, UserAPIKeyAuth
+        from embrouter.proxy._types import ProxyException, UserAPIKeyAuth
 
         processor = ProxyBaseLLMRequestProcessing(data={})
         proxy_logging_obj = MagicMock()
@@ -5513,8 +5513,8 @@ class TestAllmPassthroughRoutePostCallGuardrails:
     """
 
     def _make_guardrail_cb(self, name: str = "presidio-pre-guard") -> MagicMock:
-        from litellm.integrations.custom_guardrail import CustomGuardrail
-        from litellm.types.guardrails import GuardrailEventHooks
+        from embrouter.integrations.custom_guardrail import CustomGuardrail
+        from embrouter.types.guardrails import GuardrailEventHooks
 
         cb = MagicMock(spec=CustomGuardrail)
         cb.guardrail_name = name
@@ -5555,7 +5555,7 @@ class TestAllmPassthroughRoutePostCallGuardrails:
             return response
 
         cb = self._make_guardrail_cb()
-        monkeypatch.setattr(litellm, "callbacks", [cb])
+        monkeypatch.setattr(embrouter, "callbacks", [cb])
         ProxyLogging._callback_capabilities_cache.clear()
 
         proxy_logging_obj = ProxyLogging(user_api_key_cache=MagicMock())
@@ -5605,7 +5605,7 @@ class TestAllmPassthroughRoutePostCallGuardrails:
             return object()
 
         cb = self._make_guardrail_cb()
-        monkeypatch.setattr(litellm, "callbacks", [cb])
+        monkeypatch.setattr(embrouter, "callbacks", [cb])
         ProxyLogging._callback_capabilities_cache.clear()
 
         proxy_logging_obj = ProxyLogging(user_api_key_cache=MagicMock())
@@ -5642,7 +5642,7 @@ class TestAllmPassthroughRoutePostCallGuardrails:
         )
 
         cb = self._make_guardrail_cb()
-        monkeypatch.setattr(litellm, "callbacks", [cb])
+        monkeypatch.setattr(embrouter, "callbacks", [cb])
         ProxyLogging._callback_capabilities_cache.clear()
 
         proxy_logging_obj = ProxyLogging(user_api_key_cache=MagicMock())
@@ -5683,7 +5683,7 @@ class TestAllmPassthroughRoutePostCallGuardrails:
         spy_read = AsyncMock(wraps=httpx_response.aread)
         httpx_response.aread = spy_read
 
-        monkeypatch.setattr(litellm, "callbacks", [])
+        monkeypatch.setattr(embrouter, "callbacks", [])
         ProxyLogging._callback_capabilities_cache.clear()
 
         proxy_logging_obj = ProxyLogging(user_api_key_cache=MagicMock())
@@ -5752,7 +5752,7 @@ class TestEventStreamAllmPassthroughRoute:
         user_api_key_dict = MagicMock(spec=UserAPIKeyAuth)
 
         with patch(
-            "litellm.llms.bedrock.passthrough.guardrail_translation.handler.BedrockPassthroughGuardrailHandler.de_anonymize_event_stream",
+            "embrouter.llms.bedrock.passthrough.guardrail_translation.handler.BedrockPassthroughGuardrailHandler.de_anonymize_event_stream",
             new=AsyncMock(return_value=expected_bytes),
         ) as mock_handler:
             processing_obj = ProxyBaseLLMRequestProcessing(data={"custom_llm_provider": "bedrock"})
@@ -5797,8 +5797,8 @@ class TestEventStreamAllmPassthroughRoute:
         proxy_logging_obj.post_call_response_headers_hook = AsyncMock(return_value={})
 
         custom_headers = {
-            "x-litellm-call-id": "test-call-123",
-            "x-litellm-model-id": "bedrock/claude",
+            "x-embrouter-call-id": "test-call-123",
+            "x-embrouter-model-id": "bedrock/claude",
             "content-length": "99",
         }
 
@@ -5813,8 +5813,8 @@ class TestEventStreamAllmPassthroughRoute:
             )
 
         assert result is not None
-        assert result.headers.get("x-litellm-call-id") == "test-call-123"
-        assert result.headers.get("x-litellm-model-id") == "bedrock/claude"
+        assert result.headers.get("x-embrouter-call-id") == "test-call-123"
+        assert result.headers.get("x-embrouter-model-id") == "bedrock/claude"
         # content-length from custom_headers is filtered; Starlette sets the correct value from body
         assert result.headers.get("content-length") != "99"
 
@@ -5837,18 +5837,18 @@ class TestAllmPassthroughStreamingProviderGate:
         self, custom_llm_provider: str, endpoint: str = ""
     ) -> ProxyBaseLLMRequestProcessing:
         logging_obj = MagicMock()
-        logging_obj.litellm_call_id = "call-123"
+        logging_obj.embrouter_call_id = "call-123"
         logging_obj.cost_breakdown = None
         data = {
             "custom_llm_provider": custom_llm_provider,
             "endpoint": endpoint,
-            "litellm_logging_obj": logging_obj,
+            "embrouter_logging_obj": logging_obj,
         }
         return ProxyBaseLLMRequestProcessing(data=data)
 
     async def _run(self, processing_obj, monkeypatch, chunks, stream=None):
-        import litellm.proxy.common_request_processing as crp
-        from litellm.proxy._types import UserAPIKeyAuth as RealUserAPIKeyAuth
+        import embrouter.proxy.common_request_processing as crp
+        from embrouter.proxy._types import UserAPIKeyAuth as RealUserAPIKeyAuth
 
         async def streaming_response():
             for chunk in chunks:
@@ -5890,7 +5890,7 @@ class TestAllmPassthroughStreamingProviderGate:
         whose shielded cleanup closes the upstream stream; that close is what flushes
         buffered passthrough usage into spend logs."""
         processing_obj = self._build_processing_obj("gigachat")
-        monkeypatch.setattr(litellm, "callbacks", [])
+        monkeypatch.setattr(embrouter, "callbacks", [])
         upstream_closed = asyncio.Event()
 
         async def hanging_stream():
@@ -5955,7 +5955,7 @@ class TestAllmPassthroughStreamingProviderGate:
             "_has_post_call_guardrails_for_passthrough",
             return_value=True,
         ), patch(
-            "litellm.llms.bedrock.passthrough.guardrail_translation.handler."
+            "embrouter.llms.bedrock.passthrough.guardrail_translation.handler."
             "BedrockPassthroughGuardrailHandler.de_anonymize_event_stream",
             new=AsyncMock(return_value=b"modified-body"),
         ) as mock_handler:
@@ -5983,7 +5983,7 @@ class TestAllmPassthroughStreamingProviderGate:
             "_has_post_call_guardrails_for_passthrough",
             return_value=True,
         ), patch(
-            "litellm.llms.bedrock.passthrough.guardrail_translation.handler."
+            "embrouter.llms.bedrock.passthrough.guardrail_translation.handler."
             "BedrockPassthroughGuardrailHandler.de_anonymize_event_stream",
             new=AsyncMock(return_value=b"modified-body"),
         ) as mock_handler:
@@ -6052,7 +6052,7 @@ class TestAllmPassthroughStreamingProviderGate:
 
 class TestResponseCostHeaderForTypedDictResponses:
     """
-    Regression for LIT-4076. x-litellm-response-cost went missing on Anthropic
+    Regression for LIT-4076. x-embrouter-response-cost went missing on Anthropic
     /v1/messages and Google :generateContent even though it appeared on
     /chat/completions and /responses. /v1/messages returns a TypedDict that cannot
     hold _hidden_params at all, and :generateContent carries _hidden_params but no
@@ -6064,7 +6064,7 @@ class TestResponseCostHeaderForTypedDictResponses:
 
     def _build_logging_obj(self, *, model_call_details, response_cost_calculator):
         logging_obj = MagicMock()
-        logging_obj.litellm_call_id = "call-lit4076"
+        logging_obj.embrouter_call_id = "call-lit4076"
         logging_obj.cost_breakdown = None
         logging_obj.model_call_details = model_call_details
         logging_obj._response_cost_calculator = response_cost_calculator
@@ -6075,8 +6075,8 @@ class TestResponseCostHeaderForTypedDictResponses:
     async def _drive_non_streaming(
         self, *, monkeypatch, response, logging_obj, route_type, return_result=False, client_model=None
     ):
-        import litellm.proxy.common_request_processing as crp
-        from litellm.proxy._types import UserAPIKeyAuth as RealUserAPIKeyAuth
+        import embrouter.proxy.common_request_processing as crp
+        from embrouter.proxy._types import UserAPIKeyAuth as RealUserAPIKeyAuth
 
         async def fake_route_request(**kwargs):
             async def _llm_call():
@@ -6097,7 +6097,7 @@ class TestResponseCostHeaderForTypedDictResponses:
 
         fastapi_response = Response()
         processing_obj = ProxyBaseLLMRequestProcessing(
-            data={"litellm_logging_obj": logging_obj, **({"model": client_model} if client_model else {})}
+            data={"embrouter_logging_obj": logging_obj, **({"model": client_model} if client_model else {})}
         )
 
         with patch.object(
@@ -6123,7 +6123,7 @@ class TestResponseCostHeaderForTypedDictResponses:
 
     @pytest.mark.asyncio
     async def test_messages_typeddict_emits_cost_header_from_stored_cost(self, monkeypatch):
-        from litellm.types.utils import AnthropicMessagesResponse
+        from embrouter.types.utils import AnthropicMessagesResponse
 
         response = AnthropicMessagesResponse(
             id="msg_1",
@@ -6146,7 +6146,7 @@ class TestResponseCostHeaderForTypedDictResponses:
             route_type="anthropic_messages",
         )
 
-        assert fastapi_response.headers["x-litellm-response-cost"] == "0.00123"
+        assert fastapi_response.headers["x-embrouter-response-cost"] == "0.00123"
         recompute.assert_not_called()
 
     @pytest.mark.asyncio
@@ -6158,7 +6158,7 @@ class TestResponseCostHeaderForTypedDictResponses:
         while recorded spend used the registry rate. The recompute must see the
         provider-reported model; the body must still return the client alias.
         """
-        from litellm.types.utils import AnthropicMessagesResponse
+        from embrouter.types.utils import AnthropicMessagesResponse
 
         response = AnthropicMessagesResponse(
             id="msg_1",
@@ -6187,13 +6187,13 @@ class TestResponseCostHeaderForTypedDictResponses:
             return_result=True,
         )
 
-        assert fastapi_response.headers["x-litellm-response-cost"] == "0.003"
+        assert fastapi_response.headers["x-embrouter-response-cost"] == "0.003"
         assert result["model"] == "muse-glimmer-30b"
         recompute.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_generate_content_typeddict_emits_cost_header_via_recompute(self, monkeypatch):
-        from litellm.types.llms.vertex_ai import GenerateContentResponseBody
+        from embrouter.types.llms.vertex_ai import GenerateContentResponseBody
 
         response = GenerateContentResponseBody(
             candidates=[{"content": {"parts": [{"text": "hi"}], "role": "model"}}],
@@ -6216,7 +6216,7 @@ class TestResponseCostHeaderForTypedDictResponses:
             route_type="agenerate_content",
         )
 
-        assert fastapi_response.headers["x-litellm-response-cost"] == "0.00456"
+        assert fastapi_response.headers["x-embrouter-response-cost"] == "0.00456"
         recompute.assert_called_once()
         assert recompute.call_args.kwargs["result"] is response
 
@@ -6229,9 +6229,9 @@ class TestResponseCostHeaderForTypedDictResponses:
         cost was 0.0 and the header was dropped even though the async logging path
         billed a real non-zero amount. The header must now carry the true cost.
         """
-        from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-        from litellm.types.llms.vertex_ai import GenerateContentResponseBody
-        from litellm.types.utils import ModelResponse, Usage
+        from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+        from embrouter.types.llms.vertex_ai import GenerateContentResponseBody
+        from embrouter.types.utils import ModelResponse, Usage
 
         response = GenerateContentResponseBody(
             candidates=[{"content": {"parts": [{"text": "hi"}], "role": "model"}, "finishReason": "STOP"}],
@@ -6242,13 +6242,13 @@ class TestResponseCostHeaderForTypedDictResponses:
             },
         )
 
-        real_logging = LiteLLMLoggingObj(
+        real_logging = EmbRouterLoggingObj(
             model="gemini-2.5-flash",
             messages=[{"role": "user", "content": "hi"}],
             stream=False,
             call_type="agenerate_content",
             start_time=None,
-            litellm_call_id="call-lit4076-real",
+            embrouter_call_id="call-lit4076-real",
             function_id="fn",
         )
         real_logging.model_call_details["custom_llm_provider"] = "gemini"
@@ -6266,7 +6266,7 @@ class TestResponseCostHeaderForTypedDictResponses:
             route_type="agenerate_content",
         )
 
-        expected_cost = litellm.completion_cost(
+        expected_cost = embrouter.completion_cost(
             completion_response=ModelResponse(
                 model="gemini-2.5-flash",
                 usage=Usage(prompt_tokens=1000, completion_tokens=500, total_tokens=1500),
@@ -6275,23 +6275,23 @@ class TestResponseCostHeaderForTypedDictResponses:
             custom_llm_provider="gemini",
         )
         assert expected_cost > 0
-        assert float(fastapi_response.headers["x-litellm-response-cost"]) == pytest.approx(expected_cost)
+        assert float(fastapi_response.headers["x-embrouter-response-cost"]) == pytest.approx(expected_cost)
 
     @pytest.mark.asyncio
     async def test_generate_content_with_hidden_params_emits_cost_header(self, monkeypatch):
         """
         Models the real :generateContent response: it DOES carry a _hidden_params
-        attribute (which is why x-litellm-model-group / x-litellm-model-api-base
+        attribute (which is why x-embrouter-model-group / x-embrouter-model-api-base
         appear), but no response_cost is populated synchronously at header-build
         time. The cost is only available on the logging object. The previous
         ``not hasattr(response, "_hidden_params")`` guard skipped recovery here, so
-        x-litellm-response-cost went missing even though the cost was computed.
+        x-embrouter-response-cost went missing even though the cost was computed.
         """
         from types import SimpleNamespace
 
         response = SimpleNamespace(
             _hidden_params={
-                "additional_headers": {"x-litellm-model-group": "gemini-2.5-flash"},
+                "additional_headers": {"x-embrouter-model-group": "gemini-2.5-flash"},
             }
         )
         recompute = MagicMock(return_value=999.0)
@@ -6307,8 +6307,8 @@ class TestResponseCostHeaderForTypedDictResponses:
             route_type="agenerate_content",
         )
 
-        assert fastapi_response.headers["x-litellm-response-cost"] == "0.0004521"
-        assert fastapi_response.headers["x-litellm-model-group"] == "gemini-2.5-flash"
+        assert fastapi_response.headers["x-embrouter-response-cost"] == "0.0004521"
+        assert fastapi_response.headers["x-embrouter-model-group"] == "gemini-2.5-flash"
         recompute.assert_not_called()
 
     @pytest.mark.asyncio
@@ -6316,13 +6316,13 @@ class TestResponseCostHeaderForTypedDictResponses:
         """
         A recovered cost of 0 must normalize to a dropped header, exactly like
         /chat/completions, so :generateContent does not start emitting
-        x-litellm-response-cost: 0.0 where nothing was emitted before.
+        x-embrouter-response-cost: 0.0 where nothing was emitted before.
         """
         from types import SimpleNamespace
 
         response = SimpleNamespace(
             _hidden_params={
-                "additional_headers": {"x-litellm-model-group": "gemini-2.5-flash"},
+                "additional_headers": {"x-embrouter-model-group": "gemini-2.5-flash"},
             }
         )
         recompute = MagicMock(return_value=999.0)
@@ -6338,7 +6338,7 @@ class TestResponseCostHeaderForTypedDictResponses:
             route_type="agenerate_content",
         )
 
-        assert "x-litellm-response-cost" not in fastapi_response.headers
+        assert "x-embrouter-response-cost" not in fastapi_response.headers
         recompute.assert_not_called()
 
     @pytest.mark.asyncio
@@ -6359,7 +6359,7 @@ class TestResponseCostHeaderForTypedDictResponses:
             route_type="acompletion",
         )
 
-        assert fastapi_response.headers["x-litellm-response-cost"] == "0.009"
+        assert fastapi_response.headers["x-embrouter-response-cost"] == "0.009"
         recompute.assert_not_called()
 
     @pytest.mark.asyncio
@@ -6380,7 +6380,7 @@ class TestResponseCostHeaderForTypedDictResponses:
             route_type="acompletion",
         )
 
-        assert "x-litellm-response-cost" not in fastapi_response.headers
+        assert "x-embrouter-response-cost" not in fastapi_response.headers
         recompute.assert_not_called()
 
     @pytest.mark.asyncio
@@ -6394,7 +6394,7 @@ class TestResponseCostHeaderForTypedDictResponses:
         response_cost/model_id/api_base/fallback errors. base_process_llm_request
         must strip it before returning the response to the endpoint layer.
         """
-        from litellm.types.utils import AnthropicMessagesResponse
+        from embrouter.types.utils import AnthropicMessagesResponse
 
         response = AnthropicMessagesResponse(
             id="msg_1",
@@ -6424,13 +6424,13 @@ class TestResponseCostHeaderForTypedDictResponses:
 
         assert "_hidden_params" not in result
         assert fastapi_response.headers["x-ratelimit-limit-input-tokens"] == "25"
-        assert fastapi_response.headers["x-litellm-response-cost"] == "0.00123"
+        assert fastapi_response.headers["x-embrouter-response-cost"] == "0.00123"
 
 
 class TestCostHeadersForCallsPricedAtZero:
     """
     Regression for LIT-5602. Pricing responses reads and vector-store management routes at
-    zero dropped the entire x-litellm-response-cost family off those replies: the header
+    zero dropped the entire x-embrouter-response-cost family off those replies: the header
     build reads a falsy zero as "this response never recorded a cost" and filters it out,
     and a call that returns before pricing stores no cost breakdown for the component
     headers to read. A client parsing the cost off a read got a KeyError where it had
@@ -6439,7 +6439,7 @@ class TestCostHeadersForCallsPricedAtZero:
 
     @staticmethod
     def _responses_read(*, background=False):
-        from litellm.types.llms.openai import ResponsesAPIResponse
+        from embrouter.types.llms.openai import ResponsesAPIResponse
 
         return ResponsesAPIResponse(
             id="resp_lit5602",
@@ -6455,9 +6455,9 @@ class TestCostHeadersForCallsPricedAtZero:
     @staticmethod
     def _logging_obj(*, call_type, recovered_cost=0.0):
         logging_obj = MagicMock()
-        logging_obj.litellm_call_id = "call-lit5602"
+        logging_obj.embrouter_call_id = "call-lit5602"
         logging_obj.call_type = call_type
-        logging_obj.litellm_params = {}
+        logging_obj.embrouter_params = {}
         logging_obj.cost_breakdown = None
         logging_obj.model_call_details = {"response_cost": recovered_cost}
         logging_obj._response_cost_calculator = MagicMock(return_value=recovered_cost)
@@ -6466,8 +6466,8 @@ class TestCostHeadersForCallsPricedAtZero:
         return logging_obj
 
     async def _drive(self, *, monkeypatch, response, logging_obj, route_type):
-        import litellm.proxy.common_request_processing as crp
-        from litellm.proxy._types import UserAPIKeyAuth as RealUserAPIKeyAuth
+        import embrouter.proxy.common_request_processing as crp
+        from embrouter.proxy._types import UserAPIKeyAuth as RealUserAPIKeyAuth
 
         async def fake_route_request(**kwargs):
             async def _llm_call():
@@ -6487,7 +6487,7 @@ class TestCostHeadersForCallsPricedAtZero:
         proxy_logging_obj.post_call_success_hook = fake_post_call_success_hook
 
         fastapi_response = Response()
-        processing_obj = ProxyBaseLLMRequestProcessing(data={"litellm_logging_obj": logging_obj})
+        processing_obj = ProxyBaseLLMRequestProcessing(data={"embrouter_logging_obj": logging_obj})
 
         with patch.object(
             ProxyBaseLLMRequestProcessing, "_has_post_call_guardrails", return_value=False
@@ -6515,7 +6515,7 @@ class TestCostHeadersForCallsPricedAtZero:
             route_type="aget_responses",
         )
 
-        assert fastapi_response.headers["x-litellm-response-cost"] == "0.0"
+        assert fastapi_response.headers["x-embrouter-response-cost"] == "0.0"
         for component in (
             "original",
             "discount-amount",
@@ -6525,7 +6525,7 @@ class TestCostHeadersForCallsPricedAtZero:
             "output",
             "tool-usage",
         ):
-            assert fastapi_response.headers[f"x-litellm-response-cost-{component}"] == "0.0"
+            assert fastapi_response.headers[f"x-embrouter-response-cost-{component}"] == "0.0"
 
     @pytest.mark.asyncio
     async def test_reading_a_background_response_keeps_its_real_cost(self, monkeypatch):
@@ -6536,7 +6536,7 @@ class TestCostHeadersForCallsPricedAtZero:
             route_type="aget_responses",
         )
 
-        assert float(fastapi_response.headers["x-litellm-response-cost"]) == pytest.approx(0.00042)
+        assert float(fastapi_response.headers["x-embrouter-response-cost"]) == pytest.approx(0.00042)
 
     @pytest.mark.asyncio
     async def test_an_inference_call_without_a_recorded_cost_still_omits_the_header(self, monkeypatch):
@@ -6549,11 +6549,11 @@ class TestCostHeadersForCallsPricedAtZero:
             route_type="acompletion",
         )
 
-        assert "x-litellm-response-cost" not in fastapi_response.headers
+        assert "x-embrouter-response-cost" not in fastapi_response.headers
 
     def test_cost_breakdown_reports_zero_components_for_a_call_priced_at_zero(self):
         breakdown = _get_cost_breakdown_from_logging_obj(
-            litellm_logging_obj=self._logging_obj(call_type="aget_responses")
+            embrouter_logging_obj=self._logging_obj(call_type="aget_responses")
         )
 
         assert breakdown.original_cost == 0.0
@@ -6563,7 +6563,7 @@ class TestCostHeadersForCallsPricedAtZero:
 
     def test_cost_breakdown_stays_empty_for_an_inference_call(self):
         breakdown = _get_cost_breakdown_from_logging_obj(
-            litellm_logging_obj=self._logging_obj(call_type="acompletion")
+            embrouter_logging_obj=self._logging_obj(call_type="acompletion")
         )
 
         assert breakdown == CostBreakdownHeaderValues()
@@ -6573,7 +6573,7 @@ class TestCostHeadersForCallsPricedAtZero:
         time headers are built is reported as absent rather than as a zero split contradicting the
         real total alongside it."""
         breakdown = _get_cost_breakdown_from_logging_obj(
-            litellm_logging_obj=self._logging_obj(call_type="aget_responses"),
+            embrouter_logging_obj=self._logging_obj(call_type="aget_responses"),
             response_cost=1.96e-05,
         )
 
@@ -6581,7 +6581,7 @@ class TestCostHeadersForCallsPricedAtZero:
 
     def test_cost_breakdown_reports_zero_components_under_a_zero_total(self):
         breakdown = _get_cost_breakdown_from_logging_obj(
-            litellm_logging_obj=self._logging_obj(call_type="aget_responses"),
+            embrouter_logging_obj=self._logging_obj(call_type="aget_responses"),
             response_cost=0.0,
         )
 
@@ -6594,8 +6594,8 @@ class TestPreCallWithFallbacksOnLocalRateLimit:
 
     @pytest.mark.asyncio
     async def test_fallback_triggered_on_local_rate_limit(self):
-        from litellm.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
-        from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+        from embrouter.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
+        from embrouter.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
 
         primary_model = "gpt-4"
         fallback_model = "gpt-3.5-turbo"
@@ -6646,8 +6646,8 @@ class TestPreCallWithFallbacksOnLocalRateLimit:
 
     @pytest.mark.asyncio
     async def test_raises_when_no_fallbacks_configured(self):
-        from litellm.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
-        from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+        from embrouter.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
+        from embrouter.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
 
         processor = ProxyBaseLLMRequestProcessing(data={"model": "gpt-4"})
 
@@ -6685,8 +6685,8 @@ class TestPreCallWithFallbacksOnLocalRateLimit:
 
     @pytest.mark.asyncio
     async def test_raises_when_all_fallbacks_also_rate_limited(self):
-        from litellm.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
-        from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+        from embrouter.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
+        from embrouter.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
 
         processor = ProxyBaseLLMRequestProcessing(data={"model": "gpt-4"})
 
@@ -6726,8 +6726,8 @@ class TestPreCallWithFallbacksOnLocalRateLimit:
 
     @pytest.mark.asyncio
     async def test_fallback_uses_key_level_router_settings(self):
-        from litellm.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
-        from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+        from embrouter.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
+        from embrouter.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
 
         processor = ProxyBaseLLMRequestProcessing(data={"model": "gpt-4"})
 
@@ -6773,8 +6773,8 @@ class TestPreCallWithFallbacksOnLocalRateLimit:
 
     @pytest.mark.asyncio
     async def test_disable_fallbacks_flag_respected(self):
-        from litellm.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
-        from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+        from embrouter.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
+        from embrouter.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
 
         processor = ProxyBaseLLMRequestProcessing(
             data={"model": "gpt-4", "disable_fallbacks": True}
@@ -6814,8 +6814,8 @@ class TestPreCallWithFallbacksOnLocalRateLimit:
 
     @pytest.mark.asyncio
     async def test_model_restored_on_non_rate_limit_exception(self):
-        from litellm.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
-        from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+        from embrouter.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
+        from embrouter.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
 
         primary_model = "gpt-4"
 
@@ -6877,18 +6877,18 @@ class TestPreCallWithFallbacksOnLocalRateLimit:
         to prove the customer's exact knob triggers the gateway fallback instead
         of returning a 429 to the client.
         """
-        from litellm.caching.caching import DualCache
-        from litellm.proxy._types import UserAPIKeyAuth
-        from litellm.proxy.common_request_processing import (
+        from embrouter.caching.caching import DualCache
+        from embrouter.proxy._types import UserAPIKeyAuth
+        from embrouter.proxy.common_request_processing import (
             ProxyBaseLLMRequestProcessing,
         )
-        from litellm.proxy.common_utils.proxy_rate_limit_error import (
+        from embrouter.proxy.common_utils.proxy_rate_limit_error import (
             ProxyRateLimitError,
         )
-        from litellm.proxy.hooks.parallel_request_limiter import (
+        from embrouter.proxy.hooks.parallel_request_limiter import (
             _PROXY_MaxParallelRequestsHandler,
         )
-        from litellm.proxy.utils import InternalUsageCache
+        from embrouter.proxy.utils import InternalUsageCache
 
         primary_model = "gpt-4"
         fallback_model = "gpt-3.5-turbo"
@@ -6921,7 +6921,7 @@ class TestPreCallWithFallbacksOnLocalRateLimit:
         await limiter.internal_usage_cache.async_set_cache(
             key=counter_key,
             value={"current_requests": 0, "current_tpm": 100, "current_rpm": 0},
-            litellm_parent_otel_span=None,
+            embrouter_parent_otel_span=None,
             local_only=True,
         )
 
@@ -6949,7 +6949,7 @@ class TestPreCallWithFallbacksOnLocalRateLimit:
         mock_router.fallbacks = [{primary_model: [fallback_model]}]
 
         with patch(
-            "litellm.proxy.hooks.parallel_request_limiter.datetime", _FrozenClock
+            "embrouter.proxy.hooks.parallel_request_limiter.datetime", _FrozenClock
         ):
             with patch.object(
                 processor,
@@ -6981,7 +6981,7 @@ class TestPreCallWithFallbacksOnLocalRateLimit:
         # Sanity-check the premise: the limiter genuinely raises a
         # ProxyRateLimitError for the capped primary under the frozen clock.
         with patch(
-            "litellm.proxy.hooks.parallel_request_limiter.datetime", _FrozenClock
+            "embrouter.proxy.hooks.parallel_request_limiter.datetime", _FrozenClock
         ):
             with pytest.raises(ProxyRateLimitError):
                 await limiter.async_pre_call_hook(
@@ -7000,14 +7000,14 @@ class TestPreCallWithFallbacksOnLocalRateLimit:
         user_api_key_dict: ProxyUserAPIKeyAuth,
         fallbacks: list[dict[str, list[str]]],
         model_guardrails: dict[str, list[str]] | None = None,
-    ) -> tuple[ProxyLogging, litellm.Router, ProxyConfig, list[str]]:
+    ) -> tuple[ProxyLogging, embrouter.Router, ProxyConfig, list[str]]:
         """Real v3 limiter (the default ``parallel_request_limiter``) wired in through the
         ``proxy_logging_obj`` seam, so ``common_processing_pre_call_logic`` runs for real:
-        ``add_litellm_data_to_request`` with a live OTel span, ``function_setup``, then the limiter."""
-        from litellm.caching.caching import DualCache
-        from litellm.proxy import proxy_server
-        from litellm.proxy.hooks.parallel_request_limiter_v3 import _PROXY_MaxParallelRequestsHandler_v3
-        from litellm.proxy.utils import InternalUsageCache
+        ``add_embrouter_data_to_request`` with a live OTel span, ``function_setup``, then the limiter."""
+        from embrouter.caching.caching import DualCache
+        from embrouter.proxy import proxy_server
+        from embrouter.proxy.hooks.parallel_request_limiter_v3 import _PROXY_MaxParallelRequestsHandler_v3
+        from embrouter.proxy.utils import InternalUsageCache
 
         monkeypatch.setattr(proxy_server, "prisma_client", None)
         limiter = _PROXY_MaxParallelRequestsHandler_v3(internal_usage_cache=InternalUsageCache(DualCache()))
@@ -7031,11 +7031,11 @@ class TestPreCallWithFallbacksOnLocalRateLimit:
         proxy_logging_obj = MagicMock(spec=ProxyLogging)
         proxy_logging_obj.pre_call_hook = AsyncMock(side_effect=run_limiter)
         guardrails_by_group = model_guardrails or {}
-        router = litellm.Router(
+        router = embrouter.Router(
             model_list=[
                 {
                     "model_name": group,
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "openai/gpt-4.1-nano",
                         "api_key": "fake",
                         **({"guardrails": guardrails_by_group[group]} if group in guardrails_by_group else {}),
@@ -7075,8 +7075,8 @@ class TestPreCallWithFallbacksOnLocalRateLimit:
         self,
         data: dict[str, object],
         user_api_key_dict: ProxyUserAPIKeyAuth,
-        rig: tuple[ProxyLogging, litellm.Router, ProxyConfig, list[str]],
-    ) -> tuple[ProxyBaseLLMRequestProcessing, tuple[dict[str, object], LiteLLMLoggingObj]]:
+        rig: tuple[ProxyLogging, embrouter.Router, ProxyConfig, list[str]],
+    ) -> tuple[ProxyBaseLLMRequestProcessing, tuple[dict[str, object], EmbRouterLoggingObj]]:
         proxy_logging_obj, router, proxy_config, _ = rig
         processor = ProxyBaseLLMRequestProcessing(data=data)
         result = await processor._pre_call_with_fallbacks(
@@ -7101,7 +7101,7 @@ class TestPreCallWithFallbacksOnLocalRateLimit:
     async def test_v3_limiter_with_otel_span_falls_back_from_client_request(self, monkeypatch: pytest.MonkeyPatch):
         """Customer path: OTel on, per-key model RPM cap on the primary, a router fallback configured.
         The first pass enriches ``data["metadata"]`` with the live span, then the limiter raises. The
-        fallback pass must start from the client's request again, so ``add_litellm_data_to_request``
+        fallback pass must start from the client's request again, so ``add_embrouter_data_to_request``
         never deep-copies the span (the ``cannot pickle '_thread.RLock'`` 500)."""
         primary_model = "gpt-4.1"
         fallback_model = "gpt-4.1-mini"
@@ -7121,20 +7121,20 @@ class TestPreCallWithFallbacksOnLocalRateLimit:
         assert first_data["model"] == primary_model
         assert data["model"] == fallback_model
         assert processor.data is data
-        assert data["litellm_logging_obj"] is logging_obj
+        assert data["embrouter_logging_obj"] is logging_obj
         assert logging_obj.model == fallback_model
         requester_metadata = data["metadata"]["requester_metadata"]
         assert requester_metadata["tags"] == ["client-tag"]
-        assert "litellm_parent_otel_span" not in requester_metadata
+        assert "embrouter_parent_otel_span" not in requester_metadata
         assert "user_api_key_auth" not in requester_metadata
-        assert data["metadata"]["litellm_parent_otel_span"] is key.parent_otel_span
+        assert data["metadata"]["embrouter_parent_otel_span"] is key.parent_otel_span
         assert rig[3] == [primary_model, primary_model, fallback_model]
 
     @pytest.mark.asyncio
     async def test_v3_limiter_with_otel_span_returns_429_when_fallbacks_exhausted(
         self, monkeypatch: pytest.MonkeyPatch
     ):
-        from litellm.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
+        from embrouter.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
 
         primary_model = "gpt-4.1"
         fallback_model = "gpt-4.1-mini"
@@ -7167,14 +7167,14 @@ class TestPreCallWithFallbacksOnLocalRateLimit:
         assert "Rate limit exceeded" in str(exc_info.value.detail)
         assert exc_info.value.headers["retry-after"]
         assert processor.data["model"] == primary_model
-        assert processor.data["litellm_logging_obj"].model == primary_model
-        assert processor.data["litellm_call_id"]
+        assert processor.data["embrouter_logging_obj"].model == primary_model
+        assert processor.data["embrouter_call_id"]
 
     @pytest.mark.asyncio
     async def test_fallback_lookup_uses_alias_resolved_model_group(self, monkeypatch: pytest.MonkeyPatch):
         primary_model = "gpt-4.1"
         fallback_model = "gpt-4.1-mini"
-        monkeypatch.setattr(litellm, "model_alias_map", {"my-alias": primary_model})
+        monkeypatch.setattr(embrouter, "model_alias_map", {"my-alias": primary_model})
         key = self._otel_key(model_rpm_limit={primary_model: 1})
         rig = self._v3_limiter_rig(monkeypatch, key, [{primary_model: [fallback_model]}])
         request = {"model": "my-alias", "messages": [{"role": "user", "content": "hi"}]}
@@ -7191,7 +7191,7 @@ class TestPreCallWithFallbacksOnLocalRateLimit:
     ):
         """``disable_fallbacks`` set in key metadata only lands on ``data`` during the first
         pre-call pass (``add_key_level_controls``), so it must be honored after that pass."""
-        from litellm.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
+        from embrouter.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
 
         primary_model = "gpt-4.1"
         fallback_model = "gpt-4.1-mini"
@@ -7304,7 +7304,7 @@ class TestStreamingClientDisconnectBilling:
     """
 
     async def _start_partial_stream(self):
-        response = await litellm.acompletion(
+        response = await embrouter.acompletion(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": "tell me a story"}],
             mock_response="The codename is AZURE-FALCON-42 and the story is long.",
@@ -7319,8 +7319,8 @@ class TestStreamingClientDisconnectBilling:
     @pytest.mark.asyncio
     async def test_disconnect_bills_partial_streamed_spend(self):
         recorder = _RecordingSuccessLogger()
-        original_callbacks = litellm.callbacks
-        litellm.callbacks = [recorder]
+        original_callbacks = embrouter.callbacks
+        embrouter.callbacks = [recorder]
         try:
             response = await self._start_partial_stream()
             logging_obj = response.logging_obj
@@ -7328,7 +7328,7 @@ class TestStreamingClientDisconnectBilling:
 
             await ProxyBaseLLMRequestProcessing._finalize_streaming_generator_cleanup(
                 request=None,
-                request_data={"litellm_logging_obj": logging_obj},
+                request_data={"embrouter_logging_obj": logging_obj},
                 response=response,
                 stream_completed=False,
                 client_disconnected=True,
@@ -7340,7 +7340,7 @@ class TestStreamingClientDisconnectBilling:
                 await asyncio.sleep(0.1)
             await asyncio.sleep(0.5)
         finally:
-            litellm.callbacks = original_callbacks
+            embrouter.callbacks = original_callbacks
 
         assert len(recorder.success_events) == 1
         standard_logging_object = recorder.success_events[0]["kwargs"]["standard_logging_object"]
@@ -7355,20 +7355,20 @@ class TestStreamingClientDisconnectBilling:
         through the translate_completion_output_params_streaming result to the
         inner chat stream's collected chunks or a disconnect bills nothing.
         """
-        from litellm.llms.anthropic.pass_through.adapters.streaming_iterator import (
+        from embrouter.llms.anthropic.pass_through.adapters.streaming_iterator import (
             AnthropicSSEStream,
         )
-        from litellm.llms.anthropic.pass_through.adapters.transformation import (
+        from embrouter.llms.anthropic.pass_through.adapters.transformation import (
             AnthropicAdapter,
         )
-        from litellm.router import FallbackAwareAnthropicMessagesStream
+        from embrouter.router import FallbackAwareAnthropicMessagesStream
 
         async def _sse_frames() -> AsyncGenerator[bytes, None]:
             yield b"event: message_start\n\n"
 
         recorder = _RecordingSuccessLogger()
-        original_callbacks = litellm.callbacks
-        litellm.callbacks = [recorder]
+        original_callbacks = embrouter.callbacks
+        embrouter.callbacks = [recorder]
         try:
             response = await self._start_partial_stream()
             setattr(response.chunks[-1], "service_tier", "priority")  # noqa: B010  # pydantic extra, not a declared field
@@ -7376,7 +7376,7 @@ class TestStreamingClientDisconnectBilling:
                 response,
                 model=response.model or "gpt-4o-mini",
                 is_async=True,
-                litellm_logging_obj=response.logging_obj,
+                embrouter_logging_obj=response.logging_obj,
             )
             assert isinstance(source_iterator, AnthropicSSEStream)
             streamed: Final = prepare_response_for_header_attachment(
@@ -7384,7 +7384,7 @@ class TestStreamingClientDisconnectBilling:
             )
 
             billed: Final = await _bill_partial_streamed_spend_on_disconnect(
-                {"litellm_logging_obj": response.logging_obj},
+                {"embrouter_logging_obj": response.logging_obj},
                 streamed,
             )
 
@@ -7394,7 +7394,7 @@ class TestStreamingClientDisconnectBilling:
                 await asyncio.sleep(0.1)
             await asyncio.sleep(0.5)
         finally:
-            litellm.callbacks = original_callbacks
+            embrouter.callbacks = original_callbacks
 
         assert billed is True
         assert len(recorder.success_events) == 1
@@ -7405,10 +7405,10 @@ class TestStreamingClientDisconnectBilling:
     @pytest.mark.asyncio
     async def test_completed_stream_does_not_double_bill_on_late_disconnect(self):
         recorder = _RecordingSuccessLogger()
-        original_callbacks = litellm.callbacks
-        litellm.callbacks = [recorder]
+        original_callbacks = embrouter.callbacks
+        embrouter.callbacks = [recorder]
         try:
-            response = await litellm.acompletion(
+            response = await embrouter.acompletion(
                 model="gpt-4o-mini",
                 messages=[{"role": "user", "content": "hi"}],
                 mock_response="hello there",
@@ -7420,7 +7420,7 @@ class TestStreamingClientDisconnectBilling:
 
             await ProxyBaseLLMRequestProcessing._finalize_streaming_generator_cleanup(
                 request=None,
-                request_data={"litellm_logging_obj": response.logging_obj},
+                request_data={"embrouter_logging_obj": response.logging_obj},
                 response=response,
                 stream_completed=False,
                 client_disconnected=True,
@@ -7432,7 +7432,7 @@ class TestStreamingClientDisconnectBilling:
                 await asyncio.sleep(0.1)
             await asyncio.sleep(0.5)
         finally:
-            litellm.callbacks = original_callbacks
+            embrouter.callbacks = original_callbacks
 
         assert len(recorder.success_events) == 1
 
@@ -7445,17 +7445,17 @@ class TestStreamingClientDisconnectBilling:
         disconnect path sees no chunks and bills nothing for router requests,
         which is every proxy request.
         """
-        router = litellm.Router(
+        router = embrouter.Router(
             model_list=[
                 {
                     "model_name": "gpt-4o-mini",
-                    "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "test-key"},
+                    "embrouter_params": {"model": "openai/gpt-4o-mini", "api_key": "test-key"},
                 }
             ]
         )
         recorder = _RecordingSuccessLogger()
-        original_callbacks = litellm.callbacks
-        litellm.callbacks = [recorder]
+        original_callbacks = embrouter.callbacks
+        embrouter.callbacks = [recorder]
         try:
             response = await router.acompletion(
                 model="gpt-4o-mini",
@@ -7469,7 +7469,7 @@ class TestStreamingClientDisconnectBilling:
 
             await ProxyBaseLLMRequestProcessing._finalize_streaming_generator_cleanup(
                 request=None,
-                request_data={"litellm_logging_obj": response.logging_obj},
+                request_data={"embrouter_logging_obj": response.logging_obj},
                 response=response,
                 stream_completed=False,
                 client_disconnected=True,
@@ -7481,7 +7481,7 @@ class TestStreamingClientDisconnectBilling:
                 await asyncio.sleep(0.1)
             await asyncio.sleep(0.5)
         finally:
-            litellm.callbacks = original_callbacks
+            embrouter.callbacks = original_callbacks
 
         assert len(recorder.success_events) == 1
         standard_logging_object = recorder.success_events[0]["kwargs"]["standard_logging_object"]
@@ -7498,8 +7498,8 @@ class TestStreamingClientDisconnectBilling:
         """
         import types
 
-        original_callbacks = litellm.callbacks
-        litellm.callbacks = [_RecordingSuccessLogger()]
+        original_callbacks = embrouter.callbacks
+        embrouter.callbacks = [_RecordingSuccessLogger()]
         try:
             response = await self._start_partial_stream()
             proxy_logging_obj = types.SimpleNamespace(
@@ -7507,13 +7507,13 @@ class TestStreamingClientDisconnectBilling:
             )
 
             billed = await _bill_partial_streamed_spend_on_disconnect(
-                {"litellm_logging_obj": response.logging_obj}, response
+                {"embrouter_logging_obj": response.logging_obj}, response
             )
             assert billed is True
 
             await ProxyBaseLLMRequestProcessing._finalize_streaming_generator_cleanup(
                 request=None,
-                request_data={"litellm_logging_obj": response.logging_obj},
+                request_data={"embrouter_logging_obj": response.logging_obj},
                 response=response,
                 stream_completed=False,
                 client_disconnected=True,
@@ -7521,7 +7521,7 @@ class TestStreamingClientDisconnectBilling:
                 proxy_logging_obj=proxy_logging_obj,
             )
         finally:
-            litellm.callbacks = original_callbacks
+            embrouter.callbacks = original_callbacks
 
         proxy_logging_obj._arelease_max_parallel_requests_on_disconnect.assert_not_called()
 
@@ -7543,7 +7543,7 @@ class TestStreamingClientDisconnectBilling:
 
         await ProxyBaseLLMRequestProcessing._finalize_streaming_generator_cleanup(
             request=None,
-            request_data={"litellm_logging_obj": response.logging_obj},
+            request_data={"embrouter_logging_obj": response.logging_obj},
             response=empty_response,
             stream_completed=False,
             client_disconnected=True,
@@ -7555,14 +7555,14 @@ class TestStreamingClientDisconnectBilling:
 
     async def _bill_and_collect_success_event(self, prepare=None, request_data=None):
         recorder = _RecordingSuccessLogger()
-        original_callbacks = litellm.callbacks
-        litellm.callbacks = [recorder]
+        original_callbacks = embrouter.callbacks
+        embrouter.callbacks = [recorder]
         try:
             response = await self._start_partial_stream()
             if prepare is not None:
                 prepare(response)
             billed = await _bill_partial_streamed_spend_on_disconnect(
-                {"litellm_logging_obj": response.logging_obj, **(request_data or {})}, response
+                {"embrouter_logging_obj": response.logging_obj, **(request_data or {})}, response
             )
             assert billed is True
             for _ in range(50):
@@ -7570,13 +7570,13 @@ class TestStreamingClientDisconnectBilling:
                     break
                 await asyncio.sleep(0.1)
         finally:
-            litellm.callbacks = original_callbacks
+            embrouter.callbacks = original_callbacks
         assert len(recorder.success_events) == 1
         return recorder.success_events[0]
 
     @pytest.mark.asyncio
     async def test_disconnect_billing_prices_alias_restamped_chunks_at_real_model(self):
-        assert "openai/my-public-alias" not in litellm.model_cost
+        assert "openai/my-public-alias" not in embrouter.model_cost
 
         def restamp_chunks_to_alias(response):
             for chunk in response.chunks:
@@ -7595,7 +7595,7 @@ class TestStreamingClientDisconnectBilling:
         one it forwards, so an aliased stream can reach billing with its first chunk
         still on the deployment model and the rest on the client's name.
         """
-        assert "openai/my-public-alias" not in litellm.model_cost
+        assert "openai/my-public-alias" not in embrouter.model_cost
 
         def restamp_only_the_chunks_the_proxy_forwarded(response):
             for chunk in response.chunks[1:]:
@@ -7643,7 +7643,7 @@ class TestStreamingClientDisconnectBilling:
             restamp_like_azure_model_router,
             request_data={
                 "model": "gpt-4.1-nano-2025-04-14",
-                "_litellm_client_requested_model": "azure-model-router",
+                "_embrouter_client_requested_model": "azure-model-router",
             },
         )
 
@@ -7663,7 +7663,7 @@ class TestStreamingClientDisconnectBilling:
 
     @pytest.mark.asyncio
     async def test_disconnect_billing_carries_up_openai_style_cached_tokens(self):
-        from litellm.types.utils import (
+        from embrouter.types.utils import (
             Delta,
             ModelResponseStream,
             PromptTokensDetailsWrapper,
@@ -7705,7 +7705,7 @@ class TestStreamingClientDisconnectBilling:
 
     @pytest.mark.asyncio
     async def test_disconnect_billing_keeps_cache_values_recovered_from_chunks(self):
-        from litellm.types.utils import (
+        from embrouter.types.utils import (
             Delta,
             ModelResponseStream,
             StreamingChoices,
@@ -7750,7 +7750,7 @@ def _apply_stream_usage_tracking(
     route_type: str,
     supports_stream_options: Callable[[], bool] = lambda: True,
 ) -> None:
-    from litellm.proxy.common_request_processing import _stream_usage_tracking_updates
+    from embrouter.proxy.common_request_processing import _stream_usage_tracking_updates
 
     data.update(
         _stream_usage_tracking_updates(
@@ -7769,7 +7769,7 @@ class TestApplyStreamUsageTracking:
         _apply_stream_usage_tracking(data=data, general_settings={}, route_type="acompletion")
 
         assert data["stream_options"] == {"include_usage": True}
-        assert data["_litellm_strip_stream_usage"] is True
+        assert data["_embrouter_strip_stream_usage"] is True
 
     def test_default_preserves_other_client_stream_options_keys(self):
         data = {"stream": True, "stream_options": {"include_obfuscation": True}}
@@ -7777,7 +7777,7 @@ class TestApplyStreamUsageTracking:
         _apply_stream_usage_tracking(data=data, general_settings={}, route_type="acompletion")
 
         assert data["stream_options"] == {"include_obfuscation": True, "include_usage": True}
-        assert data["_litellm_strip_stream_usage"] is True
+        assert data["_embrouter_strip_stream_usage"] is True
 
     def test_client_requested_usage_is_left_untouched_and_not_stripped(self):
         data = {"stream": True, "stream_options": {"include_usage": True}}
@@ -7785,7 +7785,7 @@ class TestApplyStreamUsageTracking:
         _apply_stream_usage_tracking(data=data, general_settings={}, route_type="acompletion")
 
         assert data["stream_options"] == {"include_usage": True}
-        assert "_litellm_strip_stream_usage" not in data
+        assert "_embrouter_strip_stream_usage" not in data
 
     def test_client_include_usage_false_is_overridden_and_stripped(self):
         data = {"stream": True, "stream_options": {"include_usage": False}}
@@ -7793,7 +7793,7 @@ class TestApplyStreamUsageTracking:
         _apply_stream_usage_tracking(data=data, general_settings={}, route_type="acompletion")
 
         assert data["stream_options"]["include_usage"] is True
-        assert data["_litellm_strip_stream_usage"] is True
+        assert data["_embrouter_strip_stream_usage"] is True
 
     def test_explicit_false_flag_disables_injection_entirely(self):
         data = {"stream": True}
@@ -7805,7 +7805,7 @@ class TestApplyStreamUsageTracking:
         )
 
         assert "stream_options" not in data
-        assert "_litellm_strip_stream_usage" not in data
+        assert "_embrouter_strip_stream_usage" not in data
 
     def test_flag_true_injects_without_strip_marker(self):
         data = {"stream": True}
@@ -7817,7 +7817,7 @@ class TestApplyStreamUsageTracking:
         )
 
         assert data["stream_options"] == {"include_usage": True}
-        assert "_litellm_strip_stream_usage" not in data
+        assert "_embrouter_strip_stream_usage" not in data
 
     def test_flag_true_respects_client_explicit_include_usage_false(self):
         data = {"stream": True, "stream_options": {"include_usage": False}}
@@ -7829,7 +7829,7 @@ class TestApplyStreamUsageTracking:
         )
 
         assert data["stream_options"] == {"include_usage": False}
-        assert "_litellm_strip_stream_usage" not in data
+        assert "_embrouter_strip_stream_usage" not in data
 
     def test_default_does_not_touch_non_chat_completion_routes(self):
         data = {"stream": True}
@@ -7837,7 +7837,7 @@ class TestApplyStreamUsageTracking:
         _apply_stream_usage_tracking(data=data, general_settings={}, route_type="anthropic_messages")
 
         assert "stream_options" not in data
-        assert "_litellm_strip_stream_usage" not in data
+        assert "_embrouter_strip_stream_usage" not in data
 
     def test_non_streaming_request_is_untouched(self):
         data = {"model": "gpt-5.4-nano"}
@@ -7845,7 +7845,7 @@ class TestApplyStreamUsageTracking:
         _apply_stream_usage_tracking(data=data, general_settings={}, route_type="acompletion")
 
         assert "stream_options" not in data
-        assert "_litellm_strip_stream_usage" not in data
+        assert "_embrouter_strip_stream_usage" not in data
 
     def test_default_skips_injection_when_provider_lacks_stream_options_support(self):
         data = {"stream": True, "model": "bytez-model"}
@@ -7858,25 +7858,25 @@ class TestApplyStreamUsageTracking:
         )
 
         assert "stream_options" not in data
-        assert "_litellm_strip_stream_usage" not in data
+        assert "_embrouter_strip_stream_usage" not in data
 
     def test_client_supplied_strip_marker_is_neutralized(self):
         data = {
             "stream": True,
             "stream_options": {"include_usage": True},
-            "_litellm_strip_stream_usage": True,
+            "_embrouter_strip_stream_usage": True,
         }
 
         _apply_stream_usage_tracking(data=data, general_settings={}, route_type="acompletion")
 
-        assert data["_litellm_strip_stream_usage"] is False
+        assert data["_embrouter_strip_stream_usage"] is False
         assert data["stream_options"] == {"include_usage": True}
 
     def test_client_supplied_strip_marker_is_neutralized_with_flag_true(self):
         data = {
             "stream": True,
             "stream_options": {"include_usage": True},
-            "_litellm_strip_stream_usage": True,
+            "_embrouter_strip_stream_usage": True,
         }
 
         _apply_stream_usage_tracking(
@@ -7885,30 +7885,30 @@ class TestApplyStreamUsageTracking:
             route_type="acompletion",
         )
 
-        assert data["_litellm_strip_stream_usage"] is False
+        assert data["_embrouter_strip_stream_usage"] is False
 
     def test_client_supplied_strip_marker_is_neutralized_on_non_streaming_request(self):
-        data = {"_litellm_strip_stream_usage": True}
+        data = {"_embrouter_strip_stream_usage": True}
 
         _apply_stream_usage_tracking(data=data, general_settings={}, route_type="acompletion")
 
-        assert data["_litellm_strip_stream_usage"] is False
+        assert data["_embrouter_strip_stream_usage"] is False
 
 
 class TestModelDeploymentsSupportStreamOptions:
     def _support(self, model, llm_router=None, team_id=None) -> bool:
-        from litellm.proxy.common_request_processing import (
+        from embrouter.proxy.common_request_processing import (
             _model_deployments_support_stream_options,
         )
 
         return _model_deployments_support_stream_options(model=model, llm_router=llm_router, team_id=team_id)
 
     def test_openai_compatible_deployment_supports_stream_options(self):
-        router = litellm.Router(
+        router = embrouter.Router(
             model_list=[
                 {
                     "model_name": "azure-nano",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "azure/gpt-5.4-nano",
                         "api_key": "fake",
                         "api_base": "https://example.openai.azure.com",
@@ -7920,11 +7920,11 @@ class TestModelDeploymentsSupportStreamOptions:
         assert self._support("azure-nano", router) is True
 
     def test_deployment_on_provider_rejecting_stream_options_is_not_injected(self):
-        router = litellm.Router(
+        router = embrouter.Router(
             model_list=[
                 {
                     "model_name": "tiny",
-                    "litellm_params": {"model": "bytez/openai-community/gpt2", "api_key": "fake"},
+                    "embrouter_params": {"model": "bytez/openai-community/gpt2", "api_key": "fake"},
                 }
             ]
         )
@@ -7932,15 +7932,15 @@ class TestModelDeploymentsSupportStreamOptions:
         assert self._support("tiny", router) is False
 
     def test_mixed_provider_model_group_is_not_injected(self):
-        router = litellm.Router(
+        router = embrouter.Router(
             model_list=[
                 {
                     "model_name": "mixed",
-                    "litellm_params": {"model": "openai/gpt-4o", "api_key": "fake"},
+                    "embrouter_params": {"model": "openai/gpt-4o", "api_key": "fake"},
                 },
                 {
                     "model_name": "mixed",
-                    "litellm_params": {"model": "oci/cohere.command-r-plus", "api_key": "fake"},
+                    "embrouter_params": {"model": "oci/cohere.command-r-plus", "api_key": "fake"},
                 },
             ]
         )
@@ -7948,11 +7948,11 @@ class TestModelDeploymentsSupportStreamOptions:
         assert self._support("mixed", router) is False
 
     def test_wildcard_route_resolves_provider_support(self):
-        router = litellm.Router(
+        router = embrouter.Router(
             model_list=[
                 {
                     "model_name": "openai/*",
-                    "litellm_params": {"model": "openai/*", "api_key": "fake"},
+                    "embrouter_params": {"model": "openai/*", "api_key": "fake"},
                 }
             ]
         )
@@ -7967,11 +7967,11 @@ class TestModelDeploymentsSupportStreamOptions:
         assert self._support("some-unmapped-public-alias", None) is False
 
     def test_team_alias_model_resolves_with_team_id(self):
-        router = litellm.Router(
+        router = embrouter.Router(
             model_list=[
                 {
                     "model_name": "model_name_team-1_8b6a0b3f",
-                    "litellm_params": {"model": "azure/gpt-5.4-nano", "api_key": "fake"},
+                    "embrouter_params": {"model": "azure/gpt-5.4-nano", "api_key": "fake"},
                     "model_info": {
                         "team_id": "team-1",
                         "team_public_model_name": "team-gpt",
@@ -7999,7 +7999,7 @@ async def test_saved_weights_override_caller_input_and_preserve_key_precedence(
     key_settings: dict[str, int | dict[str, dict[str, int | str]]] | None,
     expected: dict[str, dict[str, int]] | None,
 ) -> None:
-    from litellm.proxy import proxy_server
+    from embrouter.proxy import proxy_server
 
     monkeypatch.setattr(proxy_server, "prisma_client", None)
     monkeypatch.setattr(proxy_server, "get_team_object", AsyncMock(
@@ -8019,7 +8019,7 @@ async def test_saved_weights_override_caller_input_and_preserve_key_precedence(
         proxy_logging_obj=logging,
         proxy_config=proxy_server.ProxyConfig(),
         route_type="acompletion",
-        llm_router=litellm.Router(model_list=[]),
+        llm_router=embrouter.Router(model_list=[]),
     )
     assert "weights" not in data
     assert data.get("_router_weights") == expected
@@ -8032,16 +8032,16 @@ class TestPerRequestModelGroupAlias:
     attribute, which only ever holds the global config map."""
 
     @staticmethod
-    def _router() -> litellm.Router:
-        return litellm.Router(
+    def _router() -> embrouter.Router:
+        return embrouter.Router(
             model_list=[
                 {
                     "model_name": "group-a",
-                    "litellm_params": {"model": "openai/gpt-4o", "api_key": "sk-fake"},
+                    "embrouter_params": {"model": "openai/gpt-4o", "api_key": "sk-fake"},
                 },
                 {
                     "model_name": "group-b",
-                    "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-fake"},
+                    "embrouter_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-fake"},
                 },
             ]
         )
@@ -8118,7 +8118,7 @@ class TestPerRequestModelGroupAlias:
         mock_request = MagicMock(spec=Request)
         mock_request.headers = {}
 
-        async def mock_add_litellm_data_to_request(*args, **kwargs):
+        async def mock_add_embrouter_data_to_request(*args, **kwargs):
             return kwargs.get("data", {})
 
         async def passthrough_pre_call_hook(user_api_key_dict, data, call_type, skip_guardrails=False):
@@ -8127,11 +8127,11 @@ class TestPerRequestModelGroupAlias:
         mock_proxy_logging_obj = MagicMock(spec=ProxyLogging)
         mock_proxy_logging_obj.pre_call_hook = AsyncMock(side_effect=passthrough_pre_call_hook)
         monkeypatch.setattr(
-            litellm.proxy.common_request_processing,
-            "add_litellm_data_to_request",
-            mock_add_litellm_data_to_request,
+            embrouter.proxy.common_request_processing,
+            "add_embrouter_data_to_request",
+            mock_add_embrouter_data_to_request,
         )
-        monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", MagicMock())
+        monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", MagicMock())
 
         mock_proxy_config = MagicMock(spec=ProxyConfig)
         mock_proxy_config._get_hierarchical_router_settings = AsyncMock(
@@ -8161,13 +8161,13 @@ class TestPerRequestModelGroupAlias:
         settings are looked up on the team only when the key carries none. Runs
         the real hierarchical lookup rather than mocking it, so this covers the
         team half of the fix end to end."""
-        from litellm.proxy.proxy_server import ProxyConfig as RealProxyConfig
+        from embrouter.proxy.proxy_server import ProxyConfig as RealProxyConfig
 
         processing_obj = ProxyBaseLLMRequestProcessing(data={"model": "group-a"})
         mock_request = MagicMock(spec=Request)
         mock_request.headers = {}
 
-        async def mock_add_litellm_data_to_request(*args, **kwargs):
+        async def mock_add_embrouter_data_to_request(*args, **kwargs):
             return kwargs.get("data", {})
 
         async def passthrough_pre_call_hook(user_api_key_dict, data, call_type, skip_guardrails=False):
@@ -8176,13 +8176,13 @@ class TestPerRequestModelGroupAlias:
         mock_proxy_logging_obj = MagicMock(spec=ProxyLogging)
         mock_proxy_logging_obj.pre_call_hook = AsyncMock(side_effect=passthrough_pre_call_hook)
         monkeypatch.setattr(
-            litellm.proxy.common_request_processing,
-            "add_litellm_data_to_request",
-            mock_add_litellm_data_to_request,
+            embrouter.proxy.common_request_processing,
+            "add_embrouter_data_to_request",
+            mock_add_embrouter_data_to_request,
         )
-        monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", MagicMock())
+        monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", MagicMock())
         monkeypatch.setattr(
-            "litellm.proxy.proxy_server.get_team_object",
+            "embrouter.proxy.proxy_server.get_team_object",
             AsyncMock(return_value=SimpleNamespace(router_settings={"model_group_alias": {"group-a": "group-b"}})),
         )
 
@@ -8206,7 +8206,7 @@ class TestPerRequestModelGroupAlias:
         mock_request = MagicMock(spec=Request)
         mock_request.headers = {}
 
-        async def mock_add_litellm_data_to_request(*args, **kwargs):
+        async def mock_add_embrouter_data_to_request(*args, **kwargs):
             return kwargs.get("data", {})
 
         async def passthrough_pre_call_hook(user_api_key_dict, data, call_type, skip_guardrails=False):
@@ -8215,11 +8215,11 @@ class TestPerRequestModelGroupAlias:
         mock_proxy_logging_obj = MagicMock(spec=ProxyLogging)
         mock_proxy_logging_obj.pre_call_hook = AsyncMock(side_effect=passthrough_pre_call_hook)
         monkeypatch.setattr(
-            litellm.proxy.common_request_processing,
-            "add_litellm_data_to_request",
-            mock_add_litellm_data_to_request,
+            embrouter.proxy.common_request_processing,
+            "add_embrouter_data_to_request",
+            mock_add_embrouter_data_to_request,
         )
-        monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", MagicMock())
+        monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", MagicMock())
 
         merged_for: list = []
 
@@ -8228,7 +8228,7 @@ class TestPerRequestModelGroupAlias:
             return data
 
         monkeypatch.setattr(
-            litellm.proxy.common_request_processing,
+            embrouter.proxy.common_request_processing,
             "_check_and_merge_model_level_guardrails",
             recording_merge,
         )
@@ -8254,7 +8254,7 @@ class TestPerRequestModelGroupAlias:
 class TestInjectCostIntoUsageDict:
     @staticmethod
     def _expected_cost(model, prompt_tokens, completion_tokens):
-        pricing = litellm.model_cost[model]
+        pricing = embrouter.model_cost[model]
         return prompt_tokens * pricing["input_cost_per_token"] + completion_tokens * pricing["output_cost_per_token"]
 
     def test_openai_chat_completion_chunk_usage_gets_cost(self):
@@ -8311,7 +8311,7 @@ class TestInjectCostIntoUsageDict:
         result = ProxyBaseLLMRequestProcessing._inject_cost_into_usage_dict(event, "gpt-5-mini")
 
         assert result is not None
-        pricing = litellm.model_cost["gpt-5-mini"]
+        pricing = embrouter.model_cost["gpt-5-mini"]
         expected_flex_cost = 1000 * pricing["input_cost_per_token_flex"] + 100 * pricing["output_cost_per_token_flex"]
         assert result["usage"]["cost"] == pytest.approx(expected_flex_cost)
         assert result["usage"]["cost"] < self._expected_cost("gpt-5-mini", 1000, 100)
@@ -8349,7 +8349,7 @@ class TestInjectCostIntoUsageDict:
         """Anthropic reports ``input_tokens`` excluding cache tokens, so reading it as the whole
         prompt total drops the non-cached input from the bill on every cache hit."""
         model = "claude-haiku-4-5"
-        pricing = litellm.model_cost[model]
+        pricing = embrouter.model_cost[model]
         event = {
             "type": "message_delta",
             "delta": {"stop_reason": "end_turn"},
@@ -8377,7 +8377,7 @@ class TestInjectCostIntoUsageDict:
         """The ``cache_creation`` 5m/1h split has to survive into ``prompt_tokens_details``,
         otherwise a 1h write is billed at the cheaper 5m rate."""
         model = "claude-haiku-4-5"
-        pricing = litellm.model_cost[model]
+        pricing = embrouter.model_cost[model]
         event = {
             "type": "message_delta",
             "delta": {"stop_reason": "end_turn"},
@@ -8444,7 +8444,7 @@ class TestInjectCostIntoUsageDict:
                 return None
 
         model = "claude-haiku-4-5"
-        pricing = litellm.model_cost[model]
+        pricing = embrouter.model_cost[model]
         event = {
             "type": "message_delta",
             "delta": {"stop_reason": "end_turn"},
@@ -8469,7 +8469,7 @@ class TestInjectCostIntoUsageDict:
                 raise ValueError("no pricing for this deployment")
 
         model = "claude-haiku-4-5"
-        pricing = litellm.model_cost[model]
+        pricing = embrouter.model_cost[model]
         event = {
             "type": "message_delta",
             "delta": {"stop_reason": "end_turn"},
@@ -8488,21 +8488,21 @@ class TestInjectCostIntoUsageDict:
     def test_pricing_a_frame_leaves_the_real_logging_obj_unchanged(self):
         """Pricing runs against the live logging object, and the pass-through handlers never
         recompute cost_breakdown, so a frame-derived breakdown would reach the spend log."""
-        from litellm.litellm_core_utils.litellm_logging import (
-            Logging as LiteLLMLoggingObj,
+        from embrouter.embrouter_core_utils.embrouter_logging import (
+            Logging as EmbRouterLoggingObj,
         )
-        from litellm.types.utils import ModelResponse, Usage
+        from embrouter.types.utils import ModelResponse, Usage
 
-        logging_obj = LiteLLMLoggingObj(
+        logging_obj = EmbRouterLoggingObj(
             model="claude-haiku-4-5",
             messages=[{"role": "user", "content": "test"}],
             stream=True,
             call_type="completion",
             start_time=None,
-            litellm_call_id="lit4902-breakdown-test",
+            embrouter_call_id="lit4902-breakdown-test",
             function_id="lit4902-breakdown-test",
         )
-        logging_obj.update_environment_variables(litellm_params={}, optional_params={})
+        logging_obj.update_environment_variables(embrouter_params={}, optional_params={})
         logging_obj.model_call_details["custom_llm_provider"] = "anthropic"
         assert logging_obj.cost_breakdown is None
 
@@ -8516,21 +8516,21 @@ class TestInjectCostIntoUsageDict:
         assert "response_cost_failure_debug_information" not in logging_obj.model_call_details
 
     def test_pricing_a_frame_restores_a_breakdown_the_request_already_had(self):
-        from litellm.litellm_core_utils.litellm_logging import (
-            Logging as LiteLLMLoggingObj,
+        from embrouter.embrouter_core_utils.embrouter_logging import (
+            Logging as EmbRouterLoggingObj,
         )
-        from litellm.types.utils import ModelResponse, Usage
+        from embrouter.types.utils import ModelResponse, Usage
 
-        logging_obj = LiteLLMLoggingObj(
+        logging_obj = EmbRouterLoggingObj(
             model="claude-haiku-4-5",
             messages=[{"role": "user", "content": "test"}],
             stream=True,
             call_type="completion",
             start_time=None,
-            litellm_call_id="lit4902-breakdown-restore",
+            embrouter_call_id="lit4902-breakdown-restore",
             function_id="lit4902-breakdown-restore",
         )
-        logging_obj.update_environment_variables(litellm_params={}, optional_params={})
+        logging_obj.update_environment_variables(embrouter_params={}, optional_params={})
         logging_obj.model_call_details["custom_llm_provider"] = "anthropic"
         logging_obj.set_cost_breakdown(
             input_cost=0.5, output_cost=0.25, total_cost=0.75, cost_for_built_in_tools_cost_usd_dollar=0.0
@@ -8596,7 +8596,7 @@ class TestInjectCostIntoUsageDict:
 
 class TestProcessChunkWithCostInjection:
     def test_complete_usage_frame_chunk_is_injected(self, monkeypatch):
-        monkeypatch.setattr(litellm, "include_cost_in_streaming_usage", True)
+        monkeypatch.setattr(embrouter, "include_cost_in_streaming_usage", True)
         chunk = (
             b'data: {"object":"chat.completion.chunk","choices":[],'
             b'"usage":{"prompt_tokens":11,"completion_tokens":4,"total_tokens":15}}\n\n'
@@ -8610,7 +8610,7 @@ class TestProcessChunkWithCostInjection:
         assert payload["usage"]["cost"] > 0
 
     def test_chunk_ending_in_partial_frame_passes_through_byte_identical(self, monkeypatch):
-        monkeypatch.setattr(litellm, "include_cost_in_streaming_usage", True)
+        monkeypatch.setattr(embrouter, "include_cost_in_streaming_usage", True)
         chunk = (
             b'data: {"object":"chat.completion.chunk","choices":[],'
             b'"usage":{"prompt_tokens":11,"completion_tokens":4,"total_tokens":15}}\n\ndata: [DO'
@@ -8619,7 +8619,7 @@ class TestProcessChunkWithCostInjection:
         assert ProxyBaseLLMRequestProcessing._process_chunk_with_cost_injection(chunk, "gpt-4o-mini") == chunk
 
     def test_chunk_with_invalid_utf8_passes_through_byte_identical(self, monkeypatch):
-        monkeypatch.setattr(litellm, "include_cost_in_streaming_usage", True)
+        monkeypatch.setattr(embrouter, "include_cost_in_streaming_usage", True)
         chunk = (
             b'\xa8data: {"object":"chat.completion.chunk","choices":[],'
             b'"usage":{"prompt_tokens":11,"completion_tokens":4,"total_tokens":15}}\n\n'
@@ -8630,7 +8630,7 @@ class TestProcessChunkWithCostInjection:
     def test_message_delta_frame_is_priced_with_the_logging_obj(self, monkeypatch):
         """Pins that the logging object reaches the pricer through the byte-frame entry point,
         which is how the proxy actually calls this on a streamed Messages API request."""
-        monkeypatch.setattr(litellm, "include_cost_in_streaming_usage", True)
+        monkeypatch.setattr(embrouter, "include_cost_in_streaming_usage", True)
 
         class _StubLoggingObj:
             def _response_cost_calculator(self, result):
@@ -8828,7 +8828,7 @@ async def test_ttft_keepalive_cancels_the_in_flight_call_when_the_client_gives_u
     ],
 )
 def test_ttft_keepalive_interval_only_arms_for_a_streaming_request(request_data, global_interval, expected):
-    with patch.object(litellm, "sse_keepalive_ping_interval_seconds", global_interval):
+    with patch.object(embrouter, "sse_keepalive_ping_interval_seconds", global_interval):
         assert ttft_keepalive_interval(request_data) == expected
 
 
@@ -8846,7 +8846,7 @@ async def test_base_process_llm_request_pings_while_the_upstream_call_is_still_r
 
     processor = ProxyBaseLLMRequestProcessing(data={"model": "gpt-4o", "stream": stream_requested})
 
-    with patch.object(litellm, "sse_keepalive_ping_interval_seconds", 0.05):
+    with patch.object(embrouter, "sse_keepalive_ping_interval_seconds", 0.05):
         with patch.object(ProxyBaseLLMRequestProcessing, "_process_llm_request", slow_inner):
             response = await processor.base_process_llm_request(
                 request=MagicMock(spec=Request),
@@ -9028,7 +9028,7 @@ async def test_base_process_llm_request_audits_a_failure_that_lands_after_its_ke
     user_api_key_dict = MagicMock(spec=UserAPIKeyAuth)
     processor = ProxyBaseLLMRequestProcessing(data={"model": "gpt-4o", "stream": True})
 
-    with patch.object(litellm, "sse_keepalive_ping_interval_seconds", 0.05):
+    with patch.object(embrouter, "sse_keepalive_ping_interval_seconds", 0.05):
         with patch.object(ProxyBaseLLMRequestProcessing, "_process_llm_request", slow_failure):
             response = await processor.base_process_llm_request(
                 request=MagicMock(spec=Request),
@@ -9068,7 +9068,7 @@ async def test_base_process_llm_request_honours_a_deployment_hard_disable(
         params["keepalive_seconds"] = deployment_keepalive
 
     llm_router = MagicMock()
-    llm_router.get_model_list = MagicMock(return_value=[{"model_name": "m", "litellm_params": params}])
+    llm_router.get_model_list = MagicMock(return_value=[{"model_name": "m", "embrouter_params": params}])
 
     async def slow_inner(self, **kwargs):
         await asyncio.sleep(0.25)
@@ -9076,7 +9076,7 @@ async def test_base_process_llm_request_honours_a_deployment_hard_disable(
 
     processor = ProxyBaseLLMRequestProcessing(data={"model": "m", "stream": True})
 
-    with patch.object(litellm, "sse_keepalive_ping_interval_seconds", 0.05):
+    with patch.object(embrouter, "sse_keepalive_ping_interval_seconds", 0.05):
         with patch.object(ProxyBaseLLMRequestProcessing, "_process_llm_request", slow_inner):
             response = await processor.base_process_llm_request(
                 request=MagicMock(spec=Request),
@@ -9185,12 +9185,12 @@ async def test_a_broken_hook_does_not_replace_the_real_error_with_its_own_bug():
 def test_log_llm_api_exception_traceback_only_for_unexpected_errors(exc, expect_traceback, caplog):
     """Regression for LIT-6043: expected 4xx errors log without formatting a
     traceback; unexpected errors keep logger.exception behavior."""
-    from litellm._logging import verbose_proxy_logger
-    from litellm.proxy.common_request_processing import log_llm_api_exception
+    from embrouter._logging import verbose_proxy_logger
+    from embrouter.proxy.common_request_processing import log_llm_api_exception
 
     verbose_proxy_logger.propagate = True
     try:
-        with caplog.at_level("ERROR", logger="LiteLLM Proxy"):
+        with caplog.at_level("ERROR", logger="EmbRouter Proxy"):
             try:
                 raise exc
             except Exception as raised:
@@ -9203,15 +9203,15 @@ def test_log_llm_api_exception_traceback_only_for_unexpected_errors(exc, expect_
     assert (records[0].exc_info is not None) is expect_traceback
 
 
-class TestResolveLitellmCallId:
+class TestResolveEmbrouterCallId:
     def test_client_call_id_within_the_bound_is_kept(self):
-        assert resolve_litellm_call_id("req-abc-123") == "req-abc-123"
-        at_bound: Final = "y" * MAX_LITELLM_CALL_ID_LENGTH
-        assert resolve_litellm_call_id(at_bound) == at_bound
+        assert resolve_embrouter_call_id("req-abc-123") == "req-abc-123"
+        at_bound: Final = "y" * MAX_EMBROUTER_CALL_ID_LENGTH
+        assert resolve_embrouter_call_id(at_bound) == at_bound
 
-    @pytest.mark.parametrize("client_call_id", [None, "", "x" * (MAX_LITELLM_CALL_ID_LENGTH + 1), "z" * 3000])
+    @pytest.mark.parametrize("client_call_id", [None, "", "x" * (MAX_EMBROUTER_CALL_ID_LENGTH + 1), "z" * 3000])
     def test_missing_empty_or_oversized_client_call_id_gets_a_generated_uuid(self, client_call_id):
-        resolved: Final = resolve_litellm_call_id(client_call_id)
+        resolved: Final = resolve_embrouter_call_id(client_call_id)
         assert resolved != client_call_id
         assert uuid.UUID(resolved).version == 4
 
@@ -9243,7 +9243,7 @@ class TestDetachedStreamFailureHook:
     @staticmethod
     def _logging_obj():
         logging_obj = MagicMock()
-        logging_obj.litellm_call_id = "call-lit3798"
+        logging_obj.embrouter_call_id = "call-lit3798"
         logging_obj.model_call_details = {}
         logging_obj._enqueue_deferred_logging = None
         logging_obj._on_deferred_stream_complete = None
@@ -9261,8 +9261,8 @@ class TestDetachedStreamFailureHook:
 
     @pytest.mark.asyncio
     async def test_streaming_messages_arms_the_detached_failure_hook(self, monkeypatch):
-        import litellm.proxy.common_request_processing as crp
-        from litellm.proxy._types import UserAPIKeyAuth as RealUserAPIKeyAuth
+        import embrouter.proxy.common_request_processing as crp
+        from embrouter.proxy._types import UserAPIKeyAuth as RealUserAPIKeyAuth
 
         async def _stream():
             yield b"event: message_start\n\n"
@@ -9274,12 +9274,12 @@ class TestDetachedStreamFailureHook:
             return _llm_call()
 
         monkeypatch.setattr(crp, "route_request", fake_route_request)
-        monkeypatch.setattr(litellm, "callbacks", [])
+        monkeypatch.setattr(embrouter, "callbacks", [])
         recorder = _FailureHookRecorder()
         logging_obj = self._logging_obj()
         user_api_key_dict = RealUserAPIKeyAuth(api_key="sk-test")
         processing_obj = ProxyBaseLLMRequestProcessing(
-            data={"litellm_logging_obj": logging_obj, "model": "claude-sonnet-4-5"}
+            data={"embrouter_logging_obj": logging_obj, "model": "claude-sonnet-4-5"}
         )
 
         await processing_obj.base_process_llm_request(
@@ -9308,11 +9308,11 @@ class TestDetachedStreamFailureHook:
 
     @pytest.mark.asyncio
     async def test_detached_failure_hook_drops_the_replacement_error_it_cannot_deliver(self):
-        from litellm.proxy._types import UserAPIKeyAuth as RealUserAPIKeyAuth
+        from embrouter.proxy._types import UserAPIKeyAuth as RealUserAPIKeyAuth
 
         recorder = _FailureHookRecorder(raises=HTTPException(status_code=429, detail="budget exceeded"))
         logging_obj = self._logging_obj()
-        processing_obj = ProxyBaseLLMRequestProcessing(data={"litellm_logging_obj": logging_obj})
+        processing_obj = ProxyBaseLLMRequestProcessing(data={"embrouter_logging_obj": logging_obj})
         processing_obj._arm_detached_stream_failure_hook(
             logging_obj=logging_obj,
             user_api_key_dict=RealUserAPIKeyAuth(api_key="sk-test"),
@@ -9328,11 +9328,11 @@ class TestDetachedStreamFailureHook:
 class TestPostCallMaskedOutputReachesDeferredLogging:
     @pytest.mark.asyncio
     async def test_non_streaming_records_the_masked_response_before_deferred_logging_fires(self, monkeypatch):
-        from litellm.litellm_core_utils.served_output_texts import SERVED_OUTPUT_TEXTS_KEY
-        from litellm.types.utils import Choices, Message, ModelResponse
+        from embrouter.embrouter_core_utils.served_output_texts import SERVED_OUTPUT_TEXTS_KEY
+        from embrouter.types.utils import Choices, Message, ModelResponse
 
         logging_obj = MagicMock()
-        logging_obj.litellm_call_id = "lit-8325-call"
+        logging_obj.embrouter_call_id = "lit-8325-call"
         logging_obj._defer_async_logging = False
         logging_obj._on_deferred_stream_complete = None
         logging_obj.cost_breakdown = None
@@ -9340,7 +9340,7 @@ class TestPostCallMaskedOutputReachesDeferredLogging:
         recorded_at_enqueue: dict[str, object] = {}
         logging_obj._enqueue_deferred_logging = lambda: recorded_at_enqueue.update(logging_obj.model_call_details)
 
-        processor = ProxyBaseLLMRequestProcessing(data={"model": "oa", "litellm_logging_obj": logging_obj})
+        processor = ProxyBaseLLMRequestProcessing(data={"model": "oa", "embrouter_logging_obj": logging_obj})
 
         def mask(data, user_api_key_dict, response):
             response.choices[0].message.content = "Card: <CREDIT_CARD>"
@@ -9360,7 +9360,7 @@ class TestPostCallMaskedOutputReachesDeferredLogging:
 
             return call()
 
-        monkeypatch.setattr(litellm.proxy.common_request_processing, "route_request", fake_route_request)
+        monkeypatch.setattr(embrouter.proxy.common_request_processing, "route_request", fake_route_request)
 
         result = await processor.base_process_llm_request(
             request=Request(scope={"type": "http", "headers": []}),
@@ -9419,13 +9419,13 @@ class TestStreamingResponseHeadersFollowFallback:
             return generator()
 
         logging_obj = MagicMock()
-        logging_obj.litellm_call_id = "lit-6767-call"
+        logging_obj.embrouter_call_id = "lit-6767-call"
         logging_obj._defer_async_logging = False
         logging_obj._on_deferred_stream_complete = None
         logging_obj.cost_breakdown = None
 
         processor = ProxyBaseLLMRequestProcessing(
-            data={"model": "oa-midfail", "stream": True, "litellm_logging_obj": logging_obj}
+            data={"model": "oa-midfail", "stream": True, "embrouter_logging_obj": logging_obj}
         )
 
         proxy_logging_obj = MagicMock(spec=ProxyLogging)
@@ -9445,7 +9445,7 @@ class TestStreamingResponseHeadersFollowFallback:
             return call()
 
         monkeypatch.setattr(
-            litellm.proxy.common_request_processing, "route_request", fake_route_request
+            embrouter.proxy.common_request_processing, "route_request", fake_route_request
         )
 
         result = await processor.base_process_llm_request(
@@ -9462,8 +9462,8 @@ class TestStreamingResponseHeadersFollowFallback:
         )
 
         assert isinstance(result, StreamingResponse)
-        assert result.headers["x-litellm-model-id"] == "served-deployment"
-        assert result.headers["x-litellm-model-api-base"] == "https://api.openai.com"
+        assert result.headers["x-embrouter-model-id"] == "served-deployment"
+        assert result.headers["x-embrouter-model-api-base"] == "https://api.openai.com"
         assert result.headers["llm_provider-x-request-id"] == "req-SERVED"
         assert "llm_provider-stale-marker" not in result.headers
         assert result.headers["x-callback-header"] == "kept"
@@ -9482,11 +9482,11 @@ class TestStreamingResponseHeadersFollowFallback:
             return generator()
 
         logging_obj = MagicMock()
-        logging_obj.litellm_call_id = "lit-7144-call"
+        logging_obj.embrouter_call_id = "lit-7144-call"
         logging_obj._defer_async_logging = False
         logging_obj._on_deferred_stream_complete = None
         logging_obj.cost_breakdown = None
-        processor_data["litellm_logging_obj"] = logging_obj
+        processor_data["embrouter_logging_obj"] = logging_obj
         processor = ProxyBaseLLMRequestProcessing(data=processor_data)
 
         proxy_logging_obj = MagicMock(spec=ProxyLogging)
@@ -9503,7 +9503,7 @@ class TestStreamingResponseHeadersFollowFallback:
 
             return call()
 
-        monkeypatch.setattr(litellm.proxy.common_request_processing, "route_request", fake_route_request)
+        monkeypatch.setattr(embrouter.proxy.common_request_processing, "route_request", fake_route_request)
 
         result = await processor.base_process_llm_request(
             request=Request(scope={"type": "http", "headers": []}),
@@ -9520,13 +9520,13 @@ class TestStreamingResponseHeadersFollowFallback:
 
         assert isinstance(result, JSONResponse)
         assert result.status_code == 400
-        assert result.headers["x-litellm-applied-guardrails"] == "stream-blocker"
+        assert result.headers["x-embrouter-applied-guardrails"] == "stream-blocker"
 
     @pytest.mark.asyncio
     async def test_streaming_first_chunk_error_carries_the_call_id_when_opted_in(self, monkeypatch):
         """The opt-in reaches the streaming path through base_process_llm_request, so a stream
         that fails on its first chunk answers with the call id inside its JSON error body,
-        byte-identical to the x-litellm-call-id header."""
+        byte-identical to the x-embrouter-call-id header."""
 
         def select_data_generator(**kwargs):
             async def generator():
@@ -9536,12 +9536,12 @@ class TestStreamingResponseHeadersFollowFallback:
             return generator()
 
         logging_obj = MagicMock()
-        logging_obj.litellm_call_id = "lit-8302-call"
+        logging_obj.embrouter_call_id = "lit-8302-call"
         logging_obj._defer_async_logging = False
         logging_obj._on_deferred_stream_complete = None
         logging_obj.cost_breakdown = None
         processor = ProxyBaseLLMRequestProcessing(
-            data={"model": "oa", "stream": True, "litellm_logging_obj": logging_obj}
+            data={"model": "oa", "stream": True, "embrouter_logging_obj": logging_obj}
         )
 
         proxy_logging_obj = MagicMock(spec=ProxyLogging)
@@ -9558,7 +9558,7 @@ class TestStreamingResponseHeadersFollowFallback:
 
             return call()
 
-        monkeypatch.setattr(litellm.proxy.common_request_processing, "route_request", fake_route_request)
+        monkeypatch.setattr(embrouter.proxy.common_request_processing, "route_request", fake_route_request)
 
         result = await processor.base_process_llm_request(
             request=Request(scope={"type": "http", "headers": []}),
@@ -9575,8 +9575,8 @@ class TestStreamingResponseHeadersFollowFallback:
 
         assert isinstance(result, JSONResponse)
         assert result.status_code == 403
-        assert result.headers["x-litellm-call-id"] == "lit-8302-call"
-        assert json.loads(result.body)["error"]["litellm_call_id"] == "lit-8302-call"
+        assert result.headers["x-embrouter-call-id"] == "lit-8302-call"
+        assert json.loads(result.body)["error"]["embrouter_call_id"] == "lit-8302-call"
 
 
 class _MessagesFallbackStream:
@@ -9584,8 +9584,8 @@ class _MessagesFallbackStream:
         self.fallback_headers_adopted = False
         self._hidden_params: dict[str, object] = {
             "additional_headers": {
-                "x-litellm-complexity-router-tier": "REASONING",
-                "x-litellm-complexity-router-reasoning-effort": "xhigh",
+                "x-embrouter-complexity-router-tier": "REASONING",
+                "x-embrouter-complexity-router-reasoning-effort": "xhigh",
             }
         }
         self._chunks = iter(
@@ -9614,20 +9614,20 @@ class _MessagesFallbackStream:
 
 @pytest.mark.asyncio
 async def test_messages_http_headers_refresh_after_lazy_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
-    from litellm.caching.caching import DualCache
+    from embrouter.caching.caching import DualCache
 
     stream = _MessagesFallbackStream()
     logging_obj = MagicMock()
-    logging_obj.litellm_call_id = "messages-fallback-headers"
+    logging_obj.embrouter_call_id = "messages-fallback-headers"
     logging_obj._defer_async_logging = False
     logging_obj._on_deferred_stream_complete = None
     logging_obj.cost_breakdown = None
-    logging_obj.litellm_params = {}
+    logging_obj.embrouter_params = {}
     processor = ProxyBaseLLMRequestProcessing(
-        data={"model": "auto-router", "stream": True, "litellm_logging_obj": logging_obj}
+        data={"model": "auto-router", "stream": True, "embrouter_logging_obj": logging_obj}
     )
     proxy_logging_obj = ProxyLogging(user_api_key_cache=DualCache())
-    monkeypatch.setattr(litellm, "callbacks", [])
+    monkeypatch.setattr(embrouter, "callbacks", [])
 
     async def call() -> _MessagesFallbackStream:
         return stream
@@ -9635,7 +9635,7 @@ async def test_messages_http_headers_refresh_after_lazy_fallback(monkeypatch: py
     async def fake_route_request(**_kwargs: object) -> object:
         return call()
 
-    monkeypatch.setattr(litellm.proxy.common_request_processing, "route_request", fake_route_request)
+    monkeypatch.setattr(embrouter.proxy.common_request_processing, "route_request", fake_route_request)
     response = await processor.base_process_llm_request(
         request=Request(scope={"type": "http", "headers": []}),
         fastapi_response=Response(),
@@ -9650,10 +9650,10 @@ async def test_messages_http_headers_refresh_after_lazy_fallback(monkeypatch: py
 
     assert isinstance(response, StreamingResponse)
     assert stream.fallback_headers_adopted is True
-    assert response.headers["x-litellm-model-id"] == "fallback-deployment"
+    assert response.headers["x-embrouter-model-id"] == "fallback-deployment"
     assert response.headers["x-fallback-only"] == "yes"
-    assert "x-litellm-complexity-router-tier" not in response.headers
-    assert "x-litellm-complexity-router-reasoning-effort" not in response.headers
+    assert "x-embrouter-complexity-router-tier" not in response.headers
+    assert "x-embrouter-complexity-router-reasoning-effort" not in response.headers
 
 
 class TestPassthroughHeadersAcceptImmutableMappings:
@@ -9662,10 +9662,10 @@ class TestPassthroughHeadersAcceptImmutableMappings:
     def test_merge_passthrough_streaming_headers_accepts_a_read_only_mapping(self):
         merged = ProxyBaseLLMRequestProcessing._merge_passthrough_streaming_headers(
             response_headers=httpx.Headers({"content-type": "text/event-stream", "transfer-encoding": "chunked"}),
-            custom_headers=MappingProxyType({"x-litellm-model-id": "served-deployment"}),
+            custom_headers=MappingProxyType({"x-embrouter-model-id": "served-deployment"}),
         )
 
-        assert merged["x-litellm-model-id"] == "served-deployment"
+        assert merged["x-embrouter-model-id"] == "served-deployment"
         assert merged["content-type"] == "text/event-stream"
         # the excluded hop-by-hop header is still dropped
         assert "transfer-encoding" not in merged
@@ -9680,7 +9680,7 @@ async def test_handle_llm_api_exception_forwards_provider_headers_on_http_status
     """
     import httpx
 
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     request = httpx.Request("POST", "https://bedrock-runtime.us-east-1.amazonaws.com/model/m/converse")
     response = httpx.Response(
@@ -9707,21 +9707,21 @@ async def test_handle_llm_api_exception_forwards_provider_headers_on_http_status
 
 
 @pytest.mark.asyncio
-async def test_handle_llm_api_exception_forwards_litellm_response_headers_when_response_is_synthetic():
+async def test_handle_llm_api_exception_forwards_embrouter_response_headers_when_response_is_synthetic():
     """Exception mapping hands the proxy a mapped error whose ``response`` is a synthetic empty
-    ``httpx.Response`` and parks the provider's real headers on ``litellm_response_headers``.
+    ``httpx.Response`` and parks the provider's real headers on ``embrouter_response_headers``.
     The client must still get the provider request id, as it does on a 200.
     """
     import httpx
 
-    from litellm.proxy._types import ProxyException, UserAPIKeyAuth
+    from embrouter.proxy._types import ProxyException, UserAPIKeyAuth
 
-    mapped = litellm.BadRequestError(
+    mapped = embrouter.BadRequestError(
         message="OpenAIException - max_tokens is too large: 999999999.",
         model="gpt-4o-mini",
         llm_provider="openai",
     )
-    mapped.litellm_response_headers = httpx.Headers({"x-request-id": "req_openai_400"})
+    mapped.embrouter_response_headers = httpx.Headers({"x-request-id": "req_openai_400"})
     assert dict(mapped.response.headers) == {}
 
     processor = ProxyBaseLLMRequestProcessing(data={})
@@ -9759,7 +9759,7 @@ async def test_handle_llm_api_exception_logs_bug_report_for_unmapped_error(
     proxy_logging_obj.post_call_failure_hook = AsyncMock(return_value=None)
     proxy_logging_obj.post_call_response_headers_hook = AsyncMock(return_value={})
 
-    with caplog.at_level("ERROR", logger="LiteLLM Proxy"):
+    with caplog.at_level("ERROR", logger="EmbRouter Proxy"):
         with pytest.raises(ProxyException):
             await processor._handle_llm_api_exception(
                 e=RuntimeError("unmapped for user@example.com"),
@@ -9788,7 +9788,7 @@ async def test_handle_llm_api_exception_bug_report_drops_unknown_route(
     proxy_logging_obj.post_call_failure_hook = AsyncMock(return_value=None)
     proxy_logging_obj.post_call_response_headers_hook = AsyncMock(return_value={})
 
-    with caplog.at_level("ERROR", logger="LiteLLM Proxy"):
+    with caplog.at_level("ERROR", logger="EmbRouter Proxy"):
         with pytest.raises(ProxyException):
             await processor._handle_llm_api_exception(
                 e=RuntimeError("unmapped"),
@@ -9818,7 +9818,7 @@ async def test_handle_llm_api_exception_skips_bug_report_for_provider_status(
     proxy_logging_obj.post_call_failure_hook = AsyncMock(return_value=None)
     proxy_logging_obj.post_call_response_headers_hook = AsyncMock(return_value={})
 
-    with caplog.at_level("ERROR", logger="LiteLLM Proxy"):
+    with caplog.at_level("ERROR", logger="EmbRouter Proxy"):
         with pytest.raises(ProxyException):
             await processor._handle_llm_api_exception(
                 e=ProviderRateLimitError("rate limited"),
@@ -9837,8 +9837,8 @@ class TestBackgroundResponseRetrievalGovernance:
 
     @pytest.fixture
     def policy_engine(self) -> Iterator[None]:
-        from litellm.proxy.policy_engine.attachment_registry import get_attachment_registry
-        from litellm.proxy.policy_engine.policy_registry import get_policy_registry
+        from embrouter.proxy.policy_engine.attachment_registry import get_attachment_registry
+        from embrouter.proxy.policy_engine.policy_registry import get_policy_registry
 
         get_policy_registry().load_policies(
             {
@@ -9859,13 +9859,13 @@ class TestBackgroundResponseRetrievalGovernance:
         get_attachment_registry().clear()
 
     def _router(self) -> MagicMock:
-        from litellm.types.router import Deployment, LiteLLM_Params
+        from embrouter.types.router import Deployment, EmbRouter_Params
 
         router = MagicMock()
         router.get_deployment.side_effect = lambda model_id: (
             Deployment(
                 model_name=self.GOVERNED_MODEL_GROUP,
-                litellm_params=LiteLLM_Params(model=f"openai/{self.GOVERNED_MODEL_GROUP}"),
+                embrouter_params=EmbRouter_Params(model=f"openai/{self.GOVERNED_MODEL_GROUP}"),
                 model_info={"id": model_id},
             )
             if model_id == self.GOVERNED_MODEL_ID
@@ -9874,19 +9874,19 @@ class TestBackgroundResponseRetrievalGovernance:
         return router
 
     async def _pre_call(self, route_type: str, monkeypatch: pytest.MonkeyPatch) -> dict[str, object]:
-        from litellm.responses.utils import ResponsesAPIRequestUtils
+        from embrouter.responses.utils import ResponsesAPIRequestUtils
 
         client_facing_response_id = "resp_opaque-client-facing-id"
         encoded_response_id = ResponsesAPIRequestUtils._build_responses_api_response_id(
             custom_llm_provider="openai", model_id=self.GOVERNED_MODEL_ID, response_id="resp_upstream"
         )
         processing_obj = ProxyBaseLLMRequestProcessing(
-            data={"response_id": client_facing_response_id, "litellm_metadata": {}}
+            data={"response_id": client_facing_response_id, "embrouter_metadata": {}}
         )
         mock_request = MagicMock(spec=Request)
         mock_request.headers = {}
 
-        async def passthrough_add_litellm_data_to_request(
+        async def passthrough_add_embrouter_data_to_request(
             data: dict[str, object], **kwargs: object
         ) -> dict[str, object]:
             return data
@@ -9902,9 +9902,9 @@ class TestBackgroundResponseRetrievalGovernance:
             return data
 
         monkeypatch.setattr(
-            litellm.proxy.common_request_processing,
-            "add_litellm_data_to_request",
-            passthrough_add_litellm_data_to_request,
+            embrouter.proxy.common_request_processing,
+            "add_embrouter_data_to_request",
+            passthrough_add_embrouter_data_to_request,
         )
         proxy_logging_obj = MagicMock(spec=ProxyLogging)
         proxy_logging_obj.pre_call_hook = AsyncMock(side_effect=decrypting_pre_call_hook)
@@ -9928,11 +9928,11 @@ class TestBackgroundResponseRetrievalGovernance:
         data = await self._pre_call("aget_responses", monkeypatch)
 
         assert data["response_id"].startswith("resp_bGl0ZWxsbTpjdXN0b21f")
-        pipelines = data["litellm_metadata"]["_guardrail_pipelines"]
+        pipelines = data["embrouter_metadata"]["_guardrail_pipelines"]
         assert [(policy_name, [step.guardrail for step in pipeline.steps]) for policy_name, pipeline in pipelines] == [
             ("response-governance", ["output-word-filter"])
         ]
-        assert data["litellm_metadata"]["applied_policies"] == ["response-governance"]
+        assert data["embrouter_metadata"]["applied_policies"] == ["response-governance"]
         assert data["model"] is None
 
     @pytest.mark.asyncio
@@ -9941,18 +9941,18 @@ class TestBackgroundResponseRetrievalGovernance:
     ) -> None:
         data = await self._pre_call("aresponses", monkeypatch)
 
-        assert "_guardrail_pipelines" not in data["litellm_metadata"]
-        assert "applied_policies" not in data["litellm_metadata"]
+        assert "_guardrail_pipelines" not in data["embrouter_metadata"]
+        assert "applied_policies" not in data["embrouter_metadata"]
 
 
 class TestErrorLogCarriesCallId:
     """Regression for LIT-5856 / #37532: the ERROR line emitted for a failed LLM
-    request must carry the litellm_call_id the client got back in the
-    x-litellm-call-id response header, so a logged exception can be tied to a
+    request must carry the embrouter_call_id the client got back in the
+    x-embrouter-call-id response header, so a logged exception can be tied to a
     specific request."""
 
     async def _invoke(self, data: dict[str, object]) -> None:
-        from litellm._logging import verbose_proxy_logger
+        from embrouter._logging import verbose_proxy_logger
 
         processor: Final = ProxyBaseLLMRequestProcessing(data=data)
         proxy_logging_obj: Final = MagicMock()
@@ -9975,37 +9975,37 @@ class TestErrorLogCarriesCallId:
     async def test_call_id_from_logging_obj_is_logged(self, caplog: pytest.LogCaptureFixture) -> None:
         call_id: Final = str(uuid.uuid4())
         logging_obj: Final = MagicMock()
-        logging_obj.litellm_call_id = call_id
-        with caplog.at_level("ERROR", logger="LiteLLM Proxy"):
-            await self._invoke({"litellm_logging_obj": logging_obj, "litellm_call_id": "stale-id"})
+        logging_obj.embrouter_call_id = call_id
+        with caplog.at_level("ERROR", logger="EmbRouter Proxy"):
+            await self._invoke({"embrouter_logging_obj": logging_obj, "embrouter_call_id": "stale-id"})
 
         record: Final = self._error_record(caplog)
-        assert record.litellm_call_id == call_id
+        assert record.embrouter_call_id == call_id
         assert call_id in record.getMessage()
 
     async def test_call_id_falls_back_to_request_data(self, caplog: pytest.LogCaptureFixture) -> None:
         call_id: Final = str(uuid.uuid4())
-        with caplog.at_level("ERROR", logger="LiteLLM Proxy"):
-            await self._invoke({"litellm_call_id": call_id})
+        with caplog.at_level("ERROR", logger="EmbRouter Proxy"):
+            await self._invoke({"embrouter_call_id": call_id})
 
         record: Final = self._error_record(caplog)
-        assert record.litellm_call_id == call_id
+        assert record.embrouter_call_id == call_id
         assert call_id in record.getMessage()
 
     async def test_call_id_falls_back_when_logging_obj_has_none(self, caplog: pytest.LogCaptureFixture) -> None:
         call_id: Final = str(uuid.uuid4())
         logging_obj: Final = MagicMock()
-        logging_obj.litellm_call_id = None
-        with caplog.at_level("ERROR", logger="LiteLLM Proxy"):
-            await self._invoke({"litellm_logging_obj": logging_obj, "litellm_call_id": call_id})
+        logging_obj.embrouter_call_id = None
+        with caplog.at_level("ERROR", logger="EmbRouter Proxy"):
+            await self._invoke({"embrouter_logging_obj": logging_obj, "embrouter_call_id": call_id})
 
         record: Final = self._error_record(caplog)
-        assert record.litellm_call_id == call_id
+        assert record.embrouter_call_id == call_id
         assert call_id in record.getMessage()
 
     def test_client_disconnect_log_carries_call_id(self, caplog: pytest.LogCaptureFixture) -> None:
-        from litellm._logging import verbose_proxy_logger
-        from litellm.proxy.common_request_processing import (
+        from embrouter._logging import verbose_proxy_logger
+        from embrouter.proxy.common_request_processing import (
             _CLIENT_DISCONNECT_DETAIL,
             log_llm_api_exception,
         )
@@ -10013,7 +10013,7 @@ class TestErrorLogCarriesCallId:
         call_id: Final = str(uuid.uuid4())
         verbose_proxy_logger.propagate = True
         try:
-            with caplog.at_level("INFO", logger="LiteLLM Proxy"):
+            with caplog.at_level("INFO", logger="EmbRouter Proxy"):
                 log_llm_api_exception(
                     HTTPException(status_code=499, detail=_CLIENT_DISCONNECT_DETAIL),
                     call_id,
@@ -10022,7 +10022,7 @@ class TestErrorLogCarriesCallId:
             verbose_proxy_logger.propagate = False
 
         record: Final = caplog.records[-1]
-        assert record.litellm_call_id == call_id
+        assert record.embrouter_call_id == call_id
         assert call_id in record.getMessage()
 
 
@@ -10266,7 +10266,7 @@ class TestStreamingContainerOwnershipRecordedBeforeDone:
         stream: Final = SimpleNamespace(completed_response=None, _hidden_params={"custom_llm_provider": "azure"})
         recorder: Final = AsyncMock(return_value=None)
         with patch(
-            "litellm.proxy.container_endpoints.ownership.record_container_owners_from_responses_response", recorder
+            "embrouter.proxy.container_endpoints.ownership.record_container_owners_from_responses_response", recorder
         ):
             wrapped: Final = ProxyBaseLLMRequestProcessing._wrap_responses_stream_for_container_ownership(
                 original_stream_response=stream,

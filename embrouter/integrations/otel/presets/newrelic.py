@@ -7,14 +7,14 @@ from typing import Final
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from litellm._logging import verbose_logger
-from litellm.integrations.otel.model.config import (
+from embrouter._logging import verbose_logger
+from embrouter.integrations.otel.model.config import (
     ExporterOwner,
     ExporterSpec,
     OpenTelemetryV2Config,
 )
-from litellm.integrations.otel.presets.utils import ensure_mappers
-from litellm.types.utils import StandardCallbackDynamicParams
+from embrouter.integrations.otel.presets.utils import ensure_mappers
+from embrouter.types.utils import StandardCallbackDynamicParams
 
 #: Region -> OTLP base endpoint. A fixed table by design: team config picks a
 #: region enum rather than a free-form endpoint, so callback vars can never

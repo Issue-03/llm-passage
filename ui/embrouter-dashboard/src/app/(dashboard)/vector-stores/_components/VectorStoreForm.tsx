@@ -36,7 +36,7 @@ import { useZodForm } from "@/lib/forms/useZodForm";
 
 const EMBEDDING_MODEL_RENAME_PROVIDERS = new Set(["milvus", "valkey", "mongodb"]);
 
-export const buildVectorStoreLitellmParams = (
+export const buildVectorStoreEmbrouterParams = (
   provider: string,
   formValues: Record<string, unknown>,
 ): Record<string, unknown> =>
@@ -45,7 +45,7 @@ export const buildVectorStoreLitellmParams = (
       .filter(isSupportedProviderField)
       .map((field) => [
         EMBEDDING_MODEL_RENAME_PROVIDERS.has(provider) && field.name === "embedding_model"
-          ? "litellm_embedding_model"
+          ? "embrouter_embedding_model"
           : field.name,
         formValues[field.name],
       ]),
@@ -95,7 +95,7 @@ const vectorStoreShape = {
   vector_store_id: z.string().min(1, "Please input the vector store ID from your api provider"),
   vector_store_name: optionalText,
   vector_store_description: optionalText,
-  litellm_credential_name: z.string().nullable().optional(),
+  embrouter_credential_name: z.string().nullable().optional(),
   api_base: optionalText,
   api_key: optionalText,
   vertex_project: optionalText,
@@ -256,8 +256,8 @@ const VectorStoreForm: React.FC<VectorStoreFormProps> = ({
         vector_store_name: formValues.vector_store_name,
         vector_store_description: formValues.vector_store_description,
         vector_store_metadata: metadata,
-        litellm_credential_name: formValues.litellm_credential_name,
-        litellm_params: buildVectorStoreLitellmParams(formValues.custom_llm_provider, formValues),
+        embrouter_credential_name: formValues.embrouter_credential_name,
+        embrouter_params: buildVectorStoreEmbrouterParams(formValues.custom_llm_provider, formValues),
       });
       toast.success("Vector store created successfully");
       form.reset(EMPTY_VALUES);
@@ -484,7 +484,7 @@ const VectorStoreForm: React.FC<VectorStoreFormProps> = ({
 
               <FormField
                 control={form.control}
-                name="litellm_credential_name"
+                name="embrouter_credential_name"
                 label={labelWithHint(
                   "Existing Credentials",
                   "Optionally select API provider credentials for this vector store eg. Bedrock API KEY",

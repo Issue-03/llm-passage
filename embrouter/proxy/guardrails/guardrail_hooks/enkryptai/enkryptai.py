@@ -12,24 +12,24 @@ from typing import TYPE_CHECKING, Any, Final, Literal, Optional
 
 import httpx
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.caching.caching import DualCache
-from litellm.integrations.custom_guardrail import (
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.caching.caching import DualCache
+from embrouter.integrations.custom_guardrail import (
     CustomGuardrail,
     log_guardrail_information,
 )
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.proxy.guardrails.guardrail_hooks.enkryptai import (
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.types.guardrails import GuardrailEventHooks
+from embrouter.types.proxy.guardrails.guardrail_hooks.enkryptai import (
     EnkryptAIProcessedResult,
     EnkryptAIResponse,
 )
-from litellm.types.utils import (
+from embrouter.types.utils import (
     CallTypesLiteral,
     GenericGuardrailAPIInputs,
     GuardrailStatus,
@@ -37,7 +37,7 @@ from litellm.types.utils import (
 )
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
 
 GUARDRAIL_NAME: Final = "enkryptai"
 
@@ -45,7 +45,7 @@ GUARDRAIL_NAME: Final = "enkryptai"
 class EnkryptAIGuardrails(CustomGuardrail):
     def __init__(
         self,
-        guardrail_name: str = "litellm_test",
+        guardrail_name: str = "embrouter_test",
         api_key: str | None = None,
         api_base: str | None = None,
         policy_name: str | None = None,
@@ -280,7 +280,7 @@ class EnkryptAIGuardrails(CustomGuardrail):
         """
         verbose_proxy_logger.debug("Running EnkryptAI pre-call hook")
 
-        from litellm.proxy.common_utils.callback_utils import (
+        from embrouter.proxy.common_utils.callback_utils import (
             add_guardrail_to_applied_guardrails_header,
         )
 
@@ -326,7 +326,7 @@ class EnkryptAIGuardrails(CustomGuardrail):
 
         This can NOT modify the input, only used to reject or accept a call before going to LLM API
         """
-        from litellm.proxy.common_utils.callback_utils import (
+        from embrouter.proxy.common_utils.callback_utils import (
             add_guardrail_to_applied_guardrails_header,
         )
 
@@ -373,10 +373,10 @@ class EnkryptAIGuardrails(CustomGuardrail):
 
         Uses Enkrypt AI guardrails to check the response for policy violations, PII, and injection attacks
         """
-        from litellm.proxy.common_utils.callback_utils import (
+        from embrouter.proxy.common_utils.callback_utils import (
             add_guardrail_to_applied_guardrails_header,
         )
-        from litellm.types.guardrails import GuardrailEventHooks
+        from embrouter.types.guardrails import GuardrailEventHooks
 
         if self.should_run_guardrail(data=data, event_type=GuardrailEventHooks.post_call) is not True:
             return
@@ -385,10 +385,10 @@ class EnkryptAIGuardrails(CustomGuardrail):
 
         # Check if the ModelResponse has text content in its choices
         # to avoid sending empty content to EnkryptAI (e.g., during tool calls)
-        if isinstance(response, litellm.ModelResponse):
+        if isinstance(response, embrouter.ModelResponse):
             has_text_content = False
             for choice in response.choices:
-                if isinstance(choice, litellm.Choices):
+                if isinstance(choice, embrouter.Choices):
                     if choice.message.content and isinstance(choice.message.content, str):
                         has_text_content = True
                         break
@@ -398,7 +398,7 @@ class EnkryptAIGuardrails(CustomGuardrail):
                 return
 
             for choice in response.choices:
-                if isinstance(choice, litellm.Choices):
+                if isinstance(choice, embrouter.Choices):
                     verbose_proxy_logger.debug("async_post_call_success_hook choice: %s", choice)
                     if choice.message.content and isinstance(choice.message.content, str):
                         result = await self._call_enkryptai_guardrails(
@@ -426,7 +426,7 @@ class EnkryptAIGuardrails(CustomGuardrail):
         inputs: "GenericGuardrailAPIInputs",
         request_data: dict,
         input_type: Literal["request", "response"],
-        logging_obj: Optional["LiteLLMLoggingObj"] = None,
+        logging_obj: Optional["EmbRouterLoggingObj"] = None,
     ) -> "GenericGuardrailAPIInputs":
         """
         Apply EnkryptAI guardrail to a batch of texts.
@@ -482,7 +482,7 @@ class EnkryptAIGuardrails(CustomGuardrail):
 
     @staticmethod
     def get_config_model():
-        from litellm.types.proxy.guardrails.guardrail_hooks.enkryptai import (
+        from embrouter.types.proxy.guardrails.guardrail_hooks.enkryptai import (
             EnkryptAIGuardrailConfigModel,
         )
 

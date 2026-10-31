@@ -4,9 +4,9 @@ from typing import Final
 
 from typing_extensions import ReadOnly, TypedDict
 
-import litellm
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.openai import OpenAIImageGenerationOptionalParams
+import embrouter
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.openai import OpenAIImageGenerationOptionalParams
 
 from .transformation import FalAIBaseConfig
 
@@ -40,7 +40,7 @@ def map_gpt_image_size(size: object) -> object:
 def supported_gpt_image_qualities(
     model: str, model_cost: Mapping[str, Mapping[str, object]] | None = None
 ) -> frozenset[str]:
-    costs: Final = litellm.model_cost if model_cost is None else model_cost
+    costs: Final = embrouter.model_cost if model_cost is None else model_cost
     endpoint: Final[str] = model.removeprefix("fal_ai/")
     qualified_endpoint: Final[str] = endpoint if endpoint.startswith("openai/") else f"openai/{endpoint}"
     qualities: Final[frozenset[str]] = frozenset(
@@ -94,7 +94,7 @@ class FalAIGPTImage2Config(FalAIBaseConfig):
         api_key: str | None,
         model: str,
         optional_params: Mapping[str, object],
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
         stream: bool | None = None,
     ) -> str:
         base_url: Final[str] = (api_base or get_secret_str("FAL_AI_API_BASE") or self.DEFAULT_BASE_URL).rstrip("/")
@@ -141,7 +141,7 @@ class FalAIGPTImage2Config(FalAIBaseConfig):
         model: str,
         prompt: str,
         optional_params: Mapping[str, object],
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
         headers: Mapping[str, str],
     ) -> dict:
         return {"prompt": prompt, **optional_params}  # mutable-ok: base class contract returns a dict

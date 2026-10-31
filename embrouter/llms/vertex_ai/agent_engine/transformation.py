@@ -1,7 +1,7 @@
 """
 Transformation for Vertex AI Agent Engine (Reasoning Engines)
 
-Handles the transformation between LiteLLM's OpenAI-compatible format and
+Handles the transformation between EmbRouter's OpenAI-compatible format and
 Vertex AI Reasoning Engine's API format.
 
 API Reference:
@@ -15,29 +15,29 @@ from typing import TYPE_CHECKING, Any, Final, Optional, Union, cast
 
 import httpx
 
-from litellm._logging import verbose_logger
-from litellm._uuid import uuid
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+from embrouter._logging import verbose_logger
+from embrouter._uuid import uuid
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
     convert_content_list_to_str,
 )
-from litellm.llms.base_llm.chat.transformation import BaseConfig, BaseLLMException
-from litellm.llms.vertex_ai.agent_engine.sse_iterator import (
+from embrouter.llms.base_llm.chat.transformation import BaseConfig, BaseLLMException
+from embrouter.llms.vertex_ai.agent_engine.sse_iterator import (
     VertexAgentEngineResponseIterator,
 )
-from litellm.llms.vertex_ai.common_utils import get_vertex_base_url
-from litellm.llms.vertex_ai.vertex_llm_base import VertexBase
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.utils import Choices, Message, ModelResponse, Usage
+from embrouter.llms.vertex_ai.common_utils import get_vertex_base_url
+from embrouter.llms.vertex_ai.vertex_llm_base import VertexBase
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.utils import Choices, Message, ModelResponse, Usage
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-    from litellm.utils import CustomStreamWrapper
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+    from embrouter.utils import CustomStreamWrapper
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
     HTTPHandler = Any
     AsyncHTTPHandler = Any
     CustomStreamWrapper = Any
@@ -107,7 +107,7 @@ class VertexAgentEngineConfig(BaseConfig, VertexBase):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         """
@@ -119,16 +119,16 @@ class VertexAgentEngineConfig(BaseConfig, VertexBase):
         """
         resource_path, engine_id = self._parse_model_string(model)
 
-        # Get project and location from litellm_params or environment
-        vertex_project: Final = self.safe_get_vertex_ai_project(litellm_params)
-        vertex_location: Final = self.safe_get_vertex_ai_location(litellm_params) or "us-central1"
+        # Get project and location from embrouter_params or environment
+        vertex_project: Final = self.safe_get_vertex_ai_project(embrouter_params)
+        vertex_location: Final = self.safe_get_vertex_ai_location(embrouter_params) or "us-central1"
 
         # Build the full resource path if only engine_id was provided
         if not resource_path.startswith("projects/"):
             if not vertex_project:
                 raise ValueError(
                     "vertex_project is required for Vertex Agent Engine. "
-                    "Set via litellm_params['vertex_project'] or VERTEXAI_PROJECT env var."
+                    "Set via embrouter_params['vertex_project'] or VERTEXAI_PROJECT env var."
                 )
             resource_path = f"projects/{vertex_project}/locations/{vertex_location}/reasoningEngines/{engine_id}"
 
@@ -145,11 +145,11 @@ class VertexAgentEngineConfig(BaseConfig, VertexBase):
     def _get_auth_headers(
         self,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> dict[str, str]:
         """Get authentication headers using Google Cloud credentials."""
-        vertex_credentials: Final = self.safe_get_vertex_ai_credentials(litellm_params)
-        vertex_project: Final = self.safe_get_vertex_ai_project(litellm_params)
+        vertex_credentials: Final = self.safe_get_vertex_ai_credentials(embrouter_params)
+        vertex_project: Final = self.safe_get_vertex_ai_project(embrouter_params)
 
         # Get access token using VertexBase
         access_token, project_id = self.get_access_token(
@@ -170,7 +170,7 @@ class VertexAgentEngineConfig(BaseConfig, VertexBase):
         if user_id:
             return user_id
         # Generate a user ID
-        return f"litellm-user-{str(uuid.uuid4())[:8]}"
+        return f"embrouter-user-{str(uuid.uuid4())[:8]}"
 
     def _get_session_id(self, optional_params: dict) -> str | None:
         """Get session ID if provided."""
@@ -181,7 +181,7 @@ class VertexAgentEngineConfig(BaseConfig, VertexBase):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         """
@@ -230,12 +230,12 @@ class VertexAgentEngineConfig(BaseConfig, VertexBase):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
         """Validate environment and set up authentication headers."""
-        auth_headers: Final = self._get_auth_headers(optional_params, litellm_params)
+        auth_headers: Final = self._get_auth_headers(optional_params, embrouter_params)
         headers.update(auth_headers)
         return headers
 
@@ -258,9 +258,9 @@ class VertexAgentEngineConfig(BaseConfig, VertexBase):
         return ""
 
     def _calculate_usage(self, model: str, messages: list[AllMessageValues], content: str) -> Usage | None:
-        """Calculate token usage using LiteLLM's token counter."""
+        """Calculate token usage using EmbRouter's token counter."""
         try:
-            from litellm.utils import token_counter
+            from embrouter.utils import token_counter
 
             prompt_tokens: Final = token_counter(model="gpt-3.5-turbo", messages=messages)
             completion_tokens: Final = token_counter(model="gpt-3.5-turbo", text=content, count_response_tokens=True)
@@ -280,17 +280,17 @@ class VertexAgentEngineConfig(BaseConfig, VertexBase):
         model: str,
         raw_response: httpx.Response,
         model_response: ModelResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         request_data: dict,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,
     ) -> ModelResponse:
         """
-        Transform Vertex Agent Engine response to LiteLLM ModelResponse format.
+        Transform Vertex Agent Engine response to EmbRouter ModelResponse format.
 
         The response is a streaming SSE format even for non-streaming requests.
         We need to collect all the chunks and extract the final response.
@@ -358,7 +358,7 @@ class VertexAgentEngineConfig(BaseConfig, VertexBase):
         self,
         model: str,
         custom_llm_provider: str,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_base: str,
         headers: dict,
         data: dict,
@@ -367,14 +367,14 @@ class VertexAgentEngineConfig(BaseConfig, VertexBase):
         json_mode: bool | None = None,
         signed_json_body: bytes | None = None,
         *,
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
     ) -> "CustomStreamWrapper":
         """Get a CustomStreamWrapper for synchronous streaming."""
-        from litellm.llms.custom_httpx.http_handler import (
+        from embrouter.llms.custom_httpx.http_handler import (
             HTTPHandler,
             _get_httpx_client,
         )
-        from litellm.utils import CustomStreamWrapper
+        from embrouter.utils import CustomStreamWrapper
 
         if client is None or not isinstance(client, HTTPHandler):
             client = _get_httpx_client(params={})
@@ -418,7 +418,7 @@ class VertexAgentEngineConfig(BaseConfig, VertexBase):
         self,
         model: str,
         custom_llm_provider: str,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_base: str,
         headers: dict,
         data: dict,
@@ -427,14 +427,14 @@ class VertexAgentEngineConfig(BaseConfig, VertexBase):
         json_mode: bool | None = None,
         signed_json_body: bytes | None = None,
         *,
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
     ) -> "CustomStreamWrapper":
         """Get a CustomStreamWrapper for asynchronous streaming."""
-        from litellm.llms.custom_httpx.http_handler import (
+        from embrouter.llms.custom_httpx.http_handler import (
             AsyncHTTPHandler,
             get_async_httpx_client,
         )
-        from litellm.utils import CustomStreamWrapper
+        from embrouter.utils import CustomStreamWrapper
 
         if client is None or not isinstance(client, AsyncHTTPHandler):
             client = get_async_httpx_client(llm_provider=cast(Any, "vertex_ai"), params={})

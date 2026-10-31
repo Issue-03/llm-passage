@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any, Final, cast
 
-from litellm.types.integrations.prometheus import (
+from embrouter.types.integrations.prometheus import (
     UserAPIKeyLabelValues,
     _sanitize_prometheus_label_name,
     _sanitize_prometheus_label_value,
@@ -25,7 +25,7 @@ def _get_cached_end_user_id_for_cost_tracking():
     """
     global _get_end_user_id_for_cost_tracking
     if _get_end_user_id_for_cost_tracking is None:
-        from litellm.utils import get_end_user_id_for_cost_tracking
+        from embrouter.utils import get_end_user_id_for_cost_tracking
 
         _get_end_user_id_for_cost_tracking = get_end_user_id_for_cost_tracking
     return _get_end_user_id_for_cost_tracking
@@ -61,7 +61,7 @@ class PrometheusLabelFactoryContext:
         self._tag_labels: dict[str, str | None] = {}
         if enum_values.tags is not None:
             # Late import avoids circular import: ``prometheus`` imports this module.
-            from litellm.integrations.prometheus import get_custom_labels_from_tags
+            from embrouter.integrations.prometheus import get_custom_labels_from_tags
 
             for k, v in get_custom_labels_from_tags(enum_values.tags).items():
                 self._tag_labels[k] = _sanitize_prometheus_label_value(v)
@@ -72,7 +72,7 @@ class PrometheusLabelFactoryContext:
         if self._resolved_end_user is self._END_USER_NOT_COMPUTED:
             fn: Final = _get_cached_end_user_id_for_cost_tracking()
             self._resolved_end_user = fn(
-                litellm_params={"user_api_key_end_user_id": self.enum_values.end_user},
+                embrouter_params={"user_api_key_end_user_id": self.enum_values.end_user},
                 service_type="prometheus",
             )
         return cast(str | None, self._resolved_end_user)

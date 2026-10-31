@@ -7,17 +7,17 @@ from unittest.mock import patch
 import pytest
 from httpx import Request, Response
 
-import litellm
-from litellm import constants
-from litellm.litellm_core_utils.prompt_templates import image_handling
-from litellm.litellm_core_utils.prompt_templates.image_handling import (
+import embrouter
+from embrouter import constants
+from embrouter.embrouter_core_utils.prompt_templates import image_handling
+from embrouter.embrouter_core_utils.prompt_templates.image_handling import (
     MAX_CONCURRENT_REMOTE_MEDIA_FETCHES,
     RemoteMedia,
     async_convert_url_to_base64,
     async_inline_remote_media,
     convert_url_to_base64,
 )
-from litellm.litellm_core_utils.url_utils import SSRFError
+from embrouter.embrouter_core_utils.url_utils import SSRFError
 
 
 @pytest.fixture(autouse=True)
@@ -36,14 +36,14 @@ class DummyClient:
 
 
 def test_invalid_image_url_raises_bad_request(monkeypatch):
-    monkeypatch.setattr(litellm, "module_level_client", DummyClient())
-    with pytest.raises(litellm.ImageFetchError) as excinfo:
+    monkeypatch.setattr(embrouter, "module_level_client", DummyClient())
+    with pytest.raises(embrouter.ImageFetchError) as excinfo:
         convert_url_to_base64("https://invalid.example/image.png")
     assert "Unable to fetch image" in str(excinfo.value)
 
 
 def test_completion_with_invalid_image_url(monkeypatch):
-    monkeypatch.setattr(litellm, "module_level_client", DummyClient())
+    monkeypatch.setattr(embrouter, "module_level_client", DummyClient())
     messages = [
         {
             "role": "user",
@@ -56,8 +56,8 @@ def test_completion_with_invalid_image_url(monkeypatch):
             ],
         }
     ]
-    with pytest.raises(litellm.ImageFetchError) as excinfo:
-        litellm.completion(model="gemini/gemini-pro", messages=messages, api_key="test")
+    with pytest.raises(embrouter.ImageFetchError) as excinfo:
+        embrouter.completion(model="gemini/gemini-pro", messages=messages, api_key="test")
     assert excinfo.value.status_code == 400
     assert "Unable to fetch image" in str(excinfo.value)
 
@@ -123,9 +123,9 @@ def test_image_exceeds_size_limit_with_content_length(monkeypatch):
     """
     Test that images exceeding MAX_IMAGE_URL_DOWNLOAD_SIZE_MB are rejected when Content-Length header is present.
     """
-    monkeypatch.setattr(litellm, "module_level_client", LargeImageClient(size_mb=100))
+    monkeypatch.setattr(embrouter, "module_level_client", LargeImageClient(size_mb=100))
 
-    with pytest.raises(litellm.ImageFetchError) as excinfo:
+    with pytest.raises(embrouter.ImageFetchError) as excinfo:
         convert_url_to_base64("https://example.com/large-image.jpg")
 
     assert "exceeds maximum allowed size" in str(excinfo.value)
@@ -139,12 +139,12 @@ def test_image_exceeds_size_limit_without_content_length(monkeypatch):
     This uses the old non-streaming mock for backward compatibility.
     """
     monkeypatch.setattr(
-        litellm,
+        embrouter,
         "module_level_client",
         LargeImageClient(size_mb=100, include_content_length=False),
     )
 
-    with pytest.raises(litellm.ImageFetchError) as excinfo:
+    with pytest.raises(embrouter.ImageFetchError) as excinfo:
         convert_url_to_base64("https://example.com/large-image.jpg")
 
     assert "exceeds maximum allowed size" in str(excinfo.value)
@@ -161,9 +161,9 @@ def test_streaming_download_protects_against_huge_files(monkeypatch):
     """
     # Simulate a 1GB file - far larger than the 50MB default limit
     client = StreamingLargeImageClient(size_mb=1024, include_content_length=False)
-    monkeypatch.setattr(litellm, "module_level_client", client)
+    monkeypatch.setattr(embrouter, "module_level_client", client)
 
-    with pytest.raises(litellm.ImageFetchError) as excinfo:
+    with pytest.raises(embrouter.ImageFetchError) as excinfo:
         convert_url_to_base64("https://example.com/huge-image.jpg")
 
     # Verify the error message shows it was caught during streaming
@@ -196,7 +196,7 @@ def test_image_within_size_limit(monkeypatch):
     """
     Test that images within size limit are processed successfully.
     """
-    monkeypatch.setattr(litellm, "module_level_client", SmallImageClient())
+    monkeypatch.setattr(embrouter, "module_level_client", SmallImageClient())
 
     result = convert_url_to_base64("https://example.com/small-image.jpg")
 
@@ -214,9 +214,9 @@ def test_streaming_download_handles_petabyte_file(monkeypatch):
     # Simulate a 1 petabyte file (1,000,000 GB)
     # Without streaming protection, this would cause OOM or hang indefinitely
     client = StreamingLargeImageClient(size_mb=1_000_000_000, include_content_length=False)
-    monkeypatch.setattr(litellm, "module_level_client", client)
+    monkeypatch.setattr(embrouter, "module_level_client", client)
 
-    with pytest.raises(litellm.ImageFetchError) as excinfo:
+    with pytest.raises(embrouter.ImageFetchError) as excinfo:
         convert_url_to_base64("https://example.com/petabyte-file.jpg")
 
     # Should fail fast without downloading anywhere near 1 petabyte
@@ -233,7 +233,7 @@ def test_data_url_is_returned_unchanged_without_fetch(monkeypatch):
         def get(self, url, follow_redirects=True):
             raise AssertionError("data URLs must not trigger an HTTP fetch")
 
-    monkeypatch.setattr(litellm, "module_level_client", ExplodingClient())
+    monkeypatch.setattr(embrouter, "module_level_client", ExplodingClient())
 
     data_url = "data:image/png;base64,iVBORw0KGgo="
 
@@ -251,7 +251,7 @@ async def test_async_data_url_is_returned_unchanged_without_fetch(monkeypatch):
         async def get(self, url, follow_redirects=True):
             raise AssertionError("data URLs must not trigger an HTTP fetch")
 
-    monkeypatch.setattr(litellm, "module_level_aclient", ExplodingAsyncClient())
+    monkeypatch.setattr(embrouter, "module_level_aclient", ExplodingAsyncClient())
 
     data_url = "data:image/png;base64,iVBORw0KGgo="
 
@@ -262,12 +262,12 @@ def test_image_size_limit_disabled(monkeypatch):
     """
     Test that setting MAX_IMAGE_URL_DOWNLOAD_SIZE_MB to 0 disables all image URL downloads.
     """
-    import litellm.litellm_core_utils.prompt_templates.image_handling as image_handling
+    import embrouter.embrouter_core_utils.prompt_templates.image_handling as image_handling
 
-    monkeypatch.setattr(litellm, "module_level_client", SmallImageClient())
+    monkeypatch.setattr(embrouter, "module_level_client", SmallImageClient())
     monkeypatch.setattr(image_handling, "MAX_IMAGE_URL_DOWNLOAD_SIZE_MB", 0)
 
-    with pytest.raises(litellm.ImageFetchError) as excinfo:
+    with pytest.raises(embrouter.ImageFetchError) as excinfo:
         convert_url_to_base64("https://example.com/image.jpg")
 
     assert "Image URL download is disabled" in str(excinfo.value)
@@ -417,7 +417,7 @@ async def test_async_inline_remote_media_cancels_the_other_fetches_when_one_fail
     ]
     started = time.perf_counter()
 
-    with pytest.raises(litellm.ImageFetchError, match="Status code: 404"):
+    with pytest.raises(embrouter.ImageFetchError, match="Status code: 404"):
         await async_inline_remote_media(messages)
 
     assert slow_fetch_outcomes == ["cancelled"]
@@ -427,7 +427,7 @@ async def test_async_inline_remote_media_cancels_the_other_fetches_when_one_fail
 _SSRF_VERDICTS = (
     SSRFError(
         "URL targets a blocked address (10.0.0.8). If this is a legitimate internal service, "
-        "add the host to `user_url_allowed_hosts` in litellm_settings."
+        "add the host to `user_url_allowed_hosts` in embrouter_settings."
     ),
     SSRFError("DNS resolution failed for 'internal.example': [Errno 8] nodename nor servname provided, or not known"),
     SSRFError("No addresses found for 'internal.example'"),
@@ -458,7 +458,7 @@ async def test_async_convert_url_to_base64_hides_the_ssrf_verdict_and_does_not_r
             raise verdict
 
         monkeypatch.setattr(image_handling, "async_safe_get", block)
-        with pytest.raises(litellm.ImageFetchError) as raised:
+        with pytest.raises(embrouter.ImageFetchError) as raised:
             await async_convert_url_to_base64(url)
         messages.append(raised.value.message)
 
@@ -478,7 +478,7 @@ def test_convert_url_to_base64_hides_the_ssrf_verdict_and_does_not_retry(monkeyp
             raise verdict
 
         monkeypatch.setattr(image_handling, "safe_get", block)
-        with pytest.raises(litellm.ImageFetchError) as raised:
+        with pytest.raises(embrouter.ImageFetchError) as raised:
             convert_url_to_base64(url)
         messages.append(raised.value.message)
 
@@ -526,5 +526,5 @@ async def test_async_inline_remote_media_raises_image_fetch_error_when_the_fetch
     monkeypatch.setattr(image_handling, "async_safe_get", serve_404)
     url = f"http://img.example/{uuid.uuid4()}.png"
 
-    with pytest.raises(litellm.ImageFetchError, match="Status code: 404"):
+    with pytest.raises(embrouter.ImageFetchError, match="Status code: 404"):
         await async_inline_remote_media([{"role": "user", "content": [{"type": "image_url", "image_url": url}]}])

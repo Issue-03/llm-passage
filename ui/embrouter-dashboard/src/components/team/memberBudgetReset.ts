@@ -13,12 +13,12 @@ export interface MemberBudgetResetPending {
 }
 
 type MembershipBudgetRow = Pick<TeamMembership, "user_id" | "budget_source"> & {
-  litellm_budget_table?: Pick<TeamMembership["litellm_budget_table"], "max_budget"> | null;
+  embrouter_budget_table?: Pick<TeamMembership["embrouter_budget_table"], "max_budget"> | null;
 };
 
 export const customBudgetMemberUserIds = (memberships: readonly MembershipBudgetRow[]): string[] =>
   memberships
-    .filter((m) => m.budget_source === "custom" && m.litellm_budget_table?.max_budget != null)
+    .filter((m) => m.budget_source === "custom" && m.embrouter_budget_table?.max_budget != null)
     .map((m) => m.user_id);
 
 export const shouldPromptMemberBudgetReset = (

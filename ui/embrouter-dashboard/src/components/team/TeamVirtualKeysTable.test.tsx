@@ -63,7 +63,7 @@ const mockOrganization: Organization = {
   created_by: "",
   updated_at: "",
   updated_by: "",
-  litellm_budget_table: {},
+  embrouter_budget_table: {},
   teams: [],
   users: [],
   members: [],

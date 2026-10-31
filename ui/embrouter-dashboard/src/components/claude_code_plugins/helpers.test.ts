@@ -19,7 +19,7 @@ describe("buildMarketplaceSettingsSnippet", () => {
   it("nests the url under a source object so Claude Code accepts the marketplace", () => {
     expect(JSON.parse(buildMarketplaceSettingsSnippet("https://proxy.example.com"))).toEqual({
       extraKnownMarketplaces: {
-        litellm: {
+        embrouter: {
           source: {
             source: "url",
             url: "https://proxy.example.com/claude-code/marketplace.json",
@@ -31,12 +31,12 @@ describe("buildMarketplaceSettingsSnippet", () => {
 });
 
 describe("formatInstallCommand", () => {
-  it("produces a /plugin install command scoped to the litellm marketplace", () => {
-    expect(formatInstallCommand({ name: "my-plugin" })).toBe("/plugin install my-plugin@litellm");
+  it("produces a /plugin install command scoped to the embrouter marketplace", () => {
+    expect(formatInstallCommand({ name: "my-plugin" })).toBe("/plugin install my-plugin@embrouter");
   });
 
   it("uses the plugin name as the identifier", () => {
-    expect(formatInstallCommand({ name: "code-review" })).toBe("/plugin install code-review@litellm");
+    expect(formatInstallCommand({ name: "code-review" })).toBe("/plugin install code-review@embrouter");
   });
 });
 

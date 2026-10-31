@@ -15,7 +15,7 @@ from typing import Final, cast
 
 import httpx
 
-from litellm._logging import verbose_logger
+from embrouter._logging import verbose_logger
 
 
 @dataclass
@@ -240,7 +240,7 @@ def create_mock_client_factory(config: MockClientConfig):
         verbose_logger.debug("[%s MOCK] Initializing %s mock client...", config.name, config.name)
 
         if config.patch_async_handler and _original_async_handler_post is None:
-            from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+            from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler
 
             _original_async_handler_post = AsyncHTTPHandler.post
             AsyncHTTPHandler.post = _mock_async_handler_post
@@ -252,7 +252,7 @@ def create_mock_client_factory(config: MockClientConfig):
             verbose_logger.debug("[%s MOCK] Patched httpx.Client.post", config.name)
 
         if config.patch_http_handler and _original_http_handler_post is None:
-            from litellm.llms.custom_httpx.http_handler import HTTPHandler
+            from embrouter.llms.custom_httpx.http_handler import HTTPHandler
 
             _original_http_handler_post = HTTPHandler.post
             HTTPHandler.post = _mock_http_handler_post
@@ -268,7 +268,7 @@ def create_mock_client_factory(config: MockClientConfig):
         """Determine if mock mode should be enabled."""
         import os
 
-        from litellm.secret_managers.main import str_to_bool
+        from embrouter.secret_managers.main import str_to_bool
 
         mock_mode: Final = os.getenv(config.env_var, "false")
         result = str_to_bool(mock_mode)

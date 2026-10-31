@@ -4,12 +4,12 @@ from collections.abc import Awaitable, Mapping
 from dataclasses import dataclass
 from typing import Final, Protocol, cast  # noqa: TID251  # validates dynamically loaded native callables
 
-from litellm.rust_bridge.bindings import NativeBinding
-from litellm.types.utils import EmbeddingResponse
+from embrouter.rust_bridge.bindings import NativeBinding
+from embrouter.types.utils import EmbeddingResponse
 
 
 @dataclass(frozen=True, slots=True)
-class LiteLLMEmbeddingRequest:
+class EmbRouterEmbeddingRequest:
     model: str
     input: object
     api_key: str | None
@@ -21,7 +21,7 @@ class LiteLLMEmbeddingRequest:
 class NativeEmbedding(Protocol):
     def __call__(
         self,
-        request: LiteLLMEmbeddingRequest,
+        request: EmbRouterEmbeddingRequest,
         args: tuple[object, ...],
         kwargs: Mapping[str, object],
     ) -> EmbeddingResponse: ...
@@ -30,7 +30,7 @@ class NativeEmbedding(Protocol):
 class NativeAembedding(Protocol):
     def __call__(
         self,
-        request: LiteLLMEmbeddingRequest,
+        request: EmbRouterEmbeddingRequest,
         args: tuple[object, ...],
         kwargs: Mapping[str, object],
     ) -> Awaitable[EmbeddingResponse]: ...

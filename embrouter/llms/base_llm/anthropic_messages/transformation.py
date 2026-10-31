@@ -4,18 +4,18 @@ from typing import TYPE_CHECKING, Any
 
 import httpx
 
-from litellm.types.llms.anthropic_messages.anthropic_response import (
+from embrouter.types.llms.anthropic_messages.anthropic_response import (
     AnthropicMessagesResponse,
 )
-from litellm.types.router import GenericLiteLLMParams
+from embrouter.types.router import GenericEmbRouterParams
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
-    from litellm.llms.base_llm.chat.transformation import BaseLLMException
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
+    from embrouter.llms.base_llm.chat.transformation import BaseLLMException
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 
 class BaseAnthropicMessagesConfig(ABC):
@@ -26,7 +26,7 @@ class BaseAnthropicMessagesConfig(ABC):
         model: str,
         messages: list[Any],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> tuple[dict, str | None]:
@@ -48,7 +48,7 @@ class BaseAnthropicMessagesConfig(ABC):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         """
@@ -70,7 +70,7 @@ class BaseAnthropicMessagesConfig(ABC):
         model: str,
         messages: list[dict],
         anthropic_messages_optional_request_params: dict,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> dict:
         pass
@@ -80,7 +80,7 @@ class BaseAnthropicMessagesConfig(ABC):
         self,
         model: str,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> AnthropicMessagesResponse:
         pass
 
@@ -136,14 +136,14 @@ class BaseAnthropicMessagesConfig(ABC):
         model: str,
         httpx_response: httpx.Response,
         request_body: dict,
-        litellm_logging_obj: LiteLLMLoggingObj,
+        embrouter_logging_obj: EmbRouterLoggingObj,
     ) -> AsyncIterator:
         raise NotImplementedError("Subclasses must implement this method")
 
     def get_error_class(
         self, error_message: str, status_code: int, headers: dict | httpx.Headers
     ) -> "BaseLLMException":
-        from litellm.llms.base_llm.chat.transformation import BaseLLMException
+        from embrouter.llms.base_llm.chat.transformation import BaseLLMException
 
         return BaseLLMException(message=error_message, status_code=status_code, headers=headers)
 
@@ -156,12 +156,12 @@ class BaseAnthropicMessagesConfig(ABC):
         """
         return 2
 
-    def should_retry_anthropic_messages_on_http_error(self, e: httpx.HTTPStatusError, litellm_params: dict) -> bool:
+    def should_retry_anthropic_messages_on_http_error(self, e: httpx.HTTPStatusError, embrouter_params: dict) -> bool:
         """
         When True, async_anthropic_messages_handler will transform the request body
         and issue one more attempt (bounded by max_retry_on_anthropic_messages_http_error).
         """
-        from litellm.llms.anthropic.common_utils import (
+        from embrouter.llms.anthropic.common_utils import (
             is_anthropic_invalid_thinking_block_error,
         )
 
@@ -171,7 +171,7 @@ class BaseAnthropicMessagesConfig(ABC):
         """
         Mutates request_data in place when retrying after a recoverable HTTP error.
         """
-        from litellm.llms.anthropic.common_utils import (
+        from embrouter.llms.anthropic.common_utils import (
             is_anthropic_invalid_thinking_block_error,
             strip_thinking_blocks_from_anthropic_messages_request_dict,
         )

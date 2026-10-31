@@ -481,7 +481,7 @@ const HealthCheckComponent: React.FC<HealthCheckComponentProps> = ({
           model_name: model.model_name,
           model_info: model.model_info,
           provider: model.provider,
-          litellm_model_name: model.litellm_model_name,
+          embrouter_model_name: model.embrouter_model_name,
           health_status: status.status,
           last_check: status.lastCheck,
           last_success: status.lastSuccess || "None",

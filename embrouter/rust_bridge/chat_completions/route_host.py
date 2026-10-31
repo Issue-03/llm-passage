@@ -3,11 +3,11 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Final
 
-import litellm
-from litellm.constants import OPENAI_CHAT_COMPLETION_PARAMS
-from litellm.rust_bridge import failures
-from litellm.rust_bridge.chat_completions.entrypoints import LiteLLMChatCompletionsRequest
-from litellm.types.utils import ModelResponse
+import embrouter
+from embrouter.constants import OPENAI_CHAT_COMPLETION_PARAMS
+from embrouter.rust_bridge import failures
+from embrouter.rust_bridge.chat_completions.entrypoints import EmbRouterChatCompletionsRequest
+from embrouter.types.utils import ModelResponse
 
 _TRANSPORT_PARAMETERS: Final = frozenset(
     {
@@ -29,7 +29,7 @@ PARAMETERS: Final = tuple(name for name in OPENAI_CHAT_COMPLETION_PARAMS if name
 
 def connection_defaults(provider: str) -> tuple[str | None, str | None]:
     if provider == "anthropic":
-        return litellm.anthropic_key or litellm.api_key, litellm.api_base
+        return embrouter.anthropic_key or embrouter.api_key, embrouter.api_base
     return None, None
 
 
@@ -37,10 +37,10 @@ def response(value: Mapping[str, object]) -> ModelResponse:
     return ModelResponse(**value)
 
 
-def arguments(request: LiteLLMChatCompletionsRequest) -> Mapping[str, object]:
+def arguments(request: EmbRouterChatCompletionsRequest) -> Mapping[str, object]:
     return request.kwargs
 
 
-def map_failure(error: Exception, request: LiteLLMChatCompletionsRequest) -> Exception:
+def map_failure(error: Exception, request: EmbRouterChatCompletionsRequest) -> Exception:
     provider: Final = request.custom_llm_provider or request.model.partition("/")[0]
     return failures.map_native_failure(error, request.model, provider, arguments(request), request.api_base)

@@ -17,7 +17,7 @@ import jwt as pyjwt
 import pytest
 from pydantic import SecretStr
 
-from litellm.proxy._experimental.mcp_server.outbound_credentials import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials import (
     ApiKeyConfig,
     AuthConfig,
     AuthorizationCodeConfig,
@@ -41,20 +41,20 @@ from litellm.proxy._experimental.mcp_server.outbound_credentials import (
     TokenExchangeConfig,
     UpstreamCredentialProvider,
 )
-from litellm.proxy._experimental.mcp_server.outbound_credentials.oauth_token_store import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.oauth_token_store import (
     OAuthToken,
     TokenStoreUnavailable,
 )
-from litellm.proxy._experimental.mcp_server.outbound_credentials.sso_assertion_refresher import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.sso_assertion_refresher import (
     RefreshingSSOAssertionStore,
     SSOAssertionRefresher,
     SSOClientConfig,
 )
-from litellm.proxy._experimental.mcp_server.outbound_credentials.sso_assertion_store import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.sso_assertion_store import (
     AssertionStoreUnavailable,
     SSOIdentityAssertion,
 )
-from litellm.proxy._experimental.mcp_server.outbound_credentials.token_endpoint import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.token_endpoint import (
     ExchangedToken,
 )
 
@@ -65,7 +65,7 @@ def _id_jag_config() -> IdJagConfig:
     return IdJagConfig(
         org_token_endpoint="https://idp.example.com/token",
         resource_token_endpoint="https://mcp-as.example.com/token",
-        client_id="litellm",
+        client_id="embrouter",
         client_auth=ClientSecretAuth(client_secret=SecretStr("s")),
         audience="api://mcp",
         scopes=("mcp.read",),
@@ -550,7 +550,7 @@ async def test_id_jag_without_inbound_token_or_stored_assertion_is_precondition_
 
 @pytest.mark.asyncio
 async def test_id_jag_exchanges_the_stored_sso_assertion_when_the_caller_presents_no_token():
-    """The agent-triggered flow: a brokered LiteLLM credential carries no IdP token, so leg 1's
+    """The agent-triggered flow: a brokered EmbRouter credential carries no IdP token, so leg 1's
     subject is the assertion captured for that user at SSO login."""
     endpoint = _FakeTokenEndpoint(_two_leg_ok("final-access"))
     store = _FakeAssertionStore({"alice": _assertion("alice-id-token")})
@@ -632,7 +632,7 @@ async def test_id_jag_renews_an_expired_stored_assertion_instead_of_challenging(
         _Transport(),
         client_config=lambda: SSOClientConfig(
             token_endpoint="https://idp.example.com/token",
-            client_id="litellm",
+            client_id="embrouter",
             client_secret=SecretStr("s"),
             auth_method="client_secret_basic",
         ),
@@ -720,7 +720,7 @@ async def test_id_jag_keeps_store_sourced_bearers_partitioned_per_user():
     assert _emitted(bob.ok)["Authorization"] == "Bearer bob-bearer"
 
 
-_DRIVER_DETAIL = "could not connect to host=pg-primary.internal port=5432 user=litellm"
+_DRIVER_DETAIL = "could not connect to host=pg-primary.internal port=5432 user=embrouter"
 
 
 class _OutageAssertionStore:
@@ -1069,7 +1069,7 @@ async def test_id_jag_reuses_the_cached_bearer_for_an_unchanged_config():
         _id_jag_config().model_copy(update={"scopes": ("mcp.read", "mcp.write")}),
         _id_jag_config().model_copy(update={"org_token_endpoint": "https://idp.example.com/v2/token"}),
         _id_jag_config().model_copy(update={"resource_token_endpoint": "https://mcp-as.example.com/v2/token"}),
-        _id_jag_config().model_copy(update={"client_id": "litellm-rotated"}),
+        _id_jag_config().model_copy(update={"client_id": "embrouter-rotated"}),
         _id_jag_config().model_copy(update={"client_auth": ClientSecretAuth(client_secret=SecretStr("rotated"))}),
         _id_jag_config().model_copy(update={"subject_token_type": "urn:ietf:params:oauth:token-type:saml2"}),
     ],
@@ -1220,7 +1220,7 @@ async def test_passthrough_ignores_the_carrier_and_keeps_the_callers_slot():
 async def test_resolved_source_matches_the_credential_sent_upstream(
     config: AuthConfig, subject: Subject, expected_source: str, expected_header: str | None
 ) -> None:
-    from litellm.proxy._experimental.mcp_server.outbound_credentials.resolver import resolve_credentials_with_source
+    from embrouter.proxy._experimental.mcp_server.outbound_credentials.resolver import resolve_credentials_with_source
 
     store = _FakeTokenStore({("alice", "s"): OAuthToken(access_token="stored-alice")})
     provider = UpstreamCredentialProvider(oauth_token_store=store)
@@ -1234,7 +1234,7 @@ async def test_resolved_source_matches_the_credential_sent_upstream(
 
 @pytest.mark.asyncio
 async def test_resolved_source_preserves_missing_user_token_error() -> None:
-    from litellm.proxy._experimental.mcp_server.outbound_credentials.resolver import resolve_credentials_with_source
+    from embrouter.proxy._experimental.mcp_server.outbound_credentials.resolver import resolve_credentials_with_source
 
     result = await resolve_credentials_with_source(UpstreamCredentialProvider(), _SUBJECT, _spec(AuthorizationCodeConfig()))
     assert isinstance(result, Error)
@@ -1243,7 +1243,7 @@ async def test_resolved_source_preserves_missing_user_token_error() -> None:
 
 @pytest.mark.asyncio
 async def test_minted_token_sources_match_egress_and_do_not_fetch_twice() -> None:
-    from litellm.proxy._experimental.mcp_server.outbound_credentials.resolver import resolve_credentials_with_source
+    from embrouter.proxy._experimental.mcp_server.outbound_credentials.resolver import resolve_credentials_with_source
 
     source = _FakeM2MSource(Ok(OAuthToken(access_token="m2m-at")))
     m2m = await resolve_credentials_with_source(UpstreamCredentialProvider(client_credentials_source=source), _SUBJECT, _spec(_M2M))
@@ -1263,7 +1263,7 @@ async def test_minted_token_sources_match_egress_and_do_not_fetch_twice() -> Non
 
 @pytest.mark.asyncio
 async def test_id_jag_source_describes_final_token_after_both_exchanges() -> None:
-    from litellm.proxy._experimental.mcp_server.outbound_credentials.resolver import resolve_credentials_with_source
+    from embrouter.proxy._experimental.mcp_server.outbound_credentials.resolver import resolve_credentials_with_source
 
     endpoint = _FakeTokenEndpoint(_two_leg_ok("resource-token"))
     provider = UpstreamCredentialProvider(token_endpoint=endpoint)

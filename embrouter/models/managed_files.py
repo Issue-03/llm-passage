@@ -1,19 +1,19 @@
 """
 Managed file, object, and vector store table models.
 
-Canonical definitions for the ``litellm_managed*`` tables. Re-exported from
-``litellm.proxy._types`` for backwards compatibility.
+Canonical definitions for the ``embrouter_managed*`` tables. Re-exported from
+``embrouter.proxy._types`` for backwards compatibility.
 """
 
 from datetime import datetime
 from typing import Any, Literal
 
-from litellm.types.llms.base import LiteLLMPydanticObjectBase
-from litellm.types.llms.openai import OpenAIFileObject, ResponsesAPIResponse
-from litellm.types.utils import LiteLLMBatch, LiteLLMFineTuningJob
+from embrouter.types.llms.base import EmbRouterPydanticObjectBase
+from embrouter.types.llms.openai import OpenAIFileObject, ResponsesAPIResponse
+from embrouter.types.utils import EmbRouterBatch, EmbRouterFineTuningJob
 
 
-class LiteLLM_ManagedFileTable(LiteLLMPydanticObjectBase):
+class EmbRouter_ManagedFileTable(EmbRouterPydanticObjectBase):
     unified_file_id: str
     file_object: OpenAIFileObject | None = None
     model_mappings: dict[str, str]
@@ -25,17 +25,17 @@ class LiteLLM_ManagedFileTable(LiteLLMPydanticObjectBase):
     storage_url: str | None = None
 
 
-class LiteLLM_ManagedObjectTable(LiteLLMPydanticObjectBase):
+class EmbRouter_ManagedObjectTable(EmbRouterPydanticObjectBase):
     unified_object_id: str
     model_object_id: str
     file_purpose: Literal["batch", "fine-tune", "response", "container"]
-    file_object: LiteLLMBatch | LiteLLMFineTuningJob | ResponsesAPIResponse
+    file_object: EmbRouterBatch | EmbRouterFineTuningJob | ResponsesAPIResponse
     created_by: str | None = None
     team_id: str | None = None
     org_id: str | None = None
 
 
-class LiteLLM_ManagedVectorStoreTable(LiteLLMPydanticObjectBase):
+class EmbRouter_ManagedVectorStoreTable(EmbRouterPydanticObjectBase):
     """Table for managing vector stores with target_model_names support."""
 
     unified_resource_id: str
@@ -49,7 +49,7 @@ class LiteLLM_ManagedVectorStoreTable(LiteLLMPydanticObjectBase):
     storage_url: str | None = None
 
 
-class LiteLLM_ManagedVectorStoresTable(LiteLLMPydanticObjectBase):
+class EmbRouter_ManagedVectorStoresTable(EmbRouterPydanticObjectBase):
     vector_store_id: str
     custom_llm_provider: str
     vector_store_name: str | None = None
@@ -57,8 +57,8 @@ class LiteLLM_ManagedVectorStoresTable(LiteLLMPydanticObjectBase):
     vector_store_metadata: dict[str, Any] | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
-    litellm_credential_name: str | None = None
-    litellm_params: dict[str, Any] | None = None
+    embrouter_credential_name: str | None = None
+    embrouter_params: dict[str, Any] | None = None
     team_id: str | None = None
     user_id: str | None = None
     is_config: bool = False

@@ -4,7 +4,7 @@ import inspect
 from typing import Any, Final
 from weakref import WeakKeyDictionary
 
-from litellm.constants import (
+from embrouter.constants import (
     COROUTINE_CHECKER_MAX_SIZE_IN_MEMORY,
 )
 

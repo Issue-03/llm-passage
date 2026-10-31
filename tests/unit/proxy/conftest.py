@@ -8,11 +8,11 @@ import warnings
 import pytest
 
 
-import litellm
-import litellm.proxy.proxy_server
+import embrouter
+import embrouter.proxy.proxy_server
 
 
-# Top-level assignments of these types are the ones importlib.reload(litellm)
+# Top-level assignments of these types are the ones importlib.reload(embrouter)
 # would have effectively reset. We snapshot them at conftest import time and
 # deep-copy the snapshot back before every test.
 _SNAPSHOT_TYPES = (list, dict, set, tuple, str, int, float, bool, bytes)
@@ -57,7 +57,7 @@ def _restore_mutable_state(module, snapshot):
 def _collect_flushable_caches():
     """Return (module, attr) pairs whose values expose flush_cache()."""
     targets = []
-    for module in (litellm, litellm.proxy.proxy_server):
+    for module in (embrouter, embrouter.proxy.proxy_server):
         for attr in list(vars(module)):
             if attr.startswith("_"):
                 continue
@@ -92,17 +92,17 @@ def _flush_caches(targets):
 
 
 # Snapshot once at conftest import — these are the "clean" module states.
-_LITELLM_STATE = _snapshot_mutable_state(litellm)
-_PROXY_SERVER_STATE = _snapshot_mutable_state(litellm.proxy.proxy_server)
+_EMBROUTER_STATE = _snapshot_mutable_state(embrouter)
+_PROXY_SERVER_STATE = _snapshot_mutable_state(embrouter.proxy.proxy_server)
 _FLUSHABLE_CACHES = _collect_flushable_caches()
 
 
 @pytest.fixture(scope="function", autouse=True)
 def setup_and_teardown():
-    """Reset mutable module state on litellm and proxy_server before each test.
+    """Reset mutable module state on embrouter and proxy_server before each test.
 
-    Replaces a previous importlib.reload(litellm) approach that cost ~17s
-    per test (re-executing the full litellm __init__ import chain).
+    Replaces a previous importlib.reload(embrouter) approach that cost ~17s
+    per test (re-executing the full embrouter __init__ import chain).
 
     What IS reset:
       - Top-level module attributes of type list / dict / set / tuple
@@ -122,8 +122,8 @@ def setup_and_teardown():
         Use pytest's monkeypatch.setattr() or a local fixture for those
         cases — don't rely on this autouse fixture to undo them.
     """
-    _restore_mutable_state(litellm, _LITELLM_STATE)
-    _restore_mutable_state(litellm.proxy.proxy_server, _PROXY_SERVER_STATE)
+    _restore_mutable_state(embrouter, _EMBROUTER_STATE)
+    _restore_mutable_state(embrouter.proxy.proxy_server, _PROXY_SERVER_STATE)
     _flush_caches(_FLUSHABLE_CACHES)
 
     loop = asyncio.get_event_loop_policy().new_event_loop()

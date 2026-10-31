@@ -1,22 +1,22 @@
 from types import MappingProxyType
 from typing import Final
 
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.agent_endpoints.auth.agent_access_groups import resolve_managed_agent_ceilings
-from litellm.proxy.agent_endpoints.managed_identity import raise_identity_failure
-from litellm.types.proxy.agent_identity import AgentIdentityFailure
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.agent_endpoints.auth.agent_access_groups import resolve_managed_agent_ceilings
+from embrouter.proxy.agent_endpoints.managed_identity import raise_identity_failure
+from embrouter.types.proxy.agent_identity import AgentIdentityFailure
 
 
 async def _delegated_resource_subject(user_id: str) -> UserAPIKeyAuth:
-    from litellm.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import MCPRequestHandler
+    from embrouter.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import MCPRequestHandler
 
     human: Final = await MCPRequestHandler.reload_admitted_user(user_id, requires_fresh_policy=True)
     return human.model_copy(update=MappingProxyType({"mcp_explicit_grants_only": True}))
 
 
 async def managed_agent_servers(auth: UserAPIKeyAuth) -> tuple[str, ...]:
-    from litellm.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import MCPRequestHandler
-    from litellm.proxy._experimental.mcp_server.mcp_server_manager import global_mcp_server_manager
+    from embrouter.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import MCPRequestHandler
+    from embrouter.proxy._experimental.mcp_server.mcp_server_manager import global_mcp_server_manager
 
     agent: Final = auth.managed_agent_policy
     if agent is None:
@@ -49,7 +49,7 @@ async def managed_agent_servers(auth: UserAPIKeyAuth) -> tuple[str, ...]:
 
 
 async def managed_agent_tools(server_id: str, auth: UserAPIKeyAuth) -> list[str] | None:
-    from litellm.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import MCPRequestHandler
+    from embrouter.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import MCPRequestHandler
 
     if server_id not in await managed_agent_servers(auth):
         return []

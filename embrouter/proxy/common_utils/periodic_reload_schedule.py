@@ -1,6 +1,6 @@
 """
 Persistence for the admin-configured periodic model cost map reload schedule stored in
-``LiteLLM_Config``.
+``EmbRouter_Config``.
 
 Field ownership is split by writer so concurrent writers never overwrite each other:
 the schedule endpoints own the ``param_value`` JSON (``interval_hours``), while the
@@ -27,13 +27,13 @@ from typing import (
 
 from pydantic import BaseModel, ConfigDict, ValidationError
 
-from litellm._logging import verbose_proxy_logger
-from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
-from litellm.proxy.utils import PrismaClient, evict_config_param
-from litellm.repositories.config_repository import ConfigRepository
+from embrouter._logging import verbose_proxy_logger
+from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps
+from embrouter.proxy.utils import PrismaClient, evict_config_param
+from embrouter.repositories.config_repository import ConfigRepository
 
 if TYPE_CHECKING:
-    from prisma.models import LiteLLM_Config
+    from prisma.models import EmbRouter_Config
 
 MODEL_COST_MAP_RELOAD_PARAM_NAME = "model_cost_map_reload_config"
 
@@ -55,9 +55,9 @@ class _ConfigUpsertData(TypedDict):
 
 
 class _ConfigTable(Protocol):
-    async def find_unique(self, where: Mapping[str, str]) -> "LiteLLM_Config | None": ...
+    async def find_unique(self, where: Mapping[str, str]) -> "EmbRouter_Config | None": ...
 
-    async def upsert(self, where: Mapping[str, str], data: _ConfigUpsertData) -> "LiteLLM_Config": ...
+    async def upsert(self, where: Mapping[str, str], data: _ConfigUpsertData) -> "EmbRouter_Config": ...
 
     async def update_many(self, data: _ConfigRowWrite, where: Mapping[str, str]) -> int: ...
 
@@ -108,7 +108,7 @@ def _as_utc(value: datetime | None) -> datetime | None:
     return value if value.tzinfo is not None else value.replace(tzinfo=timezone.utc)
 
 
-def parse_reload_schedule(row: "LiteLLM_Config") -> ReloadSchedule:
+def parse_reload_schedule(row: "EmbRouter_Config") -> ReloadSchedule:
     return ReloadSchedule(
         interval_hours=_parse_interval_hours(row.param_value),
         reload_revision=int(row.reload_revision or 0),

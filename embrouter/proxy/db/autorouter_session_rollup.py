@@ -23,14 +23,14 @@ from datetime import datetime, timezone
 from itertools import groupby
 from typing import TYPE_CHECKING, Final, NamedTuple
 
-from litellm._logging import verbose_proxy_logger
-from litellm.constants import INTERNAL_CALL_ORIGIN_METADATA_KEY
-from litellm.proxy._types import DB_RETRY_SAFE_ERROR_TYPES
-from litellm.proxy.db.create_views import SupportsExecuteRaw
+from embrouter._logging import verbose_proxy_logger
+from embrouter.constants import INTERNAL_CALL_ORIGIN_METADATA_KEY
+from embrouter.proxy._types import DB_RETRY_SAFE_ERROR_TYPES
+from embrouter.proxy.db.create_views import SupportsExecuteRaw
 
 if TYPE_CHECKING:
-    from litellm.proxy._types import SpendLogsPayload
-    from litellm.proxy.utils import PrismaClient
+    from embrouter.proxy._types import SpendLogsPayload
+    from embrouter.proxy.utils import PrismaClient
 
 CACHE_TTL_5M_SECONDS: Final = 300
 CACHE_TTL_1H_SECONDS: Final = 3600
@@ -47,13 +47,13 @@ _SESSION_COLUMNS: Final = """
 
 AUTOROUTER_SESSION_WINDOW_SQL: Final = f"""
 windowed AS (
-    SELECT {_SESSION_COLUMNS}, NULL::text AS comparison_user_id FROM "LiteLLM_AutoRouterSession"
+    SELECT {_SESSION_COLUMNS}, NULL::text AS comparison_user_id FROM "EmbRouter_AutoRouterSession"
     WHERE $4::text IS NULL
       AND last_turn_at >= $1::timestamp
       AND first_turn_at < $2::timestamp
       AND ($3::text IS NULL OR api_key = $3::text)
     UNION ALL
-    SELECT {_SESSION_COLUMNS}, user_id AS comparison_user_id FROM "LiteLLM_AutoRouterUserSession"
+    SELECT {_SESSION_COLUMNS}, user_id AS comparison_user_id FROM "EmbRouter_AutoRouterUserSession"
     WHERE (($4::text IS NOT NULL AND user_id = $4::text) OR ($4::text IS NULL AND api_key = ''))
       AND last_turn_at >= $1::timestamp
       AND first_turn_at < $2::timestamp
@@ -152,7 +152,7 @@ class TurnCacheFacts(NamedTuple):
 
 
 def turn_cache_facts(usage_object: Mapping[str, object] | None) -> TurnCacheFacts:
-    from litellm.proxy.spend_tracking.savings import extract_cache_read_tokens
+    from embrouter.proxy.spend_tracking.savings import extract_cache_read_tokens
 
     covered: Final = bool(usage_object)
     read_tokens: Final = extract_cache_read_tokens(usage_object)
@@ -181,7 +181,7 @@ def _write_ttl_seconds(usage_object: Mapping[str, object] | None) -> int | None:
     Providers that report a TTL split do so under prompt_tokens_details; a write with no
     split is the provider's default five-minute cache.
     """
-    from litellm.proxy.spend_tracking.savings import extract_cache_creation_tokens
+    from embrouter.proxy.spend_tracking.savings import extract_cache_creation_tokens
 
     if not usage_object:
         return None
@@ -247,7 +247,7 @@ def build_autorouter_turn_transaction(
     turn_at: Final = _turn_time_utc(str(payload.get("startTime") or ""))
     if turn_at is None:
         return None
-    from litellm.proxy.spend_tracking.savings import (
+    from embrouter.proxy.spend_tracking.savings import (
         classifier_cost_from_decision,
         recorded_estimated_autorouter_savings,
     )
@@ -321,7 +321,7 @@ _CACHE_TOUCHED: Final = f"{_TOUCHED}::int = 1"
 
 
 def _session_upsert_sql(*, user_scoped: bool) -> str:
-    table_name: Final = "LiteLLM_AutoRouterUserSession" if user_scoped else "LiteLLM_AutoRouterSession"
+    table_name: Final = "EmbRouter_AutoRouterUserSession" if user_scoped else "EmbRouter_AutoRouterSession"
     user_column: Final = "user_id, " if user_scoped else ""
     user_value: Final = f"{_p('user_id')}::text, " if user_scoped else ""
     required_identity: Final = _p("user_id" if user_scoped else "api_key")

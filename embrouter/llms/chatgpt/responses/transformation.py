@@ -3,25 +3,25 @@ from typing import TYPE_CHECKING, Any, Final
 
 import httpx
 
-from litellm.exceptions import AuthenticationError
-from litellm.litellm_core_utils.core_helpers import process_response_headers
-from litellm.litellm_core_utils.llm_response_utils.convert_dict_to_response import (
+from embrouter.exceptions import AuthenticationError
+from embrouter.embrouter_core_utils.core_helpers import process_response_headers
+from embrouter.embrouter_core_utils.llm_response_utils.convert_dict_to_response import (
     _safe_convert_created_field,
 )
-from litellm.llms.openai.common_utils import OpenAIError
-from litellm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
-from litellm.responses.sse_output_recovery import (
+from embrouter.llms.openai.common_utils import OpenAIError
+from embrouter.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
+from embrouter.responses.sse_output_recovery import (
     parse_sse_json_chunk,
     record_output_item_chunk,
     record_output_text_chunk,
 )
-from litellm.types.llms.openai import (
+from embrouter.types.llms.openai import (
     ResponseInputParam,
     ResponsesAPIResponse,
     ResponsesAPIStreamEvents,
 )
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import LlmProviders
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import LlmProviders
 
 from ..authenticator import Authenticator
 from ..common_utils import (
@@ -33,7 +33,7 @@ from ..common_utils import (
 )
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
 
 
 class ChatGPTResponsesAPIConfig(OpenAIResponsesAPIConfig):
@@ -49,7 +49,7 @@ class ChatGPTResponsesAPIConfig(OpenAIResponsesAPIConfig):
         self,
         headers: dict,
         model: str,
-        litellm_params: GenericLiteLLMParams | None,
+        embrouter_params: GenericEmbRouterParams | None,
     ) -> dict:
         try:
             access_token: Final = self.authenticator.get_access_token()
@@ -61,7 +61,7 @@ class ChatGPTResponsesAPIConfig(OpenAIResponsesAPIConfig):
             )
 
         account_id: Final = self.authenticator.get_account_id()
-        session_id: Final = ensure_chatgpt_session_id(litellm_params)
+        session_id: Final = ensure_chatgpt_session_id(embrouter_params)
         default_headers: Final = get_chatgpt_default_headers(access_token, account_id, session_id)
         return {**default_headers, **headers}
 
@@ -70,14 +70,14 @@ class ChatGPTResponsesAPIConfig(OpenAIResponsesAPIConfig):
         model: str,
         input: str | ResponseInputParam,
         response_api_optional_request_params: dict,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> dict:
         request: Final = super().transform_responses_api_request(
             model,
             input,
             response_api_optional_request_params,
-            litellm_params,
+            embrouter_params,
             headers,
         )
         base_instructions: Final = get_chatgpt_default_instructions()
@@ -114,7 +114,7 @@ class ChatGPTResponsesAPIConfig(OpenAIResponsesAPIConfig):
         self,
         model: str,
         raw_response: httpx.Response,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
     ) -> ResponsesAPIResponse:
         body_text: Final = raw_response.text or ""
         if not self._should_parse_as_sse(raw_response=raw_response, body_text=body_text):
@@ -239,7 +239,7 @@ class ChatGPTResponsesAPIConfig(OpenAIResponsesAPIConfig):
     def get_complete_url(
         self,
         api_base: str | None,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> str:
         api_base = api_base or self.authenticator.get_api_base() or CHATGPT_API_BASE
         api_base = api_base.rstrip("/")

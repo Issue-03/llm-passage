@@ -11,15 +11,15 @@ from urllib.parse import urlparse
 
 import httpx
 
-import litellm
-from litellm.constants import OPENAI_SYSTEM_MESSAGES_FIRST_PROVIDERS
-from litellm.litellm_core_utils.core_helpers import map_finish_reason
-from litellm.litellm_core_utils.llm_response_utils.convert_dict_to_response import (
+import embrouter
+from embrouter.constants import OPENAI_SYSTEM_MESSAGES_FIRST_PROVIDERS
+from embrouter.embrouter_core_utils.core_helpers import map_finish_reason
+from embrouter.embrouter_core_utils.llm_response_utils.convert_dict_to_response import (
     _extract_reasoning_content,
     _handle_invalid_parallel_tool_calls,
     _should_convert_tool_call_to_json_mode,
 )
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
     drop_non_python_regex_patterns,
     drop_tool_reference_parts_from_tool_messages,
     flatten_combinators_and_drop_non_python_regex_patterns,
@@ -28,15 +28,15 @@ from litellm.litellm_core_utils.prompt_templates.common_utils import (
     system_messages_first,
     tool_with_sanitized_parameters,
 )
-from litellm.litellm_core_utils.prompt_templates.image_handling import (
+from embrouter.embrouter_core_utils.prompt_templates.image_handling import (
     async_convert_url_to_base64,
     convert_url_to_base64,
 )
-from litellm.llms.base_llm.base_model_iterator import BaseModelResponseIterator
-from litellm.llms.base_llm.base_utils import BaseLLMModelInfo
-from litellm.llms.base_llm.chat.transformation import BaseConfig, BaseLLMException
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.openai import (
+from embrouter.llms.base_llm.base_model_iterator import BaseModelResponseIterator
+from embrouter.llms.base_llm.base_utils import BaseLLMModelInfo
+from embrouter.llms.base_llm.chat.transformation import BaseConfig, BaseLLMException
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.openai import (
     AllMessageValues,
     ChatCompletionFileObject,
     ChatCompletionFileObjectFile,
@@ -45,7 +45,7 @@ from litellm.types.llms.openai import (
     OpenAIChatCompletionChoices,
     OpenAIMessageContentListBlock,
 )
-from litellm.types.utils import (
+from embrouter.types.utils import (
     ChatCompletionMessageCustomToolCall,
     ChatCompletionMessageToolCall,
     Choices,
@@ -55,19 +55,19 @@ from litellm.types.utils import (
     ModelResponseStream,
     chat_completion_tool_call_from_dict,
 )
-from litellm.utils import convert_to_model_response_object
+from embrouter.utils import convert_to_model_response_object
 
 from ..common_utils import OpenAIError
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
-    from litellm.llms.base_llm.base_utils import BaseTokenCounter
-    from litellm.types.llms.openai import ChatCompletionToolParam
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.llms.base_llm.base_utils import BaseTokenCounter
+    from embrouter.types.llms.openai import ChatCompletionToolParam
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 
 _NO_TOOLS_UPDATE: Final[Mapping[str, object]] = MappingProxyType({})
@@ -188,8 +188,8 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
     def is_openai_catalog_model(model: str) -> bool:
         model_for_check: Final = model.split("responses/", 1)[1] if "responses/" in model else model
         return (
-            model_for_check in litellm.open_ai_chat_completion_models
-            or model_for_check in litellm.open_ai_text_completion_models
+            model_for_check in embrouter.open_ai_chat_completion_models
+            or model_for_check in embrouter.open_ai_text_completion_models
         )
 
     def _map_openai_params(
@@ -267,7 +267,7 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
         self,
         content_item: OpenAIMessageContentListBlock,
     ) -> OpenAIMessageContentListBlock:
-        litellm_specific_params: Final = {"format"}
+        embrouter_specific_params: Final = {"format"}
         if content_item.get("type") == "image_url":
             content_item = cast(ChatCompletionImageObject, content_item)
             if isinstance(content_item["image_url"], str):
@@ -276,20 +276,20 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
                 }
             elif isinstance(content_item["image_url"], dict):
                 new_image_url_obj: Final = ChatCompletionImageUrlObject(
-                    **{k: v for k, v in content_item["image_url"].items() if k not in litellm_specific_params}
+                    **{k: v for k, v in content_item["image_url"].items() if k not in embrouter_specific_params}
                 )
                 content_item["image_url"] = new_image_url_obj
         elif content_item.get("type") == "file":
             content_item = cast(ChatCompletionFileObject, content_item)
             file_obj: Final = content_item.get("file")
             if file_obj is None:
-                raise litellm.BadRequestError(
+                raise embrouter.BadRequestError(
                     message="Content block has type='file' but is missing the required 'file' field",
                     model=None,
                     llm_provider="openai",
                 )
             new_file_obj: Final = ChatCompletionFileObjectFile(
-                **{k: v for k, v in file_obj.items() if k not in litellm_specific_params}
+                **{k: v for k, v in file_obj.items() if k not in embrouter_specific_params}
             )
             content_item["file"] = new_file_obj
 
@@ -387,10 +387,10 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
         messages: list[AllMessageValues],
         tools: list["ChatCompletionToolParam"] | None = None,
     ) -> tuple[list[AllMessageValues], list["ChatCompletionToolParam"] | None]:
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             filter_value_from_dict,
         )
-        from litellm.types.llms.openai import ChatCompletionToolParam
+        from embrouter.types.llms.openai import ChatCompletionToolParam
 
         for i, message in enumerate(messages):
             messages[i] = cast(
@@ -412,7 +412,7 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
     ) -> bool:
         if custom_llm_provider != "openai":
             return False
-        resolved_api_base = api_base or litellm.api_base or os.getenv("OPENAI_BASE_URL") or os.getenv("OPENAI_API_BASE")
+        resolved_api_base = api_base or embrouter.api_base or os.getenv("OPENAI_BASE_URL") or os.getenv("OPENAI_API_BASE")
         if not resolved_api_base:
             return True
         hostname: Final = urlparse(resolved_api_base).hostname
@@ -427,7 +427,7 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
     ) -> bool:
         """
         The generic `openai` provider also reaches OpenAI-compatible endpoints
-        (a LiteLLM proxy, vLLM, an Anthropic-compatible gateway) via a custom
+        (a EmbRouter proxy, vLLM, an Anthropic-compatible gateway) via a custom
         api_base. Those can understand cache_control, so it must survive there.
         Real OpenAI cannot, so it is still stripped for an openai.com host.
         """
@@ -438,7 +438,7 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
     def _sanitized_tools_update_for_openai(
         self,
         optional_params: Mapping[str, object],
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
     ) -> Mapping[str, object]:
         """
         OpenAI's chat completions validator rejects tool `parameters` carrying
@@ -450,10 +450,10 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
         combinator flattening stays limited to api.openai.com hosts.
         """
         tools: Final = optional_params.get("tools")
-        provider: Final = litellm_params.get("custom_llm_provider")
+        provider: Final = embrouter_params.get("custom_llm_provider")
         if not isinstance(tools, list) or provider != "openai":
             return _NO_TOOLS_UPDATE
-        raw_api_base: Final = litellm_params.get("api_base")
+        raw_api_base: Final = embrouter_params.get("api_base")
         sanitize: Final = (
             flatten_combinators_and_drop_non_python_regex_patterns
             if self._targets_openai_hosted_endpoint(provider, raw_api_base if isinstance(raw_api_base, str) else None)
@@ -465,11 +465,11 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
         return MappingProxyType({"tools": sanitized})
 
     def _prompt_cache_ordered_messages(
-        self, messages: list[AllMessageValues], litellm_params: Mapping[str, object]
+        self, messages: list[AllMessageValues], embrouter_params: Mapping[str, object]
     ) -> list[AllMessageValues]:
-        if not litellm.openai_system_messages_first:
+        if not embrouter.openai_system_messages_first:
             return messages
-        if litellm_params.get("custom_llm_provider") not in OPENAI_SYSTEM_MESSAGES_FIRST_PROVIDERS:
+        if embrouter_params.get("custom_llm_provider") not in OPENAI_SYSTEM_MESSAGES_FIRST_PROVIDERS:
             return messages
         return system_messages_first(messages)
 
@@ -478,7 +478,7 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         """
@@ -488,10 +488,10 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
             dict: The transformed request. Sent as the body of the API call.
         """
         messages = self._transform_messages(
-            messages=self._prompt_cache_ordered_messages(messages, litellm_params), model=model
+            messages=self._prompt_cache_ordered_messages(messages, embrouter_params), model=model
         )
         if not self._should_preserve_cache_control_for_endpoint(
-            litellm_params.get("custom_llm_provider"), litellm_params.get("api_base")
+            embrouter_params.get("custom_llm_provider"), embrouter_params.get("api_base")
         ):
             messages, tools = self.remove_cache_control_flag_from_messages_and_tools(
                 model=model, messages=messages, tools=optional_params.get("tools", [])
@@ -507,7 +507,7 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
             "model": model,
             "messages": messages,
             **optional_params,
-            **self._sanitized_tools_update_for_openai(optional_params, litellm_params),
+            **self._sanitized_tools_update_for_openai(optional_params, embrouter_params),
         }
 
     async def async_transform_request(
@@ -515,14 +515,14 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         transformed_messages = await self._transform_messages(
-            messages=self._prompt_cache_ordered_messages(messages, litellm_params), model=model, is_async=True
+            messages=self._prompt_cache_ordered_messages(messages, embrouter_params), model=model, is_async=True
         )
         if not self._should_preserve_cache_control_for_endpoint(
-            litellm_params.get("custom_llm_provider"), litellm_params.get("api_base")
+            embrouter_params.get("custom_llm_provider"), embrouter_params.get("api_base")
         ):
             (
                 transformed_messages,
@@ -541,11 +541,11 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
                 "model": model,
                 "messages": transformed_messages,
                 **optional_params,
-                **self._sanitized_tools_update_for_openai(optional_params, litellm_params),
+                **self._sanitized_tools_update_for_openai(optional_params, embrouter_params),
             }
         else:
             ## allow for any object specific behaviour to be handled
-            return self.transform_request(model, messages, optional_params, litellm_params, headers)
+            return self.transform_request(model, messages, optional_params, embrouter_params, headers)
 
     def _passed_in_tools(self, optional_params: dict) -> bool:
         return optional_params.get("tools", None) is not None
@@ -663,11 +663,11 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
         model: str,
         raw_response: httpx.Response,
         model_response: ModelResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         request_data: dict,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,
@@ -720,7 +720,7 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         """
@@ -748,7 +748,7 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
@@ -777,7 +777,7 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
         if parsed_url.port:
             base_url += f":{parsed_url.port}"
 
-        response: Final = litellm.module_level_client.get(
+        response: Final = embrouter.module_level_client.get(
             url=f"{base_url}/v1/models",
             headers={"Authorization": f"Bearer {api_key}"},
         )
@@ -790,13 +790,13 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
 
     @staticmethod
     def get_api_key(api_key: str | None = None) -> str | None:
-        return api_key or litellm.api_key or litellm.openai_key or get_secret_str("OPENAI_API_KEY")
+        return api_key or embrouter.api_key or embrouter.openai_key or get_secret_str("OPENAI_API_KEY")
 
     @staticmethod
     def get_api_base(api_base: str | None = None) -> str | None:
         return (
             api_base
-            or litellm.api_base
+            or embrouter.api_base
             or get_secret_str("OPENAI_BASE_URL")
             or get_secret_str("OPENAI_API_BASE")
             or "https://api.openai.com/v1"
@@ -807,7 +807,7 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
         return model
 
     def get_token_counter(self) -> Optional["BaseTokenCounter"]:
-        from litellm.llms.openai.responses.count_tokens.token_counter import (
+        from embrouter.llms.openai.responses.count_tokens.token_counter import (
             OpenAITokenCounter,
         )
 
@@ -827,7 +827,7 @@ class OpenAIGPTConfig(BaseLLMModelInfo, BaseConfig):
 
 
 class OpenAIUnknownModelConfig(OpenAIGPTConfig):
-    """A model the openai provider does not recognize is typically a LiteLLM proxy alias, so
+    """A model the openai provider does not recognize is typically a EmbRouter proxy alias, so
     forward reasoning_effort and let the server decide whether it is supported."""
 
     def get_supported_openai_params(self, model: str) -> list:  # mutable-ok: inherited contract
@@ -840,7 +840,7 @@ class OpenAIChatCompletionStreamingHandler(BaseModelResponseIterator):
         Map 'reasoning' field to 'reasoning_content' field in delta.
 
         Some OpenAI-compatible providers (e.g., GLM-5, hosted_vllm) return
-        delta.reasoning, but LiteLLM expects delta.reasoning_content.
+        delta.reasoning, but EmbRouter expects delta.reasoning_content.
 
         Args:
             choices: List of choice objects from the streaming chunk

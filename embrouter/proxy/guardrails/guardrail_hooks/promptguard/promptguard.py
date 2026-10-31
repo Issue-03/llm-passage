@@ -1,5 +1,5 @@
 """
-PromptGuard guardrail integration for LiteLLM.
+PromptGuard guardrail integration for EmbRouter.
 
 Calls the PromptGuard Guard API to scan messages for prompt
 injection, PII, topic violations, and entity blocklist matches
@@ -12,25 +12,25 @@ from typing import TYPE_CHECKING, Final, Literal, Optional, TypedDict
 from typing_extensions import ReadOnly, Unpack
 from typing_extensions import TypedDict as ExtraItemsTypedDict
 
-from litellm._logging import verbose_proxy_logger
-from litellm.exceptions import GuardrailRaisedException
-from litellm.integrations.custom_guardrail import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.exceptions import GuardrailRaisedException
+from embrouter.integrations.custom_guardrail import (
     CustomGuardrail,
     log_guardrail_information,
 )
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.utils import GenericGuardrailAPIInputs
+from embrouter.types.guardrails import GuardrailEventHooks
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.utils import GenericGuardrailAPIInputs
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import (
-        Logging as LiteLLMLoggingObj,
+    from embrouter.embrouter_core_utils.embrouter_logging import (
+        Logging as EmbRouterLoggingObj,
     )
-    from litellm.types.proxy.guardrails.guardrail_hooks.base import (
+    from embrouter.types.proxy.guardrails.guardrail_hooks.base import (
         GuardrailConfigModel,
     )
 
@@ -106,7 +106,7 @@ class PromptGuardGuardrail(CustomGuardrail):
 
     @staticmethod
     def get_config_model() -> type["GuardrailConfigModel"] | None:
-        from litellm.types.proxy.guardrails.guardrail_hooks.promptguard import (
+        from embrouter.types.proxy.guardrails.guardrail_hooks.promptguard import (
             PromptGuardConfigModel,
         )
 
@@ -125,7 +125,7 @@ class PromptGuardGuardrail(CustomGuardrail):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict[str, object],
         input_type: Literal["request", "response"],
-        logging_obj: Optional["LiteLLMLoggingObj"] = None,
+        logging_obj: Optional["EmbRouterLoggingObj"] = None,
     ) -> GenericGuardrailAPIInputs:
         texts: Final = inputs.get("texts", [])
         images: Final = inputs.get("images", [])

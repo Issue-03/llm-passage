@@ -1,7 +1,7 @@
 """
 BETA
 
-This is the PubSub logger for GCS PubSub, this sends LiteLLM SpendLogs Payloads to GCS PubSub.
+This is the PubSub logger for GCS PubSub, this sends EmbRouter SpendLogs Payloads to GCS PubSub.
 
 Users can use this instead of sending their SpendLogs to their Postgres database.
 """
@@ -12,17 +12,17 @@ import os
 import traceback
 from typing import TYPE_CHECKING, Any, Final
 
-from litellm.types.utils import StandardLoggingPayload
+from embrouter.types.utils import StandardLoggingPayload
 
 if TYPE_CHECKING:
-    from litellm.proxy._types import SpendLogsPayload
+    from embrouter.proxy._types import SpendLogsPayload
 else:
     SpendLogsPayload = Any
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.integrations.custom_batch_logger import CustomBatchLogger
-from litellm.llms.custom_httpx.http_handler import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.integrations.custom_batch_logger import CustomBatchLogger
+from embrouter.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
     httpxSpecialProvider,
 )
@@ -44,7 +44,7 @@ class GcsPubSubLogger(CustomBatchLogger):
             topic_id (str): Pub/Sub topic ID
             credentials_path (str, optional): Path to Google Cloud credentials JSON file
         """
-        from litellm.proxy.utils import _premium_user_check
+        from embrouter.proxy.utils import _premium_user_check
 
         _premium_user_check()
 
@@ -64,7 +64,7 @@ class GcsPubSubLogger(CustomBatchLogger):
 
     async def construct_request_headers(self) -> dict[str, str]:
         """Construct authorization headers using Vertex AI auth"""
-        from litellm import vertex_chat_completion
+        from embrouter import vertex_chat_completion
 
         (
             _auth_header,
@@ -104,10 +104,10 @@ class GcsPubSubLogger(CustomBatchLogger):
         Raises:
             Raises a NON Blocking verbose_logger.exception if an error occurs
         """
-        from litellm.proxy.spend_tracking.spend_tracking_utils import (
+        from embrouter.proxy.spend_tracking.spend_tracking_utils import (
             get_logging_payload,
         )
-        from litellm.proxy.utils import _premium_user_check
+        from embrouter.proxy.utils import _premium_user_check
 
         _premium_user_check()
 
@@ -116,7 +116,7 @@ class GcsPubSubLogger(CustomBatchLogger):
             standard_logging_payload: Final = kwargs.get("standard_logging_object", None)
 
             # Backwards compatibility with old logging payload
-            if litellm.gcs_pub_sub_use_v1 is True:
+            if embrouter.gcs_pub_sub_use_v1 is True:
                 spend_logs_payload: Final = get_logging_payload(
                     kwargs=kwargs,
                     response_obj=response_obj,

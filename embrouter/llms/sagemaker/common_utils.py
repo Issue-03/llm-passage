@@ -5,11 +5,11 @@ from typing import Final
 
 import httpx
 
-import litellm
-from litellm import verbose_logger
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.types.utils import GenericStreamingChunk as GChunk
-from litellm.types.utils import StreamingChatCompletionChunk
+import embrouter
+from embrouter import verbose_logger
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.types.utils import GenericStreamingChunk as GChunk
+from embrouter.types.utils import StreamingChatCompletionChunk
 
 
 def _load_sagemaker_response_stream_shape():
@@ -22,7 +22,7 @@ def _load_sagemaker_response_stream_shape():
         return ServiceModel(service_dict).shape_for("InvokeEndpointWithResponseStreamOutput")
     except Exception as e:
         verbose_logger.warning(
-            "litellm: could not load sagemaker-runtime response stream shape "
+            "embrouter: could not load sagemaker-runtime response stream shape "
             "— SageMaker event-stream decoding will be unavailable. Error: %s",
             e,
         )
@@ -102,7 +102,7 @@ class AWSEventStreamDecoder:
                 message = self._parse_message_from_event(event)
                 if message:
                     # remove data: prefix and "\n\n" at the end
-                    message = litellm.CustomStreamWrapper._strip_sse_data_from_chunk(message) or ""
+                    message = embrouter.CustomStreamWrapper._strip_sse_data_from_chunk(message) or ""
                     message = message.replace("\n\n", "")
 
                     # Accumulate JSON data
@@ -151,7 +151,7 @@ class AWSEventStreamDecoder:
                     if message:
                         verbose_logger.debug("sagemaker  parsed chunk bytes %s", message)
                         # remove data: prefix and "\n\n" at the end
-                        message = litellm.CustomStreamWrapper._strip_sse_data_from_chunk(message) or ""
+                        message = embrouter.CustomStreamWrapper._strip_sse_data_from_chunk(message) or ""
                         message = message.replace("\n\n", "")
 
                         # Accumulate JSON data

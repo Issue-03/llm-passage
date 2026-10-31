@@ -11,13 +11,13 @@ import threading
 
 import pytest
 
-from litellm.litellm_core_utils.fallback_generalizations import (
+from embrouter.embrouter_core_utils.fallback_generalizations import (
     get_fallback_generalization_rules,
     match_capability_generalizations,
     match_routing_generalization,
     set_fallback_generalizations,
 )
-from litellm.litellm_core_utils.get_model_cost_map import (
+from embrouter.embrouter_core_utils.get_model_cost_map import (
     FALLBACK_GENERALIZATIONS_KEY,
     GetModelCostMap,
     _count_model_entries,
@@ -34,7 +34,7 @@ def _load_root_cost_map() -> dict:
 
 
 def _bundled_blob_id() -> str:
-    path = os.path.join(os.path.dirname(__file__), "../../../litellm/model_prices_and_context_window_backup.json")
+    path = os.path.join(os.path.dirname(__file__), "../../../embrouter/model_prices_and_context_window_backup.json")
     with open(path, "rb") as f:
         return git_blob_id(f.read())
 
@@ -44,7 +44,7 @@ def test_git_blob_id_is_what_git_hash_object_prints():
 
 
 def _make_models(n: int) -> dict:
-    return {f"model-{i}": {"litellm_provider": "openai", "mode": "chat"} for i in range(n)}
+    return {f"model-{i}": {"embrouter_provider": "openai", "mode": "chat"} for i in range(n)}
 
 
 def test_count_model_entries_excludes_reserved_keys():
@@ -110,7 +110,7 @@ def test_finalize_pops_key_and_installs_rules():
                 {
                     "name": "rule",
                     "pattern": r"^widget-",
-                    "model_info": {"litellm_provider": "openai"},
+                    "model_info": {"embrouter_provider": "openai"},
                 }
             ]
         }
@@ -153,7 +153,7 @@ def test_shipped_backup_carries_the_claude_routing_rules():
 
 
 def test_shipped_routing_rules_never_match_through_an_unrecognized_namespace():
-    """Routing rules decide ``litellm_provider`` for otherwise-unknown ids, and the
+    """Routing rules decide ``embrouter_provider`` for otherwise-unknown ids, and the
     proxy's wildcard access check (``can_key_call_model`` with a ``bedrock/*`` key)
     trusts that inference: it rebuilds ``{provider}/{model}`` and matches it against
     the key's patterns. A routing pattern that matches as a substring lets
@@ -163,7 +163,7 @@ def test_shipped_routing_rules_never_match_through_an_unrecognized_namespace():
     backup = GetModelCostMap.load_local_model_cost_map()
     rules = backup[FALLBACK_GENERALIZATIONS_KEY]["rules"]
 
-    routing_rules = [r for r in rules if "litellm_provider" in r["model_info"]]
+    routing_rules = [r for r in rules if "embrouter_provider" in r["model_info"]]
     assert routing_rules
     assert all(r["pattern"].startswith("^") for r in routing_rules)
 
@@ -204,7 +204,7 @@ def test_shipped_backup_marks_claude_4_6_plus_adaptive_not_4_0():
     baseline_rule = next(r for r in rules if r.get("name") == "claude-family-baseline")
     adaptive_rule = next(r for r in rules if r.get("name") == "claude-adaptive-thinking")
     assert "supports_adaptive_thinking" not in baseline_rule["model_info"]
-    assert "litellm_provider" not in baseline_rule["model_info"]
+    assert "embrouter_provider" not in baseline_rule["model_info"]
     assert adaptive_rule["model_info"] == {"supports_adaptive_thinking": True}
     assert all("extends" not in r for r in rules)
 
@@ -252,7 +252,7 @@ def test_get_model_cost_map_stamps_loaded_at():
     would make manual reload requests race the proxy's startup"""
     from datetime import datetime, timezone
 
-    from litellm.litellm_core_utils import get_model_cost_map as module
+    from embrouter.embrouter_core_utils import get_model_cost_map as module
 
     client, _calls = _mock_client([httpx.Response(200, content=_real_map_bytes())], client_cls=httpx.Client)
 
@@ -274,7 +274,7 @@ from datetime import datetime, timezone
 
 import httpx
 
-from litellm.litellm_core_utils.get_model_cost_map import (
+from embrouter.embrouter_core_utils.get_model_cost_map import (
     ModelCostMapReloaded,
     ModelCostMapReloadUnavailable,
     refetch_model_cost_map,
@@ -300,8 +300,8 @@ class _SleepRecorder:
 
 @pytest.fixture(autouse=True)
 def _unset_local_cost_map_env(monkeypatch):
-    """CI exports LITELLM_LOCAL_MODEL_COST_MAP=True; clear it so fetch behavior is deterministic."""
-    monkeypatch.delenv("LITELLM_LOCAL_MODEL_COST_MAP", raising=False)
+    """CI exports EMBROUTER_LOCAL_MODEL_COST_MAP=True; clear it so fetch behavior is deterministic."""
+    monkeypatch.delenv("EMBROUTER_LOCAL_MODEL_COST_MAP", raising=False)
 
 
 def _mock_client(outcomes, client_cls=httpx.AsyncClient):
@@ -418,8 +418,8 @@ async def test_refetch_shrunk_map_fails_integrity_not_swapped_in():
 
 @pytest.mark.asyncio
 async def test_refetch_respects_local_env_override(monkeypatch):
-    """LITELLM_LOCAL_MODEL_COST_MAP=True short-circuits to the bundled backup, zero HTTP."""
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
+    """EMBROUTER_LOCAL_MODEL_COST_MAP=True short-circuits to the bundled backup, zero HTTP."""
+    monkeypatch.setenv("EMBROUTER_LOCAL_MODEL_COST_MAP", "True")
 
     def _fail(request):
         raise AssertionError("no HTTP request should be made when local map is forced")
@@ -449,7 +449,7 @@ async def test_refetch_records_the_blob_id_of_the_bytes_served_and_the_fetch_eta
 
 @pytest.mark.asyncio
 async def test_loaded_catalog_snapshot_follows_the_fetched_map_and_ignores_later_registrations(monkeypatch):
-    import litellm
+    import embrouter
 
     edited = json.loads(_real_map_bytes())
     edited["gpt-5.4-mini"]["max_input_tokens"] = 777
@@ -458,9 +458,9 @@ async def test_loaded_catalog_snapshot_follows_the_fetched_map_and_ignores_later
     result = await refetch_model_cost_map(url=_URL, sleep=_SleepRecorder(), rng=random.Random(0), client=client)
 
     assert isinstance(result, ModelCostMapReloaded)
-    monkeypatch.setattr(litellm, "model_cost", result.model_cost_map)
-    litellm.register_model({"gpt-5.4-mini": {"max_input_tokens": 2048}}, persist_across_reloads=False)
-    assert litellm.model_cost["gpt-5.4-mini"]["max_input_tokens"] == 2048
+    monkeypatch.setattr(embrouter, "model_cost", result.model_cost_map)
+    embrouter.register_model({"gpt-5.4-mini": {"max_input_tokens": 2048}}, persist_across_reloads=False)
+    assert embrouter.model_cost["gpt-5.4-mini"]["max_input_tokens"] == 2048
     assert GetModelCostMap.loaded_model_cost_map()["gpt-5.4-mini"]["max_input_tokens"] == 777
 
 
@@ -484,7 +484,7 @@ async def test_refetch_revision_follows_the_bytes_not_the_url():
 async def test_refetch_local_override_reports_the_bundled_blob_id_without_an_etag(monkeypatch):
     remote, _ = _mock_client([httpx.Response(200, headers={"ETag": 'W/"remote"'}, content=_real_map_bytes())])
     await refetch_model_cost_map(url=_URL, sleep=_SleepRecorder(), rng=random.Random(0), client=remote)
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setenv("EMBROUTER_LOCAL_MODEL_COST_MAP", "True")
 
     result = await refetch_model_cost_map(url=_URL, sleep=_SleepRecorder(), rng=random.Random(0))
 
@@ -495,7 +495,7 @@ async def test_refetch_local_override_reports_the_bundled_blob_id_without_an_eta
 
 @pytest.mark.asyncio
 async def test_refetch_stamps_loaded_at_on_remote_and_local_reloads(monkeypatch):
-    from litellm.litellm_core_utils import get_model_cost_map as module
+    from embrouter.embrouter_core_utils import get_model_cost_map as module
 
     client, _ = _mock_client([httpx.Response(200, content=_real_map_bytes())])
     before_remote = datetime.now(timezone.utc)
@@ -504,7 +504,7 @@ async def test_refetch_stamps_loaded_at_on_remote_and_local_reloads(monkeypatch)
     assert remote_loaded_at is not None
     assert before_remote <= remote_loaded_at <= datetime.now(timezone.utc)
 
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setenv("EMBROUTER_LOCAL_MODEL_COST_MAP", "True")
     before_local = datetime.now(timezone.utc)
     await refetch_model_cost_map(url=_URL, sleep=_SleepRecorder(), rng=random.Random(0))
     local_loaded_at = module.get_model_cost_map_loaded_at()
@@ -516,7 +516,7 @@ async def test_refetch_stamps_loaded_at_on_remote_and_local_reloads(monkeypatch)
 # get_model_cost_map: the boot-time load retries transient failures like a reload does
 # ---------------------------------------------------------------------------
 
-from litellm.litellm_core_utils.get_model_cost_map import (
+from embrouter.embrouter_core_utils.get_model_cost_map import (
     get_model_cost_map,
     get_model_cost_map_source_info,
 )
@@ -539,7 +539,7 @@ class _SyncSleepRecorder:
 
 
 def _retry_threads():
-    return [thread for thread in threading.enumerate() if thread.name == "litellm-model-cost-map-retry"]
+    return [thread for thread in threading.enumerate() if thread.name == "embrouter-model-cost-map-retry"]
 
 
 def test_boot_load_success_does_not_start_background_retry():
@@ -560,27 +560,27 @@ def test_boot_load_success_does_not_start_background_retry():
 
 
 def test_boot_load_transient_failure_returns_local_then_background_retry_adopts_remote(monkeypatch):
-    import litellm
-    from litellm import utils as litellm_utils
-    from litellm.litellm_core_utils import get_model_cost_map as module
+    import embrouter
+    from embrouter import utils as embrouter_utils
+    from embrouter.embrouter_core_utils import get_model_cost_map as module
 
-    original_model_cost = litellm.model_cost
-    monkeypatch.setattr(litellm, "model_cost", dict(original_model_cost))
-    for name, provider_models in tuple(vars(litellm).items()):
+    original_model_cost = embrouter.model_cost
+    monkeypatch.setattr(embrouter, "model_cost", dict(original_model_cost))
+    for name, provider_models in tuple(vars(embrouter).items()):
         if name.endswith("_models") and isinstance(provider_models, set):
-            monkeypatch.setattr(litellm, name, set(provider_models))
-    monkeypatch.setattr(litellm, "models_by_provider", dict(litellm.models_by_provider))
+            monkeypatch.setattr(embrouter, name, set(provider_models))
+    monkeypatch.setattr(embrouter, "models_by_provider", dict(embrouter.models_by_provider))
     monkeypatch.setattr(
-        litellm_utils,
+        embrouter_utils,
         "_runtime_registered_model_cost",
-        dict(litellm_utils._runtime_registered_model_cost),
+        dict(embrouter_utils._runtime_registered_model_cost),
     )
     source_info = module._cost_map_source_info
     for name in ("source", "url", "is_env_forced", "fallback_reason", "loaded_at", "source_revision", "etag"):
         monkeypatch.setattr(source_info, name, getattr(source_info, name))
 
     remote_map = _load_root_cost_map()
-    remote_map["claude-remote-only-test"] = {"litellm_provider": "anthropic", "mode": "chat"}
+    remote_map["claude-remote-only-test"] = {"embrouter_provider": "anthropic", "mode": "chat"}
     client, calls = _mock_client(
         [
             httpx.ConnectError("connection refused"),
@@ -589,7 +589,7 @@ def test_boot_load_transient_failure_returns_local_then_background_retry_adopts_
         client_cls=httpx.Client,
     )
     sleeper = _SyncSleepRecorder(block=True)
-    litellm.register_model({"my-runtime-model": {"litellm_provider": "custom", "max_input_tokens": 4321}})
+    embrouter.register_model({"my-runtime-model": {"embrouter_provider": "custom", "max_input_tokens": 4321}})
 
     cost_map = get_model_cost_map(
         url=_URL,
@@ -616,9 +616,9 @@ def test_boot_load_transient_failure_returns_local_then_background_retry_adopts_
         assert all(not thread.is_alive() for thread in threads)
         assert sleeper.waits and 2.0 <= sleeper.waits[0] < 3.0
         assert calls["count"] == 2
-        assert "claude-remote-only-test" in litellm.model_cost
-        assert "claude-remote-only-test" in litellm.anthropic_models
-        assert "my-runtime-model" in litellm.model_cost
+        assert "claude-remote-only-test" in embrouter.model_cost
+        assert "claude-remote-only-test" in embrouter.anthropic_models
+        assert "my-runtime-model" in embrouter.model_cost
         source = get_model_cost_map_source_info()
         assert source["source"] == "remote"
         assert source["fallback_reason"] is None
@@ -647,8 +647,8 @@ def test_boot_load_does_not_retry_non_retryable_failure():
 
 
 def test_boot_load_respects_local_env_override(monkeypatch):
-    """LITELLM_LOCAL_MODEL_COST_MAP=True still short-circuits to the backup with zero HTTP."""
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
+    """EMBROUTER_LOCAL_MODEL_COST_MAP=True still short-circuits to the backup with zero HTTP."""
+    monkeypatch.setenv("EMBROUTER_LOCAL_MODEL_COST_MAP", "True")
 
     def _fail(request):
         raise AssertionError("no HTTP request should be made when local map is forced")
@@ -722,7 +722,7 @@ def test_boot_load_skips_remote_fetch_for_cli_processes(
     monkeypatch: pytest.MonkeyPatch, argv0: str, request_count: int
 ) -> None:
     monkeypatch.setattr(sys, "argv", [argv0, "--version"])
-    monkeypatch.delenv("LITELLM_LOCAL_MODEL_COST_MAP", raising=False)
+    monkeypatch.delenv("EMBROUTER_LOCAL_MODEL_COST_MAP", raising=False)
     client, calls = _mock_client([httpx.Response(200, content=_real_map_bytes())], client_cls=httpx.Client)
 
     cost_map = get_model_cost_map(url=_URL, client=client)

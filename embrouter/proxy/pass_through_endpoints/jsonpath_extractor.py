@@ -6,7 +6,7 @@ Extracts field values from data using simple JSONPath-like expressions.
 
 from typing import Any, Final
 
-from litellm._logging import verbose_proxy_logger
+from embrouter._logging import verbose_proxy_logger
 
 
 class JsonPathExtractor:

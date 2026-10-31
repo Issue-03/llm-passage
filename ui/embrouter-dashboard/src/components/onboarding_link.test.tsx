@@ -16,12 +16,12 @@ describe("buildOnboardingUrl", () => {
   it("preserves a server_root_path prefix before /ui/onboarding", () => {
     expect(
       buildOnboardingUrl({
-        baseUrl: "https://proxy.example.com/litellm",
+        baseUrl: "https://proxy.example.com/embrouter",
         invitationId: "inv-123",
         hasUserSetupSso: false,
         resetPassword: false,
       }),
-    ).toBe("https://proxy.example.com/litellm/ui/onboarding?invitation_id=inv-123");
+    ).toBe("https://proxy.example.com/embrouter/ui/onboarding?invitation_id=inv-123");
   });
 
   it("appends action=reset_password for the reset-password flow", () => {

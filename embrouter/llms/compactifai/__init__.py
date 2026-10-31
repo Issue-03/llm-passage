@@ -1,1 +1,1 @@
-# CompactifAI provider for LiteLLM
+# CompactifAI provider for EmbRouter

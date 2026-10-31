@@ -5,13 +5,13 @@ from typing import Final
 import httpx
 from pydantic import BaseModel, TypeAdapter, ValidationError
 
-import litellm
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.litellm_core_utils.litellm_logging import (
+import embrouter
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.embrouter_core_utils.embrouter_logging import (
     get_standard_logging_object_payload,  # pyright: ignore[reportUnknownVariableType]  # legacy helper has an untyped signature
 )
-from litellm.proxy._types import PassThroughEndpointLoggingTypedDict
-from litellm.types.utils import ModelResponse, StandardPassThroughResponseObject, Usage
+from embrouter.proxy._types import PassThroughEndpointLoggingTypedDict
+from embrouter.types.utils import ModelResponse, StandardPassThroughResponseObject, Usage
 
 
 class _TypeSafeUsage(BaseModel):
@@ -42,11 +42,11 @@ def _parse_typesafe_response(response_body: Mapping[str, object]) -> _TypeSafeRe
 
 def _pricing_for(model_keys: tuple[str, ...]) -> _RegistryPricing:
     for model_key in model_keys:
-        if model_key not in litellm.model_cost:  # pyright: ignore[reportUnknownMemberType]  # registry is dynamically typed
+        if model_key not in embrouter.model_cost:  # pyright: ignore[reportUnknownMemberType]  # registry is dynamically typed
             continue
         try:
             return _REGISTRY_PRICING_ADAPTER.validate_python(
-                litellm.model_cost[model_key]  # pyright: ignore[reportUnknownMemberType]  # registry is dynamically typed
+                embrouter.model_cost[model_key]  # pyright: ignore[reportUnknownMemberType]  # registry is dynamically typed
             )
         except ValidationError:
             continue
@@ -58,7 +58,7 @@ class TypeSafePassthroughLoggingHandler:
     def typesafe_passthrough_handler(
         httpx_response: httpx.Response,
         response_body: Mapping[str, object],
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         url_route: str,
         result: str,
         start_time: datetime,

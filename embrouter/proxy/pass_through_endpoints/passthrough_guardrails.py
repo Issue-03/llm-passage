@@ -9,13 +9,13 @@ Handles guardrail execution for passthrough endpoints with:
 
 from typing import Any, Final
 
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy._types import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy._types import (
     PassThroughGuardrailsConfig,
     PassThroughGuardrailSettings,
     UserAPIKeyAuth,
 )
-from litellm.proxy.pass_through_endpoints.jsonpath_extractor import JsonPathExtractor
+from embrouter.proxy.pass_through_endpoints.jsonpath_extractor import JsonPathExtractor
 
 # Type for raw guardrails config input (before normalization)
 # Can be a list of names or a dict with settings
@@ -124,7 +124,7 @@ class PassthroughGuardrailHandler:
         Otherwise, uses the entire request payload as text.
         """
         if guardrail_settings is None or guardrail_settings.request_fields is None:
-            from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
+            from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps
 
             return safe_dumps(request_data)
 
@@ -145,7 +145,7 @@ class PassthroughGuardrailHandler:
         Otherwise, uses the entire response payload as text.
         """
         if guardrail_settings is None or guardrail_settings.response_fields is None:
-            from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
+            from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps
 
             return safe_dumps(response_data)
 
@@ -186,7 +186,7 @@ class PassthroughGuardrailHandler:
         verbose_proxy_logger.debug("Executing passthrough guardrails: %s", guardrail_names)
 
         # Add to request metadata so guardrails know which to run
-        from litellm.proxy.pass_through_endpoints.passthrough_context import (
+        from embrouter.proxy.pass_through_endpoints.passthrough_context import (
             set_passthrough_guardrails_config,
         )
 
@@ -227,7 +227,7 @@ class PassthroughGuardrailHandler:
         Returns:
             Dict of guardrail names to run (format: {guardrail_name: True}), or None
         """
-        from litellm.proxy.litellm_pre_call_utils import (
+        from embrouter.proxy.embrouter_pre_call_utils import (
             _add_guardrails_from_key_or_team_metadata,
         )
 
@@ -293,7 +293,7 @@ class PassthroughGuardrailHandler:
         Returns:
             The text to check, or None to use default behavior
         """
-        from litellm.proxy.pass_through_endpoints.passthrough_context import (
+        from embrouter.proxy.pass_through_endpoints.passthrough_context import (
             get_passthrough_guardrails_config,
         )
 

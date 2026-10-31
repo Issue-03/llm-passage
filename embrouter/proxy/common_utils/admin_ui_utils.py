@@ -4,11 +4,11 @@ from typing import Final
 def show_missing_vars_in_env():
     from fastapi.responses import HTMLResponse
 
-    from litellm.proxy.proxy_server import master_key, prisma_client
+    from embrouter.proxy.proxy_server import master_key, prisma_client
 
     if prisma_client is None and master_key is None:
         return HTMLResponse(
-            content=missing_keys_form(missing_key_names="DATABASE_URL, LITELLM_MASTER_KEY"),
+            content=missing_keys_form(missing_key_names="DATABASE_URL, EMBROUTER_MASTER_KEY"),
             status_code=200,
         )
     if prisma_client is None:
@@ -16,7 +16,7 @@ def show_missing_vars_in_env():
 
     if master_key is None:
         return HTMLResponse(
-            content=missing_keys_form(missing_key_names="LITELLM_MASTER_KEY"),
+            content=missing_keys_form(missing_key_names="EMBROUTER_MASTER_KEY"),
             status_code=200,
         )
     return None
@@ -73,9 +73,9 @@ def missing_keys_form(missing_key_names: str):
                 <h1>Environment Setup Instructions</h1>
                 <p>Please add the following variables to your environment variables:</p>
                 <pre>
-    <span class="comment"># Generate one with: echo "LITELLM_MASTER_KEY=sk-$(openssl rand -hex 32)"</span>
-    <span class="env-var">LITELLM_MASTER_KEY=""</span> <span class="comment"># Your master key for the proxy server. Can use this to send /chat/completion requests etc</span>
-    <span class="env-var">LITELLM_SALT_KEY="sk-XXXXXXXX"</span> <span class="comment"># Can NOT CHANGE THIS ONCE SET - It is used to encrypt/decrypt credentials stored in DB. If value of 'LITELLM_SALT_KEY' changes your models cannot be retrieved from DB</span>
+    <span class="comment"># Generate one with: echo "EMBROUTER_MASTER_KEY=sk-$(openssl rand -hex 32)"</span>
+    <span class="env-var">EMBROUTER_MASTER_KEY=""</span> <span class="comment"># Your master key for the proxy server. Can use this to send /chat/completion requests etc</span>
+    <span class="env-var">EMBROUTER_SALT_KEY="sk-XXXXXXXX"</span> <span class="comment"># Can NOT CHANGE THIS ONCE SET - It is used to encrypt/decrypt credentials stored in DB. If value of 'EMBROUTER_SALT_KEY' changes your models cannot be retrieved from DB</span>
     <span class="env-var">DATABASE_URL="postgres://..."</span> <span class="comment"># Need a postgres database? (Check out Supabase, Neon, etc)</span>
     <span class="comment">## OPTIONAL ##</span>
     <span class="env-var">PORT=4000</span> <span class="comment"># DO THIS FOR RENDER/RAILWAY</span>

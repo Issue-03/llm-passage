@@ -19,12 +19,12 @@ from openai.types.file_deleted import FileDeleted
 from pydantic import BaseModel, ConfigDict, Field
 from typing_extensions import ReadOnly
 
-from litellm._logging import verbose_logger
-from litellm._uuid import uuid
-from litellm.constants import BEDROCK_INVOKE_PROVIDERS_LITERAL
-from litellm.files.utils import FilesAPIUtils
-from litellm.litellm_core_utils.aws_partition import get_aws_dns_suffix
-from litellm.litellm_core_utils.cloud_storage_security import (
+from embrouter._logging import verbose_logger
+from embrouter._uuid import uuid
+from embrouter.constants import BEDROCK_INVOKE_PROVIDERS_LITERAL
+from embrouter.files.utils import FilesAPIUtils
+from embrouter.embrouter_core_utils.aws_partition import get_aws_dns_suffix
+from embrouter.embrouter_core_utils.cloud_storage_security import (
     BEDROCK_MANAGED_S3_BATCH_PREFIX,
     BEDROCK_MANAGED_S3_OUTPUT_PREFIX,
     BEDROCK_MANAGED_S3_PREFIXES,
@@ -36,19 +36,19 @@ from litellm.litellm_core_utils.cloud_storage_security import (
     split_configured_cloud_bucket_name,
     validate_managed_cloud_file_id,
 )
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
     extract_file_data,
     text_completion_prompt_to_messages,
 )
-from litellm.llms.base_llm.base_utils import map_developer_role_to_system_role
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.base_llm.files.batch_records import responses_batch_body_to_chat_body
-from litellm.llms.base_llm.files.transformation import (
+from embrouter.llms.base_llm.base_utils import map_developer_role_to_system_role
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.base_llm.files.batch_records import responses_batch_body_to_chat_body
+from embrouter.llms.base_llm.files.transformation import (
     BaseFilesConfig,
-    LiteLLMLoggingObj,
+    EmbRouterLoggingObj,
 )
-from litellm.types.llms.bedrock import AwsAuthParams, BedrockBatchRecordKind
-from litellm.types.llms.openai import (
+from embrouter.types.llms.bedrock import AwsAuthParams, BedrockBatchRecordKind
+from embrouter.types.llms.openai import (
     AllMessageValues,
     CreateFileRequest,
     FileContentRequest,
@@ -58,8 +58,8 @@ from litellm.types.llms.openai import (
     OpenAIFileObject,
     PathLike,
 )
-from litellm.types.utils import ExtractedFileData, LlmProviders, SpecialEnums, is_litellm_owned_kwarg
-from litellm.utils import get_llm_provider, get_optional_params
+from embrouter.types.utils import ExtractedFileData, LlmProviders, SpecialEnums, is_embrouter_owned_kwarg
+from embrouter.utils import get_llm_provider, get_optional_params
 
 from ..base_aws_llm import BaseAWSLLM
 from ..common_utils import (
@@ -79,7 +79,7 @@ class _S3DeleteContext(BaseModel):
     file_id: str = Field(min_length=1)
 
 
-# litellm_params key carrying the size of the body uploaded to S3, handed from
+# embrouter_params key carrying the size of the body uploaded to S3, handed from
 # `transform_create_file_request` to `transform_create_file_response`.
 UPLOAD_CONTENT_LENGTH_PARAM: Final = "_s3_upload_content_length"
 
@@ -88,7 +88,7 @@ def _frozen_mapping(items: Iterable[tuple[str, object]]) -> Mapping[str, object]
     return MappingProxyType(dict(items))
 
 
-_LITELLM_PARAMS_THE_MAPPER_TAKES: Final = frozenset({"allowed_openai_params"})
+_EMBROUTER_PARAMS_THE_MAPPER_TAKES: Final = frozenset({"allowed_openai_params"})
 _MAPPED_PARAMS_THE_REQUEST_HANDLER_STRIPS: Final = frozenset({"json_mode"})
 
 
@@ -101,7 +101,7 @@ def _strip_llm_routing_prefix(model: str) -> str:
         stripped_model, _, _, _ = get_llm_provider(model=model, custom_llm_provider=None)
     except Exception as e:
         verbose_logger.exception(
-            "litellm.llms.bedrock.files.transformation.py::_strip_llm_routing_prefix() - Error inferring custom_llm_provider - %s",
+            "embrouter.llms.bedrock.files.transformation.py::_strip_llm_routing_prefix() - Error inferring custom_llm_provider - %s",
             e,
         )
         return model
@@ -167,7 +167,7 @@ def extract_s3_uri_from_file_id(file_id: str) -> str:
     """
     Resolve a Bedrock file id to its S3 URI.
 
-    Accepts either a base64-encoded LiteLLM unified file id (whose decoded
+    Accepts either a base64-encoded EmbRouter unified file id (whose decoded
     form carries `llm_output_file_id,s3://...`) or a direct `s3://` URI.
     """
     try:
@@ -183,14 +183,14 @@ def extract_s3_uri_from_file_id(file_id: str) -> str:
     if file_id.startswith("s3://"):
         return file_id
 
-    raise ValueError("file_id must be a managed LiteLLM S3 file id")
+    raise ValueError("file_id must be a managed EmbRouter S3 file id")
 
 
 _S3_BUCKET_REQUIRED_ERROR: Final = "S3 bucket_name is required. Set 's3_bucket_name' in proxy config or AWS_S3_BUCKET_NAME for Bedrock file content retrieval."
 
 
-def _trusted_s3_model_credentials(litellm_params: Mapping[str, object]) -> _TrustedS3ModelCredentials:
-    trusted_model_credentials: Final = litellm_params.get("_litellm_internal_model_credentials")
+def _trusted_s3_model_credentials(embrouter_params: Mapping[str, object]) -> _TrustedS3ModelCredentials:
+    trusted_model_credentials: Final = embrouter_params.get("_embrouter_internal_model_credentials")
     if not isinstance(trusted_model_credentials, MappingProxyType):
         return _TrustedS3ModelCredentials()
     snapshot: Final[dict[str, object]] = {}
@@ -198,7 +198,7 @@ def _trusted_s3_model_credentials(litellm_params: Mapping[str, object]) -> _Trus
     return _TrustedS3ModelCredentials.model_validate(snapshot)
 
 
-def get_configured_s3_bucket_name(litellm_params: Mapping[str, object]) -> str:
+def get_configured_s3_bucket_name(embrouter_params: Mapping[str, object]) -> str:
     """
     Resolve the server-configured S3 bucket for Bedrock file operations.
 
@@ -206,13 +206,13 @@ def get_configured_s3_bucket_name(litellm_params: Mapping[str, object]) -> str:
     environment; never a request-supplied param, since the bucket is what
     `validate_managed_cloud_file_id` checks file ids against.
     """
-    bucket_name: Final = _trusted_s3_model_credentials(litellm_params).s3_bucket_name or os.getenv("AWS_S3_BUCKET_NAME")
+    bucket_name: Final = _trusted_s3_model_credentials(embrouter_params).s3_bucket_name or os.getenv("AWS_S3_BUCKET_NAME")
     if not bucket_name:
         raise ValueError(_S3_BUCKET_REQUIRED_ERROR)
     return bucket_name
 
 
-def get_configured_s3_bucket_names(litellm_params: Mapping[str, object]) -> tuple[str, ...]:
+def get_configured_s3_bucket_names(embrouter_params: Mapping[str, object]) -> tuple[str, ...]:
     """
     Resolve the server-configured S3 buckets a Bedrock file id may live in.
 
@@ -221,7 +221,7 @@ def get_configured_s3_bucket_names(litellm_params: Mapping[str, object]) -> tupl
     ``get_configured_s3_bucket_name``: only the immutable credential snapshot or
     the environment, never a request param.
     """
-    trusted: Final = _trusted_s3_model_credentials(litellm_params)
+    trusted: Final = _trusted_s3_model_credentials(embrouter_params)
     input_bucket: Final = trusted.s3_bucket_name or os.getenv("AWS_S3_BUCKET_NAME")
     output_bucket: Final = trusted.s3_output_bucket_name or os.getenv("AWS_S3_OUTPUT_BUCKET_NAME")
     buckets: Final = tuple(dict.fromkeys(bucket for bucket in (input_bucket, output_bucket) if bucket))
@@ -266,9 +266,9 @@ def _rejected_file_id(reason: ValueError) -> BedrockError:
     )
 
 
-def _resolve_managed_s3_object(file_id: str, litellm_params: Mapping[str, object]) -> tuple[str, str]:
-    configured_bucket_names: Final = get_configured_s3_bucket_names(litellm_params)
-    allow_legacy_cloud_file_ids: Final = should_allow_legacy_cloud_file_ids(litellm_params)
+def _resolve_managed_s3_object(file_id: str, embrouter_params: Mapping[str, object]) -> tuple[str, str]:
+    configured_bucket_names: Final = get_configured_s3_bucket_names(embrouter_params)
+    allow_legacy_cloud_file_ids: Final = should_allow_legacy_cloud_file_ids(embrouter_params)
     try:
         return _validate_file_id_against_configured_buckets(
             s3_uri=extract_s3_uri_from_file_id(file_id),
@@ -305,30 +305,30 @@ def _listing_query(configured_prefix: str, purpose: str | None) -> tuple[tuple[s
     return (("list-type", "2"), ("prefix", listing_prefix))
 
 
-def _requested_listing_purpose(litellm_params: Mapping[str, object]) -> str | None:
-    requested_purpose: Final = litellm_params.get(LIST_FILES_PURPOSE_PARAM)
+def _requested_listing_purpose(embrouter_params: Mapping[str, object]) -> str | None:
+    requested_purpose: Final = embrouter_params.get(LIST_FILES_PURPOSE_PARAM)
     return requested_purpose if isinstance(requested_purpose, str) else None
 
 
-def _walked_listing_purpose(litellm_params: Mapping[str, object]) -> str | None:
-    walked_purpose: Final = litellm_params.get(LIST_FILES_LOCATION_PARAM)
-    return walked_purpose if isinstance(walked_purpose, str) else _requested_listing_purpose(litellm_params)
+def _walked_listing_purpose(embrouter_params: Mapping[str, object]) -> str | None:
+    walked_purpose: Final = embrouter_params.get(LIST_FILES_LOCATION_PARAM)
+    return walked_purpose if isinstance(walked_purpose, str) else _requested_listing_purpose(embrouter_params)
 
 
-def _output_location_still_unlisted(litellm_params: Mapping[str, object]) -> bool:
-    if _walked_listing_purpose(litellm_params) is not None:
+def _output_location_still_unlisted(embrouter_params: Mapping[str, object]) -> bool:
+    if _walked_listing_purpose(embrouter_params) is not None:
         return False
-    return _listing_bucket_name(litellm_params, "batch_output") != _listing_bucket_name(litellm_params, None)
+    return _listing_bucket_name(embrouter_params, "batch_output") != _listing_bucket_name(embrouter_params, None)
 
 
-def _listing_bucket_name(litellm_params: Mapping[str, object], purpose: str | None) -> str:
+def _listing_bucket_name(embrouter_params: Mapping[str, object], purpose: str | None) -> str:
     if purpose != "batch_output":
-        return get_configured_s3_bucket_name(litellm_params)
-    trusted: Final = _trusted_s3_model_credentials(litellm_params)
+        return get_configured_s3_bucket_name(embrouter_params)
+    trusted: Final = _trusted_s3_model_credentials(embrouter_params)
     return (
         trusted.s3_output_bucket_name
         or os.getenv("AWS_S3_OUTPUT_BUCKET_NAME")
-        or get_configured_s3_bucket_name(litellm_params)
+        or get_configured_s3_bucket_name(embrouter_params)
     )
 
 
@@ -372,12 +372,12 @@ def _listed_managed_file(
     )
 
 
-def _uploaded_object_size(litellm_params: Mapping[str, object], response_headers: Mapping[str, str]) -> int:
+def _uploaded_object_size(embrouter_params: Mapping[str, object], response_headers: Mapping[str, str]) -> int:
     """
     S3 answers PutObject with an empty body, so the stored object size comes from the
     signed request recorded by `transform_create_file_request`, not the response headers.
     """
-    uploaded_size: Final = litellm_params.get(UPLOAD_CONTENT_LENGTH_PARAM)
+    uploaded_size: Final = embrouter_params.get(UPLOAD_CONTENT_LENGTH_PARAM)
     if isinstance(uploaded_size, int):
         return uploaded_size
     response_content_length: Final = response_headers.get("Content-Length", "0")
@@ -410,13 +410,13 @@ class BedrockFilesConfig(BaseAWSLLM, BaseFilesConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: MutableMapping[str, object],
+        embrouter_params: MutableMapping[str, object],
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
         result: Final[dict[str, object]] = {}
         result.update(headers)
-        signed_headers: Final = litellm_params.pop(S3_SIGNED_REQUEST_HEADERS_PARAM, None)
+        signed_headers: Final = embrouter_params.pop(S3_SIGNED_REQUEST_HEADERS_PARAM, None)
         if isinstance(signed_headers, Mapping):
             result.update(signed_headers)  # any-ok: untyped handoff headers
         # otherwise no extra headers - AWS credentials are handled by BaseAWSLLM
@@ -466,7 +466,7 @@ class BedrockFilesConfig(BaseAWSLLM, BaseFilesConfig):
         """
         Gets a unique S3 object name for the Bedrock batch processing job
 
-        named as: litellm-bedrock-files/{model}/{uuid}
+        named as: embrouter-bedrock-files/{model}/{uuid}
         """
         _model = openai_jsonl_content[0].get("body", {}).get("model", "")
         # Remove bedrock/ prefix if present
@@ -509,21 +509,21 @@ class BedrockFilesConfig(BaseAWSLLM, BaseFilesConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         data: CreateFileRequest,
     ) -> str:
         """
         Get the complete S3 URL for the file upload request
         """
-        request_params: Final = merge_bedrock_aws_request_params(litellm_params, optional_params)
-        bucket_name = litellm_params.get("s3_bucket_name") or os.getenv("AWS_S3_BUCKET_NAME")
+        request_params: Final = merge_bedrock_aws_request_params(embrouter_params, optional_params)
+        bucket_name = embrouter_params.get("s3_bucket_name") or os.getenv("AWS_S3_BUCKET_NAME")
         if not bucket_name:
             raise ValueError(
-                "S3 bucket_name is required. Set 's3_bucket_name' in litellm_params or AWS_S3_BUCKET_NAME env var"
+                "S3 bucket_name is required. Set 's3_bucket_name' in embrouter_params or AWS_S3_BUCKET_NAME env var"
             )
         bucket_name, object_prefix = split_configured_cloud_bucket_name(bucket_name)
 
-        s3_region_name: Final = litellm_params.get("s3_region_name") or optional_params.get("s3_region_name")
+        s3_region_name: Final = embrouter_params.get("s3_region_name") or optional_params.get("s3_region_name")
         aws_region_name: Final = s3_region_name or self._get_aws_region_name(request_params, model)
 
         file_data: Final = data.get("file")
@@ -684,7 +684,7 @@ class BedrockFilesConfig(BaseAWSLLM, BaseFilesConfig):
     def _lookup_provider_specific_field(model_id: str, field: str) -> str | None:
         """
         Read a nested string field from the registry entry's
-        `provider_specific_entry` dict via `litellm.get_model_info`.
+        `provider_specific_entry` dict via `embrouter.get_model_info`.
 
         Returns the field's string value when:
           - the registry resolves `model_id`,
@@ -701,7 +701,7 @@ class BedrockFilesConfig(BaseAWSLLM, BaseFilesConfig):
         the requested field is missing / non-string / empty.
         """
         try:
-            from litellm import get_model_info
+            from embrouter import get_model_info
 
             info: Final = get_model_info(model_id)
         except Exception:
@@ -789,7 +789,7 @@ class BedrockFilesConfig(BaseAWSLLM, BaseFilesConfig):
         AWS docs (Titan v2 InvokeModel body):
         https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-titan-embed-text.html
         """
-        from litellm.llms.bedrock.embed.amazon_titan_v2_transformation import (
+        from embrouter.llms.bedrock.embed.amazon_titan_v2_transformation import (
             AmazonTitanV2Config,
         )
 
@@ -827,7 +827,7 @@ class BedrockFilesConfig(BaseAWSLLM, BaseFilesConfig):
 
         Bedrock batch `modelInput` is the model's InvokeModel/Converse body, and
         no Bedrock batch model takes a bare `prompt`, so the wrapping that
-        `litellm.text_completion` does in real time has to happen here too.
+        `embrouter.text_completion` does in real time has to happen here too.
         """
         prompt: Final = openai_request_body.get("prompt")
         if prompt is None:
@@ -887,14 +887,14 @@ class BedrockFilesConfig(BaseAWSLLM, BaseFilesConfig):
         resulting dict matches the InvokeModel body that Bedrock expects
         for batch inference.
         """
-        from litellm.types.utils import LlmProviders
+        from embrouter.types.utils import LlmProviders
 
         messages: Final = map_developer_role_to_system_role(openai_request_body.get("messages", []))
         optional_params: Final = {k: v for k, v in openai_request_body.items() if k not in ["model", "messages"]}
 
         # --- Anthropic: use existing AmazonAnthropicClaudeConfig ---
         if provider == LlmProviders.ANTHROPIC:
-            from litellm.llms.bedrock.chat.invoke_transformations.anthropic_claude3_transformation import (
+            from embrouter.llms.bedrock.chat.invoke_transformations.anthropic_claude3_transformation import (
                 AmazonAnthropicClaudeConfig,
             )
 
@@ -907,7 +907,7 @@ class BedrockFilesConfig(BaseAWSLLM, BaseFilesConfig):
                     {
                         k: v
                         for k, v in optional_params.items()
-                        if not is_litellm_owned_kwarg(k) or k in _LITELLM_PARAMS_THE_MAPPER_TAKES
+                        if not is_embrouter_owned_kwarg(k) or k in _EMBROUTER_PARAMS_THE_MAPPER_TAKES
                     }
                 ),
             )
@@ -917,7 +917,7 @@ class BedrockFilesConfig(BaseAWSLLM, BaseFilesConfig):
                 optional_params={
                     k: v for k, v in mapped_params.items() if k not in _MAPPED_PARAMS_THE_REQUEST_HANDLER_STRIPS
                 },
-                litellm_params={},
+                embrouter_params={},
                 headers={},
             )
 
@@ -925,7 +925,7 @@ class BedrockFilesConfig(BaseAWSLLM, BaseFilesConfig):
         #     to correctly convert image_url blocks to Bedrock image format
         #     and wrap inference params inside inferenceConfig. ---
         if provider in self.CONVERSE_INVOKE_PROVIDERS:
-            from litellm.llms.bedrock.chat.converse_transformation import (
+            from embrouter.llms.bedrock.chat.converse_transformation import (
                 AmazonConverseConfig,
             )
 
@@ -940,7 +940,7 @@ class BedrockFilesConfig(BaseAWSLLM, BaseFilesConfig):
                 model=model,
                 messages=messages,
                 optional_params=mapped_params,
-                litellm_params={},
+                embrouter_params={},
                 headers={},
             )
 
@@ -987,14 +987,14 @@ class BedrockFilesConfig(BaseAWSLLM, BaseFilesConfig):
         }
         """
 
-        import litellm
+        import embrouter
 
         bedrock_jsonl_content: Final = []
         for idx, _openai_jsonl_content in enumerate(openai_jsonl_content):
             # Extract the request body from OpenAI format
             openai_body = _openai_jsonl_content.get("body", {})
             record_model = openai_body.get("model", "")
-            resolved_model = litellm.model_alias_map.get(record_model, record_model)
+            resolved_model = embrouter.model_alias_map.get(record_model, record_model)
             model_for_transform, provider = self._resolve_batch_record_model_and_provider(
                 record_model=resolved_model, target_model=target_model
             )
@@ -1028,7 +1028,7 @@ class BedrockFilesConfig(BaseAWSLLM, BaseFilesConfig):
         model: str,
         create_file_data: CreateFileRequest,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> bytes | str | dict:
         """
         Transform file request and return a pre-signed request for S3.
@@ -1051,8 +1051,8 @@ class BedrockFilesConfig(BaseAWSLLM, BaseFilesConfig):
             ## Transform JSONL content to Bedrock format
             original_file_content: Final = self._get_content_from_openai_file(extracted_file_data_content)
             openai_jsonl_content = [json.loads(line) for line in original_file_content.splitlines() if line.strip()]
-            litellm_params_model: Final = litellm_params.get("model")
-            target_model: Final = model or (litellm_params_model if isinstance(litellm_params_model, str) else "")
+            embrouter_params_model: Final = embrouter_params.get("model")
+            target_model: Final = model or (embrouter_params_model if isinstance(embrouter_params_model, str) else "")
             bedrock_jsonl_content = self._transform_openai_jsonl_content_to_bedrock_jsonl_content(
                 openai_jsonl_content, target_model=target_model
             )
@@ -1070,7 +1070,7 @@ class BedrockFilesConfig(BaseAWSLLM, BaseFilesConfig):
             api_key=None,
             model=model,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             data=create_file_data,
         )
 
@@ -1078,8 +1078,8 @@ class BedrockFilesConfig(BaseAWSLLM, BaseFilesConfig):
         # get_complete_file_url above). Overwrite aws_region_name unconditionally,
         # after the deployment-credential merge, so the SigV4 region matches the
         # URL region, avoiding SignatureDoesNotMatch.
-        merged_params: Final = merge_bedrock_aws_request_params(litellm_params, optional_params)
-        s3_region_name: Final = litellm_params.get("s3_region_name") or optional_params.get("s3_region_name")
+        merged_params: Final = merge_bedrock_aws_request_params(embrouter_params, optional_params)
+        s3_region_name: Final = embrouter_params.get("s3_region_name") or optional_params.get("s3_region_name")
         request_params: Final = (
             {**merged_params, "aws_region_name": s3_region_name} if s3_region_name else merged_params
         )
@@ -1090,14 +1090,14 @@ class BedrockFilesConfig(BaseAWSLLM, BaseFilesConfig):
             api_base=api_base,
             optional_params=request_params,
             s3_encryption_key_id=resolve_s3_encryption_key_id(
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 optional_params=request_params,
             ),
         )
 
-        litellm_params["upload_url"] = api_base
+        embrouter_params["upload_url"] = api_base
         upload_content_length: Final = len(file_content.encode("utf-8"))
-        litellm_params[UPLOAD_CONTENT_LENGTH_PARAM] = upload_content_length  # rebind-ok: same handoff as upload_url
+        embrouter_params[UPLOAD_CONTENT_LENGTH_PARAM] = upload_content_length  # rebind-ok: same handoff as upload_url
 
         # Return a dict that tells the HTTP handler exactly what to do
         return {
@@ -1116,7 +1116,7 @@ class BedrockFilesConfig(BaseAWSLLM, BaseFilesConfig):
     ) -> tuple[dict, str]:
         """
         Sign S3 PUT request using the same proven logic as S3Logger.
-        Reuses the exact pattern from litellm/integrations/s3_v2.py
+        Reuses the exact pattern from embrouter/integrations/s3_v2.py
         """
         try:
             import hashlib
@@ -1191,8 +1191,8 @@ class BedrockFilesConfig(BaseAWSLLM, BaseFilesConfig):
             Tuple of (s3_uri, filename)
 
         Example:
-            Input: "https://s3.us-west-2.amazonaws.com/litellm-proxy/file.jsonl"
-            Output: ("s3://litellm-proxy/file.jsonl", "file.jsonl")
+            Input: "https://s3.us-west-2.amazonaws.com/embrouter-proxy/file.jsonl"
+            Output: ("s3://embrouter-proxy/file.jsonl", "file.jsonl")
         """
         import re
 
@@ -1238,14 +1238,14 @@ class BedrockFilesConfig(BaseAWSLLM, BaseFilesConfig):
         self,
         model: str | None,
         raw_response: Response,
-        logging_obj: LiteLLMLoggingObj,
-        litellm_params: dict,
+        logging_obj: EmbRouterLoggingObj,
+        embrouter_params: dict,
     ) -> OpenAIFileObject:
         """
         Transform S3 File upload response into OpenAI-style FileObject
         """
         # Use the actual upload URL that was used for the S3 upload
-        upload_url: Final = litellm_params.get("upload_url")
+        upload_url: Final = embrouter_params.get("upload_url")
         file_id: str = ""
         filename: str = ""
         if upload_url:
@@ -1258,7 +1258,7 @@ class BedrockFilesConfig(BaseAWSLLM, BaseFilesConfig):
             filename=filename,
             created_at=int(time.time()),  # Current timestamp
             status="uploaded",
-            bytes=_uploaded_object_size(litellm_params=litellm_params, response_headers=raw_response.headers),
+            bytes=_uploaded_object_size(embrouter_params=embrouter_params, response_headers=raw_response.headers),
             object="file",
         )
 
@@ -1269,15 +1269,15 @@ class BedrockFilesConfig(BaseAWSLLM, BaseFilesConfig):
         self,
         file_id: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> tuple[str, dict]:
         raise NotImplementedError("BedrockFilesConfig does not support file retrieval")
 
     def transform_retrieve_file_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
-        litellm_params: dict,
+        logging_obj: EmbRouterLoggingObj,
+        embrouter_params: dict,
     ) -> OpenAIFileObject:
         raise NotImplementedError("BedrockFilesConfig does not support file retrieval")
 
@@ -1285,17 +1285,17 @@ class BedrockFilesConfig(BaseAWSLLM, BaseFilesConfig):
         self,
         file_id: str,
         optional_params: Mapping[str, object],
-        litellm_params: MutableMapping[str, object],
+        embrouter_params: MutableMapping[str, object],
     ) -> tuple[str, dict[str, str]]:
         return self._transform_s3_file_request(
-            file_id=file_id, method="DELETE", optional_params=optional_params, litellm_params=litellm_params
+            file_id=file_id, method="DELETE", optional_params=optional_params, embrouter_params=embrouter_params
         )
 
     def transform_delete_file_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
-        litellm_params: Mapping[str, object],
+        logging_obj: EmbRouterLoggingObj,
+        embrouter_params: Mapping[str, object],
     ) -> FileDeleted:
         if raw_response.status_code != 204:
             raise BedrockError(
@@ -1310,41 +1310,41 @@ class BedrockFilesConfig(BaseAWSLLM, BaseFilesConfig):
         self,
         purpose: str | None,
         optional_params: Mapping[str, object],
-        litellm_params: MutableMapping[str, object],
+        embrouter_params: MutableMapping[str, object],
     ) -> tuple[str, dict[str, str]]:
-        litellm_params[LIST_FILES_PURPOSE_PARAM] = purpose  # rebind-ok: handed to the response transform
-        litellm_params[LIST_FILES_LOCATION_PARAM] = purpose  # rebind-ok: names the location the next page walks
-        return self._signed_listing_request(purpose, optional_params, litellm_params, continuation_token=None)
+        embrouter_params[LIST_FILES_PURPOSE_PARAM] = purpose  # rebind-ok: handed to the response transform
+        embrouter_params[LIST_FILES_LOCATION_PARAM] = purpose  # rebind-ok: names the location the next page walks
+        return self._signed_listing_request(purpose, optional_params, embrouter_params, continuation_token=None)
 
     def transform_list_files_next_request(
         self,
         raw_response: httpx.Response,
         optional_params: Mapping[str, object],
-        litellm_params: MutableMapping[str, object],
+        embrouter_params: MutableMapping[str, object],
     ) -> tuple[str, dict[str, str]] | None:
         if raw_response.status_code >= 400:
             return None
         continuation_token: Final = ET.fromstring(raw_response.content).findtext("{*}NextContinuationToken")
         if continuation_token:
             return self._signed_listing_request(
-                _walked_listing_purpose(litellm_params), optional_params, litellm_params, continuation_token
+                _walked_listing_purpose(embrouter_params), optional_params, embrouter_params, continuation_token
             )
-        if not _output_location_still_unlisted(litellm_params):
+        if not _output_location_still_unlisted(embrouter_params):
             return None
-        litellm_params[LIST_FILES_LOCATION_PARAM] = "batch_output"  # rebind-ok: the input location is fully listed
-        return self._signed_listing_request("batch_output", optional_params, litellm_params, continuation_token=None)
+        embrouter_params[LIST_FILES_LOCATION_PARAM] = "batch_output"  # rebind-ok: the input location is fully listed
+        return self._signed_listing_request("batch_output", optional_params, embrouter_params, continuation_token=None)
 
     def _signed_listing_request(
         self,
         purpose: str | None,
         optional_params: Mapping[str, object],
-        litellm_params: MutableMapping[str, object],
+        embrouter_params: MutableMapping[str, object],
         continuation_token: str | None,
     ) -> tuple[str, dict[str, str]]:
         bucket_name, configured_prefix = split_configured_cloud_bucket_name(
-            _listing_bucket_name(litellm_params, purpose)
+            _listing_bucket_name(embrouter_params, purpose)
         )
-        target: Final = self._s3_request_target(optional_params=optional_params, litellm_params=litellm_params)
+        target: Final = self._s3_request_target(optional_params=optional_params, embrouter_params=embrouter_params)
         url: Final = f"{target.endpoint_url}/{bucket_name}/"
         listing_query: Final = _listing_query(configured_prefix, purpose)
         continuation_query: Final = (("continuation-token", continuation_token),) if continuation_token else ()
@@ -1357,14 +1357,14 @@ class BedrockFilesConfig(BaseAWSLLM, BaseFilesConfig):
             aws_region_name=target.aws_region_name,
             request_params=target.request_params,
         )
-        litellm_params[S3_SIGNED_REQUEST_HEADERS_PARAM] = signed_headers  # rebind-ok: handed to validate_environment
+        embrouter_params[S3_SIGNED_REQUEST_HEADERS_PARAM] = signed_headers  # rebind-ok: handed to validate_environment
         return url, query
 
     def transform_list_files_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
-        litellm_params: Mapping[str, object],
+        logging_obj: EmbRouterLoggingObj,
+        embrouter_params: Mapping[str, object],
     ) -> list[OpenAIFileObject]:
         if raw_response.status_code >= 400:
             raise BedrockError(
@@ -1373,9 +1373,9 @@ class BedrockFilesConfig(BaseAWSLLM, BaseFilesConfig):
                 headers=raw_response.headers,
                 response=raw_response,
             )
-        purpose: Final = _requested_listing_purpose(litellm_params)
-        configured_bucket_name: Final = _listing_bucket_name(litellm_params, _walked_listing_purpose(litellm_params))
-        allow_legacy_cloud_file_ids: Final = should_allow_legacy_cloud_file_ids(litellm_params)
+        purpose: Final = _requested_listing_purpose(embrouter_params)
+        configured_bucket_name: Final = _listing_bucket_name(embrouter_params, _walked_listing_purpose(embrouter_params))
+        allow_legacy_cloud_file_ids: Final = should_allow_legacy_cloud_file_ids(embrouter_params)
         listing: Final = ET.fromstring(raw_response.content)
         bucket_name: Final = (
             listing.findtext("{*}Name") or split_configured_cloud_bucket_name(configured_bucket_name)[0]
@@ -1394,7 +1394,7 @@ class BedrockFilesConfig(BaseAWSLLM, BaseFilesConfig):
         self,
         file_content_request: FileContentRequest,
         optional_params: Mapping[str, object],
-        litellm_params: MutableMapping[str, object],
+        embrouter_params: MutableMapping[str, object],
     ) -> tuple[str, dict[str, str]]:
         """
         Build a SigV4-signed S3 GetObject request for a Bedrock batch file.
@@ -1408,7 +1408,7 @@ class BedrockFilesConfig(BaseAWSLLM, BaseFilesConfig):
             raise ValueError("file_id is required for Bedrock file content retrieval")
 
         return self._transform_s3_file_request(
-            file_id=file_id, method="GET", optional_params=optional_params, litellm_params=litellm_params
+            file_id=file_id, method="GET", optional_params=optional_params, embrouter_params=embrouter_params
         )
 
     def _transform_s3_file_request(
@@ -1417,10 +1417,10 @@ class BedrockFilesConfig(BaseAWSLLM, BaseFilesConfig):
         file_id: str,
         method: Literal["GET", "DELETE"],
         optional_params: Mapping[str, object],
-        litellm_params: MutableMapping[str, object],
+        embrouter_params: MutableMapping[str, object],
     ) -> tuple[str, dict[str, str]]:
-        bucket_name, object_key = _resolve_managed_s3_object(file_id=file_id, litellm_params=litellm_params)
-        target: Final = self._s3_request_target(optional_params=optional_params, litellm_params=litellm_params)
+        bucket_name, object_key = _resolve_managed_s3_object(file_id=file_id, embrouter_params=embrouter_params)
+        target: Final = self._s3_request_target(optional_params=optional_params, embrouter_params=embrouter_params)
         url: Final = f"{target.endpoint_url}/{bucket_name}/{encode_s3_object_key_for_url(object_key)}"
         signed_headers: Final = self._sign_s3_request_without_body(
             method=method,
@@ -1428,21 +1428,21 @@ class BedrockFilesConfig(BaseAWSLLM, BaseFilesConfig):
             aws_region_name=target.aws_region_name,
             request_params=target.request_params,
         )
-        litellm_params[S3_SIGNED_REQUEST_HEADERS_PARAM] = signed_headers  # rebind-ok: handed to validate_environment
+        embrouter_params[S3_SIGNED_REQUEST_HEADERS_PARAM] = signed_headers  # rebind-ok: handed to validate_environment
         return url, {}  # mutable-ok: the base files contract returns the query as a dict
 
     def _s3_request_target(
         self,
         optional_params: Mapping[str, object],
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
     ) -> _S3RequestTarget:
         """
         The shared files handler passes optional_params={}, so AWS credentials and
-        region arrive via litellm_params here (unlike the upload path).
+        region arrive via embrouter_params here (unlike the upload path).
         s3_region_name wins over aws_region_name, same priority as get_complete_file_url.
         """
         request_params: Final = _BedrockS3RequestParams.model_validate(
-            MappingProxyType({**litellm_params, **optional_params})
+            MappingProxyType({**embrouter_params, **optional_params})
         )
         region_preference: Final = request_params.s3_region_name or request_params.aws_region_name
         aws_region_name: Final = self._get_aws_region_name(
@@ -1490,8 +1490,8 @@ class BedrockFilesConfig(BaseAWSLLM, BaseFilesConfig):
     def transform_file_content_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
-        litellm_params: dict,
+        logging_obj: EmbRouterLoggingObj,
+        embrouter_params: dict,
     ) -> HttpxBinaryResponseContent:
         if raw_response.status_code >= 400:
             raise BedrockError(
@@ -1543,7 +1543,7 @@ class BedrockJsonlFilesTransformation:
         """
         Gets a unique S3 object name for the Bedrock batch processing job
 
-        named as: litellm-bedrock-files-{model}-{uuid}
+        named as: embrouter-bedrock-files-{model}-{uuid}
         """
         _model = openai_jsonl_content[0].get("body", {}).get("model", "")
         # Remove bedrock/ prefix if present

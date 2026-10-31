@@ -8,27 +8,27 @@ from typing import TYPE_CHECKING, Any, Final
 
 from fastapi import HTTPException, Request, status
 
-import litellm
-from litellm._logging import verbose_proxy_logger, verbose_proxy_stdout_logger
-from litellm.constants import EMPTY_MAPPING
-from litellm.integrations.otel.runtime import seed_request_identity
-from litellm.litellm_core_utils.core_helpers import is_expected_client_error
-from litellm.proxy._types import (
-    LitellmUserRoles,
+import embrouter
+from embrouter._logging import verbose_proxy_logger, verbose_proxy_stdout_logger
+from embrouter.constants import EMPTY_MAPPING
+from embrouter.integrations.otel.runtime import seed_request_identity
+from embrouter.embrouter_core_utils.core_helpers import is_expected_client_error
+from embrouter.proxy._types import (
+    EmbrouterUserRoles,
     ModelAccessDeniedProxyException,
     ProxyErrorTypes,
     ProxyException,
     UserAPIKeyAuth,
 )
-from litellm.proxy.auth.auth_utils import (
+from embrouter.proxy.auth.auth_utils import (
     _get_request_ip_address,
     is_invalid_virtual_key_error,
     mark_invalid_virtual_key_error,
     normalize_request_route,
 )
-from litellm.proxy.auth.model_access_denied import ModelAccessDeniedHTTPException
-from litellm.proxy.db.exception_handler import PrismaDBExceptionHandler
-from litellm.types.services import ServiceTypes
+from embrouter.proxy.auth.model_access_denied import ModelAccessDeniedHTTPException
+from embrouter.proxy.db.exception_handler import PrismaDBExceptionHandler
+from embrouter.types.services import ServiceTypes
 
 # Sentinel user_id for the synthetic UserAPIKeyAuth issued during a DB
 # outage when allow_requests_on_db_unavailable is True. Downstream
@@ -46,7 +46,7 @@ else:
 
 def _as_proxy_exception(e: Exception) -> ProxyException:
     """Convert an authentication failure into the ProxyException the client receives."""
-    if isinstance(e, litellm.BudgetExceededError):
+    if isinstance(e, embrouter.BudgetExceededError):
         return ProxyException(
             message=e.message,
             type=ProxyErrorTypes.budget_exceeded,
@@ -89,9 +89,9 @@ def _get_user_agent(request: Request) -> str | None:
 def _with_client_context(
     request_data: dict[str, object], requester_ip: str | None, user_agent: str | None
 ) -> dict[str, object]:
-    """Auth gate rejections are raised before `add_litellm_data_to_request` records the
+    """Auth gate rejections are raised before `add_embrouter_data_to_request` records the
     caller IP and User-Agent, so their failure logs would otherwise carry neither."""
-    key: Final = "litellm_metadata" if "litellm_metadata" in request_data else "metadata"
+    key: Final = "embrouter_metadata" if "embrouter_metadata" in request_data else "metadata"
     metadata: Final = request_data.get(key)
     base: Final[Mapping[str, object]] = metadata if isinstance(metadata, Mapping) else EMPTY_MAPPING
     stamped: Final = {
@@ -110,7 +110,7 @@ def _escape_control_chars(value: str) -> str:
 
 def _identity_log_suffix(resolved_identity: UserAPIKeyAuth | None) -> str:
     """Names the owner of the rejected key so the failure log line alone identifies the caller."""
-    if resolved_identity is None or not litellm.log_auth_failure_key_identity:
+    if resolved_identity is None or not embrouter.log_auth_failure_key_identity:
         return ""
     fields: Final = (
         ("key_alias", resolved_identity.key_alias),
@@ -135,7 +135,7 @@ class UserAPIKeyAuthExceptionHandler:
         resolved_identity: UserAPIKeyAuth | None = None,
     ) -> UserAPIKeyAuth:
         """
-        Handles Connection Errors when reading a Virtual Key from LiteLLM DB
+        Handles Connection Errors when reading a Virtual Key from EmbRouter DB
         Use this if you don't want failed DB queries to block LLM API reqiests
 
         Reliability scenarios this covers:
@@ -148,7 +148,7 @@ class UserAPIKeyAuthExceptionHandler:
         Raises:
             - Original Exception in all other cases
         """
-        from litellm.proxy.proxy_server import (
+        from embrouter.proxy.proxy_server import (
             general_settings,
             proxy_logging_obj,
         )
@@ -175,7 +175,7 @@ class UserAPIKeyAuthExceptionHandler:
                 key_name="failed-to-connect-to-db",
                 token="failed-to-connect-to-db",
                 user_id=DB_UNAVAILABLE_FALLBACK_USER_ID,
-                user_role=LitellmUserRoles.INTERNAL_USER,
+                user_role=EmbrouterUserRoles.INTERNAL_USER,
                 request_route=route,
             )
         else:
@@ -188,18 +188,18 @@ class UserAPIKeyAuthExceptionHandler:
 
             # Log authentication failures before identity seeding and callbacks, so the log
             # survives a raising callback pipeline. Classify and route malformed virtual-key
-            # rejections to WARNING on stdout (suppressible via LITELLM_LOG=ERROR).
+            # rejections to WARNING on stdout (suppressible via EMBROUTER_LOG=ERROR).
             log_extra: Final = {"requester_ip": requester_ip}
             is_invalid_virtual_key: Final = is_invalid_virtual_key_error(e)
-            is_quiet_log: Final = is_invalid_virtual_key and not litellm.log_client_error_tracebacks
+            is_quiet_log: Final = is_invalid_virtual_key and not embrouter.log_client_error_tracebacks
             logger: Final = verbose_proxy_stdout_logger if is_quiet_log else verbose_proxy_logger
             logger.log(
                 logging.WARNING if is_quiet_log else logging.ERROR,
-                "litellm.proxy.proxy_server.user_api_key_auth(): Exception occured - %s\nRequester IP Address:%s%s",
+                "embrouter.proxy.proxy_server.user_api_key_auth(): Exception occured - %s\nRequester IP Address:%s%s",
                 e,
                 requester_ip,
                 _identity_log_suffix(resolved_identity),
-                exc_info=True if litellm.log_client_error_tracebacks or not is_expected_client_error(e) else None,
+                exc_info=True if embrouter.log_client_error_tracebacks or not is_expected_client_error(e) else None,
                 extra=log_extra,
             )
 
@@ -226,8 +226,8 @@ class UserAPIKeyAuthExceptionHandler:
             # raise carries `llm_provider=""`. Resolve it here off `request_data`
             # so custom-callback consumers reading StandardLoggingPayload get
             # the same `llm_provider` attribution as for RPM/TPM 429s.
-            if isinstance(e, litellm.BudgetExceededError) and not e.llm_provider:
-                from litellm.proxy.hooks.rate_limiter_utils import (
+            if isinstance(e, embrouter.BudgetExceededError) and not e.llm_provider:
+                from embrouter.proxy.hooks.rate_limiter_utils import (
                     resolve_llm_provider_for_rate_limit,
                 )
 
@@ -252,7 +252,7 @@ class UserAPIKeyAuthExceptionHandler:
             # If a quiet-logged malformed-key transform yields non-401, escalate to ERROR
             if is_quiet_log and str(final_exception.code) != str(status.HTTP_401_UNAUTHORIZED):
                 verbose_proxy_logger.error(
-                    "litellm.proxy.proxy_server.user_api_key_auth(): Exception occured - %s\nRequester IP Address:%s",
+                    "embrouter.proxy.proxy_server.user_api_key_auth(): Exception occured - %s\nRequester IP Address:%s",
                     final_exception,
                     requester_ip,
                     extra=log_extra,

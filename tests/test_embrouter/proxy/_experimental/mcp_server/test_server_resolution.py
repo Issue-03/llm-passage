@@ -10,16 +10,16 @@ from unittest.mock import Mock
 import pytest
 from fastapi import HTTPException
 
-from litellm.proxy._experimental.mcp_server.server_resolution import (
+from embrouter.proxy._experimental.mcp_server.server_resolution import (
     ResolutionSource,
     ResolvedMCPServer,
     authorize_mcp_server,
     resolve_mcp_server,
 )
-from litellm.proxy._experimental.mcp_server.ui_session_utils import can_access_mcp_server
-from litellm.proxy._types import LiteLLM_MCPServerTable, LitellmUserRoles, UserAPIKeyAuth
-from litellm.types.mcp import MCPTransport
-from litellm.types.mcp_server.mcp_server_manager import MCPServer
+from embrouter.proxy._experimental.mcp_server.ui_session_utils import can_access_mcp_server
+from embrouter.proxy._types import EmbRouter_MCPServerTable, EmbrouterUserRoles, UserAPIKeyAuth
+from embrouter.types.mcp import MCPTransport
+from embrouter.types.mcp_server.mcp_server_manager import MCPServer
 
 
 @dataclass(frozen=True)
@@ -45,8 +45,8 @@ class FakeMCPServerManager:
         self.ip_filter_spy(server, client_ip)
         return self.ip_accessible
 
-    def _build_mcp_server_table(self, server: MCPServer) -> LiteLLM_MCPServerTable:
-        return LiteLLM_MCPServerTable(
+    def _build_mcp_server_table(self, server: MCPServer) -> EmbRouter_MCPServerTable:
+        return EmbRouter_MCPServerTable(
             server_id=server.server_id,
             alias=server.alias,
             server_name=server.server_name,
@@ -70,8 +70,8 @@ def _runtime_server(server_id: str = "canonical-server") -> MCPServer:
     )
 
 
-def _table_server(server_id: str = "database-server") -> LiteLLM_MCPServerTable:
-    return LiteLLM_MCPServerTable(
+def _table_server(server_id: str = "database-server") -> EmbRouter_MCPServerTable:
+    return EmbRouter_MCPServerTable(
         server_id=server_id,
         alias=f"{server_id}-alias",
         server_name=f"{server_id}-name",
@@ -101,7 +101,7 @@ def _manager(
 
 def _auth() -> UserAPIKeyAuth:
     return UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=EmbrouterUserRoles.INTERNAL_USER,
         user_id="resolver-test-user",
         api_key="resolver-test-key",
     )
@@ -118,7 +118,7 @@ async def test_temp_resolution_precedes_db_and_registry() -> None:
         temp_lookup(server_id)
         return temporary_server
 
-    async def lookup_db(server_id: str) -> LiteLLM_MCPServerTable | None:
+    async def lookup_db(server_id: str) -> EmbRouter_MCPServerTable | None:
         db_lookup(server_id)
         return _table_server(server_id)
 
@@ -146,7 +146,7 @@ async def test_db_resolution_precedes_registry_id() -> None:
     manager: Final = _manager(servers_by_id={registry_server.server_id: registry_server})
     db_lookup: Final = Mock()
 
-    async def lookup_db(server_id: str) -> LiteLLM_MCPServerTable | None:
+    async def lookup_db(server_id: str) -> EmbRouter_MCPServerTable | None:
         db_lookup(server_id)
         return database_server
 
@@ -340,7 +340,7 @@ async def test_authorize_uses_real_access_helper_for_canonical_id(
         return await can_access_mcp_server(user_api_key_auth, requested_server_id, allowed_servers)
 
     monkeypatch.setattr(
-        "litellm.proxy._experimental.mcp_server.server_resolution.can_access_mcp_server",
+        "embrouter.proxy._experimental.mcp_server.server_resolution.can_access_mcp_server",
         spy_access,
     )
     if expected_status is None:
@@ -413,7 +413,7 @@ async def test_empty_temp_and_db_lookups_fall_through_to_ip_filtered_registry() 
         lookups.temp(server_id)
         return None
 
-    async def db_lookup(server_id: str) -> LiteLLM_MCPServerTable | None:
+    async def db_lookup(server_id: str) -> EmbRouter_MCPServerTable | None:
         lookups.db(server_id)
         return None
 

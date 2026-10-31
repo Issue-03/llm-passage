@@ -13,14 +13,14 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-from litellm import LlmProviders
-from litellm.llms.gigachat.embedding.transformation import (
+from embrouter import LlmProviders
+from embrouter.llms.gigachat.embedding.transformation import (
     GigaChatEmbeddingConfig,
     GigaChatEmbeddingError,
 )
-from litellm.types.utils import EmbeddingResponse
+from embrouter.types.utils import EmbeddingResponse
 
-TRANSFORM_MODULE = "litellm.llms.gigachat.embedding.transformation"
+TRANSFORM_MODULE = "embrouter.llms.gigachat.embedding.transformation"
 
 
 def _make_httpx_response(body: dict, status_code: int = 200) -> httpx.Response:
@@ -103,21 +103,21 @@ class TestGetCompleteUrl:
     def test_default_url(self):
         url = self.config.get_complete_url(
             api_base=None, api_key=None, model="GigaChat",
-            optional_params={}, litellm_params={},
+            optional_params={}, embrouter_params={},
         )
         assert url.endswith("/embeddings")
 
     def test_custom_api_base(self):
         url = self.config.get_complete_url(
             api_base="https://custom.example.com", api_key=None, model="GigaChat",
-            optional_params={}, litellm_params={},
+            optional_params={}, embrouter_params={},
         )
         assert url == "https://custom.example.com/embeddings"
 
     def test_trailing_slash_api_base(self):
         url = self.config.get_complete_url(
             api_base="https://custom.example.com/", api_key=None, model="GigaChat",
-            optional_params={}, litellm_params={},
+            optional_params={}, embrouter_params={},
         )
         # get_api_base doesn't strip slash, so we get double slash
         assert url == "https://custom.example.com//embeddings"
@@ -193,7 +193,7 @@ class TestTransformEmbeddingResponse:
             api_key="test-key",
             request_data={"input": ["text"]},
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
         )
         assert result.object == "list"
         assert len(result.data) == 1
@@ -226,7 +226,7 @@ class TestTransformEmbeddingResponse:
             api_key="test-key",
             request_data={"input": ["a", "b"]},
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
         )
         # Total should be sum of per-embedding prompt_tokens
         assert result.usage.prompt_tokens == 12
@@ -253,7 +253,7 @@ class TestTransformEmbeddingResponse:
             api_key="key",
             request_data={"input": ["x"]},
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
         )
         # usage should NOT be in the final EmbeddingResponse data items
         for emb in result.data:
@@ -272,7 +272,7 @@ class TestTransformEmbeddingResponse:
             api_key="key",
             request_data={"input": ["x"]},
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
         )
         assert result.model == "Embeddings"
 
@@ -289,13 +289,13 @@ class TestValidateEnvironment:
             model="GigaChat",
             messages=[],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             api_key="creds",
             api_base="https://api.example.com",
         )
         assert headers["Authorization"] == "Bearer test-token"
         assert headers["Content-Type"] == "application/json"
-        mock_get_token.assert_called_once_with(credentials="creds", litellm_params={})
+        mock_get_token.assert_called_once_with(credentials="creds", embrouter_params={})
 
     @patch(f"{TRANSFORM_MODULE}.get_access_token", return_value="token")
     def test_merges_custom_headers(self, mock_get_token):
@@ -304,7 +304,7 @@ class TestValidateEnvironment:
             model="GigaChat",
             messages=[],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             api_key="creds",
             api_base="https://api.example.com",
         )
@@ -319,7 +319,7 @@ class TestValidateEnvironment:
             model="GigaChat",
             messages=[],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             api_key="creds",
             api_base="https://api.example.com",
         )

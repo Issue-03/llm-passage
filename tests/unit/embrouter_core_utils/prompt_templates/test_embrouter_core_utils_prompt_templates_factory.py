@@ -8,8 +8,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import litellm
-from litellm.litellm_core_utils.prompt_templates.factory import (
+import embrouter
+from embrouter.embrouter_core_utils.prompt_templates.factory import (
     BEDROCK_DOCUMENT_PLACEHOLDER_TEXT,
     BedrockConverseMessagesProcessor,
     BedrockImageProcessor,
@@ -27,7 +27,7 @@ from litellm.litellm_core_utils.prompt_templates.factory import (
     ollama_pt,
     sanitize_messages_for_tool_calling,
 )
-from litellm.types.llms.openai import ChatCompletionToolMessage
+from embrouter.types.llms.openai import ChatCompletionToolMessage
 
 
 def _get_gemini_function_response_inline_data_parts(result):
@@ -187,8 +187,8 @@ def test_bedrock_converse_assistant_with_empty_thinking_block_and_tool_calls():
         {"type": "thinking", "thinking": "oss reasoning", "signature": None},
         {"type": "thinking", "thinking": "oss reasoning", "signature": ""},
         {"type": "thinking", "thinking": "oss reasoning"},
-        {"type": "thinking", "thinking": "openai reasoning", "signature": "litellm_encrypted_reasoning:gAAAA"},
-        {"type": "redacted_thinking", "data": "litellm_encrypted_reasoning:gAAAA"},
+        {"type": "thinking", "thinking": "openai reasoning", "signature": "embrouter_encrypted_reasoning:gAAAA"},
+        {"type": "redacted_thinking", "data": "embrouter_encrypted_reasoning:gAAAA"},
     ],
     ids=[
         "null_signature",
@@ -262,10 +262,10 @@ def test_convert_to_azure_openai_messages():
 
     from typing import List
 
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from embrouter.embrouter_core_utils.prompt_templates.factory import (
         convert_to_azure_openai_messages,
     )
-    from litellm.types.llms.openai import AllMessageValues
+    from embrouter.types.llms.openai import AllMessageValues
 
     input: List[AllMessageValues] = [
         {
@@ -288,11 +288,11 @@ def test_convert_to_azure_openai_messages():
     assert content == expected_content
 
 
-def test_convert_to_azure_openai_messages_strips_litellm_format_from_file_and_image():
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+def test_convert_to_azure_openai_messages_strips_embrouter_format_from_file_and_image():
+    from embrouter.embrouter_core_utils.prompt_templates.factory import (
         convert_to_azure_openai_messages,
     )
-    from litellm.types.llms.openai import AllMessageValues
+    from embrouter.types.llms.openai import AllMessageValues
 
     input: list[AllMessageValues] = [
         {
@@ -492,7 +492,7 @@ def test_bedrock_get_document_format_mimetypes_success():
 #         {"role": "invalid_role", "content": "This is an invalid role"}
 #     ]
 
-#     with pytest.raises(litellm.BadRequestError) as excinfo:
+#     with pytest.raises(embrouter.BadRequestError) as excinfo:
 #         ollama_pt(model="llama2", messages=messages)
 
 #     assert BAD_MESSAGE_ERROR_STR in str(excinfo.value)
@@ -581,7 +581,7 @@ def test_vertex_ai_transform_empty_function_call_arguments():
     """
     Test that the _transform_parts method handles empty function call arguments correctly
     """
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from embrouter.embrouter_core_utils.prompt_templates.factory import (
         VertexFunctionCall,
         _gemini_tool_call_invoke_helper,
     )
@@ -602,7 +602,7 @@ async def test_bedrock_process_image_async_factory():
     """
     Test that the _process_image_async_factory method handles image input correctly
     """
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from embrouter.embrouter_core_utils.prompt_templates.factory import (
         BedrockImageProcessor,
     )
 
@@ -614,7 +614,7 @@ async def test_bedrock_process_image_async_factory():
 
 def test_unpack_defs_resolves_nested_ref_inside_anyof_items():
     """Ensure unpack_defs correctly resolves $ref inside items within anyOf (Issue #11372)."""
-    from litellm.litellm_core_utils.prompt_templates.common_utils import unpack_defs
+    from embrouter.embrouter_core_utils.prompt_templates.common_utils import unpack_defs
 
     # Define a minimal schema reproducing the bug scenario
     schema = {
@@ -661,10 +661,10 @@ def test_convert_gemini_messages():
     """
     Handle 'content' not being present in the message
     """
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from embrouter.embrouter_core_utils.prompt_templates.factory import (
         convert_to_gemini_tool_call_result,
     )
-    from litellm.types.llms.openai import ChatCompletionToolMessage
+    from embrouter.types.llms.openai import ChatCompletionToolMessage
 
     message = ChatCompletionToolMessage(
         role="tool",
@@ -694,10 +694,10 @@ def test_convert_gemini_tool_call_result_with_image_url():
     Test that image_url content type in tool results is handled correctly for Gemini.
 
     """
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from embrouter.embrouter_core_utils.prompt_templates.factory import (
         convert_to_gemini_tool_call_result,
     )
-    from litellm.types.llms.openai import ChatCompletionToolMessage
+    from embrouter.types.llms.openai import ChatCompletionToolMessage
 
     # Test with string image_url format
     message_str_format = ChatCompletionToolMessage(
@@ -923,7 +923,7 @@ def test_bedrock_tools_unpack_defs():
     """
     Test that the unpack_defs method handles nested $ref inside anyOf items correctly
     """
-    from litellm.litellm_core_utils.prompt_templates.factory import _bedrock_tools_pt
+    from embrouter.embrouter_core_utils.prompt_templates.factory import _bedrock_tools_pt
 
     circularRefSchema = {
         "type": "object",
@@ -1283,7 +1283,7 @@ def test_bedrock_tools_pt_empty_description():
     When a tool has an empty string description, Bedrock doesn't accept it,
     so the function should fall back to using the function name as the description.
     """
-    from litellm.litellm_core_utils.prompt_templates.factory import _bedrock_tools_pt
+    from embrouter.embrouter_core_utils.prompt_templates.factory import _bedrock_tools_pt
 
     tools = [
         {
@@ -1547,12 +1547,12 @@ def test_bedrock_nova_web_search_options_mapping():
     """
     Test that web_search_options is correctly mapped to Nova grounding.
 
-    This follows the LiteLLM pattern for web search where:
+    This follows the EmbRouter pattern for web search where:
     - Vertex AI maps web_search_options to {"googleSearch": {}}
     - Anthropic maps web_search_options to {"type": "web_search_20250305", ...}
     - Nova should map web_search_options to {"systemTool": {"name": "nova_grounding"}}
     """
-    from litellm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
+    from embrouter.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
 
     config = AmazonConverseConfig()
 
@@ -1582,7 +1582,7 @@ def test_bedrock_tools_pt_does_not_handle_system_tool():
     not via the tools parameter directly.
     """
 
-    from litellm.litellm_core_utils.prompt_templates.factory import _bedrock_tools_pt
+    from embrouter.embrouter_core_utils.prompt_templates.factory import _bedrock_tools_pt
 
     # Regular function tools should still work
     tools = [
@@ -1612,10 +1612,10 @@ def test_bedrock_tools_pt_drops_unmappable_responses_builtin_tools():
     """
     Regression for LIT-3858: Responses built-in tools (image_generation, namespace,
     tool_search, custom) have no Bedrock toolSpec equivalent. They must be dropped, not
-    emitted as junk ``litellm_unnamed_tool_N`` toolSpecs the model can hallucinate calls to.
+    emitted as junk ``embrouter_unnamed_tool_N`` toolSpecs the model can hallucinate calls to.
     Mappable ``function`` and Anthropic ``input_schema`` tools must survive untouched.
     """
-    from litellm.litellm_core_utils.prompt_templates.factory import _bedrock_tools_pt
+    from embrouter.embrouter_core_utils.prompt_templates.factory import _bedrock_tools_pt
 
     tools = [
         {
@@ -1635,7 +1635,7 @@ def test_bedrock_tools_pt_drops_unmappable_responses_builtin_tools():
 
     names = [block["toolSpec"]["name"] for block in result if "toolSpec" in block]
     assert names == ["noop"]
-    assert not any(name.startswith("litellm_unnamed_tool_") for name in names)
+    assert not any(name.startswith("embrouter_unnamed_tool_") for name in names)
 
 
 def test_bedrock_tools_pt_keeps_anthropic_input_schema_tools():
@@ -1643,7 +1643,7 @@ def test_bedrock_tools_pt_keeps_anthropic_input_schema_tools():
     The drop guard for unmappable tools must not regress Anthropic Messages format tools,
     which carry an ``input_schema`` instead of an OpenAI ``function`` key.
     """
-    from litellm.litellm_core_utils.prompt_templates.factory import _bedrock_tools_pt
+    from embrouter.embrouter_core_utils.prompt_templates.factory import _bedrock_tools_pt
 
     tools = [
         {
@@ -1673,7 +1673,7 @@ def test_convert_to_anthropic_tool_result_image_with_cache_control():
     This tests the functionality added in the uncommitted changes where
     add_cache_control_to_content is called for image_url content types.
     """
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from embrouter.embrouter_core_utils.prompt_templates.factory import (
         convert_to_anthropic_tool_result,
     )
 
@@ -1718,7 +1718,7 @@ def test_convert_to_anthropic_tool_result_image_without_cache_control():
     """
     Test that images without cache_control in tool results work correctly.
     """
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from embrouter.embrouter_core_utils.prompt_templates.factory import (
         convert_to_anthropic_tool_result,
     )
 
@@ -1752,7 +1752,7 @@ def test_convert_to_anthropic_tool_result_mixed_content_with_cache_control():
     """
     Test tool results with mixed content types (text and image) where only some have cache_control.
     """
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from embrouter.embrouter_core_utils.prompt_templates.factory import (
         convert_to_anthropic_tool_result,
     )
 
@@ -1808,7 +1808,7 @@ def test_convert_to_anthropic_tool_result_image_url_as_http():
     """
     Test that HTTP/HTTPS URLs with cache_control are handled correctly.
     """
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from embrouter.embrouter_core_utils.prompt_templates.factory import (
         convert_to_anthropic_tool_result,
     )
 
@@ -1843,7 +1843,7 @@ def test_anthropic_messages_pt_server_tool_use_passthrough():
 
 
     """
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from embrouter.embrouter_core_utils.prompt_templates.factory import (
         anthropic_messages_pt,
     )
 
@@ -1923,7 +1923,7 @@ def test_bedrock_tools_unpack_defs_no_oom_with_nested_refs():
     import sys
     import copy
 
-    from litellm.litellm_core_utils.prompt_templates.factory import _bedrock_tools_pt
+    from embrouter.embrouter_core_utils.prompt_templates.factory import _bedrock_tools_pt
 
     # Schema with multiple nested $defs that reference each other
     # This pattern would cause OOM with the old "flatten defs" loop
@@ -2445,7 +2445,7 @@ def test_bedrock_tool_call_invoke_unconvertible_raises_non_retryable_bad_request
     """
     tool_calls = [{"id": "call_bad", "type": "function", "function": None}]
 
-    with pytest.raises(litellm.BadRequestError) as exc_info:
+    with pytest.raises(embrouter.BadRequestError) as exc_info:
         _convert_to_bedrock_tool_call_invoke(tool_calls)
 
     assert exc_info.value.status_code == 400
@@ -2568,8 +2568,8 @@ def test_sanitize_messages_deduplicates_tool_results():
         each tool_use must have a single result. Found multiple tool_result
         blocks with id: <id>
     """
-    original = litellm.modify_params
-    litellm.modify_params = True
+    original = embrouter.modify_params
+    embrouter.modify_params = True
     try:
         messages = [
             {"role": "user", "content": "What's the weather?"},
@@ -2609,7 +2609,7 @@ def test_sanitize_messages_deduplicates_tool_results():
         # Should keep the LAST occurrence (most complete)
         assert tool_results[0]["content"] == '{"temperature": 72, "condition": "sunny"}'
     finally:
-        litellm.modify_params = original
+        embrouter.modify_params = original
 
 
 def test_sanitize_messages_preserves_unique_tool_results():
@@ -2617,8 +2617,8 @@ def test_sanitize_messages_preserves_unique_tool_results():
     When each tool_call_id has exactly one tool_result, no deduplication should
     occur. Messages should pass through unchanged.
     """
-    original = litellm.modify_params
-    litellm.modify_params = True
+    original = embrouter.modify_params
+    embrouter.modify_params = True
     try:
         messages = [
             {"role": "user", "content": "Get weather for two cities"},
@@ -2657,16 +2657,16 @@ def test_sanitize_messages_preserves_unique_tool_results():
         assert tool_results[1]["tool_call_id"] == "call_2"
         assert tool_results[1]["content"] == "85F"
     finally:
-        litellm.modify_params = original
+        embrouter.modify_params = original
 
 
 def test_sanitize_messages_dedup_disabled_when_modify_params_false():
     """
-    When litellm.modify_params is False, messages should be returned as-is
+    When embrouter.modify_params is False, messages should be returned as-is
     even if they contain duplicate tool results.
     """
-    original = litellm.modify_params
-    litellm.modify_params = False
+    original = embrouter.modify_params
+    embrouter.modify_params = False
     try:
         messages = [
             {"role": "user", "content": "Test"},
@@ -2690,7 +2690,7 @@ def test_sanitize_messages_dedup_disabled_when_modify_params_false():
         # Should be unchanged — no sanitization when modify_params=False
         assert result == messages
     finally:
-        litellm.modify_params = original
+        embrouter.modify_params = original
 
 
 def test_sanitize_messages_dedup_scoped_per_turn_preserves_cross_turn():
@@ -2704,8 +2704,8 @@ def test_sanitize_messages_dedup_scoped_per_turn_preserves_cross_turn():
     leaving the first assistant message without its required result (which
     Anthropic would reject).
     """
-    original = litellm.modify_params
-    litellm.modify_params = True
+    original = embrouter.modify_params
+    embrouter.modify_params = True
     try:
         messages = [
             {"role": "user", "content": "First question"},
@@ -2747,7 +2747,7 @@ def test_sanitize_messages_dedup_scoped_per_turn_preserves_cross_turn():
         assert tool_results[0]["content"] == "result_turn_1"
         assert tool_results[1]["content"] == "result_turn_2"
     finally:
-        litellm.modify_params = original
+        embrouter.modify_params = original
 
 
 def test_sanitize_messages_combined_case_a_and_case_d():
@@ -2759,8 +2759,8 @@ def test_sanitize_messages_combined_case_a_and_case_d():
     This validates that both sanitization passes compose correctly without
     interfering with each other.
     """
-    original = litellm.modify_params
-    litellm.modify_params = True
+    original = embrouter.modify_params
+    embrouter.modify_params = True
     try:
         messages = [
             {"role": "user", "content": "Do two things"},
@@ -2820,7 +2820,7 @@ def test_sanitize_messages_combined_case_a_and_case_d():
             "call_duped",
         }, f"Expected tool_call_ids {{call_missing, call_duped}}, got {tool_ids}"
     finally:
-        litellm.modify_params = original
+        embrouter.modify_params = original
 
 
 def test_anthropic_messages_pt_file_block_preserves_cache_control():
@@ -2829,7 +2829,7 @@ def test_anthropic_messages_pt_file_block_preserves_cache_control():
     when translated to Anthropic document params.
 
     """
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from embrouter.embrouter_core_utils.prompt_templates.factory import (
         anthropic_messages_pt,
     )
 
@@ -2885,18 +2885,18 @@ def test_add_cache_point_tool_block_passes_ttl_for_claude_4_5(monkeypatch):
 
 
     Forces the bundled local cost map so ttl eligibility (driven by
-    `cache_creation_input_token_cost_above_1hr` in litellm.model_cost) reads
+    `cache_creation_input_token_cost_above_1hr` in embrouter.model_cost) reads
     this branch's pricing data rather than the network-fetched `main` copy,
     which lacks the fix until merge.
     """
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from embrouter.embrouter_core_utils.prompt_templates.factory import (
         add_cache_point_tool_block,
     )
 
-    old_env = os.environ.get("LITELLM_LOCAL_MODEL_COST_MAP")
-    old_cost = litellm.model_cost
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    litellm.model_cost = litellm.get_model_cost_map(url="")
+    old_env = os.environ.get("EMBROUTER_LOCAL_MODEL_COST_MAP")
+    old_cost = embrouter.model_cost
+    monkeypatch.setenv("EMBROUTER_LOCAL_MODEL_COST_MAP", "True")
+    embrouter.model_cost = embrouter.get_model_cost_map(url="")
     try:
         tool_with_1h = {
             "type": "function",
@@ -2943,23 +2943,23 @@ def test_add_cache_point_tool_block_passes_ttl_for_claude_4_5(monkeypatch):
         assert result_no_ttl["cachePoint"]["type"] == "default"
         assert "ttl" not in result_no_ttl["cachePoint"]
     finally:
-        litellm.model_cost = old_cost
+        embrouter.model_cost = old_cost
         if old_env is None:
-            os.environ.pop("LITELLM_LOCAL_MODEL_COST_MAP", None)
+            os.environ.pop("EMBROUTER_LOCAL_MODEL_COST_MAP", None)
         else:
-            monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", old_env)
+            monkeypatch.setenv("EMBROUTER_LOCAL_MODEL_COST_MAP", old_env)
 
 
 def test_add_cache_point_tool_block_stands_down_for_model_without_prompt_caching(monkeypatch):
     """A tool carrying cache_control must not become a cachePoint for a Bedrock model
     whose cost-map entry lacks prompt caching support, since Bedrock rejects the whole
     request. An unmapped id keeps emitting so ARN deployments do not lose caching."""
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from embrouter.embrouter_core_utils.prompt_templates.factory import (
         add_cache_point_tool_block,
     )
 
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
+    monkeypatch.setenv("EMBROUTER_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setattr(embrouter, "model_cost", embrouter.get_model_cost_map(url=""))
     tool = {"cache_control": {"type": "ephemeral"}}
 
     assert add_cache_point_tool_block(tool, model="nvidia.nemotron-super-3-120b") is None
@@ -2978,16 +2978,16 @@ def test_bedrock_tools_pt_passes_ttl_for_claude_4_5(monkeypatch):
     for Claude 4.5+ models when tools have cache_control with ttl.
 
     Forces the bundled local cost map so ttl eligibility (driven by
-    `cache_creation_input_token_cost_above_1hr` in litellm.model_cost) reads
+    `cache_creation_input_token_cost_above_1hr` in embrouter.model_cost) reads
     this branch's pricing data rather than the network-fetched `main` copy,
     which lacks the fix until merge.
     """
-    from litellm.litellm_core_utils.prompt_templates.factory import _bedrock_tools_pt
+    from embrouter.embrouter_core_utils.prompt_templates.factory import _bedrock_tools_pt
 
-    old_env = os.environ.get("LITELLM_LOCAL_MODEL_COST_MAP")
-    old_cost = litellm.model_cost
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    litellm.model_cost = litellm.get_model_cost_map(url="")
+    old_env = os.environ.get("EMBROUTER_LOCAL_MODEL_COST_MAP")
+    old_cost = embrouter.model_cost
+    monkeypatch.setenv("EMBROUTER_LOCAL_MODEL_COST_MAP", "True")
+    embrouter.model_cost = embrouter.get_model_cost_map(url="")
     try:
         tools = [
             {
@@ -3016,11 +3016,11 @@ def test_bedrock_tools_pt_passes_ttl_for_claude_4_5(monkeypatch):
         assert len(cache_blocks_old) == 1
         assert "ttl" not in cache_blocks_old[0]["cachePoint"]
     finally:
-        litellm.model_cost = old_cost
+        embrouter.model_cost = old_cost
         if old_env is None:
-            os.environ.pop("LITELLM_LOCAL_MODEL_COST_MAP", None)
+            os.environ.pop("EMBROUTER_LOCAL_MODEL_COST_MAP", None)
         else:
-            monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", old_env)
+            monkeypatch.setenv("EMBROUTER_LOCAL_MODEL_COST_MAP", old_env)
 
 
 def test_convert_to_anthropic_tool_result_openai_file_pdf_becomes_document():
@@ -3300,7 +3300,7 @@ def _n_choices_response(*names_per_choice):
 
 
 def test_get_tool_calls_from_response_defaults_to_primary_choice_only():
-    from litellm.litellm_core_utils.prompt_templates.factory import get_tool_calls_from_response
+    from embrouter.embrouter_core_utils.prompt_templates.factory import get_tool_calls_from_response
 
     response = _n_choices_response("tool_alpha", "tool_beta")
 
@@ -3308,7 +3308,7 @@ def test_get_tool_calls_from_response_defaults_to_primary_choice_only():
 
 
 def test_get_tool_calls_from_response_include_all_choices_reads_every_choice():
-    from litellm.litellm_core_utils.prompt_templates.factory import get_tool_calls_from_response
+    from embrouter.embrouter_core_utils.prompt_templates.factory import get_tool_calls_from_response
 
     response = _n_choices_response("tool_alpha", "tool_beta")
 
@@ -3317,7 +3317,7 @@ def test_get_tool_calls_from_response_include_all_choices_reads_every_choice():
 
 
 def test_get_tool_calls_from_response_silences_redacted_arguments(caplog):
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from embrouter.embrouter_core_utils.prompt_templates.factory import (
         get_tool_calls_from_response,
     )
 
@@ -3330,7 +3330,7 @@ def test_get_tool_calls_from_response_silences_redacted_arguments(caplog):
                             "id": "call_1",
                             "function": {
                                 "name": "Read",
-                                "arguments": "redacted-by-litellm",
+                                "arguments": "redacted-by-embrouter",
                             },
                         }
                     ]
@@ -3339,7 +3339,7 @@ def test_get_tool_calls_from_response_silences_redacted_arguments(caplog):
         ]
     }
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    with caplog.at_level(logging.WARNING, logger="EmbRouter"):
         tool_calls: Final = get_tool_calls_from_response(response)
 
     assert tool_calls == [{"id": "call_1", "name": "Read", "arguments": {}}]
@@ -3347,7 +3347,7 @@ def test_get_tool_calls_from_response_silences_redacted_arguments(caplog):
 
 
 def test_get_tool_calls_from_response_warns_for_malformed_arguments(caplog):
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from embrouter.embrouter_core_utils.prompt_templates.factory import (
         get_tool_calls_from_response,
     )
 
@@ -3369,7 +3369,7 @@ def test_get_tool_calls_from_response_warns_for_malformed_arguments(caplog):
         ]
     }
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    with caplog.at_level(logging.WARNING, logger="EmbRouter"):
         tool_calls: Final = get_tool_calls_from_response(response)
 
     assert tool_calls == [{"id": "call_1", "name": "Read", "arguments": {}}]
@@ -3392,7 +3392,7 @@ def test_get_tool_calls_from_response_expands_distinct_concatenated_arguments(ca
     raw = '{"flag":true}{"box":"A","limit":50}'
     response: Final = _chat_tool_response(_function_tool_call("call_move", "move", raw))
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    with caplog.at_level(logging.WARNING, logger="EmbRouter"):
         tool_calls: Final = get_tool_calls_from_response(response)
 
     assert tool_calls == [
@@ -3442,7 +3442,7 @@ def test_get_tool_calls_from_response_does_not_expand_a_valid_json_array():
 def test_get_tool_calls_from_response_drops_partial_concatenated_arguments(arguments: str, caplog):
     response: Final = _chat_tool_response(_function_tool_call("call_move", "move", arguments))
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    with caplog.at_level(logging.WARNING, logger="EmbRouter"):
         tool_calls: Final = get_tool_calls_from_response(response)
 
     assert tool_calls == [{"id": "call_move", "name": "move", "arguments": {}}]
@@ -3560,7 +3560,7 @@ def test_get_tool_calls_from_response_does_not_invent_ids_for_a_missing_call_id(
 
 
 def test_group_tool_exchanges_pairs_assistant_with_its_tool_rows():
-    from litellm.litellm_core_utils.prompt_templates.factory import group_tool_exchanges
+    from embrouter.embrouter_core_utils.prompt_templates.factory import group_tool_exchanges
 
     messages = [
         {"role": "user", "content": "first turn"},
@@ -3583,7 +3583,7 @@ def test_group_tool_exchanges_pairs_assistant_with_its_tool_rows():
 def test_group_tool_exchanges_uses_ownership_not_adjacency():
     """A tool row answering some other call must not be swept into the exchange
     it happens to sit next to."""
-    from litellm.litellm_core_utils.prompt_templates.factory import group_tool_exchanges
+    from embrouter.embrouter_core_utils.prompt_templates.factory import group_tool_exchanges
 
     messages = [
         {
@@ -3599,7 +3599,7 @@ def test_group_tool_exchanges_uses_ownership_not_adjacency():
 
 
 def test_group_tool_exchanges_assistant_without_tool_calls_stands_alone():
-    from litellm.litellm_core_utils.prompt_templates.factory import group_tool_exchanges
+    from embrouter.embrouter_core_utils.prompt_templates.factory import group_tool_exchanges
 
     messages = [
         {"role": "assistant", "content": "no tools here"},
@@ -3619,7 +3619,7 @@ def test_group_tool_exchanges_is_linear_in_message_count():
     """
     import time
 
-    from litellm.litellm_core_utils.prompt_templates.factory import group_tool_exchanges
+    from embrouter.embrouter_core_utils.prompt_templates.factory import group_tool_exchanges
 
     messages = [{"role": "user", "content": "x"} for _ in range(100_000)]
 
@@ -3761,7 +3761,7 @@ async def test_bedrock_converse_pdf_only_user_message_gets_text_block_async():
 
 
 def test_convert_to_anthropic_tool_result_keeps_tool_reference_blocks():
-    from litellm.litellm_core_utils.prompt_templates.factory import convert_to_anthropic_tool_result
+    from embrouter.embrouter_core_utils.prompt_templates.factory import convert_to_anthropic_tool_result
 
     result = convert_to_anthropic_tool_result(
         {
@@ -3815,7 +3815,7 @@ def test_convert_to_anthropic_tool_invoke_degrades_unpaired_server_tool_use():
     must become a plain client tool_use so the client's tool_result can pair
     with it. A dangling server_tool_use makes Anthropic 400 the request with
     "unexpected `tool_use_id` found in `tool_result` blocks"."""
-    from litellm.litellm_core_utils.prompt_templates.factory import convert_to_anthropic_tool_invoke
+    from embrouter.embrouter_core_utils.prompt_templates.factory import convert_to_anthropic_tool_invoke
 
     result = convert_to_anthropic_tool_invoke(
         tool_calls=[
@@ -3842,7 +3842,7 @@ def test_convert_to_anthropic_tool_invoke_degrades_unpaired_server_tool_use():
 def test_convert_to_anthropic_tool_invoke_keeps_paired_server_tool_use():
     """When the paired server tool result is available, the srvtoolu_ call is
     still reconstructed as server_tool_use followed by its result block."""
-    from litellm.litellm_core_utils.prompt_templates.factory import convert_to_anthropic_tool_invoke
+    from embrouter.embrouter_core_utils.prompt_templates.factory import convert_to_anthropic_tool_invoke
 
     server_result = {
         "type": "web_search_tool_result",
@@ -3930,7 +3930,7 @@ def test_anthropic_messages_pt_drops_empty_but_signed_thinking_block():
     history item (see PR #36033), so `is_unsignable_thinking_block()` must
     also check the thinking text, not just the signature.
     """
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from embrouter.embrouter_core_utils.prompt_templates.factory import (
         anthropic_messages_pt,
     )
 
@@ -3966,7 +3966,7 @@ def test_anthropic_messages_pt_keeps_non_empty_signed_thinking_block():
     Regression: a real, non-empty, signed thinking block must still pass
     through unchanged.
     """
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from embrouter.embrouter_core_utils.prompt_templates.factory import (
         anthropic_messages_pt,
     )
 
@@ -4005,7 +4005,7 @@ def test_anthropic_messages_pt_keeps_redacted_thinking_block():
     `thinking` field by design, and must always be kept regardless of the new
     emptiness check (which only applies to `type == "thinking"` blocks).
     """
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from embrouter.embrouter_core_utils.prompt_templates.factory import (
         anthropic_messages_pt,
     )
 
@@ -4041,7 +4041,7 @@ def test_anthropic_messages_pt_drops_unsigned_thinking_block():
     (or an empty/null one) must still be dropped, independent of whether the
     thinking text is populated.
     """
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from embrouter.embrouter_core_utils.prompt_templates.factory import (
         anthropic_messages_pt,
     )
 
@@ -4084,7 +4084,7 @@ def test_is_unsignable_thinking_block_treats_whitespace_only_as_empty():
     `_drop_unsignable_thinking_blocks` calls standalone, so the whitespace-aware
     test has to hold there rather than only at the factory call site.
     """
-    from litellm.litellm_core_utils.prompt_templates.common_utils import (
+    from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
         is_unsignable_thinking_block,
     )
 

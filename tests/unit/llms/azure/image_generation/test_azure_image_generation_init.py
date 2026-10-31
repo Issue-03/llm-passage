@@ -7,24 +7,24 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.caching.llm_caching_handler import LLMClientCache
-from litellm.llms.azure.azure import AzureChatCompletion
-from litellm.llms.azure.common_utils import (
+import embrouter
+from embrouter.caching.llm_caching_handler import LLMClientCache
+from embrouter.llms.azure.azure import AzureChatCompletion
+from embrouter.llms.azure.common_utils import (
     _cached_azure_ad_token_refresh_provider,
     _cached_entra_id_token_provider,
     get_azure_request_auth_headers,
     redact_azure_auth_headers,
 )
-from litellm.llms.azure.image_generation.http_utils import (
+from embrouter.llms.azure.image_generation.http_utils import (
     azure_deployment_image_generation_json_body,
 )
-from litellm.llms.custom_httpx.http_handler import HTTPHandler
-from litellm.llms.azure.image_generation import (
+from embrouter.llms.custom_httpx.http_handler import HTTPHandler
+from embrouter.llms.azure.image_generation import (
     AzureDallE3ImageGenerationConfig,
     get_azure_image_generation_config,
 )
-from litellm.utils import get_optional_params_image_gen
+from embrouter.utils import get_optional_params_image_gen
 
 
 @pytest.mark.parametrize(
@@ -148,7 +148,7 @@ def test_azure_image_generation_drop_params_response_format():
     Without the fix, response_format would be added to extra_body and cause Azure to
     return a 400 Bad Request error due to strict schema validation.
     """
-    from litellm.llms.openai.image_generation.gpt_transformation import (
+    from embrouter.llms.openai.image_generation.gpt_transformation import (
         GPTImageGenerationConfig,
     )
 
@@ -197,8 +197,8 @@ def test_azure_image_generation_drop_params_false_raises_error():
     This verifies that the error handling still works correctly when drop_params
     is not enabled.
     """
-    from litellm.exceptions import UnsupportedParamsError
-    from litellm.llms.openai.image_generation.gpt_transformation import (
+    from embrouter.exceptions import UnsupportedParamsError
+    from embrouter.llms.openai.image_generation.gpt_transformation import (
         GPTImageGenerationConfig,
     )
 
@@ -226,12 +226,12 @@ def test_azure_image_generation_base_model_vs_deployment_name():
 
     Azure OpenAI routes image generation by deployment in the URL; the REST body
     must not include ``model`` (sending deployment or base model there can break
-    gpt-image-2; see LiteLLM #26316). ``base_model`` in litellm_params is still used
+    gpt-image-2; see EmbRouter #26316). ``base_model`` in embrouter_params is still used
     internally for logging / hidden params.
 
     Example config:
       model: azure/gpt-image-15  # deployment name (URL only)
-      base_model: gpt-image-1.5  # optional, for LiteLLM metadata
+      base_model: gpt-image-1.5  # optional, for EmbRouter metadata
     """
 
     # Setup test parameters
@@ -244,7 +244,7 @@ def test_azure_image_generation_base_model_vs_deployment_name():
     api_version = "2024-07-01-preview"
     api_key = "test-api-key"
 
-    litellm_params = {
+    embrouter_params = {
         "base_model": base_model,
         "api_base": api_base,
         "api_version": api_version,
@@ -276,7 +276,7 @@ def test_azure_image_generation_base_model_vs_deployment_name():
             api_key=api_key,
             api_base=api_base,
             api_version=api_version,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
         assert mock_post.called, "HTTPHandler.post should be invoked"
@@ -334,7 +334,7 @@ async def test_azure_aimage_generation_base_model_vs_deployment_name():
     mock_client.post = AsyncMock(return_value=mock_http_response)
 
     with patch(
-        "litellm.llms.azure.azure.get_async_httpx_client", return_value=mock_client
+        "embrouter.llms.azure.azure.get_async_httpx_client", return_value=mock_client
     ):
         logging_obj = MagicMock()
         logging_obj.pre_call = MagicMock()
@@ -432,8 +432,8 @@ def test_azure_v1_image_generation_json_body_sends_deployment_name():
 async def test_azure_aimage_generation_v1_route_sends_deployment_name_in_body(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "in_memory_llm_clients_cache", LLMClientCache())
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(embrouter, "in_memory_llm_clients_cache", LLMClientCache())
     azure_chat_completion = AzureChatCompletion()
     model = "img-dep"
     base_model = "gpt-image-2"
@@ -478,7 +478,7 @@ def test_azure_image_generation_v1_route_base_model_vs_deployment_name(respx_moc
     base_model = "gpt-image-2"
     api_base = "https://my-resource.openai.azure.com"
     api_version = "v1"
-    litellm_params = {
+    embrouter_params = {
         "base_model": base_model,
         "api_base": api_base,
         "api_version": api_version,
@@ -502,7 +502,7 @@ def test_azure_image_generation_v1_route_base_model_vs_deployment_name(respx_moc
         api_key="test-api-key",
         api_base=api_base,
         api_version=api_version,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
     )
 
     request = route.calls.last.request
@@ -533,20 +533,20 @@ def _mock_image_generation_route(respx_mock: respx.MockRouter, api_base: str, mo
     )
 
 
-@pytest.mark.parametrize("credentials_in_litellm_params", [False, True])
+@pytest.mark.parametrize("credentials_in_embrouter_params", [False, True])
 def test_azure_image_generation_keyless_entra_id_sends_bearer_token(
     respx_mock: respx.MockRouter,
     monkeypatch: pytest.MonkeyPatch,
     fake_entra_id: list,
-    credentials_in_litellm_params: bool,
+    credentials_in_embrouter_params: bool,
 ):
     for name in ("AZURE_TENANT_ID", "AZURE_CLIENT_ID", "AZURE_CLIENT_SECRET"):
         monkeypatch.delenv(name, raising=False)
     api_base = "https://my-resource.openai.azure.com"
     api_version = "2025-04-01-preview"
-    litellm_params = {"api_base": api_base, "api_version": api_version}
-    if credentials_in_litellm_params:
-        litellm_params.update(
+    embrouter_params = {"api_base": api_base, "api_version": api_version}
+    if credentials_in_embrouter_params:
+        embrouter_params.update(
             tenant_id="tenant-from-params", client_id="client-from-params", client_secret="secret-from-params"
         )
         expected_credential = ("tenant-from-params", "client-from-params", "secret-from-params")
@@ -568,7 +568,7 @@ def test_azure_image_generation_keyless_entra_id_sends_bearer_token(
         api_key=None,
         api_base=api_base,
         api_version=api_version,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
     )
 
     request = route.calls.last.request
@@ -585,8 +585,8 @@ def test_azure_image_generation_keyless_entra_id_sends_bearer_token(
 async def test_azure_aimage_generation_keyless_entra_id_sends_bearer_token(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch, fake_entra_id: list
 ):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "in_memory_llm_clients_cache", LLMClientCache())
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(embrouter, "in_memory_llm_clients_cache", LLMClientCache())
     api_base = "https://my-resource.openai.azure.com"
     api_version = "2025-04-01-preview"
     route = _mock_image_generation_route(respx_mock, api_base, "gpt-image-1")
@@ -603,7 +603,7 @@ async def test_azure_aimage_generation_keyless_entra_id_sends_bearer_token(
         api_base=api_base,
         api_version=api_version,
         aimg_generation=True,
-        litellm_params={
+        embrouter_params={
             "api_base": api_base,
             "api_version": api_version,
             "tenant_id": "tenant-from-params",
@@ -651,7 +651,7 @@ def test_azure_image_generation_explicit_azure_ad_credential_sends_bearer_token(
         api_key=None,
         api_base=api_base,
         api_version=api_version,
-        litellm_params={"api_base": api_base, "api_version": api_version},
+        embrouter_params={"api_base": api_base, "api_version": api_version},
         **credential_kwargs,
     )
 
@@ -682,7 +682,7 @@ def test_azure_image_generation_with_api_key_keeps_api_key_header(
         api_key="sk-test",
         api_base=api_base,
         api_version=api_version,
-        litellm_params={"api_base": api_base, "api_version": api_version},
+        embrouter_params={"api_base": api_base, "api_version": api_version},
     )
 
     request = route.calls.last.request
@@ -707,7 +707,7 @@ def fake_default_azure_credential(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(
         "azure.identity.get_bearer_token_provider", lambda credential, scope: lambda: "default-credential-token"
     )
-    monkeypatch.setattr(litellm, "enable_azure_ad_token_refresh", True)
+    monkeypatch.setattr(embrouter, "enable_azure_ad_token_refresh", True)
     _cached_azure_ad_token_refresh_provider.cache_clear()
     yield built_credentials
     _cached_azure_ad_token_refresh_provider.cache_clear()
@@ -731,7 +731,7 @@ def test_azure_image_generation_token_refresh_reuses_credential_across_requests(
             api_key=None,
             api_base=api_base,
             api_version=api_version,
-            litellm_params={"api_base": api_base, "api_version": api_version},
+            embrouter_params={"api_base": api_base, "api_version": api_version},
         )
 
     assert route.call_count == 3

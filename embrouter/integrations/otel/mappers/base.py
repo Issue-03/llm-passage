@@ -5,7 +5,7 @@ from typing import Final
 
 from typing_extensions import Protocol, runtime_checkable
 
-from litellm.integrations.otel.model.payloads import (
+from embrouter.integrations.otel.model.payloads import (
     GuardrailSpanData,
     LLMCallSpanData,
     MCPListToolsSpanData,

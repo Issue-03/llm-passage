@@ -8,15 +8,15 @@ from typing import TYPE_CHECKING, Any, Final
 
 import httpx
 
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
 )
-from litellm.types.utils import LiteLLMBatch, LlmProviders
+from embrouter.types.utils import EmbRouterBatch, LlmProviders
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 from ..common_utils import AnthropicModelInfo
 from .transformation import AnthropicBatchesConfig
@@ -41,8 +41,8 @@ class AnthropicBatchesHandler:
         api_key: str | None,
         timeout: float | httpx.Timeout,
         max_retries: int | None,
-        logging_obj: LiteLLMLoggingObj | None = None,
-    ) -> LiteLLMBatch:
+        logging_obj: EmbRouterLoggingObj | None = None,
+    ) -> EmbRouterBatch:
         """
         Async: Retrieve a batch from Anthropic.
 
@@ -55,7 +55,7 @@ class AnthropicBatchesHandler:
             logging_obj: Optional logging object
 
         Returns:
-            LiteLLMBatch: Batch information in OpenAI format
+            EmbRouterBatch: Batch information in OpenAI format
         """
         # Resolve API credentials
         api_base = api_base or self.anthropic_model_info.get_api_base(api_base)
@@ -66,17 +66,17 @@ class AnthropicBatchesHandler:
 
         # Create a minimal logging object if not provided
         if logging_obj is None:
-            from litellm.litellm_core_utils.litellm_logging import (
-                Logging as LiteLLMLoggingObjClass,
+            from embrouter.embrouter_core_utils.embrouter_logging import (
+                Logging as EmbRouterLoggingObjClass,
             )
 
-            logging_obj = LiteLLMLoggingObjClass(
+            logging_obj = EmbRouterLoggingObjClass(
                 model="anthropic/unknown",
                 messages=[],
                 stream=False,
                 call_type="batch_retrieve",
                 start_time=None,
-                litellm_call_id=f"batch_retrieve_{batch_id}",
+                embrouter_call_id=f"batch_retrieve_{batch_id}",
                 function_id="batch_retrieve",
             )
 
@@ -85,7 +85,7 @@ class AnthropicBatchesHandler:
             api_base=api_base,
             batch_id=batch_id,
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
         )
 
         # Validate environment and get headers
@@ -94,7 +94,7 @@ class AnthropicBatchesHandler:
             model="",
             messages=[],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             api_key=api_key,
             api_base=api_base,
         )
@@ -113,12 +113,12 @@ class AnthropicBatchesHandler:
         response: Final = await async_client.get(url=retrieve_url, headers=headers)
         response.raise_for_status()
 
-        # Transform response to LiteLLM format
+        # Transform response to EmbRouter format
         return self.provider_config.transform_retrieve_batch_response(
             model=None,
             raw_response=response,
             logging_obj=logging_obj,
-            litellm_params={},
+            embrouter_params={},
         )
 
     def retrieve_batch(
@@ -129,8 +129,8 @@ class AnthropicBatchesHandler:
         api_key: str | None,
         timeout: float | httpx.Timeout,
         max_retries: int | None,
-        logging_obj: LiteLLMLoggingObj | None = None,
-    ) -> LiteLLMBatch | Coroutine[Any, Any, LiteLLMBatch]:
+        logging_obj: EmbRouterLoggingObj | None = None,
+    ) -> EmbRouterBatch | Coroutine[Any, Any, EmbRouterBatch]:
         """
         Retrieve a batch from Anthropic.
 
@@ -144,7 +144,7 @@ class AnthropicBatchesHandler:
             logging_obj: Optional logging object
 
         Returns:
-            LiteLLMBatch or Coroutine: Batch information in OpenAI format
+            EmbRouterBatch or Coroutine: Batch information in OpenAI format
         """
         if _is_async:
             return self.aretrieve_batch(

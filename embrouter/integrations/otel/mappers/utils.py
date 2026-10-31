@@ -9,8 +9,8 @@ import json
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from typing import Final
 
-from litellm.integrations.otel.mappers.base import AttributeMap, AttrValue
-from litellm.integrations.otel.model.payloads import LLMCallSpanData, ToolDefinition
+from embrouter.integrations.otel.mappers.base import AttributeMap, AttrValue
+from embrouter.integrations.otel.model.payloads import LLMCallSpanData, ToolDefinition
 
 DEFAULT_SPAN_ATTRIBUTE_LIMIT: Final = 128
 """The OTel SDK's default per-span attribute count limit."""

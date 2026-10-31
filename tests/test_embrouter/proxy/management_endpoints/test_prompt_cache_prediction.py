@@ -9,21 +9,21 @@ import pytest
 from fastapi import FastAPI, Request
 from pydantic import JsonValue
 
-import litellm
-from litellm.caching.caching import DualCache
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.proxy._types import ProxyException, UserAPIKeyAuth
-from litellm.proxy.common_utils.http_parsing_utils import _read_request_body, _safe_set_request_parsed_body
-from litellm.proxy.hooks.parallel_request_limiter_v3 import _PROXY_MaxParallelRequestsHandler_v3
-from litellm.llms.anthropic.prompt_cache_prediction import PromptPrefix, cache_scope, parse_prompt
-from litellm.proxy.hooks.prompt_cache_prediction import (
+import embrouter
+from embrouter.caching.caching import DualCache
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.proxy._types import ProxyException, UserAPIKeyAuth
+from embrouter.proxy.common_utils.http_parsing_utils import _read_request_body, _safe_set_request_parsed_body
+from embrouter.proxy.hooks.parallel_request_limiter_v3 import _PROXY_MaxParallelRequestsHandler_v3
+from embrouter.llms.anthropic.prompt_cache_prediction import PromptPrefix, cache_scope, parse_prompt
+from embrouter.proxy.hooks.prompt_cache_prediction import (
     CacheObservation,
     _cache_key,
 )
-from litellm.proxy.management_endpoints import prompt_cache_prediction as endpoint
-from litellm.proxy.utils import InternalUsageCache
-from litellm.types.management_endpoints.prompt_cache_prediction import CachePredictionResponse
-from litellm.types.router import Deployment, LiteLLM_Params, ModelInfo
+from embrouter.proxy.management_endpoints import prompt_cache_prediction as endpoint
+from embrouter.proxy.utils import InternalUsageCache
+from embrouter.types.management_endpoints.prompt_cache_prediction import CachePredictionResponse
+from embrouter.types.router import Deployment, EmbRouter_Params, ModelInfo
 
 
 _PROVIDER_KEY: Final = "cache-prediction-test-provider-key"
@@ -72,7 +72,7 @@ def _deployment(
 ) -> Deployment:
     return Deployment(
         model_name=deployment_id,
-        litellm_params=LiteLLM_Params(model=f"anthropic/{model}", api_key=_PROVIDER_KEY, api_base=api_base),
+        embrouter_params=EmbRouter_Params(model=f"anthropic/{model}", api_key=_PROVIDER_KEY, api_base=api_base),
         model_info=ModelInfo(id=deployment_id, team_id=team_id),
     )
 
@@ -155,9 +155,9 @@ async def test_missing_prices_return_unknown_and_null_estimates(
     monkeypatch: pytest.MonkeyPatch, counts: Counts
 ) -> None:
     monkeypatch.setitem(
-        litellm.model_cost,
+        embrouter.model_cost,
         "claude-cache-unpriced-5",
-        {"litellm_provider": "anthropic", "mode": "chat"},
+        {"embrouter_provider": "anthropic", "mode": "chat"},
     )
     body: Final = _body()
     arm: Final = await endpoint.predict_arm(
@@ -208,13 +208,13 @@ def _app(
     counts: endpoint.TokenCounter = Counts(),
     limiter: CustomLogger | Literal["default"] | None = "default",
 ) -> FastAPI:
-    import litellm.proxy.proxy_server as proxy_server
+    import embrouter.proxy.proxy_server as proxy_server
 
     model_list: Final = [
         _deployment("opus", "claude-opus-5", team_id=current_team).model_dump(exclude_unset=True),
         _deployment("sonnet", team_id=candidate_team).model_dump(exclude_unset=True),
     ]
-    router: Final = litellm.Router(model_list=model_list)
+    router: Final = embrouter.Router(model_list=model_list)
     monkeypatch.setattr(proxy_server, "llm_router", router)
     monkeypatch.setattr(proxy_server, "llm_model_list", model_list)
     monkeypatch.setattr(endpoint, "count_prompt_tokens", counts)
@@ -267,7 +267,7 @@ async def test_missing_caller_identity_cannot_reuse_observations(monkeypatch: py
 
 @pytest.mark.asyncio
 async def test_unauthenticated_request_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
-    import litellm.proxy.proxy_server as proxy_server
+    import embrouter.proxy.proxy_server as proxy_server
 
     monkeypatch.setattr(proxy_server, "master_key", "cache-prediction-test-master-key")
     response: Final = await _post(_app(monkeypatch, DualCache()), _body())
@@ -416,7 +416,7 @@ async def test_each_count_consumes_the_deployment_group_rpm_limit(monkeypatch: p
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("metadata_key", ["metadata", "litellm_metadata"])
+@pytest.mark.parametrize("metadata_key", ["metadata", "embrouter_metadata"])
 async def test_each_count_preserves_auth_cached_request_tag_limits(
     monkeypatch: pytest.MonkeyPatch, metadata_key: str
 ) -> None:
@@ -456,11 +456,11 @@ class RequestMutator(CustomLogger):
 @pytest.fixture
 def request_mutator() -> Iterator[RequestMutator]:
     callback: Final = RequestMutator()
-    litellm.logging_callback_manager.add_litellm_callback(callback)
+    embrouter.logging_callback_manager.add_embrouter_callback(callback)
     try:
         yield callback
     finally:
-        litellm.logging_callback_manager.remove_callback_from_all_lists(callback)
+        embrouter.logging_callback_manager.remove_callback_from_all_lists(callback)
 
 
 @pytest.mark.asyncio

@@ -6,17 +6,17 @@ scoring, message stubbing, and retrieval tool injection.
 from collections.abc import Mapping, Sequence
 from typing import Any, Final, cast
 
-from litellm.caching.dual_cache import DualCache
-from litellm.compression.message_stubbing import (
+from embrouter.caching.dual_cache import DualCache
+from embrouter.compression.message_stubbing import (
     extract_key,
     stub_message,
     truncate_message,
 )
-from litellm.compression.retrieval_tool import build_retrieval_tool
-from litellm.compression.scoring.bm25 import bm25_score_messages
-from litellm.litellm_core_utils.token_counter import token_counter
-from litellm.types.compression import CompressedResult
-from litellm.types.utils import CallTypes
+from embrouter.compression.retrieval_tool import build_retrieval_tool
+from embrouter.compression.scoring.bm25 import bm25_score_messages
+from embrouter.embrouter_core_utils.token_counter import token_counter
+from embrouter.types.compression import CompressedResult
+from embrouter.types.utils import CallTypes
 
 # CallTypes that produce Anthropic-shaped messages (structured content blocks).
 # Everything else is treated as OpenAI chat-completions shape.
@@ -60,7 +60,7 @@ def _build_retrieval_tools(keys: list[str], call_type: str) -> list[dict]:
 
     # Lazy import to avoid introducing provider transformation imports during
     # module import for non-Anthropic call paths.
-    from litellm.llms.anthropic.chat.transformation import AnthropicConfig
+    from embrouter.llms.anthropic.chat.transformation import AnthropicConfig
 
     anthropic_tools, _mcp_servers = AnthropicConfig()._map_tools(openai_tools)
     return cast(list[dict], anthropic_tools)
@@ -373,7 +373,7 @@ def compress(
     Parameters:
         messages: The conversation messages to (potentially) compress.
         model: The LLM model name — used for token counting.
-        call_type: The LiteLLM call type whose message schema these messages
+        call_type: The EmbRouter call type whose message schema these messages
             follow.  Supported values:
             - ``CallTypes.completion`` / ``CallTypes.acompletion`` — OpenAI
               chat-completions shape (default)
@@ -385,8 +385,8 @@ def compress(
         embedding_model: If provided, use BM25 + embeddings for scoring.
             If ``None``, BM25 only.
         embedding_model_params: Optional kwargs forwarded to
-            ``litellm.embedding()`` when ``embedding_model`` is set.
-        compression_cache: Passed through to ``litellm.embedding()`` for
+            ``embrouter.embedding()`` when ``embedding_model`` is set.
+        compression_cache: Passed through to ``embrouter.embedding()`` for
             cross-turn caching of embedding vectors.
 
     Returns:
@@ -426,7 +426,7 @@ def compress(
     bm25_scores: Final = bm25_score_messages(query, normalized_messages)
 
     if embedding_model:
-        from litellm.compression.scoring.embedding_scorer import (
+        from embrouter.compression.scoring.embedding_scorer import (
             embedding_score_messages,
         )
 

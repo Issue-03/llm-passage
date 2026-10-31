@@ -3,7 +3,7 @@ from typing import Any, Literal, TypeAlias
 
 from typing_extensions import NotRequired, ReadOnly, TypedDict
 
-from litellm.types.llms.anthropic import (
+from embrouter.types.llms.anthropic import (
     AnthropicResponseContentBlockText,
     AnthropicResponseContentBlockToolUse,
     AnthropicStopDetails,

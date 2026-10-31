@@ -6,7 +6,7 @@ from typing import Final
 
 from pydantic import BaseModel
 
-import litellm
+import embrouter
 
 
 class PromptLayerLogger:
@@ -29,12 +29,12 @@ class PromptLayerLogger:
             # Extract PromptLayer tags from metadata, if such exists
             tags = []
             metadata = {}
-            if "metadata" in kwargs["litellm_params"]:
-                if "pl_tags" in kwargs["litellm_params"]["metadata"]:
-                    tags = kwargs["litellm_params"]["metadata"]["pl_tags"]
+            if "metadata" in kwargs["embrouter_params"]:
+                if "pl_tags" in kwargs["embrouter_params"]["metadata"]:
+                    tags = kwargs["embrouter_params"]["metadata"]["pl_tags"]
 
                 # Remove "pl_tags" from metadata
-                metadata = {k: v for k, v in kwargs["litellm_params"]["metadata"].items() if k != "pl_tags"}
+                metadata = {k: v for k, v in kwargs["embrouter_params"]["metadata"].items() if k != "pl_tags"}
 
             print_verbose(
                 f"Prompt Layer Logging - Enters logging function for model kwargs: {new_kwargs}\n, response: {response_obj}"
@@ -44,7 +44,7 @@ class PromptLayerLogger:
             if isinstance(response_obj, BaseModel):
                 response_obj = response_obj.model_dump()
 
-            request_response: Final = litellm.module_level_client.post(
+            request_response: Final = embrouter.module_level_client.post(
                 "https://api.promptlayer.com/rest/track-request",
                 json={
                     "function_name": "openai.ChatCompletion.create",
@@ -69,7 +69,7 @@ class PromptLayerLogger:
 
             if "request_id" in response_json:
                 if metadata:
-                    response: Final = litellm.module_level_client.post(
+                    response: Final = embrouter.module_level_client.post(
                         "https://api.promptlayer.com/rest/track-metadata",
                         json={
                             "request_id": response_json["request_id"],

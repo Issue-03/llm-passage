@@ -4,7 +4,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { Logo } from "./Logo";
 import { Providers, providerLogoMap } from "@/components/provider_info_helpers";
 
-vi.mock("@/lib/serverRootPath", () => ({ serverRootPath: "/litellm" }));
+vi.mock("@/lib/serverRootPath", () => ({ serverRootPath: "/embrouter" }));
 
 describe("Logo", () => {
   it("renders the bundled logo untouched by the server root path for a known provider", () => {
@@ -29,7 +29,7 @@ describe("Logo", () => {
   it("resolves a backend asset path through the server root path in src mode", () => {
     render(<Logo src="/ui/assets/logos/github.svg" label="GitHub" />);
     const img = screen.getByRole("img", { name: "GitHub logo" });
-    expect(img).toHaveAttribute("src", "/litellm/ui/assets/logos/github.svg");
+    expect(img).toHaveAttribute("src", "/embrouter/ui/assets/logos/github.svg");
   });
 
   it("passes an external https URL through untouched in src mode", () => {
@@ -48,7 +48,7 @@ describe("Logo", () => {
 
     expect(screen.queryByRole("img")).not.toBeInTheDocument();
     expect(screen.getByText("G")).toBeInTheDocument();
-    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("/litellm/ui/assets/logos/github.svg"));
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("/embrouter/ui/assets/logos/github.svg"));
     warnSpy.mockRestore();
   });
 
@@ -102,7 +102,7 @@ describe("Logo", () => {
 
     rerender(<Logo src="/ui/assets/logos/github.svg" label="Agent" />);
     const img = screen.getByRole("img", { name: "Agent logo" });
-    expect(img).toHaveAttribute("src", "/litellm/ui/assets/logos/github.svg");
+    expect(img).toHaveAttribute("src", "/embrouter/ui/assets/logos/github.svg");
 
     rerender(<Logo src="/ui/assets/logos/broken.svg" label="Agent" />);
     expect(screen.queryByRole("img")).not.toBeInTheDocument();

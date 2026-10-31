@@ -9,22 +9,22 @@ from typing import TYPE_CHECKING, Any, Final, cast
 import httpx
 from httpx._types import RequestFiles
 
-import litellm
-from litellm.constants import DEFAULT_MAX_RECURSE_DEPTH
-from litellm.llms.base_llm.image_edit.transformation import BaseImageEditConfig
-from litellm.llms.vertex_ai.common_utils import get_vertex_base_url
-from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import VertexLLM
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.images.main import ImageEditOptionalRequestParams
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import FileTypes, ImageObject, ImageResponse, OpenAIImage
+import embrouter
+from embrouter.constants import DEFAULT_MAX_RECURSE_DEPTH
+from embrouter.llms.base_llm.image_edit.transformation import BaseImageEditConfig
+from embrouter.llms.vertex_ai.common_utils import get_vertex_base_url
+from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import VertexLLM
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.images.main import ImageEditOptionalRequestParams
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import FileTypes, ImageObject, ImageResponse, OpenAIImage
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 
 class VertexAIImagenImageEditConfig(BaseImageEditConfig, VertexLLM):
@@ -70,7 +70,7 @@ class VertexAIImagenImageEditConfig(BaseImageEditConfig, VertexLLM):
         return (
             getattr(self, "_vertex_project", None)
             or os.environ.get("VERTEXAI_PROJECT")
-            or getattr(litellm, "vertex_project", None)
+            or getattr(embrouter, "vertex_project", None)
             or get_secret_str("VERTEXAI_PROJECT")
         )
 
@@ -79,7 +79,7 @@ class VertexAIImagenImageEditConfig(BaseImageEditConfig, VertexLLM):
             getattr(self, "_vertex_location", None)
             or os.environ.get("VERTEXAI_LOCATION")
             or os.environ.get("VERTEX_LOCATION")
-            or getattr(litellm, "vertex_location", None)
+            or getattr(embrouter, "vertex_location", None)
             or get_secret_str("VERTEXAI_LOCATION")
             or get_secret_str("VERTEX_LOCATION")
         )
@@ -88,7 +88,7 @@ class VertexAIImagenImageEditConfig(BaseImageEditConfig, VertexLLM):
         return (
             getattr(self, "_vertex_credentials", None)
             or os.environ.get("VERTEXAI_CREDENTIALS")
-            or getattr(litellm, "vertex_credentials", None)
+            or getattr(embrouter, "vertex_credentials", None)
             or os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
             or get_secret_str("VERTEXAI_CREDENTIALS")
         )
@@ -98,18 +98,18 @@ class VertexAIImagenImageEditConfig(BaseImageEditConfig, VertexLLM):
         headers: dict,
         model: str,
         api_key: str | None = None,
-        litellm_params: dict | None = None,
+        embrouter_params: dict | None = None,
         api_base: str | None = None,
     ) -> dict:
         headers = headers or {}
-        litellm_params = litellm_params or {}
+        embrouter_params = embrouter_params or {}
 
-        _api_base: Final = litellm_params.get("api_base") or api_base
+        _api_base: Final = embrouter_params.get("api_base") or api_base
         if _api_base is not None:
             return headers
 
-        vertex_project: Final = self.safe_get_vertex_ai_project(litellm_params) or self._resolve_vertex_project()
-        vertex_credentials = self.safe_get_vertex_ai_credentials(litellm_params) or self._resolve_vertex_credentials()
+        vertex_project: Final = self.safe_get_vertex_ai_project(embrouter_params) or self._resolve_vertex_project()
+        vertex_credentials = self.safe_get_vertex_ai_credentials(embrouter_params) or self._resolve_vertex_credentials()
         access_token, _ = self._ensure_access_token(
             credentials=vertex_credentials,
             project_id=vertex_project,
@@ -121,13 +121,13 @@ class VertexAIImagenImageEditConfig(BaseImageEditConfig, VertexLLM):
         self,
         model: str,
         api_base: str | None,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> str:
         """
         Get the complete URL for Vertex AI Imagen predict API
         """
-        vertex_project: Final = self.safe_get_vertex_ai_project(litellm_params) or self._resolve_vertex_project()
-        vertex_location: Final = self.safe_get_vertex_ai_location(litellm_params) or self._resolve_vertex_location()
+        vertex_project: Final = self.safe_get_vertex_ai_project(embrouter_params) or self._resolve_vertex_project()
+        vertex_location: Final = self.safe_get_vertex_ai_location(embrouter_params) or self._resolve_vertex_location()
 
         if not vertex_project or not vertex_location:
             raise ValueError("vertex_project and vertex_location are required for Vertex AI")
@@ -150,7 +150,7 @@ class VertexAIImagenImageEditConfig(BaseImageEditConfig, VertexLLM):
         prompt: str | None,
         image: FileTypes | None,
         image_edit_optional_request_params: Mapping[str, object],
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[dict[str, object], RequestFiles | None]:
         # Prepare reference images in the correct Imagen format
@@ -196,7 +196,7 @@ class VertexAIImagenImageEditConfig(BaseImageEditConfig, VertexLLM):
         self,
         model: str,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> ImageResponse:
         model_response: Final = ImageResponse()
         try:

@@ -13,7 +13,7 @@ export type AgentKillSwitchResult = components["schemas"]["AgentKillSwitchResult
 export interface Agent {
   agent_id: string;
   agent_name: string;
-  litellm_params: {
+  embrouter_params: {
     model: string;
     [key: string]: any;
   };

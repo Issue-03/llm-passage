@@ -2,7 +2,7 @@
 This hook is used to inject cache control directives into messages.
 
 Users can define
-- `cache_control_injection_points` in the completion params and litellm will inject the cache control directives into the messages at the specified injection points.
+- `cache_control_injection_points` in the completion params and embrouter will inject the cache control directives into the messages at the specified injection points.
 
 Supported for both `v1/chat/completions` (via the prompt-management hook) and
 `v1/messages` (via `apply_to_anthropic_messages_request`).
@@ -18,29 +18,29 @@ from urllib.parse import urlparse
 
 from pydantic import TypeAdapter, ValidationError
 
-from litellm._logging import verbose_logger
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.integrations.custom_prompt_management import CustomPromptManagement
-from litellm.integrations.prompt_management_base import PromptManagementClient
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+from embrouter._logging import verbose_logger
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.integrations.custom_prompt_management import CustomPromptManagement
+from embrouter.integrations.prompt_management_base import PromptManagementClient
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
     with_prompt_cache_breakpoint,
 )
-from litellm.llms.anthropic.common_utils import (
+from embrouter.llms.anthropic.common_utils import (
     is_claude_code_one_shot_subagent_request,
     supports_anthropic_cache_control,
 )
-from litellm.types.integrations.anthropic_cache_control_hook import (
+from embrouter.types.integrations.anthropic_cache_control_hook import (
     GATEWAY_INJECTED_CACHE_METADATA_KEY,
     GATEWAY_INJECTED_FOR_EVERY_DEPLOYMENT,
     CacheControlInjectionPoint,
     CacheControlMessageInjectionPoint,
 )
-from litellm.types.llms.anthropic import (
+from embrouter.types.llms.anthropic import (
     ANTHROPIC_TOOL_SEARCH_TOOL_TYPES,
     AllAnthropicToolsValues,
     AnthropicSystemMessageContent,
 )
-from litellm.types.llms.openai import (
+from embrouter.types.llms.openai import (
     AllMessageValues,
     ChatCompletionCachedContent,
     ChatCompletionTextObject,
@@ -48,13 +48,13 @@ from litellm.types.llms.openai import (
     PromptCacheBreakpoint,
     PromptCacheOptions,
 )
-from litellm.types.prompts.init_prompts import PromptSpec
-from litellm.types.utils import StandardCallbackDynamicParams
+from embrouter.types.prompts.init_prompts import PromptSpec
+from embrouter.types.utils import StandardCallbackDynamicParams
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 
 # Anthropic (and Bedrock Claude) reject requests with more than 4 cache_control
@@ -101,18 +101,18 @@ def supports_openai_prompt_cache_breakpoint(model: str) -> bool:
 
 
 def _model_map_prompt_cache_breakpoint_flag(model: str) -> bool | None:
-    import litellm
+    import embrouter
 
-    entries: Final = (litellm.model_cost.get(key) for key in (model, model.rsplit("/", 1)[-1]))
+    entries: Final = (embrouter.model_cost.get(key) for key in (model, model.rsplit("/", 1)[-1]))
     flags: Final = (entry.get("supports_prompt_cache_breakpoint") for entry in entries if isinstance(entry, dict))
     return next((bool(flag) for flag in flags if flag is not None), None)
 
 
 def targets_openai_api(api_base: object) -> bool:
-    import litellm
+    import embrouter
 
     resolved: Final = next(
-        (value for value in (api_base, litellm.api_base, *map(os.getenv, OPENAI_API_BASE_ENV_VARS)) if value),
+        (value for value in (api_base, embrouter.api_base, *map(os.getenv, OPENAI_API_BASE_ENV_VARS)) if value),
         None,
     )
     if not isinstance(resolved, str):
@@ -143,9 +143,9 @@ def _accepts_prompt_cache_breakpoint(block: object) -> bool:
 # Responses API layer, whose `instructions` only becomes a system message further down.
 # Tells this hook to hand role-targeted points to the pass holding the final messages
 # rather than spending them on a list that is still missing some of their targets.
-CARRY_UNMATCHED_MESSAGE_POINTS: Final = "_litellm_carry_unmatched_cache_control_points"
+CARRY_UNMATCHED_MESSAGE_POINTS: Final = "_embrouter_carry_unmatched_cache_control_points"
 
-EXTERNAL_BREAKPOINTS_STAMP: Final = "_litellm_external_breakpoints"
+EXTERNAL_BREAKPOINTS_STAMP: Final = "_embrouter_external_breakpoints"
 
 
 class AnthropicCacheControlHook(CustomPromptManagement):
@@ -219,7 +219,7 @@ class AnthropicCacheControlHook(CustomPromptManagement):
         )
         remaining_points: Final = tuple(point for point in injection_points if point.get("location") != "message")
 
-        stamped_dialect: Final = injection_points[0].get("_litellm_openai_dialect")
+        stamped_dialect: Final = injection_points[0].get("_embrouter_openai_dialect")
         openai_dialect: Final = (
             stamped_dialect
             if isinstance(stamped_dialect, bool)
@@ -265,7 +265,7 @@ class AnthropicCacheControlHook(CustomPromptManagement):
         # the deferred role-targeted ones. Deferring is what reaches the Responses API's
         # `instructions`, which is only a system message once the bridge builds one. A later
         # pass re-applies them safely: a target that already carries a mark is skipped and
-        # the census counts every mark on the wire, litellm's own included.
+        # the census counts every mark on the wire, embrouter's own included.
         carried_points: Final[Sequence[CacheControlInjectionPoint]] = (
             *AnthropicCacheControlHook._points_with_a_slot_left(
                 remaining_points,
@@ -294,8 +294,8 @@ class AnthropicCacheControlHook(CustomPromptManagement):
 
     @staticmethod
     def _resolve_provider(model: str) -> str | None:
-        from litellm.exceptions import BadRequestError
-        from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
+        from embrouter.exceptions import BadRequestError
+        from embrouter.embrouter_core_utils.get_llm_provider_logic import get_llm_provider
 
         try:
             _, provider, _, _ = get_llm_provider(model=model)
@@ -635,11 +635,11 @@ class AnthropicCacheControlHook(CustomPromptManagement):
         """Build the cache_control block for auto-injected breakpoints.
 
         Defaults to Anthropic's 5-minute ephemeral cache; honors the optional
-        ``litellm.anthropic_prompt_caching_ttl`` override ("5m" or "1h").
+        ``embrouter.anthropic_prompt_caching_ttl`` override ("5m" or "1h").
         """
-        import litellm
+        import embrouter
 
-        ttl: Final = litellm.anthropic_prompt_caching_ttl
+        ttl: Final = embrouter.anthropic_prompt_caching_ttl
         if ttl == "5m" or ttl == "1h":
             return ChatCompletionCachedContent(type="ephemeral", ttl=ttl)
         return ChatCompletionCachedContent(type="ephemeral")
@@ -678,7 +678,7 @@ class AnthropicCacheControlHook(CustomPromptManagement):
             return points
         return AnthropicCacheControlHook._stamped(
             points,
-            "_litellm_openai_dialect",
+            "_embrouter_openai_dialect",
             AnthropicCacheControlHook._targets_openai_prompt_cache_breakpoint(
                 model, custom_llm_provider, api_base, prompt_cache_options
             ),
@@ -726,7 +726,7 @@ class AnthropicCacheControlHook(CustomPromptManagement):
         request_kwargs: object = None,
         on_messages_route: bool = False,
     ) -> list[CacheControlInjectionPoint]:
-        """Default breakpoints when ``litellm.enable_anthropic_prompt_caching`` is on.
+        """Default breakpoints when ``embrouter.enable_anthropic_prompt_caching`` is on.
 
         ``enable_prompt_caching`` is the per-request override (stamped from key
         metadata by the proxy); True turns auto-injection on for this request
@@ -737,9 +737,9 @@ class AnthropicCacheControlHook(CustomPromptManagement):
         supported explicit-cache transport, the model lacks prompt-caching
         support, or the request already carries client-supplied cache_control.
         """
-        import litellm
+        import embrouter
 
-        if litellm.enable_anthropic_prompt_caching is not True and enable_prompt_caching is not True:
+        if embrouter.enable_anthropic_prompt_caching is not True and enable_prompt_caching is not True:
             return []
 
         if not supports_anthropic_cache_control(model, custom_llm_provider):
@@ -773,13 +773,13 @@ class AnthropicCacheControlHook(CustomPromptManagement):
         """Return the messages auto prompt caching will send, default breakpoints included.
 
         Router cache affinity depends on this. Deployment selection runs before the injection in
-        `litellm.acompletion`, so it has to reproduce the markers to derive the same cache key the
+        `embrouter.acompletion`, so it has to reproduce the markers to derive the same cache key the
         success event later writes from the sent messages. `models` is every candidate model of the
         group: the first that would auto-inject decides, since the default breakpoints (system
         prompt and trailing turn) do not depend on which deployment serves the call. Returns the
         input list itself when auto-injection would not apply
         """
-        import litellm
+        import embrouter
 
         points: Final = next(
             (
@@ -787,7 +787,7 @@ class AnthropicCacheControlHook(CustomPromptManagement):
                 for candidate in (
                     AnthropicCacheControlHook.get_default_injection_points(
                         messages=messages,
-                        model=litellm.model_alias_map.get(model, model),
+                        model=embrouter.model_alias_map.get(model, model),
                         custom_llm_provider=None,
                         tools=tools,
                         enable_prompt_caching=enable_prompt_caching,
@@ -830,7 +830,7 @@ class AnthropicCacheControlHook(CustomPromptManagement):
         down on client marks. Seeding the param lets the existing prompt-management
         gate and the AnthropicCacheControlHook run unchanged.
         """
-        import litellm
+        import embrouter
 
         configured: Final = non_default_params.get("cache_control_injection_points")
         if configured:
@@ -851,7 +851,7 @@ class AnthropicCacheControlHook(CustomPromptManagement):
         points: Final = AnthropicCacheControlHook.get_default_injection_points(
             messages=messages,
             system=None,
-            model=litellm.model_alias_map.get(model, model),
+            model=embrouter.model_alias_map.get(model, model),
             custom_llm_provider=custom_llm_provider,
             tools=tools,
             enable_prompt_caching=enable_prompt_caching,
@@ -869,10 +869,10 @@ class AnthropicCacheControlHook(CustomPromptManagement):
     ) -> None:
         """Name the deployment whose payload the gateway, not the client, put breakpoints on.
 
-        Spend accounting only asks whether litellm acted, so what it needs is which
+        Spend accounting only asks whether embrouter acted, so what it needs is which
         deployment, not a count. Recording that is what makes the mark attempt-scoped: the
         metadata bucket is one dict shared by every retry, failover and fallback of a
-        request, and ``litellm_call_id`` is shared with it, so anything request-scoped
+        request, and ``embrouter_call_id`` is shared with it, so anything request-scoped
         written by one attempt is read by all of them and each boundary would have to
         remember to strip it. The deployment is the part that actually changes when the
         request moves, so a leg that injected nothing is never credited for one that did.
@@ -901,8 +901,8 @@ class AnthropicCacheControlHook(CustomPromptManagement):
         provider transform that carries spend-attribution state.
 
         Reads whichever bucket the request actually carries rather than asking the shared
-        name resolver, which answers on key presence: ``litellm_params`` declares
-        ``litellm_metadata`` as None on every request, so the resolver names a bucket that
+        name resolver, which answers on key presence: ``embrouter_params`` declares
+        ``embrouter_metadata`` as None on every request, so the resolver names a bucket that
         is not there and the mark is dropped.
 
         Never CREATES the bucket. The proxy seeds it on every request and is the marker's
@@ -916,7 +916,7 @@ class AnthropicCacheControlHook(CustomPromptManagement):
         bucket: Final = next(
             (
                 candidate
-                for candidate in (request_kwargs.get("litellm_metadata"), request_kwargs.get("metadata"))
+                for candidate in (request_kwargs.get("embrouter_metadata"), request_kwargs.get("metadata"))
                 if isinstance(candidate, dict)
             ),
             None,
@@ -951,7 +951,7 @@ class AnthropicCacheControlHook(CustomPromptManagement):
         cache_control elsewhere in the request, bounded by the provider cap,
         which counts the client's marks on messages, system, tools and the
         top-level ``cache_control``. When none are configured but
-        ``litellm.enable_anthropic_prompt_caching`` or the per-request
+        ``embrouter.enable_anthropic_prompt_caching`` or the per-request
         ``enable_prompt_caching`` kwarg (stamped from key metadata) is on,
         synthesize default breakpoints for the native /v1/messages path; those
         defaults alone stand down on client marks. Pops both keys from kwargs;
@@ -1066,7 +1066,7 @@ class AnthropicCacheControlHook(CustomPromptManagement):
         prompt_id: str | None,
         prompt_variables: dict | None,
         dynamic_callback_params: StandardCallbackDynamicParams,
-        litellm_logging_obj: LiteLLMLoggingObj,
+        embrouter_logging_obj: EmbRouterLoggingObj,
         prompt_spec: PromptSpec | None = None,
         tools: list[dict] | None = None,
         prompt_label: str | None = None,
@@ -1099,7 +1099,7 @@ class AnthropicCacheControlHook(CustomPromptManagement):
     def get_custom_logger_for_anthropic_cache_control_hook(
         non_default_params: dict,
     ) -> CustomLogger | None:
-        from litellm.litellm_core_utils.litellm_logging import (
+        from embrouter.embrouter_core_utils.embrouter_logging import (
             _init_custom_logger_compatible_class,
         )
 

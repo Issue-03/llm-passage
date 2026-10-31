@@ -4,9 +4,9 @@
 # is dedicated to the A2A SDK boundary; the rule is off file-wide instead of
 # scattering per-line ignores across every SDK call.
 """
-LiteLLM A2A SDK functions.
+EmbRouter A2A SDK functions.
 
-Provides standalone functions with @client decorator for LiteLLM logging integration.
+Provides standalone functions with @client decorator for EmbRouter logging integration.
 """
 
 import asyncio
@@ -16,19 +16,19 @@ from collections.abc import AsyncIterator, Coroutine, Mapping
 from types import MappingProxyType, ModuleType
 from typing import TYPE_CHECKING, Any, Final, Optional, cast
 
-import litellm
-from litellm._logging import verbose_logger, verbose_proxy_logger
-from litellm.a2a_protocol.streaming_iterator import A2AStreamingIterator
-from litellm.a2a_protocol.utils import A2ARequestUtils
-from litellm.constants import DEFAULT_A2A_AGENT_TIMEOUT
-from litellm.litellm_core_utils.asyncify import asyncify
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.llms.custom_httpx.http_handler import (
+import embrouter
+from embrouter._logging import verbose_logger, verbose_proxy_logger
+from embrouter.a2a_protocol.streaming_iterator import A2AStreamingIterator
+from embrouter.a2a_protocol.utils import A2ARequestUtils
+from embrouter.constants import DEFAULT_A2A_AGENT_TIMEOUT
+from embrouter.embrouter_core_utils.asyncify import asyncify
+from embrouter.embrouter_core_utils.embrouter_logging import Logging
+from embrouter.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.types.agents import LiteLLMSendMessageResponse
-from litellm.utils import client
+from embrouter.types.agents import EmbRouterSendMessageResponse
+from embrouter.utils import client
 
 if TYPE_CHECKING:
     from a2a.client import Client as A2AClientType
@@ -71,20 +71,20 @@ except ImportError:
     create_client = None
 
 # Import our custom card resolver that supports multiple well-known paths
-from litellm.a2a_protocol.card_resolver import (
+from embrouter.a2a_protocol.card_resolver import (
     AGENT_CARD_PATH_PARAM,
-    LiteLLMA2ACardResolver,
+    EmbRouterA2ACardResolver,
     get_agent_card_url,
     normalize_agent_card_interfaces,
 )
-from litellm.a2a_protocol.exception_mapping_utils import (
+from embrouter.a2a_protocol.exception_mapping_utils import (
     handle_a2a_localhost_retry,
     map_a2a_exception,
 )
-from litellm.a2a_protocol.exceptions import A2ALocalhostURLError
+from embrouter.a2a_protocol.exceptions import A2ALocalhostURLError
 
 # Use our custom resolver instead of the default A2A SDK resolver
-A2ACardResolver: Final = LiteLLMA2ACardResolver
+A2ACardResolver: Final = EmbRouterA2ACardResolver
 
 
 def _set_usage_on_logging_obj(
@@ -93,21 +93,21 @@ def _set_usage_on_logging_obj(
     completion_tokens: int,
 ) -> None:
     """
-    Set usage on litellm_logging_obj for standard logging payload.
+    Set usage on embrouter_logging_obj for standard logging payload.
 
     Args:
-        kwargs: The kwargs dict containing litellm_logging_obj
+        kwargs: The kwargs dict containing embrouter_logging_obj
         prompt_tokens: Number of input tokens
         completion_tokens: Number of output tokens
     """
-    litellm_logging_obj: Final = kwargs.get("litellm_logging_obj")
-    if isinstance(litellm_logging_obj, Logging):
-        usage: Final = litellm.Usage(
+    embrouter_logging_obj: Final = kwargs.get("embrouter_logging_obj")
+    if isinstance(embrouter_logging_obj, Logging):
+        usage: Final = embrouter.Usage(
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
             total_tokens=prompt_tokens + completion_tokens,
         )
-        litellm_logging_obj.model_call_details["usage"] = usage
+        embrouter_logging_obj.model_call_details["usage"] = usage
 
 
 def _set_agent_id_on_logging_obj(
@@ -115,31 +115,31 @@ def _set_agent_id_on_logging_obj(
     agent_id: str | None,
 ) -> None:
     """
-    Set agent_id on litellm_logging_obj for SpendLogs tracking.
+    Set agent_id on embrouter_logging_obj for SpendLogs tracking.
 
     Args:
-        kwargs: The kwargs dict containing litellm_logging_obj
+        kwargs: The kwargs dict containing embrouter_logging_obj
         agent_id: The A2A agent ID
     """
     if agent_id is None:
         return
 
-    litellm_logging_obj: Final = kwargs.get("litellm_logging_obj")
-    if isinstance(litellm_logging_obj, Logging):
+    embrouter_logging_obj: Final = kwargs.get("embrouter_logging_obj")
+    if isinstance(embrouter_logging_obj, Logging):
         # Set agent_id directly on model_call_details (same pattern as custom_llm_provider)
-        litellm_logging_obj.model_call_details["agent_id"] = agent_id
+        embrouter_logging_obj.model_call_details["agent_id"] = agent_id
 
 
 _A2A_COST_PARAM_KEYS: Final = ("cost_per_query", "input_cost_per_token", "output_cost_per_token")
 
 
-def _a2a_cost_params(litellm_params: Mapping[str, object] | None) -> Mapping[str, object]:
+def _a2a_cost_params(embrouter_params: Mapping[str, object] | None) -> Mapping[str, object]:
     """Only the agent's pricing keys reach the logging object; its credentials never do."""
     return MappingProxyType(
         {
-            key: litellm_params[key]
+            key: embrouter_params[key]
             for key in _A2A_COST_PARAM_KEYS
-            if litellm_params is not None and litellm_params.get(key) is not None
+            if embrouter_params is not None and embrouter_params.get(key) is not None
         }
     )
 
@@ -148,33 +148,33 @@ def _card_http_kwargs(extra_headers: dict[str, str] | None) -> dict[str, object]
     return {"headers": extra_headers} if extra_headers else None  # mutable-ok: a2a-sdk's get_agent_card takes a dict
 
 
-def _agent_card_path(litellm_params: Mapping[str, object]) -> str | None:
-    configured_path: Final = litellm_params.get(AGENT_CARD_PATH_PARAM)
+def _agent_card_path(embrouter_params: Mapping[str, object]) -> str | None:
+    configured_path: Final = embrouter_params.get(AGENT_CARD_PATH_PARAM)
     return configured_path if isinstance(configured_path, str) and configured_path else None
 
 
-def _set_litellm_params_on_logging_obj(
+def _set_embrouter_params_on_logging_obj(
     kwargs: Mapping[str, object],
-    litellm_params: Mapping[str, object],
+    embrouter_params: Mapping[str, object],
 ) -> None:
     """
-    Merge the agent's pricing params into model_call_details["litellm_params"]
+    Merge the agent's pricing params into model_call_details["embrouter_params"]
     so A2ACostCalculator can read them.
 
     The non-streaming path reuses the proxy-built logging object, whose
-    litellm_params already carries metadata / proxy_server_request / user-key
+    embrouter_params already carries metadata / proxy_server_request / user-key
     context, so merge the pricing keys in rather than replacing the dict.
     """
-    logging_obj: Final = kwargs.get("litellm_logging_obj")
+    logging_obj: Final = kwargs.get("embrouter_logging_obj")
     if not isinstance(logging_obj, Logging):
         return
 
-    cost_params: Final = _a2a_cost_params(litellm_params)
+    cost_params: Final = _a2a_cost_params(embrouter_params)
     if not cost_params:
         return
 
-    logging_obj.model_call_details["litellm_params"] = {
-        **(logging_obj.model_call_details.get("litellm_params") or {}),
+    logging_obj.model_call_details["embrouter_params"] = {
+        **(logging_obj.model_call_details.get("embrouter_params") or {}),
         **cost_params,
     }
 
@@ -183,7 +183,7 @@ def _get_a2a_model_info(a2a_client: "A2AClientType", kwargs: Mapping[str, object
     """
     Extract agent info and set model/custom_llm_provider for cost tracking.
 
-    Sets model info on the litellm_logging_obj if available.
+    Sets model info on the embrouter_logging_obj if available.
     Returns the agent name for logging.
     """
     agent_name = "unknown"
@@ -197,19 +197,19 @@ def _get_a2a_model_info(a2a_client: "A2AClientType", kwargs: Mapping[str, object
     model: Final = f"a2a_agent/{agent_name}"
     custom_llm_provider: Final = "a2a_agent"
 
-    # Set on litellm_logging_obj if available (for standard logging payload)
-    litellm_logging_obj: Final = kwargs.get("litellm_logging_obj")
-    if isinstance(litellm_logging_obj, Logging):
-        litellm_logging_obj.model = model
-        litellm_logging_obj.custom_llm_provider = custom_llm_provider
-        litellm_logging_obj.model_call_details["model"] = model
-        litellm_logging_obj.model_call_details["custom_llm_provider"] = custom_llm_provider
+    # Set on embrouter_logging_obj if available (for standard logging payload)
+    embrouter_logging_obj: Final = kwargs.get("embrouter_logging_obj")
+    if isinstance(embrouter_logging_obj, Logging):
+        embrouter_logging_obj.model = model
+        embrouter_logging_obj.custom_llm_provider = custom_llm_provider
+        embrouter_logging_obj.model_call_details["model"] = model
+        embrouter_logging_obj.model_call_details["custom_llm_provider"] = custom_llm_provider
 
     return agent_name
 
 
 def _get_a2a_client_agent_card(a2a_client: "A2AClientType") -> Optional["AgentCard"]:
-    agent_card = cast(Optional["AgentCard"], getattr(a2a_client, "_litellm_agent_card", None))
+    agent_card = cast(Optional["AgentCard"], getattr(a2a_client, "_embrouter_agent_card", None))
     if agent_card is not None:
         return agent_card
     agent_card = cast(Optional["AgentCard"], getattr(a2a_client, "agent_card", None))
@@ -222,17 +222,17 @@ async def _send_message_via_completion_bridge(
     request: "SendMessageRequest",
     custom_llm_provider: object,
     api_base: str | None,
-    litellm_params: dict[str, object],
+    embrouter_params: dict[str, object],
     agent_extra_headers: dict[str, str] | None = None,
-) -> LiteLLMSendMessageResponse:
+) -> EmbRouterSendMessageResponse:
     """
-    Route a send_message through the LiteLLM completion bridge (e.g. LangGraph, Bedrock AgentCore).
+    Route a send_message through the EmbRouter completion bridge (e.g. LangGraph, Bedrock AgentCore).
 
     Requires request; api_base is optional for providers that derive endpoint from model.
     """
     verbose_logger.info("A2A using completion bridge: provider=%s, api_base=%s", custom_llm_provider, api_base)
 
-    from litellm.a2a_protocol.litellm_completion_bridge.handler import (
+    from embrouter.a2a_protocol.embrouter_completion_bridge.handler import (
         A2ACompletionBridgeHandler,
     )
 
@@ -241,16 +241,16 @@ async def _send_message_via_completion_bridge(
     response_dict: Final = await A2ACompletionBridgeHandler.handle_non_streaming(
         request_id=str(request.id),
         params=params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         api_base=api_base,
         agent_extra_headers=agent_extra_headers,
     )
 
-    return LiteLLMSendMessageResponse.from_dict(response_dict, request_id=str(request.id))
+    return EmbRouterSendMessageResponse.from_dict(response_dict, request_id=str(request.id))
 
 
 def _get_a2a_call_context(a2a_client: "A2AClientType") -> Optional["A2ACallContextType"]:
-    return getattr(a2a_client, "_litellm_call_context", None)
+    return getattr(a2a_client, "_embrouter_call_context", None)
 
 
 def _to_core_send_message_request(request: "SendMessageRequest") -> "CoreSendMessageRequest":
@@ -405,31 +405,31 @@ async def asend_message(
     a2a_client: Optional["A2AClientType"] = None,
     request: Optional["SendMessageRequest"] = None,
     api_base: str | None = None,
-    litellm_params: dict[str, object] | None = None,
+    embrouter_params: dict[str, object] | None = None,
     agent_id: str | None = None,
     agent_extra_headers: dict[str, str] | None = None,
     **kwargs: object,
-) -> LiteLLMSendMessageResponse:
+) -> EmbRouterSendMessageResponse:
     """
     Async: Send a message to an A2A agent.
 
-    Uses the @client decorator for LiteLLM logging and tracking.
-    If litellm_params contains custom_llm_provider, routes through the completion bridge.
+    Uses the @client decorator for EmbRouter logging and tracking.
+    If embrouter_params contains custom_llm_provider, routes through the completion bridge.
 
     Args:
         a2a_client: An initialized a2a.client.A2AClient instance (optional if using completion bridge)
         request: SendMessageRequest from a2a.types (optional if using completion bridge with api_base)
         api_base: API base URL (required for completion bridge, optional for standard A2A)
-        litellm_params: Optional dict with custom_llm_provider, model, etc. for completion bridge
+        embrouter_params: Optional dict with custom_llm_provider, model, etc. for completion bridge
         agent_id: Optional agent ID for tracking in SpendLogs
         **kwargs: Additional arguments passed to the client decorator
 
     Returns:
-        LiteLLMSendMessageResponse (wraps a2a SendMessageResponse with _hidden_params)
+        EmbRouterSendMessageResponse (wraps a2a SendMessageResponse with _hidden_params)
 
     Example (standard A2A):
         ```python
-        from litellm.a2a_protocol import asend_message, create_a2a_client
+        from embrouter.a2a_protocol import asend_message, create_a2a_client
         from a2a.types import SendMessageRequest, MessageSendParams
         from uuid import uuid4
 
@@ -445,7 +445,7 @@ async def asend_message(
 
     Example (completion bridge with LangGraph):
         ```python
-        from litellm.a2a_protocol import asend_message
+        from embrouter.a2a_protocol import asend_message
         from a2a.types import SendMessageRequest, MessageSendParams
         from uuid import uuid4
 
@@ -458,14 +458,14 @@ async def asend_message(
         response = await asend_message(
             request=request,
             api_base="http://localhost:2024",
-            litellm_params={"custom_llm_provider": "langgraph", "model": "agent"},
+            embrouter_params={"custom_llm_provider": "langgraph", "model": "agent"},
         )
         ```
     """
-    litellm_params = litellm_params or {}
-    logging_obj: Final = kwargs.get("litellm_logging_obj")
-    trace_id = getattr(logging_obj, "litellm_trace_id", None) if logging_obj else None
-    custom_llm_provider: Final = litellm_params.get("custom_llm_provider")
+    embrouter_params = embrouter_params or {}
+    logging_obj: Final = kwargs.get("embrouter_logging_obj")
+    trace_id = getattr(logging_obj, "embrouter_trace_id", None) if logging_obj else None
+    custom_llm_provider: Final = embrouter_params.get("custom_llm_provider")
 
     # Route through completion bridge if custom_llm_provider is set
     if custom_llm_provider:
@@ -475,7 +475,7 @@ async def asend_message(
             request=request,
             custom_llm_provider=custom_llm_provider,
             api_base=api_base,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             agent_extra_headers=agent_extra_headers,
         )
 
@@ -488,16 +488,16 @@ async def asend_message(
         if api_base is None:
             raise ValueError("Either a2a_client or api_base is required for standard A2A flow")
         trace_id = trace_id or str(uuid.uuid4())
-        extra_headers: Final[dict[str, str]] = {"X-LiteLLM-Trace-Id": trace_id}
+        extra_headers: Final[dict[str, str]] = {"X-EmbRouter-Trace-Id": trace_id}
         if agent_id:
-            extra_headers["X-LiteLLM-Agent-Id"] = agent_id
-        # Overlay agent-level headers (agent headers take precedence over LiteLLM internal ones)
+            extra_headers["X-EmbRouter-Agent-Id"] = agent_id
+        # Overlay agent-level headers (agent headers take precedence over EmbRouter internal ones)
         if agent_extra_headers:
             extra_headers.update(agent_extra_headers)
         a2a_client = await create_a2a_client(
             base_url=api_base,
             extra_headers=extra_headers,
-            relative_card_path=_agent_card_path(litellm_params),
+            relative_card_path=_agent_card_path(embrouter_params),
         )
 
     # Type assertion: a2a_client is guaranteed to be non-None here
@@ -522,8 +522,8 @@ async def asend_message(
 
     verbose_logger.info("A2A send_message completed, request_id=%s", request.id)
 
-    # Wrap in LiteLLM response type for _hidden_params support
-    response: Final = LiteLLMSendMessageResponse.from_a2a_response(a2a_response, request_id=str(request.id))
+    # Wrap in EmbRouter response type for _hidden_params support
+    response: Final = EmbRouterSendMessageResponse.from_a2a_response(a2a_response, request_id=str(request.id))
 
     # Calculate token usage from request and response
     response_dict: Final[dict[str, object]] = a2a_response.root.model_dump(mode="json", exclude_none=True)
@@ -544,7 +544,7 @@ async def asend_message(
     )
 
     # Merge agent pricing params into the logging obj so cost is calculated
-    _set_litellm_params_on_logging_obj(kwargs=kwargs, litellm_params=litellm_params)
+    _set_embrouter_params_on_logging_obj(kwargs=kwargs, embrouter_params=embrouter_params)
 
     # Set agent_id on logging obj for SpendLogs tracking
     _set_agent_id_on_logging_obj(kwargs=kwargs, agent_id=agent_id)
@@ -557,11 +557,11 @@ def send_message(
     a2a_client: "A2AClientType",
     request: "SendMessageRequest",
     **kwargs: Any,
-) -> LiteLLMSendMessageResponse | Coroutine[object, object, LiteLLMSendMessageResponse]:
+) -> EmbRouterSendMessageResponse | Coroutine[object, object, EmbRouterSendMessageResponse]:
     """
     Sync: Send a message to an A2A agent.
 
-    Uses the @client decorator for LiteLLM logging and tracking.
+    Uses the @client decorator for EmbRouter logging and tracking.
 
     Args:
         a2a_client: An initialized a2a.client.A2AClient instance
@@ -569,7 +569,7 @@ def send_message(
         **kwargs: Additional arguments passed to the client decorator
 
     Returns:
-        LiteLLMSendMessageResponse (wraps a2a SendMessageResponse with _hidden_params)
+        EmbRouterSendMessageResponse (wraps a2a SendMessageResponse with _hidden_params)
     """
     try:
         loop = asyncio.get_running_loop()
@@ -586,7 +586,7 @@ def _build_streaming_logging_obj(
     request: "SendStreamingMessageRequest",
     agent_name: str,
     agent_id: str | None,
-    litellm_params: dict[str, object] | None,
+    embrouter_params: dict[str, object] | None,
     metadata: dict[str, object] | None,
     proxy_server_request: dict[str, object] | None,
 ) -> Logging:
@@ -600,7 +600,7 @@ def _build_streaming_logging_obj(
         stream=False,
         call_type="asend_message_streaming",
         start_time=start_time,
-        litellm_call_id=str(request.id),
+        embrouter_call_id=str(request.id),
         function_id=str(request.id),
     )
     logging_obj.model = model
@@ -612,13 +612,13 @@ def _build_streaming_logging_obj(
         logging_obj.model_call_details["agent_id"] = agent_id
 
     _request_context: Final = (("metadata", metadata), ("proxy_server_request", proxy_server_request))
-    _litellm_params: Final = dict(  # mutable-ok: Logging.litellm_params is declared as a dict
-        (*_a2a_cost_params(litellm_params).items(), *((key, value) for key, value in _request_context if value))
+    _embrouter_params: Final = dict(  # mutable-ok: Logging.embrouter_params is declared as a dict
+        (*_a2a_cost_params(embrouter_params).items(), *((key, value) for key, value in _request_context if value))
     )
 
-    logging_obj.litellm_params = _litellm_params
-    logging_obj.optional_params = _litellm_params
-    logging_obj.model_call_details["litellm_params"] = _litellm_params
+    logging_obj.embrouter_params = _embrouter_params
+    logging_obj.optional_params = _embrouter_params
+    logging_obj.model_call_details["embrouter_params"] = _embrouter_params
     logging_obj.model_call_details["metadata"] = metadata or {}
 
     return logging_obj
@@ -628,7 +628,7 @@ async def asend_message_streaming(
     a2a_client: Optional["A2AClientType"] = None,
     request: Optional["SendStreamingMessageRequest"] = None,
     api_base: str | None = None,
-    litellm_params: dict[str, object] | None = None,
+    embrouter_params: dict[str, object] | None = None,
     agent_id: str | None = None,
     metadata: dict[str, object] | None = None,
     proxy_server_request: dict[str, object] | None = None,
@@ -638,13 +638,13 @@ async def asend_message_streaming(
     """
     Async: Send a streaming message to an A2A agent.
 
-    If litellm_params contains custom_llm_provider, routes through the completion bridge.
+    If embrouter_params contains custom_llm_provider, routes through the completion bridge.
 
     Args:
         a2a_client: An initialized a2a.client.A2AClient instance (optional if using completion bridge)
         request: SendStreamingMessageRequest from a2a.types
         api_base: API base URL (required for completion bridge)
-        litellm_params: Optional dict with custom_llm_provider, model, etc. for completion bridge
+        embrouter_params: Optional dict with custom_llm_provider, model, etc. for completion bridge
         agent_id: Optional agent ID for tracking in SpendLogs
         metadata: Optional metadata dict (contains user_api_key, user_id, team_id, etc.)
         proxy_server_request: Optional proxy server request data
@@ -654,7 +654,7 @@ async def asend_message_streaming(
 
     Example (completion bridge with LangGraph):
         ```python
-        from litellm.a2a_protocol import asend_message_streaming
+        from embrouter.a2a_protocol import asend_message_streaming
         from a2a.types import SendStreamingMessageRequest, MessageSendParams
         from uuid import uuid4
 
@@ -667,13 +667,13 @@ async def asend_message_streaming(
         async for chunk in asend_message_streaming(
             request=request,
             api_base="http://localhost:2024",
-            litellm_params={"custom_llm_provider": "langgraph", "model": "agent"},
+            embrouter_params={"custom_llm_provider": "langgraph", "model": "agent"},
         ):
             print(chunk)
         ```
     """
-    litellm_params = litellm_params or {}
-    custom_llm_provider: Final = litellm_params.get("custom_llm_provider")
+    embrouter_params = embrouter_params or {}
+    custom_llm_provider: Final = embrouter_params.get("custom_llm_provider")
 
     # Route through completion bridge if custom_llm_provider is set
     if custom_llm_provider:
@@ -683,7 +683,7 @@ async def asend_message_streaming(
 
         verbose_logger.info("A2A streaming using completion bridge: provider=%s", custom_llm_provider)
 
-        from litellm.a2a_protocol.litellm_completion_bridge.handler import (
+        from embrouter.a2a_protocol.embrouter_completion_bridge.handler import (
             A2ACompletionBridgeHandler,
         )
 
@@ -695,7 +695,7 @@ async def asend_message_streaming(
         async for chunk in A2ACompletionBridgeHandler.handle_streaming(
             request_id=str(request.id),
             params=params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             api_base=api_base,
             agent_extra_headers=agent_extra_headers,
         ):
@@ -705,24 +705,24 @@ async def asend_message_streaming(
     if request is None:
         raise ValueError("request is required")
 
-    _raw_logging_obj: Final = kwargs.get("litellm_logging_obj")
+    _raw_logging_obj: Final = kwargs.get("embrouter_logging_obj")
     logging_obj: Logging | None = _raw_logging_obj if isinstance(_raw_logging_obj, Logging) else None
 
     if a2a_client is None:
         if api_base is None:
             raise ValueError("Either a2a_client or api_base is required for standard A2A flow")
-        logging_trace_id: Final = getattr(logging_obj, "litellm_trace_id", None) if logging_obj else None
+        logging_trace_id: Final = getattr(logging_obj, "embrouter_trace_id", None) if logging_obj else None
         trace_id: Final = logging_trace_id or (str(request.id) if request.id else str(uuid.uuid4()))
-        extra_headers: Final[dict[str, str]] = {"X-LiteLLM-Trace-Id": trace_id}
+        extra_headers: Final[dict[str, str]] = {"X-EmbRouter-Trace-Id": trace_id}
         if agent_id:
-            extra_headers["X-LiteLLM-Agent-Id"] = agent_id
+            extra_headers["X-EmbRouter-Agent-Id"] = agent_id
         if agent_extra_headers:
             extra_headers.update(agent_extra_headers)
         a2a_client = await create_a2a_client(
             base_url=api_base,
             extra_headers=extra_headers,
             streaming=True,
-            relative_card_path=_agent_card_path(litellm_params),
+            relative_card_path=_agent_card_path(embrouter_params),
         )
 
     assert a2a_client is not None
@@ -734,7 +734,7 @@ async def asend_message_streaming(
             request=request,
             agent_name=agent_name,
             agent_id=agent_id,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             metadata=metadata,
             proxy_server_request=proxy_server_request,
         )
@@ -789,7 +789,7 @@ async def create_a2a_client(
 
     Example:
         ```python
-        from litellm.a2a_protocol import create_a2a_client, asend_message
+        from embrouter.a2a_protocol import create_a2a_client, asend_message
 
         # Create client once
         client = await create_a2a_client(base_url="http://localhost:10001")
@@ -829,16 +829,16 @@ async def create_a2a_client(
             streaming=streaming,
         ),
     )
-    # Stash LiteLLM-owned handles on the client so the localhost-retry path can reuse
+    # Stash EmbRouter-owned handles on the client so the localhost-retry path can reuse
     # the configured httpx client and this agent's headers without excavating
     # a2a-sdk private internals.
-    a2a_client._litellm_httpx_client = httpx_client
-    a2a_client._litellm_call_context = (  # pyright: ignore[reportAttributeAccessIssue]  # LiteLLM-owned stash
+    a2a_client._embrouter_httpx_client = httpx_client
+    a2a_client._embrouter_call_context = (  # pyright: ignore[reportAttributeAccessIssue]  # EmbRouter-owned stash
         ClientCallContext(service_parameters=extra_headers)  # pyright: ignore[reportOptionalCall]  # SDK checked above
         if extra_headers
         else None
     )
-    a2a_client._litellm_agent_card = agent_card
+    a2a_client._embrouter_agent_card = agent_card
 
     verbose_logger.info("A2A client created for %s", base_url)
 
@@ -870,7 +870,7 @@ async def aget_agent_card(
 
     verbose_logger.info("Fetching agent card from %s", base_url)
 
-    # Use LiteLLM's cached httpx client
+    # Use EmbRouter's cached httpx client
     http_handler: Final = get_async_httpx_client(
         llm_provider=httpxSpecialProvider.A2A,
         params={"timeout": timeout},

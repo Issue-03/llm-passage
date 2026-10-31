@@ -5,10 +5,10 @@ from typing import Annotated, Final, Literal
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, ValidationError, model_validator
 
-from litellm._uuid import uuid4
-from litellm.proxy._types import LitellmTableNames, LitellmUserRoles, UserAPIKeyAuth
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.repositories.user_banner_repository import USER_BANNER_ROW_ID, UserBannerRepository
+from embrouter._uuid import uuid4
+from embrouter.proxy._types import EmbrouterTableNames, EmbrouterUserRoles, UserAPIKeyAuth
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.repositories.user_banner_repository import USER_BANNER_ROW_ID, UserBannerRepository
 
 router: Final = APIRouter()
 
@@ -75,7 +75,7 @@ async def get_user_banner() -> UserBanner:
     Get the admin-published dashboard banner.
     Readable by any authenticated user; rendered on every dashboard page.
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         return UserBanner()
@@ -97,9 +97,9 @@ async def update_user_banner(
     Publish, edit, or unpublish the dashboard banner.
     Only proxy admins are allowed to modify it.
     """
-    from litellm.proxy.proxy_server import create_config_audit_log, prisma_client
+    from embrouter.proxy.proxy_server import create_config_audit_log, prisma_client
 
-    if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+    if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
         raise HTTPException(status_code=403, detail="Only proxy admins can update the user banner.")
 
     if prisma_client is None:
@@ -123,7 +123,7 @@ async def update_user_banner(
             before_value=before.model_dump(),
             after_value=banner.model_dump(),
             user_api_key_dict=user_api_key_dict,
-            table_name=LitellmTableNames.UI_SETTINGS_TABLE_NAME,
+            table_name=EmbrouterTableNames.UI_SETTINGS_TABLE_NAME,
         )
     )
 

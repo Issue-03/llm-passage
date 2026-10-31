@@ -5,23 +5,23 @@ from typing import TYPE_CHECKING, Final
 
 from pydantic import BaseModel
 
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.auth.auth_checks import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.auth.auth_checks import (
     _cache_key_object,
     _copy_user_api_key_auth_for_cache,
     _fetch_key_object_from_db_with_reconnect,
     get_object_permission,
 )
-from litellm.proxy.auth.auth_method import AuthMethod
-from litellm.proxy.auth.network import NetworkContext
-from litellm.proxy.auth.resolvers.exceptions import (
+from embrouter.proxy.auth.auth_method import AuthMethod
+from embrouter.proxy.auth.network import NetworkContext
+from embrouter.proxy.auth.resolvers.exceptions import (
     KeyNotFoundError,
     KeyNotInCacheError,
     NoDatabaseConnectionError,
     PrincipalMissingSourceKeyError,
 )
-from litellm.proxy.auth.resolvers.models import (
+from embrouter.proxy.auth.resolvers.models import (
     CredentialRef,
     EndUserIdentity,
     OrganizationIdentity,
@@ -31,12 +31,12 @@ from litellm.proxy.auth.resolvers.models import (
     TeamIdentity,
     UserIdentity,
 )
-from litellm.proxy.auth.roles import TeamRole, map_role, team_role
+from embrouter.proxy.auth.roles import TeamRole, map_role, team_role
 
 if TYPE_CHECKING:
-    from litellm.caching.caching import DualCache
-    from litellm.integrations.opentelemetry import Span
-    from litellm.proxy.utils import PrismaClient, ProxyLogging
+    from embrouter.caching.caching import DualCache
+    from embrouter.integrations.opentelemetry import Span
+    from embrouter.proxy.utils import PrismaClient, ProxyLogging
 
 
 class IdentityStore:

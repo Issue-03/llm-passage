@@ -10,7 +10,7 @@ from ...http_client import HTTPClient
 
 @click.group()
 def http():
-    """Make HTTP requests to the LiteLLM proxy server"""
+    """Make HTTP requests to the EmbRouter proxy server"""
 
 
 @http.command()
@@ -43,15 +43,15 @@ def request(
     json: str | None = None,
     header: tuple[str, ...] = (),
 ):
-    """Make an HTTP request to the LiteLLM proxy server
+    """Make an HTTP request to the EmbRouter proxy server
 
     METHOD: HTTP method (GET, POST, PUT, DELETE, etc.)
     URI: URI path (will be appended to base_url)
 
     Examples:
-        litellm http request GET /models
-        litellm http request POST /chat/completions -j '{"model": "gpt-4", "messages": [{"role": "user", "content": "Hello"}]}'
-        litellm http request GET /health/test_connection -H "X-Custom-Header:value"
+        embrouter http request GET /models
+        embrouter http request POST /chat/completions -j '{"model": "gpt-4", "messages": [{"role": "user", "content": "Hello"}]}'
+        embrouter http request GET /health/test_connection -H "X-Custom-Header:value"
     """
     # Parse headers from key:value format
     headers: Final = {}

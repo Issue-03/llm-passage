@@ -1,19 +1,19 @@
 """
 Spend and error log table models.
 
-Canonical definitions for ``litellm_spendlogs`` and ``litellm_errorlogs``.
-Re-exported from ``litellm.proxy._types`` for backwards compatibility.
+Canonical definitions for ``embrouter_spendlogs`` and ``embrouter_errorlogs``.
+Re-exported from ``embrouter.proxy._types`` for backwards compatibility.
 """
 
 from datetime import datetime
 
 from pydantic import Json
 
-from litellm._uuid import uuid
-from litellm.types.llms.base import LiteLLMPydanticObjectBase
+from embrouter._uuid import uuid
+from embrouter.types.llms.base import EmbRouterPydanticObjectBase
 
 
-class LiteLLM_SpendLogs(LiteLLMPydanticObjectBase):
+class EmbRouter_SpendLogs(EmbRouterPydanticObjectBase):
     request_id: str
     api_key: str
     model: str | None = ""
@@ -37,11 +37,11 @@ class LiteLLM_SpendLogs(LiteLLMPydanticObjectBase):
     updated_at: datetime | None = None
 
 
-class LiteLLM_ErrorLogs(LiteLLMPydanticObjectBase):
+class EmbRouter_ErrorLogs(EmbRouterPydanticObjectBase):
     request_id: str | None = str(uuid.uuid4())
     api_base: str | None = ""
     model_group: str | None = ""
-    litellm_model_name: str | None = ""
+    embrouter_model_name: str | None = ""
     model_id: str | None = ""
     request_kwargs: dict | None = {}
     exception_type: str | None = ""

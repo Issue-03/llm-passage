@@ -6,9 +6,9 @@ Helper util for handling perplexity-specific cost calculation
 from datetime import datetime
 from typing import Final
 
-from litellm.litellm_core_utils.llm_cost_calc.utils import TokenRates, apply_off_peak_pricing
-from litellm.types.utils import Usage
-from litellm.utils import get_model_info
+from embrouter.embrouter_core_utils.llm_cost_calc.utils import TokenRates, apply_off_peak_pricing
+from embrouter.types.utils import Usage
+from embrouter.utils import get_model_info
 
 
 def cost_per_token(model: str, usage: Usage, current_time: datetime | None = None) -> tuple[float, float]:
@@ -18,7 +18,7 @@ def cost_per_token(model: str, usage: Usage, current_time: datetime | None = Non
 
     Input:
         - model: str, the model name without provider prefix
-        - usage: LiteLLM Usage block, containing perplexity-specific usage information
+        - usage: EmbRouter Usage block, containing perplexity-specific usage information
         - current_time: the moment the request is billed at; defaults to now, UTC
 
     Returns:

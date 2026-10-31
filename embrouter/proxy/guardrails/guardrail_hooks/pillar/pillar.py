@@ -15,30 +15,30 @@ from urllib.parse import quote
 from fastapi import HTTPException
 from typing_extensions import NotRequired, ReadOnly, TypedDict
 
-# LiteLLM imports
-from litellm import DualCache
-from litellm._logging import verbose_proxy_logger
-from litellm._version import version as litellm_version
-from litellm.integrations.custom_guardrail import (
+# EmbRouter imports
+from embrouter import DualCache
+from embrouter._logging import verbose_proxy_logger
+from embrouter._version import version as embrouter_version
+from embrouter.integrations.custom_guardrail import (
     CustomGuardrail,
     log_guardrail_information,
 )
-from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.embrouter_core_utils.get_llm_provider_logic import get_llm_provider
+from embrouter.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.common_utils.callback_utils import (
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.common_utils.callback_utils import (
     TRUSTED_PILLAR_RESPONSE_HEADERS_METADATA_KEY,
     add_guardrail_to_applied_guardrails_header,
     get_metadata_variable_name_from_kwargs,
 )
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.utils import LLMResponseTypes
+from embrouter.types.guardrails import GuardrailEventHooks
+from embrouter.types.utils import LLMResponseTypes
 
 if TYPE_CHECKING:
-    from litellm.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
+    from embrouter.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
 
 MAX_PILLAR_HEADER_VALUE_BYTES: Final = 8 * 1024
 
@@ -178,7 +178,7 @@ class PillarGuardrailAPIError(Exception):
 # Main guardrail class
 class PillarGuardrail(CustomGuardrail):
     """
-    Pillar Security Guardrail for LiteLLM.
+    Pillar Security Guardrail for EmbRouter.
 
     Provides comprehensive AI security scanning for input prompts and output responses
     using the Pillar Security API.
@@ -218,8 +218,8 @@ class PillarGuardrail(CustomGuardrail):
             **kwargs: Additional arguments passed to parent class
 
         Note:
-            LiteLLM virtual key context (user_id, team_id, key_alias, etc.) is always
-            automatically passed as X-LiteLLM-* headers to enable application/user tracking.
+            EmbRouter virtual key context (user_id, team_id, key_alias, etc.) is always
+            automatically passed as X-EmbRouter-* headers to enable application/user tracking.
         """
         self.async_handler: _PillarProtectHTTPClient = get_async_httpx_client(
             llm_provider=httpxSpecialProvider.GuardrailCallback
@@ -332,7 +332,7 @@ class PillarGuardrail(CustomGuardrail):
 
         Args:
             user_api_key_dict: User API key authentication info
-            cache: LiteLLM cache instance
+            cache: EmbRouter cache instance
             data: Request data
             call_type: Type of LLM call
 
@@ -558,15 +558,15 @@ class PillarGuardrail(CustomGuardrail):
         self._set_bool_header(headers, "plr_async", self.async_mode)
         self._set_bool_header(headers, "plr_persist", self.persist_session)
 
-        # Always add LiteLLM virtual key context headers (metadata excluded for security)
+        # Always add EmbRouter virtual key context headers (metadata excluded for security)
         context_mapping: Final = {
-            "X-LiteLLM-Key-Name": user_api_key_dict.key_name,
-            "X-LiteLLM-Key-Alias": user_api_key_dict.key_alias,
-            "X-LiteLLM-User-Id": user_api_key_dict.user_id,
-            "X-LiteLLM-User-Email": user_api_key_dict.user_email,
-            "X-LiteLLM-Team-Id": user_api_key_dict.team_id,
-            "X-LiteLLM-Team-Name": user_api_key_dict.team_alias,
-            "X-LiteLLM-Org-Id": user_api_key_dict.org_id,
+            "X-EmbRouter-Key-Name": user_api_key_dict.key_name,
+            "X-EmbRouter-Key-Alias": user_api_key_dict.key_alias,
+            "X-EmbRouter-User-Id": user_api_key_dict.user_id,
+            "X-EmbRouter-User-Email": user_api_key_dict.user_email,
+            "X-EmbRouter-Team-Id": user_api_key_dict.team_id,
+            "X-EmbRouter-Team-Name": user_api_key_dict.team_alias,
+            "X-EmbRouter-Org-Id": user_api_key_dict.org_id,
         }
         for header_name, value in context_mapping.items():
             if value:
@@ -646,7 +646,7 @@ class PillarGuardrail(CustomGuardrail):
         if not model:
             return "unknown", "unknown"
 
-        # Use LiteLLM's standard provider detection and model cleaning
+        # Use EmbRouter's standard provider detection and model cleaning
         try:
             clean_model, provider, _, _ = get_llm_provider(
                 model=model,
@@ -683,8 +683,8 @@ class PillarGuardrail(CustomGuardrail):
         messages: Final = data.get("messages", [])
         tools: Final = data.get("tools", [])
         metadata: Final = {
-            "source": "litellm",
-            "version": litellm_version,
+            "source": "embrouter",
+            "version": embrouter_version,
         }
 
         # Build payload following Pillar API format
@@ -694,7 +694,7 @@ class PillarGuardrail(CustomGuardrail):
             "metadata": metadata,
         }
 
-        # User ID: use LiteLLM user field
+        # User ID: use EmbRouter user field
         user_id: Final = data.get("user")
         if user_id:
             payload["user_id"] = user_id
@@ -848,7 +848,7 @@ class PillarGuardrail(CustomGuardrail):
         Returns:
             Pydantic model class for guardrail configuration
         """
-        from litellm.types.proxy.guardrails.guardrail_hooks.pillar import (
+        from embrouter.types.proxy.guardrails.guardrail_hooks.pillar import (
             PillarGuardrailConfigModel,
         )
 

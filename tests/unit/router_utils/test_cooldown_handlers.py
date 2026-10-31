@@ -1,9 +1,9 @@
 from unittest.mock import MagicMock, patch
 
-import litellm
-from litellm.caching.dual_cache import DualCache
-from litellm.caching.in_memory_cache import InMemoryCache
-from litellm.router_utils.cooldown_handlers import (
+import embrouter
+from embrouter.caching.dual_cache import DualCache
+from embrouter.caching.in_memory_cache import InMemoryCache
+from embrouter.router_utils.cooldown_handlers import (
     _get_deployment_cooldown_policy,
     _resolve_allowed_fails_from_policy,
     _should_cooldown_based_on_deployment_policy,
@@ -57,42 +57,42 @@ class TestGetDeploymentCooldownPolicy:
 
 class TestResolveAllowedFailsFromPolicy:
     def test_none_policy_returns_none(self):
-        exc = litellm.RateLimitError("429", "openai", "gpt-4")
+        exc = embrouter.RateLimitError("429", "openai", "gpt-4")
         assert _resolve_allowed_fails_from_policy(None, exc) is None
 
     def test_matching_rate_limit_error(self):
         policy = {"RateLimitErrorAllowedFails": 3}
-        exc = litellm.RateLimitError("429", "openai", "gpt-4")
+        exc = embrouter.RateLimitError("429", "openai", "gpt-4")
         assert _resolve_allowed_fails_from_policy(policy, exc) == 3
 
     def test_matching_internal_server_error(self):
         policy = {"InternalServerErrorAllowedFails": 5}
-        exc = litellm.InternalServerError("500", "openai", "gpt-4")
+        exc = embrouter.InternalServerError("500", "openai", "gpt-4")
         assert _resolve_allowed_fails_from_policy(policy, exc) == 5
 
     def test_matching_service_unavailable_error(self):
         policy = {"ServiceUnavailableErrorAllowedFails": 4}
-        exc = litellm.ServiceUnavailableError("503", "openai", "gpt-4")
+        exc = embrouter.ServiceUnavailableError("503", "openai", "gpt-4")
         assert _resolve_allowed_fails_from_policy(policy, exc) == 4
 
     def test_matching_bad_gateway_error(self):
         policy = {"BadGatewayErrorAllowedFails": 2}
-        exc = litellm.BadGatewayError("502", "openai", "gpt-4")
+        exc = embrouter.BadGatewayError("502", "openai", "gpt-4")
         assert _resolve_allowed_fails_from_policy(policy, exc) == 2
 
     def test_matching_not_found_error(self):
         policy = {"NotFoundErrorAllowedFails": 1}
-        exc = litellm.NotFoundError("404", "openai", "gpt-4")
+        exc = embrouter.NotFoundError("404", "openai", "gpt-4")
         assert _resolve_allowed_fails_from_policy(policy, exc) == 1
 
     def test_unmatched_exception_returns_none(self):
         policy = {"RateLimitErrorAllowedFails": 3}
-        exc = litellm.InternalServerError("500", "openai", "gpt-4")
+        exc = embrouter.InternalServerError("500", "openai", "gpt-4")
         assert _resolve_allowed_fails_from_policy(policy, exc) is None
 
     def test_field_absent_from_policy_returns_none(self):
         policy: dict[str, int] = {}
-        exc = litellm.InternalServerError("500", "openai", "gpt-4")
+        exc = embrouter.InternalServerError("500", "openai", "gpt-4")
         assert _resolve_allowed_fails_from_policy(policy, exc) is None
 
     def test_content_policy_violation_not_shadowed_by_bad_request_error(self):
@@ -101,7 +101,7 @@ class TestResolveAllowedFailsFromPolicy:
         BadRequestErrorAllowedFails (10) instead of
         ContentPolicyViolationErrorAllowedFails (2)."""
         policy = {"BadRequestErrorAllowedFails": 10, "ContentPolicyViolationErrorAllowedFails": 2}
-        exc = litellm.ContentPolicyViolationError("flagged content", "openai", "gpt-4")
+        exc = embrouter.ContentPolicyViolationError("flagged content", "openai", "gpt-4")
         assert _resolve_allowed_fails_from_policy(policy, exc) == 2
 
 
@@ -116,10 +116,10 @@ class TestShouldCooldownBasedOnDeploymentPolicy:
 
     def test_policy_match_uses_exception_type_as_cache_key_suffix(self):
         policy = {"RateLimitErrorAllowedFails": 0}
-        exc = litellm.RateLimitError("429", "openai", "gpt-4")
-        router = self._make_router({"litellm_params": {}, "model_info": {}})
+        exc = embrouter.RateLimitError("429", "openai", "gpt-4")
+        router = self._make_router({"embrouter_params": {}, "model_info": {}})
 
-        with patch("litellm.router_utils.cooldown_handlers.should_cooldown_based_on_allowed_fails_policy") as mock_sc:
+        with patch("embrouter.router_utils.cooldown_handlers.should_cooldown_based_on_allowed_fails_policy") as mock_sc:
             mock_sc.return_value = True
             result = _should_cooldown_based_on_deployment_policy(
                 router, "dep-1", exc, policy, None, is_single_deployment_model_group=False
@@ -132,10 +132,10 @@ class TestShouldCooldownBasedOnDeploymentPolicy:
 
     def test_no_policy_match_uses_dep_allowed_fails_and_generic_suffix(self):
         policy: dict[str, int] = {}
-        exc = litellm.InternalServerError("500", "openai", "gpt-4")
-        router = self._make_router({"litellm_params": {}, "model_info": {}})
+        exc = embrouter.InternalServerError("500", "openai", "gpt-4")
+        router = self._make_router({"embrouter_params": {}, "model_info": {}})
 
-        with patch("litellm.router_utils.cooldown_handlers.should_cooldown_based_on_allowed_fails_policy") as mock_sc:
+        with patch("embrouter.router_utils.cooldown_handlers.should_cooldown_based_on_allowed_fails_policy") as mock_sc:
             mock_sc.return_value = False
             result = _should_cooldown_based_on_deployment_policy(
                 router, "dep-1", exc, policy, dep_allowed_fails=3, is_single_deployment_model_group=False
@@ -151,10 +151,10 @@ class TestShouldCooldownBasedOnDeploymentPolicy:
         policy and is a less deliberate opt-in, so on a single-deployment model group
         it must not silently disable the "avoid cooldowns on single deployment model
         groups" safety net."""
-        exc = litellm.InternalServerError("500", "openai", "gpt-4")
-        router = self._make_router({"litellm_params": {}, "model_info": {}})
+        exc = embrouter.InternalServerError("500", "openai", "gpt-4")
+        router = self._make_router({"embrouter_params": {}, "model_info": {}})
 
-        with patch("litellm.router_utils.cooldown_handlers.should_cooldown_based_on_allowed_fails_policy") as mock_sc:
+        with patch("embrouter.router_utils.cooldown_handlers.should_cooldown_based_on_allowed_fails_policy") as mock_sc:
             result = _should_cooldown_based_on_deployment_policy(
                 router, "dep-1", exc, None, dep_allowed_fails=3, is_single_deployment_model_group=True
             )
@@ -166,10 +166,10 @@ class TestShouldCooldownBasedOnDeploymentPolicy:
         """Unlike a generic allowed_fails, an explicit per-exception-type policy entry
         is a deliberate opt-in and must still apply on a single-deployment group."""
         policy = {"RateLimitErrorAllowedFails": 0}
-        exc = litellm.RateLimitError("429", "openai", "gpt-4")
-        router = self._make_router({"litellm_params": {}, "model_info": {}})
+        exc = embrouter.RateLimitError("429", "openai", "gpt-4")
+        router = self._make_router({"embrouter_params": {}, "model_info": {}})
 
-        with patch("litellm.router_utils.cooldown_handlers.should_cooldown_based_on_allowed_fails_policy") as mock_sc:
+        with patch("embrouter.router_utils.cooldown_handlers.should_cooldown_based_on_allowed_fails_policy") as mock_sc:
             mock_sc.return_value = True
             result = _should_cooldown_based_on_deployment_policy(
                 router, "dep-1", exc, policy, None, is_single_deployment_model_group=True
@@ -183,10 +183,10 @@ class TestShouldCooldownBasedOnDeploymentPolicy:
         this exception, defer to router-level behavior instead of forcing an
         immediate cooldown (allowed_fails_override=0 would trip on the first failure
         of any exception type the deployment's config doesn't mention)."""
-        exc = litellm.InternalServerError("500", "openai", "gpt-4")
-        router = self._make_router({"litellm_params": {}, "model_info": {}})
+        exc = embrouter.InternalServerError("500", "openai", "gpt-4")
+        router = self._make_router({"embrouter_params": {}, "model_info": {}})
 
-        with patch("litellm.router_utils.cooldown_handlers.should_cooldown_based_on_allowed_fails_policy") as mock_sc:
+        with patch("embrouter.router_utils.cooldown_handlers.should_cooldown_based_on_allowed_fails_policy") as mock_sc:
             mock_sc.return_value = True
             _should_cooldown_based_on_deployment_policy(
                 router, "dep-1", exc, None, None, is_single_deployment_model_group=False
@@ -201,10 +201,10 @@ class TestShouldCooldownBasedOnDeploymentPolicy:
         zero-fail threshold on an unrelated TimeoutError; it should defer to
         router-level behavior for exception types its policy doesn't mention."""
         policy = {"RateLimitErrorAllowedFails": 0}
-        exc = litellm.Timeout("timed out", "openai", "gpt-4")
-        router = self._make_router({"litellm_params": {}, "model_info": {}})
+        exc = embrouter.Timeout("timed out", "openai", "gpt-4")
+        router = self._make_router({"embrouter_params": {}, "model_info": {}})
 
-        with patch("litellm.router_utils.cooldown_handlers.should_cooldown_based_on_allowed_fails_policy") as mock_sc:
+        with patch("embrouter.router_utils.cooldown_handlers.should_cooldown_based_on_allowed_fails_policy") as mock_sc:
             mock_sc.return_value = False
             _should_cooldown_based_on_deployment_policy(
                 router, "dep-1", exc, policy, dep_allowed_fails=None, is_single_deployment_model_group=False
@@ -215,10 +215,10 @@ class TestShouldCooldownBasedOnDeploymentPolicy:
         assert call_kwargs["cache_key_suffix"] is None
 
     def test_cooldown_time_from_model_info_passed_through(self):
-        exc = litellm.RateLimitError("429", "openai", "gpt-4")
-        router = self._make_router({"litellm_params": {}, "model_info": {"cooldown_time": 120.0}})
+        exc = embrouter.RateLimitError("429", "openai", "gpt-4")
+        router = self._make_router({"embrouter_params": {}, "model_info": {"cooldown_time": 120.0}})
 
-        with patch("litellm.router_utils.cooldown_handlers.should_cooldown_based_on_allowed_fails_policy") as mock_sc:
+        with patch("embrouter.router_utils.cooldown_handlers.should_cooldown_based_on_allowed_fails_policy") as mock_sc:
             mock_sc.return_value = True
             _should_cooldown_based_on_deployment_policy(
                 router, "dep-1", exc, None, None, is_single_deployment_model_group=False
@@ -227,14 +227,14 @@ class TestShouldCooldownBasedOnDeploymentPolicy:
         call_kwargs = mock_sc.call_args[1]
         assert call_kwargs["cooldown_time_override"] == 120.0
 
-    def test_cooldown_time_from_litellm_params_used_as_fallback(self):
-        """cooldown_time has pre-existing litellm_params support on the primary
+    def test_cooldown_time_from_embrouter_params_used_as_fallback(self):
+        """cooldown_time has pre-existing embrouter_params support on the primary
         failure path, so it must still be honored here when model_info doesn't
         set it."""
-        exc = litellm.RateLimitError("429", "openai", "gpt-4")
-        router = self._make_router({"litellm_params": {"cooldown_time": 120.0}, "model_info": {}})
+        exc = embrouter.RateLimitError("429", "openai", "gpt-4")
+        router = self._make_router({"embrouter_params": {"cooldown_time": 120.0}, "model_info": {}})
 
-        with patch("litellm.router_utils.cooldown_handlers.should_cooldown_based_on_allowed_fails_policy") as mock_sc:
+        with patch("embrouter.router_utils.cooldown_handlers.should_cooldown_based_on_allowed_fails_policy") as mock_sc:
             mock_sc.return_value = True
             _should_cooldown_based_on_deployment_policy(
                 router, "dep-1", exc, None, None, is_single_deployment_model_group=False
@@ -243,11 +243,11 @@ class TestShouldCooldownBasedOnDeploymentPolicy:
         call_kwargs = mock_sc.call_args[1]
         assert call_kwargs["cooldown_time_override"] == 120.0
 
-    def test_cooldown_time_from_model_info_takes_priority_over_litellm_params(self):
-        exc = litellm.RateLimitError("429", "openai", "gpt-4")
-        router = self._make_router({"litellm_params": {"cooldown_time": 120.0}, "model_info": {"cooldown_time": 15.0}})
+    def test_cooldown_time_from_model_info_takes_priority_over_embrouter_params(self):
+        exc = embrouter.RateLimitError("429", "openai", "gpt-4")
+        router = self._make_router({"embrouter_params": {"cooldown_time": 120.0}, "model_info": {"cooldown_time": 15.0}})
 
-        with patch("litellm.router_utils.cooldown_handlers.should_cooldown_based_on_allowed_fails_policy") as mock_sc:
+        with patch("embrouter.router_utils.cooldown_handlers.should_cooldown_based_on_allowed_fails_policy") as mock_sc:
             mock_sc.return_value = True
             _should_cooldown_based_on_deployment_policy(
                 router, "dep-1", exc, None, None, is_single_deployment_model_group=False
@@ -257,10 +257,10 @@ class TestShouldCooldownBasedOnDeploymentPolicy:
         assert call_kwargs["cooldown_time_override"] == 15.0
 
     def test_model_info_none_passes_none_cooldown_time(self):
-        exc = litellm.RateLimitError("429", "openai", "gpt-4")
+        exc = embrouter.RateLimitError("429", "openai", "gpt-4")
         router = self._make_router(None)
 
-        with patch("litellm.router_utils.cooldown_handlers.should_cooldown_based_on_allowed_fails_policy") as mock_sc:
+        with patch("embrouter.router_utils.cooldown_handlers.should_cooldown_based_on_allowed_fails_policy") as mock_sc:
             mock_sc.return_value = False
             _should_cooldown_based_on_deployment_policy(
                 router, "dep-1", exc, None, None, is_single_deployment_model_group=False
@@ -285,10 +285,10 @@ class TestShouldCooldownBasedOnAllowedFailsPolicy:
         router = self._make_router(cooldown_time=60.0)
         router.cache = MagicMock()
         router.cache.increment_cache.return_value = 1
-        exc = litellm.RateLimitError("429", "openai", "gpt-4")
+        exc = embrouter.RateLimitError("429", "openai", "gpt-4")
 
         should_cooldown_based_on_allowed_fails_policy(
-            litellm_router_instance=router,
+            embrouter_router_instance=router,
             deployment="dep-1",
             original_exception=exc,
             allowed_fails_override=5,
@@ -305,11 +305,11 @@ class TestShouldCooldownBasedOnAllowedFailsPolicy:
         """Two workers (two Router objects over one shared cache) must pool their failures toward allowed_fails."""
         shared_cache = DualCache(in_memory_cache=InMemoryCache())
         workers = (self._make_router(cache=shared_cache), self._make_router(cache=shared_cache))
-        exc = litellm.AuthenticationError("401", "openai", "gpt-4")
+        exc = embrouter.AuthenticationError("401", "openai", "gpt-4")
 
         results = [
             should_cooldown_based_on_allowed_fails_policy(
-                litellm_router_instance=workers[i % 2],
+                embrouter_router_instance=workers[i % 2],
                 deployment="dep-1",
                 original_exception=exc,
                 allowed_fails_override=5,
@@ -325,10 +325,10 @@ class TestShouldCooldownBasedOnAllowedFailsPolicy:
         redis_cache = MagicMock()
         redis_cache.increment_cache.return_value = 6
         router = self._make_router(cache=DualCache(in_memory_cache=InMemoryCache(), redis_cache=redis_cache))
-        exc = litellm.AuthenticationError("401", "openai", "gpt-4")
+        exc = embrouter.AuthenticationError("401", "openai", "gpt-4")
 
         result = should_cooldown_based_on_allowed_fails_policy(
-            litellm_router_instance=router,
+            embrouter_router_instance=router,
             deployment="dep-1",
             original_exception=exc,
             allowed_fails_override=5,
@@ -342,11 +342,11 @@ class TestShouldCooldownBasedOnAllowedFailsPolicy:
         redis_cache = MagicMock()
         redis_cache.increment_cache.side_effect = ConnectionError("redis down")
         router = self._make_router(cache=DualCache(in_memory_cache=InMemoryCache(), redis_cache=redis_cache))
-        exc = litellm.AuthenticationError("401", "openai", "gpt-4")
+        exc = embrouter.AuthenticationError("401", "openai", "gpt-4")
 
         results = [
             should_cooldown_based_on_allowed_fails_policy(
-                litellm_router_instance=router,
+                embrouter_router_instance=router,
                 deployment="dep-1",
                 original_exception=exc,
                 allowed_fails_override=5,
@@ -360,18 +360,18 @@ class TestShouldCooldownBasedOnAllowedFailsPolicy:
 
 class TestRoutingGroupCooldownAlternatives:
     def _router(self, routing_groups=None):
-        from litellm import Router
+        from embrouter import Router
 
         return Router(
             model_list=[
                 {
                     "model_name": "solo-member",
-                    "litellm_params": {"model": "openai/gpt-4o", "api_key": "sk-test"},
+                    "embrouter_params": {"model": "openai/gpt-4o", "api_key": "sk-test"},
                     "model_info": {"id": "cg-deploy-1"},
                 },
                 {
                     "model_name": "other-member",
-                    "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-test"},
+                    "embrouter_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-test"},
                     "model_info": {"id": "cg-deploy-2"},
                 },
             ],
@@ -379,7 +379,7 @@ class TestRoutingGroupCooldownAlternatives:
         )
 
     def test_group_call_429_cools_down_member_with_alternatives(self):
-        from litellm.router_utils.cooldown_handlers import _should_cooldown_deployment
+        from embrouter.router_utils.cooldown_handlers import _should_cooldown_deployment
 
         router = self._router(
             routing_groups=[
@@ -392,7 +392,7 @@ class TestRoutingGroupCooldownAlternatives:
         )
         assert (
             _should_cooldown_deployment(
-                litellm_router_instance=router,
+                embrouter_router_instance=router,
                 deployment="cg-deploy-1",
                 exception_status=429,
                 original_exception=Exception("rate limited"),
@@ -402,7 +402,7 @@ class TestRoutingGroupCooldownAlternatives:
         )
 
     def test_direct_member_429_keeps_single_deployment_exemption(self):
-        from litellm.router_utils.cooldown_handlers import _should_cooldown_deployment
+        from embrouter.router_utils.cooldown_handlers import _should_cooldown_deployment
 
         router = self._router(
             routing_groups=[
@@ -415,7 +415,7 @@ class TestRoutingGroupCooldownAlternatives:
         )
         assert (
             _should_cooldown_deployment(
-                litellm_router_instance=router,
+                embrouter_router_instance=router,
                 deployment="cg-deploy-1",
                 exception_status=429,
                 original_exception=Exception("rate limited"),
@@ -425,12 +425,12 @@ class TestRoutingGroupCooldownAlternatives:
         )
 
     def test_429_without_request_context_keeps_exemption(self):
-        from litellm.router_utils.cooldown_handlers import _should_cooldown_deployment
+        from embrouter.router_utils.cooldown_handlers import _should_cooldown_deployment
 
         router = self._router(routing_groups=None)
         assert (
             _should_cooldown_deployment(
-                litellm_router_instance=router,
+                embrouter_router_instance=router,
                 deployment="cg-deploy-1",
                 exception_status=429,
                 original_exception=Exception("rate limited"),
@@ -440,12 +440,12 @@ class TestRoutingGroupCooldownAlternatives:
 
 
 class TestTeamModelCooldownAlternatives:
-    def _router(self, team_deployments: int, blocked_ids: frozenset[str] = frozenset()) -> litellm.Router:
-        return litellm.Router(
+    def _router(self, team_deployments: int, blocked_ids: frozenset[str] = frozenset()) -> embrouter.Router:
+        return embrouter.Router(
             model_list=[
                 {
                     "model_name": f"model_name_team-1_{i}",
-                    "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-test"},
+                    "embrouter_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-test"},
                     "model_info": {
                         "id": f"team-deploy-{i}",
                         "team_id": "team-1",
@@ -458,12 +458,12 @@ class TestTeamModelCooldownAlternatives:
         )
 
     def test_429_on_team_deployment_with_sibling_cools_down(self):
-        from litellm.router_utils.cooldown_handlers import _should_cooldown_deployment
+        from embrouter.router_utils.cooldown_handlers import _should_cooldown_deployment
 
         router = self._router(team_deployments=2)
         assert (
             _should_cooldown_deployment(
-                litellm_router_instance=router,
+                embrouter_router_instance=router,
                 deployment="team-deploy-0",
                 exception_status=429,
                 original_exception=Exception("rate limited"),
@@ -473,12 +473,12 @@ class TestTeamModelCooldownAlternatives:
         )
 
     def test_429_on_only_team_deployment_keeps_single_deployment_exemption(self):
-        from litellm.router_utils.cooldown_handlers import _should_cooldown_deployment
+        from embrouter.router_utils.cooldown_handlers import _should_cooldown_deployment
 
         router = self._router(team_deployments=1)
         assert (
             _should_cooldown_deployment(
-                litellm_router_instance=router,
+                embrouter_router_instance=router,
                 deployment="team-deploy-0",
                 exception_status=429,
                 original_exception=Exception("rate limited"),
@@ -488,12 +488,12 @@ class TestTeamModelCooldownAlternatives:
         )
 
     def test_429_with_only_a_blocked_sibling_keeps_single_deployment_exemption(self):
-        from litellm.router_utils.cooldown_handlers import _should_cooldown_deployment
+        from embrouter.router_utils.cooldown_handlers import _should_cooldown_deployment
 
         router = self._router(team_deployments=2, blocked_ids=frozenset({"team-deploy-1"}))
         assert (
             _should_cooldown_deployment(
-                litellm_router_instance=router,
+                embrouter_router_instance=router,
                 deployment="team-deploy-0",
                 exception_status=429,
                 original_exception=Exception("rate limited"),

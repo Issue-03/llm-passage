@@ -4,7 +4,7 @@ export interface GuardrailCardInfo {
   id: string;
   name: string;
   description: string;
-  category: "litellm" | "partner";
+  category: "embrouter" | "partner";
   subcategory?: string;
   logo: string;
   tags: string[];
@@ -18,17 +18,17 @@ export interface GuardrailCardInfo {
   providerKey?: string;
 }
 
-const litellmContentFilterLogo = guardrailLogoMap["LiteLLM Content Filter"];
+const embrouterContentFilterLogo = guardrailLogoMap["EmbRouter Content Filter"];
 
-export const LITELLM_CONTENT_FILTER_CARDS: GuardrailCardInfo[] = [
+export const EMBROUTER_CONTENT_FILTER_CARDS: GuardrailCardInfo[] = [
   {
     id: "cf_denied_financial",
     name: "Denied Financial Advice",
     description:
       "Detects requests for personalized financial advice, investment recommendations, or financial planning.",
-    category: "litellm",
+    category: "embrouter",
     subcategory: "Content Category",
-    logo: litellmContentFilterLogo,
+    logo: embrouterContentFilterLogo,
     tags: ["Content Category", "Topic Blocker"],
     eval: {
       f1: 100.0,
@@ -42,9 +42,9 @@ export const LITELLM_CONTENT_FILTER_CARDS: GuardrailCardInfo[] = [
     id: "cf_denied_insults",
     name: "Insults & Personal Attacks",
     description: "Detects insults, name-calling, and personal attacks directed at the chatbot, staff, or other people.",
-    category: "litellm",
+    category: "embrouter",
     subcategory: "Content Category",
-    logo: litellmContentFilterLogo,
+    logo: embrouterContentFilterLogo,
     tags: ["Content Category", "Topic Blocker"],
     eval: {
       f1: 100.0,
@@ -58,144 +58,144 @@ export const LITELLM_CONTENT_FILTER_CARDS: GuardrailCardInfo[] = [
     id: "cf_denied_legal",
     name: "Denied Legal Advice",
     description: "Detects requests for unauthorized legal advice, case analysis, or legal recommendations.",
-    category: "litellm",
+    category: "embrouter",
     subcategory: "Content Category",
-    logo: litellmContentFilterLogo,
+    logo: embrouterContentFilterLogo,
     tags: ["Content Category", "Topic Blocker"],
   },
   {
     id: "cf_denied_medical",
     name: "Denied Medical Advice",
     description: "Detects requests for medical diagnosis, treatment recommendations, or health advice.",
-    category: "litellm",
+    category: "embrouter",
     subcategory: "Content Category",
-    logo: litellmContentFilterLogo,
+    logo: embrouterContentFilterLogo,
     tags: ["Content Category", "Topic Blocker"],
   },
   {
     id: "cf_harmful_violence",
     name: "Harmful Violence",
     description: "Detects content related to violence, criminal planning, attacks, and violent threats.",
-    category: "litellm",
+    category: "embrouter",
     subcategory: "Content Category",
-    logo: litellmContentFilterLogo,
+    logo: embrouterContentFilterLogo,
     tags: ["Content Category", "Safety"],
   },
   {
     id: "cf_harmful_self_harm",
     name: "Harmful Self-Harm",
     description: "Detects content related to self-harm, suicide, and dangerous self-destructive behavior.",
-    category: "litellm",
+    category: "embrouter",
     subcategory: "Content Category",
-    logo: litellmContentFilterLogo,
+    logo: embrouterContentFilterLogo,
     tags: ["Content Category", "Safety"],
   },
   {
     id: "cf_harmful_child_safety",
     name: "Harmful Child Safety",
     description: "Detects content that could endanger child safety or exploit minors.",
-    category: "litellm",
+    category: "embrouter",
     subcategory: "Content Category",
-    logo: litellmContentFilterLogo,
+    logo: embrouterContentFilterLogo,
     tags: ["Content Category", "Safety"],
   },
   {
     id: "cf_harmful_illegal_weapons",
     name: "Harmful Illegal Weapons",
     description: "Detects content related to illegal weapons manufacturing, distribution, or acquisition.",
-    category: "litellm",
+    category: "embrouter",
     subcategory: "Content Category",
-    logo: litellmContentFilterLogo,
+    logo: embrouterContentFilterLogo,
     tags: ["Content Category", "Safety"],
   },
   {
     id: "cf_bias_gender",
     name: "Bias: Gender",
     description: "Detects gender-based discrimination, stereotypes, and biased language.",
-    category: "litellm",
+    category: "embrouter",
     subcategory: "Content Category",
-    logo: litellmContentFilterLogo,
+    logo: embrouterContentFilterLogo,
     tags: ["Content Category", "Bias"],
   },
   {
     id: "cf_bias_racial",
     name: "Bias: Racial",
     description: "Detects racial discrimination, stereotypes, and racially biased content.",
-    category: "litellm",
+    category: "embrouter",
     subcategory: "Content Category",
-    logo: litellmContentFilterLogo,
+    logo: embrouterContentFilterLogo,
     tags: ["Content Category", "Bias"],
   },
   {
     id: "cf_bias_religious",
     name: "Bias: Religious",
     description: "Detects religious discrimination, intolerance, and religiously biased content.",
-    category: "litellm",
+    category: "embrouter",
     subcategory: "Content Category",
-    logo: litellmContentFilterLogo,
+    logo: embrouterContentFilterLogo,
     tags: ["Content Category", "Bias"],
   },
   {
     id: "cf_bias_sexual_orientation",
     name: "Bias: Sexual Orientation",
     description: "Detects discrimination based on sexual orientation and related biased content.",
-    category: "litellm",
+    category: "embrouter",
     subcategory: "Content Category",
-    logo: litellmContentFilterLogo,
+    logo: embrouterContentFilterLogo,
     tags: ["Content Category", "Bias"],
   },
   {
     id: "cf_prompt_injection_jailbreak",
     name: "Prompt Injection: Jailbreak",
     description: "Detects jailbreak attempts designed to bypass AI safety guidelines and restrictions.",
-    category: "litellm",
+    category: "embrouter",
     subcategory: "Content Category",
-    logo: litellmContentFilterLogo,
+    logo: embrouterContentFilterLogo,
     tags: ["Content Category", "Prompt Injection"],
   },
   {
     id: "cf_prompt_injection_data_exfil",
     name: "Prompt Injection: Data Exfiltration",
     description: "Detects attempts to extract sensitive data through prompt manipulation.",
-    category: "litellm",
+    category: "embrouter",
     subcategory: "Content Category",
-    logo: litellmContentFilterLogo,
+    logo: embrouterContentFilterLogo,
     tags: ["Content Category", "Prompt Injection"],
   },
   {
     id: "cf_prompt_injection_sql",
     name: "Prompt Injection: SQL",
     description: "Detects SQL injection attempts embedded in prompts.",
-    category: "litellm",
+    category: "embrouter",
     subcategory: "Content Category",
-    logo: litellmContentFilterLogo,
+    logo: embrouterContentFilterLogo,
     tags: ["Content Category", "Prompt Injection"],
   },
   {
     id: "cf_prompt_injection_malicious_code",
     name: "Prompt Injection: Malicious Code",
     description: "Detects attempts to inject malicious code through prompts.",
-    category: "litellm",
+    category: "embrouter",
     subcategory: "Content Category",
-    logo: litellmContentFilterLogo,
+    logo: embrouterContentFilterLogo,
     tags: ["Content Category", "Prompt Injection"],
   },
   {
     id: "cf_prompt_injection_system_prompt",
     name: "Prompt Injection: System Prompt",
     description: "Detects attempts to extract or override system prompts.",
-    category: "litellm",
+    category: "embrouter",
     subcategory: "Content Category",
-    logo: litellmContentFilterLogo,
+    logo: embrouterContentFilterLogo,
     tags: ["Content Category", "Prompt Injection"],
   },
   {
     id: "cf_toxic_abuse",
     name: "Toxic & Abusive Language",
     description: "Detects toxic, abusive, and hateful language across multiple languages (EN, AU, DE, ES, FR).",
-    category: "litellm",
+    category: "embrouter",
     subcategory: "Content Category",
-    logo: litellmContentFilterLogo,
+    logo: embrouterContentFilterLogo,
     tags: ["Content Category", "Toxicity"],
   },
   {
@@ -203,9 +203,9 @@ export const LITELLM_CONTENT_FILTER_CARDS: GuardrailCardInfo[] = [
     name: "Pattern Matching",
     description:
       "Detect and block sensitive data patterns like SSNs, credit card numbers, API keys, and custom regex patterns.",
-    category: "litellm",
+    category: "embrouter",
     subcategory: "Patterns",
-    logo: litellmContentFilterLogo,
+    logo: embrouterContentFilterLogo,
     tags: ["PII", "Regex", "Data Protection"],
   },
   {
@@ -213,9 +213,9 @@ export const LITELLM_CONTENT_FILTER_CARDS: GuardrailCardInfo[] = [
     name: "Keyword Blocking",
     description:
       "Block or mask content containing specific keywords or phrases. Upload custom word lists or add individual terms.",
-    category: "litellm",
+    category: "embrouter",
     subcategory: "Keywords",
-    logo: litellmContentFilterLogo,
+    logo: embrouterContentFilterLogo,
     tags: ["Keywords", "Blocklist"],
   },
   {
@@ -223,9 +223,9 @@ export const LITELLM_CONTENT_FILTER_CARDS: GuardrailCardInfo[] = [
     name: "Block Code Execution",
     description:
       "Detects markdown fenced code blocks in requests and responses. Block or mask executable code (e.g. Python, JavaScript, Bash) by language with configurable confidence.",
-    category: "litellm",
+    category: "embrouter",
     subcategory: "Code Safety",
-    logo: litellmContentFilterLogo,
+    logo: embrouterContentFilterLogo,
     tags: ["Code", "Safety", "Prompt Injection"],
   },
   {
@@ -233,9 +233,9 @@ export const LITELLM_CONTENT_FILTER_CARDS: GuardrailCardInfo[] = [
     name: "Competitor Name Blocking",
     description:
       "Block or reframe competitor comparison and ranking intent. Detect when users ask to compare or recommend competitors (airline or generic competitor lists).",
-    category: "litellm",
+    category: "embrouter",
     subcategory: "Content Category",
-    logo: litellmContentFilterLogo,
+    logo: embrouterContentFilterLogo,
     tags: ["Content Category", "Competitor", "Topic Blocker"],
   },
 ];
@@ -496,4 +496,4 @@ export const PARTNER_GUARDRAIL_CARDS: GuardrailCardInfo[] = [
   },
 ];
 
-export const ALL_CARDS = [...LITELLM_CONTENT_FILTER_CARDS, ...PARTNER_GUARDRAIL_CARDS];
+export const ALL_CARDS = [...EMBROUTER_CONTENT_FILTER_CARDS, ...PARTNER_GUARDRAIL_CARDS];

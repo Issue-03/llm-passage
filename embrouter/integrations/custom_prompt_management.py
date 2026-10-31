@@ -1,11 +1,11 @@
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.integrations.prompt_management_base import (
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.integrations.prompt_management_base import (
     PromptManagementBase,
     PromptManagementClient,
 )
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.prompts.init_prompts import PromptSpec
-from litellm.types.utils import StandardCallbackDynamicParams
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.prompts.init_prompts import PromptSpec
+from embrouter.types.utils import StandardCallbackDynamicParams
 
 
 class CustomPromptManagement(CustomLogger, PromptManagementBase):

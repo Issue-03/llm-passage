@@ -1,2 +1,2 @@
 -- AlterTable
-ALTER TABLE "LiteLLM_MCPServerTable" ADD COLUMN     "max_concurrent_requests" INTEGER;
+ALTER TABLE "EmbRouter_MCPServerTable" ADD COLUMN     "max_concurrent_requests" INTEGER;

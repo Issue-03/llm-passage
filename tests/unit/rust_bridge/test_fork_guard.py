@@ -2,7 +2,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from litellm.rust_bridge import fork_guard
+from embrouter.rust_bridge import fork_guard
 
 
 def _reserve_with(monkeypatch: pytest.MonkeyPatch, native: object) -> None:

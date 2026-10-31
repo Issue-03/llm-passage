@@ -11,8 +11,8 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Final
 
-from litellm._logging import verbose_proxy_logger
-from litellm.types.integrations.slack_alerting import AlertQueueItem, AlertType
+from embrouter._logging import verbose_proxy_logger
+from embrouter.types.integrations.slack_alerting import AlertQueueItem, AlertType
 
 from .ms_teams import MS_TEAMS_ALERTING_DESTINATION, build_ms_teams_payload
 

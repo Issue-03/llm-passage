@@ -12,8 +12,8 @@ from sentry_sdk.envelope import Envelope
 from sentry_sdk.transport import Transport
 from sentry_sdk.utils import event_from_exception
 
-from litellm.constants import LENGTH_OF_LITELLM_GENERATED_KEY, MINIMUM_CUSTOM_KEY_LENGTH
-from litellm.litellm_core_utils.sentry_scrubbing import (
+from embrouter.constants import LENGTH_OF_EMBROUTER_GENERATED_KEY, MINIMUM_CUSTOM_KEY_LENGTH
+from embrouter.embrouter_core_utils.sentry_scrubbing import (
     FILTERED,
     MAX_SCRUB_DEPTH,
     build_key_pattern,
@@ -21,13 +21,13 @@ from litellm.litellm_core_utils.sentry_scrubbing import (
     build_string_scrubber,
     scrub_json_strings,
 )
-from litellm.proxy._types import LiteLLM_UserTable, UserAPIKeyAuth
+from embrouter.proxy._types import EmbRouter_UserTable, UserAPIKeyAuth
 
 EMAIL: Final = "qa.user@example.com"
 VIRTUAL_KEY: Final = "sk-virtual-key-under-test"
 KEY_HASH: Final = hashlib.sha256(VIRTUAL_KEY.encode()).hexdigest()
 MASTER_KEY: Final = "sk-master-key-under-test"
-DATABASE_URL: Final = "postgresql://litellm:db-password-under-test@db.internal:5432/litellm"
+DATABASE_URL: Final = "postgresql://embrouter:db-password-under-test@db.internal:5432/embrouter"
 PII_ON: Final = {"SENTRY_DSN": "https://key@sentry.example/1", "SENTRY_SEND_DEFAULT_PII": "true"}
 PII_OFF: Final = {"SENTRY_DSN": "https://key@sentry.example/1"}
 
@@ -43,7 +43,7 @@ class RecordingTransport(Transport):
 
 def reject_request(
     valid_token: UserAPIKeyAuth,
-    user_obj: LiteLLM_UserTable,
+    user_obj: EmbRouter_UserTable,
     general_settings: Mapping[str, str],
     data: Mapping[str, Mapping[str, str]],
     raw_headers: Mapping[str, str],
@@ -54,7 +54,7 @@ def reject_request(
 def raise_with_identity_locals() -> None:
     reject_request(
         valid_token=UserAPIKeyAuth(token=KEY_HASH, key_name="sk-...test", user_id=EMAIL, user_email=EMAIL),
-        user_obj=LiteLLM_UserTable(user_id=EMAIL, user_email=EMAIL, user_role="internal_user"),
+        user_obj=EmbRouter_UserTable(user_id=EMAIL, user_email=EMAIL, user_role="internal_user"),
         general_settings={"master_key": MASTER_KEY, "database_url": DATABASE_URL},
         data={"metadata": {"user_api_key_hash": KEY_HASH, "user_api_key_user_email": EMAIL}},
         raw_headers={"authorization": f"Bearer {VIRTUAL_KEY}", "x-api-key": VIRTUAL_KEY, "content-type": "application/json"},
@@ -195,7 +195,7 @@ def test_transaction_events_are_scrubbed_too() -> None:
             f"headers={{'x-tenant-key': '{FILTERED}'}} key_name='sk-...6789'",
         ),
         (
-            "master_key={'value': 'not-a-litellm-key'} timeout=10",
+            "master_key={'value': 'not-a-embrouter-key'} timeout=10",
             f"master_key='{FILTERED}' timeout=10",
         ),
         (
@@ -216,10 +216,10 @@ def test_bare_key_floor_follows_the_custom_key_minimum() -> None:
 
 
 def test_key_pattern_floor_never_exceeds_a_generated_key() -> None:
-    generated_key: Final = "sk-" + secrets.token_urlsafe(LENGTH_OF_LITELLM_GENERATED_KEY)
+    generated_key: Final = "sk-" + secrets.token_urlsafe(LENGTH_OF_EMBROUTER_GENERATED_KEY)
     stricter_custom_minimum: Final = len(generated_key) + 10
-    assert build_key_pattern(stricter_custom_minimum, LENGTH_OF_LITELLM_GENERATED_KEY).fullmatch(generated_key)
-    assert build_key_pattern(stricter_custom_minimum, LENGTH_OF_LITELLM_GENERATED_KEY).fullmatch(generated_key[:-1]) is None
+    assert build_key_pattern(stricter_custom_minimum, LENGTH_OF_EMBROUTER_GENERATED_KEY).fullmatch(generated_key)
+    assert build_key_pattern(stricter_custom_minimum, LENGTH_OF_EMBROUTER_GENERATED_KEY).fullmatch(generated_key[:-1]) is None
 
 
 def test_json_walk_fails_closed_past_the_depth_cap() -> None:

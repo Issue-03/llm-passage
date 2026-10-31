@@ -1,5 +1,5 @@
 """
-RAG Ingest API for LiteLLM.
+RAG Ingest API for EmbRouter.
 
 Provides an all-in-one API for document ingestion:
 Upload -> (OCR) -> Chunk -> Embed -> Vector Store
@@ -19,27 +19,27 @@ from typing import TYPE_CHECKING, Any, Final
 
 import httpx
 
-import litellm
-from litellm._internal_context import is_internal_call
-from litellm.cost_calculator import vector_store_search_cost
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.rag.ingestion.base_ingestion import BaseRAGIngestion
-from litellm.rag.ingestion.bedrock_ingestion import BedrockRAGIngestion
-from litellm.rag.ingestion.gemini_ingestion import GeminiRAGIngestion
-from litellm.rag.ingestion.openai_ingestion import OpenAIRAGIngestion
-from litellm.rag.ingestion.s3_vectors_ingestion import S3VectorsRAGIngestion
-from litellm.rag.ingestion.vertex_ai_ingestion import VertexAIRAGIngestion
-from litellm.rag.rag_query import RAGQuery
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.rag import (
+import embrouter
+from embrouter._internal_context import is_internal_call
+from embrouter.cost_calculator import vector_store_search_cost
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.rag.ingestion.base_ingestion import BaseRAGIngestion
+from embrouter.rag.ingestion.bedrock_ingestion import BedrockRAGIngestion
+from embrouter.rag.ingestion.gemini_ingestion import GeminiRAGIngestion
+from embrouter.rag.ingestion.openai_ingestion import OpenAIRAGIngestion
+from embrouter.rag.ingestion.s3_vectors_ingestion import S3VectorsRAGIngestion
+from embrouter.rag.ingestion.vertex_ai_ingestion import VertexAIRAGIngestion
+from embrouter.rag.rag_query import RAGQuery
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.rag import (
     RAGIngestOptions,
     RAGIngestResponse,
 )
-from litellm.types.utils import ModelResponse
-from litellm.utils import client
+from embrouter.types.utils import ModelResponse
+from embrouter.utils import client
 
 if TYPE_CHECKING:
-    from litellm import Router
+    from embrouter import Router
 
 
 # Registry of provider-specific ingestion classes
@@ -60,9 +60,9 @@ _FORWARDABLE_RETRIEVAL_CONFIG_KEYS: Final = frozenset(
         "aws_region_name",
         "vector_bucket_name",
         "embedding_model",
-        "litellm_embedding_model",
-        "litellm_embedding_config",
-        "litellm_credential_name",
+        "embrouter_embedding_model",
+        "embrouter_embedding_config",
+        "embrouter_credential_name",
     }
 )
 
@@ -106,7 +106,7 @@ async def _execute_ingest_pipeline(
         file_data: Tuple of (filename, content_bytes, content_type)
         file_url: URL to fetch file from
         file_id: Existing file ID to use
-        router: Optional LiteLLM router for load balancing
+        router: Optional EmbRouter router for load balancing
 
     Returns:
         RAGIngestResponse with status and IDs
@@ -157,11 +157,11 @@ async def aingest(
 
     Example:
         ```python
-        response = await litellm.aingest(
+        response = await embrouter.aingest(
             ingest_options={
                 "vector_store": {
                     "custom_llm_provider": "openai",
-                    "litellm_credential_name": "my-openai-creds",  # optional
+                    "embrouter_credential_name": "my-openai-creds",  # optional
                 }
             },
             file_url="https://example.com/doc.pdf",
@@ -195,7 +195,7 @@ async def aingest(
 
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=ingest_options.get("vector_store", {}).get("custom_llm_provider"),
             original_exception=e,
@@ -265,7 +265,7 @@ async def _execute_query_pipeline(
         {**provider_search_params, **kwargs, **filter_search_params, **store_search_params}
     )
     with _suppressed_sub_call_billing():
-        search_response: Final = await litellm.vector_stores.asearch(
+        search_response: Final = await embrouter.vector_stores.asearch(
             vector_store_id=retrieval_config["vector_store_id"],
             query=query_text,
             max_num_results=retrieval_config.get("top_k", 10),
@@ -295,7 +295,7 @@ async def _execute_query_pipeline(
         documents: Final = RAGQuery.extract_documents_from_search(search_response)
         if documents:
             with _suppressed_sub_call_billing():
-                rerank_response = await litellm.arerank(
+                rerank_response = await embrouter.arerank(
                     model=rerank["model"],
                     query=query_text,
                     documents=documents,
@@ -321,7 +321,7 @@ async def _execute_query_pipeline(
                 **kwargs,
             )
         else:
-            response = await litellm.acompletion(
+            response = await embrouter.acompletion(
                 model=model,
                 messages=modified_messages,
                 stream=stream,
@@ -343,8 +343,8 @@ async def _execute_query_pipeline(
                 if completion_response_cost is not None:
                     hidden_params["response_cost"] = completion_response_cost + sub_call_cost
     elif sub_call_cost > 0:
-        logging_obj: Final[object] = kwargs.get("litellm_logging_obj")
-        if isinstance(logging_obj, LiteLLMLoggingObj):
+        logging_obj: Final[object] = kwargs.get("embrouter_logging_obj")
+        if isinstance(logging_obj, EmbRouterLoggingObj):
             logging_obj.model_call_details["additional_response_cost"] = sub_call_cost
 
     return response
@@ -390,7 +390,7 @@ async def aquery(
 
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=model,
             custom_llm_provider=retrieval_config.get("custom_llm_provider"),
             original_exception=e,
@@ -439,7 +439,7 @@ def query(
                 )
             )
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=model,
             custom_llm_provider=retrieval_config.get("custom_llm_provider"),
             original_exception=e,
@@ -470,11 +470,11 @@ def ingest(
 
     Example:
         ```python
-        response = litellm.ingest(
+        response = embrouter.ingest(
             ingest_options={
                 "vector_store": {
                     "custom_llm_provider": "openai",
-                    "litellm_credential_name": "my-openai-creds",  # optional
+                    "embrouter_credential_name": "my-openai-creds",  # optional
                 }
             },
             file_data=("doc.txt", b"Hello world", "text/plain"),
@@ -515,7 +515,7 @@ def ingest(
                 )
             )
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=ingest_options.get("vector_store", {}).get("custom_llm_provider"),
             original_exception=e,

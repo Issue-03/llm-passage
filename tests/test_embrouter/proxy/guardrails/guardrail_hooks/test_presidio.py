@@ -16,16 +16,16 @@ from aiohttp.test_utils import TestServer
 import pytest
 
 
-import litellm
-from litellm.caching.caching import DualCache
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.guardrails.guardrail_hooks.presidio import (
+import embrouter
+from embrouter.caching.caching import DualCache
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.guardrails.guardrail_hooks.presidio import (
     _OPTIONAL_PresidioPIIMasking,
 )
-from litellm.exceptions import GuardrailRaisedException
-from litellm.types.guardrails import LitellmParams, PiiAction, PiiEntityType
-from litellm.types.utils import Choices, Delta, Message, ModelResponse, StreamingChoices
-from litellm.exceptions import BlockedPiiEntityError
+from embrouter.exceptions import GuardrailRaisedException
+from embrouter.types.guardrails import EmbrouterParams, PiiAction, PiiEntityType
+from embrouter.types.utils import Choices, Delta, Message, ModelResponse, StreamingChoices
+from embrouter.exceptions import BlockedPiiEntityError
 
 
 def _make_mock_session_iterator(json_response, status=200, content_type="application/json", text_response=""):
@@ -824,29 +824,29 @@ async def test_presidio_filter_scope_initializer(monkeypatch):
             self.event_hook = event_hook
             created.append(self)
 
-        def update_in_memory_litellm_params(self, litellm_params):
+        def update_in_memory_embrouter_params(self, embrouter_params):
             pass
 
     class DummyManager:
         def __init__(self):
             self.added = []
 
-        def add_litellm_callback(self, cb):
+        def add_embrouter_callback(self, cb):
             self.added.append(cb)
 
     mgr = DummyManager()
-    monkeypatch.setattr(litellm, "logging_callback_manager", mgr, raising=False)
-    import litellm.proxy.guardrails.guardrail_hooks.presidio as presidio_mod
-    import litellm.proxy.guardrails.guardrail_initializers as gi
+    monkeypatch.setattr(embrouter, "logging_callback_manager", mgr, raising=False)
+    import embrouter.proxy.guardrails.guardrail_hooks.presidio as presidio_mod
+    import embrouter.proxy.guardrails.guardrail_initializers as gi
 
     monkeypatch.setattr(presidio_mod, "_OPTIONAL_PresidioPIIMasking", DummyGuardrail, raising=False)
     monkeypatch.setattr(gi, "_OPTIONAL_PresidioPIIMasking", DummyGuardrail, raising=False)
 
     # input-only
     created.clear()
-    from litellm.proxy.guardrails.guardrail_initializers import initialize_presidio
+    from embrouter.proxy.guardrails.guardrail_initializers import initialize_presidio
 
-    params_input = LitellmParams(guardrail="presidio", mode="pre_call", presidio_filter_scope="input")
+    params_input = EmbrouterParams(guardrail="presidio", mode="pre_call", presidio_filter_scope="input")
     guardrail_dict = {"guardrail_name": "g1"}
     callbacks = initialize_presidio(params_input, guardrail_dict)
     assert callbacks == (created[0],)
@@ -854,7 +854,7 @@ async def test_presidio_filter_scope_initializer(monkeypatch):
 
     # output-only
     created.clear()
-    params_output = LitellmParams(guardrail="presidio", mode="pre_call", presidio_filter_scope="output")
+    params_output = EmbrouterParams(guardrail="presidio", mode="pre_call", presidio_filter_scope="output")
     callbacks = initialize_presidio(params_output, guardrail_dict)
     assert len(created) == 1
     assert callbacks == (created[0],)
@@ -862,7 +862,7 @@ async def test_presidio_filter_scope_initializer(monkeypatch):
 
     # both -> expect two callbacks (input + output), both returned, input first
     created.clear()
-    params_both = LitellmParams(guardrail="presidio", mode="pre_call", presidio_filter_scope="both")
+    params_both = EmbrouterParams(guardrail="presidio", mode="pre_call", presidio_filter_scope="both")
     callbacks = initialize_presidio(params_both, guardrail_dict)
     assert len(created) == 2
     assert callbacks == tuple(created)
@@ -871,7 +871,7 @@ async def test_presidio_filter_scope_initializer(monkeypatch):
 
     # both + output_parse_pii -> three callbacks, all returned, input first
     created.clear()
-    params_all = LitellmParams(
+    params_all = EmbrouterParams(
         guardrail="presidio", mode="pre_call", presidio_filter_scope="both", output_parse_pii=True
     )
     callbacks = initialize_presidio(params_all, guardrail_dict)
@@ -1374,17 +1374,17 @@ def test_blocking_respects_threshold_filter():
 
 def test_update_in_memory_applies_score_thresholds():
     """
-    update_in_memory_litellm_params should refresh score thresholds.
+    update_in_memory_embrouter_params should refresh score thresholds.
     """
     guardrail = _OPTIONAL_PresidioPIIMasking(mock_testing=True)
     assert guardrail.presidio_score_thresholds == {}
 
-    params = LitellmParams(
+    params = EmbrouterParams(
         guardrail="presidio",
         mode="pre_call",
         presidio_score_thresholds={PiiEntityType.CREDIT_CARD: 0.85},
     )
-    guardrail.update_in_memory_litellm_params(params)
+    guardrail.update_in_memory_embrouter_params(params)
 
     assert guardrail.presidio_score_thresholds == {PiiEntityType.CREDIT_CARD: 0.85}
 
@@ -1445,7 +1445,7 @@ async def test_get_session_iterator_thread_safety(presidio_guardrail):
     print("✓ Session iterator thread safety test passed")
 
 
-from litellm.types.utils import ModelResponseStream
+from embrouter.types.utils import ModelResponseStream
 
 
 @pytest.mark.asyncio
@@ -1855,7 +1855,7 @@ def test_unmask_exact_match_with_sequential_tokens():
     """
     Normal unmasking: LLM echoes numbered tokens verbatim → original PII restored.
     """
-    from litellm.proxy.guardrails.guardrail_hooks.presidio import (
+    from embrouter.proxy.guardrails.guardrail_hooks.presidio import (
         _OPTIONAL_PresidioPIIMasking,
     )
 
@@ -1872,7 +1872,7 @@ def test_unmask_multiple_same_entity_type():
     """
     Two phone numbers get distinct numbered tokens and unmask correctly.
     """
-    from litellm.proxy.guardrails.guardrail_hooks.presidio import (
+    from embrouter.proxy.guardrails.guardrail_hooks.presidio import (
         _OPTIONAL_PresidioPIIMasking,
     )
 
@@ -1890,7 +1890,7 @@ def test_unmask_graceful_degradation():
     If the LLM doesn't echo the token back, the numbered label stays
     in the output — clean and readable, not garbage hex.
     """
-    from litellm.proxy.guardrails.guardrail_hooks.presidio import (
+    from embrouter.proxy.guardrails.guardrail_hooks.presidio import (
         _OPTIONAL_PresidioPIIMasking,
     )
 
@@ -2249,7 +2249,7 @@ async def test_apply_to_output_streaming_mixed_chunks_flushes_and_warns():
 
     mock_user_api_key = UserAPIKeyAuth(api_key="test-key")
     received = []
-    with patch("litellm.proxy.guardrails.guardrail_hooks.presidio.verbose_proxy_logger") as mock_logger:
+    with patch("embrouter.proxy.guardrails.guardrail_hooks.presidio.verbose_proxy_logger") as mock_logger:
         async for chunk in guardrail.async_post_call_streaming_iterator_hook(
             user_api_key_dict=mock_user_api_key,
             response=mock_stream(),
@@ -3089,12 +3089,12 @@ async def test_output_parse_pii_streaming_responses_completed_event_unmasked(
     (a Pydantic ResponseCompletedEvent, as produced in production) must have its
     output text unmasked in-place before being forwarded to the client.
     """
-    from litellm.types.llms.openai import (
+    from embrouter.types.llms.openai import (
         ResponseCompletedEvent,
         ResponsesAPIResponse,
         ResponsesAPIStreamEvents,
     )
-    from litellm.types.responses.main import GenericResponseOutputItem, OutputText
+    from embrouter.types.responses.main import GenericResponseOutputItem, OutputText
 
     guardrail = _OPTIONAL_PresidioPIIMasking(
         mock_testing=True,
@@ -3800,7 +3800,7 @@ async def test_analyze_text_chunked_failure_stays_fail_closed():
 
 
 def test_presidio_analyze_chunk_size_default_and_validation():
-    from litellm.constants import DEFAULT_PRESIDIO_ANALYZE_CHUNK_SIZE_BYTES
+    from embrouter.constants import DEFAULT_PRESIDIO_ANALYZE_CHUNK_SIZE_BYTES
 
     guardrail = _OPTIONAL_PresidioPIIMasking(mock_testing=True)
     assert guardrail.presidio_analyze_chunk_size_bytes == DEFAULT_PRESIDIO_ANALYZE_CHUNK_SIZE_BYTES
@@ -3814,22 +3814,22 @@ def test_presidio_analyze_chunk_size_default_and_validation():
 
 def test_update_in_memory_applies_analyze_chunk_size():
     guardrail = _OPTIONAL_PresidioPIIMasking(mock_testing=True)
-    params = LitellmParams(
+    params = EmbrouterParams(
         guardrail="presidio",
         mode="pre_call",
         presidio_analyze_chunk_size_bytes=99_000,
     )
-    guardrail.update_in_memory_litellm_params(params)
+    guardrail.update_in_memory_embrouter_params(params)
     assert guardrail.presidio_analyze_chunk_size_bytes == 99_000
 
 
 def test_update_in_memory_keeps_output_masker_from_unmasking():
     masker = _OPTIONAL_PresidioPIIMasking(mock_testing=True, apply_to_output=True, output_parse_pii=False)
     unmasker = _OPTIONAL_PresidioPIIMasking(mock_testing=True, output_parse_pii=True)
-    params = LitellmParams(guardrail="presidio", mode="pre_call", output_parse_pii=True)
+    params = EmbrouterParams(guardrail="presidio", mode="pre_call", output_parse_pii=True)
 
-    masker.update_in_memory_litellm_params(params)
-    unmasker.update_in_memory_litellm_params(params)
+    masker.update_in_memory_embrouter_params(params)
+    unmasker.update_in_memory_embrouter_params(params)
 
     assert (masker.apply_to_output, masker.output_parse_pii) == (True, False)
     assert (unmasker.apply_to_output, unmasker.output_parse_pii) == (False, True)
@@ -3874,15 +3874,15 @@ def test_merge_preserves_cross_type_overlap():
 
 
 def test_update_in_memory_coerces_invalid_chunk_size():
-    from litellm.constants import DEFAULT_PRESIDIO_ANALYZE_CHUNK_SIZE_BYTES
+    from embrouter.constants import DEFAULT_PRESIDIO_ANALYZE_CHUNK_SIZE_BYTES
 
     guardrail = _OPTIONAL_PresidioPIIMasking(mock_testing=True, presidio_analyze_chunk_size_bytes=99_000)
-    params = LitellmParams(
+    params = EmbrouterParams(
         guardrail="presidio",
         mode="pre_call",
         presidio_analyze_chunk_size_bytes=-1,
     )
-    guardrail.update_in_memory_litellm_params(params)
+    guardrail.update_in_memory_embrouter_params(params)
     assert guardrail.presidio_analyze_chunk_size_bytes == DEFAULT_PRESIDIO_ANALYZE_CHUNK_SIZE_BYTES
 
 
@@ -3911,7 +3911,7 @@ async def test_tiny_chunk_size_with_multibyte_text_terminates():
 
 @pytest.mark.asyncio
 async def test_chunked_analyze_concurrency_is_bounded():
-    from litellm.constants import PRESIDIO_ANALYZE_CHUNK_CONCURRENCY
+    from embrouter.constants import PRESIDIO_ANALYZE_CHUNK_CONCURRENCY
 
     guardrail = _chunking_guardrail(chunk_size_bytes=10)
     state = {"active": 0, "peak": 0}
@@ -4053,7 +4053,7 @@ async def test_chunked_analyze_applies_score_threshold_before_merge():
 async def test_chunk_fanout_bound_is_shared_across_concurrent_calls():
     """The chunk semaphore is per event loop and instance, so several oversized
     blocks analyzed concurrently share ONE bound instead of getting 8 each."""
-    from litellm.constants import PRESIDIO_ANALYZE_CHUNK_CONCURRENCY
+    from embrouter.constants import PRESIDIO_ANALYZE_CHUNK_CONCURRENCY
 
     guardrail = _chunking_guardrail(chunk_size_bytes=10)
     state = {"active": 0, "peak": 0}
@@ -4184,11 +4184,11 @@ async def test_pii_masking_replays_a_byte_identical_prefix_across_turns(mock_use
 async def test_initialized_presidio_scans_selected_surface(surface: str, action: PiiAction, has_tokens: bool) -> None:
     from mcp.types import CallToolResult, TextContent
 
-    from litellm.proxy._experimental.mcp_server.guardrail_translation.handler import MCPGuardrailTranslationHandler
-    from litellm.proxy.guardrails.guardrail_hooks.unified_guardrail.unified_guardrail import UnifiedLLMGuardrails
-    from litellm.proxy.guardrails.guardrail_initializers import initialize_presidio
+    from embrouter.proxy._experimental.mcp_server.guardrail_translation.handler import MCPGuardrailTranslationHandler
+    from embrouter.proxy.guardrails.guardrail_hooks.unified_guardrail.unified_guardrail import UnifiedLLMGuardrails
+    from embrouter.proxy.guardrails.guardrail_initializers import initialize_presidio
 
-    params: Final = LitellmParams(
+    params: Final = EmbrouterParams(
         guardrail="presidio",
         mode="post_mcp_call" if surface == "mcp_result" else "pre_mcp_call",
         default_on=True,
@@ -4251,9 +4251,9 @@ async def test_initialized_presidio_scans_selected_surface(surface: str, action:
 @pytest.mark.asyncio
 @pytest.mark.parametrize("has_tokens", [False, True])
 async def test_restoration_never_contacts_presidio(has_tokens: bool) -> None:
-    from litellm.proxy.guardrails.guardrail_initializers import initialize_presidio
+    from embrouter.proxy.guardrails.guardrail_initializers import initialize_presidio
 
-    params: Final = LitellmParams(
+    params: Final = EmbrouterParams(
         guardrail="presidio",
         mode="pre_mcp_call",
         output_parse_pii=True,
@@ -4274,7 +4274,7 @@ async def test_restoration_never_contacts_presidio(has_tokens: bool) -> None:
 @pytest.mark.asyncio
 @pytest.mark.parametrize("event_hook", ["pre_call", ["pre_call"], ["pre_call", "post_call"]])
 async def test_standalone_restoration_preserves_post_call_selection(event_hook: str | list[str]) -> None:
-    from litellm.proxy.guardrails.guardrail_hooks.unified_guardrail.unified_guardrail import UnifiedLLMGuardrails
+    from embrouter.proxy.guardrails.guardrail_hooks.unified_guardrail.unified_guardrail import UnifiedLLMGuardrails
 
     callback: Final = _OPTIONAL_PresidioPIIMasking(
         event_hook=event_hook,

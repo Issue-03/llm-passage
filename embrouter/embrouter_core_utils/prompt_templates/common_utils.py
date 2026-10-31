@@ -13,10 +13,10 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Final, Literal, TypeVar, cast
 
-import litellm
-from litellm import verbose_logger
-from litellm.router_utils.batch_utils import InMemoryFile
-from litellm.types.llms.openai import (
+import embrouter
+from embrouter import verbose_logger
+from embrouter.router_utils.batch_utils import InMemoryFile
+from embrouter.types.llms.openai import (
     AllMessageValues,
     ChatCompletionAssistantMessage,
     ChatCompletionFileObject,
@@ -30,7 +30,7 @@ from litellm.types.llms.openai import (
     ChatCompletionToolParam,
     ChatCompletionUserMessage,
 )
-from litellm.types.utils import (
+from embrouter.types.utils import (
     Choices,
     ExtractedFileData,
     FileTypes,
@@ -40,14 +40,14 @@ from litellm.types.utils import (
 )
 
 if TYPE_CHECKING:  # newer pattern to avoid importing pydantic objects on __init__.py
-    from litellm.types.llms.anthropic import AnthropicInputSchema
+    from embrouter.types.llms.anthropic import AnthropicInputSchema
 
 DEFAULT_USER_CONTINUE_MESSAGE: Final = ChatCompletionUserMessage(content="Please continue.", role="user")
 
 DEFAULT_ASSISTANT_CONTINUE_MESSAGE: Final = ChatCompletionAssistantMessage(content="Please continue.", role="assistant")
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LoggingClass
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as LoggingClass
 
 
 def handle_any_messages_to_chat_completion_str_messages_conversion(
@@ -491,10 +491,10 @@ def get_format_from_file_id(file_id: str | None) -> str | None:
     """
     Gets format from file id
 
-    unified_file_id = litellm_proxy:{};unified_id,{}
+    unified_file_id = embrouter_proxy:{};unified_id,{}
     If not a unified file id, returns 'file' as default format
     """
-    from litellm.proxy.openai_files_endpoints.common_utils import (
+    from embrouter.proxy.openai_files_endpoints.common_utils import (
         convert_b64_uid_to_unified_uid,
     )
 
@@ -529,12 +529,12 @@ def update_messages_with_model_file_ids(
     sibling `update_responses_input_with_model_file_ids`.
 
     model_file_id_mapping: Dict[str, Dict[str, str]] = {
-        "litellm_proxy/file_id": {
+        "embrouter_proxy/file_id": {
             "model_id": "provider_file_id"
         }
     }
     """
-    from litellm.proxy.openai_files_endpoints.common_utils import (
+    from embrouter.proxy.openai_files_endpoints.common_utils import (
         _is_base64_encoded_unified_file_id,
         convert_b64_uid_to_unified_uid,
         get_original_file_id,
@@ -600,10 +600,10 @@ def update_responses_input_with_model_file_ids(
     Args:
         input: The responses API input parameter
         model_id: The model ID to use for looking up provider-specific file IDs
-        model_file_id_mapping: Dictionary mapping litellm file IDs to provider file IDs
-                               Format: {"litellm_file_id": {"model_id": "provider_file_id"}}
+        model_file_id_mapping: Dictionary mapping embrouter file IDs to provider file IDs
+                               Format: {"embrouter_file_id": {"model_id": "provider_file_id"}}
     """
-    from litellm.proxy.openai_files_endpoints.common_utils import (
+    from embrouter.proxy.openai_files_endpoints.common_utils import (
         _is_base64_encoded_unified_file_id,
         convert_b64_uid_to_unified_uid,
         get_original_file_id,
@@ -673,7 +673,7 @@ def _decode_vector_store_ids_in_tools(
     tools: list[dict[str, object]] | None,
 ) -> list[dict[str, object]] | None:
     """
-    Decodes unified (LiteLLM-managed) vector_store_ids in file_search tools to
+    Decodes unified (EmbRouter-managed) vector_store_ids in file_search tools to
     provider-native IDs.  Non-unified IDs are passed through unchanged.
 
     This runs unconditionally — no file-ID mapping is required.
@@ -681,7 +681,7 @@ def _decode_vector_store_ids_in_tools(
     if not tools or not isinstance(tools, list):
         return tools
 
-    from litellm.llms.base_llm.managed_resources.utils import (
+    from embrouter.llms.base_llm.managed_resources.utils import (
         is_base64_encoded_unified_id,
         parse_unified_id,
     )
@@ -710,7 +710,7 @@ def _decode_vector_store_ids_in_tools(
                 verbose_logger.warning(
                     "file_search tool contains unified vector_store_id '%s' that could "
                     "not be decoded to a provider resource ID — passing original ID. "
-                    "Ensure the vector store was created via LiteLLM.",
+                    "Ensure the vector store was created via EmbRouter.",
                     vs_id,
                 )
                 decoded_ids.append(vs_id)
@@ -736,8 +736,8 @@ def update_responses_tools_with_model_file_ids(
     Args:
         tools: The responses API tools parameter
         model_id: The model ID to use for looking up provider-specific file IDs
-        model_file_id_mapping: Dictionary mapping litellm file IDs to provider file IDs
-                               Format: {"litellm_file_id": {"model_id": "provider_file_id"}}
+        model_file_id_mapping: Dictionary mapping embrouter file IDs to provider file IDs
+                               Format: {"embrouter_file_id": {"model_id": "provider_file_id"}}
     """
     if not tools or not isinstance(tools, list):
         return tools
@@ -1141,7 +1141,7 @@ def sanitize_input_schema_for_anthropic(input_schema: dict) -> "AnthropicInputSc
     a schema through here so an external MCP schema cannot succeed on one route
     and 400 on the other.
     """
-    from litellm.types.llms.anthropic import AnthropicInputSchema
+    from embrouter.types.llms.anthropic import AnthropicInputSchema
 
     normalized = dict(input_schema) if input_schema else {}
     if normalized.get("type") != "object":
@@ -1297,7 +1297,7 @@ def flatten_top_level_schema_combinators(schema: Mapping[str, object]) -> Mappin
     'oneOf'/'anyOf'/'allOf'/'enum'/'const'/'not' at the top level (nested uses
     are accepted), while lenient backends such as the ChatGPT backend Codex
     talks to natively accept them, so an MCP tool declaring a top-level union
-    400s through LiteLLM. Branch properties merge without clobbering (the
+    400s through EmbRouter. Branch properties merge without clobbering (the
     top-level schema wins, then earlier branches); ``required`` becomes the
     top-level list plus the intersection of the branch lists for anyOf/oneOf
     or their union for allOf. Branches that are local ``$ref``s
@@ -1539,7 +1539,7 @@ def infer_content_type_from_url_and_content(
         >>> print(content_type)
         "image/png"
     """
-    from litellm.litellm_core_utils.token_counter import get_image_type
+    from embrouter.embrouter_core_utils.token_counter import get_image_type
 
     # If we have a valid content type that's not generic, use it
     if current_content_type and current_content_type not in [
@@ -1672,7 +1672,7 @@ def get_file_ids_from_messages(messages: list[AllMessageValues]) -> list[str]:
 
 
 def check_is_function_call(logging_obj: "LoggingClass") -> bool:
-    from litellm.litellm_core_utils.prompt_templates.common_utils import (
+    from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
         is_function_call,
     )
 
@@ -1693,18 +1693,18 @@ def with_prompt_cache_breakpoint(target: _MarkedT, marker: object) -> _MarkedT:
     return cast(_MarkedT, marked)  # cast-ok: same block shape as the input plus the marker key
 
 
-LITELLM_INTERNAL_MESSAGE_FIELDS: Final = frozenset({"thinking_blocks", "reasoning_content", "provider_specific_fields"})
+EMBROUTER_INTERNAL_MESSAGE_FIELDS: Final = frozenset({"thinking_blocks", "reasoning_content", "provider_specific_fields"})
 
 
-def strip_litellm_internal_message_fields(message: AllMessageValues) -> AllMessageValues:
-    """Drop the fields litellm attaches to assistant messages (e.g. when translating Anthropic thinking
+def strip_embrouter_internal_message_fields(message: AllMessageValues) -> AllMessageValues:
+    """Drop the fields embrouter attaches to assistant messages (e.g. when translating Anthropic thinking
     blocks) that OpenAI-compatible endpoints with strict schemas reject as extra inputs."""
-    if LITELLM_INTERNAL_MESSAGE_FIELDS.isdisjoint(message):
+    if EMBROUTER_INTERNAL_MESSAGE_FIELDS.isdisjoint(message):
         return message
     return cast(  # cast-ok: same TypedDict minus internal keys
         AllMessageValues,
         {  # mutable-ok: provider transforms mutate message dicts in place downstream
-            key: value for key, value in message.items() if key not in LITELLM_INTERNAL_MESSAGE_FIELDS
+            key: value for key, value in message.items() if key not in EMBROUTER_INTERNAL_MESSAGE_FIELDS
         },
     )
 
@@ -1715,7 +1715,7 @@ def filter_value_from_dict(dictionary: dict, key: str, depth: int = 0) -> Any:
 
     Goes through the nested dict and removes the key if it exists
     """
-    from litellm.constants import DEFAULT_MAX_RECURSE_DEPTH
+    from embrouter.constants import DEFAULT_MAX_RECURSE_DEPTH
 
     if depth > DEFAULT_MAX_RECURSE_DEPTH:
         return dictionary
@@ -1741,14 +1741,14 @@ def migrate_file_to_image_url(
     """
     Migrate file to image_url
     """
-    from litellm.types.llms.openai import (
+    from embrouter.types.llms.openai import (
         ChatCompletionImageObject,
         ChatCompletionImageUrlObject,
     )
 
     file_sub: Final = message.get("file")
     if file_sub is None:
-        raise litellm.BadRequestError(
+        raise embrouter.BadRequestError(
             message="Content block has type='file' but is missing the required 'file' field",
             model=None,
             llm_provider=None,
@@ -1940,7 +1940,7 @@ def reasoning_content_from_thinking_blocks(
     return "\n".join(text for block in thinking_blocks if (text := _readable_thinking_text(block)))
 
 
-ENCRYPTED_REASONING_SIGNATURE_PREFIX: Final = "litellm_encrypted_reasoning:"
+ENCRYPTED_REASONING_SIGNATURE_PREFIX: Final = "embrouter_encrypted_reasoning:"
 
 
 def encrypted_reasoning_signature(encrypted_content: str) -> str:
@@ -2575,7 +2575,7 @@ def text_completion_prompt_to_messages(prompt: object) -> tuple[AllMessageValues
     """
     Wrap an OpenAI ``/v1/completions`` ``prompt`` into Chat Completion messages.
 
-    Mirrors what ``litellm.text_completion`` does on the real-time path: a
+    Mirrors what ``embrouter.text_completion`` does on the real-time path: a
     string becomes a single user message, and a list of strings becomes one
     user message per element. Pre-tokenized prompts (``list[int]`` /
     ``list[list[int]]``) are only meaningful for the OpenAI-family text

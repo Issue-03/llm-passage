@@ -4,7 +4,7 @@ Generic value coercion (for reading heterogeneous logging-payload dicts) and
 time conversion — pulled out of the individual modules so they live in one
 place. Deliberately free of any ``opentelemetry`` import so the OTel-free
 sources of truth (payloads, semconv, spans, config) can use it too. OTLP header
-parsing lives in :mod:`litellm.integrations.otel.plumbing.providers` instead,
+parsing lives in :mod:`embrouter.integrations.otel.plumbing.providers` instead,
 because it delegates to the OTel SDK's own W3C Baggage parser.
 """
 

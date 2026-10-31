@@ -7,15 +7,15 @@ from typing import Final
 from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from litellm.integrations.arize.arize_phoenix import (
+from embrouter.integrations.arize.arize_phoenix import (
     ArizePhoenixLogger as _V1Phoenix,
 )
-from litellm.integrations.otel.model.config import (
+from embrouter.integrations.otel.model.config import (
     ExporterOwner,
     ExporterSpec,
     OpenTelemetryV2Config,
 )
-from litellm.integrations.otel.presets.utils import ensure_mappers
+from embrouter.integrations.otel.presets.utils import ensure_mappers
 
 
 class _PhoenixSettings(BaseSettings):

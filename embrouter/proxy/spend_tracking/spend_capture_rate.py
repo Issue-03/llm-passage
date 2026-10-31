@@ -1,6 +1,6 @@
-"""Compare the spend LiteLLM captured for a provider against what that provider billed for the same UTC days.
+"""Compare the spend EmbRouter captured for a provider against what that provider billed for the same UTC days.
 
-LiteLLM's side is ``LiteLLM_DailyUserSpend``, summed over the ``custom_llm_provider`` values that land on the
+EmbRouter's side is ``EmbRouter_DailyUserSpend``, summed over the ``custom_llm_provider`` values that land on the
 provider's bill. The provider's side is its billing API, read with the customer's own billing credential
 (OpenAI: the organization costs endpoint and an admin key in ``OPENAI_ADMIN_KEY``).
 """
@@ -14,21 +14,21 @@ from typing import TYPE_CHECKING, Final, TypeAlias
 from pydantic import BaseModel, ConfigDict, TypeAdapter
 from typing_extensions import assert_never
 
-from litellm._logging import verbose_proxy_logger
-from litellm.constants import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.constants import (
     SPEND_CAPTURE_RATE_CHECK_JOB_ID,
     SPEND_CAPTURE_RATE_CHECK_LOCK_TTL_SECONDS,
     SPEND_CAPTURE_RATE_DOCS_URL,
 )
-from litellm.llms.openai.organization_costs import (
+from embrouter.llms.openai.organization_costs import (
     OPENAI_ADMIN_KEY_ENV_VAR,
     BillingHttpGet,
     OpenAICostsRequestFailed,
     fetch_openai_daily_costs,
     provider_billing_get,
 )
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.proxy.spend_capture_rate import (
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.proxy.spend_capture_rate import (
     CaptureRateDay,
     CaptureRateReport,
     SpendCaptureProvider,
@@ -36,17 +36,17 @@ from litellm.types.proxy.spend_capture_rate import (
 )
 
 if TYPE_CHECKING:
-    from litellm.caching.redis_cache import RedisCache
-    from litellm.proxy.db.db_transaction_queue.pod_lock_manager import PodLockManager
-    from litellm.proxy.utils import PrismaClient
+    from embrouter.caching.redis_cache import RedisCache
+    from embrouter.proxy.db.db_transaction_queue.pod_lock_manager import PodLockManager
+    from embrouter.proxy.utils import PrismaClient
 
-OPENAI_BILLED_LITELLM_PROVIDERS: Final = ("openai", "text-completion-openai")
+OPENAI_BILLED_EMBROUTER_PROVIDERS: Final = ("openai", "text-completion-openai")
 
 CaptureRatePublisher: TypeAlias = Callable[[SpendCaptureProvider, float | None], None]  # mutable-ok: Callable params
 
 _CAPTURED_SPEND_BY_DAY_SQL: Final = """
     SELECT date, COALESCE(SUM(spend), 0)::float AS spend
-    FROM "LiteLLM_DailyUserSpend"
+    FROM "EmbRouter_DailyUserSpend"
     WHERE date >= $1 AND date <= $2 AND custom_llm_provider = ANY($3::text[])
     GROUP BY date
 """
@@ -81,13 +81,13 @@ _CAPTURED_SPEND_ROWS: Final = TypeAdapter(tuple[_CapturedSpendRow, ...])
 async def captured_spend_by_day(
     prisma_client: "PrismaClient",
     *,
-    litellm_providers: Sequence[str],
+    embrouter_providers: Sequence[str],
     start_date: date,
     end_date: date,
 ) -> Mapping[str, float]:
-    """LiteLLM's tracked spend per UTC day (ISO date) for the given ``custom_llm_provider`` values."""
+    """EmbRouter's tracked spend per UTC day (ISO date) for the given ``custom_llm_provider`` values."""
     rows: Final = await prisma_client.db.query_raw(
-        _CAPTURED_SPEND_BY_DAY_SQL, start_date.isoformat(), end_date.isoformat(), tuple(litellm_providers)
+        _CAPTURED_SPEND_BY_DAY_SQL, start_date.isoformat(), end_date.isoformat(), tuple(embrouter_providers)
     )
     return MappingProxyType({row.date: row.spend for row in _CAPTURED_SPEND_ROWS.validate_python(rows)})
 
@@ -156,7 +156,7 @@ async def capture_rate_report(
                 return ProviderBillingRequestFailed(provider, billed.detail)
             captured: Final = await captured_spend_by_day(
                 prisma_client,
-                litellm_providers=OPENAI_BILLED_LITELLM_PROVIDERS,
+                embrouter_providers=OPENAI_BILLED_EMBROUTER_PROVIDERS,
                 start_date=start_date,
                 end_date=end_date,
             )
@@ -187,9 +187,9 @@ def alert_message(result: CheckResult) -> str | None:
                 return None
             return (
                 f"Spend capture rate for {result.provider} is {result.capture_rate:.1%}, under the "
-                f"{result.threshold:.0%} threshold: LiteLLM captured ${result.captured_spend:,.2f} of the "
+                f"{result.threshold:.0%} threshold: EmbRouter captured ${result.captured_spend:,.2f} of the "
                 f"${result.provider_spend:,.2f} {result.provider} bill for {result.start_date} to {result.end_date}. "
-                f"Requests reach {result.provider} outside LiteLLM or cost tracking is dropping spend. "
+                f"Requests reach {result.provider} outside EmbRouter or cost tracking is dropping spend. "
                 f"{SPEND_CAPTURE_RATE_DOCS_URL}"
             )
         case _:

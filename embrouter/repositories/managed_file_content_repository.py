@@ -1,13 +1,13 @@
 from typing import TYPE_CHECKING, Final
 
-from litellm.repositories.table_repositories import PrismaTableRepository
+from embrouter.repositories.table_repositories import PrismaTableRepository
 
 if TYPE_CHECKING:
     from prisma import models as prisma_models
 
 
-class ManagedFileContentRepository(PrismaTableRepository["prisma_models.LiteLLM_ManagedFileContentTable"]):
-    table_name = "litellm_managedfilecontenttable"
+class ManagedFileContentRepository(PrismaTableRepository["prisma_models.EmbRouter_ManagedFileContentTable"]):
+    table_name = "embrouter_managedfilecontenttable"
 
     async def store(self, content: bytes) -> str:
         from prisma import Base64
@@ -18,7 +18,7 @@ class ManagedFileContentRepository(PrismaTableRepository["prisma_models.LiteLLM_
         return row.id
 
     async def load(self, row_id: str) -> bytes | None:
-        row: Final[prisma_models.LiteLLM_ManagedFileContentTable | None] = await self.table.find_unique(
+        row: Final[prisma_models.EmbRouter_ManagedFileContentTable | None] = await self.table.find_unique(
             where={"id": row_id}  # mutable-ok: prisma filters are plain dicts
         )
         return None if row is None else row.content.decode()

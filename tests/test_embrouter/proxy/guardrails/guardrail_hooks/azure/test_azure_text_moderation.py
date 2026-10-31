@@ -3,12 +3,12 @@ from unittest.mock import Mock, patch
 import pytest
 from fastapi import HTTPException
 
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.guardrails.guardrail_registry import InMemoryGuardrailHandler
-from litellm.proxy.guardrails.guardrail_hooks.azure.text_moderation import (
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.guardrails.guardrail_registry import InMemoryGuardrailHandler
+from embrouter.proxy.guardrails.guardrail_hooks.azure.text_moderation import (
     AzureContentSafetyTextModerationGuardrail,
 )
-from litellm.types.utils import Choices, Message, ModelResponse
+from embrouter.types.utils import Choices, Message, ModelResponse
 
 
 @pytest.mark.asyncio
@@ -472,7 +472,7 @@ async def test_config_without_api_version_calls_documented_azure_api_version():
     registered = handler.initialize_guardrail(
         guardrail={
             "guardrail_name": "azure-text-moderation-no-api-version",
-            "litellm_params": {
+            "embrouter_params": {
                 "guardrail": "azure/text_moderations",
                 "mode": "pre_call",
                 "api_key": "azure_text_moderation_api_key",
@@ -503,7 +503,7 @@ async def test_guardrail_loaded_with_stored_api_version_calls_azure_at(stored_ap
     registered = handler.initialize_guardrail(
         guardrail={
             "guardrail_name": f"azure-text-moderation-stored-{stored_api_version}",
-            "litellm_params": {
+            "embrouter_params": {
                 "guardrail": "azure/text_moderations",
                 "mode": "pre_call",
                 "api_key": "azure_text_moderation_api_key",

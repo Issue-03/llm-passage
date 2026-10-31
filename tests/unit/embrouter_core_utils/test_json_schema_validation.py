@@ -1,7 +1,7 @@
 """
 Tests for per-request enable_json_schema_validation parameter.
 
-Ensures the per-request flag overrides the global litellm.enable_json_schema_validation,
+Ensures the per-request flag overrides the global embrouter.enable_json_schema_validation,
 making JSON schema validation thread-safe for concurrent usage.
 
 
@@ -11,9 +11,9 @@ import json
 
 import pytest
 
-import litellm
-from litellm.types.utils import ModelResponse
-from litellm.utils import Rules, post_call_processing
+import embrouter
+from embrouter.types.utils import ModelResponse
+from embrouter.utils import Rules, post_call_processing
 
 
 def _make_response(content: dict) -> ModelResponse:
@@ -53,10 +53,10 @@ VALID_CONTENT = {"title": "Inception", "rating": 9}  # Matches the schema
 @pytest.fixture(autouse=True)
 def _reset_global_flag():
     """Reset the global flag before and after each test."""
-    original = litellm.enable_json_schema_validation
-    litellm.enable_json_schema_validation = False
+    original = embrouter.enable_json_schema_validation
+    embrouter.enable_json_schema_validation = False
     yield
-    litellm.enable_json_schema_validation = original
+    embrouter.enable_json_schema_validation = original
 
 
 class TestPerRequestJsonSchemaValidation:
@@ -64,7 +64,7 @@ class TestPerRequestJsonSchemaValidation:
 
     def test_global_off_no_per_request_skips_validation(self):
         """Global OFF + no per-request flag -> no validation (default behavior)."""
-        litellm.enable_json_schema_validation = False
+        embrouter.enable_json_schema_validation = False
         # Should NOT raise even though response doesn't match schema
         post_call_processing(
             _make_response(INVALID_CONTENT),
@@ -76,8 +76,8 @@ class TestPerRequestJsonSchemaValidation:
 
     def test_per_request_on_overrides_global_off(self):
         """Global OFF + per-request ON -> validation runs and catches invalid response."""
-        litellm.enable_json_schema_validation = False
-        with pytest.raises(litellm.JSONSchemaValidationError):
+        embrouter.enable_json_schema_validation = False
+        with pytest.raises(embrouter.JSONSchemaValidationError):
             post_call_processing(
                 _make_response(INVALID_CONTENT),
                 "test-model",
@@ -91,7 +91,7 @@ class TestPerRequestJsonSchemaValidation:
 
     def test_per_request_off_overrides_global_on(self):
         """Global ON + per-request OFF -> validation skipped (per-request wins)."""
-        litellm.enable_json_schema_validation = True
+        embrouter.enable_json_schema_validation = True
         # Should NOT raise because per-request says False
         post_call_processing(
             _make_response(INVALID_CONTENT),
@@ -106,8 +106,8 @@ class TestPerRequestJsonSchemaValidation:
 
     def test_global_on_no_per_request_validates(self):
         """Global ON + no per-request flag -> validation runs (backward compatible)."""
-        litellm.enable_json_schema_validation = True
-        with pytest.raises(litellm.JSONSchemaValidationError):
+        embrouter.enable_json_schema_validation = True
+        with pytest.raises(embrouter.JSONSchemaValidationError):
             post_call_processing(
                 _make_response(INVALID_CONTENT),
                 "test-model",
@@ -129,8 +129,8 @@ class TestPerRequestJsonSchemaValidation:
             Rules(),
         )
 
-    def test_per_request_flag_is_in_all_litellm_params(self):
+    def test_per_request_flag_is_in_all_embrouter_params(self):
         """Ensure the param is registered so it doesn't leak to provider APIs."""
-        from litellm.types.utils import all_litellm_params
+        from embrouter.types.utils import all_embrouter_params
 
-        assert "enable_json_schema_validation" in all_litellm_params
+        assert "enable_json_schema_validation" in all_embrouter_params

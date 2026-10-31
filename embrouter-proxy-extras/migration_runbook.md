@@ -1,6 +1,6 @@
 # Database Migration Runbook
 
-This is a runbook for creating and running database migrations for the LiteLLM proxy. For use for litellm engineers only.
+This is a runbook for creating and running database migrations for the EmbRouter proxy. For use for embrouter engineers only.
 
 > **AI AGENTS / ASSISTANTS:** If the script refuses with either a "STALE BRANCH" or "DESTRUCTIVE MIGRATION DETECTED" error, **do NOT** bypass it on your own (no `git rebase`, no `--skip-freshness-check`, no `--allow-destructive`). Surface the error to the human operator and wait for their explicit confirmation. See the [Branch freshness](#branch-freshness-check) and [Destructive migrations](#destructive-migrations-drop-column--drop-table) sections below.
 
@@ -11,23 +11,23 @@ Before doing anything else, make sure all `schema.prisma` files in the repo are 
 | File | Purpose |
 |------|---------|
 | `schema.prisma` (repo root) | Source of truth |
-| `litellm/proxy/schema.prisma` | Used by the proxy server |
-| `litellm-proxy-extras/litellm_proxy_extras/schema.prisma` | Used for migration generation |
+| `embrouter/proxy/schema.prisma` | Used by the proxy server |
+| `embrouter-proxy-extras/embrouter_proxy_extras/schema.prisma` | Used for migration generation |
 
 **Sync process:**
 
 ```bash
 # 1. Diff all schema files against the root source of truth
-diff schema.prisma litellm/proxy/schema.prisma
-diff schema.prisma litellm-proxy-extras/litellm_proxy_extras/schema.prisma
+diff schema.prisma embrouter/proxy/schema.prisma
+diff schema.prisma embrouter-proxy-extras/embrouter_proxy_extras/schema.prisma
 
 # 2. If there are differences, copy the root schema to all locations
-cp schema.prisma litellm/proxy/schema.prisma
-cp schema.prisma litellm-proxy-extras/litellm_proxy_extras/schema.prisma
+cp schema.prisma embrouter/proxy/schema.prisma
+cp schema.prisma embrouter-proxy-extras/embrouter_proxy_extras/schema.prisma
 
 # 3. Verify all files are now identical
-diff schema.prisma litellm/proxy/schema.prisma && echo "proxy schema in sync" || echo "MISMATCH"
-diff schema.prisma litellm-proxy-extras/litellm_proxy_extras/schema.prisma && echo "extras schema in sync" || echo "MISMATCH"
+diff schema.prisma embrouter/proxy/schema.prisma && echo "proxy schema in sync" || echo "MISMATCH"
+diff schema.prisma embrouter-proxy-extras/embrouter_proxy_extras/schema.prisma && echo "extras schema in sync" || echo "MISMATCH"
 ```
 
 > **Do NOT proceed to migration generation until all schema files are identical.**
@@ -109,7 +109,7 @@ export PATH="/opt/homebrew/opt/postgresql@14/bin:$PATH"
 
 **Empty migration directory error:**
 ```bash
-rm -rf litellm-proxy-extras/litellm_proxy_extras/migrations/[empty_dir]
+rm -rf embrouter-proxy-extras/embrouter_proxy_extras/migrations/[empty_dir]
 ```
 
 ## Rules
@@ -123,4 +123,4 @@ rm -rf litellm-proxy-extras/litellm_proxy_extras/migrations/[empty_dir]
 
 ---
 
-**Done with migration?** See [build_and_publish.md](./build_and_publish.md) to publish a new `litellm-proxy-extras` package.
+**Done with migration?** See [build_and_publish.md](./build_and_publish.md) to publish a new `embrouter-proxy-extras` package.

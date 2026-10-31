@@ -17,11 +17,11 @@ from collections.abc import Mapping, Sequence
 from types import MappingProxyType
 from typing import Final
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.rust_bridge import runtime
-from litellm.rust_bridge.catalog import Route, RouteContext
-from litellm.rust_bridge.token_counter import (
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.rust_bridge import runtime
+from embrouter.rust_bridge.catalog import Route, RouteContext
+from embrouter.rust_bridge.token_counter import (
     TOKEN_COUNTER,
     RustTokenCounterFactory,
     RustTokenizer,
@@ -93,7 +93,7 @@ async def _count_group(
             python=python,
         )
     except (RuntimeError, ValueError) as error:
-        from litellm.rust_bridge.fork_guard import ForkedAfterNativeRuntimeStarted, ProcessReservedForForking
+        from embrouter.rust_bridge.fork_guard import ForkedAfterNativeRuntimeStarted, ProcessReservedForForking
 
         if isinstance(error, (ForkedAfterNativeRuntimeStarted, ProcessReservedForForking)):
             raise
@@ -129,7 +129,7 @@ def count_input_tokens_for_model(request_body: dict, model: str) -> int | None:
     try:
         if "messages" in request_body:
             try:
-                return litellm.token_counter(
+                return embrouter.token_counter(
                     model=model,
                     messages=request_body.get("messages") or (),
                     tools=request_body.get("tools"),
@@ -167,7 +167,7 @@ def _count_text_tokens(model: str, text: object) -> int:
             stack.extend(item)
             continue
         if isinstance(item, dict):
-            token_count += litellm.token_counter(model=model, text=json.dumps(item))
+            token_count += embrouter.token_counter(model=model, text=json.dumps(item))
             continue
-        token_count += litellm.token_counter(model=model, text=str(item))
+        token_count += embrouter.token_counter(model=model, text=str(item))
     return token_count

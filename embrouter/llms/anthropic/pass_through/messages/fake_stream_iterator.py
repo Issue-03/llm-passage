@@ -12,7 +12,7 @@ import json
 from collections.abc import Mapping
 from typing import Any, Final, cast
 
-from litellm.types.llms.anthropic_messages.anthropic_response import (
+from embrouter.types.llms.anthropic_messages.anthropic_response import (
     AnthropicMessagesResponse,
 )
 

@@ -7,7 +7,7 @@
 #
 #  Thank you users! We ❤️ you! - Krrish & Ishaan
 
-## LiteLLM versions of the OpenAI Exception Types
+## EmbRouter versions of the OpenAI Exception Types
 
 import enum
 from collections.abc import Sequence
@@ -16,9 +16,9 @@ from typing import Any, Final
 import httpx
 import openai
 
-import litellm
-from litellm.types.utils import LiteLLMCommonStrings
-from litellm.types.vector_stores import VectorStoreSearchFailure
+import embrouter
+from embrouter.types.utils import EmbRouterCommonStrings
+from embrouter.types.vector_stores import VectorStoreSearchFailure
 
 
 class RateLimitErrorCategory(str, enum.Enum):
@@ -31,9 +31,9 @@ class RateLimitErrorCategory(str, enum.Enum):
 
         try:
             ...
-        except litellm.RateLimitError as e:
-            if e.category == RateLimitErrorCategory.LITELLM_RATE_LIMIT:
-                ...  # litellm's own limiter (key/team/user/model RPM/TPM/budget)
+        except embrouter.RateLimitError as e:
+            if e.category == RateLimitErrorCategory.EMBROUTER_RATE_LIMIT:
+                ...  # embrouter's own limiter (key/team/user/model RPM/TPM/budget)
             elif e.category == RateLimitErrorCategory.VENDOR_RATE_LIMIT:
                 ...  # the upstream LLM provider returned 429
     """
@@ -44,11 +44,11 @@ class RateLimitErrorCategory(str, enum.Enum):
     VENDOR_BATCH_RATE_LIMIT = "vendor_batch_rate_limit"
     """The upstream LLM provider returned a rate-limit response on a batch endpoint."""
 
-    LITELLM_RATE_LIMIT = "litellm_rate_limit"
-    """LiteLLM's own rate limiter (key/team/user/model RPM/TPM, budget, parallel-requests, etc.) blocked the request."""
+    EMBROUTER_RATE_LIMIT = "embrouter_rate_limit"
+    """EmbRouter's own rate limiter (key/team/user/model RPM/TPM, budget, parallel-requests, etc.) blocked the request."""
 
-    LITELLM_BATCH_RATE_LIMIT = "litellm_batch_rate_limit"
-    """LiteLLM's own batch rate limiter (token/request budget across a batch input file) blocked the request."""
+    EMBROUTER_BATCH_RATE_LIMIT = "embrouter_batch_rate_limit"
+    """EmbRouter's own batch rate limiter (token/request budget across a batch input file) blocked the request."""
 
 
 class RateLimitType(str, enum.Enum):
@@ -57,7 +57,7 @@ class RateLimitType(str, enum.Enum):
 
     This is orthogonal to :class:`RateLimitErrorCategory` — *category* tells
     callers **who** rate-limited the request (the upstream vendor vs. one of
-    litellm's own limiters), while *type* tells them **which limit dimension**
+    embrouter's own limiters), while *type* tells them **which limit dimension**
     was exceeded (an RPM ceiling, a TPM ceiling, a max-parallel-requests
     ceiling, a budget cap, or a max-iterations cap).
 
@@ -136,15 +136,15 @@ class AuthenticationError(openai.AuthenticationError):
         llm_provider,
         model,
         response: httpx.Response | None = None,
-        litellm_debug_info: str | None = None,
+        embrouter_debug_info: str | None = None,
         max_retries: int | None = None,
         num_retries: int | None = None,
     ):
         self.status_code = 401
-        self.message = f"litellm.AuthenticationError: {message}"
+        self.message = f"embrouter.AuthenticationError: {message}"
         self.llm_provider = llm_provider
         self.model = model
-        self.litellm_debug_info = litellm_debug_info
+        self.embrouter_debug_info = embrouter_debug_info
         self.max_retries = max_retries
         self.num_retries = num_retries
         self.response = response or httpx.Response(
@@ -158,17 +158,17 @@ class AuthenticationError(openai.AuthenticationError):
     def __str__(self):
         _message = self.message
         if self.num_retries:
-            _message += f" LiteLLM Retried: {self.num_retries} times"
+            _message += f" EmbRouter Retried: {self.num_retries} times"
         if self.max_retries:
-            _message += f", LiteLLM Max Retries: {self.max_retries}"
+            _message += f", EmbRouter Max Retries: {self.max_retries}"
         return _message
 
     def __repr__(self):
         _message = self.message
         if self.num_retries:
-            _message += f" LiteLLM Retried: {self.num_retries} times"
+            _message += f" EmbRouter Retried: {self.num_retries} times"
         if self.max_retries:
-            _message += f", LiteLLM Max Retries: {self.max_retries}"
+            _message += f", EmbRouter Max Retries: {self.max_retries}"
         return _message
 
 
@@ -180,15 +180,15 @@ class NotFoundError(openai.NotFoundError):
         model,
         llm_provider,
         response: httpx.Response | None = None,
-        litellm_debug_info: str | None = None,
+        embrouter_debug_info: str | None = None,
         max_retries: int | None = None,
         num_retries: int | None = None,
     ):
         self.status_code = 404
-        self.message = f"litellm.NotFoundError: {message}"
+        self.message = f"embrouter.NotFoundError: {message}"
         self.model = model
         self.llm_provider = llm_provider
-        self.litellm_debug_info = litellm_debug_info
+        self.embrouter_debug_info = embrouter_debug_info
         self.max_retries = max_retries
         self.num_retries = num_retries
         self.response = response or httpx.Response(
@@ -202,17 +202,17 @@ class NotFoundError(openai.NotFoundError):
     def __str__(self):
         _message = self.message
         if self.num_retries:
-            _message += f" LiteLLM Retried: {self.num_retries} times"
+            _message += f" EmbRouter Retried: {self.num_retries} times"
         if self.max_retries:
-            _message += f", LiteLLM Max Retries: {self.max_retries}"
+            _message += f", EmbRouter Max Retries: {self.max_retries}"
         return _message
 
     def __repr__(self):
         _message = self.message
         if self.num_retries:
-            _message += f" LiteLLM Retried: {self.num_retries} times"
+            _message += f" EmbRouter Retried: {self.num_retries} times"
         if self.max_retries:
-            _message += f", LiteLLM Max Retries: {self.max_retries}"
+            _message += f", EmbRouter Max Retries: {self.max_retries}"
         return _message
 
 
@@ -223,16 +223,16 @@ class BadRequestError(openai.BadRequestError):
         model,
         llm_provider,
         response: httpx.Response | None = None,
-        litellm_debug_info: str | None = None,
+        embrouter_debug_info: str | None = None,
         max_retries: int | None = None,
         num_retries: int | None = None,
         body: dict | None = None,
     ):
         self.status_code = 400
-        self.message = f"litellm.BadRequestError: {message}"
+        self.message = f"embrouter.BadRequestError: {message}"
         self.model = model
         self.llm_provider = llm_provider
-        self.litellm_debug_info = litellm_debug_info
+        self.embrouter_debug_info = embrouter_debug_info
         self.max_retries = max_retries
         self.num_retries = num_retries
         # Use response if it's a valid httpx.Response with a request, otherwise use minimal error response
@@ -253,17 +253,17 @@ class BadRequestError(openai.BadRequestError):
     def __str__(self):
         _message = self.message
         if self.num_retries:
-            _message += f" LiteLLM Retried: {self.num_retries} times"
+            _message += f" EmbRouter Retried: {self.num_retries} times"
         if self.max_retries:
-            _message += f", LiteLLM Max Retries: {self.max_retries}"
+            _message += f", EmbRouter Max Retries: {self.max_retries}"
         return _message
 
     def __repr__(self):
         _message = self.message
         if self.num_retries:
-            _message += f" LiteLLM Retried: {self.num_retries} times"
+            _message += f" EmbRouter Retried: {self.num_retries} times"
         if self.max_retries:
-            _message += f", LiteLLM Max Retries: {self.max_retries}"
+            _message += f", EmbRouter Max Retries: {self.max_retries}"
         return _message
 
 
@@ -274,7 +274,7 @@ class ImageFetchError(BadRequestError):
         model=None,
         llm_provider=None,
         response: httpx.Response | None = None,
-        litellm_debug_info: str | None = None,
+        embrouter_debug_info: str | None = None,
         max_retries: int | None = None,
         num_retries: int | None = None,
         body: dict | None = None,
@@ -284,7 +284,7 @@ class ImageFetchError(BadRequestError):
             model=model,
             llm_provider=llm_provider,
             response=response,
-            litellm_debug_info=litellm_debug_info,
+            embrouter_debug_info=embrouter_debug_info,
             max_retries=max_retries,
             num_retries=num_retries,
             body=body,
@@ -321,15 +321,15 @@ class UnprocessableEntityError(openai.UnprocessableEntityError):
         model,
         llm_provider,
         response: httpx.Response,
-        litellm_debug_info: str | None = None,
+        embrouter_debug_info: str | None = None,
         max_retries: int | None = None,
         num_retries: int | None = None,
     ):
         self.status_code = 422
-        self.message = f"litellm.UnprocessableEntityError: {message}"
+        self.message = f"embrouter.UnprocessableEntityError: {message}"
         self.model = model
         self.llm_provider = llm_provider
-        self.litellm_debug_info = litellm_debug_info
+        self.embrouter_debug_info = embrouter_debug_info
         self.max_retries = max_retries
         self.num_retries = num_retries
         super().__init__(
@@ -339,17 +339,17 @@ class UnprocessableEntityError(openai.UnprocessableEntityError):
     def __str__(self):
         _message = self.message
         if self.num_retries:
-            _message += f" LiteLLM Retried: {self.num_retries} times"
+            _message += f" EmbRouter Retried: {self.num_retries} times"
         if self.max_retries:
-            _message += f", LiteLLM Max Retries: {self.max_retries}"
+            _message += f", EmbRouter Max Retries: {self.max_retries}"
         return _message
 
     def __repr__(self):
         _message = self.message
         if self.num_retries:
-            _message += f" LiteLLM Retried: {self.num_retries} times"
+            _message += f" EmbRouter Retried: {self.num_retries} times"
         if self.max_retries:
-            _message += f", LiteLLM Max Retries: {self.max_retries}"
+            _message += f", EmbRouter Max Retries: {self.max_retries}"
         return _message
 
 
@@ -359,7 +359,7 @@ class Timeout(openai.APITimeoutError):
         message,
         model,
         llm_provider,
-        litellm_debug_info: str | None = None,
+        embrouter_debug_info: str | None = None,
         max_retries: int | None = None,
         num_retries: int | None = None,
         headers: dict | None = None,
@@ -372,10 +372,10 @@ class Timeout(openai.APITimeoutError):
         )
         super().__init__(request=request)  # Call the base class constructor with the parameters it needs
         self.status_code = exception_status_code or 408
-        self.message = f"litellm.Timeout: {message}"
+        self.message = f"embrouter.Timeout: {message}"
         self.model = model
         self.llm_provider = llm_provider
-        self.litellm_debug_info = litellm_debug_info
+        self.embrouter_debug_info = embrouter_debug_info
         self.max_retries = max_retries
         self.num_retries = num_retries
         self.headers = headers
@@ -386,17 +386,17 @@ class Timeout(openai.APITimeoutError):
     def __str__(self):
         _message = self.message
         if self.num_retries:
-            _message += f" LiteLLM Retried: {self.num_retries} times"
+            _message += f" EmbRouter Retried: {self.num_retries} times"
         if self.max_retries:
-            _message += f", LiteLLM Max Retries: {self.max_retries}"
+            _message += f", EmbRouter Max Retries: {self.max_retries}"
         return _message
 
     def __repr__(self):
         _message = self.message
         if self.num_retries:
-            _message += f" LiteLLM Retried: {self.num_retries} times"
+            _message += f" EmbRouter Retried: {self.num_retries} times"
         if self.max_retries:
-            _message += f", LiteLLM Max Retries: {self.max_retries}"
+            _message += f", EmbRouter Max Retries: {self.max_retries}"
         return _message
 
 
@@ -407,15 +407,15 @@ class PermissionDeniedError(openai.PermissionDeniedError):
         llm_provider,
         model,
         response: httpx.Response,
-        litellm_debug_info: str | None = None,
+        embrouter_debug_info: str | None = None,
         max_retries: int | None = None,
         num_retries: int | None = None,
     ):
         self.status_code = 403
-        self.message = f"litellm.PermissionDeniedError: {message}"
+        self.message = f"embrouter.PermissionDeniedError: {message}"
         self.llm_provider = llm_provider
         self.model = model
-        self.litellm_debug_info = litellm_debug_info
+        self.embrouter_debug_info = embrouter_debug_info
         self.max_retries = max_retries
         self.num_retries = num_retries
         super().__init__(
@@ -425,17 +425,17 @@ class PermissionDeniedError(openai.PermissionDeniedError):
     def __str__(self):
         _message = self.message
         if self.num_retries:
-            _message += f" LiteLLM Retried: {self.num_retries} times"
+            _message += f" EmbRouter Retried: {self.num_retries} times"
         if self.max_retries:
-            _message += f", LiteLLM Max Retries: {self.max_retries}"
+            _message += f", EmbRouter Max Retries: {self.max_retries}"
         return _message
 
     def __repr__(self):
         _message = self.message
         if self.num_retries:
-            _message += f" LiteLLM Retried: {self.num_retries} times"
+            _message += f" EmbRouter Retried: {self.num_retries} times"
         if self.max_retries:
-            _message += f", LiteLLM Max Retries: {self.max_retries}"
+            _message += f", EmbRouter Max Retries: {self.max_retries}"
         return _message
 
 
@@ -443,8 +443,8 @@ class RateLimitError(openai.RateLimitError):
     """
     Unified rate-limit error.
 
-    Every rate-limit condition surfaced by litellm — whether it originated from
-    an upstream LLM provider, a vendor batch endpoint, or one of litellm's own
+    Every rate-limit condition surfaced by embrouter — whether it originated from
+    an upstream LLM provider, a vendor batch endpoint, or one of embrouter's own
     proxy-side limiters (parallel-requests, dynamic-rate, batch-rate, budget,
     max-iterations, etc.) — is raised as an instance of this class.
 
@@ -458,7 +458,7 @@ class RateLimitError(openai.RateLimitError):
         llm_provider,
         model,
         response: httpx.Response | None = None,
-        litellm_debug_info: str | None = None,
+        embrouter_debug_info: str | None = None,
         max_retries: int | None = None,
         num_retries: int | None = None,
         category: str | RateLimitErrorCategory = (RateLimitErrorCategory.VENDOR_RATE_LIMIT),
@@ -468,10 +468,10 @@ class RateLimitError(openai.RateLimitError):
         body: object | None = None,
     ):
         self.status_code = 429
-        self.message = f"litellm.RateLimitError: {message}"
+        self.message = f"embrouter.RateLimitError: {message}"
         self.llm_provider = llm_provider
         self.model = model
-        self.litellm_debug_info = litellm_debug_info
+        self.embrouter_debug_info = embrouter_debug_info
         self.max_retries = max_retries
         self.num_retries = num_retries
         self.category = category.value if isinstance(category, RateLimitErrorCategory) else category
@@ -517,17 +517,17 @@ class RateLimitError(openai.RateLimitError):
     def __str__(self):
         _message = self.message
         if self.num_retries:
-            _message += f" LiteLLM Retried: {self.num_retries} times"
+            _message += f" EmbRouter Retried: {self.num_retries} times"
         if self.max_retries:
-            _message += f", LiteLLM Max Retries: {self.max_retries}"
+            _message += f", EmbRouter Max Retries: {self.max_retries}"
         return _message
 
     def __repr__(self):
         _message = self.message
         if self.num_retries:
-            _message += f" LiteLLM Retried: {self.num_retries} times"
+            _message += f" EmbRouter Retried: {self.num_retries} times"
         if self.max_retries:
-            _message += f", LiteLLM Max Retries: {self.max_retries}"
+            _message += f", EmbRouter Max Retries: {self.max_retries}"
         return _message
 
 
@@ -539,37 +539,37 @@ class ContextWindowExceededError(BadRequestError):
         model,
         llm_provider,
         response: httpx.Response | None = None,
-        litellm_debug_info: str | None = None,
+        embrouter_debug_info: str | None = None,
     ):
         self.status_code = 400
         self.model = model
         self.llm_provider = llm_provider
-        self.litellm_debug_info = litellm_debug_info
+        self.embrouter_debug_info = embrouter_debug_info
         super().__init__(
             message=message,
             model=self.model,
             llm_provider=self.llm_provider,
             response=response,
-            litellm_debug_info=self.litellm_debug_info,
+            embrouter_debug_info=self.embrouter_debug_info,
         )  # Call the base class constructor with the parameters it needs
 
         # set after, to make it clear the raised error is a context window exceeded error
-        self.message = f"litellm.ContextWindowExceededError: {self.message}"
+        self.message = f"embrouter.ContextWindowExceededError: {self.message}"
 
     def __str__(self):
         _message = self.message
         if self.num_retries:
-            _message += f" LiteLLM Retried: {self.num_retries} times"
+            _message += f" EmbRouter Retried: {self.num_retries} times"
         if self.max_retries:
-            _message += f", LiteLLM Max Retries: {self.max_retries}"
+            _message += f", EmbRouter Max Retries: {self.max_retries}"
         return _message
 
     def __repr__(self):
         _message = self.message
         if self.num_retries:
-            _message += f" LiteLLM Retried: {self.num_retries} times"
+            _message += f" EmbRouter Retried: {self.num_retries} times"
         if self.max_retries:
-            _message += f", LiteLLM Max Retries: {self.max_retries}"
+            _message += f", EmbRouter Max Retries: {self.max_retries}"
         return _message
 
 
@@ -581,13 +581,13 @@ class RejectedRequestError(BadRequestError):
         model,
         llm_provider,
         request_data: dict,
-        litellm_debug_info: str | None = None,
+        embrouter_debug_info: str | None = None,
     ):
         self.status_code = 400
-        self.message = f"litellm.RejectedRequestError: {message}"
+        self.message = f"embrouter.RejectedRequestError: {message}"
         self.model = model
         self.llm_provider = llm_provider
-        self.litellm_debug_info = litellm_debug_info
+        self.embrouter_debug_info = embrouter_debug_info
         self.request_data = request_data
         request: Final = httpx.Request(method="POST", url="https://api.openai.com/v1")
         response: Final = httpx.Response(status_code=400, request=request)
@@ -596,23 +596,23 @@ class RejectedRequestError(BadRequestError):
             model=self.model,
             llm_provider=self.llm_provider,
             response=response,
-            litellm_debug_info=self.litellm_debug_info,
+            embrouter_debug_info=self.embrouter_debug_info,
         )  # Call the base class constructor with the parameters it needs
 
     def __str__(self):
         _message = self.message
         if self.num_retries:
-            _message += f" LiteLLM Retried: {self.num_retries} times"
+            _message += f" EmbRouter Retried: {self.num_retries} times"
         if self.max_retries:
-            _message += f", LiteLLM Max Retries: {self.max_retries}"
+            _message += f", EmbRouter Max Retries: {self.max_retries}"
         return _message
 
     def __repr__(self):
         _message = self.message
         if self.num_retries:
-            _message += f" LiteLLM Retried: {self.num_retries} times"
+            _message += f" EmbRouter Retried: {self.num_retries} times"
         if self.max_retries:
-            _message += f", LiteLLM Max Retries: {self.max_retries}"
+            _message += f", EmbRouter Max Retries: {self.max_retries}"
         return _message
 
 
@@ -624,22 +624,22 @@ class ContentPolicyViolationError(BadRequestError):
         model,
         llm_provider,
         response: httpx.Response | None = None,
-        litellm_debug_info: str | None = None,
+        embrouter_debug_info: str | None = None,
         provider_specific_fields: dict | None = None,
         body: dict | None = None,
     ):
         self.status_code = 400
-        self.message = f"litellm.ContentPolicyViolationError: {message}"
+        self.message = f"embrouter.ContentPolicyViolationError: {message}"
         self.model = model
         self.llm_provider = llm_provider
-        self.litellm_debug_info = litellm_debug_info
+        self.embrouter_debug_info = embrouter_debug_info
         self.provider_specific_fields = provider_specific_fields
         super().__init__(
             message=self.message,
             model=self.model,
             llm_provider=self.llm_provider,
             response=response,
-            litellm_debug_info=self.litellm_debug_info,
+            embrouter_debug_info=self.embrouter_debug_info,
             body=body,
         )  # Call the base class constructor with the parameters it needs
 
@@ -655,9 +655,9 @@ class ContentPolicyViolationError(BadRequestError):
         """
         _message = self.message
         if self.num_retries:
-            _message += f" LiteLLM Retried: {self.num_retries} times"
+            _message += f" EmbRouter Retried: {self.num_retries} times"
         if self.max_retries:
-            _message += f", LiteLLM Max Retries: {self.max_retries}"
+            _message += f", EmbRouter Max Retries: {self.max_retries}"
         return _message
 
 
@@ -668,15 +668,15 @@ class ServiceUnavailableError(openai.APIStatusError):
         llm_provider,
         model,
         response: httpx.Response | None = None,
-        litellm_debug_info: str | None = None,
+        embrouter_debug_info: str | None = None,
         max_retries: int | None = None,
         num_retries: int | None = None,
     ):
         self.status_code = 503
-        self.message = f"litellm.ServiceUnavailableError: {message}"
+        self.message = f"embrouter.ServiceUnavailableError: {message}"
         self.llm_provider = llm_provider
         self.model = model
-        self.litellm_debug_info = litellm_debug_info
+        self.embrouter_debug_info = embrouter_debug_info
         self.max_retries = max_retries
         self.num_retries = num_retries
         _response_headers: Final = getattr(response, "headers", None) if response is not None else None
@@ -695,17 +695,17 @@ class ServiceUnavailableError(openai.APIStatusError):
     def __str__(self):
         _message = self.message
         if self.num_retries:
-            _message += f" LiteLLM Retried: {self.num_retries} times"
+            _message += f" EmbRouter Retried: {self.num_retries} times"
         if self.max_retries:
-            _message += f", LiteLLM Max Retries: {self.max_retries}"
+            _message += f", EmbRouter Max Retries: {self.max_retries}"
         return _message
 
     def __repr__(self):
         _message = self.message
         if self.num_retries:
-            _message += f" LiteLLM Retried: {self.num_retries} times"
+            _message += f" EmbRouter Retried: {self.num_retries} times"
         if self.max_retries:
-            _message += f", LiteLLM Max Retries: {self.max_retries}"
+            _message += f", EmbRouter Max Retries: {self.max_retries}"
         return _message
 
 
@@ -716,15 +716,15 @@ class BadGatewayError(openai.APIStatusError):
         llm_provider,
         model,
         response: httpx.Response | None = None,
-        litellm_debug_info: str | None = None,
+        embrouter_debug_info: str | None = None,
         max_retries: int | None = None,
         num_retries: int | None = None,
     ):
         self.status_code = 502
-        self.message = f"litellm.BadGatewayError: {message}"
+        self.message = f"embrouter.BadGatewayError: {message}"
         self.llm_provider = llm_provider
         self.model = model
-        self.litellm_debug_info = litellm_debug_info
+        self.embrouter_debug_info = embrouter_debug_info
         self.max_retries = max_retries
         self.num_retries = num_retries
         _response_headers: Final = getattr(response, "headers", None) if response is not None else None
@@ -743,17 +743,17 @@ class BadGatewayError(openai.APIStatusError):
     def __str__(self):
         _message = self.message
         if self.num_retries:
-            _message += f" LiteLLM Retried: {self.num_retries} times"
+            _message += f" EmbRouter Retried: {self.num_retries} times"
         if self.max_retries:
-            _message += f", LiteLLM Max Retries: {self.max_retries}"
+            _message += f", EmbRouter Max Retries: {self.max_retries}"
         return _message
 
     def __repr__(self):
         _message = self.message
         if self.num_retries:
-            _message += f" LiteLLM Retried: {self.num_retries} times"
+            _message += f" EmbRouter Retried: {self.num_retries} times"
         if self.max_retries:
-            _message += f", LiteLLM Max Retries: {self.max_retries}"
+            _message += f", EmbRouter Max Retries: {self.max_retries}"
         return _message
 
 
@@ -764,16 +764,16 @@ class InternalServerError(openai.InternalServerError):
         llm_provider,
         model,
         response: httpx.Response | None = None,
-        litellm_debug_info: str | None = None,
+        embrouter_debug_info: str | None = None,
         max_retries: int | None = None,
         num_retries: int | None = None,
         body: object | None = None,
     ):
         self.status_code = 500
-        self.message = f"litellm.InternalServerError: {message}"
+        self.message = f"embrouter.InternalServerError: {message}"
         self.llm_provider = llm_provider
         self.model = model
-        self.litellm_debug_info = litellm_debug_info
+        self.embrouter_debug_info = embrouter_debug_info
         self.max_retries = max_retries
         self.num_retries = num_retries
         _response_headers: Final = getattr(response, "headers", None) if response is not None else None
@@ -793,17 +793,17 @@ class InternalServerError(openai.InternalServerError):
     def __str__(self):
         _message = self.message
         if self.num_retries:
-            _message += f" LiteLLM Retried: {self.num_retries} times"
+            _message += f" EmbRouter Retried: {self.num_retries} times"
         if self.max_retries:
-            _message += f", LiteLLM Max Retries: {self.max_retries}"
+            _message += f", EmbRouter Max Retries: {self.max_retries}"
         return _message
 
     def __repr__(self):
         _message = self.message
         if self.num_retries:
-            _message += f" LiteLLM Retried: {self.num_retries} times"
+            _message += f" EmbRouter Retried: {self.num_retries} times"
         if self.max_retries:
-            _message += f", LiteLLM Max Retries: {self.max_retries}"
+            _message += f", EmbRouter Max Retries: {self.max_retries}"
         return _message
 
 
@@ -816,16 +816,16 @@ class APIError(openai.APIError):
         llm_provider,
         model,
         request: httpx.Request | None = None,
-        litellm_debug_info: str | None = None,
+        embrouter_debug_info: str | None = None,
         max_retries: int | None = None,
         num_retries: int | None = None,
         body: object | None = None,
     ):
         self.status_code = status_code
-        self.message = f"litellm.APIError: {message}"
+        self.message = f"embrouter.APIError: {message}"
         self.llm_provider = llm_provider
         self.model = model
-        self.litellm_debug_info = litellm_debug_info
+        self.embrouter_debug_info = embrouter_debug_info
         self.max_retries = max_retries
         self.num_retries = num_retries
         if request is None:
@@ -835,17 +835,17 @@ class APIError(openai.APIError):
     def __str__(self):
         _message = self.message
         if self.num_retries:
-            _message += f" LiteLLM Retried: {self.num_retries} times"
+            _message += f" EmbRouter Retried: {self.num_retries} times"
         if self.max_retries:
-            _message += f", LiteLLM Max Retries: {self.max_retries}"
+            _message += f", EmbRouter Max Retries: {self.max_retries}"
         return _message
 
     def __repr__(self):
         _message = self.message
         if self.num_retries:
-            _message += f" LiteLLM Retried: {self.num_retries} times"
+            _message += f" EmbRouter Retried: {self.num_retries} times"
         if self.max_retries:
-            _message += f", LiteLLM Max Retries: {self.max_retries}"
+            _message += f", EmbRouter Max Retries: {self.max_retries}"
         return _message
 
 
@@ -857,15 +857,15 @@ class APIConnectionError(openai.APIConnectionError):
         llm_provider,
         model,
         request: httpx.Request | None = None,
-        litellm_debug_info: str | None = None,
+        embrouter_debug_info: str | None = None,
         max_retries: int | None = None,
         num_retries: int | None = None,
     ):
-        self.message = f"litellm.APIConnectionError: {message}"
+        self.message = f"embrouter.APIConnectionError: {message}"
         self.llm_provider = llm_provider
         self.model = model
         self.status_code = 500
-        self.litellm_debug_info = litellm_debug_info
+        self.embrouter_debug_info = embrouter_debug_info
         self.request = httpx.Request(method="POST", url="https://api.openai.com/v1")
         self.max_retries = max_retries
         self.num_retries = num_retries
@@ -874,17 +874,17 @@ class APIConnectionError(openai.APIConnectionError):
     def __str__(self):
         _message = self.message
         if self.num_retries:
-            _message += f" LiteLLM Retried: {self.num_retries} times"
+            _message += f" EmbRouter Retried: {self.num_retries} times"
         if self.max_retries:
-            _message += f", LiteLLM Max Retries: {self.max_retries}"
+            _message += f", EmbRouter Max Retries: {self.max_retries}"
         return _message
 
     def __repr__(self):
         _message = self.message
         if self.num_retries:
-            _message += f" LiteLLM Retried: {self.num_retries} times"
+            _message += f" EmbRouter Retried: {self.num_retries} times"
         if self.max_retries:
-            _message += f", LiteLLM Max Retries: {self.max_retries}"
+            _message += f", EmbRouter Max Retries: {self.max_retries}"
         return _message
 
 
@@ -895,16 +895,16 @@ class APIResponseValidationError(openai.APIResponseValidationError):
         message,
         llm_provider,
         model,
-        litellm_debug_info: str | None = None,
+        embrouter_debug_info: str | None = None,
         max_retries: int | None = None,
         num_retries: int | None = None,
     ):
-        self.message = f"litellm.APIResponseValidationError: {message}"
+        self.message = f"embrouter.APIResponseValidationError: {message}"
         self.llm_provider = llm_provider
         self.model = model
         request: Final = httpx.Request(method="POST", url="https://api.openai.com/v1")
         response: Final = httpx.Response(status_code=500, request=request)
-        self.litellm_debug_info = litellm_debug_info
+        self.embrouter_debug_info = embrouter_debug_info
         self.max_retries = max_retries
         self.num_retries = num_retries
         super().__init__(response=response, body=None, message=message)
@@ -912,17 +912,17 @@ class APIResponseValidationError(openai.APIResponseValidationError):
     def __str__(self):
         _message = self.message
         if self.num_retries:
-            _message += f" LiteLLM Retried: {self.num_retries} times"
+            _message += f" EmbRouter Retried: {self.num_retries} times"
         if self.max_retries:
-            _message += f", LiteLLM Max Retries: {self.max_retries}"
+            _message += f", EmbRouter Max Retries: {self.max_retries}"
         return _message
 
     def __repr__(self):
         _message = self.message
         if self.num_retries:
-            _message += f" LiteLLM Retried: {self.num_retries} times"
+            _message += f" EmbRouter Retried: {self.num_retries} times"
         if self.max_retries:
-            _message += f", LiteLLM Max Retries: {self.max_retries}"
+            _message += f", EmbRouter Max Retries: {self.max_retries}"
         return _message
 
 
@@ -931,7 +931,7 @@ class JSONSchemaValidationError(APIResponseValidationError):
         self.raw_response = raw_response
         self.schema = schema
         self.model = model
-        message = f"litellm.JSONSchemaValidationError: model={model}, returned an invalid response={raw_response}, for schema={schema}.\nAccess raw response with `e.raw_response`"
+        message = f"embrouter.JSONSchemaValidationError: model={model}, returned an invalid response={raw_response}, for schema={schema}.\nAccess raw response with `e.raw_response`"
         self.message = message
         super().__init__(model=model, message=message, llm_provider=llm_provider)
 
@@ -950,15 +950,15 @@ class UnsupportedParamsError(BadRequestError):
         model: str | None = None,
         status_code: int = 400,
         response: httpx.Response | None = None,
-        litellm_debug_info: str | None = None,
+        embrouter_debug_info: str | None = None,
         max_retries: int | None = None,
         num_retries: int | None = None,
     ):
         self.status_code = 400
-        self.message = f"litellm.UnsupportedParamsError: {message}"
+        self.message = f"embrouter.UnsupportedParamsError: {message}"
         self.model = model
         self.llm_provider = llm_provider
-        self.litellm_debug_info = litellm_debug_info
+        self.embrouter_debug_info = embrouter_debug_info
         response = response or httpx.Response(
             status_code=self.status_code,
             request=httpx.Request(method="GET", url="http://localhost"),  # mock request object
@@ -967,7 +967,7 @@ class UnsupportedParamsError(BadRequestError):
         self.num_retries = num_retries
 
 
-LITELLM_EXCEPTION_TYPES: Final = [
+EMBROUTER_EXCEPTION_TYPES: Final = [
     AuthenticationError,
     NotFoundError,
     BadRequestError,
@@ -1007,7 +1007,7 @@ class BudgetExceededError(Exception):
     ):
         self.current_cost = current_cost
         self.max_budget = max_budget
-        self.status_code = litellm.budget_exceeded_status_code
+        self.status_code = embrouter.budget_exceeded_status_code
         self.llm_provider = llm_provider or ""
         self.entity_type = entity_type
         self.entity_id = entity_id
@@ -1017,7 +1017,7 @@ class BudgetExceededError(Exception):
         # up via the same `category` / `rate_limit_type` attributes the rest
         # of the unified rate-limit error path uses. Stored as plain strings
         # to match the normalization RateLimitError.__init__ performs.
-        self.category: str = RateLimitErrorCategory.LITELLM_RATE_LIMIT.value
+        self.category: str = RateLimitErrorCategory.EMBROUTER_RATE_LIMIT.value
         self.rate_limit_type: str = RateLimitType.BUDGET.value
         message = message or f"Budget has been exceeded! Current cost: {current_cost}, Max budget: {max_budget}"
         self.message = message
@@ -1049,15 +1049,15 @@ class MockException(openai.APIError):
         llm_provider,
         model,
         request: httpx.Request | None = None,
-        litellm_debug_info: str | None = None,
+        embrouter_debug_info: str | None = None,
         max_retries: int | None = None,
         num_retries: int | None = None,
     ):
         self.status_code = status_code
-        self.message = f"litellm.MockException: {message}"
+        self.message = f"embrouter.MockException: {message}"
         self.llm_provider = llm_provider
         self.model = model
-        self.litellm_debug_info = litellm_debug_info
+        self.embrouter_debug_info = embrouter_debug_info
         self.max_retries = max_retries
         self.num_retries = num_retries
         if request is None:
@@ -1065,9 +1065,9 @@ class MockException(openai.APIError):
         super().__init__(self.message, request=request, body=None)
 
 
-class LiteLLMUnknownProvider(BadRequestError):
+class EmbRouterUnknownProvider(BadRequestError):
     def __init__(self, model: str, custom_llm_provider: str | None = None):
-        self.message = LiteLLMCommonStrings.llm_provider_not_provided.value.format(
+        self.message = EmbRouterCommonStrings.llm_provider_not_provided.value.format(
             model=model, custom_llm_provider=custom_llm_provider
         )
         super().__init__(self.message, model=model, llm_provider=custom_llm_provider, response=None)
@@ -1129,7 +1129,7 @@ class MidStreamFallbackError(ServiceUnavailableError):
         llm_provider: str,
         original_exception: Exception | None = None,
         response: httpx.Response | None = None,
-        litellm_debug_info: str | None = None,
+        embrouter_debug_info: str | None = None,
         max_retries: int | None = None,
         num_retries: int | None = None,
         generated_content: str = "",
@@ -1137,11 +1137,11 @@ class MidStreamFallbackError(ServiceUnavailableError):
     ):
         original_status: Final = getattr(original_exception, "status_code", None)
         self.status_code = int(original_status) if original_status is not None else 503
-        self.message = f"litellm.MidStreamFallbackError: {message}"
+        self.message = f"embrouter.MidStreamFallbackError: {message}"
         self.model = model
         self.llm_provider = llm_provider
         self.original_exception = original_exception
-        self.litellm_debug_info = litellm_debug_info
+        self.embrouter_debug_info = embrouter_debug_info
         self.max_retries = max_retries
         self.num_retries = num_retries
         self.generated_content = generated_content
@@ -1172,7 +1172,7 @@ class MidStreamFallbackError(ServiceUnavailableError):
             llm_provider=llm_provider,
             model=model,
             response=self.response,
-            litellm_debug_info=self.litellm_debug_info,
+            embrouter_debug_info=self.embrouter_debug_info,
             max_retries=self.max_retries,
             num_retries=self.num_retries,
         )
@@ -1187,9 +1187,9 @@ class MidStreamFallbackError(ServiceUnavailableError):
     def __str__(self):
         _message = self.message
         if self.num_retries:
-            _message += f" LiteLLM Retried: {self.num_retries} times"
+            _message += f" EmbRouter Retried: {self.num_retries} times"
         if self.max_retries:
-            _message += f", LiteLLM Max Retries: {self.max_retries}"
+            _message += f", EmbRouter Max Retries: {self.max_retries}"
         if self.original_exception:
             _message += f" Original exception: {type(self.original_exception).__name__}: {self.original_exception}"
         return _message

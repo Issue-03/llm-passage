@@ -11,8 +11,8 @@ import pytest
 from fastapi import HTTPException
 from prometheus_client import REGISTRY
 
-from litellm.integrations.prometheus import PrometheusLogger
-from litellm.proxy._types import ProxyErrorTypes, ProxyException, UserAPIKeyAuth
+from embrouter.integrations.prometheus import PrometheusLogger
+from embrouter.proxy._types import ProxyErrorTypes, ProxyException, UserAPIKeyAuth
 
 
 @pytest.fixture(scope="function")
@@ -86,7 +86,7 @@ class TestInvalidAPIKeyDetection:
 
     def test_auth_error_message_detection(self, prometheus_logger):
         exception = AssertionError(
-            "LiteLLM Virtual Key expected. Received=invalid-key-12345, expected to start with 'sk-'."
+            "EmbRouter Virtual Key expected. Received=invalid-key-12345, expected to start with 'sk-'."
         )
         assert (
             prometheus_logger._is_invalid_api_key_request(
@@ -137,7 +137,7 @@ class TestAsyncHooks:
         [
             HTTPException(
                 status_code=401,
-                detail="LiteLLM Virtual Key expected. Received=nota****tall, expected to start with 'sk-'.",
+                detail="EmbRouter Virtual Key expected. Received=nota****tall, expected to start with 'sk-'.",
             ),
             ProxyException(
                 message="Authentication Error, Invalid proxy server token passed.",
@@ -155,10 +155,10 @@ class TestAsyncHooks:
 
         with (
             patch.object(
-                prometheus_logger, "litellm_proxy_failed_requests_metric"
+                prometheus_logger, "embrouter_proxy_failed_requests_metric"
             ) as mock_failed,
             patch.object(
-                prometheus_logger, "litellm_proxy_total_requests_metric"
+                prometheus_logger, "embrouter_proxy_total_requests_metric"
             ) as mock_total,
         ):
             await prometheus_logger.async_post_call_failure_hook(
@@ -192,7 +192,7 @@ class TestAsyncHooks:
         )
 
         with patch.object(
-            prometheus_logger, "litellm_proxy_failed_requests_metric"
+            prometheus_logger, "embrouter_proxy_failed_requests_metric"
         ) as mock_failed:
             await prometheus_logger.async_post_call_failure_hook(
                 request_data={"model": "test-model"},
@@ -219,12 +219,12 @@ class TestAsyncHooks:
                 "model_group": "test-model",
             },
             "exception": exception,
-            "litellm_params": {},
+            "embrouter_params": {},
         }
 
         with (
             patch.object(
-                prometheus_logger, "litellm_llm_api_failed_requests_metric"
+                prometheus_logger, "embrouter_llm_api_failed_requests_metric"
             ) as mock_failed,
             patch.object(
                 prometheus_logger, "set_llm_deployment_failure_metrics"

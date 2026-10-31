@@ -47,7 +47,7 @@ describe("setup snippets", () => {
     const env = tracingEnvSnippet("http://proxy.test");
     expect(env).toContain("OTEL_EXPORTER_OTLP_ENDPOINT=http://proxy.test\n");
     expect(env).not.toContain("/v1/traces");
-    expect(env).toContain("Bearer $LITELLM_API_KEY");
+    expect(env).toContain("Bearer $EMBROUTER_API_KEY");
 
     const prompt = codingAgentPrompt("http://proxy.test", { label: "LangChain", packages: "langchain" });
     expect(prompt).toContain("base_url=http://proxy.test/v1");

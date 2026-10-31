@@ -2,7 +2,7 @@
 import pytest
 
 
-from litellm.llms.bedrock.common_utils import BedrockModelInfo
+from embrouter.llms.bedrock.common_utils import BedrockModelInfo
 
 # --------------------------------------------------------------------------- #
 # get_bedrock_response_stream_shape lazy-load tests                           #
@@ -12,7 +12,7 @@ from litellm.llms.bedrock.common_utils import BedrockModelInfo
 @pytest.fixture(autouse=True)
 def _reset_bedrock_response_stream_shape_cache():
     """Prevent lru_cache leakage between tests in this module."""
-    import litellm.llms.bedrock.common_utils as mod
+    import embrouter.llms.bedrock.common_utils as mod
 
     mod.get_bedrock_response_stream_shape.cache_clear()
     mod._get_local_model_cost_map.cache_clear()
@@ -27,7 +27,7 @@ def test_bedrock_response_stream_shape_lazy_loads_once():
     """
     from unittest.mock import MagicMock, patch
 
-    import litellm.llms.bedrock.common_utils as mod
+    import embrouter.llms.bedrock.common_utils as mod
 
     sentinel = MagicMock()
     with patch.object(
@@ -44,7 +44,7 @@ def test_bedrock_response_stream_shape_loaded_on_first_access():
     In a standard environment with botocore installed it must be non-None.
     """
     pytest.importorskip("botocore")
-    from litellm.llms.bedrock.common_utils import get_bedrock_response_stream_shape
+    from embrouter.llms.bedrock.common_utils import get_bedrock_response_stream_shape
 
     assert get_bedrock_response_stream_shape() is not None
 
@@ -57,7 +57,7 @@ def test_bedrock_response_stream_shape_load_failure_returns_none():
     """
     from unittest.mock import patch
 
-    import litellm.llms.bedrock.common_utils as mod
+    import embrouter.llms.bedrock.common_utils as mod
 
     pytest.importorskip("botocore")
     with patch(
@@ -76,7 +76,7 @@ def test_bedrock_response_stream_shape_is_structure_shape():
     pytest.importorskip("botocore")
     from botocore.model import StructureShape
 
-    from litellm.llms.bedrock.common_utils import get_bedrock_response_stream_shape
+    from embrouter.llms.bedrock.common_utils import get_bedrock_response_stream_shape
 
     loaded_shape = get_bedrock_response_stream_shape()
     assert (
@@ -91,7 +91,7 @@ def test_bedrock_response_stream_shape_same_object_across_calls():
     """
     Repeated calls must return the identical cached object.
     """
-    from litellm.llms.bedrock.common_utils import get_bedrock_response_stream_shape
+    from embrouter.llms.bedrock.common_utils import get_bedrock_response_stream_shape
 
     first = get_bedrock_response_stream_shape()
     second = get_bedrock_response_stream_shape()
@@ -104,7 +104,7 @@ def test_bedrock_event_stream_decoder_base_uses_module_shape():
     per-instance cache — _parse_message_from_event uses the module constant
     directly, so there is no instance-level _response_stream_shape_cache attr.
     """
-    from litellm.llms.bedrock.common_utils import BedrockEventStreamDecoderBase
+    from embrouter.llms.bedrock.common_utils import BedrockEventStreamDecoderBase
 
     decoder_a = BedrockEventStreamDecoderBase()
     decoder_b = BedrockEventStreamDecoderBase()
@@ -121,8 +121,8 @@ def test_bedrock_parse_message_from_event_raises_on_none_shape():
     """
     from unittest.mock import MagicMock, patch
 
-    import litellm.llms.bedrock.common_utils as mod
-    from litellm.llms.bedrock.common_utils import (
+    import embrouter.llms.bedrock.common_utils as mod
+    from embrouter.llms.bedrock.common_utils import (
         BedrockError,
         BedrockEventStreamDecoderBase,
     )
@@ -175,7 +175,7 @@ def test_explicit_invoke_prefix_wins_over_application_inference_profile_arn():
     that explicitly asks for invoke gets invoke. The auto-route only rescues the
     documented bare form.
     """
-    from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM
+    from embrouter.llms.bedrock.base_aws_llm import BaseAWSLLM
 
     model = "bedrock/invoke/arn:aws:bedrock:us-west-2:123412341234:application-inference-profile/a1b2c3"
     assert BedrockModelInfo.get_bedrock_route(model) == "invoke"
@@ -253,7 +253,7 @@ def test_context_window_suffix_stripped_for_cost_lookup():
     Models configured like `bedrock/us.anthropic.claude-opus-4-6-v1[1m]`
     should resolve to the base model name so pricing can be found.
     """
-    from litellm.llms.bedrock.common_utils import get_bedrock_base_model
+    from embrouter.llms.bedrock.common_utils import get_bedrock_base_model
 
     assert (
         get_bedrock_base_model("us.anthropic.claude-opus-4-6-v1[1m]")
@@ -282,7 +282,7 @@ def test_context_window_suffix_stripped_for_cost_lookup():
 def test_legacy_mantle_route_prefix_stripped_for_cost_lookup():
     """The mantle/ route token is a routing prefix like openai/, so a bedrock/mantle/<model>
     deployment must resolve the bare Bedrock model for cost lookup while still routing to Mantle."""
-    from litellm.llms.bedrock.common_utils import get_bedrock_base_model, strip_bedrock_routing_prefix
+    from embrouter.llms.bedrock.common_utils import get_bedrock_base_model, strip_bedrock_routing_prefix
 
     assert strip_bedrock_routing_prefix("mantle/anthropic.claude-sonnet-5") == "anthropic.claude-sonnet-5"
     assert get_bedrock_base_model("bedrock/mantle/anthropic.claude-sonnet-5") == "anthropic.claude-sonnet-5"
@@ -290,7 +290,7 @@ def test_legacy_mantle_route_prefix_stripped_for_cost_lookup():
 
 
 def test_output_config_effort_normalization_uses_model_info_ceiling(monkeypatch):
-    import litellm.llms.bedrock.common_utils as mod
+    import embrouter.llms.bedrock.common_utils as mod
 
     calls = []
 
@@ -324,7 +324,7 @@ def test_output_config_effort_normalization_uses_model_info_ceiling(monkeypatch)
 def test_bundled_bedrock_opus_model_info_declares_output_config_effort_ceiling(
     model, expected_ceiling
 ):
-    from litellm.litellm_core_utils.get_model_cost_map import GetModelCostMap
+    from embrouter.embrouter_core_utils.get_model_cost_map import GetModelCostMap
 
     model_info = GetModelCostMap.load_local_model_cost_map()[model]
 
@@ -457,17 +457,17 @@ def test_capability_lookups_fall_back_to_base_model_when_regional_entry_lacks_fi
     must not shadow a base entry that has it (`get(model) or get(base)` used to
     short-circuit on the truthy regional dict and drop the capability).
     """
-    import litellm
-    from litellm.llms.bedrock.common_utils import (
+    import embrouter
+    from embrouter.llms.bedrock.common_utils import (
         bedrock_converse_supports_parallel_tool_use_config,
         is_claude_4_5_on_bedrock,
     )
 
     base = "anthropic.claude-fallback-test"
     regional = f"eu.{base}"
-    monkeypatch.setitem(litellm.model_cost, regional, {"input_cost_per_token": 1e-06})
+    monkeypatch.setitem(embrouter.model_cost, regional, {"input_cost_per_token": 1e-06})
     monkeypatch.setitem(
-        litellm.model_cost,
+        embrouter.model_cost,
         base,
         {
             "cache_creation_input_token_cost_above_1hr": 1e-05,
@@ -480,10 +480,10 @@ def test_capability_lookups_fall_back_to_base_model_when_regional_entry_lacks_fi
 
 
 def test_merge_bedrock_aws_request_params_strips_caller_identity_when_deployment_has_static_credentials():
-    from litellm.llms.bedrock.common_utils import merge_bedrock_aws_request_params
+    from embrouter.llms.bedrock.common_utils import merge_bedrock_aws_request_params
 
     merged = merge_bedrock_aws_request_params(
-        litellm_params={
+        embrouter_params={
             "aws_access_key_id": "deployment-key",
             "aws_secret_access_key": "deployment-secret",
             "aws_region_name": "us-west-2",
@@ -516,10 +516,10 @@ def test_merge_bedrock_aws_request_params_strips_caller_identity_when_deployment
 
 
 def test_merge_bedrock_aws_request_params_keeps_caller_credentials_without_static_deployment_credentials():
-    from litellm.llms.bedrock.common_utils import merge_bedrock_aws_request_params
+    from embrouter.llms.bedrock.common_utils import merge_bedrock_aws_request_params
 
     merged = merge_bedrock_aws_request_params(
-        litellm_params={"aws_region_name": "us-west-2"},
+        embrouter_params={"aws_region_name": "us-west-2"},
         optional_params={
             "aws_access_key_id": "caller-key",
             "aws_secret_access_key": "caller-secret",
@@ -535,7 +535,7 @@ def test_merge_bedrock_aws_request_params_keeps_caller_credentials_without_stati
 
 def test_strip_unsupported_output_config_keeps_format_drops_effort(local_model_cost_map):
     """On a model with neither effort flag, only the ``format`` key survives."""
-    from litellm.llms.bedrock.common_utils import (
+    from embrouter.llms.bedrock.common_utils import (
         strip_unsupported_bedrock_invoke_output_config_keys,
     )
 
@@ -553,7 +553,7 @@ def test_strip_unsupported_output_config_keeps_format_drops_effort(local_model_c
 def test_apply_structured_output_prefers_legacy_output_format(local_model_cost_map):
     """The legacy ``output_format`` wins over ``output_config.format`` when a
     request carries both, matching the pre-existing precedence."""
-    from litellm.llms.bedrock.common_utils import (
+    from embrouter.llms.bedrock.common_utils import (
         apply_bedrock_invoke_structured_output,
     )
 
@@ -582,13 +582,13 @@ def test_sign_aws_request_assumes_role_with_external_id(monkeypatch):
     import boto3
     from botocore.exceptions import ClientError
 
-    from litellm.llms.bedrock.common_utils import CommonBatchFilesUtils
+    from embrouter.llms.bedrock.common_utils import CommonBatchFilesUtils
 
     monkeypatch.delenv("AWS_EXTERNAL_ID", raising=False)
 
     class FakeSTSClient:
         def get_caller_identity(self):
-            return {"Arn": "arn:aws:iam::111111111111:user/litellm-proxy-pod"}
+            return {"Arn": "arn:aws:iam::111111111111:user/embrouter-proxy-pod"}
 
         def assume_role(self, **params):
             if params.get("ExternalId") != "external-id-batch-sign":
@@ -609,22 +609,22 @@ def test_sign_aws_request_assumes_role_with_external_id(monkeypatch):
         "aws_region_name": "us-east-1",
         "aws_access_key_id": "AKIABATCHSIGNCALLER",
         "aws_secret_access_key": "pod-caller-secret",
-        "aws_role_name": "arn:aws:iam::999999999999:role/litellm-batch-sign-role",
-        "aws_session_name": "litellm-batch-sign-session",
+        "aws_role_name": "arn:aws:iam::999999999999:role/embrouter-batch-sign-role",
+        "aws_session_name": "embrouter-batch-sign-session",
         "aws_external_id": "external-id-batch-sign",
     }
 
     with patch.object(boto3, "client", return_value=FakeSTSClient()):
         signed_headers, signed_data = CommonBatchFilesUtils().sign_aws_request(
             service_name="bedrock",
-            data={"jobName": "litellm-batch-job"},
+            data={"jobName": "embrouter-batch-job"},
             endpoint_url="https://bedrock.us-east-1.amazonaws.com/model-invocation-job",
             optional_params=optional_params,
         )
 
     authorization = {key.lower(): value for key, value in signed_headers.items()}["authorization"]
     assert "ASIABATCHSIGNROLE" in authorization
-    assert signed_data == b'{"jobName": "litellm-batch-job"}'
+    assert signed_data == b'{"jobName": "embrouter-batch-job"}'
 
 
 def test_sign_aws_request_assumes_role_with_session_tags(monkeypatch):
@@ -635,7 +635,7 @@ def test_sign_aws_request_assumes_role_with_session_tags(monkeypatch):
     import boto3
     from botocore.exceptions import ClientError
 
-    from litellm.llms.bedrock.common_utils import CommonBatchFilesUtils
+    from embrouter.llms.bedrock.common_utils import CommonBatchFilesUtils
 
     monkeypatch.delenv("AWS_WEB_IDENTITY_TOKEN_FILE", raising=False)
     monkeypatch.delenv("AWS_ROLE_ARN", raising=False)
@@ -643,7 +643,7 @@ def test_sign_aws_request_assumes_role_with_session_tags(monkeypatch):
 
     class FakeSTSClient:
         def get_caller_identity(self):
-            return {"Arn": "arn:aws:iam::111111111111:user/litellm-proxy-pod"}
+            return {"Arn": "arn:aws:iam::111111111111:user/embrouter-proxy-pod"}
 
         def assume_role(self, **params):
             if list(params.get("Tags", ())) != tags:
@@ -664,15 +664,15 @@ def test_sign_aws_request_assumes_role_with_session_tags(monkeypatch):
         "aws_region_name": "us-east-1",
         "aws_access_key_id": "AKIABATCHSIGNCALLER",
         "aws_secret_access_key": "pod-caller-secret",
-        "aws_role_name": "arn:aws:iam::999999999999:role/litellm-batch-sign-role",
-        "aws_session_name": "litellm-batch-sign-session",
+        "aws_role_name": "arn:aws:iam::999999999999:role/embrouter-batch-sign-role",
+        "aws_session_name": "embrouter-batch-sign-session",
         "aws_session_tags": tags,
     }
 
     with patch.object(boto3, "client", return_value=FakeSTSClient()):
         signed_headers, _signed_data = CommonBatchFilesUtils().sign_aws_request(
             service_name="bedrock",
-            data={"jobName": "litellm-batch-job"},
+            data={"jobName": "embrouter-batch-job"},
             endpoint_url="https://bedrock.us-east-1.amazonaws.com/model-invocation-job",
             optional_params=optional_params,
         )
@@ -687,16 +687,16 @@ def test_sign_aws_request_assumes_role_with_session_tags(monkeypatch):
 
 
 def _bedrock_chat_error_configs():
-    from litellm.llms.bedrock.chat.agentcore.transformation import AmazonAgentCoreConfig
-    from litellm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
-    from litellm.llms.bedrock.chat.invoke_agent.transformation import AmazonInvokeAgentConfig
-    from litellm.llms.bedrock.chat.invoke_transformations.amazon_moonshot_transformation import (
+    from embrouter.llms.bedrock.chat.agentcore.transformation import AmazonAgentCoreConfig
+    from embrouter.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
+    from embrouter.llms.bedrock.chat.invoke_agent.transformation import AmazonInvokeAgentConfig
+    from embrouter.llms.bedrock.chat.invoke_transformations.amazon_moonshot_transformation import (
         AmazonMoonshotConfig,
     )
-    from litellm.llms.bedrock.chat.invoke_transformations.amazon_openai_transformation import (
+    from embrouter.llms.bedrock.chat.invoke_transformations.amazon_openai_transformation import (
         AmazonBedrockOpenAIConfig,
     )
-    from litellm.llms.bedrock.chat.invoke_transformations.base_invoke_transformation import (
+    from embrouter.llms.bedrock.chat.invoke_transformations.base_invoke_transformation import (
         AmazonInvokeConfig,
     )
 
@@ -728,7 +728,7 @@ def test_bedrock_chat_get_error_class_keeps_provider_headers(config):
 def test_error_response_text_reads_a_read_response():
     import httpx
 
-    from litellm.llms.bedrock.common_utils import error_response_text
+    from embrouter.llms.bedrock.common_utils import error_response_text
 
     response = httpx.Response(status_code=500, text="Amazon Bedrock is unable to process your request.")
 
@@ -740,7 +740,7 @@ def test_error_response_text_falls_back_when_a_streamed_response_was_never_read(
     throws ResponseNotRead and would lose the status and headers this fix preserves."""
     import httpx
 
-    from litellm.llms.bedrock.common_utils import error_response_text
+    from embrouter.llms.bedrock.common_utils import error_response_text
 
     request = httpx.Request(method="POST", url="https://bedrock-runtime.amazonaws.com")
     response = httpx.Response(
@@ -761,7 +761,7 @@ def test_bedrock_error_skips_header_values_httpx_cannot_carry():
     so a non-str value must not take down the whole error (LIT-5428)."""
     import httpx
 
-    from litellm.llms.bedrock.common_utils import BedrockError
+    from embrouter.llms.bedrock.common_utils import BedrockError
 
     error = BedrockError(
         status_code=500,
@@ -777,7 +777,7 @@ def test_bedrock_error_skips_header_values_httpx_cannot_carry():
 def test_bedrock_error_keeps_duplicate_httpx_header_values():
     import httpx
 
-    from litellm.llms.bedrock.common_utils import BedrockError
+    from embrouter.llms.bedrock.common_utils import BedrockError
 
     error = BedrockError(
         status_code=500,
@@ -794,7 +794,7 @@ def _bedrock_httpx_status_error_sites():
     import pathlib
 
     sites = []
-    for path in sorted(pathlib.Path("litellm/llms/bedrock").rglob("*.py")):
+    for path in sorted(pathlib.Path("embrouter/llms/bedrock").rglob("*.py")):
         tree = ast.parse(path.read_text())
         for handler in (n for n in ast.walk(tree) if isinstance(n, ast.ExceptHandler)):
             caught = ast.unparse(handler.type) if handler.type is not None else ""
@@ -828,9 +828,9 @@ async def test_bedrock_embedding_call_keeps_provider_headers(is_async):
     """The embeddings surface raises from the same shape as chat and lost the same header."""
     import httpx
 
-    from litellm.llms.bedrock.common_utils import BedrockError
-    from litellm.llms.bedrock.embed.embedding import BedrockEmbedding
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+    from embrouter.llms.bedrock.common_utils import BedrockError
+    from embrouter.llms.bedrock.embed.embedding import BedrockEmbedding
+    from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
 
     failure = httpx.Response(
         status_code=500,
@@ -866,8 +866,8 @@ async def test_bedrock_embedding_call_keeps_provider_headers(is_async):
 
 
 def _bedrock_mantle_error_configs():
-    from litellm.llms.bedrock_mantle.chat.transformation import BedrockMantleChatConfig
-    from litellm.llms.bedrock_mantle.responses.transformation import BedrockMantleResponsesAPIConfig
+    from embrouter.llms.bedrock_mantle.chat.transformation import BedrockMantleChatConfig
+    from embrouter.llms.bedrock_mantle.responses.transformation import BedrockMantleResponsesAPIConfig
 
     return [BedrockMantleChatConfig, BedrockMantleResponsesAPIConfig]
 
@@ -893,13 +893,13 @@ def _bedrock_configs_with_get_error_class():
     import inspect
     import pathlib
 
-    import litellm
+    import embrouter
 
-    llms_root = pathlib.Path(inspect.getfile(litellm)).parent / "llms"
+    llms_root = pathlib.Path(inspect.getfile(embrouter)).parent / "llms"
     configs = []
     for package in ("bedrock", "bedrock_mantle"):
         for path in sorted((llms_root / package).rglob("*.py")):
-            module_name = "litellm.llms." + ".".join(path.relative_to(llms_root).with_suffix("").parts)
+            module_name = "embrouter.llms." + ".".join(path.relative_to(llms_root).with_suffix("").parts)
             module = importlib.import_module(module_name)
             for name, obj in vars(module).items():
                 if not inspect.isclass(obj) or obj.__module__ != module_name:
@@ -939,7 +939,7 @@ def test_bedrock_get_error_class_audit_covers_every_surface():
 
 
 def test_s3_static_key_pair_returns_the_pair_when_both_keys_are_set():
-    from litellm.llms.bedrock.common_utils import s3_static_key_pair
+    from embrouter.llms.bedrock.common_utils import s3_static_key_pair
 
     assert s3_static_key_pair(
         {
@@ -961,7 +961,7 @@ def test_s3_static_key_pair_returns_the_pair_when_both_keys_are_set():
     ],
 )
 def test_s3_static_key_pair_is_none_without_a_full_pair(partial_s3_pair):
-    from litellm.llms.bedrock.common_utils import s3_static_key_pair
+    from embrouter.llms.bedrock.common_utils import s3_static_key_pair
 
     assert s3_static_key_pair({"aws_access_key_id": "bedrock-key", **partial_s3_pair}) is None
 
@@ -974,10 +974,10 @@ def test_unmapped_openai_family_model_routes_to_converse():
     """
     from typing import Final
 
-    import litellm
+    import embrouter
 
     unmapped: Final = "bedrock/global.openai.gpt-99-unmapped"
-    assert unmapped.removeprefix("bedrock/") not in litellm.bedrock_converse_models
+    assert unmapped.removeprefix("bedrock/") not in embrouter.bedrock_converse_models
     assert BedrockModelInfo.get_bedrock_route(unmapped) == "converse"
     imported: Final = "bedrock/openai/arn:aws:bedrock:us-east-1:123456789012:imported-model/abc123"
     assert BedrockModelInfo.get_bedrock_route(imported) == "openai"

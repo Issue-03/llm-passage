@@ -1,5 +1,5 @@
 """
-Handler for transforming /chat/completions api requests to litellm.responses requests
+Handler for transforming /chat/completions api requests to embrouter.responses requests
 """
 
 from collections.abc import AsyncIterable, Coroutine, Iterable
@@ -7,20 +7,20 @@ from typing import TYPE_CHECKING, Any, Final, Union
 
 from typing_extensions import TypedDict
 
-from litellm.types.llms.openai import ResponsesAPIResponse
+from embrouter.types.llms.openai import ResponsesAPIResponse
 
 if TYPE_CHECKING:
-    from litellm import CustomStreamWrapper, LiteLLMLoggingObj, ModelResponse
+    from embrouter import CustomStreamWrapper, EmbRouterLoggingObj, ModelResponse
 
 
 class ResponsesToCompletionBridgeHandlerInputKwargs(TypedDict):
     model: str
     messages: list
     optional_params: dict
-    litellm_params: dict
+    embrouter_params: dict
     headers: dict
     model_response: "ModelResponse"
-    logging_obj: "LiteLLMLoggingObj"
+    logging_obj: "EmbRouterLoggingObj"
     custom_llm_provider: str
     encoding: object
 
@@ -32,21 +32,21 @@ def _restore_routing_prefix(model: str, custom_llm_provider: str) -> str:
 
 class ResponsesToCompletionBridgeHandler:
     def __init__(self):
-        from .transformation import LiteLLMResponsesTransformationHandler
+        from .transformation import EmbRouterResponsesTransformationHandler
 
         super().__init__()
-        self.transformation_handler = LiteLLMResponsesTransformationHandler()
+        self.transformation_handler = EmbRouterResponsesTransformationHandler()
 
     @staticmethod
-    def _resolve_stream_flag(optional_params: dict, litellm_params: dict) -> bool:
+    def _resolve_stream_flag(optional_params: dict, embrouter_params: dict) -> bool:
         stream = optional_params.get("stream")
         if stream is None:
-            stream = litellm_params.get("stream", False)
+            stream = embrouter_params.get("stream", False)
         return bool(stream)
 
     @staticmethod
     def _is_preformatted_cached_chat_stream(result: object) -> bool:
-        from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
+        from embrouter.embrouter_core_utils.streaming_handler import CustomStreamWrapper
 
         return isinstance(result, CustomStreamWrapper) and result.custom_llm_provider == "cached_response"
 
@@ -105,8 +105,8 @@ class ResponsesToCompletionBridgeHandler:
         return response
 
     def validate_input_kwargs(self, kwargs: dict) -> ResponsesToCompletionBridgeHandlerInputKwargs:
-        from litellm import LiteLLMLoggingObj
-        from litellm.types.utils import ModelResponse
+        from embrouter import EmbRouterLoggingObj
+        from embrouter.types.utils import ModelResponse
 
         typed_kwargs: Final[dict[str, object]] = kwargs
 
@@ -126,9 +126,9 @@ class ResponsesToCompletionBridgeHandler:
         if optional_params is None or not isinstance(optional_params, dict):
             raise ValueError("optional_params is required")
 
-        litellm_params: Final = typed_kwargs.get("litellm_params")
-        if litellm_params is None or not isinstance(litellm_params, dict):
-            raise ValueError("litellm_params is required")
+        embrouter_params: Final = typed_kwargs.get("embrouter_params")
+        if embrouter_params is None or not isinstance(embrouter_params, dict):
+            raise ValueError("embrouter_params is required")
 
         headers: Final = typed_kwargs.get("headers")
         if headers is None or not isinstance(headers, dict):
@@ -139,14 +139,14 @@ class ResponsesToCompletionBridgeHandler:
             raise ValueError("model_response is required")
 
         logging_obj: Final = typed_kwargs.get("logging_obj")
-        if logging_obj is None or not isinstance(logging_obj, LiteLLMLoggingObj):
+        if logging_obj is None or not isinstance(logging_obj, EmbRouterLoggingObj):
             raise ValueError("logging_obj is required")
 
         return ResponsesToCompletionBridgeHandlerInputKwargs(
             model=model,
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
             model_response=model_response,
             logging_obj=logging_obj,
@@ -164,14 +164,14 @@ class ResponsesToCompletionBridgeHandler:
         if kwargs.get("acompletion") is True:
             return self.acompletion(**kwargs)
 
-        from litellm import responses
-        from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
+        from embrouter import responses
+        from embrouter.embrouter_core_utils.streaming_handler import CustomStreamWrapper
 
         validated_kwargs: Final = self.validate_input_kwargs(kwargs)
         model: Final = validated_kwargs["model"]
         messages: Final = validated_kwargs["messages"]
         optional_params = validated_kwargs["optional_params"]
-        litellm_params: Final = validated_kwargs["litellm_params"]
+        embrouter_params: Final = validated_kwargs["embrouter_params"]
         headers: Final = validated_kwargs["headers"]
         model_response: Final = validated_kwargs["model_response"]
         logging_obj: Final = validated_kwargs["logging_obj"]
@@ -183,14 +183,14 @@ class ResponsesToCompletionBridgeHandler:
             model=model,
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
-            litellm_logging_obj=logging_obj,
+            embrouter_logging_obj=logging_obj,
             client=kwargs.get("client"),
         )
 
         # Set on request_data rather than passed as explicit kwargs: the spread of
-        # `sanitized_litellm_params` already carries both, so passing them again
+        # `sanitized_embrouter_params` already carries both, so passing them again
         # would raise a duplicate-keyword TypeError.
         request_data["custom_llm_provider"] = custom_llm_provider
         request_data["model"] = _restore_routing_prefix(model, custom_llm_provider)
@@ -198,9 +198,9 @@ class ResponsesToCompletionBridgeHandler:
             **request_data,
         )
 
-        from litellm.types.utils import ModelResponse
+        from embrouter.types.utils import ModelResponse
 
-        stream: Final = self._resolve_stream_flag(optional_params, litellm_params)
+        stream: Final = self._resolve_stream_flag(optional_params, embrouter_params)
         if isinstance(result, ResponsesAPIResponse):
             return self.transformation_handler.transform_response(
                 model=model,
@@ -210,7 +210,7 @@ class ResponsesToCompletionBridgeHandler:
                 request_data=request_data,
                 messages=messages,
                 optional_params=optional_params,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 encoding=validated_kwargs["encoding"],
                 api_key=kwargs.get("api_key"),
                 json_mode=kwargs.get("json_mode"),
@@ -235,7 +235,7 @@ class ResponsesToCompletionBridgeHandler:
                 request_data=request_data,
                 messages=messages,
                 optional_params=optional_params,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 encoding=validated_kwargs["encoding"],
                 api_key=kwargs.get("api_key"),
                 json_mode=kwargs.get("json_mode"),
@@ -257,14 +257,14 @@ class ResponsesToCompletionBridgeHandler:
             return self._apply_post_stream_processing(streamwrapper, model, custom_llm_provider)
 
     async def acompletion(self, *args, **kwargs) -> Union["ModelResponse", "CustomStreamWrapper"]:
-        from litellm import aresponses
-        from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
+        from embrouter import aresponses
+        from embrouter.embrouter_core_utils.streaming_handler import CustomStreamWrapper
 
         validated_kwargs: Final = self.validate_input_kwargs(kwargs)
         model: Final = validated_kwargs["model"]
         messages: Final = validated_kwargs["messages"]
         optional_params = validated_kwargs["optional_params"]
-        litellm_params: Final = validated_kwargs["litellm_params"]
+        embrouter_params: Final = validated_kwargs["embrouter_params"]
         headers: Final = validated_kwargs["headers"]
         model_response: Final = validated_kwargs["model_response"]
         logging_obj: Final = validated_kwargs["logging_obj"]
@@ -277,15 +277,15 @@ class ResponsesToCompletionBridgeHandler:
                 model=model,
                 messages=messages,
                 optional_params=optional_params,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 headers=headers,
-                litellm_logging_obj=logging_obj,
+                embrouter_logging_obj=logging_obj,
             )
         except Exception as e:
             raise e
 
         # Set on request_data rather than passed as explicit kwargs: the spread of
-        # `sanitized_litellm_params` already carries both, so passing them again
+        # `sanitized_embrouter_params` already carries both, so passing them again
         # would raise a duplicate-keyword TypeError.
         request_data["custom_llm_provider"] = custom_llm_provider
         request_data["model"] = _restore_routing_prefix(model, custom_llm_provider)
@@ -294,9 +294,9 @@ class ResponsesToCompletionBridgeHandler:
             aresponses=True,
         )
 
-        from litellm.types.utils import ModelResponse
+        from embrouter.types.utils import ModelResponse
 
-        stream: Final = self._resolve_stream_flag(optional_params, litellm_params)
+        stream: Final = self._resolve_stream_flag(optional_params, embrouter_params)
         if isinstance(result, ResponsesAPIResponse):
             return self.transformation_handler.transform_response(
                 model=model,
@@ -306,7 +306,7 @@ class ResponsesToCompletionBridgeHandler:
                 request_data=request_data,
                 messages=messages,
                 optional_params=optional_params,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 encoding=validated_kwargs["encoding"],
                 api_key=kwargs.get("api_key"),
                 json_mode=kwargs.get("json_mode"),
@@ -331,7 +331,7 @@ class ResponsesToCompletionBridgeHandler:
                 request_data=request_data,
                 messages=messages,
                 optional_params=optional_params,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 encoding=validated_kwargs["encoding"],
                 api_key=kwargs.get("api_key"),
                 json_mode=kwargs.get("json_mode"),
@@ -357,11 +357,11 @@ class ResponsesToCompletionBridgeHandler:
         response: "ModelResponse",
         model: str,
         custom_llm_provider: str,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
         json_mode: bool | None,
     ) -> "CustomStreamWrapper":
-        from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
-        from litellm.llms.base_llm.base_model_iterator import MockResponseIterator
+        from embrouter.embrouter_core_utils.streaming_handler import CustomStreamWrapper
+        from embrouter.llms.base_llm.base_model_iterator import MockResponseIterator
 
         streamwrapper: Final = CustomStreamWrapper(
             completion_stream=MockResponseIterator(model_response=response, json_mode=json_mode),
@@ -378,8 +378,8 @@ class ResponsesToCompletionBridgeHandler:
         custom_llm_provider: str,
     ) -> Any:
         """Apply provider-specific post-stream processing if available."""
-        from litellm.types.utils import LlmProviders
-        from litellm.utils import ProviderConfigManager
+        from embrouter.types.utils import LlmProviders
+        from embrouter.utils import ProviderConfigManager
 
         try:
             provider_config: Final = ProviderConfigManager.get_provider_chat_config(

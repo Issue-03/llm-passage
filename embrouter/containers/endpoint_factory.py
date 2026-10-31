@@ -13,19 +13,19 @@ from functools import partial
 from pathlib import Path
 from typing import Final, Literal
 
-import litellm
-from litellm.constants import request_timeout as DEFAULT_REQUEST_TIMEOUT
-from litellm.containers.utils import decode_managed_container_id_for_request
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.base_llm.containers.transformation import BaseContainerConfig
-from litellm.llms.custom_httpx.container_handler import generic_container_handler
-from litellm.types.containers.main import (
+import embrouter
+from embrouter.constants import request_timeout as DEFAULT_REQUEST_TIMEOUT
+from embrouter.containers.utils import decode_managed_container_id_for_request
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.base_llm.containers.transformation import BaseContainerConfig
+from embrouter.llms.custom_httpx.container_handler import generic_container_handler
+from embrouter.types.containers.main import (
     ContainerFileListResponse,
     ContainerFileObject,
     DeleteContainerFileResponse,
 )
-from litellm.types.router import GenericLiteLLMParams
-from litellm.utils import ProviderConfigManager, client
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.utils import ProviderConfigManager, client
 
 # Response type mapping
 RESPONSE_TYPES: Final[dict[str, type]] = {
@@ -64,8 +64,8 @@ def create_sync_endpoint_function(endpoint_config: dict) -> Callable:
         local_vars: Final = locals()
         try:
             resolved_custom_llm_provider: str = custom_llm_provider
-            litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.pop("litellm_logging_obj")
-            litellm_call_id: Final[str | None] = kwargs.get("litellm_call_id")
+            embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.pop("embrouter_logging_obj")
+            embrouter_call_id: Final[str | None] = kwargs.get("embrouter_call_id")
             _is_async: Final = kwargs.pop("async_call", False) is True
 
             # Check for mock response
@@ -78,21 +78,21 @@ def create_sync_endpoint_function(endpoint_config: dict) -> Callable:
                 return mock_response
 
             # Get provider config
-            litellm_params = GenericLiteLLMParams(**kwargs)
-            # Strip LiteLLM-managed container IDs before calling the provider API
+            embrouter_params = GenericEmbRouterParams(**kwargs)
+            # Strip EmbRouter-managed container IDs before calling the provider API
             # (OpenAI enforces max length 64 on container_id).
             if "container_id" in kwargs and isinstance(kwargs["container_id"], str):
                 (
                     kwargs["container_id"],
                     resolved_custom_llm_provider,
-                    litellm_params,
+                    embrouter_params,
                 ) = decode_managed_container_id_for_request(
                     container_id=kwargs["container_id"],
                     custom_llm_provider=resolved_custom_llm_provider,
-                    litellm_params=litellm_params,
+                    embrouter_params=embrouter_params,
                 )
             container_provider_config: BaseContainerConfig | None = ProviderConfigManager.get_provider_container_config(
-                provider=litellm.LlmProviders(resolved_custom_llm_provider),
+                provider=embrouter.LlmProviders(resolved_custom_llm_provider),
             )
 
             if container_provider_config is None:
@@ -102,11 +102,11 @@ def create_sync_endpoint_function(endpoint_config: dict) -> Callable:
             optional_params: Final = {k: kwargs.get(k) for k in path_params if k in kwargs}
 
             # Pre-call logging
-            litellm_logging_obj.update_from_kwargs(
+            embrouter_logging_obj.update_from_kwargs(
                 kwargs=kwargs,
                 model="",
                 optional_params=optional_params,
-                litellm_params={"litellm_call_id": litellm_call_id},
+                embrouter_params={"embrouter_call_id": embrouter_call_id},
                 custom_llm_provider=resolved_custom_llm_provider,
             )
 
@@ -114,8 +114,8 @@ def create_sync_endpoint_function(endpoint_config: dict) -> Callable:
             return generic_container_handler.handle(
                 endpoint_name=endpoint_name,
                 container_provider_config=container_provider_config,
-                litellm_params=litellm_params,
-                logging_obj=litellm_logging_obj,
+                embrouter_params=embrouter_params,
+                logging_obj=embrouter_logging_obj,
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 timeout=timeout or DEFAULT_REQUEST_TIMEOUT,
@@ -124,7 +124,7 @@ def create_sync_endpoint_function(endpoint_config: dict) -> Callable:
             )
 
         except Exception as e:
-            raise litellm.exception_type(
+            raise embrouter.exception_type(
                 model="",
                 custom_llm_provider=resolved_custom_llm_provider,
                 original_exception=e,
@@ -176,7 +176,7 @@ def create_async_endpoint_function(
 
             return response
         except Exception as e:
-            raise litellm.exception_type(
+            raise embrouter.exception_type(
                 model="",
                 custom_llm_provider=custom_llm_provider,
                 original_exception=e,

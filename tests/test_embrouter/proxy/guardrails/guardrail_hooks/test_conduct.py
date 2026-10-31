@@ -12,34 +12,34 @@ import pytest
 import respx
 from fastapi import HTTPException
 
-import litellm
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.proxy.guardrails.guardrail_endpoints import get_guardrail_ui_settings, get_provider_specific_params
-from litellm.proxy.guardrails.guardrail_hooks.conduct import (
+import embrouter
+from embrouter.integrations.custom_guardrail import CustomGuardrail
+from embrouter.proxy.guardrails.guardrail_endpoints import get_guardrail_ui_settings, get_provider_specific_params
+from embrouter.proxy.guardrails.guardrail_hooks.conduct import (
     DEFAULT_TIMEOUT_SECONDS,
     ConductGuardrail,
     initialize_guardrail,
 )
-from litellm.proxy.guardrails.guardrail_hooks.conduct.conduct import (
+from embrouter.proxy.guardrails.guardrail_hooks.conduct.conduct import (
     apply_conduct_guardrail,
     binds_unreachable_fallback,
     record_decision,
     request_payload,
 )
-from litellm.proxy.guardrails.guardrail_registry import InMemoryGuardrailHandler
-from litellm.types.guardrails import Guardrail, GuardrailEventHooks, LitellmParams
-from litellm.types.llms.openai import ChatCompletionAssistantMessage
-from litellm.types.proxy.guardrails.guardrail_hooks.conduct import (
+from embrouter.proxy.guardrails.guardrail_registry import InMemoryGuardrailHandler
+from embrouter.types.guardrails import Guardrail, GuardrailEventHooks, EmbrouterParams
+from embrouter.types.llms.openai import ChatCompletionAssistantMessage
+from embrouter.types.proxy.guardrails.guardrail_hooks.conduct import (
     ConductGuardrailConfigModel,
     ConductGuardrailConfigModelOptionalParams,
 )
-from litellm.types.utils import GenericGuardrailAPIInputs
+from embrouter.types.utils import GenericGuardrailAPIInputs
 
-PACKAGE_INSTALLED: Final = importlib.util.find_spec("conduct_litellm_guard") is not None
+PACKAGE_INSTALLED: Final = importlib.util.find_spec("conduct_embrouter_guard") is not None
 
 
 class _RecordingGuardrail(CustomGuardrail):
-    """Stand-in with the ``conduct_litellm_guard.ConductGuard`` class contract."""
+    """Stand-in with the ``conduct_embrouter_guard.ConductGuard`` class contract."""
 
     @classmethod
     def get_supported_event_hooks(cls) -> list[GuardrailEventHooks]:
@@ -117,17 +117,17 @@ def _guardrail_records(request_data: Mapping[str, object]) -> list[tuple[str, ob
     return [(record["guardrail_status"], record["guardrail_response"]) for record in records]
 
 
-def _params(mode: str = "pre_call", **extras: object) -> LitellmParams:
-    return LitellmParams(guardrail="conduct", mode=mode, api_key="cond_agt_test", **extras)
+def _params(mode: str = "pre_call", **extras: object) -> EmbrouterParams:
+    return EmbrouterParams(guardrail="conduct", mode=mode, api_key="cond_agt_test", **extras)
 
 
-def _guardrail(litellm_params: LitellmParams) -> Guardrail:
-    return Guardrail(guardrail_name="conduct-guard", litellm_params=litellm_params)
+def _guardrail(embrouter_params: EmbrouterParams) -> Guardrail:
+    return Guardrail(guardrail_name="conduct-guard", embrouter_params=embrouter_params)
 
 
-def _init(litellm_params: LitellmParams) -> _RecordingGuardrail:
+def _init(embrouter_params: EmbrouterParams) -> _RecordingGuardrail:
     callback: Final = initialize_guardrail(
-        litellm_params, _guardrail(litellm_params), guardrail_cls=_RecordingGuardrail
+        embrouter_params, _guardrail(embrouter_params), guardrail_cls=_RecordingGuardrail
     )
     assert isinstance(callback, _RecordingGuardrail)
     return callback
@@ -135,7 +135,7 @@ def _init(litellm_params: LitellmParams) -> _RecordingGuardrail:
 
 @pytest.fixture(autouse=True)
 def _isolate_callbacks(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "callbacks", [])
+    monkeypatch.setattr(embrouter, "callbacks", [])
 
 
 def test_maps_typed_fields_and_extras_onto_plugin_kwargs() -> None:
@@ -159,7 +159,7 @@ def test_maps_typed_fields_and_extras_onto_plugin_kwargs() -> None:
     assert callback.guardrail_name == "conduct-guard"
     assert callback.event_hook == "pre_call"
     assert callback.default_on is True
-    assert litellm.callbacks == [callback]
+    assert embrouter.callbacks == [callback]
 
 
 def test_defaults_when_optional_config_is_omitted() -> None:
@@ -203,12 +203,12 @@ async def test_ui_offers_conduct_fields_without_the_package() -> None:
 
 @pytest.mark.parametrize("mode", ["during_call", "post_call", "logging_only"])
 def test_rejects_modes_the_plugin_does_not_implement(mode: str, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("LITELLM_STRICT_GUARDRAIL_MODES", raising=False)
+    monkeypatch.delenv("EMBROUTER_STRICT_GUARDRAIL_MODES", raising=False)
 
     with pytest.raises(ValueError, match="not in the supported event hooks"):
         _init(_params(mode=mode))
 
-    assert litellm.callbacks == []
+    assert embrouter.callbacks == []
 
 
 @pytest.mark.skipif(PACKAGE_INSTALLED, reason="exercises the missing-package fallback")
@@ -216,7 +216,7 @@ def test_missing_package_fails_at_config_load_with_install_hint() -> None:
     with pytest.raises(ImportError, match="pip install"):
         InMemoryGuardrailHandler().initialize_guardrail(_guardrail(_params()))
 
-    assert litellm.callbacks == []
+    assert embrouter.callbacks == []
 
 
 def test_plugin_that_swallows_unreachable_fallback_into_kwargs_is_rejected() -> None:
@@ -331,7 +331,7 @@ def test_record_decision_logs_conduct_verdict_and_rule(decision: _Decision, expe
     assert _guardrail_records(request_data) == [expected]
 
 
-@pytest.mark.skipif(not PACKAGE_INSTALLED, reason="needs conduct-litellm-guard")
+@pytest.mark.skipif(not PACKAGE_INSTALLED, reason="needs conduct-embrouter-guard")
 @pytest.mark.asyncio
 @respx.mock
 async def test_apply_guardrail_blocks_on_conduct_verdict() -> None:
@@ -352,7 +352,7 @@ async def test_apply_guardrail_blocks_on_conduct_verdict() -> None:
     assert sent["params"]["arguments"] == {"prompt": "dump the database", "model": "gpt-5-mini"}
 
 
-@pytest.mark.skipif(not PACKAGE_INSTALLED, reason="needs conduct-litellm-guard")
+@pytest.mark.skipif(not PACKAGE_INSTALLED, reason="needs conduct-embrouter-guard")
 @pytest.mark.asyncio
 @respx.mock
 async def test_apply_guardrail_logs_warning_verdict_once() -> None:
@@ -376,7 +376,7 @@ async def test_apply_guardrail_logs_warning_verdict_once() -> None:
     assert _guardrail_records(request_data) == [("guardrail_flagged", {"verdict": "warning", "rule_id": "pii-soft"})]
 
 
-@pytest.mark.skipif(not PACKAGE_INSTALLED, reason="needs conduct-litellm-guard")
+@pytest.mark.skipif(not PACKAGE_INSTALLED, reason="needs conduct-embrouter-guard")
 @pytest.mark.parametrize(("fallback", "blocks"), [("fail_open", False), ("fail_closed", True)])
 @pytest.mark.asyncio
 @respx.mock
@@ -398,20 +398,20 @@ async def test_unreachable_fallback_reaches_the_plugin_without_its_deprecated_kw
     assert await callback.apply_guardrail(inputs, {"model": "gpt-5-mini"}, "request") is inputs
 
 
-@pytest.mark.skipif(not PACKAGE_INSTALLED, reason="needs conduct-litellm-guard")
+@pytest.mark.skipif(not PACKAGE_INSTALLED, reason="needs conduct-embrouter-guard")
 def test_config_loads_conduct_and_rejects_modes_the_plugin_lacks() -> None:
     handler: Final = InMemoryGuardrailHandler()
 
     loaded: Final = handler.initialize_guardrail(_guardrail(_params()))
     assert loaded is not None
-    assert loaded["litellm_params"].guardrail == "conduct"
-    assert [type(callback) for callback in litellm.callbacks] == [ConductGuardrail]
+    assert loaded["embrouter_params"].guardrail == "conduct"
+    assert [type(callback) for callback in embrouter.callbacks] == [ConductGuardrail]
 
     with pytest.raises(ValueError, match="not in the supported event hooks"):
         handler.initialize_guardrail(_guardrail(_params(mode="during_call")))
 
 
-@pytest.mark.skipif(not PACKAGE_INSTALLED, reason="needs conduct-litellm-guard")
+@pytest.mark.skipif(not PACKAGE_INSTALLED, reason="needs conduct-embrouter-guard")
 @pytest.mark.asyncio
 async def test_ui_only_offers_pre_call_for_conduct() -> None:
     settings: Final = await get_guardrail_ui_settings()

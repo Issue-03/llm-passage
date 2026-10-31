@@ -13,8 +13,8 @@ from urllib.parse import urlencode
 
 import httpx
 
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.apiserpent.search.defaults import (
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.apiserpent.search.defaults import (
     DEEP_SEARCH_PATH,
     NUM_MAX,
     NUM_MIN,
@@ -22,12 +22,12 @@ from litellm.llms.apiserpent.search.defaults import (
     QUICK_SEARCH_PATH,
     APISerpentSearchParams,
 )
-from litellm.llms.base_llm.search.transformation import (
+from embrouter.llms.base_llm.search.transformation import (
     BaseSearchConfig,
     SearchResponse,
     SearchResult,
 )
-from litellm.secret_managers.main import get_secret_str
+from embrouter.secret_managers.main import get_secret_str
 
 DEEP_SEARCH_PARAM: Final = "deep"
 APISERPENT_BASE: Final = "https://apiserpent.com"
@@ -142,7 +142,7 @@ class APISerpentSearchConfig(BaseSearchConfig):
     def transform_search_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj | None,
+        logging_obj: EmbRouterLoggingObj | None,
         **kwargs,
     ) -> SearchResponse:
         """

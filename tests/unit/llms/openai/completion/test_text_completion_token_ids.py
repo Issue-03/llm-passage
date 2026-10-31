@@ -9,8 +9,8 @@ import respx
 from httpx import Response
 
 
-import litellm
-from litellm import text_completion
+import embrouter
+from embrouter import text_completion
 
 
 @pytest.fixture(autouse=True)

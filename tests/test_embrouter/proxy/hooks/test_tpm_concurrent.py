@@ -20,29 +20,29 @@ from typing import Any, Dict
 
 import pytest
 
-from litellm.caching.caching import DualCache
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.hooks.parallel_request_limiter_v3 import (
+from embrouter.caching.caching import DualCache
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.hooks.parallel_request_limiter_v3 import (
     PROJECT_ITPM_DESCRIPTOR_KEY,
     PROJECT_OTPM_DESCRIPTOR_KEY,
     RateLimitedModel,
     _AUDIO_BYTES_PER_TOKEN,
     _PROXY_MaxParallelRequestsHandler_v3 as RateLimitHandler,
 )
-from litellm.proxy.hooks.parallel_request_limiter_v3 import (
+from embrouter.proxy.hooks.parallel_request_limiter_v3 import (
     _call_id_from_callback_kwargs,
     _request_stash,
     get_or_create_request_stash,
     get_request_stash,
 )
-from litellm.proxy.utils import InternalUsageCache, hash_token
-from litellm.types.llms.openai import (
+from embrouter.proxy.utils import InternalUsageCache, hash_token
+from embrouter.types.llms.openai import (
     InputTokensDetails,
     ResponseAPIUsage,
     ResponsesAPIResponse,
 )
-from litellm.types.rerank import RerankResponse
-from litellm.types.utils import ModelResponse, PromptTokensDetailsWrapper, Usage
+from embrouter.types.rerank import RerankResponse
+from embrouter.types.utils import ModelResponse, PromptTokensDetailsWrapper, Usage
 
 
 @pytest.fixture
@@ -292,7 +292,7 @@ async def test_token_release_on_failure(rate_limiter):
 async def test_model_scope_refund_targets_reserved_model(rate_limiter):
     """
     The pre-call reservation is charged against ``data["model"]`` but the
-    router later writes ``model_group`` into ``litellm_params.metadata``,
+    router later writes ``model_group`` into ``embrouter_params.metadata``,
     which can be ``None`` or a different value. Reconciliation MUST refund the
     same model-scoped counter that was incremented; otherwise model-level
     counters (model_per_team / model_per_key / etc.) drift up forever.
@@ -313,7 +313,7 @@ async def test_model_scope_refund_targets_reserved_model(rate_limiter):
     stash.reserved_scopes = frozenset({("model_per_team", f"{team_id}:{reserved_model}")})
 
     mock_kwargs = {
-        # NOTE: no litellm_params.metadata.model_group — get_model_group_from_litellm_kwargs
+        # NOTE: no embrouter_params.metadata.model_group — get_model_group_from_embrouter_kwargs
         # returns None on this kwargs dict.
         "standard_logging_object": {
             "metadata": {
@@ -749,7 +749,7 @@ async def test_reservation_released_on_proxy_rejection(rate_limiter):
     If the request is rejected after the pre-call reservation succeeds but
     before the LLM call (e.g. a downstream guardrail/auth hook raises),
     `async_post_call_failure_hook` must release the reservation. Otherwise
-    the tokens leak — `async_log_failure_event` is a litellm completion
+    the tokens leak — `async_log_failure_event` is a embrouter completion
     callback and never fires for proxy-side rejections.
     """
     handler, cache = rate_limiter
@@ -2215,7 +2215,7 @@ async def test_responses_api_usage_reconciles_using_input_output_tokens_fields(
 async def test_itpm_reservation_accounts_for_audio_content_not_just_text(rate_limiter):
     """
     Regression for the audio half of a Medium-severity review finding:
-    litellm.token_counter has no per-type handling for `input_audio`
+    embrouter.token_counter has no per-type handling for `input_audio`
     content blocks (unlike images, which it does count via
     use_default_image_token_count), so it silently contributes 0 tokens for
     them. Without DEFAULT_AUDIO_TOKEN_ESTIMATE, a burst of audio-heavy
@@ -2529,7 +2529,7 @@ async def test_itpm_otpm_reservation_is_kept_on_stream_disconnect(rate_limiter):
 
     increment_calls: list[dict] = []
 
-    async def mock_increment(increment_list, litellm_parent_otel_span=None):
+    async def mock_increment(increment_list, embrouter_parent_otel_span=None):
         for op in increment_list:
             increment_calls.append(
                 {"key": op["key"], "increment": op["increment_value"]}
@@ -2688,7 +2688,7 @@ async def test_responses_api_multimodal_input_counts_image_content(rate_limiter)
     """
     Regression for a Low-severity veria-ai finding: the Responses API's
     `input` is commonly a list of message/content-block dicts, but
-    litellm.token_counter's `text` argument only joins plain string entries
+    embrouter.token_counter's `text` argument only joins plain string entries
     in a list and silently drops everything else -- so an `input_image`
     block contributed ~0 tokens to the ITPM estimate instead of the real
     image token count. _estimate_precise_input_tokens now converts Responses
@@ -2900,7 +2900,7 @@ async def test_itpm_only_status_stored_when_no_prior_rate_limit_response(rate_li
     assert stash is not None
     stored = stash.rate_limit_response
     assert stored is not None, (
-        "ITPM status must be stored in litellm_proxy_rate_limit_response"
+        "ITPM status must be stored in embrouter_proxy_rate_limit_response"
     )
     assert stored.get("statuses"), "Stored response must contain statuses"
 
@@ -3141,7 +3141,7 @@ async def test_max_output_tokens_prevents_cap_injection(rate_limiter):
         "model": "mock-model",
         "input": "Summarise the document",
         "max_output_tokens": 80,
-        "litellm_call_id": "test-max-output-tokens",
+        "embrouter_call_id": "test-max-output-tokens",
         "metadata": {},
     }
 
@@ -3290,7 +3290,7 @@ async def test_rerank_query_and_documents_enforce_project_itpm(
         captured.update(kwargs)
         return 101
 
-    monkeypatch.setattr("litellm.token_counter", token_counter)
+    monkeypatch.setattr("embrouter.token_counter", token_counter)
     user_api_key_dict = UserAPIKeyAuth(
         api_key=hash_token(f"sk-{call_type}-itpm"),
         project_id=f"project-{call_type}-itpm",
@@ -3330,7 +3330,7 @@ def test_rerank_input_estimate_falls_back_to_character_count(
     def token_counter(**_kwargs):
         raise ValueError("tokenizer unavailable")
 
-    monkeypatch.setattr("litellm.token_counter", token_counter)
+    monkeypatch.setattr("embrouter.token_counter", token_counter)
     rerank_text = handler._rerank_input_to_text(data)
 
     assert handler._estimate_precise_input_tokens(
@@ -3422,11 +3422,11 @@ def test_get_explicit_output_cap_tolerates_unparseable_values(
 async def test_project_io_counters_not_double_charged_when_reservation_disabled(
     monkeypatch,
 ):
-    """With LITELLM_TPM_TOKEN_RESERVATION_ENABLED=false the first
+    """With EMBROUTER_TPM_TOKEN_RESERVATION_ENABLED=false the first
     should_rate_limit pass used to +1 every ITPM/OTPM counter on top of the
     full reservation _reserve_project_io_tokens_or_raise always makes,
     permanently inflating each bucket by one token per request."""
-    monkeypatch.setenv("LITELLM_TPM_TOKEN_RESERVATION_ENABLED", "false")
+    monkeypatch.setenv("EMBROUTER_TPM_TOKEN_RESERVATION_ENABLED", "false")
     cache = DualCache()
     handler = RateLimitHandler(internal_usage_cache=InternalUsageCache(cache))
     assert handler.tpm_reservation_enabled is False
@@ -3537,7 +3537,7 @@ def test_precise_input_estimate_selects_endpoint_text(
         captured.update(kwargs)
         return 7
 
-    monkeypatch.setattr("litellm.token_counter", token_counter)
+    monkeypatch.setattr("embrouter.token_counter", token_counter)
 
     assert (
         handler._estimate_precise_input_tokens(data, model="test", call_type=call_type)
@@ -3661,7 +3661,7 @@ async def test_post_call_success_hook_contains_header_merge_failures(
 
     await handler.async_post_call_success_hook(
         data={
-            "litellm_proxy_rate_limit_response": {
+            "embrouter_proxy_rate_limit_response": {
                 "overall_code": "OK",
                 "statuses": (),
             }
@@ -3674,7 +3674,7 @@ async def test_post_call_success_hook_contains_header_merge_failures(
 @pytest.mark.asyncio
 async def test_the_project_itpm_reservation_counts_the_request_off_the_event_loop(rate_limiter):
     from tests.large_text import text
-    from tests.unit.litellm_core_utils.event_loop_lag import (
+    from tests.unit.embrouter_core_utils.event_loop_lag import (
         assert_loop_stayed_free,
         timed_with_loop_lags,
         warm_tokenizer,

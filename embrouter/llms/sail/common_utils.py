@@ -2,9 +2,9 @@ from collections.abc import Mapping
 from types import MappingProxyType
 from typing import Final, Literal, TypeAlias
 
-import litellm
-from litellm.llms.openai_like.json_loader import JSONProviderRegistry, SimpleProviderConfig
-from litellm.types.utils import LlmProviders
+import embrouter
+from embrouter.llms.openai_like.json_loader import JSONProviderRegistry, SimpleProviderConfig
+from embrouter.types.utils import LlmProviders
 
 SAIL: Final = LlmProviders.SAIL.value
 
@@ -18,22 +18,22 @@ _BILLED_TIER_FOR_WINDOW: Final[Mapping[str, str | None]] = MappingProxyType(
 )
 _EMPTY: Final[Mapping[str, object]] = MappingProxyType({})
 _DROP_PARAMS_HINT: Final = (
-    "To drop it, set `litellm.drop_params=True` or for proxy: `litellm_settings: drop_params: true`"
+    "To drop it, set `embrouter.drop_params=True` or for proxy: `embrouter_settings: drop_params: true`"
 )
 
 
 def sail_provider_config() -> SimpleProviderConfig:
     provider: Final = JSONProviderRegistry.get(SAIL)
-    assert provider is not None, "litellm/llms/openai_like/providers.json ships a 'sail' entry"
+    assert provider is not None, "embrouter/llms/openai_like/providers.json ships a 'sail' entry"
     return provider
 
 
-def _unsupported(message: str, model: str) -> litellm.UnsupportedParamsError:
-    return litellm.UnsupportedParamsError(message=f"{message} {_DROP_PARAMS_HINT}", llm_provider=SAIL, model=model)
+def _unsupported(message: str, model: str) -> embrouter.UnsupportedParamsError:
+    return embrouter.UnsupportedParamsError(message=f"{message} {_DROP_PARAMS_HINT}", llm_provider=SAIL, model=model)
 
 
 def _dropping(drop_params: bool) -> bool:
-    return drop_params or bool(litellm.drop_params)
+    return drop_params or bool(embrouter.drop_params)
 
 
 def without_keys(mapping: Mapping[str, object], keys: frozenset[str]) -> Mapping[str, object]:
@@ -74,7 +74,7 @@ def _metadata_without_caller_window(
     metadata: object, *, field: str, model: str, drop_params: bool
 ) -> Mapping[str, object]:
     """Chat bills from ``service_tier``, so a window written into metadata would
-    run on Sail at a price LiteLLM never charges."""
+    run on Sail at a price EmbRouter never charges."""
     if not isinstance(metadata, Mapping):
         return _EMPTY
     if "completion_window" in metadata and not _dropping(drop_params):

@@ -1,5 +1,5 @@
 """
-Helper for safe JSON loading in LiteLLM.
+Helper for safe JSON loading in EmbRouter.
 """
 
 import json

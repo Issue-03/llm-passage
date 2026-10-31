@@ -10,16 +10,16 @@ it correctly at line 1028.
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 
-from litellm.proxy._types import LiteLLM_ManagedFileTable
-from litellm.types.llms.openai import OpenAIFileObject
+from embrouter.proxy._types import EmbRouter_ManagedFileTable
+from embrouter.types.llms.openai import OpenAIFileObject
 
 
 def _make_managed_files_instance():
-    from litellm_enterprise.proxy.hooks.managed_files import (
-        _PROXY_LiteLLMManagedFiles,
+    from embrouter_enterprise.proxy.hooks.managed_files import (
+        _PROXY_EmbRouterManagedFiles,
     )
 
-    instance = _PROXY_LiteLLMManagedFiles(
+    instance = _PROXY_EmbRouterManagedFiles(
         internal_usage_cache=MagicMock(),
         prisma_client=MagicMock(),
     )
@@ -35,7 +35,7 @@ async def test_should_return_unified_id_when_file_object_exists_in_db():
     unified_id = "bGl0ZWxsbV9wcm94eTp1bmlmaWVkX291dHB1dF9maWxl"
     raw_provider_id = "batch_20260214-output-file-1"
 
-    stored = LiteLLM_ManagedFileTable(
+    stored = EmbRouter_ManagedFileTable(
         unified_file_id=unified_id,
         file_object=OpenAIFileObject(
             id=raw_provider_id,
@@ -57,7 +57,7 @@ async def test_should_return_unified_id_when_file_object_exists_in_db():
 
     result = await managed_files.afile_retrieve(
         file_id=unified_id,
-        litellm_parent_otel_span=None,
+        embrouter_parent_otel_span=None,
         llm_router=None,
     )
 

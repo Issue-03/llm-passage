@@ -378,7 +378,7 @@ describe("MCPNetworkSettings", () => {
   it("explains that JWT callers are identified by the configured claim and others by the opt-in header", async () => {
     renderSettings();
 
-    expect(await screen.findByText(/litellm_jwtauth\.mcp_client_id_jwt_field/)).toBeVisible();
+    expect(await screen.findByText(/embrouter_jwtauth\.mcp_client_id_jwt_field/)).toBeVisible();
     expect(screen.getByText(/Clients pick this value themselves, so it is a policy control/)).toBeVisible();
     expect(screen.queryByText(/clientInfo/)).not.toBeInTheDocument();
   });

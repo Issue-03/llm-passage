@@ -10,10 +10,10 @@ import httpx
 import pytest
 
 
-from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
-from litellm.llms.custom_httpx.aiohttp_transport import (
+from embrouter.embrouter_core_utils.streaming_handler import CustomStreamWrapper
+from embrouter.llms.custom_httpx.aiohttp_transport import (
     AiohttpResponseStream,
-    LiteLLMAiohttpTransport,
+    EmbRouterAiohttpTransport,
 )
 
 
@@ -54,7 +54,7 @@ async def test_aiohttp_transport_response_uses_stream_not_content():
 
             return Resp()
 
-    transport = LiteLLMAiohttpTransport(client=lambda: FakeSession())  # type: ignore
+    transport = EmbRouterAiohttpTransport(client=lambda: FakeSession())  # type: ignore
     response = await transport.handle_async_request(
         httpx.Request("GET", "http://example.com")
     )
@@ -171,7 +171,7 @@ async def test_aclose_completes_under_cancellation():
 async def test_stream_with_fallbacks_closes_stream_on_generator_close():
     """Closing the FallbackStreamWrapper must aclose() the underlying model_response
     via stream_with_fallbacks' finally block."""
-    from litellm.router import Router
+    from embrouter.router import Router
 
     stream_closed = False
 
@@ -204,7 +204,7 @@ async def test_stream_with_fallbacks_closes_stream_on_generator_close():
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/test",
                     "api_key": "fake",
                 },
@@ -235,7 +235,7 @@ async def test_stream_with_fallbacks_closes_stream_on_generator_close():
 @pytest.mark.asyncio
 async def test_stream_with_fallbacks_closes_stream_on_normal_completion():
     """stream_with_fallbacks must aclose() model_response even on normal completion."""
-    from litellm.router import Router
+    from embrouter.router import Router
 
     stream_closed = False
 
@@ -268,7 +268,7 @@ async def test_stream_with_fallbacks_closes_stream_on_normal_completion():
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/test",
                     "api_key": "fake",
                 },
@@ -296,8 +296,8 @@ async def test_stream_with_fallbacks_closes_stream_on_normal_completion():
 async def test_stream_with_fallbacks_closes_both_on_fallback_disconnect():
     """When a fallback is triggered and the client disconnects during fallback
     iteration, both model_response and fallback_response must be closed."""
-    from litellm.exceptions import MidStreamFallbackError
-    from litellm.router import Router
+    from embrouter.exceptions import MidStreamFallbackError
+    from embrouter.router import Router
 
     model_closed = False
     fallback_closed = False
@@ -354,7 +354,7 @@ async def test_stream_with_fallbacks_closes_both_on_fallback_disconnect():
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/test",
                     "api_key": "fake",
                 },

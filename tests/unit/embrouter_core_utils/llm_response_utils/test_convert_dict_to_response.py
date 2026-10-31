@@ -2,13 +2,13 @@ from typing import Final
 
 import pytest
 
-from litellm.constants import RESPONSE_FORMAT_TOOL_NAME
-from litellm.litellm_core_utils.llm_response_utils.convert_dict_to_response import (
+from embrouter.constants import RESPONSE_FORMAT_TOOL_NAME
+from embrouter.embrouter_core_utils.llm_response_utils.convert_dict_to_response import (
     _handle_invalid_parallel_tool_calls,
     _should_convert_tool_call_to_json_mode,
     convert_to_model_response_object,
 )
-from litellm.types.utils import (
+from embrouter.types.utils import (
     ChatCompletionMessageCustomToolCall,
     ChatCompletionMessageToolCall,
     Function,
@@ -104,7 +104,7 @@ def test_handle_invalid_parallel_tool_calls_skips_custom_tool_calls():
 
 
 def test_convert_empty_choices_response() -> None:
-    from litellm.litellm_core_utils.llm_response_utils.convert_dict_to_response import (
+    from embrouter.embrouter_core_utils.llm_response_utils.convert_dict_to_response import (
         convert_to_streaming_response,
     )
 
@@ -132,7 +132,7 @@ def test_convert_empty_choices_response() -> None:
 
 @pytest.mark.asyncio
 async def test_convert_empty_choices_response_async() -> None:
-    from litellm.litellm_core_utils.llm_response_utils.convert_dict_to_response import (
+    from embrouter.embrouter_core_utils.llm_response_utils.convert_dict_to_response import (
         convert_to_streaming_response_async,
     )
 
@@ -150,7 +150,7 @@ async def test_convert_empty_choices_response_async() -> None:
 
 
 def test_convert_missing_choices_raises_api_error() -> None:
-    from litellm.exceptions import APIError
+    from embrouter.exceptions import APIError
 
     resp: Final = {
         "id": "x",
@@ -170,8 +170,8 @@ def test_convert_missing_choices_raises_api_error() -> None:
 @pytest.mark.parametrize(("choices", "type_name"), [({}, "dict"), ("", "str"), (None, "NoneType"), (0, "int")])
 @pytest.mark.asyncio
 async def test_convert_non_list_choices_raises_api_error(choices: object, type_name: str) -> None:
-    from litellm.exceptions import APIError
-    from litellm.litellm_core_utils.llm_response_utils.convert_dict_to_response import (
+    from embrouter.exceptions import APIError
+    from embrouter.embrouter_core_utils.llm_response_utils.convert_dict_to_response import (
         convert_to_streaming_response,
         convert_to_streaming_response_async,
     )

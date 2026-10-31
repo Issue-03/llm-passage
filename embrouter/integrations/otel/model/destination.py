@@ -10,7 +10,7 @@ from urllib.parse import quote
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from litellm.types.utils import OtelSpanScope
+from embrouter.types.utils import OtelSpanScope
 
 
 class OtelDestination(BaseModel):

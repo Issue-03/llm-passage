@@ -5,7 +5,7 @@ Most Vertex Model Garden Models are OpenAI compatible - so this handler calls `o
 
 Usage:
 
-response = litellm.completion(
+response = embrouter.completion(
     model="vertex_ai/openai/5464397967697903616",
     messages=[{"role": "user", "content": "Hello, how are you?"}],
 )
@@ -21,8 +21,8 @@ from typing import Final
 
 import httpx
 
-from litellm.llms.vertex_ai.common_utils import get_vertex_base_url
-from litellm.utils import ModelResponse
+from embrouter.llms.vertex_ai.common_utils import get_vertex_base_url
+from embrouter.utils import ModelResponse
 
 from ..common_utils import (
     VertexAIError,
@@ -63,7 +63,7 @@ class VertexAIModelGardenModels(VertexBase):
         custom_prompt_dict: dict,
         headers: dict | None,
         timeout: float | httpx.Timeout,
-        litellm_params: dict,
+        embrouter_params: dict,
         vertex_project=None,
         vertex_location=None,
         vertex_credentials=None,
@@ -79,7 +79,7 @@ class VertexAIModelGardenModels(VertexBase):
         try:
             import vertexai
 
-            from litellm.llms.openai_like.chat.handler import OpenAILikeChatHandler
+            from embrouter.llms.openai_like.chat.handler import OpenAILikeChatHandler
         except Exception as e:
             raise VertexAIError(
                 status_code=400,
@@ -130,7 +130,7 @@ class VertexAIModelGardenModels(VertexBase):
                 logging_obj=logging_obj,
                 optional_params=optional_params,
                 acompletion=acompletion,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logger_fn=logger_fn,
                 client=client,
                 timeout=timeout,

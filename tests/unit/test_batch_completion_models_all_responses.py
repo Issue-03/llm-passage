@@ -1,7 +1,7 @@
 import concurrent.futures
 
-import litellm
-from litellm.batch_completion.main import batch_completion_models_all_responses
+import embrouter
+from embrouter.batch_completion.main import batch_completion_models_all_responses
 
 
 def test_batch_completion_models_all_responses_submits_before_waiting(monkeypatch):
@@ -49,7 +49,7 @@ def test_batch_completion_models_all_responses_submits_before_waiting(monkeypatc
         called_models.append(model)
         return {"model": model}
 
-    monkeypatch.setattr(litellm, "completion", _mock_completion)
+    monkeypatch.setattr(embrouter, "completion", _mock_completion)
     monkeypatch.setattr(
         concurrent.futures, "ThreadPoolExecutor", _RecordingThreadPoolExecutor
     )
@@ -72,7 +72,7 @@ def test_batch_completion_models_all_responses_continues_on_model_error(monkeypa
             raise RuntimeError("simulated model failure")
         return {"model": model}
 
-    monkeypatch.setattr(litellm, "completion", _mock_completion)
+    monkeypatch.setattr(embrouter, "completion", _mock_completion)
 
     responses = batch_completion_models_all_responses(
         models=models,
@@ -93,7 +93,7 @@ def test_batch_completion_models_all_responses_returns_empty_for_empty_models(
         called = True
         return {"model": model}
 
-    monkeypatch.setattr(litellm, "completion", _mock_completion)
+    monkeypatch.setattr(embrouter, "completion", _mock_completion)
 
     responses = batch_completion_models_all_responses(
         models=[],
@@ -111,7 +111,7 @@ def test_batch_completion_models_all_responses_accepts_single_model_string(monke
         called_models.append(model)
         return {"model": model}
 
-    monkeypatch.setattr(litellm, "completion", _mock_completion)
+    monkeypatch.setattr(embrouter, "completion", _mock_completion)
 
     responses = batch_completion_models_all_responses(
         models="model-a",

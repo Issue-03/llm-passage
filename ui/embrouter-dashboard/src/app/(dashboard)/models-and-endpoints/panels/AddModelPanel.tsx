@@ -16,7 +16,7 @@ import { useCredentials } from "@/app/(dashboard)/hooks/credentials/useCredentia
 import { useTeams } from "@/app/(dashboard)/hooks/teams/useTeams";
 import useAuthorized from "@/app/(dashboard)/hooks/useAuthorized";
 
-const INITIAL_VALUES: MountedFormValues = { litellm_credential_name: null };
+const INITIAL_VALUES: MountedFormValues = { embrouter_credential_name: null };
 
 export default function AddModelPanel() {
   const { accessToken } = useAuthorized();

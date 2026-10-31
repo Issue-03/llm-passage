@@ -36,12 +36,12 @@ class DailySpendTable:
 
 DAILY_SPEND_TABLES: Final[Mapping[DailySpendEntity, DailySpendTable]] = MappingProxyType(
     {
-        "user": DailySpendTable(name="LiteLLM_DailyUserSpend", entity_id_column="user_id"),
-        "team": DailySpendTable(name="LiteLLM_DailyTeamSpend", entity_id_column="team_id"),
-        "org": DailySpendTable(name="LiteLLM_DailyOrganizationSpend", entity_id_column="organization_id"),
-        "end_user": DailySpendTable(name="LiteLLM_DailyEndUserSpend", entity_id_column="end_user_id"),
-        "agent": DailySpendTable(name="LiteLLM_DailyAgentSpend", entity_id_column="agent_id"),
-        "tag": DailySpendTable(name="LiteLLM_DailyTagSpend", entity_id_column="tag", carries_request_id=True),
+        "user": DailySpendTable(name="EmbRouter_DailyUserSpend", entity_id_column="user_id"),
+        "team": DailySpendTable(name="EmbRouter_DailyTeamSpend", entity_id_column="team_id"),
+        "org": DailySpendTable(name="EmbRouter_DailyOrganizationSpend", entity_id_column="organization_id"),
+        "end_user": DailySpendTable(name="EmbRouter_DailyEndUserSpend", entity_id_column="end_user_id"),
+        "agent": DailySpendTable(name="EmbRouter_DailyAgentSpend", entity_id_column="agent_id"),
+        "tag": DailySpendTable(name="EmbRouter_DailyTagSpend", entity_id_column="tag", carries_request_id=True),
     }
 )
 

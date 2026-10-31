@@ -12,7 +12,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 
-from litellm.proxy.hooks.key_management_event_hooks import KeyManagementEventHooks
+from embrouter.proxy.hooks.key_management_event_hooks import KeyManagementEventHooks
 
 
 class TestKeyManagementEventHooksIndependentOperations:
@@ -71,9 +71,9 @@ class TestKeyManagementEventHooksIndependentOperations:
                 "_is_email_sending_enabled",
                 return_value=True,
             ),
-            patch("litellm.store_audit_logs", False),
+            patch("embrouter.store_audit_logs", False),
             patch(
-                "litellm.proxy.hooks.key_management_event_hooks.verbose_proxy_logger"
+                "embrouter.proxy.hooks.key_management_event_hooks.verbose_proxy_logger"
             ),
         ):
             # Should not raise even though email fails
@@ -139,9 +139,9 @@ class TestKeyManagementEventHooksIndependentOperations:
                 "_is_email_sending_enabled",
                 return_value=True,
             ),
-            patch("litellm.store_audit_logs", False),
+            patch("embrouter.store_audit_logs", False),
             patch(
-                "litellm.proxy.hooks.key_management_event_hooks.verbose_proxy_logger"
+                "embrouter.proxy.hooks.key_management_event_hooks.verbose_proxy_logger"
             ),
         ):
             # Should not raise even though secret manager fails
@@ -165,16 +165,16 @@ async def test_key_generated_audit_log_uses_license_default(
     premium_user: bool,
     expected_audit_log_calls: int,
 ):
-    from litellm.proxy._types import GenerateKeyRequest, GenerateKeyResponse, UserAPIKeyAuth
+    from embrouter.proxy._types import GenerateKeyRequest, GenerateKeyResponse, UserAPIKeyAuth
 
-    monkeypatch.setattr("litellm.store_audit_logs", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", premium_user)
-    monkeypatch.delenv("LITELLM_STORE_AUDIT_LOGS", raising=False)
+    monkeypatch.setattr("embrouter.store_audit_logs", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.premium_user", premium_user)
+    monkeypatch.delenv("EMBROUTER_STORE_AUDIT_LOGS", raising=False)
 
     response = GenerateKeyResponse(key="sk-test-key", token_id="token-123")
     with (
         patch(
-            "litellm.proxy.management_helpers.audit_logs.create_audit_log_for_update",
+            "embrouter.proxy.management_helpers.audit_logs.create_audit_log_for_update",
             new_callable=AsyncMock,
         ) as mock_create_audit_log,
         patch.object(
@@ -199,12 +199,12 @@ class TestRotateVirtualKeyInSecretManager:
     @pytest.mark.asyncio
     async def test_rotate_virtual_key_with_team_id(self):
         """Test that team_id is passed to async_rotate_secret."""
-        from litellm.types.secret_managers.main import (
+        from embrouter.types.secret_managers.main import (
             KeyManagementSystem,
             KeyManagementSettings,
         )
-        from litellm.secret_managers.base_secret_manager import BaseSecretManager
-        import litellm
+        from embrouter.secret_managers.base_secret_manager import BaseSecretManager
+        import embrouter
 
         # Setup - Create a mock that inherits from BaseSecretManager
         mock_secret_manager = MagicMock(spec=BaseSecretManager)
@@ -212,11 +212,11 @@ class TestRotateVirtualKeyInSecretManager:
             return_value={"status": "success"}
         )
 
-        litellm.secret_manager_client = mock_secret_manager
-        litellm._key_management_system = KeyManagementSystem.HASHICORP_VAULT
-        litellm._key_management_settings = KeyManagementSettings(
+        embrouter.secret_manager_client = mock_secret_manager
+        embrouter._key_management_system = KeyManagementSystem.HASHICORP_VAULT
+        embrouter._key_management_settings = KeyManagementSettings(
             store_virtual_keys=True,
-            prefix_for_stored_virtual_keys="litellm/",
+            prefix_for_stored_virtual_keys="embrouter/",
         )
 
         current_secret_name = "virtual-key-old"
@@ -248,7 +248,7 @@ class TestRotateVirtualKeyInSecretManager:
                 return_value=team_settings,
             ) as mock_get_params,
             patch(
-                "litellm.proxy.hooks.key_management_event_hooks.isinstance",
+                "embrouter.proxy.hooks.key_management_event_hooks.isinstance",
                 side_effect=mock_isinstance,
             ),
         ):
@@ -267,20 +267,20 @@ class TestRotateVirtualKeyInSecretManager:
             call_kwargs = mock_secret_manager.async_rotate_secret.call_args[1]
 
             # Verify secret names have prefix
-            assert call_kwargs["current_secret_name"] == "litellm/virtual-key-old"
-            assert call_kwargs["new_secret_name"] == "litellm/virtual-key-new"
+            assert call_kwargs["current_secret_name"] == "embrouter/virtual-key-old"
+            assert call_kwargs["new_secret_name"] == "embrouter/virtual-key-new"
             assert call_kwargs["new_secret_value"] == new_secret_value
             assert call_kwargs["optional_params"] == team_settings
 
     @pytest.mark.asyncio
     async def test_rotate_virtual_key_without_team_id(self):
         """Test that None team_id is handled correctly."""
-        from litellm.types.secret_managers.main import (
+        from embrouter.types.secret_managers.main import (
             KeyManagementSystem,
             KeyManagementSettings,
         )
-        from litellm.secret_managers.base_secret_manager import BaseSecretManager
-        import litellm
+        from embrouter.secret_managers.base_secret_manager import BaseSecretManager
+        import embrouter
 
         # Setup - Create a mock that inherits from BaseSecretManager
         mock_secret_manager = MagicMock(spec=BaseSecretManager)
@@ -288,11 +288,11 @@ class TestRotateVirtualKeyInSecretManager:
             return_value={"status": "success"}
         )
 
-        litellm.secret_manager_client = mock_secret_manager
-        litellm._key_management_system = KeyManagementSystem.HASHICORP_VAULT
-        litellm._key_management_settings = KeyManagementSettings(
+        embrouter.secret_manager_client = mock_secret_manager
+        embrouter._key_management_system = KeyManagementSystem.HASHICORP_VAULT
+        embrouter._key_management_settings = KeyManagementSettings(
             store_virtual_keys=True,
-            prefix_for_stored_virtual_keys="litellm/",
+            prefix_for_stored_virtual_keys="embrouter/",
         )
 
         current_secret_name = "virtual-key-old"
@@ -317,7 +317,7 @@ class TestRotateVirtualKeyInSecretManager:
                 return_value=None,
             ) as mock_get_params,
             patch(
-                "litellm.proxy.hooks.key_management_event_hooks.isinstance",
+                "embrouter.proxy.hooks.key_management_event_hooks.isinstance",
                 side_effect=mock_isinstance,
             ),
         ):
@@ -339,16 +339,16 @@ class TestRotateVirtualKeyInSecretManager:
     @pytest.mark.asyncio
     async def test_rotate_virtual_key_in_key_rotated_hook(self):
         """Test that async_key_rotated_hook passes team_id to _rotate_virtual_key_in_secret_manager."""
-        from litellm.proxy._types import (
-            LiteLLM_VerificationToken,
+        from embrouter.proxy._types import (
+            EmbRouter_VerificationToken,
             GenerateKeyResponse,
             RegenerateKeyRequest,
         )
-        from litellm.types.secret_managers.main import (
+        from embrouter.types.secret_managers.main import (
             KeyManagementSystem,
             KeyManagementSettings,
         )
-        import litellm
+        import embrouter
 
         # Setup
         mock_secret_manager = MagicMock()
@@ -356,15 +356,15 @@ class TestRotateVirtualKeyInSecretManager:
             return_value={"status": "success"}
         )
 
-        litellm.secret_manager_client = mock_secret_manager
-        litellm._key_management_system = KeyManagementSystem.HASHICORP_VAULT
-        litellm._key_management_settings = KeyManagementSettings(
+        embrouter.secret_manager_client = mock_secret_manager
+        embrouter._key_management_system = KeyManagementSystem.HASHICORP_VAULT
+        embrouter._key_management_settings = KeyManagementSettings(
             store_virtual_keys=True,
-            prefix_for_stored_virtual_keys="litellm/",
+            prefix_for_stored_virtual_keys="embrouter/",
         )
 
         # Create mock existing key row with team_id
-        existing_key_row = LiteLLM_VerificationToken(
+        existing_key_row = EmbRouter_VerificationToken(
             token="sk-old-key",
             key_alias="test-key-alias",
             team_id="team-456",
@@ -392,7 +392,7 @@ class TestRotateVirtualKeyInSecretManager:
                 "_rotate_virtual_key_in_secret_manager",
                 new_callable=AsyncMock,
             ) as mock_rotate,
-            patch("litellm.store_audit_logs", False),
+            patch("embrouter.store_audit_logs", False),
             patch.object(
                 KeyManagementEventHooks,
                 "_send_key_rotated_email",
@@ -421,23 +421,23 @@ class TestRotateVirtualKeyInSecretManager:
     async def test_rotated_hook_without_request_body_syncs_secret_manager(
         self, monkeypatch: pytest.MonkeyPatch, key_alias: str | None
     ):
-        import litellm
-        from litellm.proxy._types import GenerateKeyResponse, LiteLLM_VerificationToken
-        from litellm.secret_managers.base_secret_manager import BaseSecretManager
-        from litellm.types.secret_managers.main import KeyManagementSettings, KeyManagementSystem
+        import embrouter
+        from embrouter.proxy._types import GenerateKeyResponse, EmbRouter_VerificationToken
+        from embrouter.secret_managers.base_secret_manager import BaseSecretManager
+        from embrouter.types.secret_managers.main import KeyManagementSettings, KeyManagementSystem
 
         mock_secret_manager: Final = MagicMock(spec=BaseSecretManager)
         mock_secret_manager.async_rotate_secret = AsyncMock(return_value={"status": "success"})
-        monkeypatch.setattr(litellm, "secret_manager_client", mock_secret_manager)
-        monkeypatch.setattr(litellm, "_key_management_system", KeyManagementSystem.AWS_SECRET_MANAGER)
+        monkeypatch.setattr(embrouter, "secret_manager_client", mock_secret_manager)
+        monkeypatch.setattr(embrouter, "_key_management_system", KeyManagementSystem.AWS_SECRET_MANAGER)
         monkeypatch.setattr(
-            litellm,
+            embrouter,
             "_key_management_settings",
-            KeyManagementSettings(store_virtual_keys=True, prefix_for_stored_virtual_keys="litellm/"),
+            KeyManagementSettings(store_virtual_keys=True, prefix_for_stored_virtual_keys="embrouter/"),
         )
-        monkeypatch.setattr(litellm, "store_audit_logs", False)
+        monkeypatch.setattr(embrouter, "store_audit_logs", False)
 
-        existing_key_row: Final = LiteLLM_VerificationToken(token="hashed-old-token", key_alias=key_alias)
+        existing_key_row: Final = EmbRouter_VerificationToken(token="hashed-old-token", key_alias=key_alias)
         response: Final = GenerateKeyResponse(token_id="hashed-new-token", key="sk-new-key", key_alias=key_alias)
 
         await KeyManagementEventHooks.async_key_rotated_hook(
@@ -447,7 +447,7 @@ class TestRotateVirtualKeyInSecretManager:
             user_api_key_dict=MagicMock(),
         )
 
-        expected_secret_name: Final = f"litellm/{key_alias or 'virtual-key-hashed-old-token'}"
+        expected_secret_name: Final = f"embrouter/{key_alias or 'virtual-key-hashed-old-token'}"
         mock_secret_manager.async_rotate_secret.assert_awaited_once_with(
             current_secret_name=expected_secret_name,
             new_secret_name=expected_secret_name,
@@ -458,21 +458,21 @@ class TestRotateVirtualKeyInSecretManager:
     @pytest.mark.asyncio
     async def test_rotate_virtual_key_when_store_virtual_keys_disabled(self):
         """Test that rotation is skipped when store_virtual_keys is False."""
-        from litellm.types.secret_managers.main import (
+        from embrouter.types.secret_managers.main import (
             KeyManagementSystem,
             KeyManagementSettings,
         )
-        import litellm
+        import embrouter
 
         # Setup
         mock_secret_manager = MagicMock()
         mock_secret_manager.async_rotate_secret = AsyncMock()
 
-        litellm.secret_manager_client = mock_secret_manager
-        litellm._key_management_system = KeyManagementSystem.HASHICORP_VAULT
-        litellm._key_management_settings = KeyManagementSettings(
+        embrouter.secret_manager_client = mock_secret_manager
+        embrouter._key_management_system = KeyManagementSystem.HASHICORP_VAULT
+        embrouter._key_management_settings = KeyManagementSettings(
             store_virtual_keys=False,  # Disabled
-            prefix_for_stored_virtual_keys="litellm/",
+            prefix_for_stored_virtual_keys="embrouter/",
         )
 
         await KeyManagementEventHooks._rotate_virtual_key_in_secret_manager(
@@ -488,14 +488,14 @@ class TestRotateVirtualKeyInSecretManager:
     @pytest.mark.asyncio
     async def test_rotate_virtual_key_when_secret_manager_not_set(self):
         """Test that rotation is skipped when secret_manager_client is None."""
-        from litellm.types.secret_managers.main import KeyManagementSettings
-        import litellm
+        from embrouter.types.secret_managers.main import KeyManagementSettings
+        import embrouter
 
         # Setup
-        litellm.secret_manager_client = None
-        litellm._key_management_settings = KeyManagementSettings(
+        embrouter.secret_manager_client = None
+        embrouter._key_management_settings = KeyManagementSettings(
             store_virtual_keys=True,
-            prefix_for_stored_virtual_keys="litellm/",
+            prefix_for_stored_virtual_keys="embrouter/",
         )
 
         mock_secret_manager = MagicMock()
@@ -519,21 +519,21 @@ class TestKeyUpdatedSecretManagerSync:
     def _configure_secret_manager(
         monkeypatch: pytest.MonkeyPatch, stored_value: str | None, store_virtual_keys: bool = True
     ) -> MagicMock:
-        import litellm
-        from litellm.secret_managers.base_secret_manager import BaseSecretManager
-        from litellm.types.secret_managers.main import KeyManagementSettings, KeyManagementSystem
+        import embrouter
+        from embrouter.secret_managers.base_secret_manager import BaseSecretManager
+        from embrouter.types.secret_managers.main import KeyManagementSettings, KeyManagementSystem
 
         mock_secret_manager: Final = MagicMock(spec=BaseSecretManager)
         mock_secret_manager.async_read_secret = AsyncMock(return_value=stored_value)
         mock_secret_manager.async_rotate_secret = AsyncMock(return_value={"status": "success"})
-        monkeypatch.setattr(litellm, "secret_manager_client", mock_secret_manager)
-        monkeypatch.setattr(litellm, "_key_management_system", KeyManagementSystem.AWS_SECRET_MANAGER)
+        monkeypatch.setattr(embrouter, "secret_manager_client", mock_secret_manager)
+        monkeypatch.setattr(embrouter, "_key_management_system", KeyManagementSystem.AWS_SECRET_MANAGER)
         monkeypatch.setattr(
-            litellm,
+            embrouter,
             "_key_management_settings",
-            KeyManagementSettings(store_virtual_keys=store_virtual_keys, prefix_for_stored_virtual_keys="litellm/"),
+            KeyManagementSettings(store_virtual_keys=store_virtual_keys, prefix_for_stored_virtual_keys="embrouter/"),
         )
-        monkeypatch.setattr(litellm, "store_audit_logs", False)
+        monkeypatch.setattr(embrouter, "store_audit_logs", False)
         return mock_secret_manager
 
     @pytest.mark.parametrize("existing_alias", ["old-alias", None])
@@ -541,10 +541,10 @@ class TestKeyUpdatedSecretManagerSync:
     async def test_updated_hook_renames_secret_when_alias_changes(
         self, monkeypatch: pytest.MonkeyPatch, existing_alias: str | None
     ):
-        from litellm.proxy._types import LiteLLM_VerificationToken, UpdateKeyRequest
+        from embrouter.proxy._types import EmbRouter_VerificationToken, UpdateKeyRequest
 
         mock_secret_manager: Final = self._configure_secret_manager(monkeypatch, stored_value="sk-stored-key")
-        existing_key_row: Final = LiteLLM_VerificationToken(token="hashed-token", key_alias=existing_alias)
+        existing_key_row: Final = EmbRouter_VerificationToken(token="hashed-token", key_alias=existing_alias)
 
         await KeyManagementEventHooks.async_key_updated_hook(
             data=UpdateKeyRequest(key="hashed-token", key_alias="new-alias"),
@@ -553,13 +553,13 @@ class TestKeyUpdatedSecretManagerSync:
             user_api_key_dict=MagicMock(),
         )
 
-        current_secret_name: Final = f"litellm/{existing_alias or 'virtual-key-hashed-token'}"
+        current_secret_name: Final = f"embrouter/{existing_alias or 'virtual-key-hashed-token'}"
         mock_secret_manager.async_read_secret.assert_awaited_once_with(
             secret_name=current_secret_name, optional_params=None
         )
         mock_secret_manager.async_rotate_secret.assert_awaited_once_with(
             current_secret_name=current_secret_name,
-            new_secret_name="litellm/new-alias",
+            new_secret_name="embrouter/new-alias",
             new_secret_value="sk-stored-key",
             optional_params=None,
         )
@@ -569,13 +569,13 @@ class TestKeyUpdatedSecretManagerSync:
     async def test_updated_hook_leaves_secret_alone_when_alias_unchanged(
         self, monkeypatch: pytest.MonkeyPatch, requested_alias: str | None
     ):
-        from litellm.proxy._types import LiteLLM_VerificationToken, UpdateKeyRequest
+        from embrouter.proxy._types import EmbRouter_VerificationToken, UpdateKeyRequest
 
         mock_secret_manager: Final = self._configure_secret_manager(monkeypatch, stored_value="sk-stored-key")
 
         await KeyManagementEventHooks.async_key_updated_hook(
             data=UpdateKeyRequest(key="hashed-token", key_alias=requested_alias, max_budget=10.0),
-            existing_key_row=LiteLLM_VerificationToken(token="hashed-token", key_alias="same-alias"),
+            existing_key_row=EmbRouter_VerificationToken(token="hashed-token", key_alias="same-alias"),
             response=MagicMock(),
             user_api_key_dict=MagicMock(),
         )
@@ -585,13 +585,13 @@ class TestKeyUpdatedSecretManagerSync:
 
     @pytest.mark.asyncio
     async def test_updated_hook_skips_rename_when_secret_missing(self, monkeypatch: pytest.MonkeyPatch):
-        from litellm.proxy._types import LiteLLM_VerificationToken, UpdateKeyRequest
+        from embrouter.proxy._types import EmbRouter_VerificationToken, UpdateKeyRequest
 
         mock_secret_manager: Final = self._configure_secret_manager(monkeypatch, stored_value=None)
 
         await KeyManagementEventHooks.async_key_updated_hook(
             data=UpdateKeyRequest(key="hashed-token", key_alias="new-alias"),
-            existing_key_row=LiteLLM_VerificationToken(token="hashed-token", key_alias="old-alias"),
+            existing_key_row=EmbRouter_VerificationToken(token="hashed-token", key_alias="old-alias"),
             response=MagicMock(),
             user_api_key_dict=MagicMock(),
         )
@@ -602,7 +602,7 @@ class TestKeyUpdatedSecretManagerSync:
     async def test_updated_hook_ignores_alias_change_when_store_virtual_keys_disabled(
         self, monkeypatch: pytest.MonkeyPatch
     ):
-        from litellm.proxy._types import LiteLLM_VerificationToken, UpdateKeyRequest
+        from embrouter.proxy._types import EmbRouter_VerificationToken, UpdateKeyRequest
 
         mock_secret_manager: Final = self._configure_secret_manager(
             monkeypatch, stored_value="sk-stored-key", store_virtual_keys=False
@@ -610,7 +610,7 @@ class TestKeyUpdatedSecretManagerSync:
 
         await KeyManagementEventHooks.async_key_updated_hook(
             data=UpdateKeyRequest(key="hashed-token", key_alias="new-alias"),
-            existing_key_row=LiteLLM_VerificationToken(token="hashed-token", key_alias="old-alias"),
+            existing_key_row=EmbRouter_VerificationToken(token="hashed-token", key_alias="old-alias"),
             response=MagicMock(),
             user_api_key_dict=MagicMock(),
         )
@@ -625,19 +625,19 @@ class TestKeyUpdatedAuditLogObjectId:
     async def _run_updated_hook_and_capture_audit_log(self, request_key: str, detach_project: bool = False):
         import asyncio
 
-        from litellm.proxy._types import (
-            LiteLLM_VerificationToken,
+        from embrouter.proxy._types import (
+            EmbRouter_VerificationToken,
             UpdateKeyRequest,
             UserAPIKeyAuth,
         )
-        from litellm.proxy.utils import hash_token
+        from embrouter.proxy.utils import hash_token
 
         captured = []
 
         async def capture_audit_log(request_data):
             captured.append(request_data)
 
-        existing_key_row = LiteLLM_VerificationToken(
+        existing_key_row = EmbRouter_VerificationToken(
             token=hash_token("sk-raw-test-key-31620"),
             key_name="sk-...1620",
             project_id="project-orbit",
@@ -648,9 +648,9 @@ class TestKeyUpdatedAuditLogObjectId:
         )
 
         with (
-            patch("litellm.store_audit_logs", True),
+            patch("embrouter.store_audit_logs", True),
             patch(
-                "litellm.proxy.management_helpers.audit_logs.create_audit_log_for_update",
+                "embrouter.proxy.management_helpers.audit_logs.create_audit_log_for_update",
                 new=capture_audit_log,
             ),
         ):
@@ -671,7 +671,7 @@ class TestKeyUpdatedAuditLogObjectId:
     @pytest.mark.asyncio
     async def test_update_audit_log_hashes_raw_key_in_object_id(self):
         """A raw sk- key sent to /key/update must be stored hashed in object_id."""
-        from litellm.proxy.utils import hash_token
+        from embrouter.proxy.utils import hash_token
 
         raw_key = "sk-raw-test-key-31620"
 
@@ -686,7 +686,7 @@ class TestKeyUpdatedAuditLogObjectId:
     @pytest.mark.asyncio
     async def test_update_audit_log_passes_through_hashed_key(self, detach_project: bool):
         """An already-hashed token sent to /key/update is stored unchanged."""
-        from litellm.proxy.utils import hash_token
+        from embrouter.proxy.utils import hash_token
 
         hashed_key = hash_token("sk-raw-test-key-31620")
 
@@ -705,23 +705,23 @@ class TestKeyUpdatedAuditLogObjectId:
 
 @pytest.mark.asyncio
 async def test_key_deleted_hook_writes_audit_log_for_alias_deletion():
-    from litellm.proxy._types import (
+    from embrouter.proxy._types import (
         KeyRequest,
-        LiteLLM_AuditLogs,
-        LiteLLM_VerificationToken,
-        LitellmTableNames,
+        EmbRouter_AuditLogs,
+        EmbRouter_VerificationToken,
+        EmbrouterTableNames,
         UserAPIKeyAuth,
     )
 
-    captured: Final[list[LiteLLM_AuditLogs]] = []
+    captured: Final[list[EmbRouter_AuditLogs]] = []
 
-    async def capture_audit_log(request_data: LiteLLM_AuditLogs) -> None:
+    async def capture_audit_log(request_data: EmbRouter_AuditLogs) -> None:
         captured.append(request_data)
 
     with (
-        patch("litellm.store_audit_logs", True),
+        patch("embrouter.store_audit_logs", True),
         patch(
-            "litellm.proxy.management_helpers.audit_logs.create_audit_log_for_update",
+            "embrouter.proxy.management_helpers.audit_logs.create_audit_log_for_update",
             new=capture_audit_log,
         ),
         patch.object(
@@ -732,7 +732,7 @@ async def test_key_deleted_hook_writes_audit_log_for_alias_deletion():
     ):
         await KeyManagementEventHooks.async_key_deleted_hook(
             data=KeyRequest(key_aliases=["a"]),
-            keys_being_deleted=[LiteLLM_VerificationToken(token="hashed", key_alias="a")],
+            keys_being_deleted=[EmbRouter_VerificationToken(token="hashed", key_alias="a")],
             response={},
             user_api_key_dict=UserAPIKeyAuth(user_id="admin", token="callertok"),
         )
@@ -745,5 +745,5 @@ async def test_key_deleted_hook_writes_audit_log_for_alias_deletion():
     audit_row = captured[0]
     assert audit_row.action == "deleted"
     assert audit_row.object_id == "hashed"
-    assert audit_row.table_name == LitellmTableNames.KEY_TABLE_NAME
+    assert audit_row.table_name == EmbrouterTableNames.KEY_TABLE_NAME
     assert audit_row.changed_by == "admin"

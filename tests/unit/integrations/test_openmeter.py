@@ -4,8 +4,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-import litellm
-from litellm.integrations.openmeter import OpenMeterLogger
+import embrouter
+from embrouter.integrations.openmeter import OpenMeterLogger
 
 
 class TestOpenMeterIntegration:
@@ -44,7 +44,7 @@ class TestOpenMeterIntegration:
             "user": "test-user-123",
             "model": "gpt-3.5-turbo",
             "response_cost": 0.001,
-            "litellm_call_id": "test-call-id",
+            "embrouter_call_id": "test-call-id",
         }
 
         # Mock response object
@@ -69,7 +69,7 @@ class TestOpenMeterIntegration:
             "user": 12345,  # Integer user ID
             "model": "gpt-4",
             "response_cost": 0.002,
-            "litellm_call_id": "test-call-id-2",
+            "embrouter_call_id": "test-call-id-2",
         }
 
         response_obj = {
@@ -90,7 +90,7 @@ class TestOpenMeterIntegration:
         kwargs = {
             "model": "gpt-3.5-turbo",
             "response_cost": 0.001,
-            "litellm_call_id": "test-call-id",
+            "embrouter_call_id": "test-call-id",
         }
 
         response_obj = {"id": "test-response-id"}
@@ -106,7 +106,7 @@ class TestOpenMeterIntegration:
             "user": None,
             "model": "gpt-3.5-turbo",
             "response_cost": 0.001,
-            "litellm_call_id": "test-call-id",
+            "embrouter_call_id": "test-call-id",
         }
 
         response_obj = {"id": "test-response-id"}
@@ -122,7 +122,7 @@ class TestOpenMeterIntegration:
             "user": "",
             "model": "gpt-3.5-turbo",
             "response_cost": 0.001,
-            "litellm_call_id": "test-call-id",
+            "embrouter_call_id": "test-call-id",
         }
 
         response_obj = {"id": "test-response-id"}
@@ -131,7 +131,7 @@ class TestOpenMeterIntegration:
         assert isinstance(result["subject"], str)
         assert result["subject"] == ""
 
-    @patch("litellm.integrations.openmeter.HTTPHandler")
+    @patch("embrouter.integrations.openmeter.HTTPHandler")
     def test_log_success_event(self, mock_http_handler):
         """Test synchronous log_success_event method"""
         mock_post = MagicMock()
@@ -143,7 +143,7 @@ class TestOpenMeterIntegration:
             "user": "test-user",
             "model": "gpt-3.5-turbo",
             "response_cost": 0.001,
-            "litellm_call_id": "test-call-id",
+            "embrouter_call_id": "test-call-id",
         }
 
         response_obj = {
@@ -164,7 +164,7 @@ class TestOpenMeterIntegration:
         assert isinstance(data["subject"], str)
         assert data["data"]["model"] == "gpt-3.5-turbo"
 
-    @patch("litellm.integrations.openmeter.get_async_httpx_client")
+    @patch("embrouter.integrations.openmeter.get_async_httpx_client")
     @pytest.mark.asyncio
     async def test_async_log_success_event(self, mock_get_client):
         """Test asynchronous log_success_event method"""
@@ -179,7 +179,7 @@ class TestOpenMeterIntegration:
             "user": "async-test-user",
             "model": "gpt-4",
             "response_cost": 0.002,
-            "litellm_call_id": "async-test-call-id",
+            "embrouter_call_id": "async-test-call-id",
         }
 
         response_obj = {
@@ -208,22 +208,22 @@ class TestOpenMeterIntegration:
             "user": "cloudevents-test-user",
             "model": "gpt-3.5-turbo",
             "response_cost": 0.001,
-            "litellm_call_id": "cloudevents-test-call-id",
+            "embrouter_call_id": "cloudevents-test-call-id",
         }
 
         response_data = {
             "id": "cloudevents-test-response-id",
             "usage": {"prompt_tokens": 15, "completion_tokens": 8, "total_tokens": 23},
         }
-        response_obj = litellm.ModelResponse(**response_data)
+        response_obj = embrouter.ModelResponse(**response_data)
 
         result = logger._common_logic(kwargs, response_obj)
 
         # Verify CloudEvents required fields
         assert result["specversion"] == "1.0"
-        assert result["type"] == "litellm_tokens"  # default value
+        assert result["type"] == "embrouter_tokens"  # default value
         assert result["id"] == "cloudevents-test-response-id"
-        assert result["source"] == "litellm-proxy"
+        assert result["source"] == "embrouter-proxy"
         assert "time" in result
         assert isinstance(result["subject"], str)
         assert result["subject"] == "cloudevents-test-user"
@@ -246,7 +246,7 @@ class TestOpenMeterIntegration:
             "user": "custom-event-user",
             "model": "gpt-4",
             "response_cost": 0.003,
-            "litellm_call_id": "custom-event-call-id",
+            "embrouter_call_id": "custom-event-call-id",
         }
 
         response_obj = {
@@ -265,8 +265,8 @@ class TestOpenMeterIntegration:
         kwargs = {
             "model": "gpt-3.5-turbo",
             "response_cost": 0.001,
-            "litellm_call_id": "test-call-id",
-            "litellm_params": {"metadata": {"user_api_key_user_id": "token-user-123"}},
+            "embrouter_call_id": "test-call-id",
+            "embrouter_params": {"metadata": {"user_api_key_user_id": "token-user-123"}},
             # No "user" parameter - should use token user_id
         }
 
@@ -290,8 +290,8 @@ class TestOpenMeterIntegration:
             "user": "direct-user-456",  # Direct user should take priority
             "model": "gpt-4",
             "response_cost": 0.002,
-            "litellm_call_id": "test-call-id",
-            "litellm_params": {
+            "embrouter_call_id": "test-call-id",
+            "embrouter_params": {
                 "metadata": {
                     "user_api_key_user_id": "token-user-123"  # This should be ignored
                 }
@@ -317,8 +317,8 @@ class TestOpenMeterIntegration:
         kwargs = {
             "model": "gpt-3.5-turbo",
             "response_cost": 0.001,
-            "litellm_call_id": "test-call-id",
-            "litellm_params": {
+            "embrouter_call_id": "test-call-id",
+            "embrouter_params": {
                 "metadata": {
                     # No user_api_key_user_id
                 }
@@ -338,8 +338,8 @@ class TestOpenMeterIntegration:
         kwargs = {
             "model": "gpt-3.5-turbo",
             "response_cost": 0.001,
-            "litellm_call_id": "test-call-id",
-            "litellm_params": {
+            "embrouter_call_id": "test-call-id",
+            "embrouter_params": {
                 "metadata": {"user_api_key_user_id": None}  # Explicitly None
             },
         }
@@ -357,8 +357,8 @@ class TestOpenMeterIntegration:
         kwargs = {
             "model": "gpt-4",
             "response_cost": 0.003,
-            "litellm_call_id": "test-call-id",
-            "litellm_params": {
+            "embrouter_call_id": "test-call-id",
+            "embrouter_params": {
                 "metadata": {"user_api_key_user_id": 12345}  # Integer user_id
             },
         }
@@ -384,8 +384,8 @@ class TestOpenMeterIntegration:
             "user": "forged-by-client",
             "model": "gpt-4",
             "response_cost": 0.002,
-            "litellm_call_id": "test-call-id",
-            "litellm_params": {
+            "embrouter_call_id": "test-call-id",
+            "embrouter_params": {
                 "metadata": {"user_api_key_user_id": "real-tenant-id"}
             },
         }
@@ -411,7 +411,7 @@ class TestOpenMeterIntegration:
             "user": "would-have-worked-without-the-flag",
             "model": "gpt-3.5-turbo",
             "response_cost": 0.001,
-            "litellm_call_id": "test-call-id",
+            "embrouter_call_id": "test-call-id",
         }
 
         response_obj = {"id": "test-response-id"}
@@ -429,8 +429,8 @@ class TestOpenMeterIntegration:
             "user": "request-user",
             "model": "gpt-4",
             "response_cost": 0.002,
-            "litellm_call_id": "test-call-id",
-            "litellm_params": {
+            "embrouter_call_id": "test-call-id",
+            "embrouter_params": {
                 "metadata": {"user_api_key_user_id": "key-user"}
             },
         }
@@ -443,7 +443,7 @@ class TestOpenMeterIntegration:
         result = logger._common_logic(kwargs, response_obj)
         assert result["subject"] == "request-user"
 
-    @patch("litellm.integrations.openmeter.HTTPHandler")
+    @patch("embrouter.integrations.openmeter.HTTPHandler")
     def test_integration_token_user_id_scenario(self, mock_http_handler):
         """Integration test simulating the exact scenario that was failing"""
         mock_post = MagicMock()
@@ -456,8 +456,8 @@ class TestOpenMeterIntegration:
             "model": "gpt-3.5-turbo",
             "messages": [{"role": "user", "content": "Hello"}],
             "response_cost": 0.001,
-            "litellm_call_id": "test-integration-call-id",
-            "litellm_params": {
+            "embrouter_call_id": "test-integration-call-id",
+            "embrouter_params": {
                 "metadata": {
                     "user_api_key_user_id": "user123-from-token",
                     "user_api_key": "hashed-key-abc",

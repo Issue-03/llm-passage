@@ -14,7 +14,7 @@ import random
 from dataclasses import dataclass
 from typing import Final
 
-from litellm.router_strategy.adaptive_router.config import (
+from embrouter.router_strategy.adaptive_router.config import (
     BASE_TIER_WEIGHT,
     COLD_START_MASS,
     DEFAULT_COST_WEIGHT,
@@ -22,7 +22,7 @@ from litellm.router_strategy.adaptive_router.config import (
     SAMPLE_CAP,
     STRENGTH_BONUS,
 )
-from litellm.types.router import AdaptiveRouterPreferences, RequestType
+from embrouter.types.router import AdaptiveRouterPreferences, RequestType
 
 
 @dataclass(frozen=True)

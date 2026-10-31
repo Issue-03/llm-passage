@@ -9,14 +9,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Final, cast
 
-import litellm
-from litellm.rag.ingestion.base_ingestion import BaseRAGIngestion
-from litellm.vector_store_files.main import acreate as vector_store_file_acreate
-from litellm.vector_stores.main import acreate as vector_store_acreate
+import embrouter
+from embrouter.rag.ingestion.base_ingestion import BaseRAGIngestion
+from embrouter.vector_store_files.main import acreate as vector_store_file_acreate
+from embrouter.vector_stores.main import acreate as vector_store_acreate
 
 if TYPE_CHECKING:
-    from litellm import Router
-    from litellm.types.rag import RAGIngestOptions
+    from embrouter import Router
+    from embrouter.types.rag import RAGIngestOptions
 
 
 class OpenAIRAGIngestion(BaseRAGIngestion):
@@ -82,7 +82,7 @@ class OpenAIRAGIngestion(BaseRAGIngestion):
         vector_store_id = self.vector_store_config.get("vector_store_id")
         ttl_days: Final = self.vector_store_config.get("ttl_days")
 
-        # Get credentials from vector_store_config (loaded from litellm_credential_name if provided)
+        # Get credentials from vector_store_config (loaded from embrouter_credential_name if provided)
         api_key: Final = self.vector_store_config.get("api_key")
         api_base: Final = self.vector_store_config.get("api_base")
 
@@ -93,7 +93,7 @@ class OpenAIRAGIngestion(BaseRAGIngestion):
         if not vector_store_id:
             expires_after: Final = {"anchor": "last_active_at", "days": ttl_days} if ttl_days else None
             create_response: Final = await vector_store_acreate(
-                name=self.ingest_name or "litellm-rag-ingest",
+                name=self.ingest_name or "embrouter-rag-ingest",
                 custom_llm_provider="openai",
                 expires_after=expires_after,
                 api_key=api_key,
@@ -116,7 +116,7 @@ class OpenAIRAGIngestion(BaseRAGIngestion):
         result_file_id = None
         if file_content is not None and filename and vector_store_id:
             # Upload file to OpenAI
-            file_response: Final = await litellm.acreate_file(
+            file_response: Final = await embrouter.acreate_file(
                 file=(
                     filename,
                     file_content,

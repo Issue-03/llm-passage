@@ -1,27 +1,27 @@
 """
-Repository for the auto-router per-session rollup (LiteLLM_AutoRouterSession).
+Repository for the auto-router per-session rollup (EmbRouter_AutoRouterSession).
 """
 
 from typing import TYPE_CHECKING, Final
 
-from litellm.models.autorouter_session import LiteLLM_AutoRouterSession
-from litellm.repositories.base_repository import BaseRepository
-from litellm.repositories.prisma_protocols import TableActions
+from embrouter.models.autorouter_session import EmbRouter_AutoRouterSession
+from embrouter.repositories.base_repository import BaseRepository
+from embrouter.repositories.prisma_protocols import TableActions
 
 if TYPE_CHECKING:
     from prisma import models as prisma_models
 
 
-class AutoRouterSessionRepository(BaseRepository[LiteLLM_AutoRouterSession]):
+class AutoRouterSessionRepository(BaseRepository[EmbRouter_AutoRouterSession]):
     @property
-    def table(self) -> TableActions["prisma_models.LiteLLM_AutoRouterSession"]:
-        return self.prisma_client.db.litellm_autoroutersession
+    def table(self) -> TableActions["prisma_models.EmbRouter_AutoRouterSession"]:
+        return self.prisma_client.db.embrouter_autoroutersession
 
     @property
-    def model_class(self) -> type[LiteLLM_AutoRouterSession]:
-        return LiteLLM_AutoRouterSession
+    def model_class(self) -> type[EmbRouter_AutoRouterSession]:
+        return EmbRouter_AutoRouterSession
 
-    async def find_latest_for_key(self, api_key: str, session_id: str) -> LiteLLM_AutoRouterSession | None:
+    async def find_latest_for_key(self, api_key: str, session_id: str) -> EmbRouter_AutoRouterSession | None:
         """The session's most recently active router row under exactly this key hash, or None.
 
         The key is the row's own partition, not a filter over a wider read: the spend writer keyed the

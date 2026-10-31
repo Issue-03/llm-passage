@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 
 from unittest.mock import MagicMock, patch
 
-from litellm.llms.databricks.common_utils import DatabricksBase
+from embrouter.llms.databricks.common_utils import DatabricksBase
 
 
 def test_databricks_validate_environment():

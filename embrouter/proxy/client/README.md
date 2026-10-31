@@ -1,21 +1,21 @@
-# LiteLLM Proxy Client
+# EmbRouter Proxy Client
 
-A Python client library for interacting with the LiteLLM proxy server. This client provides a clean, typed interface for managing models, keys, credentials, and making chat completions.
+A Python client library for interacting with the EmbRouter proxy server. This client provides a clean, typed interface for managing models, keys, credentials, and making chat completions.
 
 ## Installation
 
 ```bash
-uv add litellm
+uv add embrouter
 ```
 
 ## Quick Start
 
 ```python
-from litellm.proxy.client import Client
+from embrouter.proxy.client import Client
 
 # Initialize the client
 client = Client(
-    base_url="http://localhost:4000",  # Your LiteLLM proxy server URL
+    base_url="http://localhost:4000",  # Your EmbRouter proxy server URL
     api_key="sk-api-key"               # Optional: API key for authentication
 )
 
@@ -42,7 +42,7 @@ The client is organized into several resource clients for different functionalit
 
 ## Chat Completions
 
-Make chat completion requests to your LiteLLM proxy:
+Make chat completion requests to your EmbRouter proxy:
 
 ```python
 # Basic chat completion
@@ -74,7 +74,7 @@ models = client.models.list()
 # Add a new model
 client.models.add(
     model_name="gpt-4",
-    litellm_params={
+    embrouter_params={
         "api_key": "your-openai-key",
         "api_base": "https://api.openai.com/v1"
     }
@@ -146,8 +146,8 @@ Manage model groups for load balancing and fallbacks:
 client.model_groups.create(
     name="gpt4-group",
     models=[
-        {"model_name": "gpt-4", "litellm_params": {"api_key": "key1"}},
-        {"model_name": "gpt-4-backup", "litellm_params": {"api_key": "key2"}}
+        {"model_name": "gpt-4", "embrouter_params": {"api_key": "key1"}},
+        {"model_name": "gpt-4-backup", "embrouter_params": {"api_key": "key2"}}
     ]
 )
 
@@ -163,7 +163,7 @@ client.model_groups.delete(name="gpt4-group")
 Manage users on your proxy:
 
 ```python
-from litellm.proxy.client import UsersManagementClient
+from embrouter.proxy.client import UsersManagementClient
 
 users = UsersManagementClient(base_url="http://localhost:4000", api_key="sk-test")
 
@@ -189,7 +189,7 @@ users.delete_user(["u1", "u2"])
 ## Low-Level HTTP Client
 
 The client provides access to a low-level HTTP client for making direct requests
-to the LiteLLM proxy server. This is useful when you need more control or when
+to the EmbRouter proxy server. This is useful when you need more control or when
 working with endpoints that don't yet have a high-level interface.
 
 ```python
@@ -204,7 +204,7 @@ response = client.http.request(
     method="POST",
     uri="/health/test_connection",
     json={
-        "litellm_params": {
+        "embrouter_params": {
             "model": "gpt-4",
             "api_key": "your-api-key",
             "api_base": "https://api.openai.com/v1"
@@ -240,7 +240,7 @@ print(response)
 The client provides clear error handling with custom exceptions:
 
 ```python
-from litellm.proxy.client.exceptions import UnauthorizedError
+from embrouter.proxy.client.exceptions import UnauthorizedError
 
 try:
     response = client.chat.completions.create(
@@ -302,7 +302,7 @@ This project is licensed under the MIT License - see the [LICENSE](../../LICENSE
 
 ## CLI Authentication Flow
 
-The LiteLLM CLI supports SSO authentication through a polling-based approach that works with any OAuth-compatible SSO provider.
+The EmbRouter CLI supports SSO authentication through a polling-based approach that works with any OAuth-compatible SSO provider.
 
 ### How CLI Authentication Works
 
@@ -310,28 +310,28 @@ The LiteLLM CLI supports SSO authentication through a polling-based approach tha
 sequenceDiagram
     participant CLI as CLI
     participant Browser as Browser
-    participant Proxy as LiteLLM Proxy
+    participant Proxy as EmbRouter Proxy
     participant SSO as SSO Provider
     
     CLI->>Proxy: POST /sso/cli/start
     Proxy->>CLI: Return login_id, poll_secret, user_code
-    CLI->>Browser: Open /sso/key/generate?source=litellm-cli&key=login_id
+    CLI->>Browser: Open /sso/key/generate?source=embrouter-cli&key=login_id
     
-    Browser->>Proxy: GET /sso/key/generate?source=litellm-cli&key=login_id
-    Proxy->>Proxy: Set cli_state = litellm-session-token:login_id
-    Proxy->>SSO: Redirect with state=litellm-session-token:login_id
+    Browser->>Proxy: GET /sso/key/generate?source=embrouter-cli&key=login_id
+    Proxy->>Proxy: Set cli_state = embrouter-session-token:login_id
+    Proxy->>SSO: Redirect with state=embrouter-session-token:login_id
     
     SSO->>Browser: Show login page
     Browser->>SSO: User authenticates
-    SSO->>Proxy: Redirect to /sso/callback?state=litellm-session-token:login_id
+    SSO->>Proxy: Redirect to /sso/callback?state=embrouter-session-token:login_id
     
-    Proxy->>Proxy: Check if state starts with "litellm-session-token:"
+    Proxy->>Proxy: Check if state starts with "embrouter-session-token:"
     Proxy->>Browser: Prompt for user_code
     Browser->>Proxy: POST /sso/cli/complete/login_id
     
     CLI->>Proxy: Poll /sso/cli/poll/login_id with poll_secret header
     Proxy->>CLI: Return {"status": "ready", "key": "jwt"}
-    CLI->>CLI: Save the secret to the OS keychain (metadata to ~/.litellm/token.json)
+    CLI->>CLI: Save the secret to the OS keychain (metadata to ~/.embrouter/token.json)
 ```
 
 ### Authentication Commands
@@ -348,12 +348,12 @@ The CLI provides these authentication commands:
 
 1. **Start Session**: CLI creates a short-lived login session with `/sso/cli/start`
 2. **Open Browser**: CLI opens browser to `/sso/key/generate` with CLI source and login ID parameters
-3. **SSO Redirect**: Proxy sets the formatted state (`litellm-session-token:{login_id}`) as OAuth state parameter and redirects to SSO provider
+3. **SSO Redirect**: Proxy sets the formatted state (`embrouter-session-token:{login_id}`) as OAuth state parameter and redirects to SSO provider
 4. **User Authentication**: User completes SSO authentication in browser
 5. **Callback Processing**: SSO provider redirects back to proxy with state parameter
 6. **User Code Verification**: Browser confirms the verification code shown in the CLI
 7. **Polling**: CLI polls `/sso/cli/poll/{login_id}` with the polling secret header until the JWT is ready. When `CLI_SSO_CLAIM_MAP` is configured on the proxy, the poll response may include `attribution_metadata` (allowlisted scalar OIDC claims for client attribution).
-8. **Token Storage**: CLI saves the key to the OS keychain and the non-secret session metadata to `~/.litellm/token.json`
+8. **Token Storage**: CLI saves the key to the OS keychain and the non-secret session metadata to `~/.embrouter/token.json`
 
 ### Benefits of This Approach
 
@@ -365,7 +365,7 @@ The CLI provides these authentication commands:
 
 ### Token Storage
 
-The key itself, together with the refresh token that renews a `--pkce` credential, goes into the OS keychain (macOS Keychain, Windows Credential Manager, or the Linux Secret Service) under service `litellm-cli`, account `credential`. Only the non-secret session metadata is written to `~/.litellm/token.json`, in a `0700` directory with `0600` file permissions:
+The key itself, together with the refresh token that renews a `--pkce` credential, goes into the OS keychain (macOS Keychain, Windows Credential Manager, or the Linux Secret Service) under service `embrouter-cli`, account `credential`. Only the non-secret session metadata is written to `~/.embrouter/token.json`, in a `0700` directory with `0600` file permissions:
 
 ```json
 {
@@ -378,11 +378,11 @@ The key itself, together with the refresh token that renews a `--pkce` credentia
 }
 ```
 
-Keychain storage needs the `keyring` package, which ships with `pip install 'litellm[cli]'`. Headless boxes and CI runners usually have no keychain either. In all of those cases the key and the refresh token stay in the same `0600` file alongside the metadata, exactly as they did before, and `lite login` names which one applies: the package is missing, the machine has no keychain, or you set `LITELLM_CLI_DISABLE_KEYRING=1` to force the file even where a keychain exists. A `token.json` written by an older `lite` keeps working and is moved into the keychain, and scrubbed from the file, the first time a keychain-capable `lite` reads it. That includes a refresh token left behind by the release that moved only the key.
+Keychain storage needs the `keyring` package, which ships with `pip install 'embrouter[cli]'`. Headless boxes and CI runners usually have no keychain either. In all of those cases the key and the refresh token stay in the same `0600` file alongside the metadata, exactly as they did before, and `lite login` names which one applies: the package is missing, the machine has no keychain, or you set `EMBROUTER_CLI_DISABLE_KEYRING=1` to force the file even where a keychain exists. A `token.json` written by an older `lite` keeps working and is moved into the keychain, and scrubbed from the file, the first time a keychain-capable `lite` reads it. That includes a refresh token left behind by the release that moved only the key.
 
 `lite logout` clears both stores. If the keychain is locked at that moment it says so, and re-running it once the keychain is unlocked finishes the job.
 
-The stored credential is a short-lived, per-session agent token, not a managed virtual key. It is scoped to the user and team you logged in as and inherits their models and budgets; spend is tracked against the shared team and user budgets rather than a separate per-session cap, so multiple logins or several concurrent agents all draw down the same allowance. It is short-lived by design (default 24h, configurable via `LITELLM_CLI_JWT_EXPIRATION_HOURS`); re-run `lite login` to refresh it and pick up your latest team and user settings. `lite auth print-token` (usable as Claude Code's `apiKeyHelper`) prints it while fresh and fails once it expires -- there is no silent renewal. It is accepted on a default deployment without `EXPERIMENTAL_UI_LOGIN`, does not appear in the Keys UI, and cannot be rotated or revoked mid-session. A credential from `lite login --pkce` is the exception: it carries a refresh token, so the CLI renews the key shortly before it expires and `lite logout` revokes the refresh token on the proxy (see Browser sign-in with PKCE). Only the holder can end a `--pkce` session early, with `lite logout`; an admin has no button for it, but every renewal re-reads the user on the proxy, so deactivating the user or removing them from the team makes the next renewal fail and the key runs out within `LITELLM_CLI_JWT_EXPIRATION_HOURS`. On a proxy with more than one worker or replica, configure Redis (`litellm_settings.cache` with Redis `cache_params`, or `general_settings.coordination_redis`) so a refresh token stays single-use and `lite logout` holds on every worker; without Redis each worker keeps its own record. For a long-lived, rotatable, Keys-UI-visible credential, create a dedicated virtual key in the dashboard and pass it via `--api-key` or `LITELLM_PROXY_API_KEY`.
+The stored credential is a short-lived, per-session agent token, not a managed virtual key. It is scoped to the user and team you logged in as and inherits their models and budgets; spend is tracked against the shared team and user budgets rather than a separate per-session cap, so multiple logins or several concurrent agents all draw down the same allowance. It is short-lived by design (default 24h, configurable via `EMBROUTER_CLI_JWT_EXPIRATION_HOURS`); re-run `lite login` to refresh it and pick up your latest team and user settings. `lite auth print-token` (usable as Claude Code's `apiKeyHelper`) prints it while fresh and fails once it expires -- there is no silent renewal. It is accepted on a default deployment without `EXPERIMENTAL_UI_LOGIN`, does not appear in the Keys UI, and cannot be rotated or revoked mid-session. A credential from `lite login --pkce` is the exception: it carries a refresh token, so the CLI renews the key shortly before it expires and `lite logout` revokes the refresh token on the proxy (see Browser sign-in with PKCE). Only the holder can end a `--pkce` session early, with `lite logout`; an admin has no button for it, but every renewal re-reads the user on the proxy, so deactivating the user or removing them from the team makes the next renewal fail and the key runs out within `EMBROUTER_CLI_JWT_EXPIRATION_HOURS`. On a proxy with more than one worker or replica, configure Redis (`embrouter_settings.cache` with Redis `cache_params`, or `general_settings.coordination_redis`) so a refresh token stays single-use and `lite logout` holds on every worker; without Redis each worker keeps its own record. For a long-lived, rotatable, Keys-UI-visible credential, create a dedicated virtual key in the dashboard and pass it via `--api-key` or `EMBROUTER_PROXY_API_KEY`.
 
 ### Usage
 

@@ -14,12 +14,12 @@ from typing import TYPE_CHECKING, Any, Final, Protocol, TypeAlias
 import httpx
 from typing_extensions import ReadOnly, TypedDict
 
-from litellm._logging import verbose_logger
-from litellm.litellm_core_utils.core_helpers import process_response_headers
-from litellm.litellm_core_utils.url_utils import encode_url_path_segment
-from litellm.llms.base_llm.interactions.transformation import BaseInteractionsAPIConfig
-from litellm.llms.gemini.common_utils import GeminiError, GeminiModelInfo
-from litellm.types.interactions import (
+from embrouter._logging import verbose_logger
+from embrouter.embrouter_core_utils.core_helpers import process_response_headers
+from embrouter.embrouter_core_utils.url_utils import encode_url_path_segment
+from embrouter.llms.base_llm.interactions.transformation import BaseInteractionsAPIConfig
+from embrouter.llms.gemini.common_utils import GeminiError, GeminiModelInfo
+from embrouter.types.interactions import (
     CancelInteractionResult,
     DeleteInteractionResult,
     InteractionInput,
@@ -27,15 +27,15 @@ from litellm.types.interactions import (
     InteractionsAPIResponse,
     InteractionsAPIStreamingResponse,
 )
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import LlmProviders
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import LlmProviders
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 
 _JsonObject: TypeAlias = dict[str, object]
@@ -123,13 +123,13 @@ class GoogleAIStudioInteractionsConfig(BaseInteractionsAPIConfig):
         self,
         headers: dict,
         model: str,
-        litellm_params: GenericLiteLLMParams | None,
+        embrouter_params: GenericEmbRouterParams | None,
     ) -> dict:
         """Google AI Studio uses x-goog-api-key header for authentication."""
         headers = headers or {}
         headers["Content-Type"] = "application/json"
-        if litellm_params:
-            api_key: Final = GeminiModelInfo.get_api_key(litellm_params.get("api_key"))
+        if embrouter_params:
+            api_key: Final = GeminiModelInfo.get_api_key(embrouter_params.get("api_key"))
             if api_key:
                 headers["x-goog-api-key"] = api_key
 
@@ -142,13 +142,13 @@ class GoogleAIStudioInteractionsConfig(BaseInteractionsAPIConfig):
         api_base: str | None,
         model: str | None,
         agent: str | None = None,
-        litellm_params: dict | None = None,
+        embrouter_params: dict | None = None,
         stream: bool | None = None,
     ) -> str:
         """POST /{api_version}/interactions"""
-        litellm_params = litellm_params or {}
+        embrouter_params = embrouter_params or {}
         api_base = GeminiModelInfo.get_api_base(api_base)
-        api_key: Final = GeminiModelInfo.get_api_key(litellm_params.get("api_key"))
+        api_key: Final = GeminiModelInfo.get_api_key(embrouter_params.get("api_key"))
 
         if not api_key:
             raise ValueError("Google API key is required. Set GOOGLE_API_KEY or GEMINI_API_KEY environment variable.")
@@ -164,7 +164,7 @@ class GoogleAIStudioInteractionsConfig(BaseInteractionsAPIConfig):
         agent: str | None,
         input: InteractionInput | None,
         optional_params: InteractionsAPIOptionalRequestParams,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> dict:
         """
@@ -255,7 +255,7 @@ class GoogleAIStudioInteractionsConfig(BaseInteractionsAPIConfig):
         self,
         model: str | None,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> InteractionsAPIResponse:
         """Parse response - it already matches our response type."""
         try:
@@ -283,7 +283,7 @@ class GoogleAIStudioInteractionsConfig(BaseInteractionsAPIConfig):
         self,
         model: str | None,
         parsed_chunk: dict,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> InteractionsAPIStreamingResponse:
         """Parse streaming chunk."""
         verbose_logger.debug("Google AI Interactions streaming chunk: %s", parsed_chunk)
@@ -295,12 +295,12 @@ class GoogleAIStudioInteractionsConfig(BaseInteractionsAPIConfig):
         self,
         interaction_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict]:
         """GET /{api_version}/interactions/{interaction_id}"""
         resolved_api_base: Final = GeminiModelInfo.get_api_base(api_base)
-        if not GeminiModelInfo.get_api_key(litellm_params.api_key):
+        if not GeminiModelInfo.get_api_key(embrouter_params.api_key):
             raise ValueError("Google API key is required")
         encoded_interaction_id: Final = encode_url_path_segment(interaction_id, field_name="interaction_id")
         return (
@@ -311,7 +311,7 @@ class GoogleAIStudioInteractionsConfig(BaseInteractionsAPIConfig):
     def transform_get_interaction_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> InteractionsAPIResponse:
         try:
             raw_json: Final = _interaction_body(raw_response)
@@ -329,12 +329,12 @@ class GoogleAIStudioInteractionsConfig(BaseInteractionsAPIConfig):
         self,
         interaction_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict]:
         """DELETE /{api_version}/interactions/{interaction_id}"""
         resolved_api_base: Final = GeminiModelInfo.get_api_base(api_base)
-        if not GeminiModelInfo.get_api_key(litellm_params.api_key):
+        if not GeminiModelInfo.get_api_key(embrouter_params.api_key):
             raise ValueError("Google API key is required")
         encoded_interaction_id: Final = encode_url_path_segment(interaction_id, field_name="interaction_id")
         return (
@@ -345,7 +345,7 @@ class GoogleAIStudioInteractionsConfig(BaseInteractionsAPIConfig):
     def transform_delete_interaction_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         interaction_id: str,
     ) -> DeleteInteractionResult:
         if 200 <= raw_response.status_code < 300:
@@ -360,12 +360,12 @@ class GoogleAIStudioInteractionsConfig(BaseInteractionsAPIConfig):
         self,
         interaction_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict]:
         """POST /{api_version}/interactions/{interaction_id}:cancel (if supported)"""
         resolved_api_base: Final = GeminiModelInfo.get_api_base(api_base)
-        if not GeminiModelInfo.get_api_key(litellm_params.api_key):
+        if not GeminiModelInfo.get_api_key(embrouter_params.api_key):
             raise ValueError("Google API key is required")
         encoded_interaction_id: Final = encode_url_path_segment(interaction_id, field_name="interaction_id")
         return (
@@ -376,7 +376,7 @@ class GoogleAIStudioInteractionsConfig(BaseInteractionsAPIConfig):
     def transform_cancel_interaction_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> CancelInteractionResult:
         try:
             raw_json: Final = _cancel_body(raw_response)

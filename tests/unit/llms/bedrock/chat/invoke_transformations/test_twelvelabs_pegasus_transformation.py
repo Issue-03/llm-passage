@@ -1,4 +1,4 @@
-from litellm.llms.bedrock.chat.invoke_transformations.amazon_twelvelabs_pegasus_transformation import (
+from embrouter.llms.bedrock.chat.invoke_transformations.amazon_twelvelabs_pegasus_transformation import (
     AmazonTwelveLabsPegasusConfig,
 )
 
@@ -57,7 +57,7 @@ def test_transform_request_includes_base64_media():
         model="twelvelabs.pegasus-1-2-v1:0",
         messages=_make_messages(),
         optional_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -77,7 +77,7 @@ def test_transform_request_includes_s3_media():
         model="twelvelabs.pegasus-1-2-v1:0",
         messages=_make_messages(),
         optional_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 

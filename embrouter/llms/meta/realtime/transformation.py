@@ -10,10 +10,10 @@ from urllib.parse import urlparse, urlunparse
 
 from pydantic import JsonValue
 
-from litellm import verbose_logger
-from litellm._uuid import uuid
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.base_llm.realtime.transcription_protocol import (
+from embrouter import verbose_logger
+from embrouter._uuid import uuid
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.base_llm.realtime.transcription_protocol import (
     RealtimeTranscriptionProtocolError,
     TranscriptionSessionUpdate,
     completed_event,
@@ -27,15 +27,15 @@ from litellm.llms.base_llm.realtime.transcription_protocol import (
     transcription_session,
     transcription_session_created_event,
 )
-from litellm.llms.base_llm.realtime.transformation import BaseRealtimeConfig
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.meta import MuseAudioEncoding, MuseHandshake, MuseMode, MuseSampleRate
-from litellm.types.llms.openai import (
+from embrouter.llms.base_llm.realtime.transformation import BaseRealtimeConfig
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.meta import MuseAudioEncoding, MuseHandshake, MuseMode, MuseSampleRate
+from embrouter.types.llms.openai import (
     OpenAIRealtimeEvents,
     OpenAIRealtimeTranscriptionSession,
     OpenAIRealtimeTranscriptionSessionCreated,
 )
-from litellm.types.realtime import (
+from embrouter.types.realtime import (
     RealtimeInputAudioTranscriptionUsage,
     RealtimeResponseTransformInput,
     RealtimeResponseTypedDict,
@@ -521,7 +521,7 @@ class MetaRealtimeConfig(BaseRealtimeConfig):
         self,
         message: str | bytes,
         model: str,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         realtime_response_transform_input: RealtimeResponseTransformInput,
     ) -> RealtimeResponseTypedDict:
         payload: Final = message.decode("utf-8") if isinstance(message, bytes) else message

@@ -2,7 +2,7 @@
 
 ``npx skills add <proxy url> -a <agent>`` reads ``/.well-known/agent-skills/index.json``
 and downloads each entry's archive. Discovery clients send no credentials, so both
-routes are unauthenticated and stay off until ``litellm_settings.public_skills_index``
+routes are unauthenticated and stay off until ``embrouter_settings.public_skills_index``
 is enabled, which publishes every stored skill to anyone who can reach the proxy.
 """
 
@@ -16,12 +16,12 @@ from typing import Final
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.caching.in_memory_cache import InMemoryCache
-from litellm.models.skills import LiteLLM_SkillsTable
-from litellm.proxy.discovery_endpoints.agent_skills_archive import SkillArchive, build_skill_archive
-from litellm.types.proxy.discovery_endpoints.agent_skills_endpoints import (
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.caching.in_memory_cache import InMemoryCache
+from embrouter.models.skills import EmbRouter_SkillsTable
+from embrouter.proxy.discovery_endpoints.agent_skills_archive import SkillArchive, build_skill_archive
+from embrouter.types.proxy.discovery_endpoints.agent_skills_endpoints import (
     MAX_SKILL_DESCRIPTION_LENGTH,
     MAX_SKILL_NAME_LENGTH,
     AgentSkillsIndex,
@@ -52,21 +52,21 @@ class ZipArchiveResponse(Response):
 
 
 def ensure_index_enabled() -> None:
-    if litellm.public_skills_index is not True:
+    if embrouter.public_skills_index is not True:
         raise HTTPException(status_code=404, detail="Not Found")
 
 
-async def stored_skills() -> Sequence[LiteLLM_SkillsTable]:
-    from litellm.llms.litellm_proxy.skills.handler import LiteLLMSkillsHandler
+async def stored_skills() -> Sequence[EmbRouter_SkillsTable]:
+    from embrouter.llms.embrouter_proxy.skills.handler import EmbRouterSkillsHandler
 
-    return await LiteLLMSkillsHandler.list_skills(limit=MAX_INDEXED_SKILLS)
+    return await EmbRouterSkillsHandler.list_skills(limit=MAX_INDEXED_SKILLS)
 
 
-async def stored_skill(skill_id: str) -> LiteLLM_SkillsTable | None:
-    from litellm.llms.litellm_proxy.skills.handler import LiteLLMSkillsHandler
+async def stored_skill(skill_id: str) -> EmbRouter_SkillsTable | None:
+    from embrouter.llms.embrouter_proxy.skills.handler import EmbRouterSkillsHandler
 
     try:
-        return await LiteLLMSkillsHandler.get_skill(skill_id)
+        return await EmbRouterSkillsHandler.get_skill(skill_id)
     except ValueError:
         return None
 
@@ -84,10 +84,10 @@ async def stored_skill(skill_id: str) -> LiteLLM_SkillsTable | None:
 )
 async def agent_skills_index(
     request: Request,
-    skills: Sequence[LiteLLM_SkillsTable] = Depends(stored_skills),
+    skills: Sequence[EmbRouter_SkillsTable] = Depends(stored_skills),
 ) -> AgentSkillsIndex:
     """Agent Skills v0.2.0 discovery index over every skill stored on this proxy."""
-    from litellm.proxy.utils import get_custom_url
+    from embrouter.proxy.utils import get_custom_url
 
     installable: Final = await _installable(skills)
     names: Final = _deduplicated(tuple(_base_name(skill, archive) for skill, archive in installable))
@@ -116,7 +116,7 @@ async def agent_skills_index(
 )
 async def agent_skills_archive(
     skill_id: str,
-    skill: LiteLLM_SkillsTable | None = Depends(stored_skill),
+    skill: EmbRouter_SkillsTable | None = Depends(stored_skill),
 ) -> ZipArchiveResponse:
     """Stored skill upload, repacked so SKILL.md sits at the archive root."""
     archive: Final = await _archive_for(skill) if skill is not None else None
@@ -130,13 +130,13 @@ async def agent_skills_archive(
 
 
 async def _installable(
-    skills: Sequence[LiteLLM_SkillsTable],
-) -> tuple[tuple[LiteLLM_SkillsTable, SkillArchive], ...]:
+    skills: Sequence[EmbRouter_SkillsTable],
+) -> tuple[tuple[EmbRouter_SkillsTable, SkillArchive], ...]:
     built: Final = tuple([(skill, await _archive_for(skill)) for skill in reversed(skills)])
     return tuple((skill, archive) for skill, archive in built if archive is not None)
 
 
-async def _archive_for(skill: LiteLLM_SkillsTable) -> SkillArchive | None:
+async def _archive_for(skill: EmbRouter_SkillsTable) -> SkillArchive | None:
     if skill.file_content is None:
         return None
 
@@ -159,7 +159,7 @@ async def _archive_for(skill: LiteLLM_SkillsTable) -> SkillArchive | None:
     return archive
 
 
-def _base_name(skill: LiteLLM_SkillsTable, archive: SkillArchive) -> str:
+def _base_name(skill: EmbRouter_SkillsTable, archive: SkillArchive) -> str:
     candidates: Final = (archive.declared_name, skill.display_title, skill.skill_id)
     return next(
         (slug for slug in (_slugify(candidate) for candidate in candidates) if slug is not None),
@@ -191,7 +191,7 @@ def _with_ordinal(name: str, ordinal: int) -> str:
     return f"{name[: MAX_SKILL_NAME_LENGTH - len(suffix)].rstrip('-')}{suffix}"
 
 
-def _description(skill: LiteLLM_SkillsTable, archive: SkillArchive, name: str) -> str:
+def _description(skill: EmbRouter_SkillsTable, archive: SkillArchive, name: str) -> str:
     candidates: Final = (archive.declared_description, skill.description, skill.display_title)
     chosen: Final = next(
         (candidate.strip() for candidate in candidates if candidate is not None and candidate.strip()),

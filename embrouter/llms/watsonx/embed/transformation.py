@@ -6,13 +6,13 @@ from typing import Final
 
 import httpx
 
-from litellm.llms.base_llm.embedding.transformation import (
+from embrouter.llms.base_llm.embedding.transformation import (
     BaseEmbeddingConfig,
-    LiteLLMLoggingObj,
+    EmbRouterLoggingObj,
 )
-from litellm.types.llms.openai import AllEmbeddingInputValues
-from litellm.types.llms.watsonx import WatsonXAIEndpoint
-from litellm.types.utils import EmbeddingResponse, Usage
+from embrouter.types.llms.openai import AllEmbeddingInputValues
+from embrouter.types.llms.watsonx import WatsonXAIEndpoint
+from embrouter.types.utils import EmbeddingResponse, Usage
 
 from ..common_utils import IBMWatsonXMixin, _get_api_params
 
@@ -64,7 +64,7 @@ class IBMWatsonXEmbeddingConfig(IBMWatsonXMixin, BaseEmbeddingConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         url = self._get_base_url(api_base=api_base)
@@ -83,11 +83,11 @@ class IBMWatsonXEmbeddingConfig(IBMWatsonXMixin, BaseEmbeddingConfig):
         model: str,
         raw_response: httpx.Response,
         model_response: EmbeddingResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_key: str | None,
         request_data: dict,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> EmbeddingResponse:
         logging_obj.post_call(
             original_response=raw_response.text,

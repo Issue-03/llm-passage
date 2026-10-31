@@ -34,7 +34,7 @@ class _JsonBodyView(TypedDict):
 
 @click.group()
 def keys():
-    """Manage API keys for the LiteLLM proxy server"""
+    """Manage API keys for the EmbRouter proxy server"""
 
 
 @keys.command()
@@ -351,7 +351,7 @@ def _import_keys_to_destination(
 @click.option(
     "--source-base-url",
     required=True,
-    help="Base URL of the source LiteLLM proxy server to import keys from",
+    help="Base URL of the source EmbRouter proxy server to import keys from",
 )
 @click.option("--source-api-key", help="API key for authentication to the source server")
 @click.option(
@@ -371,7 +371,7 @@ def import_keys(
     dry_run: bool,
     created_since: str | None,
 ):
-    """Import API keys from another LiteLLM instance"""
+    """Import API keys from another EmbRouter instance"""
     # Parse created_since filter if provided
     created_since_dt: Final = _parse_created_since_filter(created_since)
 

@@ -4,10 +4,10 @@ Logical-replication consumers (Neon / lakehouse sync and similar) need FULL
 replica identity to reconstruct the old row of an UPDATE or DELETE. Prisma
 leaves every table it creates at the Postgres default, so the setting has to be
 re-applied by hand after each migration run. Setting
-``LITELLM_SET_REPLICA_IDENTITY_FULL`` makes every migration run re-assert it.
+``EMBROUTER_SET_REPLICA_IDENTITY_FULL`` makes every migration run re-assert it.
 
 The statement goes through the Prisma CLI rather than a Postgres driver because
-``litellm-proxy-extras`` has no runtime dependencies, while the CLI is already
+``embrouter-proxy-extras`` has no runtime dependencies, while the CLI is already
 required for the migrations themselves.
 """
 
@@ -15,10 +15,10 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from litellm_proxy_extras._logging import logger
-from litellm_proxy_extras.prisma_toolchain import prisma_command_timeout, run_prisma
+from embrouter_proxy_extras._logging import logger
+from embrouter_proxy_extras.prisma_toolchain import prisma_command_timeout, run_prisma
 
-REPLICA_IDENTITY_FULL_ENV_VAR = "LITELLM_SET_REPLICA_IDENTITY_FULL"
+REPLICA_IDENTITY_FULL_ENV_VAR = "EMBROUTER_SET_REPLICA_IDENTITY_FULL"
 
 REPLICA_IDENTITY_FULL_SQL = r"""
 DO $$
@@ -33,7 +33,7 @@ BEGIN
         WHERE c.relkind = 'r'
           AND c.relreplident <> 'f'
           AND n.nspname = ANY (current_schemas(false))
-          AND c.relname LIKE 'LiteLLM\_%'
+          AND c.relname LIKE 'EmbRouter\_%'
     LOOP
         BEGIN
             EXECUTE format('ALTER TABLE %s REPLICA IDENTITY FULL', target);
@@ -51,7 +51,7 @@ def apply_replica_identity_full(
     prisma_command: str,
     prisma_env: dict[str, str],
 ) -> bool:
-    """Set REPLICA IDENTITY FULL on every LiteLLM table that is not already FULL.
+    """Set REPLICA IDENTITY FULL on every EmbRouter table that is not already FULL.
 
     Never raises. Replication metadata is not needed to serve requests, so
     every failure mode is reported and stepped over rather than taking down a
@@ -61,9 +61,9 @@ def apply_replica_identity_full(
 
     Returns True when the statement was applied, False when it failed.
     """
-    logger.info("Applying REPLICA IDENTITY FULL to LiteLLM tables")
+    logger.info("Applying REPLICA IDENTITY FULL to EmbRouter tables")
     try:
-        with tempfile.TemporaryDirectory(prefix="litellm_replica_identity_") as tmp_dir:
+        with tempfile.TemporaryDirectory(prefix="embrouter_replica_identity_") as tmp_dir:
             sql_path = Path(tmp_dir) / "replica_identity_full.sql"
             sql_path.write_text(REPLICA_IDENTITY_FULL_SQL)
             run_prisma(
@@ -89,7 +89,7 @@ def apply_replica_identity_full(
         )
         return False
     except subprocess.TimeoutExpired:
-        logger.error("Timed out setting REPLICA IDENTITY FULL on LiteLLM tables")
+        logger.error("Timed out setting REPLICA IDENTITY FULL on EmbRouter tables")
         return False
     except OSError as e:
         logger.error(
@@ -100,5 +100,5 @@ def apply_replica_identity_full(
         )
         return False
 
-    logger.info("REPLICA IDENTITY FULL applied to LiteLLM tables")
+    logger.info("REPLICA IDENTITY FULL applied to EmbRouter tables")
     return True

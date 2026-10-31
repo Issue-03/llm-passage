@@ -29,8 +29,8 @@ with warnings.catch_warnings():
     import sre_constants
     import sre_parse
 
-from litellm.types.llms.openai import REASONING_EFFORT
-from litellm.types.router import AdaptiveRouterWeights, ClassifierPlugin, RoutingPlugin
+from embrouter.types.llms.openai import REASONING_EFFORT
+from embrouter.types.router import AdaptiveRouterWeights, ClassifierPlugin, RoutingPlugin
 
 from .llm_v2 import LLMV2Config
 from .tier_predictor import TrainedTierArtifact
@@ -243,17 +243,17 @@ class ComplexityTierModel(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     model_name: str
-    litellm_params: Annotated[Mapping[str, object], SkipValidation()] = Field(
+    embrouter_params: Annotated[Mapping[str, object], SkipValidation()] = Field(
         default_factory=lambda: MappingProxyType({})
     )
 
-    @field_validator("litellm_params", mode="before")
+    @field_validator("embrouter_params", mode="before")
     @classmethod
-    def _freeze_litellm_params(cls, value: Mapping[str, object]) -> Mapping[str, object]:
+    def _freeze_embrouter_params(cls, value: Mapping[str, object]) -> Mapping[str, object]:
         return MappingProxyType(dict(value))
 
-    @field_serializer("litellm_params")
-    def _serialize_litellm_params(self, value: Mapping[str, object]) -> Mapping[str, object]:
+    @field_serializer("embrouter_params")
+    def _serialize_embrouter_params(self, value: Mapping[str, object]) -> Mapping[str, object]:
         return dict(value)  # mutable-ok: Pydantic JSON serialization requires a concrete mapping
 
 
@@ -383,7 +383,7 @@ DEFAULT_TECHNICAL_KEYWORDS: Final[list[str]] = [
     # Note: "async", "kubernetes", "docker" are in DEFAULT_CODE_KEYWORDS
 ]
 
-DEFAULT_ESCALATION_KEYWORDS: Final[list[str]] = ["LITELLM ESCALATE"]
+DEFAULT_ESCALATION_KEYWORDS: Final[list[str]] = ["EMBROUTER ESCALATE"]
 
 # Verified against Claude Code 2.1.233 wire captures and vscode-copilot-chat source
 # (agentPrompt.tsx / planAgentProvider.ts). These are client-owned strings that drift with
@@ -1219,7 +1219,7 @@ class ComplexityRouterConfig(BaseModel):
         description=(
             "Case-sensitive phrases a user can include to force a bump to the next-higher "
             "complexity tier when they aren't satisfied with results (they can force a stronger "
-            "model, but not choose which one). Defaults to ['LITELLM ESCALATE'] when unset; "
+            "model, but not choose which one). Defaults to ['EMBROUTER ESCALATE'] when unset; "
             "set to an empty list to disable."
         ),
     )
@@ -1301,7 +1301,7 @@ class ComplexityRouterConfig(BaseModel):
             "ceiling is the smallest max_output_tokens across the tier model's deployments, read "
             "from each deployment's model_info and then the model cost map; a tier model with a "
             "deployment whose ceiling is unknown keeps the caller's value. A max_tokens, "
-            "max_completion_tokens or max_output_tokens in the tier's own litellm_params still "
+            "max_completion_tokens or max_output_tokens in the tier's own embrouter_params still "
             "wins. Set false to forward the caller's value unchanged."
         ),
     )
@@ -1398,7 +1398,7 @@ class ComplexityRouterConfig(BaseModel):
     )
     embedding_model: str | None = Field(
         default=None,
-        description="Embedding model (LiteLLM model name) used when semantic_keyword_matching is enabled",
+        description="Embedding model (EmbRouter model name) used when semantic_keyword_matching is enabled",
     )
     match_threshold: float = Field(
         default=0.5,
@@ -1533,7 +1533,7 @@ class ComplexityRouterConfig(BaseModel):
         incoming_params: Final = (
             MappingProxyType(
                 {
-                    (tier, entry.model_name): entry.litellm_params
+                    (tier, entry.model_name): entry.embrouter_params
                     for tier, entries in existing_configs.items()
                     for entry in (ComplexityTierModel.model_validate(item) for item in entries)
                 }
@@ -1547,14 +1547,14 @@ class ComplexityRouterConfig(BaseModel):
                     entry.model_copy(
                         update=MappingProxyType(
                             {
-                                "litellm_params": incoming_params.get((tier, entry.model_name), entry.litellm_params),
+                                "embrouter_params": incoming_params.get((tier, entry.model_name), entry.embrouter_params),
                             }
                         )
                     )
                     for entry in entries
                 )
                 for tier, (_, entries) in normalized_entries.items()
-                if any(entry.litellm_params for entry in entries)
+                if any(entry.embrouter_params for entry in entries)
                 or (isinstance(existing_configs, dict) and tier in existing_configs)
             }
         )
@@ -2132,7 +2132,7 @@ class ComplexityRouterConfig(BaseModel):
     def _validate_tier_param_placement(self) -> "ComplexityRouterConfig":
         """Reject a router setting written into a tier entry's request params.
 
-        A tier entry's ``litellm_params`` are request params for that deployment: the
+        A tier entry's ``embrouter_params`` are request params for that deployment: the
         pre-routing hook spreads them onto the outbound call, so a config key placed
         there configures nothing and reaches the provider as an unknown body field.
         """
@@ -2140,11 +2140,11 @@ class ComplexityRouterConfig(BaseModel):
             f"{tier}.{key}"
             for tier, entries in self.tier_model_configs.items()
             for entry in entries
-            for key in sorted(frozenset(entry.litellm_params) & COMPLEXITY_ROUTER_CONFIG_KEYS)
+            for key in sorted(frozenset(entry.embrouter_params) & COMPLEXITY_ROUTER_CONFIG_KEYS)
         )
         if misplaced:
             raise ValueError(
-                "tier entries carry complexity_router_config settings in their litellm_params, where the "
+                "tier entries carry complexity_router_config settings in their embrouter_params, where the "
                 "router never reads them and the outbound request forwards them to the provider as unknown "
                 f"body fields: {', '.join(misplaced)}. Set these on complexity_router_config itself"
             )
@@ -2171,8 +2171,8 @@ class ComplexityRouterConfig(BaseModel):
 COMPLEXITY_ROUTER_CONFIG_KEYS: Final[frozenset[str]] = frozenset(ComplexityRouterConfig.model_fields)
 """Every setting name this config owns, derived from the model so a field added later is covered.
 
-These names are disjoint from the OpenAI request params, from ``all_litellm_params``, and from the
-``LiteLLM_Params`` fields, so one of them appearing where a request param belongs is always a
+These names are disjoint from the OpenAI request params, from ``all_embrouter_params``, and from the
+``EmbRouter_Params`` fields, so one of them appearing where a request param belongs is always a
 misplaced setting rather than a parameter the caller meant to send.
 """
 

@@ -10,7 +10,7 @@ from typing import Final
 
 from pydantic import JsonValue, TypeAdapter
 
-from litellm.constants import ANTHROPIC_TOKEN_COUNTING_BETA_VERSION
+from embrouter.constants import ANTHROPIC_TOKEN_COUNTING_BETA_VERSION
 
 _COUNT_REQUEST: Final = TypeAdapter(dict[str, JsonValue])
 COUNT_TOKEN_OPTION_NAMES: Final = ("thinking", "tool_choice", "output_config")
@@ -74,7 +74,7 @@ class AnthropicCountTokensConfig:
         Returns:
             Dictionary of required headers
         """
-        from litellm.llms.anthropic.common_utils import (
+        from embrouter.llms.anthropic.common_utils import (
             optionally_handle_anthropic_oauth,
         )
 

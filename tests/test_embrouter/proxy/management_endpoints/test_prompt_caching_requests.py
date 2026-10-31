@@ -14,15 +14,15 @@ from prisma import Prisma
 from pydantic import TypeAdapter
 from pytest_postgresql import factories
 
-from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.management_endpoints.prompt_caching_requests import router
-from litellm.proxy.spend_tracking.savings import (
+from embrouter.proxy._types import EmbrouterUserRoles, UserAPIKeyAuth
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.management_endpoints.prompt_caching_requests import router
+from embrouter.proxy.spend_tracking.savings import (
     extract_cache_creation_tokens,
     extract_cache_read_tokens,
     marks_gateway_injection,
 )
-from litellm.types.management_endpoints.prompt_caching_requests import (
+from embrouter.types.management_endpoints.prompt_caching_requests import (
     PromptCachingRequestFilter,
     PromptCachingRequestsResponse,
 )
@@ -37,9 +37,9 @@ _START: Final = "2026-09-01T00:00:00Z"
 _END: Final = "2026-09-02T00:00:00Z"
 _URL: Final = "/cost_optimization/prompt_caching/requests"
 _MODEL: Final = "claude-sonnet-5"
-_MARKER: Final = "litellm_gateway_injected_cache"
+_MARKER: Final = "embrouter_gateway_injected_cache"
 _DDL: Final = """
-    CREATE TABLE "LiteLLM_SpendLogs" (
+    CREATE TABLE "EmbRouter_SpendLogs" (
         request_id TEXT PRIMARY KEY, "startTime" TIMESTAMP, "endTime" TIMESTAMP,
         model TEXT, model_id TEXT, custom_llm_provider TEXT, spend DOUBLE PRECISION,
         metadata JSONB, cache_hit TEXT
@@ -125,7 +125,7 @@ def _seed(connection: psycopg.Connection[tuple[object, ...]], cases: tuple[_Case
     with connection.cursor() as cursor:
         cursor.execute(_DDL)
         cursor.executemany(
-            """INSERT INTO "LiteLLM_SpendLogs"
+            """INSERT INTO "EmbRouter_SpendLogs"
                VALUES (%s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s)""",
             tuple(
                 (
@@ -145,7 +145,7 @@ def _seed(connection: psycopg.Connection[tuple[object, ...]], cases: tuple[_Case
     connection.commit()
 
 
-def _app(role: LitellmUserRoles | None) -> FastAPI:
+def _app(role: EmbrouterUserRoles | None) -> FastAPI:
     application: Final = FastAPI()
     application.include_router(router)
 
@@ -158,15 +158,15 @@ def _app(role: LitellmUserRoles | None) -> FastAPI:
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("filter", ["all", "injected", "hits"])
-@pytest.mark.parametrize("role", [LitellmUserRoles.PROXY_ADMIN, LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY])
+@pytest.mark.parametrize("role", [EmbrouterUserRoles.PROXY_ADMIN, EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY])
 async def test_request_filters_match_accounting_and_paginate_before_projection(
     _cache_postgresql: psycopg.Connection[tuple[object, ...]],
     _cache_prisma: Prisma,
     monkeypatch: pytest.MonkeyPatch,
     filter: PromptCachingRequestFilter,
-    role: LitellmUserRoles,
+    role: EmbrouterUserRoles,
 ) -> None:
-    from litellm.proxy import proxy_server
+    from embrouter.proxy import proxy_server
 
     _seed(_cache_postgresql)
     monkeypatch.setattr(proxy_server, "prisma_client", SimpleNamespace(db=_cache_prisma))
@@ -230,11 +230,11 @@ async def test_request_filters_match_accounting_and_paginate_before_projection(
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("role", [None, LitellmUserRoles.INTERNAL_USER, LitellmUserRoles.INTERNAL_USER_VIEW_ONLY])
+@pytest.mark.parametrize("role", [None, EmbrouterUserRoles.INTERNAL_USER, EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY])
 async def test_non_admin_is_denied_before_database_access(
-    role: LitellmUserRoles | None, monkeypatch: pytest.MonkeyPatch
+    role: EmbrouterUserRoles | None, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from litellm.proxy import proxy_server
+    from embrouter.proxy import proxy_server
 
     monkeypatch.setattr(proxy_server, "prisma_client", None)
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=_app(role)), base_url="http://test") as client:
@@ -250,7 +250,7 @@ async def test_non_admin_is_denied_before_database_access(
 ])
 async def test_invalid_request_is_rejected(params: Mapping[str, str | int]) -> None:
     async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=_app(LitellmUserRoles.PROXY_ADMIN)), base_url="http://test"
+        transport=httpx.ASGITransport(app=_app(EmbrouterUserRoles.PROXY_ADMIN)), base_url="http://test"
     ) as client:
         response: Final = await client.get(_URL, params={"start_date": _START, "end_date": _END, **params})
     assert response.status_code == 422
@@ -261,11 +261,11 @@ async def test_invalid_request_is_rejected(params: Mapping[str, str | int]) -> N
 async def test_incomplete_cursor_is_rejected(
     params: Mapping[str, str], monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from litellm.proxy import proxy_server
+    from embrouter.proxy import proxy_server
 
     monkeypatch.setattr(proxy_server, "prisma_client", None)
     async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=_app(LitellmUserRoles.PROXY_ADMIN)), base_url="http://test"
+        transport=httpx.ASGITransport(app=_app(EmbrouterUserRoles.PROXY_ADMIN)), base_url="http://test"
     ) as client:
         response: Final = await client.get(_URL, params={"start_date": _START, "end_date": _END, **params})
     assert response.status_code == 400
@@ -279,7 +279,7 @@ async def test_cursor_keeps_remaining_requests_once_during_insertions_and_deleti
     monkeypatch: pytest.MonkeyPatch,
     delete_before_cursor: bool,
 ) -> None:
-    from litellm.proxy import proxy_server
+    from embrouter.proxy import proxy_server
 
     cases: Final = (*_CASES, _Case(
         "older-cache-read", {"usage_object": {"cache_read_input_tokens": 100}}, start_time=datetime(2026, 9, 1, 11),
@@ -289,7 +289,7 @@ async def test_cursor_keeps_remaining_requests_once_during_insertions_and_deleti
     monkeypatch.setattr(proxy_server, "llm_router", None)
     expected: Final = (*sorted((case.request_id for case in _CASES if case.matches("all")), reverse=True), "older-cache-read")
     async with httpx.AsyncClient(
-        transport=httpx.ASGITransport(app=_app(LitellmUserRoles.PROXY_ADMIN)), base_url="http://test"
+        transport=httpx.ASGITransport(app=_app(EmbrouterUserRoles.PROXY_ADMIN)), base_url="http://test"
     ) as client:
         first: Final = await client.get(_URL, params={"start_date": _START, "end_date": _END, "page_size": 2})
         assert first.status_code == 200
@@ -298,16 +298,16 @@ async def test_cursor_keeps_remaining_requests_once_during_insertions_and_deleti
         assert first_page.next_cursor is not None
         with _cache_postgresql.cursor() as cursor:
             cursor.executemany(
-                """INSERT INTO "LiteLLM_SpendLogs"
+                """INSERT INTO "EmbRouter_SpendLogs"
                    SELECT %s, %s, "endTime", model, model_id, custom_llm_provider, spend, metadata, cache_hit
-                   FROM "LiteLLM_SpendLogs" WHERE request_id = %s""",
+                   FROM "EmbRouter_SpendLogs" WHERE request_id = %s""",
                 (
                     ("newer-request", datetime(2026, 9, 1, 13), expected[0]),
                     ("zz-higher-id", cases[0].start_time, expected[0]),
                 ),
             )
             if delete_before_cursor:
-                cursor.execute('DELETE FROM "LiteLLM_SpendLogs" WHERE request_id = %s', (expected[0],))
+                cursor.execute('DELETE FROM "EmbRouter_SpendLogs" WHERE request_id = %s', (expected[0],))
         _cache_postgresql.commit()
         following: Final = await client.get(_URL, params={
             "start_date": _START, "end_date": _END, "page_size": 100,

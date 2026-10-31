@@ -19,8 +19,8 @@ import pytest
 from fastapi import HTTPException
 from fastapi.exceptions import RequestValidationError
 
-from litellm.proxy._types import ProxyException
-from litellm.proxy.proxy_server import (
+from embrouter.proxy._types import ProxyException
+from embrouter.proxy.proxy_server import (
     _close_dangling_otel_server_span,
     openai_exception_handler,
     otel_request_validation_exception_handler,
@@ -109,35 +109,35 @@ def _call_id_exception(headers):
 
 @pytest.mark.asyncio
 async def test_openai_exception_handler_copies_the_call_id_into_the_error_when_opted_in(monkeypatch):
-    """With include_call_id_in_error_body on, error.litellm_call_id is byte-identical to the
-    x-litellm-call-id header, so a pasted str(e) names the request to look up."""
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {"include_call_id_in_error_body": True})
-    exc = _call_id_exception({"x-litellm-call-id": "call-8302"})
+    """With include_call_id_in_error_body on, error.embrouter_call_id is byte-identical to the
+    x-embrouter-call-id header, so a pasted str(e) names the request to look up."""
+    monkeypatch.setattr("embrouter.proxy.proxy_server.general_settings", {"include_call_id_in_error_body": True})
+    exc = _call_id_exception({"x-embrouter-call-id": "call-8302"})
 
     response = await openai_exception_handler(request=_make_request(), exc=exc)
     body = json.loads(response.body)
 
-    assert response.headers["x-litellm-call-id"] == "call-8302"
+    assert response.headers["x-embrouter-call-id"] == "call-8302"
     assert body == {
         "error": {
             "message": "bad input",
             "type": "invalid_request_error",
             "param": "model",
             "code": "400",
-            "litellm_call_id": "call-8302",
+            "embrouter_call_id": "call-8302",
         }
     }
 
 
 @pytest.mark.asyncio
 async def test_openai_exception_handler_leaves_the_error_alone_when_opted_out(monkeypatch):
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
-    exc = _call_id_exception({"x-litellm-call-id": "call-8302"})
+    monkeypatch.setattr("embrouter.proxy.proxy_server.general_settings", {})
+    exc = _call_id_exception({"x-embrouter-call-id": "call-8302"})
 
     response = await openai_exception_handler(request=_make_request(), exc=exc)
     body = json.loads(response.body)
 
-    assert response.headers["x-litellm-call-id"] == "call-8302"
+    assert response.headers["x-embrouter-call-id"] == "call-8302"
     assert body == {
         "error": {
             "message": "bad input",
@@ -152,14 +152,14 @@ async def test_openai_exception_handler_leaves_the_error_alone_when_opted_out(mo
 async def test_openai_exception_handler_never_fabricates_a_call_id(monkeypatch):
     """An error raised before a call id exists (auth failures, say) carries no header,
     and the body must not invent one."""
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {"include_call_id_in_error_body": True})
+    monkeypatch.setattr("embrouter.proxy.proxy_server.general_settings", {"include_call_id_in_error_body": True})
     exc = _call_id_exception({})
 
     response = await openai_exception_handler(request=_make_request(), exc=exc)
     body = json.loads(response.body)
 
-    assert "x-litellm-call-id" not in response.headers
-    assert "litellm_call_id" not in body["error"]
+    assert "x-embrouter-call-id" not in response.headers
+    assert "embrouter_call_id" not in body["error"]
 
 
 # ---------------------------------------------------------------------------
@@ -170,7 +170,7 @@ async def test_openai_exception_handler_never_fabricates_a_call_id(monkeypatch):
 def test_close_dangling_otel_server_span_records_status_and_ends(monkeypatch):
     """Happy path: with a logger and an active span, the handler sets the
     response status, marks ERROR (>=400), ends the span, and clears state."""
-    import litellm.proxy.proxy_server as ps
+    import embrouter.proxy.proxy_server as ps
 
     span = MagicMock()
     fake_logger = MagicMock()
@@ -198,8 +198,8 @@ def test_close_dangling_otel_server_span_v2_stamps_error_without_ending(monkeypa
     the handler must only stamp error.* on it (via record_error_attributes_on_span)
     and must NOT set status, end the span, or clear request state — otherwise the
     instrumentor's http.* attributes and span close are lost."""
-    import litellm.integrations.otel.model.config as otel_config
-    import litellm.proxy.proxy_server as ps
+    import embrouter.integrations.otel.model.config as otel_config
+    import embrouter.proxy.proxy_server as ps
 
     span = MagicMock()
     fake_logger = MagicMock()
@@ -219,8 +219,8 @@ def test_close_dangling_otel_server_span_v2_stamps_error_without_ending(monkeypa
 
 def test_close_dangling_otel_server_span_v2_success_does_not_stamp(monkeypatch):
     """Under v2 a sub-400 status must not stamp an error onto the SERVER span."""
-    import litellm.integrations.otel.model.config as otel_config
-    import litellm.proxy.proxy_server as ps
+    import embrouter.integrations.otel.model.config as otel_config
+    import embrouter.proxy.proxy_server as ps
 
     span = MagicMock()
     fake_logger = MagicMock()
@@ -245,7 +245,7 @@ def test_close_dangling_otel_server_span_missing_span_is_noop_error():
 
 def test_close_dangling_otel_server_span_logger_raises_state_cleared_error(monkeypatch):
     """Logger raising is caught; state.parent_otel_span is cleared regardless."""
-    import litellm.proxy.proxy_server as ps
+    import embrouter.proxy.proxy_server as ps
 
     span = MagicMock()
     fake_logger = MagicMock()
@@ -317,7 +317,7 @@ async def test_otel_request_validation_exception_handler_hands_the_span_only_the
     """The OTEL SERVER span's error message is ``str(exc)``, which FastAPI builds from
     every error dict ``input`` included, so the span gets the same public-only errors
     the caller does, and keeps the traceback the original carried."""
-    import litellm.proxy.proxy_server as ps
+    import embrouter.proxy.proxy_server as ps
 
     fake_logger = MagicMock()
     monkeypatch.setattr(ps, "open_telemetry_logger", fake_logger, raising=False)
@@ -388,7 +388,7 @@ async def test_otel_request_validation_exception_handler_answers_a_bad_control_p
 
     assert response.status_code == 422
     assert response.media_type == "application/problem+json"
-    assert body["type"] == "urn:litellm:error:invalid-request-body"
+    assert body["type"] == "urn:embrouter:error:invalid-request-body"
     assert body["status"] == 422
     assert "users.0.user_emial: Extra inputs are not permitted" in body["detail"]
 

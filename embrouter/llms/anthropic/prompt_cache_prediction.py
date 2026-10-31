@@ -12,17 +12,17 @@ from typing import Annotated, Final, Literal, Protocol, TypeAlias
 import httpx
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, StrictInt, TypeAdapter, ValidationError
 
-import litellm
-from litellm.llms.anthropic.common_utils import AnthropicModelInfo, is_anthropic_oauth_key
-from litellm.llms.anthropic.count_tokens.handler import AnthropicCountTokensHandler
-from litellm.llms.anthropic.count_tokens.transformation import COUNT_TOKEN_OPTION_NAMES
-from litellm.llms.anthropic.pass_through.messages.transformation import (
+import embrouter
+from embrouter.llms.anthropic.common_utils import AnthropicModelInfo, is_anthropic_oauth_key
+from embrouter.llms.anthropic.count_tokens.handler import AnthropicCountTokensHandler
+from embrouter.llms.anthropic.count_tokens.transformation import COUNT_TOKEN_OPTION_NAMES
+from embrouter.llms.anthropic.pass_through.messages.transformation import (
     DEFAULT_ANTHROPIC_API_VERSION,
     AnthropicMessagesConfig,
 )
-from litellm.types.router import LiteLLM_Params
-from litellm.types.utils import ModelResponse
-from litellm.utils import supports_thinking_cache_preservation
+from embrouter.types.router import EmbRouter_Params
+from embrouter.types.utils import ModelResponse
+from embrouter.utils import supports_thinking_cache_preservation
 
 _JSON_OBJECT: Final = TypeAdapter(dict[str, JsonValue])
 _HEADERS: Final = TypeAdapter(dict[str, str])
@@ -514,7 +514,7 @@ def _messages_url(model: str, api_key: str, api_base: str | None) -> str:
         api_key=api_key,
         model=model,
         optional_params=_JSON_OBJECT.validate_python(MappingProxyType({})),
-        litellm_params=_JSON_OBJECT.validate_python(MappingProxyType({})),
+        embrouter_params=_JSON_OBJECT.validate_python(MappingProxyType({})),
     )
 
 
@@ -607,16 +607,16 @@ class UnsupportedPredictionTarget:
     ]
 
 
-def resolve_prediction_target(params: LiteLLM_Params) -> NativePredictionTarget | UnsupportedPredictionTarget:
+def resolve_prediction_target(params: EmbRouter_Params) -> NativePredictionTarget | UnsupportedPredictionTarget:
     return _resolve_prediction_target(params, allow_configured_endpoint=False)
 
 
-def resolve_baseline_prediction_target(params: LiteLLM_Params) -> NativePredictionTarget | UnsupportedPredictionTarget:
+def resolve_baseline_prediction_target(params: EmbRouter_Params) -> NativePredictionTarget | UnsupportedPredictionTarget:
     return _resolve_prediction_target(params, allow_configured_endpoint=True)
 
 
 def _resolve_prediction_target(
-    params: LiteLLM_Params,
+    params: EmbRouter_Params,
     *,
     allow_configured_endpoint: bool,
 ) -> NativePredictionTarget | UnsupportedPredictionTarget:
@@ -630,7 +630,7 @@ def _resolve_prediction_target(
     ):
         return UnsupportedPredictionTarget("unsupported_provider_endpoint")
     try:
-        model, provider, _, _ = litellm.get_llm_provider(
+        model, provider, _, _ = embrouter.get_llm_provider(
             model=params.model, custom_llm_provider=params.custom_llm_provider
         )
     except Exception:  # noqa: BLE001  # the shared provider resolver raises for unknown deployments

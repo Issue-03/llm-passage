@@ -4,7 +4,7 @@ ModelScope Image Generation Module
 Factory function for getting the appropriate config class.
 """
 
-from litellm.llms.base_llm.image_generation.transformation import (
+from embrouter.llms.base_llm.image_generation.transformation import (
     BaseImageGenerationConfig,
 )
 

@@ -1,12 +1,12 @@
 from typing import TYPE_CHECKING, Final
 
-from litellm.llms.base_llm.guardrail_translation.base_translation import BaseTranslation
-from litellm.types.utils import GenericGuardrailAPIInputs
+from embrouter.llms.base_llm.guardrail_translation.base_translation import BaseTranslation
+from embrouter.types.utils import GenericGuardrailAPIInputs
 
 if TYPE_CHECKING:
-    from litellm.integrations.custom_guardrail import CustomGuardrail
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.integrations.custom_guardrail import CustomGuardrail
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.proxy._types import UserAPIKeyAuth
 
 
 class OpenAIVideoGenerationHandler(BaseTranslation):
@@ -14,7 +14,7 @@ class OpenAIVideoGenerationHandler(BaseTranslation):
         self,
         data: dict[str, object],  # mutable-ok: BaseTranslation contract passes the proxy's request dict through
         guardrail_to_apply: "CustomGuardrail",
-        litellm_logging_obj: "LiteLLMLoggingObj | None" = None,
+        embrouter_logging_obj: "EmbRouterLoggingObj | None" = None,
     ) -> dict[str, object]:  # mutable-ok: BaseTranslation contract returns the proxy's request dict
         prompt: Final = data.get("prompt")
         if not isinstance(prompt, str):
@@ -31,7 +31,7 @@ class OpenAIVideoGenerationHandler(BaseTranslation):
             inputs=inputs,
             request_data=data,
             input_type="request",
-            logging_obj=litellm_logging_obj,
+            logging_obj=embrouter_logging_obj,
         )
         guardrailed_texts: Final = guardrailed_inputs.get("texts")
         guardrailed_prompt: Final = guardrailed_texts[0] if guardrailed_texts else prompt
@@ -41,7 +41,7 @@ class OpenAIVideoGenerationHandler(BaseTranslation):
         self,
         response: object,
         guardrail_to_apply: "CustomGuardrail",
-        litellm_logging_obj: "LiteLLMLoggingObj | None" = None,
+        embrouter_logging_obj: "EmbRouterLoggingObj | None" = None,
         user_api_key_dict: "UserAPIKeyAuth | None" = None,
         request_data: dict[str, object] | None = None,  # mutable-ok: BaseTranslation contract
     ) -> object:

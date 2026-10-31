@@ -6,19 +6,19 @@ import asyncio
 from typing import Final
 
 
-async def close_litellm_async_clients():
+async def close_embrouter_async_clients():
     """
     Close all cached async HTTP clients to prevent resource leaks.
 
-    This function iterates through all cached clients in litellm's in-memory cache
+    This function iterates through all cached clients in embrouter's in-memory cache
     and closes any aiohttp client sessions that are still open. Also closes the
     global base_llm_aiohttp_handler instance (issue #12443).
     """
     # Import here to avoid circular import
-    import litellm
-    from litellm.llms.custom_httpx.aiohttp_handler import BaseLLMAIOHTTPHandler
+    import embrouter
+    from embrouter.llms.custom_httpx.aiohttp_handler import BaseLLMAIOHTTPHandler
 
-    cache_dict: Final = getattr(litellm.in_memory_llm_clients_cache, "cache_dict", {})
+    cache_dict: Final = getattr(embrouter.in_memory_llm_clients_cache, "cache_dict", {})
 
     for key, handler in cache_dict.items():
         # Handle BaseLLMAIOHTTPHandler instances (aiohttp_openai provider)
@@ -57,8 +57,8 @@ async def close_litellm_async_clients():
 
     # Close the global base_llm_aiohttp_handler instance (issue #12443)
     # This is used by Gemini and other providers that use aiohttp
-    if hasattr(litellm, "base_llm_aiohttp_handler"):
-        base_handler: Final = getattr(litellm, "base_llm_aiohttp_handler", None)
+    if hasattr(embrouter, "base_llm_aiohttp_handler"):
+        base_handler: Final = getattr(embrouter, "base_llm_aiohttp_handler", None)
         if isinstance(base_handler, BaseLLMAIOHTTPHandler) and hasattr(base_handler, "close"):
             try:
                 await base_handler.close()
@@ -88,7 +88,7 @@ def register_async_client_cleanup():
             loop: Final = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             try:
-                loop.run_until_complete(close_litellm_async_clients())
+                loop.run_until_complete(close_embrouter_async_clients())
             finally:
                 # Clean up the loop we created
                 loop.close()

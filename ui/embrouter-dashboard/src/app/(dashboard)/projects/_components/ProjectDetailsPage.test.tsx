@@ -46,7 +46,7 @@ const mockProject: ProjectResponse = {
   created_by: "user-1",
   updated_at: "2024-02-01T12:00:00Z",
   updated_by: "user-2",
-  litellm_budget_table: null,
+  embrouter_budget_table: null,
 };
 
 const rectangleFills = (container: HTMLElement) =>
@@ -146,7 +146,7 @@ describe("ProjectDetail", () => {
       mockUseProjectDetails.mockReturnValue({
         data: {
           ...mockProject,
-          litellm_budget_table: { max_budget: 100 },
+          embrouter_budget_table: { max_budget: 100 },
         },
         isLoading: false,
       });

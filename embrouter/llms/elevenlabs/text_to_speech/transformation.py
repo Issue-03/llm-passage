@@ -10,23 +10,23 @@ from urllib.parse import urlencode
 import httpx
 from httpx import Headers
 
-import litellm
-from litellm.litellm_core_utils.url_utils import encode_url_path_segment
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.base_llm.text_to_speech.transformation import (
+import embrouter
+from embrouter.embrouter_core_utils.url_utils import encode_url_path_segment
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.base_llm.text_to_speech.transformation import (
     BaseTextToSpeechConfig,
     TextToSpeechRequestData,
 )
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.utils import is_litellm_owned_kwarg
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.utils import is_embrouter_owned_kwarg
 
 from ..common_utils import ElevenLabsException
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.types.llms.openai import HttpxBinaryResponseContent
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.types.llms.openai import HttpxBinaryResponseContent
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
     HttpxBinaryResponseContent = Any
 
 
@@ -105,7 +105,7 @@ class ElevenLabsTextToSpeechConfig(BaseTextToSpeechConfig):
                 mapped_voice = self._extract_voice_id(voice_override)
 
         if mapped_voice is None:
-            raise ValueError("ElevenLabs voice_id is required. Pass `voice` when calling `litellm.speech()`.")
+            raise ValueError("ElevenLabs voice_id is required. Pass `voice` when calling `embrouter.speech()`.")
 
         return mapped_voice
 
@@ -173,7 +173,7 @@ class ElevenLabsTextToSpeechConfig(BaseTextToSpeechConfig):
         """
         Validate Azure environment and set up authentication headers
         """
-        api_key = api_key or litellm.api_key or litellm.openai_key or get_secret_str("ELEVENLABS_API_KEY")
+        api_key = api_key or embrouter.api_key or embrouter.openai_key or get_secret_str("ELEVENLABS_API_KEY")
 
         if api_key is None:
             raise ValueError("ElevenLabs API key is required. Set ELEVENLABS_API_KEY environment variable.")
@@ -196,7 +196,7 @@ class ElevenLabsTextToSpeechConfig(BaseTextToSpeechConfig):
         input: str,
         voice: str | None,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> TextToSpeechRequestData:
         """
@@ -260,7 +260,7 @@ class ElevenLabsTextToSpeechConfig(BaseTextToSpeechConfig):
                 mapped_params[key] = value
 
         for key in list(kwargs.keys()):
-            if key in reserved_kwarg_keys or is_litellm_owned_kwarg(key):
+            if key in reserved_kwarg_keys or is_embrouter_owned_kwarg(key):
                 continue
             value = kwargs[key]
             if value is None:
@@ -279,12 +279,12 @@ class ElevenLabsTextToSpeechConfig(BaseTextToSpeechConfig):
         self,
         model: str,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> "HttpxBinaryResponseContent":
         """
         Wrap ElevenLabs binary audio response.
         """
-        from litellm.types.llms.openai import HttpxBinaryResponseContent
+        from embrouter.types.llms.openai import HttpxBinaryResponseContent
 
         return HttpxBinaryResponseContent(raw_response)
 
@@ -292,7 +292,7 @@ class ElevenLabsTextToSpeechConfig(BaseTextToSpeechConfig):
         self,
         model: str,
         api_base: str | None,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> str:
         """
         Construct the ElevenLabs endpoint URL, including path voice_id and query params.
@@ -300,14 +300,14 @@ class ElevenLabsTextToSpeechConfig(BaseTextToSpeechConfig):
         base_url = api_base or get_secret_str("ELEVENLABS_API_BASE") or self.TTS_BASE_URL
         base_url = base_url.rstrip("/")
 
-        voice_id: Final = litellm_params.get(self.ELEVENLABS_VOICE_ID_KEY)
+        voice_id: Final = embrouter_params.get(self.ELEVENLABS_VOICE_ID_KEY)
         if not isinstance(voice_id, str) or not voice_id.strip():
-            raise ValueError("ElevenLabs voice_id is required. Pass `voice` when calling `litellm.speech()`.")
+            raise ValueError("ElevenLabs voice_id is required. Pass `voice` when calling `embrouter.speech()`.")
 
         encoded_voice_id: Final = encode_url_path_segment(voice_id, field_name="voice_id")
         url = f"{base_url}{self.TTS_ENDPOINT_PATH}/{encoded_voice_id}"
 
-        query_params: Final = litellm_params.get(self.ELEVENLABS_QUERY_PARAMS_KEY, {})
+        query_params: Final = embrouter_params.get(self.ELEVENLABS_QUERY_PARAMS_KEY, {})
         if query_params:
             url = f"{url}?{urlencode(query_params)}"
 

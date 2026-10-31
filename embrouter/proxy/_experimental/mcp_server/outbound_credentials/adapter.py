@@ -20,11 +20,11 @@ from fastapi import HTTPException
 from pydantic import SecretStr
 from typing_extensions import assert_never
 
-from litellm.experimental_mcp_client.client import MCPClient, strip_auth_scheme, to_basic_credentials
-from litellm.proxy._experimental.mcp_server.exceptions import MCPServerURLCredentialsError
-from litellm.proxy._experimental.mcp_server.oauth_utils import resolve_upstream_resource
-from litellm.proxy._experimental.mcp_server.outbound_credentials.result import Error, Ok, Result
-from litellm.proxy._experimental.mcp_server.outbound_credentials.types import (
+from embrouter.experimental_mcp_client.client import MCPClient, strip_auth_scheme, to_basic_credentials
+from embrouter.proxy._experimental.mcp_server.exceptions import MCPServerURLCredentialsError
+from embrouter.proxy._experimental.mcp_server.oauth_utils import resolve_upstream_resource
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.result import Error, Ok, Result
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.types import (
     DEFAULT_CREDENTIAL_HEADER,
     ApiKeyConfig,
     AuthorizationCodeConfig,
@@ -41,11 +41,11 @@ from litellm.proxy._experimental.mcp_server.outbound_credentials.types import (
     Subject,
     TokenExchangeConfig,
 )
-from litellm.types.mcp import DEFAULT_SUBJECT_TOKEN_TYPE, MCPAuth, MCPAuthType, MCPTransport
+from embrouter.types.mcp import DEFAULT_SUBJECT_TOKEN_TYPE, MCPAuth, MCPAuthType, MCPTransport
 
 if TYPE_CHECKING:
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.types.mcp_server.mcp_server_manager import MCPServer
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.types.mcp_server.mcp_server_manager import MCPServer
 
 _TOKEN_EXCHANGE_SUBJECT_TOKEN_DEFAULT: Final = "urn:ietf:params:oauth:token-type:access_token"
 _ID_JAG_SUBJECT_TOKEN_DEFAULT: Final = "urn:ietf:params:oauth:token-type:id_token"
@@ -356,7 +356,7 @@ def raise_token_exchange_challenge(
     the client must SSO with to obtain a subject token; ``error="invalid_token"`` tells a
     spec-compliant MCP client to discover that AS and retry with a fresh bearer. Mirrors
     ``raise_user_oauth_challenge`` but for the exchange flow: there is no gateway-side browser OAuth —
-    the client re-authenticates directly with the IdP, and LiteLLM then exchanges the resulting token.
+    the client re-authenticates directly with the IdP, and EmbRouter then exchanges the resulting token.
 
     An IdP step-up rejection (Entra Conditional Access / CAE) passes its ``claims`` blob. Per the
     Microsoft claims-challenge format the challenge then uses ``error="insufficient_claims"`` (the

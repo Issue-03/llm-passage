@@ -47,17 +47,17 @@ class StraikerWebhookContext(BaseModel):
     model_provider: str | None = None
     destination: str | None = None
     session_id: str | None = None
-    litellm_call_id: str | None = None
-    litellm_trace_id: str | None = None
-    litellm_version: str | None = None
+    embrouter_call_id: str | None = None
+    embrouter_trace_id: str | None = None
+    embrouter_version: str | None = None
 
 
 class StraikerWebhookIdentity(BaseModel):
-    litellm_key: str | None = None
-    litellm_team: str | None = None
-    litellm_user_id: str | None = None
-    litellm_user_email: str | None = None
-    litellm_org_id: str | None = None
+    embrouter_key: str | None = None
+    embrouter_team: str | None = None
+    embrouter_user_id: str | None = None
+    embrouter_user_email: str | None = None
+    embrouter_org_id: str | None = None
     end_user_id: str | None = None
 
 
@@ -188,7 +188,7 @@ class StraikerGuardrailConfigModel(GuardrailConfigModel[StraikerGuardrailConfigM
     )
 
     default_app: str | None = Field(
-        default="LiteLLM Gateway",
+        default="EmbRouter Gateway",
         description=(
             "Default application registered in the Straiker Defend Console. "
             "Overridden per-request by metadata.agent_id when present."

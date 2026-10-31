@@ -1,5 +1,5 @@
 import { toast } from "@/lib/toast";
-import { getGlobalLitellmHeaderName, getProxyBaseUrl } from "@/components/networking";
+import { getGlobalEmbrouterHeaderName, getProxyBaseUrl } from "@/components/networking";
 import {
   buildPlaygroundHeaders,
   type CustomHeaders,
@@ -32,7 +32,7 @@ export async function makeInteractionsRequest(
 
   const headers: Record<string, string> = withRequiredHeaders(buildPlaygroundHeaders(tags, customHeaders), {
     "Content-Type": "application/json",
-    [getGlobalLitellmHeaderName()]: `Bearer ${accessToken}`,
+    [getGlobalEmbrouterHeaderName()]: `Bearer ${accessToken}`,
   });
 
   const body: Record<string, unknown> = {

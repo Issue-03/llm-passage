@@ -3,13 +3,13 @@ import pytest
 
 from unittest.mock import patch
 
-import litellm
-from litellm.llms.databricks.responses.transformation import (
+import embrouter
+from embrouter.llms.databricks.responses.transformation import (
     DatabricksResponsesAPIConfig,
 )
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import LlmProviders
-from litellm.utils import ProviderConfigManager
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import LlmProviders
+from embrouter.utils import ProviderConfigManager
 
 
 class TestDatabricksResponsesAPIConfig:
@@ -23,7 +23,7 @@ class TestDatabricksResponsesAPIConfig:
         config = DatabricksResponsesAPIConfig()
         url = config.get_complete_url(
             api_base="https://my-workspace.cloud.databricks.com/serving-endpoints",
-            litellm_params={},
+            embrouter_params={},
         )
         assert (
             url
@@ -34,7 +34,7 @@ class TestDatabricksResponsesAPIConfig:
         config = DatabricksResponsesAPIConfig()
         url = config.get_complete_url(
             api_base="https://my-workspace.cloud.databricks.com/serving-endpoints/",
-            litellm_params={},
+            embrouter_params={},
         )
         assert (
             url
@@ -47,7 +47,7 @@ class TestDatabricksResponsesAPIConfig:
             model="databricks/databricks-gpt-5-nano",
             input="Hello!",
             response_api_optional_request_params={},
-            litellm_params=GenericLiteLLMParams(),
+            embrouter_params=GenericEmbRouterParams(),
             headers={},
         )
         assert request["model"] == "databricks-gpt-5-nano"
@@ -58,7 +58,7 @@ class TestDatabricksResponsesAPIConfig:
             model="databricks-gpt-5-nano",
             input="Hello!",
             response_api_optional_request_params={},
-            litellm_params=GenericLiteLLMParams(),
+            embrouter_params=GenericEmbRouterParams(),
             headers={},
         )
         assert request["model"] == "databricks-gpt-5-nano"
@@ -82,7 +82,7 @@ class TestDatabricksResponsesAPIConfig:
             model="databricks-gpt-5-nano",
             input="Hello!",
             response_api_optional_request_params={"text": text_param},
-            litellm_params=GenericLiteLLMParams(),
+            embrouter_params=GenericEmbRouterParams(),
             headers={},
         )
         assert request["text"] == text_param
@@ -92,7 +92,7 @@ class TestDatabricksResponsesAPIConfig:
         headers = config.validate_environment(
             headers={},
             model="databricks-gpt-5-nano",
-            litellm_params=GenericLiteLLMParams(
+            embrouter_params=GenericEmbRouterParams(
                 api_key="dapi_test_key",
                 api_base="https://my-workspace.cloud.databricks.com/serving-endpoints",
             ),

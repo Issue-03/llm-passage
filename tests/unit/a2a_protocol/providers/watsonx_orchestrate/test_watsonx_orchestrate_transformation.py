@@ -6,12 +6,12 @@ import httpx
 import pytest
 
 
-from litellm.a2a_protocol.providers.config_manager import A2AProviderConfigManager
-from litellm.a2a_protocol.providers.watsonx_orchestrate import handler as wxo_handler
-from litellm.a2a_protocol.providers.watsonx_orchestrate.handler import (
+from embrouter.a2a_protocol.providers.config_manager import A2AProviderConfigManager
+from embrouter.a2a_protocol.providers.watsonx_orchestrate import handler as wxo_handler
+from embrouter.a2a_protocol.providers.watsonx_orchestrate.handler import (
     WatsonxOrchestrateHandler,
 )
-from litellm.a2a_protocol.providers.watsonx_orchestrate.transformation import (
+from embrouter.a2a_protocol.providers.watsonx_orchestrate.transformation import (
     WatsonxOrchestrateTransformation,
 )
 
@@ -365,7 +365,7 @@ async def test_handle_streaming_polls_non_sse_json_until_complete(monkeypatch):
             ],
         }
     }
-    litellm_params = {
+    embrouter_params = {
         "cp4d_host": "https://cpd.example.com",
         "instance_id": "instance-id",
         "wxo_agent_id": "agent-id",
@@ -378,7 +378,7 @@ async def test_handle_streaming_polls_non_sse_json_until_complete(monkeypatch):
         async for event in WatsonxOrchestrateHandler.handle_streaming(
             request_id="req-1",
             params=params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             delay_ms=0,
         )
     ]
@@ -409,7 +409,7 @@ async def test_handle_streaming_raises_for_non_sse_json_failure(monkeypatch):
             ],
         }
     }
-    litellm_params = {
+    embrouter_params = {
         "cp4d_host": "https://cpd.example.com",
         "instance_id": "instance-id",
         "wxo_agent_id": "agent-id",
@@ -421,7 +421,7 @@ async def test_handle_streaming_raises_for_non_sse_json_failure(monkeypatch):
         async for _ in WatsonxOrchestrateHandler.handle_streaming(
             request_id="req-1",
             params=params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             delay_ms=0,
         ):
             pass
@@ -443,7 +443,7 @@ async def test_handle_streaming_does_not_fallback_on_invalid_json(monkeypatch):
             ],
         }
     }
-    litellm_params = {
+    embrouter_params = {
         "cp4d_host": "https://cpd.example.com",
         "instance_id": "instance-id",
         "wxo_agent_id": "agent-id",
@@ -455,7 +455,7 @@ async def test_handle_streaming_does_not_fallback_on_invalid_json(monkeypatch):
         async for _ in WatsonxOrchestrateHandler.handle_streaming(
             request_id="req-1",
             params=params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         ):
             pass
 
@@ -493,7 +493,7 @@ async def test_handle_streaming_does_not_resubmit_run_on_poll_transport_error(
     monkeypatch.setattr(WatsonxOrchestrateHandler, "_poll_run", poll_run)
 
     params = {"message": {"parts": [{"kind": "text", "text": "Hello"}]}}
-    litellm_params = {
+    embrouter_params = {
         "cp4d_host": "https://cpd.example.com",
         "instance_id": "instance-id",
         "wxo_agent_id": "agent-id",
@@ -505,7 +505,7 @@ async def test_handle_streaming_does_not_resubmit_run_on_poll_transport_error(
         async for _ in WatsonxOrchestrateHandler.handle_streaming(
             request_id="req-1",
             params=params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             delay_ms=0,
         ):
             pass
@@ -537,7 +537,7 @@ async def test_handle_streaming_falls_back_when_initial_post_fails(monkeypatch):
     )
 
     params = {"message": {"parts": [{"kind": "text", "text": "Hello"}]}}
-    litellm_params = {
+    embrouter_params = {
         "cp4d_host": "https://cpd.example.com",
         "instance_id": "instance-id",
         "wxo_agent_id": "agent-id",
@@ -550,7 +550,7 @@ async def test_handle_streaming_falls_back_when_initial_post_fails(monkeypatch):
         async for event in WatsonxOrchestrateHandler.handle_streaming(
             request_id="req-1",
             params=params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             delay_ms=0,
         )
     ]

@@ -5,8 +5,8 @@ from typing import Final
 
 from pydantic import TypeAdapter
 
-from litellm.rust_bridge import lifecycle
-from litellm.rust_bridge.lifecycle import Execution
+from embrouter.rust_bridge import lifecycle
+from embrouter.rust_bridge.lifecycle import Execution
 
 Await: Final = lifecycle.Await
 Complete: Final = lifecycle.Complete

@@ -3,13 +3,13 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.proxy.guardrails.guardrail_registry import (
+from embrouter.integrations.custom_guardrail import CustomGuardrail
+from embrouter.proxy.guardrails.guardrail_registry import (
     get_guardrail_initializer_from_hooks,
     GuardrailRegistry,
     InMemoryGuardrailHandler,
 )
-from litellm.types.guardrails import GuardrailEventHooks, Guardrail, LitellmParams
+from embrouter.types.guardrails import GuardrailEventHooks, Guardrail, EmbrouterParams
 
 
 def test_get_guardrail_initializer_from_hooks():
@@ -18,16 +18,16 @@ def test_get_guardrail_initializer_from_hooks():
 
 
 def test_guardrail_class_registry():
-    from litellm.proxy.guardrails.guardrail_registry import guardrail_class_registry
+    from embrouter.proxy.guardrails.guardrail_registry import guardrail_class_registry
 
     assert "aim" in guardrail_class_registry
     assert "aporia" in guardrail_class_registry
 
 
 def test_noma_registry_resolution():
-    from litellm.proxy.guardrails.guardrail_hooks.noma.noma import NomaGuardrail
-    from litellm.proxy.guardrails.guardrail_hooks.noma.noma_v2 import NomaV2Guardrail
-    from litellm.proxy.guardrails.guardrail_registry import (
+    from embrouter.proxy.guardrails.guardrail_hooks.noma.noma import NomaGuardrail
+    from embrouter.proxy.guardrails.guardrail_hooks.noma.noma_v2 import NomaV2Guardrail
+    from embrouter.proxy.guardrails.guardrail_registry import (
         guardrail_class_registry,
         guardrail_initializer_registry,
     )
@@ -49,9 +49,9 @@ def test_initialize_guardrail_run_in_parallel_preserves_constructor_default(conf
     previous code wrote bool(None)==False on every instance, silently disabling the
     opt-in for such guardrails.
     """
-    from litellm.proxy.guardrails import guardrail_registry as registry_module
+    from embrouter.proxy.guardrails import guardrail_registry as registry_module
 
-    def _initializer(litellm_params, guardrail):
+    def _initializer(embrouter_params, guardrail):
         return CustomGuardrail(
             guardrail_name=guardrail["guardrail_name"],
             event_hook=GuardrailEventHooks.pre_call,
@@ -67,7 +67,7 @@ def test_initialize_guardrail_run_in_parallel_preserves_constructor_default(conf
 
         handler = InMemoryGuardrailHandler()
         result = handler.initialize_guardrail(
-            guardrail={"guardrail_name": "cf-parallel-default", "litellm_params": params},
+            guardrail={"guardrail_name": "cf-parallel-default", "embrouter_params": params},
         )
 
         stored = handler.guardrail_id_to_custom_guardrail[result["guardrail_id"]]
@@ -77,9 +77,9 @@ def test_initialize_guardrail_run_in_parallel_preserves_constructor_default(conf
 
 
 def _register_noop_initializer(guardrail_type: str):
-    from litellm.proxy.guardrails import guardrail_registry as registry_module
+    from embrouter.proxy.guardrails import guardrail_registry as registry_module
 
-    def _initializer(litellm_params, guardrail):
+    def _initializer(embrouter_params, guardrail):
         return CustomGuardrail(
             guardrail_name=guardrail["guardrail_name"],
             event_hook=GuardrailEventHooks.pre_call,
@@ -93,7 +93,7 @@ def _register_noop_initializer(guardrail_type: str):
 def _config_guardrail(name: str, guardrail_type: str, guardrail_id=None) -> dict:
     guardrail = {
         "guardrail_name": name,
-        "litellm_params": {"guardrail": guardrail_type, "mode": "pre_call"},
+        "embrouter_params": {"guardrail": guardrail_type, "mode": "pre_call"},
     }
     if guardrail_id is not None:
         guardrail["guardrail_id"] = guardrail_id
@@ -156,18 +156,18 @@ def test_duplicate_config_guardrail_names_get_distinct_stable_ids():
 
 
 def _register_mode_following_initializer(guardrail_type: str):
-    """Registers like the shipped initializers do: construct, then add the instance to litellm's callbacks."""
-    import litellm
-    from litellm.proxy.guardrails import guardrail_registry as registry_module
+    """Registers like the shipped initializers do: construct, then add the instance to embrouter's callbacks."""
+    import embrouter
+    from embrouter.proxy.guardrails import guardrail_registry as registry_module
 
-    def _initializer(litellm_params, guardrail):
+    def _initializer(embrouter_params, guardrail):
         callback = CustomGuardrail(
             guardrail_name=guardrail["guardrail_name"],
             supported_event_hooks=[GuardrailEventHooks.pre_call, GuardrailEventHooks.post_call],
-            event_hook=GuardrailEventHooks(litellm_params.mode),
+            event_hook=GuardrailEventHooks(embrouter_params.mode),
             default_on=True,
         )
-        litellm.logging_callback_manager.add_litellm_callback(callback)
+        embrouter.logging_callback_manager.add_embrouter_callback(callback)
         return callback
 
     registry_module.guardrail_initializer_registry[guardrail_type] = _initializer
@@ -175,11 +175,11 @@ def _register_mode_following_initializer(guardrail_type: str):
 
 
 def _mode_following_db_row(guardrail_id: str, mode: str, description: str = "") -> Guardrail:
-    """The raw row GuardrailRegistry.update_guardrail_in_db hands back: litellm_params is a plain dict."""
+    """The raw row GuardrailRegistry.update_guardrail_in_db hands back: embrouter_params is a plain dict."""
     return Guardrail(
         guardrail_id=guardrail_id,
         guardrail_name="mode-following",
-        litellm_params={"guardrail": "mode_following_test", "mode": mode, "default_on": True},
+        embrouter_params={"guardrail": "mode_following_test", "mode": mode, "default_on": True},
         guardrail_info={"description": description},
     )
 
@@ -205,7 +205,7 @@ def test_update_in_memory_guardrail_raw_db_row_mode_change_gates_at_the_new_stag
         assert replacement.should_run_guardrail(data={}, event_type=GuardrailEventHooks.pre_call) is False
         assert all(original not in cb_list for cb_list in lists)
         assert _live_instances_named("mode-following") == 1
-        assert handler.IN_MEMORY_GUARDRAILS["123"]["litellm_params"].mode == "post_call"
+        assert handler.IN_MEMORY_GUARDRAILS["123"]["embrouter_params"].mode == "post_call"
         assert handler.get_source("123") == "db"
     finally:
         registry_module.guardrail_initializer_registry.pop("mode_following_test", None)
@@ -246,7 +246,7 @@ def test_update_in_memory_guardrail_invalid_row_keeps_the_previous_instance_enfo
 
         restored = handler.guardrail_id_to_custom_guardrail["123"]
         assert restored.should_run_guardrail(data={}, event_type=GuardrailEventHooks.pre_call) is True
-        assert handler.IN_MEMORY_GUARDRAILS["123"]["litellm_params"].mode == "pre_call"
+        assert handler.IN_MEMORY_GUARDRAILS["123"]["embrouter_params"].mode == "pre_call"
         assert _live_instances_named("mode-following") == 1
     finally:
         registry_module.guardrail_initializer_registry.pop("mode_following_test", None)
@@ -258,7 +258,7 @@ def _make_guardrail(guardrail_id: str, name: str = "g") -> Guardrail:
     return Guardrail(
         guardrail_id=guardrail_id,
         guardrail_name=name,
-        litellm_params=LitellmParams(guardrail=name, mode="pre_call", default_on=False),
+        embrouter_params=EmbrouterParams(guardrail=name, mode="pre_call", default_on=False),
     )
 
 
@@ -372,7 +372,7 @@ def test_initialize_guardrail_early_return_updates_source_marker():
     g = Guardrail(
         guardrail_id="collide",
         guardrail_name="bedrock",
-        litellm_params=LitellmParams(guardrail="bedrock", mode="pre_call", default_on=False),
+        embrouter_params=EmbrouterParams(guardrail="bedrock", mode="pre_call", default_on=False),
     )
     handler.initialize_guardrail(guardrail=g, source="config")
 
@@ -400,14 +400,14 @@ def test_sync_guardrail_from_db_marks_source_db_when_unchanged():
     assert handler.get_source("collide") == "db"
 
 
-def _db_litellm_params() -> dict:
+def _db_embrouter_params() -> dict:
     """
-    Shape produced by GuardrailRegistry.get_all_guardrails_from_db: litellm_params
-    is a raw dict (not a LitellmParams), holding only the keys originally stored,
+    Shape produced by GuardrailRegistry.get_all_guardrails_from_db: embrouter_params
+    is a raw dict (not a EmbrouterParams), holding only the keys originally stored,
     a non-schema extra key, and plain-string enum values.
     """
     return {
-        "guardrail": "litellm_content_filter",
+        "guardrail": "embrouter_content_filter",
         "mode": "pre_call",
         "default_on": True,
         "version": 2,
@@ -417,76 +417,76 @@ def _db_litellm_params() -> dict:
 
 def test_unchanged_db_params_do_not_register_as_changed():
     """
-    A DB poll returns litellm_params as a raw dict while the in-memory copy is a
-    LitellmParams whose model_dump() fills every field default and coerces enums.
+    A DB poll returns embrouter_params as a raw dict while the in-memory copy is a
+    EmbrouterParams whose model_dump() fills every field default and coerces enums.
     The two shapes must compare equal when the config is identical; otherwise
     every poll cycle re-initializes the guardrail indefinitely.
     """
     handler = InMemoryGuardrailHandler()
-    raw = _db_litellm_params()
+    raw = _db_embrouter_params()
     gid = "11111111-1111-1111-1111-111111111111"
     handler.IN_MEMORY_GUARDRAILS[gid] = Guardrail(
         guardrail_id=gid,
         guardrail_name="cf",
-        litellm_params=LitellmParams(**raw),
+        embrouter_params=EmbrouterParams(**raw),
     )
 
-    new = Guardrail(guardrail_id=gid, guardrail_name="cf", litellm_params=dict(raw))
+    new = Guardrail(guardrail_id=gid, guardrail_name="cf", embrouter_params=dict(raw))
     assert handler._has_guardrail_params_changed(gid, new) is False
 
 
 def test_changed_db_params_register_as_changed():
     """Normalizing both sides must still surface a genuine config change."""
     handler = InMemoryGuardrailHandler()
-    raw = _db_litellm_params()
+    raw = _db_embrouter_params()
     gid = "22222222-2222-2222-2222-222222222222"
     handler.IN_MEMORY_GUARDRAILS[gid] = Guardrail(
         guardrail_id=gid,
         guardrail_name="cf",
-        litellm_params=LitellmParams(**raw),
+        embrouter_params=EmbrouterParams(**raw),
     )
 
     changed = {**raw, "blocked_words": [{"keyword": "different", "action": "BLOCK"}]}
-    new = Guardrail(guardrail_id=gid, guardrail_name="cf", litellm_params=changed)
+    new = Guardrail(guardrail_id=gid, guardrail_name="cf", embrouter_params=changed)
     assert handler._has_guardrail_params_changed(gid, new) is True
 
 
 def test_unnormalizable_db_params_register_as_changed_without_raising():
     """
-    A DB row whose litellm_params fail LitellmParams validation must not crash the
+    A DB row whose embrouter_params fail EmbrouterParams validation must not crash the
     poll loop. The comparison falls back to treating the guardrail as changed so it
     re-initializes (and surfaces the bad row in logs) rather than propagating the
     validation error up through the polling cycle.
     """
     handler = InMemoryGuardrailHandler()
-    raw = _db_litellm_params()
+    raw = _db_embrouter_params()
     gid = "55555555-5555-5555-5555-555555555555"
     handler.IN_MEMORY_GUARDRAILS[gid] = Guardrail(
         guardrail_id=gid,
         guardrail_name="cf",
-        litellm_params=LitellmParams(**raw),
+        embrouter_params=EmbrouterParams(**raw),
     )
 
     malformed = {**raw, "default_on": "not-a-bool-xyz"}
-    new = Guardrail(guardrail_id=gid, guardrail_name="cf", litellm_params=malformed)
+    new = Guardrail(guardrail_id=gid, guardrail_name="cf", embrouter_params=malformed)
     assert handler._has_guardrail_params_changed(gid, new) is True
 
 
 def _all_callback_lists():
-    import litellm
+    import embrouter
 
     return [
-        litellm.callbacks,
-        litellm.success_callback,
-        litellm.failure_callback,
-        litellm._async_success_callback,
-        litellm._async_failure_callback,
+        embrouter.callbacks,
+        embrouter.success_callback,
+        embrouter.failure_callback,
+        embrouter._async_success_callback,
+        embrouter._async_failure_callback,
     ]
 
 
 def test_delete_in_memory_guardrail_removes_callback_from_all_lists():
     """
-    Request handling promotes guardrail callbacks from litellm.callbacks into the
+    Request handling promotes guardrail callbacks from embrouter.callbacks into the
     success/failure/async lists. delete_in_memory_guardrail must purge the callback
     from every list, otherwise a re-initialized guardrail leaves its old instance
     stranded in those lists and instances accumulate.
@@ -525,7 +525,7 @@ def test_repeated_db_sync_does_not_accumulate_runner_instances():
     the stale instance lingers in the success/failure lists and the distinct count
     climbs above one.
     """
-    import litellm
+    import embrouter
 
     handler = InMemoryGuardrailHandler()
     gid = "44444444-4444-4444-4444-444444444444"
@@ -533,22 +533,22 @@ def test_repeated_db_sync_does_not_accumulate_runner_instances():
 
     def db_guardrail(word: str) -> Guardrail:
         params = {
-            **_db_litellm_params(),
+            **_db_embrouter_params(),
             "blocked_words": [{"keyword": word, "action": "BLOCK"}],
         }
-        return Guardrail(guardrail_id=gid, guardrail_name=name, litellm_params=params)
+        return Guardrail(guardrail_id=gid, guardrail_name=name, embrouter_params=params)
 
     def promote_into_request_lists() -> None:
-        manager = litellm.logging_callback_manager
-        for callback in list(litellm.callbacks):
-            manager.add_litellm_success_callback(callback)
-            manager.add_litellm_failure_callback(callback)
-            manager.add_litellm_async_success_callback(callback)
-            manager.add_litellm_async_failure_callback(callback)
+        manager = embrouter.logging_callback_manager
+        for callback in list(embrouter.callbacks):
+            manager.add_embrouter_success_callback(callback)
+            manager.add_embrouter_failure_callback(callback)
+            manager.add_embrouter_async_success_callback(callback)
+            manager.add_embrouter_async_failure_callback(callback)
 
     def distinct_runner_instances() -> int:
         seen = set()
-        for callback in litellm.logging_callback_manager._get_all_callbacks():
+        for callback in embrouter.logging_callback_manager._get_all_callbacks():
             if isinstance(callback, CustomGuardrail) and getattr(callback, "guardrail_name", None) == name:
                 seen.add(id(callback))
         return len(seen)
@@ -574,7 +574,7 @@ def _presidio_db_guardrail(pii_entities_config: dict[str, str]) -> Guardrail:
     return Guardrail(
         guardrail_id=PRESIDIO_SIBLINGS_GID,
         guardrail_name=PRESIDIO_SIBLINGS_NAME,
-        litellm_params={
+        embrouter_params={
             "guardrail": "presidio",
             "mode": "pre_call",
             "default_on": True,
@@ -601,7 +601,7 @@ def test_presidio_siblings_are_tracked_and_deleted_together():
     the post_call unmask and mask-output siblings. Deleting the guardrail must remove
     all three from every callback list, not just the primary.
     """
-    import litellm
+    import embrouter
 
     handler = InMemoryGuardrailHandler()
     lists = _all_callback_lists()
@@ -609,7 +609,7 @@ def test_presidio_siblings_are_tracked_and_deleted_together():
     try:
         handler.initialize_guardrail(_presidio_db_guardrail({"EMAIL_ADDRESS": "MASK"}))
 
-        registered = _presidio_callbacks_in(litellm.callbacks)
+        registered = _presidio_callbacks_in(embrouter.callbacks)
         assert len(registered) == 3
         primary = handler.guardrail_id_to_custom_guardrail[PRESIDIO_SIBLINGS_GID]
         siblings = handler.guardrail_id_to_sibling_callbacks[PRESIDIO_SIBLINGS_GID]
@@ -633,14 +633,14 @@ def test_presidio_siblings_are_tracked_and_deleted_together():
 
 
 def test_update_in_memory_guardrail_rebuilds_presidio_siblings_and_keeps_their_stage():
-    import litellm
+    import embrouter
 
     handler = InMemoryGuardrailHandler()
     lists = _all_callback_lists()
     snapshots = [list(cb_list) for cb_list in lists]
     try:
         handler.initialize_guardrail(_presidio_db_guardrail({"EMAIL_ADDRESS": "MASK", "IP_ADDRESS": "MASK"}))
-        tracked = _presidio_callbacks_in(litellm.callbacks)
+        tracked = _presidio_callbacks_in(embrouter.callbacks)
         roles_before = [
             (callback.apply_to_output, callback.output_parse_pii, callback.event_hook) for callback in tracked
         ]
@@ -654,7 +654,7 @@ def test_update_in_memory_guardrail_rebuilds_presidio_siblings_and_keeps_their_s
         updated = Guardrail(
             guardrail_id=PRESIDIO_SIBLINGS_GID,
             guardrail_name=PRESIDIO_SIBLINGS_NAME,
-            litellm_params=LitellmParams(
+            embrouter_params=EmbrouterParams(
                 guardrail="presidio",
                 mode="pre_call",
                 default_on=True,
@@ -667,7 +667,7 @@ def test_update_in_memory_guardrail_rebuilds_presidio_siblings_and_keeps_their_s
         )
         handler.update_in_memory_guardrail(guardrail_id=PRESIDIO_SIBLINGS_GID, guardrail=updated)
 
-        rebuilt = _presidio_callbacks_in(litellm.callbacks)
+        rebuilt = _presidio_callbacks_in(embrouter.callbacks)
         assert len(rebuilt) == 3
         assert [callback.pii_entities_config for callback in rebuilt] == [{"EMAIL_ADDRESS": "MASK"}] * 3
         assert [
@@ -688,7 +688,7 @@ def test_repeated_db_sync_replaces_presidio_siblings_instead_of_leaking_stale_on
     keeps serving the previous entity config. After every DB re-sync, each callback
     list must hold exactly the three current instances, all on the latest config.
     """
-    import litellm
+    import embrouter
 
     handler = InMemoryGuardrailHandler()
     lists = _all_callback_lists()
@@ -699,7 +699,7 @@ def test_repeated_db_sync_replaces_presidio_siblings_instead_of_leaking_stale_on
             latest = entity_configs[cycle % 2]
             handler.sync_guardrail_from_db(_presidio_db_guardrail(latest))
             for cb_list in lists[1:]:
-                cb_list.extend(_presidio_callbacks_in(litellm.callbacks))
+                cb_list.extend(_presidio_callbacks_in(embrouter.callbacks))
 
             for cb_list in lists:
                 current = _presidio_callbacks_in(cb_list)
@@ -714,7 +714,7 @@ def _judge_guardrail(guardrail_id: str) -> Guardrail:
     return Guardrail(
         guardrail_id=guardrail_id,
         guardrail_name="quality-judge",
-        litellm_params={
+        embrouter_params={
             "guardrail": "llm_as_a_judge",
             "mode": "post_call",
             "judge_model": "my-judge-alias",
@@ -731,7 +731,7 @@ def test_db_synced_judge_guardrail_uses_lazy_router_provider():
     Router was captured at construction; a guardrail created before the Router
     existed captured None and never recovered). Asserting the default provider is
     wired guarantees the instance reads the live global rather than a stale value."""
-    from litellm.proxy.guardrails.guardrail_hooks.llm_as_a_judge import (
+    from embrouter.proxy.guardrails.guardrail_hooks.llm_as_a_judge import (
         LLMAsAJudgeGuardrail,
         _default_router_provider,
     )
@@ -752,7 +752,7 @@ def test_db_synced_judge_guardrail_uses_lazy_router_provider():
 
 
 def test_reinitialized_judge_guardrail_uses_lazy_router_provider():
-    from litellm.proxy.guardrails.guardrail_hooks.llm_as_a_judge import (
+    from embrouter.proxy.guardrails.guardrail_hooks.llm_as_a_judge import (
         LLMAsAJudgeGuardrail,
         _default_router_provider,
     )
@@ -772,12 +772,12 @@ def test_reinitialized_judge_guardrail_uses_lazy_router_provider():
             cb_list[:] = snapshot
 
 
-def _lakera_guardrail(guardrail_id: str, **litellm_params_overrides) -> Guardrail:
-    params = {"guardrail": "lakera_v2", "mode": "pre_call", "on_flagged": "block", **litellm_params_overrides}
+def _lakera_guardrail(guardrail_id: str, **embrouter_params_overrides) -> Guardrail:
+    params = {"guardrail": "lakera_v2", "mode": "pre_call", "on_flagged": "block", **embrouter_params_overrides}
     return Guardrail(
         guardrail_id=guardrail_id,
         guardrail_name="lakera-test",
-        litellm_params=LitellmParams(**params),
+        embrouter_params=EmbrouterParams(**params),
     )
 
 
@@ -827,7 +827,7 @@ class TestReinitializeGuardrailRestoresOnFailure:
                     source="db",
                 )
 
-            assert handler.IN_MEMORY_GUARDRAILS["lakera-restore-meta"]["litellm_params"].on_flagged == "block"
+            assert handler.IN_MEMORY_GUARDRAILS["lakera-restore-meta"]["embrouter_params"].on_flagged == "block"
         finally:
             for cb_list, snapshot in zip(lists, snapshots):
                 cb_list[:] = snapshot
@@ -843,7 +843,7 @@ class TestScanOnlyToolResultsInitRefusal:
         snapshots = [list(cb_list) for cb_list in lists]
         try:
             return InMemoryGuardrailHandler().initialize_guardrail(
-                guardrail={"guardrail_name": name, "litellm_params": params},
+                guardrail={"guardrail_name": name, "embrouter_params": params},
             )
         finally:
             for cb_list, snapshot in zip(lists, snapshots):
@@ -935,7 +935,7 @@ class TestScanOnlyToolResultsInitRefusal:
 @pytest.mark.asyncio
 async def test_update_guardrail_in_db_raises_when_row_missing():
     prisma_client = MagicMock()
-    prisma_client.db.litellm_guardrailstable.update = AsyncMock(return_value=None)
+    prisma_client.db.embrouter_guardrailstable.update = AsyncMock(return_value=None)
 
     with pytest.raises(
         Exception,
@@ -945,7 +945,7 @@ async def test_update_guardrail_in_db_raises_when_row_missing():
             guardrail_id="missing-guardrail",
             guardrail=Guardrail(
                 guardrail_name="missing-guardrail",
-                litellm_params=LitellmParams(guardrail="bedrock", mode="pre_call"),
+                embrouter_params=EmbrouterParams(guardrail="bedrock", mode="pre_call"),
             ),
             prisma_client=prisma_client,
         )
@@ -955,10 +955,10 @@ def test_reinitialize_guardrail_restores_previous_on_failure():
     """A reinitialization whose new params make the guardrail constructor raise must
     restore the previous instance instead of leaving the guardrail silently removed:
     an enforcing guardrail must never fail open because an update was bad."""
-    from litellm.proxy.guardrails import guardrail_registry as registry_module
+    from embrouter.proxy.guardrails import guardrail_registry as registry_module
 
-    def _initializer(litellm_params, guardrail):
-        if litellm_params.api_key == "boom":
+    def _initializer(embrouter_params, guardrail):
+        if embrouter_params.api_key == "boom":
             raise ValueError("invalid updated params")
         return CustomGuardrail(
             guardrail_name=guardrail["guardrail_name"],
@@ -972,7 +972,7 @@ def test_reinitialize_guardrail_restores_previous_on_failure():
         created = handler.initialize_guardrail(
             guardrail={
                 "guardrail_name": "restore-me",
-                "litellm_params": {"guardrail": "restore_test", "mode": "pre_call", "api_key": "ok"},
+                "embrouter_params": {"guardrail": "restore_test", "mode": "pre_call", "api_key": "ok"},
             },
         )
         guardrail_id = created["guardrail_id"]
@@ -983,7 +983,7 @@ def test_reinitialize_guardrail_restores_previous_on_failure():
                 guardrail={
                     "guardrail_id": guardrail_id,
                     "guardrail_name": "restore-me",
-                    "litellm_params": {"guardrail": "restore_test", "mode": "pre_call", "api_key": "boom"},
+                    "embrouter_params": {"guardrail": "restore_test", "mode": "pre_call", "api_key": "boom"},
                 },
             )
 
@@ -1002,10 +1002,10 @@ def test_reinitialize_guardrail_raises_value_error_for_non_value_error_init_fail
     catch is exhaustive instead of warn-and-200 persisting a broken config."""
     import re
 
-    from litellm.proxy.guardrails import guardrail_registry as registry_module
+    from embrouter.proxy.guardrails import guardrail_registry as registry_module
 
-    def _initializer(litellm_params, guardrail):
-        if litellm_params.api_key == "bad-regex":
+    def _initializer(embrouter_params, guardrail):
+        if embrouter_params.api_key == "bad-regex":
             re.compile("([")
         return CustomGuardrail(
             guardrail_name=guardrail["guardrail_name"],
@@ -1019,7 +1019,7 @@ def test_reinitialize_guardrail_raises_value_error_for_non_value_error_init_fail
         created = handler.initialize_guardrail(
             guardrail={
                 "guardrail_name": "regex-me",
-                "litellm_params": {"guardrail": "regex_test", "mode": "pre_call", "api_key": "ok"},
+                "embrouter_params": {"guardrail": "regex_test", "mode": "pre_call", "api_key": "ok"},
             },
         )
         guardrail_id = created["guardrail_id"]
@@ -1029,7 +1029,7 @@ def test_reinitialize_guardrail_raises_value_error_for_non_value_error_init_fail
                 guardrail={
                     "guardrail_id": guardrail_id,
                     "guardrail_name": "regex-me",
-                    "litellm_params": {"guardrail": "regex_test", "mode": "pre_call", "api_key": "bad-regex"},
+                    "embrouter_params": {"guardrail": "regex_test", "mode": "pre_call", "api_key": "bad-regex"},
                 },
             )
 
@@ -1043,16 +1043,16 @@ def test_reinitialize_guardrail_raises_value_error_for_non_value_error_init_fail
 
 def test_sync_guardrail_from_db_applies_db_dict_params_to_live_instance():
     """
-    Regression for PUT /guardrails/{id}: the DB row arrives with litellm_params as
+    Regression for PUT /guardrails/{id}: the DB row arrives with embrouter_params as
     a plain jsonb dict, and the in-place update_in_memory_guardrail cast it to
-    LitellmParams without constructing one, so vars() raised and the running proxy
+    EmbrouterParams without constructing one, so vars() raised and the running proxy
     kept enforcing the stale config forever. The PUT endpoint now routes through
     sync_guardrail_from_db, which must rebuild the live instance from the dict:
     new blocked words compiled in, old ones gone, and the event hook re-derived
     from mode (the base-class setattr path wrote self.mode while dispatch reads
     self.event_hook, so only a full re-init applies a mode change).
     """
-    from litellm.proxy.guardrails.guardrail_hooks.litellm_content_filter.content_filter import (
+    from embrouter.proxy.guardrails.guardrail_hooks.embrouter_content_filter.content_filter import (
         ContentFilterGuardrail,
     )
 
@@ -1063,8 +1063,8 @@ def test_sync_guardrail_from_db_applies_db_dict_params_to_live_instance():
         return Guardrail(
             guardrail_id=gid,
             guardrail_name="cf-put-sync",
-            litellm_params={
-                "guardrail": "litellm_content_filter",
+            embrouter_params={
+                "guardrail": "embrouter_content_filter",
                 "mode": mode,
                 "default_on": True,
                 "blocked_words": [{"keyword": word, "action": "BLOCK"}],

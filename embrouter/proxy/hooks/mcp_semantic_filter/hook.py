@@ -11,24 +11,24 @@ from typing import TYPE_CHECKING, Final, Optional
 from fastapi import HTTPException
 from typing_extensions import ReadOnly, TypedDict
 
-from litellm._logging import verbose_proxy_logger
-from litellm.constants import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.constants import (
     DEFAULT_MCP_SEMANTIC_FILTER_EMBEDDING_MODEL,
     DEFAULT_MCP_SEMANTIC_FILTER_SIMILARITY_THRESHOLD,
     DEFAULT_MCP_SEMANTIC_FILTER_TOP_K,
 )
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.proxy._experimental.mcp_server.semantic_tool_filter import (
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.proxy._experimental.mcp_server.semantic_tool_filter import (
     SemanticToolFilterContextWindowError,
 )
 
 if TYPE_CHECKING:
-    from litellm.caching.caching import DualCache
-    from litellm.proxy._experimental.mcp_server.semantic_tool_filter import (
+    from embrouter.caching.caching import DualCache
+    from embrouter.proxy._experimental.mcp_server.semantic_tool_filter import (
         SemanticMCPToolFilter,
     )
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.router import Router
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.router import Router
 
 
 class SemanticToolFilterConfig(TypedDict, total=False):
@@ -78,15 +78,15 @@ class SemanticToolFilterHook(CustomLogger):
 
     def _should_expand_mcp_tools(self, tools: Iterable[Mapping[str, object]]) -> bool:
         """
-        Check if tools contain MCP references with server_url="litellm_proxy".
+        Check if tools contain MCP references with server_url="embrouter_proxy".
 
-        Only expands MCP tools pointing to litellm proxy, not external MCP servers.
+        Only expands MCP tools pointing to embrouter proxy, not external MCP servers.
         """
-        from litellm.responses.mcp.litellm_proxy_mcp_handler import (
-            LiteLLM_Proxy_MCP_Handler,
+        from embrouter.responses.mcp.embrouter_proxy_mcp_handler import (
+            EmbRouter_Proxy_MCP_Handler,
         )
 
-        return LiteLLM_Proxy_MCP_Handler._should_use_litellm_mcp_gateway(tools)
+        return EmbRouter_Proxy_MCP_Handler._should_use_embrouter_mcp_gateway(tools)
 
     async def _expand_mcp_tools(
         self,
@@ -96,15 +96,15 @@ class SemanticToolFilterHook(CustomLogger):
         """
         Expand MCP references to actual tool definitions.
 
-        Reuses LiteLLM_Proxy_MCP_Handler._process_mcp_tools_to_openai_format
+        Reuses EmbRouter_Proxy_MCP_Handler._process_mcp_tools_to_openai_format
         which internally does: parse -> fetch -> filter -> deduplicate -> transform
         """
-        from litellm.responses.mcp.litellm_proxy_mcp_handler import (
-            LiteLLM_Proxy_MCP_Handler,
+        from embrouter.responses.mcp.embrouter_proxy_mcp_handler import (
+            EmbRouter_Proxy_MCP_Handler,
         )
 
         # Parse to separate MCP tools from other tools
-        mcp_tools, _ = await LiteLLM_Proxy_MCP_Handler._split_mcp_tools(tools)
+        mcp_tools, _ = await EmbRouter_Proxy_MCP_Handler._split_mcp_tools(tools)
 
         if not mcp_tools:
             return []
@@ -114,8 +114,8 @@ class SemanticToolFilterHook(CustomLogger):
         (
             openai_tools,
             _,
-        ) = await LiteLLM_Proxy_MCP_Handler._process_mcp_tools_to_openai_format(
-            user_api_key_auth=user_api_key_dict, mcp_tools_with_litellm_proxy=mcp_tools
+        ) = await EmbRouter_Proxy_MCP_Handler._process_mcp_tools_to_openai_format(
+            user_api_key_auth=user_api_key_dict, mcp_tools_with_embrouter_proxy=mcp_tools
         )
 
         # Convert Pydantic models to dicts for compatibility
@@ -179,7 +179,7 @@ class SemanticToolFilterHook(CustomLogger):
         served_names: Callable[[Collection[str]], Awaitable[frozenset[str]]] | None = None,
     ) -> list[object]:
         """
-        Restrict each litellm_proxy MCP reference to the semantically selected tools.
+        Restrict each embrouter_proxy MCP reference to the semantically selected tools.
 
         The reference block is preserved rather than replaced with expanded tools, so the
         MCP gateway still performs the expansion. That keeps the per-endpoint tool shape
@@ -192,14 +192,14 @@ class SemanticToolFilterHook(CustomLogger):
         empty selection through is safe rather than a hidden allow-all: the gateway reads
         the union of every reference's allowed_tools and treats an empty union as unset.
         """
-        from litellm.responses.mcp.litellm_proxy_mcp_handler import (
-            LiteLLM_Proxy_MCP_Handler,
+        from embrouter.responses.mcp.embrouter_proxy_mcp_handler import (
+            EmbRouter_Proxy_MCP_Handler,
         )
 
         via_gateway: Final = await (
-            LiteLLM_Proxy_MCP_Handler.routes_through_gateway(tools, served_names)
+            EmbRouter_Proxy_MCP_Handler.routes_through_gateway(tools, served_names)
             if served_names is not None
-            else LiteLLM_Proxy_MCP_Handler.routes_through_gateway(tools)
+            else EmbRouter_Proxy_MCP_Handler.routes_through_gateway(tools)
         )
         return [
             {**tool, "allowed_tools": selected_tool_names} if isinstance(tool, dict) and routed else tool
@@ -223,8 +223,8 @@ class SemanticToolFilterHook(CustomLogger):
         return bool(name) and name in self.filter._tool_map
 
     def _get_metadata_variable_name(self, data: dict) -> str:
-        if "litellm_metadata" in data:
-            return "litellm_metadata"
+        if "embrouter_metadata" in data:
+            return "embrouter_metadata"
         return "metadata"
 
     def _emit_filter_metadata(
@@ -248,8 +248,8 @@ class SemanticToolFilterHook(CustomLogger):
 
             _metadata_variable_name: Final = self._get_metadata_variable_name(data)
             metadata: Final = data.setdefault(_metadata_variable_name, {})
-            metadata["litellm_semantic_filter_stats"] = filter_stats
-            metadata["litellm_semantic_filter_tools"] = tool_names_csv
+            metadata["embrouter_semantic_filter_stats"] = filter_stats
+            metadata["embrouter_semantic_filter_tools"] = tool_names_csv
 
             verbose_proxy_logger.info(
                 "Semantic tool filter: %s MCP tools (%s native preserved, %s total)",
@@ -312,7 +312,7 @@ class SemanticToolFilterHook(CustomLogger):
             return None
 
         if self._should_expand_mcp_tools(tools):
-            verbose_proxy_logger.debug("Detected litellm_proxy MCP references, expanding before semantic filtering")
+            verbose_proxy_logger.debug("Detected embrouter_proxy MCP references, expanding before semantic filtering")
 
             if not self.filter.enabled:
                 verbose_proxy_logger.debug("Semantic filter disabled, leaving MCP references untouched")
@@ -434,28 +434,28 @@ class SemanticToolFilterHook(CustomLogger):
         user_api_key_dict: "UserAPIKeyAuth",
         response: object,
         request_headers: dict[str, str] | None = None,
-        litellm_call_info: dict[str, object] | None = None,
+        embrouter_call_info: dict[str, object] | None = None,
     ) -> dict[str, str] | None:
         """Add semantic filter stats and tool names to response headers."""
-        from litellm.constants import MAX_MCP_SEMANTIC_FILTER_TOOLS_HEADER_LENGTH
+        from embrouter.constants import MAX_MCP_SEMANTIC_FILTER_TOOLS_HEADER_LENGTH
 
         _metadata_variable_name: Final = self._get_metadata_variable_name(data)
         metadata: Final = data.get(_metadata_variable_name, {})
 
-        filter_stats: Final = metadata.get("litellm_semantic_filter_stats")
+        filter_stats: Final = metadata.get("embrouter_semantic_filter_stats")
         if not filter_stats:
             return None
 
-        headers: Final = {"x-litellm-semantic-filter": filter_stats}
+        headers: Final = {"x-embrouter-semantic-filter": filter_stats}
 
         # Add CSV of filtered tool names (nginx-safe length)
-        tool_names_csv: Final = metadata.get("litellm_semantic_filter_tools", "")
+        tool_names_csv: Final = metadata.get("embrouter_semantic_filter_tools", "")
         header_safe_csv: Final = _truncate_csv_at_tool_name_boundary(
             tool_names_csv=tool_names_csv,
             max_length=MAX_MCP_SEMANTIC_FILTER_TOOLS_HEADER_LENGTH,
         )
         if header_safe_csv:
-            headers["x-litellm-semantic-filter-tools"] = header_safe_csv
+            headers["x-embrouter-semantic-filter-tools"] = header_safe_csv
 
         return headers
 
@@ -481,13 +481,13 @@ class SemanticToolFilterHook(CustomLogger):
         Initialize semantic tool filter from proxy config.
 
         Args:
-            config: Proxy configuration dict (litellm_settings.mcp_semantic_tool_filter)
-            llm_router: LiteLLM router instance for embeddings
+            config: Proxy configuration dict (embrouter_settings.mcp_semantic_tool_filter)
+            llm_router: EmbRouter router instance for embeddings
 
         Returns:
             SemanticToolFilterHook instance if enabled, None otherwise
         """
-        from litellm.proxy._experimental.mcp_server.semantic_tool_filter import (
+        from embrouter.proxy._experimental.mcp_server.semantic_tool_filter import (
             SemanticMCPToolFilter,
         )
 
@@ -506,7 +506,7 @@ class SemanticToolFilterHook(CustomLogger):
 
             semantic_filter: Final = SemanticMCPToolFilter(
                 embedding_model=embedding_model,
-                litellm_router_instance=llm_router,
+                embrouter_router_instance=llm_router,
                 top_k=top_k,
                 similarity_threshold=similarity_threshold,
                 enabled=True,
@@ -528,7 +528,7 @@ class SemanticToolFilterHook(CustomLogger):
 
         except ImportError as e:
             verbose_proxy_logger.warning(
-                "semantic-router not installed. Install with: pip install 'litellm[semantic-router]'. Error: %s", e
+                "semantic-router not installed. Install with: pip install 'embrouter[semantic-router]'. Error: %s", e
             )
             return None
         except Exception as e:

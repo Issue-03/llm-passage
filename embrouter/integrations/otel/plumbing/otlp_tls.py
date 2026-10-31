@@ -29,7 +29,7 @@ def resolve_otlp_http_tls(signal: Literal["TRACES", "METRICS", "LOGS"]) -> OtlpH
     if os.getenv(f"OTEL_EXPORTER_OTLP_{signal}_CERTIFICATE") or os.getenv("OTEL_EXPORTER_OTLP_CERTIFICATE"):
         return OtlpHttpTls(certificate_file=None, session=None)
 
-    from litellm.llms.custom_httpx.http_handler import get_ssl_verify
+    from embrouter.llms.custom_httpx.http_handler import get_ssl_verify
 
     verify: Final = get_ssl_verify()
     if verify is False:

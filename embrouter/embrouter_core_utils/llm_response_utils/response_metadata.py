@@ -5,11 +5,11 @@ from typing import Final
 
 import httpx
 
-from litellm.constants import LITELLM_DETAILED_TIMING
-from litellm.litellm_core_utils.core_helpers import get_litellm_metadata_from_kwargs, process_response_headers
-from litellm.litellm_core_utils.llm_response_utils.get_api_base import get_api_base
-from litellm.litellm_core_utils.logging_utils import LiteLLMLoggingObject
-from litellm.types.utils import (
+from embrouter.constants import EMBROUTER_DETAILED_TIMING
+from embrouter.embrouter_core_utils.core_helpers import get_embrouter_metadata_from_kwargs, process_response_headers
+from embrouter.embrouter_core_utils.llm_response_utils.get_api_base import get_api_base
+from embrouter.embrouter_core_utils.logging_utils import EmbRouterLoggingObject
+from embrouter.types.utils import (
     EmbeddingResponse,
     HiddenParams,
     ModelResponse,
@@ -18,9 +18,9 @@ from litellm.types.utils import (
 
 
 def _timing_window_start(
-    start_time: datetime.datetime, logging_obj: LiteLLMLoggingObject
+    start_time: datetime.datetime, logging_obj: EmbRouterLoggingObject
 ) -> tuple[datetime.datetime, bool]:
-    received_at: Final = get_litellm_metadata_from_kwargs(logging_obj.model_call_details).get("litellm_received_at")
+    received_at: Final = get_embrouter_metadata_from_kwargs(logging_obj.model_call_details).get("embrouter_received_at")
     if isinstance(received_at, datetime.datetime):
         return received_at, True
     return start_time, False
@@ -57,7 +57,7 @@ def _union_duration_ms(windows: object, lower: float, upper: float) -> float | N
 def response_timing_metrics(
     start_time: datetime.datetime,
     end_time: datetime.datetime,
-    logging_obj: LiteLLMLoggingObject,
+    logging_obj: EmbRouterLoggingObject,
     include_overhead: bool = True,
 ) -> Mapping[str, float]:
     """``_response_ms`` for the window starting at proxy receive time when stamped, else ``start_time``.
@@ -78,7 +78,7 @@ def response_timing_metrics(
         if caching_details is not None and caching_details.get("cache_hit") is True
         else None
     )
-    metadata: Final[Mapping[str, object]] = get_litellm_metadata_from_kwargs(logging_obj.model_call_details)
+    metadata: Final[Mapping[str, object]] = get_embrouter_metadata_from_kwargs(logging_obj.model_call_details)
     llm_api_duration_ms: Final = logging_obj.model_call_details.get("llm_api_duration_ms")
     if cache_duration_ms is not None:
         overhead_ms: float | None = total_response_time_ms - cache_duration_ms
@@ -98,12 +98,12 @@ def response_timing_metrics(
         overhead_ms = None
     if overhead_ms is None:
         return {"_response_ms": total_response_time_ms}
-    return {"_response_ms": total_response_time_ms, "litellm_overhead_time_ms": overhead_ms}
+    return {"_response_ms": total_response_time_ms, "embrouter_overhead_time_ms": overhead_ms}
 
 
 class ResponseMetadata:
     """
-    Handles setting and managing `_hidden_params`, `response_time_ms`, and `litellm_overhead_time_ms` for LiteLLM responses
+    Handles setting and managing `_hidden_params`, `response_time_ms`, and `embrouter_overhead_time_ms` for EmbRouter responses
     """
 
     def __init__(self, result: object):
@@ -115,24 +115,24 @@ class ResponseMetadata:
         """Check if response type supports timing metrics"""
         return isinstance(self.result, (ModelResponse, EmbeddingResponse, TranscriptionResponse))
 
-    def set_hidden_params(self, logging_obj: LiteLLMLoggingObject, model: str | None, kwargs: dict) -> None:
+    def set_hidden_params(self, logging_obj: EmbRouterLoggingObject, model: str | None, kwargs: dict) -> None:
         """Set hidden parameters on the response"""
 
         ## ADD OTHER HIDDEN PARAMS
         model_info: Final = kwargs.get("model_info", {}) or {}
         model_id: Final = model_info.get("id", None)
         new_params: Final = {
-            "litellm_call_id": getattr(logging_obj, "litellm_call_id", None),
+            "embrouter_call_id": getattr(logging_obj, "embrouter_call_id", None),
             "api_base": get_api_base(model=model or "", optional_params=kwargs),
             "model_id": model_id,
             "response_cost": logging_obj._response_cost_calculator(
-                result=self.result, litellm_model_name=model, router_model_id=model_id
+                result=self.result, embrouter_model_name=model, router_model_id=model_id
             ),
             "additional_headers": process_response_headers(
                 self._get_additional_headers_from_hidden_params() or {},
-                preserve_litellm_internal_headers=True,
+                preserve_embrouter_internal_headers=True,
             ),
-            "litellm_model_name": model,
+            "embrouter_model_name": model,
         }
         self._update_hidden_params(new_params)
 
@@ -159,7 +159,7 @@ class ResponseMetadata:
         self,
         start_time: datetime.datetime,
         end_time: datetime.datetime,
-        logging_obj: LiteLLMLoggingObject,
+        logging_obj: EmbRouterLoggingObject,
         include_overhead: bool = True,
     ) -> None:
         """Set response timing metrics"""
@@ -171,7 +171,7 @@ class ResponseMetadata:
             self.result._response_ms = total_response_time_ms
 
         #########################################################
-        # 1. Add _response_ms total duration and the LiteLLM overhead within it
+        # 1. Add _response_ms total duration and the EmbRouter overhead within it
         #    (total minus the cache read on a cache hit, else total minus the provider call)
         #########################################################
         self._update_hidden_params(timing_metrics)
@@ -191,7 +191,7 @@ class ResponseMetadata:
         # 3. Detailed per-phase timing (opt-in via env var)
         #########################################################
         llm_api_duration_ms: Final = logging_obj.model_call_details.get("llm_api_duration_ms")
-        if LITELLM_DETAILED_TIMING and llm_api_duration_ms is not None:
+        if EMBROUTER_DETAILED_TIMING and llm_api_duration_ms is not None:
             detailed: Final[dict[str, float]] = {
                 "timing_llm_api_ms": round(llm_api_duration_ms, 4),
             }
@@ -222,7 +222,7 @@ class ResponseMetadata:
 
 def update_response_metadata(
     result: object,
-    logging_obj: LiteLLMLoggingObject,
+    logging_obj: EmbRouterLoggingObject,
     model: str | None,
     kwargs: dict,
     start_time: datetime.datetime,
@@ -233,7 +233,7 @@ def update_response_metadata(
     Updates response metadata including hidden params and timing metrics
     Updates response metadata, adds the following:
         - response._hidden_params
-        - response._hidden_params["litellm_overhead_time_ms"]
+        - response._hidden_params["embrouter_overhead_time_ms"]
         - response.response_time_ms
     A result that cannot hold ``_hidden_params`` gets its timing on ``logging_obj`` instead.
     Callers whose ``end_time`` covers more than the recorded provider call (a stream read to

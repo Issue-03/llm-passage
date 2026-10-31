@@ -11,7 +11,7 @@ import useAuthorized from "@/app/(dashboard)/hooks/useAuthorized";
 import { fetchTeams } from "@/app/(dashboard)/networking";
 import { createQueryKeys } from "@/app/(dashboard)/hooks/common/queryKeysFactory";
 import { teamInfoCall } from "@/components/networking";
-import { getProxyBaseUrl, getGlobalLitellmHeaderName, deriveErrorMessage, handleError } from "@/components/networking";
+import { getProxyBaseUrl, getGlobalEmbrouterHeaderName, deriveErrorMessage, handleError } from "@/components/networking";
 import { teamListScopeUserId } from "@/utils/roles";
 
 export interface TeamsResponse {
@@ -79,7 +79,7 @@ export const teamListCall = async (
     const response = await fetch(url, {
       method: "GET",
       headers: {
-        [getGlobalLitellmHeaderName()]: `Bearer ${accessToken}`,
+        [getGlobalEmbrouterHeaderName()]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
     });
@@ -257,7 +257,7 @@ const deletedTeamListCall = async (
     const response = await fetch(url, {
       method: "GET",
       headers: {
-        [getGlobalLitellmHeaderName()]: `Bearer ${accessToken}`,
+        [getGlobalEmbrouterHeaderName()]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
     });

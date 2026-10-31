@@ -1,7 +1,7 @@
 """
 Regression test for issue #28146.
 
-`use_chat_completions_api` is a LiteLLM-internal control flag (it forces the
+`use_chat_completions_api` is a EmbRouter-internal control flag (it forces the
 /responses -> /chat/completions bridge). When set as a model-level param in the
 proxy config, it must never be forwarded to the upstream provider's request
 body. OpenAI/Anthropic reject unknown body params with HTTP 400.
@@ -10,13 +10,13 @@ body. OpenAI/Anthropic reject unknown body params with HTTP 400.
 from unittest.mock import MagicMock
 
 
-import litellm
-from litellm.types.utils import all_litellm_params
-from litellm.utils import get_non_default_completion_params
+import embrouter
+from embrouter.types.utils import all_embrouter_params
+from embrouter.utils import get_non_default_completion_params
 
 
-def test_use_chat_completions_api_is_a_known_litellm_param():
-    assert "use_chat_completions_api" in all_litellm_params
+def test_use_chat_completions_api_is_a_known_embrouter_param():
+    assert "use_chat_completions_api" in all_embrouter_params
 
 
 def test_use_chat_completions_api_not_forwarded_as_provider_param():
@@ -56,7 +56,7 @@ def test_completion_does_not_leak_flag_into_provider_request_body():
         mock_raw_response
     )
 
-    litellm.completion(
+    embrouter.completion(
         model="openai/gpt-4o-mini",
         messages=[{"role": "user", "content": "hi"}],
         use_chat_completions_api=True,

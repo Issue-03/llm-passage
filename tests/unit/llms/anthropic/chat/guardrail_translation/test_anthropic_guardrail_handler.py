@@ -12,13 +12,13 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.base_llm.guardrail_translation.base_translation import StreamingScanKey
-from litellm.llms.anthropic.chat.guardrail_translation.handler import (
+from embrouter.integrations.custom_guardrail import CustomGuardrail
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.base_llm.guardrail_translation.base_translation import StreamingScanKey
+from embrouter.llms.anthropic.chat.guardrail_translation.handler import (
     AnthropicMessagesHandler,
 )
-from litellm.types.utils import GenericGuardrailAPIInputs
+from embrouter.types.utils import GenericGuardrailAPIInputs
 
 
 class MockPassThroughGuardrail(CustomGuardrail):
@@ -162,8 +162,8 @@ class TestAnthropicMessagesHandlerStreamingRequestData:
 
     @pytest.mark.asyncio
     async def test_terminal_chunk_passes_assembled_response_and_metadata(self):
-        from litellm.proxy._types import UserAPIKeyAuth
-        from litellm.types.utils import Choices, Message, ModelResponse
+        from embrouter.proxy._types import UserAPIKeyAuth
+        from embrouter.types.utils import Choices, Message, ModelResponse
 
         handler = AnthropicMessagesHandler()
         guardrail = MockRecordingGuardrail(guardrail_name="test")
@@ -184,14 +184,14 @@ class TestAnthropicMessagesHandlerStreamingRequestData:
         with (
             patch.object(handler, "_check_streaming_has_ended", return_value=True),
             patch(
-                "litellm.llms.anthropic.chat.guardrail_translation.handler.AnthropicPassthroughLoggingHandler._build_complete_streaming_response",
+                "embrouter.llms.anthropic.chat.guardrail_translation.handler.AnthropicPassthroughLoggingHandler._build_complete_streaming_response",
                 return_value=mock_response,
             ),
         ):
             await handler.process_output_streaming_response(
                 responses_so_far=[b"data: some chunk"],
                 guardrail_to_apply=guardrail,
-                litellm_logging_obj=MagicMock(),
+                embrouter_logging_obj=MagicMock(),
                 user_api_key_dict=UserAPIKeyAuth(user_id="u-1", team_id="t-1"),
                 request_data={"model": "claude-sonnet-4-5"},
             )
@@ -199,12 +199,12 @@ class TestAnthropicMessagesHandlerStreamingRequestData:
         assert guardrail.request_data is not None
         assert guardrail.request_data["response"] is mock_response
         assert (
-            guardrail.request_data["litellm_metadata"]["user_api_key_user_id"] == "u-1"
+            guardrail.request_data["embrouter_metadata"]["user_api_key_user_id"] == "u-1"
         )
 
     @pytest.mark.asyncio
     async def test_mid_stream_chunk_passes_responses_so_far_and_metadata(self):
-        from litellm.proxy._types import UserAPIKeyAuth
+        from embrouter.proxy._types import UserAPIKeyAuth
 
         handler = AnthropicMessagesHandler()
         guardrail = MockRecordingGuardrail(guardrail_name="test")
@@ -219,7 +219,7 @@ class TestAnthropicMessagesHandlerStreamingRequestData:
             await handler.process_output_streaming_response(
                 responses_so_far=responses_so_far,
                 guardrail_to_apply=guardrail,
-                litellm_logging_obj=MagicMock(),
+                embrouter_logging_obj=MagicMock(),
                 user_api_key_dict=UserAPIKeyAuth(user_id="u-1", team_id="t-1"),
                 request_data={"model": "claude-sonnet-4-5"},
             )
@@ -227,7 +227,7 @@ class TestAnthropicMessagesHandlerStreamingRequestData:
         assert guardrail.request_data is not None
         assert guardrail.request_data["responses"] is responses_so_far
         assert (
-            guardrail.request_data["litellm_metadata"]["user_api_key_user_id"] == "u-1"
+            guardrail.request_data["embrouter_metadata"]["user_api_key_user_id"] == "u-1"
         )
 
 
@@ -249,7 +249,7 @@ class TestAnthropicMessagesHandlerStreamingOutputProcessing:
         with (
             patch.object(handler, "_check_streaming_has_ended", return_value=True),
             patch(
-                "litellm.llms.anthropic.chat.guardrail_translation.handler.AnthropicPassthroughLoggingHandler._build_complete_streaming_response",
+                "embrouter.llms.anthropic.chat.guardrail_translation.handler.AnthropicPassthroughLoggingHandler._build_complete_streaming_response",
                 return_value=None,
             ),
         ):
@@ -259,7 +259,7 @@ class TestAnthropicMessagesHandlerStreamingOutputProcessing:
             result = await handler.process_output_streaming_response(
                 responses_so_far=responses_so_far,
                 guardrail_to_apply=guardrail,
-                litellm_logging_obj=MagicMock(),
+                embrouter_logging_obj=MagicMock(),
             )
 
             # Should return the responses unchanged
@@ -306,7 +306,7 @@ class TestAnthropicMessagesHandlerStreamingOutputProcessing:
         result = await handler.process_output_streaming_response(
             responses_so_far=chunks,
             guardrail_to_apply=self._masking_guardrail(),
-            litellm_logging_obj=MagicMock(),
+            embrouter_logging_obj=MagicMock(),
             deliver_ended_stream_rewrites=True,
         )
 
@@ -357,7 +357,7 @@ class TestAnthropicMessagesHandlerStreamingOutputProcessing:
         result = await handler.process_output_streaming_response(
             responses_so_far=chunks,
             guardrail_to_apply=self._argument_masking_guardrail(),
-            litellm_logging_obj=MagicMock(),
+            embrouter_logging_obj=MagicMock(),
             deliver_ended_stream_rewrites=True,
         )
 
@@ -382,7 +382,7 @@ class TestAnthropicMessagesHandlerStreamingOutputProcessing:
         await handler.process_output_streaming_response(
             responses_so_far=chunks,
             guardrail_to_apply=RenameTool(guardrail_name="test"),
-            litellm_logging_obj=MagicMock(),
+            embrouter_logging_obj=MagicMock(),
             deliver_ended_stream_rewrites=True,
         )
 
@@ -400,14 +400,14 @@ class TestAnthropicMessagesHandlerStreamingOutputProcessing:
         await handler.process_output_streaming_response(
             responses_so_far=chunks,
             guardrail_to_apply=self._argument_masking_guardrail(),
-            litellm_logging_obj=MagicMock(),
+            embrouter_logging_obj=MagicMock(),
         )
 
         assert chunks == original
 
     @pytest.mark.asyncio
     async def test_deliver_ended_stream_tool_use_rewrite_with_server_tool_use_block_fails_closed(self):
-        from litellm.proxy.policy_engine.pipeline_executor import UndeliverableStreamRewrite
+        from embrouter.proxy.policy_engine.pipeline_executor import UndeliverableStreamRewrite
 
         handler = AnthropicMessagesHandler()
         server_tool_use = [
@@ -426,7 +426,7 @@ class TestAnthropicMessagesHandlerStreamingOutputProcessing:
             await handler.process_output_streaming_response(
                 responses_so_far=chunks,
                 guardrail_to_apply=self._argument_masking_guardrail(),
-                litellm_logging_obj=MagicMock(),
+                embrouter_logging_obj=MagicMock(),
                 deliver_ended_stream_rewrites=True,
             )
 
@@ -439,7 +439,7 @@ class TestAnthropicMessagesHandlerStreamingOutputProcessing:
         await handler.process_output_streaming_response(
             responses_so_far=chunks,
             guardrail_to_apply=self._masking_guardrail(),
-            litellm_logging_obj=MagicMock(),
+            embrouter_logging_obj=MagicMock(),
         )
 
         assert chunks == original
@@ -452,7 +452,7 @@ class TestAnthropicMessagesHandlerStreamingOutputProcessing:
         result = await handler.process_output_streaming_response(
             responses_so_far=chunks,
             guardrail_to_apply=self._masking_guardrail(),
-            litellm_logging_obj=MagicMock(),
+            embrouter_logging_obj=MagicMock(),
             deliver_ended_stream_rewrites=True,
         )
 
@@ -464,7 +464,7 @@ class TestAnthropicMessagesHandlerStreamingOutputProcessing:
 
     @pytest.mark.asyncio
     async def test_unended_stream_rewrite_with_no_text_delta_to_carry_it_fails_open(self):
-        from litellm.proxy.policy_engine.pipeline_executor import UndeliverableStreamRewrite
+        from embrouter.proxy.policy_engine.pipeline_executor import UndeliverableStreamRewrite
 
         class FillEmpty(CustomGuardrail):
             async def apply_guardrail(self, inputs, request_data, input_type, logging_obj=None):
@@ -478,7 +478,7 @@ class TestAnthropicMessagesHandlerStreamingOutputProcessing:
             await handler.process_output_streaming_response(
                 responses_so_far=chunks,
                 guardrail_to_apply=FillEmpty(guardrail_name="test"),
-                litellm_logging_obj=MagicMock(),
+                embrouter_logging_obj=MagicMock(),
                 deliver_ended_stream_rewrites=True,
             )
 
@@ -493,7 +493,7 @@ class TestAnthropicMessagesHandlerStreamingOutputProcessing:
         result = await handler.process_output_streaming_response(
             responses_so_far=chunks,
             guardrail_to_apply=MockPassThroughGuardrail(guardrail_name="test"),
-            litellm_logging_obj=MagicMock(),
+            embrouter_logging_obj=MagicMock(),
             deliver_ended_stream_rewrites=True,
         )
 
@@ -509,7 +509,7 @@ class TestAnthropicMessagesHandlerStreamingOutputProcessing:
         result = await handler.process_output_streaming_response(
             responses_so_far=chunks,
             guardrail_to_apply=self._masking_guardrail(),
-            litellm_logging_obj=MagicMock(),
+            embrouter_logging_obj=MagicMock(),
         )
 
         assert result is chunks
@@ -517,29 +517,29 @@ class TestAnthropicMessagesHandlerStreamingOutputProcessing:
 
 
 class TestAnthropicMessagesHandlerInputProcessing:
-    """Test input processing preserves litellm_metadata for dynamic guardrails."""
+    """Test input processing preserves embrouter_metadata for dynamic guardrails."""
 
     @pytest.mark.asyncio
-    async def test_process_input_messages_preserves_litellm_metadata_guardrails(self):
+    async def test_process_input_messages_preserves_embrouter_metadata_guardrails(self):
         handler = AnthropicMessagesHandler()
         guardrail = MockDynamicGuardrail(guardrail_name="cygnal-monitor")
 
         data = {
             "model": "claude-3-5-sonnet-20241022",
             "messages": [{"role": "user", "content": "hello"}],
-            "litellm_metadata": {
+            "embrouter_metadata": {
                 "guardrails": [
                     {"cygnal-monitor": {"extra_body": {"policy_id": "policy-123"}}}
                 ]
             },
         }
 
-        with patch("litellm.proxy.proxy_server.premium_user", True):
+        with patch("embrouter.proxy.proxy_server.premium_user", True):
             await handler.process_input_messages(
                 data=data, guardrail_to_apply=guardrail
             )
 
-        assert data.get("litellm_metadata", {}).get("guardrails")
+        assert data.get("embrouter_metadata", {}).get("guardrails")
         assert guardrail.dynamic_params == {"policy_id": "policy-123"}
 
     @pytest.mark.asyncio
@@ -676,7 +676,7 @@ class TestAnthropicMessagesHandlerInputProcessing:
     async def test_bedrock_masking_slice_lines_up_when_top_level_system_is_included(
         self,
     ):
-        from litellm.proxy.guardrails.guardrail_hooks.bedrock_guardrails import (
+        from embrouter.proxy.guardrails.guardrail_hooks.bedrock_guardrails import (
             BedrockGuardrail,
         )
 
@@ -725,7 +725,7 @@ class TestAnthropicMessagesHandlerInputProcessing:
         self,
         skip_system_message_in_guardrail: Optional[bool],
     ):
-        from litellm.proxy.guardrails.guardrail_hooks.bedrock_guardrails import (
+        from embrouter.proxy.guardrails.guardrail_hooks.bedrock_guardrails import (
             BedrockGuardrail,
         )
 
@@ -758,7 +758,7 @@ class TestAnthropicMessagesHandlerInputProcessing:
 
     @pytest.mark.asyncio
     async def test_bedrock_masking_slice_stays_aligned_with_midturn_system(self):
-        from litellm.proxy.guardrails.guardrail_hooks.bedrock_guardrails import (
+        from embrouter.proxy.guardrails.guardrail_hooks.bedrock_guardrails import (
             BedrockGuardrail,
         )
 
@@ -1225,7 +1225,7 @@ class TestAnthropicMessagesHandlerInputProcessing:
     async def test_midturn_system_keeps_tool_result_turns_aligned_for_masking(self):
         """Tool-result texts are scanned (LIT-5251), so counts align and the latest-user
         masking slice is locatable; a mid-turn system entry only shifts it by its own text."""
-        from litellm.proxy.guardrails.guardrail_hooks.bedrock_guardrails import (
+        from embrouter.proxy.guardrails.guardrail_hooks.bedrock_guardrails import (
             BedrockGuardrail,
         )
 
@@ -1280,7 +1280,7 @@ class TestAnthropicMessagesHandlerInputProcessing:
 
     @pytest.mark.asyncio
     async def test_compaction_rewrite_to_only_system_messages_is_rejected(self):
-        import litellm
+        import embrouter
 
         handler = AnthropicMessagesHandler()
         guardrail = MockCompactingGuardrail(
@@ -1295,15 +1295,15 @@ class TestAnthropicMessagesHandlerInputProcessing:
             ],
         }
 
-        with patch.object(litellm, "modify_params", False):
-            with pytest.raises(litellm.BadRequestError, match="at least one non-system message"):
+        with patch.object(embrouter, "modify_params", False):
+            with pytest.raises(embrouter.BadRequestError, match="at least one non-system message"):
                 await handler.process_input_messages(data=data, guardrail_to_apply=guardrail)
 
     @pytest.mark.asyncio
     async def test_compaction_rewrite_to_only_system_messages_repaired_with_modify_params(
         self,
     ):
-        import litellm
+        import embrouter
 
         handler = AnthropicMessagesHandler()
         guardrail = MockCompactingGuardrail(
@@ -1318,7 +1318,7 @@ class TestAnthropicMessagesHandlerInputProcessing:
             ],
         }
 
-        with patch.object(litellm, "modify_params", True):
+        with patch.object(embrouter, "modify_params", True):
             await handler.process_input_messages(data=data, guardrail_to_apply=guardrail)
 
         assert data["messages"] == [{"role": "user", "content": [{"type": "text", "text": "Please continue."}]}]
@@ -1348,7 +1348,7 @@ class TestAnthropicMessagesHandlerInputProcessing:
         This test verifies the fix for the bug where accessing model_response.choices[0]
         would raise IndexError when the response has an empty choices list.
         """
-        from litellm.types.utils import ModelResponse
+        from embrouter.types.utils import ModelResponse
 
         handler = AnthropicMessagesHandler()
         guardrail = MockPassThroughGuardrail(guardrail_name="test")
@@ -1367,7 +1367,7 @@ class TestAnthropicMessagesHandlerInputProcessing:
         with (
             patch.object(handler, "_check_streaming_has_ended", return_value=True),
             patch(
-                "litellm.llms.anthropic.chat.guardrail_translation.handler.AnthropicPassthroughLoggingHandler._build_complete_streaming_response",
+                "embrouter.llms.anthropic.chat.guardrail_translation.handler.AnthropicPassthroughLoggingHandler._build_complete_streaming_response",
                 return_value=mock_response,
             ),
         ):
@@ -1377,7 +1377,7 @@ class TestAnthropicMessagesHandlerInputProcessing:
             result = await handler.process_output_streaming_response(
                 responses_so_far=responses_so_far,
                 guardrail_to_apply=guardrail,
-                litellm_logging_obj=MagicMock(),
+                embrouter_logging_obj=MagicMock(),
             )
 
             # Should return the responses unchanged
@@ -1386,7 +1386,7 @@ class TestAnthropicMessagesHandlerInputProcessing:
     @pytest.mark.asyncio
     async def test_process_output_streaming_response_with_valid_choices(self):
         """Test that streaming response with valid choices still works correctly"""
-        from litellm.types.utils import Choices, Message, ModelResponse
+        from embrouter.types.utils import Choices, Message, ModelResponse
 
         handler = AnthropicMessagesHandler()
         guardrail = MockPassThroughGuardrail(guardrail_name="test")
@@ -1414,7 +1414,7 @@ class TestAnthropicMessagesHandlerInputProcessing:
         with (
             patch.object(handler, "_check_streaming_has_ended", return_value=True),
             patch(
-                "litellm.llms.anthropic.chat.guardrail_translation.handler.AnthropicPassthroughLoggingHandler._build_complete_streaming_response",
+                "embrouter.llms.anthropic.chat.guardrail_translation.handler.AnthropicPassthroughLoggingHandler._build_complete_streaming_response",
                 return_value=mock_response,
             ),
         ):
@@ -1424,7 +1424,7 @@ class TestAnthropicMessagesHandlerInputProcessing:
             result = await handler.process_output_streaming_response(
                 responses_so_far=responses_so_far,
                 guardrail_to_apply=guardrail,
-                litellm_logging_obj=MagicMock(),
+                embrouter_logging_obj=MagicMock(),
             )
 
             # Should return the responses
@@ -1449,7 +1449,7 @@ class TestAnthropicMessagesHandlerInputProcessing:
             result = await handler.process_output_streaming_response(
                 responses_so_far=responses_so_far,
                 guardrail_to_apply=guardrail,
-                litellm_logging_obj=MagicMock(),
+                embrouter_logging_obj=MagicMock(),
             )
 
             # Should return the responses
@@ -1500,7 +1500,7 @@ class TestAnthropicMessagesHandlerInputProcessing:
         }
 
         result = await handler.process_input_messages(
-            data=data, guardrail_to_apply=guardrail, litellm_logging_obj=MagicMock()
+            data=data, guardrail_to_apply=guardrail, embrouter_logging_obj=MagicMock()
         )
 
         # Verify tools are in correct Anthropic format
@@ -1569,7 +1569,7 @@ class TestAnthropicMessagesHandlerToolInjection:
         }
 
         result = await handler.process_input_messages(
-            data=data, guardrail_to_apply=guardrail, litellm_logging_obj=MagicMock()
+            data=data, guardrail_to_apply=guardrail, embrouter_logging_obj=MagicMock()
         )
 
         names = [t.get("name") for t in result["tools"]]
@@ -1587,7 +1587,7 @@ class TestAnthropicMessagesHandlerToolInjection:
         }
 
         result = await handler.process_input_messages(
-            data=data, guardrail_to_apply=guardrail, litellm_logging_obj=MagicMock()
+            data=data, guardrail_to_apply=guardrail, embrouter_logging_obj=MagicMock()
         )
 
         assert [t.get("name") for t in result["tools"]] == ["injected_tool"]
@@ -1605,7 +1605,7 @@ class TestAnthropicMessagesIncrementalScan:
     """
 
     def _bedrock_guardrail(self):
-        from litellm.proxy.guardrails.guardrail_hooks.bedrock_guardrails import BedrockGuardrail
+        from embrouter.proxy.guardrails.guardrail_hooks.bedrock_guardrails import BedrockGuardrail
 
         return BedrockGuardrail(
             guardrail_name="bedrock-incremental-anthropic",
@@ -1620,7 +1620,7 @@ class TestAnthropicMessagesIncrementalScan:
             "model": "claude-sonnet-4-5",
             "messages": messages,
             "system": "You are a helpful geography assistant.",
-            "litellm_session_id": session_id,
+            "embrouter_session_id": session_id,
         }
 
     @pytest.mark.asyncio
@@ -2196,7 +2196,7 @@ class ToolCallArgumentsMaskingGuardrail(InputsRecordingGuardrail):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict[str, object],
         input_type: Literal["request", "response"],
-        logging_obj: Optional[LiteLLMLoggingObj] = None,
+        logging_obj: Optional[EmbRouterLoggingObj] = None,
     ) -> GenericGuardrailAPIInputs:
         outputs = await super().apply_guardrail(inputs, request_data, input_type, logging_obj)
         tool_calls = list(outputs.get("tool_calls") or [])
@@ -2354,7 +2354,7 @@ class TestAnthropicMessagesTopLevelSystemAndToolUseInputs:
 
     @pytest.mark.asyncio
     async def test_non_json_rewritten_arguments_are_rejected_by_name(self):
-        from litellm.llms.base_llm.guardrail_translation.utils import UnappliableRequestRewrite
+        from embrouter.llms.base_llm.guardrail_translation.utils import UnappliableRequestRewrite
 
         handler = AnthropicMessagesHandler()
         guardrail = ToolCallArgumentsMaskingGuardrail(replacement_arguments="[REDACTED]")
@@ -2546,7 +2546,7 @@ class PerSlotTextGuardrail(CustomGuardrail):
         input_type: Literal["request", "response"],
         logging_obj: Optional[Any] = None,
     ) -> GenericGuardrailAPIInputs:
-        from litellm.llms.base_llm.guardrail_translation.utils import message_slot_texts
+        from embrouter.llms.base_llm.guardrail_translation.utils import message_slot_texts
 
         rows = inputs.get("structured_messages") or []
         return {
@@ -2574,7 +2574,7 @@ class TestPerMessageTextWriteBack:
 
     @pytest.mark.asyncio
     async def test_one_text_per_row_over_a_multi_block_system_prompt_is_rejected_by_name(self):
-        from litellm.llms.base_llm.guardrail_translation.utils import UnappliableRequestRewrite
+        from embrouter.llms.base_llm.guardrail_translation.utils import UnappliableRequestRewrite
 
         data = {
             "model": "claude-sonnet-4-5",
@@ -2626,7 +2626,7 @@ class TestPerMessageTextWriteBack:
 
 class TestAnthropicMessagesHandlerPostCallHookResponse:
     def test_openai_shaped_stream_assembly_reaches_the_hook_as_a_messages_response(self):
-        from litellm.types.utils import Choices, Message, ModelResponse, Usage
+        from embrouter.types.utils import Choices, Message, ModelResponse, Usage
 
         assembled = ModelResponse(
             id="msg_1",

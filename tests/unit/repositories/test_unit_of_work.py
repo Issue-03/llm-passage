@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Mapping, Tuple
 
 import pytest
 
-from litellm.repositories.unit_of_work import (
+from embrouter.repositories.unit_of_work import (
     LinkedSpendResetWrites,
     budget_cascade_unit_of_work,
     spend_reset_unit_of_work,
@@ -27,16 +27,16 @@ class FakeBatch:
     def __init__(self):
         self.calls: List[Tuple[str, Dict[str, Any], Dict[str, Any]]] = []
         self.commit_count = 0
-        self.litellm_verificationtoken = FakeBatchTable("litellm_verificationtoken", self.calls)
-        self.litellm_usertable = FakeBatchTable("litellm_usertable", self.calls)
-        self.litellm_teamtable = FakeBatchTable("litellm_teamtable", self.calls)
-        self.litellm_budgettable = FakeBatchTable("litellm_budgettable", self.calls)
-        self.litellm_teammembership = FakeBatchTable("litellm_teammembership", self.calls)
-        self.litellm_organizationtable = FakeBatchTable("litellm_organizationtable", self.calls)
-        self.litellm_tagtable = FakeBatchTable("litellm_tagtable", self.calls)
-        self.litellm_modelaccessgroupbudgettable = FakeBatchTable("litellm_modelaccessgroupbudgettable", self.calls)
-        self.litellm_projecttable = FakeBatchTable("litellm_projecttable", self.calls)
-        self.litellm_endusertable = FakeBatchTable("litellm_endusertable", self.calls)
+        self.embrouter_verificationtoken = FakeBatchTable("embrouter_verificationtoken", self.calls)
+        self.embrouter_usertable = FakeBatchTable("embrouter_usertable", self.calls)
+        self.embrouter_teamtable = FakeBatchTable("embrouter_teamtable", self.calls)
+        self.embrouter_budgettable = FakeBatchTable("embrouter_budgettable", self.calls)
+        self.embrouter_teammembership = FakeBatchTable("embrouter_teammembership", self.calls)
+        self.embrouter_organizationtable = FakeBatchTable("embrouter_organizationtable", self.calls)
+        self.embrouter_tagtable = FakeBatchTable("embrouter_tagtable", self.calls)
+        self.embrouter_modelaccessgroupbudgettable = FakeBatchTable("embrouter_modelaccessgroupbudgettable", self.calls)
+        self.embrouter_projecttable = FakeBatchTable("embrouter_projecttable", self.calls)
+        self.embrouter_endusertable = FakeBatchTable("embrouter_endusertable", self.calls)
 
     async def commit(self) -> None:
         self.commit_count += 1
@@ -54,9 +54,9 @@ async def test_updates_across_tables_share_one_batch_and_commit_once():
 
     assert batch.commit_count == 1
     assert batch.calls == [
-        ("litellm_verificationtoken", {"token": "tok-1"}, {"spend": {"decrement": 1.5}, "budget_reset_at": reset_at}),
-        ("litellm_usertable", {"user_id": "user-1"}, {"spend": {"decrement": 2.5}, "budget_reset_at": reset_at}),
-        ("litellm_teamtable", {"team_id": "team-1"}, {"spend": {"decrement": 0.0}, "budget_reset_at": None}),
+        ("embrouter_verificationtoken", {"token": "tok-1"}, {"spend": {"decrement": 1.5}, "budget_reset_at": reset_at}),
+        ("embrouter_usertable", {"user_id": "user-1"}, {"spend": {"decrement": 2.5}, "budget_reset_at": reset_at}),
+        ("embrouter_teamtable", {"team_id": "team-1"}, {"spend": {"decrement": 0.0}, "budget_reset_at": None}),
     ]
 
 
@@ -102,14 +102,14 @@ async def test_budget_cascade_dependents_and_window_advance_share_one_batch():
 
     assert batch.commit_count == 1
     assert batch.calls == [
-        ("litellm_teammembership.update_many", linked, {"spend": 0}),
-        ("litellm_verificationtoken.update_many", linked, {"spend": 0}),
-        ("litellm_organizationtable.update_many", linked, {"spend": 0}),
-        ("litellm_tagtable.update_many", linked, {"spend": 0}),
-        ("litellm_modelaccessgroupbudgettable.update_many", linked, {"spend": 0}),
-        ("litellm_projecttable.update_many", linked, {"spend": 0}),
-        ("litellm_endusertable.update_many", {"user_id": {"in": ["enduser-1"]}}, {"spend": 0}),
-        ("litellm_budgettable.update_many", {"budget_id": "budget-1"}, {"budget_reset_at": reset_at}),
+        ("embrouter_teammembership.update_many", linked, {"spend": 0}),
+        ("embrouter_verificationtoken.update_many", linked, {"spend": 0}),
+        ("embrouter_organizationtable.update_many", linked, {"spend": 0}),
+        ("embrouter_tagtable.update_many", linked, {"spend": 0}),
+        ("embrouter_modelaccessgroupbudgettable.update_many", linked, {"spend": 0}),
+        ("embrouter_projecttable.update_many", linked, {"spend": 0}),
+        ("embrouter_endusertable.update_many", {"user_id": {"in": ["enduser-1"]}}, {"spend": 0}),
+        ("embrouter_budgettable.update_many", {"budget_id": "budget-1"}, {"budget_reset_at": reset_at}),
     ]
 
 
@@ -122,7 +122,7 @@ async def test_budget_window_advance_tolerates_a_tier_deleted_mid_chunk():
     async with budget_cascade_unit_of_work(lambda: batch) as uow:
         uow.budgets.queue_window_advance(budget_id="budget-1", budget_reset_at=datetime.now(timezone.utc))
 
-    assert [call[0] for call in batch.calls] == ["litellm_budgettable.update_many"]
+    assert [call[0] for call in batch.calls] == ["embrouter_budgettable.update_many"]
 
 
 async def test_every_cascade_dependent_writes_to_its_own_table_on_the_one_batch():

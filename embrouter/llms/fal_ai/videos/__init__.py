@@ -1,3 +1,3 @@
-from litellm.llms.fal_ai.videos.transformation import FalAIVideoConfig
+from embrouter.llms.fal_ai.videos.transformation import FalAIVideoConfig
 
 __all__ = ("FalAIVideoConfig",)

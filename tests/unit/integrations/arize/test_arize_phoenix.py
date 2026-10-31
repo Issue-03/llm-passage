@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from litellm.integrations.arize.arize_phoenix import (
+from embrouter.integrations.arize.arize_phoenix import (
     ArizePhoenixConfig,
     ArizePhoenixLogger,
 )
@@ -265,9 +265,9 @@ class TestResolveProjectName:
         }
         assert ArizePhoenixLogger._resolve_project_name(kwargs) == "my-project"
 
-    def test_extracts_phoenix_name_from_litellm_params_metadata(self):
+    def test_extracts_phoenix_name_from_embrouter_params_metadata(self):
         kwargs = {
-            "litellm_params": {
+            "embrouter_params": {
                 "metadata": {"phoenix_project_name": "sdk-project"},
             }
         }
@@ -324,7 +324,7 @@ class TestResolveProjectName:
 
     def test_resolves_override_from_user_api_key_auth_metadata(self):
         kwargs = {
-            "litellm_params": {
+            "embrouter_params": {
                 "metadata": {
                     "user_api_key_auth_metadata": {
                         "phoenix_project_name_override": "claude-code",
@@ -350,7 +350,7 @@ class TestResolveProjectName:
 
     def test_proxy_ignores_client_metadata_when_auth_metadata_set(self):
         kwargs = {
-            "litellm_params": {
+            "embrouter_params": {
                 "proxy_server_request": {
                     "url": "/v1/chat/completions",
                     "method": "POST",
@@ -369,7 +369,7 @@ class TestResolveProjectName:
 
     def test_proxy_without_auth_metadata_falls_back_to_env(self):
         kwargs = {
-            "litellm_params": {
+            "embrouter_params": {
                 "proxy_server_request": {
                     "url": "/v1/chat/completions",
                     "method": "POST",
@@ -387,7 +387,7 @@ class TestResolveProjectName:
 class TestProjectNameNotOnSpan:
     """Project routing uses Resource on TracerProvider, not span attributes."""
 
-    @patch("litellm.integrations.arize._utils.set_attributes")
+    @patch("embrouter.integrations.arize._utils.set_attributes")
     def test_set_arize_phoenix_attributes_does_not_set_project_on_span(
         self, _mock_set_attrs
     ):
@@ -413,7 +413,7 @@ class TestPerProjectTracerProviderCache:
             InMemorySpanExporter,
         )
 
-        from litellm.integrations.opentelemetry import OpenTelemetryConfig
+        from embrouter.integrations.opentelemetry import OpenTelemetryConfig
 
         exporter = InMemorySpanExporter()
         logger = ArizePhoenixLogger(
@@ -453,7 +453,7 @@ class TestPerProjectTracerProviderCache:
         assert "project-b" in project_names
 
     def test_shared_span_processor_created_once_at_init(self):
-        from litellm.integrations.opentelemetry import (
+        from embrouter.integrations.opentelemetry import (
             OpenTelemetry,
             OpenTelemetryConfig,
         )
@@ -475,7 +475,7 @@ class TestPerProjectTracerProviderCache:
             assert mock_get_processor.call_count == 1
 
     def test_lru_eviction_does_not_shutdown_provider(self):
-        from litellm.integrations.opentelemetry import OpenTelemetryConfig
+        from embrouter.integrations.opentelemetry import OpenTelemetryConfig
 
         logger = ArizePhoenixLogger(
             config=OpenTelemetryConfig(exporter=MagicMock()),
@@ -497,7 +497,7 @@ class TestPerProjectTracerProviderCache:
         shutdown_mock.assert_not_called()
 
     def test_flush_tracer_providers_force_flushes_shared_processor(self):
-        from litellm.integrations.opentelemetry import OpenTelemetryConfig
+        from embrouter.integrations.opentelemetry import OpenTelemetryConfig
 
         logger = ArizePhoenixLogger(
             config=OpenTelemetryConfig(exporter=MagicMock()),
@@ -514,11 +514,11 @@ class TestPerProjectTracerProviderCache:
         mock_provider.force_flush.assert_called_once()
 
 
-class TestGetLitellmResourceForProject:
+class TestGetEmbrouterResourceForProject:
     """Resource attrs used by Phoenix OSS and Arize AX for project routing."""
 
     def test_project_attrs_win_over_otel_resource_attributes_env(self):
-        from litellm.integrations.opentelemetry import OpenTelemetryConfig
+        from embrouter.integrations.opentelemetry import OpenTelemetryConfig
 
         logger = ArizePhoenixLogger(
             config=OpenTelemetryConfig(exporter=MagicMock()),
@@ -532,7 +532,7 @@ class TestGetLitellmResourceForProject:
             },
             clear=False,
         ):
-            resource = logger._get_litellm_resource_for_project("dynamic-proj")
+            resource = logger._get_embrouter_resource_for_project("dynamic-proj")
 
         assert resource.attributes["openinference.project.name"] == "dynamic-proj"
         assert resource.attributes["model_id"] == "dynamic-proj"
@@ -540,7 +540,7 @@ class TestGetLitellmResourceForProject:
 
     @patch.dict("os.environ", {"OTEL_DEPLOYMENT_ENVIRONMENT": "staging"}, clear=False)
     def test_preserves_deployment_environment_from_config(self):
-        from litellm.integrations.opentelemetry import OpenTelemetryConfig
+        from embrouter.integrations.opentelemetry import OpenTelemetryConfig
 
         logger = ArizePhoenixLogger(
             config=OpenTelemetryConfig(
@@ -548,7 +548,7 @@ class TestGetLitellmResourceForProject:
             ),
             callback_name="arize_phoenix",
         )
-        resource = logger._get_litellm_resource_for_project("my-proj")
+        resource = logger._get_embrouter_resource_for_project("my-proj")
         assert resource.attributes.get("deployment.environment") == "staging"
 
 
@@ -556,7 +556,7 @@ class TestTracerResolutionAndCache:
     """_resolve_tracer_for_kwargs, get_tracer_to_use_for_request, provider cache."""
 
     def test_get_tracer_to_use_for_request_matches_resolve_tracer(self):
-        from litellm.integrations.opentelemetry import OpenTelemetryConfig
+        from embrouter.integrations.opentelemetry import OpenTelemetryConfig
 
         logger = ArizePhoenixLogger(
             config=OpenTelemetryConfig(exporter=MagicMock()),
@@ -575,7 +575,7 @@ class TestTracerResolutionAndCache:
         assert tracer_from_request is not None
 
     def test_cache_reuses_provider_for_same_project(self):
-        from litellm.integrations.opentelemetry import OpenTelemetryConfig
+        from embrouter.integrations.opentelemetry import OpenTelemetryConfig
 
         logger = ArizePhoenixLogger(
             config=OpenTelemetryConfig(exporter=MagicMock()),
@@ -595,7 +595,7 @@ class TestTracerResolutionAndCache:
     def test_parallel_cache_miss_for_same_project_inserts_once(self):
         import threading
 
-        from litellm.integrations.opentelemetry import OpenTelemetryConfig
+        from embrouter.integrations.opentelemetry import OpenTelemetryConfig
 
         logger = ArizePhoenixLogger(
             config=OpenTelemetryConfig(exporter=MagicMock()),
@@ -643,7 +643,7 @@ class TestTracerResolutionAndCache:
             InMemorySpanExporter,
         )
 
-        from litellm.integrations.opentelemetry import OpenTelemetryConfig
+        from embrouter.integrations.opentelemetry import OpenTelemetryConfig
 
         exporter = InMemorySpanExporter()
         provider = TracerProvider()
@@ -674,7 +674,7 @@ class TestTracerResolutionAndCache:
             InMemorySpanExporter,
         )
 
-        from litellm.integrations.opentelemetry import OpenTelemetryConfig
+        from embrouter.integrations.opentelemetry import OpenTelemetryConfig
 
         exporter = InMemorySpanExporter()
         provider = TracerProvider()
@@ -688,12 +688,12 @@ class TestTracerResolutionAndCache:
         logger.flush_tracer_providers()
         exporter.shutdown()
 
-    def test_standard_logging_metadata_wins_over_litellm_params(self):
+    def test_standard_logging_metadata_wins_over_embrouter_params(self):
         kwargs = {
             "standard_logging_object": {
                 "metadata": {"phoenix_project_name_override": "from-logging"},
             },
-            "litellm_params": {
+            "embrouter_params": {
                 "metadata": {"phoenix_project_name_override": "from-params"},
             },
         }
@@ -711,8 +711,8 @@ class TestPhoenixTraceHandling:
         )
         from opentelemetry.trace import StatusCode
 
-        from litellm.integrations.opentelemetry import (
-            LITELLM_REQUEST_SPAN_NAME,
+        from embrouter.integrations.opentelemetry import (
+            EMBROUTER_REQUEST_SPAN_NAME,
             OpenTelemetryConfig,
         )
 
@@ -738,7 +738,7 @@ class TestPhoenixTraceHandling:
         )
 
         spans = exporter.get_finished_spans()
-        request_spans = [s for s in spans if s.name == LITELLM_REQUEST_SPAN_NAME]
+        request_spans = [s for s in spans if s.name == EMBROUTER_REQUEST_SPAN_NAME]
         assert len(request_spans) == 1
         assert request_spans[0].status.status_code == StatusCode.ERROR
         assert (
@@ -753,8 +753,8 @@ class TestPhoenixTraceHandling:
             InMemorySpanExporter,
         )
 
-        from litellm.integrations.opentelemetry import (
-            LITELLM_REQUEST_SPAN_NAME,
+        from embrouter.integrations.opentelemetry import (
+            EMBROUTER_REQUEST_SPAN_NAME,
             OpenTelemetryConfig,
         )
 
@@ -769,7 +769,7 @@ class TestPhoenixTraceHandling:
 
         logger._handle_success(
             {
-                "litellm_params": {
+                "embrouter_params": {
                     "proxy_server_request": {
                         "url": "/chat/completions",
                         "method": "POST",
@@ -789,8 +789,8 @@ class TestPhoenixTraceHandling:
 
         spans = exporter.get_finished_spans()
         span_names = {s.name for s in spans}
-        assert "litellm_proxy_request" in span_names
-        assert LITELLM_REQUEST_SPAN_NAME in span_names
+        assert "embrouter_proxy_request" in span_names
+        assert EMBROUTER_REQUEST_SPAN_NAME in span_names
 
         trace_ids = {s.context.trace_id for s in spans}
         assert len(trace_ids) == 1
@@ -807,7 +807,7 @@ class TestPhoenixTraceHandling:
             InMemorySpanExporter,
         )
 
-        from litellm.integrations.opentelemetry import OpenTelemetryConfig
+        from embrouter.integrations.opentelemetry import OpenTelemetryConfig
 
         exporter = InMemorySpanExporter()
         logger = ArizePhoenixLogger(
@@ -827,7 +827,7 @@ class TestPhoenixTraceHandling:
                         },
                     },
                 },
-                "litellm_params": {
+                "embrouter_params": {
                     "proxy_server_request": {
                         "url": "/v1/chat/completions",
                         "method": "POST",
@@ -870,7 +870,7 @@ if __name__ == "__main__":
 
 
 def test_arize_phoenix_client_sanitize_id_rejects_traversal():
-    from litellm.integrations.arize.arize_phoenix_client import _sanitize_id
+    from embrouter.integrations.arize.arize_phoenix_client import _sanitize_id
 
     # dotdot without slashes
     with pytest.raises(ValueError, match="path traversal"):
@@ -881,35 +881,35 @@ def test_arize_phoenix_client_sanitize_id_rejects_traversal():
 
 
 def test_arize_phoenix_client_sanitize_id_rejects_slash():
-    from litellm.integrations.arize.arize_phoenix_client import _sanitize_id
+    from embrouter.integrations.arize.arize_phoenix_client import _sanitize_id
 
     with pytest.raises(ValueError, match="disallowed characters"):
         _sanitize_id("valid/extra")
 
 
 def test_arize_phoenix_client_sanitize_id_rejects_fragment():
-    from litellm.integrations.arize.arize_phoenix_client import _sanitize_id
+    from embrouter.integrations.arize.arize_phoenix_client import _sanitize_id
 
     with pytest.raises(ValueError, match="disallowed characters"):
         _sanitize_id("abc#suffix")
 
 
 def test_arize_phoenix_client_sanitize_id_rejects_query():
-    from litellm.integrations.arize.arize_phoenix_client import _sanitize_id
+    from embrouter.integrations.arize.arize_phoenix_client import _sanitize_id
 
     with pytest.raises(ValueError, match="disallowed characters"):
         _sanitize_id("abc?x=1")
 
 
 def test_arize_phoenix_client_sanitize_id_allows_uuid():
-    from litellm.integrations.arize.arize_phoenix_client import _sanitize_id
+    from embrouter.integrations.arize.arize_phoenix_client import _sanitize_id
 
     uid = "550e8400-e29b-41d4-a716-446655440000"
     assert _sanitize_id(uid) == uid
 
 
 def test_arize_phoenix_client_get_prompt_version_rejects_traversal():
-    from litellm.integrations.arize.arize_phoenix_client import ArizePhoenixClient
+    from embrouter.integrations.arize.arize_phoenix_client import ArizePhoenixClient
 
     client = ArizePhoenixClient(
         api_key="test-key", api_base="https://app.phoenix.arize.com"

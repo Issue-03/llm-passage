@@ -2,7 +2,7 @@ from collections.abc import Mapping, Sequence
 from types import MappingProxyType
 from typing import Any, Final
 
-from litellm.types.utils import (
+from embrouter.types.utils import (
     CompletionTokensDetailsWrapper,
     PromptTokensDetailsWrapper,
     TranscriptionUsageDurationObject,
@@ -101,7 +101,7 @@ def _subtract_cached_from_input(
 class InteractionsUsageObjectTransformation:
     """
     Maps the Google Interactions API usage block (total_input_tokens,
-    output_tokens_by_modality, ...) into LiteLLM's chat-format ``Usage`` so the
+    output_tokens_by_modality, ...) into EmbRouter's chat-format ``Usage`` so the
     generic cost calculator and spend tracking can bill it.
     """
 

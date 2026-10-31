@@ -52,7 +52,7 @@ class TestRowRewritesAreFlagged:
 
     def test_the_incident_migration_is_flagged(self, tmp_path):
         sql = (
-            'UPDATE "LiteLLM_SpendLogs"\n'
+            'UPDATE "EmbRouter_SpendLogs"\n'
             '   SET "created_at" = "endTime",\n'
             '       "updated_at" = "endTime"\n'
             ' WHERE "created_at" > "endTime" + interval \'1 hour\';\n'
@@ -89,86 +89,86 @@ class TestSchemaStatementsPass:
         assert _keywords(tmp_path, "-- nothing to do here\n") == ()
 
 
-SPEND_LOGS_DEFAULT = 'ADD COLUMN ... DEFAULT on "LiteLLM_SpendLogs"'
+SPEND_LOGS_DEFAULT = 'ADD COLUMN ... DEFAULT on "EmbRouter_SpendLogs"'
 
 
 class TestDefaultedColumnsOnRequestLogTables:
     def test_the_shipped_timestamp_migration_is_flagged(self, tmp_path):
         sql = (
-            'ALTER TABLE "LiteLLM_SpendLogs"\n'
+            'ALTER TABLE "EmbRouter_SpendLogs"\n'
             'ADD COLUMN IF NOT EXISTS "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,\n'
             'ADD COLUMN IF NOT EXISTS "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;\n'
         )
         assert _keywords(tmp_path, sql) == (SPEND_LOGS_DEFAULT,)
 
     def test_a_nullable_column_with_a_default_is_flagged(self, tmp_path):
-        sql = 'ALTER TABLE "LiteLLM_SpendLogs" ADD COLUMN IF NOT EXISTS "proxy_server_request" JSONB DEFAULT \'{}\';'
+        sql = 'ALTER TABLE "EmbRouter_SpendLogs" ADD COLUMN IF NOT EXISTS "proxy_server_request" JSONB DEFAULT \'{}\';'
         assert _keywords(tmp_path, sql) == (SPEND_LOGS_DEFAULT,)
 
     def test_error_logs_is_a_request_log_table(self, tmp_path):
-        sql = 'ALTER TABLE "LiteLLM_ErrorLogs" ADD COLUMN "status" TEXT DEFAULT \'failure\';'
-        assert _keywords(tmp_path, sql) == ('ADD COLUMN ... DEFAULT on "LiteLLM_ErrorLogs"',)
+        sql = 'ALTER TABLE "EmbRouter_ErrorLogs" ADD COLUMN "status" TEXT DEFAULT \'failure\';'
+        assert _keywords(tmp_path, sql) == ('ADD COLUMN ... DEFAULT on "EmbRouter_ErrorLogs"',)
 
     def test_a_column_without_a_default_passes(self, tmp_path):
-        assert _keywords(tmp_path, 'ALTER TABLE "LiteLLM_SpendLogs" ADD COLUMN IF NOT EXISTS "status" TEXT;') == ()
+        assert _keywords(tmp_path, 'ALTER TABLE "EmbRouter_SpendLogs" ADD COLUMN IF NOT EXISTS "status" TEXT;') == ()
 
     def test_set_default_on_an_existing_column_passes(self, tmp_path):
-        sql = 'ALTER TABLE "LiteLLM_SpendLogs" ALTER COLUMN "status" SET DEFAULT \'success\';'
+        sql = 'ALTER TABLE "EmbRouter_SpendLogs" ALTER COLUMN "status" SET DEFAULT \'success\';'
         assert _keywords(tmp_path, sql) == ()
 
     def test_adding_a_column_and_defaulting_another_passes(self, tmp_path):
-        sql = 'ALTER TABLE "LiteLLM_SpendLogs" ADD COLUMN "a" TEXT, ALTER COLUMN "b" SET DEFAULT 1;'
+        sql = 'ALTER TABLE "EmbRouter_SpendLogs" ADD COLUMN "a" TEXT, ALTER COLUMN "b" SET DEFAULT 1;'
         assert _keywords(tmp_path, sql) == ()
 
     def test_a_referential_set_default_on_the_new_column_passes(self, tmp_path):
         sql = (
-            'ALTER TABLE "LiteLLM_SpendLogs" ADD COLUMN "team_id" TEXT '
-            'REFERENCES "LiteLLM_TeamTable"("team_id") ON DELETE SET DEFAULT;'
+            'ALTER TABLE "EmbRouter_SpendLogs" ADD COLUMN "team_id" TEXT '
+            'REFERENCES "EmbRouter_TeamTable"("team_id") ON DELETE SET DEFAULT;'
         )
         assert _keywords(tmp_path, sql) == ()
 
     def test_a_column_default_beside_a_referential_set_default_is_flagged(self, tmp_path):
         sql = (
-            'ALTER TABLE "LiteLLM_SpendLogs" ADD COLUMN "team_id" TEXT DEFAULT \'t\' '
-            'REFERENCES "LiteLLM_TeamTable"("team_id") ON DELETE SET DEFAULT;'
+            'ALTER TABLE "EmbRouter_SpendLogs" ADD COLUMN "team_id" TEXT DEFAULT \'t\' '
+            'REFERENCES "EmbRouter_TeamTable"("team_id") ON DELETE SET DEFAULT;'
         )
         assert _keywords(tmp_path, sql) == (SPEND_LOGS_DEFAULT,)
 
     def test_a_block_comment_before_the_table_name_is_flagged(self, tmp_path):
-        sql = 'ALTER TABLE /* audit */ "LiteLLM_SpendLogs" ADD COLUMN "a" TEXT DEFAULT \'x\';'
+        sql = 'ALTER TABLE /* audit */ "EmbRouter_SpendLogs" ADD COLUMN "a" TEXT DEFAULT \'x\';'
         assert _keywords(tmp_path, sql) == (SPEND_LOGS_DEFAULT,)
 
     def test_a_line_comment_before_the_table_name_is_flagged(self, tmp_path):
-        sql = 'ALTER TABLE IF EXISTS -- audit\n"LiteLLM_SpendLogs" ADD COLUMN "a" TEXT DEFAULT \'x\';'
+        sql = 'ALTER TABLE IF EXISTS -- audit\n"EmbRouter_SpendLogs" ADD COLUMN "a" TEXT DEFAULT \'x\';'
         assert _keywords(tmp_path, sql) == (SPEND_LOGS_DEFAULT,)
 
     def test_a_defaulted_column_among_other_actions_is_flagged(self, tmp_path):
-        sql = 'ALTER TABLE "LiteLLM_SpendLogs" ADD COLUMN "a" TEXT, ADD COLUMN "b" INTEGER DEFAULT 0;'
+        sql = 'ALTER TABLE "EmbRouter_SpendLogs" ADD COLUMN "a" TEXT, ADD COLUMN "b" INTEGER DEFAULT 0;'
         assert _keywords(tmp_path, sql) == (SPEND_LOGS_DEFAULT,)
 
     def test_a_comma_inside_the_type_does_not_split_the_action(self, tmp_path):
-        sql = 'ALTER TABLE "LiteLLM_SpendLogs" ADD COLUMN "a" NUMERIC(10, 2) DEFAULT 0;'
+        sql = 'ALTER TABLE "EmbRouter_SpendLogs" ADD COLUMN "a" NUMERIC(10, 2) DEFAULT 0;'
         assert _keywords(tmp_path, sql) == (SPEND_LOGS_DEFAULT,)
 
     def test_a_foreign_key_set_default_action_passes(self, tmp_path):
         sql = (
-            'ALTER TABLE "LiteLLM_SpendLogs" ADD CONSTRAINT "fk" FOREIGN KEY ("team_id") '
-            'REFERENCES "LiteLLM_TeamTable"("team_id") ON DELETE SET DEFAULT;'
+            'ALTER TABLE "EmbRouter_SpendLogs" ADD CONSTRAINT "fk" FOREIGN KEY ("team_id") '
+            'REFERENCES "EmbRouter_TeamTable"("team_id") ON DELETE SET DEFAULT;'
         )
         assert _keywords(tmp_path, sql) == ()
 
     def test_a_default_inside_a_check_constraint_passes(self, tmp_path):
-        sql = 'ALTER TABLE "LiteLLM_SpendLogs" ADD CONSTRAINT "c" CHECK ("status" IS DISTINCT FROM DEFAULT);'
+        sql = 'ALTER TABLE "EmbRouter_SpendLogs" ADD CONSTRAINT "c" CHECK ("status" IS DISTINCT FROM DEFAULT);'
         assert _keywords(tmp_path, sql) == ()
 
     def test_other_tables_pass(self, tmp_path):
-        sql = 'ALTER TABLE "LiteLLM_DailyUserSpend" ADD COLUMN "a" INTEGER NOT NULL DEFAULT 0;'
+        sql = 'ALTER TABLE "EmbRouter_DailyUserSpend" ADD COLUMN "a" INTEGER NOT NULL DEFAULT 0;'
         assert _keywords(tmp_path, sql) == ()
 
     def test_schema_qualified_and_if_exists_forms_are_flagged(self, tmp_path):
         sql = (
-            'ALTER TABLE "public"."LiteLLM_SpendLogs" ADD COLUMN "a" INTEGER DEFAULT 0;\n'
-            'ALTER TABLE IF EXISTS ONLY "LiteLLM_SpendLogs" ADD COLUMN "b" INTEGER DEFAULT 0;\n'
+            'ALTER TABLE "public"."EmbRouter_SpendLogs" ADD COLUMN "a" INTEGER DEFAULT 0;\n'
+            'ALTER TABLE IF EXISTS ONLY "EmbRouter_SpendLogs" ADD COLUMN "b" INTEGER DEFAULT 0;\n'
         )
         assert _keywords(tmp_path, sql) == (SPEND_LOGS_DEFAULT, SPEND_LOGS_DEFAULT)
 
@@ -176,33 +176,33 @@ class TestDefaultedColumnsOnRequestLogTables:
         sql = (
             "DO $$\nBEGIN\n"
             "    IF NOT EXISTS (SELECT 1 FROM information_schema.columns\n"
-            "                   WHERE table_name = 'LiteLLM_SpendLogs' AND column_name = 'a') THEN\n"
-            '        ALTER TABLE "LiteLLM_SpendLogs" ADD COLUMN "a" INTEGER DEFAULT 0;\n'
+            "                   WHERE table_name = 'EmbRouter_SpendLogs' AND column_name = 'a') THEN\n"
+            '        ALTER TABLE "EmbRouter_SpendLogs" ADD COLUMN "a" INTEGER DEFAULT 0;\n'
             "    END IF;\nEND $$;\n"
         )
         violations = _scan(tmp_path, sql)
         assert [(violation.line, violation.keyword) for violation in violations] == [(5, SPEND_LOGS_DEFAULT)]
 
     def test_handed_to_execute_is_flagged(self, tmp_path):
-        sql = 'DO $$ BEGIN EXECUTE \'ALTER TABLE "LiteLLM_SpendLogs" ADD COLUMN "a" INTEGER DEFAULT 0\'; END $$;'
+        sql = 'DO $$ BEGIN EXECUTE \'ALTER TABLE "EmbRouter_SpendLogs" ADD COLUMN "a" INTEGER DEFAULT 0\'; END $$;'
         assert _keywords(tmp_path, sql) == (SPEND_LOGS_DEFAULT,)
 
     def test_in_a_comment_passes(self, tmp_path):
-        sql = '-- ALTER TABLE "LiteLLM_SpendLogs" ADD COLUMN "a" INTEGER DEFAULT 0;\nSELECT 1;'
+        sql = '-- ALTER TABLE "EmbRouter_SpendLogs" ADD COLUMN "a" INTEGER DEFAULT 0;\nSELECT 1;'
         assert _keywords(tmp_path, sql) == ()
 
     def test_a_marker_exempts_it(self, tmp_path):
         sql = (
             "-- data-migration-ok: table is created empty two statements up\n"
-            'ALTER TABLE "LiteLLM_SpendLogs" ADD COLUMN "a" INTEGER DEFAULT 0;'
+            'ALTER TABLE "EmbRouter_SpendLogs" ADD COLUMN "a" INTEGER DEFAULT 0;'
         )
         assert _keywords(tmp_path, sql) == ()
 
     def test_the_report_names_the_table(self, tmp_path):
-        sql = '\nALTER TABLE "LiteLLM_SpendLogs" ADD COLUMN "a" INTEGER DEFAULT 0;'
+        sql = '\nALTER TABLE "EmbRouter_SpendLogs" ADD COLUMN "a" INTEGER DEFAULT 0;'
         rendered = _scan(tmp_path, sql)[0].render()
         assert "20260101000000_fixture/migration.sql:2" in rendered
-        assert 'ADD COLUMN ... DEFAULT on "LiteLLM_SpendLogs" rewrites existing rows at boot' in rendered
+        assert 'ADD COLUMN ... DEFAULT on "EmbRouter_SpendLogs" rewrites existing rows at boot' in rendered
 
 
 class TestInsert:

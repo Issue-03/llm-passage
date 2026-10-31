@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING, Final
 
-from litellm.repositories.table_repositories import PrismaTableRepository
+from embrouter.repositories.table_repositories import PrismaTableRepository
 
 if TYPE_CHECKING:
     from prisma import models as prisma_models  # noqa: F401  # resolved only from the quoted base-class subscript below
@@ -8,8 +8,8 @@ if TYPE_CHECKING:
 USER_BANNER_ROW_ID: Final = "user_banner"
 
 
-class UserBannerRepository(PrismaTableRepository["prisma_models.LiteLLM_UISettings"]):
-    table_name = "litellm_uisettings"
+class UserBannerRepository(PrismaTableRepository["prisma_models.EmbRouter_UISettings"]):
+    table_name = "embrouter_uisettings"
 
     async def get_raw_settings(self) -> object:
         db_record: Final = await self.table.find_unique(

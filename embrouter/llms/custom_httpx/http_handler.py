@@ -21,9 +21,9 @@ from httpx import USE_CLIENT_DEFAULT, AsyncHTTPTransport, HTTPTransport
 from httpx._types import CertTypes, RequestFiles
 from httpx._utils import get_environment_proxies
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.constants import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.constants import (
     _DEFAULT_TTL_FOR_HTTPX_CLIENTS,
     AIOHTTP_CONNECTOR_LIMIT,
     AIOHTTP_CONNECTOR_LIMIT_PER_HOST,
@@ -38,25 +38,25 @@ from litellm.constants import (
     DEFAULT_SSL_CIPHERS,
     HTTP_HANDLER_CONNECT_TIMEOUT_SECONDS,
 )
-from litellm.litellm_core_utils.logging_utils import track_llm_api_timing
-from litellm.litellm_core_utils.request_timeout_resolver import (
+from embrouter.embrouter_core_utils.logging_utils import track_llm_api_timing
+from embrouter.embrouter_core_utils.request_timeout_resolver import (
     get_configured_request_timeout,
 )
-from litellm.types.llms.custom_http import *
+from embrouter.types.llms.custom_http import *
 
 if TYPE_CHECKING:
-    from litellm import LlmProviders
-    from litellm.litellm_core_utils.litellm_logging import (
-        Logging as LiteLLMLoggingObject,
+    from embrouter import LlmProviders
+    from embrouter.embrouter_core_utils.embrouter_logging import (
+        Logging as EmbRouterLoggingObject,
     )
-    from litellm.llms.custom_httpx.aiohttp_transport import LiteLLMAiohttpTransport
+    from embrouter.llms.custom_httpx.aiohttp_transport import EmbRouterAiohttpTransport
 else:
     LlmProviders = Any
-    LiteLLMLoggingObject = Any
-    LiteLLMAiohttpTransport = Any
+    EmbRouterLoggingObject = Any
+    EmbRouterAiohttpTransport = Any
 
 try:
-    from litellm._version import version
+    from embrouter._version import version
 except Exception:
     version = "0.0.0"
 
@@ -76,9 +76,9 @@ _HttpxTransportT = TypeVar("_HttpxTransportT", HTTPTransport, AsyncHTTPTransport
 
 
 def http2_enabled() -> bool:
-    from litellm.secret_managers.main import str_to_bool
+    from embrouter.secret_managers.main import str_to_bool
 
-    return litellm.http2 is True or str_to_bool(os.getenv("LITELLM_HTTP2", "False")) is True
+    return embrouter.http2 is True or str_to_bool(os.getenv("EMBROUTER_HTTP2", "False")) is True
 
 
 def _environment_proxy_mounts(
@@ -143,10 +143,10 @@ def get_default_headers() -> dict:
     """
     Get default headers for HTTP requests.
 
-    - Default: `User-Agent: litellm/{version}`
-    - Override: set `LITELLM_USER_AGENT` to fully override the header value.
+    - Default: `User-Agent: embrouter/{version}`
+    - Override: set `EMBROUTER_USER_AGENT` to fully override the header value.
     """
-    user_agent: Final = os.environ.get("LITELLM_USER_AGENT")
+    user_agent: Final = os.environ.get("EMBROUTER_USER_AGENT")
     if user_agent is not None:
         return {"User-Agent": user_agent}
 
@@ -154,7 +154,7 @@ def get_default_headers() -> dict:
 
 
 def default_user_agent() -> str:
-    return f"litellm/{version}"
+    return f"embrouter/{version}"
 
 
 # Initialize headers (User-Agent)
@@ -168,7 +168,7 @@ _DEFAULT_TIMEOUT: Final = httpx.Timeout(
 
 
 def _default_cached_client_timeout() -> httpx.Timeout:
-    """Timeout for cached default httpx clients; honors an explicit litellm.request_timeout."""
+    """Timeout for cached default httpx clients; honors an explicit embrouter.request_timeout."""
     configured: Final = get_configured_request_timeout()
     if configured is None:
         return _DEFAULT_TIMEOUT
@@ -220,7 +220,7 @@ def _anchor_handler_to(response: httpx.Response, handler: object) -> None:
 def blocked_cookie_jar() -> CookieJar:
     """A jar that stores no response cookie and sends none, for httpx clients.
 
-    LiteLLM's outbound clients are pooled and shared by every caller, so a cookie one
+    EmbRouter's outbound clients are pooled and shared by every caller, so a cookie one
     upstream sets would be replayed to every other upstream on a matching domain.
     """
     return CookieJar(policy=DefaultCookiePolicy(allowed_domains=()))
@@ -229,7 +229,7 @@ def blocked_cookie_jar() -> CookieJar:
 _STREAMING_ERROR_BODY_READ_TIMEOUT_SECONDS: Final = 5.0
 _STREAMING_ERROR_BODY_READ_EXECUTOR: Final = concurrent.futures.ThreadPoolExecutor(
     max_workers=50,
-    thread_name_prefix="litellm-streaming-error-body-read",
+    thread_name_prefix="embrouter-streaming-error-body-read",
 )
 
 
@@ -304,7 +304,7 @@ def _create_ssl_context(
         custom_ssl_context.set_ciphers(DEFAULT_SSL_CIPHERS)
 
     # Configure ECDH curve for key exchange (e.g., to disable PQC and improve performance)
-    # Set SSL_ECDH_CURVE env var or litellm.ssl_ecdh_curve to 'X25519' to disable PQC
+    # Set SSL_ECDH_CURVE env var or embrouter.ssl_ecdh_curve to 'X25519' to disable PQC
     # Common valid curves: X25519, prime256v1, secp384r1, secp521r1
     if ssl_ecdh_curve and isinstance(ssl_ecdh_curve, str):
         try:
@@ -336,16 +336,16 @@ def get_ssl_verify(
     Prioritizes:
     1. Passed-in ssl_verify
     2. os.environ["SSL_VERIFY"]
-    3. litellm.ssl_verify
+    3. embrouter.ssl_verify
     4. os.environ["SSL_CERT_FILE"] (if ssl_verify is True)
 
     Returns:
         Union[bool, str]: The resolved SSL verification setting (bool or path to CA bundle)
     """
-    from litellm.secret_managers.main import str_to_bool
+    from embrouter.secret_managers.main import str_to_bool
 
     if ssl_verify is None:
-        ssl_verify = os.getenv("SSL_VERIFY", litellm.ssl_verify)
+        ssl_verify = os.getenv("SSL_VERIFY", embrouter.ssl_verify)
 
     # Convert string "False"/"True" to boolean if applicable
     if isinstance(ssl_verify, str):
@@ -387,7 +387,7 @@ def get_ssl_configuration(
 
     Args:
         ssl_verify: SSL verification setting. Can be:
-            - None: Use default from environment/litellm settings
+            - None: Use default from environment/embrouter settings
             - False: Disable SSL verification
             - True: Enable SSL verification
             - str: Path to CA bundle file
@@ -402,8 +402,8 @@ def get_ssl_configuration(
     # Get resolved ssl_verify
     ssl_verify = get_ssl_verify(ssl_verify=ssl_verify)
 
-    ssl_security_level: Final = os.getenv("SSL_SECURITY_LEVEL", litellm.ssl_security_level)
-    ssl_ecdh_curve: Final = os.getenv("SSL_ECDH_CURVE", litellm.ssl_ecdh_curve)
+    ssl_security_level: Final = os.getenv("SSL_SECURITY_LEVEL", embrouter.ssl_security_level)
+    ssl_ecdh_curve: Final = os.getenv("SSL_ECDH_CURVE", embrouter.ssl_ecdh_curve)
 
     cafile = None
     if isinstance(ssl_verify, str) and os.path.exists(ssl_verify):
@@ -670,7 +670,7 @@ class AsyncHTTPHandler:
 
         # An SSL certificate used by the requested host to authenticate the client.
         # /path/to/client.pem
-        cert: Final = os.getenv("SSL_CERTIFICATE", litellm.ssl_certificate)
+        cert: Final = os.getenv("SSL_CERTIFICATE", embrouter.ssl_certificate)
 
         if timeout is None:
             timeout = _DEFAULT_TIMEOUT
@@ -682,7 +682,7 @@ class AsyncHTTPHandler:
             shared_session=shared_session,
         )
 
-        # Get default headers (User-Agent, overridable via LITELLM_USER_AGENT)
+        # Get default headers (User-Agent, overridable via EMBROUTER_USER_AGENT)
         default_headers: Final = get_default_headers()
 
         return httpx.AsyncClient(
@@ -805,7 +805,7 @@ class AsyncHTTPHandler:
         headers: dict | None = None,
         timeout: float | httpx.Timeout | None = None,
         stream: bool = False,
-        logging_obj: LiteLLMLoggingObject | None = None,
+        logging_obj: EmbRouterLoggingObject | None = None,
         files: RequestFiles | None = None,
         content: _RequestContent | None = None,
     ):
@@ -858,10 +858,10 @@ class AsyncHTTPHandler:
                 for key, value in error_response.headers.items():
                     headers[f"response_headers-{key}"] = value
 
-            raise litellm.Timeout(
+            raise embrouter.Timeout(
                 message=f"Connection timed out. Timeout passed={timeout}, time taken={time_delta} seconds",
                 model="default-model-name",
-                llm_provider="litellm-httpx-handler",
+                llm_provider="embrouter-httpx-handler",
                 headers=headers,
             )
         except httpx.HTTPStatusError as e:
@@ -932,10 +932,10 @@ class AsyncHTTPHandler:
                 for key, value in error_response.headers.items():
                     headers[f"response_headers-{key}"] = value
 
-            raise litellm.Timeout(
+            raise embrouter.Timeout(
                 message=f"Connection timed out after {timeout} seconds.",
                 model="default-model-name",
-                llm_provider="litellm-httpx-handler",
+                llm_provider="embrouter-httpx-handler",
                 headers=headers,
             )
         except httpx.HTTPStatusError as e:
@@ -997,10 +997,10 @@ class AsyncHTTPHandler:
                 for key, value in error_response.headers.items():
                     headers[f"response_headers-{key}"] = value
 
-            raise litellm.Timeout(
+            raise embrouter.Timeout(
                 message=f"Connection timed out after {timeout} seconds.",
                 model="default-model-name",
-                llm_provider="litellm-httpx-handler",
+                llm_provider="embrouter-httpx-handler",
                 headers=headers,
             )
         except httpx.HTTPStatusError as e:
@@ -1097,7 +1097,7 @@ class AsyncHTTPHandler:
     # Strong references to finalizer-scheduled client-close tasks. A bare
     # create_task() result may be garbage-collected before it runs, leaving
     # the underlying aiohttp session unclosed ("Unclosed client session").
-    # Mirrors LiteLLMAiohttpTransport._background_close_tasks.
+    # Mirrors EmbRouterAiohttpTransport._background_close_tasks.
     _finalizer_close_tasks: ClassVar[set["asyncio.Task[None]"]] = set()  # mutable-ok: strong refs for pending closes
 
     @classmethod
@@ -1112,12 +1112,12 @@ class AsyncHTTPHandler:
     def _aiohttp_session_bound_elsewhere(self, loop: asyncio.AbstractEventLoop) -> bool:
         """True when the wrapped aiohttp session is bound to a loop other than
         ``loop`` — awaiting ``aclose()`` here would touch that loop's internals."""
-        from litellm.llms.custom_httpx.aiohttp_transport import (
-            LiteLLMAiohttpTransport,
+        from embrouter.llms.custom_httpx.aiohttp_transport import (
+            EmbRouterAiohttpTransport,
         )
 
         transport: Final = getattr(self._client, "_transport", None)
-        if not isinstance(transport, LiteLLMAiohttpTransport):
+        if not isinstance(transport, EmbRouterAiohttpTransport):
             return False
         session: Final = transport.client
         if not isinstance(session, ClientSession) or session.closed:
@@ -1135,12 +1135,12 @@ class AsyncHTTPHandler:
         "Unclosed client session" / "Unclosed connector" warnings fire at
         garbage collection.
         """
-        from litellm.llms.custom_httpx.aiohttp_transport import (
-            LiteLLMAiohttpTransport,
+        from embrouter.llms.custom_httpx.aiohttp_transport import (
+            EmbRouterAiohttpTransport,
         )
 
         transport: Final = getattr(self._client, "_transport", None)
-        if not isinstance(transport, LiteLLMAiohttpTransport):
+        if not isinstance(transport, EmbRouterAiohttpTransport):
             return
         # A shared session (e.g. the proxy's) is never this handler's to close.
         if not getattr(transport, "_owns_session", False):
@@ -1179,12 +1179,12 @@ class AsyncHTTPHandler:
         ssl_context: ssl.SSLContext | None = None,
         ssl_verify: bool | None = None,
         shared_session: Optional["ClientSession"] = None,
-    ) -> LiteLLMAiohttpTransport | AsyncHTTPTransport | None:
+    ) -> EmbRouterAiohttpTransport | AsyncHTTPTransport | None:
         """
         - Creates a transport for httpx.AsyncClient
-            - if litellm.force_ipv4 is True, it will return AsyncHTTPTransport with local_address="0.0.0.0"
+            - if embrouter.force_ipv4 is True, it will return AsyncHTTPTransport with local_address="0.0.0.0"
             - [Default] It will return AiohttpTransport
-            - Users can opt out of using AiohttpTransport by setting litellm.use_aiohttp_transport to False
+            - Users can opt out of using AiohttpTransport by setting embrouter.use_aiohttp_transport to False
 
 
         Notes on this handler:
@@ -1212,25 +1212,25 @@ class AsyncHTTPHandler:
     @staticmethod
     def _should_use_aiohttp_transport() -> bool:
         """
-        AiohttpTransport is the default transport for litellm.
+        AiohttpTransport is the default transport for embrouter.
 
         Httpx can be used by the following
-            - litellm.disable_aiohttp_transport = True
+            - embrouter.disable_aiohttp_transport = True
             - os.getenv("DISABLE_AIOHTTP_TRANSPORT") = "True"
         """
         import os
 
-        from litellm.secret_managers.main import str_to_bool
+        from embrouter.secret_managers.main import str_to_bool
 
         if http2_enabled():
-            verbose_logger.debug("LITELLM_HTTP2 enabled, using httpx transport (aiohttp has no HTTP/2 support)")
+            verbose_logger.debug("EMBROUTER_HTTP2 enabled, using httpx transport (aiohttp has no HTTP/2 support)")
             return False
 
         #########################################################
         # Check if user disabled aiohttp transport
         ########################################################
         if (
-            litellm.disable_aiohttp_transport is True
+            embrouter.disable_aiohttp_transport is True
             or str_to_bool(os.getenv("DISABLE_AIOHTTP_TRANSPORT", "False")) is True
         ):
             return False
@@ -1257,7 +1257,7 @@ class AsyncHTTPHandler:
             Dict with appropriate SSL configuration for TCPConnector
         """
         connector_kwargs: Final[_TCPConnectorKwargs] = {
-            "local_addr": ("0.0.0.0", 0) if litellm.force_ipv4 else None,
+            "local_addr": ("0.0.0.0", 0) if embrouter.force_ipv4 else None,
         }
 
         if ssl_context is not None:
@@ -1274,7 +1274,7 @@ class AsyncHTTPHandler:
         ssl_verify: bool | None = None,
         ssl_context: ssl.SSLContext | None = None,
         shared_session: Optional["ClientSession"] = None,
-    ) -> LiteLLMAiohttpTransport:
+    ) -> EmbRouterAiohttpTransport:
         """
         Creates an AiohttpTransport with RequestNotRead error handling
 
@@ -1282,15 +1282,15 @@ class AsyncHTTPHandler:
         - SSLContext: custom SSL context
         - False: disable SSL verification
         """
-        from litellm.llms.custom_httpx.aiohttp_transport import LiteLLMAiohttpTransport
-        from litellm.secret_managers.main import str_to_bool
+        from embrouter.llms.custom_httpx.aiohttp_transport import EmbRouterAiohttpTransport
+        from embrouter.secret_managers.main import str_to_bool
 
         connector_kwargs = AsyncHTTPHandler._get_ssl_connector_kwargs(ssl_verify=ssl_verify, ssl_context=ssl_context)
         #########################################################
         # Check if user enabled aiohttp trust env
         # use for HTTP_PROXY, HTTPS_PROXY, etc.
         ########################################################
-        trust_env: bool = litellm.aiohttp_trust_env
+        trust_env: bool = embrouter.aiohttp_trust_env
         if str_to_bool(os.getenv("AIOHTTP_TRUST_ENV", "False")) is True:
             trust_env = True
 
@@ -1333,7 +1333,7 @@ class AsyncHTTPHandler:
         # Use shared session if provided and valid
         if shared_session is not None and not shared_session.closed:
             verbose_logger.debug("SHARED SESSION: Reusing existing ClientSession (ID: %s)", id(shared_session))
-            return LiteLLMAiohttpTransport(
+            return EmbRouterAiohttpTransport(
                 client=shared_session,
                 ssl_verify=ssl_for_transport,
                 owns_session=False,
@@ -1342,7 +1342,7 @@ class AsyncHTTPHandler:
 
         # Create new session only if none provided or existing one is invalid
         verbose_logger.debug("NEW SESSION: Creating new ClientSession (no shared session provided)")
-        return LiteLLMAiohttpTransport(
+        return EmbRouterAiohttpTransport(
             client=session_factory,
             ssl_verify=ssl_for_transport,
         )
@@ -1355,14 +1355,14 @@ class AsyncHTTPHandler:
         - If force_ipv4 is True, it will create an AsyncHTTPTransport with local_address set to "0.0.0.0"
         - [Default] If force_ipv4 is False, it will return None
         """
-        if litellm.force_ipv4:
+        if embrouter.force_ipv4:
             return AsyncHTTPTransport(local_address=_IPV4_LOCAL_ADDRESS, http2=http2_enabled())
         else:
             return None
 
     @staticmethod
     def _create_httpx_proxy_mounts(
-        transport: LiteLLMAiohttpTransport | AsyncHTTPTransport | None,
+        transport: EmbRouterAiohttpTransport | AsyncHTTPTransport | None,
         verify: VerifyTypes,
         cert: CertTypes | None,
     ) -> Mapping[str, AsyncHTTPTransport | None] | None:
@@ -1396,9 +1396,9 @@ class HTTPHandler:
 
         # An SSL certificate used by the requested host to authenticate the client.
         # /path/to/client.pem
-        cert: Final = os.getenv("SSL_CERTIFICATE", litellm.ssl_certificate)
+        cert: Final = os.getenv("SSL_CERTIFICATE", embrouter.ssl_certificate)
 
-        # Get default headers (User-Agent, overridable via LITELLM_USER_AGENT)
+        # Get default headers (User-Agent, overridable via EMBROUTER_USER_AGENT)
         default_headers: Final = get_default_headers() if not self.disable_default_headers else None
 
         # Create a client with a connection pool
@@ -1479,7 +1479,7 @@ class HTTPHandler:
         timeout: float | httpx.Timeout | None = None,
         files: dict | RequestFiles | None = None,
         content: _RequestContent | None = None,
-        logging_obj: LiteLLMLoggingObject | None = None,
+        logging_obj: EmbRouterLoggingObject | None = None,
     ):
         try:
             # Prepare data/content parameters to prevent httpx DeprecationWarning (memory leak fix)
@@ -1514,10 +1514,10 @@ class HTTPHandler:
             response.raise_for_status()
             return response
         except httpx.TimeoutException:
-            raise litellm.Timeout(
+            raise embrouter.Timeout(
                 message=f"Connection timed out after {timeout} seconds.",
                 model="default-model-name",
-                llm_provider="litellm-httpx-handler",
+                llm_provider="embrouter-httpx-handler",
             )
         except httpx.HTTPStatusError as e:
             _raise_masked_sync_error(e, stream)
@@ -1566,10 +1566,10 @@ class HTTPHandler:
             response.raise_for_status()
             return response
         except httpx.TimeoutException:
-            raise litellm.Timeout(
+            raise embrouter.Timeout(
                 message=f"Connection timed out after {timeout} seconds.",
                 model="default-model-name",
-                llm_provider="litellm-httpx-handler",
+                llm_provider="embrouter-httpx-handler",
             )
         except httpx.HTTPStatusError as e:
             _raise_masked_sync_error(e, stream)
@@ -1617,10 +1617,10 @@ class HTTPHandler:
                 _anchor_handler_to(response, self)
             return response
         except httpx.TimeoutException:
-            raise litellm.Timeout(
+            raise embrouter.Timeout(
                 message=f"Connection timed out after {timeout} seconds.",
                 model="default-model-name",
-                llm_provider="litellm-httpx-handler",
+                llm_provider="embrouter-httpx-handler",
             )
         except httpx.HTTPStatusError as e:
             _raise_masked_sync_error(e, stream)
@@ -1669,10 +1669,10 @@ class HTTPHandler:
             response.raise_for_status()
             return response
         except httpx.TimeoutException:
-            raise litellm.Timeout(
+            raise embrouter.Timeout(
                 message=f"Connection timed out after {timeout} seconds.",
                 model="default-model-name",
-                llm_provider="litellm-httpx-handler",
+                llm_provider="embrouter-httpx-handler",
             )
         except httpx.HTTPStatusError as e:
             _raise_masked_sync_error(e, stream)
@@ -1688,22 +1688,22 @@ class HTTPHandler:
 
     def _create_sync_transport(self) -> HTTPTransport | None:
         """
-        Create an HTTP transport with IPv4 only if litellm.force_ipv4 is True.
+        Create an HTTP transport with IPv4 only if embrouter.force_ipv4 is True.
         Otherwise, return None.
 
         Some users have seen httpx ConnectionError when using ipv6 - forcing ipv4 resolves the issue for them
         """
-        if litellm.force_ipv4:
+        if embrouter.force_ipv4:
             return HTTPTransport(local_address=_IPV4_LOCAL_ADDRESS, http2=http2_enabled())
         else:
-            return getattr(litellm, "sync_transport", None)
+            return getattr(embrouter, "sync_transport", None)
 
     @staticmethod
     def _create_sync_proxy_mounts(
         verify: VerifyTypes,
         cert: CertTypes | None,
     ) -> Mapping[str, HTTPTransport | None] | None:
-        if not litellm.force_ipv4:
+        if not embrouter.force_ipv4:
             return None
         return _environment_proxy_mounts(
             lambda proxy_url: HTTPTransport(proxy=proxy_url, verify=verify, cert=cert, http2=http2_enabled())
@@ -1732,13 +1732,13 @@ def get_async_httpx_client(
     _cache_key_name: Final = "async_httpx_client" + _params_key_name + llm_provider
 
     # Lazily initialize the global in-memory client cache to avoid relying on
-    # litellm globals being fully populated during import time.
-    cache = getattr(litellm, "in_memory_llm_clients_cache", None)
+    # embrouter globals being fully populated during import time.
+    cache = getattr(embrouter, "in_memory_llm_clients_cache", None)
     if cache is None:
-        from litellm.caching.llm_caching_handler import LLMClientCache
+        from embrouter.caching.llm_caching_handler import LLMClientCache
 
         cache = LLMClientCache()
-        setattr(litellm, "in_memory_llm_clients_cache", cache)
+        setattr(embrouter, "in_memory_llm_clients_cache", cache)
 
     _cached_client: Final = cache.get_cache(_cache_key_name)
     if _cached_client:
@@ -1759,7 +1759,7 @@ def get_async_httpx_client(
         key=_cache_key_name,
         value=_new_client,
         ttl=_DEFAULT_TTL_FOR_HTTPX_CLIENTS,
-        litellm_owned_client=True,
+        embrouter_owned_client=True,
     )
     return _new_client
 
@@ -1782,13 +1782,13 @@ def _get_httpx_client(params: dict | None = None) -> HTTPHandler:
     _cache_key_name: Final = "httpx_client" + _params_key_name
 
     # Lazily initialize the global in-memory client cache to avoid relying on
-    # litellm globals being fully populated during import time.
-    cache = getattr(litellm, "in_memory_llm_clients_cache", None)
+    # embrouter globals being fully populated during import time.
+    cache = getattr(embrouter, "in_memory_llm_clients_cache", None)
     if cache is None:
-        from litellm.caching.llm_caching_handler import LLMClientCache
+        from embrouter.caching.llm_caching_handler import LLMClientCache
 
         cache = LLMClientCache()
-        setattr(litellm, "in_memory_llm_clients_cache", cache)
+        setattr(embrouter, "in_memory_llm_clients_cache", cache)
 
     _cached_client: Final = cache.get_cache(_cache_key_name)
     if _cached_client:
@@ -1805,6 +1805,6 @@ def _get_httpx_client(params: dict | None = None) -> HTTPHandler:
         key=_cache_key_name,
         value=_new_client,
         ttl=_DEFAULT_TTL_FOR_HTTPX_CLIENTS,
-        litellm_owned_client=True,
+        embrouter_owned_client=True,
     )
     return _new_client

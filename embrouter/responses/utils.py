@@ -7,11 +7,11 @@ from typing import Any, Final, Optional, TypeVar, Union, cast, get_type_hints, o
 from pydantic import BaseModel
 from typing_extensions import TypeIs  # noqa: TID251  # narrows untyped wire payloads without a runtime conversion
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.litellm_core_utils.dot_notation_indexing import delete_nested_value, is_nested_path
-from litellm.llms.base_llm.responses.transformation import BaseResponsesAPIConfig
-from litellm.types.llms.openai import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.embrouter_core_utils.dot_notation_indexing import delete_nested_value, is_nested_path
+from embrouter.llms.base_llm.responses.transformation import BaseResponsesAPIConfig
+from embrouter.types.llms.openai import (
     AllMessageValues,
     OutputTokensDetails,
     ResponseAPIUsage,
@@ -21,8 +21,8 @@ from litellm.types.llms.openai import (
     ResponsesAPIStreamOptions,
     ResponseText,
 )
-from litellm.types.responses.main import DecodedResponseId
-from litellm.types.utils import (
+from embrouter.types.responses.main import DecodedResponseId
+from embrouter.types.utils import (
     CompletionTokensDetailsWrapper,
     PromptTokensDetailsWrapper,
     SpecialEnums,
@@ -187,12 +187,12 @@ class ResponsesAPIRequestUtils:
             if k not in supported_params:
                 unsupported_params[k] = non_default_params[k]
         if unsupported_params:
-            if litellm.drop_params is True or (drop_params is not None and drop_params is True):
+            if embrouter.drop_params is True or (drop_params is not None and drop_params is True):
                 pass
             else:
-                raise litellm.UnsupportedParamsError(
+                raise embrouter.UnsupportedParamsError(
                     status_code=500,
-                    message=f"{custom_llm_provider} does not support parameters: {unsupported_params}, for model={model}. To drop these, set `litellm.drop_params=True` or for proxy:\n\n`litellm_settings:\n drop_params: true`\n",
+                    message=f"{custom_llm_provider} does not support parameters: {unsupported_params}, for model={model}. To drop these, set `embrouter.drop_params=True` or for proxy:\n\n`embrouter_settings:\n drop_params: true`\n",
                 )
 
     @staticmethod
@@ -214,13 +214,13 @@ class ResponsesAPIRequestUtils:
         Returns:
             A dictionary of supported parameters for the responses API
         """
-        from litellm.utils import _apply_openai_param_overrides
+        from embrouter.utils import _apply_openai_param_overrides
 
         # Remove None values and internal parameters
         # Get supported parameters for the model
         supported_params: Final = responses_api_provider_config.get_supported_openai_params(model)
 
-        should_drop_params: Final = litellm.drop_params or drop_params is True
+        should_drop_params: Final = embrouter.drop_params or drop_params is True
 
         non_default_params: Final = cast(dict, response_api_optional_params)
         # Check for unsupported parameters
@@ -265,7 +265,7 @@ class ResponsesAPIRequestUtils:
         Returns:
             ResponsesAPIOptionalRequestParams instance with only the valid parameters
         """
-        from litellm.utils import PreProcessNonDefaultParams
+        from embrouter.utils import PreProcessNonDefaultParams
 
         valid_keys: Final = get_type_hints(ResponsesAPIOptionalRequestParams).keys()
         custom_llm_provider: Final = params.pop("custom_llm_provider", None)
@@ -284,7 +284,7 @@ class ResponsesAPIRequestUtils:
             additional_drop_params,
         )
 
-        # decode previous_response_id if it's a litellm encoded id
+        # decode previous_response_id if it's a embrouter encoded id
         previous_response_id: Final = non_default_params.get("previous_response_id")
         if isinstance(previous_response_id, str):
             decoded_previous_response_id: Final = (
@@ -295,7 +295,7 @@ class ResponsesAPIRequestUtils:
             non_default_params["previous_response_id"] = decoded_previous_response_id
 
         if "metadata" in non_default_params:
-            from litellm.utils import add_openai_metadata
+            from embrouter.utils import add_openai_metadata
 
             raw_metadata: Final = non_default_params["metadata"]
             converted_metadata: Final = add_openai_metadata(raw_metadata if _is_object_dict(raw_metadata) else None)
@@ -312,7 +312,7 @@ class ResponsesAPIRequestUtils:
     def _update_responses_api_response_id_with_model_id(
         responses_api_response: ResponsesAPIResponse,
         custom_llm_provider: str | None,
-        litellm_metadata: dict[str, Any] | None = None,
+        embrouter_metadata: dict[str, Any] | None = None,
     ) -> ResponsesAPIResponse: 
         ...
 
@@ -321,7 +321,7 @@ class ResponsesAPIRequestUtils:
     def _update_responses_api_response_id_with_model_id(
         responses_api_response: dict[str, Any],
         custom_llm_provider: str | None,
-        litellm_metadata: dict[str, Any] | None = None,
+        embrouter_metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]: 
         ...
 
@@ -331,15 +331,15 @@ class ResponsesAPIRequestUtils:
     def _update_responses_api_response_id_with_model_id(
         responses_api_response: ResponsesAPIResponse | dict[str, Any],
         custom_llm_provider: str | None,
-        litellm_metadata: dict[str, Any] | None = None,
+        embrouter_metadata: dict[str, Any] | None = None,
     ) -> ResponsesAPIResponse | dict[str, Any]:
         """Update the responses_api_response_id with model_id and custom_llm_provider.
 
         Handles both ``ResponsesAPIResponse`` objects and plain dictionaries returned
         by some streaming providers.
         """
-        litellm_metadata = litellm_metadata or {}
-        model_info: Final[dict[str, Any]] = litellm_metadata.get("model_info", {}) or {}
+        embrouter_metadata = embrouter_metadata or {}
+        model_info: Final[dict[str, Any]] = embrouter_metadata.get("model_info", {}) or {}
         model_id: Final = model_info.get("id")
 
         # access the response id based on the object type
@@ -352,7 +352,7 @@ class ResponsesAPIRequestUtils:
         if response_id is None:
             return responses_api_response
 
-        if ResponsesAPIRequestUtils._is_litellm_encoded_response_id(response_id):
+        if ResponsesAPIRequestUtils._is_embrouter_encoded_response_id(response_id):
             return responses_api_response
 
         updated_id: Final = ResponsesAPIRequestUtils._build_responses_api_response_id(
@@ -366,7 +366,7 @@ class ResponsesAPIRequestUtils:
         else:
             responses_api_response.id = updated_id
 
-        if litellm_metadata.get("encrypted_content_affinity_enabled"):
+        if embrouter_metadata.get("encrypted_content_affinity_enabled"):
             responses_api_response = ResponsesAPIRequestUtils._update_encrypted_content_item_ids_in_response(
                 response=responses_api_response,
                 model_id=model_id,
@@ -376,7 +376,7 @@ class ResponsesAPIRequestUtils:
         responses_api_response = ResponsesAPIRequestUtils._update_container_ids_in_response(
             responses_api_response=responses_api_response,
             custom_llm_provider=custom_llm_provider,
-            litellm_metadata=litellm_metadata,
+            embrouter_metadata=embrouter_metadata,
         )
 
         return responses_api_response
@@ -385,18 +385,18 @@ class ResponsesAPIRequestUtils:
     def _build_encrypted_item_id(model_id: str, item_id: str) -> str:
         """Encode model_id into an output item ID for encrypted-content items.
 
-        Format: ``encitem_{base64("litellm:model_id:{model_id};item_id:{original_id}")}``
+        Format: ``encitem_{base64("embrouter:model_id:{model_id};item_id:{original_id}")}``
         """
-        assembled: Final = f"litellm:model_id:{model_id};item_id:{item_id}"
+        assembled: Final = f"embrouter:model_id:{model_id};item_id:{item_id}"
         encoded: Final = base64.b64encode(assembled.encode("utf-8")).decode("utf-8")
         return f"encitem_{encoded}"
 
     @staticmethod
     def _decode_encrypted_item_id(encoded_id: str) -> dict[str, str] | None:
-        """Decode a litellm-encoded encrypted-content item ID.
+        """Decode a embrouter-encoded encrypted-content item ID.
 
         Returns a dict with ``model_id`` and ``item_id`` keys, or ``None`` if
-        the string is not a litellm-encoded item ID.
+        the string is not a embrouter-encoded item ID.
         """
         if not encoded_id.startswith("encitem_"):
             return None
@@ -411,7 +411,7 @@ class ResponsesAPIRequestUtils:
             parts: Final = decoded.split(";", 1)
             if len(parts) < 2:
                 return None
-            model_id: Final = parts[0].replace("litellm:model_id:", "")
+            model_id: Final = parts[0].replace("embrouter:model_id:", "")
             item_id: Final = parts[1].replace("item_id:", "")
             return {"model_id": model_id, "item_id": item_id}
         except Exception:
@@ -424,11 +424,11 @@ class ResponsesAPIRequestUtils:
         When Codex or other clients send items with encrypted_content but no ID,
         we encode the model_id directly into the encrypted_content itself.
 
-        Format: ``litellm_enc:{base64("model_id:{model_id}")};{original_encrypted_content}``
+        Format: ``embrouter_enc:{base64("model_id:{model_id}")};{original_encrypted_content}``
         """
         metadata: Final = f"model_id:{model_id}"
         encoded_metadata: Final = base64.b64encode(metadata.encode("utf-8")).decode("utf-8")
-        return f"litellm_enc:{encoded_metadata};{encrypted_content}"
+        return f"embrouter_enc:{encoded_metadata};{encrypted_content}"
 
     @staticmethod
     def _unwrap_encrypted_content_with_model_id(
@@ -440,7 +440,7 @@ class ResponsesAPIRequestUtils:
             Tuple of (model_id, original_encrypted_content).
             If not wrapped, returns (None, original_content).
         """
-        if not wrapped_content.startswith("litellm_enc:"):
+        if not wrapped_content.startswith("embrouter_enc:"):
             return None, wrapped_content
 
         try:
@@ -449,7 +449,7 @@ class ResponsesAPIRequestUtils:
             if len(parts) < 2:
                 return None, wrapped_content
 
-            metadata_b64 = parts[0].replace("litellm_enc:", "")
+            metadata_b64 = parts[0].replace("embrouter_enc:", "")
             original_content: Final = parts[1]
 
             # Restore padding if needed
@@ -524,14 +524,14 @@ class ResponsesAPIRequestUtils:
 
     @staticmethod
     def _restore_encrypted_content_item_ids_in_input(request_input: _RequestInputT) -> _RequestInputT:
-        """Decode litellm-encoded item IDs in request input back to original IDs.
+        """Decode embrouter-encoded item IDs in request input back to original IDs.
 
         Called before forwarding the request to the upstream provider so the
         provider receives the original item IDs and unwrapped encrypted_content.
 
         Handles both:
         1. Items with encoded IDs (encitem_...)
-        2. Items with wrapped encrypted_content (litellm_enc:...)
+        2. Items with wrapped encrypted_content (embrouter_enc:...)
         """
         if not isinstance(request_input, list):
             return request_input
@@ -614,7 +614,7 @@ class ResponsesAPIRequestUtils:
         response_id: str,
     ) -> str:
         """Build the responses_api_response_id"""
-        assembled_id: Final[str] = str(SpecialEnums.LITELLM_MANAGED_RESPONSE_COMPLETE_STR.value).format(
+        assembled_id: Final[str] = str(SpecialEnums.EMBROUTER_MANAGED_RESPONSE_COMPLETE_STR.value).format(
             custom_llm_provider, model_id, response_id
         )
         base64_encoded_id: Final[str] = base64.b64encode(assembled_id.encode("utf-8")).decode("utf-8")
@@ -645,7 +645,7 @@ class ResponsesAPIRequestUtils:
 
             parts: Final = decoded_id.split(";")
 
-            # Format: litellm:custom_llm_provider:{};model_id:{};response_id:{}
+            # Format: embrouter:custom_llm_provider:{};model_id:{};response_id:{}
             custom_llm_provider = None
             model_id = None
 
@@ -654,7 +654,7 @@ class ResponsesAPIRequestUtils:
                 model_id_part: Final = parts[1]
                 response_part: Final = parts[2]
 
-                custom_llm_provider = custom_llm_provider_part.replace("litellm:custom_llm_provider:", "")
+                custom_llm_provider = custom_llm_provider_part.replace("embrouter:custom_llm_provider:", "")
                 model_id = model_id_part.replace("model_id:", "")
                 decoded_response_id = response_part.replace("response_id:", "")
             else:
@@ -674,7 +674,7 @@ class ResponsesAPIRequestUtils:
             )
 
     @staticmethod
-    def _is_litellm_encoded_response_id(response_id: str) -> bool:
+    def _is_embrouter_encoded_response_id(response_id: str) -> bool:
         decoded_response_id: Final = ResponsesAPIRequestUtils._decode_responses_api_response_id(response_id)
         return (
             decoded_response_id.get("model_id") is not None
@@ -697,8 +697,8 @@ class ResponsesAPIRequestUtils:
         Decode the previous_response_id to the original previous_response_id
 
         Why?
-            - LiteLLM encodes the `custom_llm_provider` and `model_id` into the `previous_response_id` this helps with maintaining session consistency when load balancing multiple deployments of the same model.
-            - We cannot send the litellm encoded b64 to the upstream llm api, hence we decode it to the original `previous_response_id`
+            - EmbRouter encodes the `custom_llm_provider` and `model_id` into the `previous_response_id` this helps with maintaining session consistency when load balancing multiple deployments of the same model.
+            - We cannot send the embrouter encoded b64 to the upstream llm api, hence we decode it to the original `previous_response_id`
 
         Args:
             previous_response_id: The previous_response_id to decode
@@ -717,12 +717,12 @@ class ResponsesAPIRequestUtils:
     ) -> str:
         """Build a managed container ID with provider and model info encoded.
 
-        Format: cntr_{base64("litellm:custom_llm_provider:{provider};model_id:{model};container_id:{original}")}
+        Format: cntr_{base64("embrouter:custom_llm_provider:{provider};model_id:{model};container_id:{original}")}
         """
         # Avoid serializing Python None as the literal string "None" (breaks router affinity).
         provider_part: Final = "" if custom_llm_provider is None else custom_llm_provider
         model_part: Final = "" if model_id is None else model_id
-        assembled_id = f"litellm:custom_llm_provider:{provider_part};model_id:{model_part};container_id:{container_id}"
+        assembled_id = f"embrouter:custom_llm_provider:{provider_part};model_id:{model_part};container_id:{container_id}"
         base64_encoded_id: Final = base64.b64encode(assembled_id.encode("utf-8")).decode("utf-8")
         return f"cntr_{base64_encoded_id}"
 
@@ -747,7 +747,7 @@ class ResponsesAPIRequestUtils:
             decoded_id: Final = base64.b64decode(cleaned_id.encode("utf-8")).decode("utf-8")
 
             # Parse components using regex to handle semicolons in the container_id
-            if not decoded_id.startswith("litellm:"):
+            if not decoded_id.startswith("embrouter:"):
                 return DecodedResponseId(
                     custom_llm_provider=None,
                     model_id=None,
@@ -755,9 +755,9 @@ class ResponsesAPIRequestUtils:
                 )
 
             # Use regex to extract the three parts, allowing semicolons in container_id
-            # Format: litellm:custom_llm_provider:{provider};model_id:{model};container_id:{container}
+            # Format: embrouter:custom_llm_provider:{provider};model_id:{model};container_id:{container}
             # * for provider/model allows empty segments (missing router model_id).
-            pattern: Final = r"^litellm:custom_llm_provider:([^;]*);model_id:([^;]*);container_id:(.+)$"
+            pattern: Final = r"^embrouter:custom_llm_provider:([^;]*);model_id:([^;]*);container_id:(.+)$"
             match: Final = re.match(pattern, decoded_id)
 
             if not match:
@@ -842,7 +842,7 @@ class ResponsesAPIRequestUtils:
         custom_llm_provider: str | None,
         model_id: str | None,
     ) -> None:
-        """Mutate one output item (dict or object): wrap raw ``container_id`` as LiteLLM-managed.
+        """Mutate one output item (dict or object): wrap raw ``container_id`` as EmbRouter-managed.
 
         Handles top-level ``container_id`` and nested ``code_interpreter_call.container_id``
         (some wire payloads nest the tool call). Used by non-streaming responses and by
@@ -1003,15 +1003,15 @@ class ResponsesAPIRequestUtils:
     def _update_container_ids_in_response(
         responses_api_response: ResponsesAPIResponse | dict[str, Any],
         custom_llm_provider: str | None,
-        litellm_metadata: dict[str, Any] | None = None,
+        embrouter_metadata: dict[str, Any] | None = None,
     ) -> ResponsesAPIResponse | dict[str, Any]:
         """Encode container IDs in the response output with provider/model info.
 
         This walks through all output items and encodes any container_id fields
         so that follow-up container API calls can auto-route to the correct provider.
         """
-        litellm_metadata = litellm_metadata or {}
-        model_info: Final[dict[str, Any]] = litellm_metadata.get("model_info", {}) or {}
+        embrouter_metadata = embrouter_metadata or {}
+        model_info: Final[dict[str, Any]] = embrouter_metadata.get("model_info", {}) or {}
         model_id: Final = model_info.get("id")
 
         # Get the output list
@@ -1048,7 +1048,7 @@ class ResponsesAPIRequestUtils:
             ResponseText object with the converted format, or None if conversion fails
         """
         if text_format is not None and text is None:
-            from litellm.llms.base_llm.base_utils import type_to_response_format_param
+            from embrouter.llms.base_llm.base_utils import type_to_response_format_param
 
             # Convert Pydantic model to response format
             response_format: Final = type_to_response_format_param(text_format)
@@ -1082,7 +1082,7 @@ class ResponsesAPIRequestUtils:
         """
         from starlette.datastructures import Headers
 
-        from litellm.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import (
+        from embrouter.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import (
             MCPRequestHandler,
         )
 

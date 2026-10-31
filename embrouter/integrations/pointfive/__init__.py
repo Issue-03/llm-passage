@@ -1,5 +1,5 @@
-"""PointFive logging integration for LiteLLM."""
+"""PointFive logging integration for EmbRouter."""
 
-from litellm.integrations.pointfive.logger import PointFiveLogger
+from embrouter.integrations.pointfive.logger import PointFiveLogger
 
 __all__ = ("PointFiveLogger",)

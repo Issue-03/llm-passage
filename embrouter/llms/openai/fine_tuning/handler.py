@@ -5,8 +5,8 @@ import httpx
 from openai import AsyncAzureOpenAI, AsyncOpenAI, AzureOpenAI, OpenAI
 from openai.types.fine_tuning import FineTuningJob
 
-from litellm._logging import verbose_logger
-from litellm.types.utils import LiteLLMFineTuningJob
+from embrouter._logging import verbose_logger
+from embrouter.types.utils import EmbRouterFineTuningJob
 
 _AZURE_STATUS_MAP: Final[Mapping[object, str]] = {
     "pending": "queued",
@@ -18,7 +18,7 @@ _AZURE_STATUS_MAP: Final[Mapping[object, str]] = {
     "canceling": "cancelled",
 }
 # Note: Azure's "canceling" (in-progress) is mapped to "cancelled" (terminal)
-# because LiteLLMFineTuningJob schema has no intermediate cancellation state.
+# because EmbRouterFineTuningJob schema has no intermediate cancellation state.
 
 
 def _normalize_fine_tuning_job_dict(data: dict[str, object], is_azure: bool = False) -> dict[str, object]:
@@ -48,8 +48,8 @@ def _normalize_fine_tuning_job_dict(data: dict[str, object], is_azure: bool = Fa
     return normalized
 
 
-def _litellm_fine_tuning_job_from_response(response: FineTuningJob, is_azure: bool = False) -> LiteLLMFineTuningJob:
-    return LiteLLMFineTuningJob(**_normalize_fine_tuning_job_dict(response.model_dump(), is_azure=is_azure))
+def _embrouter_fine_tuning_job_from_response(response: FineTuningJob, is_azure: bool = False) -> EmbRouterFineTuningJob:
+    return EmbRouterFineTuningJob(**_normalize_fine_tuning_job_dict(response.model_dump(), is_azure=is_azure))
 
 
 class OpenAIFineTuningAPI:
@@ -70,7 +70,7 @@ class OpenAIFineTuningAPI:
         client: OpenAI | AsyncOpenAI | AzureOpenAI | AsyncAzureOpenAI | None = None,
         _is_async: bool = False,
         api_version: str | None = None,
-        litellm_params: dict | None = None,
+        embrouter_params: dict | None = None,
     ) -> OpenAI | AsyncOpenAI | AzureOpenAI | AsyncAzureOpenAI | None:
         received_args: Final = locals()
         openai_client: OpenAI | AsyncOpenAI | AzureOpenAI | AsyncAzureOpenAI | None = None
@@ -96,10 +96,10 @@ class OpenAIFineTuningAPI:
         self,
         create_fine_tuning_job_data: dict,
         openai_client: AsyncOpenAI | AsyncAzureOpenAI,
-    ) -> LiteLLMFineTuningJob:
+    ) -> EmbRouterFineTuningJob:
         response: Final = await openai_client.fine_tuning.jobs.create(**create_fine_tuning_job_data)
 
-        return _litellm_fine_tuning_job_from_response(response)
+        return _embrouter_fine_tuning_job_from_response(response)
 
     def create_fine_tuning_job(
         self,
@@ -112,7 +112,7 @@ class OpenAIFineTuningAPI:
         max_retries: int | None,
         organization: str | None,
         client: OpenAI | AsyncOpenAI | AzureOpenAI | AsyncAzureOpenAI | None = None,
-    ) -> LiteLLMFineTuningJob | Coroutine[object, object, LiteLLMFineTuningJob]:
+    ) -> EmbRouterFineTuningJob | Coroutine[object, object, EmbRouterFineTuningJob]:
         openai_client: Final[OpenAI | AsyncOpenAI | AzureOpenAI | AsyncAzureOpenAI | None] = self.get_openai_client(
             api_key=api_key,
             api_base=api_base,
@@ -139,15 +139,15 @@ class OpenAIFineTuningAPI:
             )
         verbose_logger.debug("creating fine tuning job, args= %s", create_fine_tuning_job_data)
         response: Final = cast(OpenAI, openai_client).fine_tuning.jobs.create(**create_fine_tuning_job_data)
-        return _litellm_fine_tuning_job_from_response(response)
+        return _embrouter_fine_tuning_job_from_response(response)
 
     async def acancel_fine_tuning_job(
         self,
         fine_tuning_job_id: str,
         openai_client: AsyncOpenAI | AsyncAzureOpenAI,
-    ) -> LiteLLMFineTuningJob:
+    ) -> EmbRouterFineTuningJob:
         response: Final = await openai_client.fine_tuning.jobs.cancel(fine_tuning_job_id=fine_tuning_job_id)
-        return _litellm_fine_tuning_job_from_response(response)
+        return _embrouter_fine_tuning_job_from_response(response)
 
     def cancel_fine_tuning_job(
         self,
@@ -160,7 +160,7 @@ class OpenAIFineTuningAPI:
         max_retries: int | None,
         organization: str | None,
         client: OpenAI | AsyncOpenAI | AzureOpenAI | AsyncAzureOpenAI | None = None,
-    ) -> LiteLLMFineTuningJob | Coroutine[object, object, LiteLLMFineTuningJob]:
+    ) -> EmbRouterFineTuningJob | Coroutine[object, object, EmbRouterFineTuningJob]:
         openai_client: Final[OpenAI | AsyncOpenAI | AzureOpenAI | AsyncAzureOpenAI | None] = self.get_openai_client(
             api_key=api_key,
             api_base=api_base,
@@ -187,7 +187,7 @@ class OpenAIFineTuningAPI:
             )
         verbose_logger.debug("canceling fine tuning job, args= %s", fine_tuning_job_id)
         response: Final = cast(OpenAI, openai_client).fine_tuning.jobs.cancel(fine_tuning_job_id=fine_tuning_job_id)
-        return _litellm_fine_tuning_job_from_response(response)
+        return _embrouter_fine_tuning_job_from_response(response)
 
     async def alist_fine_tuning_jobs(
         self,
@@ -244,9 +244,9 @@ class OpenAIFineTuningAPI:
         self,
         fine_tuning_job_id: str,
         openai_client: AsyncOpenAI | AsyncAzureOpenAI,
-    ) -> LiteLLMFineTuningJob:
+    ) -> EmbRouterFineTuningJob:
         response: Final = await openai_client.fine_tuning.jobs.retrieve(fine_tuning_job_id=fine_tuning_job_id)
-        return _litellm_fine_tuning_job_from_response(response)
+        return _embrouter_fine_tuning_job_from_response(response)
 
     def retrieve_fine_tuning_job(
         self,
@@ -259,7 +259,7 @@ class OpenAIFineTuningAPI:
         max_retries: int | None,
         organization: str | None,
         client: OpenAI | AsyncOpenAI | AzureOpenAI | AsyncAzureOpenAI | None = None,
-    ) -> LiteLLMFineTuningJob | Coroutine[object, object, LiteLLMFineTuningJob]:
+    ) -> EmbRouterFineTuningJob | Coroutine[object, object, EmbRouterFineTuningJob]:
         openai_client: Final[OpenAI | AsyncOpenAI | AzureOpenAI | AsyncAzureOpenAI | None] = self.get_openai_client(
             api_key=api_key,
             api_base=api_base,
@@ -286,4 +286,4 @@ class OpenAIFineTuningAPI:
             )
         verbose_logger.debug("retrieving fine tuning job, id= %s", fine_tuning_job_id)
         response: Final = cast(OpenAI, openai_client).fine_tuning.jobs.retrieve(fine_tuning_job_id=fine_tuning_job_id)
-        return _litellm_fine_tuning_job_from_response(response)
+        return _embrouter_fine_tuning_job_from_response(response)

@@ -5,18 +5,18 @@ from typing import Final, cast
 
 import httpx
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.litellm_core_utils.asyncify import asyncify
-from litellm.litellm_core_utils.aws_partition import get_aws_dns_suffix
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM, pop_aws_auth_params
-from litellm.llms.custom_httpx.http_handler import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.embrouter_core_utils.asyncify import asyncify
+from embrouter.embrouter_core_utils.aws_partition import get_aws_dns_suffix
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.bedrock.base_aws_llm import BaseAWSLLM, pop_aws_auth_params
+from embrouter.llms.custom_httpx.http_handler import (
     _get_httpx_client,
     get_async_httpx_client,
 )
-from litellm.types.llms.openai import AllMessageValues
-from litellm.utils import (
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.utils import (
     CustomStreamWrapper,
     EmbeddingResponse,
     ModelResponse,
@@ -53,10 +53,10 @@ class SagemakerLLM(BaseAWSLLM):
         ### SET REGION NAME ###
         if aws_region_name is None:
             # check env #
-            litellm_aws_region_name: Final = get_secret("AWS_REGION_NAME", None)
+            embrouter_aws_region_name: Final = get_secret("AWS_REGION_NAME", None)
 
-            if litellm_aws_region_name is not None and isinstance(litellm_aws_region_name, str):
-                aws_region_name = litellm_aws_region_name
+            if embrouter_aws_region_name is not None and isinstance(embrouter_aws_region_name, str):
+                aws_region_name = embrouter_aws_region_name
 
             standard_aws_region_name: Final = get_secret("AWS_REGION", None)
             if standard_aws_region_name is not None and isinstance(standard_aws_region_name, str):
@@ -74,7 +74,7 @@ class SagemakerLLM(BaseAWSLLM):
         model: str,
         data: dict,
         messages: list[AllMessageValues],
-        litellm_params: dict,
+        embrouter_params: dict,
         optional_params: dict,
         aws_region_name: str,
         extra_headers: dict | None = None,
@@ -102,7 +102,7 @@ class SagemakerLLM(BaseAWSLLM):
             model=model,
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
         request: Final = AWSRequest(method="POST", url=api_base, data=encoded_data, headers=headers)
         sigv4.add_auth(request)
@@ -122,9 +122,9 @@ class SagemakerLLM(BaseAWSLLM):
         model_response: ModelResponse,
         print_verbose: Callable,
         encoding,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         timeout: float | httpx.Timeout | None = None,
         custom_prompt_dict={},
         hf_model_name=None,
@@ -139,7 +139,7 @@ class SagemakerLLM(BaseAWSLLM):
         model_id: Final = optional_params.get("model_id", None)
 
         ## Load Config
-        config: Final = litellm.SagemakerConfig.get_config()
+        config: Final = embrouter.SagemakerConfig.get_config()
         for k, v in config.items():
             if (
                 k not in inference_params
@@ -161,7 +161,7 @@ class SagemakerLLM(BaseAWSLLM):
                     aws_region_name=aws_region_name,
                     credentials=credentials,
                     headers=headers,
-                    litellm_params=litellm_params,
+                    embrouter_params=embrouter_params,
                 )
                 return response
             else:
@@ -169,7 +169,7 @@ class SagemakerLLM(BaseAWSLLM):
                     model=model,
                     messages=messages,
                     optional_params=optional_params,
-                    litellm_params=litellm_params,
+                    embrouter_params=embrouter_params,
                     headers=headers,
                 )
                 prepared_request = self._prepare_request(
@@ -177,7 +177,7 @@ class SagemakerLLM(BaseAWSLLM):
                     data=data,
                     messages=messages,
                     optional_params=optional_params,
-                    litellm_params=litellm_params,
+                    embrouter_params=embrouter_params,
                     credentials=credentials,
                     aws_region_name=aws_region_name,
                 )
@@ -224,7 +224,7 @@ class SagemakerLLM(BaseAWSLLM):
                 credentials=credentials,
                 aws_region_name=aws_region_name,
                 headers=headers,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
             )
 
         ## Non-Streaming completion CALL
@@ -232,14 +232,14 @@ class SagemakerLLM(BaseAWSLLM):
             model=model,
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
         prepared_request_args: Final = {
             "model": model,
             "data": _data,
             "optional_params": optional_params,
-            "litellm_params": litellm_params,
+            "embrouter_params": embrouter_params,
             "credentials": credentials,
             "aws_region_name": aws_region_name,
             "messages": messages,
@@ -293,7 +293,7 @@ class SagemakerLLM(BaseAWSLLM):
             status_code: Final = getattr(e, "response", {}).get("ResponseMetadata", {}).get("HTTPStatusCode", 500)
             error_message = getattr(e, "response", {}).get("Error", {}).get("Message", str(e))
             if "Inference Component Name header is required" in error_message:
-                error_message += "\n pass in via `litellm.completion(..., model_id={InferenceComponentName})`"
+                error_message += "\n pass in via `embrouter.completion(..., model_id={InferenceComponentName})`"
             raise SagemakerError(status_code=status_code, message=error_message)
 
         return sagemaker_config.transform_response(
@@ -305,7 +305,7 @@ class SagemakerLLM(BaseAWSLLM):
             messages=messages,
             optional_params=optional_params,
             encoding=encoding,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
     def make_sync_call(
@@ -342,7 +342,7 @@ class SagemakerLLM(BaseAWSLLM):
         try:
             if client is None:
                 client = get_async_httpx_client(
-                    llm_provider=litellm.LlmProviders.SAGEMAKER
+                    llm_provider=embrouter.LlmProviders.SAGEMAKER
                 )  # Create a new client if none provided
             response: Final = await client.post(
                 api_base,
@@ -387,15 +387,15 @@ class SagemakerLLM(BaseAWSLLM):
         encoding,
         model_response: ModelResponse,
         model_id: str | None,
-        logging_obj: LiteLLMLoggingObj,
-        litellm_params: dict,
+        logging_obj: EmbRouterLoggingObj,
+        embrouter_params: dict,
         headers: dict,
     ):
         data: Final = await sagemaker_config.async_transform_request(
             model=model,
             messages=messages,
             optional_params={**optional_params, "stream": True},
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
         asyncified_prepare_request: Final = asyncify(self._prepare_request)
@@ -403,7 +403,7 @@ class SagemakerLLM(BaseAWSLLM):
             "model": model,
             "data": data,
             "optional_params": optional_params,
-            "litellm_params": litellm_params,
+            "embrouter_params": embrouter_params,
             "credentials": credentials,
             "aws_region_name": aws_region_name,
             "messages": messages,
@@ -415,7 +415,7 @@ class SagemakerLLM(BaseAWSLLM):
         if not prepared_request.body:
             raise ValueError("Prepared request body is empty")
 
-        stream_logging_obj: Final[LiteLLMLoggingObj] = logging_obj
+        stream_logging_obj: Final[EmbRouterLoggingObj] = logging_obj
         completion_stream: Final = await self.make_async_call(
             api_base=prepared_request.url,
             headers=prepared_request.headers,
@@ -450,19 +450,19 @@ class SagemakerLLM(BaseAWSLLM):
         encoding,
         model_response: ModelResponse,
         optional_params: dict,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         model_id: str | None,
         headers: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
     ):
         timeout: Final = 300.0
-        async_handler: Final = get_async_httpx_client(llm_provider=litellm.LlmProviders.SAGEMAKER)
+        async_handler: Final = get_async_httpx_client(llm_provider=embrouter.LlmProviders.SAGEMAKER)
 
         data: Final = await sagemaker_config.async_transform_request(
             model=model,
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
@@ -471,7 +471,7 @@ class SagemakerLLM(BaseAWSLLM):
             "model": model,
             "data": data,
             "optional_params": optional_params,
-            "litellm_params": litellm_params,
+            "embrouter_params": embrouter_params,
             "credentials": credentials,
             "aws_region_name": aws_region_name,
             "messages": messages,
@@ -516,7 +516,7 @@ class SagemakerLLM(BaseAWSLLM):
         except Exception as e:
             error_message = f"{e}"
             if "Inference Component Name header is required" in error_message:
-                error_message += "\n pass in via `litellm.completion(..., model_id={InferenceComponentName})`"
+                error_message += "\n pass in via `embrouter.completion(..., model_id={InferenceComponentName})`"
             raise SagemakerError(status_code=500, message=error_message)
         return sagemaker_config.transform_response(
             model=model,
@@ -527,7 +527,7 @@ class SagemakerLLM(BaseAWSLLM):
             messages=messages,
             optional_params=optional_params,
             encoding=encoding,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
     def embedding(
@@ -540,7 +540,7 @@ class SagemakerLLM(BaseAWSLLM):
         logging_obj,
         optional_params: dict,
         custom_prompt_dict={},
-        litellm_params=None,
+        embrouter_params=None,
         logger_fn=None,
     ):
         """
@@ -566,7 +566,7 @@ class SagemakerLLM(BaseAWSLLM):
         inference_params.pop("stream", None)
 
         ## Load Config
-        config: Final = litellm.SagemakerConfig.get_config()
+        config: Final = embrouter.SagemakerConfig.get_config()
         for k, v in config.items():
             if (
                 k not in inference_params
@@ -637,5 +637,5 @@ class SagemakerLLM(BaseAWSLLM):
             api_key=None,
             request_data=request_data,
             optional_params=optional_params,
-            litellm_params=litellm_params or {},
+            embrouter_params=embrouter_params or {},
         )

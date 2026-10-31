@@ -8,7 +8,7 @@ page shows the config that mail would actually use rather than a blank.
 
 from typing import Final
 
-from litellm.proxy.config_resolvers._descriptors import FieldDescriptor
+from embrouter.proxy.config_resolvers._descriptors import FieldDescriptor
 
 EMAIL_DESCRIPTORS: Final[tuple[FieldDescriptor, ...]] = (
     FieldDescriptor("SMTP_HOST", "SMTP_HOST", "SMTP_HOST"),

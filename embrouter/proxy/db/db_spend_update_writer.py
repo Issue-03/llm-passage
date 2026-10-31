@@ -22,17 +22,17 @@ from urllib.parse import quote, unquote
 from pydantic import TypeAdapter
 from typing_extensions import LiteralString, ReadOnly, TypedDict
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.caching import RedisCache
-from litellm.constants import (
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.caching import RedisCache
+from embrouter.constants import (
     DB_DAILY_TAG_SPEND_UPDATE_JOB_NAME,
     DB_SPEND_UPDATE_JOB_NAME,
     INTERNAL_CALL_ORIGIN_METADATA_KEY,
 )
-from litellm.litellm_core_utils.litellm_logging import coerce_model_access_groups
-from litellm.litellm_core_utils.safe_json_loads import safe_json_loads
-from litellm.proxy._types import (
+from embrouter.embrouter_core_utils.embrouter_logging import coerce_model_access_groups
+from embrouter.embrouter_core_utils.safe_json_loads import safe_json_loads
+from embrouter.proxy._types import (
     DB_CONNECTION_ERROR_TYPES,
     DB_RETRY_SAFE_ERROR_TYPES,
     BaseDailySpendTransaction,
@@ -43,51 +43,51 @@ from litellm.proxy._types import (
     DailyTeamSpendTransaction,
     DailyUserSpendTransaction,
     DBSpendUpdateTransactions,
-    Litellm_EntityType,
+    Embrouter_EntityType,
     SpendLogsMetadata,
     SpendLogsPayload,
     SpendUpdateQueueItem,
     ToolDiscoveryQueueItem,
 )
-from litellm.proxy.common_utils.user_api_key_cache import project_cache_key
-from litellm.proxy.db.daily_spend_bulk_upsert import (
+from embrouter.proxy.common_utils.user_api_key_cache import project_cache_key
+from embrouter.proxy.db.daily_spend_bulk_upsert import (
     DAILY_SPEND_TABLES,
     build_bulk_upsert,
     daily_spend_entity_ids,
     merge_by_conflict_key,
 )
-from litellm.proxy.db.db_transaction_queue.daily_spend_update_queue import (
+from embrouter.proxy.db.db_transaction_queue.daily_spend_update_queue import (
     DailySpendUpdateQueue,
 )
-from litellm.proxy.db.db_transaction_queue.pod_lock_manager import PodLockManager
-from litellm.proxy.db.db_transaction_queue.redis_update_buffer import RedisUpdateBuffer
-from litellm.proxy.db.db_transaction_queue.spend_update_queue import SpendUpdateQueue
-from litellm.proxy.db.db_transaction_queue.tool_discovery_queue import (
+from embrouter.proxy.db.db_transaction_queue.pod_lock_manager import PodLockManager
+from embrouter.proxy.db.db_transaction_queue.redis_update_buffer import RedisUpdateBuffer
+from embrouter.proxy.db.db_transaction_queue.spend_update_queue import SpendUpdateQueue
+from embrouter.proxy.db.db_transaction_queue.tool_discovery_queue import (
     ToolDiscoveryQueue,
 )
-from litellm.proxy.db.db_transaction_queue.window_spend_update_queue import (
+from embrouter.proxy.db.db_transaction_queue.window_spend_update_queue import (
     WindowSpendTransaction,
     WindowSpendUpdateQueue,
 )
-from litellm.proxy.db.exception_handler import PrismaDBExceptionHandler
-from litellm.proxy.route_llm_request import ROUTE_ENDPOINT_MAPPING
-from litellm.proxy.spend_tracking.compression_savings import (
+from embrouter.proxy.db.exception_handler import PrismaDBExceptionHandler
+from embrouter.proxy.route_llm_request import ROUTE_ENDPOINT_MAPPING
+from embrouter.proxy.spend_tracking.compression_savings import (
     extract_compression_saved_tokens,
 )
-from litellm.proxy.spend_tracking.savings import (
+from embrouter.proxy.spend_tracking.savings import (
     compute_savings_spend,
     extract_cache_creation_tokens,
     extract_cache_read_tokens,
     marks_gateway_injection,
 )
-from litellm.proxy.spend_tracking.spend_log_error_logger import spend_log_error
-from litellm.repositories.prisma_protocols import BatchTable
-from litellm.types.utils import CallTypes
+from embrouter.proxy.spend_tracking.spend_log_error_logger import spend_log_error
+from embrouter.repositories.prisma_protocols import BatchTable
+from embrouter.types.utils import CallTypes
 
 if TYPE_CHECKING:
-    from litellm.proxy.db.autorouter_session_rollup import AutoRouterTurnTransaction
-    from litellm.proxy.db.baseline_accounting import DailyBaselineAttribution
-    from litellm.proxy.utils import PrismaClient, ProxyLogging
+    from embrouter.proxy.db.autorouter_session_rollup import AutoRouterTurnTransaction
+    from embrouter.proxy.db.baseline_accounting import DailyBaselineAttribution
+    from embrouter.proxy.utils import PrismaClient, ProxyLogging
 else:
     PrismaClient = Any
     ProxyLogging = Any
@@ -131,29 +131,29 @@ class _MemberSpendRow(TypedDict):
 
 
 class _SpendBatch(Protocol):
-    litellm_usertable: BatchTable
-    litellm_verificationtoken: BatchTable
-    litellm_teamtable: BatchTable
-    litellm_teammembership: BatchTable
-    litellm_organizationtable: BatchTable
-    litellm_organizationmembership: BatchTable
-    litellm_projecttable: BatchTable
-    litellm_tagtable: BatchTable
-    litellm_agentstable: BatchTable
-    litellm_modelaccessgroupbudgettable: BatchTable
+    embrouter_usertable: BatchTable
+    embrouter_verificationtoken: BatchTable
+    embrouter_teamtable: BatchTable
+    embrouter_teammembership: BatchTable
+    embrouter_organizationtable: BatchTable
+    embrouter_organizationmembership: BatchTable
+    embrouter_projecttable: BatchTable
+    embrouter_tagtable: BatchTable
+    embrouter_agentstable: BatchTable
+    embrouter_modelaccessgroupbudgettable: BatchTable
 
 
 _EntitySpendTable: TypeAlias = Literal[
-    "litellm_tagtable", "litellm_agentstable", "litellm_modelaccessgroupbudgettable", "litellm_projecttable"
+    "embrouter_tagtable", "embrouter_agentstable", "embrouter_modelaccessgroupbudgettable", "embrouter_projecttable"
 ]
 
 
 _ENTITY_SPEND_TABLES: Final[Mapping[_EntitySpendTable, Callable[[_SpendBatch], BatchTable]]] = MappingProxyType(
     {
-        "litellm_tagtable": lambda batcher: batcher.litellm_tagtable,
-        "litellm_agentstable": lambda batcher: batcher.litellm_agentstable,
-        "litellm_modelaccessgroupbudgettable": lambda batcher: batcher.litellm_modelaccessgroupbudgettable,
-        "litellm_projecttable": lambda batcher: batcher.litellm_projecttable,
+        "embrouter_tagtable": lambda batcher: batcher.embrouter_tagtable,
+        "embrouter_agentstable": lambda batcher: batcher.embrouter_agentstable,
+        "embrouter_modelaccessgroupbudgettable": lambda batcher: batcher.embrouter_modelaccessgroupbudgettable,
+        "embrouter_projecttable": lambda batcher: batcher.embrouter_projecttable,
     }
 )
 
@@ -361,21 +361,21 @@ _TEAM_ADVISORY_LOCK_SQL: Final = "SELECT pg_advisory_xact_lock(hashtext($1)) IS 
 # types a raw array parameter from the first batch a connection sees, so after an all-$0 batch
 # (integers) every later fractional batch on that connection failed with "improper binary format".
 _TEAM_MEMBER_SPEND_SQL: Final = """
-INSERT INTO "LiteLLM_TeamMembership" (user_id, team_id, spend, total_spend)
+INSERT INTO "EmbRouter_TeamMembership" (user_id, team_id, spend, total_spend)
 SELECT member.user_id, member.team_id, member.cost, member.cost
 FROM jsonb_to_recordset($1::jsonb) AS member(user_id text, team_id text, cost float8)
 WHERE EXISTS (
-    SELECT 1 FROM "LiteLLM_TeamTable" t
+    SELECT 1 FROM "EmbRouter_TeamTable" t
     WHERE t.team_id = member.team_id
       AND t.members_with_roles @> jsonb_build_array(jsonb_build_object('user_id', member.user_id))
 )
    OR EXISTS (
-    SELECT 1 FROM "LiteLLM_TeamMembership" m
+    SELECT 1 FROM "EmbRouter_TeamMembership" m
     WHERE m.user_id = member.user_id AND m.team_id = member.team_id
 )
 ON CONFLICT (user_id, team_id) DO UPDATE
-SET spend = "LiteLLM_TeamMembership".spend + EXCLUDED.spend,
-    total_spend = "LiteLLM_TeamMembership".total_spend + EXCLUDED.total_spend
+SET spend = "EmbRouter_TeamMembership".spend + EXCLUDED.spend,
+    total_spend = "EmbRouter_TeamMembership".total_spend + EXCLUDED.total_spend
 """
 
 
@@ -397,7 +397,7 @@ def get_llm_router():
     a pure function of its arguments and the caller owns where the router comes from.
     """
     try:
-        from litellm.proxy.proxy_server import llm_router
+        from embrouter.proxy.proxy_server import llm_router
 
         return llm_router
     except Exception:  # noqa: BLE001  # no proxy in scope; savings degrade to zero
@@ -479,7 +479,7 @@ class DBSpendUpdateWriter:
         )  # mutable-ok: same registry as DailySpendUpdateQueue.interrupted_commits
 
     async def update_database(
-        # LiteLLM management object fields
+        # EmbRouter management object fields
         self,
         token: str | None,
         user_id: str | None,
@@ -499,12 +499,12 @@ class DBSpendUpdateWriter:
         False only for a batch retrieve whose cost row another retrieve already wrote,
         so the caller leaves the key, team, and user counters alone (LIT-7048).
         """
-        from litellm.proxy.proxy_server import (
+        from embrouter.proxy.proxy_server import (
             disable_spend_logs,
-            litellm_proxy_budget_name,
+            embrouter_proxy_budget_name,
             prisma_client,
         )
-        from litellm.proxy.utils import ProxyUpdateSpend, hash_token
+        from embrouter.proxy.utils import ProxyUpdateSpend, hash_token
 
         try:
             verbose_proxy_logger.debug(
@@ -522,7 +522,7 @@ class DBSpendUpdateWriter:
                 hashed_token = token
 
             ## CREATE SPEND LOG PAYLOAD ##
-            from litellm.proxy.spend_tracking.spend_tracking_utils import (
+            from embrouter.proxy.spend_tracking.spend_tracking_utils import (
                 get_logging_payload,
                 get_request_model_access_groups,
             )
@@ -578,7 +578,7 @@ class DBSpendUpdateWriter:
                     project_id=project_id,
                     end_user_id=end_user_id,
                     prisma_client=prisma_client,
-                    litellm_proxy_budget_name=litellm_proxy_budget_name,
+                    embrouter_proxy_budget_name=embrouter_proxy_budget_name,
                     payload=payload,
                     request_model_access_groups=get_request_model_access_groups(kwargs),
                 )
@@ -629,7 +629,7 @@ class DBSpendUpdateWriter:
         picked the batch id as its call id, and the $0 row an older proxy left behind
         while the batch was still running all leave the charge to be made.
         """
-        from litellm.repositories.table_repositories import SpendLogsRepository
+        from embrouter.repositories.table_repositories import SpendLogsRepository
 
         request_id: Final = payload["request_id"]
         row: Final = _batch_cost_row_to_write(payload, disable_spend_logs)
@@ -672,7 +672,7 @@ class DBSpendUpdateWriter:
         it. The row stops matching the moment it carries a charge, so it is one retrieve that
         takes it over and charges, and every later one reads the charge and charges nothing.
         """
-        from litellm.repositories.table_repositories import SpendLogsRepository
+        from embrouter.repositories.table_repositories import SpendLogsRepository
 
         request_id: Final = payload["request_id"]
         if payload["spend"] <= 0:
@@ -712,7 +712,7 @@ class DBSpendUpdateWriter:
         try:
             if prisma_client is None:
                 return
-            from litellm.proxy.db.spend_log_tool_index import (
+            from embrouter.proxy.db.spend_log_tool_index import (
                 build_tool_usage_transaction,
             )
 
@@ -747,7 +747,7 @@ class DBSpendUpdateWriter:
             routing_decision: Final = metadata.get("routing_decision")
             if not isinstance(routing_decision, Mapping) or not routing_decision:
                 return
-            from litellm.proxy.db.autorouter_session_rollup import (
+            from embrouter.proxy.db.autorouter_session_rollup import (
                 build_autorouter_turn_transaction,
             )
 
@@ -794,11 +794,11 @@ class DBSpendUpdateWriter:
         turn: "AutoRouterTurnTransaction | None",
         prisma_client: "PrismaClient",
     ) -> bool:
-        from litellm.proxy.db.baseline_accounting import (
+        from embrouter.proxy.db.baseline_accounting import (
             BaselineAccountingRecord,
         )
-        from litellm.proxy.hooks.autorouter_baseline_cache import CapturedBaselineObservation
-        from litellm.proxy.spend_tracking.savings import baseline_cost_snapshot
+        from embrouter.proxy.hooks.autorouter_baseline_cache import CapturedBaselineObservation
+        from embrouter.proxy.spend_tracking.savings import baseline_cost_snapshot
 
         serialized: Final = metadata.get("autorouter_baseline_observation")
         if not isinstance(serialized, str):
@@ -829,7 +829,7 @@ class DBSpendUpdateWriter:
                 verbose_proxy_logger.warning("Auto-router baseline observation queue is full")
                 return False
             prisma_client.baseline_accounting_transactions.append(record)
-        from litellm.proxy.utils import request_spend_log_flush
+        from embrouter.proxy.utils import request_spend_log_flush
 
         request_spend_log_flush(prisma_client)
         return True
@@ -839,7 +839,7 @@ class DBSpendUpdateWriter:
         payload: SpendLogsPayload,
         prisma_client: "PrismaClient",
     ) -> "DailyBaselineAttribution | None":
-        from litellm.proxy.db.baseline_accounting import DailyBaselineAttribution, DailyBaselineTarget
+        from embrouter.proxy.db.baseline_accounting import DailyBaselineAttribution, DailyBaselineTarget
 
         normalized: Final = cast(SpendLogsPayload, MappingProxyType({**payload, "end_user_id": payload["end_user"]}))
         bases: Final = tuple(
@@ -885,7 +885,7 @@ class DBSpendUpdateWriter:
     ) -> None:
         """
         Extract tool names from the LLM request and response and enqueue them
-        for upsert into LiteLLM_ToolTable via ToolDiscoveryQueue.
+        for upsert into EmbRouter_ToolTable via ToolDiscoveryQueue.
 
         Handles four sources:
         - MCP tools: standard_logging_object.mcp_tool_call_metadata.namespaced_tool_name
@@ -901,8 +901,8 @@ class DBSpendUpdateWriter:
 
             # Extract key_alias from kwargs metadata if available
             key_alias: str | None = None
-            _litellm_params: Final = kwargs.get("litellm_params") or {}
-            _metadata: Final = _litellm_params.get("metadata") or {}
+            _embrouter_params: Final = kwargs.get("embrouter_params") or {}
+            _metadata: Final = _embrouter_params.get("metadata") or {}
             key_alias = _metadata.get("user_api_key_alias") or None
             user_agent: Final = _metadata.get("user_agent") or None
 
@@ -952,7 +952,7 @@ class DBSpendUpdateWriter:
                     _enqueue(name)
 
             # --- Response tool_calls (OpenAI format; Anthropic pass-through converts tool_use here) ---
-            from litellm.proxy.db.spend_log_tool_index import response_tool_call_names
+            from embrouter.proxy.db.spend_log_tool_index import response_tool_call_names
 
             for tool_name in response_tool_call_names(completion_response):
                 _enqueue(tool_name)
@@ -969,7 +969,7 @@ class DBSpendUpdateWriter:
         org_id: str | None,
         end_user_id: str | None,
         prisma_client: PrismaClient | None,
-        litellm_proxy_budget_name: str | None,
+        embrouter_proxy_budget_name: str | None,
         payload: SpendLogsPayload,
         request_model_access_groups: Sequence[str] = (),
         project_id: str | None = None,
@@ -989,7 +989,7 @@ class DBSpendUpdateWriter:
                 response_cost=response_cost,
                 user_id=user_id,
                 prisma_client=prisma_client,
-                litellm_proxy_budget_name=litellm_proxy_budget_name,
+                embrouter_proxy_budget_name=embrouter_proxy_budget_name,
                 end_user_id=end_user_id,
             )
         except Exception:
@@ -1149,7 +1149,7 @@ class DBSpendUpdateWriter:
             )
 
         try:
-            from litellm.proxy.db.model_usage_rollup import increment_daily_model_usage
+            from embrouter.proxy.db.model_usage_rollup import increment_daily_model_usage
 
             await increment_daily_model_usage(prisma_client=prisma_client, payload=payload_copy)
         except Exception:
@@ -1170,7 +1170,7 @@ class DBSpendUpdateWriter:
 
             await self.spend_update_queue.add_update(
                 update=SpendUpdateQueueItem(
-                    entity_type=Litellm_EntityType.KEY,
+                    entity_type=Embrouter_EntityType.KEY,
                     entity_id=hashed_token,
                     response_cost=response_cost,
                 )
@@ -1184,24 +1184,24 @@ class DBSpendUpdateWriter:
         response_cost: float | None,
         user_id: str | None,
         prisma_client: PrismaClient | None,
-        litellm_proxy_budget_name: str | None,
+        embrouter_proxy_budget_name: str | None,
         end_user_id: str | None = None,
     ):
         """
         - Update that user's row
-        - Update litellm-proxy-budget row (global proxy spend)
+        - Update embrouter-proxy-budget row (global proxy spend)
         """
         try:
             if prisma_client is not None:  # update
                 user_ids: Final = [user_id]
-                if litellm.max_budget > 0:  # track global proxy budget, if user set max budget
-                    user_ids.append(litellm_proxy_budget_name)
+                if embrouter.max_budget > 0:  # track global proxy budget, if user set max budget
+                    user_ids.append(embrouter_proxy_budget_name)
 
                 for _id in user_ids:
                     if _id is not None:
                         await self.spend_update_queue.add_update(
                             update=SpendUpdateQueueItem(
-                                entity_type=Litellm_EntityType.USER,
+                                entity_type=Embrouter_EntityType.USER,
                                 entity_id=_id,
                                 response_cost=response_cost,
                             )
@@ -1210,7 +1210,7 @@ class DBSpendUpdateWriter:
                 if end_user_id is not None:
                     await self.spend_update_queue.add_update(
                         update=SpendUpdateQueueItem(
-                            entity_type=Litellm_EntityType.END_USER,
+                            entity_type=Embrouter_EntityType.END_USER,
                             entity_id=end_user_id,
                             response_cost=response_cost,
                         )
@@ -1242,7 +1242,7 @@ class DBSpendUpdateWriter:
 
             await self.spend_update_queue.add_update(
                 update=SpendUpdateQueueItem(
-                    entity_type=Litellm_EntityType.TEAM,
+                    entity_type=Embrouter_EntityType.TEAM,
                     entity_id=team_id,
                     response_cost=response_cost,
                 )
@@ -1255,7 +1255,7 @@ class DBSpendUpdateWriter:
                     team_member_key: Final = f"team_id::{team_id}::user_id::{user_id}"
                     await self.spend_update_queue.add_update(
                         update=SpendUpdateQueueItem(
-                            entity_type=Litellm_EntityType.TEAM_MEMBER,
+                            entity_type=Embrouter_EntityType.TEAM_MEMBER,
                             entity_id=team_member_key,
                             response_cost=response_cost,
                         )
@@ -1296,7 +1296,7 @@ class DBSpendUpdateWriter:
 
             await self.spend_update_queue.add_update(
                 update=SpendUpdateQueueItem(
-                    entity_type=Litellm_EntityType.ORGANIZATION,
+                    entity_type=Embrouter_EntityType.ORGANIZATION,
                     entity_id=org_id,
                     response_cost=response_cost,
                 )
@@ -1305,7 +1305,7 @@ class DBSpendUpdateWriter:
             if user_id is not None:
                 await self.spend_update_queue.add_update(
                     update=SpendUpdateQueueItem(
-                        entity_type=Litellm_EntityType.ORGANIZATION_MEMBER,
+                        entity_type=Embrouter_EntityType.ORGANIZATION_MEMBER,
                         entity_id=_org_member_transaction_key(org_id, user_id),
                         response_cost=response_cost,
                     )
@@ -1331,7 +1331,7 @@ class DBSpendUpdateWriter:
         try:
             await self.spend_update_queue.add_update(
                 update=SpendUpdateQueueItem(
-                    entity_type=Litellm_EntityType.PROJECT,
+                    entity_type=Embrouter_EntityType.PROJECT,
                     entity_id=project_id,
                     response_cost=response_cost,
                 )
@@ -1358,7 +1358,7 @@ class DBSpendUpdateWriter:
 
             await self.spend_update_queue.add_update(
                 update=SpendUpdateQueueItem(
-                    entity_type=Litellm_EntityType.AGENT,
+                    entity_type=Embrouter_EntityType.AGENT,
                     entity_id=agent_id,
                     response_cost=response_cost,
                 )
@@ -1408,7 +1408,7 @@ class DBSpendUpdateWriter:
                 if tag_name and isinstance(tag_name, str):
                     await self.spend_update_queue.add_update(
                         update=SpendUpdateQueueItem(
-                            entity_type=Litellm_EntityType.TAG,
+                            entity_type=Embrouter_EntityType.TAG,
                             entity_id=tag_name,
                             response_cost=response_cost,
                         )
@@ -1452,7 +1452,7 @@ class DBSpendUpdateWriter:
             ):
                 await self.spend_update_queue.add_update(
                     update=SpendUpdateQueueItem(
-                        entity_type=Litellm_EntityType.MODEL_ACCESS_GROUP,
+                        entity_type=Embrouter_EntityType.MODEL_ACCESS_GROUP,
                         entity_id=model_access_group,
                         response_cost=response_cost,
                     )
@@ -1479,7 +1479,7 @@ class DBSpendUpdateWriter:
             )
         )
         if prisma_client is not None and spend_logs_url is not None or prisma_client is not None:
-            from litellm.proxy.utils import enqueue_spend_logs, request_spend_log_flush
+            from embrouter.proxy.utils import enqueue_spend_logs, request_spend_log_flush
 
             await enqueue_spend_logs(prisma_client, (payload,))
             if payload.get("call_type") in RESPONSES_SESSION_CALL_TYPES:
@@ -1916,14 +1916,14 @@ class DBSpendUpdateWriter:
         window_spend_transactions: Sequence[WindowSpendTransaction],
     ) -> None:
         """
-        Commit per-budget-window spend increments to LiteLLM_BudgetWindowSpend.
+        Commit per-budget-window spend increments to EmbRouter_BudgetWindowSpend.
 
         Raises on failure so the caller re-queues the increments: budget
         enforcement trusts a current row without reconciling it against
-        LiteLLM_SpendLogs, so a dropped increment would let the entity spend
+        EmbRouter_SpendLogs, so a dropped increment would let the entity spend
         past its window limit after the next counter reseed.
         """
-        from litellm.proxy.db.budget_window_spend_writer import (
+        from embrouter.proxy.db.budget_window_spend_writer import (
             commit_window_spend_updates,
         )
 
@@ -1984,8 +1984,8 @@ class DBSpendUpdateWriter:
         self,
         prisma_client: PrismaClient,
     ) -> None:
-        """Flush ToolDiscoveryQueue and batch-upsert new tools into LiteLLM_ToolTable."""
-        from litellm.proxy.db.tool_registry_writer import batch_upsert_tools
+        """Flush ToolDiscoveryQueue and batch-upsert new tools into EmbRouter_ToolTable."""
+        from embrouter.proxy.db.tool_registry_writer import batch_upsert_tools
 
         try:
             items: Final = self.tool_discovery_queue.flush()
@@ -2003,8 +2003,8 @@ class DBSpendUpdateWriter:
         proxy_logging_obj: ProxyLogging,
     ) -> None:
         """Retry a failed spend-update transaction on connection errors or deadlocks, else re-raise."""
-        from litellm.proxy.db.exception_handler import PrismaDBExceptionHandler
-        from litellm.proxy.utils import _raise_failed_update_spend_exception
+        from embrouter.proxy.db.exception_handler import PrismaDBExceptionHandler
+        from embrouter.proxy.utils import _raise_failed_update_spend_exception
 
         is_retryable = isinstance(e, DB_RETRY_SAFE_ERROR_TYPES) or PrismaDBExceptionHandler.is_deadlock_error(e)
         if not is_retryable or attempt >= n_retry_times:
@@ -2029,7 +2029,7 @@ class DBSpendUpdateWriter:
         Commits all the spend `UPDATE` transactions to the Database
 
         """
-        from litellm.proxy.utils import ProxyUpdateSpend
+        from embrouter.proxy.utils import ProxyUpdateSpend
 
         ### UPDATE USER TABLE ###
         user_list_transactions: Final = db_spend_update_transactions["user_list_transactions"]
@@ -2044,7 +2044,7 @@ class DBSpendUpdateWriter:
                             # batch_() issues statements sequentially within the tx, so iteration
                             # order = lock acquisition order.
                             for user_id, response_cost in sorted(user_list_transactions.items()):
-                                batcher.litellm_usertable.update_many(
+                                batcher.embrouter_usertable.update_many(
                                     where={"user_id": user_id},
                                     data={"spend": {"increment": response_cost}},
                                 )
@@ -2084,7 +2084,7 @@ class DBSpendUpdateWriter:
                             # Sort by token for consistent lock ordering across pods to prevent deadlocks.
                             for token, response_cost in sorted(key_list_transactions.items()):
                                 spend_increment: _SpendIncrement = {"increment": response_cost}
-                                batcher.litellm_verificationtoken.update_many(  # 'update_many' prevents error from being raised if no row exists
+                                batcher.embrouter_verificationtoken.update_many(  # 'update_many' prevents error from being raised if no row exists
                                     where={"token": token},
                                     data={
                                         "spend": spend_increment,
@@ -2118,7 +2118,7 @@ class DBSpendUpdateWriter:
                                 verbose_proxy_logger.debug(
                                     "Updating spend for team id=%s by %s", team_id, response_cost
                                 )
-                                batcher.litellm_teamtable.update_many(  # 'update_many' prevents error from being raised if no row exists
+                                batcher.embrouter_teamtable.update_many(  # 'update_many' prevents error from being raised if no row exists
                                     where={"team_id": team_id},
                                     data={"spend": {"increment": response_cost}},
                                 )
@@ -2189,7 +2189,7 @@ class DBSpendUpdateWriter:
                         async with transaction.batch_() as batcher:
                             # Sort by org_id for consistent lock ordering across pods to prevent deadlocks.
                             for org_id, response_cost in sorted(org_list_transactions.items()):
-                                batcher.litellm_organizationtable.update_many(  # 'update_many' prevents error from being raised if no row exists
+                                batcher.embrouter_organizationtable.update_many(  # 'update_many' prevents error from being raised if no row exists
                                     where={"organization_id": org_id},
                                     data={"spend": {"increment": response_cost}},
                                 )
@@ -2214,7 +2214,7 @@ class DBSpendUpdateWriter:
                     async with _spend_update_tx(prisma_client) as transaction, transaction.batch_() as batcher:
                         for key, response_cost in sorted(org_member_list_transactions.items()):
                             _, quoted_org_id, _, quoted_user_id = key.split("::")
-                            batcher.litellm_organizationmembership.update_many(
+                            batcher.embrouter_organizationmembership.update_many(
                                 where={"organization_id": unquote(quoted_org_id), "user_id": unquote(quoted_user_id)},
                                 data={"spend": {"increment": response_cost}},
                             )
@@ -2235,7 +2235,7 @@ class DBSpendUpdateWriter:
         await DBSpendUpdateWriter._update_entity_spend_in_db(
             entity_name="Project",
             transactions=project_list_transactions,
-            table_accessor="litellm_projecttable",
+            table_accessor="embrouter_projecttable",
             where_field="project_id",
             n_retry_times=n_retry_times,
             prisma_client=prisma_client,
@@ -2253,7 +2253,7 @@ class DBSpendUpdateWriter:
         await DBSpendUpdateWriter._update_entity_spend_in_db(
             entity_name="Tag",
             transactions=tag_list_transactions,
-            table_accessor="litellm_tagtable",
+            table_accessor="embrouter_tagtable",
             where_field="tag_name",
             n_retry_times=n_retry_times,
             prisma_client=prisma_client,
@@ -2269,7 +2269,7 @@ class DBSpendUpdateWriter:
         await DBSpendUpdateWriter._update_entity_spend_in_db(
             entity_name="Model access group",
             transactions=model_access_group_list_transactions,
-            table_accessor="litellm_modelaccessgroupbudgettable",
+            table_accessor="embrouter_modelaccessgroupbudgettable",
             where_field="access_group_name",
             n_retry_times=n_retry_times,
             prisma_client=prisma_client,
@@ -2283,7 +2283,7 @@ class DBSpendUpdateWriter:
         await DBSpendUpdateWriter._update_entity_spend_in_db(
             entity_name="Agent",
             transactions=agent_list_transactions,
-            table_accessor="litellm_agentstable",
+            table_accessor="embrouter_agentstable",
             where_field="agent_id",
             n_retry_times=n_retry_times,
             prisma_client=prisma_client,
@@ -2318,7 +2318,7 @@ class DBSpendUpdateWriter:
         Args:
             entity_name: Name of entity for logging (e.g., "Team", "Org", "Tag")
             transactions: Dictionary of {entity_id: response_cost}
-            table_accessor: Prisma table accessor (e.g., prisma_client.db.litellm_teamtable)
+            table_accessor: Prisma table accessor (e.g., prisma_client.db.embrouter_teamtable)
             where_field: Field name for where clause (e.g., "team_id", "organization_id", "tag_name")
             n_retry_times: Number of retries on failure
             prisma_client: Prisma client instance
@@ -2446,7 +2446,7 @@ class DBSpendUpdateWriter:
         """
         Generic function to update daily spend for any entity type (user, team, org, tag, end_user, agent)
         """
-        from litellm.proxy.utils import _raise_failed_update_spend_exception
+        from embrouter.proxy.utils import _raise_failed_update_spend_exception
 
         verbose_proxy_logger.debug(
             "Daily %s Spend transactions: %s", entity_type.capitalize(), len(daily_spend_transactions)
@@ -2536,7 +2536,7 @@ class DBSpendUpdateWriter:
                         break
 
                     except Exception as e:
-                        from litellm.proxy.db.exception_handler import (
+                        from embrouter.proxy.db.exception_handler import (
                             PrismaDBExceptionHandler,
                         )
 
@@ -2571,7 +2571,7 @@ class DBSpendUpdateWriter:
         daily_spend_transactions: dict[str, DailyUserSpendTransaction],
     ):
         """
-        Batch job to update LiteLLM_DailyUserSpend table using in-memory daily_spend_transactions
+        Batch job to update EmbRouter_DailyUserSpend table using in-memory daily_spend_transactions
         """
         await DBSpendUpdateWriter._update_daily_spend(
             n_retry_times=n_retry_times,
@@ -2590,7 +2590,7 @@ class DBSpendUpdateWriter:
         daily_spend_transactions: dict[str, DailyTeamSpendTransaction],
     ):
         """
-        Batch job to update LiteLLM_DailyTeamSpend table using in-memory daily_spend_transactions
+        Batch job to update EmbRouter_DailyTeamSpend table using in-memory daily_spend_transactions
         """
         await DBSpendUpdateWriter._update_daily_spend(
             n_retry_times=n_retry_times,
@@ -2609,7 +2609,7 @@ class DBSpendUpdateWriter:
         daily_spend_transactions: dict[str, DailyOrganizationSpendTransaction],
     ):
         """
-        Batch job to update LiteLLM_DailyOrganizationSpend table using in-memory daily_spend_transactions
+        Batch job to update EmbRouter_DailyOrganizationSpend table using in-memory daily_spend_transactions
         """
         await DBSpendUpdateWriter._update_daily_spend(
             n_retry_times=n_retry_times,
@@ -2628,7 +2628,7 @@ class DBSpendUpdateWriter:
         daily_spend_transactions: dict[str, DailyEndUserSpendTransaction],
     ):
         """
-        Batch job to update LiteLLM_DailyEndUserSpend table using in-memory daily_spend_transactions
+        Batch job to update EmbRouter_DailyEndUserSpend table using in-memory daily_spend_transactions
         """
         await DBSpendUpdateWriter._update_daily_spend(
             n_retry_times=n_retry_times,
@@ -2647,7 +2647,7 @@ class DBSpendUpdateWriter:
         daily_spend_transactions: dict[str, DailyAgentSpendTransaction],
     ):
         """
-        Batch job to update LiteLLM_DailyAgentSpend table using in-memory daily_spend_transactions
+        Batch job to update EmbRouter_DailyAgentSpend table using in-memory daily_spend_transactions
         """
         await DBSpendUpdateWriter._update_daily_spend(
             n_retry_times=n_retry_times,
@@ -2666,7 +2666,7 @@ class DBSpendUpdateWriter:
         daily_spend_transactions: dict[str, DailyTagSpendTransaction],
     ):
         """
-        Batch job to update LiteLLM_DailyTagSpend table using in-memory daily_spend_transactions
+        Batch job to update EmbRouter_DailyTagSpend table using in-memory daily_spend_transactions
         """
         await DBSpendUpdateWriter._update_daily_spend(
             n_retry_times=n_retry_times,
@@ -2712,10 +2712,10 @@ class DBSpendUpdateWriter:
             return None
 
         # TODO: remove the successful_requests/failed_requests counters below once the
-        # admin UI has fully migrated to LiteLLM_DailyGatewayRequests, which is now the
+        # admin UI has fully migrated to EmbRouter_DailyGatewayRequests, which is now the
         # source of truth for SGR. This path derives the counts from spend-log metadata
         # rather than from what the gateway answered, so the two intentionally disagree
-        # (see litellm/proxy/middleware/billable_request_metrics_middleware.py). The
+        # (see embrouter/proxy/middleware/billable_request_metrics_middleware.py). The
         # spend, token and per-entity columns written here stay either way.
         request_status: Final = prisma_client.get_request_status(payload)
         verbose_proxy_logger.debug("Logged request status: %s", request_status)

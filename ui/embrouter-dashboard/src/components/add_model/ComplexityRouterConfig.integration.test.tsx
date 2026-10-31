@@ -661,13 +661,13 @@ describe("ComplexityRouterConfig", () => {
     renderWithProviders(
       <ComplexityRouterConfig
         {...baseProps}
-        escalationKeywords={["LITELLM ESCALATE"]}
+        escalationKeywords={["EMBROUTER ESCALATE"]}
         onEscalationKeywordsChange={vi.fn()}
       />,
     );
     openAutoRouterAdvanced("Escalation Keywords");
     expect(screen.getAllByText("Escalation Keywords")).not.toHaveLength(0);
-    expect(screen.getByText("LITELLM ESCALATE")).toBeInTheDocument();
+    expect(screen.getByText("EMBROUTER ESCALATE")).toBeInTheDocument();
   });
 
   it("hides the escalation keywords section when no handler is provided", async () => {

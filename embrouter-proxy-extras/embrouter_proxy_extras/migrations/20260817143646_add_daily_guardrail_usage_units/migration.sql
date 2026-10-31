@@ -1,5 +1,5 @@
 -- CreateTable
-CREATE TABLE "LiteLLM_DailyGuardrailUsageUnits" (
+CREATE TABLE "EmbRouter_DailyGuardrailUsageUnits" (
     "guardrail_id" TEXT NOT NULL,
     "date" TEXT NOT NULL,
     "team_id" TEXT NOT NULL,
@@ -9,8 +9,8 @@ CREATE TABLE "LiteLLM_DailyGuardrailUsageUnits" (
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
 
-    CONSTRAINT "LiteLLM_DailyGuardrailUsageUnits_pkey" PRIMARY KEY ("guardrail_id","date","team_id","api_key","usage_unit")
+    CONSTRAINT "EmbRouter_DailyGuardrailUsageUnits_pkey" PRIMARY KEY ("guardrail_id","date","team_id","api_key","usage_unit")
 );
 
 -- CreateIndex
-CREATE INDEX "LiteLLM_DailyGuardrailUsageUnits_date_idx" ON "LiteLLM_DailyGuardrailUsageUnits"("date");
+CREATE INDEX "EmbRouter_DailyGuardrailUsageUnits_date_idx" ON "EmbRouter_DailyGuardrailUsageUnits"("date");

@@ -18,27 +18,27 @@ from typing import TYPE_CHECKING, Final, Protocol, TypedDict, overload
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy._types import UserAPIKeyAuth, user_api_key_has_admin_view
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.common_utils.user_api_key_cache import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy._types import UserAPIKeyAuth, user_api_key_has_admin_view
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.common_utils.user_api_key_cache import (
     tag_cache_key,
     tag_registry_cache_key,
 )
-from litellm.proxy.management_endpoints.common_daily_activity import (
+from embrouter.proxy.management_endpoints.common_daily_activity import (
     SpendAnalyticsPaginatedResponse,
     get_daily_activity,
 )
-from litellm.proxy.management_helpers.utils import handle_budget_for_entity
-from litellm.repositories.model_repository import ModelRepository
-from litellm.repositories.table_repositories import (
+from embrouter.proxy.management_helpers.utils import handle_budget_for_entity
+from embrouter.repositories.model_repository import ModelRepository
+from embrouter.repositories.table_repositories import (
     DailyTagSpendRepository,
     TagRepository,
 )
-from litellm.repositories.verification_token_repository import (
+from embrouter.repositories.verification_token_repository import (
     VerificationTokenRepository,
 )
-from litellm.types.tag_management import (
+from embrouter.types.tag_management import (
     TagConfig,
     TagDeleteRequest,
     TagInfoRequest,
@@ -47,14 +47,14 @@ from litellm.types.tag_management import (
 )
 
 if TYPE_CHECKING:
-    from prisma.models import LiteLLM_BudgetTable as PrismaBudgetTable
-    from prisma.models import LiteLLM_ProxyModelTable as PrismaProxyModelTable
-    from prisma.models import LiteLLM_TagTable as PrismaTagTable
-    from prisma.models import LiteLLM_VerificationToken as PrismaVerificationToken
+    from prisma.models import EmbRouter_BudgetTable as PrismaBudgetTable
+    from prisma.models import EmbRouter_ProxyModelTable as PrismaProxyModelTable
+    from prisma.models import EmbRouter_TagTable as PrismaTagTable
+    from prisma.models import EmbRouter_VerificationToken as PrismaVerificationToken
 
-    from litellm import Router
-    from litellm.proxy.utils import PrismaClient
-    from litellm.types.router import Deployment
+    from embrouter import Router
+    from embrouter.proxy.utils import PrismaClient
+    from embrouter.types.router import Deployment
 
 router: Final = APIRouter()
 
@@ -68,7 +68,7 @@ class _TagRecord(Protocol):
     created_at: datetime
     updated_at: datetime
     created_by: str | None
-    litellm_budget_table: "PrismaBudgetTable | None"
+    embrouter_budget_table: "PrismaBudgetTable | None"
 
 
 class _TagTableClient(Protocol):
@@ -143,10 +143,10 @@ async def _evict_tag_cache_keys(cache_keys: Sequence[str]) -> None:
     enforced and a newly created one stays invisible to the cached name registry until the TTL
     expires: auth reads tags cache-first, with no freshness check.
     """
-    from litellm.proxy.common_utils.auth_cache_invalidation_pubsub import (
+    from embrouter.proxy.common_utils.auth_cache_invalidation_pubsub import (
         evict_and_broadcast,
     )
-    from litellm.proxy.proxy_server import user_api_key_cache
+    from embrouter.proxy.proxy_server import user_api_key_cache
 
     await evict_and_broadcast(cache_keys=cache_keys, user_api_key_cache=user_api_key_cache)
 
@@ -222,7 +222,7 @@ async def get_deployments_by_model(model: str, llm_router: "Router") -> list["De
     """
     Get all deployments by model
     """
-    from litellm.types.router import Deployment, LiteLLM_Params, ModelInfo
+    from embrouter.types.router import Deployment, EmbRouter_Params, ModelInfo
 
     # Check if model id
     deployment: Final = llm_router.get_deployment(model_id=model)
@@ -236,7 +236,7 @@ async def get_deployments_by_model(model: str, llm_router: "Router") -> list["De
     return [
         Deployment(
             model_name=deployment["model_name"],
-            litellm_params=LiteLLM_Params(**deployment["litellm_params"]),
+            embrouter_params=EmbRouter_Params(**deployment["embrouter_params"]),
             model_info=ModelInfo(**deployment.get("model_info") or {}),
         )
         for deployment in deployments
@@ -270,9 +270,9 @@ async def new_tag(
     - model_max_budget: Optional[dict] - Max budget for a specific model
     - budget_duration: Optional[str] - Frequency of resetting tag budget
     """
-    from litellm.proxy._types import CommonProxyErrors
-    from litellm.proxy.proxy_server import (
-        litellm_proxy_admin_name,
+    from embrouter.proxy._types import CommonProxyErrors
+    from embrouter.proxy.proxy_server import (
+        embrouter_proxy_admin_name,
         llm_router,
         prisma_client,
     )
@@ -293,7 +293,7 @@ async def new_tag(
             existing_budget_id=None,
             user_api_key_dict=user_api_key_dict,
             prisma_client=prisma_client,
-            litellm_proxy_admin_name=litellm_proxy_admin_name,
+            embrouter_proxy_admin_name=embrouter_proxy_admin_name,
         )
 
         # Get model names for model_info
@@ -352,7 +352,7 @@ async def new_tag(
 
 async def _add_tag_to_deployment(deployment: "Deployment", tag: str):
     """Helper function to add tag to deployment"""
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail="Database not connected")
@@ -367,13 +367,13 @@ async def _add_tag_to_deployment(deployment: "Deployment", tag: str):
                 detail=f"Model {deployment.model_info.id} not found in database",
             )
 
-        # Prisma returns litellm_params as dict (already parsed from JSON)
-        existing_params = db_model.litellm_params
+        # Prisma returns embrouter_params as dict (already parsed from JSON)
+        existing_params = db_model.embrouter_params
         if isinstance(existing_params, str):  # pyright: ignore[reportUnnecessaryIsInstance]  # prisma Json stub is str
             # If it's a string, parse it
             existing_params = json.loads(existing_params)
         elif not isinstance(existing_params, dict):  # pyright: ignore[reportUnnecessaryIsInstance]  # prisma Json stub
-            raise Exception(f"Unexpected litellm_params type: {type(existing_params)}")
+            raise Exception(f"Unexpected embrouter_params type: {type(existing_params)}")
 
         # Add tag to tags array (preserve encryption of other fields)
         if "tags" not in existing_params:
@@ -384,7 +384,7 @@ async def _add_tag_to_deployment(deployment: "Deployment", tag: str):
         # Update database with modified params (keeps encrypted fields encrypted)
         await ModelRepository(prisma_client).table.update(
             where={"model_id": deployment.model_info.id},
-            data={"litellm_params": json.dumps(existing_params)},
+            data={"embrouter_params": json.dumps(existing_params)},
         )
     except Exception as e:
         verbose_proxy_logger.exception("Error adding tag to deployment: %s", e)
@@ -418,7 +418,7 @@ async def update_tag(
     - model_max_budget: Optional[dict] - Max budget for a specific model
     - budget_duration: Optional[str] - Frequency of resetting tag budget
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail="Database not connected")
@@ -429,7 +429,7 @@ async def update_tag(
         if existing_tag is None:
             raise HTTPException(status_code=404, detail=f"Tag {tag.name} not found")
 
-        from litellm.proxy.proxy_server import litellm_proxy_admin_name
+        from embrouter.proxy.proxy_server import embrouter_proxy_admin_name
 
         # Handle budget updates using common helper
         budget_id: Final = await handle_budget_for_entity(
@@ -437,7 +437,7 @@ async def update_tag(
             existing_budget_id=existing_tag.budget_id,
             user_api_key_dict=user_api_key_dict,
             prisma_client=prisma_client,
-            litellm_proxy_admin_name=litellm_proxy_admin_name,
+            embrouter_proxy_admin_name=embrouter_proxy_admin_name,
             budget_duration_cleared="budget_duration" in tag.model_fields_set and tag.budget_duration is None,
         )
 
@@ -498,7 +498,7 @@ async def info_tag(
     Parameters:
     - names: List[str] - List of tag names to get information for
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail="Database not connected")
@@ -507,7 +507,7 @@ async def info_tag(
         # Query tags from database with budget info
         tag_records: Final = await _table(TagRepository(prisma_client)).find_many(
             where={"tag_name": {"in": data.names}},
-            include={"litellm_budget_table": True},
+            include={"embrouter_budget_table": True},
         )
 
         # Check if any requested tags don't exist
@@ -538,8 +538,8 @@ async def info_tag(
             }
 
             # Add budget info if available
-            if hasattr(tag_record, "litellm_budget_table") and tag_record.litellm_budget_table:
-                tag_dict["litellm_budget_table"] = tag_record.litellm_budget_table
+            if hasattr(tag_record, "embrouter_budget_table") and tag_record.embrouter_budget_table:
+                tag_dict["embrouter_budget_table"] = tag_record.embrouter_budget_table
 
             requested_tags[tag_record.tag_name] = tag_dict
 
@@ -595,7 +595,7 @@ async def list_tags(
     """
     List all available tags with their budget information.
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail="Database not connected")
@@ -635,7 +635,7 @@ async def list_tags(
         ## QUERY STORED TAGS ##
         tag_records: Final = await _table(TagRepository(prisma_client)).find_many(
             where=stored_tag_where,
-            include={"litellm_budget_table": True},
+            include={"embrouter_budget_table": True},
         )
 
         stored_tag_names: Final = set()
@@ -661,8 +661,8 @@ async def list_tags(
             }
 
             # Add budget info if available
-            if hasattr(tag_record, "litellm_budget_table") and tag_record.litellm_budget_table:
-                tag_dict["litellm_budget_table"] = tag_record.litellm_budget_table
+            if hasattr(tag_record, "embrouter_budget_table") and tag_record.embrouter_budget_table:
+                tag_dict["embrouter_budget_table"] = tag_record.embrouter_budget_table
 
             list_of_tags.append(tag_dict)
 
@@ -698,7 +698,7 @@ async def delete_tag(
     Parameters:
     - name: str - The name of the tag to delete
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail="Database not connected")
@@ -750,7 +750,7 @@ async def get_tag_daily_activity(
     Returns:
         SpendAnalyticsPaginatedResponse: Paginated response containing daily activity data.
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail="Database not connected")
@@ -767,7 +767,7 @@ async def get_tag_daily_activity(
 
     return await get_daily_activity(
         prisma_client=prisma_client,
-        table_name="litellm_dailytagspend",
+        table_name="embrouter_dailytagspend",
         entity_id_field="tag",
         entity_id=tag_list,
         entity_metadata_field=None,
@@ -777,7 +777,7 @@ async def get_tag_daily_activity(
         api_key=scoped_api_key_filter,
         page=page,
         page_size=page_size,
-        # metadata_metrics_func=None because litellm_dailytagspend rows are
+        # metadata_metrics_func=None because embrouter_dailytagspend rows are
         # pre-aggregated per (date, tag, model, …) and have no request_id.
         # Deduplication across tags is therefore not possible at this level —
         # a request tagged with N tags contributes its spend to N separate rows,

@@ -8,13 +8,13 @@ Format: vid_{base64_encoded_string}
 import base64
 from typing import Final
 
-from litellm._logging import verbose_logger
-from litellm.types.utils import SpecialEnums
-from litellm.types.videos.main import DecodedVideoId
+from embrouter._logging import verbose_logger
+from embrouter.types.utils import SpecialEnums
+from embrouter.types.videos.main import DecodedVideoId
 
 VIDEO_ID_PREFIX: Final = "video_"
 CHARACTER_ID_PREFIX: Final = "character_"
-CHARACTER_ID_TEMPLATE: Final = "litellm:custom_llm_provider:{};model_id:{};character_id:{}"
+CHARACTER_ID_TEMPLATE: Final = "embrouter:custom_llm_provider:{};model_id:{};character_id:{}"
 
 
 class DecodedCharacterId(dict):
@@ -49,7 +49,7 @@ def encode_video_id_with_provider(video_id: str, provider: str, model_id: str | 
         return video_id
 
     # ID is not encoded (even if it starts with video_), so encode it
-    assembled_id = str(SpecialEnums.LITELLM_MANAGED_VIDEO_COMPLETE_STR.value).format(provider, model_id or "", video_id)
+    assembled_id = str(SpecialEnums.EMBROUTER_MANAGED_VIDEO_COMPLETE_STR.value).format(provider, model_id or "", video_id)
 
     base64_encoded_id: Final[str] = base64.b64encode(assembled_id.encode("utf-8")).decode("utf-8")
 
@@ -95,7 +95,7 @@ def decode_video_id_with_provider(encoded_video_id: str) -> DecodedVideoId:
             model_id_part: Final = parts[1]
             video_id_part: Final = parts[2]
 
-            custom_llm_provider = custom_llm_provider_part.replace("litellm:custom_llm_provider:", "")
+            custom_llm_provider = custom_llm_provider_part.replace("embrouter:custom_llm_provider:", "")
             model_id = model_id_part.replace("model_id:", "")
             decoded_video_id = video_id_part.replace("video_id:", "")
 
@@ -172,7 +172,7 @@ def decode_character_id_with_provider(encoded_character_id: str) -> DecodedChara
             model_id_part: Final = parts[1]
             character_id_part: Final = parts[2]
 
-            custom_llm_provider = custom_llm_provider_part.replace("litellm:custom_llm_provider:", "")
+            custom_llm_provider = custom_llm_provider_part.replace("embrouter:custom_llm_provider:", "")
             model_id = model_id_part.replace("model_id:", "")
             decoded_character_id = character_id_part.replace("character_id:", "")
 

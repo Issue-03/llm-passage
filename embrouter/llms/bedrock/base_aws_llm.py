@@ -18,10 +18,10 @@ import httpx
 from pydantic import BaseModel, TypeAdapter, ValidationError
 from typing_extensions import NotRequired, ReadOnly, TypedDict
 
-from litellm._logging import verbose_logger
-from litellm.caching.caching import DualCache
-from litellm.caching.in_memory_cache import InMemoryCache
-from litellm.constants import (
+from embrouter._logging import verbose_logger
+from embrouter.caching.caching import DualCache
+from embrouter.caching.in_memory_cache import InMemoryCache
+from embrouter.constants import (
     AWS_SIGNING_MAX_THREADS,
     BEDROCK_EMBEDDING_PROVIDERS_LITERAL,
     BEDROCK_IAM_CACHE_FETCH_LOCK_STRIPES,
@@ -30,10 +30,10 @@ from litellm.constants import (
     BEDROCK_MAX_POLICY_SIZE,
     STS_CREDENTIAL_EXPIRY_SAFETY_MARGIN_SECONDS,
 )
-from litellm.litellm_core_utils.aws_partition import contains_bedrock_arn, get_aws_dns_suffix
-from litellm.litellm_core_utils.dd_tracing import tracer
-from litellm.secret_managers.main import get_secret, get_secret_str
-from litellm.types.llms.bedrock import AWS_AUTH_PARAM_KEYS, AwsAuthParams, AwsSessionTag
+from embrouter.embrouter_core_utils.aws_partition import contains_bedrock_arn, get_aws_dns_suffix
+from embrouter.embrouter_core_utils.dd_tracing import tracer
+from embrouter.secret_managers.main import get_secret, get_secret_str
+from embrouter.types.llms.bedrock import AWS_AUTH_PARAM_KEYS, AwsAuthParams, AwsSessionTag
 
 if TYPE_CHECKING:
     from botocore.awsrequest import AWSPreparedRequest
@@ -119,7 +119,7 @@ class WebIdentitySessionPolicy(TypedDict):
 
 _WEB_IDENTITY_SESSION_POLICY_ACTIONS: Final[Mapping[str, tuple[str, ...]]] = MappingProxyType(
     {
-        "BedrockLiteLLM": (
+        "BedrockEmbRouter": (
             "bedrock:InvokeModel",
             "bedrock:InvokeModelWithResponseStream",
             "bedrock:CountTokens",
@@ -131,12 +131,12 @@ _WEB_IDENTITY_SESSION_POLICY_ACTIONS: Final[Mapping[str, tuple[str, ...]]] = Map
             "bedrock:GetGuardrail",
             "bedrock:ListGuardrails",
         ),
-        "BedrockAgentCoreLiteLLM": (
+        "BedrockAgentCoreEmbRouter": (
             "bedrock-agentcore:InvokeAgentRuntime",
             "bedrock-agentcore:InvokeAgentRuntimeForUser",
             "bedrock-agentcore:InvokeGateway",
         ),
-        "ClaudePlatformLiteLLM": (
+        "ClaudePlatformEmbRouter": (
             "aws-external-anthropic:CreateInference",
             "aws-external-anthropic:CreateBatchInference",
             "aws-external-anthropic:CancelBatchInference",
@@ -145,7 +145,7 @@ _WEB_IDENTITY_SESSION_POLICY_ACTIONS: Final[Mapping[str, tuple[str, ...]]] = Map
             "aws-external-anthropic:Get*",
             "aws-external-anthropic:List*",
         ),
-        "BedrockMantleLiteLLM": ("bedrock-mantle:CreateInference",),
+        "BedrockMantleEmbRouter": ("bedrock-mantle:CreateInference",),
     }
 )
 
@@ -266,7 +266,7 @@ class BaseAWSLLM(SignsRequestsWithAWS):
             Union[bool, str]: SSL verification setting - False to disable, True to enable,
                             or a string path to a CA bundle file
         """
-        from litellm.llms.custom_httpx.http_handler import get_ssl_verify
+        from embrouter.llms.custom_httpx.http_handler import get_ssl_verify
 
         return get_ssl_verify(ssl_verify=ssl_verify)
 
@@ -528,7 +528,7 @@ class BaseAWSLLM(SignsRequestsWithAWS):
         """S3 signing identity: the s3_* static pair as-is when both are set, otherwise the resolved aws_* params."""
         from botocore.credentials import Credentials
 
-        from litellm.llms.bedrock.common_utils import s3_static_key_pair
+        from embrouter.llms.bedrock.common_utils import s3_static_key_pair
 
         s3_pair: Final = s3_static_key_pair(params)
         if s3_pair is None:
@@ -626,7 +626,7 @@ class BaseAWSLLM(SignsRequestsWithAWS):
             model_id = BaseAWSLLM.encode_model_id(model_id=model_id)
         else:
             model_id = model
-            # Strip LiteLLM routing prefixes (e.g. "bedrock/", "invoke/",
+            # Strip EmbRouter routing prefixes (e.g. "bedrock/", "invoke/",
             # "bedrock/invoke/", "bedrock/converse/") that are not part of the
             # actual Bedrock model ID.  The converse path already does this; the
             # invoke path must do the same so that ARN models such as
@@ -637,7 +637,7 @@ class BaseAWSLLM(SignsRequestsWithAWS):
             # misleading ChecksumMismatch (0x223a7b22 == ':{"').
             # Use strip_bedrock_routing_prefix (no break) so compound prefixes
             # like "bedrock/invoke/arn:..." are fully stripped in one call.
-            from litellm.llms.bedrock.common_utils import strip_bedrock_routing_prefix
+            from embrouter.llms.bedrock.common_utils import strip_bedrock_routing_prefix
 
             model_id = strip_bedrock_routing_prefix(model_id)
             # URL-encode ARNs so colons and slashes are safe in the URL path.
@@ -756,14 +756,14 @@ class BaseAWSLLM(SignsRequestsWithAWS):
             else:
                 aws_region_name = self._get_aws_region_from_model_arn(model)
             # check env #
-            litellm_aws_region_name: Final = get_secret("AWS_REGION_NAME", None)
+            embrouter_aws_region_name: Final = get_secret("AWS_REGION_NAME", None)
 
             if (
                 aws_region_name is None
-                and litellm_aws_region_name is not None
-                and isinstance(litellm_aws_region_name, str)
+                and embrouter_aws_region_name is not None
+                and isinstance(embrouter_aws_region_name, str)
             ):
-                aws_region_name = litellm_aws_region_name
+                aws_region_name = embrouter_aws_region_name
 
             standard_aws_region_name: Final = get_secret("AWS_REGION", None)
             if (
@@ -856,10 +856,10 @@ class BaseAWSLLM(SignsRequestsWithAWS):
         self._validate_aws_region_name(aws_region_name)
         if aws_region_name is None:
             # check env #
-            litellm_aws_region_name: Final = get_secret("AWS_REGION_NAME", None)
+            embrouter_aws_region_name: Final = get_secret("AWS_REGION_NAME", None)
 
-            if litellm_aws_region_name is not None and isinstance(litellm_aws_region_name, str):
-                aws_region_name = litellm_aws_region_name
+            if embrouter_aws_region_name is not None and isinstance(embrouter_aws_region_name, str):
+                aws_region_name = embrouter_aws_region_name
 
             standard_aws_region_name: Final = get_secret("AWS_REGION", None)
             if standard_aws_region_name is not None and isinstance(standard_aws_region_name, str):
@@ -972,7 +972,7 @@ class BaseAWSLLM(SignsRequestsWithAWS):
     def _unverified_web_identity_audience(oidc_token: str) -> str | None:
         """Return the public ``aud``/``iss`` claims of a web identity JWT
         without verifying its signature, so a rejected-token error can name
-        the audience LiteLLM actually sent. The signature is never read, so no
+        the audience EmbRouter actually sent. The signature is never read, so no
         secret is exposed."""
         segments: Final = oidc_token.split(".")
         if len(segments) != 3:
@@ -1246,7 +1246,7 @@ class BaseAWSLLM(SignsRequestsWithAWS):
             aws_secret_access_key=aws_secret_access_key,
             aws_session_token=aws_session_token,
             aws_role_name=aws_role_name,
-            aws_session_name=aws_session_name or f"litellm-session-{int(datetime.now().timestamp())}",
+            aws_session_name=aws_session_name or f"embrouter-session-{int(datetime.now().timestamp())}",
             aws_region_name=aws_region_name,
             aws_sts_endpoint=aws_sts_endpoint,
             aws_external_id=aws_external_id,

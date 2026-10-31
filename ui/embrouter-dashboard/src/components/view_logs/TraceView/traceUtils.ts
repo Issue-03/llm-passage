@@ -98,13 +98,13 @@ export const median = (values: readonly number[]): number => {
   return sorted[Math.floor(sorted.length / 2)];
 };
 
-const LITELLM_ERROR = /rate.?limit|429|guardrail|budget|litellm/i;
+const EMBROUTER_ERROR = /rate.?limit|429|guardrail|budget|embrouter/i;
 
-/** Who failed: the tool, LiteLLM (rate limit / guardrail / budget), or the model. Null when the span is fine. */
+/** Who failed: the tool, EmbRouter (rate limit / guardrail / budget), or the model. Null when the span is fine. */
 export function errorSource(span: Span): ErrorSource | null {
   if (span.status !== "error") return null;
   if (span.type === "tool") return "tool";
-  if (LITELLM_ERROR.test(span.error ?? "")) return "litellm";
+  if (EMBROUTER_ERROR.test(span.error ?? "")) return "embrouter";
   return "model";
 }
 

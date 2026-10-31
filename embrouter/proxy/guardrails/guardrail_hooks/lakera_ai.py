@@ -16,20 +16,20 @@ from typing import Final, Literal
 import httpx
 from fastapi import HTTPException
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.integrations.custom_guardrail import (
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.integrations.custom_guardrail import (
     CustomGuardrail,
     log_guardrail_information,
 )
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.guardrails.guardrail_helpers import should_proceed_based_on_metadata
-from litellm.secret_managers.main import get_secret
-from litellm.types.guardrails import (
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.guardrails.guardrail_helpers import should_proceed_based_on_metadata
+from embrouter.secret_managers.main import get_secret
+from embrouter.types.guardrails import (
     GuardrailEventHooks,
     GuardrailItem,
     LakeraCategoryThresholds,
@@ -141,7 +141,7 @@ class lakeraAI_Moderation(CustomGuardrail):
         text = ""
         _json_data: str = ""
         if "messages" in data and isinstance(data["messages"], list):
-            prompt_injection_obj: GuardrailItem | None = litellm.guardrail_name_config_map.get("prompt_injection")
+            prompt_injection_obj: GuardrailItem | None = embrouter.guardrail_name_config_map.get("prompt_injection")
             if prompt_injection_obj is not None:
                 enabled_roles = prompt_injection_obj.enabled_roles
             else:
@@ -183,7 +183,7 @@ class lakeraAI_Moderation(CustomGuardrail):
             # If the user has elected not to send system role messages to lakera, then skip.
 
             if system_message is not None:
-                if not litellm.add_function_to_prompt:
+                if not embrouter.add_function_to_prompt:
                     content = system_message.get("content")
                     function_input: Final = []
                     for tool_call in tool_call_messages:
@@ -287,7 +287,7 @@ class lakeraAI_Moderation(CustomGuardrail):
     async def async_pre_call_hook(
         self,
         user_api_key_dict: UserAPIKeyAuth,
-        cache: litellm.DualCache,
+        cache: embrouter.DualCache,
         data: dict,
         call_type: Literal[
             "completion",
@@ -302,7 +302,7 @@ class lakeraAI_Moderation(CustomGuardrail):
             "anthropic_messages",
         ],
     ) -> Exception | str | dict | None:
-        from litellm.types.guardrails import GuardrailEventHooks
+        from embrouter.types.guardrails import GuardrailEventHooks
 
         if self.event_hook is None:
             if self.moderation_check == "in_parallel":
@@ -336,7 +336,7 @@ class lakeraAI_Moderation(CustomGuardrail):
                 return
         else:
             # V2 Guardrails implementation
-            from litellm.types.guardrails import GuardrailEventHooks
+            from embrouter.types.guardrails import GuardrailEventHooks
 
             event_type: Final[GuardrailEventHooks] = GuardrailEventHooks.during_call
             if self.should_run_guardrail(data=data, event_type=event_type) is not True:

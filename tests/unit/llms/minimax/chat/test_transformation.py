@@ -4,8 +4,8 @@ Test MiniMax OpenAI-compatible API support
 
 from unittest.mock import MagicMock, patch
 
-import litellm
-from litellm.llms.minimax.chat.transformation import MinimaxChatConfig
+import embrouter
+from embrouter.llms.minimax.chat.transformation import MinimaxChatConfig
 
 
 def test_minimax_chat_config():
@@ -26,7 +26,7 @@ def test_minimax_chat_config():
         api_key=None,
         model="MiniMax-M2.1",
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         stream=False,
     )
     assert complete_url == "https://api.minimax.io/v1/chat/completions"
@@ -42,7 +42,7 @@ def test_minimax_chat_config_url_variations():
         api_key=None,
         model="MiniMax-M2.1",
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
     )
     assert url1 == "https://api.minimax.io/v1/chat/completions"
 
@@ -52,7 +52,7 @@ def test_minimax_chat_config_url_variations():
         api_key=None,
         model="MiniMax-M2.1",
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
     )
     assert url2 == "https://api.minimax.io/v1/chat/completions"
 
@@ -62,7 +62,7 @@ def test_minimax_chat_config_url_variations():
         api_key=None,
         model="MiniMax-M2.1",
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
     )
     assert url3 == "https://api.minimax.io/v1/chat/completions"
 
@@ -72,14 +72,14 @@ def test_minimax_chat_config_url_variations():
         api_key=None,
         model="MiniMax-M2.1",
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
     )
     assert url4 == "https://api.minimax.io/v1/chat/completions"
 
 
 def test_minimax_provider_routing():
     """Test that minimax provider is properly routed"""
-    from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
+    from embrouter.embrouter_core_utils.get_llm_provider_logic import get_llm_provider
 
     # Test with minimax/ prefix
     model, provider, api_key, api_base = get_llm_provider(
@@ -91,8 +91,8 @@ def test_minimax_provider_routing():
 
 def test_minimax_provider_config_manager():
     """Test that ProviderConfigManager returns MinimaxChatConfig"""
-    from litellm.types.utils import LlmProviders
-    from litellm.utils import ProviderConfigManager
+    from embrouter.types.utils import LlmProviders
+    from embrouter.utils import ProviderConfigManager
 
     config = ProviderConfigManager.get_provider_chat_config(
         model="MiniMax-M2.1", provider=LlmProviders.MINIMAX

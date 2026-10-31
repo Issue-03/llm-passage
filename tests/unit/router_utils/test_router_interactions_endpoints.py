@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from litellm import Router
+from embrouter import Router
 
 
 class TestInitializeInteractionsEndpoints:
@@ -18,7 +18,7 @@ class TestInitializeInteractionsEndpoints:
             model_list=[
                 {
                     "model_name": "gpt-4",
-                    "litellm_params": {"model": "gpt-4"},
+                    "embrouter_params": {"model": "gpt-4"},
                 }
             ]
         )
@@ -45,7 +45,7 @@ class TestInitializeInteractionsEndpoints:
             model_list=[
                 {
                     "model_name": "gpt-4",
-                    "litellm_params": {"model": "gpt-4"},
+                    "embrouter_params": {"model": "gpt-4"},
                 }
             ]
         )
@@ -69,7 +69,7 @@ class TestInitInteractionsApiEndpoints:
             model_list=[
                 {
                     "model_name": "gpt-4",
-                    "litellm_params": {"model": "gpt-4"},
+                    "embrouter_params": {"model": "gpt-4"},
                 }
             ]
         )
@@ -95,7 +95,7 @@ class TestInitInteractionsApiEndpoints:
             model_list=[
                 {
                     "model_name": "gpt-4",
-                    "litellm_params": {"model": "gpt-4"},
+                    "embrouter_params": {"model": "gpt-4"},
                 }
             ]
         )
@@ -122,7 +122,7 @@ class TestInitInteractionsApiEndpoints:
             model_list=[
                 {
                     "model_name": "gpt-4",
-                    "litellm_params": {"model": "gpt-4"},
+                    "embrouter_params": {"model": "gpt-4"},
                 }
             ]
         )
@@ -175,7 +175,7 @@ class TestRouterCreateInteractionRouting:
             model_list=[
                 {
                     "model_name": "openai/*",
-                    "litellm_params": {"model": "gpt-4"},
+                    "embrouter_params": {"model": "gpt-4"},
                 }
             ]
         )
@@ -233,7 +233,7 @@ class TestInitializeManagedAgentsEndpoints:
             model_list=[
                 {
                     "model_name": "gpt-4",
-                    "litellm_params": {"model": "gpt-4"},
+                    "embrouter_params": {"model": "gpt-4"},
                 }
             ]
         )

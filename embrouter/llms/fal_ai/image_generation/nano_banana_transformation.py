@@ -1,7 +1,7 @@
 from typing import Final
 
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.openai import OpenAIImageGenerationOptionalParams
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.openai import OpenAIImageGenerationOptionalParams
 
 from .transformation import FalAIBaseConfig
 
@@ -42,7 +42,7 @@ class FalAINanoBananaConfig(FalAIBaseConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         base_url: Final[str] = (api_base or get_secret_str("FAL_AI_API_BASE") or self.DEFAULT_BASE_URL).rstrip("/")
@@ -100,7 +100,7 @@ class FalAINanoBananaConfig(FalAIBaseConfig):
         model: str,
         prompt: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         return {"prompt": prompt, **optional_params}

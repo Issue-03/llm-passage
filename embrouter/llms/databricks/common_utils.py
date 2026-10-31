@@ -1,5 +1,5 @@
 """
-Databricks integration utilities for LiteLLM.
+Databricks integration utilities for EmbRouter.
 
 This module provides authentication, telemetry, and security utilities
 for the Databricks LLM provider integration.
@@ -15,7 +15,7 @@ import re
 from typing import Final, Literal
 from urllib.parse import urlsplit, urlunsplit
 
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
 
 
 class DatabricksException(BaseLLMException):
@@ -139,25 +139,25 @@ class DatabricksBase:
         Build the User-Agent string for Databricks API calls.
 
         If a custom user agent is provided, the partner name (part before /)
-        is extracted and prefixed to the litellm user agent with an underscore.
-        The custom version is ignored; LiteLLM's version is always used.
+        is extracted and prefixed to the embrouter user agent with an underscore.
+        The custom version is ignored; EmbRouter's version is always used.
 
         Args:
             custom_user_agent: Optional custom user agent string (e.g., "mycompany/1.0.0")
 
         Returns:
             User-Agent string in format:
-            - Default: "litellm/{version}"
-            - With custom: "{partner}_litellm/{version}"
+            - Default: "embrouter/{version}"
+            - With custom: "{partner}_embrouter/{version}"
 
         Examples:
-            - None -> "litellm/1.79.1"
-            - "mycompany/1.0.0" -> "mycompany_litellm/1.79.1"
-            - "partner_product/2.0.0" -> "partner_product_litellm/1.79.1"
-            - "acme" -> "acme_litellm/1.79.1"
+            - None -> "embrouter/1.79.1"
+            - "mycompany/1.0.0" -> "mycompany_embrouter/1.79.1"
+            - "partner_product/2.0.0" -> "partner_product_embrouter/1.79.1"
+            - "acme" -> "acme_embrouter/1.79.1"
         """
         try:
-            from litellm._version import version
+            from embrouter._version import version
         except Exception:
             version = "0.0.0"
 
@@ -172,10 +172,10 @@ class DatabricksBase:
 
             # Validate partner name: alphanumeric, underscore, hyphen only
             if partner_name and partner_name.replace("_", "").replace("-", "").isalnum():
-                return f"{partner_name}_litellm/{version}"
+                return f"{partner_name}_embrouter/{version}"
 
-        # Default: just litellm
-        return f"litellm/{version}"
+        # Default: just embrouter
+        return f"embrouter/{version}"
 
     def _get_api_base(self, api_base: str | None, use_ai_gateway: bool = False) -> str:
         if api_base is None:
@@ -267,7 +267,7 @@ class DatabricksBase:
         """
         Get Databricks credentials using the Databricks SDK.
 
-        Also registers LiteLLM as a partner for proper telemetry attribution
+        Also registers EmbRouter as a partner for proper telemetry attribution
         in Databricks system.access.audit table.
 
         Args:
@@ -282,8 +282,8 @@ class DatabricksBase:
         try:
             from databricks.sdk import WorkspaceClient, useragent
 
-            # Register LiteLLM as partner for Databricks telemetry attribution
-            useragent.with_partner("litellm")
+            # Register EmbRouter as partner for Databricks telemetry attribution
+            useragent.with_partner("embrouter")
 
             databricks_client: Final = WorkspaceClient()
 
@@ -333,7 +333,7 @@ class DatabricksBase:
         Returns:
             Tuple of (api_base, headers) with authentication configured
         """
-        from litellm._logging import verbose_logger
+        from embrouter._logging import verbose_logger
 
         # Check for OAuth M2M credentials (recommended for production)
         client_id: Final = os.getenv("DATABRICKS_CLIENT_ID")

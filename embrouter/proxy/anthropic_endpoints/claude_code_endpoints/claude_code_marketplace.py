@@ -2,7 +2,7 @@
 CLAUDE CODE MARKETPLACE
 
 Provides a registry/discovery layer for Claude Code plugins.
-Plugins are stored as metadata + source references in LiteLLM database.
+Plugins are stored as metadata + source references in EmbRouter database.
 Actual plugin files are hosted on GitHub/GitLab/Bitbucket or as a zip archive on
 any HTTPS host (S3, Artifactory, a static file server).
 
@@ -27,16 +27,16 @@ from urllib.parse import urlsplit
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy._types import CommonProxyErrors, ProxyException, UserAPIKeyAuth
-from litellm.proxy.anthropic_endpoints.claude_code_endpoints.claude_code_skill_access import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy._types import CommonProxyErrors, ProxyException, UserAPIKeyAuth
+from embrouter.proxy.anthropic_endpoints.claude_code_endpoints.claude_code_skill_access import (
     SkillVisibility,
     skill_visibility,
 )
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.common_utils.resource_ownership import is_proxy_admin
-from litellm.repositories.table_repositories import ClaudeCodePluginRepository
-from litellm.types.proxy.claude_code_endpoints import (
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.common_utils.resource_ownership import is_proxy_admin
+from embrouter.repositories.table_repositories import ClaudeCodePluginRepository
+from embrouter.types.proxy.claude_code_endpoints import (
     ListPluginsResponse,
     PluginListItem,
     PluginResponse,
@@ -74,7 +74,7 @@ class _MarketplaceEntry(TypedDict, total=False):
 
 async def _get_prisma_client() -> object:
     """Get the prisma client from proxy_server."""
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(
@@ -107,7 +107,7 @@ async def get_marketplace(request: Request, key: str | None = None):
         ```bash
         claude plugin marketplace add http://localhost:4000/claude-code/marketplace.json
         claude plugin marketplace add "http://localhost:4000/claude-code/marketplace.json?key=sk-..."
-        claude plugin install my-plugin@litellm
+        claude plugin install my-plugin@embrouter
         ```
     """
     try:
@@ -157,8 +157,8 @@ async def get_marketplace(request: Request, key: str | None = None):
             plugin_list.append(entry)
 
         marketplace: Final = {
-            "name": "litellm",
-            "owner": {"name": "LiteLLM", "email": "support@litellm.ai"},
+            "name": "embrouter",
+            "owner": {"name": "EmbRouter", "email": "support@embrouter.ai"},
             "plugins": plugin_list,
         }
 
@@ -285,9 +285,9 @@ async def register_plugin(
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
 ):
     """
-    Register a new plugin in the LiteLLM marketplace.
+    Register a new plugin in the EmbRouter marketplace.
 
-    LiteLLM acts as a registry/discovery layer. Plugins are hosted on
+    EmbRouter acts as a registry/discovery layer. Plugins are hosted on
     GitHub/GitLab/Bitbucket or as a zip archive on any https host (e.g. S3).
     Claude Code clones the git source or downloads the archive when users install.
 
@@ -536,7 +536,7 @@ async def update_plugin(
     user_api_key_dict: Annotated[UserAPIKeyAuth, Depends(user_api_key_auth)],
 ):
     """
-    Update an existing plugin in the LiteLLM marketplace.
+    Update an existing plugin in the EmbRouter marketplace.
 
     The plugin is identified by its name in the path, which is the resource
     identity and cannot be changed here. This is a full replace, not a merge:

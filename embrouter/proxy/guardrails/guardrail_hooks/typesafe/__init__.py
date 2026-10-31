@@ -4,19 +4,19 @@ from typing import TYPE_CHECKING, Final
 
 from pydantic import BaseModel
 
-from litellm.types.guardrails import (
+from embrouter.types.guardrails import (
     GuardrailEventHooks,
     Mode,
     SupportedGuardrailIntegrations,
 )
-from litellm.types.proxy.guardrails.guardrail_hooks.typesafe import (
+from embrouter.types.proxy.guardrails.guardrail_hooks.typesafe import (
     TypeSafeGuardrailOptionalParams,
 )
 
 from .typesafe import TypeSafeGuardrail
 
 if TYPE_CHECKING:
-    from litellm.types.guardrails import Guardrail, LitellmParams
+    from embrouter.types.guardrails import Guardrail, EmbrouterParams
 
 
 def _coerce_event_hook(
@@ -31,8 +31,8 @@ def _coerce_event_hook(
     return GuardrailEventHooks(mode)
 
 
-def _optional_params(litellm_params: LitellmParams) -> TypeSafeGuardrailOptionalParams:
-    value: Final = litellm_params.optional_params
+def _optional_params(embrouter_params: EmbrouterParams) -> TypeSafeGuardrailOptionalParams:
+    value: Final = embrouter_params.optional_params
     if isinstance(value, TypeSafeGuardrailOptionalParams):
         return value
     if isinstance(value, BaseModel):
@@ -40,26 +40,26 @@ def _optional_params(litellm_params: LitellmParams) -> TypeSafeGuardrailOptional
     return TypeSafeGuardrailOptionalParams()
 
 
-def initialize_guardrail(litellm_params: LitellmParams, guardrail: Guardrail) -> TypeSafeGuardrail:
-    import litellm
+def initialize_guardrail(embrouter_params: EmbrouterParams, guardrail: Guardrail) -> TypeSafeGuardrail:
+    import embrouter
 
-    optional_params: Final = _optional_params(litellm_params)
+    optional_params: Final = _optional_params(embrouter_params)
 
     _callback: Final = TypeSafeGuardrail(
-        api_base=litellm_params.api_base,
-        api_key=litellm_params.api_key,
-        model=litellm_params.model,
+        api_base=embrouter_params.api_base,
+        api_key=embrouter_params.api_key,
+        model=embrouter_params.model,
         relevance_threshold=optional_params.relevance_threshold,
         min_chars_to_evaluate=optional_params.min_chars_to_evaluate,
         max_result_chars_in_state=optional_params.max_result_chars_in_state,
         guardrail_name=guardrail["guardrail_name"],
-        event_hook=_coerce_event_hook(litellm_params.mode),
-        default_on=litellm_params.default_on or False,
+        event_hook=_coerce_event_hook(embrouter_params.mode),
+        default_on=embrouter_params.default_on or False,
         unreachable_fallback=(
-            litellm_params.unreachable_fallback if "unreachable_fallback" in litellm_params.model_fields_set else None
+            embrouter_params.unreachable_fallback if "unreachable_fallback" in embrouter_params.model_fields_set else None
         ),
     )
-    litellm.logging_callback_manager.add_litellm_callback(  # pyright: ignore[reportUnknownMemberType]  # callback manager is untyped
+    embrouter.logging_callback_manager.add_embrouter_callback(  # pyright: ignore[reportUnknownMemberType]  # callback manager is untyped
         _callback
     )
     return _callback

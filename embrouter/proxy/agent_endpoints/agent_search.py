@@ -8,18 +8,18 @@ from typing import TYPE_CHECKING, Final, TypeAlias
 
 from pydantic import BaseModel, ConfigDict, ValidationError
 
-from litellm.proxy.common_utils.semantic_text_index import (
+from embrouter.proxy.common_utils.semantic_text_index import (
     Embedder,
     EmbeddingFailed,
     SemanticTextIndex,
     router_embedder,
 )
-from litellm.types.agents import AgentResponse
+from embrouter.types.agents import AgentResponse
 
 if TYPE_CHECKING:
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.utils import ProxyLogging
-    from litellm.router import Router
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy.utils import ProxyLogging
+    from embrouter.router import Router
 
 DEFAULT_AGENT_SEARCH_TOP_K: Final = 5
 
@@ -137,7 +137,7 @@ async def search_agents(
 ) -> AgentSearchOutcome:
     if embedding_model is None:
         return AgentSearchNotConfigured(
-            reason="agent search needs litellm_settings.agent_search_embedding_model set to an embedding model from model_list"
+            reason="agent search needs embrouter_settings.agent_search_embedding_model set to an embedding model from model_list"
         )
     if router is None:
         return AgentSearchNotConfigured(reason="agent search needs a model_list so the embedding model can be called")

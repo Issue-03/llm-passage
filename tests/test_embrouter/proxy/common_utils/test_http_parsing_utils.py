@@ -12,9 +12,9 @@ from starlette.datastructures import FormData
 
 
 
-import litellm
-from litellm.proxy._types import ProxyException
-from litellm.proxy.common_utils.http_parsing_utils import (
+import embrouter
+from embrouter.proxy._types import ProxyException
+from embrouter.proxy.common_utils.http_parsing_utils import (
     _is_form_content_type,
     _read_request_body,
     _safe_get_request_headers,
@@ -424,9 +424,9 @@ async def test_json_parsing_error_handling():
         "tools": [
             {
                 "type": "mcp",
-                "server_label": "litellm",
+                "server_label": "embrouter",
                 "headers": {
-                    "x-litellm-api-key": "Bearer sk-1234",
+                    "x-embrouter-api-key": "Bearer sk-1234",
                 }
             }
         ],
@@ -452,7 +452,7 @@ async def test_json_parsing_error_handling():
         "tools": [
             {
                 type: "mcp",
-                "server_label": "litellm"
+                "server_label": "embrouter"
             }
         ],
         "input": "Run available tools"
@@ -476,9 +476,9 @@ async def test_json_parsing_error_handling():
         "tools": [
             {
                 "type": "mcp",
-                "server_label": "litellm",
+                "server_label": "embrouter",
                 "headers": {
-                    "x-litellm-api-key": "Bearer sk-1234"
+                    "x-embrouter-api-key": "Bearer sk-1234"
                 }
             }
         ],
@@ -516,7 +516,7 @@ async def test_surrogate_repair_skipped_above_size_limit(monkeypatch):
     `NaN` is rejected by orjson and accepted by the json fallback, so a body containing
     it is only salvaged when the repair path runs.
     """
-    import litellm.proxy.common_utils.http_parsing_utils as http_parsing_utils
+    import embrouter.proxy.common_utils.http_parsing_utils as http_parsing_utils
 
     # Cap the repair at ~100 bytes so the test stays fast and independent of the default.
     monkeypatch.setattr(
@@ -629,13 +629,13 @@ def test_get_tags_from_request_body_with_metadata_tags():
     assert result == ["tag1", "tag2", "tag3"]
 
 
-def test_get_tags_from_request_body_with_litellm_metadata_tags():
+def test_get_tags_from_request_body_with_embrouter_metadata_tags():
     """
-    Test that tags are correctly extracted from request body when using litellm_metadata.
+    Test that tags are correctly extracted from request body when using embrouter_metadata.
     """
     request_body = {
         "model": "gpt-4",
-        "litellm_metadata": {"tags": ["tag1", "tag2", "tag3"]},
+        "embrouter_metadata": {"tags": ["tag1", "tag2", "tag3"]},
     }
 
     result = get_tags_from_request_body(request_body=request_body)
@@ -704,7 +704,7 @@ def test_get_tags_from_request_body_with_dict_tags():
         "messages": [{"role": "user", "content": "aloha"}],
         "metadata": {
             "tags": {
-                "litellm_id": "litellm_ratelimit_test",
+                "embrouter_id": "embrouter_ratelimit_test",
                 "llm_id": "llmid_ratelimit_test",
             }
         },
@@ -948,7 +948,7 @@ class TestGetTagsFromRequestBodyStringCoerce:
     """
 
     def test_json_string_metadata_is_coerced_to_dict(self):
-        from litellm.proxy.common_utils.http_parsing_utils import (
+        from embrouter.proxy.common_utils.http_parsing_utils import (
             get_tags_from_request_body,
         )
 
@@ -958,7 +958,7 @@ class TestGetTagsFromRequestBodyStringCoerce:
         assert tags == ["a", "b"]
 
     def test_unparseable_string_metadata_is_ignored(self):
-        from litellm.proxy.common_utils.http_parsing_utils import (
+        from embrouter.proxy.common_utils.http_parsing_utils import (
             get_tags_from_request_body,
         )
 
@@ -969,7 +969,7 @@ class TestGetTagsFromRequestBodyStringCoerce:
         assert tags == ["root-only"]
 
     def test_dict_metadata_still_works(self):
-        from litellm.proxy.common_utils.http_parsing_utils import (
+        from embrouter.proxy.common_utils.http_parsing_utils import (
             get_tags_from_request_body,
         )
 
@@ -1121,7 +1121,7 @@ class TestGetRequestBody:
 
 class TestNumericFormFields:
     def test_image_edit_schema_yields_only_n(self):
-        from litellm.types.images.main import ImageEditRequestParams
+        from embrouter.types.images.main import ImageEditRequestParams
 
         assert dict(numeric_form_fields(get_type_hints(ImageEditRequestParams))) == {"n": int}
 
@@ -1247,6 +1247,6 @@ def test_shared_inference_model_selection_preserves_handler_precedence(
     body: str,
     expected: str,
 ) -> None:
-    from litellm.proxy.common_utils.http_parsing_utils import resolve_inference_model
+    from embrouter.proxy.common_utils.http_parsing_utils import resolve_inference_model
 
     assert resolve_inference_model(body, settings, cli, path, kind=kind) == expected

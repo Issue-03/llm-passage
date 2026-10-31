@@ -1,5 +1,5 @@
 """
-Convert Anthropic MCP connector definitions into LiteLLM MCP server create requests.
+Convert Anthropic MCP connector definitions into EmbRouter MCP server create requests.
 
 Two interchange shapes are accepted:
 - the ``mcpServers`` mapping used by Claude Desktop / Claude Code config files
@@ -13,8 +13,8 @@ from typing import Final
 
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, ValidationError
 
-from litellm.proxy._types import MCPApprovalStatus, NewMCPServerRequest
-from litellm.types.mcp import MCPAuth, MCPAuthType, MCPCredentials, MCPTransport
+from embrouter.proxy._types import MCPApprovalStatus, NewMCPServerRequest
+from embrouter.types.mcp import MCPAuth, MCPAuthType, MCPCredentials, MCPTransport
 
 
 class MCPConnectorEntry(BaseModel):

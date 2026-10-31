@@ -14,11 +14,11 @@ from unittest.mock import patch
 import pytest
 
 # Add the project root to Python path
-import litellm
-from litellm.llms.perplexity.cost_calculator import (
+import embrouter
+from embrouter.llms.perplexity.cost_calculator import (
     cost_per_token as perplexity_cost_per_token,
 )
-from litellm.types.utils import (
+from embrouter.types.utils import (
     CompletionTokensDetailsWrapper,
     OffPeakPricing,
     PromptTokensDetailsWrapper,
@@ -33,16 +33,16 @@ class TestPerplexityCostCalculator:
     def setup_model_cost_map(self):
         """Set up the model cost map for testing."""
         # Ensure we use local model cost map for consistent testing
-        os.environ["LITELLM_LOCAL_MODEL_COST_MAP"] = "True"
+        os.environ["EMBROUTER_LOCAL_MODEL_COST_MAP"] = "True"
 
         # Load the model cost map
         try:
             with open("model_prices_and_context_window.json", "r") as f:
                 model_cost_map = json.load(f)
-            litellm.model_cost = model_cost_map
+            embrouter.model_cost = model_cost_map
         except FileNotFoundError:
             # Fallback to ensure we have the Perplexity model configuration
-            litellm.model_cost = {
+            embrouter.model_cost = {
                 "perplexity/sonar-deep-research": {
                     "max_tokens": 128000,
                     "max_input_tokens": 128000,
@@ -55,7 +55,7 @@ class TestPerplexityCostCalculator:
                         "search_context_size_medium": 0.005,
                         "search_context_size_high": 0.005,
                     },
-                    "litellm_provider": "perplexity",
+                    "embrouter_provider": "perplexity",
                     "mode": "chat",
                     "supports_reasoning": True,
                     "supports_web_search": True,
@@ -74,7 +74,7 @@ class TestPerplexityCostCalculator:
         usage.citation_tokens = 25
 
         # Mock get_model_info to return incomplete model info
-        with patch("litellm.llms.perplexity.cost_calculator.get_model_info") as mock_get_model_info:
+        with patch("embrouter.llms.perplexity.cost_calculator.get_model_info") as mock_get_model_info:
             mock_get_model_info.return_value = {
                 "input_cost_per_token": 2e-6,
                 "output_cost_per_token": 8e-6,
@@ -96,7 +96,7 @@ class TestPerplexityCostCalculator:
         it is used directly instead of manual calculation.
 
         This is the fix for issue #15337 - Perplexity returns accurate costs including
-        request_cost (fixed per-request fee) that LiteLLM cannot calculate.
+        request_cost (fixed per-request fee) that EmbRouter cannot calculate.
         """
         # Create usage with Perplexity's cost object (as returned by the API)
         usage = Usage(prompt_tokens=100, completion_tokens=50, total_tokens=150)
@@ -120,9 +120,9 @@ class TestPerplexityCostCalculator:
     def test_uses_perplexity_provided_cost_when_normalized_to_float(self):
         """
         Regression: for Responses API / Agent API models, `ResponseAPIUsage.parse_cost`
-        (litellm/types/llms/openai.py) already flattens Perplexity's
+        (embrouter/types/llms/openai.py) already flattens Perplexity's
         `usage.cost.total_cost` dict down to a plain float before
-        `_transform_response_api_usage_to_chat_usage` (litellm/responses/utils.py) copies
+        `_transform_response_api_usage_to_chat_usage` (embrouter/responses/utils.py) copies
         it onto the chat `Usage` object. So `usage.cost` arrives here as a float, not a
         dict, on that path.
 
@@ -146,8 +146,8 @@ class TestPerplexityCostCalculator:
     OUTSIDE_WINDOW = datetime(2026, 9, 3, 9, 0, tzinfo=timezone.utc)
 
     def _register_off_peak_model(self, off_peak_pricing: OffPeakPricing) -> None:
-        litellm.model_cost[f"perplexity/{self.OFF_PEAK_MODEL}"] = {
-            "litellm_provider": "perplexity",
+        embrouter.model_cost[f"perplexity/{self.OFF_PEAK_MODEL}"] = {
+            "embrouter_provider": "perplexity",
             "mode": "chat",
             "input_cost_per_token": 1e-06,
             "output_cost_per_token": 1e-06,

@@ -14,33 +14,33 @@ from typing import TYPE_CHECKING, Any, Final, Literal, cast
 from fastapi import APIRouter, Depends, HTTPException, Path, Request, Response
 from pydantic import TypeAdapter
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.batches.main import CancelBatchRequest, RetrieveBatchRequest
-from litellm.proxy._types import *
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.batches_endpoints.common_utils import validate_batch_list_limit
-from litellm.proxy.batches_endpoints.litellm_executed_batches import (
-    LITELLM_EXECUTED_BATCH_UPLOAD_GUIDANCE,
-    LiteLLMExecutedBatchRunner,
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.batches.main import CancelBatchRequest, RetrieveBatchRequest
+from embrouter.proxy._types import *
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.batches_endpoints.common_utils import validate_batch_list_limit
+from embrouter.proxy.batches_endpoints.embrouter_executed_batches import (
+    EMBROUTER_EXECUTED_BATCH_UPLOAD_GUIDANCE,
+    EmbRouterExecutedBatchRunner,
     ManagedBatchStore,
     batch_error,
     executed_batch_runner_lost,
-    litellm_executed_provider_for,
-    resolve_litellm_executed_provider,
+    embrouter_executed_provider_for,
+    resolve_embrouter_executed_provider,
 )
-from litellm.proxy.common_request_processing import (
+from embrouter.proxy.common_request_processing import (
     ProxyBaseLLMRequestProcessing,
     log_llm_api_exception,
-    request_litellm_call_id,
+    request_embrouter_call_id,
 )
-from litellm.proxy.common_utils.callback_utils import sanitize_openai_provider_metadata
-from litellm.proxy.common_utils.http_parsing_utils import _read_request_body
-from litellm.proxy.common_utils.openai_endpoint_utils import (
+from embrouter.proxy.common_utils.callback_utils import sanitize_openai_provider_metadata
+from embrouter.proxy.common_utils.http_parsing_utils import _read_request_body
+from embrouter.proxy.common_utils.openai_endpoint_utils import (
     get_custom_llm_provider_from_request_headers,
     get_custom_llm_provider_from_request_query,
 )
-from litellm.proxy.openai_files_endpoints.common_utils import (
+from embrouter.proxy.openai_files_endpoints.common_utils import (
     BATCH_CREATE_HIDDEN_PARAM,
     _is_base64_encoded_unified_file_id,
     add_deployment_model_info,
@@ -58,44 +58,44 @@ from litellm.proxy.openai_files_endpoints.common_utils import (
     get_model_id_from_unified_batch_id,
     get_models_from_unified_file_id,
     get_original_file_id,
-    is_litellm_executed_batch,
+    is_embrouter_executed_batch,
     prepare_data_with_credentials,
     update_batch_in_database,
     validate_managed_id_requirement,
 )
-from litellm.proxy.pass_through_endpoints.llm_provider_handlers.batch_attribution import request_tags_from_metadata
-from litellm.proxy.route_llm_request import raise_if_required_body_param_missing
-from litellm.proxy.utils import PrismaClient, ProxyLogging, handle_exception_on_proxy, is_known_model
-from litellm.repositories.managed_batch_repository import ManagedBatchRepository
-from litellm.repositories.table_repositories import ManagedFileRepository
-from litellm.router import Router
-from litellm.types.llms.openai import LiteLLMBatchCreateRequest
-from litellm.types.utils import LiteLLMBatch
+from embrouter.proxy.pass_through_endpoints.llm_provider_handlers.batch_attribution import request_tags_from_metadata
+from embrouter.proxy.route_llm_request import raise_if_required_body_param_missing
+from embrouter.proxy.utils import PrismaClient, ProxyLogging, handle_exception_on_proxy, is_known_model
+from embrouter.repositories.managed_batch_repository import ManagedBatchRepository
+from embrouter.repositories.table_repositories import ManagedFileRepository
+from embrouter.router import Router
+from embrouter.types.llms.openai import EmbRouterBatchCreateRequest
+from embrouter.types.utils import EmbRouterBatch
 
 if TYPE_CHECKING:
-    from prisma.models import LiteLLM_ManagedObjectTable
+    from prisma.models import EmbRouter_ManagedObjectTable
 
 router: Final = APIRouter()
 _METADATA_ADAPTER: Final[TypeAdapter[Mapping[str, object]]] = TypeAdapter(Mapping[str, object])
 
 
 def _request_tags(data: Mapping[str, object]) -> tuple[str, ...] | None:
-    metadata: Final = data.get("litellm_metadata")
+    metadata: Final = data.get("embrouter_metadata")
     if metadata is None:
         return None
     return request_tags_from_metadata(_METADATA_ADAPTER.validate_python(metadata))
 
 
-def _litellm_executed_batch_runner(llm_router: Router, proxy_logging_obj: ProxyLogging) -> LiteLLMExecutedBatchRunner:
-    from litellm.proxy.proxy_server import general_settings, prisma_client
+def _embrouter_executed_batch_runner(llm_router: Router, proxy_logging_obj: ProxyLogging) -> EmbRouterExecutedBatchRunner:
+    from embrouter.proxy.proxy_server import general_settings, prisma_client
 
     managed_files: Final = proxy_logging_obj.get_proxy_hook("managed_files")
     if prisma_client is None or not isinstance(managed_files, ManagedBatchStore):
         raise batch_error(
             400,
-            "LiteLLM-executed batches need a database: set DATABASE_URL so LiteLLM can keep the batch and its files",
+            "EmbRouter-executed batches need a database: set DATABASE_URL so EmbRouter can keep the batch and its files",
         )
-    return LiteLLMExecutedBatchRunner(
+    return EmbRouterExecutedBatchRunner(
         llm_router=llm_router,
         prisma_client=prisma_client,
         managed_files=managed_files,
@@ -114,7 +114,7 @@ async def _batch_from_database(
     llm_router: Router | None,
     proxy_logging_obj: ProxyLogging,
     user_api_key_dict: UserAPIKeyAuth,
-) -> tuple["LiteLLM_ManagedObjectTable | None", LiteLLMBatch | None]:
+) -> tuple["EmbRouter_ManagedObjectTable | None", EmbRouterBatch | None]:
     row, batch = await get_batch_from_database(
         batch_id=batch_id,
         unified_batch_id=unified_batch_id,
@@ -127,31 +127,31 @@ async def _batch_from_database(
         return row, batch
     if not executed_batch_runner_lost(batch.status, updated_at):
         return row, batch
-    runner: Final = _litellm_executed_batch_runner(llm_router, proxy_logging_obj)
+    runner: Final = _embrouter_executed_batch_runner(llm_router, proxy_logging_obj)
     return row, await runner.fail_abandoned(batch, user_api_key_dict)
 
 
 async def _raise_when_input_file_must_be_managed(model: str, credentials: Mapping[str, object]) -> None:
-    if await litellm_executed_provider_for(credentials) is None:
+    if await embrouter_executed_provider_for(credentials) is None:
         return
     raise batch_error(
         400,
-        f"Batches for {model} run inside LiteLLM, so the input file must be a LiteLLM managed file: "
-        f"{LITELLM_EXECUTED_BATCH_UPLOAD_GUIDANCE}",
+        f"Batches for {model} run inside EmbRouter, so the input file must be a EmbRouter managed file: "
+        f"{EMBROUTER_EXECUTED_BATCH_UPLOAD_GUIDANCE}",
     )
 
 
-def _litellm_metadata_of(data: MutableMapping[str, object]) -> MutableMapping[str, object]:
-    """The request's litellm_metadata mapping, created on the request when it carries none.
+def _embrouter_metadata_of(data: MutableMapping[str, object]) -> MutableMapping[str, object]:
+    """The request's embrouter_metadata mapping, created on the request when it carries none.
 
     The success handler reads this mapping, so a flag or a model group set here has to live
     inside it rather than beside it.
     """
-    existing: Final = data.get("litellm_metadata")
+    existing: Final = data.get("embrouter_metadata")
     if isinstance(existing, MutableMapping):
         return existing
     created: Final[dict[str, object]] = {}  # mutable-ok: the logging layer copies and extends this mapping
-    data["litellm_metadata"] = created  # rebind-ok: the success handler reads the request's own mapping
+    data["embrouter_metadata"] = created  # rebind-ok: the success handler reads the request's own mapping
     return created
 
 
@@ -162,7 +162,7 @@ def _raise_not_found_when_openai_fallback_unservable(
 ) -> None:
     if requested_provider is not None:
         return
-    if data.get("api_key") or litellm.api_key or litellm.openai_key or os.getenv("OPENAI_API_KEY"):
+    if data.get("api_key") or embrouter.api_key or embrouter.openai_key or os.getenv("OPENAI_API_KEY"):
         return
     raise ProxyException(
         message=not_found_message,
@@ -183,7 +183,7 @@ async def _resolve_managed_input_file_storage_url(input_file_id: str) -> "str | 
     which the managed-files deployment hook still maps. This adds resolution
     without changing behavior on any path that did not resolve before.
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         return None
@@ -199,12 +199,12 @@ async def _resolve_managed_input_file_storage_url(input_file_id: str) -> "str | 
 
 async def _create_provider_batch_for_managed_file(
     llm_router: Router,
-    create_batch_data: LiteLLMBatchCreateRequest,
+    create_batch_data: EmbRouterBatchCreateRequest,
     input_file_id: str,
     unified_file_id: str,
-) -> LiteLLMBatch:
+) -> EmbRouterBatch:
     resolved_storage_url: Final = await _resolve_managed_input_file_storage_url(input_file_id)
-    request: Final[LiteLLMBatchCreateRequest] = {
+    request: Final[EmbRouterBatchCreateRequest] = {
         **create_batch_data,
         "input_file_id": resolved_storage_url or input_file_id,
         "disable_fallbacks": True,
@@ -253,7 +253,7 @@ async def create_batch(
     }'
     ```
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         proxy_config,
@@ -265,13 +265,13 @@ async def create_batch(
     try:
         data = await _read_request_body(request=request)
         verbose_proxy_logger.debug(
-            "Request received by LiteLLM:\n%s",
+            "Request received by EmbRouter:\n%s",
             json.dumps(data, indent=4),
         )
         base_llm_response_processor: Final = ProxyBaseLLMRequestProcessing(data=data)
         (
             data,
-            litellm_logging_obj,
+            embrouter_logging_obj,
         ) = await base_llm_response_processor.common_processing_pre_call_logic(
             request=request,
             general_settings=general_settings,
@@ -288,7 +288,7 @@ async def create_batch(
         ## check if model is a loadbalanced model
         router_model: str | None = None
         is_router_model = False
-        if litellm.enable_loadbalancing_on_batch_endpoints is True:
+        if embrouter.enable_loadbalancing_on_batch_endpoints is True:
             router_model = data.get("model", None)
             is_router_model = is_known_model(model=router_model, llm_router=llm_router)
 
@@ -298,7 +298,7 @@ async def create_batch(
             or get_custom_llm_provider_from_request_headers(request=request)
         )
         custom_llm_provider: Final = requested_provider or "openai"
-        _create_batch_data: Final = LiteLLMBatchCreateRequest(**data)
+        _create_batch_data: Final = EmbRouterBatchCreateRequest(**data)
 
         # Apply team-level batch output expiry enforcement
         team_metadata: Final = user_api_key_dict.team_metadata or {}
@@ -354,7 +354,7 @@ async def create_batch(
             )
 
             # Create batch using model credentials
-            response = await litellm.acreate_batch(
+            response = await embrouter.acreate_batch(
                 custom_llm_provider=credentials["custom_llm_provider"],
                 **_create_batch_data,
             )
@@ -388,7 +388,7 @@ async def create_batch(
 
             response.input_file_id = input_file_id
 
-        elif litellm.enable_loadbalancing_on_batch_endpoints is True and is_router_model and router_model is not None:
+        elif embrouter.enable_loadbalancing_on_batch_endpoints is True and is_router_model and router_model is not None:
             if llm_router is None:
                 raise HTTPException(
                     status_code=500,
@@ -398,7 +398,7 @@ async def create_batch(
             response = await llm_router.acreate_batch(**_create_batch_data)
         elif (
             unified_file_id and input_file_id
-        ):  # litellm_proxy:application/octet-stream;unified_id,c4843482-b176-4901-8292-7523fd0f2c6e;target_model_names,gpt-4o-mini
+        ):  # embrouter_proxy:application/octet-stream;unified_id,c4843482-b176-4901-8292-7523fd0f2c6e;target_model_names,gpt-4o-mini
             target_model_names: Final = get_models_from_unified_file_id(unified_file_id)
             ## EXPECTS 1 MODEL
             if len(target_model_names) != 1:
@@ -416,11 +416,11 @@ async def create_batch(
                     detail={"error": "LLM Router not initialized. Ensure models added to proxy."},
                 )
 
-            executed_provider: Final = await resolve_litellm_executed_provider(
+            executed_provider: Final = await resolve_embrouter_executed_provider(
                 llm_router, model, user_api_key_dict.team_id
             )
             response = (
-                await _litellm_executed_batch_runner(llm_router, proxy_logging_obj).create(
+                await _embrouter_executed_batch_runner(llm_router, proxy_logging_obj).create(
                     create_request=_create_batch_data,
                     unified_input_file_id=input_file_id,
                     model=model,
@@ -438,7 +438,7 @@ async def create_batch(
             model_param: Final = (
                 _create_batch_data.get("model")
                 or request.query_params.get("model")
-                or request.headers.get("x-litellm-model")
+                or request.headers.get("x-embrouter-model")
             )
 
             # SCENARIO 2 & 3: Model from header/query OR custom_llm_provider fallback
@@ -458,7 +458,7 @@ async def create_batch(
                 )
 
                 # Create batch using model credentials
-                response = await litellm.acreate_batch(
+                response = await embrouter.acreate_batch(
                     custom_llm_provider=credentials["custom_llm_provider"],
                     **_create_batch_data,
                 )
@@ -479,7 +479,7 @@ async def create_batch(
                     data=cast(dict, _create_batch_data),  # cast-ok: TypedDict is a dict at runtime
                     not_found_message=f"No such File object: {input_file_id}",
                 )
-                response = await litellm.acreate_batch(
+                response = await embrouter.acreate_batch(
                     custom_llm_provider=custom_llm_provider,
                     **_create_batch_data,
                 )
@@ -493,7 +493,7 @@ async def create_batch(
 
         ### ALERTING ###
         asyncio.create_task(
-            proxy_logging_obj.update_request_status(litellm_call_id=data.get("litellm_call_id", ""), status="success")
+            proxy_logging_obj.update_request_status(embrouter_call_id=data.get("embrouter_call_id", ""), status="success")
         )
 
         ### RESPONSE HEADERS ###
@@ -519,9 +519,9 @@ async def create_batch(
         await proxy_logging_obj.post_call_failure_hook(
             user_api_key_dict=user_api_key_dict, original_exception=e, request_data=data
         )
-        litellm_call_id: Final = request_litellm_call_id(data)
-        log_llm_api_exception(e, litellm_call_id)
-        raise handle_exception_on_proxy(e, litellm_call_id)
+        embrouter_call_id: Final = request_embrouter_call_id(data)
+        log_llm_api_exception(e, embrouter_call_id)
+        raise handle_exception_on_proxy(e, embrouter_call_id)
 
 
 @router.get(
@@ -559,7 +559,7 @@ async def retrieve_batch(
 
     ```
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         proxy_config,
@@ -586,7 +586,7 @@ async def retrieve_batch(
         base_llm_response_processor: Final = ProxyBaseLLMRequestProcessing(data=data)
         (
             data,
-            litellm_logging_obj,
+            embrouter_logging_obj,
         ) = await base_llm_response_processor.common_processing_pre_call_logic(
             request=request,
             general_settings=general_settings,
@@ -610,9 +610,9 @@ async def retrieve_batch(
 
         # FIX: First, try to read from ManagedObjectTable for consistent state
         managed_files_obj: Final = proxy_logging_obj.get_proxy_hook("managed_files")
-        from litellm.proxy.proxy_server import prisma_client
+        from embrouter.proxy.proxy_server import prisma_client
 
-        executed_batch: Final = isinstance(unified_batch_id, str) and is_litellm_executed_batch(unified_batch_id)
+        executed_batch: Final = isinstance(unified_batch_id, str) and is_embrouter_executed_batch(unified_batch_id)
         db_batch_object, response = await _batch_from_database(
             batch_id=batch_id,
             unified_batch_id=unified_batch_id,
@@ -651,7 +651,7 @@ async def retrieve_batch(
 
             asyncio.create_task(
                 proxy_logging_obj.update_request_status(
-                    litellm_call_id=data.get("litellm_call_id", ""), status="success"
+                    embrouter_call_id=data.get("embrouter_call_id", ""), status="success"
                 )
             )
 
@@ -682,7 +682,7 @@ async def retrieve_batch(
 
         poller_owns_accounting: Final = bool(unified_batch_id) and batch_cost_poller_is_active()
         if poller_owns_accounting:
-            _litellm_metadata_of(data)["batch_ignore_default_logging"] = True
+            _embrouter_metadata_of(data)["batch_ignore_default_logging"] = True
 
         # Retrieve from provider (for non-terminal states or if DB lookup failed)
         # SCENARIO 1: Batch ID is encoded with model info
@@ -703,14 +703,14 @@ async def retrieve_batch(
             # Fix: The helper sets "file_id" but we need "batch_id"
             data["batch_id"] = data.pop("file_id", original_batch_id)
             # Provider-config providers (e.g. bedrock) require `model` in kwargs
-            # so litellm.aretrieve_batch can load BedrockBatchesConfig. Without
+            # so embrouter.aretrieve_batch can load BedrockBatchesConfig. Without
             # it the call falls into the legacy provider switch and 400s.
             data["model"] = model_from_id
             add_deployment_model_info(data=data, llm_router=llm_router, model_id=model_from_id)
-            _litellm_metadata_of(data).setdefault("model_group", model_from_id)
+            _embrouter_metadata_of(data).setdefault("model_group", model_from_id)
 
             # Retrieve batch using model credentials
-            response = await litellm.aretrieve_batch(
+            response = await embrouter.aretrieve_batch(
                 custom_llm_provider=credentials["custom_llm_provider"],
                 **data,
             )
@@ -721,7 +721,7 @@ async def retrieve_batch(
                 "Retrieved batch using model: %s, original_id: %s", model_from_id, original_batch_id
             )
 
-        elif litellm.enable_loadbalancing_on_batch_endpoints is True or unified_batch_id:
+        elif embrouter.enable_loadbalancing_on_batch_endpoints is True or unified_batch_id:
             if llm_router is None:
                 raise HTTPException(
                     status_code=500,
@@ -761,7 +761,7 @@ async def retrieve_batch(
                 data=data,
                 not_found_message=f"No batch found with id '{batch_id}'.",
             )
-            response = await litellm.aretrieve_batch(
+            response = await embrouter.aretrieve_batch(
                 custom_llm_provider=custom_llm_provider,
                 **data,
             )
@@ -798,7 +798,7 @@ async def retrieve_batch(
 
         ### ALERTING ###
         asyncio.create_task(
-            proxy_logging_obj.update_request_status(litellm_call_id=data.get("litellm_call_id", ""), status="success")
+            proxy_logging_obj.update_request_status(embrouter_call_id=data.get("embrouter_call_id", ""), status="success")
         )
 
         ### RESPONSE HEADERS ###
@@ -824,9 +824,9 @@ async def retrieve_batch(
         await proxy_logging_obj.post_call_failure_hook(
             user_api_key_dict=user_api_key_dict, original_exception=e, request_data=data
         )
-        litellm_call_id: Final = request_litellm_call_id(data)
-        log_llm_api_exception(e, litellm_call_id)
-        raise handle_exception_on_proxy(e, litellm_call_id)
+        embrouter_call_id: Final = request_embrouter_call_id(data)
+        log_llm_api_exception(e, embrouter_call_id)
+        raise handle_exception_on_proxy(e, embrouter_call_id)
 
 
 @router.get(
@@ -867,7 +867,7 @@ async def list_batches(
     ```
     """
     validate_batch_list_limit(limit)
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         proxy_config,
@@ -889,7 +889,7 @@ async def list_batches(
         base_llm_response_processor: Final = ProxyBaseLLMRequestProcessing(data=data)
         (
             data,
-            litellm_logging_obj,
+            embrouter_logging_obj,
         ) = await base_llm_response_processor.common_processing_pre_call_logic(
             request=request,
             general_settings=general_settings,
@@ -913,7 +913,7 @@ async def list_batches(
                 llm_router=llm_router,
             )
         elif model_param := (
-            data.get("model") or request.query_params.get("model") or request.headers.get("x-litellm-model")
+            data.get("model") or request.query_params.get("model") or request.headers.get("x-embrouter-model")
         ):
             # SCENARIO 2: Use model-based routing from header/query/body
             credentials: Final = await get_authorized_credentials_for_model(
@@ -925,7 +925,7 @@ async def list_batches(
 
             prepare_data_with_credentials(data=data, credentials=credentials)
 
-            response = await litellm.alist_batches(
+            response = await embrouter.alist_batches(
                 custom_llm_provider=credentials["custom_llm_provider"],
                 after=after,
                 limit=limit,
@@ -969,7 +969,7 @@ async def list_batches(
                 user_api_key_dict=user_api_key_dict,
                 custom_llm_provider=custom_llm_provider,
             )
-            response = await litellm.alist_batches(
+            response = await embrouter.alist_batches(
                 custom_llm_provider=custom_llm_provider,
                 after=after,
                 limit=limit,
@@ -1009,9 +1009,9 @@ async def list_batches(
             original_exception=e,
             request_data={**data, "after": after, "limit": limit},
         )
-        litellm_call_id: Final = request_litellm_call_id(data)
-        log_llm_api_exception(e, litellm_call_id)
-        raise handle_exception_on_proxy(e, litellm_call_id)
+        embrouter_call_id: Final = request_embrouter_call_id(data)
+        log_llm_api_exception(e, embrouter_call_id)
+        raise handle_exception_on_proxy(e, embrouter_call_id)
 
 
 @router.post(
@@ -1051,8 +1051,8 @@ async def cancel_batch(
 
     ```
     """
-    from litellm.proxy.proxy_server import (
-        add_litellm_data_to_request,
+    from embrouter.proxy.proxy_server import (
+        add_embrouter_data_to_request,
         general_settings,
         llm_router,
         proxy_config,
@@ -1083,7 +1083,7 @@ async def cancel_batch(
         base_llm_response_processor: Final = ProxyBaseLLMRequestProcessing(data=data)
         (
             data,
-            litellm_logging_obj,
+            embrouter_logging_obj,
         ) = await base_llm_response_processor.common_processing_pre_call_logic(
             request=request,
             general_settings=general_settings,
@@ -1095,7 +1095,7 @@ async def cancel_batch(
         )
 
         # Include original request and headers in the data
-        data = await add_litellm_data_to_request(
+        data = await add_embrouter_data_to_request(
             data=data,
             request=request,
             general_settings=general_settings,
@@ -1134,7 +1134,7 @@ async def cancel_batch(
             data["batch_id"] = data.pop("file_id", original_batch_id)
 
             # Cancel batch using model credentials
-            response = await litellm.acancel_batch(
+            response = await embrouter.acancel_batch(
                 custom_llm_provider=credentials["custom_llm_provider"],
                 **data,
             )
@@ -1146,10 +1146,10 @@ async def cancel_batch(
             )
 
         # SCENARIO 2: target_model_names based routing
-        elif unified_batch_id and is_litellm_executed_batch(unified_batch_id):
+        elif unified_batch_id and is_embrouter_executed_batch(unified_batch_id):
             if llm_router is None:
                 raise batch_error(500, "LLM Router not initialized. Ensure models added to proxy.")
-            response = await _litellm_executed_batch_runner(  # rebind-ok: each cancel path sets the route's response
+            response = await _embrouter_executed_batch_runner(  # rebind-ok: each cancel path sets the route's response
                 llm_router, proxy_logging_obj
             ).cancel(batch_id, user_api_key_dict)
         elif unified_batch_id:
@@ -1163,7 +1163,7 @@ async def cancel_batch(
             if model_id_from_batch is None:
                 raise HTTPException(
                     status_code=400,
-                    detail={"error": "Invalid LiteLLM managed batch ID. Missing model_id."},
+                    detail={"error": "Invalid EmbRouter managed batch ID. Missing model_id."},
                 )
             data["model"] = model_id_from_batch
             data["batch_id"] = get_batch_id_from_unified_batch_id(unified_batch_id)
@@ -1198,14 +1198,14 @@ async def cancel_batch(
                 not_found_message=f"No batch found with id '{batch_id}'.",
             )
             _cancel_batch_data: Final = CancelBatchRequest(batch_id=batch_id, **data)
-            response = await litellm.acancel_batch(
+            response = await embrouter.acancel_batch(
                 custom_llm_provider=custom_llm_provider,
                 **_cancel_batch_data,
             )
 
         # FIX: Update the database with the new cancelled state
         managed_files_obj: Final = proxy_logging_obj.get_proxy_hook("managed_files")
-        from litellm.proxy.proxy_server import prisma_client
+        from embrouter.proxy.proxy_server import prisma_client
 
         await update_batch_in_database(
             batch_id=batch_id,
@@ -1225,7 +1225,7 @@ async def cancel_batch(
 
         ### ALERTING ###
         asyncio.create_task(
-            proxy_logging_obj.update_request_status(litellm_call_id=data.get("litellm_call_id", ""), status="success")
+            proxy_logging_obj.update_request_status(embrouter_call_id=data.get("embrouter_call_id", ""), status="success")
         )
 
         ### RESPONSE HEADERS ###
@@ -1251,9 +1251,9 @@ async def cancel_batch(
         await proxy_logging_obj.post_call_failure_hook(
             user_api_key_dict=user_api_key_dict, original_exception=e, request_data=data
         )
-        litellm_call_id: Final = request_litellm_call_id(data)
-        log_llm_api_exception(e, litellm_call_id)
-        raise handle_exception_on_proxy(e, litellm_call_id)
+        embrouter_call_id: Final = request_embrouter_call_id(data)
+        log_llm_api_exception(e, embrouter_call_id)
+        raise handle_exception_on_proxy(e, embrouter_call_id)
 
 
 ######################################################################

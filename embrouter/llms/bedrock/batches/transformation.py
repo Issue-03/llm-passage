@@ -7,14 +7,14 @@ from typing import TYPE_CHECKING, Final, Literal, cast
 from httpx import Headers, Response
 from pydantic import TypeAdapter, ValidationError
 
-from litellm.litellm_core_utils.aws_partition import get_aws_dns_suffix, is_bedrock_arn
-from litellm.litellm_core_utils.cloud_storage_security import (
+from embrouter.embrouter_core_utils.aws_partition import get_aws_dns_suffix, is_bedrock_arn
+from embrouter.embrouter_core_utils.cloud_storage_security import (
     BEDROCK_MANAGED_S3_BATCH_PREFIX,
 )
-from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
-from litellm.llms.base_llm.batches.transformation import BaseBatchesConfig
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.types.llms.bedrock import (
+from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps
+from embrouter.llms.base_llm.batches.transformation import BaseBatchesConfig
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.types.llms.bedrock import (
     BedrockCreateBatchRequest,
     BedrockCreateBatchResponse,
     BedrockInputDataConfig,
@@ -23,11 +23,11 @@ from litellm.types.llms.bedrock import (
     BedrockS3OutputDataConfig,
     BedrockTag,
 )
-from litellm.types.llms.openai import (
+from embrouter.types.llms.openai import (
     AllMessageValues,
     CreateBatchRequest,
 )
-from litellm.types.utils import LiteLLMBatch, LlmProviders, Usage
+from embrouter.types.utils import EmbRouterBatch, LlmProviders, Usage
 
 from ..base_aws_llm import BaseAWSLLM
 from ..common_utils import (
@@ -38,10 +38,10 @@ from ..common_utils import (
 )
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
 
 # Bedrock batch input files are uploaded as
-# s3://bucket/litellm-bedrock-files-{model, ":" -> "-"}-{uuid4}.jsonl (see
+# s3://bucket/embrouter-bedrock-files-{model, ":" -> "-"}-{uuid4}.jsonl (see
 # BedrockFilesTransformation._get_s3_object_name). A uuid4 is always 36 hex/dash
 # characters, so it can be stripped off the end unambiguously even though the
 # model name itself may contain dashes.
@@ -123,8 +123,8 @@ class BedrockBatchesConfig(BaseAWSLLM, BaseBatchesConfig):
     def is_unmanaged_s3_batch_input_file_id(cls, input_file_id: str | None) -> bool:
         """
         Returns True if `input_file_id` is a raw s3:// Bedrock batch input file (i.e. not a
-        LiteLLM-managed unified file id) whose object key embeds the model name in the
-        `litellm-bedrock-files-{model}-{uuid}.jsonl` layout.
+        EmbRouter-managed unified file id) whose object key embeds the model name in the
+        `embrouter-bedrock-files-{model}-{uuid}.jsonl` layout.
         """
         if input_file_id is None or not input_file_id.startswith("s3://"):
             return False
@@ -150,7 +150,7 @@ class BedrockBatchesConfig(BaseAWSLLM, BaseBatchesConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
@@ -167,14 +167,14 @@ class BedrockBatchesConfig(BaseAWSLLM, BaseBatchesConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         data: CreateBatchRequest,
     ) -> str:
         """
         Get the complete URL for Bedrock batch creation.
         Bedrock batch jobs are created via the model invocation job API.
         """
-        request_params: Final = merge_bedrock_aws_request_params(litellm_params, optional_params)
+        request_params: Final = merge_bedrock_aws_request_params(embrouter_params, optional_params)
         aws_region_name: Final = self._get_aws_region_name(request_params, model)
 
         # Bedrock model invocation job endpoint
@@ -190,7 +190,7 @@ class BedrockBatchesConfig(BaseAWSLLM, BaseBatchesConfig):
         model: str,
         create_batch_data: CreateBatchRequest,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> dict[str, object]:
         """
         Transform the batch creation request to Bedrock format.
@@ -211,33 +211,33 @@ class BedrockBatchesConfig(BaseAWSLLM, BaseBatchesConfig):
         input_bucket, input_key = self.common_utils.parse_s3_uri(input_file_id)
 
         # Get output S3 configuration
-        output_bucket = litellm_params.get("s3_output_bucket_name") or os.getenv("AWS_S3_OUTPUT_BUCKET_NAME")
+        output_bucket = embrouter_params.get("s3_output_bucket_name") or os.getenv("AWS_S3_OUTPUT_BUCKET_NAME")
         if not output_bucket:
             # Use same bucket as input if no output bucket specified
             output_bucket = input_bucket
 
         # Get IAM role ARN
         role_arn: Final = (
-            litellm_params.get("aws_batch_role_arn")
+            embrouter_params.get("aws_batch_role_arn")
             or optional_params.get("aws_batch_role_arn")
             or os.getenv("AWS_BATCH_ROLE_ARN")
         )
         if not role_arn:
             raise ValueError(
                 "AWS IAM role ARN is required for Bedrock batch jobs. "
-                "Set 'aws_batch_role_arn' in litellm_params or AWS_BATCH_ROLE_ARN env var"
+                "Set 'aws_batch_role_arn' in embrouter_params or AWS_BATCH_ROLE_ARN env var"
             )
 
         if not model:
             raise ValueError("Could not determine Bedrock model ID. Please pass `model` in your request body.")
 
         # Generate job name with the correct model ID using common utility
-        job_name: Final = self.common_utils.generate_unique_job_name(model, prefix="litellm")
-        output_key: Final = f"litellm-batch-outputs/{job_name}/"
+        job_name: Final = self.common_utils.generate_unique_job_name(model, prefix="embrouter")
+        output_key: Final = f"embrouter-batch-outputs/{job_name}/"
 
-        s3_bucket_owner: Final = resolve_s3_bucket_owner(litellm_params=litellm_params, optional_params=optional_params)
+        s3_bucket_owner: Final = resolve_s3_bucket_owner(embrouter_params=embrouter_params, optional_params=optional_params)
         s3_encryption_key_id: Final = resolve_s3_encryption_key_id(
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             optional_params=optional_params,
         )
         input_data_config: Final[BedrockInputDataConfig] = {
@@ -262,7 +262,7 @@ class BedrockBatchesConfig(BaseAWSLLM, BaseBatchesConfig):
             "roleArn": role_arn,
         }
 
-        config_bedrock_tags: Final = litellm_params.get("bedrock_tags")
+        config_bedrock_tags: Final = embrouter_params.get("bedrock_tags")
         bedrock_tags = config_bedrock_tags if config_bedrock_tags is not None else optional_params.get("bedrock_tags")
         if bedrock_tags is not None:
             bedrock_request["tags"] = _validate_bedrock_tags(bedrock_tags)
@@ -277,7 +277,7 @@ class BedrockBatchesConfig(BaseAWSLLM, BaseBatchesConfig):
 
         # For Bedrock, we need to return a pre-signed request with AWS auth headers
         # Use common utility for AWS signing
-        request_params: Final = merge_bedrock_aws_request_params(litellm_params, optional_params)
+        request_params: Final = merge_bedrock_aws_request_params(embrouter_params, optional_params)
         aws_region_name: Final = self._get_aws_region_name(request_params, model)
         endpoint_url: Final = (
             f"https://bedrock.{aws_region_name}.{get_aws_dns_suffix(aws_region_name)}/model-invocation-job"
@@ -302,11 +302,11 @@ class BedrockBatchesConfig(BaseAWSLLM, BaseBatchesConfig):
         self,
         model: str | None,
         raw_response: Response,
-        logging_obj: "LiteLLMLoggingObj",
-        litellm_params: dict,
-    ) -> LiteLLMBatch:
+        logging_obj: "EmbRouterLoggingObj",
+        embrouter_params: dict,
+    ) -> EmbRouterBatch:
         """
-        Transform Bedrock batch creation response to LiteLLM format.
+        Transform Bedrock batch creation response to EmbRouter format.
         """
         try:
             response_data: Final[BedrockCreateBatchResponse] = raw_response.json()
@@ -345,11 +345,11 @@ class BedrockBatchesConfig(BaseAWSLLM, BaseBatchesConfig):
             status_mapping.get(status_str, "validating"),
         )
 
-        # Get original request data from litellm_params if available
-        original_request: Final = litellm_params.get("original_batch_request", {})
+        # Get original request data from embrouter_params if available
+        original_request: Final = embrouter_params.get("original_batch_request", {})
 
-        # Create LiteLLM batch object
-        return LiteLLMBatch(
+        # Create EmbRouter batch object
+        return EmbRouterBatch(
             id=job_arn,  # Use ARN as the batch ID
             object="batch",
             endpoint=original_request.get("endpoint", "/v1/chat/completions"),
@@ -397,7 +397,7 @@ class BedrockBatchesConfig(BaseAWSLLM, BaseBatchesConfig):
         self,
         batch_id: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> dict[str, object]:
         """
         Transform batch retrieval request for Bedrock.
@@ -405,7 +405,7 @@ class BedrockBatchesConfig(BaseAWSLLM, BaseBatchesConfig):
         Args:
             batch_id: Bedrock job ARN
             optional_params: Optional parameters
-            litellm_params: LiteLLM parameters
+            embrouter_params: EmbRouter parameters
 
         Returns:
             Transformed request data for Bedrock GetModelInvocationJob API
@@ -436,7 +436,7 @@ class BedrockBatchesConfig(BaseAWSLLM, BaseBatchesConfig):
         )
 
         # Use common utility for AWS signing
-        request_params: Final = merge_bedrock_aws_request_params(litellm_params, optional_params)
+        request_params: Final = merge_bedrock_aws_request_params(embrouter_params, optional_params)
         signed_headers, _ = self.common_utils.sign_aws_request(
             service_name="bedrock",
             data={},  # GET request has no body
@@ -570,13 +570,13 @@ class BedrockBatchesConfig(BaseAWSLLM, BaseBatchesConfig):
         self,
         model: str | None,
         raw_response: Response,
-        logging_obj: "LiteLLMLoggingObj",
-        litellm_params: dict,
-    ) -> LiteLLMBatch:
+        logging_obj: "EmbRouterLoggingObj",
+        embrouter_params: dict,
+    ) -> EmbRouterBatch:
         """
-        Transform Bedrock batch retrieval response to LiteLLM format.
+        Transform Bedrock batch retrieval response to EmbRouter format.
         """
-        from litellm.types.llms.bedrock import BedrockGetBatchResponse
+        from embrouter.types.llms.bedrock import BedrockGetBatchResponse
 
         try:
             response_data: Final[BedrockGetBatchResponse] = raw_response.json()
@@ -629,7 +629,7 @@ class BedrockBatchesConfig(BaseAWSLLM, BaseBatchesConfig):
         # Extract errors and metadata
         errors, enriched_metadata = self._extract_errors_and_metadata(response_data, raw_response)
 
-        return LiteLLMBatch(
+        return EmbRouterBatch(
             id=job_arn,
             object="batch",
             endpoint="/v1/chat/completions",

@@ -8,16 +8,16 @@ from unittest.mock import patch
 import pytest
 from redis.asyncio import Redis
 
-import litellm.proxy.common_utils.auth_cache_invalidation_pubsub as pubsub_module
-from litellm.caching.in_memory_cache import InMemoryCache
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.common_utils.auth_cache_invalidation_pubsub import (
+import embrouter.proxy.common_utils.auth_cache_invalidation_pubsub as pubsub_module
+from embrouter.caching.in_memory_cache import InMemoryCache
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.common_utils.auth_cache_invalidation_pubsub import (
     AUTH_CACHE_INVALIDATION_CHANNEL,
     AuthCacheInvalidationSubscriber,
     evict_and_broadcast,
     publish_auth_cache_invalidation,
 )
-from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+from embrouter.proxy.common_utils.user_api_key_cache import UserApiKeyCache
 
 
 class _RecordingRedisClient(Redis):
@@ -99,7 +99,7 @@ def _invalidation_message(cache_key: str) -> dict:
 async def test_publish_sends_cache_key_json_on_channel() -> None:
     client = _RecordingRedisClient()
     with patch(
-        "litellm.proxy.common_utils.auth_cache_invalidation_pubsub.coordination_redis_cache",
+        "embrouter.proxy.common_utils.auth_cache_invalidation_pubsub.coordination_redis_cache",
         return_value=_FakeRedisCache(client=client),
     ):
         await publish_auth_cache_invalidation(cache_key="project_id:p-1")
@@ -111,7 +111,7 @@ async def test_publish_sends_cache_key_json_on_channel() -> None:
 async def test_publish_uses_namespaced_channel() -> None:
     client = _RecordingRedisClient()
     with patch(
-        "litellm.proxy.common_utils.auth_cache_invalidation_pubsub.coordination_redis_cache",
+        "embrouter.proxy.common_utils.auth_cache_invalidation_pubsub.coordination_redis_cache",
         return_value=_FakeRedisCache(client=client, namespace="ns1"),
     ):
         await publish_auth_cache_invalidation(cache_key="project_id:p-1")
@@ -122,7 +122,7 @@ async def test_publish_uses_namespaced_channel() -> None:
 @pytest.mark.asyncio
 async def test_publish_noops_without_coordination_redis() -> None:
     with patch(
-        "litellm.proxy.common_utils.auth_cache_invalidation_pubsub.coordination_redis_cache",
+        "embrouter.proxy.common_utils.auth_cache_invalidation_pubsub.coordination_redis_cache",
         return_value=None,
     ):
         await publish_auth_cache_invalidation(cache_key="project_id:p-1")
@@ -131,7 +131,7 @@ async def test_publish_noops_without_coordination_redis() -> None:
 @pytest.mark.asyncio
 async def test_publish_swallows_redis_errors() -> None:
     with patch(
-        "litellm.proxy.common_utils.auth_cache_invalidation_pubsub.coordination_redis_cache",
+        "embrouter.proxy.common_utils.auth_cache_invalidation_pubsub.coordination_redis_cache",
         return_value=_FakeRedisCache(client=_FailingPublishRedisClient()),
     ):
         await publish_auth_cache_invalidation(cache_key="project_id:p-1")
@@ -250,7 +250,7 @@ async def test_evict_and_broadcast_evicts_locally_and_returns_while_redis_publis
     client = _WedgedPublishRedisClient()
 
     with patch(
-        "litellm.proxy.common_utils.auth_cache_invalidation_pubsub.coordination_redis_cache",
+        "embrouter.proxy.common_utils.auth_cache_invalidation_pubsub.coordination_redis_cache",
         return_value=_FakeRedisCache(client=client),
     ):
         started = time.monotonic()
@@ -273,7 +273,7 @@ async def test_publish_holds_at_most_sixteen_redis_connections_while_redis_is_we
     client = _WedgedPublishRedisClient()
 
     with patch(
-        "litellm.proxy.common_utils.auth_cache_invalidation_pubsub.coordination_redis_cache",
+        "embrouter.proxy.common_utils.auth_cache_invalidation_pubsub.coordination_redis_cache",
         return_value=_FakeRedisCache(client=client),
     ):
         for i in range(64):

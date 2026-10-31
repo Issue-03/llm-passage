@@ -1,5 +1,5 @@
 """
-Test the audio utils functionality in litellm_core_utils/audio_utils/utils.py
+Test the audio utils functionality in embrouter_core_utils/audio_utils/utils.py
 """
 
 import io
@@ -9,7 +9,7 @@ from unittest.mock import mock_open, patch
 
 import pytest
 
-from litellm.litellm_core_utils.audio_utils.utils import (
+from embrouter.embrouter_core_utils.audio_utils.utils import (
     ProcessedAudioFile,
     calculate_request_duration,
     get_audio_file_content_hash,
@@ -342,7 +342,7 @@ class TestNormalizeTranscriptionLanguageToBcp47:
         ],
     )
     def test_normalization(self, language, expected):
-        from litellm.litellm_core_utils.audio_utils.utils import (
+        from embrouter.embrouter_core_utils.audio_utils.utils import (
             normalize_transcription_language_to_bcp47,
         )
 
@@ -370,7 +370,7 @@ class TestResolveSpeechMediaType:
         ],
     )
     def test_resolution(self, upstream_content_type, response_format, expected):
-        from litellm.litellm_core_utils.audio_utils.utils import resolve_speech_media_type
+        from embrouter.embrouter_core_utils.audio_utils.utils import resolve_speech_media_type
 
         resolved = resolve_speech_media_type(
             upstream_content_type=upstream_content_type,
@@ -406,6 +406,6 @@ class TestSpeechMediaTypeFromAudioBytes:
         ],
     )
     def test_sniffing(self, audio, expected):
-        from litellm.litellm_core_utils.audio_utils.utils import speech_media_type_from_audio_bytes
+        from embrouter.embrouter_core_utils.audio_utils.utils import speech_media_type_from_audio_bytes
 
         assert speech_media_type_from_audio_bytes(audio) == expected

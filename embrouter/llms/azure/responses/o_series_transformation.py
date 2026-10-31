@@ -3,25 +3,25 @@ Support for Azure OpenAI O-series models (o1, o3, etc.) in Responses API
 
 https://platform.openai.com/docs/guides/reasoning
 
-Translations handled by LiteLLM:
+Translations handled by EmbRouter:
 - temperature => drop param (if user opts in to dropping param)
 - Other parameters follow base Azure OpenAI Responses API behavior
 """
 
 from typing import TYPE_CHECKING, Any, Final
 
-from litellm._logging import verbose_logger
-from litellm.types.llms.openai import ResponsesAPIOptionalRequestParams
-from litellm.utils import supports_reasoning
+from embrouter._logging import verbose_logger
+from embrouter.types.llms.openai import ResponsesAPIOptionalRequestParams
+from embrouter.utils import supports_reasoning
 
 from .transformation import AzureOpenAIResponsesAPIConfig
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 
 class AzureOpenAIOSeriesResponsesAPIConfig(AzureOpenAIResponsesAPIConfig):

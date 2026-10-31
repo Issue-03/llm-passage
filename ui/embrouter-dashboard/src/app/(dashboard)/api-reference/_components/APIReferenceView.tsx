@@ -6,13 +6,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 interface ApiRefProps {
   proxySettings: {
     PROXY_BASE_URL?: string;
-    LITELLM_UI_API_DOC_BASE_URL?: string | null;
+    EMBROUTER_UI_API_DOC_BASE_URL?: string | null;
   };
 }
 
 const APIReferenceView: React.FC<ApiRefProps> = ({ proxySettings }) => {
   let base_url = "<your_proxy_base_url>";
-  const customDocBaseUrl = proxySettings?.LITELLM_UI_API_DOC_BASE_URL;
+  const customDocBaseUrl = proxySettings?.EMBROUTER_UI_API_DOC_BASE_URL;
   if (customDocBaseUrl && customDocBaseUrl.trim()) {
     base_url = customDocBaseUrl;
   } else if (proxySettings?.PROXY_BASE_URL) {
@@ -29,7 +29,7 @@ const APIReferenceView: React.FC<ApiRefProps> = ({ proxySettings }) => {
 
         <p className="mt-2 mb-2 text-sm text-muted-foreground">
           EmbRouter is OpenAI Compatible. This means your API Key works with the OpenAI SDK. Just replace the base_url
-          to point to your litellm proxy. Example Below{" "}
+          to point to your embrouter proxy. Example Below{" "}
         </p>
 
         <Tabs defaultValue="openai">
@@ -77,10 +77,10 @@ from llama_index.embeddings import AzureOpenAIEmbedding
 from llama_index import VectorStoreIndex, SimpleDirectoryReader, ServiceContext
 
 llm = AzureOpenAI(
-    engine="azure-gpt-3.5",               # model_name on litellm proxy
+    engine="azure-gpt-3.5",               # model_name on embrouter proxy
     temperature=0.0,
-    azure_endpoint="${base_url}", # litellm proxy endpoint
-    api_key="<your-master-key>",          # litellm proxy API Key
+    azure_endpoint="${base_url}", # embrouter proxy endpoint
+    api_key="<your-master-key>",          # embrouter proxy API Key
     api_version="2023-07-01-preview",
 )
 
@@ -123,7 +123,7 @@ messages = [
         content="You are a helpful assistant that im using to make a test request to."
     ),
     HumanMessage(
-        content="test from litellm. tell me why it's amazing in 1 sentence"
+        content="test from embrouter. tell me why it's amazing in 1 sentence"
     ),
 ]
 response = chat(messages)

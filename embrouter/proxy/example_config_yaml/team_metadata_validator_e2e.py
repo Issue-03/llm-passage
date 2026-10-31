@@ -17,12 +17,12 @@ unknown impl value raises, which the proxy converts to the fail-closed 503.
 
 import os
 
-from litellm.llms.custom_httpx.http_handler import get_async_httpx_client
-from litellm.proxy.management_helpers.team_metadata_validation import (
+from embrouter.llms.custom_httpx.http_handler import get_async_httpx_client
+from embrouter.proxy.management_helpers.team_metadata_validation import (
     TeamMetadataValidationPayload,
     TeamMetadataValidationResult,
 )
-from litellm.types.llms.custom_http import httpxSpecialProvider
+from embrouter.types.llms.custom_http import httpxSpecialProvider
 from typing import Final
 
 ALLOWED_COST_CENTERS: Final = frozenset({"CC-1001", "CC-1002"})

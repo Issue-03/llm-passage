@@ -2,7 +2,7 @@
 Regression: in-stream error events (type="error", type="response.failed") must
 raise instead of being returned as benign chunks, mirroring chat streaming
 semantics (_handle_stream_fallback_error). The event's code, type and status go
-through litellm.exception_type, so each event raises the same typed exception
+through embrouter.exception_type, so each event raises the same typed exception
 the non-streaming path raises for that provider error: non-retriable 4xx
 (except 429) raise that typed exception directly, so a context-length event
 surfaces as ContextWindowExceededError(400) with no MidStreamFallbackError
@@ -26,18 +26,18 @@ from unittest.mock import Mock, patch
 import pytest
 
 
-import litellm
-from litellm.exceptions import MidStreamFallbackError
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.base_llm.responses.transformation import BaseResponsesAPIConfig
-from litellm.responses.streaming_iterator import (
+import embrouter
+from embrouter.exceptions import MidStreamFallbackError
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.base_llm.responses.transformation import BaseResponsesAPIConfig
+from embrouter.responses.streaming_iterator import (
     _ERROR_CODE_HTTP_STATUS,
     BaseResponsesAPIStreamingIterator,
     ResponsesAPIStreamingIterator,
     SyncResponsesAPIStreamingIterator,
     _status_code_for_error_fields,
 )
-from litellm.types.llms.openai import (
+from embrouter.types.llms.openai import (
     ErrorEvent,
     ErrorEventError,
     ResponseAPIUsage,
@@ -46,8 +46,8 @@ from litellm.types.llms.openai import (
 
 
 def _make_iterator() -> BaseResponsesAPIStreamingIterator:
-    mock_logging_obj = Mock(spec=LiteLLMLoggingObj)
-    mock_logging_obj.model_call_details = {"litellm_params": {}}
+    mock_logging_obj = Mock(spec=EmbRouterLoggingObj)
+    mock_logging_obj.model_call_details = {"embrouter_params": {}}
     mock_config = Mock(spec=BaseResponsesAPIConfig)
     mock_response = Mock()
     mock_response.headers = {}
@@ -71,7 +71,7 @@ def test_maybe_raise_for_error_event_wraps_unknown_error_in_mid_stream_fallback(
     with pytest.raises(MidStreamFallbackError) as exc_info:
         iterator._maybe_raise_for_error_event(chunk)
     assert exc_info.value.status_code == 500
-    assert isinstance(exc_info.value.original_exception, litellm.InternalServerError)
+    assert isinstance(exc_info.value.original_exception, embrouter.InternalServerError)
     assert exc_info.value.original_exception.status_code == 500
 
 
@@ -84,7 +84,7 @@ def test_maybe_raise_for_error_event_maps_rate_limit_code_to_429_mid_stream_fall
     assert exc_info.value.status_code == 429
     assert exc_info.value.generated_content == ""
     assert exc_info.value.is_pre_first_chunk is True
-    assert isinstance(exc_info.value.original_exception, litellm.RateLimitError)
+    assert isinstance(exc_info.value.original_exception, embrouter.RateLimitError)
     assert exc_info.value.original_exception.status_code == 429
 
 
@@ -92,7 +92,7 @@ def test_maybe_raise_for_error_event_maps_invalid_request_type_to_400():
     """Client errors classified via the `type` field must raise BadRequestError directly (no fallback)."""
     iterator = _make_iterator()
     chunk = _make_error_chunk("invalid_request_error", "invalid_prompt", "bad request")
-    with pytest.raises(litellm.BadRequestError) as exc_info:
+    with pytest.raises(embrouter.BadRequestError) as exc_info:
         iterator._maybe_raise_for_error_event(chunk)
     assert exc_info.value.status_code == 400
     assert not isinstance(exc_info.value, MidStreamFallbackError)
@@ -104,7 +104,7 @@ def test_maybe_raise_for_error_event_maps_context_length_code_to_400():
     chunk = Mock()
     chunk.type = "error"
     chunk.error = {"code": "context_length_exceeded", "message": "too long"}
-    with pytest.raises(litellm.BadRequestError) as exc_info:
+    with pytest.raises(embrouter.BadRequestError) as exc_info:
         iterator._maybe_raise_for_error_event(chunk)
     assert exc_info.value.status_code == 400
     assert not isinstance(exc_info.value, MidStreamFallbackError)
@@ -120,7 +120,7 @@ def test_maybe_raise_for_error_event_raises_context_window_exceeded_directly():
         "context_length_exceeded",
         "This model's maximum context length is 128000 tokens. However, your messages resulted in 130000 tokens.",
     )
-    with pytest.raises(litellm.ContextWindowExceededError) as exc_info:
+    with pytest.raises(embrouter.ContextWindowExceededError) as exc_info:
         iterator._maybe_raise_for_error_event(chunk)
     assert exc_info.value.status_code == 400
     assert not isinstance(exc_info.value, MidStreamFallbackError)
@@ -142,7 +142,7 @@ def test_maybe_raise_for_error_event_wraps_content_policy_violation_for_content_
     chunk = _make_error_chunk("invalid_request_error", "content_policy_violation", CONTENT_POLICY_MESSAGE)
     with pytest.raises(MidStreamFallbackError) as exc_info:
         iterator._maybe_raise_for_error_event(chunk)
-    assert isinstance(exc_info.value.original_exception, litellm.ContentPolicyViolationError)
+    assert isinstance(exc_info.value.original_exception, embrouter.ContentPolicyViolationError)
     assert exc_info.value.original_exception.status_code == 400
     assert exc_info.value.status_code == 400
     assert exc_info.value.is_pre_first_chunk is True
@@ -156,19 +156,19 @@ def test_maybe_raise_for_response_failed_event_wraps_content_policy_violation():
     )
     with pytest.raises(MidStreamFallbackError) as exc_info:
         iterator._maybe_raise_for_error_event(chunk)
-    assert isinstance(exc_info.value.original_exception, litellm.ContentPolicyViolationError)
+    assert isinstance(exc_info.value.original_exception, embrouter.ContentPolicyViolationError)
 
 
 @pytest.mark.parametrize(
     "error_type,error_code,expected_exception",
     [
-        ("invalid_request_error", "content_policy_violation", litellm.ContentPolicyViolationError),
-        ("tokens", "rate_limit_exceeded", litellm.RateLimitError),
-        ("invalid_request_error", "insufficient_quota", litellm.RateLimitError),
-        ("server_error", "internal_error", litellm.InternalServerError),
-        ("invalid_request_error", "invalid_prompt", litellm.BadRequestError),
-        ("invalid_request_error", "model_not_found", litellm.NotFoundError),
-        ("server_error", "vector_store_timeout", litellm.Timeout),
+        ("invalid_request_error", "content_policy_violation", embrouter.ContentPolicyViolationError),
+        ("tokens", "rate_limit_exceeded", embrouter.RateLimitError),
+        ("invalid_request_error", "insufficient_quota", embrouter.RateLimitError),
+        ("server_error", "internal_error", embrouter.InternalServerError),
+        ("invalid_request_error", "invalid_prompt", embrouter.BadRequestError),
+        ("invalid_request_error", "model_not_found", embrouter.NotFoundError),
+        ("server_error", "vector_store_timeout", embrouter.Timeout),
     ],
 )
 def test_error_event_raises_the_same_typed_exception_as_the_non_streaming_path(
@@ -192,7 +192,7 @@ def test_maybe_raise_for_error_event_maps_insufficient_quota_to_429():
     with pytest.raises(MidStreamFallbackError) as exc_info:
         iterator._maybe_raise_for_error_event(chunk)
     assert exc_info.value.status_code == 429
-    assert isinstance(exc_info.value.original_exception, litellm.RateLimitError)
+    assert isinstance(exc_info.value.original_exception, embrouter.RateLimitError)
 
 
 def test_maybe_raise_for_error_event_passes_through_normal_chunk():
@@ -221,8 +221,8 @@ def _make_async_iterator_with_events(events: list) -> ResponsesAPIStreamingItera
     mock_response = Mock()
     mock_response.headers = {}
     mock_response.aiter_bytes = mock_aiter_bytes
-    mock_logging_obj = Mock(spec=LiteLLMLoggingObj)
-    mock_logging_obj.model_call_details = {"litellm_params": {}}
+    mock_logging_obj = Mock(spec=EmbRouterLoggingObj)
+    mock_logging_obj.model_call_details = {"embrouter_params": {}}
     mock_logging_obj.completion_start_time = None
     mock_config = Mock(spec=BaseResponsesAPIConfig)
 
@@ -266,7 +266,7 @@ async def test_async_iterator_raises_mid_stream_fallback_on_rate_limit_error_eve
     assert exc_info.value.status_code == 429
     assert exc_info.value.is_pre_first_chunk is True
     assert exc_info.value.generated_content == ""
-    assert isinstance(exc_info.value.original_exception, litellm.RateLimitError)
+    assert isinstance(exc_info.value.original_exception, embrouter.RateLimitError)
     assert exc_info.value.original_exception.status_code == 429
 
 
@@ -295,7 +295,7 @@ async def test_async_iterator_content_policy_violation_after_first_chunk_carries
 
     with pytest.raises(MidStreamFallbackError) as exc_info:
         await anext(stream)
-    assert isinstance(exc_info.value.original_exception, litellm.ContentPolicyViolationError)
+    assert isinstance(exc_info.value.original_exception, embrouter.ContentPolicyViolationError)
     assert exc_info.value.is_pre_first_chunk is False
     assert exc_info.value.generated_content == "partial "
 
@@ -351,7 +351,7 @@ def test_response_failed_numeric_code_maps_to_its_http_status(code: int | str):
     with pytest.raises(MidStreamFallbackError) as exc_info:
         iterator._maybe_raise_for_error_event(chunk)
     assert exc_info.value.status_code == 429
-    assert isinstance(exc_info.value.original_exception, litellm.RateLimitError)
+    assert isinstance(exc_info.value.original_exception, embrouter.RateLimitError)
 
 
 def test_response_failed_unknown_code_keeps_upstream_code_and_message_on_mapped_exception():
@@ -365,7 +365,7 @@ def test_response_failed_unknown_code_keeps_upstream_code_and_message_on_mapped_
     with pytest.raises(MidStreamFallbackError) as exc_info:
         iterator._maybe_raise_for_error_event(chunk)
     mapped = exc_info.value.original_exception
-    assert isinstance(mapped, litellm.InternalServerError)
+    assert isinstance(mapped, embrouter.InternalServerError)
     assert mapped.code == "cyber_policy"
     assert mapped.body == {"message": upstream_message, "type": None, "code": "cyber_policy"}
 
@@ -399,12 +399,12 @@ def test_handle_logging_failed_response_maps_rate_limit_to_429():
         {"type": "tokens", "code": "rate_limit_exceeded", "message": "throttled"}
     )
     with (
-        patch.object(import_module("litellm.responses.streaming_iterator"), "run_async_function") as mock_run_async,
-        patch.object(import_module("litellm.responses.streaming_iterator"), "executor"),
+        patch.object(import_module("embrouter.responses.streaming_iterator"), "run_async_function") as mock_run_async,
+        patch.object(import_module("embrouter.responses.streaming_iterator"), "executor"),
     ):
         iterator._handle_logging_failed_response()
     logged_exception = mock_run_async.call_args.kwargs["exception"]
-    assert isinstance(logged_exception, litellm.RateLimitError)
+    assert isinstance(logged_exception, embrouter.RateLimitError)
     assert logged_exception.status_code == 429
     assert "throttled" in str(logged_exception)
 
@@ -416,12 +416,12 @@ def test_handle_logging_failed_response_maps_type_field_to_400():
         {"type": "invalid_request_error", "code": "invalid_prompt", "message": "bad prompt"}
     )
     with (
-        patch.object(import_module("litellm.responses.streaming_iterator"), "run_async_function") as mock_run_async,
-        patch.object(import_module("litellm.responses.streaming_iterator"), "executor"),
+        patch.object(import_module("embrouter.responses.streaming_iterator"), "run_async_function") as mock_run_async,
+        patch.object(import_module("embrouter.responses.streaming_iterator"), "executor"),
     ):
         iterator._handle_logging_failed_response()
     logged_exception = mock_run_async.call_args.kwargs["exception"]
-    assert isinstance(logged_exception, litellm.BadRequestError)
+    assert isinstance(logged_exception, embrouter.BadRequestError)
     assert logged_exception.status_code == 400
 
 
@@ -433,12 +433,12 @@ def test_handle_logging_failed_response_logs_content_policy_violation():
         {"type": "invalid_request_error", "code": "content_policy_violation", "message": CONTENT_POLICY_MESSAGE}
     )
     with (
-        patch.object(import_module("litellm.responses.streaming_iterator"), "run_async_function") as mock_run_async,
-        patch.object(import_module("litellm.responses.streaming_iterator"), "executor"),
+        patch.object(import_module("embrouter.responses.streaming_iterator"), "run_async_function") as mock_run_async,
+        patch.object(import_module("embrouter.responses.streaming_iterator"), "executor"),
     ):
         iterator._handle_logging_failed_response()
     logged_exception = mock_run_async.call_args.kwargs["exception"]
-    assert isinstance(logged_exception, litellm.ContentPolicyViolationError)
+    assert isinstance(logged_exception, embrouter.ContentPolicyViolationError)
     assert logged_exception.status_code == 400
     assert CONTENT_POLICY_MESSAGE in str(logged_exception)
 
@@ -454,12 +454,12 @@ def test_handle_logging_failed_response_records_usage_and_cost():
     iterator.completed_response = chunk
     iterator.logging_obj._response_cost_calculator.return_value = 0.0042
     with (
-        patch.object(import_module("litellm.responses.streaming_iterator"), "run_async_function"),
-        patch.object(import_module("litellm.responses.streaming_iterator"), "executor"),
+        patch.object(import_module("embrouter.responses.streaming_iterator"), "run_async_function"),
+        patch.object(import_module("embrouter.responses.streaming_iterator"), "executor"),
     ):
         iterator._handle_logging_failed_response()
     combined_usage = iterator.logging_obj.model_call_details["combined_usage_object"]
-    assert isinstance(combined_usage, litellm.Usage)
+    assert isinstance(combined_usage, embrouter.Usage)
     assert combined_usage.prompt_tokens == 10
     assert combined_usage.completion_tokens == 5
     assert combined_usage.total_tokens == 15
@@ -473,8 +473,8 @@ def test_handle_logging_failed_response_without_usage_skips_recording():
         {"type": "server_error", "code": "server_error", "message": "boom"}
     )
     with (
-        patch.object(import_module("litellm.responses.streaming_iterator"), "run_async_function"),
-        patch.object(import_module("litellm.responses.streaming_iterator"), "executor"),
+        patch.object(import_module("embrouter.responses.streaming_iterator"), "run_async_function"),
+        patch.object(import_module("embrouter.responses.streaming_iterator"), "executor"),
     ):
         iterator._handle_logging_failed_response()
     assert "combined_usage_object" not in iterator.logging_obj.model_call_details
@@ -492,8 +492,8 @@ def test_sync_iterator_raises_mid_stream_fallback_on_rate_limit_error_event():
     mock_response = Mock()
     mock_response.headers = {}
     mock_response.iter_bytes.return_value = iter([sse_bytes])
-    mock_logging_obj = Mock(spec=LiteLLMLoggingObj)
-    mock_logging_obj.model_call_details = {"litellm_params": {}}
+    mock_logging_obj = Mock(spec=EmbRouterLoggingObj)
+    mock_logging_obj.model_call_details = {"embrouter_params": {}}
     mock_logging_obj.completion_start_time = None
     mock_config = Mock(spec=BaseResponsesAPIConfig)
 
@@ -514,7 +514,7 @@ def test_sync_iterator_raises_mid_stream_fallback_on_rate_limit_error_event():
         for _ in iterator:
             pass
     assert exc_info.value.status_code == 429
-    assert isinstance(exc_info.value.original_exception, litellm.RateLimitError)
+    assert isinstance(exc_info.value.original_exception, embrouter.RateLimitError)
 
 
 def test_every_openai_sdk_response_error_code_has_explicit_status_mapping():
@@ -573,7 +573,7 @@ def test_maybe_raise_for_response_failed_event_maps_image_code_to_400():
     chunk = Mock()
     chunk.type = "response.failed"
     chunk.response = mock_response_obj
-    with pytest.raises(litellm.BadRequestError) as exc_info:
+    with pytest.raises(embrouter.BadRequestError) as exc_info:
         iterator._maybe_raise_for_error_event(chunk)
     assert exc_info.value.status_code == 400
     assert not isinstance(exc_info.value, MidStreamFallbackError)

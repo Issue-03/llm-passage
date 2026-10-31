@@ -11,24 +11,24 @@ from urllib.parse import quote
 
 import httpx
 
-from litellm._logging import verbose_logger
-from litellm._uuid import uuid
-from litellm.litellm_core_utils.aws_partition import get_aws_dns_suffix
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+from embrouter._logging import verbose_logger
+from embrouter._uuid import uuid
+from embrouter.embrouter_core_utils.aws_partition import get_aws_dns_suffix
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
     convert_content_list_to_str,
 )
-from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
-from litellm.llms.a2a.common_utils import extract_text_from_a2a_response
-from litellm.llms.base_llm.chat.transformation import BaseConfig, BaseLLMException
-from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM
-from litellm.llms.bedrock.common_utils import BedrockError
-from litellm.types.llms.bedrock_agentcore import (
+from embrouter.embrouter_core_utils.streaming_handler import CustomStreamWrapper
+from embrouter.llms.a2a.common_utils import extract_text_from_a2a_response
+from embrouter.llms.base_llm.chat.transformation import BaseConfig, BaseLLMException
+from embrouter.llms.bedrock.base_aws_llm import BaseAWSLLM
+from embrouter.llms.bedrock.common_utils import BedrockError
+from embrouter.types.llms.bedrock_agentcore import (
     AgentCoreMessage,
     AgentCoreParsedResponse,
     AgentCoreUsage,
 )
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.utils import (
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.utils import (
     Choices,
     Delta,
     LlmProviders,
@@ -40,13 +40,13 @@ from litellm.types.utils import (
 )
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
     HTTPHandler = Any
     AsyncHTTPHandler = Any
 
@@ -80,7 +80,7 @@ class AmazonAgentCoreConfig(BaseConfig, BaseAWSLLM):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         """
@@ -189,7 +189,7 @@ class AmazonAgentCoreConfig(BaseConfig, BaseAWSLLM):
             return session_id
 
         # Generate a session ID with 33+ characters
-        generated_id: Final = f"litellm-session-{uuid.uuid4()}"
+        generated_id: Final = f"embrouter-session-{uuid.uuid4()}"
         verbose_logger.debug("Generated new session ID: %s", generated_id)
         return generated_id
 
@@ -207,7 +207,7 @@ class AmazonAgentCoreConfig(BaseConfig, BaseAWSLLM):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         """
@@ -222,7 +222,7 @@ class AmazonAgentCoreConfig(BaseConfig, BaseAWSLLM):
         Payload shape:
         - ``prompt`` is always present and contains the text-only flatten of the
           last message's content (existing behavior).
-        - ``content`` is added ONLY when the ``forward_multimodal_content`` litellm
+        - ``content`` is added ONLY when the ``forward_multimodal_content`` embrouter
           param is truthy AND the last message's ``content`` is a list containing a
           non-text block (e.g. ``image_url``, ``file``, ``input_audio``). The list is
           forwarded verbatim so the agent's ``@app.entrypoint`` handler can parse the
@@ -246,7 +246,7 @@ class AmazonAgentCoreConfig(BaseConfig, BaseAWSLLM):
         # list verbatim under "content" so an attachment-aware agent can read the raw
         # blocks (image_url, file, etc.). Default off keeps the payload byte-identical
         # to the legacy {"prompt": "..."} shape for agents that only read the prompt.
-        if self._should_forward_multimodal_content(optional_params, litellm_params):
+        if self._should_forward_multimodal_content(optional_params, embrouter_params):
             last_content: Final = messages[-1].get("content")
             if isinstance(last_content, list) and any(
                 isinstance(block, dict) and block.get("type") not in (None, "text") for block in last_content
@@ -271,16 +271,16 @@ class AmazonAgentCoreConfig(BaseConfig, BaseAWSLLM):
         return payload
 
     @staticmethod
-    def _should_forward_multimodal_content(optional_params: dict, litellm_params: dict) -> bool:
+    def _should_forward_multimodal_content(optional_params: dict, embrouter_params: dict) -> bool:
         """Whether to forward raw OpenAI content blocks under ``payload["content"]``.
 
-        Opt-in via the ``forward_multimodal_content`` litellm param (default ``False``)
+        Opt-in via the ``forward_multimodal_content`` embrouter param (default ``False``)
         because AgentCore agents must be explicitly written to read the field. The
         value may arrive as a bool or a config/env string ("true", "1", ...). Checks
         ``optional_params`` first (where other AgentCore params land), then
-        ``litellm_params``.
+        ``embrouter_params``.
         """
-        for source in (optional_params, litellm_params):
+        for source in (optional_params, embrouter_params):
             if not isinstance(source, dict):
                 continue
             value = source.get("forward_multimodal_content")
@@ -346,7 +346,7 @@ class AmazonAgentCoreConfig(BaseConfig, BaseAWSLLM):
 
     def _calculate_usage(self, model: str, messages: list[AllMessageValues], content: str) -> Usage | None:
         """
-        Calculate token usage using LiteLLM's token counter.
+        Calculate token usage using EmbRouter's token counter.
 
         Args:
             model: The model name
@@ -357,7 +357,7 @@ class AmazonAgentCoreConfig(BaseConfig, BaseAWSLLM):
             Usage object with calculated tokens, or None if calculation fails
         """
         try:
-            from litellm.utils import token_counter
+            from embrouter.utils import token_counter
 
             prompt_tokens: Final = token_counter(model=model, messages=messages)
             completion_tokens: Final = token_counter(model=model, text=content, count_response_tokens=True)
@@ -635,7 +635,7 @@ class AmazonAgentCoreConfig(BaseConfig, BaseAWSLLM):
         self,
         model: str,
         custom_llm_provider: str,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_base: str,
         headers: dict,
         data: dict,
@@ -644,12 +644,12 @@ class AmazonAgentCoreConfig(BaseConfig, BaseAWSLLM):
         json_mode: bool | None = None,
         signed_json_body: bytes | None = None,
         *,
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
     ) -> "CustomStreamWrapper":
         """
         Simplified sync streaming - returns a generator that yields ModelResponse chunks.
         """
-        from litellm.llms.custom_httpx.http_handler import (
+        from embrouter.llms.custom_httpx.http_handler import (
             HTTPHandler,
             _get_httpx_client,
         )
@@ -856,7 +856,7 @@ class AmazonAgentCoreConfig(BaseConfig, BaseAWSLLM):
         self,
         model: str,
         custom_llm_provider: str,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_base: str,
         headers: dict,
         data: dict,
@@ -865,12 +865,12 @@ class AmazonAgentCoreConfig(BaseConfig, BaseAWSLLM):
         json_mode: bool | None = None,
         signed_json_body: bytes | None = None,
         *,
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
     ) -> "CustomStreamWrapper":
         """
         Simplified async streaming - returns an async generator that yields ModelResponse chunks.
         """
-        from litellm.llms.custom_httpx.http_handler import (
+        from embrouter.llms.custom_httpx.http_handler import (
             AsyncHTTPHandler,
             get_async_httpx_client,
         )
@@ -988,17 +988,17 @@ class AmazonAgentCoreConfig(BaseConfig, BaseAWSLLM):
         model: str,
         raw_response: httpx.Response,
         model_response: ModelResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         request_data: dict,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,
     ) -> ModelResponse:
         """
-        Transform the AgentCore response to LiteLLM ModelResponse format.
+        Transform the AgentCore response to EmbRouter ModelResponse format.
         AgentCore can return either JSON or SSE (Server-Sent Events) stream responses.
 
         Note: For streaming responses, use get_streaming_response() instead.
@@ -1034,7 +1034,7 @@ class AmazonAgentCoreConfig(BaseConfig, BaseAWSLLM):
                 )
                 setattr(model_response, "usage", usage)
             else:
-                # Calculate token usage using LiteLLM's token counter
+                # Calculate token usage using EmbRouter's token counter
                 verbose_logger.debug("No usage data from AgentCore - calculating tokens")
                 calculated_usage: Final = self._calculate_usage(model, messages, content)
                 if calculated_usage:
@@ -1056,7 +1056,7 @@ class AmazonAgentCoreConfig(BaseConfig, BaseAWSLLM):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:

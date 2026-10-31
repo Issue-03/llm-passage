@@ -1,9 +1,9 @@
 from typing import Any, Final
 
-import litellm
-from litellm.llms.anthropic.chat.transformation import AnthropicConfig
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.openai import AllMessageValues
+import embrouter
+from embrouter.llms.anthropic.chat.transformation import AnthropicConfig
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.openai import AllMessageValues
 
 from .common_utils import (
     BedrockClaudePlatformMixin,
@@ -30,13 +30,13 @@ class BedrockClaudePlatformConfig(BedrockClaudePlatformMixin, AnthropicConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
-        workspace_id: Final = self._get_workspace_id(optional_params, litellm_params)
+        workspace_id: Final = self._get_workspace_id(optional_params, embrouter_params)
         if workspace_id is None:
-            raise litellm.AuthenticationError(
+            raise embrouter.AuthenticationError(
                 message=(
                     "Missing workspace ID for Claude Platform on AWS. Pass "
                     "`workspace_id` or configure the provider workspace setting."
@@ -75,7 +75,7 @@ class BedrockClaudePlatformConfig(BedrockClaudePlatformMixin, AnthropicConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict[str, object],
-        litellm_params: dict[str, object],
+        embrouter_params: dict[str, object],
         headers: dict[str, str],
     ) -> dict[str, object]:
         return super().transform_request(
@@ -83,9 +83,9 @@ class BedrockClaudePlatformConfig(BedrockClaudePlatformMixin, AnthropicConfig):
             messages=messages,
             optional_params=filter_claude_platform_request_body(
                 optional_params,
-                unsupported_override=resolve_unsupported_override(litellm_params, optional_params=optional_params),
+                unsupported_override=resolve_unsupported_override(embrouter_params, optional_params=optional_params),
             ),
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
@@ -95,7 +95,7 @@ class BedrockClaudePlatformConfig(BedrockClaudePlatformMixin, AnthropicConfig):
         sync_stream: bool,
         json_mode: bool | None = False,
     ) -> Any:
-        from litellm.llms.anthropic.chat.handler import ModelResponseIterator
+        from embrouter.llms.anthropic.chat.handler import ModelResponseIterator
 
         return ModelResponseIterator(
             streaming_response=streaming_response,

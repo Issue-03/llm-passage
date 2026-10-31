@@ -6,11 +6,11 @@ from typing import Final
 
 from pydantic import TypeAdapter, ValidationError
 
-from litellm.constants import CONTROL_OPTIONS_KEY
-from litellm.litellm_core_utils.core_helpers import normalize_drop_params
-from litellm.llms.openai.data_residency import infer_openai_data_residency
-from litellm.types.litellm_params import MAX_CONTROL_INT_DIGITS, ControlOptions
-from litellm.types.router import CustomPricingLiteLLMParams
+from embrouter.constants import CONTROL_OPTIONS_KEY
+from embrouter.embrouter_core_utils.core_helpers import normalize_drop_params
+from embrouter.llms.openai.data_residency import infer_openai_data_residency
+from embrouter.types.embrouter_params import MAX_CONTROL_INT_DIGITS, ControlOptions
+from embrouter.types.router import CustomPricingEmbRouterParams
 
 AWS_CREDENTIAL_KWARGS_KEYS: Final = frozenset(
     {
@@ -70,7 +70,7 @@ OPTIONAL_KWARGS_KEYS: Final = (
         }
     )
     | AWS_CREDENTIAL_KWARGS_KEYS
-    | frozenset(CustomPricingLiteLLMParams.model_fields)
+    | frozenset(CustomPricingEmbRouterParams.model_fields)
 )
 
 # Backward-compatible alias for existing imports/tests.
@@ -111,18 +111,18 @@ def parse_control_options(kwargs: Mapping[str, object]) -> ControlOptions | Inva
         )
 
 
-def stored_control_options(litellm_params: Mapping[str, object]) -> ControlOptions:
-    control: Final = litellm_params.get(CONTROL_OPTIONS_KEY)
+def stored_control_options(embrouter_params: Mapping[str, object]) -> ControlOptions:
+    control: Final = embrouter_params.get(CONTROL_OPTIONS_KEY)
     return control if isinstance(control, ControlOptions) else ControlOptions()
 
 
-def with_control_options(litellm_params: Mapping[str, object], control: ControlOptions) -> dict[str, object]:
+def with_control_options(embrouter_params: Mapping[str, object], control: ControlOptions) -> dict[str, object]:
     if control == ControlOptions():
-        return dict(litellm_params)  # mutable-ok: completion() hands litellm_params to provider code typed as dict
-    return {**litellm_params, CONTROL_OPTIONS_KEY: control}  # mutable-ok: same dict contract as above
+        return dict(embrouter_params)  # mutable-ok: completion() hands embrouter_params to provider code typed as dict
+    return {**embrouter_params, CONTROL_OPTIONS_KEY: control}  # mutable-ok: same dict contract as above
 
 
-def _get_base_model_from_litellm_call_metadata(
+def _get_base_model_from_embrouter_call_metadata(
     metadata: dict | None,
 ) -> str | None:
     if metadata is None:
@@ -133,7 +133,7 @@ def _get_base_model_from_litellm_call_metadata(
     return None
 
 
-def get_litellm_params(
+def get_embrouter_params(
     api_key: str | None = None,
     force_timeout=600,
     azure=False,
@@ -144,7 +144,7 @@ def get_litellm_params(
     together_ai=False,
     custom_llm_provider: str | None = None,
     api_base: str | None = None,
-    litellm_call_id=None,
+    embrouter_call_id=None,
     model_alias_map=None,
     completion_call_id=None,
     metadata: dict | None = None,
@@ -166,11 +166,11 @@ def get_litellm_params(
     azure_ad_token_provider=None,
     user_continue_message=None,
     base_model: str | None = None,
-    litellm_trace_id: str | None = None,
-    litellm_session_id: str | None = None,
+    embrouter_trace_id: str | None = None,
+    embrouter_session_id: str | None = None,
     hf_model_name: str | None = None,
     custom_prompt_dict: dict | None = None,
-    litellm_metadata: dict | None = None,
+    embrouter_metadata: dict | None = None,
     disable_add_transform_inline_image_block: bool | None = None,
     drop_params: bool | str | None = None,
     prompt_id: str | None = None,
@@ -178,26 +178,26 @@ def get_litellm_params(
     async_call: bool | None = None,
     ssl_verify: bool | None = None,
     merge_reasoning_content_in_choices: bool | None = None,
-    use_litellm_proxy: bool | None = None,
+    use_embrouter_proxy: bool | None = None,
     api_version: str | None = None,
     max_retries: int | None = None,
-    litellm_request_debug: bool | None = None,
+    embrouter_request_debug: bool | None = None,
     **kwargs,
 ) -> dict:
-    _litellm_metadata_dict: Final = litellm_metadata if isinstance(litellm_metadata, dict) else None
-    resolved_metadata: Final = _litellm_metadata_dict.copy() if not metadata and _litellm_metadata_dict else metadata
+    _embrouter_metadata_dict: Final = embrouter_metadata if isinstance(embrouter_metadata, dict) else None
+    resolved_metadata: Final = _embrouter_metadata_dict.copy() if not metadata and _embrouter_metadata_dict else metadata
 
-    # Derive litellm_session_id / litellm_trace_id from metadata when not provided (call chaining)
+    # Derive embrouter_session_id / embrouter_trace_id from metadata when not provided (call chaining)
     _meta: Final = resolved_metadata or {}
-    if litellm_session_id is None:
-        litellm_session_id = _meta.get("session_id") or _meta.get("trace_id")
-    if litellm_trace_id is None:
-        litellm_trace_id = _meta.get("trace_id") or _meta.get("session_id")
+    if embrouter_session_id is None:
+        embrouter_session_id = _meta.get("session_id") or _meta.get("trace_id")
+    if embrouter_trace_id is None:
+        embrouter_trace_id = _meta.get("trace_id") or _meta.get("session_id")
 
     data_residency: Final[str | None] = infer_openai_data_residency(custom_llm_provider, api_base)
 
     # Build base dict with explicit parameters (always included)
-    litellm_params: Final = {
+    embrouter_params: Final = {
         "acompletion": acompletion,
         "allm_passthrough_route": allm_passthrough_route,
         "api_key": api_key,
@@ -207,7 +207,7 @@ def get_litellm_params(
         "custom_llm_provider": custom_llm_provider,
         "api_base": api_base,
         "data_residency": data_residency,
-        "litellm_call_id": litellm_call_id,
+        "embrouter_call_id": embrouter_call_id,
         "model_alias_map": model_alias_map,
         "completion_call_id": completion_call_id,
         "aembedding": aembedding,
@@ -216,7 +216,7 @@ def get_litellm_params(
         "proxy_server_request": proxy_server_request,
         "preset_cache_key": preset_cache_key,
         "no-log": no_log or kwargs.get("no-log"),
-        "stream_response": {},  # litellm_call_id: ModelResponse Dict
+        "stream_response": {},  # embrouter_call_id: ModelResponse Dict
         "cost_per_second": cost_per_second,
         "input_cost_per_token": input_cost_per_token,
         "input_cost_per_second": input_cost_per_second,
@@ -228,12 +228,12 @@ def get_litellm_params(
         "azure_ad_token_provider": azure_ad_token_provider,
         "user_continue_message": user_continue_message,
         "base_model": base_model
-        or (_get_base_model_from_litellm_call_metadata(metadata=metadata) if metadata else None),
-        "litellm_trace_id": litellm_trace_id,
-        "litellm_session_id": litellm_session_id,
+        or (_get_base_model_from_embrouter_call_metadata(metadata=metadata) if metadata else None),
+        "embrouter_trace_id": embrouter_trace_id,
+        "embrouter_session_id": embrouter_session_id,
         "hf_model_name": hf_model_name,
         "custom_prompt_dict": custom_prompt_dict,
-        "litellm_metadata": litellm_metadata,
+        "embrouter_metadata": embrouter_metadata,
         "disable_add_transform_inline_image_block": disable_add_transform_inline_image_block,
         "drop_params": normalize_drop_params(drop_params),
         "prompt_id": prompt_id,
@@ -243,30 +243,30 @@ def get_litellm_params(
         "merge_reasoning_content_in_choices": merge_reasoning_content_in_choices,
         "api_version": api_version,
         "max_retries": max_retries,
-        "use_litellm_proxy": use_litellm_proxy,
-        "litellm_request_debug": litellm_request_debug,
+        "use_embrouter_proxy": use_embrouter_proxy,
+        "embrouter_request_debug": embrouter_request_debug,
     }
 
     # Sparse extraction: only add kwargs keys that are actually present
     if kwargs:
         for key in OPTIONAL_KWARGS_KEYS:
             if key in kwargs:
-                litellm_params[key] = kwargs[key]
+                embrouter_params[key] = kwargs[key]
 
-    return litellm_params
+    return embrouter_params
 
 
-def add_trusted_model_credentials_to_litellm_params(
-    litellm_params_dict: MutableMapping[str, object], kwargs: Mapping[str, object]
+def add_trusted_model_credentials_to_embrouter_params(
+    embrouter_params_dict: MutableMapping[str, object], kwargs: Mapping[str, object]
 ) -> None:
     """
-    Carry the immutable server-side credential snapshot into litellm_params.
+    Carry the immutable server-side credential snapshot into embrouter_params.
 
-    get_litellm_params has a fixed signature, so callers that need the snapshot to
+    get_embrouter_params has a fixed signature, so callers that need the snapshot to
     survive into the logging object and the downstream file read have to re-add it. Only
     a MappingProxyType is accepted, since providers resolve trusted configuration such
     as a Bedrock file bucket from it and must not read a request-supplied mapping.
     """
-    trusted_model_credentials: Final = kwargs.get("_litellm_internal_model_credentials")
+    trusted_model_credentials: Final = kwargs.get("_embrouter_internal_model_credentials")
     if isinstance(trusted_model_credentials, MappingProxyType):
-        litellm_params_dict["_litellm_internal_model_credentials"] = trusted_model_credentials
+        embrouter_params_dict["_embrouter_internal_model_credentials"] = trusted_model_credentials

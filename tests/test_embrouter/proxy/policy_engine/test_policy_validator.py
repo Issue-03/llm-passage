@@ -11,8 +11,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from litellm.proxy.policy_engine.policy_validator import PolicyValidator
-from litellm.types.proxy.policy_engine import (
+from embrouter.proxy.policy_engine.policy_validator import PolicyValidator
+from embrouter.types.proxy.policy_engine import (
     Policy,
     PolicyGuardrails,
     PolicyValidationErrorType,
@@ -32,8 +32,8 @@ class _FakeTable:
 
 class _FakeDB:
     def __init__(self, teams: Set[str], keys: Set[str]):
-        self.litellm_teamtable = _FakeTable(teams, "team_alias")
-        self.litellm_verificationtoken = _FakeTable(keys, "key_alias")
+        self.embrouter_teamtable = _FakeTable(teams, "team_alias")
+        self.embrouter_verificationtoken = _FakeTable(keys, "key_alias")
 
 
 class _FakePrisma:

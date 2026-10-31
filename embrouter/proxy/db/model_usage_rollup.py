@@ -3,15 +3,15 @@ from typing import Final
 
 from pydantic import TypeAdapter, ValidationError
 
-from litellm.constants import (
+from embrouter.constants import (
     INTERNAL_CALL_ORIGIN_METADATA_KEY,
     MODEL_INSIGHTS_DEFAULT_TASK,
     MODEL_INSIGHTS_TASK_TAG_PREFIX,
 )
-from litellm.proxy._types import SpendLogsPayload
-from litellm.proxy.db.model_insights_tasks import load_model_insight_tasks
-from litellm.proxy.utils import PrismaClient
-from litellm.repositories.table_repositories import DailyModelUsageRepository
+from embrouter.proxy._types import SpendLogsPayload
+from embrouter.proxy.db.model_insights_tasks import load_model_insight_tasks
+from embrouter.proxy.utils import PrismaClient
+from embrouter.repositories.table_repositories import DailyModelUsageRepository
 
 _METADATA: Final = TypeAdapter(dict[str, object])
 _TAGS: Final = TypeAdapter(list[object])

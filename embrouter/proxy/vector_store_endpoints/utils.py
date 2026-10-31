@@ -6,41 +6,41 @@ from typing import Final, Literal
 
 from fastapi import HTTPException, Request
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy._experimental.mcp_server.ui_session_utils import (
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy._experimental.mcp_server.ui_session_utils import (
     is_ui_session_credential,
     resolve_ui_session_team_ids,
 )
-from litellm.proxy._types import (
-    LiteLLM_ObjectPermissionTable,
-    LitellmUserRoles,
+from embrouter.proxy._types import (
+    EmbRouter_ObjectPermissionTable,
+    EmbrouterUserRoles,
     UserAPIKeyAuth,
 )
-from litellm.types.utils import LlmProviders
-from litellm.types.vector_stores import LiteLLM_ManagedVectorStore
-from litellm.utils import ProviderConfigManager
+from embrouter.types.utils import LlmProviders
+from embrouter.types.vector_stores import EmbRouter_ManagedVectorStore
+from embrouter.utils import ProviderConfigManager
 
 
-def _normalize_litellm_params(
-    vector_store: LiteLLM_ManagedVectorStore,
-) -> LiteLLM_ManagedVectorStore:
-    litellm_params: Final = vector_store.get("litellm_params")
-    if isinstance(litellm_params, str):
-        normalized: Final = LiteLLM_ManagedVectorStore(**dict(vector_store))
+def _normalize_embrouter_params(
+    vector_store: EmbRouter_ManagedVectorStore,
+) -> EmbRouter_ManagedVectorStore:
+    embrouter_params: Final = vector_store.get("embrouter_params")
+    if isinstance(embrouter_params, str):
+        normalized: Final = EmbRouter_ManagedVectorStore(**dict(vector_store))
         try:
-            parsed: Final = json.loads(litellm_params)
-            normalized["litellm_params"] = parsed if isinstance(parsed, dict) else {}
+            parsed: Final = json.loads(embrouter_params)
+            normalized["embrouter_params"] = parsed if isinstance(parsed, dict) else {}
         except (TypeError, ValueError):
-            normalized["litellm_params"] = {}
+            normalized["embrouter_params"] = {}
         return normalized
     return vector_store
 
 
 def _is_proxy_admin(user_api_key_dict: UserAPIKeyAuth) -> bool:
     return (
-        user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN
-        or user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN.value
+        user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN
+        or user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN.value
     )
 
 
@@ -54,7 +54,7 @@ def assert_proxy_admin_for_vector_store_index_management(
         return
     raise HTTPException(
         status_code=403,
-        detail=(f"Only proxy admins can {operation} vector store indexes. Contact your LiteLLM administrator."),
+        detail=(f"Only proxy admins can {operation} vector store indexes. Contact your EmbRouter administrator."),
     )
 
 
@@ -100,7 +100,7 @@ def _is_vector_store_index_lifecycle_request(
 
 
 def _object_permission_allows_vector_store(
-    object_permission: LiteLLM_ObjectPermissionTable | None,
+    object_permission: EmbRouter_ObjectPermissionTable | None,
     vector_store_id: str,
 ) -> bool:
     """Returns True if an object permission explicitly allowlists the vector store."""
@@ -114,13 +114,13 @@ def _object_permission_allows_vector_store(
 
 async def _get_object_permission_for_id(
     object_permission_id: str | None,
-) -> LiteLLM_ObjectPermissionTable | None:
+) -> EmbRouter_ObjectPermissionTable | None:
     """Load an object permission record by id, using the shared cache/DB helper."""
     if not object_permission_id:
         return None
 
-    from litellm.proxy.auth.auth_checks import get_object_permission
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.auth.auth_checks import get_object_permission
+    from embrouter.proxy.proxy_server import (
         prisma_client,
         proxy_logging_obj,
         user_api_key_cache,
@@ -146,7 +146,7 @@ async def _get_object_permission_for_id(
 
 
 async def can_user_access_vector_store(
-    vector_store: LiteLLM_ManagedVectorStore,
+    vector_store: EmbRouter_ManagedVectorStore,
     user_api_key_dict: UserAPIKeyAuth,
 ) -> bool:
     """
@@ -176,7 +176,7 @@ async def can_user_access_vector_store(
 
 
 async def _is_vector_store_granted(
-    vector_store: LiteLLM_ManagedVectorStore,
+    vector_store: EmbRouter_ManagedVectorStore,
     user_api_key_dict: UserAPIKeyAuth,
 ) -> bool:
     vector_store_id: Final = vector_store.get("vector_store_id") or ""
@@ -187,7 +187,7 @@ async def _is_vector_store_granted(
     if _object_permission_allows_vector_store(key_object_permission, vector_store_id):
         return True
 
-    team_object_permission: LiteLLM_ObjectPermissionTable | None = user_api_key_dict.team_object_permission
+    team_object_permission: EmbRouter_ObjectPermissionTable | None = user_api_key_dict.team_object_permission
     if team_object_permission is None:
         team_object_permission = await _get_object_permission_for_id(user_api_key_dict.team_object_permission_id)
     if _object_permission_allows_vector_store(team_object_permission, vector_store_id):
@@ -197,8 +197,8 @@ async def _is_vector_store_granted(
 
 
 async def _team_auth_context(team_id: str, user_api_key_dict: UserAPIKeyAuth) -> UserAPIKeyAuth:
-    from litellm.proxy.auth.auth_checks import get_team_object
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.auth.auth_checks import get_team_object
+    from embrouter.proxy.proxy_server import (
         prisma_client,
         proxy_logging_obj,
         user_api_key_cache,
@@ -236,7 +236,7 @@ async def _vector_store_auth_contexts(
 
 
 async def _is_vector_store_granted_to_any(
-    vector_store: LiteLLM_ManagedVectorStore,
+    vector_store: EmbRouter_ManagedVectorStore,
     auth_contexts: tuple[UserAPIKeyAuth, ...],
 ) -> bool:
     for auth_context in auth_contexts:
@@ -246,9 +246,9 @@ async def _is_vector_store_granted_to_any(
 
 
 async def filter_listable_vector_stores(
-    vector_stores: Iterable[LiteLLM_ManagedVectorStore],
+    vector_stores: Iterable[EmbRouter_ManagedVectorStore],
     user_api_key_dict: UserAPIKeyAuth,
-) -> tuple[LiteLLM_ManagedVectorStore, ...]:
+) -> tuple[EmbRouter_ManagedVectorStore, ...]:
     """Non-admins only see stores their key, one of their teams' object_permission, or team ownership grants."""
     if _is_proxy_admin(user_api_key_dict):
         return tuple(vector_stores)
@@ -257,26 +257,26 @@ async def filter_listable_vector_stores(
     return tuple([vs for vs in vector_stores if await _is_vector_store_granted_to_any(vs, auth_contexts)])
 
 
-async def get_litellm_managed_vector_store(
+async def get_embrouter_managed_vector_store(
     vector_store_id: str,
-) -> LiteLLM_ManagedVectorStore | None:
+) -> EmbRouter_ManagedVectorStore | None:
     """
-    Resolve a LiteLLM-managed vector store from the registry or shared cache.
+    Resolve a EmbRouter-managed vector store from the registry or shared cache.
 
     Provider-native vector store IDs will not be present in either location and
     return None, preserving direct provider behavior while still protecting
-    LiteLLM-managed multi-tenant stores.
+    EmbRouter-managed multi-tenant stores.
     """
     if not vector_store_id:
         return None
 
-    if litellm.vector_store_registry is not None:
+    if embrouter.vector_store_registry is not None:
         try:
-            vector_store: Final = litellm.vector_store_registry.get_litellm_managed_vector_store_from_registry(
+            vector_store: Final = embrouter.vector_store_registry.get_embrouter_managed_vector_store_from_registry(
                 vector_store_id=vector_store_id
             )
             if vector_store is not None:
-                return _normalize_litellm_params(vector_store)
+                return _normalize_embrouter_params(vector_store)
         except Exception as e:
             verbose_proxy_logger.warning(
                 "Failed to resolve vector store id=%s from registry: %s",
@@ -289,10 +289,10 @@ async def get_litellm_managed_vector_store(
             ) from e
 
     try:
-        from litellm.proxy.auth.auth_checks import (
+        from embrouter.proxy.auth.auth_checks import (
             get_managed_vector_store_rows_by_uuids,
         )
-        from litellm.proxy.proxy_server import (
+        from embrouter.proxy.proxy_server import (
             prisma_client,
             proxy_logging_obj,
             user_api_key_cache,
@@ -308,7 +308,7 @@ async def get_litellm_managed_vector_store(
         )
         if not rows:
             return None
-        return _normalize_litellm_params(LiteLLM_ManagedVectorStore(**rows[0].model_dump()))
+        return _normalize_embrouter_params(EmbRouter_ManagedVectorStore(**rows[0].model_dump()))
     except Exception as e:
         verbose_proxy_logger.warning(
             "Failed to resolve vector store id=%s from shared cache: %s",
@@ -322,7 +322,7 @@ async def get_litellm_managed_vector_store(
 
 
 async def assert_user_can_access_vector_store(
-    vector_store: LiteLLM_ManagedVectorStore,
+    vector_store: EmbRouter_ManagedVectorStore,
     user_api_key_dict: UserAPIKeyAuth,
     detail: str = "Access denied: You do not have permission to access this vector store",
 ) -> None:
@@ -335,13 +335,13 @@ async def assert_user_can_access_vector_store_id(
     vector_store_id: str,
     user_api_key_dict: UserAPIKeyAuth,
     detail: str = "Access denied: You do not have permission to access this vector store",
-) -> LiteLLM_ManagedVectorStore | None:
+) -> EmbRouter_ManagedVectorStore | None:
     """
     Resolve a managed vector store id and enforce ownership if it exists.
 
     Unknown ids are treated as provider-native ids and are not rejected here.
     """
-    vector_store: Final = await get_litellm_managed_vector_store(vector_store_id=vector_store_id)
+    vector_store: Final = await get_embrouter_managed_vector_store(vector_store_id=vector_store_id)
     if vector_store is not None:
         await assert_user_can_access_vector_store(
             vector_store=vector_store,
@@ -425,8 +425,8 @@ def is_allowed_to_call_vector_store_endpoint(
     2. Reading a vector store index (Search / List / Get)
     """
     if (
-        user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN
-        or user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN.value
+        user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN
+        or user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN.value
     ):
         return True
     # check what allowed permissions are for the key
@@ -440,7 +440,7 @@ def is_allowed_to_call_vector_store_endpoint(
     provider_vector_store_endpoints: Final = provider_config.get_vector_store_endpoints_by_type()
 
     # Inline import — auth_utils participates in a proxy import cycle.
-    from litellm.proxy.auth.auth_utils import get_request_route  # noqa: PLC0415
+    from embrouter.proxy.auth.auth_utils import get_request_route  # noqa: PLC0415
 
     request_route: Final = get_request_route(request)
 
@@ -509,8 +509,8 @@ def is_allowed_to_call_vector_store_files_endpoint(
     user_api_key_dict: UserAPIKeyAuth,
 ) -> Literal[True] | None:
     if (
-        user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN
-        or user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN.value
+        user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN
+        or user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN.value
     ):
         return True
 
@@ -524,7 +524,7 @@ def is_allowed_to_call_vector_store_files_endpoint(
     provider_vector_store_endpoints: Final = provider_config.get_vector_store_file_endpoints_by_type()
 
     # Inline import — auth_utils participates in a proxy import cycle.
-    from litellm.proxy.auth.auth_utils import get_request_route  # noqa: PLC0415
+    from embrouter.proxy.auth.auth_utils import get_request_route  # noqa: PLC0415
 
     request_route: Final = get_request_route(request)
 

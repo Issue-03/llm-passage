@@ -7,13 +7,13 @@ import { labelWithHint } from "@/components/shared/form/LabelWithHint";
 import { MountedFormField, type MountedFormValues } from "../common_components/MountedFormField";
 import { Providers } from "../provider_info_helpers";
 
-interface LiteLLMModelNameFieldProps {
+interface EmbRouterModelNameFieldProps {
   selectedProvider: string | null;
   providerModels: string[];
   getPlaceholder: (provider: string) => string;
 }
 
-const LiteLLMModelNameField: React.FC<LiteLLMModelNameFieldProps> = ({
+const EmbRouterModelNameField: React.FC<EmbRouterModelNameFieldProps> = ({
   selectedProvider,
   providerModels,
   getPlaceholder,
@@ -41,12 +41,12 @@ const LiteLLMModelNameField: React.FC<LiteLLMModelNameFieldProps> = ({
           if (selectedProvider === Providers.Azure) {
             return {
               public_name: model,
-              litellm_model: `azure/${model}`,
+              embrouter_model: `azure/${model}`,
             };
           }
           return {
             public_name: model,
-            litellm_model: model,
+            embrouter_model: model,
           };
         });
 
@@ -65,7 +65,7 @@ const LiteLLMModelNameField: React.FC<LiteLLMModelNameFieldProps> = ({
       ? [
           {
             public_name: deploymentName,
-            litellm_model: `azure/${deploymentName}`,
+            embrouter_model: `azure/${deploymentName}`,
           },
         ]
       : [];
@@ -82,16 +82,16 @@ const LiteLLMModelNameField: React.FC<LiteLLMModelNameFieldProps> = ({
     // Immediately update the model mappings
     const currentMappings = (form.getValues("model_mappings") as any[]) || [];
     const updatedMappings = currentMappings.map((mapping: any) => {
-      if (mapping.public_name === "custom" || mapping.litellm_model === "custom") {
+      if (mapping.public_name === "custom" || mapping.embrouter_model === "custom") {
         if (selectedProvider === Providers.Azure) {
           return {
             public_name: customName,
-            litellm_model: `azure/${customName}`,
+            embrouter_model: `azure/${customName}`,
           };
         }
         return {
           public_name: customName,
-          litellm_model: customName,
+          embrouter_model: customName,
         };
       }
       return mapping;
@@ -203,4 +203,4 @@ const LiteLLMModelNameField: React.FC<LiteLLMModelNameFieldProps> = ({
   );
 };
 
-export default LiteLLMModelNameField;
+export default EmbRouterModelNameField;

@@ -1,13 +1,13 @@
 """
 Example Custom SSO Handler
 
-Use this if you want to run custom code after litellm has retrieved information from your IDP (Identity Provider).
+Use this if you want to run custom code after embrouter has retrieved information from your IDP (Identity Provider).
 
 Flow:
 - User lands on Admin UI
-- LiteLLM redirects user to your SSO provider
-- Your SSO provider redirects user back to LiteLLM
-- LiteLLM has retrieved user information from your IDP
+- EmbRouter redirects user to your SSO provider
+- Your SSO provider redirects user back to EmbRouter
+- EmbRouter has retrieved user information from your IDP
 - Your custom SSO handler is called and returns an object of type SSOUserDefinedValues
 - User signed in to UI
 """
@@ -16,8 +16,8 @@ from typing import Final
 
 from fastapi_sso.sso.base import OpenID
 
-from litellm.proxy import proxy_server
-from litellm.proxy._types import LitellmUserRoles, SSOUserDefinedValues
+from embrouter.proxy import proxy_server
+from embrouter.proxy._types import EmbrouterUserRoles, SSOUserDefinedValues
 
 
 async def custom_sso_handler(userIDPInfo: OpenID) -> SSOUserDefinedValues:
@@ -30,7 +30,7 @@ async def custom_sso_handler(userIDPInfo: OpenID) -> SSOUserDefinedValues:
         # extra_fields = getattr(userIDPInfo, 'extra_fields', None) or {}
         # user_groups = extra_fields.get("group", [])
 
-        # check if user exists in litellm proxy DB
+        # check if user exists in embrouter proxy DB
         if proxy_server.prisma_client is not None:
             _user_info: Final = await proxy_server.prisma_client.get_data(user_id=userIDPInfo.id)
 
@@ -38,7 +38,7 @@ async def custom_sso_handler(userIDPInfo: OpenID) -> SSOUserDefinedValues:
             models=[],
             user_id=userIDPInfo.id,
             user_email=userIDPInfo.email,
-            user_role=LitellmUserRoles.INTERNAL_USER.value,
+            user_role=EmbrouterUserRoles.INTERNAL_USER.value,
             max_budget=10,
             budget_duration="1d",
         )

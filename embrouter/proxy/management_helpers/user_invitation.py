@@ -3,9 +3,9 @@ from typing import Final
 
 from fastapi import HTTPException
 
-import litellm
-from litellm.proxy._types import CommonProxyErrors, InvitationNew, UserAPIKeyAuth
-from litellm.repositories.table_repositories import InvitationLinkRepository
+import embrouter
+from embrouter.proxy._types import CommonProxyErrors, InvitationNew, UserAPIKeyAuth
+from embrouter.repositories.table_repositories import InvitationLinkRepository
 
 
 async def create_invitation_for_user(
@@ -13,9 +13,9 @@ async def create_invitation_for_user(
     user_api_key_dict: UserAPIKeyAuth,
 ):
     """
-    Create an invitation for the user to onboard to LiteLLM Admin UI.
+    Create an invitation for the user to onboard to EmbRouter Admin UI.
     """
-    from litellm.proxy.proxy_server import litellm_proxy_admin_name, prisma_client
+    from embrouter.proxy.proxy_server import embrouter_proxy_admin_name, prisma_client
 
     if prisma_client is None:
         raise HTTPException(
@@ -23,7 +23,7 @@ async def create_invitation_for_user(
             detail={"error": CommonProxyErrors.db_not_connected_error.value},
         )
 
-    current_time: Final = litellm.utils.get_utc_datetime()
+    current_time: Final = embrouter.utils.get_utc_datetime()
     expires_at: Final = current_time + timedelta(days=7)
 
     try:
@@ -32,9 +32,9 @@ async def create_invitation_for_user(
                 "user_id": data.user_id,
                 "created_at": current_time,
                 "expires_at": expires_at,
-                "created_by": user_api_key_dict.user_id or litellm_proxy_admin_name,
+                "created_by": user_api_key_dict.user_id or embrouter_proxy_admin_name,
                 "updated_at": current_time,
-                "updated_by": user_api_key_dict.user_id or litellm_proxy_admin_name,
+                "updated_by": user_api_key_dict.user_id or embrouter_proxy_admin_name,
             }
         )
         return response
@@ -43,7 +43,7 @@ async def create_invitation_for_user(
             raise HTTPException(
                 status_code=400,
                 detail={
-                    "error": "User id does not exist in 'LiteLLM_UserTable'. Fix this by creating user via `/user/new`."
+                    "error": "User id does not exist in 'EmbRouter_UserTable'. Fix this by creating user via `/user/new`."
                 },
             )
         raise HTTPException(status_code=500, detail={"error": str(e)})

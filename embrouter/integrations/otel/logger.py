@@ -24,21 +24,21 @@ from opentelemetry.trace import (
 from opentelemetry.trace import TracerProvider as ApiTracerProvider
 from typing_extensions import TypedDict, Unpack
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.integrations.otel.emitter import SpanEmitter, stamp_error
-from litellm.integrations.otel.mappers import resolve_mappers
-from litellm.integrations.otel.model.baggage import promoted_baggage
-from litellm.integrations.otel.model.config import OpenTelemetryV2Config, excluded_db_systems_from
-from litellm.integrations.otel.model.metadata import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.integrations.otel.emitter import SpanEmitter, stamp_error
+from embrouter.integrations.otel.mappers import resolve_mappers
+from embrouter.integrations.otel.model.baggage import promoted_baggage
+from embrouter.integrations.otel.model.config import OpenTelemetryV2Config, excluded_db_systems_from
+from embrouter.integrations.otel.model.metadata import (
     LLMCallEvent,
     RequestIdentity,
     auth_metadata,
     metadata_from_request_data,
     model_from_request_data,
 )
-from litellm.integrations.otel.model.payloads import (
+from embrouter.integrations.otel.model.payloads import (
     GuardrailSpanData,
     LLMCallSpanData,
     MCPListToolsSpanData,
@@ -48,10 +48,10 @@ from litellm.integrations.otel.model.payloads import (
     is_mcp_list_tools,
     is_mcp_tool_call,
 )
-from litellm.integrations.otel.model.semconv import Error
-from litellm.integrations.otel.model.spans import SpanRole, span_role_for_service
-from litellm.integrations.otel.model.utils import to_ns
-from litellm.integrations.otel.plumbing.context import (
+from embrouter.integrations.otel.model.semconv import Error
+from embrouter.integrations.otel.model.spans import SpanRole, span_role_for_service
+from embrouter.integrations.otel.model.utils import to_ns
+from embrouter.integrations.otel.plumbing.context import (
     is_recordable_span,
     mcp_message_transport_span,
     request_root_http_route,
@@ -62,12 +62,12 @@ from litellm.integrations.otel.plumbing.context import (
     set_request_baggage,
     set_request_root_span,
 )
-from litellm.integrations.otel.plumbing.events import GenAIEventRecorder
-from litellm.integrations.otel.plumbing.metrics import (
+from embrouter.integrations.otel.plumbing.events import GenAIEventRecorder
+from embrouter.integrations.otel.plumbing.metrics import (
     GenAIMetricRecorder,
     create_genai_metrics,
 )
-from litellm.integrations.otel.plumbing.providers import (
+from embrouter.integrations.otel.plumbing.providers import (
     attach_tenant_fan_out,
     build_tracer_provider,
     get_event_logger,
@@ -76,21 +76,21 @@ from litellm.integrations.otel.plumbing.providers import (
     resolve_logger_provider,
     resolve_meter_provider,
 )
-from litellm.integrations.otel.plumbing.routing import TenantTracerCache
+from embrouter.integrations.otel.plumbing.routing import TenantTracerCache
 
 if TYPE_CHECKING:
     from opentelemetry.metrics import MeterProvider
 
-    from litellm.caching.dual_cache import DualCache
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.types.services import ServiceLoggerPayload
-    from litellm.types.utils import (
+    from embrouter.caching.dual_cache import DualCache
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.types.services import ServiceLoggerPayload
+    from embrouter.types.utils import (
         CallTypesLiteral,
         StandardLoggingGuardrailInformation,
         StandardLoggingPayload,
     )
 
-LITELLM_TRACER_NAME: Final = "litellm"
+EMBROUTER_TRACER_NAME: Final = "embrouter"
 _published_v2_provider: ApiTracerProvider | None = None
 
 
@@ -105,7 +105,7 @@ def _span_error_from_exception(
     mirroring ``_parse_error``'s field mapping so it stamps the same v2 keys a
     failed LLM call does. ``status_code`` pins ``error.code`` to the real response
     status, matching v1's SERVER-span behavior."""
-    from litellm.litellm_core_utils.litellm_logging import StandardLoggingPayloadSetup
+    from embrouter.embrouter_core_utils.embrouter_logging import StandardLoggingPayloadSetup
 
     info: Final = StandardLoggingPayloadSetup.get_error_information(
         original_exception=exception,
@@ -123,8 +123,8 @@ def _span_error_from_exception(
 # Any callback whose class belongs to one of these modules is "the OTel
 # callback" for proxy-global-registration purposes.
 _OTEL_MODULES: Final = (
-    "litellm.integrations.otel",
-    "litellm.integrations.opentelemetry",
+    "embrouter.integrations.otel",
+    "embrouter.integrations.opentelemetry",
 )
 
 
@@ -195,7 +195,7 @@ class OpenTelemetryV2(CustomLogger):
             if tracer_provider is not None
             else build_tracer_provider(self.config, tenant_overrides=True)
         )
-        self.tracer: Tracer = get_tracer(self._tracer_provider, LITELLM_TRACER_NAME)
+        self.tracer: Tracer = get_tracer(self._tracer_provider, EMBROUTER_TRACER_NAME)
         self._metrics_recorder = self._init_metrics(meter_provider)
         self._metric_filter_error_logged = False
         self._emitter = SpanEmitter(
@@ -204,9 +204,9 @@ class OpenTelemetryV2(CustomLogger):
             mappers=resolve_mappers(self.config.mapper_names),
             event_recorder=self._init_events(logger_provider),
         )
-        self._tenant_tracers = TenantTracerCache(self.config, callback_name, LITELLM_TRACER_NAME)
+        self._tenant_tracers = TenantTracerCache(self.config, callback_name, EMBROUTER_TRACER_NAME)
         self._open_llm_calls: OrderedDict[str, _LLMCallSpan] = OrderedDict()
-        self._init_otel_logger_on_litellm_proxy()
+        self._init_otel_logger_on_embrouter_proxy()
 
     @property
     def tracer_provider(self) -> TracerProvider:
@@ -224,7 +224,7 @@ class OpenTelemetryV2(CustomLogger):
         if not self.config.enable_metrics:
             return None
         provider: Final = resolve_meter_provider(self.config, meter_provider)
-        meter: Final = get_meter(provider, LITELLM_TRACER_NAME)
+        meter: Final = get_meter(provider, EMBROUTER_TRACER_NAME)
         return GenAIMetricRecorder(create_genai_metrics(meter), self.callback_name)
 
     def _init_events(self, logger_provider: LoggerProvider | None) -> "GenAIEventRecorder | None":
@@ -241,7 +241,7 @@ class OpenTelemetryV2(CustomLogger):
         provider: Final = resolve_logger_provider(self.config, logger_provider)
         if provider is None:
             return None
-        return GenAIEventRecorder(get_event_logger(provider, LITELLM_TRACER_NAME), provider.resource)
+        return GenAIEventRecorder(get_event_logger(provider, EMBROUTER_TRACER_NAME), provider.resource)
 
     # ====================================================================== #
     #  Proxy global registration
@@ -254,16 +254,16 @@ class OpenTelemetryV2(CustomLogger):
         if not already_otel:
             callbacks.append(self)
 
-    def _init_otel_logger_on_litellm_proxy(self) -> None:
+    def _init_otel_logger_on_embrouter_proxy(self) -> None:
         try:
-            from litellm.proxy import proxy_server
+            from embrouter.proxy import proxy_server
         except Exception:
             return
         try:
-            self._register_in_callback_list(litellm.service_callback)
-            self._register_in_callback_list(litellm.input_callback)
-            self._register_in_callback_list(litellm._async_success_callback)
-            self._register_in_callback_list(litellm._async_failure_callback)
+            self._register_in_callback_list(embrouter.service_callback)
+            self._register_in_callback_list(embrouter.input_callback)
+            self._register_in_callback_list(embrouter._async_success_callback)
+            self._register_in_callback_list(embrouter._async_failure_callback)
         except Exception:
             pass
         if getattr(proxy_server, "open_telemetry_logger", None) is None:
@@ -281,7 +281,7 @@ class OpenTelemetryV2(CustomLogger):
         the one place where the live server span is genuinely the ambient OTel
         context — so the span parents to it natively, with no span threaded
         through a metadata dict. The open span is stashed on the per-request
-        ``LiteLLMLoggingObj`` (a typed object) and closed in the async callback.
+        ``EmbRouterLoggingObj`` (a typed object) and closed in the async callback.
 
         When no recordable parent is visible (``pre_call`` was driven from a thread
         pool for a sync-only provider, where contextvars — and so the anchor —
@@ -695,7 +695,7 @@ class OpenTelemetryV2(CustomLogger):
 
         Seeding identity into Baggage makes **every** span emitted afterwards for
         this request — LLM call, guardrail, DB call — inherit it via
-        ``LiteLLMBaggageSpanProcessor``. Called once at the auth boundary (as soon
+        ``EmbRouterBaggageSpanProcessor``. Called once at the auth boundary (as soon
         as the key resolves) so post-auth spans are labeled consistently; the
         Baggage rides the request task's contextvar from there on. Auth-internal
         DB lookups that run before the key is known stay unlabeled — identity
@@ -725,7 +725,7 @@ class OpenTelemetryV2(CustomLogger):
                 if is_recordable_span(server_span):
                     # Re-capture the anchor here too: this runs post-auth with the
                     # server span active and covers entrypoints that bypass
-                    # ``create_litellm_proxy_request_started_span`` (e.g. the SDK
+                    # ``create_embrouter_proxy_request_started_span`` (e.g. the SDK
                     # path's ``async_pre_call_hook``). Idempotent.
                     set_request_root_span(server_span)
                     for key, value in bag.items():
@@ -833,7 +833,7 @@ class OpenTelemetryV2(CustomLogger):
             end_time_ns=to_ns(data.end_time),
         )
 
-    def create_litellm_proxy_request_started_span(
+    def create_embrouter_proxy_request_started_span(
         self, start_time: datetime, headers: Mapping[str, str] | None
     ) -> Span | None:
         span: Final = get_current_span()
@@ -850,7 +850,7 @@ def select_global_otel_v2_logger(
     """The single ``OpenTelemetryV2`` whose provider should become the OTel global.
 
     The callback factory designates one logger as canonical the moment it builds
-    the first one (``_init_otel_logger_on_litellm_proxy`` sets
+    the first one (``_init_otel_logger_on_embrouter_proxy`` sets
     ``proxy_server.open_telemetry_logger``), and every other v2 entry point —
     guardrail, identity seeding, phase spans — already routes through that same
     ``registered`` owner. Reuse it here too so the global provider has one source
@@ -915,7 +915,7 @@ def _excluded_db_systems(logger: "OpenTelemetryV2") -> frozenset[str]:
     logger got published: with ``callbacks: [langfuse_otel, otel]`` the ``otel``
     callback folds into the preset, whose config is env-only.
     """
-    configured: Final = litellm.callback_settings.get("otel", {}).get("excluded_services")
+    configured: Final = embrouter.callback_settings.get("otel", {}).get("excluded_services")
     if configured is None:
         return logger.config.excluded_services
     return excluded_db_systems_from(configured)
@@ -933,7 +933,7 @@ def _v2_configs(in_memory_loggers: Sequence[object], logger: "OpenTelemetryV2") 
 
 def _registered_v2_logger() -> "OpenTelemetryV2 | None":
     try:
-        from litellm.proxy import proxy_server
+        from embrouter.proxy import proxy_server
     except Exception:
         return None
     logger: Final = getattr(proxy_server, "open_telemetry_logger", None)
@@ -1020,6 +1020,6 @@ def build_otel_v2_logger(
 def _logger_class(config: OpenTelemetryV2Config) -> type[OpenTelemetryV2]:
     if "langfuse" not in config.mapper_names:
         return OpenTelemetryV2
-    from litellm.integrations.otel.langfuse_logger import LangfuseContentOpenTelemetryV2, LangfuseOpenTelemetryV2
+    from embrouter.integrations.otel.langfuse_logger import LangfuseContentOpenTelemetryV2, LangfuseOpenTelemetryV2
 
     return LangfuseContentOpenTelemetryV2 if config.capture_span_content else LangfuseOpenTelemetryV2

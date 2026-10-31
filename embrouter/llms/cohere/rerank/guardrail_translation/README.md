@@ -173,9 +173,9 @@ Override these methods to customize behavior:
 ### PII Masking in Search
 
 ```python
-import litellm
+import embrouter
 
-response = litellm.rerank(
+response = embrouter.rerank(
     model="rerank-english-v3.0",
     query="Find info about john@example.com",
     documents=[
@@ -195,9 +195,9 @@ print(response.results)
 ### Content Filtering
 
 ```python
-import litellm
+import embrouter
 
-response = litellm.rerank(
+response = embrouter.rerank(
     model="rerank-english-v3.0",
     query="Search query here",
     documents=[
@@ -211,11 +211,11 @@ response = litellm.rerank(
 ### Async Rerank with Guardrails
 
 ```python
-import litellm
+import embrouter
 import asyncio
 
 async def rerank_with_guardrails():
-    response = await litellm.arerank(
+    response = await embrouter.arerank(
         model="rerank-english-v3.0",
         query="Technical query",
         documents=["Doc 1", "Doc 2", "Doc 3"],

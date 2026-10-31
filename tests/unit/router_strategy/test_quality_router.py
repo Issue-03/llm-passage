@@ -2,7 +2,7 @@
 Tests for the QualityRouter.
 
 Covers:
-- Tier index construction from `model_info.litellm_routing_preferences`.
+- Tier index construction from `model_info.embrouter_routing_preferences`.
 - Quality-tier resolution (exact, round-up, default fallback).
 - Keyword override (match, tiebreaking by quality + price).
 - Pre-routing hook end-to-end.
@@ -15,10 +15,10 @@ from unittest.mock import MagicMock
 import pytest
 
 
-from litellm.router_strategy.quality_router.config import (
+from embrouter.router_strategy.quality_router.config import (
     DEFAULT_COMPLEXITY_TO_QUALITY,
 )
-from litellm.router_strategy.quality_router.quality_router import QualityRouter
+from embrouter.router_strategy.quality_router.quality_router import QualityRouter
 
 
 def _make_model_list(spec: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -33,7 +33,7 @@ def _make_model_list(spec: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         "input_cost_per_token": Optional[float],
     }
     If quality_tier is None, the deployment is created without
-    `litellm_routing_preferences`.
+    `embrouter_routing_preferences`.
     """
     out: List[Dict[str, Any]] = []
     for entry in spec:
@@ -44,13 +44,13 @@ def _make_model_list(spec: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                 prefs["keywords"] = entry["keywords"]
             if "order" in entry:
                 prefs["order"] = entry["order"]
-            model_info["litellm_routing_preferences"] = prefs
+            model_info["embrouter_routing_preferences"] = prefs
         if "input_cost_per_token" in entry:
             model_info["input_cost_per_token"] = entry["input_cost_per_token"]
         out.append(
             {
                 "model_name": entry["model_name"],
-                "litellm_params": {"model": f"openai/{entry['model_name']}"},
+                "embrouter_params": {"model": f"openai/{entry['model_name']}"},
                 "model_info": model_info,
             }
         )
@@ -87,7 +87,7 @@ def quality_router(mock_router) -> QualityRouter:
     }
     return QualityRouter(
         model_name="quality-router-test",
-        litellm_router_instance=mock_router,
+        embrouter_router_instance=mock_router,
         default_model="haiku",
         quality_router_config=config,
     )
@@ -113,7 +113,7 @@ class TestTierIndex:
 
         qr = QualityRouter(
             model_name="qr",
-            litellm_router_instance=router,
+            embrouter_router_instance=router,
             default_model="haiku",
             quality_router_config={
                 "available_models": ["haiku", "sonnet", "opus", "opus-next"]
@@ -139,7 +139,7 @@ class TestTierIndex:
         # its referenced models in config.yaml.
         qr = QualityRouter(
             model_name="qr",
-            litellm_router_instance=router,
+            embrouter_router_instance=router,
             default_model="haiku",
             quality_router_config={"available_models": ["haiku", "sonnet"]},
         )
@@ -167,7 +167,7 @@ class TestResolveModelForQualityTier:
 
         qr = QualityRouter(
             model_name="qr",
-            litellm_router_instance=router,
+            embrouter_router_instance=router,
             default_model="haiku",
             quality_router_config={"available_models": ["haiku", "opus", "opus-next"]},
         )
@@ -183,7 +183,7 @@ class TestResolveModelForQualityTier:
 
         qr = QualityRouter(
             model_name="qr",
-            litellm_router_instance=router,
+            embrouter_router_instance=router,
             default_model="emergency-default",
             quality_router_config={"available_models": ["haiku"]},
         )
@@ -201,7 +201,7 @@ class TestResolveModelForQualityTier:
 
         qr = QualityRouter(
             model_name="qr",
-            litellm_router_instance=router,
+            embrouter_router_instance=router,
             default_model="emergency-default",
             quality_router_config={"available_models": ["haiku", "sonnet"]},
         )
@@ -219,7 +219,7 @@ class TestResolveModelForQualityTier:
 
         qr = QualityRouter(
             model_name="qr",
-            litellm_router_instance=router,
+            embrouter_router_instance=router,
             default_model="emergency-default",
             quality_router_config={"available_models": ["haiku", "opus"]},
         )
@@ -236,10 +236,10 @@ class TestRoutingPreferencesValidation:
         ml = [
             {
                 "model_name": "haiku",
-                "litellm_params": {"model": "openai/gpt-4o-mini"},
+                "embrouter_params": {"model": "openai/gpt-4o-mini"},
                 "model_info": {
                     "id": "id-haiku",
-                    "litellm_routing_preferences": {"quality_tier": "not-an-int"},
+                    "embrouter_routing_preferences": {"quality_tier": "not-an-int"},
                 },
             }
         ]
@@ -248,11 +248,11 @@ class TestRoutingPreferencesValidation:
 
         qr = QualityRouter(
             model_name="qr",
-            litellm_router_instance=router,
+            embrouter_router_instance=router,
             default_model="haiku",
             quality_router_config={"available_models": ["haiku"]},
         )
-        with pytest.raises(ValueError, match="invalid litellm_routing_preferences"):
+        with pytest.raises(ValueError, match="invalid embrouter_routing_preferences"):
             _ = qr._tier_to_models
 
 
@@ -270,7 +270,7 @@ class TestConfigOrderingIndependence:
 
         qr = QualityRouter(
             model_name="qr",
-            litellm_router_instance=router,
+            embrouter_router_instance=router,
             default_model="haiku",
             quality_router_config={"available_models": ["haiku", "sonnet", "opus"]},
         )
@@ -298,21 +298,21 @@ class TestConfigOrderingIndependence:
 
 class TestSetModelListResetsQualityRouters:
     def test_set_model_list_clears_quality_routers_registry(self):
-        from litellm.router import Router
+        from embrouter.router import Router
 
         router = Router(
             model_list=[
                 {
                     "model_name": "haiku",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "openai/gpt-4o-mini",
                         "api_key": "sk-test",
                     },
-                    "model_info": {"litellm_routing_preferences": {"quality_tier": 1}},
+                    "model_info": {"embrouter_routing_preferences": {"quality_tier": 1}},
                 },
                 {
                     "model_name": "my-qr",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "auto_router/quality_router",
                         "quality_router_default_model": "haiku",
                         "quality_router_config": {"available_models": ["haiku"]},
@@ -328,7 +328,7 @@ class TestSetModelListResetsQualityRouters:
             [
                 {
                     "model_name": "haiku",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "openai/gpt-4o-mini",
                         "api_key": "sk-test",
                     },
@@ -492,7 +492,7 @@ def keyword_router():
     router.model_list = _make_model_list(spec)
     return QualityRouter(
         model_name="qr",
-        litellm_router_instance=router,
+        embrouter_router_instance=router,
         default_model="default-haiku",
         quality_router_config={
             "available_models": [
@@ -550,7 +550,7 @@ class TestKeywordOverride:
         router.model_list = _make_model_list(spec)
         qr = QualityRouter(
             model_name="qr",
-            litellm_router_instance=router,
+            embrouter_router_instance=router,
             default_model="cheap",
             quality_router_config={"available_models": ["expensive", "cheap"]},
         )
@@ -577,7 +577,7 @@ class TestKeywordOverride:
         router.model_list = _make_model_list(spec)
         qr = QualityRouter(
             model_name="qr",
-            litellm_router_instance=router,
+            embrouter_router_instance=router,
             default_model="no-price",
             quality_router_config={"available_models": ["no-price", "with-price"]},
         )
@@ -636,7 +636,7 @@ class TestKeywordOverride:
         router.model_list = _make_model_list(spec)
         qr = QualityRouter(
             model_name="qr",
-            litellm_router_instance=router,
+            embrouter_router_instance=router,
             default_model="ordered-tier2",
             quality_router_config={
                 "available_models": ["ordered-tier2", "implicit-tier3"]
@@ -666,7 +666,7 @@ class TestKeywordOverride:
         router.model_list = _make_model_list(spec)
         qr = QualityRouter(
             model_name="qr",
-            litellm_router_instance=router,
+            embrouter_router_instance=router,
             default_model="default-tier3",
             quality_router_config={"available_models": ["preferred", "default-tier3"]},
         )
@@ -694,7 +694,7 @@ class TestKeywordOverride:
         router.model_list = _make_model_list(spec)
         qr = QualityRouter(
             model_name="qr",
-            litellm_router_instance=router,
+            embrouter_router_instance=router,
             default_model="cheap-default",
             quality_router_config={
                 "available_models": ["expensive-but-preferred", "cheap-default"]
@@ -722,7 +722,7 @@ class TestKeywordOverride:
         router.model_list = _make_model_list(spec)
         qr = QualityRouter(
             model_name="qr",
-            litellm_router_instance=router,
+            embrouter_router_instance=router,
             default_model="first",
             quality_router_config={"available_models": ["first", "second"]},
         )
@@ -759,7 +759,7 @@ class TestKeywordOverride:
         router.model_list = _make_model_list(spec)
         qr = QualityRouter(
             model_name="qr",
-            litellm_router_instance=router,
+            embrouter_router_instance=router,
             default_model="low-tier",
             quality_router_config={
                 "available_models": [
@@ -790,7 +790,7 @@ class TestKeywordOverride:
         router.model_list = _make_model_list(spec)
         qr = QualityRouter(
             model_name="qr",
-            litellm_router_instance=router,
+            embrouter_router_instance=router,
             default_model="default-pick",
             quality_router_config={
                 "available_models": ["default-pick", "preferred-pick"]
@@ -818,7 +818,7 @@ class TestKeywordOverride:
         assert decision["complexity_tier"] == "SIMPLE"
 
 
-# ─── Routing-decision metadata (powers x-litellm-quality-router-* headers) ──
+# ─── Routing-decision metadata (powers x-embrouter-quality-router-* headers) ──
 
 
 class TestDecisionMetadata:
@@ -871,20 +871,20 @@ class TestDecisionMetadata:
         assert "quality_router_decision" in request_kwargs["metadata"]
 
 
-# ─── Router.set_response_headers lifts decision into x-litellm-quality-* ────
+# ─── Router.set_response_headers lifts decision into x-embrouter-quality-* ────
 
 
 class TestSetResponseHeadersLiftsDecision:
     """
     Verify the Router.set_response_headers helper turns a stashed quality-router
-    decision into x-litellm-quality-router-* headers on the response.
+    decision into x-embrouter-quality-router-* headers on the response.
     """
 
     @pytest.mark.asyncio
     async def test_lifts_decision_into_additional_headers(self):
         from pydantic import BaseModel
 
-        from litellm.router import Router
+        from embrouter.router import Router
 
         class FakeResponse(BaseModel):
             model_config = {"arbitrary_types_allowed": True}
@@ -896,7 +896,7 @@ class TestSetResponseHeadersLiftsDecision:
             model_list=[
                 {
                     "model_name": "haiku",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "openai/gpt-4o-mini",
                         "api_key": "sk-test",
                     },
@@ -927,20 +927,20 @@ class TestSetResponseHeadersLiftsDecision:
         )
 
         headers = response._hidden_params["additional_headers"]
-        assert headers["x-litellm-quality-router-model"] == "smart-coder"
-        assert headers["x-litellm-quality-router-tier"] == "3"
-        assert headers["x-litellm-quality-router-via"] == "keyword"
-        assert headers["x-litellm-quality-router-keyword"] == "code"
+        assert headers["x-embrouter-quality-router-model"] == "smart-coder"
+        assert headers["x-embrouter-quality-router-tier"] == "3"
+        assert headers["x-embrouter-quality-router-via"] == "keyword"
+        assert headers["x-embrouter-quality-router-keyword"] == "code"
         # Keyword route short-circuits classification → no complexity header.
-        assert "x-litellm-quality-router-complexity" not in headers
-        # Existing x-litellm-model-group behavior is unchanged.
-        assert headers["x-litellm-model-group"] == "qr"
+        assert "x-embrouter-quality-router-complexity" not in headers
+        # Existing x-embrouter-model-group behavior is unchanged.
+        assert headers["x-embrouter-model-group"] == "qr"
 
     @pytest.mark.asyncio
     async def test_quality_tier_route_emits_complexity_not_keyword(self):
         from pydantic import BaseModel
 
-        from litellm.router import Router
+        from embrouter.router import Router
 
         class FakeResponse(BaseModel):
             model_config = {"arbitrary_types_allowed": True}
@@ -950,7 +950,7 @@ class TestSetResponseHeadersLiftsDecision:
             model_list=[
                 {
                     "model_name": "haiku",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "openai/gpt-4o-mini",
                         "api_key": "sk-test",
                     },
@@ -981,16 +981,16 @@ class TestSetResponseHeadersLiftsDecision:
         )
 
         headers = response._hidden_params["additional_headers"]
-        assert headers["x-litellm-quality-router-via"] == "quality_tier"
-        assert headers["x-litellm-quality-router-complexity"] == "SIMPLE"
+        assert headers["x-embrouter-quality-router-via"] == "quality_tier"
+        assert headers["x-embrouter-quality-router-complexity"] == "SIMPLE"
         # Quality-tier route → no keyword header.
-        assert "x-litellm-quality-router-keyword" not in headers
+        assert "x-embrouter-quality-router-keyword" not in headers
 
     @pytest.mark.asyncio
     async def test_no_decision_leaves_quality_router_headers_unset(self):
         from pydantic import BaseModel
 
-        from litellm.router import Router
+        from embrouter.router import Router
 
         class FakeResponse(BaseModel):
             model_config = {"arbitrary_types_allowed": True}
@@ -1000,7 +1000,7 @@ class TestSetResponseHeadersLiftsDecision:
             model_list=[
                 {
                     "model_name": "haiku",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "openai/gpt-4o-mini",
                         "api_key": "sk-test",
                     },
@@ -1018,8 +1018,8 @@ class TestSetResponseHeadersLiftsDecision:
         )
 
         headers = response._hidden_params["additional_headers"]
-        assert "x-litellm-quality-router-model" not in headers
-        assert "x-litellm-quality-router-tier" not in headers
+        assert "x-embrouter-quality-router-model" not in headers
+        assert "x-embrouter-quality-router-tier" not in headers
 
 
 class TestRouterQualityDeploymentMethods:
@@ -1027,52 +1027,52 @@ class TestRouterQualityDeploymentMethods:
 
     def test_is_quality_router_deployment_true(self):
         """_is_quality_router_deployment returns True for quality router models."""
-        from litellm.router import Router
-        from litellm.types.router import LiteLLM_Params
+        from embrouter.router import Router
+        from embrouter.types.router import EmbRouter_Params
 
         router = Router(
             model_list=[
                 {
                     "model_name": "gpt-4o-mini",
-                    "litellm_params": {"model": "openai/gpt-4o-mini"},
+                    "embrouter_params": {"model": "openai/gpt-4o-mini"},
                 }
             ]
         )
-        params = LiteLLM_Params(model="auto_router/quality_router/my-router")
+        params = EmbRouter_Params(model="auto_router/quality_router/my-router")
         assert router._is_quality_router_deployment(params) is True
 
     def test_is_quality_router_deployment_false(self):
         """_is_quality_router_deployment returns False for regular models."""
-        from litellm.router import Router
-        from litellm.types.router import LiteLLM_Params
+        from embrouter.router import Router
+        from embrouter.types.router import EmbRouter_Params
 
         router = Router(
             model_list=[
                 {
                     "model_name": "gpt-4o-mini",
-                    "litellm_params": {"model": "openai/gpt-4o-mini"},
+                    "embrouter_params": {"model": "openai/gpt-4o-mini"},
                 }
             ]
         )
-        params = LiteLLM_Params(model="openai/gpt-4o-mini")
+        params = EmbRouter_Params(model="openai/gpt-4o-mini")
         assert router._is_quality_router_deployment(params) is False
 
     def test_init_quality_router_deployment(self):
         """init_quality_router_deployment registers a QualityRouter."""
-        from litellm.router import Router
-        from litellm.types.router import Deployment, LiteLLM_Params
+        from embrouter.router import Router
+        from embrouter.types.router import Deployment, EmbRouter_Params
 
         router = Router(
             model_list=[
                 {
                     "model_name": "gpt-4o-mini",
-                    "litellm_params": {"model": "openai/gpt-4o-mini"},
+                    "embrouter_params": {"model": "openai/gpt-4o-mini"},
                 }
             ]
         )
         deployment = Deployment(
             model_name="auto_router/quality_router/test-router",
-            litellm_params=LiteLLM_Params(
+            embrouter_params=EmbRouter_Params(
                 model="auto_router/quality_router/test-router",
                 quality_router_default_model="gpt-4o-mini",
             ),

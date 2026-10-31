@@ -5,12 +5,12 @@ from typing import TYPE_CHECKING, Any, Final
 import httpx
 from typing_extensions import TypedDict
 
-import litellm
-from litellm._uuid import uuid
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.base_llm.rerank.transformation import BaseRerankConfig
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.rerank import (
+import embrouter
+from embrouter._uuid import uuid
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.base_llm.rerank.transformation import BaseRerankConfig
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.rerank import (
     OptionalRerankParams,
     RerankBilledUnits,
     RerankResponse,
@@ -19,14 +19,14 @@ from litellm.types.rerank import (
     RerankResponseResult,
     RerankTokens,
 )
-from litellm.utils import token_counter
+from embrouter.utils import token_counter
 
 from ..common_utils import HuggingFaceError
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
 
-    LoggingClass = LiteLLMLoggingObj
+    LoggingClass = EmbRouterLoggingObj
 else:
     LoggingClass = Any
 
@@ -124,7 +124,7 @@ class HuggingFaceRerankConfig(BaseRerankConfig):
         model: str,
         api_key: str | None = None,
         optional_params: dict | None = None,
-        litellm_params: Mapping[str, object] | None = None,
+        embrouter_params: Mapping[str, object] | None = None,
         api_base: str | None = None,
     ) -> dict:
         # Get API credentials
@@ -148,7 +148,7 @@ class HuggingFaceRerankConfig(BaseRerankConfig):
         model: str,
         optional_rerank_params: OptionalRerankParams | dict,
         headers: dict,
-        litellm_params: dict | None = None,
+        embrouter_params: dict | None = None,
     ) -> dict:
         if "query" not in optional_rerank_params:
             raise ValueError("query is required for HuggingFace rerank")
@@ -175,7 +175,7 @@ class HuggingFaceRerankConfig(BaseRerankConfig):
         api_key: str | None = None,
         request_data: dict = {},
         optional_params: dict = {},
-        litellm_params: dict = {},
+        embrouter_params: dict = {},
     ) -> RerankResponse:
         try:
             raw_response_json: Final[HuggingFaceRerankResponseList] = raw_response.json()
@@ -185,7 +185,7 @@ class HuggingFaceRerankConfig(BaseRerankConfig):
                 status_code=getattr(raw_response, "status_code", 500),
             )
 
-        # Use standard litellm token counter for proper token estimation
+        # Use standard embrouter token counter for proper token estimation
         input_text = request_data.get("query", "")
         try:
             # Calculate tokens for the raw response JSON string
@@ -273,11 +273,11 @@ class HuggingFaceRerankConfig(BaseRerankConfig):
             api_base: API base provided directly to this function, takes precedence over all other sources
         """
         # Get API key from multiple sources
-        final_api_key: Final = api_key or litellm.huggingface_key or get_secret_str("HUGGINGFACE_API_KEY")
+        final_api_key: Final = api_key or embrouter.huggingface_key or get_secret_str("HUGGINGFACE_API_KEY")
 
         # Get API base from multiple sources
         final_api_base: Final = (
-            api_base or litellm.api_base or get_secret_str("HF_API_BASE") or get_secret_str("HUGGINGFACE_API_BASE")
+            api_base or embrouter.api_base or get_secret_str("HF_API_BASE") or get_secret_str("HUGGINGFACE_API_BASE")
         )
 
         return final_api_key, final_api_base

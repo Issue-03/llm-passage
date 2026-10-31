@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Final
 
-from litellm.repositories.prisma_protocols import BatchTable, PrismaBatch
+from embrouter.repositories.prisma_protocols import BatchTable, PrismaBatch
 
 
 def _spend_reset_data(budget_reset_at: datetime | None, spend_decrement: float) -> Mapping[str, object]:
@@ -118,9 +118,9 @@ class BudgetCascadeUnitOfWork:
 async def spend_reset_unit_of_work(new_batch: Callable[[], PrismaBatch]) -> AsyncGenerator[SpendResetUnitOfWork, None]:
     batch = new_batch()
     yield SpendResetUnitOfWork(
-        keys=KeySpendResetWrites(table=batch.litellm_verificationtoken),
-        users=UserSpendResetWrites(table=batch.litellm_usertable),
-        teams=TeamSpendResetWrites(table=batch.litellm_teamtable),
+        keys=KeySpendResetWrites(table=batch.embrouter_verificationtoken),
+        users=UserSpendResetWrites(table=batch.embrouter_usertable),
+        teams=TeamSpendResetWrites(table=batch.embrouter_teamtable),
     )
     await batch.commit()
 
@@ -131,13 +131,13 @@ async def budget_cascade_unit_of_work(
 ) -> AsyncGenerator[BudgetCascadeUnitOfWork, None]:
     batch = new_batch()
     yield BudgetCascadeUnitOfWork(
-        team_memberships=LinkedSpendResetWrites(table=batch.litellm_teammembership),
-        keys=LinkedSpendResetWrites(table=batch.litellm_verificationtoken),
-        organizations=LinkedSpendResetWrites(table=batch.litellm_organizationtable),
-        tags=LinkedSpendResetWrites(table=batch.litellm_tagtable),
-        model_access_groups=LinkedSpendResetWrites(table=batch.litellm_modelaccessgroupbudgettable),
-        projects=LinkedSpendResetWrites(table=batch.litellm_projecttable),
-        endusers=LinkedSpendResetWrites(table=batch.litellm_endusertable),
-        budgets=BudgetWindowWrites(table=batch.litellm_budgettable),
+        team_memberships=LinkedSpendResetWrites(table=batch.embrouter_teammembership),
+        keys=LinkedSpendResetWrites(table=batch.embrouter_verificationtoken),
+        organizations=LinkedSpendResetWrites(table=batch.embrouter_organizationtable),
+        tags=LinkedSpendResetWrites(table=batch.embrouter_tagtable),
+        model_access_groups=LinkedSpendResetWrites(table=batch.embrouter_modelaccessgroupbudgettable),
+        projects=LinkedSpendResetWrites(table=batch.embrouter_projecttable),
+        endusers=LinkedSpendResetWrites(table=batch.embrouter_endusertable),
+        budgets=BudgetWindowWrites(table=batch.embrouter_budgettable),
     )
     await batch.commit()

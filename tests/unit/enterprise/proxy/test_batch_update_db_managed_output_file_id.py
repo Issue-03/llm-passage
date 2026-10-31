@@ -6,12 +6,12 @@ from typing import Optional
 import pytest
 from unittest.mock import AsyncMock, MagicMock
 
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.openai_files_endpoints.common_utils import (
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.openai_files_endpoints.common_utils import (
     ensure_batch_response_managed_file_ids,
     update_batch_in_database,
 )
-from litellm.types.utils import LiteLLMBatch
+from embrouter.types.utils import EmbRouterBatch
 
 
 def _build_batch_response(
@@ -21,8 +21,8 @@ def _build_batch_response(
     output_file_id: Optional[str] = "file-rawoutput789",
     error_file_id: Optional[str] = None,
     hidden_params: Optional[dict] = None,
-) -> LiteLLMBatch:
-    batch = LiteLLMBatch(
+) -> EmbRouterBatch:
+    batch = EmbRouterBatch(
         id=batch_id,
         object="batch",
         status=status,
@@ -47,9 +47,9 @@ def _build_managed_files_mock(unified_id: str = "file-bWFuYWdlZF9vdXRwdXRfaWQ=")
 
 def _build_prisma_mock(db_batch_object=None):
     mock = MagicMock()
-    mock.db.litellm_managedfiletable.find_first = AsyncMock(return_value=None)
-    mock.db.litellm_managedobjecttable.find_first = AsyncMock(return_value=db_batch_object)
-    mock.db.litellm_managedobjecttable.update = AsyncMock()
+    mock.db.embrouter_managedfiletable.find_first = AsyncMock(return_value=None)
+    mock.db.embrouter_managedobjecttable.find_first = AsyncMock(return_value=db_batch_object)
+    mock.db.embrouter_managedobjecttable.update = AsyncMock()
     return mock
 
 
@@ -59,7 +59,7 @@ async def test_update_batch_in_database_stores_unified_output_file_id():
     unified_output_file_id = "file-bWFuYWdlZF9vdXRwdXRfaWQ="
     batch_id = "batch_managed_ids_test"
     unified_batch_id = (
-        "litellm_proxy;model_id:my-model;llm_batch_id:batch_managed_ids_test"
+        "embrouter_proxy;model_id:my-model;llm_batch_id:batch_managed_ids_test"
     )
 
     response = _build_batch_response(
@@ -82,7 +82,7 @@ async def test_update_batch_in_database_stores_unified_output_file_id():
     )
 
     stored = json.loads(
-        mock_prisma.db.litellm_managedobjecttable.update.call_args.kwargs["data"][
+        mock_prisma.db.embrouter_managedobjecttable.update.call_args.kwargs["data"][
             "file_object"
         ]
     )
@@ -106,7 +106,7 @@ async def test_cancel_path_registers_output_file_under_batch_owner():
 
     await update_batch_in_database(
         batch_id="batch_managed_ids_test",
-        unified_batch_id="litellm_proxy;model_id:my-model;llm_batch_id:batch_managed_ids_test",
+        unified_batch_id="embrouter_proxy;model_id:my-model;llm_batch_id:batch_managed_ids_test",
         response=response,
         managed_files_obj=mock_managed_files,
         prisma_client=mock_prisma,
@@ -120,7 +120,7 @@ async def test_cancel_path_registers_output_file_under_batch_owner():
     assert forwarded_auth.user_id == "batch-owner"
     assert forwarded_auth.team_id == "batch-team"
     stored = json.loads(
-        mock_prisma.db.litellm_managedobjecttable.update.call_args.kwargs["data"][
+        mock_prisma.db.embrouter_managedobjecttable.update.call_args.kwargs["data"][
             "file_object"
         ]
     )
@@ -146,7 +146,7 @@ async def test_update_batch_skips_lookup_when_db_batch_object_supplied():
 
     await update_batch_in_database(
         batch_id="batch_managed_ids_test",
-        unified_batch_id="litellm_proxy;model_id:my-model;llm_batch_id:batch_managed_ids_test",
+        unified_batch_id="embrouter_proxy;model_id:my-model;llm_batch_id:batch_managed_ids_test",
         response=response,
         managed_files_obj=mock_managed_files,
         prisma_client=mock_prisma,
@@ -155,7 +155,7 @@ async def test_update_batch_skips_lookup_when_db_batch_object_supplied():
         operation="retrieve",
     )
 
-    mock_prisma.db.litellm_managedobjecttable.find_first.assert_not_called()
+    mock_prisma.db.embrouter_managedobjecttable.find_first.assert_not_called()
     forwarded_auth = mock_managed_files.store_unified_file_id.call_args.kwargs[
         "user_api_key_dict"
     ]
@@ -172,7 +172,7 @@ async def test_update_batch_derives_model_id_from_unified_batch_id():
 
     await update_batch_in_database(
         batch_id="batch_managed_ids_test",
-        unified_batch_id="litellm_proxy;model_id:model-from-batch-id;llm_batch_id:batch_managed_ids_test",
+        unified_batch_id="embrouter_proxy;model_id:model-from-batch-id;llm_batch_id:batch_managed_ids_test",
         response=response,
         managed_files_obj=mock_managed_files,
         prisma_client=mock_prisma,
@@ -278,7 +278,7 @@ async def test_ensure_batch_response_resolves_model_name_from_unified_file_id():
         output_file_id="file-raw-output",
         hidden_params={
             "model_id": "my-model",
-            "unified_file_id": "litellm_proxy:application/octet-stream;unified_id,abc;target_model_names,gpt-4o-mini,gemini-2.0-flash",
+            "unified_file_id": "embrouter_proxy:application/octet-stream;unified_id,abc;target_model_names,gpt-4o-mini,gemini-2.0-flash",
         },
     )
 
@@ -359,8 +359,8 @@ async def test_ensure_batch_response_returns_early_without_auth():
 
 
 def _in_memory_managed_files():
-    """Build a real _PROXY_LiteLLMManagedFiles whose prisma upsert hits an in-memory row."""
-    from litellm_enterprise.proxy.hooks.managed_files import _PROXY_LiteLLMManagedFiles
+    """Build a real _PROXY_EmbRouterManagedFiles whose prisma upsert hits an in-memory row."""
+    from embrouter_enterprise.proxy.hooks.managed_files import _PROXY_EmbRouterManagedFiles
 
     store: dict = {}
 
@@ -374,14 +374,14 @@ def _in_memory_managed_files():
     table = MagicMock()
     table.upsert = AsyncMock(side_effect=_upsert)
     prisma = MagicMock()
-    prisma.db.litellm_managedobjecttable = table
-    prisma.db.litellm_teamtable.find_unique = AsyncMock(return_value=None)
+    prisma.db.embrouter_managedobjecttable = table
+    prisma.db.embrouter_teamtable.find_unique = AsyncMock(return_value=None)
 
     cache = MagicMock()
     cache.async_set_cache = AsyncMock()
 
     return (
-        _PROXY_LiteLLMManagedFiles(internal_usage_cache=cache, prisma_client=prisma),
+        _PROXY_EmbRouterManagedFiles(internal_usage_cache=cache, prisma_client=prisma),
         store,
     )
 
@@ -396,7 +396,7 @@ async def test_store_unified_object_id_persists_key_and_tags_on_create():
     await instance.store_unified_object_id(
         unified_object_id="unified-b",
         file_object=_build_batch_response(batch_id="b", status="validating"),
-        litellm_parent_otel_span=None,
+        embrouter_parent_otel_span=None,
         model_object_id="b",
         file_purpose="batch",
         user_api_key_dict=creator,
@@ -417,21 +417,21 @@ async def test_store_unified_object_id_resolves_org_through_the_cached_team():
     """Most keys belong to an org only through their team, so the auth object carries no
     org_id. The create reads the team that auth already cached, so org spend is snapshotted
     at submission time without a database query in the request path."""
-    from litellm.models.team import LiteLLM_TeamTableCachedObj
-    from litellm.proxy.proxy_server import user_api_key_cache
+    from embrouter.models.team import EmbRouter_TeamTableCachedObj
+    from embrouter.proxy.proxy_server import user_api_key_cache
 
     instance, store = _in_memory_managed_files()
     creator = UserAPIKeyAuth(user_id="alice", team_id="team-cached", api_key="hash-alice")
     await user_api_key_cache.async_set_cache(
         key="team_id:team-cached",
-        value=LiteLLM_TeamTableCachedObj(team_id="team-cached", organization_id="org-via-team"),
-        model_type=LiteLLM_TeamTableCachedObj,
+        value=EmbRouter_TeamTableCachedObj(team_id="team-cached", organization_id="org-via-team"),
+        model_type=EmbRouter_TeamTableCachedObj,
     )
     try:
         await instance.store_unified_object_id(
             unified_object_id="unified-b",
             file_object=_build_batch_response(batch_id="b", status="validating"),
-            litellm_parent_otel_span=None,
+            embrouter_parent_otel_span=None,
             model_object_id="b",
             file_purpose="batch",
             user_api_key_dict=creator,
@@ -441,26 +441,26 @@ async def test_store_unified_object_id_resolves_org_through_the_cached_team():
         user_api_key_cache.delete_cache(key="team_id:team-cached")
 
     assert store["unified-b"]["org_id"] == "org-via-team"
-    instance.prisma_client.db.litellm_teamtable.find_unique.assert_not_awaited()
+    instance.prisma_client.db.embrouter_teamtable.find_unique.assert_not_awaited()
 
 
 @pytest.mark.asyncio
 async def test_store_unified_object_id_resolves_org_from_the_db_when_the_team_is_not_cached():
     """A team no request has run under yet is absent from the auth cache; its organization
     still comes back from the table so the org is billed rather than dropped."""
-    from litellm.models.team import LiteLLM_TeamTable
-    from litellm.proxy.proxy_server import user_api_key_cache
+    from embrouter.models.team import EmbRouter_TeamTable
+    from embrouter.proxy.proxy_server import user_api_key_cache
 
     instance, store = _in_memory_managed_files()
-    instance.prisma_client.db.litellm_teamtable.find_unique = AsyncMock(
-        return_value=LiteLLM_TeamTable(team_id="team-uncached", organization_id="org-via-db")
+    instance.prisma_client.db.embrouter_teamtable.find_unique = AsyncMock(
+        return_value=EmbRouter_TeamTable(team_id="team-uncached", organization_id="org-via-db")
     )
     creator = UserAPIKeyAuth(user_id="alice", team_id="team-uncached", api_key="hash-alice")
     try:
         await instance.store_unified_object_id(
             unified_object_id="unified-b",
             file_object=_build_batch_response(batch_id="b", status="validating"),
-            litellm_parent_otel_span=None,
+            embrouter_parent_otel_span=None,
             model_object_id="b",
             file_purpose="batch",
             user_api_key_dict=creator,
@@ -483,7 +483,7 @@ async def test_store_unified_object_id_omits_key_and_tags_without_persist_attrib
     await instance.store_unified_object_id(
         unified_object_id="unified-b",
         file_object=_build_batch_response(batch_id="b", status="in_progress"),
-        litellm_parent_otel_span=None,
+        embrouter_parent_otel_span=None,
         model_object_id="b",
         file_purpose="batch",
         user_api_key_dict=poller,
@@ -507,7 +507,7 @@ async def test_store_unified_object_id_attribution_columns_are_write_once():
     await instance.store_unified_object_id(
         unified_object_id="unified-b",
         file_object=_build_batch_response(batch_id="b", status="validating"),
-        litellm_parent_otel_span=None,
+        embrouter_parent_otel_span=None,
         model_object_id="b",
         file_purpose="batch",
         user_api_key_dict=creator,
@@ -517,7 +517,7 @@ async def test_store_unified_object_id_attribution_columns_are_write_once():
     await instance.store_unified_object_id(
         unified_object_id="unified-b",
         file_object=_build_batch_response(batch_id="b", status="completed"),
-        litellm_parent_otel_span=None,
+        embrouter_parent_otel_span=None,
         model_object_id="b",
         file_purpose="batch",
         user_api_key_dict=poller,
@@ -530,7 +530,7 @@ async def test_store_unified_object_id_attribution_columns_are_write_once():
     assert row["created_by"] == "alice"
     assert row["status"] == "completed"
 
-    upsert_data = instance.prisma_client.db.litellm_managedobjecttable.upsert.call_args.kwargs["data"]
+    upsert_data = instance.prisma_client.db.embrouter_managedobjecttable.upsert.call_args.kwargs["data"]
     assert "api_key" not in upsert_data["update"]
     assert "request_tags" not in upsert_data["update"]
     assert "org_id" not in upsert_data["update"]
@@ -546,7 +546,7 @@ async def test_store_unified_object_id_omits_unset_columns():
     await instance.store_unified_object_id(
         unified_object_id="unified-b",
         file_object=_build_batch_response(batch_id="b", status="validating"),
-        litellm_parent_otel_span=None,
+        embrouter_parent_otel_span=None,
         model_object_id="b",
         file_purpose="batch",
         user_api_key_dict=creator,
@@ -554,7 +554,7 @@ async def test_store_unified_object_id_omits_unset_columns():
         persist_attribution=True,
     )
 
-    create_data = instance.prisma_client.db.litellm_managedobjecttable.upsert.call_args.kwargs["data"]["create"]
+    create_data = instance.prisma_client.db.embrouter_managedobjecttable.upsert.call_args.kwargs["data"]["create"]
     assert "api_key" not in create_data
     assert "request_tags" not in create_data
     assert "unified-b" in store

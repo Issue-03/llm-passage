@@ -3,12 +3,12 @@ from typing import Any, Final
 
 import httpx
 
-import litellm
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.base_llm.rerank.transformation import BaseRerankConfig
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.rerank import OptionalRerankParams, RerankRequest, RerankResponse
+import embrouter
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.base_llm.rerank.transformation import BaseRerankConfig
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.rerank import OptionalRerankParams, RerankRequest, RerankResponse
 
 from ..common_utils import CohereError
 
@@ -82,14 +82,14 @@ class CohereRerankConfig(BaseRerankConfig):
         model: str,
         api_key: str | None = None,
         optional_params: dict | None = None,
-        litellm_params: Mapping[str, object] | None = None,
+        embrouter_params: Mapping[str, object] | None = None,
     ) -> dict:
         if api_key is None:
-            api_key = get_secret_str("COHERE_API_KEY") or get_secret_str("CO_API_KEY") or litellm.cohere_key
+            api_key = get_secret_str("COHERE_API_KEY") or get_secret_str("CO_API_KEY") or embrouter.cohere_key
 
         if api_key is None:
             raise ValueError(
-                "Cohere API key is required. Please set 'COHERE_API_KEY' or 'CO_API_KEY' or 'litellm.cohere_key'"
+                "Cohere API key is required. Please set 'COHERE_API_KEY' or 'CO_API_KEY' or 'embrouter.cohere_key'"
             )
 
         default_headers: Final = {
@@ -110,7 +110,7 @@ class CohereRerankConfig(BaseRerankConfig):
         model: str,
         optional_rerank_params: dict,
         headers: dict,
-        litellm_params: dict | None = None,
+        embrouter_params: dict | None = None,
     ) -> dict:
         if "query" not in optional_rerank_params:
             raise ValueError("query is required for Cohere rerank")
@@ -132,16 +132,16 @@ class CohereRerankConfig(BaseRerankConfig):
         model: str,
         raw_response: httpx.Response,
         model_response: RerankResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_key: str | None = None,
         request_data: dict = {},
         optional_params: dict = {},
-        litellm_params: dict = {},
+        embrouter_params: dict = {},
     ) -> RerankResponse:
         """
         Transform Cohere rerank response
 
-        No transformation required, litellm follows cohere API response format
+        No transformation required, embrouter follows cohere API response format
         """
         try:
             raw_response_json: Final = raw_response.json()

@@ -8,11 +8,11 @@ either a ``dict`` or a ``ServerToolUse`` pydantic instance.
 
 import pytest
 
-from litellm.litellm_core_utils.llm_cost_calc.tool_call_cost_tracking import (
+from embrouter.embrouter_core_utils.llm_cost_calc.tool_call_cost_tracking import (
     StandardBuiltInToolCostTracking,
 )
-from litellm.litellm_core_utils.llm_cost_calc.utils import get_web_search_requests
-from litellm.types.utils import ModelResponse, ServerToolUse, Usage
+from embrouter.embrouter_core_utils.llm_cost_calc.utils import get_web_search_requests
+from embrouter.types.utils import ModelResponse, ServerToolUse, Usage
 
 
 class _UsageWithDictServerToolUse:

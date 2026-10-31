@@ -7,12 +7,12 @@ from typing import Final, cast  # noqa: TID251  # narrows the normalized native 
 import httpx
 from pydantic import TypeAdapter, ValidationError
 
-import litellm
-from litellm.litellm_core_utils.core_helpers import normalize_drop_params
-from litellm.llms.anthropic.pass_through.utils import is_reasoning_auto_summary_enabled
-from litellm.rust_bridge import failures
-from litellm.rust_bridge.messages.entrypoints import LiteLLMMessagesRequest
-from litellm.types.llms.anthropic_messages.anthropic_response import AnthropicMessagesResponse
+import embrouter
+from embrouter.embrouter_core_utils.core_helpers import normalize_drop_params
+from embrouter.llms.anthropic.pass_through.utils import is_reasoning_auto_summary_enabled
+from embrouter.rust_bridge import failures
+from embrouter.rust_bridge.messages.entrypoints import EmbRouterMessagesRequest
+from embrouter.types.llms.anthropic_messages.anthropic_response import AnthropicMessagesResponse
 
 _DROP_PATHS: Final = TypeAdapter(list[object])
 
@@ -55,20 +55,20 @@ def response(value: Mapping[str, object]) -> AnthropicMessagesResponse:
 
 
 def stream_hidden_params(headers: Sequence[tuple[str, str]]) -> Mapping[str, object]:
-    from litellm.llms.anthropic.pass_through.messages.streaming_iterator import (
+    from embrouter.llms.anthropic.pass_through.messages.streaming_iterator import (
         anthropic_messages_stream_hidden_params,
     )
 
     return anthropic_messages_stream_hidden_params(httpx.Headers(list(headers)))
 
 
-def arguments(request: LiteLLMMessagesRequest) -> Mapping[str, object]:
+def arguments(request: EmbRouterMessagesRequest) -> Mapping[str, object]:
     return request.kwargs
 
 
-def map_failure(error: Exception, request: LiteLLMMessagesRequest, request_provider: str) -> Exception:
+def map_failure(error: Exception, request: EmbRouterMessagesRequest, request_provider: str) -> Exception:
     if getattr(error, "messages_request_error", False):
-        return litellm.BadRequestError(
+        return embrouter.BadRequestError(
             message=str(error),
             model=request.model.removeprefix(f"{request_provider}/"),
             llm_provider=request_provider,
@@ -78,15 +78,15 @@ def map_failure(error: Exception, request: LiteLLMMessagesRequest, request_provi
 
 def _resolved_provider(model: str, custom_llm_provider: str | None) -> tuple[str, str]:
     try:
-        resolved_model, provider, _, _ = litellm.get_llm_provider(model=model, custom_llm_provider=custom_llm_provider)
+        resolved_model, provider, _, _ = embrouter.get_llm_provider(model=model, custom_llm_provider=custom_llm_provider)
     except Exception:  # noqa: BLE001  # an unroutable model still shapes as a bare Anthropic id
         return model, custom_llm_provider or "anthropic"
     return resolved_model, provider
 
 
 def model_capabilities(model: str, custom_llm_provider: str | None) -> ModelCapabilities:
-    from litellm.llms.anthropic.chat.transformation import AnthropicConfig
-    from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+    from embrouter.llms.anthropic.chat.transformation import AnthropicConfig
+    from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
     resolved_model, provider = _resolved_provider(model, custom_llm_provider)
 
@@ -116,7 +116,7 @@ def model_capabilities(model: str, custom_llm_provider: str | None) -> ModelCapa
 
 
 def _drop_params(kwargs: Mapping[str, object]) -> bool:
-    return bool(litellm.drop_params) or normalize_drop_params(kwargs.get("drop_params")) is True
+    return bool(embrouter.drop_params) or normalize_drop_params(kwargs.get("drop_params")) is True
 
 
 def _additional_drop_params(kwargs: Mapping[str, object]) -> tuple[str, ...]:

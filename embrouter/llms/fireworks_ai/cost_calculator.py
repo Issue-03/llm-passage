@@ -5,15 +5,15 @@ For calculating cost of fireworks ai serverless inference models.
 from datetime import datetime
 from typing import Final
 
-from litellm.constants import (
+from embrouter.constants import (
     FIREWORKS_AI_4_B,
     FIREWORKS_AI_16_B,
     FIREWORKS_AI_56_B_MOE,
     FIREWORKS_AI_176_B_MOE,
 )
-from litellm.litellm_core_utils.llm_cost_calc.utils import generic_cost_per_token
-from litellm.types.utils import ModelInfo, Usage
-from litellm.utils import get_model_info
+from embrouter.embrouter_core_utils.llm_cost_calc.utils import generic_cost_per_token
+from embrouter.types.utils import ModelInfo, Usage
+from embrouter.utils import get_model_info
 
 
 # Extract the number of billion parameters from the model name
@@ -78,7 +78,7 @@ def cost_per_token(model: str, usage: Usage, current_time: datetime | None = Non
 
     Input:
         - model: str, the model name without provider prefix
-        - usage: LiteLLM Usage block, containing anthropic caching information
+        - usage: EmbRouter Usage block, containing anthropic caching information
         - current_time: the moment the request is billed at; defaults to now, UTC
 
     Returns:
@@ -88,7 +88,7 @@ def cost_per_token(model: str, usage: Usage, current_time: datetime | None = Non
     return generic_cost_per_token(
         model=model,
         usage=usage,
-        custom_llm_provider=model_info["litellm_provider"],
+        custom_llm_provider=model_info["embrouter_provider"],
         model_info=model_info,
         current_time=current_time,
     )

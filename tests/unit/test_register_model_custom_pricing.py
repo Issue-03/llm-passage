@@ -4,7 +4,7 @@ custom pricing fields from kwargs and model_info, not just the base
 input/output costs.
 
 Previously, only input_cost_per_token, output_cost_per_token, and
-litellm_provider were forwarded. Fields like cache_read_input_token_cost,
+embrouter_provider were forwarded. Fields like cache_read_input_token_cost,
 mode, and supports_prompt_caching were dropped, causing incorrect cost
 calculations for DB-sourced models with prompt caching pricing.
 """
@@ -16,26 +16,26 @@ from typing import Final
 import pytest
 
 
-import litellm
-from litellm.main import _build_custom_pricing_entry
-from litellm.utils import _invalidate_model_cost_lowercase_map
+import embrouter
+from embrouter.main import _build_custom_pricing_entry
+from embrouter.utils import _invalidate_model_cost_lowercase_map
 
 
 def _snapshot_model_cost_entries(keys):
-    return {key: copy.deepcopy(litellm.model_cost.get(key)) for key in keys}
+    return {key: copy.deepcopy(embrouter.model_cost.get(key)) for key in keys}
 
 
 def _restore_model_cost_entries(original_entries):
     for key, value in original_entries.items():
         if value is None:
-            litellm.model_cost.pop(key, None)
+            embrouter.model_cost.pop(key, None)
         else:
-            litellm.model_cost[key] = value
+            embrouter.model_cost[key] = value
     _invalidate_model_cost_lowercase_map()
 
 
 def test_build_custom_pricing_entry_includes_all_kwargs_fields():
-    """All CustomPricingLiteLLMParams fields present in kwargs should be
+    """All CustomPricingEmbRouterParams fields present in kwargs should be
     included in the resulting entry dict."""
     kwargs = {
         "input_cost_per_token": 0.001,
@@ -52,7 +52,7 @@ def test_build_custom_pricing_entry_includes_all_kwargs_fields():
         kwargs=kwargs,
     )
 
-    assert entry["litellm_provider"] == "openai"
+    assert entry["embrouter_provider"] == "openai"
     assert entry["input_cost_per_token"] == 0.001
     assert entry["output_cost_per_token"] == 0.002
     assert entry["cache_read_input_token_cost"] == 0.00025
@@ -89,7 +89,7 @@ def test_build_custom_pricing_entry_merges_model_info_metadata():
 
 def test_build_custom_pricing_entry_setdefault_does_not_override_existing():
     """model_info uses setdefault, so it should not override a key that is
-    already present in the entry dict. Currently CustomPricingLiteLLMParams
+    already present in the entry dict. Currently CustomPricingEmbRouterParams
     and the model_info keys (mode, supports_prompt_caching, max_tokens) do
     not overlap, but if they ever do, setdefault ensures the kwargs-sourced
     value wins."""
@@ -114,7 +114,7 @@ def test_build_custom_pricing_entry_setdefault_does_not_override_existing():
     assert entry["max_tokens"] == 128000
 
     # Verify setdefault behavior: if a model_info key already exists in
-    # the entry (e.g. from a future CustomPricingLiteLLMParams addition),
+    # the entry (e.g. from a future CustomPricingEmbRouterParams addition),
     # setdefault must not overwrite it.
     entry["mode"] = "embedding"  # simulate pre-existing value
     # Re-apply setdefault the same way _build_custom_pricing_entry does
@@ -153,7 +153,7 @@ def test_build_custom_pricing_entry_handles_no_model_info():
         model_info=None,
     )
 
-    assert entry["litellm_provider"] == "openai"
+    assert entry["embrouter_provider"] == "openai"
     assert entry["input_cost_per_token"] == 0.001
     assert entry["output_cost_per_token"] == 0.002
     assert "mode" not in entry
@@ -161,10 +161,10 @@ def test_build_custom_pricing_entry_handles_no_model_info():
 
 def test_register_model_receives_cache_pricing_fields():
     """End-to-end: when register_model is called with a full pricing entry,
-    the cache pricing fields should be present in litellm.model_cost."""
+    the cache pricing fields should be present in embrouter.model_cost."""
     model_key = "openai/test-custom-model-with-cache-pricing"
 
-    litellm.register_model(
+    embrouter.register_model(
         {
             model_key: {
                 "input_cost_per_token": 0.001,
@@ -173,12 +173,12 @@ def test_register_model_receives_cache_pricing_fields():
                 "supports_prompt_caching": True,
                 "mode": "chat",
                 "max_tokens": 8192,
-                "litellm_provider": "openai",
+                "embrouter_provider": "openai",
             }
         }
     )
 
-    registered = litellm.model_cost.get(model_key)
+    registered = embrouter.model_cost.get(model_key)
     assert registered is not None, f"{model_key} should be in model_cost"
     assert registered["cache_read_input_token_cost"] == 0.00025
     assert registered["supports_prompt_caching"] is True
@@ -186,7 +186,7 @@ def test_register_model_receives_cache_pricing_fields():
     assert registered["max_tokens"] == 8192
 
     # Cleanup
-    litellm.model_cost.pop(model_key, None)
+    embrouter.model_cost.pop(model_key, None)
 
 
 def test_build_custom_pricing_entry_time_based():
@@ -201,13 +201,13 @@ def test_build_custom_pricing_entry_time_based():
         kwargs=kwargs,
     )
 
-    assert entry["litellm_provider"] == "openai"
+    assert entry["embrouter_provider"] == "openai"
     assert entry["input_cost_per_second"] == 0.01
     assert entry["output_cost_per_second"] == 0.02
 
 
-def test_register_model_strips_none_litellm_provider():
-    """``get_model_info`` returns ``litellm_provider: None`` for deployments
+def test_register_model_strips_none_embrouter_provider():
+    """``get_model_info`` returns ``embrouter_provider: None`` for deployments
     registered without a provider (e.g. ``Router.add_deployment`` flows).
     ``register_model`` must not persist that None into ``model_cost``,
     otherwise ``_check_provider_match`` will drop custom pricing on
@@ -215,13 +215,13 @@ def test_register_model_strips_none_litellm_provider():
 
 
     """
-    from litellm.utils import _check_provider_match
+    from embrouter.utils import _check_provider_match
 
     model_key = "test-custom-pricing-no-provider-28336"
-    litellm.model_cost.pop(model_key, None)
+    embrouter.model_cost.pop(model_key, None)
 
     try:
-        litellm.register_model(
+        embrouter.register_model(
             {
                 model_key: {
                     "input_cost_per_token": 0.001,
@@ -230,45 +230,45 @@ def test_register_model_strips_none_litellm_provider():
             }
         )
 
-        registered = litellm.model_cost.get(model_key)
+        registered = embrouter.model_cost.get(model_key)
         assert registered is not None, f"{model_key} should be in model_cost"
         # The key may be absent entirely, but if present it must not be None.
         assert (
-            "litellm_provider" not in registered
-            or registered["litellm_provider"] is not None
+            "embrouter_provider" not in registered
+            or registered["embrouter_provider"] is not None
         )
         # Downstream consumers must accept this entry for any provider,
         # mirroring what the cost calculator does.
         assert _check_provider_match(registered, "openai") is True
         assert _check_provider_match(registered, "anthropic") is True
     finally:
-        litellm.model_cost.pop(model_key, None)
+        embrouter.model_cost.pop(model_key, None)
 
 
-def test_register_model_strips_none_litellm_provider_from_get_model_info(monkeypatch):
+def test_register_model_strips_none_embrouter_provider_from_get_model_info(monkeypatch):
     """Directly exercise the strip in ``register_model``.
 
     The companion test above hits the ``except Exception`` branch where
     ``existing_model`` is an empty dict, so the ``pop`` is a no-op. This
     test patches ``get_model_info`` to return the failure mode the strip
-    was added to handle, namely a populated dict whose ``litellm_provider``
+    was added to handle, namely a populated dict whose ``embrouter_provider``
     is ``None``. Without the strip, the merged entry in
-    ``litellm.model_cost`` would carry ``litellm_provider: None`` and
+    ``embrouter.model_cost`` would carry ``embrouter_provider: None`` and
     ``_check_provider_match`` would drop custom pricing.
 
 
     """
-    from litellm import utils as litellm_utils
-    from litellm.utils import _check_provider_match
+    from embrouter import utils as embrouter_utils
+    from embrouter.utils import _check_provider_match
 
     model_key = "test-strip-none-provider-from-get-model-info-28336"
-    litellm.model_cost.pop(model_key, None)
+    embrouter.model_cost.pop(model_key, None)
 
     def _fake_get_model_info(model, *args, **kwargs):
         assert model == model_key
         return {
             "key": model_key,
-            "litellm_provider": None,
+            "embrouter_provider": None,
             "mode": "chat",
             "max_tokens": 4096,
         }
@@ -277,10 +277,10 @@ def test_register_model_strips_none_litellm_provider_from_get_model_info(monkeyp
     # ``_invalidate_model_cost_lowercase_map``, so the replacement must
     # expose a no-op ``cache_clear`` attribute.
     _fake_get_model_info.cache_clear = lambda: None
-    monkeypatch.setattr(litellm_utils, "get_model_info", _fake_get_model_info)
+    monkeypatch.setattr(embrouter_utils, "get_model_info", _fake_get_model_info)
 
     try:
-        litellm.register_model(
+        embrouter.register_model(
             {
                 model_key: {
                     "input_cost_per_token": 0.001,
@@ -289,16 +289,16 @@ def test_register_model_strips_none_litellm_provider_from_get_model_info(monkeyp
             }
         )
 
-        registered = litellm.model_cost.get(model_key)
+        registered = embrouter.model_cost.get(model_key)
         assert registered is not None, f"{model_key} should be in model_cost"
         # The strip must have removed the None-valued provider that
         # ``get_model_info`` returned. The key may be absent entirely, but
         # it must never be present with value ``None``.
-        assert "litellm_provider" not in registered or (
-            registered["litellm_provider"] is not None
+        assert "embrouter_provider" not in registered or (
+            registered["embrouter_provider"] is not None
         ), (
-            "register_model failed to strip litellm_provider=None returned "
-            f"by get_model_info, got {registered.get('litellm_provider')!r}"
+            "register_model failed to strip embrouter_provider=None returned "
+            f"by get_model_info, got {registered.get('embrouter_provider')!r}"
         )
         # Metadata from the patched ``get_model_info`` must still flow
         # through, so we know the strip did not nuke the rest of the entry.
@@ -312,7 +312,7 @@ def test_register_model_strips_none_litellm_provider_from_get_model_info(monkeyp
         assert _check_provider_match(registered, "openai") is True
         assert _check_provider_match(registered, "anthropic") is True
     finally:
-        litellm.model_cost.pop(model_key, None)
+        embrouter.model_cost.pop(model_key, None)
 
 
 def test_register_model_inherits_builtin_cache_pricing_for_unmapped_key(monkeypatch):
@@ -331,32 +331,32 @@ def test_register_model_inherits_builtin_cache_pricing_for_unmapped_key(monkeypa
 
     Regression for the cache-pricing dropout under partial overrides.
     """
-    from litellm.litellm_core_utils.llm_cost_calc.utils import generic_cost_per_token
-    from litellm.types.utils import PromptTokensDetailsWrapper, Usage
+    from embrouter.embrouter_core_utils.llm_cost_calc.utils import generic_cost_per_token
+    from embrouter.types.utils import PromptTokensDetailsWrapper, Usage
 
-    original_model_cost = litellm.model_cost
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    litellm.model_cost = litellm.get_model_cost_map(url="")
+    original_model_cost = embrouter.model_cost
+    monkeypatch.setenv("EMBROUTER_LOCAL_MODEL_COST_MAP", "True")
+    embrouter.model_cost = embrouter.get_model_cost_map(url="")
 
     builtin_key = "us.anthropic.claude-sonnet-4-6"
     registered_key = f"bedrock/bedrock/bedrock/{builtin_key}"
-    builtin = litellm.model_cost[builtin_key]
+    builtin = embrouter.model_cost[builtin_key]
 
     assert builtin["cache_creation_input_token_cost"] > 0
     assert builtin["cache_read_input_token_cost"] > 0
 
     try:
-        litellm.register_model(
+        embrouter.register_model(
             {
                 registered_key: {
                     "input_cost_per_token": builtin["input_cost_per_token"],
                     "output_cost_per_token": builtin["output_cost_per_token"],
-                    "litellm_provider": "bedrock",
+                    "embrouter_provider": "bedrock",
                 }
             }
         )
 
-        registered = litellm.model_cost[registered_key]
+        registered = embrouter.model_cost[registered_key]
         assert (
             registered.get("cache_creation_input_token_cost")
             == builtin["cache_creation_input_token_cost"]
@@ -365,7 +365,7 @@ def test_register_model_inherits_builtin_cache_pricing_for_unmapped_key(monkeypa
             registered.get("cache_read_input_token_cost")
             == builtin["cache_read_input_token_cost"]
         )
-        assert registered["litellm_provider"] == "bedrock"
+        assert registered["embrouter_provider"] == "bedrock"
 
         usage = Usage(
             prompt_tokens=1100,
@@ -394,10 +394,10 @@ def test_register_model_inherits_builtin_cache_pricing_for_unmapped_key(monkeypa
         assert abs(output_cost - builtin["output_cost_per_token"] * 100) < 1e-12
         assert input_cost > text_only_cost + 1e-12
     finally:
-        litellm.model_cost.pop(registered_key, None)
-        litellm.model_cost = original_model_cost
-        os.environ.pop("LITELLM_LOCAL_MODEL_COST_MAP", None)
-        from litellm.utils import _invalidate_model_cost_lowercase_map
+        embrouter.model_cost.pop(registered_key, None)
+        embrouter.model_cost = original_model_cost
+        os.environ.pop("EMBROUTER_LOCAL_MODEL_COST_MAP", None)
+        from embrouter.utils import _invalidate_model_cost_lowercase_map
 
         _invalidate_model_cost_lowercase_map()
 
@@ -410,19 +410,19 @@ def test_register_model_warns_when_no_builtin_match_for_cache_pricing(caplog):
     """
     import logging
 
-    from litellm._logging import verbose_logger
+    from embrouter._logging import verbose_logger
 
     registered_key = "bedrock/totally-made-up-model-alias-xyz"
-    litellm.model_cost.pop(registered_key, None)
+    embrouter.model_cost.pop(registered_key, None)
 
     try:
         with caplog.at_level(logging.WARNING, logger=verbose_logger.name):
-            litellm.register_model(
+            embrouter.register_model(
                 {
                     registered_key: {
                         "input_cost_per_token": 0.001,
                         "output_cost_per_token": 0.002,
-                        "litellm_provider": "bedrock",
+                        "embrouter_provider": "bedrock",
                     }
                 }
             )
@@ -433,7 +433,7 @@ def test_register_model_warns_when_no_builtin_match_for_cache_pricing(caplog):
             for record in caplog.records
         ), "expected a warning naming the unmapped key and the cache cost fields"
     finally:
-        litellm.model_cost.pop(registered_key, None)
+        embrouter.model_cost.pop(registered_key, None)
 
 
 def test_register_model_no_warning_without_custom_pricing(caplog):
@@ -443,17 +443,17 @@ def test_register_model_no_warning_without_custom_pricing(caplog):
     """
     import logging
 
-    from litellm._logging import verbose_logger
+    from embrouter._logging import verbose_logger
 
     registered_key = "azure/lit6318-deployment-without-pricing"
-    litellm.model_cost.pop(registered_key, None)
+    embrouter.model_cost.pop(registered_key, None)
 
     try:
         with caplog.at_level(logging.WARNING, logger=verbose_logger.name):
-            litellm.register_model(
+            embrouter.register_model(
                 {
                     registered_key: {
-                        "litellm_provider": "azure",
+                        "embrouter_provider": "azure",
                         "base_model": "azure/text-embedding-3-large",
                     }
                 }
@@ -463,7 +463,7 @@ def test_register_model_no_warning_without_custom_pricing(caplog):
             "entry without custom pricing must register silently"
         )
     finally:
-        litellm.model_cost.pop(registered_key, None)
+        embrouter.model_cost.pop(registered_key, None)
 
 
 def test_register_model_no_warning_for_tiered_pricing_without_cache_costs(caplog):
@@ -473,17 +473,17 @@ def test_register_model_no_warning_for_tiered_pricing_without_cache_costs(caplog
     """
     import logging
 
-    from litellm._logging import verbose_logger
+    from embrouter._logging import verbose_logger
 
     registered_key = "bedrock/lit6318-tiered-priced-model"
-    litellm.model_cost.pop(registered_key, None)
+    embrouter.model_cost.pop(registered_key, None)
 
     try:
         with caplog.at_level(logging.WARNING, logger=verbose_logger.name):
-            litellm.register_model(
+            embrouter.register_model(
                 {
                     registered_key: {
-                        "litellm_provider": "bedrock",
+                        "embrouter_provider": "bedrock",
                         "tiered_pricing": [
                             {
                                 "range": [0, 200000],
@@ -499,7 +499,7 @@ def test_register_model_no_warning_for_tiered_pricing_without_cache_costs(caplog
             "tiered pricing entry must register silently"
         )
     finally:
-        litellm.model_cost.pop(registered_key, None)
+        embrouter.model_cost.pop(registered_key, None)
 
 
 def test_router_deployment_without_custom_pricing_registers_silently(caplog):
@@ -509,8 +509,8 @@ def test_router_deployment_without_custom_pricing_registers_silently(caplog):
     """
     import logging
 
-    from litellm import Router
-    from litellm._logging import verbose_logger
+    from embrouter import Router
+    from embrouter._logging import verbose_logger
 
     deployment_model = "azure/lit6318-my-deployment-name"
     deployment_id = "lit6318-no-pricing-deployment"
@@ -522,7 +522,7 @@ def test_router_deployment_without_custom_pricing_registers_silently(caplog):
                 model_list=[
                     {
                         "model_name": "indexing",
-                        "litellm_params": {
+                        "embrouter_params": {
                             "model": deployment_model,
                             "api_base": "https://example.openai.azure.com",
                             "api_key": "fake-key",
@@ -548,8 +548,8 @@ def test_router_custom_priced_deployment_warning_names_model_not_hash(caplog):
     """
     import logging
 
-    from litellm import Router
-    from litellm._logging import verbose_logger
+    from embrouter import Router
+    from embrouter._logging import verbose_logger
 
     deployment_model = "bedrock/lit6318-totally-made-up-model"
     deployment_id = "lit6318-custom-priced-deployment-hash"
@@ -561,7 +561,7 @@ def test_router_custom_priced_deployment_warning_names_model_not_hash(caplog):
                 model_list=[
                     {
                         "model_name": "made-up",
-                        "litellm_params": {
+                        "embrouter_params": {
                             "model": deployment_model,
                             "aws_region_name": "us-east-1",
                             "input_cost_per_token": 1e-06,
@@ -585,21 +585,21 @@ def test_register_model_router_add_deployment_custom_pricing_applies():
     """Regression test.
 
     ``Router.add_deployment`` registers custom pricing without passing
-    ``litellm_provider``. Cost calculation must still pick up the custom
+    ``embrouter_provider``. Cost calculation must still pick up the custom
     pricing instead of falling back to the default provider price.
     """
-    from litellm import Router
+    from embrouter import Router
 
     model_key = "router-add-deployment-custom-pricing-28336"
     deployment_model = f"openai/{model_key}"
-    litellm.model_cost.pop(model_key, None)
-    litellm.model_cost.pop(deployment_model, None)
+    embrouter.model_cost.pop(model_key, None)
+    embrouter.model_cost.pop(deployment_model, None)
 
     router = Router(
         model_list=[
             {
                 "model_name": model_key,
-                "litellm_params": {
+                "embrouter_params": {
                     "model": deployment_model,
                     "api_key": "fake-key-for-registration",
                     "input_cost_per_token": 0.00042,
@@ -614,10 +614,10 @@ def test_register_model_router_add_deployment_custom_pricing_applies():
         # ``add_deployment`` runs as part of ``Router.__init__``; the
         # registered entry must not block ``_check_provider_match`` for
         # the deployment's provider.
-        from litellm.utils import _check_provider_match
+        from embrouter.utils import _check_provider_match
 
         registered_keys = [
-            k for k in (deployment_model, model_key) if k in litellm.model_cost
+            k for k in (deployment_model, model_key) if k in embrouter.model_cost
         ]
         assert registered_keys, (
             "Router.add_deployment did not register custom pricing for "
@@ -625,11 +625,11 @@ def test_register_model_router_add_deployment_custom_pricing_applies():
         )
         for k in registered_keys:
             assert (
-                _check_provider_match(litellm.model_cost[k], "openai") is True
+                _check_provider_match(embrouter.model_cost[k], "openai") is True
             ), f"custom pricing for {k} was dropped by _check_provider_match"
     finally:
-        litellm.model_cost.pop(model_key, None)
-        litellm.model_cost.pop(deployment_model, None)
+        embrouter.model_cost.pop(model_key, None)
+        embrouter.model_cost.pop(deployment_model, None)
         del router
 
 
@@ -637,7 +637,7 @@ def test_embedding_router_zero_pricing_does_not_clobber_builtin_pricing():
     """LIT-3991: a router-originated embedding request that carries explicit
     zero custom pricing (e.g. resolved through an ``openai/*`` wildcard
     deployment with ``input_cost_per_token: 0``) must not overwrite the shared
-    ``openai/text-embedding-3-small`` entry in ``litellm.model_cost``. Before
+    ``openai/text-embedding-3-small`` entry in ``embrouter.model_cost``. Before
     the fix, one call through the wildcard poisoned the shared key and every
     sibling deployment relying on built-in pricing logged $0 until restart.
     """
@@ -646,13 +646,13 @@ def test_embedding_router_zero_pricing_does_not_clobber_builtin_pricing():
     snapshot = _snapshot_model_cost_entries(
         [shared_key, "text-embedding-3-small", deployment_id]
     )
-    builtin_input_cost = litellm.get_model_info(model=shared_key)[
+    builtin_input_cost = embrouter.get_model_info(model=shared_key)[
         "input_cost_per_token"
     ]
     assert builtin_input_cost > 0
 
     try:
-        litellm.embedding(
+        embrouter.embedding(
             model=shared_key,
             input=["hello"],
             api_key="fake-key",
@@ -664,19 +664,19 @@ def test_embedding_router_zero_pricing_does_not_clobber_builtin_pricing():
         )
 
         assert (
-            litellm.get_model_info(model=shared_key)["input_cost_per_token"]
+            embrouter.get_model_info(model=shared_key)["input_cost_per_token"]
             == builtin_input_cost
         ), "wildcard deployment's zero pricing leaked into the shared model_cost key"
-        assert litellm.model_cost[deployment_id]["input_cost_per_token"] == 0.0
-        assert litellm.model_cost[deployment_id]["output_cost_per_token"] == 0.0
+        assert embrouter.model_cost[deployment_id]["input_cost_per_token"] == 0.0
+        assert embrouter.model_cost[deployment_id]["output_cost_per_token"] == 0.0
 
-        sibling_response = litellm.embedding(
+        sibling_response = embrouter.embedding(
             model=shared_key,
             input=["hello"],
             api_key="fake-key",
             mock_response=[0.1, 0.2],
         )
-        sibling_cost = litellm.completion_cost(
+        sibling_cost = embrouter.completion_cost(
             completion_response=sibling_response, call_type="embedding"
         )
         assert sibling_cost == pytest.approx(10 * builtin_input_cost)
@@ -695,13 +695,13 @@ def test_embedding_router_custom_pricing_costs_request_via_deployment_id():
     snapshot = _snapshot_model_cost_entries(
         [shared_key, "text-embedding-3-small", deployment_id]
     )
-    builtin_input_cost = litellm.get_model_info(model=shared_key)[
+    builtin_input_cost = embrouter.get_model_info(model=shared_key)[
         "input_cost_per_token"
     ]
     assert builtin_input_cost != override_input_cost
 
     try:
-        response = litellm.embedding(
+        response = embrouter.embedding(
             model=shared_key,
             input=["hello"],
             api_key="fake-key",
@@ -712,7 +712,7 @@ def test_embedding_router_custom_pricing_costs_request_via_deployment_id():
             mock_response=[0.1, 0.2],
         )
 
-        request_cost = litellm.completion_cost(
+        request_cost = embrouter.completion_cost(
             completion_response=response,
             model=shared_key,
             custom_llm_provider="openai",
@@ -722,7 +722,7 @@ def test_embedding_router_custom_pricing_costs_request_via_deployment_id():
         )
         assert request_cost == pytest.approx(10 * override_input_cost)
         assert (
-            litellm.get_model_info(model=shared_key)["input_cost_per_token"]
+            embrouter.get_model_info(model=shared_key)["input_cost_per_token"]
             == builtin_input_cost
         )
     finally:
@@ -736,13 +736,13 @@ def test_completion_router_zero_pricing_does_not_clobber_builtin_pricing():
     snapshot = _snapshot_model_cost_entries(
         [shared_key, "gpt-4o-mini", deployment_id]
     )
-    builtin_input_cost = litellm.get_model_info(model=shared_key)[
+    builtin_input_cost = embrouter.get_model_info(model=shared_key)[
         "input_cost_per_token"
     ]
     assert builtin_input_cost > 0
 
     try:
-        litellm.completion(
+        embrouter.completion(
             model=shared_key,
             messages=[{"role": "user", "content": "hello"}],
             api_key="fake-key",
@@ -754,10 +754,10 @@ def test_completion_router_zero_pricing_does_not_clobber_builtin_pricing():
         )
 
         assert (
-            litellm.get_model_info(model=shared_key)["input_cost_per_token"]
+            embrouter.get_model_info(model=shared_key)["input_cost_per_token"]
             == builtin_input_cost
         ), "wildcard deployment's zero pricing leaked into the shared model_cost key"
-        assert litellm.model_cost[deployment_id]["input_cost_per_token"] == 0.0
+        assert embrouter.model_cost[deployment_id]["input_cost_per_token"] == 0.0
     finally:
         _restore_model_cost_entries(snapshot)
 
@@ -770,7 +770,7 @@ def test_embedding_direct_sdk_custom_pricing_still_registers_shared_key():
     model_key = "openai/lit3991-direct-sdk-embed-model"
     override_input_cost = 3e-05
     try:
-        response = litellm.embedding(
+        response = embrouter.embedding(
             model=model_key,
             input=["hello"],
             api_key="fake-key",
@@ -780,10 +780,10 @@ def test_embedding_direct_sdk_custom_pricing_still_registers_shared_key():
         )
 
         assert (
-            litellm.model_cost[model_key]["input_cost_per_token"]
+            embrouter.model_cost[model_key]["input_cost_per_token"]
             == override_input_cost
         )
-        cost = litellm.completion_cost(
+        cost = embrouter.completion_cost(
             completion_response=response,
             model=model_key,
             custom_llm_provider="openai",
@@ -792,7 +792,7 @@ def test_embedding_direct_sdk_custom_pricing_still_registers_shared_key():
         )
         assert cost == pytest.approx(10 * override_input_cost)
     finally:
-        litellm.model_cost.pop(model_key, None)
+        embrouter.model_cost.pop(model_key, None)
         _invalidate_model_cost_lowercase_map()
 
 
@@ -801,7 +801,7 @@ def test_update_dictionary_merges_nested_dicts_without_aliasing():
     object stays untouched, and the caller's incoming nested dict is never
     inserted by reference into the merged result.
     """
-    from litellm.utils import _update_dictionary
+    from embrouter.utils import _update_dictionary
 
     existing_nested = {"hours_utc": "01:00-02:00"}
     existing = {"off_peak_pricing": existing_nested}
@@ -832,7 +832,7 @@ def test_router_deployments_sharing_backend_keep_their_own_off_peak_pricing():
     deployment's registration merged its keys into that same object, corrupting
     the first deployment's schedule and polluting the built-in entry.
     """
-    from litellm import Router
+    from embrouter import Router
 
     active_block = {
         "windows": [{"hours_utc": "16:00-19:00", "weekdays": [2]}],
@@ -852,7 +852,7 @@ def test_router_deployments_sharing_backend_keep_their_own_off_peak_pricing():
         model_list=[
             {
                 "model_name": "offpeak-active-weekday",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_key": "fake-key-for-registration",
                 },
@@ -865,7 +865,7 @@ def test_router_deployments_sharing_backend_keep_their_own_off_peak_pricing():
             },
             {
                 "model_name": "offpeak-inactive-hours",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_key": "fake-key-for-registration",
                 },
@@ -880,16 +880,16 @@ def test_router_deployments_sharing_backend_keep_their_own_off_peak_pricing():
     )
 
     try:
-        registered_first = litellm.model_cost[deployment_ids[0]]["off_peak_pricing"]
-        registered_second = litellm.model_cost[deployment_ids[1]]["off_peak_pricing"]
+        registered_first = embrouter.model_cost[deployment_ids[0]]["off_peak_pricing"]
+        registered_second = embrouter.model_cost[deployment_ids[1]]["off_peak_pricing"]
         assert registered_first == active_block
         assert registered_second == inactive_block
         for shared_key in shared_keys:
-            shared_entry = litellm.model_cost.get(shared_key) or {}
+            shared_entry = embrouter.model_cost.get(shared_key) or {}
             assert not shared_entry.get("off_peak_pricing")
     finally:
         for deployment_id in deployment_ids:
-            litellm.model_cost.pop(deployment_id, None)
+            embrouter.model_cost.pop(deployment_id, None)
         _restore_model_cost_entries(original_entries)
         del router
 
@@ -900,7 +900,7 @@ def test_router_off_peak_only_deployment_inherits_builtin_base_rates():
     inherited from the backend model's built-in cost map entry, since the
     shared backend key deliberately never carries the off-peak block.
     """
-    from litellm import Router
+    from embrouter import Router
 
     block = {
         "hours_utc": "00:00-00:00",
@@ -910,13 +910,13 @@ def test_router_off_peak_only_deployment_inherits_builtin_base_rates():
     shared_keys = ["gpt-4o-mini", "openai/gpt-4o-mini"]
     deployment_id = "offpeak-only-dep-1"
     original_entries = _snapshot_model_cost_entries(shared_keys + [deployment_id])
-    builtin_info = litellm.get_model_info(model="openai/gpt-4o-mini")
+    builtin_info = embrouter.get_model_info(model="openai/gpt-4o-mini")
 
     router = Router(
         model_list=[
             {
                 "model_name": "offpeak-only",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_key": "fake-key-for-registration",
                 },
@@ -926,13 +926,13 @@ def test_router_off_peak_only_deployment_inherits_builtin_base_rates():
     )
 
     try:
-        entry = litellm.model_cost[deployment_id]
+        entry = embrouter.model_cost[deployment_id]
         assert entry["off_peak_pricing"] == block
         assert entry["input_cost_per_token"] is not None
         assert entry["input_cost_per_token"] == builtin_info["input_cost_per_token"]
         assert entry["output_cost_per_token"] == builtin_info["output_cost_per_token"]
         for shared_key in shared_keys:
-            shared_entry = litellm.model_cost.get(shared_key) or {}
+            shared_entry = embrouter.model_cost.get(shared_key) or {}
             assert not shared_entry.get("off_peak_pricing")
     finally:
         _restore_model_cost_entries(original_entries)
@@ -940,7 +940,7 @@ def test_router_off_peak_only_deployment_inherits_builtin_base_rates():
 
 
 def test_use_custom_pricing_for_model_sees_off_peak_only_model_info():
-    from litellm.litellm_core_utils.litellm_logging import use_custom_pricing_for_model
+    from embrouter.embrouter_core_utils.embrouter_logging import use_custom_pricing_for_model
 
     block = {"hours_utc": "00:00-00:00", "input_cost_per_token": 5e-05}
     assert use_custom_pricing_for_model({"metadata": {"model_info": {"off_peak_pricing": block}}}) is True
@@ -953,8 +953,8 @@ def test_completion_cost_applies_off_peak_only_deployment_pricing():
     a ``router_model_id`` whose entry carries only an always-on off-peak block,
     the request bills at the block's rates rather than the shared backend rate.
     """
-    from litellm import Router
-    from litellm.types.utils import ModelResponse, Usage
+    from embrouter import Router
+    from embrouter.types.utils import ModelResponse, Usage
 
     block = {
         "hours_utc": "00:00-00:00",
@@ -969,7 +969,7 @@ def test_completion_cost_applies_off_peak_only_deployment_pricing():
         model_list=[
             {
                 "model_name": "offpeak-only",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_key": "fake-key-for-registration",
                 },
@@ -983,7 +983,7 @@ def test_completion_cost_applies_off_peak_only_deployment_pricing():
             model="gpt-4o-mini",
             usage=Usage(prompt_tokens=100, completion_tokens=50, total_tokens=150),
         )
-        cost = litellm.completion_cost(
+        cost = embrouter.completion_cost(
             completion_response=response,
             model="openai/gpt-4o-mini",
             custom_llm_provider="openai",
@@ -1001,7 +1001,7 @@ def test_completion_registers_cost_per_second_pricing():
     original_entries: Final = _snapshot_model_cost_entries([model_key])
 
     try:
-        litellm.completion(
+        embrouter.completion(
             model=model_key,
             messages=[{"role": "user", "content": "hello"}],
             api_key="fake-key",
@@ -1009,6 +1009,6 @@ def test_completion_registers_cost_per_second_pricing():
             mock_response="hello back",
         )
 
-        assert litellm.model_cost[model_key]["cost_per_second"] == 0.02
+        assert embrouter.model_cost[model_key]["cost_per_second"] == 0.02
     finally:
         _restore_model_cost_entries(original_entries)

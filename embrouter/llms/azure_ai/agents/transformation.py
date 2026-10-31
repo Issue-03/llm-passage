@@ -25,22 +25,22 @@ from typing import TYPE_CHECKING, Any, Final
 
 import httpx
 
-from litellm._logging import verbose_logger
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+from embrouter._logging import verbose_logger
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
     convert_content_list_to_str,
 )
-from litellm.llms.base_llm.chat.transformation import BaseConfig, BaseLLMException
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.utils import ModelResponse
+from embrouter.llms.base_llm.chat.transformation import BaseConfig, BaseLLMException
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.utils import ModelResponse
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
     HTTPHandler = Any
     AsyncHTTPHandler = Any
 
@@ -112,7 +112,7 @@ class AzureAIAgentsConfig(BaseConfig):
         Returns:
             Tuple of (api_base, api_key)
         """
-        from litellm.secret_managers.main import get_secret_str
+        from embrouter.secret_managers.main import get_secret_str
 
         api_base = api_base or get_secret_str("AZURE_AI_API_BASE")
         api_key = api_key or get_secret_str("AZURE_AI_API_KEY")
@@ -147,7 +147,7 @@ class AzureAIAgentsConfig(BaseConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         """
@@ -189,7 +189,7 @@ class AzureAIAgentsConfig(BaseConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         """
@@ -239,7 +239,7 @@ class AzureAIAgentsConfig(BaseConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
@@ -291,17 +291,17 @@ class AzureAIAgentsConfig(BaseConfig):
         model: str,
         raw_response: httpx.Response,
         model_response: ModelResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         request_data: dict,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,
     ) -> ModelResponse:
         """
-        Transform the Azure Agents response to LiteLLM ModelResponse format.
+        Transform the Azure Agents response to EmbRouter ModelResponse format.
         """
         # This is not used since we have a custom handler
         return model_response
@@ -313,9 +313,9 @@ class AzureAIAgentsConfig(BaseConfig):
         api_base: str,
         api_key: str | None,
         model_response: ModelResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         timeout: float | Any,
         acompletion: bool,
         stream: bool | None = False,
@@ -334,18 +334,18 @@ class AzureAIAgentsConfig(BaseConfig):
 
         See: https://learn.microsoft.com/en-us/azure/ai-foundry/agents/quickstart
         """
-        from litellm.llms.azure.common_utils import get_azure_ad_token
-        from litellm.llms.azure_ai.agents.handler import azure_ai_agents_handler
-        from litellm.types.router import GenericLiteLLMParams
+        from embrouter.llms.azure.common_utils import get_azure_ad_token
+        from embrouter.llms.azure_ai.agents.handler import azure_ai_agents_handler
+        from embrouter.types.router import GenericEmbRouterParams
 
         # If no api_key is provided, try to get Azure AD token
         if api_key is None:
             # Try to get Azure AD token using the existing Azure auth mechanisms
             # This uses the scope for Azure AI (ai.azure.com) instead of cognitive services
-            # Create a GenericLiteLLMParams with the scope override for Azure Foundry Agents
-            azure_auth_params: Final = dict(litellm_params) if litellm_params else {}
+            # Create a GenericEmbRouterParams with the scope override for Azure Foundry Agents
+            azure_auth_params: Final = dict(embrouter_params) if embrouter_params else {}
             azure_auth_params["azure_scope"] = "https://ai.azure.com/.default"
-            api_key = get_azure_ad_token(GenericLiteLLMParams(**azure_auth_params))
+            api_key = get_azure_ad_token(GenericEmbRouterParams(**azure_auth_params))
 
         if api_key is None:
             raise ValueError(
@@ -364,7 +364,7 @@ class AzureAIAgentsConfig(BaseConfig):
                     api_key=api_key,
                     logging_obj=logging_obj,
                     optional_params=optional_params,
-                    litellm_params=litellm_params,
+                    embrouter_params=embrouter_params,
                     timeout=timeout,
                     headers=headers,
                 )
@@ -377,7 +377,7 @@ class AzureAIAgentsConfig(BaseConfig):
                     model_response=model_response,
                     logging_obj=logging_obj,
                     optional_params=optional_params,
-                    litellm_params=litellm_params,
+                    embrouter_params=embrouter_params,
                     timeout=timeout,
                     headers=headers,
                 )
@@ -391,7 +391,7 @@ class AzureAIAgentsConfig(BaseConfig):
                 model_response=model_response,
                 logging_obj=logging_obj,
                 optional_params=optional_params,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 timeout=timeout,
                 headers=headers,
             )

@@ -12,18 +12,18 @@ from urllib.parse import urlparse
 import httpx
 from pydantic import TypeAdapter, ValidationError
 
-from litellm._logging import verbose_proxy_logger
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.litellm_core_utils.litellm_logging import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.embrouter_core_utils.embrouter_logging import (
     get_standard_logging_object_payload,
 )
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.llms.custom_httpx.http_handler import (
     AsyncHTTPHandler,
     get_async_httpx_client,
 )
-from litellm.proxy._types import PassThroughEndpointLoggingTypedDict
-from litellm.types.llms.custom_http import httpxSpecialProvider
-from litellm.types.passthrough_endpoints.tinyfish import (
+from embrouter.proxy._types import PassThroughEndpointLoggingTypedDict
+from embrouter.types.llms.custom_http import httpxSpecialProvider
+from embrouter.types.passthrough_endpoints.tinyfish import (
     TINYFISH_AGENT_DEFAULT_API_BASE,
     TINYFISH_DEFAULT_COST_PER_STEP,
     TINYFISH_MAX_CONSECUTIVE_POLL_FAILURES,
@@ -33,7 +33,7 @@ from litellm.types.passthrough_endpoints.tinyfish import (
     TINYFISH_TERMINAL_RUN_STATUSES,
     TinyfishRun,
 )
-from litellm.types.utils import StandardPassThroughResponseObject
+from embrouter.types.utils import StandardPassThroughResponseObject
 
 _RUN_ADAPTER: Final = TypeAdapter(TinyfishRun)
 
@@ -71,11 +71,11 @@ def _warn_if_cancelled(task: "asyncio.Task[None]") -> None:
 _SSE_POLLER_SPAWNED_KEY: Final = "tinyfish_sse_poller_spawned"
 
 
-def mark_sse_poller_spawned(logging_obj: LiteLLMLoggingObj) -> None:
+def mark_sse_poller_spawned(logging_obj: EmbRouterLoggingObj) -> None:
     logging_obj.model_call_details[_SSE_POLLER_SPAWNED_KEY] = True  # rebind-ok: request-scoped scratch dict
 
 
-def sse_poller_spawned(logging_obj: LiteLLMLoggingObj) -> bool:
+def sse_poller_spawned(logging_obj: EmbRouterLoggingObj) -> bool:
     return logging_obj.model_call_details.get(_SSE_POLLER_SPAWNED_KEY) is True
 
 
@@ -143,7 +143,7 @@ class TinyFishPassthroughLoggingHandler:
     def tinyfish_passthrough_handler(
         httpx_response: httpx.Response,
         response_body: Mapping[str, object] | None,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         url_route: str,
         result: str,
         start_time: datetime,
@@ -175,7 +175,7 @@ class TinyFishPassthroughLoggingHandler:
     @staticmethod
     def start_async_run_billing(
         response_body: Mapping[str, object] | None,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         result: str,
         start_time: datetime,
         cache_hit: bool,
@@ -203,19 +203,19 @@ class TinyFishPassthroughLoggingHandler:
     @staticmethod
     def start_sse_run_billing(
         run_id: str,
-        litellm_logging_obj: LiteLLMLoggingObj,
+        embrouter_logging_obj: EmbRouterLoggingObj,
         start_time: datetime,
         client: AsyncHTTPHandler | None = None,
     ) -> None:
         """Bill POST /v1/automation/run-sse once via a detached poller that outlives client disconnects."""
-        mark_sse_poller_spawned(litellm_logging_obj)
+        mark_sse_poller_spawned(embrouter_logging_obj)
         task: Final = asyncio.create_task(
             TinyFishPassthroughLoggingHandler._poll_and_log(
                 run_id=run_id,
-                logging_obj=litellm_logging_obj,
+                logging_obj=embrouter_logging_obj,
                 result="",
                 start_time=start_time,
-                cache_hit=litellm_logging_obj.model_call_details.get("cache_hit") is True,
+                cache_hit=embrouter_logging_obj.model_call_details.get("cache_hit") is True,
                 kwargs=_EMPTY_KWARGS,
                 client=client,
             )
@@ -225,7 +225,7 @@ class TinyFishPassthroughLoggingHandler:
     @staticmethod
     async def _poll_and_log(
         run_id: str | None,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         result: str,
         start_time: datetime,
         cache_hit: bool,
@@ -296,7 +296,7 @@ class TinyFishPassthroughLoggingHandler:
 
     @staticmethod
     async def _fetch_run(run_id: str, client: AsyncHTTPHandler | None = None) -> TinyfishRun | None:
-        from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+        from embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
             passthrough_endpoint_router,
         )
 
@@ -331,7 +331,7 @@ class TinyFishPassthroughLoggingHandler:
 
     @staticmethod
     async def handle_logging_tinyfish_collected_chunks(
-        litellm_logging_obj: LiteLLMLoggingObj,
+        embrouter_logging_obj: EmbRouterLoggingObj,
         url_route: str,
         start_time: datetime,
         all_chunks: Sequence[str],
@@ -348,7 +348,7 @@ class TinyFishPassthroughLoggingHandler:
             run: Final = await TinyFishPassthroughLoggingHandler._fetch_run(run_id, client) if run_id else None
             payload: Final = TinyFishPassthroughLoggingHandler._build_logging_payload(
                 run=run,
-                logging_obj=litellm_logging_obj,
+                logging_obj=embrouter_logging_obj,
                 result="",
                 start_time=start_time,
                 end_time=end_time,
@@ -366,7 +366,7 @@ class TinyFishPassthroughLoggingHandler:
     @staticmethod
     def _build_logging_payload(
         run: TinyfishRun | None,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         result: str,
         start_time: datetime,
         end_time: datetime,
@@ -379,10 +379,10 @@ class TinyFishPassthroughLoggingHandler:
             "custom_llm_provider": "tinyfish",
             "response_cost": response_cost,
             # spend rows key on this as request_id; without it every poller-billed row is a NULL-key collision
-            "litellm_call_id": logging_obj.litellm_call_id,
+            "embrouter_call_id": logging_obj.embrouter_call_id,
             # the poller paths pass no request kwargs, so SLO attribution (key hash, team, tags) needs the stored params
-            "litellm_params": kwargs.get("litellm_params")
-            or logging_obj.model_call_details.get("litellm_params")
+            "embrouter_params": kwargs.get("embrouter_params")
+            or logging_obj.model_call_details.get("embrouter_params")
             or {},  # mutable-ok: the logging pipeline requires a plain kwargs dict
         }
         logging_obj.model_call_details.update(

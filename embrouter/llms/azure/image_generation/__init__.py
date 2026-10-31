@@ -1,6 +1,6 @@
-from litellm._logging import verbose_logger
-from litellm.llms.azure_ai.image_generation import AzureFoundryMAIImageGenerationConfig
-from litellm.llms.base_llm.image_generation.transformation import (
+from embrouter._logging import verbose_logger
+from embrouter.llms.azure_ai.image_generation import AzureFoundryMAIImageGenerationConfig
+from embrouter.llms.base_llm.image_generation.transformation import (
     BaseImageGenerationConfig,
 )
 

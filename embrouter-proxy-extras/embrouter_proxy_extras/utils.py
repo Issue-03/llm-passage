@@ -11,16 +11,16 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Final, Optional
 
-from litellm_proxy_extras import prisma_toolchain
-from litellm_proxy_extras._logging import logger
-from litellm_proxy_extras.prisma_toolchain import (
+from embrouter_proxy_extras import prisma_toolchain
+from embrouter_proxy_extras._logging import logger
+from embrouter_proxy_extras.prisma_toolchain import (
     PRISMA_COMMAND_TIMEOUT_ENV_VAR,
     PRISMA_MIGRATE_DEPLOY_TIMEOUT_ENV_VAR,
     ensure_prisma_toolchain,
     prisma_command_timeout,
     prisma_migrate_deploy_timeout,
 )
-from litellm_proxy_extras.replica_identity import (
+from embrouter_proxy_extras.replica_identity import (
     REPLICA_IDENTITY_FULL_ENV_VAR,
     apply_replica_identity_full,
 )
@@ -51,9 +51,9 @@ def _get_prisma_env() -> dict:
 _MIGRATION_TS_RE = re.compile(r"^(\d{14})_")
 
 _MIGRATION_DEADLOCK_MARKER = "deadlock detected"
-INDEX_REPAIR_ADVISORY_LOCK_KEY: Final = int.from_bytes(b"litellm", "big")
+INDEX_REPAIR_ADVISORY_LOCK_KEY: Final = int.from_bytes(b"embrouter", "big")
 _TRANSIENT_INDEX_SUFFIX_RE: Final = re.compile(r"_cc(?:new|old)\d*$")
-_INVALID_LITELLM_INDEXES_SQL: Final = (
+_INVALID_EMBROUTER_INDEXES_SQL: Final = (
     "SELECT n.nspname, c.relname, pg_size_pretty(pg_table_size(t.oid)) "
     "FROM pg_index i "
     "JOIN pg_class c ON c.oid = i.indexrelid "
@@ -100,14 +100,14 @@ class _MigrateAttemptBudget:
         if remaining <= 0:
             raise RuntimeError(
                 "Timed out waiting for Prisma's migration advisory lock. Check the running migration "
-                "or increase LITELLM_MIGRATION_LOCK_TIMEOUT."
+                "or increase EMBROUTER_MIGRATION_LOCK_TIMEOUT."
             )
         return replace(self, contention_seconds_left=remaining)
 
 
-_SPEND_LOGS_ALTER_RE = re.compile(r'^ALTER\s+TABLE\s+"LiteLLM_SpendLogs"\s', re.IGNORECASE)
+_SPEND_LOGS_ALTER_RE = re.compile(r'^ALTER\s+TABLE\s+"EmbRouter_SpendLogs"\s', re.IGNORECASE)
 _SPEND_LOGS_ARTIFACT_DROP_RE = re.compile(
-    r'^DROP\s+TABLE\s+"LiteLLM_SpendLogs_[^"]*"', re.IGNORECASE
+    r'^DROP\s+TABLE\s+"EmbRouter_SpendLogs_[^"]*"', re.IGNORECASE
 )
 _SPEND_LOGS_PK_CLAUSE_RE = re.compile(
     r'^(?:DROP\s+CONSTRAINT\s+"[^"]*_pkey"'
@@ -116,7 +116,7 @@ _SPEND_LOGS_PK_CLAUSE_RE = re.compile(
 )
 
 PARTITIONED_SPEND_LOGS_PUSH_ERROR = (
-    "LiteLLM_SpendLogs is a partitioned table (see db_scripts/partition_spend_logs.sql), "
+    "EmbRouter_SpendLogs is a partitioned table (see db_scripts/partition_spend_logs.sql), "
     "so its primary key must include the partition key (\"startTime\"). `prisma db push` "
     "reconciles the database against schema.prisma, which declares the unpartitioned "
     "primary key (\"request_id\"), and Postgres rejects that rewrite with: unique "
@@ -151,9 +151,9 @@ def _without_spend_logs_pk_clauses(statement: str) -> Optional[str]:
 def filter_partitioned_spend_logs_diff(diff_sql: str) -> str:
     """Drop statements from a `prisma migrate diff` script that fight the
     SpendLogs partitioning runbook (db_scripts/partition_spend_logs.sql): the
-    primary-key rewrite on "LiteLLM_SpendLogs", which Postgres rejects on a
+    primary-key rewrite on "EmbRouter_SpendLogs", which Postgres rejects on a
     partitioned table, and drops of runbook artifacts such as
-    "LiteLLM_SpendLogs_legacy"."""
+    "EmbRouter_SpendLogs_legacy"."""
     kept = tuple(
         filtered
         for statement in diff_sql.split(";")
@@ -215,9 +215,9 @@ class ProxyExtrasDBManager:
         """
         Get the path to the migrations directory
 
-        Set os.environ["LITELLM_MIGRATION_DIR"] to a custom migrations directory, to support baselining db in read-only fs.
+        Set os.environ["EMBROUTER_MIGRATION_DIR"] to a custom migrations directory, to support baselining db in read-only fs.
         """
-        custom_migrations_dir = os.getenv("LITELLM_MIGRATION_DIR")
+        custom_migrations_dir = os.getenv("EMBROUTER_MIGRATION_DIR")
         pkg_migrations_dir = os.path.dirname(__file__)
         if custom_migrations_dir:
             # If migrations_dir exists, copy contents
@@ -450,7 +450,7 @@ class ProxyExtrasDBManager:
         # do not support the extended query protocol required by prisma migrate diff.
         diff_url = os.getenv("DIRECT_URL") or database_url
 
-        diff_dir = Path(tempfile.mkdtemp(prefix="litellm_migration_diff_"))
+        diff_dir = Path(tempfile.mkdtemp(prefix="embrouter_migration_diff_"))
         diff_sql_path = diff_dir / "migration.sql"
 
         # 1. Generate migration SQL for the diff between DB and schema
@@ -519,7 +519,7 @@ class ProxyExtrasDBManager:
             )
             diff_sql_path.write_text(filtered_sql)
             logger.info(
-                "LiteLLM_SpendLogs is partitioned; removed its primary-key "
+                "EmbRouter_SpendLogs is partitioned; removed its primary-key "
                 "rewrite and partitioning artifacts from the drift script"
             )
             if not filtered_sql.strip():
@@ -592,7 +592,7 @@ class ProxyExtrasDBManager:
 
     @staticmethod
     def spend_logs_is_partitioned() -> bool:
-        """True when the connected database's LiteLLM_SpendLogs is a
+        """True when the connected database's EmbRouter_SpendLogs is a
         partitioned table in Prisma's target schema (the `schema` URL param,
         falling back to Prisma's default target, public), i.e. the operator
         ran db_scripts/partition_spend_logs.sql. Returns False when psycopg is
@@ -606,11 +606,11 @@ class ProxyExtrasDBManager:
             import psycopg
         except ImportError:
             logger.warning(
-                "psycopg is not installed; skipping the LiteLLM_SpendLogs "
+                "psycopg is not installed; skipping the EmbRouter_SpendLogs "
                 "partition check. If this table is partitioned (see "
                 "db_scripts/partition_spend_logs.sql), schema reconciliation "
                 "will try to rewrite its primary key and fail. Install the "
-                "litellm[extra_proxy] extra, which now includes psycopg."
+                "embrouter[extra_proxy] extra, which now includes psycopg."
             )
             return False
 
@@ -624,7 +624,7 @@ class ProxyExtrasDBManager:
                     "FROM pg_partitioned_table pt "
                     "JOIN pg_class c ON c.oid = pt.partrelid "
                     "JOIN pg_namespace n ON n.oid = c.relnamespace "
-                    "WHERE c.relname = 'LiteLLM_SpendLogs' "
+                    "WHERE c.relname = 'EmbRouter_SpendLogs' "
                     "  AND n.nspname = %s",
                     (
                         ProxyExtrasDBManager._prisma_schema_param(database_url)
@@ -736,8 +736,8 @@ class ProxyExtrasDBManager:
         sorted_hostile = sorted(hostile)
         logger.warning(
             "Database has %d migration(s) applied that are NEWER than any "
-            "migration this LiteLLM version ships. This usually means the "
-            "database was migrated by a newer LiteLLM deployment. Some API "
+            "migration this EmbRouter version ships. This usually means the "
+            "database was migrated by a newer EmbRouter deployment. Some API "
             "endpoints may fail because this proxy's Prisma client does not "
             "know about those schema changes. Consider upgrading this "
             "deployment. Unknown: %s",
@@ -746,10 +746,10 @@ class ProxyExtrasDBManager:
         )
 
     @staticmethod
-    def _invalid_litellm_indexes(
+    def _invalid_embrouter_indexes(
         conn: "psycopg.Connection[tuple[str, str, str]]", schema: str
     ) -> tuple[_InvalidIndex, ...]:
-        rows: Final = conn.execute(_INVALID_LITELLM_INDEXES_SQL, (schema, "LiteLLM\\_%")).fetchall()
+        rows: Final = conn.execute(_INVALID_EMBROUTER_INDEXES_SQL, (schema, "EmbRouter\\_%")).fetchall()
         return tuple(_InvalidIndex(*row) for row in rows)
 
     @staticmethod
@@ -782,7 +782,7 @@ class ProxyExtrasDBManager:
 
     @staticmethod
     def repair_invalid_indexes(lock_timeout: str = "30s") -> bool:
-        """Rebuild LiteLLM indexes an interrupted CREATE INDEX CONCURRENTLY left
+        """Rebuild EmbRouter indexes an interrupted CREATE INDEX CONCURRENTLY left
         INVALID (a migration deadlock between replicas is the usual cause; the
         retried migration skips them because of IF NOT EXISTS). Never raises:
         returns True when no invalid index remains, False when the repair was
@@ -801,7 +801,7 @@ class ProxyExtrasDBManager:
         except ImportError:
             logger.warning(
                 "psycopg is not installed; skipping the invalid index check. "
-                "Install the litellm[extra_proxy] extra, which includes psycopg."
+                "Install the embrouter[extra_proxy] extra, which includes psycopg."
             )
             return False
 
@@ -811,7 +811,7 @@ class ProxyExtrasDBManager:
             with psycopg.connect(cleaned_url, connect_timeout=10, autocommit=True) as conn:
                 conn.execute("SET statement_timeout = 0")
                 conn.execute(sql.SQL("SET lock_timeout = {}").format(sql.Literal(lock_timeout)))
-                found: Final = ProxyExtrasDBManager._invalid_litellm_indexes(conn, schema)
+                found: Final = ProxyExtrasDBManager._invalid_embrouter_indexes(conn, schema)
                 if not found:
                     return True
                 logger.warning(
@@ -826,9 +826,9 @@ class ProxyExtrasDBManager:
                 if lock_row is None or not lock_row[0]:
                     logger.info("Another replica is already rebuilding the invalid indexes, skipping")
                     return False
-                for index in ProxyExtrasDBManager._invalid_litellm_indexes(conn, schema):
+                for index in ProxyExtrasDBManager._invalid_embrouter_indexes(conn, schema):
                     ProxyExtrasDBManager._repair_index(conn, index)
-                remaining: Final = ProxyExtrasDBManager._invalid_litellm_indexes(conn, schema)
+                remaining: Final = ProxyExtrasDBManager._invalid_embrouter_indexes(conn, schema)
         except psycopg.Error as e:
             logger.warning("Could not check for invalid indexes, will retry on the next startup. Error: %s", e)
             return False
@@ -838,8 +838,8 @@ class ProxyExtrasDBManager:
     def _setup_database_v2(use_migrate: bool) -> bool:
         if not use_migrate:
             return ProxyExtrasDBManager._run_database_v2(False)
-        from litellm_proxy_extras.migration_lock import migration_environment, migration_lock
-        from litellm_proxy_extras.migration_recovery import baseline_current_schema, recover_completed_migration
+        from embrouter_proxy_extras.migration_lock import migration_environment, migration_lock
+        from embrouter_proxy_extras.migration_recovery import baseline_current_schema, recover_completed_migration
 
         database_url: Final = os.environ.get("DATABASE_URL")
         if not database_url:
@@ -882,7 +882,7 @@ class ProxyExtrasDBManager:
         Runs `prisma migrate deploy`, baselines verified existing schemas,
         and recovers confirmed SQL completion or reported deadlocks. It does
         NOT call `_resolve_all_migrations` — the diff-and-force recovery that
-        caused schema thrashing when two LiteLLM versions contended for the
+        caused schema thrashing when two EmbRouter versions contended for the
         same DB during rolling deploys.
 
         Ahead-of-HEAD state (DB has migrations newer than this build ships)
@@ -924,7 +924,7 @@ class ProxyExtrasDBManager:
         original_dir = os.getcwd()
         os.chdir(migrations_dir)
         deploy_timeout = prisma_migrate_deploy_timeout()
-        from litellm_proxy_extras.migration_lock import migration_environment, migration_lock_timeout
+        from embrouter_proxy_extras.migration_lock import migration_environment, migration_lock_timeout
 
         migration_env: Final = migration_environment(_get_prisma_env())
 
@@ -992,7 +992,7 @@ class ProxyExtrasDBManager:
 
     @staticmethod
     def _v2_roll_back_migration_best_effort(migration_name: str) -> None:
-        from litellm_proxy_extras.migration_lock import migration_environment
+        from embrouter_proxy_extras.migration_lock import migration_environment
 
         try:
             prisma_toolchain.run_prisma(
@@ -1029,10 +1029,10 @@ class ProxyExtrasDBManager:
                     ProxyExtrasDBManager._v2_roll_back_migration_best_effort(migration_name)
                     return budget.spend()
             raise RuntimeError(
-                "Migration completion could not be verified. LiteLLM startup has stopped.\n\n"
+                "Migration completion could not be verified. EmbRouter startup has stopped.\n\n"
                 f"Prisma migration history (migration name and start time):\n{stderr}\n\n"
                 "A migration has a start record but no successful completion record. "
-                "LiteLLM cannot determine whether its SQL committed from this record alone. "
+                "EmbRouter cannot determine whether its SQL committed from this record alone. "
                 "Startup stopped to avoid repeating or skipping database changes.\n\n"
                 "Before resolving, stop other migration runners and inspect _prisma_migrations, "
                 "the named migration.sql from this build, database logs, and the actual database objects and data. "
@@ -1115,8 +1115,8 @@ class ProxyExtrasDBManager:
     @staticmethod
     def apply_replica_identity_full_if_requested() -> bool:
         """
-        Re-assert REPLICA IDENTITY FULL on LiteLLM's tables when the operator
-        opted in via LITELLM_SET_REPLICA_IDENTITY_FULL.
+        Re-assert REPLICA IDENTITY FULL on EmbRouter's tables when the operator
+        opted in via EMBROUTER_SET_REPLICA_IDENTITY_FULL.
 
         Prisma leaves new tables at the Postgres default, which logical
         replication consumers reject, so the setting has to be re-applied after
@@ -1151,7 +1151,7 @@ class ProxyExtrasDBManager:
     ) -> bool:
         """
         Set up the database using either prisma migrate or prisma db push
-        Uses migrations from litellm-proxy-extras package
+        Uses migrations from embrouter-proxy-extras package
 
         Args:
             use_migrate: Whether to use prisma migrate instead of db push
@@ -1284,7 +1284,7 @@ class ProxyExtrasDBManager:
                             and "database schema is not empty" in e.stderr
                         ):
                             logger.info(
-                                "Database schema is not empty, creating baseline migration. In read-only file system, please set an environment variable `LITELLM_MIGRATION_DIR` to a writable directory to enable migrations."
+                                "Database schema is not empty, creating baseline migration. In read-only file system, please set an environment variable `EMBROUTER_MIGRATION_DIR` to a writable directory to enable migrations."
                             )
                             ProxyExtrasDBManager._create_baseline_migration(schema_path)
                             logger.info(

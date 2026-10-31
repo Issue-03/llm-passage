@@ -1,9 +1,9 @@
 import urllib.parse
 from unittest.mock import patch
 
-import litellm
-from litellm.llms.azure.image_edit.transformation import AzureImageEditConfig
-from litellm.types.router import GenericLiteLLMParams
+import embrouter
+from embrouter.llms.azure.image_edit.transformation import AzureImageEditConfig
+from embrouter.types.router import GenericEmbRouterParams
 
 
 def test_validate_environment_uses_api_key_header_for_subscription_key():
@@ -20,36 +20,36 @@ def test_validate_environment_uses_api_key_header_for_subscription_key():
         headers={},
         model="gpt-image-1",
         api_key="my-azure-subscription-key",
-        litellm_params={},
+        embrouter_params={},
     )
     assert headers.get("api-key") == "my-azure-subscription-key"
     assert "Authorization" not in headers
 
 
-def test_validate_environment_prefers_litellm_params_api_key():
+def test_validate_environment_prefers_embrouter_params_api_key():
     config = AzureImageEditConfig()
     headers = config.validate_environment(
         headers={},
         model="gpt-image-1",
         api_key=None,
-        litellm_params={"api_key": "from-params"},
+        embrouter_params={"api_key": "from-params"},
     )
     assert headers.get("api-key") == "from-params"
     assert "Authorization" not in headers
 
 
-def test_validate_environment_litellm_params_api_key_beats_positional_arg():
+def test_validate_environment_embrouter_params_api_key_beats_positional_arg():
     """
     Precedence pin: when both ``api_key`` (positional) and
-    ``litellm_params["api_key"]`` are set with different values, the
-    ``litellm_params`` value wins.
+    ``embrouter_params["api_key"]`` are set with different values, the
+    ``embrouter_params`` value wins.
 
     This matches the convention used by every other Azure
     ``validate_environment`` (videos, vector_stores, responses, ...), where
-    ``litellm_params.api_key`` is the source of truth and the positional
-    kwarg only fills in when ``litellm_params`` lacks a key. In production
+    ``embrouter_params.api_key`` is the source of truth and the positional
+    kwarg only fills in when ``embrouter_params`` lacks a key. In production
     the only caller (``llm_http_handler.image_edit``) sources both values
-    from the same ``litellm_params.api_key``, so this only matters for
+    from the same ``embrouter_params.api_key``, so this only matters for
     direct callers.
     """
     config = AzureImageEditConfig()
@@ -57,7 +57,7 @@ def test_validate_environment_litellm_params_api_key_beats_positional_arg():
         headers={},
         model="gpt-image-1",
         api_key="from-positional",
-        litellm_params={"api_key": "from-params"},
+        embrouter_params={"api_key": "from-params"},
     )
     assert headers.get("api-key") == "from-params"
     assert "Authorization" not in headers
@@ -73,21 +73,21 @@ def test_validate_environment_falls_back_to_aad_bearer_when_no_api_key():
     config = AzureImageEditConfig()
     with (
         patch(
-            "litellm.llms.azure.common_utils.get_azure_ad_token",
+            "embrouter.llms.azure.common_utils.get_azure_ad_token",
             return_value="fake-aad-token",
         ),
         patch(
-            "litellm.llms.azure.common_utils.get_secret_str",
+            "embrouter.llms.azure.common_utils.get_secret_str",
             return_value=None,
         ),
-        patch("litellm.api_key", None),
-        patch("litellm.azure_key", None),
+        patch("embrouter.api_key", None),
+        patch("embrouter.azure_key", None),
     ):
         headers = config.validate_environment(
             headers={},
             model="gpt-image-1",
             api_key=None,
-            litellm_params={},
+            embrouter_params={},
         )
     assert headers.get("Authorization") == "Bearer fake-aad-token"
     assert "api-key" not in headers
@@ -117,7 +117,7 @@ def test_azure_finalize_image_edit_strips_model_after_openai_transform():
     model = "gpt-image-2-dep"
     prompt = "add a hat"
     image = b"fake_png_bytes"
-    litellm_params = GenericLiteLLMParams(
+    embrouter_params = GenericEmbRouterParams(
         api_base="https://example.openai.azure.com",
         api_version="2025-02-01-preview",
     )
@@ -126,14 +126,14 @@ def test_azure_finalize_image_edit_strips_model_after_openai_transform():
         prompt=prompt,
         image=image,
         image_edit_optional_request_params={"n": 1},
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         headers={},
     )
     assert data.get("model") == model
     resolved = config.get_complete_url(
         model=model,
-        api_base=litellm_params.api_base,
-        litellm_params=litellm_params.model_dump(exclude_none=True),
+        api_base=embrouter_params.api_base,
+        embrouter_params=embrouter_params.model_dump(exclude_none=True),
     )
     data_out = config.finalize_image_edit_request_data(data, resolved)
     assert "model" not in data_out
@@ -146,15 +146,15 @@ def test_azure_finalize_image_edit_strips_model_after_openai_transform():
 # api_version fallback chain
 #
 # Pin the resolution order used by ``AzureImageEditConfig.get_complete_url``:
-#   litellm_params["api_version"]
-#     > litellm.api_version (module-global)
+#   embrouter_params["api_version"]
+#     > embrouter.api_version (module-global)
 #     > AZURE_API_VERSION env var
-#     > litellm.AZURE_DEFAULT_API_VERSION
+#     > embrouter.AZURE_DEFAULT_API_VERSION
 #
-# Before this fallback chain existed, image edit only read ``litellm_params``
+# Before this fallback chain existed, image edit only read ``embrouter_params``
 # and produced an unversioned URL when callers set api_version via the global
 # or the env var (Azure then 404s with "Resource not found"). The chat path
-# in ``litellm/llms/azure/common_utils.py`` already had this fallback.
+# in ``embrouter/llms/azure/common_utils.py`` already had this fallback.
 # ---------------------------------------------------------------------------
 
 
@@ -166,61 +166,61 @@ def _query_params(url: str) -> dict:
     return dict(urllib.parse.parse_qsl(urllib.parse.urlparse(url).query))
 
 
-def test_api_version_uses_litellm_params_first(monkeypatch):
-    monkeypatch.setattr(litellm, "api_version", "from-global", raising=False)
+def test_api_version_uses_embrouter_params_first(monkeypatch):
+    monkeypatch.setattr(embrouter, "api_version", "from-global", raising=False)
     monkeypatch.setenv("AZURE_API_VERSION", "from-env")
 
     url = AzureImageEditConfig().get_complete_url(
         model=_FALLBACK_MODEL,
         api_base=_FALLBACK_API_BASE,
-        litellm_params={"api_version": "from-params"},
+        embrouter_params={"api_version": "from-params"},
     )
 
     assert _query_params(url) == {"api-version": "from-params"}
 
 
-def test_api_version_falls_back_to_litellm_global(monkeypatch):
-    monkeypatch.setattr(litellm, "api_version", "from-global", raising=False)
+def test_api_version_falls_back_to_embrouter_global(monkeypatch):
+    monkeypatch.setattr(embrouter, "api_version", "from-global", raising=False)
     monkeypatch.setenv("AZURE_API_VERSION", "from-env")
 
     url = AzureImageEditConfig().get_complete_url(
         model=_FALLBACK_MODEL,
         api_base=_FALLBACK_API_BASE,
-        litellm_params={},
+        embrouter_params={},
     )
 
     assert _query_params(url) == {"api-version": "from-global"}
 
 
 def test_api_version_falls_back_to_env_var(monkeypatch):
-    monkeypatch.setattr(litellm, "api_version", None, raising=False)
+    monkeypatch.setattr(embrouter, "api_version", None, raising=False)
     monkeypatch.setenv("AZURE_API_VERSION", "from-env")
 
     url = AzureImageEditConfig().get_complete_url(
         model=_FALLBACK_MODEL,
         api_base=_FALLBACK_API_BASE,
-        litellm_params={},
+        embrouter_params={},
     )
 
     assert _query_params(url) == {"api-version": "from-env"}
 
 
 def test_api_version_falls_back_to_azure_default(monkeypatch):
-    monkeypatch.setattr(litellm, "api_version", None, raising=False)
+    monkeypatch.setattr(embrouter, "api_version", None, raising=False)
     monkeypatch.delenv("AZURE_API_VERSION", raising=False)
 
     url = AzureImageEditConfig().get_complete_url(
         model=_FALLBACK_MODEL,
         api_base=_FALLBACK_API_BASE,
-        litellm_params={},
+        embrouter_params={},
     )
 
-    assert _query_params(url) == {"api-version": litellm.AZURE_DEFAULT_API_VERSION}
+    assert _query_params(url) == {"api-version": embrouter.AZURE_DEFAULT_API_VERSION}
 
 
 def test_api_version_in_api_base_query_is_preserved(monkeypatch):
     """``api_base`` already carrying ``?api-version=...`` must not be overridden."""
-    monkeypatch.setattr(litellm, "api_version", None, raising=False)
+    monkeypatch.setattr(embrouter, "api_version", None, raising=False)
     monkeypatch.delenv("AZURE_API_VERSION", raising=False)
 
     url = AzureImageEditConfig().get_complete_url(
@@ -229,14 +229,14 @@ def test_api_version_in_api_base_query_is_preserved(monkeypatch):
             f"{_FALLBACK_API_BASE}/openai/deployments/{_FALLBACK_MODEL}"
             "/images/edits?api-version=2024-05-01-preview"
         ),
-        litellm_params={"api_version": "would-be-overridden"},
+        embrouter_params={"api_version": "would-be-overridden"},
     )
 
     assert _query_params(url) == {"api-version": "2024-05-01-preview"}
 
 
 def test_v1_api_version_uses_v1_route_and_keeps_model(monkeypatch):
-    monkeypatch.setattr(litellm, "api_version", None, raising=False)
+    monkeypatch.setattr(embrouter, "api_version", None, raising=False)
     monkeypatch.delenv("AZURE_API_VERSION", raising=False)
     config = AzureImageEditConfig()
 
@@ -244,7 +244,7 @@ def test_v1_api_version_uses_v1_route_and_keeps_model(monkeypatch):
         url = config.get_complete_url(
             model=_FALLBACK_MODEL,
             api_base=_FALLBACK_API_BASE,
-            litellm_params={"api_version": api_version},
+            embrouter_params={"api_version": api_version},
         )
         assert urllib.parse.urlparse(url).path == "/openai/v1/images/edits"
         assert _query_params(url) == {"api-version": api_version}
@@ -255,39 +255,39 @@ def test_v1_api_version_uses_v1_route_and_keeps_model(monkeypatch):
 
 
 def test_v1_api_version_from_global_uses_v1_route(monkeypatch):
-    monkeypatch.setattr(litellm, "api_version", "preview", raising=False)
+    monkeypatch.setattr(embrouter, "api_version", "preview", raising=False)
     monkeypatch.delenv("AZURE_API_VERSION", raising=False)
 
     url = AzureImageEditConfig().get_complete_url(
         model=_FALLBACK_MODEL,
         api_base=_FALLBACK_API_BASE,
-        litellm_params={},
+        embrouter_params={},
     )
 
     assert urllib.parse.urlparse(url).path == "/openai/v1/images/edits"
 
 
 def test_dated_api_version_still_uses_deployment_route(monkeypatch):
-    monkeypatch.setattr(litellm, "api_version", None, raising=False)
+    monkeypatch.setattr(embrouter, "api_version", None, raising=False)
     monkeypatch.delenv("AZURE_API_VERSION", raising=False)
 
     url = AzureImageEditConfig().get_complete_url(
         model=_FALLBACK_MODEL,
         api_base=_FALLBACK_API_BASE,
-        litellm_params={"api_version": "2024-10-21"},
+        embrouter_params={"api_version": "2024-10-21"},
     )
 
     assert urllib.parse.urlparse(url).path == f"/openai/deployments/{_FALLBACK_MODEL}/images/edits"
 
 
 def test_v1_api_version_replaces_deployment_scoped_api_base(monkeypatch):
-    monkeypatch.setattr(litellm, "api_version", None, raising=False)
+    monkeypatch.setattr(embrouter, "api_version", None, raising=False)
     monkeypatch.delenv("AZURE_API_VERSION", raising=False)
 
     url = AzureImageEditConfig().get_complete_url(
         model=_FALLBACK_MODEL,
         api_base=f"{_FALLBACK_API_BASE}/openai/deployments/{_FALLBACK_MODEL}/images/edits?api-version=2024-10-21",
-        litellm_params={"api_version": "preview"},
+        embrouter_params={"api_version": "preview"},
     )
 
     assert urllib.parse.urlparse(url).path == "/openai/v1/images/edits"

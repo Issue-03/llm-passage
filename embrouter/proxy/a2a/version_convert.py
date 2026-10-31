@@ -4,9 +4,9 @@
 # arguments. This module is the A2A 0.3<->1.0 boundary; the rule is off file-wide
 # rather than scattering per-line ignores across every SDK call.
 """
-Normalize A2A JSON-RPC payloads to the protocol version LiteLLM serves for an agent.
+Normalize A2A JSON-RPC payloads to the protocol version EmbRouter serves for an agent.
 
-LiteLLM fronts upstream agents and lets an admin pin the protocol version it speaks
+EmbRouter fronts upstream agents and lets an admin pin the protocol version it speaks
 to clients (``0.3`` or ``1.0``) per agent. Upstream responses may arrive in either
 wire shape, so every response, stream event, forwarded request and extended card is
 converted to the served version here. Conversion is shape-detecting (we infer the
@@ -29,8 +29,8 @@ from typing import Final, Literal
 
 from pydantic import BaseModel
 
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy.a2a.agent_card import normalize_protocol_version
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy.a2a.agent_card import normalize_protocol_version
 
 A2AVersion = Literal["0.3", "1.0"]
 RequestId = str | int | None
@@ -88,7 +88,7 @@ def normalize_stream_event(event: JsonDict, target: A2AVersion, *, request_id: R
 def normalize_request_params(params: JsonDict, served: A2AVersion, *, method: str) -> JsonDict:
     """Down-convert forwarded request ``params`` from the served version to 0.3.
 
-    Upstream agents in this proxy pivot on 0.3 wire format, so when LiteLLM serves
+    Upstream agents in this proxy pivot on 0.3 wire format, so when EmbRouter serves
     1.0 the inbound params must be lowered before forwarding. A no-op when the served
     version is already 0.3.
     """
@@ -119,7 +119,7 @@ def normalize_agent_card(card: JsonDict, target: A2AVersion) -> JsonDict:
     """Convert an extended agent card to ``target``.
 
     When lowering to 0.3, ``additionalInterfaces`` is stripped so the conversion never
-    re-exposes upstream backend URLs that the LiteLLM-fronting merge deliberately drops.
+    re-exposes upstream backend URLs that the EmbRouter-fronting merge deliberately drops.
     """
     if not isinstance(card, dict):
         return card

@@ -5,11 +5,11 @@ Feeds two independent sinks off one classification:
 
 - ``GatewayRequestSink`` receives every classified request with its status and
   is the source of truth for SGR (successful gateway requests) on the admin UI.
-  Not license-gated (see litellm.proxy.db.gateway_request_tracking). It is not
+  Not license-gated (see embrouter.proxy.db.gateway_request_tracking). It is not
   told which deployment served the request: it persists its counts, so every
   dimension it takes has to be one the proxy chooses.
 - ``BillingRecorder`` receives 2xx requests only and exports them for
-  enterprise metering (see litellm.proxy.enterprise_billing.billing_metrics).
+  enterprise metering (see embrouter.proxy.enterprise_billing.billing_metrics).
 
 Both are injected. When neither is present the middleware is a transparent
 pass-through.
@@ -23,8 +23,8 @@ from typing import Final, Protocol, runtime_checkable
 
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy._types import LiteLLMRoutes
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy._types import EmbRouterRoutes
 
 
 class BillableCategory(str, Enum):
@@ -53,7 +53,7 @@ class GatewayRequestSink(Protocol):
     def record(self, *, category: BillableCategory, route: str, status_code: int) -> None: ...
 
 
-_MODEL_ID_HEADER: Final = b"x-litellm-model-id"
+_MODEL_ID_HEADER: Final = b"x-embrouter-model-id"
 
 # Ordered: a longer suffix that shares an ending with a shorter one must come
 # first, e.g. "/chat/completions" before "/completions". This is the POST
@@ -104,7 +104,7 @@ _LLM_ROUTE_EXACT: Final[tuple[str, ...]] = (
 _NON_BILLABLE_PASSTHROUGH_PREFIXES: Final = frozenset({"/langfuse"})
 _PASSTHROUGH_PREFIXES: Final[tuple[str, ...]] = tuple(
     prefix
-    for prefix in LiteLLMRoutes.mapped_pass_through_routes.value
+    for prefix in EmbRouterRoutes.mapped_pass_through_routes.value
     if prefix not in _NON_BILLABLE_PASSTHROUGH_PREFIXES
 )
 
@@ -192,7 +192,7 @@ class BillableRequestMetricsMiddleware:
     Pure ASGI middleware that classifies each request once and fans the result
     out to the SGR sink (any status) and the billing recorder (2xx only).
     Modeled on InFlightRequestsMiddleware: it wraps `send`, reads the final
-    status and the x-litellm-model-id header off the `http.response.start`
+    status and the x-embrouter-model-id header off the `http.response.start`
     message, and never blocks or fails the request path.
     """
 

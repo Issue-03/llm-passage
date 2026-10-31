@@ -540,13 +540,13 @@ describe("LogDetailContent", () => {
     expect(screen.queryByText("Cache Key")).not.toBeInTheDocument();
   });
 
-  it("should display EmbRouter Overhead when litellm_overhead_time_ms is in metadata", () => {
+  it("should display EmbRouter Overhead when embrouter_overhead_time_ms is in metadata", () => {
     render(
       <LogDetailContent
         logEntry={createLogEntry({
           metadata: {
             status: "success",
-            litellm_overhead_time_ms: 42.5,
+            embrouter_overhead_time_ms: 42.5,
           },
         })}
       />,
@@ -556,7 +556,7 @@ describe("LogDetailContent", () => {
     expect(screen.getByText("42.50 ms")).toBeInTheDocument();
   });
 
-  it("should not display EmbRouter Overhead when litellm_overhead_time_ms is absent from metadata", () => {
+  it("should not display EmbRouter Overhead when embrouter_overhead_time_ms is absent from metadata", () => {
     render(<LogDetailContent logEntry={createLogEntry({ metadata: { status: "success" } })} />);
 
     expect(screen.queryByText("EmbRouter Overhead")).not.toBeInTheDocument();

@@ -5,7 +5,7 @@ X-Frame-Options and Content-Security-Policy: frame-ancestors 'none' stop the
 admin UI and login pages from being embedded cross-origin (clickjacking).
 X-Content-Type-Options: nosniff stops MIME sniffing.
 
-Strict-Transport-Security is opt-in via LITELLM_ENABLE_HSTS because it only
+Strict-Transport-Security is opt-in via EMBROUTER_ENABLE_HSTS because it only
 makes sense over HTTPS and would lock browsers out of plain-http deployments.
 
 Headers are set with setdefault so a route that intentionally sets its own
@@ -27,7 +27,7 @@ HSTS_HEADER: Final = ("Strict-Transport-Security", "max-age=31536000; includeSub
 
 
 def _hsts_enabled() -> bool:
-    return os.getenv("LITELLM_ENABLE_HSTS", "false").strip().lower() == "true"
+    return os.getenv("EMBROUTER_ENABLE_HSTS", "false").strip().lower() == "true"
 
 
 class SecurityHeadersMiddleware:

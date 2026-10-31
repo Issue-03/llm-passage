@@ -12,18 +12,18 @@ Permission logic:
 
 from typing import TYPE_CHECKING, Any, Final, Literal
 
-from litellm._logging import verbose_proxy_logger
-from litellm.integrations.custom_guardrail import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.integrations.custom_guardrail import (
     CustomGuardrail,
     log_guardrail_information,
 )
-from litellm.proxy._types import LiteLLM_ObjectPermissionTable
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.utils import GenericGuardrailAPIInputs
+from embrouter.proxy._types import EmbRouter_ObjectPermissionTable
+from embrouter.types.guardrails import GuardrailEventHooks
+from embrouter.types.utils import GenericGuardrailAPIInputs
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
 
 GUARDRAIL_NAME: Final = "mcp_end_user_permission"
 
@@ -55,7 +55,7 @@ class MCPEndUserPermissionGuardrail(CustomGuardrail):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict,
         input_type: Literal["request", "response"] = "request",
-        logging_obj: "LiteLLMLoggingObj | None" = None,
+        logging_obj: "EmbRouterLoggingObj | None" = None,
     ) -> GenericGuardrailAPIInputs:
         """
         Filters MCP tools the end user cannot access based on their
@@ -71,7 +71,7 @@ class MCPEndUserPermissionGuardrail(CustomGuardrail):
     async def _check_request_tools(
         self,
         inputs: GenericGuardrailAPIInputs,
-        object_permission: LiteLLM_ObjectPermissionTable | None,
+        object_permission: EmbRouter_ObjectPermissionTable | None,
     ) -> GenericGuardrailAPIInputs:
         tools: Final = inputs.get("tools")
         if not tools:
@@ -118,7 +118,7 @@ class MCPEndUserPermissionGuardrail(CustomGuardrail):
     @staticmethod
     async def _resolve_end_user_object_permission(
         request_data: dict,
-    ) -> LiteLLM_ObjectPermissionTable | None:
+    ) -> EmbRouter_ObjectPermissionTable | None:
         """
         Resolve the end user's object_permission via the cached auth lookup.
 
@@ -134,7 +134,7 @@ class MCPEndUserPermissionGuardrail(CustomGuardrail):
 
     @staticmethod
     def _get_end_user_id_from_request_data(request_data: dict) -> str | None:
-        return request_data.get("user_api_key_end_user_id") or request_data.get("litellm_metadata", {}).get(
+        return request_data.get("user_api_key_end_user_id") or request_data.get("embrouter_metadata", {}).get(
             "user_api_key_end_user_id"
         )
 
@@ -144,8 +144,8 @@ class MCPEndUserPermissionGuardrail(CustomGuardrail):
         Fetch end user object via the same cached path used during auth.
         No extra DB round-trip when the cache is warm.
         """
-        from litellm.proxy.auth.auth_checks import get_end_user_object
-        from litellm.proxy.proxy_server import (
+        from embrouter.proxy.auth.auth_checks import get_end_user_object
+        from embrouter.proxy.proxy_server import (
             prisma_client,
             proxy_logging_obj,
             user_api_key_cache,
@@ -173,7 +173,7 @@ class MCPEndUserPermissionGuardrail(CustomGuardrail):
 
     @staticmethod
     async def _get_allowed_mcp_servers_from_object_permission(
-        object_permission: LiteLLM_ObjectPermissionTable | None,
+        object_permission: EmbRouter_ObjectPermissionTable | None,
     ) -> list[str] | None:
         """
         Returns:
@@ -189,7 +189,7 @@ class MCPEndUserPermissionGuardrail(CustomGuardrail):
         if not direct_mcp_servers and not mcp_access_groups:
             return None  # Both empty → no restrictions
 
-        from litellm.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import (
+        from embrouter.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import (
             MCPRequestHandler,
         )
 
@@ -203,7 +203,7 @@ class MCPEndUserPermissionGuardrail(CustomGuardrail):
 
     @staticmethod
     def get_config_model() -> type["GuardrailConfigModel"] | None:
-        from litellm.types.proxy.guardrails.guardrail_hooks.mcp_end_user_permission import (
+        from embrouter.types.proxy.guardrails.guardrail_hooks.mcp_end_user_permission import (
             MCPEndUserPermissionGuardrailConfigModel,
         )
 

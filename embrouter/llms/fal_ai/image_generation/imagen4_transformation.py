@@ -2,18 +2,18 @@ from typing import TYPE_CHECKING, Any, Final
 
 import httpx
 
-from litellm.types.llms.openai import OpenAIImageGenerationOptionalParams
-from litellm.types.utils import ImageObject, ImageResponse
+from embrouter.types.llms.openai import OpenAIImageGenerationOptionalParams
+from embrouter.types.utils import ImageObject, ImageResponse
 
 from .transformation import FalAIBaseConfig
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 
 class FalAIImagen4Config(FalAIBaseConfig):
@@ -149,7 +149,7 @@ class FalAIImagen4Config(FalAIBaseConfig):
         model: str,
         prompt: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         """
@@ -177,16 +177,16 @@ class FalAIImagen4Config(FalAIBaseConfig):
         model: str,
         raw_response: httpx.Response,
         model_response: ImageResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         request_data: dict,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,
     ) -> ImageResponse:
         """
-        Transform the Imagen4 response to litellm ImageResponse format.
+        Transform the Imagen4 response to embrouter ImageResponse format.
 
         Expected response format:
         {

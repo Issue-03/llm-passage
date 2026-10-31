@@ -1,9 +1,9 @@
-"""Tests for litellm/llms/a2a/chat/guardrail_translation/handler.py."""
+"""Tests for embrouter/llms/a2a/chat/guardrail_translation/handler.py."""
 
 import json
 
-from litellm.llms.a2a.chat.guardrail_translation.handler import A2AGuardrailHandler
-from litellm.llms.base_llm.guardrail_translation.base_translation import StreamingScanKey
+from embrouter.llms.a2a.chat.guardrail_translation.handler import A2AGuardrailHandler
+from embrouter.llms.base_llm.guardrail_translation.base_translation import StreamingScanKey
 
 
 def _text_event(text: str) -> str:

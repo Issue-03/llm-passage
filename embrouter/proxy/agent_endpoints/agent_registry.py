@@ -9,18 +9,18 @@ from typing import TYPE_CHECKING, Final, NamedTuple, Protocol, TypedDict
 from pydantic import TypeAdapter, ValidationError
 from typing_extensions import ReadOnly
 
-import litellm
-from litellm.constants import REDACTED_BY_LITELM_STRING
-from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
-from litellm.litellm_core_utils.sensitive_data_masker import SensitiveDataMasker
-from litellm.proxy.agent_endpoints.kill_switch import restore_kill_switch
-from litellm.proxy.management_helpers.object_permission_utils import (
+import embrouter
+from embrouter.constants import REDACTED_BY_LITELM_STRING
+from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps
+from embrouter.embrouter_core_utils.sensitive_data_masker import SensitiveDataMasker
+from embrouter.proxy.agent_endpoints.kill_switch import restore_kill_switch
+from embrouter.proxy.management_helpers.object_permission_utils import (
     handle_update_object_permission_common,
 )
-from litellm.proxy.utils import PrismaClient
-from litellm.repositories.prisma_protocols import TableActions
-from litellm.repositories.table_repositories import AgentsRepository, ObjectPermissionRepository
-from litellm.types.agents import AgentConfig, AgentKillSwitchConfig, AgentResponse, PatchAgentRequest
+from embrouter.proxy.utils import PrismaClient
+from embrouter.repositories.prisma_protocols import TableActions
+from embrouter.repositories.table_repositories import AgentsRepository, ObjectPermissionRepository
+from embrouter.types.agents import AgentConfig, AgentKillSwitchConfig, AgentResponse, PatchAgentRequest
 
 if TYPE_CHECKING:
     from prisma import models as prisma_models
@@ -39,7 +39,7 @@ class AgentIdWhere(TypedDict):
 class AgentRecordDump(TypedDict):
     agent_id: str
     agent_name: str
-    litellm_params: dict[str, object] | None
+    embrouter_params: dict[str, object] | None
     agent_card_params: dict[str, object]
     static_headers: dict[str, str] | None
     extra_headers: list[str] | None
@@ -65,7 +65,7 @@ class AgentRecord(Protocol):
     def agent_name(self) -> str: ...
 
     @property
-    def litellm_params(self) -> Mapping[str, object] | None: ...
+    def embrouter_params(self) -> Mapping[str, object] | None: ...
 
     @property
     def object_permission_id(self) -> str | None: ...
@@ -128,8 +128,8 @@ def agents_table(prisma_client: PrismaClient) -> AgentTableClient:
 
 def object_permission_table(
     prisma_client: PrismaClient,
-) -> "TableActions[prisma_models.LiteLLM_ObjectPermissionTable]":
-    table: Final[TableActions[prisma_models.LiteLLM_ObjectPermissionTable]] = ObjectPermissionRepository(
+) -> "TableActions[prisma_models.EmbRouter_ObjectPermissionTable]":
+    table: Final[TableActions[prisma_models.EmbRouter_ObjectPermissionTable]] = ObjectPermissionRepository(
         prisma_client
     ).table
     return table
@@ -146,12 +146,12 @@ _AGENT_PARAMS_MASKER: Final = SensitiveDataMasker()
 _REDACT_AGENT_PARAMS_MAX_DEPTH: Final = 10
 _AGENT_PARAMS_ADAPTER: Final[TypeAdapter[dict[str, object]]] = TypeAdapter(dict[str, object])
 _AGENT_PARAMS_SEQUENCE_ADAPTER: Final[TypeAdapter[tuple[object, ...]]] = TypeAdapter(tuple[object, ...])
-_EMPTY_LITELLM_PARAMS: Final[Mapping[str, object]] = MappingProxyType({})
+_EMPTY_EMBROUTER_PARAMS: Final[Mapping[str, object]] = MappingProxyType({})
 
 
-def redact_sensitive_agent_litellm_params(litellm_params: object, _depth: int = 0) -> object:
+def redact_sensitive_agent_embrouter_params(embrouter_params: object, _depth: int = 0) -> object:
     """
-    Replace credential-bearing values in an agent's litellm_params with
+    Replace credential-bearing values in an agent's embrouter_params with
     ``REDACTED_BY_LITELM_STRING`` while preserving non-secret keys (``model``,
     ``is_public``, rate-limit config). Used so list/get/create/update
     responses never echo a stored provider credential back to the caller.
@@ -161,21 +161,21 @@ def redact_sensitive_agent_litellm_params(litellm_params: object, _depth: int = 
     anything else is passed through. Recursion depth is bounded to match the
     convention documented in ``tests/code_coverage_tests/recursive_detector.py``.
     """
-    if litellm_params is None:
+    if embrouter_params is None:
         return None
-    if isinstance(litellm_params, str):
+    if isinstance(embrouter_params, str):
         if _depth >= _REDACT_AGENT_PARAMS_MAX_DEPTH:
             return REDACTED_BY_LITELM_STRING
         try:
-            parsed_params: Final = _AGENT_PARAMS_ADAPTER.validate_json(litellm_params)
+            parsed_params: Final = _AGENT_PARAMS_ADAPTER.validate_json(embrouter_params)
         except ValidationError:
             return REDACTED_BY_LITELM_STRING
         return json.dumps(_redact_agent_params_tree(parsed_params, _depth + 1))
-    return _redact_agent_params_tree(litellm_params, _depth)
+    return _redact_agent_params_tree(embrouter_params, _depth)
 
 
 def _redact_agent_params_tree(value: object, _depth: int) -> object:
-    """Structural recursion over an already-parsed litellm_params value: a
+    """Structural recursion over an already-parsed embrouter_params value: a
     dict redacts sensitive keys and recurses into the rest, a list redacts
     each element (so a secret nested inside a list of provider configs is
     still caught), and anything else -- including a plain string leaf, which
@@ -199,8 +199,8 @@ def _redact_agent_params_tree(value: object, _depth: int) -> object:
     }
 
 
-def parse_agent_litellm_params(value: object) -> Mapping[str, object]:
-    """Normalize a stored litellm_params column to a read-only mapping.
+def parse_agent_embrouter_params(value: object) -> Mapping[str, object]:
+    """Normalize a stored embrouter_params column to a read-only mapping.
 
     The prisma Json column comes back as either an already-parsed dict or a
     JSON string depending on the read path, so handle both rather than
@@ -211,13 +211,13 @@ def parse_agent_litellm_params(value: object) -> Mapping[str, object]:
         try:
             return _AGENT_PARAMS_ADAPTER.validate_json(value)
         except ValidationError:
-            return _EMPTY_LITELLM_PARAMS
+            return _EMPTY_EMBROUTER_PARAMS
     if isinstance(value, Mapping):
         try:
             return _AGENT_PARAMS_ADAPTER.validate_python(value)
         except ValidationError:
-            return _EMPTY_LITELLM_PARAMS
-    return _EMPTY_LITELLM_PARAMS
+            return _EMPTY_EMBROUTER_PARAMS
+    return _EMPTY_EMBROUTER_PARAMS
 
 
 _KILL_SWITCH_ADAPTER: Final[TypeAdapter[AgentKillSwitchConfig | None]] = TypeAdapter(AgentKillSwitchConfig | None)
@@ -251,7 +251,7 @@ def _restore_redacted_nested_value(incoming_value: object, existing_value: objec
     """Recurse into a non-sensitively-named dict/list value so a secret
     nested underneath it (e.g. inside a list of per-provider configs) is
     still restored, not just top-level keys. Mirrors the shapes
-    ``redact_sensitive_agent_litellm_params`` recurses into on read, so
+    ``redact_sensitive_agent_embrouter_params`` recurses into on read, so
     restore and redact stay symmetric.
 
     List elements are paired with the existing list by position: with no
@@ -280,9 +280,9 @@ def _restore_redacted_nested_value(incoming_value: object, existing_value: objec
         existing_map: Final = (
             _AGENT_PARAMS_ADAPTER.validate_python(existing_value)
             if isinstance(existing_value, Mapping)
-            else _EMPTY_LITELLM_PARAMS
+            else _EMPTY_EMBROUTER_PARAMS
         )
-        return _restore_redacted_litellm_params(typed_incoming_map, existing_map, _depth + 1)
+        return _restore_redacted_embrouter_params(typed_incoming_map, existing_map, _depth + 1)
     if isinstance(incoming_value, (list, tuple)):
         typed_incoming_seq: Final = _AGENT_PARAMS_SEQUENCE_ADAPTER.validate_python(incoming_value)
         existing_seq: Final = (
@@ -307,7 +307,7 @@ def _resolved_agent_param_value(
     existing: Mapping[str, object],
     _depth: int,
 ) -> object:
-    """The value ``key`` should end up with in a restored litellm_params, or
+    """The value ``key`` should end up with in a restored embrouter_params, or
     ``_MISSING_AGENT_PARAM`` when it should be dropped entirely."""
     if key in incoming:
         value: Final = incoming[key]
@@ -331,12 +331,12 @@ def _patched_kill_switch(agent: PatchAgentRequest, existing: object) -> Mapping[
     return MappingProxyType({"kill_switch": serialize_agent_kill_switch(agent.get("kill_switch"), existing)})
 
 
-def _restore_redacted_litellm_params(
+def _restore_redacted_embrouter_params(
     incoming: Mapping[str, object],
     existing: Mapping[str, object],
     _depth: int = 0,
 ) -> dict[str, object]:
-    """Restore the real credential behind any litellm_params value the caller
+    """Restore the real credential behind any embrouter_params value the caller
     echoed back as ``REDACTED_BY_LITELM_STRING``, and behind any sensitive key
     omitted entirely, so an edit to an unrelated field never overwrites (or
     silently drops) a stored provider credential -- the UI never has to
@@ -383,7 +383,7 @@ class AgentRegistry:
         return tuple(self.agent_list)
 
     def get_public_agent_list(self) -> tuple[AgentResponse, ...]:
-        public_agent_groups: Final = litellm.public_agent_groups
+        public_agent_groups: Final = embrouter.public_agent_groups
         if public_agent_groups is None:
             return ()
         return tuple(
@@ -476,7 +476,7 @@ class AgentRegistry:
         return self.agent_list
 
     async def migrate_legacy_grant_ids(
-        self, table: "TableActions[prisma_models.LiteLLM_ObjectPermissionTable]"
+        self, table: "TableActions[prisma_models.EmbRouter_ObjectPermissionTable]"
     ) -> GrantMigrationResult:
         """
         Rewrite object_permission.agents rows holding a legacy full-entry hash to the
@@ -537,15 +537,15 @@ class AgentRegistry:
         try:
             agent_name: Final = agent.get("agent_name")
 
-            # Serialize litellm_params. A create has no stored row to restore a
+            # Serialize embrouter_params. A create has no stored row to restore a
             # secret behind, so a sensitive key submitted as the redaction
             # marker (e.g. a stray client re-post) is dropped rather than
             # persisted as the literal placeholder string.
-            litellm_params_obj: Final = agent.get("litellm_params", {})
-            litellm_params_dict: Final = _restore_redacted_litellm_params(
-                _dump_agent_params(litellm_params_obj), _EMPTY_LITELLM_PARAMS
+            embrouter_params_obj: Final = agent.get("embrouter_params", {})
+            embrouter_params_dict: Final = _restore_redacted_embrouter_params(
+                _dump_agent_params(embrouter_params_obj), _EMPTY_EMBROUTER_PARAMS
             )
-            litellm_params: Final[str] = safe_dumps(litellm_params_dict)
+            embrouter_params: Final[str] = safe_dumps(embrouter_params_dict)
 
             # Serialize agent_card_params
             agent_card_params_obj: Final = agent.get("agent_card_params", {})
@@ -567,7 +567,7 @@ class AgentRegistry:
 
             create_data: Final[dict[str, object]] = {
                 "agent_name": agent_name,
-                "litellm_params": litellm_params,
+                "embrouter_params": embrouter_params,
                 "agent_card_params": agent_card_params,
                 "kill_switch": serialize_agent_kill_switch(agent.get("kill_switch"), None),
                 "created_by": created_by,
@@ -658,12 +658,12 @@ class AgentRegistry:
             }
             if augment_agent.get("agent_name"):
                 update_data["agent_name"] = augment_agent.get("agent_name")
-            if "litellm_params" in agent:
-                existing_litellm_params: Final = parse_agent_litellm_params(existing_agent.get("litellm_params"))
-                update_data["litellm_params"] = safe_dumps(
-                    _restore_redacted_litellm_params(
-                        _dump_agent_params(agent.get("litellm_params") or _EMPTY_LITELLM_PARAMS),
-                        existing_litellm_params,
+            if "embrouter_params" in agent:
+                existing_embrouter_params: Final = parse_agent_embrouter_params(existing_agent.get("embrouter_params"))
+                update_data["embrouter_params"] = safe_dumps(
+                    _restore_redacted_embrouter_params(
+                        _dump_agent_params(agent.get("embrouter_params") or _EMPTY_EMBROUTER_PARAMS),
+                        existing_embrouter_params,
                     )
                 )
             if augment_agent.get("agent_card_params"):
@@ -728,23 +728,23 @@ class AgentRegistry:
         try:
             agent_name: Final = agent.get("agent_name")
 
-            # A PUT fully replaces litellm_params from the request body, so the
+            # A PUT fully replaces embrouter_params from the request body, so the
             # existing row is read up front to restore any sensitive key the
             # caller echoed back redacted (or omitted) rather than persisting
             # the marker -- or nothing -- over the real stored credential.
             existing_row: Final = await agents_table(prisma_client).find_unique(
                 where={"agent_id": agent_id}  # mutable-ok: prisma's query builder rejects a Mapping/MappingProxyType
             )
-            existing_litellm_params: Final = parse_agent_litellm_params(
-                existing_row.litellm_params if existing_row is not None else None
+            existing_embrouter_params: Final = parse_agent_embrouter_params(
+                existing_row.embrouter_params if existing_row is not None else None
             )
 
-            # Serialize litellm_params
-            litellm_params_obj: Final = agent.get("litellm_params", {})
-            litellm_params_dict: Final = _restore_redacted_litellm_params(
-                _dump_agent_params(litellm_params_obj), existing_litellm_params
+            # Serialize embrouter_params
+            embrouter_params_obj: Final = agent.get("embrouter_params", {})
+            embrouter_params_dict: Final = _restore_redacted_embrouter_params(
+                _dump_agent_params(embrouter_params_obj), existing_embrouter_params
             )
-            litellm_params: Final[str] = safe_dumps(litellm_params_dict)
+            embrouter_params: Final[str] = safe_dumps(embrouter_params_dict)
 
             # Serialize agent_card_params
             agent_card_params_obj: Final = agent.get("agent_card_params", {})
@@ -764,7 +764,7 @@ class AgentRegistry:
 
             update_data: Final[dict[str, object]] = {
                 "agent_name": agent_name,
-                "litellm_params": litellm_params,
+                "embrouter_params": embrouter_params,
                 "agent_card_params": agent_card_params,
                 "static_headers": static_headers_val_u,
                 "extra_headers": extra_headers_val_u,

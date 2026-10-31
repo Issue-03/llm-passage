@@ -10,13 +10,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
-from litellm.exceptions import GuardrailRaisedException
-from litellm.proxy.guardrails.guardrail_hooks.ovalix.ovalix import (
+from embrouter.exceptions import GuardrailRaisedException
+from embrouter.proxy.guardrails.guardrail_hooks.ovalix.ovalix import (
     OvalixGuardrail,
     OvalixGuardrailBlockedException,
     OvalixGuardrailMissingSecrets,
 )
-from litellm.types.utils import GenericGuardrailAPIInputs
+from embrouter.types.utils import GenericGuardrailAPIInputs
 
 # Example Tracker responses (as returned by the checkpoint API)
 TRACKER_RESPONSE_ALLOW = {
@@ -559,7 +559,7 @@ class TestOvalixGuardrail:
             )
             assert (
                 guardrail._get_actor(
-                    {"litellm_metadata": {"user_api_key_user_id": "uid-2"}}
+                    {"embrouter_metadata": {"user_api_key_user_id": "uid-2"}}
                 )
                 == "uid-2"
             )

@@ -12,13 +12,13 @@ Validates:
 import asyncio
 from typing import TYPE_CHECKING, Any, Final, Optional
 
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy.auth.route_checks import RouteChecks
-from litellm.repositories.team_repository import TeamRepository
-from litellm.repositories.verification_token_repository import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy.auth.route_checks import RouteChecks
+from embrouter.repositories.team_repository import TeamRepository
+from embrouter.repositories.verification_token_repository import (
     VerificationTokenRepository,
 )
-from litellm.types.proxy.policy_engine import (
+from embrouter.types.proxy.policy_engine import (
     Policy,
     PolicyValidationError,
     PolicyValidationErrorType,
@@ -26,8 +26,8 @@ from litellm.types.proxy.policy_engine import (
 )
 
 if TYPE_CHECKING:
-    from litellm.proxy.utils import PrismaClient
-    from litellm.router import Router
+    from embrouter.proxy.utils import PrismaClient
+    from embrouter.router import Router
 
 
 class PolicyValidator:
@@ -71,7 +71,7 @@ class PolicyValidator:
             Set of guardrail names
         """
         try:
-            from litellm.proxy.guardrails.guardrail_registry import (
+            from embrouter.proxy.guardrails.guardrail_registry import (
                 IN_MEMORY_GUARDRAIL_HANDLER,
             )
 
@@ -419,7 +419,7 @@ class PolicyValidator:
         Returns:
             PolicyValidationResponse with errors and warnings
         """
-        from litellm.proxy.policy_engine.policy_registry import PolicyRegistry
+        from embrouter.proxy.policy_engine.policy_registry import PolicyRegistry
 
         # First, try to parse the policies
         errors: Final[list[PolicyValidationError]] = []

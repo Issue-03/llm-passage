@@ -65,7 +65,7 @@ const MOCK_KEY_DATA = {
   model_max_budget: {},
   soft_budget_cooldown: false,
   blocked: false,
-  litellm_budget_table: {},
+  embrouter_budget_table: {},
   organization_id: null,
   created_at: "2026-01-01T00:00:00Z",
   updated_at: "2026-01-01T00:00:00Z",
@@ -167,7 +167,7 @@ const makeOrganization = (overrides: Partial<Organization>): Organization =>
     created_by: "admin",
     updated_at: "2026-01-01T00:00:00Z",
     updated_by: "admin",
-    litellm_budget_table: { max_budget: null, budget_duration: null },
+    embrouter_budget_table: { max_budget: null, budget_duration: null },
     teams: null,
     users: null,
     members: null,
@@ -265,7 +265,7 @@ describe("KeyInfoView overview budget display (LIT-2845)", () => {
       teams: [makeTeam({ team_id: "team-456", team_alias: "Org Team", organization_id: "org-1" })],
       setTeams: vi.fn(),
     });
-    mockOrganizations([makeOrganization({ litellm_budget_table: { max_budget: 5000, budget_duration: null } })]);
+    mockOrganizations([makeOrganization({ embrouter_budget_table: { max_budget: 5000, budget_duration: null } })]);
     renderWithProviders(
       <KeyInfoView
         keyData={{ ...MOCK_KEY_DATA, max_budget: null, team_id: "team-456" } as unknown as KeyResponse}

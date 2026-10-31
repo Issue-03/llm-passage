@@ -2,7 +2,7 @@
   {
     "provider": "AIML",
     "provider_display_name": "AI/ML API",
-    "litellm_provider": "aiml",
+    "embrouter_provider": "aiml",
     "credential_fields": [
       {
         "key": "api_key",
@@ -20,7 +20,7 @@
   {
     "provider": "AI21",
     "provider_display_name": "Ai21",
-    "litellm_provider": "ai21",
+    "embrouter_provider": "ai21",
     "credential_fields": [
       {
         "key": "api_base",
@@ -48,7 +48,7 @@
   {
     "provider": "AI21_CHAT",
     "provider_display_name": "Ai21 Chat",
-    "litellm_provider": "ai21_chat",
+    "embrouter_provider": "ai21_chat",
     "credential_fields": [
       {
         "key": "api_base",
@@ -76,7 +76,7 @@
   {
     "provider": "AIOHTTP_OPENAI",
     "provider_display_name": "Aiohttp Openai",
-    "litellm_provider": "aiohttp_openai",
+    "embrouter_provider": "aiohttp_openai",
     "credential_fields": [
       {
         "key": "api_base",
@@ -104,7 +104,7 @@
   {
     "provider": "Bedrock",
     "provider_display_name": "Amazon Bedrock",
-    "litellm_provider": "bedrock",
+    "embrouter_provider": "bedrock",
     "credential_fields": [
       {
         "key": "aws_access_key_id",
@@ -212,7 +212,7 @@
   {
     "provider": "AWS_Textract",
     "provider_display_name": "Amazon Textract",
-    "litellm_provider": "aws_textract",
+    "embrouter_provider": "aws_textract",
     "credential_fields": [
       {
         "key": "aws_access_key_id",
@@ -300,7 +300,7 @@
   {
     "provider": "BedrockMantle",
     "provider_display_name": "Amazon Bedrock Mantle",
-    "litellm_provider": "bedrock_mantle",
+    "embrouter_provider": "bedrock_mantle",
     "credential_fields": [
       {
         "key": "api_key",
@@ -408,13 +408,13 @@
   {
     "provider": "Anthropic",
     "provider_display_name": "Anthropic",
-    "litellm_provider": "anthropic",
+    "embrouter_provider": "anthropic",
     "credential_fields": [
       {
         "key": "api_base",
         "label": "Upstream API Base",
         "placeholder": "https://api.anthropic.com",
-        "tooltip": "Optional. Where the proxy forwards requests upstream. Leave blank to use Anthropic's public API. Set this only for private Anthropic deployments or reverse proxies. Do NOT set this to your LiteLLM proxy URL — that causes a recursive loop.",
+        "tooltip": "Optional. Where the proxy forwards requests upstream. Leave blank to use Anthropic's public API. Set this only for private Anthropic deployments or reverse proxies. Do NOT set this to your EmbRouter proxy URL — that causes a recursive loop.",
         "required": false,
         "field_type": "text",
         "options": null,
@@ -436,7 +436,7 @@
   {
     "provider": "ANTHROPIC_TEXT",
     "provider_display_name": "Anthropic Text",
-    "litellm_provider": "anthropic_text",
+    "embrouter_provider": "anthropic_text",
     "credential_fields": [
       {
         "key": "api_base",
@@ -464,7 +464,7 @@
   {
     "provider": "AssemblyAI",
     "provider_display_name": "AssemblyAI",
-    "litellm_provider": "assemblyai",
+    "embrouter_provider": "assemblyai",
     "credential_fields": [
       {
         "key": "api_base",
@@ -495,7 +495,7 @@
   {
     "provider": "AUTO_ROUTER",
     "provider_display_name": "Auto Router",
-    "litellm_provider": "auto_router",
+    "embrouter_provider": "auto_router",
     "credential_fields": [
       {
         "key": "api_base",
@@ -523,7 +523,7 @@
   {
     "provider": "SageMaker",
     "provider_display_name": "AWS SageMaker",
-    "litellm_provider": "sagemaker_chat",
+    "embrouter_provider": "sagemaker_chat",
     "credential_fields": [
       {
         "key": "aws_access_key_id",
@@ -561,7 +561,7 @@
   {
     "provider": "Azure",
     "provider_display_name": "Azure",
-    "litellm_provider": "azure",
+    "embrouter_provider": "azure",
     "credential_fields": [
       {
         "key": "api_base",
@@ -577,7 +577,7 @@
         "key": "api_version",
         "label": "API Version",
         "placeholder": "2023-07-01-preview",
-        "tooltip": "By default litellm will use the latest version. If you want to use a different version, you can specify it here",
+        "tooltip": "By default embrouter will use the latest version. If you want to use a different version, you can specify it here",
         "required": false,
         "field_type": "text",
         "options": null,
@@ -649,13 +649,13 @@
   {
     "provider": "Azure_AI_Studio",
     "provider_display_name": "Azure AI Foundry (Studio)",
-    "litellm_provider": "azure_ai",
+    "embrouter_provider": "azure_ai",
     "credential_fields": [
       {
         "key": "api_base",
         "label": "API Base",
         "placeholder": "https://<test>.openai.azure.com/openai/deployments/gpt-4o/chat/completions?api-version=2024-10-21",
-        "tooltip": "Enter your full Target URI from Azure Foundry here. Example:  https://litellm8397336933.openai.azure.com/openai/deployments/gpt-4o/chat/completions?api-version=2024-10-21",
+        "tooltip": "Enter your full Target URI from Azure Foundry here. Example:  https://embrouter8397336933.openai.azure.com/openai/deployments/gpt-4o/chat/completions?api-version=2024-10-21",
         "required": true,
         "field_type": "text",
         "options": null,
@@ -677,7 +677,7 @@
   {
     "provider": "Azure_Speech",
     "provider_display_name": "Azure AI Speech",
-    "litellm_provider": "azure_speech",
+    "embrouter_provider": "azure_speech",
     "credential_fields": [
       {
         "key": "api_key",
@@ -695,7 +695,7 @@
   {
     "provider": "AZURE_TEXT",
     "provider_display_name": "Azure Text",
-    "litellm_provider": "azure_text",
+    "embrouter_provider": "azure_text",
     "credential_fields": [
       {
         "key": "api_base",
@@ -723,7 +723,7 @@
   {
     "provider": "BASETEN",
     "provider_display_name": "Baseten",
-    "litellm_provider": "baseten",
+    "embrouter_provider": "baseten",
     "credential_fields": [
       {
         "key": "api_base",
@@ -751,7 +751,7 @@
   {
     "provider": "BYTEZ",
     "provider_display_name": "Bytez",
-    "litellm_provider": "bytez",
+    "embrouter_provider": "bytez",
     "credential_fields": [
       {
         "key": "api_base",
@@ -779,7 +779,7 @@
   {
     "provider": "Cerebras",
     "provider_display_name": "Cerebras",
-    "litellm_provider": "cerebras",
+    "embrouter_provider": "cerebras",
     "credential_fields": [
       {
         "key": "api_key",
@@ -797,14 +797,14 @@
   {
     "provider": "CHATGPT",
     "provider_display_name": "ChatGPT Subscription",
-    "litellm_provider": "chatgpt",
+    "embrouter_provider": "chatgpt",
     "credential_fields": [],
     "default_model_placeholder": "chatgpt/gpt-5.4"
   },
   {
     "provider": "CLARIFAI",
     "provider_display_name": "Clarifai",
-    "litellm_provider": "clarifai",
+    "embrouter_provider": "clarifai",
     "credential_fields": [
       {
         "key": "api_base",
@@ -832,7 +832,7 @@
   {
     "provider": "CLOUDFLARE",
     "provider_display_name": "Cloudflare",
-    "litellm_provider": "cloudflare",
+    "embrouter_provider": "cloudflare",
     "credential_fields": [
       {
         "key": "api_base",
@@ -860,7 +860,7 @@
   {
     "provider": "CODESTRAL",
     "provider_display_name": "Codestral",
-    "litellm_provider": "codestral",
+    "embrouter_provider": "codestral",
     "credential_fields": [
       {
         "key": "api_base",
@@ -888,7 +888,7 @@
   {
     "provider": "Cognition",
     "provider_display_name": "Cognition",
-    "litellm_provider": "cognition",
+    "embrouter_provider": "cognition",
     "credential_fields": [
       {
         "key": "api_base",
@@ -916,7 +916,7 @@
   {
     "provider": "Cohere",
     "provider_display_name": "Cohere",
-    "litellm_provider": "cohere",
+    "embrouter_provider": "cohere",
     "credential_fields": [
       {
         "key": "api_key",
@@ -934,7 +934,7 @@
   {
     "provider": "COHERE_CHAT",
     "provider_display_name": "Cohere Chat",
-    "litellm_provider": "cohere_chat",
+    "embrouter_provider": "cohere_chat",
     "credential_fields": [
       {
         "key": "api_base",
@@ -962,7 +962,7 @@
   {
     "provider": "COMETAPI",
     "provider_display_name": "Cometapi",
-    "litellm_provider": "cometapi",
+    "embrouter_provider": "cometapi",
     "credential_fields": [
       {
         "key": "api_base",
@@ -990,7 +990,7 @@
   {
     "provider": "COMPACTIFAI",
     "provider_display_name": "Compactifai",
-    "litellm_provider": "compactifai",
+    "embrouter_provider": "compactifai",
     "credential_fields": [
       {
         "key": "api_base",
@@ -1018,7 +1018,7 @@
   {
     "provider": "CUSTOM",
     "provider_display_name": "Custom",
-    "litellm_provider": "custom",
+    "embrouter_provider": "custom",
     "credential_fields": [
       {
         "key": "api_base",
@@ -1046,7 +1046,7 @@
   {
     "provider": "CUSTOM_OPENAI",
     "provider_display_name": "Custom Openai",
-    "litellm_provider": "custom_openai",
+    "embrouter_provider": "custom_openai",
     "credential_fields": [
       {
         "key": "api_base",
@@ -1074,7 +1074,7 @@
   {
     "provider": "Dashscope",
     "provider_display_name": "Dashscope",
-    "litellm_provider": "dashscope",
+    "embrouter_provider": "dashscope",
     "credential_fields": [
       {
         "key": "api_key",
@@ -1102,7 +1102,7 @@
   {
     "provider": "QwenCloud",
     "provider_display_name": "QwenCloud",
-    "litellm_provider": "qwencloud",
+    "embrouter_provider": "qwencloud",
     "credential_fields": [
       {
         "key": "api_key",
@@ -1130,7 +1130,7 @@
   {
     "provider": "Qwen_AI_Platform",
     "provider_display_name": "Qianwen AI Platform",
-    "litellm_provider": "qwen_ai_platform",
+    "embrouter_provider": "qwen_ai_platform",
     "credential_fields": [
       {
         "key": "api_key",
@@ -1158,7 +1158,7 @@
   {
     "provider": "Databricks",
     "provider_display_name": "Databricks",
-    "litellm_provider": "databricks",
+    "embrouter_provider": "databricks",
     "credential_fields": [
       {
         "key": "api_base",
@@ -1186,7 +1186,7 @@
   {
     "provider": "DATAROBOT",
     "provider_display_name": "Datarobot",
-    "litellm_provider": "datarobot",
+    "embrouter_provider": "datarobot",
     "credential_fields": [
       {
         "key": "api_base",
@@ -1214,7 +1214,7 @@
   {
     "provider": "Deepgram",
     "provider_display_name": "Deepgram",
-    "litellm_provider": "deepgram",
+    "embrouter_provider": "deepgram",
     "credential_fields": [
       {
         "key": "api_key",
@@ -1232,7 +1232,7 @@
   {
     "provider": "DeepInfra",
     "provider_display_name": "DeepInfra",
-    "litellm_provider": "deepinfra",
+    "embrouter_provider": "deepinfra",
     "credential_fields": [
       {
         "key": "api_key",
@@ -1250,7 +1250,7 @@
   {
     "provider": "Deepseek",
     "provider_display_name": "Deepseek",
-    "litellm_provider": "deepseek",
+    "embrouter_provider": "deepseek",
     "credential_fields": [
       {
         "key": "api_key",
@@ -1268,7 +1268,7 @@
   {
     "provider": "DOCKER_MODEL_RUNNER",
     "provider_display_name": "Docker Model Runner",
-    "litellm_provider": "docker_model_runner",
+    "embrouter_provider": "docker_model_runner",
     "credential_fields": [
       {
         "key": "api_base",
@@ -1296,7 +1296,7 @@
   {
     "provider": "DOTPROMPT",
     "provider_display_name": "Dotprompt",
-    "litellm_provider": "dotprompt",
+    "embrouter_provider": "dotprompt",
     "credential_fields": [
       {
         "key": "api_base",
@@ -1324,7 +1324,7 @@
   {
     "provider": "EDENAI",
     "provider_display_name": "Eden AI",
-    "litellm_provider": "edenai",
+    "embrouter_provider": "edenai",
     "credential_fields": [
       {
         "key": "api_base",
@@ -1352,7 +1352,7 @@
   {
     "provider": "ElevenLabs",
     "provider_display_name": "ElevenLabs",
-    "litellm_provider": "elevenlabs",
+    "embrouter_provider": "elevenlabs",
     "credential_fields": [
       {
         "key": "api_key",
@@ -1370,7 +1370,7 @@
   {
     "provider": "EMPOWER",
     "provider_display_name": "Empower",
-    "litellm_provider": "empower",
+    "embrouter_provider": "empower",
     "credential_fields": [
       {
         "key": "api_base",
@@ -1398,7 +1398,7 @@
   {
     "provider": "FalAI",
     "provider_display_name": "Fal AI",
-    "litellm_provider": "fal_ai",
+    "embrouter_provider": "fal_ai",
     "credential_fields": [
       {
         "key": "api_key",
@@ -1416,7 +1416,7 @@
   {
     "provider": "FEATHERLESS_AI",
     "provider_display_name": "Featherless Ai",
-    "litellm_provider": "featherless_ai",
+    "embrouter_provider": "featherless_ai",
     "credential_fields": [
       {
         "key": "api_base",
@@ -1444,7 +1444,7 @@
   {
     "provider": "FireworksAI",
     "provider_display_name": "Fireworks AI",
-    "litellm_provider": "fireworks_ai",
+    "embrouter_provider": "fireworks_ai",
     "credential_fields": [
       {
         "key": "api_key",
@@ -1462,7 +1462,7 @@
   {
     "provider": "FRIENDLIAI",
     "provider_display_name": "Friendliai",
-    "litellm_provider": "friendliai",
+    "embrouter_provider": "friendliai",
     "credential_fields": [
       {
         "key": "api_base",
@@ -1490,7 +1490,7 @@
   {
     "provider": "GALADRIEL",
     "provider_display_name": "Galadriel",
-    "litellm_provider": "galadriel",
+    "embrouter_provider": "galadriel",
     "credential_fields": [
       {
         "key": "api_base",
@@ -1518,7 +1518,7 @@
   {
     "provider": "GIGACHAT",
     "provider_display_name": "GigaChat",
-    "litellm_provider": "gigachat",
+    "embrouter_provider": "gigachat",
     "credential_fields": [
       {
         "key": "api_base",
@@ -1580,7 +1580,7 @@
   {
     "provider": "GITHUB",
     "provider_display_name": "Github",
-    "litellm_provider": "github",
+    "embrouter_provider": "github",
     "credential_fields": [
       {
         "key": "api_base",
@@ -1608,7 +1608,7 @@
   {
     "provider": "GITHUB_COPILOT",
     "provider_display_name": "Github Copilot",
-    "litellm_provider": "github_copilot",
+    "embrouter_provider": "github_copilot",
     "credential_fields": [
       {
         "key": "api_base",
@@ -1636,13 +1636,13 @@
   {
     "provider": "Google_AI_Studio",
     "provider_display_name": "Google AI Studio",
-    "litellm_provider": "gemini",
+    "embrouter_provider": "gemini",
     "credential_fields": [
       {
         "key": "api_base",
         "label": "API Base",
         "placeholder": "https://generativelanguage.googleapis.com/v1beta",
-        "tooltip": "Leave blank to let LiteLLM pick the right Gemini API version automatically (v1alpha for Gemini 3+ models, v1beta otherwise). Override only when fronting Gemini through a custom gateway; if you do, include the version prefix (e.g. /v1beta) but not the trailing slash. LiteLLM appends '/models/{model}:generateContent'.",
+        "tooltip": "Leave blank to let EmbRouter pick the right Gemini API version automatically (v1alpha for Gemini 3+ models, v1beta otherwise). Override only when fronting Gemini through a custom gateway; if you do, include the version prefix (e.g. /v1beta) but not the trailing slash. EmbRouter appends '/models/{model}:generateContent'.",
         "required": false,
         "field_type": "text",
         "options": null,
@@ -1664,7 +1664,7 @@
   {
     "provider": "GradientAI",
     "provider_display_name": "GradientAI",
-    "litellm_provider": "gradient_ai",
+    "embrouter_provider": "gradient_ai",
     "credential_fields": [
       {
         "key": "api_base",
@@ -1692,7 +1692,7 @@
   {
     "provider": "Groq",
     "provider_display_name": "Groq",
-    "litellm_provider": "groq",
+    "embrouter_provider": "groq",
     "credential_fields": [
       {
         "key": "api_key",
@@ -1710,7 +1710,7 @@
   {
     "provider": "HEROKU",
     "provider_display_name": "Heroku",
-    "litellm_provider": "heroku",
+    "embrouter_provider": "heroku",
     "credential_fields": [
       {
         "key": "api_base",
@@ -1738,7 +1738,7 @@
   {
     "provider": "HUGGINGFACE",
     "provider_display_name": "Huggingface",
-    "litellm_provider": "huggingface",
+    "embrouter_provider": "huggingface",
     "credential_fields": [
       {
         "key": "api_base",
@@ -1766,7 +1766,7 @@
   {
     "provider": "HUMANLOOP",
     "provider_display_name": "Humanloop",
-    "litellm_provider": "humanloop",
+    "embrouter_provider": "humanloop",
     "credential_fields": [
       {
         "key": "api_base",
@@ -1794,7 +1794,7 @@
   {
     "provider": "HYPERBOLIC",
     "provider_display_name": "Hyperbolic",
-    "litellm_provider": "hyperbolic",
+    "embrouter_provider": "hyperbolic",
     "credential_fields": [
       {
         "key": "api_base",
@@ -1822,7 +1822,7 @@
   {
     "provider": "Infinity",
     "provider_display_name": "Infinity",
-    "litellm_provider": "infinity",
+    "embrouter_provider": "infinity",
     "credential_fields": [
       {
         "key": "api_base",
@@ -1840,7 +1840,7 @@
   {
     "provider": "JinaAI",
     "provider_display_name": "Jina AI",
-    "litellm_provider": "jina_ai",
+    "embrouter_provider": "jina_ai",
     "credential_fields": [
       {
         "key": "api_key",
@@ -1858,7 +1858,7 @@
   {
     "provider": "LAMBDA_AI",
     "provider_display_name": "Lambda Ai",
-    "litellm_provider": "lambda_ai",
+    "embrouter_provider": "lambda_ai",
     "credential_fields": [
       {
         "key": "api_base",
@@ -1886,7 +1886,7 @@
   {
     "provider": "LANGFUSE",
     "provider_display_name": "Langfuse",
-    "litellm_provider": "langfuse",
+    "embrouter_provider": "langfuse",
     "credential_fields": [
       {
         "key": "api_base",
@@ -1914,7 +1914,7 @@
   {
     "provider": "LEMONADE",
     "provider_display_name": "Lemonade",
-    "litellm_provider": "lemonade",
+    "embrouter_provider": "lemonade",
     "credential_fields": [
       {
         "key": "api_base",
@@ -1940,9 +1940,9 @@
     "default_model_placeholder": "gpt-3.5-turbo"
   },
   {
-    "provider": "LITELLM_PROXY",
-    "provider_display_name": "Litellm Proxy",
-    "litellm_provider": "litellm_proxy",
+    "provider": "EMBROUTER_PROXY",
+    "provider_display_name": "Embrouter Proxy",
+    "embrouter_provider": "embrouter_proxy",
     "credential_fields": [
       {
         "key": "api_base",
@@ -1970,7 +1970,7 @@
   {
     "provider": "LLAMAFILE",
     "provider_display_name": "Llamafile",
-    "litellm_provider": "llamafile",
+    "embrouter_provider": "llamafile",
     "credential_fields": [
       {
         "key": "api_base",
@@ -1998,7 +1998,7 @@
   {
     "provider": "LM_STUDIO",
     "provider_display_name": "Lm Studio",
-    "litellm_provider": "lm_studio",
+    "embrouter_provider": "lm_studio",
     "credential_fields": [
       {
         "key": "api_base",
@@ -2026,7 +2026,7 @@
   {
     "provider": "MARITALK",
     "provider_display_name": "Maritalk",
-    "litellm_provider": "maritalk",
+    "embrouter_provider": "maritalk",
     "credential_fields": [
       {
         "key": "api_base",
@@ -2054,7 +2054,7 @@
   {
     "provider": "LLAMA",
     "provider_display_name": "Meta Llama",
-    "litellm_provider": "meta_llama",
+    "embrouter_provider": "meta_llama",
     "credential_fields": [
       {
         "key": "api_base",
@@ -2082,7 +2082,7 @@
   {
     "provider": "MILVUS",
     "provider_display_name": "Milvus",
-    "litellm_provider": "milvus",
+    "embrouter_provider": "milvus",
     "credential_fields": [
       {
         "key": "api_base",
@@ -2110,7 +2110,7 @@
   {
     "provider": "MistralAI",
     "provider_display_name": "Mistral AI",
-    "litellm_provider": "mistral",
+    "embrouter_provider": "mistral",
     "credential_fields": [
       {
         "key": "api_key",
@@ -2128,7 +2128,7 @@
   {
     "provider": "MINIMAX",
     "provider_display_name": "MiniMax",
-    "litellm_provider": "minimax",
+    "embrouter_provider": "minimax",
     "credential_fields": [
       {
         "key": "api_key",
@@ -2156,7 +2156,7 @@
   {
     "provider": "MOONSHOT",
     "provider_display_name": "Moonshot",
-    "litellm_provider": "moonshot",
+    "embrouter_provider": "moonshot",
     "credential_fields": [
       {
         "key": "api_base",
@@ -2184,7 +2184,7 @@
   {
     "provider": "MORPH",
     "provider_display_name": "Morph",
-    "litellm_provider": "morph",
+    "embrouter_provider": "morph",
     "credential_fields": [
       {
         "key": "api_base",
@@ -2212,7 +2212,7 @@
   {
     "provider": "NEBIUS",
     "provider_display_name": "Nebius",
-    "litellm_provider": "nebius",
+    "embrouter_provider": "nebius",
     "credential_fields": [
       {
         "key": "api_base",
@@ -2240,7 +2240,7 @@
   {
     "provider": "NLP_CLOUD",
     "provider_display_name": "Nlp Cloud",
-    "litellm_provider": "nlp_cloud",
+    "embrouter_provider": "nlp_cloud",
     "credential_fields": [
       {
         "key": "api_base",
@@ -2268,7 +2268,7 @@
   {
     "provider": "NOVITA",
     "provider_display_name": "Novita",
-    "litellm_provider": "novita",
+    "embrouter_provider": "novita",
     "credential_fields": [
       {
         "key": "api_base",
@@ -2296,7 +2296,7 @@
   {
     "provider": "NSCALE",
     "provider_display_name": "Nscale",
-    "litellm_provider": "nscale",
+    "embrouter_provider": "nscale",
     "credential_fields": [
       {
         "key": "api_base",
@@ -2324,7 +2324,7 @@
   {
     "provider": "NVIDIA_NIM",
     "provider_display_name": "Nvidia Nim",
-    "litellm_provider": "nvidia_nim",
+    "embrouter_provider": "nvidia_nim",
     "credential_fields": [
       {
         "key": "api_base",
@@ -2352,7 +2352,7 @@
   {
     "provider": "NVIDIA_RIVA",
     "provider_display_name": "Nvidia Riva",
-    "litellm_provider": "nvidia_riva",
+    "embrouter_provider": "nvidia_riva",
     "credential_fields": [
       {
         "key": "api_base",
@@ -2390,7 +2390,7 @@
   {
     "provider": "Ollama",
     "provider_display_name": "Ollama",
-    "litellm_provider": "ollama",
+    "embrouter_provider": "ollama",
     "credential_fields": [
       {
         "key": "api_base",
@@ -2408,7 +2408,7 @@
   {
     "provider": "OLLAMA_CHAT",
     "provider_display_name": "Ollama Chat",
-    "litellm_provider": "ollama_chat",
+    "embrouter_provider": "ollama_chat",
     "credential_fields": [
       {
         "key": "api_base",
@@ -2436,7 +2436,7 @@
   {
     "provider": "OOBABOOGA",
     "provider_display_name": "Oobabooga",
-    "litellm_provider": "oobabooga",
+    "embrouter_provider": "oobabooga",
     "credential_fields": [
       {
         "key": "api_base",
@@ -2464,7 +2464,7 @@
   {
     "provider": "OpenAI",
     "provider_display_name": "OpenAI",
-    "litellm_provider": "openai",
+    "embrouter_provider": "openai",
     "credential_fields": [
       {
         "key": "api_base",
@@ -2502,7 +2502,7 @@
   {
     "provider": "OPENAI_LIKE",
     "provider_display_name": "Openai Like",
-    "litellm_provider": "openai_like",
+    "embrouter_provider": "openai_like",
     "credential_fields": [
       {
         "key": "api_base",
@@ -2530,7 +2530,7 @@
   {
     "provider": "OpenAI_Text",
     "provider_display_name": "OpenAI Text Completion",
-    "litellm_provider": "text-completion-openai",
+    "embrouter_provider": "text-completion-openai",
     "credential_fields": [
       {
         "key": "api_base",
@@ -2568,7 +2568,7 @@
   {
     "provider": "OpenAI_Compatible",
     "provider_display_name": "OpenAI-Compatible Endpoints (Together AI, etc.)",
-    "litellm_provider": "openai",
+    "embrouter_provider": "openai",
     "credential_fields": [
       {
         "key": "api_base",
@@ -2596,7 +2596,7 @@
   {
     "provider": "OpenAI_Text_Compatible",
     "provider_display_name": "OpenAI-Compatible Text Completion Models (Together AI, etc.)",
-    "litellm_provider": "text-completion-openai",
+    "embrouter_provider": "text-completion-openai",
     "credential_fields": [
       {
         "key": "api_base",
@@ -2624,7 +2624,7 @@
   {
     "provider": "Openrouter",
     "provider_display_name": "Openrouter",
-    "litellm_provider": "openrouter",
+    "embrouter_provider": "openrouter",
     "credential_fields": [
       {
         "key": "api_key",
@@ -2642,7 +2642,7 @@
   {
     "provider": "Nadir",
     "provider_display_name": "Nadir",
-    "litellm_provider": "nadir",
+    "embrouter_provider": "nadir",
     "credential_fields": [
       {
         "key": "api_key",
@@ -2660,7 +2660,7 @@
   {
     "provider": "Oracle",
     "provider_display_name": "Oracle Cloud Infrastructure (OCI)",
-    "litellm_provider": "oci",
+    "embrouter_provider": "oci",
     "credential_fields": [
       {
         "key": "oci_user",
@@ -2728,7 +2728,7 @@
   {
     "provider": "OVHCLOUD",
     "provider_display_name": "Ovhcloud",
-    "litellm_provider": "ovhcloud",
+    "embrouter_provider": "ovhcloud",
     "credential_fields": [
       {
         "key": "api_base",
@@ -2756,7 +2756,7 @@
   {
     "provider": "Perplexity",
     "provider_display_name": "Perplexity",
-    "litellm_provider": "perplexity",
+    "embrouter_provider": "perplexity",
     "credential_fields": [
       {
         "key": "api_key",
@@ -2774,7 +2774,7 @@
   {
     "provider": "PETALS",
     "provider_display_name": "Petals",
-    "litellm_provider": "petals",
+    "embrouter_provider": "petals",
     "credential_fields": [
       {
         "key": "api_base",
@@ -2802,7 +2802,7 @@
   {
     "provider": "PG_VECTOR",
     "provider_display_name": "Pg Vector",
-    "litellm_provider": "pg_vector",
+    "embrouter_provider": "pg_vector",
     "credential_fields": [
       {
         "key": "api_base",
@@ -2830,7 +2830,7 @@
   {
     "provider": "PREDIBASE",
     "provider_display_name": "Predibase",
-    "litellm_provider": "predibase",
+    "embrouter_provider": "predibase",
     "credential_fields": [
       {
         "key": "api_base",
@@ -2858,7 +2858,7 @@
   {
     "provider": "PRISM",
     "provider_display_name": "Prism",
-    "litellm_provider": "prism",
+    "embrouter_provider": "prism",
     "credential_fields": [
       {
         "key": "api_base",
@@ -2886,7 +2886,7 @@
   {
     "provider": "RECRAFT",
     "provider_display_name": "Recraft",
-    "litellm_provider": "recraft",
+    "embrouter_provider": "recraft",
     "credential_fields": [
       {
         "key": "api_base",
@@ -2914,7 +2914,7 @@
   {
     "provider": "REPLICATE",
     "provider_display_name": "Replicate",
-    "litellm_provider": "replicate",
+    "embrouter_provider": "replicate",
     "credential_fields": [
       {
         "key": "api_base",
@@ -2942,7 +2942,7 @@
   {
     "provider": "RUNWAYML",
     "provider_display_name": "Runwayml",
-    "litellm_provider": "runwayml",
+    "embrouter_provider": "runwayml",
     "credential_fields": [
       {
         "key": "api_base",
@@ -2970,7 +2970,7 @@
   {
     "provider": "SAGEMAKER",
     "provider_display_name": "Sagemaker",
-    "litellm_provider": "sagemaker",
+    "embrouter_provider": "sagemaker",
     "credential_fields": [
       {
         "key": "api_base",
@@ -2998,7 +2998,7 @@
   {
     "provider": "Sail",
     "provider_display_name": "Sail",
-    "litellm_provider": "sail",
+    "embrouter_provider": "sail",
     "credential_fields": [
       {
         "key": "api_key",
@@ -3026,7 +3026,7 @@
   {
     "provider": "Sambanova",
     "provider_display_name": "Sambanova",
-    "litellm_provider": "sambanova",
+    "embrouter_provider": "sambanova",
     "credential_fields": [
       {
         "key": "api_key",
@@ -3044,7 +3044,7 @@
   {
     "provider": "SAP",
     "provider_display_name": "SAP Generative AI Hub",
-    "litellm_provider": "sap",
+    "embrouter_provider": "sap",
     "credential_fields": [
       {
         "key": "api_key",
@@ -3062,7 +3062,7 @@
   {
     "provider": "SCX_AI",
     "provider_display_name": "SCX.ai",
-    "litellm_provider": "scx-ai",
+    "embrouter_provider": "scx-ai",
     "credential_fields": [
       {
         "key": "api_base",
@@ -3090,7 +3090,7 @@
   {
     "provider": "Snowflake",
     "provider_display_name": "Snowflake",
-    "litellm_provider": "snowflake",
+    "embrouter_provider": "snowflake",
     "credential_fields": [
       {
         "key": "api_key",
@@ -3118,7 +3118,7 @@
   {
     "provider": "Soniox",
     "provider_display_name": "Soniox",
-    "litellm_provider": "soniox",
+    "embrouter_provider": "soniox",
     "credential_fields": [
       {
         "key": "api_key",
@@ -3136,7 +3136,7 @@
   {
     "provider": "TEXT_COMPLETION_CODESTRAL",
     "provider_display_name": "Text-Completion-Codestral",
-    "litellm_provider": "text-completion-codestral",
+    "embrouter_provider": "text-completion-codestral",
     "credential_fields": [
       {
         "key": "api_base",
@@ -3164,7 +3164,7 @@
   {
     "provider": "TogetherAI",
     "provider_display_name": "TogetherAI",
-    "litellm_provider": "together_ai",
+    "embrouter_provider": "together_ai",
     "credential_fields": [
       {
         "key": "api_key",
@@ -3182,7 +3182,7 @@
   {
     "provider": "TOPAZ",
     "provider_display_name": "Topaz",
-    "litellm_provider": "topaz",
+    "embrouter_provider": "topaz",
     "credential_fields": [
       {
         "key": "api_base",
@@ -3210,7 +3210,7 @@
   {
     "provider": "Triton",
     "provider_display_name": "Triton",
-    "litellm_provider": "triton",
+    "embrouter_provider": "triton",
     "credential_fields": [
       {
         "key": "api_key",
@@ -3238,7 +3238,7 @@
   {
     "provider": "V0",
     "provider_display_name": "V0",
-    "litellm_provider": "v0",
+    "embrouter_provider": "v0",
     "credential_fields": [
       {
         "key": "api_base",
@@ -3266,7 +3266,7 @@
   {
     "provider": "VERCEL_AI_GATEWAY",
     "provider_display_name": "Vercel Ai Gateway",
-    "litellm_provider": "vercel_ai_gateway",
+    "embrouter_provider": "vercel_ai_gateway",
     "credential_fields": [
       {
         "key": "api_base",
@@ -3294,7 +3294,7 @@
   {
     "provider": "Vertex_AI",
     "provider_display_name": "Vertex AI (Anthropic, Gemini, etc.)",
-    "litellm_provider": "vertex_ai",
+    "embrouter_provider": "vertex_ai",
     "credential_fields": [
       {
         "key": "vertex_project",
@@ -3342,7 +3342,7 @@
   {
     "provider": "VERTEX_AI_BETA",
     "provider_display_name": "Vertex Ai Beta",
-    "litellm_provider": "vertex_ai_beta",
+    "embrouter_provider": "vertex_ai_beta",
     "credential_fields": [
       {
         "key": "api_base",
@@ -3370,7 +3370,7 @@
   {
     "provider": "Hosted_Vllm",
     "provider_display_name": "Hosted vLLM",
-    "litellm_provider": "hosted_vllm",
+    "embrouter_provider": "hosted_vllm",
     "credential_fields": [
       {
         "key": "api_base",
@@ -3398,7 +3398,7 @@
   {
     "provider": "VLLM",
     "provider_display_name": "Local vLLM",
-    "litellm_provider": "vllm",
+    "embrouter_provider": "vllm",
     "credential_fields": [
       {
         "key": "api_base",
@@ -3426,7 +3426,7 @@
   {
     "provider": "VolcEngine",
     "provider_display_name": "VolcEngine",
-    "litellm_provider": "volcengine",
+    "embrouter_provider": "volcengine",
     "credential_fields": [
       {
         "key": "api_key",
@@ -3444,7 +3444,7 @@
   {
     "provider": "Voyage",
     "provider_display_name": "Voyage AI",
-    "litellm_provider": "voyage",
+    "embrouter_provider": "voyage",
     "credential_fields": [
       {
         "key": "api_key",
@@ -3462,7 +3462,7 @@
   {
     "provider": "WANDB",
     "provider_display_name": "Wandb",
-    "litellm_provider": "wandb",
+    "embrouter_provider": "wandb",
     "credential_fields": [
       {
         "key": "api_base",
@@ -3490,7 +3490,7 @@
   {
     "provider": "WATSONX",
     "provider_display_name": "Watsonx",
-    "litellm_provider": "watsonx",
+    "embrouter_provider": "watsonx",
     "credential_fields": [
       {
         "key": "api_base",
@@ -3558,7 +3558,7 @@
   {
     "provider": "WATSONX_TEXT",
     "provider_display_name": "Watsonx Text",
-    "litellm_provider": "watsonx_text",
+    "embrouter_provider": "watsonx_text",
     "credential_fields": [
       {
         "key": "api_base",
@@ -3586,7 +3586,7 @@
   {
     "provider": "xAI",
     "provider_display_name": "xAI",
-    "litellm_provider": "xai",
+    "embrouter_provider": "xai",
     "credential_fields": [
       {
         "key": "api_key",
@@ -3604,7 +3604,7 @@
   {
     "provider": "XINFERENCE",
     "provider_display_name": "Xinference",
-    "litellm_provider": "xinference",
+    "embrouter_provider": "xinference",
     "credential_fields": [
       {
         "key": "api_base",
@@ -3632,7 +3632,7 @@
   {
     "provider": "CURSOR",
     "provider_display_name": "Cursor",
-    "litellm_provider": "cursor",
+    "embrouter_provider": "cursor",
     "credential_fields": [
       {
         "key": "api_key",

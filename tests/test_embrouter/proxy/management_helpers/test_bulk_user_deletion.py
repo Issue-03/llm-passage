@@ -8,17 +8,17 @@ from typing import Final
 import pytest
 from pydantic import BaseModel, ConfigDict, ValidationError
 
-from litellm.proxy._types import LiteLLM_TeamTable, LitellmTableNames, LitellmUserRoles, Member, UserAPIKeyAuth
-from litellm.proxy.auth.auth_checks import jwt_key_mapping_cache_key
-from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-from litellm.proxy.list_api.common import ManagementProblem
-from litellm.proxy.management_helpers.bulk_user_deletion import bulk_delete_users, bulk_remove_team_members
-from litellm.types.proxy.management_endpoints.internal_user_endpoints import BulkDeleteUserRequest
-from litellm.types.proxy.management_endpoints.team_endpoints import BulkTeamMemberDeleteRequest, TeamMemberRef
+from embrouter.proxy._types import EmbRouter_TeamTable, EmbrouterTableNames, EmbrouterUserRoles, Member, UserAPIKeyAuth
+from embrouter.proxy.auth.auth_checks import jwt_key_mapping_cache_key
+from embrouter.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+from embrouter.proxy.list_api.common import ManagementProblem
+from embrouter.proxy.management_helpers.bulk_user_deletion import bulk_delete_users, bulk_remove_team_members
+from embrouter.types.proxy.management_endpoints.internal_user_endpoints import BulkDeleteUserRequest
+from embrouter.types.proxy.management_endpoints.team_endpoints import BulkTeamMemberDeleteRequest, TeamMemberRef
 
-ADMIN: Final = UserAPIKeyAuth(user_id="admin", user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-admin")
-INTERNAL: Final = UserAPIKeyAuth(user_id="someone", user_role=LitellmUserRoles.INTERNAL_USER)
-ORG_ADMIN: Final = UserAPIKeyAuth(user_id="org-admin", user_role=LitellmUserRoles.ORG_ADMIN)
+ADMIN: Final = UserAPIKeyAuth(user_id="admin", user_role=EmbrouterUserRoles.PROXY_ADMIN, api_key="sk-admin")
+INTERNAL: Final = UserAPIKeyAuth(user_id="someone", user_role=EmbrouterUserRoles.INTERNAL_USER)
+ORG_ADMIN: Final = UserAPIKeyAuth(user_id="org-admin", user_role=EmbrouterUserRoles.ORG_ADMIN)
 
 
 class _UserRow(BaseModel):
@@ -90,17 +90,17 @@ class _UserTable:
 
 
 class _TeamTable:
-    def __init__(self, teams: Sequence[LiteLLM_TeamTable]) -> None:
-        self.rows: dict[str, LiteLLM_TeamTable] = {t.team_id: t for t in teams}
+    def __init__(self, teams: Sequence[EmbRouter_TeamTable]) -> None:
+        self.rows: dict[str, EmbRouter_TeamTable] = {t.team_id: t for t in teams}
         self.update_calls = 0
 
-    async def find_unique(self, where: Mapping[str, str]) -> LiteLLM_TeamTable | None:
+    async def find_unique(self, where: Mapping[str, str]) -> EmbRouter_TeamTable | None:
         return self.rows.get(where["team_id"])
 
-    async def find_many(self, where: Mapping[str, object]) -> list[LiteLLM_TeamTable]:
+    async def find_many(self, where: Mapping[str, object]) -> list[EmbRouter_TeamTable]:
         return [t for t in self.rows.values() if _matches({"team_id": t.team_id}, where)]
 
-    async def update(self, where: Mapping[str, str], data: Mapping[str, str]) -> LiteLLM_TeamTable:
+    async def update(self, where: Mapping[str, str], data: Mapping[str, str]) -> EmbRouter_TeamTable:
         self.update_calls += 1
         team = self.rows[where["team_id"]]
         team.members_with_roles = [Member(**m) for m in json.loads(data["members_with_roles"])]
@@ -111,32 +111,32 @@ class _Db:
     def __init__(
         self,
         users: Sequence[_UserRow],
-        teams: Sequence[LiteLLM_TeamTable],
+        teams: Sequence[EmbRouter_TeamTable],
         memberships: Sequence[tuple[str, str]] = (),
         tokens: Sequence[Mapping[str, object]] = (),
         invitations: Sequence[Mapping[str, object]] = (),
         org_memberships: Sequence[Mapping[str, object]] = (),
         jwt_mappings: Sequence[Mapping[str, object]] = (),
     ) -> None:
-        self.litellm_usertable = _UserTable(users)
-        self.litellm_teamtable = _TeamTable(teams)
-        self.litellm_teammembership = _Rows([{"team_id": t, "user_id": u} for t, u in memberships])
-        self.litellm_verificationtoken = _Rows(tokens)
-        self.litellm_deletedverificationtoken = _Rows()
-        self.litellm_invitationlink = _Rows(invitations)
-        self.litellm_organizationmembership = _Rows(org_memberships)
-        self.litellm_jwtkeymapping = _Rows(jwt_mappings)
+        self.embrouter_usertable = _UserTable(users)
+        self.embrouter_teamtable = _TeamTable(teams)
+        self.embrouter_teammembership = _Rows([{"team_id": t, "user_id": u} for t, u in memberships])
+        self.embrouter_verificationtoken = _Rows(tokens)
+        self.embrouter_deletedverificationtoken = _Rows()
+        self.embrouter_invitationlink = _Rows(invitations)
+        self.embrouter_organizationmembership = _Rows(org_memberships)
+        self.embrouter_jwtkeymapping = _Rows(jwt_mappings)
 
 
 class _Tx:
     def __init__(self, db: _Db, on_lock: Callable[[str], None], fail_locks: frozenset[str]) -> None:
-        self.litellm_teamtable = db.litellm_teamtable
-        self.litellm_usertable = db.litellm_usertable
-        self.litellm_teammembership = db.litellm_teammembership
-        self.litellm_verificationtoken = db.litellm_verificationtoken
-        self.litellm_deletedverificationtoken = db.litellm_deletedverificationtoken
-        self.litellm_invitationlink = db.litellm_invitationlink
-        self.litellm_organizationmembership = db.litellm_organizationmembership
+        self.embrouter_teamtable = db.embrouter_teamtable
+        self.embrouter_usertable = db.embrouter_usertable
+        self.embrouter_teammembership = db.embrouter_teammembership
+        self.embrouter_verificationtoken = db.embrouter_verificationtoken
+        self.embrouter_deletedverificationtoken = db.embrouter_deletedverificationtoken
+        self.embrouter_invitationlink = db.embrouter_invitationlink
+        self.embrouter_organizationmembership = db.embrouter_organizationmembership
         self._on_lock = on_lock
         self._fail_locks = fail_locks
         self.locks: list[str] = []
@@ -152,7 +152,7 @@ class _Tx:
             return []
         assert team_id in self.locks, "roster must be read under this team's advisory lock"
         self.roster_reads.append(team_id)
-        team = self.litellm_teamtable.rows.get(team_id)
+        team = self.embrouter_teamtable.rows.get(team_id)
         if team is None:
             return []
         return [{"members_with_roles": json.dumps([m.model_dump() for m in team.members_with_roles])}]
@@ -162,7 +162,7 @@ class _FakePrisma:
     def __init__(
         self,
         users: Sequence[_UserRow] = (),
-        teams: Sequence[LiteLLM_TeamTable] = (),
+        teams: Sequence[EmbRouter_TeamTable] = (),
         memberships: Sequence[tuple[str, str]] = (),
         tokens: Sequence[Mapping[str, object]] = (),
         invitations: Sequence[Mapping[str, object]] = (),
@@ -194,8 +194,8 @@ class _FakePrisma:
         self.roster_reads.extend(tx.roster_reads)
 
 
-def _team(team_id: str, *members: str, org: str | None = None) -> LiteLLM_TeamTable:
-    return LiteLLM_TeamTable(
+def _team(team_id: str, *members: str, org: str | None = None) -> EmbRouter_TeamTable:
+    return EmbRouter_TeamTable(
         team_id=team_id,
         organization_id=org,
         members_with_roles=[Member(user_id=m, user_email=f"{m}@example.com", role="user") for m in members],
@@ -207,7 +207,7 @@ def _user(user_id: str, *teams: str) -> _UserRow:
 
 
 def _roster(prisma: _FakePrisma, team_id: str) -> list[str | None]:
-    return [m.user_id for m in prisma.db.litellm_teamtable.rows[team_id].members_with_roles]
+    return [m.user_id for m in prisma.db.embrouter_teamtable.rows[team_id].members_with_roles]
 
 
 def _cache_with(*hashed_tokens: str) -> UserApiKeyCache:
@@ -240,8 +240,8 @@ async def _delete(
         prisma_client=prisma,  # pyright: ignore[reportArgumentType]  # fake stands in for PrismaClient
         user_api_key_cache=cache or UserApiKeyCache(),
         proxy_logging_obj=None,
-        litellm_proxy_admin_name="default_user_id",
-        litellm_changed_by=None,
+        embrouter_proxy_admin_name="default_user_id",
+        embrouter_changed_by=None,
     )
 
 
@@ -285,19 +285,19 @@ async def test_bulk_delete_removes_users_from_every_team_and_store():
         ("u2", "u2@example.com", True, ("t1",)),
     ]
     assert _roster(prisma, "t1") == ["keep"] and _roster(prisma, "t2") == ["other"]
-    assert set(prisma.db.litellm_usertable.rows) == {"keep"}
-    assert prisma.db.litellm_teammembership.rows == [{"team_id": "t1", "user_id": "keep"}]
-    assert [t["token"] for t in prisma.db.litellm_verificationtoken.rows] == ["k2"]
-    assert [t["token"] for t in prisma.db.litellm_deletedverificationtoken.rows] == ["k1"]
-    assert [i["id"] for i in prisma.db.litellm_invitationlink.rows] == ["i3"]
-    assert prisma.db.litellm_organizationmembership.rows == []
+    assert set(prisma.db.embrouter_usertable.rows) == {"keep"}
+    assert prisma.db.embrouter_teammembership.rows == [{"team_id": "t1", "user_id": "keep"}]
+    assert [t["token"] for t in prisma.db.embrouter_verificationtoken.rows] == ["k2"]
+    assert [t["token"] for t in prisma.db.embrouter_deletedverificationtoken.rows] == ["k1"]
+    assert [i["id"] for i in prisma.db.embrouter_invitationlink.rows] == ["i3"]
+    assert prisma.db.embrouter_organizationmembership.rows == []
     assert prisma.locks == ["t1", "t2"] and prisma.roster_reads == ["t1", "t2"]
 
 
 @pytest.mark.asyncio
 async def test_bulk_delete_leaves_teammates_who_share_the_deleted_users_email_alone():
     twin = _UserRow(user_id="twin", user_email="u1@example.com", teams=["t1"])
-    team = LiteLLM_TeamTable(
+    team = EmbRouter_TeamTable(
         team_id="t1",
         members_with_roles=[
             Member(user_id="u1", user_email="u1@example.com", role="user"),
@@ -318,16 +318,16 @@ async def test_bulk_delete_leaves_teammates_who_share_the_deleted_users_email_al
 
     assert [(r.success, r.teams_removed) for r in results] == [(True, ("t1",))]
     assert _roster(prisma, "t1") == ["twin"]
-    assert set(prisma.db.litellm_usertable.rows) == {"twin"} and prisma.db.litellm_usertable.rows["twin"].teams == [
+    assert set(prisma.db.embrouter_usertable.rows) == {"twin"} and prisma.db.embrouter_usertable.rows["twin"].teams == [
         "t1"
     ]
-    assert prisma.db.litellm_teammembership.rows == [{"team_id": "t1", "user_id": "twin"}]
-    assert [t["token"] for t in prisma.db.litellm_verificationtoken.rows] == ["k-twin"]
+    assert prisma.db.embrouter_teammembership.rows == [{"team_id": "t1", "user_id": "twin"}]
+    assert [t["token"] for t in prisma.db.embrouter_verificationtoken.rows] == ["k-twin"]
 
 
 @pytest.mark.asyncio
 async def test_bulk_delete_removes_the_deleted_users_email_only_roster_entry():
-    team = LiteLLM_TeamTable(
+    team = EmbRouter_TeamTable(
         team_id="t1",
         members_with_roles=[
             Member(user_id=None, user_email="u1@example.com", role="user"),
@@ -340,7 +340,7 @@ async def test_bulk_delete_removes_the_deleted_users_email_only_roster_entry():
 
     assert [(r.success, r.teams_removed) for r in results] == [(True, ("t1",))]
     assert _roster(prisma, "t1") == ["keep"]
-    assert set(prisma.db.litellm_usertable.rows) == {"keep"}
+    assert set(prisma.db.embrouter_usertable.rows) == {"keep"}
 
 
 @pytest.mark.asyncio
@@ -355,7 +355,7 @@ async def test_bulk_delete_finds_teams_through_membership_rows_when_user_teams_a
 
     assert results[0].teams_removed == ("t1",)
     assert _roster(prisma, "t1") == ["keep"]
-    assert prisma.db.litellm_teammembership.rows == []
+    assert prisma.db.embrouter_teammembership.rows == []
 
 
 @pytest.mark.asyncio
@@ -385,7 +385,7 @@ async def test_bulk_delete_reports_missing_and_duplicate_ids_per_item_and_still_
         ("ghost", False, "User id=ghost not found"),
         ("u1", False, "Duplicate user_id in request: u1"),
     ]
-    assert prisma.db.litellm_usertable.rows == {}
+    assert prisma.db.embrouter_usertable.rows == {}
 
 
 @pytest.mark.asyncio
@@ -404,9 +404,9 @@ async def test_bulk_delete_rolls_back_every_team_and_user_when_one_team_rewrite_
         ("u1", False, (), "Failed to delete user: lock timeout"),
         ("u2", False, (), "Failed to delete user: lock timeout"),
     ]
-    assert set(prisma.db.litellm_usertable.rows) == {"u1", "u2"}
+    assert set(prisma.db.embrouter_usertable.rows) == {"u1", "u2"}
     assert _roster(prisma, "a-good") == ["u1", "u2"] and _roster(prisma, "z-bad") == ["u1"]
-    assert [t["token"] for t in prisma.db.litellm_verificationtoken.rows] == ["k1"]
+    assert [t["token"] for t in prisma.db.embrouter_verificationtoken.rows] == ["k1"]
     assert cache.get_cache(key="k1") is not None
 
 
@@ -417,7 +417,7 @@ async def test_bulk_delete_skips_teams_the_user_still_names_but_which_no_longer_
     results = await _delete(prisma, ["u1"])
 
     assert [(r.success, r.teams_removed) for r in results] == [(True, ("t1",))]
-    assert prisma.db.litellm_usertable.rows == {} and _roster(prisma, "t1") == ["keep"]
+    assert prisma.db.embrouter_usertable.rows == {} and _roster(prisma, "t1") == ["keep"]
     assert prisma.locks == ["t1"]
 
 
@@ -438,9 +438,9 @@ async def test_bulk_delete_rolls_back_every_user_row_and_reports_it_per_row_when
         ("u2", False, "Failed to delete user: connection reset"),
         ("ghost", False, "User id=ghost not found"),
     ]
-    assert set(prisma.db.litellm_usertable.rows) == {"u1", "u2"}
-    assert [t["token"] for t in prisma.db.litellm_verificationtoken.rows] == ["k1"]
-    assert prisma.db.litellm_deletedverificationtoken.rows == []
+    assert set(prisma.db.embrouter_usertable.rows) == {"u1", "u2"}
+    assert [t["token"] for t in prisma.db.embrouter_verificationtoken.rows] == ["k1"]
+    assert prisma.db.embrouter_deletedverificationtoken.rows == []
     assert cache.get_cache(key="k1") is not None
 
 
@@ -501,7 +501,7 @@ async def test_bulk_delete_rejects_non_admin_callers_before_touching_the_db():
         await _delete(prisma, ["u1"], caller=INTERNAL)
 
     assert exc.value.problem.status == 403
-    assert set(prisma.db.litellm_usertable.rows) == {"u1"}
+    assert set(prisma.db.embrouter_usertable.rows) == {"u1"}
 
 
 @pytest.mark.asyncio
@@ -509,7 +509,7 @@ async def test_org_admin_deletes_only_users_fully_inside_their_orgs():
     prisma = _FakePrisma(
         users=[_user("inside"), _user("straddles"), _user("orgless")],
         org_memberships=[
-            {"user_id": "org-admin", "organization_id": "o1", "user_role": LitellmUserRoles.ORG_ADMIN.value},
+            {"user_id": "org-admin", "organization_id": "o1", "user_role": EmbrouterUserRoles.ORG_ADMIN.value},
             {"user_id": "inside", "organization_id": "o1", "user_role": "internal_user"},
             {"user_id": "straddles", "organization_id": "o1", "user_role": "internal_user"},
             {"user_id": "straddles", "organization_id": "o2", "user_role": "internal_user"},
@@ -520,8 +520,8 @@ async def test_org_admin_deletes_only_users_fully_inside_their_orgs():
 
     assert [r.success for r in results] == [True, False, False]
     assert all("not within your admin scope" in (r.error or "") for r in results[1:])
-    assert set(prisma.db.litellm_usertable.rows) == {"straddles", "orgless"}
-    assert {(m["user_id"], m["organization_id"]) for m in prisma.db.litellm_organizationmembership.rows} == {
+    assert set(prisma.db.embrouter_usertable.rows) == {"straddles", "orgless"}
+    assert {(m["user_id"], m["organization_id"]) for m in prisma.db.embrouter_organizationmembership.rows} == {
         ("org-admin", "o1"),
         ("straddles", "o1"),
         ("straddles", "o2"),
@@ -548,11 +548,11 @@ async def test_bulk_member_delete_removes_by_id_and_email_and_keeps_the_rest():
         (None, "u2@example.com", True),
     ]
     assert _roster(prisma, "t1") == ["keep"]
-    users = prisma.db.litellm_usertable.rows
+    users = prisma.db.embrouter_usertable.rows
     assert users["u1"].teams == ["t2"] and users["u2"].teams == [] and users["keep"].teams == ["t1"]
-    assert prisma.db.litellm_teammembership.rows == [{"team_id": "t1", "user_id": "keep"}]
-    assert sorted(t["token"] for t in prisma.db.litellm_verificationtoken.rows) == ["keep-key", "other-team-key"]
-    assert [t["token"] for t in prisma.db.litellm_deletedverificationtoken.rows] == ["team-key"]
+    assert prisma.db.embrouter_teammembership.rows == [{"team_id": "t1", "user_id": "keep"}]
+    assert sorted(t["token"] for t in prisma.db.embrouter_verificationtoken.rows) == ["keep-key", "other-team-key"]
+    assert [t["token"] for t in prisma.db.embrouter_deletedverificationtoken.rows] == ["team-key"]
     assert prisma.locks == ["t1"] and prisma.roster_reads == ["t1"]
 
 
@@ -566,7 +566,7 @@ async def test_bulk_member_delete_reports_members_not_on_the_team_without_rewrit
         (False, "User not found in team"),
         (False, "User not found in team"),
     ]
-    assert prisma.db.litellm_teamtable.update_calls == 0
+    assert prisma.db.embrouter_teamtable.update_calls == 0
     assert _roster(prisma, "t1") == ["u1"]
 
 
@@ -582,8 +582,8 @@ async def test_bulk_member_delete_leaves_keys_and_memberships_of_unmatched_membe
     results = await _remove(prisma, "t1", [{"user_id": "elsewhere"}])
 
     assert results[0].success is False
-    assert prisma.db.litellm_teammembership.rows == [{"team_id": "t1", "user_id": "elsewhere"}]
-    assert [t["token"] for t in prisma.db.litellm_verificationtoken.rows] == ["orphan-key"]
+    assert prisma.db.embrouter_teammembership.rows == [{"team_id": "t1", "user_id": "elsewhere"}]
+    assert [t["token"] for t in prisma.db.embrouter_verificationtoken.rows] == ["orphan-key"]
 
 
 @pytest.mark.asyncio
@@ -650,14 +650,14 @@ async def test_bulk_member_delete_cleans_a_user_whose_teams_array_still_names_th
     results = await _remove(prisma, "t1", [{"user_id": "stale"}])
 
     assert results[0].success is True
-    assert prisma.db.litellm_usertable.rows["stale"].teams == []
-    assert prisma.db.litellm_teammembership.rows == []
-    assert _roster(prisma, "t1") == ["other"] and prisma.db.litellm_teamtable.update_calls == 0
+    assert prisma.db.embrouter_usertable.rows["stale"].teams == []
+    assert prisma.db.embrouter_teammembership.rows == []
+    assert _roster(prisma, "t1") == ["other"] and prisma.db.embrouter_teamtable.update_calls == 0
 
 
 @pytest.mark.asyncio
 async def test_bulk_member_delete_by_id_removes_the_members_email_only_roster_entry():
-    team = LiteLLM_TeamTable(
+    team = EmbRouter_TeamTable(
         team_id="t1",
         members_with_roles=[
             Member(user_id=None, user_email="u1@example.com", role="user"),
@@ -672,13 +672,13 @@ async def test_bulk_member_delete_by_id_removes_the_members_email_only_roster_en
 
     assert [(r.success, r.error) for r in results] == [(True, None)]
     assert _roster(prisma, "t1") == ["twin", "keep"]
-    users = prisma.db.litellm_usertable.rows
+    users = prisma.db.embrouter_usertable.rows
     assert users["u1"].teams == [] and users["twin"].teams == ["t1"]
 
 
 @pytest.mark.asyncio
 async def test_bulk_member_delete_by_id_of_a_non_member_leaves_a_same_email_users_roster_entry():
-    team = LiteLLM_TeamTable(
+    team = EmbRouter_TeamTable(
         team_id="t1",
         members_with_roles=[
             Member(user_id=None, user_email="shared@example.com", role="user"),
@@ -693,7 +693,7 @@ async def test_bulk_member_delete_by_id_of_a_non_member_leaves_a_same_email_user
 
     assert [(r.success, r.error) for r in results] == [(False, "User not found in team")]
     assert _roster(prisma, "t1") == [None, "keep"]
-    assert prisma.db.litellm_usertable.rows["member"].teams == ["t1"]
+    assert prisma.db.embrouter_usertable.rows["member"].teams == ["t1"]
 
 
 @pytest.mark.asyncio
@@ -768,18 +768,18 @@ async def test_bulk_delete_writes_deleted_audit_log_for_deleted_keys(mocker):
     async def _capture(request_data):
         captured.append(request_data)
 
-    mocker.patch("litellm.store_audit_logs", True)
+    mocker.patch("embrouter.store_audit_logs", True)
     mocker.patch(
-        "litellm.proxy.management_helpers.audit_logs.create_audit_log_for_update",
+        "embrouter.proxy.management_helpers.audit_logs.create_audit_log_for_update",
         new=_capture,
     )
     await _delete(prisma, ["u1"])
     for _ in range(100):
-        if len([r for r in captured if r.table_name == LitellmTableNames.KEY_TABLE_NAME]) >= 2:
+        if len([r for r in captured if r.table_name == EmbrouterTableNames.KEY_TABLE_NAME]) >= 2:
             break
         await asyncio.sleep(0.01)
 
-    key_rows: Final = [r for r in captured if r.table_name == LitellmTableNames.KEY_TABLE_NAME]
+    key_rows: Final = [r for r in captured if r.table_name == EmbrouterTableNames.KEY_TABLE_NAME]
     assert {r.object_id for r in key_rows} == {"team-key", "personal-key"}
     assert {r.action for r in key_rows} == {"deleted"}
     assert all(r.changed_by for r in key_rows)
@@ -802,9 +802,9 @@ async def test_bulk_member_delete_writes_deleted_audit_log_for_removed_team_keys
     async def _capture(request_data):
         captured.append(request_data)
 
-    mocker.patch("litellm.store_audit_logs", True)
+    mocker.patch("embrouter.store_audit_logs", True)
     mocker.patch(
-        "litellm.proxy.management_helpers.audit_logs.create_audit_log_for_update",
+        "embrouter.proxy.management_helpers.audit_logs.create_audit_log_for_update",
         new=_capture,
     )
     await _remove(prisma, "t1", [{"user_id": "u1"}])
@@ -813,7 +813,7 @@ async def test_bulk_member_delete_writes_deleted_audit_log_for_removed_team_keys
             break
         await asyncio.sleep(0.01)
 
-    key_rows: Final = [r for r in captured if r.table_name == LitellmTableNames.KEY_TABLE_NAME]
+    key_rows: Final = [r for r in captured if r.table_name == EmbrouterTableNames.KEY_TABLE_NAME]
     assert len(key_rows) == 1
     audit_row: Final = key_rows[0]
     assert audit_row.action == "deleted"
@@ -832,13 +832,13 @@ async def test_bulk_delete_skips_the_key_audit_log_when_the_tx_rolls_back(mocker
     )
     cache = _cache_with("k1")
 
-    mocker.patch("litellm.store_audit_logs", True)
+    mocker.patch("embrouter.store_audit_logs", True)
     mock_audit_write = mocker.patch(
-        "litellm.proxy.management_helpers.audit_logs.create_audit_log_for_update",
+        "embrouter.proxy.management_helpers.audit_logs.create_audit_log_for_update",
         new=mocker.AsyncMock(),
     )
     results = await _delete(prisma, ["u1", "u2"], cache=cache)
 
     assert [(r.user_id, r.success) for r in results] == [("u1", False), ("u2", False)]
-    assert [t["token"] for t in prisma.db.litellm_verificationtoken.rows] == ["k1"]
+    assert [t["token"] for t in prisma.db.embrouter_verificationtoken.rows] == ["k1"]
     mock_audit_write.assert_not_called()

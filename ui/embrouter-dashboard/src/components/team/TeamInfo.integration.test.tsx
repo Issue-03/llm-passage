@@ -274,7 +274,7 @@ const createMockTeamData = (overrides = {}) => ({
     max_parallel_requests: null,
     budget_reset_at: null,
     model_id: null,
-    litellm_model_table: null,
+    embrouter_model_table: null,
     created_at: "2024-01-01T00:00:00Z",
     team_member_budget_table: null,
     guardrails: [],
@@ -364,7 +364,7 @@ describe("TeamInfoView - member budget reset prompt", () => {
     budget_source: "custom",
     spend: 0,
     total_spend: 0,
-    litellm_budget_table: {
+    embrouter_budget_table: {
       budget_id: `budget-${userId}`,
       soft_budget: null,
       max_budget: maxBudget,

@@ -1,6 +1,6 @@
 """The single translation layer between a request's metadata and the spans.
 
-Every relevant field litellm exposes about a request — the user-facing model,
+Every relevant field embrouter exposes about a request — the user-facing model,
 the model actually dispatched to the provider, the deployment, and the caller's
 identity (team, key, end-user) — is parsed **once**, here, out of the
 ``StandardLoggingPayload`` (or a ``UserAPIKeyAuth`` at the auth boundary). Span
@@ -25,12 +25,12 @@ asks for a *model group* (e.g. ``gpt-4o``) that routes to a concrete deployment
 
 * ``model_group`` — the user-facing name the caller requested.
 * ``model`` — already reconstructed (see ``reconstruct_model_name``) to the name
-  litellm dispatched to the provider (the deployment, provider-prefixed).
-* ``hidden_params.litellm_model_name`` — a secondary source for the dispatched
+  embrouter dispatched to the provider (the deployment, provider-prefixed).
+* ``hidden_params.embrouter_model_name`` — a secondary source for the dispatched
   model (populated only on some call paths, e.g. files).
 
 So ``gen_ai.request.model`` is the *group* (falling back to the call model on the
-SDK path, which has no group), and ``litellm.provider.model`` is the *dispatched*
+SDK path, which has no group), and ``embrouter.provider.model`` is the *dispatched*
 model. They coincide on the SDK path, which is correct.
 """
 
@@ -41,13 +41,13 @@ from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Final, cast
 
-from litellm.constants import LITELLM_LOGGING_NO_UPSTREAM_LLM_CALL, SESSION_ID_GENERATED_METADATA_KEY
-from litellm.integrations.otel.model.semconv import resolve_operation
-from litellm.integrations.otel.model.trace_controls import TraceControls, caller_trace_controls
-from litellm.integrations.otel.model.utils import as_str, as_str_mapping, to_seconds
+from embrouter.constants import EMBROUTER_LOGGING_NO_UPSTREAM_LLM_CALL, SESSION_ID_GENERATED_METADATA_KEY
+from embrouter.integrations.otel.model.semconv import resolve_operation
+from embrouter.integrations.otel.model.trace_controls import TraceControls, caller_trace_controls
+from embrouter.integrations.otel.model.utils import as_str, as_str_mapping, to_seconds
 
 if TYPE_CHECKING:
-    from litellm.types.utils import StandardLoggingPayload
+    from embrouter.types.utils import StandardLoggingPayload
 
 REQUESTER_METADATA_KEY: Final = "requester_metadata"
 REQUESTER_METADATA_PATH: Final = f"{REQUESTER_METADATA_KEY}."
@@ -64,7 +64,7 @@ class RequestIdentity:
     team_metadata: Mapping[str, object] | None = None
     key_hash: str | None = None
     end_user: str | None = None
-    # The model litellm dispatched to the provider. Only known once the call
+    # The model embrouter dispatched to the provider. Only known once the call
     # completes (routing has picked a deployment), so it's absent from the
     # auth-time seed and filled only from the payload.
     provider_model: str | None = None
@@ -82,7 +82,7 @@ class RequestIdentity:
         raw_meta: Final = cast(Mapping[str, object], payload.get("metadata") or {})
         metadata: Final = MappingProxyType(dict(flatten_metadata(raw_meta)))
         return cls(
-            call_id=as_str(payload.get("litellm_call_id")) or as_str(payload.get("id")),
+            call_id=as_str(payload.get("embrouter_call_id")) or as_str(payload.get("id")),
             # StandardLoggingMetadata's canonical key is ``user_api_key_team_id``;
             # the bare ``team_id`` is a legacy alias and is often empty, so prefer
             # the canonical key and fall back to the alias.
@@ -141,7 +141,7 @@ class RequestContext:
     """The fully-resolved view of a closed request, parsed once from the payload.
 
     ``request_model`` is the user-facing requested model and ``provider_model``
-    (on :attr:`identity`) is the model litellm dispatched to the provider; the two
+    (on :attr:`identity`) is the model embrouter dispatched to the provider; the two
     differ on the proxy (group vs. deployment) and coincide on the SDK path.
     """
 
@@ -190,12 +190,12 @@ class RequestContext:
 class LLMCallEvent:
     """The typed view of the live callback ``kwargs`` (``model_call_details``).
 
-    litellm hands every callback an untyped ``kwargs`` god object. The fields the
+    embrouter hands every callback an untyped ``kwargs`` god object. The fields the
     OTel logger needs out of it are parsed **once**, here, so the ``CustomLogger``
     reads typed attributes instead of digging into the dict at each boundary.
     """
 
-    # The ``litellm_call_id`` correlating ``pre_call`` with the close callback.
+    # The ``embrouter_call_id`` correlating ``pre_call`` with the close callback.
     # Present in ``model_call_details`` at ``pre_call`` and in both the kwargs and
     # the ``standard_logging_object`` at success/failure, so it's a stable key for
     # the open-call carrier — no back-reference to the logging object required (the
@@ -240,7 +240,7 @@ class LLMCallEvent:
             payload=payload,
             dynamic_params=kwargs.get("standard_callback_dynamic_params"),
             auth_metadata=auth_metadata(payload, kwargs),
-            is_no_upstream_call=bool(kwargs.get(LITELLM_LOGGING_NO_UPSTREAM_LLM_CALL)),
+            is_no_upstream_call=bool(kwargs.get(EMBROUTER_LOGGING_NO_UPSTREAM_LLM_CALL)),
             upstream_started=kwargs.get("api_call_start_time") is not None,
             provisional_span_name=f"{operation.value} {model}".strip(),
             time_to_first_chunk_seconds=time_to_first_chunk_seconds(kwargs),
@@ -250,19 +250,19 @@ class LLMCallEvent:
 
 
 def caller_session_id(kwargs: Mapping[str, object], trace: TraceControls) -> str | None:
-    """The conversation id the caller sent (``litellm_session_id``, else the
+    """The conversation id the caller sent (``embrouter_session_id``, else the
     ``session_id`` trace control); ``None`` when the request carried none.
 
-    ``get_litellm_params`` back-fills ``litellm_session_id`` from ``metadata.trace_id``
+    ``get_embrouter_params`` back-fills ``embrouter_session_id`` from ``metadata.trace_id``
     (which the proxy stamps with the OTel trace id) and ``missing_session_id: generate``
     mints one into the body; neither is a caller conversation, so both are ignored,
     while a ``langfuse_session_id`` header still counts under the generate policy.
     ``StandardLoggingPayload.session_id`` is never read: the payload drops the
     generated marker, so a replayed minted id would pass for a caller's."""
-    params: Final[Mapping[str, object]] = as_str_mapping(kwargs.get("litellm_params")) or MappingProxyType({})
+    params: Final[Mapping[str, object]] = as_str_mapping(kwargs.get("embrouter_params")) or MappingProxyType({})
     bodies: Final = tuple(
         metadata
-        for key in ("metadata", "litellm_metadata")
+        for key in ("metadata", "embrouter_metadata")
         if (metadata := as_str_mapping(params.get(key))) is not None
     )
     from_body: Final = tuple(session for body in bodies if (session := as_str(body.get("session_id"))))
@@ -273,7 +273,7 @@ def caller_session_id(kwargs: Mapping[str, object], trace: TraceControls) -> str
     )
     if minted:
         return next((session for session in (trace.session_id, *from_body) if session and session not in minted), None)
-    explicit: Final = as_str(params.get("litellm_session_id"))
+    explicit: Final = as_str(params.get("embrouter_session_id"))
     echoes_trace_id: Final = explicit is not None and any(as_str(body.get("trace_id")) == explicit for body in bodies)
     return (None if echoes_trace_id else explicit) or trace.session_id or None
 
@@ -296,7 +296,7 @@ def time_to_first_chunk_seconds(kwargs: Mapping[str, Any]) -> float | None:
 def auth_metadata(payload: StandardLoggingPayload | None, kwargs: Mapping[str, object]) -> Mapping[str, str] | None:
     """The key/team config the proxy resolved at auth, or ``None`` off the proxy.
 
-    Read from the payload once the call closes and from ``litellm_params`` at
+    Read from the payload once the call closes and from ``embrouter_params`` at
     ``pre_call``, where no payload exists yet — the LLM-call span is *created* at
     ``pre_call``, so the tracer (and therefore the destination) must be
     resolvable there. Values arrive untyped, so non-string entries are dropped
@@ -325,8 +325,8 @@ def _metadata_dicts(
 ) -> Iterator[Mapping[str, object]]:
     """Request metadata dicts, closed-call payload first then the live kwargs.
 
-    ``litellm_metadata`` is the metadata field on the Anthropic-shaped routes;
-    litellm copies it onto ``metadata``, but both are yielded so a route that
+    ``embrouter_metadata`` is the metadata field on the Anthropic-shaped routes;
+    embrouter copies it onto ``metadata``, but both are yielded so a route that
     populates only one is still covered.
     """
     payload_view: Final = as_str_mapping(payload)
@@ -334,12 +334,12 @@ def _metadata_dicts(
         payload_metadata: Final = as_str_mapping(payload_view.get("metadata"))
         if payload_metadata is not None:
             yield payload_metadata
-    params: Final = as_str_mapping(kwargs.get("litellm_params"))
+    params: Final = as_str_mapping(kwargs.get("embrouter_params"))
     if params is None:
         return
     yield from (
         metadata
-        for key in ("metadata", "litellm_metadata")
+        for key in ("metadata", "embrouter_metadata")
         if (metadata := as_str_mapping(params.get(key))) is not None
     )
 
@@ -347,10 +347,10 @@ def _metadata_dicts(
 def _call_id(payload: StandardLoggingPayload | None, kwargs: Mapping[str, object]) -> str | None:
     """The call id from the payload (when closed) or the bare kwargs (at pre_call)."""
     if payload is not None:
-        call_id: Final = as_str(payload.get("litellm_call_id")) or as_str(payload.get("id"))
+        call_id: Final = as_str(payload.get("embrouter_call_id")) or as_str(payload.get("id"))
         if call_id:
             return call_id
-    return as_str(kwargs.get("litellm_call_id"))
+    return as_str(kwargs.get("embrouter_call_id"))
 
 
 def model_from_request_data(data: object) -> str | None:
@@ -367,7 +367,7 @@ def model_from_request_data(data: object) -> str | None:
 def metadata_from_request_data(data: object) -> Mapping[str, object] | None:
     """The caller's ``requester_metadata`` snapshot from a pre-call ``data`` dict, keyed under its wrapper.
 
-    The proxy stores it under ``metadata`` or ``litellm_metadata`` depending on the route;
+    The proxy stores it under ``metadata`` or ``embrouter_metadata`` depending on the route;
     the proxy-owned siblings (``user_api_key_*``, ``requester_ip_address``) are not read.
     """
     top: Final = as_str_mapping(data)
@@ -375,7 +375,7 @@ def metadata_from_request_data(data: object) -> Mapping[str, object] | None:
         return None
     snapshots: Final = tuple(
         snapshot
-        for name in ("metadata", "litellm_metadata")
+        for name in ("metadata", "embrouter_metadata")
         if (nested := as_str_mapping(top.get(name))) is not None
         and (snapshot := as_str_mapping(nested.get(REQUESTER_METADATA_KEY))) is not None
     )
@@ -394,9 +394,9 @@ def flatten_metadata(raw: Mapping[str, object]) -> Iterator[tuple[str, str]]:
 
 
 def resolve_provider_model(payload: StandardLoggingPayload) -> str | None:
-    """The model litellm dispatched to the provider, from the payload.
+    """The model embrouter dispatched to the provider, from the payload.
 
-    Prefers the explicit ``hidden_params.litellm_model_name`` (set on call paths
+    Prefers the explicit ``hidden_params.embrouter_model_name`` (set on call paths
     that know it, e.g. files), then the top-level ``model`` — which
     ``reconstruct_model_name`` has already resolved to the deployment's
     provider-prefixed name. Returns ``None`` only when neither is present.
@@ -406,7 +406,7 @@ def resolve_provider_model(payload: StandardLoggingPayload) -> str | None:
     return (
         # ``deployment`` survives only on paths that don't strip it from metadata;
         # harmless (and most precise) to prefer it when present.
-        as_str(raw_meta.get("deployment")) or as_str(hidden.get("litellm_model_name")) or as_str(payload.get("model"))
+        as_str(raw_meta.get("deployment")) or as_str(hidden.get("embrouter_model_name")) or as_str(payload.get("model"))
     )
 
 

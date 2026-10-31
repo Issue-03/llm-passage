@@ -9,9 +9,9 @@ from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
-import litellm
-from litellm.llms.custom_httpx.http_handler import HTTPHandler
-from litellm.main import responses_api_bridge_check
+import embrouter
+from embrouter.llms.custom_httpx.http_handler import HTTPHandler
+from embrouter.main import responses_api_bridge_check
 
 
 class _RecordingResponsesHandler:
@@ -154,7 +154,7 @@ class TestXAIResponsesAutoRouting:
         assert model_info.get("mode") == "responses"
         assert updated_model == "grok-not-in-cost-map"
 
-    @patch("litellm.completion_extras.responses_api_bridge.completion")
+    @patch("embrouter.completion_extras.responses_api_bridge.completion")
     def test_completion_with_tools_routes_to_responses_api(
         self, mock_responses_completion
     ):
@@ -179,7 +179,7 @@ class TestXAIResponsesAutoRouting:
         ]
 
         try:
-            litellm.completion(
+            embrouter.completion(
                 model=model,
                 messages=messages,
                 tools=tools,
@@ -215,11 +215,11 @@ class TestXAIResponsesAutoRouting:
             }
         )
 
-        response: Final = litellm.completion(
+        response: Final = embrouter.completion(
             model="xai/grok-4.6",
             messages=[
                 {"role": "system", "content": "Answer briefly."},
-                {"role": "user", "content": "newest litellm version?"},
+                {"role": "user", "content": "newest embrouter version?"},
             ],
             web_search_options={"search_context_size": "medium"},
             api_key="fake-key",

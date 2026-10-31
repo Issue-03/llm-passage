@@ -1,11 +1,11 @@
 """
-Pulls the latest LiteLLM blog posts from the docs RSS feed.
+Pulls the latest EmbRouter blog posts from the docs RSS feed.
 
 Falls back to the bundled local backup on any failure.
-RSS URL is configured via litellm.blog_posts_url (or LITELLM_BLOG_POSTS_URL env var).
+RSS URL is configured via embrouter.blog_posts_url (or EMBROUTER_BLOG_POSTS_URL env var).
 
 Disable remote fetching entirely:
-    export LITELLM_LOCAL_BLOG_POSTS=True
+    export EMBROUTER_LOCAL_BLOG_POSTS=True
 """
 
 import json
@@ -19,7 +19,7 @@ from typing import Final
 import httpx
 from pydantic import BaseModel
 
-from litellm import verbose_logger
+from embrouter import verbose_logger
 
 BLOG_POSTS_TTL_SECONDS: Final[int] = 3600  # 1 hour
 
@@ -37,7 +37,7 @@ class BlogPostsResponse(BaseModel):
 
 class GetBlogPosts:
     """
-    Fetches, validates, and caches LiteLLM blog posts.
+    Fetches, validates, and caches EmbRouter blog posts.
 
     - Fetches RSS feed from docs site with a 5-second timeout
     - Parses the XML and extracts the latest blog post
@@ -51,7 +51,7 @@ class GetBlogPosts:
     @staticmethod
     def load_local_blog_posts() -> list[dict[str, str]]:
         """Load the bundled local backup blog posts."""
-        content: Final = json.loads(files("litellm").joinpath("blog_posts.json").read_text(encoding="utf-8"))
+        content: Final = json.loads(files("embrouter").joinpath("blog_posts.json").read_text(encoding="utf-8"))
         return content.get("posts", [])
 
     @staticmethod
@@ -115,7 +115,7 @@ class GetBlogPosts:
         """Return True if posts is a non-empty list."""
         if not isinstance(posts, list) or len(posts) == 0:
             verbose_logger.warning(
-                "LiteLLM: Parsed RSS feed has no valid posts. Falling back to local backup.",
+                "EmbRouter: Parsed RSS feed has no valid posts. Falling back to local backup.",
             )
             return False
         return True
@@ -128,7 +128,7 @@ class GetBlogPosts:
         Uses the in-process cache if within BLOG_POSTS_TTL_SECONDS.
         Fetches from ``url`` otherwise, falling back to local backup on failure.
         """
-        if not url or os.getenv("LITELLM_LOCAL_BLOG_POSTS", "").lower() == "true":
+        if not url or os.getenv("EMBROUTER_LOCAL_BLOG_POSTS", "").lower() == "true":
             return cls.load_local_blog_posts()
 
         now: Final = time.time()
@@ -141,7 +141,7 @@ class GetBlogPosts:
             posts: Final = cls.parse_rss_to_posts(xml_text)
         except Exception as e:
             verbose_logger.warning(
-                "LiteLLM: Failed to fetch blog posts from %s: %s. Falling back to local backup.",
+                "EmbRouter: Failed to fetch blog posts from %s: %s. Falling back to local backup.",
                 url,
                 str(e),
             )

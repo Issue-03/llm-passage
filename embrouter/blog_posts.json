@@ -2,7 +2,7 @@
   "posts": [
     {
       "title": "Realtime WebRTC HTTP Endpoints",
-      "description": "Use the LiteLLM proxy to route OpenAI-style WebRTC realtime via HTTP: client_secrets and SDP exchange.",
+      "description": "Use the EmbRouter proxy to route OpenAI-style WebRTC realtime via HTTP: client_secrets and SDP exchange.",
       "date": "2026-03-12",
       "url": ""
     }

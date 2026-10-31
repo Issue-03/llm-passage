@@ -18,25 +18,25 @@ from mcp.types import AudioContent, CallToolResult, ImageContent, TextContent
 from openai import AsyncOpenAI
 from openai._legacy_response import HttpxBinaryResponseContent
 
-import litellm
-from litellm._internal_context import in_post_response_phase
-from litellm._logging import session_id_var, trace_id_var
-from litellm.constants import REDACTED_BY_LITELLM, SENTRY_PII_DENYLIST
-from litellm.cost_calculator import ocr_batch_cost
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.litellm_logging import Logging as LitellmLogging
-from litellm.litellm_core_utils.litellm_logging import (
+import embrouter
+from embrouter._internal_context import in_post_response_phase
+from embrouter._logging import session_id_var, trace_id_var
+from embrouter.constants import REDACTED_BY_EMBROUTER, SENTRY_PII_DENYLIST
+from embrouter.cost_calculator import ocr_batch_cost
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbrouterLogging
+from embrouter.embrouter_core_utils.embrouter_logging import (
     _extract_response_obj_and_hidden_params,
     _get_status_fields,
     set_callbacks,
 )
-from litellm.llms.base_llm.ocr.transformation import OCRUsageInfo
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.types.llms.openai import ResponseAPIUsage, ResponseCompletedEvent, ResponsesAPIResponse
-from litellm.types.utils import (
+from embrouter.llms.base_llm.ocr.transformation import OCRUsageInfo
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.types.llms.openai import ResponseAPIUsage, ResponseCompletedEvent, ResponsesAPIResponse
+from embrouter.types.utils import (
     CallTypes,
     ImageResponse,
-    LiteLLMRealtimeStreamLoggingObject,
+    EmbRouterRealtimeStreamLoggingObject,
     ModelResponse,
     TextCompletionResponse,
 )
@@ -44,20 +44,20 @@ from litellm.types.utils import (
 
 @pytest.fixture
 def logging_obj():
-    return LitellmLogging(
+    return EmbrouterLogging(
         model="bedrock/claude-haiku-4-5-20251001-v1:0",
         messages=[{"role": "user", "content": "Hey"}],
         stream=True,
         call_type="completion",
         start_time=time.time(),
-        litellm_call_id="12345",
+        embrouter_call_id="12345",
         function_id="1245",
     )
 
 
 @pytest.mark.asyncio
 async def test_async_post_mcp_tool_call_hook_preserves_and_returns_content(logging_obj):
-    from litellm.types.mcp import MCPPostCallResponseObject
+    from embrouter.types.mcp import MCPPostCallResponseObject
 
     class RedactingLogger(CustomLogger):
         async def async_post_mcp_tool_call_hook(
@@ -87,7 +87,7 @@ async def test_async_post_mcp_tool_call_hook_preserves_and_returns_content(loggi
 
 @pytest.mark.asyncio
 async def test_async_post_mcp_tool_call_hook_chains_every_callback(logging_obj):
-    from litellm.types.mcp import MCPPostCallResponseObject
+    from embrouter.types.mcp import MCPPostCallResponseObject
 
     class ReplacingLogger(CustomLogger):
         def __init__(self, old: str, new: str) -> None:
@@ -132,8 +132,8 @@ async def test_async_post_mcp_tool_call_hook_chains_every_callback(logging_obj):
 @pytest.mark.parametrize("mode", ["replace", "inplace", "empty", "inplace_none", "replace_none"])
 @pytest.mark.parametrize("structured", [False, True])
 async def test_mcp_content_rewrite_never_returns_stale_structured_data(logging_obj, mode, structured):
-    from litellm.types.llms.base import HiddenParams
-    from litellm.types.mcp import MCPPostCallResponseObject
+    from embrouter.types.llms.base import HiddenParams
+    from embrouter.types.mcp import MCPPostCallResponseObject
 
     class Redactor(CustomLogger):
         async def async_post_mcp_tool_call_hook(self, kwargs, response_obj, start_time, end_time):
@@ -175,8 +175,8 @@ async def test_mcp_content_rewrite_never_returns_stale_structured_data(logging_o
 @pytest.mark.asyncio
 @pytest.mark.parametrize("mode", ["none", "cost", "direct", "block", "exception"])
 async def test_mcp_callbacks_preserve_effective_result_and_cost(logging_obj, mode):
-    from litellm.types.llms.base import HiddenParams
-    from litellm.types.mcp import MCPPostCallResponseObject
+    from embrouter.types.llms.base import HiddenParams
+    from embrouter.types.mcp import MCPPostCallResponseObject
 
     class Callback(CustomLogger):
         async def async_post_mcp_tool_call_hook(self, kwargs, response_obj, start_time, end_time):
@@ -264,7 +264,7 @@ async def test_mcp_without_custom_callbacks_preserves_mixed_content(logging_obj,
 async def test_mcp_native_structured_replacement_must_match_returned_content(
     logging_obj, replace_structured, same_content
 ):
-    from litellm.types.mcp import MCPPostCallResponseObject
+    from embrouter.types.mcp import MCPPostCallResponseObject
 
     class NativeReplacement(CustomLogger):
         async def async_post_mcp_tool_call_hook(self, kwargs, response_obj, start_time, end_time):
@@ -338,11 +338,11 @@ def test_get_masked_api_base(logging_obj):
 def test_pre_call_tolerates_missing_api_base(logging_obj):
     """Presigned batch retrieves (Mistral, Bedrock) build their own URL and pass api_base=None
     to pre_call; masking must not raise or the request's pre-call logging is silently lost."""
-    logging_obj.update_environment_variables(litellm_params={}, optional_params={})
+    logging_obj.update_environment_variables(embrouter_params={}, optional_params={})
 
     logging_obj.pre_call(input="", api_key="", additional_args={"api_base": None, "headers": {}})
 
-    assert logging_obj.model_call_details["litellm_params"]["api_base"] == ""
+    assert logging_obj.model_call_details["embrouter_params"]["api_base"] == ""
 
 
 def test_post_call_serializes_dict_with_datetime(logging_obj):
@@ -376,25 +376,25 @@ def test_sentry_environment(monkeypatch):
         mock_init.assert_called_once()
         assert mock_init.call_args[1]["environment"] == environment
 def test_use_custom_pricing_for_model():
-    from litellm.litellm_core_utils.litellm_logging import use_custom_pricing_for_model
+    from embrouter.embrouter_core_utils.embrouter_logging import use_custom_pricing_for_model
 
-    litellm_params = {
+    embrouter_params = {
         "custom_llm_provider": "azure",
         "input_cost_per_pixel": 10,
     }
-    assert use_custom_pricing_for_model(litellm_params) == True
+    assert use_custom_pricing_for_model(embrouter_params) == True
 
 
-def test_use_custom_pricing_for_model_via_litellm_metadata():
-    """Pricing in litellm_metadata.model_info must be detected.
+def test_use_custom_pricing_for_model_via_embrouter_metadata():
+    """Pricing in embrouter_metadata.model_info must be detected.
 
     Generic API call routes (/messages, /responses) store model_info
-    under litellm_metadata, not metadata. Regression test for #23185.
+    under embrouter_metadata, not metadata. Regression test for #23185.
     """
-    from litellm.litellm_core_utils.litellm_logging import use_custom_pricing_for_model
+    from embrouter.embrouter_core_utils.embrouter_logging import use_custom_pricing_for_model
 
-    litellm_params = {
-        "litellm_metadata": {
+    embrouter_params = {
+        "embrouter_metadata": {
             "model_info": {
                 "id": "claude-sonnet-4-custom",
                 "input_cost_per_token": 0.0003,
@@ -402,35 +402,35 @@ def test_use_custom_pricing_for_model_via_litellm_metadata():
             },
         },
     }
-    assert use_custom_pricing_for_model(litellm_params) is True
+    assert use_custom_pricing_for_model(embrouter_params) is True
 
 
-def test_use_custom_pricing_not_detected_litellm_metadata_no_pricing():
-    """Should return False when litellm_metadata.model_info has no pricing keys."""
-    from litellm.litellm_core_utils.litellm_logging import use_custom_pricing_for_model
+def test_use_custom_pricing_not_detected_embrouter_metadata_no_pricing():
+    """Should return False when embrouter_metadata.model_info has no pricing keys."""
+    from embrouter.embrouter_core_utils.embrouter_logging import use_custom_pricing_for_model
 
-    litellm_params = {
-        "litellm_metadata": {
+    embrouter_params = {
+        "embrouter_metadata": {
             "model_info": {"id": "some-id", "db_model": False},
         },
     }
-    assert use_custom_pricing_for_model(litellm_params) is False
+    assert use_custom_pricing_for_model(embrouter_params) is False
 
 
-def test_response_cost_calculator_uses_router_model_id_from_litellm_metadata():
+def test_response_cost_calculator_uses_router_model_id_from_embrouter_metadata():
     """_response_cost_calculator should extract router_model_id from
-    litellm_params.litellm_metadata.model_info.id when the result object
+    embrouter_params.embrouter_metadata.model_info.id when the result object
     does not carry _hidden_params (e.g. ResponsesAPIResponse from /v1/responses
     streaming). Regression test for custom pricing on streaming responses."""
-    import litellm
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.types.llms.openai import ResponsesAPIResponse
+    import embrouter
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.types.llms.openai import ResponsesAPIResponse
 
     custom_model_id = "gpt-5-custom-pricing"
     custom_input_cost = 125.0
     custom_output_cost = 10.0
 
-    litellm.register_model(
+    embrouter.register_model(
         model_cost={
             custom_model_id: {
                 "input_cost_per_token": custom_input_cost,
@@ -438,19 +438,19 @@ def test_response_cost_calculator_uses_router_model_id_from_litellm_metadata():
                 "max_tokens": 128000,
                 "max_input_tokens": 128000,
                 "max_output_tokens": 16384,
-                "litellm_provider": "openai",
+                "embrouter_provider": "openai",
             }
         }
     )
 
     try:
-        logging_obj = LiteLLMLoggingObj(
+        logging_obj = EmbRouterLoggingObj(
             model="gpt-5",
             messages=[{"role": "user", "content": "Hi"}],
             stream=True,
             call_type="aresponses",
             start_time=time.time(),
-            litellm_call_id="test-123",
+            embrouter_call_id="test-123",
             function_id="test-fn",
         )
 
@@ -458,9 +458,9 @@ def test_response_cost_calculator_uses_router_model_id_from_litellm_metadata():
             model="gpt-5",
             user="",
             optional_params={},
-            litellm_params={
+            embrouter_params={
                 "api_base": "",
-                "litellm_metadata": {
+                "embrouter_metadata": {
                     "model_info": {
                         "id": custom_model_id,
                         "input_cost_per_token": custom_input_cost,
@@ -488,7 +488,7 @@ def test_response_cost_calculator_uses_router_model_id_from_litellm_metadata():
         expected_cost = (10 * custom_input_cost) + (5 * custom_output_cost)
         assert cost == pytest.approx(expected_cost), f"Expected {expected_cost}, got {cost}"
     finally:
-        litellm.model_cost.pop(custom_model_id, None)
+        embrouter.model_cost.pop(custom_model_id, None)
 
 
 class TestZeroCostDiagnostic:
@@ -501,11 +501,11 @@ class TestZeroCostDiagnostic:
     @pytest.fixture(params=["query_only", "free"])
     def deployment_pricing(self, request: pytest.FixtureRequest) -> Iterator[Mapping[str, float]]:
         pricing: Final = self.QUERY_ONLY_PRICING if request.param == "query_only" else self.FREE_PRICING
-        litellm.register_model(model_cost={self.DEPLOYMENT_ID: pricing}, persist_across_reloads=False)
+        embrouter.register_model(model_cost={self.DEPLOYMENT_ID: pricing}, persist_across_reloads=False)
         try:
             yield pricing
         finally:
-            litellm.model_cost.pop(self.DEPLOYMENT_ID, None)
+            embrouter.model_cost.pop(self.DEPLOYMENT_ID, None)
 
     def _logging_obj(
         self,
@@ -515,14 +515,14 @@ class TestZeroCostDiagnostic:
         call_type: str = "completion",
         deployment_id: str | None = DEPLOYMENT_ID,
         custom_llm_provider: str = "openai",
-    ) -> LitellmLogging:
-        logging_obj: Final = LitellmLogging(
+    ) -> EmbrouterLogging:
+        logging_obj: Final = EmbrouterLogging(
             model=model,
             messages=[{"role": "user", "content": "Hi"}],
             stream=stream,
             call_type=call_type,
             start_time=time.time(),
-            litellm_call_id="lit7898",
+            embrouter_call_id="lit7898",
             function_id="fn",
         )
         self._route_to_deployment(
@@ -532,7 +532,7 @@ class TestZeroCostDiagnostic:
 
     def _route_to_deployment(
         self,
-        logging_obj: LitellmLogging,
+        logging_obj: EmbrouterLogging,
         pricing: Mapping[str, object],
         model: str = "openai/gpt-5.4-nano",
         deployment_id: str | None = DEPLOYMENT_ID,
@@ -543,17 +543,17 @@ class TestZeroCostDiagnostic:
             model=model,
             user="",
             optional_params={},
-            litellm_params={"metadata": {"model_group": self.MODEL_GROUP, "model_info": model_info}},
+            embrouter_params={"metadata": {"model_group": self.MODEL_GROUP, "model_info": model_info}},
             custom_llm_provider=custom_llm_provider,
         )
 
     @staticmethod
     def _response(
-        usage: litellm.Usage | None = None, model: str = "gpt-5.4-nano", **hidden_params: object
+        usage: embrouter.Usage | None = None, model: str = "gpt-5.4-nano", **hidden_params: object
     ) -> ModelResponse:
         response: Final = ModelResponse(
             model=model,
-            choices=[litellm.Choices(message=litellm.Message(role="assistant", content="hello"))],
+            choices=[embrouter.Choices(message=embrouter.Message(role="assistant", content="hello"))],
             usage=usage,
         )
         response._hidden_params = {"custom_llm_provider": "openai", **hidden_params}
@@ -564,10 +564,10 @@ class TestZeroCostDiagnostic:
         return [
             record.getMessage()
             for record in caplog.records
-            if record.name == "LiteLLM" and record.levelno == logging.WARNING and "priced at $0" in record.getMessage()
+            if record.name == "EmbRouter" and record.levelno == logging.WARNING and "priced at $0" in record.getMessage()
         ]
 
-    def _assert_flagged(self, logging_obj: LitellmLogging, caplog: pytest.LogCaptureFixture) -> None:
+    def _assert_flagged(self, logging_obj: EmbrouterLogging, caplog: pytest.LogCaptureFixture) -> None:
         assert logging_obj.model_call_details["zero_cost_diagnostic"] == {
             "reason": "missing_pricing_key",
             "pricing_model": self.DEPLOYMENT_ID,
@@ -581,10 +581,10 @@ class TestZeroCostDiagnostic:
     def test_zero_cost_with_a_missing_rate_warns_once_and_is_recorded(
         self, deployment_pricing: Mapping[str, float], caplog: pytest.LogCaptureFixture
     ) -> None:
-        usage: Final = litellm.Usage(prompt_tokens=10, completion_tokens=20, total_tokens=30)
+        usage: Final = embrouter.Usage(prompt_tokens=10, completion_tokens=20, total_tokens=30)
         logging_obj: Final = self._logging_obj(deployment_pricing)
 
-        with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+        with caplog.at_level(logging.WARNING, logger="EmbRouter"):
             first_cost: Final = logging_obj._response_cost_calculator(result=self._response(usage))
             second_cost: Final = logging_obj._response_cost_calculator(result=self._response(usage))
 
@@ -599,10 +599,10 @@ class TestZeroCostDiagnostic:
     def test_usage_less_stream_chunk_does_not_hide_the_final_response_diagnostic(
         self, deployment_pricing: Mapping[str, float], caplog: pytest.LogCaptureFixture
     ) -> None:
-        usage: Final = litellm.Usage(prompt_tokens=8, completion_tokens=2, total_tokens=10)
+        usage: Final = embrouter.Usage(prompt_tokens=8, completion_tokens=2, total_tokens=10)
         logging_obj: Final = self._logging_obj(deployment_pricing, stream=True)
 
-        with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+        with caplog.at_level(logging.WARNING, logger="EmbRouter"):
             logging_obj._response_cost_calculator(result=self._response(usage=None))
             logging_obj._response_cost_calculator(result=self._response(usage))
 
@@ -629,7 +629,7 @@ class TestZeroCostDiagnostic:
             ),
         )
 
-        with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+        with caplog.at_level(logging.WARNING, logger="EmbRouter"):
             cost: Final = logging_obj._response_cost_calculator(result=event)
 
         assert cost == 0.0
@@ -642,11 +642,11 @@ class TestZeroCostDiagnostic:
     def test_precomputed_zero_hidden_cost_is_flagged_and_lands_in_the_payload(
         self, deployment_pricing: Mapping[str, float], caplog: pytest.LogCaptureFixture
     ) -> None:
-        usage: Final = litellm.Usage(prompt_tokens=10, completion_tokens=20, total_tokens=30)
+        usage: Final = embrouter.Usage(prompt_tokens=10, completion_tokens=20, total_tokens=30)
         logging_obj: Final = self._logging_obj(deployment_pricing)
         response: Final = self._response(usage, response_cost=0.0, model_id=self.DEPLOYMENT_ID)
 
-        with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+        with caplog.at_level(logging.WARNING, logger="EmbRouter"):
             logging_obj._process_hidden_params_and_response_cost(
                 response, start_time=datetime.datetime.now(), end_time=datetime.datetime.now()
             )
@@ -663,11 +663,11 @@ class TestZeroCostDiagnostic:
     def test_uncomputed_hidden_cost_is_not_a_zero_cost(
         self, deployment_pricing: Mapping[str, float], caplog: pytest.LogCaptureFixture
     ) -> None:
-        usage: Final = litellm.Usage(prompt_tokens=10, completion_tokens=20, total_tokens=30)
+        usage: Final = embrouter.Usage(prompt_tokens=10, completion_tokens=20, total_tokens=30)
         logging_obj: Final = self._logging_obj(deployment_pricing)
         response: Final = self._response(usage, response_cost=None, model_id=self.DEPLOYMENT_ID)
 
-        with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+        with caplog.at_level(logging.WARNING, logger="EmbRouter"):
             logging_obj._process_hidden_params_and_response_cost(
                 response, start_time=datetime.datetime.now(), end_time=datetime.datetime.now()
             )
@@ -678,11 +678,11 @@ class TestZeroCostDiagnostic:
     def test_unbilled_read_route_with_usage_stays_silent(
         self, deployment_pricing: Mapping[str, float], caplog: pytest.LogCaptureFixture
     ) -> None:
-        usage: Final = litellm.Usage(prompt_tokens=10, completion_tokens=20, total_tokens=30)
+        usage: Final = embrouter.Usage(prompt_tokens=10, completion_tokens=20, total_tokens=30)
         logging_obj: Final = self._logging_obj(deployment_pricing, call_type="aget_responses")
         response: Final = self._response(usage, response_cost=0.0, model_id=self.DEPLOYMENT_ID)
 
-        with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+        with caplog.at_level(logging.WARNING, logger="EmbRouter"):
             logging_obj._process_hidden_params_and_response_cost(
                 response, start_time=datetime.datetime.now(), end_time=datetime.datetime.now()
             )
@@ -691,12 +691,12 @@ class TestZeroCostDiagnostic:
         assert self._zero_cost_warnings(caplog) == []
 
     def test_unmapped_model_that_fails_cost_calculation_stays_silent(self, caplog: pytest.LogCaptureFixture) -> None:
-        usage: Final = litellm.Usage(prompt_tokens=10, completion_tokens=20, total_tokens=30)
+        usage: Final = embrouter.Usage(prompt_tokens=10, completion_tokens=20, total_tokens=30)
         logging_obj: Final = self._logging_obj(
             {}, model="openai/lit7898-unmapped-model", deployment_id="lit7898-unmapped-deployment"
         )
 
-        with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+        with caplog.at_level(logging.WARNING, logger="EmbRouter"):
             cost: Final = logging_obj._response_cost_calculator(
                 result=self._response(usage, model="lit7898-unmapped-model")
             )
@@ -711,7 +711,7 @@ class TestZeroCostDiagnostic:
     ) -> None:
         logging_obj: Final = self._logging_obj(deployment_pricing)
 
-        with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+        with caplog.at_level(logging.WARNING, logger="EmbRouter"):
             cost: Final = logging_obj._response_cost_calculator(
                 result={"model": "gpt-5.4-nano", "usage": {"prompt_tokens": "n/a", "completion_tokens": 3}}
             )
@@ -723,10 +723,10 @@ class TestZeroCostDiagnostic:
     def test_usage_less_evaluation_between_two_zero_cost_findings_does_not_warn_twice(
         self, deployment_pricing: Mapping[str, float], caplog: pytest.LogCaptureFixture
     ) -> None:
-        usage: Final = litellm.Usage(prompt_tokens=8, completion_tokens=2, total_tokens=10)
+        usage: Final = embrouter.Usage(prompt_tokens=8, completion_tokens=2, total_tokens=10)
         logging_obj: Final = self._logging_obj(deployment_pricing, stream=True, call_type="anthropic_messages")
 
-        with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+        with caplog.at_level(logging.WARNING, logger="EmbRouter"):
             logging_obj._response_cost_calculator(result=self._response(usage=None))
             logging_obj._response_cost_calculator(result=self._response(usage))
             logging_obj._response_cost_calculator(result=self._response(usage=None))
@@ -743,14 +743,14 @@ class TestZeroCostDiagnostic:
     ) -> None:
         priced_id: Final = "lit7898-priced-deployment"
         priced_pricing: Final = {"input_cost_per_token": 1e-06, "output_cost_per_token": 2e-06}
-        usage: Final = litellm.Usage(prompt_tokens=10, completion_tokens=20, total_tokens=30)
-        litellm.register_model(
+        usage: Final = embrouter.Usage(prompt_tokens=10, completion_tokens=20, total_tokens=30)
+        embrouter.register_model(
             model_cost={self.DEPLOYMENT_ID: self.QUERY_ONLY_PRICING, priced_id: priced_pricing},
             persist_across_reloads=False,
         )
         try:
             logging_obj: Final = self._logging_obj(self.QUERY_ONLY_PRICING)
-            with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+            with caplog.at_level(logging.WARNING, logger="EmbRouter"):
                 assert logging_obj._response_cost_calculator(result=self._response(usage)) == 0.0
                 self._assert_flagged(logging_obj, caplog)
 
@@ -764,24 +764,24 @@ class TestZeroCostDiagnostic:
             assert logging_obj.model_call_details["zero_cost_diagnostic"]["reason"] == "missing_pricing_key"
             assert len(self._zero_cost_warnings(caplog)) == 1
         finally:
-            litellm.model_cost.pop(self.DEPLOYMENT_ID, None)
-            litellm.model_cost.pop(priced_id, None)
+            embrouter.model_cost.pop(self.DEPLOYMENT_ID, None)
+            embrouter.model_cost.pop(priced_id, None)
 
     def test_one_request_evaluated_against_two_cost_map_entries_warns_once(
         self, caplog: pytest.LogCaptureFixture
     ) -> None:
         dated_model: Final = "lit7898-nano-2026-03-17"
         requested_model: Final = "lit7898-nano"
-        usage: Final = litellm.Usage(prompt_tokens=10, completion_tokens=20, total_tokens=30)
-        cost_map_entry: Final = {"litellm_provider": "openai", "mode": "chat", **self.QUERY_ONLY_PRICING}
-        litellm.register_model(
+        usage: Final = embrouter.Usage(prompt_tokens=10, completion_tokens=20, total_tokens=30)
+        cost_map_entry: Final = {"embrouter_provider": "openai", "mode": "chat", **self.QUERY_ONLY_PRICING}
+        embrouter.register_model(
             model_cost={dated_model: cost_map_entry, requested_model: cost_map_entry}, persist_across_reloads=False
         )
         try:
             logging_obj: Final = self._logging_obj(
                 {}, model=f"openai/{requested_model}", deployment_id="lit7898-cost-map-deployment"
             )
-            with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+            with caplog.at_level(logging.WARNING, logger="EmbRouter"):
                 assert logging_obj._response_cost_calculator(result=self._response(usage, model=dated_model)) == 0.0
                 assert logging_obj._response_cost_calculator(result=self._response(usage, model=requested_model)) == 0.0
 
@@ -790,18 +790,18 @@ class TestZeroCostDiagnostic:
             assert len(warnings) == 1
             assert f"pricing entry '{dated_model}' has no input_cost_per_token, output_cost_per_token" in warnings[0]
         finally:
-            litellm.model_cost.pop(dated_model, None)
-            litellm.model_cost.pop(requested_model, None)
+            embrouter.model_cost.pop(dated_model, None)
+            embrouter.model_cost.pop(requested_model, None)
 
     def test_free_deployment_without_a_router_id_is_judged_by_its_own_pricing(
         self, caplog: pytest.LogCaptureFixture
     ) -> None:
         global_model: Final = "lit7898-priced-global"
-        usage: Final = litellm.Usage(prompt_tokens=10, completion_tokens=20, total_tokens=30)
-        litellm.register_model(
+        usage: Final = embrouter.Usage(prompt_tokens=10, completion_tokens=20, total_tokens=30)
+        embrouter.register_model(
             model_cost={
                 global_model: {
-                    "litellm_provider": "openai",
+                    "embrouter_provider": "openai",
                     "mode": "chat",
                     "input_cost_per_token": 1e-06,
                     "output_cost_per_token": 2e-06,
@@ -812,23 +812,23 @@ class TestZeroCostDiagnostic:
         try:
             logging_obj: Final = self._logging_obj(self.FREE_PRICING, model=global_model, deployment_id=None)
             response: Final = self._response(usage, model=global_model, response_cost=0.0)
-            with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+            with caplog.at_level(logging.WARNING, logger="EmbRouter"):
                 logging_obj._process_hidden_params_and_response_cost(
                     response, start_time=datetime.datetime.now(), end_time=datetime.datetime.now()
                 )
             assert logging_obj.model_call_details["zero_cost_diagnostic"] is None
             assert self._zero_cost_warnings(caplog) == []
         finally:
-            litellm.model_cost.pop(global_model, None)
+            embrouter.model_cost.pop(global_model, None)
 
     def test_cache_hit_priced_for_saved_cost_stays_silent(
         self, deployment_pricing: Mapping[str, float], caplog: pytest.LogCaptureFixture
     ) -> None:
-        usage: Final = litellm.Usage(prompt_tokens=10, completion_tokens=20, total_tokens=30)
+        usage: Final = embrouter.Usage(prompt_tokens=10, completion_tokens=20, total_tokens=30)
         logging_obj: Final = self._logging_obj(deployment_pricing)
         logging_obj.model_call_details["cache_hit"] = True
 
-        with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+        with caplog.at_level(logging.WARNING, logger="EmbRouter"):
             assert logging_obj._response_cost_calculator(result=self._response(usage), cache_hit=False) == 0.0
 
         assert logging_obj.model_call_details["zero_cost_diagnostic"] is None
@@ -838,19 +838,19 @@ class TestZeroCostDiagnostic:
         self, caplog: pytest.LogCaptureFixture
     ) -> None:
         per_second_id: Final = "lit8315-per-second-priced-deployment"
-        usage: Final = litellm.Usage(prompt_tokens=10, completion_tokens=20, total_tokens=30)
-        litellm.register_model(model_cost={per_second_id: self.PER_SECOND_PRICING}, persist_across_reloads=False)
+        usage: Final = embrouter.Usage(prompt_tokens=10, completion_tokens=20, total_tokens=30)
+        embrouter.register_model(model_cost={per_second_id: self.PER_SECOND_PRICING}, persist_across_reloads=False)
         try:
             logging_obj: Final = self._logging_obj(self.PER_SECOND_PRICING, deployment_id=per_second_id)
             response: Final = self._response(usage)
             response._response_ms = 1000.0
-            with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+            with caplog.at_level(logging.WARNING, logger="EmbRouter"):
                 assert logging_obj._response_cost_calculator(result=response) == pytest.approx(0.00042)
 
             assert logging_obj.model_call_details["zero_cost_diagnostic"] is None
             assert self._zero_cost_warnings(caplog) == []
         finally:
-            litellm.model_cost.pop(per_second_id, None)
+            embrouter.model_cost.pop(per_second_id, None)
 
     @pytest.mark.parametrize("spilled_over", [True, False])
     def test_ptu_deployment_is_judged_by_the_entry_the_calculator_priced_with(
@@ -865,15 +865,15 @@ class TestZeroCostDiagnostic:
             "ptu_effective_from": "2026-01-01",
             **self.FREE_PRICING,
         }
-        usage: Final = litellm.Usage(prompt_tokens=10, completion_tokens=20, total_tokens=30)
-        litellm.register_model(
+        usage: Final = embrouter.Usage(prompt_tokens=10, completion_tokens=20, total_tokens=30)
+        embrouter.register_model(
             model_cost={
-                router_model_id: {**self.FREE_PRICING, "litellm_provider": "azure", "mode": "chat"},
-                served_model: {**self.QUERY_ONLY_PRICING, "litellm_provider": "azure", "mode": "chat"},
+                router_model_id: {**self.FREE_PRICING, "embrouter_provider": "azure", "mode": "chat"},
+                served_model: {**self.QUERY_ONLY_PRICING, "embrouter_provider": "azure", "mode": "chat"},
             },
             persist_across_reloads=False,
         )
-        monkeypatch.setenv("LITELLM_ENABLE_PTU_COST_ATTRIBUTION", "True")
+        monkeypatch.setenv("EMBROUTER_ENABLE_PTU_COST_ATTRIBUTION", "True")
         try:
             logging_obj: Final = self._logging_obj(
                 ptu_model_info, model=served_model, deployment_id=router_model_id, custom_llm_provider="azure"
@@ -882,7 +882,7 @@ class TestZeroCostDiagnostic:
             response: Final = self._response(
                 usage, model=served_model, custom_llm_provider="azure", additional_headers=spillover_headers
             )
-            with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+            with caplog.at_level(logging.WARNING, logger="EmbRouter"):
                 assert logging_obj._response_cost_calculator(result=response) == 0.0
 
             warnings: Final = self._zero_cost_warnings(caplog)
@@ -898,64 +898,64 @@ class TestZeroCostDiagnostic:
             assert len(warnings) == 1
             assert f"pricing entry '{served_model}' has no input_cost_per_token, output_cost_per_token" in warnings[0]
         finally:
-            litellm.model_cost.pop(router_model_id, None)
-            litellm.model_cost.pop(served_model, None)
+            embrouter.model_cost.pop(router_model_id, None)
+            embrouter.model_cost.pop(served_model, None)
 
 
 class TestGetRouterModelId:
     """Tests for the get_router_model_id helper method."""
 
-    def test_returns_id_from_litellm_metadata(self, logging_obj):
-        """Should extract model_info.id from litellm_metadata."""
-        logging_obj.litellm_params = {
-            "litellm_metadata": {
+    def test_returns_id_from_embrouter_metadata(self, logging_obj):
+        """Should extract model_info.id from embrouter_metadata."""
+        logging_obj.embrouter_params = {
+            "embrouter_metadata": {
                 "model_info": {"id": "custom-deploy-1"},
             },
         }
         assert logging_obj.get_router_model_id() == "custom-deploy-1"
 
     def test_returns_id_from_metadata(self, logging_obj):
-        """Should fall back to metadata when litellm_metadata has no model_info."""
-        logging_obj.litellm_params = {
+        """Should fall back to metadata when embrouter_metadata has no model_info."""
+        logging_obj.embrouter_params = {
             "metadata": {
                 "model_info": {"id": "custom-deploy-2"},
             },
         }
         assert logging_obj.get_router_model_id() == "custom-deploy-2"
 
-    def test_prefers_litellm_metadata_over_metadata(self, logging_obj):
-        """litellm_metadata should take priority over metadata."""
-        logging_obj.litellm_params = {
-            "litellm_metadata": {
-                "model_info": {"id": "from-litellm-meta"},
+    def test_prefers_embrouter_metadata_over_metadata(self, logging_obj):
+        """embrouter_metadata should take priority over metadata."""
+        logging_obj.embrouter_params = {
+            "embrouter_metadata": {
+                "model_info": {"id": "from-embrouter-meta"},
             },
             "metadata": {
                 "model_info": {"id": "from-meta"},
             },
         }
-        assert logging_obj.get_router_model_id() == "from-litellm-meta"
+        assert logging_obj.get_router_model_id() == "from-embrouter-meta"
 
     def test_returns_none_when_no_model_info(self, logging_obj):
         """Should return None when no model_info is present."""
-        logging_obj.litellm_params = {"api_base": ""}
+        logging_obj.embrouter_params = {"api_base": ""}
         assert logging_obj.get_router_model_id() is None
 
-    def test_returns_none_when_no_litellm_params(self):
-        """Should return None when litellm_params is not set."""
-        from litellm.litellm_core_utils.litellm_logging import (
-            Logging as LiteLLMLoggingObj,
+    def test_returns_none_when_no_embrouter_params(self):
+        """Should return None when embrouter_params is not set."""
+        from embrouter.embrouter_core_utils.embrouter_logging import (
+            Logging as EmbRouterLoggingObj,
         )
 
-        obj = LiteLLMLoggingObj(
+        obj = EmbRouterLoggingObj(
             model="test",
             messages=[],
             stream=False,
             call_type="completion",
             start_time=time.time(),
-            litellm_call_id="x",
+            embrouter_call_id="x",
             function_id="x",
         )
-        # litellm_params exists but is empty by default
+        # embrouter_params exists but is empty by default
         assert obj.get_router_model_id() is None
 
 
@@ -964,25 +964,25 @@ class TestGetRouterDeploymentModelInfo:
 
     def test_returns_registered_deployment_pricing(self, logging_obj) -> None:
         deployment_id = "deploy-zero-cost-1"
-        litellm.model_cost[deployment_id] = {
+        embrouter.model_cost[deployment_id] = {
             "input_cost_per_token": 0.0,
             "output_cost_per_token": 0.0,
             "input_cost_per_token_batches": 0.0,
             "output_cost_per_token_batches": 0.0,
-            "litellm_provider": "vertex_ai",
+            "embrouter_provider": "vertex_ai",
             "mode": "chat",
         }
-        logging_obj.litellm_params = {"litellm_metadata": {"model_info": {"id": deployment_id}}}
+        logging_obj.embrouter_params = {"embrouter_metadata": {"model_info": {"id": deployment_id}}}
         try:
             info = logging_obj.get_router_deployment_model_info()
             assert info is not None
             assert info["input_cost_per_token"] == 0.0
             assert info["output_cost_per_token_batches"] == 0.0
         finally:
-            litellm.model_cost.pop(deployment_id, None)
+            embrouter.model_cost.pop(deployment_id, None)
 
     def test_returns_none_for_unregistered_deployment(self, logging_obj) -> None:
-        logging_obj.litellm_params = {"litellm_metadata": {"model_info": {"id": "deploy-never-registered"}}}
+        logging_obj.embrouter_params = {"embrouter_metadata": {"model_info": {"id": "deploy-never-registered"}}}
         assert logging_obj.get_router_deployment_model_info() is None
 
     def test_returns_none_when_deployment_registered_without_pricing(self, logging_obj) -> None:
@@ -992,19 +992,19 @@ class TestGetRouterDeploymentModelInfo:
         hand back free pricing for an ordinary deployment and bill its batches $0.
         """
         deployment_id = "deploy-no-pricing-1"
-        litellm.register_model(
+        embrouter.register_model(
             model_cost={deployment_id: {"id": deployment_id, "access_groups": ["x"]}},
             persist_across_reloads=False,
         )
-        logging_obj.litellm_params = {"litellm_metadata": {"model_info": {"id": deployment_id}}}
+        logging_obj.embrouter_params = {"embrouter_metadata": {"model_info": {"id": deployment_id}}}
         try:
-            assert litellm.get_model_info(model=deployment_id)["input_cost_per_token"] == 0
+            assert embrouter.get_model_info(model=deployment_id)["input_cost_per_token"] == 0
             assert logging_obj.get_router_deployment_model_info() is None
         finally:
-            litellm.model_cost.pop(deployment_id, None)
+            embrouter.model_cost.pop(deployment_id, None)
 
     def test_returns_none_without_a_deployment_id(self, logging_obj) -> None:
-        logging_obj.litellm_params = {"api_base": ""}
+        logging_obj.embrouter_params = {"api_base": ""}
         assert logging_obj.get_router_deployment_model_info() is None
 
     def test_a_published_batch_rate_never_displaces_a_declared_standard_rate(self) -> None:
@@ -1014,29 +1014,29 @@ class TestGetRouterDeploymentModelInfo:
         deployment configuring only its standard rate had batches billed at the
         published batch price instead of half the rate it configured.
         """
-        from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+        from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
 
         model = "ft:gpt-3.5-turbo"
-        published = litellm.get_model_info(model=model)
+        published = embrouter.get_model_info(model=model)
         assert published["input_cost_per_token_batches"] is not None
 
         deployment_id = "deploy-standard-input-only-1"
-        litellm.model_cost[deployment_id] = {
+        embrouter.model_cost[deployment_id] = {
             "id": deployment_id,
             "input_cost_per_token": 1e-06,
-            "litellm_provider": "openai",
+            "embrouter_provider": "openai",
             "mode": "chat",
         }
-        obj = LiteLLMLoggingObj(
+        obj = EmbRouterLoggingObj(
             model=model,
             messages=[],
             stream=False,
             call_type="aretrieve_batch",
             start_time=time.time(),
-            litellm_call_id="direction-ownership",
+            embrouter_call_id="direction-ownership",
             function_id="f",
         )
-        obj.litellm_params = {"litellm_metadata": {"model_info": {"id": deployment_id}}, "model": model}
+        obj.embrouter_params = {"embrouter_metadata": {"model_info": {"id": deployment_id}}, "model": model}
         obj.model_call_details["model"] = model
         try:
             info = obj.get_router_deployment_model_info()
@@ -1046,7 +1046,7 @@ class TestGetRouterDeploymentModelInfo:
             assert info["output_cost_per_token"] == published["output_cost_per_token"]
             assert info["output_cost_per_token_batches"] == published["output_cost_per_token_batches"]
         finally:
-            litellm.model_cost.pop(deployment_id, None)
+            embrouter.model_cost.pop(deployment_id, None)
 
     def test_merging_does_not_mutate_the_cached_model_info(self) -> None:
         """The published-rate merge must not write into get_model_info's lru-cached dict.
@@ -1055,41 +1055,41 @@ class TestGetRouterDeploymentModelInfo:
         the published rates into it poisoned every later lookup of the
         deployment id for the life of the process.
         """
-        from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+        from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
 
         model = "bedrock/global.anthropic.claude-sonnet-4-6"
         deployment_id = "deploy-cache-not-poisoned-1"
-        litellm.model_cost[deployment_id] = {"id": deployment_id, "input_cost_per_token": 1e-06}
-        obj = LiteLLMLoggingObj(
+        embrouter.model_cost[deployment_id] = {"id": deployment_id, "input_cost_per_token": 1e-06}
+        obj = EmbRouterLoggingObj(
             model=model,
             messages=[],
             stream=False,
             call_type="aretrieve_batch",
             start_time=time.time(),
-            litellm_call_id="cache-not-poisoned",
+            embrouter_call_id="cache-not-poisoned",
             function_id="f",
         )
-        obj.litellm_params = {"litellm_metadata": {"model_info": {"id": deployment_id}}, "model": model}
+        obj.embrouter_params = {"embrouter_metadata": {"model_info": {"id": deployment_id}}, "model": model}
         obj.model_call_details["model"] = model
         try:
-            cached_before = dict(litellm.get_model_info(model=deployment_id))
+            cached_before = dict(embrouter.get_model_info(model=deployment_id))
             info = obj.get_router_deployment_model_info()
             assert info is not None
-            assert dict(litellm.get_model_info(model=deployment_id)) == cached_before
+            assert dict(embrouter.get_model_info(model=deployment_id)) == cached_before
         finally:
-            litellm.model_cost.pop(deployment_id, None)
+            embrouter.model_cost.pop(deployment_id, None)
 
     def test_keeps_declared_rates_when_no_model_is_resolvable(self, logging_obj) -> None:
         """With no model to look a published entry up by, the declared rates stand alone."""
         deployment_id = "deploy-no-model-at-all-1"
-        litellm.model_cost[deployment_id] = {
+        embrouter.model_cost[deployment_id] = {
             "id": deployment_id,
             "input_cost_per_token": 9e-06,
             "output_cost_per_token": 2e-05,
-            "litellm_provider": "bedrock",
+            "embrouter_provider": "bedrock",
             "mode": "chat",
         }
-        logging_obj.litellm_params = {"litellm_metadata": {"model_info": {"id": deployment_id}}}
+        logging_obj.embrouter_params = {"embrouter_metadata": {"model_info": {"id": deployment_id}}}
         logging_obj.model_call_details["model"] = None
         logging_obj.model = None
         try:
@@ -1099,27 +1099,27 @@ class TestGetRouterDeploymentModelInfo:
             assert info["input_cost_per_token"] == 9e-06
             assert info["output_cost_per_token"] == 2e-05
         finally:
-            litellm.model_cost.pop(deployment_id, None)
+            embrouter.model_cost.pop(deployment_id, None)
 
     def test_returns_none_when_the_deployment_id_resolves_no_provider(self, logging_obj) -> None:
         """A registration whose id get_model_info cannot resolve yields no pricing."""
         deployment_id = "deploy-unresolvable-provider-1"
-        litellm.model_cost[deployment_id] = {"id": deployment_id, "input_cost_per_token": 4e-06}
-        logging_obj.litellm_params = {"litellm_metadata": {"model_info": {"id": deployment_id}}}
+        embrouter.model_cost[deployment_id] = {"id": deployment_id, "input_cost_per_token": 4e-06}
+        logging_obj.embrouter_params = {"embrouter_metadata": {"model_info": {"id": deployment_id}}}
         logging_obj.model_call_details["model"] = None
         logging_obj.model = None
         try:
-            with patch.object(litellm, "get_model_info", side_effect=Exception("unresolvable")):
+            with patch.object(embrouter, "get_model_info", side_effect=Exception("unresolvable")):
                 assert logging_obj.get_router_deployment_model_info() is None
         finally:
-            litellm.model_cost.pop(deployment_id, None)
+            embrouter.model_cost.pop(deployment_id, None)
 
     def test_falls_back_to_declared_rates_when_the_model_has_no_published_entry(self, logging_obj) -> None:
         """With no published entry to layer under, the declared rates still apply."""
         deployment_id = "deploy-unpublished-model-1"
-        litellm.model_cost[deployment_id] = {"id": deployment_id, "input_cost_per_token": 7e-06}
-        logging_obj.litellm_params = {
-            "litellm_metadata": {"model_info": {"id": deployment_id}},
+        embrouter.model_cost[deployment_id] = {"id": deployment_id, "input_cost_per_token": 7e-06}
+        logging_obj.embrouter_params = {
+            "embrouter_metadata": {"model_info": {"id": deployment_id}},
             "model": "not-a-real-provider/not-a-real-model-xyz",
         }
         logging_obj.model_call_details["model"] = "not-a-real-provider/not-a-real-model-xyz"
@@ -1128,25 +1128,25 @@ class TestGetRouterDeploymentModelInfo:
             assert info is not None
             assert info["input_cost_per_token"] == 7e-06
         finally:
-            litellm.model_cost.pop(deployment_id, None)
+            embrouter.model_cost.pop(deployment_id, None)
 
     def test_ocr_only_deployment_pricing_reaches_batch_ocr_cost(self, logging_obj) -> None:
         """Regression: a deployment priced only per page was treated as unpriced, so a retrieved OCR batch
         billed at the published rate while the same deployment's synchronous OCR calls billed at its own."""
         deployment_id = "deploy-ocr-only-pricing-1"
-        litellm.model_cost[deployment_id] = {
+        embrouter.model_cost[deployment_id] = {
             "id": deployment_id,
-            "litellm_provider": "mistral",
+            "embrouter_provider": "mistral",
             "mode": "ocr",
             "ocr_cost_per_page": 0.0456,
             "ocr_cost_per_page_batches": 0.0123,
         }
-        logging_obj.litellm_params = {
-            "litellm_metadata": {"model_info": {"id": deployment_id}},
+        logging_obj.embrouter_params = {
+            "embrouter_metadata": {"model_info": {"id": deployment_id}},
             "model": "mistral/mistral-ocr-latest",
         }
         logging_obj.model_call_details["model"] = "mistral/mistral-ocr-latest"
-        published_annotation_rate = litellm.model_cost["mistral/mistral-ocr-latest"]["annotation_cost_per_page_batches"]
+        published_annotation_rate = embrouter.model_cost["mistral/mistral-ocr-latest"]["annotation_cost_per_page_batches"]
         try:
             info = logging_obj.get_router_deployment_model_info()
             assert info is not None
@@ -1158,7 +1158,7 @@ class TestGetRouterDeploymentModelInfo:
                 3 * 0.0123 + 2 * published_annotation_rate
             )
         finally:
-            litellm.model_cost.pop(deployment_id, None)
+            embrouter.model_cost.pop(deployment_id, None)
 
 
 class TestRetrieveBatchCostPassesModelIdentity:
@@ -1172,20 +1172,20 @@ class TestRetrieveBatchCostPassesModelIdentity:
 
     @pytest.mark.asyncio
     async def test_forwards_deployment_model_and_pricing(self, monkeypatch) -> None:
-        from litellm.litellm_core_utils import litellm_logging as logging_module
-        from litellm.types.utils import LiteLLMBatch, Usage
+        from embrouter.embrouter_core_utils import embrouter_logging as logging_module
+        from embrouter.types.utils import EmbRouterBatch, Usage
 
         deployment_id = "deploy-batch-pricing-1"
-        litellm.model_cost[deployment_id] = {
+        embrouter.model_cost[deployment_id] = {
             "input_cost_per_token": 0.0,
             "output_cost_per_token": 0.0,
-            "litellm_provider": "bedrock",
+            "embrouter_provider": "bedrock",
             "mode": "chat",
         }
 
         captured: dict[str, object] = {}
 
-        from litellm.batches.batch_utils import BatchCostUsageResult
+        from embrouter.batches.batch_utils import BatchCostUsageResult
 
         async def fake_handle_completed_batch(**kwargs: object) -> BatchCostUsageResult:
             captured.update(kwargs)
@@ -1199,19 +1199,19 @@ class TestRetrieveBatchCostPassesModelIdentity:
 
         monkeypatch.setattr(logging_module, "_handle_completed_batch", fake_handle_completed_batch)
 
-        obj = LitellmLogging(
+        obj = EmbrouterLogging(
             model="bedrock/global.anthropic.claude-sonnet-4-6",
             messages=[{"role": "user", "content": "Hey"}],
             stream=False,
             call_type="aretrieve_batch",
             start_time=time.time(),
-            litellm_call_id="batch-call-1",
+            embrouter_call_id="batch-call-1",
             function_id="f",
         )
         obj.custom_llm_provider = "bedrock"
-        obj.litellm_params = {"litellm_metadata": {"model_info": {"id": deployment_id}}}
+        obj.embrouter_params = {"embrouter_metadata": {"model_info": {"id": deployment_id}}}
 
-        batch = LiteLLMBatch(
+        batch = EmbRouterBatch(
             id="batch_abc",
             completion_window="24h",
             created_at=1,
@@ -1226,7 +1226,7 @@ class TestRetrieveBatchCostPassesModelIdentity:
             with contextlib.suppress(Exception):
                 await obj._async_success_handler_body(result=batch, start_time=None, end_time=None)
         finally:
-            litellm.model_cost.pop(deployment_id, None)
+            embrouter.model_cost.pop(deployment_id, None)
 
         assert captured, "_handle_completed_batch was never called"
         assert captured["model_name"] == "bedrock/global.anthropic.claude-sonnet-4-6"
@@ -1243,14 +1243,14 @@ class TestRetrieveBatchPricesOnlyFinalBatches:
     """
 
     @staticmethod
-    def _logging_obj() -> LitellmLogging:
-        obj = LitellmLogging(
+    def _logging_obj() -> EmbrouterLogging:
+        obj = EmbrouterLogging(
             model="gpt-5.6-luna",
             messages=[{"role": "user", "content": "Hey"}],
             stream=False,
             call_type="aretrieve_batch",
             start_time=time.time(),
-            litellm_call_id="batch-call-2",
+            embrouter_call_id="batch-call-2",
             function_id="f",
         )
         obj.custom_llm_provider = "openai"
@@ -1258,9 +1258,9 @@ class TestRetrieveBatchPricesOnlyFinalBatches:
 
     @staticmethod
     def _batch(status: str, output_file_id: str | None):
-        from litellm.types.utils import LiteLLMBatch
+        from embrouter.types.utils import EmbRouterBatch
 
-        return LiteLLMBatch(
+        return EmbRouterBatch(
             id="batch_6a9c99e185588190877d391f8b9d7f8a",
             completion_window="24h",
             created_at=1,
@@ -1277,7 +1277,7 @@ class TestRetrieveBatchPricesOnlyFinalBatches:
         [("validating", None), ("in_progress", None), ("finalizing", None), ("completed", None), ("complete", None)],
     )
     async def test_non_final_batch_is_not_priced(self, monkeypatch, status, output_file_id) -> None:
-        from litellm.litellm_core_utils import litellm_logging as logging_module
+        from embrouter.embrouter_core_utils import embrouter_logging as logging_module
 
         handle_completed_batch = AsyncMock()
         monkeypatch.setattr(logging_module, "_handle_completed_batch", handle_completed_batch)
@@ -1290,9 +1290,9 @@ class TestRetrieveBatchPricesOnlyFinalBatches:
 
     @pytest.mark.asyncio
     async def test_completed_batch_with_output_is_priced(self, monkeypatch) -> None:
-        from litellm.batches.batch_utils import BatchCostUsageResult
-        from litellm.litellm_core_utils import litellm_logging as logging_module
-        from litellm.types.utils import Usage
+        from embrouter.batches.batch_utils import BatchCostUsageResult
+        from embrouter.embrouter_core_utils import embrouter_logging as logging_module
+        from embrouter.types.utils import Usage
 
         handle_completed_batch = AsyncMock(
             return_value=BatchCostUsageResult(
@@ -1319,33 +1319,33 @@ class TestAnthropicPassthroughCustomPricing:
 
     def test_completion_cost_receives_custom_pricing_args(self):
         """_create_anthropic_response_logging_payload should pass
-        custom_pricing and router_model_id to litellm.completion_cost
+        custom_pricing and router_model_id to embrouter.completion_cost
         when the logging object carries custom pricing in model_info."""
         from unittest.mock import patch
 
-        from litellm.litellm_core_utils.litellm_logging import (
-            Logging as LiteLLMLoggingObj,
+        from embrouter.embrouter_core_utils.embrouter_logging import (
+            Logging as EmbRouterLoggingObj,
         )
-        from litellm.proxy.pass_through_endpoints.llm_provider_handlers.anthropic_passthrough_logging_handler import (
+        from embrouter.proxy.pass_through_endpoints.llm_provider_handlers.anthropic_passthrough_logging_handler import (
             AnthropicPassthroughLoggingHandler,
         )
 
-        logging_obj = LiteLLMLoggingObj(
+        logging_obj = EmbRouterLoggingObj(
             model="claude-sonnet-4-20250514",
             messages=[{"role": "user", "content": "Hi"}],
             stream=False,
             call_type="anthropic_messages",
             start_time=time.time(),
-            litellm_call_id="test-456",
+            embrouter_call_id="test-456",
             function_id="test-fn",
         )
         logging_obj.update_environment_variables(
             model="claude-sonnet-4-20250514",
             user="",
             optional_params={},
-            litellm_params={
+            embrouter_params={
                 "api_base": "",
-                "litellm_metadata": {
+                "embrouter_metadata": {
                     "model_info": {
                         "id": "claude-custom-pricing",
                         "input_cost_per_token": 0.5,
@@ -1359,9 +1359,9 @@ class TestAnthropicPassthroughCustomPricing:
         mock_response = ModelResponse()
         mock_response.usage = {"prompt_tokens": 10, "completion_tokens": 5}  # type: ignore
 
-        with patch("litellm.completion_cost", return_value=42.0) as mock_cost:
+        with patch("embrouter.completion_cost", return_value=42.0) as mock_cost:
             AnthropicPassthroughLoggingHandler._create_anthropic_response_logging_payload(
-                litellm_model_response=mock_response,
+                embrouter_model_response=mock_response,
                 model="claude-sonnet-4-20250514",
                 kwargs={},
                 start_time=time.time(),
@@ -1384,13 +1384,13 @@ class TestUpdateFromKwargs:
 
         logging_obj.update_from_kwargs(
             kwargs=kwargs,
-            litellm_params={"litellm_call_id": "call-1"},
+            embrouter_params={"embrouter_call_id": "call-1"},
         )
 
-        assert logging_obj.litellm_params["metadata"] == metadata
-        assert logging_obj.litellm_params["litellm_call_id"] == "call-1"
+        assert logging_obj.embrouter_params["metadata"] == metadata
+        assert logging_obj.embrouter_params["embrouter_call_id"] == "call-1"
 
-    def test_extracts_litellm_metadata_from_kwargs(self, logging_obj):
+    def test_extracts_embrouter_metadata_from_kwargs(self, logging_obj):
         lm_meta = {
             "model_info": {
                 "id": "deploy-1",
@@ -1398,72 +1398,72 @@ class TestUpdateFromKwargs:
                 "output_cost_per_token": 0.002,
             }
         }
-        kwargs = {"litellm_metadata": lm_meta}
+        kwargs = {"embrouter_metadata": lm_meta}
 
         logging_obj.update_from_kwargs(
             kwargs=kwargs,
-            litellm_params={"litellm_call_id": "call-2"},
+            embrouter_params={"embrouter_call_id": "call-2"},
         )
 
-        assert logging_obj.litellm_params["litellm_metadata"] == lm_meta
-        assert logging_obj.litellm_params["litellm_call_id"] == "call-2"
+        assert logging_obj.embrouter_params["embrouter_metadata"] == lm_meta
+        assert logging_obj.embrouter_params["embrouter_call_id"] == "call-2"
 
-    def test_backfills_metadata_from_litellm_metadata(self, logging_obj):
-        """When only litellm_metadata is present, metadata should be backfilled."""
+    def test_backfills_metadata_from_embrouter_metadata(self, logging_obj):
+        """When only embrouter_metadata is present, metadata should be backfilled."""
         lm_meta = {"model_info": {"id": "deploy-1"}}
-        kwargs = {"litellm_metadata": lm_meta}
+        kwargs = {"embrouter_metadata": lm_meta}
 
         logging_obj.update_from_kwargs(kwargs=kwargs)
 
-        assert logging_obj.litellm_params["metadata"] == lm_meta
+        assert logging_obj.embrouter_params["metadata"] == lm_meta
 
     def test_no_backfill_when_metadata_already_present(self, logging_obj):
         metadata = {"user_api_key": "sk-real"}
         lm_meta = {"model_info": {"id": "deploy-1"}}
-        kwargs = {"metadata": metadata, "litellm_metadata": lm_meta}
+        kwargs = {"metadata": metadata, "embrouter_metadata": lm_meta}
 
         logging_obj.update_from_kwargs(kwargs=kwargs)
 
-        assert logging_obj.litellm_params["metadata"] == metadata
-        assert logging_obj.litellm_params["litellm_metadata"] == lm_meta
+        assert logging_obj.embrouter_params["metadata"] == metadata
+        assert logging_obj.embrouter_params["embrouter_metadata"] == lm_meta
 
-    def test_caller_litellm_params_win_over_kwargs(self, logging_obj):
-        """Explicit litellm_params metadata merges into kwargs metadata without overwriting."""
+    def test_caller_embrouter_params_win_over_kwargs(self, logging_obj):
+        """Explicit embrouter_params metadata merges into kwargs metadata without overwriting."""
         kwargs = {"metadata": {"from_kwargs": True}}
 
         logging_obj.update_from_kwargs(
             kwargs=kwargs,
-            litellm_params={"metadata": {"from_caller": True}, "litellm_call_id": "x"},
+            embrouter_params={"metadata": {"from_caller": True}, "embrouter_call_id": "x"},
         )
 
         # kwargs metadata is preserved, caller metadata is merged in
-        assert logging_obj.litellm_params["metadata"] == {
+        assert logging_obj.embrouter_params["metadata"] == {
             "from_kwargs": True,
             "from_caller": True,
         }
 
     def test_kwargs_metadata_wins_over_caller_metadata_in_conflict(self, logging_obj):
-        """kwargs metadata takes precedence; caller litellm_params metadata is merged without overwriting."""
+        """kwargs metadata takes precedence; caller embrouter_params metadata is merged without overwriting."""
         kwargs = {"metadata": {"from_kwargs": True, "shared_key": "kwargs_value"}}
 
         logging_obj.update_from_kwargs(
             kwargs=kwargs,
-            litellm_params={
+            embrouter_params={
                 "metadata": {"from_caller": True, "shared_key": "caller_value"},
-                "litellm_call_id": "x",
+                "embrouter_call_id": "x",
             },
         )
 
         # kwargs metadata is preserved (shared_key keeps the kwargs value), caller-only keys are added
-        assert logging_obj.litellm_params["metadata"] == {
+        assert logging_obj.embrouter_params["metadata"] == {
             "from_kwargs": True,
             "from_caller": True,
             "shared_key": "kwargs_value",  # kwargs wins on conflict
         }
 
-    def test_custom_pricing_detected_via_litellm_metadata(self, logging_obj):
-        """Custom pricing in litellm_metadata.model_info should set custom_pricing flag."""
-        from litellm.litellm_core_utils.litellm_logging import (
+    def test_custom_pricing_detected_via_embrouter_metadata(self, logging_obj):
+        """Custom pricing in embrouter_metadata.model_info should set custom_pricing flag."""
+        from embrouter.embrouter_core_utils.embrouter_logging import (
             use_custom_pricing_for_model,
         )
 
@@ -1474,11 +1474,11 @@ class TestUpdateFromKwargs:
                 "output_cost_per_token": 0.015,
             }
         }
-        kwargs = {"litellm_metadata": lm_meta}
+        kwargs = {"embrouter_metadata": lm_meta}
 
         logging_obj.update_from_kwargs(kwargs=kwargs)
 
-        assert use_custom_pricing_for_model(logging_obj.litellm_params) is True
+        assert use_custom_pricing_for_model(logging_obj.embrouter_params) is True
 
     def test_additional_params_forwarded(self, logging_obj):
         kwargs = {"metadata": {}}
@@ -1497,29 +1497,29 @@ class TestUpdateFromKwargs:
     def test_empty_kwargs_no_error(self, logging_obj):
         logging_obj.update_from_kwargs(
             kwargs={},
-            litellm_params={"litellm_call_id": "call-empty"},
+            embrouter_params={"embrouter_call_id": "call-empty"},
         )
-        assert logging_obj.litellm_params["litellm_call_id"] == "call-empty"
+        assert logging_obj.embrouter_params["embrouter_call_id"] == "call-empty"
 
     @pytest.mark.parametrize("caller_metadata", [None, "not-a-dict", 42])
     def test_non_dict_caller_metadata_does_not_break_the_merge(self, logging_obj, caller_metadata):
         logging_obj.update_from_kwargs(
-            kwargs={"metadata": caller_metadata, "litellm_metadata": {"user_api_key_hash": "hashed"}},
-            litellm_params={"metadata": {"user_api_key_hash": "hashed", "litellm_api_version": "1.0"}},
+            kwargs={"metadata": caller_metadata, "embrouter_metadata": {"user_api_key_hash": "hashed"}},
+            embrouter_params={"metadata": {"user_api_key_hash": "hashed", "embrouter_api_version": "1.0"}},
         )
 
-        assert logging_obj.litellm_params["metadata"]["user_api_key_hash"] == "hashed"
+        assert logging_obj.embrouter_params["metadata"]["user_api_key_hash"] == "hashed"
 
     def test_does_not_mutate_caller_metadata_dict(self, logging_obj):
         caller_metadata: dict = {}
 
         logging_obj.update_from_kwargs(
-            kwargs={"metadata": caller_metadata, "litellm_metadata": {"user_api_key_hash": "hashed"}},
-            litellm_params={"metadata": {"user_api_key_hash": "hashed", "litellm_api_version": "1.0"}},
+            kwargs={"metadata": caller_metadata, "embrouter_metadata": {"user_api_key_hash": "hashed"}},
+            embrouter_params={"metadata": {"user_api_key_hash": "hashed", "embrouter_api_version": "1.0"}},
         )
 
         assert caller_metadata == {}
-        assert logging_obj.litellm_params["metadata"]["user_api_key_hash"] == "hashed"
+        assert logging_obj.embrouter_params["metadata"]["user_api_key_hash"] == "hashed"
 
 
 def test_logging_prevent_double_logging(logging_obj):
@@ -1543,9 +1543,9 @@ async def test_datadog_logger_not_shadowed_by_llm_obs(monkeypatch):
     monkeypatch.setenv("DD_API_KEY", "test")
     monkeypatch.setenv("DD_SITE", "us5.datadoghq.com")
 
-    from litellm.integrations.datadog.datadog import DataDogLogger
-    from litellm.integrations.datadog.datadog_llm_obs import DataDogLLMObsLogger
-    from litellm.litellm_core_utils import litellm_logging as logging_module
+    from embrouter.integrations.datadog.datadog import DataDogLogger
+    from embrouter.integrations.datadog.datadog_llm_obs import DataDogLLMObsLogger
+    from embrouter.embrouter_core_utils import embrouter_logging as logging_module
 
     logging_module._in_memory_loggers.clear()
 
@@ -1578,13 +1578,13 @@ async def test_logfire_logger_accepts_env_vars_for_base_url(monkeypatch):
     monkeypatch.setenv("LOGFIRE_BASE_URL", "https://logfire-api-custom.pydantic.dev")  # no trailing slash on purpose
 
     # Import after env vars are set (important if module-level caching exists)
-    from litellm.integrations.opentelemetry import OpenTelemetry  # logger class
-    from litellm.litellm_core_utils import litellm_logging as logging_module
+    from embrouter.integrations.opentelemetry import OpenTelemetry  # logger class
+    from embrouter.embrouter_core_utils import embrouter_logging as logging_module
 
     logging_module._in_memory_loggers.clear()
 
     try:
-        # Instantiate via the same mechanism LiteLLM uses for callbacks=["logfire"]
+        # Instantiate via the same mechanism EmbRouter uses for callbacks=["logfire"]
         logger = logging_module._init_custom_logger_compatible_class(
             logging_integration="logfire",
             internal_usage_cache=None,
@@ -1631,8 +1631,8 @@ def test_langtrace_callback_exports_to_api_trace_with_x_api_key(
     without leaking it into the process-wide OTEL_EXPORTER_OTLP_TRACES_HEADERS."""
     from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 
-    from litellm.integrations.opentelemetry import OpenTelemetry
-    from litellm.litellm_core_utils import litellm_logging as logging_module
+    from embrouter.integrations.opentelemetry import OpenTelemetry
+    from embrouter.embrouter_core_utils import embrouter_logging as logging_module
 
     api_key: Final = "synthetic-langtrace-key"
     monkeypatch.setenv("LANGTRACE_API_KEY", api_key)
@@ -1666,13 +1666,13 @@ async def test_logging_result_for_bridge_calls(logging_obj):
     """
     import asyncio
 
-    import litellm
+    import embrouter
 
     with patch.object(
-        litellm.litellm_core_utils.litellm_logging,
+        embrouter.embrouter_core_utils.embrouter_logging,
         "get_standard_logging_object_payload",
     ) as mock_should_run_logging:
-        await litellm.anthropic_messages(
+        await embrouter.anthropic_messages(
             max_tokens=100,
             messages=[{"role": "user", "content": "Hey"}],
             model="openai/codex-mini-latest",
@@ -1683,31 +1683,31 @@ async def test_logging_result_for_bridge_calls(logging_obj):
 
 
 @pytest.mark.asyncio
-async def test_anthropic_messages_marks_litellm_params_async():
+async def test_anthropic_messages_marks_embrouter_params_async():
     """LIT-4447: the async ``anthropic_messages`` entrypoint must plant
-    ``aanthropic_messages`` in ``litellm_params`` so ``_is_sync_litellm_request``
+    ``aanthropic_messages`` in ``embrouter_params`` so ``_is_sync_embrouter_request``
     classifies the request async and the sync CustomLogger hook does not fire in
     addition to the async one, mirroring how ``acompletion`` / ``aresponses`` set
     their own async markers."""
     import asyncio
 
-    import litellm
-    from litellm.integrations.custom_logger import CustomLogger
+    import embrouter
+    from embrouter.integrations.custom_logger import CustomLogger
 
     captured = {}
     logged = asyncio.Event()
 
     class CaptureLogger(CustomLogger):
         async def async_log_success_event(self, kwargs, response_obj, start_time, end_time):
-            captured["litellm_params"] = kwargs.get("litellm_params", {})
+            captured["embrouter_params"] = kwargs.get("embrouter_params", {})
             logged.set()
 
     logger = CaptureLogger()
     logger.log_success_event = MagicMock()
-    original_callbacks = getattr(litellm, "callbacks", [])
+    original_callbacks = getattr(embrouter, "callbacks", [])
     try:
-        litellm.callbacks = [logger]
-        await litellm.anthropic_messages(
+        embrouter.callbacks = [logger]
+        await embrouter.anthropic_messages(
             max_tokens=100,
             messages=[{"role": "user", "content": "Hey"}],
             model="anthropic/claude-sonnet-4-5",
@@ -1715,17 +1715,17 @@ async def test_anthropic_messages_marks_litellm_params_async():
         )
         await asyncio.wait_for(logged.wait(), timeout=10)
 
-        assert captured["litellm_params"].get("aanthropic_messages") is True
-        assert LitellmLogging._is_sync_litellm_request(captured["litellm_params"]) is False
+        assert captured["embrouter_params"].get("aanthropic_messages") is True
+        assert EmbrouterLogging._is_sync_embrouter_request(captured["embrouter_params"]) is False
         logger.log_success_event.assert_not_called()
     finally:
-        litellm.callbacks = original_callbacks
+        embrouter.callbacks = original_callbacks
 
 
 @pytest.mark.asyncio
-async def test_arealtime_marks_litellm_params_async(monkeypatch):
-    """LIT-6973: ``_arealtime`` must plant ``_arealtime`` in ``litellm_params`` so
-    ``_is_sync_litellm_request`` classifies the session async and a failed session
+async def test_arealtime_marks_embrouter_params_async(monkeypatch):
+    """LIT-6973: ``_arealtime`` must plant ``_arealtime`` in ``embrouter_params`` so
+    ``_is_sync_embrouter_request`` classifies the session async and a failed session
     reaches a CustomLogger's failure hook once, through the async path only, even
     though the sync ``failure_handler`` still runs ahead of the async one."""
     captured = {}
@@ -1733,30 +1733,30 @@ async def test_arealtime_marks_litellm_params_async(monkeypatch):
 
     class CaptureLogger(CustomLogger):
         async def async_log_failure_event(self, kwargs, response_obj, start_time, end_time):
-            captured["litellm_params"] = kwargs.get("litellm_params", {})
+            captured["embrouter_params"] = kwargs.get("embrouter_params", {})
             async_logged.set()
 
     logger = CaptureLogger()
     logger.log_failure_event = MagicMock()
-    monkeypatch.setattr(litellm, "callbacks", [logger])
-    monkeypatch.setattr(litellm, "failure_callback", [])
-    monkeypatch.setattr(litellm, "_async_failure_callback", [])
-    monkeypatch.setattr(litellm, "success_callback", [])
-    monkeypatch.setattr(litellm, "_async_success_callback", [])
+    monkeypatch.setattr(embrouter, "callbacks", [logger])
+    monkeypatch.setattr(embrouter, "failure_callback", [])
+    monkeypatch.setattr(embrouter, "_async_failure_callback", [])
+    monkeypatch.setattr(embrouter, "success_callback", [])
+    monkeypatch.setattr(embrouter, "_async_success_callback", [])
     with pytest.raises(ValueError, match="Unsupported model"):
-        await litellm._arealtime(model="anthropic/claude-x", websocket=MagicMock())
+        await embrouter._arealtime(model="anthropic/claude-x", websocket=MagicMock())
     await asyncio.wait_for(async_logged.wait(), timeout=10)
     logger.log_failure_event.assert_not_called()
-    assert captured["litellm_params"].get("_arealtime") is True
-    assert LitellmLogging._is_sync_litellm_request(captured["litellm_params"]) is False
+    assert captured["embrouter_params"].get("_arealtime") is True
+    assert EmbrouterLogging._is_sync_embrouter_request(captured["embrouter_params"]) is False
 
 
 @pytest.mark.asyncio
 async def test_aresponses_websocket_hands_back_the_provider_failure_without_a_success_log(
     monkeypatch: pytest.MonkeyPatch,
 ):
-    from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-    from litellm.responses.main import base_llm_http_handler
+    from embrouter.embrouter_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+    from embrouter.responses.main import base_llm_http_handler
 
     success_events = []
 
@@ -1764,16 +1764,16 @@ async def test_aresponses_websocket_hands_back_the_provider_failure_without_a_su
         async def async_log_success_event(self, kwargs, response_obj, start_time, end_time):
             success_events.append(response_obj)
 
-    monkeypatch.setattr(litellm, "callbacks", [CaptureLogger()])
-    monkeypatch.setattr(litellm, "failure_callback", [])
-    monkeypatch.setattr(litellm, "_async_failure_callback", [])
-    monkeypatch.setattr(litellm, "success_callback", [])
-    monkeypatch.setattr(litellm, "_async_success_callback", [])
-    failure = litellm.BadRequestError(message="invalid_encrypted_content", model="gpt-4o", llm_provider="openai")
+    monkeypatch.setattr(embrouter, "callbacks", [CaptureLogger()])
+    monkeypatch.setattr(embrouter, "failure_callback", [])
+    monkeypatch.setattr(embrouter, "_async_failure_callback", [])
+    monkeypatch.setattr(embrouter, "success_callback", [])
+    monkeypatch.setattr(embrouter, "_async_success_callback", [])
+    failure = embrouter.BadRequestError(message="invalid_encrypted_content", model="gpt-4o", llm_provider="openai")
     with patch.object(  # test-quality-ok: the provider socket is the seam; how the wrapper treats the relay's outcome is under test
         base_llm_http_handler, "async_responses_websocket", AsyncMock(return_value=failure)
     ):
-        outcome = await litellm._aresponses_websocket(model="openai/gpt-4o", websocket=MagicMock(), api_key="sk-test")
+        outcome = await embrouter._aresponses_websocket(model="openai/gpt-4o", websocket=MagicMock(), api_key="sk-test")
     await asyncio.sleep(0)
     with contextlib.suppress(asyncio.TimeoutError):
         await asyncio.wait_for(GLOBAL_LOGGING_WORKER.flush(), timeout=10.0)
@@ -1783,63 +1783,63 @@ async def test_aresponses_websocket_hands_back_the_provider_failure_without_a_su
 
 
 @pytest.mark.asyncio
-async def test_agenerate_content_marks_litellm_params_async():
+async def test_agenerate_content_marks_embrouter_params_async():
     """LIT-4475: the async ``agenerate_content`` entrypoint must plant
-    ``agenerate_content`` in ``litellm_params`` so ``_is_sync_litellm_request``
+    ``agenerate_content`` in ``embrouter_params`` so ``_is_sync_embrouter_request``
     classifies the nested delegated call async, preventing the sync CustomLogger
     hook from firing alongside the async one."""
     import time
 
-    import litellm
+    import embrouter
 
-    logging_obj = LitellmLogging(
+    logging_obj = EmbrouterLogging(
         model="gemini/gemini-2.0-flash",
         messages=[{"role": "user", "content": "hi"}],
         stream=False,
         call_type="agenerate_content",
         start_time=time.time(),
-        litellm_call_id="agenerate-content-marker-check",
+        embrouter_call_id="agenerate-content-marker-check",
         function_id="fn",
     )
     try:
-        await litellm.agenerate_content(
+        await embrouter.agenerate_content(
             model="gemini/gemini-2.0-flash",
             contents=[{"role": "user", "parts": [{"text": "hi"}]}],
             mock_response="hello",
-            litellm_logging_obj=logging_obj,
+            embrouter_logging_obj=logging_obj,
         )
     except Exception:
         pass
 
-    litellm_params = logging_obj.model_call_details.get("litellm_params", {})
-    assert litellm_params.get("agenerate_content") is True
-    assert LitellmLogging._is_sync_litellm_request(litellm_params) is False
+    embrouter_params = logging_obj.model_call_details.get("embrouter_params", {})
+    assert embrouter_params.get("agenerate_content") is True
+    assert EmbrouterLogging._is_sync_embrouter_request(embrouter_params) is False
 
 
 @pytest.mark.asyncio
 async def test_logging_non_streaming_request():
     import asyncio
 
-    from litellm.integrations.custom_logger import CustomLogger
+    from embrouter.integrations.custom_logger import CustomLogger
 
     class MockPrometheusLogger(CustomLogger):
         pass
 
-    import litellm
+    import embrouter
 
     # Save original callbacks to restore after test
-    original_callbacks = getattr(litellm, "callbacks", [])
+    original_callbacks = getattr(embrouter, "callbacks", [])
 
     try:
         mock_logging_obj = MockPrometheusLogger()
 
-        litellm.callbacks = [mock_logging_obj]
+        embrouter.callbacks = [mock_logging_obj]
 
         with patch.object(
             mock_logging_obj,
             "async_log_success_event",
         ) as mock_async_log_success_event:
-            await litellm.acompletion(
+            await embrouter.acompletion(
                 max_tokens=100,
                 messages=[{"role": "user", "content": "Hey"}],
                 model="openai/codex-mini-latest",
@@ -1869,7 +1869,7 @@ async def test_logging_non_streaming_request():
             assert standard_logging_object["stream"] is not True
     finally:
         # Restore original callbacks to ensure test isolation
-        litellm.callbacks = original_callbacks
+        embrouter.callbacks = original_callbacks
 
 
 @pytest.mark.asyncio
@@ -1877,7 +1877,7 @@ async def test_async_success_handler_truncates_large_base64_off_the_event_loop(m
     """The standard logging payload's base64 scan of a large multimodal request must not run on the loop thread."""
     import threading
 
-    from litellm.litellm_core_utils import logging_utils
+    from embrouter.embrouter_core_utils import logging_utils
 
     loop_thread = threading.get_ident()
     scan_threads: list[int] = []
@@ -1898,9 +1898,9 @@ async def test_async_success_handler_truncates_large_base64_off_the_event_loop(m
             captured["standard_logging_object"] = kwargs["standard_logging_object"]
             logged.set()
 
-    monkeypatch.setattr(litellm, "callbacks", [CaptureLogger()])
+    monkeypatch.setattr(embrouter, "callbacks", [CaptureLogger()])
     payload = "L" * 20_000
-    await litellm.acompletion(
+    await embrouter.acompletion(
         model="openai/gpt-5.6",
         messages=[
             {
@@ -1935,14 +1935,14 @@ async def test_async_success_handler_truncates_large_base64_off_the_event_loop(m
 )
 def test_success_handler_skips_sync_callbacks_for_async_requests(logging_obj, async_flag):
     """Ensure sync success callbacks are skipped when async call type flags are set."""
-    from litellm.integrations.custom_logger import CustomLogger
+    from embrouter.integrations.custom_logger import CustomLogger
 
     class DummyLogger(CustomLogger):
         pass
 
     logging_obj.stream = False  # simulate non-streaming request where sync callbacks would normally run
-    logging_obj.model_call_details["litellm_params"] = {async_flag: True}
-    logging_obj.litellm_params = logging_obj.model_call_details["litellm_params"]
+    logging_obj.model_call_details["embrouter_params"] = {async_flag: True}
+    logging_obj.embrouter_params = logging_obj.model_call_details["embrouter_params"]
 
     dummy_logger = DummyLogger()
     dummy_logger.log_success_event = MagicMock()
@@ -1975,15 +1975,15 @@ def test_success_handler_skips_sync_callbacks_for_async_requests(logging_obj, as
 @pytest.mark.parametrize("call_type", ["completion", "responses"])
 def test_success_handler_runs_sync_callbacks_for_sync_requests(logging_obj, call_type):
     """Ensure sync success callbacks execute when call type is sync (completion/responses)."""
-    from litellm.integrations.custom_logger import CustomLogger
+    from embrouter.integrations.custom_logger import CustomLogger
 
     class DummyLogger(CustomLogger):
         pass
 
     logging_obj.stream = False
     logging_obj.call_type = call_type
-    logging_obj.model_call_details["litellm_params"] = {}
-    logging_obj.litellm_params = {}
+    logging_obj.model_call_details["embrouter_params"] = {}
+    logging_obj.embrouter_params = {}
 
     dummy_logger = DummyLogger()
     dummy_logger.log_success_event = MagicMock()
@@ -2040,8 +2040,8 @@ def test_success_handler_runs_sync_callbacks_in_the_post_response_phase(logging_
     """Service spans logged by success callbacks must detach from the request trace even
     while the server span is still open, so the callbacks run inside the phase marker."""
     logging_obj.stream = False
-    logging_obj.model_call_details["litellm_params"] = {}
-    logging_obj.litellm_params = {}
+    logging_obj.model_call_details["embrouter_params"] = {}
+    logging_obj.embrouter_params = {}
     recorder = _PhaseRecordingLogger()
 
     with patch.object(logging_obj, "get_combined_callback_list", return_value=[recorder]):
@@ -2054,8 +2054,8 @@ def test_success_handler_runs_sync_callbacks_in_the_post_response_phase(logging_
 @pytest.mark.asyncio
 async def test_async_success_handler_runs_async_callbacks_in_the_post_response_phase(logging_obj):
     logging_obj.stream = False
-    logging_obj.model_call_details["litellm_params"] = {"acompletion": True}
-    logging_obj.litellm_params = logging_obj.model_call_details["litellm_params"]
+    logging_obj.model_call_details["embrouter_params"] = {"acompletion": True}
+    logging_obj.embrouter_params = logging_obj.model_call_details["embrouter_params"]
     recorder = _PhaseRecordingLogger()
 
     with patch.object(logging_obj, "get_combined_callback_list", return_value=[recorder]):
@@ -2069,26 +2069,26 @@ async def test_async_success_handler_runs_async_callbacks_in_the_post_response_p
     assert in_post_response_phase() is False, "the phase must not leak into the request task"
 
 
-def test_is_sync_litellm_request():
-    assert LitellmLogging._is_sync_litellm_request({}) is True
-    assert LitellmLogging._is_sync_litellm_request({"acompletion": True}) is False
-    assert LitellmLogging._is_sync_litellm_request({"allm_passthrough_route": True}) is False
-    assert LitellmLogging._is_sync_litellm_request({"_arealtime": True}) is False
-    assert LitellmLogging._is_sync_litellm_request({"aanthropic_messages": True}) is False
-    assert LitellmLogging._is_sync_litellm_request({"agenerate_content": True}) is False
-    assert LitellmLogging._is_sync_litellm_request({"agenerate_content_stream": True}) is False
-    assert LitellmLogging._is_sync_litellm_request({"aanthropic_messages": False}) is True
+def test_is_sync_embrouter_request():
+    assert EmbrouterLogging._is_sync_embrouter_request({}) is True
+    assert EmbrouterLogging._is_sync_embrouter_request({"acompletion": True}) is False
+    assert EmbrouterLogging._is_sync_embrouter_request({"allm_passthrough_route": True}) is False
+    assert EmbrouterLogging._is_sync_embrouter_request({"_arealtime": True}) is False
+    assert EmbrouterLogging._is_sync_embrouter_request({"aanthropic_messages": True}) is False
+    assert EmbrouterLogging._is_sync_embrouter_request({"agenerate_content": True}) is False
+    assert EmbrouterLogging._is_sync_embrouter_request({"agenerate_content_stream": True}) is False
+    assert EmbrouterLogging._is_sync_embrouter_request({"aanthropic_messages": False}) is True
 
 
-def test_get_litellm_params_propagates_allm_passthrough_route():
+def test_get_embrouter_params_propagates_allm_passthrough_route():
     """`allm_passthrough_route=True` set on kwargs by the async passthrough entrypoint
-    must land in `litellm_params` so `_is_sync_litellm_request` sees it and the
+    must land in `embrouter_params` so `_is_sync_embrouter_request` sees it and the
     request is classified as async. Regression guard for LIT-4192."""
-    from litellm.litellm_core_utils.get_litellm_params import get_litellm_params
+    from embrouter.embrouter_core_utils.get_embrouter_params import get_embrouter_params
 
-    params = get_litellm_params(allm_passthrough_route=True)
+    params = get_embrouter_params(allm_passthrough_route=True)
     assert params.get("allm_passthrough_route") is True
-    assert LitellmLogging._is_sync_litellm_request(params) is False
+    assert EmbrouterLogging._is_sync_embrouter_request(params) is False
 
 
 @pytest.mark.asyncio
@@ -2096,15 +2096,15 @@ async def test_dispatch_success_handlers_invokes_callbacks_once_for_final_stream
     logging_obj,
 ):
     """Second final-stream dispatch must not re-export (CSW + deferred guardrail paths)."""
-    import litellm
-    from litellm.integrations.custom_logger import CustomLogger
+    import embrouter
+    from embrouter.integrations.custom_logger import CustomLogger
 
     class MockCallback(CustomLogger):
         pass
 
     mock_callback = MockCallback()
-    original_async_callbacks = list(litellm._async_success_callback or [])
-    litellm._async_success_callback = [mock_callback]
+    original_async_callbacks = list(embrouter._async_success_callback or [])
+    embrouter._async_success_callback = [mock_callback]
 
     result = ModelResponse(
         id="resp-dedupe",
@@ -2121,7 +2121,7 @@ async def test_dispatch_success_handlers_invokes_callbacks_once_for_final_stream
 
     try:
         logging_obj.stream = True
-        logging_obj.model_call_details["litellm_params"] = {"acompletion": True}
+        logging_obj.model_call_details["embrouter_params"] = {"acompletion": True}
 
         with (
             patch.object(mock_callback, "async_log_success_event", new_callable=AsyncMock) as mock_async_log,
@@ -2148,7 +2148,7 @@ async def test_dispatch_success_handlers_invokes_callbacks_once_for_final_stream
         mock_async_log.assert_awaited_once()
         mock_sync_log.assert_not_called()
     finally:
-        litellm._async_success_callback = original_async_callbacks
+        embrouter._async_success_callback = original_async_callbacks
 
 
 @pytest.mark.asyncio
@@ -2156,15 +2156,15 @@ async def test_dispatch_success_handlers_sync_path_invokes_callback_once_for_fin
     logging_obj,
 ):
     """Sync dispatch path must also dedupe when dispatch is called twice."""
-    import litellm
-    from litellm.integrations.custom_logger import CustomLogger
+    import embrouter
+    from embrouter.integrations.custom_logger import CustomLogger
 
     class MockCallback(CustomLogger):
         pass
 
     mock_callback = MockCallback()
-    original_success_callbacks = list(litellm.success_callback or [])
-    litellm.success_callback = [mock_callback]
+    original_success_callbacks = list(embrouter.success_callback or [])
+    embrouter.success_callback = [mock_callback]
 
     result = ModelResponse(
         id="resp-sync-dedupe",
@@ -2181,7 +2181,7 @@ async def test_dispatch_success_handlers_sync_path_invokes_callback_once_for_fin
 
     try:
         logging_obj.stream = True
-        logging_obj.model_call_details["litellm_params"] = {}
+        logging_obj.model_call_details["embrouter_params"] = {}
 
         with (
             patch.object(mock_callback, "log_success_event") as mock_sync_log,
@@ -2203,7 +2203,7 @@ async def test_dispatch_success_handlers_sync_path_invokes_callback_once_for_fin
         mock_sync_log.assert_called_once()
         mock_async_log.assert_not_awaited()
     finally:
-        litellm.success_callback = original_success_callbacks
+        embrouter.success_callback = original_success_callbacks
 
 
 @pytest.mark.asyncio
@@ -2224,7 +2224,7 @@ async def test_dispatch_prefer_async_handlers_runs_legacy_callbacks(
     )
 
     logging_obj.stream = True
-    logging_obj.model_call_details["litellm_params"] = {}
+    logging_obj.model_call_details["embrouter_params"] = {}
 
     with (
         patch.object(logging_obj, "async_success_handler", new_callable=AsyncMock) as mock_async,
@@ -2234,7 +2234,7 @@ async def test_dispatch_prefer_async_handlers_runs_legacy_callbacks(
             "_should_run_sync_callbacks_for_async_calls",
             return_value=True,
         ),
-        patch("litellm.litellm_core_utils.litellm_logging.executor.submit") as mock_submit,
+        patch("embrouter.embrouter_core_utils.embrouter_logging.executor.submit") as mock_submit,
     ):
         await logging_obj.dispatch_success_handlers(
             result=result,
@@ -2251,20 +2251,20 @@ async def test_dispatch_success_handlers_invokes_async_callback_for_pass_through
     logging_obj,
 ):
     """Pass-through must use async_success_handler (CustomLogger skips sync success_handler)."""
-    import litellm
-    from litellm.integrations.custom_logger import CustomLogger
-    from litellm.types.utils import CallTypes
+    import embrouter
+    from embrouter.integrations.custom_logger import CustomLogger
+    from embrouter.types.utils import CallTypes
 
     class MockCallback(CustomLogger):
         pass
 
     mock_callback = MockCallback()
-    original_async_callbacks = list(litellm._async_success_callback or [])
-    litellm._async_success_callback = [mock_callback]
+    original_async_callbacks = list(embrouter._async_success_callback or [])
+    embrouter._async_success_callback = [mock_callback]
 
     logging_obj.call_type = CallTypes.pass_through.value
     logging_obj.stream = False
-    logging_obj.model_call_details["litellm_params"] = {}
+    logging_obj.model_call_details["embrouter_params"] = {}
 
     try:
         with (
@@ -2276,7 +2276,7 @@ async def test_dispatch_success_handlers_invokes_async_callback_for_pass_through
         mock_async_log.assert_awaited_once()
         mock_sync_log.assert_not_called()
     finally:
-        litellm._async_success_callback = original_async_callbacks
+        embrouter._async_success_callback = original_async_callbacks
 
 
 @pytest.mark.asyncio
@@ -2292,7 +2292,7 @@ async def test_dispatch_failure_handlers_prefer_async_does_not_submit_sync_handl
     exception = ValueError("boom")
     traceback_exception = "traceback"
 
-    logging_obj.model_call_details["litellm_params"] = {}
+    logging_obj.model_call_details["embrouter_params"] = {}
 
     with (
         patch.object(logging_obj, "async_failure_handler", new_callable=AsyncMock) as mock_async,
@@ -2302,7 +2302,7 @@ async def test_dispatch_failure_handlers_prefer_async_does_not_submit_sync_handl
             "_should_run_sync_failure_callbacks_for_async_calls",
             return_value=False,
         ),
-        patch("litellm.litellm_core_utils.litellm_logging.executor.submit") as mock_submit,
+        patch("embrouter.embrouter_core_utils.embrouter_logging.executor.submit") as mock_submit,
     ):
         await logging_obj.dispatch_failure_handlers(
             exception,
@@ -2336,7 +2336,7 @@ async def test_dispatch_failure_handlers_async_completes_before_sync_submit(
     def _submit(*args, **kwargs):
         events.append("sync_submit")
 
-    logging_obj.model_call_details["litellm_params"] = {}
+    logging_obj.model_call_details["embrouter_params"] = {}
 
     with (
         patch.object(logging_obj, "async_failure_handler", side_effect=_async_failure),
@@ -2347,7 +2347,7 @@ async def test_dispatch_failure_handlers_async_completes_before_sync_submit(
             return_value=True,
         ),
         patch(
-            "litellm.litellm_core_utils.litellm_logging.executor.submit",
+            "embrouter.embrouter_core_utils.embrouter_logging.executor.submit",
             side_effect=_submit,
         ),
     ):
@@ -2386,7 +2386,7 @@ async def test_dispatch_failure_handlers_submits_sync_handler_when_task_is_cance
     def _submit(*args, **kwargs):
         events.append("sync_submit")
 
-    logging_obj.model_call_details["litellm_params"] = {}
+    logging_obj.model_call_details["embrouter_params"] = {}
 
     with (
         patch.object(logging_obj, "async_failure_handler", side_effect=_async_failure),
@@ -2397,7 +2397,7 @@ async def test_dispatch_failure_handlers_submits_sync_handler_when_task_is_cance
             return_value=True,
         ),
         patch(  # test-quality-ok: the executor submit is the observable
-            "litellm.litellm_core_utils.litellm_logging.executor.submit",
+            "embrouter.embrouter_core_utils.embrouter_logging.executor.submit",
             side_effect=_submit,
         ),
     ):
@@ -2433,16 +2433,16 @@ async def test_dispatch_failure_handlers_submits_sync_handler_for_failure_only_c
     def _sync_failure_callback(*args, **kwargs):
         return None
 
-    logging_obj.model_call_details["litellm_params"] = {}
+    logging_obj.model_call_details["embrouter_params"] = {}
     logging_obj.dynamic_success_callbacks = None
     logging_obj.dynamic_failure_callbacks = None
 
     with (
-        patch.object(litellm, "success_callback", []),
-        patch.object(litellm, "failure_callback", [_sync_failure_callback]),
+        patch.object(embrouter, "success_callback", []),
+        patch.object(embrouter, "failure_callback", [_sync_failure_callback]),
         patch.object(logging_obj, "async_failure_handler", new_callable=AsyncMock),
         patch.object(logging_obj, "failure_handler", new_callable=MagicMock) as mock_sync,
-        patch("litellm.litellm_core_utils.litellm_logging.executor.submit") as mock_submit,
+        patch("embrouter.embrouter_core_utils.embrouter_logging.executor.submit") as mock_submit,
     ):
         await logging_obj.dispatch_failure_handlers(
             exception,
@@ -2466,12 +2466,12 @@ async def test_dispatch_failure_handlers_sync_sdk_shortcut_runs_sync_handler_inl
     exception = ValueError("boom")
     traceback_exception = "traceback"
 
-    logging_obj.model_call_details["litellm_params"] = {}
+    logging_obj.model_call_details["embrouter_params"] = {}
 
     with (
         patch.object(logging_obj, "async_failure_handler", new_callable=AsyncMock) as mock_async,
         patch.object(logging_obj, "failure_handler", new_callable=MagicMock) as mock_sync,
-        patch("litellm.litellm_core_utils.litellm_logging.executor.submit") as mock_submit,
+        patch("embrouter.embrouter_core_utils.embrouter_logging.executor.submit") as mock_submit,
     ):
         await logging_obj.dispatch_failure_handlers(
             exception,
@@ -2488,10 +2488,10 @@ def test_success_handler_skips_guardrail_logging_hook_when_disabled(logging_obj)
     """Ensure CustomGuardrail logging_hook is skipped when should_run_guardrail is False."""
     import datetime
 
-    from litellm.integrations.custom_guardrail import CustomGuardrail
-    from litellm.integrations.custom_logger import CustomLogger
-    from litellm.integrations.shadow_eval_logger import GuardrailRequestSnapshot
-    from litellm.types.guardrails import GuardrailEventHooks
+    from embrouter.integrations.custom_guardrail import CustomGuardrail
+    from embrouter.integrations.custom_logger import CustomLogger
+    from embrouter.integrations.shadow_eval_logger import GuardrailRequestSnapshot
+    from embrouter.types.guardrails import GuardrailEventHooks
 
     class DummyGuardrail(CustomGuardrail):
         pass
@@ -2554,9 +2554,9 @@ def test_success_handler_runs_guardrail_logging_hook_when_enabled(logging_obj):
     """Ensure CustomGuardrail logging_hook runs when should_run_guardrail is True."""
     import datetime
 
-    from litellm.integrations.custom_guardrail import CustomGuardrail
-    from litellm.integrations.shadow_eval_logger import GuardrailRequestSnapshot
-    from litellm.types.guardrails import GuardrailEventHooks
+    from embrouter.integrations.custom_guardrail import CustomGuardrail
+    from embrouter.integrations.shadow_eval_logger import GuardrailRequestSnapshot
+    from embrouter.types.guardrails import GuardrailEventHooks
 
     class DummyGuardrail(CustomGuardrail):
         pass
@@ -2620,10 +2620,10 @@ def test_success_handler_runs_guardrail_logging_hook_when_enabled(logging_obj):
 async def test_shadow_snapshot_stays_private_and_is_invalidated_before_logging_guardrails(
     monkeypatch: pytest.MonkeyPatch, hook_mode: Literal["disabled", "mask", "raises"], stream: bool
 ) -> None:
-    from litellm.caching.in_memory_cache import InMemoryCache
-    from litellm.integrations.custom_guardrail import CustomGuardrail
-    from litellm.integrations.shadow_eval_logger import GuardrailRequestSnapshot, ShadowEvalLogger
-    from litellm.types.guardrails import GuardrailEventHooks
+    from embrouter.caching.in_memory_cache import InMemoryCache
+    from embrouter.integrations.custom_guardrail import CustomGuardrail
+    from embrouter.integrations.shadow_eval_logger import GuardrailRequestSnapshot, ShadowEvalLogger
+    from embrouter.types.guardrails import GuardrailEventHooks
 
     shadow_snapshots: Final[list[GuardrailRequestSnapshot | None]] = []
     hook_snapshots: Final[list[GuardrailRequestSnapshot | None]] = []
@@ -2671,14 +2671,14 @@ async def test_shadow_snapshot_stays_private_and_is_invalidated_before_logging_g
         guardrail_name="late-mask", default_on=True,
         event_hook=GuardrailEventHooks.pre_call if hook_mode == "disabled" else GuardrailEventHooks.logging_only,
     )
-    monkeypatch.setattr(litellm, "_async_success_callback", [])
-    logging_obj: Final = LitellmLogging(
+    monkeypatch.setattr(embrouter, "_async_success_callback", [])
+    logging_obj: Final = EmbrouterLogging(
         model="test-model", messages=[], stream=stream, call_type="anthropic_messages",
-        start_time=datetime.datetime.now(), litellm_call_id="private-snapshot", function_id="private-snapshot",
+        start_time=datetime.datetime.now(), embrouter_call_id="private-snapshot", function_id="private-snapshot",
         dynamic_async_success_callbacks=[shadow, RecordingLogger(), guardrail],
     )
     logging_obj.update_messages([{"role": "user", "content": "logged input"}])
-    logging_obj.update_environment_variables(litellm_params={"metadata": metadata}, optional_params={})
+    logging_obj.update_environment_variables(embrouter_params={"metadata": metadata}, optional_params={})
     logging_obj.shadow_eval_request_snapshot = snapshot
     payload: Final = {
         "id": "private-snapshot", "call_type": "anthropic_messages", "metadata": metadata,
@@ -2696,98 +2696,98 @@ async def test_shadow_snapshot_stays_private_and_is_invalidated_before_logging_g
 
 
 def test_get_user_agent_tags():
-    from litellm.litellm_core_utils.litellm_logging import StandardLoggingPayloadSetup
+    from embrouter.embrouter_core_utils.embrouter_logging import StandardLoggingPayloadSetup
 
     tags = StandardLoggingPayloadSetup._get_user_agent_tags(
         proxy_server_request={
             "headers": {
-                "user-agent": "litellm/0.1.0",
+                "user-agent": "embrouter/0.1.0",
             }
         }
     )
 
-    assert "User-Agent: litellm" in tags
-    assert "User-Agent: litellm/0.1.0" in tags
+    assert "User-Agent: embrouter" in tags
+    assert "User-Agent: embrouter/0.1.0" in tags
 
 
 def test_get_request_tags():
-    from litellm.litellm_core_utils.litellm_logging import StandardLoggingPayloadSetup
+    from embrouter.embrouter_core_utils.embrouter_logging import StandardLoggingPayloadSetup
 
     tags = StandardLoggingPayloadSetup._get_request_tags(
-        litellm_params={"metadata": {"tags": ["test-tag"]}},
+        embrouter_params={"metadata": {"tags": ["test-tag"]}},
         proxy_server_request={
             "headers": {
-                "user-agent": "litellm/0.1.0",
+                "user-agent": "embrouter/0.1.0",
             }
         },
     )
 
     assert "test-tag" in tags
-    assert "User-Agent: litellm" in tags
-    assert "User-Agent: litellm/0.1.0" in tags
+    assert "User-Agent: embrouter" in tags
+    assert "User-Agent: embrouter/0.1.0" in tags
 
 
-def test_get_request_tags_from_metadata_and_litellm_metadata():
+def test_get_request_tags_from_metadata_and_embrouter_metadata():
     """
-    Test that _get_request_tags correctly picks tags from both 'metadata' and 'litellm_metadata'.
+    Test that _get_request_tags correctly picks tags from both 'metadata' and 'embrouter_metadata'.
 
     Scenarios tested:
     1. Tags in metadata only
-    2. Tags in litellm_metadata only
+    2. Tags in embrouter_metadata only
     3. Tags in both (metadata should take priority)
     4. No tags in either
-    5. None values for metadata/litellm_metadata
+    5. None values for metadata/embrouter_metadata
     """
-    from litellm.litellm_core_utils.litellm_logging import StandardLoggingPayloadSetup
+    from embrouter.embrouter_core_utils.embrouter_logging import StandardLoggingPayloadSetup
 
     # Test case 1: Tags in metadata only
     tags = StandardLoggingPayloadSetup._get_request_tags(
-        litellm_params={"metadata": {"tags": ["metadata-tag-1", "metadata-tag-2"]}},
+        embrouter_params={"metadata": {"tags": ["metadata-tag-1", "metadata-tag-2"]}},
         proxy_server_request={},
     )
     assert "metadata-tag-1" in tags
     assert "metadata-tag-2" in tags
     assert len([t for t in tags if not t.startswith("User-Agent:")]) == 2
 
-    # Test case 2: Tags in litellm_metadata only
+    # Test case 2: Tags in embrouter_metadata only
     tags = StandardLoggingPayloadSetup._get_request_tags(
-        litellm_params={"litellm_metadata": {"tags": ["litellm-metadata-tag-1", "litellm-metadata-tag-2"]}},
+        embrouter_params={"embrouter_metadata": {"tags": ["embrouter-metadata-tag-1", "embrouter-metadata-tag-2"]}},
         proxy_server_request={},
     )
-    assert "litellm-metadata-tag-1" in tags
-    assert "litellm-metadata-tag-2" in tags
+    assert "embrouter-metadata-tag-1" in tags
+    assert "embrouter-metadata-tag-2" in tags
     assert len([t for t in tags if not t.startswith("User-Agent:")]) == 2
 
     # Test case 3: Tags in both - metadata should take priority
     tags = StandardLoggingPayloadSetup._get_request_tags(
-        litellm_params={
+        embrouter_params={
             "metadata": {"tags": ["metadata-tag"]},
-            "litellm_metadata": {"tags": ["litellm-metadata-tag"]},
+            "embrouter_metadata": {"tags": ["embrouter-metadata-tag"]},
         },
         proxy_server_request={},
     )
     assert "metadata-tag" in tags
-    assert "litellm-metadata-tag" not in tags
+    assert "embrouter-metadata-tag" not in tags
     assert len([t for t in tags if not t.startswith("User-Agent:")]) == 1
 
     # Test case 4: No tags in either
     tags = StandardLoggingPayloadSetup._get_request_tags(
-        litellm_params={"metadata": {}, "litellm_metadata": {}},
+        embrouter_params={"metadata": {}, "embrouter_metadata": {}},
         proxy_server_request={},
     )
     assert len([t for t in tags if not t.startswith("User-Agent:")]) == 0
 
-    # Test case 5: None values for metadata/litellm_metadata
+    # Test case 5: None values for metadata/embrouter_metadata
     tags = StandardLoggingPayloadSetup._get_request_tags(
-        litellm_params={"metadata": None, "litellm_metadata": None},
+        embrouter_params={"metadata": None, "embrouter_metadata": None},
         proxy_server_request={},
     )
     assert isinstance(tags, list)
     assert len([t for t in tags if not t.startswith("User-Agent:")]) == 0
 
-    # Test case 6: Empty litellm_params
+    # Test case 6: Empty embrouter_params
     tags = StandardLoggingPayloadSetup._get_request_tags(
-        litellm_params={},
+        embrouter_params={},
         proxy_server_request={},
     )
     assert isinstance(tags, list)
@@ -2795,16 +2795,16 @@ def test_get_request_tags_from_metadata_and_litellm_metadata():
 
     # Test case 7: Metadata tags combined with user-agent tags
     tags = StandardLoggingPayloadSetup._get_request_tags(
-        litellm_params={"metadata": {"tags": ["custom-tag"]}},
+        embrouter_params={"metadata": {"tags": ["custom-tag"]}},
         proxy_server_request={
             "headers": {
-                "user-agent": "litellm/1.0.0",
+                "user-agent": "embrouter/1.0.0",
             }
         },
     )
     assert "custom-tag" in tags
-    assert "User-Agent: litellm" in tags
-    assert "User-Agent: litellm/1.0.0" in tags
+    assert "User-Agent: embrouter" in tags
+    assert "User-Agent: embrouter/1.0.0" in tags
 
 
 def test_get_request_tags_does_not_mutate_original_tags():
@@ -2815,12 +2815,12 @@ def test_get_request_tags_does_not_mutate_original_tags():
     would cause User-Agent tags to be duplicated because the function was mutating
     the original tags list instead of creating a copy.
     """
-    from litellm.litellm_core_utils.litellm_logging import StandardLoggingPayloadSetup
+    from embrouter.embrouter_core_utils.embrouter_logging import StandardLoggingPayloadSetup
 
     # Create metadata with original tags
     original_tags = ["custom-tag-1", "custom-tag-2"]
     metadata = {"tags": original_tags}
-    litellm_params = {"metadata": metadata}
+    embrouter_params = {"metadata": metadata}
     proxy_server_request = {
         "headers": {
             "user-agent": "AsyncOpenAI/Python 1.99.9",
@@ -2829,15 +2829,15 @@ def test_get_request_tags_does_not_mutate_original_tags():
 
     # Call _get_request_tags multiple times (simulating multiple callbacks)
     tags1 = StandardLoggingPayloadSetup._get_request_tags(
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         proxy_server_request=proxy_server_request,
     )
     tags2 = StandardLoggingPayloadSetup._get_request_tags(
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         proxy_server_request=proxy_server_request,
     )
     tags3 = StandardLoggingPayloadSetup._get_request_tags(
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         proxy_server_request=proxy_server_request,
     )
 
@@ -2868,34 +2868,34 @@ def test_get_request_tags_does_not_mutate_original_tags():
 
 def test_get_extra_header_tags():
     """Test the _get_extra_header_tags method with various scenarios."""
-    import litellm
-    from litellm.litellm_core_utils.litellm_logging import StandardLoggingPayloadSetup
+    import embrouter
+    from embrouter.embrouter_core_utils.embrouter_logging import StandardLoggingPayloadSetup
 
     # Store original value to restore later
-    original_extra_headers = getattr(litellm, "extra_spend_tag_headers", None)
+    original_extra_headers = getattr(embrouter, "extra_spend_tag_headers", None)
 
     try:
         # Test case 1: No extra headers configured
-        litellm.extra_spend_tag_headers = None
+        embrouter.extra_spend_tag_headers = None
         result = StandardLoggingPayloadSetup._get_extra_header_tags(
             proxy_server_request={"headers": {"x-custom": "value"}}
         )
         assert result is None
 
         # Test case 2: Empty extra headers list
-        litellm.extra_spend_tag_headers = []
+        embrouter.extra_spend_tag_headers = []
         result = StandardLoggingPayloadSetup._get_extra_header_tags(
             proxy_server_request={"headers": {"x-custom": "value"}}
         )
         assert result is None
 
         # Test case 3: Extra headers configured but request has no headers dict
-        litellm.extra_spend_tag_headers = ["x-custom", "x-tenant"]
+        embrouter.extra_spend_tag_headers = ["x-custom", "x-tenant"]
         result = StandardLoggingPayloadSetup._get_extra_header_tags(proxy_server_request={"headers": "not-a-dict"})
         assert result is None
 
         # Test case 4: Extra headers configured but none match request headers
-        litellm.extra_spend_tag_headers = ["x-custom", "x-tenant"]
+        embrouter.extra_spend_tag_headers = ["x-custom", "x-tenant"]
         result = StandardLoggingPayloadSetup._get_extra_header_tags(
             proxy_server_request={
                 "headers": {
@@ -2907,7 +2907,7 @@ def test_get_extra_header_tags():
         assert result is None
 
         # Test case 5: Some extra headers match request headers
-        litellm.extra_spend_tag_headers = ["x-custom", "x-tenant", "x-missing"]
+        embrouter.extra_spend_tag_headers = ["x-custom", "x-tenant", "x-missing"]
         result = StandardLoggingPayloadSetup._get_extra_header_tags(
             proxy_server_request={
                 "headers": {
@@ -2924,7 +2924,7 @@ def test_get_extra_header_tags():
         assert "x-missing: " not in str(result)
 
         # Test case 6: All extra headers match request headers
-        litellm.extra_spend_tag_headers = ["x-custom", "x-tenant"]
+        embrouter.extra_spend_tag_headers = ["x-custom", "x-tenant"]
         result = StandardLoggingPayloadSetup._get_extra_header_tags(
             proxy_server_request={
                 "headers": {
@@ -2940,7 +2940,7 @@ def test_get_extra_header_tags():
         assert "x-tenant: tenant-123" in result
 
         # Test case 7: Headers with empty values should not be included
-        litellm.extra_spend_tag_headers = ["x-custom", "x-empty"]
+        embrouter.extra_spend_tag_headers = ["x-custom", "x-empty"]
         result = StandardLoggingPayloadSetup._get_extra_header_tags(
             proxy_server_request={"headers": {"x-custom": "my-value", "x-empty": ""}}
         )
@@ -2952,21 +2952,21 @@ def test_get_extra_header_tags():
     finally:
         # Restore original value
         if original_extra_headers is not None:
-            litellm.extra_spend_tag_headers = original_extra_headers
+            embrouter.extra_spend_tag_headers = original_extra_headers
         else:
             # Remove the attribute if it didn't exist before
-            if hasattr(litellm, "extra_spend_tag_headers"):
-                delattr(litellm, "extra_spend_tag_headers")
+            if hasattr(embrouter, "extra_spend_tag_headers"):
+                delattr(embrouter, "extra_spend_tag_headers")
 
 
 def test_response_cost_calculator_with_response_cost_in_hidden_params(logging_obj):
-    from litellm import Router
+    from embrouter import Router
 
     router = Router(
         model_list=[
             {
                 "model_name": "DeepSeek-R1",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "together_ai/deepseek-ai/DeepSeek-R1",
                 },
                 "model_info": {
@@ -3001,16 +3001,16 @@ def test_response_cost_calculator_native_generate_content_body_uses_usage_metada
     tokens and returned 0.0 synchronously. The calculator now transforms the native
     body (as the async logging path does) so the cost is the real non-zero amount.
     """
-    from litellm.types.llms.vertex_ai import GenerateContentResponseBody
-    from litellm.types.utils import ModelResponse, Usage
+    from embrouter.types.llms.vertex_ai import GenerateContentResponseBody
+    from embrouter.types.utils import ModelResponse, Usage
 
-    logging_obj = LitellmLogging(
+    logging_obj = EmbrouterLogging(
         model="gemini-2.5-flash",
         messages=[{"role": "user", "content": "Hey"}],
         stream=False,
         call_type="agenerate_content",
         start_time=time.time(),
-        litellm_call_id="lit4076",
+        embrouter_call_id="lit4076",
         function_id="lit4076",
     )
     logging_obj.model_call_details["custom_llm_provider"] = "gemini"
@@ -3025,7 +3025,7 @@ def test_response_cost_calculator_native_generate_content_body_uses_usage_metada
         },
     )
 
-    expected_cost = litellm.completion_cost(
+    expected_cost = embrouter.completion_cost(
         completion_response=ModelResponse(
             model="gemini-2.5-flash",
             usage=Usage(prompt_tokens=1000, completion_tokens=500, total_tokens=1500),
@@ -3042,13 +3042,13 @@ def test_response_cost_calculator_native_generate_content_body_uses_usage_metada
 def test_response_cost_calculator_does_not_transform_non_generate_content_dict():
     """The native-body transform must only run for generate_content call types, so a
     plain dict on a chat completion call is left untouched (no spurious Gemini cost)."""
-    logging_obj = LitellmLogging(
+    logging_obj = EmbrouterLogging(
         model="gpt-4o",
         messages=[{"role": "user", "content": "Hey"}],
         stream=False,
         call_type="acompletion",
         start_time=time.time(),
-        litellm_call_id="lit4076-2",
+        embrouter_call_id="lit4076-2",
         function_id="lit4076-2",
     )
     logging_obj.optional_params = {}
@@ -3059,14 +3059,14 @@ def test_response_cost_calculator_does_not_transform_non_generate_content_dict()
     assert not cost
 
 
-def _file_content_logging_obj(call_type: str) -> LitellmLogging:
-    logging_obj = LitellmLogging(
+def _file_content_logging_obj(call_type: str) -> EmbrouterLogging:
+    logging_obj = EmbrouterLogging(
         model="gemini-3-flash-preview",
         messages="default-message-value",
         stream=False,
         call_type=call_type,
         start_time=time.time(),
-        litellm_call_id=f"file-content-{call_type}",
+        embrouter_call_id=f"file-content-{call_type}",
         function_id=f"file-content-{call_type}",
     )
     logging_obj.model_call_details["custom_llm_provider"] = "vertex_ai"
@@ -3092,13 +3092,13 @@ def test_file_content_call_is_not_billed(call_type):
 @pytest.mark.parametrize("call_type", ["aspeech", "speech"])
 def test_speech_call_is_still_priced_from_input_characters(call_type):
     """tts bills per input character, so speech call types must keep passing the input along."""
-    logging_obj = LitellmLogging(
+    logging_obj = EmbrouterLogging(
         model="tts-1",
         messages="the quick brown fox jumped over the lazy dogs",
         stream=False,
         call_type=call_type,
         start_time=time.time(),
-        litellm_call_id=f"speech-{call_type}",
+        embrouter_call_id=f"speech-{call_type}",
         function_id=f"speech-{call_type}",
     )
     logging_obj.model_call_details["custom_llm_provider"] = "openai"
@@ -3145,7 +3145,7 @@ def test_sentry_send_default_pii_opt_in(monkeypatch):
 
 
 def test_get_masked_values():
-    from litellm.litellm_core_utils.litellm_logging import _get_masked_values
+    from embrouter.embrouter_core_utils.embrouter_logging import _get_masked_values
 
     sensitive_object = {
         "mode": "pre_call",
@@ -3202,7 +3202,7 @@ async def test_e2e_generate_cold_storage_object_key_successful():
     from datetime import datetime, timezone
     from unittest.mock import patch
 
-    from litellm.litellm_core_utils.litellm_logging import StandardLoggingPayloadSetup
+    from embrouter.embrouter_core_utils.embrouter_logging import StandardLoggingPayloadSetup
 
     # Create test data
     start_time = datetime(2025, 1, 15, 10, 30, 45, 123456, timezone.utc)
@@ -3210,8 +3210,8 @@ async def test_e2e_generate_cold_storage_object_key_successful():
     team_alias = "test-team"
 
     with (
-        patch("litellm.cold_storage_custom_logger", return_value="s3"),
-        patch("litellm.integrations.s3.get_s3_object_key") as mock_get_s3_key,
+        patch("embrouter.cold_storage_custom_logger", return_value="s3"),
+        patch("embrouter.integrations.s3.get_s3_object_key") as mock_get_s3_key,
     ):
         # Mock the S3 object key generation to return a predictable result
         mock_get_s3_key.return_value = "2025-01-15/time-10-30-45-123456_chatcmpl-test-12345.json"
@@ -3243,7 +3243,7 @@ async def test_e2e_generate_cold_storage_object_key_with_custom_logger_s3_path()
     from datetime import datetime, timezone
     from unittest.mock import MagicMock, patch
 
-    from litellm.litellm_core_utils.litellm_logging import StandardLoggingPayloadSetup
+    from embrouter.embrouter_core_utils.embrouter_logging import StandardLoggingPayloadSetup
 
     # Create test data
     start_time = datetime(2025, 1, 15, 10, 30, 45, 123456, timezone.utc)
@@ -3254,9 +3254,9 @@ async def test_e2e_generate_cold_storage_object_key_with_custom_logger_s3_path()
     mock_custom_logger.s3_path = "storage"
 
     with (
-        patch("litellm.cold_storage_custom_logger", "s3_v2"),
-        patch("litellm.logging_callback_manager.get_active_custom_logger_for_callback_name") as mock_get_logger,
-        patch("litellm.integrations.s3.get_s3_object_key") as mock_get_s3_key,
+        patch("embrouter.cold_storage_custom_logger", "s3_v2"),
+        patch("embrouter.logging_callback_manager.get_active_custom_logger_for_callback_name") as mock_get_logger,
+        patch("embrouter.integrations.s3.get_s3_object_key") as mock_get_s3_key,
     ):
         # Setup mocks
         mock_get_logger.return_value = mock_custom_logger
@@ -3290,7 +3290,7 @@ async def test_e2e_generate_cold_storage_object_key_with_logger_no_s3_path():
     from datetime import datetime, timezone
     from unittest.mock import MagicMock, patch
 
-    from litellm.litellm_core_utils.litellm_logging import StandardLoggingPayloadSetup
+    from embrouter.embrouter_core_utils.embrouter_logging import StandardLoggingPayloadSetup
 
     # Create test data
     start_time = datetime(2025, 1, 15, 10, 30, 45, 123456, timezone.utc)
@@ -3301,9 +3301,9 @@ async def test_e2e_generate_cold_storage_object_key_with_logger_no_s3_path():
     mock_custom_logger.s3_path = None  # or could be missing attribute
 
     with (
-        patch("litellm.cold_storage_custom_logger", "s3_v2"),
-        patch("litellm.logging_callback_manager.get_active_custom_logger_for_callback_name") as mock_get_logger,
-        patch("litellm.integrations.s3.get_s3_object_key") as mock_get_s3_key,
+        patch("embrouter.cold_storage_custom_logger", "s3_v2"),
+        patch("embrouter.logging_callback_manager.get_active_custom_logger_for_callback_name") as mock_get_logger,
+        patch("embrouter.integrations.s3.get_s3_object_key") as mock_get_s3_key,
     ):
         # Setup mocks
         mock_get_logger.return_value = mock_custom_logger
@@ -3334,8 +3334,8 @@ async def test_e2e_generate_cold_storage_object_key_not_configured():
     from datetime import datetime, timezone
     from unittest.mock import patch
 
-    import litellm
-    from litellm.litellm_core_utils.litellm_logging import StandardLoggingPayloadSetup
+    import embrouter
+    from embrouter.embrouter_core_utils.embrouter_logging import StandardLoggingPayloadSetup
 
     # Create test data
     start_time = datetime(2025, 1, 15, 10, 30, 45, 123456, timezone.utc)
@@ -3343,7 +3343,7 @@ async def test_e2e_generate_cold_storage_object_key_not_configured():
     team_alias = "another-team"
 
     # Use patch to ensure test isolation
-    with patch.object(litellm, "cold_storage_custom_logger", None):
+    with patch.object(embrouter, "cold_storage_custom_logger", None):
         # Call the function
         result = StandardLoggingPayloadSetup._generate_cold_storage_object_key(
             start_time=start_time, response_id=response_id, team_alias=team_alias
@@ -3359,7 +3359,7 @@ def test_get_final_response_obj_with_empty_response_obj_and_list_init():
 
     When response_obj is empty (falsy), the method should return init_response_obj if it's a list.
     """
-    from litellm.litellm_core_utils.litellm_logging import StandardLoggingPayloadSetup
+    from embrouter.embrouter_core_utils.embrouter_logging import StandardLoggingPayloadSetup
 
     # Create test objects
     class TestObject1:
@@ -3392,8 +3392,8 @@ def test_get_final_response_obj_with_empty_response_obj_and_list_init():
 
 
 def test_get_final_response_obj_stores_the_text_a_post_call_guardrail_served():
-    from litellm.litellm_core_utils.litellm_logging import StandardLoggingPayloadSetup
-    from litellm.litellm_core_utils.served_output_texts import SERVED_OUTPUT_TEXTS_KEY
+    from embrouter.embrouter_core_utils.embrouter_logging import StandardLoggingPayloadSetup
+    from embrouter.embrouter_core_utils.served_output_texts import SERVED_OUTPUT_TEXTS_KEY
 
     raw = {
         "id": "x",
@@ -3418,11 +3418,11 @@ def test_get_final_response_obj_stores_the_text_a_post_call_guardrail_served():
 
 
 def test_get_final_response_obj_redacts_the_served_text_when_message_logging_is_off(monkeypatch: pytest.MonkeyPatch):
-    import litellm
-    from litellm.litellm_core_utils.litellm_logging import StandardLoggingPayloadSetup
-    from litellm.litellm_core_utils.served_output_texts import SERVED_OUTPUT_TEXTS_KEY
+    import embrouter
+    from embrouter.embrouter_core_utils.embrouter_logging import StandardLoggingPayloadSetup
+    from embrouter.embrouter_core_utils.served_output_texts import SERVED_OUTPUT_TEXTS_KEY
 
-    monkeypatch.setattr(litellm, "turn_off_message_logging", True)
+    monkeypatch.setattr(embrouter, "turn_off_message_logging", True)
     raw = {
         "id": "x",
         "choices": [{"index": 0, "finish_reason": "stop", "message": {"role": "assistant", "content": "Card: 4111"}}],
@@ -3431,7 +3431,7 @@ def test_get_final_response_obj_redacts_the_served_text_when_message_logging_is_
     logged = StandardLoggingPayloadSetup.get_final_response_obj(
         response_obj=raw,
         init_response_obj=raw,
-        kwargs={SERVED_OUTPUT_TEXTS_KEY: ("Card: <CREDIT_CARD>",), "litellm_params": {}},
+        kwargs={SERVED_OUTPUT_TEXTS_KEY: ("Card: <CREDIT_CARD>",), "embrouter_params": {}},
     )
 
     assert isinstance(logged, dict)
@@ -3443,8 +3443,8 @@ def test_get_usage_as_dict():
     """
     Test get_usage_as_dict returns usage as plain dict from response_obj or combined_usage_object.
     """
-    from litellm.litellm_core_utils.litellm_logging import StandardLoggingPayloadSetup
-    from litellm.types.utils import Usage
+    from embrouter.embrouter_core_utils.embrouter_logging import StandardLoggingPayloadSetup
+    from embrouter.types.utils import Usage
 
     # Test case 1: None response_obj returns empty usage dict
     result = StandardLoggingPayloadSetup.get_usage_as_dict(response_obj=None)
@@ -3479,7 +3479,7 @@ def test_append_system_prompt_messages():
     """
     Test append_system_prompt_messages prepends system message from kwargs to messages list.
     """
-    from litellm.litellm_core_utils.litellm_logging import StandardLoggingPayloadSetup
+    from embrouter.embrouter_core_utils.embrouter_logging import StandardLoggingPayloadSetup
 
     # Test case 1: system in kwargs with existing messages
     kwargs = {"system": "You are a helpful assistant"}
@@ -3538,27 +3538,27 @@ async def test_async_success_handler_sets_standard_logging_object_for_pass_throu
     from datetime import datetime
     from unittest.mock import patch
 
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.types.utils import StandardPassThroughResponseObject
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.types.utils import StandardPassThroughResponseObject
 
     # Create a logging object for a pass-through endpoint
-    logging_obj = LiteLLMLoggingObj(
+    logging_obj = EmbRouterLoggingObj(
         model="unknown",
         messages=[{"role": "user", "content": "test"}],
         stream=False,
         call_type="pass_through_endpoint",
         start_time=datetime.now(),
-        litellm_call_id="test-call-id",
+        embrouter_call_id="test-call-id",
         function_id="test-function-id",
     )
 
     # Set up model_call_details with required fields
     logging_obj.model_call_details = {
-        "litellm_params": {
+        "embrouter_params": {
             "metadata": {},
             "proxy_server_request": {},
         },
-        "litellm_call_id": "test-call-id",
+        "embrouter_call_id": "test-call-id",
     }
 
     # Create a pass-through response object (not a ModelResponse)
@@ -3616,27 +3616,27 @@ async def test_async_success_handler_prevents_reprocessing_for_pass_through_endp
     from datetime import datetime
     from unittest.mock import patch
 
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.types.utils import StandardPassThroughResponseObject
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.types.utils import StandardPassThroughResponseObject
 
     # Create a logging object for a pass-through endpoint
-    logging_obj = LiteLLMLoggingObj(
+    logging_obj = EmbRouterLoggingObj(
         model="unknown",
         messages=[{"role": "user", "content": "test"}],
         stream=False,
         call_type="pass_through_endpoint",
         start_time=datetime.now(),
-        litellm_call_id="test-call-id-reprocess",
+        embrouter_call_id="test-call-id-reprocess",
         function_id="test-function-id-reprocess",
     )
 
     # Set up model_call_details with required fields
     logging_obj.model_call_details = {
-        "litellm_params": {
+        "embrouter_params": {
             "metadata": {},
             "proxy_server_request": {},
         },
-        "litellm_call_id": "test-call-id-reprocess",
+        "embrouter_call_id": "test-call-id-reprocess",
     }
 
     result = StandardPassThroughResponseObject(response='{"status": "success"}')
@@ -3687,27 +3687,27 @@ async def test_async_success_handler_sets_standard_logging_object_for_streaming_
     from datetime import datetime
     from unittest.mock import patch
 
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.types.utils import StandardPassThroughResponseObject
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.types.utils import StandardPassThroughResponseObject
 
     # Create a logging object for a streaming pass-through endpoint
-    logging_obj = LiteLLMLoggingObj(
+    logging_obj = EmbRouterLoggingObj(
         model="unknown",
         messages=[{"role": "user", "content": "test"}],
         stream=True,  # Streaming request
         call_type="pass_through_endpoint",
         start_time=datetime.now(),
-        litellm_call_id="test-call-id-streaming",
+        embrouter_call_id="test-call-id-streaming",
         function_id="test-function-id-streaming",
     )
 
     # Set up model_call_details with required fields
     logging_obj.model_call_details = {
-        "litellm_params": {
+        "embrouter_params": {
             "metadata": {},
             "proxy_server_request": {},
         },
-        "litellm_call_id": "test-call-id-streaming",
+        "embrouter_call_id": "test-call-id-streaming",
     }
 
     # Create a pass-through response object (simulating unparseable streaming response)
@@ -3741,7 +3741,7 @@ def test_get_error_information_error_code_priority():
     Test get_error_information prioritizes 'code' attribute over 'status_code' attribute
     and handles edge cases like empty strings and "None" string values.
     """
-    from litellm.litellm_core_utils.litellm_logging import StandardLoggingPayloadSetup
+    from embrouter.embrouter_core_utils.embrouter_logging import StandardLoggingPayloadSetup
 
     # Test case 1: Exception with 'code' attribute (ProxyException style)
     class ProxyException(Exception):
@@ -3755,17 +3755,17 @@ def test_get_error_information_error_code_priority():
     assert result["error_code"] == "500"
     assert result["error_class"] == "ProxyException"
 
-    # Test case 2: Exception with 'status_code' attribute (LiteLLM style)
-    class LiteLLMException(Exception):
+    # Test case 2: Exception with 'status_code' attribute (EmbRouter style)
+    class EmbRouterException(Exception):
         def __init__(self, status_code, message):
             self.status_code = status_code
             self.message = message
             super().__init__(message)
 
-    litellm_exception = LiteLLMException(status_code=429, message="Rate limit exceeded")
-    result = StandardLoggingPayloadSetup.get_error_information(litellm_exception)
+    embrouter_exception = EmbRouterException(status_code=429, message="Rate limit exceeded")
+    result = StandardLoggingPayloadSetup.get_error_information(embrouter_exception)
     assert result["error_code"] == "429"
-    assert result["error_class"] == "LiteLLMException"
+    assert result["error_class"] == "EmbRouterException"
 
     # Test case 3: Exception with both 'code' and 'status_code' - should prefer 'code'
     class BothAttributesException(Exception):
@@ -3819,7 +3819,7 @@ def test_get_error_information_prefers_message_attribute_over_str():
 
     Asserts the `.message` attribute is consulted first.
     """
-    from litellm.litellm_core_utils.litellm_logging import StandardLoggingPayloadSetup
+    from embrouter.embrouter_core_utils.embrouter_logging import StandardLoggingPayloadSetup
 
     # Simulate a ProxyException-shaped exception: .message set, but
     # super().__init__() NOT called and no __str__ override.
@@ -3857,8 +3857,8 @@ def test_get_error_information_budget_exceeded_structured_fields():
     error_budget_limit / error_budget_spend, and leaves all four None
     for non-budget exceptions.
     """
-    from litellm.exceptions import BudgetExceededError
-    from litellm.litellm_core_utils.litellm_logging import StandardLoggingPayloadSetup
+    from embrouter.exceptions import BudgetExceededError
+    from embrouter.embrouter_core_utils.embrouter_logging import StandardLoggingPayloadSetup
 
     exc = BudgetExceededError(
         current_cost=3.4e-05,
@@ -3903,7 +3903,7 @@ def test_get_error_information_preserves_explicit_empty_message():
     `Exception("boom")` would inject the wrong string and corrupt
     the error_information signal.
     """
-    from litellm.litellm_core_utils.litellm_logging import StandardLoggingPayloadSetup
+    from embrouter.embrouter_core_utils.embrouter_logging import StandardLoggingPayloadSetup
 
     class ProxyExceptionLike(Exception):
         def __init__(self, message, code):
@@ -3922,9 +3922,9 @@ def test_get_error_information_falls_back_to_str_when_no_message_attr():
     """
     Plain Exception (no `.message` attr) must still produce a useful
     error_message via str(exc), preserving prior behavior for
-    non-litellm exception types.
+    non-embrouter exception types.
     """
-    from litellm.litellm_core_utils.litellm_logging import StandardLoggingPayloadSetup
+    from embrouter.embrouter_core_utils.embrouter_logging import StandardLoggingPayloadSetup
 
     exc = ValueError("boom")
     result = StandardLoggingPayloadSetup.get_error_information(exc)
@@ -3937,14 +3937,14 @@ def test_get_error_information_falls_back_to_str_when_no_message_attr():
 # ──────────────────────────────────────────────────────────────────────
 
 
-def _make_logging_obj(stream: bool) -> LitellmLogging:
-    return LitellmLogging(
+def _make_logging_obj(stream: bool) -> EmbrouterLogging:
+    return EmbrouterLogging(
         model="openai/codex-mini-latest",
         messages=[{"role": "user", "content": "Hey"}],
         stream=stream,
         call_type="completion",
         start_time=time.time(),
-        litellm_call_id="test-123",
+        embrouter_call_id="test-123",
         function_id="test-fn",
     )
 
@@ -3954,7 +3954,7 @@ def test_get_response_ms_measures_a_float_start_time_against_a_datetime_end_time
     handler stamps a datetime end, and the per-second cost path reads this window."""
     logging_obj = _make_logging_obj(stream=False)
     logging_obj.update_environment_variables(
-        model="openai/codex-mini-latest", user="", optional_params={}, litellm_params={}
+        model="openai/codex-mini-latest", user="", optional_params={}, embrouter_params={}
     )
     start_seconds = logging_obj.model_call_details["start_time"]
     assert isinstance(start_seconds, float)
@@ -3999,7 +3999,7 @@ def test_streaming_success_handler_includes_vertex_ai_metadata_in_standard_loggi
     """Assembled streaming responses should include Vertex AI metadata in logging payload."""
     import datetime
 
-    from litellm.types.utils import Choices, Message
+    from embrouter.types.utils import Choices, Message
 
     logging_obj = _make_logging_obj(stream=True)
     grounding_metadata = [{"webSearchQueries": ["weather in SF"]}]
@@ -4054,13 +4054,13 @@ async def test_non_streaming_computes_standard_logging_object_once():
     """
     import asyncio
 
-    import litellm
+    import embrouter
 
     with patch.object(
-        litellm.litellm_core_utils.litellm_logging,
+        embrouter.embrouter_core_utils.embrouter_logging,
         "get_standard_logging_object_payload",
     ) as mock_payload:
-        await litellm.acompletion(
+        await embrouter.acompletion(
             max_tokens=100,
             messages=[{"role": "user", "content": "Hey"}],
             model="openai/codex-mini-latest",
@@ -4078,13 +4078,13 @@ async def test_emit_standard_logging_payload_called_for_non_streaming():
     """
     import asyncio
 
-    import litellm
+    import embrouter
 
     with patch.object(
-        litellm.litellm_core_utils.litellm_logging,
+        embrouter.embrouter_core_utils.embrouter_logging,
         "emit_standard_logging_payload",
     ) as mock_emit:
-        await litellm.acompletion(
+        await embrouter.acompletion(
             max_tokens=100,
             messages=[{"role": "user", "content": "Hey"}],
             model="openai/codex-mini-latest",
@@ -4101,23 +4101,23 @@ async def test_async_success_handler_preserves_response_cost_for_pass_through_en
     by pass-through handlers (Gemini/Vertex)."""
     from datetime import datetime
 
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.types.utils import ModelResponse, Usage
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.types.utils import ModelResponse, Usage
 
-    logging_obj = LiteLLMLoggingObj(
+    logging_obj = EmbRouterLoggingObj(
         model="gemini-2.5-flash-lite",
         messages=[{"role": "user", "content": "test"}],
         stream=False,
         call_type="pass_through_endpoint",
         start_time=datetime.now(),
-        litellm_call_id="test-call-id-cost",
+        embrouter_call_id="test-call-id-cost",
         function_id="test-function-id-cost",
     )
 
     # Simulate what pass-through handlers do: pre-calculate response_cost
     logging_obj.model_call_details = {
-        "litellm_params": {"metadata": {}, "proxy_server_request": {}},
-        "litellm_call_id": "test-call-id-cost",
+        "embrouter_params": {"metadata": {}, "proxy_server_request": {}},
+        "embrouter_call_id": "test-call-id-cost",
         "response_cost": 0.0000047,  # Pre-calculated by pass-through handler
         "custom_llm_provider": "gemini",
     }
@@ -4156,23 +4156,23 @@ def test_process_hidden_params_recalculates_cost_after_failure_handler_zero():
     """
     from datetime import datetime
 
-    import litellm
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.types.utils import ModelResponse, Usage
+    import embrouter
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.types.utils import ModelResponse, Usage
 
-    logging_obj = LiteLLMLoggingObj(
+    logging_obj = EmbRouterLoggingObj(
         model="openai/gpt-4o-mini",
         messages=[{"role": "user", "content": "hi"}],
         stream=False,
         call_type="acompletion",
         start_time=datetime.now(),
-        litellm_call_id="test-retry-zero-cost",
+        embrouter_call_id="test-retry-zero-cost",
         function_id="test-retry-zero-cost",
     )
-    logging_obj.model_call_details["litellm_params"] = {"model": "openai/gpt-4o-mini"}
+    logging_obj.model_call_details["embrouter_params"] = {"model": "openai/gpt-4o-mini"}
     logging_obj.optional_params = {}
 
-    err = litellm.RateLimitError(
+    err = embrouter.RateLimitError(
         message="rate limit",
         llm_provider="openai",
         model="openai/gpt-4o-mini",
@@ -4203,19 +4203,19 @@ def test_process_hidden_params_preserves_zero_cost_in_hidden_params():
     """Pass-through handlers often set response_cost on result._hidden_params (including 0)."""
     from datetime import datetime
 
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.types.utils import ModelResponse, Usage
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.types.utils import ModelResponse, Usage
 
-    logging_obj = LiteLLMLoggingObj(
+    logging_obj = EmbRouterLoggingObj(
         model="gemini-2.5-flash-lite",
         messages=[{"role": "user", "content": "test"}],
         stream=False,
         call_type="pass_through_endpoint",
         start_time=datetime.now(),
-        litellm_call_id="test-hidden-zero-cost",
+        embrouter_call_id="test-hidden-zero-cost",
         function_id="test-hidden-zero-cost",
     )
-    logging_obj.model_call_details["litellm_params"] = {"model": "gemini-2.5-flash-lite"}
+    logging_obj.model_call_details["embrouter_params"] = {"model": "gemini-2.5-flash-lite"}
     logging_obj.optional_params = {}
 
     result = ModelResponse(
@@ -4236,23 +4236,23 @@ def test_process_hidden_params_uses_hidden_params_cost_after_failure_handler_zer
     """After retry failures pin model_call_details to 0, success cost on _hidden_params wins."""
     from datetime import datetime
 
-    import litellm
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.types.utils import ModelResponse, Usage
+    import embrouter
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.types.utils import ModelResponse, Usage
 
-    logging_obj = LiteLLMLoggingObj(
+    logging_obj = EmbRouterLoggingObj(
         model="openai/gpt-4o-mini",
         messages=[{"role": "user", "content": "hi"}],
         stream=False,
         call_type="acompletion",
         start_time=datetime.now(),
-        litellm_call_id="test-retry-hidden-cost",
+        embrouter_call_id="test-retry-hidden-cost",
         function_id="test-retry-hidden-cost",
     )
-    logging_obj.model_call_details["litellm_params"] = {"model": "openai/gpt-4o-mini"}
+    logging_obj.model_call_details["embrouter_params"] = {"model": "openai/gpt-4o-mini"}
     logging_obj.optional_params = {}
 
-    err = litellm.RateLimitError(
+    err = embrouter.RateLimitError(
         message="rate limit",
         llm_provider="openai",
         model="openai/gpt-4o-mini",
@@ -4281,26 +4281,26 @@ def test_process_hidden_params_uses_hidden_params_cost_after_failure_handler_zer
     assert slo.get("response_cost") == passthrough_cost
 
 
-def test_function_setup_litellm_metadata_populates_metadata():
+def test_function_setup_embrouter_metadata_populates_metadata():
     """
-    Test that function_setup() properly handles litellm_metadata (used by /v1/messages,
-    /batches, /responses, /files endpoints) and populates litellm_params["metadata"]
+    Test that function_setup() properly handles embrouter_metadata (used by /v1/messages,
+    /batches, /responses, /files endpoints) and populates embrouter_params["metadata"]
     so callbacks like Langfuse can read API key fields.
 
     This is the root cause of: Claude Code requests missing user_api_key_hash in Langfuse.
     """
-    import litellm
+    import embrouter
 
     test_api_key_hash = "sk-hashed-1234567890abcdef"
     test_team_id = "team-test-123"
     test_key_alias = "my-test-key"
 
-    # Simulate what happens for /v1/messages: metadata is in "litellm_metadata", not "metadata"
+    # Simulate what happens for /v1/messages: metadata is in "embrouter_metadata", not "metadata"
     kwargs = {
         "model": "claude-3-5-sonnet",
         "messages": [{"role": "user", "content": "hello"}],
-        "litellm_call_id": "test-call-id-123",
-        "litellm_metadata": {
+        "embrouter_call_id": "test-call-id-123",
+        "embrouter_metadata": {
             "user_api_key_hash": test_api_key_hash,
             "user_api_key_alias": test_key_alias,
             "user_api_key_team_id": test_team_id,
@@ -4309,57 +4309,57 @@ def test_function_setup_litellm_metadata_populates_metadata():
         },
     }
 
-    logging_obj, returned_kwargs = litellm.utils.function_setup(
+    logging_obj, returned_kwargs = embrouter.utils.function_setup(
         original_function="anthropic_messages",
-        rules_obj=litellm.utils.Rules(),
+        rules_obj=embrouter.utils.Rules(),
         start_time=time.time(),
         **kwargs,
     )
 
-    # litellm_params["metadata"] must contain the API key fields
-    litellm_params = logging_obj.model_call_details.get("litellm_params", {})
-    metadata = litellm_params.get("metadata")
-    assert metadata is not None, "litellm_params['metadata'] should not be None"
-    assert isinstance(metadata, dict), "litellm_params['metadata'] should be a dict"
+    # embrouter_params["metadata"] must contain the API key fields
+    embrouter_params = logging_obj.model_call_details.get("embrouter_params", {})
+    metadata = embrouter_params.get("metadata")
+    assert metadata is not None, "embrouter_params['metadata'] should not be None"
+    assert isinstance(metadata, dict), "embrouter_params['metadata'] should be a dict"
     assert metadata.get("user_api_key_hash") == test_api_key_hash
     assert metadata.get("user_api_key_alias") == test_key_alias
     assert metadata.get("user_api_key_team_id") == test_team_id
 
-    # litellm_metadata should also be preserved
-    litellm_metadata = litellm_params.get("litellm_metadata")
-    assert litellm_metadata is not None
-    assert litellm_metadata.get("user_api_key_hash") == test_api_key_hash
+    # embrouter_metadata should also be preserved
+    embrouter_metadata = embrouter_params.get("embrouter_metadata")
+    assert embrouter_metadata is not None
+    assert embrouter_metadata.get("user_api_key_hash") == test_api_key_hash
 
     # metadata should be a COPY, not an alias — mutating one must not affect the other
-    assert metadata is not litellm_metadata, "litellm_params['metadata'] should be a copy, not the same object"
+    assert metadata is not embrouter_metadata, "embrouter_params['metadata'] should be a copy, not the same object"
 
 
-def test_function_setup_litellm_metadata_guardrail_writes_visible_after_setup():
+def test_function_setup_embrouter_metadata_guardrail_writes_visible_after_setup():
     """
     Regression test for LIT-4512: guardrail writes into the request's
-    "litellm_metadata" bucket that happen AFTER function_setup (the proxy
+    "embrouter_metadata" bucket that happen AFTER function_setup (the proxy
     initializes the logging object before pre-call guardrails run) must be
-    visible to the logging object and survive merge_litellm_metadata, so
+    visible to the logging object and survive merge_embrouter_metadata, so
     /v1/messages spend logs carry guardrail_information and
     applied_guardrails just like /v1/chat/completions.
     """
-    import litellm
-    from litellm.litellm_core_utils.core_helpers import get_or_create_metadata_bucket
-    from litellm.litellm_core_utils.litellm_logging import StandardLoggingPayloadSetup
+    import embrouter
+    from embrouter.embrouter_core_utils.core_helpers import get_or_create_metadata_bucket
+    from embrouter.embrouter_core_utils.embrouter_logging import StandardLoggingPayloadSetup
 
     kwargs = {
         "model": "claude-3-5-sonnet",
         "messages": [{"role": "user", "content": "hello"}],
-        "litellm_call_id": "test-call-id-lit4512",
-        "litellm_metadata": {
+        "embrouter_call_id": "test-call-id-lit4512",
+        "embrouter_metadata": {
             "user_api_key_hash": "sk-hashed-lit4512",
             "guardrails": ["pam-ethical-request"],
         },
     }
 
-    logging_obj, returned_kwargs = litellm.utils.function_setup(
+    logging_obj, returned_kwargs = embrouter.utils.function_setup(
         original_function="anthropic_messages",
-        rules_obj=litellm.utils.Rules(),
+        rules_obj=embrouter.utils.Rules(),
         start_time=time.time(),
         **kwargs,
     )
@@ -4373,89 +4373,89 @@ def test_function_setup_litellm_metadata_guardrail_writes_visible_after_setup():
     metadata_bucket["standard_logging_guardrail_information"] = [guardrail_entry]
     metadata_bucket["applied_guardrails"] = ["pam-ethical-request"]
 
-    litellm_params = logging_obj.model_call_details.get("litellm_params", {})
-    litellm_metadata = litellm_params.get("litellm_metadata")
-    assert litellm_metadata is not None
-    assert litellm_metadata.get("standard_logging_guardrail_information") == [guardrail_entry], (
+    embrouter_params = logging_obj.model_call_details.get("embrouter_params", {})
+    embrouter_metadata = embrouter_params.get("embrouter_metadata")
+    assert embrouter_metadata is not None
+    assert embrouter_metadata.get("standard_logging_guardrail_information") == [guardrail_entry], (
         "guardrail writes after function_setup must be visible to the logging object"
     )
-    assert litellm_metadata.get("applied_guardrails") == ["pam-ethical-request"]
+    assert embrouter_metadata.get("applied_guardrails") == ["pam-ethical-request"]
 
-    merged = StandardLoggingPayloadSetup.merge_litellm_metadata(litellm_params)
+    merged = StandardLoggingPayloadSetup.merge_embrouter_metadata(embrouter_params)
     assert merged.get("standard_logging_guardrail_information") == [guardrail_entry]
     assert merged.get("applied_guardrails") == ["pam-ethical-request"]
 
 
 def test_get_standard_logging_metadata_merges_recorded_applied_guardrails():
-    from litellm.litellm_core_utils.litellm_logging import StandardLoggingPayloadSetup
+    from embrouter.embrouter_core_utils.embrouter_logging import StandardLoggingPayloadSetup
 
     result = StandardLoggingPayloadSetup.get_standard_logging_metadata(
         metadata={"applied_guardrails": ["blocker"]},
-        litellm_params={},
+        embrouter_params={},
         applied_guardrails=["guard-a", "blocker", "guard-b"],
     )
     assert result["applied_guardrails"] == ["guard-a", "blocker", "guard-b"]
 
     result = StandardLoggingPayloadSetup.get_standard_logging_metadata(
         metadata={"applied_guardrails": ["blocker"]},
-        litellm_params={},
+        embrouter_params={},
         applied_guardrails=["guard-a"],
     )
     assert result["applied_guardrails"] == ["guard-a", "blocker"]
 
 
-def test_function_setup_metadata_takes_precedence_over_litellm_metadata():
+def test_function_setup_metadata_takes_precedence_over_embrouter_metadata():
     """
-    Test that when BOTH metadata and litellm_metadata are present (e.g., user sets
-    Anthropic API metadata AND proxy adds litellm_metadata), metadata is used as
-    litellm_params["metadata"] and litellm_metadata is stored separately.
+    Test that when BOTH metadata and embrouter_metadata are present (e.g., user sets
+    Anthropic API metadata AND proxy adds embrouter_metadata), metadata is used as
+    embrouter_params["metadata"] and embrouter_metadata is stored separately.
     """
-    import litellm
+    import embrouter
 
     kwargs = {
         "model": "claude-3-5-sonnet",
         "messages": [{"role": "user", "content": "hello"}],
-        "litellm_call_id": "test-call-id-456",
+        "embrouter_call_id": "test-call-id-456",
         "metadata": {
             "user_id": "anthropic-user-id",
         },
-        "litellm_metadata": {
+        "embrouter_metadata": {
             "user_api_key_hash": "sk-hashed-xyz",
             "user_api_key_team_id": "team-xyz",
         },
     }
 
-    logging_obj, _ = litellm.utils.function_setup(
+    logging_obj, _ = embrouter.utils.function_setup(
         original_function="anthropic_messages",
-        rules_obj=litellm.utils.Rules(),
+        rules_obj=embrouter.utils.Rules(),
         start_time=time.time(),
         **kwargs,
     )
 
-    litellm_params = logging_obj.model_call_details.get("litellm_params", {})
+    embrouter_params = logging_obj.model_call_details.get("embrouter_params", {})
 
     # When both are present, metadata should be the explicit "metadata" dict
-    metadata = litellm_params.get("metadata")
+    metadata = embrouter_params.get("metadata")
     assert metadata is not None
     assert metadata.get("user_id") == "anthropic-user-id"
 
-    # litellm_metadata should be preserved separately for merge_litellm_metadata()
-    litellm_metadata = litellm_params.get("litellm_metadata")
-    assert litellm_metadata is not None
-    assert litellm_metadata.get("user_api_key_hash") == "sk-hashed-xyz"
+    # embrouter_metadata should be preserved separately for merge_embrouter_metadata()
+    embrouter_metadata = embrouter_params.get("embrouter_metadata")
+    assert embrouter_metadata is not None
+    assert embrouter_metadata.get("user_api_key_hash") == "sk-hashed-xyz"
 
 
-def test_update_from_kwargs_litellm_params_metadata_does_not_overwrite_proxy_fields():
+def test_update_from_kwargs_embrouter_params_metadata_does_not_overwrite_proxy_fields():
     """
-    Test the exact bug: when update_from_kwargs is called with litellm_params
+    Test the exact bug: when update_from_kwargs is called with embrouter_params
     containing a 'metadata' key (e.g. Anthropic's native metadata with user_id),
-    it must NOT overwrite proxy key-auth fields already merged from litellm_metadata.
+    it must NOT overwrite proxy key-auth fields already merged from embrouter_metadata.
 
     This is the anthropic_messages code path where async_anthropic_messages_handler
     passes anthropic_messages_optional_request_params (which includes metadata)
-    as litellm_params to update_from_kwargs.
+    as embrouter_params to update_from_kwargs.
     """
-    from litellm.litellm_core_utils.litellm_logging import Logging
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging
 
     logging_obj = Logging(
         model="claude-3-5-sonnet",
@@ -4463,12 +4463,12 @@ def test_update_from_kwargs_litellm_params_metadata_does_not_overwrite_proxy_fie
         stream=False,
         call_type="anthropic_messages",
         start_time=time.time(),
-        litellm_call_id="test-overwrite-bug",
+        embrouter_call_id="test-overwrite-bug",
         function_id="test-function-id",
     )
 
     kwargs = {
-        "litellm_metadata": {
+        "embrouter_metadata": {
             "user_api_key_hash": "sk-hashed-proxy",
             "user_api_key_alias": "claude-api",
             "user_api_key_team_id": "team-zurich",
@@ -4476,21 +4476,21 @@ def test_update_from_kwargs_litellm_params_metadata_does_not_overwrite_proxy_fie
     }
 
     # Simulate what async_anthropic_messages_handler does:
-    # passes Anthropic's native metadata in litellm_params
+    # passes Anthropic's native metadata in embrouter_params
     logging_obj.update_from_kwargs(
         kwargs=kwargs,
-        litellm_params={
+        embrouter_params={
             "preset_cache_key": None,
             "stream_response": {},
             "metadata": {"user_id": "anthropic-device-id"},  # Anthropic native metadata
         },
     )
 
-    litellm_params = logging_obj.model_call_details.get("litellm_params", {})
-    metadata = litellm_params.get("metadata")
+    embrouter_params = logging_obj.model_call_details.get("embrouter_params", {})
+    metadata = embrouter_params.get("metadata")
 
     assert metadata is not None
-    # Proxy key-auth fields must survive the litellm_params.update()
+    # Proxy key-auth fields must survive the embrouter_params.update()
     assert metadata.get("user_api_key_hash") == "sk-hashed-proxy"
     assert metadata.get("user_api_key_alias") == "claude-api"
     assert metadata.get("user_api_key_team_id") == "team-zurich"
@@ -4498,33 +4498,33 @@ def test_update_from_kwargs_litellm_params_metadata_does_not_overwrite_proxy_fie
     assert metadata.get("user_id") == "anthropic-device-id"
 
 
-def test_function_setup_empty_metadata_falls_back_to_litellm_metadata():
+def test_function_setup_empty_metadata_falls_back_to_embrouter_metadata():
     """
-    Test that when metadata is explicitly set to {} (empty dict), litellm_metadata
-    is still used to populate litellm_params["metadata"] so API key fields are visible.
+    Test that when metadata is explicitly set to {} (empty dict), embrouter_metadata
+    is still used to populate embrouter_params["metadata"] so API key fields are visible.
     """
-    import litellm
+    import embrouter
 
     kwargs = {
         "model": "claude-3-5-sonnet",
         "messages": [{"role": "user", "content": "hello"}],
-        "litellm_call_id": "test-call-id-789",
+        "embrouter_call_id": "test-call-id-789",
         "metadata": {},
-        "litellm_metadata": {
+        "embrouter_metadata": {
             "user_api_key_hash": "sk-hashed-empty-test",
             "user_api_key_team_id": "team-empty-test",
         },
     }
 
-    logging_obj, _ = litellm.utils.function_setup(
+    logging_obj, _ = embrouter.utils.function_setup(
         original_function="anthropic_messages",
-        rules_obj=litellm.utils.Rules(),
+        rules_obj=embrouter.utils.Rules(),
         start_time=time.time(),
         **kwargs,
     )
 
-    litellm_params = logging_obj.model_call_details.get("litellm_params", {})
-    metadata = litellm_params.get("metadata")
+    embrouter_params = logging_obj.model_call_details.get("embrouter_params", {})
+    metadata = embrouter_params.get("metadata")
     assert metadata is not None
     assert metadata.get("user_api_key_hash") == "sk-hashed-empty-test"
     assert metadata.get("user_api_key_team_id") == "team-empty-test"
@@ -4537,16 +4537,16 @@ def test_failure_handler_skips_sync_callbacks_for_pass_through_requests(logging_
     The async_failure_handler fires async_log_failure_event; the sync failure_handler
     must NOT also fire log_failure_event for pass-through requests.
     """
-    from litellm.integrations.custom_logger import CustomLogger
-    from litellm.types.utils import CallTypes
+    from embrouter.integrations.custom_logger import CustomLogger
+    from embrouter.types.utils import CallTypes
 
     class DummyLogger(CustomLogger):
         pass
 
     logging_obj.call_type = CallTypes.pass_through.value
     logging_obj.stream = False
-    logging_obj.model_call_details["litellm_params"] = {}
-    logging_obj.litellm_params = {}
+    logging_obj.model_call_details["embrouter_params"] = {}
+    logging_obj.embrouter_params = {}
 
     dummy_logger = DummyLogger()
     dummy_logger.log_failure_event = MagicMock()
@@ -4567,15 +4567,15 @@ def test_failure_handler_skips_sync_callbacks_for_pass_through_requests(logging_
 @pytest.mark.parametrize("call_type", ["completion", "acompletion"])
 def test_failure_handler_runs_sync_callbacks_for_non_pass_through_requests(logging_obj, call_type):
     """Ensure sync failure callbacks still fire for normal (non-pass-through) requests."""
-    from litellm.integrations.custom_logger import CustomLogger
+    from embrouter.integrations.custom_logger import CustomLogger
 
     class DummyLogger(CustomLogger):
         pass
 
     logging_obj.call_type = call_type
     logging_obj.stream = False
-    logging_obj.model_call_details["litellm_params"] = {}
-    logging_obj.litellm_params = {}
+    logging_obj.model_call_details["embrouter_params"] = {}
+    logging_obj.embrouter_params = {}
 
     dummy_logger = DummyLogger()
     dummy_logger.log_failure_event = MagicMock()
@@ -4598,16 +4598,16 @@ async def test_async_failure_handler_runs_callbacks_and_restores_correlation_con
     """await logging_obj.async_failure_handler(...) must dispatch async failure callbacks
     and, once its own body completes, restore trace_id/session_id contextvars via
     _restore_correlation_context() (the fix for the nested-call context leak)."""
-    from litellm._logging import session_id_var, trace_id_var
-    from litellm.integrations.custom_logger import CustomLogger
+    from embrouter._logging import session_id_var, trace_id_var
+    from embrouter.integrations.custom_logger import CustomLogger
 
     class DummyLogger(CustomLogger):
         pass
 
     logging_obj.call_type = "acompletion"
     logging_obj.stream = False
-    logging_obj.model_call_details["litellm_params"] = {}
-    logging_obj.litellm_params = {}
+    logging_obj.model_call_details["embrouter_params"] = {}
+    logging_obj.embrouter_params = {}
 
     dummy_logger = DummyLogger()
     dummy_logger.async_log_failure_event = AsyncMock()
@@ -4640,45 +4640,45 @@ async def test_async_failure_handler_runs_callbacks_and_restores_correlation_con
 
 def test_merge_hidden_params_from_response_into_metadata_populates_metadata():
     """Streaming completion path should mirror non-stream: metadata.hidden_params from response."""
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
 
-    logging_obj = LiteLLMLoggingObj(
+    logging_obj = EmbRouterLoggingObj(
         model="gpt-4o-mini",
         messages=[{"role": "user", "content": "hi"}],
         stream=True,
         call_type="acompletion",
         start_time=time.time(),
-        litellm_call_id="merge-hp-test",
+        embrouter_call_id="merge-hp-test",
         function_id="merge-hp-fn",
     )
     logging_obj.model_call_details = {
-        "litellm_params": {"metadata": {}},
+        "embrouter_params": {"metadata": {}},
     }
 
     class _Resp:
         _hidden_params = {"response_cost": 0.001, "model_id": "mid-test"}
 
     logging_obj._merge_hidden_params_from_response_into_metadata(_Resp())
-    meta = logging_obj.model_call_details["litellm_params"]["metadata"]
+    meta = logging_obj.model_call_details["embrouter_params"]["metadata"]
     assert meta["hidden_params"]["response_cost"] == 0.001
     assert meta["hidden_params"]["model_id"] == "mid-test"
 
 
 def test_merge_hidden_params_from_response_into_metadata_backfills_response_cost():
     """Streaming metadata should include the already-calculated response cost."""
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
 
-    logging_obj = LiteLLMLoggingObj(
+    logging_obj = EmbRouterLoggingObj(
         model="gpt-4o-mini",
         messages=[{"role": "user", "content": "hi"}],
         stream=True,
         call_type="acompletion",
         start_time=time.time(),
-        litellm_call_id="merge-hp-cost-test",
+        embrouter_call_id="merge-hp-cost-test",
         function_id="merge-hp-cost-fn",
     )
     logging_obj.model_call_details = {
-        "litellm_params": {"metadata": {}},
+        "embrouter_params": {"metadata": {}},
         "response_cost": 0.002,
     }
 
@@ -4687,7 +4687,7 @@ def test_merge_hidden_params_from_response_into_metadata_backfills_response_cost
 
     response = _Resp()
     logging_obj._merge_hidden_params_from_response_into_metadata(response)
-    meta = logging_obj.model_call_details["litellm_params"]["metadata"]
+    meta = logging_obj.model_call_details["embrouter_params"]["metadata"]
     assert meta["hidden_params"]["response_cost"] == 0.002
     assert meta["hidden_params"]["model_id"] == "mid-test"
     assert response._hidden_params["response_cost"] is None
@@ -4697,21 +4697,21 @@ def test_standard_logging_hidden_params_backfills_response_cost_without_mutating
     """Streaming standard logging payload should expose the calculated response cost."""
     from datetime import datetime
 
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.types.utils import Usage
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.types.utils import Usage
 
-    logging_obj = LiteLLMLoggingObj(
+    logging_obj = EmbRouterLoggingObj(
         model="gpt-4o-mini",
         messages=[{"role": "user", "content": "hi"}],
         stream=True,
         call_type="acompletion",
         start_time=time.time(),
-        litellm_call_id="standard-hp-cost-test",
+        embrouter_call_id="standard-hp-cost-test",
         function_id="standard-hp-cost-fn",
     )
     logging_obj.model_call_details = {
-        "litellm_params": {"metadata": {}, "proxy_server_request": {}},
-        "litellm_call_id": "standard-hp-cost-test",
+        "embrouter_params": {"metadata": {}, "proxy_server_request": {}},
+        "embrouter_call_id": "standard-hp-cost-test",
         "call_type": "acompletion",
         "stream": True,
         "model": "gpt-4o-mini",
@@ -4735,19 +4735,19 @@ def test_standard_logging_hidden_params_backfills_response_cost_without_mutating
 
 def test_merge_hidden_params_from_response_into_metadata_preserves_response_cost():
     """Do not overwrite provider-supplied response cost when it already exists."""
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
 
-    logging_obj = LiteLLMLoggingObj(
+    logging_obj = EmbRouterLoggingObj(
         model="gpt-4o-mini",
         messages=[{"role": "user", "content": "hi"}],
         stream=True,
         call_type="acompletion",
         start_time=time.time(),
-        litellm_call_id="merge-hp-preserve-cost-test",
+        embrouter_call_id="merge-hp-preserve-cost-test",
         function_id="merge-hp-preserve-cost-fn",
     )
     logging_obj.model_call_details = {
-        "litellm_params": {"metadata": {}},
+        "embrouter_params": {"metadata": {}},
         "response_cost": 0.002,
     }
 
@@ -4755,32 +4755,32 @@ def test_merge_hidden_params_from_response_into_metadata_preserves_response_cost
         _hidden_params = {"response_cost": 0.001, "model_id": "mid-test"}
 
     logging_obj._merge_hidden_params_from_response_into_metadata(_Resp())
-    meta = logging_obj.model_call_details["litellm_params"]["metadata"]
+    meta = logging_obj.model_call_details["embrouter_params"]["metadata"]
     assert meta["hidden_params"]["response_cost"] == 0.001
     assert meta["hidden_params"]["model_id"] == "mid-test"
 
 
 def test_merge_hidden_params_from_response_into_metadata_no_op_when_empty():
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
 
-    logging_obj = LiteLLMLoggingObj(
+    logging_obj = EmbRouterLoggingObj(
         model="gpt-4o-mini",
         messages=[{"role": "user", "content": "hi"}],
         stream=True,
         call_type="acompletion",
         start_time=time.time(),
-        litellm_call_id="merge-hp-empty",
+        embrouter_call_id="merge-hp-empty",
         function_id="merge-hp-empty-fn",
     )
     logging_obj.model_call_details = {
-        "litellm_params": {"metadata": {"existing": True}},
+        "embrouter_params": {"metadata": {"existing": True}},
     }
 
     class _NoHp:
         _hidden_params = {}
 
     logging_obj._merge_hidden_params_from_response_into_metadata(_NoHp())
-    assert "hidden_params" not in logging_obj.model_call_details["litellm_params"]["metadata"]
+    assert "hidden_params" not in logging_obj.model_call_details["embrouter_params"]["metadata"]
 
 
 # ── StandardLoggingPayloadSetup.get_additional_headers ───────────────────────
@@ -4788,7 +4788,7 @@ def test_merge_hidden_params_from_response_into_metadata_no_op_when_empty():
 
 def test_get_additional_headers_preserves_provider_request_id():
     """llm_provider-x-request-id must survive the get_additional_headers filter."""
-    from litellm.litellm_core_utils.litellm_logging import StandardLoggingPayloadSetup
+    from embrouter.embrouter_core_utils.embrouter_logging import StandardLoggingPayloadSetup
 
     raw = {
         "x-ratelimit-remaining-requests": "29999",
@@ -4811,14 +4811,14 @@ def test_get_additional_headers_preserves_provider_request_id():
 
 
 def test_get_additional_headers_returns_none_for_none_input():
-    from litellm.litellm_core_utils.litellm_logging import StandardLoggingPayloadSetup
+    from embrouter.embrouter_core_utils.embrouter_logging import StandardLoggingPayloadSetup
 
     assert StandardLoggingPayloadSetup.get_additional_headers(None) is None
 
 
 def test_get_additional_headers_reset_fields_preserved():
     """x-ratelimit-reset-* fields (added to the TypedDict) must be captured."""
-    from litellm.litellm_core_utils.litellm_logging import StandardLoggingPayloadSetup
+    from embrouter.embrouter_core_utils.embrouter_logging import StandardLoggingPayloadSetup
 
     raw = {
         "x-ratelimit-reset-requests": "1s",
@@ -4832,21 +4832,21 @@ def test_get_additional_headers_reset_fields_preserved():
     assert result["x_ratelimit_reset_tokens"] == "100ms"  # type: ignore
 
 
-# ── litellm_call_id propagation ───────────────────────────────────────────────
+# ── embrouter_call_id propagation ───────────────────────────────────────────────
 
 
-def test_get_standard_logging_object_payload_includes_litellm_call_id(logging_obj):
-    """litellm_call_id from kwargs must appear in the returned StandardLoggingPayload."""
+def test_get_standard_logging_object_payload_includes_embrouter_call_id(logging_obj):
+    """embrouter_call_id from kwargs must appear in the returned StandardLoggingPayload."""
     import datetime
 
-    from litellm.litellm_core_utils.litellm_logging import (
+    from embrouter.embrouter_core_utils.embrouter_logging import (
         get_standard_logging_object_payload,
     )
 
     call_id = "test-call-id-abc-123"
     now = datetime.datetime.now()
     payload = get_standard_logging_object_payload(
-        kwargs={"litellm_call_id": call_id, "model": "gpt-4o", "messages": []},
+        kwargs={"embrouter_call_id": call_id, "model": "gpt-4o", "messages": []},
         init_response_obj={},
         start_time=now,
         end_time=now,
@@ -4855,14 +4855,14 @@ def test_get_standard_logging_object_payload_includes_litellm_call_id(logging_ob
     )
 
     assert payload is not None
-    assert payload["litellm_call_id"] == call_id
+    assert payload["embrouter_call_id"] == call_id
 
 
 def test_get_standard_logging_object_payload_carries_matched_access_groups(logging_obj):
     """Access groups stamped at auth time reach the logging payload, so integrations see what a request billed."""
     from datetime import datetime
 
-    from litellm.litellm_core_utils.litellm_logging import (
+    from embrouter.embrouter_core_utils.embrouter_logging import (
         get_standard_logging_object_payload,
     )
 
@@ -4871,7 +4871,7 @@ def test_get_standard_logging_object_payload_carries_matched_access_groups(loggi
         kwargs={
             "model": "gpt-4o",
             "messages": [],
-            "litellm_params": {
+            "embrouter_params": {
                 "metadata": {"user_api_key_matched_model_access_groups": ["premium-pool", "shared-pool"]},
                 "proxy_server_request": {"body": {}},
             },
@@ -4892,7 +4892,7 @@ def test_get_standard_logging_object_payload_has_no_access_groups_when_unstamped
 ):
     from datetime import datetime
 
-    from litellm.litellm_core_utils.litellm_logging import (
+    from embrouter.embrouter_core_utils.embrouter_logging import (
         get_standard_logging_object_payload,
     )
 
@@ -4914,15 +4914,15 @@ def test_get_standard_logging_object_payload_preserves_absent_end_user_as_none(l
     from datetime import datetime
     from typing import Final
 
-    from litellm.litellm_core_utils.litellm_logging import get_standard_logging_object_payload
-    from litellm.types.utils import StandardLoggingPayload
+    from embrouter.embrouter_core_utils.embrouter_logging import get_standard_logging_object_payload
+    from embrouter.types.utils import StandardLoggingPayload
 
     now: Final = datetime.now()
     payload: Final[StandardLoggingPayload | None] = get_standard_logging_object_payload(
         kwargs={
             "model": "gpt-4o",
             "messages": [],
-            "litellm_params": {
+            "embrouter_params": {
                 "metadata": {
                     "user_api_key_alias": "test-key-alias",
                     "user_api_key_user_id": "test-key-user",
@@ -4950,10 +4950,10 @@ def test_get_standard_logging_object_payload_preserves_absent_end_user_as_none(l
 
 def _model_router_response(selected_model: str, stamp: bool):
     """A ModelResponse as AzureModelRouterConfig hands it back, with or without the stamp."""
-    from litellm.llms.azure_ai.common_utils import (
+    from embrouter.llms.azure_ai.common_utils import (
         AZURE_MODEL_ROUTER_SELECTED_MODEL_KEY,
     )
-    from litellm.types.utils import ModelResponse
+    from embrouter.types.utils import ModelResponse
 
     response = ModelResponse(model=selected_model)
     response._hidden_params = {AZURE_MODEL_ROUTER_SELECTED_MODEL_KEY: selected_model} if stamp else {}
@@ -4968,7 +4968,7 @@ def test_standard_logging_payload_uses_stamped_model_router_model(logging_obj):
     """
     import datetime
 
-    from litellm.litellm_core_utils.litellm_logging import (
+    from embrouter.embrouter_core_utils.embrouter_logging import (
         get_standard_logging_object_payload,
     )
 
@@ -4978,7 +4978,7 @@ def test_standard_logging_payload_uses_stamped_model_router_model(logging_obj):
             "model": "azure_ai/smart-pick",
             "custom_llm_provider": "azure_ai",
             "messages": [],
-            "litellm_params": {"metadata": {}},
+            "embrouter_params": {"metadata": {}},
         },
         init_response_obj=_model_router_response("azure_ai/grok-4-1-fast-reasoning", stamp=True),
         start_time=now,
@@ -5000,7 +5000,7 @@ def test_standard_logging_payload_keeps_requested_model_without_router_stamp(
     """
     import datetime
 
-    from litellm.litellm_core_utils.litellm_logging import (
+    from embrouter.embrouter_core_utils.embrouter_logging import (
         get_standard_logging_object_payload,
     )
 
@@ -5010,7 +5010,7 @@ def test_standard_logging_payload_keeps_requested_model_without_router_stamp(
             "model": "azure_ai/smart-pick",
             "custom_llm_provider": "azure_ai",
             "messages": [],
-            "litellm_params": {"metadata": {}},
+            "embrouter_params": {"metadata": {}},
         },
         init_response_obj=_model_router_response("azure_ai/grok-4-1-fast-reasoning", stamp=False),
         start_time=now,
@@ -5025,19 +5025,19 @@ def test_standard_logging_payload_keeps_requested_model_without_router_stamp(
 
 def _make_dict_logging_obj():
     """Build a Logging instance configured for a non-streaming dict result."""
-    obj = LitellmLogging(
+    obj = EmbrouterLogging(
         model="claude-haiku-4-5@20251001",
         messages=[{"role": "user", "content": "hi"}],
         stream=False,
         call_type="acompletion",
-        litellm_call_id="test-call-id",
+        embrouter_call_id="test-call-id",
         start_time=time.time(),
         function_id="test-fn",
     )
     obj.model_call_details = {
         "model": "claude-haiku-4-5@20251001",
         "custom_llm_provider": "vertex_ai",
-        "litellm_params": {"metadata": {}},
+        "embrouter_params": {"metadata": {}},
         "response_cost": None,
     }
     return obj
@@ -5058,7 +5058,7 @@ def test_success_handler_computes_cost_for_dict_response():
             "_build_standard_logging_payload",
             return_value={"response_cost": expected_cost},
         ),
-        patch("litellm.litellm_core_utils.litellm_logging.emit_standard_logging_payload"),
+        patch("embrouter.embrouter_core_utils.embrouter_logging.emit_standard_logging_payload"),
         patch.object(
             logging_obj,
             "_is_recognized_call_type_for_logging",
@@ -5095,7 +5095,7 @@ def test_success_handler_preserves_precomputed_cost_for_dict_response():
             "_build_standard_logging_payload",
             return_value={"response_cost": precomputed_cost},
         ),
-        patch("litellm.litellm_core_utils.litellm_logging.emit_standard_logging_payload"),
+        patch("embrouter.embrouter_core_utils.embrouter_logging.emit_standard_logging_payload"),
         patch.object(
             logging_obj,
             "_is_recognized_call_type_for_logging",
@@ -5134,7 +5134,7 @@ def test_success_handler_unified_helper_runs_for_typed_results():
             "_build_standard_logging_payload",
             return_value={"response_cost": expected_cost},
         ),
-        patch("litellm.litellm_core_utils.litellm_logging.emit_standard_logging_payload"),
+        patch("embrouter.embrouter_core_utils.embrouter_logging.emit_standard_logging_payload"),
         patch.object(
             logging_obj,
             "_is_recognized_call_type_for_logging",
@@ -5160,7 +5160,7 @@ class TestFirstApiCallStartTimeSetOnce:
     preprocessing latency excludes retries/backoff (api_call_start_time is
     overwritten on every attempt). It is set ONLY on the logging object's
     model_call_details. It must never be written into
-    litellm_params["metadata"] — that is the caller's request metadata,
+    embrouter_params["metadata"] — that is the caller's request metadata,
     echoed back into provider request bodies, spend logs, and batch
     objects (typed Dict[str, str]); a datetime there breaks them. The
     proxy failure path lifts it off the logging object into request_data
@@ -5168,28 +5168,28 @@ class TestFirstApiCallStartTimeSetOnce:
     """
 
     def _logging_obj(self):
-        obj = LitellmLogging(
+        obj = EmbrouterLogging(
             model="gpt-4",
             messages=[{"role": "user", "content": "hi"}],
             stream=False,
             call_type="completion",
             start_time=time.time(),
-            litellm_call_id="set-once-1",
+            embrouter_call_id="set-once-1",
             function_id="f1",
         )
-        obj.model_call_details["litellm_params"] = {"metadata": {}}
+        obj.model_call_details["embrouter_params"] = {"metadata": {}}
         return obj
 
     def test_set_once_survives_retry_and_never_touches_user_metadata(self):
         obj = self._logging_obj()
-        user_meta = obj.model_call_details["litellm_params"]["metadata"]
+        user_meta = obj.model_call_details["embrouter_params"]["metadata"]
 
         obj.pre_call(input="hi", api_key="sk-test")
         first = obj.model_call_details["first_api_call_start_time"]
         assert first == obj.model_call_details["api_call_start_time"]
         # Set on the logging object only — user metadata untouched.
         assert user_meta == {}
-        assert "first_api_call_start_time" not in obj.model_call_details["litellm_params"]
+        assert "first_api_call_start_time" not in obj.model_call_details["embrouter_params"]
 
         time.sleep(0.002)  # ensure a distinct retry timestamp
         obj.pre_call(input="hi", api_key="sk-test")
@@ -5201,7 +5201,7 @@ class TestFirstApiCallStartTimeSetOnce:
 
 
 def test_get_error_information_for_logging_payload_ignores_spoofed_disconnect_without_flag():
-    from litellm.litellm_core_utils.litellm_logging import StandardLoggingPayloadSetup
+    from embrouter.embrouter_core_utils.embrouter_logging import StandardLoggingPayloadSetup
 
     baseline = StandardLoggingPayloadSetup.get_error_information(
         original_exception=ValueError("provider failure"),
@@ -5222,7 +5222,7 @@ def test_get_error_information_for_logging_payload_ignores_spoofed_disconnect_wi
 
 
 def test_get_error_information_for_logging_payload_client_disconnect():
-    from litellm.litellm_core_utils.litellm_logging import StandardLoggingPayloadSetup
+    from embrouter.embrouter_core_utils.embrouter_logging import StandardLoggingPayloadSetup
 
     custom_error = {
         "error_code": "499",
@@ -5260,8 +5260,8 @@ def test_get_error_information_for_logging_payload_client_disconnect():
 def test_get_error_information_proxy_exception_preserves_message():
     """ProxyException keeps its text in ``.message`` (str() was empty pre-fix),
     so error_information must still surface the message and code."""
-    from litellm.litellm_core_utils.litellm_logging import StandardLoggingPayloadSetup
-    from litellm.proxy._types import ProxyException
+    from embrouter.embrouter_core_utils.embrouter_logging import StandardLoggingPayloadSetup
+    from embrouter.proxy._types import ProxyException
 
     msg = "Authentication Error, Invalid proxy server token passed."
     exc = ProxyException(message=msg, type="auth_error", param="key", code=401)
@@ -5276,7 +5276,7 @@ def test_get_error_information_prefers_message_attribute_over_empty_str():
     """error_message must come from a populated ``.message`` even when the
     exception's __str__ is empty — guards classes that store the text on
     ``.message`` without forwarding it to ``Exception.__init__``."""
-    from litellm.litellm_core_utils.litellm_logging import StandardLoggingPayloadSetup
+    from embrouter.embrouter_core_utils.embrouter_logging import StandardLoggingPayloadSetup
 
     class _SilentExc(Exception):
         def __init__(self):
@@ -5292,13 +5292,13 @@ def test_get_error_information_prefers_message_attribute_over_empty_str():
 
 
 def _anthropic_messages_logging_obj():
-    return LitellmLogging(
+    return EmbrouterLogging(
         model="openai/my-local",
         messages=[{"role": "user", "content": "hi"}],
         stream=True,
         call_type="anthropic_messages",
         start_time=time.time(),
-        litellm_call_id="28595",
+        embrouter_call_id="28595",
         function_id="28595",
     )
 
@@ -5306,7 +5306,7 @@ def _anthropic_messages_logging_obj():
 def _responses_api_response_with_text(text="hello world"):
     from openai.types.responses import ResponseOutputMessage, ResponseOutputText
 
-    from litellm.types.llms.openai import ResponseAPIUsage, ResponsesAPIResponse
+    from embrouter.types.llms.openai import ResponseAPIUsage, ResponsesAPIResponse
 
     return ResponsesAPIResponse(
         id="resp-28595",
@@ -5340,7 +5340,7 @@ def test_handle_anthropic_messages_response_logging_translates_terminal_response
     renders the response content instead of "No response data available"."""
     import importlib
 
-    openai_types = importlib.import_module("litellm.types.llms.openai")
+    openai_types = importlib.import_module("embrouter.types.llms.openai")
     EventClass = getattr(openai_types, event_cls)
 
     logging_obj = _anthropic_messages_logging_obj()
@@ -5370,8 +5370,8 @@ def test_handle_anthropic_messages_response_logging_translates_bare_responses_ap
 def test_handle_anthropic_messages_response_logging_keeps_the_served_response_id():
     from openai.types.responses import ResponseOutputMessage, ResponseOutputText
 
-    from litellm.responses.utils import ResponsesAPIRequestUtils
-    from litellm.types.llms.openai import ResponseAPIUsage, ResponsesAPIResponse
+    from embrouter.responses.utils import ResponsesAPIRequestUtils
+    from embrouter.types.llms.openai import ResponseAPIUsage, ResponsesAPIResponse
 
     served_id = ResponsesAPIRequestUtils._build_responses_api_response_id(
         custom_llm_provider="openai", model_id="deployment-1", response_id="resp_upstream"
@@ -5423,7 +5423,7 @@ def test_anthropic_messages_logged_response_tolerates_a_stream_that_assembled_no
 def test_handle_anthropic_messages_response_logging_degrades_on_unparseable_responses_payload():
     """If the Responses translation raises (eg. empty output on an incomplete response),
     the row must still land: a minimal ModelResponse with model + usage is returned."""
-    from litellm.types.llms.openai import ResponseAPIUsage, ResponsesAPIResponse
+    from embrouter.types.llms.openai import ResponseAPIUsage, ResponsesAPIResponse
 
     logging_obj = _anthropic_messages_logging_obj()
     empty = ResponsesAPIResponse(
@@ -5542,14 +5542,14 @@ async def test_streaming_anthropic_messages_openai_bridge_fires_success_logging(
     no-op async_log_stream_event was called, so success_payload stayed None and the
     SpendLogs row never landed."""
     logger = _SuccessCapturingLogger()
-    monkeypatch.setattr(litellm, "callbacks", [logger])
+    monkeypatch.setattr(embrouter, "callbacks", [logger])
 
     chunks = []
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "embrouter.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         new=AsyncMock(return_value=_fake_streaming_responses_http_response()),
     ):
-        stream = await litellm.anthropic_messages(
+        stream = await embrouter.anthropic_messages(
             model="openai/gpt-4o",
             api_key="sk-test-28595",
             messages=[{"role": "user", "content": "ping"}],
@@ -5581,7 +5581,7 @@ def test_failure_handler_records_recovered_partial_spend(logging_obj):
     handler must preserve them so the failure row carries the real partial
     spend instead of zero.
     """
-    from litellm.types.utils import Usage
+    from embrouter.types.utils import Usage
 
     logging_obj.model_call_details["combined_usage_object"] = Usage(
         prompt_tokens=17, completion_tokens=9, total_tokens=26
@@ -5621,13 +5621,13 @@ def test_set_cost_breakdown_stores_reasoning_cost():
     """reasoning_cost is stored only when positive, mirroring the cache-cost fields."""
     from datetime import datetime
 
-    logging_obj = LitellmLogging(
+    logging_obj = EmbrouterLogging(
         model="gpt-4o",
         messages=[{"role": "user", "content": "hi"}],
         stream=False,
         call_type="completion",
         start_time=datetime.now(),
-        litellm_call_id="reasoning-cost-set",
+        embrouter_call_id="reasoning-cost-set",
         function_id="f",
     )
     logging_obj.set_cost_breakdown(
@@ -5639,13 +5639,13 @@ def test_set_cost_breakdown_stores_reasoning_cost():
     )
     assert logging_obj.cost_breakdown["reasoning_cost"] == 0.0005
 
-    no_reasoning = LitellmLogging(
+    no_reasoning = EmbrouterLogging(
         model="gpt-4o",
         messages=[{"role": "user", "content": "hi"}],
         stream=False,
         call_type="completion",
         start_time=datetime.now(),
-        litellm_call_id="reasoning-cost-absent",
+        embrouter_call_id="reasoning-cost-absent",
         function_id="f",
     )
     no_reasoning.set_cost_breakdown(
@@ -5660,13 +5660,13 @@ def test_set_cost_breakdown_stores_reasoning_cost():
 def _build_payload_for_media_response(logging_obj, init_response_obj, kwargs=None):
     import datetime
 
-    from litellm.litellm_core_utils.litellm_logging import (
+    from embrouter.embrouter_core_utils.embrouter_logging import (
         get_standard_logging_object_payload,
     )
 
     now = datetime.datetime.now()
     return get_standard_logging_object_payload(
-        kwargs=kwargs or {"litellm_call_id": "media-call-id", "model": "test-model", "messages": []},
+        kwargs=kwargs or {"embrouter_call_id": "media-call-id", "model": "test-model", "messages": []},
         init_response_obj=init_response_obj,
         start_time=now,
         end_time=now,
@@ -5677,7 +5677,7 @@ def _build_payload_for_media_response(logging_obj, init_response_obj, kwargs=Non
 
 def test_image_response_sets_output_image_count_on_usage_object(logging_obj):
     """Generated-image count must land on metadata.usage_object for callbacks (e.g. Prometheus)."""
-    from litellm.types.utils import ImageResponse
+    from embrouter.types.utils import ImageResponse
 
     response = ImageResponse(created=1, data=[{"url": "https://img/1"}, {"url": "https://img/2"}])
 
@@ -5689,16 +5689,16 @@ def test_image_response_sets_output_image_count_on_usage_object(logging_obj):
 
 def test_output_image_count_survives_message_redaction(logging_obj, monkeypatch):
     """Redaction replaces the ImageResponse body, so the count must be captured pre-redaction."""
-    import litellm
-    from litellm.types.utils import ImageResponse
+    import embrouter
+    from embrouter.types.utils import ImageResponse
 
-    monkeypatch.setattr(litellm, "turn_off_message_logging", True)
+    monkeypatch.setattr(embrouter, "turn_off_message_logging", True)
     response = ImageResponse(created=1, data=[{"url": "https://img/1"}])
 
     payload = _build_payload_for_media_response(logging_obj, response)
 
     assert payload is not None
-    assert payload["response"] == {"text": "redacted-by-litellm"}
+    assert payload["response"] == {"text": "redacted-by-embrouter"}
     assert payload["metadata"]["usage_object"]["output_image_count"] == 1
 
 
@@ -5734,17 +5734,17 @@ INTERACTIONS_USAGE_BLOCK = {
 
 
 def _interactions_logging_obj(stream: bool, call_type: str = "acreate"):
-    logging_obj = LitellmLogging(
+    logging_obj = EmbrouterLogging(
         model="gemini-2.5-flash",
         messages=[],
         stream=stream,
         call_type=call_type,
         start_time=time.time(),
-        litellm_call_id="interactions-call-id",
+        embrouter_call_id="interactions-call-id",
         function_id="interactions-fn-id",
     )
     logging_obj.update_environment_variables(
-        litellm_params={},
+        embrouter_params={},
         optional_params={},
         model="gemini-2.5-flash",
         custom_llm_provider="gemini",
@@ -5755,7 +5755,7 @@ def _interactions_logging_obj(stream: bool, call_type: str = "acreate"):
 
 @pytest.mark.parametrize("call_type", ["create", "acreate", "create_interaction", "acreate_interaction"])
 def test_interactions_response_is_recognized_for_logging(call_type):
-    from litellm.types.interactions import InteractionsAPIResponse
+    from embrouter.types.interactions import InteractionsAPIResponse
 
     logging_obj = _interactions_logging_obj(stream=False, call_type=call_type)
     response = InteractionsAPIResponse(
@@ -5771,7 +5771,7 @@ def test_interactions_response_is_recognized_for_logging(call_type):
 def test_in_progress_background_create_is_not_billed(call_type):
     import datetime as dt
 
-    from litellm.types.interactions import InteractionsAPIResponse
+    from embrouter.types.interactions import InteractionsAPIResponse
 
     logging_obj = _interactions_logging_obj(stream=False, call_type=call_type)
     response = InteractionsAPIResponse(id="interactions/abc", model="gemini-2.5-flash", status="in_progress")
@@ -5793,7 +5793,7 @@ def test_in_progress_background_create_is_not_billed(call_type):
 async def test_background_interaction_completion_rebills_after_in_progress_success():
     import datetime as dt
 
-    from litellm.types.interactions import InteractionsAPIResponse
+    from embrouter.types.interactions import InteractionsAPIResponse
 
     logging_obj = _interactions_logging_obj(stream=False)
     in_progress = InteractionsAPIResponse(id="interactions/abc", model="gemini-2.5-flash", status="in_progress")
@@ -5831,7 +5831,7 @@ async def test_background_interaction_completion_prices_the_settled_body_itself(
     """
     import datetime as dt
 
-    from litellm.types.interactions import InteractionsAPIResponse
+    from embrouter.types.interactions import InteractionsAPIResponse
 
     logging_obj = _interactions_logging_obj(stream=False)
     in_progress = InteractionsAPIResponse(id="interactions/abc", model="gemini-2.5-flash", status="in_progress")
@@ -5873,8 +5873,8 @@ async def test_background_interaction_completion_lets_otel_emit_the_cost_span():
     """
     import datetime as dt
 
-    from litellm.integrations.opentelemetry import OpenTelemetry, OpenTelemetryConfig
-    from litellm.types.interactions import InteractionsAPIResponse
+    from embrouter.integrations.opentelemetry import OpenTelemetry, OpenTelemetryConfig
+    from embrouter.types.interactions import InteractionsAPIResponse
 
     otel = OpenTelemetry(config=OpenTelemetryConfig(exporter="console"))
     logging_obj = _interactions_logging_obj(stream=False)
@@ -5907,7 +5907,7 @@ async def test_background_interaction_completion_lets_otel_emit_the_cost_span():
 def test_interactions_get_poll_is_not_billed(call_type):
     import datetime as dt
 
-    from litellm.types.interactions import InteractionsAPIResponse
+    from embrouter.types.interactions import InteractionsAPIResponse
 
     logging_obj = _interactions_logging_obj(stream=False, call_type=call_type)
     response = InteractionsAPIResponse(
@@ -5934,7 +5934,7 @@ def test_interactions_get_poll_is_not_billed(call_type):
 def test_non_streaming_interactions_success_sets_response_cost_and_usage():
     import datetime as dt
 
-    from litellm.types.interactions import InteractionsAPIResponse
+    from embrouter.types.interactions import InteractionsAPIResponse
 
     logging_obj = _interactions_logging_obj(stream=False)
     response = InteractionsAPIResponse(
@@ -5963,7 +5963,7 @@ def test_non_streaming_interactions_success_sets_response_cost_and_usage():
 def test_assembled_streaming_response_from_completed_interaction_event():
     import datetime as dt
 
-    from litellm.types.interactions import (
+    from embrouter.types.interactions import (
         InteractionsAPIResponse,
         InteractionsAPIStreamingResponse,
     )
@@ -6005,7 +6005,7 @@ def test_assembled_streaming_response_from_completed_interaction_event():
 
 
 def test_assembled_streaming_response_from_legacy_completed_chunk():
-    from litellm.types.interactions import (
+    from embrouter.types.interactions import (
         InteractionsAPIResponse,
         InteractionsAPIStreamingResponse,
     )
@@ -6019,7 +6019,7 @@ def test_assembled_streaming_response_from_legacy_completed_chunk():
         usage=dict(INTERACTIONS_USAGE_BLOCK),
     )
 
-    assembled = LitellmLogging._assemble_completed_interaction_response(legacy_chunk)
+    assembled = EmbrouterLogging._assemble_completed_interaction_response(legacy_chunk)
 
     assert isinstance(assembled, InteractionsAPIResponse)
     assert assembled.id == "interactions/legacy"
@@ -6027,7 +6027,7 @@ def test_assembled_streaming_response_from_legacy_completed_chunk():
 
 
 def test_standard_logging_payload_maps_interactions_usage():
-    from litellm.litellm_core_utils.litellm_logging import StandardLoggingPayloadSetup
+    from embrouter.embrouter_core_utils.embrouter_logging import StandardLoggingPayloadSetup
 
     usage = StandardLoggingPayloadSetup.get_usage_from_response_obj(
         response_obj={"usage": dict(INTERACTIONS_USAGE_BLOCK)}
@@ -6045,13 +6045,13 @@ def test_pre_call_does_not_pin_request_in_module_state(logging_obj):
     recent request's entire payload in memory for the life of the worker,
     which with multi-hundred-KB requests is a permanent per-worker leak.
     """
-    litellm.error_logs.clear()
+    embrouter.error_logs.clear()
     big_input = [{"role": "user", "content": "x" * 10_000}]
 
     logging_obj.pre_call(input=big_input, api_key="sk-test")
     logging_obj.post_call(original_response='{"ok": true}', input=big_input, api_key="sk-test")
 
-    assert litellm.error_logs == {}
+    assert embrouter.error_logs == {}
 
 
 def test_handle_anthropic_messages_response_logging_preserves_fast_mode_speed():
@@ -6061,13 +6061,13 @@ def test_handle_anthropic_messages_response_logging_preserves_fast_mode_speed():
     fast-mode spend is logged at the standard rate."""
     import httpx
 
-    logging_obj = LitellmLogging(
+    logging_obj = EmbrouterLogging(
         model="claude-opus-4-8",
         messages=[{"role": "user", "content": "hi"}],
         stream=False,
         call_type="anthropic_messages",
         start_time=time.time(),
-        litellm_call_id="lit-5115",
+        embrouter_call_id="lit-5115",
         function_id="lit-5115",
     )
     logging_obj.optional_params = {"speed": "fast"}
@@ -6094,13 +6094,13 @@ def test_handle_anthropic_messages_parsed_response_logging_preserves_fast_mode_s
     httpx_response in model_call_details, which routes through transform_parsed_response;
     the request's speed has to be threaded there too or rust-served fast-mode calls are
     logged at the standard rate."""
-    logging_obj = LitellmLogging(
+    logging_obj = EmbrouterLogging(
         model="claude-opus-4-8",
         messages=[{"role": "user", "content": "hi"}],
         stream=False,
         call_type="anthropic_messages",
         start_time=time.time(),
-        litellm_call_id="lit-5115-rust",
+        embrouter_call_id="lit-5115-rust",
         function_id="lit-5115-rust",
     )
     logging_obj.optional_params = {"speed": "fast"}
@@ -6122,10 +6122,10 @@ def test_handle_anthropic_messages_parsed_response_logging_preserves_fast_mode_s
 
 
 def test_logging_init_sets_trace_id(monkeypatch):
-    """Logging.__init__() must call set_trace_id with self.litellm_trace_id."""
-    from litellm.litellm_core_utils.litellm_logging import Logging
+    """Logging.__init__() must call set_trace_id with self.embrouter_trace_id."""
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging
 
-    monkeypatch.setattr(litellm, "request_correlation_in_logs", True)
+    monkeypatch.setattr(embrouter, "request_correlation_in_logs", True)
     trace_id_var.set("")
 
     log_obj = Logging(
@@ -6134,22 +6134,22 @@ def test_logging_init_sets_trace_id(monkeypatch):
         stream=False,
         call_type="completion",
         start_time=None,
-        litellm_call_id="call-001",
+        embrouter_call_id="call-001",
         function_id="fn-001",
         kwargs={},
     )
-    assert trace_id_var.get() == log_obj.litellm_trace_id
+    assert trace_id_var.get() == log_obj.embrouter_trace_id
 
 
 def test_logging_init_skips_stamping_when_correlation_logging_unsupported(monkeypatch):
     """supports_correlation_logging=False (what wrapper(), the sync entry
     point, always passes) must leave trace_id_var/session_id_var completely
-    untouched, even though self.litellm_trace_id/litellm_session_id (the
+    untouched, even though self.embrouter_trace_id/embrouter_session_id (the
     plain attributes used by StandardLoggingPayload) are still populated as
     usual - only the ambient contextvar stamping is gated."""
-    from litellm.litellm_core_utils.litellm_logging import Logging
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging
 
-    monkeypatch.setattr(litellm, "request_correlation_in_logs", True)
+    monkeypatch.setattr(embrouter, "request_correlation_in_logs", True)
     trace_id_var.set("")
     session_id_var.set("")
 
@@ -6159,33 +6159,33 @@ def test_logging_init_skips_stamping_when_correlation_logging_unsupported(monkey
         stream=False,
         call_type="completion",
         start_time=None,
-        litellm_call_id="call-sync-excluded",
+        embrouter_call_id="call-sync-excluded",
         function_id="fn-sync-excluded",
-        kwargs={"litellm_session_id": "should-not-be-stamped"},
-        litellm_trace_id="should-not-be-stamped-either",
+        kwargs={"embrouter_session_id": "should-not-be-stamped"},
+        embrouter_trace_id="should-not-be-stamped-either",
         supports_correlation_logging=False,
     )
 
     assert trace_id_var.get() == ""
     assert session_id_var.get() == ""
     # The plain attributes are unaffected - only the contextvar stamping is gated.
-    assert log_obj.litellm_trace_id == "should-not-be-stamped-either"
-    assert log_obj.litellm_session_id == "should-not-be-stamped"
+    assert log_obj.embrouter_trace_id == "should-not-be-stamped-either"
+    assert log_obj.embrouter_session_id == "should-not-be-stamped"
 
 
 def test_logging_init_skips_stamping_when_request_correlation_in_logs_disabled(monkeypatch):
-    from litellm.litellm_core_utils.litellm_logging import Logging
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging
 
-    monkeypatch.setattr(litellm, "request_correlation_in_logs", False)
+    monkeypatch.setattr(embrouter, "request_correlation_in_logs", False)
     trace_id_var.set("outer")
     session_id_var.set("outer-sid")
     try:
         with (
             patch(  # test-quality-ok: regression test verifies disabled stamping skips both setters
-                "litellm.litellm_core_utils.litellm_logging.set_trace_id"
+                "embrouter.embrouter_core_utils.embrouter_logging.set_trace_id"
             ) as mock_set_trace_id,
             patch(  # test-quality-ok: regression test verifies disabled stamping skips both setters
-                "litellm.litellm_core_utils.litellm_logging.set_session_id"
+                "embrouter.embrouter_core_utils.embrouter_logging.set_session_id"
             ) as mock_set_session_id,
         ):
             log_obj = Logging(
@@ -6194,9 +6194,9 @@ def test_logging_init_skips_stamping_when_request_correlation_in_logs_disabled(m
                 stream=False,
                 call_type="completion",
                 start_time=None,
-                litellm_call_id="call-disabled",
+                embrouter_call_id="call-disabled",
                 function_id="fn-disabled",
-                kwargs={"litellm_session_id": "disabled-session"},
+                kwargs={"embrouter_session_id": "disabled-session"},
                 supports_correlation_logging=True,
             )
 
@@ -6211,10 +6211,10 @@ def test_logging_init_skips_stamping_when_request_correlation_in_logs_disabled(m
 
 
 def test_logging_init_sets_session_id_when_provided(monkeypatch):
-    """Logging.__init__() must call set_session_id when litellm_session_id is in kwargs."""
-    from litellm.litellm_core_utils.litellm_logging import Logging
+    """Logging.__init__() must call set_session_id when embrouter_session_id is in kwargs."""
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging
 
-    monkeypatch.setattr(litellm, "request_correlation_in_logs", True)
+    monkeypatch.setattr(embrouter, "request_correlation_in_logs", True)
     session_id_var.set("")
 
     Logging(
@@ -6223,9 +6223,9 @@ def test_logging_init_sets_session_id_when_provided(monkeypatch):
         stream=False,
         call_type="completion",
         start_time=None,
-        litellm_call_id="call-002",
+        embrouter_call_id="call-002",
         function_id="fn-002",
-        kwargs={"litellm_session_id": "my-session-99"},
+        kwargs={"embrouter_session_id": "my-session-99"},
     )
     assert session_id_var.get() == "my-session-99"
 
@@ -6233,9 +6233,9 @@ def test_logging_init_sets_session_id_when_provided(monkeypatch):
 def test_logging_init_resets_session_id_to_empty_when_absent(monkeypatch):
     """When no session_id is in kwargs, Logging.__init__() must reset session_id_var to ""
     so a prior request's session_id does not leak into subsequent log records."""
-    from litellm.litellm_core_utils.litellm_logging import Logging
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging
 
-    monkeypatch.setattr(litellm, "request_correlation_in_logs", True)
+    monkeypatch.setattr(embrouter, "request_correlation_in_logs", True)
     session_id_var.set("preexisting-sid")
 
     Logging(
@@ -6244,7 +6244,7 @@ def test_logging_init_resets_session_id_to_empty_when_absent(monkeypatch):
         stream=False,
         call_type="completion",
         start_time=None,
-        litellm_call_id="call-003",
+        embrouter_call_id="call-003",
         function_id="fn-003",
         kwargs={},
     )
@@ -6257,9 +6257,9 @@ def test_restore_correlation_context_resets_to_pre_call_value(monkeypatch):
     This is the mechanism that prevents a nested call (e.g. a guardrail's own
     LLM-as-judge call sharing the same asyncio Task) from leaking its trace_id/
     session_id into the outer call's subsequent log lines."""
-    from litellm.litellm_core_utils.litellm_logging import Logging
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging
 
-    monkeypatch.setattr(litellm, "request_correlation_in_logs", True)
+    monkeypatch.setattr(embrouter, "request_correlation_in_logs", True)
     trace_id_var.set("outer-trace")
     session_id_var.set("outer-session")
     try:
@@ -6269,11 +6269,11 @@ def test_restore_correlation_context_resets_to_pre_call_value(monkeypatch):
             stream=False,
             call_type="completion",
             start_time=None,
-            litellm_call_id="inner-call",
+            embrouter_call_id="inner-call",
             function_id="fn-inner",
-            kwargs={"litellm_session_id": "inner-session"},
+            kwargs={"embrouter_session_id": "inner-session"},
         )
-        assert trace_id_var.get() == inner.litellm_trace_id
+        assert trace_id_var.get() == inner.embrouter_trace_id
         assert session_id_var.get() == "inner-session"
 
         inner._restore_correlation_context()
@@ -6293,16 +6293,16 @@ def test_restore_correlation_context_safe_to_call_repeatedly(monkeypatch):
     end up calling it for the same instance, potentially from different
     asyncio Tasks - each call needs to take effect in its own Task's view of
     the contextvars, so repeat calls are expected, not just tolerated."""
-    from litellm.litellm_core_utils.litellm_logging import Logging
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging
 
-    monkeypatch.setattr(litellm, "request_correlation_in_logs", True)
+    monkeypatch.setattr(embrouter, "request_correlation_in_logs", True)
     log_obj = Logging(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": "hi"}],
         stream=False,
         call_type="completion",
         start_time=None,
-        litellm_call_id="call-idempotent",
+        embrouter_call_id="call-idempotent",
         function_id="fn-idempotent",
         kwargs={},
     )
@@ -6311,10 +6311,10 @@ def test_restore_correlation_context_safe_to_call_repeatedly(monkeypatch):
 
 
 def test_restore_correlation_context_does_not_resanitize(monkeypatch):
-    from litellm.litellm_core_utils.litellm_logging import Logging
-    from litellm._logging import _sanitize_correlation_id
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging
+    from embrouter._logging import _sanitize_correlation_id
 
-    monkeypatch.setattr(litellm, "request_correlation_in_logs", True)
+    monkeypatch.setattr(embrouter, "request_correlation_in_logs", True)
     trace_id_var.set("outer-trace")
     session_id_var.set("outer-session")
     try:
@@ -6324,13 +6324,13 @@ def test_restore_correlation_context_does_not_resanitize(monkeypatch):
             stream=False,
             call_type="completion",
             start_time=None,
-            litellm_call_id="call-no-resanitize",
+            embrouter_call_id="call-no-resanitize",
             function_id="fn-no-resanitize",
-            kwargs={"litellm_session_id": "inner-session"},
+            kwargs={"embrouter_session_id": "inner-session"},
         )
 
         with patch(  # test-quality-ok: regression test verifies restore avoids sanitization
-            "litellm._logging._sanitize_correlation_id", wraps=_sanitize_correlation_id
+            "embrouter._logging._sanitize_correlation_id", wraps=_sanitize_correlation_id
         ) as mock_sanitize:
             log_obj._restore_correlation_context()
 
@@ -6346,7 +6346,7 @@ def test_restore_correlation_context_does_not_resanitize(monkeypatch):
 async def test_restore_correlation_context_works_across_asyncio_task_boundary(monkeypatch):
     """_restore_correlation_context() must succeed even when it's called from a
     different asyncio Task than the one Logging.__init__() ran in - exactly what
-    happens on litellm's real async success path, where async_success_handler is
+    happens on embrouter's real async success path, where async_success_handler is
     dispatched via asyncio.create_task / the global logging worker rather than
     awaited directly in the request's own task.
 
@@ -6358,9 +6358,9 @@ async def test_restore_correlation_context_works_across_asyncio_task_boundary(mo
     raise, get silently swallowed, and leave the child's view unrestored - and
     passes with the value-based one.
     """
-    from litellm.litellm_core_utils.litellm_logging import Logging
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging
 
-    monkeypatch.setattr(litellm, "request_correlation_in_logs", True)
+    monkeypatch.setattr(embrouter, "request_correlation_in_logs", True)
     trace_id_var.set("outer-trace-cross-task")
     session_id_var.set("outer-session-cross-task")
     try:
@@ -6371,11 +6371,11 @@ async def test_restore_correlation_context_works_across_asyncio_task_boundary(mo
             stream=False,
             call_type="acompletion",
             start_time=None,
-            litellm_call_id="cross-task-call",
+            embrouter_call_id="cross-task-call",
             function_id="fn-cross-task",
-            kwargs={"litellm_session_id": "cross-task-session"},
+            kwargs={"embrouter_session_id": "cross-task-session"},
         )
-        assert trace_id_var.get() == log_obj.litellm_trace_id
+        assert trace_id_var.get() == log_obj.embrouter_trace_id
         assert session_id_var.get() == "cross-task-session"
 
         async def restore_in_new_task():
@@ -6401,32 +6401,32 @@ class TestNonInferenceCallTypesAreNotBilled:
 
     BACKGROUND_POLL_METADATA = {"internal_call_origin": "background_response_cost_poll"}
 
-    def _logging_obj(self, call_type: str, litellm_metadata: dict | None = None):
-        from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+    def _logging_obj(self, call_type: str, embrouter_metadata: dict | None = None):
+        from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
 
-        obj = LiteLLMLoggingObj(
+        obj = EmbRouterLoggingObj(
             model="gpt-4o",
             messages=[],
             stream=False,
             call_type=call_type,
             start_time=time.time(),
-            litellm_call_id=f"lit5602-{call_type}",
+            embrouter_call_id=f"lit5602-{call_type}",
             function_id="fn-lit5602",
         )
         obj.update_environment_variables(
             model="gpt-4o",
             user="",
             optional_params={},
-            litellm_params={
+            embrouter_params={
                 "api_base": "",
                 "custom_llm_provider": "openai",
-                "litellm_metadata": litellm_metadata or {},
+                "embrouter_metadata": embrouter_metadata or {},
             },
         )
         return obj
 
     def _retrieved_response(self, background: bool | None = None):
-        from litellm.types.llms.openai import ResponsesAPIResponse
+        from embrouter.types.llms.openai import ResponsesAPIResponse
 
         return ResponsesAPIResponse(
             id="resp_lit5602",
@@ -6459,7 +6459,7 @@ class TestNonInferenceCallTypesAreNotBilled:
         assert cost == 0.0
 
     def test_retrieved_usage_is_not_re_reported_in_standard_logging_payload(self):
-        from litellm.litellm_core_utils.litellm_logging import (
+        from embrouter.embrouter_core_utils.embrouter_logging import (
             get_standard_logging_object_payload,
         )
 
@@ -6469,10 +6469,10 @@ class TestNonInferenceCallTypesAreNotBilled:
         now = datetime.now()
         payload = get_standard_logging_object_payload(
             kwargs={
-                "litellm_call_id": "lit5602-payload",
+                "embrouter_call_id": "lit5602-payload",
                 "model": "gpt-4o",
                 "call_type": "aget_responses",
-                "litellm_params": {},
+                "embrouter_params": {},
             },
             init_response_obj=self._retrieved_response(),
             start_time=now,
@@ -6491,29 +6491,29 @@ class TestNonInferenceCallTypesAreNotBilled:
         """A background create returns queued with no usage, so the poller's read carries the job's
         only billable usage. Zeroing it there means background jobs are never billed."""
         cost = self._logging_obj(
-            "aget_responses", litellm_metadata=self.BACKGROUND_POLL_METADATA
+            "aget_responses", embrouter_metadata=self.BACKGROUND_POLL_METADATA
         )._response_cost_calculator(result=self._retrieved_response())
         assert cost is not None and cost > 0
 
     def test_background_cost_poll_reports_usage_in_standard_logging_payload(self):
         from datetime import datetime
 
-        from litellm.litellm_core_utils.litellm_logging import (
+        from embrouter.embrouter_core_utils.embrouter_logging import (
             get_standard_logging_object_payload,
         )
 
         now = datetime.now()
         payload = get_standard_logging_object_payload(
             kwargs={
-                "litellm_call_id": "lit5602-poll-payload",
+                "embrouter_call_id": "lit5602-poll-payload",
                 "model": "gpt-4o",
                 "call_type": "aget_responses",
-                "litellm_params": {"litellm_metadata": self.BACKGROUND_POLL_METADATA},
+                "embrouter_params": {"embrouter_metadata": self.BACKGROUND_POLL_METADATA},
             },
             init_response_obj=self._retrieved_response(),
             start_time=now,
             end_time=now,
-            logging_obj=self._logging_obj("aget_responses", litellm_metadata=self.BACKGROUND_POLL_METADATA),
+            logging_obj=self._logging_obj("aget_responses", embrouter_metadata=self.BACKGROUND_POLL_METADATA),
             status="success",
         )
 
@@ -6531,17 +6531,17 @@ class TestNonInferenceCallTypesAreNotBilled:
     def test_reading_a_background_response_reports_usage_in_standard_logging_payload(self):
         from datetime import datetime
 
-        from litellm.litellm_core_utils.litellm_logging import (
+        from embrouter.embrouter_core_utils.embrouter_logging import (
             get_standard_logging_object_payload,
         )
 
         now = datetime.now()
         payload = get_standard_logging_object_payload(
             kwargs={
-                "litellm_call_id": "lit5602-background-payload",
+                "embrouter_call_id": "lit5602-background-payload",
                 "model": "gpt-4o",
                 "call_type": "aget_responses",
-                "litellm_params": {},
+                "embrouter_params": {},
             },
             init_response_obj=self._retrieved_response(background=True),
             start_time=now,
@@ -6562,11 +6562,11 @@ class TestNonInferenceCallTypesAreNotBilled:
         assert cost == 0.0
 
     def _read_call_messages(self):
-        logging_obj, _ = litellm.utils.function_setup(
+        logging_obj, _ = embrouter.utils.function_setup(
             original_function="aget_responses",
-            rules_obj=litellm.utils.Rules(),
+            rules_obj=embrouter.utils.Rules(),
             start_time=time.time(),
-            **{"litellm_call_id": "lit5602-setup", "response_id": "resp_lit5602"},
+            **{"embrouter_call_id": "lit5602-setup", "response_id": "resp_lit5602"},
         )
         return logging_obj.model_call_details["messages"]
 
@@ -6577,7 +6577,7 @@ class TestNonInferenceCallTypesAreNotBilled:
         """Loggers reach into this value expecting a chat history and branch on it being a list.
         An empty list reads as no messages; a tuple matches no branch and crashes the success hook,
         and None is not iterable where other loggers walk it."""
-        from litellm.integrations.lunary import parse_messages
+        from embrouter.integrations.lunary import parse_messages
 
         assert parse_messages(self._read_call_messages()) == []
 
@@ -6585,7 +6585,7 @@ class TestNonInferenceCallTypesAreNotBilled:
 def _build_success_payload(logging_obj, kwargs):
     import datetime
 
-    from litellm.litellm_core_utils.litellm_logging import (
+    from embrouter.embrouter_core_utils.embrouter_logging import (
         get_standard_logging_object_payload,
     )
 
@@ -6602,11 +6602,11 @@ def _build_success_payload(logging_obj, kwargs):
 
 def _guardrail_kwargs(response_cost):
     return {
-        "litellm_call_id": "guardrail-cost-call",
+        "embrouter_call_id": "guardrail-cost-call",
         "model": "gpt-4o",
         "messages": [],
         "response_cost": response_cost,
-        "litellm_params": {
+        "embrouter_params": {
             "metadata": {
                 "standard_logging_guardrail_information": [
                     {
@@ -6653,11 +6653,11 @@ def test_payload_guardrail_cost_merges_into_existing_cost_breakdown(logging_obj)
 
 def test_payload_without_guardrail_cost_is_unchanged(logging_obj):
     kwargs = {
-        "litellm_call_id": "no-guardrail-call",
+        "embrouter_call_id": "no-guardrail-call",
         "model": "gpt-4o",
         "messages": [],
         "response_cost": 0.0000429,
-        "litellm_params": {"metadata": {}},
+        "embrouter_params": {"metadata": {}},
     }
     payload = _build_success_payload(logging_obj, kwargs)
 
@@ -6672,7 +6672,7 @@ _GEMINI_KEY = "AIzaSyC0000000000000000000000000000000"
 
 def test_empty_api_base_does_not_dump_call_state(logging_obj):
     """Direct (non-HTTP) providers pass api_base='', which used to echo model_call_details."""
-    logging_obj.model_call_details["litellm_params"] = {
+    logging_obj.model_call_details["embrouter_params"] = {
         "api_key": "sk-proj-hunter2hunter2hunter2hunter2",
         "aws_secret_access_key": _AWS_SECRET,
     }
@@ -6684,7 +6684,7 @@ def test_empty_api_base_does_not_dump_call_state(logging_obj):
         data={"model": "some-model"},
     )
 
-    assert "litellm_call_id" not in curl_command
+    assert "embrouter_call_id" not in curl_command
     assert _AWS_SECRET not in curl_command
     assert "hunter2" not in curl_command
 
@@ -6692,7 +6692,7 @@ def test_empty_api_base_does_not_dump_call_state(logging_obj):
 def test_pre_call_redacts_and_masks_raw_request(logging_obj):
     """log_raw_request_response echoes the request body and api_base back to loggers/UI."""
     metadata = {"user_api_key_alias": "qa-key"}
-    logging_obj.model_call_details["litellm_params"] = {"metadata": metadata}
+    logging_obj.model_call_details["embrouter_params"] = {"metadata": metadata}
     logging_obj.log_raw_request_response = True
 
     logging_obj.pre_call(
@@ -6723,21 +6723,21 @@ _PRIVATE_RAW_REQUEST_ARGS: Final = {
 
 def _pre_call_with_raw_request_logging(logging_obj) -> dict:
     metadata: Final = {"user_api_key_alias": "qa-key"}
-    logging_obj.model_call_details["litellm_params"] = {"metadata": metadata}
+    logging_obj.model_call_details["embrouter_params"] = {"metadata": metadata}
     logging_obj.log_raw_request_response = True
     logging_obj.pre_call(input="hi", api_key="", additional_args=_PRIVATE_RAW_REQUEST_ARGS)
     return metadata
 
 
 def _assert_raw_request_redacted_for_callbacks_only(logging_obj, metadata: dict) -> None:
-    assert metadata["raw_request"] == REDACTED_BY_LITELLM
+    assert metadata["raw_request"] == REDACTED_BY_EMBROUTER
     typed_dict: Final = logging_obj.model_call_details["raw_request_typed_dict"]
     assert typed_dict["raw_request_body"] == _PRIVATE_RAW_REQUEST_ARGS["complete_input_dict"]
     assert typed_dict["error"] is None
 
 
 def test_pre_call_raw_request_honors_turn_off_message_logging_set_after_import(logging_obj, monkeypatch):
-    monkeypatch.setattr(litellm, "turn_off_message_logging", True)
+    monkeypatch.setattr(embrouter, "turn_off_message_logging", True)
 
     metadata = _pre_call_with_raw_request_logging(logging_obj)
 
@@ -6745,7 +6745,7 @@ def test_pre_call_raw_request_honors_turn_off_message_logging_set_after_import(l
 
 
 def test_pre_call_raw_request_honors_per_request_turn_off_message_logging(logging_obj, monkeypatch):
-    monkeypatch.setattr(litellm, "turn_off_message_logging", False)
+    monkeypatch.setattr(embrouter, "turn_off_message_logging", False)
     logging_obj.model_call_details["standard_callback_dynamic_params"] = {"turn_off_message_logging": True}
 
     metadata = _pre_call_with_raw_request_logging(logging_obj)
@@ -6754,20 +6754,20 @@ def test_pre_call_raw_request_honors_per_request_turn_off_message_logging(loggin
 
 
 def test_debugging_log_honors_json_logs_set_after_import(logging_obj, monkeypatch):
-    monkeypatch.setattr(litellm, "json_logs", True)
-    logging_obj.litellm_request_debug = True
+    monkeypatch.setattr(embrouter, "json_logs", True)
+    logging_obj.embrouter_request_debug = True
 
-    with patch("litellm.litellm_core_utils.litellm_logging.verbose_logger.warning") as warning:
+    with patch("embrouter.embrouter_core_utils.embrouter_logging.verbose_logger.warning") as warning:
         logging_obj._print_llm_call_debugging_log(api_base="https://api.openai.com/v1", headers={}, additional_args={})
 
     assert "https://api.openai.com/v1" in warning.call_args.kwargs["extra"]["api_base"]
 
 
 def test_debugging_log_with_json_logs_tolerates_missing_headers(logging_obj, monkeypatch):
-    monkeypatch.setattr(litellm, "json_logs", True)
-    logging_obj.litellm_request_debug = True
+    monkeypatch.setattr(embrouter, "json_logs", True)
+    logging_obj.embrouter_request_debug = True
 
-    with patch("litellm.litellm_core_utils.litellm_logging.verbose_logger.warning") as warning:
+    with patch("embrouter.embrouter_core_utils.embrouter_logging.verbose_logger.warning") as warning:
         logging_obj._print_llm_call_debugging_log(api_base="https://api.openai.com/v1", headers=None, additional_args={})
 
     assert "https://api.openai.com/v1" in warning.call_args.kwargs["extra"]["api_base"]
@@ -6776,16 +6776,16 @@ def test_debugging_log_with_json_logs_tolerates_missing_headers(logging_obj, mon
 def _streaming_logging_obj_with_callbacks(callbacks: list[CustomLogger]):
     import datetime
 
-    obj = LitellmLogging(
+    obj = EmbrouterLogging(
         model="anthropic/claude-opus-5",
         messages=[{"role": "user", "content": "hi"}],
         stream=True,
         call_type="completion",
         start_time=datetime.datetime.now(),
-        litellm_call_id="slot-leak-test",
+        embrouter_call_id="slot-leak-test",
         function_id="slot-leak-test",
     )
-    obj.model_call_details["litellm_params"] = {"metadata": {}}
+    obj.model_call_details["embrouter_params"] = {"metadata": {}}
     return patch.object(obj, "get_combined_callback_list", return_value=callbacks), obj
 
 
@@ -6843,7 +6843,7 @@ async def test_streaming_success_callbacks_survive_standard_logging_payload_fail
 
 @pytest.mark.asyncio
 async def test_streaming_success_callbacks_survive_guardrail_logging_hook_failure():
-    from litellm.integrations.custom_guardrail import CustomGuardrail
+    from embrouter.integrations.custom_guardrail import CustomGuardrail
 
     skipping = CustomGuardrail(guardrail_name="skipping-guardrail")
     skipping.should_run_guardrail = MagicMock(return_value=False)
@@ -6863,14 +6863,14 @@ async def test_streaming_success_callbacks_survive_guardrail_logging_hook_failur
     releasing.async_log_success_event.assert_awaited_once()
 
 
-def _resolve(custom_llm_provider, litellm_params, optional_params, model):
-    from litellm.litellm_core_utils.litellm_logging import (
+def _resolve(custom_llm_provider, embrouter_params, optional_params, model):
+    from embrouter.embrouter_core_utils.embrouter_logging import (
         _resolve_vertex_location_for_cost,
     )
 
     return _resolve_vertex_location_for_cost(
         custom_llm_provider=custom_llm_provider,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         optional_params=optional_params,
         model=model,
     )
@@ -6895,7 +6895,7 @@ def test_resolve_vertex_location_for_cost_reads_optional_params(monkeypatch):
     location must beat the environment fallback, or every proxy call gets the regional uplift.
     """
     monkeypatch.setenv("VERTEXAI_LOCATION", "us-east5")
-    monkeypatch.setattr(litellm, "vertex_location", None)
+    monkeypatch.setattr(embrouter, "vertex_location", None)
 
     assert _resolve("vertex_ai", {}, {"vertex_location": "global"}, "gemini-3.5-flash") == "global"
     assert _resolve("vertex_ai", None, {"vertex_location": "europe-west1"}, "gemini-3.5-flash") == "europe-west1"
@@ -6916,7 +6916,7 @@ def test_resolve_vertex_location_for_cost_default_region(monkeypatch):
     """With no location configured anywhere, resolution lands on the dispatch default us-central1."""
     monkeypatch.delenv("VERTEXAI_LOCATION", raising=False)
     monkeypatch.delenv("VERTEX_LOCATION", raising=False)
-    monkeypatch.setattr(litellm, "vertex_location", None)
+    monkeypatch.setattr(embrouter, "vertex_location", None)
 
     assert _resolve("vertex_ai", {}, None, "gemini-3.5-flash") == "us-central1"
     assert _resolve("vertex_ai", None, None, "gemini-3.5-flash") == "us-central1"
@@ -6925,7 +6925,7 @@ def test_resolve_vertex_location_for_cost_default_region(monkeypatch):
 def test_resolve_mantle_region_for_cost(monkeypatch):
     """Bedrock Mantle requests resolve the served region the way dispatch does (explicit
     aws_region_name, then the api_base host, then the default); other providers get None."""
-    from litellm.litellm_core_utils.litellm_logging import _resolve_mantle_region_for_cost
+    from embrouter.embrouter_core_utils.embrouter_logging import _resolve_mantle_region_for_cost
 
     for var in ("BEDROCK_MANTLE_REGION", "BEDROCK_MANTLE_API_BASE", "AWS_REGION_NAME", "AWS_REGION"):
         monkeypatch.delenv(var, raising=False)
@@ -6952,28 +6952,28 @@ def test_response_cost_calculator_prices_mantle_calls_on_the_served_region(monke
     """
     from datetime import datetime
 
-    from litellm.litellm_core_utils.get_model_cost_map import get_model_cost_map
+    from embrouter.embrouter_core_utils.get_model_cost_map import get_model_cost_map
 
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    monkeypatch.setattr(litellm, "model_cost", get_model_cost_map(url=""))
+    monkeypatch.setenv("EMBROUTER_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setattr(embrouter, "model_cost", get_model_cost_map(url=""))
     for var in ("BEDROCK_MANTLE_REGION", "BEDROCK_MANTLE_API_BASE", "AWS_REGION_NAME", "AWS_REGION"):
         monkeypatch.delenv(var, raising=False)
 
-    def cost_with(litellm_params):
-        logging_obj = LitellmLogging(
+    def cost_with(embrouter_params):
+        logging_obj = EmbrouterLogging(
             model="xai.grok-4.3",
             messages=[{"role": "user", "content": "hi"}],
             stream=False,
             call_type="completion",
             start_time=datetime.now(),
-            litellm_call_id="mantle-region",
+            embrouter_call_id="mantle-region",
             function_id="f",
         )
         logging_obj.update_environment_variables(
             model="xai.grok-4.3",
             user="",
             optional_params={},
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             custom_llm_provider="bedrock_mantle",
         )
         response = ModelResponse(
@@ -6984,8 +6984,8 @@ def test_response_cost_calculator_prices_mantle_calls_on_the_served_region(monke
         )
         return logging_obj._response_cost_calculator(result=response)
 
-    commercial = litellm.model_cost["bedrock_mantle/xai.grok-4.3"]
-    gov = litellm.model_cost["bedrock_mantle/us-gov-west-1/xai.grok-4.3"]
+    commercial = embrouter.model_cost["bedrock_mantle/xai.grok-4.3"]
+    gov = embrouter.model_cost["bedrock_mantle/us-gov-west-1/xai.grok-4.3"]
     expected_commercial = 38 * commercial["input_cost_per_token"] + 20 * commercial["output_cost_per_token"]
     expected_gov = 38 * gov["input_cost_per_token"] + 20 * gov["output_cost_per_token"]
     assert expected_gov != expected_commercial
@@ -7006,28 +7006,28 @@ def test_response_cost_calculator_prices_proxy_vertex_calls_on_the_configured_lo
     """
     from datetime import datetime
 
-    from litellm.litellm_core_utils.get_model_cost_map import get_model_cost_map
+    from embrouter.embrouter_core_utils.get_model_cost_map import get_model_cost_map
 
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    monkeypatch.setattr(litellm, "model_cost", get_model_cost_map(url=""))
+    monkeypatch.setenv("EMBROUTER_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setattr(embrouter, "model_cost", get_model_cost_map(url=""))
     monkeypatch.setenv("VERTEXAI_LOCATION", "us-east5")
-    monkeypatch.setattr(litellm, "vertex_location", None)
+    monkeypatch.setattr(embrouter, "vertex_location", None)
 
     def cost_at(location):
-        logging_obj = LitellmLogging(
+        logging_obj = EmbrouterLogging(
             model="gemini-3.5-flash",
             messages=[{"role": "user", "content": "hi"}],
             stream=False,
             call_type="completion",
             start_time=datetime.now(),
-            litellm_call_id=f"vertex-loc-{location}",
+            embrouter_call_id=f"vertex-loc-{location}",
             function_id="f",
         )
         logging_obj.update_environment_variables(
             model="gemini-3.5-flash",
             user="",
             optional_params={"vertex_location": location},
-            litellm_params={"api_base": ""},
+            embrouter_params={"api_base": ""},
             custom_llm_provider="vertex_ai",
         )
         response = ModelResponse(
@@ -7038,7 +7038,7 @@ def test_response_cost_calculator_prices_proxy_vertex_calls_on_the_configured_lo
         )
         return logging_obj._response_cost_calculator(result=response)
 
-    info = litellm.model_cost["vertex_ai/gemini-3.5-flash"]
+    info = embrouter.model_cost["vertex_ai/gemini-3.5-flash"]
     expected_global = 10 * info["input_cost_per_token"] + 5 * info["output_cost_per_token"]
 
     assert cost_at("global") == pytest.approx(expected_global)
@@ -7049,13 +7049,13 @@ def test_set_cost_breakdown_stores_vertex_location():
     """vertex_location is recorded in the pricing basis, None for non-vertex requests."""
     from datetime import datetime
 
-    logging_obj = LitellmLogging(
+    logging_obj = EmbrouterLogging(
         model="vertex_ai/claude-haiku-4-5@20251001",
         messages=[{"role": "user", "content": "hi"}],
         stream=False,
         call_type="completion",
         start_time=datetime.now(),
-        litellm_call_id="vertex-location-set",
+        embrouter_call_id="vertex-location-set",
         function_id="f",
     )
     logging_obj.set_cost_breakdown(
@@ -7067,13 +7067,13 @@ def test_set_cost_breakdown_stores_vertex_location():
     )
     assert logging_obj.cost_breakdown["vertex_location"] == "us-east5"
 
-    no_location = LitellmLogging(
+    no_location = EmbrouterLogging(
         model="gpt-4o",
         messages=[{"role": "user", "content": "hi"}],
         stream=False,
         call_type="completion",
         start_time=datetime.now(),
-        litellm_call_id="vertex-location-absent",
+        embrouter_call_id="vertex-location-absent",
         function_id="f",
     )
     no_location.set_cost_breakdown(
@@ -7091,25 +7091,25 @@ def test_prompt_hooks_skip_prompt_managers_when_no_prompt_id(logging_obj, tmp_pa
     with a registered prompt manager (e.g. dotprompt): requests without a prompt_id 500'd with
     "prompt_id is required for Prompt Management Base class" instead of completing normally.
     """
-    from litellm.integrations.arize.arize_phoenix_prompt_manager import ArizePhoenixPromptManager
-    from litellm.integrations.dotprompt.dotprompt_manager import DotpromptManager
-    from litellm.integrations.vector_store_integrations.base_vector_store import BaseVectorStore
-    from litellm.integrations.vector_store_integrations.vector_store_pre_call_hook import (
+    from embrouter.integrations.arize.arize_phoenix_prompt_manager import ArizePhoenixPromptManager
+    from embrouter.integrations.dotprompt.dotprompt_manager import DotpromptManager
+    from embrouter.integrations.vector_store_integrations.base_vector_store import BaseVectorStore
+    from embrouter.integrations.vector_store_integrations.vector_store_pre_call_hook import (
         VectorStorePreCallHook,
     )
-    from litellm.types.vector_stores import LiteLLM_ManagedVectorStore
-    from litellm.vector_stores.vector_store_registry import VectorStoreRegistry
+    from embrouter.types.vector_stores import EmbRouter_ManagedVectorStore
+    from embrouter.vector_stores.vector_store_registry import VectorStoreRegistry
 
     (tmp_path / "stem.prompt").write_text("---\nmodel: gemini-2.5-flash\n---\nyou are a stem tutor\n")
     dotprompt_manager = DotpromptManager(prompt_directory=str(tmp_path))
     arize_manager = ArizePhoenixPromptManager(api_key="fake-key", api_base="http://127.0.0.1:9")
-    litellm.logging_callback_manager.add_litellm_callback(dotprompt_manager)
-    litellm.logging_callback_manager.add_litellm_callback(arize_manager)
+    embrouter.logging_callback_manager.add_embrouter_callback(dotprompt_manager)
+    embrouter.logging_callback_manager.add_embrouter_callback(arize_manager)
     monkeypatch.setattr(
-        litellm,
+        embrouter,
         "vector_store_registry",
         VectorStoreRegistry(
-            vector_stores=[LiteLLM_ManagedVectorStore(vector_store_id="vs_123", custom_llm_provider="openai")]
+            vector_stores=[EmbRouter_ManagedVectorStore(vector_store_id="vs_123", custom_llm_provider="openai")]
         ),
     )
 
@@ -7175,25 +7175,25 @@ def test_prompt_hooks_skip_prompt_managers_when_no_prompt_id(logging_obj, tmp_pa
         )
     finally:
         for manager in (dotprompt_manager, arize_manager):
-            litellm.logging_callback_manager.remove_callback_from_list_by_object(litellm.callbacks, manager)
-            litellm.logging_callback_manager.remove_callback_from_list_by_object(
-                litellm._async_success_callback, manager
+            embrouter.logging_callback_manager.remove_callback_from_list_by_object(embrouter.callbacks, manager)
+            embrouter.logging_callback_manager.remove_callback_from_list_by_object(
+                embrouter._async_success_callback, manager
             )
-        for hook in [cb for cb in litellm.callbacks if isinstance(cb, VectorStorePreCallHook)]:
-            litellm.logging_callback_manager.remove_callback_from_list_by_object(litellm.callbacks, hook)
+        for hook in [cb for cb in embrouter.callbacks if isinstance(cb, VectorStorePreCallHook)]:
+            embrouter.logging_callback_manager.remove_callback_from_list_by_object(embrouter.callbacks, hook)
 
 
 def test_newrelic_dispatch_prefers_otel_v2_when_flag_on(monkeypatch):
-    """With LITELLM_OTEL_V2 on and operator credentials present, the "newrelic"
+    """With EMBROUTER_OTEL_V2 on and operator credentials present, the "newrelic"
     callback builds the OTel v2 logger (per-team credential routing); with the
     flag off (default) it keeps the legacy agent-based logger, so existing
     deployments are untouched."""
-    from litellm.integrations.otel.logger import OpenTelemetryV2
-    from litellm.integrations.otel.model.config import is_otel_v2_enabled
-    from litellm.litellm_core_utils import litellm_logging as logging_module
+    from embrouter.integrations.otel.logger import OpenTelemetryV2
+    from embrouter.integrations.otel.model.config import is_otel_v2_enabled
+    from embrouter.embrouter_core_utils import embrouter_logging as logging_module
 
     logging_module._in_memory_loggers.clear()
-    monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+    monkeypatch.setenv("EMBROUTER_OTEL_V2", "true")
     monkeypatch.setenv("NEW_RELIC_LICENSE_KEY", "test-license-key")
     is_otel_v2_enabled.cache_clear()
     try:
@@ -7215,17 +7215,17 @@ def test_newrelic_dispatch_prefers_otel_v2_when_flag_on(monkeypatch):
         assert again is v2_logger
     finally:
         logging_module._in_memory_loggers.clear()
-        monkeypatch.delenv("LITELLM_OTEL_V2", raising=False)
+        monkeypatch.delenv("EMBROUTER_OTEL_V2", raising=False)
         is_otel_v2_enabled.cache_clear()
 
 
 def test_newrelic_dispatch_keeps_legacy_agent_when_flag_off(monkeypatch):
-    from litellm.integrations.newrelic import NewRelicLogger
-    from litellm.integrations.otel.model.config import is_otel_v2_enabled
-    from litellm.litellm_core_utils import litellm_logging as logging_module
+    from embrouter.integrations.newrelic import NewRelicLogger
+    from embrouter.integrations.otel.model.config import is_otel_v2_enabled
+    from embrouter.embrouter_core_utils import embrouter_logging as logging_module
 
     logging_module._in_memory_loggers.clear()
-    monkeypatch.delenv("LITELLM_OTEL_V2", raising=False)
+    monkeypatch.delenv("EMBROUTER_OTEL_V2", raising=False)
     is_otel_v2_enabled.cache_clear()
     try:
         legacy = logging_module._init_custom_logger_compatible_class(
@@ -7241,14 +7241,14 @@ def test_newrelic_dispatch_keeps_legacy_agent_when_flag_off(monkeypatch):
 
 
 def test_get_custom_logger_compatible_class_finds_v2_newrelic(monkeypatch):
-    """Under LITELLM_OTEL_V2 the "newrelic" instance is an OpenTelemetryV2; the
+    """Under EMBROUTER_OTEL_V2 the "newrelic" instance is an OpenTelemetryV2; the
     cached-lookup must find it or hook resolution (post-call failure/success
     hooks) silently skips the callback."""
-    from litellm.integrations.otel.model.config import is_otel_v2_enabled
-    from litellm.litellm_core_utils import litellm_logging as logging_module
+    from embrouter.integrations.otel.model.config import is_otel_v2_enabled
+    from embrouter.embrouter_core_utils import embrouter_logging as logging_module
 
     logging_module._in_memory_loggers.clear()
-    monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+    monkeypatch.setenv("EMBROUTER_OTEL_V2", "true")
     monkeypatch.setenv("NEW_RELIC_LICENSE_KEY", "test-license-key")
     is_otel_v2_enabled.cache_clear()
     try:
@@ -7262,7 +7262,7 @@ def test_get_custom_logger_compatible_class_finds_v2_newrelic(monkeypatch):
         assert found is created
     finally:
         logging_module._in_memory_loggers.clear()
-        monkeypatch.delenv("LITELLM_OTEL_V2", raising=False)
+        monkeypatch.delenv("EMBROUTER_OTEL_V2", raising=False)
         is_otel_v2_enabled.cache_clear()
 
 
@@ -7283,8 +7283,8 @@ def _raise_and_catch(exc):
 def test_get_error_information_skips_traceback_for_expected_4xx(monkeypatch):
     """Regression for LIT-6043: expected client (4xx) errors must not pay for
     traceback.format_tb on every rejected request unless
-    litellm.log_client_error_tracebacks is enabled."""
-    from litellm.litellm_core_utils.litellm_logging import StandardLoggingPayloadSetup
+    embrouter.log_client_error_tracebacks is enabled."""
+    from embrouter.embrouter_core_utils.embrouter_logging import StandardLoggingPayloadSetup
 
     client_exc = _raise_and_catch(_ClientError(status_code=403, message="team does not allow model"))
     assert client_exc.__traceback__ is not None
@@ -7293,53 +7293,53 @@ def test_get_error_information_skips_traceback_for_expected_4xx(monkeypatch):
 
     server_exc = _raise_and_catch(_ClientError(status_code=500, message="boom"))
     result = StandardLoggingPayloadSetup.get_error_information(server_exc)
-    assert "test_litellm_logging" in result["traceback"]
+    assert "test_embrouter_logging" in result["traceback"]
 
-    monkeypatch.setattr(litellm, "log_client_error_tracebacks", True)
+    monkeypatch.setattr(embrouter, "log_client_error_tracebacks", True)
     result = StandardLoggingPayloadSetup.get_error_information(client_exc)
-    assert "test_litellm_logging" in result["traceback"]
+    assert "test_embrouter_logging" in result["traceback"]
 
 
 def test_get_error_information_keeps_traceback_for_provider_4xx():
     """Regression for LIT-6163: a 4xx the provider returned (invalid deployment
     key, upstream validation) is an operator problem, so its traceback must
     survive the expected-client-error gate and reach every payload consumer."""
-    from litellm.litellm_core_utils.litellm_logging import StandardLoggingPayloadSetup
+    from embrouter.embrouter_core_utils.embrouter_logging import StandardLoggingPayloadSetup
 
-    assert litellm.log_client_error_tracebacks is False
+    assert embrouter.log_client_error_tracebacks is False
     provider_exc = _raise_and_catch(
-        litellm.AuthenticationError(
+        embrouter.AuthenticationError(
             message="AnthropicException - API key is invalid.", llm_provider="anthropic", model="claude-haiku-4-5"
         )
     )
     result = StandardLoggingPayloadSetup.get_error_information(provider_exc)
     assert result["error_code"] == "401"
     assert result["llm_provider"] == "anthropic"
-    assert "test_litellm_logging" in result["traceback"]
+    assert "test_embrouter_logging" in result["traceback"]
 
 
 def test_get_error_information_keeps_traceback_for_unmapped_provider_4xx():
     """Regression for LIT-6163 on /v1/messages: that route logs the provider's
     raw BaseLLMException (no llm_provider), which still keeps its traceback."""
-    from litellm.litellm_core_utils.litellm_logging import StandardLoggingPayloadSetup
-    from litellm.llms.anthropic.common_utils import AnthropicError
+    from embrouter.embrouter_core_utils.embrouter_logging import StandardLoggingPayloadSetup
+    from embrouter.llms.anthropic.common_utils import AnthropicError
 
-    assert litellm.log_client_error_tracebacks is False
+    assert embrouter.log_client_error_tracebacks is False
     raw_provider_exc = _raise_and_catch(AnthropicError(status_code=401, message='{"type":"authentication_error"}'))
     result = StandardLoggingPayloadSetup.get_error_information(raw_provider_exc)
     assert result["error_code"] == "401"
     assert result["error_class"] == "AnthropicError"
-    assert "test_litellm_logging" in result["traceback"]
+    assert "test_embrouter_logging" in result["traceback"]
 
 
 def test_get_error_information_skips_traceback_for_budget_rejection_with_provider():
     """A key-over-budget 422 is the proxy's own rejection even after the auth
     handler stamps the requested model's provider onto it, so it stays cheap."""
-    from litellm.litellm_core_utils.litellm_logging import StandardLoggingPayloadSetup
+    from embrouter.embrouter_core_utils.embrouter_logging import StandardLoggingPayloadSetup
 
-    assert litellm.log_client_error_tracebacks is False
+    assert embrouter.log_client_error_tracebacks is False
     over_budget = _raise_and_catch(
-        litellm.BudgetExceededError(current_cost=0.01, max_budget=0.0, llm_provider="anthropic")
+        embrouter.BudgetExceededError(current_cost=0.01, max_budget=0.0, llm_provider="anthropic")
     )
     result = StandardLoggingPayloadSetup.get_error_information(over_budget)
     assert result["error_code"] == "422"
@@ -7351,13 +7351,13 @@ def test_failure_handler_helper_fn_builds_payload_once_per_exception():
     """Regression for LIT-6043: async and sync failure handlers both call
     _failure_handler_helper_fn for the same failed request; the standardized
     payload must be built once, not once per handler."""
-    obj = LitellmLogging(
+    obj = EmbrouterLogging(
         model="gpt-4o",
         messages=[{"role": "user", "content": "Hey"}],
         stream=False,
         call_type="acompletion",
         start_time=time.time(),
-        litellm_call_id="lit-6043-1",
+        embrouter_call_id="lit-6043-1",
         function_id="f",
     )
     exc = _raise_and_catch(_ClientError(status_code=400, message="invalid model"))
@@ -7380,13 +7380,13 @@ async def test_sync_failure_handler_reuses_payload_after_callable_async_callback
     restamps log_event_type on the shared model_call_details; the sync handler then
     rebuilt the standardized payload, doubling the redaction and payload cost of a 403."""
     router_style_callback = AsyncMock()
-    obj = LitellmLogging(
+    obj = EmbrouterLogging(
         model="gpt-4o",
         messages=[{"role": "user", "content": "Hey"}],
         stream=False,
         call_type="acompletion",
         start_time=time.time(),
-        litellm_call_id="lit-6886-1",
+        embrouter_call_id="lit-6886-1",
         function_id="f",
         dynamic_async_failure_callbacks=[router_style_callback],
     )
@@ -7402,13 +7402,13 @@ async def test_sync_failure_handler_reuses_payload_after_callable_async_callback
 
 @pytest.mark.asyncio
 async def test_prompt_hook_injection_marker_recorded_for_every_surface(logging_obj):
-    """The savings gate reads litellm_gateway_injected_cache from the request's
+    """The savings gate reads embrouter_gateway_injected_cache from the request's
     metadata bucket. Recording lives in the shared prompt-hook wrappers, so chat,
     /v1/responses, router prompt deployments, and proxy prompt templates all mark
     injected requests the same way; a hook that injects nothing leaves no marker.
     A pass that runs before deployment choice declares it and gets the every-deployment
     sentinel, which a later per-deployment pass never narrows."""
-    from litellm.integrations.custom_prompt_management import CustomPromptManagement
+    from embrouter.integrations.custom_prompt_management import CustomPromptManagement
 
     class _InjectingHook(CustomPromptManagement):
         def get_chat_completion_prompt(
@@ -7434,7 +7434,7 @@ async def test_prompt_hook_injection_marker_recorded_for_every_surface(logging_o
             prompt_id,
             prompt_variables,
             dynamic_callback_params,
-            litellm_logging_obj=None,
+            embrouter_logging_obj=None,
             tools=None,
             prompt_label=None,
             prompt_version=None,
@@ -7468,7 +7468,7 @@ async def test_prompt_hook_injection_marker_recorded_for_every_surface(logging_o
         prompt_management_logger=_InjectingHook(),
         request_kwargs=request_kwargs,
     )
-    assert request_kwargs["metadata"]["litellm_gateway_injected_cache"] == "dep-of-this-attempt"
+    assert request_kwargs["metadata"]["embrouter_gateway_injected_cache"] == "dep-of-this-attempt"
 
     logging_obj.get_chat_completion_prompt(
         model="claude-sonnet-5",
@@ -7478,7 +7478,7 @@ async def test_prompt_hook_injection_marker_recorded_for_every_surface(logging_o
         prompt_management_logger=_PassthroughHook(),
         request_kwargs=request_kwargs,
     )
-    assert request_kwargs["metadata"]["litellm_gateway_injected_cache"] == "dep-of-this-attempt"
+    assert request_kwargs["metadata"]["embrouter_gateway_injected_cache"] == "dep-of-this-attempt"
 
     untouched = {"metadata": {}}
     logging_obj.get_chat_completion_prompt(
@@ -7489,7 +7489,7 @@ async def test_prompt_hook_injection_marker_recorded_for_every_surface(logging_o
         prompt_management_logger=_PassthroughHook(),
         request_kwargs=untouched,
     )
-    assert "litellm_gateway_injected_cache" not in untouched["metadata"]
+    assert "embrouter_gateway_injected_cache" not in untouched["metadata"]
 
     pre_choice = {"metadata": {}, "model_info": {"id": "dep-of-this-attempt"}}
     logging_obj.get_chat_completion_prompt(
@@ -7501,7 +7501,7 @@ async def test_prompt_hook_injection_marker_recorded_for_every_surface(logging_o
         request_kwargs=pre_choice,
         injected_for_every_deployment=True,
     )
-    assert pre_choice["metadata"]["litellm_gateway_injected_cache"] == ""
+    assert pre_choice["metadata"]["embrouter_gateway_injected_cache"] == ""
 
     await logging_obj.async_get_chat_completion_prompt(
         model="claude-sonnet-5",
@@ -7511,17 +7511,17 @@ async def test_prompt_hook_injection_marker_recorded_for_every_surface(logging_o
         prompt_management_logger=_InjectingHook(),
         request_kwargs=pre_choice,
     )
-    assert pre_choice["metadata"]["litellm_gateway_injected_cache"] == ""
+    assert pre_choice["metadata"]["embrouter_gateway_injected_cache"] == ""
 
 
-def _responses_ws_logging_obj(model: str = "gpt-4o") -> LitellmLogging:
-    return LitellmLogging(
+def _responses_ws_logging_obj(model: str = "gpt-4o") -> EmbrouterLogging:
+    return EmbrouterLogging(
         model=model,
         messages=[],
         stream=False,
         call_type=CallTypes.aresponses_websocket.value,
         start_time=time.time(),
-        litellm_call_id="responses-ws-usage-test",
+        embrouter_call_id="responses-ws-usage-test",
         function_id="responses-ws-usage-test",
     )
 
@@ -7530,7 +7530,7 @@ def test_normalize_logging_result_extracts_usage_for_responses_websocket(monkeyp
     """LIT-6512: native /v1/responses WebSocket sessions logged $0 spend because the usage
     carried by stored response.completed events was never extracted. The session must cost
     exactly what the same usage costs over HTTP /v1/responses, discounts included."""
-    monkeypatch.setattr(litellm, "cost_discount_config", {"openai": 0.5})
+    monkeypatch.setattr(embrouter, "cost_discount_config", {"openai": 0.5})
     logging_obj = _responses_ws_logging_obj()
     events = [
         {"type": "response.created", "response": {}},
@@ -7546,17 +7546,17 @@ def test_normalize_logging_result_extracts_usage_for_responses_websocket(monkeyp
 
     normalized = logging_obj.normalize_logging_result(result=events)
 
-    assert isinstance(normalized, LiteLLMRealtimeStreamLoggingObject)
+    assert isinstance(normalized, EmbRouterRealtimeStreamLoggingObject)
     assert normalized.usage.prompt_tokens == 160
     assert normalized.usage.completion_tokens == 50
 
-    ws_cost = litellm.completion_cost(
+    ws_cost = embrouter.completion_cost(
         completion_response=normalized,
         model="gpt-4o",
         call_type=CallTypes.aresponses_websocket.value,
         custom_llm_provider="openai",
     )
-    http_cost = litellm.completion_cost(
+    http_cost = embrouter.completion_cost(
         completion_response=ResponsesAPIResponse(
             id="resp-6512",
             created_at=1700000000,
@@ -7592,7 +7592,7 @@ def test_normalize_logging_result_bills_incomplete_responses_websocket_turns():
 
     normalized = _responses_ws_logging_obj().normalize_logging_result(result=events)
 
-    assert isinstance(normalized, LiteLLMRealtimeStreamLoggingObject)
+    assert isinstance(normalized, EmbRouterRealtimeStreamLoggingObject)
     assert normalized.usage.prompt_tokens == 55
     assert normalized.usage.completion_tokens == 20
     assert normalized.usage.total_tokens == 75
@@ -7615,17 +7615,17 @@ def test_normalize_logging_result_prices_responses_websocket_at_returned_service
 
     normalized = _responses_ws_logging_obj(model="gpt-5.4").normalize_logging_result(result=events)
 
-    assert isinstance(normalized, LiteLLMRealtimeStreamLoggingObject)
+    assert isinstance(normalized, EmbRouterRealtimeStreamLoggingObject)
     assert normalized.service_tier == "priority"
 
     usage = ResponseAPIUsage(input_tokens=100, output_tokens=40, total_tokens=140)
-    ws_cost = litellm.completion_cost(
+    ws_cost = embrouter.completion_cost(
         completion_response=normalized,
         model="gpt-5.4",
         call_type=CallTypes.aresponses_websocket.value,
         custom_llm_provider="openai",
     )
-    priority_http_cost = litellm.completion_cost(
+    priority_http_cost = embrouter.completion_cost(
         completion_response=ResponsesAPIResponse(
             id="resp-priority",
             created_at=1700000000,
@@ -7637,7 +7637,7 @@ def test_normalize_logging_result_prices_responses_websocket_at_returned_service
         call_type=CallTypes.aresponses.value,
         custom_llm_provider="openai",
     )
-    default_http_cost = litellm.completion_cost(
+    default_http_cost = embrouter.completion_cost(
         completion_response=ResponsesAPIResponse(
             id="resp-default",
             created_at=1700000000,
@@ -7656,17 +7656,17 @@ def test_normalize_logging_result_prices_responses_websocket_at_returned_service
 
 def test_get_standard_logging_object_payload_reads_overhead_from_logging_obj_for_dict_results(logging_obj):
     """LIT-5466: /v1/messages returns a plain dict with no _hidden_params, so the overhead
-    recorded on the logging object must reach hidden_params.litellm_overhead_time_ms (SpendLogs)."""
+    recorded on the logging object must reach hidden_params.embrouter_overhead_time_ms (SpendLogs)."""
     import datetime
 
-    from litellm.litellm_core_utils.litellm_logging import (
+    from embrouter.embrouter_core_utils.embrouter_logging import (
         get_standard_logging_object_payload,
     )
 
-    logging_obj.set_response_timing_metrics({"_response_ms": 1000.0, "litellm_overhead_time_ms": 100.0})
+    logging_obj.set_response_timing_metrics({"_response_ms": 1000.0, "embrouter_overhead_time_ms": 100.0})
     now = datetime.datetime.now()
     payload = get_standard_logging_object_payload(
-        kwargs={"litellm_call_id": "call-1", "model": "gpt-4o", "messages": []},
+        kwargs={"embrouter_call_id": "call-1", "model": "gpt-4o", "messages": []},
         init_response_obj={"id": "msg_1", "type": "message", "role": "assistant", "content": []},
         start_time=now,
         end_time=now,
@@ -7675,7 +7675,7 @@ def test_get_standard_logging_object_payload_reads_overhead_from_logging_obj_for
     )
 
     assert payload is not None
-    assert payload["hidden_params"]["litellm_overhead_time_ms"] == 100.0
+    assert payload["hidden_params"]["embrouter_overhead_time_ms"] == 100.0
 
 
 def test_get_standard_logging_object_payload_survives_logging_obj_without_timing_metrics(logging_obj):
@@ -7683,14 +7683,14 @@ def test_get_standard_logging_object_payload_survives_logging_obj_without_timing
     the timing carrier (custom subclasses, older pickles) must not silently drop every spend log."""
     import datetime
 
-    from litellm.litellm_core_utils.litellm_logging import (
+    from embrouter.embrouter_core_utils.embrouter_logging import (
         get_standard_logging_object_payload,
     )
 
     del logging_obj.response_timing_metrics
     now = datetime.datetime.now()
     payload = get_standard_logging_object_payload(
-        kwargs={"litellm_call_id": "call-1", "model": "gpt-4o", "messages": []},
+        kwargs={"embrouter_call_id": "call-1", "model": "gpt-4o", "messages": []},
         init_response_obj={"id": "msg_1", "type": "message", "role": "assistant", "content": []},
         start_time=now,
         end_time=now,
@@ -7699,7 +7699,7 @@ def test_get_standard_logging_object_payload_survives_logging_obj_without_timing
     )
 
     assert payload is not None
-    assert payload["hidden_params"]["litellm_overhead_time_ms"] is None
+    assert payload["hidden_params"]["embrouter_overhead_time_ms"] is None
 
 
 @pytest.mark.parametrize(
@@ -7712,16 +7712,16 @@ def test_get_standard_logging_object_payload_survives_logging_obj_without_timing
         ("apim-request-id", "response"),
         ("x-goog-request-id", "response"),
         ("cf-ray", "response"),
-        ("X-Request-Id", "litellm_response_headers"),
+        ("X-Request-Id", "embrouter_response_headers"),
         ("X-MS-Request-ID", "headers"),
     ),
 )
 def test_failure_standard_logging_payload_captures_provider_request_id(
-    logging_obj: LitellmLogging,
+    logging_obj: EmbrouterLogging,
     header_name: str,
-    header_source: Literal["response", "litellm_response_headers", "headers"],
+    header_source: Literal["response", "embrouter_response_headers", "headers"],
 ):
-    from litellm.litellm_core_utils.litellm_logging import (
+    from embrouter.embrouter_core_utils.embrouter_logging import (
         get_standard_logging_object_payload,
     )
 
@@ -7729,16 +7729,16 @@ def test_failure_standard_logging_payload_captures_provider_request_id(
     request = httpx.Request("POST", "https://provider.example/v1/chat/completions")
     response = httpx.Response(429, headers={header_name: request_id}, request=request)
     provider_error = httpx.HTTPStatusError("provider error", request=request, response=response)
-    if header_source == "litellm_response_headers":
+    if header_source == "embrouter_response_headers":
         response.headers.clear()
-        provider_error.litellm_response_headers = {header_name: request_id}
+        provider_error.embrouter_response_headers = {header_name: request_id}
     elif header_source == "headers":
         response.headers.clear()
         provider_error.headers = {header_name: request_id}
     now = datetime.datetime.now()
 
     payload = get_standard_logging_object_payload(
-        kwargs={"litellm_call_id": "call-1", "model": "test-model", "messages": []},
+        kwargs={"embrouter_call_id": "call-1", "model": "test-model", "messages": []},
         init_response_obj={},
         start_time=now,
         end_time=now,
@@ -7753,7 +7753,7 @@ def test_failure_standard_logging_payload_captures_provider_request_id(
 
 
 def test_get_error_information_ignores_unsupported_headers() -> None:
-    from litellm.litellm_core_utils.litellm_logging import StandardLoggingPayloadSetup
+    from embrouter.embrouter_core_utils.embrouter_logging import StandardLoggingPayloadSetup
 
     request = httpx.Request("POST", "https://provider.example/v1/chat/completions")
     response = httpx.Response(429, headers={"retry-after": "3"}, request=request)
@@ -7765,8 +7765,8 @@ def test_get_error_information_ignores_unsupported_headers() -> None:
 
 
 def test_get_error_information_uses_header_precedence_and_fallback() -> None:
-    from litellm.exceptions import RateLimitError
-    from litellm.litellm_core_utils.litellm_logging import StandardLoggingPayloadSetup
+    from embrouter.exceptions import RateLimitError
+    from embrouter.embrouter_core_utils.embrouter_logging import StandardLoggingPayloadSetup
 
     request = httpx.Request("POST", "https://provider.example/v1/chat/completions")
     response = httpx.Response(
@@ -7788,7 +7788,7 @@ def test_get_error_information_uses_header_precedence_and_fallback() -> None:
 
 
 def test_get_error_information_ignores_malformed_headers() -> None:
-    from litellm.litellm_core_utils.litellm_logging import StandardLoggingPayloadSetup
+    from embrouter.embrouter_core_utils.embrouter_logging import StandardLoggingPayloadSetup
 
     provider_error = Exception("provider error")
     provider_error.headers = [("x-request-id", "provider-request-123")]
@@ -7799,7 +7799,7 @@ def test_get_error_information_ignores_malformed_headers() -> None:
 
 
 def test_get_provider_request_id_ignores_header_lookup_errors() -> None:
-    from litellm.litellm_core_utils.litellm_logging import _get_provider_request_id
+    from embrouter.embrouter_core_utils.embrouter_logging import _get_provider_request_id
 
     class HeaderLookupError(Exception):
         @property
@@ -7811,17 +7811,17 @@ def test_get_provider_request_id_ignores_header_lookup_errors() -> None:
 
 def test_get_standard_logging_object_payload_failure_status_keeps_overhead_none(logging_obj):
     """A post_call guardrail can fail the request after the upstream call succeeded; the failure
-    payload keeps litellm_overhead_time_ms None, matching responses that carry their own _hidden_params."""
+    payload keeps embrouter_overhead_time_ms None, matching responses that carry their own _hidden_params."""
     import datetime
 
-    from litellm.litellm_core_utils.litellm_logging import (
+    from embrouter.embrouter_core_utils.embrouter_logging import (
         get_standard_logging_object_payload,
     )
 
-    logging_obj.set_response_timing_metrics({"_response_ms": 1000.0, "litellm_overhead_time_ms": 100.0})
+    logging_obj.set_response_timing_metrics({"_response_ms": 1000.0, "embrouter_overhead_time_ms": 100.0})
     now = datetime.datetime.now()
     payload = get_standard_logging_object_payload(
-        kwargs={"litellm_call_id": "call-1", "model": "gpt-4o", "messages": []},
+        kwargs={"embrouter_call_id": "call-1", "model": "gpt-4o", "messages": []},
         init_response_obj={},
         start_time=now,
         end_time=now,
@@ -7830,23 +7830,23 @@ def test_get_standard_logging_object_payload_failure_status_keeps_overhead_none(
     )
 
     assert payload is not None
-    assert payload["hidden_params"]["litellm_overhead_time_ms"] is None
+    assert payload["hidden_params"]["embrouter_overhead_time_ms"] is None
 
 
 def test_get_standard_logging_object_payload_prefers_response_hidden_params_overhead(logging_obj):
-    """A response that carries its own litellm_overhead_time_ms (chat completions) wins over the logging object."""
+    """A response that carries its own embrouter_overhead_time_ms (chat completions) wins over the logging object."""
     import datetime
 
-    from litellm.litellm_core_utils.litellm_logging import (
+    from embrouter.embrouter_core_utils.embrouter_logging import (
         get_standard_logging_object_payload,
     )
 
-    logging_obj.set_response_timing_metrics({"_response_ms": 1000.0, "litellm_overhead_time_ms": 100.0})
+    logging_obj.set_response_timing_metrics({"_response_ms": 1000.0, "embrouter_overhead_time_ms": 100.0})
     response = ModelResponse()
-    response._hidden_params = {"litellm_overhead_time_ms": 5.0}
+    response._hidden_params = {"embrouter_overhead_time_ms": 5.0}
     now = datetime.datetime.now()
     payload = get_standard_logging_object_payload(
-        kwargs={"litellm_call_id": "call-1", "model": "gpt-4o", "messages": []},
+        kwargs={"embrouter_call_id": "call-1", "model": "gpt-4o", "messages": []},
         init_response_obj=response,
         start_time=now,
         end_time=now,
@@ -7855,7 +7855,7 @@ def test_get_standard_logging_object_payload_prefers_response_hidden_params_over
     )
 
     assert payload is not None
-    assert payload["hidden_params"]["litellm_overhead_time_ms"] == 5.0
+    assert payload["hidden_params"]["embrouter_overhead_time_ms"] == 5.0
 
 
 def test_response_timing_metrics_survive_deepcopy(logging_obj):
@@ -7878,19 +7878,19 @@ def test_passthrough_embeddings_result_swapped_for_callbacks():
     """
     import datetime as dt
 
-    from litellm.types.utils import EmbeddingResponse
+    from embrouter.types.utils import EmbeddingResponse
 
-    logging_obj = LitellmLogging(
+    logging_obj = EmbrouterLogging(
         model="EmbeddingsGigaR",
         messages=[],
         stream=False,
         call_type="allm_passthrough_route",
         start_time=time.time(),
-        litellm_call_id="passthrough-embed-call-id",
+        embrouter_call_id="passthrough-embed-call-id",
         function_id="passthrough-embed-fn-id",
     )
     logging_obj.update_environment_variables(
-        litellm_params={},
+        embrouter_params={},
         optional_params={},
         model="EmbeddingsGigaR",
         custom_llm_provider="gigachat",
@@ -7931,7 +7931,7 @@ _PUBLISHED_BATCH_MODEL: Final = "lit-published-batch-tier-model"
 _PUBLISHED_BATCH_DEPLOYMENT: Final = f"openai/{_PUBLISHED_BATCH_MODEL}"
 _PUBLISHED_BATCH_RATES: Final = MappingProxyType(
     {
-        "litellm_provider": "openai",
+        "embrouter_provider": "openai",
         "mode": "chat",
         "input_cost_per_token": 2e-6,
         "output_cost_per_token": 8e-6,
@@ -7967,21 +7967,21 @@ _PUBLISHED_OUTPUT_BATCH_KEYS: Final = (
 
 @pytest.fixture
 def _published_batch_model(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
-    litellm.register_model(
+    monkeypatch.setenv("EMBROUTER_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setattr(embrouter, "model_cost", embrouter.get_model_cost_map(url=""))
+    embrouter.register_model(
         model_cost={_PUBLISHED_BATCH_MODEL: {**_PUBLISHED_BATCH_RATES}}, persist_across_reloads=False
     )
 
 
 def _batch_deployment_id(custom_pricing: dict[str, float]) -> str:
-    from litellm import Router
+    from embrouter import Router
 
     router: Final = Router(
         model_list=[
             {
                 "model_name": "published-batch",
-                "litellm_params": {"model": _PUBLISHED_BATCH_DEPLOYMENT, "api_key": "sk-test", **custom_pricing},
+                "embrouter_params": {"model": _PUBLISHED_BATCH_DEPLOYMENT, "api_key": "sk-test", **custom_pricing},
             }
         ]
     )
@@ -7991,7 +7991,7 @@ def _batch_deployment_id(custom_pricing: dict[str, float]) -> str:
 def test_deployment_pricing_model_info_carries_every_published_input_batch_rate_when_only_output_is_declared(
     _published_batch_model: None,
 ) -> None:
-    from litellm.litellm_core_utils.litellm_logging import deployment_pricing_model_info
+    from embrouter.embrouter_core_utils.embrouter_logging import deployment_pricing_model_info
 
     info: Final = deployment_pricing_model_info(
         _batch_deployment_id({"output_cost_per_token_batches": 4e-6}), _PUBLISHED_BATCH_DEPLOYMENT
@@ -8008,7 +8008,7 @@ def test_deployment_pricing_model_info_carries_every_published_input_batch_rate_
 def test_deployment_pricing_model_info_carries_the_published_output_batch_tier_when_only_input_is_declared(
     _published_batch_model: None,
 ) -> None:
-    from litellm.litellm_core_utils.litellm_logging import deployment_pricing_model_info
+    from embrouter.embrouter_core_utils.embrouter_logging import deployment_pricing_model_info
 
     info: Final = deployment_pricing_model_info(
         _batch_deployment_id({"input_cost_per_token_batches": 1e-6}), _PUBLISHED_BATCH_DEPLOYMENT
@@ -8027,9 +8027,9 @@ def test_deployment_pricing_model_info_carries_the_published_output_batch_tier_w
 def test_batch_cost_calculator_bills_the_carried_output_tier_when_the_deployment_declares_its_own_input_rate(
     _published_batch_model: None,
 ) -> None:
-    from litellm.cost_calculator import batch_cost_calculator
-    from litellm.litellm_core_utils.litellm_logging import deployment_pricing_model_info
-    from litellm.types.utils import Usage
+    from embrouter.cost_calculator import batch_cost_calculator
+    from embrouter.embrouter_core_utils.embrouter_logging import deployment_pricing_model_info
+    from embrouter.types.utils import Usage
 
     info: Final = deployment_pricing_model_info(
         _batch_deployment_id({"input_cost_per_token": 5e-6}), _PUBLISHED_BATCH_DEPLOYMENT
@@ -8056,7 +8056,7 @@ def test_batch_cost_calculator_bills_the_carried_output_tier_when_the_deployment
 def test_deployment_pricing_model_info_honors_a_tier_only_batch_override_over_the_published_flat_rates(
     _published_batch_model: None, tier_key: str
 ) -> None:
-    from litellm.litellm_core_utils.litellm_logging import deployment_pricing_model_info
+    from embrouter.embrouter_core_utils.embrouter_logging import deployment_pricing_model_info
 
     info: Final = deployment_pricing_model_info(_batch_deployment_id({tier_key: 1e-3}), _PUBLISHED_BATCH_DEPLOYMENT)
     carried_keys: Final = tuple(
@@ -8079,7 +8079,7 @@ def test_deployment_pricing_model_info_honors_a_tier_only_batch_override_over_th
 def test_deployment_pricing_model_info_honors_a_200k_tier_batch_override(
     _published_batch_model: None, override_key: str
 ) -> None:
-    from litellm.litellm_core_utils.litellm_logging import deployment_pricing_model_info
+    from embrouter.embrouter_core_utils.embrouter_logging import deployment_pricing_model_info
 
     info: Final = deployment_pricing_model_info(_batch_deployment_id({override_key: 1e-3}), _PUBLISHED_BATCH_DEPLOYMENT)
     carried_keys: Final = tuple(
@@ -8112,7 +8112,7 @@ def test_get_error_information_redacts_provider_key_from_upstream_url():
     key must never reach spend logs or logging callbacks."""
     import traceback
 
-    from litellm.litellm_core_utils.litellm_logging import StandardLoggingPayloadSetup
+    from embrouter.embrouter_core_utils.embrouter_logging import StandardLoggingPayloadSetup
 
     provider_key = "AIza" + "S" * 35
     upstream_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini:generateContent?key={provider_key}"
@@ -8142,8 +8142,8 @@ async def test_classifier_audit_matches_provider_transport(provider: str) -> Non
 
     from openai import AsyncAzureOpenAI, AsyncOpenAI
 
-    from litellm.litellm_core_utils.classifier_logging import classifier_input_snapshot
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+    from embrouter.embrouter_core_utils.classifier_logging import classifier_input_snapshot
+    from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler
 
     outbound: Final = asyncio.Queue()
     logs: Final = asyncio.Queue()
@@ -8152,7 +8152,7 @@ async def test_classifier_audit_matches_provider_transport(provider: str) -> Non
         outbound.put_nowait(json.loads(request.content))
         content: Final = '{"tier":"SIMPLE"}'
         if provider == "responses":
-            from litellm.responses.main import mock_responses_api_response
+            from embrouter.responses.main import mock_responses_api_response
 
             return httpx.Response(200, json=mock_responses_api_response(content).model_dump())
         if provider == "anthropic":
@@ -8221,7 +8221,7 @@ async def test_classifier_audit_matches_provider_transport(provider: str) -> Non
 
         async def run(marker: str) -> None:
             if provider == "responses":
-                await litellm.aresponses(
+                await embrouter.aresponses(
                     model=model,
                     api_key="transport-only",
                     client=client,
@@ -8234,7 +8234,7 @@ async def test_classifier_audit_matches_provider_transport(provider: str) -> Non
                     num_retries=0,
                 )
                 return
-            await litellm.acompletion(
+            await embrouter.acompletion(
                 model=model,
                 api_key="transport-only",
                 client=client,
@@ -8286,18 +8286,18 @@ async def test_classifier_audit_matches_provider_transport(provider: str) -> Non
 def test_classifier_audit_obeys_message_logging_before_payload_emission(
     logging_obj, monkeypatch, redaction, status, call_type
 ):
-    from litellm.litellm_core_utils.litellm_logging import get_standard_logging_object_payload
+    from embrouter.embrouter_core_utils.embrouter_logging import get_standard_logging_object_payload
 
-    monkeypatch.setattr(litellm, "turn_off_message_logging", redaction == "global")
+    monkeypatch.setattr(embrouter, "turn_off_message_logging", redaction == "global")
     params: Final = {
         "metadata": {
             "internal_call_origin": "autorouter_classifier",
-            **({"headers": {"x-litellm-enable-message-redaction": "true"}} if redaction == "header" else {}),
+            **({"headers": {"x-embrouter-enable-message-redaction": "true"}} if redaction == "header" else {}),
         },
         "proxy_server_request": {"body": {}, "originating_request_masked": {"input": "source-only"}},
     }
     logging_obj.call_type = call_type
-    logging_obj.model_call_details["litellm_params"] = params
+    logging_obj.model_call_details["embrouter_params"] = params
     logging_obj.model_call_details["standard_callback_dynamic_params"] = (
         {"turn_off_message_logging": True} if redaction == "request" else {}
     )
@@ -8325,7 +8325,7 @@ def test_classifier_audit_obeys_message_logging_before_payload_emission(
 @pytest.mark.parametrize("call_type,origin", [("completion", None), ("aembedding", "autorouter_classifier")])
 def test_classifier_audit_is_not_added_to_other_calls(logging_obj, call_type, origin):
     logging_obj.call_type = call_type
-    logging_obj.model_call_details["litellm_params"] = {"metadata": {"internal_call_origin": origin}}
+    logging_obj.model_call_details["embrouter_params"] = {"metadata": {"internal_call_origin": origin}}
     logging_obj.pre_call(input=[], api_key=None, additional_args={"complete_input_dict": {"input": "embedding"}})
     assert logging_obj.classifier_input is None
 
@@ -8359,14 +8359,14 @@ def _run_while_a_thread_grows(target: dict, read: Callable[[], None], reads: int
         sys.setswitchinterval(previous_interval)
 
 
-def test_merge_litellm_metadata_survives_a_thread_growing_metadata_mid_merge():
-    from litellm.litellm_core_utils.litellm_logging import StandardLoggingPayloadSetup
+def test_merge_embrouter_metadata_survives_a_thread_growing_metadata_mid_merge():
+    from embrouter.embrouter_core_utils.embrouter_logging import StandardLoggingPayloadSetup
 
     metadata: Final = {f"key_{i}": i for i in range(2000)}
-    litellm_params: Final = {"metadata": metadata, "litellm_metadata": {"model_group": "gpt"}}
+    embrouter_params: Final = {"metadata": metadata, "embrouter_metadata": {"model_group": "gpt"}}
 
     def read() -> None:
-        merged: Final = StandardLoggingPayloadSetup.merge_litellm_metadata(litellm_params)
+        merged: Final = StandardLoggingPayloadSetup.merge_embrouter_metadata(embrouter_params)
         assert merged["key_1999"] == 1999
         assert merged["model_group"] == "gpt"
 
@@ -8374,7 +8374,7 @@ def test_merge_litellm_metadata_survives_a_thread_growing_metadata_mid_merge():
 
 
 def test_get_additional_headers_survives_a_thread_growing_headers_mid_copy():
-    from litellm.litellm_core_utils.litellm_logging import StandardLoggingPayloadSetup
+    from embrouter.embrouter_core_utils.embrouter_logging import StandardLoggingPayloadSetup
 
     headers: Final = {f"llm_provider-x-custom-{i}": str(i) for i in range(2000)}
     headers["x-ratelimit-remaining-requests"] = "7"
@@ -8388,7 +8388,7 @@ def test_get_additional_headers_survives_a_thread_growing_headers_mid_copy():
     _run_while_a_thread_grows(headers, read, reads=300)
 
 
-def test_add_dynamic_callback_registers_once_per_list_without_touching_the_callers_list(logging_obj: LitellmLogging):
+def test_add_dynamic_callback_registers_once_per_list_without_touching_the_callers_list(logging_obj: EmbrouterLogging):
     callback: Final = CustomLogger()
     caller_owned: Final = ["langfuse"]
     logging_obj.dynamic_success_callbacks = caller_owned
@@ -8402,8 +8402,8 @@ def test_add_dynamic_callback_registers_once_per_list_without_touching_the_calle
     assert logging_obj.dynamic_async_success_callbacks == [callback]
     assert logging_obj.dynamic_failure_callbacks == [callback]
     assert logging_obj.dynamic_async_failure_callbacks == [callback]
-    assert LitellmLogging._with_dynamic_callback(None, callback) == [callback]
-    assert LitellmLogging._with_dynamic_callback((callback,), callback) == [callback]
+    assert EmbrouterLogging._with_dynamic_callback(None, callback) == [callback]
+    assert EmbrouterLogging._with_dynamic_callback((callback,), callback) == [callback]
 
 
 class TestAzurePTUSpilloverCost:
@@ -8428,18 +8428,18 @@ class TestAzurePTUSpilloverCost:
 
     @staticmethod
     def _register_models() -> None:
-        litellm.register_model(
+        embrouter.register_model(
             model_cost={
                 TestAzurePTUSpilloverCost.ROUTER_MODEL_ID: {
                     "input_cost_per_token": 0.0,
                     "output_cost_per_token": 0.0,
-                    "litellm_provider": "azure",
+                    "embrouter_provider": "azure",
                     "mode": "chat",
                 },
                 TestAzurePTUSpilloverCost.SERVED_MODEL: {
                     "input_cost_per_token": 2e-6,
                     "output_cost_per_token": 8e-6,
-                    "litellm_provider": "azure",
+                    "embrouter_provider": "azure",
                     "mode": "chat",
                 },
             }
@@ -8447,29 +8447,29 @@ class TestAzurePTUSpilloverCost:
 
     @staticmethod
     def _unregister_models() -> None:
-        litellm.model_cost.pop(TestAzurePTUSpilloverCost.ROUTER_MODEL_ID, None)
-        litellm.model_cost.pop(TestAzurePTUSpilloverCost.SERVED_MODEL, None)
+        embrouter.model_cost.pop(TestAzurePTUSpilloverCost.ROUTER_MODEL_ID, None)
+        embrouter.model_cost.pop(TestAzurePTUSpilloverCost.SERVED_MODEL, None)
 
-    def _logging_obj(self, model_info: dict, *, flag: str, litellm_rate: float, monkeypatch) -> LitellmLogging:
-        monkeypatch.setenv("LITELLM_ENABLE_PTU_COST_ATTRIBUTION", flag)
-        obj = LitellmLogging(
+    def _logging_obj(self, model_info: dict, *, flag: str, embrouter_rate: float, monkeypatch) -> EmbrouterLogging:
+        monkeypatch.setenv("EMBROUTER_ENABLE_PTU_COST_ATTRIBUTION", flag)
+        obj = EmbrouterLogging(
             model=self.SERVED_MODEL,
             messages=[{"role": "user", "content": "Hi"}],
             stream=False,
             call_type="completion",
             start_time=time.time(),
-            litellm_call_id="ptu-spill-1",
+            embrouter_call_id="ptu-spill-1",
             function_id="f",
         )
         obj.update_environment_variables(
             model=self.SERVED_MODEL,
             user="",
             optional_params={},
-            litellm_params={
+            embrouter_params={
                 "api_base": "",
                 "metadata": {"model_info": model_info},
-                "input_cost_per_token": litellm_rate,
-                "output_cost_per_token": litellm_rate,
+                "input_cost_per_token": embrouter_rate,
+                "output_cost_per_token": embrouter_rate,
             },
             custom_llm_provider="azure",
         )
@@ -8477,7 +8477,7 @@ class TestAzurePTUSpilloverCost:
 
     @staticmethod
     def _response() -> ModelResponse:
-        from litellm.types.utils import Usage
+        from embrouter.types.utils import Usage
 
         return ModelResponse(
             id="chatcmpl-spill-1",
@@ -8496,7 +8496,7 @@ class TestAzurePTUSpilloverCost:
     def test_spillover_via_response_additional_headers_bills_per_token(self, monkeypatch) -> None:
         self._register_models()
         try:
-            obj = self._logging_obj(dict(self.PTU_MODEL_INFO), flag="True", litellm_rate=0.0, monkeypatch=monkeypatch)
+            obj = self._logging_obj(dict(self.PTU_MODEL_INFO), flag="True", embrouter_rate=0.0, monkeypatch=monkeypatch)
             response = self._response()
             response._hidden_params["additional_headers"] = {"llm_provider-x-ms-is-spilled-over": "true"}
 
@@ -8507,7 +8507,7 @@ class TestAzurePTUSpilloverCost:
     def test_spillover_via_streaming_response_headers_bills_per_token(self, monkeypatch) -> None:
         self._register_models()
         try:
-            obj = self._logging_obj(dict(self.PTU_MODEL_INFO), flag="True", litellm_rate=0.0, monkeypatch=monkeypatch)
+            obj = self._logging_obj(dict(self.PTU_MODEL_INFO), flag="True", embrouter_rate=0.0, monkeypatch=monkeypatch)
             obj.model_call_details["response_headers"] = {
                 "x-ms-is-spilled-over": "true",
                 "x-ms-spillover-from-deployment": "ptu-dep",
@@ -8520,7 +8520,7 @@ class TestAzurePTUSpilloverCost:
     def test_non_spilled_ptu_request_stays_zero_priced(self, monkeypatch) -> None:
         self._register_models()
         try:
-            obj = self._logging_obj(dict(self.PTU_MODEL_INFO), flag="True", litellm_rate=0.0, monkeypatch=monkeypatch)
+            obj = self._logging_obj(dict(self.PTU_MODEL_INFO), flag="True", embrouter_rate=0.0, monkeypatch=monkeypatch)
 
             assert obj._response_cost_calculator(result=self._response()) == 0.0
         finally:
@@ -8529,7 +8529,7 @@ class TestAzurePTUSpilloverCost:
     def test_spillover_header_without_the_flag_stays_zero_priced(self, monkeypatch) -> None:
         self._register_models()
         try:
-            obj = self._logging_obj(dict(self.PTU_MODEL_INFO), flag="", litellm_rate=0.0, monkeypatch=monkeypatch)
+            obj = self._logging_obj(dict(self.PTU_MODEL_INFO), flag="", embrouter_rate=0.0, monkeypatch=monkeypatch)
             response = self._response()
             response._hidden_params["additional_headers"] = {"llm_provider-x-ms-is-spilled-over": "true"}
 
@@ -8540,21 +8540,21 @@ class TestAzurePTUSpilloverCost:
     def test_spillover_header_does_not_touch_non_ptu_custom_pricing(self, monkeypatch) -> None:
         self._register_models()
         custom_model_id: Final = "non-ptu-custom-router-model-id"
-        litellm.model_cost[custom_model_id] = {
+        embrouter.model_cost[custom_model_id] = {
             "input_cost_per_token": 1e-6,
             "output_cost_per_token": 1e-6,
-            "litellm_provider": "azure",
+            "embrouter_provider": "azure",
             "mode": "chat",
         }
         try:
             model_info: Final = {"id": custom_model_id, "input_cost_per_token": 1e-6}
-            obj = self._logging_obj(model_info, flag="True", litellm_rate=1e-6, monkeypatch=monkeypatch)
+            obj = self._logging_obj(model_info, flag="True", embrouter_rate=1e-6, monkeypatch=monkeypatch)
             response = self._response()
             response._hidden_params["additional_headers"] = {"llm_provider-x-ms-is-spilled-over": "true"}
 
             assert obj._response_cost_calculator(result=response) == pytest.approx(150 * 1e-6)
         finally:
-            litellm.model_cost.pop(custom_model_id, None)
+            embrouter.model_cost.pop(custom_model_id, None)
             self._unregister_models()
 
 
@@ -8573,10 +8573,10 @@ def _completed_responses_event(usage: ResponseAPIUsage) -> ResponseCompletedEven
     )
 
 
-def _responses_stream_logging_obj() -> LitellmLogging:
+def _responses_stream_logging_obj() -> EmbrouterLogging:
     logging_obj = _make_logging_obj(stream=True)
     logging_obj.update_environment_variables(
-        model="openai/codex-mini-latest", user="", optional_params={}, litellm_params={"api_base": ""}
+        model="openai/codex-mini-latest", user="", optional_params={}, embrouter_params={"api_base": ""}
     )
     return logging_obj
 
@@ -8597,7 +8597,7 @@ def test_get_assembled_streaming_response_bills_a_provider_reported_usage_cost()
         streaming_chunks=[],
     )
 
-    assert assembled._hidden_params["additional_headers"]["llm_provider-x-litellm-response-cost"] == 0.0042
+    assert assembled._hidden_params["additional_headers"]["llm_provider-x-embrouter-response-cost"] == 0.0042
     assert logging_obj._response_cost_calculator(result=assembled) == 0.0042
 
 
@@ -8633,10 +8633,10 @@ class TestBudgetReservationBinding:
         reservation: Final = {"reserved_cost": 0.5, "entries": [], "finalized": False, "callback_bound": False}
 
         logging_obj.update_environment_variables(
-            litellm_params={"metadata": {"user_api_key_budget_reservation": reservation}}, optional_params={}
+            embrouter_params={"metadata": {"user_api_key_budget_reservation": reservation}}, optional_params={}
         )
 
-        assert logging_obj.litellm_params["metadata"]["user_api_key_budget_reservation"] is reservation
+        assert logging_obj.embrouter_params["metadata"]["user_api_key_budget_reservation"] is reservation
         assert reservation["callback_bound"] is False
 
 
@@ -8644,7 +8644,7 @@ class TestBudgetReservationBinding:
 async def test_standard_logging_payload_keeps_message_content_when_message_logging_is_on(monkeypatch):
     outbound: Final = asyncio.Queue()
     logs: Final = asyncio.Queue()
-    monkeypatch.setattr(litellm, "turn_off_message_logging", False)
+    monkeypatch.setattr(embrouter, "turn_off_message_logging", False)
 
     def respond(request: httpx.Request) -> httpx.Response:
         outbound.put_nowait(json.loads(request.content))
@@ -8671,7 +8671,7 @@ async def test_standard_logging_payload_keeps_message_content_when_message_loggi
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as http_client:
         client: Final = AsyncOpenAI(api_key="transport-only", http_client=http_client)
-        await litellm.acompletion(
+        await embrouter.acompletion(
             model="openai/gpt-5.6",
             api_key="transport-only",
             client=client,
@@ -8692,7 +8692,7 @@ async def test_standard_logging_payload_keeps_message_content_when_message_loggi
 async def test_standard_logging_payload_redacts_message_content_when_message_logging_is_off(monkeypatch):
     outbound: Final = asyncio.Queue()
     logs: Final = asyncio.Queue()
-    monkeypatch.setattr(litellm, "turn_off_message_logging", False)
+    monkeypatch.setattr(embrouter, "turn_off_message_logging", False)
 
     def respond(request: httpx.Request) -> httpx.Response:
         outbound.put_nowait(json.loads(request.content))
@@ -8719,7 +8719,7 @@ async def test_standard_logging_payload_redacts_message_content_when_message_log
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as http_client:
         client: Final = AsyncOpenAI(api_key="transport-only", http_client=http_client)
-        await litellm.acompletion(
+        await embrouter.acompletion(
             model="openai/gpt-5.6",
             api_key="transport-only",
             client=client,
@@ -8746,23 +8746,23 @@ async def test_async_success_handler_delivers_standard_logging_payload_to_custom
             events.put_nowait((kwargs, response_obj))
 
     recorder: Final = SuccessRecorder()
-    logging_obj: Final = LitellmLogging(
+    logging_obj: Final = EmbrouterLogging(
         model="openai/gpt-5.6",
         messages=[{"role": "user", "content": "smoke-callback-request"}],
         stream=False,
         call_type="acompletion",
         start_time=time.time(),
-        litellm_call_id="smoke-callback-success",
+        embrouter_call_id="smoke-callback-success",
         function_id="smoke-callback-success",
         dynamic_async_success_callbacks=[recorder],
     )
-    logging_obj.model_call_details["litellm_params"] = {"metadata": {}, "proxy_server_request": {}}
+    logging_obj.model_call_details["embrouter_params"] = {"metadata": {}, "proxy_server_request": {}}
     result: Final = ModelResponse(
         model="openai/gpt-5.6",
         choices=[
             {"index": 0, "message": {"role": "assistant", "content": "smoke-callback-reply"}, "finish_reason": "stop"}
         ],
-        usage=litellm.Usage(prompt_tokens=10, completion_tokens=5, total_tokens=15),
+        usage=embrouter.Usage(prompt_tokens=10, completion_tokens=5, total_tokens=15),
     )
     now: Final = datetime.datetime.now()
 
@@ -8786,17 +8786,17 @@ async def test_async_failure_handler_delivers_failure_payload_to_custom_logger()
             events.put_nowait((kwargs, response_obj))
 
     recorder: Final = FailureRecorder()
-    logging_obj: Final = LitellmLogging(
+    logging_obj: Final = EmbrouterLogging(
         model="openai/gpt-5.6",
         messages=[{"role": "user", "content": "smoke-callback-request"}],
         stream=False,
         call_type="acompletion",
         start_time=time.time(),
-        litellm_call_id="smoke-callback-failure",
+        embrouter_call_id="smoke-callback-failure",
         function_id="smoke-callback-failure",
         dynamic_async_failure_callbacks=[recorder],
     )
-    logging_obj.model_call_details["litellm_params"] = {"metadata": {}, "proxy_server_request": {}}
+    logging_obj.model_call_details["embrouter_params"] = {"metadata": {}, "proxy_server_request": {}}
     failure: Final = ValueError("smoke-failure")
     now: Final = datetime.datetime.now()
 
@@ -8815,20 +8815,20 @@ def test_responses_completed_event_bills_the_served_service_tier():
     """The served service_tier on response.completed's inner ResponsesAPIResponse
     must reach the cost calculator, so a priority-served stream prices at the
     priority rates instead of the default tier's."""
-    logging_obj: Final = LitellmLogging(
+    logging_obj: Final = EmbrouterLogging(
         model="openai/gpt-5.1",
         messages=[{"role": "user", "content": "hi"}],
         stream=True,
         call_type="aresponses",
         start_time=time.time(),
-        litellm_call_id="resp-served-tier",
+        embrouter_call_id="resp-served-tier",
         function_id="resp-served-tier",
     )
     logging_obj.update_environment_variables(
         model="openai/gpt-5.1",
         user="",
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         custom_llm_provider="openai",
     )
     inner: Final = ResponsesAPIResponse(
@@ -8847,14 +8847,14 @@ def test_responses_completed_event_bills_the_served_service_tier():
 
     billed_response: Final = ModelResponse(
         model="gpt-5.1",
-        usage=litellm.Usage(prompt_tokens=10, completion_tokens=20, total_tokens=30),
+        usage=embrouter.Usage(prompt_tokens=10, completion_tokens=20, total_tokens=30),
     )
-    tier_cost: Final = litellm.completion_cost(
+    tier_cost: Final = embrouter.completion_cost(
         completion_response=billed_response,
         model="openai/gpt-5.1",
         service_tier="priority",
     )
-    default_cost: Final = litellm.completion_cost(
+    default_cost: Final = embrouter.completion_cost(
         completion_response=billed_response,
         model="openai/gpt-5.1",
     )
@@ -8863,17 +8863,17 @@ def test_responses_completed_event_bills_the_served_service_tier():
     assert cost > default_cost
 
 
-def _image_logging_obj() -> LitellmLogging:
-    logging_obj = LitellmLogging(
+def _image_logging_obj() -> EmbrouterLogging:
+    logging_obj = EmbrouterLogging(
         model="gpt-image-2",
         messages="a cat",
         stream=False,
         call_type="aimage_generation",
         start_time=time.time(),
-        litellm_call_id="response-headers-test",
+        embrouter_call_id="response-headers-test",
         function_id="response-headers-test",
     )
-    logging_obj.model_call_details["litellm_params"] = {"metadata": {}}
+    logging_obj.model_call_details["embrouter_params"] = {"metadata": {}}
     logging_obj.optional_params = {}
     return logging_obj
 
@@ -8937,9 +8937,9 @@ def test_sync_streaming_success_passes_result_headers_to_callback_kwargs():
 
 
 def test_extract_response_obj_and_hidden_params_reads_binary_content_hidden_params():
-    from litellm.types.llms.openai import HttpxBinaryResponseContent as LiteLLMBinaryResponseContent
+    from embrouter.types.llms.openai import HttpxBinaryResponseContent as EmbRouterBinaryResponseContent
 
-    result = LiteLLMBinaryResponseContent(response=httpx.Response(status_code=200, content=b"audio bytes"))
+    result = EmbRouterBinaryResponseContent(response=httpx.Response(status_code=200, content=b"audio bytes"))
     result._hidden_params = {"headers": {"x-request-id": "req_tts"}}
 
     response_obj, hidden_params = _extract_response_obj_and_hidden_params(result, None)
@@ -8962,7 +8962,7 @@ def _preserved_thinking_client_turns() -> tuple[list[dict], list[dict]]:
 async def test_prompt_management_with_unchanged_variables_replays_a_byte_identical_prefix(logging_obj, tmp_path):
     """A prompt template rendered with the same variables on every turn must prepend the
     same messages, or the signed thinking blocks in the history lose their binding."""
-    from litellm.integrations.dotprompt.dotprompt_manager import DotpromptManager
+    from embrouter.integrations.dotprompt.dotprompt_manager import DotpromptManager
 
     (tmp_path / "greeting.prompt").write_text(
         "---\nmodel: claude-fable-5-1\n---\nSystem: You are a {{persona}}. Answer in one sentence.\n"
@@ -8987,12 +8987,12 @@ async def test_prompt_management_with_unchanged_variables_replays_a_byte_identic
 
 
 def test_signoz_dispatch_prefers_otel_v2_when_flag_on(monkeypatch):
-    from litellm.integrations.otel.logger import OpenTelemetryV2
-    from litellm.integrations.otel.model.config import ExporterOwner, is_otel_v2_enabled
-    from litellm.litellm_core_utils import litellm_logging as logging_module
+    from embrouter.integrations.otel.logger import OpenTelemetryV2
+    from embrouter.integrations.otel.model.config import ExporterOwner, is_otel_v2_enabled
+    from embrouter.embrouter_core_utils import embrouter_logging as logging_module
 
     logging_module._in_memory_loggers.clear()
-    monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+    monkeypatch.setenv("EMBROUTER_OTEL_V2", "true")
     monkeypatch.setenv("SIGNOZ_INGESTION_ENDPOINT", "https://ingest.eu.signoz.cloud:443")
     monkeypatch.setenv("SIGNOZ_INGESTION_KEY", "test-key")
     is_otel_v2_enabled.cache_clear()
@@ -9017,17 +9017,17 @@ def test_signoz_dispatch_prefers_otel_v2_when_flag_on(monkeypatch):
         assert again is v2_logger
     finally:
         logging_module._in_memory_loggers.clear()
-        monkeypatch.delenv("LITELLM_OTEL_V2", raising=False)
+        monkeypatch.delenv("EMBROUTER_OTEL_V2", raising=False)
         is_otel_v2_enabled.cache_clear()
 
 
 def test_signoz_dispatch_keeps_legacy_otel_when_flag_off(monkeypatch):
-    from litellm.integrations.opentelemetry import OpenTelemetry
-    from litellm.integrations.otel.model.config import is_otel_v2_enabled
-    from litellm.litellm_core_utils import litellm_logging as logging_module
+    from embrouter.integrations.opentelemetry import OpenTelemetry
+    from embrouter.integrations.otel.model.config import is_otel_v2_enabled
+    from embrouter.embrouter_core_utils import embrouter_logging as logging_module
 
     logging_module._in_memory_loggers.clear()
-    monkeypatch.delenv("LITELLM_OTEL_V2", raising=False)
+    monkeypatch.delenv("EMBROUTER_OTEL_V2", raising=False)
     monkeypatch.setenv("SIGNOZ_INGESTION_ENDPOINT", "http://signoz-collector.internal:4318")
     monkeypatch.setenv("SIGNOZ_INGESTION_KEY", "legacy-key")
     monkeypatch.delenv("OTEL_EXPORTER_OTLP_TRACES_HEADERS", raising=False)
@@ -9058,11 +9058,11 @@ def test_signoz_dispatch_keeps_legacy_otel_when_flag_off(monkeypatch):
 
 
 def test_signoz_dispatch_requires_an_endpoint(monkeypatch):
-    from litellm.integrations.otel.model.config import is_otel_v2_enabled
-    from litellm.litellm_core_utils import litellm_logging as logging_module
+    from embrouter.integrations.otel.model.config import is_otel_v2_enabled
+    from embrouter.embrouter_core_utils import embrouter_logging as logging_module
 
     logging_module._in_memory_loggers.clear()
-    monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+    monkeypatch.setenv("EMBROUTER_OTEL_V2", "true")
     monkeypatch.delenv("SIGNOZ_INGESTION_ENDPOINT", raising=False)
     monkeypatch.delenv("SIGNOZ_INGESTION_KEY", raising=False)
     is_otel_v2_enabled.cache_clear()
@@ -9079,5 +9079,5 @@ def test_signoz_dispatch_requires_an_endpoint(monkeypatch):
         ]
     finally:
         logging_module._in_memory_loggers.clear()
-        monkeypatch.delenv("LITELLM_OTEL_V2", raising=False)
+        monkeypatch.delenv("EMBROUTER_OTEL_V2", raising=False)
         is_otel_v2_enabled.cache_clear()

@@ -5,11 +5,11 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 
-import litellm
-from litellm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
-from litellm.responses.utils import ResponseAPILoggingUtils, ResponsesAPIRequestUtils
-from litellm.types.llms.openai import ResponseAPIUsage, ResponsesAPIOptionalRequestParams
-from litellm.types.utils import Usage
+import embrouter
+from embrouter.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
+from embrouter.responses.utils import ResponseAPILoggingUtils, ResponsesAPIRequestUtils
+from embrouter.types.llms.openai import ResponseAPIUsage, ResponsesAPIOptionalRequestParams
+from embrouter.types.utils import Usage
 
 
 class TestResponsesAPIRequestUtils:
@@ -50,7 +50,7 @@ class TestResponsesAPIRequestUtils:
         optional_params = ResponsesAPIOptionalRequestParams({"temperature": 0.7, "unsupported_param": "value"})
 
         # Execute and Assert
-        with pytest.raises(litellm.UnsupportedParamsError) as excinfo:
+        with pytest.raises(embrouter.UnsupportedParamsError) as excinfo:
             ResponsesAPIRequestUtils.get_optional_params_responses_api(
                 model=model,
                 responses_api_provider_config=config,
@@ -62,7 +62,7 @@ class TestResponsesAPIRequestUtils:
 
     def test_get_optional_params_responses_api_request_level_drop_params(self, monkeypatch):
         """Request-level drop_params must reach both _check_valid_arg and map_openai_params"""
-        monkeypatch.setattr(litellm, "drop_params", False)
+        monkeypatch.setattr(embrouter, "drop_params", False)
         config = MagicMock(spec=OpenAIResponsesAPIConfig)
         config.get_supported_openai_params.return_value = ["temperature"]
         config.custom_llm_provider = "openai"
@@ -83,10 +83,10 @@ class TestResponsesAPIRequestUtils:
     @pytest.mark.parametrize("request_drop_params", [None, False])
     def test_get_optional_params_responses_api_still_raises_without_drop(self, monkeypatch, request_drop_params):
         """Absent or False request-level drop_params must not suppress the unsupported-param error"""
-        monkeypatch.setattr(litellm, "drop_params", False)
+        monkeypatch.setattr(embrouter, "drop_params", False)
         config = OpenAIResponsesAPIConfig()
 
-        with pytest.raises(litellm.UnsupportedParamsError):
+        with pytest.raises(embrouter.UnsupportedParamsError):
             ResponsesAPIRequestUtils.get_optional_params_responses_api(
                 model="gpt-4o",
                 responses_api_provider_config=config,
@@ -177,7 +177,7 @@ class TestResponsesAPIRequestUtils:
         assert result["reasoning"] == {"effort": "high", "summary": "auto"}
 
     def test_decode_previous_response_id_to_original_previous_response_id(self):
-        """Test decoding a LiteLLM encoded previous_response_id to the original previous_response_id"""
+        """Test decoding a EmbRouter encoded previous_response_id to the original previous_response_id"""
         # Setup
         test_provider = "openai"
         test_model_id = "gpt-4o"
@@ -204,11 +204,11 @@ class TestResponsesAPIRequestUtils:
     def test_update_responses_api_response_id_with_model_id_handles_dict(self):
         """Ensure _update_responses_api_response_id_with_model_id works with dict input"""
         responses_api_response = {"id": "resp_abc123"}
-        litellm_metadata = {"model_info": {"id": "gpt-4o"}}
+        embrouter_metadata = {"model_info": {"id": "gpt-4o"}}
         updated = ResponsesAPIRequestUtils._update_responses_api_response_id_with_model_id(
             responses_api_response=responses_api_response,
             custom_llm_provider="openai",
-            litellm_metadata=litellm_metadata,
+            embrouter_metadata=embrouter_metadata,
         )
         assert updated["id"] != "resp_abc123"
         decoded = ResponsesAPIRequestUtils._decode_responses_api_response_id(updated["id"])
@@ -216,19 +216,19 @@ class TestResponsesAPIRequestUtils:
         assert decoded.get("model_id") == "gpt-4o"
         assert decoded.get("custom_llm_provider") == "openai"
 
-    def test_update_responses_api_response_id_with_model_id_is_idempotent_for_litellm_ids(self):
+    def test_update_responses_api_response_id_with_model_id_is_idempotent_for_embrouter_ids(self):
         raw = "resp_" + "a" * 48
-        litellm_metadata = {"model_info": {"id": "model-123"}}
+        embrouter_metadata = {"model_info": {"id": "model-123"}}
 
         once = ResponsesAPIRequestUtils._update_responses_api_response_id_with_model_id(
             {"id": raw},
             custom_llm_provider="openai",
-            litellm_metadata=litellm_metadata,
+            embrouter_metadata=embrouter_metadata,
         )
         twice = ResponsesAPIRequestUtils._update_responses_api_response_id_with_model_id(
             {"id": once["id"]},
             custom_llm_provider="openai",
-            litellm_metadata=litellm_metadata,
+            embrouter_metadata=embrouter_metadata,
         )
 
         assert twice == once
@@ -250,7 +250,7 @@ class TestResponsesAPIRequestUtils:
 
     def test_decode_container_id_legacy_literal_none_model_id(self):
         """IDs encoded before the None fix should decode without a bogus model_id."""
-        legacy_inner = "litellm:custom_llm_provider:azure;model_id:None;container_id:cntr_x"
+        legacy_inner = "embrouter:custom_llm_provider:azure;model_id:None;container_id:cntr_x"
         legacy_id = "cntr_" + base64.b64encode(legacy_inner.encode("utf-8")).decode("utf-8")
         decoded = ResponsesAPIRequestUtils._decode_container_id(legacy_id)
         assert decoded.get("model_id") is None
@@ -725,21 +725,21 @@ def test_responses_extra_body_forwarded_to_completion_transformation_handler():
     when responses_api_provider_config is None (completion transformation path).
 
     Before the fix, extra_body was a named parameter of responses() but was
-    not passed to litellm_completion_transformation_handler.response_api_handler(),
+    not passed to embrouter_completion_transformation_handler.response_api_handler(),
     so it was silently dropped.
     """
     with (
         patch.object(
-            import_module("litellm.responses.main").ProviderConfigManager, "get_provider_responses_api_config",
+            import_module("embrouter.responses.main").ProviderConfigManager, "get_provider_responses_api_config",
             return_value=None,
         ),
         patch.object(
-            import_module("litellm.responses.main").litellm_completion_transformation_handler, "response_api_handler",
+            import_module("embrouter.responses.main").embrouter_completion_transformation_handler, "response_api_handler",
         ) as mock_handler,
     ):
         mock_handler.return_value = MagicMock()
 
-        litellm.responses(
+        embrouter.responses(
             model="openai/gpt-4o",
             input="Hello",
             extra_body={"custom_key": "custom_value"},
@@ -751,9 +751,9 @@ def test_responses_extra_body_forwarded_to_completion_transformation_handler():
         assert call_kwargs.kwargs.get("extra_body") == {"custom_key": "custom_value"}
 
 
-def test_responses_maps_reasoning_effort_from_litellm_params_to_reasoning():
+def test_responses_maps_reasoning_effort_from_embrouter_params_to_reasoning():
     """
-    Test that when reasoning_effort is passed in kwargs (e.g. from proxy litellm_params)
+    Test that when reasoning_effort is passed in kwargs (e.g. from proxy embrouter_params)
     and reasoning is None, it is mapped to reasoning before the request.
 
     Supports per-model reasoning_effort/summary config in proxy for clients like Open WebUI
@@ -761,16 +761,16 @@ def test_responses_maps_reasoning_effort_from_litellm_params_to_reasoning():
     """
     with (
         patch.object(
-            import_module("litellm.responses.main").ProviderConfigManager, "get_provider_responses_api_config",
+            import_module("embrouter.responses.main").ProviderConfigManager, "get_provider_responses_api_config",
             return_value=None,
         ),
         patch.object(
-            import_module("litellm.responses.main").litellm_completion_transformation_handler, "response_api_handler",
+            import_module("embrouter.responses.main").embrouter_completion_transformation_handler, "response_api_handler",
         ) as mock_handler,
     ):
         mock_handler.return_value = MagicMock()
 
-        litellm.responses(
+        embrouter.responses(
             model="openai/gpt-4o",
             input="Hello",
             reasoning_effort={"effort": "high", "summary": "detailed"},
@@ -792,7 +792,7 @@ class TestMergePromptManagementInputReshape:
     EXPLICIT = {"mode": "explicit"}
 
     def _run_cache_hook(self, client_input, points, model="openai/gpt-5.6"):
-        from litellm.integrations.anthropic_cache_control_hook import AnthropicCacheControlHook
+        from embrouter.integrations.anthropic_cache_control_hook import AnthropicCacheControlHook
 
         _, merged, _ = AnthropicCacheControlHook().get_chat_completion_prompt(
             model=model,

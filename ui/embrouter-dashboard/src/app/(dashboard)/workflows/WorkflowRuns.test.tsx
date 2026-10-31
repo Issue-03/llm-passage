@@ -6,7 +6,7 @@ import WorkflowRuns from "./WorkflowRuns";
 
 vi.mock("@/components/networking", () => ({
   proxyBaseUrl: "",
-  getGlobalLitellmHeaderName: () => "x-litellm-api-key",
+  getGlobalEmbrouterHeaderName: () => "x-embrouter-api-key",
 }));
 
 interface FakeRun {
@@ -82,7 +82,7 @@ describe("WorkflowRuns (migrated onto shared DataTable)", () => {
     expect(await screen.findByText("No workflow runs yet")).toBeInTheDocument();
   });
 
-  it("sends the configured litellm key header on every fetch instead of hardcoding Authorization", async () => {
+  it("sends the configured embrouter key header on every fetch instead of hardcoding Authorization", async () => {
     const user = userEvent.setup();
     const fetchSpy = mockFetch(RUNS);
     vi.stubGlobal("fetch", fetchSpy);
@@ -92,7 +92,7 @@ describe("WorkflowRuns (migrated onto shared DataTable)", () => {
 
     await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(3));
     for (const [url, init] of fetchSpy.mock.calls as [string, RequestInit][]) {
-      expect(init.headers, url).toEqual({ "x-litellm-api-key": "Bearer tok" });
+      expect(init.headers, url).toEqual({ "x-embrouter-api-key": "Bearer tok" });
     }
   });
 });

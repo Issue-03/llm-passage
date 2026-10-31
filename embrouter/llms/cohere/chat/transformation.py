@@ -5,22 +5,22 @@ from typing import TYPE_CHECKING, Any, Final
 
 import httpx
 
-import litellm
-from litellm.litellm_core_utils.prompt_templates.factory import cohere_messages_pt_v2
-from litellm.llms.base_llm.chat.transformation import BaseConfig, BaseLLMException
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.utils import ModelResponse, Usage
+import embrouter
+from embrouter.embrouter_core_utils.prompt_templates.factory import cohere_messages_pt_v2
+from embrouter.llms.base_llm.chat.transformation import BaseConfig, BaseLLMException
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.utils import ModelResponse, Usage
 
 from ..common_utils import ModelResponseIterator as CohereModelResponseIterator
 from ..common_utils import validate_environment as cohere_validate_environment
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 
 class CohereError(BaseLLMException):
@@ -120,7 +120,7 @@ class CohereChatConfig(BaseConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
@@ -186,11 +186,11 @@ class CohereChatConfig(BaseConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         ## Load Config
-        for k, v in litellm.CohereChatConfig.get_config().items():
+        for k, v in embrouter.CohereChatConfig.get_config().items():
             if (
                 k not in optional_params
             ):  # completion(top_k=3) > cohere_config(top_k=3) <- allows for dynamic variables to be passed in
@@ -221,11 +221,11 @@ class CohereChatConfig(BaseConfig):
         model: str,
         raw_response: httpx.Response,
         model_response: ModelResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         request_data: dict,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,
@@ -258,7 +258,7 @@ class CohereChatConfig(BaseConfig):
                     },
                 }
                 tool_calls.append(tool_call)
-            _message: Final = litellm.Message(
+            _message: Final = embrouter.Message(
                 tool_calls=tool_calls,
                 content=None,
             )

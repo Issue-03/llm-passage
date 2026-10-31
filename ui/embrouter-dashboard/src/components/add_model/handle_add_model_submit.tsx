@@ -16,12 +16,12 @@ export const prepareModelAddRequest = async (formValues: Record<string, any>, ac
       const customProviderKey = formValues["custom_llm_provider"] as string;
       const mappedProvider =
         provider_map[customProviderKey as keyof typeof provider_map] ?? customProviderKey.toLowerCase();
-      const litellm_custom_provider = mappedProvider;
-      const wildcardModel = litellm_custom_provider + "/*";
+      const embrouter_custom_provider = mappedProvider;
+      const wildcardModel = embrouter_custom_provider + "/*";
       formValues["model_name"] = wildcardModel;
       modelMappings.push({
         public_name: wildcardModel,
-        litellm_model: wildcardModel,
+        embrouter_model: wildcardModel,
       });
       formValues["model"] = wildcardModel;
     }
@@ -29,12 +29,12 @@ export const prepareModelAddRequest = async (formValues: Record<string, any>, ac
     // Create a deployment for each mapping
     const deployments = [];
     for (const mapping of modelMappings) {
-      const litellmParamsObj: Record<string, any> = {};
+      const embrouterParamsObj: Record<string, any> = {};
       const modelInfoObj: Record<string, any> = {};
 
-      // Set the model name and litellm model from the mapping
+      // Set the model name and embrouter model from the mapping
       const modelName = mapping.public_name;
-      litellmParamsObj["model"] = mapping.litellm_model;
+      embrouterParamsObj["model"] = mapping.embrouter_model;
 
       // Handle pricing conversion before processing other fields
       // Use explicit checks to allow 0 (zero cost models for budget bypass)
@@ -86,12 +86,12 @@ export const prepareModelAddRequest = async (formValues: Record<string, any>, ac
       // Keep input_cost_per_second as is, no conversion needed
 
       // Iterate through the key-value pairs in formValues
-      litellmParamsObj["model"] = mapping.litellm_model;
+      embrouterParamsObj["model"] = mapping.embrouter_model;
       for (const [key, value] of Object.entries(formValues)) {
         if (value === "") {
           continue;
         }
-        if (key === "litellm_credential_name" && value == null) {
+        if (key === "embrouter_credential_name" && value == null) {
           continue;
         }
         // Skip the custom_pricing and pricing_model fields as they're only used for UI control
@@ -99,11 +99,11 @@ export const prepareModelAddRequest = async (formValues: Record<string, any>, ac
           continue;
         }
         if (key == "model_name") {
-          litellmParamsObj["model"] = value;
+          embrouterParamsObj["model"] = value;
         } else if (key == "custom_llm_provider") {
           const providerKey = value as string;
           const mappingResult = provider_map[providerKey as keyof typeof provider_map] ?? providerKey.toLowerCase();
-          litellmParamsObj["custom_llm_provider"] = mappingResult;
+          embrouterParamsObj["custom_llm_provider"] = mappingResult;
         } else if (key == "model") {
           continue;
         }
@@ -118,24 +118,24 @@ export const prepareModelAddRequest = async (formValues: Record<string, any>, ac
         } else if (key == "mode") {
           modelInfoObj["mode"] = value;
 
-          // remove "mode" from litellmParams
-          delete litellmParamsObj["mode"];
+          // remove "mode" from embrouterParams
+          delete embrouterParamsObj["mode"];
         } else if (key === "custom_model_name") {
-          litellmParamsObj["model"] = value;
-        } else if (key == "litellm_extra_params") {
-          let litellmExtraParams = {};
+          embrouterParamsObj["model"] = value;
+        } else if (key == "embrouter_extra_params") {
+          let embrouterExtraParams = {};
           if (value && value != undefined) {
             try {
-              litellmExtraParams = JSON.parse(value);
+              embrouterExtraParams = JSON.parse(value);
             } catch (error) {
               toast.fromError("Failed to parse EmbRouter Extra Params: " + error);
-              throw new Error("Failed to parse litellm_extra_params: " + error);
+              throw new Error("Failed to parse embrouter_extra_params: " + error);
             }
-            if ("litellm_credential_name" in litellmExtraParams && formValues.litellm_credential_name) {
-              delete litellmExtraParams.litellm_credential_name;
+            if ("embrouter_credential_name" in embrouterExtraParams && formValues.embrouter_credential_name) {
+              delete embrouterExtraParams.embrouter_credential_name;
             }
-            for (const [key, value] of Object.entries(litellmExtraParams)) {
-              litellmParamsObj[key] = value;
+            for (const [key, value] of Object.entries(embrouterExtraParams)) {
+              embrouterParamsObj[key] = value;
             }
           }
         } else if (key == "model_info_params") {
@@ -145,7 +145,7 @@ export const prepareModelAddRequest = async (formValues: Record<string, any>, ac
               modelInfoParams = JSON.parse(value);
             } catch (error) {
               toast.fromError("Failed to parse EmbRouter Extra Params: " + error);
-              throw new Error("Failed to parse litellm_extra_params: " + error);
+              throw new Error("Failed to parse embrouter_extra_params: " + error);
             }
             for (const [key, value] of Object.entries(modelInfoParams)) {
               modelInfoObj[key] = value;
@@ -162,7 +162,7 @@ export const prepareModelAddRequest = async (formValues: Record<string, any>, ac
           key === "cache_creation_input_token_cost"
         ) {
           if (value !== undefined && value !== null && value !== "") {
-            litellmParamsObj[key] = Number(value);
+            embrouterParamsObj[key] = Number(value);
           }
           continue;
         }
@@ -186,12 +186,12 @@ export const prepareModelAddRequest = async (formValues: Record<string, any>, ac
 
         // Check if key is any of the specified API related keys
         else {
-          // Add key-value pair to litellm_params dictionary
-          litellmParamsObj[key] = value;
+          // Add key-value pair to embrouter_params dictionary
+          embrouterParamsObj[key] = value;
         }
       }
 
-      deployments.push({ litellmParamsObj, modelInfoObj, modelName });
+      deployments.push({ embrouterParamsObj, modelInfoObj, modelName });
     }
 
     return deployments;
@@ -210,11 +210,11 @@ export const handleAddModelSubmit = async (values: any, accessToken: string, for
 
     // Create each deployment
     for (const deployment of deployments) {
-      const { litellmParamsObj, modelInfoObj, modelName } = deployment;
+      const { embrouterParamsObj, modelInfoObj, modelName } = deployment;
 
       const new_model: Model = {
         model_name: modelName,
-        litellm_params: litellmParamsObj,
+        embrouter_params: embrouterParamsObj,
         model_info: modelInfoObj,
       };
 

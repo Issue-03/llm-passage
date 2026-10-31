@@ -1,7 +1,7 @@
 from typing import Final
 
-from litellm.llms.openai.image_edit.transformation import OpenAIImageEditConfig
-from litellm.secret_managers.main import get_secret_str
+from embrouter.llms.openai.image_edit.transformation import OpenAIImageEditConfig
+from embrouter.secret_managers.main import get_secret_str
 
 PARAMS_VLLM_OMNI_DOES_NOT_ACCEPT: Final = frozenset({"mask", "quality", "input_fidelity"})
 
@@ -19,7 +19,7 @@ class HostedVLLMImageEditConfig(OpenAIImageEditConfig):
         headers: dict,  # mutable-ok: BaseImageEditConfig contract
         model: str,
         api_key: str | None = None,
-        litellm_params: dict | None = None,  # mutable-ok: BaseImageEditConfig contract
+        embrouter_params: dict | None = None,  # mutable-ok: BaseImageEditConfig contract
         api_base: str | None = None,
     ) -> dict:  # mutable-ok: BaseImageEditConfig contract
         resolved_key: Final = api_key or get_secret_str("HOSTED_VLLM_API_KEY") or "fake-api-key"
@@ -29,7 +29,7 @@ class HostedVLLMImageEditConfig(OpenAIImageEditConfig):
         self,
         model: str,
         api_base: str | None,
-        litellm_params: dict,  # mutable-ok: BaseImageEditConfig contract
+        embrouter_params: dict,  # mutable-ok: BaseImageEditConfig contract
     ) -> str:
         resolved_api_base: Final = api_base or get_secret_str("HOSTED_VLLM_API_BASE")
         if resolved_api_base is None:

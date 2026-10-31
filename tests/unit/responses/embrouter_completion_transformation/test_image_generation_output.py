@@ -10,11 +10,11 @@ from /chat/completions format to /responses API format.
 
 import pytest
 from unittest.mock import Mock
-from litellm.responses.litellm_completion_transformation.transformation import (
-    LiteLLMCompletionResponsesConfig,
+from embrouter.responses.embrouter_completion_transformation.transformation import (
+    EmbRouterCompletionResponsesConfig,
 )
-from litellm.types.responses.main import OutputImageGenerationCall
-from litellm.types.utils import ModelResponse, Choices, Message
+from embrouter.types.responses.main import OutputImageGenerationCall
+from embrouter.types.utils import ModelResponse, Choices, Message
 
 
 class TestExtractBase64FromDataUrl:
@@ -23,7 +23,7 @@ class TestExtractBase64FromDataUrl:
     def test_extracts_base64_from_data_url(self):
         """Should extract pure base64 from data URL with prefix"""
         data_url = "data:image/png;base64,iVBORw0KGgoAAAANS"
-        result = LiteLLMCompletionResponsesConfig._extract_base64_from_data_url(
+        result = EmbRouterCompletionResponsesConfig._extract_base64_from_data_url(
             data_url
         )
         assert result == "iVBORw0KGgoAAAANS"
@@ -31,7 +31,7 @@ class TestExtractBase64FromDataUrl:
     def test_returns_base64_as_is_if_no_prefix(self):
         """Should return base64 as-is if no data: prefix"""
         pure_base64 = "iVBORw0KGgoAAAANS"
-        result = LiteLLMCompletionResponsesConfig._extract_base64_from_data_url(
+        result = EmbRouterCompletionResponsesConfig._extract_base64_from_data_url(
             pure_base64
         )
         assert result == pure_base64
@@ -39,13 +39,13 @@ class TestExtractBase64FromDataUrl:
     def test_handles_invalid_inputs(self):
         """Should return None for empty/None/malformed inputs"""
         assert (
-            LiteLLMCompletionResponsesConfig._extract_base64_from_data_url("") is None
+            EmbRouterCompletionResponsesConfig._extract_base64_from_data_url("") is None
         )
         assert (
-            LiteLLMCompletionResponsesConfig._extract_base64_from_data_url(None) is None
+            EmbRouterCompletionResponsesConfig._extract_base64_from_data_url(None) is None
         )
         assert (
-            LiteLLMCompletionResponsesConfig._extract_base64_from_data_url(
+            EmbRouterCompletionResponsesConfig._extract_base64_from_data_url(
                 "data:image/png;base64"
             )
             is None
@@ -76,7 +76,7 @@ class TestExtractImageGenerationOutputItems:
         mock_choice.finish_reason = "stop"
 
         result = (
-            LiteLLMCompletionResponsesConfig._extract_image_generation_output_items(
+            EmbRouterCompletionResponsesConfig._extract_image_generation_output_items(
                 choice=mock_choice,
             )
         )
@@ -100,7 +100,7 @@ class TestExtractImageGenerationOutputItems:
         mock_choice.finish_reason = "stop"
 
         result = (
-            LiteLLMCompletionResponsesConfig._extract_image_generation_output_items(
+            EmbRouterCompletionResponsesConfig._extract_image_generation_output_items(
                 choice=mock_choice,
             )
         )
@@ -123,7 +123,7 @@ class TestExtractImageGenerationOutputItems:
         mock_choice.finish_reason = "length"
 
         result = (
-            LiteLLMCompletionResponsesConfig._extract_image_generation_output_items(
+            EmbRouterCompletionResponsesConfig._extract_image_generation_output_items(
                 choice=mock_choice,
             )
         )
@@ -154,7 +154,7 @@ class TestExtractMessageOutputItemsIntegration:
         mock_choice.message = mock_message
         mock_choice.finish_reason = "stop"
 
-        result = LiteLLMCompletionResponsesConfig._extract_message_output_items(
+        result = EmbRouterCompletionResponsesConfig._extract_message_output_items(
             chat_completion_response=mock_response,
             choices=[mock_choice],
         )
@@ -167,7 +167,7 @@ class TestExtractMessageOutputItemsIntegration:
 
     def test_creates_regular_message_when_no_images(self):
         """Should create regular GenericResponseOutputItem when no images"""
-        from litellm.types.responses.main import GenericResponseOutputItem
+        from embrouter.types.responses.main import GenericResponseOutputItem
 
         mock_response = Mock(spec=ModelResponse)
         mock_response.id = "no_images_123"
@@ -181,7 +181,7 @@ class TestExtractMessageOutputItemsIntegration:
         mock_choice.message = mock_message
         mock_choice.finish_reason = "stop"
 
-        result = LiteLLMCompletionResponsesConfig._extract_message_output_items(
+        result = EmbRouterCompletionResponsesConfig._extract_message_output_items(
             chat_completion_response=mock_response,
             choices=[mock_choice],
         )
@@ -210,7 +210,7 @@ class TestImageGenerationOutputItemIds:
         return mock_choice
 
     def test_image_generation_item_id_uses_ig_prefix(self):
-        result = LiteLLMCompletionResponsesConfig._extract_image_generation_output_items(
+        result = EmbRouterCompletionResponsesConfig._extract_image_generation_output_items(
             choice=self._choice_with_images(2),
         )
 
@@ -221,7 +221,7 @@ class TestImageGenerationOutputItemIds:
             assert "_img_" not in item.id
 
     def test_image_generation_item_ids_are_unique(self):
-        result = LiteLLMCompletionResponsesConfig._extract_image_generation_output_items(
+        result = EmbRouterCompletionResponsesConfig._extract_image_generation_output_items(
             choice=self._choice_with_images(3),
         )
 

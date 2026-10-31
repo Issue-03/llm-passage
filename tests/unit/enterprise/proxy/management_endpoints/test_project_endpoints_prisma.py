@@ -1,6 +1,6 @@
 import os
 import traceback
-from litellm._uuid import uuid
+from embrouter._uuid import uuid
 from unittest import mock
 
 from dotenv import load_dotenv
@@ -13,28 +13,28 @@ import logging
 
 import pytest
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy.management_endpoints.team_endpoints import (
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy.management_endpoints.team_endpoints import (
     new_team,
 )
-from litellm_enterprise.proxy.management_endpoints.project_endpoints import (
+from embrouter_enterprise.proxy.management_endpoints.project_endpoints import (
     new_project,
     update_project,
     delete_project,
     project_info,
 )
-from litellm.proxy.proxy_server import (
-    LitellmUserRoles,
+from embrouter.proxy.proxy_server import (
+    EmbrouterUserRoles,
 )
-from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-from litellm.proxy.utils import PrismaClient, ProxyLogging
+from embrouter.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+from embrouter.proxy.utils import PrismaClient, ProxyLogging
 
 verbose_proxy_logger.setLevel(level=logging.DEBUG)
 
 
-from litellm.caching.caching import DualCache
-from litellm.proxy._types import (
+from embrouter.caching.caching import DualCache
+from embrouter.proxy._types import (
     NewProjectRequest,
     UpdateProjectRequest,
     DeleteProjectRequest,
@@ -48,7 +48,7 @@ proxy_logging_obj = ProxyLogging(user_api_key_cache=DualCache())
 
 @pytest.fixture
 def prisma_client():
-    from litellm.proxy.proxy_cli import append_query_params
+    from embrouter.proxy.proxy_cli import append_query_params
 
     ### add connection pool + pool timeout args
     params = {"connection_limit": 100, "pool_timeout": 60}
@@ -61,14 +61,14 @@ def prisma_client():
         database_url=os.environ["DATABASE_URL"], proxy_logging_obj=proxy_logging_obj
     )
 
-    # Reset litellm.proxy.proxy_server.prisma_client to None
-    litellm.proxy.proxy_server.litellm_proxy_budget_name = (
-        f"litellm-proxy-budget-{time.time()}"
+    # Reset embrouter.proxy.proxy_server.prisma_client to None
+    embrouter.proxy.proxy_server.embrouter_proxy_budget_name = (
+        f"embrouter-proxy-budget-{time.time()}"
     )
-    litellm.proxy.proxy_server.user_custom_key_generate = None
+    embrouter.proxy.proxy_server.user_custom_key_generate = None
 
     # Enable premium_user for project management tests
-    setattr(litellm.proxy.proxy_server, "premium_user", True)
+    setattr(embrouter.proxy.proxy_server, "premium_user", True)
 
     return prisma_client
 
@@ -82,10 +82,10 @@ async def test_new_project(prisma_client):
     try:
         print("prisma client=", prisma_client)
 
-        setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-        setattr(litellm.proxy.proxy_server, "master_key", "sk-1234")
+        setattr(embrouter.proxy.proxy_server, "prisma_client", prisma_client)
+        setattr(embrouter.proxy.proxy_server, "master_key", "sk-1234")
 
-        await litellm.proxy.proxy_server.prisma_client.connect()
+        await embrouter.proxy.proxy_server.prisma_client.connect()
 
         # Create a team first
         _team_id = f"project-test-team_{uuid.uuid4()}"
@@ -95,7 +95,7 @@ async def test_new_project(prisma_client):
             ),
             http_request=Request(scope={"type": "http"}),
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=EmbrouterUserRoles.PROXY_ADMIN,
                 api_key="sk-1234",
                 user_id="1234",
             ),
@@ -117,7 +117,7 @@ async def test_new_project(prisma_client):
             data=project_data,
             http_request=Request(scope={"type": "http"}),
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=EmbrouterUserRoles.PROXY_ADMIN,
                 api_key="sk-1234",
                 user_id="1234",
             ),
@@ -136,8 +136,8 @@ async def test_new_project(prisma_client):
         assert response.metadata["responsible_ai_id"] == "RAI-001"
         assert response.metadata["model_rpm_limit"] == {"gpt-5.5": 100}
         assert response.metadata["model_tpm_limit"] == {"gpt-5.5": 1000}
-        assert response.litellm_budget_table is not None
-        assert response.litellm_budget_table.max_budget == 100.0
+        assert response.embrouter_budget_table is not None
+        assert response.embrouter_budget_table.max_budget == 100.0
 
     except Exception as e:
         print("Got Exception", e)
@@ -154,10 +154,10 @@ async def test_update_project(prisma_client):
     try:
         print("prisma client=", prisma_client)
 
-        setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-        setattr(litellm.proxy.proxy_server, "master_key", "sk-1234")
+        setattr(embrouter.proxy.proxy_server, "prisma_client", prisma_client)
+        setattr(embrouter.proxy.proxy_server, "master_key", "sk-1234")
 
-        await litellm.proxy.proxy_server.prisma_client.connect()
+        await embrouter.proxy.proxy_server.prisma_client.connect()
 
         # Create a team first
         _team_id = f"project-test-team_{uuid.uuid4()}"
@@ -167,7 +167,7 @@ async def test_update_project(prisma_client):
             ),
             http_request=Request(scope={"type": "http"}),
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=EmbrouterUserRoles.PROXY_ADMIN,
                 api_key="sk-1234",
                 user_id="1234",
             ),
@@ -189,7 +189,7 @@ async def test_update_project(prisma_client):
             data=project_data,
             http_request=Request(scope={"type": "http"}),
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=EmbrouterUserRoles.PROXY_ADMIN,
                 api_key="sk-1234",
                 user_id="1234",
             ),
@@ -217,7 +217,7 @@ async def test_update_project(prisma_client):
             data=update_data,
             http_request=Request(scope={"type": "http"}),
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=EmbrouterUserRoles.PROXY_ADMIN,
                 api_key="sk-1234",
                 user_id="1234",
             ),
@@ -241,8 +241,8 @@ async def test_update_project(prisma_client):
             "gpt-5.5": 2000,
             "claude-3": 500,
         }
-        assert update_response.litellm_budget_table is not None
-        assert update_response.litellm_budget_table.max_budget == 200.0
+        assert update_response.embrouter_budget_table is not None
+        assert update_response.embrouter_budget_table.max_budget == 200.0
 
     except Exception as e:
         print("Got Exception", e)
@@ -259,10 +259,10 @@ async def test_delete_project(prisma_client):
     try:
         print("prisma client=", prisma_client)
 
-        setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-        setattr(litellm.proxy.proxy_server, "master_key", "sk-1234")
+        setattr(embrouter.proxy.proxy_server, "prisma_client", prisma_client)
+        setattr(embrouter.proxy.proxy_server, "master_key", "sk-1234")
 
-        await litellm.proxy.proxy_server.prisma_client.connect()
+        await embrouter.proxy.proxy_server.prisma_client.connect()
 
         # Create a team first
         _team_id = f"project-test-team_{uuid.uuid4()}"
@@ -272,7 +272,7 @@ async def test_delete_project(prisma_client):
             ),
             http_request=Request(scope={"type": "http"}),
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=EmbrouterUserRoles.PROXY_ADMIN,
                 api_key="sk-1234",
                 user_id="1234",
             ),
@@ -290,7 +290,7 @@ async def test_delete_project(prisma_client):
             data=project_data,
             http_request=Request(scope={"type": "http"}),
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=EmbrouterUserRoles.PROXY_ADMIN,
                 api_key="sk-1234",
                 user_id="1234",
             ),
@@ -306,7 +306,7 @@ async def test_delete_project(prisma_client):
             data=delete_data,
             http_request=Request(scope={"type": "http"}),
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=EmbrouterUserRoles.PROXY_ADMIN,
                 api_key="sk-1234",
                 user_id="1234",
             ),
@@ -324,7 +324,7 @@ async def test_delete_project(prisma_client):
             await project_info(
                 project_id=project_id,
                 user_api_key_dict=UserAPIKeyAuth(
-                    user_role=LitellmUserRoles.PROXY_ADMIN,
+                    user_role=EmbrouterUserRoles.PROXY_ADMIN,
                     api_key="sk-1234",
                     user_id="1234",
                 ),
@@ -349,10 +349,10 @@ async def test_project_info(prisma_client):
     try:
         print("prisma client=", prisma_client)
 
-        setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-        setattr(litellm.proxy.proxy_server, "master_key", "sk-1234")
+        setattr(embrouter.proxy.proxy_server, "prisma_client", prisma_client)
+        setattr(embrouter.proxy.proxy_server, "master_key", "sk-1234")
 
-        await litellm.proxy.proxy_server.prisma_client.connect()
+        await embrouter.proxy.proxy_server.prisma_client.connect()
 
         # Create a team first
         _team_id = f"project-test-team_{uuid.uuid4()}"
@@ -362,7 +362,7 @@ async def test_project_info(prisma_client):
             ),
             http_request=Request(scope={"type": "http"}),
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=EmbrouterUserRoles.PROXY_ADMIN,
                 api_key="sk-1234",
                 user_id="1234",
             ),
@@ -384,7 +384,7 @@ async def test_project_info(prisma_client):
             data=project_data,
             http_request=Request(scope={"type": "http"}),
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=EmbrouterUserRoles.PROXY_ADMIN,
                 api_key="sk-1234",
                 user_id="1234",
             ),
@@ -397,7 +397,7 @@ async def test_project_info(prisma_client):
         info_response = await project_info(
             project_id=project_id,
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=EmbrouterUserRoles.PROXY_ADMIN,
                 api_key="sk-1234",
                 user_id="1234",
             ),
@@ -416,8 +416,8 @@ async def test_project_info(prisma_client):
         assert info_response.metadata["cost_center"] == "engineering"
         assert info_response.metadata["model_rpm_limit"] == {"gpt-5.5": 150}
         assert info_response.metadata["model_tpm_limit"] == {"gpt-5.5": 1500}
-        assert info_response.litellm_budget_table is not None
-        assert info_response.litellm_budget_table.max_budget == 150.0
+        assert info_response.embrouter_budget_table is not None
+        assert info_response.embrouter_budget_table.max_budget == 150.0
 
     except Exception as e:
         print("Got Exception", e)
@@ -432,12 +432,12 @@ def test_check_team_project_limits_models_not_in_team():
     """
     Test that creating a project with models not in the team raises an error.
     """
-    from litellm_enterprise.proxy.management_endpoints.project_endpoints import (
+    from embrouter_enterprise.proxy.management_endpoints.project_endpoints import (
         _check_team_project_limits,
     )
-    from litellm.proxy._types import LiteLLM_TeamTable
+    from embrouter.proxy._types import EmbRouter_TeamTable
 
-    team = LiteLLM_TeamTable(
+    team = EmbRouter_TeamTable(
         team_id="test-team",
         models=["gpt-5.5", "gpt-5-mini"],
     )
@@ -458,12 +458,12 @@ def test_check_team_project_limits_budget_exceeds_team():
     """
     Test that creating a project with budget > team budget raises an error.
     """
-    from litellm_enterprise.proxy.management_endpoints.project_endpoints import (
+    from embrouter_enterprise.proxy.management_endpoints.project_endpoints import (
         _check_team_project_limits,
     )
-    from litellm.proxy._types import LiteLLM_TeamTable
+    from embrouter.proxy._types import EmbRouter_TeamTable
 
-    team = LiteLLM_TeamTable(
+    team = EmbRouter_TeamTable(
         team_id="test-team",
         models=["gpt-5.5"],
         max_budget=100.0,
@@ -485,12 +485,12 @@ def test_check_team_project_limits_valid_subset():
     """
     Test that a valid project (models subset, budget within limit) passes.
     """
-    from litellm_enterprise.proxy.management_endpoints.project_endpoints import (
+    from embrouter_enterprise.proxy.management_endpoints.project_endpoints import (
         _check_team_project_limits,
     )
-    from litellm.proxy._types import LiteLLM_TeamTable
+    from embrouter.proxy._types import EmbRouter_TeamTable
 
-    team = LiteLLM_TeamTable(
+    team = EmbRouter_TeamTable(
         team_id="test-team",
         models=["gpt-5.5", "gpt-5-mini", "claude-3"],
         max_budget=1000.0,
@@ -510,12 +510,12 @@ def test_check_team_project_limits_all_proxy_models():
     """
     Test that team with 'all-proxy-models' allows any project models.
     """
-    from litellm_enterprise.proxy.management_endpoints.project_endpoints import (
+    from embrouter_enterprise.proxy.management_endpoints.project_endpoints import (
         _check_team_project_limits,
     )
-    from litellm.proxy._types import LiteLLM_TeamTable
+    from embrouter.proxy._types import EmbRouter_TeamTable
 
-    team = LiteLLM_TeamTable(
+    team = EmbRouter_TeamTable(
         team_id="test-team",
         models=["all-proxy-models"],
     )
@@ -533,12 +533,12 @@ def test_check_team_project_limits_tpm_exceeds_team():
     """
     Test that project tpm_limit exceeding team tpm_limit raises an error.
     """
-    from litellm_enterprise.proxy.management_endpoints.project_endpoints import (
+    from embrouter_enterprise.proxy.management_endpoints.project_endpoints import (
         _check_team_project_limits,
     )
-    from litellm.proxy._types import LiteLLM_TeamTable
+    from embrouter.proxy._types import EmbRouter_TeamTable
 
-    team = LiteLLM_TeamTable(
+    team = EmbRouter_TeamTable(
         team_id="test-team",
         models=["gpt-5.5"],
         tpm_limit=10000,
@@ -560,12 +560,12 @@ def test_check_team_project_limits_negative_budget():
     """
     Test that negative budget values raise an error.
     """
-    from litellm_enterprise.proxy.management_endpoints.project_endpoints import (
+    from embrouter_enterprise.proxy.management_endpoints.project_endpoints import (
         _check_team_project_limits,
     )
-    from litellm.proxy._types import LiteLLM_TeamTable
+    from embrouter.proxy._types import EmbRouter_TeamTable
 
-    team = LiteLLM_TeamTable(
+    team = EmbRouter_TeamTable(
         team_id="test-team",
         models=["gpt-5.5"],
     )
@@ -586,12 +586,12 @@ def test_check_team_project_limits_soft_budget_gte_max():
     """
     Test that soft_budget >= max_budget raises an error.
     """
-    from litellm_enterprise.proxy.management_endpoints.project_endpoints import (
+    from embrouter_enterprise.proxy.management_endpoints.project_endpoints import (
         _check_team_project_limits,
     )
-    from litellm.proxy._types import LiteLLM_TeamTable
+    from embrouter.proxy._types import EmbRouter_TeamTable
 
-    team = LiteLLM_TeamTable(
+    team = EmbRouter_TeamTable(
         team_id="test-team",
         models=["gpt-5.5"],
     )
@@ -617,22 +617,22 @@ def test_premium_user_gate():
     # This test just validates the premium_user check exists
     # The actual endpoint test would need prisma, but we can verify
     # the import path works
-    setattr(litellm.proxy.proxy_server, "premium_user", False)
+    setattr(embrouter.proxy.proxy_server, "premium_user", False)
 
     # Verify that CommonProxyErrors.not_premium_user exists
-    from litellm.proxy._types import CommonProxyErrors
+    from embrouter.proxy._types import CommonProxyErrors
 
     assert hasattr(CommonProxyErrors, "not_premium_user")
 
     # Reset
-    setattr(litellm.proxy.proxy_server, "premium_user", True)
+    setattr(embrouter.proxy.proxy_server, "premium_user", True)
 
 
 def test_project_model_access_denied_error_type():
     """
     Test that ProxyErrorTypes.project_model_access_denied exists.
     """
-    from litellm.proxy._types import ProxyErrorTypes
+    from embrouter.proxy._types import ProxyErrorTypes
 
     assert hasattr(ProxyErrorTypes, "project_model_access_denied")
     assert (
@@ -647,19 +647,19 @@ def test_project_model_access_denied_error_type():
 
 def test_project_cached_obj_has_last_refreshed_at():
     """
-    Test that LiteLLM_ProjectTableCachedObj has last_refreshed_at field
-    matching LiteLLM_TeamTableCachedObj pattern.
+    Test that EmbRouter_ProjectTableCachedObj has last_refreshed_at field
+    matching EmbRouter_TeamTableCachedObj pattern.
     """
-    from litellm.proxy._types import (
-        LiteLLM_ProjectTableCachedObj,
-        LiteLLM_ProjectTable,
+    from embrouter.proxy._types import (
+        EmbRouter_ProjectTableCachedObj,
+        EmbRouter_ProjectTable,
     )
 
     # Verify inheritance
-    assert issubclass(LiteLLM_ProjectTableCachedObj, LiteLLM_ProjectTable)
+    assert issubclass(EmbRouter_ProjectTableCachedObj, EmbRouter_ProjectTable)
 
     # Verify last_refreshed_at field exists and defaults to None
-    obj = LiteLLM_ProjectTableCachedObj(
+    obj = EmbRouter_ProjectTableCachedObj(
         project_id="test",
         created_by="admin",
         updated_by="admin",
@@ -677,18 +677,18 @@ async def test_project_max_budget_check_fires_alert():
     Test that _project_max_budget_check fires a budget alert
     when project exceeds its max budget (matches _team_max_budget_check pattern).
     """
-    from litellm.proxy.auth.auth_checks import _project_max_budget_check
-    from litellm.proxy._types import (
-        LiteLLM_BudgetTable,
-        LiteLLM_ProjectTableCachedObj,
+    from embrouter.proxy.auth.auth_checks import _project_max_budget_check
+    from embrouter.proxy._types import (
+        EmbRouter_BudgetTable,
+        EmbRouter_ProjectTableCachedObj,
     )
 
-    project = LiteLLM_ProjectTableCachedObj(
+    project = EmbRouter_ProjectTableCachedObj(
         project_id="test-project",
         spend=150.0,
         created_by="admin",
         updated_by="admin",
-        litellm_budget_table=LiteLLM_BudgetTable(max_budget=100.0),
+        embrouter_budget_table=EmbRouter_BudgetTable(max_budget=100.0),
     )
 
     valid_token = UserAPIKeyAuth(
@@ -700,7 +700,7 @@ async def test_project_max_budget_check_fires_alert():
     mock_proxy_logging = mock.AsyncMock(spec=ProxyLogging)
     mock_proxy_logging.budget_alerts = mock.AsyncMock()
 
-    with pytest.raises(litellm.BudgetExceededError) as exc_info:
+    with pytest.raises(embrouter.BudgetExceededError) as exc_info:
         await _project_max_budget_check(
             project_object=project,
             valid_token=valid_token,
@@ -716,18 +716,18 @@ async def test_project_soft_budget_check():
     """
     Test that _project_soft_budget_check triggers alert when soft budget is exceeded.
     """
-    from litellm.proxy.auth.auth_checks import _project_soft_budget_check
-    from litellm.proxy._types import (
-        LiteLLM_BudgetTable,
-        LiteLLM_ProjectTableCachedObj,
+    from embrouter.proxy.auth.auth_checks import _project_soft_budget_check
+    from embrouter.proxy._types import (
+        EmbRouter_BudgetTable,
+        EmbRouter_ProjectTableCachedObj,
     )
 
-    project = LiteLLM_ProjectTableCachedObj(
+    project = EmbRouter_ProjectTableCachedObj(
         project_id="test-project",
         spend=80.0,
         created_by="admin",
         updated_by="admin",
-        litellm_budget_table=LiteLLM_BudgetTable(soft_budget=75.0),
+        embrouter_budget_table=EmbRouter_BudgetTable(soft_budget=75.0),
     )
 
     valid_token = UserAPIKeyAuth(
@@ -752,18 +752,18 @@ async def test_project_soft_budget_check_no_alert_under_budget():
     """
     Test that _project_soft_budget_check does NOT trigger alert when under soft budget.
     """
-    from litellm.proxy.auth.auth_checks import _project_soft_budget_check
-    from litellm.proxy._types import (
-        LiteLLM_BudgetTable,
-        LiteLLM_ProjectTableCachedObj,
+    from embrouter.proxy.auth.auth_checks import _project_soft_budget_check
+    from embrouter.proxy._types import (
+        EmbRouter_BudgetTable,
+        EmbRouter_ProjectTableCachedObj,
     )
 
-    project = LiteLLM_ProjectTableCachedObj(
+    project = EmbRouter_ProjectTableCachedObj(
         project_id="test-project",
         spend=50.0,
         created_by="admin",
         updated_by="admin",
-        litellm_budget_table=LiteLLM_BudgetTable(soft_budget=75.0),
+        embrouter_budget_table=EmbRouter_BudgetTable(soft_budget=75.0),
     )
 
     valid_token = UserAPIKeyAuth(
@@ -783,14 +783,14 @@ async def test_project_soft_budget_check_no_alert_under_budget():
     )
 
 
-def test_litellm_entity_type_has_project():
+def test_embrouter_entity_type_has_project():
     """
-    Test that Litellm_EntityType has PROJECT member for budget alerts.
+    Test that Embrouter_EntityType has PROJECT member for budget alerts.
     """
-    from litellm.proxy._types import Litellm_EntityType
+    from embrouter.proxy._types import Embrouter_EntityType
 
-    assert hasattr(Litellm_EntityType, "PROJECT")
-    assert Litellm_EntityType.PROJECT.value == "project"
+    assert hasattr(Embrouter_EntityType, "PROJECT")
+    assert Embrouter_EntityType.PROJECT.value == "project"
 
 
 @pytest.mark.asyncio
@@ -801,8 +801,8 @@ async def test_list_projects_returns_timestamps():
     from datetime import datetime, timezone
     from unittest.mock import AsyncMock, MagicMock, patch
 
-    from litellm_enterprise.proxy.management_endpoints.project_endpoints import list_projects
-    from litellm.proxy._types import LiteLLM_ProjectTable
+    from embrouter_enterprise.proxy.management_endpoints.project_endpoints import list_projects
+    from embrouter.proxy._types import EmbRouter_ProjectTable
 
     now = datetime(2024, 1, 15, 12, 0, 0, tzinfo=timezone.utc)
 
@@ -826,7 +826,7 @@ async def test_list_projects_returns_timestamps():
         "model_rpm_limit": None,
         "model_tpm_limit": None,
         "object_permission_id": None,
-        "litellm_budget_table": None,
+        "embrouter_budget_table": None,
         "object_permission": None,
     }
     # Make the fake row behave like a Pydantic model for FastAPI serialization
@@ -835,14 +835,14 @@ async def test_list_projects_returns_timestamps():
     fake_project.updated_at = now
 
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_projecttable.find_many = AsyncMock(
+    mock_prisma.db.embrouter_projecttable.find_many = AsyncMock(
         return_value=[fake_project]
     )
 
-    with patch("litellm.proxy.proxy_server.prisma_client", mock_prisma):
+    with patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma):
         response = await list_projects(
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=EmbrouterUserRoles.PROXY_ADMIN,
                 api_key="sk-1234",
                 user_id="1234",
             ),
@@ -854,16 +854,16 @@ async def test_list_projects_returns_timestamps():
     assert project.updated_at == now
 
 
-def test_litellm_project_table_has_timestamp_fields():
+def test_embrouter_project_table_has_timestamp_fields():
     """
-    Test that LiteLLM_ProjectTable model includes created_at and updated_at fields,
+    Test that EmbRouter_ProjectTable model includes created_at and updated_at fields,
     so the /project/list response_model exposes them.
     """
-    from litellm.proxy._types import LiteLLM_ProjectTable
+    from embrouter.proxy._types import EmbRouter_ProjectTable
 
-    fields = LiteLLM_ProjectTable.model_fields
-    assert "created_at" in fields, "LiteLLM_ProjectTable must have created_at field"
-    assert "updated_at" in fields, "LiteLLM_ProjectTable must have updated_at field"
+    fields = EmbRouter_ProjectTable.model_fields
+    assert "created_at" in fields, "EmbRouter_ProjectTable must have created_at field"
+    assert "updated_at" in fields, "EmbRouter_ProjectTable must have updated_at field"
 
 
 @pytest.mark.asyncio
@@ -875,8 +875,8 @@ async def test_update_project_invalidates_cached_project_object(monkeypatch):
     """
     from unittest.mock import AsyncMock, MagicMock
 
-    from litellm.proxy.auth.auth_checks import get_project_object
-    from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+    from embrouter.proxy.auth.auth_checks import get_project_object
+    from embrouter.proxy.common_utils.user_api_key_cache import UserApiKeyCache
 
     project_id = f"project-{uuid.uuid4()}"
     cache = UserApiKeyCache()
@@ -886,7 +886,7 @@ async def test_update_project_invalidates_cached_project_object(monkeypatch):
 
     mock_prisma = MagicMock()
     mock_prisma.jsonify_object = lambda data: data
-    mock_prisma.db.litellm_projecttable.find_unique = AsyncMock(return_value=stale_row)
+    mock_prisma.db.embrouter_projecttable.find_unique = AsyncMock(return_value=stale_row)
 
     seeded = await get_project_object(
         project_id=project_id, prisma_client=mock_prisma, user_api_key_cache=cache
@@ -902,24 +902,24 @@ async def test_update_project_invalidates_cached_project_object(monkeypatch):
         "models": updated_models,
     }
 
-    mock_prisma.db.litellm_projecttable.find_unique = AsyncMock(return_value=existing_row)
-    mock_prisma.db.litellm_projecttable.update = AsyncMock(return_value=updated_row)
+    mock_prisma.db.embrouter_projecttable.find_unique = AsyncMock(return_value=existing_row)
+    mock_prisma.db.embrouter_projecttable.update = AsyncMock(return_value=updated_row)
 
-    monkeypatch.setattr(litellm.proxy.proxy_server, "premium_user", True)
-    monkeypatch.setattr(litellm.proxy.proxy_server, "prisma_client", mock_prisma)
-    monkeypatch.setattr(litellm.proxy.proxy_server, "user_api_key_cache", cache)
+    monkeypatch.setattr(embrouter.proxy.proxy_server, "premium_user", True)
+    monkeypatch.setattr(embrouter.proxy.proxy_server, "prisma_client", mock_prisma)
+    monkeypatch.setattr(embrouter.proxy.proxy_server, "user_api_key_cache", cache)
 
     await update_project(
         data=UpdateProjectRequest(project_id=project_id, models=updated_models),
         http_request=Request(scope={"type": "http"}),
         user_api_key_dict=UserAPIKeyAuth(
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=EmbrouterUserRoles.PROXY_ADMIN,
             api_key="sk-1234",
             user_id="1234",
         ),
     )
 
-    mock_prisma.db.litellm_projecttable.find_unique = AsyncMock(return_value=updated_row)
+    mock_prisma.db.embrouter_projecttable.find_unique = AsyncMock(return_value=updated_row)
     refreshed = await get_project_object(
         project_id=project_id, prisma_client=mock_prisma, user_api_key_cache=cache
     )
@@ -935,8 +935,8 @@ async def test_delete_project_invalidates_cached_project_object(monkeypatch):
     """
     from unittest.mock import AsyncMock, MagicMock
 
-    from litellm.proxy.auth.auth_checks import get_project_object
-    from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+    from embrouter.proxy.auth.auth_checks import get_project_object
+    from embrouter.proxy.common_utils.user_api_key_cache import UserApiKeyCache
 
     project_id = f"project-{uuid.uuid4()}"
     cache = UserApiKeyCache()
@@ -945,31 +945,31 @@ async def test_delete_project_invalidates_cached_project_object(monkeypatch):
     row.model_dump = lambda: {"project_id": project_id, "team_id": None, "models": ["gpt-5.5"]}
 
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_projecttable.find_unique = AsyncMock(return_value=row)
+    mock_prisma.db.embrouter_projecttable.find_unique = AsyncMock(return_value=row)
 
     seeded = await get_project_object(
         project_id=project_id, prisma_client=mock_prisma, user_api_key_cache=cache
     )
     assert seeded is not None
 
-    mock_prisma.db.litellm_verificationtoken.find_many = AsyncMock(return_value=[])
-    mock_prisma.db.litellm_projecttable.delete = AsyncMock(return_value=row)
+    mock_prisma.db.embrouter_verificationtoken.find_many = AsyncMock(return_value=[])
+    mock_prisma.db.embrouter_projecttable.delete = AsyncMock(return_value=row)
 
-    monkeypatch.setattr(litellm.proxy.proxy_server, "premium_user", True)
-    monkeypatch.setattr(litellm.proxy.proxy_server, "prisma_client", mock_prisma)
-    monkeypatch.setattr(litellm.proxy.proxy_server, "user_api_key_cache", cache)
+    monkeypatch.setattr(embrouter.proxy.proxy_server, "premium_user", True)
+    monkeypatch.setattr(embrouter.proxy.proxy_server, "prisma_client", mock_prisma)
+    monkeypatch.setattr(embrouter.proxy.proxy_server, "user_api_key_cache", cache)
 
     await delete_project(
         data=DeleteProjectRequest(project_ids=[project_id]),
         http_request=Request(scope={"type": "http"}),
         user_api_key_dict=UserAPIKeyAuth(
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=EmbrouterUserRoles.PROXY_ADMIN,
             api_key="sk-1234",
             user_id="1234",
         ),
     )
 
-    mock_prisma.db.litellm_projecttable.find_unique = AsyncMock(return_value=None)
+    mock_prisma.db.embrouter_projecttable.find_unique = AsyncMock(return_value=None)
     assert (
         await get_project_object(
             project_id=project_id, prisma_client=mock_prisma, user_api_key_cache=cache
@@ -996,18 +996,18 @@ async def test_update_project_succeeds_when_cache_eviction_fails(monkeypatch):
 
     mock_prisma = MagicMock()
     mock_prisma.jsonify_object = lambda data: data
-    mock_prisma.db.litellm_projecttable.find_unique = AsyncMock(return_value=existing_row)
-    mock_prisma.db.litellm_projecttable.update = AsyncMock(return_value=updated_row)
+    mock_prisma.db.embrouter_projecttable.find_unique = AsyncMock(return_value=existing_row)
+    mock_prisma.db.embrouter_projecttable.update = AsyncMock(return_value=updated_row)
 
-    monkeypatch.setattr(litellm.proxy.proxy_server, "premium_user", True)
-    monkeypatch.setattr(litellm.proxy.proxy_server, "prisma_client", mock_prisma)
-    monkeypatch.setattr(litellm.proxy.proxy_server, "user_api_key_cache", failing_cache)
+    monkeypatch.setattr(embrouter.proxy.proxy_server, "premium_user", True)
+    monkeypatch.setattr(embrouter.proxy.proxy_server, "prisma_client", mock_prisma)
+    monkeypatch.setattr(embrouter.proxy.proxy_server, "user_api_key_cache", failing_cache)
 
     response = await update_project(
         data=UpdateProjectRequest(project_id=project_id, models=["gpt-oss-120b"]),
         http_request=Request(scope={"type": "http"}),
         user_api_key_dict=UserAPIKeyAuth(
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=EmbrouterUserRoles.PROXY_ADMIN,
             api_key="sk-1234",
             user_id="1234",
         ),
@@ -1026,12 +1026,12 @@ async def test_project_eviction_publishes_cross_worker_invalidation(monkeypatch)
     """
     from unittest.mock import AsyncMock, patch
 
-    from litellm.proxy.auth.auth_checks import delete_cached_project_object
-    from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+    from embrouter.proxy.auth.auth_checks import delete_cached_project_object
+    from embrouter.proxy.common_utils.user_api_key_cache import UserApiKeyCache
 
     project_id = f"project-{uuid.uuid4()}"
     with patch(
-        "litellm.proxy.common_utils.auth_cache_invalidation_pubsub.publish_auth_cache_invalidation",
+        "embrouter.proxy.common_utils.auth_cache_invalidation_pubsub.publish_auth_cache_invalidation",
         new=AsyncMock(),
     ) as mock_publish:
         await delete_cached_project_object(
@@ -1043,7 +1043,7 @@ async def test_project_eviction_publishes_cross_worker_invalidation(monkeypatch)
 
 def test_enforce_project_model_quota_missing_both_raises():
     """A model added to a project without rpm/tpm is rejected."""
-    from litellm_enterprise.proxy.management_endpoints.project_endpoints import (
+    from embrouter_enterprise.proxy.management_endpoints.project_endpoints import (
         _raise_on_missing_project_model_quota,
     )
 
@@ -1056,7 +1056,7 @@ def test_enforce_project_model_quota_missing_both_raises():
 
 def test_enforce_project_model_quota_missing_tpm_raises():
     """A model with rpm but no tpm is rejected."""
-    from litellm_enterprise.proxy.management_endpoints.project_endpoints import (
+    from embrouter_enterprise.proxy.management_endpoints.project_endpoints import (
         _raise_on_missing_project_model_quota,
     )
 
@@ -1071,7 +1071,7 @@ def test_enforce_project_model_quota_missing_tpm_raises():
 
 def test_enforce_project_model_quota_all_present_passes():
     """A model with both rpm and tpm set passes."""
-    from litellm_enterprise.proxy.management_endpoints.project_endpoints import (
+    from embrouter_enterprise.proxy.management_endpoints.project_endpoints import (
         _raise_on_missing_project_model_quota,
     )
 
@@ -1086,7 +1086,7 @@ def test_enforce_project_model_quota_all_present_passes():
 
 def test_enforce_project_model_quota_no_models_passes():
     """A project with no models has nothing to enforce."""
-    from litellm_enterprise.proxy.management_endpoints.project_endpoints import (
+    from embrouter_enterprise.proxy.management_endpoints.project_endpoints import (
         _raise_on_missing_project_model_quota,
     )
 
@@ -1096,7 +1096,7 @@ def test_enforce_project_model_quota_no_models_passes():
 
 def test_enforce_project_model_quota_zero_rejected():
     """A zero quota is non-positive -> rejected (downstream treats it as exhausted)."""
-    from litellm_enterprise.proxy.management_endpoints.project_endpoints import (
+    from embrouter_enterprise.proxy.management_endpoints.project_endpoints import (
         _raise_on_missing_project_model_quota,
     )
 
@@ -1112,7 +1112,7 @@ def test_enforce_project_model_quota_zero_rejected():
 
 def test_enforce_project_model_quota_negative_rejected():
     """A negative quota is non-positive -> rejected."""
-    from litellm_enterprise.proxy.management_endpoints.project_endpoints import (
+    from embrouter_enterprise.proxy.management_endpoints.project_endpoints import (
         _raise_on_missing_project_model_quota,
     )
 
@@ -1130,8 +1130,8 @@ def test_update_quota_adds_model_without_quota_rejected():
     """Adding a model via /project/update without quota is rejected (the bypass)."""
     import types
 
-    from litellm.proxy._types import UpdateProjectRequest
-    from litellm_enterprise.proxy.management_endpoints.project_endpoints import (
+    from embrouter.proxy._types import UpdateProjectRequest
+    from embrouter_enterprise.proxy.management_endpoints.project_endpoints import (
         _raise_on_missing_project_model_quota_on_update,
     )
 
@@ -1145,8 +1145,8 @@ def test_update_quota_adds_model_with_quota_passes():
     """Adding a model with a positive quota via update passes."""
     import types
 
-    from litellm.proxy._types import UpdateProjectRequest
-    from litellm_enterprise.proxy.management_endpoints.project_endpoints import (
+    from embrouter.proxy._types import UpdateProjectRequest
+    from embrouter_enterprise.proxy.management_endpoints.project_endpoints import (
         _raise_on_missing_project_model_quota_on_update,
     )
 
@@ -1164,8 +1164,8 @@ def test_update_quota_partial_update_keeps_existing_valid_passes():
     """A partial update that doesn't touch models/quota keeps existing valid quota -> passes."""
     import types
 
-    from litellm.proxy._types import UpdateProjectRequest
-    from litellm_enterprise.proxy.management_endpoints.project_endpoints import (
+    from embrouter.proxy._types import UpdateProjectRequest
+    from embrouter_enterprise.proxy.management_endpoints.project_endpoints import (
         _raise_on_missing_project_model_quota_on_update,
     )
 
@@ -1181,8 +1181,8 @@ def test_update_quota_existing_quotaless_model_rejected():
     """A project already holding a quota-less model is rejected on any update (fail-closed)."""
     import types
 
-    from litellm.proxy._types import UpdateProjectRequest
-    from litellm_enterprise.proxy.management_endpoints.project_endpoints import (
+    from embrouter.proxy._types import UpdateProjectRequest
+    from embrouter_enterprise.proxy.management_endpoints.project_endpoints import (
         _raise_on_missing_project_model_quota_on_update,
     )
 
@@ -1193,14 +1193,14 @@ def test_update_quota_existing_quotaless_model_rejected():
 
 
 def _enforced_new_project_mocks(monkeypatch, team_models: list[str], llm_router: mock.MagicMock | None) -> None:
-    from litellm.proxy._types import LiteLLM_TeamTable
-    from litellm_enterprise.proxy.management_endpoints import project_endpoints as pe
+    from embrouter.proxy._types import EmbRouter_TeamTable
+    from embrouter_enterprise.proxy.management_endpoints import project_endpoints as pe
 
-    team = LiteLLM_TeamTable(team_id="test-team", models=team_models)
-    monkeypatch.setattr(litellm.proxy.proxy_server, "prisma_client", mock.MagicMock())
-    monkeypatch.setattr(litellm.proxy.proxy_server, "premium_user", True)
-    monkeypatch.setattr(litellm.proxy.proxy_server, "llm_router", llm_router)
-    monkeypatch.setattr(litellm.proxy.proxy_server, "general_settings", {"enforce_project_model_quota": True})
+    team = EmbRouter_TeamTable(team_id="test-team", models=team_models)
+    monkeypatch.setattr(embrouter.proxy.proxy_server, "prisma_client", mock.MagicMock())
+    monkeypatch.setattr(embrouter.proxy.proxy_server, "premium_user", True)
+    monkeypatch.setattr(embrouter.proxy.proxy_server, "llm_router", llm_router)
+    monkeypatch.setattr(embrouter.proxy.proxy_server, "general_settings", {"enforce_project_model_quota": True})
     monkeypatch.setattr(pe, "_validate_team_exists", mock.AsyncMock(return_value=team))
     monkeypatch.setattr(pe, "_check_user_permission_for_project", mock.AsyncMock(return_value=True))
 
@@ -1209,7 +1209,7 @@ async def _run_new_project(data: NewProjectRequest) -> None:
     await new_project(
         data=data,
         http_request=Request(scope={"type": "http"}),
-        user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-1234", user_id="1234"),
+        user_api_key_dict=UserAPIKeyAuth(user_role=EmbrouterUserRoles.PROXY_ADMIN, api_key="sk-1234", user_id="1234"),
     )
 
 
@@ -1231,12 +1231,12 @@ def _project_update_mocks(monkeypatch, stored_metadata: dict) -> mock.MagicMock:
     )
     mock_prisma = mock.MagicMock()
     mock_prisma.jsonify_object = lambda data: data
-    mock_prisma.db.litellm_projecttable.find_unique = mock.AsyncMock(return_value=existing_row)
-    mock_prisma.db.litellm_projecttable.update = mock.AsyncMock(return_value=mock.MagicMock())
+    mock_prisma.db.embrouter_projecttable.find_unique = mock.AsyncMock(return_value=existing_row)
+    mock_prisma.db.embrouter_projecttable.update = mock.AsyncMock(return_value=mock.MagicMock())
 
-    monkeypatch.setattr(litellm.proxy.proxy_server, "premium_user", True)
-    monkeypatch.setattr(litellm.proxy.proxy_server, "prisma_client", mock_prisma)
-    monkeypatch.setattr(litellm.proxy.proxy_server, "user_api_key_cache", UserApiKeyCache())
+    monkeypatch.setattr(embrouter.proxy.proxy_server, "premium_user", True)
+    monkeypatch.setattr(embrouter.proxy.proxy_server, "prisma_client", mock_prisma)
+    monkeypatch.setattr(embrouter.proxy.proxy_server, "user_api_key_cache", UserApiKeyCache())
     return mock_prisma
 
 
@@ -1245,7 +1245,7 @@ async def _run_project_update(project_id: str, **fields) -> None:
         data=UpdateProjectRequest(project_id=project_id, **fields),
         http_request=Request(scope={"type": "http"}),
         user_api_key_dict=UserAPIKeyAuth(
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=EmbrouterUserRoles.PROXY_ADMIN,
             api_key="sk-1234",
             user_id="1234",
         ),
@@ -1253,7 +1253,7 @@ async def _run_project_update(project_id: str, **fields) -> None:
 
 
 def _written_project_data(mock_prisma: mock.MagicMock) -> dict:
-    return mock_prisma.db.litellm_projecttable.update.await_args.kwargs["data"]
+    return mock_prisma.db.embrouter_projecttable.update.await_args.kwargs["data"]
 
 
 @pytest.mark.asyncio
@@ -1295,12 +1295,12 @@ async def test_update_project_leaves_metadata_untouched_when_no_limit_is_sent(mo
 @pytest.mark.asyncio
 async def test_update_project_clears_only_the_explicit_budget_cap(monkeypatch):
     mock_prisma = _project_update_mocks(monkeypatch, {})
-    mock_prisma.db.litellm_projecttable.find_unique.return_value.budget_id = "budget-clear-test"
-    mock_prisma.db.litellm_budgettable.update = mock.AsyncMock()
+    mock_prisma.db.embrouter_projecttable.find_unique.return_value.budget_id = "budget-clear-test"
+    mock_prisma.db.embrouter_budgettable.update = mock.AsyncMock()
 
     await _run_project_update("project-clear-test", max_budget=None)
 
-    mock_prisma.db.litellm_budgettable.update.assert_awaited_once_with(
+    mock_prisma.db.embrouter_budgettable.update.assert_awaited_once_with(
         where={"budget_id": "budget-clear-test"},
         data={"max_budget": None, "updated_by": "1234"},
     )
@@ -1310,7 +1310,7 @@ async def test_update_project_clears_only_the_explicit_budget_cap(monkeypatch):
 @pytest.mark.parametrize("entry", ["all-proxy-models", "*", "azure/*"])
 def test_enforce_project_model_quota_rejects_entries_that_expand_at_request_time(entry):
     """A quota keyed on a wildcard entry is never applied by the limiter, so it fails loudly."""
-    from litellm_enterprise.proxy.management_endpoints.project_endpoints import (
+    from embrouter_enterprise.proxy.management_endpoints.project_endpoints import (
         _raise_on_missing_project_model_quota,
     )
 
@@ -1329,7 +1329,7 @@ def test_enforce_project_model_quota_rejects_entries_that_expand_at_request_time
 
 def test_enforce_project_model_quota_rejects_access_group_only_when_router_defines_it():
     """A plain model name passes; the same name is rejected once the router reports it as an access group."""
-    from litellm_enterprise.proxy.management_endpoints.project_endpoints import (
+    from embrouter_enterprise.proxy.management_endpoints.project_endpoints import (
         _raise_on_missing_project_model_quota,
     )
 
@@ -1350,7 +1350,7 @@ def test_update_quota_rejects_wildcard_left_on_project():
     """An update that leaves a wildcard entry on the project is rejected even when it carries a quota."""
     import types
 
-    from litellm_enterprise.proxy.management_endpoints.project_endpoints import (
+    from embrouter_enterprise.proxy.management_endpoints.project_endpoints import (
         _raise_on_missing_project_model_quota_on_update,
     )
 

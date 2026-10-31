@@ -8,13 +8,13 @@ which is critical for ChatGPT UI widget rendering.
 
 import pytest
 
-# Add the parent directory to the path so we can import litellm
+# Add the parent directory to the path so we can import embrouter
 
 from mcp.types import Tool as MCPTool
 
-from litellm.proxy._experimental.mcp_server.mcp_server_manager import MCPServerManager
-from litellm.proxy._types import MCPTransport
-from litellm.types.mcp_server.mcp_server_manager import MCPServer
+from embrouter.proxy._experimental.mcp_server.mcp_server_manager import MCPServerManager
+from embrouter.proxy._types import MCPTransport
+from embrouter.types.mcp_server.mcp_server_manager import MCPServer
 
 
 class TestMCPMetadataPreservation:

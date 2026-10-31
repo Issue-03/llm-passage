@@ -22,7 +22,7 @@ type TargetResult = { status: "pending" } | ModelGroupConnectionResult;
 
 const cleanErrorMessage = (error: string): string => {
   const mainError = error.split("stack trace:")[0].trim();
-  return mainError.replace(/^litellm\.(.*?)Error: /, "");
+  return mainError.replace(/^embrouter\.(.*?)Error: /, "");
 };
 
 const AutoRouterConnectionTest: React.FC<AutoRouterConnectionTestProps> = ({

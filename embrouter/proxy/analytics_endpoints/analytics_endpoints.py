@@ -5,9 +5,9 @@ from typing import Annotated, Final
 import fastapi
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from litellm.proxy._types import *
-from litellm.proxy.analytics_endpoints.cache_activity import CacheActivityResponse, get_cache_activity
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy._types import *
+from embrouter.proxy.analytics_endpoints.cache_activity import CacheActivityResponse, get_cache_activity
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
 
 router: Final = APIRouter()
 
@@ -42,7 +42,7 @@ async def get_global_activity(
     cache hits vs successful LLM API requests vs failed requests, plus totals
     for the stat cards and the available key-alias/model filter options.
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(

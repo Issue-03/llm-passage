@@ -4,7 +4,7 @@ import base64
 
 import pytest
 
-from litellm.proxy._experimental.mcp_server.auth.token_endpoint_auth import (
+from embrouter.proxy._experimental.mcp_server.auth.token_endpoint_auth import (
     TokenEndpointAuthConfigError,
     build_token_endpoint_client_auth,
     normalize_token_endpoint_auth_method,

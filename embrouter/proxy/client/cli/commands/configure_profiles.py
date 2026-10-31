@@ -11,7 +11,7 @@ import click
 from filelock import FileLock, Timeout
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
-from litellm.litellm_core_utils.private_json import (
+from embrouter.embrouter_core_utils.private_json import (
     commit_staged_json,
     discard_staged_json,
     ensure_private_dir,
@@ -104,7 +104,7 @@ def read_saved_setup(target: Target) -> SavedSetup | None:
 
 def _lock_path(target: Target) -> Path:
     digest: Final = hashlib.sha256(f"{target}:{settings_path_for(target).resolve()}".encode()).hexdigest()
-    return Path.home() / ".litellm" / "setup-locks" / f"{digest}.lock"
+    return Path.home() / ".embrouter" / "setup-locks" / f"{digest}.lock"
 
 
 @contextmanager

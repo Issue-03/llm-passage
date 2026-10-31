@@ -13,28 +13,28 @@ from httpx import HTTPStatusError
 from requests.auth import HTTPBasicAuth
 from typing_extensions import ReadOnly, TypedDict, Unpack
 
-from litellm._logging import verbose_proxy_logger
-from litellm.integrations.custom_guardrail import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.integrations.custom_guardrail import (
     CustomGuardrail,
     log_guardrail_information,
 )
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.llms.openai import ChatCompletionToolCallChunk
-from litellm.types.proxy.guardrails.guardrail_hooks.hiddenlayer import (
+from embrouter.types.guardrails import GuardrailEventHooks
+from embrouter.types.llms.openai import ChatCompletionToolCallChunk
+from embrouter.types.proxy.guardrails.guardrail_hooks.hiddenlayer import (
     HiddenlayerAction,
     HiddenlayerMessages,
 )
-from litellm.types.utils import ChatCompletionMessageToolCall, GenericGuardrailAPIInputs
+from embrouter.types.utils import ChatCompletionMessageToolCall, GenericGuardrailAPIInputs
 
 if TYPE_CHECKING:
     from pydantic import BaseModel
 
-    from litellm.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
+    from embrouter.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
 
 
 _AUTH_TIMEOUT_SECONDS: Final[float] = 30.0
@@ -83,7 +83,7 @@ class _LoggedCallMetadata(TypedDict, total=False):
     headers: ReadOnly[dict[str, str]]
 
 
-class _LoggedCallLitellmParams(TypedDict, total=False):
+class _LoggedCallEmbrouterParams(TypedDict, total=False):
     metadata: ReadOnly[_LoggedCallMetadata]
 
 
@@ -117,7 +117,7 @@ class _LoggedCallDetails(Protocol):
     """Logging object view that exposes its untyped call details with the shape this guardrail reads."""
 
     @property
-    def model_call_details(self) -> Mapping[str, _LoggedCallLitellmParams]: ...
+    def model_call_details(self) -> Mapping[str, _LoggedCallEmbrouterParams]: ...
 
 
 class _TokenPayloadSource(Protocol):
@@ -145,7 +145,7 @@ def _proxy_request_headers(request_data: _HiddenlayerRequestData) -> dict[str, s
 
 
 def _logged_request_headers(logging_obj: _LoggedCallDetails) -> dict[str, str]:
-    return logging_obj.model_call_details.get("litellm_params", {}).get("metadata", {}).get("headers", {})
+    return logging_obj.model_call_details.get("embrouter_params", {}).get("metadata", {}).get("headers", {})
 
 
 def _token_payload(response: _TokenPayloadSource) -> Mapping[str, str]:
@@ -263,7 +263,7 @@ class HiddenlayerGuardrail(CustomGuardrail):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict,
         input_type: Literal["request", "response"],
-        logging_obj: LiteLLMLoggingObj | None = None,
+        logging_obj: EmbRouterLoggingObj | None = None,
     ) -> GenericGuardrailAPIInputs:
         """Validate (and optionally redact) text via HiddenLayer before/after LLM calls."""
 
@@ -283,7 +283,7 @@ class HiddenlayerGuardrail(CustomGuardrail):
         if not headers and logging_obj and logging_obj.model_call_details:
             headers = _logged_request_headers(logging_obj)
 
-        hl_request_metadata["requester_id"] = headers.get("hl-requester-id") or "LiteLLM"
+        hl_request_metadata["requester_id"] = headers.get("hl-requester-id") or "EmbRouter"
         project_id: Final = headers.get("hl-project-id")
 
         if scan_params := inputs.get("structured_messages"):
@@ -367,7 +367,7 @@ class HiddenlayerGuardrail(CustomGuardrail):
 
         headers: Final = {
             "Content-Type": "application/json",
-            "hl-runtime-edge-provider": "litellm",
+            "hl-runtime-edge-provider": "embrouter",
             "hl-runtime-edge-provider-version": "1",
         }
 
@@ -415,7 +415,7 @@ class HiddenlayerGuardrail(CustomGuardrail):
 
     @staticmethod
     def get_config_model() -> type[GuardrailConfigModel[BaseModel]] | None:
-        from litellm.types.proxy.guardrails.guardrail_hooks.hiddenlayer import (
+        from embrouter.types.proxy.guardrails.guardrail_hooks.hiddenlayer import (
             HiddenlayerGuardrailConfigModel,
         )
 
@@ -467,7 +467,7 @@ class HiddenlayerGuardrailV2(CustomGuardrail):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict,
         input_type: Literal["request", "response"],
-        logging_obj: LiteLLMLoggingObj | None = None,
+        logging_obj: EmbRouterLoggingObj | None = None,
     ) -> GenericGuardrailAPIInputs:
         """Validate (and optionally redact) text via HiddenLayer before/after LLM calls."""
 
@@ -490,7 +490,7 @@ class HiddenlayerGuardrailV2(CustomGuardrail):
         hl_headers: Final = {h.lower(): v for h, v in headers.items() if h.lower().startswith("hl-")}
 
         if "hl-requester-id" not in hl_headers:
-            hl_headers["hl-requester-id"] = "LiteLLM"
+            hl_headers["hl-requester-id"] = "EmbRouter"
 
         payload: _HiddenlayerV2Payload
         if input_type == "request":
@@ -571,7 +571,7 @@ class HiddenlayerGuardrailV2(CustomGuardrail):
 
         headers: Final = {
             "Content-Type": "application/json",
-            "hl-runtime-edge-provider": "litellm",
+            "hl-runtime-edge-provider": "embrouter",
             "hl-runtime-edge-provider-version": "2",
         }
         if self.jwt_token:
@@ -615,7 +615,7 @@ class HiddenlayerGuardrailV2(CustomGuardrail):
 
     @staticmethod
     def get_config_model() -> type[GuardrailConfigModel[BaseModel]] | None:
-        from litellm.types.proxy.guardrails.guardrail_hooks.hiddenlayer import (
+        from embrouter.types.proxy.guardrails.guardrail_hooks.hiddenlayer import (
             HiddenlayerGuardrailConfigModel,
         )
 

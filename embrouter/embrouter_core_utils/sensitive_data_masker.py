@@ -5,8 +5,8 @@ from typing import Any, Final
 
 from pydantic import BaseModel
 
-from litellm.constants import DEFAULT_MAX_RECURSE_DEPTH, DEFAULT_MAX_RECURSE_DEPTH_SENSITIVE_DATA_MASKER
-from litellm.litellm_core_utils.secret_redaction import REDACTED
+from embrouter.constants import DEFAULT_MAX_RECURSE_DEPTH, DEFAULT_MAX_RECURSE_DEPTH_SENSITIVE_DATA_MASKER
+from embrouter.embrouter_core_utils.secret_redaction import REDACTED
 
 _DEFAULT_SENSITIVE_PATTERNS: Final = frozenset(
     (

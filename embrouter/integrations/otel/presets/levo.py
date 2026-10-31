@@ -2,8 +2,8 @@
 
 from typing import Final
 
-from litellm.integrations.levo.levo import LevoLogger as _V1Levo
-from litellm.integrations.otel.model.config import (
+from embrouter.integrations.levo.levo import LevoLogger as _V1Levo
+from embrouter.integrations.otel.model.config import (
     ExporterOwner,
     ExporterSpec,
     OpenTelemetryV2Config,

@@ -1,9 +1,9 @@
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from typing import Final
 
-import litellm
-from litellm._logging import print_verbose
-from litellm.utils import get_optional_params
+import embrouter
+from embrouter._logging import print_verbose
+from embrouter.utils import get_optional_params
 
 from ..llms.vllm.completion import handler as vllm_handler
 
@@ -28,11 +28,11 @@ def batch_completion(
     request_timeout: int | None = None,
     timeout: int | None = 600,
     max_workers: int | None = 100,
-    # Optional liteLLM function params
+    # Optional embRouter function params
     **kwargs,
 ):
     """
-    Batch litellm.completion function for a given model.
+    Batch embrouter.completion function for a given model.
 
     Args:
         model (str): The model to use for generating completions.
@@ -62,7 +62,7 @@ def batch_completion(
     completions: Final = []
     model = model
     custom_llm_provider = None
-    if model.split("/", 1)[0] in litellm.provider_list:
+    if model.split("/", 1)[0] in embrouter.provider_list:
         custom_llm_provider = model.split("/", 1)[0]
         model = model.split("/", 1)[1]
     if custom_llm_provider == "vllm":
@@ -86,7 +86,7 @@ def batch_completion(
         results = vllm_handler.batch_completions(
             model=model,
             messages=batch_messages,
-            custom_prompt_dict=litellm.custom_prompt_dict,
+            custom_prompt_dict=embrouter.custom_prompt_dict,
             optional_params=optional_params,
         )
     # all non VLLM models for batch completion models
@@ -106,7 +106,7 @@ def batch_completion(
                     original_kwargs = {}
                     if "kwargs" in kwargs_modified:
                         original_kwargs = kwargs_modified.pop("kwargs")
-                    future = executor.submit(litellm.completion, **kwargs_modified, **original_kwargs)
+                    future = executor.submit(embrouter.completion, **kwargs_modified, **original_kwargs)
                     completions.append(future)
 
         # Retrieve the results from the futures
@@ -151,7 +151,7 @@ def batch_completion_models(*args, **kwargs):
         futures = {}
         with ThreadPoolExecutor(max_workers=len(models)) as executor:
             for model in models:
-                futures[model] = executor.submit(litellm.completion, *args, model=model, **kwargs)
+                futures[model] = executor.submit(embrouter.completion, *args, model=model, **kwargs)
 
             for model, future in sorted(futures.items(), key=lambda x: models.index(x[0])):
                 if future.result() is not None:
@@ -168,7 +168,7 @@ def batch_completion_models(*args, **kwargs):
                     if key not in deployment:  # don't override deployment values e.g. model name, api base, etc.
                         deployment[key] = kwargs[key]
                 kwargs = {**deployment, **nested_kwargs}
-                futures[deployment["model"]] = executor.submit(litellm.completion, **kwargs)
+                futures[deployment["model"]] = executor.submit(embrouter.completion, **kwargs)
 
             while futures:
                 # wait for the first returned future
@@ -242,7 +242,7 @@ def batch_completion_models_all_responses(*args, **kwargs):
     responses: Final = []
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(models)) as executor:
-        futures: Final = [executor.submit(litellm.completion, *args, model=model, **kwargs) for model in models]
+        futures: Final = [executor.submit(embrouter.completion, *args, model=model, **kwargs) for model in models]
 
         for future in futures:
             try:

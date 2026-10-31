@@ -10,26 +10,26 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import TypeAdapter
 from typing_extensions import ReadOnly, TypedDict
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.litellm_core_utils.get_blog_posts import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.embrouter_core_utils.get_blog_posts import (
     BlogPost,
     BlogPostsResponse,
     GetBlogPosts,
     get_blog_posts,
 )
-from litellm.proxy._types import (
+from embrouter.proxy._types import (
     CommonProxyErrors,
 )
-from litellm.proxy.utils import get_custom_url
-from litellm.repositories.table_repositories import ClaudeCodePluginRepository
-from litellm.router_strategy.complexity_router.fuse_presets import FusePresetCatalog, get_fuse_presets
-from litellm.types.agents import AgentCard
-from litellm.types.mcp import MCPPublicServer
-from litellm.types.proxy.management_endpoints.model_management_endpoints import (
+from embrouter.proxy.utils import get_custom_url
+from embrouter.repositories.table_repositories import ClaudeCodePluginRepository
+from embrouter.router_strategy.complexity_router.fuse_presets import FusePresetCatalog, get_fuse_presets
+from embrouter.types.agents import AgentCard
+from embrouter.types.mcp import MCPPublicServer
+from embrouter.types.proxy.management_endpoints.model_management_endpoints import (
     ModelGroupInfoProxy,
 )
-from litellm.types.proxy.public_endpoints.public_endpoints import (
+from embrouter.types.proxy.public_endpoints.public_endpoints import (
     AgentCreateInfo,
     AutoRouterPresetRecord,
     ComplexityScorerDefaults,
@@ -37,7 +37,7 @@ from litellm.types.proxy.public_endpoints.public_endpoints import (
     PublicModelHubInfo,
     SupportedEndpointsResponse,
 )
-from litellm.types.utils import LlmProviders
+from embrouter.types.utils import LlmProviders
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -205,7 +205,7 @@ _PROVIDER_CREATE_FIELDS_ADAPTER: Final = TypeAdapter(list[ProviderCreateInfo])
 
 def _load_endpoints() -> list[_EndpointEntry]:
     raw: Final = _PROVIDERS_FILE_ADAPTER.validate_python(
-        json.loads(files("litellm").joinpath("provider_endpoints_support_backup.json").read_text(encoding="utf-8"))
+        json.loads(files("embrouter").joinpath("provider_endpoints_support_backup.json").read_text(encoding="utf-8"))
     )
     return _build_endpoints(raw)
 
@@ -219,11 +219,11 @@ def _load_endpoints() -> list[_EndpointEntry]:
     response_model=list[ModelGroupInfoProxy],
 )
 async def public_model_hub():
-    import litellm
-    from litellm.proxy.health_endpoints._health_endpoints import (
+    import embrouter
+    from embrouter.proxy.health_endpoints._health_endpoints import (
         _convert_health_check_to_dict,
     )
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         _get_model_group_info,
         llm_router,
         prisma_client,
@@ -233,10 +233,10 @@ async def public_model_hub():
         raise HTTPException(status_code=400, detail=CommonProxyErrors.no_llm_router.value)
 
     model_groups: list[ModelGroupInfoProxy] = []
-    if litellm.public_model_groups is not None:
+    if embrouter.public_model_groups is not None:
         model_groups = _get_model_group_info(
             llm_router=llm_router,
-            all_models_str=litellm.public_model_groups,
+            all_models_str=embrouter.public_model_groups,
             model_group=None,
         )
 
@@ -271,12 +271,12 @@ async def public_model_hub():
     response_model=list[AgentCard],
 )
 async def get_agents(request: Request):
-    import litellm
-    from litellm.proxy.agent_endpoints.agent_registry import global_agent_registry
+    import embrouter
+    from embrouter.proxy.agent_endpoints.agent_registry import global_agent_registry
 
     agents: Final = global_agent_registry.get_public_agent_list()
 
-    if litellm.public_agent_groups is None:
+    if embrouter.public_agent_groups is None:
         return []
 
     return [
@@ -285,7 +285,7 @@ async def get_agents(request: Request):
             "url": get_custom_url(str(request.base_url), route=f"a2a/{agent.agent_id}"),
         }
         for agent in agents
-        if not global_agent_registry.ids_for_agent(agent.agent_id).isdisjoint(litellm.public_agent_groups)
+        if not global_agent_registry.ids_for_agent(agent.agent_id).isdisjoint(embrouter.public_agent_groups)
     ]
 
 
@@ -295,7 +295,7 @@ async def get_agents(request: Request):
     response_model=list[MCPPublicServer],
 )
 async def get_mcp_servers():
-    from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+    from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
         global_mcp_server_manager,
     )
 
@@ -307,7 +307,7 @@ async def get_mcp_servers():
                 "mcp_info": {
                     **(server.mcp_info or {}),
                     "is_public": True,
-                    "is_public_explicit": server.server_id in (litellm.public_mcp_servers or ()),
+                    "is_public_explicit": server.server_id in (embrouter.public_mcp_servers or ()),
                 },
             }
         )
@@ -321,10 +321,10 @@ async def get_mcp_servers():
 )
 async def public_skill_hub():
     """Return enabled (public) Claude Code skills — no auth required."""
-    from litellm.proxy.anthropic_endpoints.claude_code_endpoints.claude_code_marketplace import (
+    from embrouter.proxy.anthropic_endpoints.claude_code_endpoints.claude_code_marketplace import (
         _get_prisma_client,
     )
-    from litellm.types.proxy.claude_code_endpoints import (
+    from embrouter.types.proxy.claude_code_endpoints import (
         ListPluginsResponse,
         PluginListItem,
     )
@@ -365,11 +365,11 @@ async def public_skill_hub():
     response_model=PublicModelHubInfo,
 )
 async def public_model_hub_info():
-    import litellm
-    from litellm.proxy.proxy_server import _title, version
+    import embrouter
+    from embrouter.proxy.proxy_server import _title, version
 
     try:
-        from litellm_enterprise.proxy.proxy_server import EnterpriseProxyConfig
+        from embrouter_enterprise.proxy.proxy_server import EnterpriseProxyConfig
 
         custom_docs_description = EnterpriseProxyConfig.get_custom_docs_description()
     except Exception:
@@ -378,8 +378,8 @@ async def public_model_hub_info():
     return PublicModelHubInfo(
         docs_title=_title,
         custom_docs_description=custom_docs_description,
-        litellm_version=version,
-        useful_links=litellm.public_model_groups_links,
+        embrouter_version=version,
+        useful_links=embrouter.public_model_groups_links,
     )
 
 
@@ -390,7 +390,7 @@ async def public_model_hub_info():
 )
 async def get_supported_providers() -> list[str]:
     """
-    Return a sorted list of all providers supported by LiteLLM.
+    Return a sorted list of all providers supported by EmbRouter.
     """
 
     return sorted(provider.value for provider in LlmProviders)
@@ -428,7 +428,7 @@ async def get_complexity_scorer_defaults() -> ComplexityScorerDefaults:
     """
     Return the complexity router's shipped heuristic scorer defaults, for the dashboard to prefill with.
     """
-    from litellm.router_strategy.complexity_router.config import (
+    from embrouter.router_strategy.complexity_router.config import (
         DEFAULT_DIMENSION_WEIGHTS,
         DEFAULT_TIER_BOUNDARIES,
         DEFAULT_TOKEN_THRESHOLDS,
@@ -450,18 +450,18 @@ async def get_public_fuse_presets() -> FusePresetCatalog:
 
 
 @router.get(
-    "/public/litellm_model_cost_map",
+    "/public/embrouter_model_cost_map",
     tags=["public", "model management"],
 )
-async def get_litellm_model_cost_map():
+async def get_embrouter_model_cost_map():
     """
-    Public endpoint to get the LiteLLM model cost map.
+    Public endpoint to get the EmbRouter model cost map.
     Returns pricing information for all supported models.
     """
-    import litellm
+    import embrouter
 
     try:
-        _model_cost_map: Final = litellm.model_cost
+        _model_cost_map: Final = embrouter.model_cost
         return _model_cost_map
     except Exception as e:
         raise HTTPException(
@@ -471,21 +471,21 @@ async def get_litellm_model_cost_map():
 
 
 @router.get(
-    "/public/litellm_blog_posts",
+    "/public/embrouter_blog_posts",
     tags=["public"],
     response_model=BlogPostsResponse,
 )
-async def get_litellm_blog_posts():
+async def get_embrouter_blog_posts():
     """
-    Public endpoint to get the latest LiteLLM blog posts.
+    Public endpoint to get the latest EmbRouter blog posts.
 
     Fetches from GitHub with a 1-hour in-process cache.
     Falls back to the bundled local backup on any failure.
     """
     try:
-        posts_data = get_blog_posts(url=litellm.blog_posts_url)
+        posts_data = get_blog_posts(url=embrouter.blog_posts_url)
     except Exception as e:
-        verbose_logger.warning("LiteLLM: get_litellm_blog_posts endpoint fallback triggered: %s", str(e))
+        verbose_logger.warning("EmbRouter: get_embrouter_blog_posts endpoint fallback triggered: %s", str(e))
         posts_data = GetBlogPosts.load_local_blog_posts()
 
     posts: Final = [BlogPost(**p) for p in posts_data[:5]]
@@ -497,14 +497,14 @@ _AUTOROUTER_PRESETS_ADAPTER: Final = TypeAdapter(dict[str, AutoRouterPresetRecor
 
 def _load_bundled_autorouter_presets() -> Mapping[str, AutoRouterPresetRecord]:
     raw: Final = json.loads(
-        files("litellm.proxy.public_endpoints").joinpath("autorouter_presets.json").read_text(encoding="utf-8")
+        files("embrouter.proxy.public_endpoints").joinpath("autorouter_presets.json").read_text(encoding="utf-8")
     )
     return _AUTOROUTER_PRESETS_ADAPTER.validate_python(raw)
 
 
 async def _fetch_remote_autorouter_presets(url: str) -> Mapping[str, AutoRouterPresetRecord]:
-    from litellm.llms.custom_httpx.http_handler import get_async_httpx_client
-    from litellm.types.llms.custom_http import httpxSpecialProvider
+    from embrouter.llms.custom_httpx.http_handler import get_async_httpx_client
+    from embrouter.types.llms.custom_http import httpxSpecialProvider
 
     client: Final = get_async_httpx_client(llm_provider=httpxSpecialProvider.UI)
     response: Final = await client.get(url, timeout=5.0)
@@ -519,13 +519,13 @@ async def _resolve_autorouter_presets(
     url: str,
     fetch: Callable[[str], Awaitable[Mapping[str, AutoRouterPresetRecord]]],
 ) -> Mapping[str, AutoRouterPresetRecord]:
-    if not url or os.getenv("LITELLM_LOCAL_AUTOROUTER_PRESETS", "").lower() == "true":
+    if not url or os.getenv("EMBROUTER_LOCAL_AUTOROUTER_PRESETS", "").lower() == "true":
         return _load_bundled_autorouter_presets()
     try:
         return await fetch(url)
     except Exception as e:
         verbose_logger.warning(
-            "LiteLLM: failed to fetch auto-router presets from %s: %s. Serving the bundled catalog for the life of this process.",
+            "EmbRouter: failed to fetch auto-router presets from %s: %s. Serving the bundled catalog for the life of this process.",
             url,
             str(e),
         )
@@ -564,12 +564,12 @@ async def get_public_autorouter_presets() -> Mapping[str, AutoRouterPresetRecord
     """
     Return the auto-router preset catalog the dashboard's template picker renders.
 
-    Resolved once per process, like the model cost map: fetched from ``litellm.autorouter_presets_url``
-    (override with ``LITELLM_AUTOROUTER_PRESETS_URL``) on the first request, falling back to the
-    catalog bundled with the package on any failure. Set ``LITELLM_LOCAL_AUTOROUTER_PRESETS=True``
+    Resolved once per process, like the model cost map: fetched from ``embrouter.autorouter_presets_url``
+    (override with ``EMBROUTER_AUTOROUTER_PRESETS_URL``) on the first request, falling back to the
+    catalog bundled with the package on any failure. Set ``EMBROUTER_LOCAL_AUTOROUTER_PRESETS=True``
     to serve the bundled catalog only. A restart picks up a newly published catalog.
     """
-    return await get_autorouter_presets(url=litellm.autorouter_presets_url)
+    return await get_autorouter_presets(url=embrouter.autorouter_presets_url)
 
 
 @router.get(
@@ -579,7 +579,7 @@ async def get_public_autorouter_presets() -> Mapping[str, AutoRouterPresetRecord
 )
 async def get_supported_endpoints() -> SupportedEndpointsResponse:
     """
-    Return the list of LiteLLM proxy endpoints and which providers support each one.
+    Return the list of EmbRouter proxy endpoints and which providers support each one.
 
     Reads from the bundled local backup file. Result is cached in-process for
     the lifetime of the server process.
@@ -625,11 +625,11 @@ async def get_agent_fields() -> list[AgentCreateInfo]:
         inherit_from = agent.get("inherit_credentials_from_provider")
         if inherit_from and inherit_from in provider_map:
             provider = provider_map[inherit_from]
-            # Copy provider fields and mark them for inclusion in litellm_params
+            # Copy provider fields and mark them for inclusion in embrouter_params
             inherited_fields = []
             for field in provider.get("credential_fields", []):
                 field_copy = field.copy()
-                field_copy["include_in_litellm_params"] = True
+                field_copy["include_in_embrouter_params"] = True
                 inherited_fields.append(field_copy)
             # Append provider credential fields after agent's own fields
             agent["credential_fields"] = agent.get("credential_fields", []) + inherited_fields

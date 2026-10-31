@@ -2,10 +2,10 @@
 
 from typing import Final
 
-from litellm.llms.openai.image_generation.guardrail_translation.handler import (
+from embrouter.llms.openai.image_generation.guardrail_translation.handler import (
     OpenAIImageGenerationHandler,
 )
-from litellm.types.utils import CallTypes
+from embrouter.types.utils import CallTypes
 
 guardrail_translation_mappings: Final = {
     CallTypes.image_generation: OpenAIImageGenerationHandler,

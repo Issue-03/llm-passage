@@ -4,26 +4,26 @@ from typing import TYPE_CHECKING, Any, Final, cast
 import httpx
 from httpx._types import RequestFiles
 
-import litellm
-from litellm.images.utils import ImageEditRequestUtils
-from litellm.llms.base_llm.image_edit.transformation import BaseImageEditConfig
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.images.main import (
+import embrouter
+from embrouter.images.utils import ImageEditRequestUtils
+from embrouter.llms.base_llm.image_edit.transformation import BaseImageEditConfig
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.images.main import (
     ImageEditOptionalRequestParams,
     ImageEditRequestParams,
 )
-from litellm.types.llms.openai import FileTypes
-from litellm.types.router import GenericLiteLLMParams
-from litellm.utils import ImageResponse
+from embrouter.types.llms.openai import FileTypes
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.utils import ImageResponse
 
 from ..common_utils import OpenAIError
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 
 class OpenAIImageEditConfig(BaseImageEditConfig):
@@ -83,7 +83,7 @@ class OpenAIImageEditConfig(BaseImageEditConfig):
         prompt: str | None,
         image: FileTypes | None,
         image_edit_optional_request_params: dict,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[dict, RequestFiles]:
         """
@@ -143,7 +143,7 @@ class OpenAIImageEditConfig(BaseImageEditConfig):
         self,
         model: str,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> ImageResponse:
         """No transform applied since outputs are in OpenAI spec already"""
         try:
@@ -157,10 +157,10 @@ class OpenAIImageEditConfig(BaseImageEditConfig):
         headers: dict,
         model: str,
         api_key: str | None = None,
-        litellm_params: dict | None = None,
+        embrouter_params: dict | None = None,
         api_base: str | None = None,
     ) -> dict:
-        api_key = api_key or litellm.api_key or litellm.openai_key or get_secret_str("OPENAI_API_KEY")
+        api_key = api_key or embrouter.api_key or embrouter.openai_key or get_secret_str("OPENAI_API_KEY")
         headers.update(
             {
                 "Authorization": f"Bearer {api_key}",
@@ -172,14 +172,14 @@ class OpenAIImageEditConfig(BaseImageEditConfig):
         self,
         model: str,
         api_base: str | None,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> str:
         """
         Get the endpoint for OpenAI responses API
         """
         api_base = (
             api_base
-            or litellm.api_base
+            or embrouter.api_base
             or get_secret_str("OPENAI_BASE_URL")
             or get_secret_str("OPENAI_API_BASE")
             or "https://api.openai.com/v1"

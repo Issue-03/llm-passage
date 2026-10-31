@@ -30,7 +30,7 @@ import AccessGroupTagsCombobox from "./AccessGroupTagsCombobox";
 import AdvancedSettings from "./advanced_settings";
 import { ADD_MODEL_FIELD_VISIBILITY } from "./addModelVisibility";
 import ConditionalPublicModelName from "./conditional_public_model_name";
-import LiteLLMModelNameField from "./litellm_model_name";
+import EmbRouterModelNameField from "./embrouter_model_name";
 import ConnectionErrorDisplay from "./model_connection_test";
 import ProviderSpecificFields from "./provider_specific_fields";
 import { TEST_MODES } from "./add_model_modes";
@@ -91,7 +91,7 @@ const AddModelForm: React.FC<AddModelFormProps> = ({
   const { data: guardrailsData } = useGuardrails();
   const guardrailsList = guardrailsData?.guardrails.map((g) => g.guardrail_name);
   const { data: tagsList } = useTags();
-  const selectedCredentialName = useWatch({ control: form.control, name: "litellm_credential_name" });
+  const selectedCredentialName = useWatch({ control: form.control, name: "embrouter_credential_name" });
 
   const handleTestConnection = async () => {
     setIsTestingConnection(true);
@@ -235,7 +235,7 @@ const AddModelForm: React.FC<AddModelFormProps> = ({
                           />
                         )}
                       </MountedFormField>
-                      <LiteLLMModelNameField
+                      <EmbRouterModelNameField
                         selectedProvider={selectedProvider}
                         providerModels={providerModels}
                         getPlaceholder={getPlaceholder}
@@ -286,7 +286,7 @@ const AddModelForm: React.FC<AddModelFormProps> = ({
 
                       <MountedFormField
                         label="Existing Credentials"
-                        name="litellm_credential_name"
+                        name="embrouter_credential_name"
                         defaultValue={null}
                         className="mb-4"
                       >

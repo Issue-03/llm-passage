@@ -2,13 +2,13 @@
 
 from typing import Final
 
-from litellm.proxy._experimental.mcp_server.guardrail_translation.handler import (
+from embrouter.proxy._experimental.mcp_server.guardrail_translation.handler import (
     MCPGuardrailTranslationHandler,
 )
-from litellm.types.utils import CallTypes
+from embrouter.types.utils import CallTypes
 
 # This mapping lives alongside the MCP server implementation because MCP
-# integrations are managed by the proxy subsystem, not litellm.llms providers.
+# integrations are managed by the proxy subsystem, not embrouter.llms providers.
 # Unified guardrails import this module explicitly to register the handler.
 
 guardrail_translation_mappings: Final = {

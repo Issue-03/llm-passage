@@ -6,11 +6,11 @@ from typing import Final, Generic, NoReturn, TypeAlias, TypeVar
 
 from typing_extensions import assert_never
 
-from litellm.exceptions import APIError
-from litellm.rust_bridge.bindings import NativeBinding, native_exception_types
-from litellm.rust_bridge.catalog import RouteContext, Rules, decision
-from litellm.rust_bridge.configuration import Decision
-from litellm.rust_bridge.response_metadata import mark_rust_response
+from embrouter.exceptions import APIError
+from embrouter.rust_bridge.bindings import NativeBinding, native_exception_types
+from embrouter.rust_bridge.catalog import RouteContext, Rules, decision
+from embrouter.rust_bridge.configuration import Decision
+from embrouter.rust_bridge.response_metadata import mark_rust_response
 
 NativeT = TypeVar("NativeT")
 ResultT = TypeVar("ResultT")
@@ -215,7 +215,7 @@ def _raise_upstream(error: BaseException, context: BridgeErrorContext) -> NoRetu
     message: Final = message_value if isinstance(message_value, str) else str(message_value)
     raise APIError(
         status_code=status or 500,
-        message=f"litellm rust {context.route}: {message}",
+        message=f"embrouter rust {context.route}: {message}",
         llm_provider=context.provider,
         model=context.model,
     ) from error

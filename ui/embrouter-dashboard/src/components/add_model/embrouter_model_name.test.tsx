@@ -2,13 +2,13 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { getPlaceholder, Providers } from "../provider_info_helpers";
 import { MountedFormHost } from "../../../tests/mounted-form-host";
-import LiteLLMModelNameField from "./litellm_model_name";
+import EmbRouterModelNameField from "./embrouter_model_name";
 
-describe("LitellmModelNameField", () => {
+describe("EmbrouterModelNameField", () => {
   it("should render", () => {
     render(
       <MountedFormHost>
-        <LiteLLMModelNameField
+        <EmbRouterModelNameField
           selectedProvider={Providers.OpenAI}
           providerModels={[]}
           getPlaceholder={getPlaceholder}
@@ -21,7 +21,7 @@ describe("LitellmModelNameField", () => {
   it("should show Azure placeholder as 'my-deployment'", () => {
     render(
       <MountedFormHost>
-        <LiteLLMModelNameField selectedProvider={Providers.Azure} providerModels={[]} getPlaceholder={getPlaceholder} />
+        <EmbRouterModelNameField selectedProvider={Providers.Azure} providerModels={[]} getPlaceholder={getPlaceholder} />
       </MountedFormHost>,
     );
     expect(screen.getByPlaceholderText("my-deployment")).toBeInTheDocument();

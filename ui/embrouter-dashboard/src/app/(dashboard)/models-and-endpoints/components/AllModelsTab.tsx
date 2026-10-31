@@ -149,7 +149,7 @@ const AllModelsTab = ({
     (model: string) => {
       if (modelCostMapData !== null && modelCostMapData !== undefined) {
         if (typeof modelCostMapData == "object" && model in modelCostMapData) {
-          return modelCostMapData[model]["litellm_provider"];
+          return modelCostMapData[model]["embrouter_provider"];
         }
       }
       return "openai";
@@ -365,7 +365,7 @@ const AllModelsTab = ({
                 },
                 {
                   label: "EmbRouter Model Name",
-                  value: modelToDelete.litellm_model_name || "Not Set",
+                  value: modelToDelete.embrouter_model_name || "Not Set",
                 },
                 {
                   label: "Provider",

@@ -114,8 +114,8 @@ const ProviderSpecificFields: React.FC<ProviderSpecificFieldsProps> = ({ selecte
       if (providerInfo.provider) {
         entries[providerInfo.provider] = mappedFields;
       }
-      if (providerInfo.litellm_provider) {
-        entries[providerInfo.litellm_provider] = mappedFields;
+      if (providerInfo.embrouter_provider) {
+        entries[providerInfo.embrouter_provider] = mappedFields;
       }
     });
     return entries;
@@ -148,7 +148,7 @@ const ProviderSpecificFields: React.FC<ProviderSpecificFieldsProps> = ({ selecte
       (p) =>
         p.provider_display_name === selectedProviderEnum ||
         p.provider === selectedProvider ||
-        p.litellm_provider === selectedProvider,
+        p.embrouter_provider === selectedProvider,
     );
     if (!providerInfo) {
       return [];
@@ -159,8 +159,8 @@ const ProviderSpecificFields: React.FC<ProviderSpecificFieldsProps> = ({ selecte
     if (providerInfo.provider) {
       providerFieldsByDisplayName[providerInfo.provider] = mapped;
     }
-    if (providerInfo.litellm_provider) {
-      providerFieldsByDisplayName[providerInfo.litellm_provider] = mapped;
+    if (providerInfo.embrouter_provider) {
+      providerFieldsByDisplayName[providerInfo.embrouter_provider] = mapped;
     }
     return mapped;
   }, [selectedProviderEnum, selectedProvider, providerMetadata]);

@@ -31,51 +31,51 @@ from pydantic import TypeAdapter, ValidationError
 from starlette.status import HTTP_503_SERVICE_UNAVAILABLE
 from typing_extensions import NotRequired, ReadOnly
 
-from litellm import DualCache
-from litellm._logging import verbose_proxy_logger
-from litellm.caching.redis_batch import (
+from embrouter import DualCache
+from embrouter._logging import verbose_proxy_logger
+from embrouter.caching.redis_batch import (
     BatchResult,
     RegisteredScript,
     active_post_call_redis_batch,
     active_request_redis_batch,
 )
-from litellm.caching.redis_cache import log_redis_failure
-from litellm.constants import DYNAMIC_RATE_LIMIT_ERROR_THRESHOLD_PER_MINUTE, INTERNAL_CALL_ORIGIN_METADATA_KEY
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+from embrouter.caching.redis_cache import log_redis_failure
+from embrouter.constants import DYNAMIC_RATE_LIMIT_ERROR_THRESHOLD_PER_MINUTE, INTERNAL_CALL_ORIGIN_METADATA_KEY
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
     get_str_from_messages,
 )
-from litellm.litellm_core_utils.token_counter import offload_token_count
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.auth.auth_utils import (
+from embrouter.embrouter_core_utils.token_counter import offload_token_count
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.auth.auth_utils import (
     ESTIMATED_OUTPUT_TOKENS_FIELD,
     get_estimated_output_tokens,
     get_key_own_model_rate_limit,
     get_key_tag_rpm_limit,
     get_model_rate_limit_from_metadata,
 )
-from litellm.proxy.auth.budget_throttle import throttled_limit
-from litellm.proxy.common_utils.http_parsing_utils import get_tags_from_request_body
-from litellm.proxy.common_utils.proxy_rate_limit_error import (
+from embrouter.proxy.auth.budget_throttle import throttled_limit
+from embrouter.proxy.common_utils.http_parsing_utils import get_tags_from_request_body
+from embrouter.proxy.common_utils.proxy_rate_limit_error import (
     ProxyRateLimitError,
     map_v3_rate_limit_type,
 )
-from litellm.proxy.hooks.batch_enqueued_tokens import (
+from embrouter.proxy.hooks.batch_enqueued_tokens import (
     BATCH_ENQUEUED_REFUND_STATUSES,
     BatchEnqueuedTokenReservation,
     BatchEnqueuedTokenStore,
     batch_response_view,
     canonical_provider_batch_id,
 )
-from litellm.proxy.hooks.rate_limiter_utils import resolve_llm_provider_for_rate_limit
-from litellm.router_utils.add_retry_fallback_headers import (
+from embrouter.proxy.hooks.rate_limiter_utils import resolve_llm_provider_for_rate_limit
+from embrouter.router_utils.add_retry_fallback_headers import (
     ensure_response_additional_headers,
     response_has_hidden_params,
 )
-from litellm.router_utils.common_utils import resolve_model_group_alias
-from litellm.types.caching import RedisPipelineIncrementOperation
-from litellm.types.llms.openai import BaseLiteLLMOpenAIResponseObject, ResponseAPIUsage
-from litellm.types.utils import (
+from embrouter.router_utils.common_utils import resolve_model_group_alias
+from embrouter.types.caching import RedisPipelineIncrementOperation
+from embrouter.types.llms.openai import BaseEmbRouterOpenAIResponseObject, ResponseAPIUsage
+from embrouter.types.utils import (
     CallTypes,
     EmbeddingResponse,
     ModelResponse,
@@ -87,9 +87,9 @@ from litellm.types.utils import (
 if TYPE_CHECKING:
     from opentelemetry.trace import Span as _Span
 
-    from litellm.proxy.utils import InternalUsageCache as _InternalUsageCache
-    from litellm.types.agents import AgentResponse
-    from litellm.types.caching import RedisPipelineIncrementOperation
+    from embrouter.proxy.utils import InternalUsageCache as _InternalUsageCache
+    from embrouter.types.agents import AgentResponse
+    from embrouter.types.caching import RedisPipelineIncrementOperation
 
     Span = _Span | Any
     InternalUsageCache = _InternalUsageCache
@@ -114,7 +114,7 @@ class RateLimitedModel:
 
 
 def _resolve_model_group_alias_via_proxy_router(model: str) -> str | None:
-    from litellm.proxy.proxy_server import llm_router
+    from embrouter.proxy.proxy_server import llm_router
 
     if llm_router is None:
         return None
@@ -154,7 +154,7 @@ def fail_closed_rate_limit_enforcement_enabled(general_settings: Mapping[str, ob
 
 
 def _fail_closed_rate_limit_enforcement_from_general_settings() -> bool:
-    from litellm.proxy.proxy_server import general_settings
+    from embrouter.proxy.proxy_server import general_settings
 
     return fail_closed_rate_limit_enforcement_enabled(general_settings)
 
@@ -452,7 +452,7 @@ GOOGLE_GENAI_NATIVE_CALL_TYPES: Final = (
     CallTypes.agenerate_content_stream.value,
 )
 RESPONSES_API_MIN_OUTPUT_TOKENS: Final = 16
-# litellm.token_counter has no per-type handling for "input_audio" content
+# embrouter.token_counter has no per-type handling for "input_audio" content
 # blocks (unlike images, which use use_default_image_token_count) -- it
 # silently contributes 0 tokens for them. When the block carries a base64
 # payload, the estimate is derived from the decoded byte count; when the
@@ -617,16 +617,16 @@ class RequestRateLimiterStash:
     across sibling callbacks: the first release wins, later callbacks observe
     the cleared state.
 
-    Because the stash is context-inherited, nested LiteLLM calls made inside
+    Because the stash is context-inherited, nested EmbRouter calls made inside
     the request (LLM-judge guardrails, silent experiments) would also see it
-    from their own logging callbacks. ``owner_litellm_call_id`` pins the stash
-    to the proxy request's ``litellm_call_id`` so those callbacks can tell the
+    from their own logging callbacks. ``owner_embrouter_call_id`` pins the stash
+    to the proxy request's ``embrouter_call_id`` so those callbacks can tell the
     owning request's events apart from a nested call's: router retries and
     fallbacks reuse the request's call id and keep access, while nested calls
     mint fresh ids and are ignored.
     """
 
-    owner_litellm_call_id: str | None = None
+    owner_embrouter_call_id: str | None = None
     rate_limit_response: RateLimitResponse | None = None
     parallel_slot: ParallelSlotAcquisition | None = None
     parallel_slot_release_lock: asyncio.Lock = field(default_factory=asyncio.Lock, repr=False, compare=False)
@@ -677,8 +677,8 @@ def _tag_rate_limit_descriptor(tag: str, limit: TagRateLimit, window_size: int) 
 
 
 async def resolve_tag_rate_limits_from_db(tag_names: Sequence[str]) -> Mapping[str, TagRateLimit]:
-    from litellm.proxy.auth.auth_checks import get_tag_objects_batch
-    from litellm.proxy.proxy_server import prisma_client, user_api_key_cache
+    from embrouter.proxy.auth.auth_checks import get_tag_objects_batch
+    from embrouter.proxy.proxy_server import prisma_client, user_api_key_cache
 
     if prisma_client is None or not tag_names:
         return MappingProxyType({})
@@ -691,14 +691,14 @@ async def resolve_tag_rate_limits_from_db(tag_names: Sequence[str]) -> Mapping[s
         {
             tag_name: TagRateLimit(rpm_limit=budget.rpm_limit, tpm_limit=budget.tpm_limit)
             for tag_name, tag_object in tag_objects.items()
-            if (budget := tag_object.litellm_budget_table) is not None
+            if (budget := tag_object.embrouter_budget_table) is not None
             and (budget.rpm_limit is not None or budget.tpm_limit is not None)
         }
     )
 
 
 _request_stash: Final[ContextVar[RequestRateLimiterStash | None]] = ContextVar(
-    "litellm_v3_rate_limiter_request_stash", default=None
+    "embrouter_v3_rate_limiter_request_stash", default=None
 )
 
 
@@ -716,25 +716,25 @@ def get_or_create_request_stash() -> RequestRateLimiterStash:
 
 def claim_request_stash_for_data(data: dict) -> RequestRateLimiterStash:
     stash: Final = get_or_create_request_stash()
-    owner_call_id: Final = data.get("litellm_call_id")
+    owner_call_id: Final = data.get("embrouter_call_id")
     if isinstance(owner_call_id, str):
-        stash.owner_litellm_call_id = owner_call_id
+        stash.owner_embrouter_call_id = owner_call_id
     return stash
 
 
-def get_request_stash_for_call(litellm_call_id: str | None) -> RequestRateLimiterStash | None:
+def get_request_stash_for_call(embrouter_call_id: str | None) -> RequestRateLimiterStash | None:
     stash: Final = _request_stash.get()
     if stash is None:
         return None
-    if stash.owner_litellm_call_id is None or litellm_call_id is None:
+    if stash.owner_embrouter_call_id is None or embrouter_call_id is None:
         return stash
-    return stash if litellm_call_id == stash.owner_litellm_call_id else None
+    return stash if embrouter_call_id == stash.owner_embrouter_call_id else None
 
 
 def _call_id_from_callback_kwargs(kwargs: object) -> str | None:
     if not isinstance(kwargs, dict):
         return None
-    call_id: Final = kwargs.get("litellm_call_id")
+    call_id: Final = kwargs.get("embrouter_call_id")
     return call_id if isinstance(call_id, str) else None
 
 
@@ -807,13 +807,13 @@ class _PROXY_MaxParallelRequestsHandler_v3(CustomLogger):
             self.parallel_release_script = None
             self.parallel_count_script = None
 
-        self.window_size = int(os.getenv("LITELLM_RATE_LIMIT_WINDOW_SIZE", 60))
+        self.window_size = int(os.getenv("EMBROUTER_RATE_LIMIT_WINDOW_SIZE", 60))
 
         # When disabled, TPM is enforced post-call from actual usage (pre-v1.82
         # behavior) instead of reserving an estimated budget upfront, shedding
         # the extra per-request Redis Lua round-trip and the global-lock
         # in-memory fallback that the reservation path incurs.
-        self.tpm_reservation_enabled = os.getenv("LITELLM_TPM_TOKEN_RESERVATION_ENABLED", "true").lower() == "true"
+        self.tpm_reservation_enabled = os.getenv("EMBROUTER_TPM_TOKEN_RESERVATION_ENABLED", "true").lower() == "true"
 
         # Batch rate limiter (lazy loaded)
         self._batch_rate_limiter: CallTypeRateLimiter | None = None
@@ -839,7 +839,7 @@ class _PROXY_MaxParallelRequestsHandler_v3(CustomLogger):
         """Get or lazy-load the batch rate limiter."""
         if self._batch_rate_limiter is None:
             try:
-                from litellm.proxy.hooks.batch_rate_limiter import (
+                from embrouter.proxy.hooks.batch_rate_limiter import (
                     _PROXY_BatchRateLimiter,
                 )
 
@@ -895,7 +895,7 @@ class _PROXY_MaxParallelRequestsHandler_v3(CustomLogger):
             or not isinstance(contents, (dict, list))
         ):
             return None
-        from litellm.google_genai.adapters.transformation import GoogleGenAIAdapter
+        from embrouter.google_genai.adapters.transformation import GoogleGenAIAdapter
 
         config: Final = data.get("config") if "config" in data else data.get("generationConfig")
         return GoogleGenAIAdapter().translate_generate_content_to_completion(
@@ -1160,7 +1160,7 @@ class _PROXY_MaxParallelRequestsHandler_v3(CustomLogger):
         Returns:
             bool: True if using Redis cluster, False otherwise.
         """
-        from litellm.caching.redis_cluster_cache import RedisClusterCache
+        from embrouter.caching.redis_cluster_cache import RedisClusterCache
 
         return self.internal_usage_cache.dual_cache.redis_cache is not None and isinstance(
             self.internal_usage_cache.dual_cache.redis_cache, RedisClusterCache
@@ -1196,7 +1196,7 @@ class _PROXY_MaxParallelRequestsHandler_v3(CustomLogger):
             # Get the window start time
             window_start: CacheCounterValue | None = await self.internal_usage_cache.async_get_cache(
                 key=window_key,
-                litellm_parent_otel_span=None,
+                embrouter_parent_otel_span=None,
                 local_only=True,
             )
 
@@ -1208,21 +1208,21 @@ class _PROXY_MaxParallelRequestsHandler_v3(CustomLogger):
                         key=sibling_counter_key,
                         value=0,
                         ttl=window_size,
-                        litellm_parent_otel_span=None,
+                        embrouter_parent_otel_span=None,
                         local_only=True,
                     )
                 await self.internal_usage_cache.async_set_cache(
                     key=window_key,
                     value=str(now_int),
                     ttl=window_size,
-                    litellm_parent_otel_span=None,
+                    embrouter_parent_otel_span=None,
                     local_only=True,
                 )
                 await self.internal_usage_cache.async_set_cache(
                     key=counter_key,
                     value=increment_value,
                     ttl=window_size,
-                    litellm_parent_otel_span=None,
+                    embrouter_parent_otel_span=None,
                     local_only=True,
                 )
                 results.append(str(now_int))  # window_start
@@ -1231,7 +1231,7 @@ class _PROXY_MaxParallelRequestsHandler_v3(CustomLogger):
                 # Increment the counter
                 current_counter: CacheCounterValue | None = await self.internal_usage_cache.async_get_cache(
                     key=counter_key,
-                    litellm_parent_otel_span=None,
+                    embrouter_parent_otel_span=None,
                     local_only=True,
                 )
                 new_counter_value = (int(current_counter) if current_counter is not None else 0) + increment_value
@@ -1239,7 +1239,7 @@ class _PROXY_MaxParallelRequestsHandler_v3(CustomLogger):
                     key=counter_key,
                     value=new_counter_value,
                     ttl=window_size,
-                    litellm_parent_otel_span=None,
+                    embrouter_parent_otel_span=None,
                     local_only=True,
                 )
                 results.append(window_start)  # window_start
@@ -1613,14 +1613,14 @@ class _PROXY_MaxParallelRequestsHandler_v3(CustomLogger):
                         key=counter_key,
                         value=counter_value,
                         ttl=self.window_size,
-                        litellm_parent_otel_span=parent_otel_span,
+                        embrouter_parent_otel_span=parent_otel_span,
                         local_only=True,
                     )
                     await self.internal_usage_cache.async_set_cache(
                         key=window_key,
                         value=window_value,
                         ttl=self.window_size,
-                        litellm_parent_otel_span=parent_otel_span,
+                        embrouter_parent_otel_span=parent_otel_span,
                         local_only=True,
                     )
             else:
@@ -1816,7 +1816,7 @@ class _PROXY_MaxParallelRequestsHandler_v3(CustomLogger):
                     key=gauge["counter_key"],
                     value=int(in_flight),
                     ttl=PARALLEL_REQUEST_SLOT_TTL_SECONDS,
-                    litellm_parent_otel_span=parent_otel_span,
+                    embrouter_parent_otel_span=parent_otel_span,
                     local_only=True,
                 )
                 statuses.append(self._gauge_status(gauge, int(in_flight), "OK"))
@@ -1860,7 +1860,7 @@ class _PROXY_MaxParallelRequestsHandler_v3(CustomLogger):
         for gauge in gauges:
             raw_value: ParallelGaugeCacheValue | None = await self.internal_usage_cache.async_get_cache(
                 key=gauge["counter_key"],
-                litellm_parent_otel_span=parent_otel_span,
+                embrouter_parent_otel_span=parent_otel_span,
                 local_only=True,
             )
             if isinstance(raw_value, dict):
@@ -1888,7 +1888,7 @@ class _PROXY_MaxParallelRequestsHandler_v3(CustomLogger):
                 key=gauge["counter_key"],
                 value=new_value,
                 ttl=PARALLEL_REQUEST_SLOT_TTL_SECONDS,
-                litellm_parent_otel_span=parent_otel_span,
+                embrouter_parent_otel_span=parent_otel_span,
                 local_only=True,
             )
             statuses.append(self._gauge_status(gauge, in_flight + 1, "OK"))
@@ -1988,7 +1988,7 @@ class _PROXY_MaxParallelRequestsHandler_v3(CustomLogger):
                 key=counter_key,
                 value=max(0, int(remaining)),
                 ttl=PARALLEL_REQUEST_SLOT_TTL_SECONDS,
-                litellm_parent_otel_span=parent_otel_span,
+                embrouter_parent_otel_span=parent_otel_span,
                 local_only=True,
             )
 
@@ -1999,7 +1999,7 @@ class _PROXY_MaxParallelRequestsHandler_v3(CustomLogger):
             for counter_key in counter_keys:
                 raw_value: ParallelGaugeCacheValue | None = await self.internal_usage_cache.async_get_cache(
                     key=counter_key,
-                    litellm_parent_otel_span=parent_otel_span,
+                    embrouter_parent_otel_span=parent_otel_span,
                     local_only=True,
                 )
                 if isinstance(raw_value, dict):
@@ -2014,7 +2014,7 @@ class _PROXY_MaxParallelRequestsHandler_v3(CustomLogger):
                     key=counter_key,
                     value=new_value,
                     ttl=PARALLEL_REQUEST_SLOT_TTL_SECONDS,
-                    litellm_parent_otel_span=parent_otel_span,
+                    embrouter_parent_otel_span=parent_otel_span,
                     local_only=True,
                 )
 
@@ -2437,7 +2437,7 @@ class _PROXY_MaxParallelRequestsHandler_v3(CustomLogger):
             window_size = meta["window_size"]
             window_start: CacheCounterValue | None = await self.internal_usage_cache.async_get_cache(
                 key=meta["window_key"],
-                litellm_parent_otel_span=parent_otel_span,
+                embrouter_parent_otel_span=parent_otel_span,
                 local_only=True,
             )
             window_expired = window_start is None or (now_int - int(window_start)) >= window_size
@@ -2446,7 +2446,7 @@ class _PROXY_MaxParallelRequestsHandler_v3(CustomLogger):
                 if window_expired
                 else await self.internal_usage_cache.async_get_cache(
                     key=meta["counter_key"],
-                    litellm_parent_otel_span=parent_otel_span,
+                    embrouter_parent_otel_span=parent_otel_span,
                     local_only=True,
                 )
             )
@@ -2490,7 +2490,7 @@ class _PROXY_MaxParallelRequestsHandler_v3(CustomLogger):
                     key=sibling_counter_key,
                     value=0,
                     ttl=window_size,
-                    litellm_parent_otel_span=parent_otel_span,
+                    embrouter_parent_otel_span=parent_otel_span,
                     local_only=True,
                 )
         statuses: Final[list[RateLimitStatus]] = []
@@ -2501,14 +2501,14 @@ class _PROXY_MaxParallelRequestsHandler_v3(CustomLogger):
                     key=meta["window_key"],
                     value=str(now_int),
                     ttl=meta["window_size"],
-                    litellm_parent_otel_span=parent_otel_span,
+                    embrouter_parent_otel_span=parent_otel_span,
                     local_only=True,
                 )
             await self.internal_usage_cache.async_set_cache(
                 key=meta["counter_key"],
                 value=new_counter,
                 ttl=meta["ttl"],
-                litellm_parent_otel_span=parent_otel_span,
+                embrouter_parent_otel_span=parent_otel_span,
                 local_only=True,
             )
             statuses.append(
@@ -2814,7 +2814,7 @@ class _PROXY_MaxParallelRequestsHandler_v3(CustomLogger):
             requested_model: The model being requested
             descriptors: List of rate limit descriptors to append to
         """
-        from litellm.proxy.auth.auth_utils import (
+        from embrouter.proxy.auth.auth_utils import (
             get_key_model_rpm_limit,
             get_key_model_tpm_limit,
         )
@@ -2893,7 +2893,7 @@ class _PROXY_MaxParallelRequestsHandler_v3(CustomLogger):
         MCP tool calls have no token usage, so only requests_per_unit is set;
         tokens_per_unit stays None so the TPM reservation path is never engaged.
         """
-        from litellm.proxy.auth.auth_utils import get_key_mcp_rpm_limit
+        from embrouter.proxy.auth.auth_utils import get_key_mcp_rpm_limit
 
         if not mcp_server_name or not user_api_key_dict.api_key:
             return
@@ -2928,7 +2928,7 @@ class _PROXY_MaxParallelRequestsHandler_v3(CustomLogger):
         Add a per-MCP-server rpm descriptor for the team, if a limit is
         configured for the server being called.
         """
-        from litellm.proxy.auth.auth_utils import get_team_mcp_rpm_limit
+        from embrouter.proxy.auth.auth_utils import get_team_mcp_rpm_limit
 
         if not mcp_server_name:
             return
@@ -3031,7 +3031,7 @@ class _PROXY_MaxParallelRequestsHandler_v3(CustomLogger):
 
     def _get_agent_from_registry(self, agent_id: str) -> "AgentResponse | None":
         """Look up an agent from the in-memory registry by ID."""
-        from litellm.proxy.agent_endpoints.agent_registry import global_agent_registry
+        from embrouter.proxy.agent_endpoints.agent_registry import global_agent_registry
 
         return global_agent_registry.get_agent_by_id(agent_id=agent_id)
 
@@ -3047,16 +3047,16 @@ class _PROXY_MaxParallelRequestsHandler_v3(CustomLogger):
         return metadata.get("agent_id")
 
     def _get_session_id_from_data(self, data: dict) -> str | None:
-        """Extract session_id from request metadata or litellm_session_id."""
-        session_id = data.get("litellm_session_id")
+        """Extract session_id from request metadata or embrouter_session_id."""
+        session_id = data.get("embrouter_session_id")
         if session_id:
             return str(session_id)
         metadata: Final = data.get("metadata") or {}
         session_id = metadata.get("session_id")
         if session_id:
             return str(session_id)
-        litellm_metadata: Final = data.get("litellm_metadata") or {}
-        session_id = litellm_metadata.get("session_id")
+        embrouter_metadata: Final = data.get("embrouter_metadata") or {}
+        session_id = embrouter_metadata.get("session_id")
         if session_id:
             return str(session_id)
         return None
@@ -3299,8 +3299,8 @@ class _PROXY_MaxParallelRequestsHandler_v3(CustomLogger):
 
         Returns True if any deployment has failures in the current minute.
         """
-        from litellm.proxy.proxy_server import llm_router
-        from litellm.router_utils.router_callbacks.track_deployment_metrics import (
+        from embrouter.proxy.proxy_server import llm_router
+        from embrouter.router_utils.router_callbacks.track_deployment_metrics import (
             get_deployment_failures_for_current_minute,
         )
 
@@ -3321,7 +3321,7 @@ class _PROXY_MaxParallelRequestsHandler_v3(CustomLogger):
 
                 # Use router's existing failure tracking
                 failure_count = get_deployment_failures_for_current_minute(
-                    litellm_router_instance=llm_router,
+                    embrouter_router_instance=llm_router,
                     deployment_id=deployment_id,
                 )
 
@@ -3619,19 +3619,19 @@ class _PROXY_MaxParallelRequestsHandler_v3(CustomLogger):
     def _responses_input_to_chat_messages(data: object) -> Sequence[object]:
         """
         Convert a Responses API ``input`` (string or list of input items) into
-        chat-completion-style messages via the standard LiteLLM transformation
+        chat-completion-style messages via the standard EmbRouter transformation
         (the same one guardrails use, e.g. ``purview_dlp.py``), so multimodal
         ``input_image``/``input_text`` content blocks get counted by
         ``token_counter``'s ``messages`` path instead of silently contributing
         zero tokens via its ``text`` path, which only joins plain strings.
         """
-        from litellm.responses.litellm_completion_transformation.transformation import (
-            LiteLLMCompletionResponsesConfig,
+        from embrouter.responses.embrouter_completion_transformation.transformation import (
+            EmbRouterCompletionResponsesConfig,
         )
 
         if not isinstance(data, dict):
             return ()
-        return LiteLLMCompletionResponsesConfig.transform_responses_api_input_to_messages(
+        return EmbRouterCompletionResponsesConfig.transform_responses_api_input_to_messages(
             input=data.get("input") or "",
             responses_api_request=data,
         )
@@ -3665,7 +3665,7 @@ class _PROXY_MaxParallelRequestsHandler_v3(CustomLogger):
     def _estimate_precise_input_tokens(self, data: object, model: str | None, call_type: str | None = None) -> int:
         """
         Model-aware input token estimate for the project ITPM reservation,
-        using ``litellm.token_counter`` -- the same approach the
+        using ``embrouter.token_counter`` -- the same approach the
         deployment-level itpm/otpm check uses in
         ``io_token_rate_limit_check.py``. Unlike the cheap char-count
         estimate the combined-TPM path uses, this accounts for image/tool
@@ -3686,7 +3686,7 @@ class _PROXY_MaxParallelRequestsHandler_v3(CustomLogger):
         custom model name) or otherwise raises -- the audio add-on still
         applies on top of the fallback.
         """
-        from litellm import token_counter
+        from embrouter import token_counter
 
         if not isinstance(data, dict):
             return 0
@@ -4237,7 +4237,7 @@ class _PROXY_MaxParallelRequestsHandler_v3(CustomLogger):
 
         For 'input' and 'total' rate limit types, cached tokens are excluded
         because providers like AWS Bedrock don't count cached tokens toward
-        rate limits. This aligns LiteLLM's TPM calculation with provider behavior.
+        rate limits. This aligns EmbRouter's TPM calculation with provider behavior.
         """
         total_tokens = 0
         cached_tokens = 0
@@ -4314,7 +4314,7 @@ class _PROXY_MaxParallelRequestsHandler_v3(CustomLogger):
             return response_obj
         if isinstance(
             response_obj,
-            (ModelResponse, EmbeddingResponse, TextCompletionResponse, BaseLiteLLMOpenAIResponseObject),
+            (ModelResponse, EmbeddingResponse, TextCompletionResponse, BaseEmbRouterOpenAIResponseObject),
         ):
             usage: Final = getattr(response_obj, "usage", None)
             return usage if isinstance(usage, (Usage, ResponseAPIUsage, dict)) else None
@@ -4413,7 +4413,7 @@ class _PROXY_MaxParallelRequestsHandler_v3(CustomLogger):
             verbose_proxy_logger.debug("TTL preservation script not available, using regular pipeline")
             await self.internal_usage_cache.dual_cache.async_increment_cache_pipeline(
                 increment_list=pipeline_operations,
-                litellm_parent_otel_span=parent_otel_span,
+                embrouter_parent_otel_span=parent_otel_span,
             )
             return
 
@@ -4431,7 +4431,7 @@ class _PROXY_MaxParallelRequestsHandler_v3(CustomLogger):
             # Fallback to regular pipeline on error
             await self.internal_usage_cache.dual_cache.async_increment_cache_pipeline(
                 increment_list=pipeline_operations,
-                litellm_parent_otel_span=parent_otel_span,
+                embrouter_parent_otel_span=parent_otel_span,
             )
 
     async def _apply_local_window_guarded_token_increments(
@@ -4447,7 +4447,7 @@ class _PROXY_MaxParallelRequestsHandler_v3(CustomLogger):
                     continue
                 active_window_start: CacheCounterValue | None = await self.internal_usage_cache.async_get_cache(
                     key=window_key,
-                    litellm_parent_otel_span=parent_otel_span,
+                    embrouter_parent_otel_span=parent_otel_span,
                     local_only=True,
                 )
                 if active_window_start is None or str(active_window_start) != expected_window_start:
@@ -4455,7 +4455,7 @@ class _PROXY_MaxParallelRequestsHandler_v3(CustomLogger):
                 current_counter = (
                     await self.internal_usage_cache.async_get_cache(
                         key=operation["key"],
-                        litellm_parent_otel_span=parent_otel_span,
+                        embrouter_parent_otel_span=parent_otel_span,
                         local_only=True,
                     )
                     or 0
@@ -4464,7 +4464,7 @@ class _PROXY_MaxParallelRequestsHandler_v3(CustomLogger):
                     key=operation["key"],
                     value=float(current_counter) + operation["increment_value"],
                     ttl=operation["ttl"],
-                    litellm_parent_otel_span=parent_otel_span,
+                    embrouter_parent_otel_span=parent_otel_span,
                     local_only=True,
                 )
 
@@ -4503,7 +4503,7 @@ class _PROXY_MaxParallelRequestsHandler_v3(CustomLogger):
                 await self.internal_usage_cache.async_increment_cache(
                     key=operation["key"],
                     value=operation["increment_value"],
-                    litellm_parent_otel_span=parent_otel_span,
+                    embrouter_parent_otel_span=parent_otel_span,
                     ttl=operation["ttl"],
                 )
 
@@ -4517,7 +4517,7 @@ class _PROXY_MaxParallelRequestsHandler_v3(CustomLogger):
                 await self.internal_usage_cache.async_increment_cache(
                     key=operation["key"],
                     value=operation["increment_value"],
-                    litellm_parent_otel_span=parent_otel_span,
+                    embrouter_parent_otel_span=parent_otel_span,
                     ttl=operation["ttl"],
                 )
         local_guarded_operations: Final = tuple(
@@ -4546,7 +4546,7 @@ class _PROXY_MaxParallelRequestsHandler_v3(CustomLogger):
             )
 
     def get_rate_limit_type(self) -> Literal["output", "input", "total"]:
-        from litellm.proxy.proxy_server import general_settings
+        from embrouter.proxy.proxy_server import general_settings
 
         specified_rate_limit_type: Final = general_settings.get("token_rate_limit_type", "total")
         if specified_rate_limit_type not in [
@@ -4899,15 +4899,15 @@ class _PROXY_MaxParallelRequestsHandler_v3(CustomLogger):
         rate_limit_type: Literal["output", "input", "total"],
     ) -> list[RedisPipelineIncrementOperation]:
         """Build Redis pipeline increment ops for TPM / parallel-request counters."""
-        from litellm.litellm_core_utils.core_helpers import get_litellm_metadata_from_kwargs
-        from litellm.proxy.common_utils.callback_utils import (
-            get_model_group_from_litellm_kwargs,
+        from embrouter.embrouter_core_utils.core_helpers import get_embrouter_metadata_from_kwargs
+        from embrouter.proxy.common_utils.callback_utils import (
+            get_model_group_from_embrouter_kwargs,
         )
 
         # Get metadata from standard_logging_object - this correctly handles both
-        # 'metadata' and 'litellm_metadata' fields from litellm_params
+        # 'metadata' and 'embrouter_metadata' fields from embrouter_params
         standard_logging_object: Final = kwargs.get("standard_logging_object") or {}
-        request_metadata: Final = get_litellm_metadata_from_kwargs(kwargs)
+        request_metadata: Final = get_embrouter_metadata_from_kwargs(kwargs)
         origin: Final = request_metadata.get(INTERNAL_CALL_ORIGIN_METADATA_KEY)
         if origin and origin != "autorouter_compaction":
             # Background evaluations keep their exemption; foreground compaction
@@ -4915,9 +4915,9 @@ class _PROXY_MaxParallelRequestsHandler_v3(CustomLogger):
             return []
         standard_logging_metadata: Final = standard_logging_object.get("metadata") or {}
 
-        model_group: Final = get_model_group_from_litellm_kwargs(kwargs)
+        model_group: Final = get_model_group_from_embrouter_kwargs(kwargs)
 
-        # Get total tokens from response. Responses LiteLLM does not model
+        # Get total tokens from response. Responses EmbRouter does not model
         # (e.g. pass-through, whose usage is reported by the upstream rather
         # than parsed out of the body) carry their usage in
         # ``combined_usage_object`` instead, and would otherwise never charge
@@ -4929,7 +4929,7 @@ class _PROXY_MaxParallelRequestsHandler_v3(CustomLogger):
                 ModelResponse,
                 EmbeddingResponse,
                 TextCompletionResponse,
-                BaseLiteLLMOpenAIResponseObject,
+                BaseEmbRouterOpenAIResponseObject,
             ),
         ):
             _usage = getattr(response_obj, "usage", None)
@@ -5003,18 +5003,18 @@ class _PROXY_MaxParallelRequestsHandler_v3(CustomLogger):
         """
         Update TPM usage on successful API calls by incrementing counters using pipeline
         """
-        from litellm.litellm_core_utils.core_helpers import (
+        from embrouter.embrouter_core_utils.core_helpers import (
             _get_parent_otel_span_from_kwargs,
         )
 
         rate_limit_type: Final = self.get_rate_limit_type()
 
-        litellm_parent_otel_span: Final[Span | None] = _get_parent_otel_span_from_kwargs(kwargs)
+        embrouter_parent_otel_span: Final[Span | None] = _get_parent_otel_span_from_kwargs(kwargs)
         try:
             verbose_proxy_logger.debug("INSIDE parallel request limiter ASYNC SUCCESS LOGGING")
 
             stash: Final = get_request_stash_for_call(_call_id_from_callback_kwargs(kwargs))
-            await self._release_stashed_parallel_slot(stash, litellm_parent_otel_span, in_logging_callback=True)
+            await self._release_stashed_parallel_slot(stash, embrouter_parent_otel_span, in_logging_callback=True)
 
             pipeline_operations: Final = self._build_success_event_pipeline_operations(
                 kwargs=kwargs,
@@ -5024,7 +5024,7 @@ class _PROXY_MaxParallelRequestsHandler_v3(CustomLogger):
             if pipeline_operations:
                 await self.async_increment_tokens_with_ttl_preservation(
                     pipeline_operations=pipeline_operations,
-                    parent_otel_span=litellm_parent_otel_span,
+                    parent_otel_span=embrouter_parent_otel_span,
                 )
             io_token_operations: Final = self._build_io_token_reservation_ops(
                 kwargs=kwargs,
@@ -5034,12 +5034,12 @@ class _PROXY_MaxParallelRequestsHandler_v3(CustomLogger):
                 if isinstance(io_token_operations, list):
                     await self.async_increment_tokens_with_ttl_preservation(
                         pipeline_operations=io_token_operations,
-                        parent_otel_span=litellm_parent_otel_span,
+                        parent_otel_span=embrouter_parent_otel_span,
                     )
                 else:
                     await self.async_increment_reservation_aware_tokens(
                         pipeline_operations=io_token_operations,
-                        parent_otel_span=litellm_parent_otel_span,
+                        parent_otel_span=embrouter_parent_otel_span,
                     )
 
         except Exception as e:
@@ -5124,17 +5124,17 @@ class _PROXY_MaxParallelRequestsHandler_v3(CustomLogger):
         whose partial usage was recovered settles the reservation at that
         usage instead of refunding it.
         """
-        from litellm.litellm_core_utils.core_helpers import (
+        from embrouter.embrouter_core_utils.core_helpers import (
             _get_parent_otel_span_from_kwargs,
         )
 
         try:
-            litellm_parent_otel_span: Final[Span | None] = _get_parent_otel_span_from_kwargs(kwargs)
+            embrouter_parent_otel_span: Final[Span | None] = _get_parent_otel_span_from_kwargs(kwargs)
 
             pipeline_operations: Final[list[RedisPipelineIncrementOperation]] = []
 
             stash: Final = get_request_stash_for_call(_call_id_from_callback_kwargs(kwargs))
-            await self._release_stashed_parallel_slot(stash, litellm_parent_otel_span, in_logging_callback=True)
+            await self._release_stashed_parallel_slot(stash, embrouter_parent_otel_span, in_logging_callback=True)
 
             # Skip the reservation refund if async_post_call_failure_hook
             # already released it (proxy-level rejection that also bubbles up
@@ -5205,17 +5205,17 @@ class _PROXY_MaxParallelRequestsHandler_v3(CustomLogger):
 
             if pipeline_operations:
                 await self.internal_usage_cache.dual_cache.async_increment_cache_pipeline_post_call(
-                    pipeline_operations, parent_otel_span=litellm_parent_otel_span
+                    pipeline_operations, parent_otel_span=embrouter_parent_otel_span
                 )
             for project_operations in (itpm_operations, otpm_operations):
                 if isinstance(project_operations, list):
                     await self.internal_usage_cache.dual_cache.async_increment_cache_pipeline_post_call(
-                        project_operations, parent_otel_span=litellm_parent_otel_span
+                        project_operations, parent_otel_span=embrouter_parent_otel_span
                     )
                 elif project_operations:
                     await self.async_increment_reservation_aware_tokens(
                         pipeline_operations=project_operations,
-                        parent_otel_span=litellm_parent_otel_span,
+                        parent_otel_span=embrouter_parent_otel_span,
                     )
             if stash is not None and (reserved_tokens > 0 or itpm_reserved > 0 or otpm_reserved > 0):
                 stash.reservation_released = True
@@ -5254,16 +5254,16 @@ class _PROXY_MaxParallelRequestsHandler_v3(CustomLogger):
 
         try:
             header_stash: Final = get_request_stash()
-            litellm_proxy_rate_limit_response: Final = (
+            embrouter_proxy_rate_limit_response: Final = (
                 header_stash.rate_limit_response if header_stash is not None else None
             )
 
-            if litellm_proxy_rate_limit_response is not None and response_has_hidden_params(response):
+            if embrouter_proxy_rate_limit_response is not None and response_has_hidden_params(response):
                 additional_headers: Final = ensure_response_additional_headers(response)
                 additional_headers.update(
                     self._merge_ratelimit_statuses_into_additional_headers(
                         additional_headers={},
-                        statuses=litellm_proxy_rate_limit_response["statuses"],
+                        statuses=embrouter_proxy_rate_limit_response["statuses"],
                     )
                 )
 
@@ -5285,16 +5285,16 @@ class _PROXY_MaxParallelRequestsHandler_v3(CustomLogger):
             await self.batch_enqueued_token_store.save_reservation(
                 batch_id=canonical_provider_batch_id(view.id),
                 reservation=stash.batch_enqueued_reservation,
-                litellm_parent_otel_span=span,
+                embrouter_parent_otel_span=span,
             )
             stash.batch_enqueued_reservation = None
         if view.status.lower() in BATCH_ENQUEUED_REFUND_STATUSES:
             popped: Final = await self.batch_enqueued_token_store.pop_reservation(
                 batch_id=canonical_provider_batch_id(view.id),
-                litellm_parent_otel_span=span,
+                embrouter_parent_otel_span=span,
             )
             if popped is not None:
-                await self.batch_enqueued_token_store.refund(reservation=popped, litellm_parent_otel_span=span)
+                await self.batch_enqueued_token_store.refund(reservation=popped, embrouter_parent_otel_span=span)
 
     async def async_post_call_failure_hook(
         self,
@@ -5308,7 +5308,7 @@ class _PROXY_MaxParallelRequestsHandler_v3(CustomLogger):
         when the request is rejected after the pre-call hook acquired them
         but before the LLM call ran (e.g. a downstream guardrail/auth hook
         raised). Without this, those resources are stranded —
-        async_log_failure_event is a litellm completion-level callback and
+        async_log_failure_event is a embrouter completion-level callback and
         never fires for proxy-side rejections, so a leaked slot would occupy
         the gauge for the full PARALLEL_REQUEST_SLOT_TTL_SECONDS.
 
@@ -5329,7 +5329,7 @@ class _PROXY_MaxParallelRequestsHandler_v3(CustomLogger):
             if stash.batch_enqueued_reservation is not None:
                 await self.batch_enqueued_token_store.refund(
                     reservation=stash.batch_enqueued_reservation,
-                    litellm_parent_otel_span=user_api_key_dict.parent_otel_span,
+                    embrouter_parent_otel_span=user_api_key_dict.parent_otel_span,
                 )
                 stash.batch_enqueued_reservation = None
 
@@ -5405,13 +5405,13 @@ class _PROXY_MaxParallelRequestsHandler_v3(CustomLogger):
             if combined_ops:
                 await self.internal_usage_cache.dual_cache.async_increment_cache_pipeline(
                     increment_list=combined_ops,
-                    litellm_parent_otel_span=user_api_key_dict.parent_otel_span,
+                    embrouter_parent_otel_span=user_api_key_dict.parent_otel_span,
                 )
             for project_ops in (itpm_ops, otpm_ops):
                 if isinstance(project_ops, list):
                     await self.internal_usage_cache.dual_cache.async_increment_cache_pipeline(
                         increment_list=project_ops,
-                        litellm_parent_otel_span=user_api_key_dict.parent_otel_span,
+                        embrouter_parent_otel_span=user_api_key_dict.parent_otel_span,
                     )
                 elif project_ops:
                     await self.async_increment_reservation_aware_tokens(

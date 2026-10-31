@@ -9,21 +9,21 @@ from typing import Any, Final
 
 import httpx
 
-import litellm
-from litellm.constants import request_timeout
-from litellm.interactions.streaming_iterator import (
+import embrouter
+from embrouter.constants import request_timeout
+from embrouter.interactions.streaming_iterator import (
     InteractionsAPIStreamingIterator,
     SyncInteractionsAPIStreamingIterator,
 )
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.base_llm.interactions.transformation import BaseInteractionsAPIConfig
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.base_llm.interactions.transformation import BaseInteractionsAPIConfig
+from embrouter.llms.custom_httpx.http_handler import (
     AsyncHTTPHandler,
     HTTPHandler,
     _get_httpx_client,
     get_async_httpx_client,
 )
-from litellm.types.interactions import (
+from embrouter.types.interactions import (
     CancelInteractionResult,
     DeleteInteractionResult,
     InteractionInput,
@@ -31,12 +31,12 @@ from litellm.types.interactions import (
     InteractionsAPIResponse,
     InteractionsAPIStreamingResponse,
 )
-from litellm.types.router import GenericLiteLLMParams
+from embrouter.types.router import GenericEmbRouterParams
 
 
 class _BaseHTTPHandler:
     """
-    Shared HTTP infrastructure for LiteLLM handler classes.
+    Shared HTTP infrastructure for EmbRouter handler classes.
 
     Provides common client resolution and error-mapping helpers so that
     handler subclasses (InteractionsHTTPHandler, AgentsHTTPHandler, …) do
@@ -54,21 +54,21 @@ class _BaseHTTPHandler:
 
     def _sync_client(
         self,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         client: HTTPHandler | None,
     ) -> HTTPHandler:
-        return client or _get_httpx_client(params={"ssl_verify": litellm_params.get("ssl_verify", None)})
+        return client or _get_httpx_client(params={"ssl_verify": embrouter_params.get("ssl_verify", None)})
 
     def _async_client(
         self,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         client: AsyncHTTPHandler | None,
     ) -> AsyncHTTPHandler:
-        # GenericLiteLLMParams.get uses getattr; an unset field is None, not the default.
-        custom_llm_provider: Final = litellm_params.get("custom_llm_provider") or "gemini"
+        # GenericEmbRouterParams.get uses getattr; an unset field is None, not the default.
+        custom_llm_provider: Final = embrouter_params.get("custom_llm_provider") or "gemini"
         return client or get_async_httpx_client(
-            llm_provider=litellm.LlmProviders(custom_llm_provider),
-            params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+            llm_provider=embrouter.LlmProviders(custom_llm_provider),
+            params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
         )
 
 
@@ -91,8 +91,8 @@ class InteractionsHTTPHandler(_BaseHTTPHandler):
         interactions_api_config: BaseInteractionsAPIConfig,
         optional_params: InteractionsAPIOptionalRequestParams,
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         model: str | None = None,
         agent: str | None = None,
         input: InteractionInput | None = None,
@@ -120,7 +120,7 @@ class InteractionsHTTPHandler(_BaseHTTPHandler):
                 interactions_api_config=interactions_api_config,
                 optional_params=optional_params,
                 custom_llm_provider=custom_llm_provider,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 extra_headers=extra_headers,
                 extra_body=extra_body,
@@ -129,21 +129,21 @@ class InteractionsHTTPHandler(_BaseHTTPHandler):
             )
 
         if client is None:
-            sync_httpx_client = _get_httpx_client(params={"ssl_verify": litellm_params.get("ssl_verify", None)})
+            sync_httpx_client = _get_httpx_client(params={"ssl_verify": embrouter_params.get("ssl_verify", None)})
         else:
             sync_httpx_client = client
 
         headers: Final = interactions_api_config.validate_environment(
             headers=extra_headers or {},
             model=model or "",
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
         api_base: Final = interactions_api_config.get_complete_url(
-            api_base=litellm_params.api_base or "",
+            api_base=embrouter_params.api_base or "",
             model=model,
             agent=agent,
-            litellm_params=dict(litellm_params),
+            embrouter_params=dict(embrouter_params),
             stream=stream,
         )
 
@@ -152,7 +152,7 @@ class InteractionsHTTPHandler(_BaseHTTPHandler):
             agent=agent,
             input=input,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
@@ -206,8 +206,8 @@ class InteractionsHTTPHandler(_BaseHTTPHandler):
         interactions_api_config: BaseInteractionsAPIConfig,
         optional_params: InteractionsAPIOptionalRequestParams,
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         model: str | None = None,
         agent: str | None = None,
         input: InteractionInput | None = None,
@@ -222,8 +222,8 @@ class InteractionsHTTPHandler(_BaseHTTPHandler):
         """
         if client is None:
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders(custom_llm_provider),
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders(custom_llm_provider),
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
             )
         else:
             async_httpx_client = client
@@ -231,14 +231,14 @@ class InteractionsHTTPHandler(_BaseHTTPHandler):
         headers: Final = interactions_api_config.validate_environment(
             headers=extra_headers or {},
             model=model or "",
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
         api_base: Final = interactions_api_config.get_complete_url(
-            api_base=litellm_params.api_base or "",
+            api_base=embrouter_params.api_base or "",
             model=model,
             agent=agent,
-            litellm_params=dict(litellm_params),
+            embrouter_params=dict(embrouter_params),
             stream=stream,
         )
 
@@ -247,7 +247,7 @@ class InteractionsHTTPHandler(_BaseHTTPHandler):
             agent=agent,
             input=input,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
@@ -300,7 +300,7 @@ class InteractionsHTTPHandler(_BaseHTTPHandler):
         self,
         response: httpx.Response,
         model: str | None,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         interactions_api_config: BaseInteractionsAPIConfig,
     ) -> SyncInteractionsAPIStreamingIterator:
         """Create a synchronous streaming iterator.
@@ -319,7 +319,7 @@ class InteractionsHTTPHandler(_BaseHTTPHandler):
         self,
         response: httpx.Response,
         model: str | None,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         interactions_api_config: BaseInteractionsAPIConfig,
     ) -> InteractionsAPIStreamingIterator:
         """Create an asynchronous streaming iterator.
@@ -343,8 +343,8 @@ class InteractionsHTTPHandler(_BaseHTTPHandler):
         interaction_id: str,
         interactions_api_config: BaseInteractionsAPIConfig,
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, str] | None = None,
         timeout: float | httpx.Timeout | None = None,
         client: HTTPHandler | None = None,
@@ -356,27 +356,27 @@ class InteractionsHTTPHandler(_BaseHTTPHandler):
                 interaction_id=interaction_id,
                 interactions_api_config=interactions_api_config,
                 custom_llm_provider=custom_llm_provider,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 extra_headers=extra_headers,
                 timeout=timeout,
             )
 
         if client is None:
-            sync_httpx_client = _get_httpx_client(params={"ssl_verify": litellm_params.get("ssl_verify", None)})
+            sync_httpx_client = _get_httpx_client(params={"ssl_verify": embrouter_params.get("ssl_verify", None)})
         else:
             sync_httpx_client = client
 
         headers: Final = interactions_api_config.validate_environment(
             headers=extra_headers or {},
             model="",
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
         url, params = interactions_api_config.transform_get_interaction_request(
             interaction_id=interaction_id,
-            api_base=litellm_params.api_base or "",
-            litellm_params=litellm_params,
+            api_base=embrouter_params.api_base or "",
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
@@ -405,8 +405,8 @@ class InteractionsHTTPHandler(_BaseHTTPHandler):
         interaction_id: str,
         interactions_api_config: BaseInteractionsAPIConfig,
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, str] | None = None,
         timeout: float | httpx.Timeout | None = None,
         client: AsyncHTTPHandler | None = None,
@@ -414,8 +414,8 @@ class InteractionsHTTPHandler(_BaseHTTPHandler):
         """Get an interaction by ID (async version)."""
         if client is None:
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders(custom_llm_provider),
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders(custom_llm_provider),
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
             )
         else:
             async_httpx_client = client
@@ -423,13 +423,13 @@ class InteractionsHTTPHandler(_BaseHTTPHandler):
         headers: Final = interactions_api_config.validate_environment(
             headers=extra_headers or {},
             model="",
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
         url, params = interactions_api_config.transform_get_interaction_request(
             interaction_id=interaction_id,
-            api_base=litellm_params.api_base or "",
-            litellm_params=litellm_params,
+            api_base=embrouter_params.api_base or "",
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
@@ -462,8 +462,8 @@ class InteractionsHTTPHandler(_BaseHTTPHandler):
         interaction_id: str,
         interactions_api_config: BaseInteractionsAPIConfig,
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, str] | None = None,
         timeout: float | httpx.Timeout | None = None,
         client: HTTPHandler | None = None,
@@ -475,27 +475,27 @@ class InteractionsHTTPHandler(_BaseHTTPHandler):
                 interaction_id=interaction_id,
                 interactions_api_config=interactions_api_config,
                 custom_llm_provider=custom_llm_provider,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 extra_headers=extra_headers,
                 timeout=timeout,
             )
 
         if client is None:
-            sync_httpx_client = _get_httpx_client(params={"ssl_verify": litellm_params.get("ssl_verify", None)})
+            sync_httpx_client = _get_httpx_client(params={"ssl_verify": embrouter_params.get("ssl_verify", None)})
         else:
             sync_httpx_client = client
 
         headers: Final = interactions_api_config.validate_environment(
             headers=extra_headers or {},
             model="",
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
         url, data = interactions_api_config.transform_delete_interaction_request(
             interaction_id=interaction_id,
-            api_base=litellm_params.api_base or "",
-            litellm_params=litellm_params,
+            api_base=embrouter_params.api_base or "",
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
@@ -525,8 +525,8 @@ class InteractionsHTTPHandler(_BaseHTTPHandler):
         interaction_id: str,
         interactions_api_config: BaseInteractionsAPIConfig,
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, str] | None = None,
         timeout: float | httpx.Timeout | None = None,
         client: AsyncHTTPHandler | None = None,
@@ -534,8 +534,8 @@ class InteractionsHTTPHandler(_BaseHTTPHandler):
         """Delete an interaction by ID (async version)."""
         if client is None:
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders(custom_llm_provider),
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders(custom_llm_provider),
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
             )
         else:
             async_httpx_client = client
@@ -543,13 +543,13 @@ class InteractionsHTTPHandler(_BaseHTTPHandler):
         headers: Final = interactions_api_config.validate_environment(
             headers=extra_headers or {},
             model="",
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
         url, data = interactions_api_config.transform_delete_interaction_request(
             interaction_id=interaction_id,
-            api_base=litellm_params.api_base or "",
-            litellm_params=litellm_params,
+            api_base=embrouter_params.api_base or "",
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
@@ -583,8 +583,8 @@ class InteractionsHTTPHandler(_BaseHTTPHandler):
         interaction_id: str,
         interactions_api_config: BaseInteractionsAPIConfig,
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, str] | None = None,
         timeout: float | httpx.Timeout | None = None,
         client: HTTPHandler | None = None,
@@ -596,27 +596,27 @@ class InteractionsHTTPHandler(_BaseHTTPHandler):
                 interaction_id=interaction_id,
                 interactions_api_config=interactions_api_config,
                 custom_llm_provider=custom_llm_provider,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 extra_headers=extra_headers,
                 timeout=timeout,
             )
 
         if client is None:
-            sync_httpx_client = _get_httpx_client(params={"ssl_verify": litellm_params.get("ssl_verify", None)})
+            sync_httpx_client = _get_httpx_client(params={"ssl_verify": embrouter_params.get("ssl_verify", None)})
         else:
             sync_httpx_client = client
 
         headers: Final = interactions_api_config.validate_environment(
             headers=extra_headers or {},
             model="",
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
         url, data = interactions_api_config.transform_cancel_interaction_request(
             interaction_id=interaction_id,
-            api_base=litellm_params.api_base or "",
-            litellm_params=litellm_params,
+            api_base=embrouter_params.api_base or "",
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
@@ -646,8 +646,8 @@ class InteractionsHTTPHandler(_BaseHTTPHandler):
         interaction_id: str,
         interactions_api_config: BaseInteractionsAPIConfig,
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, str] | None = None,
         timeout: float | httpx.Timeout | None = None,
         client: AsyncHTTPHandler | None = None,
@@ -655,8 +655,8 @@ class InteractionsHTTPHandler(_BaseHTTPHandler):
         """Cancel an interaction by ID (async version)."""
         if client is None:
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders(custom_llm_provider),
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders(custom_llm_provider),
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
             )
         else:
             async_httpx_client = client
@@ -664,13 +664,13 @@ class InteractionsHTTPHandler(_BaseHTTPHandler):
         headers: Final = interactions_api_config.validate_environment(
             headers=extra_headers or {},
             model="",
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
         url, data = interactions_api_config.transform_cancel_interaction_request(
             interaction_id=interaction_id,
-            api_base=litellm_params.api_base or "",
-            litellm_params=litellm_params,
+            api_base=embrouter_params.api_base or "",
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 

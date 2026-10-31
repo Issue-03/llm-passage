@@ -5,9 +5,9 @@ import json
 import httpx
 import pytest
 
-import litellm
-from litellm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
-from litellm.types.router import GenericLiteLLMParams
+import embrouter
+from embrouter.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
+from embrouter.types.router import GenericEmbRouterParams
 
 
 @pytest.mark.asyncio
@@ -25,14 +25,14 @@ async def test_default_async_transform_delegates_to_the_sync_transform():
         model="gpt-5",
         input=input_with_cache_marker,
         response_api_optional_request_params={"max_output_tokens": 64},
-        litellm_params=GenericLiteLLMParams(),
+        embrouter_params=GenericEmbRouterParams(),
         headers={},
     )
     async_body = await cfg.async_transform_responses_api_request(
         model="gpt-5",
         input=input_with_cache_marker,
         response_api_optional_request_params={"max_output_tokens": 64},
-        litellm_params=GenericLiteLLMParams(),
+        embrouter_params=GenericEmbRouterParams(),
         headers={},
     )
     assert async_body == sync_body
@@ -40,7 +40,7 @@ async def test_default_async_transform_delegates_to_the_sync_transform():
 
 
 def test_responses_sends_a_caller_extra_body_over_the_request_unchanged(respx_mock, monkeypatch) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
     route = respx_mock.post("https://api.openai.com/v1/responses").mock(
         return_value=httpx.Response(
             200,
@@ -55,7 +55,7 @@ def test_responses_sends_a_caller_extra_body_over_the_request_unchanged(respx_mo
         )
     )
 
-    litellm.responses(
+    embrouter.responses(
         model="openai/gpt-5",
         input="hi",
         api_key="sk-test",

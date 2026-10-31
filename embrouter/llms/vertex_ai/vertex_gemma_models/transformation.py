@@ -14,22 +14,22 @@ from typing import TYPE_CHECKING, Any, Final, cast
 import httpx
 from pydantic import ValidationError
 
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.custom_httpx.http_handler import (
     AsyncHTTPHandler,
     HTTPHandler,
     _get_httpx_client,
 )
-from litellm.llms.openai.chat.gpt_transformation import OpenAIGPTConfig
-from litellm.llms.vertex_ai.common_utils import VERTEX_SELF_DEPLOYED_ENDPOINT_UNSUPPORTED_PARAMS
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.llms.vertex_ai_gemma import VertexGemmaContainerError
-from litellm.types.utils import ModelResponse
+from embrouter.llms.openai.chat.gpt_transformation import OpenAIGPTConfig
+from embrouter.llms.vertex_ai.common_utils import VERTEX_SELF_DEPLOYED_ENDPOINT_UNSUPPORTED_PARAMS
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.llms.vertex_ai_gemma import VertexGemmaContainerError
+from embrouter.types.utils import ModelResponse
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.embrouter_core_utils.streaming_handler import CustomStreamWrapper
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
 
 
 def parse_vertex_gemma_container_error(predictions: object) -> VertexGemmaContainerError | None:
@@ -74,7 +74,7 @@ class VertexGemmaConfig(OpenAIGPTConfig):
         model_response: ModelResponse,
         stream: bool,
         model: str,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
     ) -> "ModelResponse | CustomStreamWrapper":
         """
         Helper method to return fake stream iterator if streaming is requested.
@@ -87,8 +87,8 @@ class VertexGemmaConfig(OpenAIGPTConfig):
             CustomStreamWrapper if stream=True, otherwise the model_response
         """
         if stream:
-            from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
-            from litellm.llms.base_llm.base_model_iterator import MockResponseIterator
+            from embrouter.embrouter_core_utils.streaming_handler import CustomStreamWrapper
+            from embrouter.llms.base_llm.base_model_iterator import MockResponseIterator
 
             return CustomStreamWrapper(
                 completion_stream=MockResponseIterator(model_response=model_response),
@@ -103,7 +103,7 @@ class VertexGemmaConfig(OpenAIGPTConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         """
@@ -117,7 +117,7 @@ class VertexGemmaConfig(OpenAIGPTConfig):
             model=model,
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
@@ -207,8 +207,8 @@ class VertexGemmaConfig(OpenAIGPTConfig):
         request_data: dict[str, object],  # mutable-ok: forwarded to post(json: dict | ...)
         timeout: float | httpx.Timeout | None,
     ) -> httpx.Response:
-        from litellm.llms.custom_httpx.http_handler import get_async_httpx_client
-        from litellm.types.utils import LlmProviders
+        from embrouter.llms.custom_httpx.http_handler import get_async_httpx_client
+        from embrouter.types.utils import LlmProviders
 
         if isinstance(client, AsyncHTTPHandler):
             return await client.post(
@@ -246,10 +246,10 @@ class VertexGemmaConfig(OpenAIGPTConfig):
         custom_prompt_dict: dict,
         model_response: ModelResponse,
         print_verbose: Callable,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
         optional_params: dict,
         acompletion: bool,
-        litellm_params: dict,
+        embrouter_params: dict,
         logger_fn: Callable | None = None,
         client: HTTPHandler | AsyncHTTPHandler | httpx.Client | httpx.AsyncClient | None = None,
         timeout: float | httpx.Timeout | None = None,
@@ -271,7 +271,7 @@ class VertexGemmaConfig(OpenAIGPTConfig):
                 print_verbose=print_verbose,
                 logging_obj=logging_obj,
                 optional_params=optional_params,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 client=async_client,
                 timeout=timeout,
                 encoding=encoding,
@@ -287,7 +287,7 @@ class VertexGemmaConfig(OpenAIGPTConfig):
                 print_verbose=print_verbose,
                 logging_obj=logging_obj,
                 optional_params=optional_params,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 client=sync_client,
                 timeout=timeout,
                 encoding=encoding,
@@ -301,15 +301,15 @@ class VertexGemmaConfig(OpenAIGPTConfig):
         api_key: str,
         model_response: ModelResponse,
         print_verbose: Callable,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         client: HTTPHandler | httpx.Client | None = None,
         timeout: float | httpx.Timeout | None = None,
         encoding: "Tokenizer | None" = None,
     ):
         """Synchronous completion request"""
-        from litellm.utils import convert_to_model_response_object
+        from embrouter.utils import convert_to_model_response_object
 
         # Check if streaming is requested (will be faked)
         stream: Final = optional_params.get("stream", False)
@@ -319,7 +319,7 @@ class VertexGemmaConfig(OpenAIGPTConfig):
             model=model,
             messages=messages,
             optional_params=optional_params.copy(),
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers={},
         )
 
@@ -359,7 +359,7 @@ class VertexGemmaConfig(OpenAIGPTConfig):
         # Unwrap predictions to get OpenAI-compatible response
         openai_response: Final = self._unwrap_predictions_response(response_json)
 
-        # Use litellm's standard response converter
+        # Use embrouter's standard response converter
         model_response = cast(
             ModelResponse,
             convert_to_model_response_object(
@@ -396,15 +396,15 @@ class VertexGemmaConfig(OpenAIGPTConfig):
         api_key: str,
         model_response: ModelResponse,
         print_verbose: Callable,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         client: AsyncHTTPHandler | httpx.AsyncClient | None = None,
         timeout: float | httpx.Timeout | None = None,
         encoding: "Tokenizer | None" = None,
     ):
         """Asynchronous completion request"""
-        from litellm.utils import convert_to_model_response_object
+        from embrouter.utils import convert_to_model_response_object
 
         # Check if streaming is requested (will be faked)
         stream: Final = optional_params.get("stream", False)
@@ -414,7 +414,7 @@ class VertexGemmaConfig(OpenAIGPTConfig):
             model=model,
             messages=messages,
             optional_params=optional_params.copy(),
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers={},
         )
 
@@ -454,7 +454,7 @@ class VertexGemmaConfig(OpenAIGPTConfig):
         # Unwrap predictions to get OpenAI-compatible response
         openai_response: Final = self._unwrap_predictions_response(response_json)
 
-        # Use litellm's standard response converter
+        # Use embrouter's standard response converter
         model_response = cast(
             ModelResponse,
             convert_to_model_response_object(

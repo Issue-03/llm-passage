@@ -1,6 +1,6 @@
 from typing import TypedDict
 
-from litellm.types.integrations.custom_logger import StandardCustomLoggerInitParams
+from embrouter.types.integrations.custom_logger import StandardCustomLoggerInitParams
 
 
 class DatadogCostManagementInitParams(StandardCustomLoggerInitParams):

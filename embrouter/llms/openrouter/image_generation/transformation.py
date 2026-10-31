@@ -31,18 +31,18 @@ from typing import TYPE_CHECKING, Any, Final
 
 import httpx
 
-import litellm
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.base_llm.image_generation.transformation import (
+import embrouter
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.base_llm.image_generation.transformation import (
     BaseImageGenerationConfig,
 )
-from litellm.llms.openrouter.common_utils import OpenRouterException
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.openai import (
+from embrouter.llms.openrouter.common_utils import OpenRouterException
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.openai import (
     AllMessageValues,
     OpenAIImageGenerationOptionalParams,
 )
-from litellm.types.utils import (
+from embrouter.types.utils import (
     ImageObject,
     ImageResponse,
     ImageUsage,
@@ -50,10 +50,10 @@ from litellm.types.utils import (
 )
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 
 class OpenRouterImageGenerationConfig(BaseImageGenerationConfig):
@@ -223,7 +223,7 @@ class OpenRouterImageGenerationConfig(BaseImageGenerationConfig):
                     model_response._hidden_params = {}
                 if "additional_headers" not in model_response._hidden_params:
                     model_response._hidden_params["additional_headers"] = {}
-                model_response._hidden_params["additional_headers"]["llm_provider-x-litellm-response-cost"] = float(
+                model_response._hidden_params["additional_headers"]["llm_provider-x-embrouter-response-cost"] = float(
                     cost
                 )
 
@@ -241,7 +241,7 @@ class OpenRouterImageGenerationConfig(BaseImageGenerationConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         """
@@ -264,11 +264,11 @@ class OpenRouterImageGenerationConfig(BaseImageGenerationConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
-        api_key = api_key or litellm.api_key or get_secret_str("OPENROUTER_API_KEY")
+        api_key = api_key or embrouter.api_key or get_secret_str("OPENROUTER_API_KEY")
         headers.update(
             {
                 "Authorization": f"Bearer {api_key}",
@@ -281,7 +281,7 @@ class OpenRouterImageGenerationConfig(BaseImageGenerationConfig):
         model: str,
         prompt: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         """
@@ -291,7 +291,7 @@ class OpenRouterImageGenerationConfig(BaseImageGenerationConfig):
             model: The model name
             prompt: The image generation prompt
             optional_params: Optional parameters (including image_config)
-            litellm_params: LiteLLM parameters
+            embrouter_params: EmbRouter parameters
             headers: Request headers
 
         Returns:
@@ -314,10 +314,10 @@ class OpenRouterImageGenerationConfig(BaseImageGenerationConfig):
         model: str,
         raw_response: httpx.Response,
         model_response: ImageResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         request_data: dict,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,
@@ -334,7 +334,7 @@ class OpenRouterImageGenerationConfig(BaseImageGenerationConfig):
             logging_obj: Logging object
             request_data: Original request data
             optional_params: Optional parameters
-            litellm_params: LiteLLM parameters
+            embrouter_params: EmbRouter parameters
             encoding: Encoding
             api_key: API key
             json_mode: JSON mode flag

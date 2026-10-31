@@ -2,15 +2,15 @@ from typing import Final
 
 from pydantic import JsonValue
 
-from litellm.rust_bridge.bindings import NativeBinding
-from litellm.rust_bridge.catalog import Rules
-from litellm.rust_bridge.secret_manager import (
+from embrouter.rust_bridge.bindings import NativeBinding
+from embrouter.rust_bridge.catalog import Rules
+from embrouter.rust_bridge.secret_manager import (
     NATIVE_SECRET_MANAGER,
     NativeSecretManagerFactory,
     resolve_native_secret_manager,
 )
-from litellm.secret_managers.secret_manager_handler import get_secret_from_manager as python_get_secret_from_manager
-from litellm.types.secret_managers.main import KeyManagementSettings
+from embrouter.secret_managers.secret_manager_handler import get_secret_from_manager as python_get_secret_from_manager
+from embrouter.types.secret_managers.main import KeyManagementSettings
 
 
 def get_secret_from_manager(

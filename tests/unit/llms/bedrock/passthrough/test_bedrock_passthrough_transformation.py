@@ -10,10 +10,10 @@ from datetime import datetime
 from typing import Final
 from unittest.mock import patch
 
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.llms.base_llm.passthrough.transformation import PassthroughStreamCollector
-from litellm.llms.bedrock.passthrough.transformation import BedrockPassthroughConfig
-from litellm.types.utils import ModelResponse
+from embrouter.embrouter_core_utils.embrouter_logging import Logging
+from embrouter.llms.base_llm.passthrough.transformation import PassthroughStreamCollector
+from embrouter.llms.bedrock.passthrough.transformation import BedrockPassthroughConfig
+from embrouter.types.utils import ModelResponse
 
 CONVERSE_MODEL = "anthropic.claude-sonnet-4-5-20250929-v1:0"
 CONVERSE_STREAM_ENDPOINT = f"/model/{CONVERSE_MODEL}/converse-stream"
@@ -42,7 +42,7 @@ def test_bedrock_passthrough_get_complete_url_default_endpoint():
             model="anthropic.claude-3-sonnet",
             endpoint="/model/anthropic.claude-3-sonnet/invoke",
             request_query_params=None,
-            litellm_params={},
+            embrouter_params={},
         )
 
         # Verify get_runtime_endpoint was called with correct parameters
@@ -76,7 +76,7 @@ def test_bedrock_passthrough_get_complete_url_custom_endpoint_no_path():
             model="anthropic.claude-3-sonnet",
             endpoint="/model/anthropic.claude-3-sonnet/invoke",
             request_query_params=None,
-            litellm_params={},
+            embrouter_params={},
         )
 
         # Verify get_runtime_endpoint was called with the api_base
@@ -113,7 +113,7 @@ def test_bedrock_passthrough_get_complete_url_custom_endpoint_with_path():
             model="anthropic.claude-3-sonnet",
             endpoint="/model/anthropic.claude-3-sonnet/invoke",
             request_query_params=None,
-            litellm_params={"aws_bedrock_runtime_endpoint": "http://proxy.com/bedrockproxy"},
+            embrouter_params={"aws_bedrock_runtime_endpoint": "http://proxy.com/bedrockproxy"},
         )
 
         # Verify get_runtime_endpoint was called with correct parameters
@@ -227,7 +227,7 @@ def test_bedrock_passthrough_with_application_inference_profile():
             model=model,
             endpoint=endpoint,
             request_query_params=None,
-            litellm_params={"model_id": model_id, "aws_region_name": "eu-west-1"},
+            embrouter_params={"model_id": model_id, "aws_region_name": "eu-west-1"},
         )
 
         # Verify that the URL contains the encoded model_id (ARN) instead of the model name
@@ -268,7 +268,7 @@ def test_bedrock_passthrough_with_inference_profile_converse_endpoint():
             model=model,
             endpoint=endpoint,
             request_query_params=None,
-            litellm_params={"model_id": model_id},
+            embrouter_params={"model_id": model_id},
         )
 
         url_str = str(url)
@@ -306,7 +306,7 @@ def test_bedrock_passthrough_without_model_id_backward_compatibility():
             model=model,
             endpoint=endpoint,
             request_query_params=None,
-            litellm_params={},  # No model_id provided
+            embrouter_params={},  # No model_id provided
         )
 
         # Verify that the URL contains the model name (not replaced)
@@ -325,7 +325,7 @@ def test_bedrock_passthrough_region_extraction_from_inference_profile_arn():
     model_id = "arn:aws:bedrock:us-west-2:123456789:application-inference-profile/test123"
     endpoint = f"model/{model}/invoke"
 
-    # Don't provide aws_region_name in litellm_params to test ARN extraction
+    # Don't provide aws_region_name in embrouter_params to test ARN extraction
     with patch.object(
         config,
         "get_runtime_endpoint",
@@ -340,7 +340,7 @@ def test_bedrock_passthrough_region_extraction_from_inference_profile_arn():
             model=model,
             endpoint=endpoint,
             request_query_params=None,
-            litellm_params={"model_id": model_id},  # Region should be extracted from ARN
+            embrouter_params={"model_id": model_id},  # Region should be extracted from ARN
         )
 
         # Verify that the region from ARN is used in the base URL
@@ -383,7 +383,7 @@ def test_bedrock_passthrough_model_id_arn_encoding():
             model=model,
             endpoint=endpoint,
             request_query_params=None,
-            litellm_params={"model_id": model_id},
+            embrouter_params={"model_id": model_id},
         )
 
         url_str = str(url)
@@ -433,7 +433,7 @@ def test_bedrock_passthrough_model_id_arn_encoding_invoke_endpoint():
             model=model,
             endpoint=endpoint,
             request_query_params=None,
-            litellm_params={"model_id": model_id},
+            embrouter_params={"model_id": model_id},
         )
 
         url_str = str(url)
@@ -475,7 +475,7 @@ def test_bedrock_passthrough_model_id_without_arn():
             model=model,
             endpoint=endpoint,
             request_query_params=None,
-            litellm_params={"model_id": model_id},
+            embrouter_params={"model_id": model_id},
         )
 
         url_str = str(url)
@@ -538,7 +538,7 @@ def _stream_logging_obj(endpoint: str) -> Logging:
         stream=True,
         call_type="pass_through_endpoint",
         start_time=datetime.now(),
-        litellm_call_id="call-1",
+        embrouter_call_id="call-1",
         function_id="fn-1",
     )
     logging_obj.model_call_details["custom_llm_provider"] = "bedrock"

@@ -1,5 +1,5 @@
 """
-Dictionary mapping API routes to their corresponding CallTypes in LiteLLM.
+Dictionary mapping API routes to their corresponding CallTypes in EmbRouter.
 
 This dictionary maps each API endpoint to the CallTypes that can be used for that route.
 Each route can have both async (prefixed with 'a') and sync call types.
@@ -11,7 +11,7 @@ match a single path segment when resolving call types for a concrete path.
 from collections.abc import Sequence
 from typing import Final
 
-from litellm.types.utils import API_ROUTE_TO_CALL_TYPES, CallTypes
+from embrouter.types.utils import API_ROUTE_TO_CALL_TYPES, CallTypes
 
 
 def _segment_matches(route_segment: str, pattern_segment: str) -> bool:

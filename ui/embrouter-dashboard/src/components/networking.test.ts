@@ -199,7 +199,7 @@ describe("daily activity helpers", () => {
     await Networking.teamDailyActivityCall("token", startTime, endTime, 1, null);
     const urlWithoutTeams = new URL(mockFetchWithoutTeams.mock.calls[0][0] as string, "http://example.com");
 
-    expect(urlWithoutTeams.searchParams.get("exclude_team_ids")).toBe("litellm-dashboard");
+    expect(urlWithoutTeams.searchParams.get("exclude_team_ids")).toBe("embrouter-dashboard");
     expect(urlWithoutTeams.searchParams.has("team_ids")).toBe(false);
 
     const mockFetchWithTeams = setupSuccessfulFetch();
@@ -207,7 +207,7 @@ describe("daily activity helpers", () => {
     const urlWithTeams = new URL(mockFetchWithTeams.mock.calls[0][0] as string, "http://example.com");
 
     expect(urlWithTeams.searchParams.get("team_ids")).toBe("team-a,team-b");
-    expect(urlWithTeams.searchParams.get("exclude_team_ids")).toBe("litellm-dashboard");
+    expect(urlWithTeams.searchParams.get("exclude_team_ids")).toBe("embrouter-dashboard");
   });
 });
 
@@ -247,7 +247,7 @@ describe("UI config and public endpoints", () => {
     };
 
     const mockFetch = setupMockFetch([
-      { url: "/litellm/.well-known/litellm-ui-config", data: uiConfig },
+      { url: "/embrouter/.well-known/embrouter-ui-config", data: uiConfig },
       { url: "/public/providers/fields", data: [] },
     ]);
 
@@ -273,7 +273,7 @@ describe("UI config and public endpoints", () => {
     };
 
     const mockFetch = setupMockFetch([
-      { url: "/litellm/.well-known/litellm-ui-config", data: uiConfig },
+      { url: "/embrouter/.well-known/embrouter-ui-config", data: uiConfig },
       { url: "/public/model_hub/info", data: {} },
     ]);
 
@@ -296,7 +296,7 @@ describe("UI config and public endpoints", () => {
     };
 
     const mockFetch = setupMockFetch([
-      { url: "/litellm/.well-known/litellm-ui-config", data: uiConfig },
+      { url: "/embrouter/.well-known/embrouter-ui-config", data: uiConfig },
       { url: "/public/model_hub", data: [] },
     ]);
 
@@ -319,7 +319,7 @@ describe("UI config and public endpoints", () => {
     };
 
     const mockFetch = setupMockFetch([
-      { url: "/litellm/.well-known/litellm-ui-config", data: uiConfig },
+      { url: "/embrouter/.well-known/embrouter-ui-config", data: uiConfig },
       { url: "/public/agent_hub", data: [] },
     ]);
 
@@ -340,7 +340,7 @@ describe("UI config and public endpoints", () => {
     };
 
     const mockFetch = setupMockFetch([
-      { url: "/litellm/.well-known/litellm-ui-config", data: uiConfig },
+      { url: "/embrouter/.well-known/embrouter-ui-config", data: uiConfig },
       { url: "/public/mcp_hub", data: [] },
     ]);
 
@@ -361,7 +361,7 @@ describe("UI config and public endpoints", () => {
     };
 
     const mockFetch = setupMockFetch([
-      { url: "/litellm/.well-known/litellm-ui-config", data: uiConfig },
+      { url: "/embrouter/.well-known/embrouter-ui-config", data: uiConfig },
       { url: "/public/providers/fields", data: [] },
     ]);
 
@@ -383,30 +383,30 @@ describe("UI config and public endpoints", () => {
       proxy_base_url: "https://example.com",
     };
 
-    const mockFetch = setupMockFetch([{ url: "/litellm/.well-known/litellm-ui-config", data: uiConfig }]);
+    const mockFetch = setupMockFetch([{ url: "/embrouter/.well-known/embrouter-ui-config", data: uiConfig }]);
 
     const result = await Networking.getUiConfig();
 
     expect(mockFetch).toHaveBeenCalledOnce();
     expect(result).toEqual(uiConfig);
     const configCall = mockFetch.mock.calls.find((call) =>
-      (call[0] as string).includes("/litellm/.well-known/litellm-ui-config"),
+      (call[0] as string).includes("/embrouter/.well-known/embrouter-ui-config"),
     );
     expect(configCall).toBeDefined();
   });
 
   it("updates serverRootPath so path-based nav links carry the root path", async () => {
     const uiConfig = {
-      server_root_path: "/litellm",
+      server_root_path: "/embrouter",
       proxy_base_url: "https://example.com",
     };
 
-    setupMockFetch([{ url: "/litellm/.well-known/litellm-ui-config", data: uiConfig }]);
+    setupMockFetch([{ url: "/embrouter/.well-known/embrouter-ui-config", data: uiConfig }]);
 
     await Networking.getUiConfig();
 
-    expect(Networking.serverRootPath).toBe("/litellm");
-    expect(uiHref("api-reference")).toBe("/litellm/ui/api-reference");
+    expect(Networking.serverRootPath).toBe("/embrouter");
+    expect(uiHref("api-reference")).toBe("/embrouter/ui/api-reference");
   });
 });
 
@@ -621,7 +621,7 @@ describe("buildModelGroupTestRequest", () => {
   it("builds a chat completion request with NO max_tokens (reasoning models 400 on a tiny cap)", () => {
     const { path, body } = Networking.buildModelGroupTestRequest("o3", "chat");
     expect(path).toBe("/v1/chat/completions");
-    expect(body).toEqual({ model: "o3", messages: [{ role: "user", content: "test from litellm" }] });
+    expect(body).toEqual({ model: "o3", messages: [{ role: "user", content: "test from embrouter" }] });
     expect(body).not.toHaveProperty("max_tokens");
     expect(body).not.toHaveProperty("max_completion_tokens");
   });
@@ -629,14 +629,14 @@ describe("buildModelGroupTestRequest", () => {
   it("builds an embeddings request for embedding mode", () => {
     const { path, body } = Networking.buildModelGroupTestRequest("text-embedding-3-small", "embedding");
     expect(path).toBe("/v1/embeddings");
-    expect(body).toEqual({ model: "text-embedding-3-small", input: "test from litellm" });
+    expect(body).toEqual({ model: "text-embedding-3-small", input: "test from embrouter" });
   });
 
   it("adds classifier request parameters to a chat probe", () => {
     const { body } = Networking.buildModelGroupTestRequest("gpt-5-mini", "chat", { reasoning_effort: "low" });
     expect(body).toEqual({
       model: "gpt-5-mini",
-      messages: [{ role: "user", content: "test from litellm" }],
+      messages: [{ role: "user", content: "test from embrouter" }],
       reasoning_effort: "low",
     });
   });
@@ -660,29 +660,29 @@ describe("testMCPToolsListRequest auth headers", () => {
     (mockFetch.mock.calls[0][1] as RequestInit).headers as Record<string, string>;
 
   afterEach(() => {
-    Networking.setGlobalLitellmHeaderName("Authorization");
+    Networking.setGlobalEmbrouterHeaderName("Authorization");
     global.fetch = originalFetch;
   });
 
-  it("sends the litellm key under a custom litellm_key_header_name even when an upstream OAuth token uses Authorization", async () => {
-    Networking.setGlobalLitellmHeaderName("x-litellm-key");
+  it("sends the embrouter key under a custom embrouter_key_header_name even when an upstream OAuth token uses Authorization", async () => {
+    Networking.setGlobalEmbrouterHeaderName("x-embrouter-key");
     const mockFetch = captureFetch();
 
     await Networking.testMCPToolsListRequest("sk-key", {}, "upstream-oauth-token");
 
     const headers = sentHeaders(mockFetch);
-    expect(headers["x-litellm-key"]).toBe("Bearer sk-key");
+    expect(headers["x-embrouter-key"]).toBe("Bearer sk-key");
     expect(headers["Authorization"]).toBe("Bearer upstream-oauth-token");
   });
 
-  it("Bearer-prefixes x-litellm-api-key when it is the configured key header (raw values fail _get_bearer_token)", async () => {
-    Networking.setGlobalLitellmHeaderName("x-litellm-api-key");
+  it("Bearer-prefixes x-embrouter-api-key when it is the configured key header (raw values fail _get_bearer_token)", async () => {
+    Networking.setGlobalEmbrouterHeaderName("x-embrouter-api-key");
     const mockFetch = captureFetch();
 
     await Networking.testMCPToolsListRequest("sk-key", {}, "upstream-oauth-token");
 
     const headers = sentHeaders(mockFetch);
-    expect(headers["x-litellm-api-key"]).toBe("Bearer sk-key");
+    expect(headers["x-embrouter-api-key"]).toBe("Bearer sk-key");
     expect(headers["Authorization"]).toBe("Bearer upstream-oauth-token");
   });
 
@@ -693,10 +693,10 @@ describe("testMCPToolsListRequest auth headers", () => {
 
     const headers = sentHeaders(mockFetch);
     expect(headers["Authorization"]).toBe("Bearer upstream-oauth-token");
-    expect(headers["x-litellm-api-key"]).toBe("sk-key");
+    expect(headers["x-embrouter-api-key"]).toBe("sk-key");
   });
 
-  it("sends the litellm key as the bearer on default deployments without an OAuth token", async () => {
+  it("sends the embrouter key as the bearer on default deployments without an OAuth token", async () => {
     const mockFetch = captureFetch();
 
     await Networking.testMCPToolsListRequest("sk-key", {});

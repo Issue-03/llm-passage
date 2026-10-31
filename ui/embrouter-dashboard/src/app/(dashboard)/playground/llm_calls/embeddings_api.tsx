@@ -1,5 +1,5 @@
 import { toast } from "@/lib/toast";
-import { getProxyBaseUrl, getGlobalLitellmHeaderName } from "@/components/networking";
+import { getProxyBaseUrl, getGlobalEmbrouterHeaderName } from "@/components/networking";
 import {
   buildPlaygroundHeaders,
   type CustomHeaders,
@@ -28,7 +28,7 @@ export async function makeOpenAIEmbeddingsRequest(
   const proxyBaseUrl = customBaseUrl || getProxyBaseUrl();
   const headers = withRequiredHeaders(buildPlaygroundHeaders(tags, customHeaders), {
     "Content-Type": "application/json",
-    [getGlobalLitellmHeaderName()]: `Bearer ${accessToken}`,
+    [getGlobalEmbrouterHeaderName()]: `Bearer ${accessToken}`,
   });
 
   try {

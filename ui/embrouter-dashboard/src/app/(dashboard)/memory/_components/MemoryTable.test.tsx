@@ -46,13 +46,13 @@ describe("MemoryTable", () => {
   });
 
   it("leaves the proxy admin and dashboard sentinels unlinked", () => {
-    const sentinelRow = makeMemory({ user_id: "default_user_id", team_id: "litellm-dashboard" });
+    const sentinelRow = makeMemory({ user_id: "default_user_id", team_id: "embrouter-dashboard" });
     render(<MemoryTable {...baseProps} data={[sentinelRow]} />);
 
     expect(screen.getByText("default_user_id")).toBeInTheDocument();
-    expect(screen.getByText("litellm-dashboard")).toBeInTheDocument();
+    expect(screen.getByText("embrouter-dashboard")).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "default_user_id" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "litellm-dashboard" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "embrouter-dashboard" })).not.toBeInTheDocument();
   });
 
   it("renders every column header", () => {

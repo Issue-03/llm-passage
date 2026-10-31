@@ -1,8 +1,8 @@
 """Claude Code status line and Codex Stop hook for auto-routed sessions.
 
-`lite` copies this file to ~/.litellm/statusline.py with a CLI version header when known and registers
+`lite` copies this file to ~/.embrouter/statusline.py with a CLI version header when known and registers
 it as Claude Code's `statusLine` command and as Codex's `[[hooks.Stop]]` command, so it must stay
-standard-library only and must never import litellm. Claude Code re-runs it on every
+standard-library only and must never import embrouter. Claude Code re-runs it on every
 status refresh (about every 300ms while typing), so the proxy is asked at most once per
 TTL per session and every other refresh is served from a small on-disk cache that holds
 only the proxy's answer, never the key.
@@ -55,7 +55,7 @@ SYNTHETIC_MODEL: Final = "<synthetic>"
 RESET: Final = "\033[0m"
 BOLD: Final = "\033[1m"
 DIM: Final = "\033[90m"
-LITELLM_COLOR: Final = "\033[38;2;79;70;229m"
+EMBROUTER_COLOR: Final = "\033[38;2;79;70;229m"
 BASELINE_COLOR: Final = "\033[38;2;217;119;87m"
 EMPTY: Final[Mapping[str, object]] = MappingProxyType({})
 EMPTY_ENV: Final[Mapping[str, str]] = MappingProxyType({})
@@ -123,7 +123,7 @@ def resolve_api_key(env: Mapping[str, str], keys: tuple[str, ...]) -> str:
 
 def claude_credentials(env: Mapping[str, str]) -> Credentials:
     """Claude Code's own resolution order, so the key-scoped lookup runs as the principal that wrote the rows:
-    ANTHROPIC_AUTH_TOKEN, then ANTHROPIC_API_KEY. A `lite` variable such as LITELLM_PROXY_API_KEY is not a
+    ANTHROPIC_AUTH_TOKEN, then ANTHROPIC_API_KEY. A `lite` variable such as EMBROUTER_PROXY_API_KEY is not a
     key Claude Code ever sends, so honoring it would ask as someone else. An apiKeyHelper is never run: a
     status line refreshes every few hundred milliseconds, and spawning a credential helper that often is
     how a keychain prompt ends up on screen a hundred times."""
@@ -272,7 +272,7 @@ NOFOLLOW: Final = getattr(os, "O_NOFOLLOW", 0)
 
 
 def cache_dir_name() -> str:
-    return f"litellm-statusline-{os.getuid()}" if hasattr(os, "getuid") else "litellm-statusline"
+    return f"embrouter-statusline-{os.getuid()}" if hasattr(os, "getuid") else "embrouter-statusline"
 
 
 def _own_private_dir(directory: Path) -> bool:
@@ -365,11 +365,11 @@ def render(model: str, session: Session | None, config_dir: Path, use_color: boo
     reference: Final = baseline_label(session.baseline_model, config_dir)
     pct: Final = round((session.baseline_spend - compared_spend) / session.baseline_spend * 100)
     sign: Final = "-" if pct > 0 else "+" if pct < 0 else ""
-    delta: Final = paint(LITELLM_COLOR, f"{sign}{abs(pct)}% vs {reference}")
+    delta: Final = paint(EMBROUTER_COLOR, f"{sign}{abs(pct)}% vs {reference}")
     peak: Final = max(compared_spend, session.baseline_spend)
     label_width: Final = max(_display_width(session.router_name), _display_width(reference))
     rows: Final = (
-        (session.router_name, compared_spend, LITELLM_COLOR),
+        (session.router_name, compared_spend, EMBROUTER_COLOR),
         (reference, session.baseline_spend, BASELINE_COLOR),
     )
     lines: Final = (

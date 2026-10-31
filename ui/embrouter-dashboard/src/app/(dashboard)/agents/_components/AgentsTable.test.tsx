@@ -18,7 +18,7 @@ const baseProps = {
 const makeAgent = (overrides: Partial<Agent> = {}): Agent => ({
   agent_id: "agent-1",
   agent_name: "Test Agent",
-  litellm_params: { model: "gpt-4" },
+  embrouter_params: { model: "gpt-4" },
   spend: 0,
   keys: [{ token: "hash-1", key_alias: "primary", key_name: "sk-...1" }],
   created_at: "2023-01-01T00:00:00Z",
@@ -42,7 +42,7 @@ describe("AgentsTable", () => {
   it("renders the agent's model and opens the detail view when the ID cell is clicked", async () => {
     const user = userEvent.setup();
     const onAgentClick = vi.fn();
-    const agent = makeAgent({ agent_id: "agent-xyz", agent_name: "Router", litellm_params: { model: "claude-3-5" } });
+    const agent = makeAgent({ agent_id: "agent-xyz", agent_name: "Router", embrouter_params: { model: "claude-3-5" } });
     render(<AgentsTable agents={[agent]} {...baseProps} onAgentClick={onAgentClick} />);
 
     expect(screen.getByText("claude-3-5")).toBeInTheDocument();

@@ -4,8 +4,8 @@ import userEvent from "@testing-library/user-event";
 import ContentFilterManager, { formatContentFilterDataForAPI } from "./ContentFilterManager";
 
 const CONTENT_FILTER_GUARDRAIL_DATA = {
-  litellm_params: {
-    guardrail: "litellm_content_filter",
+  embrouter_params: {
+    guardrail: "embrouter_content_filter",
     patterns: [{ pattern_type: "prebuilt", pattern_name: "email", action: "BLOCK" }],
     blocked_words: [{ keyword: "test", action: "BLOCK", description: null }],
   },
@@ -108,9 +108,9 @@ describe("ContentFilterManager", () => {
     expect(screen.getByText("Content Filter Configuration")).toBeInTheDocument();
   });
 
-  it("should return null when guardrail is not litellm_content_filter", () => {
+  it("should return null when guardrail is not embrouter_content_filter", () => {
     const guardrailData = {
-      litellm_params: { guardrail: "presidio" },
+      embrouter_params: { guardrail: "presidio" },
     };
 
     const { container } = render(
@@ -326,8 +326,8 @@ describe("ContentFilterManager", () => {
 
   it("should initialize with empty data when guardrailData has no patterns or blocked_words", async () => {
     const guardrailData = {
-      litellm_params: {
-        guardrail: "litellm_content_filter",
+      embrouter_params: {
+        guardrail: "embrouter_content_filter",
       },
     };
 

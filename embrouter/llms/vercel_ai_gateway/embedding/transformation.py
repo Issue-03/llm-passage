@@ -12,21 +12,21 @@ from typing import TYPE_CHECKING, Any, Final
 
 import httpx
 
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.base_llm.embedding.transformation import BaseEmbeddingConfig
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.openai import AllEmbeddingInputValues
-from litellm.types.utils import EmbeddingResponse
-from litellm.utils import convert_to_model_response_object
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.base_llm.embedding.transformation import BaseEmbeddingConfig
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.openai import AllEmbeddingInputValues
+from embrouter.types.utils import EmbeddingResponse
+from embrouter.utils import convert_to_model_response_object
 
 from ..common_utils import VercelAIGatewayException
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 
 class VercelAIGatewayEmbeddingConfig(BaseEmbeddingConfig):
@@ -42,7 +42,7 @@ class VercelAIGatewayEmbeddingConfig(BaseEmbeddingConfig):
         model: str,
         messages: list,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
@@ -71,7 +71,7 @@ class VercelAIGatewayEmbeddingConfig(BaseEmbeddingConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         """
@@ -113,11 +113,11 @@ class VercelAIGatewayEmbeddingConfig(BaseEmbeddingConfig):
         model: str,
         raw_response: httpx.Response,
         model_response: EmbeddingResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_key: str | None,
         request_data: dict,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> EmbeddingResponse:
         """
         Transform embedding response from Vercel AI Gateway format (OpenAI-compatible).

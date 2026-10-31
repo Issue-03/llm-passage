@@ -9,7 +9,7 @@ Responses spec, so this config inherits OpenAIResponsesAPIConfig and overrides
 only the endpoint URL and authentication.
 
 Auth: Bearer token (BEDROCK_MANTLE_API_KEY or the standard
-AWS_BEARER_TOKEN_BEDROCK, or litellm_params.api_key) when present; otherwise
+AWS_BEARER_TOKEN_BEDROCK, or embrouter_params.api_key) when present; otherwise
 AWS SigV4 (service name "bedrock") using the standard credential chain (IAM
 role / access key / profile / web identity), signed via the shared
 BaseAWSLLM._sign_request after the request body is finalized.
@@ -20,25 +20,25 @@ from typing import Final, cast  # noqa: TID251  # map_openai_params returns the 
 
 import httpx
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.base_llm.responses.codex_compat import drop_unsupported_tools, normalize_codex_input_items
-from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM
-from litellm.llms.bedrock.common_utils import BedrockError
-from litellm.llms.bedrock_mantle.common_utils import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.base_llm.responses.codex_compat import drop_unsupported_tools, normalize_codex_input_items
+from embrouter.llms.bedrock.base_aws_llm import BaseAWSLLM
+from embrouter.llms.bedrock.common_utils import BedrockError
+from embrouter.llms.bedrock_mantle.common_utils import (
     MANTLE_HOST_RE,
     BedrockMantleAuthMixin,
 )
-from litellm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
-from litellm.responses.additional_tools import HoistedAdditionalTools, hoist_additional_tools
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.openai import (
+from embrouter.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
+from embrouter.responses.additional_tools import HoistedAdditionalTools, hoist_additional_tools
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.openai import (
     ResponseInputParam,
     ResponsesAPIOptionalRequestParams,
 )
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import LlmProviders
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import LlmProviders
 
 # Checked longest/most-specific first so a full endpoint URL collapses to host
 # in one pass and the appended path never doubles.
@@ -81,9 +81,9 @@ class BedrockMantleResponsesAPIConfig(BedrockMantleAuthMixin, OpenAIResponsesAPI
     def get_complete_url(
         self,
         api_base: str | None,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> str:
-        region: Final = self._resolve_region({**litellm_params, "api_base": api_base})
+        region: Final = self._resolve_region({**embrouter_params, "api_base": api_base})
         base = api_base or get_secret_str("BEDROCK_MANTLE_API_BASE") or f"https://bedrock-mantle.{region}.api.aws"
         base = base.rstrip("/")
         for suffix in _BASE_SUFFIXES_TO_STRIP:
@@ -91,20 +91,20 @@ class BedrockMantleResponsesAPIConfig(BedrockMantleAuthMixin, OpenAIResponsesAPI
                 base = base[: -len(suffix)]
                 break
         # For the standard Mantle host (including the default-region base that
-        # responses/main.py auto-injects into litellm_params.api_base), pin to the
+        # responses/main.py auto-injects into embrouter_params.api_base), pin to the
         # single resolved region so aws_region_name wins; preserve custom proxy hosts.
         if MANTLE_HOST_RE.match(base):
             base = f"https://bedrock-mantle.{region}.api.aws"
         path: Final = "/openai/v1/responses" if self.use_openai_path else "/v1/responses"
         return f"{base}{path}"
 
-    def validate_environment(self, headers: dict, model: str, litellm_params: GenericLiteLLMParams | None) -> dict:
-        litellm_params = litellm_params or GenericLiteLLMParams()
-        bearer: Final = self._resolve_bearer_token(litellm_params.api_key)
+    def validate_environment(self, headers: dict, model: str, embrouter_params: GenericEmbRouterParams | None) -> dict:
+        embrouter_params = embrouter_params or GenericEmbRouterParams()
+        bearer: Final = self._resolve_bearer_token(embrouter_params.api_key)
         if bearer:
             headers["Authorization"] = f"Bearer {bearer}"
-        if litellm_params.aws_bedrock_project_id:
-            headers["OpenAI-Project"] = litellm_params.aws_bedrock_project_id
+        if embrouter_params.aws_bedrock_project_id:
+            headers["OpenAI-Project"] = embrouter_params.aws_bedrock_project_id
         return headers
 
     def supports_native_file_search(self) -> bool:
@@ -131,12 +131,12 @@ class BedrockMantleResponsesAPIConfig(BedrockMantleAuthMixin, OpenAIResponsesAPI
         if service_tier is None or service_tier in _BEDROCK_MANTLE_SUPPORTED_SERVICE_TIERS:
             return params
         if not drop_params:
-            raise litellm.utils.UnsupportedParamsError(
+            raise embrouter.utils.UnsupportedParamsError(
                 status_code=400,
                 message=(
                     f"bedrock_mantle does not support service_tier={service_tier!r}; the Bedrock Mantle "
-                    "Responses API only accepts 'auto' or 'default'. Set `drop_params: true` (litellm_settings "
-                    "or this deployment's litellm_params) to have LiteLLM drop it, or remove service_tier from "
+                    "Responses API only accepts 'auto' or 'default'. Set `drop_params: true` (embrouter_settings "
+                    "or this deployment's embrouter_params) to have EmbRouter drop it, or remove service_tier from "
                     "the client (Codex CLI sends it when a speed tier is set in ~/.codex/config.toml)."
                 ),
             )
@@ -159,12 +159,12 @@ class BedrockMantleResponsesAPIConfig(BedrockMantleAuthMixin, OpenAIResponsesAPI
         ):
             return params
         if not drop_params:
-            raise litellm.utils.UnsupportedParamsError(
+            raise embrouter.utils.UnsupportedParamsError(
                 status_code=400,
                 message=(
                     f"bedrock_mantle does not support reasoning.summary={summary!r} for {model!r}; the Bedrock Mantle "
-                    "OpenAI Responses path only accepts 'auto'. Set `drop_params: true` (litellm_settings or this "
-                    'deployment\'s litellm_params) to have LiteLLM drop it, or set `model_reasoning_summary = "auto"` '
+                    "OpenAI Responses path only accepts 'auto'. Set `drop_params: true` (embrouter_settings or this "
+                    'deployment\'s embrouter_params) to have EmbRouter drop it, or set `model_reasoning_summary = "auto"` '
                     "in the client (Codex CLI: ~/.codex/config.toml)."
                 ),
             )
@@ -189,7 +189,7 @@ class BedrockMantleResponsesAPIConfig(BedrockMantleAuthMixin, OpenAIResponsesAPI
         model: str,
         input: "str | ResponseInputParam",
         response_api_optional_request_params: dict,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> dict:
         params: Final = cast(  # cast-ok: the base signature leaves the params dict untyped
@@ -211,7 +211,7 @@ class BedrockMantleResponsesAPIConfig(BedrockMantleAuthMixin, OpenAIResponsesAPI
             model=model,
             input=normalized_input,
             response_api_optional_request_params=request_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 

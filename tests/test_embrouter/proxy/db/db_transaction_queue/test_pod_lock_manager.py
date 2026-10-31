@@ -7,9 +7,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 
-from litellm.caching.redis_cache import RedisCircuitBreakerOpenError
-from litellm.constants import DEFAULT_CRON_JOB_LOCK_TTL_SECONDS
-from litellm.proxy.db.db_transaction_queue.pod_lock_manager import PodLockManager
+from embrouter.caching.redis_cache import RedisCircuitBreakerOpenError
+from embrouter.constants import DEFAULT_CRON_JOB_LOCK_TTL_SECONDS
+from embrouter.proxy.db.db_transaction_queue.pod_lock_manager import PodLockManager
 
 
 class MockRedisCache:

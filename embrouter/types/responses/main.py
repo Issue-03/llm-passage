@@ -6,12 +6,12 @@ from openai.types.responses.response_function_web_search import ActionSearchSour
 from pydantic import PrivateAttr
 from typing_extensions import Any, TypedDict
 
-from litellm.types.llms.base import BaseLiteLLMOpenAIResponseObject
+from embrouter.types.llms.base import BaseEmbRouterOpenAIResponseObject
 
 Phase = Literal["commentary", "final_answer"] | None
 
 
-class GenericResponseOutputItemContentAnnotation(BaseLiteLLMOpenAIResponseObject):
+class GenericResponseOutputItemContentAnnotation(BaseEmbRouterOpenAIResponseObject):
     """Annotation for content in a message"""
 
     type: str | None
@@ -21,7 +21,7 @@ class GenericResponseOutputItemContentAnnotation(BaseLiteLLMOpenAIResponseObject
     title: str | None
 
 
-class OutputText(BaseLiteLLMOpenAIResponseObject):
+class OutputText(BaseEmbRouterOpenAIResponseObject):
     """Text output content from an assistant message"""
 
     type: str | None  # "output_text"
@@ -29,7 +29,7 @@ class OutputText(BaseLiteLLMOpenAIResponseObject):
     annotations: list[GenericResponseOutputItemContentAnnotation] | None
 
 
-class OutputFunctionToolCall(BaseLiteLLMOpenAIResponseObject):
+class OutputFunctionToolCall(BaseEmbRouterOpenAIResponseObject):
     """A tool call to run a function"""
 
     arguments: str | None
@@ -71,7 +71,7 @@ def build_web_search_call(
     )
 
 
-class OutputImageGenerationCall(BaseLiteLLMOpenAIResponseObject):
+class OutputImageGenerationCall(BaseEmbRouterOpenAIResponseObject):
     """An image generation call output"""
 
     type: Literal["image_generation_call"]
@@ -80,14 +80,14 @@ class OutputImageGenerationCall(BaseLiteLLMOpenAIResponseObject):
     result: str | None  # Base64 encoded image data (without data:image prefix)
 
 
-class OutputCodeInterpreterCallLog(BaseLiteLLMOpenAIResponseObject):
+class OutputCodeInterpreterCallLog(BaseEmbRouterOpenAIResponseObject):
     """Log output from a code interpreter call"""
 
     type: Literal["logs"]
     logs: str
 
 
-class OutputCodeInterpreterCall(BaseLiteLLMOpenAIResponseObject):
+class OutputCodeInterpreterCall(BaseEmbRouterOpenAIResponseObject):
     """A code interpreter / code execution call output"""
 
     type: Literal["code_interpreter_call"]
@@ -116,7 +116,7 @@ def build_code_interpreter_log_outputs(
     return [OutputCodeInterpreterCallLog(type="logs", logs=logs)] if logs else None
 
 
-class CustomToolCallOutputItem(BaseLiteLLMOpenAIResponseObject):
+class CustomToolCallOutputItem(BaseEmbRouterOpenAIResponseObject):
     """A custom/freeform tool call output item (e.g. apply_patch).
 
     Mirrors the ``custom_tool_call`` variant of OpenAI's Responses API output.
@@ -132,7 +132,7 @@ class CustomToolCallOutputItem(BaseLiteLLMOpenAIResponseObject):
     status: Literal["in_progress", "completed", "incomplete"] | None = None
 
 
-class GenericResponseOutputItem(BaseLiteLLMOpenAIResponseObject):
+class GenericResponseOutputItem(BaseEmbRouterOpenAIResponseObject):
     """
     Generic response API output item
 
@@ -146,7 +146,7 @@ class GenericResponseOutputItem(BaseLiteLLMOpenAIResponseObject):
     phase: Phase = None
 
 
-class DeleteResponseResult(BaseLiteLLMOpenAIResponseObject):
+class DeleteResponseResult(BaseEmbRouterOpenAIResponseObject):
     """
     Result of a delete response request
 

@@ -13,13 +13,13 @@ from typing import Any, Final
 
 import httpx
 
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.openai import ResponseInputParam, ResponsesAPIResponse
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import LlmProviders
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.openai import ResponseInputParam, ResponsesAPIResponse
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import LlmProviders
 
 
 class PerplexityResponsesConfig(OpenAIResponsesAPIConfig):
@@ -40,16 +40,16 @@ class PerplexityResponsesConfig(OpenAIResponsesAPIConfig):
     def custom_llm_provider(self) -> LlmProviders:
         return LlmProviders.PERPLEXITY
 
-    def validate_environment(self, headers: dict, model: str, litellm_params: GenericLiteLLMParams | None) -> dict:
-        litellm_params = litellm_params or GenericLiteLLMParams()
+    def validate_environment(self, headers: dict, model: str, embrouter_params: GenericEmbRouterParams | None) -> dict:
+        embrouter_params = embrouter_params or GenericEmbRouterParams()
         api_key: Final = (
-            litellm_params.api_key or get_secret_str("PERPLEXITYAI_API_KEY") or get_secret_str("PERPLEXITY_API_KEY")
+            embrouter_params.api_key or get_secret_str("PERPLEXITYAI_API_KEY") or get_secret_str("PERPLEXITY_API_KEY")
         )
         if api_key:
             headers["Authorization"] = f"Bearer {api_key}"
         return headers
 
-    def get_complete_url(self, api_base: str | None, litellm_params: dict) -> str:
+    def get_complete_url(self, api_base: str | None, embrouter_params: dict) -> str:
         api_base = api_base or get_secret_str("PERPLEXITY_API_BASE") or "https://api.perplexity.ai"
         return f"{api_base.rstrip('/')}/v1/responses"
 
@@ -74,7 +74,7 @@ class PerplexityResponsesConfig(OpenAIResponsesAPIConfig):
         model: str,
         input: str | ResponseInputParam,
         response_api_optional_request_params: dict,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> dict:
         """Handle preset/ model prefix: send as {"preset": name} instead of {"model": name}."""
@@ -91,7 +91,7 @@ class PerplexityResponsesConfig(OpenAIResponsesAPIConfig):
             model=model,
             input=input,
             response_api_optional_request_params=response_api_optional_request_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
@@ -99,7 +99,7 @@ class PerplexityResponsesConfig(OpenAIResponsesAPIConfig):
         self,
         model: str,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> ResponsesAPIResponse:
         """Check for Perplexity's status:'failed' on HTTP 200 before delegating to base."""
         try:

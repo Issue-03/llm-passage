@@ -8,7 +8,7 @@ the ``uniqueItems: false`` branch, the oneOf to anyOf rewrite, and the
 deterministic note ordering.
 """
 
-from litellm.llms.anthropic.chat.transformation import AnthropicConfig
+from embrouter.llms.anthropic.chat.transformation import AnthropicConfig
 
 
 class TestOutputFormatArrayObjectConstraints:

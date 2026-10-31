@@ -6,22 +6,22 @@ from typing import TYPE_CHECKING, Any, Final, TypeAlias
 from fastapi import HTTPException
 from pydantic import BaseModel
 
-from litellm._logging import verbose_proxy_logger
-from litellm.caching.in_memory_cache import InMemoryCache
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.common_utils.resource_ownership import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.caching.in_memory_cache import InMemoryCache
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.common_utils.resource_ownership import (
     get_primary_resource_owner_scope,
     get_resource_owner_scopes,
     is_proxy_admin,
     user_can_access_resource_owner,
 )
-from litellm.repositories.table_repositories import ManagedObjectRepository
-from litellm.responses.utils import ResponsesAPIRequestUtils
+from embrouter.repositories.table_repositories import ManagedObjectRepository
+from embrouter.responses.utils import ResponsesAPIRequestUtils
 
 if TYPE_CHECKING:
     from prisma import models as prisma_models
 
-    from litellm.proxy.utils import PrismaClient
+    from embrouter.proxy.utils import PrismaClient
 
 
 CONTAINER_OBJECT_PURPOSE: Final = "container"
@@ -30,19 +30,19 @@ CONTAINER_OBJECT_PURPOSE: Final = "container"
 # Prisma. ``_NEGATIVE_OWNER_SENTINEL`` lets us cache a true "untracked"
 # answer so repeated misses also avoid the DB — ``InMemoryCache`` returns
 # ``None`` indistinguishably for "miss" and "cached as None".
-_NEGATIVE_OWNER_SENTINEL: Final = "__litellm_container_no_owner__"
+_NEGATIVE_OWNER_SENTINEL: Final = "__embrouter_container_no_owner__"
 _CONTAINER_OWNER_CACHE: Final = InMemoryCache(max_size_in_memory=10000, default_ttl=60)
 
 # Caches the stored ``unified_object_id`` (the encoded container ID
 # captured at create time) so ``get_container_forwarding_params`` can
 # recover the deployment ``model_id`` for native upstream IDs without
 # re-hitting Prisma on every retrieve/delete.
-_NEGATIVE_STORED_ID_SENTINEL: Final = "__litellm_container_no_stored_id__"
+_NEGATIVE_STORED_ID_SENTINEL: Final = "__embrouter_container_no_stored_id__"
 _CONTAINER_STORED_ID_CACHE: Final = InMemoryCache(max_size_in_memory=10000, default_ttl=60)
 
 # Per-caller-scope cache for ``GET /v1/containers`` list filtering. Without
 # this, every list call issues a fresh ``find_many`` against
-# ``litellm_managedobjecttable``. The cache key is the sorted owner-scope
+# ``embrouter_managedobjecttable``. The cache key is the sorted owner-scope
 # tuple — different keys for the same user share the same allow-set, but
 # different users with different scopes get disjoint cache entries.
 _ALLOWED_CONTAINER_IDS_CACHE: Final = InMemoryCache(max_size_in_memory=2048, default_ttl=60)
@@ -85,7 +85,7 @@ async def get_container_forwarding_params(
     decoded: Final = ResponsesAPIRequestUtils._decode_container_id(container_id)
     model_id = decoded.get("model_id")
     if not (isinstance(model_id, str) and model_id):
-        # Native upstream IDs (e.g. Azure ``cntr_<hex>``) carry no LiteLLM
+        # Native upstream IDs (e.g. Azure ``cntr_<hex>``) carry no EmbRouter
         # routing payload, so decoding the user-supplied id yields no
         # ``model_id``. Recover it from the encoded ``unified_object_id``
         # captured on the ownership row at create time — when the router
@@ -122,7 +122,7 @@ def _dump_response(response: Any) -> dict[str, object]:
 
 
 async def _get_prisma_client() -> "PrismaClient | None":
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     return prisma_client
 
@@ -263,7 +263,7 @@ async def _get_container_owner(original_container_id: str, custom_llm_provider: 
         return None
 
     table: Final = ManagedObjectRepository(prisma_client).table
-    row: Final[prisma_models.LiteLLM_ManagedObjectTable | None] = await table.find_first(
+    row: Final[prisma_models.EmbRouter_ManagedObjectTable | None] = await table.find_first(
         where={
             "model_object_id": model_object_id,
             "file_purpose": CONTAINER_OBJECT_PURPOSE,
@@ -300,7 +300,7 @@ async def _get_stored_container_id(original_container_id: str, custom_llm_provid
         return None
 
     table: Final = ManagedObjectRepository(prisma_client).table
-    row: Final[prisma_models.LiteLLM_ManagedObjectTable | None] = await table.find_first(
+    row: Final[prisma_models.EmbRouter_ManagedObjectTable | None] = await table.find_first(
         where={
             "model_object_id": model_object_id,
             "file_purpose": CONTAINER_OBJECT_PURPOSE,
@@ -381,7 +381,7 @@ async def _get_allowed_container_ids(
         return frozenset()
 
     table: Final = ManagedObjectRepository(prisma_client).table
-    rows: Final[Sequence[prisma_models.LiteLLM_ManagedObjectTable]] = await table.find_many(
+    rows: Final[Sequence[prisma_models.EmbRouter_ManagedObjectTable]] = await table.find_many(
         where={
             "file_purpose": CONTAINER_OBJECT_PURPOSE,
             "created_by": {"in": owner_scopes},

@@ -7,15 +7,15 @@ from unittest.mock import MagicMock
 
 import pytest
 
-import litellm
-from litellm.constants import (
+import embrouter
+from embrouter.constants import (
     BEDROCK_REALTIME_SDK_SUPPORTED_RANGE,
     REALTIME_SESSION_SUCCESS_LOGGED_KEY,
     WEBSOCKET_CLOSE_REASON_MAX_BYTES,
 )
-from litellm.llms.bedrock.common_utils import BedrockError
-from litellm.llms.bedrock.realtime.handler import BedrockRealtime
-from litellm.llms.bedrock.realtime.transformation import BedrockRealtimeConfig
+from embrouter.llms.bedrock.common_utils import BedrockError
+from embrouter.llms.bedrock.realtime.handler import BedrockRealtime
+from embrouter.llms.bedrock.realtime.transformation import BedrockRealtimeConfig
 
 
 @pytest.fixture(autouse=True)
@@ -96,7 +96,7 @@ class UnavailableBedrockStream:
 
 class FakeLogging:
     def __init__(self, trace_id="trace-nova-sonic"):
-        self.litellm_trace_id = trace_id
+        self.embrouter_trace_id = trace_id
         self.model_call_details = {}
 
 
@@ -467,7 +467,7 @@ class TestBedrockRealtimeHandler:
 
     @pytest.mark.asyncio
     async def test_logged_event_types_star_collects_every_forwarded_event(self, monkeypatch):
-        monkeypatch.setattr(litellm, "logged_real_time_event_types", "*")
+        monkeypatch.setattr(embrouter, "logged_real_time_event_types", "*")
         handler = BedrockRealtime()
         stream = ScriptedBedrockStream(
             [
@@ -496,7 +496,7 @@ class TestBedrockRealtimeHandler:
 
     @pytest.mark.asyncio
     async def test_trailing_usage_after_last_done_is_dispatched_for_spend(self, stub_aws_sdk_client, monkeypatch):
-        import litellm.llms.bedrock.realtime.handler as handler_module
+        import embrouter.llms.bedrock.realtime.handler as handler_module
 
         dispatched = {}
 
@@ -659,7 +659,7 @@ class TestBedrockRealtimeProviderFailurePropagation:
 
     @pytest.fixture
     def spend_dispatch(self, monkeypatch):
-        import litellm.llms.bedrock.realtime.handler as handler_module
+        import embrouter.llms.bedrock.realtime.handler as handler_module
 
         dispatched = {}
 
@@ -709,7 +709,7 @@ class TestBedrockRealtimeProviderFailurePropagation:
             )
 
         assert replay.value.status_code == 400, "a committed session must not be silently restarted on a fallback"
-        assert not litellm._should_retry(replay.value.status_code), "the router must not retry the replay refusal"
+        assert not embrouter._should_retry(replay.value.status_code), "the router must not retry the replay refusal"
         assert "Nova Sonic stream broke" in replay.value.message, "the router surfaces the last attempt's error"
 
     @pytest.mark.asyncio
@@ -807,10 +807,10 @@ class TestBedrockRealtimeProviderFailurePropagation:
 
 
 class TestBedrockRealtimeAwsAuth:
-    """AWS auth params passed via litellm_params must reach the Smithy client config (LIT-3923 regression)"""
+    """AWS auth params passed via embrouter_params must reach the Smithy client config (LIT-3923 regression)"""
 
     @pytest.mark.asyncio
-    async def test_static_credentials_from_litellm_params_reach_smithy_config(self, stub_aws_sdk_client):
+    async def test_static_credentials_from_embrouter_params_reach_smithy_config(self, stub_aws_sdk_client):
         handler = BedrockRealtime()
         websocket = RealtimeClientWS()
 
@@ -819,17 +819,17 @@ class TestBedrockRealtimeAwsAuth:
             websocket=websocket,
             logging_obj=FakeLogging(),
             aws_region_name="us-east-1",
-            aws_access_key_id="litellm-params-access-key",
-            aws_secret_access_key="litellm-params-secret-key",
-            aws_session_token="litellm-params-session-token",
+            aws_access_key_id="embrouter-params-access-key",
+            aws_secret_access_key="embrouter-params-secret-key",
+            aws_session_token="embrouter-params-session-token",
         )
 
         config_kwargs = stub_aws_sdk_client["config_kwargs"]
         resolver = config_kwargs["aws_credentials_identity_resolver"]
         assert isinstance(resolver, FakeStaticCredentialsResolver)
-        assert resolver.identity.access_key_id == "litellm-params-access-key"
-        assert resolver.identity.secret_access_key == "litellm-params-secret-key"
-        assert resolver.identity.session_token == "litellm-params-session-token"
+        assert resolver.identity.access_key_id == "embrouter-params-access-key"
+        assert resolver.identity.secret_access_key == "embrouter-params-secret-key"
+        assert resolver.identity.session_token == "embrouter-params-session-token"
         assert config_kwargs["region"] == "us-east-1"
         assert config_kwargs["endpoint_uri"] == "https://bedrock-runtime.us-east-1.amazonaws.com"
         assert isinstance(config_kwargs["transport"], FakeAWSCRTHTTPClient)
@@ -988,11 +988,11 @@ class TestBedrockRealtimeSdkImportErrors:
 
         message = str(exc_info.value)
         assert message.startswith("Missing aws_sdk_bedrock_runtime")
-        assert "litellm[bedrock-realtime]" in message
+        assert "embrouter[bedrock-realtime]" in message
         assert "is installed but" not in message
         close_reason = message.encode()[:WEBSOCKET_CLOSE_REASON_MAX_BYTES].decode()
         assert BEDROCK_REALTIME_SDK_SUPPORTED_RANGE in close_reason
-        assert "pip install 'litellm[bedrock-realtime]'" in close_reason
+        assert "pip install 'embrouter[bedrock-realtime]'" in close_reason
 
     @pytest.mark.asyncio
     async def test_incompatible_sdk_names_installed_version_and_supported_range(self, monkeypatch):

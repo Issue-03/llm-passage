@@ -9,11 +9,11 @@ from unittest.mock import MagicMock
 import httpx
 import pytest
 
-from litellm.llms.perplexity.embedding.transformation import (
+from embrouter.llms.perplexity.embedding.transformation import (
     PerplexityEmbeddingConfig,
     PerplexityEmbeddingError,
 )
-from litellm.types.utils import EmbeddingResponse
+from embrouter.types.utils import EmbeddingResponse
 
 
 class TestPerplexityEmbeddingConfig:
@@ -29,7 +29,7 @@ class TestPerplexityEmbeddingConfig:
             api_key="test-key",
             model=self.model,
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
         )
         assert url == "https://api.perplexity.ai/v1/embeddings"
 
@@ -40,7 +40,7 @@ class TestPerplexityEmbeddingConfig:
             api_key="test-key",
             model=self.model,
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
         )
         assert url == "https://custom.api.com/v1/embeddings"
 
@@ -51,7 +51,7 @@ class TestPerplexityEmbeddingConfig:
             api_key="test-key",
             model=self.model,
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
         )
         assert url == "https://custom.api.com/v1/embeddings"
 
@@ -99,7 +99,7 @@ class TestPerplexityEmbeddingConfig:
             model=self.model,
             messages=[],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             api_key="pplx-test-key",
         )
         assert headers["Authorization"] == "Bearer pplx-test-key"
@@ -277,23 +277,23 @@ class TestPerplexityEmbeddingProviderConfig:
     """Test that Perplexity is correctly registered in ProviderConfigManager."""
 
     def test_provider_config_returns_perplexity_embedding(self):
-        import litellm
-        from litellm.utils import ProviderConfigManager
+        import embrouter
+        from embrouter.utils import ProviderConfigManager
 
         config = ProviderConfigManager.get_provider_embedding_config(
             model="pplx-embed-v1-0.6b",
-            provider=litellm.LlmProviders.PERPLEXITY,
+            provider=embrouter.LlmProviders.PERPLEXITY,
         )
         assert config is not None
         assert isinstance(config, PerplexityEmbeddingConfig)
 
     def test_provider_config_returns_perplexity_embedding_4b(self):
-        import litellm
-        from litellm.utils import ProviderConfigManager
+        import embrouter
+        from embrouter.utils import ProviderConfigManager
 
         config = ProviderConfigManager.get_provider_embedding_config(
             model="pplx-embed-v1-4b",
-            provider=litellm.LlmProviders.PERPLEXITY,
+            provider=embrouter.LlmProviders.PERPLEXITY,
         )
         assert config is not None
         assert isinstance(config, PerplexityEmbeddingConfig)

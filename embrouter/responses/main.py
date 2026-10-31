@@ -12,30 +12,30 @@ import httpx
 from pydantic import BaseModel, TypeAdapter, ValidationError
 from typing_extensions import assert_never
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.completion_extras.litellm_responses_transformation.transformation import (
-    LiteLLMResponsesTransformationHandler,
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
+    EmbRouterResponsesTransformationHandler,
 )
-from litellm.constants import DEFAULT_CHAT_COMPLETION_PARAM_VALUES, request_timeout
-from litellm.integrations.anthropic_cache_control_hook import CARRY_UNMATCHED_MESSAGE_POINTS
-from litellm.litellm_core_utils.asyncify import run_async_function
-from litellm.litellm_core_utils.core_helpers import normalize_drop_params
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+from embrouter.constants import DEFAULT_CHAT_COMPLETION_PARAM_VALUES, request_timeout
+from embrouter.integrations.anthropic_cache_control_hook import CARRY_UNMATCHED_MESSAGE_POINTS
+from embrouter.embrouter_core_utils.asyncify import run_async_function
+from embrouter.embrouter_core_utils.core_helpers import normalize_drop_params
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
     update_responses_input_with_model_file_ids,
     update_responses_tools_with_model_file_ids,
 )
-from litellm.litellm_core_utils.provider_affinity import add_provider_affinity_header
-from litellm.llms.base_llm.responses.transformation import BaseResponsesAPIConfig
-from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
-from litellm.llms.openai_like.responses.transformation import OpenAILikeResponsesConfig
-from litellm.responses.litellm_completion_transformation.handler import (
-    LiteLLMCompletionTransformationHandler,
+from embrouter.embrouter_core_utils.provider_affinity import add_provider_affinity_header
+from embrouter.llms.base_llm.responses.transformation import BaseResponsesAPIConfig
+from embrouter.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+from embrouter.llms.openai_like.responses.transformation import OpenAILikeResponsesConfig
+from embrouter.responses.embrouter_completion_transformation.handler import (
+    EmbRouterCompletionTransformationHandler,
 )
-from litellm.responses.mcp.request_context import MCPRequestContext
-from litellm.responses.utils import ResponsesAPIRequestUtils
-from litellm.types.llms.openai import (
+from embrouter.responses.mcp.request_context import MCPRequestContext
+from embrouter.responses.utils import ResponsesAPIRequestUtils
+from embrouter.types.llms.openai import (
     PromptObject,
     Reasoning,
     ResponseIncludable,
@@ -48,17 +48,17 @@ from litellm.types.llms.openai import (
 
 # Handle ResponseText import with fallback
 if TYPE_CHECKING:
-    from litellm.types.llms.openai import ResponseText
+    from embrouter.types.llms.openai import ResponseText
 else:
     ResponseText = str  # Fallback for ResponseText import
-from litellm.litellm_core_utils.get_litellm_params import get_litellm_params
-from litellm.llms.openai.data_residency import infer_openai_data_residency
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.responses.main import *
-from litellm.types.responses.streaming_websocket import ResponsesWebSocketRequestDefaults
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import all_litellm_params
-from litellm.utils import (
+from embrouter.embrouter_core_utils.get_embrouter_params import get_embrouter_params
+from embrouter.llms.openai.data_residency import infer_openai_data_residency
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.responses.main import *
+from embrouter.types.responses.streaming_websocket import ResponsesWebSocketRequestDefaults
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import all_embrouter_params
+from embrouter.utils import (
     ProviderConfigManager,
     client,
 )
@@ -91,7 +91,7 @@ __all__ = (
 ####### ENVIRONMENT VARIABLES ###################
 # Initialize any necessary instances or variables here
 base_llm_http_handler = BaseLLMHTTPHandler()
-litellm_completion_transformation_handler: Final = LiteLLMCompletionTransformationHandler()
+embrouter_completion_transformation_handler: Final = EmbRouterCompletionTransformationHandler()
 #################################################
 
 
@@ -181,32 +181,32 @@ async def aresponses_api_with_mcp(
     extra_query: dict[str, object] | None = None,
     extra_body: dict[str, object] | None = None,
     timeout: float | httpx.Timeout | None = None,
-    # LiteLLM specific params,
+    # EmbRouter specific params,
     custom_llm_provider: str | None = None,
     **kwargs,
 ) -> ResponsesAPIResponse | BaseResponsesAPIStreamingIterator:
     """
     Async version of responses API with MCP integration.
 
-    When MCP tools with server_url="litellm_proxy" are provided, this function will:
+    When MCP tools with server_url="embrouter_proxy" are provided, this function will:
     1. Get available tools from the MCP server manager
     2. Insert the tools into the messages/input
     3. Call the standard responses API
     4. If require_approval="never" and tool calls are returned, automatically execute them
     """
-    from litellm.responses.mcp.litellm_proxy_mcp_handler import (
-        LiteLLM_Proxy_MCP_Handler,
+    from embrouter.responses.mcp.embrouter_proxy_mcp_handler import (
+        EmbRouter_Proxy_MCP_Handler,
     )
 
     # Parse MCP tools and separate from other tools
     (
-        mcp_tools_with_litellm_proxy,
+        mcp_tools_with_embrouter_proxy,
         other_tools,
-    ) = await LiteLLM_Proxy_MCP_Handler._split_mcp_tools(tools)
+    ) = await EmbRouter_Proxy_MCP_Handler._split_mcp_tools(tools)
 
     # Process MCP tools through the complete pipeline (fetch + filter + deduplicate + transform)
-    # Extract user_api_key_auth from litellm_metadata (where it's added by add_user_api_key_auth_to_request_metadata)
-    user_api_key_auth = kwargs.get("user_api_key_auth") or kwargs.get("litellm_metadata", {}).get("user_api_key_auth")
+    # Extract user_api_key_auth from embrouter_metadata (where it's added by add_user_api_key_auth_to_request_metadata)
+    user_api_key_auth = kwargs.get("user_api_key_auth") or kwargs.get("embrouter_metadata", {}).get("user_api_key_auth")
 
     # Extract MCP auth headers from request (for dynamic auth when fetching tools)
     secret_fields: Final = kwargs.get("secret_fields")
@@ -220,16 +220,16 @@ async def aresponses_api_with_mcp(
     (
         original_mcp_tools,
         tool_server_map,
-    ) = await LiteLLM_Proxy_MCP_Handler._process_mcp_tools_without_openai_transform(
+    ) = await EmbRouter_Proxy_MCP_Handler._process_mcp_tools_without_openai_transform(
         user_api_key_auth=user_api_key_auth,
-        mcp_tools_with_litellm_proxy=mcp_tools_with_litellm_proxy,
-        litellm_trace_id=kwargs.get("litellm_trace_id"),
+        mcp_tools_with_embrouter_proxy=mcp_tools_with_embrouter_proxy,
+        embrouter_trace_id=kwargs.get("embrouter_trace_id"),
         mcp_auth_header=mcp_auth_header,
         mcp_server_auth_headers=mcp_server_auth_headers,
-        request_tags=LiteLLM_Proxy_MCP_Handler._get_parent_request_tags(kwargs),
+        request_tags=EmbRouter_Proxy_MCP_Handler._get_parent_request_tags(kwargs),
         raw_headers=discovery_raw_headers,
     )
-    openai_tools: Final = LiteLLM_Proxy_MCP_Handler._transform_mcp_tools_to_openai(original_mcp_tools)
+    openai_tools: Final = EmbRouter_Proxy_MCP_Handler._transform_mcp_tools_to_openai(original_mcp_tools)
 
     # Combine with other tools
     all_tools: Final = openai_tools + other_tools if (openai_tools or other_tools) else None
@@ -262,26 +262,26 @@ async def aresponses_api_with_mcp(
     }
 
     # Handle MCP streaming if requested
-    if stream and mcp_tools_with_litellm_proxy:
+    if stream and mcp_tools_with_embrouter_proxy:
         # Generate MCP discovery events using the already processed tools
-        from litellm._uuid import uuid
-        from litellm.responses.mcp.mcp_streaming_iterator import (
+        from embrouter._uuid import uuid
+        from embrouter.responses.mcp.mcp_streaming_iterator import (
             create_mcp_list_tools_events,
         )
 
         base_item_id: Final = f"mcp_{uuid.uuid4().hex[:8]}"
         mcp_discovery_events: Final = await create_mcp_list_tools_events(
-            mcp_tools_with_litellm_proxy=mcp_tools_with_litellm_proxy,
+            mcp_tools_with_embrouter_proxy=mcp_tools_with_embrouter_proxy,
             user_api_key_auth=user_api_key_auth,
             base_item_id=base_item_id,
             pre_processed_mcp_tools=original_mcp_tools,
         )
 
-        mcp_streaming_response: Final = LiteLLM_Proxy_MCP_Handler._create_mcp_streaming_response(
+        mcp_streaming_response: Final = EmbRouter_Proxy_MCP_Handler._create_mcp_streaming_response(
             input=input,
             model=model,
             all_tools=all_tools,
-            mcp_tools_with_litellm_proxy=mcp_tools_with_litellm_proxy,
+            mcp_tools_with_embrouter_proxy=mcp_tools_with_embrouter_proxy,
             mcp_discovery_events=mcp_discovery_events,
             call_params=call_params,
             previous_response_id=previous_response_id,
@@ -294,12 +294,12 @@ async def aresponses_api_with_mcp(
         return mcp_streaming_response
 
     # Determine if we should auto-execute tools
-    should_auto_execute = bool(mcp_tools_with_litellm_proxy) and LiteLLM_Proxy_MCP_Handler._should_auto_execute_tools(
-        mcp_tools_with_litellm_proxy=mcp_tools_with_litellm_proxy
+    should_auto_execute = bool(mcp_tools_with_embrouter_proxy) and EmbRouter_Proxy_MCP_Handler._should_auto_execute_tools(
+        mcp_tools_with_embrouter_proxy=mcp_tools_with_embrouter_proxy
     )
 
     # Prepare parameters for the initial call
-    initial_call_params: Final = LiteLLM_Proxy_MCP_Handler._prepare_initial_call_params(
+    initial_call_params: Final = EmbRouter_Proxy_MCP_Handler._prepare_initial_call_params(
         call_params=call_params, should_auto_execute=should_auto_execute
     )
 
@@ -321,10 +321,10 @@ async def aresponses_api_with_mcp(
     # If auto-execute tools is True, then we need to execute the tool calls
     #########################################################
     if should_auto_execute and isinstance(response, ResponsesAPIResponse):
-        tool_calls: Final = LiteLLM_Proxy_MCP_Handler._extract_tool_calls_from_response(response=response)
+        tool_calls: Final = EmbRouter_Proxy_MCP_Handler._extract_tool_calls_from_response(response=response)
 
         if tool_calls:
-            user_api_key_auth = kwargs.get("litellm_metadata", {}).get("user_api_key_auth")
+            user_api_key_auth = kwargs.get("embrouter_metadata", {}).get("user_api_key_auth")
 
             # Extract MCP auth headers from the request to pass to MCP server
             (
@@ -337,7 +337,7 @@ async def aresponses_api_with_mcp(
                 tools=tools,
             )
 
-            tool_results: Final = await LiteLLM_Proxy_MCP_Handler._execute_tool_calls(
+            tool_results: Final = await EmbRouter_Proxy_MCP_Handler._execute_tool_calls(
                 tool_server_map=tool_server_map,
                 tool_calls=tool_calls,
                 user_api_key_auth=user_api_key_auth,
@@ -345,18 +345,18 @@ async def aresponses_api_with_mcp(
                 mcp_server_auth_headers=mcp_server_auth_headers,
                 oauth2_headers=oauth2_headers,
                 raw_headers=raw_headers_from_request,
-                litellm_call_id=kwargs.get("litellm_call_id"),
-                litellm_trace_id=kwargs.get("litellm_trace_id"),
-                request_tags=LiteLLM_Proxy_MCP_Handler._get_parent_request_tags(kwargs),
+                embrouter_call_id=kwargs.get("embrouter_call_id"),
+                embrouter_trace_id=kwargs.get("embrouter_trace_id"),
+                request_tags=EmbRouter_Proxy_MCP_Handler._get_parent_request_tags(kwargs),
                 guardrail_context=MCPRequestContext.resolve_guardrail_context(
                     MappingProxyType({**kwargs, "metadata": metadata, "model": model})
                 ),
             )
 
             if tool_results:
-                persistence_disabled: Final = LiteLLM_Proxy_MCP_Handler._is_persistence_disabled(call_params)
+                persistence_disabled: Final = EmbRouter_Proxy_MCP_Handler._is_persistence_disabled(call_params)
 
-                follow_up_input: Final = LiteLLM_Proxy_MCP_Handler._create_follow_up_input(
+                follow_up_input: Final = EmbRouter_Proxy_MCP_Handler._create_follow_up_input(
                     response=response,
                     tool_results=tool_results,
                     original_input=input,
@@ -364,18 +364,18 @@ async def aresponses_api_with_mcp(
                 )
 
                 # Prepare parameters for follow-up call (restores original stream setting)
-                follow_up_call_params: Final = LiteLLM_Proxy_MCP_Handler._prepare_follow_up_call_params(
+                follow_up_call_params: Final = EmbRouter_Proxy_MCP_Handler._prepare_follow_up_call_params(
                     call_params=call_params, original_stream_setting=stream or False
                 )
 
                 # Create tool execution events for streaming if needed
                 tool_execution_events = []
                 if stream:
-                    tool_execution_events = LiteLLM_Proxy_MCP_Handler._create_tool_execution_events(
+                    tool_execution_events = EmbRouter_Proxy_MCP_Handler._create_tool_execution_events(
                         tool_calls=tool_calls, tool_results=tool_results
                     )
 
-                final_response = await LiteLLM_Proxy_MCP_Handler._make_follow_up_call(
+                final_response = await EmbRouter_Proxy_MCP_Handler._make_follow_up_call(
                     follow_up_input=follow_up_input,
                     model=model,
                     all_tools=all_tools,
@@ -389,7 +389,7 @@ async def aresponses_api_with_mcp(
                     and tool_execution_events
                     and (hasattr(final_response, "__aiter__") or hasattr(final_response, "__iter__"))
                 ):
-                    from litellm.responses.mcp.mcp_streaming_iterator import (
+                    from embrouter.responses.mcp.mcp_streaming_iterator import (
                         MCPEnhancedStreamingIterator,
                     )
 
@@ -406,15 +406,15 @@ async def aresponses_api_with_mcp(
                     (
                         mcp_tools_for_output,
                         _,
-                    ) = await LiteLLM_Proxy_MCP_Handler._process_mcp_tools_without_openai_transform(
+                    ) = await EmbRouter_Proxy_MCP_Handler._process_mcp_tools_without_openai_transform(
                         user_api_key_auth=user_api_key_auth,
-                        mcp_tools_with_litellm_proxy=mcp_tools_with_litellm_proxy,
+                        mcp_tools_with_embrouter_proxy=mcp_tools_with_embrouter_proxy,
                         mcp_auth_header=mcp_auth_header,
                         mcp_server_auth_headers=mcp_server_auth_headers,
-                        request_tags=LiteLLM_Proxy_MCP_Handler._get_parent_request_tags(kwargs),
+                        request_tags=EmbRouter_Proxy_MCP_Handler._get_parent_request_tags(kwargs),
                         raw_headers=discovery_raw_headers,
                     )
-                    final_response = LiteLLM_Proxy_MCP_Handler._add_mcp_output_elements_to_response(
+                    final_response = EmbRouter_Proxy_MCP_Handler._add_mcp_output_elements_to_response(
                         response=final_response,
                         mcp_tools_fetched=mcp_tools_for_output,
                         tool_results=tool_results,
@@ -445,10 +445,10 @@ def _bridge_kwargs(
         )
     forwarded_keys: Final = frozenset(
         (
-            *litellm.OPENAI_CHAT_COMPLETION_PARAMS,
+            *embrouter.OPENAI_CHAT_COMPLETION_PARAMS,
             *DEFAULT_CHAT_COMPLETION_PARAM_VALUES,
-            *all_litellm_params,
-            *GenericLiteLLMParams.model_fields,
+            *all_embrouter_params,
+            *GenericEmbRouterParams.model_fields,
             *(allowed_openai_params or ()),
         )
     ).difference(_RESPONSES_ONLY_REQUEST_FIELDS_NEVER_BRIDGED)
@@ -475,7 +475,7 @@ def _raise_responses_compatibility_failure(
 ) -> NoReturn:
     match failure:
         case "encrypted_task_unsupported":
-            raise litellm.exception_type(
+            raise embrouter.exception_type(
                 model=model,
                 custom_llm_provider=custom_llm_provider,
                 original_exception=ValueError(
@@ -603,7 +603,7 @@ async def aresponses(
     extra_query: dict[str, object] | None = None,
     extra_body: dict[str, object] | None = None,
     timeout: float | httpx.Timeout | None = None,
-    # LiteLLM specific params,
+    # EmbRouter specific params,
     custom_llm_provider: str | None = None,
     **kwargs,
 ) -> ResponsesAPIResponse | BaseResponsesAPIStreamingIterator:
@@ -623,7 +623,7 @@ async def aresponses(
 
         # get custom llm provider so we can use this for mapping exceptions
         if custom_llm_provider is None:
-            _, custom_llm_provider, _, _ = litellm.get_llm_provider(
+            _, custom_llm_provider, _, _ = embrouter.get_llm_provider(
                 model=model, api_base=local_vars.get("base_url", None)
             )
             # Update local_vars with detected provider (fixes #19782)
@@ -637,14 +637,14 @@ async def aresponses(
         # Pass merged_optional_params via an internal kwarg so responses()
         # can apply them to local_vars without re-invoking the hook.
         #########################################################
-        litellm_logging_obj: Final = kwargs.get("litellm_logging_obj", None)
+        embrouter_logging_obj: Final = kwargs.get("embrouter_logging_obj", None)
         prompt_id: Final = cast(str | None, kwargs.get("prompt_id", None))
         prompt_variables: Final = cast(dict | None, kwargs.get("prompt_variables", None))
         original_model: Final = model
 
         if isinstance(
-            litellm_logging_obj, LiteLLMLoggingObj
-        ) and litellm_logging_obj.should_run_prompt_management_hooks(prompt_id=prompt_id, non_default_params=kwargs):
+            embrouter_logging_obj, EmbRouterLoggingObj
+        ) and embrouter_logging_obj.should_run_prompt_management_hooks(prompt_id=prompt_id, non_default_params=kwargs):
             client_input: Final = ResponsesAPIRequestUtils.responses_input_to_chat_messages(input)
             with _prompt_management_sees_a_provisional_message_list(
                 kwargs,
@@ -660,7 +660,7 @@ async def aresponses(
                     model,
                     merged_input,
                     merged_optional_params,
-                ) = await litellm_logging_obj.async_get_chat_completion_prompt(
+                ) = await embrouter_logging_obj.async_get_chat_completion_prompt(
                     model=model,
                     messages=client_input,
                     non_default_params=kwargs,
@@ -740,11 +740,11 @@ async def aresponses(
         if isinstance(response, ResponsesAPIResponse):
             response = ResponsesAPIRequestUtils._update_responses_api_response_id_with_model_id(
                 responses_api_response=response,
-                litellm_metadata=kwargs.get("litellm_metadata", {}),
+                embrouter_metadata=kwargs.get("embrouter_metadata", {}),
                 custom_llm_provider=custom_llm_provider,
             )
             # Stamp custom_llm_provider so callbacks can identify the provider
-            # (mirrors litellm/main.py:1371 for chat completions)
+            # (mirrors embrouter/main.py:1371 for chat completions)
             response._hidden_params["custom_llm_provider"] = custom_llm_provider
 
         if response is None:
@@ -752,7 +752,7 @@ async def aresponses(
 
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=model,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -768,16 +768,16 @@ def _resolve_prompt_swapped_provider(
     kwargs: Mapping[str, object],
     prompt_id: str | None,
 ) -> str:
-    swapped_provider: Final = litellm.get_llm_provider(model=swapped_model)[1]
+    swapped_provider: Final = embrouter.get_llm_provider(model=swapped_model)[1]
     if kwargs.get("api_key") is None and kwargs.get("api_base") is None:
         return swapped_provider
     try:
-        original_provider: Final = custom_llm_provider or litellm.get_llm_provider(model=original_model)[1]
-    except litellm.BadRequestError:
+        original_provider: Final = custom_llm_provider or embrouter.get_llm_provider(model=original_model)[1]
+    except embrouter.BadRequestError:
         return swapped_provider
     if swapped_provider == original_provider:
         return swapped_provider
-    raise litellm.BadRequestError(
+    raise embrouter.BadRequestError(
         message=(
             f"prompt_id '{prompt_id}' swaps model '{original_model}' -> '{swapped_model}', which changes the "
             f"provider from '{original_provider}' to '{swapped_provider}' after credentials for "
@@ -794,7 +794,7 @@ def _apply_prompt_management_to_responses_call(
     input: str | ResponseInputParam,
     model: str,
     custom_llm_provider: str | None,
-    litellm_logging_obj: LiteLLMLoggingObj | None,
+    embrouter_logging_obj: EmbRouterLoggingObj | None,
     kwargs: dict[str, Any],
     local_vars: dict[str, object],
     use_chat_completions_api: bool,
@@ -813,7 +813,7 @@ def _apply_prompt_management_to_responses_call(
 
     client_input: Final = ResponsesAPIRequestUtils.responses_input_to_chat_messages(input)
 
-    if isinstance(litellm_logging_obj, LiteLLMLoggingObj) and litellm_logging_obj.should_run_prompt_management_hooks(
+    if isinstance(embrouter_logging_obj, EmbRouterLoggingObj) and embrouter_logging_obj.should_run_prompt_management_hooks(
         prompt_id=prompt_id, non_default_params=kwargs
     ):
         with _prompt_management_sees_a_provisional_message_list(
@@ -830,7 +830,7 @@ def _apply_prompt_management_to_responses_call(
                 model,
                 merged_input,
                 merged_optional_params,
-            ) = litellm_logging_obj.get_chat_completion_prompt(
+            ) = embrouter_logging_obj.get_chat_completion_prompt(
                 model=model,
                 messages=client_input,
                 non_default_params=kwargs,
@@ -909,25 +909,25 @@ def _strip_responses_routing_prefix(model: str) -> str:
 def _resolve_model_provider_for_responses(
     model: str,
     custom_llm_provider: str | None,
-    litellm_params: GenericLiteLLMParams,
+    embrouter_params: GenericEmbRouterParams,
     local_vars: dict[str, object],
 ) -> tuple[str, str | None]:
-    if custom_llm_provider is not None and not litellm_params.custom_llm_provider:
-        litellm_params.custom_llm_provider = custom_llm_provider
+    if custom_llm_provider is not None and not embrouter_params.custom_llm_provider:
+        embrouter_params.custom_llm_provider = custom_llm_provider
     (
         provider_model,
         resolved_provider,
         dynamic_api_key,
         dynamic_api_base,
-    ) = litellm.get_llm_provider(
+    ) = embrouter.get_llm_provider(
         model=model,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
     )
     local_vars["custom_llm_provider"] = resolved_provider
     if dynamic_api_key is not None:
-        litellm_params.api_key = dynamic_api_key
+        embrouter_params.api_key = dynamic_api_key
     if dynamic_api_base is not None:
-        litellm_params.api_base = dynamic_api_base
+        embrouter_params.api_base = dynamic_api_base
     return _strip_responses_routing_prefix(provider_model), resolved_provider
 
 
@@ -996,11 +996,11 @@ def _responses_try_dispatch_mcp_gateway(
     skip_mcp_handler: bool,
 ) -> Any | None:
     """Return a response when MCP gateway handles the call; otherwise None."""
-    from litellm.responses.mcp.litellm_proxy_mcp_handler import (
-        LiteLLM_Proxy_MCP_Handler,
+    from embrouter.responses.mcp.embrouter_proxy_mcp_handler import (
+        EmbRouter_Proxy_MCP_Handler,
     )
 
-    if skip_mcp_handler or not LiteLLM_Proxy_MCP_Handler._should_use_litellm_mcp_gateway(tools=tools):
+    if skip_mcp_handler or not EmbRouter_Proxy_MCP_Handler._should_use_embrouter_mcp_gateway(tools=tools):
         return None
     mcp_call_kwargs: Final = {
         "input": input,
@@ -1078,11 +1078,11 @@ def _responses_try_dispatch_emulated_file_search(
         or not responses_api_provider_config.supports_native_file_search()
     ):
         return None
-    from litellm.responses.file_search.emulated_handler import (
+    from embrouter.responses.file_search.emulated_handler import (
         aresponses_with_emulated_file_search,
     )
 
-    _internal_skip: Final = {"litellm_call_id", "aresponses"}
+    _internal_skip: Final = {"embrouter_call_id", "aresponses"}
     emulated_kwargs: Final = {
         "include": include,
         "instructions": instructions,
@@ -1155,7 +1155,7 @@ def responses(
     extra_query: dict[str, object] | None = None,
     extra_body: dict[str, object] | None = None,
     timeout: float | httpx.Timeout | None = None,
-    # LiteLLM specific params,
+    # EmbRouter specific params,
     allowed_openai_params: list[str] | None = None,
     custom_llm_provider: str | None = None,
     **kwargs,
@@ -1167,8 +1167,8 @@ def responses(
     local_vars: Final = locals()
 
     try:
-        litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.get("litellm_logging_obj")
-        litellm_call_id: Final[str | None] = kwargs.get("litellm_call_id", None)
+        embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.get("embrouter_logging_obj")
+        embrouter_call_id: Final[str | None] = kwargs.get("embrouter_call_id", None)
         _is_async: Final = kwargs.pop("aresponses", False) is True
         skip_mcp_handler: Final = kwargs.pop("_skip_mcp_handler", False)
         require_encrypted_task_support: Final = kwargs.pop("_require_encrypted_task_support", False) is True
@@ -1199,7 +1199,7 @@ def responses(
         use_chat_completions_api = use_chat_completions_api or _from_chat_completions_prefix
 
         if custom_llm_provider is None:
-            _, custom_llm_provider, _, _ = litellm.get_llm_provider(
+            _, custom_llm_provider, _, _ = embrouter.get_llm_provider(
                 model=model, api_base=local_vars.get("base_url", None)
             )
             local_vars["custom_llm_provider"] = custom_llm_provider
@@ -1208,46 +1208,46 @@ def responses(
             input=input,
             model=model,
             custom_llm_provider=custom_llm_provider,
-            litellm_logging_obj=litellm_logging_obj,
+            embrouter_logging_obj=embrouter_logging_obj,
             kwargs=kwargs,
             local_vars=local_vars,
             use_chat_completions_api=use_chat_completions_api,
         )
 
         # get llm provider logic
-        litellm_params: Final = GenericLiteLLMParams(**kwargs)
+        embrouter_params: Final = GenericEmbRouterParams(**kwargs)
         try:
             effective_extra_headers: Final = (
                 add_provider_affinity_header(
                     headers=extra_headers or MappingProxyType({}),
-                    litellm_params=MappingProxyType(
+                    embrouter_params=MappingProxyType(
                         {
-                            "provider_affinity_header": litellm_params.provider_affinity_header,
-                            "litellm_session_id": kwargs.get("litellm_session_id"),
+                            "provider_affinity_header": embrouter_params.provider_affinity_header,
+                            "embrouter_session_id": kwargs.get("embrouter_session_id"),
                             "session_id": kwargs.get("session_id"),
                             "metadata": metadata,
-                            "litellm_metadata": kwargs.get("litellm_metadata"),
+                            "embrouter_metadata": kwargs.get("embrouter_metadata"),
                         }
                     ),
                 )
-                if litellm_params.provider_affinity_header is not None
+                if embrouter_params.provider_affinity_header is not None
                 else extra_headers
             )
         except ValueError as affinity_error:
-            raise litellm.BadRequestError(
+            raise embrouter.BadRequestError(
                 message=str(affinity_error), model=model, llm_provider=custom_llm_provider
             ) from affinity_error
 
         #########################################################
         # MOCK RESPONSE LOGIC
         #########################################################
-        if litellm_params.mock_response and isinstance(litellm_params.mock_response, str):
-            return mock_responses_api_response(mock_response=litellm_params.mock_response)
+        if embrouter_params.mock_response and isinstance(embrouter_params.mock_response, str):
+            return mock_responses_api_response(mock_response=embrouter_params.mock_response)
 
         model, custom_llm_provider = _resolve_model_provider_for_responses(
             model=model,
             custom_llm_provider=custom_llm_provider,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             local_vars=local_vars,
         )
 
@@ -1298,7 +1298,7 @@ def responses(
             responses_api_provider_config = None
         else:
             responses_api_provider_config = _resolve_responses_api_provider_config(
-                model, custom_llm_provider, deployment_model_info, litellm_params.api_base
+                model, custom_llm_provider, deployment_model_info, embrouter_params.api_base
             )
 
         if (
@@ -1318,7 +1318,7 @@ def responses(
         )
         reasoning_effort: Final = local_vars.get("reasoning_effort")
         request_reasoning: Final = (
-            LiteLLMResponsesTransformationHandler()._map_reasoning_effort(reasoning_effort)
+            EmbRouterResponsesTransformationHandler()._map_reasoning_effort(reasoning_effort)
             if current_reasoning is None and reasoning_effort is not None
             else current_reasoning
         )
@@ -1370,7 +1370,7 @@ def responses(
 
         if _bridges_to_chat_completions(responses_api_provider_config, use_chat_completions_api):
             bridge_kwargs: Final = _bridge_kwargs(kwargs, responses_api_provider_config, allowed_openai_params)
-            return litellm_completion_transformation_handler.response_api_handler(
+            return embrouter_completion_transformation_handler.response_api_handler(
                 model=model,
                 input=input,
                 responses_api_request=response_api_optional_params,
@@ -1394,24 +1394,24 @@ def responses(
             drop_params=normalize_drop_params(request_drop_params),
         )
 
-        litellm_logging_obj.update_from_kwargs(
+        embrouter_logging_obj.update_from_kwargs(
             kwargs=kwargs,
             model=model,
             user=user,
             optional_params=dict(responses_api_request_params),
-            litellm_params={
+            embrouter_params={
                 **responses_api_request_params,
                 "aresponses": _is_async,
-                "litellm_call_id": litellm_call_id,
+                "embrouter_call_id": embrouter_call_id,
                 "model_info": kwargs.get("model_info"),
-                "data_residency": infer_openai_data_residency(custom_llm_provider, litellm_params.api_base),
-                "metadata": (kwargs["litellm_metadata"] if "litellm_metadata" in kwargs else kwargs.get("metadata")),
-                "provider_affinity_header": litellm_params.provider_affinity_header,
+                "data_residency": infer_openai_data_residency(custom_llm_provider, embrouter_params.api_base),
+                "metadata": (kwargs["embrouter_metadata"] if "embrouter_metadata" in kwargs else kwargs.get("metadata")),
+                "provider_affinity_header": embrouter_params.provider_affinity_header,
             },
             custom_llm_provider=custom_llm_provider,
         )
 
-        # Decode any litellm-encoded encrypted-content item IDs back to their original IDs
+        # Decode any embrouter-encoded encrypted-content item IDs back to their original IDs
         input = ResponsesAPIRequestUtils._restore_encrypted_content_item_ids_in_input(input)
 
         # Call the handler with _is_async flag instead of directly calling the async handler
@@ -1424,8 +1424,8 @@ def responses(
             responses_api_provider_config=responses_api_provider_config,
             response_api_optional_request_params=responses_api_request_params,
             custom_llm_provider=custom_llm_provider,
-            litellm_params=litellm_params,
-            logging_obj=litellm_logging_obj,
+            embrouter_params=embrouter_params,
+            logging_obj=embrouter_logging_obj,
             extra_headers=effective_extra_headers,
             extra_body=extra_body,
             timeout=timeout or request_timeout,
@@ -1434,7 +1434,7 @@ def responses(
             fake_stream=responses_api_provider_config.should_fake_stream(
                 model=model, stream=stream, custom_llm_provider=custom_llm_provider
             ),
-            litellm_metadata=kwargs.get("litellm_metadata", {}),
+            embrouter_metadata=kwargs.get("embrouter_metadata", {}),
             shared_session=kwargs.get("shared_session"),
         )
 
@@ -1442,16 +1442,16 @@ def responses(
         if isinstance(response, ResponsesAPIResponse):
             response = ResponsesAPIRequestUtils._update_responses_api_response_id_with_model_id(
                 responses_api_response=response,
-                litellm_metadata=kwargs.get("litellm_metadata", {}),
+                embrouter_metadata=kwargs.get("embrouter_metadata", {}),
                 custom_llm_provider=custom_llm_provider,
             )
             # Stamp custom_llm_provider so callbacks can identify the provider
-            # (mirrors litellm/main.py:1371 for chat completions)
+            # (mirrors embrouter/main.py:1371 for chat completions)
             response._hidden_params["custom_llm_provider"] = custom_llm_provider
 
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=model,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -1469,7 +1469,7 @@ async def adelete_responses(
     extra_query: dict[str, object] | None = None,
     extra_body: dict[str, object] | None = None,
     timeout: float | httpx.Timeout | None = None,
-    # LiteLLM specific params,
+    # EmbRouter specific params,
     custom_llm_provider: str | None = None,
     **kwargs,
 ) -> DeleteResponseResult:
@@ -1512,7 +1512,7 @@ async def adelete_responses(
             response = init_response
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -1530,7 +1530,7 @@ def delete_responses(
     extra_query: dict[str, object] | None = None,
     extra_body: dict[str, object] | None = None,
     timeout: float | httpx.Timeout | None = None,
-    # LiteLLM specific params,
+    # EmbRouter specific params,
     custom_llm_provider: str | None = None,
     **kwargs,
 ) -> DeleteResponseResult | Coroutine[object, object, DeleteResponseResult]:
@@ -1542,12 +1542,12 @@ def delete_responses(
     """
     local_vars: Final = locals()
     try:
-        litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.get("litellm_logging_obj")
-        litellm_call_id: Final[str | None] = kwargs.get("litellm_call_id", None)
+        embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.get("embrouter_logging_obj")
+        embrouter_call_id: Final[str | None] = kwargs.get("embrouter_call_id", None)
         _is_async: Final = kwargs.pop("adelete_responses", False) is True
 
         # get llm provider logic
-        litellm_params: Final = GenericLiteLLMParams(**kwargs)
+        embrouter_params: Final = GenericEmbRouterParams(**kwargs)
 
         # get custom llm provider from response_id
         decoded_response_id: Final[DecodedResponseId] = ResponsesAPIRequestUtils._decode_responses_api_response_id(
@@ -1564,7 +1564,7 @@ def delete_responses(
             ProviderConfigManager.get_provider_responses_api_config(
                 model=None,
                 provider=custom_llm_provider,
-                api_base=litellm_params.api_base,
+                api_base=embrouter_params.api_base,
             )
         )
 
@@ -1574,14 +1574,14 @@ def delete_responses(
         local_vars.update(kwargs)
 
         # Pre Call logging
-        litellm_logging_obj.update_from_kwargs(
+        embrouter_logging_obj.update_from_kwargs(
             kwargs=local_vars,
             model=None,
             optional_params={
                 "response_id": response_id,
             },
-            litellm_params={
-                "litellm_call_id": litellm_call_id,
+            embrouter_params={
+                "embrouter_call_id": embrouter_call_id,
             },
             custom_llm_provider=custom_llm_provider,
         )
@@ -1591,8 +1591,8 @@ def delete_responses(
             response_id=response_id,
             custom_llm_provider=custom_llm_provider,
             responses_api_provider_config=responses_api_provider_config,
-            litellm_params=litellm_params,
-            logging_obj=litellm_logging_obj,
+            embrouter_params=embrouter_params,
+            logging_obj=embrouter_logging_obj,
             extra_headers=extra_headers,
             extra_body=extra_body,
             timeout=timeout or request_timeout,
@@ -1603,7 +1603,7 @@ def delete_responses(
 
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -1621,7 +1621,7 @@ async def aget_responses(
     extra_query: dict[str, object] | None = None,
     extra_body: dict[str, object] | None = None,
     timeout: float | httpx.Timeout | None = None,
-    # LiteLLM specific params,
+    # EmbRouter specific params,
     custom_llm_provider: str | None = None,
     **kwargs,
 ) -> ResponsesAPIResponse:
@@ -1673,12 +1673,12 @@ async def aget_responses(
         if isinstance(response, ResponsesAPIResponse):
             response = ResponsesAPIRequestUtils._update_responses_api_response_id_with_model_id(
                 responses_api_response=response,
-                litellm_metadata=kwargs.get("litellm_metadata", {}),
+                embrouter_metadata=kwargs.get("embrouter_metadata", {}),
                 custom_llm_provider=custom_llm_provider,
             )
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -1696,7 +1696,7 @@ def get_responses(
     extra_query: dict[str, object] | None = None,
     extra_body: dict[str, object] | None = None,
     timeout: float | httpx.Timeout | None = None,
-    # LiteLLM specific params,
+    # EmbRouter specific params,
     custom_llm_provider: str | None = None,
     **kwargs,
 ) -> ResponsesAPIResponse | Coroutine[object, object, ResponsesAPIResponse]:
@@ -1714,12 +1714,12 @@ def get_responses(
     """
     local_vars: Final = locals()
     try:
-        litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.get("litellm_logging_obj")
-        litellm_call_id: Final[str | None] = kwargs.get("litellm_call_id", None)
+        embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.get("embrouter_logging_obj")
+        embrouter_call_id: Final[str | None] = kwargs.get("embrouter_call_id", None)
         _is_async: Final = kwargs.pop("aget_responses", False) is True
 
         # get llm provider logic
-        litellm_params: Final = GenericLiteLLMParams(**kwargs)
+        embrouter_params: Final = GenericEmbRouterParams(**kwargs)
 
         # get custom llm provider from response_id
         decoded_response_id: Final[DecodedResponseId] = ResponsesAPIRequestUtils._decode_responses_api_response_id(
@@ -1736,7 +1736,7 @@ def get_responses(
             ProviderConfigManager.get_provider_responses_api_config(
                 model=None,
                 provider=custom_llm_provider,
-                api_base=litellm_params.api_base,
+                api_base=embrouter_params.api_base,
             )
         )
 
@@ -1746,14 +1746,14 @@ def get_responses(
         local_vars.update(kwargs)
 
         # Pre Call logging
-        litellm_logging_obj.update_from_kwargs(
+        embrouter_logging_obj.update_from_kwargs(
             kwargs=local_vars,
             model=None,
             optional_params={
                 "response_id": response_id,
             },
-            litellm_params={
-                "litellm_call_id": litellm_call_id,
+            embrouter_params={
+                "embrouter_call_id": embrouter_call_id,
             },
             custom_llm_provider=custom_llm_provider,
         )
@@ -1763,8 +1763,8 @@ def get_responses(
             response_id=response_id,
             custom_llm_provider=custom_llm_provider,
             responses_api_provider_config=responses_api_provider_config,
-            litellm_params=litellm_params,
-            logging_obj=litellm_logging_obj,
+            embrouter_params=embrouter_params,
+            logging_obj=embrouter_logging_obj,
             extra_headers=extra_headers,
             extra_body=extra_body,
             timeout=timeout or request_timeout,
@@ -1777,13 +1777,13 @@ def get_responses(
         if isinstance(response, ResponsesAPIResponse):
             response = ResponsesAPIRequestUtils._update_responses_api_response_id_with_model_id(
                 responses_api_response=response,
-                litellm_metadata=kwargs.get("litellm_metadata", {}),
+                embrouter_metadata=kwargs.get("embrouter_metadata", {}),
                 custom_llm_provider=custom_llm_provider,
             )
 
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -1839,7 +1839,7 @@ async def alist_input_items(
             response = init_response
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -1864,11 +1864,11 @@ def list_input_items(
     """List input items for a response"""
     local_vars: Final = locals()
     try:
-        litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.get("litellm_logging_obj")
-        litellm_call_id: Final[str | None] = kwargs.get("litellm_call_id", None)
+        embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.get("embrouter_logging_obj")
+        embrouter_call_id: Final[str | None] = kwargs.get("embrouter_call_id", None)
         _is_async: Final = kwargs.pop("alist_input_items", False) is True
 
-        litellm_params: Final = GenericLiteLLMParams(**kwargs)
+        embrouter_params: Final = GenericEmbRouterParams(**kwargs)
 
         decoded_response_id: Final = ResponsesAPIRequestUtils._decode_responses_api_response_id(response_id=response_id)
         response_id = decoded_response_id.get("response_id") or response_id
@@ -1881,7 +1881,7 @@ def list_input_items(
             ProviderConfigManager.get_provider_responses_api_config(
                 model=None,
                 provider=custom_llm_provider,
-                api_base=litellm_params.api_base,
+                api_base=embrouter_params.api_base,
             )
         )
 
@@ -1890,11 +1890,11 @@ def list_input_items(
 
         local_vars.update(kwargs)
 
-        litellm_logging_obj.update_from_kwargs(
+        embrouter_logging_obj.update_from_kwargs(
             kwargs=local_vars,
             model=None,
             optional_params={"response_id": response_id},
-            litellm_params={"litellm_call_id": litellm_call_id},
+            embrouter_params={"embrouter_call_id": embrouter_call_id},
             custom_llm_provider=custom_llm_provider,
         )
 
@@ -1902,8 +1902,8 @@ def list_input_items(
             response_id=response_id,
             custom_llm_provider=custom_llm_provider,
             responses_api_provider_config=responses_api_provider_config,
-            litellm_params=litellm_params,
-            logging_obj=litellm_logging_obj,
+            embrouter_params=embrouter_params,
+            logging_obj=embrouter_logging_obj,
             after=after,
             before=before,
             include=include,
@@ -1918,7 +1918,7 @@ def list_input_items(
 
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -1936,7 +1936,7 @@ async def acancel_responses(
     extra_query: dict[str, object] | None = None,
     extra_body: dict[str, object] | None = None,
     timeout: float | httpx.Timeout | None = None,
-    # LiteLLM specific params,
+    # EmbRouter specific params,
     custom_llm_provider: str | None = None,
     **kwargs,
 ) -> ResponsesAPIResponse:
@@ -1979,7 +1979,7 @@ async def acancel_responses(
             response = init_response
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -1997,7 +1997,7 @@ def cancel_responses(
     extra_query: dict[str, object] | None = None,
     extra_body: dict[str, object] | None = None,
     timeout: float | httpx.Timeout | None = None,
-    # LiteLLM specific params,
+    # EmbRouter specific params,
     custom_llm_provider: str | None = None,
     **kwargs,
 ) -> ResponsesAPIResponse | Coroutine[object, object, ResponsesAPIResponse]:
@@ -2009,12 +2009,12 @@ def cancel_responses(
     """
     local_vars: Final = locals()
     try:
-        litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.get("litellm_logging_obj")
-        litellm_call_id: Final[str | None] = kwargs.get("litellm_call_id", None)
+        embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.get("embrouter_logging_obj")
+        embrouter_call_id: Final[str | None] = kwargs.get("embrouter_call_id", None)
         _is_async: Final = kwargs.pop("acancel_responses", False) is True
 
         # get llm provider logic
-        litellm_params: Final = GenericLiteLLMParams(**kwargs)
+        embrouter_params: Final = GenericEmbRouterParams(**kwargs)
 
         # get custom llm provider from response_id
         decoded_response_id: Final[DecodedResponseId] = ResponsesAPIRequestUtils._decode_responses_api_response_id(
@@ -2031,7 +2031,7 @@ def cancel_responses(
             ProviderConfigManager.get_provider_responses_api_config(
                 model=None,
                 provider=custom_llm_provider,
-                api_base=litellm_params.api_base,
+                api_base=embrouter_params.api_base,
             )
         )
 
@@ -2041,14 +2041,14 @@ def cancel_responses(
         local_vars.update(kwargs)
 
         # Pre Call logging
-        litellm_logging_obj.update_from_kwargs(
+        embrouter_logging_obj.update_from_kwargs(
             kwargs=local_vars,
             model=None,
             optional_params={
                 "response_id": response_id,
             },
-            litellm_params={
-                "litellm_call_id": litellm_call_id,
+            embrouter_params={
+                "embrouter_call_id": embrouter_call_id,
             },
             custom_llm_provider=custom_llm_provider,
         )
@@ -2058,8 +2058,8 @@ def cancel_responses(
             response_id=response_id,
             custom_llm_provider=custom_llm_provider,
             responses_api_provider_config=responses_api_provider_config,
-            litellm_params=litellm_params,
-            logging_obj=litellm_logging_obj,
+            embrouter_params=embrouter_params,
+            logging_obj=embrouter_logging_obj,
             extra_headers=extra_headers,
             extra_body=extra_body,
             timeout=timeout or request_timeout,
@@ -2070,7 +2070,7 @@ def cancel_responses(
 
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -2091,7 +2091,7 @@ async def acompact_responses(
     extra_query: dict[str, object] | None = None,
     extra_body: dict[str, object] | None = None,
     timeout: float | httpx.Timeout | None = None,
-    # LiteLLM specific params,
+    # EmbRouter specific params,
     custom_llm_provider: str | None = None,
     **kwargs,
 ) -> ResponsesAPIResponse:
@@ -2109,7 +2109,7 @@ async def acompact_responses(
 
         # get custom llm provider so we can use this for mapping exceptions
         if custom_llm_provider is None:
-            _, custom_llm_provider, _, _ = litellm.get_llm_provider(
+            _, custom_llm_provider, _, _ = embrouter.get_llm_provider(
                 model=model, api_base=local_vars.get("base_url", None)
             )
             # Update local_vars with detected provider (fixes #19782)
@@ -2142,13 +2142,13 @@ async def acompact_responses(
         if isinstance(response, ResponsesAPIResponse):
             response = ResponsesAPIRequestUtils._update_responses_api_response_id_with_model_id(
                 responses_api_response=response,
-                litellm_metadata=kwargs.get("litellm_metadata", {}),
+                embrouter_metadata=kwargs.get("embrouter_metadata", {}),
                 custom_llm_provider=custom_llm_provider,
             )
 
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=model,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -2169,7 +2169,7 @@ def compact_responses(
     extra_query: dict[str, object] | None = None,
     extra_body: dict[str, object] | None = None,
     timeout: float | httpx.Timeout | None = None,
-    # LiteLLM specific params,
+    # EmbRouter specific params,
     custom_llm_provider: str | None = None,
     **kwargs,
 ) -> ResponsesAPIResponse | Coroutine[object, object, ResponsesAPIResponse]:
@@ -2182,17 +2182,17 @@ def compact_responses(
     """
     local_vars: Final = locals()
     try:
-        litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.get("litellm_logging_obj")
-        litellm_call_id: Final[str | None] = kwargs.get("litellm_call_id", None)
+        embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.get("embrouter_logging_obj")
+        embrouter_call_id: Final[str | None] = kwargs.get("embrouter_call_id", None)
         _is_async: Final = kwargs.pop("acompact_responses", False) is True
 
         # get llm provider logic
-        litellm_params: Final = GenericLiteLLMParams(**kwargs)
+        embrouter_params: Final = GenericEmbRouterParams(**kwargs)
 
         model, custom_llm_provider = _resolve_model_provider_for_responses(
             model=model,
             custom_llm_provider=custom_llm_provider,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             local_vars=local_vars,
         )
 
@@ -2204,7 +2204,7 @@ def compact_responses(
             ProviderConfigManager.get_provider_responses_api_config(
                 model=model,
                 provider=custom_llm_provider,
-                api_base=litellm_params.api_base,
+                api_base=embrouter_params.api_base,
             )
         )
 
@@ -2229,19 +2229,19 @@ def compact_responses(
         )
 
         # Pre Call logging
-        litellm_logging_obj.update_from_kwargs(
+        embrouter_logging_obj.update_from_kwargs(
             kwargs=local_vars,
             model=model,
             optional_params=dict(responses_api_request_params),
-            litellm_params={
+            embrouter_params={
                 **responses_api_request_params,
-                "litellm_call_id": litellm_call_id,
-                "data_residency": infer_openai_data_residency(custom_llm_provider, litellm_params.api_base),
+                "embrouter_call_id": embrouter_call_id,
+                "data_residency": infer_openai_data_residency(custom_llm_provider, embrouter_params.api_base),
             },
             custom_llm_provider=custom_llm_provider,
         )
 
-        # Decode any litellm-encoded encrypted-content item IDs back to their original IDs
+        # Decode any embrouter-encoded encrypted-content item IDs back to their original IDs
         # before forwarding to the upstream provider.
         input = ResponsesAPIRequestUtils._restore_encrypted_content_item_ids_in_input(input)
 
@@ -2251,8 +2251,8 @@ def compact_responses(
             input=input,
             responses_api_provider_config=responses_api_provider_config,
             response_api_optional_request_params=responses_api_request_params,
-            litellm_params=litellm_params,
-            logging_obj=litellm_logging_obj,
+            embrouter_params=embrouter_params,
+            logging_obj=embrouter_logging_obj,
             custom_llm_provider=custom_llm_provider,
             extra_headers=extra_headers,
             extra_body=extra_body,
@@ -2266,13 +2266,13 @@ def compact_responses(
         if isinstance(response, ResponsesAPIResponse):
             response = ResponsesAPIRequestUtils._update_responses_api_response_id_with_model_id(
                 responses_api_response=response,
-                litellm_metadata=kwargs.get("litellm_metadata", {}),
+                embrouter_metadata=kwargs.get("embrouter_metadata", {}),
                 custom_llm_provider=custom_llm_provider,
             )
 
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=model,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -2286,8 +2286,8 @@ def compact_responses(
 # ---------------------------------------------------------------------------
 
 
-def _build_litellm_metadata_for_ws(kwargs: dict) -> dict:
-    metadata: Final[dict] = {**(kwargs.get("litellm_metadata") or {})}
+def _build_embrouter_metadata_for_ws(kwargs: dict) -> dict:
+    metadata: Final[dict] = {**(kwargs.get("embrouter_metadata") or {})}
     guardrails: Final = (kwargs.get("metadata") or {}).get("guardrails") or kwargs.get("guardrails") or []
     if guardrails:
         metadata["guardrails"] = guardrails
@@ -2305,7 +2305,7 @@ def _deployment_reasoning_default(kwargs: Mapping[str, object]) -> Reasoning | d
         return None
     if isinstance(reasoning_effort, Mapping):
         return _JSON_OBJECT_ADAPTER.validate_python(reasoning_effort)
-    return LiteLLMResponsesTransformationHandler()._map_reasoning_effort(reasoning_effort)
+    return EmbRouterResponsesTransformationHandler()._map_reasoning_effort(reasoning_effort)
 
 
 _RESPONSES_WS_ROUTING_HINT_KEYS: Final = frozenset({"input", "previous_response_id"})
@@ -2360,62 +2360,62 @@ async def _aresponses_websocket(
     ``BaseResponsesAPIConfig``, and hands off to
     ``BaseLLMHTTPHandler.async_responses_websocket``.
     """
-    litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.get("litellm_logging_obj")
+    embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.get("embrouter_logging_obj")
     user: Final = kwargs.get("user", None)
-    litellm_params: Final = GenericLiteLLMParams(**kwargs)
-    litellm_params_dict: Final = get_litellm_params(**kwargs)
+    embrouter_params: Final = GenericEmbRouterParams(**kwargs)
+    embrouter_params_dict: Final = get_embrouter_params(**kwargs)
 
     (
         provider_model,
         _custom_llm_provider,
         dynamic_api_key,
         dynamic_api_base,
-    ) = litellm.get_llm_provider(
+    ) = embrouter.get_llm_provider(
         model=model,
         api_base=api_base,
         api_key=api_key,
     )
     resolved_model: Final = _strip_responses_routing_prefix(provider_model)
 
-    litellm_params_dict["data_residency"] = infer_openai_data_residency(
+    embrouter_params_dict["data_residency"] = infer_openai_data_residency(
         _custom_llm_provider,
-        dynamic_api_base or litellm_params.api_base or litellm.api_base,
+        dynamic_api_base or embrouter_params.api_base or embrouter.api_base,
     )
 
-    litellm_logging_obj.update_from_kwargs(
+    embrouter_logging_obj.update_from_kwargs(
         kwargs=kwargs,
         model=resolved_model,
         user=user,
         optional_params={},
-        litellm_params=litellm_params_dict,
+        embrouter_params=embrouter_params_dict,
         custom_llm_provider=_custom_llm_provider,
     )
 
-    resolved_api_base: Final = dynamic_api_base or litellm_params.api_base or litellm.api_base or None
+    resolved_api_base: Final = dynamic_api_base or embrouter_params.api_base or embrouter.api_base or None
     responses_api_provider_config: BaseResponsesAPIConfig | None = None
     if _custom_llm_provider is not None:
         responses_api_provider_config = ProviderConfigManager.get_provider_responses_api_config(
             model=resolved_model,
-            provider=litellm.LlmProviders(_custom_llm_provider),
+            provider=embrouter.LlmProviders(_custom_llm_provider),
             api_base=resolved_api_base,
         )
 
     resolved_api_key: Final = (
         dynamic_api_key
-        or litellm_params.api_key
-        or litellm.api_key
-        or litellm.openai_key
+        or embrouter_params.api_key
+        or embrouter.api_key
+        or embrouter.openai_key
         or get_secret_str("OPENAI_API_KEY")
     )
 
     # Extract params that we're passing explicitly to avoid duplicates in **kwargs
     _explicit_keys: Final = {
         "user_api_key_dict",
-        "litellm_metadata",
+        "embrouter_metadata",
         "custom_llm_provider",
         "model",
         "websocket",
-        "litellm_logging_obj",
+        "embrouter_logging_obj",
         "api_base",
         "api_key",
         "timeout",
@@ -2429,7 +2429,7 @@ async def _aresponses_websocket(
     return await base_llm_http_handler.async_responses_websocket(
         model=resolved_model,
         websocket=websocket,
-        logging_obj=litellm_logging_obj,
+        logging_obj=embrouter_logging_obj,
         responses_api_provider_config=responses_api_provider_config,
         api_base=resolved_api_base,
         api_key=resolved_api_key,
@@ -2440,7 +2440,7 @@ async def _aresponses_websocket(
             else None
         ),
         user_api_key_dict=kwargs.get("user_api_key_dict"),
-        litellm_metadata=_build_litellm_metadata_for_ws(kwargs),
+        embrouter_metadata=_build_embrouter_metadata_for_ws(kwargs),
         custom_llm_provider=_custom_llm_provider,
         request_defaults=_build_responses_websocket_request_defaults(deployment_kwargs),
         **remaining_kwargs,

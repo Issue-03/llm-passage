@@ -11,18 +11,18 @@ from collections.abc import Callable, Mapping
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Final
 
-from litellm._logging import verbose_logger
-from litellm.integrations.arize import _utils
-from litellm.integrations.arize._utils import ArizeOTELAttributes
-from litellm.integrations.opentelemetry import _MAX_DYNAMIC_TRACER_PROVIDERS, OpenTelemetry, OpenTelemetryConfig
-from litellm.types.integrations.arize import ArizeConfig
-from litellm.types.services import ServiceLoggerPayload
-from litellm.types.utils import StandardCallbackDynamicParams
+from embrouter._logging import verbose_logger
+from embrouter.integrations.arize import _utils
+from embrouter.integrations.arize._utils import ArizeOTELAttributes
+from embrouter.integrations.opentelemetry import _MAX_DYNAMIC_TRACER_PROVIDERS, OpenTelemetry, OpenTelemetryConfig
+from embrouter.types.integrations.arize import ArizeConfig
+from embrouter.types.services import ServiceLoggerPayload
+from embrouter.types.utils import StandardCallbackDynamicParams
 
 if TYPE_CHECKING:
     from opentelemetry.trace import Span as _Span
 
-    from litellm.types.integrations.arize import Protocol as _Protocol
+    from embrouter.types.integrations.arize import Protocol as _Protocol
 
     Protocol = _Protocol
     Span = _Span | Any
@@ -73,13 +73,13 @@ class ArizeLogger(OpenTelemetry):
         from opentelemetry.trace import SpanKind
 
         if tracer_provider is not None:
-            self.tracer = tracer_provider.get_tracer("litellm")
+            self.tracer = tracer_provider.get_tracer("embrouter")
             self.span_kind = SpanKind
             return
 
-        provider: Final = TracerProvider(resource=self._get_litellm_resource(self.config))
+        provider: Final = TracerProvider(resource=self._get_embrouter_resource(self.config))
         provider.add_span_processor(self._get_span_processor())
-        self.tracer = provider.get_tracer("litellm")
+        self.tracer = provider.get_tracer("embrouter")
         self.span_kind = SpanKind
 
     def _handle_success(
@@ -148,7 +148,7 @@ class ArizeLogger(OpenTelemetry):
             )
         return sampled
 
-    def _init_otel_logger_on_litellm_proxy(self):
+    def _init_otel_logger_on_embrouter_proxy(self):
         """
         Override: Arize should NOT overwrite the proxy's
         ``open_telemetry_logger``.  That attribute is reserved for the
@@ -224,7 +224,7 @@ class ArizeLogger(OpenTelemetry):
     ):
         """Arize is used mainly for LLM I/O tracing, sending router+caching metrics adds bloat to arize logs"""
 
-    # def create_litellm_proxy_request_started_span(
+    # def create_embrouter_proxy_request_started_span(
     #     self,
     #     start_time: datetime,
     #     headers: dict,

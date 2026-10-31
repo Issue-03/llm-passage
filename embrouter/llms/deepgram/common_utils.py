@@ -6,10 +6,10 @@ from urllib.parse import parse_qs, urlparse
 
 import httpx
 
-import litellm
-from litellm.constants import DEEPGRAM_DEFAULT_API_BASE, DEEPGRAM_LISTEN_DEFAULT_MODEL
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.types.utils import LlmProviders
+import embrouter
+from embrouter.constants import DEEPGRAM_DEFAULT_API_BASE, DEEPGRAM_LISTEN_DEFAULT_MODEL
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.types.utils import LlmProviders
 
 _WEBSOCKET_SCHEMES: Final = MappingProxyType({"https": "wss", "http": "ws", "wss": "wss", "ws": "ws"})
 DEEPGRAM_LISTEN_CALLBACK_PARAMS: Final = frozenset({"callback", "callback_method"})
@@ -90,7 +90,7 @@ def deepgram_listen_is_priced(upstream_url: str) -> bool:
     pre-recorded ``<model>`` row, which is not the rate Deepgram bills a WebSocket session at."""
     registry_key: Final = deepgram_listen_registry_key(upstream_url)
     try:
-        model_info: Final = litellm.get_model_info(model=registry_key, custom_llm_provider=LlmProviders.DEEPGRAM.value)
+        model_info: Final = embrouter.get_model_info(model=registry_key, custom_llm_provider=LlmProviders.DEEPGRAM.value)
     except Exception:
         return False
     return model_info["key"] == registry_key

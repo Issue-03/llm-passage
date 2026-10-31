@@ -21,7 +21,7 @@ describe("UsefulLinksManagement", () => {
     mockedGetPublicModelHubInfo.mockResolvedValue({
       docs_title: "Docs",
       custom_docs_description: null,
-      litellm_version: "1.0.0",
+      embrouter_version: "1.0.0",
       useful_links: {},
     });
     mockedUpdateUsefulLinksCall.mockResolvedValue({});
@@ -66,7 +66,7 @@ describe("UsefulLinksManagement", () => {
     mockedGetPublicModelHubInfo.mockResolvedValue({
       docs_title: "Docs",
       custom_docs_description: null,
-      litellm_version: "1.0.0",
+      embrouter_version: "1.0.0",
       useful_links: {
         "First Link": "https://first.example.com",
         "Second Link": "https://second.example.com",
@@ -107,7 +107,7 @@ describe("UsefulLinksManagement", () => {
     mockedGetPublicModelHubInfo.mockResolvedValue({
       docs_title: "Docs",
       custom_docs_description: null,
-      litellm_version: "1.0.0",
+      embrouter_version: "1.0.0",
       useful_links: {
         "Test Link": "https://test.example.com",
       },
@@ -131,7 +131,7 @@ describe("UsefulLinksManagement", () => {
     mockedGetPublicModelHubInfo.mockResolvedValue({
       docs_title: "Docs",
       custom_docs_description: null,
-      litellm_version: "1.0.0",
+      embrouter_version: "1.0.0",
       useful_links: {
         "Test Link": "https://test.example.com",
       },
@@ -167,7 +167,7 @@ describe("UsefulLinksManagement", () => {
     mockedGetPublicModelHubInfo.mockResolvedValue({
       docs_title: "Docs",
       custom_docs_description: null,
-      litellm_version: "1.0.0",
+      embrouter_version: "1.0.0",
       useful_links: {
         "Test Link": "https://test.example.com",
       },
@@ -199,7 +199,7 @@ describe("UsefulLinksManagement", () => {
     mockedGetPublicModelHubInfo.mockResolvedValue({
       docs_title: "Docs",
       custom_docs_description: null,
-      litellm_version: "1.0.0",
+      embrouter_version: "1.0.0",
       useful_links: {
         "First Link": "https://first.example.com",
         "Second Link": "https://second.example.com",

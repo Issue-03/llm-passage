@@ -9,18 +9,18 @@ from typing import Any, Final, cast
 
 from fastapi_sso.sso.base import OpenID
 
-from litellm.proxy._types import LitellmUserRoles
+from embrouter.proxy._types import EmbrouterUserRoles
 
 # Ordered highest to lowest privilege
-LITELLM_USER_ROLE_HIERARCHY: Final = (
-    LitellmUserRoles.PROXY_ADMIN,
-    LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY,
-    LitellmUserRoles.INTERNAL_USER,
-    LitellmUserRoles.INTERNAL_USER_VIEW_ONLY,
+EMBROUTER_USER_ROLE_HIERARCHY: Final = (
+    EmbrouterUserRoles.PROXY_ADMIN,
+    EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY,
+    EmbrouterUserRoles.INTERNAL_USER,
+    EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY,
 )
 
 
-def highest_privilege_role(roles: Iterable[LitellmUserRoles]) -> LitellmUserRoles | None:
+def highest_privilege_role(roles: Iterable[EmbrouterUserRoles]) -> EmbrouterUserRoles | None:
     """
     Pick the highest privilege role out of the roles an IdP asserted for one user.
 
@@ -39,38 +39,38 @@ def highest_privilege_role(roles: Iterable[LitellmUserRoles]) -> LitellmUserRole
     if not resolved:
         return None
 
-    ranked: Final = next((role for role in LITELLM_USER_ROLE_HIERARCHY if role in resolved), None)
+    ranked: Final = next((role for role in EMBROUTER_USER_ROLE_HIERARCHY if role in resolved), None)
     return ranked if ranked is not None else min(resolved, key=lambda role: role.value)
 
 
-def is_valid_litellm_user_role(role_str: str) -> bool:
+def is_valid_embrouter_user_role(role_str: str) -> bool:
     """
-    Check if a string is a valid LitellmUserRoles enum value (case-insensitive).
+    Check if a string is a valid EmbrouterUserRoles enum value (case-insensitive).
 
     Args:
         role_str: String to validate (e.g., "proxy_admin", "PROXY_ADMIN", "internal_user")
 
     Returns:
-        True if the string matches a valid LitellmUserRoles value, False otherwise
+        True if the string matches a valid EmbrouterUserRoles value, False otherwise
     """
     try:
         # Use _value2member_map_ for O(1) lookup, case-insensitive
-        return role_str.lower() in LitellmUserRoles._value2member_map_
+        return role_str.lower() in EmbrouterUserRoles._value2member_map_
     except Exception:
         return False
 
 
-def _role_from_claim_value(role_str: object) -> LitellmUserRoles | None:
+def _role_from_claim_value(role_str: object) -> EmbrouterUserRoles | None:
     if not isinstance(role_str, str):
         return None
     # Use _value2member_map_ for O(1) lookup, case-insensitive
-    result: Final = LitellmUserRoles._value2member_map_.get(role_str.lower())
-    return cast(LitellmUserRoles | None, result)
+    result: Final = EmbrouterUserRoles._value2member_map_.get(role_str.lower())
+    return cast(EmbrouterUserRoles | None, result)
 
 
-def get_litellm_user_role(role_str: object) -> LitellmUserRoles | None:
+def get_embrouter_user_role(role_str: object) -> EmbrouterUserRoles | None:
     """
-    Convert a string (or list of strings) to a LitellmUserRoles enum if valid (case-insensitive).
+    Convert a string (or list of strings) to a EmbrouterUserRoles enum if valid (case-insensitive).
 
     Handles list inputs since some SSO providers (e.g., Keycloak) return roles
     as arrays like ["proxy_admin"] instead of plain strings. A claim carrying several
@@ -81,7 +81,7 @@ def get_litellm_user_role(role_str: object) -> LitellmUserRoles | None:
         role_str: String or list to convert (e.g., "proxy_admin", ["proxy_admin"])
 
     Returns:
-        LitellmUserRoles enum if valid, None otherwise
+        EmbrouterUserRoles enum if valid, None otherwise
     """
     if isinstance(role_str, (list, tuple)):
         entries: Final = cast(Sequence[object], role_str)  # cast-ok: isinstance narrows the claim, not its elements
@@ -93,5 +93,5 @@ def get_litellm_user_role(role_str: object) -> LitellmUserRoles | None:
 
 class CustomOpenID(OpenID):
     team_ids: list[str]
-    user_role: LitellmUserRoles | None = None
+    user_role: EmbrouterUserRoles | None = None
     extra_fields: dict[str, Any] | None = None

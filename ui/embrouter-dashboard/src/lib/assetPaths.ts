@@ -8,7 +8,7 @@ export const isExternalAssetSrc = (value: string): boolean => EXTERNAL_SRC.test(
 /**
  * Prefix a root-relative asset path (e.g. "/ui/assets/logos/openai.svg") with the
  * proxy's server root path so it resolves when the UI is mounted under a sub-path
- * (e.g. "/litellm" behind a reverse proxy). At the default root it returns the
+ * (e.g. "/embrouter" behind a reverse proxy). At the default root it returns the
  * path unchanged.
  */
 export const withServerRoot = (path: string, root: string): string => {

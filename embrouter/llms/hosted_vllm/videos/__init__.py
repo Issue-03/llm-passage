@@ -1,4 +1,4 @@
-from litellm.llms.base_llm.videos.transformation import BaseVideoConfig
+from embrouter.llms.base_llm.videos.transformation import BaseVideoConfig
 
 from .transformation import HostedVLLMVideoConfig
 

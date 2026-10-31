@@ -1,6 +1,6 @@
 """Google AI Studio Interactions API implementation."""
 
-from litellm.llms.gemini.interactions.transformation import (
+from embrouter.llms.gemini.interactions.transformation import (
     GoogleAIStudioInteractionsConfig,
 )
 

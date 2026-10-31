@@ -13,7 +13,7 @@ def _build_test_client():
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
 
-    from litellm.proxy.google_endpoints.endpoints import router as google_router
+    from embrouter.proxy.google_endpoints.endpoints import router as google_router
 
     app = FastAPI()
     app.include_router(google_router)
@@ -27,7 +27,7 @@ def _patch_base_process(return_value=None):
     if return_value is None:
         return_value = {"test": "response"}
     return patch(
-        "litellm.proxy.google_endpoints.endpoints.ProxyBaseLLMRequestProcessing.base_process_llm_request",
+        "embrouter.proxy.google_endpoints.endpoints.ProxyBaseLLMRequestProcessing.base_process_llm_request",
         new_callable=AsyncMock,
         return_value=return_value,
     )
@@ -66,7 +66,7 @@ def test_google_stream_generate_content_endpoint():
     with (
         _patch_base_process() as mock_base,
         patch(
-            "litellm.proxy.google_endpoints.endpoints.ProxyBaseLLMRequestProcessing.__init__",
+            "embrouter.proxy.google_endpoints.endpoints.ProxyBaseLLMRequestProcessing.__init__",
             return_value=None,
         ) as mock_init,
     ):
@@ -84,8 +84,8 @@ def test_google_stream_generate_content_endpoint():
         # stream=True must be forced into the data the processor receives.
         init_kwargs = mock_init.call_args.kwargs
         assert init_kwargs["data"]["stream"] is True
-        assert init_kwargs["data"]["_litellm_raw_sse_stream"] is True
-        assert init_kwargs["data"]["_litellm_skip_openai_stream_done"] is True
+        assert init_kwargs["data"]["_embrouter_raw_sse_stream"] is True
+        assert init_kwargs["data"]["_embrouter_skip_openai_stream_done"] is True
         assert init_kwargs["data"]["model"] == "test-model"
         assert init_kwargs["data"]["contents"] == [
             {"role": "user", "parts": [{"text": "Hello"}]}
@@ -103,7 +103,7 @@ def test_google_generate_content_data_flows_through_processor():
     with (
         _patch_base_process(),
         patch(
-            "litellm.proxy.google_endpoints.endpoints.ProxyBaseLLMRequestProcessing.__init__",
+            "embrouter.proxy.google_endpoints.endpoints.ProxyBaseLLMRequestProcessing.__init__",
             return_value=None,
         ) as mock_init,
     ):
@@ -132,7 +132,7 @@ def test_google_generate_content_data_flows_through_processor():
 
 
 def test_google_generate_content_forwards_call_id_header():
-    """The endpoint must forward the x-litellm-call-id header to the processor
+    """The endpoint must forward the x-embrouter-call-id header to the processor
     so the helper can stamp it on the logging object. Trace continuity from
     client → callbacks (S3, Langfuse, etc.) depends on this header surviving
     the hop through these endpoints."""
@@ -145,11 +145,11 @@ def test_google_generate_content_forwards_call_id_header():
         client.post(
             "/v1beta/models/test-model:generateContent",
             json={"contents": [{"role": "user", "parts": [{"text": "Hello"}]}]},
-            headers={"x-litellm-call-id": "trace-abc-123"},
+            headers={"x-embrouter-call-id": "trace-abc-123"},
         )
 
         forwarded_request = mock_base.call_args.kwargs["request"]
-        assert forwarded_request.headers.get("x-litellm-call-id") == "trace-abc-123"
+        assert forwarded_request.headers.get("x-embrouter-call-id") == "trace-abc-123"
 
 
 def test_google_count_tokens_unchanged():
@@ -167,7 +167,7 @@ def test_google_count_tokens_unchanged():
     fake_response.total_tokens = 7
 
     with patch(
-        "litellm.proxy.proxy_server.token_counter",
+        "embrouter.proxy.proxy_server.token_counter",
         new_callable=AsyncMock,
         return_value=fake_response,
     ):

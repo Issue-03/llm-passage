@@ -9,26 +9,26 @@ import httpx
 import pydantic
 from typing_extensions import TypedDict, Unpack
 
-from litellm._logging import verbose_proxy_logger
-from litellm.exceptions import GuardrailRaisedException
-from litellm.integrations.custom_guardrail import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.exceptions import GuardrailRaisedException
+from embrouter.integrations.custom_guardrail import (
     CustomGuardrail,
     log_guardrail_information,
 )
-from litellm.litellm_core_utils.litellm_logging import (
-    Logging as LiteLLMLoggingObj,
+from embrouter.embrouter_core_utils.embrouter_logging import (
+    Logging as EmbRouterLoggingObj,
 )
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.llms.openai import AllMessageValues, ChatCompletionToolCallChunk
-from litellm.types.proxy.guardrails.guardrail_hooks.base import (
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.types.guardrails import GuardrailEventHooks
+from embrouter.types.llms.openai import AllMessageValues, ChatCompletionToolCallChunk
+from embrouter.types.proxy.guardrails.guardrail_hooks.base import (
     GuardrailConfigModel,
 )
-from litellm.types.proxy.guardrails.guardrail_hooks.singulr import (
+from embrouter.types.proxy.guardrails.guardrail_hooks.singulr import (
     AssistantMessage,
     SingulrGuardrailPayload,
     SingulrGuardrailResponse,
@@ -36,10 +36,10 @@ from litellm.types.proxy.guardrails.guardrail_hooks.singulr import (
     ToolCall,
     ToolCallFunction,
 )
-from litellm.types.utils import CallTypes, ChatCompletionMessageToolCall, GenericGuardrailAPIInputs
+from embrouter.types.utils import CallTypes, ChatCompletionMessageToolCall, GenericGuardrailAPIInputs
 
 _DEFAULT_API_BASE: Final = "http://localhost:8003"
-_GUARD_ENDPOINT: Final = "/api/v1/ai-gateway/litellm-v2"
+_GUARD_ENDPOINT: Final = "/api/v1/ai-gateway/embrouter-v2"
 _DEFAULT_TIMEOUT: Final = 30.0
 _EMPTY_MAPPING: Final[Mapping[str, Mapping[str, object]]] = MappingProxyType({})
 _MCP_MODEL_PREFIX: Final = "MCP:"
@@ -104,7 +104,7 @@ class SingulrGuardrail(CustomGuardrail):
 
     @staticmethod
     def get_config_model() -> type["GuardrailConfigModel"] | None:
-        from litellm.types.proxy.guardrails.guardrail_hooks.singulr import (
+        from embrouter.types.proxy.guardrails.guardrail_hooks.singulr import (
             SingulrGuardrailConfigModel,
         )
 
@@ -112,14 +112,14 @@ class SingulrGuardrail(CustomGuardrail):
 
     @staticmethod
     def _metadata_containers(request_data: Mapping[str, Any]) -> tuple[Mapping[str, Any], ...]:
-        litellm_params: Final = request_data.get("litellm_params") or _EMPTY_MAPPING
+        embrouter_params: Final = request_data.get("embrouter_params") or _EMPTY_MAPPING
         return tuple(
             container
             for container in (
-                request_data.get("litellm_metadata"),
+                request_data.get("embrouter_metadata"),
                 request_data.get("metadata"),
-                litellm_params.get("litellm_metadata") if litellm_params else None,
-                litellm_params.get("metadata") if litellm_params else None,
+                embrouter_params.get("embrouter_metadata") if embrouter_params else None,
+                embrouter_params.get("metadata") if embrouter_params else None,
             )
             if container
         )
@@ -244,7 +244,7 @@ class SingulrGuardrail(CustomGuardrail):
         metadata: Final = self._build_metadata(request_data=request_data)
 
         singulr_req_obj = SingulrGuardrailPayload(
-            correlation_id=request_data.get("litellm_call_id"),
+            correlation_id=request_data.get("embrouter_call_id"),
             model_name=inputs.get("model"),
             guardrail_scope="request",
             messages=messages,
@@ -277,7 +277,7 @@ class SingulrGuardrail(CustomGuardrail):
         return arguments if arguments is not None else request_data.get("arguments")
 
     @staticmethod
-    def _is_mcp_call(request_data: Mapping[str, object], logging_obj: LiteLLMLoggingObj | None) -> bool:
+    def _is_mcp_call(request_data: Mapping[str, object], logging_obj: EmbRouterLoggingObj | None) -> bool:
         call_type: Final = logging_obj.call_type if logging_obj is not None else request_data.get("call_type")
         if call_type is not None:
             return call_type == CallTypes.call_mcp_tool.value
@@ -379,7 +379,7 @@ class SingulrGuardrail(CustomGuardrail):
         metadata: Final = self._build_metadata(request_data=request_data)
 
         singulr_resp_obj = SingulrGuardrailPayload(
-            correlation_id=request_data.get("litellm_call_id"),
+            correlation_id=request_data.get("embrouter_call_id"),
             guardrail_scope="response",
             model_name=request_data.get("model"),
             messages=request_data.get("messages"),
@@ -409,7 +409,7 @@ class SingulrGuardrail(CustomGuardrail):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict,  # mutable-ok: required by CustomGuardrail.apply_guardrail override signature
         input_type: str,
-        logging_obj: "LiteLLMLoggingObj | None" = None,
+        logging_obj: "EmbRouterLoggingObj | None" = None,
     ) -> GenericGuardrailAPIInputs:
         texts: Final = inputs.get("texts", ())
         structured_messages: Final = inputs.get("structured_messages", ())

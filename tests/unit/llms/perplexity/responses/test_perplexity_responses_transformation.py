@@ -4,7 +4,7 @@ Tests for Perplexity Responses API transformation
 Tests the PerplexityResponsesConfig class that handles Perplexity-specific
 transformations for the Agent API (Responses API).
 
-Source: litellm/llms/perplexity/responses/transformation.py
+Source: embrouter/llms/perplexity/responses/transformation.py
 """
 
 import json
@@ -13,12 +13,12 @@ import httpx
 import pytest
 
 
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.perplexity.responses.transformation import PerplexityResponsesConfig
-from litellm.types.llms.openai import ResponsesAPIOptionalRequestParams
-from litellm.types.utils import LlmProviders
-from litellm.utils import ProviderConfigManager
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.perplexity.responses.transformation import PerplexityResponsesConfig
+from embrouter.types.llms.openai import ResponsesAPIOptionalRequestParams
+from embrouter.types.utils import LlmProviders
+from embrouter.utils import ProviderConfigManager
 
 
 class TestPerplexityResponsesTransformation:
@@ -285,7 +285,7 @@ class TestPerplexityResponsesTransformation:
 
     def test_cost_dict_to_float_via_validator(self):
         """Perplexity cost dict is parsed by generic ResponseAPIUsage.parse_cost validator"""
-        from litellm.types.llms.openai import ResponseAPIUsage
+        from embrouter.types.llms.openai import ResponseAPIUsage
 
         usage = ResponseAPIUsage(
             input_tokens=100,
@@ -306,7 +306,7 @@ class TestPerplexityResponsesTransformation:
 
     def test_cost_float_passthrough_via_validator(self):
         """Cost already float passes through validator unchanged"""
-        from litellm.types.llms.openai import ResponseAPIUsage
+        from embrouter.types.llms.openai import ResponseAPIUsage
 
         usage = ResponseAPIUsage(
             input_tokens=100,
@@ -325,7 +325,7 @@ class TestPerplexityResponsesTransformation:
             model="preset/pro-search",
             input="What is AI?",
             response_api_optional_request_params={"temperature": 0.7},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -345,7 +345,7 @@ class TestPerplexityResponsesTransformation:
             model="preset/pro-search",
             input=list_input,
             response_api_optional_request_params={"temperature": 0.7},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -366,7 +366,7 @@ class TestPerplexityResponsesTransformation:
             model="openai/gpt-5.2",
             input=list_input,
             response_api_optional_request_params={},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -386,7 +386,7 @@ class TestPerplexityResponsesTransformation:
             model="openai/gpt-5.2",
             input=list_input,
             response_api_optional_request_params={},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -406,7 +406,7 @@ class TestPerplexityResponsesTransformation:
             model="openai/gpt-5.2",
             input=list_input,
             response_api_optional_request_params={},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -416,18 +416,18 @@ class TestPerplexityResponsesTransformation:
         """Correct endpoint URL"""
         config = PerplexityResponsesConfig()
 
-        url = config.get_complete_url(api_base=None, litellm_params={})
+        url = config.get_complete_url(api_base=None, embrouter_params={})
         assert url == "https://api.perplexity.ai/v1/responses"
 
         custom_url = config.get_complete_url(
             api_base="https://custom.perplexity.ai",
-            litellm_params={},
+            embrouter_params={},
         )
         assert custom_url == "https://custom.perplexity.ai/v1/responses"
 
         url_with_slash = config.get_complete_url(
             api_base="https://api.perplexity.ai/",
-            litellm_params={},
+            embrouter_params={},
         )
         assert url_with_slash == "https://api.perplexity.ai/v1/responses"
 
@@ -457,13 +457,13 @@ class TestPerplexityResponsesTransformation:
             request=httpx.Request("POST", "https://api.perplexity.ai/v1/responses"),
         )
 
-        logging_obj = LiteLLMLoggingObj(
+        logging_obj = EmbRouterLoggingObj(
             model="perplexity/openai/gpt-5.2",
             messages=[],
             stream=False,
             call_type="responses",
             start_time=None,
-            litellm_call_id="test",
+            embrouter_call_id="test",
             function_id="test",
         )
 
@@ -510,13 +510,13 @@ class TestPerplexityResponsesTransformation:
             request=httpx.Request("POST", "https://api.perplexity.ai/v1/responses"),
         )
 
-        logging_obj = LiteLLMLoggingObj(
+        logging_obj = EmbRouterLoggingObj(
             model="perplexity/openai/gpt-5.2",
             messages=[],
             stream=False,
             call_type="responses",
             start_time=None,
-            litellm_call_id="test",
+            embrouter_call_id="test",
             function_id="test",
         )
 
@@ -568,13 +568,13 @@ class TestPerplexityResponsesTransformation:
             },
         }
 
-        logging_obj = LiteLLMLoggingObj(
+        logging_obj = EmbRouterLoggingObj(
             model="perplexity/openai/gpt-5.2",
             messages=[],
             stream=True,
             call_type="responses",
             start_time=None,
-            litellm_call_id="test",
+            embrouter_call_id="test",
             function_id="test",
         )
 

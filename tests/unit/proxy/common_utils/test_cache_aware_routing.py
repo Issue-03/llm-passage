@@ -5,20 +5,20 @@ from typing import Final
 import pytest
 from pydantic import JsonValue
 
-from litellm import Router
-from litellm.caching.dual_cache import DualCache
-from litellm.llms.anthropic.prompt_cache_prediction import TokenCounter, cache_scope, parse_prompt
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.common_utils.cache_aware_routing import (
+from embrouter import Router
+from embrouter.caching.dual_cache import DualCache
+from embrouter.llms.anthropic.prompt_cache_prediction import TokenCounter, cache_scope, parse_prompt
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.common_utils.cache_aware_routing import (
     CacheAwareChoice,
     choose_cached_model,
     eligible_models,
     select_cached_model,
 )
-from litellm.proxy.hooks.prompt_cache_prediction import CacheObservation, _cache_key
-from litellm.router_strategy.complexity_router.complexity_router import ComplexityRouter
-from litellm.router_strategy.complexity_router.config import ComplexityRouterConfig
-from litellm.types.router import PreRoutingHookResponse
+from embrouter.proxy.hooks.prompt_cache_prediction import CacheObservation, _cache_key
+from embrouter.router_strategy.complexity_router.complexity_router import ComplexityRouter
+from embrouter.router_strategy.complexity_router.config import ComplexityRouterConfig
+from embrouter.types.router import PreRoutingHookResponse
 
 _CALLER: Final = "test-cache-aware-caller"
 _PROVIDER_KEY: Final = "test-cache-aware-provider"
@@ -64,7 +64,7 @@ def _router(
         model_list=[
             {
                 "model_name": "cheap",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "anthropic/claude-haiku-4-5",
                     "api_key": _PROVIDER_KEY,
                     "input_cost_per_token": 0 if free else 0.000001,
@@ -76,7 +76,7 @@ def _router(
             },
             {
                 "model_name": "strong",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "anthropic/claude-sonnet-5",
                     "api_key": _PROVIDER_KEY,
                     "input_cost_per_token": 0 if free else 0.000003,
@@ -148,7 +148,7 @@ async def _select(
     return await select_cached_model(
         router=router,
         config=config,
-        params_for_model=complexity._litellm_params_for_model,
+        params_for_model=complexity._embrouter_params_for_model,
         response=response,
         body=body,
         request_kwargs=request_kwargs,
@@ -234,7 +234,7 @@ async def test_disabled_setting_does_not_access_prediction_services() -> None:
         await choose_cached_model(
             router=_router(),
             config=config,
-            params_for_model=ComplexityRouter("smart", _router(), config.model_dump())._litellm_params_for_model,
+            params_for_model=ComplexityRouter("smart", _router(), config.model_dump())._embrouter_params_for_model,
             response=_response(),
             request_kwargs={},
             messages=None,
@@ -358,14 +358,14 @@ async def test_router_applies_opt_in_and_preserves_failure_semantics(
 
     import httpx
 
-    import litellm
-    from litellm.caching.llm_caching_handler import LLMClientCache
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-    from litellm.proxy import proxy_server
-    from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-    from litellm.proxy.hooks.parallel_request_limiter_v3 import _PROXY_MaxParallelRequestsHandler_v3
-    from litellm.proxy.utils import ProxyLogging
-    from litellm.router_strategy.complexity_router.context_compaction import initialize_compaction_state
+    import embrouter
+    from embrouter.caching.llm_caching_handler import LLMClientCache
+    from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler
+    from embrouter.proxy import proxy_server
+    from embrouter.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+    from embrouter.proxy.hooks.parallel_request_limiter_v3 import _PROXY_MaxParallelRequestsHandler_v3
+    from embrouter.proxy.utils import ProxyLogging
+    from embrouter.router_strategy.complexity_router.context_compaction import initialize_compaction_state
 
     config: Final = _config(
         cache_aware_routing=enabled, cache_aware_routing_timeout_ms=1 if behavior == "deadline" else 2000
@@ -381,7 +381,7 @@ async def test_router_applies_opt_in_and_preserves_failure_semantics(
             *models,
             {
                 "model_name": "smart",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "auto_router/complexity_router",
                     "complexity_router_config": config.model_dump(),
                     **({"temperature": 0.1} if behavior == "transformed" else {}),
@@ -396,8 +396,8 @@ async def test_router_applies_opt_in_and_preserves_failure_semantics(
     await _observed(logging.internal_usage_cache.dual_cache, expires_at=1e100)
     monkeypatch.setattr(proxy_server, "llm_router", router)
     monkeypatch.setattr(proxy_server, "proxy_logging_obj", logging)
-    monkeypatch.setattr(litellm, "callbacks", [])
-    monkeypatch.setattr(litellm, "in_memory_llm_clients_cache", LLMClientCache())
+    monkeypatch.setattr(embrouter, "callbacks", [])
+    monkeypatch.setattr(embrouter, "in_memory_llm_clients_cache", LLMClientCache())
 
     requests: Final = asyncio.Queue[httpx.Request]()
 
@@ -419,14 +419,14 @@ async def test_router_applies_opt_in_and_preserves_failure_semantics(
         handler: Final = AsyncHTTPHandler()
         await handler.client.aclose()
         handler.client = client
-        litellm.in_memory_llm_clients_cache.set_cache("async_httpx_clientanthropic", handler)
+        embrouter.in_memory_llm_clients_cache.set_cache("async_httpx_clientanthropic", handler)
         body: Final = {
             **_body(),
             **({"max_tokens": 1000} if behavior in ("tier_cost", "tier_context") else {}),
             **({"thinking": {"type": "enabled", "budget_tokens": 10000}} if behavior == "unsupported_shape" else {}),
         }
         kwargs: Final = {
-            "litellm_metadata": {
+            "embrouter_metadata": {
                 "user_api_key_auth": UserAPIKeyAuth(api_key=_CALLER, models=["smart", "cheap", "strong"])
             },
             "proxy_server_request": {"url": "http://localhost/v1/messages", "body": body, "headers": {}},
@@ -549,7 +549,7 @@ async def test_authorization_only_runs_for_original_and_warm_alternatives_before
 ) -> None:
     from unittest.mock import AsyncMock
 
-    from litellm.proxy.common_utils import cache_aware_routing
+    from embrouter.proxy.common_utils import cache_aware_routing
 
     cache: Final = DualCache()
     if warm:

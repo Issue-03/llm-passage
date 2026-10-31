@@ -9,19 +9,19 @@ from typing import (
 
 from fastapi import APIRouter, Depends, HTTPException
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.litellm_core_utils.sensitive_data_masker import SensitiveDataMasker
-from litellm.proxy._types import CommonProxyErrors, LitellmUserRoles, UserAPIKeyAuth
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.common_utils.encrypt_decrypt_utils import (
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.embrouter_core_utils.sensitive_data_masker import SensitiveDataMasker
+from embrouter.proxy._types import CommonProxyErrors, EmbrouterUserRoles, UserAPIKeyAuth
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.common_utils.encrypt_decrypt_utils import (
     decrypt_value_helper,
     encrypt_value_helper,
 )
-from litellm.proxy.management_endpoints.common_utils import _user_has_admin_view
-from litellm.repositories.config_repository import ConfigRepository
-from litellm.repositories.prisma_protocols import TableActions
-from litellm.types.proxy.vantage_endpoints import (
+from embrouter.proxy.management_endpoints.common_utils import _user_has_admin_view
+from embrouter.repositories.config_repository import ConfigRepository
+from embrouter.repositories.prisma_protocols import TableActions
+from embrouter.types.proxy.vantage_endpoints import (
     VantageDryRunRequest,
     VantageExportRequest,
     VantageExportResponse,
@@ -32,7 +32,7 @@ from litellm.types.proxy.vantage_endpoints import (
 )
 
 if TYPE_CHECKING:
-    from litellm.proxy.proxy_server import PrismaClient
+    from embrouter.proxy.proxy_server import PrismaClient
 
 router: Final = APIRouter()
 
@@ -42,7 +42,7 @@ VANTAGE_SETTINGS_PARAM_NAME: Final = "vantage_settings"
 
 
 class _VantageConfigRow(Protocol):
-    """The ``LiteLLM_Config`` row holding ``vantage_settings``, as this module reads it."""
+    """The ``EmbRouter_Config`` row holding ``vantage_settings``, as this module reads it."""
 
     @property
     def param_value(self) -> str | Mapping[str, str] | None: ...
@@ -54,10 +54,10 @@ def _config_table(prisma_client: "PrismaClient") -> TableActions[_VantageConfigR
 
 
 def _get_registered_vantage_logger():
-    """Return the VantageLogger already registered in litellm.callbacks, if any."""
-    from litellm.integrations.vantage.vantage_logger import VantageLogger
+    """Return the VantageLogger already registered in embrouter.callbacks, if any."""
+    from embrouter.integrations.vantage.vantage_logger import VantageLogger
 
-    vantage_loggers: Final = litellm.logging_callback_manager.get_custom_loggers_for_type(callback_type=VantageLogger)
+    vantage_loggers: Final = embrouter.logging_callback_manager.get_custom_loggers_for_type(callback_type=VantageLogger)
     if vantage_loggers:
         return vantage_loggers[0]
     return None
@@ -65,7 +65,7 @@ def _get_registered_vantage_logger():
 
 async def _set_vantage_settings(api_key: str, integration_token: str, base_url: str):
     """Store Vantage settings in the database with encrypted API key."""
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(
@@ -96,7 +96,7 @@ async def _set_vantage_settings(api_key: str, integration_token: str, base_url: 
 
 async def _get_vantage_settings():
     """Retrieve Vantage settings from the database with decrypted API key."""
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(
@@ -212,7 +212,7 @@ async def update_vantage_settings(
     Allows updating individual Vantage configuration fields without requiring all fields.
     Only admin users can update Vantage settings.
     """
-    if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+    if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
         raise HTTPException(
             status_code=403,
             detail={"error": CommonProxyErrors.not_allowed_access.value},
@@ -268,7 +268,7 @@ async def update_vantage_settings(
 async def is_vantage_setup_in_db() -> bool:
     """Check if Vantage is setup in the database."""
     try:
-        from litellm.proxy.proxy_server import prisma_client
+        from embrouter.proxy.proxy_server import prisma_client
 
         if prisma_client is None:
             return False
@@ -286,9 +286,9 @@ async def is_vantage_setup_in_db() -> bool:
 
 def is_vantage_setup_in_config() -> bool:
     """Check if Vantage is setup in config.yaml, environment variables, or programmatically."""
-    from litellm.integrations.vantage.vantage_logger import VantageLogger
+    from embrouter.integrations.vantage.vantage_logger import VantageLogger
 
-    for cb in litellm.callbacks:
+    for cb in embrouter.callbacks:
         if cb == "vantage" or isinstance(cb, VantageLogger):
             return True
     return False
@@ -327,7 +327,7 @@ async def init_vantage_settings(
 
     Only admin users can configure Vantage settings.
     """
-    if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+    if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
         raise HTTPException(
             status_code=403,
             detail={"error": CommonProxyErrors.not_allowed_access.value},
@@ -374,7 +374,7 @@ async def vantage_dry_run_export(
 
     Only admin users can perform Vantage exports.
     """
-    if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+    if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
         raise HTTPException(
             status_code=403,
             detail={"error": CommonProxyErrors.not_allowed_access.value},
@@ -383,11 +383,11 @@ async def vantage_dry_run_export(
     try:
         # Dry-run uses the FOCUS database + transformer directly,
         # bypassing the destination so no Vantage credentials are required.
-        from litellm.integrations.focus.database import FocusLiteLLMDatabase
-        from litellm.integrations.focus.export_engine import FocusExportEngine
-        from litellm.integrations.focus.transformer import FocusTransformer
+        from embrouter.integrations.focus.database import FocusEmbRouterDatabase
+        from embrouter.integrations.focus.export_engine import FocusExportEngine
+        from embrouter.integrations.focus.transformer import FocusTransformer
 
-        database: Final = FocusLiteLLMDatabase()
+        database: Final = FocusEmbRouterDatabase()
         transformer: Final = FocusTransformer()
 
         import polars as pl
@@ -467,14 +467,14 @@ async def vantage_export(
 
     Only admin users can perform Vantage exports.
     """
-    if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+    if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
         raise HTTPException(
             status_code=403,
             detail={"error": CommonProxyErrors.not_allowed_access.value},
         )
 
     try:
-        from litellm.integrations.vantage.vantage_logger import VantageLogger
+        from embrouter.integrations.vantage.vantage_logger import VantageLogger
 
         # Prefer the already-registered logger to avoid recreating HTTP clients
         # on every export call.
@@ -532,14 +532,14 @@ async def delete_vantage_settings(
 
     Only admin users can delete Vantage settings.
     """
-    if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+    if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
         raise HTTPException(
             status_code=403,
             detail={"error": CommonProxyErrors.not_allowed_access.value},
         )
 
     try:
-        from litellm.proxy.proxy_server import prisma_client
+        from embrouter.proxy.proxy_server import prisma_client
 
         if prisma_client is None:
             raise HTTPException(
@@ -560,9 +560,9 @@ async def delete_vantage_settings(
         await ConfigRepository(prisma_client).table.delete(where={"param_name": VANTAGE_SETTINGS_PARAM_NAME})
 
         # Deregister in-memory VantageLogger so the scheduler stops firing
-        from litellm.integrations.vantage.vantage_logger import VantageLogger
+        from embrouter.integrations.vantage.vantage_logger import VantageLogger
 
-        litellm.logging_callback_manager.remove_callbacks_by_type(litellm.callbacks, VantageLogger)
+        embrouter.logging_callback_manager.remove_callbacks_by_type(embrouter.callbacks, VantageLogger)
 
         verbose_proxy_logger.info("Vantage settings deleted successfully")
 

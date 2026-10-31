@@ -16,8 +16,8 @@ PROD_ENTRYPOINT = REPO_ROOT / "docker" / "prod_entrypoint.sh"
 GATEWAY_DOCKERFILE = REPO_ROOT / "gateway" / "Dockerfile"
 BACKEND_DOCKERFILE = REPO_ROOT / "backend" / "Dockerfile"
 BUILD_FROM_PIP_DOCKERFILE = REPO_ROOT / "docker" / "build_from_pip" / "Dockerfile.build_from_pip"
-TERRAFORM_ECS = REPO_ROOT / "terraform" / "litellm" / "aws" / "ecs.tf"
-TERRAFORM_CLOUDRUN = REPO_ROOT / "terraform" / "litellm" / "gcp" / "cloudrun.tf"
+TERRAFORM_ECS = REPO_ROOT / "terraform" / "embrouter" / "aws" / "ecs.tf"
+TERRAFORM_CLOUDRUN = REPO_ROOT / "terraform" / "embrouter" / "gcp" / "cloudrun.tf"
 
 IMAGE_ENTRYPOINT_PATH = "/app/docker/component_entrypoint.sh"
 
@@ -67,7 +67,7 @@ def _run_entrypoint(
     """Run `script` with stubbed executables on PATH and return the recorded lines."""
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir(parents=True)
-    _write_stubs(bin_dir, ("ddtrace-run", "uvicorn", "python", "litellm"))
+    _write_stubs(bin_dir, ("ddtrace-run", "uvicorn", "python", "embrouter"))
     record = tmp_path / "record.txt"
 
     env = {
@@ -158,7 +158,7 @@ def test_ddtrace_enabled_wraps_the_command_and_disables_the_openai_integration(
     assertion and the check would prove nothing.
 
     The openai integration is disabled because under `ddtrace-run` the bootstrap patches
-    it before any litellm code runs, so litellm's in-process `patch_all(..., openai=False)`
+    it before any embrouter code runs, so embrouter's in-process `patch_all(..., openai=False)`
     can no longer suppress it; leaving it on double-reports every LLM call.
     """
     recorded = _run_entrypoint(
@@ -222,9 +222,9 @@ def test_gating_matches_the_monolithic_entrypoint_and_get_secret_bool(
     expected_openai = "DD_TRACE_OPENAI_ENABLED=False" if traced else "DD_TRACE_OPENAI_ENABLED=<unset>"
     assert component[0] == expected_exec
     assert component[2] == expected_openai
-    assert monolith[0] == ("exec=ddtrace-run" if traced else "exec=litellm")
+    assert monolith[0] == ("exec=ddtrace-run" if traced else "exec=embrouter")
     assert monolith[2] == expected_openai
-    assert monolith[1] == ("args=litellm --port 4000" if traced else "args=--port 4000")
+    assert monolith[1] == ("args=embrouter --port 4000" if traced else "args=--port 4000")
 
 
 def test_wipes_the_prometheus_multiproc_dir_before_uvicorn_forks(tmp_path: Path) -> None:
@@ -294,18 +294,18 @@ def _copied_script(dockerfile: Path, image_path: str) -> Path:
     "use_ddtrace, traced",
     [*((v, True) for v in TRUTHY_USE_DDTRACE), *((v, False) for v in FALSY_USE_DDTRACE)],
 )
-def test_build_from_pip_image_launches_litellm_through_the_prod_entrypoint(
+def test_build_from_pip_image_launches_embrouter_through_the_prod_entrypoint(
     use_ddtrace: str | None, traced: bool, tmp_path: Path
 ) -> None:
     """Run the build_from_pip image's ENTRYPOINT + CMD through the script it actually COPYs.
 
-    The image used to `ENTRYPOINT ["litellm"]`, so `USE_DDTRACE` was inert there at any spelling.
+    The image used to `ENTRYPOINT ["embrouter"]`, so `USE_DDTRACE` was inert there at any spelling.
     Resolving the ENTRYPOINT path back to its COPY source and executing it with the Dockerfile's
     CMD checks the launch the container performs, not just that the Dockerfile mentions the script.
     """
     entrypoint = _entrypoint_argv(BUILD_FROM_PIP_DOCKERFILE)
     assert len(entrypoint) == 1, (
-        f"{BUILD_FROM_PIP_DOCKERFILE} ENTRYPOINT must be the bare script so CMD reaches litellm"
+        f"{BUILD_FROM_PIP_DOCKERFILE} ENTRYPOINT must be the bare script so CMD reaches embrouter"
     )
     script = _copied_script(BUILD_FROM_PIP_DOCKERFILE, entrypoint[0])
     assert script == PROD_ENTRYPOINT, f"{BUILD_FROM_PIP_DOCKERFILE} bypasses the ddtrace-aware entrypoint"
@@ -316,8 +316,8 @@ def test_build_from_pip_image_launches_litellm_through_the_prod_entrypoint(
 
     cmd_str = " ".join(cmd)
     assert recorded == (
-        "exec=ddtrace-run" if traced else "exec=litellm",
-        f"args=litellm {cmd_str}" if traced else f"args={cmd_str}",
+        "exec=ddtrace-run" if traced else "exec=embrouter",
+        f"args=embrouter {cmd_str}" if traced else f"args={cmd_str}",
         "DD_TRACE_OPENAI_ENABLED=False" if traced else "DD_TRACE_OPENAI_ENABLED=<unset>",
         f"PYTHONPATH={PYTHONPATH_SENTINEL}",
     )

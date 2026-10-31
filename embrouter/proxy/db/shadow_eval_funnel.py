@@ -10,10 +10,10 @@ than an undercount (same call as the auto-router session rollup flush).
 
 from typing import TYPE_CHECKING, Final, Literal
 
-from litellm._logging import verbose_proxy_logger
+from embrouter._logging import verbose_proxy_logger
 
 if TYPE_CHECKING:
-    from litellm.proxy.utils import PrismaClient
+    from embrouter.proxy.utils import PrismaClient
 
 ShadowEvalFunnelStage = Literal["not_sampled", "unjudgeable", "shed", "withheld"]
 
@@ -24,10 +24,10 @@ _pending: dict[str, dict[ShadowEvalFunnelStage, int]] = {}  # mutable-ok: module
 _FUNNEL_PLACEHOLDERS: Final = ", ".join(f"${n + 2}" for n in range(len(FUNNEL_STAGES)))
 
 _UPSERT_FUNNEL_SQL: Final = f"""
-INSERT INTO "LiteLLM_ShadowEvalFunnel" (job_id, {", ".join(FUNNEL_STAGES)})
+INSERT INTO "EmbRouter_ShadowEvalFunnel" (job_id, {", ".join(FUNNEL_STAGES)})
 VALUES ($1, {_FUNNEL_PLACEHOLDERS})
 ON CONFLICT (job_id) DO UPDATE SET
-    {", ".join(f'{stage} = "LiteLLM_ShadowEvalFunnel".{stage} + EXCLUDED.{stage}' for stage in FUNNEL_STAGES)}
+    {", ".join(f'{stage} = "EmbRouter_ShadowEvalFunnel".{stage} + EXCLUDED.{stage}' for stage in FUNNEL_STAGES)}
 """
 
 

@@ -10,8 +10,8 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-from litellm.llms.vertex_ai.rerank.transformation import VertexAIRerankConfig
-from litellm.types.rerank import RerankResponse
+from embrouter.llms.vertex_ai.rerank.transformation import VertexAIRerankConfig
+from embrouter.types.rerank import RerankResponse
 
 
 class TestVertexAIRerankTransform:
@@ -47,7 +47,7 @@ class TestVertexAIRerankTransform:
         Test URL generation for Vertex AI Discovery Engine rerank API.
 
         Uses instance-level mocking to avoid class-reference issues caused by
-        importlib.reload(litellm) in conftest.py.
+        importlib.reload(embrouter) in conftest.py.
         """
         # Mock _ensure_access_token at instance level to return (token, project_id)
         mock_ensure_access_token = MagicMock(return_value=("mock-token", None))
@@ -59,37 +59,37 @@ class TestVertexAIRerankTransform:
             expected_url = "https://discoveryengine.googleapis.com/v1/projects/test-project-123/locations/global/rankingConfigs/default_ranking_config:rank"
             assert url == expected_url
 
-        # Test with litellm.vertex_project
+        # Test with embrouter.vertex_project
         with patch.dict(os.environ, {}, clear=True):
-            import litellm
+            import embrouter
 
             # Set vertex_project attribute if it doesn't exist
-            if not hasattr(litellm, "vertex_project"):
-                litellm.vertex_project = None
-            original_project = litellm.vertex_project
-            litellm.vertex_project = "litellm-project-456"
+            if not hasattr(embrouter, "vertex_project"):
+                embrouter.vertex_project = None
+            original_project = embrouter.vertex_project
+            embrouter.vertex_project = "embrouter-project-456"
             # Reset mock call count
             mock_ensure_access_token.reset_mock()
             mock_ensure_access_token.return_value = (
                 "mock-token",
-                "litellm-project-456",
+                "embrouter-project-456",
             )
             try:
                 url = self.config.get_complete_url(api_base=None, model=self.model)
-                expected_url = "https://discoveryengine.googleapis.com/v1/projects/litellm-project-456/locations/global/rankingConfigs/default_ranking_config:rank"
+                expected_url = "https://discoveryengine.googleapis.com/v1/projects/embrouter-project-456/locations/global/rankingConfigs/default_ranking_config:rank"
                 assert url == expected_url
             finally:
-                litellm.vertex_project = original_project
+                embrouter.vertex_project = original_project
 
         # Test error when no project ID is available
         with patch.dict(os.environ, {}, clear=True):
-            import litellm
+            import embrouter
 
             # Set vertex_project to None to ensure no project ID is available
-            if not hasattr(litellm, "vertex_project"):
-                litellm.vertex_project = None
-            original_project = litellm.vertex_project
-            litellm.vertex_project = None
+            if not hasattr(embrouter, "vertex_project"):
+                embrouter.vertex_project = None
+            original_project = embrouter.vertex_project
+            embrouter.vertex_project = None
             # Reset mock and set it to raise an error
             mock_ensure_access_token.reset_mock()
             mock_ensure_access_token.side_effect = ValueError(
@@ -101,14 +101,14 @@ class TestVertexAIRerankTransform:
                 ):
                     self.config.get_complete_url(api_base=None, model=self.model)
             finally:
-                litellm.vertex_project = original_project
+                embrouter.vertex_project = original_project
 
     def test_validate_environment(self):
         """
         Test environment validation and header setup.
 
         Uses instance-level mocking to avoid class-reference issues caused by
-        importlib.reload(litellm) in conftest.py.
+        importlib.reload(embrouter) in conftest.py.
         """
         # Mock the authentication at instance level
         mock_ensure_access_token = MagicMock(
@@ -226,11 +226,11 @@ class TestVertexAIRerankTransform:
             model=self.model,
             optional_rerank_params=optional_params,
             headers={},
-            litellm_params={
-                "metadata": {"requester_metadata": {"app": "litellm", "tier": "1"}}
+            embrouter_params={
+                "metadata": {"requester_metadata": {"app": "embrouter", "tier": "1"}}
             },
         )
-        assert request_data["userLabels"] == {"app": "litellm", "tier": "1"}
+        assert request_data["userLabels"] == {"app": "embrouter", "tier": "1"}
 
     def test_transform_rerank_request_missing_required_params(self):
         """Test that transform_rerank_request handles missing required parameters."""
@@ -558,7 +558,7 @@ class TestVertexAIRerankTransform:
         Test that validate_environment accepts and uses optional_params for credentials.
 
         Uses instance-level mocking to avoid class-reference issues caused by
-        importlib.reload(litellm) in conftest.py.
+        importlib.reload(embrouter) in conftest.py.
         """
         # Mock the authentication at instance level
         mock_ensure_access_token = MagicMock(
@@ -599,7 +599,7 @@ class TestVertexAIRerankTransform:
         parameters needed later by get_complete_url.
 
         Uses instance-level mocking to avoid class-reference issues caused by
-        importlib.reload(litellm) in conftest.py.
+        importlib.reload(embrouter) in conftest.py.
         """
         mock_ensure_access_token = MagicMock(
             return_value=("test-access-token", "project-from-token")
@@ -625,7 +625,7 @@ class TestVertexAIRerankTransform:
 
         # get_complete_url should still be able to access the vertex params
         with patch(
-            "litellm.llms.vertex_ai.rerank.transformation.get_secret_str",
+            "embrouter.llms.vertex_ai.rerank.transformation.get_secret_str",
             return_value=None,
         ):
             url = self.config.get_complete_url(

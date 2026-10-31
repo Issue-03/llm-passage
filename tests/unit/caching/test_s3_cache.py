@@ -6,7 +6,7 @@ import asyncio
 import pytest
 
 
-from litellm.caching.s3_cache import S3Cache
+from embrouter.caching.s3_cache import S3Cache
 
 
 @pytest.fixture
@@ -326,9 +326,9 @@ async def test_s3_cache_async_with_key_prefix(mock_s3_dependencies):
 
 def test_s3_cache_supports_async():
     """Test that S3Cache now supports async operations"""
-    from litellm.caching.caching import Cache, LiteLLMCacheType
+    from embrouter.caching.caching import Cache, EmbRouterCacheType
 
-    cache = Cache(type=LiteLLMCacheType.S3, s3_bucket_name="test-bucket")
+    cache = Cache(type=EmbRouterCacheType.S3, s3_bucket_name="test-bucket")
 
     # Should now return True for async support
     assert cache._supports_async() is True

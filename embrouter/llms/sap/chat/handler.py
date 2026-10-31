@@ -7,8 +7,8 @@ from typing import Final
 
 import httpx
 
-from litellm.llms.base_llm.chat.transformation import BaseConfig, BaseLLMException
-from litellm.types.llms.openai import OpenAIChatCompletionChunk
+from embrouter.llms.base_llm.chat.transformation import BaseConfig, BaseLLMException
+from embrouter.types.llms.openai import OpenAIChatCompletionChunk
 
 from ...custom_httpx.llm_http_handler import BaseLLMHTTPHandler
 

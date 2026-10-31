@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from typing import Final
 
-from litellm._logging import verbose_logger
+from embrouter._logging import verbose_logger
 
 
 class SimpleProviderConfig:

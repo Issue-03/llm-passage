@@ -25,15 +25,15 @@ except ImportError:
     UniqueViolationError = None
 from pydantic import BaseModel
 
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy._types import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy._types import (
     CommonProxyErrors,
-    LitellmUserRoles,
+    EmbrouterUserRoles,
     UserAPIKeyAuth,
     user_api_key_has_admin_view,
 )
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.repositories.table_repositories import (
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.repositories.table_repositories import (
     WorkflowEventRepository,
     WorkflowMessageRepository,
     WorkflowRunRepository,
@@ -50,7 +50,7 @@ def _json(value: object) -> str:
 
 
 def _is_admin(user_api_key_dict: UserAPIKeyAuth) -> bool:
-    return user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN.value
+    return user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN.value
 
 
 def _read_scope_caller(user_api_key_dict: UserAPIKeyAuth) -> UserAPIKeyAuth | None:
@@ -205,7 +205,7 @@ async def create_workflow_run(
     The caller's API key token is stored as created_by so that non-admin keys
     can only see and modify their own runs.
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail=CommonProxyErrors.db_not_connected_error.value)
@@ -241,7 +241,7 @@ async def list_workflow_runs(
 
     Non-admin callers only see runs created by their own API key.
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail=CommonProxyErrors.db_not_connected_error.value)
@@ -281,7 +281,7 @@ async def get_workflow_run(
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
 ):
     """Get a workflow run with its most recent event."""
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail=CommonProxyErrors.db_not_connected_error.value)
@@ -316,7 +316,7 @@ async def update_workflow_run(
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
 ):
     """Update status, metadata, or output on a workflow run."""
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail=CommonProxyErrors.db_not_connected_error.value)
@@ -366,7 +366,7 @@ async def append_workflow_event(
     (concurrent append), retries up to _MAX_SEQUENCE_RETRIES times with a fresh MAX+1.
     The event+status update is atomic in a single DB transaction.
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail=CommonProxyErrors.db_not_connected_error.value)
@@ -388,9 +388,9 @@ async def append_workflow_event(
                 event_data["data"] = _json(data.data)
 
             async with prisma_client.db.tx() as tx:
-                event: object = await tx.litellm_workflowevent.create(data=event_data)
+                event: object = await tx.embrouter_workflowevent.create(data=event_data)
                 if new_status:
-                    await tx.litellm_workflowrun.update(
+                    await tx.embrouter_workflowrun.update(
                         where={"run_id": run_id},
                         data={"status": new_status},
                     )
@@ -427,7 +427,7 @@ async def list_workflow_events(
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
 ):
     """Fetch event log for a run, ordered by sequence_number. Default limit 100, max 500."""
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail=CommonProxyErrors.db_not_connected_error.value)
@@ -460,7 +460,7 @@ async def append_workflow_message(
 
     Uses optimistic concurrency for sequence numbers.
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail=CommonProxyErrors.db_not_connected_error.value)
@@ -511,7 +511,7 @@ async def list_workflow_messages(
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
 ):
     """Fetch conversation history for a run, ordered by sequence_number. Default limit 100, max 500."""
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail=CommonProxyErrors.db_not_connected_error.value)

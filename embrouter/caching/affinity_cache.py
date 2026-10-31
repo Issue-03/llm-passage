@@ -9,8 +9,8 @@ from typing import (
 
 from pydantic import JsonValue, TypeAdapter, ValidationError
 
-from litellm._logging import verbose_router_logger
-from litellm.caching.dual_cache import DualCache
+from embrouter._logging import verbose_router_logger
+from embrouter.caching.dual_cache import DualCache
 
 _PIN_JSON_ADAPTER: Final = TypeAdapter[JsonValue](JsonValue)
 

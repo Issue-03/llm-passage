@@ -4,14 +4,14 @@ from urllib.parse import urlparse
 
 import httpx
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.fal_ai.cost_calculator import fal_ai_passthrough_cost, fal_ai_queue_base
-from litellm.proxy._types import PassThroughEndpointLoggingTypedDict
-from litellm.types.utils import ImageObject, ImageResponse
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.fal_ai.cost_calculator import fal_ai_passthrough_cost, fal_ai_queue_base
+from embrouter.proxy._types import PassThroughEndpointLoggingTypedDict
+from embrouter.types.utils import ImageObject, ImageResponse
 
-FAL_AI_PROVIDER: Final[str] = litellm.LlmProviders.FAL_AI.value
+FAL_AI_PROVIDER: Final[str] = embrouter.LlmProviders.FAL_AI.value
 
 
 def _url_parts(value: object) -> tuple[Mapping[str, object], ...]:
@@ -31,7 +31,7 @@ class FalAIPassthroughLoggingHandler:
         self,
         response_body: Mapping[str, object],
         request_body: Mapping[str, object],
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         url_route: str,
         kwargs: Mapping[str, object],
     ) -> PassThroughEndpointLoggingTypedDict:

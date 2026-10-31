@@ -4,7 +4,7 @@ Unit tests for prometheus metric labels configuration
 
 import pytest
 
-from litellm.types.integrations.prometheus import (
+from embrouter.types.integrations.prometheus import (
     PrometheusMetricLabels,
     UserAPIKeyLabelNames,
 )
@@ -34,23 +34,23 @@ def _collected_samples(metric_name: str):
 def test_user_email_in_required_metrics():
     """
     Test that user_email label is present in all the metrics that should have it:
-    - litellm_proxy_total_requests_metric (already had it)
-    - litellm_proxy_failed_requests_metric (added)
-    - litellm_input_tokens_metric (added)
-    - litellm_output_tokens_metric (added)
-    - litellm_requests_metric (already had it)
-    - litellm_spend_metric (added)
+    - embrouter_proxy_total_requests_metric (already had it)
+    - embrouter_proxy_failed_requests_metric (added)
+    - embrouter_input_tokens_metric (added)
+    - embrouter_output_tokens_metric (added)
+    - embrouter_requests_metric (already had it)
+    - embrouter_spend_metric (added)
     """
     user_email_label = UserAPIKeyLabelNames.USER_EMAIL.value
 
     # Metrics that should have user_email
     metrics_with_user_email = [
-        "litellm_proxy_total_requests_metric",
-        "litellm_proxy_failed_requests_metric",
-        "litellm_input_tokens_metric",
-        "litellm_output_tokens_metric",
-        "litellm_requests_metric",
-        "litellm_spend_metric",
+        "embrouter_proxy_total_requests_metric",
+        "embrouter_proxy_failed_requests_metric",
+        "embrouter_input_tokens_metric",
+        "embrouter_output_tokens_metric",
+        "embrouter_requests_metric",
+        "embrouter_spend_metric",
     ]
 
     for metric_name in metrics_with_user_email:
@@ -69,20 +69,20 @@ def test_model_id_in_extended_metric_set():
 
     # Metrics that should have model_id
     metrics_with_model_id = [
-        "litellm_proxy_total_requests_metric",
-        "litellm_proxy_failed_requests_metric",
-        "litellm_input_tokens_metric",
-        "litellm_output_tokens_metric",
-        "litellm_requests_metric",
-        "litellm_spend_metric",
-        "litellm_llm_api_latency_metric",
-        "litellm_remaining_requests_metric",
-        "litellm_deployment_successful_fallbacks",
-        "litellm_cache_hits_metric",
-        "litellm_cache_misses_metric",
-        "litellm_remaining_api_key_requests_for_model",
-        "litellm_remaining_api_key_tokens_for_model",
-        "litellm_llm_api_failed_requests_metric",
+        "embrouter_proxy_total_requests_metric",
+        "embrouter_proxy_failed_requests_metric",
+        "embrouter_input_tokens_metric",
+        "embrouter_output_tokens_metric",
+        "embrouter_requests_metric",
+        "embrouter_spend_metric",
+        "embrouter_llm_api_latency_metric",
+        "embrouter_remaining_requests_metric",
+        "embrouter_deployment_successful_fallbacks",
+        "embrouter_cache_hits_metric",
+        "embrouter_cache_misses_metric",
+        "embrouter_remaining_api_key_requests_for_model",
+        "embrouter_remaining_api_key_tokens_for_model",
+        "embrouter_llm_api_failed_requests_metric",
     ]
 
     for metric_name in metrics_with_model_id:
@@ -100,7 +100,7 @@ def test_api_provider_in_spend_and_requests_metrics():
     """
     api_provider_label = UserAPIKeyLabelNames.API_PROVIDER.value
 
-    for metric_name in ["litellm_spend_metric", "litellm_requests_metric"]:
+    for metric_name in ["embrouter_spend_metric", "embrouter_requests_metric"]:
         labels = PrometheusMetricLabels.get_labels(metric_name)
         assert (
             api_provider_label in labels
@@ -113,8 +113,8 @@ def test_api_provider_in_token_latency_and_request_metrics():
     Regression test for LIT-4178.
 
     These metrics are all emitted from the same call site (async_log_success_event
-    / async_post_call_failure_hook) as litellm_spend_metric and
-    litellm_requests_metric, which already carry api_provider. They were the odd
+    / async_post_call_failure_hook) as embrouter_spend_metric and
+    embrouter_requests_metric, which already carry api_provider. They were the odd
     ones out with no way to break down tokens, latency, request counts or cache
     hits by upstream provider, even though the provider is available on the
     payload as custom_llm_provider.
@@ -122,23 +122,23 @@ def test_api_provider_in_token_latency_and_request_metrics():
     api_provider_label = UserAPIKeyLabelNames.API_PROVIDER.value
 
     metrics_with_api_provider = [
-        "litellm_llm_api_latency_metric",
-        "litellm_llm_api_time_to_first_token_metric",
-        "litellm_request_total_latency_metric",
-        "litellm_request_queue_time_seconds",
-        "litellm_proxy_total_requests_metric",
-        "litellm_proxy_failed_requests_metric",
-        "litellm_input_tokens_metric",
-        "litellm_total_tokens_metric",
-        "litellm_output_tokens_metric",
-        "litellm_cache_hits_metric",
-        "litellm_cache_misses_metric",
+        "embrouter_llm_api_latency_metric",
+        "embrouter_llm_api_time_to_first_token_metric",
+        "embrouter_request_total_latency_metric",
+        "embrouter_request_queue_time_seconds",
+        "embrouter_proxy_total_requests_metric",
+        "embrouter_proxy_failed_requests_metric",
+        "embrouter_input_tokens_metric",
+        "embrouter_total_tokens_metric",
+        "embrouter_output_tokens_metric",
+        "embrouter_cache_hits_metric",
+        "embrouter_cache_misses_metric",
         # The remaining cache metrics share _cache_metric_labels, so they pick up
         # api_provider from the same change. Assert them explicitly so the shared
         # list can't silently drop the label from them.
-        "litellm_cached_tokens_metric",
-        "litellm_provider_cache_read_input_tokens_metric",
-        "litellm_provider_cache_creation_input_tokens_metric",
+        "embrouter_cached_tokens_metric",
+        "embrouter_provider_cache_read_input_tokens_metric",
+        "embrouter_provider_cache_creation_input_tokens_metric",
     ]
 
     for metric_name in metrics_with_api_provider:
@@ -158,7 +158,7 @@ def test_api_provider_value_flows_through_label_factory():
     """
     from unittest.mock import MagicMock
 
-    from litellm.integrations.prometheus import (
+    from embrouter.integrations.prometheus import (
         PrometheusLogger,
         UserAPIKeyLabelValues,
         prometheus_label_factory,
@@ -173,19 +173,19 @@ def test_api_provider_value_flows_through_label_factory():
 
     enum_values = UserAPIKeyLabelValues(
         api_provider="anthropic",
-        litellm_model_name="claude-sonnet-4",
+        embrouter_model_name="claude-sonnet-4",
         requested_model="claude",
         status_code="200",
     )
 
     for metric_name in [
-        "litellm_input_tokens_metric",
-        "litellm_total_tokens_metric",
-        "litellm_output_tokens_metric",
-        "litellm_llm_api_latency_metric",
-        "litellm_request_total_latency_metric",
-        "litellm_proxy_total_requests_metric",
-        "litellm_cache_hits_metric",
+        "embrouter_input_tokens_metric",
+        "embrouter_total_tokens_metric",
+        "embrouter_output_tokens_metric",
+        "embrouter_llm_api_latency_metric",
+        "embrouter_request_total_latency_metric",
+        "embrouter_proxy_total_requests_metric",
+        "embrouter_cache_hits_metric",
     ]:
         labels = prometheus_label_factory(
             supported_enum_labels=prometheus_logger.get_labels_for_metric(
@@ -201,25 +201,25 @@ def test_api_provider_value_flows_through_label_factory():
 def test_extract_api_provider_from_request_data_failure_path():
     """
     On the client-side failure path the provider is not always known. Prefer the
-    resolved custom_llm_provider on litellm_params, fall back to a partial
+    resolved custom_llm_provider on embrouter_params, fall back to a partial
     standard_logging_object (e.g. a stream that broke mid-flight), then infer it
     from the requested model name, and return None only when nothing maps so the
     label emits empty rather than a guess.
     """
-    from litellm.integrations.prometheus import PrometheusLogger
+    from embrouter.integrations.prometheus import PrometheusLogger
 
     extract = PrometheusLogger._extract_api_provider_from_request_data
 
-    assert extract({"litellm_params": {"custom_llm_provider": "bedrock"}}) == "bedrock"
+    assert extract({"embrouter_params": {"custom_llm_provider": "bedrock"}}) == "bedrock"
     assert (
         extract({"standard_logging_object": {"custom_llm_provider": "vertex_ai"}})
         == "vertex_ai"
     )
-    # litellm_params wins over standard_logging_object when both are present
+    # embrouter_params wins over standard_logging_object when both are present
     assert (
         extract(
             {
-                "litellm_params": {"custom_llm_provider": "openai"},
+                "embrouter_params": {"custom_llm_provider": "openai"},
                 "standard_logging_object": {"custom_llm_provider": "azure"},
             }
         )
@@ -229,7 +229,7 @@ def test_extract_api_provider_from_request_data_failure_path():
     # failure request_data carries only the client-supplied model. This is the
     # common client-side failure case (e.g. an invalid param rejected with 400).
     assert extract({"model": "gpt-4o-mini"}) == "openai"
-    assert extract({"litellm_params": {"model": "anthropic/claude-haiku-4-5"}}) == "anthropic"
+    assert extract({"embrouter_params": {"model": "anthropic/claude-haiku-4-5"}}) == "anthropic"
     assert extract({}) is None
     # Unmappable model name -> None, not a guess
     assert extract({"model": "some-unknown-model-xyz"}) is None
@@ -244,26 +244,26 @@ def test_extract_api_provider_swallows_unknown_model_but_logs_unexpected_errors(
     """
     from unittest.mock import patch
 
-    import litellm
-    from litellm.integrations.prometheus import PrometheusLogger
+    import embrouter
+    from embrouter.integrations.prometheus import PrometheusLogger
 
     extract = PrometheusLogger._extract_api_provider_from_request_data
 
     # Expected miss: BadRequestError -> None, no log noise
     with patch.object(
-        litellm,
+        embrouter,
         "get_llm_provider",
-        side_effect=litellm.exceptions.BadRequestError(
+        side_effect=embrouter.exceptions.BadRequestError(
             message="no provider", model="x", llm_provider="y"
         ),
     ):
-        with patch("litellm.integrations.prometheus.verbose_logger") as mock_logger:
+        with patch("embrouter.integrations.prometheus.verbose_logger") as mock_logger:
             assert extract({"model": "x"}) is None
             mock_logger.debug.assert_not_called()
 
     # Unexpected error: must be logged and still return None (never raised)
-    with patch.object(litellm, "get_llm_provider", side_effect=RuntimeError("boom")):
-        with patch("litellm.integrations.prometheus.verbose_logger") as mock_logger:
+    with patch.object(embrouter, "get_llm_provider", side_effect=RuntimeError("boom")):
+        with patch("embrouter.integrations.prometheus.verbose_logger") as mock_logger:
             assert extract({"model": "x"}) is None
             mock_logger.debug.assert_called_once()
 
@@ -277,15 +277,15 @@ def test_prometheus_metric_labels_structure():
     """Test that all required prometheus metrics have proper label structure"""
     from typing import get_args
 
-    from litellm.types.integrations.prometheus import DEFINED_PROMETHEUS_METRICS
+    from embrouter.types.integrations.prometheus import DEFINED_PROMETHEUS_METRICS
 
     # Test a few key metrics to ensure they have proper label structure
     test_metrics = [
-        "litellm_proxy_total_requests_metric",
-        "litellm_proxy_failed_requests_metric",
-        "litellm_input_tokens_metric",
-        "litellm_output_tokens_metric",
-        "litellm_spend_metric",
+        "embrouter_proxy_total_requests_metric",
+        "embrouter_proxy_failed_requests_metric",
+        "embrouter_input_tokens_metric",
+        "embrouter_output_tokens_metric",
+        "embrouter_spend_metric",
     ]
 
     for metric_name in test_metrics:
@@ -308,19 +308,19 @@ def test_prometheus_metric_labels_structure():
 def test_model_id_in_required_metrics():
     """
     Test that model_id label is present in all the metrics that should have it:
-    - litellm_proxy_total_requests_metric
-    - litellm_proxy_failed_requests_metric
-    - litellm_request_total_latency_metric
-    - litellm_llm_api_time_to_first_token_metric
+    - embrouter_proxy_total_requests_metric
+    - embrouter_proxy_failed_requests_metric
+    - embrouter_request_total_latency_metric
+    - embrouter_llm_api_time_to_first_token_metric
     """
     model_id_label = UserAPIKeyLabelNames.MODEL_ID.value
 
     # Metrics that should have model_id
     metrics_with_model_id = [
-        "litellm_proxy_total_requests_metric",
-        "litellm_proxy_failed_requests_metric",
-        "litellm_request_total_latency_metric",
-        "litellm_llm_api_time_to_first_token_metric",
+        "embrouter_proxy_total_requests_metric",
+        "embrouter_proxy_failed_requests_metric",
+        "embrouter_request_total_latency_metric",
+        "embrouter_llm_api_time_to_first_token_metric",
     ]
 
     for metric_name in metrics_with_model_id:
@@ -335,7 +335,7 @@ def test_requested_model_in_spend_and_requests_metrics():
     """
     Regression test for LIT-3796.
 
-    litellm_spend_metric and litellm_requests_metric must expose the
+    embrouter_spend_metric and embrouter_requests_metric must expose the
     requested_model label so spend and request counts can be grouped by the
     model alias the caller asked for, not just the backend deployment that
     served the request. The sibling token metrics (input/output/total)
@@ -345,11 +345,11 @@ def test_requested_model_in_spend_and_requests_metrics():
     requested_model_label = UserAPIKeyLabelNames.REQUESTED_MODEL.value
 
     metrics_with_requested_model = [
-        "litellm_spend_metric",
-        "litellm_requests_metric",
-        "litellm_input_tokens_metric",
-        "litellm_output_tokens_metric",
-        "litellm_total_tokens_metric",
+        "embrouter_spend_metric",
+        "embrouter_requests_metric",
+        "embrouter_input_tokens_metric",
+        "embrouter_output_tokens_metric",
+        "embrouter_total_tokens_metric",
     ]
 
     for metric_name in metrics_with_requested_model:
@@ -370,7 +370,7 @@ def test_route_normalization_for_responses_api():
 
     Fix: Routes are normalized to collapse dynamic IDs into placeholders.
     """
-    from litellm.proxy.auth.auth_utils import normalize_request_route
+    from embrouter.proxy.auth.auth_utils import normalize_request_route
 
     # Test responses API routes
     responses_routes = [
@@ -378,7 +378,7 @@ def test_route_normalization_for_responses_api():
         ("/v1/responses/9876543210", "/v1/responses/{response_id}"),
         ("/v1/responses/abcdefghij", "/v1/responses/{response_id}"),
         ("/v1/responses/resp_abc123", "/v1/responses/{response_id}"),
-        ("/v1/responses/litellm_poll_xyz", "/v1/responses/{response_id}"),
+        ("/v1/responses/embrouter_poll_xyz", "/v1/responses/{response_id}"),
     ]
 
     for original, expected in responses_routes:
@@ -402,7 +402,7 @@ def test_route_normalization_for_responses_api():
 
 def test_route_normalization_for_sub_routes():
     """Test that sub-routes like /cancel and /input_items are normalized correctly"""
-    from litellm.proxy.auth.auth_utils import normalize_request_route
+    from embrouter.proxy.auth.auth_utils import normalize_request_route
 
     sub_routes = [
         ("/v1/responses/id1/cancel", "/v1/responses/{response_id}/cancel"),
@@ -425,7 +425,7 @@ def test_route_normalization_for_sub_routes():
 
 def test_route_normalization_preserves_static_routes():
     """Test that static routes are not affected by normalization"""
-    from litellm.proxy.auth.auth_utils import normalize_request_route
+    from embrouter.proxy.auth.auth_utils import normalize_request_route
 
     static_routes = [
         "/chat/completions",
@@ -448,7 +448,7 @@ def test_route_normalization_preserves_static_routes():
 
 def test_route_normalization_other_dynamic_apis():
     """Test normalization for other OpenAI-compatible APIs with dynamic IDs"""
-    from litellm.proxy.auth.auth_utils import normalize_request_route
+    from embrouter.proxy.auth.auth_utils import normalize_request_route
 
     test_cases = [
         # Threads API
@@ -487,7 +487,7 @@ def test_prometheus_metrics_use_normalized_routes():
     """
     from unittest.mock import MagicMock
 
-    from litellm.integrations.prometheus import (
+    from embrouter.integrations.prometheus import (
         PrometheusLogger,
         UserAPIKeyLabelValues,
         prometheus_label_factory,
@@ -514,7 +514,7 @@ def test_prometheus_metrics_use_normalized_routes():
 
     labels = prometheus_label_factory(
         supported_enum_labels=prometheus_logger.get_labels_for_metric(
-            metric_name="litellm_proxy_total_requests_metric"
+            metric_name="embrouter_proxy_total_requests_metric"
         ),
         enum_values=enum_values,
     )
@@ -536,7 +536,7 @@ def test_prometheus_label_value_sanitization():
     malformed model name) breaks the Prometheus exposition format, causing
     scrapers like Datadog to fail parsing the entire /metrics endpoint.
     """
-    from litellm.integrations.prometheus import (
+    from embrouter.integrations.prometheus import (
         PrometheusLogger,
         UserAPIKeyLabelValues,
         prometheus_label_factory,
@@ -561,7 +561,7 @@ def test_prometheus_label_value_sanitization():
 
     labels = prometheus_label_factory(
         supported_enum_labels=prometheus_logger.get_labels_for_metric(
-            metric_name="litellm_proxy_total_requests_metric"
+            metric_name="embrouter_proxy_total_requests_metric"
         ),
         enum_values=enum_values,
     )
@@ -581,7 +581,7 @@ def test_prometheus_label_value_sanitization():
 
 def test_prometheus_label_value_sanitization_unicode_paragraph_separator():
     """Test that U+2029 (Paragraph Separator) is also stripped."""
-    from litellm.types.integrations.prometheus import _sanitize_prometheus_label_value
+    from embrouter.types.integrations.prometheus import _sanitize_prometheus_label_value
 
     result = _sanitize_prometheus_label_value("model\u2029name")
     assert result == "modelname"
@@ -592,7 +592,7 @@ def test_prometheus_label_value_sanitization_unicode_paragraph_separator():
 
 def test_prometheus_label_value_sanitization_none():
     """Test that None values pass through unchanged."""
-    from litellm.types.integrations.prometheus import _sanitize_prometheus_label_value
+    from embrouter.types.integrations.prometheus import _sanitize_prometheus_label_value
 
     assert _sanitize_prometheus_label_value(None) is None
 
@@ -601,7 +601,7 @@ def test_prometheus_label_value_sanitization_none():
 
 def test_prometheus_label_value_sanitization_non_string_types():
     """Test that non-string values (int, bool, etc.) are coerced to str."""
-    from litellm.types.integrations.prometheus import _sanitize_prometheus_label_value
+    from embrouter.types.integrations.prometheus import _sanitize_prometheus_label_value
 
     assert _sanitize_prometheus_label_value(200) == "200"
     assert _sanitize_prometheus_label_value(True) == "True"
@@ -620,12 +620,12 @@ async def test_success_hook_emits_api_provider_value_on_token_metric():
     the production api_provider=standard_logging_payload["custom_llm_provider"]
     assignment in async_log_success_event would still pass them. This drives
     async_log_success_event with a payload whose provider is openai and asserts
-    the collected litellm_total_tokens_metric sample actually carries
+    the collected embrouter_total_tokens_metric sample actually carries
     api_provider="openai"; it fails if that assignment is removed.
     """
     import datetime
 
-    from litellm.integrations.prometheus import PrometheusLogger
+    from embrouter.integrations.prometheus import PrometheusLogger
 
     payload = {
         "id": "t",
@@ -658,7 +658,7 @@ async def test_success_hook_emits_api_provider_value_on_token_metric():
             "requester_metadata": None,
             "user_api_key_end_user_id": None,
         },
-        "hidden_params": {"litellm_overhead_time_ms": None, "additional_headers": None},
+        "hidden_params": {"embrouter_overhead_time_ms": None, "additional_headers": None},
     }
 
     _clear_prometheus_registry()
@@ -668,15 +668,15 @@ async def test_success_hook_emits_api_provider_value_on_token_metric():
         await logger.async_log_success_event(
             {
                 "model": "gpt-4o-mini",
-                "litellm_params": {"metadata": {}},
+                "embrouter_params": {"metadata": {}},
                 "standard_logging_object": payload,
             },
             None,
             now,
             now,
         )
-        samples = _collected_samples("litellm_total_tokens_metric_total")
-        assert samples, "expected litellm_total_tokens_metric to be emitted"
+        samples = _collected_samples("embrouter_total_tokens_metric_total")
+        assert samples, "expected embrouter_total_tokens_metric to be emitted"
         assert all(s.labels.get("api_provider") == "openai" for s in samples), (
             "collected token metric must carry api_provider=openai, got "
             f"{[s.labels.get('api_provider') for s in samples]}"
@@ -691,12 +691,12 @@ async def test_failure_hook_emits_api_provider_value_on_failed_requests_metric()
     End-to-end emit wiring for the failure path.
 
     async_post_call_failure_hook on a request whose model resolves to openai must
-    emit litellm_proxy_failed_requests_metric with api_provider="openai". This
+    emit embrouter_proxy_failed_requests_metric with api_provider="openai". This
     fails if the api_provider assignment in the failure hook is removed, which the
     helper-only test cannot catch.
     """
-    from litellm.integrations.prometheus import PrometheusLogger
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.integrations.prometheus import PrometheusLogger
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     _clear_prometheus_registry()
     try:
@@ -706,8 +706,8 @@ async def test_failure_hook_emits_api_provider_value_on_failed_requests_metric()
             original_exception=Exception("boom"),
             user_api_key_dict=UserAPIKeyAuth(token="tok"),
         )
-        samples = _collected_samples("litellm_proxy_failed_requests_metric_total")
-        assert samples, "expected litellm_proxy_failed_requests_metric to be emitted"
+        samples = _collected_samples("embrouter_proxy_failed_requests_metric_total")
+        assert samples, "expected embrouter_proxy_failed_requests_metric to be emitted"
         assert any(s.labels.get("api_provider") == "openai" for s in samples), (
             "collected failed-requests metric must carry api_provider=openai, got "
             f"{[s.labels.get('api_provider') for s in samples]}"
@@ -718,8 +718,8 @@ async def test_failure_hook_emits_api_provider_value_on_failed_requests_metric()
 
 @pytest.mark.asyncio
 async def test_failure_hook_labels_a_cli_session_with_the_per_user_alias_not_the_login_token():
-    from litellm.integrations.prometheus import PrometheusLogger
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.integrations.prometheus import PrometheusLogger
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     _clear_prometheus_registry()
     try:
@@ -733,7 +733,7 @@ async def test_failure_hook_labels_a_cli_session_with_the_per_user_alias_not_the
                 is_session_token=True,
             ),
         )
-        hashed_keys = {s.labels.get("hashed_api_key") for s in _collected_samples("litellm_proxy_failed_requests_metric_total")}
+        hashed_keys = {s.labels.get("hashed_api_key") for s in _collected_samples("embrouter_proxy_failed_requests_metric_total")}
         assert hashed_keys == {"cli-session-alice"}, hashed_keys
     finally:
         _clear_prometheus_registry()
@@ -743,8 +743,8 @@ async def _failed_requests_api_provider_labels(
     request_data: dict[str, object],
     original_exception: Exception,
 ) -> list[str]:
-    from litellm.integrations.prometheus import PrometheusLogger
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.integrations.prometheus import PrometheusLogger
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     _clear_prometheus_registry()
     try:
@@ -755,7 +755,7 @@ async def _failed_requests_api_provider_labels(
         )
         return [
             s.labels.get("api_provider")
-            for s in _collected_samples("litellm_proxy_failed_requests_metric_total")
+            for s in _collected_samples("embrouter_proxy_failed_requests_metric_total")
         ]
     finally:
         _clear_prometheus_registry()
@@ -768,8 +768,8 @@ async def test_failure_hook_emits_api_provider_from_pre_call_rate_limit_error_fo
     router alias cannot be inferred from its name, so the provider the limiter
     resolved onto the exception is the only source for the label.
     """
-    from litellm.exceptions import RateLimitType
-    from litellm.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
+    from embrouter.exceptions import RateLimitType
+    from embrouter.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
 
     err = ProxyRateLimitError(
         detail={"error": "rpm exceeded"},
@@ -785,7 +785,7 @@ async def test_failure_hook_emits_api_provider_from_pre_call_rate_limit_error_fo
 
 @pytest.mark.asyncio
 async def test_failure_hook_leaves_api_provider_unset_when_rate_limiter_could_not_resolve_provider():
-    from litellm.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
+    from embrouter.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
 
     err = ProxyRateLimitError(detail={"error": "rpm exceeded"}, model="unknown-alias")
 
@@ -796,7 +796,7 @@ async def test_failure_hook_leaves_api_provider_unset_when_rate_limiter_could_no
 
 @pytest.mark.asyncio
 async def test_failure_hook_prefers_request_data_provider_over_exception_provider():
-    from litellm.exceptions import RateLimitError
+    from embrouter.exceptions import RateLimitError
 
     err = RateLimitError(message="upstream 429", llm_provider="openai", model="gpt-4o")
 
@@ -804,7 +804,7 @@ async def test_failure_hook_prefers_request_data_provider_over_exception_provide
         {
             "model": "gpt-4o",
             "metadata": {},
-            "litellm_params": {"custom_llm_provider": "azure"},
+            "embrouter_params": {"custom_llm_provider": "azure"},
         },
         err,
     ) == ["azure"]
@@ -815,17 +815,17 @@ def test_model_group_in_deployment_metrics():
     Test that model_group label is present on the deployment-scoped metrics
     needed to build model-group dashboards (request counts, success/failure
     counts, tpm/rpm limits). These metrics previously only carried
-    requested_model, litellm_model_name and model_id, none of which identify
+    requested_model, embrouter_model_name and model_id, none of which identify
     the model_group a pooled deployment belongs to.
     """
     model_group_label = UserAPIKeyLabelNames.MODEL_GROUP.value
 
     metrics_with_model_group = [
-        "litellm_deployment_total_requests",
-        "litellm_deployment_success_responses",
-        "litellm_deployment_failure_responses",
-        "litellm_deployment_tpm_limit",
-        "litellm_deployment_rpm_limit",
+        "embrouter_deployment_total_requests",
+        "embrouter_deployment_success_responses",
+        "embrouter_deployment_failure_responses",
+        "embrouter_deployment_tpm_limit",
+        "embrouter_deployment_rpm_limit",
     ]
 
     for metric_name in metrics_with_model_group:
@@ -846,7 +846,7 @@ def test_model_group_value_flows_through_deployment_metrics_label_factory():
     """
     from unittest.mock import MagicMock
 
-    from litellm.integrations.prometheus import (
+    from embrouter.integrations.prometheus import (
         PrometheusLogger,
         UserAPIKeyLabelValues,
         prometheus_label_factory,
@@ -861,17 +861,17 @@ def test_model_group_value_flows_through_deployment_metrics_label_factory():
 
     enum_values = UserAPIKeyLabelValues(
         model_group="example-model-group",
-        litellm_model_name="gpt-4o-mini",
+        embrouter_model_name="gpt-4o-mini",
         requested_model="example-model-group",
         status_code="200",
     )
 
     for metric_name in [
-        "litellm_deployment_total_requests",
-        "litellm_deployment_success_responses",
-        "litellm_deployment_failure_responses",
-        "litellm_deployment_tpm_limit",
-        "litellm_deployment_rpm_limit",
+        "embrouter_deployment_total_requests",
+        "embrouter_deployment_success_responses",
+        "embrouter_deployment_failure_responses",
+        "embrouter_deployment_tpm_limit",
+        "embrouter_deployment_rpm_limit",
     ]:
         labels = prometheus_label_factory(
             supported_enum_labels=prometheus_logger.get_labels_for_metric(
@@ -893,10 +893,10 @@ def test_deployment_failure_metrics_emit_model_group_from_standard_logging_paylo
     set_llm_deployment_failure_metrics code path, so deleting the production
     model_group=model_group assignment there would still pass them. This
     calls it directly with a standard_logging_object carrying model_group and
-    asserts the real litellm_deployment_failure_responses / _total_requests
+    asserts the real embrouter_deployment_failure_responses / _total_requests
     Counter series actually carry it.
     """
-    from litellm.integrations.prometheus import PrometheusLogger
+    from embrouter.integrations.prometheus import PrometheusLogger
 
     _clear_prometheus_registry()
     try:
@@ -904,7 +904,7 @@ def test_deployment_failure_metrics_emit_model_group_from_standard_logging_paylo
         logger.set_llm_deployment_failure_metrics(
             request_kwargs={
                 "model": "gpt-4o-mini",
-                "litellm_params": {"metadata": {}},
+                "embrouter_params": {"metadata": {}},
                 "standard_logging_object": {
                     "model_group": "example-model-group",
                     "model_id": "model-123",
@@ -916,8 +916,8 @@ def test_deployment_failure_metrics_emit_model_group_from_standard_logging_paylo
         )
 
         for metric in (
-            logger.litellm_deployment_failure_responses,
-            logger.litellm_deployment_total_requests,
+            logger.embrouter_deployment_failure_responses,
+            logger.embrouter_deployment_total_requests,
         ):
             index = metric._labelnames.index("model_group")
             values = {sample_key[index] for sample_key in metric._metrics}
@@ -937,12 +937,12 @@ def test_deployment_tpm_rpm_limit_metrics_emit_model_group_from_enum_values():
     value even though its only caller (set_llm_deployment_success_metrics)
     already had it on enum_values. This drives set_llm_deployment_success_metrics
     directly with a deployment that has tpm/rpm configured and asserts the real
-    litellm_deployment_tpm_limit / litellm_deployment_rpm_limit Gauge series
+    embrouter_deployment_tpm_limit / embrouter_deployment_rpm_limit Gauge series
     carry model_group; it fails if that plumbing is removed.
     """
     import datetime
 
-    from litellm.integrations.prometheus import PrometheusLogger, UserAPIKeyLabelValues
+    from embrouter.integrations.prometheus import PrometheusLogger, UserAPIKeyLabelValues
 
     _clear_prometheus_registry()
     try:
@@ -950,19 +950,19 @@ def test_deployment_tpm_rpm_limit_metrics_emit_model_group_from_enum_values():
         now = datetime.datetime.now()
         enum_values = UserAPIKeyLabelValues(
             model_group="example-model-group",
-            litellm_model_name="gpt-4o-mini",
+            embrouter_model_name="gpt-4o-mini",
             requested_model="example-model-group",
             status_code="200",
         )
         logger.set_llm_deployment_success_metrics(
             request_kwargs={
                 "model": "gpt-4o-mini",
-                "litellm_params": {"metadata": {"model_info": {"id": "model-123", "tpm": 1000, "rpm": 10}}},
+                "embrouter_params": {"metadata": {"model_info": {"id": "model-123", "tpm": 1000, "rpm": 10}}},
                 "standard_logging_object": {
                     "model_group": "example-model-group",
                     "model_id": "model-123",
                     "api_base": "https://api.openai.com",
-                    "hidden_params": {"additional_headers": None, "litellm_overhead_time_ms": None},
+                    "hidden_params": {"additional_headers": None, "embrouter_overhead_time_ms": None},
                 },
             },
             start_time=now,
@@ -970,7 +970,7 @@ def test_deployment_tpm_rpm_limit_metrics_emit_model_group_from_enum_values():
             enum_values=enum_values,
         )
 
-        for metric in (logger.litellm_deployment_tpm_limit, logger.litellm_deployment_rpm_limit):
+        for metric in (logger.embrouter_deployment_tpm_limit, logger.embrouter_deployment_rpm_limit):
             index = metric._labelnames.index("model_group")
             values = {sample_key[index] for sample_key in metric._metrics}
             assert values == {"example-model-group"}, (

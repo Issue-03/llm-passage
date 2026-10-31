@@ -2,13 +2,13 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Final
 
-from litellm.litellm_core_utils.url_utils import encode_url_path_segment
-from litellm.llms.gemini.interactions.transformation import GoogleAIStudioInteractionsConfig
-from litellm.llms.vertex_ai.common_utils import validate_vertex_location
-from litellm.llms.vertex_ai.vertex_llm_base import VertexBase
-from litellm.types.llms.vertex_ai import VERTEX_CREDENTIALS_TYPES
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import LlmProviders
+from embrouter.embrouter_core_utils.url_utils import encode_url_path_segment
+from embrouter.llms.gemini.interactions.transformation import GoogleAIStudioInteractionsConfig
+from embrouter.llms.vertex_ai.common_utils import validate_vertex_location
+from embrouter.llms.vertex_ai.vertex_llm_base import VertexBase
+from embrouter.types.llms.vertex_ai import VERTEX_CREDENTIALS_TYPES
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import LlmProviders
 
 VERTEX_INTERACTIONS_API_VERSION: Final = "v1beta1"
 VERTEX_INTERACTIONS_DEFAULT_LOCATION: Final = "global"
@@ -62,21 +62,21 @@ class VertexAIInteractionsConfig(VertexBase, GoogleAIStudioInteractionsConfig):
     def get_default_vertex_location(self) -> str:
         return VERTEX_INTERACTIONS_DEFAULT_LOCATION
 
-    def _mint(self, litellm_params: GenericLiteLLMParams) -> tuple[str, str]:
-        raw_params: Final = litellm_params.model_dump()
+    def _mint(self, embrouter_params: GenericEmbRouterParams) -> tuple[str, str]:
+        raw_params: Final = embrouter_params.model_dump()
         return self._mint_access_token(
             self.safe_get_vertex_ai_credentials(raw_params),
             self.safe_get_vertex_ai_project(raw_params),
         )
 
-    def _target(self, api_base: str | None, litellm_params: GenericLiteLLMParams) -> VertexInteractionsTarget:
-        _, project_id = self._mint(litellm_params)
+    def _target(self, api_base: str | None, embrouter_params: GenericEmbRouterParams) -> VertexInteractionsTarget:
+        _, project_id = self._mint(embrouter_params)
         if not project_id:
             raise ValueError(
-                "Vertex AI project is required. Set vertex_project, litellm.vertex_project, or VERTEXAI_PROJECT"
+                "Vertex AI project is required. Set vertex_project, embrouter.vertex_project, or VERTEXAI_PROJECT"
             )
         location: Final = validate_vertex_location(
-            self.explicit_vertex_ai_location(litellm_params.model_dump()) or VERTEX_INTERACTIONS_DEFAULT_LOCATION
+            self.explicit_vertex_ai_location(embrouter_params.model_dump()) or VERTEX_INTERACTIONS_DEFAULT_LOCATION
         )
         return VertexInteractionsTarget(
             base_url=self.get_api_base(api_base or None, location),
@@ -88,9 +88,9 @@ class VertexAIInteractionsConfig(VertexBase, GoogleAIStudioInteractionsConfig):
         self,
         headers: Mapping[str, str],
         model: str,
-        litellm_params: GenericLiteLLMParams | None,
+        embrouter_params: GenericEmbRouterParams | None,
     ) -> dict:  # mutable-ok: BaseInteractionsAPIConfig declares plain-dict headers
-        access_token, _ = self._mint(litellm_params or GenericLiteLLMParams())
+        access_token, _ = self._mint(embrouter_params or GenericEmbRouterParams())
         return {  # mutable-ok: BaseInteractionsAPIConfig declares plain-dict headers
             "Content-Type": "application/json",
             "Authorization": f"Bearer {access_token}",
@@ -102,11 +102,11 @@ class VertexAIInteractionsConfig(VertexBase, GoogleAIStudioInteractionsConfig):
         api_base: str | None,
         model: str | None,
         agent: str | None = None,
-        litellm_params: Mapping[str, object] | None = None,
+        embrouter_params: Mapping[str, object] | None = None,
         stream: bool | None = None,
     ) -> str:
         params: Final = (
-            GenericLiteLLMParams.model_validate(litellm_params) if litellm_params else GenericLiteLLMParams()
+            GenericEmbRouterParams.model_validate(embrouter_params) if embrouter_params else GenericEmbRouterParams()
         )
         collection_url: Final = self._target(api_base, params).collection_url
         return f"{collection_url}?alt=sse" if stream else collection_url
@@ -115,35 +115,35 @@ class VertexAIInteractionsConfig(VertexBase, GoogleAIStudioInteractionsConfig):
         self,
         interaction_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         url_suffix: str = "",
     ) -> tuple[str, dict]:  # mutable-ok: BaseInteractionsAPIConfig declares a plain-dict request body
-        target: Final = self._target(api_base or None, litellm_params)
+        target: Final = self._target(api_base or None, embrouter_params)
         return f"{target.interaction_url(interaction_id)}{url_suffix}", {}  # mutable-ok: same base contract
 
     def transform_get_interaction_request(
         self,
         interaction_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: Mapping[str, str],
     ) -> tuple[str, dict]:  # mutable-ok: BaseInteractionsAPIConfig declares a plain-dict request body
-        return self._interaction_by_id_request(interaction_id, api_base, litellm_params)
+        return self._interaction_by_id_request(interaction_id, api_base, embrouter_params)
 
     def transform_delete_interaction_request(
         self,
         interaction_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: Mapping[str, str],
     ) -> tuple[str, dict]:  # mutable-ok: BaseInteractionsAPIConfig declares a plain-dict request body
-        return self._interaction_by_id_request(interaction_id, api_base, litellm_params)
+        return self._interaction_by_id_request(interaction_id, api_base, embrouter_params)
 
     def transform_cancel_interaction_request(
         self,
         interaction_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: Mapping[str, str],
     ) -> tuple[str, dict]:  # mutable-ok: BaseInteractionsAPIConfig declares a plain-dict request body
-        return self._interaction_by_id_request(interaction_id, api_base, litellm_params, url_suffix=":cancel")
+        return self._interaction_by_id_request(interaction_id, api_base, embrouter_params, url_suffix=":cancel")

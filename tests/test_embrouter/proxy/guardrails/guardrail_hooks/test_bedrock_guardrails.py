@@ -13,23 +13,23 @@ import pytest
 from fastapi import HTTPException
 
 
-import litellm
-from litellm.caching.caching import DualCache
-from litellm.exceptions import ModifyResponseException
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.constants import BEDROCK_APPLY_GUARDRAIL_CHUNK_BUDGET_CHARS
-from litellm.proxy.guardrails.guardrail_hooks.bedrock_guardrails import (
+import embrouter
+from embrouter.caching.caching import DualCache
+from embrouter.exceptions import ModifyResponseException
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.constants import BEDROCK_APPLY_GUARDRAIL_CHUNK_BUDGET_CHARS
+from embrouter.proxy.guardrails.guardrail_hooks.bedrock_guardrails import (
     BedrockContentChunkResult,
     BedrockGuardrail,
     _redact_pii_matches,
 )
-from litellm.proxy.utils import ProxyLogging
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.proxy.guardrails.guardrail_hooks.bedrock_guardrails import (
+from embrouter.proxy.utils import ProxyLogging
+from embrouter.types.guardrails import GuardrailEventHooks
+from embrouter.types.proxy.guardrails.guardrail_hooks.bedrock_guardrails import (
     BedrockContentItem,
     BedrockTextContent,
 )
-from litellm.types.utils import CallTypes, ModelResponse
+from embrouter.types.utils import CallTypes, ModelResponse
 from tests.unit.llms.bedrock.event_loop_probe import EventLoopProbe
 
 
@@ -241,7 +241,7 @@ async def test_bedrock_guardrail_logging_uses_redacted_response():
     # Mock AWS-related methods to ensure test runs without external dependencies
     with (
         patch.object(guardrail.async_handler, "post", new_callable=AsyncMock) as mock_post,
-        patch("litellm.proxy.guardrails.guardrail_hooks.bedrock_guardrails.verbose_proxy_logger.debug") as mock_debug,
+        patch("embrouter.proxy.guardrails.guardrail_hooks.bedrock_guardrails.verbose_proxy_logger.debug") as mock_debug,
         patch.object(guardrail, "_load_credentials", return_value=(mock_credentials, "us-east-1")) as mock_load_creds,
         patch.object(guardrail, "_prepare_request", return_value=MagicMock()) as mock_prepare_request,
     ):
@@ -1085,9 +1085,9 @@ async def test_make_apply_guardrail_request_skips_output_scan_without_response_t
     guardrail = BedrockGuardrail(guardrailIdentifier="test-guardrail", guardrailVersion="DRAFT")
     response = ModelResponse(
         choices=[
-            litellm.Choices(
+            embrouter.Choices(
                 index=0,
-                message=litellm.Message(role="assistant", content=None, tool_calls=[]),
+                message=embrouter.Message(role="assistant", content=None, tool_calls=[]),
                 finish_reason="tool_calls",
             )
         ]
@@ -1855,9 +1855,9 @@ async def test_during_call_hook_invokes_bedrock_async_moderation_hook():
         default_on=True,
     )
     mock_mod = AsyncMock(return_value=None)
-    original_callbacks = litellm.callbacks.copy() if litellm.callbacks else []
+    original_callbacks = embrouter.callbacks.copy() if embrouter.callbacks else []
     try:
-        litellm.callbacks = [guardrail]
+        embrouter.callbacks = [guardrail]
         with patch.object(guardrail, "async_moderation_hook", new=mock_mod):
             await proxy_logging.during_call_hook(
                 data={
@@ -1868,7 +1868,7 @@ async def test_during_call_hook_invokes_bedrock_async_moderation_hook():
                 call_type="completion",
             )
     finally:
-        litellm.callbacks = original_callbacks
+        embrouter.callbacks = original_callbacks
 
     mock_mod.assert_awaited_once()
 
@@ -2207,11 +2207,11 @@ async def test_streaming_post_call_only_runs_output_scan():
         default_on=True,
     )
     mock_chunks = [
-        litellm.ModelResponseStream(
+        embrouter.ModelResponseStream(
             id="tid",
             choices=[
-                litellm.types.utils.StreamingChoices(
-                    delta=litellm.types.utils.Delta(content="Hi", role="assistant"),
+                embrouter.types.utils.StreamingChoices(
+                    delta=embrouter.types.utils.Delta(content="Hi", role="assistant"),
                     finish_reason=None,
                     index=0,
                 )
@@ -2220,11 +2220,11 @@ async def test_streaming_post_call_only_runs_output_scan():
             model="gpt-4o-mini",
             object="chat.completion.chunk",
         ),
-        litellm.ModelResponseStream(
+        embrouter.ModelResponseStream(
             id="tid",
             choices=[
-                litellm.types.utils.StreamingChoices(
-                    delta=litellm.types.utils.Delta(content="!", role="assistant"),
+                embrouter.types.utils.StreamingChoices(
+                    delta=embrouter.types.utils.Delta(content="!", role="assistant"),
                     finish_reason="stop",
                     index=0,
                 )
@@ -2273,11 +2273,11 @@ async def test_streaming_post_call_output_only_path_passes_request_data_to_make_
         default_on=True,
     )
     mock_chunks = [
-        litellm.ModelResponseStream(
+        embrouter.ModelResponseStream(
             id="tid",
             choices=[
-                litellm.types.utils.StreamingChoices(
-                    delta=litellm.types.utils.Delta(content="x", role="assistant"),
+                embrouter.types.utils.StreamingChoices(
+                    delta=embrouter.types.utils.Delta(content="x", role="assistant"),
                     finish_reason="stop",
                     index=0,
                 )
@@ -2337,8 +2337,8 @@ async def test_post_call_success_hook_only_runs_output_scan():
     }
     response = ModelResponse(
         choices=[
-            litellm.Choices(
-                message=litellm.Message(role="assistant", content="hello"),
+            embrouter.Choices(
+                message=embrouter.Message(role="assistant", content="hello"),
                 index=0,
                 finish_reason="stop",
             )
@@ -2397,7 +2397,7 @@ def _grounding_messages() -> list:
 
 
 def _model_response(content: str) -> ModelResponse:
-    from litellm.types.utils import Choices, Message, ModelResponse
+    from embrouter.types.utils import Choices, Message, ModelResponse
 
     return ModelResponse(
         choices=[
@@ -2807,7 +2807,7 @@ def _blocked_bedrock_httpx_response() -> MagicMock:
 
 @pytest.mark.asyncio
 async def test_make_bedrock_api_request_block_raises_modify_response_when_flag_set():
-    from litellm.exceptions import ModifyResponseException
+    from embrouter.exceptions import ModifyResponseException
 
     guardrail = BedrockGuardrail(
         guardrail_name="test-bedrock-guard",
@@ -2879,7 +2879,7 @@ async def test_async_pre_call_hook_propagates_modify_response_on_block():
     message. Before LIT-4186 the exception was swallowed and only data
     ["mock_response"] was mutated, which the unified pre_call path never read
     (surfaced as HTTP 500)."""
-    from litellm.exceptions import ModifyResponseException
+    from embrouter.exceptions import ModifyResponseException
 
     guardrail = BedrockGuardrail(
         guardrail_name="test-bedrock-guard",
@@ -2925,7 +2925,7 @@ async def test_async_moderation_hook_propagates_modify_response_on_block():
     task so the surrounding asyncio.gather cancels the LLM call, instead of
     the old behavior of swallowing the block and letting the model call proceed
     (LIT-4186 symptom 2: silent bypass, model billed)."""
-    from litellm.exceptions import ModifyResponseException
+    from embrouter.exceptions import ModifyResponseException
 
     guardrail = BedrockGuardrail(
         guardrail_name="test-bedrock-guard",
@@ -2965,7 +2965,7 @@ async def test_async_post_call_success_hook_attaches_original_response_on_block(
     """post_call: block must raise ModifyResponseException and attach the LLM
     response to `original_response` so the synthetic block reply reports the
     upstream call's real token usage instead of zero."""
-    from litellm.exceptions import ModifyResponseException
+    from embrouter.exceptions import ModifyResponseException
 
     guardrail = BedrockGuardrail(
         guardrail_name="test-bedrock-guard",
@@ -3006,7 +3006,7 @@ async def test_apply_guardrail_propagates_modify_response_on_block():
     """apply_guardrail (unified path used by pre_call / /apply_guardrail
     endpoint) must let ModifyResponseException propagate as-is so the endpoint
     handler catches it and returns a 200."""
-    from litellm.exceptions import ModifyResponseException
+    from embrouter.exceptions import ModifyResponseException
 
     guardrail = BedrockGuardrail(
         guardrail_name="test-bedrock-guard",
@@ -3166,7 +3166,7 @@ async def test_streaming_hook_frames_a_service_failure_once_a_keepalive_ping_flu
 
     with (
         patch.object(guardrail, "make_bedrock_api_request", new_callable=AsyncMock) as mock_api,
-        patch.object(litellm, "anthropic_sse_ping_interval_seconds", 0.0001),
+        patch.object(embrouter, "anthropic_sse_ping_interval_seconds", 0.0001),
     ):
         mock_api.side_effect = HTTPException(status_code=503, detail="Bedrock is unavailable")
         delivered = await _drain_streaming_hook(guardrail)
@@ -3240,17 +3240,17 @@ async def test_streaming_hook_fails_closed_when_raw_sse_cannot_be_assembled():
 
 @pytest.mark.asyncio
 async def test_streaming_hook_fails_closed_when_assembler_raises_api_error():
-    """stream_chunk_builder re-raises assembly failures as litellm.APIError; it must not escape.
+    """stream_chunk_builder re-raises assembly failures as embrouter.APIError; it must not escape.
 
     That exception message is the exact 500 this fix exists to remove.
     """
     guardrail = _sse_guardrail()
 
     with patch(
-        "litellm.proxy.pass_through_endpoints.llm_provider_handlers."
+        "embrouter.proxy.pass_through_endpoints.llm_provider_handlers."
         "anthropic_passthrough_logging_handler.AnthropicPassthroughLoggingHandler."
         "_build_complete_streaming_response",
-        side_effect=litellm.APIError(
+        side_effect=embrouter.APIError(
             status_code=500,
             message="Error building chunks for logging/streaming usage calculation",
             llm_provider="",
@@ -3326,7 +3326,7 @@ async def test_streaming_post_call_block_yields_synthetic_stream_not_raise():
     it into an SSE 500 by letting ModifyResponseException escape the streaming
     generator. This test locks in the correct streaming contract.
     """
-    from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices
+    from embrouter.types.utils import Delta, ModelResponseStream, StreamingChoices
 
     guardrail = BedrockGuardrail(
         guardrail_name="test-bedrock-guard",
@@ -3387,7 +3387,7 @@ async def test_streaming_post_call_block_preserves_upstream_usage():
     onto the synthetic ModelResponse directly since the exception can't escape
     the SSE generator. Without this, clients see accurate billing on
     non-streaming blocks and zero on streaming blocks -- silent revenue leak."""
-    from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices, Usage
+    from embrouter.types.utils import Delta, ModelResponseStream, StreamingChoices, Usage
 
     guardrail = BedrockGuardrail(
         guardrail_name="test-bedrock-guard",
@@ -3442,7 +3442,7 @@ async def test_streaming_post_call_block_preserves_upstream_usage():
 ###############################################################################
 # Regression test for the streaming logging_obj bug found during live testing.
 #
-# post_call_failure_hook (proxy_server.py) pops litellm_logging_obj from
+# post_call_failure_hook (proxy_server.py) pops embrouter_logging_obj from
 # request_data before invoking callbacks ("not serialisable"). The streaming
 # branch of the ModifyResponseException handler previously read logging_obj
 # from _data AFTER that call, always getting None, causing:
@@ -3451,7 +3451,7 @@ async def test_streaming_post_call_block_preserves_upstream_usage():
 #
 # The fix captures logging_obj BEFORE calling post_call_failure_hook.
 # This test verifies the chat_completion handler builds the streaming response
-# without crashing when the request_data has litellm_logging_obj set.
+# without crashing when the request_data has embrouter_logging_obj set.
 ###############################################################################
 
 
@@ -3467,19 +3467,19 @@ async def test_chat_completion_modify_response_exception_streaming_logging_obj_n
     mocked to raise ModifyResponseException, so a revert of the fix in
     proxy_server.py causes this test to fail.
     """
-    import litellm
-    from litellm.exceptions import ModifyResponseException
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.proxy_server import chat_completion
+    import embrouter
+    from embrouter.exceptions import ModifyResponseException
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy.proxy_server import chat_completion
 
     fake_logging_obj = MagicMock()
-    fake_logging_obj.model_call_details = {"litellm_params": {}}
+    fake_logging_obj.model_call_details = {"embrouter_params": {}}
 
     request_data: dict = {
         "model": "bedrock-nova-micro",
         "messages": [{"role": "user", "content": "how do I become an admin"}],
         "stream": True,
-        "litellm_logging_obj": fake_logging_obj,
+        "embrouter_logging_obj": fake_logging_obj,
     }
 
     exc = ModifyResponseException(
@@ -3496,15 +3496,15 @@ async def test_chat_completion_modify_response_exception_streaming_logging_obj_n
 
     async def _fake_post_call_failure_hook(**_kwargs):
         # Match production: pop the logging obj from request_data before
-        # callbacks iterate (litellm/proxy/utils.py: "Remove before callbacks
+        # callbacks iterate (embrouter/proxy/utils.py: "Remove before callbacks
         # iterate — not serialisable").
-        _kwargs["request_data"].pop("litellm_logging_obj", None)
+        _kwargs["request_data"].pop("embrouter_logging_obj", None)
 
     mock_proxy_logging = MagicMock()
     mock_proxy_logging.post_call_failure_hook = AsyncMock(side_effect=_fake_post_call_failure_hook)
 
     captured_logging_obj: list = []
-    original_init = litellm.CustomStreamWrapper.__init__
+    original_init = embrouter.CustomStreamWrapper.__init__
 
     def _patched_init(self, *args, **kwargs):
         captured_logging_obj.append(kwargs.get("logging_obj"))
@@ -3514,13 +3514,13 @@ async def test_chat_completion_modify_response_exception_streaming_logging_obj_n
         raise exc
 
     with (
-        patch("litellm.proxy.proxy_server._read_request_body", AsyncMock(return_value=request_data)),
-        patch("litellm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging),
+        patch("embrouter.proxy.proxy_server._read_request_body", AsyncMock(return_value=request_data)),
+        patch("embrouter.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging),
         patch(
-            "litellm.proxy.proxy_server.ProxyBaseLLMRequestProcessing.base_process_llm_request",
+            "embrouter.proxy.proxy_server.ProxyBaseLLMRequestProcessing.base_process_llm_request",
             _raise_modify_response,
         ),
-        patch.object(litellm.CustomStreamWrapper, "__init__", _patched_init),
+        patch.object(embrouter.CustomStreamWrapper, "__init__", _patched_init),
     ):
         response = await chat_completion(
             request=fastapi_request,
@@ -3787,7 +3787,7 @@ async def test_apply_guardrail_does_not_chunk_when_grounding_present():
         {"role": "user", "content": "what does the source say?"},
     ]
     model_response = ModelResponse()
-    model_response.choices = [litellm.Choices(message=litellm.Message(content="a grounded answer", role="assistant"))]
+    model_response.choices = [embrouter.Choices(message=embrouter.Message(content="a grounded answer", role="assistant"))]
 
     mock_credentials = MagicMock()
     mock_credentials.access_key = "k"
@@ -4121,7 +4121,7 @@ async def test_apply_guardrail_chunk_retries_after_throttling_then_succeeds():
         patch.object(guardrail, "_load_credentials", return_value=(mock_credentials, "us-east-1")),
         patch.object(guardrail, "_prepare_request", return_value=MagicMock()),
         patch(
-            "litellm.proxy.guardrails.guardrail_hooks.bedrock_guardrails.asyncio.sleep",
+            "embrouter.proxy.guardrails.guardrail_hooks.bedrock_guardrails.asyncio.sleep",
             new_callable=AsyncMock,
         ) as mock_sleep,
     ):
@@ -4206,7 +4206,7 @@ async def test_apply_guardrail_unrecoverable_failure_logs_exactly_once_as_failed
         {"role": "user", "content": "what does the source say?"},
     ]
     model_response = ModelResponse()
-    model_response.choices = [litellm.Choices(message=litellm.Message(content="a grounded answer", role="assistant"))]
+    model_response.choices = [embrouter.Choices(message=embrouter.Message(content="a grounded answer", role="assistant"))]
 
     mock_credentials = MagicMock()
     mock_credentials.access_key = "k"
@@ -4560,7 +4560,7 @@ async def test_apply_guardrail_too_large_reported_as_429_bisects_without_burning
         patch.object(guardrail, "_load_credentials", return_value=(mock_credentials, "us-east-1")),
         patch.object(guardrail, "_prepare_request", return_value=MagicMock()),
         patch(
-            "litellm.proxy.guardrails.guardrail_hooks.bedrock_guardrails.asyncio.sleep",
+            "embrouter.proxy.guardrails.guardrail_hooks.bedrock_guardrails.asyncio.sleep",
             new_callable=AsyncMock,
         ) as mock_sleep,
     ):
@@ -4716,7 +4716,7 @@ class TestBedrockOnlyScanNewMessages:
     @pytest.mark.asyncio
     async def test_second_turn_scans_only_new_messages(self):
         guardrail = self._guardrail()
-        session = {"litellm_session_id": "sess-bedrock-diff"}
+        session = {"embrouter_session_id": "sess-bedrock-diff"}
         bedrock_none = {"action": "NONE", "output": [], "outputs": []}
 
         with patch.object(guardrail, "make_bedrock_api_request", new_callable=AsyncMock) as mock_api:
@@ -4745,7 +4745,7 @@ class TestBedrockOnlyScanNewMessages:
     @pytest.mark.asyncio
     async def test_identical_resend_skips_api_call(self):
         guardrail = self._guardrail()
-        session = {"litellm_session_id": "sess-bedrock-resend"}
+        session = {"embrouter_session_id": "sess-bedrock-resend"}
 
         with patch.object(guardrail, "make_bedrock_api_request", new_callable=AsyncMock) as mock_api:
             mock_api.return_value = {"action": "NONE", "output": [], "outputs": []}
@@ -4789,7 +4789,7 @@ class TestBedrockOnlyScanNewMessages:
         persist session state, so an identical resend is scanned again.
         """
         guardrail = self._guardrail()
-        session = {"litellm_session_id": "sess-bedrock-mask"}
+        session = {"embrouter_session_id": "sess-bedrock-mask"}
         masked = {
             "action": "GUARDRAIL_INTERVENED",
             "output": [],
@@ -4880,27 +4880,27 @@ class TestBedrockOnlyScanNewMessages:
         proxy_logging = MagicMock()
         proxy_logging.internal_usage_cache.dual_cache = shared
 
-        with patch("litellm.proxy.proxy_server.proxy_logging_obj", proxy_logging):
+        with patch("embrouter.proxy.proxy_server.proxy_logging_obj", proxy_logging):
             assert guardrail._incremental_scan_cache() is shared
 
     def test_incremental_scan_cache_falls_back_when_proxy_logging_missing(self):
-        from litellm.integrations.custom_guardrail import dc as fallback_cache
+        from embrouter.integrations.custom_guardrail import dc as fallback_cache
 
         guardrail = self._guardrail()
-        with patch("litellm.proxy.proxy_server.proxy_logging_obj", None):
+        with patch("embrouter.proxy.proxy_server.proxy_logging_obj", None):
             assert guardrail._incremental_scan_cache() is fallback_cache
 
     def test_incremental_scan_cache_falls_back_when_proxy_not_importable(self):
-        from litellm.integrations.custom_guardrail import dc as fallback_cache
+        from embrouter.integrations.custom_guardrail import dc as fallback_cache
 
         guardrail = self._guardrail()
-        with patch.dict(sys.modules, {"litellm.proxy.proxy_server": None}):
+        with patch.dict(sys.modules, {"embrouter.proxy.proxy_server": None}):
             assert guardrail._incremental_scan_cache() is fallback_cache
 
     @pytest.mark.asyncio
     async def test_blocked_turn_is_rescanned_on_retry(self):
         guardrail = self._guardrail()
-        session = {"litellm_session_id": "sess-bedrock-blocked"}
+        session = {"embrouter_session_id": "sess-bedrock-blocked"}
 
         with patch.object(guardrail, "make_bedrock_api_request", new_callable=AsyncMock) as mock_api:
             mock_api.side_effect = HTTPException(status_code=400, detail="blocked")
@@ -4941,7 +4941,7 @@ class TestBedrockIncrementalFlagInteractions:
     @pytest.mark.asyncio
     async def test_edited_history_segment_rescans_only_that_segment(self):
         guardrail = self._guardrail()
-        session = {"litellm_session_id": "sess-flags-edit"}
+        session = {"embrouter_session_id": "sess-flags-edit"}
         with patch.object(guardrail, "make_bedrock_api_request", new_callable=AsyncMock) as mock_api:
             mock_api.return_value = {"action": "NONE", "output": [], "outputs": []}
             await guardrail.apply_guardrail(
@@ -4961,21 +4961,21 @@ class TestBedrockIncrementalFlagInteractions:
         with patch.object(guardrail, "make_bedrock_api_request", new_callable=AsyncMock) as mock_api:
             mock_api.return_value = {"action": "NONE", "output": [], "outputs": []}
             await guardrail.apply_guardrail(
-                inputs={"texts": list(texts)}, request_data={"litellm_session_id": "sess-x1"}, input_type="request"
+                inputs={"texts": list(texts)}, request_data={"embrouter_session_id": "sess-x1"}, input_type="request"
             )
             mock_api.reset_mock()
             await guardrail.apply_guardrail(
-                inputs={"texts": list(texts)}, request_data={"litellm_session_id": "sess-x2"}, input_type="request"
+                inputs={"texts": list(texts)}, request_data={"embrouter_session_id": "sess-x2"}, input_type="request"
             )
             assert mock_api.call_count == 1
             assert [m["content"] for m in mock_api.call_args.kwargs["messages"]] == texts
 
     @pytest.mark.asyncio
-    async def test_litellm_masking_flag_disables_incremental_single_full_scan(self):
+    async def test_embrouter_masking_flag_disables_incremental_single_full_scan(self):
         """mask_request_content must fall back to exactly ONE full scan per turn
         and never persist hashes (verified live: 1 call/turn, no cache writes)."""
         guardrail = self._guardrail(mask_request_content=True)
-        session = {"litellm_session_id": "sess-flags-mask"}
+        session = {"embrouter_session_id": "sess-flags-mask"}
         with patch.object(guardrail, "make_bedrock_api_request", new_callable=AsyncMock) as mock_api:
             mock_api.return_value = {"action": "NONE", "output": [], "outputs": []}
             await guardrail.apply_guardrail(inputs={"texts": ["q1"]}, request_data=session, input_type="request")
@@ -4991,7 +4991,7 @@ class TestBedrockIncrementalFlagInteractions:
         validation showed this costs 2 provider calls per turn; the count is
         asserted here as documentation of that intended-tradeoff behavior."""
         guardrail = self._guardrail()
-        session = {"litellm_session_id": "sess-flags-anon"}
+        session = {"embrouter_session_id": "sess-flags-anon"}
         masked = {"action": "NONE", "output": [{"text": "MASKED q1"}], "outputs": [{"text": "MASKED q1"}]}
         with patch.object(guardrail, "make_bedrock_api_request", new_callable=AsyncMock) as mock_api:
             mock_api.return_value = masked
@@ -5013,7 +5013,7 @@ class TestBedrockIncrementalFlagInteractions:
     )
     async def test_latest_role_only_is_respected_with_incremental(self):
         guardrail = self._guardrail(experimental_use_latest_role_message_only=True)
-        session = {"litellm_session_id": "sess-flags-latestrole"}
+        session = {"embrouter_session_id": "sess-flags-latestrole"}
         structured = [
             {"role": "system", "content": "sys"},
             {"role": "user", "content": "q1"},
@@ -5105,12 +5105,12 @@ class TestScanOnlyToolResultsWithLatestRoleFilter:
         with (
             patch.object(guardrail, "make_bedrock_api_request", new_callable=AsyncMock) as mock_api,
             patch(
-                "litellm.proxy.guardrails.guardrail_hooks.bedrock_guardrails.verbose_proxy_logger.warning"
+                "embrouter.proxy.guardrails.guardrail_hooks.bedrock_guardrails.verbose_proxy_logger.warning"
             ) as mock_warning,
         ):
             result = await guardrail.apply_guardrail(
                 inputs=inputs,
-                request_data={"litellm_call_id": "test-call-id"},
+                request_data={"embrouter_call_id": "test-call-id"},
                 input_type="request",
             )
 
@@ -5266,7 +5266,7 @@ async def test_apply_guardrail_failure_logs_a_dict_not_a_bare_string():
 def test_build_tracing_detail_surfaces_usage_counters_and_cost(monkeypatch):
     """LIT-5650/LIT-5651: AWS-billed usage must land as guardrail_usage priced into guardrail_cost."""
     monkeypatch.setattr(
-        litellm,
+        embrouter,
         "model_cost",
         {
             "bedrock/guardrails": {
@@ -5313,7 +5313,7 @@ def test_build_tracing_detail_surfaces_usage_counters_and_cost(monkeypatch):
 def test_build_tracing_detail_omits_cost_by_unit_when_unpriced_but_keeps_scalar_zero(monkeypatch):
     """LIT-5652: without a cost-map entry the spend path still bills 0.0, but the
     per-counter stamp must be absent so the rollup records NULL, not $0."""
-    monkeypatch.setattr(litellm, "model_cost", {})
+    monkeypatch.setattr(embrouter, "model_cost", {})
     guardrail = BedrockGuardrail(guardrailIdentifier="test-guardrail", guardrailVersion="DRAFT")
 
     detail = guardrail._build_tracing_detail(
@@ -5341,7 +5341,7 @@ def test_build_tracing_detail_omits_guardrail_usage_when_bedrock_reports_none():
 async def test_blocked_chunk_logs_usage_and_cost_of_prior_passed_chunks(monkeypatch):
     """LIT-5651 regression: a block on a later chunk must still bill the chunks AWS already processed."""
     monkeypatch.setattr(
-        litellm,
+        embrouter,
         "model_cost",
         {
             "bedrock/guardrails": {
@@ -5422,7 +5422,7 @@ async def test_blocked_chunk_logs_usage_and_cost_of_prior_passed_chunks(monkeypa
 async def test_terminal_failure_logs_usage_and_cost_of_prior_passed_chunks(monkeypatch):
     """LIT-5651 regression: a terminal failure on a later chunk must still bill the chunks AWS already processed."""
     monkeypatch.setattr(
-        litellm,
+        embrouter,
         "model_cost",
         {
             "bedrock/guardrails": {
@@ -5507,7 +5507,7 @@ def test_load_credentials_assumes_role_with_external_id():
         """STS that mirrors a cross-account role whose trust policy requires an ExternalId."""
 
         def get_caller_identity(self):
-            return {"Arn": "arn:aws:iam::111111111111:user/litellm-proxy-pod"}
+            return {"Arn": "arn:aws:iam::111111111111:user/embrouter-proxy-pod"}
 
         def assume_role(self, **params):
             if params.get("ExternalId") != "external-id-123":
@@ -5532,8 +5532,8 @@ def test_load_credentials_assumes_role_with_external_id():
         aws_region_name="us-east-1",
         aws_access_key_id="AKIAPODCALLERKEY",
         aws_secret_access_key="pod-caller-secret",
-        aws_role_name="arn:aws:iam::999999999999:role/litellm-guardrail-role",
-        aws_session_name="litellm-session",
+        aws_role_name="arn:aws:iam::999999999999:role/embrouter-guardrail-role",
+        aws_session_name="embrouter-session",
         aws_external_id="external-id-123",
     )
 
@@ -5546,33 +5546,33 @@ def test_load_credentials_assumes_role_with_external_id():
 
 
 def test_initialize_bedrock_forwards_aws_external_id():
-    """aws_external_id configured on the guardrail must survive LitellmParams and the initializer."""
-    from litellm.proxy.guardrails.guardrail_initializers import initialize_bedrock
-    from litellm.types.guardrails import LitellmParams
+    """aws_external_id configured on the guardrail must survive EmbrouterParams and the initializer."""
+    from embrouter.proxy.guardrails.guardrail_initializers import initialize_bedrock
+    from embrouter.types.guardrails import EmbrouterParams
 
-    litellm_params = LitellmParams(
+    embrouter_params = EmbrouterParams(
         guardrail="bedrock",
         mode="pre_call",
         guardrailIdentifier="gr-1",
         guardrailVersion="DRAFT",
         aws_region_name="us-east-1",
-        aws_role_name="arn:aws:iam::999999999999:role/litellm-guardrail-role",
+        aws_role_name="arn:aws:iam::999999999999:role/embrouter-guardrail-role",
         aws_external_id="external-id-123",
     )
 
-    guardrail = initialize_bedrock(litellm_params, {"guardrail_name": "bedrock-external-id"})
+    guardrail = initialize_bedrock(embrouter_params, {"guardrail_name": "bedrock-external-id"})
     try:
         assert guardrail.optional_params["aws_external_id"] == "external-id-123"
     finally:
-        litellm.logging_callback_manager.remove_callback_from_list_by_object(litellm.callbacks, guardrail)
+        embrouter.logging_callback_manager.remove_callback_from_list_by_object(embrouter.callbacks, guardrail)
 
 
-def _chat_chunk(content: str, finish_reason: str | None) -> litellm.ModelResponseStream:
-    return litellm.ModelResponseStream(
+def _chat_chunk(content: str, finish_reason: str | None) -> embrouter.ModelResponseStream:
+    return embrouter.ModelResponseStream(
         id="tid",
         choices=[
-            litellm.types.utils.StreamingChoices(
-                delta=litellm.types.utils.Delta(content=content, role="assistant"),
+            embrouter.types.utils.StreamingChoices(
+                delta=embrouter.types.utils.Delta(content=content, role="assistant"),
                 finish_reason=finish_reason,
                 index=0,
             )
@@ -5583,10 +5583,10 @@ def _chat_chunk(content: str, finish_reason: str | None) -> litellm.ModelRespons
     )
 
 
-def _streaming_litellm_params(**extras):
-    from litellm.types.guardrails import LitellmParams
+def _streaming_embrouter_params(**extras):
+    from embrouter.types.guardrails import EmbrouterParams
 
-    return LitellmParams(
+    return EmbrouterParams(
         guardrail="bedrock",
         mode="post_call",
         guardrailIdentifier="test-id",
@@ -5596,10 +5596,10 @@ def _streaming_litellm_params(**extras):
 
 
 def test_initialize_bedrock_wires_streaming_flags():
-    from litellm.proxy.guardrails.guardrail_initializers import initialize_bedrock
+    from embrouter.proxy.guardrails.guardrail_initializers import initialize_bedrock
 
     configured = initialize_bedrock(
-        _streaming_litellm_params(
+        _streaming_embrouter_params(
             streaming_buffer_until_moderated=False,
             streaming_sampling_rate=3,
             streaming_end_of_stream_only=True,
@@ -5608,11 +5608,11 @@ def test_initialize_bedrock_wires_streaming_flags():
         {"guardrail_name": "bedrock-streaming"},
     )
     defaulted = initialize_bedrock(
-        _streaming_litellm_params(),
+        _streaming_embrouter_params(),
         {"guardrail_name": "bedrock-defaults"},
     )
     for registered in (configured, defaulted):
-        litellm.logging_callback_manager.remove_callback_from_list_by_object(litellm.callbacks, registered)
+        embrouter.logging_callback_manager.remove_callback_from_list_by_object(embrouter.callbacks, registered)
 
     assert configured.streaming_buffer_until_moderated is False
     assert configured.streaming_sampling_rate == 3
@@ -5627,24 +5627,24 @@ def test_initialize_bedrock_wires_streaming_flags():
 def test_initialize_bedrock_rejects_non_positive_sampling_rate():
     from pydantic import ValidationError
 
-    from litellm.proxy.guardrails.guardrail_initializers import initialize_bedrock
+    from embrouter.proxy.guardrails.guardrail_initializers import initialize_bedrock
 
     with pytest.raises(ValidationError):
         initialize_bedrock(
-            _streaming_litellm_params(streaming_sampling_rate=0),
+            _streaming_embrouter_params(streaming_sampling_rate=0),
             {"guardrail_name": "bedrock-bad-rate"},
         )
 
 
-def test_update_in_memory_litellm_params_round_trips_streaming_flags():
+def test_update_in_memory_embrouter_params_round_trips_streaming_flags():
     guardrail = BedrockGuardrail(
         guardrail_name="bedrock-update",
         guardrailIdentifier="test-id",
         guardrailVersion="DRAFT",
     )
 
-    guardrail.update_in_memory_litellm_params(
-        _streaming_litellm_params(
+    guardrail.update_in_memory_embrouter_params(
+        _streaming_embrouter_params(
             streaming_buffer_until_moderated=False,
             streaming_sampling_rate=7,
             streaming_end_of_stream_only=True,
@@ -5654,7 +5654,7 @@ def test_update_in_memory_litellm_params_round_trips_streaming_flags():
     assert guardrail.streaming_sampling_rate == 7
     assert guardrail.streaming_end_of_stream_only is True
 
-    guardrail.update_in_memory_litellm_params(_streaming_litellm_params())
+    guardrail.update_in_memory_embrouter_params(_streaming_embrouter_params())
     assert guardrail.streaming_buffer_until_moderated is True
     assert guardrail.streaming_sampling_rate == 5
     assert guardrail.streaming_end_of_stream_only is False
@@ -5788,10 +5788,10 @@ async def test_streaming_end_of_stream_block_emits_error_frame_instead_of_trunca
     error frame instead. The finish chunk is withheld while the end-of-stream
     scan runs, so on a block it is dropped rather than relayed before the
     frame."""
-    from litellm.proxy.guardrails.guardrail_hooks.unified_guardrail.unified_guardrail import (
+    from embrouter.proxy.guardrails.guardrail_hooks.unified_guardrail.unified_guardrail import (
         UnifiedLLMGuardrails,
     )
-    from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices
+    from embrouter.types.utils import Delta, ModelResponseStream, StreamingChoices
 
     guardrail = BedrockGuardrail(
         guardrailIdentifier="test-guardrail",
@@ -5849,7 +5849,7 @@ async def test_streaming_end_of_stream_block_emits_error_frame_instead_of_trunca
 
 
 def _responses_stream_events() -> list:
-    from litellm.types.llms.openai import (
+    from embrouter.types.llms.openai import (
         OutputTextDeltaEvent,
         ResponseCompletedEvent,
         ResponsesAPIResponse,
@@ -5926,7 +5926,7 @@ async def test_responses_api_stream_scans_output_and_replays_buffered_events():
 
 
 def _responses_failed_stream_events() -> list:
-    from litellm.types.llms.openai import (
+    from embrouter.types.llms.openai import (
         OutputTextDeltaEvent,
         ResponseFailedEvent,
         ResponsesAPIResponse,
@@ -6002,7 +6002,7 @@ async def test_responses_api_failed_stream_scans_delta_text_before_replay():
 async def test_apply_guardrail_debug_log_masks_signed_request_headers():
     import logging
 
-    from litellm._logging import verbose_proxy_logger
+    from embrouter._logging import verbose_proxy_logger
 
     session_token = "FakeSessionTokenValueThatMustNeverAppearInLogs1234567890"
     guardrail = BedrockGuardrail(
@@ -6056,7 +6056,7 @@ async def test_bearer_token_never_runs_the_sigv4_credential_chain(monkeypatch):
     guardrail = BedrockGuardrail(
         guardrailIdentifier="test-guardrail",
         guardrailVersion="DRAFT",
-        aws_profile_name="litellm-no-such-aws-profile",
+        aws_profile_name="embrouter-no-such-aws-profile",
     )
     mock_response = MagicMock()
     mock_response.status_code = 200

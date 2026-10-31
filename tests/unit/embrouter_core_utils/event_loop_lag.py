@@ -3,13 +3,13 @@ import time
 from collections.abc import Awaitable, Callable
 from typing import Final, TypeVar
 
-import litellm
+import embrouter
 
 T = TypeVar("T")
 
 
 def warm_tokenizer(model: str) -> None:
-    litellm.token_counter(model=model, text="load the tokenizer before anything is timed")
+    embrouter.token_counter(model=model, text="load the tokenizer before anything is timed")
 
 
 async def loop_wake_lags(until: asyncio.Event) -> tuple[float, ...]:

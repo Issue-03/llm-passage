@@ -18,30 +18,30 @@ from typing import TYPE_CHECKING, Final, Literal, Optional, Protocol, TypeVar, U
 
 from typing_extensions import NotRequired, ReadOnly, TypedDict, Unpack
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.litellm_core_utils.asyncify import asyncify
-from litellm.types.llms.anthropic import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.embrouter_core_utils.asyncify import asyncify
+from embrouter.types.llms.anthropic import (
     AppliedEdit,
     CompactionBlock,
     UsageIteration,
 )
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.hooks.parallel_request_limiter_v3 import (
+    from embrouter.embrouter_core_utils.streaming_handler import CustomStreamWrapper
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy.hooks.parallel_request_limiter_v3 import (
         RateLimitDescriptor,
         RateLimitDescriptorRateLimitObject,
         RateLimitResponse,
     )
-    from litellm.router import Router
-    from litellm.types.llms.anthropic import (
+    from embrouter.router import Router
+    from embrouter.types.llms.anthropic import (
         AllAnthropicPassThroughMessageValues,
         AllAnthropicToolsValues,
     )
-    from litellm.types.llms.openai import ChatCompletionToolParam
-    from litellm.types.utils import ModelResponse
+    from embrouter.types.llms.openai import ChatCompletionToolParam
+    from embrouter.types.utils import ModelResponse
 
 from ..constants import (
     COMPACT_DEFAULT_INSTRUCTIONS,
@@ -61,7 +61,7 @@ from ..result import PolyfillResult
 # Auth metadata fields propagated from the parent request to the summary call
 # so the summary's spend is attributed to the same scopes. The list mirrors the
 # fields populated by
-# ``LiteLLMProxyRequestSetup.add_user_api_key_auth_to_request_metadata``.
+# ``EmbRouterProxyRequestSetup.add_user_api_key_auth_to_request_metadata``.
 # The three ``*_model_max_budget`` fields
 # are what ``_PROXY_VirtualKeyModelMaxBudgetLimiter`` reads post-call to update
 # the per-model spend caches, so without them the summary spend would never
@@ -85,8 +85,8 @@ _PROPAGATED_METADATA_KEYS: Final = (
     "user_api_key_team_model_max_budget",
     "user_api_key_user_model_max_budget",
     "user_api_key_end_user_model_max_budget",
-    "litellm_call_id",
-    "litellm_parent_otel_span",
+    "embrouter_call_id",
+    "embrouter_parent_otel_span",
 )
 
 _SUMMARY_TAG_RE: Final = re.compile(r"<summary>(.*?)</summary>", re.IGNORECASE | re.DOTALL)
@@ -106,7 +106,7 @@ class _SummaryCallKwargs(TypedDict):
     model: ReadOnly[str]
     max_tokens: ReadOnly[int]
     timeout: ReadOnly[float]
-    litellm_metadata: ReadOnly[Mapping[str, object]]
+    embrouter_metadata: ReadOnly[Mapping[str, object]]
     user: ReadOnly[NotRequired[str]]
     allowed_model_region: ReadOnly[NotRequired[str]]
 
@@ -170,7 +170,7 @@ class _ShouldRateLimit(Protocol):
 def _read_summary_model_setting() -> str | None:
     """Look up the configured summarization model from proxy general_settings."""
     try:
-        from litellm.proxy.proxy_server import general_settings
+        from embrouter.proxy.proxy_server import general_settings
     except Exception:
         return None
     value: Final = general_settings.get(COMPACT_SUMMARY_MODEL_SETTING_KEY)
@@ -185,7 +185,7 @@ def _read_summary_max_tokens_setting() -> int:
     when the default doesn't fit their chosen summary model's output budget.
     """
     try:
-        from litellm.proxy.proxy_server import general_settings
+        from embrouter.proxy.proxy_server import general_settings
     except Exception:
         return COMPACT_SUMMARY_MAX_TOKENS
     value: Final = general_settings.get(COMPACT_SUMMARY_MAX_TOKENS_SETTING_KEY)
@@ -207,7 +207,7 @@ async def _check_summary_model_access(
     levels excludes ``context_management_summary_model`` could still get the
     proxy to invoke that model and return its ``<summary>`` output as a
     compaction block. Mirrors the model-scope enforcement that
-    ``litellm.proxy.auth.common_checks`` runs for the client-requested model:
+    ``embrouter.proxy.auth.common_checks`` runs for the client-requested model:
     key, team, user (personal), project, and team-member allowlists.
 
     Returns True (allow) when ``user_api_key_auth`` is not present — SDK
@@ -226,8 +226,8 @@ async def _check_summary_model_access(
     if user_api_key_auth is None:
         return True
     try:
-        from litellm.proxy._types import ProxyException
-        from litellm.proxy.auth.auth_checks import (
+        from embrouter.proxy._types import ProxyException
+        from embrouter.proxy.auth.auth_checks import (
             _can_object_call_model,
             can_project_access_model,
             can_user_call_model,
@@ -235,7 +235,7 @@ async def _check_summary_model_access(
             get_team_membership,
             get_user_object,
         )
-        from litellm.proxy.proxy_server import (
+        from embrouter.proxy.proxy_server import (
             prisma_client,
             proxy_logging_obj,
             user_api_key_cache,
@@ -364,8 +364,8 @@ async def _check_summary_model_access(
             )
             return False
         member_allowed_models: Final = (
-            team_membership.litellm_budget_table.allowed_models
-            if team_membership is not None and team_membership.litellm_budget_table is not None
+            team_membership.embrouter_budget_table.allowed_models
+            if team_membership is not None and team_membership.embrouter_budget_table is not None
             else None
         )
         if member_allowed_models:
@@ -414,7 +414,7 @@ async def _check_summary_model_budget(
     if user_api_key_auth is None:
         return True
     try:
-        from litellm.proxy.proxy_server import model_max_budget_limiter
+        from embrouter.proxy.proxy_server import model_max_budget_limiter
     except Exception:
         return True
 
@@ -426,7 +426,7 @@ async def _check_summary_model_budget(
                 user_api_key_dict=user_api_key_auth,
                 model=summary_model,
             )
-        except litellm.BudgetExceededError:
+        except embrouter.BudgetExceededError:
             return False
         except Exception as e:
             verbose_logger.warning(
@@ -445,7 +445,7 @@ async def _check_summary_model_budget(
                 user_model_max_budget=user_model_max_budget,
                 model=summary_model,
             )
-        except litellm.BudgetExceededError:
+        except embrouter.BudgetExceededError:
             return False
         except Exception as e:  # noqa: BLE001  # a budget gate denies on any failure, as the key and end-user scopes do
             verbose_logger.warning(
@@ -465,7 +465,7 @@ async def _check_summary_model_budget(
                 key_model_max_budget=model_max_budget if isinstance(model_max_budget, dict) else None,
                 model=summary_model,
             )
-        except litellm.BudgetExceededError:
+        except embrouter.BudgetExceededError:
             return False
         except Exception as e:  # noqa: BLE001  # a budget gate denies on any failure, as the other scopes do
             verbose_logger.warning(
@@ -486,7 +486,7 @@ async def _check_summary_model_budget(
                 end_user_model_max_budget=end_user_model_max_budget,
                 model=summary_model,
             )
-        except litellm.BudgetExceededError:
+        except embrouter.BudgetExceededError:
             return False
         except Exception as e:
             verbose_logger.warning(
@@ -533,7 +533,7 @@ async def _check_summary_model_rate_limit(
     summary model: it builds the same descriptor set and runs the check in
     ``read_only`` mode so no counter is reserved or incremented — the summary
     call's actual usage is still charged exactly once by the limiter's
-    post-call success hook (via the propagated ``litellm_metadata``).
+    post-call success hook (via the propagated ``embrouter_metadata``).
     ``max_parallel_requests`` gauges are left out of the check: the summary
     call runs inside the caller's already admitted request, whose own slot
     would otherwise count against it.
@@ -549,8 +549,8 @@ async def _check_summary_model_rate_limit(
     if user_api_key_auth is None:
         return True
     try:
-        from litellm.proxy.hooks.parallel_request_limiter_v3 import RateLimitUnverifiableError
-        from litellm.proxy.proxy_server import proxy_logging_obj
+        from embrouter.proxy.hooks.parallel_request_limiter_v3 import RateLimitUnverifiableError
+        from embrouter.proxy.proxy_server import proxy_logging_obj
     except Exception:
         return True
 
@@ -763,22 +763,22 @@ def _build_summary_prompt(edit_spec: Mapping[str, object], tools: Sequence[Mappi
 
 
 def _propagate_metadata(
-    parent_litellm_metadata: Mapping[str, object] | None,
+    parent_embrouter_metadata: Mapping[str, object] | None,
 ) -> dict[str, object]:
     """Extract the parent request's auth/spend-attribution fields for the summary subcall.
 
     The proxy attaches ``user_api_key``, ``user_api_key_team_id`` etc. to
-    ``data["litellm_metadata"]`` (see
-    ``LiteLLMProxyRequestSetup.add_user_api_key_auth_to_request_metadata``).
+    ``data["embrouter_metadata"]`` (see
+    ``EmbRouterProxyRequestSetup.add_user_api_key_auth_to_request_metadata``).
     Without these on the summary subrequest, the router's post-call hooks
     cannot attribute summary tokens to the caller's key/team budget.
     """
-    if not parent_litellm_metadata:
+    if not parent_embrouter_metadata:
         return {}
     propagated: Final[dict[str, object]] = {}
     for key in _PROPAGATED_METADATA_KEYS:
-        if key in parent_litellm_metadata:
-            propagated[key] = parent_litellm_metadata[key]
+        if key in parent_embrouter_metadata:
+            propagated[key] = parent_embrouter_metadata[key]
     return propagated
 
 
@@ -798,12 +798,12 @@ def _count_effective_tokens(
     threshold check matches the downstream ``input_tokens`` metric.
     """
     # Local import to avoid pulling the adapter at module load time.
-    from litellm.llms.anthropic.pass_through.adapters.transformation import (
-        LiteLLMAnthropicMessagesAdapter,
+    from embrouter.llms.anthropic.pass_through.adapters.transformation import (
+        EmbRouterAnthropicMessagesAdapter,
     )
 
     messages_without_compaction: Final = _strip_compaction_blocks(effective_messages)
-    adapter: Final = LiteLLMAnthropicMessagesAdapter()
+    adapter: Final = EmbRouterAnthropicMessagesAdapter()
     try:
         openai_shape = adapter.translate_anthropic_messages_to_openai(
             messages=cast(
@@ -840,7 +840,7 @@ def _count_effective_tokens(
             )
             openai_tools = tools
 
-    total = litellm.token_counter(
+    total = embrouter.token_counter(
         model=model,
         messages=cast(list[dict[str, object]], openai_shape),
         tools=cast("list[ChatCompletionToolParam] | None", openai_tools),
@@ -848,10 +848,10 @@ def _count_effective_tokens(
     if compaction_block is not None:
         content: Final = compaction_block.get("content") or ""
         if content:
-            total += litellm.token_counter(model=model, text=content)
+            total += embrouter.token_counter(model=model, text=content)
     system_text: Final = _system_to_text(system)
     if system_text:
-        total += litellm.token_counter(model=model, text=system_text)
+        total += embrouter.token_counter(model=model, text=system_text)
     return total
 
 
@@ -955,13 +955,13 @@ def _build_summary_messages(
     system prompt); the conversation history is translated to OpenAI shape;
     the summarization prompt is appended as a final user turn.
     """
-    from litellm.llms.anthropic.pass_through.adapters.transformation import (
-        LiteLLMAnthropicMessagesAdapter,
+    from embrouter.llms.anthropic.pass_through.adapters.transformation import (
+        EmbRouterAnthropicMessagesAdapter,
     )
 
     stripped: Final = _strip_compaction_blocks(effective_messages)
     try:
-        openai_messages = LiteLLMAnthropicMessagesAdapter().translate_anthropic_messages_to_openai(
+        openai_messages = EmbRouterAnthropicMessagesAdapter().translate_anthropic_messages_to_openai(
             messages=cast(
                 "list[AllAnthropicPassThroughMessageValues]",
                 stripped,
@@ -1028,7 +1028,7 @@ async def _call_summary_model(
     """Invoke the configured summary model.
 
     Prefers ``llm_router.acompletion`` so the model alias resolves against the
-    proxy's ``model_list``; falls back to ``litellm.acompletion`` if no router
+    proxy's ``model_list``; falls back to ``embrouter.acompletion`` if no router
     is available (e.g. SDK usage outside the proxy).
     """
     # ``max_tokens`` is required by providers like Anthropic and silently
@@ -1039,7 +1039,7 @@ async def _call_summary_model(
     # ``general_settings`` when the default doesn't fit the chosen model's
     # output budget.
     # The propagated proxy auth/spend-attribution fields (``user_api_key`` etc.)
-    # must travel as ``litellm_metadata`` — that is the parameter the proxy's
+    # must travel as ``embrouter_metadata`` — that is the parameter the proxy's
     # post-call spend hooks read for budget attribution. The provider-level
     # ``metadata`` kwarg corresponds to the upstream API request body and would
     # not flow into spend tracking.
@@ -1054,7 +1054,7 @@ async def _call_summary_model(
     # forwarding the request without compaction rather than hanging.
     # The end-user id must also travel as the top-level ``user`` kwarg: legacy
     # limiter hooks and prometheus end-user tracking read it from there rather
-    # than from ``litellm_metadata``, so without it the summary tokens would not
+    # than from ``embrouter_metadata``, so without it the summary tokens would not
     # debit the caller's end-user counters.
     end_user_id: Final = metadata.get("user_api_key_end_user_id")
     user_kwargs: Final = (
@@ -1071,14 +1071,14 @@ async def _call_summary_model(
         "model": summary_model,
         "max_tokens": max_tokens,
         "timeout": COMPACT_SUMMARY_TIMEOUT_SECONDS,
-        "litellm_metadata": metadata,
+        "embrouter_metadata": metadata,
         **user_kwargs,
         **region_kwargs,
     }
     router_acompletion: Final[_SummaryAcompletion | None] = getattr(llm_router, "acompletion", None)
     if llm_router is not None and router_acompletion is not None:
         return await router_acompletion(messages=summary_messages, **call_kwargs)
-    return await litellm.acompletion(messages=[*summary_messages], **call_kwargs)
+    return await embrouter.acompletion(messages=[*summary_messages], **call_kwargs)
 
 
 def _extract_response_text(response: object) -> str | None:
@@ -1164,7 +1164,7 @@ async def apply_compact_20260112(
     tools: list[dict[str, object]] | None,
     system: str | list[dict[str, object]] | None,
     edit_spec: dict[str, object],
-    litellm_metadata: Mapping[str, object] | None = None,
+    embrouter_metadata: Mapping[str, object] | None = None,
     llm_router: Optional["Router"] = None,
     user_api_key_auth: Optional["UserAPIKeyAuth"] = None,
 ) -> PolyfillResult:
@@ -1307,7 +1307,7 @@ async def apply_compact_20260112(
 
     prompt: Final = _build_summary_prompt(edit_spec, tools)
     summary_messages: Final = _build_summary_messages(effective_messages, prompt, system=augmented_system)
-    propagated_metadata: Final = _propagate_metadata(litellm_metadata)
+    propagated_metadata: Final = _propagate_metadata(embrouter_metadata)
     allowed_model_region: Final = getattr(user_api_key_auth, "allowed_model_region", None)
 
     try:

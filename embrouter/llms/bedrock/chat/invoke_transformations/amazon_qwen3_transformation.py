@@ -10,16 +10,16 @@ from typing import TYPE_CHECKING, Final
 
 import httpx
 
-from litellm.llms.base_llm.chat.transformation import BaseConfig
-from litellm.llms.bedrock.chat.invoke_transformations.base_invoke_transformation import (
+from embrouter.llms.base_llm.chat.transformation import BaseConfig
+from embrouter.llms.bedrock.chat.invoke_transformations.base_invoke_transformation import (
     AmazonInvokeConfig,
-    LiteLLMLoggingObj,
+    EmbRouterLoggingObj,
 )
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.utils import ModelResponse, Usage
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.utils import ModelResponse, Usage
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
 
 
 class AmazonQwen3Config(AmazonInvokeConfig, BaseConfig):
@@ -86,7 +86,7 @@ class AmazonQwen3Config(AmazonInvokeConfig, BaseConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         """
@@ -165,11 +165,11 @@ class AmazonQwen3Config(AmazonInvokeConfig, BaseConfig):
         model: str,
         raw_response: httpx.Response,
         model_response: ModelResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         request_data: dict,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,

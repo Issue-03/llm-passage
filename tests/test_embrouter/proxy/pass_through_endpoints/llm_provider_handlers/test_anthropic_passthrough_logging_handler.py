@@ -7,9 +7,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.proxy.pass_through_endpoints.llm_provider_handlers.anthropic_passthrough_logging_handler import (
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.proxy.pass_through_endpoints.llm_provider_handlers.anthropic_passthrough_logging_handler import (
     AnthropicPassthroughLoggingHandler,
 )
 
@@ -37,7 +37,7 @@ class TestAnthropicLoggingHandlerModelFallback:
 
     def _create_mock_logging_obj(
         self, model_in_details: str = None
-    ) -> LiteLLMLoggingObj:
+    ) -> EmbRouterLoggingObj:
         """Create a mock logging object with optional model in model_call_details"""
         mock_logging_obj = MagicMock()
 
@@ -79,7 +79,7 @@ class TestAnthropicLoggingHandlerModelFallback:
 
         # Act
         result = AnthropicPassthroughLoggingHandler._handle_logging_anthropic_collected_chunks(
-            litellm_logging_obj=logging_obj,
+            embrouter_logging_obj=logging_obj,
             passthrough_success_handler_obj=passthrough_handler,
             url_route="/anthropic/v1/messages",
             request_body=request_body,
@@ -203,7 +203,7 @@ class TestAzureAnthropicCostCalculation:
 
     def _create_mock_logging_obj(
         self, model: str = None, custom_llm_provider: str = None
-    ) -> LiteLLMLoggingObj:
+    ) -> EmbRouterLoggingObj:
         """Create a mock logging object with optional model and custom_llm_provider"""
         mock_logging_obj = MagicMock()
         mock_model_call_details = {}
@@ -212,15 +212,15 @@ class TestAzureAnthropicCostCalculation:
         if custom_llm_provider:
             mock_model_call_details["custom_llm_provider"] = custom_llm_provider
         mock_logging_obj.model_call_details = mock_model_call_details
-        mock_logging_obj.litellm_call_id = "test-call-id"
+        mock_logging_obj.embrouter_call_id = "test-call-id"
         return mock_logging_obj
 
-    @patch("litellm.completion_cost")
+    @patch("embrouter.completion_cost")
     def test_cost_calculation_with_azure_ai_custom_llm_provider(
         self, mock_completion_cost
     ):
         """Test that custom_llm_provider is passed to completion_cost for Azure AI Anthropic"""
-        from litellm.types.utils import ModelResponse
+        from embrouter.types.utils import ModelResponse
         from datetime import datetime
 
         mock_completion_cost.return_value = 0.001
@@ -238,7 +238,7 @@ class TestAzureAnthropicCostCalculation:
         end_time = datetime.now()
 
         AnthropicPassthroughLoggingHandler._create_anthropic_response_logging_payload(
-            litellm_model_response=mock_response,
+            embrouter_model_response=mock_response,
             model="claude-sonnet-4-5_gb_20250929",
             kwargs=kwargs,
             start_time=start_time,
@@ -252,10 +252,10 @@ class TestAzureAnthropicCostCalculation:
         assert call_kwargs["model"] == "azure_ai/claude-sonnet-4-5_gb_20250929"
         assert call_kwargs["custom_llm_provider"] == "azure_ai"
 
-    @patch("litellm.completion_cost")
+    @patch("embrouter.completion_cost")
     def test_cost_calculation_without_custom_llm_provider(self, mock_completion_cost):
         """Test that cost calculation works without custom_llm_provider (standard Anthropic)"""
-        from litellm.types.utils import ModelResponse
+        from embrouter.types.utils import ModelResponse
         from datetime import datetime
 
         mock_completion_cost.return_value = 0.001
@@ -272,7 +272,7 @@ class TestAzureAnthropicCostCalculation:
         end_time = datetime.now()
 
         AnthropicPassthroughLoggingHandler._create_anthropic_response_logging_payload(
-            litellm_model_response=mock_response,
+            embrouter_model_response=mock_response,
             model="claude-3-sonnet-20240229",
             kwargs=kwargs,
             start_time=start_time,
@@ -286,12 +286,12 @@ class TestAzureAnthropicCostCalculation:
         assert call_kwargs["model"] == "claude-3-sonnet-20240229"
         assert call_kwargs["custom_llm_provider"] is None
 
-    @patch("litellm.completion_cost")
+    @patch("embrouter.completion_cost")
     def test_cost_calculation_does_not_duplicate_provider_prefix(
         self, mock_completion_cost
     ):
         """Test that provider prefix is not duplicated if already present in model name"""
-        from litellm.types.utils import ModelResponse
+        from embrouter.types.utils import ModelResponse
         from datetime import datetime
 
         mock_completion_cost.return_value = 0.001
@@ -311,7 +311,7 @@ class TestAzureAnthropicCostCalculation:
 
         # Model already has the provider prefix
         AnthropicPassthroughLoggingHandler._create_anthropic_response_logging_payload(
-            litellm_model_response=mock_response,
+            embrouter_model_response=mock_response,
             model="azure_ai/claude-sonnet-4-5_gb_20250929",
             kwargs=kwargs,
             start_time=start_time,
@@ -325,34 +325,34 @@ class TestAzureAnthropicCostCalculation:
         assert call_kwargs["model"] == "azure_ai/claude-sonnet-4-5_gb_20250929"
         assert call_kwargs["custom_llm_provider"] == "azure_ai"
 
-    @patch("litellm.completion_cost")
-    def test_cost_calculation_resolves_unknown_model_from_litellm_params(
+    @patch("embrouter.completion_cost")
+    def test_cost_calculation_resolves_unknown_model_from_embrouter_params(
         self, mock_completion_cost
     ):
         """When the body model is the "unknown" sentinel, the deployment model
-        from litellm_params must be used for costing, not "unknown" (which makes
+        from embrouter_params must be used for costing, not "unknown" (which makes
         completion_cost raise and the cost silently fall back to $0)."""
         from datetime import datetime
 
-        from litellm.types.utils import ModelResponse
+        from embrouter.types.utils import ModelResponse
 
         mock_completion_cost.return_value = 0.001
 
         logging_obj = self._create_mock_logging_obj(model="unknown")
-        logging_obj.model_call_details["litellm_params"] = {
+        logging_obj.model_call_details["embrouter_params"] = {
             "model": "anthropic/claude-3-5-haiku-20241022",
             "metadata": {
                 "model_group": "passthrough/anthropic/claude-3-5-haiku-20241022"
             },
         }
-        logging_obj.litellm_params = logging_obj.model_call_details["litellm_params"]
+        logging_obj.embrouter_params = logging_obj.model_call_details["embrouter_params"]
 
         mock_response = MagicMock(spec=ModelResponse)
         mock_response.id = "test-id"
         mock_response.model = "unknown"
 
         kwargs = AnthropicPassthroughLoggingHandler._create_anthropic_response_logging_payload(
-            litellm_model_response=mock_response,
+            embrouter_model_response=mock_response,
             model="unknown",
             kwargs={},
             start_time=datetime.now(),
@@ -368,33 +368,33 @@ class TestAzureAnthropicCostCalculation:
         assert kwargs["response_cost"] == 0.001
         assert kwargs["model"] == "anthropic/claude-3-5-haiku-20241022"
 
-    @patch("litellm.completion_cost")
+    @patch("embrouter.completion_cost")
     def test_cost_calculation_resolves_unknown_model_from_model_group(
         self, mock_completion_cost
     ):
-        """With only model_group available (no deployment litellm_params.model),
+        """With only model_group available (no deployment embrouter_params.model),
         the leading passthrough/ prefix must be stripped so the cost map can
         resolve the model."""
         from datetime import datetime
 
-        from litellm.types.utils import ModelResponse
+        from embrouter.types.utils import ModelResponse
 
         mock_completion_cost.return_value = 0.002
 
         logging_obj = self._create_mock_logging_obj(model="unknown")
-        logging_obj.model_call_details["litellm_params"] = {
+        logging_obj.model_call_details["embrouter_params"] = {
             "metadata": {
                 "model_group": "passthrough/anthropic/claude-3-5-haiku-20241022"
             }
         }
-        logging_obj.litellm_params = logging_obj.model_call_details["litellm_params"]
+        logging_obj.embrouter_params = logging_obj.model_call_details["embrouter_params"]
 
         mock_response = MagicMock(spec=ModelResponse)
         mock_response.id = "test-id"
         mock_response.model = "unknown"
 
         kwargs = AnthropicPassthroughLoggingHandler._create_anthropic_response_logging_payload(
-            litellm_model_response=mock_response,
+            embrouter_model_response=mock_response,
             model="unknown",
             kwargs={},
             start_time=datetime.now(),
@@ -409,34 +409,34 @@ class TestAzureAnthropicCostCalculation:
         )
         assert kwargs["response_cost"] == 0.002
 
-    @patch("litellm.completion_cost")
-    def test_cost_calculation_skips_unknown_litellm_params_model_for_model_group(
+    @patch("embrouter.completion_cost")
+    def test_cost_calculation_skips_unknown_embrouter_params_model_for_model_group(
         self, mock_completion_cost
     ):
-        """When litellm_params.model is itself the "unknown" sentinel, the
+        """When embrouter_params.model is itself the "unknown" sentinel, the
         deployment-model branch must not short-circuit; resolution falls through
         to model_group so costing still prices the real model instead of "unknown"."""
         from datetime import datetime
 
-        from litellm.types.utils import ModelResponse
+        from embrouter.types.utils import ModelResponse
 
         mock_completion_cost.return_value = 0.003
 
         logging_obj = self._create_mock_logging_obj(model="unknown")
-        logging_obj.model_call_details["litellm_params"] = {
+        logging_obj.model_call_details["embrouter_params"] = {
             "model": "unknown",
             "metadata": {
                 "model_group": "passthrough/anthropic/claude-3-5-haiku-20241022"
             },
         }
-        logging_obj.litellm_params = logging_obj.model_call_details["litellm_params"]
+        logging_obj.embrouter_params = logging_obj.model_call_details["embrouter_params"]
 
         mock_response = MagicMock(spec=ModelResponse)
         mock_response.id = "test-id"
         mock_response.model = "unknown"
 
         kwargs = AnthropicPassthroughLoggingHandler._create_anthropic_response_logging_payload(
-            litellm_model_response=mock_response,
+            embrouter_model_response=mock_response,
             model="unknown",
             kwargs={},
             start_time=datetime.now(),
@@ -452,20 +452,20 @@ class TestAzureAnthropicCostCalculation:
         assert kwargs["response_cost"] == 0.003
         assert kwargs["model"] == "anthropic/claude-3-5-haiku-20241022"
 
-    @patch("litellm.completion_cost")
+    @patch("embrouter.completion_cost")
     def test_streaming_cost_calculation_resolves_model_from_message_start_chunk(
         self, mock_completion_cost
     ):
-        """On the bare /anthropic passthrough path litellm_params carries no model
+        """On the bare /anthropic passthrough path embrouter_params carries no model
         or model_group and the body model is the "unknown" sentinel; the model
         must be recovered from the message_start SSE event so completion_cost
         prices the real model instead of failing on "unknown" and logging $0."""
         from datetime import datetime
 
-        from litellm.litellm_core_utils.litellm_logging import (
+        from embrouter.embrouter_core_utils.embrouter_logging import (
             Logging as RealLoggingObj,
         )
-        from litellm.proxy.pass_through_endpoints.streaming_handler import (
+        from embrouter.proxy.pass_through_endpoints.streaming_handler import (
             PassThroughStreamingHandler,
         )
 
@@ -528,16 +528,16 @@ class TestAzureAnthropicCostCalculation:
             stream=True,
             call_type="pass_through_endpoint",
             start_time=datetime.now(),
-            litellm_call_id="test-call-id",
+            embrouter_call_id="test-call-id",
             function_id="1",
         )
         logging_obj.model_call_details["model"] = "unknown"
         logging_obj.model_call_details["stream"] = True
-        logging_obj.model_call_details["litellm_params"] = {}
-        logging_obj.litellm_params = {}
+        logging_obj.model_call_details["embrouter_params"] = {}
+        logging_obj.embrouter_params = {}
 
         result = AnthropicPassthroughLoggingHandler._handle_logging_anthropic_collected_chunks(
-            litellm_logging_obj=logging_obj,
+            embrouter_logging_obj=logging_obj,
             passthrough_success_handler_obj=MagicMock(),
             url_route="/anthropic/v1/messages",
             request_body={"stream": True},
@@ -622,7 +622,7 @@ class TestAnthropicBatchPassthroughCostTracking:
     def mock_logging_obj(self):
         """Mock logging object"""
         mock = MagicMock()
-        mock.litellm_call_id = "test-call-id-123"
+        mock.embrouter_call_id = "test-call-id-123"
         mock.model_call_details = {}
         mock.model = None
         return mock
@@ -644,12 +644,12 @@ class TestAnthropicBatchPassthroughCostTracking:
         }
 
     @patch(
-        "litellm.proxy.pass_through_endpoints.llm_provider_handlers.anthropic_passthrough_logging_handler.AnthropicPassthroughLoggingHandler._store_batch_managed_object"
+        "embrouter.proxy.pass_through_endpoints.llm_provider_handlers.anthropic_passthrough_logging_handler.AnthropicPassthroughLoggingHandler._store_batch_managed_object"
     )
     @patch(
-        "litellm.proxy.pass_through_endpoints.llm_provider_handlers.anthropic_passthrough_logging_handler.AnthropicPassthroughLoggingHandler.get_actual_model_id_from_router"
+        "embrouter.proxy.pass_through_endpoints.llm_provider_handlers.anthropic_passthrough_logging_handler.AnthropicPassthroughLoggingHandler.get_actual_model_id_from_router"
     )
-    @patch("litellm.llms.anthropic.batches.transformation.AnthropicBatchesConfig")
+    @patch("embrouter.llms.anthropic.batches.transformation.AnthropicBatchesConfig")
     def test_batch_creation_handler_success(
         self,
         mock_batches_config,
@@ -660,12 +660,12 @@ class TestAnthropicBatchPassthroughCostTracking:
         mock_request_body,
     ):
         """Test successful batch creation and managed object storage"""
-        from litellm.types.utils import LiteLLMBatch
+        from embrouter.types.utils import EmbRouterBatch
 
         # Setup mocks
         mock_get_model_id.return_value = "claude-sonnet-4-5-20250929"
 
-        mock_batch_response = LiteLLMBatch(
+        mock_batch_response = EmbRouterBatch(
             id="msgbatch_01Wj7gkQk7gn4MpAKR8ZEDU2",
             object="batch",
             endpoint="/v1/messages",
@@ -727,22 +727,22 @@ class TestAnthropicBatchPassthroughCostTracking:
         assert result["result"].object == "batch"
 
     @patch(
-        "litellm.proxy.pass_through_endpoints.llm_provider_handlers.anthropic_passthrough_logging_handler.AnthropicPassthroughLoggingHandler._store_batch_managed_object"
+        "embrouter.proxy.pass_through_endpoints.llm_provider_handlers.anthropic_passthrough_logging_handler.AnthropicPassthroughLoggingHandler._store_batch_managed_object"
     )
     @patch(
-        "litellm.proxy.pass_through_endpoints.llm_provider_handlers.anthropic_passthrough_logging_handler.AnthropicPassthroughLoggingHandler.get_actual_model_id_from_router"
+        "embrouter.proxy.pass_through_endpoints.llm_provider_handlers.anthropic_passthrough_logging_handler.AnthropicPassthroughLoggingHandler.get_actual_model_id_from_router"
     )
     def test_batch_creation_handler_model_extraction_from_nested_request(
         self, mock_get_model_id, mock_store_batch, mock_httpx_response, mock_logging_obj
     ):
         """Test that model is correctly extracted from nested request structure"""
-        from litellm.llms.anthropic.batches.transformation import AnthropicBatchesConfig
-        from litellm.types.utils import LiteLLMBatch
+        from embrouter.llms.anthropic.batches.transformation import AnthropicBatchesConfig
+        from embrouter.types.utils import EmbRouterBatch
 
         # Setup mocks
         mock_get_model_id.return_value = "claude-sonnet-4-5-20250929"
 
-        mock_batch_response = LiteLLMBatch(
+        mock_batch_response = EmbRouterBatch(
             id="msgbatch_123",
             object="batch",
             endpoint="/v1/messages",
@@ -786,7 +786,7 @@ class TestAnthropicBatchPassthroughCostTracking:
             assert result["kwargs"]["model"] == "claude-sonnet-4-5-20250929"
 
     @patch(
-        "litellm.proxy.pass_through_endpoints.llm_provider_handlers.anthropic_passthrough_logging_handler.AnthropicPassthroughLoggingHandler.get_actual_model_id_from_router"
+        "embrouter.proxy.pass_through_endpoints.llm_provider_handlers.anthropic_passthrough_logging_handler.AnthropicPassthroughLoggingHandler.get_actual_model_id_from_router"
     )
     def test_batch_creation_handler_model_prefix_when_not_in_router(
         self,
@@ -796,14 +796,14 @@ class TestAnthropicBatchPassthroughCostTracking:
         mock_request_body,
     ):
         """Test that model gets 'anthropic/' prefix when not found in router"""
-        from litellm.llms.anthropic.batches.transformation import AnthropicBatchesConfig
-        from litellm.types.utils import LiteLLMBatch
+        from embrouter.llms.anthropic.batches.transformation import AnthropicBatchesConfig
+        from embrouter.types.utils import EmbRouterBatch
         import base64
 
         # Model not in router - returns same model name
         mock_get_model_id.return_value = "claude-sonnet-4-5-20250929"
 
-        mock_batch_response = LiteLLMBatch(
+        mock_batch_response = EmbRouterBatch(
             id="msgbatch_123",
             object="batch",
             endpoint="/v1/messages",
@@ -846,7 +846,7 @@ class TestAnthropicBatchPassthroughCostTracking:
         [
             (
                 {
-                    "litellm_params": {
+                    "embrouter_params": {
                         "metadata": {
                             "user_api_key_user_id": "real-user-123",
                             "user_api_key_team_id": "team-456",
@@ -867,14 +867,14 @@ class TestAnthropicBatchPassthroughCostTracking:
         expected_team_id,
     ):
         """The fabricated UserAPIKeyAuth must inherit user_id/team_id from the
-        request's litellm_params.metadata, not the (always-empty) top-level
+        request's embrouter_params.metadata, not the (always-empty) top-level
         kwargs lookup. Falls back to "default-user" only when metadata is
         absent."""
         mock_managed_files_hook = MagicMock()
         with (
-            patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_pl,
+            patch("embrouter.proxy.proxy_server.proxy_logging_obj") as mock_pl,
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_provider_handlers.anthropic_passthrough_logging_handler.verbose_proxy_logger"
+                "embrouter.proxy.pass_through_endpoints.llm_provider_handlers.anthropic_passthrough_logging_handler.verbose_proxy_logger"
             ),
         ):
             mock_pl.get_proxy_hook.return_value = mock_managed_files_hook
@@ -896,9 +896,9 @@ class TestAnthropicBatchPassthroughCostTracking:
         mock_managed_files_hook = MagicMock()
         mock_managed_files_hook.store_unified_object_id = AsyncMock()
         with (
-            patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_pl,
+            patch("embrouter.proxy.proxy_server.proxy_logging_obj") as mock_pl,
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_provider_handlers.batch_attribution.verbose_proxy_logger"
+                "embrouter.proxy.pass_through_endpoints.llm_provider_handlers.batch_attribution.verbose_proxy_logger"
             ),
         ):
             mock_pl.get_proxy_hook.return_value = mock_managed_files_hook
@@ -907,7 +907,7 @@ class TestAnthropicBatchPassthroughCostTracking:
                 batch_object={"id": "b1", "object": "batch", "status": "validating"},
                 model_object_id="b1",
                 logging_obj=mock_logging_obj,
-                litellm_params={"metadata": metadata},
+                embrouter_params={"metadata": metadata},
             )
             await _drain_tasks()
         mock_managed_files_hook.store_unified_object_id.assert_awaited_once()
@@ -954,9 +954,9 @@ class TestAnthropicBatchPassthroughCostTracking:
             side_effect=RuntimeError("db down")
         )
         with (
-            patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_pl,
+            patch("embrouter.proxy.proxy_server.proxy_logging_obj") as mock_pl,
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_provider_handlers.batch_attribution.verbose_proxy_logger"
+                "embrouter.proxy.pass_through_endpoints.llm_provider_handlers.batch_attribution.verbose_proxy_logger"
             ) as mock_logger,
         ):
             mock_pl.get_proxy_hook.return_value = mock_managed_files_hook
@@ -965,7 +965,7 @@ class TestAnthropicBatchPassthroughCostTracking:
                 batch_object={"id": "b1", "object": "batch", "status": "validating"},
                 model_object_id="b1",
                 logging_obj=mock_logging_obj,
-                litellm_params={"metadata": {"user_api_key": "hashed-key-a"}},
+                embrouter_params={"metadata": {"user_api_key": "hashed-key-a"}},
             )
             await _drain_tasks()
 
@@ -1034,19 +1034,19 @@ class TestAnthropicBatchPassthroughCostTracking:
         assert result["kwargs"]["batch_job_state"] == "failed"
         assert result["kwargs"]["response_cost"] == 0.0
 
-    @patch("litellm.proxy.proxy_server.proxy_logging_obj")
+    @patch("embrouter.proxy.proxy_server.proxy_logging_obj")
     def test_store_batch_managed_object_success(
         self, mock_proxy_logging_obj, mock_logging_obj
     ):
         """Test storing batch managed object"""
-        from litellm.types.utils import LiteLLMBatch
+        from embrouter.types.utils import EmbRouterBatch
 
         # Setup mocks
         mock_managed_files_hook = MagicMock()
         mock_managed_files_hook.store_unified_object_id = AsyncMock()
         mock_proxy_logging_obj.get_proxy_hook.return_value = mock_managed_files_hook
 
-        batch_object = LiteLLMBatch(
+        batch_object = EmbRouterBatch(
             id="msgbatch_123",
             object="batch",
             endpoint="/v1/messages",
@@ -1079,7 +1079,7 @@ class TestBuildCompleteStreamingResponseRobustness:
     def _build(self, chunks: List[str]):
         return AnthropicPassthroughLoggingHandler._build_complete_streaming_response(
             all_chunks=chunks,
-            litellm_logging_obj=MagicMock(),
+            embrouter_logging_obj=MagicMock(),
             model="claude-3-sonnet-20240229",
         )
 
@@ -1155,7 +1155,7 @@ class TestPureTextFastPathParity:
     @staticmethod
     def _to_all_chunks(raw_frames):
         # Mirror production: raw bytes -> _convert_raw_bytes_to_str_lines.
-        from litellm.proxy.pass_through_endpoints.streaming_handler import (
+        from embrouter.proxy.pass_through_endpoints.streaming_handler import (
             PassThroughStreamingHandler,
         )
 
@@ -1260,12 +1260,12 @@ class TestPureTextFastPathParity:
 
         legacy = AnthropicPassthroughLoggingHandler._build_complete_streaming_response_legacy(
             all_chunks=list(all_chunks),
-            litellm_logging_obj=lo1,
+            embrouter_logging_obj=lo1,
             model="claude-3-5-sonnet-20241022",
         )
         fast = AnthropicPassthroughLoggingHandler._build_complete_streaming_response(
             all_chunks=list(all_chunks),
-            litellm_logging_obj=lo2,
+            embrouter_logging_obj=lo2,
             model="claude-3-5-sonnet-20241022",
         )
         assert self._norm(fast) == self._norm(legacy)
@@ -1274,7 +1274,7 @@ class TestPureTextFastPathParity:
         start = datetime.now()
         end = datetime.now()
         k_legacy = AnthropicPassthroughLoggingHandler._create_anthropic_response_logging_payload(
-            litellm_model_response=legacy,
+            embrouter_model_response=legacy,
             model="claude-3-5-sonnet-20241022",
             kwargs={},
             start_time=start,
@@ -1282,7 +1282,7 @@ class TestPureTextFastPathParity:
             logging_obj=lo1,
         )
         k_fast = AnthropicPassthroughLoggingHandler._create_anthropic_response_logging_payload(
-            litellm_model_response=fast,
+            embrouter_model_response=fast,
             model="claude-3-5-sonnet-20241022",
             kwargs={},
             start_time=start,
@@ -1525,7 +1525,7 @@ class TestInterruptedStreamOutputTokenRecovery:
     )
 
     def _interrupted_chunks(self, *, placeholder_output_tokens: int = 2, model: str | None = None):
-        from litellm.proxy.pass_through_endpoints.streaming_handler import (
+        from embrouter.proxy.pass_through_endpoints.streaming_handler import (
             PassThroughStreamingHandler,
         )
 
@@ -1593,12 +1593,12 @@ class TestInterruptedStreamOutputTokenRecovery:
     def _run(self, all_chunks):
         logging_obj = MagicMock()
         logging_obj.model_call_details = {"model": self._MODEL, "stream": True}
-        logging_obj.litellm_call_id = "test-call-id"
-        logging_obj.litellm_params = {}
+        logging_obj.embrouter_call_id = "test-call-id"
+        logging_obj.embrouter_params = {}
         logging_obj.get_router_model_id.return_value = None
 
         return AnthropicPassthroughLoggingHandler._handle_logging_anthropic_collected_chunks(
-            litellm_logging_obj=logging_obj,
+            embrouter_logging_obj=logging_obj,
             passthrough_success_handler_obj=MagicMock(),
             url_route="/anthropic/v1/messages",
             request_body={"model": self._MODEL, "stream": True},
@@ -1609,7 +1609,7 @@ class TestInterruptedStreamOutputTokenRecovery:
         )
 
     def test_interrupted_stream_retokenizes_buffered_output(self):
-        import litellm
+        import embrouter
 
         placeholder = 2
         result = self._run(
@@ -1617,7 +1617,7 @@ class TestInterruptedStreamOutputTokenRecovery:
         )
         usage = result["result"].usage
 
-        expected = litellm.token_counter(
+        expected = embrouter.token_counter(
             model=self._MODEL,
             text=self._OUTPUT_TEXT,
             count_response_tokens=True,
@@ -1650,7 +1650,7 @@ class TestInterruptedStreamOutputTokenRecovery:
         that hidden cost over the recomputed one. The logged cost must price the
         recovered completion tokens, not the placeholder.
         """
-        import litellm
+        import embrouter
 
         class _SuccessRecorder(CustomLogger):
             def __init__(self):
@@ -1661,13 +1661,13 @@ class TestInterruptedStreamOutputTokenRecovery:
                 self.success_kwargs.append(kwargs)
 
         recorder = _SuccessRecorder()
-        logging_obj = LiteLLMLoggingObj(
+        logging_obj = EmbRouterLoggingObj(
             model=self._PRICED_MODEL,
             messages=[{"role": "user", "content": "hi"}],
             stream=True,
             call_type="pass_through_endpoint",
             start_time=datetime.now(),
-            litellm_call_id="lit-6872",
+            embrouter_call_id="lit-6872",
             function_id="lit-6872",
             dynamic_async_success_callbacks=[recorder],
         )
@@ -1675,12 +1675,12 @@ class TestInterruptedStreamOutputTokenRecovery:
             model=self._PRICED_MODEL,
             user="",
             optional_params={},
-            litellm_params={"custom_llm_provider": "anthropic"},
+            embrouter_params={"custom_llm_provider": "anthropic"},
             custom_llm_provider="anthropic",
         )
         placeholder = 1
         handled = AnthropicPassthroughLoggingHandler._handle_logging_anthropic_collected_chunks(
-            litellm_logging_obj=logging_obj,
+            embrouter_logging_obj=logging_obj,
             passthrough_success_handler_obj=MagicMock(),
             url_route="/anthropic/v1/messages",
             request_body={"model": self._PRICED_MODEL, "stream": True},
@@ -1707,10 +1707,10 @@ class TestInterruptedStreamOutputTokenRecovery:
         recovered_tokens = handled["result"].usage.completion_tokens
         assert recovered_tokens > placeholder
         assert logged["completion_tokens"] == recovered_tokens
-        prompt_cost, completion_cost = litellm.cost_per_token(
+        prompt_cost, completion_cost = embrouter.cost_per_token(
             model=self._PRICED_MODEL, prompt_tokens=29, completion_tokens=recovered_tokens
         )
-        _, placeholder_completion_cost = litellm.cost_per_token(
+        _, placeholder_completion_cost = embrouter.cost_per_token(
             model=self._PRICED_MODEL, prompt_tokens=29, completion_tokens=placeholder
         )
         assert logged["response_cost"] == pytest.approx(prompt_cost + completion_cost)
@@ -1740,14 +1740,14 @@ class TestStreamFalseDeduplication:
         return f"event: {event}\ndata: {json.dumps(data)}\n\n".encode()
 
     @staticmethod
-    def _make_logging_obj(stream: bool = False) -> LiteLLMLoggingObj:
-        logging_obj = LiteLLMLoggingObj(
+    def _make_logging_obj(stream: bool = False) -> EmbRouterLoggingObj:
+        logging_obj = EmbRouterLoggingObj(
             model="claude-3-5-sonnet-20241022",
             messages=[{"role": "user", "content": "hello"}],
             stream=stream,
             call_type="pass_through_endpoint",
             start_time=datetime.now(),
-            litellm_call_id="test-call-id",
+            embrouter_call_id="test-call-id",
             function_id="1245",
         )
         return logging_obj
@@ -1800,7 +1800,7 @@ class TestStreamFalseDeduplication:
             ),
             TestStreamFalseDeduplication._sse("message_stop", {"type": "message_stop"}),
         ]
-        from litellm.proxy.pass_through_endpoints.streaming_handler import (
+        from embrouter.proxy.pass_through_endpoints.streaming_handler import (
             PassThroughStreamingHandler,
         )
 
@@ -1816,7 +1816,7 @@ class TestStreamFalseDeduplication:
         Before the fix: model_call_details had no complete_streaming_response key.
         The log showed: "kwargs stream: True + complete streaming response: None"
         """
-        from litellm.types.passthrough_endpoints.pass_through_endpoints import (
+        from embrouter.types.passthrough_endpoints.pass_through_endpoints import (
             EndpointType,
         )
 
@@ -1827,7 +1827,7 @@ class TestStreamFalseDeduplication:
         all_chunks = list(self._build_chunks())
 
         result = AnthropicPassthroughLoggingHandler._handle_logging_anthropic_collected_chunks(
-            litellm_logging_obj=logging_obj,
+            embrouter_logging_obj=logging_obj,
             passthrough_success_handler_obj=MagicMock(),
             url_route="/anthropic/v1/messages",
             request_body={"model": "claude-3-5-sonnet-20241022", "stream": True},
@@ -1859,10 +1859,10 @@ class TestStreamFalseDeduplication:
         This is the _is_assembled_stream_success gate: with stream=False it
         always returned False and the guard was permanently disabled.
         """
-        from litellm.types.passthrough_endpoints.pass_through_endpoints import (
+        from embrouter.types.passthrough_endpoints.pass_through_endpoints import (
             EndpointType,
         )
-        from litellm.types.utils import ModelResponse
+        from embrouter.types.utils import ModelResponse
 
         # Simulate what pass_through_endpoints.py now does after stream detection
         logging_obj = self._make_logging_obj(stream=False)
@@ -1904,7 +1904,7 @@ class TestStreamFalseDeduplication:
         _is_assembled_stream_success always returned False and duplicate
         callback dispatches were never blocked.
         """
-        from litellm.types.utils import ModelResponse
+        from embrouter.types.utils import ModelResponse
 
         # logging_obj starts with stream=False, as created before the request
         logging_obj = self._make_logging_obj(stream=False)
@@ -1939,7 +1939,7 @@ class TestStreamFalseDeduplication:
 
         This test documents the old broken behavior so the fix is clearly justified.
         """
-        from litellm.types.utils import ModelResponse
+        from embrouter.types.utils import ModelResponse
 
         logging_obj = self._make_logging_obj(stream=False)
         mock_response = ModelResponse(model="claude-3-5-sonnet-20241022")
@@ -1960,14 +1960,14 @@ class TestNonStreamingResponseRedaction:
     """
 
     @staticmethod
-    def _make_logging_obj(stream: bool) -> LiteLLMLoggingObj:
-        logging_obj = LiteLLMLoggingObj(
+    def _make_logging_obj(stream: bool) -> EmbRouterLoggingObj:
+        logging_obj = EmbRouterLoggingObj(
             model="claude-3-5-sonnet-20241022",
             messages=[{"role": "user", "content": "hello"}],
             stream=stream,
             call_type="pass_through_endpoint",
             start_time=datetime.now(),
-            litellm_call_id="test-call-id",
+            embrouter_call_id="test-call-id",
             function_id="1245",
         )
         # pass_through_request mirrors the stream flag onto model_call_details,
@@ -1976,13 +1976,13 @@ class TestNonStreamingResponseRedaction:
         return logging_obj
 
     def test_non_streaming_does_not_set_complete_streaming_response(self):
-        from litellm.types.utils import ModelResponse
+        from embrouter.types.utils import ModelResponse
 
         logging_obj = self._make_logging_obj(stream=False)
         response = ModelResponse(model="claude-3-5-sonnet-20241022")
 
         AnthropicPassthroughLoggingHandler._create_anthropic_response_logging_payload(
-            litellm_model_response=response,
+            embrouter_model_response=response,
             model="claude-3-5-sonnet-20241022",
             kwargs={},
             start_time=datetime.now(),
@@ -1995,13 +1995,13 @@ class TestNonStreamingResponseRedaction:
         ), "non-streaming responses must not populate complete_streaming_response"
 
     def test_streaming_sets_complete_streaming_response(self):
-        from litellm.types.utils import ModelResponse
+        from embrouter.types.utils import ModelResponse
 
         logging_obj = self._make_logging_obj(stream=True)
         response = ModelResponse(model="claude-3-5-sonnet-20241022")
 
         AnthropicPassthroughLoggingHandler._create_anthropic_response_logging_payload(
-            litellm_model_response=response,
+            embrouter_model_response=response,
             model="claude-3-5-sonnet-20241022",
             kwargs={},
             start_time=datetime.now(),
@@ -2015,10 +2015,10 @@ class TestNonStreamingResponseRedaction:
         )
 
     def test_non_streaming_response_is_redacted_when_message_logging_off(self):
-        from litellm.litellm_core_utils.redact_messages import (
+        from embrouter.embrouter_core_utils.redact_messages import (
             redact_message_input_output_from_logging,
         )
-        from litellm.types.utils import Choices, Message, ModelResponse
+        from embrouter.types.utils import Choices, Message, ModelResponse
 
         logging_obj = self._make_logging_obj(stream=False)
         response = ModelResponse(
@@ -2027,7 +2027,7 @@ class TestNonStreamingResponseRedaction:
         )
 
         AnthropicPassthroughLoggingHandler._create_anthropic_response_logging_payload(
-            litellm_model_response=response,
+            embrouter_model_response=response,
             model="claude-3-5-sonnet-20241022",
             kwargs={},
             start_time=datetime.now(),
@@ -2035,8 +2035,8 @@ class TestNonStreamingResponseRedaction:
             logging_obj=logging_obj,
         )
 
-        logging_obj.model_call_details["litellm_params"] = {
-            "metadata": {"headers": {"x-litellm-enable-message-redaction": True}}
+        logging_obj.model_call_details["embrouter_params"] = {
+            "metadata": {"headers": {"x-embrouter-enable-message-redaction": True}}
         }
 
         redacted = redact_message_input_output_from_logging(
@@ -2046,7 +2046,7 @@ class TestNonStreamingResponseRedaction:
 
         leaked = logging_obj.model_call_details.get("complete_streaming_response")
         assert leaked is None
-        assert redacted.choices[0].message.content == "redacted-by-litellm"
+        assert redacted.choices[0].message.content == "redacted-by-embrouter"
 
 
 def _sse_bytes(data: dict) -> bytes:
@@ -2185,7 +2185,7 @@ class TestAnthropicUsageOnlyFallback:
         )
 
     def _real_logging_obj(self):
-        from litellm.litellm_core_utils.litellm_logging import Logging as RealLoggingObj
+        from embrouter.embrouter_core_utils.embrouter_logging import Logging as RealLoggingObj
 
         logging_obj = RealLoggingObj(
             model="claude-3-5-haiku-20241022",
@@ -2193,14 +2193,14 @@ class TestAnthropicUsageOnlyFallback:
             stream=True,
             call_type="pass_through_endpoint",
             start_time=datetime.now(),
-            litellm_call_id="test-call-id",
+            embrouter_call_id="test-call-id",
             function_id="1",
         )
-        logging_obj.model_call_details["litellm_params"] = {}
-        logging_obj.litellm_params = {}
+        logging_obj.model_call_details["embrouter_params"] = {}
+        logging_obj.embrouter_params = {}
         return logging_obj
 
-    @patch("litellm.completion_cost")
+    @patch("embrouter.completion_cost")
     @patch.object(
         AnthropicPassthroughLoggingHandler, "_build_complete_streaming_response"
     )
@@ -2212,7 +2212,7 @@ class TestAnthropicUsageOnlyFallback:
         logging_obj = self._real_logging_obj()
 
         result = AnthropicPassthroughLoggingHandler._handle_logging_anthropic_collected_chunks(
-            litellm_logging_obj=logging_obj,
+            embrouter_logging_obj=logging_obj,
             passthrough_success_handler_obj=MagicMock(),
             url_route="/anthropic/v1/messages",
             request_body={"model": "claude-3-5-haiku-20241022", "stream": True},
@@ -2226,14 +2226,14 @@ class TestAnthropicUsageOnlyFallback:
         assert result["result"].usage.completion_tokens == 55
         assert result["kwargs"]["response_cost"] == 0.0021
 
-    @patch("litellm.completion_cost")
+    @patch("embrouter.completion_cost")
     @patch.object(
         AnthropicPassthroughLoggingHandler, "_build_complete_streaming_response"
     )
     def test_handler_falls_back_when_assembly_raises(self, mock_assemble, mock_cost):
-        import litellm
+        import embrouter
 
-        mock_assemble.side_effect = litellm.APIError(
+        mock_assemble.side_effect = embrouter.APIError(
             status_code=500,
             message="boom",
             llm_provider="anthropic",
@@ -2243,7 +2243,7 @@ class TestAnthropicUsageOnlyFallback:
         logging_obj = self._real_logging_obj()
 
         result = AnthropicPassthroughLoggingHandler._handle_logging_anthropic_collected_chunks(
-            litellm_logging_obj=logging_obj,
+            embrouter_logging_obj=logging_obj,
             passthrough_success_handler_obj=MagicMock(),
             url_route="/anthropic/v1/messages",
             request_body={"model": "claude-3-5-haiku-20241022", "stream": True},
@@ -2270,7 +2270,7 @@ class TestAnthropicUsageOnlyFallback:
         chunks = [_sse_bytes({"type": "content_block_delta", "delta": {"text": "hi"}})]
 
         result = AnthropicPassthroughLoggingHandler._handle_logging_anthropic_collected_chunks(
-            litellm_logging_obj=logging_obj,
+            embrouter_logging_obj=logging_obj,
             passthrough_success_handler_obj=MagicMock(),
             url_route="/anthropic/v1/messages",
             request_body={"model": "claude-3-5-haiku-20241022", "stream": True},
@@ -2299,7 +2299,7 @@ class TestAnthropicUsageOnlyFallback:
         logging_obj = self._real_logging_obj()
 
         result = AnthropicPassthroughLoggingHandler._handle_logging_anthropic_collected_chunks(
-            litellm_logging_obj=logging_obj,
+            embrouter_logging_obj=logging_obj,
             passthrough_success_handler_obj=MagicMock(),
             url_route="/anthropic/v1/messages",
             request_body={"model": "claude-3-5-haiku-20241022", "stream": True},
@@ -2345,21 +2345,21 @@ class TestAnthropicPassthroughFastMode:
         'data: {"type": "message_stop"}',
     ]
 
-    def _logging_obj(self) -> LiteLLMLoggingObj:
-        return LiteLLMLoggingObj(
+    def _logging_obj(self) -> EmbRouterLoggingObj:
+        return EmbRouterLoggingObj(
             model=self.MODEL,
             messages=[],
             stream=True,
             call_type="pass_through_endpoint",
             start_time=datetime.now(),
-            litellm_call_id="fast-mode",
+            embrouter_call_id="fast-mode",
             function_id="fast-mode",
         )
 
     def _cost(self, response) -> float:
-        import litellm
+        import embrouter
 
-        return litellm.completion_cost(completion_response=response, model=f"anthropic/{self.MODEL}")
+        return embrouter.completion_cost(completion_response=response, model=f"anthropic/{self.MODEL}")
 
     def _expected_fast_cost(self, standard_cost: float) -> float:
         return standard_cost * 2.0
@@ -2401,13 +2401,13 @@ class TestAnthropicPassthroughFastMode:
     def test_streaming_reconstruction_applies_fast_multiplier(self):
         fast = AnthropicPassthroughLoggingHandler._build_complete_streaming_response(
             all_chunks=self.STREAM_CHUNKS,
-            litellm_logging_obj=self._logging_obj(),
+            embrouter_logging_obj=self._logging_obj(),
             model=self.MODEL,
             speed="fast",
         )
         standard = AnthropicPassthroughLoggingHandler._build_complete_streaming_response(
             all_chunks=self.STREAM_CHUNKS,
-            litellm_logging_obj=self._logging_obj(),
+            embrouter_logging_obj=self._logging_obj(),
             model=self.MODEL,
         )
 
@@ -2457,14 +2457,14 @@ class TestRecordPartialUsageForFailure:
         return f"event: {event}\ndata: {json.dumps(data)}\n\n".encode()
 
     @staticmethod
-    def _make_logging_obj() -> LiteLLMLoggingObj:
-        return LiteLLMLoggingObj(
+    def _make_logging_obj() -> EmbRouterLoggingObj:
+        return EmbRouterLoggingObj(
             model="claude-sonnet-5",
             messages=[{"role": "user", "content": "hello"}],
             stream=True,
             call_type="anthropic_messages",
             start_time=datetime.now(),
-            litellm_call_id="test-partial-usage-failure",
+            embrouter_call_id="test-partial-usage-failure",
             function_id="test-partial-usage-failure",
         )
 
@@ -2500,7 +2500,7 @@ class TestRecordPartialUsageForFailure:
         logging_obj = self._make_logging_obj()
 
         AnthropicPassthroughLoggingHandler.record_partial_usage_for_failure(
-            litellm_logging_obj=logging_obj,
+            embrouter_logging_obj=logging_obj,
             request_body={"model": "claude-sonnet-5", "stream": True},
             all_chunks=self._interrupted_chunks(),
         )
@@ -2513,7 +2513,7 @@ class TestRecordPartialUsageForFailure:
         logging_obj = self._make_logging_obj()
 
         AnthropicPassthroughLoggingHandler.record_partial_usage_for_failure(
-            litellm_logging_obj=logging_obj,
+            embrouter_logging_obj=logging_obj,
             request_body={"model": "claude-unpriced-test-model", "stream": True},
             all_chunks=self._interrupted_chunks(model="claude-unpriced-test-model"),
         )
@@ -2526,7 +2526,7 @@ class TestRecordPartialUsageForFailure:
         logging_obj = self._make_logging_obj()
 
         AnthropicPassthroughLoggingHandler.record_partial_usage_for_failure(
-            litellm_logging_obj=logging_obj,
+            embrouter_logging_obj=logging_obj,
             request_body={"model": "claude-sonnet-5", "stream": True},
             all_chunks=[],
         )

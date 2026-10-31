@@ -3,7 +3,7 @@
 from collections.abc import Iterable
 from typing import Final
 
-from litellm.integrations.otel.model.config import ExporterOwner, ExporterSpec
+from embrouter.integrations.otel.model.config import ExporterOwner, ExporterSpec
 
 
 def ensure_mappers(mapper_names: Iterable[str], *names: str) -> list[str]:

@@ -2,8 +2,8 @@
 
 from typing import Final
 
-from litellm.llms.mistral.ocr.guardrail_translation.handler import OCRHandler
-from litellm.types.utils import CallTypes
+from embrouter.llms.mistral.ocr.guardrail_translation.handler import OCRHandler
+from embrouter.types.utils import CallTypes
 
 guardrail_translation_mappings: Final = {
     CallTypes.ocr: OCRHandler,

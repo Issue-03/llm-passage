@@ -12,7 +12,7 @@ AwsSecurityCredentialsSupplier for google-auth.
 from typing import Final
 
 GOOGLE_IMPORT_ERROR_MESSAGE: Final = (
-    "Google Cloud SDK not found. Install it with: pip install 'litellm[google]' or pip install google-cloud-aiplatform"
+    "Google Cloud SDK not found. Install it with: pip install 'embrouter[google]' or pip install google-cloud-aiplatform"
 )
 
 # AWS params recognized in WIF credential JSON for explicit auth.
@@ -42,7 +42,7 @@ class VertexAIAwsWifAuth:
     @staticmethod
     def extract_aws_params(json_obj: dict) -> dict[str, str]:
         """
-        Extract LiteLLM-specific aws_* keys from a WIF credential JSON dict.
+        Extract EmbRouter-specific aws_* keys from a WIF credential JSON dict.
 
         Returns a dict of {param_name: value} for any recognized aws_* keys
         found in the JSON. Returns empty dict if none are present.
@@ -68,8 +68,8 @@ class VertexAIAwsWifAuth:
         except ImportError:
             raise ImportError(GOOGLE_IMPORT_ERROR_MESSAGE)
 
-        from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM
-        from litellm.llms.vertex_ai.aws_credentials_supplier import (
+        from embrouter.llms.bedrock.base_aws_llm import BaseAWSLLM
+        from embrouter.llms.vertex_ai.aws_credentials_supplier import (
             AwsCredentialsSupplier,
         )
 

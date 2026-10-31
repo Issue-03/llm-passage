@@ -6,13 +6,13 @@ from typing import TYPE_CHECKING, Any, ClassVar, Final, Optional
 if TYPE_CHECKING:
     from fastapi import HTTPException
 
-    from litellm.integrations.custom_guardrail import (
+    from embrouter.integrations.custom_guardrail import (
         CustomGuardrail,
         ModifyResponseException,
     )
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.types.llms.openai import AllMessageValues
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.types.llms.openai import AllMessageValues
 
 
 @dataclass(slots=True)
@@ -129,11 +129,11 @@ class BaseTranslation(ABC):
         metadata bucket without overwriting existing keys.
 
         Writes must go through ``get_or_create_metadata_bucket``: creating a
-        ``litellm_metadata`` key on a route whose bucket is ``metadata`` (chat
+        ``embrouter_metadata`` key on a route whose bucket is ``metadata`` (chat
         completions) flips the bucket for every later metadata write, and spend
         logging never sees those writes (e.g. guardrail_information).
         """
-        from litellm.litellm_core_utils.core_helpers import (
+        from embrouter.embrouter_core_utils.core_helpers import (
             get_or_create_metadata_bucket,
         )
 
@@ -149,7 +149,7 @@ class BaseTranslation(ABC):
         self,
         data: dict,
         guardrail_to_apply: "CustomGuardrail",
-        litellm_logging_obj: Optional["LiteLLMLoggingObj"] = None,
+        embrouter_logging_obj: Optional["EmbRouterLoggingObj"] = None,
     ) -> Any:
         """
         Process input messages with guardrails.
@@ -162,7 +162,7 @@ class BaseTranslation(ABC):
         self,
         response: Any,
         guardrail_to_apply: "CustomGuardrail",
-        litellm_logging_obj: Optional["LiteLLMLoggingObj"] = None,
+        embrouter_logging_obj: Optional["EmbRouterLoggingObj"] = None,
         user_api_key_dict: Optional["UserAPIKeyAuth"] = None,
         request_data: dict | None = None,
     ) -> Any:
@@ -172,7 +172,7 @@ class BaseTranslation(ABC):
         Args:
             response: The response object from the LLM
             guardrail_to_apply: The guardrail instance to apply
-            litellm_logging_obj: Optional logging object
+            embrouter_logging_obj: Optional logging object
             user_api_key_dict: User API key metadata (passed separately since response doesn't contain it)
         """
 
@@ -180,7 +180,7 @@ class BaseTranslation(ABC):
         self,
         responses_so_far: list[Any],
         guardrail_to_apply: "CustomGuardrail",
-        litellm_logging_obj: Optional["LiteLLMLoggingObj"] = None,
+        embrouter_logging_obj: Optional["EmbRouterLoggingObj"] = None,
         user_api_key_dict: Optional["UserAPIKeyAuth"] = None,
         request_data: dict | None = None,
         stream_transform_sink: StreamTransformSink | None = None,

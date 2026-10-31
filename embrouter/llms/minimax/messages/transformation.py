@@ -4,11 +4,11 @@ MiniMax Anthropic transformation config - extends AnthropicConfig for MiniMax's 
 
 from typing import Any, Final  # noqa: TID251  # override below must mirror the legacy base signature
 
-import litellm
-from litellm.llms.anthropic.pass_through.messages.transformation import (
+import embrouter
+from embrouter.llms.anthropic.pass_through.messages.transformation import (
     AnthropicMessagesConfig,
 )
-from litellm.secret_managers.main import get_secret_str
+from embrouter.secret_managers.main import get_secret_str
 
 
 class MinimaxMessagesConfig(AnthropicMessagesConfig):
@@ -36,7 +36,7 @@ class MinimaxMessagesConfig(AnthropicMessagesConfig):
         """
         Get MiniMax API key from environment or parameters.
         """
-        return api_key or get_secret_str("MINIMAX_API_KEY") or litellm.api_key
+        return api_key or get_secret_str("MINIMAX_API_KEY") or embrouter.api_key
 
     @staticmethod
     def get_api_base(
@@ -55,7 +55,7 @@ class MinimaxMessagesConfig(AnthropicMessagesConfig):
         model: str,
         messages: list[Any],  # mutable-ok: mirrors the legacy base override signature
         optional_params: dict,  # mutable-ok: mirrors the legacy base override signature
-        litellm_params: dict,  # mutable-ok: mirrors the legacy base override signature
+        embrouter_params: dict,  # mutable-ok: mirrors the legacy base override signature
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> tuple[dict, str | None]:  # mutable-ok: mirrors the legacy base override signature
@@ -64,7 +64,7 @@ class MinimaxMessagesConfig(AnthropicMessagesConfig):
             model=model,
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             api_key=self.get_api_key(api_key=api_key),
             api_base=api_base,
         )
@@ -75,7 +75,7 @@ class MinimaxMessagesConfig(AnthropicMessagesConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         """

@@ -5,14 +5,14 @@ from typing import TYPE_CHECKING, Any, Final, cast
 from openai.types.batch import BatchRequestCounts
 from openai.types.batch import Metadata as OpenAIBatchMetadata
 
-from litellm.litellm_core_utils.aws_partition import get_aws_dns_suffix
-from litellm.types.llms.bedrock import AwsAuthParams, AwsSessionTag
-from litellm.types.utils import LiteLLMBatch
+from embrouter.embrouter_core_utils.aws_partition import get_aws_dns_suffix
+from embrouter.types.llms.bedrock import AwsAuthParams, AwsSessionTag
+from embrouter.types.utils import EmbRouterBatch
 
 if TYPE_CHECKING:
     from botocore.config import Config
 
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
 
 # AWS Bedrock model-invocation-job statuses → OpenAI Batch statuses.
 # Mirrors the mapping used by `BedrockBatchesConfig.transform_create_batch_response`
@@ -115,7 +115,7 @@ class BedrockBatchesHandler:
     def cancel_batch(
         batch_id: str,
         aws_region_name: str | None = None,
-        logging_obj: "LiteLLMLoggingObj | None" = None,
+        logging_obj: "EmbRouterLoggingObj | None" = None,
         aws_access_key_id: str | None = None,
         aws_secret_access_key: str | None = None,
         aws_session_token: str | None = None,
@@ -126,8 +126,8 @@ class BedrockBatchesHandler:
         aws_sts_endpoint: str | None = None,
         aws_external_id: str | None = None,
         aws_session_tags: Sequence[AwsSessionTag] | None = None,
-        **kwargs: object,  # kwargs-ok: litellm.cancel_batch forwards arbitrary user kwargs verbatim
-    ) -> "LiteLLMBatch":
+        **kwargs: object,  # kwargs-ok: embrouter.cancel_batch forwards arbitrary user kwargs verbatim
+    ) -> "EmbRouterBatch":
         try:
             import boto3
             from botocore.exceptions import ClientError
@@ -136,7 +136,7 @@ class BedrockBatchesHandler:
 
         region: Final = aws_region_name or _extract_region_from_bedrock_arn(batch_id) or "us-east-1"
 
-        from litellm.llms.bedrock.batches.transformation import BedrockBatchesConfig
+        from embrouter.llms.bedrock.batches.transformation import BedrockBatchesConfig
 
         auth_params: Final = AwsAuthParams(
             aws_access_key_id=aws_access_key_id,
@@ -161,7 +161,7 @@ class BedrockBatchesHandler:
             config=_sigv4_config(),
         )
 
-        def job_status() -> "LiteLLMBatch":
+        def job_status() -> "EmbRouterBatch":
             return BedrockBatchesHandler._handle_model_invocation_job_status(
                 batch_id=batch_id,
                 aws_region_name=region,
@@ -182,7 +182,7 @@ class BedrockBatchesHandler:
         return job_status()
 
     @staticmethod
-    def _handle_async_invoke_status(batch_id: str, aws_region_name: str, logging_obj=None, **kwargs) -> "LiteLLMBatch":
+    def _handle_async_invoke_status(batch_id: str, aws_region_name: str, logging_obj=None, **kwargs) -> "EmbRouterBatch":
         """
         Handle async invoke status check for AWS Bedrock.
 
@@ -198,7 +198,7 @@ class BedrockBatchesHandler:
         """
         import asyncio
 
-        from litellm.llms.bedrock.embed.embedding import BedrockEmbedding
+        from embrouter.llms.bedrock.embed.embedding import BedrockEmbedding
 
         async def _async_get_status():
             # Create embedding handler instance
@@ -212,8 +212,8 @@ class BedrockBatchesHandler:
                 **kwargs,
             )
 
-            # Transform response to a LiteLLMBatch object
-            from litellm.types.utils import LiteLLMBatch
+            # Transform response to a EmbRouterBatch object
+            from embrouter.types.utils import EmbRouterBatch
 
             openai_batch_metadata: Final[OpenAIBatchMetadata] = {
                 "output_file_id": status_response["outputDataConfig"]["s3OutputDataConfig"]["s3Uri"],
@@ -221,7 +221,7 @@ class BedrockBatchesHandler:
                 "model_arn": status_response["modelArn"],
             }
 
-            result: Final = LiteLLMBatch(
+            result: Final = EmbRouterBatch(
                 id=status_response["invocationArn"],
                 object="batch",
                 status=status_response["status"],
@@ -264,7 +264,7 @@ class BedrockBatchesHandler:
         aws_region_name: str | None = None,
         logging_obj=None,
         **kwargs,
-    ) -> "LiteLLMBatch":
+    ) -> "EmbRouterBatch":
         """
         Handle ``GetModelInvocationJob`` status check for AWS Bedrock bulk batch
         inference jobs (the ARN type returned by ``CreateModelInvocationJob``).
@@ -273,7 +273,7 @@ class BedrockBatchesHandler:
         (``bedrock.<region>.amazonaws.com``), distinct from the data-plane
         ``bedrock-runtime`` endpoint that serves Twelve Labs async-invoke ARNs.
         The two ARN families therefore can't share a handler — see
-        ``litellm/batches/main.py`` for the dispatch.
+        ``embrouter/batches/main.py`` for the dispatch.
 
         Args:
             batch_id: A ``arn:aws:bedrock:<region>:<acct>:model-invocation-job/<id>``
@@ -281,7 +281,7 @@ class BedrockBatchesHandler:
                 ``GetModelInvocationJob``).
             aws_region_name: Region for the boto3 ``bedrock`` client. If omitted,
                 we fall back to parsing the region out of ``batch_id`` itself.
-            logging_obj: Optional litellm logging object.
+            logging_obj: Optional embrouter logging object.
             **kwargs: Optional AWS credential overrides
                 (``aws_access_key_id``, ``aws_secret_access_key``,
                 ``aws_session_token``, ``aws_profile_name``,
@@ -290,7 +290,7 @@ class BedrockBatchesHandler:
                 ``aws_external_id``, ``aws_session_tags``). Unknown keys are ignored.
 
         Returns:
-            ``LiteLLMBatch`` shaped like an OpenAI Batch resource.
+            ``EmbRouterBatch`` shaped like an OpenAI Batch resource.
             ``request_counts`` maps ``GetModelInvocationJob``'s
             ``totalRecordCount`` / ``successRecordCount`` / ``errorRecordCount``
             when the provider reports them, and is ``None`` when it does not
@@ -308,7 +308,7 @@ class BedrockBatchesHandler:
         # provider uses, so model_list / env / role-assumption configs are
         # honored. We instantiate BedrockBatchesConfig (which extends
         # BaseAWSLLM) lazily to avoid a circular import at module load.
-        from litellm.llms.bedrock.batches.transformation import BedrockBatchesConfig
+        from embrouter.llms.bedrock.batches.transformation import BedrockBatchesConfig
 
         creds: Final = BedrockBatchesConfig().resolve_credentials(AwsAuthParams.model_validate(kwargs), region)
 
@@ -374,7 +374,7 @@ class BedrockBatchesHandler:
 
         # Note: metadata uses "" (not None) for unknown URIs to satisfy the
         # OpenAI Batch metadata schema, which is `dict[str, str]`. The
-        # `output_file_id` field on the LiteLLMBatch itself does carry None
+        # `output_file_id` field on the EmbRouterBatch itself does carry None
         # correctly (see below), so callers should branch on that, not on
         # `metadata["output_file_uri"]`.
         openai_batch_metadata: Final[OpenAIBatchMetadata] = {
@@ -387,7 +387,7 @@ class BedrockBatchesHandler:
             "output_file_uri": output_file_uri or "",
         }
 
-        return LiteLLMBatch(
+        return EmbRouterBatch(
             id=job_arn,
             object="batch",
             status=openai_status,

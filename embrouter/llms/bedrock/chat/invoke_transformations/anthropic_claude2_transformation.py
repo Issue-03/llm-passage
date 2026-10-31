@@ -1,7 +1,7 @@
 import types
 from typing import Final
 
-import litellm
+import embrouter
 
 from .base_invoke_transformation import AmazonInvokeConfig
 
@@ -20,7 +20,7 @@ class AmazonAnthropicConfig(AmazonInvokeConfig):
     - `anthropic_version` (string) version of anthropic for bedrock - e.g. "bedrock-2023-05-31"
     """
 
-    max_tokens_to_sample: int | None = litellm.max_tokens
+    max_tokens_to_sample: int | None = embrouter.max_tokens
     stop_sequences: list | None = None
     temperature: float | None = None
     top_k: int | None = None

@@ -16,13 +16,13 @@ _ISO_YMD: Final = re.compile(r"^\s*\d{4}[-/]\d{1,2}[-/]\d{1,2}\s*$")
 _UNIX_TIMESTAMP: Final = re.compile(r"^\s*-?\d+(\.\d+)?\s*$")
 BRAVE_SECTIONS: Final = ["web", "discussions", "faqs", "faq", "news", "videos"]
 
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.base_llm.search.transformation import (
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.base_llm.search.transformation import (
     BaseSearchConfig,
     SearchResponse,
     SearchResult,
 )
-from litellm.secret_managers.main import get_secret_str
+from embrouter.secret_managers.main import get_secret_str
 
 
 def to_yyyy_mm_dd(
@@ -240,11 +240,11 @@ class BraveSearchConfig(BaseSearchConfig):
     def transform_search_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj | None,
+        logging_obj: EmbRouterLoggingObj | None,
         **kwargs,
     ) -> SearchResponse:
         """
-        Transform Brave Search API response to LiteLLM unified SearchResponse format.
+        Transform Brave Search API response to EmbRouter unified SearchResponse format.
         """
         response_json: Final = raw_response.json()
 

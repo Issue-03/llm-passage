@@ -18,7 +18,7 @@ from inspect import iscoroutinefunction
 from threading import Thread
 from typing import Final
 
-from litellm.exceptions import Timeout
+from embrouter.exceptions import Timeout
 
 
 def timeout(timeout_duration: float = 0.0, exception_to_raise=Timeout):

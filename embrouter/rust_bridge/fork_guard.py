@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from typing import Final
 
-from litellm.rust_bridge.loader import get_native_bridge
+from embrouter.rust_bridge.loader import get_native_bridge
 
 
 class NativeStateStartedBeforeFork(RuntimeError):
@@ -41,7 +41,7 @@ def reserve_process_for_forking(where: str) -> None:
         reserve()
     except RuntimeError as error:
         raise NativeStateStartedBeforeFork(
-            f"The LiteLLM Rust extension already ran a native route in {where}, and its runtime "
+            f"The EmbRouter Rust extension already ran a native route in {where}, and its runtime "
             "threads do not survive fork(). Move the native call (warm-up, health check, "
             "import-time initialization) into the worker, after the fork."
         ) from error

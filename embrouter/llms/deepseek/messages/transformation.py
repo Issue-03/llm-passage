@@ -4,12 +4,12 @@ DeepSeek Anthropic-compatible messages transformation config.
 
 from typing import Any, Final
 
-import litellm
-from litellm.llms.anthropic.pass_through.messages.transformation import (
+import embrouter
+from embrouter.llms.anthropic.pass_through.messages.transformation import (
     AnthropicMessagesConfig,
 )
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.router import GenericLiteLLMParams
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.router import GenericEmbRouterParams
 
 
 class DeepSeekAnthropicMessagesConfig(AnthropicMessagesConfig):
@@ -31,7 +31,7 @@ class DeepSeekAnthropicMessagesConfig(AnthropicMessagesConfig):
 
     @staticmethod
     def get_api_key(api_key: str | None = None) -> str | None:
-        return api_key or get_secret_str("DEEPSEEK_API_KEY") or litellm.api_key
+        return api_key or get_secret_str("DEEPSEEK_API_KEY") or embrouter.api_key
 
     @staticmethod
     def get_api_base(api_base: str | None = None) -> str:
@@ -48,7 +48,7 @@ class DeepSeekAnthropicMessagesConfig(AnthropicMessagesConfig):
         model: str,
         messages: list[Any],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> tuple[dict, str | None]:
@@ -77,7 +77,7 @@ class DeepSeekAnthropicMessagesConfig(AnthropicMessagesConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         base_url = self.get_api_base(api_base=api_base).rstrip("/")
@@ -113,14 +113,14 @@ class DeepSeekAnthropicMessagesConfig(AnthropicMessagesConfig):
         model: str,
         messages: list[dict],
         anthropic_messages_optional_request_params: dict,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> dict:
         anthropic_messages_request: Final = super().transform_anthropic_messages_request(
             model=model,
             messages=messages,
             anthropic_messages_optional_request_params=anthropic_messages_optional_request_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
         if "tools" in anthropic_messages_request:

@@ -1,14 +1,14 @@
 """
-Test that all standard HTTP error exceptions are exported from litellm.__init__.
+Test that all standard HTTP error exceptions are exported from embrouter.__init__.
 """
 
-import litellm
+import embrouter
 
 
 def test_permission_denied_error_is_exported():
-    """PermissionDeniedError (403) should be accessible as litellm.PermissionDeniedError."""
-    assert hasattr(litellm, "PermissionDeniedError")
-    assert litellm.PermissionDeniedError is not None
+    """PermissionDeniedError (403) should be accessible as embrouter.PermissionDeniedError."""
+    assert hasattr(embrouter, "PermissionDeniedError")
+    assert embrouter.PermissionDeniedError is not None
 
 
 def test_all_http_error_exceptions_exported():
@@ -27,5 +27,5 @@ def test_all_http_error_exceptions_exported():
     ]
     for exc_name in expected_exceptions:
         assert hasattr(
-            litellm, exc_name
-        ), f"litellm.{exc_name} is not exported from litellm.__init__"
+            embrouter, exc_name
+        ), f"embrouter.{exc_name} is not exported from embrouter.__init__"

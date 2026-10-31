@@ -2,12 +2,12 @@ from datetime import datetime, time, timezone
 from typing import Final
 
 
-from litellm.router_utils.access_windows import (
+from embrouter.router_utils.access_windows import (
     access_windows_config_error,
     filter_reserved_deployments,
     is_window_active,
 )
-from litellm.types.router import ModelAccessWindow
+from embrouter.types.router import ModelAccessWindow
 
 _NIGHT_NY: Final = ModelAccessWindow(
     start=time(22, 0),

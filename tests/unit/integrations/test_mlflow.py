@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import litellm
+import embrouter
 
 
 @pytest.mark.asyncio
@@ -43,15 +43,15 @@ async def test_mlflow_logging_functionality():
         },
     ):
         # Now we can safely import MlflowLogger
-        from litellm.integrations.mlflow import MlflowLogger
+        from embrouter.integrations.mlflow import MlflowLogger
 
         # Create MlflowLogger instance
         mlflow_logger = MlflowLogger()
-        litellm.callbacks = [mlflow_logger]
+        embrouter.callbacks = [mlflow_logger]
 
         # Test completion with request_tags and prediction parameter
         test_prediction = {"type": "content", "content": "This is a predicted output"}
-        await litellm.acompletion(
+        await embrouter.acompletion(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "test message"}],
             prediction=test_prediction,
@@ -114,13 +114,13 @@ def test_mlflow_token_usage_attribute_structure():
             "mlflow.tracing.utils": MagicMock(),
         },
     ):
-        from litellm.integrations.mlflow import MlflowLogger
+        from embrouter.integrations.mlflow import MlflowLogger
 
         mlflow_logger = MlflowLogger()
 
         attrs = mlflow_logger._extract_attributes(  # type: ignore
             {
-                "litellm_call_id": "123",
+                "embrouter_call_id": "123",
                 "call_type": "completion",
                 "model": "gpt-3.5-turbo",
                 "standard_logging_object": {
@@ -162,7 +162,7 @@ def _mock_mlflow_modules():
 def test_mlflow_stream_handler_uses_async_complete_response():
     modules = _mock_mlflow_modules()
     with patch.dict("sys.modules", modules):
-        from litellm.integrations.mlflow import MlflowLogger
+        from embrouter.integrations.mlflow import MlflowLogger
 
         mlflow_logger = MlflowLogger()
         mlflow_logger._start_span_or_trace = MagicMock(return_value="mock_span")
@@ -178,7 +178,7 @@ def test_mlflow_stream_handler_uses_async_complete_response():
 
         final_response = MagicMock()
         kwargs = {
-            "litellm_call_id": "abc123",
+            "embrouter_call_id": "abc123",
             "async_complete_streaming_response": final_response,
         }
 
@@ -200,7 +200,7 @@ def test_mlflow_stream_handler_uses_async_complete_response():
 def test_mlflow_stream_handler_pops_span_when_end_raises():
     modules = _mock_mlflow_modules()
     with patch.dict("sys.modules", modules):
-        from litellm.integrations.mlflow import MlflowLogger
+        from embrouter.integrations.mlflow import MlflowLogger
 
         mlflow_logger = MlflowLogger()
         mlflow_logger._start_span_or_trace = MagicMock(return_value="mock_span")
@@ -213,7 +213,7 @@ def test_mlflow_stream_handler_pops_span_when_end_raises():
         response_obj.choices = []
 
         kwargs = {
-            "litellm_call_id": "leak123",
+            "embrouter_call_id": "leak123",
             "complete_streaming_response": MagicMock(),
         }
 
@@ -245,7 +245,7 @@ class _Mlflow2StyleClient:
 def test_mlflow_end_span_or_trace_works_with_mlflow_2x_client():
     modules = _mock_mlflow_modules()
     with patch.dict("sys.modules", modules):
-        from litellm.integrations.mlflow import MlflowLogger
+        from embrouter.integrations.mlflow import MlflowLogger
 
         mlflow_logger = MlflowLogger()
         client = _Mlflow2StyleClient()

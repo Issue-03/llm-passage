@@ -4,7 +4,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Protocol
 
-from litellm.types.guardrails import PresidioPerRequestConfig
+from embrouter.types.guardrails import PresidioPerRequestConfig
 
 
 class ResponsesClientWebSocket(Protocol):

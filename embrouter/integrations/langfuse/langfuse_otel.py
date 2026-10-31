@@ -4,17 +4,17 @@ import os
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Final, Optional
 
-from litellm._logging import verbose_logger
-from litellm.integrations.arize import _utils
-from litellm.integrations.langfuse.langfuse_otel_attributes import (
+from embrouter._logging import verbose_logger
+from embrouter.integrations.arize import _utils
+from embrouter.integrations.langfuse.langfuse_otel_attributes import (
     LangfuseLLMObsOTELAttributes,
 )
-from litellm.integrations.opentelemetry import OpenTelemetry, OpenTelemetryConfig
-from litellm.litellm_core_utils.safe_json_loads import safe_json_loads
-from litellm.types.integrations.langfuse_otel import (
+from embrouter.integrations.opentelemetry import OpenTelemetry, OpenTelemetryConfig
+from embrouter.embrouter_core_utils.safe_json_loads import safe_json_loads
+from embrouter.types.integrations.langfuse_otel import (
     LangfuseSpanAttributes,
 )
-from litellm.types.utils import StandardCallbackDynamicParams
+from embrouter.types.utils import StandardCallbackDynamicParams
 
 if TYPE_CHECKING:
     from opentelemetry.trace import Span as _Span
@@ -56,26 +56,26 @@ class LangfuseOtelLogger(OpenTelemetry):
     @staticmethod
     def _extract_langfuse_metadata(kwargs: dict) -> dict:
         """
-        Extracts Langfuse metadata from the standard LiteLLM kwargs structure.
+        Extracts Langfuse metadata from the standard EmbRouter kwargs structure.
 
-        1. Reads kwargs["litellm_params"]["metadata"] if present and is a dict.
+        1. Reads kwargs["embrouter_params"]["metadata"] if present and is a dict.
         2. Enriches it with any `langfuse_*` request-header params via the
            existing LangFuseLogger.add_metadata_from_header helper so that proxy
            users get identical behaviour across vanilla and OTEL integrations.
         """
-        litellm_params: Final = kwargs.get("litellm_params", {}) or {}
-        metadata = litellm_params.get("metadata") or {}
+        embrouter_params: Final = kwargs.get("embrouter_params", {}) or {}
+        metadata = embrouter_params.get("metadata") or {}
         # Ensure we only work with dicts
         if metadata is None or not isinstance(metadata, dict):
             metadata = {}
 
         # Re-use header extraction logic from the vanilla logger if available
         try:
-            from litellm.integrations.langfuse.langfuse import (
+            from embrouter.integrations.langfuse.langfuse import (
                 LangFuseLogger as _LFLogger,
             )
 
-            metadata = _LFLogger.add_metadata_from_header(litellm_params, metadata)
+            metadata = _LFLogger.add_metadata_from_header(embrouter_params, metadata)
         except Exception:
             # Fallback silently if import fails; header enrichment just won't happen
             pass
@@ -85,7 +85,7 @@ class LangfuseOtelLogger(OpenTelemetry):
     @staticmethod
     def _set_metadata_attributes(span: Span, metadata: dict):
         """Helper to set metadata attributes from mapping."""
-        from litellm.integrations.arize._utils import safe_set_attribute
+        from embrouter.integrations.arize._utils import safe_set_attribute
 
         mapping: Final = {
             "generation_name": LangfuseSpanAttributes.GENERATION_NAME,
@@ -115,7 +115,7 @@ class LangfuseOtelLogger(OpenTelemetry):
             if key in metadata and metadata[key] is not None:
                 value = metadata[key]
                 if key == "trace_id" and isinstance(value, str):
-                    # trace_id must be 32 hex char no dashes for langfuse : Litellm sends uuid with dashes (might be breaking at some point)
+                    # trace_id must be 32 hex char no dashes for langfuse : Embrouter sends uuid with dashes (might be breaking at some point)
                     value = value.replace("-", "")
 
                 if isinstance(value, (list, dict)):
@@ -128,8 +128,8 @@ class LangfuseOtelLogger(OpenTelemetry):
     @staticmethod
     def _set_observation_output(span: Span, response_obj):
         """Helper to set observation output attributes."""
-        from litellm.integrations.arize._utils import safe_set_attribute
-        from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
+        from embrouter.integrations.arize._utils import safe_set_attribute
+        from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps
 
         if not response_obj or not hasattr(response_obj, "get"):
             return
@@ -228,8 +228,8 @@ class LangfuseOtelLogger(OpenTelemetry):
         values (lists/dicts) are serialised to JSON strings for OTEL
         compatibility.
         """
-        from litellm.integrations.arize._utils import safe_set_attribute
-        from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
+        from embrouter.integrations.arize._utils import safe_set_attribute
+        from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps
 
         dynamic_params: Final = kwargs.get("standard_callback_dynamic_params")
         langfuse_environment: Final = (
@@ -271,7 +271,7 @@ class LangfuseOtelLogger(OpenTelemetry):
         Creates OpenTelemetryConfig from Langfuse environment variables.
         Does NOT modify global environment variables.
         """
-        from litellm.integrations.opentelemetry import OpenTelemetryConfig
+        from embrouter.integrations.opentelemetry import OpenTelemetryConfig
 
         public_key: Final = os.environ.get("LANGFUSE_PUBLIC_KEY", None)
         secret_key: Final = os.environ.get("LANGFUSE_SECRET_KEY", None)
@@ -420,7 +420,7 @@ class LangfuseOtelLogger(OpenTelemetry):
             langfuse_host=langfuse_host,
         )
 
-    def create_litellm_proxy_request_started_span(
+    def create_embrouter_proxy_request_started_span(
         self,
         start_time: datetime,
         headers: dict,

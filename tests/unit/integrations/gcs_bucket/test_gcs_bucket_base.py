@@ -3,8 +3,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from litellm.integrations.gcs_bucket.gcs_bucket import GCSBucketLogger
-from litellm.integrations.gcs_bucket.gcs_bucket_base import GCSBucketBase
+from embrouter.integrations.gcs_bucket.gcs_bucket import GCSBucketLogger
+from embrouter.integrations.gcs_bucket.gcs_bucket_base import GCSBucketBase
 
 
 class TestGCSBucketBase:
@@ -23,10 +23,10 @@ class TestGCSBucketBase:
 
             with (
                 patch(
-                    "litellm.vertex_chat_completion._ensure_access_token"
+                    "embrouter.vertex_chat_completion._ensure_access_token"
                 ) as mock_ensure_token,
                 patch(
-                    "litellm.vertex_chat_completion._get_token_and_url"
+                    "embrouter.vertex_chat_completion._get_token_and_url"
                 ) as mock_get_token,
             ):
                 mock_ensure_token.return_value = (mock_auth_header, test_project_id)
@@ -66,10 +66,10 @@ class TestGCSBucketBase:
 
         with (
             patch(
-                "litellm.vertex_chat_completion._ensure_access_token"
+                "embrouter.vertex_chat_completion._ensure_access_token"
             ) as mock_ensure_token,
             patch(
-                "litellm.vertex_chat_completion._get_token_and_url"
+                "embrouter.vertex_chat_completion._get_token_and_url"
             ) as mock_get_token,
         ):
             mock_ensure_token.return_value = (mock_auth_header, None)
@@ -116,7 +116,7 @@ class TestGCSBucketBase:
 
         object_name = logger._get_object_name(
             kwargs={
-                "litellm_params": {
+                "embrouter_params": {
                     "metadata": {"gcs_log_id": "../../target?uploadType=media"}
                 }
             },
@@ -133,7 +133,7 @@ class TestGCSBucketBase:
 class TestGCSBucketLoggerBucketName:
     @pytest.mark.asyncio
     async def test_constructor_rejects_non_premium_user(self, monkeypatch):
-        monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", False)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.premium_user", False)
 
         with pytest.raises(ValueError, match="GCS Bucket logging is a premium feature"):
             GCSBucketLogger(bucket_name="config-bucket")
@@ -142,20 +142,20 @@ class TestGCSBucketLoggerBucketName:
     async def test_the_bucket_name_it_is_constructed_with_survives(self, monkeypatch):
         """Reading config.yaml out of a GCS bucket asks for that bucket, not the logging one (LIT-6982)."""
         monkeypatch.setenv("GCS_BUCKET_NAME", "logging-bucket")
-        monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", True)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.premium_user", True)
 
         assert GCSBucketLogger(bucket_name="config-bucket").BUCKET_NAME == "config-bucket"
 
     @pytest.mark.asyncio
     async def test_no_bucket_name_still_falls_back_to_the_environment(self, monkeypatch):
         monkeypatch.setenv("GCS_BUCKET_NAME", "logging-bucket")
-        monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", True)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.premium_user", True)
 
         assert GCSBucketLogger().BUCKET_NAME == "logging-bucket"
 
     @pytest.mark.asyncio
     async def test_async_logging_rejects_non_premium_user(self, monkeypatch):
-        monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", False)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.premium_user", False)
         logger = object.__new__(GCSBucketLogger)
 
         with pytest.raises(ValueError, match="GCS Bucket logging is a premium feature"):

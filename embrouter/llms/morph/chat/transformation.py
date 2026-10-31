@@ -7,7 +7,7 @@ https://docs.morphllm.com/quickstart
 
 from typing import Final
 
-from litellm.secret_managers.main import get_secret_str
+from embrouter.secret_managers.main import get_secret_str
 
 from ...openai_like.chat.transformation import OpenAILikeChatConfig
 

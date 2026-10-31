@@ -6,7 +6,7 @@ import os
 
 import pytest
 
-import litellm
+import embrouter
 
 
 @pytest.fixture(scope="session")
@@ -24,28 +24,28 @@ def event_loop():
 @pytest.fixture(scope="function", autouse=True)
 def setup_and_teardown():
     """
-    This fixture reloads litellm before every function. To speed up testing by removing callbacks being chained.
+    This fixture reloads embrouter before every function. To speed up testing by removing callbacks being chained.
     """
     curr_dir = os.getcwd()  # Get the current working directory
 
-    from litellm import Router
+    from embrouter import Router
 
-    importlib.reload(litellm)
+    importlib.reload(embrouter)
 
     try:
-        if hasattr(litellm, "proxy") and hasattr(litellm.proxy, "proxy_server"):
-            importlib.reload(litellm.proxy.proxy_server)
+        if hasattr(embrouter, "proxy") and hasattr(embrouter.proxy, "proxy_server"):
+            importlib.reload(embrouter.proxy.proxy_server)
     except Exception as e:
-        print(f"Error reloading litellm.proxy.proxy_server: {e}")
+        print(f"Error reloading embrouter.proxy.proxy_server: {e}")
 
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    embrouter.in_memory_llm_clients_cache.flush_cache()
 
     import asyncio
 
     loop = asyncio.get_event_loop_policy().new_event_loop()
     asyncio.set_event_loop(loop)
-    print(litellm)
-    # from litellm import Router, completion, aembedding, acompletion, embedding
+    print(embrouter)
+    # from embrouter import Router, completion, aembedding, acompletion, embedding
     yield
 
     # Teardown code (executes after the yield point)

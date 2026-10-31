@@ -3,22 +3,22 @@ from unittest.mock import MagicMock
 
 import pytest
 
-import litellm
-from litellm.proxy.proxy_server import _should_include_fallback_errors
-from litellm.router import Router
-from litellm.router_utils.add_retry_fallback_headers import get_hidden_params_dict
+import embrouter
+from embrouter.proxy.proxy_server import _should_include_fallback_errors
+from embrouter.router import Router
+from embrouter.router_utils.add_retry_fallback_headers import get_hidden_params_dict
 
 
 def test_apply_fallback_hidden_params_copies_from_fallback_response():
     fallback_errors = [
         {
-            "message": "litellm.RateLimitError: upstream limited request",
+            "message": "embrouter.RateLimitError: upstream limited request",
             "type": "RateLimitError",
             "param": None,
             "code": "429",
         }
     ]
-    chunk = litellm.ModelResponseStream(
+    chunk = embrouter.ModelResponseStream(
         id="test",
         model="openai/internal-fallback",
         choices=[],
@@ -30,9 +30,9 @@ def test_apply_fallback_hidden_params_copies_from_fallback_response():
     fallback_response = MagicMock()
     fallback_response._hidden_params = {
         "additional_headers": {
-            "x-litellm-attempted-fallbacks": 1,
-            "x-litellm-model-group": "fallback-model",
-            "x-litellm-fallback-errors": json.dumps(fallback_errors),
+            "x-embrouter-attempted-fallbacks": 1,
+            "x-embrouter-model-group": "fallback-model",
+            "x-embrouter-fallback-errors": json.dumps(fallback_errors),
         },
         "api_base": "https://fallback.example",
     }
@@ -48,22 +48,22 @@ def test_apply_fallback_hidden_params_copies_from_fallback_response():
     assert chunk._hidden_params["model_id"] == "chunk-model-id"
     assert chunk._hidden_params["additional_headers"] == {
         "x-existing-chunk-header": "keep",
-        "x-litellm-attempted-fallbacks": 1,
-        "x-litellm-model-group": "fallback-model",
-        "x-litellm-fallback-errors": json.dumps(fallback_errors),
+        "x-embrouter-attempted-fallbacks": 1,
+        "x-embrouter-model-group": "fallback-model",
+        "x-embrouter-fallback-errors": json.dumps(fallback_errors),
     }
 
 
 def _two_group_fallback_router() -> Router:
-    return litellm.Router(
+    return embrouter.Router(
         model_list=[
             {
                 "model_name": "primary-model",
-                "litellm_params": {"model": "openai/gpt-fake", "api_key": "sk-fake"},
+                "embrouter_params": {"model": "openai/gpt-fake", "api_key": "sk-fake"},
             },
             {
                 "model_name": "fallback-model",
-                "litellm_params": {"model": "openai/gpt-fake-2", "api_key": "sk-fake"},
+                "embrouter_params": {"model": "openai/gpt-fake-2", "api_key": "sk-fake"},
             },
         ],
         fallbacks=[{"primary-model": ["fallback-model"]}],
@@ -87,8 +87,8 @@ async def test_include_fallback_errors_propagates_through_router():
     )
 
     headers = _additional_headers(response)
-    assert headers["x-litellm-attempted-fallbacks"] == 1
-    errors = json.loads(headers["x-litellm-fallback-errors"])
+    assert headers["x-embrouter-attempted-fallbacks"] == 1
+    errors = json.loads(headers["x-embrouter-fallback-errors"])
     assert isinstance(errors, list) and len(errors) >= 1
     assert set(errors[0].keys()) == {"message", "type", "param", "code"}
 
@@ -105,8 +105,8 @@ async def test_router_omits_fallback_errors_without_opt_in():
     )
 
     headers = _additional_headers(response)
-    assert headers["x-litellm-attempted-fallbacks"] == 1
-    assert "x-litellm-fallback-errors" not in headers
+    assert headers["x-embrouter-attempted-fallbacks"] == 1
+    assert "x-embrouter-fallback-errors" not in headers
 
 
 def test_prepare_fallback_hidden_params_no_additional_headers():
@@ -133,14 +133,14 @@ def test_apply_fallback_hidden_params_to_item_no_existing_additional_headers():
         chunk,
         (
             {"api_base": "http://fallback.example"},
-            {"x-litellm-attempted-fallbacks": 1},
+            {"x-embrouter-attempted-fallbacks": 1},
         ),
     )
 
     assert chunk._hidden_params["api_base"] == "http://fallback.example"
     assert chunk._hidden_params["model_id"] == "test-id"
     assert chunk._hidden_params["additional_headers"] == {
-        "x-litellm-attempted-fallbacks": 1
+        "x-embrouter-attempted-fallbacks": 1
     }
 
 
@@ -150,7 +150,7 @@ async def test_set_response_headers_adds_model_group_to_streaming_wrapper():
         def __init__(self):
             self._hidden_params = {"additional_headers": {"x-existing": "keep"}}
 
-    router = litellm.Router(model_list=[])
+    router = embrouter.Router(model_list=[])
     response = StreamingWrapper()
 
     result = await router.set_response_headers(
@@ -161,14 +161,14 @@ async def test_set_response_headers_adds_model_group_to_streaming_wrapper():
     assert result is response
     assert response._hidden_params["additional_headers"] == {
         "x-existing": "keep",
-        "x-litellm-model-group": "fallback-model",
+        "x-embrouter-model-group": "fallback-model",
     }
 
 
 def test_should_include_fallback_errors_gated_by_operator_setting():
     request_data: dict = {"include_fallback_errors": True}
 
-    import litellm.proxy.proxy_server as ps
+    import embrouter.proxy.proxy_server as ps
 
     original = ps.general_settings.copy() if isinstance(ps.general_settings, dict) else {}
     try:

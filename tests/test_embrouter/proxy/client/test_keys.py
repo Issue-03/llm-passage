@@ -8,8 +8,8 @@ import requests
 
 import responses
 
-from litellm.proxy.client.exceptions import NotFoundError, UnauthorizedError
-from litellm.proxy.client.keys import KeysManagementClient
+from embrouter.proxy.client.exceptions import NotFoundError, UnauthorizedError
+from embrouter.proxy.client.keys import KeysManagementClient
 
 
 @pytest.fixture

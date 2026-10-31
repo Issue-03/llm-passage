@@ -10,7 +10,7 @@ Everything lives under the ``/claude_code_gateway`` base so operators point
 Claude Code at ``https://<proxy-host>/claude_code_gateway`` via ``/login``. The
 device flow reuses the proxy's existing SSO login machinery: the browser leg is
 served by ``/sso/key/generate`` and the shared ``cli_sso_session_cache`` flow,
-so the bearer token minted here is the same session JWT the LiteLLM CLI uses and
+so the bearer token minted here is the same session JWT the EmbRouter CLI uses and
 is accepted by every bearer-authenticated proxy route.
 """
 
@@ -26,18 +26,18 @@ from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, TypeAdapter, ValidationError
 
-from litellm._logging import verbose_proxy_logger
-from litellm.caching.dual_cache import DualCache
-from litellm.constants import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.caching.dual_cache import DualCache
+from embrouter.constants import (
     CLI_JWT_EXPIRATION_HOURS,
     CLI_SSO_SESSION_TTL_SECONDS,
-    LITELLM_CLI_SOURCE_IDENTIFIER,
+    EMBROUTER_CLI_SOURCE_IDENTIFIER,
 )
-from litellm.proxy._types import LiteLLM_UserTable, LitellmUserRoles
-from litellm.proxy.anthropic_endpoints.endpoints import anthropic_response, count_tokens
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.common_utils.http_parsing_utils import _safe_set_request_parsed_body
-from litellm.proxy.management_endpoints.ui_sso import CliSsoTeamDetail
+from embrouter.proxy._types import EmbRouter_UserTable, EmbrouterUserRoles
+from embrouter.proxy.anthropic_endpoints.endpoints import anthropic_response, count_tokens
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.common_utils.http_parsing_utils import _safe_set_request_parsed_body
+from embrouter.proxy.management_endpoints.ui_sso import CliSsoTeamDetail
 
 GATEWAY_PREFIX: Final = "/claude_code_gateway"
 _DEVICE_CODE_GRANT: Final = "urn:ietf:params:oauth:grant-type:device_code"
@@ -52,7 +52,7 @@ _POST_ONLY: Final = ["POST"]  # mutable-ok: FastAPI's add_api_route only accepts
 
 class _GatewaySessionData(BaseModel):
     user_id: str
-    user_role: LitellmUserRoles
+    user_role: EmbrouterUserRoles
     models: list[str] = Field(default_factory=list)
     teams: tuple[str, ...] = ()
     team_details: object | None = None
@@ -60,7 +60,7 @@ class _GatewaySessionData(BaseModel):
 
 @dataclass(frozen=True, slots=True)
 class _GatewayLogin:
-    user_info: LiteLLM_UserTable
+    user_info: EmbRouter_UserTable
     team_id: str | None
     team: CliSsoTeamDetail
 
@@ -99,7 +99,7 @@ class _ManagedSettingsBody(BaseModel):
 
 
 def _general_settings() -> Mapping[str, object]:
-    from litellm.proxy.proxy_server import general_settings
+    from embrouter.proxy.proxy_server import general_settings
 
     return general_settings or _NO_SETTINGS
 
@@ -162,7 +162,7 @@ async def oauth_authorization_server(request: Request) -> JSONResponse:
     if not _is_gateway_enabled():
         return _oauth_error_response(_OAuthError(status_code=404, error="not_found"))
 
-    from litellm.proxy.utils import get_custom_url
+    from embrouter.proxy.utils import get_custom_url
 
     request_base_url: Final = str(request.base_url)
     metadata: Final = _AuthorizationServerMetadata(
@@ -180,7 +180,7 @@ async def oauth_authorization_server(request: Request) -> JSONResponse:
 async def device_authorization(request: Request) -> JSONResponse:
     from urllib.parse import urlencode
 
-    from litellm.proxy.management_endpoints.ui_sso import (
+    from embrouter.proxy.management_endpoints.ui_sso import (
         _check_cli_sso_start_rate_limit,  # pyright: ignore[reportPrivateUsage]  # shared device-flow helper
         _cli_sso_verification_uri_complete_enabled,  # pyright: ignore[reportPrivateUsage]  # shared device-flow helper
         _generate_cli_sso_user_code,  # pyright: ignore[reportPrivateUsage]  # shared device-flow helper
@@ -188,8 +188,8 @@ async def device_authorization(request: Request) -> JSONResponse:
         _normalize_cli_sso_user_code,  # pyright: ignore[reportPrivateUsage]  # shared device-flow helper
         _set_cli_sso_flow,  # pyright: ignore[reportPrivateUsage]  # shared device-flow helper
     )
-    from litellm.proxy.proxy_server import cli_sso_session_cache
-    from litellm.proxy.utils import get_custom_url
+    from embrouter.proxy.proxy_server import cli_sso_session_cache
+    from embrouter.proxy.utils import get_custom_url
 
     if not _is_gateway_enabled():
         return _oauth_error_response(_OAuthError(status_code=404, error="not_found"))
@@ -214,7 +214,7 @@ async def device_authorization(request: Request) -> JSONResponse:
 
     request_base_url: Final = str(request.base_url)
     verification_uri: Final = get_custom_url(request_base_url=request_base_url, route="sso/key/generate")
-    query: Final = MappingProxyType({"source": LITELLM_CLI_SOURCE_IDENTIFIER, "key": login_id})
+    query: Final = MappingProxyType({"source": EMBROUTER_CLI_SOURCE_IDENTIFIER, "key": login_id})
     body: Final = _DeviceAuthorizationBody(
         device_code=f"{login_id}{_DEVICE_CODE_SEPARATOR}{poll_secret}",
         user_code=user_code,
@@ -231,7 +231,7 @@ async def device_authorization(request: Request) -> JSONResponse:
 
 
 def _validate_login(flow: Mapping[str, object]) -> _GatewayLogin | _OAuthError:
-    from litellm.proxy.management_endpoints.ui_sso import selected_cli_sso_team_detail
+    from embrouter.proxy.management_endpoints.ui_sso import selected_cli_sso_team_detail
 
     try:
         session_data: Final = _GatewaySessionData.model_validate(flow.get("session_data"))
@@ -250,7 +250,7 @@ def _validate_login(flow: Mapping[str, object]) -> _GatewayLogin | _OAuthError:
             description=f"Could not resolve the model grants for team {team_id}; sign in again",
         )
 
-    user_info: Final = LiteLLM_UserTable(
+    user_info: Final = EmbRouter_UserTable(
         user_id=session_data.user_id,
         user_role=session_data.user_role.value,
         models=session_data.models,
@@ -259,7 +259,7 @@ def _validate_login(flow: Mapping[str, object]) -> _GatewayLogin | _OAuthError:
 
 
 def _mint_access_token(login: _GatewayLogin) -> str:
-    from litellm.proxy.auth.auth_checks import ExperimentalUIJWTToken
+    from embrouter.proxy.auth.auth_checks import ExperimentalUIJWTToken
 
     return ExperimentalUIJWTToken.get_cli_jwt_auth_token(
         user_info=login.user_info,
@@ -272,7 +272,7 @@ def _mint_access_token(login: _GatewayLogin) -> str:
 
 
 async def _claim_device_code(login_id: str, cache: DualCache) -> bool:
-    from litellm.proxy.management_endpoints.ui_sso import (
+    from embrouter.proxy.management_endpoints.ui_sso import (
         _get_cli_sso_flow_cache_key,  # pyright: ignore[reportPrivateUsage]  # shared device-flow helper
     )
 
@@ -287,12 +287,12 @@ async def _claim_device_code(login_id: str, cache: DualCache) -> bool:
 async def _handle_device_code_grant(device_code: str | None) -> JSONResponse:
     from fastapi import HTTPException
 
-    from litellm.proxy.management_endpoints.ui_sso import (
+    from embrouter.proxy.management_endpoints.ui_sso import (
         _get_cli_sso_flow_cache_key,  # pyright: ignore[reportPrivateUsage]  # shared device-flow helper
         _get_cli_sso_flow_or_raise,  # pyright: ignore[reportPrivateUsage]  # shared device-flow helper
         _verify_cli_sso_poll_secret,  # pyright: ignore[reportPrivateUsage]  # shared device-flow helper
     )
-    from litellm.proxy.proxy_server import cli_sso_session_cache
+    from embrouter.proxy.proxy_server import cli_sso_session_cache
 
     if not device_code:
         return _oauth_error_response(

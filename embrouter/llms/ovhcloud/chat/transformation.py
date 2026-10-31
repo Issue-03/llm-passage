@@ -9,12 +9,12 @@ from typing import Final
 
 import httpx
 
-from litellm.llms.base_llm.base_model_iterator import BaseModelResponseIterator
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.openai.chat.gpt_transformation import OpenAIGPTConfig
-from litellm.llms.ovhcloud.utils import OVHCloudException
-from litellm.types.llms.openai import AllMessageValues
-from litellm.utils import ModelResponseStream
+from embrouter.llms.base_llm.base_model_iterator import BaseModelResponseIterator
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.openai.chat.gpt_transformation import OpenAIGPTConfig
+from embrouter.llms.ovhcloud.utils import OVHCloudException
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.utils import ModelResponseStream
 
 
 class OVHCloudChatConfig(OpenAIGPTConfig):
@@ -28,7 +28,7 @@ class OVHCloudChatConfig(OpenAIGPTConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         api_base = "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1" if api_base is None else api_base.rstrip("/")
@@ -57,11 +57,11 @@ class OVHCloudChatConfig(OpenAIGPTConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         extra_body: Final = optional_params.pop("extra_body", {})
-        response: Final = super().transform_request(model, messages, optional_params, litellm_params, headers)
+        response: Final = super().transform_request(model, messages, optional_params, embrouter_params, headers)
         response.update(extra_body)
         return response
 

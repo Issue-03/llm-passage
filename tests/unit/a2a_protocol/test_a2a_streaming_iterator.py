@@ -10,12 +10,12 @@ from types import SimpleNamespace
 
 import pytest
 
-import litellm
-from litellm.a2a_protocol import streaming_iterator as a2a_streaming_iterator_module
-from litellm.a2a_protocol.streaming_iterator import A2AStreamingIterator
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils import thread_pool_executor as thread_pool_executor_module
-from litellm.litellm_core_utils.litellm_logging import Logging as LitellmLogging
+import embrouter
+from embrouter.a2a_protocol import streaming_iterator as a2a_streaming_iterator_module
+from embrouter.a2a_protocol.streaming_iterator import A2AStreamingIterator
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.embrouter_core_utils import thread_pool_executor as thread_pool_executor_module
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbrouterLogging
 
 
 class RecordingCustomLogger(CustomLogger):
@@ -50,16 +50,16 @@ async def test_custom_logger_only_never_submits_sync_success_handler(monkeypatch
     monkeypatch.setattr(a2a_streaming_iterator_module, "executor", recording_executor, raising=False)
 
     recorder = RecordingCustomLogger()
-    monkeypatch.setattr(litellm, "success_callback", [recorder])
-    monkeypatch.setattr(litellm, "_async_success_callback", [recorder])
+    monkeypatch.setattr(embrouter, "success_callback", [recorder])
+    monkeypatch.setattr(embrouter, "_async_success_callback", [recorder])
 
-    logging_obj = LitellmLogging(
+    logging_obj = EmbrouterLogging(
         model="a2a/test-agent",
         messages=[{"role": "user", "content": "hi"}],
         stream=True,
         call_type="a2a_send_message_streaming",
         start_time=time.time(),
-        litellm_call_id="lit-4210-test",
+        embrouter_call_id="lit-4210-test",
         function_id="lit-4210-test",
     )
 
@@ -94,22 +94,22 @@ class _AgentChunk:
 @pytest.mark.asyncio
 async def test_stream_completion_counts_tokens_off_the_event_loop(monkeypatch):
     from tests.large_text import text
-    from tests.unit.litellm_core_utils.event_loop_lag import (
+    from tests.unit.embrouter_core_utils.event_loop_lag import (
         assert_loop_stayed_free,
         timed_with_loop_lags,
         warm_tokenizer,
     )
 
     warm_tokenizer("gpt-5.6-luna")
-    monkeypatch.setattr(litellm, "success_callback", [])
-    monkeypatch.setattr(litellm, "_async_success_callback", [])
-    logging_obj = LitellmLogging(
+    monkeypatch.setattr(embrouter, "success_callback", [])
+    monkeypatch.setattr(embrouter, "_async_success_callback", [])
+    logging_obj = EmbrouterLogging(
         model="a2a/test-agent",
         messages=[{"role": "user", "content": "hi"}],
         stream=True,
         call_type="a2a_send_message_streaming",
         start_time=time.time(),
-        litellm_call_id="lit-7190-test",
+        embrouter_call_id="lit-7190-test",
         function_id="lit-7190-test",
     )
 

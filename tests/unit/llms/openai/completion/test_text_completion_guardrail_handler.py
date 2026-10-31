@@ -8,12 +8,12 @@ from unittest.mock import MagicMock
 import pytest
 
 
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.llms import get_guardrail_translation_mapping
-from litellm.llms.openai.completion.guardrail_translation.handler import (
+from embrouter.integrations.custom_guardrail import CustomGuardrail
+from embrouter.llms import get_guardrail_translation_mapping
+from embrouter.llms.openai.completion.guardrail_translation.handler import (
     OpenAITextCompletionHandler,
 )
-from litellm.types.utils import CallTypes, TextChoices, TextCompletionResponse
+from embrouter.types.utils import CallTypes, TextChoices, TextCompletionResponse
 
 
 class MockGuardrail(CustomGuardrail):

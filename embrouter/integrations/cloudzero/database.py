@@ -14,9 +14,9 @@
 #
 # CHANGELOG: 2025-01-19 - Refactored to use daily spend tables for proper CBF mapping (erik.peterson)
 # CHANGELOG: 2025-01-19 - Migrated from pandas to polars for database operations (erik.peterson)
-# CHANGELOG: 2025-01-19 - Initial database module for LiteLLM data extraction (erik.peterson)
+# CHANGELOG: 2025-01-19 - Initial database module for EmbRouter data extraction (erik.peterson)
 
-"""Database connection and data extraction for LiteLLM."""
+"""Database connection and data extraction for EmbRouter."""
 
 from datetime import datetime
 from typing import Any, Final
@@ -24,11 +24,11 @@ from typing import Any, Final
 import polars as pl
 
 
-class LiteLLMDatabase:
-    """Handle LiteLLM PostgreSQL database connections and queries."""
+class EmbRouterDatabase:
+    """Handle EmbRouter PostgreSQL database connections and queries."""
 
     def _ensure_prisma_client(self):
-        from litellm.proxy.proxy_server import prisma_client
+        from embrouter.proxy.proxy_server import prisma_client
 
         """Ensure prisma client is available."""
         if prisma_client is None:
@@ -43,7 +43,7 @@ class LiteLLMDatabase:
         start_time_utc: datetime | None = None,
         end_time_utc: datetime | None = None,
     ) -> pl.DataFrame:
-        """Retrieve usage data from LiteLLM daily user spend table."""
+        """Retrieve usage data from EmbRouter daily user spend table."""
         client: Final = self._ensure_prisma_client()
 
         # Query to get user spend data with team information. Use parameter binding to
@@ -71,10 +71,10 @@ class LiteLLMDatabase:
             vt.key_alias as api_key_alias,
             tt.team_alias,
             ut.user_email as user_email
-        FROM "LiteLLM_DailyUserSpend" dus
-        LEFT JOIN "LiteLLM_VerificationToken" vt ON dus.api_key = vt.token
-        LEFT JOIN "LiteLLM_TeamTable" tt ON vt.team_id = tt.team_id
-        LEFT JOIN "LiteLLM_UserTable" ut ON dus.user_id = ut.user_id
+        FROM "EmbRouter_DailyUserSpend" dus
+        LEFT JOIN "EmbRouter_VerificationToken" vt ON dus.api_key = vt.token
+        LEFT JOIN "EmbRouter_TeamTable" tt ON vt.team_id = tt.team_id
+        LEFT JOIN "EmbRouter_UserTable" ut ON dus.user_id = ut.user_id
         WHERE ($1::timestamptz IS NULL OR dus.updated_at >= $1::timestamptz)
           AND ($2::timestamptz IS NULL OR dus.updated_at <= $2::timestamptz)
         ORDER BY dus.date DESC, dus.created_at DESC
@@ -94,7 +94,7 @@ class LiteLLMDatabase:
 
         try:
             db_response: Final = await client.db.query_raw(query, *params)
-            from litellm.proxy.spend_tracking.key_metadata_recovery import (
+            from embrouter.proxy.spend_tracking.key_metadata_recovery import (
                 fill_missing_api_key_aliases,
             )
 

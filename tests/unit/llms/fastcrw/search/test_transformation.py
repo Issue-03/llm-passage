@@ -3,8 +3,8 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-import litellm
-from litellm.llms.fastcrw.search.transformation import FastCRWSearchConfig
+import embrouter
+from embrouter.llms.fastcrw.search.transformation import FastCRWSearchConfig
 
 
 def _config() -> FastCRWSearchConfig:
@@ -29,11 +29,11 @@ def test_fastcrw_search_request_body():
     with (
         patch.dict(os.environ, {"CRW_API_KEY": "test-api-key"}),
         patch(
-            "litellm.llms.custom_httpx.http_handler.HTTPHandler.post",
+            "embrouter.llms.custom_httpx.http_handler.HTTPHandler.post",
             return_value=mock_response,
         ) as mock_post,
     ):
-        response = litellm.search(
+        response = embrouter.search(
             query="test query",
             search_provider="fastcrw",
             max_results=10,

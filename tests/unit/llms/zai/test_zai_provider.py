@@ -6,15 +6,15 @@ import math
 
 import pytest
 
-import litellm
-from litellm import completion
-from litellm.cost_calculator import cost_per_token
+import embrouter
+from embrouter import completion
+from embrouter.cost_calculator import cost_per_token
 
 
 @pytest.fixture
 def local_model_cost_map(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
+    monkeypatch.setenv("EMBROUTER_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setattr(embrouter, "model_cost", embrouter.get_model_cost_map(url=""))
 
 
 @pytest.fixture
@@ -41,7 +41,7 @@ def zai_response():
 
 def test_get_llm_provider_zai():
     """Test that get_llm_provider correctly identifies zai provider"""
-    from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
+    from embrouter.embrouter_core_utils.get_llm_provider_logic import get_llm_provider
 
     model, provider, api_key, api_base = get_llm_provider("zai/glm-4.6")
     assert model == "glm-4.6"
@@ -51,21 +51,21 @@ def test_get_llm_provider_zai():
 
 def test_zai_in_provider_lists():
     """Test that zai is registered in all necessary provider lists"""
-    assert "zai" in litellm.openai_compatible_providers
-    assert "zai" in litellm.provider_list
+    assert "zai" in embrouter.openai_compatible_providers
+    assert "zai" in embrouter.provider_list
 
 
 @pytest.mark.asyncio
 async def test_zai_completion_call(respx_mock, zai_response, monkeypatch):
     """Test completion call with zai provider using mocked response"""
     monkeypatch.setenv("ZAI_API_KEY", "test-api-key")
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
 
     respx_mock.post("https://api.z.ai/api/paas/v4/chat/completions").respond(
         json=zai_response
     )
 
-    response = await litellm.acompletion(
+    response = await embrouter.acompletion(
         model="zai/glm-4.6",
         messages=[{"role": "user", "content": "Hello"}],
         max_tokens=20,
@@ -85,7 +85,7 @@ async def test_zai_completion_call(respx_mock, zai_response, monkeypatch):
 def test_zai_sync_completion(respx_mock, zai_response, monkeypatch):
     """Test synchronous completion call"""
     monkeypatch.setenv("ZAI_API_KEY", "test-api-key")
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
 
     respx_mock.post("https://api.z.ai/api/paas/v4/chat/completions").respond(
         json=zai_response

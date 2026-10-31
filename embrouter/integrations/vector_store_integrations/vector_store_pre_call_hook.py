@@ -14,22 +14,22 @@ from typing import TYPE_CHECKING, Any, Final, Protocol, cast, get_args
 from pydantic import TypeAdapter, ValidationError
 from typing_extensions import assert_never
 
-import litellm
-import litellm.vector_stores
-from litellm._logging import verbose_logger
-from litellm.exceptions import VectorStoreSearchError
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.llms.openai import (
+import embrouter
+import embrouter.vector_stores
+from embrouter._logging import verbose_logger
+from embrouter.exceptions import VectorStoreSearchError
+from embrouter.integrations.custom_guardrail import CustomGuardrail
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.types.guardrails import GuardrailEventHooks
+from embrouter.types.llms.openai import (
     AllMessageValues,
     ChatCompletionUserMessage,
     ResponsesAPIResponse,
 )
-from litellm.types.prompts.init_prompts import PromptSpec
-from litellm.types.utils import CallTypes, StandardCallbackDynamicParams
-from litellm.types.vector_stores import (
-    LiteLLM_ManagedVectorStore,
+from embrouter.types.prompts.init_prompts import PromptSpec
+from embrouter.types.utils import CallTypes, StandardCallbackDynamicParams
+from embrouter.types.vector_stores import (
+    EmbRouter_ManagedVectorStore,
     VectorStoreSearchFailure,
     VectorStoreSearchFailureMode,
     VectorStoreSearchResponse,
@@ -37,11 +37,11 @@ from litellm.types.vector_stores import (
 )
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.proxy.utils import PrismaClient
-    from litellm.router import Router
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.proxy.utils import PrismaClient
+    from embrouter.router import Router
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 SEARCH_FAILURES_FIELD: Final = "vector_store_search_failures"
 _DEFAULT_FAILURE_MODE: Final[VectorStoreSearchFailureMode] = "annotate"
@@ -76,14 +76,14 @@ class ProxyRuntime(Protocol):
 class ProxyServerRuntime:
     def llm_router(self) -> "Router | None":
         try:
-            from litellm.proxy.proxy_server import llm_router
+            from embrouter.proxy.proxy_server import llm_router
         except ImportError:
             return None
         return llm_router
 
     def prisma_client(self) -> "PrismaClient | None":
         try:
-            from litellm.proxy.proxy_server import prisma_client
+            from embrouter.proxy.proxy_server import prisma_client
         except ImportError:
             return None
         return prisma_client
@@ -116,7 +116,7 @@ class VectorStorePreCallHook(CustomLogger):
 
     When a vector store is configured, this hook:
     1. Extracts the query from the last user message
-    2. Calls litellm.vector_stores.search() to get relevant context
+    2. Calls embrouter.vector_stores.search() to get relevant context
     3. Runs the request's pre-call guardrails over each store's context message
     4. Appends the (possibly masked) context to the messages, or raises the guardrail's block
     """
@@ -133,7 +133,7 @@ class VectorStorePreCallHook(CustomLogger):
         prompt_id: str | None,
         prompt_variables: dict | None,
         dynamic_callback_params: StandardCallbackDynamicParams,
-        litellm_logging_obj: LiteLLMLoggingObj,
+        embrouter_logging_obj: EmbRouterLoggingObj,
         prompt_spec: PromptSpec | None = None,
         tools: list[dict] | None = None,
         prompt_label: str | None = None,
@@ -163,7 +163,7 @@ class VectorStorePreCallHook(CustomLogger):
                 messages=messages,
                 non_default_params=non_default_params,
                 tools=tools,
-                litellm_logging_obj=litellm_logging_obj,
+                embrouter_logging_obj=embrouter_logging_obj,
             )
         except Exception as e:
             verbose_logger.exception(
@@ -181,7 +181,7 @@ class VectorStorePreCallHook(CustomLogger):
             (SEARCH_FAILURES_FIELD, augmentation.failures),
         ):
             if value:
-                litellm_logging_obj.model_call_details[detail] = value
+                embrouter_logging_obj.model_call_details[detail] = value
 
         if augmentation.failures:
             failure_mode: Final = _configured_failure_mode()
@@ -213,7 +213,7 @@ class VectorStorePreCallHook(CustomLogger):
         request_data: Final = _scan_request(model, non_default_params)
         guardrails: Final = tuple(
             callback
-            for callback in litellm.callbacks
+            for callback in embrouter.callbacks
             if isinstance(callback, CustomGuardrail)
             and callback.should_run_guardrail(data=request_data, event_type=GuardrailEventHooks.pre_call)
         )
@@ -243,9 +243,9 @@ class VectorStorePreCallHook(CustomLogger):
         messages: Sequence[AllMessageValues],
         non_default_params: dict,
         tools: list[dict] | None,
-        litellm_logging_obj: LiteLLMLoggingObj,
+        embrouter_logging_obj: EmbRouterLoggingObj,
     ) -> VectorStoreAugmentation | None:
-        if litellm.vector_store_registry is None:
+        if embrouter.vector_store_registry is None:
             return None
 
         prisma_client: Final = self.proxy_runtime.prisma_client()
@@ -253,8 +253,8 @@ class VectorStorePreCallHook(CustomLogger):
 
         # Use database fallback to ensure synchronization across instances
         vector_stores_to_run: Final[
-            Sequence[LiteLLM_ManagedVectorStore]
-        ] = await litellm.vector_store_registry.pop_vector_stores_to_run_with_db_fallback(
+            Sequence[EmbRouter_ManagedVectorStore]
+        ] = await embrouter.vector_store_registry.pop_vector_stores_to_run_with_db_fallback(
             non_default_params=non_default_params,
             tools=tools,
             prisma_client=prisma_client,
@@ -269,9 +269,9 @@ class VectorStorePreCallHook(CustomLogger):
             verbose_logger.debug("No query found in messages for vector store search")
             return None
 
-        request_litellm_params: Final = litellm_logging_obj.model_call_details.get("litellm_params", {})
+        request_embrouter_params: Final = embrouter_logging_obj.model_call_details.get("embrouter_params", {})
         request_metadata: Final = (
-            request_litellm_params.get("metadata", {}) if isinstance(request_litellm_params, dict) else {}
+            request_embrouter_params.get("metadata", {}) if isinstance(request_embrouter_params, dict) else {}
         )
         search_function: Final = (
             cast(  # cast-ok: normalize router search callable
@@ -281,7 +281,7 @@ class VectorStorePreCallHook(CustomLogger):
             if llm_router is not None
             else cast(  # cast-ok: normalize SDK search callable
                 Callable[..., Awaitable[VectorStoreSearchResponse]],
-                litellm.vector_stores.asearch,
+                embrouter.vector_stores.asearch,
             )
         )
 
@@ -307,14 +307,14 @@ class VectorStorePreCallHook(CustomLogger):
 
     async def _search_one(
         self,
-        vector_store: LiteLLM_ManagedVectorStore,
+        vector_store: EmbRouter_ManagedVectorStore,
         query: str,
         request_metadata: Mapping[str, object],
         search_function: Callable[..., Awaitable[VectorStoreSearchResponse]],
     ) -> SearchOutcome:
         vector_store_id: Final = vector_store.get("vector_store_id", "")
         custom_llm_provider: Final = vector_store.get("custom_llm_provider")
-        litellm_params_for_vector_store: Final = vector_store.get("litellm_params", {}) or {}
+        embrouter_params_for_vector_store: Final = vector_store.get("embrouter_params", {}) or {}
         try:
             search_response: Final = await search_function(
                 **{
@@ -322,7 +322,7 @@ class VectorStorePreCallHook(CustomLogger):
                     "query": query,
                     "custom_llm_provider": custom_llm_provider,
                     "metadata": request_metadata,
-                    **litellm_params_for_vector_store,
+                    **embrouter_params_for_vector_store,
                 },
             )
         except Exception as search_error:
@@ -428,17 +428,17 @@ class VectorStorePreCallHook(CustomLogger):
             verbose_logger.debug("VectorStorePreCallHook.async_post_call_success_deployment_hook called")
 
             # Get logging object from request_data
-            litellm_logging_obj: Final = request_data.get("litellm_logging_obj")
-            if not litellm_logging_obj:
-                verbose_logger.debug("No litellm_logging_obj in request_data")
+            embrouter_logging_obj: Final = request_data.get("embrouter_logging_obj")
+            if not embrouter_logging_obj:
+                verbose_logger.debug("No embrouter_logging_obj in request_data")
                 return None
 
             # Get search results from model_call_details (already in OpenAI format)
             search_results: Final[Sequence[VectorStoreSearchResponse] | None] = (
-                litellm_logging_obj.model_call_details.get("search_results")
+                embrouter_logging_obj.model_call_details.get("search_results")
             )
             search_failures: Final[Sequence[VectorStoreSearchFailure] | None] = (
-                litellm_logging_obj.model_call_details.get(SEARCH_FAILURES_FIELD)
+                embrouter_logging_obj.model_call_details.get(SEARCH_FAILURES_FIELD)
             )
 
             if not search_results and not search_failures:
@@ -521,11 +521,11 @@ def _requested_vector_store_ids(non_default_params: Mapping[str, object]) -> tup
 
 def _configured_failure_mode() -> VectorStoreSearchFailureMode:
     try:
-        return _FAILURE_MODE_ADAPTER.validate_python(litellm.vector_store_search_failure_mode)
+        return _FAILURE_MODE_ADAPTER.validate_python(embrouter.vector_store_search_failure_mode)
     except ValidationError:
         verbose_logger.warning(
             "Unsupported vector_store_search_failure_mode=%r, falling back to %r. Supported modes: %s",
-            litellm.vector_store_search_failure_mode,
+            embrouter.vector_store_search_failure_mode,
             _DEFAULT_FAILURE_MODE,
             ", ".join(get_args(VectorStoreSearchFailureMode)),
         )

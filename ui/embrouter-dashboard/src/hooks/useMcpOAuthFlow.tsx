@@ -60,9 +60,9 @@ export const useMcpOAuthFlow = ({
   const processingRef = useRef(false);
   const resetVersionRef = useRef(0);
 
-  const FLOW_STATE_KEY = "litellm-mcp-oauth-flow-state";
-  const RESULT_KEY = "litellm-mcp-oauth-result";
-  const RETURN_URL_KEY = "litellm-mcp-oauth-return-url";
+  const FLOW_STATE_KEY = "embrouter-mcp-oauth-flow-state";
+  const RESULT_KEY = "embrouter-mcp-oauth-result";
+  const RETURN_URL_KEY = "embrouter-mcp-oauth-return-url";
 
   type StoredFlowState = {
     state: string;

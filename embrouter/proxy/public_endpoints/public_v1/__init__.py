@@ -4,7 +4,7 @@ from typing import Final
 
 from fastapi import APIRouter
 
-from litellm.proxy.public_endpoints.public_v1.model_hub import router as model_hub_router
+from embrouter.proxy.public_endpoints.public_v1.model_hub import router as model_hub_router
 
 PUBLIC_V1_PREFIX: Final = "/public/v1"
 

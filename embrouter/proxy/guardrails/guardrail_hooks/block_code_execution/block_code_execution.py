@@ -13,25 +13,25 @@ from typing import TYPE_CHECKING, Final, Literal, Optional, cast
 from fastapi import HTTPException
 from typing_extensions import TypedDict, Unpack
 
-from litellm.integrations.custom_guardrail import (
+from embrouter.integrations.custom_guardrail import (
     CustomGuardrail,
     ModifyResponseException,
     log_guardrail_information,
 )
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
-from litellm.types.proxy.guardrails.guardrail_hooks.block_code_execution import (
+from embrouter.types.guardrails import GuardrailEventHooks
+from embrouter.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
+from embrouter.types.proxy.guardrails.guardrail_hooks.block_code_execution import (
     CodeBlockActionTaken,
     CodeBlockDetection,
 )
-from litellm.types.utils import (
+from embrouter.types.utils import (
     GenericGuardrailAPIInputs,
     GuardrailStatus,
     GuardrailTracingDetail,
 )
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
 
 # Language tag aliases (normalize to canonical for comparison)
 LANGUAGE_ALIASES: Final[dict[str, str]] = {
@@ -365,7 +365,7 @@ class BlockCodeExecutionGuardrail(CustomGuardrail):
 
     @staticmethod
     def get_config_model() -> type[GuardrailConfigModel] | None:
-        from litellm.types.proxy.guardrails.guardrail_hooks.block_code_execution import (
+        from embrouter.types.proxy.guardrails.guardrail_hooks.block_code_execution import (
             BlockCodeExecutionGuardrailConfigModel,
         )
 
@@ -519,7 +519,7 @@ class BlockCodeExecutionGuardrail(CustomGuardrail):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict[str, object],
         input_type: Literal["request", "response"],
-        logging_obj: Optional["LiteLLMLoggingObj"] = None,
+        logging_obj: Optional["EmbRouterLoggingObj"] = None,
     ) -> GenericGuardrailAPIInputs:
         start_time: Final = datetime.now()
         detections: Final[list[CodeBlockDetection]] = []

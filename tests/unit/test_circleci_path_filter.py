@@ -40,10 +40,10 @@ def classify(category: str, changed: list[str]) -> str:
     return result.stdout.strip()
 
 
-DOCS = ["README.md", "docs/my_website/index.mdx", "litellm/anywhere.md"]
-CLIENT = ["ui/litellm-dashboard/src/App.tsx"]
-BACKEND = ["litellm/main.py"]
-CI = [".github/workflows/test-litellm-ui-unit.yml"]
+DOCS = ["README.md", "docs/my_website/index.mdx", "embrouter/anywhere.md"]
+CLIENT = ["ui/embrouter-dashboard/src/App.tsx"]
+BACKEND = ["embrouter/main.py"]
+CI = [".github/workflows/test-embrouter-ui-unit.yml"]
 
 
 @pytest.mark.parametrize(
@@ -51,13 +51,13 @@ CI = [".github/workflows/test-litellm-ui-unit.yml"]
     [
         ("mcp-dependencies", ["pyproject.toml"], "run"),
         ("mcp-dependencies", ["uv.lock"], "run"),
-        ("mcp-dependencies", ["litellm/experimental_mcp_client/client.py"], "run"),
+        ("mcp-dependencies", ["embrouter/experimental_mcp_client/client.py"], "run"),
         ("mcp-dependencies", ["tests/e2e/mcp/oauth_chat_client.py"], "run"),
-        ("mcp-dependencies", ["litellm-proxy-extras/pyproject.toml"], "run"),
+        ("mcp-dependencies", ["embrouter-proxy-extras/pyproject.toml"], "run"),
         ("mcp-dependencies", ["scripts/check_mcp_sdk_install.py"], "run"),
         ("mcp-dependencies", [".github/workflows/test-mcp-dependency-resolution.yml"], "run"),
         ("mcp-dependencies", [".circleci/scripts/classify_changes.sh"], "run"),
-        ("mcp-dependencies", ["litellm/llms/openai/chat/gpt_transformation.py"], "skip"),
+        ("mcp-dependencies", ["embrouter/llms/openai/chat/gpt_transformation.py"], "skip"),
         ("mcp-dependencies", DOCS + CLIENT, "skip"),
         ("provider-harness", ["tests/e2e/provider_cache.py"], "run"),
         ("provider-harness", ["tests/e2e/conftest.py"], "run"),
@@ -71,18 +71,18 @@ CI = [".github/workflows/test-litellm-ui-unit.yml"]
         ("provider-harness", ["tests/e2e/PROVIDER_CACHE.md"], "skip"),
         ("provider-harness", ["tests/e2e/ui/test_example.py"], "skip"),
         ("provider-harness", ["tests/e2e/quota_management/test_quota.py"], "skip"),
-        ("provider-harness", ["litellm/main.py"], "skip"),
-        ("provider-harness", ["ui/litellm-dashboard/src/App.tsx"], "skip"),
-        ("windows-release", ["litellm-rust/crates/core/src/lib.rs"], "run"),
-        ("windows-release", ["litellm/rust_bridge/dispatch.py"], "run"),
+        ("provider-harness", ["embrouter/main.py"], "skip"),
+        ("provider-harness", ["ui/embrouter-dashboard/src/App.tsx"], "skip"),
+        ("windows-release", ["embrouter-rust/crates/core/src/lib.rs"], "run"),
+        ("windows-release", ["embrouter/rust_bridge/dispatch.py"], "run"),
         ("windows-release", ["rust-toolchain.toml"], "run"),
         ("windows-release", ["pyproject.toml"], "run"),
         ("windows-release", ["uv.lock"], "run"),
         ("windows-release", ["tests/windows_tests/check_windows_wheel_install.py"], "run"),
         ("windows-release", [".circleci/config.yml"], "run"),
-        ("windows-release", ["litellm/main.py"], "skip"),
+        ("windows-release", ["embrouter/main.py"], "skip"),
         ("windows-release", ["tests/unit/test_utils.py"], "skip"),
-        ("windows-release", ["ui/litellm-dashboard/src/App.tsx"], "skip"),
+        ("windows-release", ["ui/embrouter-dashboard/src/App.tsx"], "skip"),
         ("windows-release", ["docs/my-website/docs/index.md"], "skip"),
         # docs-only: skip everything
         ("backend", DOCS, "skip"),
@@ -109,11 +109,11 @@ CI = [".github/workflows/test-litellm-ui-unit.yml"]
         ("client", BACKEND + CLIENT, "run"),
         ("ui", BACKEND + CLIENT, "run"),
         ("cost-map-only", ["model_prices_and_context_window.json"], "run"),
-        ("cost-map-only", ["litellm/model_prices_and_context_window_backup.json"], "run"),
+        ("cost-map-only", ["embrouter/model_prices_and_context_window_backup.json"], "run"),
         ("cost-map-only", ["model_prices_and_context_window.schema.json"], "run"),
         (
             "cost-map-only",
-            ["model_prices_and_context_window.json", "tests/test_litellm/test_x.py"],
+            ["model_prices_and_context_window.json", "tests/test_embrouter/test_x.py"],
             "run",
         ),
         (
@@ -123,10 +123,10 @@ CI = [".github/workflows/test-litellm-ui-unit.yml"]
         ),
         (
             "cost-map-only",
-            ["model_prices_and_context_window.json", "litellm/utils.py"],
+            ["model_prices_and_context_window.json", "embrouter/utils.py"],
             "skip",
         ),
-        ("cost-map-only", ["tests/test_litellm/test_x.py"], "skip"),
+        ("cost-map-only", ["tests/test_embrouter/test_x.py"], "skip"),
         ("cost-map-only", ["model_prices_and_context_window.json", "docs/pricing.md"], "skip"),
         ("cost-map-only", ["model_prices_and_context_window.json", "docs/foo.mdx"], "skip"),
         ("cost-map-only", [], "skip"),
@@ -138,9 +138,9 @@ def test_classify_decisions(category: str, changed: list[str], expected: str) ->
 
 
 def test_markdown_under_ui_counts_as_client_not_docs() -> None:
-    assert classify("client", ["ui/litellm-dashboard/README.md"]) == "run"
-    assert classify("backend", ["ui/litellm-dashboard/README.md"]) == "skip"
-    assert classify("ui", ["ui/litellm-dashboard/README.md"]) == "run"
+    assert classify("client", ["ui/embrouter-dashboard/README.md"]) == "run"
+    assert classify("backend", ["ui/embrouter-dashboard/README.md"]) == "skip"
+    assert classify("ui", ["ui/embrouter-dashboard/README.md"]) == "run"
 
 
 def test_ci_config_changes_reach_every_category() -> None:
@@ -189,11 +189,11 @@ def _pr_repo(tmp_path: Path, feature_files: dict[str, str]) -> Path:
     _git(work, "config", "user.email", "t@t")
     _git(work, "config", "user.name", "t")
     _git(work, "remote", "add", "origin", str(remote))
-    (work / "litellm_core.py").write_text("x\n")
+    (work / "embrouter_core.py").write_text("x\n")
     _git(work, "add", ".")
     _git(work, "commit", "-qm", "base")
     _git(work, "push", "-q", "origin", "main")
-    _git(work, "checkout", "-q", "-b", "litellm_feature")
+    _git(work, "checkout", "-q", "-b", "embrouter_feature")
     for rel, content in feature_files.items():
         target = work / rel
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -231,7 +231,7 @@ def test_path_filter_halts_docs_only_pr(tmp_path: Path) -> None:
 
 
 def test_path_filter_runs_backend_pr(tmp_path: Path) -> None:
-    work = _pr_repo(tmp_path, {"litellm/new.py": "y\n"})
+    work = _pr_repo(tmp_path, {"embrouter/new.py": "y\n"})
     result = _run_path_filter(work, tmp_path, "backend", SCRIPTS_DIR)
     assert result.returncode == 0
     assert "running job" in result.stdout

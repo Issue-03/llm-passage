@@ -1,10 +1,10 @@
 """
 Custom Secret Manager Integration
 
-This module provides a base class for implementing custom secret managers in LiteLLM.
+This module provides a base class for implementing custom secret managers in EmbRouter.
 
 Usage:
-    from litellm.integrations.custom_secret_manager import CustomSecretManager
+    from embrouter.integrations.custom_secret_manager import CustomSecretManager
 
     class MySecretManager(CustomSecretManager):
         def __init__(self):
@@ -29,11 +29,11 @@ Usage:
             return self._fetch_secret_from_service_sync(secret_name)
 
     # Set your custom secret manager
-    import litellm
-    from litellm.types.secret_managers.main import KeyManagementSystem
+    import embrouter
+    from embrouter.types.secret_managers.main import KeyManagementSystem
 
-    litellm.secret_manager_client = MySecretManager()
-    litellm._key_management_system = KeyManagementSystem.CUSTOM
+    embrouter.secret_manager_client = MySecretManager()
+    embrouter._key_management_system = KeyManagementSystem.CUSTOM
 """
 
 from abc import abstractmethod
@@ -41,8 +41,8 @@ from typing import Any
 
 import httpx
 
-from litellm._logging import verbose_logger
-from litellm.secret_managers.base_secret_manager import BaseSecretManager
+from embrouter._logging import verbose_logger
+from embrouter.secret_managers.base_secret_manager import BaseSecretManager
 
 
 class CustomSecretManager(BaseSecretManager):
@@ -50,12 +50,12 @@ class CustomSecretManager(BaseSecretManager):
     Base class for implementing custom secret managers.
 
     This class provides a standard interface for implementing custom secret management
-    integrations in LiteLLM. Users can extend this class to integrate their own secret
+    integrations in EmbRouter. Users can extend this class to integrate their own secret
     management systems.
 
     Example:
         ```python
-        from litellm.integrations.custom_secret_manager import CustomSecretManager
+        from embrouter.integrations.custom_secret_manager import CustomSecretManager
 
         class MyVaultSecretManager(CustomSecretManager):
             def __init__(self, vault_url: str, token: str):

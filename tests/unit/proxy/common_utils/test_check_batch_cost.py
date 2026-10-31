@@ -16,9 +16,9 @@ import pytest
 from fastapi import HTTPException
 
 if TYPE_CHECKING:
-    from litellm.batches.batch_utils import BatchCostUsageResult
+    from embrouter.batches.batch_utils import BatchCostUsageResult
 
-_IS_B64 = "litellm.proxy.openai_files_endpoints.common_utils._is_base64_encoded_unified_file_id"
+_IS_B64 = "embrouter.proxy.openai_files_endpoints.common_utils._is_base64_encoded_unified_file_id"
 _CLAIM_UNIFIED_BATCH_ID = "dW5pZmllZF9iYXRjaF9pZA=="
 _CLAIM_OUTPUT_FILE_ID = "file-output-123"
 
@@ -32,7 +32,7 @@ def _batch_cost_result(
 ) -> "BatchCostUsageResult":
     """Build the BatchCostUsageResult calculate_batch_cost_and_usage now returns,
     for mocking it in tests that only care about cost/usage/models."""
-    from litellm.batches.batch_utils import BatchCostUsageResult
+    from embrouter.batches.batch_utils import BatchCostUsageResult
 
     return BatchCostUsageResult(
         cost=cost,
@@ -44,14 +44,14 @@ def _batch_cost_result(
 
 
 def _unmanaged_vertex_file_object(
-    input_file_id="gs://bucket/litellm-vertex-files/publishers/google/models/gemini-2.5-flash/abc.jsonl",
+    input_file_id="gs://bucket/embrouter-vertex-files/publishers/google/models/gemini-2.5-flash/abc.jsonl",
     status="validating",
 ):
-    """A LiteLLMBatch JSON blob shaped like what the managed-files hook stores for an
+    """A EmbRouterBatch JSON blob shaped like what the managed-files hook stores for an
     unmanaged Vertex batch (raw gs:// input_file_id)."""
-    from litellm.types.utils import LiteLLMBatch
+    from embrouter.types.utils import EmbRouterBatch
 
-    return LiteLLMBatch(
+    return EmbRouterBatch(
         id="8823717160934178816",
         completion_window="24h",
         created_at=1,
@@ -64,16 +64,16 @@ def _unmanaged_vertex_file_object(
 
 def _unmanaged_bedrock_file_object(
     input_file_id=(
-        "s3://bucket/litellm-bedrock-files-us.anthropic.claude-sonnet-4-20250514-v1-0"
+        "s3://bucket/embrouter-bedrock-files-us.anthropic.claude-sonnet-4-20250514-v1-0"
         "-74b61828-9191-4d80-addb-5a0f9ab0ec6a.jsonl"
     ),
     status="validating",
 ):
-    """A LiteLLMBatch JSON blob shaped like what gets stored for an unmanaged Bedrock
+    """A EmbRouterBatch JSON blob shaped like what gets stored for an unmanaged Bedrock
     batch (raw s3:// input_file_id, ARN unified_object_id)."""
-    from litellm.types.utils import LiteLLMBatch
+    from embrouter.types.utils import EmbRouterBatch
 
-    return LiteLLMBatch(
+    return EmbRouterBatch(
         id="arn:aws:bedrock:us-east-1:298249409318:model-invocation-job/1ofb47x17jua",
         completion_window="24h",
         created_at=1,
@@ -91,8 +91,8 @@ class TestCheckBatchCost:
     def mock_prisma_client(self):
         client = MagicMock()
         client.db = MagicMock()
-        client.db.litellm_managedobjecttable = MagicMock()
-        client.db.litellm_usertable = MagicMock()
+        client.db.embrouter_managedobjecttable = MagicMock()
+        client.db.embrouter_usertable = MagicMock()
         return client
 
     @pytest.fixture
@@ -109,7 +109,7 @@ class TestCheckBatchCost:
     def check_batch_cost_instance(
         self, mock_proxy_logging_obj, mock_prisma_client, mock_llm_router
     ):
-        from litellm_enterprise.proxy.common_utils.check_batch_cost import (
+        from embrouter_enterprise.proxy.common_utils.check_batch_cost import (
             CheckBatchCost,
         )
 
@@ -124,18 +124,18 @@ class TestCheckBatchCost:
         self, check_batch_cost_instance, mock_prisma_client
     ):
         """_cleanup_stale_managed_objects scopes its update to file_purpose='batch' only."""
-        mock_prisma_client.db.litellm_managedobjecttable.update_many = AsyncMock(
+        mock_prisma_client.db.embrouter_managedobjecttable.update_many = AsyncMock(
             return_value=1
         )
         # Return empty so the main poll loop exits immediately
-        mock_prisma_client.db.litellm_managedobjecttable.find_many = AsyncMock(
+        mock_prisma_client.db.embrouter_managedobjecttable.find_many = AsyncMock(
             return_value=[]
         )
 
         await check_batch_cost_instance.check_batch_cost()
 
         calls = (
-            mock_prisma_client.db.litellm_managedobjecttable.update_many.call_args_list
+            mock_prisma_client.db.embrouter_managedobjecttable.update_many.call_args_list
         )
         stale_call = calls[0]
         assert stale_call[1]["data"] == {"status": "stale_expired"}
@@ -148,11 +148,11 @@ class TestCheckBatchCost:
     async def test_startup_probe_confirms_batch_processed_support(
         self, check_batch_cost_instance, mock_prisma_client
     ):
-        mock_prisma_client.db.litellm_managedobjecttable.find_first = AsyncMock(return_value=None)
+        mock_prisma_client.db.embrouter_managedobjecttable.find_first = AsyncMock(return_value=None)
 
         await check_batch_cost_instance.confirm_batch_processed_support()
 
-        probe_where = mock_prisma_client.db.litellm_managedobjecttable.find_first.call_args[1]["where"]
+        probe_where = mock_prisma_client.db.embrouter_managedobjecttable.find_first.call_args[1]["where"]
         assert probe_where["batch_processed"] is False
         assert check_batch_cost_instance.batch_processed_support_confirmed is True
         assert check_batch_cost_instance._has_batch_processed_column is True
@@ -161,7 +161,7 @@ class TestCheckBatchCost:
     async def test_startup_probe_marks_column_absent(
         self, check_batch_cost_instance, mock_prisma_client
     ):
-        mock_prisma_client.db.litellm_managedobjecttable.find_first = AsyncMock(
+        mock_prisma_client.db.embrouter_managedobjecttable.find_first = AsyncMock(
             side_effect=Exception("column batch_processed does not exist")
         )
 
@@ -174,7 +174,7 @@ class TestCheckBatchCost:
     async def test_startup_probe_transient_error_defers_to_poll_cycle(
         self, check_batch_cost_instance, mock_prisma_client
     ):
-        mock_prisma_client.db.litellm_managedobjecttable.find_first = AsyncMock(
+        mock_prisma_client.db.embrouter_managedobjecttable.find_first = AsyncMock(
             side_effect=Exception("connection reset by peer")
         )
 
@@ -188,18 +188,18 @@ class TestCheckBatchCost:
         self, check_batch_cost_instance, mock_prisma_client
     ):
         """find_many is called with take, order, and all terminal statuses excluded."""
-        from litellm.constants import MAX_OBJECTS_PER_POLL_CYCLE
+        from embrouter.constants import MAX_OBJECTS_PER_POLL_CYCLE
 
-        mock_prisma_client.db.litellm_managedobjecttable.update_many = AsyncMock(
+        mock_prisma_client.db.embrouter_managedobjecttable.update_many = AsyncMock(
             return_value=1
         )
-        mock_prisma_client.db.litellm_managedobjecttable.find_many = AsyncMock(
+        mock_prisma_client.db.embrouter_managedobjecttable.find_many = AsyncMock(
             return_value=[]
         )
 
         await check_batch_cost_instance.check_batch_cost()
 
-        find_call = mock_prisma_client.db.litellm_managedobjecttable.find_many.call_args
+        find_call = mock_prisma_client.db.embrouter_managedobjecttable.find_many.call_args
         assert find_call[1]["take"] == MAX_OBJECTS_PER_POLL_CYCLE
         assert find_call[1]["order"] == {"created_at": "asc"}
         not_in = find_call[1]["where"]["status"]["not_in"]
@@ -219,20 +219,20 @@ class TestCheckBatchCost:
         self, check_batch_cost_instance, mock_prisma_client
     ):
         """Falls back to query without batch_processed when primary query raises."""
-        from litellm.constants import MAX_OBJECTS_PER_POLL_CYCLE
+        from embrouter.constants import MAX_OBJECTS_PER_POLL_CYCLE
 
-        mock_prisma_client.db.litellm_managedobjecttable.update_many = AsyncMock(
+        mock_prisma_client.db.embrouter_managedobjecttable.update_many = AsyncMock(
             return_value=1
         )
         # First find_many (primary query) raises with a schema error; second (fallback) returns empty
-        mock_prisma_client.db.litellm_managedobjecttable.find_many = AsyncMock(
+        mock_prisma_client.db.embrouter_managedobjecttable.find_many = AsyncMock(
             side_effect=[Exception("column batch_processed does not exist"), []]
         )
 
         await check_batch_cost_instance.check_batch_cost()
 
         calls = (
-            mock_prisma_client.db.litellm_managedobjecttable.find_many.call_args_list
+            mock_prisma_client.db.embrouter_managedobjecttable.find_many.call_args_list
         )
         assert len(calls) == 2
         fallback_where = calls[1][1]["where"]
@@ -248,14 +248,14 @@ class TestCheckBatchCost:
         self, check_batch_cost_instance, mock_prisma_client
     ):
         """After column absence is discovered, subsequent cycles skip the primary query entirely."""
-        from litellm.constants import MAX_OBJECTS_PER_POLL_CYCLE
+        from embrouter.constants import MAX_OBJECTS_PER_POLL_CYCLE
 
-        mock_prisma_client.db.litellm_managedobjecttable.update_many = AsyncMock(
+        mock_prisma_client.db.embrouter_managedobjecttable.update_many = AsyncMock(
             return_value=1
         )
         # Simulate column already known absent from a previous cycle
         check_batch_cost_instance._has_batch_processed_column = False
-        mock_prisma_client.db.litellm_managedobjecttable.find_many = AsyncMock(
+        mock_prisma_client.db.embrouter_managedobjecttable.find_many = AsyncMock(
             return_value=[]
         )
 
@@ -263,10 +263,10 @@ class TestCheckBatchCost:
 
         # Only one find_many call — the fallback directly, no primary query attempt
         assert (
-            mock_prisma_client.db.litellm_managedobjecttable.find_many.call_count == 1
+            mock_prisma_client.db.embrouter_managedobjecttable.find_many.call_count == 1
         )
         fallback_where = (
-            mock_prisma_client.db.litellm_managedobjecttable.find_many.call_args[1][
+            mock_prisma_client.db.embrouter_managedobjecttable.find_many.call_args[1][
                 "where"
             ]
         )
@@ -283,11 +283,11 @@ class TestCheckBatchCost:
         """
         from unittest.mock import patch
 
-        mock_prisma_client.db.litellm_managedobjecttable.update_many = AsyncMock(
+        mock_prisma_client.db.embrouter_managedobjecttable.update_many = AsyncMock(
             return_value=1
         )
-        mock_prisma_client.db.litellm_managedobjecttable.update = AsyncMock()
-        mock_prisma_client.db.litellm_usertable.find_unique = AsyncMock(
+        mock_prisma_client.db.embrouter_managedobjecttable.update = AsyncMock()
+        mock_prisma_client.db.embrouter_usertable.find_unique = AsyncMock(
             return_value=None
         )
 
@@ -298,7 +298,7 @@ class TestCheckBatchCost:
 
         # Simulate column already known absent (e.g. discovered on a previous cycle)
         check_batch_cost_instance._has_batch_processed_column = False
-        mock_prisma_client.db.litellm_managedobjecttable.find_many = AsyncMock(
+        mock_prisma_client.db.embrouter_managedobjecttable.find_many = AsyncMock(
             return_value=[mock_job]
         )
 
@@ -316,8 +316,8 @@ class TestCheckBatchCost:
         )
 
         mock_deployment = MagicMock()
-        mock_deployment.litellm_params.custom_llm_provider = "openai"
-        mock_deployment.litellm_params.model = "gpt-4"
+        mock_deployment.embrouter_params.custom_llm_provider = "openai"
+        mock_deployment.embrouter_params.model = "gpt-4"
         mock_deployment.model_info.model_dump.return_value = {}
         mock_llm_router.get_deployment = MagicMock(return_value=mock_deployment)
 
@@ -328,28 +328,28 @@ class TestCheckBatchCost:
 
         with (
             patch(
-                "litellm.proxy.openai_files_endpoints.common_utils._is_base64_encoded_unified_file_id",
+                "embrouter.proxy.openai_files_endpoints.common_utils._is_base64_encoded_unified_file_id",
                 side_effect=[decoded_id, None],
             ),
             patch(
-                "litellm.proxy.openai_files_endpoints.common_utils.get_model_id_from_unified_batch_id",
+                "embrouter.proxy.openai_files_endpoints.common_utils.get_model_id_from_unified_batch_id",
                 return_value="model-123",
             ),
             patch(
-                "litellm.proxy.openai_files_endpoints.common_utils.get_batch_id_from_unified_batch_id",
+                "embrouter.proxy.openai_files_endpoints.common_utils.get_batch_id_from_unified_batch_id",
                 return_value="batch-456",
             ),
             patch(
-                "litellm.files.main.afile_content",
+                "embrouter.files.main.afile_content",
                 new_callable=AsyncMock,
                 return_value=mock_file_content,
             ),
             patch(
-                "litellm.batches.batch_utils._get_file_content_as_dictionary",
+                "embrouter.batches.batch_utils._get_file_content_as_dictionary",
                 return_value=[{"id": "req-1"}],
             ),
             patch(
-                "litellm.batches.batch_utils.calculate_batch_cost_and_usage",
+                "embrouter.batches.batch_utils.calculate_batch_cost_and_usage",
                 new_callable=AsyncMock,
                 return_value=_batch_cost_result(
                     0.01,
@@ -358,11 +358,11 @@ class TestCheckBatchCost:
                 ),
             ),
             patch(
-                "litellm.litellm_core_utils.get_llm_provider_logic.get_llm_provider",
+                "embrouter.embrouter_core_utils.get_llm_provider_logic.get_llm_provider",
                 return_value=("gpt-4", "openai", None, None),
             ),
             patch(
-                "litellm.litellm_core_utils.litellm_logging.Logging"
+                "embrouter.embrouter_core_utils.embrouter_logging.Logging"
             ) as mock_logging_cls,
         ):
             mock_logging_obj = MagicMock()
@@ -373,9 +373,9 @@ class TestCheckBatchCost:
 
         # The update must have been called — this is the core assertion.
         assert (
-            mock_prisma_client.db.litellm_managedobjecttable.update.call_count == 1
+            mock_prisma_client.db.embrouter_managedobjecttable.update.call_count == 1
         ), "Expected update() to be called exactly once for the completed job"
-        update_data = mock_prisma_client.db.litellm_managedobjecttable.update.call_args[
+        update_data = mock_prisma_client.db.embrouter_managedobjecttable.update.call_args[
             1
         ]["data"]
         assert (
@@ -389,22 +389,22 @@ class TestCheckBatchCost:
     ):
         """Bedrock resolves the output bucket ONLY from the immutable snapshot kwarg.
 
-        Spreading the credentials as plain kwargs is not enough: get_litellm_params drops
-        s3_bucket_name, so without _litellm_internal_model_credentials the cost poller
+        Spreading the credentials as plain kwargs is not enough: get_embrouter_params drops
+        s3_bucket_name, so without _embrouter_internal_model_credentials the cost poller
         cannot read the output file and every completed Bedrock batch stays unbilled.
         """
         from types import MappingProxyType
         from unittest.mock import patch
 
-        mock_prisma_client.db.litellm_managedobjecttable.update_many = AsyncMock(return_value=1)
-        mock_prisma_client.db.litellm_managedobjecttable.update = AsyncMock()
-        mock_prisma_client.db.litellm_usertable.find_unique = AsyncMock(return_value=None)
+        mock_prisma_client.db.embrouter_managedobjecttable.update_many = AsyncMock(return_value=1)
+        mock_prisma_client.db.embrouter_managedobjecttable.update = AsyncMock()
+        mock_prisma_client.db.embrouter_usertable.find_unique = AsyncMock(return_value=None)
 
         mock_job = MagicMock()
         mock_job.id = "job-bedrock-1"
         mock_job.unified_object_id = "dW5pZmllZF9iYXRjaF9pZA=="
         mock_job.created_by = "user-1"
-        mock_prisma_client.db.litellm_managedobjecttable.find_many = AsyncMock(return_value=[mock_job])
+        mock_prisma_client.db.embrouter_managedobjecttable.find_many = AsyncMock(return_value=[mock_job])
 
         mock_response = MagicMock()
         mock_response.status = "completed"
@@ -421,8 +421,8 @@ class TestCheckBatchCost:
         )
 
         mock_deployment = MagicMock()
-        mock_deployment.litellm_params.custom_llm_provider = "bedrock"
-        mock_deployment.litellm_params.model = "bedrock/anthropic.claude-haiku-4-5-20251001-v1:0"
+        mock_deployment.embrouter_params.custom_llm_provider = "bedrock"
+        mock_deployment.embrouter_params.model = "bedrock/anthropic.claude-haiku-4-5-20251001-v1:0"
         mock_deployment.model_info.model_dump.return_value = {}
         mock_llm_router.get_deployment = MagicMock(return_value=mock_deployment)
 
@@ -433,36 +433,36 @@ class TestCheckBatchCost:
 
         with (
             patch(
-                "litellm.proxy.openai_files_endpoints.common_utils._is_base64_encoded_unified_file_id",
+                "embrouter.proxy.openai_files_endpoints.common_utils._is_base64_encoded_unified_file_id",
                 side_effect=[decoded_id, None],
             ),
             patch(
-                "litellm.proxy.openai_files_endpoints.common_utils.get_model_id_from_unified_batch_id",
+                "embrouter.proxy.openai_files_endpoints.common_utils.get_model_id_from_unified_batch_id",
                 return_value="model-123",
             ),
             patch(
-                "litellm.proxy.openai_files_endpoints.common_utils.get_batch_id_from_unified_batch_id",
+                "embrouter.proxy.openai_files_endpoints.common_utils.get_batch_id_from_unified_batch_id",
                 return_value="batch-456",
             ),
             patch(
-                "litellm.files.main.afile_content",
+                "embrouter.files.main.afile_content",
                 new_callable=AsyncMock,
                 return_value=mock_file_content,
             ) as mock_afile_content,
             patch(
-                "litellm.batches.batch_utils._get_file_content_as_dictionary",
+                "embrouter.batches.batch_utils._get_file_content_as_dictionary",
                 return_value=[{"recordId": "req-1"}],
             ),
             patch(
-                "litellm.batches.batch_utils.calculate_batch_cost_and_usage",
+                "embrouter.batches.batch_utils.calculate_batch_cost_and_usage",
                 new_callable=AsyncMock,
                 return_value=_batch_cost_result(0.01, {"prompt_tokens": 10, "completion_tokens": 5}, ["claude-haiku-4-5"]),
             ),
             patch(
-                "litellm.litellm_core_utils.get_llm_provider_logic.get_llm_provider",
+                "embrouter.embrouter_core_utils.get_llm_provider_logic.get_llm_provider",
                 return_value=("anthropic.claude-haiku-4-5-20251001-v1:0", "bedrock", None, None),
             ),
-            patch("litellm.litellm_core_utils.litellm_logging.Logging") as mock_logging_cls,
+            patch("embrouter.embrouter_core_utils.embrouter_logging.Logging") as mock_logging_cls,
         ):
             mock_logging_obj = MagicMock()
             mock_logging_obj.async_success_handler = AsyncMock()
@@ -472,7 +472,7 @@ class TestCheckBatchCost:
 
         mock_afile_content.assert_awaited()
         passed_kwargs = mock_afile_content.await_args[1]
-        snapshot = passed_kwargs.get("_litellm_internal_model_credentials")
+        snapshot = passed_kwargs.get("_embrouter_internal_model_credentials")
         assert snapshot is not None, "cost poller must pass the trusted credential snapshot"
         assert isinstance(
             snapshot, MappingProxyType
@@ -485,32 +485,32 @@ class TestCheckBatchCost:
     ):
         """The cost poller must price with the rates the router registered for the deployment.
 
-        The deployment's raw model_info dict carries no litellm_params pricing, so passing
+        The deployment's raw model_info dict carries no embrouter_params pricing, so passing
         its model_dump() made the poller bill custom-rate batches at the public cost-map
         price while the inline retrieve path billed the declared rate.
         """
         from unittest.mock import patch
 
-        import litellm
+        import embrouter
 
         deployment_id = "deploy-poller-registered-rates-1"
-        litellm.model_cost[deployment_id] = {
+        embrouter.model_cost[deployment_id] = {
             "id": deployment_id,
             "input_cost_per_token_batches": 2e-06,
             "output_cost_per_token_batches": 4e-06,
-            "litellm_provider": "bedrock",
+            "embrouter_provider": "bedrock",
             "mode": "chat",
         }
 
-        mock_prisma_client.db.litellm_managedobjecttable.update_many = AsyncMock(return_value=1)
-        mock_prisma_client.db.litellm_managedobjecttable.update = AsyncMock()
-        mock_prisma_client.db.litellm_usertable.find_unique = AsyncMock(return_value=None)
+        mock_prisma_client.db.embrouter_managedobjecttable.update_many = AsyncMock(return_value=1)
+        mock_prisma_client.db.embrouter_managedobjecttable.update = AsyncMock()
+        mock_prisma_client.db.embrouter_usertable.find_unique = AsyncMock(return_value=None)
 
         mock_job = MagicMock()
         mock_job.id = "job-poller-rates-1"
         mock_job.unified_object_id = "dW5pZmllZF9iYXRjaF9pZA=="
         mock_job.created_by = "user-1"
-        mock_prisma_client.db.litellm_managedobjecttable.find_many = AsyncMock(return_value=[mock_job])
+        mock_prisma_client.db.embrouter_managedobjecttable.find_many = AsyncMock(return_value=[mock_job])
 
         mock_response = MagicMock()
         mock_response.status = "completed"
@@ -523,8 +523,8 @@ class TestCheckBatchCost:
         )
 
         mock_deployment = MagicMock()
-        mock_deployment.litellm_params.custom_llm_provider = "bedrock"
-        mock_deployment.litellm_params.model = "bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0"
+        mock_deployment.embrouter_params.custom_llm_provider = "bedrock"
+        mock_deployment.embrouter_params.model = "bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0"
         mock_deployment.model_info.model_dump.return_value = {}
         mock_llm_router.get_deployment = MagicMock(return_value=mock_deployment)
 
@@ -536,38 +536,38 @@ class TestCheckBatchCost:
         try:
             with (
                 patch(
-                    "litellm.proxy.openai_files_endpoints.common_utils._is_base64_encoded_unified_file_id",
+                    "embrouter.proxy.openai_files_endpoints.common_utils._is_base64_encoded_unified_file_id",
                     side_effect=[decoded_id, None],
                 ),
                 patch(
-                    "litellm.proxy.openai_files_endpoints.common_utils.get_model_id_from_unified_batch_id",
+                    "embrouter.proxy.openai_files_endpoints.common_utils.get_model_id_from_unified_batch_id",
                     return_value=deployment_id,
                 ),
                 patch(
-                    "litellm.proxy.openai_files_endpoints.common_utils.get_batch_id_from_unified_batch_id",
+                    "embrouter.proxy.openai_files_endpoints.common_utils.get_batch_id_from_unified_batch_id",
                     return_value="batch-456",
                 ),
                 patch(
-                    "litellm.files.main.afile_content",
+                    "embrouter.files.main.afile_content",
                     new_callable=AsyncMock,
                     return_value=mock_file_content,
                 ),
                 patch(
-                    "litellm.batches.batch_utils._get_file_content_as_dictionary",
+                    "embrouter.batches.batch_utils._get_file_content_as_dictionary",
                     return_value=[{"recordId": "req-1"}],
                 ),
                 patch(
-                    "litellm.batches.batch_utils.calculate_batch_cost_and_usage",
+                    "embrouter.batches.batch_utils.calculate_batch_cost_and_usage",
                     new_callable=AsyncMock,
                     return_value=_batch_cost_result(
                         0.0052, {"prompt_tokens": 1400, "completion_tokens": 600}, ["claude-haiku-4-5"]
                     ),
                 ) as mock_calculate,
                 patch(
-                    "litellm.litellm_core_utils.get_llm_provider_logic.get_llm_provider",
+                    "embrouter.embrouter_core_utils.get_llm_provider_logic.get_llm_provider",
                     return_value=("us.anthropic.claude-haiku-4-5-20251001-v1:0", "bedrock", None, None),
                 ),
-                patch("litellm.litellm_core_utils.litellm_logging.Logging") as mock_logging_cls,
+                patch("embrouter.embrouter_core_utils.embrouter_logging.Logging") as mock_logging_cls,
             ):
                 mock_logging_obj = MagicMock()
                 mock_logging_obj.async_success_handler = AsyncMock()
@@ -575,7 +575,7 @@ class TestCheckBatchCost:
 
                 await check_batch_cost_instance.check_batch_cost()
         finally:
-            litellm.model_cost.pop(deployment_id, None)
+            embrouter.model_cost.pop(deployment_id, None)
 
         mock_calculate.assert_awaited_once()
         passed_model_info = mock_calculate.await_args.kwargs["model_info"]
@@ -598,19 +598,19 @@ class TestCheckBatchCost:
         import httpx
         import respx
 
-        from litellm.litellm_core_utils.litellm_logging import Logging
+        from embrouter.embrouter_core_utils.embrouter_logging import Logging
 
-        mock_prisma_client.db.litellm_managedobjecttable.update_many = AsyncMock(return_value=1)
-        mock_prisma_client.db.litellm_managedobjecttable.update = AsyncMock()
-        mock_prisma_client.db.litellm_usertable.find_unique = AsyncMock(return_value=None)
+        mock_prisma_client.db.embrouter_managedobjecttable.update_many = AsyncMock(return_value=1)
+        mock_prisma_client.db.embrouter_managedobjecttable.update = AsyncMock()
+        mock_prisma_client.db.embrouter_usertable.find_unique = AsyncMock(return_value=None)
 
         mock_job = MagicMock()
         mock_job.id = "job-masked-api-base-1"
         mock_job.unified_object_id = base64.urlsafe_b64encode(
-            b"litellm_proxy;model_id:model-123;llm_batch_id:batch-456"
+            b"embrouter_proxy;model_id:model-123;llm_batch_id:batch-456"
         ).decode()
         mock_job.created_by = "user-1"
-        mock_prisma_client.db.litellm_managedobjecttable.find_many = AsyncMock(return_value=[mock_job])
+        mock_prisma_client.db.embrouter_managedobjecttable.find_many = AsyncMock(return_value=[mock_job])
 
         mock_response = MagicMock()
         mock_response.status = "completed"
@@ -621,9 +621,9 @@ class TestCheckBatchCost:
         mock_llm_router.get_deployment_credentials_with_provider = MagicMock(return_value={"api_key": "sk-test"})
 
         mock_deployment = MagicMock()
-        mock_deployment.litellm_params.custom_llm_provider = "openai"
-        mock_deployment.litellm_params.model = "gpt-5.4-mini"
-        mock_deployment.litellm_params.api_base = "https://gateway.example.com/v1?key=AIzaSyVERYSECRET7890"
+        mock_deployment.embrouter_params.custom_llm_provider = "openai"
+        mock_deployment.embrouter_params.model = "gpt-5.4-mini"
+        mock_deployment.embrouter_params.api_base = "https://gateway.example.com/v1?key=AIzaSyVERYSECRET7890"
         mock_deployment.model_info.model_dump.return_value = {}
         mock_llm_router.get_deployment = MagicMock(return_value=mock_deployment)
 
@@ -663,7 +663,7 @@ class TestCheckBatchCost:
 
         cost_row_calls = [call for call in success_handler.await_args_list if "batch_cost" in call.kwargs]
         assert len(cost_row_calls) == 1
-        logged_api_base = cost_row_calls[0].args[0].litellm_params["api_base"]
+        logged_api_base = cost_row_calls[0].args[0].embrouter_params["api_base"]
         assert logged_api_base == "https://gateway.example.com/v1?key=*****7890"
         assert "VERYSECRET" not in logged_api_base
 
@@ -678,11 +678,11 @@ class TestCheckBatchCost:
         """
         from unittest.mock import patch
 
-        mock_prisma_client.db.litellm_managedobjecttable.update_many = AsyncMock(
+        mock_prisma_client.db.embrouter_managedobjecttable.update_many = AsyncMock(
             return_value=1
         )
-        mock_prisma_client.db.litellm_managedobjecttable.update = AsyncMock()
-        mock_prisma_client.db.litellm_usertable.find_unique = AsyncMock(
+        mock_prisma_client.db.embrouter_managedobjecttable.update = AsyncMock()
+        mock_prisma_client.db.embrouter_usertable.find_unique = AsyncMock(
             return_value=None
         )
 
@@ -692,7 +692,7 @@ class TestCheckBatchCost:
         mock_job.created_by = "user-1"
 
         assert check_batch_cost_instance._has_batch_processed_column is True
-        mock_prisma_client.db.litellm_managedobjecttable.find_many = AsyncMock(
+        mock_prisma_client.db.embrouter_managedobjecttable.find_many = AsyncMock(
             return_value=[mock_job]
         )
 
@@ -709,8 +709,8 @@ class TestCheckBatchCost:
         )
 
         mock_deployment = MagicMock()
-        mock_deployment.litellm_params.custom_llm_provider = "openai"
-        mock_deployment.litellm_params.model = "gpt-4"
+        mock_deployment.embrouter_params.custom_llm_provider = "openai"
+        mock_deployment.embrouter_params.model = "gpt-4"
         mock_deployment.model_info.model_dump.return_value = {}
         mock_llm_router.get_deployment = MagicMock(return_value=mock_deployment)
 
@@ -721,28 +721,28 @@ class TestCheckBatchCost:
 
         with (
             patch(
-                "litellm.proxy.openai_files_endpoints.common_utils._is_base64_encoded_unified_file_id",
+                "embrouter.proxy.openai_files_endpoints.common_utils._is_base64_encoded_unified_file_id",
                 side_effect=[decoded_id, None],
             ),
             patch(
-                "litellm.proxy.openai_files_endpoints.common_utils.get_model_id_from_unified_batch_id",
+                "embrouter.proxy.openai_files_endpoints.common_utils.get_model_id_from_unified_batch_id",
                 return_value="model-123",
             ),
             patch(
-                "litellm.proxy.openai_files_endpoints.common_utils.get_batch_id_from_unified_batch_id",
+                "embrouter.proxy.openai_files_endpoints.common_utils.get_batch_id_from_unified_batch_id",
                 return_value="batch-456",
             ),
             patch(
-                "litellm.files.main.afile_content",
+                "embrouter.files.main.afile_content",
                 new_callable=AsyncMock,
                 return_value=mock_file_content,
             ),
             patch(
-                "litellm.batches.batch_utils._get_file_content_as_dictionary",
+                "embrouter.batches.batch_utils._get_file_content_as_dictionary",
                 return_value=[{"id": "req-1"}],
             ),
             patch(
-                "litellm.batches.batch_utils.calculate_batch_cost_and_usage",
+                "embrouter.batches.batch_utils.calculate_batch_cost_and_usage",
                 new_callable=AsyncMock,
                 return_value=_batch_cost_result(
                     0.01,
@@ -751,11 +751,11 @@ class TestCheckBatchCost:
                 ),
             ),
             patch(
-                "litellm.litellm_core_utils.get_llm_provider_logic.get_llm_provider",
+                "embrouter.embrouter_core_utils.get_llm_provider_logic.get_llm_provider",
                 return_value=("gpt-4", "openai", None, None),
             ),
             patch(
-                "litellm.litellm_core_utils.litellm_logging.Logging"
+                "embrouter.embrouter_core_utils.embrouter_logging.Logging"
             ) as mock_logging_cls,
         ):
             mock_logging_obj = MagicMock()
@@ -765,9 +765,9 @@ class TestCheckBatchCost:
             await check_batch_cost_instance.check_batch_cost()
 
         assert (
-            mock_prisma_client.db.litellm_managedobjecttable.update.call_count == 1
+            mock_prisma_client.db.embrouter_managedobjecttable.update.call_count == 1
         ), "Expected update() to be called exactly once for the completed job"
-        update_data = mock_prisma_client.db.litellm_managedobjecttable.update.call_args[
+        update_data = mock_prisma_client.db.embrouter_managedobjecttable.update.call_args[
             1
         ]["data"]
         assert (
@@ -780,24 +780,24 @@ class TestCheckBatchCost:
         self, check_batch_cost_instance, mock_prisma_client, mock_llm_router
     ):
         """Regression: a batch created with the master key or a team-less key has
-        created_by=None and team_id=None on LiteLLM_ManagedObjectTable (the table
+        created_by=None and team_id=None on EmbRouter_ManagedObjectTable (the table
         never stores the raw key hash). CheckBatchCost's synthetic logging_obj for
         such a batch then carries no attributable key/user/team/end-user, and
         before the fix _should_track_cost_callback silently skipped the DB write
         with no error or warning: batch_processed still became True, but no
-        LiteLLM_SpendLogs row was ever written.
+        EmbRouter_SpendLogs row was ever written.
 
         Unlike the other tests in this file, this one does NOT mock
-        litellm_logging.Logging or async_success_handler -- it runs the real
+        embrouter_logging.Logging or async_success_handler -- it runs the real
         logging pipeline through to _ProxyDBLogger, which is the exact gap that
         let the original bug ship undetected.
         """
-        import litellm
-        from litellm.proxy.hooks.proxy_track_cost_callback import _ProxyDBLogger
+        import embrouter
+        from embrouter.proxy.hooks.proxy_track_cost_callback import _ProxyDBLogger
 
-        mock_prisma_client.db.litellm_managedobjecttable.update_many = AsyncMock(return_value=1)
-        mock_prisma_client.db.litellm_managedobjecttable.update = AsyncMock()
-        mock_prisma_client.db.litellm_usertable.find_unique = AsyncMock(return_value=None)
+        mock_prisma_client.db.embrouter_managedobjecttable.update_many = AsyncMock(return_value=1)
+        mock_prisma_client.db.embrouter_managedobjecttable.update = AsyncMock()
+        mock_prisma_client.db.embrouter_usertable.find_unique = AsyncMock(return_value=None)
 
         mock_job = MagicMock()
         mock_job.id = "job-unattributed-1"
@@ -805,14 +805,14 @@ class TestCheckBatchCost:
         mock_job.created_by = None
         mock_job.team_id = None
 
-        mock_prisma_client.db.litellm_managedobjecttable.find_many = AsyncMock(return_value=[mock_job])
+        mock_prisma_client.db.embrouter_managedobjecttable.find_many = AsyncMock(return_value=[mock_job])
 
-        # A real LiteLLMBatch (not a bare MagicMock): this test runs the real
-        # litellm_logging.Logging pipeline, which type-checks the result via
-        # isinstance(..., LiteLLMBatch) before it will compute/attach a cost.
-        from litellm.types.utils import LiteLLMBatch
+        # A real EmbRouterBatch (not a bare MagicMock): this test runs the real
+        # embrouter_logging.Logging pipeline, which type-checks the result via
+        # isinstance(..., EmbRouterBatch) before it will compute/attach a cost.
+        from embrouter.types.utils import EmbRouterBatch
 
-        mock_response = LiteLLMBatch(
+        mock_response = EmbRouterBatch(
             id="batch-1",
             completion_window="24h",
             created_at=1,
@@ -827,8 +827,8 @@ class TestCheckBatchCost:
         mock_llm_router.get_deployment_credentials_with_provider = MagicMock(return_value={"api_key": "sk-test"})
 
         mock_deployment = MagicMock()
-        mock_deployment.litellm_params.custom_llm_provider = "openai"
-        mock_deployment.litellm_params.model = "gpt-4"
+        mock_deployment.embrouter_params.custom_llm_provider = "openai"
+        mock_deployment.embrouter_params.model = "gpt-4"
         mock_deployment.model_info.model_dump.return_value = {}
         mock_llm_router.get_deployment = MagicMock(return_value=mock_deployment)
 
@@ -841,7 +841,7 @@ class TestCheckBatchCost:
         mock_update_database = AsyncMock()
 
         # Unlike the other tests in this file, this one runs the real
-        # litellm_logging.Logging pipeline, which calls
+        # embrouter_logging.Logging pipeline, which calls
         # _is_base64_encoded_unified_file_id an extra time (checking result.id
         # after it's reset to job.unified_object_id). Key off the argument
         # instead of a fixed-length side_effect list so the exact call count
@@ -851,28 +851,28 @@ class TestCheckBatchCost:
 
         with (
             patch(
-                "litellm.proxy.openai_files_endpoints.common_utils._is_base64_encoded_unified_file_id",
+                "embrouter.proxy.openai_files_endpoints.common_utils._is_base64_encoded_unified_file_id",
                 side_effect=_fake_is_base64_encoded,
             ),
             patch(
-                "litellm.proxy.openai_files_endpoints.common_utils.get_model_id_from_unified_batch_id",
+                "embrouter.proxy.openai_files_endpoints.common_utils.get_model_id_from_unified_batch_id",
                 return_value="model-123",
             ),
             patch(
-                "litellm.proxy.openai_files_endpoints.common_utils.get_batch_id_from_unified_batch_id",
+                "embrouter.proxy.openai_files_endpoints.common_utils.get_batch_id_from_unified_batch_id",
                 return_value="batch-456",
             ),
             patch(
-                "litellm.files.main.afile_content",
+                "embrouter.files.main.afile_content",
                 new_callable=AsyncMock,
                 return_value=mock_file_content,
             ),
             patch(
-                "litellm.batches.batch_utils._get_file_content_as_dictionary",
+                "embrouter.batches.batch_utils._get_file_content_as_dictionary",
                 return_value=[{"id": "req-1"}],
             ),
             patch(
-                "litellm.batches.batch_utils.calculate_batch_cost_and_usage",
+                "embrouter.batches.batch_utils.calculate_batch_cost_and_usage",
                 new_callable=AsyncMock,
                 return_value=_batch_cost_result(
                     0.01,
@@ -881,25 +881,25 @@ class TestCheckBatchCost:
                 ),
             ),
             patch(
-                "litellm.litellm_core_utils.get_llm_provider_logic.get_llm_provider",
+                "embrouter.embrouter_core_utils.get_llm_provider_logic.get_llm_provider",
                 return_value=("gpt-4", "openai", None, None),
             ),
-            patch.object(litellm, "_async_success_callback", [db_logger]),
+            patch.object(embrouter, "_async_success_callback", [db_logger]),
             patch(
-                "litellm.proxy.proxy_server.proxy_logging_obj",
+                "embrouter.proxy.proxy_server.proxy_logging_obj",
                 MagicMock(
                     db_spend_update_writer=MagicMock(update_database=mock_update_database),
                     slack_alerting_instance=MagicMock(customer_spend_alert=AsyncMock()),
                 ),
             ),
-            patch("litellm.proxy.proxy_server.increment_spend_counters", AsyncMock()),
-            patch("litellm.proxy.proxy_server.update_cache", AsyncMock()),
+            patch("embrouter.proxy.proxy_server.increment_spend_counters", AsyncMock()),
+            patch("embrouter.proxy.proxy_server.update_cache", AsyncMock()),
         ):
             await check_batch_cost_instance.check_batch_cost()
 
         mock_update_database.assert_awaited_once()
         assert mock_update_database.call_args.kwargs["response_cost"] == 0.01
-        assert mock_prisma_client.db.litellm_managedobjecttable.update.call_count == 1, (
+        assert mock_prisma_client.db.embrouter_managedobjecttable.update.call_count == 1, (
             "the job must still be marked processed once cost tracking succeeds"
         )
 
@@ -916,11 +916,11 @@ class TestCheckBatchCost:
         """
         from unittest.mock import patch
 
-        mock_prisma_client.db.litellm_managedobjecttable.update_many = AsyncMock(
+        mock_prisma_client.db.embrouter_managedobjecttable.update_many = AsyncMock(
             return_value=1
         )
-        mock_prisma_client.db.litellm_managedobjecttable.update = AsyncMock()
-        mock_prisma_client.db.litellm_usertable.find_unique = AsyncMock(
+        mock_prisma_client.db.embrouter_managedobjecttable.update = AsyncMock()
+        mock_prisma_client.db.embrouter_usertable.find_unique = AsyncMock(
             return_value=None
         )
 
@@ -929,7 +929,7 @@ class TestCheckBatchCost:
         mock_job.unified_object_id = "dW5pZmllZF9iYXRjaF9pZA=="
         mock_job.created_by = "user-1"
 
-        mock_prisma_client.db.litellm_managedobjecttable.find_many = AsyncMock(
+        mock_prisma_client.db.embrouter_managedobjecttable.find_many = AsyncMock(
             return_value=[mock_job]
         )
 
@@ -946,19 +946,19 @@ class TestCheckBatchCost:
 
         with (
             patch(
-                "litellm.proxy.openai_files_endpoints.common_utils._is_base64_encoded_unified_file_id",
+                "embrouter.proxy.openai_files_endpoints.common_utils._is_base64_encoded_unified_file_id",
                 side_effect=[decoded_id, None],
             ),
             patch(
-                "litellm.proxy.openai_files_endpoints.common_utils.get_model_id_from_unified_batch_id",
+                "embrouter.proxy.openai_files_endpoints.common_utils.get_model_id_from_unified_batch_id",
                 return_value="model-123",
             ),
             patch(
-                "litellm.proxy.openai_files_endpoints.common_utils.get_batch_id_from_unified_batch_id",
+                "embrouter.proxy.openai_files_endpoints.common_utils.get_batch_id_from_unified_batch_id",
                 return_value="msgbatch_01WA5hdsa2Xx8w4zyPjV1frs",
             ),
             patch(
-                "litellm.files.main.afile_content",
+                "embrouter.files.main.afile_content",
                 new_callable=AsyncMock,
                 side_effect=Exception("File id must have `file_` prefix."),
             ),
@@ -966,7 +966,7 @@ class TestCheckBatchCost:
             await check_batch_cost_instance.check_batch_cost()
 
         assert (
-            mock_prisma_client.db.litellm_managedobjecttable.update.call_count == 0
+            mock_prisma_client.db.embrouter_managedobjecttable.update.call_count == 0
         ), "a failed cost tracking attempt must not mark the job processed"
 
     @pytest.mark.asyncio
@@ -984,23 +984,23 @@ class TestCheckBatchCost:
         """
         import base64
 
-        mock_prisma_client.db.litellm_managedobjecttable.update_many = AsyncMock(
+        mock_prisma_client.db.embrouter_managedobjecttable.update_many = AsyncMock(
             return_value=1
         )
-        mock_prisma_client.db.litellm_managedobjecttable.update = AsyncMock()
-        mock_prisma_client.db.litellm_usertable.find_unique = AsyncMock(
+        mock_prisma_client.db.embrouter_managedobjecttable.update = AsyncMock()
+        mock_prisma_client.db.embrouter_usertable.find_unique = AsyncMock(
             return_value=None
         )
 
         mock_job = MagicMock()
         mock_job.id = "job-terminal-1"
         mock_job.unified_object_id = base64.urlsafe_b64encode(
-            b"litellm_proxy;model_id:model-123;llm_batch_id:batch-456"
+            b"embrouter_proxy;model_id:model-123;llm_batch_id:batch-456"
         ).decode()
         mock_job.created_by = "user-1"
 
         assert check_batch_cost_instance._has_batch_processed_column is True
-        mock_prisma_client.db.litellm_managedobjecttable.find_many = AsyncMock(
+        mock_prisma_client.db.embrouter_managedobjecttable.find_many = AsyncMock(
             return_value=[mock_job]
         )
 
@@ -1016,9 +1016,9 @@ class TestCheckBatchCost:
         await check_batch_cost_instance.check_batch_cost()
 
         assert (
-            mock_prisma_client.db.litellm_managedobjecttable.update.call_count == 1
+            mock_prisma_client.db.embrouter_managedobjecttable.update.call_count == 1
         ), f"Expected update() to be called exactly once for a {terminal_status} job"
-        update_data = mock_prisma_client.db.litellm_managedobjecttable.update.call_args[
+        update_data = mock_prisma_client.db.embrouter_managedobjecttable.update.call_args[
             1
         ]["data"]
         assert update_data["status"] == terminal_status
@@ -1045,25 +1045,25 @@ class TestCheckBatchCost:
         import base64
         import json
 
-        from litellm.types.utils import LiteLLMBatch
+        from embrouter.types.utils import EmbRouterBatch
 
         unified_batch_uid = base64.urlsafe_b64encode(
-            b"litellm_proxy;model_id:model-123;llm_batch_id:batch-456"
+            b"embrouter_proxy;model_id:model-123;llm_batch_id:batch-456"
         ).decode()
         raw_error_file_id = "file-terminal-err-xyz"
         raw_input_file_id = "file-terminal-in-123"
         unified_input_file_id = base64.urlsafe_b64encode(
-            b"litellm_proxy:application/octet-stream;unified_id,in-1;target_model_names,gpt-5-batch"
+            b"embrouter_proxy:application/octet-stream;unified_id,in-1;target_model_names,gpt-5-batch"
         ).decode()
         unified_error_file_id = base64.urlsafe_b64encode(
-            f"litellm_proxy:application/octet-stream;unified_id,u-2;llm_output_file_id,{raw_error_file_id}".encode()
+            f"embrouter_proxy:application/octet-stream;unified_id,u-2;llm_output_file_id,{raw_error_file_id}".encode()
         ).decode()
 
-        mock_prisma_client.db.litellm_managedobjecttable.update_many = AsyncMock(
+        mock_prisma_client.db.embrouter_managedobjecttable.update_many = AsyncMock(
             return_value=1
         )
-        mock_prisma_client.db.litellm_managedobjecttable.update = AsyncMock()
-        mock_prisma_client.db.litellm_usertable.find_unique = AsyncMock(
+        mock_prisma_client.db.embrouter_managedobjecttable.update = AsyncMock()
+        mock_prisma_client.db.embrouter_usertable.find_unique = AsyncMock(
             return_value=None
         )
 
@@ -1075,7 +1075,7 @@ class TestCheckBatchCost:
                 return input_file_row
             return None
 
-        mock_prisma_client.db.litellm_managedfiletable.find_first = AsyncMock(
+        mock_prisma_client.db.embrouter_managedfiletable.find_first = AsyncMock(
             side_effect=find_managed_file
         )
 
@@ -1086,11 +1086,11 @@ class TestCheckBatchCost:
         mock_job.team_id = "team-1"
 
         check_batch_cost_instance._has_batch_processed_column = True
-        mock_prisma_client.db.litellm_managedobjecttable.find_many = AsyncMock(
+        mock_prisma_client.db.embrouter_managedobjecttable.find_many = AsyncMock(
             return_value=[mock_job]
         )
 
-        response = LiteLLMBatch(
+        response = EmbRouterBatch(
             id="batch-456",
             completion_window="24h",
             created_at=1,
@@ -1126,8 +1126,8 @@ class TestCheckBatchCost:
             assert store_call.kwargs["user_api_key_dict"].user_id == "user-1"
             assert store_call.kwargs["user_api_key_dict"].team_id == "team-1"
 
-        assert mock_prisma_client.db.litellm_managedobjecttable.update.call_count == 1
-        update_call = mock_prisma_client.db.litellm_managedobjecttable.update.call_args
+        assert mock_prisma_client.db.embrouter_managedobjecttable.update.call_count == 1
+        update_call = mock_prisma_client.db.embrouter_managedobjecttable.update.call_args
         assert update_call.kwargs["where"] == {"id": "job-terminal-mint-1"}
         update_data = update_call.kwargs["data"]
         assert update_data["status"] == terminal_status
@@ -1161,23 +1161,23 @@ class TestCheckBatchCost:
         import base64
         from unittest.mock import patch
 
-        mock_prisma_client.db.litellm_managedobjecttable.update_many = AsyncMock(
+        mock_prisma_client.db.embrouter_managedobjecttable.update_many = AsyncMock(
             return_value=1
         )
-        mock_prisma_client.db.litellm_managedobjecttable.update = AsyncMock()
-        mock_prisma_client.db.litellm_usertable.find_unique = AsyncMock(
+        mock_prisma_client.db.embrouter_managedobjecttable.update = AsyncMock()
+        mock_prisma_client.db.embrouter_usertable.find_unique = AsyncMock(
             return_value=None
         )
 
         mock_job = MagicMock()
         mock_job.id = "job-completed-no-output-1"
         mock_job.unified_object_id = base64.urlsafe_b64encode(
-            b"litellm_proxy;model_id:model-123;llm_batch_id:batch-456"
+            b"embrouter_proxy;model_id:model-123;llm_batch_id:batch-456"
         ).decode()
         mock_job.created_by = "user-1"
 
         assert check_batch_cost_instance._has_batch_processed_column is True
-        mock_prisma_client.db.litellm_managedobjecttable.find_many = AsyncMock(
+        mock_prisma_client.db.embrouter_managedobjecttable.find_many = AsyncMock(
             return_value=[mock_job]
         )
 
@@ -1198,15 +1198,15 @@ class TestCheckBatchCost:
         )
 
         with patch(
-            "litellm.files.main.afile_content",
+            "embrouter.files.main.afile_content",
             new_callable=AsyncMock,
         ) as mock_afile_content:
             await check_batch_cost_instance.check_batch_cost()
 
         assert (
-            mock_prisma_client.db.litellm_managedobjecttable.update.call_count == 1
+            mock_prisma_client.db.embrouter_managedobjecttable.update.call_count == 1
         ), "a completed batch with no output file must be marked processed exactly once"
-        update_data = mock_prisma_client.db.litellm_managedobjecttable.update.call_args[
+        update_data = mock_prisma_client.db.embrouter_managedobjecttable.update.call_args[
             1
         ]["data"]
         assert update_data["status"] == completed_status
@@ -1246,23 +1246,23 @@ class TestCheckBatchCost:
         import base64
         from unittest.mock import patch
 
-        mock_prisma_client.db.litellm_managedobjecttable.update_many = AsyncMock(
+        mock_prisma_client.db.embrouter_managedobjecttable.update_many = AsyncMock(
             return_value=1
         )
-        mock_prisma_client.db.litellm_managedobjecttable.update = AsyncMock()
-        mock_prisma_client.db.litellm_usertable.find_unique = AsyncMock(
+        mock_prisma_client.db.embrouter_managedobjecttable.update = AsyncMock()
+        mock_prisma_client.db.embrouter_usertable.find_unique = AsyncMock(
             return_value=None
         )
 
         mock_job = MagicMock()
         mock_job.id = "job-completed-lagging-output-1"
         mock_job.unified_object_id = base64.urlsafe_b64encode(
-            b"litellm_proxy;model_id:model-123;llm_batch_id:batch-456"
+            b"embrouter_proxy;model_id:model-123;llm_batch_id:batch-456"
         ).decode()
         mock_job.created_by = "user-1"
 
         assert check_batch_cost_instance._has_batch_processed_column is True
-        mock_prisma_client.db.litellm_managedobjecttable.find_many = AsyncMock(
+        mock_prisma_client.db.embrouter_managedobjecttable.find_many = AsyncMock(
             return_value=[mock_job]
         )
 
@@ -1278,13 +1278,13 @@ class TestCheckBatchCost:
         )
 
         with patch(
-            "litellm.files.main.afile_content",
+            "embrouter.files.main.afile_content",
             new_callable=AsyncMock,
         ) as mock_afile_content:
             await check_batch_cost_instance.check_batch_cost()
 
         assert (
-            mock_prisma_client.db.litellm_managedobjecttable.update.call_count == 0
+            mock_prisma_client.db.embrouter_managedobjecttable.update.call_count == 0
         ), "a completed batch whose output id is still lagging must stay eligible for the next poll"
         assert (
             mock_afile_content.await_count == 0
@@ -1299,17 +1299,17 @@ class TestCheckBatchCost:
         """
         from unittest.mock import patch
 
-        mock_prisma_client.db.litellm_managedobjecttable.update_many = AsyncMock(
+        mock_prisma_client.db.embrouter_managedobjecttable.update_many = AsyncMock(
             return_value=1
         )
-        mock_prisma_client.db.litellm_managedobjecttable.update = AsyncMock()
+        mock_prisma_client.db.embrouter_managedobjecttable.update = AsyncMock()
 
         mock_job = MagicMock()
         mock_job.id = "job-in-progress-1"
         mock_job.unified_object_id = "dW5pZmllZF9iYXRjaF9pZA=="
         mock_job.created_by = "user-1"
 
-        mock_prisma_client.db.litellm_managedobjecttable.find_many = AsyncMock(
+        mock_prisma_client.db.embrouter_managedobjecttable.find_many = AsyncMock(
             return_value=[mock_job]
         )
 
@@ -1323,22 +1323,22 @@ class TestCheckBatchCost:
 
         with (
             patch(
-                "litellm.proxy.openai_files_endpoints.common_utils._is_base64_encoded_unified_file_id",
+                "embrouter.proxy.openai_files_endpoints.common_utils._is_base64_encoded_unified_file_id",
                 side_effect=[decoded_id, None],
             ),
             patch(
-                "litellm.proxy.openai_files_endpoints.common_utils.get_model_id_from_unified_batch_id",
+                "embrouter.proxy.openai_files_endpoints.common_utils.get_model_id_from_unified_batch_id",
                 return_value="model-123",
             ),
             patch(
-                "litellm.proxy.openai_files_endpoints.common_utils.get_batch_id_from_unified_batch_id",
+                "embrouter.proxy.openai_files_endpoints.common_utils.get_batch_id_from_unified_batch_id",
                 return_value="batch-456",
             ),
         ):
             await check_batch_cost_instance.check_batch_cost()
 
         assert (
-            mock_prisma_client.db.litellm_managedobjecttable.update.call_count == 0
+            mock_prisma_client.db.embrouter_managedobjecttable.update.call_count == 0
         ), "a non-terminal batch must not be written back (would stop polling prematurely)"
 
     @pytest.mark.asyncio
@@ -1356,11 +1356,11 @@ class TestCheckBatchCost:
         """
         from unittest.mock import patch
 
-        mock_prisma_client.db.litellm_managedobjecttable.update_many = AsyncMock(
+        mock_prisma_client.db.embrouter_managedobjecttable.update_many = AsyncMock(
             return_value=1
         )
-        mock_prisma_client.db.litellm_managedobjecttable.update = AsyncMock()
-        mock_prisma_client.db.litellm_usertable.find_unique = AsyncMock(
+        mock_prisma_client.db.embrouter_managedobjecttable.update = AsyncMock()
+        mock_prisma_client.db.embrouter_usertable.find_unique = AsyncMock(
             return_value=None
         )
 
@@ -1370,7 +1370,7 @@ class TestCheckBatchCost:
         mock_job.created_by = "user-1"
 
         assert check_batch_cost_instance._has_batch_processed_column is True
-        mock_prisma_client.db.litellm_managedobjecttable.find_many = AsyncMock(
+        mock_prisma_client.db.embrouter_managedobjecttable.find_many = AsyncMock(
             return_value=[mock_job]
         )
 
@@ -1387,8 +1387,8 @@ class TestCheckBatchCost:
         )
 
         mock_deployment = MagicMock()
-        mock_deployment.litellm_params.custom_llm_provider = "openai"
-        mock_deployment.litellm_params.model = "gpt-4"
+        mock_deployment.embrouter_params.custom_llm_provider = "openai"
+        mock_deployment.embrouter_params.model = "gpt-4"
         mock_deployment.model_info.model_dump.return_value = {}
         mock_llm_router.get_deployment = MagicMock(return_value=mock_deployment)
 
@@ -1399,28 +1399,28 @@ class TestCheckBatchCost:
 
         with (
             patch(
-                "litellm.proxy.openai_files_endpoints.common_utils._is_base64_encoded_unified_file_id",
+                "embrouter.proxy.openai_files_endpoints.common_utils._is_base64_encoded_unified_file_id",
                 side_effect=[decoded_id, None],
             ),
             patch(
-                "litellm.proxy.openai_files_endpoints.common_utils.get_model_id_from_unified_batch_id",
+                "embrouter.proxy.openai_files_endpoints.common_utils.get_model_id_from_unified_batch_id",
                 return_value="model-123",
             ),
             patch(
-                "litellm.proxy.openai_files_endpoints.common_utils.get_batch_id_from_unified_batch_id",
+                "embrouter.proxy.openai_files_endpoints.common_utils.get_batch_id_from_unified_batch_id",
                 return_value="batch-456",
             ),
             patch(
-                "litellm.files.main.afile_content",
+                "embrouter.files.main.afile_content",
                 new_callable=AsyncMock,
                 return_value=mock_file_content,
             ) as mock_afile_content,
             patch(
-                "litellm.batches.batch_utils._get_file_content_as_dictionary",
+                "embrouter.batches.batch_utils._get_file_content_as_dictionary",
                 return_value=[{"id": "req-1"}],
             ),
             patch(
-                "litellm.batches.batch_utils.calculate_batch_cost_and_usage",
+                "embrouter.batches.batch_utils.calculate_batch_cost_and_usage",
                 new_callable=AsyncMock,
                 return_value=_batch_cost_result(
                     0.01,
@@ -1429,11 +1429,11 @@ class TestCheckBatchCost:
                 ),
             ),
             patch(
-                "litellm.litellm_core_utils.get_llm_provider_logic.get_llm_provider",
+                "embrouter.embrouter_core_utils.get_llm_provider_logic.get_llm_provider",
                 return_value=("gpt-4", "openai", None, None),
             ),
             patch(
-                "litellm.litellm_core_utils.litellm_logging.Logging"
+                "embrouter.embrouter_core_utils.embrouter_logging.Logging"
             ) as mock_logging_cls,
         ):
             mock_logging_obj = MagicMock()
@@ -1447,9 +1447,9 @@ class TestCheckBatchCost:
         ), f"{terminal_status} batch with an output file must fetch results and be billed"
         mock_logging_obj.async_success_handler.assert_awaited_once()
         assert (
-            mock_prisma_client.db.litellm_managedobjecttable.update.call_count == 1
+            mock_prisma_client.db.embrouter_managedobjecttable.update.call_count == 1
         )
-        update_data = mock_prisma_client.db.litellm_managedobjecttable.update.call_args[
+        update_data = mock_prisma_client.db.embrouter_managedobjecttable.update.call_args[
             1
         ]["data"]
         assert update_data["batch_processed"] is True
@@ -1472,19 +1472,19 @@ class TestCheckBatchCost:
         import httpx
         import respx
 
-        from litellm.litellm_core_utils.litellm_logging import Logging
+        from embrouter.embrouter_core_utils.embrouter_logging import Logging
 
-        mock_prisma_client.db.litellm_managedobjecttable.update_many = AsyncMock(return_value=1)
-        mock_prisma_client.db.litellm_managedobjecttable.update = AsyncMock()
-        mock_prisma_client.db.litellm_usertable.find_unique = AsyncMock(return_value=None)
+        mock_prisma_client.db.embrouter_managedobjecttable.update_many = AsyncMock(return_value=1)
+        mock_prisma_client.db.embrouter_managedobjecttable.update = AsyncMock()
+        mock_prisma_client.db.embrouter_usertable.find_unique = AsyncMock(return_value=None)
 
         mock_job = MagicMock()
         mock_job.id = "job-error-file-1"
         mock_job.unified_object_id = base64.urlsafe_b64encode(
-            b"litellm_proxy;model_id:model-123;llm_batch_id:batch-456"
+            b"embrouter_proxy;model_id:model-123;llm_batch_id:batch-456"
         ).decode()
         mock_job.created_by = "user-1"
-        mock_prisma_client.db.litellm_managedobjecttable.find_many = AsyncMock(return_value=[mock_job])
+        mock_prisma_client.db.embrouter_managedobjecttable.find_many = AsyncMock(return_value=[mock_job])
 
         mock_response = MagicMock()
         mock_response.status = "completed"
@@ -1495,8 +1495,8 @@ class TestCheckBatchCost:
         mock_llm_router.get_deployment_credentials_with_provider = MagicMock(return_value={"api_key": "sk-test"})
 
         mock_deployment = MagicMock()
-        mock_deployment.litellm_params.custom_llm_provider = "openai"
-        mock_deployment.litellm_params.model = "gpt-4"
+        mock_deployment.embrouter_params.custom_llm_provider = "openai"
+        mock_deployment.embrouter_params.model = "gpt-4"
         mock_deployment.model_info.model_dump.return_value = {}
         mock_llm_router.get_deployment = MagicMock(return_value=mock_deployment)
 
@@ -1578,25 +1578,25 @@ class TestCheckBatchCost:
         import base64
         from unittest.mock import patch
 
-        from litellm.exceptions import NotFoundError
+        from embrouter.exceptions import NotFoundError
 
-        mock_prisma_client.db.litellm_managedobjecttable.update_many = AsyncMock(
+        mock_prisma_client.db.embrouter_managedobjecttable.update_many = AsyncMock(
             return_value=1
         )
-        mock_prisma_client.db.litellm_managedobjecttable.update = AsyncMock()
-        mock_prisma_client.db.litellm_usertable.find_unique = AsyncMock(
+        mock_prisma_client.db.embrouter_managedobjecttable.update = AsyncMock()
+        mock_prisma_client.db.embrouter_usertable.find_unique = AsyncMock(
             return_value=None
         )
 
         mock_job = MagicMock()
         mock_job.id = "job-output-gone-1"
         mock_job.unified_object_id = base64.urlsafe_b64encode(
-            b"litellm_proxy;model_id:model-123;llm_batch_id:batch-456"
+            b"embrouter_proxy;model_id:model-123;llm_batch_id:batch-456"
         ).decode()
         mock_job.created_by = "user-1"
 
         assert check_batch_cost_instance._has_batch_processed_column is True
-        mock_prisma_client.db.litellm_managedobjecttable.find_many = AsyncMock(
+        mock_prisma_client.db.embrouter_managedobjecttable.find_many = AsyncMock(
             return_value=[mock_job]
         )
 
@@ -1616,7 +1616,7 @@ class TestCheckBatchCost:
 
         with (
             patch(
-                "litellm.files.main.afile_content",
+                "embrouter.files.main.afile_content",
                 new_callable=AsyncMock,
                 side_effect=NotFoundError(
                     message=f"404: output file {missing_output_file_id} does not exist",
@@ -1625,7 +1625,7 @@ class TestCheckBatchCost:
                 ),
             ) as mock_afile_content,
             patch(
-                "litellm.batches.batch_utils.calculate_batch_cost_and_usage",
+                "embrouter.batches.batch_utils.calculate_batch_cost_and_usage",
                 new_callable=AsyncMock,
             ) as mock_calculate,
         ):
@@ -1634,9 +1634,9 @@ class TestCheckBatchCost:
         assert mock_afile_content.await_count == 1
         mock_calculate.assert_not_awaited()
         assert (
-            mock_prisma_client.db.litellm_managedobjecttable.update.call_count == 1
+            mock_prisma_client.db.embrouter_managedobjecttable.update.call_count == 1
         ), "a terminal batch with a 404ing output file must be retired, not retried forever"
-        update_data = mock_prisma_client.db.litellm_managedobjecttable.update.call_args[
+        update_data = mock_prisma_client.db.embrouter_managedobjecttable.update.call_args[
             1
         ]["data"]
         assert update_data["status"] == "failed"
@@ -1651,11 +1651,11 @@ class TestCheckBatchCost:
         Without this, GET /batches/{id} returns a raw file ID that cannot be routed
         through the proxy, causing API_KEY errors when clients call GET /files/{id}/content.
         """
-        mock_prisma_client.db.litellm_managedobjecttable.update_many = AsyncMock(
+        mock_prisma_client.db.embrouter_managedobjecttable.update_many = AsyncMock(
             return_value=1
         )
-        mock_prisma_client.db.litellm_managedobjecttable.update = AsyncMock()
-        mock_prisma_client.db.litellm_usertable.find_unique = AsyncMock(
+        mock_prisma_client.db.embrouter_managedobjecttable.update = AsyncMock()
+        mock_prisma_client.db.embrouter_usertable.find_unique = AsyncMock(
             return_value=None
         )
 
@@ -1666,7 +1666,7 @@ class TestCheckBatchCost:
         mock_job.team_id = None
 
         check_batch_cost_instance._has_batch_processed_column = True
-        mock_prisma_client.db.litellm_managedobjecttable.find_many = AsyncMock(
+        mock_prisma_client.db.embrouter_managedobjecttable.find_many = AsyncMock(
             return_value=[mock_job]
         )
 
@@ -1689,8 +1689,8 @@ class TestCheckBatchCost:
         )
 
         mock_deployment = MagicMock()
-        mock_deployment.litellm_params.custom_llm_provider = "azure"
-        mock_deployment.litellm_params.model = "azure/gpt-5-mini"
+        mock_deployment.embrouter_params.custom_llm_provider = "azure"
+        mock_deployment.embrouter_params.model = "azure/gpt-5-mini"
         mock_deployment.model_name = "gpt-5-batch"
         mock_deployment.model_info.model_dump.return_value = {}
         mock_llm_router.get_deployment = MagicMock(return_value=mock_deployment)
@@ -1711,30 +1711,30 @@ class TestCheckBatchCost:
 
         with (
             patch(
-                "litellm.proxy.openai_files_endpoints.common_utils._is_base64_encoded_unified_file_id",
+                "embrouter.proxy.openai_files_endpoints.common_utils._is_base64_encoded_unified_file_id",
                 # call 1: job unified_object_id decode, call 2: existing raw check for output_file_id,
                 # call 3: fix guard for output_file_id, call 4: fix guard for error_file_id
                 side_effect=[decoded_id, None, None, None],
             ),
             patch(
-                "litellm.proxy.openai_files_endpoints.common_utils.get_model_id_from_unified_batch_id",
+                "embrouter.proxy.openai_files_endpoints.common_utils.get_model_id_from_unified_batch_id",
                 return_value="model-123",
             ),
             patch(
-                "litellm.proxy.openai_files_endpoints.common_utils.get_batch_id_from_unified_batch_id",
+                "embrouter.proxy.openai_files_endpoints.common_utils.get_batch_id_from_unified_batch_id",
                 return_value="batch-456",
             ),
             patch(
-                "litellm.files.main.afile_content",
+                "embrouter.files.main.afile_content",
                 new_callable=AsyncMock,
                 return_value=mock_file_content,
             ),
             patch(
-                "litellm.batches.batch_utils._get_file_content_as_dictionary",
+                "embrouter.batches.batch_utils._get_file_content_as_dictionary",
                 return_value=[{"id": "req-1"}],
             ),
             patch(
-                "litellm.batches.batch_utils.calculate_batch_cost_and_usage",
+                "embrouter.batches.batch_utils.calculate_batch_cost_and_usage",
                 new_callable=AsyncMock,
                 return_value=_batch_cost_result(
                     0.01,
@@ -1743,11 +1743,11 @@ class TestCheckBatchCost:
                 ),
             ),
             patch(
-                "litellm.litellm_core_utils.get_llm_provider_logic.get_llm_provider",
+                "embrouter.embrouter_core_utils.get_llm_provider_logic.get_llm_provider",
                 return_value=("gpt-5-mini", "azure", None, None),
             ),
             patch(
-                "litellm.litellm_core_utils.litellm_logging.Logging"
+                "embrouter.embrouter_core_utils.embrouter_logging.Logging"
             ) as mock_logging_cls,
         ):
             mock_logging_obj = MagicMock()
@@ -1785,7 +1785,7 @@ class TestUnmanagedVertexRouting:
     """Routing of unmanaged Vertex batches whose unified_object_id is a raw provider job id."""
 
     def _instance(self, track_unmanaged, router):
-        from litellm_enterprise.proxy.common_utils.check_batch_cost import (
+        from embrouter_enterprise.proxy.common_utils.check_batch_cost import (
             CheckBatchCost,
         )
 
@@ -1821,8 +1821,8 @@ class TestUnmanagedVertexRouting:
 
     def _vertex_deployment(self):
         deployment = MagicMock()
-        deployment.litellm_params.custom_llm_provider = "vertex_ai"
-        deployment.litellm_params.model = "vertex_ai/gemini-2.5-flash"
+        deployment.embrouter_params.custom_llm_provider = "vertex_ai"
+        deployment.embrouter_params.model = "vertex_ai/gemini-2.5-flash"
         return deployment
 
     def test_flag_on_routes_to_vertex_deployment(self):
@@ -1854,7 +1854,7 @@ class TestUnmanagedVertexRouting:
         router.get_model_list.return_value = [
             {
                 "model_name": "gemini-2.5-flash-dts-usc1",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": f"vertex_ai/gemini/{endpoint_id}",
                     "custom_llm_provider": "vertex_ai",
                 },
@@ -1864,7 +1864,7 @@ class TestUnmanagedVertexRouting:
         instance = self._instance(track_unmanaged=True, router=router)
         job = self._job(
             file_object=_unmanaged_vertex_file_object(
-                input_file_id=f"gs://bucket/litellm-vertex-files/endpoints/{endpoint_id}/abc.jsonl"
+                input_file_id=f"gs://bucket/embrouter-vertex-files/endpoints/{endpoint_id}/abc.jsonl"
             )
         )
 
@@ -1880,8 +1880,8 @@ class TestUnmanagedVertexRouting:
         router.resolve_model_name_from_model_id.return_value = "gemini-2.5-flash"
         router.get_model_ids.return_value = ["deploy-openai"]
         non_vertex_deployment = MagicMock()
-        non_vertex_deployment.litellm_params.custom_llm_provider = "openai"
-        non_vertex_deployment.litellm_params.model = "gpt-4o"
+        non_vertex_deployment.embrouter_params.custom_llm_provider = "openai"
+        non_vertex_deployment.embrouter_params.model = "gpt-4o"
         router.get_deployment = MagicMock(return_value=non_vertex_deployment)
         instance = self._instance(track_unmanaged=True, router=router)
         prom = MagicMock()
@@ -1899,13 +1899,13 @@ class TestUnmanagedVertexRouting:
         router.resolve_model_name_from_model_id.return_value = "azure-gemini"
         router.get_model_ids.return_value = ["deploy-azure"]
         non_vertex_deployment = MagicMock()
-        non_vertex_deployment.litellm_params.custom_llm_provider = "azure"
-        non_vertex_deployment.litellm_params.model = "azure/gemini-2.5-flash"
+        non_vertex_deployment.embrouter_params.custom_llm_provider = "azure"
+        non_vertex_deployment.embrouter_params.model = "azure/gemini-2.5-flash"
         router.get_deployment = MagicMock(return_value=non_vertex_deployment)
         router.get_model_list.return_value = [
             {
                 "model_name": "azure-gemini",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "azure/gemini-2.5-flash",
                     "custom_llm_provider": "azure",
                 },
@@ -1913,7 +1913,7 @@ class TestUnmanagedVertexRouting:
             },
             {
                 "model_name": "vertex-gemini",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "vertex_ai/gemini-2.5-flash",
                     "custom_llm_provider": "vertex_ai",
                 },
@@ -1985,8 +1985,8 @@ class TestUnmanagedVertexRouting:
         )
 
         deployment = MagicMock()
-        deployment.litellm_params.custom_llm_provider = "vertex_ai"
-        deployment.litellm_params.model = "vertex_ai/gemini-2.5-flash"
+        deployment.embrouter_params.custom_llm_provider = "vertex_ai"
+        deployment.embrouter_params.model = "vertex_ai/gemini-2.5-flash"
         deployment.model_name = "gemini-2.5-flash"
         deployment.model_info.model_dump.return_value = {}
         router.get_deployment = MagicMock(return_value=deployment)
@@ -1997,14 +1997,14 @@ class TestUnmanagedVertexRouting:
 
         prisma = instance.prisma_client
         prisma.db = MagicMock()
-        prisma.db.litellm_managedobjecttable = MagicMock()
-        prisma.db.litellm_managedobjecttable.update_many = AsyncMock(return_value=1)
-        prisma.db.litellm_managedobjecttable.update = AsyncMock()
-        prisma.db.litellm_managedobjecttable.find_many = AsyncMock(
+        prisma.db.embrouter_managedobjecttable = MagicMock()
+        prisma.db.embrouter_managedobjecttable.update_many = AsyncMock(return_value=1)
+        prisma.db.embrouter_managedobjecttable.update = AsyncMock()
+        prisma.db.embrouter_managedobjecttable.find_many = AsyncMock(
             return_value=[self._job()]
         )
-        prisma.db.litellm_usertable = MagicMock()
-        prisma.db.litellm_usertable.find_unique = AsyncMock(return_value=None)
+        prisma.db.embrouter_usertable = MagicMock()
+        prisma.db.embrouter_usertable.find_unique = AsyncMock(return_value=None)
 
         mock_file_content = MagicMock()
         mock_file_content.content = b'{"id":"req-1"}'
@@ -2012,16 +2012,16 @@ class TestUnmanagedVertexRouting:
         with (
             patch(_IS_B64, side_effect=[False, None]),
             patch(
-                "litellm.files.main.afile_content",
+                "embrouter.files.main.afile_content",
                 new_callable=AsyncMock,
                 return_value=mock_file_content,
             ),
             patch(
-                "litellm.batches.batch_utils._get_file_content_as_dictionary",
+                "embrouter.batches.batch_utils._get_file_content_as_dictionary",
                 return_value=[{"id": "req-1"}],
             ),
             patch(
-                "litellm.batches.batch_utils.calculate_batch_cost_and_usage",
+                "embrouter.batches.batch_utils.calculate_batch_cost_and_usage",
                 new_callable=AsyncMock,
                 return_value=_batch_cost_result(
                     0.01,
@@ -2030,11 +2030,11 @@ class TestUnmanagedVertexRouting:
                 ),
             ),
             patch(
-                "litellm.litellm_core_utils.get_llm_provider_logic.get_llm_provider",
+                "embrouter.embrouter_core_utils.get_llm_provider_logic.get_llm_provider",
                 return_value=("gemini-2.5-flash", "vertex_ai", None, None),
             ),
             patch(
-                "litellm.litellm_core_utils.litellm_logging.Logging"
+                "embrouter.embrouter_core_utils.embrouter_logging.Logging"
             ) as mock_logging_cls,
         ):
             mock_logging_obj = MagicMock()
@@ -2050,8 +2050,8 @@ class TestUnmanagedVertexRouting:
         mock_logging_obj.async_success_handler.assert_awaited_once()
         assert mock_logging_obj.async_success_handler.call_args[1]["batch_cost"] == 0.01
 
-        assert prisma.db.litellm_managedobjecttable.update.call_count == 1
-        update_data = prisma.db.litellm_managedobjecttable.update.call_args[1]["data"]
+        assert prisma.db.embrouter_managedobjecttable.update.call_count == 1
+        update_data = prisma.db.embrouter_managedobjecttable.update.call_args[1]["data"]
         assert update_data["batch_processed"] is True
         assert update_data["status"] == "complete"
 
@@ -2062,7 +2062,7 @@ class TestUnmanagedBedrockRouting:
     _ARN = "arn:aws:bedrock:us-east-1:298249409318:model-invocation-job/1ofb47x17jua"
 
     def _instance(self, track_unmanaged, router):
-        from litellm_enterprise.proxy.common_utils.check_batch_cost import (
+        from embrouter_enterprise.proxy.common_utils.check_batch_cost import (
             CheckBatchCost,
         )
 
@@ -2083,8 +2083,8 @@ class TestUnmanagedBedrockRouting:
 
     def _bedrock_deployment(self):
         deployment = MagicMock()
-        deployment.litellm_params.custom_llm_provider = "bedrock"
-        deployment.litellm_params.model = "bedrock/us.anthropic.claude-sonnet-4-20250514-v1:0"
+        deployment.embrouter_params.custom_llm_provider = "bedrock"
+        deployment.embrouter_params.model = "bedrock/us.anthropic.claude-sonnet-4-20250514-v1:0"
         return deployment
 
     def test_flag_off_skips_arn_unified_id_unchanged(self):
@@ -2123,8 +2123,8 @@ class TestUnmanagedBedrockRouting:
         router.resolve_model_name_from_model_id.return_value = "claude-sonnet-4"
         router.get_model_ids.return_value = ["deploy-anthropic"]
         non_bedrock_deployment = MagicMock()
-        non_bedrock_deployment.litellm_params.custom_llm_provider = "anthropic"
-        non_bedrock_deployment.litellm_params.model = "claude-sonnet-4-20250514"
+        non_bedrock_deployment.embrouter_params.custom_llm_provider = "anthropic"
+        non_bedrock_deployment.embrouter_params.model = "claude-sonnet-4-20250514"
         router.get_deployment = MagicMock(return_value=non_bedrock_deployment)
         instance = self._instance(track_unmanaged=True, router=router)
         prom = MagicMock()
@@ -2146,7 +2146,7 @@ class TestUnmanagedBedrockRouting:
         router.get_model_list.return_value = [
             {
                 "model_name": "claude-sonnet-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "bedrock/us.anthropic.claude-sonnet-4-20250514-v1:0",
                     "custom_llm_provider": "bedrock",
                 },
@@ -2178,7 +2178,7 @@ class TestUnmanagedBedrockRouting:
         )
 
     def test_flag_on_non_s3_input_is_not_unmanaged_bedrock(self):
-        """Flag on, but input_file_id is not a litellm-bedrock-files- s3:// key: treat as
+        """Flag on, but input_file_id is not a embrouter-bedrock-files- s3:// key: treat as
         unroutable, do not attempt model derivation."""
         router = MagicMock()
         instance = self._instance(track_unmanaged=True, router=router)
@@ -2227,14 +2227,14 @@ class TestUnmanagedBedrockRouting:
 
         prisma = instance.prisma_client
         prisma.db = MagicMock()
-        prisma.db.litellm_managedobjecttable = MagicMock()
-        prisma.db.litellm_managedobjecttable.update_many = AsyncMock(return_value=1)
-        prisma.db.litellm_managedobjecttable.update = AsyncMock()
-        prisma.db.litellm_managedobjecttable.find_many = AsyncMock(
+        prisma.db.embrouter_managedobjecttable = MagicMock()
+        prisma.db.embrouter_managedobjecttable.update_many = AsyncMock(return_value=1)
+        prisma.db.embrouter_managedobjecttable.update = AsyncMock()
+        prisma.db.embrouter_managedobjecttable.find_many = AsyncMock(
             return_value=[self._job()]
         )
-        prisma.db.litellm_usertable = MagicMock()
-        prisma.db.litellm_usertable.find_unique = AsyncMock(return_value=None)
+        prisma.db.embrouter_usertable = MagicMock()
+        prisma.db.embrouter_usertable.find_unique = AsyncMock(return_value=None)
 
         mock_file_content = MagicMock()
         mock_file_content.content = b'{"id":"req-1"}'
@@ -2242,16 +2242,16 @@ class TestUnmanagedBedrockRouting:
         with (
             patch(_IS_B64, side_effect=[False, None]),
             patch(
-                "litellm.files.main.afile_content",
+                "embrouter.files.main.afile_content",
                 new_callable=AsyncMock,
                 return_value=mock_file_content,
             ),
             patch(
-                "litellm.batches.batch_utils._get_file_content_as_dictionary",
+                "embrouter.batches.batch_utils._get_file_content_as_dictionary",
                 return_value=[{"id": "req-1"}],
             ),
             patch(
-                "litellm.batches.batch_utils.calculate_batch_cost_and_usage",
+                "embrouter.batches.batch_utils.calculate_batch_cost_and_usage",
                 new_callable=AsyncMock,
                 return_value=_batch_cost_result(
                     0.02,
@@ -2260,11 +2260,11 @@ class TestUnmanagedBedrockRouting:
                 ),
             ),
             patch(
-                "litellm.litellm_core_utils.get_llm_provider_logic.get_llm_provider",
+                "embrouter.embrouter_core_utils.get_llm_provider_logic.get_llm_provider",
                 return_value=("claude-sonnet-4", "bedrock", None, None),
             ),
             patch(
-                "litellm.litellm_core_utils.litellm_logging.Logging"
+                "embrouter.embrouter_core_utils.embrouter_logging.Logging"
             ) as mock_logging_cls,
         ):
             mock_logging_obj = MagicMock()
@@ -2280,8 +2280,8 @@ class TestUnmanagedBedrockRouting:
         mock_logging_obj.async_success_handler.assert_awaited_once()
         assert mock_logging_obj.async_success_handler.call_args[1]["batch_cost"] == 0.02
 
-        assert prisma.db.litellm_managedobjecttable.update.call_count == 1
-        update_data = prisma.db.litellm_managedobjecttable.update.call_args[1]["data"]
+        assert prisma.db.embrouter_managedobjecttable.update.call_count == 1
+        update_data = prisma.db.embrouter_managedobjecttable.update.call_args[1]["data"]
         assert update_data["batch_processed"] is True
         assert update_data["status"] == "complete"
 
@@ -2291,7 +2291,7 @@ class TestUnmanagedBatchCostFlagIsGeneralized:
     just the provider it was originally added for."""
 
     def test_one_flag_routes_both_vertex_and_bedrock_jobs(self):
-        from litellm_enterprise.proxy.common_utils.check_batch_cost import (
+        from embrouter_enterprise.proxy.common_utils.check_batch_cost import (
             CheckBatchCost,
         )
 
@@ -2305,12 +2305,12 @@ class TestUnmanagedBatchCostFlagIsGeneralized:
         def _get_deployment(model_id):
             if model_id == "deploy-vertex":
                 deployment = MagicMock()
-                deployment.litellm_params.custom_llm_provider = "vertex_ai"
-                deployment.litellm_params.model = "vertex_ai/gemini-2.5-flash"
+                deployment.embrouter_params.custom_llm_provider = "vertex_ai"
+                deployment.embrouter_params.model = "vertex_ai/gemini-2.5-flash"
                 return deployment
             deployment = MagicMock()
-            deployment.litellm_params.custom_llm_provider = "bedrock"
-            deployment.litellm_params.model = "bedrock/us.anthropic.claude-sonnet-4-20250514-v1:0"
+            deployment.embrouter_params.custom_llm_provider = "bedrock"
+            deployment.embrouter_params.model = "bedrock/us.anthropic.claude-sonnet-4-20250514-v1:0"
             return deployment
 
         router.get_deployment = MagicMock(side_effect=_get_deployment)
@@ -2355,20 +2355,20 @@ class TestManagedOutputFileIdEncodesPublicModelGroup:
         import base64
 
         unified_id = (
-            "litellm_proxy:application/octet-stream;unified_id,c4843482-b176-4901-8292-7523fd0f2c6e;"
+            "embrouter_proxy:application/octet-stream;unified_id,c4843482-b176-4901-8292-7523fd0f2c6e;"
             f"target_model_names,{model_group}"
         )
         return base64.urlsafe_b64encode(unified_id.encode()).decode().rstrip("=")
 
     def _job(self, input_file_id: str) -> MagicMock:
-        from litellm.types.utils import LiteLLMBatch
+        from embrouter.types.utils import EmbRouterBatch
 
         job = MagicMock()
         job.id = "job-lit-4964"
         job.unified_object_id = "dW5pZmllZF9iYXRjaF9pZA=="
         job.created_by = "user-1"
         job.team_id = None
-        job.file_object = LiteLLMBatch(
+        job.file_object = EmbRouterBatch(
             id="batch-456",
             completion_window="24h",
             created_at=1,
@@ -2380,12 +2380,12 @@ class TestManagedOutputFileIdEncodesPublicModelGroup:
         return job
 
     async def _run(self, job: MagicMock) -> str:
-        from litellm_enterprise.proxy.common_utils.check_batch_cost import (
+        from embrouter_enterprise.proxy.common_utils.check_batch_cost import (
             CheckBatchCost,
         )
-        from litellm.types.utils import LiteLLMBatch
-        from enterprise.litellm_enterprise.proxy.hooks.managed_files import (
-            _PROXY_LiteLLMManagedFiles,
+        from embrouter.types.utils import EmbRouterBatch
+        from enterprise.embrouter_enterprise.proxy.hooks.managed_files import (
+            _PROXY_EmbRouterManagedFiles,
         )
 
         router = MagicMock()
@@ -2393,15 +2393,15 @@ class TestManagedOutputFileIdEncodesPublicModelGroup:
             return_value={"api_key": "sk-test"}
         )
         deployment = MagicMock()
-        deployment.litellm_params.custom_llm_provider = "azure"
-        deployment.litellm_params.model = "azure/gpt-5.5"
+        deployment.embrouter_params.custom_llm_provider = "azure"
+        deployment.embrouter_params.model = "azure/gpt-5.5"
         deployment.model_name = self._PUBLIC_MODEL_GROUP
         deployment.model_info.model_dump.return_value = {}
         router.get_deployment = MagicMock(return_value=deployment)
 
         hook = MagicMock()
         hook.get_unified_output_file_id = (
-            lambda output_file_id, model_id, model_name: _PROXY_LiteLLMManagedFiles.get_unified_output_file_id(
+            lambda output_file_id, model_id, model_name: _PROXY_EmbRouterManagedFiles.get_unified_output_file_id(
                 None, output_file_id=output_file_id, model_id=model_id, model_name=model_name
             )
         )
@@ -2410,7 +2410,7 @@ class TestManagedOutputFileIdEncodesPublicModelGroup:
         proxy_logging_obj.get_proxy_hook.return_value = hook
 
         prisma_client = MagicMock()
-        prisma_client.db.litellm_usertable.find_unique = AsyncMock(return_value=None)
+        prisma_client.db.embrouter_usertable.find_unique = AsyncMock(return_value=None)
 
         instance = CheckBatchCost(
             proxy_logging_obj=proxy_logging_obj,
@@ -2418,7 +2418,7 @@ class TestManagedOutputFileIdEncodesPublicModelGroup:
             llm_router=router,
         )
 
-        response = LiteLLMBatch(
+        response = EmbRouterBatch(
             id="batch-456",
             completion_window="24h",
             created_at=1,
@@ -2434,20 +2434,20 @@ class TestManagedOutputFileIdEncodesPublicModelGroup:
 
         with (
             patch(
-                "litellm.files.main.afile_content",
+                "embrouter.files.main.afile_content",
                 new_callable=AsyncMock,
                 return_value=file_content,
             ),
             patch(
-                "litellm.batches.batch_utils._get_file_content_as_dictionary",
+                "embrouter.batches.batch_utils._get_file_content_as_dictionary",
                 return_value=[{"id": "req-1"}],
             ),
             patch(
-                "litellm.batches.batch_utils.calculate_batch_cost_and_usage",
+                "embrouter.batches.batch_utils.calculate_batch_cost_and_usage",
                 new_callable=AsyncMock,
                 return_value=_batch_cost_result(0.01, {"prompt_tokens": 10}, ["gpt-5.5"]),
             ),
-            patch("litellm.litellm_core_utils.litellm_logging.Logging") as logging_cls,
+            patch("embrouter.embrouter_core_utils.embrouter_logging.Logging") as logging_cls,
         ):
             logging_obj = MagicMock()
             logging_obj.async_success_handler = AsyncMock()
@@ -2465,7 +2465,7 @@ class TestManagedOutputFileIdEncodesPublicModelGroup:
 
     @pytest.mark.asyncio
     async def test_target_model_names_comes_from_input_file_not_provider_model(self):
-        from litellm.proxy.openai_files_endpoints.common_utils import (
+        from embrouter.proxy.openai_files_endpoints.common_utils import (
             _is_base64_encoded_unified_file_id,
             get_models_from_unified_file_id,
         )
@@ -2480,9 +2480,9 @@ class TestManagedOutputFileIdEncodesPublicModelGroup:
 
     @pytest.mark.asyncio
     async def test_key_scoped_to_model_group_can_read_the_output_file(self):
-        from litellm.proxy._types import UserAPIKeyAuth
-        from litellm.proxy.auth.auth_checks import can_key_call_model
-        from litellm.proxy.auth.auth_utils import (
+        from embrouter.proxy._types import UserAPIKeyAuth
+        from embrouter.proxy.auth.auth_checks import can_key_call_model
+        from embrouter.proxy.auth.auth_utils import (
             _extract_models_from_managed_resource_id,
         )
 
@@ -2506,7 +2506,7 @@ class TestManagedOutputFileIdEncodesPublicModelGroup:
 
     @pytest.mark.asyncio
     async def test_falls_back_to_deployment_model_group_without_managed_input_file(self):
-        from litellm.proxy.openai_files_endpoints.common_utils import (
+        from embrouter.proxy.openai_files_endpoints.common_utils import (
             _is_base64_encoded_unified_file_id,
             get_models_from_unified_file_id,
         )
@@ -2520,12 +2520,12 @@ class TestBatchCostAttribution:
     the batch-cost log is attributed like a non-batch request."""
 
     def _instance(self, key_row=None, team_row=None, user_row=None):
-        from litellm_enterprise.proxy.common_utils.check_batch_cost import CheckBatchCost
+        from embrouter_enterprise.proxy.common_utils.check_batch_cost import CheckBatchCost
 
         prisma = MagicMock()
-        prisma.db.litellm_verificationtoken.find_unique = AsyncMock(return_value=key_row)
-        prisma.db.litellm_teamtable.find_unique = AsyncMock(return_value=team_row)
-        prisma.db.litellm_usertable.find_unique = AsyncMock(return_value=user_row)
+        prisma.db.embrouter_verificationtoken.find_unique = AsyncMock(return_value=key_row)
+        prisma.db.embrouter_teamtable.find_unique = AsyncMock(return_value=team_row)
+        prisma.db.embrouter_usertable.find_unique = AsyncMock(return_value=user_row)
         return CheckBatchCost(
             proxy_logging_obj=MagicMock(),
             prisma_client=prisma,
@@ -2593,7 +2593,7 @@ class TestBatchCostAttribution:
         assert metadata["user_api_key"] == "hash-alice"
         assert metadata["user_api_key_user_id"] is None
         assert metadata["user_api_key_alias"] == "svc-key"
-        instance.prisma_client.db.litellm_usertable.find_unique.assert_not_called()
+        instance.prisma_client.db.embrouter_usertable.find_unique.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_metadata_drops_non_string_tags(self):
@@ -2611,7 +2611,7 @@ class TestBatchCostAttribution:
         """An alias lookup failure must not lose the spend row; the key hash and team still
         attribute it."""
         instance = self._instance()
-        instance.prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(
+        instance.prisma_client.db.embrouter_verificationtoken.find_unique = AsyncMock(
             side_effect=Exception("db down")
         )
 
@@ -2744,7 +2744,7 @@ class TestBatchCostAttribution:
         instance = self._instance(
             team_row=SimpleNamespace(team_alias="Team Alpha", organization_id="org-team"),
         )
-        instance.prisma_client.db.litellm_verificationtoken.find_unique = AsyncMock(
+        instance.prisma_client.db.embrouter_verificationtoken.find_unique = AsyncMock(
             side_effect=Exception("db down")
         )
 
@@ -2778,8 +2778,8 @@ class TestBatchCostAttribution:
         from datetime import datetime, timezone
         from types import SimpleNamespace
 
-        from litellm.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
-        from litellm.proxy.utils import hash_token
+        from embrouter.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
+        from embrouter.proxy.utils import hash_token
 
         token_hash = hash_token("sk-batch-creator-key")
         instance = self._instance(
@@ -2797,7 +2797,7 @@ class TestBatchCostAttribution:
             kwargs={
                 "model": "gpt-4o",
                 "call_type": "aretrieve_batch",
-                "litellm_params": {"metadata": metadata},
+                "embrouter_params": {"metadata": metadata},
             },
             response_obj={
                 "id": "batch_123",
@@ -2816,7 +2816,7 @@ class TestPollPageStarvation:
     batch was ever polled or costed."""
 
     def _instance(self, prisma, llm_router):
-        from litellm_enterprise.proxy.common_utils.check_batch_cost import CheckBatchCost
+        from embrouter_enterprise.proxy.common_utils.check_batch_cost import CheckBatchCost
 
         proxy_logging_obj = MagicMock()
         proxy_logging_obj.get_proxy_hook.return_value = None
@@ -2828,10 +2828,10 @@ class TestPollPageStarvation:
 
     def _prisma(self, jobs):
         prisma = MagicMock()
-        prisma.db.litellm_managedobjecttable.update_many = AsyncMock(return_value=0)
-        prisma.db.litellm_managedobjecttable.update = AsyncMock()
-        prisma.db.litellm_managedobjecttable.find_many = AsyncMock(return_value=jobs)
-        prisma.db.litellm_usertable.find_unique = AsyncMock(return_value=None)
+        prisma.db.embrouter_managedobjecttable.update_many = AsyncMock(return_value=0)
+        prisma.db.embrouter_managedobjecttable.update = AsyncMock()
+        prisma.db.embrouter_managedobjecttable.find_many = AsyncMock(return_value=jobs)
+        prisma.db.embrouter_usertable.find_unique = AsyncMock(return_value=None)
         return prisma
 
     def _job(self, job_id, unified_object_id):
@@ -2852,7 +2852,7 @@ class TestPollPageStarvation:
         """A unified id that decodes but carries no model_id is unroutable no matter what
         the config says, so it must leave the poll page instead of being retried forever."""
         prisma = self._prisma(
-            [self._job("job-no-model", self._encode("litellm_proxy;llm_batch_id:poison-no-model"))]
+            [self._job("job-no-model", self._encode("embrouter_proxy;llm_batch_id:poison-no-model"))]
         )
         llm_router = MagicMock()
         llm_router.aretrieve_batch = AsyncMock()
@@ -2860,8 +2860,8 @@ class TestPollPageStarvation:
         await self._instance(prisma, llm_router).check_batch_cost()
 
         llm_router.aretrieve_batch.assert_not_awaited()
-        prisma.db.litellm_managedobjecttable.update.assert_awaited_once()
-        call = prisma.db.litellm_managedobjecttable.update.call_args[1]
+        prisma.db.embrouter_managedobjecttable.update.assert_awaited_once()
+        call = prisma.db.embrouter_managedobjecttable.update.call_args[1]
         assert call["where"] == {"id": "job-no-model"}
         assert call["data"] == {"batch_processed": True}
 
@@ -2869,19 +2869,19 @@ class TestPollPageStarvation:
     async def test_provider_404_retires_job(self):
         """The provider dropping its record of the batch is permanent: no later retrieve
         can succeed, so the row must stop occupying a slot."""
-        import litellm
+        import embrouter
 
         prisma = self._prisma(
             [
                 self._job(
                     "job-gone",
-                    self._encode("litellm_proxy;model_id:model-123;llm_batch_id:batch_deadbeef"),
+                    self._encode("embrouter_proxy;model_id:model-123;llm_batch_id:batch_deadbeef"),
                 )
             ]
         )
         llm_router = MagicMock()
         llm_router.aretrieve_batch = AsyncMock(
-            side_effect=litellm.NotFoundError(
+            side_effect=embrouter.NotFoundError(
                 message="No batch found with id 'batch_deadbeef'.",
                 model="model-123",
                 llm_provider="openai",
@@ -2890,8 +2890,8 @@ class TestPollPageStarvation:
 
         await self._instance(prisma, llm_router).check_batch_cost()
 
-        prisma.db.litellm_managedobjecttable.update.assert_awaited_once()
-        assert prisma.db.litellm_managedobjecttable.update.call_args[1]["data"] == {
+        prisma.db.embrouter_managedobjecttable.update.assert_awaited_once()
+        assert prisma.db.embrouter_managedobjecttable.update.call_args[1]["data"] == {
             "batch_processed": True
         }
 
@@ -2900,20 +2900,20 @@ class TestPollPageStarvation:
         """With the batch's own deployment removed from the router, default fallbacks can
         send the retrieve to a provider that never saw the batch. That 404 proves nothing,
         so the row must stay unprocessed instead of losing its spend forever."""
-        import litellm
+        import embrouter
 
         prisma = self._prisma(
             [
                 self._job(
                     "job-misrouted",
-                    self._encode("litellm_proxy;model_id:model-gone;llm_batch_id:batch_alive"),
+                    self._encode("embrouter_proxy;model_id:model-gone;llm_batch_id:batch_alive"),
                 )
             ]
         )
         llm_router = MagicMock()
         llm_router.get_deployment = MagicMock(return_value=None)
         llm_router.aretrieve_batch = AsyncMock(
-            side_effect=litellm.NotFoundError(
+            side_effect=embrouter.NotFoundError(
                 message="No batch found with id 'batch_alive'.",
                 model="model-gone",
                 llm_provider="openai",
@@ -2922,7 +2922,7 @@ class TestPollPageStarvation:
 
         await self._instance(prisma, llm_router).check_batch_cost()
 
-        prisma.db.litellm_managedobjecttable.update.assert_not_awaited()
+        prisma.db.embrouter_managedobjecttable.update.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_transient_provider_error_keeps_job_for_retry(self):
@@ -2931,7 +2931,7 @@ class TestPollPageStarvation:
             [
                 self._job(
                     "job-flaky",
-                    self._encode("litellm_proxy;model_id:model-123;llm_batch_id:batch_flaky"),
+                    self._encode("embrouter_proxy;model_id:model-123;llm_batch_id:batch_flaky"),
                 )
             ]
         )
@@ -2940,21 +2940,21 @@ class TestPollPageStarvation:
 
         await self._instance(prisma, llm_router).check_batch_cost()
 
-        prisma.db.litellm_managedobjecttable.update.assert_not_awaited()
+        prisma.db.embrouter_managedobjecttable.update.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_retirement_falls_back_to_status_without_batch_processed_column(self):
         """Older schemas have no batch_processed column, so the only way to stop selecting
         the row is the status filter the poll query already applies."""
         prisma = self._prisma(
-            [self._job("job-legacy", self._encode("litellm_proxy;llm_batch_id:poison-no-model"))]
+            [self._job("job-legacy", self._encode("embrouter_proxy;llm_batch_id:poison-no-model"))]
         )
         instance = self._instance(prisma, MagicMock())
         instance._has_batch_processed_column = False
 
         await instance.check_batch_cost()
 
-        assert prisma.db.litellm_managedobjecttable.update.call_args[1]["data"] == {
+        assert prisma.db.embrouter_managedobjecttable.update.call_args[1]["data"] == {
             "status": "stale_expired"
         }
 
@@ -2966,7 +2966,7 @@ class TestPollPageStarvation:
 
         await self._instance(prisma, MagicMock()).check_batch_cost()
 
-        calls = prisma.db.litellm_managedobjecttable.update_many.call_args_list
+        calls = prisma.db.embrouter_managedobjecttable.update_many.call_args_list
         assert len(calls) == 2, "expected the staleness sweep plus the never-costed sweep"
         where = calls[1][1]["where"]
         assert where["file_purpose"] == "batch"
@@ -2980,26 +2980,26 @@ class TestPollPageStarvation:
         """The end state the customer cares about: dead rows retire on the cycle they are
         first seen, and the healthy batch behind them keeps getting polled."""
         dead_rows = [
-            self._job("job-no-model", self._encode("litellm_proxy;llm_batch_id:poison-no-model")),
+            self._job("job-no-model", self._encode("embrouter_proxy;llm_batch_id:poison-no-model")),
             self._job(
                 "job-gone",
-                self._encode("litellm_proxy;model_id:model-123;llm_batch_id:batch_deadbeef"),
+                self._encode("embrouter_proxy;model_id:model-123;llm_batch_id:batch_deadbeef"),
             ),
         ]
         live_row = self._job(
             "job-live",
-            self._encode("litellm_proxy;model_id:model-123;llm_batch_id:batch_live"),
+            self._encode("embrouter_proxy;model_id:model-123;llm_batch_id:batch_live"),
         )
         prisma = self._prisma(dead_rows + [live_row])
 
-        import litellm
+        import embrouter
 
         in_progress = MagicMock()
         in_progress.status = "in_progress"
 
-        async def _retrieve(model, batch_id, litellm_metadata):
+        async def _retrieve(model, batch_id, embrouter_metadata):
             if batch_id == "batch_deadbeef":
-                raise litellm.NotFoundError(
+                raise embrouter.NotFoundError(
                     message=f"No batch found with id '{batch_id}'.",
                     model=model,
                     llm_provider="openai",
@@ -3013,7 +3013,7 @@ class TestPollPageStarvation:
 
         retired = [
             call[1]["where"]["id"]
-            for call in prisma.db.litellm_managedobjecttable.update.call_args_list
+            for call in prisma.db.embrouter_managedobjecttable.update.call_args_list
         ]
         assert retired == ["job-no-model", "job-gone"]
         assert (
@@ -3024,19 +3024,19 @@ class TestPollPageStarvation:
     async def test_404_that_does_not_name_the_batch_keeps_job_for_retry(self):
         """A 404 about something other than the batch, e.g. a renamed Azure deployment, is
         fixable in config, so the row must survive to be costed after the fix."""
-        import litellm
+        import embrouter
 
         prisma = self._prisma(
             [
                 self._job(
                     "job-bad-deployment",
-                    self._encode("litellm_proxy;model_id:model-123;llm_batch_id:batch_real"),
+                    self._encode("embrouter_proxy;model_id:model-123;llm_batch_id:batch_real"),
                 )
             ]
         )
         llm_router = MagicMock()
         llm_router.aretrieve_batch = AsyncMock(
-            side_effect=litellm.NotFoundError(
+            side_effect=embrouter.NotFoundError(
                 message="Error code: 404 - DeploymentNotFound",
                 model="model-123",
                 llm_provider="azure",
@@ -3045,7 +3045,7 @@ class TestPollPageStarvation:
 
         await self._instance(prisma, llm_router).check_batch_cost()
 
-        prisma.db.litellm_managedobjecttable.update.assert_not_awaited()
+        prisma.db.embrouter_managedobjecttable.update.assert_not_awaited()
 
 class _FakeManagedObjectRow:
     """One managed batch row the provider has finished but nothing has costed yet."""
@@ -3069,7 +3069,7 @@ class _FakeManagedObjectRow:
 
 
 class _FakeManagedObjectTable:
-    """A LiteLLM_ManagedObjectTable double backed by one real, mutable row.
+    """A EmbRouter_ManagedObjectTable double backed by one real, mutable row.
 
     It honours the batch_processed and status filters, so the poller's compare-and-swap
     and the managed-files deletion guard both read the same state a shared Postgres row
@@ -3117,7 +3117,7 @@ class _FakeManagedObjectTable:
 
 class TestMultiPodBatchCostClaim:
     """LIT-4827 regression: every pod and uvicorn worker schedules its own poller against
-    the shared LiteLLM_ManagedObjectTable, so a completed batch must be claimed atomically
+    the shared EmbRouter_ManagedObjectTable, so a completed batch must be claimed atomically
     before its cost is logged. Without the claim two pods select the same row in one window
     and both write an aretrieve_batch spend log for it, double counting the spend.
 
@@ -3127,7 +3127,7 @@ class TestMultiPodBatchCostClaim:
 
     @staticmethod
     def _instance(prisma, llm_router):
-        from litellm_enterprise.proxy.common_utils.check_batch_cost import CheckBatchCost
+        from embrouter_enterprise.proxy.common_utils.check_batch_cost import CheckBatchCost
 
         proxy_logging_obj = MagicMock()
         proxy_logging_obj.get_proxy_hook.return_value = None
@@ -3140,11 +3140,11 @@ class TestMultiPodBatchCostClaim:
     @staticmethod
     def _prisma(row: _FakeManagedObjectRow, journal: list):
         prisma = MagicMock()
-        prisma.db.litellm_managedobjecttable = _FakeManagedObjectTable(row, journal)
-        prisma.db.litellm_managedfiletable.find_many = AsyncMock(return_value=[])
-        prisma.db.litellm_managedfiletable.find_first = AsyncMock(return_value=None)
-        prisma.db.litellm_usertable.find_unique = AsyncMock(return_value=None)
-        prisma.db.litellm_verificationtoken.find_unique = AsyncMock(return_value=None)
+        prisma.db.embrouter_managedobjecttable = _FakeManagedObjectTable(row, journal)
+        prisma.db.embrouter_managedfiletable.find_many = AsyncMock(return_value=[])
+        prisma.db.embrouter_managedfiletable.find_first = AsyncMock(return_value=None)
+        prisma.db.embrouter_usertable.find_unique = AsyncMock(return_value=None)
+        prisma.db.embrouter_verificationtoken.find_unique = AsyncMock(return_value=None)
         return prisma
 
     @staticmethod
@@ -3158,8 +3158,8 @@ class TestMultiPodBatchCostClaim:
         response.model_dump_json.return_value = '{"id":"batch-456","status":"completed"}'
 
         deployment = MagicMock()
-        deployment.litellm_params.custom_llm_provider = "openai"
-        deployment.litellm_params.model = "gpt-4"
+        deployment.embrouter_params.custom_llm_provider = "openai"
+        deployment.embrouter_params.model = "gpt-4"
         deployment.model_info.model_dump.return_value = {}
 
         router = MagicMock()
@@ -3201,28 +3201,28 @@ class TestMultiPodBatchCostClaim:
         with (
             patch(_IS_B64, side_effect=_is_b64),
             patch(
-                "litellm.proxy.openai_files_endpoints.common_utils.get_model_id_from_unified_batch_id",
+                "embrouter.proxy.openai_files_endpoints.common_utils.get_model_id_from_unified_batch_id",
                 return_value="model-123",
             ),
             patch(
-                "litellm.proxy.openai_files_endpoints.common_utils.get_batch_id_from_unified_batch_id",
+                "embrouter.proxy.openai_files_endpoints.common_utils.get_batch_id_from_unified_batch_id",
                 return_value="batch-456",
             ),
-            patch("litellm.files.main.afile_content", new=AsyncMock(side_effect=_afile_content)),
+            patch("embrouter.files.main.afile_content", new=AsyncMock(side_effect=_afile_content)),
             patch(
-                "litellm.batches.batch_utils._get_file_content_as_dictionary",
+                "embrouter.batches.batch_utils._get_file_content_as_dictionary",
                 return_value=[{"id": "req-1"}],
             ),
             patch(
-                "litellm.batches.batch_utils.calculate_batch_cost_and_usage",
+                "embrouter.batches.batch_utils.calculate_batch_cost_and_usage",
                 new_callable=AsyncMock,
                 return_value=_batch_cost_result(0.01, {"prompt_tokens": 10, "completion_tokens": 5}, ["gpt-4"]),
             ),
             patch(
-                "litellm.litellm_core_utils.get_llm_provider_logic.get_llm_provider",
+                "embrouter.embrouter_core_utils.get_llm_provider_logic.get_llm_provider",
                 return_value=("gpt-4", "openai", None, None),
             ),
-            patch("litellm.litellm_core_utils.litellm_logging.Logging", return_value=logging_obj),
+            patch("embrouter.embrouter_core_utils.embrouter_logging.Logging", return_value=logging_obj),
         ):
             yield logging_obj
 
@@ -3230,23 +3230,23 @@ class TestMultiPodBatchCostClaim:
     def _claim_calls(prisma) -> list:
         return [
             call.kwargs
-            for call in prisma.db.litellm_managedobjecttable.update_many.call_args_list
+            for call in prisma.db.embrouter_managedobjecttable.update_many.call_args_list
             if "id" in call.kwargs["where"]
         ]
 
     @staticmethod
     async def _run_deletion_guard(prisma, file_id: str) -> None:
         """Run the real managed-files deletion guard against the row the poller is costing."""
-        from litellm_enterprise.proxy.hooks.managed_files import _PROXY_LiteLLMManagedFiles
+        from embrouter_enterprise.proxy.hooks.managed_files import _PROXY_EmbRouterManagedFiles
 
         cache = MagicMock()
         cache.async_get_cache = AsyncMock(return_value=None)
         cache.async_set_cache = AsyncMock()
-        guard = _PROXY_LiteLLMManagedFiles(internal_usage_cache=cache, prisma_client=prisma)
+        guard = _PROXY_EmbRouterManagedFiles(internal_usage_cache=cache, prisma_client=prisma)
 
         scheduler = MagicMock()
         scheduler.get_job.return_value = MagicMock()
-        with patch("litellm.proxy.proxy_server.scheduler", scheduler):
+        with patch("embrouter.proxy.proxy_server.scheduler", scheduler):
             await guard._check_file_deletion_allowed(file_id)
 
     @pytest.mark.asyncio

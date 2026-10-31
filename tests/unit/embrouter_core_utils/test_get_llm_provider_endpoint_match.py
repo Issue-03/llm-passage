@@ -15,7 +15,7 @@ from unittest.mock import patch
 import pytest
 
 
-from litellm.litellm_core_utils.get_llm_provider_logic import (
+from embrouter.embrouter_core_utils.get_llm_provider_logic import (
     _endpoint_matches_api_base,
     get_llm_provider,
 )
@@ -94,10 +94,10 @@ class TestGetLlmProviderRejectsAttackerSmuggledApiBase:
         # raise BadRequestError because the model can't be identified.
         # The invariant under test is that ``GROQ_API_KEY`` is never
         # looked up against an attacker-controlled hostname.
-        import litellm
+        import embrouter
 
         with patch(
-            "litellm.litellm_core_utils.get_llm_provider_logic.get_secret_str",
+            "embrouter.embrouter_core_utils.get_llm_provider_logic.get_secret_str",
             return_value="server-real-groq-key",
         ) as mocked_secret:
             try:
@@ -107,7 +107,7 @@ class TestGetLlmProviderRejectsAttackerSmuggledApiBase:
                 )
                 # If it returned, the dynamic key must not be the secret.
                 assert dynamic_api_key != "server-real-groq-key"
-            except litellm.exceptions.BadRequestError:
+            except embrouter.exceptions.BadRequestError:
                 # Acceptable outcome: provider unidentifiable, no secret
                 # was returned.
                 pass
@@ -123,7 +123,7 @@ class TestGetLlmProviderRejectsAttackerSmuggledApiBase:
 
     def test_legitimate_groq_api_base_still_resolves(self):
         with patch(
-            "litellm.litellm_core_utils.get_llm_provider_logic.get_secret_str",
+            "embrouter.embrouter_core_utils.get_llm_provider_logic.get_secret_str",
             return_value="server-real-groq-key",
         ):
             _, provider, dynamic_api_key, _ = get_llm_provider(

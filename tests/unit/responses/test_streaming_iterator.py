@@ -14,17 +14,17 @@ import httpx
 import pytest
 from pydantic_core import PydanticSerializationError
 
-import litellm
-from litellm.exceptions import MidStreamFallbackError
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.base_llm.responses.transformation import BaseResponsesAPIConfig
-from litellm.responses.streaming_iterator import (
+import embrouter
+from embrouter.exceptions import MidStreamFallbackError
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.base_llm.responses.transformation import BaseResponsesAPIConfig
+from embrouter.responses.streaming_iterator import (
     ResponsesAPIStreamingIterator,
     SyncResponsesAPIStreamingIterator,
     _estimate_usage_from_text,
 )
-from litellm.types.llms.openai import (
+from embrouter.types.llms.openai import (
     ResponseAPIUsage,
     ResponseCompletedEvent,
     ResponsesAPIResponse,
@@ -66,7 +66,7 @@ def _mock_config() -> Mock:
 def _make_iterator(
     *,
     sse_events: list[bytes],
-    logging_obj: LiteLLMLoggingObj,
+    logging_obj: EmbRouterLoggingObj,
     trailing_error: Optional[Exception] = None,
     config: Mock | None = None,
     request_data: dict | None = None,
@@ -86,7 +86,7 @@ def _make_iterator(
         model="gpt-4o-mini",
         responses_api_provider_config=config or _mock_config(),
         logging_obj=logging_obj,
-        litellm_metadata={},
+        embrouter_metadata={},
         custom_llm_provider="openai",
         request_data=request_data,
     )
@@ -95,7 +95,7 @@ def _make_iterator(
 def _make_sync_iterator(
     *,
     sse_events: list[bytes],
-    logging_obj: LiteLLMLoggingObj,
+    logging_obj: EmbRouterLoggingObj,
     trailing_error: Optional[Exception] = None,
 ) -> SyncResponsesAPIStreamingIterator:
     def iter_bytes():
@@ -113,15 +113,15 @@ def _make_sync_iterator(
         model="gpt-4o-mini",
         responses_api_provider_config=_mock_config(),
         logging_obj=logging_obj,
-        litellm_metadata={},
+        embrouter_metadata={},
         custom_llm_provider="openai",
     )
 
 
 def _logging_obj_stub() -> Mock:
-    logging_obj = Mock(spec=LiteLLMLoggingObj)
+    logging_obj = Mock(spec=EmbRouterLoggingObj)
     logging_obj.completion_start_time = None
-    logging_obj.model_call_details = {"litellm_params": {}}
+    logging_obj.model_call_details = {"embrouter_params": {}}
     return logging_obj
 
 
@@ -130,9 +130,9 @@ async def test_responses_streaming_stamps_completion_start_time_on_first_chunk()
     """Without the fix, `logging_obj.completion_start_time` stays None across the
     entire stream and _success_handler_helper_fn falls back to end_time — collapsing
     the reported TTFT to full generation time."""
-    logging_obj = Mock(spec=LiteLLMLoggingObj)
+    logging_obj = Mock(spec=EmbRouterLoggingObj)
     logging_obj.completion_start_time = None
-    logging_obj.model_call_details = {"litellm_params": {}}
+    logging_obj.model_call_details = {"embrouter_params": {}}
     stamped: list[datetime] = []
 
     def _update(*, completion_start_time):
@@ -167,9 +167,9 @@ async def test_responses_streaming_does_not_reset_prior_completion_start_time():
     iterator must not overwrite it — otherwise TTFT would collapse to
     time-to-last-chunk under contention."""
     prior = datetime(2020, 1, 1, 0, 0, 0)
-    logging_obj = Mock(spec=LiteLLMLoggingObj)
+    logging_obj = Mock(spec=EmbRouterLoggingObj)
     logging_obj.completion_start_time = prior
-    logging_obj.model_call_details = {"litellm_params": {}}
+    logging_obj.model_call_details = {"embrouter_params": {}}
 
     iterator = _make_iterator(
         sse_events=[
@@ -324,7 +324,7 @@ async def test_stream_ending_after_partial_output_without_terminal_event_raises(
 
     created: Final = await iterator.__anext__()
     delta: Final = await iterator.__anext__()
-    with pytest.raises(litellm.APIConnectionError) as exc_info:
+    with pytest.raises(embrouter.APIConnectionError) as exc_info:
         await iterator.__anext__()
 
     assert (created.type, delta.type) == ("response.created", "response.output_text.delta")
@@ -344,7 +344,7 @@ async def test_stream_ending_before_any_output_raises_fallback_error(prefix, pre
         async for _ in iterator:
             pass
 
-    assert isinstance(exc_info.value.original_exception, litellm.APIConnectionError)
+    assert isinstance(exc_info.value.original_exception, embrouter.APIConnectionError)
     assert exc_info.value.is_pre_first_chunk is pre_first_chunk
     assert exc_info.value.generated_content == ""
     _assert_failure_logged_once(logging_obj, exc_info.value.original_exception)
@@ -388,7 +388,7 @@ def test_sync_stream_ending_after_partial_output_without_terminal_event_raises(t
 
     created: Final = next(iterator)
     delta: Final = next(iterator)
-    with pytest.raises(litellm.APIConnectionError) as exc_info:
+    with pytest.raises(embrouter.APIConnectionError) as exc_info:
         next(iterator)
 
     assert (created.type, delta.type) == ("response.created", "response.output_text.delta")
@@ -404,7 +404,7 @@ def test_sync_stream_ending_before_any_output_raises_fallback_error():
         for _ in iterator:
             pass
 
-    assert isinstance(exc_info.value.original_exception, litellm.APIConnectionError)
+    assert isinstance(exc_info.value.original_exception, embrouter.APIConnectionError)
     assert exc_info.value.is_pre_first_chunk is False
     _assert_failure_logged_once(logging_obj, exc_info.value.original_exception)
 
@@ -431,7 +431,7 @@ class _LoopRecordingLogger(CustomLogger):
 
     async def async_log_failure_event(self, kwargs, response_obj, start_time, end_time):
         self.failure_loop = asyncio.get_running_loop()
-        self.failure_deployment_id = kwargs["litellm_params"].get("model_info", {}).get("id")
+        self.failure_deployment_id = kwargs["embrouter_params"].get("model_info", {}).get("id")
         await asyncio.sleep(0.05)
         self.failure_finished = True
 
@@ -462,19 +462,19 @@ class _OrderRecordingSyncLogger(CustomLogger):
 
 
 def _real_logging_obj(
-    *, call_type: str = "aresponses", litellm_params: dict[str, object] | None = None
-) -> LiteLLMLoggingObj:
-    logging_obj: Final = LiteLLMLoggingObj(
+    *, call_type: str = "aresponses", embrouter_params: dict[str, object] | None = None
+) -> EmbRouterLoggingObj:
+    logging_obj: Final = EmbRouterLoggingObj(
         model="gpt-4o-mini",
         messages=[{"role": "user", "content": "hi"}],
         stream=True,
         call_type=call_type,
         start_time=datetime.now(),
-        litellm_call_id="lit-8678-test",
+        embrouter_call_id="lit-8678-test",
         function_id="lit-8678-test",
     )
-    logging_obj.model_call_details["litellm_params"] = (
-        dict(litellm_params) if litellm_params is not None else {"aresponses": True}
+    logging_obj.model_call_details["embrouter_params"] = (
+        dict(embrouter_params) if embrouter_params is not None else {"aresponses": True}
     )
     return logging_obj
 
@@ -493,8 +493,8 @@ async def test_transport_error_failure_logging_runs_on_the_iterating_loop(monkey
     worker thread and block the iterating loop until it finished, so a callback waiting on
     state bound to that loop (a batch logger's flush lock) stalled the whole proxy."""
     recorder: Final = _LoopRecordingLogger()
-    monkeypatch.setattr(litellm, "_async_failure_callback", [recorder])
-    monkeypatch.setattr(litellm, "failure_callback", [])
+    monkeypatch.setattr(embrouter, "_async_failure_callback", [recorder])
+    monkeypatch.setattr(embrouter, "failure_callback", [])
     iterator: Final = _make_iterator(
         sse_events=_PARTIAL_OUTPUT_EVENTS,
         logging_obj=_real_logging_obj(),
@@ -515,10 +515,10 @@ async def test_failure_logging_finishes_before_the_error_reaches_the_consumer(mo
     deployment as soon as it catches the error, so failure logging that still runs after
     the raise reads the fallback deployment's params and cools down the wrong deployment."""
     recorder: Final = _LoopRecordingLogger()
-    monkeypatch.setattr(litellm, "_async_failure_callback", [recorder])
-    monkeypatch.setattr(litellm, "failure_callback", [])
+    monkeypatch.setattr(embrouter, "_async_failure_callback", [recorder])
+    monkeypatch.setattr(embrouter, "failure_callback", [])
     logging_obj: Final = _real_logging_obj(
-        litellm_params={"aresponses": True, "model_info": {"id": "primary-deployment"}}
+        embrouter_params={"aresponses": True, "model_info": {"id": "primary-deployment"}}
     )
     iterator: Final = _make_iterator(
         sse_events=[],
@@ -529,7 +529,7 @@ async def test_failure_logging_finishes_before_the_error_reaches_the_consumer(mo
     with pytest.raises(MidStreamFallbackError):
         async for _ in iterator:
             pass
-    logging_obj.model_call_details["litellm_params"]["model_info"] = {"id": "fallback-deployment"}
+    logging_obj.model_call_details["embrouter_params"]["model_info"] = {"id": "fallback-deployment"}
     await _wait_until(lambda: recorder.failure_finished)
 
     assert recorder.failure_deployment_id == "primary-deployment"
@@ -538,11 +538,11 @@ async def test_failure_logging_finishes_before_the_error_reaches_the_consumer(mo
 @pytest.mark.asyncio
 async def test_sync_stream_failure_inside_a_running_loop_still_runs_sync_only_callbacks(monkeypatch):
     recorder: Final = _SyncOnlyRecordingLogger()
-    monkeypatch.setattr(litellm, "failure_callback", [recorder])
-    monkeypatch.setattr(litellm, "_async_failure_callback", [])
+    monkeypatch.setattr(embrouter, "failure_callback", [recorder])
+    monkeypatch.setattr(embrouter, "_async_failure_callback", [])
     iterator: Final = _make_sync_iterator(
         sse_events=_PARTIAL_OUTPUT_EVENTS,
-        logging_obj=_real_logging_obj(call_type="responses", litellm_params={}),
+        logging_obj=_real_logging_obj(call_type="responses", embrouter_params={}),
         trailing_error=httpx.ReadError("Response payload is not completed"),
     )
 
@@ -559,11 +559,11 @@ async def test_sync_failure_callbacks_run_after_async_failure_logging_finishes(m
     async one is still running, which is the ordering the blocking dispatch used to give."""
     async_recorder: Final = _LoopRecordingLogger()
     sync_recorder: Final = _OrderRecordingSyncLogger(async_recorder)
-    monkeypatch.setattr(litellm, "_async_failure_callback", [async_recorder])
-    monkeypatch.setattr(litellm, "failure_callback", [sync_recorder])
+    monkeypatch.setattr(embrouter, "_async_failure_callback", [async_recorder])
+    monkeypatch.setattr(embrouter, "failure_callback", [sync_recorder])
     iterator: Final = _make_sync_iterator(
         sse_events=_PARTIAL_OUTPUT_EVENTS,
-        logging_obj=_real_logging_obj(call_type="responses", litellm_params={}),
+        logging_obj=_real_logging_obj(call_type="responses", embrouter_params={}),
         trailing_error=httpx.ReadError("Response payload is not completed"),
     )
 
@@ -579,7 +579,7 @@ async def test_sync_failure_callbacks_run_after_async_failure_logging_finishes(m
 @pytest.mark.asyncio
 async def test_completed_stream_success_deployment_hook_runs_on_the_iterating_loop(monkeypatch):
     recorder: Final = _LoopRecordingLogger()
-    monkeypatch.setattr(litellm, "callbacks", [recorder])
+    monkeypatch.setattr(embrouter, "callbacks", [recorder])
     iterator: Final = _make_iterator(sse_events=_COMPLETE_STREAM_EVENTS, logging_obj=_logging_obj_stub())
 
     async for _ in iterator:
@@ -599,8 +599,8 @@ def test_stream_cache_write_completes_when_asyncio_run_closes_the_loop(monkeypat
     import asyncio
     from types import SimpleNamespace
 
-    import litellm
-    from litellm.types.utils import CallTypes
+    import embrouter
+    from embrouter.types.utils import CallTypes
 
     writes = []
 
@@ -622,12 +622,12 @@ def test_stream_cache_write_completes_when_asyncio_run_closes_the_loop(monkeypat
             "custom_llm_provider": "openai",
         },
         preset_cache_key="responses-stream-cache-key",
-        original_function=litellm.aresponses,
+        original_function=embrouter.aresponses,
         dual_cache=None,
         _should_store_result_in_cache=lambda original_function, kwargs: True,
     )
     logging_obj = SimpleNamespace(
-        model_call_details={"litellm_params": {}},
+        model_call_details={"embrouter_params": {}},
         _llm_caching_handler=caching_handler,
     )
     iterator = ResponsesAPIStreamingIterator(
@@ -649,7 +649,7 @@ def test_stream_cache_write_completes_when_asyncio_run_closes_the_loop(monkeypat
             output=[],
         ),
     )
-    monkeypatch.setattr(litellm, "cache", _SlowWriteCache())
+    monkeypatch.setattr(embrouter, "cache", _SlowWriteCache())
 
     async def _short_lived_script():
         iterator._persist_completed_response_to_cache(is_async=True)
@@ -661,9 +661,9 @@ def test_stream_cache_write_completes_when_asyncio_run_closes_the_loop(monkeypat
 
 def test_run_post_success_hooks_does_not_report_generation_time_as_overhead():
     """LIT-5466: the provider call is timed to first byte, so at stream completion the total minus
-    that duration is token generation, not LiteLLM overhead."""
+    that duration is token generation, not EmbRouter overhead."""
     logging_obj = _logging_obj_stub()
-    logging_obj.model_call_details = {"litellm_params": {}, "llm_api_duration_ms": 200.0}
+    logging_obj.model_call_details = {"embrouter_params": {}, "llm_api_duration_ms": 200.0}
     logging_obj.caching_details = None
 
     class _CompletedEvent:
@@ -677,7 +677,7 @@ def test_run_post_success_hooks_does_not_report_generation_time_as_overhead():
     iterator._run_post_success_hooks(datetime(2025, 1, 1, 0, 0, 10))
 
     assert iterator.completed_response._hidden_params["_response_ms"] == 10000.0
-    assert "litellm_overhead_time_ms" not in iterator.completed_response._hidden_params
+    assert "embrouter_overhead_time_ms" not in iterator.completed_response._hidden_params
 
 
 def _mock_config_with_completed_response(response: ResponsesAPIResponse) -> Mock:
@@ -775,10 +775,10 @@ def _responses_api_response_with_usage() -> ResponsesAPIResponse:
 
 
 def test_stamp_responses_usage_cost_stamps_computed_cost():
-    from litellm.responses.streaming_iterator import _stamp_responses_usage_cost
+    from embrouter.responses.streaming_iterator import _stamp_responses_usage_cost
 
     response = _responses_api_response_with_usage()
-    logging_obj = Mock(spec=LiteLLMLoggingObj)
+    logging_obj = Mock(spec=EmbRouterLoggingObj)
     logging_obj._response_cost_calculator.return_value = 0.000704
 
     _stamp_responses_usage_cost(response, logging_obj)
@@ -788,11 +788,11 @@ def test_stamp_responses_usage_cost_stamps_computed_cost():
 
 
 def test_stamp_responses_usage_cost_keeps_provider_reported_cost():
-    from litellm.responses.streaming_iterator import _stamp_responses_usage_cost
+    from embrouter.responses.streaming_iterator import _stamp_responses_usage_cost
 
     response = _responses_api_response_with_usage()
     setattr(response.usage, "cost", 0.5)
-    logging_obj = Mock(spec=LiteLLMLoggingObj)
+    logging_obj = Mock(spec=EmbRouterLoggingObj)
 
     _stamp_responses_usage_cost(response, logging_obj)
 
@@ -814,7 +814,7 @@ def _unvalidated_response_with_dict_usage(usage: dict) -> ResponsesAPIResponse:
 
 
 def test_stamp_responses_usage_cost_keeps_provider_cost_from_dict_usage():
-    from litellm.responses.streaming_iterator import _stamp_responses_usage_cost
+    from embrouter.responses.streaming_iterator import _stamp_responses_usage_cost
     response = _unvalidated_response_with_dict_usage(
         {
             "input_tokens": 29,
@@ -824,7 +824,7 @@ def test_stamp_responses_usage_cost_keeps_provider_cost_from_dict_usage():
             "cost": {"currency": "USD", "input_cost": 0, "output_cost": 3e-05, "total_cost": 3e-05},
         }
     )
-    logging_obj = Mock(spec=LiteLLMLoggingObj)
+    logging_obj = Mock(spec=EmbRouterLoggingObj)
 
     _stamp_responses_usage_cost(response, logging_obj)
 
@@ -835,9 +835,9 @@ def test_stamp_responses_usage_cost_keeps_provider_cost_from_dict_usage():
 
 
 def test_stamp_responses_usage_cost_computes_cost_for_dict_usage_without_cost():
-    from litellm.responses.streaming_iterator import _stamp_responses_usage_cost
+    from embrouter.responses.streaming_iterator import _stamp_responses_usage_cost
     response = _unvalidated_response_with_dict_usage({"input_tokens": 29, "output_tokens": 120, "total_tokens": 149})
-    logging_obj = Mock(spec=LiteLLMLoggingObj)
+    logging_obj = Mock(spec=EmbRouterLoggingObj)
     logging_obj._response_cost_calculator.return_value = 0.000704
 
     _stamp_responses_usage_cost(response, logging_obj)
@@ -848,10 +848,10 @@ def test_stamp_responses_usage_cost_computes_cost_for_dict_usage_without_cost():
 
 
 def test_stamp_responses_usage_cost_survives_calculator_failure():
-    from litellm.responses.streaming_iterator import _stamp_responses_usage_cost
+    from embrouter.responses.streaming_iterator import _stamp_responses_usage_cost
 
     response = _responses_api_response_with_usage()
-    logging_obj = Mock(spec=LiteLLMLoggingObj)
+    logging_obj = Mock(spec=EmbRouterLoggingObj)
     logging_obj._response_cost_calculator.side_effect = RuntimeError("cost map unavailable")
 
     _stamp_responses_usage_cost(response, logging_obj)
@@ -862,7 +862,7 @@ def test_stamp_responses_usage_cost_survives_calculator_failure():
 def _capture_dispatch(logged: list):
     """Record the object handed to the success handlers.
 
-    ``Mock(spec=LiteLLMLoggingObj).dispatch_success_handlers`` is an AsyncMock whose side effect
+    ``Mock(spec=EmbRouterLoggingObj).dispatch_success_handlers`` is an AsyncMock whose side effect
     only runs when the coroutine is awaited, so capture with a plain function instead.
     """
 
@@ -910,7 +910,7 @@ def _make_header_iterator(
     *,
     headers: dict,
     config: Mock,
-    logging_obj: LiteLLMLoggingObj,
+    logging_obj: EmbRouterLoggingObj,
 ) -> ResponsesAPIStreamingIterator:
     async def aiter_bytes():
         yield _sse_event({"type": "response.completed"})
@@ -924,7 +924,7 @@ def _make_header_iterator(
         model="gpt-4o-mini",
         responses_api_provider_config=config,
         logging_obj=logging_obj,
-        litellm_metadata={},
+        embrouter_metadata={},
         custom_llm_provider="azure",
     )
 
@@ -1052,7 +1052,7 @@ async def test_streaming_logging_copy_keeps_client_usage_when_response_fails_val
 
     assert len(logged) == 1
     now = datetime.now()
-    LiteLLMLoggingObj._get_assembled_streaming_response(
+    EmbRouterLoggingObj._get_assembled_streaming_response(
         logging_obj, logged[0], start_time=now, end_time=now, is_async=True, streaming_chunks=[]
     )
     assert logged[0].response.usage["prompt_tokens"] == 29
@@ -1114,7 +1114,7 @@ async def test_completed_event_without_usage_counts_multimodal_input_as_messages
             ],
         }
     ]
-    json_count: Final = litellm.token_counter(model="gpt-4o-mini", text=json.dumps(image_input))
+    json_count: Final = embrouter.token_counter(model="gpt-4o-mini", text=json.dumps(image_input))
     response = _responses_api_response_without_usage()
     iterator = _make_iterator(
         sse_events=[
@@ -1241,7 +1241,7 @@ async def test_completed_event_with_a_dict_response_is_typed_and_billed():
 
 
 def test_billed_terminal_response_keeps_a_response_that_already_has_usage():
-    from litellm.responses.streaming_iterator import _billed_terminal_response
+    from embrouter.responses.streaming_iterator import _billed_terminal_response
 
     response: Final = _responses_api_response_with_usage()
 
@@ -1249,7 +1249,7 @@ def test_billed_terminal_response_keeps_a_response_that_already_has_usage():
 
 
 def test_billed_terminal_response_copies_when_estimating_and_leaves_the_original_untouched():
-    from litellm.responses.streaming_iterator import _billed_terminal_response
+    from embrouter.responses.streaming_iterator import _billed_terminal_response
 
     response: Final = _responses_api_response_without_usage()
     estimated: Final = ResponseAPIUsage(input_tokens=3, output_tokens=4, total_tokens=7)
@@ -1275,7 +1275,7 @@ def test_persist_completed_response_to_cache_survives_an_unserializable_response
         type="response.completed", response=bad_response
     )
     cache: Final = Mock()
-    monkeypatch.setattr(litellm, "cache", cache)
+    monkeypatch.setattr(embrouter, "cache", cache)
 
     iterator._persist_completed_response_to_cache(is_async=False)
 

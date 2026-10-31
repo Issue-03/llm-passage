@@ -1,10 +1,10 @@
 import os
 import pytest
-import litellm
-from litellm import completion
-from litellm.llms.custom_httpx.http_handler import HTTPHandler
+import embrouter
+from embrouter import completion
+from embrouter.llms.custom_httpx.http_handler import HTTPHandler
 from unittest.mock import patch
-from litellm.llms.heroku.chat.transformation import HerokuChatConfig
+from embrouter.llms.heroku.chat.transformation import HerokuChatConfig
 
 os.environ["HEROKU_API_BASE"] = "https://us.inference.heroku.com"
 os.environ["HEROKU_API_KEY"] = "fake-heroku-key"
@@ -23,7 +23,7 @@ class TestHerokuChatConfig:
             model="claude-3-5-haiku",
             messages=[{"role": "user", "content": "Hey"}],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             api_key=api_key,
             api_base=None,  # Not providing api_base
         )
@@ -36,7 +36,7 @@ class TestHerokuChatConfig:
     def test_heroku_chat_mock(self, respx_mock):
         """Test that the Heroku chat API is called correctly"""
 
-        litellm.disable_aiohttp_transport = True
+        embrouter.disable_aiohttp_transport = True
 
         model = "heroku/claude-3-5-haiku"
         model_name = "claude-3-5-haiku"
@@ -69,7 +69,7 @@ class TestHerokuChatConfig:
         response = completion(
             model=model,
             messages=[
-                {"role": "user", "content": "write code for saying hey from LiteLLM"}
+                {"role": "user", "content": "write code for saying hey from EmbRouter"}
             ],
             extended_thinking={"enabled": True, "include_reasoning": True},
         )
@@ -92,7 +92,7 @@ class TestHerokuChatConfig:
         headers = {}
         api_key = "fake-heroku-key"
 
-        litellm.disable_aiohttp_transport = True
+        embrouter.disable_aiohttp_transport = True
 
         model = "heroku/claude-4-sonnet"
 

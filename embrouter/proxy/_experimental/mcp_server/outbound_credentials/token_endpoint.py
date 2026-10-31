@@ -27,30 +27,30 @@ import jwt
 from pydantic import BaseModel, TypeAdapter, ValidationError
 from typing_extensions import assert_never
 
-from litellm._logging import verbose_proxy_logger
-from litellm.caching.in_memory_cache import InMemoryCache
-from litellm.constants import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.caching.in_memory_cache import InMemoryCache
+from embrouter.constants import (
     MCP_OAUTH2_TOKEN_CACHE_DEFAULT_TTL,
     MCP_OAUTH2_TOKEN_CACHE_MIN_TTL,
     MCP_OAUTH2_TOKEN_EXPIRY_BUFFER_SECONDS,
     MCP_TOKEN_EXCHANGE_CACHE_MAX_SIZE,
 )
-from litellm.exceptions import Timeout
-from litellm.llms.custom_httpx.http_handler import (
-    get_async_httpx_client,  # pyright: ignore[reportUnknownVariableType]  # litellm http handler is untyped
+from embrouter.exceptions import Timeout
+from embrouter.llms.custom_httpx.http_handler import (
+    get_async_httpx_client,  # pyright: ignore[reportUnknownVariableType]  # embrouter http handler is untyped
 )
-from litellm.proxy._experimental.mcp_server.outbound_credentials.result import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.result import (
     Error,
     Ok,
     Result,
 )
-from litellm.proxy._experimental.mcp_server.outbound_credentials.types import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.types import (
     ClientAuth,
     ClientSecretAuth,
     CredError,
     PrivateKeyJwtAuth,
 )
-from litellm.types.llms.custom_http import httpxSpecialProvider
+from embrouter.types.llms.custom_http import httpxSpecialProvider
 
 # The cache stores (fingerprint, token); anything else in the slot is treated as absent.
 _CACHED_ENTRY_ADAPTER: Final[TypeAdapter[tuple[str, str]]] = TypeAdapter(tuple[str, str])
@@ -236,14 +236,14 @@ def _cache_ttl_seconds(expires_in: int | None) -> int:
 
 
 async def _post_form(endpoint: str, data: dict[str, str]) -> object:
-    # litellm's httpx handler and httpx.Response are only partially typed; the token endpoint
+    # embrouter's httpx handler and httpx.Response are only partially typed; the token endpoint
     # returns a JSON object that `_TokenEndpointResponse` validates, so the untyped boundary is
     # contained here. A non-2xx raises `httpx.HTTPStatusError`, an unreachable endpoint raises
-    # `httpx.RequestError` (or litellm's `Timeout`, which the handler substitutes for
+    # `httpx.RequestError` (or embrouter's `Timeout`, which the handler substitutes for
     # `httpx.TimeoutException`), and a non-JSON body raises `json.JSONDecodeError`; `fetch` maps
     # each to a CredError.
-    client = get_async_httpx_client(llm_provider=httpxSpecialProvider.MCP)  # pyright: ignore[reportUnknownVariableType]  # litellm http handler is untyped
-    response = await client.post(endpoint, data=data)  # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType]  # litellm http handler is untyped
+    client = get_async_httpx_client(llm_provider=httpxSpecialProvider.MCP)  # pyright: ignore[reportUnknownVariableType]  # embrouter http handler is untyped
+    response = await client.post(endpoint, data=data)  # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType]  # embrouter http handler is untyped
     response.raise_for_status()
     return response.json()  # pyright: ignore[reportAny]  # untyped JSON; validated by _TokenEndpointResponse in fetch
 

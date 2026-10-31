@@ -28,7 +28,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-import litellm.proxy.proxy_server as ps
+import embrouter.proxy.proxy_server as ps
 
 from .conftest import normalize
 
@@ -237,7 +237,7 @@ async def test_get_current_spend_floors_end_user_tag_against_fallback(monkeypatc
 
 def _make_prisma_with_end_user_row(spend: float | None):
     prisma: Final = MagicMock()
-    prisma.db.litellm_endusertable.find_unique = AsyncMock(
+    prisma.db.embrouter_endusertable.find_unique = AsyncMock(
         return_value=None if spend is None else MagicMock(spend=spend)
     )
     return prisma
@@ -245,7 +245,7 @@ def _make_prisma_with_end_user_row(spend: float | None):
 
 @pytest.mark.asyncio
 async def test_get_current_spend_end_user_floor_admits_after_a_reset_on_a_stale_worker(monkeypatch):
-    """The reset job zeroes LiteLLM_EndUserTable.spend and the shared counter, but it
+    """The reset job zeroes EmbRouter_EndUserTable.spend and the shared counter, but it
     evicts the cached end-user object only on the worker that ran the reset. Every
     other worker still passes the pre-reset spend as fallback_spend, and that stale
     copy must not out-vote the reset row."""
@@ -262,7 +262,7 @@ async def test_get_current_spend_end_user_floor_admits_after_a_reset_on_a_stale_
     )
 
     assert result == 0.0
-    prisma.db.litellm_endusertable.find_unique.assert_awaited_once_with(where={"user_id": "customer-42"})
+    prisma.db.embrouter_endusertable.find_unique.assert_awaited_once_with(where={"user_id": "customer-42"})
     fake_cache.redis_cache.async_set_max.assert_not_called()
 
 
@@ -331,8 +331,8 @@ async def test_get_current_spend_floors_window_against_spend_logs(monkeypatch):
 
 def _make_window_spend_prisma(row=None, spend_logs_total=0.0):
     prisma = MagicMock()
-    prisma.db.litellm_budgetwindowspend.find_unique = AsyncMock(return_value=row)
-    prisma.db.litellm_spendlogs.group_by = AsyncMock(
+    prisma.db.embrouter_budgetwindowspend.find_unique = AsyncMock(return_value=row)
+    prisma.db.embrouter_spendlogs.group_by = AsyncMock(
         return_value=[{"api_key": "tok", "_sum": {"spend": spend_logs_total}}]
     )
     return prisma
@@ -366,7 +366,7 @@ async def test_get_current_spend_floors_window_against_maintained_row(monkeypatc
     )
 
     assert result == 15.0
-    fake_prisma.db.litellm_spendlogs.group_by.assert_not_awaited()
+    fake_prisma.db.embrouter_spendlogs.group_by.assert_not_awaited()
     fake_cache.redis_cache.async_set_max.assert_awaited_once_with(key=counter_key, value=15.0)
 
 
@@ -397,7 +397,7 @@ async def test_get_current_spend_floors_window_against_logs_when_row_stale(monke
     )
 
     assert result == 15.0
-    fake_prisma.db.litellm_spendlogs.group_by.assert_awaited_once()
+    fake_prisma.db.embrouter_spendlogs.group_by.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -630,7 +630,7 @@ async def test_increment_spend_counters_skips_reserved_counter_keys(monkeypatch)
     """Counters already reserved by a budget reservation are skipped, every
     other scope is still incremented exactly once, and the reservation is
     finalized after the gathered work completes."""
-    import litellm.proxy.spend_tracking.budget_reservation as br
+    import embrouter.proxy.spend_tracking.budget_reservation as br
 
     reserved = {"spend:key:hashed-tok", "spend:org:org1"}
     monkeypatch.setattr(br, "get_reserved_counter_keys", MagicMock(return_value=set(reserved)))
@@ -900,7 +900,7 @@ async def test_reconcile_budget_reservation_for_counter_update_failure_invalidat
     """Reservation reconcile raising must invalidate reserved counters, swallow
     the exception, and return an empty set so the caller falls back to the
     direct spend-counter increment instead of skipping it."""
-    import litellm.proxy.spend_tracking.budget_reservation as br
+    import embrouter.proxy.spend_tracking.budget_reservation as br
 
     monkeypatch.setattr(
         br,
@@ -931,7 +931,7 @@ async def test_reconcile_budget_reservation_for_counter_update_finalized_reserva
     """A reservation already finalized before the counter update (the pre-persist
     reconcile failed and dropped its counters) must not shield its keys from the
     direct increment, or the settled cost is never added back after the drop."""
-    import litellm.proxy.spend_tracking.budget_reservation as br
+    import embrouter.proxy.spend_tracking.budget_reservation as br
 
     fake_reconcile = AsyncMock()
     monkeypatch.setattr(br, "reconcile_budget_reservation", fake_reconcile)
@@ -1193,7 +1193,7 @@ async def test_apply_spend_counter_increments_open_breaker_invalidates_and_retur
     Re-raising the refusal sent every request through the cost callback's error path, which
     logged an ERROR and fired the failed-tracking alert once per request for the whole outage.
     """
-    from litellm.caching.redis_cache import RedisCircuitBreakerOpenError
+    from embrouter.caching.redis_cache import RedisCircuitBreakerOpenError
 
     fake_cache = _make_spend_counter_cache()
     fake_cache.redis_cache.async_increment_pipeline = AsyncMock(
@@ -1539,7 +1539,7 @@ async def test_update_cache_no_cached_entities_schedules_pipeline_flush(monkeypa
     fake_user_cache.async_batch_get_cache.assert_awaited_once()
     assert fake_user_cache.async_batch_get_cache.await_args.kwargs["keys"] == [
         "u1",
-        f"{ps.litellm_proxy_admin_name}:spend",
+        f"{ps.embrouter_proxy_admin_name}:spend",
         "end_user_id:eu1",
         "team_id:t1",
         "tag:x",

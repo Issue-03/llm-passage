@@ -5,26 +5,26 @@ from types import MappingProxyType
 from typing import TYPE_CHECKING, Final
 
 if TYPE_CHECKING:
-    from litellm.types.llms.openai import OpenAIFileObject
+    from embrouter.types.llms.openai import OpenAIFileObject
 
-import litellm
-from litellm._logging import verbose_logger, verbose_router_logger
-from litellm.constants import ROUTER_FALLBACK_ERROR_DETAIL_MAX_CHARS
-from litellm.exceptions import BadRequestError
-from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
-from litellm.litellm_core_utils.sensitive_data_masker import mask_sensitive_structure
-from litellm.types.router import CredentialLiteLLMParams
-from litellm.types.utils import LlmProviders
+import embrouter
+from embrouter._logging import verbose_logger, verbose_router_logger
+from embrouter.constants import ROUTER_FALLBACK_ERROR_DETAIL_MAX_CHARS
+from embrouter.exceptions import BadRequestError
+from embrouter.embrouter_core_utils.get_llm_provider_logic import get_llm_provider
+from embrouter.embrouter_core_utils.sensitive_data_masker import mask_sensitive_structure
+from embrouter.types.router import CredentialEmbRouterParams
+from embrouter.types.utils import LlmProviders
 
 
 def _is_proxy_admin_request(request_kwargs: Mapping[str, object] | None) -> bool:
     if request_kwargs is None:
         return False
     metadata_value: Final = request_kwargs.get("metadata")
-    litellm_metadata_value: Final = request_kwargs.get("litellm_metadata")
+    embrouter_metadata_value: Final = request_kwargs.get("embrouter_metadata")
     metadata: Final = metadata_value if isinstance(metadata_value, Mapping) else {}
-    litellm_metadata: Final = litellm_metadata_value if isinstance(litellm_metadata_value, Mapping) else {}
-    user_api_key_auth: Final = metadata.get("user_api_key_auth") or litellm_metadata.get("user_api_key_auth")
+    embrouter_metadata: Final = embrouter_metadata_value if isinstance(embrouter_metadata_value, Mapping) else {}
+    user_api_key_auth: Final = metadata.get("user_api_key_auth") or embrouter_metadata.get("user_api_key_auth")
     return getattr(user_api_key_auth, "user_role", None) == "proxy_admin"
 
 
@@ -32,7 +32,7 @@ def get_request_team_id(request_kwargs: Mapping[str, object] | None) -> str | No
     """The caller's team id, from whichever metadata bucket this surface writes to."""
     if request_kwargs is None:
         return None
-    for bucket_name in ("metadata", "litellm_metadata"):
+    for bucket_name in ("metadata", "embrouter_metadata"):
         bucket = request_kwargs.get(bucket_name)
         team_id = bucket.get("user_api_key_team_id") if isinstance(bucket, Mapping) else None
         if isinstance(team_id, str) and team_id:
@@ -85,7 +85,7 @@ def format_no_fallback_group_message(lookup_groups: Sequence[str], fallbacks: Se
         f" Fallbacks are configured for: {', '.join(configured)}." if configured else " No fallbacks are configured."
     )
     return (
-        f"\n\nLiteLLM: model group '{requested}' failed with the error above and no fallback model group was found "
+        f"\n\nEmbRouter: model group '{requested}' failed with the error above and no fallback model group was found "
         f"for it, so the request was not retried on another model.{configured_text}"
         " Add a fallbacks entry for that model group (Router fallbacks or proxy router_settings.fallbacks)"
         " to retry on another model."
@@ -98,7 +98,7 @@ def format_fallback_outcome_message(
     fallback_failure_detail: str,
 ) -> str:
     """User-facing explanation appended when the fallback orchestrator gives up and re-raises the primary error."""
-    lead: Final = f"\n\nLiteLLM: model group '{model_group}' failed with the error above."
+    lead: Final = f"\n\nEmbRouter: model group '{model_group}' failed with the error above."
     if not fallback_model_group:
         return f"{lead} No fallback was attempted."
     targets: Final = ", ".join(str(mask_sensitive_structure(target)) for target in fallback_model_group)
@@ -107,11 +107,11 @@ def format_fallback_outcome_message(
     return f"{lead} Fallback to {targets} also failed: {fallback_failure_detail}"
 
 
-def get_litellm_params_sensitive_credential_hash(litellm_params: dict) -> str:
+def get_embrouter_params_sensitive_credential_hash(embrouter_params: dict) -> str:
     """
     Hash of the credential params, used for mapping the file id to the right model
     """
-    sensitive_params: Final = CredentialLiteLLMParams(**litellm_params)
+    sensitive_params: Final = CredentialEmbRouterParams(**embrouter_params)
     return hashlib.sha256(json.dumps(sensitive_params.model_dump()).encode()).hexdigest()
 
 
@@ -153,11 +153,11 @@ def filter_team_based_models(
         return healthy_deployments
 
     metadata: Final = request_kwargs.get("metadata") or {}
-    litellm_metadata: Final = request_kwargs.get("litellm_metadata") or {}
+    embrouter_metadata: Final = request_kwargs.get("embrouter_metadata") or {}
     request_team_id: Final = get_request_team_id(request_kwargs)
     if request_team_id is None and _is_proxy_admin_request(request_kwargs) and isinstance(healthy_deployments, list):
         requested_model: Final = (
-            request_kwargs.get("model") or metadata.get("model_group") or litellm_metadata.get("model_group")
+            request_kwargs.get("model") or metadata.get("model_group") or embrouter_metadata.get("model_group")
         )
         candidate_deployments: Final = tuple(
             (deployment.get("model_name"), deployment.get("model_info") or {}) for deployment in healthy_deployments
@@ -215,7 +215,7 @@ def _deployment_supports_web_search(deployment: dict) -> bool:
     1. Check config-level override in model_info.supports_web_search
     2. Default to True (assume supported unless explicitly disabled)
 
-    Note: Ideally we'd fall back to litellm.supports_web_search() but
+    Note: Ideally we'd fall back to embrouter.supports_web_search() but
     model_prices_and_context_window.json doesn't have supports_web_search
     tags on all models yet. TODO: backfill and add fallback.
     """
@@ -288,7 +288,7 @@ PROVIDER_SCOPED_CREDENTIAL_PARAMS: Final[Mapping[str, frozenset[str]]] = Mapping
 )
 
 
-def provider_for_generic_call(litellm_params: Mapping[str, object]) -> str | None:
+def provider_for_generic_call(embrouter_params: Mapping[str, object]) -> str | None:
     """
     The provider the router hands a deployment's generic SDK call, or None when it cannot be resolved.
 
@@ -298,14 +298,14 @@ def provider_for_generic_call(litellm_params: Mapping[str, object]) -> str | Non
     that contradicts the prefix makes get_llm_provider re-prefix it into a deployment name that
     does not exist upstream.
     """
-    declared: Final = litellm_params.get("custom_llm_provider")
+    declared: Final = embrouter_params.get("custom_llm_provider")
     if isinstance(declared, str) and declared:
         return declared
-    model: Final = litellm_params.get("model")
+    model: Final = embrouter_params.get("model")
     if not isinstance(model, str) or not model:
         return None
     prefix: Final = model.split("/", 1)[0]
-    if "/" in model and prefix in litellm.provider_list:
+    if "/" in model and prefix in embrouter.provider_list:
         return prefix
     try:
         _, inferred, _, _ = get_llm_provider(model=model)
@@ -314,26 +314,26 @@ def provider_for_generic_call(litellm_params: Mapping[str, object]) -> str | Non
     return inferred
 
 
-def warn_on_provider_credential_mismatch(model_name: str, litellm_params: Mapping[str, object]) -> str | None:
+def warn_on_provider_credential_mismatch(model_name: str, embrouter_params: Mapping[str, object]) -> str | None:
     """
     Warn when a deployment carries one provider's credentials but resolves to another.
 
     Returns the warning text (for tests), or None when the deployment is consistent
-    or its provider cannot be resolved. Never raises: a deployment litellm cannot
+    or its provider cannot be resolved. Never raises: a deployment embrouter cannot
     classify is left alone rather than blocking router startup.
 
     Only inline credential params are examined. A deployment that sources them
-    through ``litellm_credential_name`` resolves them after registration, so it
+    through ``embrouter_credential_name`` resolves them after registration, so it
     carries none of these keys here and is left alone rather than warned about
     on incomplete information.
     """
-    model: Final = litellm_params.get("model")
+    model: Final = embrouter_params.get("model")
     if not isinstance(model, str) or not model:
         return None
-    scoped: Final = tuple(param for param in PROVIDER_SCOPED_CREDENTIAL_PARAMS if litellm_params.get(param) is not None)
+    scoped: Final = tuple(param for param in PROVIDER_SCOPED_CREDENTIAL_PARAMS if embrouter_params.get(param) is not None)
     if not scoped:
         return None
-    custom_llm_provider: Final = litellm_params.get("custom_llm_provider")
+    custom_llm_provider: Final = embrouter_params.get("custom_llm_provider")
     try:
         _, resolved_provider, _, _ = get_llm_provider(
             model=model,

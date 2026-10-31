@@ -1,5 +1,5 @@
 """
-Anthropic module for LiteLLM
+Anthropic module for EmbRouter
 """
 
 from .messages import acreate, create

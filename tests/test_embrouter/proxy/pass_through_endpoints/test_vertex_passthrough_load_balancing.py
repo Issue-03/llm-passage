@@ -4,17 +4,17 @@ import pytest
 from fastapi import Request
 from starlette.datastructures import Headers, State
 
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
     VertexAIPassThroughHandler,
     _base_vertex_proxy_route,
     _resolve_vertex_model_from_router,
     _upstream_headers_for_vertex_route,
 )
-from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+from embrouter.proxy.pass_through_endpoints.pass_through_endpoints import (
     HttpPassThroughEndpointHelpers,
 )
-from litellm.types.router import DeploymentTypedDict
+from embrouter.types.router import DeploymentTypedDict
 
 
 @pytest.mark.asyncio
@@ -32,7 +32,7 @@ async def test_vertex_passthrough_load_balancing():
     # Mock the router
     mock_router = MagicMock()
     mock_deployment = {
-        "litellm_params": {
+        "embrouter_params": {
             "model": "vertex_ai/gemini-pro",
             "vertex_project": "test-project-lb",
             "vertex_location": "us-central1-lb",
@@ -44,30 +44,30 @@ async def test_vertex_passthrough_load_balancing():
     # Mock get_vertex_model_id_from_url to return a model ID
     with (
         patch(
-            "litellm.llms.vertex_ai.common_utils.get_vertex_model_id_from_url",
+            "embrouter.llms.vertex_ai.common_utils.get_vertex_model_id_from_url",
             return_value="gemini-pro",
         ),
-        patch("litellm.proxy.proxy_server.llm_router", mock_router),
+        patch("embrouter.proxy.proxy_server.llm_router", mock_router),
         patch(
-            "litellm.llms.vertex_ai.common_utils.get_vertex_project_id_from_url",
+            "embrouter.llms.vertex_ai.common_utils.get_vertex_project_id_from_url",
             return_value=None,
         ),
         patch(
-            "litellm.llms.vertex_ai.common_utils.get_vertex_location_from_url",
+            "embrouter.llms.vertex_ai.common_utils.get_vertex_location_from_url",
             return_value=None,
         ),
         patch(
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router"
+            "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router"
         ) as mock_pt_router,
         patch(
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints._prepare_vertex_auth_headers",
+            "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints._prepare_vertex_auth_headers",
             new_callable=AsyncMock,
         ) as mock_prep_headers,
         patch(
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
+            "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
         ) as mock_create_route,
         patch(
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.user_api_key_auth",
+            "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.user_api_key_auth",
             new_callable=AsyncMock,
         ) as mock_auth,
     ):
@@ -114,13 +114,13 @@ def test_get_available_deployment_for_pass_through_filters_correctly():
     """
     Test that get_available_deployment_for_pass_through filters deployments correctly
     """
-    from litellm.router import Router
+    from embrouter.router import Router
 
     # Configure router with both pass-through and non-pass-through deployments
     model_list = [
         {
             "model_name": "gemini-pro",
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "vertex_ai/gemini-pro",
                 "vertex_project": "project-1",
                 "vertex_location": "us-central1",
@@ -129,7 +129,7 @@ def test_get_available_deployment_for_pass_through_filters_correctly():
         },
         {
             "model_name": "gemini-pro",
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "vertex_ai/gemini-pro",
                 "vertex_project": "project-2",
                 "vertex_location": "us-west1",
@@ -138,7 +138,7 @@ def test_get_available_deployment_for_pass_through_filters_correctly():
         },
         {
             "model_name": "gemini-pro",
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "vertex_ai/gemini-pro",
                 "vertex_project": "project-3",
                 "vertex_location": "us-east1",
@@ -153,21 +153,21 @@ def test_get_available_deployment_for_pass_through_filters_correctly():
     deployment = router.get_available_deployment_for_pass_through(model="gemini-pro")
 
     assert deployment is not None
-    assert deployment["litellm_params"]["vertex_project"] == "project-1"
-    assert deployment["litellm_params"]["use_in_pass_through"] is True
+    assert deployment["embrouter_params"]["vertex_project"] == "project-1"
+    assert deployment["embrouter_params"]["use_in_pass_through"] is True
 
 
 def test_get_available_deployment_for_pass_through_no_deployments():
     """
     Test that correct error is thrown when there are no pass-through deployments
     """
-    import litellm
-    from litellm.router import Router
+    import embrouter
+    from embrouter.router import Router
 
     model_list = [
         {
             "model_name": "gemini-pro",
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "vertex_ai/gemini-pro",
                 "vertex_project": "project-1",
                 "vertex_location": "us-central1",
@@ -179,7 +179,7 @@ def test_get_available_deployment_for_pass_through_no_deployments():
     router = Router(model_list=model_list)
 
     # Should throw BadRequestError
-    with pytest.raises(litellm.BadRequestError) as exc_info:
+    with pytest.raises(embrouter.BadRequestError) as exc_info:
         router.get_available_deployment_for_pass_through(model="gemini-pro")
 
     assert "use_in_pass_through=True" in str(exc_info.value)
@@ -189,12 +189,12 @@ def test_get_available_deployment_for_pass_through_load_balancing():
     """
     Test load balancing for pass-through deployments
     """
-    from litellm.router import Router
+    from embrouter.router import Router
 
     model_list = [
         {
             "model_name": "gemini-pro",
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "vertex_ai/gemini-pro",
                 "vertex_project": "project-1",
                 "vertex_location": "us-central1",
@@ -204,7 +204,7 @@ def test_get_available_deployment_for_pass_through_load_balancing():
         },
         {
             "model_name": "gemini-pro",
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "vertex_ai/gemini-pro",
                 "vertex_project": "project-2",
                 "vertex_location": "us-west1",
@@ -222,7 +222,7 @@ def test_get_available_deployment_for_pass_through_load_balancing():
         deployment = router.get_available_deployment_for_pass_through(
             model="gemini-pro"
         )
-        project = deployment["litellm_params"]["vertex_project"]
+        project = deployment["embrouter_params"]["vertex_project"]
         selections[project] += 1
 
     # Due to rpm weight, project-2 should be selected more times
@@ -234,12 +234,12 @@ async def test_async_get_available_deployment_for_pass_through():
     """
     Test the async version of get_available_deployment_for_pass_through
     """
-    from litellm.router import Router
+    from embrouter.router import Router
 
     model_list = [
         {
             "model_name": "gemini-pro",
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "vertex_ai/gemini-pro",
                 "vertex_project": "project-1",
                 "vertex_location": "us-central1",
@@ -255,7 +255,7 @@ async def test_async_get_available_deployment_for_pass_through():
     )
 
     assert deployment is not None
-    assert deployment["litellm_params"]["use_in_pass_through"] is True
+    assert deployment["embrouter_params"]["use_in_pass_through"] is True
 
 
 @pytest.mark.asyncio
@@ -270,8 +270,8 @@ async def test_vertex_passthrough_forwards_anthropic_beta_header():
     """
     from starlette.datastructures import Headers
 
-    from litellm.llms.vertex_ai.vertex_llm_base import VertexBase
-    from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+    from embrouter.llms.vertex_ai.vertex_llm_base import VertexBase
+    from embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
         _prepare_vertex_auth_headers,
     )
 
@@ -323,7 +323,7 @@ async def test_vertex_passthrough_forwards_anthropic_beta_header():
             router_credentials=None,
             vertex_project="test-project",
             vertex_location="us-central1",
-            user_api_key_dict=UserAPIKeyAuth(api_key="sk-litellm-secret-key"),
+            user_api_key_dict=UserAPIKeyAuth(api_key="sk-embrouter-secret-key"),
         )
 
         # Verify that allowlisted headers are preserved
@@ -363,24 +363,24 @@ async def test_vertex_passthrough_drops_anthropic_beta_only_on_count_tokens(
 ):
     with (
         patch(  # test-quality-ok: the route reads this proxy global at call time, nothing injects it
-            "litellm.proxy.proxy_server.llm_router", None
+            "embrouter.proxy.proxy_server.llm_router", None
         ),
         patch(  # test-quality-ok: the route reads this proxy global at call time, nothing injects it
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router"
+            "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router"
         ) as mock_pt_router,
         patch(  # test-quality-ok: the route offers no injection point for its header preparation
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints._prepare_vertex_auth_headers",
+            "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints._prepare_vertex_auth_headers",
             new_callable=AsyncMock,
         ) as mock_prep_headers,
         patch(  # test-quality-ok: the upstream call is captured here, the route offers no injection point
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
+            "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
         ) as mock_create_route,
         patch(  # test-quality-ok: the route calls auth directly rather than through Depends
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.user_api_key_auth",
+            "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.user_api_key_auth",
             new_callable=AsyncMock,
         ) as mock_auth,
         patch(  # test-quality-ok: the route reads the request body for this, a MagicMock request has none
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_streaming_request_fn",
+            "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_streaming_request_fn",
             new_callable=AsyncMock,
             return_value=False,
         ),
@@ -397,7 +397,7 @@ async def test_vertex_passthrough_drops_anthropic_beta_only_on_count_tokens(
             "global",
         )
         mock_create_route.return_value = AsyncMock()
-        mock_auth.return_value = UserAPIKeyAuth(api_key="sk-litellm-secret-key")
+        mock_auth.return_value = UserAPIKeyAuth(api_key="sk-embrouter-secret-key")
 
         await _base_vertex_proxy_route(
             endpoint=f"{VERTEX_ANTHROPIC_MODELS_PREFIX}{model_segment}",
@@ -434,33 +434,33 @@ def test_upstream_headers_for_vertex_route_filters_anthropic_beta_by_route():
 
 
 @pytest.mark.asyncio
-async def test_vertex_passthrough_does_not_forward_litellm_auth_token():
+async def test_vertex_passthrough_does_not_forward_embrouter_auth_token():
     """
-    Test that the LiteLLM authorization header is NOT forwarded to Vertex AI.
+    Test that the EmbRouter authorization header is NOT forwarded to Vertex AI.
 
-    This test validates the fix for the issue where both the LiteLLM auth token
+    This test validates the fix for the issue where both the EmbRouter auth token
     (lowercase 'authorization') and the Vertex AI token (uppercase 'Authorization')
     were being sent, causing 401 errors on the vendor side.
 
     The incoming request has:
-      - authorization: Bearer <litellm_token>  (should NOT be forwarded)
+      - authorization: Bearer <embrouter_token>  (should NOT be forwarded)
 
     The outgoing request should only have:
       - Authorization: Bearer <vertex_token>  (vendor credentials)
     """
     from starlette.datastructures import Headers
 
-    from litellm.llms.vertex_ai.vertex_llm_base import VertexBase
-    from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+    from embrouter.llms.vertex_ai.vertex_llm_base import VertexBase
+    from embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
         _prepare_vertex_auth_headers,
     )
 
-    # Create a mock request with ONLY the litellm auth token (no other headers)
+    # Create a mock request with ONLY the embrouter auth token (no other headers)
     mock_request = MagicMock()
     mock_request.headers = Headers(
         {
-            "authorization": "Bearer sk-litellm-secret-key",  # LiteLLM token - should NOT be forwarded
-            "Authorization": "Bearer sk-litellm-secret-key-uppercase",  # Also try uppercase
+            "authorization": "Bearer sk-embrouter-secret-key",  # EmbRouter token - should NOT be forwarded
+            "Authorization": "Bearer sk-embrouter-secret-key-uppercase",  # Also try uppercase
         }
     )
 
@@ -495,16 +495,16 @@ async def test_vertex_passthrough_does_not_forward_litellm_auth_token():
             router_credentials=None,
             vertex_project="test-project",
             vertex_location="us-central1",
-            user_api_key_dict=UserAPIKeyAuth(api_key="sk-litellm-secret-key"),
+            user_api_key_dict=UserAPIKeyAuth(api_key="sk-embrouter-secret-key"),
         )
 
         # The ONLY Authorization header should be the Vertex token
         assert headers["Authorization"] == "Bearer vertex-access-token"
 
-        # The LiteLLM token should NOT be present (neither lowercase nor as a duplicate)
+        # The EmbRouter token should NOT be present (neither lowercase nor as a duplicate)
         assert "authorization" not in headers
-        assert headers.get("Authorization") != "Bearer sk-litellm-secret-key"
-        assert headers.get("Authorization") != "Bearer sk-litellm-secret-key-uppercase"
+        assert headers.get("Authorization") != "Bearer sk-embrouter-secret-key"
+        assert headers.get("Authorization") != "Bearer sk-embrouter-secret-key-uppercase"
 
         # Verify we only have the expected headers (Authorization + any allowlisted ones present)
         # Since the request only had auth headers, only Authorization should be in output
@@ -522,15 +522,15 @@ def test_forward_headers_from_request_x_pass_prefix():
     This is tested on BasePassthroughUtils.forward_headers_from_request which is used
     by all pass-through endpoints (not just Vertex AI).
     """
-    from litellm.passthrough.utils import BasePassthroughUtils
+    from embrouter.passthrough.utils import BasePassthroughUtils
 
     # Simulate incoming request headers
     request_headers = {
         "x-pass-anthropic-beta": "context-1m-2025-08-07",
         "x-pass-custom-header": "custom-value",
         "x-pass-another-header": "another-value",
-        "authorization": "Bearer sk-litellm-key",
-        "x-litellm-api-key": "sk-1234",
+        "authorization": "Bearer sk-embrouter-key",
+        "x-embrouter-api-key": "sk-1234",
         "content-type": "application/json",
     }
 
@@ -555,7 +555,7 @@ def test_forward_headers_from_request_x_pass_prefix():
 
     # Verify other headers are NOT forwarded (since forward_headers=False)
     assert "authorization" not in result
-    assert "x-litellm-api-key" not in result
+    assert "x-embrouter-api-key" not in result
     assert "content-type" not in result
 
     # Verify original x-pass- prefixed headers are NOT in output (only stripped versions)
@@ -569,7 +569,7 @@ def test_forward_headers_from_request_protected_headers_not_overwritten():
     protocol-level header names are silently dropped and do not overwrite
     values already present in the outbound headers dict.
     """
-    from litellm.passthrough.utils import BasePassthroughUtils
+    from embrouter.passthrough.utils import BasePassthroughUtils
 
     proxy_headers = {
         "authorization": "Bearer proxy-upstream-key",
@@ -622,10 +622,10 @@ def test_forward_headers_custom_wins_case_insensitive_over_request_authorization
     When forwarding request headers, provider-signed/custom headers must win
     even if the incoming request uses a different case for the same header name.
     """
-    from litellm.passthrough.utils import BasePassthroughUtils
+    from embrouter.passthrough.utils import BasePassthroughUtils
 
     request_headers = {
-        "authorization": "Bearer sk-litellm-key",
+        "authorization": "Bearer sk-embrouter-key",
         "content-type": "application/json",
         "x-request-id": "req-123",
     }
@@ -655,7 +655,7 @@ def test_forward_headers_never_forwards_client_accept_encoding():
     the proxy relay raw compressed bytes with the content-encoding header stripped
     (garbled JSON for /v1/models and count_tokens through the Anthropic passthrough).
     """
-    from litellm.passthrough.utils import BasePassthroughUtils
+    from embrouter.passthrough.utils import BasePassthroughUtils
 
     request_headers = {
         "accept-encoding": "gzip, deflate, br, zstd",
@@ -684,7 +684,7 @@ async def test_vertex_passthrough_custom_model_name_replaced_in_url():
 
     Config example:
         model_name: gcp/google/gemini-3-pro
-        litellm_params:
+        embrouter_params:
           model: vertex_ai/gemini-3-pro
           vertex_project: "my-project"
           vertex_location: "global"
@@ -696,7 +696,7 @@ async def test_vertex_passthrough_custom_model_name_replaced_in_url():
 
     # Deployment with custom model_name but real vertex model
     mock_deployment = {
-        "litellm_params": {
+        "embrouter_params": {
             "model": "vertex_ai/gemini-3-pro",
             "vertex_project": "nv-gcpllmgwit-20250411173346",
             "vertex_location": "global",
@@ -710,19 +710,19 @@ async def test_vertex_passthrough_custom_model_name_replaced_in_url():
     test_endpoint = "v1/projects/nv-gcpllmgwit-20250411173346/locations/global/publishers/google/models/gcp/google/gemini-3-pro:generateContent"
 
     with (
-        patch("litellm.proxy.proxy_server.llm_router", mock_router),
+        patch("embrouter.proxy.proxy_server.llm_router", mock_router),
         patch(
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router"
+            "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router"
         ) as mock_pt_router,
         patch(
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints._prepare_vertex_auth_headers",
+            "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints._prepare_vertex_auth_headers",
             new_callable=AsyncMock,
         ) as mock_prep_headers,
         patch(
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
+            "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
         ) as mock_create_route,
         patch(
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.user_api_key_auth",
+            "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.user_api_key_auth",
             new_callable=AsyncMock,
         ) as mock_auth,
     ):
@@ -783,7 +783,7 @@ async def test_vertex_passthrough_attributes_the_call_to_the_resolved_deployment
     mock_router = MagicMock()
     mock_router.get_available_deployment_for_pass_through.return_value = {
         "model_name": "gemini-3.8-flash",
-        "litellm_params": {
+        "embrouter_params": {
             "model": "vertex_ai/gemini-3.8-flash",
             "vertex_project": "p",
             "vertex_location": "global",
@@ -801,27 +801,27 @@ async def test_vertex_passthrough_attributes_the_call_to_the_resolved_deployment
             passthrough_logging_payload=MagicMock(),
             logging_obj=MagicMock(),
             _parsed_body={"contents": [{"role": "user", "parts": [{"text": "hi"}]}]},
-            litellm_call_id="lit-1761-call-id",
+            embrouter_call_id="lit-1761-call-id",
         )
 
     with (
         patch(  # test-quality-ok: the route reads this proxy global at call time, nothing injects it
-            "litellm.proxy.proxy_server.llm_router", mock_router
+            "embrouter.proxy.proxy_server.llm_router", mock_router
         ),
         patch(  # test-quality-ok: the route reads this proxy global at call time, nothing injects it
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router"
+            "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router"
         ) as mock_pt_router,
         patch(  # test-quality-ok: the route offers no injection point for its header preparation
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints._prepare_vertex_auth_headers",
+            "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints._prepare_vertex_auth_headers",
             new_callable=AsyncMock,
             return_value=({}, False, "p", "global"),
         ),
         patch(  # test-quality-ok: the relay is captured here to read the logging kwargs, the route offers no seam
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
+            "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
             return_value=relay_returning_logging_kwargs,
         ),
         patch(  # test-quality-ok: the route calls auth directly rather than through Depends
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.user_api_key_auth",
+            "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.user_api_key_auth",
             new_callable=AsyncMock,
             return_value=UserAPIKeyAuth(api_key="hashed-key"),
         ),
@@ -835,7 +835,7 @@ async def test_vertex_passthrough_attributes_the_call_to_the_resolved_deployment
             get_vertex_pass_through_handler=mock_handler,
         )
 
-    assert logging_kwargs["litellm_params"]["metadata"]["model_info"]["id"] == "vertex-gemini-38-flash-dep"
+    assert logging_kwargs["embrouter_params"]["metadata"]["model_info"]["id"] == "vertex-gemini-38-flash-dep"
 
 
 def _router_without_deployment() -> MagicMock:

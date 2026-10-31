@@ -3,10 +3,10 @@ from typing import TYPE_CHECKING, Any, Final
 
 import httpx
 
-from litellm.llms.base_llm.vector_store.transformation import BaseVectorStoreConfig
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.vector_stores import (
+from embrouter.llms.base_llm.vector_store.transformation import BaseVectorStoreConfig
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.vector_stores import (
     BaseVectorStoreAuthCredentials,
     VectorStoreCreateOptionalRequestParams,
     VectorStoreCreateResponse,
@@ -17,21 +17,21 @@ from litellm.types.vector_stores import (
 )
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 
 class RAGFlowVectorStoreConfig(BaseVectorStoreConfig):
     """Vector store configuration for RAGFlow datasets."""
 
-    def get_auth_credentials(self, litellm_params: dict) -> BaseVectorStoreAuthCredentials:
-        api_key = litellm_params.get("api_key")
+    def get_auth_credentials(self, embrouter_params: dict) -> BaseVectorStoreAuthCredentials:
+        api_key = embrouter_params.get("api_key")
         if api_key is None:
             # Try to get from environment variable
             api_key = get_secret_str("RAGFLOW_API_KEY")
         if api_key is None:
-            raise ValueError("api_key is required (set RAGFLOW_API_KEY env var or pass in litellm_params)")
+            raise ValueError("api_key is required (set RAGFLOW_API_KEY env var or pass in embrouter_params)")
         return {
             "headers": {
                 "Authorization": f"Bearer {api_key}",
@@ -45,13 +45,13 @@ class RAGFlowVectorStoreConfig(BaseVectorStoreConfig):
             "write": [],
         }
 
-    def validate_environment(self, headers: dict, litellm_params: GenericLiteLLMParams | None) -> dict:
+    def validate_environment(self, headers: dict, embrouter_params: GenericEmbRouterParams | None) -> dict:
         """Validate environment and set headers for RAGFlow API."""
-        litellm_params = litellm_params or GenericLiteLLMParams()
-        api_key: Final = litellm_params.api_key or get_secret_str("RAGFLOW_API_KEY")
+        embrouter_params = embrouter_params or GenericEmbRouterParams()
+        api_key: Final = embrouter_params.api_key or get_secret_str("RAGFLOW_API_KEY")
 
         if api_key is None:
-            raise ValueError("RAGFLOW_API_KEY is required (set env var or pass in litellm_params)")
+            raise ValueError("RAGFLOW_API_KEY is required (set env var or pass in embrouter_params)")
 
         headers.update(
             {
@@ -64,18 +64,18 @@ class RAGFlowVectorStoreConfig(BaseVectorStoreConfig):
     def get_complete_url(
         self,
         api_base: str | None,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> str:
         """
         Get the complete URL for RAGFlow datasets API.
 
         Supports:
         - RAGFLOW_API_BASE env var
-        - api_base in litellm_params
+        - api_base in embrouter_params
         - Default: http://localhost:9380
         """
         api_base = (
-            api_base or litellm_params.get("api_base") or get_secret_str("RAGFLOW_API_BASE") or "http://localhost:9380"
+            api_base or embrouter_params.get("api_base") or get_secret_str("RAGFLOW_API_BASE") or "http://localhost:9380"
         )
 
         # Remove trailing slashes
@@ -90,15 +90,15 @@ class RAGFlowVectorStoreConfig(BaseVectorStoreConfig):
         query: str | list[str],
         vector_store_search_optional_params: VectorStoreSearchOptionalRequestParams,
         api_base: str,
-        litellm_logging_obj: LiteLLMLoggingObj,
-        litellm_params: dict,
+        embrouter_logging_obj: EmbRouterLoggingObj,
+        embrouter_params: dict,
         extra_body: Mapping[str, object] | None = None,
     ) -> tuple[str, dict]:
         """RAGFlow vector stores are management-only, search is not supported."""
         raise NotImplementedError("RAGFlow vector stores support dataset management only, not search/retrieval")
 
     def transform_search_vector_store_response(
-        self, response: httpx.Response, litellm_logging_obj: LiteLLMLoggingObj
+        self, response: httpx.Response, embrouter_logging_obj: EmbRouterLoggingObj
     ) -> VectorStoreSearchResponse:
         """RAGFlow vector stores are management-only, search is not supported."""
         raise NotImplementedError("RAGFlow vector stores support dataset management only, not search/retrieval")
@@ -111,7 +111,7 @@ class RAGFlowVectorStoreConfig(BaseVectorStoreConfig):
         """
         Transform create request to RAGFlow POST /api/v1/datasets format.
 
-        Maps LiteLLM params to RAGFlow dataset creation parameters.
+        Maps EmbRouter params to RAGFlow dataset creation parameters.
         RAGFlow-specific fields can be passed via metadata.
         """
         url: Final = api_base  # Already includes /api/v1/datasets from get_complete_url

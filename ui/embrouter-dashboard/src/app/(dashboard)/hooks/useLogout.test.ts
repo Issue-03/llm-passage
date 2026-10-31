@@ -23,8 +23,8 @@ describe("revokeSessionAndClearClientState", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     sessionLogoutCall.mockResolvedValue({ message: "Session revoked." });
-    localStorage.setItem("litellm_selected_worker_id", "w1");
-    localStorage.setItem("litellm_worker_url", "https://worker.example");
+    localStorage.setItem("embrouter_selected_worker_id", "w1");
+    localStorage.setItem("embrouter_worker_url", "https://worker.example");
   });
 
   it("revokes the session server-side before clearing the token cookie", async () => {
@@ -50,8 +50,8 @@ describe("revokeSessionAndClearClientState", () => {
 
     expect(clearTokenCookies).toHaveBeenCalled();
     expect(clearStoredReturnUrl).toHaveBeenCalled();
-    expect(localStorage.getItem("litellm_selected_worker_id")).toBeNull();
-    expect(localStorage.getItem("litellm_worker_url")).toBeNull();
+    expect(localStorage.getItem("embrouter_selected_worker_id")).toBeNull();
+    expect(localStorage.getItem("embrouter_worker_url")).toBeNull();
   });
 
   it("still clears client state when the revoke call rejects", async () => {
@@ -60,7 +60,7 @@ describe("revokeSessionAndClearClientState", () => {
     await revokeSessionAndClearClientState("sk-token");
 
     expect(clearTokenCookies).toHaveBeenCalled();
-    expect(localStorage.getItem("litellm_selected_worker_id")).toBeNull();
+    expect(localStorage.getItem("embrouter_selected_worker_id")).toBeNull();
   });
 
   it("skips the server call without a token but still clears client state", async () => {

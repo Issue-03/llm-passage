@@ -14,7 +14,7 @@ vi.mock("./guardrail_garden_detail", () => ({
   ),
 }));
 
-const LITELLM_CARDS = ALL_CARDS.filter((c) => c.category === "litellm");
+const EMBROUTER_CARDS = ALL_CARDS.filter((c) => c.category === "embrouter");
 const PARTNER_CARDS = ALL_CARDS.filter((c) => c.category === "partner");
 
 describe("GuardrailGarden", () => {
@@ -27,7 +27,7 @@ describe("GuardrailGarden", () => {
   it("should render both sections with their descriptions", () => {
     renderGarden();
 
-    expect(screen.getByText("LiteLLM Content Filter")).toBeInTheDocument();
+    expect(screen.getByText("EmbRouter Content Filter")).toBeInTheDocument();
     expect(
       screen.getByText(
         "Built-in guardrails powered by EmbRouter. Zero latency, no external dependencies, no additional cost.",
@@ -39,18 +39,18 @@ describe("GuardrailGarden", () => {
     ).toBeInTheDocument();
   });
 
-  it("should show a capped set of litellm cards behind a show all toggle", async () => {
+  it("should show a capped set of embrouter cards behind a show all toggle", async () => {
     const user = userEvent.setup();
     renderGarden();
 
-    expect(screen.getByText(`Show all (${LITELLM_CARDS.length})`)).toBeInTheDocument();
-    expect(screen.getByText(LITELLM_CARDS[0].name)).toBeInTheDocument();
-    expect(screen.queryByText(LITELLM_CARDS[LITELLM_CARDS.length - 1].name)).not.toBeInTheDocument();
+    expect(screen.getByText(`Show all (${EMBROUTER_CARDS.length})`)).toBeInTheDocument();
+    expect(screen.getByText(EMBROUTER_CARDS[0].name)).toBeInTheDocument();
+    expect(screen.queryByText(EMBROUTER_CARDS[EMBROUTER_CARDS.length - 1].name)).not.toBeInTheDocument();
 
-    await user.click(screen.getByText(`Show all (${LITELLM_CARDS.length})`));
+    await user.click(screen.getByText(`Show all (${EMBROUTER_CARDS.length})`));
 
     expect(screen.getByText("Show less")).toBeInTheDocument();
-    expect(screen.getByText(LITELLM_CARDS[LITELLM_CARDS.length - 1].name)).toBeInTheDocument();
+    expect(screen.getByText(EMBROUTER_CARDS[EMBROUTER_CARDS.length - 1].name)).toBeInTheDocument();
   });
 
   it("should always render every partner card", () => {

@@ -3,17 +3,17 @@ from typing import TYPE_CHECKING, Any
 
 import httpx
 
-from litellm.llms.base_llm.chat.transformation import BaseConfig
-from litellm.types.llms.openai import AllEmbeddingInputValues, AllMessageValues
-from litellm.types.utils import EmbeddingResponse, ModelResponse
+from embrouter.llms.base_llm.chat.transformation import BaseConfig
+from embrouter.types.llms.openai import AllEmbeddingInputValues, AllMessageValues
+from embrouter.types.utils import EmbeddingResponse, ModelResponse
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 
 class BaseEmbeddingConfig(BaseConfig, ABC):
@@ -33,11 +33,11 @@ class BaseEmbeddingConfig(BaseConfig, ABC):
         model: str,
         raw_response: httpx.Response,
         model_response: EmbeddingResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_key: str | None,
         request_data: dict,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> EmbeddingResponse:
         return model_response
 
@@ -47,7 +47,7 @@ class BaseEmbeddingConfig(BaseConfig, ABC):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         """
@@ -64,7 +64,7 @@ class BaseEmbeddingConfig(BaseConfig, ABC):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         raise NotImplementedError("EmbeddingConfig does not need a request transformation for chat models")
@@ -74,11 +74,11 @@ class BaseEmbeddingConfig(BaseConfig, ABC):
         model: str,
         raw_response: httpx.Response,
         model_response: ModelResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         request_data: dict,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,

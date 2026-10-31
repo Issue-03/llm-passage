@@ -3,7 +3,7 @@ Tests for structured outputs support in Anthropic /v1/messages endpoint.
 """
 
 import pytest
-from litellm.llms.anthropic.pass_through.messages.transformation import (
+from embrouter.llms.anthropic.pass_through.messages.transformation import (
     AnthropicMessagesConfig,
 )
 
@@ -32,7 +32,7 @@ def test_output_format_supported_and_transforms_correctly():
         model="claude-sonnet-4-5",
         messages=[{"role": "user", "content": "test"}],
         anthropic_messages_optional_request_params=optional_params.copy(),
-        litellm_params={},
+        embrouter_params={},
         headers=headers,
     )
 
@@ -69,7 +69,7 @@ def test_output_config_format_supported_and_transforms_correctly():
         model="claude-opus-4-7",
         messages=[{"role": "user", "content": "test"}],
         anthropic_messages_optional_request_params=optional_params.copy(),
-        litellm_params={},
+        embrouter_params={},
         headers=headers,
     )
 
@@ -97,7 +97,7 @@ def test_output_format_works_with_bedrock_and_azure():
         model="bedrock/anthropic.claude-sonnet-4-5-v2:0",
         messages=messages,
         anthropic_messages_optional_request_params=optional_params.copy(),
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
     assert "output_format" in bedrock_result
@@ -107,7 +107,7 @@ def test_output_format_works_with_bedrock_and_azure():
         model="azure_ai/claude-sonnet-4-5",
         messages=messages,
         anthropic_messages_optional_request_params=optional_params.copy(),
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
     assert "output_format" in azure_result

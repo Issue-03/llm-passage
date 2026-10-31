@@ -1,5 +1,5 @@
 """
-Keep `litellm_accessgrouptable.access_model_names` pointing at deployment names that still exist.
+Keep `embrouter_accessgrouptable.access_model_names` pointing at deployment names that still exist.
 
 Unified access groups store model names, not ids, so a deployment rename or delete that leaves
 the arrays alone strands every group on a name nothing serves any more.
@@ -10,10 +10,10 @@ from typing import Final, Protocol
 
 from pydantic import BaseModel
 
-from litellm.proxy.db.routing_prisma_wrapper import writer_wrapper
-from litellm.proxy.management_helpers.access_group_team_sync import invalidate_access_group_caches
-from litellm.repositories.table_repositories import AccessGroupRepository
-from litellm.router import Router
+from embrouter.proxy.db.routing_prisma_wrapper import writer_wrapper
+from embrouter.proxy.management_helpers.access_group_team_sync import invalidate_access_group_caches
+from embrouter.repositories.table_repositories import AccessGroupRepository
+from embrouter.router import Router
 
 
 class _TouchedGroupRow(BaseModel):
@@ -29,25 +29,25 @@ class RawExecutor(Protocol):
 
 
 _BACKING_DEPLOYMENTS_SQL: Final = (
-    'SELECT COUNT(*)::int AS deployment_count FROM "LiteLLM_ProxyModelTable" WHERE "model_name" = $1'
+    'SELECT COUNT(*)::int AS deployment_count FROM "EmbRouter_ProxyModelTable" WHERE "model_name" = $1'
 )
 
 _REPLACE_MODEL_NAME_SQL: Final = (
-    'UPDATE "LiteLLM_AccessGroupTable" '
+    'UPDATE "EmbRouter_AccessGroupTable" '
     'SET "access_model_names" = array_replace(array_remove("access_model_names", $2), $1, $2) '
     'WHERE $1 = ANY("access_model_names") '
     'RETURNING "access_group_id"'
 )
 
 _APPEND_MODEL_NAME_SQL: Final = (
-    'UPDATE "LiteLLM_AccessGroupTable" '
+    'UPDATE "EmbRouter_AccessGroupTable" '
     'SET "access_model_names" = array_append("access_model_names", $2) '
     'WHERE $1 = ANY("access_model_names") AND NOT ($2 = ANY("access_model_names")) '
     'RETURNING "access_group_id"'
 )
 
 _REMOVE_MODEL_NAME_SQL: Final = (
-    'UPDATE "LiteLLM_AccessGroupTable" '
+    'UPDATE "EmbRouter_AccessGroupTable" '
     'SET "access_model_names" = array_remove("access_model_names", $1) '
     'WHERE $1 = ANY("access_model_names") '
     'RETURNING "access_group_id"'

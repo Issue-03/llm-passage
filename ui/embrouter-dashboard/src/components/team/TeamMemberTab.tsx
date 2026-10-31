@@ -27,7 +27,7 @@ const formatBudget = (value: number | null): string =>
 
 export const seedMemberBudgetFields = (
   record: Member,
-  budget: TeamMembership["litellm_budget_table"] | undefined,
+  budget: TeamMembership["embrouter_budget_table"] | undefined,
 ): Member => ({
   ...record,
   max_budget_in_team: budget?.max_budget ?? null,
@@ -106,15 +106,15 @@ export default function TeamMemberTab({
   const getUserBudget = (userId: string | null): number | null => {
     if (!userId) return null;
     const membership = teamData.team_memberships.find((tm) => tm.user_id === userId);
-    return membership?.litellm_budget_table?.max_budget ?? teamDefaultBudget;
+    return membership?.embrouter_budget_table?.max_budget ?? teamDefaultBudget;
   };
 
   // Helper function to get rate limits for a user
   const getUserRateLimits = (userId: string | null): string => {
     if (!userId) return "No Limits";
     const membership = teamData.team_memberships.find((tm) => tm.user_id === userId);
-    const rpmLimit = membership?.litellm_budget_table?.rpm_limit;
-    const tpmLimit = membership?.litellm_budget_table?.tpm_limit;
+    const rpmLimit = membership?.embrouter_budget_table?.rpm_limit;
+    const tpmLimit = membership?.embrouter_budget_table?.tpm_limit;
 
     const rpmText = rpmLimit != null ? `${formatNumber(rpmLimit)} RPM` : null;
     const tpmText = tpmLimit != null ? `${formatNumber(tpmLimit)} TPM` : null;
@@ -132,14 +132,14 @@ export default function TeamMemberTab({
   const getUserAllowedModels = (userId: string | null): string[] | null => {
     if (!userId) return null;
     const membership = teamData.team_memberships.find((tm) => tm.user_id === userId);
-    const models = membership?.litellm_budget_table?.allowed_models;
+    const models = membership?.embrouter_budget_table?.allowed_models;
     return models && models.length > 0 ? models : null;
   };
 
   const getUserBudgetReset = (userId: string | null): string | null => {
     if (!userId) return null;
     const membership = teamData.team_memberships.find((tm) => tm.user_id === userId);
-    return membership?.litellm_budget_table?.budget_reset_at ?? null;
+    return membership?.embrouter_budget_table?.budget_reset_at ?? null;
   };
 
   const extraColumns: NonNullable<ComponentProps<typeof MemberTable>["extraColumns"]> = [
@@ -299,7 +299,7 @@ export default function TeamMemberTab({
         canEdit={canEditTeam}
         onEdit={(record) => {
           const membership = teamData.team_memberships.find((tm) => tm.user_id === record.user_id);
-          setSelectedEditMember(seedMemberBudgetFields(record, membership?.litellm_budget_table));
+          setSelectedEditMember(seedMemberBudgetFields(record, membership?.embrouter_budget_table));
           setIsEditMemberModalVisible(true);
         }}
         onDelete={handleMemberDelete}

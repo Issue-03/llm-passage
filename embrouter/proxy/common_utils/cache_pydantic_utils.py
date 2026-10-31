@@ -20,7 +20,7 @@ from typing import Any, TypeVar
 
 from pydantic import BaseModel, ValidationError
 
-from litellm._logging import verbose_proxy_logger
+from embrouter._logging import verbose_proxy_logger
 
 T = TypeVar("T", bound=BaseModel)
 

@@ -3,25 +3,25 @@ from typing import Final, cast  # noqa: TID251  # narrows legacy callable signat
 
 import pytest
 
-import litellm
-from litellm.chat_completions.dispatch import (
+import embrouter
+from embrouter.chat_completions.dispatch import (
     _ADISPATCH,  # pyright: ignore[reportPrivateUsage]  # tests configured dispatch
     _DISPATCH,  # pyright: ignore[reportPrivateUsage]  # tests configured dispatch
 )
-from litellm.rust_bridge import catalog
-from litellm.rust_bridge.bindings import NativeBinding
-from litellm.rust_bridge.catalog import Route, RouteRule
-from litellm.rust_bridge.chat_completions.entrypoints import (
+from embrouter.rust_bridge import catalog
+from embrouter.rust_bridge.bindings import NativeBinding
+from embrouter.rust_bridge.catalog import Route, RouteRule
+from embrouter.rust_bridge.chat_completions.entrypoints import (
     NATIVE_ACOMPLETION,
     NATIVE_COMPLETION,
-    LiteLLMChatCompletionsRequest,
+    EmbRouterChatCompletionsRequest,
     NativeAcompletion,
     NativeCompletion,
 )
-from litellm.rust_bridge.configuration import Rollout
-from litellm.types.utils import ModelResponse
-from litellm.chat_completions import dispatch
-from litellm.rust_bridge.catalog import Rules
+from embrouter.rust_bridge.configuration import Rollout
+from embrouter.types.utils import ModelResponse
+from embrouter.chat_completions import dispatch
+from embrouter.rust_bridge.catalog import Rules
 
 MESSAGES: Final = [{"role": "user", "content": "hi"}]
 PYTHON_RULES: Final = ()
@@ -52,7 +52,7 @@ def test_python_route_forwards_original_call_shape() -> None:
         return response
 
     def native(
-        request: LiteLLMChatCompletionsRequest, args: tuple[object, ...], kwargs: Mapping[str, object]
+        request: EmbRouterChatCompletionsRequest, args: tuple[object, ...], kwargs: Mapping[str, object]
     ) -> ModelResponse:
         pytest.fail("Python-only dispatch must not call native")
 
@@ -88,7 +88,7 @@ async def test_async_python_route_forwards_original_call_shape() -> None:
         return response
 
     async def native(
-        request: LiteLLMChatCompletionsRequest, args: tuple[object, ...], kwargs: Mapping[str, object]
+        request: EmbRouterChatCompletionsRequest, args: tuple[object, ...], kwargs: Mapping[str, object]
     ) -> ModelResponse:
         pytest.fail("Python-only dispatch must not call native")
 
@@ -119,13 +119,13 @@ def test_native_receives_bound_request_and_original_call_shape() -> None:
         "custom_llm_provider": "anthropic",
         "metadata": metadata,
     }
-    captured: Final[list[tuple[LiteLLMChatCompletionsRequest, tuple[object, ...], Mapping[str, object]]]] = []
+    captured: Final[list[tuple[EmbRouterChatCompletionsRequest, tuple[object, ...], Mapping[str, object]]]] = []
 
     def python(*call_args: object, **call_kwargs: object) -> ModelResponse:  # kwargs-ok: rejected Rust fallback
         pytest.fail("Required Rust dispatch must not call Python")
 
     def native(
-        request: LiteLLMChatCompletionsRequest, args: tuple[object, ...], kwargs: Mapping[str, object]
+        request: EmbRouterChatCompletionsRequest, args: tuple[object, ...], kwargs: Mapping[str, object]
     ) -> ModelResponse:
         captured.append((request, args, kwargs))
         return ModelResponse()
@@ -163,7 +163,7 @@ def test_internal_async_marker_bypasses_native() -> None:
         return response
 
     def native(
-        request: LiteLLMChatCompletionsRequest, args: tuple[object, ...], kwargs: Mapping[str, object]
+        request: EmbRouterChatCompletionsRequest, args: tuple[object, ...], kwargs: Mapping[str, object]
     ) -> ModelResponse:
         pytest.fail("acompletion's inner completion call must stay on Python")
 
@@ -195,7 +195,7 @@ def test_binding_errors_delegate_to_python(args: tuple[object, ...], kwargs: Map
         return response
 
     def native(
-        request: LiteLLMChatCompletionsRequest, args: tuple[object, ...], kwargs: Mapping[str, object]
+        request: EmbRouterChatCompletionsRequest, args: tuple[object, ...], kwargs: Mapping[str, object]
     ) -> ModelResponse:
         pytest.fail("Binding failures must be delegated to Python")
 
@@ -214,11 +214,11 @@ def test_binding_errors_delegate_to_python(args: tuple[object, ...], kwargs: Map
 
 
 def test_public_completion_routes_through_dispatch(monkeypatch: pytest.MonkeyPatch) -> None:
-    captured: Final[list[LiteLLMChatCompletionsRequest]] = []
+    captured: Final[list[EmbRouterChatCompletionsRequest]] = []
     expected: Final = ModelResponse()
 
     def native(
-        request: LiteLLMChatCompletionsRequest,
+        request: EmbRouterChatCompletionsRequest,
         args: tuple[object, ...],
         kwargs: Mapping[str, object],
     ) -> ModelResponse:
@@ -227,7 +227,7 @@ def test_public_completion_routes_through_dispatch(monkeypatch: pytest.MonkeyPat
 
     NATIVE_COMPLETION.override(native)
     monkeypatch.setattr(catalog, "RULES", RUST_RULES)
-    public_completion: Final = cast(Callable[..., ModelResponse], litellm.completion)
+    public_completion: Final = cast(Callable[..., ModelResponse], embrouter.completion)
     try:
         result: Final = public_completion(model="gpt-4o", messages=MESSAGES)
     finally:
@@ -238,11 +238,11 @@ def test_public_completion_routes_through_dispatch(monkeypatch: pytest.MonkeyPat
 
 @pytest.mark.asyncio
 async def test_public_acompletion_routes_through_dispatch(monkeypatch: pytest.MonkeyPatch) -> None:
-    captured: Final[list[LiteLLMChatCompletionsRequest]] = []
+    captured: Final[list[EmbRouterChatCompletionsRequest]] = []
     expected: Final = ModelResponse()
 
     async def native(
-        request: LiteLLMChatCompletionsRequest,
+        request: EmbRouterChatCompletionsRequest,
         args: tuple[object, ...],
         kwargs: Mapping[str, object],
     ) -> ModelResponse:
@@ -251,7 +251,7 @@ async def test_public_acompletion_routes_through_dispatch(monkeypatch: pytest.Mo
 
     NATIVE_ACOMPLETION.override(native)
     monkeypatch.setattr(catalog, "RULES", RUST_RULES)
-    public_acompletion: Final = cast(Callable[..., Awaitable[ModelResponse]], litellm.acompletion)
+    public_acompletion: Final = cast(Callable[..., Awaitable[ModelResponse]], embrouter.acompletion)
     try:
         result: Final = await public_acompletion(model="gpt-4o", messages=MESSAGES)
     finally:
@@ -262,8 +262,8 @@ async def test_public_acompletion_routes_through_dispatch(monkeypatch: pytest.Mo
 
 @pytest.mark.asyncio
 async def test_public_completion_calls_keep_the_python_result() -> None:
-    sync_response: Final = litellm.completion(model="openai/test-model", messages=MESSAGES, mock_response="ok")
-    async_response: Final = await litellm.acompletion(model="openai/test-model", messages=MESSAGES, mock_response="ok")
+    sync_response: Final = embrouter.completion(model="openai/test-model", messages=MESSAGES, mock_response="ok")
+    async_response: Final = await embrouter.acompletion(model="openai/test-model", messages=MESSAGES, mock_response="ok")
 
     assert isinstance(sync_response, ModelResponse)
     assert isinstance(async_response, ModelResponse)
@@ -276,7 +276,7 @@ def test_sync_completion_request_projects_public_arguments() -> None:
     expected: Final = ModelResponse()
 
     def native(
-        request: LiteLLMChatCompletionsRequest, args: tuple[object, ...], kwargs: Mapping[str, object]
+        request: EmbRouterChatCompletionsRequest, args: tuple[object, ...], kwargs: Mapping[str, object]
     ) -> ModelResponse:
         assert request.model == "test-model"
         assert request.messages == MESSAGES
@@ -300,7 +300,7 @@ def test_sync_completion_request_projects_public_arguments() -> None:
 
 @pytest.mark.asyncio
 async def test_async_completion_falls_back_after_native_declines() -> None:
-    from litellm.rust_bridge.bindings import native_exception_types
+    from embrouter.rust_bridge.bindings import native_exception_types
 
     native_types: Final = native_exception_types()
     if native_types is None:
@@ -310,7 +310,7 @@ async def test_async_completion_falls_back_after_native_declines() -> None:
     rules: Final[Rules] = (RouteRule(Route.CHAT_COMPLETIONS, Rollout.RUST_OPT_OUT),)
 
     async def native(
-        request: LiteLLMChatCompletionsRequest, args: tuple[object, ...], kwargs: Mapping[str, object]
+        request: EmbRouterChatCompletionsRequest, args: tuple[object, ...], kwargs: Mapping[str, object]
     ) -> ModelResponse:
         raise declined("unsupported")
 
@@ -339,7 +339,7 @@ def test_internal_acompletion_marker_bypasses_native() -> None:
         return expected
 
     def native(
-        request: LiteLLMChatCompletionsRequest, args: tuple[object, ...], kwargs: Mapping[str, object]
+        request: EmbRouterChatCompletionsRequest, args: tuple[object, ...], kwargs: Mapping[str, object]
     ) -> ModelResponse:
         pytest.fail("acompletion's inner completion call must stay on Python")
 

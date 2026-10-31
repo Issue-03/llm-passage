@@ -33,8 +33,8 @@ from collections.abc import Iterator, Mapping, Sequence
 from itertools import chain, groupby
 from typing import Final, Literal, TypeAlias
 
-from litellm.types.llms.anthropic import AnthropicMessagesSystemMessageParam, AnthropicSystemMessageContent
-from litellm.types.llms.openai import (
+from embrouter.types.llms.anthropic import AnthropicMessagesSystemMessageParam, AnthropicSystemMessageContent
+from embrouter.types.llms.openai import (
     AllMessageValues,
     ChatCompletionCachedContent,
     ChatCompletionSystemMessage,
@@ -70,7 +70,7 @@ def message_field(message: object, key: str) -> object:
     """A message field, whether the message is a dict or a pydantic ``Message``.
 
     Clients replay assistant turns straight from a response, so a history mixes
-    plain dicts with ``litellm.Message`` objects; every predicate reads through here.
+    plain dicts with ``embrouter.Message`` objects; every predicate reads through here.
     """
     mapping: Final = _as_mapping(message)
     return mapping.get(key) if mapping is not None else getattr(message, key, None)

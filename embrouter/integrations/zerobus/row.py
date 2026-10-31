@@ -1,5 +1,5 @@
 """
-Shape of one Delta table row per LiteLLM request.
+Shape of one Delta table row per EmbRouter request.
 
 Zerobus validates every record against the target table and rejects unknown columns, so
 the row is a fixed set of scalar columns for filtering plus JSON-encoded ``VARIANT``
@@ -10,14 +10,14 @@ from collections.abc import Mapping
 from types import MappingProxyType
 from typing import Final
 
-from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
+from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps
 
 TRACE_TABLE_COLUMNS: Final[Mapping[str, str]] = MappingProxyType(
     {
         "id": "STRING",
         "trace_id": "STRING",
         "session_id": "STRING",
-        "litellm_call_id": "STRING",
+        "embrouter_call_id": "STRING",
         "call_type": "STRING",
         "status": "STRING",
         "model": "STRING",
@@ -89,7 +89,7 @@ def _count(payload: Mapping[str, object], key: str) -> int | None:
 
 
 def _timestamp_micros(payload: Mapping[str, object], key: str) -> int | None:
-    """Delta ``TIMESTAMP`` over Zerobus is epoch microseconds; LiteLLM keeps epoch seconds."""
+    """Delta ``TIMESTAMP`` over Zerobus is epoch microseconds; EmbRouter keeps epoch seconds."""
     seconds: Final = _number(payload, key)
     if seconds is None or seconds <= 0:
         return None
@@ -114,7 +114,7 @@ def trace_row(payload: Mapping[str, object]) -> Mapping[str, object]:
             "id": _text(payload, "id"),
             "trace_id": _text(payload, "trace_id"),
             "session_id": _text(payload, "session_id"),
-            "litellm_call_id": _text(payload, "litellm_call_id"),
+            "embrouter_call_id": _text(payload, "embrouter_call_id"),
             "call_type": _text(payload, "call_type"),
             "status": _text(payload, "status"),
             "model": _text(payload, "model"),

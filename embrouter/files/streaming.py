@@ -5,18 +5,18 @@ from typing import TYPE_CHECKING, Any, Final, Optional, cast
 
 import anyio
 
-from litellm.files.types import FileContentProvider
+from embrouter.files.types import FileContentProvider
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import (
-        Logging as LiteLLMLoggingObj,
+    from embrouter.embrouter_core_utils.embrouter_logging import (
+        Logging as EmbRouterLoggingObj,
     )
-    from litellm.types.utils import StandardLoggingHiddenParams, StandardLoggingPayload
+    from embrouter.types.utils import StandardLoggingHiddenParams, StandardLoggingPayload
 
 
 class FileContentStreamingResponse:
     """
-    Iterator wrapper for file content streaming that carries LiteLLM metadata
+    Iterator wrapper for file content streaming that carries EmbRouter metadata
     and emits success/failure callbacks once the stream finishes.
     """
 
@@ -26,7 +26,7 @@ class FileContentStreamingResponse:
         file_id: str,
         model: str | None,
         custom_llm_provider: FileContentProvider | str | None,
-        logging_obj: Optional["LiteLLMLoggingObj"],
+        logging_obj: Optional["EmbRouterLoggingObj"],
     ) -> None:
         self.stream_iterator = stream_iterator
         self.file_id = file_id
@@ -121,16 +121,16 @@ class FileContentStreamingResponse:
         return response
 
     def _sync_hidden_params(self) -> None:
-        litellm_params: dict[str, Any] = {}
+        embrouter_params: dict[str, Any] = {}
         if self.logging_obj is not None:
-            litellm_params = self.logging_obj.model_call_details.get("litellm_params", {}) or {}
+            embrouter_params = self.logging_obj.model_call_details.get("embrouter_params", {}) or {}
 
-        if "api_base" not in self._hidden_params and litellm_params.get("api_base"):
-            self._hidden_params["api_base"] = litellm_params["api_base"]
+        if "api_base" not in self._hidden_params and embrouter_params.get("api_base"):
+            self._hidden_params["api_base"] = embrouter_params["api_base"]
 
         # The generic client decorator infers `model` from the first positional arg,
         # which is `file_id` for this API. Correct it before logging callbacks run.
-        self._hidden_params["litellm_model_name"] = self.model
+        self._hidden_params["embrouter_model_name"] = self.model
         if "response_cost" not in self._hidden_params:
             self._hidden_params["response_cost"] = None
 
@@ -144,7 +144,7 @@ class FileContentStreamingResponse:
         if self.logging_obj is None:
             return None
 
-        from litellm.litellm_core_utils.litellm_logging import (
+        from embrouter.embrouter_core_utils.embrouter_logging import (
             get_standard_logging_object_payload,
         )
 

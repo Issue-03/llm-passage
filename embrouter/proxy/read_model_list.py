@@ -2,7 +2,7 @@
 
 The Rust gateway calls this once at load time (via an embedded interpreter) and
 builds its own (Rust) router from the returned ``model_list``. We do NOT call
-``ProxyConfig.load_config`` here: that returns a *Python* ``litellm.Router`` (not
+``ProxyConfig.load_config`` here: that returns a *Python* ``embrouter.Router`` (not
 usable from Rust) and boots the whole proxy (callbacks, cache, DB, auth) as side
 effects.
 
@@ -23,7 +23,7 @@ from typing import Any, Final
 def read_model_list(config_path: str) -> list[dict[str, Any]]:
     """Load ``config_path`` via the proxy's own reader and return its
     resolved ``model_list``."""
-    from litellm.proxy.proxy_server import ProxyConfig
+    from embrouter.proxy.proxy_server import ProxyConfig
 
     config: Final = asyncio.run(ProxyConfig().get_config(config_file_path=config_path))
     return config.get("model_list") or []

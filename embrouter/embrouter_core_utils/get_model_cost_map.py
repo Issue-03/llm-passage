@@ -1,11 +1,11 @@
 """
 Pulls the cost + context window + provider route for known models
 
-This can be disabled by setting the LITELLM_LOCAL_MODEL_COST_MAP environment variable to True.
-The ``lite`` and ``litellm-proxy`` CLI entry points also use the bundled map without fetching.
+This can be disabled by setting the EMBROUTER_LOCAL_MODEL_COST_MAP environment variable to True.
+The ``lite`` and ``embrouter-proxy`` CLI entry points also use the bundled map without fetching.
 
 ```
-export LITELLM_LOCAL_MODEL_COST_MAP=True
+export EMBROUTER_LOCAL_MODEL_COST_MAP=True
 ```
 """
 
@@ -29,18 +29,18 @@ import httpx
 from pydantic import TypeAdapter
 from typing_extensions import ReadOnly, TypedDict
 
-from litellm import verbose_logger
-from litellm.constants import (
+from embrouter import verbose_logger
+from embrouter.constants import (
     MODEL_COST_MAP_MAX_SHRINK_RATIO,
     MODEL_COST_MAP_MIN_MODEL_COUNT,
 )
-from litellm.litellm_core_utils.fallback_generalizations import (
+from embrouter.embrouter_core_utils.fallback_generalizations import (
     set_fallback_generalizations,
 )
 
 FALLBACK_GENERALIZATIONS_KEY: Final = "fallback_generalizations"
 _CATALOG_ADAPTER: Final = TypeAdapter(dict[str, dict[str, object]])
-_CLI_ENTRYPOINT_NAMES: Final = frozenset({"lite", "litellm-proxy"})
+_CLI_ENTRYPOINT_NAMES: Final = frozenset({"lite", "embrouter-proxy"})
 
 
 def _is_cli_process() -> bool:
@@ -74,7 +74,7 @@ class GetModelCostMap:
 
     @staticmethod
     def read_local_model_cost_map_bytes() -> bytes:
-        return files("litellm").joinpath("model_prices_and_context_window_backup.json").read_bytes()
+        return files("embrouter").joinpath("model_prices_and_context_window_backup.json").read_bytes()
 
     @staticmethod
     def read_local_model_cost_map_text() -> str:
@@ -116,14 +116,14 @@ class GetModelCostMap:
         """Check 1: fetched map is a non-empty dict."""
         if not isinstance(fetched_map, dict):
             verbose_logger.warning(
-                "LiteLLM: Fetched model cost map is not a dict (type=%s). Falling back to local backup.",
+                "EmbRouter: Fetched model cost map is not a dict (type=%s). Falling back to local backup.",
                 type(fetched_map).__name__,
             )
             return False
 
         if len(fetched_map) == 0:
             verbose_logger.warning(
-                "LiteLLM: Fetched model cost map is empty. Falling back to local backup.",
+                "EmbRouter: Fetched model cost map is empty. Falling back to local backup.",
             )
             return False
 
@@ -142,7 +142,7 @@ class GetModelCostMap:
 
         if fetched_count < min_model_count:
             verbose_logger.warning(
-                "LiteLLM: Fetched model cost map has only %d models (minimum=%d). "
+                "EmbRouter: Fetched model cost map has only %d models (minimum=%d). "
                 "This may indicate a corrupted upstream file. "
                 "Falling back to local backup.",
                 fetched_count,
@@ -152,7 +152,7 @@ class GetModelCostMap:
 
         if backup_model_count > 0 and fetched_count < backup_model_count * max_shrink_ratio:
             verbose_logger.warning(
-                "LiteLLM: Fetched model cost map shrank significantly "
+                "EmbRouter: Fetched model cost map shrank significantly "
                 "(fetched=%d, backup=%d, threshold=%.0f%%). "
                 "This may indicate a corrupted upstream file. "
                 "Falling back to local backup.",
@@ -201,16 +201,16 @@ class GetModelCostMap:
 RETRYABLE_FETCH_STATUS_CODES: Final = frozenset({429, 500, 502, 503, 504})
 MODEL_COST_MAP_FETCH_MAX_ATTEMPTS: Final = 3
 MODEL_COST_MAP_FETCH_MAX_WAIT_SECONDS: Final = 30.0
-_litellm_import_complete = threading.Event()
+_embrouter_import_complete = threading.Event()
 
 
-def mark_litellm_import_complete() -> None:
-    _litellm_import_complete.set()
+def mark_embrouter_import_complete() -> None:
+    _embrouter_import_complete.set()
 
 
 @dataclass(frozen=True, slots=True)
 class ModelCostMapReloaded:
-    model_cost_map: dict  # mutable-ok: adopted as litellm.model_cost, whose consumer contract is a plain mutable dict
+    model_cost_map: dict  # mutable-ok: adopted as embrouter.model_cost, whose consumer contract is a plain mutable dict
     revision: str | None = None
     etag: str | None = None
 
@@ -258,8 +258,8 @@ _FetchAttemptOutcome = ModelCostMapReloaded | ModelCostMapReloadUnavailable | _F
 
 
 def _default_reload_client() -> _AsyncGetClient:
-    from litellm.llms.custom_httpx.http_handler import get_async_httpx_client
-    from litellm.types.llms.custom_http import httpxSpecialProvider
+    from embrouter.llms.custom_httpx.http_handler import get_async_httpx_client
+    from embrouter.types.llms.custom_http import httpxSpecialProvider
 
     return get_async_httpx_client(llm_provider=httpxSpecialProvider.ModelCostMap)
 
@@ -313,7 +313,7 @@ def _next_retry_wait(
         return ModelCostMapReloadUnavailable(reason=f"{outcome.reason} (after {max_attempts} attempts)")
     wait_seconds: Final = _retry_wait_seconds(outcome=outcome, attempt=attempt, rng=rng)
     verbose_logger.warning(
-        "LiteLLM: model cost map fetch attempt %d/%d failed (%s); retrying in %.1fs",
+        "EmbRouter: model cost map fetch attempt %d/%d failed (%s); retrying in %.1fs",
         attempt,
         max_attempts,
         outcome.reason,
@@ -377,7 +377,7 @@ async def refetch_model_cost_map(
     on failure it returns ``ModelCostMapReloadUnavailable`` so callers keep the
     map they already have.
     """
-    if not url or os.getenv("LITELLM_LOCAL_MODEL_COST_MAP", "").lower() == "true":
+    if not url or os.getenv("EMBROUTER_LOCAL_MODEL_COST_MAP", "").lower() == "true":
         _cost_map_source_info.loaded_at = datetime.now(timezone.utc)
         _cost_map_source_info.source = "local"
         _cost_map_source_info.url = None
@@ -395,7 +395,7 @@ async def refetch_model_cost_map(
     )
     if isinstance(result, ModelCostMapReloadUnavailable):
         verbose_logger.warning(
-            "LiteLLM: model cost map reload failed: %s. Keeping the currently loaded map.",
+            "EmbRouter: model cost map reload failed: %s. Keeping the currently loaded map.",
             result.reason,
         )
         return result
@@ -455,7 +455,7 @@ def get_model_cost_map_source_info() -> CostMapSourceInfo:
     Returns a dict with:
     - source: "local" or "remote"
     - url: the remote URL attempted (or None for local-only)
-    - is_env_forced: True if LITELLM_LOCAL_MODEL_COST_MAP=True forced local usage
+    - is_env_forced: True if EMBROUTER_LOCAL_MODEL_COST_MAP=True forced local usage
     - fallback_reason: human-readable reason if remote failed and local was used
     - loaded_at: ISO 8601 time this process last loaded the map
     - source_revision: git blob id of the loaded file's bytes
@@ -499,7 +499,7 @@ def _expand_model_aliases(model_cost: dict) -> dict:
         keys_with_aliases.append(model_name)
         if not isinstance(aliases, list):
             verbose_logger.warning(
-                "LiteLLM model alias field for '%s' is not a list (got %s) — skipping.",
+                "EmbRouter model alias field for '%s' is not a list (got %s) — skipping.",
                 model_name,
                 type(aliases).__name__,
             )
@@ -509,7 +509,7 @@ def _expand_model_aliases(model_cost: dict) -> dict:
         for alias in aliases:
             if alias in model_cost:
                 verbose_logger.warning(
-                    "LiteLLM model alias conflict: alias '%s' (from '%s') "
+                    "EmbRouter model alias conflict: alias '%s' (from '%s') "
                     "already exists as a canonical entry — skipping.",
                     alias,
                     model_name,
@@ -517,7 +517,7 @@ def _expand_model_aliases(model_cost: dict) -> dict:
                 continue
             if alias in aliases_to_add:
                 verbose_logger.warning(
-                    "LiteLLM model alias conflict: alias '%s' (from '%s') "
+                    "EmbRouter model alias conflict: alias '%s' (from '%s') "
                     "was already claimed by another entry — skipping.",
                     alias,
                     model_name,
@@ -556,12 +556,12 @@ def _finalize_loaded_model_cost_map(loaded: ModelCostMapReloaded) -> ModelCostMa
 def adopt_model_cost_map(
     new_model_cost_map: dict,  # mutable-ok: public API preserves the mutable cost-map contract
 ) -> int:
-    import litellm
-    from litellm import utils
+    import embrouter
+    from embrouter import utils
 
-    litellm.model_cost = new_model_cost_map
+    embrouter.model_cost = new_model_cost_map
     utils._invalidate_model_cost_lowercase_map()  # pyright: ignore[reportPrivateUsage]  # required cache invalidation
-    litellm.add_known_models(model_cost_map=new_model_cost_map)
+    embrouter.add_known_models(model_cost_map=new_model_cost_map)
     fetched_model_count: Final = len(new_model_cost_map) if new_model_cost_map else 0
     utils.reapply_runtime_model_cost_registrations()
     return fetched_model_count
@@ -591,18 +591,18 @@ def _retry_remote_fetch_in_background(
         )
         if isinstance(result, ModelCostMapReloadUnavailable):
             verbose_logger.warning(
-                "LiteLLM: Failed to fetch remote model cost map from %s after %d attempts; keeping local backup",
+                "EmbRouter: Failed to fetch remote model cost map from %s after %d attempts; keeping local backup",
                 url,
                 max_attempts,
             )
             return
-        _litellm_import_complete.wait()
+        _embrouter_import_complete.wait()
         if not GetModelCostMap.validate_model_cost_map(
             fetched_map=result.model_cost_map,
             backup_model_count=GetModelCostMap._get_backup_model_count(),  # pyright: ignore[reportPrivateUsage]  # integrity cache
         ):
             verbose_logger.warning(
-                "LiteLLM: Fetched model cost map failed integrity check. Using local backup instead. url=%s",
+                "EmbRouter: Fetched model cost map failed integrity check. Using local backup instead. url=%s",
                 url,
             )
             return
@@ -612,7 +612,7 @@ def _retry_remote_fetch_in_background(
         _cost_map_source_info.loaded_at = datetime.now(timezone.utc)
         adopt_model_cost_map(finalized)
     except Exception as e:  # noqa: BLE001  # a failed background retry must not kill the task; the backup stays
-        verbose_logger.warning("LiteLLM: Background model cost map retry failed: %s", e)
+        verbose_logger.warning("EmbRouter: Background model cost map retry failed: %s", e)
 
 
 def get_model_cost_map(
@@ -626,8 +626,8 @@ def get_model_cost_map(
     """
     Public entry point — returns the model cost map dict.
 
-    1. If ``LITELLM_LOCAL_MODEL_COST_MAP`` is set or this is a ``lite`` /
-       ``litellm-proxy`` CLI process, uses the local backup only.
+    1. If ``EMBROUTER_LOCAL_MODEL_COST_MAP`` is set or this is a ``lite`` /
+       ``embrouter-proxy`` CLI process, uses the local backup only.
     2. Otherwise fetches from ``url``, retrying transient HTTP errors
        (429/5xx/transport) with Retry-After-aware backoff in a background
        thread, validates integrity, and falls back to the local backup on any
@@ -638,9 +638,9 @@ def get_model_cost_map(
     fallback — it is never held in memory long-term.
     """
     _cost_map_source_info.loaded_at = datetime.now(timezone.utc)
-    # Note: can't use get_secret_bool here — this runs during litellm.__init__
-    # before litellm._key_management_settings is set.
-    if not url or os.getenv("LITELLM_LOCAL_MODEL_COST_MAP", "").lower() == "true" or _is_cli_process():
+    # Note: can't use get_secret_bool here — this runs during embrouter.__init__
+    # before embrouter._key_management_settings is set.
+    if not url or os.getenv("EMBROUTER_LOCAL_MODEL_COST_MAP", "").lower() == "true" or _is_cli_process():
         _cost_map_source_info.source = "local"
         _cost_map_source_info.url = None
         _cost_map_source_info.is_env_forced = True
@@ -665,12 +665,12 @@ def get_model_cost_map(
                 "client": fetch_client,
                 "first_outcome": outcome,
             },
-            name="litellm-model-cost-map-retry",
+            name="embrouter-model-cost-map-retry",
             daemon=True,
         ).start()
     if not isinstance(outcome, ModelCostMapReloaded):
         verbose_logger.warning(
-            "LiteLLM: Failed to fetch remote model cost map from %s: %s. Falling back to local backup.",
+            "EmbRouter: Failed to fetch remote model cost map from %s: %s. Falling back to local backup.",
             url,
             outcome.reason,
         )
@@ -685,7 +685,7 @@ def get_model_cost_map(
         backup_model_count=GetModelCostMap._get_backup_model_count(),
     ):
         verbose_logger.warning(
-            "LiteLLM: Fetched model cost map failed integrity check. Using local backup instead. url=%s",
+            "EmbRouter: Fetched model cost map failed integrity check. Using local backup instead. url=%s",
             url,
         )
         _cost_map_source_info.source = "local"

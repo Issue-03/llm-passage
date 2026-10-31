@@ -6,15 +6,15 @@ from typing import Final
 
 import httpx
 
-from litellm._logging import verbose_logger
-from litellm._uuid import uuid
-from litellm.integrations.custom_batch_logger import CustomBatchLogger
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter._logging import verbose_logger
+from embrouter._uuid import uuid
+from embrouter.integrations.custom_batch_logger import CustomBatchLogger
+from embrouter.llms.custom_httpx.http_handler import (
     HTTPHandler,
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.types.utils import StandardLoggingPayload
+from embrouter.types.utils import StandardLoggingPayload
 
 
 class LiteralAILogger(CustomBatchLogger):
@@ -29,7 +29,7 @@ class LiteralAILogger(CustomBatchLogger):
         self.headers = {
             "Content-Type": "application/json",
             "x-api-key": literalai_api_key or os.getenv("LITERAL_API_KEY"),
-            "x-client-name": "litellm",
+            "x-client-name": "embrouter",
         }
         if env:
             self.headers["x-env"] = env
@@ -167,7 +167,7 @@ class LiteralAILogger(CustomBatchLogger):
         if logging_payload is None:
             raise ValueError("standard_logging_object not found in kwargs")
         clean_metadata: Final = logging_payload["metadata"]
-        metadata: Final = kwargs.get("litellm_params", {}).get("metadata", {})
+        metadata: Final = kwargs.get("embrouter_params", {}).get("metadata", {})
 
         settings: Final = logging_payload["model_parameters"]
         messages: Final = logging_payload["messages"]
@@ -209,7 +209,7 @@ class LiteralAILogger(CustomBatchLogger):
                 "tokenCount": logging_payload["total_tokens"],
                 "promptId": prompt_id,
                 "variables": variables,
-                "provider": kwargs.get("custom_llm_provider", "litellm"),
+                "provider": kwargs.get("custom_llm_provider", "embrouter"),
                 "model": kwargs.get("model", ""),
                 "duration": (end_time - start_time).total_seconds(),
                 "settings": settings,

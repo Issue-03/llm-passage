@@ -13,7 +13,7 @@ const row: ToolRow = {
   team_id: "team-alpha",
   key_hash: "abc123def456",
   key_alias: "prod-key",
-  user_agent: "litellm-python/1.0",
+  user_agent: "embrouter-python/1.0",
   created_at: "2026-03-04T10:00:00Z",
 } as ToolRow;
 
@@ -70,7 +70,7 @@ describe("getToolPoliciesTableColumns", () => {
     expect(screen.getByText("search_docs")).toBeInTheDocument();
     expect(screen.getByText("team-alpha")).toBeInTheDocument();
     expect(screen.getByText("prod-key")).toBeInTheDocument();
-    expect(screen.getByText("litellm-python/1.0")).toBeInTheDocument();
+    expect(screen.getByText("embrouter-python/1.0")).toBeInTheDocument();
   });
 
   it("formats the call count with thousands separators", () => {

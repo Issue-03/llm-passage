@@ -4,7 +4,7 @@ Amazon Bedrock Mantle - OpenAI-compatible inference engine in Amazon Bedrock.
 API docs: https://docs.aws.amazon.com/bedrock/latest/userguide/bedrock-mantle.html
 
 Base URL: https://bedrock-mantle.{region}.api.aws/v1
-Auth: Bearer token (litellm_params.api_key, BEDROCK_MANTLE_API_KEY, or the
+Auth: Bearer token (embrouter_params.api_key, BEDROCK_MANTLE_API_KEY, or the
       standard AWS_BEARER_TOKEN_BEDROCK) when present; otherwise AWS SigV4
       (service "bedrock") over the standard credential chain. See
       BedrockMantleAuthMixin in common_utils.
@@ -15,17 +15,17 @@ from typing import Any, Final
 
 import httpx
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM
-from litellm.llms.bedrock_mantle.common_utils import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.llms.bedrock.base_aws_llm import BaseAWSLLM
+from embrouter.llms.bedrock_mantle.common_utils import (
     BEDROCK_MANTLE_DEFAULT_REGION,
     BedrockMantleAuthMixin,
 )
-from litellm.llms.openai.chat.gpt_5_transformation import is_gpt_reasoning_series_name
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.router import GenericLiteLLMParams
+from embrouter.llms.openai.chat.gpt_5_transformation import is_gpt_reasoning_series_name
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.router import GenericEmbRouterParams
 
 from ...base_llm.chat.transformation import BaseLLMException
 from ...bedrock.common_utils import BedrockError
@@ -59,12 +59,12 @@ class BedrockMantleChatConfig(BedrockMantleAuthMixin, OpenAILikeChatConfig):
         self,
         api_base: str | None,
         api_key: str | None,
-        litellm_params: GenericLiteLLMParams | None = None,
+        embrouter_params: GenericEmbRouterParams | None = None,
         model: str | None = None,
     ) -> tuple[str | None, str | None]:
         prefix_region, base_model = split_mantle_region_prefix(model) if model else (None, None)
         region: Final = (
-            (litellm_params.aws_region_name if litellm_params else None)
+            (embrouter_params.aws_region_name if embrouter_params else None)
             or prefix_region
             or get_secret_str("BEDROCK_MANTLE_REGION")
             or get_secret_str("AWS_REGION_NAME")
@@ -78,7 +78,7 @@ class BedrockMantleChatConfig(BedrockMantleAuthMixin, OpenAILikeChatConfig):
         api_base = (
             api_base
             or get_secret_str("BEDROCK_MANTLE_API_BASE")
-            or f"https://bedrock-mantle.{region}.api.aws/{mantle_base_segment(base_model, litellm.model_cost)}"
+            or f"https://bedrock-mantle.{region}.api.aws/{mantle_base_segment(base_model, embrouter.model_cost)}"
         )
         dynamic_api_key: Final = self._resolve_bearer_token(api_key)
         return api_base, dynamic_api_key
@@ -89,7 +89,7 @@ class BedrockMantleChatConfig(BedrockMantleAuthMixin, OpenAILikeChatConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
@@ -98,11 +98,11 @@ class BedrockMantleChatConfig(BedrockMantleAuthMixin, OpenAILikeChatConfig):
             model=model,
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             api_key=api_key,
             api_base=api_base,
         )
-        project_id: Final = litellm_params.get("aws_bedrock_project_id")
+        project_id: Final = embrouter_params.get("aws_bedrock_project_id")
         if project_id:
             headers["OpenAI-Project"] = project_id
         return headers
@@ -121,7 +121,7 @@ class BedrockMantleChatConfig(BedrockMantleAuthMixin, OpenAILikeChatConfig):
 
     def _supports_reasoning(self, model: str) -> bool:
         try:
-            return litellm.supports_reasoning(model=model, custom_llm_provider=self.custom_llm_provider)
+            return embrouter.supports_reasoning(model=model, custom_llm_provider=self.custom_llm_provider)
         except Exception as e:
             verbose_logger.debug("BedrockMantleChatConfig: error checking reasoning support: %s", e)
             return False
@@ -132,7 +132,7 @@ class BedrockMantleChatConfig(BedrockMantleAuthMixin, OpenAILikeChatConfig):
         sync_stream: bool,
         json_mode: bool | None = False,
     ) -> Any:
-        from litellm.llms.openai.chat.gpt_transformation import (
+        from embrouter.llms.openai.chat.gpt_transformation import (
             OpenAIChatCompletionStreamingHandler,
         )
 

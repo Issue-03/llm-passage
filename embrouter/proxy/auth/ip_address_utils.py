@@ -15,8 +15,8 @@ from urllib.parse import urlparse
 from fastapi import Request
 from pydantic import TypeAdapter, ValidationError
 
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy.auth.auth_utils import _get_request_ip_address
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy.auth.auth_utils import _get_request_ip_address
 
 # One-shot warning so operators upgrading from the prior "always trust X-Forwarded-*"
 # behaviour see an actionable message in their logs the first time it triggers.
@@ -159,7 +159,7 @@ class IPAddressUtils:
         """
         if general_settings is None:
             try:
-                from litellm.proxy.proxy_server import (
+                from embrouter.proxy.proxy_server import (
                     general_settings as proxy_general_settings,
                 )
 
@@ -202,7 +202,7 @@ class IPAddressUtils:
         Whether this request's PUBLIC-facing origin is HTTPS, for deciding
         whether a cookie set on the response should be marked ``Secure``.
 
-        litellm only sees a plain-HTTP hop whenever TLS terminates at a
+        embrouter only sees a plain-HTTP hop whenever TLS terminates at a
         reverse proxy, so ``request.url.scheme`` alone cannot answer this in
         that deployment shape. Resolved from the first trusted signal:
           1. ``PROXY_BASE_URL`` (operator-declared public origin).
@@ -210,7 +210,7 @@ class IPAddressUtils:
              configured trusted proxy -- see ``is_request_from_trusted_proxy``.
              An untrusted caller cannot spoof this header to strip Secure.
           3. The request's own literal scheme (direct TLS termination, or no
-             reverse proxy in front of litellm).
+             reverse proxy in front of embrouter).
         """
         configured_base_url: Final = os.environ.get("PROXY_BASE_URL", "").strip()
         if configured_base_url:
@@ -301,7 +301,7 @@ class IPAddressUtils:
         """
         if general_settings is None:
             try:
-                from litellm.proxy.proxy_server import (
+                from embrouter.proxy.proxy_server import (
                     general_settings as proxy_general_settings,
                 )
 

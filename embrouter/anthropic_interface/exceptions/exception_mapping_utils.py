@@ -1,13 +1,13 @@
 """
 Utilities for mapping exceptions to Anthropic error format.
 
-Similar to litellm/litellm_core_utils/exception_mapping_utils.py but for Anthropic response format.
+Similar to embrouter/embrouter_core_utils/exception_mapping_utils.py but for Anthropic response format.
 """
 
 import json
 from typing import Final
 
-from litellm.litellm_core_utils.safe_json_loads import safe_json_loads
+from embrouter.embrouter_core_utils.safe_json_loads import safe_json_loads
 
 from .exceptions import AnthropicErrorDetail, AnthropicErrorResponse, AnthropicErrorType
 
@@ -29,7 +29,7 @@ class AnthropicExceptionMapping:
     """
     Helper class for mapping exceptions to Anthropic error format.
 
-    Similar pattern to ExceptionCheckers in litellm_core_utils/exception_mapping_utils.py
+    Similar pattern to ExceptionCheckers in embrouter_core_utils/exception_mapping_utils.py
     """
 
     @staticmethod
@@ -190,7 +190,7 @@ class AnthropicErrorSseFrame(str):
     def json_body(self, call_id: str | None) -> AnthropicErrorResponse:
         if call_id is None:
             return self.error_response
-        detail: Final[AnthropicErrorDetail] = {**self.error_response["error"], "litellm_call_id": call_id}
+        detail: Final[AnthropicErrorDetail] = {**self.error_response["error"], "embrouter_call_id": call_id}
         body: Final[AnthropicErrorResponse] = {**self.error_response, "error": detail}
         return body
 

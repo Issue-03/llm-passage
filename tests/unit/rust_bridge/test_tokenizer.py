@@ -4,10 +4,10 @@ import pytest
 import tiktoken
 from tokenizers import Tokenizer
 
-from litellm.litellm_core_utils.tokenizer import HuggingFaceTokenizer, OpenAIEncoding
-from litellm.rust_bridge import tokenizer
-from litellm.utils import claude_json_str
-from tests.unit.litellm_core_utils.test_decode_special_tokens import TOKENIZER_JSON
+from embrouter.embrouter_core_utils.tokenizer import HuggingFaceTokenizer, OpenAIEncoding
+from embrouter.rust_bridge import tokenizer
+from embrouter.utils import claude_json_str
+from tests.unit.embrouter_core_utils.test_decode_special_tokens import TOKENIZER_JSON
 
 TEXTS: Final = ("hello <|endoftext|> world", "café 漢字 🙂", "  def f():\n    return 1\n", "<SOS>hello<EOT> again")
 

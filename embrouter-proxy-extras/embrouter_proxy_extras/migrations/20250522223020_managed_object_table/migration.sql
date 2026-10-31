@@ -1,10 +1,10 @@
 -- AlterTable
-ALTER TABLE "LiteLLM_ManagedFileTable" ADD COLUMN IF NOT EXISTS "created_by" TEXT,
+ALTER TABLE "EmbRouter_ManagedFileTable" ADD COLUMN IF NOT EXISTS "created_by" TEXT,
 ADD COLUMN IF NOT EXISTS "flat_model_file_ids" TEXT[] DEFAULT ARRAY[]::TEXT[],
 ADD COLUMN IF NOT EXISTS "updated_by" TEXT;
 
 -- CreateTable
-CREATE TABLE IF NOT EXISTS "LiteLLM_ManagedObjectTable" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_ManagedObjectTable" (
     "id" TEXT NOT NULL,
     "unified_object_id" TEXT NOT NULL,
     "model_object_id" TEXT NOT NULL,
@@ -15,18 +15,18 @@ CREATE TABLE IF NOT EXISTS "LiteLLM_ManagedObjectTable" (
     "updated_at" TIMESTAMP(3) NOT NULL,
     "updated_by" TEXT,
 
-    CONSTRAINT "LiteLLM_ManagedObjectTable_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "EmbRouter_ManagedObjectTable_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX IF NOT EXISTS "LiteLLM_ManagedObjectTable_unified_object_id_key" ON "LiteLLM_ManagedObjectTable"("unified_object_id");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_ManagedObjectTable_unified_object_id_key" ON "EmbRouter_ManagedObjectTable"("unified_object_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX IF NOT EXISTS "LiteLLM_ManagedObjectTable_model_object_id_key" ON "LiteLLM_ManagedObjectTable"("model_object_id");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_ManagedObjectTable_model_object_id_key" ON "EmbRouter_ManagedObjectTable"("model_object_id");
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "LiteLLM_ManagedObjectTable_unified_object_id_idx" ON "LiteLLM_ManagedObjectTable"("unified_object_id");
+CREATE INDEX IF NOT EXISTS "EmbRouter_ManagedObjectTable_unified_object_id_idx" ON "EmbRouter_ManagedObjectTable"("unified_object_id");
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "LiteLLM_ManagedObjectTable_model_object_id_idx" ON "LiteLLM_ManagedObjectTable"("model_object_id");
+CREATE INDEX IF NOT EXISTS "EmbRouter_ManagedObjectTable_model_object_id_idx" ON "EmbRouter_ManagedObjectTable"("model_object_id");
 

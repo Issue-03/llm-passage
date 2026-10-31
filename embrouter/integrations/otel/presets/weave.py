@@ -2,20 +2,20 @@
 
 from typing import Final
 
-from litellm.integrations.otel.model.config import (
+from embrouter.integrations.otel.model.config import (
     ExporterOwner,
     ExporterSpec,
     OpenTelemetryV2Config,
 )
-from litellm.integrations.otel.presets.utils import (
+from embrouter.integrations.otel.presets.utils import (
     credential_gated_exporters,
     ensure_mappers,
 )
-from litellm.integrations.weave.weave_otel import (
+from embrouter.integrations.weave.weave_otel import (
     _get_weave_authorization_header,
     get_weave_otel_config,
 )
-from litellm.types.utils import StandardCallbackDynamicParams
+from embrouter.types.utils import StandardCallbackDynamicParams
 
 
 def weave_preset(

@@ -7,43 +7,43 @@ from typing import TYPE_CHECKING, Any, Final, cast, get_args
 import httpx
 from pydantic import TypeAdapter, ValidationError
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.litellm_core_utils.core_helpers import map_finish_reason
-from litellm.litellm_core_utils.get_litellm_params import stored_control_options
-from litellm.litellm_core_utils.logging_utils import track_llm_api_timing
-from litellm.litellm_core_utils.prompt_templates.factory import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.embrouter_core_utils.core_helpers import map_finish_reason
+from embrouter.embrouter_core_utils.get_embrouter_params import stored_control_options
+from embrouter.embrouter_core_utils.logging_utils import track_llm_api_timing
+from embrouter.embrouter_core_utils.prompt_templates.factory import (
     cohere_message_pt,
     custom_prompt,
     deepseek_r1_pt,
     prompt_factory,
 )
-from litellm.llms.base_llm.chat.transformation import BaseConfig, BaseLLMException
-from litellm.llms.bedrock.chat.invoke_handler import make_call, make_sync_call
-from litellm.llms.bedrock.common_utils import BedrockError
-from litellm.llms.bedrock.request_metadata import (
+from embrouter.llms.base_llm.chat.transformation import BaseConfig, BaseLLMException
+from embrouter.llms.bedrock.chat.invoke_handler import make_call, make_sync_call
+from embrouter.llms.bedrock.common_utils import BedrockError
+from embrouter.llms.bedrock.request_metadata import (
     bedrock_request_metadata_headers,
     merge_bedrock_invoke_headers,
 )
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.llms.custom_httpx.http_handler import (
     AsyncHTTPHandler,
     HTTPHandler,
     _get_httpx_client,
 )
-from litellm.types.llms.bedrock import GuardrailConfigBlock
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.utils import ModelResponse, Usage
-from litellm.utils import CustomStreamWrapper
+from embrouter.types.llms.bedrock import GuardrailConfigBlock
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.utils import ModelResponse, Usage
+from embrouter.utils import CustomStreamWrapper
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
-from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM
+from embrouter.llms.bedrock.base_aws_llm import BaseAWSLLM
 
 _GUARDRAIL_CONFIG_VALIDATOR: Final["TypeAdapter[GuardrailConfigBlock]"] = TypeAdapter(GuardrailConfigBlock)
 
@@ -112,7 +112,7 @@ class AmazonInvokeConfig(BaseConfig, BaseAWSLLM):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         """
@@ -177,13 +177,13 @@ class AmazonInvokeConfig(BaseConfig, BaseAWSLLM):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         ## SETUP ##
         stream: Final = optional_params.pop("stream", None)
-        custom_prompt_dict: Final[dict] = litellm_params.pop("custom_prompt_dict", None) or {}
-        hf_model_name: Final = litellm_params.get("hf_model_name", None)
+        custom_prompt_dict: Final[dict] = embrouter_params.pop("custom_prompt_dict", None) or {}
+        hf_model_name: Final = embrouter_params.get("hf_model_name", None)
 
         provider: Final = self.get_bedrock_invoke_provider(model)
 
@@ -199,7 +199,7 @@ class AmazonInvokeConfig(BaseConfig, BaseAWSLLM):
         if provider == "cohere":
             if model.startswith("cohere.command-r"):
                 ## LOAD CONFIG
-                config = litellm.AmazonCohereChatConfig().get_config()
+                config = embrouter.AmazonCohereChatConfig().get_config()
                 self._apply_config_to_params(config, inference_params)
                 _data: Final = {"message": prompt, **inference_params}
                 if chat_history is not None:
@@ -207,42 +207,42 @@ class AmazonInvokeConfig(BaseConfig, BaseAWSLLM):
                 request_data = _data
             else:
                 ## LOAD CONFIG
-                config = litellm.AmazonCohereConfig.get_config()
+                config = embrouter.AmazonCohereConfig.get_config()
                 self._apply_config_to_params(config, inference_params)
                 if stream is True:
                     inference_params["stream"] = True  # cohere requires stream = True in inference params
                 request_data = {"prompt": prompt, **inference_params}
         elif provider == "anthropic":
-            transformed_request: Final = litellm.AmazonAnthropicClaudeConfig().transform_request(
+            transformed_request: Final = embrouter.AmazonAnthropicClaudeConfig().transform_request(
                 model=model,
                 messages=messages,
                 optional_params=optional_params,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 headers=headers,
             )
 
             return transformed_request
         elif provider == "nova":
-            return litellm.AmazonInvokeNovaConfig().transform_request(
+            return embrouter.AmazonInvokeNovaConfig().transform_request(
                 model=model,
                 messages=messages,
                 optional_params=optional_params,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 headers=headers,
             )
         elif provider == "ai21":
             ## LOAD CONFIG
-            config = litellm.AmazonAI21Config.get_config()
+            config = embrouter.AmazonAI21Config.get_config()
             self._apply_config_to_params(config, inference_params)
             request_data = {"prompt": prompt, **inference_params}
         elif provider == "mistral":
             ## LOAD CONFIG
-            config = litellm.AmazonMistralConfig.get_config()
+            config = embrouter.AmazonMistralConfig.get_config()
             self._apply_config_to_params(config, inference_params)
             request_data = {"prompt": prompt, **inference_params}
         elif provider == "amazon":  # amazon titan
             ## LOAD CONFIG
-            config = litellm.AmazonTitanConfig.get_config()
+            config = embrouter.AmazonTitanConfig.get_config()
             self._apply_config_to_params(config, inference_params)
             request_data = {
                 "inputText": prompt,
@@ -250,24 +250,24 @@ class AmazonInvokeConfig(BaseConfig, BaseAWSLLM):
             }
         elif provider == "meta" or provider == "llama" or provider == "deepseek_r1":
             ## LOAD CONFIG
-            config = litellm.AmazonLlamaConfig.get_config()
+            config = embrouter.AmazonLlamaConfig.get_config()
             self._apply_config_to_params(config, inference_params)
             request_data = {"prompt": prompt, **inference_params}
         elif provider == "twelvelabs":
-            return litellm.AmazonTwelveLabsPegasusConfig().transform_request(
+            return embrouter.AmazonTwelveLabsPegasusConfig().transform_request(
                 model=model,
                 messages=messages,
                 optional_params=optional_params,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 headers=headers,
             )
         elif provider == "openai":
             # OpenAI imported models use OpenAI Chat Completions format
-            return litellm.AmazonBedrockOpenAIConfig().transform_request(
+            return embrouter.AmazonBedrockOpenAIConfig().transform_request(
                 model=model,
                 messages=messages,
                 optional_params=optional_params,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 headers=headers,
             )
         else:
@@ -283,11 +283,11 @@ class AmazonInvokeConfig(BaseConfig, BaseAWSLLM):
         model: str,
         raw_response: httpx.Response,
         model_response: ModelResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         request_data: dict,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,
@@ -316,7 +316,7 @@ class AmazonInvokeConfig(BaseConfig, BaseAWSLLM):
                         completion_response["generations"][0]["finish_reason"]
                     )
             elif provider == "anthropic":
-                return litellm.AmazonAnthropicClaudeConfig().transform_response(
+                return embrouter.AmazonAnthropicClaudeConfig().transform_response(
                     model=model,
                     raw_response=raw_response,
                     model_response=model_response,
@@ -324,13 +324,13 @@ class AmazonInvokeConfig(BaseConfig, BaseAWSLLM):
                     request_data=request_data,
                     messages=messages,
                     optional_params=optional_params,
-                    litellm_params=litellm_params,
+                    embrouter_params=embrouter_params,
                     encoding=encoding,
                     api_key=api_key,
                     json_mode=json_mode,
                 )
             elif provider == "nova":
-                return litellm.AmazonInvokeNovaConfig().transform_response(
+                return embrouter.AmazonInvokeNovaConfig().transform_response(
                     model=model,
                     raw_response=raw_response,
                     model_response=model_response,
@@ -338,12 +338,12 @@ class AmazonInvokeConfig(BaseConfig, BaseAWSLLM):
                     request_data=request_data,
                     messages=messages,
                     optional_params=optional_params,
-                    litellm_params=litellm_params,
+                    embrouter_params=embrouter_params,
                     encoding=encoding,
                     json_mode=json_mode,
                 )
             elif provider == "twelvelabs":
-                return litellm.AmazonTwelveLabsPegasusConfig().transform_response(
+                return embrouter.AmazonTwelveLabsPegasusConfig().transform_response(
                     model=model,
                     raw_response=raw_response,
                     model_response=model_response,
@@ -351,7 +351,7 @@ class AmazonInvokeConfig(BaseConfig, BaseAWSLLM):
                     request_data=request_data,
                     messages=messages,
                     optional_params=optional_params,
-                    litellm_params=litellm_params,
+                    embrouter_params=embrouter_params,
                     encoding=encoding,
                     api_key=api_key,
                     json_mode=json_mode,
@@ -361,7 +361,7 @@ class AmazonInvokeConfig(BaseConfig, BaseAWSLLM):
             elif provider == "meta" or provider == "llama" or provider == "deepseek_r1":
                 outputText = completion_response["generation"]
             elif provider == "mistral":
-                outputText = litellm.AmazonMistralConfig.get_outputText(completion_response, model_response)
+                outputText = embrouter.AmazonMistralConfig.get_outputText(completion_response, model_response)
             else:  # amazon titan
                 outputText = completion_response.get("results")[0].get("outputText")
         except Exception as e:
@@ -397,11 +397,11 @@ class AmazonInvokeConfig(BaseConfig, BaseAWSLLM):
         bedrock_input_tokens: Final = raw_response.headers.get("x-amzn-bedrock-input-token-count", None)
         bedrock_output_tokens: Final = raw_response.headers.get("x-amzn-bedrock-output-token-count", None)
 
-        prompt_tokens: Final = int(bedrock_input_tokens or litellm.token_counter(messages=messages))
+        prompt_tokens: Final = int(bedrock_input_tokens or embrouter.token_counter(messages=messages))
 
         completion_tokens: Final = int(
             bedrock_output_tokens
-            or litellm.token_counter(
+            or embrouter.token_counter(
                 text=model_response.choices[0].message.content,
                 count_response_tokens=True,
             )
@@ -424,7 +424,7 @@ class AmazonInvokeConfig(BaseConfig, BaseAWSLLM):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
@@ -434,7 +434,7 @@ class AmazonInvokeConfig(BaseConfig, BaseAWSLLM):
             if raw_guardrail_config is None
             else tuple(_bedrock_invoke_guardrail_headers(raw_guardrail_config).items())
         )
-        owned_names, metadata_headers = bedrock_request_metadata_headers(litellm_params)
+        owned_names, metadata_headers = bedrock_request_metadata_headers(embrouter_params)
         return merge_bedrock_invoke_headers(headers, guardrail_headers, metadata_headers, owned_names)
 
     def get_error_class(self, error_message: str, status_code: int, headers: dict | httpx.Headers) -> BaseLLMException:
@@ -445,7 +445,7 @@ class AmazonInvokeConfig(BaseConfig, BaseAWSLLM):
         self,
         model: str,
         custom_llm_provider: str,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_base: str,
         headers: dict,
         data: dict,
@@ -454,9 +454,9 @@ class AmazonInvokeConfig(BaseConfig, BaseAWSLLM):
         json_mode: bool | None = None,
         signed_json_body: bytes | None = None,
         *,
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
     ) -> CustomStreamWrapper:
-        chunk_size: Final = stored_control_options(litellm_params).stream_chunk_size
+        chunk_size: Final = stored_control_options(embrouter_params).stream_chunk_size
         completion_stream, response_headers = await make_call(
             client=client,
             api_base=api_base,
@@ -484,7 +484,7 @@ class AmazonInvokeConfig(BaseConfig, BaseAWSLLM):
         self,
         model: str,
         custom_llm_provider: str,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_base: str,
         headers: dict,
         data: dict,
@@ -493,12 +493,12 @@ class AmazonInvokeConfig(BaseConfig, BaseAWSLLM):
         json_mode: bool | None = None,
         signed_json_body: bytes | None = None,
         *,
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
     ) -> CustomStreamWrapper:
         sync_client: Final = (
             _get_httpx_client(params={}) if client is None or isinstance(client, AsyncHTTPHandler) else client
         )
-        chunk_size: Final = stored_control_options(litellm_params).stream_chunk_size
+        chunk_size: Final = stored_control_options(embrouter_params).stream_chunk_size
         completion_stream, response_headers = make_sync_call(
             client=sync_client,
             api_base=api_base,
@@ -536,7 +536,7 @@ class AmazonInvokeConfig(BaseConfig, BaseAWSLLM):
     @staticmethod
     def get_bedrock_invoke_provider(
         model: str,
-    ) -> litellm.BEDROCK_INVOKE_PROVIDERS_LITERAL | None:
+    ) -> embrouter.BEDROCK_INVOKE_PROVIDERS_LITERAL | None:
         """
         Helper function to get the bedrock provider from the model
 
@@ -552,19 +552,19 @@ class AmazonInvokeConfig(BaseConfig, BaseAWSLLM):
         # Special case: Check for "nova" in model name first (before "amazon")
         # This handles amazon.nova-* models which would otherwise match "amazon" (Titan)
         if "nova" in model.lower():
-            if "nova" in get_args(litellm.BEDROCK_INVOKE_PROVIDERS_LITERAL):
-                return cast(litellm.BEDROCK_INVOKE_PROVIDERS_LITERAL, "nova")
+            if "nova" in get_args(embrouter.BEDROCK_INVOKE_PROVIDERS_LITERAL):
+                return cast(embrouter.BEDROCK_INVOKE_PROVIDERS_LITERAL, "nova")
 
         _split_model: Final = model.split(".")[0]
-        if _split_model in get_args(litellm.BEDROCK_INVOKE_PROVIDERS_LITERAL):
-            return cast(litellm.BEDROCK_INVOKE_PROVIDERS_LITERAL, _split_model)
+        if _split_model in get_args(embrouter.BEDROCK_INVOKE_PROVIDERS_LITERAL):
+            return cast(embrouter.BEDROCK_INVOKE_PROVIDERS_LITERAL, _split_model)
 
         # If not a known provider, check for pattern with two slashes
         provider = AmazonInvokeConfig._get_provider_from_model_path(model)
         if provider is not None:
             return provider
 
-        for provider in get_args(litellm.BEDROCK_INVOKE_PROVIDERS_LITERAL):
+        for provider in get_args(embrouter.BEDROCK_INVOKE_PROVIDERS_LITERAL):
             if provider in model:
                 return provider
         return None
@@ -572,7 +572,7 @@ class AmazonInvokeConfig(BaseConfig, BaseAWSLLM):
     @staticmethod
     def _get_provider_from_model_path(
         model_path: str,
-    ) -> litellm.BEDROCK_INVOKE_PROVIDERS_LITERAL | None:
+    ) -> embrouter.BEDROCK_INVOKE_PROVIDERS_LITERAL | None:
         """
         Helper function to get the provider from a model path with format: provider/model-name
 
@@ -585,8 +585,8 @@ class AmazonInvokeConfig(BaseConfig, BaseAWSLLM):
         parts: Final = model_path.split("/")
         if len(parts) >= 1:
             provider: Final = parts[0]
-            if provider in get_args(litellm.BEDROCK_INVOKE_PROVIDERS_LITERAL):
-                return cast(litellm.BEDROCK_INVOKE_PROVIDERS_LITERAL, provider)
+            if provider in get_args(embrouter.BEDROCK_INVOKE_PROVIDERS_LITERAL):
+                return cast(embrouter.BEDROCK_INVOKE_PROVIDERS_LITERAL, provider)
         return None
 
     def convert_messages_to_prompt(self, model, messages, provider, custom_prompt_dict) -> tuple[str, list | None]:

@@ -1,10 +1,10 @@
-"""Per-user OAuth identity binding: verify the upstream OIDC principal matches the LiteLLM caller.
+"""Per-user OAuth identity binding: verify the upstream OIDC principal matches the EmbRouter caller.
 
 Closes the confused-deputy gap where a browser authenticated upstream as one principal produces a
-token that the relay stores under a different, LiteLLM-authenticated principal: before the token
+token that the relay stores under a different, EmbRouter-authenticated principal: before the token
 endpoint returns, stores, or caches an exchanged token for an identity-bound server, the id_token
 is validated (signature via the pinned issuer's JWKS, issuer, audience, expiry) and its principal
-claim is compared to the caller's trusted LiteLLM identity. Mismatches fail closed in enforce mode
+claim is compared to the caller's trusted EmbRouter identity. Mismatches fail closed in enforce mode
 and are logged in audit mode.
 """
 
@@ -20,11 +20,11 @@ from fastapi import HTTPException
 from jwt.types import Options
 from typing_extensions import assert_never
 
-from litellm._logging import verbose_logger
-from litellm.caching.in_memory_cache import InMemoryCache
-from litellm.llms.custom_httpx.http_handler import get_async_httpx_client
-from litellm.types.llms.custom_http import httpxSpecialProvider
-from litellm.types.mcp_server.mcp_server_manager import MCPOAuthIdentityBinding, MCPServer
+from embrouter._logging import verbose_logger
+from embrouter.caching.in_memory_cache import InMemoryCache
+from embrouter.llms.custom_httpx.http_handler import get_async_httpx_client
+from embrouter.types.llms.custom_http import httpxSpecialProvider
+from embrouter.types.mcp_server.mcp_server_manager import MCPOAuthIdentityBinding, MCPServer
 
 _ALLOWED_ID_TOKEN_ALGORITHMS: Final = (
     "RS256",
@@ -89,7 +89,7 @@ class BindingValidator(Protocol):
         *,
         server: MCPServer,
         token_response: Mapping[str, object],
-        litellm_user_id: str | None,
+        embrouter_user_id: str | None,
         grant_type: str,
         refresh_ownership: RefreshOwnership,
     ) -> str | None: ...
@@ -179,37 +179,37 @@ def _upstream_principal(
     return principal
 
 
-async def _load_caller_principal(litellm_user_id: str, binding: MCPOAuthIdentityBinding) -> str | None:
+async def _load_caller_principal(embrouter_user_id: str, binding: MCPOAuthIdentityBinding) -> str | None:
     if binding.caller_field == "user_id":
-        return litellm_user_id
-    from litellm.proxy._experimental.mcp_server.bridge_token_flow import (  # noqa: PLC0415  # inline import avoids a module-load circular import
+        return embrouter_user_id
+    from embrouter.proxy._experimental.mcp_server.bridge_token_flow import (  # noqa: PLC0415  # inline import avoids a module-load circular import
         load_active_user_by_id,
     )
 
-    loaded: Final = await load_active_user_by_id(litellm_user_id)
+    loaded: Final = await load_active_user_by_id(embrouter_user_id)
     if isinstance(loaded, str):
         return None
     return loaded.user_email
 
 
 async def _load_stored_refresh_token(
-    litellm_user_id: str, server_id: str, binding: MCPOAuthIdentityBinding
+    embrouter_user_id: str, server_id: str, binding: MCPOAuthIdentityBinding
 ) -> VerifiedRefreshToken | None:
     try:
-        from litellm.proxy._experimental.mcp_server.db import (  # noqa: PLC0415  # keep database imports lazy
+        from embrouter.proxy._experimental.mcp_server.db import (  # noqa: PLC0415  # keep database imports lazy
             get_user_oauth_credential,
         )
-        from litellm.proxy.utils import get_prisma_client_or_throw  # noqa: PLC0415  # keep database imports lazy
+        from embrouter.proxy.utils import get_prisma_client_or_throw  # noqa: PLC0415  # keep database imports lazy
 
         prisma_client: Final = get_prisma_client_or_throw(
             "Database not connected. Cannot verify OAuth refresh token ownership."
         )
         cred: Final = await get_user_oauth_credential(
             prisma_client=prisma_client,
-            user_id=litellm_user_id,
+            user_id=embrouter_user_id,
             server_id=server_id,
         )
-        if not cred or not await credential_binding_matches(binding, litellm_user_id, server_id, cred):
+        if not cred or not await credential_binding_matches(binding, embrouter_user_id, server_id, cred):
             return None
         refresh_token: Final = cred.get("refresh_token")
         proof: Final = cred.get("identity_binding_proof")
@@ -260,7 +260,7 @@ def _principals_match(upstream: str, caller: str, binding: MCPOAuthIdentityBindi
 
 async def _evaluate_refresh_ownership(
     binding: MCPOAuthIdentityBinding,
-    litellm_user_id: str | None,
+    embrouter_user_id: str | None,
     server_id: str,
     refresh_ownership: RefreshOwnership,
     stored_refresh_token_loader: StoredRefreshTokenLoader,
@@ -277,12 +277,12 @@ async def _evaluate_refresh_ownership(
                 description="refresh_token grant without an id_token carries no refresh token to prove ownership of",
             )
         case RefreshTokenPresented(refresh_token):
-            if not litellm_user_id:
+            if not embrouter_user_id:
                 return _BindingRejection(
                     code="oauth_identity_binding_failed",
-                    description="the request carries no resolvable LiteLLM user identity to bind the credential to",
+                    description="the request carries no resolvable EmbRouter user identity to bind the credential to",
                 )
-            stored: Final = await stored_refresh_token_loader(litellm_user_id, server_id, binding)
+            stored: Final = await stored_refresh_token_loader(embrouter_user_id, server_id, binding)
             if stored is None or not hmac.compare_digest(stored.refresh_token, refresh_token):
                 return _BindingRejection(
                     code="oauth_identity_binding_failed",
@@ -295,7 +295,7 @@ async def _evaluate_refresh_ownership(
 async def _evaluate_binding(
     binding: MCPOAuthIdentityBinding,
     token_response: Mapping[str, object],
-    litellm_user_id: str | None,
+    embrouter_user_id: str | None,
     grant_type: str,
     server_id: str,
     refresh_ownership: RefreshOwnership,
@@ -313,15 +313,15 @@ async def _evaluate_binding(
             )
         return await _evaluate_refresh_ownership(
             binding,
-            litellm_user_id,
+            embrouter_user_id,
             server_id,
             refresh_ownership,
             stored_refresh_token_loader,
         )
-    if not litellm_user_id:
+    if not embrouter_user_id:
         return _BindingRejection(
             code="oauth_identity_binding_failed",
-            description="the request carries no resolvable LiteLLM user identity to bind the credential to",
+            description="the request carries no resolvable EmbRouter user identity to bind the credential to",
         )
     try:
         keys: Final = await jwks_fetcher(binding)
@@ -352,24 +352,24 @@ async def _evaluate_binding(
     upstream: Final = _upstream_principal(claims, binding)
     if isinstance(upstream, _BindingRejection):
         return upstream
-    caller: Final = await caller_principal_loader(litellm_user_id, binding)
+    caller: Final = await caller_principal_loader(embrouter_user_id, binding)
     if not caller:
         return _BindingRejection(
             code="oauth_identity_binding_failed",
-            description=f"the LiteLLM user has no '{binding.caller_field}' to compare the upstream principal against",
+            description=f"the EmbRouter user has no '{binding.caller_field}' to compare the upstream principal against",
         )
     if not _principals_match(upstream, caller, binding):
         return _BindingRejection(
             code="oauth_principal_mismatch",
             description="The browser account does not match the selected credential owner.",
         )
-    return _binding_proof(binding, litellm_user_id, server_id, caller)
+    return _binding_proof(binding, embrouter_user_id, server_id, caller)
 
 
 async def enforce_oauth_identity_binding(
     server: MCPServer,
     token_response: Mapping[str, object],
-    litellm_user_id: str | None,
+    embrouter_user_id: str | None,
     grant_type: str,
     refresh_ownership: RefreshOwnership,
     jwks_fetcher: JwksFetcher = _fetch_issuer_jwks,
@@ -377,7 +377,7 @@ async def enforce_oauth_identity_binding(
     stored_refresh_token_loader: StoredRefreshTokenLoader = _load_stored_refresh_token,
     expected_nonce: str | None = None,
 ) -> str | None:
-    """Validate the exchanged token's upstream principal against the LiteLLM caller.
+    """Validate the exchanged token's upstream principal against the EmbRouter caller.
 
     No-op when the server has no binding or it is disabled. In enforce mode a failure raises 403
     before the caller returns, stores, or caches the token; in audit mode failures are logged only.
@@ -390,7 +390,7 @@ async def enforce_oauth_identity_binding(
     rejection: Final = await _evaluate_binding(
         binding=binding,
         token_response=token_response,
-        litellm_user_id=litellm_user_id,
+        embrouter_user_id=embrouter_user_id,
         grant_type=grant_type,
         server_id=server.server_id,
         refresh_ownership=refresh_ownership,
@@ -405,7 +405,7 @@ async def enforce_oauth_identity_binding(
         verbose_logger.warning(
             "oauth_identity_binding audit: server=%s user=%s grant=%s rejected=%s (%s)",
             server.server_id,
-            litellm_user_id,
+            embrouter_user_id,
             grant_type,
             rejection.code,
             rejection.description,

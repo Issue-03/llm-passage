@@ -3,7 +3,7 @@ from typing import Final
 from fastapi import Request
 from fastapi_sso.sso.base import OpenID
 
-from litellm.integrations.custom_logger import CustomLogger
+from embrouter.integrations.custom_logger import CustomLogger
 
 
 class CustomSSOLoginHandler(CustomLogger):
@@ -12,7 +12,7 @@ class CustomSSOLoginHandler(CustomLogger):
 
     Use this to parse the request headers and return a OpenID object
 
-    Useful when you have an OAuth proxy in front of LiteLLM
+    Useful when you have an OAuth proxy in front of EmbRouter
     and you want to use the headers from the proxy to sign in the user
     """
 
@@ -20,10 +20,10 @@ class CustomSSOLoginHandler(CustomLogger):
         self,
         request: Request,
     ) -> OpenID:
-        from litellm.proxy.auth.trusted_proxy_utils import (
+        from embrouter.proxy.auth.trusted_proxy_utils import (
             require_trusted_proxy_request,
         )
-        from litellm.proxy.proxy_server import general_settings
+        from embrouter.proxy.proxy_server import general_settings
 
         require_trusted_proxy_request(
             request=request,
@@ -33,8 +33,8 @@ class CustomSSOLoginHandler(CustomLogger):
 
         request_headers_dict: Final = dict(request.headers)
         return OpenID(
-            id=request_headers_dict.get("x-litellm-user-id"),
-            email=request_headers_dict.get("x-litellm-user-email"),
+            id=request_headers_dict.get("x-embrouter-user-id"),
+            email=request_headers_dict.get("x-embrouter-user-email"),
             first_name="Test",
             last_name="Test",
             display_name="Test",

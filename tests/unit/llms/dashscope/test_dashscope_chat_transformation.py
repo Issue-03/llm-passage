@@ -7,12 +7,12 @@ DashScope is an OpenAI-compatible provider with minor customizations.
 
 
 
-from litellm.types.llms.openai import AllMessageValues
+from embrouter.types.llms.openai import AllMessageValues
 import pytest
 
-import litellm
-from litellm import completion
-from litellm.llms.dashscope.chat.transformation import DashScopeChatConfig
+import embrouter
+from embrouter import completion
+from embrouter.llms.dashscope.chat.transformation import DashScopeChatConfig
 
 
 class TestDashScopeConfig:
@@ -30,7 +30,7 @@ class TestDashScopeConfig:
             model="qwen-turbo",
             messages=[{"role": "user", "content": "Hey"}],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             api_key=api_key,
             api_base=None,  # Not providing api_base
         )
@@ -50,7 +50,7 @@ class TestDashScopeConfig:
         This test mocks the actual HTTP request to test the integration properly.
         """
 
-        litellm.disable_aiohttp_transport = (
+        embrouter.disable_aiohttp_transport = (
             True  # since this uses respx, we need to set use_aiohttp_transport to False
         )
 
@@ -72,7 +72,7 @@ class TestDashScopeConfig:
                         "index": 0,
                         "message": {
                             "role": "assistant",
-                            "content": '```python\nprint("Hey from LiteLLM!")\n```\n\nThis simple Python code prints a greeting message from LiteLLM.',
+                            "content": '```python\nprint("Hey from EmbRouter!")\n```\n\nThis simple Python code prints a greeting message from EmbRouter.',
                         },
                         "finish_reason": "stop",
                     }
@@ -86,11 +86,11 @@ class TestDashScopeConfig:
             status_code=200,
         )
 
-        # Make the actual API call through LiteLLM
+        # Make the actual API call through EmbRouter
         response = completion(
             model=model,
             messages=[
-                {"role": "user", "content": "write code for saying hey from LiteLLM"}
+                {"role": "user", "content": "write code for saying hey from EmbRouter"}
             ],
             api_key=api_key,
             api_base=api_base,
@@ -106,7 +106,7 @@ class TestDashScopeConfig:
 
         # Check for specific content in the response
         assert "```python" in response.choices[0].message.content
-        assert "Hey from LiteLLM" in response.choices[0].message.content
+        assert "Hey from EmbRouter" in response.choices[0].message.content
 
     def test_dashscope_no_longer_transforms_content_list(self):
         """
@@ -171,7 +171,7 @@ class TestDashScopeConfig:
             model="qwen3.7-plus"
         )
 
-        optional_params = litellm.get_optional_params(
+        optional_params = embrouter.get_optional_params(
             model="qwen3.7-plus",
             custom_llm_provider="dashscope",
             reasoning_effort=reasoning_effort,

@@ -18,14 +18,14 @@ from fastapi.testclient import TestClient
 def test_audit_log_masking():
     from datetime import datetime
 
-    from litellm.proxy._types import LiteLLM_AuditLogs
+    from embrouter.proxy._types import EmbRouter_AuditLogs
 
-    audit_log = LiteLLM_AuditLogs(
+    audit_log = EmbRouter_AuditLogs(
         id="123",
         updated_at=datetime.now(),
         changed_by="test",
         changed_by_api_key="test",
-        table_name="LiteLLM_VerificationToken",
+        table_name="EmbRouter_VerificationToken",
         object_id="test",
         action="updated",
         updated_values=json.dumps({"key": "sk-1234567890", "token": "1q2132r222"}),
@@ -44,19 +44,19 @@ def test_audit_log_masking():
 
 def test_team_membership_null_budget_table():
     """
-    Regression test for: LiteLLM_TeamMembership.litellm_budget_table missing = None.
+    Regression test for: EmbRouter_TeamMembership.embrouter_budget_table missing = None.
     In Pydantic v2, Optional[T] without a default is required; rows with budget_id=null
     raised a validation error and returned 401.
     """
-    from litellm.proxy._types import LiteLLM_TeamMembership
+    from embrouter.proxy._types import EmbRouter_TeamMembership
 
-    membership = LiteLLM_TeamMembership(user_id="u1", team_id="t1")
-    assert membership.litellm_budget_table is None
+    membership = EmbRouter_TeamMembership(user_id="u1", team_id="t1")
+    assert membership.embrouter_budget_table is None
 
-    membership_explicit = LiteLLM_TeamMembership(
-        user_id="u1", team_id="t1", litellm_budget_table=None
+    membership_explicit = EmbRouter_TeamMembership(
+        user_id="u1", team_id="t1", embrouter_budget_table=None
     )
-    assert membership_explicit.litellm_budget_table is None
+    assert membership_explicit.embrouter_budget_table is None
 
 
 def test_internal_jobs_user_has_proxy_admin_role():
@@ -69,13 +69,13 @@ def test_internal_jobs_user_has_proxy_admin_role():
 
 
     """
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
+    from embrouter.proxy._types import EmbrouterUserRoles, UserAPIKeyAuth
 
     # Get the system user used for internal jobs like key rotation
-    system_user = UserAPIKeyAuth.get_litellm_internal_jobs_user_api_key_auth()
+    system_user = UserAPIKeyAuth.get_embrouter_internal_jobs_user_api_key_auth()
 
     # Verify the system user has PROXY_ADMIN role
-    assert system_user.user_role == LitellmUserRoles.PROXY_ADMIN
+    assert system_user.user_role == EmbrouterUserRoles.PROXY_ADMIN
 
     # Verify other expected properties
     assert system_user.user_id == "system"
@@ -84,7 +84,7 @@ def test_internal_jobs_user_has_proxy_admin_role():
 
 
 def test_user_api_key_auth_hashes_authorization_header_form_of_key():
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     raw_key = "sk-AbCdEfGhIjKlMnOpQrStUvWxYz0123456789"
     baseline = UserAPIKeyAuth(api_key=raw_key)
@@ -105,7 +105,7 @@ def test_proxy_exception_str_returns_message():
     """ProxyException must stringify to its message: OTEL's
     ``span.record_exception`` and ``str(exc)``-based logging read the string
     form, which was empty pre-fix. The OpenAI-mapped fields must stay intact."""
-    from litellm.proxy._types import ProxyException
+    from embrouter.proxy._types import ProxyException
 
     msg = "Authentication Error, Invalid proxy server token passed."
     exc = ProxyException(message=msg, type="auth_error", param="key", code=401)
@@ -125,7 +125,7 @@ def test_key_request_router_settings_keeps_enable_tag_filtering():
     ``UpdateRouterConfig``; a field missing from that model is silently
     dropped at parse time, so a key's "Enable Tag Filtering" toggle would
     never reach the DB even though the team path (plain dict) kept it."""
-    from litellm.proxy._types import GenerateKeyRequest
+    from embrouter.proxy._types import GenerateKeyRequest
 
     req = GenerateKeyRequest(router_settings={"enable_tag_filtering": True, "num_retries": 2})
 
@@ -141,7 +141,7 @@ def test_update_key_request_requires_key_or_key_alias():
     fail validation before hitting the endpoint."""
     import pydantic
 
-    from litellm.proxy._types import UpdateKeyRequest
+    from embrouter.proxy._types import UpdateKeyRequest
 
     with pytest.raises(pydantic.ValidationError, match="either key or key_alias must be provided"):
         UpdateKeyRequest(max_budget=10.0)
@@ -157,7 +157,7 @@ def test_update_key_request_requires_key_or_key_alias():
 
 @pytest.mark.parametrize("request_type", ["new", "update"])
 def test_project_io_token_limits_are_stored_in_metadata(request_type):
-    from litellm.proxy._types import NewProjectRequest, UpdateProjectRequest
+    from embrouter.proxy._types import NewProjectRequest, UpdateProjectRequest
 
     limits = {
         "model_itpm_limit": {"bedrock_mantle/openai.gpt-oss-120b": 20_000_000},
@@ -176,7 +176,7 @@ def test_project_io_token_limits_are_stored_in_metadata(request_type):
 def test_a_jwt_issuer_must_pick_audience_validation_or_opt_out():
     from pydantic import ValidationError
 
-    from litellm.proxy._types import JWTIssuerConfig
+    from embrouter.proxy._types import JWTIssuerConfig
 
     with pytest.raises(ValidationError, match="must configure audience or set disable_audience_validation"):
         JWTIssuerConfig(issuer="https://issuer.example.com")
@@ -184,11 +184,11 @@ def test_a_jwt_issuer_must_pick_audience_validation_or_opt_out():
     with pytest.raises(ValidationError, match="cannot set audience and disable_audience_validation"):
         JWTIssuerConfig(
             issuer="https://issuer.example.com",
-            audience="litellm-proxy",
+            audience="embrouter-proxy",
             disable_audience_validation=True,
         )
 
-    assert JWTIssuerConfig(issuer="https://issuer.example.com", audience="litellm-proxy").audience == "litellm-proxy"
+    assert JWTIssuerConfig(issuer="https://issuer.example.com", audience="embrouter-proxy").audience == "embrouter-proxy"
     assert (
         JWTIssuerConfig(issuer="https://issuer.example.com", disable_audience_validation=True).audience
         is None
@@ -198,7 +198,7 @@ def test_a_jwt_issuer_must_pick_audience_validation_or_opt_out():
 def test_a_jwt_issuer_rejects_a_field_it_does_not_define():
     from pydantic import ValidationError
 
-    from litellm.proxy._types import JWTIssuerConfig
+    from embrouter.proxy._types import JWTIssuerConfig
 
     with pytest.raises(ValidationError, match="Extra inputs are not permitted"):
         JWTIssuerConfig(issuer="https://issuer.example.com", audience="a", jwks_uri="https://issuer/jwks")
@@ -207,7 +207,7 @@ def test_a_jwt_issuer_rejects_a_field_it_does_not_define():
 def test_a_temp_budget_needs_both_halves_or_neither():
     from pydantic import ValidationError
 
-    from litellm.proxy._types import UpdateKeyRequest
+    from embrouter.proxy._types import UpdateKeyRequest
 
     with pytest.raises(ValidationError, match="temp_budget_increase and temp_budget_expiry must be set together"):
         UpdateKeyRequest(key="sk-1234", temp_budget_increase=10)
@@ -220,7 +220,7 @@ def test_a_temp_budget_needs_both_halves_or_neither():
 
 
 def test_an_empty_max_budget_is_read_as_no_limit():
-    from litellm.proxy._types import GenerateKeyRequest
+    from embrouter.proxy._types import GenerateKeyRequest
 
     assert GenerateKeyRequest(max_budget="").max_budget is None
     assert GenerateKeyRequest(max_budget=25).max_budget == 25
@@ -229,23 +229,23 @@ def test_an_empty_max_budget_is_read_as_no_limit():
 def test_an_organization_member_can_only_take_a_role_the_organization_has():
     from pydantic import ValidationError
 
-    from litellm.proxy._types import LitellmUserRoles, OrganizationMemberUpdateRequest
+    from embrouter.proxy._types import EmbrouterUserRoles, OrganizationMemberUpdateRequest
 
     with pytest.raises(ValidationError, match="Invalid role"):
         OrganizationMemberUpdateRequest(
-            organization_id="org-1", user_id="user-1", role=LitellmUserRoles.PROXY_ADMIN
+            organization_id="org-1", user_id="user-1", role=EmbrouterUserRoles.PROXY_ADMIN
         )
 
     allowed = OrganizationMemberUpdateRequest(
-        organization_id="org-1", user_id="user-1", role=LitellmUserRoles.ORG_ADMIN
+        organization_id="org-1", user_id="user-1", role=EmbrouterUserRoles.ORG_ADMIN
     )
-    assert allowed.role == LitellmUserRoles.ORG_ADMIN
+    assert allowed.role == EmbrouterUserRoles.ORG_ADMIN
 
 
 def test_an_llm_backed_injection_check_needs_the_call_it_would_make():
     from pydantic import ValidationError
 
-    from litellm.proxy._types import LiteLLMPromptInjectionParams
+    from embrouter.proxy._types import EmbRouterPromptInjectionParams
 
     for missing in ("llm_api_name", "llm_api_system_prompt", "llm_api_fail_call_string"):
         complete = {
@@ -255,9 +255,9 @@ def test_an_llm_backed_injection_check_needs_the_call_it_would_make():
         }
         del complete[missing]
         with pytest.raises(ValidationError, match=f"{missing} must be provided"):
-            LiteLLMPromptInjectionParams(llm_api_check=True, **complete)
+            EmbRouterPromptInjectionParams(llm_api_check=True, **complete)
 
-    assert LiteLLMPromptInjectionParams(llm_api_check=False).llm_api_name is None
+    assert EmbRouterPromptInjectionParams(llm_api_check=False).llm_api_name is None
 
 
 @pytest.mark.parametrize(
@@ -270,7 +270,7 @@ def test_an_llm_backed_injection_check_needs_the_call_it_would_make():
     ],
 )
 def test_a_server_only_marker_is_not_taken_from_the_caller(field, forged, default):
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     auth = UserAPIKeyAuth(api_key="sk-1234", **{field: forged})
 
@@ -280,7 +280,7 @@ def test_a_server_only_marker_is_not_taken_from_the_caller(field, forged, defaul
 @pytest.mark.parametrize("weight", [True, "1", -1, 0, float("inf")])
 def test_key_and_team_weights_reject_invalid_numeric_values(weight: bool | str | int | float) -> None:
     from pydantic import ValidationError
-    from litellm.proxy._types import GenerateKeyRequest, NewTeamRequest
+    from embrouter.proxy._types import GenerateKeyRequest, NewTeamRequest
 
     for request_type in (GenerateKeyRequest, NewTeamRequest):
         with pytest.raises(ValidationError):

@@ -1,7 +1,7 @@
 """
 Auto-router per-session rollup model.
 
-Canonical definition for ``litellm_autoroutersession``, the row the spend flush
+Canonical definition for ``embrouter_autoroutersession``, the row the spend flush
 maintains per (api_key, session_id, router_name).
 """
 
@@ -10,10 +10,10 @@ from datetime import datetime
 
 from pydantic import Field
 
-from litellm.types.llms.base import LiteLLMPydanticObjectBase
+from embrouter.types.llms.base import EmbRouterPydanticObjectBase
 
 
-class LiteLLM_AutoRouterSession(LiteLLMPydanticObjectBase):
+class EmbRouter_AutoRouterSession(EmbRouterPydanticObjectBase):
     api_key: str
     session_id: str
     router_name: str

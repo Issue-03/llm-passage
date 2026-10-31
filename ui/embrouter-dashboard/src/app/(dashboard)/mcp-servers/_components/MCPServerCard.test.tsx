@@ -70,9 +70,9 @@ describe("MCPServerCard logo", () => {
   });
 
   it("prefixes a stored asset path with the server root path under a non-root mount", () => {
-    setServerRootPath("/litellm");
+    setServerRootPath("/embrouter");
     renderCard({ mcp_info: { server_name: "demo_server", logo_url: "/ui/assets/logos/github.svg" } });
-    expect(screen.getByAltText("demo_server logo")).toHaveAttribute("src", "/litellm/ui/assets/logos/github.svg");
+    expect(screen.getByAltText("demo_server logo")).toHaveAttribute("src", "/embrouter/ui/assets/logos/github.svg");
   });
 
   it("renders a letter avatar when no logo_url is set", () => {

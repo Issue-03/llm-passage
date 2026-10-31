@@ -15,7 +15,7 @@ This happens for any OpenAI-style history with that shape, independent of provid
 
 import pytest
 
-from litellm.llms.vertex_ai.gemini.transformation import (
+from embrouter.llms.vertex_ai.gemini.transformation import (
     _gemini_convert_messages_with_history,
 )
 

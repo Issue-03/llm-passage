@@ -1,6 +1,6 @@
 """
 Keys follow the OpenTelemetry GenAI semantic conventions (experimental). Anything
-without a semconv equivalent lives under the ``litellm.*`` vendor namespace.
+without a semconv equivalent lives under the ``embrouter.*`` vendor namespace.
 """
 
 from collections.abc import Mapping
@@ -8,17 +8,17 @@ from enum import Enum
 from types import MappingProxyType
 from typing import Final
 
-from litellm._logging import verbose_logger
+from embrouter._logging import verbose_logger
 
 
 class GenAIOperation(str, Enum):
     """Values for ``gen_ai.operation.name``.
 
-    The first block is the convention's own vocabulary. The ``LITELLM_`` members
+    The first block is the convention's own vocabulary. The ``EMBROUTER_`` members
     are vendor values for operations the convention names nothing for; its note
     on this attribute directs instrumentation to use a system-specific name in
     exactly that case, the same allowance :func:`resolve_provider` relies on for
-    unmapped providers. They stay under the ``litellm.`` prefix so a value the
+    unmapped providers. They stay under the ``embrouter.`` prefix so a value the
     convention adds later can never collide with one of ours.
     """
 
@@ -30,10 +30,10 @@ class GenAIOperation(str, Enum):
     CREATE_AGENT = "create_agent"  # reserved for future agent spans
     INVOKE_AGENT = "invoke_agent"  # agent (A2A) message spans
     EXECUTE_TOOL = "execute_tool"  # MCP tool-call spans
-    LITELLM_VECTOR_STORE_MANAGEMENT = "litellm.vector_store_management"
-    LITELLM_VECTOR_STORE_FILE_MANAGEMENT = "litellm.vector_store_file_management"
-    LITELLM_RESPONSES_MANAGEMENT = "litellm.responses_management"
-    LITELLM_MODERATION = "litellm.moderation"
+    EMBROUTER_VECTOR_STORE_MANAGEMENT = "embrouter.vector_store_management"
+    EMBROUTER_VECTOR_STORE_FILE_MANAGEMENT = "embrouter.vector_store_file_management"
+    EMBROUTER_RESPONSES_MANAGEMENT = "embrouter.responses_management"
+    EMBROUTER_MODERATION = "embrouter.moderation"
 
 
 class GenAIOutputType(str, Enum):
@@ -70,7 +70,7 @@ class GenAIProvider(str, Enum):
 
 
 class MCPMethod(str, Enum):
-    """Well-known values for ``mcp.method.name`` that litellm's MCP gateway
+    """Well-known values for ``mcp.method.name`` that embrouter's MCP gateway
     serves. The value is the JSON-RPC method exactly as it travels on the wire."""
 
     TOOLS_CALL = "tools/call"
@@ -135,7 +135,7 @@ class GenAI:
 class MCP:
     """OTel GenAI MCP (Model Context Protocol) span-attribute keys.
 
-    ``METHOD_NAME`` is the only key litellm populates from a closed request today;
+    ``METHOD_NAME`` is the only key embrouter populates from a closed request today;
     the rest are part of the convention's vocabulary and are stamped when the
     corresponding signal (session, protocol version, resource) is available.
     """
@@ -200,7 +200,7 @@ class Error:
     """OTel-defined error attribute keys, from the semconv ``error.*`` registry.
     ``MESSAGE`` is marked *Deprecated* upstream in favor of domain-specific
     error message keys plus ``exception.message`` on the exception event, but
-    litellm still stamps it."""
+    embrouter still stamps it."""
 
     TYPE: Final = "error.type"
     MESSAGE: Final = "error.message"
@@ -209,15 +209,15 @@ class Error:
     MESSAGE_LEGACY: Final = "error"
 
 
-class LiteLLMError:
+class EmbRouterError:
     """Detail keys for the mapped provider exception of a failed LLM call.
-    OTel semconv does not define these, so they live under the ``litellm.*``
+    OTel semconv does not define these, so they live under the ``embrouter.*``
     vendor namespace rather than squatting on the semconv-owned ``error.*``
     namespace."""
 
-    CODE: Final = "litellm.provider.error.code"
-    STACK_TRACE: Final = "litellm.provider.error.stack_trace"
-    LLM_PROVIDER: Final = "litellm.provider.error.llm_provider"
+    CODE: Final = "embrouter.provider.error.code"
+    STACK_TRACE: Final = "embrouter.provider.error.stack_trace"
+    LLM_PROVIDER: Final = "embrouter.provider.error.llm_provider"
 
 
 class ExceptionEvent:
@@ -278,77 +278,77 @@ class HTTP:
     URL_PATH: Final = "url.path"
 
 
-class LiteLLM:
-    """Vendor-extension keys (no semconv equivalent). Always ``litellm.*``."""
+class EmbRouter:
+    """Vendor-extension keys (no semconv equivalent). Always ``embrouter.*``."""
 
-    CALL_ID: Final = "litellm.call_id"
-    # The litellm route that produced the call. Needed because the convention maps
+    CALL_ID: Final = "embrouter.call_id"
+    # The embrouter route that produced the call. Needed because the convention maps
     # several routes onto one operation: transcription and OCR are both
     # ``generate_content`` with a ``text`` output type, so this is the only thing
     # that tells them apart.
-    CALL_TYPE: Final = "litellm.call_type"
-    COST_PREFIX: Final = "litellm.cost."
-    METADATA_PREFIX: Final = "litellm.metadata."
-    TEAM_ID: Final = "litellm.team.id"
-    TEAM_ALIAS: Final = "litellm.team.alias"
+    CALL_TYPE: Final = "embrouter.call_type"
+    COST_PREFIX: Final = "embrouter.cost."
+    METADATA_PREFIX: Final = "embrouter.metadata."
+    TEAM_ID: Final = "embrouter.team.id"
+    TEAM_ALIAS: Final = "embrouter.team.alias"
     # The team's free-form metadata dict, JSON-serialized into a single value.
-    TEAM_METADATA: Final = "litellm.team.metadata"
-    KEY_HASH: Final = "litellm.api_key.hash"
-    END_USER: Final = "litellm.end_user.id"
-    # The model string litellm actually sent to the provider (the deployment's
-    # ``litellm_params.model``), distinct from the user-facing ``gen_ai.request.model``.
-    PROVIDER_MODEL: Final = "litellm.provider.model"
-    REQUEST_STREAMING: Final = "litellm.request.streaming"
-    REQUEST_ROUTE: Final = "litellm.request.route"
-    TOOLS_DECLARED: Final = "litellm.request.tools.declared"
-    GUARDRAIL_NAME: Final = "litellm.guardrail.name"
-    GUARDRAIL_MODE: Final = "litellm.guardrail.mode"
-    GUARDRAIL_STATUS: Final = "litellm.guardrail.status"
-    GUARDRAIL_PROVIDER: Final = "litellm.guardrail.provider"
-    GUARDRAIL_ACTION: Final = "litellm.guardrail.action"
-    GUARDRAIL_RESPONSE: Final = "litellm.guardrail.response"
-    GUARDRAIL_VIOLATION_CATEGORIES: Final = "litellm.guardrail.violation_categories"
-    GUARDRAIL_CONFIDENCE_SCORE: Final = "litellm.guardrail.confidence_score"
-    GUARDRAIL_RISK_SCORE: Final = "litellm.guardrail.risk_score"
-    GUARDRAIL_MASKED_ENTITY_COUNT: Final = "litellm.guardrail.masked_entity_count"
-    GUARDRAIL_DURATION: Final = "litellm.guardrail.duration"
-    GUARDRAIL_ID: Final = "litellm.guardrail.id"
-    GUARDRAIL_POLICY_TEMPLATE: Final = "litellm.guardrail.policy_template"
-    GUARDRAIL_DETECTION_METHOD: Final = "litellm.guardrail.detection_method"
+    TEAM_METADATA: Final = "embrouter.team.metadata"
+    KEY_HASH: Final = "embrouter.api_key.hash"
+    END_USER: Final = "embrouter.end_user.id"
+    # The model string embrouter actually sent to the provider (the deployment's
+    # ``embrouter_params.model``), distinct from the user-facing ``gen_ai.request.model``.
+    PROVIDER_MODEL: Final = "embrouter.provider.model"
+    REQUEST_STREAMING: Final = "embrouter.request.streaming"
+    REQUEST_ROUTE: Final = "embrouter.request.route"
+    TOOLS_DECLARED: Final = "embrouter.request.tools.declared"
+    GUARDRAIL_NAME: Final = "embrouter.guardrail.name"
+    GUARDRAIL_MODE: Final = "embrouter.guardrail.mode"
+    GUARDRAIL_STATUS: Final = "embrouter.guardrail.status"
+    GUARDRAIL_PROVIDER: Final = "embrouter.guardrail.provider"
+    GUARDRAIL_ACTION: Final = "embrouter.guardrail.action"
+    GUARDRAIL_RESPONSE: Final = "embrouter.guardrail.response"
+    GUARDRAIL_VIOLATION_CATEGORIES: Final = "embrouter.guardrail.violation_categories"
+    GUARDRAIL_CONFIDENCE_SCORE: Final = "embrouter.guardrail.confidence_score"
+    GUARDRAIL_RISK_SCORE: Final = "embrouter.guardrail.risk_score"
+    GUARDRAIL_MASKED_ENTITY_COUNT: Final = "embrouter.guardrail.masked_entity_count"
+    GUARDRAIL_DURATION: Final = "embrouter.guardrail.duration"
+    GUARDRAIL_ID: Final = "embrouter.guardrail.id"
+    GUARDRAIL_POLICY_TEMPLATE: Final = "embrouter.guardrail.policy_template"
+    GUARDRAIL_DETECTION_METHOD: Final = "embrouter.guardrail.detection_method"
     # Provider-reported billable usage counters, JSON-serialized into one value.
-    GUARDRAIL_USAGE: Final = "litellm.guardrail.usage"
-    # Numeric USD cost of the guardrail invocation; lives under the litellm.cost.*
-    # namespace (COST_PREFIX) beside the LLM call's litellm.cost.total.
-    GUARDRAIL_COST: Final = "litellm.cost.guardrail"
-    # Whether litellm.cost.guardrail is already inside litellm.cost.total (True,
+    GUARDRAIL_USAGE: Final = "embrouter.guardrail.usage"
+    # Numeric USD cost of the guardrail invocation; lives under the embrouter.cost.*
+    # namespace (COST_PREFIX) beside the LLM call's embrouter.cost.total.
+    GUARDRAIL_COST: Final = "embrouter.cost.guardrail"
+    # Whether embrouter.cost.guardrail is already inside embrouter.cost.total (True,
     # the billed default) or reported alongside it (False) — without this a trace
     # consumer cannot tell whether adding the two double-counts.
-    GUARDRAIL_COST_IN_SPEND: Final = "litellm.guardrail.cost_in_spend"
-    SERVICE_NAME: Final = "litellm.service.name"
-    SERVICE_CALL_TYPE: Final = "litellm.service.call_type"
-    SERVICE_CALLER: Final = "litellm.service.caller"
-    PREPROCESSING_MS: Final = "litellm.preprocessing.duration_ms"
+    GUARDRAIL_COST_IN_SPEND: Final = "embrouter.guardrail.cost_in_spend"
+    SERVICE_NAME: Final = "embrouter.service.name"
+    SERVICE_CALL_TYPE: Final = "embrouter.service.call_type"
+    SERVICE_CALLER: Final = "embrouter.service.caller"
+    PREPROCESSING_MS: Final = "embrouter.preprocessing.duration_ms"
     # The logical name of the MCP server a tool call was routed to. There is no
     # semconv key for an MCP server's *name* (the convention uses ``server.address``
     # for its network location), so it lives under the vendor namespace.
-    MCP_SERVER_NAME: Final = "litellm.mcp.server.name"
+    MCP_SERVER_NAME: Final = "embrouter.mcp.server.name"
 
 
 class Metric:
     """GenAI metric instrument names.
 
     Every name here that a convention or a backend defines uses that name, so a
-    consumer charting GenAI telemetry finds litellm's series where it looks for
+    consumer charting GenAI telemetry finds embrouter's series where it looks for
     them. ``TOKEN_USAGE``, ``OPERATION_DURATION``, ``TIME_TO_FIRST_TOKEN`` and
     ``TIME_PER_OUTPUT_TOKEN`` are semconv instruments, defined in the GenAI
-    conventions; the ``gen_ai.client.response.*`` spellings litellm used for the
+    conventions; the ``gen_ai.client.response.*`` spellings embrouter used for the
     latter two are not conventions at all, so nothing downstream could chart
     them. Cost has no semconv instrument, so it takes ``gen_ai.usage.cost``, the
     name backends already query for spend.
 
     ``RESPONSE_DURATION`` keeps its vendor spelling deliberately: the closest
     convention, ``gen_ai.server.request.duration``, would collide in meaning with
-    ``OPERATION_DURATION``, which litellm already emits for the whole operation.
+    ``OPERATION_DURATION``, which embrouter already emits for the whole operation.
     """
 
     TOKEN_USAGE: Final = "gen_ai.client.token.usage"
@@ -359,8 +359,8 @@ class Metric:
     RESPONSE_DURATION: Final = "gen_ai.client.response.duration"
 
 
-# litellm ``custom_llm_provider`` -> ``gen_ai.provider.name`` value.
-_PROVIDER_BY_LITELLM: Final[dict[str, GenAIProvider]] = {
+# embrouter ``custom_llm_provider`` -> ``gen_ai.provider.name`` value.
+_PROVIDER_BY_EMBROUTER: Final[dict[str, GenAIProvider]] = {
     "openai": GenAIProvider.OPENAI,
     "text-completion-openai": GenAIProvider.OPENAI,
     "azure": GenAIProvider.AZURE_AI_OPENAI,
@@ -381,7 +381,7 @@ _PROVIDER_BY_LITELLM: Final[dict[str, GenAIProvider]] = {
     "watsonx": GenAIProvider.IBM_WATSONX_AI,
 }
 
-# litellm ``call_type`` -> ``gen_ai.operation.name``.
+# embrouter ``call_type`` -> ``gen_ai.operation.name``.
 _OPERATION_BY_CALL_TYPE: Final[dict[str, GenAIOperation]] = {
     "completion": GenAIOperation.CHAT,
     "acompletion": GenAIOperation.CHAT,
@@ -392,18 +392,18 @@ _OPERATION_BY_CALL_TYPE: Final[dict[str, GenAIOperation]] = {
     "aembedding": GenAIOperation.EMBEDDINGS,
     "responses": GenAIOperation.CHAT,
     "aresponses": GenAIOperation.CHAT,
-    "get_responses": GenAIOperation.LITELLM_RESPONSES_MANAGEMENT,
-    "aget_responses": GenAIOperation.LITELLM_RESPONSES_MANAGEMENT,
-    "delete_responses": GenAIOperation.LITELLM_RESPONSES_MANAGEMENT,
-    "adelete_responses": GenAIOperation.LITELLM_RESPONSES_MANAGEMENT,
-    "cancel_responses": GenAIOperation.LITELLM_RESPONSES_MANAGEMENT,
-    "acancel_responses": GenAIOperation.LITELLM_RESPONSES_MANAGEMENT,
-    "list_input_items": GenAIOperation.LITELLM_RESPONSES_MANAGEMENT,
-    "alist_input_items": GenAIOperation.LITELLM_RESPONSES_MANAGEMENT,
+    "get_responses": GenAIOperation.EMBROUTER_RESPONSES_MANAGEMENT,
+    "aget_responses": GenAIOperation.EMBROUTER_RESPONSES_MANAGEMENT,
+    "delete_responses": GenAIOperation.EMBROUTER_RESPONSES_MANAGEMENT,
+    "adelete_responses": GenAIOperation.EMBROUTER_RESPONSES_MANAGEMENT,
+    "cancel_responses": GenAIOperation.EMBROUTER_RESPONSES_MANAGEMENT,
+    "acancel_responses": GenAIOperation.EMBROUTER_RESPONSES_MANAGEMENT,
+    "list_input_items": GenAIOperation.EMBROUTER_RESPONSES_MANAGEMENT,
+    "alist_input_items": GenAIOperation.EMBROUTER_RESPONSES_MANAGEMENT,
     "image_generation": GenAIOperation.GENERATE_CONTENT,
     "aimage_generation": GenAIOperation.GENERATE_CONTENT,
-    "moderation": GenAIOperation.LITELLM_MODERATION,
-    "amoderation": GenAIOperation.LITELLM_MODERATION,
+    "moderation": GenAIOperation.EMBROUTER_MODERATION,
+    "amoderation": GenAIOperation.EMBROUTER_MODERATION,
     "ocr": GenAIOperation.GENERATE_CONTENT,
     "aocr": GenAIOperation.GENERATE_CONTENT,
     "speech": GenAIOperation.GENERATE_CONTENT,
@@ -418,32 +418,32 @@ _OPERATION_BY_CALL_TYPE: Final[dict[str, GenAIOperation]] = {
     "send_message": GenAIOperation.INVOKE_AGENT,
     "asend_message": GenAIOperation.INVOKE_AGENT,
     "asend_message_streaming": GenAIOperation.INVOKE_AGENT,
-    "vector_store_create": GenAIOperation.LITELLM_VECTOR_STORE_MANAGEMENT,
-    "avector_store_create": GenAIOperation.LITELLM_VECTOR_STORE_MANAGEMENT,
-    "vector_store_retrieve": GenAIOperation.LITELLM_VECTOR_STORE_MANAGEMENT,
-    "avector_store_retrieve": GenAIOperation.LITELLM_VECTOR_STORE_MANAGEMENT,
-    "vector_store_list": GenAIOperation.LITELLM_VECTOR_STORE_MANAGEMENT,
-    "avector_store_list": GenAIOperation.LITELLM_VECTOR_STORE_MANAGEMENT,
-    "vector_store_update": GenAIOperation.LITELLM_VECTOR_STORE_MANAGEMENT,
-    "avector_store_update": GenAIOperation.LITELLM_VECTOR_STORE_MANAGEMENT,
-    "vector_store_delete": GenAIOperation.LITELLM_VECTOR_STORE_MANAGEMENT,
-    "avector_store_delete": GenAIOperation.LITELLM_VECTOR_STORE_MANAGEMENT,
-    "vector_store_file_create": GenAIOperation.LITELLM_VECTOR_STORE_FILE_MANAGEMENT,
-    "avector_store_file_create": GenAIOperation.LITELLM_VECTOR_STORE_FILE_MANAGEMENT,
-    "vector_store_file_list": GenAIOperation.LITELLM_VECTOR_STORE_FILE_MANAGEMENT,
-    "avector_store_file_list": GenAIOperation.LITELLM_VECTOR_STORE_FILE_MANAGEMENT,
-    "vector_store_file_retrieve": GenAIOperation.LITELLM_VECTOR_STORE_FILE_MANAGEMENT,
-    "avector_store_file_retrieve": GenAIOperation.LITELLM_VECTOR_STORE_FILE_MANAGEMENT,
-    "vector_store_file_content": GenAIOperation.LITELLM_VECTOR_STORE_FILE_MANAGEMENT,
-    "avector_store_file_content": GenAIOperation.LITELLM_VECTOR_STORE_FILE_MANAGEMENT,
-    "vector_store_file_update": GenAIOperation.LITELLM_VECTOR_STORE_FILE_MANAGEMENT,
-    "avector_store_file_update": GenAIOperation.LITELLM_VECTOR_STORE_FILE_MANAGEMENT,
-    "vector_store_file_delete": GenAIOperation.LITELLM_VECTOR_STORE_FILE_MANAGEMENT,
-    "avector_store_file_delete": GenAIOperation.LITELLM_VECTOR_STORE_FILE_MANAGEMENT,
+    "vector_store_create": GenAIOperation.EMBROUTER_VECTOR_STORE_MANAGEMENT,
+    "avector_store_create": GenAIOperation.EMBROUTER_VECTOR_STORE_MANAGEMENT,
+    "vector_store_retrieve": GenAIOperation.EMBROUTER_VECTOR_STORE_MANAGEMENT,
+    "avector_store_retrieve": GenAIOperation.EMBROUTER_VECTOR_STORE_MANAGEMENT,
+    "vector_store_list": GenAIOperation.EMBROUTER_VECTOR_STORE_MANAGEMENT,
+    "avector_store_list": GenAIOperation.EMBROUTER_VECTOR_STORE_MANAGEMENT,
+    "vector_store_update": GenAIOperation.EMBROUTER_VECTOR_STORE_MANAGEMENT,
+    "avector_store_update": GenAIOperation.EMBROUTER_VECTOR_STORE_MANAGEMENT,
+    "vector_store_delete": GenAIOperation.EMBROUTER_VECTOR_STORE_MANAGEMENT,
+    "avector_store_delete": GenAIOperation.EMBROUTER_VECTOR_STORE_MANAGEMENT,
+    "vector_store_file_create": GenAIOperation.EMBROUTER_VECTOR_STORE_FILE_MANAGEMENT,
+    "avector_store_file_create": GenAIOperation.EMBROUTER_VECTOR_STORE_FILE_MANAGEMENT,
+    "vector_store_file_list": GenAIOperation.EMBROUTER_VECTOR_STORE_FILE_MANAGEMENT,
+    "avector_store_file_list": GenAIOperation.EMBROUTER_VECTOR_STORE_FILE_MANAGEMENT,
+    "vector_store_file_retrieve": GenAIOperation.EMBROUTER_VECTOR_STORE_FILE_MANAGEMENT,
+    "avector_store_file_retrieve": GenAIOperation.EMBROUTER_VECTOR_STORE_FILE_MANAGEMENT,
+    "vector_store_file_content": GenAIOperation.EMBROUTER_VECTOR_STORE_FILE_MANAGEMENT,
+    "avector_store_file_content": GenAIOperation.EMBROUTER_VECTOR_STORE_FILE_MANAGEMENT,
+    "vector_store_file_update": GenAIOperation.EMBROUTER_VECTOR_STORE_FILE_MANAGEMENT,
+    "avector_store_file_update": GenAIOperation.EMBROUTER_VECTOR_STORE_FILE_MANAGEMENT,
+    "vector_store_file_delete": GenAIOperation.EMBROUTER_VECTOR_STORE_FILE_MANAGEMENT,
+    "avector_store_file_delete": GenAIOperation.EMBROUTER_VECTOR_STORE_FILE_MANAGEMENT,
 }
 
 
-# litellm ``call_type`` -> ``gen_ai.output.type``. Only the call types whose route
+# embrouter ``call_type`` -> ``gen_ai.output.type``. Only the call types whose route
 # fixes the requested modality are listed; the attribute is conditionally required
 # on a request that asks for an output format, so anything else is left unstamped.
 _OUTPUT_TYPE_BY_CALL_TYPE: Final[Mapping[str, GenAIOutputType]] = MappingProxyType(
@@ -461,19 +461,19 @@ _OUTPUT_TYPE_BY_CALL_TYPE: Final[Mapping[str, GenAIOutputType]] = MappingProxyTy
 
 
 def resolve_provider(custom_llm_provider: str | None) -> str:
-    """Map a litellm provider string to a ``gen_ai.provider.name`` value.
+    """Map a embrouter provider string to a ``gen_ai.provider.name`` value.
 
     Unknown providers pass through verbatim — the convention explicitly allows
     provider-specific values, so an unmapped name is still valid.
     """
     if not custom_llm_provider:
         return ""
-    mapped: Final = _PROVIDER_BY_LITELLM.get(custom_llm_provider.lower())
+    mapped: Final = _PROVIDER_BY_EMBROUTER.get(custom_llm_provider.lower())
     return mapped.value if mapped is not None else custom_llm_provider
 
 
 def resolve_operation(call_type: str | None) -> GenAIOperation:
-    """Map a litellm ``call_type`` to a ``gen_ai.operation.name`` value.
+    """Map a embrouter ``call_type`` to a ``gen_ai.operation.name`` value.
 
     An unmapped call type still falls back to ``chat`` so every series keeps an
     operation label, but it logs at debug rather than falling through silently:
@@ -494,7 +494,7 @@ def resolve_operation(call_type: str | None) -> GenAIOperation:
 
 
 def resolve_output_type(call_type: str | None) -> GenAIOutputType | None:
-    """Map a litellm ``call_type`` to a ``gen_ai.output.type`` value, or ``None``
+    """Map a embrouter ``call_type`` to a ``gen_ai.output.type`` value, or ``None``
     for a route that doesn't pin the output modality."""
     if not call_type:
         return None

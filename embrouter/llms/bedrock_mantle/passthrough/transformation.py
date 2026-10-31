@@ -3,17 +3,17 @@ from typing import TYPE_CHECKING, Final, Literal, Optional
 
 from httpx import Response
 
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.llms.bedrock.passthrough.transformation import BedrockPassthroughConfig
-from litellm.llms.bedrock_mantle.common_utils import (
+from embrouter.embrouter_core_utils.embrouter_logging import Logging
+from embrouter.llms.bedrock.passthrough.transformation import BedrockPassthroughConfig
+from embrouter.llms.bedrock_mantle.common_utils import (
     MANTLE_HOST_RE,
     resolve_mantle_bearer_token,
     resolve_mantle_region,
 )
-from litellm.types.utils import LlmProviders
+from embrouter.types.utils import LlmProviders
 
 if TYPE_CHECKING:
-    from litellm.types.utils import CostResponseTypes
+    from embrouter.types.utils import CostResponseTypes
 
 
 class BedrockMantlePassthroughConfig(BedrockPassthroughConfig):
@@ -46,8 +46,8 @@ class BedrockMantlePassthroughConfig(BedrockPassthroughConfig):
             endpoint_type=endpoint_type,
         )
 
-    def get_bedrock_bearer_token(self, litellm_params: Mapping[str, object]) -> str | None:
-        api_key: Final = litellm_params.get("api_key")
+    def get_bedrock_bearer_token(self, embrouter_params: Mapping[str, object]) -> str | None:
+        api_key: Final = embrouter_params.get("api_key")
         return resolve_mantle_bearer_token(api_key if isinstance(api_key, str) else None)
 
     def logging_non_streaming_response(

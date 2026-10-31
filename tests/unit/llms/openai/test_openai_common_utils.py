@@ -5,9 +5,9 @@ import openai
 import pytest
 
 
-import litellm
-from litellm.litellm_core_utils.token_counter import token_counter
-from litellm.llms.openai.common_utils import BaseOpenAILLM, is_openai_backed_api_base
+import embrouter
+from embrouter.embrouter_core_utils.token_counter import token_counter
+from embrouter.llms.openai.common_utils import BaseOpenAILLM, is_openai_backed_api_base
 
 # Test parameters for different API functions
 API_FUNCTION_PARAMS = [
@@ -84,9 +84,9 @@ async def test_openai_client_reuse(function_name, is_async, args):
 
     # Determine which client class to mock based on whether the test is async
     client_path = (
-        "litellm.llms.openai.openai.AsyncOpenAI"
+        "embrouter.llms.openai.openai.AsyncOpenAI"
         if is_async
-        else "litellm.llms.openai.openai.OpenAI"
+        else "embrouter.llms.openai.openai.OpenAI"
     )
 
     # Create the appropriate patches
@@ -107,10 +107,10 @@ async def test_openai_client_reuse(function_name, is_async, args):
                 # Call the appropriate function based on parameters
                 if is_async:
                     # Add 'a' prefix for async functions
-                    func = getattr(litellm, f"a{function_name}")
+                    func = getattr(embrouter, f"a{function_name}")
                     await func(**args)
                 else:
-                    func = getattr(litellm, function_name)
+                    func = getattr(embrouter, function_name)
                     func(**args)
             except Exception:
                 # We expect exceptions since we're mocking the client
@@ -138,7 +138,7 @@ def test_precomputed_init_params_match_inspect_signature():
 
     from openai import AzureOpenAI, OpenAI
 
-    from litellm.llms.openai.common_utils import (
+    from embrouter.llms.openai.common_utils import (
         _AZURE_OPENAI_INIT_PARAMS,
         _OPENAI_INIT_PARAMS,
     )
@@ -175,24 +175,24 @@ def test_get_openai_client_cache_key(client_type):
 
 
 def test_evicting_a_client_built_on_the_callers_session_leaves_that_session_open(monkeypatch):
-    """`litellm.aclient_session` belongs to the caller, who goes on using it.
+    """`embrouter.aclient_session` belongs to the caller, who goes on using it.
 
     `_get_async_http_client` hands that session straight back, so the SDK client
-    litellm builds around it is only a wrapper. The SDK's `close()` closes
-    whatever http client it was given, so treating the wrapper as litellm's to
+    embrouter builds around it is only a wrapper. The SDK's `close()` closes
+    whatever http client it was given, so treating the wrapper as embrouter's to
     close would close the caller's shared session out from under them.
     """
     import httpx
 
-    from litellm.caching.evicted_client_closer import EvictedClientCloser
-    from litellm.caching.llm_caching_handler import LLMClientCache
-    from litellm.llms.openai.openai import OpenAIChatCompletion
+    from embrouter.caching.evicted_client_closer import EvictedClientCloser
+    from embrouter.caching.llm_caching_handler import LLMClientCache
+    from embrouter.llms.openai.openai import OpenAIChatCompletion
 
     shared_session = httpx.AsyncClient()
     closer = EvictedClientCloser(grace_seconds=0.0)
-    monkeypatch.setattr(litellm, "aclient_session", shared_session)
+    monkeypatch.setattr(embrouter, "aclient_session", shared_session)
     monkeypatch.setattr(
-        litellm,
+        embrouter,
         "in_memory_llm_clients_cache",
         LLMClientCache(evicted_client_closer=closer),
     )
@@ -214,17 +214,17 @@ def test_evicting_a_client_built_on_the_callers_session_leaves_that_session_open
     assert shared_session.is_closed is False, "closed the session the caller configured"
 
 
-def test_a_client_litellm_built_its_own_http_client_for_is_still_closed(monkeypatch):
+def test_a_client_embrouter_built_its_own_http_client_for_is_still_closed(monkeypatch):
     """The ownership check must not turn the reclaim off for the ordinary case."""
-    from litellm.caching.evicted_client_closer import EvictedClientCloser
-    from litellm.caching.llm_caching_handler import LLMClientCache
-    from litellm.llms.openai.openai import OpenAIChatCompletion
+    from embrouter.caching.evicted_client_closer import EvictedClientCloser
+    from embrouter.caching.llm_caching_handler import LLMClientCache
+    from embrouter.llms.openai.openai import OpenAIChatCompletion
 
     closer = EvictedClientCloser(grace_seconds=0.0)
-    monkeypatch.setattr(litellm, "aclient_session", None)
-    monkeypatch.setattr(litellm, "client_session", None)
+    monkeypatch.setattr(embrouter, "aclient_session", None)
+    monkeypatch.setattr(embrouter, "client_session", None)
     monkeypatch.setattr(
-        litellm,
+        embrouter,
         "in_memory_llm_clients_cache",
         LLMClientCache(evicted_client_closer=closer),
     )
@@ -239,7 +239,7 @@ def test_a_client_litellm_built_its_own_http_client_for_is_still_closed(monkeypa
     assert wrapper is not None
     closer.schedule(wrapper)
 
-    assert closer.pending_count == 1, "litellm built this client's http client, so it owns it"
+    assert closer.pending_count == 1, "embrouter built this client's http client, so it owns it"
 
     closer.reap()
 
@@ -307,7 +307,7 @@ def _completion_kwargs(provider: str, client, **overrides) -> dict:
 
 @pytest.mark.parametrize("provider", ["openai", "azure"])
 def test_sync_output_limit_400_maps_to_length_truncated_response(provider):
-    response = litellm.completion(
+    response = embrouter.completion(
         **_completion_kwargs(provider, _sync_client_raising(provider, OUTPUT_LIMIT_400_MESSAGE))
     )
 
@@ -322,19 +322,19 @@ def test_mapped_response_still_bills_the_prompt_the_provider_processed(provider)
     expected_prompt_tokens = token_counter(model="gpt-5.6-sol", messages=messages)
     assert expected_prompt_tokens > 100, "the fixture prompt must be big enough for a zeroed count to stand out"
 
-    response = litellm.completion(
+    response = embrouter.completion(
         **_completion_kwargs(provider, _sync_client_raising(provider, OUTPUT_LIMIT_400_MESSAGE), messages=messages)
     )
 
     assert response.usage.prompt_tokens == expected_prompt_tokens
     assert response.usage.completion_tokens == 0
-    assert litellm.completion_cost(completion_response=response) > 0
+    assert embrouter.completion_cost(completion_response=response) > 0
 
 
 @pytest.mark.parametrize("provider", ["openai", "azure"])
 @pytest.mark.asyncio
 async def test_async_output_limit_400_maps_to_length_truncated_response(provider):
-    response = await litellm.acompletion(
+    response = await embrouter.acompletion(
         **_completion_kwargs(provider, _async_client_raising(provider, OUTPUT_LIMIT_400_MESSAGE))
     )
 
@@ -345,7 +345,7 @@ async def test_async_output_limit_400_maps_to_length_truncated_response(provider
 
 @pytest.mark.parametrize("provider", ["openai", "azure"])
 def test_sync_streaming_output_limit_400_maps_to_length_truncated_stream(provider):
-    stream = litellm.completion(
+    stream = embrouter.completion(
         **_completion_kwargs(provider, _sync_client_raising(provider, OUTPUT_LIMIT_400_MESSAGE), stream=True)
     )
     chunks = list(stream)
@@ -357,7 +357,7 @@ def test_sync_streaming_output_limit_400_maps_to_length_truncated_stream(provide
 @pytest.mark.parametrize("provider", ["openai", "azure"])
 @pytest.mark.asyncio
 async def test_async_streaming_output_limit_400_maps_to_length_truncated_stream(provider):
-    stream = await litellm.acompletion(
+    stream = await embrouter.acompletion(
         **_completion_kwargs(provider, _async_client_raising(provider, OUTPUT_LIMIT_400_MESSAGE), stream=True)
     )
     chunks = [chunk async for chunk in stream]
@@ -370,12 +370,12 @@ async def test_async_streaming_output_limit_400_maps_to_length_truncated_stream(
 @pytest.mark.parametrize("stream", [False, True])
 def test_sync_genuine_bad_request_still_raises(provider, stream):
     def _call_and_drain():
-        result = litellm.completion(
+        result = embrouter.completion(
             **_completion_kwargs(provider, _sync_client_raising(provider, GENUINE_400_MESSAGE), stream=stream)
         )
         list(result)
 
-    with pytest.raises(litellm.BadRequestError):
+    with pytest.raises(embrouter.BadRequestError):
         _call_and_drain()
 
 
@@ -384,13 +384,13 @@ def test_sync_genuine_bad_request_still_raises(provider, stream):
 @pytest.mark.asyncio
 async def test_async_genuine_bad_request_still_raises(provider, stream):
     async def _call_and_drain():
-        result = await litellm.acompletion(
+        result = await embrouter.acompletion(
             **_completion_kwargs(provider, _async_client_raising(provider, GENUINE_400_MESSAGE), stream=stream)
         )
         async for _ in result:
             pass
 
-    with pytest.raises(litellm.BadRequestError):
+    with pytest.raises(embrouter.BadRequestError):
         await _call_and_drain()
 
 

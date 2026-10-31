@@ -1,10 +1,10 @@
 """
-Pure logic for merging an upstream A2A agent card with LiteLLM-specific overrides.
+Pure logic for merging an upstream A2A agent card with EmbRouter-specific overrides.
 
-The merge produces the card that LiteLLM exposes to A2A clients at
+The merge produces the card that EmbRouter exposes to A2A clients at
 ``/a2a/{agent_id}/.well-known/agent-card.json``. The upstream card is taken as
 the base; specific fields are replaced so all traffic flows through the proxy
-and uses LiteLLM auth.
+and uses EmbRouter auth.
 """
 
 import re
@@ -14,12 +14,12 @@ from typing import Final, Literal
 
 SupportedA2AVersion = Literal["0.3", "1.0"]
 
-# Protocol versions LiteLLM can serve to A2A clients. The admin pins one per agent;
+# Protocol versions EmbRouter can serve to A2A clients. The admin pins one per agent;
 # responses are normalized to it regardless of the upstream agent's own version.
 SUPPORTED_A2A_PROTOCOL_VERSIONS: Final[tuple[SupportedA2AVersion, ...]] = ("0.3", "1.0")
 
 # Default served version when the agent card does not pin one.
-LITELLM_A2A_PROTOCOL_VERSION: Final = "1.0"
+EMBROUTER_A2A_PROTOCOL_VERSION: Final = "1.0"
 
 
 _PROTOCOL_VERSION_PATTERN: Final = re.compile(
@@ -47,23 +47,23 @@ def normalize_protocol_version(version: object) -> SupportedA2AVersion | None:
 def resolve_served_protocol_version(card: Mapping[str, object] | None) -> str:
     """Return the validated protocol version an agent card pins, else the default."""
     normalized: Final = normalize_protocol_version(card.get("protocolVersion") if card else None)
-    return normalized if normalized is not None else LITELLM_A2A_PROTOCOL_VERSION
+    return normalized if normalized is not None else EMBROUTER_A2A_PROTOCOL_VERSION
 
 
-# Security scheme exposed by the LiteLLM-fronted agent card. Always replaces
+# Security scheme exposed by the EmbRouter-fronted agent card. Always replaces
 # whatever upstream advertised — the client must authenticate to the proxy,
 # not the upstream agent.
-LITELLM_SECURITY_SCHEMES: Final[dict[str, dict[str, str]]] = {
-    "LiteLLMKey": {
+EMBROUTER_SECURITY_SCHEMES: Final[dict[str, dict[str, str]]] = {
+    "EmbRouterKey": {
         "type": "http",
         "scheme": "bearer",
-        "description": "LiteLLM virtual key",
+        "description": "EmbRouter virtual key",
     },
 }
 
-LITELLM_SECURITY_REQUIREMENTS: Final[list[dict[str, list[str]]]] = [{"LiteLLMKey": []}]
+EMBROUTER_SECURITY_REQUIREMENTS: Final[list[dict[str, list[str]]]] = [{"EmbRouterKey": []}]
 
-# Capabilities LiteLLM can faithfully proxy today. Anything not in this set is
+# Capabilities EmbRouter can faithfully proxy today. Anything not in this set is
 # dropped during merge so we don't advertise behavior the proxy can't deliver.
 #
 # TODO: re-enable ``streaming`` once the A2A streaming endpoint at
@@ -138,8 +138,8 @@ def _filter_capabilities(upstream_capabilities: object) -> dict[str, object]:
     }
 
 
-def _default_litellm_provider(proxy_base_url: str) -> dict[str, str]:
-    return {"organization": "LiteLLM Proxy", "url": proxy_base_url}
+def _default_embrouter_provider(proxy_base_url: str) -> dict[str, str]:
+    return {"organization": "EmbRouter Proxy", "url": proxy_base_url}
 
 
 def merge_agent_card(
@@ -151,18 +151,18 @@ def merge_agent_card(
     description: str | None = None,
 ) -> dict[str, object]:
     """
-    Build the LiteLLM-fronted agent card.
+    Build the EmbRouter-fronted agent card.
 
     Args:
         upstream_card: Card returned by the upstream agent's well-known endpoint.
             May be ``None``/empty when the upstream did not expose one.
         proxy_url: Full URL clients should hit to invoke this agent through
             the proxy, e.g. ``https://proxy.example.com/a2a/<agent_id>``.
-        proxy_base_url: Root URL of the LiteLLM proxy, used as a fallback when
+        proxy_base_url: Root URL of the EmbRouter proxy, used as a fallback when
             we synthesize a provider record.
-        name: User-supplied agent name from the LiteLLM UI. Takes precedence
+        name: User-supplied agent name from the EmbRouter UI. Takes precedence
             over the upstream card's ``name``.
-        description: User-supplied description from the LiteLLM UI. Takes
+        description: User-supplied description from the EmbRouter UI. Takes
             precedence over the upstream card's ``description``.
 
     Returns:
@@ -197,7 +197,7 @@ def merge_agent_card(
         base["defaultOutputModes"] = list(_DEFAULT_MODES)
 
     if not base.get("provider"):
-        base["provider"] = _default_litellm_provider(proxy_base_url)
+        base["provider"] = _default_embrouter_provider(proxy_base_url)
 
     base["supportedInterfaces"] = [
         {
@@ -207,11 +207,11 @@ def merge_agent_card(
         }
     ]
 
-    base["securitySchemes"] = deepcopy(LITELLM_SECURITY_SCHEMES)
+    base["securitySchemes"] = deepcopy(EMBROUTER_SECURITY_SCHEMES)
     # Use the standard A2A/OpenAPI ``security`` field for requirements, not
     # the non-standard ``securityRequirements`` alias. The upstream's own
     # ``security`` selector is overwritten here because the proxy enforces its
     # own scheme regardless of what upstream required.
-    base["security"] = deepcopy(LITELLM_SECURITY_REQUIREMENTS)
+    base["security"] = deepcopy(EMBROUTER_SECURITY_REQUIREMENTS)
 
     return {key: value for key, value in base.items() if key in _ALLOWED_TOP_LEVEL_KEYS}

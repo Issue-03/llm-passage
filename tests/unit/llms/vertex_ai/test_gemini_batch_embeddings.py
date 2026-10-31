@@ -12,9 +12,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import litellm
-from litellm.llms.custom_httpx.http_handler import HTTPHandler
-from litellm.llms.vertex_ai.gemini_embeddings.batch_embed_content_transformation import (
+import embrouter
+from embrouter.llms.custom_httpx.http_handler import HTTPHandler
+from embrouter.llms.vertex_ai.gemini_embeddings.batch_embed_content_transformation import (
     _filter_embed_params,
     _is_multimodal_input,
     _parse_data_url,
@@ -23,7 +23,7 @@ from litellm.llms.vertex_ai.gemini_embeddings.batch_embed_content_transformation
     transform_openai_input_gemini_content,
     transform_openai_input_gemini_embed_content,
 )
-from litellm.types.utils import EmbeddingResponse
+from embrouter.types.utils import EmbeddingResponse
 
 
 def test_gemini_batch_embeddings_with_custom_api_base_and_auth_header():
@@ -42,11 +42,11 @@ def test_gemini_batch_embeddings_with_custom_api_base_and_auth_header():
     with (
         patch.object(client, "post") as mock_post,
         patch(
-            "litellm.llms.vertex_ai.gemini_embeddings.batch_embed_content_handler.GoogleBatchEmbeddings._ensure_access_token",
+            "embrouter.llms.vertex_ai.gemini_embeddings.batch_embed_content_handler.GoogleBatchEmbeddings._ensure_access_token",
             side_effect=mock_auth_token,
         ),
         patch(
-            "litellm.llms.vertex_ai.gemini_embeddings.batch_embed_content_handler.GoogleBatchEmbeddings._get_token_and_url"
+            "embrouter.llms.vertex_ai.gemini_embeddings.batch_embed_content_handler.GoogleBatchEmbeddings._get_token_and_url"
         ) as mock_get_token,
     ):
         # Mock the _get_token_and_url to return auth_header dict and URL
@@ -62,7 +62,7 @@ def test_gemini_batch_embeddings_with_custom_api_base_and_auth_header():
         }
         mock_post.return_value = mock_response
 
-        response = litellm.embedding(
+        response = embrouter.embedding(
             model="gemini/text-embedding-004",
             input=["Hello, world!"],
             api_key="test-gemini-api-key",
@@ -102,11 +102,11 @@ def test_gemini_batch_embeddings_with_extra_headers():
     with (
         patch.object(client, "post") as mock_post,
         patch(
-            "litellm.llms.vertex_ai.gemini_embeddings.batch_embed_content_handler.GoogleBatchEmbeddings._ensure_access_token",
+            "embrouter.llms.vertex_ai.gemini_embeddings.batch_embed_content_handler.GoogleBatchEmbeddings._ensure_access_token",
             side_effect=mock_auth_token,
         ),
         patch(
-            "litellm.llms.vertex_ai.gemini_embeddings.batch_embed_content_handler.GoogleBatchEmbeddings._get_token_and_url"
+            "embrouter.llms.vertex_ai.gemini_embeddings.batch_embed_content_handler.GoogleBatchEmbeddings._get_token_and_url"
         ) as mock_get_token,
     ):
         # Mock the _get_token_and_url to return auth_header dict and URL
@@ -120,7 +120,7 @@ def test_gemini_batch_embeddings_with_extra_headers():
         mock_response.json.return_value = {"embeddings": [{"values": [0.1, 0.2, 0.3]}]}
         mock_post.return_value = mock_response
 
-        response = litellm.embedding(
+        response = embrouter.embedding(
             model="gemini/text-embedding-004",
             input=["Test"],
             api_key="test-gemini-api-key",
@@ -289,7 +289,7 @@ def test_embed_content_response_multimodal_sets_prompt_tokens_zero():
 
 
 def test_gemini_multimodal_embedding_e2e():
-    """Test end-to-end multimodal embedding call through litellm.embedding()."""
+    """Test end-to-end multimodal embedding call through embrouter.embedding()."""
     client = HTTPHandler()
 
     def mock_auth_token(*args, **kwargs):
@@ -298,11 +298,11 @@ def test_gemini_multimodal_embedding_e2e():
     with (
         patch.object(client, "post") as mock_post,
         patch(
-            "litellm.llms.vertex_ai.gemini_embeddings.batch_embed_content_handler.GoogleBatchEmbeddings._ensure_access_token",
+            "embrouter.llms.vertex_ai.gemini_embeddings.batch_embed_content_handler.GoogleBatchEmbeddings._ensure_access_token",
             side_effect=mock_auth_token,
         ),
         patch(
-            "litellm.llms.vertex_ai.gemini_embeddings.batch_embed_content_handler.GoogleBatchEmbeddings._get_token_and_url"
+            "embrouter.llms.vertex_ai.gemini_embeddings.batch_embed_content_handler.GoogleBatchEmbeddings._get_token_and_url"
         ) as mock_get_token,
     ):
         mock_get_token.return_value = (
@@ -320,7 +320,7 @@ def test_gemini_multimodal_embedding_e2e():
         }
         mock_post.return_value = mock_response
 
-        response = litellm.embedding(
+        response = embrouter.embedding(
             model="gemini/gemini-embedding-2-preview",
             input=[
                 "The food was delicious",
@@ -463,7 +463,7 @@ def test_dimensions_mapped_to_output_dimensionality():
 
 def test_is_gcs_url():
     """Test GCS URL detection."""
-    from litellm.llms.vertex_ai.gemini_embeddings.batch_embed_content_transformation import (
+    from embrouter.llms.vertex_ai.gemini_embeddings.batch_embed_content_transformation import (
         _is_gcs_url,
     )
 
@@ -477,7 +477,7 @@ def test_is_gcs_url():
 
 def test_infer_mime_type_from_gcs_url():
     """Test MIME type inference from GCS URL."""
-    from litellm.llms.vertex_ai.gemini_embeddings.batch_embed_content_transformation import (
+    from embrouter.llms.vertex_ai.gemini_embeddings.batch_embed_content_transformation import (
         _infer_mime_type_from_gcs_url,
     )
 
@@ -514,7 +514,7 @@ def test_transform_multimodal_with_gcs_url():
 
 def test_multimodal_input_detection_with_gcs():
     """Test that GCS URLs are detected as multimodal."""
-    from litellm.llms.vertex_ai.gemini_embeddings.batch_embed_content_transformation import (
+    from embrouter.llms.vertex_ai.gemini_embeddings.batch_embed_content_transformation import (
         _is_multimodal_input,
     )
 
@@ -537,11 +537,11 @@ def test_vertex_ai_text_only_embedding_uses_embed_content():
     with (
         patch.object(client, "post") as mock_post,
         patch(
-            "litellm.llms.vertex_ai.gemini_embeddings.batch_embed_content_handler.GoogleBatchEmbeddings._ensure_access_token",
+            "embrouter.llms.vertex_ai.gemini_embeddings.batch_embed_content_handler.GoogleBatchEmbeddings._ensure_access_token",
             side_effect=mock_auth_token,
         ),
         patch(
-            "litellm.llms.vertex_ai.gemini_embeddings.batch_embed_content_handler.GoogleBatchEmbeddings._get_token_and_url"
+            "embrouter.llms.vertex_ai.gemini_embeddings.batch_embed_content_handler.GoogleBatchEmbeddings._get_token_and_url"
         ) as mock_get_token,
     ):
         mock_get_token.return_value = (
@@ -555,7 +555,7 @@ def test_vertex_ai_text_only_embedding_uses_embed_content():
         }
         mock_post.return_value = mock_response
 
-        response = litellm.embedding(
+        response = embrouter.embedding(
             model="vertex_ai/gemini-embedding-2-preview",
             input=["Hello, world!"],
             vertex_project="test-project",

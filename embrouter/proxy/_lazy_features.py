@@ -17,8 +17,8 @@ from typing import TYPE_CHECKING, Final
 from starlette.routing import BaseRoute, Match
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy.route_priority import hot_routes_first
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy.route_priority import hot_routes_first
 
 if TYPE_CHECKING:
     from fastapi import APIRouter, FastAPI
@@ -58,7 +58,7 @@ class LazyFeature:
 LAZY_FEATURES: Final[tuple[LazyFeature, ...]] = (
     LazyFeature(
         name="guardrails",
-        module_path="litellm.proxy.guardrails.guardrail_endpoints",
+        module_path="embrouter.proxy.guardrails.guardrail_endpoints",
         path_prefixes=(
             "/guardrails",
             "/v2/guardrails",
@@ -68,33 +68,33 @@ LAZY_FEATURES: Final[tuple[LazyFeature, ...]] = (
     ),
     LazyFeature(
         name="policies",
-        module_path="litellm.proxy.management_endpoints.policy_endpoints",
+        module_path="embrouter.proxy.management_endpoints.policy_endpoints",
         # Trailing slash to avoid matching /policies/... (policy_engine).
         path_prefixes=("/policy/", "/utils/test_policies_and_guardrails"),
     ),
     LazyFeature(
         name="policy_engine",
-        module_path="litellm.proxy.policy_engine.policy_endpoints",
+        module_path="embrouter.proxy.policy_engine.policy_endpoints",
         path_prefixes=("/policies",),
     ),
     LazyFeature(
         name="policy_resolve",
-        module_path="litellm.proxy.policy_engine.policy_resolve_endpoints",
+        module_path="embrouter.proxy.policy_engine.policy_resolve_endpoints",
         path_prefixes=("/policies/resolve", "/policies/attachments/estimate-impact"),
     ),
     LazyFeature(
         name="agents",
-        module_path="litellm.proxy.agent_endpoints.endpoints",
+        module_path="embrouter.proxy.agent_endpoints.endpoints",
         path_prefixes=("/v1/agents", "/agents", "/agent/"),
     ),
     LazyFeature(
         name="gemini_agents",
-        module_path="litellm.proxy.google_endpoints.agents_endpoints",
+        module_path="embrouter.proxy.google_endpoints.agents_endpoints",
         path_prefixes=("/v1beta/agents",),
     ),
     LazyFeature(
         name="a2a",
-        module_path="litellm.proxy.agent_endpoints.a2a_endpoints",
+        module_path="embrouter.proxy.agent_endpoints.a2a_endpoints",
         # ``/v1/a2a/{agent_id}/message/send`` is caught via the suffix so the
         # ``/v1/a2a`` prefix doesn't subsume the discover prefix below.
         path_prefixes=("/a2a",),
@@ -102,17 +102,17 @@ LAZY_FEATURES: Final[tuple[LazyFeature, ...]] = (
     ),
     LazyFeature(
         name="a2a_registration",
-        module_path="litellm.proxy.a2a.endpoints",
+        module_path="embrouter.proxy.a2a.endpoints",
         path_prefixes=("/v1/a2a/discover",),
     ),
     LazyFeature(
         name="vector_stores",
-        module_path="litellm.proxy.vector_store_endpoints.endpoints",
+        module_path="embrouter.proxy.vector_store_endpoints.endpoints",
         path_prefixes=("/v1/vector_stores", "/vector_stores", "/v1/indexes"),
     ),
     LazyFeature(
         name="vector_store_management",
-        module_path="litellm.proxy.vector_store_endpoints.management_endpoints",
+        module_path="embrouter.proxy.vector_store_endpoints.management_endpoints",
         # Trailing slash to avoid matching /vector_stores/... (vector_stores).
         path_prefixes=("/vector_store/", "/v1/vector_store/"),
     ),
@@ -120,29 +120,29 @@ LAZY_FEATURES: Final[tuple[LazyFeature, ...]] = (
         name="vector_store_files",
         # Routes appear under both /v1/vector_stores/{id}/files and the
         # un-versioned form, so both prefixes must trigger the load.
-        module_path="litellm.proxy.vector_store_files_endpoints.endpoints",
+        module_path="embrouter.proxy.vector_store_files_endpoints.endpoints",
         path_prefixes=("/v1/vector_stores", "/vector_stores"),
     ),
     LazyFeature(
         name="tools",
-        module_path="litellm.proxy.management_endpoints.tool_management_endpoints",
+        module_path="embrouter.proxy.management_endpoints.tool_management_endpoints",
         path_prefixes=("/v1/tool", "/tool"),
     ),
     LazyFeature(
         name="model_insights",
-        module_path="litellm.proxy.management_endpoints.model_insights_endpoints",
+        module_path="embrouter.proxy.management_endpoints.model_insights_endpoints",
         path_prefixes=("/model-insights",),
     ),
     LazyFeature(
         name="search_tools",
-        module_path="litellm.proxy.search_endpoints.search_tool_management",
+        module_path="embrouter.proxy.search_endpoints.search_tool_management",
         path_prefixes=("/search_tools",),
     ),
     # mcp_management owns most /v1/mcp/* admin routes; mcp_app is the mounted
     # streaming sub-app at /mcp.
     LazyFeature(
         name="mcp_management",
-        module_path="litellm.proxy.management_endpoints.mcp_management_endpoints",
+        module_path="embrouter.proxy.management_endpoints.mcp_management_endpoints",
         path_prefixes=("/v1/mcp/",),
     ),
     LazyFeature(
@@ -150,7 +150,7 @@ LAZY_FEATURES: Final[tuple[LazyFeature, ...]] = (
         # No /mcp/oauth prefix here: the mounted /mcp sub-app would
         # shadow it, and there are no actual routes there anyway.
         name="mcp_byok_oauth",
-        module_path="litellm.proxy._experimental.mcp_server.byok_oauth_endpoints",
+        module_path="embrouter.proxy._experimental.mcp_server.byok_oauth_endpoints",
         path_prefixes=("/v1/mcp/oauth", "/.well-known/oauth-"),
     ),
     LazyFeature(
@@ -158,12 +158,12 @@ LAZY_FEATURES: Final[tuple[LazyFeature, ...]] = (
         # /register) plus several /.well-known/ discovery URLs at the proxy
         # root — needed for MCP-over-OAuth flows even before /mcp is hit.
         name="mcp_discoverable",
-        module_path="litellm.proxy._experimental.mcp_server.discoverable_endpoints",
+        module_path="embrouter.proxy._experimental.mcp_server.discoverable_endpoints",
         path_prefixes=(
             "/.well-known/oauth-",
             "/.well-known/openid-configuration",
             "/.well-known/jwks.json",
-            "/.well-known/litellm-cli-auth",
+            "/.well-known/embrouter-cli-auth",
             "/authorize",
             "/token",
             "/callback",
@@ -176,26 +176,26 @@ LAZY_FEATURES: Final[tuple[LazyFeature, ...]] = (
     ),
     LazyFeature(
         name="mcp_rest",
-        module_path="litellm.proxy._experimental.mcp_server.rest_endpoints",
+        module_path="embrouter.proxy._experimental.mcp_server.rest_endpoints",
         path_prefixes=("/mcp-rest",),
     ),
     LazyFeature(
         # Hardcoded /mcp matches BASE_MCP_ROUTE; importing the constant
         # here would defeat lazy loading.
         name="mcp_app",
-        module_path="litellm.proxy._experimental.mcp_server.server",
+        module_path="embrouter.proxy._experimental.mcp_server.server",
         path_prefixes=("/mcp",),
         register_fn=_mount_app("/mcp", attr_name="app"),
         persistent_swagger_stub=True,
     ),
     LazyFeature(
         name="config_overrides",
-        module_path="litellm.proxy.management_endpoints.config_override_endpoints",
+        module_path="embrouter.proxy.management_endpoints.config_override_endpoints",
         path_prefixes=("/config_overrides",),
     ),
     LazyFeature(
         name="llm_passthrough",
-        module_path="litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints",
+        module_path="embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints",
         path_prefixes=(
             "/anthropic/",
             "/assemblyai/",
@@ -228,79 +228,79 @@ LAZY_FEATURES: Final[tuple[LazyFeature, ...]] = (
     ),
     LazyFeature(
         name="realtime",
-        module_path="litellm.proxy.realtime_endpoints.endpoints",
+        module_path="embrouter.proxy.realtime_endpoints.endpoints",
         path_prefixes=("/openai/v1/realtime", "/v1/realtime", "/realtime"),
     ),
     LazyFeature(
         name="anthropic_passthrough",
-        module_path="litellm.proxy.anthropic_endpoints.endpoints",
+        module_path="embrouter.proxy.anthropic_endpoints.endpoints",
         path_prefixes=("/v1/messages", "/anthropic", "/api/event_logging"),
     ),
     LazyFeature(
         name="anthropic_skills",
-        module_path="litellm.proxy.anthropic_endpoints.skills_endpoints",
+        module_path="embrouter.proxy.anthropic_endpoints.skills_endpoints",
         path_prefixes=("/v1/skills", "/skills"),
     ),
     LazyFeature(
         name="claude_code_gateway",
-        module_path="litellm.proxy.anthropic_endpoints.gateway_endpoints",
+        module_path="embrouter.proxy.anthropic_endpoints.gateway_endpoints",
         path_prefixes=("/claude_code_gateway",),
     ),
     LazyFeature(
         name="langfuse_passthrough",
-        module_path="litellm.proxy.vertex_ai_endpoints.langfuse_endpoints",
+        module_path="embrouter.proxy.vertex_ai_endpoints.langfuse_endpoints",
         path_prefixes=("/langfuse",),
     ),
     LazyFeature(
         name="evals",
-        module_path="litellm.proxy.openai_evals_endpoints.endpoints",
+        module_path="embrouter.proxy.openai_evals_endpoints.endpoints",
         path_prefixes=("/v1/evals", "/evals"),
     ),
     LazyFeature(
         name="claude_code_marketplace",
-        module_path="litellm.proxy.anthropic_endpoints.claude_code_endpoints",
+        module_path="embrouter.proxy.anthropic_endpoints.claude_code_endpoints",
         path_prefixes=("/claude-code",),
         register_fn=_include_router("claude_code_marketplace_router"),
     ),
     LazyFeature(
         name="scim",
-        module_path="litellm.proxy.management_endpoints.scim.scim_v2",
+        module_path="embrouter.proxy.management_endpoints.scim.scim_v2",
         path_prefixes=("/scim",),
         register_fn=_include_router("scim_router"),
     ),
     LazyFeature(
         name="cloudzero",
-        module_path="litellm.proxy.spend_tracking.cloudzero_endpoints",
+        module_path="embrouter.proxy.spend_tracking.cloudzero_endpoints",
         path_prefixes=("/cloudzero",),
     ),
     LazyFeature(
         name="vantage",
-        module_path="litellm.proxy.spend_tracking.vantage_endpoints",
+        module_path="embrouter.proxy.spend_tracking.vantage_endpoints",
         path_prefixes=("/vantage",),
     ),
     LazyFeature(
         name="usage_ai",
-        module_path="litellm.proxy.management_endpoints.usage_endpoints",
+        module_path="embrouter.proxy.management_endpoints.usage_endpoints",
         path_prefixes=("/usage/ai",),
     ),
     LazyFeature(
         name="prompts",
-        module_path="litellm.proxy.prompts.prompt_endpoints",
+        module_path="embrouter.proxy.prompts.prompt_endpoints",
         path_prefixes=("/prompts", "/utils/dotprompt_json_converter"),
     ),
     LazyFeature(
         name="jwt_mappings",
-        module_path="litellm.proxy.management_endpoints.jwt_key_mapping_endpoints",
+        module_path="embrouter.proxy.management_endpoints.jwt_key_mapping_endpoints",
         path_prefixes=("/jwt/key/mapping",),
     ),
     LazyFeature(
         name="compliance",
-        module_path="litellm.proxy.management_endpoints.compliance_endpoints",
+        module_path="embrouter.proxy.management_endpoints.compliance_endpoints",
         path_prefixes=("/compliance",),
     ),
     LazyFeature(
         name="access_groups",
-        module_path="litellm.proxy.management_endpoints.access_group_endpoints",
+        module_path="embrouter.proxy.management_endpoints.access_group_endpoints",
         path_prefixes=("/access_group", "/v1/access_group", "/v1/unified_access_group"),
     ),
 )
@@ -323,7 +323,7 @@ class LazyFeatureMiddleware:
         # form once instead of recomputing per request. Lazy import to avoid
         # pulling proxy.utils into this module's import graph at startup
         # (proxy_server imports both).
-        from litellm.proxy.utils import get_server_root_path
+        from embrouter.proxy.utils import get_server_root_path
 
         self._root_path = get_server_root_path().rstrip("/")
         # Loaded set / per-feature locks live on app.state so the warm endpoint
@@ -482,7 +482,7 @@ def _make_warmup_router(app: "FastAPI") -> "APIRouter":
     from fastapi import APIRouter, Depends, HTTPException
     from fastapi.openapi.utils import get_openapi
 
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+    from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
 
     router: Final = APIRouter()
 
@@ -539,7 +539,7 @@ def inject_lazy_stubs(
     single placeholder per feature. Any failure logs and returns the schema
     unchanged so /openapi.json never 500s on a cosmetic injection bug."""
     try:
-        from litellm.proxy._lazy_openapi_snapshot import load_snapshot
+        from embrouter.proxy._lazy_openapi_snapshot import load_snapshot
 
         snapshot: Final = load_snapshot()
         paths: Final = schema.setdefault("paths", {})
@@ -576,7 +576,7 @@ def lazy_tag_to_prefix() -> dict[str, str]:
     """feature.name -> first prefix, used by the Swagger warmup JS plugin.
     Returns empty when the snapshot is loaded — the plugin is unnecessary
     because /openapi.json already has full route info."""
-    from litellm.proxy._lazy_openapi_snapshot import load_snapshot
+    from embrouter.proxy._lazy_openapi_snapshot import load_snapshot
 
     if load_snapshot():
         return {}

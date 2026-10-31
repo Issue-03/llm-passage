@@ -126,7 +126,7 @@ def _build_sandbox_builtins() -> dict[str, object]:
 def build_sandbox_globals() -> dict[str, object]:
     """Assemble the globals dict for executing guardrail code.
 
-    Includes the LiteLLM-provided primitives (``regex_match``, ``http_get``,
+    Includes the EmbRouter-provided primitives (``regex_match``, ``http_get``,
     ``allow``/``block``/``modify``, etc.) plus the RestrictedPython guards
     that the compiled bytecode expects to find by name.
     """

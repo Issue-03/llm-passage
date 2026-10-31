@@ -5,27 +5,27 @@ import time
 from datetime import datetime
 from typing import Final
 
-from litellm._logging import verbose_logger
-from litellm.integrations.custom_batch_logger import CustomBatchLogger
-from litellm.integrations.datadog.datadog_handler import (
+from embrouter._logging import verbose_logger
+from embrouter.integrations.custom_batch_logger import CustomBatchLogger
+from embrouter.integrations.datadog.datadog_handler import (
     get_datadog_env,
     get_datadog_hostname,
     get_datadog_pod_name,
     get_datadog_service,
     normalize_datadog_tag_value,
 )
-from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps
+from embrouter.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.types.integrations.base_health_check import IntegrationHealthCheckStatus
-from litellm.types.integrations.datadog_metrics import (
+from embrouter.types.integrations.base_health_check import IntegrationHealthCheckStatus
+from embrouter.types.integrations.datadog_metrics import (
     DatadogMetricPoint,
     DatadogMetricSeries,
     DatadogMetricsPayload,
 )
-from litellm.types.utils import StandardLoggingPayload
+from embrouter.types.utils import StandardLoggingPayload
 
 
 class DatadogMetricsLogger(CustomBatchLogger):
@@ -122,7 +122,7 @@ class DatadogMetricsLogger(CustomBatchLogger):
         if start_time_dt and end_time_dt:
             total_duration: Final = (end_time_dt - start_time_dt).total_seconds()
             series_total_latency: Final[DatadogMetricSeries] = {
-                "metric": "litellm.request.total_latency",
+                "metric": "embrouter.request.total_latency",
                 "type": 3,  # gauge
                 "points": [{"timestamp": timestamp, "value": total_duration}],
                 "tags": tags,
@@ -134,25 +134,25 @@ class DatadogMetricsLogger(CustomBatchLogger):
         if api_call_start_time and end_time_dt:
             llm_api_duration: Final = (end_time_dt - api_call_start_time).total_seconds()
             series_llm_latency: Final[DatadogMetricSeries] = {
-                "metric": "litellm.llm_api.latency",
+                "metric": "embrouter.llm_api.latency",
                 "type": 3,  # gauge
                 "points": [{"timestamp": timestamp, "value": llm_api_duration}],
                 "tags": tags,
             }
             self.log_queue.append(series_llm_latency)
 
-        # 3. LiteLLM Overhead Latency Metric (total - llm_api time)
+        # 3. EmbRouter Overhead Latency Metric (total - llm_api time)
         hidden_params: Final = log.get("hidden_params", {}) or {}
-        litellm_overhead_time_ms: Final = hidden_params.get("litellm_overhead_time_ms")
-        if litellm_overhead_time_ms is not None:
+        embrouter_overhead_time_ms: Final = hidden_params.get("embrouter_overhead_time_ms")
+        if embrouter_overhead_time_ms is not None:
             overhead_tags: Final = self._extract_tags(log)  # no status_code on latency metric
             series_overhead: Final[DatadogMetricSeries] = {
-                "metric": "litellm.overhead.latency",
+                "metric": "embrouter.overhead.latency",
                 "type": 3,  # gauge
                 "points": [
                     {
                         "timestamp": timestamp,
-                        "value": litellm_overhead_time_ms / 1000,  # convert ms → seconds
+                        "value": embrouter_overhead_time_ms / 1000,  # convert ms → seconds
                     }
                 ],
                 "tags": overhead_tags,
@@ -161,7 +161,7 @@ class DatadogMetricsLogger(CustomBatchLogger):
 
         # 4. Request Count / Status Code
         series_count: Final[DatadogMetricSeries] = {
-            "metric": "litellm.llm_api.request_count",
+            "metric": "embrouter.llm_api.request_count",
             "type": 1,  # count
             "points": [{"timestamp": timestamp, "value": 1.0}],
             "tags": tags,
@@ -258,7 +258,7 @@ class DatadogMetricsLogger(CustomBatchLogger):
                 "value": 1.0,
             }
             test_metric_series: Final[DatadogMetricSeries] = {
-                "metric": "litellm.health_check",
+                "metric": "embrouter.health_check",
                 "type": 3,  # Gauge
                 "points": [test_metric_point],
                 "tags": ["env:health_check"],

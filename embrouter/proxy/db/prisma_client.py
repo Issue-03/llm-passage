@@ -15,9 +15,9 @@ from collections.abc import Callable
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any, Final, Protocol
 
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy.db.db_url_settings import add_missing_query_params, token_refresh_params_from_url
-from litellm.proxy.db.token_auth import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy.db.db_url_settings import add_missing_query_params, token_refresh_params_from_url
+from embrouter.proxy.db.token_auth import (
     DEFAULT_POSTGRES_PORT,
     DatabaseTokenAuth,
     IAMEndpoint,
@@ -26,7 +26,7 @@ from litellm.proxy.db.token_auth import (
     parse_database_token_expiration,
     parse_iam_endpoint_from_url,
 )
-from litellm.secret_managers.main import str_to_bool
+from embrouter.secret_managers.main import str_to_bool
 
 if TYPE_CHECKING:
     from prisma import Prisma
@@ -882,26 +882,26 @@ class PrismaManager:
     @staticmethod
     def _apply_replica_identity_full_if_requested() -> None:
         """
-        `prisma db push` bypasses litellm-proxy-extras, so the opt-in
+        `prisma db push` bypasses embrouter-proxy-extras, so the opt-in
         REPLICA IDENTITY FULL step has to be driven from here too.
 
-        litellm-proxy-extras is an optional install, so this is a no-op when it
+        embrouter-proxy-extras is an optional install, so this is a no-op when it
         is absent.
         """
         try:
-            from litellm_proxy_extras.utils import ProxyExtrasDBManager
+            from embrouter_proxy_extras.utils import ProxyExtrasDBManager
         except ImportError:
             return
         ProxyExtrasDBManager.apply_replica_identity_full_if_requested()
 
     @staticmethod
     def _raise_if_partitioned_spend_logs() -> None:
-        """`prisma db push` rewrites a doc-partitioned LiteLLM_SpendLogs
+        """`prisma db push` rewrites a doc-partitioned EmbRouter_SpendLogs
         primary key back to ("request_id"), which Postgres rejects. Fail fast
         with guidance instead of retrying into that raw error. No-op when
-        litellm-proxy-extras is absent."""
+        embrouter-proxy-extras is absent."""
         try:
-            from litellm_proxy_extras.utils import (
+            from embrouter_proxy_extras.utils import (
                 PARTITIONED_SPEND_LOGS_PUSH_ERROR,
                 ProxyExtrasDBManager,
             )
@@ -932,9 +932,9 @@ class PrismaManager:
             try:
                 if use_migrate:
                     try:
-                        from litellm_proxy_extras.utils import ProxyExtrasDBManager
+                        from embrouter_proxy_extras.utils import ProxyExtrasDBManager
                     except ImportError as e:
-                        verbose_proxy_logger.error("\x1b[1;31mLiteLLM: Failed to import proxy extras. Got %s\x1b[0m", e)
+                        verbose_proxy_logger.error("\x1b[1;31mEmbRouter: Failed to import proxy extras. Got %s\x1b[0m", e)
                         return False
 
                     prisma_dir = PrismaManager._get_prisma_dir()
@@ -945,12 +945,12 @@ class PrismaManager:
                     )
                 else:
                     try:
-                        from litellm_proxy_extras.prisma_toolchain import (
+                        from embrouter_proxy_extras.prisma_toolchain import (
                             prisma_command_timeout,
                             run_prisma,
                         )
                     except ImportError as e:
-                        verbose_proxy_logger.error("\x1b[1;31mLiteLLM: Failed to import proxy extras. Got %s\x1b[0m", e)
+                        verbose_proxy_logger.error("\x1b[1;31mEmbRouter: Failed to import proxy extras. Got %s\x1b[0m", e)
                         return False
 
                     PrismaManager._raise_if_partitioned_spend_logs()

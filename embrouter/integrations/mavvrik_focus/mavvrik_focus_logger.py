@@ -1,7 +1,7 @@
 """MavvrikFocusLogger — FOCUS-based Mavvrik export logger.
 
 Usage in config.yaml:
-    litellm_settings:
+    embrouter_settings:
       callbacks: ["mavvrik"]
 
 Required env vars:
@@ -23,11 +23,11 @@ import os
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Any, Final
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.constants import MAVVRIK_FOCUS_EXPORT_JOB_NAME
-from litellm.integrations.focus.destinations.base import FocusTimeWindow
-from litellm.integrations.focus.focus_logger import FocusLogger
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.constants import MAVVRIK_FOCUS_EXPORT_JOB_NAME
+from embrouter.integrations.focus.destinations.base import FocusTimeWindow
+from embrouter.integrations.focus.focus_logger import FocusLogger
 
 if TYPE_CHECKING:
     from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -145,7 +145,7 @@ class MavvrikFocusLogger(FocusLogger):
 
     # Maximum number of days to catch up in a single run. Prevents runaway
     # loops if the connector was disabled for a long time, and avoids querying
-    # data that has likely been cleaned up from LiteLLM_DailyUserSpend.
+    # data that has likely been cleaned up from EmbRouter_DailyUserSpend.
     _MAX_CATCHUP_DAYS = 7
 
     async def _run_scheduled_export(self) -> None:
@@ -161,7 +161,7 @@ class MavvrikFocusLogger(FocusLogger):
         without any manual intervention.
         """
         engine: Final = self._ensure_engine()
-        from litellm.integrations.focus.destinations.mavvrik_destination import (  # noqa: PLC0415
+        from embrouter.integrations.focus.destinations.mavvrik_destination import (  # noqa: PLC0415
             FocusMavvrikDestination,
         )
 
@@ -213,7 +213,7 @@ class MavvrikFocusLogger(FocusLogger):
 
         # Export yesterday's window (the normal daily run).
         # Use `now` as end_time so spend rows flushed after midnight are included.
-        # LiteLLM's DailyUserSpend rows for a given date keep getting updated_at
+        # EmbRouter's DailyUserSpend rows for a given date keep getting updated_at
         # bumped as the flush job runs; capping at midnight would miss those updates.
         window = FocusTimeWindow(
             start_time=yesterday,
@@ -224,7 +224,7 @@ class MavvrikFocusLogger(FocusLogger):
 
     async def initialize_mavvrik_focus_export_job(self) -> None:
         """Scheduler entry point — uses Mavvrik-specific pod-lock key."""
-        from litellm.proxy.proxy_server import proxy_logging_obj  # noqa: PLC0415
+        from embrouter.proxy.proxy_server import proxy_logging_obj  # noqa: PLC0415
 
         pod_lock_manager: Final = (
             proxy_logging_obj.db_spend_update_writer.pod_lock_manager if proxy_logging_obj is not None else None
@@ -248,14 +248,14 @@ class MavvrikFocusLogger(FocusLogger):
         """Register the Mavvrik FOCUS export job on the provided scheduler."""
         loggers: list[MavvrikFocusLogger] = [
             cb
-            for cb in litellm.logging_callback_manager.get_custom_loggers_for_type(callback_type=MavvrikFocusLogger)
+            for cb in embrouter.logging_callback_manager.get_custom_loggers_for_type(callback_type=MavvrikFocusLogger)
             if type(cb) is MavvrikFocusLogger
         ]
-        if not loggers and "mavvrik" in litellm.callbacks:
+        if not loggers and "mavvrik" in embrouter.callbacks:
             # The logger is registered as the string "mavvrik" but hasn't been
             # instantiated yet (lazy init happens on first LLM call). Force it now
             # so the scheduler can register the daily export job at startup.
-            from litellm.litellm_core_utils.litellm_logging import (  # noqa: PLC0415
+            from embrouter.embrouter_core_utils.embrouter_logging import (  # noqa: PLC0415
                 _init_custom_logger_compatible_class,
             )
 

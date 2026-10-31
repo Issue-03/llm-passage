@@ -7,20 +7,20 @@ from unittest.mock import patch
 import pytest
 from fastapi.testclient import TestClient
 
-from litellm.caching.caching import DualCache
-from litellm_enterprise.enterprise_callbacks.send_emails.base_email import (
+from embrouter.caching.caching import DualCache
+from embrouter_enterprise.enterprise_callbacks.send_emails.base_email import (
     BaseEmailLogger,
 )
 
-from litellm_enterprise.types.enterprise_callbacks.send_emails import (
+from embrouter_enterprise.types.enterprise_callbacks.send_emails import (
     EmailEvent,
     SendKeyCreatedEmailEvent,
     SendKeyRotatedEmailEvent,
 )
 
-from litellm.integrations.email_templates.email_footer import EMAIL_FOOTER
-from litellm.proxy._types import CallInfo, Litellm_EntityType, WebhookEvent
-from litellm.constants import EMAIL_BUDGET_ALERT_TTL
+from embrouter.integrations.email_templates.email_footer import EMAIL_FOOTER
+from embrouter.proxy._types import CallInfo, Embrouter_EntityType, WebhookEvent
+from embrouter.constants import EMAIL_BUDGET_ALERT_TTL
 
 
 @pytest.fixture(autouse=True)
@@ -69,7 +69,7 @@ async def test_send_key_created_email(
         virtual_key="test_key",
         max_budget=100.0,
         spend=0.0,
-        event_group=Litellm_EntityType.USER,
+        event_group=Embrouter_EntityType.USER,
         event="key_created",
         event_message="Test Key Created",
     )
@@ -89,9 +89,9 @@ async def test_send_key_created_email(
         # Verify
         mock_send_email.assert_called_once()
         call_args = mock_send_email.call_args[1]
-        assert call_args["from_email"] == BaseEmailLogger.DEFAULT_LITELLM_EMAIL
+        assert call_args["from_email"] == BaseEmailLogger.DEFAULT_EMBROUTER_EMAIL
         assert call_args["to_email"] == ["test@example.com"]
-        assert call_args["subject"] == "LiteLLM: Test Key Created"
+        assert call_args["subject"] == "EmbRouter: Test Key Created"
         assert "test_key" in call_args["html_body"]
         assert "$100.0" in call_args["html_body"]
 
@@ -104,7 +104,7 @@ async def test_send_user_invitation_email(
     event = WebhookEvent(
         user_id="test_user",
         user_email="invited@example.com",
-        event_group=Litellm_EntityType.USER,
+        event_group=Embrouter_EntityType.USER,
         event="internal_user_created",
         event_message="User Invitation",
         spend=0.0,
@@ -125,9 +125,9 @@ async def test_send_user_invitation_email(
         # Verify
         mock_send_email.assert_called_once()
         call_args = mock_send_email.call_args[1]
-        assert call_args["from_email"] == BaseEmailLogger.DEFAULT_LITELLM_EMAIL
+        assert call_args["from_email"] == BaseEmailLogger.DEFAULT_EMBROUTER_EMAIL
         assert call_args["to_email"] == ["invited@example.com"]
-        assert call_args["subject"] == "LiteLLM: User Invitation"
+        assert call_args["subject"] == "EmbRouter: User Invitation"
         assert "invited@example.com" in call_args["html_body"]
 
 
@@ -138,7 +138,7 @@ async def test_send_user_invitation_email_from_db(
     # Setup test data with no direct email but one in the database
     event = WebhookEvent(
         user_id="test_user",
-        event_group=Litellm_EntityType.USER,
+        event_group=Embrouter_EntityType.USER,
         event="internal_user_created",
         event_message="User Invitation",
         spend=0.0,
@@ -163,9 +163,9 @@ async def test_send_user_invitation_email_from_db(
         mock_lookup_user_email.assert_called_once_with(user_id="test_user")
         mock_send_email.assert_called_once()
         call_args = mock_send_email.call_args[1]
-        assert call_args["from_email"] == BaseEmailLogger.DEFAULT_LITELLM_EMAIL
+        assert call_args["from_email"] == BaseEmailLogger.DEFAULT_EMBROUTER_EMAIL
         assert call_args["to_email"] == ["db_user@example.com"]
-        assert call_args["subject"] == "LiteLLM: User Invitation"
+        assert call_args["subject"] == "EmbRouter: User Invitation"
         assert "db_user@example.com" in call_args["html_body"]
 
 
@@ -176,7 +176,7 @@ async def test_send_user_invitation_email_no_email(
     # Setup test data with no email
     event = WebhookEvent(
         user_id="test_user",
-        event_group=Litellm_EntityType.USER,
+        event_group=Embrouter_EntityType.USER,
         event="internal_user_created",
         event_message="User Invitation",
         spend=0.0,
@@ -201,7 +201,7 @@ async def test_send_key_created_email_no_email(
         virtual_key="test_key",
         max_budget=100.0,
         event_message="Test Key Created",
-        event_group=Litellm_EntityType.USER,
+        event_group=Embrouter_EntityType.USER,
         event="key_created",
         spend=0.0,
     )
@@ -228,7 +228,7 @@ async def test_send_key_rotated_email(
         key_alias="test-key-alias",
         max_budget=200.0,
         spend=50.0,
-        event_group=Litellm_EntityType.KEY,
+        event_group=Embrouter_EntityType.KEY,
         event="key_rotated",
         event_message="API Key Rotated",
     )
@@ -245,9 +245,9 @@ async def test_send_key_rotated_email(
 
         mock_send_email.assert_called_once()
         call_args = mock_send_email.call_args[1]
-        assert call_args["from_email"] == BaseEmailLogger.DEFAULT_LITELLM_EMAIL
+        assert call_args["from_email"] == BaseEmailLogger.DEFAULT_EMBROUTER_EMAIL
         assert call_args["to_email"] == ["test@example.com"]
-        assert call_args["subject"] == "LiteLLM: API Key Rotated"
+        assert call_args["subject"] == "EmbRouter: API Key Rotated"
         assert "sk-rotated-key-123" in call_args["html_body"]
         assert "$200.0" in call_args["html_body"]
         assert "rotated" in call_args["html_body"].lower()
@@ -267,7 +267,7 @@ async def test_send_key_created_email_without_key(
         virtual_key="sk-secret-key-456",
         max_budget=100.0,
         spend=0.0,
-        event_group=Litellm_EntityType.USER,
+        event_group=Embrouter_EntityType.USER,
         event="key_created",
         event_message="Test Key Created",
     )
@@ -304,7 +304,7 @@ async def test_send_key_rotated_email_without_key(
         key_alias="test-key-alias",
         max_budget=200.0,
         spend=50.0,
-        event_group=Litellm_EntityType.KEY,
+        event_group=Embrouter_EntityType.KEY,
         event="key_rotated",
         event_message="API Key Rotated",
     )
@@ -339,9 +339,9 @@ async def test_get_invitation_link(base_email_logger):
     async def mock_find_many(*args, **kwargs):
         return [mock_invitation_row]
 
-    mock_prisma.db.litellm_invitationlink.find_many = mock_find_many
+    mock_prisma.db.embrouter_invitationlink.find_many = mock_find_many
 
-    with mock.patch("litellm.proxy.proxy_server.prisma_client", mock_prisma):
+    with mock.patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma):
         # Test with valid user_id
         result = await base_email_logger._get_invitation_link(
             user_id="test-user", base_url="http://test.com"
@@ -360,7 +360,7 @@ async def test_get_invitation_link(base_email_logger):
         async def mock_find_many_empty(*args, **kwargs):
             return []
 
-        mock_prisma.db.litellm_invitationlink.find_many = mock_find_many_empty
+        mock_prisma.db.embrouter_invitationlink.find_many = mock_find_many_empty
         result = await base_email_logger._get_invitation_link(
             user_id="test-user", base_url="http://test.com"
         )
@@ -385,15 +385,15 @@ async def test_get_invitation_link_creates_new_when_none_exist(base_email_logger
     async def mock_find_many_empty(*args, **kwargs):
         return []
 
-    mock_prisma.db.litellm_invitationlink.find_many = mock_find_many_empty
+    mock_prisma.db.embrouter_invitationlink.find_many = mock_find_many_empty
 
     # Mock the create_invitation_for_user function
     mock_created_invitation = mock.MagicMock()
     mock_created_invitation.id = "new-invitation-id"
 
-    with mock.patch("litellm.proxy.proxy_server.prisma_client", mock_prisma):
+    with mock.patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma):
         with mock.patch(
-            "litellm.proxy.management_helpers.user_invitation.create_invitation_for_user",
+            "embrouter.proxy.management_helpers.user_invitation.create_invitation_for_user",
             return_value=mock_created_invitation,
         ) as mock_create_invitation:
             # Execute
@@ -427,11 +427,11 @@ async def test_get_invitation_link_uses_existing_when_available(base_email_logge
     async def mock_find_many_existing(*args, **kwargs):
         return [mock_invitation_row]
 
-    mock_prisma.db.litellm_invitationlink.find_many = mock_find_many_existing
+    mock_prisma.db.embrouter_invitationlink.find_many = mock_find_many_existing
 
-    with mock.patch("litellm.proxy.proxy_server.prisma_client", mock_prisma):
+    with mock.patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma):
         with mock.patch(
-            "litellm.proxy.management_helpers.user_invitation.create_invitation_for_user"
+            "embrouter.proxy.management_helpers.user_invitation.create_invitation_for_user"
         ) as mock_create_invitation:
             # Execute
             result = await base_email_logger._get_invitation_link(
@@ -458,15 +458,15 @@ async def test_get_invitation_link_creates_new_when_list_is_none(base_email_logg
     async def mock_find_many_none(*args, **kwargs):
         return None
 
-    mock_prisma.db.litellm_invitationlink.find_many = mock_find_many_none
+    mock_prisma.db.embrouter_invitationlink.find_many = mock_find_many_none
 
     # Mock the create_invitation_for_user function
     mock_created_invitation = mock.MagicMock()
     mock_created_invitation.id = "new-invitation-from-none"
 
-    with mock.patch("litellm.proxy.proxy_server.prisma_client", mock_prisma):
+    with mock.patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma):
         with mock.patch(
-            "litellm.proxy.management_helpers.user_invitation.create_invitation_for_user",
+            "embrouter.proxy.management_helpers.user_invitation.create_invitation_for_user",
             return_value=mock_created_invitation,
         ) as mock_create_invitation:
             # Execute
@@ -540,7 +540,7 @@ def mock_env_vars(monkeypatch):
 async def test_get_email_params_custom_templates_premium_user(mock_env_vars):
     """Test that _get_email_params returns correct values with custom templates for premium users"""
     # Mock premium_user as True
-    with patch("litellm.proxy.proxy_server.premium_user", True):
+    with patch("embrouter.proxy.proxy_server.premium_user", True):
         email_logger = BaseEmailLogger()
 
         # Test invitation email params
@@ -573,7 +573,7 @@ async def test_get_email_params_custom_templates_premium_user(mock_env_vars):
 async def test_get_email_params_non_premium_user(mock_env_vars):
     """Test that non-premium users get default templates even when custom ones are provided"""
     # Mock premium_user as False
-    with patch("litellm.proxy.proxy_server.premium_user", False):
+    with patch("embrouter.proxy.proxy_server.premium_user", False):
         email_logger = BaseEmailLogger()
 
         # Test invitation email params
@@ -584,7 +584,7 @@ async def test_get_email_params_non_premium_user(mock_env_vars):
         )
 
         # Should use default values even though custom values are set in env
-        assert email_params.subject == "LiteLLM: New User Invitation"
+        assert email_params.subject == "EmbRouter: New User Invitation"
         assert email_params.signature == EMAIL_FOOTER
         assert (
             email_params.logo_url
@@ -599,7 +599,7 @@ async def test_get_email_params_non_premium_user(mock_env_vars):
             event_message="API Key Created",
         )
 
-        assert key_params.subject == "LiteLLM: API Key Created"
+        assert key_params.subject == "EmbRouter: API Key Created"
         assert key_params.signature == EMAIL_FOOTER
 
 
@@ -612,7 +612,7 @@ async def test_get_email_params_default_templates(monkeypatch):
     monkeypatch.delenv("EMAIL_SIGNATURE", raising=False)
 
     # Mock premium_user as True (shouldn't matter since no custom values are set)
-    with patch("litellm.proxy.proxy_server.premium_user", True):
+    with patch("embrouter.proxy.proxy_server.premium_user", True):
         email_logger = BaseEmailLogger()
 
         # Test invitation email params with default template
@@ -622,7 +622,7 @@ async def test_get_email_params_default_templates(monkeypatch):
             event_message="New User Invitation",
         )
 
-        assert invitation_params.subject == "LiteLLM: New User Invitation"
+        assert invitation_params.subject == "EmbRouter: New User Invitation"
         assert invitation_params.signature == EMAIL_FOOTER
 
         # Test key created email params with default template
@@ -632,7 +632,7 @@ async def test_get_email_params_default_templates(monkeypatch):
             event_message="API Key Created",
         )
 
-        assert key_params.subject == "LiteLLM: API Key Created"
+        assert key_params.subject == "EmbRouter: API Key Created"
         assert key_params.signature == EMAIL_FOOTER
 
 
@@ -644,7 +644,7 @@ async def test_send_soft_budget_alert_email(
     event = WebhookEvent(
         user_id="test_user",
         user_email="test@example.com",
-        event_group=Litellm_EntityType.USER,
+        event_group=Embrouter_EntityType.USER,
         event="soft_budget_crossed",
         event_message="Soft Budget Crossed - Total Soft Budget: $100.0",
         spend=105.0,
@@ -664,11 +664,11 @@ async def test_send_soft_budget_alert_email(
 
         mock_send_email.assert_called_once()
         call_args = mock_send_email.call_args[1]
-        assert call_args["from_email"] == BaseEmailLogger.DEFAULT_LITELLM_EMAIL
+        assert call_args["from_email"] == BaseEmailLogger.DEFAULT_EMBROUTER_EMAIL
         assert call_args["to_email"] == ["test@example.com"]
         assert (
             call_args["subject"]
-            == "LiteLLM: Soft Budget Crossed - Total Soft Budget: $100.0"
+            == "EmbRouter: Soft Budget Crossed - Total Soft Budget: $100.0"
         )
         assert "$100.0" in call_args["html_body"]  # soft_budget
         assert "$105.0" in call_args["html_body"]  # spend
@@ -683,7 +683,7 @@ async def test_send_soft_budget_alert_email_no_max_budget(
     event = WebhookEvent(
         user_id="test_user",
         user_email="test@example.com",
-        event_group=Litellm_EntityType.USER,
+        event_group=Embrouter_EntityType.USER,
         event="soft_budget_crossed",
         event_message="Soft Budget Crossed - Total Soft Budget: $100.0",
         spend=105.0,
@@ -717,7 +717,7 @@ async def test_budget_alerts_soft_budget_crossed(base_email_logger, mock_send_em
         spend=105.0,
         max_budget=200.0,
         soft_budget=100.0,
-        event_group=Litellm_EntityType.USER,
+        event_group=Embrouter_EntityType.USER,
     )
 
     # Mock the cache so the claim is won (increment returns 1)
@@ -760,7 +760,7 @@ async def test_budget_alerts_soft_budget_not_crossed(
         spend=50.0,
         max_budget=200.0,
         soft_budget=100.0,
-        event_group=Litellm_EntityType.USER,
+        event_group=Embrouter_EntityType.USER,
     )
 
     mock_cache = mock.AsyncMock()
@@ -783,7 +783,7 @@ async def test_budget_alerts_soft_budget_duplicate_prevention(
         spend=105.0,
         max_budget=200.0,
         soft_budget=100.0,
-        event_group=Litellm_EntityType.USER,
+        event_group=Embrouter_EntityType.USER,
     )
 
     # Mock the cache so the slot is already claimed (increment returns > 1)
@@ -806,7 +806,7 @@ async def test_budget_alerts_no_budgets(base_email_logger, mock_send_email):
         spend=50.0,
         max_budget=None,
         soft_budget=None,
-        event_group=Litellm_EntityType.USER,
+        event_group=Embrouter_EntityType.USER,
     )
 
     await base_email_logger.budget_alerts(type="soft_budget", user_info=user_info)
@@ -827,7 +827,7 @@ async def test_budget_alerts_uses_token_for_cache_key(
         spend=105.0,
         max_budget=200.0,
         soft_budget=100.0,
-        event_group=Litellm_EntityType.KEY,
+        event_group=Embrouter_EntityType.KEY,
     )
 
     # Mock the cache so the claim is won (increment returns 1)
@@ -871,7 +871,7 @@ async def test_get_email_params_soft_budget_crossed(
 
         # Should use default subject template for soft_budget_crossed
         assert (
-            result.subject == "LiteLLM: Soft Budget Crossed - Total Soft Budget: $100.0"
+            result.subject == "EmbRouter: Soft Budget Crossed - Total Soft Budget: $100.0"
         )
         assert result.recipient_email == "test@example.com"
         assert result.base_url == "http://test.com"
@@ -887,7 +887,7 @@ async def test_budget_alerts_max_budget_alert_crossed(
         user_email="test@example.com",
         spend=165.0,
         max_budget=200.0,
-        event_group=Litellm_EntityType.USER,
+        event_group=Embrouter_EntityType.USER,
     )
 
     mock_cache = mock.AsyncMock()
@@ -929,7 +929,7 @@ async def test_multi_threshold_sends_crossed_thresholds(
         user_email="owner@co.com",
         spend=80.0,
         max_budget=100.0,
-        event_group=Litellm_EntityType.KEY,
+        event_group=Embrouter_EntityType.KEY,
         max_budget_alert_emails={
             "50": ["finance@co.com"],
             "75": ["finance@co.com", "bu_lead@co.com"],
@@ -968,7 +968,7 @@ async def test_multi_threshold_dedup_cache_prevents_resend(
         user_email="owner@co.com",
         spend=80.0,
         max_budget=100.0,
-        event_group=Litellm_EntityType.KEY,
+        event_group=Embrouter_EntityType.KEY,
         max_budget_alert_emails={
             "50": ["finance@co.com"],
             "75": ["finance@co.com"],
@@ -1007,7 +1007,7 @@ async def test_multi_threshold_owner_email_auto_included(
         user_email="owner@co.com",
         spend=60.0,
         max_budget=100.0,
-        event_group=Litellm_EntityType.KEY,
+        event_group=Embrouter_EntityType.KEY,
         max_budget_alert_emails={
             "50": ["finance@co.com", "owner@co.com"],  # owner already in list
         },
@@ -1039,7 +1039,7 @@ async def test_multi_threshold_malformed_keys_skipped(
         user_email="owner@co.com",
         spend=60.0,
         max_budget=100.0,
-        event_group=Litellm_EntityType.KEY,
+        event_group=Embrouter_EntityType.KEY,
         max_budget_alert_emails={
             "fifty": ["finance@co.com"],  # invalid
             "50": ["finance@co.com"],  # valid, crossed
@@ -1070,7 +1070,7 @@ async def test_multi_threshold_empty_emails_only_owner(
         user_email="owner@co.com",
         spend=60.0,
         max_budget=100.0,
-        event_group=Litellm_EntityType.KEY,
+        event_group=Embrouter_EntityType.KEY,
         max_budget_alert_emails={
             "50": [],  # empty list
         },
@@ -1103,7 +1103,7 @@ async def test_multi_threshold_team_member_alert_renders_member_template_per_tea
         team_alias="Platform",
         spend=0.10,
         max_budget=0.10,
-        event_group=Litellm_EntityType.TEAM_MEMBER,
+        event_group=Embrouter_EntityType.TEAM_MEMBER,
         max_budget_alert_emails={"50": [], "100": ["finance@co.com"]},
     )
 
@@ -1123,7 +1123,7 @@ async def test_multi_threshold_team_member_alert_renders_member_template_per_tea
     hundred = next(
         c.kwargs for c in mock_send_email.call_args_list if "100%" in c.kwargs["subject"]
     )
-    assert hundred["subject"] == "LiteLLM: Team Member Budget Alert - 100% of Team Member Budget Reached"
+    assert hundred["subject"] == "EmbRouter: Team Member Budget Alert - 100% of Team Member Budget Reached"
     assert sorted(hundred["to_email"]) == ["finance@co.com", "member@co.com"]
     assert "member@co.com" in hundred["html_body"] and "Platform" in hundred["html_body"]
     assert "team member budget" in hundred["html_body"] and "$0.1" in hundred["html_body"]
@@ -1141,7 +1141,7 @@ async def test_no_map_preserves_old_single_threshold(
         user_email="test@example.com",
         spend=165.0,
         max_budget=200.0,
-        event_group=Litellm_EntityType.USER,
+        event_group=Embrouter_EntityType.USER,
     )
 
     mock_cache = mock.AsyncMock()
@@ -1172,7 +1172,7 @@ async def test_send_soft_budget_alert_email_uses_custom_signature(
     event = WebhookEvent(
         user_id="test_user",
         user_email="test@example.com",
-        event_group=Litellm_EntityType.USER,
+        event_group=Embrouter_EntityType.USER,
         event="soft_budget_crossed",
         event_message="Soft Budget Crossed",
         spend=105.0,
@@ -1182,12 +1182,12 @@ async def test_send_soft_budget_alert_email_uses_custom_signature(
     with mock.patch.dict(
         os.environ,
         {"PROXY_BASE_URL": "http://test.com", "EMAIL_SIGNATURE": CUSTOM_SIGNATURE},
-    ), patch("litellm.proxy.proxy_server.premium_user", True):
+    ), patch("embrouter.proxy.proxy_server.premium_user", True):
         await base_email_logger.send_soft_budget_alert_email(event)
 
         html_body = mock_send_email.call_args[1]["html_body"]
         assert CUSTOM_SIGNATURE in html_body
-        assert "The LiteLLM team" not in html_body
+        assert "The EmbRouter team" not in html_body
 
 
 @pytest.mark.asyncio
@@ -1197,7 +1197,7 @@ async def test_send_team_soft_budget_alert_email_uses_custom_signature(
     """Team soft budget alert honors EMAIL_SIGNATURE for premium users."""
     event = WebhookEvent(
         user_id="test_user",
-        event_group=Litellm_EntityType.TEAM,
+        event_group=Embrouter_EntityType.TEAM,
         event="soft_budget_crossed",
         event_message="Team Soft Budget Crossed",
         spend=105.0,
@@ -1209,12 +1209,12 @@ async def test_send_team_soft_budget_alert_email_uses_custom_signature(
     with mock.patch.dict(
         os.environ,
         {"PROXY_BASE_URL": "http://test.com", "EMAIL_SIGNATURE": CUSTOM_SIGNATURE},
-    ), patch("litellm.proxy.proxy_server.premium_user", True):
+    ), patch("embrouter.proxy.proxy_server.premium_user", True):
         await base_email_logger.send_team_soft_budget_alert_email(event)
 
         html_body = mock_send_email.call_args[1]["html_body"]
         assert CUSTOM_SIGNATURE in html_body
-        assert "The LiteLLM team" not in html_body
+        assert "The EmbRouter team" not in html_body
 
 
 @pytest.mark.asyncio
@@ -1225,7 +1225,7 @@ async def test_send_max_budget_alert_email_single_recipient_uses_custom_signatur
     event = WebhookEvent(
         user_id="test_user",
         user_email="test@example.com",
-        event_group=Litellm_EntityType.USER,
+        event_group=Embrouter_EntityType.USER,
         event="max_budget_alert",
         event_message="Max Budget Alert",
         spend=165.0,
@@ -1234,12 +1234,12 @@ async def test_send_max_budget_alert_email_single_recipient_uses_custom_signatur
     with mock.patch.dict(
         os.environ,
         {"PROXY_BASE_URL": "http://test.com", "EMAIL_SIGNATURE": CUSTOM_SIGNATURE},
-    ), patch("litellm.proxy.proxy_server.premium_user", True):
+    ), patch("embrouter.proxy.proxy_server.premium_user", True):
         await base_email_logger.send_max_budget_alert_email(event)
 
         html_body = mock_send_email.call_args[1]["html_body"]
         assert CUSTOM_SIGNATURE in html_body
-        assert "The LiteLLM team" not in html_body
+        assert "The EmbRouter team" not in html_body
 
 
 @pytest.mark.asyncio
@@ -1250,7 +1250,7 @@ async def test_send_max_budget_alert_email_multi_recipient_uses_custom_signature
     event = WebhookEvent(
         user_id="test_user",
         user_email="owner@example.com",
-        event_group=Litellm_EntityType.USER,
+        event_group=Embrouter_EntityType.USER,
         event="max_budget_alert",
         event_message="Max Budget Alert",
         spend=165.0,
@@ -1259,14 +1259,14 @@ async def test_send_max_budget_alert_email_multi_recipient_uses_custom_signature
     with mock.patch.dict(
         os.environ,
         {"PROXY_BASE_URL": "http://test.com", "EMAIL_SIGNATURE": CUSTOM_SIGNATURE},
-    ), patch("litellm.proxy.proxy_server.premium_user", True):
+    ), patch("embrouter.proxy.proxy_server.premium_user", True):
         await base_email_logger.send_max_budget_alert_email(
             event, threshold_pct=75, recipient_emails=["a@example.com", "b@example.com"]
         )
 
         html_body = mock_send_email.call_args[1]["html_body"]
         assert CUSTOM_SIGNATURE in html_body
-        assert "The LiteLLM team" not in html_body
+        assert "The EmbRouter team" not in html_body
 
 
 @pytest.mark.asyncio
@@ -1277,7 +1277,7 @@ async def test_send_soft_budget_alert_email_default_footer_when_no_signature(
     event = WebhookEvent(
         user_id="test_user",
         user_email="test@example.com",
-        event_group=Litellm_EntityType.USER,
+        event_group=Embrouter_EntityType.USER,
         event="soft_budget_crossed",
         event_message="Soft Budget Crossed",
         spend=105.0,
@@ -1318,7 +1318,7 @@ def _budget_alert_user_info(extra: dict) -> CallInfo:
         token="hashed_key_1",
         user_id="test_user",
         user_email="owner@co.com",
-        event_group=Litellm_EntityType.KEY,
+        event_group=Embrouter_EntityType.KEY,
         **extra,
     )
 

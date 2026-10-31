@@ -1,5 +1,5 @@
 """
-Type definitions for litellm.compress().
+Type definitions for embrouter.compress().
 """
 
 import sys
@@ -18,5 +18,5 @@ class CompressedResult(TypedDict):
     compressed_tokens: int  # token count after compression
     compression_ratio: float  # fraction reduced, e.g. 0.6 means 60% reduction
     cache: dict[str, str]  # key -> original content (for retrieval tool responses)
-    tools: list[dict]  # [litellm_content_retrieve tool definition]
+    tools: list[dict]  # [embrouter_content_retrieve tool definition]
     compression_skipped_reason: NotRequired[str]

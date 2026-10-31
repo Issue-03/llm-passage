@@ -10,14 +10,14 @@ from datetime import datetime, timedelta
 import pytest
 from pydantic import ValidationError
 
-import litellm
-from litellm.caching.caching import DualCache
-from litellm.router import Router
-from litellm.router_strategy.lowest_latency import LowestLatencyLoggingHandler, RoutingArgs
+import embrouter
+from embrouter.caching.caching import DualCache
+from embrouter.router import Router
+from embrouter.router_strategy.lowest_latency import LowestLatencyLoggingHandler, RoutingArgs
 
 DEPLOYMENT_ID = "9876"
 KWARGS = {
-    "litellm_params": {
+    "embrouter_params": {
         "metadata": {
             "model_group": "gemini-embedding-001",
             "deployment": "vertex_ai/gemini-embedding-001",
@@ -28,11 +28,11 @@ KWARGS = {
 
 
 def _embedding_response():
-    return litellm.EmbeddingResponse(
+    return embrouter.EmbeddingResponse(
         model="gemini-embedding-001",
         data=[{"embedding": [0.1, 0.2], "index": 0, "object": "embedding"}],
         object="list",
-        usage=litellm.Usage(prompt_tokens=5, completion_tokens=0, total_tokens=5),
+        usage=embrouter.Usage(prompt_tokens=5, completion_tokens=0, total_tokens=5),
     )
 
 
@@ -93,16 +93,16 @@ async def test_async_embedding_latency_is_json_serializable():
 
 
 def _chat_response(completion_tokens: int):
-    return litellm.ModelResponse(
+    return embrouter.ModelResponse(
         model="gpt-4o-mini",
         choices=[
-            litellm.Choices(
+            embrouter.Choices(
                 finish_reason="stop",
                 index=0,
-                message=litellm.Message(content="hi", role="assistant"),
+                message=embrouter.Message(content="hi", role="assistant"),
             )
         ],
-        usage=litellm.Usage(
+        usage=embrouter.Usage(
             prompt_tokens=10,
             completion_tokens=completion_tokens,
             total_tokens=10 + completion_tokens,
@@ -170,14 +170,14 @@ MODEL_GROUP = "gpt-4o-mini"
 FAST_TTFT_ID = "fast-ttft-short-output"
 SLOW_TTFT_ID = "slow-ttft-long-output"
 STREAMING_DEPLOYMENTS = [
-    {"model_info": {"id": FAST_TTFT_ID}, "litellm_params": {}},
-    {"model_info": {"id": SLOW_TTFT_ID}, "litellm_params": {}},
+    {"model_info": {"id": FAST_TTFT_ID}, "embrouter_params": {}},
+    {"model_info": {"id": SLOW_TTFT_ID}, "embrouter_params": {}},
 ]
 
 
 def _streaming_kwargs(deployment_id: str, start_time: datetime, ttft_seconds: float):
     return {
-        "litellm_params": {
+        "embrouter_params": {
             "metadata": {"model_group": MODEL_GROUP},
             "model_info": {"id": deployment_id},
         },
@@ -248,7 +248,7 @@ async def test_ttft_window_keeps_newest_samples_when_full(sync_mode: bool):
 
     for ttft in ttfts:
         kwargs = {
-            "litellm_params": {
+            "embrouter_params": {
                 "metadata": {"model_group": MODEL_GROUP},
                 "model_info": {"id": FAST_TTFT_ID},
             },
@@ -386,8 +386,8 @@ async def test_async_get_available_deployments_treats_missing_samples_as_zero_la
         value={DEPLOYMENT_ID: cached_entry, "slower": {"latency": [0.5]}},
     )
     healthy_deployments = [
-        {"model_info": {"id": DEPLOYMENT_ID}, "litellm_params": {}},
-        {"model_info": {"id": "slower"}, "litellm_params": {}},
+        {"model_info": {"id": DEPLOYMENT_ID}, "embrouter_params": {}},
+        {"model_info": {"id": "slower"}, "embrouter_params": {}},
     ]
 
     picked = await handler.async_get_available_deployments(
@@ -405,7 +405,7 @@ def _latency_router(routing_strategy_args: dict) -> Router:
         model_list=[
             {
                 "model_name": MODEL_GROUP,
-                "litellm_params": {"model": f"openai/{MODEL_GROUP}", "api_key": "sk-fake"},
+                "embrouter_params": {"model": f"openai/{MODEL_GROUP}", "api_key": "sk-fake"},
                 "model_info": {"id": deployment_id},
             }
             for deployment_id in (FAST_TTFT_ID, SLOW_TTFT_ID)
@@ -465,7 +465,7 @@ async def test_runtime_routing_strategy_args_update_is_a_noop_without_a_selector
         model_list=[
             {
                 "model_name": MODEL_GROUP,
-                "litellm_params": {"model": f"openai/{MODEL_GROUP}", "api_key": "sk-fake"},
+                "embrouter_params": {"model": f"openai/{MODEL_GROUP}", "api_key": "sk-fake"},
                 "model_info": {"id": FAST_TTFT_ID},
             }
         ],

@@ -16,7 +16,7 @@ from tomlkit.exceptions import TOMLKitError
 from tomlkit.items import InlineTable, Table
 from tomlkit.toml_document import TOMLDocument
 
-from litellm.litellm_core_utils.private_json import (
+from embrouter.embrouter_core_utils.private_json import (
     commit_staged_json,
     discard_staged_json,
     ensure_private_dir,
@@ -58,7 +58,7 @@ class CodexUnconfigureOutcome:
 def codex_configure_state_path(settings_path: Path) -> Path:
     target: Final = settings_path.resolve()
     digest: Final = hashlib.sha256(str(target).encode()).hexdigest()
-    return target.parent / ".litellm" / f"codex_configure_{digest}.json"
+    return target.parent / ".embrouter" / f"codex_configure_{digest}.json"
 
 
 def _read(settings_path: Path) -> TOMLDocument:
@@ -75,7 +75,7 @@ def _read(settings_path: Path) -> TOMLDocument:
     entries: Final = _mapping(parent) if parent is not None else _EMPTY
     configured: Final = entries.get(CODEX_PROXY_PROVIDER)
     if configured is not None and _table(configured) is None:
-        raise CodexSettingsError("Codex model_providers.litellm must be a TOML table; no settings were changed")
+        raise CodexSettingsError("Codex model_providers.embrouter must be a TOML table; no settings were changed")
     return document
 
 

@@ -1,26 +1,26 @@
 model_list:
   - model_name: fake-openai-endpoint
-    litellm_params:
+    embrouter_params:
       model: openai/gpt-3.5-turbo
       api_key: fake-key
       api_base: https://exampleopenaiendpoint-production.up.railway.app/
   - model_name: fake-blocked-endpoint
-    litellm_params:
+    embrouter_params:
       model: openai/gpt-3.5-turbo
       api_key: fake-key
       api_base: https://exampleopenaiendpoint-production.up.railway.app/
 
 guardrails:
   - guardrail_name: "strict-filter"
-    litellm_params:
+    embrouter_params:
       guardrail: pipeline_test_guardrails.StrictFilter
       mode: "pre_call"
   - guardrail_name: "permissive-filter"
-    litellm_params:
+    embrouter_params:
       guardrail: pipeline_test_guardrails.PermissiveFilter
       mode: "pre_call"
   - guardrail_name: "always-block-filter"
-    litellm_params:
+    embrouter_params:
       guardrail: pipeline_test_guardrails.AlwaysBlockFilter
       mode: "pre_call"
 

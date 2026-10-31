@@ -2,14 +2,14 @@ from typing import Final, cast
 
 import httpx
 
-import litellm
-from litellm import verbose_logger
-from litellm.caching import InMemoryCache
-from litellm.litellm_core_utils.prompt_templates import factory as ptf
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.llms.watsonx import WatsonXAPIParams, WatsonXCredentials
+import embrouter
+from embrouter import verbose_logger
+from embrouter.caching import InMemoryCache
+from embrouter.embrouter_core_utils.prompt_templates import factory as ptf
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.llms.watsonx import WatsonXAPIParams, WatsonXCredentials
 
 
 class WatsonXAIError(BaseLLMException):
@@ -56,7 +56,7 @@ def generate_iam_token(api_key=None, **params) -> str:
             headers,
             data,
         )
-        response: Final = litellm.module_level_client.post(url=iam_token_url, data=data, headers=headers)
+        response: Final = embrouter.module_level_client.post(url=iam_token_url, data=data, headers=headers)
         response.raise_for_status()
         json_data: Final = response.json()
 
@@ -128,7 +128,7 @@ async def _aconvert_watsonx_messages_core(
     apply_template_fn,
 ) -> str:
     """Async core logic for converting watsonx messages to prompt"""
-    from litellm.types.llms.watsonx import WatsonXModelPattern
+    from embrouter.types.llms.watsonx import WatsonXModelPattern
 
     # handle anthropic prompts and amazon titan prompts
     if model in custom_prompt_dict:
@@ -160,7 +160,7 @@ def _convert_watsonx_messages_core(
     apply_template_fn,
 ) -> str:
     """Sync core logic for converting watsonx messages to prompt"""
-    from litellm.types.llms.watsonx import WatsonXModelPattern
+    from embrouter.types.llms.watsonx import WatsonXModelPattern
 
     # handle anthropic prompts and amazon titan prompts
     if model in custom_prompt_dict:
@@ -191,7 +191,7 @@ async def aconvert_watsonx_messages_to_prompt(
     custom_prompt_dict: dict,
 ) -> str:
     """Async version of convert_watsonx_messages_to_prompt"""
-    from litellm.llms.watsonx.chat.transformation import IBMWatsonXChatConfig
+    from embrouter.llms.watsonx.chat.transformation import IBMWatsonXChatConfig
 
     return await _aconvert_watsonx_messages_core(
         model=model,
@@ -209,7 +209,7 @@ def convert_watsonx_messages_to_prompt(
     custom_prompt_dict: dict,
 ) -> str:
     """Sync version of convert_watsonx_messages_to_prompt"""
-    from litellm.llms.watsonx.chat.transformation import IBMWatsonXChatConfig
+    from embrouter.llms.watsonx.chat.transformation import IBMWatsonXChatConfig
 
     return _convert_watsonx_messages_core(
         model=model,
@@ -228,7 +228,7 @@ class IBMWatsonXMixin:
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
@@ -274,7 +274,7 @@ class IBMWatsonXMixin:
         return url
 
     def _add_api_version_to_url(self, url: str, api_version: str | None) -> str:
-        api_version = api_version or litellm.WATSONX_DEFAULT_API_VERSION
+        api_version = api_version or embrouter.WATSONX_DEFAULT_API_VERSION
         url = url + f"?version={api_version}"
 
         return url

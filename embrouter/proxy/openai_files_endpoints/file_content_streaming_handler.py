@@ -3,13 +3,13 @@ from typing import TYPE_CHECKING, Any, Final, cast
 
 from fastapi.responses import StreamingResponse
 
-import litellm
-from litellm.files.types import FileContentProvider, FileContentStreamingResult
-from litellm.types.utils import FILE_CONTENT_STREAMING_PROVIDERS
+import embrouter
+from embrouter.files.types import FileContentProvider, FileContentStreamingResult
+from embrouter.types.utils import FILE_CONTENT_STREAMING_PROVIDERS
 
 if TYPE_CHECKING:
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.utils import ProxyLogging
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy.utils import ProxyLogging
 
 
 class FileContentStreamingHandler:
@@ -34,7 +34,7 @@ class FileContentStreamingHandler:
         return the original provider, file ID, and data unchanged.
         """
         if should_route and credentials is not None:
-            from litellm.proxy.openai_files_endpoints.common_utils import (
+            from embrouter.proxy.openai_files_endpoints.common_utils import (
                 prepare_data_with_credentials,
             )
 
@@ -78,7 +78,7 @@ class FileContentStreamingHandler:
             async for chunk in stream_iterator:
                 yield chunk
             await proxy_logging_obj.update_request_status(
-                litellm_call_id=data.get("litellm_call_id", ""), status="success"
+                embrouter_call_id=data.get("embrouter_call_id", ""), status="success"
             )
         except Exception as e:
             await proxy_logging_obj.post_call_failure_hook(
@@ -101,13 +101,13 @@ class FileContentStreamingHandler:
         user_api_key_dict: "UserAPIKeyAuth",
         version: str,
     ) -> StreamingResponse:
-        from litellm.proxy.common_request_processing import (
+        from embrouter.proxy.common_request_processing import (
             ProxyBaseLLMRequestProcessing,
         )
 
         stream_result: Final = cast(
             FileContentStreamingResult,
-            await litellm.afile_content(
+            await embrouter.afile_content(
                 **{
                     "custom_llm_provider": cast(FileContentProvider, custom_llm_provider),
                     "file_id": file_id,

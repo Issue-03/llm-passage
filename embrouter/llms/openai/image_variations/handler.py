@@ -8,12 +8,12 @@ from typing import Final
 import httpx
 from openai import AsyncOpenAI, OpenAI
 
-import litellm
-from litellm.types.utils import FileTypes, ImageResponse, LlmProviders
-from litellm.utils import ProviderConfigManager
+import embrouter
+from embrouter.types.utils import FileTypes, ImageResponse, LlmProviders
+from embrouter.utils import ProviderConfigManager
 
 from ...base_llm.image_variations.transformation import BaseImageVariationConfig
-from ...custom_httpx.llm_http_handler import LiteLLMLoggingObj
+from ...custom_httpx.llm_http_handler import EmbRouterLoggingObj
 from ..common_utils import OpenAIError
 
 
@@ -51,10 +51,10 @@ class OpenAIImageVariationsHandler:
         model: str | None,
         timeout: float | None,
         max_retries: int,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         model_response: ImageResponse,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         image: FileTypes,
         provider_config: BaseImageVariationConfig,
     ) -> ImageResponse:
@@ -62,7 +62,7 @@ class OpenAIImageVariationsHandler:
             init_client_params: Final = {
                 "api_key": api_key,
                 "base_url": api_base,
-                "http_client": litellm.client_session,
+                "http_client": embrouter.client_session,
                 "timeout": timeout,
                 "max_retries": max_retries,
                 "organization": organization,
@@ -96,7 +96,7 @@ class OpenAIImageVariationsHandler:
                 request_data=data,
                 image=image,
                 optional_params=optional_params,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 encoding=None,
                 api_key=api_key,
             )
@@ -118,9 +118,9 @@ class OpenAIImageVariationsHandler:
         image: FileTypes,
         timeout: float | None,
         custom_llm_provider: str,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         print_verbose: Callable | None = None,
         logger_fn=None,
         client=None,
@@ -157,7 +157,7 @@ class OpenAIImageVariationsHandler:
                     "complete_input_dict": data,
                 },
             )
-            if litellm_params.get("async_call", False):
+            if embrouter_params.get("async_call", False):
                 return self.async_image_variations(
                     api_base=api_base,
                     data=json_data,
@@ -173,13 +173,13 @@ class OpenAIImageVariationsHandler:
                     provider_config=provider_config,
                     image=image,
                     optional_params=optional_params,
-                    litellm_params=litellm_params,
+                    embrouter_params=embrouter_params,
                 )
 
             init_client_params: Final = {
                 "api_key": api_key,
                 "base_url": api_base,
-                "http_client": litellm.client_session,
+                "http_client": embrouter.client_session,
                 "timeout": timeout,
                 "max_retries": max_retries,
                 "organization": organization,
@@ -213,7 +213,7 @@ class OpenAIImageVariationsHandler:
                 request_data=json_data,
                 image=image,
                 optional_params=optional_params,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 encoding=None,
                 api_key=api_key,
             )

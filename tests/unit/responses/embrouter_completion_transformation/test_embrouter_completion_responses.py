@@ -11,14 +11,14 @@ from openai.types.responses.response_function_web_search import (
     ResponseFunctionWebSearch,
 )
 
-import litellm
-from litellm.litellm_core_utils.prompt_templates.factory import anthropic_messages_pt
-from litellm.responses.litellm_completion_transformation.transformation import (
+import embrouter
+from embrouter.embrouter_core_utils.prompt_templates.factory import anthropic_messages_pt
+from embrouter.responses.embrouter_completion_transformation.transformation import (
     TOOL_CALLS_CACHE,
-    LiteLLMCompletionResponsesConfig,
+    EmbRouterCompletionResponsesConfig,
 )
-from litellm.types.responses.main import build_web_search_call
-from litellm.types.utils import (
+from embrouter.types.responses.main import build_web_search_call
+from embrouter.types.utils import (
     ChatCompletionMessageToolCall,
     Choices,
     CompletionTokensDetailsWrapper,
@@ -30,7 +30,7 @@ from litellm.types.utils import (
 )
 
 
-class TestLiteLLMCompletionResponsesConfig:
+class TestEmbRouterCompletionResponsesConfig:
     def test_transform_input_file_item_to_file_item_with_file_id(self):
         """Test transformation of input_file item with file_id to Chat Completion file format"""
         # Setup
@@ -38,7 +38,7 @@ class TestLiteLLMCompletionResponsesConfig:
 
         # Execute
         result = (
-            LiteLLMCompletionResponsesConfig._transform_input_file_item_to_file_item(
+            EmbRouterCompletionResponsesConfig._transform_input_file_item_to_file_item(
                 input_item
             )
         )
@@ -57,7 +57,7 @@ class TestLiteLLMCompletionResponsesConfig:
 
         # Execute
         result = (
-            LiteLLMCompletionResponsesConfig._transform_input_file_item_to_file_item(
+            EmbRouterCompletionResponsesConfig._transform_input_file_item_to_file_item(
                 input_item
             )
         )
@@ -79,7 +79,7 @@ class TestLiteLLMCompletionResponsesConfig:
 
         # Execute
         result = (
-            LiteLLMCompletionResponsesConfig._transform_input_file_item_to_file_item(
+            EmbRouterCompletionResponsesConfig._transform_input_file_item_to_file_item(
                 input_item
             )
         )
@@ -101,7 +101,7 @@ class TestLiteLLMCompletionResponsesConfig:
 
         # Execute
         result = (
-            LiteLLMCompletionResponsesConfig._transform_input_file_item_to_file_item(
+            EmbRouterCompletionResponsesConfig._transform_input_file_item_to_file_item(
                 input_item
             )
         )
@@ -124,7 +124,7 @@ class TestLiteLLMCompletionResponsesConfig:
 
         # Execute
         result = (
-            LiteLLMCompletionResponsesConfig._transform_input_file_item_to_file_item(
+            EmbRouterCompletionResponsesConfig._transform_input_file_item_to_file_item(
                 input_item
             )
         )
@@ -138,7 +138,7 @@ class TestLiteLLMCompletionResponsesConfig:
     def test_transform_input_file_item_to_file_item_keeps_filename(self):
         """OpenAI rejects file_data with no filename beside it, so dropping it 400s the request"""
         result = (
-            LiteLLMCompletionResponsesConfig._transform_input_file_item_to_file_item(
+            EmbRouterCompletionResponsesConfig._transform_input_file_item_to_file_item(
                 {
                     "type": "input_file",
                     "filename": "report.pdf",
@@ -157,7 +157,7 @@ class TestLiteLLMCompletionResponsesConfig:
     def test_transform_input_file_item_to_file_item_with_file_url(self):
         """file_url should be mapped to file_id for downstream URL handling"""
         result = (
-            LiteLLMCompletionResponsesConfig._transform_input_file_item_to_file_item(
+            EmbRouterCompletionResponsesConfig._transform_input_file_item_to_file_item(
                 {"type": "input_file", "file_url": "https://example.com/doc.pdf"}
             )
         )
@@ -169,7 +169,7 @@ class TestLiteLLMCompletionResponsesConfig:
     def test_transform_input_file_item_file_id_takes_precedence_over_file_url(self):
         """explicit file_id should not be overwritten by file_url"""
         result = (
-            LiteLLMCompletionResponsesConfig._transform_input_file_item_to_file_item(
+            EmbRouterCompletionResponsesConfig._transform_input_file_item_to_file_item(
                 {
                     "type": "input_file",
                     "file_id": "file-abc123",
@@ -187,7 +187,7 @@ class TestLiteLLMCompletionResponsesConfig:
 
         # Execute
         result = (
-            LiteLLMCompletionResponsesConfig._transform_input_image_item_to_image_item(
+            EmbRouterCompletionResponsesConfig._transform_input_image_item_to_image_item(
                 input_item
             )
         )
@@ -210,7 +210,7 @@ class TestLiteLLMCompletionResponsesConfig:
 
         # Execute
         result = (
-            LiteLLMCompletionResponsesConfig._transform_input_image_item_to_image_item(
+            EmbRouterCompletionResponsesConfig._transform_input_image_item_to_image_item(
                 input_item
             )
         )
@@ -233,7 +233,7 @@ class TestLiteLLMCompletionResponsesConfig:
 
         # Execute
         result = (
-            LiteLLMCompletionResponsesConfig._transform_input_image_item_to_image_item(
+            EmbRouterCompletionResponsesConfig._transform_input_image_item_to_image_item(
                 input_item
             )
         )
@@ -255,7 +255,7 @@ class TestLiteLLMCompletionResponsesConfig:
 
         # Execute
         result = (
-            LiteLLMCompletionResponsesConfig._transform_input_image_item_to_image_item(
+            EmbRouterCompletionResponsesConfig._transform_input_image_item_to_image_item(
                 input_item
             )
         )
@@ -279,7 +279,7 @@ class TestLiteLLMCompletionResponsesConfig:
 
         # Execute
         result = (
-            LiteLLMCompletionResponsesConfig._transform_input_image_item_to_image_item(
+            EmbRouterCompletionResponsesConfig._transform_input_image_item_to_image_item(
                 input_item
             )
         )
@@ -318,7 +318,7 @@ class TestLiteLLMCompletionResponsesConfig:
         )
 
         # Execute
-        responses_api_response = LiteLLMCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
+        responses_api_response = EmbRouterCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
             request_input="What is the meaning of life?",
             responses_api_request={},
             chat_completion_response=chat_completion_response,
@@ -376,7 +376,7 @@ class TestLiteLLMCompletionResponsesConfig:
         )
 
         # Execute
-        responses_api_response = LiteLLMCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
+        responses_api_response = EmbRouterCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
             request_input="A simple question?",
             responses_api_request={},
             chat_completion_response=chat_completion_response,
@@ -426,7 +426,7 @@ class TestLiteLLMCompletionResponsesConfig:
         )
 
         # Execute
-        responses_api_response = LiteLLMCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
+        responses_api_response = EmbRouterCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
             request_input="A question with multiple answers?",
             responses_api_request={},
             chat_completion_response=chat_completion_response,
@@ -466,7 +466,7 @@ class TestLiteLLMCompletionResponsesConfig:
             ],
         )
 
-        responses_api_response = LiteLLMCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
+        responses_api_response = EmbRouterCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
             request_input="Test input",
             responses_api_request={},
             chat_completion_response=response,
@@ -498,7 +498,7 @@ class TestLiteLLMCompletionResponsesConfig:
             ],
         )
 
-        responses_api_response = LiteLLMCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
+        responses_api_response = EmbRouterCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
             request_input="Test input",
             responses_api_request={},
             chat_completion_response=response,
@@ -532,7 +532,7 @@ class TestLiteLLMCompletionResponsesConfig:
             ],
         )
 
-        responses_api_response = LiteLLMCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
+        responses_api_response = EmbRouterCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
             request_input="Test input",
             responses_api_request={},
             chat_completion_response=response,
@@ -569,7 +569,7 @@ class TestLiteLLMCompletionResponsesConfig:
             ],
         )
 
-        responses_api_response = LiteLLMCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
+        responses_api_response = EmbRouterCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
             request_input="this is a test",
             responses_api_request={},
             chat_completion_response=chat_completion_response,
@@ -608,7 +608,7 @@ class TestLiteLLMCompletionResponsesConfig:
             ],
         )
 
-        responses_api_response = LiteLLMCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
+        responses_api_response = EmbRouterCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
             request_input="this is a test",
             responses_api_request={},
             chat_completion_response=chat_completion_response,
@@ -651,7 +651,7 @@ class TestLiteLLMCompletionResponsesConfig:
             ],
         )
 
-        responses_api_response = LiteLLMCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
+        responses_api_response = EmbRouterCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
             request_input="this is a test",
             responses_api_request={},
             chat_completion_response=chat_completion_response,
@@ -689,7 +689,7 @@ class TestLiteLLMCompletionResponsesConfig:
             ],
         )
 
-        responses_api_response = LiteLLMCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
+        responses_api_response = EmbRouterCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
             request_input="what's the weather in SF?",
             responses_api_request={},
             chat_completion_response=chat_completion_response,
@@ -715,7 +715,7 @@ class TestLiteLLMCompletionResponsesConfig:
             ],
         )
 
-        responses_api_response = LiteLLMCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
+        responses_api_response = EmbRouterCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
             request_input="what's the weather in SF?",
             responses_api_request={},
             chat_completion_response=chat_completion_response,
@@ -752,7 +752,7 @@ class TestLiteLLMCompletionResponsesConfig:
         }
 
         # Execute
-        responses_api_response = LiteLLMCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
+        responses_api_response = EmbRouterCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
             request_input="Test",
             responses_api_request={},
             chat_completion_response=chat_completion_response,
@@ -787,7 +787,7 @@ class TestLiteLLMCompletionResponsesConfig:
         )
 
         # Execute
-        responses_api_response = LiteLLMCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
+        responses_api_response = EmbRouterCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
             request_input="Test",
             responses_api_request={},
             chat_completion_response=chat_completion_response,
@@ -827,7 +827,7 @@ class TestLiteLLMCompletionResponsesConfig:
         )
 
         try:
-            responses_api_response = LiteLLMCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
+            responses_api_response = EmbRouterCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
                 request_input="Spawn an agent",
                 responses_api_request={
                     "tools": [
@@ -894,7 +894,7 @@ class TestLiteLLMCompletionResponsesConfig:
         )
 
         try:
-            responses_api_response = LiteLLMCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
+            responses_api_response = EmbRouterCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
                 request_input="What is the weather in Paris?",
                 responses_api_request={
                     "tools": [
@@ -960,7 +960,7 @@ class TestLiteLLMCompletionResponsesConfig:
         }
 
         try:
-            response = LiteLLMCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
+            response = EmbRouterCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
                 request_input="Run the tool",
                 responses_api_request=responses_api_request,
                 chat_completion_response=chat_completion_response,
@@ -994,24 +994,24 @@ class TestFunctionCallTransformation:
         regular_message = {"type": "message", "role": "user", "content": "Hello"}
 
         # Test function_call detection
-        assert LiteLLMCompletionResponsesConfig._is_input_item_function_call(
+        assert EmbRouterCompletionResponsesConfig._is_input_item_function_call(
             function_call_item
         )
-        assert not LiteLLMCompletionResponsesConfig._is_input_item_function_call(
+        assert not EmbRouterCompletionResponsesConfig._is_input_item_function_call(
             function_call_output_item
         )
-        assert not LiteLLMCompletionResponsesConfig._is_input_item_function_call(
+        assert not EmbRouterCompletionResponsesConfig._is_input_item_function_call(
             regular_message
         )
 
         # Test function_call_output detection (should still work)
-        assert LiteLLMCompletionResponsesConfig._is_input_item_tool_call_output(
+        assert EmbRouterCompletionResponsesConfig._is_input_item_tool_call_output(
             function_call_output_item
         )
-        assert not LiteLLMCompletionResponsesConfig._is_input_item_tool_call_output(
+        assert not EmbRouterCompletionResponsesConfig._is_input_item_tool_call_output(
             function_call_item
         )
-        assert not LiteLLMCompletionResponsesConfig._is_input_item_tool_call_output(
+        assert not EmbRouterCompletionResponsesConfig._is_input_item_tool_call_output(
             regular_message
         )
 
@@ -1026,7 +1026,7 @@ class TestFunctionCallTransformation:
             "status": "completed",
         }
 
-        result = LiteLLMCompletionResponsesConfig._transform_responses_api_function_call_to_chat_completion_message(
+        result = EmbRouterCompletionResponsesConfig._transform_responses_api_function_call_to_chat_completion_message(
             function_call=function_call_item
         )
 
@@ -1051,11 +1051,11 @@ class TestFunctionCallTransformation:
 
     def test_function_call_transformation_normalizes_redacted_arguments(self):
         """Redacted rows hold the bare sentinel in arguments, which is invalid JSON."""
-        result = LiteLLMCompletionResponsesConfig._transform_responses_api_function_call_to_chat_completion_message(
+        result = EmbRouterCompletionResponsesConfig._transform_responses_api_function_call_to_chat_completion_message(
             function_call={
                 "type": "function_call",
                 "name": "get_weather",
-                "arguments": "redacted-by-litellm",
+                "arguments": "redacted-by-embrouter",
                 "call_id": "call_123",
             }
         )
@@ -1079,7 +1079,7 @@ class TestFunctionCallTransformation:
             "status": "completed",
         }
 
-        result = LiteLLMCompletionResponsesConfig._transform_responses_api_function_call_to_chat_completion_message(
+        result = EmbRouterCompletionResponsesConfig._transform_responses_api_function_call_to_chat_completion_message(
             function_call=function_call_item
         )
 
@@ -1089,7 +1089,7 @@ class TestFunctionCallTransformation:
 
     def test_create_tool_call_chunk_json_encodes_object_arguments(self):
         """Cached tool_call definitions with object arguments stay valid JSON."""
-        chunk = LiteLLMCompletionResponsesConfig._create_tool_call_chunk(
+        chunk = EmbRouterCompletionResponsesConfig._create_tool_call_chunk(
             tool_use_definition={
                 "id": "call_456",
                 "type": "function",
@@ -1103,7 +1103,7 @@ class TestFunctionCallTransformation:
 
     def test_create_tool_call_chunk_keeps_empty_arguments_default(self):
         """Missing arguments still fall back to an empty JSON object."""
-        chunk = LiteLLMCompletionResponsesConfig._create_tool_call_chunk(
+        chunk = EmbRouterCompletionResponsesConfig._create_tool_call_chunk(
             tool_use_definition={"id": "call_789", "type": "function", "function": {"name": "shell"}},
             tool_call_id="call_789",
             index=0,
@@ -1135,7 +1135,7 @@ class TestFunctionCallTransformation:
         ]
 
         # This should not raise an error (previously would raise "Invalid content type: <class 'NoneType'>")
-        messages = LiteLLMCompletionResponsesConfig._transform_response_input_param_to_chat_completion_message(
+        messages = EmbRouterCompletionResponsesConfig._transform_response_input_param_to_chat_completion_message(
             input=test_input
         )
 
@@ -1208,7 +1208,7 @@ class TestFunctionCallTransformation:
         responses_api_request = {"store": False, "tools": tools}
 
         # This should work without errors for non-OpenAI models
-        result = LiteLLMCompletionResponsesConfig.transform_responses_api_request_to_chat_completion_request(
+        result = EmbRouterCompletionResponsesConfig.transform_responses_api_request_to_chat_completion_request(
             model="gemini/gemini-2.0-flash",
             input=test_input,
             responses_api_request=responses_api_request,
@@ -1238,7 +1238,7 @@ class TestFunctionCallTransformation:
 
     def test_drops_tool_choice_when_no_tools(self):
         """Chat completions providers reject tool_choice when no tools are present."""
-        result = LiteLLMCompletionResponsesConfig.transform_responses_api_request_to_chat_completion_request(
+        result = EmbRouterCompletionResponsesConfig.transform_responses_api_request_to_chat_completion_request(
             model="azure_ai/grok-4.3",
             input="who are you?",
             responses_api_request={"tool_choice": "auto", "tools": []},
@@ -1249,7 +1249,7 @@ class TestFunctionCallTransformation:
         assert "tools" not in result
 
     def test_safety_identifier_forwarded_to_chat_completion_request(self) -> None:
-        result: Final = LiteLLMCompletionResponsesConfig.transform_responses_api_request_to_chat_completion_request(
+        result: Final = EmbRouterCompletionResponsesConfig.transform_responses_api_request_to_chat_completion_request(
             model="bedrock/global.openai.gpt-5.6-luna",
             input="hi",
             responses_api_request={"safety_identifier": "user-7f3a"},
@@ -1259,7 +1259,7 @@ class TestFunctionCallTransformation:
         assert result["safety_identifier"] == "user-7f3a"
 
     def test_parallel_tool_calls_dropped_when_no_chat_tools_remain(self) -> None:
-        transform: Final = LiteLLMCompletionResponsesConfig.transform_responses_api_request_to_chat_completion_request
+        transform: Final = EmbRouterCompletionResponsesConfig.transform_responses_api_request_to_chat_completion_request
         codex_tool_search: Final = {
             "type": "tool_search",
             "execution": "client",
@@ -1306,7 +1306,7 @@ class TestFunctionCallTransformation:
             "id": "fallback_id",  # Only has 'id', not 'call_id'
         }
 
-        result = LiteLLMCompletionResponsesConfig._transform_responses_api_function_call_to_chat_completion_message(
+        result = EmbRouterCompletionResponsesConfig._transform_responses_api_function_call_to_chat_completion_message(
             function_call=function_call_item
         )
 
@@ -1346,7 +1346,7 @@ class TestFunctionCallTransformation:
         ]
 
         try:
-            fixed_messages = LiteLLMCompletionResponsesConfig._ensure_tool_results_have_corresponding_tool_calls(
+            fixed_messages = EmbRouterCompletionResponsesConfig._ensure_tool_results_have_corresponding_tool_calls(
                 messages=messages_missing_tool_calls,
                 tools=None,
             )
@@ -1402,7 +1402,7 @@ class TestFunctionCallTransformation:
         ]
 
         try:
-            fixed_messages = LiteLLMCompletionResponsesConfig._ensure_tool_results_have_corresponding_tool_calls(
+            fixed_messages = EmbRouterCompletionResponsesConfig._ensure_tool_results_have_corresponding_tool_calls(
                 messages=messages_missing_tool_calls,
                 tools=None,
             )
@@ -1427,7 +1427,7 @@ class TestToolChoiceTransformation:
         Test that {"type": "tool"} is transformed to "required".
         This fixes the Anthropic error: "tool_choice.tool.name: Field required"
         """
-        result = LiteLLMCompletionResponsesConfig._transform_tool_choice(
+        result = EmbRouterCompletionResponsesConfig._transform_tool_choice(
             {"type": "tool"}
         )
         assert result == "required"
@@ -1435,13 +1435,13 @@ class TestToolChoiceTransformation:
     def test_transform_tool_choice_preserves_function_with_name(self):
         """Test that valid OpenAI format with function name passes through unchanged"""
         tool_choice = {"type": "function", "function": {"name": "my_tool"}}
-        result = LiteLLMCompletionResponsesConfig._transform_tool_choice(tool_choice)
+        result = EmbRouterCompletionResponsesConfig._transform_tool_choice(tool_choice)
         assert result == tool_choice
 
     def test_transform_tool_choice_responses_flat_function_name(self):
         """Responses-API forced-function with a top-level name maps to the nested Chat
         Completions shape instead of degrading to required and dropping the name"""
-        result = LiteLLMCompletionResponsesConfig._transform_tool_choice(
+        result = EmbRouterCompletionResponsesConfig._transform_tool_choice(
             {"type": "function", "name": "get_weather"}
         )
         assert result == {"type": "function", "function": {"name": "get_weather"}}
@@ -1453,30 +1453,30 @@ class TestToolChoiceTransformation:
         function tool_choice naming the same tool or it references a tool type absent
         from the converted request.
         """
-        flat = LiteLLMCompletionResponsesConfig._transform_tool_choice(
+        flat = EmbRouterCompletionResponsesConfig._transform_tool_choice(
             {"type": "custom", "name": "ApplyPatch"}
         )
         assert flat == {"type": "function", "function": {"name": "ApplyPatch"}}
 
-        nested = LiteLLMCompletionResponsesConfig._transform_tool_choice(
+        nested = EmbRouterCompletionResponsesConfig._transform_tool_choice(
             {"type": "custom", "custom": {"name": "ApplyPatch"}}
         )
         assert nested == {"type": "function", "function": {"name": "ApplyPatch"}}
 
     def test_transform_tool_choice_custom_without_name_falls_back_to_required(self):
-        result = LiteLLMCompletionResponsesConfig._transform_tool_choice({"type": "custom"})
+        result = EmbRouterCompletionResponsesConfig._transform_tool_choice({"type": "custom"})
         assert result == "required"
 
     def test_transform_tool_choice_function_without_name_falls_back_to_required(self):
         """A function-type dict with no name still falls back to required"""
-        result = LiteLLMCompletionResponsesConfig._transform_tool_choice(
+        result = EmbRouterCompletionResponsesConfig._transform_tool_choice(
             {"type": "function"}
         )
         assert result == "required"
 
     def test_transform_tool_choice_function_empty_name_falls_back_to_required(self):
         """An empty top-level name is falsy and must not produce an empty function name"""
-        result = LiteLLMCompletionResponsesConfig._transform_tool_choice(
+        result = EmbRouterCompletionResponsesConfig._transform_tool_choice(
             {"type": "function", "name": ""}
         )
         assert result == "required"
@@ -1502,7 +1502,7 @@ class TestToolChoiceTransformation:
     def test_transform_tool_choice_for_responses_api_response(
         self, request_tool_choice: object, expected: str | dict[str, str]
     ) -> None:
-        result: Final = LiteLLMCompletionResponsesConfig._transform_tool_choice_for_responses_api_response(
+        result: Final = EmbRouterCompletionResponsesConfig._transform_tool_choice_for_responses_api_response(
             request_tool_choice
         )
         assert result == expected
@@ -1532,7 +1532,7 @@ class TestToolChoiceTransformation:
             ],
         )
 
-        responses_api_response: Final = LiteLLMCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
+        responses_api_response: Final = EmbRouterCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
             request_input="Run the command pwd.",
             responses_api_request={"tool_choice": {"type": "function", "name": "run_command"}},
             chat_completion_response=chat_completion_response,
@@ -1555,7 +1555,7 @@ class TestToolChoiceTransformation:
             ],
         )
 
-        responses_api_response: Final = LiteLLMCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
+        responses_api_response: Final = EmbRouterCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
             request_input="Run the command pwd.",
             responses_api_request={"tool_choice": "any"},
             chat_completion_response=chat_completion_response,
@@ -1573,7 +1573,7 @@ class TestContentTypeTransformation:
         This fixes: Invalid user message - content type 'tool_result' not valid.
         """
         result = (
-            LiteLLMCompletionResponsesConfig._get_chat_completion_request_content_type(
+            EmbRouterCompletionResponsesConfig._get_chat_completion_request_content_type(
                 "tool_result"
             )
         )
@@ -1582,7 +1582,7 @@ class TestContentTypeTransformation:
     def test_input_text_content_type_transformed_to_text(self):
         """Test that 'input_text' content type is transformed to 'text'"""
         result = (
-            LiteLLMCompletionResponsesConfig._get_chat_completion_request_content_type(
+            EmbRouterCompletionResponsesConfig._get_chat_completion_request_content_type(
                 "input_text"
             )
         )
@@ -1599,7 +1599,7 @@ class TestContentTypeTransformation:
             {"type": "text", "text": None},  # Should be filtered out
             {"type": "text", "text": "another valid"},
         ]
-        result = LiteLLMCompletionResponsesConfig._transform_responses_api_content_to_chat_completion_content(
+        result = EmbRouterCompletionResponsesConfig._transform_responses_api_content_to_chat_completion_content(
             content
         )
         assert len(result) == 2
@@ -1620,7 +1620,7 @@ class TestContentTypeTransformation:
             },
         ]
 
-        result = LiteLLMCompletionResponsesConfig._transform_responses_api_content_to_chat_completion_content(
+        result = EmbRouterCompletionResponsesConfig._transform_responses_api_content_to_chat_completion_content(
             content
         )
 
@@ -1635,7 +1635,7 @@ class TestToolTransformation:
 
     def test_transform_vertex_ai_tools(self):
         """Test that Vertex AI tools are passed through as-is"""
-        from litellm.types.llms.vertex_ai import VertexToolName
+        from embrouter.types.llms.vertex_ai import VertexToolName
 
         # Create a Vertex AI tool using the enum value
         vertex_tool = {VertexToolName.CODE_EXECUTION.value: {}}
@@ -1646,7 +1646,7 @@ class TestToolTransformation:
         (
             result_tools,
             web_search_options,
-        ) = LiteLLMCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
+        ) = EmbRouterCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
             tools=tools
         )
 
@@ -1670,7 +1670,7 @@ class TestToolTransformation:
         (
             result_tools,
             web_search_options,
-        ) = LiteLLMCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
+        ) = EmbRouterCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
             tools=tools
         )
 
@@ -1700,7 +1700,7 @@ class TestToolTransformation:
         (
             result_tools,
             web_search_options,
-        ) = LiteLLMCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
+        ) = EmbRouterCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
             tools=tools
         )
 
@@ -1766,7 +1766,7 @@ class TestToolTransformation:
         (
             result_tools,
             web_search_options,
-        ) = LiteLLMCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(tools=codex_tools)
+        ) = EmbRouterCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(tools=codex_tools)
 
         assert not any(tool.get("type") == "tool_search" for tool in result_tools)
         assert all(tool.get("type") == "function" for tool in result_tools)
@@ -1777,7 +1777,7 @@ class TestToolTransformation:
         (
             result_tools,
             web_search_options,
-        ) = LiteLLMCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
+        ) = EmbRouterCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
             tools=[{"type": "local_shell"}]
         )
 
@@ -1803,7 +1803,7 @@ class TestToolTransformation:
         (
             result_tools,
             web_search_options,
-        ) = LiteLLMCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
+        ) = EmbRouterCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
             tools=tools
         )
 
@@ -1830,7 +1830,7 @@ class TestToolTransformation:
         (
             result_tools,
             web_search_options,
-        ) = LiteLLMCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
+        ) = EmbRouterCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
             tools=tools
         )
 
@@ -1856,7 +1856,7 @@ class TestToolTransformation:
         (
             result_tools,
             _,
-        ) = LiteLLMCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
+        ) = EmbRouterCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
             tools=tools
         )
 
@@ -1879,7 +1879,7 @@ class TestToolTransformation:
         (
             result_tools,
             _,
-        ) = LiteLLMCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
+        ) = EmbRouterCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
             tools=tools
         )
 
@@ -1900,7 +1900,7 @@ class TestToolTransformation:
         tools = [custom_tool]
 
         with pytest.raises(ValueError, match="allowed_callers must be a list of strings"):
-            LiteLLMCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
+            EmbRouterCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
                 tools=tools
             )
 
@@ -1918,7 +1918,7 @@ class TestToolTransformation:
         (
             result_tools,
             web_search_options,
-        ) = LiteLLMCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
+        ) = EmbRouterCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
             tools=tools
         )
 
@@ -1951,7 +1951,7 @@ class TestToolTransformation:
         (
             result_tools,
             web_search_options,
-        ) = LiteLLMCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
+        ) = EmbRouterCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
             tools=tools
         )
 
@@ -1983,7 +1983,7 @@ class TestToolTransformation:
         (
             result_tools,
             _,
-        ) = LiteLLMCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
+        ) = EmbRouterCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
             tools=tools
         )
 
@@ -2011,7 +2011,7 @@ class TestToolTransformation:
         (
             result_tools,
             _,
-        ) = LiteLLMCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
+        ) = EmbRouterCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
             tools=tools
         )
 
@@ -2036,7 +2036,7 @@ class TestToolTransformation:
             "eager_input_streaming": eager_input_streaming,
         }
 
-        result_tools, _ = LiteLLMCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
+        result_tools, _ = EmbRouterCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
             tools=[function_tool]
         )
 
@@ -2052,7 +2052,7 @@ class TestToolTransformation:
             "eager_input_streaming": eager_input_streaming,
         }
 
-        result_tools: Final = LiteLLMCompletionResponsesConfig.transform_chat_completion_tool_params_to_responses_api_tools(
+        result_tools: Final = EmbRouterCompletionResponsesConfig.transform_chat_completion_tool_params_to_responses_api_tools(
             [chat_tool]
         )
 
@@ -2071,7 +2071,7 @@ class TestToolTransformation:
         (
             result_tools,
             _,
-        ) = LiteLLMCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
+        ) = EmbRouterCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
             tools=tools
         )
 
@@ -2097,7 +2097,7 @@ class TestToolTransformation:
         (
             result_tools,
             _,
-        ) = LiteLLMCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
+        ) = EmbRouterCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
             tools=tools
         )
 
@@ -2108,7 +2108,7 @@ class TestToolTransformation:
 
     def test_transform_mixed_tools_list(self):
         """Test transforming a mixed list of different tool types"""
-        from litellm.types.llms.vertex_ai import VertexToolName
+        from embrouter.types.llms.vertex_ai import VertexToolName
 
         tools = [
             # Regular function tool with anthropic fields
@@ -2131,7 +2131,7 @@ class TestToolTransformation:
         (
             result_tools,
             web_search_options,
-        ) = LiteLLMCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
+        ) = EmbRouterCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
             tools=tools
         )
 
@@ -2168,7 +2168,7 @@ class TestToolTransformation:
         (
             result_tools,
             _,
-        ) = LiteLLMCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
+        ) = EmbRouterCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
             tools=tools
         )
 
@@ -2184,7 +2184,7 @@ class TestToolTransformation:
             {"type": "function", "name": "b", "parameters": {"type": "object", "properties": {}}},
         ]
 
-        result_tools, _ = LiteLLMCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
+        result_tools, _ = EmbRouterCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
             tools=tools
         )
 
@@ -2206,7 +2206,7 @@ class TestToolTransformation:
         (
             result_tools,
             _,
-        ) = LiteLLMCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
+        ) = EmbRouterCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
             tools=tools
         )
 
@@ -2229,7 +2229,7 @@ class TestToolTransformation:
         (
             result_tools,
             _,
-        ) = LiteLLMCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
+        ) = EmbRouterCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
             tools=tools
         )
 
@@ -2253,7 +2253,7 @@ class TestToolTransformation:
         (
             result_tools,
             _,
-        ) = LiteLLMCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
+        ) = EmbRouterCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
             tools=tools
         )
 
@@ -2271,14 +2271,14 @@ class TestToolTransformation:
         """
         Regression for LIT-3858: a Responses web_search tool becomes a derived
         web_search_options param. Bedrock Anthropic models do not support it, so on the
-        chat-completion bridge it must be dropped (so litellm doesn't raise
+        chat-completion bridge it must be dropped (so embrouter doesn't raise
         UnsupportedParamsError) without the caller setting drop_params.
         """
         responses_api_request = {
             "tools": [{"type": "web_search", "external_web_access": False}],
         }
 
-        result = LiteLLMCompletionResponsesConfig.transform_responses_api_request_to_chat_completion_request(
+        result = EmbRouterCompletionResponsesConfig.transform_responses_api_request_to_chat_completion_request(
             model="anthropic.claude-sonnet-4-5-20250929-v1:0",
             input="hi",
             responses_api_request=responses_api_request,
@@ -2297,7 +2297,7 @@ class TestToolTransformation:
             "tools": [{"type": "web_search", "external_web_access": False}],
         }
 
-        result = LiteLLMCompletionResponsesConfig.transform_responses_api_request_to_chat_completion_request(
+        result = EmbRouterCompletionResponsesConfig.transform_responses_api_request_to_chat_completion_request(
             model="bedrock/converse/us.anthropic.claude-sonnet-4-6",
             input="hi",
             responses_api_request=responses_api_request,
@@ -2312,7 +2312,7 @@ class TestToolTransformation:
             "tools": [{"type": "web_search", "search_context_size": "high"}],
         }
 
-        result = LiteLLMCompletionResponsesConfig.transform_responses_api_request_to_chat_completion_request(
+        result = EmbRouterCompletionResponsesConfig.transform_responses_api_request_to_chat_completion_request(
             model="amazon.nova-pro-v1:0",
             input="hi",
             responses_api_request=responses_api_request,
@@ -2327,7 +2327,7 @@ class TestToolTransformation:
             "tools": [{"type": "web_search", "search_context_size": "high"}],
         }
 
-        result = LiteLLMCompletionResponsesConfig.transform_responses_api_request_to_chat_completion_request(
+        result = EmbRouterCompletionResponsesConfig.transform_responses_api_request_to_chat_completion_request(
             model="gpt-4o",
             input="hi",
             responses_api_request=responses_api_request,
@@ -2346,7 +2346,7 @@ class TestToolTransformation:
             "tools": [{"type": "web_search", "search_context_size": "high"}],
         }
 
-        result = LiteLLMCompletionResponsesConfig.transform_responses_api_request_to_chat_completion_request(
+        result = EmbRouterCompletionResponsesConfig.transform_responses_api_request_to_chat_completion_request(
             model="command-r",
             input="hi",
             responses_api_request=responses_api_request,
@@ -2380,7 +2380,7 @@ class TestToolTransformation:
         }
 
         result_tools, web_search_options = (
-            LiteLLMCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
+            EmbRouterCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
                 tools=[namespace_tool]
             )
         )
@@ -2413,7 +2413,7 @@ class TestToolTransformation:
             ],
         }
 
-        result_tools, _ = LiteLLMCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
+        result_tools, _ = EmbRouterCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
             tools=[namespace_tool]
         )
 
@@ -2422,7 +2422,7 @@ class TestToolTransformation:
     def test_function_call_echo_requalifies_namespace_tool_name(self):
         """Codex echoes restored history items as short name plus namespace; the
         outbound chat tool_call must use the flattened name the provider was given."""
-        messages = LiteLLMCompletionResponsesConfig._transform_responses_api_function_call_to_chat_completion_message(
+        messages = EmbRouterCompletionResponsesConfig._transform_responses_api_function_call_to_chat_completion_message(
             function_call={
                 "type": "function_call",
                 "name": "get_sum",
@@ -2437,7 +2437,7 @@ class TestToolTransformation:
     def test_custom_tool_call_echo_keeps_short_name(self):
         """Custom tools stay advertised under their short name, so a namespace on
         a custom_tool_call echo is routing metadata and must not be prefixed."""
-        messages = LiteLLMCompletionResponsesConfig._transform_responses_api_function_call_to_chat_completion_message(
+        messages = EmbRouterCompletionResponsesConfig._transform_responses_api_function_call_to_chat_completion_message(
             function_call={
                 "type": "custom_tool_call",
                 "name": "apply_patch",
@@ -2467,7 +2467,7 @@ class TestToolTransformation:
             else {**function_tool, "type": "namespace"}
         )
 
-        result_tools, _ = LiteLLMCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
+        result_tools, _ = EmbRouterCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
             tools=[namespace_tool]
         )
 
@@ -2493,7 +2493,7 @@ class TestToolTransformation:
         )
 
         with pytest.raises(ValueError, match="allowed_callers must be a list of strings"):
-            LiteLLMCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
+            EmbRouterCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
                 tools=[namespace_tool]
             )
 
@@ -2516,7 +2516,7 @@ class TestToolTransformation:
         }
 
         result_tools, web_search_options = (
-            LiteLLMCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
+            EmbRouterCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
                 tools=[namespace_tool]
             )
         )
@@ -2543,7 +2543,7 @@ class TestToolTransformation:
             ],
         }
 
-        result = LiteLLMCompletionResponsesConfig.namespace_tool_name_map(
+        result = EmbRouterCompletionResponsesConfig.namespace_tool_name_map(
             [namespace_tool]
         )
 
@@ -2589,7 +2589,7 @@ class TestToolTransformation:
             },
         ]
 
-        result = LiteLLMCompletionResponsesConfig.namespace_tool_name_map(
+        result = EmbRouterCompletionResponsesConfig.namespace_tool_name_map(
             tools
         )
 
@@ -2614,7 +2614,7 @@ class TestToolTransformation:
             },
         ]
 
-        result = LiteLLMCompletionResponsesConfig.namespace_tool_name_map(tools)
+        result = EmbRouterCompletionResponsesConfig.namespace_tool_name_map(tools)
 
         assert result["admin__run"] == ("admin", "run")
         assert "run" not in result
@@ -2644,11 +2644,11 @@ class TestToolTransformation:
             ValueError,
             match="Top-level function names conflict with flattened namespace tools: admin__run",
         ):
-            LiteLLMCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(tools=tools)
+            EmbRouterCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(tools=tools)
 
 
     def test_restore_namespace_tool_name_leaves_unknown_tool_unchanged(self):
-        tool_name, namespace = LiteLLMCompletionResponsesConfig._restore_namespace_tool_name(
+        tool_name, namespace = EmbRouterCompletionResponsesConfig._restore_namespace_tool_name(
             "mcp__node_repl",
             {},
         )
@@ -2673,7 +2673,7 @@ class TestToolTransformation:
         }
 
         result_tools, _ = (
-            LiteLLMCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
+            EmbRouterCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
                 tools=[namespace_tool]
             )
         )
@@ -2701,7 +2701,7 @@ class TestToolTransformation:
         }
 
         result_tools, _ = (
-            LiteLLMCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
+            EmbRouterCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
                 tools=[namespace_tool]
             )
         )
@@ -2734,7 +2734,7 @@ class TestToolTransformation:
         """
         responses_api_request = {"reasoning": {"effort": "medium", "summary": "auto"}}
 
-        result = LiteLLMCompletionResponsesConfig.transform_responses_api_request_to_chat_completion_request(
+        result = EmbRouterCompletionResponsesConfig.transform_responses_api_request_to_chat_completion_request(
             model=model,
             input="hi",
             responses_api_request=responses_api_request,
@@ -2755,11 +2755,11 @@ class TestToolTransformation:
     def test_bridged_model_carries_the_summary_as_an_alias(self, model, custom_llm_provider):
         """
         ``summary`` reaches a bridged model through the ``reasoning_summary`` alias, never smuggled
-        inside ``reasoning_effort``. ``litellm.completion`` reads that alias back with
+        inside ``reasoning_effort``. ``embrouter.completion`` reads that alias back with
         ``peek_reasoning_summary_aliases`` and reassembles ``{effort, summary}``, so the far end
         gets the same object it always did while no chat provider ever sees a non-string effort.
         """
-        result = LiteLLMCompletionResponsesConfig.transform_responses_api_request_to_chat_completion_request(
+        result = EmbRouterCompletionResponsesConfig.transform_responses_api_request_to_chat_completion_request(
             model=model,
             input="hi",
             responses_api_request={"reasoning": {"effort": "medium", "summary": "auto"}},
@@ -2781,15 +2781,15 @@ class TestToolTransformation:
         """
         Regression for the probe disagreeing with the real decision. The transform asked
         ``responses_api_bridge_check`` with ``reasoning_summary`` taken straight off the Responses
-        object, but ``litellm.completion`` reads it from ``optional_params`` via
+        object, but ``embrouter.completion`` reads it from ``optional_params`` via
         ``peek_reasoning_summary_aliases``, which the bridged request never populated. So these
         models answered "bridging" to the probe and "not bridging" for real, and the object landed
         on Chat Completions, which only takes a string. Emitting the alias makes the two agree.
         """
-        from litellm.main import responses_api_bridge_check
-        from litellm.utils import get_optional_params, peek_reasoning_summary_aliases
+        from embrouter.main import responses_api_bridge_check
+        from embrouter.utils import get_optional_params, peek_reasoning_summary_aliases
 
-        result = LiteLLMCompletionResponsesConfig.transform_responses_api_request_to_chat_completion_request(
+        result = EmbRouterCompletionResponsesConfig.transform_responses_api_request_to_chat_completion_request(
             model=model,
             input="hi",
             responses_api_request={"reasoning": {"effort": "medium", "summary": "auto"}},
@@ -2815,14 +2815,14 @@ class TestToolTransformation:
         The probe is a capability question, so a model-info lookup blowing up must not fail the
         request. It degrades to the chat-safe form: a string effort and no alias.
         """
-        import litellm.main
+        import embrouter.main
 
         def _boom(**_kwargs):
             raise RuntimeError("model info unavailable")
 
-        monkeypatch.setattr(litellm.main, "responses_api_bridge_check", _boom)
+        monkeypatch.setattr(embrouter.main, "responses_api_bridge_check", _boom)
 
-        result = LiteLLMCompletionResponsesConfig.transform_responses_api_request_to_chat_completion_request(
+        result = EmbRouterCompletionResponsesConfig.transform_responses_api_request_to_chat_completion_request(
             model="gpt-5.4-pro",
             input="hi",
             responses_api_request={"reasoning": {"effort": "medium", "summary": "auto"}},
@@ -2847,7 +2847,7 @@ class TestToolTransformation:
         An object without ``effort`` carries nothing Chat Completions can use, so no
         ``reasoning_effort`` is sent at all (the bridge drops None-valued params).
         """
-        result = LiteLLMCompletionResponsesConfig.transform_responses_api_request_to_chat_completion_request(
+        result = EmbRouterCompletionResponsesConfig.transform_responses_api_request_to_chat_completion_request(
             model="anthropic.claude-sonnet-4-5-20250929-v1:0",
             input="hi",
             responses_api_request={"reasoning": reasoning},
@@ -2874,9 +2874,9 @@ class TestToolTransformation:
         token budget. Forwarding the object instead leaves ``thinking`` unset and the model never
         reasons, which is the failure this guards.
         """
-        from litellm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
+        from embrouter.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
 
-        bridged = LiteLLMCompletionResponsesConfig.transform_responses_api_request_to_chat_completion_request(
+        bridged = EmbRouterCompletionResponsesConfig.transform_responses_api_request_to_chat_completion_request(
             model=model,
             input="hi",
             responses_api_request={"reasoning": {"effort": "medium", "summary": "auto"}},
@@ -2896,7 +2896,7 @@ class TestToolTransformation:
         The derived web_search_options is dropped, and toolConfig contains only the function
         tool, never the web_search/image_generation/namespace built-ins as junk toolSpecs.
         """
-        from litellm.litellm_core_utils.prompt_templates.factory import (
+        from embrouter.embrouter_core_utils.prompt_templates.factory import (
             _bedrock_tools_pt,
         )
 
@@ -2915,7 +2915,7 @@ class TestToolTransformation:
             ],
         }
 
-        result = LiteLLMCompletionResponsesConfig.transform_responses_api_request_to_chat_completion_request(
+        result = EmbRouterCompletionResponsesConfig.transform_responses_api_request_to_chat_completion_request(
             model=model,
             input="hi",
             responses_api_request=responses_api_request,
@@ -2931,7 +2931,7 @@ class TestToolTransformation:
             if "toolSpec" in block
         ]
         assert names == ["noop"]
-        assert not any(name.startswith("litellm_unnamed_tool_") for name in names)
+        assert not any(name.startswith("embrouter_unnamed_tool_") for name in names)
 
 
 class TestUsageTransformation:
@@ -2966,7 +2966,7 @@ class TestUsageTransformation:
         )
 
         # Execute
-        response_usage = LiteLLMCompletionResponsesConfig._transform_chat_completion_usage_to_responses_usage(
+        response_usage = EmbRouterCompletionResponsesConfig._transform_chat_completion_usage_to_responses_usage(
             chat_completion_response=chat_completion_response
         )
 
@@ -3008,7 +3008,7 @@ class TestUsageTransformation:
         )
 
         # Execute
-        response_usage = LiteLLMCompletionResponsesConfig._transform_chat_completion_usage_to_responses_usage(
+        response_usage = EmbRouterCompletionResponsesConfig._transform_chat_completion_usage_to_responses_usage(
             chat_completion_response=chat_completion_response
         )
 
@@ -3033,7 +3033,7 @@ class TestUsageTransformation:
             ),
         )
 
-        response_usage = LiteLLMCompletionResponsesConfig._transform_chat_completion_usage_to_responses_usage(
+        response_usage = EmbRouterCompletionResponsesConfig._transform_chat_completion_usage_to_responses_usage(
             chat_completion_response=usage
         )
 
@@ -3060,7 +3060,7 @@ class TestUsageTransformation:
             completion_tokens_details=CompletionTokensDetailsWrapper(text_tokens=10),
         )
 
-        response_usage = LiteLLMCompletionResponsesConfig._transform_chat_completion_usage_to_responses_usage(
+        response_usage = EmbRouterCompletionResponsesConfig._transform_chat_completion_usage_to_responses_usage(
             chat_completion_response=usage
         )
         details = response_usage.input_tokens_details
@@ -3069,7 +3069,7 @@ class TestUsageTransformation:
         assert getattr(details, "video_tokens", None) == 50
         assert getattr(details, "audio_tokens", None) == 80
 
-        from litellm.responses.utils import ResponseAPILoggingUtils
+        from embrouter.responses.utils import ResponseAPILoggingUtils
 
         back = ResponseAPILoggingUtils._transform_response_api_usage_to_chat_usage(response_usage.model_dump())
         assert back.prompt_tokens_details.image_tokens == 150
@@ -3104,7 +3104,7 @@ class TestUsageTransformation:
         )
 
         # Execute
-        response_usage = LiteLLMCompletionResponsesConfig._transform_chat_completion_usage_to_responses_usage(
+        response_usage = EmbRouterCompletionResponsesConfig._transform_chat_completion_usage_to_responses_usage(
             chat_completion_response=chat_completion_response
         )
 
@@ -3147,7 +3147,7 @@ class TestUsageTransformation:
         )
 
         # Execute
-        response_usage = LiteLLMCompletionResponsesConfig._transform_chat_completion_usage_to_responses_usage(
+        response_usage = EmbRouterCompletionResponsesConfig._transform_chat_completion_usage_to_responses_usage(
             chat_completion_response=chat_completion_response
         )
 
@@ -3195,7 +3195,7 @@ class TestUsageTransformation:
         )
 
         # Execute
-        response_usage = LiteLLMCompletionResponsesConfig._transform_chat_completion_usage_to_responses_usage(
+        response_usage = EmbRouterCompletionResponsesConfig._transform_chat_completion_usage_to_responses_usage(
             chat_completion_response=chat_completion_response
         )
 
@@ -3229,7 +3229,7 @@ class TestUsageTransformation:
         )
 
         # Execute
-        response_usage = LiteLLMCompletionResponsesConfig._transform_chat_completion_usage_to_responses_usage(
+        response_usage = EmbRouterCompletionResponsesConfig._transform_chat_completion_usage_to_responses_usage(
             chat_completion_response=chat_completion_response
         )
 
@@ -3272,7 +3272,7 @@ class TestUsageTransformation:
         )
 
         # Execute
-        response_usage = LiteLLMCompletionResponsesConfig._transform_chat_completion_usage_to_responses_usage(
+        response_usage = EmbRouterCompletionResponsesConfig._transform_chat_completion_usage_to_responses_usage(
             chat_completion_response=chat_completion_response
         )
 
@@ -3312,7 +3312,7 @@ class TestUsageTransformation:
             ],
         )
 
-        response_usage = LiteLLMCompletionResponsesConfig._transform_chat_completion_usage_to_responses_usage(
+        response_usage = EmbRouterCompletionResponsesConfig._transform_chat_completion_usage_to_responses_usage(
             chat_completion_response=chat_completion_response
         )
 
@@ -3348,7 +3348,7 @@ class TestUsageTransformation:
             ],
         )
 
-        response_usage = LiteLLMCompletionResponsesConfig._transform_chat_completion_usage_to_responses_usage(
+        response_usage = EmbRouterCompletionResponsesConfig._transform_chat_completion_usage_to_responses_usage(
             chat_completion_response=chat_completion_response
         )
 
@@ -3381,7 +3381,7 @@ class TestUsageTransformation:
             ],
         )
 
-        response_usage = LiteLLMCompletionResponsesConfig._transform_chat_completion_usage_to_responses_usage(
+        response_usage = EmbRouterCompletionResponsesConfig._transform_chat_completion_usage_to_responses_usage(
             chat_completion_response=chat_completion_response
         )
 
@@ -3401,21 +3401,21 @@ class TestStreamingIDConsistency:
         """
         from unittest.mock import Mock
 
-        import litellm
-        from litellm.responses.litellm_completion_transformation.streaming_iterator import (
-            LiteLLMCompletionStreamingIterator,
+        import embrouter
+        from embrouter.responses.embrouter_completion_transformation.streaming_iterator import (
+            EmbRouterCompletionStreamingIterator,
         )
-        from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices
+        from embrouter.types.utils import Delta, ModelResponseStream, StreamingChoices
 
         # Create a mock stream wrapper
-        mock_stream_wrapper = Mock(spec=litellm.CustomStreamWrapper)
+        mock_stream_wrapper = Mock(spec=embrouter.CustomStreamWrapper)
         mock_logging_obj = Mock()
         mock_stream_wrapper.logging_obj = mock_logging_obj
 
         # Create the streaming iterator
-        iterator = LiteLLMCompletionStreamingIterator(
+        iterator = EmbRouterCompletionStreamingIterator(
             model="gemini/gemini-2.5-flash-lite",
-            litellm_custom_stream_wrapper=mock_stream_wrapper,
+            embrouter_custom_stream_wrapper=mock_stream_wrapper,
             request_input="Say Hello World",
             responses_api_request={},
             custom_llm_provider="gemini",
@@ -3500,20 +3500,20 @@ class TestStreamingIDConsistency:
         """
         from unittest.mock import Mock
 
-        import litellm
-        from litellm.responses.litellm_completion_transformation.streaming_iterator import (
-            LiteLLMCompletionStreamingIterator,
+        import embrouter
+        from embrouter.responses.embrouter_completion_transformation.streaming_iterator import (
+            EmbRouterCompletionStreamingIterator,
         )
 
         # Create a mock stream wrapper
-        mock_stream_wrapper = Mock(spec=litellm.CustomStreamWrapper)
+        mock_stream_wrapper = Mock(spec=embrouter.CustomStreamWrapper)
         mock_logging_obj = Mock()
         mock_stream_wrapper.logging_obj = mock_logging_obj
 
         # Create the streaming iterator
-        iterator = LiteLLMCompletionStreamingIterator(
+        iterator = EmbRouterCompletionStreamingIterator(
             model="gemini/gemini-2.5-flash-lite",
-            litellm_custom_stream_wrapper=mock_stream_wrapper,
+            embrouter_custom_stream_wrapper=mock_stream_wrapper,
             request_input="Test",
             responses_api_request={},
         )
@@ -3544,22 +3544,22 @@ class TestStreamingIDConsistency:
         """
         from unittest.mock import Mock
 
-        import litellm
-        from litellm.responses.litellm_completion_transformation.streaming_iterator import (
-            LiteLLMCompletionStreamingIterator,
+        import embrouter
+        from embrouter.responses.embrouter_completion_transformation.streaming_iterator import (
+            EmbRouterCompletionStreamingIterator,
         )
-        from litellm.types.utils import Choices, Message, ModelResponse
+        from embrouter.types.utils import Choices, Message, ModelResponse
 
         # Create a mock stream wrapper
-        mock_stream_wrapper = Mock(spec=litellm.CustomStreamWrapper)
+        mock_stream_wrapper = Mock(spec=embrouter.CustomStreamWrapper)
         mock_logging_obj = Mock()
         mock_stream_wrapper.logging_obj = mock_logging_obj
         mock_logging_obj._response_cost_calculator = Mock(return_value=0.001)
 
         # Create the streaming iterator
-        iterator = LiteLLMCompletionStreamingIterator(
+        iterator = EmbRouterCompletionStreamingIterator(
             model="gemini/gemini-2.5-flash-lite",
-            litellm_custom_stream_wrapper=mock_stream_wrapper,
+            embrouter_custom_stream_wrapper=mock_stream_wrapper,
             request_input="Test",
             responses_api_request={},
         )
@@ -3578,7 +3578,7 @@ class TestStreamingIDConsistency:
                 )
             ],
         )
-        iterator.litellm_model_response = complete_response
+        iterator.embrouter_model_response = complete_response
 
         # Create done events
         text_done_event = iterator.create_output_text_done_event(complete_response)
@@ -3640,7 +3640,7 @@ class TestStreamingIDConsistency:
             {"type": "function_call_output", "call_id": "toolu_02", "output": "55°F"},
         ]
 
-        messages = LiteLLMCompletionResponsesConfig._transform_response_input_param_to_chat_completion_message(
+        messages = EmbRouterCompletionResponsesConfig._transform_response_input_param_to_chat_completion_message(
             input=input_items
         )
 
@@ -3710,7 +3710,7 @@ class TestStreamingIDConsistency:
             {"type": "function_call_output", "call_id": "toolu_01", "output": "72°F"},
         ]
 
-        messages = LiteLLMCompletionResponsesConfig._transform_response_input_param_to_chat_completion_message(
+        messages = EmbRouterCompletionResponsesConfig._transform_response_input_param_to_chat_completion_message(
             input=input_items
         )
 
@@ -3740,7 +3740,7 @@ class TestStreamingIDConsistency:
 
 
 class TestCompletedResponseLatchedOnStreamEnd:
-    """Regression: LiteLLMCompletionStreamingIterator (the Chat Completions
+    """Regression: EmbRouterCompletionStreamingIterator (the Chat Completions
     bridge path) never set ``self.completed_response`` because it overrides
     __anext__ and bypasses the base class's _process_chunk where that
     attribute is normally latched. FallbackResponsesStreamWrapper reads
@@ -3751,29 +3751,29 @@ class TestCompletedResponseLatchedOnStreamEnd:
     the terminal response.completed event never propagates correctly."""
 
     def _make_iterator_with_stop(self, model_response):
-        """Build a LiteLLMCompletionStreamingIterator whose underlying
+        """Build a EmbRouterCompletionStreamingIterator whose underlying
         CustomStreamWrapper raises StopAsyncIteration immediately (simulating
         a stream that already delivered all content chunks)."""
         from unittest.mock import Mock
 
-        import litellm
-        from litellm.responses.litellm_completion_transformation.streaming_iterator import (
-            LiteLLMCompletionStreamingIterator,
+        import embrouter
+        from embrouter.responses.embrouter_completion_transformation.streaming_iterator import (
+            EmbRouterCompletionStreamingIterator,
         )
 
-        mock_wrapper = Mock(spec=litellm.CustomStreamWrapper)
+        mock_wrapper = Mock(spec=embrouter.CustomStreamWrapper)
         mock_wrapper.logging_obj = Mock()
         mock_wrapper.logging_obj._response_cost_calculator = Mock(return_value=0.0)
         mock_wrapper.__aiter__ = Mock(return_value=mock_wrapper)
         mock_wrapper.__anext__ = Mock(side_effect=StopAsyncIteration)
 
-        iterator = LiteLLMCompletionStreamingIterator(
+        iterator = EmbRouterCompletionStreamingIterator(
             model="deepseek/deepseek-chat",
-            litellm_custom_stream_wrapper=mock_wrapper,
+            embrouter_custom_stream_wrapper=mock_wrapper,
             request_input="test",
             responses_api_request={},
         )
-        iterator.litellm_model_response = model_response
+        iterator.embrouter_model_response = model_response
         return iterator
 
     def test_completed_response_set_after_common_done_event_logic(self):
@@ -3781,7 +3781,7 @@ class TestCompletedResponseLatchedOnStreamEnd:
         latch it onto self.completed_response so downstream wrappers can
         read it. Before the fix the event was returned but
         completed_response stayed None."""
-        from litellm.types.utils import Choices, Message, ModelResponse
+        from embrouter.types.utils import Choices, Message, ModelResponse
 
         complete_response = ModelResponse(
             id="resp_test",
@@ -3812,7 +3812,7 @@ class TestCompletedResponseLatchedOnStreamEnd:
         results = asyncio.run(drain())
         assert len(results) > 0
         assert iterator.completed_response is not None, (
-            "LiteLLMCompletionStreamingIterator.completed_response is still None "
+            "EmbRouterCompletionStreamingIterator.completed_response is still None "
             "after common_done_event_logic ran — downstream wrappers and the "
             "proxy container-ownership hook will see no terminal event"
         )
@@ -3834,7 +3834,7 @@ class TestFallbackWrapperStopAsyncIterationFallback:
         import asyncio
         from types import SimpleNamespace
 
-        from litellm.router import Router
+        from embrouter.router import Router
 
         source = SimpleNamespace(
             response=None,
@@ -3842,7 +3842,7 @@ class TestFallbackWrapperStopAsyncIterationFallback:
             logging_obj=None,
             responses_api_provider_config=None,
             start_time=None,
-            litellm_metadata=None,
+            embrouter_metadata=None,
             custom_llm_provider="deepseek",
             request_data={},
             call_type="aresponses",
@@ -3862,7 +3862,7 @@ class TestFallbackWrapperStopAsyncIterationFallback:
                 model_list=[
                     {
                         "model_name": "deepseek/deepseek-chat",
-                        "litellm_params": {"model": "deepseek/deepseek-chat", "api_key": "sk-test"},
+                        "embrouter_params": {"model": "deepseek/deepseek-chat", "api_key": "sk-test"},
                     }
                 ]
             )
@@ -3893,13 +3893,13 @@ class TestEnsureOutputItemContentPartAdded:
     output_item.added for message items."""
 
     def _make_iterator(self):
-        """Create a minimal LiteLLMCompletionStreamingIterator for testing."""
-        from litellm.responses.litellm_completion_transformation.streaming_iterator import (
-            LiteLLMCompletionStreamingIterator,
+        """Create a minimal EmbRouterCompletionStreamingIterator for testing."""
+        from embrouter.responses.embrouter_completion_transformation.streaming_iterator import (
+            EmbRouterCompletionStreamingIterator,
         )
 
-        iterator = LiteLLMCompletionStreamingIterator.__new__(
-            LiteLLMCompletionStreamingIterator
+        iterator = EmbRouterCompletionStreamingIterator.__new__(
+            EmbRouterCompletionStreamingIterator
         )
         iterator.sent_output_item_added_event = False
         iterator.sent_content_part_added_event = False
@@ -3918,7 +3918,7 @@ class TestEnsureOutputItemContentPartAdded:
         iterator._final_tool_events_queued = False
         iterator._custom_tool_names = set()
         iterator.responses_api_request = {}
-        iterator._namespace_tool_names = LiteLLMCompletionResponsesConfig.namespace_tool_name_map(None)
+        iterator._namespace_tool_names = EmbRouterCompletionResponsesConfig.namespace_tool_name_map(None)
         iterator._web_search_calls = {}
         iterator._queued_web_search_call_ids = set()
         return iterator
@@ -3947,7 +3947,7 @@ class TestEnsureOutputItemContentPartAdded:
 
     def test_message_item_emits_content_part_added(self):
         """content_part.added must follow output_item.added for message items."""
-        from litellm.types.llms.openai import (
+        from embrouter.types.llms.openai import (
             ContentPartAddedEvent,
             OutputItemAddedEvent,
             ResponsesAPIStreamEvents,
@@ -3987,7 +3987,7 @@ class TestEnsureOutputItemContentPartAdded:
             ]
         }
 
-        iterator._namespace_tool_names = LiteLLMCompletionResponsesConfig.namespace_tool_name_map(
+        iterator._namespace_tool_names = EmbRouterCompletionResponsesConfig.namespace_tool_name_map(
             iterator.responses_api_request.get("tools")
         )
 
@@ -4009,7 +4009,7 @@ class TestEnsureOutputItemContentPartAdded:
         assert added.item.namespace == "collaboration"
 
     def test_streaming_nested_custom_tool_call_comes_back_as_custom_tool_call(self):
-        from litellm.responses.litellm_completion_transformation.custom_tools import extract_custom_tool_names
+        from embrouter.responses.embrouter_completion_transformation.custom_tools import extract_custom_tool_names
 
         iterator = self._make_iterator()
         iterator.responses_api_request = {
@@ -4028,7 +4028,7 @@ class TestEnsureOutputItemContentPartAdded:
             ]
         }
         iterator._custom_tool_names = extract_custom_tool_names(iterator.responses_api_request.get("tools"))
-        iterator._namespace_tool_names = LiteLLMCompletionResponsesConfig.namespace_tool_name_map(
+        iterator._namespace_tool_names = EmbRouterCompletionResponsesConfig.namespace_tool_name_map(
             iterator.responses_api_request.get("tools")
         )
 
@@ -4069,7 +4069,7 @@ class TestEnsureOutputItemContentPartAdded:
         assert done.item.input == "ls"
 
     def test_streaming_namespaced_function_sharing_a_nested_custom_short_name_stays_a_function_call(self):
-        from litellm.responses.litellm_completion_transformation.custom_tools import extract_custom_tool_names
+        from embrouter.responses.embrouter_completion_transformation.custom_tools import extract_custom_tool_names
 
         iterator = self._make_iterator()
         iterator.responses_api_request = {
@@ -4099,7 +4099,7 @@ class TestEnsureOutputItemContentPartAdded:
             ]
         }
         iterator._custom_tool_names = extract_custom_tool_names(iterator.responses_api_request.get("tools"))
-        iterator._namespace_tool_names = LiteLLMCompletionResponsesConfig.namespace_tool_name_map(
+        iterator._namespace_tool_names = EmbRouterCompletionResponsesConfig.namespace_tool_name_map(
             iterator.responses_api_request.get("tools")
         )
         function_call = {"id": "call_fn", "function": {"name": "beta__run", "arguments": '{"job_id":"42"}'}}
@@ -4164,7 +4164,7 @@ class TestEnsureOutputItemContentPartAdded:
             ]
         }
 
-        iterator._namespace_tool_names = LiteLLMCompletionResponsesConfig.namespace_tool_name_map(
+        iterator._namespace_tool_names = EmbRouterCompletionResponsesConfig.namespace_tool_name_map(
             iterator.responses_api_request.get("tools")
         )
 
@@ -4201,7 +4201,7 @@ class TestEnsureOutputItemContentPartAdded:
             ]
         }
 
-        iterator._namespace_tool_names = LiteLLMCompletionResponsesConfig.namespace_tool_name_map(
+        iterator._namespace_tool_names = EmbRouterCompletionResponsesConfig.namespace_tool_name_map(
             iterator.responses_api_request.get("tools")
         )
 
@@ -4273,7 +4273,7 @@ class TestEnsureOutputItemContentPartAdded:
                 }
             ]
         }
-        iterator._namespace_tool_names = LiteLLMCompletionResponsesConfig.namespace_tool_name_map(
+        iterator._namespace_tool_names = EmbRouterCompletionResponsesConfig.namespace_tool_name_map(
             iterator.responses_api_request.get("tools")
         )
 
@@ -4320,7 +4320,7 @@ class TestEnsureOutputItemContentPartAdded:
             ]
         }
 
-        iterator._namespace_tool_names = LiteLLMCompletionResponsesConfig.namespace_tool_name_map(
+        iterator._namespace_tool_names = EmbRouterCompletionResponsesConfig.namespace_tool_name_map(
             iterator.responses_api_request.get("tools")
         )
 
@@ -4342,8 +4342,8 @@ class TestEnsureOutputItemContentPartAdded:
     def test_streaming_namespace_map_is_built_once(self):
         from unittest.mock import MagicMock, patch
 
-        from litellm.responses.litellm_completion_transformation.streaming_iterator import (
-            LiteLLMCompletionStreamingIterator,
+        from embrouter.responses.embrouter_completion_transformation.streaming_iterator import (
+            EmbRouterCompletionStreamingIterator,
         )
 
         mock_stream_wrapper = MagicMock()
@@ -4365,13 +4365,13 @@ class TestEnsureOutputItemContentPartAdded:
         }
 
         with patch.object(
-            LiteLLMCompletionResponsesConfig,
+            EmbRouterCompletionResponsesConfig,
             "namespace_tool_name_map",
-            wraps=LiteLLMCompletionResponsesConfig.namespace_tool_name_map,
+            wraps=EmbRouterCompletionResponsesConfig.namespace_tool_name_map,
         ) as namespace_map:
-            iterator = LiteLLMCompletionStreamingIterator(
+            iterator = EmbRouterCompletionStreamingIterator(
                 model="test-model",
-                litellm_custom_stream_wrapper=mock_stream_wrapper,
+                embrouter_custom_stream_wrapper=mock_stream_wrapper,
                 request_input="test",
                 responses_api_request=request,
             )
@@ -4389,23 +4389,23 @@ class TestEnsureOutputItemContentPartAdded:
         """
         from unittest.mock import Mock
 
-        import litellm
-        from litellm.responses.litellm_completion_transformation.streaming_iterator import (
-            LiteLLMCompletionStreamingIterator,
+        import embrouter
+        from embrouter.responses.embrouter_completion_transformation.streaming_iterator import (
+            EmbRouterCompletionStreamingIterator,
         )
 
-        mock_stream_wrapper = Mock(spec=litellm.CustomStreamWrapper)
+        mock_stream_wrapper = Mock(spec=embrouter.CustomStreamWrapper)
         mock_stream_wrapper.logging_obj = Mock()
 
-        iterator = LiteLLMCompletionStreamingIterator(
+        iterator = EmbRouterCompletionStreamingIterator(
             model="anthropic/claude-sonnet-4-6",
-            litellm_custom_stream_wrapper=mock_stream_wrapper,
+            embrouter_custom_stream_wrapper=mock_stream_wrapper,
             request_input="test",
             responses_api_request={},
             custom_llm_provider="anthropic",
         )
 
-        litellm_model_response = ModelResponse(
+        embrouter_model_response = ModelResponse(
             id="chatcmpl-test",
             created=1234567890,
             model="anthropic/claude-sonnet-4-6",
@@ -4421,7 +4421,7 @@ class TestEnsureOutputItemContentPartAdded:
         )
 
         completed_event = iterator._emit_response_completed_event(
-            litellm_model_response
+            embrouter_model_response
         )
 
         assert completed_event is not None
@@ -4430,7 +4430,7 @@ class TestEnsureOutputItemContentPartAdded:
 
     def test_reasoning_item_does_not_emit_content_part_added(self):
         """Reasoning items should not get a content_part.added event."""
-        from litellm.types.llms.openai import OutputItemAddedEvent
+        from embrouter.types.llms.openai import OutputItemAddedEvent
 
         iterator = self._make_iterator()
         chunk = self._make_reasoning_chunk()
@@ -4465,7 +4465,7 @@ class TestCacheControlPreservation:
                 "cache_control": {"type": "ephemeral"},
             }
         ]
-        result = LiteLLMCompletionResponsesConfig._transform_responses_api_content_to_chat_completion_content(
+        result = EmbRouterCompletionResponsesConfig._transform_responses_api_content_to_chat_completion_content(
             content
         )
         assert isinstance(result, list)
@@ -4475,7 +4475,7 @@ class TestCacheControlPreservation:
     def test_content_without_cache_control_unaffected(self):
         """Content blocks that don't have cache_control should be unaffected."""
         content = [{"type": "text", "text": "hello"}]
-        result = LiteLLMCompletionResponsesConfig._transform_responses_api_content_to_chat_completion_content(
+        result = EmbRouterCompletionResponsesConfig._transform_responses_api_content_to_chat_completion_content(
             content
         )
         assert isinstance(result, list)
@@ -4494,7 +4494,7 @@ class TestCacheControlPreservation:
                 }
             ],
         }
-        messages = LiteLLMCompletionResponsesConfig._transform_responses_api_input_item_to_chat_completion_message(
+        messages = EmbRouterCompletionResponsesConfig._transform_responses_api_input_item_to_chat_completion_message(
             input_item
         )
         assert len(messages) == 1
@@ -4514,7 +4514,7 @@ class TestCacheControlPreservation:
                 "cache_control": {"type": "ephemeral"},
             }
         ]
-        result = LiteLLMCompletionResponsesConfig._transform_responses_api_content_to_chat_completion_content(
+        result = EmbRouterCompletionResponsesConfig._transform_responses_api_content_to_chat_completion_content(
             content
         )
         assert isinstance(result, list)
@@ -4529,7 +4529,7 @@ class TestCacheControlPreservation:
                 "cache_control": {"type": "ephemeral"},
             }
         ]
-        result = LiteLLMCompletionResponsesConfig._transform_responses_api_content_to_chat_completion_content(
+        result = EmbRouterCompletionResponsesConfig._transform_responses_api_content_to_chat_completion_content(
             content
         )
         assert isinstance(result, list)
@@ -4548,7 +4548,7 @@ def test_function_call_tool_id_falls_back_to_unique_id_for_degenerate_call_id():
     from types import SimpleNamespace
 
     convert = (
-        LiteLLMCompletionResponsesConfig.convert_response_function_tool_call_to_chat_completion_tool_call
+        EmbRouterCompletionResponsesConfig.convert_response_function_tool_call_to_chat_completion_tool_call
     )
 
     mantle = SimpleNamespace(
@@ -4589,7 +4589,7 @@ class TestHostedWebSearchReplay:
             ],
             provider_specific_fields={"web_search_calls": [search], "web_search_results": [search_result]},
         )
-        response: Final = LiteLLMCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
+        response: Final = EmbRouterCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
             request_input="Find a forecast source and check the weather in Paris.",
             responses_api_request={
                 "tools": [
@@ -4610,7 +4610,7 @@ class TestHostedWebSearchReplay:
         ]
         original: Final = deepcopy(history)
 
-        messages: Final = LiteLLMCompletionResponsesConfig.transform_responses_api_input_to_messages(
+        messages: Final = EmbRouterCompletionResponsesConfig.transform_responses_api_input_to_messages(
             input=history, responses_api_request={}
         )
 
@@ -4658,7 +4658,7 @@ class TestHostedWebSearchReplay:
         input_item: Final = search.model_dump(exclude_none=True)
         original: Final = deepcopy(input_item)
 
-        messages: Final = LiteLLMCompletionResponsesConfig._transform_responses_api_input_item_to_chat_completion_message(
+        messages: Final = EmbRouterCompletionResponsesConfig._transform_responses_api_input_item_to_chat_completion_message(
             input_item=input_item
         )
 
@@ -4681,7 +4681,7 @@ class TestHostedWebSearchReplay:
         modify_params: bool,
         structured_content: bool,
     ) -> None:
-        monkeypatch.setattr(litellm, "modify_params", modify_params)
+        monkeypatch.setattr(embrouter, "modify_params", modify_params)
         searches: Final = tuple(
             ResponseFunctionWebSearch(
                 id=f"ws_search_{index}",
@@ -4722,7 +4722,7 @@ class TestHostedWebSearchReplay:
         ]
         original: Final = deepcopy(history)
 
-        messages: Final = LiteLLMCompletionResponsesConfig.transform_responses_api_input_to_messages(
+        messages: Final = EmbRouterCompletionResponsesConfig.transform_responses_api_input_to_messages(
             input=history, responses_api_request={}
         )
 
@@ -4802,7 +4802,7 @@ class TestBridgedOutputItemIdPrefixes:
     """
 
     def _transform(self, chat_completion_response):
-        return LiteLLMCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
+        return EmbRouterCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
             request_input="Say the single word: apple",
             responses_api_request={},
             chat_completion_response=chat_completion_response,
@@ -4885,7 +4885,7 @@ class TestBridgedOutputItemIdPrefixes:
             if tool_type == "function"
             else [{"type": tool_type}]
         )
-        response: Final = LiteLLMCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
+        response: Final = EmbRouterCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
             request_input="search",
             responses_api_request={"tools": request_tools},
             chat_completion_response=_bridged_chat_completion_response(
@@ -4933,7 +4933,7 @@ class TestBridgedOutputItemIdPrefixes:
         message = Message(role="assistant", content="apple")
         message.reasoning_content = "thinking about fruit"
         choice = Choices(index=0, finish_reason="stop", message=message)
-        return LiteLLMCompletionResponsesConfig._extract_reasoning_output_items(
+        return EmbRouterCompletionResponsesConfig._extract_reasoning_output_items(
             chat_completion_response=_bridged_chat_completion_response(),
             choices=[choice],
         )
@@ -4964,23 +4964,23 @@ class TestStreamingSnapshotItemIds:
     def _make_iterator(self):
         from unittest.mock import Mock
 
-        import litellm
-        from litellm.responses.litellm_completion_transformation.streaming_iterator import (
-            LiteLLMCompletionStreamingIterator,
+        import embrouter
+        from embrouter.responses.embrouter_completion_transformation.streaming_iterator import (
+            EmbRouterCompletionStreamingIterator,
         )
 
-        mock_stream_wrapper = Mock(spec=litellm.CustomStreamWrapper)
+        mock_stream_wrapper = Mock(spec=embrouter.CustomStreamWrapper)
         mock_stream_wrapper.logging_obj = Mock()
-        return LiteLLMCompletionStreamingIterator(
+        return EmbRouterCompletionStreamingIterator(
             model="anthropic/claude-sonnet-4-5",
-            litellm_custom_stream_wrapper=mock_stream_wrapper,
+            embrouter_custom_stream_wrapper=mock_stream_wrapper,
             request_input="Say the single word: apple",
             responses_api_request={},
             custom_llm_provider="anthropic",
         )
 
     def _make_chunk(self, content):
-        from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices
+        from embrouter.types.utils import Delta, ModelResponseStream, StreamingChoices
 
         return ModelResponseStream(
             id=BRIDGED_CHAT_COMPLETION_ID,
@@ -5040,7 +5040,7 @@ class TestStreamingSnapshotItemIds:
             assert not item.id.startswith("chatcmpl-")
 
     def _make_reasoning_chunk(self, reasoning_content):
-        from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices
+        from embrouter.types.utils import Delta, ModelResponseStream, StreamingChoices
 
         return ModelResponseStream(
             id=BRIDGED_CHAT_COMPLETION_ID,
@@ -5098,14 +5098,14 @@ class TestStreamingSnapshotItemIds:
 
 
 def test_transform_chat_completion_response_incomplete_details():
-    from litellm.types.llms.openai import IncompleteDetails
+    from embrouter.types.llms.openai import IncompleteDetails
 
     resp_length = ModelResponse(
         id="resp-length",
         choices=[Choices(index=0, finish_reason="length", message=Message(content="cutoff", role="assistant"))],
         model="gpt-4o",
     )
-    result_length = LiteLLMCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
+    result_length = EmbRouterCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
         request_input="test prompt",
         responses_api_request={},
         chat_completion_response=resp_length,
@@ -5119,7 +5119,7 @@ def test_transform_chat_completion_response_incomplete_details():
         choices=[Choices(index=0, finish_reason="content_filter", message=Message(content=None, role="assistant"))],
         model="gpt-4o",
     )
-    result_filter = LiteLLMCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
+    result_filter = EmbRouterCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
         request_input="test prompt",
         responses_api_request={},
         chat_completion_response=resp_filter,
@@ -5133,7 +5133,7 @@ def test_transform_chat_completion_response_incomplete_details():
         choices=[Choices(index=0, finish_reason="refusal", message=Message(content=None, role="assistant"))],
         model="gpt-4o",
     )
-    result_refusal = LiteLLMCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
+    result_refusal = EmbRouterCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
         request_input="test prompt",
         responses_api_request={},
         chat_completion_response=resp_refusal,
@@ -5149,7 +5149,7 @@ def test_transform_chat_completion_response_incomplete_details():
         model="gpt-4o",
     )
     resp_existing.incomplete_details = existing_details
-    result_existing = LiteLLMCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
+    result_existing = EmbRouterCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
         request_input="test prompt",
         responses_api_request={},
         chat_completion_response=resp_existing,
@@ -5160,8 +5160,8 @@ def test_transform_chat_completion_response_incomplete_details():
 
 @pytest.mark.parametrize("stream", [True, False])
 async def test_bridge_rejects_untranslatable_tool_choice_with_a_400(stream: bool):
-    with pytest.raises(litellm.BadRequestError) as exc_info:
-        await litellm.aresponses(
+    with pytest.raises(embrouter.BadRequestError) as exc_info:
+        await embrouter.aresponses(
             model="anthropic/claude-haiku-4-5",
             input="Which fruit is red?",
             tools=[{"type": "function", "name": "lookup_fruit", "parameters": {"type": "object"}}],

@@ -1,4 +1,4 @@
-"""Bridge token flow: litellm identity resolution and the DCR-bridge oauth_delegate mint/refresh pipeline."""
+"""Bridge token flow: embrouter identity resolution and the DCR-bridge oauth_delegate mint/refresh pipeline."""
 
 import math
 import os
@@ -12,36 +12,36 @@ from fastapi.responses import JSONResponse
 from pydantic import SecretStr
 from typing_extensions import assert_never
 
-from litellm._logging import verbose_logger
-from litellm.proxy._experimental.mcp_server.oauth_utils import TOKEN_NO_CACHE_HEADERS
-from litellm.proxy.common_utils.encrypt_decrypt_utils import (
+from embrouter._logging import verbose_logger
+from embrouter.proxy._experimental.mcp_server.oauth_utils import TOKEN_NO_CACHE_HEADERS
+from embrouter.proxy.common_utils.encrypt_decrypt_utils import (
     _V2_GCM_PREFIX,  # pyright: ignore[reportPrivateUsage]  # reuse the encrypted credential's format discriminator
 )
-from litellm.types.mcp_server.mcp_server_manager import MCPServer
+from embrouter.types.mcp_server.mcp_server_manager import MCPServer
 
 if TYPE_CHECKING:
-    from litellm.models.user import LiteLLM_UserTable
-    from litellm.proxy._experimental.mcp_server.discoverable_endpoints import _BridgeAuthorizationCode
-    from litellm.proxy._experimental.mcp_server.outbound_credentials.envelope import (
+    from embrouter.models.user import EmbRouter_UserTable
+    from embrouter.proxy._experimental.mcp_server.discoverable_endpoints import _BridgeAuthorizationCode
+    from embrouter.proxy._experimental.mcp_server.outbound_credentials.envelope import (
         EnvelopeIdentity,
         EnvelopeKeys,
         RefreshCredential,
         UpstreamTokenGrant,
     )
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.auth.handle_jwt import JWTIdentity
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy.auth.handle_jwt import JWTIdentity
 
 
-def _litellm_key_from_request(request: Request) -> str | None:
-    """Return the LiteLLM API key presented on the request, or ``None``.
+def _embrouter_key_from_request(request: Request) -> str | None:
+    """Return the EmbRouter API key presented on the request, or ``None``.
 
-    Accepts the key from ``x-litellm-api-key`` (what MCP clients such as Claude Desktop/Code
+    Accepts the key from ``x-embrouter-api-key`` (what MCP clients such as Claude Desktop/Code
     send) as well as ``Authorization``; either may carry a bare token or ``Bearer <token>``.
-    ``x-litellm-api-key`` wins when both are present, since ``Authorization`` may instead carry
+    ``x-embrouter-api-key`` wins when both are present, since ``Authorization`` may instead carry
     an OAuth/upstream bearer.
     """
     for header_value in (
-        request.headers.get("x-litellm-api-key"),
+        request.headers.get("x-embrouter-api-key"),
         request.headers.get("Authorization") or request.headers.get("authorization"),
     ):
         if not header_value:
@@ -56,21 +56,21 @@ def _litellm_key_from_request(request: Request) -> str | None:
 
 async def oauth_authorization_uses_gateway_credential(request: Request) -> bool:
     """Classify credentials for browser authorize; candidates still require full authorization."""
-    from litellm.proxy.auth.handle_jwt import JWTHandler  # noqa: PLC0415  # proxy import cycle
-    from litellm.proxy.proxy_server import (  # noqa: PLC0415  # startup owns the active auth configuration
+    from embrouter.proxy.auth.handle_jwt import JWTHandler  # noqa: PLC0415  # proxy import cycle
+    from embrouter.proxy.proxy_server import (  # noqa: PLC0415  # startup owns the active auth configuration
         jwt_handler,
         master_key,
         user_custom_auth,
     )
 
-    if "x-litellm-api-key" in request.headers:
+    if "x-embrouter-api-key" in request.headers:
         return True
-    token: Final = _litellm_key_from_request(request)
+    token: Final = _embrouter_key_from_request(request)
     if token is None:
         return "authorization" in request.headers
     if token.startswith("sk-") or (master_key and secrets.compare_digest(token.encode(), master_key.encode())):
         return True
-    if user_custom_auth is not None or jwt_handler.litellm_jwtauth.oidc_userinfo_enabled:
+    if user_custom_auth is not None or jwt_handler.embrouter_jwtauth.oidc_userinfo_enabled:
         return True
     if not JWTHandler.is_jwt(token):
         return await _opaque_bearer_is_gateway_credential(token)
@@ -81,20 +81,20 @@ async def oauth_authorization_uses_gateway_credential(request: Request) -> bool:
     if not isinstance(issuer, str) or not issuer or not global_issuer:
         return True
     return issuer == global_issuer or any(
-        issuer == configured.issuer for configured in jwt_handler.litellm_jwtauth.issuers or ()
+        issuer == configured.issuer for configured in jwt_handler.embrouter_jwtauth.issuers or ()
     )
 
 
 async def _opaque_bearer_is_gateway_credential(token: str) -> bool:
-    from litellm.proxy._experimental.mcp_server.outbound_credentials.envelope import (  # noqa: PLC0415  # envelope imports bridge types
+    from embrouter.proxy._experimental.mcp_server.outbound_credentials.envelope import (  # noqa: PLC0415  # envelope imports bridge types
         is_envelope,
         is_refresh_envelope,
     )
-    from litellm.proxy._types import hash_token  # noqa: PLC0415  # proxy import cycle
-    from litellm.proxy.auth.auth_checks import ExperimentalUIJWTToken  # noqa: PLC0415  # proxy import cycle
-    from litellm.proxy.auth.resolvers.exceptions import KeyNotFoundError  # noqa: PLC0415  # proxy import cycle
-    from litellm.proxy.auth.resolvers.store import IdentityStore  # noqa: PLC0415  # proxy import cycle
-    from litellm.proxy.proxy_server import (  # noqa: PLC0415  # startup owns the identity store dependencies
+    from embrouter.proxy._types import hash_token  # noqa: PLC0415  # proxy import cycle
+    from embrouter.proxy.auth.auth_checks import ExperimentalUIJWTToken  # noqa: PLC0415  # proxy import cycle
+    from embrouter.proxy.auth.resolvers.exceptions import KeyNotFoundError  # noqa: PLC0415  # proxy import cycle
+    from embrouter.proxy.auth.resolvers.store import IdentityStore  # noqa: PLC0415  # proxy import cycle
+    from embrouter.proxy.proxy_server import (  # noqa: PLC0415  # startup owns the identity store dependencies
         prisma_client,
         user_api_key_cache,
     )
@@ -158,7 +158,7 @@ def _active_key_user_id(key_obj: "UserAPIKeyAuth") -> str | None:
 
 @dataclass(frozen=True, slots=True)
 class _ResolvedKey:
-    """An active litellm key resolved from the token request: its hash (the value ``get_key_object``
+    """An active embrouter key resolved from the token request: its hash (the value ``get_key_object``
     and the cache/DB layer key the record by) and the live record."""
 
     key_hash: str
@@ -166,7 +166,7 @@ class _ResolvedKey:
 
 
 _KeyResolutionFailure = Literal["no_active_key", "unavailable", "faulted", "unresolvable"]
-"""Why a token request yielded no active litellm key, kept distinct so a caller statuses each truthfully
+"""Why a token request yielded no active embrouter key, kept distinct so a caller statuses each truthfully
 instead of blaming the client for a gateway problem:
 - ``no_active_key``: none was presented, or the presented key is unknown / blocked / expired (the
   caller's request is at fault)
@@ -180,7 +180,7 @@ The classification mirrors admission's ``_reload_admitted_key`` so the mint (ing
 
 
 def _database_failure(exc: Exception) -> Literal["unavailable", "faulted"]:
-    from litellm.proxy.db.exception_handler import (  # noqa: PLC0415  # inline import avoids a module-load circular import
+    from embrouter.proxy.db.exception_handler import (  # noqa: PLC0415  # inline import avoids a module-load circular import
         PrismaDBExceptionHandler,
     )
 
@@ -188,8 +188,8 @@ def _database_failure(exc: Exception) -> Literal["unavailable", "faulted"]:
     return "faulted" if PrismaDBExceptionHandler.is_permanent_database_fault(fault) else "unavailable"
 
 
-async def _resolve_active_litellm_key(request: Request) -> "_ResolvedKey | _KeyResolutionFailure":
-    """Resolve the presented litellm key to an active key record, or say precisely why not.
+async def _resolve_active_embrouter_key(request: Request) -> "_ResolvedKey | _KeyResolutionFailure":
+    """Resolve the presented embrouter key to an active key record, or say precisely why not.
 
     Single resolution path the OAuth token endpoint reuses, resolving authoritatively via
     ``get_key_object`` (cache first, then DB). The failure is a value, not a bare ``None``, so a caller
@@ -201,34 +201,34 @@ async def _resolve_active_litellm_key(request: Request) -> "_ResolvedKey | _KeyR
     fault, a ``ProxyException`` / ``HTTPException`` from ``get_key_object`` is an unknown or invalid key,
     a database-service-unavailable error is a retryable outage, and anything else is an unexpected
     gateway fault."""
-    token: Final = _litellm_key_from_request(request)
+    token: Final = _embrouter_key_from_request(request)
     if not token:
         return "no_active_key"
-    from litellm.proxy._types import hash_token  # noqa: PLC0415  # inline import avoids a module-load circular import
+    from embrouter.proxy._types import hash_token  # noqa: PLC0415  # inline import avoids a module-load circular import
 
     return await _reload_active_key_by_hash(hash_token(token))
 
 
 def master_key_admin_auth(key_hash: str) -> "UserAPIKeyAuth | None":
-    from litellm.constants import (  # noqa: PLC0415  # inline import avoids a module-load circular import
-        LITELLM_PROXY_MASTER_KEY_ALIAS,
+    from embrouter.constants import (  # noqa: PLC0415  # inline import avoids a module-load circular import
+        EMBROUTER_PROXY_MASTER_KEY_ALIAS,
     )
-    from litellm.proxy._types import (  # noqa: PLC0415  # inline import avoids a module-load circular import
-        LitellmUserRoles,
+    from embrouter.proxy._types import (  # noqa: PLC0415  # inline import avoids a module-load circular import
+        EmbrouterUserRoles,
         UserAPIKeyAuth,
         hash_token,
     )
-    from litellm.proxy.proxy_server import (  # noqa: PLC0415  # inline import avoids a module-load circular import
-        litellm_proxy_admin_name,
+    from embrouter.proxy.proxy_server import (  # noqa: PLC0415  # inline import avoids a module-load circular import
+        embrouter_proxy_admin_name,
         master_key,
     )
 
     if not master_key or not secrets.compare_digest(key_hash, hash_token(master_key)):
         return None
     auth: Final = UserAPIKeyAuth(
-        api_key=LITELLM_PROXY_MASTER_KEY_ALIAS,
-        user_role=LitellmUserRoles.PROXY_ADMIN,
-        user_id=litellm_proxy_admin_name,
+        api_key=EMBROUTER_PROXY_MASTER_KEY_ALIAS,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN,
+        user_id=embrouter_proxy_admin_name,
     )
     auth.via_virtual_key = True
     return auth
@@ -237,23 +237,23 @@ def master_key_admin_auth(key_hash: str) -> "UserAPIKeyAuth | None":
 async def _reload_active_key_by_hash(key_hash: str) -> "_ResolvedKey | _KeyResolutionFailure":
     """Reload the live key record for ``key_hash`` (cache first, then DB) and gate it on active state,
     returning the resolved key or a precise failure. Shared by the token request's presented-key
-    resolution (:func:`_resolve_active_litellm_key`, which hashes the presented key) and the refresh
+    resolution (:func:`_resolve_active_embrouter_key`, which hashes the presented key) and the refresh
     path (which already holds the hash sealed in the refresh envelope), so both re-validate identity
     through one active-key gate and one failure classification. Classification mirrors admission's
     ``_reload_admitted_key``: no DB connection is a gateway fault, a ``ProxyException`` / ``HTTPException``
     from ``get_key_object`` is an unknown or invalid key, a database-service-unavailable error is a
     retryable outage, and anything else is an unexpected gateway fault. A blocked or expired key is
     ``no_active_key``, so a revoked key can neither mint nor refresh a bridge envelope."""
-    from litellm.proxy._types import (
+    from embrouter.proxy._types import (
         ProxyException,  # noqa: PLC0415  # inline import avoids a module-load circular import
     )
-    from litellm.proxy.auth.auth_checks import (  # noqa: PLC0415  # inline import avoids a module-load circular import
+    from embrouter.proxy.auth.auth_checks import (  # noqa: PLC0415  # inline import avoids a module-load circular import
         get_key_object,
     )
-    from litellm.proxy.db.exception_handler import (  # noqa: PLC0415  # inline import avoids a module-load circular import
+    from embrouter.proxy.db.exception_handler import (  # noqa: PLC0415  # inline import avoids a module-load circular import
         PrismaDBExceptionHandler,
     )
-    from litellm.proxy.proxy_server import (  # noqa: PLC0415  # inline import avoids a module-load circular import
+    from embrouter.proxy.proxy_server import (  # noqa: PLC0415  # inline import avoids a module-load circular import
         prisma_client,
         user_api_key_cache,
     )
@@ -294,8 +294,8 @@ UserRowSource = Literal["cache", "database"]
 
 async def load_active_user_by_id(
     user_id: str, source: UserRowSource = "cache"
-) -> "LiteLLM_UserTable | _KeyResolutionFailure":
-    """Load a live litellm user by id, returning the record when the user is active or a precise
+) -> "EmbRouter_UserTable | _KeyResolutionFailure":
+    """Load a live embrouter user by id, returning the record when the user is active or a precise
     failure otherwise. The interactive DCR client authenticates via SSO, so its refresh envelope seals a
     user subject; renewing it must re-check the user is still live (present and not SCIM-deactivated) so a
     deactivated user cannot keep refreshing, mirroring how admission re-validates the same user subject on
@@ -310,16 +310,16 @@ async def load_active_user_by_id(
     a user that a writer deactivated or deleted without evicting the cached row, and it leaves the fresh
     row in the cache for the requests the credential makes next. Every other caller keeps the cache read,
     so introspection, which a resource server may call per request, stays off the database."""
-    from litellm.proxy._types import (
+    from embrouter.proxy._types import (
         ProxyException,  # noqa: PLC0415  # inline import avoids a module-load circular import
     )
-    from litellm.proxy.auth.auth_checks import (  # noqa: PLC0415  # inline import avoids a module-load circular import
+    from embrouter.proxy.auth.auth_checks import (  # noqa: PLC0415  # inline import avoids a module-load circular import
         get_user_object,
     )
-    from litellm.proxy.db.exception_handler import (  # noqa: PLC0415  # inline import avoids a module-load circular import
+    from embrouter.proxy.db.exception_handler import (  # noqa: PLC0415  # inline import avoids a module-load circular import
         PrismaDBExceptionHandler,
     )
-    from litellm.proxy.proxy_server import (  # noqa: PLC0415  # inline import avoids a module-load circular import
+    from embrouter.proxy.proxy_server import (  # noqa: PLC0415  # inline import avoids a module-load circular import
         prisma_client,
         user_api_key_cache,
     )
@@ -347,7 +347,7 @@ async def load_active_user_by_id(
     return _active_user_record(user_object)
 
 
-def _active_user_record(user_object: "LiteLLM_UserTable") -> "LiteLLM_UserTable | Literal['no_active_key']":
+def _active_user_record(user_object: "EmbRouter_UserTable") -> "EmbRouter_UserTable | Literal['no_active_key']":
     if isinstance(user_object.metadata, dict) and user_object.metadata.get("scim_active") is False:
         return "no_active_key"
     return user_object
@@ -361,10 +361,10 @@ async def _key_owner_scim_deactivated(key: "UserAPIKeyAuth") -> bool:
     blip must not revoke a live key. Only an explicit ``scim_active`` of ``False`` gates renewal."""
     if key.user_id is None:
         return False
-    from litellm.proxy.auth.auth_checks import (  # noqa: PLC0415  # inline import avoids a module-load circular import
+    from embrouter.proxy.auth.auth_checks import (  # noqa: PLC0415  # inline import avoids a module-load circular import
         get_user_object,
     )
-    from litellm.proxy.proxy_server import (  # noqa: PLC0415  # inline import avoids a module-load circular import
+    from embrouter.proxy.proxy_server import (  # noqa: PLC0415  # inline import avoids a module-load circular import
         prisma_client,
         user_api_key_cache,
     )
@@ -407,7 +407,7 @@ async def _revalidate_active_subject(identity: "EnvelopeIdentity") -> "_KeyResol
 
 async def _extract_user_id_from_request(request: Request) -> str | None:
     """Resolve the caller for identity binding without granting credential-write permission."""
-    from litellm.proxy.auth.handle_jwt import JWTIdentity  # noqa: PLC0415  # proxy import cycle
+    from embrouter.proxy.auth.handle_jwt import JWTIdentity  # noqa: PLC0415  # proxy import cycle
 
     resolved: Final = await _resolve_request_auth(request)
     if isinstance(resolved, JWTIdentity):
@@ -416,7 +416,7 @@ async def _extract_user_id_from_request(request: Request) -> str | None:
 
 
 async def authorize_oauth_credential_request(request: Request, server_id: str) -> str | None:
-    from litellm.proxy._types import UserAPIKeyAuth  # noqa: PLC0415  # proxy import cycle
+    from embrouter.proxy._types import UserAPIKeyAuth  # noqa: PLC0415  # proxy import cycle
 
     resolved: Final = await _resolve_request_auth(request, f"/v1/mcp/server/{server_id}/oauth-user-credential")
     if not isinstance(resolved, UserAPIKeyAuth) or not _active_key_user_id(resolved):
@@ -429,25 +429,25 @@ async def authorize_oauth_credential_request(request: Request, server_id: str) -
 async def _resolve_request_auth(
     request: Request, write_route: str | None = None
 ) -> "UserAPIKeyAuth | JWTIdentity | None":
-    from litellm.proxy.auth.handle_jwt import JWTHandler  # noqa: PLC0415  # proxy import cycle
+    from embrouter.proxy.auth.handle_jwt import JWTHandler  # noqa: PLC0415  # proxy import cycle
 
-    token: Final = _litellm_key_from_request(request)
+    token: Final = _embrouter_key_from_request(request)
     if token is not None and JWTHandler.is_jwt(token):
         return await _resolve_jwt_auth(request, token, write_route)
-    resolved: Final = await _resolve_active_litellm_key(request)
+    resolved: Final = await _resolve_active_embrouter_key(request)
     return resolved.key if isinstance(resolved, _ResolvedKey) else None
 
 
 async def can_store_oauth_credential(request: Request, auth: "UserAPIKeyAuth", server_id: str) -> bool:
     """Apply the same write policy to request credentials and verified signed-callback users."""
-    from litellm.proxy._experimental.mcp_server.mcp_server_manager import (  # noqa: PLC0415  # registry imports auth helpers
+    from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (  # noqa: PLC0415  # registry imports auth helpers
         global_mcp_server_manager,
     )
-    from litellm.proxy._experimental.mcp_server.ui_session_utils import (
+    from embrouter.proxy._experimental.mcp_server.ui_session_utils import (
         can_access_mcp_server,  # noqa: PLC0415  # proxy import cycle
     )
-    from litellm.proxy.auth.route_checks import RouteChecks  # noqa: PLC0415  # proxy import cycle
-    from litellm.proxy.auth.user_api_key_auth import (  # noqa: PLC0415  # proxy import cycle
+    from embrouter.proxy.auth.route_checks import RouteChecks  # noqa: PLC0415  # proxy import cycle
+    from embrouter.proxy.auth.user_api_key_auth import (  # noqa: PLC0415  # proxy import cycle
         _run_centralized_common_checks,  # pyright: ignore[reportPrivateUsage]  # reuse admission policy for the credential-write action
     )
 
@@ -471,12 +471,12 @@ async def _resolve_jwt_auth(
     token: str,
     write_route: str | None,
 ) -> "UserAPIKeyAuth | JWTIdentity | None":
-    from litellm.proxy._types import UserAPIKeyAuth  # noqa: PLC0415  # proxy import cycle
-    from litellm.proxy.auth.handle_jwt import JWTAuthManager  # noqa: PLC0415  # proxy import cycle
-    from litellm.proxy.auth.user_api_key_auth import (  # noqa: PLC0415  # proxy import cycle
+    from embrouter.proxy._types import UserAPIKeyAuth  # noqa: PLC0415  # proxy import cycle
+    from embrouter.proxy.auth.handle_jwt import JWTAuthManager  # noqa: PLC0415  # proxy import cycle
+    from embrouter.proxy.auth.user_api_key_auth import (  # noqa: PLC0415  # proxy import cycle
         _resolve_jwt_to_virtual_key,  # pyright: ignore[reportPrivateUsage]  # reuse admission mapping policy without provisioning a new key
     )
-    from litellm.proxy.proxy_server import (  # noqa: PLC0415  # proxy globals initialized at startup
+    from embrouter.proxy.proxy_server import (  # noqa: PLC0415  # proxy globals initialized at startup
         general_settings,
         jwt_handler,
         premium_user,
@@ -488,9 +488,9 @@ async def _resolve_jwt_auth(
     if general_settings.get("enable_jwt_auth") is not True or premium_user is not True or prisma_client is None:
         return None
     try:
-        if jwt_handler.litellm_jwtauth.is_virtual_key_mapping_configured():
+        if jwt_handler.embrouter_jwtauth.is_virtual_key_mapping_configured():
             claims: Final = await jwt_handler.auth_jwt(token=token)
-            validate: Final = jwt_handler.litellm_jwtauth.custom_validate
+            validate: Final = jwt_handler.embrouter_jwtauth.custom_validate
             if validate is not None and not validate(claims):
                 return None
             mapped: Final = await _resolve_jwt_to_virtual_key(
@@ -577,7 +577,7 @@ def _bridge_grant_from_token_response(token_response: object) -> "UpstreamTokenG
     lifetime leaves the grant ``expires_in`` ``None`` for the envelope fallback, a positive value is
     honoured, and an explicit already-elapsed value is a rejection rather than a silent fall-through to
     the cap."""
-    from litellm.proxy._experimental.mcp_server.outbound_credentials.envelope import (  # noqa: PLC0415  # inline import avoids a module-load circular import
+    from embrouter.proxy._experimental.mcp_server.outbound_credentials.envelope import (  # noqa: PLC0415  # inline import avoids a module-load circular import
         UpstreamTokenGrant,
     )
 
@@ -637,7 +637,7 @@ _BridgeMintError = Literal[
 class _BridgeMintReady:
     """Everything the seal needs, resolved once before the exchange: the identity to bind the envelope
     to and the master-key-derived envelope keys. The identity is a key_hash subject for the scripted
-    two-header client (resolved from the litellm key it presents) or a user_id subject for the
+    two-header client (resolved from the embrouter key it presents) or a user_id subject for the
     interactive SSO client (the user recovered from the gateway authorization code), so one phase-3 seal
     serves both. Resolving identity here means ``_finish_bridge_mint`` has no preconditions left to
     fail."""
@@ -659,7 +659,7 @@ def _bridge_mint_error_response(error: _BridgeMintError) -> JSONResponse:
                 400,
                 "invalid_request",
                 "this server issues a gateway-bound credential; complete the interactive sign-in, or "
-                "send a litellm credential (x-litellm-api-key or Authorization) on the token request",
+                "send a embrouter credential (x-embrouter-api-key or Authorization) on the token request",
             )
         case "jwt_client_policy_unsupported":
             status, code, desc = (
@@ -692,7 +692,7 @@ def _bridge_mint_error_response(error: _BridgeMintError) -> JSONResponse:
             status, code, desc = (
                 500,
                 "server_error",
-                "the gateway could not resolve the litellm identity for this request",
+                "the gateway could not resolve the embrouter identity for this request",
             )
         case "not_configured":
             status, code, desc = (
@@ -765,13 +765,13 @@ async def _prepare_bridge_mint(
     bridge_identity: "_BridgeAuthorizationCode | None" = None,
 ) -> "_BridgeMintReady | _BridgeMintError":
     """Phase 1 for the authorization_code grant, BEFORE the upstream exchange: confirm the gateway can
-    mint (master_key set), resolve the litellm identity, and derive the envelope keys. Returns a ready
+    mint (master_key set), resolve the embrouter identity, and derive the envelope keys. Returns a ready
     context or a precise failure value. Running before the exchange is what makes every failure here fail
     closed without consuming the single-use code.
 
     Two identity sources, one envelope. The interactive DCR client authenticates via SSO at the bridged
     authorize, so its identity arrives as ``bridge_identity`` (the user recovered from the gateway
-    authorization code) and mints a user subject. The scripted two-header client presents a litellm
+    authorization code) and mints a user subject. The scripted two-header client presents a embrouter
     credential (a virtual key or a JWT) on the token request instead: a key mints a key_hash subject,
     while a JWT resolves through the same auth path as admission and mints a key_hash subject when it
     maps to a virtual key. An unmapped JWT is rejected because a user subject cannot preserve its
@@ -780,19 +780,19 @@ async def _prepare_bridge_mint(
     presented key keeps its resolution origin so the mapper statuses it truthfully; neither source
     present is ``no_identity``. The refresh_token grant has its own phase-1
     (:func:`_prepare_bridge_refresh`), which recovers identity from the presented refresh envelope."""
-    from litellm.proxy._experimental.mcp_server.client_allowlist import (  # noqa: PLC0415  # keep mint policy dependencies local
+    from embrouter.proxy._experimental.mcp_server.client_allowlist import (  # noqa: PLC0415  # keep mint policy dependencies local
         load_mcp_client_allowlist,
     )
-    from litellm.proxy._experimental.mcp_server.outbound_credentials.bridge_credentials import (  # noqa: PLC0415  # inline import avoids a module-load circular import
+    from embrouter.proxy._experimental.mcp_server.outbound_credentials.bridge_credentials import (  # noqa: PLC0415  # inline import avoids a module-load circular import
         envelope_keys_from_master_key,
     )
-    from litellm.proxy._experimental.mcp_server.outbound_credentials.envelope import (  # noqa: PLC0415  # inline import avoids a module-load circular import
+    from embrouter.proxy._experimental.mcp_server.outbound_credentials.envelope import (  # noqa: PLC0415  # inline import avoids a module-load circular import
         key_hash_identity,
         user_identity,
     )
-    from litellm.proxy._types import UserAPIKeyAuth  # noqa: PLC0415  # proxy import cycle
-    from litellm.proxy.auth.handle_jwt import JWTHandler  # noqa: PLC0415  # proxy import cycle
-    from litellm.proxy.proxy_server import (  # noqa: PLC0415  # inline import avoids a module-load circular import
+    from embrouter.proxy._types import UserAPIKeyAuth  # noqa: PLC0415  # proxy import cycle
+    from embrouter.proxy.auth.handle_jwt import JWTHandler  # noqa: PLC0415  # proxy import cycle
+    from embrouter.proxy.proxy_server import (  # noqa: PLC0415  # inline import avoids a module-load circular import
         general_settings,
         master_key,
     )
@@ -801,9 +801,9 @@ async def _prepare_bridge_mint(
         return "not_configured"
     keys: Final = envelope_keys_from_master_key(master_key)
     if bridge_identity is not None:
-        identity = user_identity(server_id=mcp_server.server_id, user_id=bridge_identity.litellm_user_id)
+        identity = user_identity(server_id=mcp_server.server_id, user_id=bridge_identity.embrouter_user_id)
         return _BridgeMintReady(identity=identity, keys=keys)
-    presented_token: Final = _litellm_key_from_request(request)
+    presented_token: Final = _embrouter_key_from_request(request)
     if presented_token is not None and JWTHandler.is_jwt(presented_token):
         client_allowlist: Final = load_mcp_client_allowlist(general_settings)
         if client_allowlist is not None and client_allowlist.jwt_field is not None:
@@ -813,7 +813,7 @@ async def _prepare_bridge_mint(
             identity = key_hash_identity(server_id=mcp_server.server_id, key_hash=resolved_jwt.token)
             return _BridgeMintReady(identity=identity, keys=keys)
         return "no_identity"
-    resolved: Final = await _resolve_active_litellm_key(request)
+    resolved: Final = await _resolve_active_embrouter_key(request)
     if not isinstance(resolved, _ResolvedKey):
         return _key_resolution_failure_to_mint_error(resolved)
     identity = key_hash_identity(server_id=mcp_server.server_id, key_hash=resolved.key_hash)
@@ -858,18 +858,18 @@ async def _prepare_bridge_refresh(
     mcp_server: MCPServer, refresh_value: str | None
 ) -> "_BridgeRefreshReady | _BridgeMintError":
     """Phase 1 for the refresh_token grant, BEFORE the upstream exchange: open the client's refresh
-    envelope, re-validate the sealed litellm identity so a revoked key cannot keep refreshing, and
+    envelope, re-validate the sealed embrouter identity so a revoked key cannot keep refreshing, and
     recover the upstream refresh token to exchange. Identity comes entirely from the sealed envelope, not
     the HTTP request, so the request object is not needed here. The client presents a refresh envelope,
     never a raw upstream refresh token, so a missing value, a non-envelope, an unopenable envelope, or one
     minted for another server is ``invalid_grant``. Running before the exchange means a rejected refresh
     never consumes or rotates the upstream refresh token."""
-    from litellm.proxy._experimental.mcp_server.outbound_credentials.bridge_credentials import (  # noqa: PLC0415  # inline import avoids a module-load circular import
+    from embrouter.proxy._experimental.mcp_server.outbound_credentials.bridge_credentials import (  # noqa: PLC0415  # inline import avoids a module-load circular import
         BridgeRefreshOpened,
         envelope_keys_from_master_key,
         open_bridge_refresh_envelope,
     )
-    from litellm.proxy.proxy_server import (  # noqa: PLC0415  # inline import avoids a module-load circular import
+    from embrouter.proxy.proxy_server import (  # noqa: PLC0415  # inline import avoids a module-load circular import
         master_key,
     )
 
@@ -901,10 +901,10 @@ def _finish_bridge_mint(
     fresh refresh envelope. The only hard failures here are properties of the upstream access token (no
     usable token, an already-expired lifetime, or a token too large to seal); a refresh token that cannot
     be sealed degrades to an access-only response rather than failing the whole exchange."""
-    from litellm.proxy._experimental.mcp_server.outbound_credentials.bridge_credentials import (  # noqa: PLC0415  # inline import avoids a module-load circular import
+    from embrouter.proxy._experimental.mcp_server.outbound_credentials.bridge_credentials import (  # noqa: PLC0415  # inline import avoids a module-load circular import
         build_bridge_token_response,
     )
-    from litellm.proxy._experimental.mcp_server.outbound_credentials.envelope import (  # noqa: PLC0415  # inline import avoids a module-load circular import
+    from embrouter.proxy._experimental.mcp_server.outbound_credentials.envelope import (  # noqa: PLC0415  # inline import avoids a module-load circular import
         EnvelopeLifetimeUnrepresentable,
         SealedEnvelope,
         UpstreamTokenGrant,
@@ -942,7 +942,7 @@ def _upstream_refresh_credential(token_response: object) -> "RefreshCredential |
     token would hand the client a full-TTL-capped envelope the IdP will reject, so the exchange degrades to
     an access-only response (the client re-authenticates at access expiry), mirroring how
     :func:`_bridge_grant_from_token_response` refuses an already-elapsed access token instead of capping it."""
-    from litellm.proxy._experimental.mcp_server.outbound_credentials.envelope import (  # noqa: PLC0415  # inline import avoids a module-load circular import
+    from embrouter.proxy._experimental.mcp_server.outbound_credentials.envelope import (  # noqa: PLC0415  # inline import avoids a module-load circular import
         RefreshCredential,
     )
 
@@ -969,10 +969,10 @@ def _mint_refresh_envelope_value(
     ``None`` when the upstream returned no refresh token or the refresh token is too large to seal. A
     too-large refresh token degrades to an access-only response (logged) rather than failing an exchange
     that already succeeded upstream: the client simply re-authenticates when the access envelope expires."""
-    from litellm.proxy._experimental.mcp_server.outbound_credentials.bridge_credentials import (  # noqa: PLC0415  # inline import avoids a module-load circular import
+    from embrouter.proxy._experimental.mcp_server.outbound_credentials.bridge_credentials import (  # noqa: PLC0415  # inline import avoids a module-load circular import
         build_bridge_refresh_token_response,
     )
-    from litellm.proxy._experimental.mcp_server.outbound_credentials.envelope import (  # noqa: PLC0415  # inline import avoids a module-load circular import
+    from embrouter.proxy._experimental.mcp_server.outbound_credentials.envelope import (  # noqa: PLC0415  # inline import avoids a module-load circular import
         SealedEnvelope,
     )
 

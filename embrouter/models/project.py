@@ -1,18 +1,18 @@
 """
 Project table model.
 
-Canonical definition for ``litellm_projecttable``. Re-exported from
-``litellm.proxy._types`` for backwards compatibility.
+Canonical definition for ``embrouter_projecttable``. Re-exported from
+``embrouter.proxy._types`` for backwards compatibility.
 """
 
 from datetime import datetime
 
-from litellm.models.budget import LiteLLM_BudgetTable
-from litellm.models.object_permission import LiteLLM_ObjectPermissionTable
-from litellm.types.llms.base import LiteLLMPydanticObjectBase
+from embrouter.models.budget import EmbRouter_BudgetTable
+from embrouter.models.object_permission import EmbRouter_ObjectPermissionTable
+from embrouter.types.llms.base import EmbRouterPydanticObjectBase
 
 
-class LiteLLM_ProjectTable(LiteLLMPydanticObjectBase):
+class EmbRouter_ProjectTable(EmbRouterPydanticObjectBase):
     """Database model representation for project"""
 
     project_id: str
@@ -32,8 +32,8 @@ class LiteLLM_ProjectTable(LiteLLMPydanticObjectBase):
     updated_by: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
-    litellm_budget_table: LiteLLM_BudgetTable | None = None
-    object_permission: LiteLLM_ObjectPermissionTable | None = None
+    embrouter_budget_table: EmbRouter_BudgetTable | None = None
+    object_permission: EmbRouter_ObjectPermissionTable | None = None
 
     @property
     def is_blocked(self) -> bool:

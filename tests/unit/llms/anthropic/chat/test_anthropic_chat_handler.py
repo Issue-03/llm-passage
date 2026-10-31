@@ -7,21 +7,21 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
-import litellm
-from litellm._uuid import uuid
-from litellm.constants import RESPONSE_FORMAT_TOOL_NAME
-from litellm.llms.anthropic.chat.handler import ModelResponseIterator, make_call
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-from litellm.types.llms.openai import (
+import embrouter
+from embrouter._uuid import uuid
+from embrouter.constants import RESPONSE_FORMAT_TOOL_NAME
+from embrouter.llms.anthropic.chat.handler import ModelResponseIterator, make_call
+from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from embrouter.types.llms.openai import (
     ChatCompletionToolCallChunk,
     ChatCompletionToolCallFunctionChunk,
 )
-from litellm.types.responses.main import OutputCodeInterpreterCall
+from embrouter.types.responses.main import OutputCodeInterpreterCall
 
 
 @pytest.mark.asyncio
 async def test_make_call_passes_logging_obj_to_client_post():
-    """make_call must pass logging_obj to client.post so track_llm_api_timing can set llm_api_duration_ms for litellm_overhead_time_ms."""
+    """make_call must pass logging_obj to client.post so track_llm_api_timing can set llm_api_duration_ms for embrouter_overhead_time_ms."""
     mock_client = AsyncMock()
     mock_response = MagicMock()
     mock_response.aiter_lines = MagicMock(
@@ -71,7 +71,7 @@ def test_anthropic_completion_does_not_send_deployment_default_limits():
 
     client = HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(respond)))
     try:
-        litellm.completion(
+        embrouter.completion(
             model="anthropic/claude-3-5-haiku-20241022",
             messages=[{"role": "user", "content": "Hello"}],
             api_key="test-key",
@@ -110,7 +110,7 @@ async def test_anthropic_async_completion_inlines_http_images_off_the_event_loop
     client = AsyncHTTPHandler()
     client.client = httpx.AsyncClient(transport=httpx.MockTransport(handle))
 
-    response = await litellm.acompletion(
+    response = await embrouter.acompletion(
         model="anthropic/claude-sonnet-4-6",
         messages=[
             {
@@ -823,7 +823,7 @@ def test_anthropic_completion_streaming_usage_matches_non_streaming_with_thinkin
             "max_tokens": 128,
         }
 
-        non_stream_response = litellm.completion(**request_kwargs, stream=False)
+        non_stream_response = embrouter.completion(**request_kwargs, stream=False)
         non_stream_details = non_stream_response.usage.completion_tokens_details
         assert non_stream_details is not None
         assert non_stream_details.reasoning_tokens > 0
@@ -831,7 +831,7 @@ def test_anthropic_completion_streaming_usage_matches_non_streaming_with_thinkin
         reasoning_chunks = []
         content_chunks = []
         stream_usage = None
-        for chunk in litellm.completion(
+        for chunk in embrouter.completion(
             **request_kwargs,
             stream=True,
             stream_options={"include_usage": True},
@@ -2336,7 +2336,7 @@ def test_non_bash_tool_result_skipped():
 class TestAnthropicChatCompletionPreCallLogging:
     @staticmethod
     def _completion_kwargs(**overrides):
-        from litellm.types.utils import ModelResponse
+        from embrouter.types.utils import ModelResponse
 
         kwargs = {
             "model": "claude-sonnet-4-5",
@@ -2351,7 +2351,7 @@ class TestAnthropicChatCompletionPreCallLogging:
             "logging_obj": MagicMock(),
             "optional_params": {"max_tokens": 16},
             "timeout": 30.0,
-            "litellm_params": {},
+            "embrouter_params": {},
             "acompletion": False,
             "headers": {},
             "client": None,
@@ -2360,8 +2360,8 @@ class TestAnthropicChatCompletionPreCallLogging:
         return kwargs
 
     def test_pre_call_logging_fires_once_on_the_python_path(self):
-        from litellm.llms.anthropic.chat.handler import AnthropicChatCompletion
-        from litellm.llms.anthropic.chat.transformation import AnthropicConfig
+        from embrouter.llms.anthropic.chat.handler import AnthropicChatCompletion
+        from embrouter.llms.anthropic.chat.transformation import AnthropicConfig
 
         calls = {"pre_call": []}
         logging_obj = MagicMock()
@@ -2433,7 +2433,7 @@ def test_message_start_without_model_leaves_chunk_model_unset():
 
 
 def test_served_model_reaches_assembled_stream_through_custom_stream_wrapper():
-    from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
+    from embrouter.embrouter_core_utils.streaming_handler import CustomStreamWrapper
 
     served_model: Final = "claude-served-1"
     sse_lines: Final = [f"data: {json.dumps(chunk)}\n".encode() for chunk in _served_model_stream_chunks(served_model)]
@@ -2450,5 +2450,5 @@ def test_served_model_reaches_assembled_stream_through_custom_stream_wrapper():
     assert len(chunks) > 1
     for chunk in chunks[1:]:
         assert chunk._hidden_params["provider_response_model"] == served_model
-    assembled: Final = litellm.stream_chunk_builder(chunks=list(chunks), messages=[{"role": "user", "content": "hi"}])
+    assembled: Final = embrouter.stream_chunk_builder(chunks=list(chunks), messages=[{"role": "user", "content": "hi"}])
     assert assembled._hidden_params["provider_response_model"] == served_model

@@ -11,10 +11,10 @@ from typing import TYPE_CHECKING, Any, Final, Literal, Optional, Union, cast, ge
 
 import httpx
 
-import litellm
-from litellm import verbose_logger
-from litellm._uuid import uuid
-from litellm.constants import (
+import embrouter
+from embrouter import verbose_logger
+from embrouter._uuid import uuid
+from embrouter.constants import (
     DEFAULT_REASONING_EFFORT_DISABLE_THINKING_BUDGET,
     DEFAULT_REASONING_EFFORT_HIGH_THINKING_BUDGET,
     DEFAULT_REASONING_EFFORT_LOW_THINKING_BUDGET,
@@ -24,21 +24,21 @@ from litellm.constants import (
     DEFAULT_REASONING_EFFORT_MINIMAL_THINKING_BUDGET_GEMINI_2_5_FLASH_LITE,
     DEFAULT_REASONING_EFFORT_MINIMAL_THINKING_BUDGET_GEMINI_2_5_PRO,
 )
-from litellm.exceptions import UnsupportedParamsError
-from litellm.litellm_core_utils.json_fragment_accumulator import JSONFragmentAccumulator
-from litellm.litellm_core_utils.prompt_templates.factory import (
+from embrouter.exceptions import UnsupportedParamsError
+from embrouter.embrouter_core_utils.json_fragment_accumulator import JSONFragmentAccumulator
+from embrouter.embrouter_core_utils.prompt_templates.factory import (
     _encode_tool_call_id_with_signature,
 )
-from litellm.llms.base_llm.chat.transformation import BaseConfig, BaseLLMException
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.llms.base_llm.chat.transformation import BaseConfig, BaseLLMException
+from embrouter.llms.custom_httpx.http_handler import (
     AsyncHTTPHandler,
     HTTPHandler,
     _get_httpx_client,
     get_async_httpx_client,
 )
-from litellm.types.llms.anthropic import AnthropicThinkingParam
-from litellm.types.llms.gemini import BidiGenerateContentServerMessage
-from litellm.types.llms.openai import (
+from embrouter.types.llms.anthropic import AnthropicThinkingParam
+from embrouter.types.llms.gemini import BidiGenerateContentServerMessage
+from embrouter.types.llms.openai import (
     AllMessageValues,
     ChatCompletionAnnotation,
     ChatCompletionAnnotationURLCitation,
@@ -51,7 +51,7 @@ from litellm.types.llms.openai import (
     ImageURLObject,
     OpenAIChatCompletionFinishReason,
 )
-from litellm.types.llms.vertex_ai import (
+from embrouter.types.llms.vertex_ai import (
     VERTEX_AI_PROVIDER_METADATA_FIELDS,
     VERTEX_CREDENTIALS_TYPES,
     Candidates,
@@ -68,7 +68,7 @@ from litellm.types.llms.vertex_ai import (
     UsageMetadata,
     VertexToolName,
 )
-from litellm.types.utils import (
+from embrouter.types.utils import (
     ChatCompletionAudioResponse,
     ChatCompletionTokenLogprob,
     ChoiceLogprobs,
@@ -77,7 +77,7 @@ from litellm.types.utils import (
     TopLogprob,
     Usage,
 )
-from litellm.utils import (
+from embrouter.utils import (
     CustomStreamWrapper,
     ModelResponse,
     is_base64_encoded,
@@ -103,10 +103,10 @@ from .transformation import (
 if TYPE_CHECKING:
     from pydantic import BaseModel
 
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.types.utils import ModelResponseStream, StreamingChoices
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.types.utils import ModelResponseStream, StreamingChoices
 
-    LoggingClass = LiteLLMLoggingObj
+    LoggingClass = EmbRouterLoggingObj
 else:
     LoggingClass = Any
     StreamingChoices = Any
@@ -120,7 +120,7 @@ def _unsupported_reasoning_effort(reasoning_effort: str) -> UnsupportedParamsErr
         message=(
             f"Invalid `reasoning_effort`: {reasoning_effort!r}. "
             f"Must be one of: {', '.join(repr(effort) for effort in SUPPORTED_REASONING_EFFORTS)}. "
-            "To drop this param, set `litellm.drop_params = True` or pass in `(.., drop_params=True)` "
+            "To drop this param, set `embrouter.drop_params = True` or pass in `(.., drop_params=True)` "
             "in the request"
         ),
         status_code=400,
@@ -364,8 +364,8 @@ class VertexGeminiConfig(VertexAIBaseConfig, BaseConfig):
             name: Final = tool_choice.get("function", {}).get("name", "")
             return ToolConfig(functionCallingConfig=FunctionCallingConfig(mode="ANY", allowed_function_names=[name]))
         else:
-            raise litellm.utils.UnsupportedParamsError(
-                message=f"VertexAI doesn't support tool_choice={tool_choice}. Supported tool_choice values=['auto', 'required', json object]. To drop it from the call, set `litellm.drop_params = True.",
+            raise embrouter.utils.UnsupportedParamsError(
+                message=f"VertexAI doesn't support tool_choice={tool_choice}. Supported tool_choice values=['auto', 'required', json object]. To drop it from the call, set `embrouter.drop_params = True.",
                 status_code=400,
             )
 
@@ -445,7 +445,7 @@ class VertexGeminiConfig(VertexAIBaseConfig, BaseConfig):
         Transform Computer Use configuration to Gemini API format.
 
         Args:
-            computer_use_config: The computer use configuration from LiteLLM
+            computer_use_config: The computer use configuration from EmbRouter
 
         Returns:
             Transformed computer use configuration for Gemini API
@@ -485,7 +485,7 @@ class VertexGeminiConfig(VertexAIBaseConfig, BaseConfig):
         2. Flat (backward compat): {"enableWidget": "...", "latitude": ..., "longitude": ...}
 
         Args:
-            google_maps_config: The googleMaps tool configuration from LiteLLM
+            google_maps_config: The googleMaps tool configuration from EmbRouter
 
         Returns:
             Tuple of (cleaned_google_maps_config, retrieval_config):
@@ -699,7 +699,7 @@ class VertexGeminiConfig(VertexAIBaseConfig, BaseConfig):
             else:
                 # assume it's a provider-specific param
                 verbose_logger.warning(
-                    "Invalid tool={}. Use `litellm.set_verbose` or `litellm --detailed_debug` to see raw request."
+                    "Invalid tool={}. Use `embrouter.set_verbose` or `embrouter --detailed_debug` to see raw request."
                 )
 
         # Build list of Tool objects - each Tool should contain exactly one type
@@ -926,7 +926,7 @@ class VertexGeminiConfig(VertexAIBaseConfig, BaseConfig):
         if "thinkingConfig" in optional_params:
             existing_config: Final = optional_params["thinkingConfig"]
             if "thinkingLevel" in existing_config:
-                raise litellm.utils.UnsupportedParamsError(
+                raise embrouter.utils.UnsupportedParamsError(
                     message=(
                         f"Cannot specify both `{param_name}` (which maps to `{param_description}`) "
                         "and `thinking_level` in the same request. "
@@ -946,7 +946,7 @@ class VertexGeminiConfig(VertexAIBaseConfig, BaseConfig):
         if "thinkingConfig" in optional_params:
             existing_config: Final = optional_params["thinkingConfig"]
             if "thinkingBudget" in existing_config:
-                raise litellm.utils.UnsupportedParamsError(
+                raise embrouter.utils.UnsupportedParamsError(
                     message=(
                         "Cannot specify both `thinking_level` and `thinking_budget` in the same request. "
                         "For Gemini 3 models, use `thinking_level` instead of `thinking_budget`."
@@ -972,7 +972,7 @@ class VertexGeminiConfig(VertexAIBaseConfig, BaseConfig):
                 else:
                     params["includeThoughts"] = True
                     # Follow provider defaults unless explicitly opted into legacy behavior.
-                    if litellm.enable_gemini_default_thinking_level_low is True:
+                    if embrouter.enable_gemini_default_thinking_level_low is True:
                         params["thinkingLevel"] = (
                             "minimal" if VertexGeminiConfig._supports_minimal_thinking_level(model) else "low"
                         )
@@ -1007,11 +1007,11 @@ class VertexGeminiConfig(VertexAIBaseConfig, BaseConfig):
         tools: Final = non_default_params.get("tools", non_default_params.get("functions"))
         num_function_declarations: Final = len(tools) if isinstance(tools, list) else 0
         if num_function_declarations > 1:
-            raise litellm.utils.UnsupportedParamsError(
+            raise embrouter.utils.UnsupportedParamsError(
                 message=(
                     "`parallel_tool_calls=False` is not supported by Gemini when multiple tools are "
                     "provided. Specify a single tool, or set "
-                    "`parallel_tool_calls=True`. If you want to drop this param, set `litellm.drop_params = True` or pass in `(.., drop_params=True)` in the requst"
+                    "`parallel_tool_calls=True`. If you want to drop this param, set `embrouter.drop_params = True` or pass in `(.., drop_params=True)` in the requst"
                 ),
                 status_code=400,
             )
@@ -1035,7 +1035,7 @@ class VertexGeminiConfig(VertexAIBaseConfig, BaseConfig):
             languageCode: "en-US",
         }
         """
-        from litellm.types.llms.vertex_ai import (
+        from embrouter.types.llms.vertex_ai import (
             PrebuiltVoiceConfig,
             SpeechConfig,
             VoiceConfig,
@@ -1216,8 +1216,8 @@ class VertexGeminiConfig(VertexAIBaseConfig, BaseConfig):
                 self._map_service_tier_param(value, optional_params)
             elif param == "include_server_side_tool_invocations" and value is True:
                 optional_params["include_server_side_tool_invocations"] = True
-        if litellm.vertex_ai_safety_settings is not None:
-            optional_params["safety_settings"] = litellm.vertex_ai_safety_settings
+        if embrouter.vertex_ai_safety_settings is not None:
+            optional_params["safety_settings"] = embrouter.vertex_ai_safety_settings
 
         # if audio param is set, ensure responseModalities is set to AUDIO
         audio_param: Final = optional_params.get("speechConfig")
@@ -1334,7 +1334,7 @@ class VertexGeminiConfig(VertexAIBaseConfig, BaseConfig):
         Return Dictionary of Gemini/Vertex AI finish reasons and their
         OpenAI-compatible mappings.
         """
-        from litellm.litellm_core_utils.core_helpers import _FINISH_REASON_MAP
+        from embrouter.embrouter_core_utils.core_helpers import _FINISH_REASON_MAP
 
         return {k: v for k, v in _FINISH_REASON_MAP.items() if k in VertexGeminiConfig._GEMINI_FINISH_REASON_KEYS}
 
@@ -1640,7 +1640,7 @@ class VertexGeminiConfig(VertexAIBaseConfig, BaseConfig):
             "content": None,
         }
 
-        choice: Final = litellm.Choices(
+        choice: Final = embrouter.Choices(
             finish_reason="content_filter",
             index=0,
             message=chat_completion_message,
@@ -1674,7 +1674,7 @@ class VertexGeminiConfig(VertexAIBaseConfig, BaseConfig):
             "content": None,
         }
 
-        choice: Final = litellm.Choices(
+        choice: Final = embrouter.Choices(
             finish_reason="content_filter",
             index=0,
             message=_chat_completion_message,
@@ -1919,7 +1919,7 @@ class VertexGeminiConfig(VertexAIBaseConfig, BaseConfig):
         chat_completion_message: ChatCompletionResponseMessage | None,
         finish_reason: str | None,
     ) -> OpenAIChatCompletionFinishReason:
-        from litellm.litellm_core_utils.core_helpers import map_finish_reason
+        from embrouter.embrouter_core_utils.core_helpers import map_finish_reason
 
         if chat_completion_message and chat_completion_message.get("function_call"):
             return "function_call"
@@ -1954,7 +1954,7 @@ class VertexGeminiConfig(VertexAIBaseConfig, BaseConfig):
             Candidate-level content filtering (SAFETY, RECITATION, etc.) is handled
             separately via _process_candidates() → _check_finish_reason().
         """
-        from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices
+        from embrouter.types.utils import Delta, ModelResponseStream, StreamingChoices
 
         # Check if prompt is blocked due to content filtering
         prompt_feedback: Final = processed_chunk.get("promptFeedback")
@@ -2005,7 +2005,7 @@ class VertexGeminiConfig(VertexAIBaseConfig, BaseConfig):
         """
         Helper method to create a streaming choice object for Vertex AI
         """
-        from litellm.types.utils import Delta, StreamingChoices
+        from embrouter.types.utils import Delta, StreamingChoices
 
         annotations: Final = chat_completion_message.get("annotations")
         provider_specific_fields: Final = chat_completion_message.get("provider_specific_fields")
@@ -2201,10 +2201,10 @@ class VertexGeminiConfig(VertexAIBaseConfig, BaseConfig):
             citation_metadata: List
             cumulative_tool_call_index: int
         """
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             is_function_call,
         )
-        from litellm.types.utils import ModelResponseStream
+        from embrouter.types.utils import ModelResponseStream
 
         grounding_metadata: Final[list[dict]] = []
         url_context_metadata: Final[list[dict]] = []
@@ -2346,7 +2346,7 @@ class VertexGeminiConfig(VertexAIBaseConfig, BaseConfig):
                 model_response.choices.append(choice)
             elif isinstance(model_response, ModelResponse):
                 native_finish_reason = candidate.get("finishReason")
-                choice = litellm.Choices(
+                choice = embrouter.Choices(
                     finish_reason=VertexGeminiConfig._check_finish_reason(
                         chat_completion_message, native_finish_reason
                     ),
@@ -2377,7 +2377,7 @@ class VertexGeminiConfig(VertexAIBaseConfig, BaseConfig):
         request_data: dict,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: object,
         api_key: str | None = None,
         json_mode: bool | None = None,
@@ -2395,7 +2395,7 @@ class VertexGeminiConfig(VertexAIBaseConfig, BaseConfig):
             completion_response: Final = GenerateContentResponseBody(**raw_response.json())
         except Exception as e:
             raise VertexAIError(
-                message=f"Error converting to valid response block={e}. File an issue if litellm error",
+                message=f"Error converting to valid response block={e}. File an issue if embrouter error",
                 status_code=422,
                 headers=raw_response.headers,
             )
@@ -2502,7 +2502,7 @@ class VertexGeminiConfig(VertexAIBaseConfig, BaseConfig):
 
         except Exception as e:
             raise VertexAIError(
-                message=f"Error converting to valid response block={e}. File an issue if litellm error",
+                message=f"Error converting to valid response block={e}. File an issue if embrouter error",
                 status_code=422,
                 headers=raw_response.headers,
             )
@@ -2513,12 +2513,12 @@ class VertexGeminiConfig(VertexAIBaseConfig, BaseConfig):
         self,
         messages: list[AllMessageValues],
         model: str | None = None,
-        litellm_params: dict | None = None,
+        embrouter_params: dict | None = None,
     ) -> list[ContentType]:
         return _gemini_convert_messages_with_history(
             messages=messages,
             model=model,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             custom_llm_provider="vertex_ai",
         )
 
@@ -2530,7 +2530,7 @@ class VertexGeminiConfig(VertexAIBaseConfig, BaseConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         raise NotImplementedError("Vertex AI has a custom implementation of transform_request. Needs sync + async.")
@@ -2541,7 +2541,7 @@ class VertexGeminiConfig(VertexAIBaseConfig, BaseConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | dict | None = None,
         api_base: str | None = None,
     ) -> dict:
@@ -2572,7 +2572,7 @@ async def make_call(
         client = gemini_client
     if client is None:
         client = get_async_httpx_client(
-            llm_provider=litellm.LlmProviders.VERTEX_AI,
+            llm_provider=embrouter.LlmProviders.VERTEX_AI,
         )
 
     try:
@@ -2672,7 +2672,7 @@ class VertexLLM(VertexBase):
         logging_obj,
         stream,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         logger_fn=None,
         api_base: str | None = None,
         client: AsyncHTTPHandler | None = None,
@@ -2710,7 +2710,7 @@ class VertexLLM(VertexBase):
             model=model,
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
         request_body: Final = await async_transform_request_body(
@@ -2765,7 +2765,7 @@ class VertexLLM(VertexBase):
         logging_obj,
         stream,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         logger_fn=None,
         api_base: str | None = None,
         client: AsyncHTTPHandler | None = None,
@@ -2803,7 +2803,7 @@ class VertexLLM(VertexBase):
             model=model,
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
         request_body: Final = await async_transform_request_body(
@@ -2817,7 +2817,7 @@ class VertexLLM(VertexBase):
         if timeout:
             _async_client_params["timeout"] = timeout
         if client is None or not isinstance(client, AsyncHTTPHandler):
-            client = get_async_httpx_client(params=_async_client_params, llm_provider=litellm.LlmProviders.VERTEX_AI)
+            client = get_async_httpx_client(params=_async_client_params, llm_provider=embrouter.LlmProviders.VERTEX_AI)
         else:
             client = client
         ## LOGGING
@@ -2862,7 +2862,7 @@ class VertexLLM(VertexBase):
             request_data=cast(dict, request_body),
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             encoding=encoding,
         )
 
@@ -2884,7 +2884,7 @@ class VertexLLM(VertexBase):
         vertex_location: str | None,
         vertex_credentials: VERTEX_CREDENTIALS_TYPES | None,
         gemini_api_key: str | None,
-        litellm_params: dict,
+        embrouter_params: dict,
         logger_fn=None,
         extra_headers: dict | None = None,
         client: AsyncHTTPHandler | HTTPHandler | None = None,
@@ -2903,7 +2903,7 @@ class VertexLLM(VertexBase):
             "optional_params": optional_params,
             "logging_obj": logging_obj,
             "custom_llm_provider": custom_llm_provider,
-            "litellm_params": litellm_params,
+            "embrouter_params": embrouter_params,
         }
 
         ### ROUTING (ASYNC, STREAMING, SYNC)
@@ -2920,7 +2920,7 @@ class VertexLLM(VertexBase):
                     logging_obj=logging_obj,
                     optional_params=optional_params,
                     stream=stream,
-                    litellm_params=litellm_params,
+                    embrouter_params=embrouter_params,
                     logger_fn=logger_fn,
                     timeout=timeout,
                     client=client,
@@ -2944,7 +2944,7 @@ class VertexLLM(VertexBase):
                 logging_obj=logging_obj,
                 optional_params=optional_params,
                 stream=stream,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logger_fn=logger_fn,
                 timeout=timeout,
                 client=client,
@@ -2983,7 +2983,7 @@ class VertexLLM(VertexBase):
             model=model,
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
         ## TRANSFORMATION ##
@@ -3061,7 +3061,7 @@ class VertexLLM(VertexBase):
             model_response=model_response,
             logging_obj=logging_obj,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             api_key="",
             request_data=data,
             messages=messages,
@@ -3078,7 +3078,7 @@ class ModelResponseIterator:
         response_headers: dict[str, str] | None = None,
         response: httpx.Response | None = None,
     ):
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             check_is_function_call,
         )
 
@@ -3159,7 +3159,7 @@ class ModelResponseIterator:
         # seen with web_search + reasoning) leaves choices empty and the downstream
         # streaming handler hits IndexError on choices[0]. Emit an empty-delta choice.
         if not model_response.choices and _candidates:
-            from litellm.types.utils import Delta, StreamingChoices
+            from embrouter.types.utils import Delta, StreamingChoices
 
             for candidate in _candidates:
                 finish_reason_str = candidate.get("finishReason")
@@ -3239,7 +3239,7 @@ class ModelResponseIterator:
             # Vertex AI can return errors as HTTP 200 but with an "error" field in the SSE body.
             self._check_streaming_error(chunk)
 
-            from litellm.types.utils import ModelResponseStream
+            from embrouter.types.utils import ModelResponseStream
 
             processed_chunk: Final = GenerateContentResponseBody(**chunk)
             response_id: Final = processed_chunk.get("responseId")
@@ -3305,7 +3305,7 @@ class ModelResponseIterator:
         return self.chunk_parser(chunk=json_chunk)
 
     def handle_accumulated_json_chunk(self, chunk: str, is_final: bool = False) -> Optional["ModelResponseStream"]:
-        message: Final = (litellm.CustomStreamWrapper._strip_sse_data_from_chunk(chunk) or "").replace("\n\n", "")
+        message: Final = (embrouter.CustomStreamWrapper._strip_sse_data_from_chunk(chunk) or "").replace("\n\n", "")
         self._json_buffer.append(message)
 
         # Mid-stream, defer parsing until the buffer's last byte can close a value:
@@ -3334,7 +3334,7 @@ class ModelResponseIterator:
 
     def _common_chunk_parsing_logic(self, chunk: str) -> Optional["ModelResponseStream"]:
         try:
-            chunk = litellm.CustomStreamWrapper._strip_sse_data_from_chunk(chunk) or ""
+            chunk = embrouter.CustomStreamWrapper._strip_sse_data_from_chunk(chunk) or ""
             if len(chunk) > 0:
                 """
                 Check if initial chunk valid json

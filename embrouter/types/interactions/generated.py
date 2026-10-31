@@ -1040,7 +1040,7 @@ class InteractionSseEvent(
 
 
 # ============================================================
-# LiteLLM-specific types (added manually after generation)
+# EmbRouter-specific types (added manually after generation)
 # ============================================================
 #
 # When regenerating this file, copy these types to the end.
@@ -1048,17 +1048,17 @@ class InteractionSseEvent(
 
 from pydantic import PrivateAttr
 
-from litellm.types.llms.base import BaseLiteLLMOpenAIResponseObject
+from embrouter.types.llms.base import BaseEmbRouterOpenAIResponseObject
 
 # Type alias for input
 InteractionInput = str | Content | list[Content] | list[Turn]
 
 
-class InteractionsAPIResponse(BaseLiteLLMOpenAIResponseObject):
+class InteractionsAPIResponse(BaseEmbRouterOpenAIResponseObject):
     """
     Response from the Interactions API.
 
-    Wraps the API response with LiteLLM-specific hidden params.
+    Wraps the API response with EmbRouter-specific hidden params.
 
     Schema notes:
     - New schema (Api-Revision: 2026-05-20, default): response contains ``steps``.
@@ -1082,7 +1082,7 @@ class InteractionsAPIResponse(BaseLiteLLMOpenAIResponseObject):
     _hidden_params: dict = PrivateAttr(default_factory=dict)
 
 
-class InteractionsAPIStreamingResponse(BaseLiteLLMOpenAIResponseObject):
+class InteractionsAPIStreamingResponse(BaseEmbRouterOpenAIResponseObject):
     """
     Streaming response chunk from the Interactions API.
 
@@ -1120,7 +1120,7 @@ class InteractionsAPIStreamingResponse(BaseLiteLLMOpenAIResponseObject):
     _hidden_params: dict = PrivateAttr(default_factory=dict)
 
 
-class DeleteInteractionResult(BaseLiteLLMOpenAIResponseObject):
+class DeleteInteractionResult(BaseEmbRouterOpenAIResponseObject):
     """Result of deleting an interaction."""
 
     success: bool = True
@@ -1129,7 +1129,7 @@ class DeleteInteractionResult(BaseLiteLLMOpenAIResponseObject):
     _hidden_params: dict = PrivateAttr(default_factory=dict)
 
 
-class CancelInteractionResult(BaseLiteLLMOpenAIResponseObject):
+class CancelInteractionResult(BaseEmbRouterOpenAIResponseObject):
     """Result of cancelling an interaction."""
 
     id: str | None = None

@@ -14,14 +14,14 @@ from typing import Any, Final, cast
 import httpx
 from httpx._types import CookieTypes, QueryParamTypes, RequestContent, RequestFiles
 
-from litellm._logging import verbose_logger
-from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.base_llm.passthrough.transformation import BasePassthroughConfig, PassthroughStreamCollector
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
-from litellm.passthrough.utils import CommonUtils
-from litellm.utils import client
+from embrouter._logging import verbose_logger
+from embrouter.embrouter_core_utils.get_llm_provider_logic import get_llm_provider
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.base_llm.passthrough.transformation import BasePassthroughConfig, PassthroughStreamCollector
+from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from embrouter.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+from embrouter.passthrough.utils import CommonUtils
+from embrouter.utils import client
 
 base_llm_http_handler = BaseLLMHTTPHandler()
 from .utils import BasePassthroughUtils
@@ -39,11 +39,11 @@ def _as_generator(iterable: Iterator[bytes]) -> Generator[bytes, bytes, None]:
 class _SpendCollection:
     """Feeds relayed chunks to the provider's stream collector without letting spend tracking break the relay."""
 
-    def __init__(self, provider_config: BasePassthroughConfig, litellm_logging_obj: LiteLLMLoggingObj) -> None:
+    def __init__(self, provider_config: BasePassthroughConfig, embrouter_logging_obj: EmbRouterLoggingObj) -> None:
         self.collector: Final[PassthroughStreamCollector] = provider_config.create_stream_collector(
-            model=litellm_logging_obj.model,
-            custom_llm_provider=litellm_logging_obj.model_call_details.get("custom_llm_provider", ""),
-            endpoint=litellm_logging_obj.model_call_details.get("endpoint", ""),
+            model=embrouter_logging_obj.model,
+            custom_llm_provider=embrouter_logging_obj.model_call_details.get("custom_llm_provider", ""),
+            endpoint=embrouter_logging_obj.model_call_details.get("endpoint", ""),
         )
         self.chunk_count = 0
         self._failed = False
@@ -69,7 +69,7 @@ class AsyncPassthroughStreamingResponse(AsyncGenerator[bytes, bytes]):
     def __init__(
         self,
         response: Awaitable[httpx.Response],
-        litellm_logging_obj: LiteLLMLoggingObj,
+        embrouter_logging_obj: EmbRouterLoggingObj,
         provider_config: BasePassthroughConfig,
     ) -> None:
         self._initialized = False
@@ -78,8 +78,8 @@ class AsyncPassthroughStreamingResponse(AsyncGenerator[bytes, bytes]):
         self._response_coro = response
         self._response: httpx.Response
         self._iterator: AsyncGenerator[bytes, bytes]
-        self._litellm_logging_obj = litellm_logging_obj
-        self._spend = _SpendCollection(provider_config, litellm_logging_obj)
+        self._embrouter_logging_obj = embrouter_logging_obj
+        self._spend = _SpendCollection(provider_config, embrouter_logging_obj)
         self._flush_scheduled = False
         self._background_tasks: set[asyncio.Task] = set()  # mutable-ok: instance set for background task tracking
         self._hidden_params: dict[str, object] = {}  # mutable-ok: router attaches response headers here in place
@@ -135,7 +135,7 @@ class AsyncPassthroughStreamingResponse(AsyncGenerator[bytes, bytes]):
 
         try:
             task: Final = asyncio.create_task(
-                self._litellm_logging_obj.async_flush_passthrough_collected_chunks(collector=self._spend.collector)
+                self._embrouter_logging_obj.async_flush_passthrough_collected_chunks(collector=self._spend.collector)
             )
 
             self._background_tasks.add(task)
@@ -199,15 +199,15 @@ class PassthroughStreamingResponse(Generator[bytes, bytes, None]):
     def __init__(
         self,
         response: httpx.Response,
-        litellm_logging_obj: LiteLLMLoggingObj,
+        embrouter_logging_obj: EmbRouterLoggingObj,
         provider_config: BasePassthroughConfig,
     ) -> None:
         self._response = response
         self.headers = response.headers
         self.status_code = response.status_code
-        self._litellm_logging_obj = litellm_logging_obj
+        self._embrouter_logging_obj = embrouter_logging_obj
         self._iterator: Generator[bytes, bytes, None] = _as_generator(response.iter_bytes())
-        self._spend = _SpendCollection(provider_config, litellm_logging_obj)
+        self._spend = _SpendCollection(provider_config, embrouter_logging_obj)
         self._flush_scheduled = False
 
     def _start_flush(self) -> None:
@@ -215,11 +215,11 @@ class PassthroughStreamingResponse(Generator[bytes, bytes, None]):
             return
         self._flush_scheduled = True
 
-        from litellm.utils import executor
+        from embrouter.utils import executor
 
         try:
             executor.submit(
-                self._litellm_logging_obj.flush_passthrough_collected_chunks, collector=self._spend.collector
+                self._embrouter_logging_obj.flush_passthrough_collected_chunks, collector=self._spend.collector
             )
         except Exception as e:  # noqa: BLE001 # Safe catch-all for verbose logging
             verbose_logger.exception(
@@ -298,8 +298,8 @@ async def allm_passthrough_route(
             api_key=api_key,
         )
 
-        from litellm.types.utils import LlmProviders
-        from litellm.utils import ProviderConfigManager
+        from embrouter.types.utils import LlmProviders
+        from embrouter.utils import ProviderConfigManager
 
         provider_config = cast(
             BasePassthroughConfig | None, kwargs.get("provider_config")
@@ -354,8 +354,8 @@ async def allm_passthrough_route(
         raise e
     except Exception as e:
         # For other exceptions, use provider-specific error handling
-        from litellm.types.utils import LlmProviders
-        from litellm.utils import ProviderConfigManager
+        from embrouter.types.utils import LlmProviders
+        from embrouter.utils import ProviderConfigManager
 
         # Get the provider using the same logic as llm_passthrough_route
         _, resolved_custom_llm_provider, _, _ = get_llm_provider(
@@ -422,13 +422,13 @@ def llm_passthrough_route(
     Step 2. Send the request
     Step 3. Return the response
     """
-    from litellm.litellm_core_utils.get_litellm_params import get_litellm_params
-    from litellm.types.utils import LlmProviders
-    from litellm.utils import ProviderConfigManager
+    from embrouter.embrouter_core_utils.get_embrouter_params import get_embrouter_params
+    from embrouter.types.utils import LlmProviders
+    from embrouter.utils import ProviderConfigManager
 
     _is_async: Final = bool(kwargs.get("allm_passthrough_route", False))
 
-    litellm_logging_obj: Final = cast(LiteLLMLoggingObj, kwargs.get("litellm_logging_obj"))
+    embrouter_logging_obj: Final = cast(EmbRouterLoggingObj, kwargs.get("embrouter_logging_obj"))
 
     model, custom_llm_provider, api_key, api_base = get_llm_provider(
         model=model,
@@ -437,19 +437,19 @@ def llm_passthrough_route(
         api_key=api_key,
     )
 
-    litellm_params_dict: Final = get_litellm_params(api_key=api_key, api_base=api_base, **kwargs)
+    embrouter_params_dict: Final = get_embrouter_params(api_key=api_key, api_base=api_base, **kwargs)
 
     if client is None:
-        from litellm.llms.custom_httpx.http_handler import (
+        from embrouter.llms.custom_httpx.http_handler import (
             _get_httpx_client,
             get_async_httpx_client,
         )
-        from litellm.passthrough.timeout_utils import resolve_llm_passthrough_timeout
-        from litellm.types.llms.custom_http import httpxSpecialProvider
+        from embrouter.passthrough.timeout_utils import resolve_llm_passthrough_timeout
+        from embrouter.types.llms.custom_http import httpxSpecialProvider
 
         resolved_timeout: Final = resolve_llm_passthrough_timeout(
             kwargs=kwargs,
-            litellm_params=litellm_params_dict,
+            embrouter_params=embrouter_params_dict,
         )
         if _is_async:
             client = get_async_httpx_client(
@@ -459,13 +459,13 @@ def llm_passthrough_route(
         else:
             client = _get_httpx_client(params={"timeout": resolved_timeout})
 
-    # Add model_id to litellm_params if present in kwargs (for Bedrock Application Inference Profiles)
+    # Add model_id to embrouter_params if present in kwargs (for Bedrock Application Inference Profiles)
     if "model_id" in kwargs:
-        litellm_params_dict["model_id"] = kwargs["model_id"]
+        embrouter_params_dict["model_id"] = kwargs["model_id"]
 
-    litellm_logging_obj.update_environment_variables(
+    embrouter_logging_obj.update_environment_variables(
         model=model,
-        litellm_params=litellm_params_dict,
+        embrouter_params=embrouter_params_dict,
         optional_params={},
         endpoint=endpoint,
         custom_llm_provider=custom_llm_provider,
@@ -487,7 +487,7 @@ def llm_passthrough_route(
         model=model,
         endpoint=endpoint,
         request_query_params=request_query_params,
-        litellm_params=litellm_params_dict,
+        embrouter_params=embrouter_params_dict,
     )
 
     # [TODO: Refactor to bedrockpassthroughconfig] need to encode the id of application-inference-profile for bedrock
@@ -503,7 +503,7 @@ def llm_passthrough_route(
         model=model,
         messages=[],
         optional_params={},
-        litellm_params=litellm_params_dict,
+        embrouter_params=embrouter_params_dict,
         api_key=provider_api_key,
         api_base=base_target_url,
     )
@@ -517,7 +517,7 @@ def llm_passthrough_route(
     _request_data: dict | None = data if isinstance(data, dict) else (json if isinstance(json, dict) else None)
     headers, signed_json_body = provider_config.sign_request(
         headers=headers,
-        litellm_params=litellm_params_dict,
+        embrouter_params=embrouter_params_dict,
         request_data=_request_data,
         api_base=str(updated_url),
         model=model,
@@ -549,11 +549,11 @@ def llm_passthrough_route(
     )
 
     # Update logging object with streaming status
-    litellm_logging_obj.stream = is_streaming_request
+    embrouter_logging_obj.stream = is_streaming_request
 
     ## LOGGING PRE-CALL
     request_data: Final = data if data else json
-    litellm_logging_obj.pre_call(
+    embrouter_logging_obj.pre_call(
         input=request_data,
         api_key=provider_api_key,
         additional_args={
@@ -570,7 +570,7 @@ def llm_passthrough_route(
                 client=client,
                 request=request,
                 is_streaming_request=is_streaming_request,
-                litellm_logging_obj=litellm_logging_obj,
+                embrouter_logging_obj=embrouter_logging_obj,
                 provider_config=provider_config,
             )
         else:
@@ -590,7 +590,7 @@ def llm_passthrough_route(
                 raise
 
             if hasattr(response, "iter_bytes") and is_streaming_request:
-                return PassthroughStreamingResponse(response, litellm_logging_obj, provider_config)
+                return PassthroughStreamingResponse(response, embrouter_logging_obj, provider_config)
             else:
                 return response
     except Exception as e:
@@ -605,7 +605,7 @@ async def _async_passthrough_request(
     client: HTTPHandler | AsyncHTTPHandler,
     request: httpx.Request,
     is_streaming_request: bool,
-    litellm_logging_obj: LiteLLMLoggingObj,
+    embrouter_logging_obj: EmbRouterLoggingObj,
     provider_config: BasePassthroughConfig,
 ) -> httpx.Response | AsyncGenerator[bytes, bytes]:
     """
@@ -620,7 +620,7 @@ async def _async_passthrough_request(
         if is_streaming_request:
             return await AsyncPassthroughStreamingResponse(  # pyright: ignore[reportGeneralTypeIssues]  # structural type check misses __await__
                 response=response_result,
-                litellm_logging_obj=litellm_logging_obj,
+                embrouter_logging_obj=embrouter_logging_obj,
                 provider_config=provider_config,
             )
         else:

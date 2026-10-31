@@ -1,6 +1,6 @@
 """
 Tests for the provider-agnostic chat completion agentic loop dispatcher
-(`litellm/litellm_core_utils/chat_completion_agentic_loop.py`) and the
+(`embrouter/embrouter_core_utils/chat_completion_agentic_loop.py`) and the
 code-interpreter interception integration that drives it.
 
 The load-bearing regression here protects a reviewer requirement: the internal
@@ -26,19 +26,19 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.integrations.code_interpreter_interception.handler import (
+import embrouter
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.integrations.code_interpreter_interception.handler import (
     CodeInterpreterInterceptionLogger,
 )
-from litellm.litellm_core_utils.chat_completion_agentic_loop import (
+from embrouter.embrouter_core_utils.chat_completion_agentic_loop import (
     maybe_run_chat_completion_agentic_loop,
 )
-from litellm.types.integrations.custom_logger import (
+from embrouter.types.integrations.custom_logger import (
     AgenticLoopPlan,
     AgenticLoopRequestPatch,
 )
-from litellm.types.utils import (
+from embrouter.types.utils import (
     Choices,
     Function,
     ChatCompletionMessageToolCall,
@@ -55,19 +55,19 @@ _INTERNAL_CONTROL_FIELDS = (
     "_code_interpreter_interception_active",
     "_code_interpreter_interception_sandbox_key",
     "_code_interpreter_interception_converted_stream",
-    "litellm_metadata",
+    "embrouter_metadata",
 )
 
 
 @pytest.fixture
 def restore_callbacks():
-    """Save/restore litellm.callbacks so a registered fake logger never pollutes
+    """Save/restore embrouter.callbacks so a registered fake logger never pollutes
     other tests in the suite."""
-    saved = list(litellm.callbacks)
+    saved = list(embrouter.callbacks)
     try:
         yield
     finally:
-        litellm.callbacks = saved
+        embrouter.callbacks = saved
 
 
 class _SandboxResult:
@@ -109,7 +109,7 @@ def _tool_call_model_response() -> ModelResponse:
                             id="call_abc",
                             type="function",
                             function=Function(
-                                name="litellm_code_execution",
+                                name="embrouter_code_execution",
                                 arguments='{"code": "print(6*7)"}',
                             ),
                         )
@@ -154,7 +154,7 @@ async def test_internal_control_fields_never_leak_into_provider_body(restore_cal
     body. None of the internal control fields may appear at top-level or inside
     extra_body on ANY of the captured calls."""
     logger = CodeInterpreterInterceptionLogger(sandbox_config=FakeSandboxConfig())
-    litellm.callbacks = [logger]
+    embrouter.callbacks = [logger]
 
     # First create -> model emits a code_execution tool call (triggers the loop).
     # Second create -> model returns a plain answer (loop terminates).
@@ -167,7 +167,7 @@ async def test_internal_control_fields_never_leak_into_provider_body(restore_cal
     mock_client = MagicMock()
     mock_client.chat.completions.with_raw_response.create = create
 
-    response = await litellm.acompletion(
+    response = await embrouter.acompletion(
         model="openai/gpt-4o-mini",
         messages=[{"role": "user", "content": "what is 6*7?"}],
         tools=[{"type": "code_interpreter"}],
@@ -208,9 +208,9 @@ async def test_internal_control_fields_never_leak_into_provider_body(restore_cal
 
 class _LoggingStub:
     """Minimal logging_obj: dispatcher only reads dynamic_success_callbacks and
-    litellm_call_id off it."""
+    embrouter_call_id off it."""
 
-    litellm_call_id = "call-test"
+    embrouter_call_id = "call-test"
     dynamic_success_callbacks: List[Any] = []
 
 
@@ -263,7 +263,7 @@ def _patched_messages() -> List[Dict[str, Any]]:
                     "id": "call_abc",
                     "type": "function",
                     "function": {
-                        "name": "litellm_code_execution",
+                        "name": "embrouter_code_execution",
                         "arguments": '{"code": "print(6*7)"}',
                     },
                 }
@@ -277,7 +277,7 @@ def _patched_messages() -> List[Dict[str, Any]]:
 async def test_dispatcher_returns_none_when_no_callback_gates(restore_callbacks):
     """No callback overrides the gate -> dispatcher returns None so the caller
     keeps the original response untouched."""
-    litellm.callbacks = []
+    embrouter.callbacks = []
 
     result = await maybe_run_chat_completion_agentic_loop(
         response=_plain_model_response(),
@@ -298,21 +298,21 @@ async def test_dispatcher_runs_followup_with_incremented_depth_and_patched_messa
     restore_callbacks,
 ):
     """A gating logger with a request_patch -> the dispatcher calls
-    litellm.acompletion exactly once with _agentic_loop_depth == 1 and the
-    patched messages. Loop-control state rides as litellm-level kwargs and is
-    mirrored into litellm_metadata; the provider-surface transient
+    embrouter.acompletion exactly once with _agentic_loop_depth == 1 and the
+    patched messages. Loop-control state rides as embrouter-level kwargs and is
+    mirrored into embrouter_metadata; the provider-surface transient
     _agentic_loop_api_surface is never forwarded. (Provider-body stripping of
-    these litellm-level kwargs is asserted separately in test A.)"""
+    these embrouter-level kwargs is asserted separately in test A.)"""
     followup = _plain_model_response("done")
     plan = AgenticLoopPlan(
         run_agentic_loop=True,
         request_patch=AgenticLoopRequestPatch(messages=_patched_messages()),
     )
     logger = _GateOnlyLogger(plan=plan, tool_calls={"tool_calls": [{"id": "call_abc"}]})
-    litellm.callbacks = [logger]
+    embrouter.callbacks = [logger]
 
     acompletion_mock = AsyncMock(return_value=followup)
-    with patch.object(litellm, "acompletion", acompletion_mock):
+    with patch.object(embrouter, "acompletion", acompletion_mock):
         result = await maybe_run_chat_completion_agentic_loop(
             response=_tool_call_model_response(),
             model="gpt-4o-mini",
@@ -332,11 +332,11 @@ async def test_dispatcher_runs_followup_with_incremented_depth_and_patched_messa
     assert call_kwargs["messages"] == _patched_messages()
     # Preserved non-internal optional param survives the rerun.
     assert call_kwargs["temperature"] == 0.1
-    # Loop-control state is carried at the litellm level for the follow-up.
+    # Loop-control state is carried at the embrouter level for the follow-up.
     assert call_kwargs["max_agentic_loops"] >= 1
     assert "_agentic_loop_fingerprints" in call_kwargs
-    # Interception markers are mirrored into litellm_metadata for the follow-up.
-    assert call_kwargs["litellm_metadata"]["_code_interpreter_interception_active"] is True
+    # Interception markers are mirrored into embrouter_metadata for the follow-up.
+    assert call_kwargs["embrouter_metadata"]["_code_interpreter_interception_active"] is True
     # The transient surface marker is NOT forwarded to the follow-up call.
     assert "_agentic_loop_api_surface" not in call_kwargs
     # Cleanup hook always runs.
@@ -355,10 +355,10 @@ async def test_dispatcher_followup_does_not_repeat_a_request_param_found_in_requ
         run_agentic_loop=True,
         request_patch=AgenticLoopRequestPatch(messages=_patched_messages(), kwargs=dict(request_kwargs)),
     )
-    litellm.callbacks = [_GateOnlyLogger(plan=plan, tool_calls={"tool_calls": [{"id": "call_abc"}]})]
+    embrouter.callbacks = [_GateOnlyLogger(plan=plan, tool_calls={"tool_calls": [{"id": "call_abc"}]})]
 
     acompletion_mock = AsyncMock(return_value=followup)
-    with patch.object(litellm, "acompletion", acompletion_mock):
+    with patch.object(embrouter, "acompletion", acompletion_mock):
         result = await maybe_run_chat_completion_agentic_loop(
             response=_tool_call_model_response(),
             model="gpt-4o-mini",
@@ -387,10 +387,10 @@ async def test_dispatcher_raises_when_depth_reaches_max_agentic_loops(
         plan=AgenticLoopPlan(run_agentic_loop=True),
         tool_calls={"tool_calls": [{"id": "call_abc"}]},
     )
-    litellm.callbacks = [logger]
+    embrouter.callbacks = [logger]
 
     acompletion_mock = AsyncMock()
-    with patch.object(litellm, "acompletion", acompletion_mock):
+    with patch.object(embrouter, "acompletion", acompletion_mock):
         with pytest.raises(ValueError, match="max_agentic_loops"):
             await maybe_run_chat_completion_agentic_loop(
                 response=_tool_call_model_response(),
@@ -415,17 +415,17 @@ async def test_dispatcher_raises_on_repeated_tool_call_fingerprint(restore_callb
 
     # The dispatcher fingerprints the whole value the gate returns as its second
     # tuple element, so the seeded fingerprint must mirror that dict exactly.
-    gate_tool_calls = {"tool_calls": [{"id": "call_abc", "name": "litellm_code_execution"}]}
+    gate_tool_calls = {"tool_calls": [{"id": "call_abc", "name": "embrouter_code_execution"}]}
     fingerprint = json.dumps(gate_tool_calls, sort_keys=True, default=str)
 
     logger = _GateOnlyLogger(
         plan=AgenticLoopPlan(run_agentic_loop=True),
         tool_calls=gate_tool_calls,
     )
-    litellm.callbacks = [logger]
+    embrouter.callbacks = [logger]
 
     acompletion_mock = AsyncMock()
-    with patch.object(litellm, "acompletion", acompletion_mock):
+    with patch.object(embrouter, "acompletion", acompletion_mock):
         with pytest.raises(ValueError, match="fingerprint"):
             await maybe_run_chat_completion_agentic_loop(
                 response=_tool_call_model_response(),

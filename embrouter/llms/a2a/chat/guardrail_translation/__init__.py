@@ -2,8 +2,8 @@
 
 from typing import Final
 
-from litellm.llms.a2a.chat.guardrail_translation.handler import A2AGuardrailHandler
-from litellm.types.utils import CallTypes
+from embrouter.llms.a2a.chat.guardrail_translation.handler import A2AGuardrailHandler
+from embrouter.types.utils import CallTypes
 
 guardrail_translation_mappings: Final = {
     CallTypes.send_message: A2AGuardrailHandler,

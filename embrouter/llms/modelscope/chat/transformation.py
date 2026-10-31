@@ -7,8 +7,8 @@ from typing import Any, Final, Literal, cast, overload
 
 from typing_extensions import override
 
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.openai import AllMessageValues
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.openai import AllMessageValues
 
 from ...openai.chat.gpt_transformation import OpenAIGPTConfig
 
@@ -73,7 +73,7 @@ class ModelScopeChatConfig(OpenAIGPTConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         """

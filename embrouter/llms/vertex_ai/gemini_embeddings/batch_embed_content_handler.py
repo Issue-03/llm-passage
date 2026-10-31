@@ -7,18 +7,18 @@ from typing import TYPE_CHECKING, Final, Literal
 
 import httpx
 
-import litellm
-from litellm.llms.custom_httpx.http_handler import (
+import embrouter
+from embrouter.llms.custom_httpx.http_handler import (
     AsyncHTTPHandler,
     HTTPHandler,
     get_async_httpx_client,
 )
-from litellm.types.llms.vertex_ai import (
+from embrouter.types.llms.vertex_ai import (
     GeminiEmbeddingInput,
     VertexAIBatchEmbeddingsRequestBody,
     VertexAIBatchEmbeddingsResponseObject,
 )
-from litellm.types.utils import EmbeddingResponse
+from embrouter.types.utils import EmbeddingResponse
 
 from ..gemini.vertex_and_google_ai_studio_gemini import VertexLLM
 from .batch_embed_content_transformation import (
@@ -30,7 +30,7 @@ from .batch_embed_content_transformation import (
 )
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
 
 
 class GoogleBatchEmbeddings(VertexLLM):
@@ -128,7 +128,7 @@ class GoogleBatchEmbeddings(VertexLLM):
         model_response: EmbeddingResponse,
         custom_llm_provider: Literal["gemini", "vertex_ai"],
         optional_params: dict,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
         api_key: str | None = None,
         api_base: str | None = None,
         encoding=None,
@@ -293,7 +293,7 @@ class GoogleBatchEmbeddings(VertexLLM):
         use_embed_content: bool = False,
         api_key: str | None = None,
         optional_params: dict | None = None,
-        logging_obj: "LiteLLMLoggingObj | None" = None,
+        logging_obj: "EmbRouterLoggingObj | None" = None,
     ) -> EmbeddingResponse:
         if client is None:
             _params: Final = {}
@@ -305,7 +305,7 @@ class GoogleBatchEmbeddings(VertexLLM):
                 _params["timeout"] = httpx.Timeout(timeout=600.0, connect=5.0)
 
             async_handler: AsyncHTTPHandler = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders.VERTEX_AI,
+                llm_provider=embrouter.LlmProviders.VERTEX_AI,
                 params={"timeout": timeout},
             )
         else:

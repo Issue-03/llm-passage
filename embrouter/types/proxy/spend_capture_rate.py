@@ -1,15 +1,15 @@
-"""The captured-spend to provider-bill ratio: the share of a provider's bill that went through LiteLLM and was priced.
+"""The captured-spend to provider-bill ratio: the share of a provider's bill that went through EmbRouter and was priced.
 
-``capture_rate = captured_spend / provider_spend`` over the same UTC days. 1.0 means LiteLLM saw and priced every
-dollar the provider billed, lower means traffic reaches the provider outside LiteLLM or cost tracking drops spend,
-higher means LiteLLM prices above the bill. ``None`` means the provider billed nothing, so there is no ratio.
+``capture_rate = captured_spend / provider_spend`` over the same UTC days. 1.0 means EmbRouter saw and priced every
+dollar the provider billed, lower means traffic reaches the provider outside EmbRouter or cost tracking drops spend,
+higher means EmbRouter prices above the bill. ``None`` means the provider billed nothing, so there is no ratio.
 """
 
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from litellm.constants import SPEND_CAPTURE_RATE_MAX_RANGE_DAYS
+from embrouter.constants import SPEND_CAPTURE_RATE_MAX_RANGE_DAYS
 
 SpendCaptureProvider = Literal["openai"]
 
@@ -26,7 +26,7 @@ class SpendCaptureRateCheckSettings(BaseModel):
         (),
         description=(
             "Scope the OpenAI bill to these project ids; empty compares against the whole organization. Captured "
-            "spend is never scoped, so list every project LiteLLM's OpenAI keys belong to"
+            "spend is never scoped, so list every project EmbRouter's OpenAI keys belong to"
         ),
     )
 

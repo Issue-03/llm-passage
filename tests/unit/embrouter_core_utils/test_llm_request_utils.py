@@ -1,7 +1,7 @@
 import httpx
 import pytest
 
-from litellm.litellm_core_utils.llm_request_utils import (
+from embrouter.embrouter_core_utils.llm_request_utils import (
     flatten_form_field_values,
     serialize_multipart_form_fields,
 )

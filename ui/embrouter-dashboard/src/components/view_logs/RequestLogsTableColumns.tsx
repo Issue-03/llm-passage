@@ -36,10 +36,10 @@ function RequestIdWithCallIdTooltip({ requestId, callId }: { requestId: string; 
     <span className="flex flex-col gap-0.5">
       <span>{requestId}</span>
       <span className="inline-flex items-center gap-1">
-        <span>x-litellm-call-id: {callId}</span>
+        <span>x-embrouter-call-id: {callId}</span>
         <button
           type="button"
-          aria-label="Copy x-litellm-call-id"
+          aria-label="Copy x-embrouter-call-id"
           className="shrink-0 cursor-pointer opacity-70 hover:opacity-100"
           onClick={(event) => {
             event.stopPropagation();
@@ -183,7 +183,7 @@ export const getRequestLogsTableColumns = ({
           </div>
         );
       }
-      const callId = log.litellm_call_id && log.litellm_call_id !== log.request_id ? log.litellm_call_id : null;
+      const callId = log.embrouter_call_id && log.embrouter_call_id !== log.request_id ? log.embrouter_call_id : null;
       return (
         <IdCell
           value={log.request_id}

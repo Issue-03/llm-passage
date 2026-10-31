@@ -15,17 +15,17 @@ from collections.abc import Mapping, Sequence
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Final, Optional
 
-from litellm._logging import verbose_proxy_logger
-from litellm.llms.base_llm.guardrail_translation.base_translation import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.llms.base_llm.guardrail_translation.base_translation import (
     BaseTranslation,
     StreamTransformSink,
 )
-from litellm.types.utils import GenericGuardrailAPIInputs
+from embrouter.types.utils import GenericGuardrailAPIInputs
 
 if TYPE_CHECKING:
-    from litellm.integrations.custom_guardrail import CustomGuardrail
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.integrations.custom_guardrail import CustomGuardrail
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.proxy._types import UserAPIKeyAuth
 
 _EMPTY_REQUEST_DATA: Final[Mapping[str, object]] = MappingProxyType({})
 
@@ -152,14 +152,14 @@ class GoogleGenAIGenerateContentHandler(BaseTranslation):
     """
     Guardrail translation for the google genai generateContent surface
     (/models/{model}:generateContent, :streamGenerateContent, and the
-    litellm SDK generate_content call types).
+    embrouter SDK generate_content call types).
     """
 
     async def process_input_messages(
         self,
         data: dict,  # mutable-ok: base handler contract passes the proxy's request dict through to apply_guardrail
         guardrail_to_apply: "CustomGuardrail",
-        litellm_logging_obj: Optional["LiteLLMLoggingObj"] = None,
+        embrouter_logging_obj: Optional["EmbRouterLoggingObj"] = None,
     ) -> object:
         text_parts: Final = _request_text_parts(data)
         if not text_parts:
@@ -175,7 +175,7 @@ class GoogleGenAIGenerateContentHandler(BaseTranslation):
             inputs=inputs,
             request_data=data,
             input_type="request",
-            logging_obj=litellm_logging_obj,
+            logging_obj=embrouter_logging_obj,
         )
         _write_back_texts(text_parts, guardrailed_inputs.get("texts"))
         return data
@@ -184,7 +184,7 @@ class GoogleGenAIGenerateContentHandler(BaseTranslation):
         self,
         response: object,
         guardrail_to_apply: "CustomGuardrail",
-        litellm_logging_obj: Optional["LiteLLMLoggingObj"] = None,
+        embrouter_logging_obj: Optional["EmbRouterLoggingObj"] = None,
         user_api_key_dict: Optional["UserAPIKeyAuth"] = None,
         request_data: Mapping[str, object] | None = None,
     ) -> object:
@@ -208,7 +208,7 @@ class GoogleGenAIGenerateContentHandler(BaseTranslation):
             inputs=inputs,
             request_data=guardrail_request_data,
             input_type="response",
-            logging_obj=litellm_logging_obj,
+            logging_obj=embrouter_logging_obj,
         )
         _write_back_texts(text_parts, guardrailed_inputs.get("texts"))
         return response
@@ -217,7 +217,7 @@ class GoogleGenAIGenerateContentHandler(BaseTranslation):
         self,
         responses_so_far: Sequence[object],
         guardrail_to_apply: "CustomGuardrail",
-        litellm_logging_obj: Optional["LiteLLMLoggingObj"] = None,
+        embrouter_logging_obj: Optional["EmbRouterLoggingObj"] = None,
         user_api_key_dict: Optional["UserAPIKeyAuth"] = None,
         request_data: Mapping[str, object] | None = None,
         stream_transform_sink: StreamTransformSink | None = None,
@@ -235,7 +235,7 @@ class GoogleGenAIGenerateContentHandler(BaseTranslation):
             inputs=GenericGuardrailAPIInputs(texts=_texts_payload((accumulated_text,))),
             request_data=guardrail_request_data,
             input_type="response",
-            logging_obj=litellm_logging_obj,
+            logging_obj=embrouter_logging_obj,
         )
         return responses_so_far
 
@@ -250,6 +250,6 @@ class GoogleGenAIGenerateContentHandler(BaseTranslation):
         user_metadata: Final = self.transform_user_api_key_dict_to_metadata(user_api_key_dict)
         context_pairs: Final = ((context_key, context_value),) if context_key not in base else ()
         metadata_pairs: Final = (
-            (("litellm_metadata", user_metadata),) if user_metadata and "litellm_metadata" not in base else ()
+            (("embrouter_metadata", user_metadata),) if user_metadata and "embrouter_metadata" not in base else ()
         )
         return dict((*base.items(), *context_pairs, *metadata_pairs))  # mutable-ok: apply_guardrail takes a plain dict

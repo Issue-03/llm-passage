@@ -19,9 +19,9 @@ from unittest.mock import MagicMock
 import httpx
 import pytest
 
-import litellm
-from litellm.llms.custom_httpx.http_handler import HTTPHandler
-from litellm.llms.sagemaker.chat.transformation import SagemakerChatConfig
+import embrouter
+from embrouter.llms.custom_httpx.http_handler import HTTPHandler
+from embrouter.llms.sagemaker.chat.transformation import SagemakerChatConfig
 
 
 def _encode_header(name: str, value: str) -> bytes:
@@ -125,7 +125,7 @@ def test_sync_first_event_emitted_after_a_single_frame():
     response = httpx.Response(200, stream=stream)
 
     wrapper = SagemakerChatConfig().get_sync_custom_stream_wrapper(
-        litellm_params={},
+        embrouter_params={},
         model="phi-4",
         custom_llm_provider="sagemaker_chat",
         logging_obj=MagicMock(),
@@ -148,7 +148,7 @@ def test_sync_events_emitted_incrementally_without_bursting():
     response = httpx.Response(200, stream=stream)
 
     wrapper = SagemakerChatConfig().get_sync_custom_stream_wrapper(
-        litellm_params={},
+        embrouter_params={},
         model="phi-4",
         custom_llm_provider="sagemaker_chat",
         logging_obj=MagicMock(),
@@ -173,7 +173,7 @@ async def test_async_first_event_emitted_after_a_single_frame():
     response = httpx.Response(200, stream=stream)
 
     wrapper = await SagemakerChatConfig().get_async_custom_stream_wrapper(
-        litellm_params={},
+        embrouter_params={},
         model="phi-4",
         custom_llm_provider="sagemaker_chat",
         logging_obj=MagicMock(),
@@ -224,7 +224,7 @@ def test_decoder_reassembles_frames_across_arbitrary_byte_boundaries(split_size)
     ignore frame edges and asserts every delta still decodes, in order, exactly
     once - the guarantee botocore's EventStreamBuffer provides.
     """
-    from litellm.llms.sagemaker.chat.transformation import AWSEventStreamDecoder
+    from embrouter.llms.sagemaker.chat.transformation import AWSEventStreamDecoder
 
     frames = _make_frames(24)
     blob = b"".join(frames)
@@ -274,7 +274,7 @@ def _invoke_sagemaker_chat(monkeypatch, **extra_params) -> _RequestCapturingHTTP
     """
     monkeypatch.delenv("AWS_BEARER_TOKEN_BEDROCK", raising=False)
     client = _RequestCapturingHTTPHandler()
-    litellm.completion(
+    embrouter.completion(
         model="sagemaker_chat/my-endpoint",
         messages=[{"role": "user", "content": "hi"}],
         aws_access_key_id="AKIATESTTESTTESTTEST",
@@ -353,7 +353,7 @@ def test_get_complete_url_uses_partition_dns_suffix(region: str, stream: bool, e
         api_key=None,
         model="my-endpoint",
         optional_params={"aws_region_name": region},
-        litellm_params={},
+        embrouter_params={},
         stream=stream,
     )
     assert url == expected_url
@@ -368,7 +368,7 @@ def test_get_complete_url_sagemaker_base_url_override_wins() -> None:
             "aws_region_name": "cn-north-1",
             "sagemaker_base_url": "https://my-private-endpoint.example.com/invocations",
         },
-        litellm_params={},
+        embrouter_params={},
         stream=False,
     )
     assert url == "https://my-private-endpoint.example.com/invocations"

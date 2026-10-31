@@ -6,18 +6,18 @@ from typing import TYPE_CHECKING, Final
 
 import httpx
 
-import litellm
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.openai import (
+import embrouter
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.openai import (
     AllMessageValues,
 )
-from litellm.types.utils import ModelResponse
+from embrouter.types.utils import ModelResponse
 
 from ...openai_like.chat.transformation import OpenAILikeChatConfig
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
 
 
 class AmazonNovaChatConfig(OpenAILikeChatConfig):
@@ -58,7 +58,7 @@ class AmazonNovaChatConfig(OpenAILikeChatConfig):
         api_base = api_base or get_secret_str("AMAZON_NOVA_API_BASE") or "https://api.nova.amazon.com/v1"
 
         # Get API key from multiple sources
-        key: Final = api_key or litellm.amazon_nova_api_key or get_secret_str("AMAZON_NOVA_API_KEY") or litellm.api_key
+        key: Final = api_key or embrouter.amazon_nova_api_key or get_secret_str("AMAZON_NOVA_API_KEY") or embrouter.api_key
         return api_base, key
 
     def get_supported_openai_params(self, model: str) -> list:
@@ -81,11 +81,11 @@ class AmazonNovaChatConfig(OpenAILikeChatConfig):
         model: str,
         raw_response: httpx.Response,
         model_response: ModelResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         request_data: dict,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,
@@ -100,7 +100,7 @@ class AmazonNovaChatConfig(OpenAILikeChatConfig):
             encoding=encoding,
             optional_params=optional_params,
             json_mode=json_mode,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             api_key=api_key,
         )
 

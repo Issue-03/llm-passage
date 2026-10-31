@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS "LiteLLM_DailyModelUsage" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_DailyModelUsage" (
     "date" TEXT NOT NULL,
     "model_group" TEXT NOT NULL,
     "model" TEXT NOT NULL,
@@ -12,8 +12,8 @@ CREATE TABLE IF NOT EXISTS "LiteLLM_DailyModelUsage" (
     "failed_requests" BIGINT NOT NULL DEFAULT 0,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
-    CONSTRAINT "LiteLLM_DailyModelUsage_pkey" PRIMARY KEY ("date", "model_group", "model", "custom_llm_provider", "task_type")
+    CONSTRAINT "EmbRouter_DailyModelUsage_pkey" PRIMARY KEY ("date", "model_group", "model", "custom_llm_provider", "task_type")
 );
 
-CREATE INDEX IF NOT EXISTS "LiteLLM_DailyModelUsage_date_idx" ON "LiteLLM_DailyModelUsage"("date");
-CREATE INDEX IF NOT EXISTS "LiteLLM_DailyModelUsage_model_group_idx" ON "LiteLLM_DailyModelUsage"("model_group");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyModelUsage_date_idx" ON "EmbRouter_DailyModelUsage"("date");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyModelUsage_model_group_idx" ON "EmbRouter_DailyModelUsage"("model_group");

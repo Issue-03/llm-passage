@@ -3,7 +3,7 @@ from typing import Literal
 
 from typing_extensions import TypedDict
 
-from litellm.types.utils import StandardLoggingUserAPIKeyMetadata
+from embrouter.types.utils import StandardLoggingUserAPIKeyMetadata
 
 
 class LinkDict(TypedDict, total=False):

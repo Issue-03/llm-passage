@@ -10,13 +10,13 @@ import time
 import httpx
 import pytest
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.interactions import streaming_iterator as interactions_streaming_iterator_module
-from litellm.interactions.streaming_iterator import InteractionsAPIStreamingIterator
-from litellm.litellm_core_utils import thread_pool_executor as thread_pool_executor_module
-from litellm.litellm_core_utils.litellm_logging import Logging as LitellmLogging
-from litellm.types.interactions import InteractionsAPIStreamingResponse
+import embrouter
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.interactions import streaming_iterator as interactions_streaming_iterator_module
+from embrouter.interactions.streaming_iterator import InteractionsAPIStreamingIterator
+from embrouter.embrouter_core_utils import thread_pool_executor as thread_pool_executor_module
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbrouterLogging
+from embrouter.types.interactions import InteractionsAPIStreamingResponse
 
 
 class RecordingCustomLogger(CustomLogger):
@@ -47,19 +47,19 @@ class RecordingExecutor:
 @pytest.fixture(autouse=True)
 def _isolate_callbacks():
     saved = (
-        litellm.callbacks,
-        litellm.success_callback,
-        litellm._async_success_callback,
-        litellm.failure_callback,
-        litellm._async_failure_callback,
+        embrouter.callbacks,
+        embrouter.success_callback,
+        embrouter._async_success_callback,
+        embrouter.failure_callback,
+        embrouter._async_failure_callback,
     )
     yield
     (
-        litellm.callbacks,
-        litellm.success_callback,
-        litellm._async_success_callback,
-        litellm.failure_callback,
-        litellm._async_failure_callback,
+        embrouter.callbacks,
+        embrouter.success_callback,
+        embrouter._async_success_callback,
+        embrouter.failure_callback,
+        embrouter._async_failure_callback,
     ) = saved
 
 
@@ -70,16 +70,16 @@ async def test_custom_logger_only_never_submits_sync_success_handler(monkeypatch
     monkeypatch.setattr(interactions_streaming_iterator_module, "executor", recording_executor)
 
     recorder = RecordingCustomLogger()
-    litellm.success_callback = [recorder]
-    litellm._async_success_callback = [recorder]
+    embrouter.success_callback = [recorder]
+    embrouter._async_success_callback = [recorder]
 
-    logging_obj = LitellmLogging(
+    logging_obj = EmbrouterLogging(
         model="gemini/gemini-3-pro-preview",
         messages=[{"role": "user", "content": "hi"}],
         stream=True,
         call_type="ainteraction",
         start_time=time.time(),
-        litellm_call_id="lit-4210-test",
+        embrouter_call_id="lit-4210-test",
         function_id="lit-4210-test",
     )
     iterator = InteractionsAPIStreamingIterator(

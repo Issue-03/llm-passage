@@ -5,7 +5,7 @@ operations as a log-based event (severity WARN) carrying the ``exception.*``
 attribute trio, correlated to the failed span through the trace/span ids —
 not as a span attribute or span event. This module owns building and
 emitting that event; the exporter pipeline it rides is built in
-:mod:`litellm.integrations.otel.plumbing.providers`.
+:mod:`embrouter.integrations.otel.plumbing.providers`.
 """
 
 from dataclasses import dataclass
@@ -17,7 +17,7 @@ from opentelemetry._logs.severity import SeverityNumber
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.trace import SpanContext
 
-from litellm.integrations.otel.model.semconv import ExceptionEvent, GenAIEvent
+from embrouter.integrations.otel.model.semconv import ExceptionEvent, GenAIEvent
 
 try:
     from opentelemetry.sdk._logs import LogRecord as _SDKLogRecord

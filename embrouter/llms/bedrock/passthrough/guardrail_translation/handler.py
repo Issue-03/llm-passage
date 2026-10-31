@@ -3,22 +3,22 @@ from typing import TYPE_CHECKING, Any, Final, Optional, Protocol, TypeAlias
 
 from typing_extensions import ReadOnly, TypedDict
 
-from litellm._logging import verbose_proxy_logger
-from litellm.llms.base_llm.guardrail_translation.base_translation import BaseTranslation
-from litellm.llms.base_llm.guardrail_translation.utils import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.llms.base_llm.guardrail_translation.base_translation import BaseTranslation
+from embrouter.llms.base_llm.guardrail_translation.utils import (
     effective_skip_system_message_for_guardrail,
     effective_skip_tool_message_for_guardrail,
 )
-from litellm.types.utils import GenericGuardrailAPIInputs
+from embrouter.types.utils import GenericGuardrailAPIInputs
 
 if TYPE_CHECKING:
-    from litellm.integrations.custom_guardrail import CustomGuardrail
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.llms.pass_through.guardrail_translation.handler import (
+    from embrouter.integrations.custom_guardrail import CustomGuardrail
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.llms.pass_through.guardrail_translation.handler import (
         PassThroughEndpointHandler,
     )
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.utils import ProxyLogging
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy.utils import ProxyLogging
 
 _CONVERSE_ACTIONS: Final = frozenset({"converse", "converse-stream"})
 _EVENT_STREAM_CONTENT_TYPE: Final = "vnd.amazon.eventstream"
@@ -36,7 +36,7 @@ def _generic_passthrough_handler() -> "PassThroughEndpointHandler":
     handler scans the full request/response payload so blocking guardrails
     still run, matching how other passthrough providers are guarded.
     """
-    from litellm.llms.pass_through.guardrail_translation.handler import (
+    from embrouter.llms.pass_through.guardrail_translation.handler import (
         PassThroughEndpointHandler,
     )
 
@@ -424,7 +424,7 @@ class BedrockPassthroughGuardrailHandler(BaseTranslation):
         self,
         data: dict,
         guardrail_to_apply: "CustomGuardrail",
-        litellm_logging_obj: Optional["LiteLLMLoggingObj"] = None,
+        embrouter_logging_obj: Optional["EmbRouterLoggingObj"] = None,
     ) -> Mapping[str, object]:
         endpoint: Final = data.get("endpoint", "")
         body: Final = data.get("data")
@@ -433,7 +433,7 @@ class BedrockPassthroughGuardrailHandler(BaseTranslation):
             return await _generic_passthrough_handler().process_input_messages(
                 data=data,
                 guardrail_to_apply=guardrail_to_apply,
-                litellm_logging_obj=litellm_logging_obj,
+                embrouter_logging_obj=embrouter_logging_obj,
             )
 
         if not isinstance(body, dict) or not isinstance(body.get("messages"), list):
@@ -456,7 +456,7 @@ class BedrockPassthroughGuardrailHandler(BaseTranslation):
             inputs=inputs,
             request_data=data,
             input_type="request",
-            logging_obj=litellm_logging_obj,
+            logging_obj=embrouter_logging_obj,
         )
 
         guardrailed_texts: Final = guardrailed_inputs.get("texts", [])
@@ -469,7 +469,7 @@ class BedrockPassthroughGuardrailHandler(BaseTranslation):
         self,
         response: object,
         guardrail_to_apply: "CustomGuardrail",
-        litellm_logging_obj: Optional["LiteLLMLoggingObj"] = None,
+        embrouter_logging_obj: Optional["EmbRouterLoggingObj"] = None,
         user_api_key_dict: Optional["UserAPIKeyAuth"] = None,
         request_data: dict | None = None,
     ) -> object:
@@ -478,7 +478,7 @@ class BedrockPassthroughGuardrailHandler(BaseTranslation):
             return await _generic_passthrough_handler().process_output_response(
                 response=response,
                 guardrail_to_apply=guardrail_to_apply,
-                litellm_logging_obj=litellm_logging_obj,
+                embrouter_logging_obj=embrouter_logging_obj,
                 user_api_key_dict=user_api_key_dict,
                 request_data=request_data,
             )
@@ -500,12 +500,12 @@ class BedrockPassthroughGuardrailHandler(BaseTranslation):
             return response
 
         effective_request_data = request_data or {}
-        if "litellm_metadata" not in effective_request_data and user_api_key_dict is not None:
+        if "embrouter_metadata" not in effective_request_data and user_api_key_dict is not None:
             user_metadata: Final = self.transform_user_api_key_dict_to_metadata(user_api_key_dict)
             if user_metadata:
                 effective_request_data = {
                     **effective_request_data,
-                    "litellm_metadata": user_metadata,
+                    "embrouter_metadata": user_metadata,
                 }
 
         inputs: Final = GenericGuardrailAPIInputs(texts=texts)
@@ -517,7 +517,7 @@ class BedrockPassthroughGuardrailHandler(BaseTranslation):
             inputs=inputs,
             request_data=effective_request_data,
             input_type="response",
-            logging_obj=litellm_logging_obj,
+            logging_obj=embrouter_logging_obj,
         )
 
         guardrailed_texts: Final = guardrailed_inputs.get("texts", [])

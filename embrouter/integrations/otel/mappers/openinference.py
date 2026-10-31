@@ -12,8 +12,8 @@ from itertools import accumulate, chain, groupby
 from types import MappingProxyType
 from typing import Final
 
-from litellm.integrations.otel.mappers.base import AttributeMap, AttrValue, SpanData
-from litellm.integrations.otel.mappers.utils import (
+from embrouter.integrations.otel.mappers.base import AttributeMap, AttrValue, SpanData
+from embrouter.integrations.otel.mappers.utils import (
     MAX_TOOL_DEFINITION_ATTRS_PER_SPAN,
     collect,
     drop_none,
@@ -22,7 +22,7 @@ from litellm.integrations.otel.mappers.utils import (
     output_messages,
     tool_definition_attrs,
 )
-from litellm.integrations.otel.model.payloads import (
+from embrouter.integrations.otel.model.payloads import (
     LLMCallSpanData,
     LLMRequestParams,
     ToolDefinition,

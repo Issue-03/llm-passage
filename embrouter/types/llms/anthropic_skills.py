@@ -58,8 +58,8 @@ class Skill(BaseModel):
     """ISO 8601 timestamp of when the skill was last updated"""
 
     description: str | None = None
-    """Description of the skill. Populated for the LiteLLM-hosted registry
-    (custom_llm_provider="litellm_proxy"); Anthropic's list endpoint does not
+    """Description of the skill. Populated for the EmbRouter-hosted registry
+    (custom_llm_provider="embrouter_proxy"); Anthropic's list endpoint does not
     return a description, so this is None there."""
 
     search_score: float | None = None

@@ -103,7 +103,7 @@ export const getAgentsTableColumns = ({
     size: 170,
     enableSorting: false,
     cell: ({ row }) => {
-      const model = row.original.litellm_params?.model;
+      const model = row.original.embrouter_params?.model;
       if (!model) {
         return <span className="text-muted-foreground">N/A</span>;
       }

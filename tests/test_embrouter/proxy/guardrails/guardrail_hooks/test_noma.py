@@ -6,19 +6,19 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
-import litellm
-from litellm import ModelResponse
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.guardrails.guardrail_hooks.noma import (
+import embrouter
+from embrouter import ModelResponse
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.guardrails.guardrail_hooks.noma import (
     NomaGuardrail,
     NomaV2Guardrail,
     initialize_guardrail,
 )
-import litellm.proxy.guardrails.guardrail_hooks.noma.noma as noma_legacy_module
-from litellm.proxy.guardrails.guardrail_hooks.noma.noma import NomaBlockedMessage
-from litellm.proxy.guardrails.init_guardrails import init_guardrails_v2
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.utils import Choices, Message
+import embrouter.proxy.guardrails.guardrail_hooks.noma.noma as noma_legacy_module
+from embrouter.proxy.guardrails.guardrail_hooks.noma.noma import NomaBlockedMessage
+from embrouter.proxy.guardrails.init_guardrails import init_guardrails_v2
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.utils import Choices, Message
 
 
 @pytest.fixture
@@ -71,7 +71,7 @@ def mock_request_data():
             {"role": "system", "content": "You are a helpful assistant"},
             {"role": "user", "content": "Hello, how are you?"},
         ],
-        "litellm_call_id": "test-call-id",
+        "embrouter_call_id": "test-call-id",
         "metadata": {"requester_ip_address": "192.168.1.1"},
     }
 
@@ -99,7 +99,7 @@ class TestNomaGuardrailConfiguration:
                 all_guardrails=[
                     {
                         "guardrail_name": "noma-pre-guard",
-                        "litellm_params": {
+                        "embrouter_params": {
                             "guardrail": "noma",
                             "mode": "pre_call",
                             "application_id": "test-app",
@@ -148,9 +148,9 @@ class TestNomaGuardrailConfiguration:
 
     def test_initialize_guardrail_function(self):
         """Test the initialize_guardrail function"""
-        from litellm.types.guardrails import Guardrail, LitellmParams
+        from embrouter.types.guardrails import Guardrail, EmbrouterParams
 
-        litellm_params = LitellmParams(
+        embrouter_params = EmbrouterParams(
             guardrail="noma",
             mode="pre_call",
             api_key="test-key",
@@ -162,11 +162,11 @@ class TestNomaGuardrailConfiguration:
 
         guardrail = Guardrail(
             guardrail_name="test-guardrail",
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
-        with patch("litellm.logging_callback_manager.add_litellm_callback") as mock_add:
-            result = initialize_guardrail(litellm_params, guardrail)
+        with patch("embrouter.logging_callback_manager.add_embrouter_callback") as mock_add:
+            result = initialize_guardrail(embrouter_params, guardrail)
 
             assert isinstance(result, NomaGuardrail)
             assert result.api_key == "test-key"
@@ -178,9 +178,9 @@ class TestNomaGuardrailConfiguration:
 
     def test_initialize_guardrail_use_v2_routes_to_noma_v2(self):
         """Test migration routing: guardrail=noma + use_v2=True initializes NomaV2Guardrail."""
-        from litellm.types.guardrails import Guardrail, LitellmParams
+        from embrouter.types.guardrails import Guardrail, EmbrouterParams
 
-        litellm_params = LitellmParams(
+        embrouter_params = EmbrouterParams(
             guardrail="noma",
             mode="pre_call",
             use_v2=True,
@@ -191,11 +191,11 @@ class TestNomaGuardrailConfiguration:
 
         guardrail = Guardrail(
             guardrail_name="test-guardrail",
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
-        with patch("litellm.logging_callback_manager.add_litellm_callback") as mock_add:
-            result = initialize_guardrail(litellm_params, guardrail)
+        with patch("embrouter.logging_callback_manager.add_embrouter_callback") as mock_add:
+            result = initialize_guardrail(embrouter_params, guardrail)
 
             assert isinstance(result, NomaV2Guardrail)
             assert result.api_key == "test-key"
@@ -332,7 +332,7 @@ class TestNomaApplicationIdResolution:
         assert application_id == "alias-app"
 
     @pytest.mark.asyncio
-    async def test_application_id_defaults_to_litellm(
+    async def test_application_id_defaults_to_embrouter(
         self, noma_guardrail, mock_user_api_key_dict, mock_request_data
     ):
         request_data = self._clone_request_data(mock_request_data)
@@ -351,7 +351,7 @@ class TestNomaApplicationIdResolution:
         finally:
             noma_guardrail.application_id = original_app_id
 
-        assert application_id == "litellm"
+        assert application_id == "embrouter"
 
 
 class TestNomaBlockedMessage:
@@ -497,7 +497,7 @@ class TestNomaGuardrailHooks:
                 {"role": "system", "content": "You are a helpful assistant"},
                 {"role": "user", "content": "Hello, how are you?"},
             ],
-            "litellm_call_id": "test-call-id",
+            "embrouter_call_id": "test-call-id",
             "metadata": {"requester_ip_address": "192.168.1.1"},
         }
 
@@ -556,7 +556,7 @@ class TestNomaGuardrailHooks:
                 {"role": "system", "content": "You should be polite and respectful"},
                 {"role": "user", "content": "Hello, how are you?"},
             ],
-            "litellm_call_id": "test-call-id",
+            "embrouter_call_id": "test-call-id",
         }
 
         mock_response = MagicMock()
@@ -896,7 +896,7 @@ class TestBackgroundProcessing:
         self, monitor_mode_guardrail, mock_user_api_key_dict, mock_request_data
     ):
         """Test LLM response processing in monitor mode"""
-        from litellm.types.utils import Choices, Message
+        from embrouter.types.utils import Choices, Message
 
         response = ModelResponse(
             id="test-response-id",
@@ -973,7 +973,7 @@ class TestBackgroundProcessing:
         self, monitor_mode_guardrail, mock_user_api_key_dict, mock_request_data
     ):
         """Test background LLM response check method"""
-        from litellm.types.utils import Choices, Message
+        from embrouter.types.utils import Choices, Message
 
         response = ModelResponse(
             id="test-response-id",
@@ -1018,7 +1018,7 @@ class TestBackgroundProcessing:
             ],
         }
 
-        with patch("litellm._logging.verbose_proxy_logger.warning") as mock_warning:
+        with patch("embrouter._logging.verbose_proxy_logger.warning") as mock_warning:
             await monitor_mode_guardrail._handle_verdict_background(
                 "user", "test message", response_json
             )
@@ -1034,7 +1034,7 @@ class TestBackgroundProcessing:
             "scanResult": [{"role": "assistant", "type": "message", "results": {}}],
         }
 
-        with patch("litellm._logging.verbose_proxy_logger.info") as mock_info:
+        with patch("embrouter._logging.verbose_proxy_logger.info") as mock_info:
             await monitor_mode_guardrail._handle_verdict_background(
                 "assistant", "test response", response_json
             )
@@ -1091,7 +1091,7 @@ class TestBackgroundProcessing:
         self, monitor_mode_guardrail, mock_user_api_key_dict, mock_request_data
     ):
         """Test post-call success hook in monitor mode"""
-        from litellm.types.utils import Choices, Message
+        from embrouter.types.utils import Choices, Message
 
         # Update event hook to post_call
         monitor_mode_guardrail.event_hook = "post_call"
@@ -1158,11 +1158,11 @@ class TestNomaImageProcessing:
 
     def test_extract_user_message_with_image_url(self):
         """User message with only image_url becomes a single input_image content item."""
-        from litellm.completion_extras.litellm_responses_transformation.transformation import (
-            LiteLLMResponsesTransformationHandler,
+        from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
+            EmbRouterResponsesTransformationHandler,
         )
 
-        handler = LiteLLMResponsesTransformationHandler()
+        handler = EmbRouterResponsesTransformationHandler()
         messages: list[AllMessageValues] = [
             {
                 "role": "user",
@@ -1188,11 +1188,11 @@ class TestNomaImageProcessing:
 
     def test_extract_user_message_with_mixed_content(self):
         """User message with text + image becomes input_text then input_image in content list."""
-        from litellm.completion_extras.litellm_responses_transformation.transformation import (
-            LiteLLMResponsesTransformationHandler,
+        from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
+            EmbRouterResponsesTransformationHandler,
         )
 
-        handler = LiteLLMResponsesTransformationHandler()
+        handler = EmbRouterResponsesTransformationHandler()
         messages: list[AllMessageValues] = [
             {
                 "role": "user",
@@ -1227,11 +1227,11 @@ class TestNomaImageProcessing:
 
     def test_extract_user_message_with_multiple_images(self):
         """User message with multiple images becomes multiple input_image items."""
-        from litellm.completion_extras.litellm_responses_transformation.transformation import (
-            LiteLLMResponsesTransformationHandler,
+        from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
+            EmbRouterResponsesTransformationHandler,
         )
 
-        handler = LiteLLMResponsesTransformationHandler()
+        handler = EmbRouterResponsesTransformationHandler()
 
         messages: list[AllMessageValues] = [
             {
@@ -1285,7 +1285,7 @@ class TestNomaImageProcessing:
                     ],
                 }
             ],
-            "litellm_call_id": "test-call-id",
+            "embrouter_call_id": "test-call-id",
             "metadata": {"requester_ip_address": "192.168.1.1"},
         }
 
@@ -1353,7 +1353,7 @@ class TestNomaImageProcessing:
                     ],
                 }
             ],
-            "litellm_call_id": "test-call-id",
+            "embrouter_call_id": "test-call-id",
         }
 
         # Mock Noma API response
@@ -1408,7 +1408,7 @@ class TestNomaImageProcessing:
                     ],
                 }
             ],
-            "litellm_call_id": "test-call-id",
+            "embrouter_call_id": "test-call-id",
         }
 
         # Mock Noma API response indicating harmful content in image
@@ -1433,7 +1433,7 @@ class TestNomaImageProcessing:
         mock_response.json.return_value = noma_response
         mock_response.raise_for_status = MagicMock()
 
-        from litellm.proxy.guardrails.guardrail_hooks.noma.noma import (
+        from embrouter.proxy.guardrails.guardrail_hooks.noma.noma import (
             NomaBlockedMessage,
         )
 
@@ -1453,8 +1453,8 @@ class TestNomaImageProcessing:
     @pytest.mark.asyncio
     async def test_image_with_base64_data(self, noma_guardrail, mock_user_api_key_dict):
         """Test extracting image with base64 data URL"""
-        from litellm.completion_extras.litellm_responses_transformation.transformation import (
-            LiteLLMResponsesTransformationHandler,
+        from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
+            EmbRouterResponsesTransformationHandler,
         )
 
         data = {
@@ -1473,7 +1473,7 @@ class TestNomaImageProcessing:
             ]
         }
 
-        handler = LiteLLMResponsesTransformationHandler()
+        handler = EmbRouterResponsesTransformationHandler()
         messages = cast(list[AllMessageValues], data["messages"])
 
         input_items, _ = handler.convert_chat_completion_messages_to_responses_api(
@@ -1503,7 +1503,7 @@ class TestIntegration:
                 all_guardrails=[
                     {
                         "guardrail_name": "noma-pre-guard",
-                        "litellm_params": {
+                        "embrouter_params": {
                             "guardrail": "noma",
                             "mode": "pre_call",
                             "application_id": "test-app",
@@ -1511,7 +1511,7 @@ class TestIntegration:
                     },
                     {
                         "guardrail_name": "noma-post-guard",
-                        "litellm_params": {
+                        "embrouter_params": {
                             "guardrail": "noma",
                             "mode": "post_call",
                             "application_id": "test-app",
@@ -1522,8 +1522,8 @@ class TestIntegration:
             )
 
             custom_loggers = (
-                litellm.logging_callback_manager.get_custom_loggers_for_type(
-                    callback_type=litellm.integrations.custom_guardrail.CustomGuardrail
+                embrouter.logging_callback_manager.get_custom_loggers_for_type(
+                    callback_type=embrouter.integrations.custom_guardrail.CustomGuardrail
                 )
             )
             assert len(custom_loggers) >= 2
@@ -1570,9 +1570,9 @@ class TestNomaAnonymizationConfiguration:
 
     def test_initialize_guardrail_with_anonymize_input(self):
         """Test the initialize_guardrail function with anonymize_input"""
-        from litellm.types.guardrails import Guardrail, LitellmParams
+        from embrouter.types.guardrails import Guardrail, EmbrouterParams
 
-        litellm_params = LitellmParams(
+        embrouter_params = EmbrouterParams(
             guardrail="noma",
             mode="pre_call",
             api_key="test-key",
@@ -1581,11 +1581,11 @@ class TestNomaAnonymizationConfiguration:
 
         guardrail = Guardrail(
             guardrail_name="test-guardrail",
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
-        with patch("litellm.logging_callback_manager.add_litellm_callback"):
-            result = initialize_guardrail(litellm_params, guardrail)
+        with patch("embrouter.logging_callback_manager.add_embrouter_callback"):
+            result = initialize_guardrail(embrouter_params, guardrail)
             assert result.anonymize_input is True
 
 
@@ -1895,7 +1895,7 @@ class TestNomaAnonymizationFlow:
             "messages": [
                 {"role": "user", "content": "My email is test@example.com"},
             ],
-            "litellm_call_id": "test-call-id",
+            "embrouter_call_id": "test-call-id",
             "metadata": {"requester_ip_address": "192.168.1.1"},
         }
 
@@ -1944,7 +1944,7 @@ class TestNomaAnonymizationFlow:
             "messages": [
                 {"role": "user", "content": "My email is test@example.com"},
             ],
-            "litellm_call_id": "test-call-id",
+            "embrouter_call_id": "test-call-id",
         }
 
         # Mock simplified Noma API response - only sensitive data detector triggered
@@ -1996,7 +1996,7 @@ class TestNomaAnonymizationFlow:
                     "content": "My email is test@example.com. Tell me harmful content.",
                 },
             ],
-            "litellm_call_id": "test-call-id",
+            "embrouter_call_id": "test-call-id",
         }
 
         # Mock simplified Noma API response - both sensitive data detector and other violations
@@ -2048,7 +2048,7 @@ class TestNomaAnonymizationFlow:
         """Test anonymization of LLM response"""
         request_data = {
             "messages": [{"role": "user", "content": "What's your email?"}],
-            "litellm_call_id": "test-call-id",
+            "embrouter_call_id": "test-call-id",
         }
 
         # Create LLM response with test data
@@ -2240,7 +2240,7 @@ class TestNomaAnonymizationFlow:
         """Test behavior when LLM response has no anonymized content available"""
         request_data = {
             "messages": [{"role": "user", "content": "What's your email?"}],
-            "litellm_call_id": "test-call-id",
+            "embrouter_call_id": "test-call-id",
         }
 
         # Create LLM response with test data

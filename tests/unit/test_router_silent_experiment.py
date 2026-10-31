@@ -7,12 +7,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-from litellm.router import Router
-from litellm.router import _silent_experiment_kwargs_snapshot
-from litellm.router import _silent_experiment_targets
+import embrouter
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.embrouter_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from embrouter.router import Router
+from embrouter.router import _silent_experiment_kwargs_snapshot
+from embrouter.router import _silent_experiment_targets
 
 
 class _RecordingLogger(CustomLogger):
@@ -27,7 +27,7 @@ class _RecordingLogger(CustomLogger):
         return [
             call
             for call in self.success_kwargs
-            if call.get("litellm_params", {}).get("metadata", {}).get("is_silent_experiment") is True
+            if call.get("embrouter_params", {}).get("metadata", {}).get("is_silent_experiment") is True
         ]
 
 
@@ -45,13 +45,13 @@ def recording_logger():
         settle_loop.run_until_complete(_settle_shared_logging_worker())
     finally:
         settle_loop.close()
-    original_callbacks: Final = litellm.callbacks
+    original_callbacks: Final = embrouter.callbacks
     logger: Final = _RecordingLogger()
-    litellm.callbacks = [logger]
+    embrouter.callbacks = [logger]
     try:
         yield logger
     finally:
-        litellm.callbacks = original_callbacks
+        embrouter.callbacks = original_callbacks
 
 
 async def _wait_for_shadow_successes(logger: _RecordingLogger, expected: int, timeout: float = 5.0) -> None:
@@ -70,15 +70,15 @@ def _streaming_model_list(silent_model: object) -> list[dict[str, object]]:
     return [
         {
             "model_name": "primary-model",
-            "litellm_params": {"model": "openai/gpt-5.4-mini", "api_key": "fake-key", "silent_model": silent_model},
+            "embrouter_params": {"model": "openai/gpt-5.4-mini", "api_key": "fake-key", "silent_model": silent_model},
         },
         {
             "model_name": "shadow-a",
-            "litellm_params": {"model": "openai/gpt-5.4-nano", "api_key": "fake-key", "silent_model": "shadow-b"},
+            "embrouter_params": {"model": "openai/gpt-5.4-nano", "api_key": "fake-key", "silent_model": "shadow-b"},
         },
         {
             "model_name": "shadow-b",
-            "litellm_params": {"model": "anthropic/claude-haiku-4-5", "api_key": "fake-key"},
+            "embrouter_params": {"model": "anthropic/claude-haiku-4-5", "api_key": "fake-key"},
         },
     ]
 
@@ -95,7 +95,7 @@ class _FakeUserAPIKeyAuth:
     """Mimics UserAPIKeyAuth which contains a parent_otel_span that is not
     deepcopy-able. This is what actually causes safe_deep_copy to fail for
     the metadata dict in production — safe_deep_copy handles the top-level
-    litellm_parent_otel_span specially (pops it before copying), but does
+    embrouter_parent_otel_span specially (pops it before copying), but does
     NOT handle user_api_key_auth.parent_otel_span inside it."""
 
     def __init__(self, key_alias, parent_otel_span):
@@ -117,7 +117,7 @@ def test_get_silent_experiment_kwargs():
     model_list = [
         {
             "model_name": "gpt-3.5-turbo",
-            "litellm_params": {"model": "gpt-3.5-turbo", "api_key": "fake-key"},
+            "embrouter_params": {"model": "gpt-3.5-turbo", "api_key": "fake-key"},
         },
     ]
     router = Router(model_list=model_list)
@@ -129,17 +129,17 @@ def test_get_silent_experiment_kwargs():
     kwargs = {
         "metadata": {
             "foo": "bar",
-            "litellm_parent_otel_span": mock_span,
+            "embrouter_parent_otel_span": mock_span,
             "user_api_key_auth": mock_auth,
         },
-        "litellm_call_id": "call-123",
+        "embrouter_call_id": "call-123",
         "stream": True,
         "proxy_server_request": {"body": {"model": "test"}},
     }
     result = router._get_silent_experiment_kwargs(**kwargs)
     assert result["metadata"]["is_silent_experiment"] is True
     assert result["metadata"]["foo"] == "bar"
-    assert "litellm_call_id" not in result
+    assert "embrouter_call_id" not in result
     assert result["stream"] is True
     # proxy_server_request must be preserved for spend log metadata
     assert "proxy_server_request" in result
@@ -149,11 +149,11 @@ def test_get_silent_experiment_kwargs():
     assert result["metadata"] is not kwargs["metadata"]
     # OTel span must be stripped from the silent copy — it's not safe to use
     # across event loops (silent experiment runs in a new event loop).
-    assert "litellm_parent_otel_span" not in result["metadata"]
+    assert "embrouter_parent_otel_span" not in result["metadata"]
     # Original metadata must NOT be mutated — must carry the real span,
     # not safe_deep_copy's temporary "placeholder" string.
     assert "is_silent_experiment" not in kwargs["metadata"]
-    assert kwargs["metadata"]["litellm_parent_otel_span"] is mock_span
+    assert kwargs["metadata"]["embrouter_parent_otel_span"] is mock_span
     assert kwargs["metadata"]["user_api_key_auth"] is mock_auth
     # Shallow copy must preserve user_api_key_auth so the silent experiment
     # can attribute billing / spend logs to the correct key/team.
@@ -161,7 +161,7 @@ def test_get_silent_experiment_kwargs():
 
 
 def test_get_silent_experiment_kwargs_without_stream_stays_non_streaming():
-    router = Router(model_list=[{"model_name": "m", "litellm_params": {"model": "gpt-3.5-turbo", "api_key": "k"}}])
+    router = Router(model_list=[{"model_name": "m", "embrouter_params": {"model": "gpt-3.5-turbo", "api_key": "k"}}])
     result = router._get_silent_experiment_kwargs(metadata={"foo": "bar"}, stream=False)
     assert result["stream"] is False
     assert "stream" not in router._get_silent_experiment_kwargs(metadata={"foo": "bar"})
@@ -202,7 +202,7 @@ async def test_streaming_shadow_is_streamed_and_drained_async(recording_logger):
     shadow = shadow_successes[0]
     assert shadow["stream"] is True
     assert shadow["stream_options"] == {"include_usage": True}
-    assert shadow["litellm_params"]["metadata"]["model_group"] == "shadow-a"
+    assert shadow["embrouter_params"]["metadata"]["model_group"] == "shadow-a"
     assert shadow["async_complete_streaming_response"] is not None
 
 
@@ -222,7 +222,7 @@ def test_streaming_shadow_is_streamed_and_drained_sync(recording_logger):
     shadow_successes = recording_logger.shadow_successes()
     assert len(shadow_successes) == 1
     assert shadow_successes[0]["stream"] is True
-    assert shadow_successes[0]["litellm_params"]["metadata"]["model_group"] == "shadow-a"
+    assert shadow_successes[0]["embrouter_params"]["metadata"]["model_group"] == "shadow-a"
     assert shadow_successes[0]["async_complete_streaming_response"] is not None
 
 
@@ -241,16 +241,16 @@ async def test_multiple_shadow_targets_fan_out_async(recording_logger):
     await _wait_for_shadow_successes(recording_logger, expected=2)
 
     shadow_successes = recording_logger.shadow_successes()
-    model_groups = sorted(call["litellm_params"]["metadata"]["model_group"] for call in shadow_successes)
+    model_groups = sorted(call["embrouter_params"]["metadata"]["model_group"] for call in shadow_successes)
     assert model_groups == ["shadow-a", "shadow-b"]
-    shadow_metadatas = [call["litellm_params"]["metadata"] for call in shadow_successes]
+    shadow_metadatas = [call["embrouter_params"]["metadata"] for call in shadow_successes]
     assert shadow_metadatas[0] is not shadow_metadatas[1]
     assert all(call["stream"] is True for call in shadow_successes)
     assert "is_silent_experiment" not in metadata
     assert metadata.get("model_group") != "shadow-a"
     primary_successes = [call for call in recording_logger.success_kwargs if call not in shadow_successes]
     assert len(primary_successes) == 1
-    assert primary_successes[0]["litellm_params"]["metadata"]["model_group"] == "primary-model"
+    assert primary_successes[0]["embrouter_params"]["metadata"]["model_group"] == "primary-model"
 
 
 def test_multiple_shadow_targets_fan_out_sync(recording_logger):
@@ -265,7 +265,7 @@ def test_multiple_shadow_targets_fan_out_sync(recording_logger):
     _wait_for_shadow_successes_sync(recording_logger, expected=2)
 
     shadow_successes = recording_logger.shadow_successes()
-    model_groups = sorted(call["litellm_params"]["metadata"]["model_group"] for call in shadow_successes)
+    model_groups = sorted(call["embrouter_params"]["metadata"]["model_group"] for call in shadow_successes)
     assert model_groups == ["shadow-a", "shadow-b"]
     assert all(call["stream"] is False for call in shadow_successes)
 
@@ -274,7 +274,7 @@ def _tagged_primary_model_list() -> list[dict[str, object]]:
     return [
         {
             "model_name": "primary-model",
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "openai/gpt-5.4-mini",
                 "api_key": "fake-key",
                 "silent_model": "shadow-b",
@@ -283,7 +283,7 @@ def _tagged_primary_model_list() -> list[dict[str, object]]:
         },
         {
             "model_name": "shadow-b",
-            "litellm_params": {"model": "anthropic/claude-haiku-4-5", "api_key": "fake-key"},
+            "embrouter_params": {"model": "anthropic/claude-haiku-4-5", "api_key": "fake-key"},
         },
     ]
 
@@ -314,7 +314,7 @@ def test_sync_shadow_gets_kwargs_snapshot_taken_before_primary_mutates_them(reco
 
     router = Router(model_list=_tagged_primary_model_list())
     with patch(  # test-quality-ok: Router has no thread factory to inject; deferring start is the only deterministic way to expose the race
-        "litellm.router.threading", SimpleNamespace(Thread=_DeferredThread)
+        "embrouter.router.threading", SimpleNamespace(Thread=_DeferredThread)
     ):
         response = router.completion(
             model="primary-model",
@@ -329,7 +329,7 @@ def test_sync_shadow_gets_kwargs_snapshot_taken_before_primary_mutates_them(reco
 
     shadow_successes = recording_logger.shadow_successes()
     assert len(shadow_successes) == 1
-    shadow_metadata = shadow_successes[0]["litellm_params"]["metadata"]
+    shadow_metadata = shadow_successes[0]["embrouter_params"]["metadata"]
     assert shadow_metadata["model_group"] == "shadow-b"
     assert "primary-only" not in shadow_metadata.get("tags", [])
 
@@ -346,7 +346,7 @@ def test_sync_shadow_workers_do_not_share_metadata_with_each_other(recording_log
 
     router = Router(model_list=_streaming_model_list(["shadow-a", "shadow-b"]))
     with patch(  # test-quality-ok: Router has no thread factory to inject; deferring start is the only deterministic way to expose the race
-        "litellm.router.threading", SimpleNamespace(Thread=_DeferredThread)
+        "embrouter.router.threading", SimpleNamespace(Thread=_DeferredThread)
     ):
         router.completion(
             model="primary-model",
@@ -362,7 +362,7 @@ def test_sync_shadow_workers_do_not_share_metadata_with_each_other(recording_log
     _wait_for_shadow_successes_sync(recording_logger, expected=2)
 
     metadata_by_group = {
-        call["litellm_params"]["metadata"]["model_group"]: call["litellm_params"]["metadata"]
+        call["embrouter_params"]["metadata"]["model_group"]: call["embrouter_params"]["metadata"]
         for call in recording_logger.shadow_successes()
     }
     assert metadata_by_group["shadow-b"]["foo"] == "bar"
@@ -383,7 +383,7 @@ async def test_async_shadow_does_not_inherit_primary_deployment_tags(recording_l
 
     shadow_successes = recording_logger.shadow_successes()
     assert len(shadow_successes) == 1
-    assert "primary-only" not in shadow_successes[0]["litellm_params"]["metadata"].get("tags", [])
+    assert "primary-only" not in shadow_successes[0]["embrouter_params"]["metadata"].get("tags", [])
 
 
 @pytest.mark.asyncio
@@ -397,7 +397,7 @@ async def test_shadow_of_a_shadow_is_not_launched(recording_logger):
     assert response.choices[0].message.content == "pong"
     await _wait_for_shadow_successes(recording_logger, expected=2, timeout=1.0)
 
-    model_groups = [call["litellm_params"]["metadata"]["model_group"] for call in recording_logger.shadow_successes()]
+    model_groups = [call["embrouter_params"]["metadata"]["model_group"] for call in recording_logger.shadow_successes()]
     assert model_groups == ["shadow-a"]
 
 
@@ -429,7 +429,7 @@ async def test_router_silent_experiment_acompletion():
     model_list = [
         {
             "model_name": "primary-model",
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "openai/gpt-3.5-turbo",
                 "api_key": "fake-key",
                 "silent_model": "silent-model",
@@ -437,7 +437,7 @@ async def test_router_silent_experiment_acompletion():
         },
         {
             "model_name": "silent-model",
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "openai/gpt-4",
                 "api_key": "fake-key",
             },
@@ -447,11 +447,11 @@ async def test_router_silent_experiment_acompletion():
     router = Router(model_list=model_list)
 
     # Use AsyncMock for async function mocking
-    mock_response = litellm.ModelResponse(choices=[{"message": {"content": "hello"}}])
+    mock_response = embrouter.ModelResponse(choices=[{"message": {"content": "hello"}}])
     mock_acompletion = AsyncMock(return_value=mock_response)
 
-    # Patch at the litellm.router module level where it's imported and used
-    with patch.object(litellm, "acompletion", mock_acompletion):
+    # Patch at the embrouter.router module level where it's imported and used
+    with patch.object(embrouter, "acompletion", mock_acompletion):
         response = await router.acompletion(
             model="primary-model",
             messages=[{"role": "user", "content": "hi"}],
@@ -468,7 +468,7 @@ async def test_router_silent_experiment_acompletion():
         # Check call arguments
         call_args_list = mock_acompletion.call_args_list
 
-        # Verify no silent_model in any call to litellm.acompletion
+        # Verify no silent_model in any call to embrouter.acompletion
         for call in call_args_list:
             args, kwargs = call
             assert "silent_model" not in kwargs
@@ -509,7 +509,7 @@ def test_router_silent_experiment_completion():
     model_list = [
         {
             "model_name": "primary-model",
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "openai/gpt-3.5-turbo",
                 "api_key": "fake-key",
                 "silent_model": "silent-model",
@@ -517,7 +517,7 @@ def test_router_silent_experiment_completion():
         },
         {
             "model_name": "silent-model",
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "openai/gpt-4",
                 "api_key": "fake-key",
             },
@@ -526,8 +526,8 @@ def test_router_silent_experiment_completion():
 
     router = Router(model_list=model_list)
 
-    # Mock litellm.acompletion
-    mock_response = litellm.ModelResponse(choices=[{"message": {"content": "hello"}}])
+    # Mock embrouter.acompletion
+    mock_response = embrouter.ModelResponse(choices=[{"message": {"content": "hello"}}])
 
     # We need an async mock for acompletion
     async def mock_acompletion(*args, **kwargs):
@@ -536,10 +536,10 @@ def test_router_silent_experiment_completion():
     mock_acompletion_mock = AsyncMock(side_effect=mock_acompletion)
     mock_completion_mock = MagicMock(return_value=mock_response)
 
-    # Patch at the litellm module level
+    # Patch at the embrouter module level
     with (
-        patch.object(litellm, "acompletion", mock_acompletion_mock),
-        patch.object(litellm, "completion", mock_completion_mock),
+        patch.object(embrouter, "acompletion", mock_acompletion_mock),
+        patch.object(embrouter, "completion", mock_completion_mock),
     ):
         response = router.completion(
             model="primary-model",

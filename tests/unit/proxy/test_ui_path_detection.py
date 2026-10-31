@@ -1,7 +1,7 @@
 """
 Unit tests for UI path detection and configuration.
 
-Tests the new LITELLM_UI_PATH and LITELLM_ASSETS_PATH functionality
+Tests the new EMBROUTER_UI_PATH and EMBROUTER_ASSETS_PATH functionality
 for read-only filesystem support.
 
 Note: Tests involving proxy_server imports are intentionally minimal
@@ -17,75 +17,75 @@ import pytest
 
 
 class TestUIPathEnvironmentVariable:
-    """Test LITELLM_UI_PATH environment variable handling."""
+    """Test EMBROUTER_UI_PATH environment variable handling."""
 
     def test_custom_ui_path_env_var(self):
-        """Test that LITELLM_UI_PATH overrides default."""
+        """Test that EMBROUTER_UI_PATH overrides default."""
         custom_path = "/custom/ui/path"
 
         with mock.patch.dict(
-            os.environ, {"LITELLM_UI_PATH": custom_path, "LITELLM_NON_ROOT": "true"}
+            os.environ, {"EMBROUTER_UI_PATH": custom_path, "EMBROUTER_NON_ROOT": "true"}
         ):
-            is_non_root = os.getenv("LITELLM_NON_ROOT", "").lower() == "true"
+            is_non_root = os.getenv("EMBROUTER_NON_ROOT", "").lower() == "true"
             default_runtime_ui_path = (
-                "/var/lib/litellm/ui" if is_non_root else "/default/packaged/path"
+                "/var/lib/embrouter/ui" if is_non_root else "/default/packaged/path"
             )
-            runtime_ui_path = os.getenv("LITELLM_UI_PATH", default_runtime_ui_path)
+            runtime_ui_path = os.getenv("EMBROUTER_UI_PATH", default_runtime_ui_path)
 
             assert runtime_ui_path == custom_path
 
     def test_default_ui_path_non_root(self):
         """Test default UI path in non-root mode."""
-        with mock.patch.dict(os.environ, {"LITELLM_NON_ROOT": "true"}, clear=False):
-            # Clear LITELLM_UI_PATH if it exists
+        with mock.patch.dict(os.environ, {"EMBROUTER_NON_ROOT": "true"}, clear=False):
+            # Clear EMBROUTER_UI_PATH if it exists
             env_copy = os.environ.copy()
-            if "LITELLM_UI_PATH" in env_copy:
-                del env_copy["LITELLM_UI_PATH"]
+            if "EMBROUTER_UI_PATH" in env_copy:
+                del env_copy["EMBROUTER_UI_PATH"]
 
             with mock.patch.dict(os.environ, env_copy, clear=True):
-                is_non_root = os.getenv("LITELLM_NON_ROOT", "").lower() == "true"
+                is_non_root = os.getenv("EMBROUTER_NON_ROOT", "").lower() == "true"
                 default_runtime_ui_path = (
-                    "/var/lib/litellm/ui" if is_non_root else "/default/packaged/path"
+                    "/var/lib/embrouter/ui" if is_non_root else "/default/packaged/path"
                 )
-                runtime_ui_path = os.getenv("LITELLM_UI_PATH", default_runtime_ui_path)
+                runtime_ui_path = os.getenv("EMBROUTER_UI_PATH", default_runtime_ui_path)
 
-                assert runtime_ui_path == "/var/lib/litellm/ui"
+                assert runtime_ui_path == "/var/lib/embrouter/ui"
 
 
 class TestAssetsPathEnvironmentVariable:
-    """Test LITELLM_ASSETS_PATH environment variable handling."""
+    """Test EMBROUTER_ASSETS_PATH environment variable handling."""
 
     def test_custom_assets_path_env_var(self):
-        """Test that LITELLM_ASSETS_PATH overrides default."""
+        """Test that EMBROUTER_ASSETS_PATH overrides default."""
         custom_path = "/custom/assets/path"
 
         with mock.patch.dict(
             os.environ,
-            {"LITELLM_ASSETS_PATH": custom_path, "LITELLM_NON_ROOT": "true"},
+            {"EMBROUTER_ASSETS_PATH": custom_path, "EMBROUTER_NON_ROOT": "true"},
         ):
-            is_non_root = os.getenv("LITELLM_NON_ROOT", "").lower() == "true"
+            is_non_root = os.getenv("EMBROUTER_NON_ROOT", "").lower() == "true"
             default_assets_dir = (
-                "/var/lib/litellm/assets" if is_non_root else "/default/current/dir"
+                "/var/lib/embrouter/assets" if is_non_root else "/default/current/dir"
             )
-            assets_dir = os.getenv("LITELLM_ASSETS_PATH", default_assets_dir)
+            assets_dir = os.getenv("EMBROUTER_ASSETS_PATH", default_assets_dir)
 
             assert assets_dir == custom_path
 
     def test_default_assets_path_non_root(self):
         """Test default assets path in non-root mode."""
         env_copy = os.environ.copy()
-        env_copy["LITELLM_NON_ROOT"] = "true"
-        if "LITELLM_ASSETS_PATH" in env_copy:
-            del env_copy["LITELLM_ASSETS_PATH"]
+        env_copy["EMBROUTER_NON_ROOT"] = "true"
+        if "EMBROUTER_ASSETS_PATH" in env_copy:
+            del env_copy["EMBROUTER_ASSETS_PATH"]
 
         with mock.patch.dict(os.environ, env_copy, clear=True):
-            is_non_root = os.getenv("LITELLM_NON_ROOT", "").lower() == "true"
+            is_non_root = os.getenv("EMBROUTER_NON_ROOT", "").lower() == "true"
             default_assets_dir = (
-                "/var/lib/litellm/assets" if is_non_root else "/default/current/dir"
+                "/var/lib/embrouter/assets" if is_non_root else "/default/current/dir"
             )
-            assets_dir = os.getenv("LITELLM_ASSETS_PATH", default_assets_dir)
+            assets_dir = os.getenv("EMBROUTER_ASSETS_PATH", default_assets_dir)
 
-            assert assets_dir == "/var/lib/litellm/assets"
+            assert assets_dir == "/var/lib/embrouter/assets"
 
 
 class TestUIDetectionLogic:
@@ -104,7 +104,7 @@ class TestUIDetectionLogic:
 
     def test_marker_file_exists(self):
         """Test marker file detection logic."""
-        marker_path = os.path.join(self.temp_dir, ".litellm_ui_ready")
+        marker_path = os.path.join(self.temp_dir, ".embrouter_ui_ready")
         Path(marker_path).touch()
 
         # Verify marker file exists

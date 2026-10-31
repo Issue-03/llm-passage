@@ -5,7 +5,7 @@ Utility functions for the Agents API SDK.
 from collections.abc import Mapping
 from typing import Final
 
-from litellm.llms.base_llm.agents.transformation import BaseAgentsAPIConfig
+from embrouter.llms.base_llm.agents.transformation import BaseAgentsAPIConfig
 
 
 def merge_agent_headers(
@@ -44,10 +44,10 @@ def get_provider_agents_api_config(
     Return a provider-specific BaseAgentsAPIConfig if the provider has a
     native agent-creation API, or None otherwise.
     """
-    from litellm.types.utils import LlmProviders
+    from embrouter.types.utils import LlmProviders
 
     if custom_llm_provider == LlmProviders.GEMINI.value:
-        from litellm.llms.gemini.agents.transformation import GeminiAgentsConfig
+        from embrouter.llms.gemini.agents.transformation import GeminiAgentsConfig
 
         return GeminiAgentsConfig()
     return None

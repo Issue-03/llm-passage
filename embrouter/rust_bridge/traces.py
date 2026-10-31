@@ -3,7 +3,7 @@ from typing import Final, Protocol, cast
 
 from pydantic import BaseModel, ConfigDict, JsonValue
 
-from litellm.rust_bridge.loader import get_native_bridge
+from embrouter.rust_bridge.loader import get_native_bridge
 
 
 class NativeTraces(Protocol):

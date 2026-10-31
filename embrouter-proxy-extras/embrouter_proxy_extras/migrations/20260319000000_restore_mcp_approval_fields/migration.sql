@@ -1,6 +1,6 @@
--- Restore fields dropped by 20260311180521_schema_sync on LiteLLM_MCPServerTable
+-- Restore fields dropped by 20260311180521_schema_sync on EmbRouter_MCPServerTable
 -- AlterTable
-ALTER TABLE "LiteLLM_MCPServerTable"
+ALTER TABLE "EmbRouter_MCPServerTable"
   ADD COLUMN IF NOT EXISTS "source_url"       TEXT,
   ADD COLUMN IF NOT EXISTS "approval_status"  TEXT DEFAULT 'active',
   ADD COLUMN IF NOT EXISTS "submitted_by"     TEXT,
@@ -9,5 +9,5 @@ ALTER TABLE "LiteLLM_MCPServerTable"
   ADD COLUMN IF NOT EXISTS "review_notes"     TEXT;
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "LiteLLM_MCPServerTable_approval_status_idx"
-  ON "LiteLLM_MCPServerTable"("approval_status");
+CREATE INDEX IF NOT EXISTS "EmbRouter_MCPServerTable_approval_status_idx"
+  ON "EmbRouter_MCPServerTable"("approval_status");

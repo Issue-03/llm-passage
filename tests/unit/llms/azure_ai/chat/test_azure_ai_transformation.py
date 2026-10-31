@@ -3,12 +3,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import litellm
-from litellm.litellm_core_utils.get_model_cost_map import get_model_cost_map
-from litellm.llms.azure_ai.azure_model_router.transformation import (
+import embrouter
+from embrouter.embrouter_core_utils.get_model_cost_map import get_model_cost_map
+from embrouter.llms.azure_ai.azure_model_router.transformation import (
     AzureModelRouterConfig,
 )
-from litellm.llms.azure_ai.chat.transformation import AzureAIStudioConfig
+from embrouter.llms.azure_ai.chat.transformation import AzureAIStudioConfig
 
 
 @pytest.mark.asyncio
@@ -80,7 +80,7 @@ def test_azure_ai_validate_environment():
         model="azure_ai/gpt-4o-mini",
         messages=[],
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
     )
     assert headers["Content-Type"] == "application/json"
 
@@ -96,7 +96,7 @@ def test_azure_ai_validate_environment_with_api_key():
         model="Kimi-K2.5",
         messages=[],
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         api_key="test-api-key",
         api_base="https://my-endpoint.services.ai.azure.com",
     )
@@ -111,27 +111,27 @@ def test_azure_ai_validate_environment_with_azure_ad_token():
 
 
     """
-    import litellm
+    import embrouter
 
     config = AzureAIStudioConfig()
     with (
         patch(
-            "litellm.llms.azure.common_utils.get_azure_ad_token",
+            "embrouter.llms.azure.common_utils.get_azure_ad_token",
             return_value="fake-azure-ad-token",
         ),
         patch(
-            "litellm.llms.azure.common_utils.get_secret_str",
+            "embrouter.llms.azure.common_utils.get_secret_str",
             return_value=None,
         ),
-        patch.object(litellm, "api_key", None),
-        patch.object(litellm, "azure_key", None),
+        patch.object(embrouter, "api_key", None),
+        patch.object(embrouter, "azure_key", None),
     ):
         headers = config.validate_environment(
             headers={},
             model="Kimi-K2.5",
             messages=[],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             api_key=None,
             api_base="https://my-endpoint.services.ai.azure.com",
         )
@@ -142,8 +142,8 @@ def test_azure_ai_validate_environment_with_azure_ad_token():
 
 @pytest.fixture
 def _local_model_cost_map(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    monkeypatch.setattr(litellm, "model_cost", get_model_cost_map(url=litellm.model_cost_map_url))
+    monkeypatch.setenv("EMBROUTER_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setattr(embrouter, "model_cost", get_model_cost_map(url=embrouter.model_cost_map_url))
 
 
 def test_foundry_gpt_6_astra_keeps_sampling_params_when_reasoning_effort_is_none(_local_model_cost_map):
@@ -198,8 +198,8 @@ def test_azure_model_router_response_shows_actual_model():
     """
     from httpx import Response
 
-    from litellm.llms.base_llm.chat.transformation import LiteLLMLoggingObj
-    from litellm.types.utils import ModelResponse
+    from embrouter.llms.base_llm.chat.transformation import EmbRouterLoggingObj
+    from embrouter.types.utils import ModelResponse
 
     config = AzureModelRouterConfig()
 
@@ -236,7 +236,7 @@ def test_azure_model_router_response_shows_actual_model():
     model_response = ModelResponse()
 
     # Create mock logging object with required methods
-    logging_obj = MagicMock(spec=LiteLLMLoggingObj)
+    logging_obj = MagicMock(spec=EmbRouterLoggingObj)
     logging_obj.post_call = MagicMock()
     logging_obj.model_call_details = {}
 
@@ -249,7 +249,7 @@ def test_azure_model_router_response_shows_actual_model():
         request_data={},
         messages=[{"role": "user", "content": "Hello"}],
         optional_params={},
-        litellm_params={"model": "azure_ai/model-router"},  # Original request model
+        embrouter_params={"model": "azure_ai/model-router"},  # Original request model
         encoding=None,
         api_key="test-key",
         json_mode=False,
@@ -270,12 +270,12 @@ def test_azure_model_router_stamps_selected_model_on_hidden_params():
     """
     from httpx import Response
 
-    from litellm.llms.azure_ai.common_utils import (
+    from embrouter.llms.azure_ai.common_utils import (
         AZURE_MODEL_ROUTER_SELECTED_MODEL_KEY,
         AzureFoundryModelInfo,
     )
-    from litellm.llms.base_llm.chat.transformation import LiteLLMLoggingObj
-    from litellm.types.utils import ModelResponse
+    from embrouter.llms.base_llm.chat.transformation import EmbRouterLoggingObj
+    from embrouter.types.utils import ModelResponse
 
     raw_response_json = {
         "id": "chatcmpl-test456",
@@ -297,7 +297,7 @@ def test_azure_model_router_stamps_selected_model_on_hidden_params():
     mock_response.text = json.dumps(raw_response_json)
     mock_response.headers = {}
 
-    logging_obj = MagicMock(spec=LiteLLMLoggingObj)
+    logging_obj = MagicMock(spec=EmbRouterLoggingObj)
     logging_obj.post_call = MagicMock()
     logging_obj.model_call_details = {}
 
@@ -309,7 +309,7 @@ def test_azure_model_router_stamps_selected_model_on_hidden_params():
         request_data={},
         messages=[{"role": "user", "content": "Reply with just pong"}],
         optional_params={},
-        litellm_params={"model": "azure_ai/model_router/smart-pick"},
+        embrouter_params={"model": "azure_ai/model_router/smart-pick"},
         encoding=None,
         api_key="test-key",
         json_mode=False,
@@ -334,7 +334,7 @@ def test_azure_model_router_stamps_selected_model_on_hidden_params():
 def test_drop_tool_level_extra_fields_strips_copilot_mcp_server_name():
     """
     Regression test: Azure AI returns 400 when tools contain copilot_mcp_server_name.
-    LiteLLM should strip the field and retry automatically.
+    EmbRouter should strip the field and retry automatically.
     """
     import httpx
 
@@ -451,7 +451,7 @@ def test_azure_ai_strips_non_openai_spec_message_fields():
         model="fw-glm-5.2",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -469,7 +469,7 @@ def test_azure_ai_strips_non_openai_spec_message_fields():
 
 def test_azure_ai_stripping_does_not_mutate_caller_messages():
     """
-    The stripping must not touch the caller's messages. LiteLLM reuses the same
+    The stripping must not touch the caller's messages. EmbRouter reuses the same
     message objects when falling back to another provider, so stripping in place
     would hand the fallback a conversation history with its thinking blocks and
     provider metadata already destroyed.
@@ -503,7 +503,7 @@ def test_azure_ai_stripping_does_not_mutate_caller_messages():
         model="fw-glm-5.2",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 

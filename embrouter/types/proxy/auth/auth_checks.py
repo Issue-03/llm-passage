@@ -1,4 +1,4 @@
-"""Failure values raised by `litellm/proxy/auth/auth_checks.py`. Kept free of `litellm` imports so any proxy module can import them without joining the `litellm.proxy` import cycle."""
+"""Failure values raised by `embrouter/proxy/auth/auth_checks.py`. Kept free of `embrouter` imports so any proxy module can import them without joining the `embrouter.proxy` import cycle."""
 
 
 class UserNotFoundError(ValueError):

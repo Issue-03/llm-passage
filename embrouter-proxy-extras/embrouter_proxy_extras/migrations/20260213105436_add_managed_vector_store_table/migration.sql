@@ -1,5 +1,5 @@
 -- CreateTable
-CREATE TABLE IF NOT EXISTS "LiteLLM_ManagedVectorStoreTable" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_ManagedVectorStoreTable" (
     "id" TEXT NOT NULL,
     "unified_resource_id" TEXT NOT NULL,
     "resource_object" JSONB,
@@ -12,11 +12,11 @@ CREATE TABLE IF NOT EXISTS "LiteLLM_ManagedVectorStoreTable" (
     "updated_at" TIMESTAMP(3) NOT NULL,
     "updated_by" TEXT,
 
-    CONSTRAINT "LiteLLM_ManagedVectorStoreTable_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "EmbRouter_ManagedVectorStoreTable_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX IF NOT EXISTS "LiteLLM_ManagedVectorStoreTable_unified_resource_id_key" ON "LiteLLM_ManagedVectorStoreTable"("unified_resource_id");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_ManagedVectorStoreTable_unified_resource_id_key" ON "EmbRouter_ManagedVectorStoreTable"("unified_resource_id");
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "LiteLLM_ManagedVectorStoreTable_unified_resource_id_idx" ON "LiteLLM_ManagedVectorStoreTable"("unified_resource_id");
+CREATE INDEX IF NOT EXISTS "EmbRouter_ManagedVectorStoreTable_unified_resource_id_idx" ON "EmbRouter_ManagedVectorStoreTable"("unified_resource_id");

@@ -551,7 +551,7 @@ describe("EntityUsage", () => {
     const teamsResult = (teams: { team_id: string }[]) =>
       ({ teams, setTeams: vi.fn() }) as unknown as ReturnType<typeof useTeams>;
     mockUseTeams.mockReturnValue(
-      teamsResult([{ team_id: "team-alpha" }, { team_id: "litellm-dashboard" }, { team_id: "team-beta" }]),
+      teamsResult([{ team_id: "team-alpha" }, { team_id: "embrouter-dashboard" }, { team_id: "team-beta" }]),
     );
 
     render(<EntityUsage {...defaultProps} entityType="team" />);
@@ -775,7 +775,7 @@ describe("EntityUsage", () => {
     expect(screen.getByText("Top Public Model Names")).toBeInTheDocument();
   });
 
-  it("defaults Model Activity to public model names and toggles to litellm models", async () => {
+  it("defaults Model Activity to public model names and toggles to embrouter models", async () => {
     const { container } = render(<EntityUsage {...defaultProps} />);
 
     await waitFor(() => {

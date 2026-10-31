@@ -8,27 +8,27 @@ from openai.types.responses import ResponseReasoningItem
 from pydantic import BaseModel, TypeAdapter, ValidationError
 from typing_extensions import ReadOnly, TypedDict
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.litellm_core_utils.core_helpers import process_response_headers
-from litellm.litellm_core_utils.get_model_cost_map import GetModelCostMap
-from litellm.litellm_core_utils.llm_response_utils.convert_dict_to_response import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.embrouter_core_utils.core_helpers import process_response_headers
+from embrouter.embrouter_core_utils.get_model_cost_map import GetModelCostMap
+from embrouter.embrouter_core_utils.llm_response_utils.convert_dict_to_response import (
     _safe_convert_created_field,
 )
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
     drop_non_python_regex_patterns,
     flatten_combinators_and_drop_non_python_regex_patterns,
 )
-from litellm.litellm_core_utils.safe_json_loads import safe_json_loads
-from litellm.litellm_core_utils.url_utils import encode_url_path_segment
-from litellm.llms.base_llm.responses.transformation import BaseResponsesAPIConfig
-from litellm.llms.openai.chat.gpt_5_transformation import is_gpt_reasoning_series_name
-from litellm.responses.litellm_completion_transformation.custom_tools import TOOL_CALL_ITEM_ID_PREFIX_BY_TYPE
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.openai import *
-from litellm.types.responses.main import *
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import LlmProviders
+from embrouter.embrouter_core_utils.safe_json_loads import safe_json_loads
+from embrouter.embrouter_core_utils.url_utils import encode_url_path_segment
+from embrouter.llms.base_llm.responses.transformation import BaseResponsesAPIConfig
+from embrouter.llms.openai.chat.gpt_5_transformation import is_gpt_reasoning_series_name
+from embrouter.responses.embrouter_completion_transformation.custom_tools import TOOL_CALL_ITEM_ID_PREFIX_BY_TYPE
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.openai import *
+from embrouter.types.responses.main import *
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import LlmProviders
 
 from ..common_utils import OpenAIError
 from ..workload_identity import get_workload_identity_bearer_token, resolve_openai_workload_identity_config
@@ -36,11 +36,11 @@ from ..workload_identity import get_workload_identity_bearer_token, resolve_open
 OPENAI_RESPONSES_API_MIN_MAX_OUTPUT_TOKENS: Final = 16
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 _NO_TOOL_UPDATE: Final[Mapping[str, object]] = MappingProxyType({})
 _MODEL_FAMILIES_REJECTING_TOP_LEVEL_SCHEMA_COMBINATORS: Final = ("gpt-4", "gpt-3.5", "chatgpt-4o", "o1", "o3", "o4")
@@ -49,7 +49,7 @@ _PROVIDERS_VALIDATING_TOOL_CALL_ITEM_IDS: Final = frozenset({LlmProviders.AZURE,
 
 
 class _ReasoningSupportEntry(BaseModel):
-    litellm_provider: str | None = None
+    embrouter_provider: str | None = None
     supports_reasoning: bool | None = None
 
 
@@ -68,7 +68,7 @@ def _bundled_openai_reasoning_models() -> frozenset[str]:
     return frozenset(
         name
         for name, entry in bundled.items()
-        if entry.litellm_provider == LlmProviders.OPENAI.value and entry.supports_reasoning is True
+        if entry.embrouter_provider == LlmProviders.OPENAI.value and entry.supports_reasoning is True
     )
 
 
@@ -132,7 +132,7 @@ class OpenAIResponsesAPIConfig(BaseResponsesAPIConfig):
     @staticmethod
     def _supports_reasoning_effort_none(model: str) -> bool:
         """Return True if the model supports reasoning.effort='none'."""
-        from litellm.utils import supports_none_reasoning_effort
+        from embrouter.utils import supports_none_reasoning_effort
 
         return supports_none_reasoning_effort(model=model, custom_llm_provider=None)
 
@@ -146,13 +146,13 @@ class OpenAIResponsesAPIConfig(BaseResponsesAPIConfig):
         copy of the rule here is what let this surface keep forwarding temperature after the
         chat surface stopped.
         """
-        from litellm.llms.openai.chat.gpt_5_transformation import OpenAIGPT5Config
+        from embrouter.llms.openai.chat.gpt_5_transformation import OpenAIGPT5Config
 
         return OpenAIGPT5Config.effort_resolves_to_none(model, effort)
 
     @staticmethod
     def _supports_reasoning_param(model: str) -> bool:
-        from litellm.utils import _get_model_info_helper
+        from embrouter.utils import _get_model_info_helper
 
         try:
             info: Final = _get_model_info_helper(
@@ -227,14 +227,14 @@ class OpenAIResponsesAPIConfig(BaseResponsesAPIConfig):
             and self._requests_reasoning_effort(params.get("reasoning"))
             and not self._supports_reasoning_param(model=model)
         ):
-            if drop_params or litellm.drop_params:
+            if drop_params or embrouter.drop_params:
                 params.pop("reasoning", None)
             else:
-                raise litellm.UnsupportedParamsError(
+                raise embrouter.UnsupportedParamsError(
                     message=(
                         f"{model} doesn't support `reasoning.effort` "
                         "(its model cost map entry lacks `supports_reasoning`). "
-                        "To drop unsupported params set `litellm.drop_params = True`"
+                        "To drop unsupported params set `embrouter.drop_params = True`"
                     ),
                     status_code=400,
                 )
@@ -250,30 +250,30 @@ class OpenAIResponsesAPIConfig(BaseResponsesAPIConfig):
             if temperature is not None and temperature != 1:
                 if effort_is_none:
                     pass  # flexible temperature allowed
-                elif drop_params or litellm.drop_params:
+                elif drop_params or embrouter.drop_params:
                     params.pop("temperature", None)
                 else:
-                    raise litellm.UnsupportedParamsError(
+                    raise embrouter.UnsupportedParamsError(
                         message=(
                             f"{model} doesn't support temperature={temperature} while reasoning is "
                             "active. Only temperature=1 is supported unless reasoning.effort resolves "
                             "to 'none', either set explicitly on the request or declared as the "
                             "model's default_reasoning_effort. "
-                            "To drop unsupported params set `litellm.drop_params = True`"
+                            "To drop unsupported params set `embrouter.drop_params = True`"
                         ),
                         status_code=400,
                     )
 
             if "top_p" in params and not effort_is_none:
-                if drop_params or litellm.drop_params:
+                if drop_params or embrouter.drop_params:
                     params.pop("top_p", None)
                 else:
-                    raise litellm.UnsupportedParamsError(
+                    raise embrouter.UnsupportedParamsError(
                         message=(
                             f"{model} only supports top_p when reasoning.effort resolves to 'none', "
                             "either set explicitly on the request or declared as the model's "
                             "default_reasoning_effort. "
-                            "To drop unsupported params set `litellm.drop_params = True`"
+                            "To drop unsupported params set `embrouter.drop_params = True`"
                         ),
                         status_code=400,
                     )
@@ -285,7 +285,7 @@ class OpenAIResponsesAPIConfig(BaseResponsesAPIConfig):
         model: str,
         input: str | ResponseInputParam,
         response_api_optional_request_params: dict,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> dict:
         """Strip Anthropic-only `cache_control` markers before sending to OpenAI.
@@ -300,7 +300,7 @@ class OpenAIResponsesAPIConfig(BaseResponsesAPIConfig):
             model=model,
             input=input,
             tools=response_api_optional_request_params.get("tools"),
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
         if sanitized_tools is not None:
             response_api_optional_request_params["tools"] = sanitized_tools
@@ -315,7 +315,7 @@ class OpenAIResponsesAPIConfig(BaseResponsesAPIConfig):
         model: str,
         input: str | ResponseInputParam,
         tools: Sequence[ALL_RESPONSES_API_TOOL_PARAMS] | None,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
     ) -> tuple[str | ResponseInputParam, Sequence[ALL_RESPONSES_API_TOOL_PARAMS] | None]:
         validated_input: Final = self._validate_input_param(input)
         stripped_input, stripped_tools = self.remove_cache_control_flag_from_input_and_tools(
@@ -323,7 +323,7 @@ class OpenAIResponsesAPIConfig(BaseResponsesAPIConfig):
         )
         object_schema_tools: Final = self._tools_with_object_parameters(model=model, tools=stripped_tools)
         sanitized_tools: Final = self._sanitized_tool_schemas_for_openai(
-            model=model, tools=object_schema_tools, litellm_params=litellm_params
+            model=model, tools=object_schema_tools, embrouter_params=embrouter_params
         )
         return self._drop_foreign_tool_call_item_ids(stripped_input), sanitized_tools
 
@@ -349,7 +349,7 @@ class OpenAIResponsesAPIConfig(BaseResponsesAPIConfig):
         decoded: Final = safe_json_loads(parameters) if isinstance(parameters, str) else None
         if isinstance(decoded, dict):
             return {**tool, "parameters": decoded}  # mutable-ok: request tools are JSON dicts
-        raise litellm.BadRequestError(
+        raise embrouter.BadRequestError(
             message=(
                 f"Invalid type for 'tools[{index}].parameters': expected an object, "
                 f"but got {type(parameters).__name__} instead."
@@ -374,7 +374,7 @@ class OpenAIResponsesAPIConfig(BaseResponsesAPIConfig):
         `filter_value_from_dict` mutates each dict in place, so the same
         objects are returned.
         """
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             filter_value_from_dict,
         )
 
@@ -411,7 +411,7 @@ class OpenAIResponsesAPIConfig(BaseResponsesAPIConfig):
         self,
         model: str,
         tools: Sequence[ALL_RESPONSES_API_TOOL_PARAMS] | None,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
     ) -> Sequence[ALL_RESPONSES_API_TOOL_PARAMS] | None:
         """Rewrite tool schemas only where OpenAI's validator rejects them.
 
@@ -428,7 +428,7 @@ class OpenAIResponsesAPIConfig(BaseResponsesAPIConfig):
         """
         if tools is None or self.custom_llm_provider not in _PROVIDERS_WITH_OPENAI_SCHEMA_VALIDATOR:
             return tools
-        gate_model: Final = self._combinator_gate_model(model=model, litellm_params=litellm_params)
+        gate_model: Final = self._combinator_gate_model(model=model, embrouter_params=embrouter_params)
         sanitize: Final = (
             flatten_combinators_and_drop_non_python_regex_patterns
             if self._rejects_top_level_schema_combinators(gate_model)
@@ -444,8 +444,8 @@ class OpenAIResponsesAPIConfig(BaseResponsesAPIConfig):
         return base_model.startswith(_MODEL_FAMILIES_REJECTING_TOP_LEVEL_SCHEMA_COMBINATORS)
 
     @staticmethod
-    def _combinator_gate_model(model: str, litellm_params: GenericLiteLLMParams) -> str:
-        model_info: Final[object] = getattr(litellm_params, "model_info", None)
+    def _combinator_gate_model(model: str, embrouter_params: GenericEmbRouterParams) -> str:
+        model_info: Final[object] = getattr(embrouter_params, "model_info", None)
         base_model: Final[object] = model_info.get("base_model") if isinstance(model_info, dict) else None
         return base_model if isinstance(base_model, str) and base_model else model
 
@@ -559,7 +559,7 @@ class OpenAIResponsesAPIConfig(BaseResponsesAPIConfig):
         self,
         model: str,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> ResponsesAPIResponse:
         """No transform applied since outputs are in OpenAI spec already"""
         try:
@@ -586,12 +586,12 @@ class OpenAIResponsesAPIConfig(BaseResponsesAPIConfig):
         response._hidden_params["headers"] = raw_response_headers
         return response
 
-    def validate_environment(self, headers: dict, model: str, litellm_params: GenericLiteLLMParams | None) -> dict:
-        litellm_params = litellm_params or GenericLiteLLMParams()
-        api_key = litellm_params.api_key or litellm.api_key or litellm.openai_key or get_secret_str("OPENAI_API_KEY")
+    def validate_environment(self, headers: dict, model: str, embrouter_params: GenericEmbRouterParams | None) -> dict:
+        embrouter_params = embrouter_params or GenericEmbRouterParams()
+        api_key = embrouter_params.api_key or embrouter.api_key or embrouter.openai_key or get_secret_str("OPENAI_API_KEY")
         headers.setdefault("Content-Type", "application/json")
         workload_identity_config: Final = (
-            resolve_openai_workload_identity_config(api_key=api_key, api_base=litellm_params.api_base)
+            resolve_openai_workload_identity_config(api_key=api_key, api_base=embrouter_params.api_base)
             if self.custom_llm_provider is LlmProviders.OPENAI
             else None
         )
@@ -604,14 +604,14 @@ class OpenAIResponsesAPIConfig(BaseResponsesAPIConfig):
     def get_complete_url(
         self,
         api_base: str | None,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> str:
         """
         Get the endpoint for OpenAI responses API
         """
         api_base = (
             api_base
-            or litellm.api_base
+            or embrouter.api_base
             or get_secret_str("OPENAI_BASE_URL")
             or get_secret_str("OPENAI_API_BASE")
             or "https://api.openai.com/v1"
@@ -626,7 +626,7 @@ class OpenAIResponsesAPIConfig(BaseResponsesAPIConfig):
         self,
         model: str,
         parsed_chunk: dict,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> ResponsesAPIStreamingResponse:
         """
         Transform a parsed streaming response chunk into a ResponsesAPIStreamingResponse
@@ -671,7 +671,7 @@ class OpenAIResponsesAPIConfig(BaseResponsesAPIConfig):
         return None if terminal_event is None else terminal_event.response
 
     @staticmethod
-    def get_event_model_class(event_type: str) -> type[BaseLiteLLMOpenAIResponseObject]:
+    def get_event_model_class(event_type: str) -> type[BaseEmbRouterOpenAIResponseObject]:
         """
         Returns the appropriate event model class based on the event type.
 
@@ -740,7 +740,7 @@ class OpenAIResponsesAPIConfig(BaseResponsesAPIConfig):
         if model is not None:
             try:
                 if (
-                    litellm.utils.supports_native_streaming(
+                    embrouter.utils.supports_native_streaming(
                         model=model,
                         custom_llm_provider=custom_llm_provider,
                     )
@@ -762,7 +762,7 @@ class OpenAIResponsesAPIConfig(BaseResponsesAPIConfig):
         self,
         response_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict]:
         """
@@ -779,7 +779,7 @@ class OpenAIResponsesAPIConfig(BaseResponsesAPIConfig):
     def transform_delete_response_api_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> DeleteResponseResult:
         """
         Transform the delete response API response into a DeleteResponseResult
@@ -797,7 +797,7 @@ class OpenAIResponsesAPIConfig(BaseResponsesAPIConfig):
         self,
         response_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict]:
         """
@@ -814,7 +814,7 @@ class OpenAIResponsesAPIConfig(BaseResponsesAPIConfig):
     def transform_get_response_api_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> ResponsesAPIResponse:
         """
         Transform the get response API response into a ResponsesAPIResponse
@@ -838,7 +838,7 @@ class OpenAIResponsesAPIConfig(BaseResponsesAPIConfig):
         self,
         response_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
         after: str | None = None,
         before: str | None = None,
@@ -864,7 +864,7 @@ class OpenAIResponsesAPIConfig(BaseResponsesAPIConfig):
     def transform_list_input_items_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> dict:
         try:
             return _json_object_body(raw_response)
@@ -878,7 +878,7 @@ class OpenAIResponsesAPIConfig(BaseResponsesAPIConfig):
         self,
         response_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict]:
         """
@@ -895,7 +895,7 @@ class OpenAIResponsesAPIConfig(BaseResponsesAPIConfig):
     def transform_cancel_response_api_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> ResponsesAPIResponse:
         """
         Transform the cancel response API response into a ResponsesAPIResponse
@@ -922,7 +922,7 @@ class OpenAIResponsesAPIConfig(BaseResponsesAPIConfig):
         input: str | ResponseInputParam,
         response_api_optional_request_params: dict,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict]:
         """
@@ -940,7 +940,7 @@ class OpenAIResponsesAPIConfig(BaseResponsesAPIConfig):
             model=model,
             input=input,
             tools=response_api_optional_request_params.get("tools"),
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
         if sanitized_tools is not None:
             response_api_optional_request_params["tools"] = sanitized_tools
@@ -953,7 +953,7 @@ class OpenAIResponsesAPIConfig(BaseResponsesAPIConfig):
     def transform_compact_response_api_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> ResponsesAPIResponse:
         """
         Transform the compact response API response into a ResponsesAPIResponse

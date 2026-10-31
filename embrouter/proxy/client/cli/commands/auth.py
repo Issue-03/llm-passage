@@ -12,8 +12,8 @@ from rich.console import Console
 from rich.table import Table
 from typing_extensions import NotRequired, ReadOnly, TypedDict, assert_never
 
-from litellm.constants import CLI_JWT_EXPIRATION_HOURS
-from litellm.litellm_core_utils.cli_keyring import (
+from embrouter.constants import CLI_JWT_EXPIRATION_HOURS
+from embrouter.embrouter_core_utils.cli_keyring import (
     DISABLE_KEYRING_ENV_VAR,
     SYSTEM_KEYRING,
     KeyringDisabled,
@@ -27,7 +27,7 @@ from litellm.litellm_core_utils.cli_keyring import (
     SecretStranded,
     SecretVault,
 )
-from litellm.litellm_core_utils.cli_token_utils import (
+from embrouter.embrouter_core_utils.cli_token_utils import (
     CliTokenRecord,
     CredentialNotCleared,
     CredentialNotRecorded,
@@ -121,7 +121,7 @@ class CliAuthResult(TypedDict):
 
 _TeamMapping: Final = TypeVar("_TeamMapping", bound=Mapping[str, object])
 
-KEYRING_INSTALL_HINT: Final = "pip install 'litellm[cli]'"
+KEYRING_INSTALL_HINT: Final = "pip install 'embrouter[cli]'"
 
 KEYRING_ENABLE_HINT: Final = "keyring --enable (or unset PYTHON_KEYRING_BACKEND)"
 
@@ -601,7 +601,7 @@ def _start_cli_sso_flow(base_url: str) -> CliSsoStartData:
         content_type: Final = response.headers.get("content-type", "unknown")
         raise ValueError(
             f"The proxy returned a non-JSON response from {start_url} (content-type: {content_type}). "
-            "A proxy, load balancer, or auth gateway in front of LiteLLM may be intercepting the request. "
+            "A proxy, load balancer, or auth gateway in front of EmbRouter may be intercepting the request. "
             f"Response starts with: {response.text[:200]!r}"
         )
 
@@ -616,7 +616,7 @@ def _start_cli_sso_flow(base_url: str) -> CliSsoStartData:
 
 
 def _get_cli_sso_poll_headers(poll_secret: str) -> dict[str, str]:
-    return {"x-litellm-cli-poll-secret": poll_secret}
+    return {"x-embrouter-cli-poll-secret": poll_secret}
 
 
 def _poll_for_authentication(base_url: str, key_id: str, poll_secret: str) -> CliAuthResult | None:
@@ -812,7 +812,7 @@ def _finish_login(base_url: str, api_key: str, config_claude: bool, stored: Secr
     """Claude Code is configured from the key in hand, so it does not wait on the CLI's own store: a login whose
     token file or keychain refused it still has a usable key, and `--config-claude` asked for exactly that
     key to be written into settings.json."""
-    from litellm.proxy.client.cli.interface import show_commands
+    from embrouter.proxy.client.cli.interface import show_commands
 
     click.echo("\nLogin successful!")
     click.echo(f"JWT Token: {api_key[:20]}...")
@@ -869,13 +869,13 @@ def _pkce_login(base_url: str, config_claude: bool, vault: SecretVault) -> None:
     help=(
         "Sign in with OAuth authorization code + PKCE through your system browser (loopback redirect), "
         "with a refresh token that renews the key automatically. Requires a proxy that serves "
-        "/.well-known/litellm-cli-auth."
+        "/.well-known/embrouter-cli-auth."
     ),
 )
 @click.pass_context
 def login(ctx: click.Context, config_claude: bool, pkce: bool) -> None:
-    """Login to LiteLLM proxy using SSO authentication"""
-    from litellm.constants import LITELLM_CLI_SOURCE_IDENTIFIER
+    """Login to EmbRouter proxy using SSO authentication"""
+    from embrouter.constants import EMBROUTER_CLI_SOURCE_IDENTIFIER
 
     ctx_obj: Final[CliContextObj] = ctx.obj
     base_url: Final = ctx_obj["base_url"]
@@ -898,7 +898,7 @@ def login(ctx: click.Context, config_claude: bool, pkce: bool) -> None:
         browser_prefills_code: Final = isinstance(cli_sso_flow.get("verification_uri_complete"), str)
         sso_url: Final = f"{base_url}/sso/key/generate?" + urlencode(
             (
-                ("source", LITELLM_CLI_SOURCE_IDENTIFIER),
+                ("source", EMBROUTER_CLI_SOURCE_IDENTIFIER),
                 ("key", key_id),
                 *((("user_code", user_code),) if browser_prefills_code else ()),
             )
@@ -1013,7 +1013,7 @@ def print_token(ctx: click.Context):
     Designed to be used as Claude Code's `apiKeyHelper`
     (https://docs.claude.com/en/docs/claude-code/settings): stdout must
     contain only the token, so all diagnostics go to stderr. The token
-    expires after `LITELLM_CLI_JWT_EXPIRATION_HOURS` (default 24h); a
+    expires after `EMBROUTER_CLI_JWT_EXPIRATION_HOURS` (default 24h); a
     `lite login --pkce` token renews itself here first, and once a token
     has expired for good, run the same `lite login` command again.
     """

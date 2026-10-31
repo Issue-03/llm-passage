@@ -2,14 +2,14 @@ from typing import Final
 
 import httpx
 
-from litellm._logging import verbose_logger
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.openai.chat.gpt_transformation import OpenAIGPTConfig
-from litellm.secret_managers.main import (
+from embrouter._logging import verbose_logger
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.openai.chat.gpt_transformation import OpenAIGPTConfig
+from embrouter.secret_managers.main import (
     get_secret_str,
     normalize_nonempty_secret_str,
 )
-from litellm.types.llms.openai import AllMessageValues
+from embrouter.types.llms.openai import AllMessageValues
 
 
 class CloudflareError(BaseLLMException):
@@ -33,7 +33,7 @@ class CloudflareChatConfig(OpenAIGPTConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         return super().get_complete_url(
@@ -41,7 +41,7 @@ class CloudflareChatConfig(OpenAIGPTConfig):
             api_key=api_key,
             model=model,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             stream=stream,
         )
 
@@ -68,7 +68,7 @@ class CloudflareChatConfig(OpenAIGPTConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
@@ -81,7 +81,7 @@ class CloudflareChatConfig(OpenAIGPTConfig):
             model=model,
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             api_key=api_key,
             api_base=api_base,
         )

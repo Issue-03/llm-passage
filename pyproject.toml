@@ -1,5 +1,5 @@
 [project]
-name = "litellm"
+name = "embrouter"
 version = "1.105.0"
 description = "Library to easily interface with LLM API providers"
 readme = "README.md"
@@ -39,7 +39,7 @@ dependencies = [
 # Optional extras use compatible ranges (like the core SDK above) so downstream
 # consumers can coexist with other packages and pick up security patches without
 # forking. Reproducibility for our Docker/CI comes from `uv.lock` (images install
-# via `uv sync --frozen`). A few deps stay exact-pinned: litellm's own
+# via `uv sync --frozen`). A few deps stay exact-pinned: embrouter's own
 # sub-packages and the opentelemetry trio move in lockstep, and grpcio is
 # supply-chain-pinned to a vetted, aged release.
 [project.optional-dependencies]
@@ -70,7 +70,7 @@ proxy = [
     "mcp>=2.2.0,<3",
     "httpx2>=2.5.0,<3",
     "pydantic>=2.12.0,<3",
-    "litellm-proxy-extras==0.4.103",
+    "embrouter-proxy-extras==0.4.103",
     "RestrictedPython>=8.5,<9.0",
     "rich>=13.9.4,<14.0",
     "InquirerPy>=0.3.4,<1.0",
@@ -96,7 +96,7 @@ cli = [
 extra_proxy = [
     "prisma>=0.11.0,<1.0",
     # Used by ProxyExtrasDBManager.spend_logs_is_partitioned() to detect a
-    # partitioned LiteLLM_SpendLogs and keep schema reconciliation from
+    # partitioned EmbRouter_SpendLogs and keep schema reconciliation from
     # fighting its composite primary key.
     "psycopg>=3.2,<4.0",
     "psycopg-binary>=3.2,<4.0",
@@ -133,13 +133,13 @@ grpc = [
 ]
 stt-vertex-chirp = [
     # Google Cloud Speech-to-Text v2 streaming (gRPC) for Chirp models on
-    # /v1/realtime. Imported lazily inside the backend so litellm core stays
+    # /v1/realtime. Imported lazily inside the backend so embrouter core stays
     # usable without it.
     "google-cloud-speech>=2.40.0,<3.0",
 ]
 stt-nvidia-riva = [
     # NVIDIA Riva STT provider (gRPC). These are imported lazily inside the
-    # provider handler so litellm core remains usable without them.
+    # provider handler so embrouter core remains usable without them.
     "nvidia-riva-client>=2.15.0",
     "soundfile>=0.12.1",
     "audioread>=3.0.1",
@@ -151,7 +151,7 @@ bedrock-realtime = [
     # InvokeModelWithBidirectionalStream API, which boto3 cannot do. This
     # experimental AWS SDK (with its smithy-* deps, pulled transitively)
     # provides the bidirectional stream; imported lazily in the realtime
-    # handler so litellm core stays usable without it. The awscrt extra is
+    # handler so embrouter core stays usable without it. The awscrt extra is
     # required: the SDK's default aiohttp transport has no duplex streaming.
     "aws-sdk-bedrock-runtime[awscrt]>=0.10.0,<0.12.0; python_version >= '3.12'",
 ]
@@ -181,8 +181,8 @@ proxy-runtime = [
 ]
 
 [project.scripts]
-embrouter = "litellm:run_server"
-litellm-proxy = "litellm.proxy.client.cli:litellm_proxy_cli"
+embrouter = "embrouter:run_server"
+embrouter-proxy = "embrouter.proxy.client.cli:embrouter_proxy_cli"
 
 [dependency-groups]
 dev = [
@@ -299,7 +299,7 @@ requires = ["uv_build==0.11.8"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
-module-name = "litellm"
+module-name = "embrouter"
 module-root = ""
 source-exclude = ["**/__pycache__", "**/.pytest_cache", "**/.ruff_cache"]
 
@@ -322,10 +322,10 @@ required-version = ">=0.10.9"
 exclude-newer = "3 days"
 
 [tool.uv.sources]
-litellm-proxy-extras = { workspace = true }
+embrouter-proxy-extras = { workspace = true }
 
 [tool.uv.workspace]
-members = ["litellm-proxy-extras"]
+members = ["embrouter-proxy-extras"]
 
 [tool.commitizen]
 version = "1.105.0"
@@ -355,10 +355,10 @@ filterwarnings = [
 # Mutation-testing scope. Driven by the manually-triggered workflow at
 # .github/workflows/mutation-test.yml. mutmut is not part of the project's
 # default install; it is pulled in via `uv run --with mutmut==<version>` in CI.
-# `also_copy = ["litellm/"]` is required because mutmut runs in a `mutants/`
-# sandbox and the test conftest imports from across the litellm package.
+# `also_copy = ["embrouter/"]` is required because mutmut runs in a `mutants/`
+# sandbox and the test conftest imports from across the embrouter package.
 paths_to_mutate = [
-    "litellm/proxy/management_endpoints/",
+    "embrouter/proxy/management_endpoints/",
 ]
 # Only the unit tier that maps to paths_to_mutate. mutmut times and
 # coverage-maps this whole set once before mutating, so a tier that needs a
@@ -366,10 +366,10 @@ paths_to_mutate = [
 # a mutation score is only meaningful against the tests that claim to cover
 # the mutated code anyway.
 tests_dir = [
-    "tests/test_litellm/proxy/management_endpoints/",
+    "tests/test_embrouter/proxy/management_endpoints/",
 ]
 also_copy = [
-    "litellm/",
+    "embrouter/",
 ]
 # Run the test suite once before mutation to gather line coverage, then skip
 # mutating lines no test exercises. Those mutants would survive regardless
@@ -392,9 +392,9 @@ pytest_add_cli_args = [
     "-p", "no:pytest-retry",
     "-p", "no:rerunfailures",
     "-p", "no:xdist",
-    "--ignore=tests/test_litellm/proxy/management_endpoints/test_saml_sso.py",
+    "--ignore=tests/test_embrouter/proxy/management_endpoints/test_saml_sso.py",
 ]
 
 [tool.coverage.run]
-source = ["litellm"]
+source = ["embrouter"]
 relative_files = true

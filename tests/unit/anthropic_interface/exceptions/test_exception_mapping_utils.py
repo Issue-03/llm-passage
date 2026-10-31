@@ -1,5 +1,5 @@
 """
-Tests for AnthropicExceptionMapping class in litellm/anthropic_interface/exceptions/exception_mapping_utils.py
+Tests for AnthropicExceptionMapping class in embrouter/anthropic_interface/exceptions/exception_mapping_utils.py
 """
 
 import json
@@ -7,7 +7,7 @@ from typing import Final
 
 import pytest
 
-from litellm.anthropic_interface.exceptions import (
+from embrouter.anthropic_interface.exceptions import (
     AnthropicErrorSseFrame,
     AnthropicExceptionMapping,
     anthropic_error_sse_frame,
@@ -246,7 +246,7 @@ class TestAnthropicErrorSseFrame:
 
         assert frame.json_body(call_id="call-1") == {
             "type": "error",
-            "error": {"type": "api_error", "message": "upstream unavailable", "litellm_call_id": "call-1"},
+            "error": {"type": "api_error", "message": "upstream unavailable", "embrouter_call_id": "call-1"},
         }
         assert frame.json_body(call_id=None) == {
             "type": "error",

@@ -1,8 +1,8 @@
-"""Gray Swan Cygnal guardrail integration for LiteLLM."""
+"""Gray Swan Cygnal guardrail integration for EmbRouter."""
 
 from typing import TYPE_CHECKING, Final
 
-from litellm.types.guardrails import SupportedGuardrailIntegrations
+from embrouter.types.guardrails import SupportedGuardrailIntegrations
 
 from .grayswan import (
     GraySwanGuardrail,
@@ -11,46 +11,46 @@ from .grayswan import (
 )
 
 if TYPE_CHECKING:
-    from litellm.types.guardrails import Guardrail, LitellmParams
+    from embrouter.types.guardrails import Guardrail, EmbrouterParams
 
 
-def initialize_guardrail(litellm_params: "LitellmParams", guardrail: "Guardrail") -> GraySwanGuardrail:
-    import litellm
+def initialize_guardrail(embrouter_params: "EmbrouterParams", guardrail: "Guardrail") -> GraySwanGuardrail:
+    import embrouter
 
     guardrail_name: Final = guardrail.get("guardrail_name")
     if not guardrail_name:
         raise ValueError("Gray Swan guardrail requires a guardrail_name")
 
-    optional_params: Final = getattr(litellm_params, "optional_params", None)
+    optional_params: Final = getattr(embrouter_params, "optional_params", None)
 
     grayswan_guardrail: Final = GraySwanGuardrail(
         guardrail_name=guardrail_name,
-        api_key=litellm_params.api_key,
-        api_base=litellm_params.api_base,
-        on_flagged_action=_get_config_value(litellm_params, optional_params, "on_flagged_action"),
-        violation_threshold=_get_config_value(litellm_params, optional_params, "violation_threshold"),
-        reasoning_mode=_get_config_value(litellm_params, optional_params, "reasoning_mode"),
-        categories=_get_config_value(litellm_params, optional_params, "categories"),
-        policy_id=_get_config_value(litellm_params, optional_params, "policy_id"),
-        streaming_end_of_stream_only=_get_config_value(litellm_params, optional_params, "streaming_end_of_stream_only")
+        api_key=embrouter_params.api_key,
+        api_base=embrouter_params.api_base,
+        on_flagged_action=_get_config_value(embrouter_params, optional_params, "on_flagged_action"),
+        violation_threshold=_get_config_value(embrouter_params, optional_params, "violation_threshold"),
+        reasoning_mode=_get_config_value(embrouter_params, optional_params, "reasoning_mode"),
+        categories=_get_config_value(embrouter_params, optional_params, "categories"),
+        policy_id=_get_config_value(embrouter_params, optional_params, "policy_id"),
+        streaming_end_of_stream_only=_get_config_value(embrouter_params, optional_params, "streaming_end_of_stream_only")
         or False,
-        streaming_sampling_rate=_get_config_value(litellm_params, optional_params, "streaming_sampling_rate") or 5,
-        fail_open=_get_config_value(litellm_params, optional_params, "fail_open"),
-        guardrail_timeout=_get_config_value(litellm_params, optional_params, "guardrail_timeout"),
-        event_hook=litellm_params.mode,
-        default_on=litellm_params.default_on,
+        streaming_sampling_rate=_get_config_value(embrouter_params, optional_params, "streaming_sampling_rate") or 5,
+        fail_open=_get_config_value(embrouter_params, optional_params, "fail_open"),
+        guardrail_timeout=_get_config_value(embrouter_params, optional_params, "guardrail_timeout"),
+        event_hook=embrouter_params.mode,
+        default_on=embrouter_params.default_on,
     )
 
-    litellm.logging_callback_manager.add_litellm_callback(grayswan_guardrail)
+    embrouter.logging_callback_manager.add_embrouter_callback(grayswan_guardrail)
     return grayswan_guardrail
 
 
-def _get_config_value(litellm_params, optional_params, attribute_name):
+def _get_config_value(embrouter_params, optional_params, attribute_name):
     if optional_params is not None:
         value: Final = getattr(optional_params, attribute_name, None)
         if value is not None:
             return value
-    return getattr(litellm_params, attribute_name, None)
+    return getattr(embrouter_params, attribute_name, None)
 
 
 guardrail_initializer_registry: Final = {

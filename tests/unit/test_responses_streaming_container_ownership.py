@@ -30,8 +30,8 @@ def _make_wrapper_class():
     ``Router._aresponses_streaming_iterator`` long enough to construct
     the class then return it. Mirrors how the wrapper is actually
     instantiated in production."""
-    from litellm.router import Router
-    from litellm.responses.streaming_iterator import (
+    from embrouter.router import Router
+    from embrouter.responses.streaming_iterator import (
         BaseResponsesAPIStreamingIterator,
     )
 
@@ -43,7 +43,7 @@ def _make_wrapper_class():
         logging_obj=None,
         responses_api_provider_config=None,
         start_time=None,
-        litellm_metadata=None,
+        embrouter_metadata=None,
         custom_llm_provider="openai",
         request_data={},
         call_type="aresponses",
@@ -55,7 +55,7 @@ def _make_wrapper_class():
     # construction.
     captured = {}
 
-    real_router_module = __import__("litellm.router", fromlist=["Router"])
+    real_router_module = __import__("embrouter.router", fromlist=["Router"])
 
     async def _drive():
         async def empty_gen():
@@ -67,7 +67,7 @@ def _make_wrapper_class():
             model_list=[
                 {
                     "model_name": "openai/gpt-5.5",
-                    "litellm_params": {"model": "openai/gpt-5.5", "api_key": "sk-test"},
+                    "embrouter_params": {"model": "openai/gpt-5.5", "api_key": "sk-test"},
                 }
             ]
         )
@@ -182,7 +182,7 @@ class TestProxyOwnershipHookReadsCompletedResponse:
     response correctly so the ownership recording path doesn't break."""
 
     def test_extract_returns_inner_response_object(self):
-        from litellm.proxy.common_request_processing import (
+        from embrouter.proxy.common_request_processing import (
             ProxyBaseLLMRequestProcessing,
         )
 
@@ -209,7 +209,7 @@ class TestSilentSkipNowLogged:
 
     def test_warning_logged_when_completed_response_missing(self, caplog):
         import logging
-        from litellm.proxy.common_request_processing import (
+        from embrouter.proxy.common_request_processing import (
             ProxyBaseLLMRequestProcessing,
         )
 
@@ -244,7 +244,7 @@ class TestSilentSkipNowLogged:
                 async for _ in wrapped:
                     pass
 
-        with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+        with caplog.at_level(logging.WARNING, logger="EmbRouter Proxy"):
             asyncio.run(driver())
 
         assert any(

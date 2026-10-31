@@ -3,16 +3,16 @@ from collections.abc import Awaitable, Callable, Coroutine, Mapping
 from types import MappingProxyType
 from typing import Final, TypeAlias, cast  # noqa: TID251  # native binding selects a sync result or an async awaitable
 
-from litellm import main
-from litellm.rust_bridge.catalog import Route, RouteContext
-from litellm.rust_bridge.dispatch import PublicDispatch, call_hook
-from litellm.rust_bridge.embeddings.entrypoints import (
+from embrouter import main
+from embrouter.rust_bridge.catalog import Route, RouteContext
+from embrouter.rust_bridge.dispatch import PublicDispatch, call_hook
+from embrouter.rust_bridge.embeddings.entrypoints import (
     NATIVE_AEMBEDDING,
     NATIVE_EMBEDDING,
-    LiteLLMEmbeddingRequest,
+    EmbRouterEmbeddingRequest,
 )
-from litellm.rust_bridge.public_call import bind, optional_mapping, optional_str, signature
-from litellm.types.utils import EmbeddingResponse
+from embrouter.rust_bridge.public_call import bind, optional_mapping, optional_str, signature
+from embrouter.types.utils import EmbeddingResponse
 
 __all__ = ("aembedding", "embedding")
 
@@ -30,7 +30,7 @@ _EMBEDDING_SIGNATURE: Final = signature(_PYTHON_EMBEDDING)
 
 def _public_request(
     legacy: inspect.Signature, args: tuple[object, ...], kwargs: Mapping[str, object]
-) -> LiteLLMEmbeddingRequest | None:
+) -> EmbRouterEmbeddingRequest | None:
     fields: Final = bind(legacy, args, kwargs)
     if fields is None:
         return None
@@ -38,7 +38,7 @@ def _public_request(
     if not isinstance(model, str):
         return None
     extra: Final = optional_mapping(fields.get("kwargs")) or MappingProxyType({})
-    return LiteLLMEmbeddingRequest(
+    return EmbRouterEmbeddingRequest(
         model=model,
         input=fields.get("input"),
         api_key=optional_str(fields.get("api_key")),
@@ -48,7 +48,7 @@ def _public_request(
     )
 
 
-def _context(request: LiteLLMEmbeddingRequest) -> RouteContext:
+def _context(request: EmbRouterEmbeddingRequest) -> RouteContext:
     return RouteContext(Route.EMBEDDINGS, provider=request.custom_llm_provider, model=request.model)
 
 

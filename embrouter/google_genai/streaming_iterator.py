@@ -2,15 +2,15 @@ import asyncio
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Final
 
-import litellm
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.proxy.pass_through_endpoints.success_handler import (
+import embrouter
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.proxy.pass_through_endpoints.success_handler import (
     PassThroughEndpointLogging,
 )
-from litellm.types.passthrough_endpoints.pass_through_endpoints import EndpointType
+from embrouter.types.passthrough_endpoints.pass_through_endpoints import EndpointType
 
 if TYPE_CHECKING:
-    from litellm.llms.base_llm.google_genai.transformation import (
+    from embrouter.llms.base_llm.google_genai.transformation import (
         BaseGoogleGenAIGenerateContentConfig,
     )
 else:
@@ -63,20 +63,20 @@ class BaseGoogleGenAIGenerateContentStreamingIterator:
 
     def __init__(
         self,
-        litellm_logging_obj: LiteLLMLoggingObj,
+        embrouter_logging_obj: EmbRouterLoggingObj,
         request_body: dict,
         model: str,
         custom_llm_provider: str,
         hidden_params: dict[str, Any] | None = None,
     ):
-        self.litellm_logging_obj = litellm_logging_obj
+        self.embrouter_logging_obj = embrouter_logging_obj
         self.request_body = request_body
         self.start_time = datetime.now()
         self.collected_chunks: list[bytes] = []
         self.model = model
         self.custom_llm_provider = custom_llm_provider
         self.endpoint_type: Final = (
-            EndpointType.GEMINI if custom_llm_provider == litellm.LlmProviders.GEMINI.value else EndpointType.VERTEX_AI
+            EndpointType.GEMINI if custom_llm_provider == embrouter.LlmProviders.GEMINI.value else EndpointType.VERTEX_AI
         )
         self._hidden_params: dict[str, Any] = hidden_params or {}
 
@@ -84,14 +84,14 @@ class BaseGoogleGenAIGenerateContentStreamingIterator:
         self,
     ):
         """Handle the logging after all chunks have been collected."""
-        from litellm.proxy.pass_through_endpoints.streaming_handler import (
+        from embrouter.proxy.pass_through_endpoints.streaming_handler import (
             PassThroughStreamingHandler,
         )
 
         end_time: Final = datetime.now()
         asyncio.create_task(
             PassThroughStreamingHandler._route_streaming_logging_to_handler(
-                litellm_logging_obj=self.litellm_logging_obj,
+                embrouter_logging_obj=self.embrouter_logging_obj,
                 passthrough_success_handler_obj=GLOBAL_PASS_THROUGH_SUCCESS_HANDLER_OBJ,
                 url_route="/v1/generateContent",
                 request_body=self.request_body or {},
@@ -113,15 +113,15 @@ class GoogleGenAIGenerateContentStreamingIterator(BaseGoogleGenAIGenerateContent
         self,
         response,
         model: str,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         generate_content_provider_config: BaseGoogleGenAIGenerateContentConfig,
-        litellm_metadata: dict,
+        embrouter_metadata: dict,
         custom_llm_provider: str,
         request_body: dict | None = None,
         hidden_params: dict[str, Any] | None = None,
     ):
         super().__init__(
-            litellm_logging_obj=logging_obj,
+            embrouter_logging_obj=logging_obj,
             request_body=request_body or {},
             model=model,
             custom_llm_provider=custom_llm_provider,
@@ -130,7 +130,7 @@ class GoogleGenAIGenerateContentStreamingIterator(BaseGoogleGenAIGenerateContent
         self.response = response
         self.model = model
         self.generate_content_provider_config = generate_content_provider_config
-        self.litellm_metadata = litellm_metadata
+        self.embrouter_metadata = embrouter_metadata
         # Gemini streamGenerateContent uses SSE line framing; iter_lines keeps
         # large inlineData payloads (e.g. image/jpeg) intact within one event.
         self.stream_iterator = response.iter_lines()
@@ -164,15 +164,15 @@ class AsyncGoogleGenAIGenerateContentStreamingIterator(BaseGoogleGenAIGenerateCo
         self,
         response,
         model: str,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         generate_content_provider_config: BaseGoogleGenAIGenerateContentConfig,
-        litellm_metadata: dict,
+        embrouter_metadata: dict,
         custom_llm_provider: str,
         request_body: dict | None = None,
         hidden_params: dict[str, Any] | None = None,
     ):
         super().__init__(
-            litellm_logging_obj=logging_obj,
+            embrouter_logging_obj=logging_obj,
             request_body=request_body or {},
             model=model,
             custom_llm_provider=custom_llm_provider,
@@ -181,7 +181,7 @@ class AsyncGoogleGenAIGenerateContentStreamingIterator(BaseGoogleGenAIGenerateCo
         self.response = response
         self.model = model
         self.generate_content_provider_config = generate_content_provider_config
-        self.litellm_metadata = litellm_metadata
+        self.embrouter_metadata = embrouter_metadata
         # Gemini streamGenerateContent uses SSE line framing; aiter_lines keeps
         # large inlineData payloads (e.g. image/jpeg) intact within one event.
         self.stream_iterator = response.aiter_lines()

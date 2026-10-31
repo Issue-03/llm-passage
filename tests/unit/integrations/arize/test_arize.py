@@ -11,9 +11,9 @@ from collections.abc import Callable
 import pytest
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 
-import litellm
-from litellm.integrations.arize.arize import ArizeLogger
-from litellm.integrations.opentelemetry import OpenTelemetryConfig
+import embrouter
+from embrouter.integrations.arize.arize import ArizeLogger
+from embrouter.integrations.opentelemetry import OpenTelemetryConfig
 
 
 @pytest.mark.asyncio
@@ -37,10 +37,10 @@ async def test_arize_dynamic_params():
     arize_logger.get_tracer_to_use_for_request = mock_get_tracer_to_use_for_request
 
     # Set up callbacks
-    litellm.callbacks = [arize_logger]
+    embrouter.callbacks = [arize_logger]
 
     # First request with team1 credentials
-    await litellm.acompletion(
+    await embrouter.acompletion(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": "hi test from arize dynamic config"}],
         temperature=0.1,
@@ -50,7 +50,7 @@ async def test_arize_dynamic_params():
     )
 
     # Second request with team2 credentials
-    await litellm.acompletion(
+    await embrouter.acompletion(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": "hi test from arize dynamic config"}],
         temperature=0.1,
@@ -115,10 +115,10 @@ async def test_arize_dynamic_headers_in_grpc_requests():
         # Create ArizeLogger with HTTP configuration
         config = OpenTelemetryConfig(exporter="otlp_http", endpoint="https://otlp.arize.com/v1")
         arize_logger = ArizeLogger(config=config)
-        litellm.callbacks = [arize_logger]
+        embrouter.callbacks = [arize_logger]
 
         # Request 1: team1 dynamic params
-        await litellm.acompletion(
+        await embrouter.acompletion(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "hi from team1"}],
             mock_response="response1",
@@ -127,7 +127,7 @@ async def test_arize_dynamic_headers_in_grpc_requests():
         )
 
         # Request 2: team2 dynamic params
-        await litellm.acompletion(
+        await embrouter.acompletion(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "hi from team2"}],
             mock_response="response2",
@@ -181,13 +181,13 @@ def _sampled_arize_logger(
 
 
 def _request_spans(exporter: InMemorySpanExporter) -> int:
-    return sum(1 for span in exporter.get_finished_spans() if span.name == "litellm_request")
+    return sum(1 for span in exporter.get_finished_spans() if span.name == "embrouter_request")
 
 
 def _arize_kwargs(callback_vars: dict[str, str] | None = None) -> dict[str, object]:
     kwargs: dict[str, object] = {
         "model": "gpt-4",
-        "litellm_params": {"metadata": {}},
+        "embrouter_params": {"metadata": {}},
         "standard_logging_object": {
             "id": "call-1",
             "call_type": "completion",

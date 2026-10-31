@@ -11,12 +11,12 @@ from typing import Any, Final
 import httpx
 from pydantic import Field, PrivateAttr
 
-from litellm.types.llms.base import LiteLLMPydanticObjectBase
+from embrouter.types.llms.base import EmbRouterPydanticObjectBase
 
 SANDBOX_MAX_OUTPUT_BYTES: Final = 10 * 1024 * 1024
 
 
-class ContainerHandle(LiteLLMPydanticObjectBase):
+class ContainerHandle(EmbRouterPydanticObjectBase):
     """A live sandbox container. Carries everything needed to reach it again."""
 
     id: str
@@ -28,7 +28,7 @@ class ContainerHandle(LiteLLMPydanticObjectBase):
     _hidden_params: dict = PrivateAttr(default_factory=dict)
 
 
-class CodeExecutionResult(LiteLLMPydanticObjectBase):
+class CodeExecutionResult(EmbRouterPydanticObjectBase):
     """Passthrough of the sandbox's own execution output."""
 
     stdout: str = ""

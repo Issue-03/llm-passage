@@ -6,8 +6,8 @@ from typing import Final
 
 from fastapi import Request
 
-from litellm.litellm_core_utils.sensitive_data_masker import SensitiveDataMasker
-from litellm.proxy.common_utils.http_parsing_utils import _read_request_body
+from embrouter.embrouter_core_utils.sensitive_data_masker import SensitiveDataMasker
+from embrouter.proxy.common_utils.http_parsing_utils import _read_request_body
 
 SENSITIVE_DATA_MASKER: Final = SensitiveDataMasker()
 
@@ -26,12 +26,12 @@ def remove_sensitive_info_from_deployment(
     Returns:
         dict: The modified deployment dictionary with sensitive information removed.
     """
-    deployment_dict["litellm_params"].pop("api_key", None)
-    deployment_dict["litellm_params"].pop("client_secret", None)
-    deployment_dict["litellm_params"].pop("vertex_credentials", None)
-    deployment_dict["litellm_params"].pop("vertex_ai_credentials", None)
-    deployment_dict["litellm_params"].pop("aws_access_key_id", None)
-    deployment_dict["litellm_params"].pop("aws_secret_access_key", None)
+    deployment_dict["embrouter_params"].pop("api_key", None)
+    deployment_dict["embrouter_params"].pop("client_secret", None)
+    deployment_dict["embrouter_params"].pop("vertex_credentials", None)
+    deployment_dict["embrouter_params"].pop("vertex_ai_credentials", None)
+    deployment_dict["embrouter_params"].pop("aws_access_key_id", None)
+    deployment_dict["embrouter_params"].pop("aws_secret_access_key", None)
 
     # Rate-limit config fields must never be masked — they are integers, not credentials.
     # The field names contain "key" which matches the masker's sensitive pattern, so we
@@ -42,8 +42,8 @@ def remove_sensitive_info_from_deployment(
     }
     _excluded: Final = (excluded_keys or set()) | _rate_limit_config_keys
 
-    deployment_dict["litellm_params"] = SENSITIVE_DATA_MASKER.mask_dict(
-        deployment_dict["litellm_params"], excluded_keys=_excluded
+    deployment_dict["embrouter_params"] = SENSITIVE_DATA_MASKER.mask_dict(
+        deployment_dict["embrouter_params"], excluded_keys=_excluded
     )
 
     return deployment_dict

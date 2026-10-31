@@ -3,10 +3,10 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.rust_bridge.chat_completions.route_host import arguments, connection_defaults, response
-from litellm.rust_bridge.chat_completions.entrypoints import LiteLLMChatCompletionsRequest
-from litellm.types.utils import ModelResponse
+import embrouter
+from embrouter.rust_bridge.chat_completions.route_host import arguments, connection_defaults, response
+from embrouter.rust_bridge.chat_completions.entrypoints import EmbRouterChatCompletionsRequest
+from embrouter.types.utils import ModelResponse
 
 
 def test_response_builds_the_public_model_response() -> None:
@@ -38,7 +38,7 @@ def test_response_builds_the_public_model_response() -> None:
 
 def test_arguments_are_the_public_kwargs_view() -> None:
     kwargs: Final = MappingProxyType({"metadata": {"user_id": "u"}})
-    request: Final = LiteLLMChatCompletionsRequest(
+    request: Final = EmbRouterChatCompletionsRequest(
         model="anthropic/claude-sonnet-4-5",
         messages=[{"role": "user", "content": "hi"}],
         stream=None,
@@ -70,7 +70,7 @@ def test_connection_defaults_preserve_provider_precedence(
     expected_key: str | None,
     expected_base: str | None,
 ) -> None:
-    monkeypatch.setattr(litellm, "api_key", global_key)
-    monkeypatch.setattr(litellm, "anthropic_key", provider_key)
-    monkeypatch.setattr(litellm, "api_base", "https://configured.invalid")
+    monkeypatch.setattr(embrouter, "api_key", global_key)
+    monkeypatch.setattr(embrouter, "anthropic_key", provider_key)
+    monkeypatch.setattr(embrouter, "api_base", "https://configured.invalid")
     assert connection_defaults(provider) == (expected_key, expected_base)

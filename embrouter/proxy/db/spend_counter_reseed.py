@@ -19,37 +19,37 @@ from datetime import datetime, timezone
 from types import MappingProxyType
 from typing import TYPE_CHECKING, ClassVar, Final, Optional
 
-from litellm._logging import verbose_proxy_logger
-from litellm.constants import SPEND_COUNTER_RESEED_LOCKS_MAX_SIZE
-from litellm.litellm_core_utils.duration_parser import duration_in_seconds
-from litellm.proxy._types import Litellm_EntityType
-from litellm.proxy.db.db_lookup_gate import bounded_db_lookup, db_lookup_gate
-from litellm.proxy.spend_tracking.spend_counter_batch import read_batched_spend_counter, record_spend_counter_value
-from litellm.repositories.organization_repository import OrganizationRepository
-from litellm.repositories.project_repository import ProjectRepository
-from litellm.repositories.table_repositories import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.constants import SPEND_COUNTER_RESEED_LOCKS_MAX_SIZE
+from embrouter.embrouter_core_utils.duration_parser import duration_in_seconds
+from embrouter.proxy._types import Embrouter_EntityType
+from embrouter.proxy.db.db_lookup_gate import bounded_db_lookup, db_lookup_gate
+from embrouter.proxy.spend_tracking.spend_counter_batch import read_batched_spend_counter, record_spend_counter_value
+from embrouter.repositories.organization_repository import OrganizationRepository
+from embrouter.repositories.project_repository import ProjectRepository
+from embrouter.repositories.table_repositories import (
     BudgetWindowSpendRepository,
     EndUserRepository,
     SpendLogsRepository,
     TeamMembershipRepository,
 )
-from litellm.repositories.team_repository import TeamRepository
-from litellm.repositories.user_repository import UserRepository
-from litellm.repositories.verification_token_repository import (
+from embrouter.repositories.team_repository import TeamRepository
+from embrouter.repositories.user_repository import UserRepository
+from embrouter.repositories.verification_token_repository import (
     VerificationTokenRepository,
 )
 
 if TYPE_CHECKING:
-    from prisma.types import LiteLLM_EndUserTableWhereUniqueInput
+    from prisma.types import EmbRouter_EndUserTableWhereUniqueInput
 
-    from litellm.caching.dual_cache import DualCache
-    from litellm.proxy.utils import PrismaClient
+    from embrouter.caching.dual_cache import DualCache
+    from embrouter.proxy.utils import PrismaClient
 
 
 _WINDOW_SPEND_ENTITY_TYPES: Final[Mapping[str, str]] = MappingProxyType(
     {
-        "Key": Litellm_EntityType.KEY.value,
-        "Team": Litellm_EntityType.TEAM.value,
+        "Key": Embrouter_EntityType.KEY.value,
+        "Team": Embrouter_EntityType.TEAM.value,
     }
 )
 
@@ -73,19 +73,19 @@ class SpendCounterReseed:
     coalesced via per-counter singleflight locks.
 
     Counter key prefixes map to DB tables:
-        spend:key:{token}                 -> LiteLLM_VerificationToken.spend
-        spend:team:{team_id}              -> LiteLLM_TeamTable.spend
-        spend:team_member:{uid}:{tid}     -> LiteLLM_TeamMembership.spend
-        spend:user:{user_id}              -> LiteLLM_UserTable.spend
-        spend:org:{org_id}                -> LiteLLM_OrganizationTable.spend
-        spend:project:{project_id}        -> LiteLLM_ProjectTable.spend
+        spend:key:{token}                 -> EmbRouter_VerificationToken.spend
+        spend:team:{team_id}              -> EmbRouter_TeamTable.spend
+        spend:team_member:{uid}:{tid}     -> EmbRouter_TeamMembership.spend
+        spend:user:{user_id}              -> EmbRouter_UserTable.spend
+        spend:org:{org_id}                -> EmbRouter_OrganizationTable.spend
+        spend:project:{project_id}        -> EmbRouter_ProjectTable.spend
 
     End-user and tag spend counters intentionally do not reseed here. Their
     auth paths already load the corresponding objects via get_end_user_object()
     and get_tag_objects_batch(); callers pass those values as fallback_spend.
     end_user_from_db is the one end-user read, used only as the budget floor when
     a counter sits below that cached spend: a worker that did not run the budget
-    reset still caches the pre-reset end-user object, and LiteLLM_EndUserTable
+    reset still caches the pre-reset end-user object, and EmbRouter_EndUserTable
     is the row the reset zeroed.
     """
 
@@ -180,7 +180,7 @@ class SpendCounterReseed:
     async def end_user_from_db(prisma_client: Optional["PrismaClient"], counter_key: str) -> float | None:
         if prisma_client is None or not counter_key.startswith(END_USER_COUNTER_PREFIX):
             return None
-        where: Final[LiteLLM_EndUserTableWhereUniqueInput] = {"user_id": counter_key[len(END_USER_COUNTER_PREFIX) :]}
+        where: Final[EmbRouter_EndUserTableWhereUniqueInput] = {"user_id": counter_key[len(END_USER_COUNTER_PREFIX) :]}
         try:
             row: Final = await bounded_db_lookup(
                 EndUserRepository(prisma_client).table.find_unique(where=where), name="end_user_spend"

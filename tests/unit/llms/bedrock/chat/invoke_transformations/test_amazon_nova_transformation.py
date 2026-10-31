@@ -2,11 +2,11 @@ import json
 
 import pytest
 
-import litellm
-from litellm.llms.bedrock.chat.invoke_transformations.amazon_nova_transformation import (
+import embrouter
+from embrouter.llms.bedrock.chat.invoke_transformations.amazon_nova_transformation import (
     AmazonInvokeNovaConfig,
 )
-from litellm.types.integrations.anthropic_cache_control_hook import GATEWAY_INJECTED_CACHE_METADATA_KEY
+from embrouter.types.integrations.anthropic_cache_control_hook import GATEWAY_INJECTED_CACHE_METADATA_KEY
 
 MODEL = "us.amazon.nova-pro-v1:0"
 EPHEMERAL = {"type": "ephemeral"}
@@ -24,23 +24,23 @@ def local_model_cost_map(monkeypatch):
     ``get_model_info`` is lru_cached, so swapping ``model_cost`` is not enough on its
     own; clear on the way in and out so entries warmed against either map never leak
     across tests."""
-    original_model_cost = litellm.model_cost
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    litellm.model_cost = litellm.get_model_cost_map(url="")
-    litellm.get_model_info.cache_clear()
+    original_model_cost = embrouter.model_cost
+    monkeypatch.setenv("EMBROUTER_LOCAL_MODEL_COST_MAP", "True")
+    embrouter.model_cost = embrouter.get_model_cost_map(url="")
+    embrouter.get_model_info.cache_clear()
     try:
         yield
     finally:
-        litellm.model_cost = original_model_cost
-        litellm.get_model_info.cache_clear()
+        embrouter.model_cost = original_model_cost
+        embrouter.get_model_info.cache_clear()
 
 
-def _transform_request(messages, optional_params, litellm_params=None):
+def _transform_request(messages, optional_params, embrouter_params=None):
     return AmazonInvokeNovaConfig().transform_request(
         model=MODEL,
         messages=messages,
         optional_params=optional_params,
-        litellm_params=litellm_params if litellm_params is not None else {},
+        embrouter_params=embrouter_params if embrouter_params is not None else {},
         headers={},
     )
 
@@ -110,7 +110,7 @@ def test_tool_config_injection_point_is_neither_placed_nor_credited(local_model_
     request = _transform_request(
         messages=[{"role": "user", "content": "hi"}],
         optional_params={"tools": TOOLS, "cache_control_injection_points": [{"location": "tool_config"}]},
-        litellm_params={"metadata": metadata, "litellm_metadata": None, "model_info": {"id": "dep-bedrock"}},
+        embrouter_params={"metadata": metadata, "embrouter_metadata": None, "model_info": {"id": "dep-bedrock"}},
     )
     assert [tool["toolSpec"]["name"] for tool in request["toolConfig"]["tools"]] == ["f"]
     assert "cachePoint" not in json.dumps(request)

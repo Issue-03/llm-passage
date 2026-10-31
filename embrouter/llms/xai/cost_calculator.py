@@ -9,11 +9,11 @@ import math
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Final
 
-from litellm.litellm_core_utils.llm_cost_calc.utils import generic_cost_per_token
-from litellm.types.utils import PromptTokensDetailsWrapper, Usage
+from embrouter.embrouter_core_utils.llm_cost_calc.utils import generic_cost_per_token
+from embrouter.types.utils import PromptTokensDetailsWrapper, Usage
 
 if TYPE_CHECKING:
-    from litellm.types.utils import ModelInfo
+    from embrouter.types.utils import ModelInfo
 
 # https://docs.x.ai/developers/pricing#tools-pricing — default when unset in model map
 _DEFAULT_WEB_SEARCH_COST_PER_CALL: Final = 5.0 / 1000.0
@@ -56,7 +56,7 @@ def cost_per_token(model: str, usage: Usage) -> tuple[float, float]:
 
     Input:
         - model: str, the model name without provider prefix
-        - usage: LiteLLM Usage block, containing XAI-specific usage information
+        - usage: EmbRouter Usage block, containing XAI-specific usage information
 
     Returns:
         Tuple[float, float] - prompt_cost_in_usd, completion_cost_in_usd

@@ -10,15 +10,15 @@ import pytest
 import httpx
 from respx import MockRouter
 
-import litellm
+import embrouter
 
 # Import at the top to make the patch work correctly
-import litellm.llms.github_copilot.chat.transformation
-from litellm import Choices, Message, ModelResponse, Usage, acompletion, completion
-from litellm.exceptions import AuthenticationError
-from litellm.llms.github_copilot.authenticator import Authenticator
-from litellm.llms.github_copilot.chat.transformation import GithubCopilotConfig
-from litellm.llms.github_copilot.common_utils import (
+import embrouter.llms.github_copilot.chat.transformation
+from embrouter import Choices, Message, ModelResponse, Usage, acompletion, completion
+from embrouter.exceptions import AuthenticationError
+from embrouter.llms.github_copilot.authenticator import Authenticator
+from embrouter.llms.github_copilot.chat.transformation import GithubCopilotConfig
+from embrouter.llms.github_copilot.common_utils import (
     APIKeyExpiredError,
     GetAccessTokenError,
     GetAPIKeyError,
@@ -89,9 +89,9 @@ def test_github_copilot_config_get_openai_compatible_provider_info():
     assert "Failed to get API key" in str(excinfo.value)
 
 
-@patch("litellm.llms.github_copilot.authenticator.Authenticator.get_api_key")
-@patch("litellm.main.openai_chat_completions.completion")
-@patch("litellm.llms.openai.openai.OpenAIChatCompletion.completion")
+@patch("embrouter.llms.github_copilot.authenticator.Authenticator.get_api_key")
+@patch("embrouter.main.openai_chat_completions.completion")
+@patch("embrouter.llms.openai.openai.OpenAIChatCompletion.completion")
 def test_completion_github_copilot_mock_response(
     mock_class_completion, mock_instance_completion, mock_get_api_key, monkeypatch
 ):
@@ -145,14 +145,14 @@ def test_completion_github_copilot_mock_response(
 
 def test_transform_messages_disable_copilot_system_to_assistant(monkeypatch):
     """Test that system messages are converted to assistant unless disable_copilot_system_to_assistant is True."""
-    import litellm
-    from litellm.llms.github_copilot.chat.transformation import GithubCopilotConfig
+    import embrouter
+    from embrouter.llms.github_copilot.chat.transformation import GithubCopilotConfig
 
     # Save original value
-    original_flag = litellm.disable_copilot_system_to_assistant
+    original_flag = embrouter.disable_copilot_system_to_assistant
     try:
         # Case 1: Flag is False (default, conversion happens)
-        litellm.disable_copilot_system_to_assistant = False
+        embrouter.disable_copilot_system_to_assistant = False
         config = GithubCopilotConfig()
         messages = [
             {"role": "system", "content": "System message."},
@@ -165,7 +165,7 @@ def test_transform_messages_disable_copilot_system_to_assistant(monkeypatch):
         assert out[1]["role"] == "user"
 
         # Case 2: Flag is True (conversion does not happen)
-        litellm.disable_copilot_system_to_assistant = True
+        embrouter.disable_copilot_system_to_assistant = True
         out = config._transform_messages(
             [m.copy() for m in messages], model="github_copilot/gpt-4"
         )
@@ -173,7 +173,7 @@ def test_transform_messages_disable_copilot_system_to_assistant(monkeypatch):
         assert out[1]["role"] == "user"
 
         # Case 3: Flag is False again (conversion happens)
-        litellm.disable_copilot_system_to_assistant = False
+        embrouter.disable_copilot_system_to_assistant = False
         out = config._transform_messages(
             [m.copy() for m in messages], model="github_copilot/gpt-4"
         )
@@ -181,7 +181,7 @@ def test_transform_messages_disable_copilot_system_to_assistant(monkeypatch):
         assert out[1]["role"] == "user"
     finally:
         # Restore original value
-        litellm.disable_copilot_system_to_assistant = original_flag
+        embrouter.disable_copilot_system_to_assistant = original_flag
 
 
 def test_x_initiator_header_user_request():
@@ -203,7 +203,7 @@ def test_x_initiator_header_user_request():
         model="github_copilot/gpt-4",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         api_key=None,
         api_base=None,
     )
@@ -230,7 +230,7 @@ def test_x_initiator_header_agent_request_with_assistant():
         model="github_copilot/gpt-4",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         api_key=None,
         api_base=None,
     )
@@ -257,7 +257,7 @@ def test_x_initiator_header_agent_request_with_tool():
         model="github_copilot/gpt-4",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         api_key=None,
         api_base=None,
     )
@@ -285,7 +285,7 @@ def test_x_initiator_header_mixed_messages_with_agent_roles():
         model="github_copilot/gpt-4",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         api_key=None,
         api_base=None,
     )
@@ -313,7 +313,7 @@ def test_x_initiator_header_user_only_messages():
         model="github_copilot/gpt-4",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         api_key=None,
         api_base=None,
     )
@@ -337,7 +337,7 @@ def test_x_initiator_header_empty_messages():
         model="github_copilot/gpt-4",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         api_key=None,
         api_base=None,
     )
@@ -363,7 +363,7 @@ def test_x_initiator_header_system_only_messages():
         model="github_copilot/gpt-4",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         api_key=None,
         api_base=None,
     )
@@ -402,7 +402,7 @@ def test_copilot_vision_request_header_with_image():
         model="github_copilot/gpt-4-vision-preview",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         api_key=None,
         api_base=None,
     )
@@ -429,7 +429,7 @@ def test_copilot_vision_request_header_text_only():
         model="github_copilot/gpt-4",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         api_key=None,
         api_base=None,
     )
@@ -465,7 +465,7 @@ def test_copilot_vision_request_header_with_type_image_url():
         model="github_copilot/gpt-4-vision-preview",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         api_key=None,
         api_base=None,
     )
@@ -532,7 +532,7 @@ class TestGithubCopilotTransformResponse:
             request_data={},
             messages=[{"role": "user", "content": "Hi"}],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             encoding=None,
         )
 
@@ -572,7 +572,7 @@ class TestGithubCopilotTransformResponse:
             request_data={},
             messages=[{"role": "user", "content": "Hi"}],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             encoding=None,
         )
 
@@ -606,7 +606,7 @@ class TestGithubCopilotTransformResponse:
             request_data={},
             messages=[{"role": "user", "content": "Hi"}],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             encoding=None,
         )
 
@@ -646,7 +646,7 @@ class TestGithubCopilotTransformResponse:
             request_data={},
             messages=[{"role": "user", "content": "Hi"}],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             encoding=None,
         )
 
@@ -691,7 +691,7 @@ class TestGithubCopilotTransformResponse:
             request_data={},
             messages=[{"role": "user", "content": "What's the weather?"}],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             encoding=None,
         )
 
@@ -740,7 +740,7 @@ class TestGithubCopilotTransformResponse:
             request_data={},
             messages=[{"role": "user", "content": "Hi"}],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             encoding=None,
         )
 
@@ -784,7 +784,7 @@ class TestGithubCopilotTransformResponse:
             request_data={},
             messages=[{"role": "user", "content": "What is the answer?"}],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             encoding=None,
         )
 
@@ -817,7 +817,7 @@ class TestGithubCopilotTransformResponse:
                 request_data={},
                 messages=[{"role": "user", "content": "Hi"}],
                 optional_params={},
-                litellm_params={},
+                embrouter_params={},
                 encoding=None,
             )
 
@@ -872,9 +872,9 @@ class TestGithubCopilotTransformParsedResponseDict:
         assert config.transform_parsed_response_dict(parsed) is parsed
 
 
-@patch("litellm.llms.openai.openai.OpenAIChatCompletion._get_openai_client")
+@patch("embrouter.llms.openai.openai.OpenAIChatCompletion._get_openai_client")
 @patch(
-    "litellm.llms.openai.openai.OpenAIChatCompletion.make_sync_openai_chat_completion_request"
+    "embrouter.llms.openai.openai.OpenAIChatCompletion.make_sync_openai_chat_completion_request"
 )
 def test_openai_handler_repairs_github_copilot_empty_choices(
     mock_request, mock_get_client
@@ -888,7 +888,7 @@ def test_openai_handler_repairs_github_copilot_empty_choices(
 
 
     """
-    from litellm.llms.openai.openai import OpenAIChatCompletion
+    from embrouter.llms.openai.openai import OpenAIChatCompletion
 
     mock_get_client.return_value = MagicMock()
 
@@ -912,7 +912,7 @@ def test_openai_handler_repairs_github_copilot_empty_choices(
         model_response=ModelResponse(),
         timeout=60.0,
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         logging_obj=MagicMock(),
         custom_llm_provider="github_copilot",
         client=MagicMock(),

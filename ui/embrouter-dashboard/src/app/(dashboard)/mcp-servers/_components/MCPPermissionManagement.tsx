@@ -111,7 +111,7 @@ const MCPPermissionManagement: React.FC<MCPPermissionManagementProps> = ({
     watchedExtraHeaders.some((h) => typeof h === "string" && h.toLowerCase() === "authorization");
   // Two distinct, independent opt-ins:
   //   - delegate_auth_to_upstream: oauth2 servers only (PKCE passthrough —
-  //     bypass LiteLLM admission).
+  //     bypass EmbRouter admission).
   //   - oauth_passthrough: auth_type=none + Authorization in extra_headers
   //     (OAuth pass-through: proxy upstream oauth-protected-resource, emit 401
   //     challenges, propagate upstream 401/403).

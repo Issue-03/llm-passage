@@ -9,12 +9,12 @@ from urllib.parse import urlparse
 
 from httpx._types import FileTypes, RequestFiles
 
-from litellm.images.utils import ImageEditRequestUtils
-from litellm.litellm_core_utils.url_utils import SSRFError, validate_url
-from litellm.llms.openai.videos.transformation import OpenAIVideoConfig
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.videos.main import VideoCreateOptionalRequestParams
+from embrouter.images.utils import ImageEditRequestUtils
+from embrouter.embrouter_core_utils.url_utils import SSRFError, validate_url
+from embrouter.llms.openai.videos.transformation import OpenAIVideoConfig
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.videos.main import VideoCreateOptionalRequestParams
 
 _EXCLUDED_FORM_KEYS: Final = frozenset(
     {
@@ -155,10 +155,10 @@ class HostedVLLMVideoConfig(OpenAIVideoConfig):
         headers: dict,  # mutable-ok: BaseVideoConfig contract
         model: str,
         api_key: str | None = None,
-        litellm_params: GenericLiteLLMParams | None = None,
+        embrouter_params: GenericEmbRouterParams | None = None,
     ) -> dict:  # mutable-ok: BaseVideoConfig contract
         resolved_key: Final = (
-            (litellm_params.api_key if litellm_params is not None else None)
+            (embrouter_params.api_key if embrouter_params is not None else None)
             or api_key
             or get_secret_str("HOSTED_VLLM_API_KEY")
             or "fake-api-key"
@@ -169,7 +169,7 @@ class HostedVLLMVideoConfig(OpenAIVideoConfig):
         self,
         model: str,
         api_base: str | None,
-        litellm_params: dict,  # mutable-ok: BaseVideoConfig contract
+        embrouter_params: dict,  # mutable-ok: BaseVideoConfig contract
     ) -> str:
         resolved_api_base: Final = api_base or get_secret_str("HOSTED_VLLM_API_BASE")
         if resolved_api_base is None:
@@ -188,7 +188,7 @@ class HostedVLLMVideoConfig(OpenAIVideoConfig):
         prompt: str,
         api_base: str,
         video_create_optional_request_params: dict,  # mutable-ok: BaseVideoConfig contract
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,  # mutable-ok: BaseVideoConfig contract
     ) -> tuple[dict, RequestFiles, str]:  # mutable-ok: BaseVideoConfig contract
         data: Final = {  # mutable-ok: BaseVideoConfig contract returns a data dict

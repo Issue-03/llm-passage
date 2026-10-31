@@ -7,7 +7,7 @@ from fastapi import HTTPException, status
 from pydantic import BaseModel
 
 
-# Defined above the `litellm.proxy.*` imports so the name is bound even when
+# Defined above the `embrouter.proxy.*` imports so the name is bound even when
 # this module is imported first through the proxy import cycle (CodeQL:
 # module-level cyclic import). Depends only on `math` + `HTTPException`.
 def validate_finite_spend(spend: float | None) -> None:
@@ -34,40 +34,40 @@ def validate_budget_duration(budget_duration: str | None, status_code: int = 400
     enough of them exist, they fill each batch and starve every other tenant's
     reset.
     """
-    from litellm.proxy.common_utils.timezone_utils import budget_duration_error
+    from embrouter.proxy.common_utils.timezone_utils import budget_duration_error
 
     error: Final = budget_duration_error(budget_duration)
     if error is not None:
         raise HTTPException(status_code=status_code, detail={"error": error})
 
 
-from litellm._logging import verbose_proxy_logger
-from litellm.caching import DualCache
-from litellm.proxy._types import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.caching import DualCache
+from embrouter.proxy._types import (
     CommonProxyErrors,
     KeyRequestBase,
-    LiteLLM_ManagementEndpoint_MetadataFields,
-    LiteLLM_ManagementEndpoint_MetadataFields_Premium,
-    LiteLLM_OrganizationTable,
-    LiteLLM_ProjectTable,
-    LiteLLM_TeamTable,
-    LiteLLM_UserTable,
-    LitellmUserRoles,
+    EmbRouter_ManagementEndpoint_MetadataFields,
+    EmbRouter_ManagementEndpoint_MetadataFields_Premium,
+    EmbRouter_OrganizationTable,
+    EmbRouter_ProjectTable,
+    EmbRouter_TeamTable,
+    EmbRouter_UserTable,
+    EmbrouterUserRoles,
     NewProjectRequest,
     UpdateProjectRequest,
     UserAPIKeyAuth,
 )
-from litellm.proxy._types import (  # noqa: F401  re-exported
+from embrouter.proxy._types import (  # noqa: F401  re-exported
     user_api_key_has_admin_view as _user_has_admin_view,
 )
-from litellm.proxy.common_utils.timezone_utils import get_budget_reset_time
-from litellm.proxy.utils import _premium_user_check
-from litellm.repositories.team_repository import TeamRepository
-from litellm.types.utils import BudgetConfig
+from embrouter.proxy.common_utils.timezone_utils import get_budget_reset_time
+from embrouter.proxy.utils import _premium_user_check
+from embrouter.repositories.team_repository import TeamRepository
+from embrouter.types.utils import BudgetConfig
 
 if TYPE_CHECKING:
-    from litellm.proxy._types import NewProjectRequest, UpdateProjectRequest
-    from litellm.proxy.utils import PrismaClient, ProxyLogging
+    from embrouter.proxy._types import NewProjectRequest, UpdateProjectRequest
+    from embrouter.proxy.utils import PrismaClient, ProxyLogging
 
 
 def validate_team_model_max_budget(
@@ -158,7 +158,7 @@ def _check_passthrough_routes_caller_permission(
     must be gated identically.
     """
     # view-only admins excluded by design; blocked upstream from writes anyway
-    if user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN.value:
+    if user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN.value:
         return
     if getattr(data, "allowed_passthrough_routes", None):
         raise HTTPException(
@@ -186,7 +186,7 @@ def _check_disable_global_guardrails_caller_permission(
     flag is top-level or under `metadata`. Re-sending a flag that is already stored is
     not an opt-out, so non-admin edits of an already exempted object still go through.
     """
-    if user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN.value:
+    if user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN.value:
         return
     requested: Final = bool(disable_global_guardrails) or (
         metadata is not None and bool(metadata.get("disable_global_guardrails"))
@@ -201,7 +201,7 @@ def _check_disable_global_guardrails_caller_permission(
     )
 
 
-def _is_user_team_admin(user_api_key_dict: UserAPIKeyAuth, team_obj: LiteLLM_TeamTable) -> bool:
+def _is_user_team_admin(user_api_key_dict: UserAPIKeyAuth, team_obj: EmbRouter_TeamTable) -> bool:
     for member in team_obj.members_with_roles:
         if (member.user_id is not None and member.user_id == user_api_key_dict.user_id) and member.role == "admin":
             return True
@@ -209,7 +209,7 @@ def _is_user_team_admin(user_api_key_dict: UserAPIKeyAuth, team_obj: LiteLLM_Tea
     return False
 
 
-async def _is_user_org_admin_for_team(user_api_key_dict: UserAPIKeyAuth, team_obj: LiteLLM_TeamTable) -> bool:
+async def _is_user_org_admin_for_team(user_api_key_dict: UserAPIKeyAuth, team_obj: EmbRouter_TeamTable) -> bool:
     """
     Check if user is an org admin for the team's organization.
 
@@ -220,8 +220,8 @@ async def _is_user_org_admin_for_team(user_api_key_dict: UserAPIKeyAuth, team_ob
     if not team_obj.organization_id or not user_api_key_dict.user_id:
         return False
 
-    from litellm.proxy.auth.auth_checks import get_user_object
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.auth.auth_checks import get_user_object
+    from embrouter.proxy.proxy_server import (
         prisma_client,
         proxy_logging_obj,
         user_api_key_cache,
@@ -238,7 +238,7 @@ async def _is_user_org_admin_for_team(user_api_key_dict: UserAPIKeyAuth, team_ob
         return False
 
     for m in caller_user.organization_memberships or []:
-        if m.organization_id == team_obj.organization_id and m.user_role == LitellmUserRoles.ORG_ADMIN.value:
+        if m.organization_id == team_obj.organization_id and m.user_role == EmbrouterUserRoles.ORG_ADMIN.value:
             return True
 
     return False
@@ -246,7 +246,7 @@ async def _is_user_org_admin_for_team(user_api_key_dict: UserAPIKeyAuth, team_ob
 
 def _team_member_has_permission(
     user_api_key_dict: UserAPIKeyAuth,
-    team_obj: LiteLLM_TeamTable,
+    team_obj: EmbRouter_TeamTable,
     permission: str,
 ) -> bool:
     """Check if a non-admin team member has a specific permission on a team."""
@@ -279,7 +279,7 @@ async def _user_has_admin_privileges(
         True if user is proxy admin, team admin for any team, or org admin for any organization
     """
     # Check if user is proxy admin
-    if user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN:
+    if user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN:
         return True
 
     # If no database connection, can't check team/org admin status
@@ -287,8 +287,8 @@ async def _user_has_admin_privileges(
         return False
 
     # Get user object to check team and org admin status
-    from litellm.caching import DualCache as DualCacheImport
-    from litellm.proxy.auth.auth_checks import get_user_object
+    from embrouter.caching import DualCache as DualCacheImport
+    from embrouter.proxy.auth.auth_checks import get_user_object
 
     try:
         user_obj: Final = await get_user_object(
@@ -305,7 +305,7 @@ async def _user_has_admin_privileges(
         # Check if user is org admin for any organization
         if user_obj.organization_memberships is not None:
             for membership in user_obj.organization_memberships:
-                if membership.user_role == LitellmUserRoles.ORG_ADMIN.value:
+                if membership.user_role == EmbrouterUserRoles.ORG_ADMIN.value:
                     return True
 
         # Check if user is team admin for any team
@@ -314,7 +314,7 @@ async def _user_has_admin_privileges(
             teams = await TeamRepository(prisma_client).table.find_many(where={"team_id": {"in": user_obj.teams}})
 
             for team in teams:
-                team_obj = LiteLLM_TeamTable.model_validate(team.model_dump())
+                team_obj = EmbRouter_TeamTable.model_validate(team.model_dump())
                 if _is_user_team_admin(user_api_key_dict=user_api_key_dict, team_obj=team_obj):
                     return True
 
@@ -327,8 +327,8 @@ async def _user_has_admin_privileges(
 
 
 def _org_admin_can_invite_user(
-    admin_user_obj: LiteLLM_UserTable,
-    target_user_obj: LiteLLM_UserTable,
+    admin_user_obj: EmbRouter_UserTable,
+    target_user_obj: EmbRouter_UserTable,
 ) -> bool:
     """
     Check if an org admin can invite the target user.
@@ -346,7 +346,7 @@ def _org_admin_can_invite_user(
     admin_org_ids: Final = {
         m.organization_id
         for m in admin_user_obj.organization_memberships
-        if m.user_role == LitellmUserRoles.ORG_ADMIN.value
+        if m.user_role == EmbrouterUserRoles.ORG_ADMIN.value
     }
     if not admin_org_ids:
         return False
@@ -358,8 +358,8 @@ def _org_admin_can_invite_user(
 
 async def _team_admin_can_invite_user(
     user_api_key_dict: UserAPIKeyAuth,
-    admin_user_obj: LiteLLM_UserTable,
-    target_user_obj: LiteLLM_UserTable,
+    admin_user_obj: EmbRouter_UserTable,
+    target_user_obj: EmbRouter_UserTable,
     prisma_client: "PrismaClient",
 ) -> bool:
     """
@@ -386,7 +386,7 @@ async def _team_admin_can_invite_user(
         for team in teams
         if _is_user_team_admin(
             user_api_key_dict=user_api_key_dict,
-            team_obj=LiteLLM_TeamTable.model_validate(team.model_dump()),
+            team_obj=EmbRouter_TeamTable.model_validate(team.model_dump()),
         )
     ]
     if not admin_team_ids:
@@ -420,14 +420,14 @@ async def admin_can_invite_user(
     Returns:
         True if user can invite the target user
     """
-    if user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN:
+    if user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN:
         return True
 
     if prisma_client is None or user_api_key_dict.user_id is None:
         return False
 
-    from litellm.caching import DualCache as DualCacheImport
-    from litellm.proxy.auth.auth_checks import get_user_object
+    from embrouter.caching import DualCache as DualCacheImport
+    from embrouter.proxy.auth.auth_checks import get_user_object
 
     try:
         cache: Final = user_api_key_cache or DualCacheImport()
@@ -470,10 +470,10 @@ async def admin_can_invite_user(
 
 def _set_object_metadata_field(
     object_data: Union[
-        LiteLLM_TeamTable,
+        EmbRouter_TeamTable,
         KeyRequestBase,
-        LiteLLM_OrganizationTable,
-        LiteLLM_ProjectTable,
+        EmbRouter_OrganizationTable,
+        EmbRouter_ProjectTable,
         "NewProjectRequest",
         "UpdateProjectRequest",
     ],
@@ -488,7 +488,7 @@ def _set_object_metadata_field(
         field_name: Name of the metadata field to set
         value: Value to set for the field
     """
-    if field_name in LiteLLM_ManagementEndpoint_MetadataFields_Premium and value:
+    if field_name in EmbRouter_ManagementEndpoint_MetadataFields_Premium and value:
         _premium_user_check(field_name)
 
     object_data.metadata = object_data.metadata or {}
@@ -601,26 +601,26 @@ async def _upsert_budget_and_membership(
     temp_only: Final = frozenset(write_data) <= _TEMP_BUDGET_FIELDS
 
     async def _disconnect():
-        await tx.litellm_teammembership.update(
+        await tx.embrouter_teammembership.update(
             where={"user_id_team_id": {"user_id": user_id, "team_id": team_id}},
-            data={"litellm_budget_table": {"disconnect": True}},
+            data={"embrouter_budget_table": {"disconnect": True}},
         )
 
     if existing_budget_id is not None and not is_shared_default:
-        existing_budget: Final = await tx.litellm_budgettable.find_unique(where={"budget_id": existing_budget_id})
+        existing_budget: Final = await tx.embrouter_budgettable.find_unique(where={"budget_id": existing_budget_id})
         merged: Final = existing_budget.model_dump() if existing_budget is not None else {}
         merged.update(write_data)
         if not _has_meaningful_budget_limit(merged):
             await _disconnect()
             return
-        await tx.litellm_budgettable.update(
+        await tx.embrouter_budgettable.update(
             where={"budget_id": existing_budget_id},
             data={"updated_by": user_api_key_dict.user_id or "", **write_data},
         )
         return
 
     source_row: Final = (
-        await tx.litellm_budgettable.find_unique(where={"budget_id": existing_budget_id})
+        await tx.embrouter_budgettable.find_unique(where={"budget_id": existing_budget_id})
         if is_shared_default and not temp_only
         else None
     )
@@ -647,11 +647,11 @@ async def _upsert_budget_and_membership(
             await _disconnect()
         return
 
-    new_budget: Final = await tx.litellm_budgettable.create(
+    new_budget: Final = await tx.embrouter_budgettable.create(
         data=create_data,
         include={"team_membership": True},
     )
-    await tx.litellm_teammembership.upsert(
+    await tx.embrouter_teammembership.upsert(
         where={
             "user_id_team_id": {
                 "user_id": user_id,
@@ -662,12 +662,12 @@ async def _upsert_budget_and_membership(
             "create": {
                 "user_id": user_id,
                 "team_id": team_id,
-                "litellm_budget_table": {
+                "embrouter_budget_table": {
                     "connect": {"budget_id": new_budget.budget_id},
                 },
             },
             "update": {
-                "litellm_budget_table": {
+                "embrouter_budget_table": {
                     "connect": {"budget_id": new_budget.budget_id},
                 },
             },
@@ -683,7 +683,7 @@ def _update_metadata_field(updated_kv: dict, field_name: str) -> None:
         updated_kv: The key-value dict being used for the update
         field_name: Name of the metadata field being updated
     """
-    if field_name in LiteLLM_ManagementEndpoint_MetadataFields_Premium:
+    if field_name in EmbRouter_ManagementEndpoint_MetadataFields_Premium:
         # The UI sends falsy defaults (False, [], {}) even when the user has not
         # enabled any enterprise feature (see #20304, #30285); require a license
         # only for a truthy value. The falsy value is still persisted below so a
@@ -718,10 +718,10 @@ def _update_metadata_fields(updated_kv: dict) -> None:
     Args:
         updated_kv: The key-value dict being used for the update
     """
-    for field in LiteLLM_ManagementEndpoint_MetadataFields_Premium:
+    for field in EmbRouter_ManagementEndpoint_MetadataFields_Premium:
         if field in updated_kv and updated_kv[field] is not None:
             _update_metadata_field(updated_kv=updated_kv, field_name=field)
 
-    for field in LiteLLM_ManagementEndpoint_MetadataFields:
+    for field in EmbRouter_ManagementEndpoint_MetadataFields:
         if field in updated_kv and updated_kv[field] is not None:
             _update_metadata_field(updated_kv=updated_kv, field_name=field)

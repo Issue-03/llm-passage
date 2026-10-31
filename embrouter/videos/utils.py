@@ -1,9 +1,9 @@
 from typing import Any, Final, cast
 
-import litellm
-from litellm.llms.base_llm.videos.transformation import BaseVideoConfig
-from litellm.types.videos.main import VideoCreateOptionalRequestParams
-from litellm.utils import filter_out_litellm_params
+import embrouter
+from embrouter.llms.base_llm.videos.transformation import BaseVideoConfig
+from embrouter.types.videos.main import VideoCreateOptionalRequestParams
+from embrouter.utils import filter_out_embrouter_params
 
 
 class VideoGenerationRequestUtils:
@@ -30,7 +30,7 @@ class VideoGenerationRequestUtils:
         mapped_params: Final = video_generation_provider_config.map_openai_params(
             video_create_optional_params=video_generation_optional_params,
             model=model,
-            drop_params=litellm.drop_params,
+            drop_params=embrouter.drop_params,
         )
 
         # Merge extra_body params if present (for provider-specific parameters)
@@ -71,9 +71,9 @@ class VideoGenerationRequestUtils:
             for key, value in params.items()
             if key not in {"kwargs", "extra_body", "prompt", "model"} and value is not None
         }
-        base_params: Final = filter_out_litellm_params(kwargs=base_params_raw)
+        base_params: Final = filter_out_embrouter_params(kwargs=base_params_raw)
 
-        cleaned_kwargs: Final = filter_out_litellm_params(kwargs={k: v for k, v in raw_kwargs.items() if v is not None})
+        cleaned_kwargs: Final = filter_out_embrouter_params(kwargs={k: v for k, v in raw_kwargs.items() if v is not None})
 
         optional_params: Final[dict[str, Any]] = {
             **base_params,
@@ -88,7 +88,7 @@ class VideoGenerationRequestUtils:
                         merged_extra_body[key] = value
 
         if merged_extra_body:
-            merged_extra_body = filter_out_litellm_params(kwargs=merged_extra_body)
+            merged_extra_body = filter_out_embrouter_params(kwargs=merged_extra_body)
             if merged_extra_body:
                 optional_params["extra_body"] = merged_extra_body
                 optional_params.update(merged_extra_body)

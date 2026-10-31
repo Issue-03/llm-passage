@@ -1,7 +1,7 @@
 import useAuthorized from "@/app/(dashboard)/hooks/useAuthorized";
 import { useQuery, UseQueryResult } from "@tanstack/react-query";
 import { createQueryKeys } from "../common/queryKeysFactory";
-import { proxyBaseUrl, getGlobalLitellmHeaderName } from "@/components/networking";
+import { proxyBaseUrl, getGlobalEmbrouterHeaderName } from "@/components/networking";
 
 export interface RouterSettingsField {
   field_name: string;
@@ -38,7 +38,7 @@ const getRouterFields = async (accessToken: string): Promise<RouterFieldsRespons
     const response = await fetch(url, {
       method: "GET",
       headers: {
-        [getGlobalLitellmHeaderName()]: `Bearer ${accessToken}`,
+        [getGlobalEmbrouterHeaderName()]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
     });

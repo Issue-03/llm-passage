@@ -8,7 +8,7 @@ from typing import Any, Final, Literal, Optional, Union
 from pydantic import BaseModel, Field
 from typing_extensions import NotRequired, ReadOnly, TypedDict
 
-from litellm.types.utils import LiteLLMPydanticObjectBase
+from embrouter.types.utils import EmbRouterPydanticObjectBase
 
 DEFAULT_DIGEST_INTERVAL: Final = 86400  # 24 hours in seconds
 
@@ -36,9 +36,9 @@ class ProviderRegionOutageModel(BaseOutageModel):
 
 # we use this for the email header, please send a test email if you change this. verify it looks good on email
 # No hosted default logo; set EMAIL_LOGO_URL to show one in alert emails.
-LITELLM_LOGO_URL: Final = ""
+EMBROUTER_LOGO_URL: Final = ""
 # No default support address; set EMAIL_SUPPORT_CONTACT to show one in alert emails.
-LITELLM_SUPPORT_CONTACT: Final = ""
+EMBROUTER_SUPPORT_CONTACT: Final = ""
 
 
 class SlackAlertingArgsEnum(Enum):
@@ -52,7 +52,7 @@ class SlackAlertingArgsEnum(Enum):
     max_outage_alert_list_size = 1 * 10
 
 
-class SlackAlertingArgs(LiteLLMPydanticObjectBase):
+class SlackAlertingArgs(EmbRouterPydanticObjectBase):
     daily_report_frequency: int = Field(
         default=int(
             os.getenv(
@@ -130,7 +130,7 @@ class SlackAlertingArgs(LiteLLMPydanticObjectBase):
     )
 
 
-class DeploymentMetrics(LiteLLMPydanticObjectBase):
+class DeploymentMetrics(EmbRouterPydanticObjectBase):
     """
     Metrics per deployment, stored in cache
 
@@ -268,7 +268,7 @@ class HangingRequestData(BaseModel):
     alerted: bool = False
 
 
-class AlertTypeConfig(LiteLLMPydanticObjectBase):
+class AlertTypeConfig(EmbRouterPydanticObjectBase):
     """Per-alert-type configuration, including digest mode settings."""
 
     digest: bool = Field(

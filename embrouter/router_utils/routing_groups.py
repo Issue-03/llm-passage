@@ -1,8 +1,8 @@
 from collections.abc import Sequence
 from typing import Final
 
-from litellm._logging import verbose_router_logger
-from litellm.types.router import DeploymentTypedDict, RoutingGroup, RoutingStrategy
+from embrouter._logging import verbose_router_logger
+from embrouter.types.router import DeploymentTypedDict, RoutingGroup, RoutingStrategy
 
 
 def apply_routing_group_priority(
@@ -12,7 +12,7 @@ def apply_routing_group_priority(
         return deployment
     prioritized: Final[DeploymentTypedDict] = {
         **deployment,
-        "litellm_params": {**deployment["litellm_params"], "order": group.model_priorities[member]},
+        "embrouter_params": {**deployment["embrouter_params"], "order": group.model_priorities[member]},
     }
     return prioritized
 

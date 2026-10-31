@@ -12,14 +12,14 @@ from typing import Any
 import pytest
 from redis.exceptions import NoScriptError
 
-from litellm._service_logger import ServiceLogging
-from litellm.caching.redis_batch import (
+from embrouter._service_logger import ServiceLogging
+from embrouter.caching.redis_batch import (
     RedisBatch,
     active_request_redis_batch,
     request_redis_batch_scope,
 )
-from litellm.caching.redis_cache import RedisCache, RedisCircuitBreaker
-from litellm.caching.redis_cluster_cache import RedisClusterCache
+from embrouter.caching.redis_cache import RedisCache, RedisCircuitBreaker
+from embrouter.caching.redis_cluster_cache import RedisClusterCache
 
 SCRIPT = "return redis.call('GET', KEYS[1])"
 SHA = hashlib.sha1(SCRIPT.encode()).hexdigest()  # noqa: S324

@@ -5,8 +5,8 @@ import pytest
 from httpx import Response
 
 
-import litellm
-from litellm_enterprise.enterprise_callbacks.send_emails.sendgrid_email import (
+import embrouter
+from embrouter_enterprise.enterprise_callbacks.send_emails.sendgrid_email import (
     SendGridEmailLogger,
 )
 
@@ -17,7 +17,7 @@ def clear_client_cache():
     Clear the HTTP client cache before each test to ensure mocks are used.
     This prevents cached real clients from being reused across tests.
     """
-    cache = getattr(litellm, "in_memory_llm_clients_cache", None)
+    cache = getattr(embrouter, "in_memory_llm_clients_cache", None)
     if cache is not None:
         cache.flush_cache()
     yield

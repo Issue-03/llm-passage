@@ -6,7 +6,7 @@ from typing import Final
 
 import httpx
 
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
 
 
 class VolcEngineError(BaseLLMException):

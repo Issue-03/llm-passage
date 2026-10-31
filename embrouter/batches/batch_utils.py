@@ -5,19 +5,19 @@ from dataclasses import replace as dataclasses_replace
 from enum import Enum
 from typing import Any, Final, Literal
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.litellm_core_utils.get_litellm_params import AWS_CREDENTIAL_KWARGS_KEYS
-from litellm.litellm_core_utils.llm_cost_calc.utils import parse_prompt_tokens_details
-from litellm.llms.base_llm.ocr.transformation import OCRUsageInfo
-from litellm.llms.bedrock.batches.transformation import titan_embedding_usage_from_batch_output
-from litellm.llms.vertex_ai.batches.transformation import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.embrouter_core_utils.get_embrouter_params import AWS_CREDENTIAL_KWARGS_KEYS
+from embrouter.embrouter_core_utils.llm_cost_calc.utils import parse_prompt_tokens_details
+from embrouter.llms.base_llm.ocr.transformation import OCRUsageInfo
+from embrouter.llms.bedrock.batches.transformation import titan_embedding_usage_from_batch_output
+from embrouter.llms.vertex_ai.batches.transformation import (
     is_native_vertex_batch_output_row,
     native_vertex_batch_row_stats,
 )
-from litellm.types.llms.openai import Batch
-from litellm.types.utils import ModelInfo, Usage
-from litellm.utils import token_counter
+from embrouter.types.llms.openai import Batch
+from embrouter.types.utils import ModelInfo, Usage
+from embrouter.utils import token_counter
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,7 +43,7 @@ def _uses_native_vertex_output(
 ) -> bool:
     if custom_llm_provider != "vertex_ai":
         return False
-    if model_name and litellm.disable_vertex_batch_output_transformation:
+    if model_name and embrouter.disable_vertex_batch_output_transformation:
         return True
     return first_row is not None and is_native_vertex_batch_output_row(first_row)
 
@@ -99,7 +99,7 @@ async def _handle_completed_batch(
     batch: Batch,
     custom_llm_provider: Literal["openai", "azure", "vertex_ai", "hosted_vllm", "anthropic", "mistral"],
     model_name: str | None = None,
-    litellm_params: dict | None = None,
+    embrouter_params: dict | None = None,
     model_info: ModelInfo | None = None,
 ) -> BatchCostUsageResult:
     """Fetch a completed batch's output file and aggregate its cost, usage, and
@@ -110,7 +110,7 @@ async def _handle_completed_batch(
         batch: The batch object
         custom_llm_provider: The LLM provider
         model_name: Optional model name
-        litellm_params: Optional litellm parameters containing credentials (api_key, api_base, etc.)
+        embrouter_params: Optional embrouter parameters containing credentials (api_key, api_base, etc.)
         model_info: Optional deployment-level model info with custom pricing,
             threaded through so a deployment's configured rates win over the
             global cost map.
@@ -130,13 +130,13 @@ async def _handle_completed_batch(
             models=[],  # mutable-ok: no output file means no model was ever priced; BatchCostUsageResult.models requires list[str]
             successful_requests=0,
             failed_requests=await count_error_file_failed_requests(
-                batch, custom_llm_provider=custom_llm_provider, litellm_params=litellm_params
+                batch, custom_llm_provider=custom_llm_provider, embrouter_params=embrouter_params
             ),
         )
 
-    file_content = await _fetch_batch_output_file_content(batch, custom_llm_provider, litellm_params=litellm_params)
+    file_content = await _fetch_batch_output_file_content(batch, custom_llm_provider, embrouter_params=embrouter_params)
     error_file_failed_requests: Final = await count_error_file_failed_requests(
-        batch, custom_llm_provider=custom_llm_provider, litellm_params=litellm_params
+        batch, custom_llm_provider=custom_llm_provider, embrouter_params=embrouter_params
     )
 
     output_file_result: Final = (
@@ -189,7 +189,7 @@ def _classify_output_line_stats(
 ) -> Iterator[_BatchOutputLineStats | _LineOutcome]:
     """Classify every output line in a single pass, so counting failures never needs
     a second read of a potentially huge output file. A line the provider reported as
-    failed yields ``PROVIDER_FAILED``; a successful line litellm could not price
+    failed yields ``PROVIDER_FAILED``; a successful line embrouter could not price
     yields ``UNCOSTABLE`` and still counts as a successful request billed at $0, so
     the counts stay reconcilable with the provider's own ``request_counts``."""
     for entry in entries:
@@ -272,7 +272,7 @@ def _output_line_cost(
     model_info: ModelInfo | None,
 ) -> tuple[float, float]:
     """(prompt_cost, completion_cost) for one output line, priced at batch rates."""
-    from litellm.cost_calculator import batch_cost_calculator, ocr_batch_cost
+    from embrouter.cost_calculator import batch_cost_calculator, ocr_batch_cost
 
     cost_model: Final = (
         model_name if custom_llm_provider == "bedrock" and model_name else response_model or model_name or ""
@@ -357,8 +357,8 @@ def calculate_vertex_ai_batch_cost_and_usage(
     embedding row per line. `model_name` (the deployment model) prices every row, else each row's own
     `modelVersion` does; a row without a usable response counts as failed.
     """
-    from litellm.cost_calculator import batch_cost_calculator
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import VertexGeminiConfig
+    from embrouter.cost_calculator import batch_cost_calculator
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import VertexGeminiConfig
 
     row_stats: Final = tuple(
         native_vertex_batch_row_stats(
@@ -411,7 +411,7 @@ def _provider_output_file_id(output_file_id: str) -> str:
     Resolve the file id the provider actually knows: unified ids yield their embedded
     llm_output_file_id, model-encoded ids decode to the raw provider id, raw ids pass through.
     """
-    from litellm.proxy.openai_files_endpoints.common_utils import (
+    from embrouter.proxy.openai_files_endpoints.common_utils import (
         _is_base64_encoded_unified_file_id,
         get_original_file_id,
     )
@@ -435,27 +435,27 @@ def _provider_output_file_id(output_file_id: str) -> str:
 async def _fetch_batch_managed_file_content(
     file_id: str,
     custom_llm_provider: Literal["openai", "azure", "vertex_ai", "hosted_vllm", "anthropic", "mistral"] = "openai",
-    litellm_params: dict | None = None,
+    embrouter_params: dict | None = None,
 ) -> bytes:
     """
     Fetch a batch's output or error file and return its raw JSONL bytes.
 
     Args:
-        file_id: The provider or unified (litellm-managed) file id to fetch
+        file_id: The provider or unified (embrouter-managed) file id to fetch
         custom_llm_provider: The LLM provider
-        litellm_params: Optional litellm parameters containing credentials (api_key, api_base, etc.)
+        embrouter_params: Optional embrouter parameters containing credentials (api_key, api_base, etc.)
                        Required for Azure and other providers that need authentication
     """
-    from litellm.files.main import afile_content
+    from embrouter.files.main import afile_content
 
-    # Build kwargs for afile_content with credentials from litellm_params
+    # Build kwargs for afile_content with credentials from embrouter_params
     file_content_kwargs: Final = {
         "file_id": _provider_output_file_id(file_id),
         "custom_llm_provider": custom_llm_provider,
     }
 
     # Extract and add credentials for file access
-    credentials: Final = _extract_file_access_credentials(litellm_params)
+    credentials: Final = _extract_file_access_credentials(embrouter_params)
     file_content_kwargs.update(credentials)
 
     _file_content: Final = await afile_content(**file_content_kwargs)
@@ -465,7 +465,7 @@ async def _fetch_batch_managed_file_content(
 async def _fetch_batch_output_file_content(
     batch: Batch,
     custom_llm_provider: Literal["openai", "azure", "vertex_ai", "hosted_vllm", "anthropic", "mistral"] = "openai",
-    litellm_params: dict | None = None,
+    embrouter_params: dict | None = None,
 ) -> bytes:
     """
     Fetch the batch output file and return its raw JSONL bytes
@@ -473,21 +473,21 @@ async def _fetch_batch_output_file_content(
     Args:
         batch: The batch object
         custom_llm_provider: The LLM provider
-        litellm_params: Optional litellm parameters containing credentials (api_key, api_base, etc.)
+        embrouter_params: Optional embrouter parameters containing credentials (api_key, api_base, etc.)
                        Required for Azure and other providers that need authentication
     """
     if batch.output_file_id is None:
         raise ValueError("Output file id is None cannot retrieve file content")
 
     return await _fetch_batch_managed_file_content(
-        batch.output_file_id, custom_llm_provider=custom_llm_provider, litellm_params=litellm_params
+        batch.output_file_id, custom_llm_provider=custom_llm_provider, embrouter_params=embrouter_params
     )
 
 
 async def count_error_file_failed_requests(
     batch: Batch,
     custom_llm_provider: Literal["openai", "azure", "vertex_ai", "hosted_vllm", "anthropic", "mistral"],
-    litellm_params: dict | None,
+    embrouter_params: dict | None,
 ) -> int:
     """Count failed requests reported only in the batch's separate error file.
 
@@ -500,7 +500,7 @@ async def count_error_file_failed_requests(
         return 0
     try:
         error_file_content = await _fetch_batch_managed_file_content(
-            batch.error_file_id, custom_llm_provider=custom_llm_provider, litellm_params=litellm_params
+            batch.error_file_id, custom_llm_provider=custom_llm_provider, embrouter_params=embrouter_params
         )
     except Exception as e:  # noqa: BLE001  # a failed/missing error file must not abort cost tracking for the batch
         verbose_logger.debug("Failed to fetch batch error file %s: %s", batch.error_file_id, e)
@@ -508,22 +508,22 @@ async def count_error_file_failed_requests(
     return sum(1 for _ in _iter_batch_input_lines(error_file_content))
 
 
-def _extract_file_access_credentials(litellm_params: dict | None) -> dict:
+def _extract_file_access_credentials(embrouter_params: dict | None) -> dict:
     """
-    Extract credentials from litellm_params for file access operations.
+    Extract credentials from embrouter_params for file access operations.
 
     This method extracts relevant authentication and configuration parameters
     needed for accessing files across different providers (Azure, Vertex AI, etc.).
 
     Args:
-        litellm_params: Dictionary containing litellm parameters with credentials
+        embrouter_params: Dictionary containing embrouter parameters with credentials
 
     Returns:
         Dictionary containing only the credentials needed for file access
     """
     credentials: Final = {}
 
-    if litellm_params:
+    if embrouter_params:
         # List of credential keys that should be passed to file operations
         credential_keys: Final = (
             "api_key",
@@ -541,12 +541,12 @@ def _extract_file_access_credentials(litellm_params: dict | None) -> dict:
             "s3_region_name",
             "timeout",
             "max_retries",
-            "_litellm_internal_model_credentials",
+            "_embrouter_internal_model_credentials",
             *AWS_CREDENTIAL_KWARGS_KEYS,
         )
         for key in credential_keys:
-            if key in litellm_params:
-                credentials[key] = litellm_params[key]
+            if key in embrouter_params:
+                credentials[key] = embrouter_params[key]
 
     return credentials
 
@@ -677,8 +677,8 @@ def _get_batch_job_usage_from_response_body(
     Get the tokens of a batch job from the response body
     """
     if custom_llm_provider in ("anthropic", "bedrock"):
-        from litellm.llms.anthropic.chat.transformation import AnthropicConfig
-        from litellm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
+        from embrouter.llms.anthropic.chat.transformation import AnthropicConfig
+        from embrouter.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
 
         titan_usage: Final = (
             titan_embedding_usage_from_batch_output(response_body) if custom_llm_provider == "bedrock" else None
@@ -700,14 +700,14 @@ def _get_batch_job_usage_from_response_body(
                 sorted(usage_object.keys()),
             )
         return anthropic_usage
-    from litellm.responses.utils import ResponseAPILoggingUtils
+    from embrouter.responses.utils import ResponseAPILoggingUtils
 
     _usage_dict: Final = response_body.get("usage", None) or {}
     if ResponseAPILoggingUtils._is_response_api_usage(_usage_dict):
         return ResponseAPILoggingUtils._transform_response_api_usage_to_chat_usage(_usage_dict)
     usage: Final[Usage] = Usage(**_usage_dict)
     if custom_llm_provider == "xai":
-        from litellm.llms.xai.chat.transformation import XAIChatConfig
+        from embrouter.llms.xai.chat.transformation import XAIChatConfig
 
         XAIChatConfig.fold_reasoning_tokens_into_completion(usage)
     return usage

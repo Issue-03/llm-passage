@@ -10,7 +10,7 @@ from urllib.parse import quote
 
 from typing_extensions import ReadOnly
 
-from litellm.llms.custom_httpx.http_handler import HTTPHandler
+from embrouter.llms.custom_httpx.http_handler import HTTPHandler
 
 
 class GitLabFilePayload(TypedDict, total=False):

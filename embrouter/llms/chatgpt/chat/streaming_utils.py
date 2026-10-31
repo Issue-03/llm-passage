@@ -7,7 +7,7 @@ Normalizes non-spec-compliant tool_call chunks from the ChatGPT backend API.
 from collections.abc import Awaitable
 from typing import Final, Protocol
 
-from litellm.types.utils import (
+from embrouter.types.utils import (
     ChatCompletionDeltaCustomToolCall,
     ChatCompletionDeltaToolCall,
     Delta,

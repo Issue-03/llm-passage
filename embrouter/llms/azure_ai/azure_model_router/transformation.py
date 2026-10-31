@@ -9,13 +9,13 @@ from typing import TYPE_CHECKING, Final
 
 from httpx import Response
 
-from litellm.llms.azure_ai.chat.transformation import AzureAIStudioConfig
-from litellm.llms.base_llm.chat.transformation import LiteLLMLoggingObj
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.utils import ModelResponse
+from embrouter.llms.azure_ai.chat.transformation import AzureAIStudioConfig
+from embrouter.llms.base_llm.chat.transformation import EmbRouterLoggingObj
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.utils import ModelResponse
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
 
 
 class AzureModelRouterConfig(AzureAIStudioConfig):
@@ -33,7 +33,7 @@ class AzureModelRouterConfig(AzureAIStudioConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         """
@@ -42,23 +42,23 @@ class AzureModelRouterConfig(AzureAIStudioConfig):
         Strips the model_router/ prefix so only the deployment name is sent to Azure.
         Example: model_router/azure-model-router -> azure-model-router
         """
-        from litellm.llms.azure_ai.common_utils import AzureFoundryModelInfo
+        from embrouter.llms.azure_ai.common_utils import AzureFoundryModelInfo
 
         # Get base model name (strips routing prefixes like model_router/)
         base_model: Final[str] = AzureFoundryModelInfo.get_base_model(model)
 
-        return super().transform_request(base_model, messages, optional_params, litellm_params, headers)
+        return super().transform_request(base_model, messages, optional_params, embrouter_params, headers)
 
     def transform_response(
         self,
         model: str,
         raw_response: Response,
         model_response: ModelResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         request_data: dict,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,
@@ -72,11 +72,11 @@ class AzureModelRouterConfig(AzureAIStudioConfig):
         Also stamps that model onto ``_hidden_params`` so downstream consumers (spend logs,
         response restamping) can read it instead of guessing the route from the model string.
         """
-        from litellm.llms.azure_ai.common_utils import (
+        from embrouter.llms.azure_ai.common_utils import (
             AZURE_MODEL_ROUTER_SELECTED_MODEL_KEY,
             AzureFoundryModelInfo,
         )
-        from litellm.router_utils.add_retry_fallback_headers import (
+        from embrouter.router_utils.add_retry_fallback_headers import (
             get_hidden_params_dict,
         )
 
@@ -93,7 +93,7 @@ class AzureModelRouterConfig(AzureAIStudioConfig):
             request_data=request_data,
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             encoding=encoding,
             api_key=api_key,
             json_mode=json_mode,
@@ -122,7 +122,7 @@ class AzureModelRouterConfig(AzureAIStudioConfig):
         Returns:
             Dictionary with additional costs, or None if not applicable.
         """
-        from litellm.llms.azure_ai.cost_calculator import (
+        from embrouter.llms.azure_ai.cost_calculator import (
             calculate_azure_model_router_flat_cost,
         )
 

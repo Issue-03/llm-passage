@@ -6,7 +6,7 @@ import re
 from collections.abc import Mapping
 from typing import Final
 
-from litellm.constants import (
+from embrouter.constants import (
     TOGETHER_AI_4_B,
     TOGETHER_AI_8_B,
     TOGETHER_AI_21_B,
@@ -16,7 +16,7 @@ from litellm.constants import (
     TOGETHER_AI_EMBEDDING_150_M,
     TOGETHER_AI_EMBEDDING_350_M,
 )
-from litellm.types.utils import CallTypes
+from embrouter.types.utils import CallTypes
 
 
 def has_together_registry_pricing(model: str, cost_map: Mapping[str, object]) -> bool:

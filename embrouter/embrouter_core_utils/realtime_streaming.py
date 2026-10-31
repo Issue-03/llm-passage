@@ -8,28 +8,28 @@ from typing import TYPE_CHECKING, Any, Final, NoReturn, Protocol, TypedDict, cas
 
 from typing_extensions import ReadOnly
 
-import litellm
-from litellm._logging import redact_internal_details_from_client_message, verbose_logger
-from litellm.constants import REALTIME_SESSION_FAILURE_LOGGED_KEY, REALTIME_SESSION_SUCCESS_LOGGED_KEY
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-from litellm.llms.base_llm.realtime.transformation import BaseRealtimeConfig, RealtimeBackend
-from litellm.types.llms.openai import (
+import embrouter
+from embrouter._logging import redact_internal_details_from_client_message, verbose_logger
+from embrouter.constants import REALTIME_SESSION_FAILURE_LOGGED_KEY, REALTIME_SESSION_SUCCESS_LOGGED_KEY
+from embrouter.embrouter_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from embrouter.llms.base_llm.realtime.transformation import BaseRealtimeConfig, RealtimeBackend
+from embrouter.types.llms.openai import (
     OpenAIRealtimeEvents,
     OpenAIRealtimeOutputItemDone,
     OpenAIRealtimeResponseDelta,
     OpenAIRealtimeStreamResponseBaseObject,
     OpenAIRealtimeStreamSessionEvents,
 )
-from litellm.types.realtime import ALL_DELTA_TYPES
+from embrouter.types.realtime import ALL_DELTA_TYPES
 
-from .litellm_logging import Logging as LiteLLMLogging
+from .embrouter_logging import Logging as EmbRouterLogging
 from .realtime_errors import client_close_code, realtime_error_event, websocket_close_reason
 
 if TYPE_CHECKING:
     from websockets.asyncio.client import ClientConnection
     from websockets.exceptions import ConnectionClosed
 
-    from litellm.types.guardrails import GuardrailEventHooks
+    from embrouter.types.guardrails import GuardrailEventHooks
 
     CLIENT_CONNECTION_CLASS = ClientConnection
 else:
@@ -128,7 +128,7 @@ class RealTimeStreaming:
         self,
         websocket: Any,
         backend_ws: CLIENT_CONNECTION_CLASS | RealtimeBackend,
-        logging_obj: LiteLLMLogging,
+        logging_obj: EmbRouterLogging,
         provider_config: BaseRealtimeConfig | None = None,
         model: str = "",
         user_api_key_dict: object | None = None,
@@ -155,7 +155,7 @@ class RealTimeStreaming:
             self._client_wants_beta if backend_uses_beta_protocol is None else backend_uses_beta_protocol
         )
 
-        _logged_real_time_event_types = litellm.logged_real_time_event_types
+        _logged_real_time_event_types = embrouter.logged_real_time_event_types
 
         if _logged_real_time_event_types is None:
             _logged_real_time_event_types = DefaultLoggedRealTimeEventTypes
@@ -483,7 +483,7 @@ class RealTimeStreaming:
 
         `/v1/realtime?intent=transcription` may intentionally omit `model` from
         the upstream URL for Azure compatibility, but the proxy still authorizes
-        a resolved LiteLLM model before opening the backend websocket. If a
+        a resolved EmbRouter model before opening the backend websocket. If a
         client later sends a transcription `session.update`, any model embedded
         in that update must be rewritten to the same authorized model instead of
         allowing a post-auth model/deployment switch.
@@ -769,7 +769,7 @@ class RealTimeStreaming:
         event_hooks: Sequence["GuardrailEventHooks"],
     ) -> bool:
         """Return True if any callback would run for one of ``event_hooks``."""
-        from litellm.integrations.custom_guardrail import CustomGuardrail
+        from embrouter.integrations.custom_guardrail import CustomGuardrail
 
         return any(
             isinstance(cb, CustomGuardrail)
@@ -780,12 +780,12 @@ class RealTimeStreaming:
                 )
                 for et in event_hooks
             )
-            for cb in litellm.callbacks
+            for cb in embrouter.callbacks
         )
 
     def _has_realtime_guardrails(self) -> bool:
         """Return True if any callback is registered for realtime guardrail event types."""
-        from litellm.types.guardrails import GuardrailEventHooks
+        from embrouter.types.guardrails import GuardrailEventHooks
 
         return self._has_realtime_guardrails_for_event_hooks(
             [
@@ -802,7 +802,7 @@ class RealTimeStreaming:
         ``pre_call`` / ``post_call`` guardrails (e.g. Model Armor on chat completions)
         must not override ``turn_detection.create_response`` on realtime sessions.
         """
-        from litellm.types.guardrails import GuardrailEventHooks
+        from embrouter.types.guardrails import GuardrailEventHooks
 
         return self._has_realtime_guardrails_for_event_hooks([GuardrailEventHooks.realtime_input_transcription])
 
@@ -830,8 +830,8 @@ class RealTimeStreaming:
         transcript completion uses ``realtime_input_transcription`` only;
         typed user messages and tool outputs use ``pre_call``.
         """
-        from litellm.integrations.custom_guardrail import CustomGuardrail
-        from litellm.types.guardrails import GuardrailEventHooks
+        from embrouter.integrations.custom_guardrail import CustomGuardrail
+        from embrouter.types.guardrails import GuardrailEventHooks
 
         if event_hooks is None:
             event_hooks = [GuardrailEventHooks.realtime_input_transcription]
@@ -839,7 +839,7 @@ class RealTimeStreaming:
         _check_data: Final = {**self.request_data, "transcript": transcript}
         _already_run: Final[set] = set()
 
-        for callback in litellm.callbacks:
+        for callback in embrouter.callbacks:
             if not isinstance(callback, CustomGuardrail):
                 continue
             if callback.use_native_lifecycle_hooks:
@@ -1327,7 +1327,7 @@ class RealTimeStreaming:
                 guardrail_turn_detection_injected = False
                 msg_type: str | None = None
                 try:
-                    from litellm.types.guardrails import GuardrailEventHooks
+                    from embrouter.types.guardrails import GuardrailEventHooks
 
                     msg_obj = json.loads(message)
                     client_event = msg_obj

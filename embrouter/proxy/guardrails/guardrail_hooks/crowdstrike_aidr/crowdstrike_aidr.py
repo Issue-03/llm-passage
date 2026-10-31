@@ -8,33 +8,33 @@ from fastapi import HTTPException
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from typing_extensions import override
 
-from litellm._logging import verbose_proxy_logger
-from litellm.integrations.custom_guardrail import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.integrations.custom_guardrail import (
     CustomGuardrail,
     log_guardrail_information,
 )
-from litellm.llms.base_llm.guardrail_translation.utils import (
+from embrouter.llms.base_llm.guardrail_translation.utils import (
     effective_skip_system_message_for_guardrail,
     effective_skip_tool_message_for_guardrail,
 )
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.llms.custom_httpx.http_handler import (
     AsyncHTTPHandler,
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.proxy.common_utils.callback_utils import (
+from embrouter.proxy.common_utils.callback_utils import (
     add_guardrail_to_applied_guardrails_header,
 )
-from litellm.types.guardrails import GuardrailEventHooks, LitellmParams
-from litellm.types.llms.openai import AllMessageValues, OpenAIChatCompletionToolParam
-from litellm.types.proxy.guardrails.guardrail_hooks.crowdstrike_aidr import (
+from embrouter.types.guardrails import GuardrailEventHooks, EmbrouterParams
+from embrouter.types.llms.openai import AllMessageValues, OpenAIChatCompletionToolParam
+from embrouter.types.proxy.guardrails.guardrail_hooks.crowdstrike_aidr import (
     CrowdStrikeAIDRGuardrailConfigModelOptionalParams,
 )
-from litellm.types.utils import GenericGuardrailAPIInputs
+from embrouter.types.utils import GenericGuardrailAPIInputs
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
 
 
 class CrowdStrikeAIDRGuardrailMissingSecrets(Exception):
@@ -150,18 +150,18 @@ def _extract_text_from_message(message: _Message) -> str:
 def _merge_metadata_bags(request_data: Mapping[str, object]) -> Mapping[str, object] | None:
     merged: Final[dict[str, object]] = {}
     present = False
-    for bag in (request_data.get("metadata"), request_data.get("litellm_metadata")):
+    for bag in (request_data.get("metadata"), request_data.get("embrouter_metadata")):
         if isinstance(bag, Mapping):
             present = True
             merged.update(bag)
     return merged if present else None
 
 
-def streaming_params_from_litellm_params(
-    litellm_params: LitellmParams,
+def streaming_params_from_embrouter_params(
+    embrouter_params: EmbrouterParams,
 ) -> CrowdStrikeAIDRGuardrailConfigModelOptionalParams:
-    extras: Final[Mapping[str, object]] = litellm_params.model_extra or {}
-    nested: Final = litellm_params.optional_params
+    extras: Final[Mapping[str, object]] = embrouter_params.model_extra or {}
+    nested: Final = embrouter_params.optional_params
     optional_params: Final[Mapping[str, object]] = {} if nested is None else nested.model_dump()
     return CrowdStrikeAIDRGuardrailConfigModelOptionalParams.model_validate(
         {
@@ -297,13 +297,13 @@ class CrowdStrikeAIDRHandler(CustomGuardrail):
         self.api_key = api_key or os.environ.get("CS_AIDR_TOKEN")
         if not self.api_key:
             raise CrowdStrikeAIDRGuardrailMissingSecrets(
-                "CrowdStrike AIDR API Key not found. Set CS_AIDR_TOKEN environment variable or pass it in litellm_params."
+                "CrowdStrike AIDR API Key not found. Set CS_AIDR_TOKEN environment variable or pass it in embrouter_params."
             )
 
         self.api_base = api_base or os.environ.get("CS_AIDR_BASE_URL")
         if not self.api_base:
             raise CrowdStrikeAIDRGuardrailMissingSecrets(
-                "CrowdStrike AIDR API base URL is required. Set CS_AIDR_BASE_URL environment variable or pass it in litellm_params."
+                "CrowdStrike AIDR API base URL is required. Set CS_AIDR_BASE_URL environment variable or pass it in embrouter_params."
             )
 
         kwargs.setdefault("supported_event_hooks", list(self.get_supported_event_hooks()))
@@ -320,9 +320,9 @@ class CrowdStrikeAIDRHandler(CustomGuardrail):
         self.streaming_sampling_rate: int = streaming_params.streaming_sampling_rate or 5
 
     @override
-    def update_in_memory_litellm_params(self, litellm_params: LitellmParams) -> None:
-        super().update_in_memory_litellm_params(litellm_params)
-        self._set_streaming_params(streaming_params_from_litellm_params(litellm_params))
+    def update_in_memory_embrouter_params(self, embrouter_params: EmbrouterParams) -> None:
+        super().update_in_memory_embrouter_params(embrouter_params)
+        self._set_streaming_params(streaming_params_from_embrouter_params(embrouter_params))
 
     async def _call_crowdstrike_aidr_guard(
         self, payload: dict[str, object], hook_name: str
@@ -385,7 +385,7 @@ class CrowdStrikeAIDRHandler(CustomGuardrail):
                 raise HTTPException(
                     status_code=500,
                     detail={  # mutable-ok: one-shot HTTPException detail payload, never mutated after construction
-                        "error": "CrowdStrike AIDR returned a transformed response litellm could not parse; "
+                        "error": "CrowdStrike AIDR returned a transformed response embrouter could not parse; "
                         "failing closed instead of dropping the delivered redactions",
                         "guardrail_name": self.guardrail_name,
                     },
@@ -491,7 +491,7 @@ class CrowdStrikeAIDRHandler(CustomGuardrail):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict,
         input_type: Literal["request", "response"],
-        logging_obj: Optional["LiteLLMLoggingObj"] = None,
+        logging_obj: Optional["EmbRouterLoggingObj"] = None,
     ) -> GenericGuardrailAPIInputs:
         verbose_proxy_logger.debug("CrowdStrike AIDR Guardrail: Applying guardrail to %s", input_type)
 
@@ -572,7 +572,7 @@ class CrowdStrikeAIDRHandler(CustomGuardrail):
     @override
     @staticmethod
     def get_config_model() -> type["GuardrailConfigModel"] | None:
-        from litellm.types.proxy.guardrails.guardrail_hooks.crowdstrike_aidr import (
+        from embrouter.types.proxy.guardrails.guardrail_hooks.crowdstrike_aidr import (
             CrowdStrikeAIDRGuardrailConfigModel,
         )
 

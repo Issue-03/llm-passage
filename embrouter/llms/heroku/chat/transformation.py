@@ -8,11 +8,11 @@ import os
 from collections.abc import Coroutine
 from typing import Any, Literal, overload
 
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
     handle_messages_with_content_list_to_str_conversion,
 )
-from litellm.llms.openai.chat.gpt_transformation import OpenAIGPTConfig
-from litellm.types.llms.openai import AllMessageValues
+from embrouter.llms.openai.chat.gpt_transformation import OpenAIGPTConfig
+from embrouter.types.llms.openai import AllMessageValues
 
 
 # Base error class for Heroku
@@ -61,7 +61,7 @@ class HerokuChatConfig(OpenAIGPTConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         api_base, _ = self._get_openai_compatible_provider_info(api_base, api_key)

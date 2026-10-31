@@ -25,7 +25,7 @@ vi.mock("./networking", async (importOriginal) => {
     getPublicModelHubInfo: vi.fn().mockResolvedValue({
       docs_title: "EmbRouter Gateway",
       custom_docs_description: null,
-      litellm_version: "1.0.0",
+      embrouter_version: "1.0.0",
       useful_links: {},
     }),
     agentHubPublicModelsCall: vi.fn().mockResolvedValue([]),

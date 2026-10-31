@@ -5,25 +5,25 @@ from typing import Annotated, Final
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, JsonValue, TypeAdapter
 
-from litellm.llms.anthropic.prompt_cache_prediction import (
+from embrouter.llms.anthropic.prompt_cache_prediction import (
     TokenCounter,
     count_prompt_tokens,
     parse_prompt,
     supported_prediction_headers,
 )
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.auth.auth_checks import can_key_call_resolved_model
-from litellm.proxy.auth.auth_utils import get_cache_prediction_deployments
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.common_utils.http_parsing_utils import (
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.auth.auth_checks import can_key_call_resolved_model
+from embrouter.proxy.auth.auth_utils import get_cache_prediction_deployments
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.common_utils.http_parsing_utils import (
     _read_request_body,  # pyright: ignore[reportPrivateUsage, reportUnknownVariableType]  # canonical parsed-body owner; validate its legacy result at the endpoint boundary
 )
-from litellm.proxy.common_utils.prompt_cache_prediction import has_request_transforms, predict_arm
-from litellm.proxy.hooks.parallel_request_limiter_v3 import (
+from embrouter.proxy.common_utils.prompt_cache_prediction import has_request_transforms, predict_arm
+from embrouter.proxy.hooks.parallel_request_limiter_v3 import (
     _PROXY_MaxParallelRequestsHandler_v3,  # pyright: ignore[reportPrivateUsage]  # use the configured proxy limiter's shared capacity owner
 )
-from litellm.proxy.litellm_pre_call_utils import LiteLLMProxyRequestSetup
-from litellm.types.management_endpoints.prompt_cache_prediction import (
+from embrouter.proxy.embrouter_pre_call_utils import EmbRouterProxyRequestSetup
+from embrouter.types.management_endpoints.prompt_cache_prediction import (
     CachePredictionArm,
     CachePredictionRequest,
     CachePredictionResponse,
@@ -56,8 +56,8 @@ def _capacity_request_data(
     # The parsed-body cache retains only original top-level keys. Replay the
     # shared idempotent tag merges on limiter-only data when auth added metadata.
     data: Final = dict(request_data)  # mutable-ok: the existing tag merge owners accept a dictionary out-param
-    LiteLLMProxyRequestSetup.apply_client_tag_policy_pre_auth(http_request, data, caller)  # pyright: ignore[reportUnknownMemberType]  # legacy tag owner takes the validated capacity dictionary
-    LiteLLMProxyRequestSetup.apply_key_tags_pre_auth(data, caller)  # pyright: ignore[reportUnknownMemberType]  # legacy tag owner merges trusted key tags into capacity metadata
+    EmbRouterProxyRequestSetup.apply_client_tag_policy_pre_auth(http_request, data, caller)  # pyright: ignore[reportUnknownMemberType]  # legacy tag owner takes the validated capacity dictionary
+    EmbRouterProxyRequestSetup.apply_key_tags_pre_auth(data, caller)  # pyright: ignore[reportUnknownMemberType]  # legacy tag owner merges trusted key tags into capacity metadata
     return MappingProxyType(data)
 
 
@@ -82,7 +82,7 @@ async def predict_cache_cost(
     up to four counts. The legacy rate limiter returns unknown without contacting the provider.
     This endpoint does not generate tokens, prewarm caches, choose a model or alter routing.
     """
-    from litellm.proxy.proxy_server import llm_router, proxy_logging_obj
+    from embrouter.proxy.proxy_server import llm_router, proxy_logging_obj
 
     if llm_router is None:
         raise HTTPException(status_code=503, detail="Model router is unavailable")

@@ -1,7 +1,7 @@
 from typing import Any, Final, cast, get_type_hints
 
-from litellm.llms.base_llm.vector_store.transformation import BaseVectorStoreConfig
-from litellm.types.vector_stores import (
+from embrouter.llms.base_llm.vector_store.transformation import BaseVectorStoreConfig
+from embrouter.types.vector_stores import (
     VectorStoreCreateOptionalRequestParams,
     VectorStoreSearchOptionalRequestParams,
 )

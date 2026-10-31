@@ -6,8 +6,8 @@ Helper util for handling databricks-specific cost calculation
 from types import MappingProxyType
 from typing import Final
 
-from litellm.litellm_core_utils.llm_cost_calc.utils import generic_cost_per_token
-from litellm.types.utils import Usage
+from embrouter.embrouter_core_utils.llm_cost_calc.utils import generic_cost_per_token
+from embrouter.types.utils import Usage
 
 _LEGACY_ENDPOINT_NAMES: Final = MappingProxyType(
     {
@@ -36,7 +36,7 @@ def cost_per_token(model: str, usage: Usage, service_tier: str | None = None) ->
 
     Input:
         - model: str, the model name without provider prefix
-        - usage: LiteLLM Usage block, containing anthropic caching information
+        - usage: EmbRouter Usage block, containing anthropic caching information
 
     Returns:
         Tuple[float, float] - prompt_cost_in_usd, completion_cost_in_usd

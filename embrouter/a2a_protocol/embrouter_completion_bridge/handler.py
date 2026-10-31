@@ -1,7 +1,7 @@
 """
-Handler for A2A to LiteLLM completion bridge.
+Handler for A2A to EmbRouter completion bridge.
 
-Routes A2A requests through litellm.acompletion based on custom_llm_provider.
+Routes A2A requests through embrouter.acompletion based on custom_llm_provider.
 
 A2A Streaming Events (in order):
 1. Task event (kind: "task") - Initial task creation with status "submitted"
@@ -13,24 +13,24 @@ A2A Streaming Events (in order):
 from collections.abc import AsyncIterator, Callable, Coroutine, Mapping
 from typing import Any, Final
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.a2a_protocol.card_resolver import AGENT_CARD_PATH_PARAM
-from litellm.a2a_protocol.litellm_completion_bridge.transformation import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.a2a_protocol.card_resolver import AGENT_CARD_PATH_PARAM
+from embrouter.a2a_protocol.embrouter_completion_bridge.transformation import (
     A2ACompletionBridgeTransformation,
     A2AStreamingContext,
 )
-from litellm.a2a_protocol.providers.config_manager import A2AProviderConfigManager
-from litellm.interactions.agents.utils import merge_agent_headers
-from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
-from litellm.types.utils import ModelResponse
+from embrouter.a2a_protocol.providers.config_manager import A2AProviderConfigManager
+from embrouter.interactions.agents.utils import merge_agent_headers
+from embrouter.embrouter_core_utils.streaming_handler import CustomStreamWrapper
+from embrouter.types.utils import ModelResponse
 
-# litellm_params key carrying the authenticated principal (hashed virtual key) so
+# embrouter_params key carrying the authenticated principal (hashed virtual key) so
 # A2A provider configs can scope provider-side state (e.g. LangFlow session memory)
 # per key instead of trusting the client-supplied A2A contextId.
-A2A_USER_API_KEY_HASH_PARAM: Final = "litellm_a2a_user_api_key_hash"
+A2A_USER_API_KEY_HASH_PARAM: Final = "embrouter_a2a_user_api_key_hash"
 
-# Agent metadata fields stored in litellm_params that are not valid litellm.acompletion() kwargs
+# Agent metadata fields stored in embrouter_params that are not valid embrouter.acompletion() kwargs
 _AGENT_ONLY_PARAMS: Final = frozenset(
     {
         "is_public",
@@ -45,13 +45,13 @@ _AGENT_ONLY_PARAMS: Final = frozenset(
 
 class A2ACompletionBridgeHandler:
     """
-    Static methods for handling A2A requests via LiteLLM completion.
+    Static methods for handling A2A requests via EmbRouter completion.
     """
 
     @staticmethod
     def _build_completion_params(
         params: dict[str, Any],
-        litellm_params: Mapping[str, Any],
+        embrouter_params: Mapping[str, Any],
         api_base: str | None,
         agent_extra_headers: Mapping[str, str] | None,
         *,
@@ -64,8 +64,8 @@ class A2ACompletionBridgeHandler:
         openai_messages: Final = A2ACompletionBridgeTransformation.a2a_message_to_openai_messages(message)
 
         # Get completion params
-        custom_llm_provider: Final = litellm_params.get("custom_llm_provider")
-        model: Final[str] = litellm_params.get("model", "agent")
+        custom_llm_provider: Final = embrouter_params.get("custom_llm_provider")
+        model: Final[str] = embrouter_params.get("model", "agent")
 
         # Build full model string if provider specified
         # Skip prepending if model already starts with the provider prefix
@@ -86,14 +86,14 @@ class A2ACompletionBridgeHandler:
             "api_base": api_base,
             "stream": stream,
         }
-        # Add litellm_params (contains api_key, client_id, client_secret, tenant_id, etc.)
-        litellm_params_to_add: Final = {
+        # Add embrouter_params (contains api_key, client_id, client_secret, tenant_id, etc.)
+        embrouter_params_to_add: Final = {
             k: v
-            for k, v in litellm_params.items()
+            for k, v in embrouter_params.items()
             if k not in ("model", "custom_llm_provider") and k not in _AGENT_ONLY_PARAMS
         }
-        completion_params.update(litellm_params_to_add)
-        # Apply forward metadata AFTER the litellm_params merge so the helper
+        completion_params.update(embrouter_params_to_add)
+        # Apply forward metadata AFTER the embrouter_params merge so the helper
         # sees any agent-owner-configured ``extra_body.metadata`` and can keep
         # those keys authoritative over the client-supplied A2A metadata.
         A2ACompletionBridgeTransformation.apply_forward_metadata_to_completion_params(
@@ -113,7 +113,7 @@ class A2ACompletionBridgeHandler:
     @staticmethod
     async def _acompletion(completion_params: Mapping[str, object]) -> ModelResponse | CustomStreamWrapper:
         acompletion_fn: Final[Callable[..., Coroutine[object, object, ModelResponse | CustomStreamWrapper]]] = vars(
-            litellm
+            embrouter
         )["acompletion"]
         return await acompletion_fn(**completion_params)
 
@@ -121,19 +121,19 @@ class A2ACompletionBridgeHandler:
     async def handle_non_streaming(
         request_id: str,
         params: dict[str, object],
-        litellm_params: dict[str, Any],
+        embrouter_params: dict[str, Any],
         api_base: str | None = None,
         agent_extra_headers: dict[str, str] | None = None,
         *,
         _skip_a2a_provider_routing: bool = False,
     ) -> dict[str, object]:
         """
-        Handle non-streaming A2A request via litellm.acompletion.
+        Handle non-streaming A2A request via embrouter.acompletion.
 
         Args:
             request_id: A2A JSON-RPC request ID
             params: A2A MessageSendParams containing the message
-            litellm_params: Agent's litellm_params (custom_llm_provider, model, etc.)
+            embrouter_params: Agent's embrouter_params (custom_llm_provider, model, etc.)
             api_base: API base URL from agent_card_params
             agent_extra_headers: Per-request headers (from x-a2a-{agent}-* rewrite and
                 admin extra_headers) to forward on the upstream HTTP call.
@@ -141,11 +141,11 @@ class A2ACompletionBridgeHandler:
         Returns:
             A2A SendMessageResponse dict
         """
-        custom_llm_provider: Final = litellm_params.get("custom_llm_provider")
+        custom_llm_provider: Final = embrouter_params.get("custom_llm_provider")
         if not _skip_a2a_provider_routing:
             a2a_provider_config: Final = A2AProviderConfigManager.get_provider_config(
                 custom_llm_provider=custom_llm_provider,
-                model=litellm_params.get("model"),
+                model=embrouter_params.get("model"),
             )
 
             if a2a_provider_config is not None:
@@ -155,19 +155,19 @@ class A2ACompletionBridgeHandler:
                     request_id=request_id,
                     params=params,
                     api_base=api_base,
-                    litellm_params=litellm_params,
+                    embrouter_params=embrouter_params,
                     agent_extra_headers=agent_extra_headers,
                 )
 
         completion_params: Final = A2ACompletionBridgeHandler._build_completion_params(
             params=params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             api_base=api_base,
             agent_extra_headers=agent_extra_headers,
             stream=False,
         )
 
-        # Call litellm.acompletion
+        # Call embrouter.acompletion
         response: Final = await A2ACompletionBridgeHandler._acompletion(completion_params)
 
         # Transform response to A2A format
@@ -184,14 +184,14 @@ class A2ACompletionBridgeHandler:
     async def handle_streaming(
         request_id: str,
         params: dict[str, Any],
-        litellm_params: dict[str, Any],
+        embrouter_params: dict[str, Any],
         api_base: str | None = None,
         agent_extra_headers: dict[str, str] | None = None,
         *,
         _skip_a2a_provider_routing: bool = False,
     ) -> AsyncIterator[dict[str, object]]:
         """
-        Handle streaming A2A request via litellm.acompletion with stream=True.
+        Handle streaming A2A request via embrouter.acompletion with stream=True.
 
         Emits proper A2A streaming events:
         1. Task event (kind: "task") - Initial task with status "submitted"
@@ -202,7 +202,7 @@ class A2ACompletionBridgeHandler:
         Args:
             request_id: A2A JSON-RPC request ID
             params: A2A MessageSendParams containing the message
-            litellm_params: Agent's litellm_params (custom_llm_provider, model, etc.)
+            embrouter_params: Agent's embrouter_params (custom_llm_provider, model, etc.)
             api_base: API base URL from agent_card_params
             agent_extra_headers: Per-request headers (from x-a2a-{agent}-* rewrite and
                 admin extra_headers) to forward on the upstream HTTP call.
@@ -210,11 +210,11 @@ class A2ACompletionBridgeHandler:
         Yields:
             A2A streaming response events
         """
-        custom_llm_provider: Final = litellm_params.get("custom_llm_provider")
+        custom_llm_provider: Final = embrouter_params.get("custom_llm_provider")
         if not _skip_a2a_provider_routing:
             a2a_provider_config: Final = A2AProviderConfigManager.get_provider_config(
                 custom_llm_provider=custom_llm_provider,
-                model=litellm_params.get("model"),
+                model=embrouter_params.get("model"),
             )
 
             if a2a_provider_config is not None:
@@ -224,7 +224,7 @@ class A2ACompletionBridgeHandler:
                     request_id=request_id,
                     params=params,
                     api_base=api_base,
-                    litellm_params=litellm_params,
+                    embrouter_params=embrouter_params,
                     agent_extra_headers=agent_extra_headers,
                 ):
                     yield chunk
@@ -239,7 +239,7 @@ class A2ACompletionBridgeHandler:
 
         completion_params: Final = A2ACompletionBridgeHandler._build_completion_params(
             params=params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             api_base=api_base,
             agent_extra_headers=agent_extra_headers,
             stream=True,
@@ -258,7 +258,7 @@ class A2ACompletionBridgeHandler:
         )
         yield working_event
 
-        # Call litellm.acompletion with streaming
+        # Call embrouter.acompletion with streaming
         response: Final = await A2ACompletionBridgeHandler._acompletion(completion_params)
 
         # 3. Accumulate content and emit artifact update
@@ -302,7 +302,7 @@ class A2ACompletionBridgeHandler:
 async def handle_a2a_completion(
     request_id: str,
     params: dict[str, object],
-    litellm_params: dict[str, object],
+    embrouter_params: dict[str, object],
     api_base: str | None = None,
     agent_extra_headers: dict[str, str] | None = None,
 ) -> dict[str, object]:
@@ -310,7 +310,7 @@ async def handle_a2a_completion(
     return await A2ACompletionBridgeHandler.handle_non_streaming(
         request_id=request_id,
         params=params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         api_base=api_base,
         agent_extra_headers=agent_extra_headers,
     )
@@ -319,7 +319,7 @@ async def handle_a2a_completion(
 async def handle_a2a_completion_streaming(
     request_id: str,
     params: dict[str, object],
-    litellm_params: dict[str, object],
+    embrouter_params: dict[str, object],
     api_base: str | None = None,
     agent_extra_headers: dict[str, str] | None = None,
 ) -> AsyncIterator[dict[str, object]]:
@@ -327,7 +327,7 @@ async def handle_a2a_completion_streaming(
     async for chunk in A2ACompletionBridgeHandler.handle_streaming(
         request_id=request_id,
         params=params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         api_base=api_base,
         agent_extra_headers=agent_extra_headers,
     ):

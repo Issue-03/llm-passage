@@ -7,17 +7,17 @@ from typing import TYPE_CHECKING, Any, Final, TypeVar, cast, overload
 
 from pydantic import BaseModel
 
-from litellm._logging import verbose_proxy_logger
-from litellm.caching.dual_cache import DualCache
-from litellm.caching.in_memory_cache import InMemoryCache
-from litellm.caching.redis_cache import RedisCache
-from litellm.constants import DEFAULT_MANAGEMENT_OBJECT_IN_MEMORY_CACHE_TTL
-from litellm.proxy.common_utils.cache_pydantic_utils import CacheCodec
+from embrouter._logging import verbose_proxy_logger
+from embrouter.caching.dual_cache import DualCache
+from embrouter.caching.in_memory_cache import InMemoryCache
+from embrouter.caching.redis_cache import RedisCache
+from embrouter.constants import DEFAULT_MANAGEMENT_OBJECT_IN_MEMORY_CACHE_TTL
+from embrouter.proxy.common_utils.cache_pydantic_utils import CacheCodec
 
 if TYPE_CHECKING:
     from opentelemetry.trace import Span
 
-    from litellm.caching.redis_batch import BatchResult
+    from embrouter.caching.redis_batch import BatchResult
 
 T = TypeVar("T", bound=BaseModel)
 
@@ -322,7 +322,7 @@ def tag_cache_key(tag_name: str) -> str:
 
 
 def tag_registry_cache_key() -> str:
-    """Cache key for the set of tag names that exist in ``LiteLLM_TagTable``."""
+    """Cache key for the set of tag names that exist in ``EmbRouter_TagTable``."""
     return "tag_registry"
 
 
@@ -376,12 +376,12 @@ def end_user_restricted_registry_cache_key() -> str:
 
 
 def team_membership_auth_cache_key(team_id: str, user_id: str) -> str:
-    """Cache key one team member's ``LiteLLM_TeamMembership`` row is stored under for the admission check."""
+    """Cache key one team member's ``EmbRouter_TeamMembership`` row is stored under for the admission check."""
     return f"{team_id}_{user_id}"
 
 
 def team_membership_reservation_cache_key(user_id: str, team_id: str) -> str:
-    """Cache key the pre-call budget reservation stores the same ``LiteLLM_TeamMembership`` row under.
+    """Cache key the pre-call budget reservation stores the same ``EmbRouter_TeamMembership`` row under.
 
     Deliberately not unified with ``team_membership_auth_cache_key``: the two readers wrote independent
     keys before this file existed, so a fix that invalidates one must invalidate both explicitly rather
@@ -390,7 +390,7 @@ def team_membership_reservation_cache_key(user_id: str, team_id: str) -> str:
     return f"team_membership:{user_id}:{team_id}"
 
 
-#: Cached under ``team_membership_reservation_cache_key`` when a member has no ``LiteLLM_TeamMembership``
+#: Cached under ``team_membership_reservation_cache_key`` when a member has no ``EmbRouter_TeamMembership``
 #: row, so a session-token member without a per-member budget costs no DB read per request. Lives beside
 #: the key builder because it is part of the same cache protocol: every reader of the key must know that
 #: a plain string here means "no row", distinct from a serialized membership. The two budget readers

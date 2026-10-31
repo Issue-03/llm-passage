@@ -9,17 +9,17 @@ from typing import TYPE_CHECKING, Final, Literal
 
 from fastapi import HTTPException
 
-import litellm
-from litellm import ModelResponse, Router
-from litellm._logging import verbose_proxy_logger
-from litellm.caching.caching import DualCache
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.common_utils.proxy_rate_limit_error import (
+import embrouter
+from embrouter import ModelResponse, Router
+from embrouter._logging import verbose_proxy_logger
+from embrouter.caching.caching import DualCache
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.common_utils.proxy_rate_limit_error import (
     ProxyRateLimitError,
     map_v3_rate_limit_type,
 )
-from litellm.proxy.hooks.parallel_request_limiter_v3 import (
+from embrouter.proxy.hooks.parallel_request_limiter_v3 import (
     RateLimitDescriptor,
     RateLimitDescriptorRateLimitObject,
     RateLimitResponse,
@@ -27,33 +27,33 @@ from litellm.proxy.hooks.parallel_request_limiter_v3 import (
     claim_request_stash_for_data,
     get_or_create_request_stash,
 )
-from litellm.proxy.hooks.rate_limiter_utils import (
+from embrouter.proxy.hooks.rate_limiter_utils import (
     convert_priority_to_percent,
     resolve_llm_provider_for_rate_limit,
 )
-from litellm.proxy.utils import InternalUsageCache
-from litellm.router_utils.add_retry_fallback_headers import (
+from embrouter.proxy.utils import InternalUsageCache
+from embrouter.router_utils.add_retry_fallback_headers import (
     ensure_response_additional_headers,
     response_has_hidden_params,
 )
-from litellm.types.router import ModelGroupInfo
-from litellm.types.utils import CallTypesLiteral
+from embrouter.types.router import ModelGroupInfo
+from embrouter.types.utils import CallTypesLiteral
 
 if TYPE_CHECKING:
-    from litellm.types.utils import PriorityReservationSettings
+    from embrouter.types.utils import PriorityReservationSettings
 
 
 def _get_priority_settings() -> "PriorityReservationSettings":
     """
     Get the priority reservation settings, guaranteed to be non-None.
 
-    The settings are lazy-loaded in litellm.__init__ and always return an instance.
+    The settings are lazy-loaded in embrouter.__init__ and always return an instance.
     This helper provides proper type narrowing for mypy.
     """
-    settings: Final = litellm.priority_reservation_settings
+    settings: Final = embrouter.priority_reservation_settings
     if settings is None:
         # This should never happen due to lazy loading, but satisfy mypy
-        from litellm.types.utils import PriorityReservationSettings
+        from embrouter.types.utils import PriorityReservationSettings
 
         return PriorityReservationSettings()
     return settings
@@ -106,7 +106,7 @@ class _PROXY_DynamicRateLimitHandlerV3(CustomLogger):
         Get saturation value with configurable local cache TTL.
 
         Uses DualCache with configurable TTL for local cache storage.
-        TTL is configurable via litellm.priority_reservation_settings.saturation_check_cache_ttl
+        TTL is configurable via embrouter.priority_reservation_settings.saturation_check_cache_ttl
 
         Args:
             counter_key: The cache key for the saturation counter
@@ -118,23 +118,23 @@ class _PROXY_DynamicRateLimitHandlerV3(CustomLogger):
 
         return await self.internal_usage_cache.async_get_cache(
             key=counter_key,
-            litellm_parent_otel_span=None,
+            embrouter_parent_otel_span=None,
             local_only=False,
             ttl=local_cache_ttl,
         )
 
     def _get_priority_weight(self, priority: str | None, model_info: ModelGroupInfo | None = None) -> float:
-        """Get the weight for a given priority from litellm.priority_reservation"""
+        """Get the weight for a given priority from embrouter.priority_reservation"""
         weight: float = _get_priority_settings().default_priority
-        if litellm.priority_reservation is None or priority not in litellm.priority_reservation:
+        if embrouter.priority_reservation is None or priority not in embrouter.priority_reservation:
             verbose_proxy_logger.debug("Priority Reservation not set for the given priority.")
-        elif priority is not None and litellm.priority_reservation is not None:
-            if os.getenv("LITELLM_LICENSE", None) is None:
+        elif priority is not None and embrouter.priority_reservation is not None:
+            if os.getenv("EMBROUTER_LICENSE", None) is None:
                 verbose_proxy_logger.error(
-                    "PREMIUM FEATURE: Reserving tpm/rpm by priority is a premium feature. Please add a 'LITELLM_LICENSE' to your .env to enable this."
+                    "PREMIUM FEATURE: Reserving tpm/rpm by priority is a premium feature. Please add a 'EMBROUTER_LICENSE' to your .env to enable this."
                 )
             else:
-                value: Final = litellm.priority_reservation[priority]
+                value: Final = embrouter.priority_reservation[priority]
                 weight = convert_priority_to_percent(value, model_info)
         return weight
 
@@ -169,12 +169,12 @@ class _PROXY_DynamicRateLimitHandlerV3(CustomLogger):
         Handles over-allocation: {key_a: 0.60, key_b: 0.80} -> {key_a: 0.43, key_b: 0.57}
         Converts absolute rpm/tpm values to percentages based on model capacity.
         """
-        if litellm.priority_reservation is None:
+        if embrouter.priority_reservation is None:
             return {}
 
         # Convert all values to percentages first
         weights: Final[dict[str, float]] = {}
-        for k, v in litellm.priority_reservation.items():
+        for k, v in embrouter.priority_reservation.items():
             weights[k] = convert_priority_to_percent(v, model_info)
 
         total_weight: Final = sum(weights.values())
@@ -208,11 +208,11 @@ class _PROXY_DynamicRateLimitHandlerV3(CustomLogger):
         Returns:
             tuple: (priority_weight, priority_key)
         """
-        # Check if this key has an explicit priority in litellm.priority_reservation
+        # Check if this key has an explicit priority in embrouter.priority_reservation
         has_explicit_priority: Final = (
             priority is not None
-            and litellm.priority_reservation is not None
-            and priority in litellm.priority_reservation
+            and embrouter.priority_reservation is not None
+            and priority in embrouter.priority_reservation
         )
 
         if has_explicit_priority and priority is not None:
@@ -310,7 +310,7 @@ class _PROXY_DynamicRateLimitHandlerV3(CustomLogger):
         """
         descriptors: Final[list[RateLimitDescriptor]] = []
 
-        if litellm.priority_reservation is None:
+        if embrouter.priority_reservation is None:
             return descriptors
 
         # Get model group info
@@ -485,7 +485,7 @@ class _PROXY_DynamicRateLimitHandlerV3(CustomLogger):
                         headers={
                             "retry-after": str(self.v3_limiter.window_size),
                             "rate_limit_type": str(status["rate_limit_type"]),
-                            "x-litellm-priority": priority or "default",
+                            "x-embrouter-priority": priority or "default",
                         },
                         rate_limit_type=map_v3_rate_limit_type(status["rate_limit_type"]),
                         model=resolved_model,
@@ -509,8 +509,8 @@ class _PROXY_DynamicRateLimitHandlerV3(CustomLogger):
                         headers={
                             "retry-after": str(self.v3_limiter.window_size),
                             "rate_limit_type": str(status["rate_limit_type"]),
-                            "x-litellm-priority": priority or "default",
-                            "x-litellm-saturation": f"{saturation:.2%}",
+                            "x-embrouter-priority": priority or "default",
+                            "x-embrouter-saturation": f"{saturation:.2%}",
                         },
                         rate_limit_type=map_v3_rate_limit_type(status["rate_limit_type"]),
                         model=resolved_model,
@@ -540,7 +540,7 @@ class _PROXY_DynamicRateLimitHandlerV3(CustomLogger):
                 rate_limit_type=map_v3_rate_limit_type(offending["rate_limit_type"] if offending else None),
                 headers={
                     "retry-after": str(self.v3_limiter.window_size),
-                    "x-litellm-priority": priority or "default",
+                    "x-embrouter-priority": priority or "default",
                 },
                 model=resolved_model,
                 llm_provider=llm_provider,
@@ -672,12 +672,12 @@ class _PROXY_DynamicRateLimitHandlerV3(CustomLogger):
                 additional_headers: Final = ensure_response_additional_headers(response)
                 priority_header: Final = priority or "default"
                 if _is_latin1_encodable(priority_header):
-                    additional_headers["x-litellm-priority"] = priority_header
+                    additional_headers["x-embrouter-priority"] = priority_header
                 else:
                     verbose_proxy_logger.debug(
-                        "Skipping x-litellm-priority header: priority %r is not Latin-1 encodable", priority
+                        "Skipping x-embrouter-priority header: priority %r is not Latin-1 encodable", priority
                     )
-                additional_headers["x-litellm-rate-limiter-version"] = "v3"
+                additional_headers["x-embrouter-rate-limiter-version"] = "v3"
 
             return response
 
@@ -693,26 +693,26 @@ class _PROXY_DynamicRateLimitHandlerV3(CustomLogger):
         - model_saturation_check: Model-wide token tracking
         - priority_model: Priority-specific token tracking
         """
-        from litellm.litellm_core_utils.core_helpers import (
+        from embrouter.embrouter_core_utils.core_helpers import (
             _get_parent_otel_span_from_kwargs,
         )
-        from litellm.proxy.common_utils.callback_utils import (
-            get_model_group_from_litellm_kwargs,
+        from embrouter.proxy.common_utils.callback_utils import (
+            get_model_group_from_embrouter_kwargs,
         )
-        from litellm.types.caching import RedisPipelineIncrementOperation
-        from litellm.types.utils import Usage
+        from embrouter.types.caching import RedisPipelineIncrementOperation
+        from embrouter.types.utils import Usage
 
         try:
             verbose_proxy_logger.debug("INSIDE dynamic rate limiter ASYNC SUCCESS LOGGING")
 
-            litellm_parent_otel_span: Final = _get_parent_otel_span_from_kwargs(kwargs)
+            embrouter_parent_otel_span: Final = _get_parent_otel_span_from_kwargs(kwargs)
 
             # Get metadata from standard_logging_object
             standard_logging_object: Final = kwargs.get("standard_logging_object") or {}
             standard_logging_metadata: Final = standard_logging_object.get("metadata") or {}
 
             # Get model and priority
-            model_group: Final = get_model_group_from_litellm_kwargs(kwargs)
+            model_group: Final = get_model_group_from_embrouter_kwargs(kwargs)
             if not model_group:
                 return
 
@@ -759,8 +759,8 @@ class _PROXY_DynamicRateLimitHandlerV3(CustomLogger):
             # Determine priority key (same logic as _get_priority_allocation)
             has_explicit_priority: Final = (
                 key_priority is not None
-                and litellm.priority_reservation is not None
-                and key_priority in litellm.priority_reservation
+                and embrouter.priority_reservation is not None
+                and key_priority in embrouter.priority_reservation
             )
 
             if has_explicit_priority and key_priority is not None:
@@ -785,7 +785,7 @@ class _PROXY_DynamicRateLimitHandlerV3(CustomLogger):
             if pipeline_operations:
                 await self.v3_limiter.async_increment_tokens_with_ttl_preservation(
                     pipeline_operations=pipeline_operations,
-                    parent_otel_span=litellm_parent_otel_span,
+                    parent_otel_span=embrouter_parent_otel_span,
                 )
 
                 # Only log 'priority' if it's known safe; otherwise, redact.

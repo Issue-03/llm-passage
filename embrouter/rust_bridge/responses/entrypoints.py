@@ -5,12 +5,12 @@ from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Final, Protocol, cast  # noqa: TID251  # validates dynamically loaded native callables
 
-from litellm.rust_bridge.bindings import NativeBinding
-from litellm.types.llms.openai import ResponsesAPIResponse
+from embrouter.rust_bridge.bindings import NativeBinding
+from embrouter.types.llms.openai import ResponsesAPIResponse
 
 
 @dataclass(frozen=True, slots=True)
-class LiteLLMResponsesRequest:
+class EmbRouterResponsesRequest:
     model: str
     input: object
     stream: bool | None
@@ -25,7 +25,7 @@ class LiteLLMResponsesRequest:
 class NativeResponses(Protocol):
     def __call__(
         self,
-        request: LiteLLMResponsesRequest,
+        request: EmbRouterResponsesRequest,
         args: tuple[object, ...],
         kwargs: Mapping[str, object],
     ) -> ResponsesAPIResponse: ...
@@ -34,7 +34,7 @@ class NativeResponses(Protocol):
 class NativeAresponses(Protocol):
     def __call__(
         self,
-        request: LiteLLMResponsesRequest,
+        request: EmbRouterResponsesRequest,
         args: tuple[object, ...],
         kwargs: Mapping[str, object],
     ) -> Awaitable[ResponsesAPIResponse]: ...

@@ -4,10 +4,10 @@ from typing import TYPE_CHECKING, Any, Final
 from openai import AsyncAzureOpenAI, AzureOpenAI
 from pydantic import BaseModel
 
-from litellm._uuid import uuid
-from litellm.litellm_core_utils.audio_utils.utils import get_audio_file_name
-from litellm.types.utils import FileTypes
-from litellm.utils import (
+from embrouter._uuid import uuid
+from embrouter.embrouter_core_utils.audio_utils.utils import get_audio_file_name
+from embrouter.types.utils import FileTypes
+from embrouter.utils import (
     TranscriptionResponse,
     convert_to_model_response_object,
     extract_duration_from_srt_or_vtt,
@@ -17,7 +17,7 @@ from .azure import AzureChatCompletion
 from .common_utils import AzureOpenAIError
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
 
 
 class AzureAudioTranscription(AzureChatCompletion):
@@ -26,7 +26,7 @@ class AzureAudioTranscription(AzureChatCompletion):
         model: str,
         audio_file: FileTypes,
         optional_params: dict,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
         model_response: TranscriptionResponse,
         timeout: float,
         max_retries: int,
@@ -36,7 +36,7 @@ class AzureAudioTranscription(AzureChatCompletion):
         client=None,
         azure_ad_token: str | None = None,
         atranscription: bool = False,
-        litellm_params: dict | None = None,
+        embrouter_params: dict | None = None,
         custom_llm_provider: str = "azure",
     ) -> TranscriptionResponse | Coroutine[Any, Any, TranscriptionResponse]:
         data: Final = {"model": model, "file": audio_file, **optional_params}
@@ -53,7 +53,7 @@ class AzureAudioTranscription(AzureChatCompletion):
                 max_retries=max_retries,
                 logging_obj=logging_obj,
                 model=model,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 custom_llm_provider=custom_llm_provider,
             )
 
@@ -64,7 +64,7 @@ class AzureAudioTranscription(AzureChatCompletion):
             model=model,
             _is_async=False,
             client=client,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
         if not isinstance(azure_client, AzureOpenAI):
             raise AzureOpenAIError(
@@ -117,13 +117,13 @@ class AzureAudioTranscription(AzureChatCompletion):
         data: dict,
         model_response: TranscriptionResponse,
         timeout: float,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
         api_version: str | None = None,
         api_key: str | None = None,
         api_base: str | None = None,
         client=None,
         max_retries=None,
-        litellm_params: dict | None = None,
+        embrouter_params: dict | None = None,
         custom_llm_provider: str = "azure",
     ) -> TranscriptionResponse:
         response = None
@@ -135,7 +135,7 @@ class AzureAudioTranscription(AzureChatCompletion):
                 model=model,
                 _is_async=True,
                 client=client,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
             )
             if not isinstance(async_azure_client, AsyncAzureOpenAI):
                 raise AzureOpenAIError(

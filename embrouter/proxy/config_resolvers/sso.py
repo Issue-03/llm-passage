@@ -11,13 +11,13 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Final
 
-from litellm.proxy.common_utils.encrypt_decrypt_utils import decrypt_value_helper
-from litellm.proxy.config_resolvers._descriptors import (
+from embrouter.proxy.common_utils.encrypt_decrypt_utils import decrypt_value_helper
+from embrouter.proxy.config_resolvers._descriptors import (
     FieldDescriptor,
     FieldSource,
     resolve_fields,
 )
-from litellm.types.proxy.management_endpoints.ui_sso import (
+from embrouter.types.proxy.management_endpoints.ui_sso import (
     RoleMappings,
     SSOConfig,
     TeamMappings,

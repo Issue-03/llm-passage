@@ -6,7 +6,7 @@ import type { CostEstimateResponse } from "../types";
 
 vi.mock("@/components/networking", () => ({
   getProxyBaseUrl: vi.fn(() => ""),
-  getGlobalLitellmHeaderName: vi.fn(() => "Authorization"),
+  getGlobalEmbrouterHeaderName: vi.fn(() => "Authorization"),
 }));
 
 function makeEntry(overrides: Partial<ModelEntry> = {}): ModelEntry {

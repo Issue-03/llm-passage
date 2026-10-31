@@ -89,7 +89,7 @@ describe("MCPPermissionManagement", () => {
     });
 
     const user = await expandPanel();
-    // Find the switch associated with "Allow All LiteLLM Keys" text
+    // Find the switch associated with "Allow All EmbRouter Keys" text
     // The first switch in the component is for allow_all_keys
     const switches = screen.getAllByRole("switch");
     const toggle = switches[0];

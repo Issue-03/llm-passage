@@ -1,6 +1,6 @@
 import os
 import traceback
-from litellm._uuid import uuid
+from embrouter._uuid import uuid
 from typing import List
 from datetime import datetime, timezone, timedelta
 
@@ -16,22 +16,22 @@ import io
 import time
 import fakeredis
 
-# this file is to test litellm/proxy
+# this file is to test embrouter/proxy
 
 import asyncio
 import logging
 
 import pytest
-from litellm.proxy.db.db_transaction_queue.pod_lock_manager import PodLockManager
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy.management_endpoints.internal_user_endpoints import (
+from embrouter.proxy.db.db_transaction_queue.pod_lock_manager import PodLockManager
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy.management_endpoints.internal_user_endpoints import (
     new_user,
     user_info,
     user_update,
 )
-from litellm.proxy.auth.auth_checks import get_key_object
-from litellm.proxy.management_endpoints.key_management_endpoints import (
+from embrouter.proxy.auth.auth_checks import get_key_object
+from embrouter.proxy.management_endpoints.key_management_endpoints import (
     delete_key_fn,
     generate_key_fn,
     generate_key_helper_fn,
@@ -40,13 +40,13 @@ from litellm.proxy.management_endpoints.key_management_endpoints import (
     regenerate_key_fn,
     update_key_fn,
 )
-from litellm.proxy.management_endpoints.team_endpoints import (
+from embrouter.proxy.management_endpoints.team_endpoints import (
     new_team,
     team_info,
     update_team,
 )
-from litellm.proxy.proxy_server import (
-    LitellmUserRoles,
+from embrouter.proxy.proxy_server import (
+    EmbrouterUserRoles,
     audio_transcriptions,
     chat_completion,
     completion,
@@ -55,26 +55,26 @@ from litellm.proxy.proxy_server import (
     moderations,
     user_api_key_auth,
 )
-from litellm.proxy.management_endpoints.customer_endpoints import (
+from embrouter.proxy.management_endpoints.customer_endpoints import (
     new_end_user,
 )
-from litellm.proxy.spend_tracking.spend_management_endpoints import (
+from embrouter.proxy.spend_tracking.spend_management_endpoints import (
     global_spend,
     spend_key_fn,
     spend_user_fn,
     view_spend_logs,
 )
-from litellm.proxy.utils import PrismaClient, ProxyLogging, hash_token, update_spend
+from embrouter.proxy.utils import PrismaClient, ProxyLogging, hash_token, update_spend
 
 verbose_proxy_logger.setLevel(level=logging.DEBUG)
 
 from starlette.datastructures import URL
 
-from litellm.caching.caching import DualCache, RedisCache
-from litellm.types.proxy.management_endpoints.ui_sso import (
-    LiteLLM_UpperboundKeyGenerateParams,
+from embrouter.caching.caching import DualCache, RedisCache
+from embrouter.types.proxy.management_endpoints.ui_sso import (
+    EmbRouter_UpperboundKeyGenerateParams,
 )
-from litellm.proxy._types import (
+from embrouter.proxy._types import (
     DynamoDBArgs,
     GenerateKeyRequest,
     KeyRequest,
@@ -102,7 +102,7 @@ request_data = {
 
 @pytest.fixture
 def prisma_client():
-    from litellm.proxy.proxy_cli import append_query_params
+    from embrouter.proxy.proxy_cli import append_query_params
 
     ### add connection pool + pool timeout args
     params = {"connection_limit": 100, "pool_timeout": 60}
@@ -115,19 +115,19 @@ def prisma_client():
         database_url=os.environ["DATABASE_URL"], proxy_logging_obj=proxy_logging_obj
     )
 
-    # Reset litellm.proxy.proxy_server.prisma_client to None
-    litellm.proxy.proxy_server.litellm_proxy_budget_name = (
-        f"litellm-proxy-budget-{time.time()}"
+    # Reset embrouter.proxy.proxy_server.prisma_client to None
+    embrouter.proxy.proxy_server.embrouter_proxy_budget_name = (
+        f"embrouter-proxy-budget-{time.time()}"
     )
-    litellm.proxy.proxy_server.user_custom_key_generate = None
+    embrouter.proxy.proxy_server.user_custom_key_generate = None
 
     return prisma_client
 
 
 async def setup_db_connection(prisma_client):
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", "sk-1234")
-    await litellm.proxy.proxy_server.prisma_client.connect()
+    setattr(embrouter.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(embrouter.proxy.proxy_server, "master_key", "sk-1234")
+    await embrouter.proxy.proxy_server.prisma_client.connect()
 
 
 @pytest.mark.skip(reason="Requires Redis connection.")
@@ -380,10 +380,10 @@ async def test_e2e_size_of_redis_buffer():
 
     Goal of this is to ensure Redis does not blow up in size
     """
-    from litellm.proxy.db.db_spend_update_writer import DBSpendUpdateWriter
-    from litellm.proxy.db.db_transaction_queue.base_update_queue import BaseUpdateQueue
-    from litellm.caching import RedisCache
-    from litellm._uuid import uuid
+    from embrouter.proxy.db.db_spend_update_writer import DBSpendUpdateWriter
+    from embrouter.proxy.db.db_transaction_queue.base_update_queue import BaseUpdateQueue
+    from embrouter.caching import RedisCache
+    from embrouter._uuid import uuid
 
     redis_cache = RedisCache(
         host=os.getenv("REDIS_HOST"),
@@ -393,7 +393,7 @@ async def test_e2e_size_of_redis_buffer():
     fake_redis_client = fakeredis.FakeAsyncRedis()
     redis_cache.redis_async_client = fake_redis_client
 
-    setattr(litellm.proxy.proxy_server, "use_redis_transaction_buffer", True)
+    setattr(embrouter.proxy.proxy_server, "use_redis_transaction_buffer", True)
     db_writer = DBSpendUpdateWriter(redis_cache=redis_cache)
 
     # get all the queues
@@ -439,7 +439,7 @@ async def test_e2e_size_of_redis_buffer():
 
     # flush from in-memory -> redis -> to DB
     with patch(
-        "litellm.proxy.db.db_spend_update_writer.PodLockManager.acquire_lock",
+        "embrouter.proxy.db.db_spend_update_writer.PodLockManager.acquire_lock",
         return_value=True,
     ):
         await db_writer._commit_spend_updates_to_db_with_redis(

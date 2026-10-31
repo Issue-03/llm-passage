@@ -8,16 +8,16 @@ than an LLM call (~20-50ms per request for embedding).
 
 from typing import TYPE_CHECKING, Any, Final, Protocol
 
-from litellm._logging import verbose_logger
-from litellm.integrations.custom_guardrail import (
+from embrouter._logging import verbose_logger
+from embrouter.integrations.custom_guardrail import (
     CustomGuardrail,
     log_guardrail_information,
 )
-from litellm.proxy.guardrails.guardrail_hooks.semantic_guard.route_loader import (
+from embrouter.proxy.guardrails.guardrail_hooks.semantic_guard.route_loader import (
     SemanticGuardRouteLoader,
 )
-from litellm.types.guardrails import GuardrailEventHooks, Mode
-from litellm.types.utils import CallTypes
+from embrouter.types.guardrails import GuardrailEventHooks, Mode
+from embrouter.types.utils import CallTypes
 
 try:
     from fastapi.exceptions import HTTPException
@@ -27,9 +27,9 @@ except ImportError:
 if TYPE_CHECKING:
     from semantic_router.routers import SemanticRouter
 
-    from litellm.caching import DualCache
-    from litellm.proxy.auth.user_api_key_auth import UserAPIKeyAuth
-    from litellm.router import Router
+    from embrouter.caching import DualCache
+    from embrouter.proxy.auth.user_api_key_auth import UserAPIKeyAuth
+    from embrouter.router import Router
 
 
 class SemanticGuardrail(CustomGuardrail):
@@ -82,7 +82,7 @@ class SemanticGuardrail(CustomGuardrail):
 
         self.semantic_router: SemanticRouter = SemanticGuardRouteLoader.build_semantic_router(
             routes=routes,
-            litellm_router=llm_router,
+            embrouter_router=llm_router,
             embedding_model=embedding_model,
             global_threshold=similarity_threshold,
         )

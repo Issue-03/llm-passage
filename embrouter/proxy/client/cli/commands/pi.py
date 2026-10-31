@@ -1,4 +1,4 @@
-"""Sync a LiteLLM provider into pi's models.json.
+"""Sync a EmbRouter provider into pi's models.json.
 
 pi ignores ANTHROPIC_BASE_URL/OPENAI_BASE_URL, so `lite pi` routes it through the
 proxy by writing a provider entry instead. The key is stored as a $-reference so
@@ -20,8 +20,8 @@ from pydantic import BaseModel, ConfigDict, JsonValue, TypeAdapter, ValidationEr
 from pydantic.types import StringConstraints
 
 PI_CONFIG_DIR_ENV: Final = "PI_CODING_AGENT_DIR"
-PI_PROVIDER_NAME: Final = "litellm"
-LITELLM_PROXY_API_KEY_ENV: Final = "LITELLM_PROXY_API_KEY"
+PI_PROVIDER_NAME: Final = "embrouter"
+EMBROUTER_PROXY_API_KEY_ENV: Final = "EMBROUTER_PROXY_API_KEY"
 _REJECTED_STATUSES: Final = frozenset((401, 403))
 
 
@@ -184,7 +184,7 @@ def provider_block(
     model_ids: tuple[str, ...],
     limits: Mapping[str, ModelLimits] = _NO_LIMITS,
 ) -> dict[str, JsonValue]:  # mutable-ok: JSON object is serialized
-    """openai-completions is the one API shape every LiteLLM model serves.
+    """openai-completions is the one API shape every EmbRouter model serves.
 
     Real contextWindow/maxTokens matter: pi otherwise assumes 128k/16384, which
     breaks compaction thresholds and over-asks models with smaller output caps.
@@ -192,7 +192,7 @@ def provider_block(
     return {  # mutable-ok: JSON serialization requires a mutable object
         "baseUrl": base_url.rstrip("/") + "/v1",
         "api": "openai-completions",
-        "apiKey": f"${LITELLM_PROXY_API_KEY_ENV}",
+        "apiKey": f"${EMBROUTER_PROXY_API_KEY_ENV}",
         "models": [_model_entry(model_id, limits) for model_id in model_ids],  # mutable-ok: JSON array
     }
 
@@ -206,7 +206,7 @@ def sync_models_json(
     model_ids: tuple[str, ...],
     limits: Mapping[str, ModelLimits] = _NO_LIMITS,
 ) -> PiSyncError | None:
-    """Replace only the litellm provider entry, leaving the rest of the file intact."""
+    """Replace only the embrouter provider entry, leaving the rest of the file intact."""
     try:
         current: Final = _MODELS_FILE_ADAPTER.validate_json(path.read_text()) if path.exists() else {}
     except (OSError, ValidationError) as e:
@@ -243,7 +243,7 @@ def sync_models_json(
 
 
 __all__ = (
-    "LITELLM_PROXY_API_KEY_ENV",
+    "EMBROUTER_PROXY_API_KEY_ENV",
     "PI_CONFIG_DIR_ENV",
     "PI_PROVIDER_NAME",
     "ListedModel",

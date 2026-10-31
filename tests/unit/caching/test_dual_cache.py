@@ -7,11 +7,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from litellm.caching.dual_cache import DualCache
-from litellm.caching.in_memory_cache import InMemoryCache
-from litellm.caching.redis_cache import RedisCache, _redis_circuit_breaker_guard, _redis_circuit_breaker_guard_sync
-from litellm.constants import DEFAULT_MAX_REDIS_BATCH_CACHE_SIZE
-from litellm.types.caching import RedisPipelineIncrementOperation
+from embrouter.caching.dual_cache import DualCache
+from embrouter.caching.in_memory_cache import InMemoryCache
+from embrouter.caching.redis_cache import RedisCache, _redis_circuit_breaker_guard, _redis_circuit_breaker_guard_sync
+from embrouter.constants import DEFAULT_MAX_REDIS_BATCH_CACHE_SIZE
+from embrouter.types.caching import RedisPipelineIncrementOperation
 
 
 @pytest.mark.asyncio
@@ -370,7 +370,7 @@ async def test_dual_cache_sync_and_async_set_cache_use_same_ttl():
 
 def test_circuit_breaker_opens_after_threshold():
     """Circuit opens after N consecutive Redis failures."""
-    from litellm.caching.redis_cache import RedisCircuitBreaker
+    from embrouter.caching.redis_cache import RedisCircuitBreaker
 
     cb = RedisCircuitBreaker(failure_threshold=3, recovery_timeout=60)
     for _ in range(3):
@@ -382,7 +382,7 @@ def test_circuit_breaker_opens_after_threshold():
 @pytest.mark.asyncio
 async def test_circuit_breaker_open_skips_redis():
     """When circuit is open, the guard decorator raises immediately without calling the method."""
-    from litellm.caching.redis_cache import (
+    from embrouter.caching.redis_cache import (
         RedisCircuitBreaker,
         _redis_circuit_breaker_guard,
     )
@@ -408,7 +408,7 @@ async def test_circuit_breaker_open_skips_redis():
 
 def test_circuit_breaker_closes_on_recovery():
     """After recovery_timeout expires, probe is allowed and success closes the circuit."""
-    from litellm.caching.redis_cache import RedisCircuitBreaker
+    from embrouter.caching.redis_cache import RedisCircuitBreaker
 
     cb = RedisCircuitBreaker(failure_threshold=3, recovery_timeout=60)
     cb._state = "open"
@@ -430,7 +430,7 @@ def test_circuit_breaker_half_open_concurrent_calls_are_fast_failed():
     state is already HALF_OPEN must be fast-failed (return True), not allowed
     through as additional probes.
     """
-    from litellm.caching.redis_cache import RedisCircuitBreaker
+    from embrouter.caching.redis_cache import RedisCircuitBreaker
 
     cb = RedisCircuitBreaker(failure_threshold=3, recovery_timeout=60)
     cb._state = "open"
@@ -447,7 +447,7 @@ def test_circuit_breaker_half_open_concurrent_calls_are_fast_failed():
 
 def test_circuit_breaker_disabled_never_opens():
     """When disabled, failures never open the circuit and is_open() stays False."""
-    from litellm.caching.redis_cache import RedisCircuitBreaker
+    from embrouter.caching.redis_cache import RedisCircuitBreaker
 
     cb = RedisCircuitBreaker(failure_threshold=3, recovery_timeout=60, enabled=False)
 
@@ -464,7 +464,7 @@ def test_circuit_breaker_disabled_record_success_leaves_state_untouched():
     a non-default (OPEN) state and assert record_success() returns without
     resetting it — the same enabled-guard contract as is_open/record_failure.
     """
-    from litellm.caching.redis_cache import RedisCircuitBreaker
+    from embrouter.caching.redis_cache import RedisCircuitBreaker
 
     cb = RedisCircuitBreaker(failure_threshold=3, recovery_timeout=60, enabled=False)
     cb._state = "open"
@@ -479,7 +479,7 @@ def test_circuit_breaker_disabled_record_success_leaves_state_untouched():
 @pytest.mark.asyncio
 async def test_circuit_breaker_disabled_guard_always_calls_method():
     """A disabled breaker lets every guarded call through, even after failures."""
-    from litellm.caching.redis_cache import (
+    from embrouter.caching.redis_cache import (
         RedisCircuitBreaker,
         _redis_circuit_breaker_guard,
     )
@@ -595,7 +595,7 @@ async def test_dual_cache_late_attach_redis_wires_writes_and_ttl_async():
 
 class _OpenBreakerRedis:
     def __init__(self) -> None:
-        from litellm.caching.redis_cache import RedisCircuitBreaker
+        from embrouter.caching.redis_cache import RedisCircuitBreaker
 
         self._circuit_breaker = RedisCircuitBreaker(failure_threshold=3, recovery_timeout=60)
         for _ in range(3):
@@ -653,7 +653,7 @@ async def test_an_open_circuit_breaker_is_not_an_error_per_request(caplog, call)
     cache = DualCache(in_memory_cache=InMemoryCache(), redis_cache=_OpenBreakerRedis())  # pyright: ignore[reportArgumentType]  # duck-typed Redis double
     caplog.clear()
 
-    with caplog.at_level(logging.DEBUG, logger="LiteLLM"):
+    with caplog.at_level(logging.DEBUG, logger="EmbRouter"):
         await call(cache)
 
     assert [record.levelno for record in caplog.records if record.levelno >= logging.WARNING] == []
@@ -669,7 +669,7 @@ def test_an_open_circuit_breaker_is_not_an_error_per_sync_request(caplog, call):
     cache = DualCache(in_memory_cache=InMemoryCache(), redis_cache=_OpenBreakerRedis())  # pyright: ignore[reportArgumentType]  # duck-typed Redis double
     caplog.clear()
 
-    with caplog.at_level(logging.DEBUG, logger="LiteLLM"):
+    with caplog.at_level(logging.DEBUG, logger="EmbRouter"):
         call(cache)
 
     assert [record.levelno for record in caplog.records if record.levelno >= logging.WARNING] == []
@@ -684,11 +684,11 @@ async def test_a_real_redis_failure_still_logs_an_error(caplog):
 
     cache = DualCache(in_memory_cache=InMemoryCache(), redis_cache=_BrokenRedis())  # pyright: ignore[reportArgumentType]  # duck-typed Redis double
 
-    with caplog.at_level(logging.DEBUG, logger="LiteLLM"):
+    with caplog.at_level(logging.DEBUG, logger="EmbRouter"):
         assert await cache.async_get_cache("k") is None
 
     errors = [record for record in caplog.records if record.levelno == logging.ERROR]
-    assert [record.getMessage() for record in errors] == ["LiteLLM Cache: exception in async_get_cache: redis is down"]
+    assert [record.getMessage() for record in errors] == ["EmbRouter Cache: exception in async_get_cache: redis is down"]
     assert errors[0].exc_info is not None
 
 
@@ -724,8 +724,8 @@ async def test_redis_timeouts_falling_back_to_memory_log_once_per_interval(caplo
     """The first fallback WARNING of a timeout streak logs, the rest stay at DEBUG until the summary."""
     from redis.exceptions import TimeoutError as RedisTimeoutError
 
-    from litellm.caching import redis_cache as redis_cache_module
-    from litellm.caching.redis_cache import _RedisTimeoutLogThrottle
+    from embrouter.caching import redis_cache as redis_cache_module
+    from embrouter.caching.redis_cache import _RedisTimeoutLogThrottle
 
     clock = MagicMock(return_value=1_000.0)
     monkeypatch.setattr(
@@ -745,7 +745,7 @@ async def test_redis_timeouts_falling_back_to_memory_log_once_per_interval(caplo
     )
     increments = [RedisPipelineIncrementOperation(key="k", increment_value=1.0, ttl=60)]
 
-    with caplog.at_level(logging.DEBUG, logger="LiteLLM"):
+    with caplog.at_level(logging.DEBUG, logger="EmbRouter"):
         for _ in range(100):
             await cache.async_increment_cache_pipeline(increment_list=increments)
             await cache.async_increment_cache("k", 1.0)
@@ -763,7 +763,7 @@ async def test_redis_timeouts_falling_back_to_memory_log_once_per_interval(caplo
 
     caplog.clear()
     clock.return_value += 5.0
-    with caplog.at_level(logging.DEBUG, logger="LiteLLM"):
+    with caplog.at_level(logging.DEBUG, logger="EmbRouter"):
         await cache.async_increment_cache("k", 1.0)
     assert [(r.levelno, r.getMessage()) for r in caplog.records] == [
         (

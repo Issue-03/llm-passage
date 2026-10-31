@@ -2,7 +2,7 @@
 BYOK (Bring Your Own Key) OAuth 2.1 Authorization Server endpoints for MCP servers.
 
 When an MCP client connects to a BYOK-enabled server and no stored credential exists,
-LiteLLM runs a minimal OAuth 2.1 authorization code flow.  The "authorization page" is
+EmbRouter runs a minimal OAuth 2.1 authorization code flow.  The "authorization page" is
 just a form that asks the user for their API key — not a full identity-provider OAuth.
 
 Endpoints implemented here:
@@ -24,17 +24,17 @@ import jwt
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy._experimental.mcp_server.db import store_user_credential
-from litellm.proxy._experimental.mcp_server.oauth_utils import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy._experimental.mcp_server.db import store_user_credential
+from embrouter.proxy._experimental.mcp_server.oauth_utils import (
     BYOK_RESOURCE_METADATA_PATH,
     TOKEN_NO_CACHE_HEADERS,
     get_request_base_url,
     validate_loopback_redirect_uri,
     well_known_root_suffix,
 )
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.middleware.per_request_root_path_middleware import get_server_root_paths
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.middleware.per_request_root_path_middleware import get_server_root_paths
 
 # ---------------------------------------------------------------------------
 # In-memory store for pending authorization codes.
@@ -101,7 +101,7 @@ def _session_identity_from_cookie(request: Request) -> tuple[str | None, str | N
     rejecting any token whose ``type`` identifies it as non-UI.
     """
     # Inline import avoids a circular dep (proxy_server -> mcp_server router).
-    from litellm.proxy.proxy_server import master_key
+    from embrouter.proxy.proxy_server import master_key
 
     if not master_key:
         return None, None
@@ -144,9 +144,9 @@ async def _session_key_is_live(session_key: str | None) -> bool:
     unrevocable by construction (scoped out of revocation); they pass through
     on their bounded 10-minute lifetime, as before.
     """
-    from litellm.proxy._types import hash_token
-    from litellm.proxy.auth.auth_checks import get_key_object
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy._types import hash_token
+    from embrouter.proxy.auth.auth_checks import get_key_object
+    from embrouter.proxy.proxy_server import (
         prisma_client,
         proxy_logging_obj,
         user_api_key_cache,
@@ -236,7 +236,7 @@ def _build_authorize_html(
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Connect {server_name} &mdash; LiteLLM</title>
+<title>Connect {server_name} &mdash; EmbRouter</title>
 <style>
   *, *::before, *::after {{ box-sizing: border-box; margin: 0; padding: 0; }}
   body {{
@@ -506,13 +506,13 @@ def _build_authorize_html(
     <button class="close-btn" type="button" onclick="doCancel()" title="Close">&times;</button>
 
     <div class="logos">
-      <img src="/ui/assets/logos/litellm_logo.jpg" class="logo-img" alt="LiteLLM">
+      <img src="/ui/assets/logos/embrouter_logo.jpg" class="logo-img" alt="EmbRouter">
       <span class="logo-arrow">&#8594;</span>
       <div class="logo logo-s">{server_initial}</div>
     </div>
 
     <h2 class="step-title">Connect {server_name} MCP</h2>
-    <p class="step-subtitle">LiteLLM needs access to {server_name} to complete your request.</p>
+    <p class="step-subtitle">EmbRouter needs access to {server_name} to complete your request.</p>
 
     <div class="info-box">
       <span class="info-icon">
@@ -520,7 +520,7 @@ def _build_authorize_html(
       </span>
       <div>
         <h4>How it works</h4>
-        <p>LiteLLM acts as a secure bridge. Your requests are routed through our MCP client directly to {server_name}&rsquo;s API.</p>
+        <p>EmbRouter acts as a secure bridge. Your requests are routed through our MCP client directly to {server_name}&rsquo;s API.</p>
       </div>
     </div>
 
@@ -738,7 +738,7 @@ async def byok_authorize_get(
     help_url = ""
     if server_id:
         try:
-            from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+            from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
                 global_mcp_server_manager,
             )
 
@@ -847,7 +847,7 @@ async def byok_token(
     2. Stores the API key via store_user_credential().
     3. Issues a signed JWT with type="byok_session".
     """
-    from litellm.proxy.proxy_server import master_key, prisma_client
+    from embrouter.proxy.proxy_server import master_key, prisma_client
 
     _purge_expired_codes()
 
@@ -914,7 +914,7 @@ async def byok_token(
             )
             # Invalidate any cached negative result so the user isn't blocked
             # for up to the TTL period after completing the OAuth flow.
-            from litellm.proxy._experimental.mcp_server.server import (
+            from embrouter.proxy._experimental.mcp_server.server import (
                 _invalidate_byok_cred_cache,
             )
 

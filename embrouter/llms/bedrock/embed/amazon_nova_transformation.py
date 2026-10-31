@@ -14,7 +14,7 @@ Docs - https://docs.aws.amazon.com/bedrock/latest/userguide/nova-embed.html
 
 from typing import Final
 
-from litellm.types.utils import (
+from embrouter.types.utils import (
     Embedding,
     EmbeddingResponse,
     PromptTokensDetailsWrapper,
@@ -340,7 +340,7 @@ class AmazonNovaEmbeddingConfig:
         usage: Final = Usage(prompt_tokens=0, total_tokens=0)
 
         # Create hidden params with job ID
-        from litellm.types.llms.base import HiddenParams
+        from embrouter.types.llms.base import HiddenParams
 
         hidden_params: Final = HiddenParams()
         setattr(hidden_params, "_invocation_arn", invocation_arn)

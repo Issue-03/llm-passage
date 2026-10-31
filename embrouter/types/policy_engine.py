@@ -1,12 +1,12 @@
 """
-Type definitions for the LiteLLM Policy Engine.
+Type definitions for the EmbRouter Policy Engine.
 
-This module re-exports types from litellm.types.proxy.policy_engine for backward compatibility.
-The canonical location for these types is litellm/types/proxy/policy_engine/.
+This module re-exports types from embrouter.types.proxy.policy_engine for backward compatibility.
+The canonical location for these types is embrouter/types/proxy/policy_engine/.
 """
 
 # Re-export all types from the new location
-from litellm.types.proxy.policy_engine import (  # Policy types; Validation types; Resolver types
+from embrouter.types.proxy.policy_engine import (  # Policy types; Validation types; Resolver types
     Policy,
     PolicyConfig,
     PolicyGuardrails,

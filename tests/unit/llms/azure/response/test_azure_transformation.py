@@ -4,23 +4,23 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import litellm
-from litellm.litellm_core_utils.get_model_cost_map import get_model_cost_map
-from litellm.llms.azure.responses.o_series_transformation import (
+import embrouter
+from embrouter.embrouter_core_utils.get_model_cost_map import get_model_cost_map
+from embrouter.llms.azure.responses.o_series_transformation import (
     AzureOpenAIOSeriesResponsesAPIConfig,
 )
-from litellm.llms.azure.responses.transformation import AzureOpenAIResponsesAPIConfig
-from litellm.types.llms.openai import ResponsesAPIOptionalRequestParams
-from litellm.types.router import GenericLiteLLMParams
+from embrouter.llms.azure.responses.transformation import AzureOpenAIResponsesAPIConfig
+from embrouter.types.llms.openai import ResponsesAPIOptionalRequestParams
+from embrouter.types.router import GenericEmbRouterParams
 
 
 @pytest.mark.serial
-def test_validate_environment_api_key_within_litellm_params():
+def test_validate_environment_api_key_within_embrouter_params():
     azure_openai_responses_apiconfig = AzureOpenAIResponsesAPIConfig()
-    litellm_params = GenericLiteLLMParams(api_key="test-api-key")
+    embrouter_params = GenericEmbRouterParams(api_key="test-api-key")
 
     result = azure_openai_responses_apiconfig.validate_environment(
-        headers={}, model="", litellm_params=litellm_params
+        headers={}, model="", embrouter_params=embrouter_params
     )
 
     expected = {"api-key": "test-api-key"}
@@ -29,13 +29,13 @@ def test_validate_environment_api_key_within_litellm_params():
 
 
 @pytest.mark.serial
-def test_validate_environment_api_key_within_litellm():
+def test_validate_environment_api_key_within_embrouter():
     azure_openai_responses_apiconfig = AzureOpenAIResponsesAPIConfig()
 
-    with patch("litellm.api_key", "test-api-key"):
-        litellm_params = GenericLiteLLMParams()
+    with patch("embrouter.api_key", "test-api-key"):
+        embrouter_params = GenericEmbRouterParams()
         result = azure_openai_responses_apiconfig.validate_environment(
-            headers={}, model="", litellm_params=litellm_params
+            headers={}, model="", embrouter_params=embrouter_params
         )
 
         expected = {"api-key": "test-api-key"}
@@ -44,13 +44,13 @@ def test_validate_environment_api_key_within_litellm():
 
 
 @pytest.mark.serial
-def test_validate_environment_azure_key_within_litellm():
+def test_validate_environment_azure_key_within_embrouter():
     azure_openai_responses_apiconfig = AzureOpenAIResponsesAPIConfig()
 
-    with patch("litellm.azure_key", "test-azure-key"):
-        litellm_params = GenericLiteLLMParams()
+    with patch("embrouter.azure_key", "test-azure-key"):
+        embrouter_params = GenericEmbRouterParams()
         result = azure_openai_responses_apiconfig.validate_environment(
-            headers={}, model="", litellm_params=litellm_params
+            headers={}, model="", embrouter_params=embrouter_params
         )
 
         expected = {"api-key": "test-azure-key"}
@@ -62,10 +62,10 @@ def test_validate_environment_azure_key_within_litellm():
 def test_validate_environment_azure_key_within_headers():
     azure_openai_responses_apiconfig = AzureOpenAIResponsesAPIConfig()
     headers = {"api-key": "test-api-key-from-headers"}
-    litellm_params = GenericLiteLLMParams()
+    embrouter_params = GenericEmbRouterParams()
 
     result = azure_openai_responses_apiconfig.validate_environment(
-        headers=headers, model="", litellm_params=litellm_params
+        headers=headers, model="", embrouter_params=embrouter_params
     )
 
     expected = {"api-key": "test-api-key-from-headers"}
@@ -79,14 +79,14 @@ def test_get_complete_url():
     Test the get_complete_url function
     """
     azure_openai_responses_apiconfig = AzureOpenAIResponsesAPIConfig()
-    api_base = "https://litellm8397336933.openai.azure.com"
-    litellm_params = {"api_version": "2024-05-01-preview"}
+    api_base = "https://embrouter8397336933.openai.azure.com"
+    embrouter_params = {"api_version": "2024-05-01-preview"}
 
     result = azure_openai_responses_apiconfig.get_complete_url(
-        api_base=api_base, litellm_params=litellm_params
+        api_base=api_base, embrouter_params=embrouter_params
     )
 
-    expected = "https://litellm8397336933.openai.azure.com/openai/responses?api-version=2024-05-01-preview"
+    expected = "https://embrouter8397336933.openai.azure.com/openai/responses?api-version=2024-05-01-preview"
 
     assert result == expected
 
@@ -95,20 +95,20 @@ def test_get_complete_url():
 def test_response_id_path_requests_encode_response_id():
     config = AzureOpenAIResponsesAPIConfig()
     api_base = (
-        "https://litellm8397336933.openai.azure.com/openai/responses"
+        "https://embrouter8397336933.openai.azure.com/openai/responses"
         "?api-version=2024-05-01-preview"
     )
 
     url, params = config.transform_cancel_response_api_request(
         response_id="../../responses/other?x=1#frag",
         api_base=api_base,
-        litellm_params=GenericLiteLLMParams(),
+        embrouter_params=GenericEmbRouterParams(),
         headers={},
     )
 
     assert (
         url
-        == "https://litellm8397336933.openai.azure.com/openai/responses/..%2F..%2Fresponses%2Fother%3Fx%3D1%23frag/cancel?api-version=2024-05-01-preview"
+        == "https://embrouter8397336933.openai.azure.com/openai/responses/..%2F..%2Fresponses%2Fother%3Fx%3D1%23frag/cancel?api-version=2024-05-01-preview"
     )
     assert params == {}
 
@@ -220,25 +220,25 @@ def test_o_series_model_detection():
 @pytest.mark.serial
 def test_provider_config_manager_o_series_selection():
     """Test that ProviderConfigManager returns the correct config for O-series vs regular models."""
-    import litellm
-    from litellm.utils import ProviderConfigManager
+    import embrouter
+    from embrouter.utils import ProviderConfigManager
 
     # Test O-series model selection
     o_series_config = ProviderConfigManager.get_provider_responses_api_config(
-        provider=litellm.LlmProviders.AZURE, model="o_series/gpt-o1"
+        provider=embrouter.LlmProviders.AZURE, model="o_series/gpt-o1"
     )
     assert isinstance(o_series_config, AzureOpenAIOSeriesResponsesAPIConfig)
 
     # Test regular model selection
     regular_config = ProviderConfigManager.get_provider_responses_api_config(
-        provider=litellm.LlmProviders.AZURE, model="gpt-4o"
+        provider=embrouter.LlmProviders.AZURE, model="gpt-4o"
     )
     assert isinstance(regular_config, AzureOpenAIResponsesAPIConfig)
     assert not isinstance(regular_config, AzureOpenAIOSeriesResponsesAPIConfig)
 
     # Test with no model specified (should default to regular)
     default_config = ProviderConfigManager.get_provider_responses_api_config(
-        provider=litellm.LlmProviders.AZURE, model=None
+        provider=embrouter.LlmProviders.AZURE, model=None
     )
     assert isinstance(default_config, AzureOpenAIResponsesAPIConfig)
     assert not isinstance(default_config, AzureOpenAIOSeriesResponsesAPIConfig)
@@ -255,79 +255,79 @@ class TestAzureResponsesAPIConfig:
 
     def test_azure_get_complete_url_with_version_types(self):
         """Test Azure get_complete_url with different API version types"""
-        base_url = "https://litellm8397336933.openai.azure.com"
+        base_url = "https://embrouter8397336933.openai.azure.com"
 
         # Test with preview version - should use openai/v1/responses
         result_preview = self.config.get_complete_url(
             api_base=base_url,
-            litellm_params={"api_version": "preview"},
+            embrouter_params={"api_version": "preview"},
         )
         assert (
             result_preview
-            == "https://litellm8397336933.openai.azure.com/openai/v1/responses?api-version=preview"
+            == "https://embrouter8397336933.openai.azure.com/openai/v1/responses?api-version=preview"
         )
 
         # Test with latest version - should use openai/v1/responses
         result_latest = self.config.get_complete_url(
             api_base=base_url,
-            litellm_params={"api_version": "latest"},
+            embrouter_params={"api_version": "latest"},
         )
         assert (
             result_latest
-            == "https://litellm8397336933.openai.azure.com/openai/v1/responses?api-version=latest"
+            == "https://embrouter8397336933.openai.azure.com/openai/v1/responses?api-version=latest"
         )
 
         # Test with date-based version - should use openai/responses
         result_date = self.config.get_complete_url(
             api_base=base_url,
-            litellm_params={"api_version": "2025-01-01"},
+            embrouter_params={"api_version": "2025-01-01"},
         )
         assert (
             result_date
-            == "https://litellm8397336933.openai.azure.com/openai/responses?api-version=2025-01-01"
+            == "https://embrouter8397336933.openai.azure.com/openai/responses?api-version=2025-01-01"
         )
 
     def test_azure_get_complete_url_with_default_api_version(self):
         """Test Azure get_complete_url uses default API version when none is provided"""
-        from litellm.constants import AZURE_DEFAULT_RESPONSES_API_VERSION
+        from embrouter.constants import AZURE_DEFAULT_RESPONSES_API_VERSION
 
-        base_url = "https://litellm8397336933.openai.azure.com"
+        base_url = "https://embrouter8397336933.openai.azure.com"
 
         # Test with no api_version provided - should use default
         result_no_version = self.config.get_complete_url(
             api_base=base_url,
-            litellm_params={},
+            embrouter_params={},
         )
-        expected_url = f"https://litellm8397336933.openai.azure.com/openai/v1/responses?api-version={AZURE_DEFAULT_RESPONSES_API_VERSION}"
+        expected_url = f"https://embrouter8397336933.openai.azure.com/openai/v1/responses?api-version={AZURE_DEFAULT_RESPONSES_API_VERSION}"
         assert result_no_version == expected_url
 
-        # Test with empty litellm_params - should use default
+        # Test with empty embrouter_params - should use default
         result_empty_params = self.config.get_complete_url(
             api_base=base_url,
-            litellm_params={},
+            embrouter_params={},
         )
         assert result_empty_params == expected_url
 
         # Test with None api_version - should use default
         result_none_version = self.config.get_complete_url(
             api_base=base_url,
-            litellm_params={"api_version": None},
+            embrouter_params={"api_version": None},
         )
         assert result_none_version == expected_url
 
     def test_azure_cancel_response_api_request(self):
         """Test Azure cancel response API request transformation"""
-        from litellm.types.router import GenericLiteLLMParams
+        from embrouter.types.router import GenericEmbRouterParams
 
         response_id = "resp_test123"
         api_base = "https://test.openai.azure.com/openai/responses?api-version=2024-05-01-preview"
-        litellm_params = GenericLiteLLMParams(api_version="2024-05-01-preview")
+        embrouter_params = GenericEmbRouterParams(api_version="2024-05-01-preview")
         headers = {"Authorization": "Bearer test-key"}
 
         url, data = self.config.transform_cancel_response_api_request(
             response_id=response_id,
             api_base=api_base,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
@@ -336,14 +336,14 @@ class TestAzureResponsesAPIConfig:
         assert data == {}
 
     def test_azure_list_input_items_request_url_path_before_query(self):
-        from litellm.types.router import GenericLiteLLMParams
+        from embrouter.types.router import GenericEmbRouterParams
 
         api_base = "https://test.openai.azure.com/openai/responses?api-version=2025-03-01-preview"
 
         url, params = self.config.transform_list_input_items_request(
             response_id="resp_test123",
             api_base=api_base,
-            litellm_params=GenericLiteLLMParams(api_version="2025-03-01-preview"),
+            embrouter_params=GenericEmbRouterParams(api_version="2025-03-01-preview"),
             headers={},
         )
 
@@ -357,7 +357,7 @@ class TestAzureResponsesAPIConfig:
         """Test Azure cancel response API response transformation"""
         from unittest.mock import Mock
 
-        from litellm.types.llms.openai import ResponsesAPIResponse
+        from embrouter.types.llms.openai import ResponsesAPIResponse
 
         # Mock response
         mock_response = Mock()
@@ -388,7 +388,7 @@ class TestAzureResponsesAPIConfig:
 
     def test_azure_responses_api_tool_flattening_nested_to_flat(self):
         """Test that nested tools are flattened correctly"""
-        from litellm.types.router import GenericLiteLLMParams
+        from embrouter.types.router import GenericEmbRouterParams
 
         # Setup
         nested_tools = [
@@ -403,14 +403,14 @@ class TestAzureResponsesAPIConfig:
         ]
 
         response_api_params = {"tools": nested_tools}
-        litellm_params = GenericLiteLLMParams()
+        embrouter_params = GenericEmbRouterParams()
 
         # Execute
         self.config.transform_responses_api_request(
             model=self.model,
             input="test input",
             response_api_optional_request_params=response_api_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers={},
         )
 
@@ -427,7 +427,7 @@ class TestAzureResponsesAPIConfig:
 
     def test_azure_responses_api_tool_flattening_already_flat(self):
         """Test that already flat tools are passed through unchanged"""
-        from litellm.types.router import GenericLiteLLMParams
+        from embrouter.types.router import GenericEmbRouterParams
 
         # Setup
         flat_tools = [
@@ -441,14 +441,14 @@ class TestAzureResponsesAPIConfig:
 
         # Make a copy to check it doesn't change
         response_api_params = {"tools": list(flat_tools)}
-        litellm_params = GenericLiteLLMParams()
+        embrouter_params = GenericEmbRouterParams()
 
         # Execute
         self.config.transform_responses_api_request(
             model=self.model,
             input="test input",
             response_api_optional_request_params=response_api_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers={},
         )
 
@@ -457,7 +457,7 @@ class TestAzureResponsesAPIConfig:
 
     def test_azure_responses_api_tool_flattening_preserves_original(self):
         """Test that the original tool dictionary is not mutated"""
-        from litellm.types.router import GenericLiteLLMParams
+        from embrouter.types.router import GenericEmbRouterParams
 
         # Setup
         original_tool = {
@@ -467,14 +467,14 @@ class TestAzureResponsesAPIConfig:
         original_tool_copy = deepcopy(original_tool)
 
         response_api_params = {"tools": [original_tool]}
-        litellm_params = GenericLiteLLMParams()
+        embrouter_params = GenericEmbRouterParams()
 
         # Execute
         self.config.transform_responses_api_request(
             model=self.model,
             input="test input",
             response_api_optional_request_params=response_api_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers={},
         )
 
@@ -482,7 +482,7 @@ class TestAzureResponsesAPIConfig:
 
     def test_azure_responses_api_tool_flattening_mixed_tools(self):
         """Test mixed nested and flat tools"""
-        from litellm.types.router import GenericLiteLLMParams
+        from embrouter.types.router import GenericEmbRouterParams
 
         # Setup
         nested_tool = {
@@ -492,14 +492,14 @@ class TestAzureResponsesAPIConfig:
         flat_tool = {"type": "function", "name": "flat", "parameters": {}}
 
         response_api_params = {"tools": [nested_tool, flat_tool]}
-        litellm_params = GenericLiteLLMParams()
+        embrouter_params = GenericEmbRouterParams()
 
         # Execute
         self.config.transform_responses_api_request(
             model=self.model,
             input="test input",
             response_api_optional_request_params=response_api_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers={},
         )
 
@@ -515,18 +515,18 @@ class TestAzureResponsesAPIConfig:
 
     def test_azure_responses_api_tool_flattening_no_tools(self):
         """Test handling when no tools are present"""
-        from litellm.types.router import GenericLiteLLMParams
+        from embrouter.types.router import GenericEmbRouterParams
 
         # Setup
         response_api_params = {}
-        litellm_params = GenericLiteLLMParams()
+        embrouter_params = GenericEmbRouterParams()
 
         # Execute - should not crash
         self.config.transform_responses_api_request(
             model=self.model,
             input="test input",
             response_api_optional_request_params=response_api_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers={},
         )
 
@@ -568,7 +568,7 @@ class TestAzureResponsesAPIConfig:
             model="gpt-4o",
             input="hi",
             response_api_optional_request_params={"tools": [self._anyof_tool()]},
-            litellm_params=GenericLiteLLMParams(),
+            embrouter_params=GenericEmbRouterParams(),
             headers={},
         )
 
@@ -583,7 +583,7 @@ class TestAzureResponsesAPIConfig:
             model="my-eastus-deployment",
             input="hi",
             response_api_optional_request_params={"tools": [self._anyof_tool()]},
-            litellm_params=GenericLiteLLMParams(model_info={"base_model": "azure/gpt-4o"}),
+            embrouter_params=GenericEmbRouterParams(model_info={"base_model": "azure/gpt-4o"}),
             headers={},
         )
 
@@ -596,7 +596,7 @@ class TestAzureResponsesAPIConfig:
             model="my-eastus-deployment",
             input="hi",
             response_api_optional_request_params={"tools": [tool]},
-            litellm_params=GenericLiteLLMParams(model_info={"base_model": "azure/gpt-5.4-mini"}),
+            embrouter_params=GenericEmbRouterParams(model_info={"base_model": "azure/gpt-5.4-mini"}),
             headers={},
         )
 
@@ -618,7 +618,7 @@ class TestAzureResponsesAPIConfig:
             model="my-eastus-deployment",
             input="hi",
             response_api_optional_request_params={"tools": [tool]},
-            litellm_params=GenericLiteLLMParams(model_info={"base_model": "azure/gpt-5.4-mini"}),
+            embrouter_params=GenericEmbRouterParams(model_info={"base_model": "azure/gpt-5.4-mini"}),
             headers={},
         )
 
@@ -635,7 +635,7 @@ class TestAzureResponsesAPIConfig:
             model="my-eastus-deployment",
             input="hi",
             response_api_optional_request_params={"tools": [tool]},
-            litellm_params=GenericLiteLLMParams(),
+            embrouter_params=GenericEmbRouterParams(),
             headers={},
         )
 
@@ -646,9 +646,9 @@ class TestAzureResponsesAPIConfig:
 @pytest.fixture()
 def local_model_cost_map(monkeypatch: pytest.MonkeyPatch) -> None:
     """Pin the bundled cost map: the published map lags a key added in this repo."""
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    monkeypatch.setattr(litellm, "model_cost", get_model_cost_map(url=litellm.model_cost_map_url))
-    litellm.add_known_models(model_cost_map=litellm.model_cost)
+    monkeypatch.setenv("EMBROUTER_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setattr(embrouter, "model_cost", get_model_cost_map(url=embrouter.model_cost_map_url))
+    embrouter.add_known_models(model_cost_map=embrouter.model_cost)
 
 
 def test_azure_responses_gpt6_astra_reasoning_effort_none_unlocks_temperature(local_model_cost_map: None):
@@ -668,7 +668,7 @@ def test_azure_responses_gpt6_astra_reasoning_effort_none_unlocks_temperature(lo
 
 
 def test_azure_responses_gpt6_astra_rejects_temperature_while_reasoning(local_model_cost_map: None):
-    with pytest.raises(litellm.UnsupportedParamsError):
+    with pytest.raises(embrouter.UnsupportedParamsError):
         AzureOpenAIResponsesAPIConfig().map_openai_params(
             response_api_optional_params=ResponsesAPIOptionalRequestParams(
                 temperature=0.2,
@@ -684,7 +684,7 @@ def test_azure_responses_sends_the_deployment_name_when_azure_ai_prefix_survives
         model="azure_ai/gpt-5.4-nano",
         input="hi",
         response_api_optional_request_params={},
-        litellm_params=GenericLiteLLMParams(),
+        embrouter_params=GenericEmbRouterParams(),
         headers={},
     )
     assert request["model"] == "gpt-5.4-nano"

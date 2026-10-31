@@ -50,12 +50,12 @@ vi.mock("../complianceUI/ComplianceUI", () => ({
 const AGENTS: AgentModel[] = [
   {
     model_name: "support-agent",
-    litellm_params: { model: "litellm_agent/gpt-4o", litellm_system_prompt: "Be helpful.", temperature: 0.3 },
+    embrouter_params: { model: "embrouter_agent/gpt-4o", embrouter_system_prompt: "Be helpful.", temperature: 0.3 },
     model_info: { id: "agent-1" },
   },
   {
     model_name: "research-agent",
-    litellm_params: { model: "litellm_agent/claude-sonnet-4" },
+    embrouter_params: { model: "embrouter_agent/claude-sonnet-4" },
     model_info: { id: "agent-2" },
   },
 ];
@@ -73,7 +73,7 @@ const controlUnder = (label: string): HTMLElement =>
 const renderView = () => render(<AgentBuilderView {...props} />);
 
 const waitForRoster = async () => {
-  await screen.findByRole("button", { name: "support-agent litellm_agent" });
+  await screen.findByRole("button", { name: "support-agent embrouter_agent" });
 };
 
 beforeEach(() => {
@@ -126,7 +126,7 @@ describe("AgentBuilderView", () => {
     renderView();
     await waitForRoster();
 
-    expect(screen.getByRole("button", { name: "research-agent litellm_agent" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "research-agent embrouter_agent" })).toBeInTheDocument();
     expect(screen.getByText("Agent Builder")).toBeInTheDocument();
     expect(await screen.findByDisplayValue("support-agent")).toBeInTheDocument();
     expect(screen.getByDisplayValue("Be helpful.")).toBeInTheDocument();
@@ -138,7 +138,7 @@ describe("AgentBuilderView", () => {
     renderView();
     await waitForRoster();
 
-    await user.click(screen.getByRole("button", { name: "research-agent litellm_agent" }));
+    await user.click(screen.getByRole("button", { name: "research-agent embrouter_agent" }));
 
     expect(await screen.findByDisplayValue("research-agent")).toBeInTheDocument();
   });
@@ -155,7 +155,7 @@ describe("AgentBuilderView", () => {
     expect(screen.queryByRole("button", { name: /Update Agent/i })).not.toBeInTheDocument();
   });
 
-  it("creates the agent under the litellm_agent prefix", async () => {
+  it("creates the agent under the embrouter_agent prefix", async () => {
     const user = userEvent.setup();
     renderView();
     await waitForRoster();
@@ -167,7 +167,7 @@ describe("AgentBuilderView", () => {
     await waitFor(() => expect(modelCreateCall).toHaveBeenCalled());
     const payload = modelCreateCall.mock.calls[0][1];
     expect(payload.model_name).toBe("billing-agent");
-    expect(payload.litellm_params.model).toBe("litellm_agent/gpt-4o");
+    expect(payload.embrouter_params.model).toBe("embrouter_agent/gpt-4o");
   });
 
   it("will not save a draft without a name", async () => {
@@ -236,7 +236,7 @@ describe("AgentBuilderView", () => {
     const snippet = await screen.findByTestId("code-block");
     expect(snippet).toHaveTextContent("https://proxy.example.com/v1/chat/completions");
     expect(snippet).toHaveTextContent('"model": "support-agent"');
-    expect(snippet).toHaveTextContent("x-litellm-api-key: Bearer <your-master-key>");
+    expect(snippet).toHaveTextContent("x-embrouter-api-key: Bearer <your-master-key>");
   });
 
   it("mints a key scoped to the selected agent", async () => {
@@ -299,8 +299,8 @@ describe("AgentBuilderView", () => {
     await user.click(screen.getByRole("button", { name: /Update Agent/i }));
 
     await waitFor(() => expect(modelPatchUpdateCall).toHaveBeenCalled());
-    expect(modelPatchUpdateCall.mock.calls[0][1].litellm_params.tools).toEqual([
-      { type: "mcp", server_label: "litellm", server_url: "litellm_proxy/mcp/github", require_approval: "never" },
+    expect(modelPatchUpdateCall.mock.calls[0][1].embrouter_params.tools).toEqual([
+      { type: "mcp", server_label: "embrouter", server_url: "embrouter_proxy/mcp/github", require_approval: "never" },
     ]);
   });
 

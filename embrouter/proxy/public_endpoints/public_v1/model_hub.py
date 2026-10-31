@@ -8,13 +8,13 @@ from typing import Annotated, Final, Literal, Protocol
 from fastapi import APIRouter, Depends, Request
 from typing_extensions import ReadOnly, TypedDict
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy._types import CommonProxyErrors, UserAPIKeyAuth
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.list_api.common import PROBLEM_TYPE_BASE, ManagementProblem
-from litellm.proxy.list_api.in_memory import Cells, InMemoryListExecutor
-from litellm.proxy.list_api.list_framework import (
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy._types import CommonProxyErrors, UserAPIKeyAuth
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.list_api.common import PROBLEM_TYPE_BASE, ManagementProblem
+from embrouter.proxy.list_api.in_memory import Cells, InMemoryListExecutor
+from embrouter.proxy.list_api.list_framework import (
     FilterSpec,
     ListSpec,
     Scope,
@@ -23,13 +23,13 @@ from litellm.proxy.list_api.list_framework import (
     handle_facet,
     handle_list,
 )
-from litellm.proxy.utils import PrismaClient
-from litellm.types.proxy.management_endpoints.management_v1 import (
+from embrouter.proxy.utils import PrismaClient
+from embrouter.types.proxy.management_endpoints.management_v1 import (
     FacetListResponse,
     ListResponse,
     ProblemDetail,
 )
-from litellm.types.proxy.management_endpoints.model_management_endpoints import (
+from embrouter.types.proxy.management_endpoints.model_management_endpoints import (
     ModelGroupInfoProxy,
 )
 
@@ -185,7 +185,7 @@ MODEL_HUB_LIST_SPEC: Final[ListSpec[ModelGroupInfoProxy, ModelGroupInfoProxy]] =
 
 
 def _published_rows() -> Sequence[ModelGroupInfoProxy]:
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         _get_model_group_info,  # pyright: ignore[reportPrivateUsage]  # /public/model_hub imports it the same way
         llm_router,
     )
@@ -199,12 +199,12 @@ def _published_rows() -> Sequence[ModelGroupInfoProxy]:
                 detail=CommonProxyErrors.no_llm_router.value,
             )
         )
-    if litellm.public_model_groups is None:
+    if embrouter.public_model_groups is None:
         return ()
     return tuple(
         _get_model_group_info(
             llm_router=llm_router,
-            all_models_str=litellm.public_model_groups,
+            all_models_str=embrouter.public_model_groups,
             model_group=None,
         )
     )
@@ -248,7 +248,7 @@ async def public_model_hub_list(
     ```
     """
     try:
-        from litellm.proxy.proxy_server import prisma_client
+        from embrouter.proxy.proxy_server import prisma_client
 
         return await handle_list(
             spec=MODEL_HUB_LIST_SPEC,
@@ -261,7 +261,7 @@ async def public_model_hub_list(
         raise
     except Exception as e:  # noqa: BLE001  # a router error answers as a problem document, not the OpenAI error shape
         verbose_proxy_logger.exception(
-            "litellm.proxy.public_endpoints.public_v1.model_hub.public_model_hub_list(): Exception occured - %s", e
+            "embrouter.proxy.public_endpoints.public_v1.model_hub.public_model_hub_list(): Exception occured - %s", e
         )
         raise ManagementProblem(
             ProblemDetail(
@@ -311,7 +311,7 @@ async def public_model_hub_facet(
         raise
     except Exception as e:  # noqa: BLE001  # a router error answers as a problem document, not the OpenAI error shape
         verbose_proxy_logger.exception(
-            "litellm.proxy.public_endpoints.public_v1.model_hub.public_model_hub_facet(): Exception occured - %s", e
+            "embrouter.proxy.public_endpoints.public_v1.model_hub.public_model_hub_facet(): Exception occured - %s", e
         )
         raise ManagementProblem(
             ProblemDetail(

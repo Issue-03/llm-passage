@@ -18,13 +18,13 @@ from opentelemetry.sdk.trace.export import SpanExporter, SpanExportResult
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from litellm._logging import verbose_logger
-from litellm.integrations.otel.model.config import (
+from embrouter._logging import verbose_logger
+from embrouter.integrations.otel.model.config import (
     ExporterOwner,
     ExporterSpec,
     OpenTelemetryV2Config,
 )
-from litellm.integrations.otel.plumbing.providers import register_exporter_factory
+from embrouter.integrations.otel.plumbing.providers import register_exporter_factory
 
 _AGENTOPS_ENDPOINT: Final = "https://otlp.agentops.ai/v1/traces"
 _AGENTOPS_AUTH_ENDPOINT: Final = "https://api.agentops.ai/v3/auth/token"

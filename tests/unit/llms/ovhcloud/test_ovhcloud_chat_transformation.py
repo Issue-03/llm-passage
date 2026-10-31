@@ -5,11 +5,11 @@ Unit tests for OVHCloud AI Endpoints chat integration.
 
 import pytest
 
-from litellm.llms.ovhcloud.utils import OVHCloudException
-from litellm.utils import get_optional_params
+from embrouter.llms.ovhcloud.utils import OVHCloudException
+from embrouter.utils import get_optional_params
 
 
-from litellm.llms.ovhcloud.chat.transformation import (
+from embrouter.llms.ovhcloud.chat.transformation import (
     OVHCloudChatCompletionStreamingHandler,
     OVHCloudChatConfig,
 )
@@ -85,7 +85,7 @@ class TestOVHCloudConfig:
             model,
             messages=[{"role": "user", "content": "Hello, world!"}],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -100,7 +100,7 @@ class TestOVHCloudConfig:
             model,
             messages=[{"role": "user", "content": "Hello, world!"}],
             optional_params={"extra_body": {"custom_param": "custom_value"}},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -154,7 +154,7 @@ class TestOVHCloudConfig:
         """
         OVHCloud AI Endpoints are OpenAI-compatible; tools/tool_choice must pass
         through for any model. The server is responsible for rejecting unsupported
-        tool calls — LiteLLM must not strip them based on a stale static catalog.
+        tool calls — EmbRouter must not strip them based on a stale static catalog.
         """
 
         params = get_optional_params(

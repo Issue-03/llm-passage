@@ -1,7 +1,7 @@
 import json
 from typing import Any, Final
 
-from litellm.constants import DEFAULT_MAX_RECURSE_DEPTH
+from embrouter.constants import DEFAULT_MAX_RECURSE_DEPTH
 
 
 def normalize_json_schema_types(
@@ -106,7 +106,7 @@ def validate_schema(schema: dict, response: str):
     """
     from jsonschema import ValidationError, validate
 
-    from litellm import JSONSchemaValidationError
+    from embrouter import JSONSchemaValidationError
 
     try:
         response_dict: Final = json.loads(response)

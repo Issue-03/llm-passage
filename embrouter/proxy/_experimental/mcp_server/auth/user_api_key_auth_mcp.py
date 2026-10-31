@@ -11,16 +11,16 @@ from starlette.requests import Request
 from starlette.types import Scope
 from typing_extensions import assert_never
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.constants import MCP_ALL_TOOLS_WILDCARD
-from litellm.proxy._experimental.mcp_server.oauth_utils import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.constants import MCP_ALL_TOOLS_WILDCARD
+from embrouter.proxy._experimental.mcp_server.oauth_utils import (
     get_passthrough_resource_metadata_url,
     get_passthrough_www_authenticate,
     get_request_base_url,
     well_known_root_suffix,
 )
-from litellm.proxy._experimental.mcp_server.outbound_credentials.bridge_credentials import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.bridge_credentials import (
     BridgeEnvelopeAdmitted,
     BridgeEnvelopeInvalid,
     NotBridgeEnvelope,
@@ -28,16 +28,16 @@ from litellm.proxy._experimental.mcp_server.outbound_credentials.bridge_credenti
     is_bridge_envelope_shaped,
     resolve_bridge_envelope,
 )
-from litellm.proxy._experimental.mcp_server.outbound_credentials.envelope import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.envelope import (
     EnvelopeIdentity,
 )
-from litellm.proxy._experimental.mcp_server.outbound_credentials.session_credentials import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.session_credentials import (
     is_session_bearer_shaped,
 )
-from litellm.proxy._types import (
+from embrouter.proxy._types import (
     UI_TEAM_ID,
-    LiteLLM_ObjectPermissionTable,
-    LiteLLM_TeamTable,
+    EmbRouter_ObjectPermissionTable,
+    EmbRouter_TeamTable,
     ProxyException,
     SpecialHeaders,
     SpecialMCPServerName,
@@ -46,32 +46,32 @@ from litellm.proxy._types import (
     hash_token,
     user_api_key_has_admin_view,
 )
-from litellm.proxy.agent_endpoints.auth.agent_access_groups import (
+from embrouter.proxy.agent_endpoints.auth.agent_access_groups import (
     CeilingResolver,
     resolve_agent_access_group_ceiling,
 )
-from litellm.proxy.agent_endpoints.auth.agent_caller import agent_caller_auth
-from litellm.proxy.agent_endpoints.auth.managed_authorization import managed_agent_policy
-from litellm.proxy.auth.ip_address_utils import IPAddressUtils
-from litellm.proxy.auth.user_api_key_auth import (
-    _get_bearer_token_or_received_api_key,  # pyright: ignore[reportPrivateUsage]  # shared x-litellm-api-key parser lives with user_api_key_auth
+from embrouter.proxy.agent_endpoints.auth.agent_caller import agent_caller_auth
+from embrouter.proxy.agent_endpoints.auth.managed_authorization import managed_agent_policy
+from embrouter.proxy.auth.ip_address_utils import IPAddressUtils
+from embrouter.proxy.auth.user_api_key_auth import (
+    _get_bearer_token_or_received_api_key,  # pyright: ignore[reportPrivateUsage]  # shared x-embrouter-api-key parser lives with user_api_key_auth
     _run_centralized_common_checks,
     user_api_key_auth,
 )
-from litellm.proxy.common_utils.http_parsing_utils import _read_request_body
-from litellm.proxy.common_utils.user_api_key_cache import (
+from embrouter.proxy.common_utils.http_parsing_utils import _read_request_body
+from embrouter.proxy.common_utils.user_api_key_cache import (
     USER_NO_MCP_PERMISSION_SENTINEL,
     get_management_object_ttl,
     user_object_permission_id_cache_key,
 )
-from litellm.repositories.table_repositories import (
+from embrouter.repositories.table_repositories import (
     AgentsRepository,
     MCPServerRepository,
 )
-from litellm.types.mcp_server.mcp_server_manager import MCPServer
+from embrouter.types.mcp_server.mcp_server_manager import MCPServer
 
 if TYPE_CHECKING:
-    from litellm.proxy.utils import PrismaClient
+    from embrouter.proxy.utils import PrismaClient
 
 
 _EMPTY_TOOLSET_GRANTS: Final[Mapping[str, Sequence[str]]] = MappingProxyType({})
@@ -141,7 +141,7 @@ def _is_mcp_passthrough_cold_start(mcp_servers: list[str] | None, client_ip: str
     cannot be resolved."""
     if not mcp_servers:
         return False
-    from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+    from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
         global_mcp_server_manager,
     )
 
@@ -156,11 +156,11 @@ def _is_legacy_delegate_cold_start(mcp_servers: list[str] | None, client_ip: str
     """Allow only credential-free legacy delegates to reach the route's OAuth challenge."""
     if not mcp_servers:
         return False
-    from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+    from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
         MCPServerManager,
         global_mcp_server_manager,
     )
-    from litellm.types.mcp import MCPAuth
+    from embrouter.types.mcp import MCPAuth
 
     for name in mcp_servers:
         server = global_mcp_server_manager.get_mcp_server_by_name(name, client_ip=client_ip)
@@ -173,7 +173,7 @@ def _is_legacy_delegate_cold_start(mcp_servers: list[str] | None, client_ip: str
     return True
 
 
-def _is_litellm_auth_admission_error(exc: Exception) -> bool:
+def _is_embrouter_auth_admission_error(exc: Exception) -> bool:
     if isinstance(exc, HTTPException):
         return exc.status_code == 401
     if isinstance(exc, ProxyException):
@@ -236,7 +236,7 @@ def _gateway_dcr_challenge_target(
     client_ip: str | None,
 ) -> str | None:
     """Resolve a single path target whose sign-in metadata advertises the gateway."""
-    from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+    from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
         global_mcp_server_manager,
     )
 
@@ -266,7 +266,7 @@ def _is_gateway_dcr_challenge_scope(
     (the resource the client configured is still ``/mcp``), or a per-server path whose
     single target advertises gateway-owned sign-in. Every other named target keeps
     its existing behavior, failing closed to the original admission error."""
-    if not _is_litellm_auth_admission_error(exc):
+    if not _is_embrouter_auth_admission_error(exc):
         return False
     if _has_client_supplied_mcp_auth(mcp_auth_header, mcp_server_auth_headers):
         return False
@@ -317,7 +317,7 @@ def _admission_failure_fallback(
     exc: Exception,
     bearer_presented: bool,
 ) -> UserAPIKeyAuth:
-    """Map a failed LiteLLM admission to its anonymous fallback or challenge.
+    """Map a failed EmbRouter admission to its anonymous fallback or challenge.
 
     Two fallbacks exist, both gated on a genuine 401 with no client-supplied
     MCP auth headers. The pass-through cold start (RFC 9728 / MCP
@@ -332,7 +332,7 @@ def _admission_failure_fallback(
     if (
         mcp_servers_from_path is not None
         and not _has_client_supplied_mcp_auth(mcp_auth_header, mcp_server_auth_headers)
-        and _is_litellm_auth_admission_error(exc)
+        and _is_embrouter_auth_admission_error(exc)
         and (
             _is_mcp_passthrough_cold_start(
                 mcp_servers_from_path,
@@ -380,7 +380,7 @@ class DcrBridgeTarget:
 class MCPRequestHandler:
     """
     Class to handle MCP request processing, including:
-    1. Authentication via LiteLLM API keys
+    1. Authentication via EmbRouter API keys
     2. MCP server configuration and routing
     3. Header extraction and validation
 
@@ -403,15 +403,15 @@ class MCPRequestHandler:
       configured, for the duration of a cold-cache or DB fault.
     """
 
-    LITELLM_API_KEY_HEADER_NAME_PRIMARY = SpecialHeaders.custom_litellm_api_key.value
-    LITELLM_API_KEY_HEADER_NAME_SECONDARY = SpecialHeaders.openai_authorization.value
+    EMBROUTER_API_KEY_HEADER_NAME_PRIMARY = SpecialHeaders.custom_embrouter_api_key.value
+    EMBROUTER_API_KEY_HEADER_NAME_SECONDARY = SpecialHeaders.openai_authorization.value
 
-    # This is the header to use if you want LiteLLM to use this header for authenticating to the MCP server
-    LITELLM_MCP_AUTH_HEADER_NAME = SpecialHeaders.mcp_auth.value
+    # This is the header to use if you want EmbRouter to use this header for authenticating to the MCP server
+    EMBROUTER_MCP_AUTH_HEADER_NAME = SpecialHeaders.mcp_auth.value
 
-    LITELLM_MCP_SERVERS_HEADER_NAME = SpecialHeaders.mcp_servers.value
+    EMBROUTER_MCP_SERVERS_HEADER_NAME = SpecialHeaders.mcp_servers.value
 
-    LITELLM_MCP_ACCESS_GROUPS_HEADER_NAME = SpecialHeaders.mcp_access_groups.value
+    EMBROUTER_MCP_ACCESS_GROUPS_HEADER_NAME = SpecialHeaders.mcp_access_groups.value
 
     @staticmethod
     async def process_mcp_request(
@@ -448,10 +448,10 @@ class MCPRequestHandler:
         """
         headers: Final = MCPRequestHandler._safe_get_headers_from_scope(scope)
 
-        # Check if there is an explicit LiteLLM API key (primary header)
-        has_explicit_litellm_key: Final = headers.get(MCPRequestHandler.LITELLM_API_KEY_HEADER_NAME_PRIMARY) is not None
+        # Check if there is an explicit EmbRouter API key (primary header)
+        has_explicit_embrouter_key: Final = headers.get(MCPRequestHandler.EMBROUTER_API_KEY_HEADER_NAME_PRIMARY) is not None
 
-        litellm_api_key: Final = MCPRequestHandler.get_litellm_api_key_from_headers(headers) or ""
+        embrouter_api_key: Final = MCPRequestHandler.get_embrouter_api_key_from_headers(headers) or ""
 
         # Get the old mcp_auth_header for backward compatibility
         mcp_auth_header = MCPRequestHandler._get_mcp_auth_header_from_headers(headers)
@@ -463,7 +463,7 @@ class MCPRequestHandler:
         oauth2_headers = MCPRequestHandler._get_oauth2_headers_from_headers(headers)
 
         # Parse MCP servers from header
-        mcp_servers_header: Final = headers.get(MCPRequestHandler.LITELLM_MCP_SERVERS_HEADER_NAME)
+        mcp_servers_header: Final = headers.get(MCPRequestHandler.EMBROUTER_MCP_SERVERS_HEADER_NAME)
         verbose_logger.debug("Raw MCP servers header: %s", mcp_servers_header)
         mcp_servers = None
         if mcp_servers_header is not None:
@@ -483,7 +483,7 @@ class MCPRequestHandler:
 
         request.body = mock_body
         # Inline import — auth_utils participates in a proxy import cycle.
-        from litellm.proxy.auth.auth_utils import (  # noqa: PLC0415
+        from embrouter.proxy.auth.auth_utils import (  # noqa: PLC0415
             get_request_route,
         )
 
@@ -492,7 +492,7 @@ class MCPRequestHandler:
         if request_route.startswith("/.well-known/"):
             validated_user_api_key_auth = UserAPIKeyAuth()
         elif (
-            has_explicit_litellm_key
+            has_explicit_embrouter_key
             and oauth2_headers
             and is_bridge_envelope_shaped(oauth2_headers["Authorization"])
             and (
@@ -511,17 +511,17 @@ class MCPRequestHandler:
                 server=dual_bridge_target.server,
                 requested_name=dual_bridge_target.requested_name,
                 authorization_value=oauth2_headers["Authorization"],
-                litellm_api_key=litellm_api_key,
+                embrouter_api_key=embrouter_api_key,
                 mcp_server_auth_headers=mcp_server_auth_headers,
                 request=request,
                 route=request_route,
             )
-        elif has_explicit_litellm_key:
-            # An explicit x-litellm-api-key is always a LiteLLM credential, even
+        elif has_explicit_embrouter_key:
+            # An explicit x-embrouter-api-key is always a EmbRouter credential, even
             # for a delegated server, so validate it: identity / spend / rate
             # limits resolve and any stored upstream token can be forwarded.
             validated_user_api_key_auth = await user_api_key_auth(
-                api_key=f"Bearer {_get_bearer_token_or_received_api_key(litellm_api_key)}",
+                api_key=f"Bearer {_get_bearer_token_or_received_api_key(embrouter_api_key)}",
                 request=request,
             )
         elif MCPRequestHandler._target_servers_are_true_passthrough(
@@ -554,14 +554,14 @@ class MCPRequestHandler:
                 server=bridge_delegate_target.server,
                 requested_name=bridge_delegate_target.requested_name,
                 authorization_value=oauth2_headers["Authorization"],
-                litellm_api_key=litellm_api_key,
+                embrouter_api_key=embrouter_api_key,
                 mcp_server_auth_headers=mcp_server_auth_headers,
                 request=request,
                 route=request_route,
             )
         elif oauth2_headers and is_session_bearer_shaped(oauth2_headers["Authorization"]):
             # A gateway DCR session bearer at any MCP scope: open the identity-only session
-            # token and admit under the live litellm user; downstream grant resolution
+            # token and admit under the live embrouter user; downstream grant resolution
             # intersects the admitted subject's servers with any path or header target, so a
             # per-server scope narrows and never broadens. One that does not open fails
             # closed with the scope's invalid_token challenge; a non-session bearer falls
@@ -574,10 +574,10 @@ class MCPRequestHandler:
             )
         elif oauth2_headers:
             # Authorization on a non-delegated server: the bearer must be a real
-            # LiteLLM credential, so a failed validation is a genuine 401/403 and
+            # EmbRouter credential, so a failed validation is a genuine 401/403 and
             # propagates unless a fallback in _admission_failure_fallback applies.
             try:
-                validated_user_api_key_auth = await user_api_key_auth(api_key=litellm_api_key, request=request)
+                validated_user_api_key_auth = await user_api_key_auth(api_key=embrouter_api_key, request=request)
             except (HTTPException, ProxyException) as e:
                 validated_user_api_key_auth = _admission_failure_fallback(
                     request=request,
@@ -590,7 +590,7 @@ class MCPRequestHandler:
                 )
         else:
             try:
-                validated_user_api_key_auth = await user_api_key_auth(api_key=litellm_api_key, request=request)
+                validated_user_api_key_auth = await user_api_key_auth(api_key=embrouter_api_key, request=request)
             except (HTTPException, ProxyException) as exc:
                 validated_user_api_key_auth = _admission_failure_fallback(
                     request=request,
@@ -688,7 +688,7 @@ class MCPRequestHandler:
         so the names used for auth gating match the names used for downstream
         filtering. Without this alignment, an attacker could craft
         ``/mcp/<delegated_server>/<garbage>`` so that auth treats the request
-        as targeting the delegate server (bypassing LiteLLM auth) while
+        as targeting the delegate server (bypassing EmbRouter auth) while
         downstream filtering sees a different (non-existent) target and falls
         back to the caller's full allowed-server set.
 
@@ -742,14 +742,14 @@ class MCPRequestHandler:
         True only when EVERY MCP server the request targets is ``auth_type == true_passthrough``.
         Fails closed when any target does not opt in or cannot be resolved.
 
-        Used by :meth:`process_mcp_request` to skip LiteLLM admission auth entirely: the gateway is a
-        transparent proxy and the caller's ``Authorization`` is an upstream token, never a LiteLLM key.
+        Used by :meth:`process_mcp_request` to skip EmbRouter admission auth entirely: the gateway is a
+        transparent proxy and the caller's ``Authorization`` is an upstream token, never a EmbRouter key.
         A mixed-target request keeps normal auth.
         """
-        from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+        from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
             global_mcp_server_manager,
         )
-        from litellm.types.mcp import MCPAuth
+        from embrouter.types.mcp import MCPAuth
 
         target_names: Final = MCPRequestHandler._resolve_target_server_names(path=path, mcp_servers_header=mcp_servers)
         if not target_names:
@@ -773,7 +773,7 @@ class MCPRequestHandler:
         envelope admission arm never fires for an aggregate scope or a server that did not
         opt into the bridge. Mirrors :meth:`_target_servers_are_true_passthrough`.
         """
-        from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+        from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
             global_mcp_server_manager,
         )
 
@@ -862,7 +862,7 @@ class MCPRequestHandler:
         the envelope's crypto. Returns only the ``BridgeEnvelopeAdmitted`` result; an invalid,
         expired, tampered, or non-envelope value raises the requested scope's ``invalid_token``
         challenge instead."""
-        from litellm.proxy.proxy_server import master_key
+        from embrouter.proxy.proxy_server import master_key
 
         if not master_key:
             raise HTTPException(status_code=500, detail="Server misconfigured: master_key is not set")
@@ -885,14 +885,14 @@ class MCPRequestHandler:
         server: MCPServer,
         requested_name: str,
         authorization_value: str,
-        litellm_api_key: str,
+        embrouter_api_key: str,
         mcp_server_auth_headers: dict[str, dict[str, str]] | None,
         request: Request,
         route: str,
     ) -> tuple[UserAPIKeyAuth, dict[str, dict[str, str]] | None]:
-        """Admit a request carrying BOTH an explicit litellm credential and a bridge envelope.
+        """Admit a request carrying BOTH an explicit embrouter credential and a bridge envelope.
 
-        MCP clients send ``x-litellm-api-key`` on every request, including the ``tools/list`` that
+        MCP clients send ``x-embrouter-api-key`` on every request, including the ``tools/list`` that
         follows the ``/{server}/token`` mint, so the envelope arrives alongside the key rather than
         alone. The explicit credential is validated first (its own pipeline, so a bad key keeps the
         normal 401/403), then the envelope is opened and its sealed identity must match the explicit
@@ -901,7 +901,7 @@ class MCPRequestHandler:
         permissions, budgets, rate limits) and the sealed upstream token is injected under the
         server's per-server auth-header key, while the leak-defense chokepoint strips the envelope
         ``Authorization`` itself from egress."""
-        presented_token: Final = _get_bearer_token_or_received_api_key(litellm_api_key)
+        presented_token: Final = _get_bearer_token_or_received_api_key(embrouter_api_key)
         explicit_auth: Final = await user_api_key_auth(api_key=f"Bearer {presented_token}", request=request)
         result: Final = await MCPRequestHandler._open_dcr_bridge_envelope(
             server=server,
@@ -940,7 +940,7 @@ class MCPRequestHandler:
         server: MCPServer,
         requested_name: str,
         authorization_value: str,
-        litellm_api_key: str,
+        embrouter_api_key: str,
         mcp_server_auth_headers: dict[str, dict[str, str]] | None,  # mutable-ok: existing MCP sink shape
         request: Request,
         route: str,
@@ -955,9 +955,9 @@ class MCPRequestHandler:
                 route=route,
             )
         try:
-            admitted: Final = await user_api_key_auth(api_key=litellm_api_key, request=request)
+            admitted: Final = await user_api_key_auth(api_key=embrouter_api_key, request=request)
         except (HTTPException, ProxyException) as exc:
-            if not _is_litellm_auth_admission_error(exc):
+            if not _is_embrouter_auth_admission_error(exc):
                 raise
             raise MCPRequestHandler._dcr_bridge_invalid_token_challenge(
                 requested_name=requested_name, request=request
@@ -992,7 +992,7 @@ class MCPRequestHandler:
         route: str,
         mcp_servers: list[str] | None,
     ) -> UserAPIKeyAuth:
-        """Open a gateway DCR session bearer and admit the live litellm user it references.
+        """Open a gateway DCR session bearer and admit the live embrouter user it references.
 
         Identity-only sibling of :meth:`_admit_dcr_bridge_delegate`: the session token seals no
         upstream credential (those are vaulted per user, resolved at egress), so authorization is
@@ -1000,7 +1000,7 @@ class MCPRequestHandler:
         mint-time snapshot. Pre-DB gates (size, IP, route allowlist) run first, mirroring the standard
         pipeline. Fails closed with the requested scope's ``invalid_token`` challenge on an expired,
         tampered, foreign, or refresh token, or a missing/deactivated/policy-rejected user."""
-        from litellm.proxy._experimental.mcp_server.outbound_credentials.session_credentials import (
+        from embrouter.proxy._experimental.mcp_server.outbound_credentials.session_credentials import (
             NotSessionBearer,
             SessionBearerAdmitted,
             SessionBearerInvalid,
@@ -1008,7 +1008,7 @@ class MCPRequestHandler:
             active_session_signing_keys,
             resolve_session_bearer,
         )
-        from litellm.proxy.proxy_server import master_key
+        from embrouter.proxy.proxy_server import master_key
 
         if not master_key:
             raise HTTPException(status_code=500, detail="Server misconfigured: master_key is not set")
@@ -1058,7 +1058,7 @@ class MCPRequestHandler:
         envelope crypto so a disallowed caller is turned away before any work, mirroring the
         standard pipeline's pre-DB ordering. Violations raise the gate's own status (an IP or
         route block is a 403, an oversized body its own limit error)."""
-        from litellm.proxy.auth.auth_utils import pre_db_read_auth_checks
+        from embrouter.proxy.auth.auth_utils import pre_db_read_auth_checks
 
         await pre_db_read_auth_checks(
             request=request,
@@ -1068,10 +1068,10 @@ class MCPRequestHandler:
 
     @staticmethod
     async def _reload_admitted_principal(identity: EnvelopeIdentity) -> UserAPIKeyAuth:
-        """Reload the live litellm record the envelope's subject references.
+        """Reload the live embrouter record the envelope's subject references.
 
         Dispatches on the sealed subject type: a ``key_hash`` reloads the virtual key that
-        minted the envelope (the scripted two-header client that presents a litellm key at the
+        minted the envelope (the scripted two-header client that presents a embrouter key at the
         token endpoint), a ``user_id`` reloads the user that authenticated interactively (the
         DCR client, whose SSO login at the bridged authorize yields a user, not a key). Both
         return a ``UserAPIKeyAuth`` the caller runs through the centralized policy gate, so
@@ -1100,8 +1100,8 @@ class MCPRequestHandler:
         ``_raise_503_if_db_unavailable`` walks the cause chain so an outage stays a retryable 503 whichever
         shape it arrives in, while any other failure fails closed as 401, not an opaque 500; the
         object-permission load shares that boundary."""
-        from litellm.proxy.auth.auth_checks import get_object_permission, get_user_object
-        from litellm.proxy.proxy_server import prisma_client, user_api_key_cache
+        from embrouter.proxy.auth.auth_checks import get_object_permission, get_user_object
+        from embrouter.proxy.proxy_server import prisma_client, user_api_key_cache
 
         if prisma_client is None:
             raise HTTPException(status_code=500, detail="Server misconfigured: no database connection")
@@ -1114,7 +1114,7 @@ class MCPRequestHandler:
                 check_db_only=requires_fresh_policy,
             )
             # Resolve the user's own MCP object permission (get_user_object does not load it) so the shared
-            # get_allowed_mcp_servers can grant the user their litellm-granted servers. Reuses the same
+            # get_allowed_mcp_servers can grant the user their embrouter-granted servers. Reuses the same
             # get_object_permission resolver the key and team paths use; no permission logic is duplicated.
             object_permission = user_object.object_permission if user_object is not None else None
             if user_object is not None and object_permission is None and user_object.object_permission_id:
@@ -1169,7 +1169,7 @@ class MCPRequestHandler:
         so each is resolved to an id via ``expand_permission_list`` before the membership check. Returns
         None (no descriptors) when nothing applies; a lookup failure narrows to None rather than raising,
         since rate limiting must not deny a request authorization already allowed."""
-        from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+        from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
             global_mcp_server_manager,
         )
 
@@ -1221,11 +1221,11 @@ class MCPRequestHandler:
         project, org, and budget state are NOT re-checked here; the caller runs the admitted
         identity through ``_enforce_admitted_live_policy`` for those.
         """
-        from litellm.proxy._experimental.mcp_server.bridge_token_flow import (
+        from embrouter.proxy._experimental.mcp_server.bridge_token_flow import (
             master_key_admin_auth,  # noqa: PLC0415  # inline import avoids a module-load circular import
         )
-        from litellm.proxy.auth.auth_checks import get_key_object
-        from litellm.proxy.proxy_server import prisma_client, user_api_key_cache
+        from embrouter.proxy.auth.auth_checks import get_key_object
+        from embrouter.proxy.proxy_server import prisma_client, user_api_key_cache
 
         admin: Final = master_key_admin_auth(key_hash)
         if admin is not None:
@@ -1258,7 +1258,7 @@ class MCPRequestHandler:
 
         Classifies across the ``__cause__``/``__context__`` chain, not just ``e`` itself, so an outage a
         caller re-raised inside a domain exception is still recognized."""
-        from litellm.proxy.db.exception_handler import PrismaDBExceptionHandler
+        from embrouter.proxy.db.exception_handler import PrismaDBExceptionHandler
 
         outage: Final = PrismaDBExceptionHandler.find_database_service_unavailable_error_in_chain(e)
         if outage is not None:
@@ -1280,8 +1280,8 @@ class MCPRequestHandler:
         keeping parity with how the standard pipeline treats the same lookup failure."""
         if key_object.user_id is None:
             return
-        from litellm.proxy.auth.auth_checks import get_user_object
-        from litellm.proxy.proxy_server import prisma_client, user_api_key_cache
+        from embrouter.proxy.auth.auth_checks import get_user_object
+        from embrouter.proxy.proxy_server import prisma_client, user_api_key_cache
 
         try:
             user_object = await get_user_object(
@@ -1321,7 +1321,7 @@ class MCPRequestHandler:
         credential was invalid, which on a DCR client reads as broken auth and can trigger a
         pointless re-authorize loop that cannot fix a budget problem, and it masked a DB outage as an
         auth error."""
-        from litellm.proxy.auth.route_checks import RouteChecks
+        from embrouter.proxy.auth.route_checks import RouteChecks
 
         admitted.budget_reservation = None
         try:
@@ -1334,7 +1334,7 @@ class MCPRequestHandler:
             )
         except (HTTPException, ProxyException):
             raise
-        except litellm.BudgetExceededError as e:
+        except embrouter.BudgetExceededError as e:
             raise HTTPException(status_code=getattr(e, "status_code", 429), detail=str(e)) from None
         except Exception as e:  # noqa: BLE001  # untyped gate failure: retryable 503 for a DB outage, else fail closed 401
             MCPRequestHandler._raise_503_if_db_unavailable(e)
@@ -1378,14 +1378,14 @@ class MCPRequestHandler:
     @staticmethod
     def _get_mcp_auth_header_from_headers(headers: Headers) -> str | None:
         """
-        Get the header passed to LiteLLM to pass to downstream MCP servers
+        Get the header passed to EmbRouter to pass to downstream MCP servers
 
-        By default litellm will check for the header `x-mcp-auth` by setting one of the following:
-            1. `LITELLM_MCP_CLIENT_SIDE_AUTH_HEADER_NAME` as an environment variable
+        By default embrouter will check for the header `x-mcp-auth` by setting one of the following:
+            1. `EMBROUTER_MCP_CLIENT_SIDE_AUTH_HEADER_NAME` as an environment variable
             2. `mcp_client_side_auth_header_name` in the general settings on the config.yaml file
 
 
-        If you want to use a different header name, you can set the `LITELLM_MCP_CLIENT_SIDE_AUTH_HEADER_NAME` in the secret manager or `mcp_client_side_auth_header_name` in the general settings.
+        If you want to use a different header name, you can set the `EMBROUTER_MCP_CLIENT_SIDE_AUTH_HEADER_NAME` in the secret manager or `mcp_client_side_auth_header_name` in the general settings.
 
         DEPRECATED: This method is deprecated in favor of server-specific auth headers using the format x-mcp-{{server_alias}}-{{header_name}} instead.
         """
@@ -1421,8 +1421,8 @@ class MCPRequestHandler:
             if header_name.lower().startswith(prefix):
                 # Skip the access groups header as it's not a server auth header
                 if (
-                    header_name.lower() == MCPRequestHandler.LITELLM_MCP_ACCESS_GROUPS_HEADER_NAME.lower()
-                    or header_name.lower() == MCPRequestHandler.LITELLM_MCP_SERVERS_HEADER_NAME.lower()
+                    header_name.lower() == MCPRequestHandler.EMBROUTER_MCP_ACCESS_GROUPS_HEADER_NAME.lower()
+                    or header_name.lower() == MCPRequestHandler.EMBROUTER_MCP_SERVERS_HEADER_NAME.lower()
                 ):
                     continue
 
@@ -1468,17 +1468,17 @@ class MCPRequestHandler:
         """
         Get the header name used to pass the MCP auth header to the MCP server
 
-        By default litellm will check for the header `x-mcp-auth` by setting one of the following:
-            1. `LITELLM_MCP_CLIENT_SIDE_AUTH_HEADER_NAME` as an environment variable
+        By default embrouter will check for the header `x-mcp-auth` by setting one of the following:
+            1. `EMBROUTER_MCP_CLIENT_SIDE_AUTH_HEADER_NAME` as an environment variable
             2. `mcp_client_side_auth_header_name` in the general settings on the config.yaml file
         """
-        from litellm.proxy.proxy_server import general_settings
-        from litellm.secret_managers.main import get_secret_str
+        from embrouter.proxy.proxy_server import general_settings
+        from embrouter.secret_managers.main import get_secret_str
 
-        MCP_CLIENT_SIDE_AUTH_HEADER_NAME: str = MCPRequestHandler.LITELLM_MCP_AUTH_HEADER_NAME
-        if get_secret_str("LITELLM_MCP_CLIENT_SIDE_AUTH_HEADER_NAME") is not None:
+        MCP_CLIENT_SIDE_AUTH_HEADER_NAME: str = MCPRequestHandler.EMBROUTER_MCP_AUTH_HEADER_NAME
+        if get_secret_str("EMBROUTER_MCP_CLIENT_SIDE_AUTH_HEADER_NAME") is not None:
             MCP_CLIENT_SIDE_AUTH_HEADER_NAME = (
-                get_secret_str("LITELLM_MCP_CLIENT_SIDE_AUTH_HEADER_NAME") or MCP_CLIENT_SIDE_AUTH_HEADER_NAME
+                get_secret_str("EMBROUTER_MCP_CLIENT_SIDE_AUTH_HEADER_NAME") or MCP_CLIENT_SIDE_AUTH_HEADER_NAME
             )
         elif general_settings.get("mcp_client_side_auth_header_name") is not None:
             MCP_CLIENT_SIDE_AUTH_HEADER_NAME = (
@@ -1487,22 +1487,22 @@ class MCPRequestHandler:
         return MCP_CLIENT_SIDE_AUTH_HEADER_NAME
 
     @staticmethod
-    def get_litellm_api_key_from_headers(headers: Headers) -> str | None:
+    def get_embrouter_api_key_from_headers(headers: Headers) -> str | None:
         """
-        Get the Litellm API key from the headers using case-insensitive lookup
+        Get the Embrouter API key from the headers using case-insensitive lookup
 
-        1. Check if `x-litellm-api-key` is in the headers
+        1. Check if `x-embrouter-api-key` is in the headers
         2. If not, check if `Authorization` is in the headers
 
         Args:
             headers: Starlette Headers object that handles case insensitivity
         """
         # Headers object handles case insensitivity automatically
-        api_key: Final = headers.get(MCPRequestHandler.LITELLM_API_KEY_HEADER_NAME_PRIMARY)
+        api_key: Final = headers.get(MCPRequestHandler.EMBROUTER_API_KEY_HEADER_NAME_PRIMARY)
         if api_key:
             return api_key
 
-        auth_header: Final = headers.get(MCPRequestHandler.LITELLM_API_KEY_HEADER_NAME_SECONDARY)
+        auth_header: Final = headers.get(MCPRequestHandler.EMBROUTER_API_KEY_HEADER_NAME_SECONDARY)
         if auth_header:
             return auth_header
 
@@ -1598,10 +1598,10 @@ class MCPRequestHandler:
         Returns:
             List[str]: List of allowed MCP servers by server id
         """
-        from litellm.proxy.proxy_server import general_settings
+        from embrouter.proxy.proxy_server import general_settings
 
         if managed_agent_policy(user_api_key_auth) is not None:
-            from litellm.proxy._experimental.mcp_server.auth.managed_agent_access import managed_agent_servers
+            from embrouter.proxy._experimental.mcp_server.auth.managed_agent_access import managed_agent_servers
 
             return MCPServerAccess(server_ids=await managed_agent_servers(user_api_key_auth), scope="scoped")
 
@@ -1853,7 +1853,7 @@ class MCPRequestHandler:
         own org, not the caller's home org. Roster membership is checked HERE (not per resolution)
         because a user's cached ``teams`` array can name a team whose ``members_with_roles`` no longer
         lists them; the roster is the source of truth for revocation."""
-        from litellm.proxy.proxy_server import prisma_client
+        from embrouter.proxy.proxy_server import prisma_client
 
         sources: Final = [
             MCPRequestHandler._scoped_source_auth(auth, team_id=None, org_id=auth.org_id, carry_user_grants=True)
@@ -1877,15 +1877,15 @@ class MCPRequestHandler:
         return sources
 
     @staticmethod
-    async def _roster_team_object(team_id: str, auth: UserAPIKeyAuth) -> LiteLLM_TeamTable | None:
+    async def _roster_team_object(team_id: str, auth: UserAPIKeyAuth) -> EmbRouter_TeamTable | None:
         """The team row for ``team_id``, but ONLY when ``auth``'s user is a live roster member of it.
 
         The single owner of "is this team really one of this subject's sources", so the grant union
         and the per-team rate limits cannot disagree about which teams count. A team lingering in the
         user's cached ``teams`` array whose ``members_with_roles`` no longer lists them returns None
         here, which is what revokes both its grants and its throttle in one place."""
-        from litellm.proxy.auth.auth_checks import get_team_object
-        from litellm.proxy.proxy_server import (
+        from embrouter.proxy.auth.auth_checks import get_team_object
+        from embrouter.proxy.proxy_server import (
             prisma_client,
             proxy_logging_obj,
             user_api_key_cache,
@@ -1894,7 +1894,7 @@ class MCPRequestHandler:
         if prisma_client is None or not auth.user_id:
             return None
         try:
-            team_obj: Final[LiteLLM_TeamTable | None] = await get_team_object(
+            team_obj: Final[EmbRouter_TeamTable | None] = await get_team_object(
                 team_id=team_id,
                 prisma_client=prisma_client,
                 user_api_key_cache=user_api_key_cache,
@@ -1918,8 +1918,8 @@ class MCPRequestHandler:
         # _organization_max_budget_check), targeted at the TEAM's org through the scoped source view, so
         # no consumer of the source list ever sees an over-budget team. This is ENFORCEMENT of an
         # already-exceeded state; ATTRIBUTION of new spend stays with the user (documented deferral).
-        from litellm.exceptions import BudgetExceededError
-        from litellm.proxy.auth.auth_checks import (
+        from embrouter.exceptions import BudgetExceededError
+        from embrouter.proxy.auth.auth_checks import (
             _organization_max_budget_check,
             _team_max_budget_check,
         )
@@ -1984,7 +1984,7 @@ class MCPRequestHandler:
         if not _is_mcp_admitted_user_subject(auth):
             return auth
         try:
-            from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+            from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
                 global_mcp_server_manager,
             )
 
@@ -2036,7 +2036,7 @@ class MCPRequestHandler:
         onto a server reached through a different source. A source that grants the server with no
         tool restriction means the user can use every tool on it, so allow-all wins the union. When
         no source grants the server the result is ``[]`` — deny all, fail closed."""
-        from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+        from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
             global_mcp_server_manager,
         )
 
@@ -2069,7 +2069,7 @@ class MCPRequestHandler:
         Get key object_permission - already loaded by get_key_object() in main auth flow.
 
         Note: object_permission is automatically populated when the key is fetched via
-        get_key_object() in litellm/proxy/auth/auth_checks.py
+        get_key_object() in embrouter/proxy/auth/auth_checks.py
         """
         if not user_api_key_auth:
             return None
@@ -2079,15 +2079,15 @@ class MCPRequestHandler:
     @staticmethod
     async def _get_team_object_permission(
         user_api_key_auth: UserAPIKeyAuth | None = None,
-    ) -> LiteLLM_ObjectPermissionTable | None:
+    ) -> EmbRouter_ObjectPermissionTable | None:
         """
         Get team object_permission - automatically loaded by get_team_object() in main auth flow.
 
         Note: object_permission is automatically populated when the team is fetched via
-        get_team_object() in litellm/proxy/auth/auth_checks.py
+        get_team_object() in embrouter/proxy/auth/auth_checks.py
         """
-        from litellm.proxy.auth.auth_checks import get_team_object
-        from litellm.proxy.proxy_server import (
+        from embrouter.proxy.auth.auth_checks import get_team_object
+        from embrouter.proxy.proxy_server import (
             prisma_client,
             proxy_logging_obj,
             user_api_key_cache,
@@ -2103,7 +2103,7 @@ class MCPRequestHandler:
             return None
 
         # Get the team object (which has object_permission already loaded)
-        team_obj: Final[LiteLLM_TeamTable | None] = await get_team_object(
+        team_obj: Final[EmbRouter_TeamTable | None] = await get_team_object(
             team_id=user_api_key_auth.team_id,
             prisma_client=prisma_client,
             user_api_key_cache=user_api_key_cache,
@@ -2119,7 +2119,7 @@ class MCPRequestHandler:
 
     @staticmethod
     async def _toolset_tool_permissions(
-        object_permission: LiteLLM_ObjectPermissionTable | None,
+        object_permission: EmbRouter_ObjectPermissionTable | None,
         *,
         requires_fresh_policy: bool = False,
     ) -> Mapping[str, Sequence[str]]:
@@ -2131,7 +2131,7 @@ class MCPRequestHandler:
         nothing (deleted or unknown ids, a swallowed DB fault, or a toolset with no tools): that is a
         KNOWN restriction with unknown contents, and every caller already turns this error into deny
         rather than letting the level read as unrestricted."""
-        from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+        from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
             global_mcp_server_manager,
         )
 
@@ -2149,7 +2149,7 @@ class MCPRequestHandler:
 
     @staticmethod
     async def _toolset_tools_for_server(
-        object_permission: LiteLLM_ObjectPermissionTable | None,
+        object_permission: EmbRouter_ObjectPermissionTable | None,
         server_id: str,
         *,
         requires_fresh_policy: bool = False,
@@ -2179,15 +2179,15 @@ class MCPRequestHandler:
     @staticmethod
     async def _key_object_permission_hydrated(
         user_api_key_auth: UserAPIKeyAuth,
-    ) -> LiteLLM_ObjectPermissionTable | None:
+    ) -> EmbRouter_ObjectPermissionTable | None:
         """The key's object_permission, loading it by ``object_permission_id`` when the main auth
         flow cached the key with the relation unhydrated (its loader swallows a failed read and
         caches the partial object)."""
         loaded: Final = MCPRequestHandler._get_key_object_permission(user_api_key_auth)
         if loaded is not None or not user_api_key_auth.object_permission_id:
             return loaded
-        from litellm.proxy.auth.auth_checks import get_object_permission
-        from litellm.proxy.proxy_server import (
+        from embrouter.proxy.auth.auth_checks import get_object_permission
+        from embrouter.proxy.proxy_server import (
             prisma_client,
             proxy_logging_obj,
             user_api_key_cache,
@@ -2251,7 +2251,7 @@ class MCPRequestHandler:
             return None
 
         if managed_agent_policy(user_api_key_auth) is not None:
-            from litellm.proxy._experimental.mcp_server.auth.managed_agent_access import managed_agent_tools
+            from embrouter.proxy._experimental.mcp_server.auth.managed_agent_access import managed_agent_tools
 
             return await managed_agent_tools(server_id, user_api_key_auth)
 
@@ -2270,7 +2270,7 @@ class MCPRequestHandler:
             # server_ids OR names/aliases; normalize to server_id-keyed form
             # before lookup so a name-based key does not silently drop its
             # tool restrictions when server_id is the resolved uuid.
-            from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+            from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
                 global_mcp_server_manager,
             )
 
@@ -2368,7 +2368,7 @@ class MCPRequestHandler:
         fail-open (skip the org step, keep the key/team/agent restrictions; letting the raise escape
         would collapse them to allow-all, WIDER than before the fault), while a keyless source re-raises
         so the outer handler denies that one source (its only org bound is this ceiling)."""
-        from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+        from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
             global_mcp_server_manager,
         )
 
@@ -2471,7 +2471,7 @@ class MCPRequestHandler:
         user_api_key_auth: UserAPIKeyAuth | None = None,
     ) -> list[str]:
         """
-        Resolve the key's unified `access_group_ids` (LiteLLM_AccessGroupTable) to
+        Resolve the key's unified `access_group_ids` (EmbRouter_AccessGroupTable) to
         MCP server IDs as additive grants: a group attached to the key extends the
         key's allowed servers on top of the key/team ceiling rather than being
         capped by the team. Attaching the group to the key is itself the grant —
@@ -2482,13 +2482,13 @@ class MCPRequestHandler:
         if user_api_key_auth is None:
             return []
         try:
-            from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+            from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
                 global_mcp_server_manager,
             )
-            from litellm.proxy.auth.auth_checks import (
+            from embrouter.proxy.auth.auth_checks import (
                 _get_mcp_server_ids_from_access_groups,
             )
-            from litellm.proxy.proxy_server import (
+            from embrouter.proxy.proxy_server import (
                 prisma_client,
                 proxy_logging_obj,
                 user_api_key_cache,
@@ -2525,13 +2525,13 @@ class MCPRequestHandler:
         if user_api_key_auth is None:
             return []
         try:
-            from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+            from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
                 global_mcp_server_manager,
             )
-            from litellm.proxy.auth.auth_checks import (
+            from embrouter.proxy.auth.auth_checks import (
                 get_object_permission,
             )
-            from litellm.proxy.proxy_server import (
+            from embrouter.proxy.proxy_server import (
                 prisma_client,
                 proxy_logging_obj,
                 user_api_key_cache,
@@ -2632,8 +2632,8 @@ class MCPRequestHandler:
         """The distinct team ids a user belongs to, from the live user record. Returns [] on
         no DB, a missing user, or any resolution failure so a lookup blip narrows access
         rather than raising; the caller's direct grants still apply."""
-        from litellm.proxy.auth.auth_checks import get_user_object
-        from litellm.proxy.proxy_server import (
+        from embrouter.proxy.auth.auth_checks import get_user_object
+        from embrouter.proxy.proxy_server import (
             prisma_client,
             proxy_logging_obj,
             user_api_key_cache,
@@ -2660,7 +2660,7 @@ class MCPRequestHandler:
 
     @staticmethod
     async def _team_granted_servers(
-        team_obj: LiteLLM_TeamTable,
+        team_obj: EmbRouter_TeamTable,
         team_access_group_servers: list[str],
         *,
         requires_fresh_policy: bool = False,
@@ -2669,7 +2669,7 @@ class MCPRequestHandler:
         ``mcp_servers``, the ``all_proxy_servers`` sentinel → the full registry, legacy access groups,
         tool-perm-referenced servers, toolset-referenced servers) unioned with its unified
         ``access_group_ids`` servers."""
-        from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+        from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
             global_mcp_server_manager,
         )
 
@@ -2710,11 +2710,11 @@ class MCPRequestHandler:
           the gate (no assigned_team_ids check needed here).
         """
         try:
-            from litellm.proxy.auth.auth_checks import (
+            from embrouter.proxy.auth.auth_checks import (
                 _get_mcp_server_ids_from_access_groups,
                 get_team_object,
             )
-            from litellm.proxy.proxy_server import (
+            from embrouter.proxy.proxy_server import (
                 prisma_client,
                 proxy_logging_obj,
                 user_api_key_cache,
@@ -2724,7 +2724,7 @@ class MCPRequestHandler:
                 return []
 
             parent_otel_span: Final = user_api_key_auth.parent_otel_span if user_api_key_auth is not None else None
-            team_obj: Final[LiteLLM_TeamTable | None] = await get_team_object(
+            team_obj: Final[EmbRouter_TeamTable | None] = await get_team_object(
                 team_id=team_id,
                 prisma_client=prisma_client,
                 user_api_key_cache=user_api_key_cache,
@@ -2767,15 +2767,15 @@ class MCPRequestHandler:
         object_permission_id: str,
         prisma_client: "PrismaClient",
         user_api_key_auth: UserAPIKeyAuth,
-    ) -> LiteLLM_ObjectPermissionTable:
+    ) -> EmbRouter_ObjectPermissionTable:
         """Load the object permission a principal's row NAMES, or raise ``UnloadableEntitlementError``.
 
         The single place that fault is minted, so end user, agent and org cannot drift on what counts
         as "known entitlement, unknown contents". ``get_object_permission`` answers None for both an
         absent row and a failed read, and neither is evidence the principal is unrestricted: the link
         proves an entitlement was configured, so both must deny."""
-        from litellm.proxy.auth.auth_checks import get_object_permission
-        from litellm.proxy.proxy_server import proxy_logging_obj, user_api_key_cache
+        from embrouter.proxy.auth.auth_checks import get_object_permission
+        from embrouter.proxy.proxy_server import proxy_logging_obj, user_api_key_cache
 
         unloadable: Final = UnloadableEntitlementError(
             f"{principal} names object_permission_id {object_permission_id!r} which could not be loaded"
@@ -2798,7 +2798,7 @@ class MCPRequestHandler:
     @staticmethod
     async def _get_org_object_permission(
         user_api_key_auth: UserAPIKeyAuth | None = None,
-    ) -> LiteLLM_ObjectPermissionTable | None:
+    ) -> EmbRouter_ObjectPermissionTable | None:
         """
         Get org object_permission via the established ``get_org_object`` /
         ``get_object_permission`` helpers so MCP requests share the same
@@ -2808,11 +2808,11 @@ class MCPRequestHandler:
         permission. A row that NAMES one it cannot load raises ``UnloadableEntitlementError``;
         every other lookup failure propagates as itself, leaving the ceiling merely unresolved.
         """
-        from litellm.proxy.auth.auth_checks import (
+        from embrouter.proxy.auth.auth_checks import (
             OrganizationNotFoundError,
             get_org_object,
         )
-        from litellm.proxy.proxy_server import (
+        from embrouter.proxy.proxy_server import (
             prisma_client,
             proxy_logging_obj,
             user_api_key_cache,
@@ -2875,7 +2875,7 @@ class MCPRequestHandler:
             if object_permissions is None:
                 return []
 
-            from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+            from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
                 global_mcp_server_manager,
             )
 
@@ -2915,7 +2915,7 @@ class MCPRequestHandler:
     async def _get_end_user_object_permission(
         user_api_key_auth: UserAPIKeyAuth,
         prisma_client: "PrismaClient",
-    ) -> LiteLLM_ObjectPermissionTable | None:
+    ) -> EmbRouter_ObjectPermissionTable | None:
         """The end user's own object_permission, or ``None`` when this level places no restriction.
 
         ``None`` covers an end user row that is absent or names no permission, and an end user we
@@ -2923,8 +2923,8 @@ class MCPRequestHandler:
         failed read, so this level genuinely cannot tell those apart). A row that DOES name a
         permission we cannot load raises ``UnloadableEntitlementError``: the link is positive
         evidence of an entitlement, so its contents may not be assumed empty."""
-        from litellm.proxy.auth.auth_checks import get_end_user_object
-        from litellm.proxy.proxy_server import proxy_logging_obj, user_api_key_cache
+        from embrouter.proxy.auth.auth_checks import get_end_user_object
+        from embrouter.proxy.proxy_server import proxy_logging_obj, user_api_key_cache
 
         try:
             end_user_obj: Final = await get_end_user_object(
@@ -2965,7 +2965,7 @@ class MCPRequestHandler:
         level places no restriction. An entitlement the end user row NAMES but that cannot be read
         raises ``UnloadableEntitlementError`` out of here so the resolver denies.
         """
-        from litellm.proxy.proxy_server import prisma_client
+        from embrouter.proxy.proxy_server import prisma_client
 
         if not user_api_key_auth or not user_api_key_auth.end_user_id:
             return []
@@ -2980,7 +2980,7 @@ class MCPRequestHandler:
 
         try:
             # Permission entries may be server_ids OR names/aliases — expand to ids.
-            from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+            from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
                 global_mcp_server_manager,
             )
 
@@ -3007,7 +3007,7 @@ class MCPRequestHandler:
     @staticmethod
     async def _get_user_object_permission(
         user_api_key_auth: UserAPIKeyAuth | None = None,
-    ) -> LiteLLM_ObjectPermissionTable | None:
+    ) -> EmbRouter_ObjectPermissionTable | None:
         """The internal user's OWN object_permission: the entitlement attached to the HUMAN rather
         than to the credential they authenticated with.
 
@@ -3023,8 +3023,8 @@ class MCPRequestHandler:
         level existed, so it places no ceiling; a row that NAMES a permission we cannot read is a
         KNOWN entitlement with unknown contents, so it raises and the caller denies.
         """
-        from litellm.proxy.auth.auth_checks import get_object_permission
-        from litellm.proxy.proxy_server import (
+        from embrouter.proxy.auth.auth_checks import get_object_permission
+        from embrouter.proxy.proxy_server import (
             prisma_client,
             proxy_logging_obj,
             user_api_key_cache,
@@ -3070,8 +3070,8 @@ class MCPRequestHandler:
         whether someone is entitled is the state that existed before this level, so it places no
         ceiling. Only a link we DID resolve can make the caller deny.
         """
-        from litellm.proxy.auth.auth_checks import get_user_object
-        from litellm.proxy.proxy_server import user_api_key_cache
+        from embrouter.proxy.auth.auth_checks import get_user_object
+        from embrouter.proxy.proxy_server import user_api_key_cache
 
         cache_key: Final = user_object_permission_id_cache_key(user_id)
         try:
@@ -3112,7 +3112,7 @@ class MCPRequestHandler:
         ``mcp_tool_permissions`` or reached through ``mcp_toolsets`` count as entitled, exactly as
         they do for a key or a team, so granting one tool never requires naming its server twice.
         """
-        from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+        from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
             global_mcp_server_manager,
         )
 
@@ -3175,7 +3175,7 @@ class MCPRequestHandler:
         user_api_key_auth: UserAPIKeyAuth | None = None,
     ) -> tuple[tuple[str, ...], bool]:
         """Narrow an agent key's servers to those the invoking user and team (echoed back by the agent
-        as ``x-litellm-user-id`` / ``x-litellm-team-id``) may reach: the echoed team's grants when it
+        as ``x-embrouter-user-id`` / ``x-embrouter-team-id``) may reach: the echoed team's grants when it
         names any, then the echoed user's own entitlement. Raises like the user ceiling when that
         entitlement is known but unreadable, so the resolver denies rather than widens."""
         caller_auth: Final = agent_caller_auth(user_api_key_auth) if user_api_key_auth else None
@@ -3247,7 +3247,7 @@ class MCPRequestHandler:
         restriction. Returns ``[]`` (deny every tool on this server) when the entitlement cannot be
         resolved, because the caller's own except-handler treats a raise as allow-all for key auth.
         """
-        from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+        from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
             global_mcp_server_manager,
         )
 
@@ -3285,12 +3285,12 @@ class MCPRequestHandler:
         user_api_key_auth: UserAPIKeyAuth | None = None,
     ) -> Sequence[str] | None:
         """Narrow an agent key's tools on ``server_id`` to those the invoking user and team (echoed back
-        by the agent as ``x-litellm-user-id`` / ``x-litellm-team-id``) may call: the echoed team's tool
+        by the agent as ``x-embrouter-user-id`` / ``x-embrouter-team-id``) may call: the echoed team's tool
         grants when it names any on this server, then the echoed user's own tool entitlement. The tools
         axis twin of ``apply_agent_caller_ceiling``, so the headers only ever narrow. Denies every tool
         on the server when the caller's team cannot be loaded, since a caller we cannot resolve must not
         read as unrestricted."""
-        from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+        from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
             global_mcp_server_manager,
         )
 
@@ -3329,10 +3329,10 @@ class MCPRequestHandler:
         user_api_key_auth: UserAPIKeyAuth | None = None,
     ) -> Sequence[str] | None:
         """Narrow a key/team tool allowlist by the end user's (customer's) tool entitlement."""
-        from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+        from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
             global_mcp_server_manager,
         )
-        from litellm.proxy.proxy_server import prisma_client
+        from embrouter.proxy.proxy_server import prisma_client
 
         if user_api_key_auth is None or not user_api_key_auth.end_user_id or prisma_client is None:
             return allowed_tools
@@ -3370,7 +3370,7 @@ class MCPRequestHandler:
         no DB read per MCP request. A read that fails also answers ``None``: not knowing whether the
         agent is entitled is the state that existed before this level, so it places no ceiling. Only
         a link we DID resolve can make the caller deny."""
-        from litellm.proxy.proxy_server import user_api_key_cache
+        from embrouter.proxy.proxy_server import user_api_key_cache
 
         cache_key: Final = f"agent_object_permission_id:{agent_id}"
         try:
@@ -3395,7 +3395,7 @@ class MCPRequestHandler:
     @staticmethod
     async def _get_agent_object_permission(
         user_api_key_auth: UserAPIKeyAuth | None = None,
-    ) -> LiteLLM_ObjectPermissionTable | None:
+    ) -> EmbRouter_ObjectPermissionTable | None:
         """
         Get agent object_permission via the established ``get_object_permission``
         helper. Caches the ``agent_id -> object_permission_id`` mapping so we
@@ -3406,7 +3406,7 @@ class MCPRequestHandler:
         no permission. An agent that LINKS one we cannot load raises ``UnloadableEntitlementError``,
         since a known entitlement with unknown contents must deny rather than read as unrestricted.
         """
-        from litellm.proxy.proxy_server import prisma_client
+        from embrouter.proxy.proxy_server import prisma_client
 
         if not user_api_key_auth or not user_api_key_auth.agent_id:
             return None
@@ -3414,7 +3414,7 @@ class MCPRequestHandler:
         managed: Final = managed_agent_policy(user_api_key_auth)
         if managed is not None:
             permission: Final = managed.object_permission
-            return LiteLLM_ObjectPermissionTable.model_validate(permission) if permission is not None else None
+            return EmbRouter_ObjectPermissionTable.model_validate(permission) if permission is not None else None
 
         if prisma_client is None:
             verbose_logger.debug("prisma_client is None")
@@ -3435,7 +3435,7 @@ class MCPRequestHandler:
     @staticmethod
     async def get_allowed_mcp_servers_for_agent(
         user_api_key_auth: UserAPIKeyAuth | None = None,
-        agent_object_permission: LiteLLM_ObjectPermissionTable | None = None,
+        agent_object_permission: EmbRouter_ObjectPermissionTable | None = None,
     ) -> list[str]:
         """
         Get allowed MCP servers for an agent (from the agent's object_permission).
@@ -3464,7 +3464,7 @@ class MCPRequestHandler:
             return []
 
         try:
-            from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+            from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
                 global_mcp_server_manager,
             )
 
@@ -3492,11 +3492,11 @@ class MCPRequestHandler:
         resolve_ceiling: CeilingResolver = resolve_agent_access_group_ceiling,
     ) -> frozenset[str] | None:
         """
-        Server IDs the agent's attached unified access groups (``LiteLLM_AgentsTable.access_group_ids``)
+        Server IDs the agent's attached unified access groups (``EmbRouter_AgentsTable.access_group_ids``)
         allow, or None when the agent has none attached. Unlike the object_permission path above, an
         attached group set that names no servers is an empty ceiling and denies every server.
         """
-        from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+        from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
             global_mcp_server_manager,
         )
 
@@ -3511,7 +3511,7 @@ class MCPRequestHandler:
     async def get_agent_tool_permissions_for_server(
         server_id: str,
         user_api_key_auth: UserAPIKeyAuth | None = None,
-        agent_object_permission: LiteLLM_ObjectPermissionTable | None = None,
+        agent_object_permission: EmbRouter_ObjectPermissionTable | None = None,
     ) -> list[str] | None:
         """
         Get allowed tool names for a server from the agent's object_permission: the union of its
@@ -3539,7 +3539,7 @@ class MCPRequestHandler:
             return None
 
         try:
-            from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+            from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
                 global_mcp_server_manager,
             )
 
@@ -3605,11 +3605,11 @@ class MCPRequestHandler:
         Resolve MCP access groups to server IDs by querying BOTH the MCP server table (DB) AND config-loaded servers.
         ``requires_fresh_policy`` reads the writer and propagates a read fault instead of resolving to no servers.
         """
-        from litellm.proxy.proxy_server import prisma_client
+        from embrouter.proxy.proxy_server import prisma_client
 
         try:
             # Import here to avoid circular import
-            from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+            from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
                 global_mcp_server_manager,
             )
 
@@ -3658,8 +3658,8 @@ class MCPRequestHandler:
     async def _get_mcp_access_groups_for_key(
         user_api_key_auth: UserAPIKeyAuth | None = None,
     ) -> list[str]:
-        from litellm.proxy.auth.auth_checks import get_object_permission
-        from litellm.proxy.proxy_server import (
+        from embrouter.proxy.auth.auth_checks import get_object_permission
+        from embrouter.proxy.proxy_server import (
             prisma_client,
             proxy_logging_obj,
             user_api_key_cache,
@@ -3699,8 +3699,8 @@ class MCPRequestHandler:
         """
         Get MCP access groups for the team
         """
-        from litellm.proxy.auth.auth_checks import get_team_object
-        from litellm.proxy.proxy_server import (
+        from embrouter.proxy.auth.auth_checks import get_team_object
+        from embrouter.proxy.proxy_server import (
             prisma_client,
             proxy_logging_obj,
             user_api_key_cache,
@@ -3720,7 +3720,7 @@ class MCPRequestHandler:
             return []
 
         try:
-            team_obj: Final[LiteLLM_TeamTable | None] = await get_team_object(
+            team_obj: Final[EmbRouter_TeamTable | None] = await get_team_object(
                 team_id=user_api_key_auth.team_id,
                 prisma_client=prisma_client,
                 user_api_key_cache=user_api_key_cache,
@@ -3746,7 +3746,7 @@ class MCPRequestHandler:
         """
         Extract and parse the x-mcp-access-groups header as a list of strings.
         """
-        mcp_access_groups_header: Final = headers.get(MCPRequestHandler.LITELLM_MCP_ACCESS_GROUPS_HEADER_NAME)
+        mcp_access_groups_header: Final = headers.get(MCPRequestHandler.EMBROUTER_MCP_ACCESS_GROUPS_HEADER_NAME)
         if mcp_access_groups_header is not None:
             try:
                 return [s.strip() for s in mcp_access_groups_header.split(",") if s.strip()]

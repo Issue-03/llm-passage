@@ -1,6 +1,6 @@
 from typing import Final
 
-from litellm.proxy.common_utils.banner import LITELLM_BANNER
+from embrouter.proxy.common_utils.banner import EMBROUTER_BANNER
 
 
 def render_cli_sso_success_page() -> str:
@@ -16,7 +16,7 @@ def render_cli_sso_success_page() -> str:
     <html lang="en">
     <head>
         <meta charset="UTF-8">
-        <title>CLI Authentication Successful - LiteLLM</title>
+        <title>CLI Authentication Successful - EmbRouter</title>
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <style>
             body {{
@@ -152,11 +152,11 @@ def render_cli_sso_success_page() -> str:
         <div class="container">
             <div class="logo-container">
                 <div class="logo">
-                    🚅 LiteLLM
+                    🚅 EmbRouter
                 </div>
             </div>
             
-            <div class="banner">{LITELLM_BANNER}</div>
+            <div class="banner">{EMBROUTER_BANNER}</div>
             
             <h1>Authentication Successful!</h1>
             <p class="subtitle">Your CLI authentication is complete.</p>
@@ -169,7 +169,7 @@ def render_cli_sso_success_page() -> str:
                     </svg>
                     CLI Authentication Complete
                 </div>
-                <p>Your LiteLLM CLI has been successfully authenticated and is ready to use.</p>
+                <p>Your EmbRouter CLI has been successfully authenticated and is ready to use.</p>
             </div>
             
             <div class="instructions">
@@ -182,7 +182,7 @@ def render_cli_sso_success_page() -> str:
                     Next Steps
                 </div>
                 <p>Return to your terminal - the CLI will automatically detect the successful authentication.</p>
-                <p>You can now use LiteLLM CLI commands with your authenticated session.</p>
+                <p>You can now use EmbRouter CLI commands with your authenticated session.</p>
             </div>
             
             <div class="status">You can now close this window and return to your terminal.</div>

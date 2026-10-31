@@ -11,19 +11,19 @@ https://github.com/caozhiyuan/copilot-api
 import os
 from typing import TYPE_CHECKING, Any, Final
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.constants import DEFAULT_MAX_RECURSE_DEPTH
-from litellm.exceptions import AuthenticationError
-from litellm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
-from litellm.types.llms.openai import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.constants import DEFAULT_MAX_RECURSE_DEPTH
+from embrouter.exceptions import AuthenticationError
+from embrouter.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
+from embrouter.types.llms.openai import (
     ResponseInputParam,
     ResponsesAPIOptionalRequestParams,
     ResponsesAPIStreamingResponse,
 )
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import LlmProviders
-from litellm.utils import _cached_get_model_info_helper
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import LlmProviders
+from embrouter.utils import _cached_get_model_info_helper
 
 from ..authenticator import Authenticator
 from ..common_utils import (
@@ -33,11 +33,11 @@ from ..common_utils import (
 )
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 
 def github_copilot_supports_responses_api(model: str) -> bool:
@@ -71,7 +71,7 @@ def github_copilot_supports_responses_api(model: str) -> bool:
     # supported_endpoints is dropped by ModelInfoBase; read it from the raw
     # model_cost entry via the resolved key.
     key: Final = info.get("key")
-    raw_info: Final = litellm.model_cost.get(key) if isinstance(key, str) else None
+    raw_info: Final = embrouter.model_cost.get(key) if isinstance(key, str) else None
     endpoints: Final = raw_info.get("supported_endpoints") if isinstance(raw_info, dict) else None
     return isinstance(endpoints, list) and "/v1/responses" in endpoints
 
@@ -129,7 +129,7 @@ class GithubCopilotResponsesAPIConfig(OpenAIResponsesAPIConfig):
         self,
         model: str,
         parsed_chunk: dict,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> ResponsesAPIStreamingResponse:
         parsed_chunk = self._normalize_stream_item_id(parsed_chunk)
         return super().transform_streaming_response(
@@ -184,7 +184,7 @@ class GithubCopilotResponsesAPIConfig(OpenAIResponsesAPIConfig):
         self,
         headers: dict,
         model: str,
-        litellm_params: GenericLiteLLMParams | None,
+        embrouter_params: GenericEmbRouterParams | None,
     ) -> dict:
         """
         Validate environment and set up headers for GitHub Copilot API.
@@ -217,7 +217,7 @@ class GithubCopilotResponsesAPIConfig(OpenAIResponsesAPIConfig):
             merged_headers: Final = {**default_headers, **headers}
 
             # Analyze input to determine additional headers
-            input_param: Final = self._get_input_from_params(litellm_params)
+            input_param: Final = self._get_input_from_params(embrouter_params)
 
             # Add X-Initiator header based on input analysis
             if input_param is not None:
@@ -244,7 +244,7 @@ class GithubCopilotResponsesAPIConfig(OpenAIResponsesAPIConfig):
     def get_complete_url(
         self,
         api_base: str | None,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> str:
         """
         Get the complete URL for GitHub Copilot Responses API endpoint.
@@ -304,20 +304,20 @@ class GithubCopilotResponsesAPIConfig(OpenAIResponsesAPIConfig):
 
     # ==================== Helper Methods ====================
 
-    def _get_input_from_params(self, litellm_params: GenericLiteLLMParams | None) -> str | ResponseInputParam | None:
+    def _get_input_from_params(self, embrouter_params: GenericEmbRouterParams | None) -> str | ResponseInputParam | None:
         """
-        Extract input parameter from litellm_params.
+        Extract input parameter from embrouter_params.
 
         The input parameter contains the conversation history and is needed
         for vision detection and initiator determination.
         """
-        if litellm_params is None:
+        if embrouter_params is None:
             return None
 
-        # Try to get input from litellm_params
-        # This might be in different locations depending on how LiteLLM structures it
-        if hasattr(litellm_params, "input"):
-            return litellm_params.input
+        # Try to get input from embrouter_params
+        # This might be in different locations depending on how EmbRouter structures it
+        if hasattr(embrouter_params, "input"):
+            return embrouter_params.input
 
         # If not found, return None and let the API handle it
         return None

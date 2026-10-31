@@ -5,7 +5,7 @@
 #
 # How to use from a client:
 #   POST /v1/chat/completions { "model": "smart-cheap-router", ... }
-#   Add { "metadata": { "litellm_session_id": "<your-session-id>" } } to enable
+#   Add { "metadata": { "embrouter_session_id": "<your-session-id>" } } to enable
 #   sticky-session routing within a conversation.
 #
 # Required env vars: OPENAI_API_KEY, DATABASE_URL.
@@ -16,7 +16,7 @@ model_list:
   # deployments the router is allowed to pick from (must match other model_name
   # entries in this list).
   - model_name: smart-cheap-router
-    litellm_params:
+    embrouter_params:
       model: auto_router/adaptive_router # required prefix -- triggers adaptive-router init
       adaptive_router_config:
         available_models: ["fast", "smart"]
@@ -26,7 +26,7 @@ model_list:
 
   # ---- Underlying deployments the router picks from ---------------------
   - model_name: fast
-    litellm_params:
+    embrouter_params:
       model: openai/gpt-4o-mini
       api_key: os.environ/OPENAI_API_KEY
       input_cost_per_token: 0.00000015
@@ -36,7 +36,7 @@ model_list:
         strengths: []
 
   - model_name: smart
-    litellm_params:
+    embrouter_params:
       model: openai/gpt-4o
       api_key: os.environ/OPENAI_API_KEY
       input_cost_per_token: 0.0000050
@@ -45,8 +45,8 @@ model_list:
         quality_tier: 3
         strengths: ["code_generation", "technical_design", "analytical_reasoning"]
 
-litellm_settings:
+embrouter_settings:
   drop_params: True
 
 general_settings:
-  master_key: os.environ/LITELLM_MASTER_KEY
+  master_key: os.environ/EMBROUTER_MASTER_KEY

@@ -11,9 +11,9 @@ import pytest
 
 # Add the project root to Python path
 
-from litellm import ModelResponse
-from litellm.llms.perplexity.chat.transformation import PerplexityChatConfig
-from litellm.types.utils import Usage
+from embrouter import ModelResponse
+from embrouter.llms.perplexity.chat.transformation import PerplexityChatConfig
+from embrouter.types.utils import Usage
 
 
 class TestPerplexityChatTransformation:
@@ -432,7 +432,7 @@ class TestPerplexityChatTransformation:
         config = PerplexityChatConfig()
 
         # Create a ModelResponse with content
-        from litellm.types.utils import Choices, Message
+        from embrouter.types.utils import Choices, Message
 
         message = Message(
             content="This response has citations[1][2] in the text.", role="assistant"
@@ -499,7 +499,7 @@ class TestPerplexityChatTransformation:
         config = PerplexityChatConfig()
 
         # Create a ModelResponse with content
-        from litellm.types.utils import Choices, Message
+        from embrouter.types.utils import Choices, Message
 
         message = Message(
             content="This response has citations[1][2] but no citations array.",
@@ -524,7 +524,7 @@ class TestPerplexityChatTransformation:
         config = PerplexityChatConfig()
 
         # Create a ModelResponse with content without citation patterns
-        from litellm.types.utils import Choices, Message
+        from embrouter.types.utils import Choices, Message
 
         message = Message(
             content="This response has no citation markers in the text.",
@@ -555,7 +555,7 @@ class TestPerplexityChatTransformation:
         config = PerplexityChatConfig()
 
         # Create a ModelResponse with content
-        from litellm.types.utils import Choices, Message
+        from embrouter.types.utils import Choices, Message
 
         message = Message(
             content="This response has citations[1][5] but only 3 citations available.",
@@ -599,7 +599,7 @@ class TestPerplexityChatTransformation:
         config = PerplexityChatConfig()
 
         # Create a ModelResponse with content
-        from litellm.types.utils import Choices, Message
+        from embrouter.types.utils import Choices, Message
 
         message = Message(
             content="This response has citations[1][2] with search results but no titles.",
@@ -641,7 +641,7 @@ class TestPerplexityChatTransformation:
         config = PerplexityChatConfig()
 
         # Create a ModelResponse with content containing non-numeric patterns
-        from litellm.types.utils import Choices, Message
+        from embrouter.types.utils import Choices, Message
 
         message = Message(
             content="This response has patterns: [a] [b] [1] [c] [2].", role="assistant"
@@ -677,7 +677,7 @@ class TestPerplexityChatTransformation:
         config = PerplexityChatConfig()
 
         # Create a ModelResponse with empty content
-        from litellm.types.utils import Choices, Message
+        from embrouter.types.utils import Choices, Message
 
         message = Message(content="", role="assistant")
         choice = Choices(finish_reason="stop", index=0, message=message)
@@ -726,7 +726,7 @@ class TestPerplexityChatTransformation:
         config = PerplexityChatConfig()
 
         # Create a ModelResponse with choice but no message
-        from litellm.types.utils import Choices
+        from embrouter.types.utils import Choices
 
         choice = Choices(finish_reason="stop", index=0, message=None)
         model_response = ModelResponse()

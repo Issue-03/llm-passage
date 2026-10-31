@@ -5,7 +5,7 @@ Arize Phoenix API client for fetching prompt versions from Arize Phoenix.
 import urllib.parse
 from typing import Any, Final
 
-from litellm.llms.custom_httpx.http_handler import HTTPHandler
+from embrouter.llms.custom_httpx.http_handler import HTTPHandler
 
 
 def _sanitize_id(identifier: str) -> str:

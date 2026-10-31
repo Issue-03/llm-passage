@@ -9,13 +9,13 @@ from typing import Any, Final
 import httpx
 from pydantic import ValidationError
 
-from litellm._uuid import uuid
-from litellm.exceptions import UnsupportedParamsError
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.base_llm.rerank.transformation import BaseRerankConfig
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.rerank import (
+from embrouter._uuid import uuid
+from embrouter.exceptions import UnsupportedParamsError
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.base_llm.rerank.transformation import BaseRerankConfig
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.rerank import (
     HostedVLLMRerankTruncationParams,
     OptionalRerankParams,
     RerankBilledUnits,
@@ -131,7 +131,7 @@ class HostedVLLMRerankConfig(BaseRerankConfig):
         model: str,
         api_key: str | None = None,
         optional_params: dict | None = None,
-        litellm_params: Mapping[str, object] | None = None,
+        embrouter_params: Mapping[str, object] | None = None,
     ) -> dict:
         if api_key is None:
             api_key = get_secret_str("HOSTED_VLLM_API_KEY") or "fake-api-key"
@@ -154,7 +154,7 @@ class HostedVLLMRerankConfig(BaseRerankConfig):
         model: str,
         optional_rerank_params: dict,
         headers: dict,
-        litellm_params: dict | None = None,
+        embrouter_params: dict | None = None,
     ) -> dict:
         if "query" not in optional_rerank_params:
             raise ValueError("query is required for Hosted VLLM rerank")
@@ -182,11 +182,11 @@ class HostedVLLMRerankConfig(BaseRerankConfig):
         model: str,
         raw_response: httpx.Response,
         model_response: RerankResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_key: str | None = None,
         request_data: dict = {},
         optional_params: dict = {},
-        litellm_params: dict = {},
+        embrouter_params: dict = {},
     ) -> RerankResponse:
         """
         Process response from Hosted VLLM rerank API

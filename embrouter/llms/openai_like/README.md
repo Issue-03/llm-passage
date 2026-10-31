@@ -92,9 +92,9 @@ The first JSON-configured provider:
 ## Usage
 
 ```python
-import litellm
+import embrouter
 
-response = litellm.completion(
+response = embrouter.completion(
     model="publicai/swiss-ai/apertus-8b-instruct",
     messages=[{"role": "user", "content": "Hello"}],
 )
@@ -114,7 +114,7 @@ Providers that support the OpenAI Responses API (`/v1/responses`) can declare it
 }
 ```
 
-This enables `litellm.responses(model="your_provider/model-name", ...)` with zero Python code.
+This enables `embrouter.responses(model="your_provider/model-name", ...)` with zero Python code.
 The provider inherits all request/response handling from OpenAI's Responses API config.
 
 If `supported_endpoints` is omitted, it defaults to `[]` (only chat completions, which is always enabled for JSON providers).
@@ -144,7 +144,7 @@ Use a Python config class if you need:
 
 For providers that are *mostly* OpenAI-compatible but need small overrides (e.g. preset model handling),
 you can inherit from `OpenAIResponsesAPIConfig` and override only what's needed — see
-`litellm/llms/perplexity/responses/transformation.py` for a minimal example (~40 lines).
+`embrouter/llms/perplexity/responses/transformation.py` for a minimal example (~40 lines).
 
 ## Implementation Details
 
@@ -158,7 +158,7 @@ you can inherit from `OpenAIResponsesAPIConfig` and override only what's needed 
 ### Integration Points
 
 The JSON system is integrated at:
-- `litellm/litellm_core_utils/get_llm_provider_logic.py` - Provider resolution
-- `litellm/utils.py` - ProviderConfigManager (chat + responses)
-- `litellm/responses/main.py` - Responses API routing
-- `litellm/constants.py` - openai_compatible_providers list
+- `embrouter/embrouter_core_utils/get_llm_provider_logic.py` - Provider resolution
+- `embrouter/utils.py` - ProviderConfigManager (chat + responses)
+- `embrouter/responses/main.py` - Responses API routing
+- `embrouter/constants.py` - openai_compatible_providers list

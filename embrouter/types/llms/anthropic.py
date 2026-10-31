@@ -433,8 +433,8 @@ class AnthropicMessagesRequestOptionalParams(TypedDict, total=False):
 class AnthropicMessagesRequest(AnthropicMessagesRequestOptionalParams, total=False):
     model: Required[str]
     messages: Required[list[AllAnthropicMessageValues] | list[dict]]
-    # litellm param - used for tracking litellm proxy metadata in the request
-    litellm_metadata: dict
+    # embrouter param - used for tracking embrouter proxy metadata in the request
+    embrouter_metadata: dict
 
 
 class ContentTextBlockDelta(TypedDict):

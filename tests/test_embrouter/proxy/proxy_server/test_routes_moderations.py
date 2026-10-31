@@ -11,7 +11,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from litellm.proxy import proxy_server
+from embrouter.proxy import proxy_server
 
 from .conftest import normalize  # type: ignore[import-not-found]
 
@@ -44,7 +44,7 @@ def patched_moderation(monkeypatch):
     async def _add_data(data, **kwargs):
         return data
 
-    monkeypatch.setattr(proxy_server, "add_litellm_data_to_request", _add_data)
+    monkeypatch.setattr(proxy_server, "add_embrouter_data_to_request", _add_data)
 
     async def _fake_llm_call():
         return dict(HAPPY_RESPONSE)
@@ -72,7 +72,7 @@ def moderation_pipeline_raises(monkeypatch):
     async def _add_data(data, **kwargs):
         return data
 
-    monkeypatch.setattr(proxy_server, "add_litellm_data_to_request", _add_data)
+    monkeypatch.setattr(proxy_server, "add_embrouter_data_to_request", _add_data)
 
     async def _raise(*args, **kwargs):
         raise ValueError("boom")

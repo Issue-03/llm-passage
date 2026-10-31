@@ -6,9 +6,9 @@ from typing import Final
 
 from pydantic import TypeAdapter
 
-import litellm
-from litellm.litellm_core_utils.llm_cost_calc.utils import deployment_pricing, resolve_image_model_info
-from litellm.types.utils import ImageObject, ImageResponse, ModelInfo
+import embrouter
+from embrouter.embrouter_core_utils.llm_cost_calc.utils import deployment_pricing, resolve_image_model_info
+from embrouter.types.utils import ImageObject, ImageResponse, ModelInfo
 
 FAL_KEYED_PRICING_DEFAULT_QUALITY: Final[str] = "high"
 _DEFAULT_KEYED_DIMENSIONS: Final[tuple[int, int]] = (1024, 768)
@@ -87,7 +87,7 @@ def _keyed_rows(model: str, quality: str) -> tuple[tuple[int, int, float], ...]:
     suffix: Final = f"/{model}"
     return tuple(
         (width, height, float(raw_cost))
-        for key in litellm.model_cost
+        for key in embrouter.model_cost
         if isinstance(key, str) and key.startswith(prefix) and key.endswith(suffix)
         for size in (key[len(prefix) : -len(suffix)],)
         for dimensions in (_parse_keyed_dimensions(size),)
@@ -130,7 +130,7 @@ def _flat_cost_per_image(
 
 
 def _entry(key: str) -> Mapping[str, object] | None:
-    raw_entry: Final[object] = litellm.model_cost.get(key)  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]  # global catalog is untyped
+    raw_entry: Final[object] = embrouter.model_cost.get(key)  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]  # global catalog is untyped
     if not isinstance(raw_entry, Mapping):
         return None
     return _OBJECT_MAP.validate_python(raw_entry)
@@ -164,7 +164,7 @@ def _passthrough_cost_per_image(entry: Mapping[str, object], request_body: Mappi
 
 
 def fal_ai_passthrough_cost(model: str, request_body: Mapping[str, object]) -> float | None:
-    entry: Final = _entry(f"{litellm.LlmProviders.FAL_AI.value}/{model}")
+    entry: Final = _entry(f"{embrouter.LlmProviders.FAL_AI.value}/{model}")
     if entry is None:
         return None
     cost_per_image: Final = _passthrough_cost_per_image(entry, request_body)
@@ -184,7 +184,7 @@ def cost_calculator(
     """
     if not isinstance(image_response, ImageResponse):
         raise ValueError(f"image_response must be of type ImageResponse got type={type(image_response)}")
-    normalized_model: Final = model.removeprefix(f"{litellm.LlmProviders.FAL_AI.value}/")
+    normalized_model: Final = model.removeprefix(f"{embrouter.LlmProviders.FAL_AI.value}/")
     images: Final = tuple(image_response.data or ())
     deployment_prices: Final = deployment_pricing(model_info)
     deployment_cost_per_image: Final = (
@@ -194,7 +194,7 @@ def cost_calculator(
         return deployment_cost_per_image * len(images)
     params: Final[Mapping[str, object]] = optional_params or MappingProxyType({})
     resolution_cost_per_image: Final = _resolution_cost_per_image(
-        _entry(f"{litellm.LlmProviders.FAL_AI.value}/{normalized_model}"), params.get("resolution")
+        _entry(f"{embrouter.LlmProviders.FAL_AI.value}/{normalized_model}"), params.get("resolution")
     )
     if resolution_cost_per_image is not None:
         return resolution_cost_per_image * len(images)
@@ -210,7 +210,7 @@ def cost_calculator(
         return sum(cost for cost in keyed_costs if cost is not None)
     resolved_model_info: Final = resolve_image_model_info(
         model=normalized_model,
-        custom_llm_provider=litellm.LlmProviders.FAL_AI.value,
+        custom_llm_provider=embrouter.LlmProviders.FAL_AI.value,
         model_info=deployment_prices,
     )
     raw_output_cost_per_image: Final = resolved_model_info.get("output_cost_per_image")

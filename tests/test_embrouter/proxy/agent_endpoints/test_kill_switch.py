@@ -7,14 +7,14 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
-from litellm.constants import REDACTED_BY_LITELM_STRING
-from litellm.proxy.agent_endpoints.kill_switch import (
+from embrouter.constants import REDACTED_BY_LITELM_STRING
+from embrouter.proxy.agent_endpoints.kill_switch import (
     build_kill_switch_request,
     fire_kill_switch,
     redact_kill_switch,
     restore_kill_switch,
 )
-from litellm.types.agents import AgentKillSwitchConfig
+from embrouter.types.agents import AgentKillSwitchConfig
 
 
 @dataclass(frozen=True, slots=True)

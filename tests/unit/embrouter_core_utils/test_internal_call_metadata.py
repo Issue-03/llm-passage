@@ -1,11 +1,11 @@
 """Unit tests for internal-call metadata forwarding: budget-reservation stripping and origin stamping."""
 
-from litellm.constants import INTERNAL_CALL_ORIGIN_METADATA_KEY
-from litellm.litellm_core_utils.internal_call_metadata import (
+from embrouter.constants import INTERNAL_CALL_ORIGIN_METADATA_KEY
+from embrouter.embrouter_core_utils.internal_call_metadata import (
     forwarded_internal_call_metadata,
     sanitized_forwardable_call_metadata,
 )
-from litellm.types.utils import SHADOW_EVAL_ROUTER_CALL_ORIGIN
+from embrouter.types.utils import SHADOW_EVAL_ROUTER_CALL_ORIGIN
 
 PARENT = {
     "user_api_key": "sk-hash",
@@ -54,8 +54,8 @@ class TestSubCallMetadataSanitization:
     from sub-call metadata, in either of the shapes it knows how to read."""
 
     def test_cost_callback_cannot_recover_reservation_from_sanitized_metadata(self):
-        from litellm.proxy._types import UserAPIKeyAuth
-        from litellm.proxy.hooks.proxy_track_cost_callback import (
+        from embrouter.proxy._types import UserAPIKeyAuth
+        from embrouter.proxy.hooks.proxy_track_cost_callback import (
             _get_budget_reservation_from_metadata,
         )
 
@@ -81,10 +81,10 @@ class TestSubCallMetadataSanitization:
         """Drives the real resolver over the buckets the embedding classifier builds.
 
         An absent bucket must stay empty rather than carry a lone origin stamp:
-        get_litellm_metadata_from_kwargs prefers litellm_metadata whenever truthy, so an
-        origin-only dict would make an empty litellm_metadata win and silently drop
+        get_embrouter_metadata_from_kwargs prefers embrouter_metadata whenever truthy, so an
+        origin-only dict would make an empty embrouter_metadata win and silently drop
         requester_ip_address, tags and spend_logs_metadata from the classifier's row."""
-        from litellm.litellm_core_utils.core_helpers import get_litellm_metadata_from_kwargs
+        from embrouter.embrouter_core_utils.core_helpers import get_embrouter_metadata_from_kwargs
 
         parent = {
             "user_api_key": "sk-abc",
@@ -92,11 +92,11 @@ class TestSubCallMetadataSanitization:
             "spend_logs_metadata": {"team_note": "keep me"},
             "tags": ["prod"],
         }
-        resolved = get_litellm_metadata_from_kwargs(
+        resolved = get_embrouter_metadata_from_kwargs(
             {
-                "litellm_params": {
+                "embrouter_params": {
                     "metadata": forwarded_internal_call_metadata(parent, "autorouter_classifier"),
-                    "litellm_metadata": forwarded_internal_call_metadata(None, "autorouter_classifier"),
+                    "embrouter_metadata": forwarded_internal_call_metadata(None, "autorouter_classifier"),
                 }
             }
         )
@@ -106,7 +106,7 @@ class TestSubCallMetadataSanitization:
         assert resolved["tags"] == ["prod"]
 
     def test_sanitized_auth_keeps_access_group_fields_and_leaves_original_untouched(self):
-        from litellm.proxy._types import UserAPIKeyAuth
+        from embrouter.proxy._types import UserAPIKeyAuth
 
         auth = UserAPIKeyAuth(
             api_key="sk-abc",

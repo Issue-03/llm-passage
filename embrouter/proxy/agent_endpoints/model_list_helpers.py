@@ -4,9 +4,9 @@ Helper functions for appending A2A agents to model lists.
 Used by proxy model endpoints to make agents appear in UI alongside models.
 """
 
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.types.proxy.management_endpoints.model_management_endpoints import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.types.proxy.management_endpoints.model_management_endpoints import (
     ModelGroupInfoProxy,
 )
 
@@ -19,11 +19,11 @@ async def append_agents_to_model_group(
     Append A2A agents to model groups list for UI display.
 
     Converts agents to model format with "a2a/<agent-name>" naming
-    so they appear in playground and work with LiteLLM routing.
+    so they appear in playground and work with EmbRouter routing.
     """
     try:
-        from litellm.proxy.agent_endpoints.agent_registry import global_agent_registry
-        from litellm.proxy.agent_endpoints.auth.agent_permission_handler import (
+        from embrouter.proxy.agent_endpoints.agent_registry import global_agent_registry
+        from embrouter.proxy.agent_endpoints.auth.agent_permission_handler import (
             AgentRequestHandler,
             RestrictedAgentAccess,
         )
@@ -56,11 +56,11 @@ async def append_agents_to_model_info(
     Append A2A agents to model info list for UI display.
 
     Converts agents to model format with "a2a/<agent-name>" naming
-    so they appear in models page and work with LiteLLM routing.
+    so they appear in models page and work with EmbRouter routing.
     """
     try:
-        from litellm.proxy.agent_endpoints.agent_registry import global_agent_registry
-        from litellm.proxy.agent_endpoints.auth.agent_permission_handler import (
+        from embrouter.proxy.agent_endpoints.agent_registry import global_agent_registry
+        from embrouter.proxy.agent_endpoints.auth.agent_permission_handler import (
             AgentRequestHandler,
             RestrictedAgentAccess,
         )
@@ -73,7 +73,7 @@ async def append_agents_to_model_info(
                         models.append(
                             {
                                 "model_name": f"a2a/{agent.agent_name}",
-                                "litellm_params": {
+                                "embrouter_params": {
                                     "model": f"a2a/{agent.agent_name}",
                                     "custom_llm_provider": "a2a",
                                 },

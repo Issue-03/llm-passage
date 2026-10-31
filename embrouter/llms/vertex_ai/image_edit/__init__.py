@@ -1,7 +1,7 @@
 from typing import Final
 
-from litellm.llms.base_llm.image_edit.transformation import BaseImageEditConfig
-from litellm.llms.vertex_ai.common_utils import (
+from embrouter.llms.base_llm.image_edit.transformation import BaseImageEditConfig
+from embrouter.llms.vertex_ai.common_utils import (
     VertexAIModelRoute,
     get_vertex_ai_model_route,
 )

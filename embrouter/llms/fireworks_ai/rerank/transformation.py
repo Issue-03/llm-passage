@@ -9,11 +9,11 @@ from typing import Any, Final
 
 import httpx
 
-from litellm._uuid import uuid
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.base_llm.rerank.transformation import BaseRerankConfig
-from litellm.llms.fireworks_ai.common_utils import FireworksAIMixin
-from litellm.types.rerank import (
+from embrouter._uuid import uuid
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.base_llm.rerank.transformation import BaseRerankConfig
+from embrouter.llms.fireworks_ai.common_utils import FireworksAIMixin
+from embrouter.types.rerank import (
     RerankBilledUnits,
     RerankResponse,
     RerankResponseDocument,
@@ -103,7 +103,7 @@ class FireworksAIRerankConfig(FireworksAIMixin, BaseRerankConfig):
         model: str,
         api_key: str | None = None,
         optional_params: dict | None = None,
-        litellm_params: Mapping[str, object] | None = None,
+        embrouter_params: Mapping[str, object] | None = None,
     ) -> dict:
         api_key = self._get_api_key(api_key)
         if api_key is None:
@@ -128,7 +128,7 @@ class FireworksAIRerankConfig(FireworksAIMixin, BaseRerankConfig):
         model: str,
         optional_rerank_params: dict,
         headers: dict,
-        litellm_params: dict | None = None,
+        embrouter_params: dict | None = None,
     ) -> dict:
         """
         Transform request to Fireworks AI rerank format
@@ -167,14 +167,14 @@ class FireworksAIRerankConfig(FireworksAIMixin, BaseRerankConfig):
         model: str,
         raw_response: httpx.Response,
         model_response: RerankResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_key: str | None = None,
         request_data: dict = {},
         optional_params: dict = {},
-        litellm_params: dict = {},
+        embrouter_params: dict = {},
     ) -> RerankResponse:
         """
-        Transform Fireworks AI rerank response to LiteLLM RerankResponse format
+        Transform Fireworks AI rerank response to EmbRouter RerankResponse format
         """
         try:
             raw_response_json: Final = raw_response.json()

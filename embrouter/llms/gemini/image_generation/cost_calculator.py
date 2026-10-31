@@ -4,12 +4,12 @@ Google AI Image Generation Cost Calculator
 
 from typing import Any, Final
 
-from litellm.litellm_core_utils.llm_cost_calc.utils import (
+from embrouter.embrouter_core_utils.llm_cost_calc.utils import (
     calculate_image_response_cost_from_usage,
     calculate_image_response_web_search_cost,
     resolve_image_model_info,
 )
-from litellm.types.utils import ImageResponse, ModelInfo
+from embrouter.types.utils import ImageResponse, ModelInfo
 
 
 def cost_calculator(

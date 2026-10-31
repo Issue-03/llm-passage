@@ -1,6 +1,6 @@
 // fetch_agents.tsx
 
-import { getProxyBaseUrl, getGlobalLitellmHeaderName, modelInfoCall } from "@/components/networking";
+import { getProxyBaseUrl, getGlobalEmbrouterHeaderName, modelInfoCall } from "@/components/networking";
 
 export interface Agent {
   agent_id: string;
@@ -13,7 +13,7 @@ export interface Agent {
   };
 }
 
-/** MCP tool entry in the same format as chat completions API (litellm_params.tools) */
+/** MCP tool entry in the same format as chat completions API (embrouter_params.tools) */
 export interface MCPToolEntry {
   type: "mcp";
   server_label?: string;
@@ -22,12 +22,12 @@ export interface MCPToolEntry {
   allowed_tools?: string[];
 }
 
-/** Agent model from /model/info where litellm_params.model starts with "litellm_agent/" */
+/** Agent model from /model/info where embrouter_params.model starts with "embrouter_agent/" */
 export interface AgentModel {
   model_name: string;
-  litellm_params: {
+  embrouter_params: {
     model: string;
-    litellm_system_prompt?: string;
+    embrouter_system_prompt?: string;
     /** Saved MCP tools array (same shape as chat completions API tools) */
     tools?: MCPToolEntry[];
     [key: string]: unknown;
@@ -46,7 +46,7 @@ export const fetchAvailableAgents = async (accessToken: string, customBaseUrl?: 
     const response = await fetch(url, {
       method: "GET",
       headers: {
-        [getGlobalLitellmHeaderName()]: `Bearer ${accessToken}`,
+        [getGlobalEmbrouterHeaderName()]: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
     });
@@ -73,8 +73,8 @@ export const fetchAvailableAgents = async (accessToken: string, customBaseUrl?: 
 };
 
 /**
- * Fetches available litellm_agent models from /v2/model/info.
- * Filters for models where litellm_params.model starts with "litellm_agent/".
+ * Fetches available embrouter_agent models from /v2/model/info.
+ * Filters for models where embrouter_params.model starts with "embrouter_agent/".
  */
 export const fetchAvailableAgentModels = async (
   accessToken: string,
@@ -90,16 +90,16 @@ export const fetchAvailableAgentModels = async (
 
     const agentModels: AgentModel[] = list
       .filter(
-        (m: { litellm_params?: { model?: string } }) =>
-          typeof m?.litellm_params?.model === "string" && m.litellm_params.model.startsWith("litellm_agent/"),
+        (m: { embrouter_params?: { model?: string } }) =>
+          typeof m?.embrouter_params?.model === "string" && m.embrouter_params.model.startsWith("embrouter_agent/"),
       )
       .map((m: any) => ({
         model_name: m.model_name ?? m.model_group ?? "",
-        litellm_params: {
-          ...m.litellm_params,
-          model: m.litellm_params.model,
-          litellm_system_prompt: m.litellm_params?.litellm_system_prompt,
-          tools: Array.isArray(m.litellm_params?.tools) ? m.litellm_params.tools : undefined,
+        embrouter_params: {
+          ...m.embrouter_params,
+          model: m.embrouter_params.model,
+          embrouter_system_prompt: m.embrouter_params?.embrouter_system_prompt,
+          tools: Array.isArray(m.embrouter_params?.tools) ? m.embrouter_params.tools : undefined,
         },
         model_info: m.model_info ?? null,
       }));

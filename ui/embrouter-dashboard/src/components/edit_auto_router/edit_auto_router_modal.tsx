@@ -259,7 +259,7 @@ const EditAutoRouterModal: React.FC<EditAutoRouterModalProps> = ({
     tiers: { SIMPLE: [], MEDIUM: [], COMPLEX: [], REASONING: [] },
     classifier_type: "heuristic",
   });
-  const isComplexityRouterModel = isComplexityRouter(modelData?.litellm_params);
+  const isComplexityRouterModel = isComplexityRouter(modelData?.embrouter_params);
 
   const routerAvailability = useAutoRouterAvailability(
     accessToken,
@@ -267,7 +267,7 @@ const EditAutoRouterModal: React.FC<EditAutoRouterModalProps> = ({
       saved_model_id: modelData?.model_info?.id,
       team_id: modelData?.model_info?.team_id,
       complexity_router_config: buildUpdatedComplexityRouterConfig(
-        modelData?.litellm_params?.complexity_router_config,
+        modelData?.embrouter_params?.complexity_router_config,
         complexityRouterConfig,
         customTechnicalKeywords,
         { keywordTierRules, escalationKeywords, semanticMatchingEnabled, embeddingModel, matchThreshold },
@@ -348,14 +348,14 @@ const EditAutoRouterModal: React.FC<EditAutoRouterModalProps> = ({
     try {
       if (isComplexityRouterModel) {
         // Parse the complexity_router_config if it exists and is a string
-        let parsedConfig = modelData.litellm_params?.complexity_router_config || {};
+        let parsedConfig = modelData.embrouter_params?.complexity_router_config || {};
         if (typeof parsedConfig === "string") {
           parsedConfig = JSON.parse(parsedConfig);
         }
 
         const hydratedComplexityRouterConfig = hydrateComplexityRouterConfig(
           parsedConfig,
-          modelData.litellm_params?.complexity_router_default_model,
+          modelData.embrouter_params?.complexity_router_default_model,
         );
         setComplexityRouterConfig(hydratedComplexityRouterConfig);
         setCustomTechnicalKeywords(
@@ -377,8 +377,8 @@ const EditAutoRouterModal: React.FC<EditAutoRouterModalProps> = ({
         );
         setAutoRouterCompression(
           hydrateAutoRouterCompression({
-            auto_router_routing_compression: modelData.litellm_params?.auto_router_routing_compression,
-            auto_router_model_compression: modelData.litellm_params?.auto_router_model_compression,
+            auto_router_routing_compression: modelData.embrouter_params?.auto_router_routing_compression,
+            auto_router_model_compression: modelData.embrouter_params?.auto_router_model_compression,
           }),
         );
 
@@ -392,11 +392,11 @@ const EditAutoRouterModal: React.FC<EditAutoRouterModalProps> = ({
 
       // Parse the auto_router_config if it exists and is a string
       let parsedConfig = null;
-      if (modelData.litellm_params?.auto_router_config) {
-        if (typeof modelData.litellm_params.auto_router_config === "string") {
-          parsedConfig = JSON.parse(modelData.litellm_params.auto_router_config);
+      if (modelData.embrouter_params?.auto_router_config) {
+        if (typeof modelData.embrouter_params.auto_router_config === "string") {
+          parsedConfig = JSON.parse(modelData.embrouter_params.auto_router_config);
         } else {
-          parsedConfig = modelData.litellm_params.auto_router_config;
+          parsedConfig = modelData.embrouter_params.auto_router_config;
         }
       }
 
@@ -405,8 +405,8 @@ const EditAutoRouterModal: React.FC<EditAutoRouterModalProps> = ({
       // Set form values
       const routerFormValues = {
         auto_router_name: modelData.model_name,
-        auto_router_default_model: modelData.litellm_params?.auto_router_default_model || null,
-        auto_router_embedding_model: modelData.litellm_params?.auto_router_embedding_model || null,
+        auto_router_default_model: modelData.embrouter_params?.auto_router_default_model || null,
+        auto_router_embedding_model: modelData.embrouter_params?.auto_router_embedding_model || null,
         model_access_group: modelData.model_info?.access_groups || [],
       };
       form.reset(routerFormValues);
@@ -477,7 +477,7 @@ const EditAutoRouterModal: React.FC<EditAutoRouterModalProps> = ({
       // Unlike the create form, this modal only requires one non-empty tier, so a router can reach
       // here with nothing the backend would pick as a default (see getMissingTiersError in
       // build_complexity_router_config.ts for why create never can). init_complexity_router_deployment
-      // raises in that case (litellm/router.py), so block it rather than saving a router that
+      // raises in that case (embrouter/router.py), so block it rather than saving a router that
       // fails at init.
       const defaultModel = resolveComplexityDefaultModel(complexityRouterConfig, complexityRouterConfig.default_model);
       if (!defaultModel) {
@@ -499,7 +499,7 @@ const EditAutoRouterModal: React.FC<EditAutoRouterModalProps> = ({
         matchThreshold,
       };
       const updatedConfig = buildUpdatedComplexityRouterConfig(
-        modelData.litellm_params?.complexity_router_config,
+        modelData.embrouter_params?.complexity_router_config,
         complexityRouterConfig,
         customTechnicalKeywords,
         keywordMatching,
@@ -512,13 +512,13 @@ const EditAutoRouterModal: React.FC<EditAutoRouterModalProps> = ({
         return;
       }
 
-      const updatedLitellmParams = {
-        ...modelData.litellm_params,
+      const updatedEmbrouterParams = {
+        ...modelData.embrouter_params,
         complexity_router_config: updatedConfig,
         complexity_router_default_model: defaultModel,
         ...(isMemberManaged
           ? {}
-          : buildAutoRouterCompressionPatch(autoRouterCompression, modelData.litellm_params ?? {})),
+          : buildAutoRouterCompressionPatch(autoRouterCompression, modelData.embrouter_params ?? {})),
       };
       const updatedModelInfo = {
         ...modelData.model_info,
@@ -529,12 +529,12 @@ const EditAutoRouterModal: React.FC<EditAutoRouterModalProps> = ({
         accessToken,
         isMemberManaged
           ? {
-              litellm_params: {
+              embrouter_params: {
                 complexity_router_config: updatedConfig,
                 complexity_router_default_model: defaultModel,
               },
             }
-          : { model_name: values.auto_router_name, litellm_params: updatedLitellmParams, model_info: updatedModelInfo },
+          : { model_name: values.auto_router_name, embrouter_params: updatedEmbrouterParams, model_info: updatedModelInfo },
         modelData.model_info.id,
       );
 
@@ -542,7 +542,7 @@ const EditAutoRouterModal: React.FC<EditAutoRouterModalProps> = ({
       const updatedModelData = {
         ...modelData,
         model_name: values.auto_router_name,
-        litellm_params: updatedLitellmParams,
+        embrouter_params: updatedEmbrouterParams,
         model_info: updatedModelInfo,
       };
       onSuccess(updatedModelData);
@@ -550,9 +550,9 @@ const EditAutoRouterModal: React.FC<EditAutoRouterModalProps> = ({
       return;
     }
 
-    // Prepare the updated litellm_params
-    const updatedLitellmParams = {
-      ...modelData.litellm_params,
+    // Prepare the updated embrouter_params
+    const updatedEmbrouterParams = {
+      ...modelData.embrouter_params,
       auto_router_config: serializeRouterConfig(routerConfig),
       auto_router_default_model: values.auto_router_default_model,
       auto_router_embedding_model: values.auto_router_embedding_model || undefined,
@@ -566,7 +566,7 @@ const EditAutoRouterModal: React.FC<EditAutoRouterModalProps> = ({
 
     const updateData = {
       model_name: values.auto_router_name,
-      litellm_params: updatedLitellmParams,
+      embrouter_params: updatedEmbrouterParams,
       model_info: updatedModelInfo,
     };
 
@@ -575,7 +575,7 @@ const EditAutoRouterModal: React.FC<EditAutoRouterModalProps> = ({
     const updatedModelData = {
       ...modelData,
       model_name: values.auto_router_name,
-      litellm_params: updatedLitellmParams,
+      embrouter_params: updatedEmbrouterParams,
       model_info: updatedModelInfo,
     };
 

@@ -8,7 +8,7 @@ import httpx
 if TYPE_CHECKING:
     from aiohttp import ClientSession
 
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
 
 import openai
 from openai import AsyncOpenAI, OpenAI
@@ -22,25 +22,25 @@ from openai.types.file_deleted import FileDeleted
 from pydantic import BaseModel, TypeAdapter
 from typing_extensions import overload
 
-import litellm
-from litellm import LlmProviders
-from litellm._logging import verbose_logger
-from litellm.constants import DEFAULT_MAX_RETRIES
-from litellm.files.types import FileContentStreamingResult
-from litellm.litellm_core_utils.core_helpers import set_provider_response_headers_in_hidden_params
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.litellm_core_utils.logging_utils import speech_request_body, track_llm_api_timing
-from litellm.llms.base_llm.base_model_iterator import BaseModelResponseIterator
-from litellm.llms.base_llm.chat.transformation import BaseConfig, BaseLLMException
-from litellm.llms.bedrock.chat.invoke_handler import MockResponseIterator
-from litellm.types.utils import (
+import embrouter
+from embrouter import LlmProviders
+from embrouter._logging import verbose_logger
+from embrouter.constants import DEFAULT_MAX_RETRIES
+from embrouter.files.types import FileContentStreamingResult
+from embrouter.embrouter_core_utils.core_helpers import set_provider_response_headers_in_hidden_params
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.embrouter_core_utils.logging_utils import speech_request_body, track_llm_api_timing
+from embrouter.llms.base_llm.base_model_iterator import BaseModelResponseIterator
+from embrouter.llms.base_llm.chat.transformation import BaseConfig, BaseLLMException
+from embrouter.llms.bedrock.chat.invoke_handler import MockResponseIterator
+from embrouter.types.utils import (
     EmbeddingResponse,
     ImageResponse,
-    LiteLLMBatch,
+    EmbRouterBatch,
     ModelResponse,
     ModelResponseStream,
 )
-from litellm.utils import (
+from embrouter.utils import (
     CustomStreamWrapper,
     ProviderConfigManager,
     convert_to_model_response_object,
@@ -194,15 +194,15 @@ class OpenAIConfig(BaseConfig):
             return openaiOSeriesConfig.get_supported_openai_params(model=model)
         elif openAIGPT5Config.is_model_gpt_5_model(model=model):
             return openAIGPT5Config.get_supported_openai_params(model=model)
-        elif litellm.openAIGPTAudioConfig.is_model_gpt_audio_model(model=model):
-            return litellm.openAIGPTAudioConfig.get_supported_openai_params(model=model)
+        elif embrouter.openAIGPTAudioConfig.is_model_gpt_audio_model(model=model):
+            return embrouter.openAIGPTAudioConfig.get_supported_openai_params(model=model)
         else:
             return self._gpt_config_for_model(model).get_supported_openai_params(model=model)
 
     def _gpt_config_for_model(self, model: str) -> OpenAIGPTConfig:
         if type(self) is OpenAIConfig and not OpenAIGPTConfig.is_openai_catalog_model(model):
             return OpenAIUnknownModelConfig()
-        return litellm.openAIGPTConfig
+        return embrouter.openAIGPTConfig
 
     def _map_openai_params(self, non_default_params: dict, optional_params: dict, model: str) -> dict:
         supported_openai_params: Final = self.get_supported_openai_params(model)
@@ -236,8 +236,8 @@ class OpenAIConfig(BaseConfig):
                 model=model,
                 drop_params=drop_params,
             )
-        elif litellm.openAIGPTAudioConfig.is_model_gpt_audio_model(model=model):
-            return litellm.openAIGPTAudioConfig.map_openai_params(
+        elif embrouter.openAIGPTAudioConfig.is_model_gpt_audio_model(model=model):
+            return embrouter.openAIGPTAudioConfig.map_openai_params(
                 non_default_params=non_default_params,
                 optional_params=optional_params,
                 model=model,
@@ -263,7 +263,7 @@ class OpenAIConfig(BaseConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         messages = self._transform_messages(messages=messages, model=model)
@@ -274,11 +274,11 @@ class OpenAIConfig(BaseConfig):
         model: str,
         raw_response: httpx.Response,
         model_response: ModelResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         request_data: dict,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,
@@ -303,7 +303,7 @@ class OpenAIConfig(BaseConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
@@ -451,7 +451,7 @@ class OpenAIChatCompletion(BaseLLM, BaseOpenAILLM):
                 openai_client=_new_client,
                 client_initialization_params=client_initialization_params,
                 client_type="openai",
-                litellm_owned_client=self.owns_wrapped_http_client(http_client),
+                embrouter_owned_client=self.owns_wrapped_http_client(http_client),
             )
             return _new_client
 
@@ -469,11 +469,11 @@ class OpenAIChatCompletion(BaseLLM, BaseOpenAILLM):
         openai_aclient: AsyncOpenAI,
         data: dict,
         timeout: float | httpx.Timeout,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> tuple[dict, BaseModel]:
         """
         Helper to:
-        - call chat.completions.create.with_raw_response when litellm.return_response_headers is True
+        - call chat.completions.create.with_raw_response when embrouter.return_response_headers is True
         - call chat.completions.create by default
         """
         start_time: Final = time.time()
@@ -510,11 +510,11 @@ class OpenAIChatCompletion(BaseLLM, BaseOpenAILLM):
         openai_client: OpenAI,
         data: dict,
         timeout: float | httpx.Timeout,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> tuple[dict, BaseModel]:
         """
         Helper to:
-        - call chat.completions.create.with_raw_response when litellm.return_response_headers is True
+        - call chat.completions.create.with_raw_response when embrouter.return_response_headers is True
         - call chat.completions.create by default
         """
         raw_response = None
@@ -552,9 +552,9 @@ class OpenAIChatCompletion(BaseLLM, BaseOpenAILLM):
         model: str,
         messages: list[dict],
         optional_params: dict,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         stream: bool,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> object | None:
         """
         Call agentic completion hooks for all custom loggers (OpenAI Chat Completions API).
@@ -564,20 +564,20 @@ class OpenAIChatCompletion(BaseLLM, BaseOpenAILLM):
 
         Returns the response from agentic loop, or None if no hook runs.
         """
-        from litellm._logging import verbose_logger
-        from litellm.integrations.custom_logger import CustomLogger
+        from embrouter._logging import verbose_logger
+        from embrouter.integrations.custom_logger import CustomLogger
 
-        callbacks: Final = litellm.callbacks + (logging_obj.dynamic_success_callbacks or [])
+        callbacks: Final = embrouter.callbacks + (logging_obj.dynamic_success_callbacks or [])
         # Avoid logging full callback objects to prevent leaking sensitive data
-        verbose_logger.debug("LiteLLM.AgenticHooks: callbacks_count=%s", len(callbacks))
+        verbose_logger.debug("EmbRouter.AgenticHooks: callbacks_count=%s", len(callbacks))
         tools: Final = optional_params.get("tools", [])
         # Avoid logging full tools payloads; they may contain sensitive parameters
         verbose_logger.debug(
-            "LiteLLM.AgenticHooks: tools_count=%s",
+            "EmbRouter.AgenticHooks: tools_count=%s",
             len(tools) if isinstance(tools, list) else 1 if tools else 0,
         )
-        # Get custom_llm_provider from litellm_params
-        custom_llm_provider: Final = litellm_params.get("custom_llm_provider", "openai")
+        # Get custom_llm_provider from embrouter_params
+        custom_llm_provider: Final = embrouter_params.get("custom_llm_provider", "openai")
 
         for callback in callbacks:
             try:
@@ -597,12 +597,12 @@ class OpenAIChatCompletion(BaseLLM, BaseOpenAILLM):
                         tools=tools,
                         stream=stream,
                         custom_llm_provider=custom_llm_provider,
-                        kwargs=litellm_params,
+                        kwargs=embrouter_params,
                     )
 
                     if should_run:
                         # Second: Execute agentic loop
-                        kwargs_with_provider = litellm_params.copy() if litellm_params else {}
+                        kwargs_with_provider = embrouter_params.copy() if embrouter_params else {}
                         kwargs_with_provider["custom_llm_provider"] = custom_llm_provider
 
                         # For OpenAI Chat Completions, use the chat completion agentic loop method
@@ -621,7 +621,7 @@ class OpenAIChatCompletion(BaseLLM, BaseOpenAILLM):
 
             except Exception as e:
                 verbose_logger.exception(
-                    "LiteLLM.AgenticHookError: Exception in agentic completion hooks for OpenAI: %s", e
+                    "EmbRouter.AgenticHookError: Exception in agentic completion hooks for OpenAI: %s", e
                 )
 
         return None
@@ -629,7 +629,7 @@ class OpenAIChatCompletion(BaseLLM, BaseOpenAILLM):
     def mock_streaming(
         self,
         response: ModelResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         model: str,
         stream_options: dict | None = None,
     ) -> CustomStreamWrapper:
@@ -649,8 +649,8 @@ class OpenAIChatCompletion(BaseLLM, BaseOpenAILLM):
         model_response: ModelResponse,
         timeout: float | httpx.Timeout,
         optional_params: dict,
-        litellm_params: dict,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: dict,
+        logging_obj: EmbRouterLoggingObj,
         model: str | None = None,
         messages: list | None = None,
         print_verbose: Callable | None = None,
@@ -718,7 +718,7 @@ class OpenAIChatCompletion(BaseLLM, BaseOpenAILLM):
                                 headers=headers,
                                 messages=messages,
                                 optional_params=inference_params,
-                                litellm_params=litellm_params,
+                                embrouter_params=embrouter_params,
                                 provider_config=provider_config,
                                 model=model,
                                 api_base=api_base,
@@ -736,7 +736,7 @@ class OpenAIChatCompletion(BaseLLM, BaseOpenAILLM):
                             return self.acompletion(
                                 messages=messages,
                                 optional_params=inference_params,
-                                litellm_params=litellm_params,
+                                embrouter_params=embrouter_params,
                                 provider_config=provider_config,
                                 headers=headers,
                                 model=model,
@@ -758,7 +758,7 @@ class OpenAIChatCompletion(BaseLLM, BaseOpenAILLM):
                         model=model,
                         messages=messages,
                         optional_params=inference_params,
-                        litellm_params=litellm_params,
+                        embrouter_params=embrouter_params,
                         headers=headers or {},
                     )
                     if stream is True and fake_stream is False:
@@ -838,7 +838,7 @@ class OpenAIChatCompletion(BaseLLM, BaseOpenAILLM):
                         return final_response_obj
                 except openai.UnprocessableEntityError as e:
                     ## check if body contains unprocessable params
-                    if litellm.drop_params is True or drop_params is True:
+                    if embrouter.drop_params is True or drop_params is True:
                         inference_params = drop_params_from_unprocessable_entity_error(e, inference_params)
                     else:
                         raise e
@@ -868,7 +868,7 @@ class OpenAIChatCompletion(BaseLLM, BaseOpenAILLM):
                         new_messages.append({"role": "user", "content": ""})
                         messages = new_messages
                     elif "unknown field: parameter index is not a valid field" in str(e):
-                        litellm.remove_index_from_tool_calls(messages=messages)
+                        embrouter.remove_index_from_tool_calls(messages=messages)
                     else:
                         raise e
         except OpenAIError as e:
@@ -892,11 +892,11 @@ class OpenAIChatCompletion(BaseLLM, BaseOpenAILLM):
         self,
         messages: list,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         provider_config: BaseConfig,
         model: str,
         model_response: ModelResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         timeout: float | httpx.Timeout,
         api_key: str | None = None,
         api_base: str | None = None,
@@ -915,7 +915,7 @@ class OpenAIChatCompletion(BaseLLM, BaseOpenAILLM):
             model=model,
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers or {},
         )
         for _ in range(2):  # if call fails due to alternating messages, retry with reformatted message
@@ -974,7 +974,7 @@ class OpenAIChatCompletion(BaseLLM, BaseOpenAILLM):
                     optional_params=optional_params,
                     logging_obj=logging_obj,
                     stream=False,
-                    litellm_params=litellm_params,
+                    embrouter_params=embrouter_params,
                 )
 
                 if agentic_response is not None:
@@ -991,7 +991,7 @@ class OpenAIChatCompletion(BaseLLM, BaseOpenAILLM):
                 return final_response_obj
             except openai.UnprocessableEntityError as e:
                 ## check if body contains unprocessable params
-                if litellm.drop_params is True or drop_params is True:
+                if embrouter.drop_params is True or drop_params is True:
                     data = drop_params_from_unprocessable_entity_error(e, data)
                 else:
                     raise e
@@ -1074,10 +1074,10 @@ class OpenAIChatCompletion(BaseLLM, BaseOpenAILLM):
         timeout: float | httpx.Timeout,
         messages: list,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         provider_config: BaseConfig,
         model: str,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_key: str | None = None,
         api_base: str | None = None,
         api_version: str | None = None,
@@ -1094,7 +1094,7 @@ class OpenAIChatCompletion(BaseLLM, BaseOpenAILLM):
             model=model,
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers or {},
         )
         data["stream"] = True
@@ -1142,7 +1142,7 @@ class OpenAIChatCompletion(BaseLLM, BaseOpenAILLM):
                 return streamwrapper
             except openai.UnprocessableEntityError as e:
                 ## check if body contains unprocessable params
-                if litellm.drop_params is True or drop_params is True:
+                if embrouter.drop_params is True or drop_params is True:
                     data = drop_params_from_unprocessable_entity_error(e, data)
                 else:
                     raise e
@@ -1205,7 +1205,7 @@ class OpenAIChatCompletion(BaseLLM, BaseOpenAILLM):
         openai_aclient: AsyncOpenAI,
         data: dict,
         timeout: float | httpx.Timeout,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> LegacyAPIResponse[CreateEmbeddingResponse]:
         if "encoding_format" not in data:
             body, options = _embedding_request_without_sdk_defaults(data, timeout)
@@ -1222,7 +1222,7 @@ class OpenAIChatCompletion(BaseLLM, BaseOpenAILLM):
         openai_client: OpenAI,
         data: dict,
         timeout: float | httpx.Timeout,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> LegacyAPIResponse[CreateEmbeddingResponse]:
         if "encoding_format" not in data:
             body, options = _embedding_request_without_sdk_defaults(data, timeout)
@@ -1239,7 +1239,7 @@ class OpenAIChatCompletion(BaseLLM, BaseOpenAILLM):
         data: dict,
         model_response: EmbeddingResponse,
         timeout: float,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_key: str | None = None,
         api_base: str | None = None,
         client: AsyncOpenAI | None = None,
@@ -1322,7 +1322,7 @@ class OpenAIChatCompletion(BaseLLM, BaseOpenAILLM):
         super().embedding()
         try:
             data: Final = {"model": model, "input": input, **optional_params}
-            max_retries = max_retries or litellm.DEFAULT_MAX_RETRIES
+            max_retries = max_retries or embrouter.DEFAULT_MAX_RETRIES
             if not isinstance(max_retries, int):
                 raise OpenAIError(status_code=422, message="max retries must be an int")
             ## LOGGING
@@ -1397,7 +1397,7 @@ class OpenAIChatCompletion(BaseLLM, BaseOpenAILLM):
         data: dict,
         model_response: ModelResponse,
         timeout: float,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_key: str | None = None,
         api_base: str | None = None,
         client=None,
@@ -1461,7 +1461,7 @@ class OpenAIChatCompletion(BaseLLM, BaseOpenAILLM):
         prompt: str,
         timeout: float,
         optional_params: dict,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_key: str | None = None,
         api_base: str | None = None,
         model_response: ImageResponse | None = None,
@@ -1567,7 +1567,7 @@ class OpenAIChatCompletion(BaseLLM, BaseOpenAILLM):
         project: str | None,
         max_retries: int,
         timeout: float | httpx.Timeout,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         aspeech: bool | None = None,
         client=None,
         shared_session: Optional["ClientSession"] = None,
@@ -1631,7 +1631,7 @@ class OpenAIChatCompletion(BaseLLM, BaseOpenAILLM):
         project: str | None,
         max_retries: int,
         timeout: float | httpx.Timeout,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         client=None,
         shared_session: Optional["ClientSession"] = None,
     ) -> HttpxBinaryResponseContent:
@@ -2074,9 +2074,9 @@ class OpenAIBatchesAPI(BaseLLM):
         self,
         create_batch_data: CreateBatchRequest,
         openai_client: AsyncOpenAI,
-    ) -> LiteLLMBatch:
+    ) -> EmbRouterBatch:
         response: Final = await openai_client.batches.create(**create_batch_data)
-        return LiteLLMBatch.model_validate(response.model_dump())
+        return EmbRouterBatch.model_validate(response.model_dump())
 
     def create_batch(
         self,
@@ -2088,7 +2088,7 @@ class OpenAIBatchesAPI(BaseLLM):
         max_retries: int | None,
         organization: str | None,
         client: OpenAI | AsyncOpenAI | None = None,
-    ) -> LiteLLMBatch | Coroutine[None, None, LiteLLMBatch]:
+    ) -> EmbRouterBatch | Coroutine[None, None, EmbRouterBatch]:
         openai_client: Final[OpenAI | AsyncOpenAI | None] = self.get_openai_client(
             api_key=api_key,
             api_base=api_base,
@@ -2111,16 +2111,16 @@ class OpenAIBatchesAPI(BaseLLM):
             return self.acreate_batch(create_batch_data=create_batch_data, openai_client=openai_client)
         response: Final = cast(OpenAI, openai_client).batches.create(**create_batch_data)
 
-        return LiteLLMBatch.model_validate(response.model_dump())
+        return EmbRouterBatch.model_validate(response.model_dump())
 
     async def aretrieve_batch(
         self,
         retrieve_batch_data: RetrieveBatchRequest,
         openai_client: AsyncOpenAI,
-    ) -> LiteLLMBatch:
+    ) -> EmbRouterBatch:
         verbose_logger.debug("retrieving batch, args= %s", retrieve_batch_data)
         response: Final = await openai_client.batches.retrieve(**retrieve_batch_data)
-        return LiteLLMBatch.model_validate(response.model_dump())
+        return EmbRouterBatch.model_validate(response.model_dump())
 
     def retrieve_batch(
         self,
@@ -2154,16 +2154,16 @@ class OpenAIBatchesAPI(BaseLLM):
                 )
             return self.aretrieve_batch(retrieve_batch_data=retrieve_batch_data, openai_client=openai_client)
         response: Final = cast(OpenAI, openai_client).batches.retrieve(**retrieve_batch_data)
-        return LiteLLMBatch.model_validate(response.model_dump())
+        return EmbRouterBatch.model_validate(response.model_dump())
 
     async def acancel_batch(
         self,
         cancel_batch_data: CancelBatchRequest,
         openai_client: AsyncOpenAI,
-    ) -> LiteLLMBatch:
+    ) -> EmbRouterBatch:
         verbose_logger.debug("async cancelling batch, args= %s", cancel_batch_data)
         response: Final = await openai_client.batches.cancel(**cancel_batch_data)
-        return LiteLLMBatch.model_validate(response.model_dump())
+        return EmbRouterBatch.model_validate(response.model_dump())
 
     def cancel_batch(
         self,
@@ -2201,7 +2201,7 @@ class OpenAIBatchesAPI(BaseLLM):
         if not isinstance(openai_client, OpenAI):
             raise ValueError("OpenAI client is not an instance of OpenAI. Make sure you passed a sync OpenAI client.")
         response: Final = openai_client.batches.cancel(**cancel_batch_data)
-        return LiteLLMBatch.model_validate(response.model_dump())
+        return EmbRouterBatch.model_validate(response.model_dump())
 
     async def alist_batches(
         self,
@@ -2818,7 +2818,7 @@ class OpenAIAssistantsAPI(BaseLLM):
         """
         Here's an example:
         ```
-        from litellm.llms.openai.openai import OpenAIAssistantsAPI, MessageData
+        from embrouter.llms.openai.openai import OpenAIAssistantsAPI, MessageData
 
         # create thread
         message: MessageData = {"role": "user", "content": "Hey, how's it going?"}

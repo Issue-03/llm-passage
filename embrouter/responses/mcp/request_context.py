@@ -18,11 +18,11 @@ from pydantic import TypeAdapter
 from typing_extensions import NotRequired, ReadOnly, TypedDict
 
 if TYPE_CHECKING:
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
 
 class _AuthCarryingMetadata(TypedDict):
-    """The one key this module reads out of a request's ``metadata`` / ``litellm_metadata``."""
+    """The one key this module reads out of a request's ``metadata`` / ``embrouter_metadata``."""
 
     user_api_key_auth: ReadOnly[NotRequired["UserAPIKeyAuth | None"]]
 
@@ -37,8 +37,8 @@ class MCPRequestContext:
     oauth2_headers: Mapping[str, str] | None = None
     raw_headers: Mapping[str, str] | None = None
     request_tags: Sequence[str] | None = None
-    litellm_trace_id: str | None = None
-    litellm_call_id: str | None = None
+    embrouter_trace_id: str | None = None
+    embrouter_call_id: str | None = None
     guardrail_context: Mapping[str, object] | None = None
 
     @classmethod
@@ -51,19 +51,19 @@ class MCPRequestContext:
         Build the context from a gateway handler's kwargs.
 
         ``user_api_key_auth`` is read from both metadata keys because routes differ:
-        LITELLM_METADATA_ROUTES (``/v1/messages``, ``/responses``) carry it in
-        ``litellm_metadata`` while ``/chat/completions`` uses ``metadata``.
+        EMBROUTER_METADATA_ROUTES (``/v1/messages``, ``/responses``) carry it in
+        ``embrouter_metadata`` while ``/chat/completions`` uses ``metadata``.
         """
-        from litellm.responses.mcp.litellm_proxy_mcp_handler import (
-            LiteLLM_Proxy_MCP_Handler,
+        from embrouter.responses.mcp.embrouter_proxy_mcp_handler import (
+            EmbRouter_Proxy_MCP_Handler,
         )
-        from litellm.responses.utils import ResponsesAPIRequestUtils
+        from embrouter.responses.utils import ResponsesAPIRequestUtils
 
-        litellm_metadata: Final[_AuthCarryingMetadata] = kwargs.get("litellm_metadata") or {}
+        embrouter_metadata: Final[_AuthCarryingMetadata] = kwargs.get("embrouter_metadata") or {}
         metadata: Final[_AuthCarryingMetadata] = kwargs.get("metadata") or {}
         user_api_key_auth: Final[UserAPIKeyAuth | None] = (
             kwargs.get("user_api_key_auth")
-            or litellm_metadata.get("user_api_key_auth")
+            or embrouter_metadata.get("user_api_key_auth")
             or metadata.get("user_api_key_auth")
         )
 
@@ -83,9 +83,9 @@ class MCPRequestContext:
             mcp_server_auth_headers=mcp_server_auth_headers,
             oauth2_headers=oauth2_headers,
             raw_headers=raw_headers,
-            request_tags=LiteLLM_Proxy_MCP_Handler._get_parent_request_tags(dict(kwargs)),
-            litellm_trace_id=kwargs.get("litellm_trace_id"),
-            litellm_call_id=kwargs.get("litellm_call_id"),
+            request_tags=EmbRouter_Proxy_MCP_Handler._get_parent_request_tags(dict(kwargs)),
+            embrouter_trace_id=kwargs.get("embrouter_trace_id"),
+            embrouter_call_id=kwargs.get("embrouter_call_id"),
             guardrail_context=cls.resolve_guardrail_context(kwargs),
         )
 
@@ -102,7 +102,7 @@ class MCPRequestContext:
         )
         buckets: Final = tuple(
             TypeAdapter(dict[str, object]).validate_python(kwargs[key])
-            for key in ("litellm_metadata", "metadata")
+            for key in ("embrouter_metadata", "metadata")
             if isinstance(kwargs.get(key), Mapping)
         )
         sources: Final = (*buckets, kwargs)

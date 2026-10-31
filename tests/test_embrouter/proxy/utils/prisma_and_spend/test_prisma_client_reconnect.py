@@ -33,8 +33,8 @@ from unittest.mock import AsyncMock, MagicMock, call
 
 import pytest
 
-from litellm.proxy.db.routing_prisma_wrapper import RoutingPrismaWrapper
-from litellm.proxy.utils import PrismaClient, _StaleReadEngine
+from embrouter.proxy.db.routing_prisma_wrapper import RoutingPrismaWrapper
+from embrouter.proxy.utils import PrismaClient, _StaleReadEngine
 
 
 @pytest.mark.asyncio
@@ -620,7 +620,7 @@ async def test_iam_refresh_racing_reconnect_recreates_engine_only_once(
 
     import prisma as prisma_pkg
 
-    from litellm.proxy.db.prisma_client import PrismaWrapper
+    from embrouter.proxy.db.prisma_client import PrismaWrapper
 
     def token_db_url(created: datetime) -> str:
         token = f"host/?X-Amz-Date={created.strftime('%Y%m%dT%H%M%SZ')}&X-Amz-Expires=900&X-Amz-Signature=abc"

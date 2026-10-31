@@ -7,23 +7,23 @@ from typing import TYPE_CHECKING, Final, Literal, Optional, Protocol
 from fastapi import HTTPException
 from typing_extensions import NotRequired, ReadOnly, TypedDict, Unpack
 
-from litellm._logging import verbose_proxy_logger
-from litellm.integrations.custom_guardrail import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.integrations.custom_guardrail import (
     CustomGuardrail,
     ModifyResponseException,
     log_guardrail_information,
 )
-from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
-from litellm.litellm_core_utils.safe_json_loads import safe_json_loads
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps
+from embrouter.embrouter_core_utils.safe_json_loads import safe_json_loads
+from embrouter.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.utils import GenericGuardrailAPIInputs
+from embrouter.types.guardrails import GuardrailEventHooks
+from embrouter.types.utils import GenericGuardrailAPIInputs
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
 
 GRAYSWAN_BLOCK_ERROR_MSG: Final = "Blocked by Gray Swan Guardrail"
 
@@ -76,7 +76,7 @@ class GraySwanGuardrail(CustomGuardrail):
     Guardrail that calls Gray Swan's Cygnal monitoring endpoint.
 
     Uses the unified guardrail system via `apply_guardrail` method,
-    which automatically works with all LiteLLM endpoints:
+    which automatically works with all EmbRouter endpoints:
     - OpenAI Chat Completions
     - OpenAI Responses API
     - OpenAI Text Completions
@@ -196,7 +196,7 @@ class GraySwanGuardrail(CustomGuardrail):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict,
         input_type: Literal["request", "response"],
-        logging_obj: Optional["LiteLLMLoggingObj"] = None,
+        logging_obj: Optional["EmbRouterLoggingObj"] = None,
     ) -> GenericGuardrailAPIInputs:
         """
         Apply Gray Swan guardrail to extracted text content.
@@ -541,7 +541,7 @@ class GraySwanGuardrail(CustomGuardrail):
     def _extract_inbound_headers(
         self,
         request_data: dict,
-        logging_obj: Optional["LiteLLMLoggingObj"] = None,
+        logging_obj: Optional["EmbRouterLoggingObj"] = None,
     ) -> dict[str, str] | None:
         headers = (request_data.get("proxy_server_request") or {}).get("headers")
         if not headers:
@@ -550,7 +550,7 @@ class GraySwanGuardrail(CustomGuardrail):
             headers = (request_data.get("metadata") or {}).get("headers")
         if not headers and logging_obj and getattr(logging_obj, "model_call_details", None):
             headers = (
-                (logging_obj.model_call_details or {}).get("litellm_params", {}).get("metadata", {}).get("headers")
+                (logging_obj.model_call_details or {}).get("embrouter_params", {}).get("metadata", {}).get("headers")
             )
         if not isinstance(headers, dict):
             return None
@@ -567,7 +567,7 @@ class GraySwanGuardrail(CustomGuardrail):
         messages: list[dict[str, str]],
         dynamic_body: dict,
         request_data: dict,
-        logging_obj: Optional["LiteLLMLoggingObj"] = None,
+        logging_obj: Optional["EmbRouterLoggingObj"] = None,
     ) -> dict[str, object] | None:
         payload: Final[dict[str, object]] = {"messages": messages}
 
@@ -589,17 +589,17 @@ class GraySwanGuardrail(CustomGuardrail):
 
         inbound_headers: Final = self._extract_inbound_headers(request_data, logging_obj)
 
-        litellm_metadata: Final = request_data.get("litellm_metadata")
-        cleaned_litellm_metadata: Final = dict(litellm_metadata) if isinstance(litellm_metadata, dict) else {}
+        embrouter_metadata: Final = request_data.get("embrouter_metadata")
+        cleaned_embrouter_metadata: Final = dict(embrouter_metadata) if isinstance(embrouter_metadata, dict) else {}
         if inbound_headers:
-            existing_headers: Final = cleaned_litellm_metadata.get("headers")
-            cleaned_litellm_metadata["headers"] = (
+            existing_headers: Final = cleaned_embrouter_metadata.get("headers")
+            cleaned_embrouter_metadata["headers"] = (
                 {**existing_headers, **inbound_headers} if isinstance(existing_headers, dict) else inbound_headers
             )
-        if cleaned_litellm_metadata:
-            sanitized: Final[object] = safe_json_loads(safe_dumps(cleaned_litellm_metadata), default={})
+        if cleaned_embrouter_metadata:
+            sanitized: Final[object] = safe_json_loads(safe_dumps(cleaned_embrouter_metadata), default={})
             if isinstance(sanitized, dict) and sanitized:
-                payload["litellm_metadata"] = sanitized
+                payload["embrouter_metadata"] = sanitized
 
         return payload
 

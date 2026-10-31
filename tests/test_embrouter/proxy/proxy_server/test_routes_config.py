@@ -25,8 +25,8 @@ from .conftest import VOLATILE_KEYS, normalize
 def _seed_settings_store(monkeypatch, db_row: dict, yaml_values: dict | None = None) -> None:
     """Point proxy_config.settings at a store holding the same row the mocked table returns,
     the way a booted proxy does, so the read routes resolve against it."""
-    from litellm.proxy import proxy_server as ps
-    from litellm.proxy.config_resolvers import SettingsStore
+    from embrouter.proxy import proxy_server as ps
+    from embrouter.proxy.config_resolvers import SettingsStore
 
     store = SettingsStore("general_settings")
     store.load_yaml(yaml_values or {})
@@ -34,9 +34,9 @@ def _seed_settings_store(monkeypatch, db_row: dict, yaml_values: dict | None = N
     monkeypatch.setattr(ps.proxy_config, "settings", store)
 
 
-def _install_litellm_config(mock_prisma: MagicMock) -> MagicMock:
-    """Ensure mock_prisma.db.litellm_config exists with async methods (the
-    conftest only stubs ``litellm_configtable`` — this is a different table)."""
+def _install_embrouter_config(mock_prisma: MagicMock) -> MagicMock:
+    """Ensure mock_prisma.db.embrouter_config exists with async methods (the
+    conftest only stubs ``embrouter_configtable`` — this is a different table)."""
     table = MagicMock()
     table.find_unique = AsyncMock(return_value=None)
     table.find_first = AsyncMock(return_value=None)
@@ -45,7 +45,7 @@ def _install_litellm_config(mock_prisma: MagicMock) -> MagicMock:
     table.update = AsyncMock()
     table.upsert = AsyncMock(return_value=None)
     table.delete = AsyncMock()
-    mock_prisma.db.litellm_config = table
+    mock_prisma.db.embrouter_config = table
     return table
 
 
@@ -57,16 +57,16 @@ def _install_litellm_config(mock_prisma: MagicMock) -> MagicMock:
 def test_config_update_happy_admin(client, auth_as, mock_prisma, monkeypatch):
     """POST /config/update with admin role merges + upserts general_settings
     and returns the canonical success message."""
-    from litellm.proxy import proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    from embrouter.proxy import proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
-    _install_litellm_config(mock_prisma)
+    _install_embrouter_config(mock_prisma)
     monkeypatch.setattr(ps, "prisma_client", mock_prisma)
     fake_proxy_config = MagicMock()
     fake_proxy_config.add_deployment = AsyncMock()
     monkeypatch.setattr(ps, "proxy_config", fake_proxy_config)
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN):
+    with auth_as(EmbrouterUserRoles.PROXY_ADMIN):
         response = client.post(
             "/config/update",
             json={"general_settings": {"alerting": ["slack"]}},
@@ -76,16 +76,16 @@ def test_config_update_happy_admin(client, auth_as, mock_prisma, monkeypatch):
 
 
 def test_config_update_persists_optional_pre_call_checks(client, auth_as, mock_prisma, monkeypatch):
-    from litellm.proxy import proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    from embrouter.proxy import proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
-    table = _install_litellm_config(mock_prisma)
+    table = _install_embrouter_config(mock_prisma)
     monkeypatch.setattr(ps, "prisma_client", mock_prisma)
     fake_proxy_config = MagicMock()
     fake_proxy_config.add_deployment = AsyncMock()
     monkeypatch.setattr(ps, "proxy_config", fake_proxy_config)
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN):
+    with auth_as(EmbrouterUserRoles.PROXY_ADMIN):
         response = client.post(
             "/config/update",
             json={"router_settings": {"optional_pre_call_checks": ["prompt_caching"]}},
@@ -97,17 +97,17 @@ def test_config_update_persists_optional_pre_call_checks(client, auth_as, mock_p
 
 
 def test_config_update_persists_model_group_affinity_config(client, auth_as, mock_prisma, monkeypatch):
-    from litellm.proxy import proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    from embrouter.proxy import proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
-    table = _install_litellm_config(mock_prisma)
+    table = _install_embrouter_config(mock_prisma)
     monkeypatch.setattr(ps, "prisma_client", mock_prisma)
     fake_proxy_config = MagicMock()
     fake_proxy_config.add_deployment = AsyncMock()
     monkeypatch.setattr(ps, "proxy_config", fake_proxy_config)
 
     model_group_affinity_config = {"gpt-4": ["session_affinity"]}
-    with auth_as(LitellmUserRoles.PROXY_ADMIN):
+    with auth_as(EmbrouterUserRoles.PROXY_ADMIN):
         response = client.post(
             "/config/update",
             json={"router_settings": {"model_group_affinity_config": model_group_affinity_config}},
@@ -119,16 +119,16 @@ def test_config_update_persists_model_group_affinity_config(client, auth_as, moc
 
 
 def test_config_update_persists_disable_cooldowns(client, auth_as, mock_prisma, monkeypatch):
-    from litellm.proxy import proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    from embrouter.proxy import proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
-    table = _install_litellm_config(mock_prisma)
+    table = _install_embrouter_config(mock_prisma)
     monkeypatch.setattr(ps, "prisma_client", mock_prisma)
     fake_proxy_config = MagicMock()
     fake_proxy_config.add_deployment = AsyncMock()
     monkeypatch.setattr(ps, "proxy_config", fake_proxy_config)
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN):
+    with auth_as(EmbrouterUserRoles.PROXY_ADMIN):
         response = client.post(
             "/config/update",
             json={"router_settings": {"disable_cooldowns": True}},
@@ -143,23 +143,23 @@ def test_config_update_persists_disable_cooldowns(client, auth_as, mock_prisma, 
     ("section", "store_attr", "yaml_values", "changed_values"),
     [
         ("general_settings", "settings", {"alerting": ["slack"]}, {"alerting": ["email"]}),
-        ("litellm_settings", "litellm_settings", {"success_callback": ["langfuse"]}, {"success_callback": ["otel"]}),
+        ("embrouter_settings", "embrouter_settings", {"success_callback": ["langfuse"]}, {"success_callback": ["otel"]}),
         ("router_settings", "router_settings", {"num_retries": 0}, {"num_retries": 2}),
     ],
 )
 def test_config_update_rejects_config_owned_keys_and_accepts_the_same_value(
     client, auth_as, mock_prisma, monkeypatch, section, store_attr, yaml_values, changed_values
 ):
-    from litellm.proxy import proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    from embrouter.proxy import proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
-    table = _install_litellm_config(mock_prisma)
+    table = _install_embrouter_config(mock_prisma)
     monkeypatch.setattr(ps, "prisma_client", mock_prisma)
     monkeypatch.setattr(ps.proxy_config, "add_deployment", AsyncMock())
     store = getattr(ps.proxy_config, store_attr)
     store.load_yaml(yaml_values)
     try:
-        with auth_as(LitellmUserRoles.PROXY_ADMIN):
+        with auth_as(EmbrouterUserRoles.PROXY_ADMIN):
             rejected = client.post("/config/update", json={section: changed_values})
             rejected_message = rejected.json()["error"]["message"]
             table.upsert.assert_not_called()
@@ -179,15 +179,15 @@ def test_config_update_rejects_config_owned_keys_and_accepts_the_same_value(
 def test_config_update_persists_only_the_general_settings_keys_the_request_set(
     client, auth_as, mock_prisma, monkeypatch
 ):
-    from litellm.proxy import proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    from embrouter.proxy import proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
-    table = _install_litellm_config(mock_prisma)
+    table = _install_embrouter_config(mock_prisma)
     monkeypatch.setattr(ps, "prisma_client", mock_prisma)
     monkeypatch.setattr(ps.proxy_config, "add_deployment", AsyncMock())
     ps.proxy_config.settings.load_yaml({"health_check_interval": 60})
     try:
-        with auth_as(LitellmUserRoles.PROXY_ADMIN):
+        with auth_as(EmbrouterUserRoles.PROXY_ADMIN):
             response = client.post("/config/update", json={"general_settings": {"alerting_threshold": 600}})
     finally:
         ps.proxy_config.settings.load_yaml({})
@@ -200,15 +200,15 @@ def test_config_update_persists_only_the_general_settings_keys_the_request_set(
 def test_config_update_persists_only_the_router_settings_keys_the_request_set(
     client, auth_as, mock_prisma, monkeypatch
 ):
-    from litellm.proxy import proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    from embrouter.proxy import proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
-    table = _install_litellm_config(mock_prisma)
+    table = _install_embrouter_config(mock_prisma)
     monkeypatch.setattr(ps, "prisma_client", mock_prisma)
     monkeypatch.setattr(ps.proxy_config, "add_deployment", AsyncMock())
     ps.proxy_config.router_settings.load_yaml({"model_group_alias": {"opus": "claude-opus-5"}})
     try:
-        with auth_as(LitellmUserRoles.PROXY_ADMIN):
+        with auth_as(EmbrouterUserRoles.PROXY_ADMIN):
             response = client.post(
                 "/config/update", json={"router_settings": {"retry_policy": {"TimeoutErrorRetries": 3}}}
             )
@@ -223,18 +223,18 @@ def test_config_update_persists_only_the_router_settings_keys_the_request_set(
 def test_config_update_accepts_a_config_owned_success_callback_the_file_spells_in_mixed_case(
     client, auth_as, mock_prisma, monkeypatch
 ):
-    from litellm.proxy import proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    from embrouter.proxy import proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
-    table = _install_litellm_config(mock_prisma)
+    table = _install_embrouter_config(mock_prisma)
     monkeypatch.setattr(ps, "prisma_client", mock_prisma)
     monkeypatch.setattr(ps.proxy_config, "add_deployment", AsyncMock())
-    ps.proxy_config.litellm_settings.load_yaml({"success_callback": ["Langfuse"]})
+    ps.proxy_config.embrouter_settings.load_yaml({"success_callback": ["Langfuse"]})
     try:
-        with auth_as(LitellmUserRoles.PROXY_ADMIN):
-            response = client.post("/config/update", json={"litellm_settings": {"success_callback": ["Langfuse"]}})
+        with auth_as(EmbrouterUserRoles.PROXY_ADMIN):
+            response = client.post("/config/update", json={"embrouter_settings": {"success_callback": ["Langfuse"]}})
     finally:
-        ps.proxy_config.litellm_settings.load_yaml({})
+        ps.proxy_config.embrouter_settings.load_yaml({})
 
     assert response.status_code == 200
     persisted = json.loads(table.upsert.call_args.kwargs["data"]["create"]["param_value"])
@@ -242,13 +242,13 @@ def test_config_update_accepts_a_config_owned_success_callback_the_file_spells_i
 
 
 def test_config_update_rejects_assistants_config(client, auth_as, mock_prisma, monkeypatch):
-    from litellm.proxy import proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    from embrouter.proxy import proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
-    table = _install_litellm_config(mock_prisma)
+    table = _install_embrouter_config(mock_prisma)
     monkeypatch.setattr(ps, "prisma_client", mock_prisma)
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN):
+    with auth_as(EmbrouterUserRoles.PROXY_ADMIN):
         response = client.post(
             "/config/update",
             json={"router_settings": {"assistants_config": {"enabled": True}}},
@@ -260,13 +260,13 @@ def test_config_update_rejects_assistants_config(client, auth_as, mock_prisma, m
 
 
 def test_config_update_rejects_router_general_settings(client, auth_as, mock_prisma, monkeypatch):
-    from litellm.proxy import proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    from embrouter.proxy import proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
-    table = _install_litellm_config(mock_prisma)
+    table = _install_embrouter_config(mock_prisma)
     monkeypatch.setattr(ps, "prisma_client", mock_prisma)
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN):
+    with auth_as(EmbrouterUserRoles.PROXY_ADMIN):
         response = client.post(
             "/config/update",
             json={"router_settings": {"router_general_settings": {"async_only_mode": True}}},
@@ -278,13 +278,13 @@ def test_config_update_rejects_router_general_settings(client, auth_as, mock_pri
 
 
 def test_config_update_rejects_unknown_router_setting(client, auth_as, mock_prisma, monkeypatch):
-    from litellm.proxy import proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    from embrouter.proxy import proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
-    table = _install_litellm_config(mock_prisma)
+    table = _install_embrouter_config(mock_prisma)
     monkeypatch.setattr(ps, "prisma_client", mock_prisma)
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN):
+    with auth_as(EmbrouterUserRoles.PROXY_ADMIN):
         response = client.post(
             "/config/update",
             json={"router_settings": {"optional_precall_checks": ["prompt_caching"]}},
@@ -296,13 +296,13 @@ def test_config_update_rejects_unknown_router_setting(client, auth_as, mock_pris
 
 
 def test_config_update_unknown_router_setting_non_admin_forbidden(client, auth_as, mock_prisma, monkeypatch):
-    from litellm.proxy import proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    from embrouter.proxy import proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
-    _install_litellm_config(mock_prisma)
+    _install_embrouter_config(mock_prisma)
     monkeypatch.setattr(ps, "prisma_client", mock_prisma)
 
-    with auth_as(LitellmUserRoles.INTERNAL_USER):
+    with auth_as(EmbrouterUserRoles.INTERNAL_USER):
         response = client.post(
             "/config/update",
             json={"router_settings": {"optional_precall_checks": ["prompt_caching"]}},
@@ -315,13 +315,13 @@ def test_config_update_unknown_router_setting_non_admin_forbidden(client, auth_a
 def test_config_update_non_admin_forbidden(client, auth_as, mock_prisma, monkeypatch):
     """POST /config/update by a non-admin caller is rejected; the error
     surfaces as a ProxyException with the admin-only message."""
-    from litellm.proxy import proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    from embrouter.proxy import proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
-    _install_litellm_config(mock_prisma)
+    _install_embrouter_config(mock_prisma)
     monkeypatch.setattr(ps, "prisma_client", mock_prisma)
 
-    with auth_as(LitellmUserRoles.INTERNAL_USER):
+    with auth_as(EmbrouterUserRoles.INTERNAL_USER):
         response = client.post(
             "/config/update",
             json={"general_settings": {"alerting": ["slack"]}},
@@ -335,12 +335,12 @@ def test_config_update_non_admin_forbidden(client, auth_as, mock_prisma, monkeyp
 def test_config_update_no_db_error(client, auth_as, monkeypatch):
     """POST /config/update with prisma_client=None returns a 'No DB Connected'
     style error (the route raises Exception which the handler maps to 400)."""
-    from litellm.proxy import proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    from embrouter.proxy import proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
     monkeypatch.setattr(ps, "prisma_client", None)
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN):
+    with auth_as(EmbrouterUserRoles.PROXY_ADMIN):
         response = client.post(
             "/config/update",
             json={"general_settings": {"alerting": ["slack"]}},
@@ -357,10 +357,10 @@ def test_config_update_no_db_error(client, auth_as, monkeypatch):
 def test_config_field_update_happy_admin(client, auth_as, mock_prisma, monkeypatch):
     """POST /config/field/update for a known field upserts the DB row and
     returns the upsert response (we pin it to a specific shape)."""
-    from litellm.proxy import proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    from embrouter.proxy import proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
-    table = _install_litellm_config(mock_prisma)
+    table = _install_embrouter_config(mock_prisma)
     table.find_first = AsyncMock(return_value=None)
     upsert_row = {
         "param_name": "general_settings",
@@ -370,7 +370,7 @@ def test_config_field_update_happy_admin(client, auth_as, mock_prisma, monkeypat
     table.upsert = AsyncMock(return_value=upsert_row)
     monkeypatch.setattr(ps, "prisma_client", mock_prisma)
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN):
+    with auth_as(EmbrouterUserRoles.PROXY_ADMIN):
         response = client.post(
             "/config/field/update",
             json={
@@ -390,13 +390,13 @@ def test_config_field_update_happy_admin(client, auth_as, mock_prisma, monkeypat
 def test_config_field_update_non_admin_rejected(client, auth_as, mock_prisma, monkeypatch):
     """Non-admin cannot update config fields — returns 400 with not-allowed
     detail (handler uses 400 for the auth gate, not 403)."""
-    from litellm.proxy import proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    from embrouter.proxy import proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
-    _install_litellm_config(mock_prisma)
+    _install_embrouter_config(mock_prisma)
     monkeypatch.setattr(ps, "prisma_client", mock_prisma)
 
-    with auth_as(LitellmUserRoles.INTERNAL_USER):
+    with auth_as(EmbrouterUserRoles.INTERNAL_USER):
         response = client.post(
             "/config/field/update",
             json={
@@ -411,13 +411,13 @@ def test_config_field_update_non_admin_rejected(client, auth_as, mock_prisma, mo
 
 def test_config_field_update_invalid_field(client, auth_as, mock_prisma, monkeypatch):
     """Unknown field_name is rejected with 400 + 'Invalid field=' detail."""
-    from litellm.proxy import proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    from embrouter.proxy import proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
-    _install_litellm_config(mock_prisma)
+    _install_embrouter_config(mock_prisma)
     monkeypatch.setattr(ps, "prisma_client", mock_prisma)
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN):
+    with auth_as(EmbrouterUserRoles.PROXY_ADMIN):
         response = client.post(
             "/config/field/update",
             json={
@@ -437,17 +437,17 @@ def test_config_field_update_invalid_field(client, auth_as, mock_prisma, monkeyp
 
 def test_config_field_info_happy_admin(client, auth_as, mock_prisma, monkeypatch):
     """Admin gets back ConfigFieldInfo with the value the proxy resolved, tagged with where it came from."""
-    from litellm.proxy import proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    from embrouter.proxy import proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
-    table = _install_litellm_config(mock_prisma)
+    table = _install_embrouter_config(mock_prisma)
     row = MagicMock()
     row.param_value = {"max_parallel_requests": 7}
     table.find_first = AsyncMock(return_value=row)
     monkeypatch.setattr(ps, "prisma_client", mock_prisma)
     _seed_settings_store(monkeypatch, row.param_value)
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN):
+    with auth_as(EmbrouterUserRoles.PROXY_ADMIN):
         response = client.get("/config/field/info", params={"field_name": "max_parallel_requests"})
     assert response.status_code == 200
     assert normalize(response.json()) == {
@@ -460,13 +460,13 @@ def test_config_field_info_happy_admin(client, auth_as, mock_prisma, monkeypatch
 
 def test_config_field_info_non_admin_rejected(client, auth_as, mock_prisma, monkeypatch):
     """Non-admin (INTERNAL_USER) is denied — admin-view gate fires."""
-    from litellm.proxy import proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    from embrouter.proxy import proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
-    _install_litellm_config(mock_prisma)
+    _install_embrouter_config(mock_prisma)
     monkeypatch.setattr(ps, "prisma_client", mock_prisma)
 
-    with auth_as(LitellmUserRoles.INTERNAL_USER):
+    with auth_as(EmbrouterUserRoles.INTERNAL_USER):
         response = client.get("/config/field/info", params={"field_name": "max_parallel_requests"})
     assert response.status_code == 400
     assert "error" in response.json().get("detail", {})
@@ -474,17 +474,17 @@ def test_config_field_info_non_admin_rejected(client, auth_as, mock_prisma, monk
 
 def test_config_field_info_field_not_in_db(client, auth_as, mock_prisma, monkeypatch):
     """When nothing sets the field, neither the config file nor the DB row, it 400s."""
-    from litellm.proxy import proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    from embrouter.proxy import proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
-    table = _install_litellm_config(mock_prisma)
+    table = _install_embrouter_config(mock_prisma)
     row = MagicMock()
     row.param_value = {"some_other_field": "value"}
     table.find_first = AsyncMock(return_value=row)
     monkeypatch.setattr(ps, "prisma_client", mock_prisma)
     _seed_settings_store(monkeypatch, row.param_value)
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN):
+    with auth_as(EmbrouterUserRoles.PROXY_ADMIN):
         response = client.get("/config/field/info", params={"field_name": "max_parallel_requests"})
     assert response.status_code == 400
     assert "is not set" in response.json().get("detail", {}).get("error", "")
@@ -495,15 +495,15 @@ def test_config_field_info_redacts_nested_secret_for_view_only_admin(client, aut
     credentials. database_args carries aws_web_identity_token (a DynamoDB
     role-assumption credential); it must come back redacted while non-secret
     siblings like region_name stay visible."""
-    from litellm.proxy import proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    from embrouter.proxy import proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
-    table = _install_litellm_config(mock_prisma)
+    table = _install_embrouter_config(mock_prisma)
     row = MagicMock()
     row.param_value = {
         "database_args": {
             "region_name": "us-east-1",
-            "user_table_name": "LiteLLM_UserTable",
+            "user_table_name": "EmbRouter_UserTable",
             "aws_web_identity_token": "sk-super-secret-token",
         }
     }
@@ -511,22 +511,22 @@ def test_config_field_info_redacts_nested_secret_for_view_only_admin(client, aut
     monkeypatch.setattr(ps, "prisma_client", mock_prisma)
     _seed_settings_store(monkeypatch, row.param_value)
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY):
+    with auth_as(EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY):
         response = client.get("/config/field/info", params={"field_name": "database_args"})
     assert response.status_code == 200
     value = response.json()["field_value"]
     assert value["aws_web_identity_token"] == "REDACTED"
     assert value["region_name"] == "us-east-1"
-    assert value["user_table_name"] == "LiteLLM_UserTable"
+    assert value["user_table_name"] == "EmbRouter_UserTable"
 
 
 def test_config_field_info_full_admin_sees_nested_secret(client, auth_as, mock_prisma, monkeypatch):
     """The redaction must not over-redact for a full PROXY_ADMIN, who needs
     the real nested value to populate the edit form."""
-    from litellm.proxy import proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    from embrouter.proxy import proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
-    table = _install_litellm_config(mock_prisma)
+    table = _install_embrouter_config(mock_prisma)
     row = MagicMock()
     row.param_value = {
         "database_args": {
@@ -538,7 +538,7 @@ def test_config_field_info_full_admin_sees_nested_secret(client, auth_as, mock_p
     monkeypatch.setattr(ps, "prisma_client", mock_prisma)
     _seed_settings_store(monkeypatch, row.param_value)
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN):
+    with auth_as(EmbrouterUserRoles.PROXY_ADMIN):
         response = client.get("/config/field/info", params={"field_name": "database_args"})
     assert response.status_code == 200
     value = response.json()["field_value"]
@@ -550,17 +550,17 @@ def test_config_field_info_redacts_top_level_scalar_for_view_only(client, auth_a
     """The top-level scalar branch must also redact for a view-only admin.
     database_url carries DB credentials and is not caught by the name masker,
     so it is in the explicit secret set."""
-    from litellm.proxy import proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    from embrouter.proxy import proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
-    table = _install_litellm_config(mock_prisma)
+    table = _install_embrouter_config(mock_prisma)
     row = MagicMock()
-    row.param_value = {"database_url": "postgresql://admin:p4ss@db:5432/litellm"}
+    row.param_value = {"database_url": "postgresql://admin:p4ss@db:5432/embrouter"}
     table.find_first = AsyncMock(return_value=row)
     monkeypatch.setattr(ps, "prisma_client", mock_prisma)
     _seed_settings_store(monkeypatch, row.param_value)
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY):
+    with auth_as(EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY):
         response = client.get("/config/field/info", params={"field_name": "database_url"})
     assert response.status_code == 200
     assert response.json()["field_value"] == "REDACTED"
@@ -569,7 +569,7 @@ def test_config_field_info_redacts_top_level_scalar_for_view_only(client, auth_a
 def test_redact_general_setting_value_recurses_list_of_dicts():
     """The list branch of the recursor redacts secret leaves inside each dict
     while non-secret keys survive, and a full admin gets the value untouched."""
-    from litellm.proxy import proxy_server as ps
+    from embrouter.proxy import proxy_server as ps
 
     value = [
         {"path": "/foo", "headers": {"Authorization": "Bearer sk-x"}},
@@ -588,7 +588,7 @@ def test_redact_secret_values_in_obj_fails_closed_at_max_depth():
     "REDACTED" rather than returned verbatim, so a secret buried below the cap
     can never leak via depth-overrun. A future refactor that flips the cap
     branch to fail-open would surface here."""
-    from litellm.proxy import proxy_server as ps
+    from embrouter.proxy import proxy_server as ps
 
     # leaf and wrap keys are both NON-secret so neither the key-name
     # short-circuit nor the explicit-secret set catches the leak. The cap is
@@ -611,10 +611,10 @@ def test_config_list_redacts_pass_through_secret_for_view_only(client, auth_as, 
     """/config/list must not leak pass_through_endpoints upstream credentials
     to a view-only admin. pass_through_endpoints is a known secret-bearing
     field, so a non-admin gets it redacted; a full admin still sees it."""
-    from litellm.proxy import proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    from embrouter.proxy import proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
-    table = _install_litellm_config(mock_prisma)
+    table = _install_embrouter_config(mock_prisma)
     row = MagicMock()
     row.param_value = {"max_parallel_requests": 3}
     table.find_first = AsyncMock(return_value=row)
@@ -636,13 +636,13 @@ def test_config_list_redacts_pass_through_secret_for_view_only(client, auth_as, 
     def _pass_through_value(body):
         return next(entry["field_value"] for entry in body if entry["field_name"] == "pass_through_endpoints")
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY):
+    with auth_as(EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY):
         view_resp = client.get("/config/list", params={"config_type": "general_settings"})
     assert view_resp.status_code == 200
     assert "sk-UPSTREAM-SECRET" not in view_resp.text
     assert _pass_through_value(view_resp.json()) == "REDACTED"
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN):
+    with auth_as(EmbrouterUserRoles.PROXY_ADMIN):
         admin_resp = client.get("/config/list", params={"config_type": "general_settings"})
     assert admin_resp.status_code == 200
     admin_value = _pass_through_value(admin_resp.json())
@@ -657,16 +657,16 @@ def test_config_list_redacts_pass_through_secret_for_view_only(client, auth_as, 
 def test_config_list_happy_admin(client, auth_as, mock_prisma, monkeypatch):
     """Admin gets a non-empty list of ConfigList rows for general_settings
     (one entry per known allowed_arg). Each row has the documented schema."""
-    from litellm.proxy import proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    from embrouter.proxy import proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
-    table = _install_litellm_config(mock_prisma)
+    table = _install_embrouter_config(mock_prisma)
     row = MagicMock()
     row.param_value = {"max_parallel_requests": 3}
     table.find_first = AsyncMock(return_value=row)
     monkeypatch.setattr(ps, "prisma_client", mock_prisma)
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN):
+    with auth_as(EmbrouterUserRoles.PROXY_ADMIN):
         response = client.get("/config/list", params={"config_type": "general_settings"})
     assert response.status_code == 200
     body = response.json()
@@ -691,16 +691,16 @@ def test_config_list_exposes_config_reload_interval(client, auth_as, mock_prisma
     """proxy_config_reload_interval_seconds must surface in the admin UI general-settings
     list as an Integer field defaulting to 30, so operators can tune multi-pod convergence
     from the dashboard."""
-    from litellm.proxy import proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    from embrouter.proxy import proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
-    table = _install_litellm_config(mock_prisma)
+    table = _install_embrouter_config(mock_prisma)
     row = MagicMock()
     row.param_value = {}
     table.find_first = AsyncMock(return_value=row)
     monkeypatch.setattr(ps, "prisma_client", mock_prisma)
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN):
+    with auth_as(EmbrouterUserRoles.PROXY_ADMIN):
         response = client.get("/config/list", params={"config_type": "general_settings"})
     assert response.status_code == 200
     by_name = {entry["field_name"]: entry for entry in response.json()}
@@ -713,10 +713,10 @@ def test_config_list_exposes_config_reload_interval(client, auth_as, mock_prisma
 def test_config_field_update_accepts_config_reload_interval(client, auth_as, mock_prisma, monkeypatch):
     """POST /config/field/update accepts proxy_config_reload_interval_seconds and persists
     it to the DB general_settings row for all pods to pick up."""
-    from litellm.proxy import proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    from embrouter.proxy import proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
-    table = _install_litellm_config(mock_prisma)
+    table = _install_embrouter_config(mock_prisma)
     table.find_first = AsyncMock(return_value=None)
     upsert_row = {
         "param_name": "general_settings",
@@ -726,7 +726,7 @@ def test_config_field_update_accepts_config_reload_interval(client, auth_as, moc
     table.upsert = AsyncMock(return_value=upsert_row)
     monkeypatch.setattr(ps, "prisma_client", mock_prisma)
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN):
+    with auth_as(EmbrouterUserRoles.PROXY_ADMIN):
         response = client.post(
             "/config/field/update",
             json={
@@ -743,15 +743,15 @@ def test_config_field_update_accepts_config_reload_interval(client, auth_as, moc
 def test_config_field_update_rejects_non_positive_config_reload_interval(client, auth_as, mock_prisma, monkeypatch):
     """A non-positive proxy_config_reload_interval_seconds from the UI is rejected with a 400
     and never persisted, since APScheduler requires a positive interval."""
-    from litellm.proxy import proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    from embrouter.proxy import proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
-    table = _install_litellm_config(mock_prisma)
+    table = _install_embrouter_config(mock_prisma)
     table.find_first = AsyncMock(return_value=None)
     table.upsert = AsyncMock()
     monkeypatch.setattr(ps, "prisma_client", mock_prisma)
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN):
+    with auth_as(EmbrouterUserRoles.PROXY_ADMIN):
         response = client.post(
             "/config/field/update",
             json={
@@ -766,13 +766,13 @@ def test_config_field_update_rejects_non_positive_config_reload_interval(client,
 
 def test_config_list_non_admin_rejected(client, auth_as, mock_prisma, monkeypatch):
     """Non-admin gets a 400 with the role embedded in the error message."""
-    from litellm.proxy import proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    from embrouter.proxy import proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
-    _install_litellm_config(mock_prisma)
+    _install_embrouter_config(mock_prisma)
     monkeypatch.setattr(ps, "prisma_client", mock_prisma)
 
-    with auth_as(LitellmUserRoles.INTERNAL_USER):
+    with auth_as(EmbrouterUserRoles.INTERNAL_USER):
         response = client.get("/config/list", params={"config_type": "general_settings"})
     assert response.status_code == 400
     assert "role" in response.json().get("detail", {}).get("error", "").lower()
@@ -780,12 +780,12 @@ def test_config_list_non_admin_rejected(client, auth_as, mock_prisma, monkeypatc
 
 def test_config_list_no_db_error(client, auth_as, monkeypatch):
     """No DB → 400 with db_not_connected error."""
-    from litellm.proxy import proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    from embrouter.proxy import proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
     monkeypatch.setattr(ps, "prisma_client", None)
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN):
+    with auth_as(EmbrouterUserRoles.PROXY_ADMIN):
         response = client.get("/config/list", params={"config_type": "general_settings"})
     assert response.status_code == 400
     assert "error" in response.json().get("detail", {})
@@ -798,10 +798,10 @@ def test_config_list_no_db_error(client, auth_as, monkeypatch):
 
 def test_config_field_delete_happy_admin(client, auth_as, mock_prisma, monkeypatch):
     """Admin can delete a stored general_settings field — returns the upsert row."""
-    from litellm.proxy import proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    from embrouter.proxy import proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
-    table = _install_litellm_config(mock_prisma)
+    table = _install_embrouter_config(mock_prisma)
     existing = MagicMock()
     existing.param_value = {"max_parallel_requests": 5, "other": "value"}
     table.find_first = AsyncMock(return_value=existing)
@@ -814,7 +814,7 @@ def test_config_field_delete_happy_admin(client, auth_as, mock_prisma, monkeypat
     )
     monkeypatch.setattr(ps, "prisma_client", mock_prisma)
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN):
+    with auth_as(EmbrouterUserRoles.PROXY_ADMIN):
         response = client.post(
             "/config/field/delete",
             json={
@@ -832,13 +832,13 @@ def test_config_field_delete_happy_admin(client, auth_as, mock_prisma, monkeypat
 
 def test_config_field_delete_non_admin_rejected(client, auth_as, mock_prisma, monkeypatch):
     """Non-admin caller hits the 400 not-allowed branch with role in detail."""
-    from litellm.proxy import proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    from embrouter.proxy import proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
-    _install_litellm_config(mock_prisma)
+    _install_embrouter_config(mock_prisma)
     monkeypatch.setattr(ps, "prisma_client", mock_prisma)
 
-    with auth_as(LitellmUserRoles.INTERNAL_USER):
+    with auth_as(EmbrouterUserRoles.INTERNAL_USER):
         response = client.post(
             "/config/field/delete",
             json={
@@ -852,14 +852,14 @@ def test_config_field_delete_non_admin_rejected(client, auth_as, mock_prisma, mo
 
 def test_config_field_delete_field_not_in_config(client, auth_as, mock_prisma, monkeypatch):
     """If there is no general_settings row at all, returns 400 'not in config'."""
-    from litellm.proxy import proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    from embrouter.proxy import proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
-    table = _install_litellm_config(mock_prisma)
+    table = _install_embrouter_config(mock_prisma)
     table.find_first = AsyncMock(return_value=None)
     monkeypatch.setattr(ps, "prisma_client", mock_prisma)
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN):
+    with auth_as(EmbrouterUserRoles.PROXY_ADMIN):
         response = client.post(
             "/config/field/delete",
             json={
@@ -879,22 +879,22 @@ def test_config_field_delete_field_not_in_config(client, auth_as, mock_prisma, m
 def test_config_callback_delete_happy_admin(client, auth_as, mock_prisma, monkeypatch):
     """Admin deletes a configured success callback — handler returns the
     success message + remaining callbacks + a timestamp."""
-    from litellm.proxy import proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    from embrouter.proxy import proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
-    _install_litellm_config(mock_prisma)
+    _install_embrouter_config(mock_prisma)
     monkeypatch.setattr(ps, "prisma_client", mock_prisma)
     monkeypatch.setattr(ps, "store_model_in_db", True)
 
     fake_proxy_config = MagicMock()
     fake_proxy_config.get_config = AsyncMock(
-        return_value={"litellm_settings": {"success_callback": ["langfuse", "slack"]}}
+        return_value={"embrouter_settings": {"success_callback": ["langfuse", "slack"]}}
     )
     fake_proxy_config.save_config = AsyncMock()
     fake_proxy_config.add_deployment = AsyncMock()
     monkeypatch.setattr(ps, "proxy_config", fake_proxy_config)
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN):
+    with auth_as(EmbrouterUserRoles.PROXY_ADMIN):
         response = client.post("/config/callback/delete", json={"callback_name": "langfuse"})
     assert response.status_code == 200
     # `deleted_at` is an ISO timestamp generated at request time — extend
@@ -910,14 +910,14 @@ def test_config_callback_delete_happy_admin(client, auth_as, mock_prisma, monkey
 
 def test_config_callback_delete_non_admin_rejected(client, auth_as, mock_prisma, monkeypatch):
     """Non-admin caller is rejected with 400 not-allowed."""
-    from litellm.proxy import proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    from embrouter.proxy import proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
-    _install_litellm_config(mock_prisma)
+    _install_embrouter_config(mock_prisma)
     monkeypatch.setattr(ps, "prisma_client", mock_prisma)
     monkeypatch.setattr(ps, "store_model_in_db", True)
 
-    with auth_as(LitellmUserRoles.INTERNAL_USER):
+    with auth_as(EmbrouterUserRoles.INTERNAL_USER):
         response = client.post("/config/callback/delete", json={"callback_name": "langfuse"})
     assert response.status_code == 400
     assert "role" in response.json().get("detail", {}).get("error", "").lower()
@@ -925,18 +925,18 @@ def test_config_callback_delete_non_admin_rejected(client, auth_as, mock_prisma,
 
 def test_config_callback_delete_not_found(client, auth_as, mock_prisma, monkeypatch):
     """Callback missing from current config returns 404."""
-    from litellm.proxy import proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    from embrouter.proxy import proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
-    _install_litellm_config(mock_prisma)
+    _install_embrouter_config(mock_prisma)
     monkeypatch.setattr(ps, "prisma_client", mock_prisma)
     monkeypatch.setattr(ps, "store_model_in_db", True)
 
     fake_proxy_config = MagicMock()
-    fake_proxy_config.get_config = AsyncMock(return_value={"litellm_settings": {"success_callback": ["slack"]}})
+    fake_proxy_config.get_config = AsyncMock(return_value={"embrouter_settings": {"success_callback": ["slack"]}})
     monkeypatch.setattr(ps, "proxy_config", fake_proxy_config)
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN):
+    with auth_as(EmbrouterUserRoles.PROXY_ADMIN):
         response = client.post("/config/callback/delete", json={"callback_name": "langfuse"})
     # The handler re-raises HTTPException(404) verbatim (only generic
     # `Exception` becomes a 500 ProxyException), so pin 404 strictly.
@@ -952,24 +952,24 @@ def test_config_callback_delete_not_found(client, auth_as, mock_prisma, monkeypa
 def test_get_config_callbacks_happy(client, auth_as, mock_prisma, monkeypatch):
     """GET /get/config/callbacks returns the 5 pinned top-level keys:
     status, callbacks, alerts, router_settings, available_callbacks."""
-    from litellm.proxy import proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    from embrouter.proxy import proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
-    _install_litellm_config(mock_prisma)
+    _install_embrouter_config(mock_prisma)
     monkeypatch.setattr(ps, "prisma_client", mock_prisma)
     monkeypatch.setattr(ps, "llm_router", None)
 
     fake_proxy_config = MagicMock()
     fake_proxy_config.get_config = AsyncMock(
         return_value={
-            "litellm_settings": {"success_callback": []},
+            "embrouter_settings": {"success_callback": []},
             "general_settings": {},
             "environment_variables": {},
         }
     )
     monkeypatch.setattr(ps, "proxy_config", fake_proxy_config)
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN):
+    with auth_as(EmbrouterUserRoles.PROXY_ADMIN):
         response = client.get("/get/config/callbacks")
     assert response.status_code == 200
     body = response.json()
@@ -992,17 +992,17 @@ def test_get_config_callbacks_happy(client, auth_as, mock_prisma, monkeypatch):
 def test_get_config_callbacks_internal_error(client, auth_as, mock_prisma, monkeypatch):
     """If proxy_config.get_config() raises, the handler wraps the failure in
     a ProxyException → non-2xx response with an error body."""
-    from litellm.proxy import proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    from embrouter.proxy import proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
-    _install_litellm_config(mock_prisma)
+    _install_embrouter_config(mock_prisma)
     monkeypatch.setattr(ps, "prisma_client", mock_prisma)
 
     fake_proxy_config = MagicMock()
     fake_proxy_config.get_config = AsyncMock(side_effect=RuntimeError("boom"))
     monkeypatch.setattr(ps, "proxy_config", fake_proxy_config)
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN):
+    with auth_as(EmbrouterUserRoles.PROXY_ADMIN):
         response = client.get("/get/config/callbacks")
     assert response.status_code >= 400
     assert "boom" in str(response.json()).lower() or "error" in str(response.json()).lower()
@@ -1021,16 +1021,16 @@ _CALLBACK_ENV_FIXTURE = {
 
 
 def _install_callbacks_config(monkeypatch, mock_prisma):
-    from litellm.proxy import proxy_server as ps
+    from embrouter.proxy import proxy_server as ps
 
-    _install_litellm_config(mock_prisma)
+    _install_embrouter_config(mock_prisma)
     monkeypatch.setattr(ps, "prisma_client", mock_prisma)
     monkeypatch.setattr(ps, "llm_router", None)
 
     fake_proxy_config = MagicMock()
     fake_proxy_config.get_config = AsyncMock(
         return_value={
-            "litellm_settings": {"success_callback": ["langfuse", "datadog", "otel"]},
+            "embrouter_settings": {"success_callback": ["langfuse", "datadog", "otel"]},
             "general_settings": {"alerting": ["slack"]},
             "environment_variables": dict(_CALLBACK_ENV_FIXTURE),
         }
@@ -1043,11 +1043,11 @@ def _callback_variables(body: dict, name: str) -> dict:
 
 
 def test_get_config_callbacks_redacts_secret_env_vars_for_view_only_admin(client, auth_as, mock_prisma, monkeypatch):
-    from litellm.proxy._types import LitellmUserRoles
+    from embrouter.proxy._types import EmbrouterUserRoles
 
     _install_callbacks_config(monkeypatch, mock_prisma)
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY):
+    with auth_as(EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY):
         response = client.get("/get/config/callbacks")
     assert response.status_code == 200
     body = response.json()
@@ -1075,11 +1075,11 @@ def test_get_config_callbacks_redacts_secret_env_vars_for_view_only_admin(client
 
 
 def test_get_config_callbacks_full_admin_still_sees_secret_env_vars(client, auth_as, mock_prisma, monkeypatch):
-    from litellm.proxy._types import LitellmUserRoles
+    from embrouter.proxy._types import EmbrouterUserRoles
 
     _install_callbacks_config(monkeypatch, mock_prisma)
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN):
+    with auth_as(EmbrouterUserRoles.PROXY_ADMIN):
         response = client.get("/get/config/callbacks")
     assert response.status_code == 200
     body = response.json()
@@ -1096,8 +1096,8 @@ def test_get_config_callbacks_full_admin_still_sees_secret_env_vars(client, auth
 
 
 def test_get_config_callbacks_redacts_slack_webhook_urls_for_view_only_admin(client, auth_as, mock_prisma, monkeypatch):
-    from litellm.proxy import proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    from embrouter.proxy import proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
     _install_callbacks_config(monkeypatch, mock_prisma)
 
@@ -1115,7 +1115,7 @@ def test_get_config_callbacks_redacts_slack_webhook_urls_for_view_only_admin(cli
     def _slack_block(body):
         return next(a for a in body["alerts"] if a["name"] == "slack")
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY):
+    with auth_as(EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY):
         view_resp = client.get("/get/config/callbacks")
     assert view_resp.status_code == 200
     for url in webhooks.values():
@@ -1128,7 +1128,7 @@ def test_get_config_callbacks_redacts_slack_webhook_urls_for_view_only_admin(cli
     }
     assert view_slack["variables"]["SLACK_WEBHOOK_URL"] == "REDACTED"
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN):
+    with auth_as(EmbrouterUserRoles.PROXY_ADMIN):
         admin_resp = client.get("/get/config/callbacks")
     assert admin_resp.status_code == 200
     admin_slack = _slack_block(admin_resp.json())
@@ -1137,7 +1137,7 @@ def test_get_config_callbacks_redacts_slack_webhook_urls_for_view_only_admin(cli
 
 
 def test_redact_callback_env_vars_helper_handles_none_and_non_secret_keys():
-    from litellm.proxy import proxy_server as ps
+    from embrouter.proxy import proxy_server as ps
 
     out = ps._redact_callback_env_vars(
         {
@@ -1166,17 +1166,17 @@ def test_redact_callback_env_vars_helper_handles_none_and_non_secret_keys():
 def test_get_config_callbacks_redacts_email_alerting_vars_for_view_only_admin(
     client, auth_as, mock_prisma, monkeypatch
 ):
-    from litellm.proxy import proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    from embrouter.proxy import proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
-    _install_litellm_config(mock_prisma)
+    _install_embrouter_config(mock_prisma)
     monkeypatch.setattr(ps, "prisma_client", mock_prisma)
     monkeypatch.setattr(ps, "llm_router", None)
 
     fake_proxy_config = MagicMock()
     fake_proxy_config.get_config = AsyncMock(
         return_value={
-            "litellm_settings": {"success_callback": []},
+            "embrouter_settings": {"success_callback": []},
             "general_settings": {"alerting": ["email"]},
             "environment_variables": {
                 "SMTP_HOST": "smtp.resend.com",
@@ -1195,7 +1195,7 @@ def test_get_config_callbacks_redacts_email_alerting_vars_for_view_only_admin(
     def _email_block(body):
         return next(a for a in body["alerts"] if a["name"] == "email")
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY):
+    with auth_as(EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY):
         view_resp = client.get("/get/config/callbacks")
     assert view_resp.status_code == 200
     for secret in ("smtp-user-fixture-1234", "smtp-password-fixture-1234"):
@@ -1207,7 +1207,7 @@ def test_get_config_callbacks_redacts_email_alerting_vars_for_view_only_admin(
     assert view_email["SMTP_PORT"] == "587"
     assert view_email["SMTP_SENDER_EMAIL"] == "alerts@example.com"
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN):
+    with auth_as(EmbrouterUserRoles.PROXY_ADMIN):
         admin_resp = client.get("/get/config/callbacks")
     assert admin_resp.status_code == 200
     admin_email = _email_block(admin_resp.json())["variables"]
@@ -1219,34 +1219,34 @@ def test_get_config_callbacks_redacts_email_alerting_vars_for_view_only_admin(
 def test_get_config_callbacks_appends_runtime_only_callbacks(client, auth_as, mock_prisma, monkeypatch):
     """LIT-5281: a YAML callback that the DB callback list replaced in the merged config still runs, so it must
     show up as a read_only row next to the editable DB-configured one."""
-    from litellm.proxy import proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    from embrouter.proxy import proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
-    _install_litellm_config(mock_prisma)
+    _install_embrouter_config(mock_prisma)
     monkeypatch.setattr(ps, "prisma_client", mock_prisma)
     monkeypatch.setattr(ps, "llm_router", None)
 
     fake_proxy_config = MagicMock()
     fake_proxy_config.get_config = AsyncMock(
         return_value={
-            "litellm_settings": {"success_callback": ["langfuse"]},
+            "embrouter_settings": {"success_callback": ["langfuse"]},
             "general_settings": {},
             "environment_variables": dict(_CALLBACK_ENV_FIXTURE),
         }
     )
     monkeypatch.setattr(ps, "proxy_config", fake_proxy_config)
 
-    import litellm
-    from litellm.integrations.langsmith import LangsmithLogger
-    from litellm.integrations.opentelemetry import OpenTelemetry
+    import embrouter
+    from embrouter.integrations.langsmith import LangsmithLogger
+    from embrouter.integrations.opentelemetry import OpenTelemetry
 
-    monkeypatch.setattr(litellm, "success_callback", ["langfuse", LangsmithLogger()])
-    monkeypatch.setattr(litellm, "_async_success_callback", [])
-    monkeypatch.setattr(litellm, "failure_callback", [])
-    monkeypatch.setattr(litellm, "_async_failure_callback", [])
-    monkeypatch.setattr(litellm, "callbacks", [OpenTelemetry()])
+    monkeypatch.setattr(embrouter, "success_callback", ["langfuse", LangsmithLogger()])
+    monkeypatch.setattr(embrouter, "_async_success_callback", [])
+    monkeypatch.setattr(embrouter, "failure_callback", [])
+    monkeypatch.setattr(embrouter, "_async_failure_callback", [])
+    monkeypatch.setattr(embrouter, "callbacks", [OpenTelemetry()])
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN):
+    with auth_as(EmbrouterUserRoles.PROXY_ADMIN):
         response = client.get("/get/config/callbacks")
     assert response.status_code == 200
 
@@ -1260,33 +1260,33 @@ def test_get_config_callbacks_appends_runtime_only_callbacks(client, auth_as, mo
 def test_get_config_callbacks_accepts_scalar_and_null_yaml_callbacks(client, auth_as, mock_prisma, monkeypatch):
     """`success_callback: langfuse` (a YAML scalar) is one configured callback, not eight single-letter ones, and a
     `callbacks: null` key contributes nothing."""
-    from litellm.proxy import proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    from embrouter.proxy import proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
-    _install_litellm_config(mock_prisma)
+    _install_embrouter_config(mock_prisma)
     monkeypatch.setattr(ps, "prisma_client", mock_prisma)
     monkeypatch.setattr(ps, "llm_router", None)
 
     fake_proxy_config = MagicMock()
     fake_proxy_config.get_config = AsyncMock(
         return_value={
-            "litellm_settings": {"success_callback": "langfuse", "failure_callback": None, "callbacks": None},
+            "embrouter_settings": {"success_callback": "langfuse", "failure_callback": None, "callbacks": None},
             "general_settings": {},
             "environment_variables": dict(_CALLBACK_ENV_FIXTURE),
         }
     )
     monkeypatch.setattr(ps, "proxy_config", fake_proxy_config)
 
-    import litellm
-    from litellm.integrations.langsmith import LangsmithLogger
+    import embrouter
+    from embrouter.integrations.langsmith import LangsmithLogger
 
-    monkeypatch.setattr(litellm, "success_callback", ["langfuse", LangsmithLogger()])
-    monkeypatch.setattr(litellm, "_async_success_callback", [])
-    monkeypatch.setattr(litellm, "failure_callback", [])
-    monkeypatch.setattr(litellm, "_async_failure_callback", [])
-    monkeypatch.setattr(litellm, "callbacks", [])
+    monkeypatch.setattr(embrouter, "success_callback", ["langfuse", LangsmithLogger()])
+    monkeypatch.setattr(embrouter, "_async_success_callback", [])
+    monkeypatch.setattr(embrouter, "failure_callback", [])
+    monkeypatch.setattr(embrouter, "_async_failure_callback", [])
+    monkeypatch.setattr(embrouter, "callbacks", [])
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN):
+    with auth_as(EmbrouterUserRoles.PROXY_ADMIN):
         response = client.get("/get/config/callbacks")
     assert response.status_code == 200
 
@@ -1299,35 +1299,35 @@ def test_get_config_callbacks_accepts_scalar_and_null_yaml_callbacks(client, aut
 def test_get_config_callbacks_deduplicates_configured_and_runtime(client, auth_as, mock_prisma, monkeypatch):
     """A configured callback shows once as editable, whether the runtime holds its string or an initialized instance
     (arize initializes an ArizeLogger, logfire a bare OpenTelemetry that only its class identifies)."""
-    from litellm.proxy import proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    from embrouter.proxy import proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
-    _install_litellm_config(mock_prisma)
+    _install_embrouter_config(mock_prisma)
     monkeypatch.setattr(ps, "prisma_client", mock_prisma)
     monkeypatch.setattr(ps, "llm_router", None)
 
     fake_proxy_config = MagicMock()
     fake_proxy_config.get_config = AsyncMock(
         return_value={
-            "litellm_settings": {"success_callback": ["langfuse", "arize", "logfire"]},
+            "embrouter_settings": {"success_callback": ["langfuse", "arize", "logfire"]},
             "general_settings": {},
             "environment_variables": dict(_CALLBACK_ENV_FIXTURE),
         }
     )
     monkeypatch.setattr(ps, "proxy_config", fake_proxy_config)
 
-    import litellm
-    from litellm.integrations.arize.arize import ArizeLogger
-    from litellm.integrations.opentelemetry import OpenTelemetry, OpenTelemetryConfig
+    import embrouter
+    from embrouter.integrations.arize.arize import ArizeLogger
+    from embrouter.integrations.opentelemetry import OpenTelemetry, OpenTelemetryConfig
 
     arize_logger = ArizeLogger(config=OpenTelemetryConfig(exporter="console"), callback_name="arize")
-    monkeypatch.setattr(litellm, "success_callback", ["langfuse", arize_logger, OpenTelemetry()])
-    monkeypatch.setattr(litellm, "callbacks", [])
-    monkeypatch.setattr(litellm, "failure_callback", [])
-    monkeypatch.setattr(litellm, "_async_success_callback", [])
-    monkeypatch.setattr(litellm, "_async_failure_callback", [])
+    monkeypatch.setattr(embrouter, "success_callback", ["langfuse", arize_logger, OpenTelemetry()])
+    monkeypatch.setattr(embrouter, "callbacks", [])
+    monkeypatch.setattr(embrouter, "failure_callback", [])
+    monkeypatch.setattr(embrouter, "_async_success_callback", [])
+    monkeypatch.setattr(embrouter, "_async_failure_callback", [])
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN):
+    with auth_as(EmbrouterUserRoles.PROXY_ADMIN):
         response = client.get("/get/config/callbacks")
     assert response.status_code == 200
 
@@ -1344,37 +1344,37 @@ def test_get_config_callbacks_keeps_yaml_otel_family_callbacks_next_to_configure
     """LIT-5281: arize, weave_otel and langfuse_otel all initialize OpenTelemetry subclasses. Saving one of them
     from the dashboard replaces the YAML `callbacks` list, so the YAML siblings keep running and must stay listed
     under their own names instead of being hidden as duplicates of the configured OTel callback."""
-    from litellm.proxy import proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    from embrouter.proxy import proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
-    _install_litellm_config(mock_prisma)
+    _install_embrouter_config(mock_prisma)
     monkeypatch.setattr(ps, "prisma_client", mock_prisma)
     monkeypatch.setattr(ps, "llm_router", None)
 
     fake_proxy_config = MagicMock()
     fake_proxy_config.get_config = AsyncMock(
         return_value={
-            "litellm_settings": {"callbacks": ["langfuse_otel"]},
+            "embrouter_settings": {"callbacks": ["langfuse_otel"]},
             "general_settings": {},
             "environment_variables": dict(_CALLBACK_ENV_FIXTURE),
         }
     )
     monkeypatch.setattr(ps, "proxy_config", fake_proxy_config)
 
-    import litellm
-    from litellm.integrations.arize.arize import ArizeLogger
-    from litellm.integrations.langfuse.langfuse_otel import LangfuseOtelLogger
-    from litellm.integrations.langsmith import LangsmithLogger
-    from litellm.integrations.opentelemetry import OpenTelemetryConfig
-    from litellm.integrations.weave.weave_otel import WeaveOtelLogger
+    import embrouter
+    from embrouter.integrations.arize.arize import ArizeLogger
+    from embrouter.integrations.langfuse.langfuse_otel import LangfuseOtelLogger
+    from embrouter.integrations.langsmith import LangsmithLogger
+    from embrouter.integrations.opentelemetry import OpenTelemetryConfig
+    from embrouter.integrations.weave.weave_otel import WeaveOtelLogger
 
     console_config = OpenTelemetryConfig(exporter="console")
-    monkeypatch.setattr(litellm, "success_callback", [LangsmithLogger()])
-    monkeypatch.setattr(litellm, "_async_success_callback", [])
-    monkeypatch.setattr(litellm, "failure_callback", [])
-    monkeypatch.setattr(litellm, "_async_failure_callback", [])
+    monkeypatch.setattr(embrouter, "success_callback", [LangsmithLogger()])
+    monkeypatch.setattr(embrouter, "_async_success_callback", [])
+    monkeypatch.setattr(embrouter, "failure_callback", [])
+    monkeypatch.setattr(embrouter, "_async_failure_callback", [])
     monkeypatch.setattr(
-        litellm,
+        embrouter,
         "callbacks",
         [
             ArizeLogger(config=console_config, callback_name="arize"),
@@ -1383,7 +1383,7 @@ def test_get_config_callbacks_keeps_yaml_otel_family_callbacks_next_to_configure
         ],
     )
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN):
+    with auth_as(EmbrouterUserRoles.PROXY_ADMIN):
         response = client.get("/get/config/callbacks")
     assert response.status_code == 200
 
@@ -1412,15 +1412,15 @@ def test_get_config_callbacks_deduplicates_dotted_path_callback(
     client, auth_as, mock_prisma, monkeypatch, config_key, expected_type, handler_kind
 ):
     """A dotted-path callback stays a single editable row instead of duplicating under its class or function name."""
-    from litellm.proxy import proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    from embrouter.proxy import proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
-    _install_litellm_config(mock_prisma)
+    _install_embrouter_config(mock_prisma)
     monkeypatch.setattr(ps, "prisma_client", mock_prisma)
     monkeypatch.setattr(ps, "llm_router", None)
 
-    import litellm
-    from litellm.integrations.custom_logger import CustomLogger
+    import embrouter
+    from embrouter.integrations.custom_logger import CustomLogger
 
     class _DottedPathTestHandler(CustomLogger):
         pass
@@ -1431,20 +1431,20 @@ def test_get_config_callbacks_deduplicates_dotted_path_callback(
     fake_proxy_config = MagicMock()
     fake_proxy_config.get_config = AsyncMock(
         return_value={
-            "litellm_settings": {config_key: [dotted_path]},
+            "embrouter_settings": {config_key: [dotted_path]},
             "general_settings": {},
             "environment_variables": dict(_CALLBACK_ENV_FIXTURE),
         }
     )
     monkeypatch.setattr(ps, "proxy_config", fake_proxy_config)
 
-    monkeypatch.setattr(litellm, "callbacks", [dotted_handler])
-    monkeypatch.setattr(litellm, "success_callback", [])
-    monkeypatch.setattr(litellm, "failure_callback", [])
-    monkeypatch.setattr(litellm, "_async_success_callback", [])
-    monkeypatch.setattr(litellm, "_async_failure_callback", [])
+    monkeypatch.setattr(embrouter, "callbacks", [dotted_handler])
+    monkeypatch.setattr(embrouter, "success_callback", [])
+    monkeypatch.setattr(embrouter, "failure_callback", [])
+    monkeypatch.setattr(embrouter, "_async_success_callback", [])
+    monkeypatch.setattr(embrouter, "_async_failure_callback", [])
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN):
+    with auth_as(EmbrouterUserRoles.PROXY_ADMIN):
         response = client.get("/get/config/callbacks")
 
     assert response.status_code == 200
@@ -1456,32 +1456,32 @@ def test_get_config_callbacks_deduplicates_dotted_path_callback(
 
 def test_get_config_callbacks_lists_dict_shaped_config_callbacks(client, auth_as, mock_prisma, monkeypatch):
     """Dict-shaped success_callback config values list their keys as editable rows."""
-    from litellm.proxy import proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    from embrouter.proxy import proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
-    _install_litellm_config(mock_prisma)
+    _install_embrouter_config(mock_prisma)
     monkeypatch.setattr(ps, "prisma_client", mock_prisma)
     monkeypatch.setattr(ps, "llm_router", None)
 
     fake_proxy_config = MagicMock()
     fake_proxy_config.get_config = AsyncMock(
         return_value={
-            "litellm_settings": {"success_callback": {"langsmith": {"batch_size": 1}}},
+            "embrouter_settings": {"success_callback": {"langsmith": {"batch_size": 1}}},
             "general_settings": {},
             "environment_variables": dict(_CALLBACK_ENV_FIXTURE),
         }
     )
     monkeypatch.setattr(ps, "proxy_config", fake_proxy_config)
 
-    import litellm
+    import embrouter
 
     monkeypatch.setattr(
-        litellm.logging_callback_manager,
+        embrouter.logging_callback_manager,
         "get_callbacks_by_type",
         MagicMock(return_value={"success": ["langsmith"], "failure": [], "success_and_failure": []}),
     )
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN):
+    with auth_as(EmbrouterUserRoles.PROXY_ADMIN):
         response = client.get("/get/config/callbacks")
 
     assert response.status_code == 200
@@ -1491,35 +1491,35 @@ def test_get_config_callbacks_lists_dict_shaped_config_callbacks(client, auth_as
 
 def test_get_config_callbacks_excludes_internal_runtime_callbacks(client, auth_as, mock_prisma, monkeypatch):
     """Proxy infrastructure callbacks are excluded from callback inventory."""
-    from litellm.proxy import proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    from embrouter.proxy import proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
-    _install_litellm_config(mock_prisma)
+    _install_embrouter_config(mock_prisma)
     monkeypatch.setattr(ps, "prisma_client", mock_prisma)
     monkeypatch.setattr(ps, "llm_router", None)
 
     fake_proxy_config = MagicMock()
     fake_proxy_config.get_config = AsyncMock(
         return_value={
-            "litellm_settings": {"success_callback": []},
+            "embrouter_settings": {"success_callback": []},
             "general_settings": {},
             "environment_variables": dict(_CALLBACK_ENV_FIXTURE),
         }
     )
     monkeypatch.setattr(ps, "proxy_config", fake_proxy_config)
 
-    from litellm_enterprise.proxy.hooks.managed_files import _PROXY_LiteLLMManagedFiles
+    from embrouter_enterprise.proxy.hooks.managed_files import _PROXY_EmbRouterManagedFiles
 
-    import litellm
-    from litellm._service_logger import ServiceLogging
-    from litellm.integrations.custom_guardrail import CustomGuardrail
-    from litellm.integrations.custom_logger import CustomLogger
-    from litellm.integrations.langsmith import LangsmithLogger
-    from litellm.integrations.s3_v2 import S3Logger
-    from litellm.integrations.sqs import SQSLogger
-    from litellm.integrations.vector_store_integrations.vector_store_pre_call_hook import VectorStorePreCallHook
-    from litellm.proxy.hooks.cache_control_check import _PROXY_CacheControlCheck
-    from litellm.router import Router
+    import embrouter
+    from embrouter._service_logger import ServiceLogging
+    from embrouter.integrations.custom_guardrail import CustomGuardrail
+    from embrouter.integrations.custom_logger import CustomLogger
+    from embrouter.integrations.langsmith import LangsmithLogger
+    from embrouter.integrations.s3_v2 import S3Logger
+    from embrouter.integrations.sqs import SQSLogger
+    from embrouter.integrations.vector_store_integrations.vector_store_pre_call_hook import VectorStorePreCallHook
+    from embrouter.proxy.hooks.cache_control_check import _PROXY_CacheControlCheck
+    from embrouter.router import Router
 
     class _InventoryTestGuardrail(CustomGuardrail):
         pass
@@ -1535,29 +1535,29 @@ def test_get_config_callbacks_excludes_internal_runtime_callbacks(client, auth_a
 
     s3_logger, sqs_logger = asyncio.run(build_aws_loggers())
     router = Router(model_list=[])
-    monkeypatch.setattr(litellm, "input_callback", [])
+    monkeypatch.setattr(embrouter, "input_callback", [])
     monkeypatch.setattr(
-        litellm, "success_callback", [LangsmithLogger(), s3_logger, router.sync_deployment_callback_on_success]
+        embrouter, "success_callback", [LangsmithLogger(), s3_logger, router.sync_deployment_callback_on_success]
     )
-    monkeypatch.setattr(litellm, "_async_success_callback", [sqs_logger, router.deployment_callback_on_success])
-    monkeypatch.setattr(litellm, "failure_callback", [user_code_function])
-    monkeypatch.setattr(litellm, "_async_failure_callback", [router.async_deployment_callback_on_failure])
+    monkeypatch.setattr(embrouter, "_async_success_callback", [sqs_logger, router.deployment_callback_on_success])
+    monkeypatch.setattr(embrouter, "failure_callback", [user_code_function])
+    monkeypatch.setattr(embrouter, "_async_failure_callback", [router.async_deployment_callback_on_failure])
     monkeypatch.setattr(
-        litellm,
+        embrouter,
         "callbacks",
         [
             _PROXY_CacheControlCheck(),
-            _PROXY_LiteLLMManagedFiles(internal_usage_cache=MagicMock(), prisma_client=MagicMock()),
+            _PROXY_EmbRouterManagedFiles(internal_usage_cache=MagicMock(), prisma_client=MagicMock()),
             ServiceLogging(),
             VectorStorePreCallHook(),
             _InventoryTestGuardrail(guardrail_name="inventory-test-guardrail"),
             _UserCodeLogger(),
         ],
     )
-    monkeypatch.setattr(litellm, "cache", litellm.Cache(type="local"))
-    assert "cache" in litellm.success_callback and "cache" in litellm._async_success_callback
+    monkeypatch.setattr(embrouter, "cache", embrouter.Cache(type="local"))
+    assert "cache" in embrouter.success_callback and "cache" in embrouter._async_success_callback
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN):
+    with auth_as(EmbrouterUserRoles.PROXY_ADMIN):
         response = client.get("/get/config/callbacks")
 
     assert response.status_code == 200
@@ -1576,32 +1576,32 @@ def test_get_config_callbacks_redacts_runtime_only_row_secrets_for_view_only_adm
     client, auth_as, mock_prisma, monkeypatch
 ):
     """Runtime-only callback rows are subject to the same redaction gate as configured."""
-    from litellm.proxy import proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    from embrouter.proxy import proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
-    _install_litellm_config(mock_prisma)
+    _install_embrouter_config(mock_prisma)
     monkeypatch.setattr(ps, "prisma_client", mock_prisma)
     monkeypatch.setattr(ps, "llm_router", None)
 
     fake_proxy_config = MagicMock()
     fake_proxy_config.get_config = AsyncMock(
         return_value={
-            "litellm_settings": {"success_callback": []},
+            "embrouter_settings": {"success_callback": []},
             "general_settings": {},
             "environment_variables": dict(_CALLBACK_ENV_FIXTURE),
         }
     )
     monkeypatch.setattr(ps, "proxy_config", fake_proxy_config)
 
-    import litellm
+    import embrouter
 
-    monkeypatch.setattr(litellm, "success_callback", [])
-    monkeypatch.setattr(litellm, "_async_success_callback", [])
-    monkeypatch.setattr(litellm, "failure_callback", [])
-    monkeypatch.setattr(litellm, "_async_failure_callback", [])
-    monkeypatch.setattr(litellm, "callbacks", ["otel"])
+    monkeypatch.setattr(embrouter, "success_callback", [])
+    monkeypatch.setattr(embrouter, "_async_success_callback", [])
+    monkeypatch.setattr(embrouter, "failure_callback", [])
+    monkeypatch.setattr(embrouter, "_async_failure_callback", [])
+    monkeypatch.setattr(embrouter, "callbacks", ["otel"])
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY):
+    with auth_as(EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY):
         response = client.get("/get/config/callbacks")
     assert response.status_code == 200
     body = response.json()
@@ -1614,7 +1614,7 @@ def test_get_config_callbacks_redacts_runtime_only_row_secrets_for_view_only_adm
     assert otel_cb["variables"]["OTEL_HEADERS"] == "REDACTED"
     assert otel_cb["variables"]["OTEL_ENDPOINT"] == _CALLBACK_ENV_FIXTURE["OTEL_ENDPOINT"]
 
-    with auth_as(LitellmUserRoles.PROXY_ADMIN):
+    with auth_as(EmbrouterUserRoles.PROXY_ADMIN):
         admin_response = client.get("/get/config/callbacks")
     assert admin_response.status_code == 200
     admin_body = admin_response.json()

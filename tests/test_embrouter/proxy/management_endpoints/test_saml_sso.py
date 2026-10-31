@@ -27,11 +27,11 @@ from starlette.datastructures import URL
 
 from typing import cast
 
-from litellm.caching.dual_cache import DualCache
-from litellm.caching.in_memory_cache import InMemoryCache
-from litellm.caching.redis_cache import RedisCache
-from litellm.proxy._types import LitellmUserRoles
-from litellm.proxy.management_endpoints.sso.saml_sso import (
+from embrouter.caching.dual_cache import DualCache
+from embrouter.caching.in_memory_cache import InMemoryCache
+from embrouter.caching.redis_cache import RedisCache
+from embrouter.proxy._types import EmbrouterUserRoles
+from embrouter.proxy.management_endpoints.sso.saml_sso import (
     _SAML_AUTHN_REQUEST_CACHE_PREFIX,
     _SAML_AUTHN_STATE_COOKIE,
     _SAML_MAX_POST_BYTES,
@@ -229,7 +229,7 @@ async def test_valid_idp_initiated_login_maps_assertion_to_user(saml_env_idp_ini
     assert result.id == "alice@example.com"
     assert result.first_name == "Alice"
     assert result.last_name == "Smith"
-    assert result.user_role == LitellmUserRoles.INTERNAL_USER
+    assert result.user_role == EmbrouterUserRoles.INTERNAL_USER
     assert result.provider == "saml"
 
 
@@ -537,7 +537,7 @@ async def test_multi_valued_role_attribute_resolves_to_highest_privilege(saml_en
     )
 
     result = await _acs(_b64(resp), _shared_cache())
-    assert result.user_role == LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY
+    assert result.user_role == EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY
 
 
 @pytest.mark.asyncio
@@ -696,8 +696,8 @@ def _fake_request_with_scheme(scheme, headers=None, client_host="203.0.113.5"):
 
 
 class TestSAMLAuthnCookieSecureFlag:
-    """Regression tests for the litellm_saml_authn cookie's Secure attribute.
-    litellm only sees a plain-HTTP hop whenever TLS terminates at a reverse
+    """Regression tests for the embrouter_saml_authn cookie's Secure attribute.
+    embrouter only sees a plain-HTTP hop whenever TLS terminates at a reverse
     proxy, so Secure must not be derived from the literal request scheme alone."""
 
     @pytest.mark.asyncio
@@ -722,12 +722,12 @@ class TestSAMLAuthnCookieSecureFlag:
 
     @pytest.mark.asyncio
     async def test_secure_behind_trusted_tls_terminating_proxy(self, saml_env, monkeypatch):
-        """THE regression: TLS terminates at a reverse proxy, litellm only sees a
+        """THE regression: TLS terminates at a reverse proxy, embrouter only sees a
         plain-HTTP hop, but the cookie must still be marked Secure when the operator
         has configured a trusted proxy reporting X-Forwarded-Proto: https."""
         monkeypatch.delenv("PROXY_BASE_URL", raising=False)
         monkeypatch.setattr(
-            "litellm.proxy.proxy_server.general_settings",
+            "embrouter.proxy.proxy_server.general_settings",
             {"use_x_forwarded_for": True, "mcp_trusted_proxy_ranges": ["10.0.0.0/8"]},
         )
         cache = DualCache()
@@ -741,7 +741,7 @@ class TestSAMLAuthnCookieSecureFlag:
     @pytest.mark.asyncio
     async def test_untrusted_spoofed_forwarded_proto_is_ignored(self, saml_env, monkeypatch):
         monkeypatch.delenv("PROXY_BASE_URL", raising=False)
-        monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
+        monkeypatch.setattr("embrouter.proxy.proxy_server.general_settings", {})
         cache = DualCache()
         request = _fake_request_with_scheme(
             "http", headers={"X-Forwarded-Proto": "https"}, client_host="203.0.113.5"

@@ -1,6 +1,6 @@
 from collections import Counter
 
-from litellm.llms.anthropic.pass_through.messages.mid_conversation_system import (
+from embrouter.llms.anthropic.pass_through.messages.mid_conversation_system import (
     CONVERTED_SYSTEM_NOTE,
     convert_mid_conversation_system_turns,
 )

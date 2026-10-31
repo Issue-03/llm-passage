@@ -5,7 +5,7 @@ Translate from OpenAI's `/v1/audio/transcriptions` to Groq's `/v1/audio/transcri
 import types
 from typing import Final
 
-import litellm
+import embrouter
 
 
 class GroqSTTConfig:
@@ -86,11 +86,11 @@ class GroqSTTConfig:
                 if value in response_formats:
                     optional_params[param] = value
                 else:
-                    if litellm.drop_params is True or drop_params is True:
+                    if embrouter.drop_params is True or drop_params is True:
                         pass
                     else:
-                        raise litellm.utils.UnsupportedParamsError(
-                            message=f"Groq doesn't support response_format={value}. To drop unsupported openai params from the call, set `litellm.drop_params = True`",
+                        raise embrouter.utils.UnsupportedParamsError(
+                            message=f"Groq doesn't support response_format={value}. To drop unsupported openai params from the call, set `embrouter.drop_params = True`",
                             status_code=400,
                         )
             else:

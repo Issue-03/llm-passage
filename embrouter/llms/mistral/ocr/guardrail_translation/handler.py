@@ -7,14 +7,14 @@ Processes the extracted markdown text from OCR pages.
 
 from typing import TYPE_CHECKING, Any, Final
 
-from litellm._logging import verbose_proxy_logger
-from litellm.llms.base_llm.guardrail_translation.base_translation import BaseTranslation
-from litellm.types.utils import GenericGuardrailAPIInputs
+from embrouter._logging import verbose_proxy_logger
+from embrouter.llms.base_llm.guardrail_translation.base_translation import BaseTranslation
+from embrouter.types.utils import GenericGuardrailAPIInputs
 
 if TYPE_CHECKING:
-    from litellm.integrations.custom_guardrail import CustomGuardrail
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.llms.base_llm.ocr.transformation import OCRResponse
+    from embrouter.integrations.custom_guardrail import CustomGuardrail
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.llms.base_llm.ocr.transformation import OCRResponse
 
 
 class OCRHandler(BaseTranslation):
@@ -34,7 +34,7 @@ class OCRHandler(BaseTranslation):
         self,
         data: dict,
         guardrail_to_apply: "CustomGuardrail",
-        litellm_logging_obj: "LiteLLMLoggingObj | None" = None,
+        embrouter_logging_obj: "EmbRouterLoggingObj | None" = None,
     ) -> Any:
         """
         Process OCR input by applying guardrails to the document reference.
@@ -45,7 +45,7 @@ class OCRHandler(BaseTranslation):
         Args:
             data: Request data containing 'document' parameter
             guardrail_to_apply: The guardrail instance to apply
-            litellm_logging_obj: Optional logging object
+            embrouter_logging_obj: Optional logging object
 
         Returns:
             Modified data with guardrails applied
@@ -79,7 +79,7 @@ class OCRHandler(BaseTranslation):
             inputs=inputs,
             request_data=data,
             input_type="request",
-            logging_obj=litellm_logging_obj,
+            logging_obj=embrouter_logging_obj,
         )
 
         return data
@@ -88,7 +88,7 @@ class OCRHandler(BaseTranslation):
         self,
         response: "OCRResponse",
         guardrail_to_apply: "CustomGuardrail",
-        litellm_logging_obj: "LiteLLMLoggingObj | None" = None,
+        embrouter_logging_obj: "EmbRouterLoggingObj | None" = None,
         user_api_key_dict: Any | None = None,
         request_data: dict | None = None,
     ) -> Any:
@@ -101,7 +101,7 @@ class OCRHandler(BaseTranslation):
         Args:
             response: OCRResponse with pages containing markdown text
             guardrail_to_apply: The guardrail instance to apply
-            litellm_logging_obj: Optional logging object
+            embrouter_logging_obj: Optional logging object
             user_api_key_dict: User API key metadata
 
         Returns:
@@ -140,14 +140,14 @@ class OCRHandler(BaseTranslation):
                 # third-party guardrail providers that read it from there
                 inputs.update(user_metadata)
                 # Also store in request_data for the logging pipeline
-                if "litellm_metadata" not in request_data:
-                    request_data["litellm_metadata"] = user_metadata
+                if "embrouter_metadata" not in request_data:
+                    request_data["embrouter_metadata"] = user_metadata
 
         guardrailed_inputs: Final = await guardrail_to_apply.apply_guardrail(
             inputs=inputs,
             request_data=request_data,
             input_type="response",
-            logging_obj=litellm_logging_obj,
+            logging_obj=embrouter_logging_obj,
         )
 
         # Map guardrailed text back to pages

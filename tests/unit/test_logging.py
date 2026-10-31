@@ -14,8 +14,8 @@ from typing import Final, List
 import pytest
 from pydantic import BaseModel, computed_field
 
-import litellm
-from litellm._logging import (
+import embrouter
+from embrouter._logging import (
     _COLOR_LOG_FORMAT,
     _MAX_SCRUBBED_ACCESS_ARG,
     _PLAIN_LOG_FORMAT,
@@ -44,10 +44,10 @@ from litellm._logging import (
     verbose_proxy_logger,
     verbose_router_logger,
 )
-from litellm.constants import LITELLM_TRUNCATED_PAYLOAD_FIELD
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils import secret_redaction
-from litellm.types.utils import StandardLoggingPayload
+from embrouter.constants import EMBROUTER_TRUNCATED_PAYLOAD_FIELD
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.embrouter_core_utils import secret_redaction
+from embrouter.types.utils import StandardLoggingPayload
 
 
 class CacheHitCustomLogger(CustomLogger):
@@ -96,7 +96,7 @@ def test_json_formatter_parses_embedded_json_message():
     """
     formatter = JsonFormatter()
     record = logging.LogRecord(
-        name="LiteLLM",
+        name="EmbRouter",
         level=logging.DEBUG,
         pathname="",
         lineno=0,
@@ -122,11 +122,11 @@ def test_json_formatter_includes_extra_attributes():
     """
     formatter = JsonFormatter()
     record = logging.LogRecord(
-        name="LiteLLM",
+        name="EmbRouter",
         level=logging.DEBUG,
         pathname="",
         lineno=0,
-        msg="POST Request Sent from LiteLLM",
+        msg="POST Request Sent from EmbRouter",
         args=(),
         exc_info=None,
     )
@@ -134,7 +134,7 @@ def test_json_formatter_includes_extra_attributes():
     record.authorization = "Bearer sk-***"
     output = formatter.format(record)
     obj = json.loads(output)
-    assert obj["message"] == "POST Request Sent from LiteLLM"
+    assert obj["message"] == "POST Request Sent from EmbRouter"
     assert obj["api_base"] == "https://api.openai.com"
     assert obj["authorization"] == "Bearer sk-***"
 
@@ -145,7 +145,7 @@ def test_json_formatter_plain_message_unchanged():
     """
     formatter = JsonFormatter()
     record = logging.LogRecord(
-        name="LiteLLM",
+        name="EmbRouter",
         level=logging.INFO,
         pathname="",
         lineno=0,
@@ -170,14 +170,14 @@ def test_json_formatter_parses_embedded_python_dict_repr():
     msg = (
         "get_available_deployment for model: text-embedding-3-large, "
         "Selected deployment: {'model_name': 'text-embedding-3-large', "
-        "'litellm_params': {'api_key': 'sk**********', 'tpm': 1000000, 'rpm': 2000, "
-        "'use_in_pass_through': False, 'use_litellm_proxy': False, "
+        "'embrouter_params': {'api_key': 'sk**********', 'tpm': 1000000, 'rpm': 2000, "
+        "'use_in_pass_through': False, 'use_embrouter_proxy': False, "
         "'merge_reasoning_content_in_choices': False, 'model': 'text-embedding-3-large'}, "
         "'model_info': {'id': 'a624b057aec64ada48311', 'db_model': False}} "
         "for model: text-embedding-3-large"
     )
     record = logging.LogRecord(
-        name="LiteLLM Router",
+        name="EmbRouter Router",
         level=logging.INFO,
         pathname="",
         lineno=0,
@@ -191,13 +191,13 @@ def test_json_formatter_parses_embedded_python_dict_repr():
     assert obj["level"] == "INFO"
     # Python dict parsed and promoted to first-class properties
     assert obj["model_name"] == "text-embedding-3-large"
-    assert "litellm_params" in obj
+    assert "embrouter_params" in obj
     # Redacted, not passed through: SecretRedactionFilter already collapses this
     # pair in the plain path before any formatter sees it, so the JSON path matching
     # it is production parity. The key survives because redaction is per-value here.
-    assert obj["litellm_params"]["api_key"] == "REDACTED"
-    assert obj["litellm_params"]["tpm"] == 1000000
-    assert obj["litellm_params"]["use_in_pass_through"] is False
+    assert obj["embrouter_params"]["api_key"] == "REDACTED"
+    assert obj["embrouter_params"]["tpm"] == 1000000
+    assert obj["embrouter_params"]["use_in_pass_through"] is False
     assert "model_info" in obj
     assert obj["model_info"]["id"] == "a624b057aec64ada48311"
     assert obj["model_info"]["db_model"] is False
@@ -211,7 +211,7 @@ def test_json_formatter_output_stays_parseable_when_a_secret_is_redacted():
     """
     formatter = JsonFormatter()
     record = logging.LogRecord(
-        name="LiteLLM",
+        name="EmbRouter",
         level=logging.INFO,
         pathname="",
         lineno=0,
@@ -238,10 +238,10 @@ def test_json_formatter_output_stays_parseable_when_a_secret_is_redacted():
 def test_json_formatter_includes_component_field():
     """
     Test that JsonFormatter always emits a 'component' field equal to the logger name.
-    This allows filtering by component (e.g. "LiteLLM Proxy") in Datadog / third-party log services.
+    This allows filtering by component (e.g. "EmbRouter Proxy") in Datadog / third-party log services.
     """
     formatter = JsonFormatter()
-    for logger_name in ("LiteLLM Proxy", "LiteLLM Router", "LiteLLM"):
+    for logger_name in ("EmbRouter Proxy", "EmbRouter Router", "EmbRouter"):
         record = logging.LogRecord(
             name=logger_name,
             level=logging.ERROR,
@@ -263,9 +263,9 @@ def test_json_formatter_includes_logger_field():
     """
     formatter = JsonFormatter()
     record = logging.LogRecord(
-        name="LiteLLM Proxy",
+        name="EmbRouter Proxy",
         level=logging.INFO,
-        pathname="/app/litellm/proxy/proxy_server.py",
+        pathname="/app/embrouter/proxy/proxy_server.py",
         lineno=123,
         msg="request received",
         args=(),
@@ -282,7 +282,7 @@ def test_json_formatter_extra_component_not_overwritten():
     """
     formatter = JsonFormatter()
     record = logging.LogRecord(
-        name="LiteLLM Proxy",
+        name="EmbRouter Proxy",
         level=logging.INFO,
         pathname="proxy_server.py",
         lineno=1,
@@ -315,14 +315,14 @@ async def test_cache_hit_includes_custom_llm_provider():
     Test that when there's a cache hit, the standard logging payload includes the custom_llm_provider
     """
     # Set up caching and custom logger
-    litellm.cache = litellm.Cache()
+    embrouter.cache = embrouter.Cache()
     test_custom_logger = CacheHitCustomLogger()
-    original_callbacks = litellm.callbacks.copy() if litellm.callbacks else []
-    litellm.callbacks = [test_custom_logger]
+    original_callbacks = embrouter.callbacks.copy() if embrouter.callbacks else []
+    embrouter.callbacks = [test_custom_logger]
 
     try:
         # First call - should be a cache miss
-        response1 = await litellm.acompletion(
+        response1 = await embrouter.acompletion(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "test cache hit message"}],
             mock_response="test response",
@@ -333,7 +333,7 @@ async def test_cache_hit_includes_custom_llm_provider():
         await asyncio.sleep(0.5)
 
         # Second identical call - should be a cache hit
-        response2 = await litellm.acompletion(
+        response2 = await embrouter.acompletion(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "test cache hit message"}],
             mock_response="test response",
@@ -376,15 +376,15 @@ async def test_cache_hit_includes_custom_llm_provider():
 
     finally:
         # Clean up
-        litellm.callbacks = original_callbacks
-        litellm.cache = None
+        embrouter.callbacks = original_callbacks
+        embrouter.cache = None
 
 
-LITELLM_LOGGER_NAMES = frozenset(
+EMBROUTER_LOGGER_NAMES = frozenset(
     {"verbose_logger", "verbose_proxy_logger", "verbose_router_logger", "logger", "logging"}
 )
 LOG_LEVEL_METHODS = frozenset({"debug", "info", "warning", "error", "exception", "critical"})
-LITELLM_PACKAGE_ROOT = Path(__file__).resolve().parents[2] / "litellm"
+EMBROUTER_PACKAGE_ROOT = Path(__file__).resolve().parents[2] / "embrouter"
 
 
 def _receiver_name(node: ast.expr) -> str:
@@ -400,7 +400,7 @@ def _is_logging_call(node: ast.AST) -> bool:
         isinstance(node, ast.Call)
         and isinstance(node.func, ast.Attribute)
         and node.func.attr in LOG_LEVEL_METHODS
-        and _receiver_name(node.func.value) in LITELLM_LOGGER_NAMES
+        and _receiver_name(node.func.value) in EMBROUTER_LOGGER_NAMES
     )
 
 
@@ -431,9 +431,9 @@ def test_logging_calls_do_not_build_their_message_eagerly():
     """
     offenders = tuple(
         offender
-        for path in sorted(LITELLM_PACKAGE_ROOT.rglob("*.py"))
+        for path in sorted(EMBROUTER_PACKAGE_ROOT.rglob("*.py"))
         for offender in _eager_logging_calls(
-            path.read_text(encoding="utf-8"), path.relative_to(LITELLM_PACKAGE_ROOT.parent)
+            path.read_text(encoding="utf-8"), path.relative_to(EMBROUTER_PACKAGE_ROOT.parent)
         )
     )
 
@@ -464,7 +464,7 @@ def _make_capture_logger(name: str) -> tuple[logging.Logger, _JsonCapture]:
 
 def test_trace_id_injected_into_json_record(monkeypatch):
     """trace_id set via set_trace_id() appears in every JSON record in that context."""
-    monkeypatch.setattr(litellm, "request_correlation_in_logs", True)
+    monkeypatch.setattr(embrouter, "request_correlation_in_logs", True)
     lg, cap = _make_capture_logger("test.trace_inject")
     set_trace_id("trace-abc-123")
     try:
@@ -477,7 +477,7 @@ def test_trace_id_injected_into_json_record(monkeypatch):
 
 def test_session_id_injected_when_set(monkeypatch):
     """session_id set via set_session_id() appears in JSON record."""
-    monkeypatch.setattr(litellm, "request_correlation_in_logs", True)
+    monkeypatch.setattr(embrouter, "request_correlation_in_logs", True)
     lg, cap = _make_capture_logger("test.session_inject")
     set_session_id("sess-xyz-456")
     try:
@@ -491,7 +491,7 @@ def test_trace_id_and_session_id_cannot_be_spoofed_by_message_content(monkeypatc
     """A log message that happens to parse as JSON/dict with "trace_id"/"session_id"
     keys (e.g. the proxy logging a raw request-header dict) must not override the
     real correlation ids set via set_trace_id()/set_session_id()."""
-    monkeypatch.setattr(litellm, "request_correlation_in_logs", True)
+    monkeypatch.setattr(embrouter, "request_correlation_in_logs", True)
     lg, cap = _make_capture_logger("test.spoof_attempt")
     set_trace_id("real-trace-id")
     set_session_id("real-session-id")
@@ -509,7 +509,7 @@ def test_trace_id_and_session_id_cannot_be_injected_with_no_active_context(monke
     must not surface those fields at all when CorrelationContextFilter hasn't stamped
     this record - e.g. a log line emitted before Logging.__init__() runs for a request
     (request_correlation_in_logs on, but no genuine trace/session id active yet)."""
-    monkeypatch.setattr(litellm, "request_correlation_in_logs", True)
+    monkeypatch.setattr(embrouter, "request_correlation_in_logs", True)
     lg, cap = _make_capture_logger("test.no_context_spoof_attempt")
     trace_id_var.set("")
     session_id_var.set("")
@@ -519,13 +519,13 @@ def test_trace_id_and_session_id_cannot_be_injected_with_no_active_context(monke
 
 
 def test_trace_id_and_session_id_are_redacted_when_credential_shaped(monkeypatch):
-    """A caller-controlled trace_id/session_id (e.g. from x-litellm-trace-id or a W3C
+    """A caller-controlled trace_id/session_id (e.g. from x-embrouter-trace-id or a W3C
     baggage header) that happens to look like a real credential must not reach log
     records unredacted. CorrelationContextFilter stamps trace_id/session_id onto the
     record after SecretRedactionFilter has already run, so those two fields would
     otherwise bypass credential redaction entirely - the fix redacts at set_trace_id()/
     set_session_id() time instead, before the value ever reaches a log record."""
-    monkeypatch.setattr(litellm, "request_correlation_in_logs", True)
+    monkeypatch.setattr(embrouter, "request_correlation_in_logs", True)
     lg, cap = _make_capture_logger("test.credential_shaped_correlation_id")
     poisoned_trace_id = "sk-ant-api03-" + "A" * 40
     poisoned_session_id = "AKIA" + "B" * 16
@@ -579,7 +579,7 @@ async def test_contextvar_isolation_between_tasks():
 
 def test_trace_id_not_in_log_when_flag_disabled(monkeypatch):
     """When request_correlation_in_logs is False (default), trace_id must not appear in JSON records even when set."""
-    monkeypatch.setattr(litellm, "request_correlation_in_logs", False)
+    monkeypatch.setattr(embrouter, "request_correlation_in_logs", False)
     lg, cap = _make_capture_logger("test.no_trace_gated")
     set_trace_id("trace-should-not-appear")
     try:
@@ -591,7 +591,7 @@ def test_trace_id_not_in_log_when_flag_disabled(monkeypatch):
 
 def test_session_id_not_in_log_when_flag_disabled(monkeypatch):
     """When request_correlation_in_logs is False (default), session_id must not appear in JSON records even when set."""
-    monkeypatch.setattr(litellm, "request_correlation_in_logs", False)
+    monkeypatch.setattr(embrouter, "request_correlation_in_logs", False)
     lg, cap = _make_capture_logger("test.no_session_gated")
     set_session_id("sess-should-not-appear")
     try:
@@ -622,7 +622,7 @@ def _make_plain_capture_logger(name: str) -> tuple[logging.Logger, _PlainCapture
 
 def test_plain_formatter_appends_trace_id_and_session_id(monkeypatch):
     """CorrelationPlainFormatter must append trace_id/session_id to non-JSON log lines too."""
-    monkeypatch.setattr(litellm, "request_correlation_in_logs", True)
+    monkeypatch.setattr(embrouter, "request_correlation_in_logs", True)
     lg, cap = _make_plain_capture_logger("test.plain_trace_session")
     set_trace_id("plain-trace-1")
     set_session_id("plain-session-1")
@@ -636,7 +636,7 @@ def test_plain_formatter_appends_trace_id_and_session_id(monkeypatch):
 
 def test_plain_formatter_appends_only_trace_id_when_session_id_absent(monkeypatch):
     """Only trace_id is appended when session_id was never set."""
-    monkeypatch.setattr(litellm, "request_correlation_in_logs", True)
+    monkeypatch.setattr(embrouter, "request_correlation_in_logs", True)
     lg, cap = _make_plain_capture_logger("test.plain_trace_only")
     set_trace_id("plain-trace-2")
     session_id_var.set("")
@@ -649,7 +649,7 @@ def test_plain_formatter_appends_only_trace_id_when_session_id_absent(monkeypatc
 
 def test_plain_formatter_unchanged_when_flag_disabled(monkeypatch):
     """When request_correlation_in_logs is False, plain log lines are unmodified even if the contextvars are set."""
-    monkeypatch.setattr(litellm, "request_correlation_in_logs", False)
+    monkeypatch.setattr(embrouter, "request_correlation_in_logs", False)
     lg, cap = _make_plain_capture_logger("test.plain_flag_off")
     set_trace_id("should-not-appear")
     set_session_id("should-not-appear")
@@ -673,7 +673,7 @@ def test_set_trace_id_strips_control_characters():
         trace_id_var.reset(token)
 
 
-_MARKER_RE = re.compile(rf"\.\.\. \({LITELLM_TRUNCATED_PAYLOAD_FIELD} skipped (\d+) chars\..*?\) \.\.\.", re.S)
+_MARKER_RE = re.compile(rf"\.\.\. \({EMBROUTER_TRUNCATED_PAYLOAD_FIELD} skipped (\d+) chars\..*?\) \.\.\.", re.S)
 
 
 def _extract_marker(text: str) -> "re.Match[str] | None":
@@ -682,7 +682,7 @@ def _extract_marker(text: str) -> "re.Match[str] | None":
 
 def _make_record(level: int, msg: str, args=(), exc_info=None) -> logging.LogRecord:
     return logging.LogRecord(
-        name="LiteLLM Router",
+        name="EmbRouter Router",
         level=level,
         pathname="",
         lineno=0,
@@ -703,14 +703,14 @@ def test_oversized_info_record_is_truncated(monkeypatch):
     """An error string echoing a huge request payload must not reach stdout in full."""
     monkeypatch.setenv("MAX_STRING_LENGTH_STDOUT_LOG", "500")
     payload = _OVERSIZED_TEXT
-    record = _make_record(logging.INFO, "litellm.acompletion(model=%s) Exception %s", ("gpt-4", payload))
+    record = _make_record(logging.INFO, "embrouter.acompletion(model=%s) Exception %s", ("gpt-4", payload))
 
     assert StdoutLogTruncationFilter().filter(record) is True
 
     message = record.getMessage()
-    assert LITELLM_TRUNCATED_PAYLOAD_FIELD in message
+    assert EMBROUTER_TRUNCATED_PAYLOAD_FIELD in message
     assert len(message) <= 500
-    assert message.startswith("litellm.acompletion(model=gpt-4) Exception payload payload")
+    assert message.startswith("embrouter.acompletion(model=gpt-4) Exception payload payload")
     assert message.endswith("payload ")
 
     marker = _extract_marker(message)
@@ -791,7 +791,7 @@ def test_oversized_traceback_is_truncated(monkeypatch):
     assert StdoutLogTruncationFilter().filter(record) is True
 
     assert record.exc_text is not None
-    assert LITELLM_TRUNCATED_PAYLOAD_FIELD in record.exc_text
+    assert EMBROUTER_TRUNCATED_PAYLOAD_FIELD in record.exc_text
     assert len(record.exc_text) <= 500
     assert "Traceback (most recent call last)" in record.exc_text
 
@@ -804,7 +804,7 @@ def test_falsy_exc_info_is_not_formatted(monkeypatch):
     assert StdoutLogTruncationFilter().filter(record) is True
 
     assert record.exc_text is None
-    assert LITELLM_TRUNCATED_PAYLOAD_FIELD in record.getMessage()
+    assert EMBROUTER_TRUNCATED_PAYLOAD_FIELD in record.getMessage()
 
 
 def test_secret_filter_keeps_truncated_traceback(monkeypatch):
@@ -828,11 +828,11 @@ def test_secret_filter_keeps_truncated_traceback(monkeypatch):
 @pytest.mark.parametrize("native", (False, True), ids=("python", "rust"))
 def test_diagnostic_redaction_precedes_a_credential_cut(monkeypatch, native):
     if native:
-        pytest.importorskip("litellm.rust_bridge._native")
-    monkeypatch.setenv("LITELLM_RUST", "1" if native else "0")
+        pytest.importorskip("embrouter.rust_bridge._native")
+    monkeypatch.setenv("EMBROUTER_RUST", "1" if native else "0")
     monkeypatch.setenv("MAX_STRING_LENGTH_STDOUT_LOG", "500")
     monkeypatch.setenv("MAX_BASE64_LENGTH_STDOUT_LOG", "0")
-    monkeypatch.setattr("litellm._logging._ENABLE_SECRET_REDACTION", True)
+    monkeypatch.setattr("embrouter._logging._ENABLE_SECRET_REDACTION", True)
     secret = "sk-" + "q" * 48
     record = _make_record(logging.INFO, "%s", ("é" * 110 + secret + "界" * 1000,))
 
@@ -843,7 +843,7 @@ def test_diagnostic_redaction_precedes_a_credential_cut(monkeypatch, native):
 
 
 def test_correlation_id_redacts_before_its_length_bound(monkeypatch):
-    monkeypatch.setattr("litellm._logging._ENABLE_SECRET_REDACTION", True)
+    monkeypatch.setattr("embrouter._logging._ENABLE_SECRET_REDACTION", True)
     secret = "sk-" + "q" * 48
     token = set_trace_id("x" * 250 + secret)
     try:
@@ -856,9 +856,9 @@ def test_correlation_id_redacts_before_its_length_bound(monkeypatch):
 @pytest.mark.parametrize("native", (False, True), ids=("python", "rust"))
 def test_malformed_interpolation_still_scrubs_a_record(monkeypatch, native):
     if native:
-        pytest.importorskip("litellm.rust_bridge._native")
-    monkeypatch.setenv("LITELLM_RUST", "1" if native else "0")
-    monkeypatch.setattr("litellm._logging._ENABLE_SECRET_REDACTION", True)
+        pytest.importorskip("embrouter.rust_bridge._native")
+    monkeypatch.setenv("EMBROUTER_RUST", "1" if native else "0")
+    monkeypatch.setattr("embrouter._logging._ENABLE_SECRET_REDACTION", True)
     record = _make_record(logging.WARNING, "bad % api_key=secret123", ("value",))
     record.color_message = "bad % api_key=secret123"
 
@@ -871,9 +871,9 @@ def test_malformed_interpolation_still_scrubs_a_record(monkeypatch, native):
 @pytest.mark.parametrize("native", (False, True), ids=("python", "rust"))
 def test_key_pattern_template_keeps_the_rendered_redacted_line(monkeypatch, native):
     if native:
-        pytest.importorskip("litellm.rust_bridge._native")
-    monkeypatch.setenv("LITELLM_RUST", "1" if native else "0")
-    monkeypatch.setattr("litellm._logging._ENABLE_SECRET_REDACTION", True)
+        pytest.importorskip("embrouter.rust_bridge._native")
+    monkeypatch.setenv("EMBROUTER_RUST", "1" if native else "0")
+    monkeypatch.setattr("embrouter._logging._ENABLE_SECRET_REDACTION", True)
     record = _make_record(logging.INFO, "password=%s ok", ("hunter2",))
     record.color_message = "password=%s ok"
 
@@ -888,7 +888,7 @@ def test_disabled_diagnostic_call_does_not_render_arguments(caplog):
         def __str__(self):
             raise AssertionError("disabled call rendered its argument")
 
-    with caplog.at_level(logging.ERROR, logger="LiteLLM"):
+    with caplog.at_level(logging.ERROR, logger="EmbRouter"):
         verbose_logger.debug("hidden %s", Unrenderable())
 
     assert not caplog.records
@@ -906,11 +906,11 @@ def test_oversized_error_is_truncated_end_to_end(monkeypatch, caplog):
     """The router's own exception log line must come out bounded, not just the filter in isolation."""
     monkeypatch.setenv("MAX_STRING_LENGTH_STDOUT_LOG", "500")
 
-    with caplog.at_level(logging.INFO, logger="LiteLLM Router"):
-        verbose_router_logger.info("litellm.acompletion(model=%s) Exception %s", "gpt-4", _OVERSIZED_TEXT)
+    with caplog.at_level(logging.INFO, logger="EmbRouter Router"):
+        verbose_router_logger.info("embrouter.acompletion(model=%s) Exception %s", "gpt-4", _OVERSIZED_TEXT)
 
     emitted = "".join(record.getMessage() for record in caplog.records)
-    assert LITELLM_TRUNCATED_PAYLOAD_FIELD in emitted
+    assert EMBROUTER_TRUNCATED_PAYLOAD_FIELD in emitted
     assert len(emitted) <= 500
 
 
@@ -1026,7 +1026,7 @@ def test_debug_traceback_collapses_base64_runs():
 
 def test_base64_collapse_applies_end_to_end(caplog):
     """The proxy's own request dump must come out collapsed, not just the filter in isolation."""
-    with caplog.at_level(logging.DEBUG, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.DEBUG, logger="EmbRouter Proxy"):
         verbose_proxy_logger.debug("receiving data: %s", f"{{'document': 'data:application/pdf;base64,{_PDF_BASE64}'}}")
 
     emitted = "".join(record.getMessage() for record in caplog.records)
@@ -1056,9 +1056,9 @@ _REQUEST_DUMP = "{'model': 'gpt-4', 'messages': [{'role': 'user', 'content': 'he
 def test_scrubbed_record_scans_the_large_rendered_value_once(monkeypatch, formatter):
     """The raw format template gets its own check, while the large rendered value gets one scan."""
     counting = _CountingPattern(secret_redaction._SECRET_RE)
-    monkeypatch.setenv("LITELLM_RUST", "0")
+    monkeypatch.setenv("EMBROUTER_RUST", "0")
     monkeypatch.setattr(secret_redaction, "_SECRET_RE", counting)
-    monkeypatch.setattr("litellm._logging._ENABLE_SECRET_REDACTION", True)
+    monkeypatch.setattr("embrouter._logging._ENABLE_SECRET_REDACTION", True)
     record = _make_record(logging.DEBUG, "receiving data: %s", (_REQUEST_DUMP,))
 
     assert StdoutLogTruncationFilter().filter(record) is True
@@ -1066,7 +1066,7 @@ def test_scrubbed_record_scans_the_large_rendered_value_once(monkeypatch, format
     rendered = formatter.format(record)
 
     assert _REQUEST_DUMP in rendered
-    assert "litellm_redacted" not in rendered
+    assert "embrouter_redacted" not in rendered
     assert counting.calls == 2
     assert counting.scanned_chars == len(f"receiving data: {_REQUEST_DUMP}") + len("receiving data: %s")
 
@@ -1075,9 +1075,9 @@ def test_stamped_record_is_not_scanned_again(monkeypatch):
     """JSON mode puts the filter on a third-party logger and again on the root handler its
     records propagate to, so the second filter must trust the stamp instead of rescanning."""
     counting = _CountingPattern(secret_redaction._SECRET_RE)
-    monkeypatch.setenv("LITELLM_RUST", "0")
+    monkeypatch.setenv("EMBROUTER_RUST", "0")
     monkeypatch.setattr(secret_redaction, "_SECRET_RE", counting)
-    monkeypatch.setattr("litellm._logging._ENABLE_SECRET_REDACTION", True)
+    monkeypatch.setattr("embrouter._logging._ENABLE_SECRET_REDACTION", True)
     record = _make_record(logging.DEBUG, "receiving data: %s", (_REQUEST_DUMP,))
 
     assert SecretRedactionFilter().filter(record) is True
@@ -1087,14 +1087,14 @@ def test_stamped_record_is_not_scanned_again(monkeypatch):
 
 
 def test_caller_supplied_stamp_never_skips_the_scrub(monkeypatch):
-    """The stamp is a private sentinel, so a caller passing extra={"litellm_redacted": True}
+    """The stamp is a private sentinel, so a caller passing extra={"embrouter_redacted": True}
     still gets the full scrub, and only the filter's own stamp lets a later pass skip it."""
     counting = _CountingPattern(secret_redaction._SECRET_RE)
-    monkeypatch.setenv("LITELLM_RUST", "0")
+    monkeypatch.setenv("EMBROUTER_RUST", "0")
     monkeypatch.setattr(secret_redaction, "_SECRET_RE", counting)
-    monkeypatch.setattr("litellm._logging._ENABLE_SECRET_REDACTION", True)
+    monkeypatch.setattr("embrouter._logging._ENABLE_SECRET_REDACTION", True)
     record = _make_record(logging.DEBUG, "api_key=sk-1234567890abcdefghij")
-    record.litellm_redacted = True
+    record.embrouter_redacted = True
 
     assert SecretRedactionFilter().filter(record) is True
     assert "sk-1234567890abcdefghij" not in record.getMessage()
@@ -1105,7 +1105,7 @@ def test_caller_supplied_stamp_never_skips_the_scrub(monkeypatch):
 
 
 def test_stack_info_is_scrubbed_before_the_plain_formatter(monkeypatch):
-    monkeypatch.setattr("litellm._logging._ENABLE_SECRET_REDACTION", True)
+    monkeypatch.setattr("embrouter._logging._ENABLE_SECRET_REDACTION", True)
     record = _make_record(logging.INFO, "call failed")
     record.stack_info = "Stack (most recent call last):\n  api_key=sk-1234567890abcdefghij"
 
@@ -1133,7 +1133,7 @@ class _BrokenModel(BaseModel):
 def test_unserializable_extra_never_breaks_the_filter(monkeypatch, extra):
     """A pydantic computed field that raises escapes model_dump() and str() alike, and a
     logging filter that lets it through raises into the caller's own log call."""
-    monkeypatch.setattr("litellm._logging._ENABLE_SECRET_REDACTION", True)
+    monkeypatch.setattr("embrouter._logging._ENABLE_SECRET_REDACTION", True)
     record = _make_record(logging.WARNING, "request sent")
     record.payload = extra
 
@@ -1167,9 +1167,9 @@ def _nest(value: object, levels: int) -> object:
     ids=("tuple", "list", "nested_tuple", "dict", "deep_list"),
 )
 def test_secret_free_extra_keeps_its_original_object(monkeypatch, extra):
-    """A host application's own handler on a litellm logger reads extras by type, so a
+    """A host application's own handler on a embrouter logger reads extras by type, so a
     container that carried no secret must reach it untouched, not as its JSON shape."""
-    monkeypatch.setattr("litellm._logging._ENABLE_SECRET_REDACTION", True)
+    monkeypatch.setattr("embrouter._logging._ENABLE_SECRET_REDACTION", True)
     record = _make_record(logging.WARNING, "request sent")
     record.payload = extra
 
@@ -1189,7 +1189,7 @@ def test_secret_free_extra_keeps_its_original_object(monkeypatch, extra):
     ids=("tuple", "set", "dict"),
 )
 def test_extra_that_carried_a_secret_comes_back_scrubbed(monkeypatch, extra, scrubbed):
-    monkeypatch.setattr("litellm._logging._ENABLE_SECRET_REDACTION", True)
+    monkeypatch.setattr("embrouter._logging._ENABLE_SECRET_REDACTION", True)
     record = _make_record(logging.WARNING, "request sent")
     record.payload = extra
 
@@ -1218,7 +1218,7 @@ class _AmbiguousArray:
 def test_extra_whose_equality_raises_still_comes_back_scrubbed(monkeypatch, extra, scrubbed):
     """numpy arrays and torch tensors raise when compared for truth, so the keep-or-scrub
     decision must fall on the scrubbed copy instead of breaking the caller's log call."""
-    monkeypatch.setattr("litellm._logging._ENABLE_SECRET_REDACTION", True)
+    monkeypatch.setattr("embrouter._logging._ENABLE_SECRET_REDACTION", True)
     record = _make_record(logging.WARNING, "request sent")
     record.payload = extra
 
@@ -1242,7 +1242,7 @@ def test_extra_whose_equality_raises_still_comes_back_scrubbed(monkeypatch, extr
 def test_extra_the_filter_cannot_fully_inspect_never_keeps_its_secret(monkeypatch, extra):
     """Whatever safe_dumps would skip (non-string keys, anything past its depth limit,
     fields a repr hides) must not ride the original object past the redacted stamp."""
-    monkeypatch.setattr("litellm._logging._ENABLE_SECRET_REDACTION", True)
+    monkeypatch.setattr("embrouter._logging._ENABLE_SECRET_REDACTION", True)
     record = _make_record(logging.WARNING, "request sent")
     record.payload = extra
 
@@ -1255,7 +1255,7 @@ def test_extra_the_filter_cannot_fully_inspect_never_keeps_its_secret(monkeypatc
 
 
 def test_secret_free_set_comes_back_as_its_json_shape(monkeypatch):
-    monkeypatch.setattr("litellm._logging._ENABLE_SECRET_REDACTION", True)
+    monkeypatch.setattr("embrouter._logging._ENABLE_SECRET_REDACTION", True)
     record = _make_record(logging.WARNING, "request sent")
     record.payload = {"gpt-4o", "gpt-4o-mini"}
 
@@ -1268,7 +1268,7 @@ def test_secret_free_set_comes_back_as_its_json_shape(monkeypatch):
 def test_unscrubbed_record_is_still_redacted_by_the_formatter(monkeypatch):
     """Records that never met SecretRedactionFilter (uvicorn's, in JSON mode) keep
     their formatter-side redaction."""
-    monkeypatch.setattr("litellm._logging._ENABLE_SECRET_REDACTION", True)
+    monkeypatch.setattr("embrouter._logging._ENABLE_SECRET_REDACTION", True)
     record = _make_record(logging.INFO, "key sk-1234567890abcdefghij")
 
     assert "sk-1234567890abcdefghij" not in JsonFormatter().format(record)
@@ -1585,7 +1585,7 @@ def _emit_access_line(full_path: str) -> str:
     handler.setFormatter(AccessFormatter('%(client_addr)s - "%(request_line)s" %(status_code)s', use_colors=False))
     saved_level, saved_propagate = logger.level, logger.propagate
     saved_filters: Final = logger.filters[:]
-    logger.filters = [f for f in saved_filters if type(f).__module__.split(".")[0] == "litellm"]
+    logger.filters = [f for f in saved_filters if type(f).__module__.split(".")[0] == "embrouter"]
     logger.addHandler(handler)
     logger.setLevel(logging.INFO)
     logger.propagate = False
@@ -1600,7 +1600,7 @@ def _emit_access_line(full_path: str) -> str:
 
 
 def test_uvicorn_access_logger_redacts_a_credential_it_is_handed():
-    """Registration happens at litellm import; without it the filter never runs."""
+    """Registration happens at embrouter import; without it the filter never runs."""
     emitted = _emit_access_line(f"/key/info?key={_LEAKED_KEY}")
 
     assert _LEAKED_KEY not in emitted
@@ -1608,7 +1608,7 @@ def test_uvicorn_access_logger_redacts_a_credential_it_is_handed():
 
 
 def test_access_redaction_survives_the_uvicorn_json_log_config():
-    """litellm hands uvicorn a dictConfig when json_logs is on. dictConfig clears a
+    """embrouter hands uvicorn a dictConfig when json_logs is on. dictConfig clears a
     logger's handlers but not its filters, so redaction has to still be attached."""
     import logging.config
 
@@ -1641,7 +1641,7 @@ _DISABLED_ACCESS_LOG_PATHS_RAW = " /health/liveliness , ,/metrics/"
     ],
 )
 def test_uvicorn_access_logger_drops_a_configured_path(monkeypatch, full_path):
-    monkeypatch.setenv("LITELLM_DISABLE_ACCESS_LOG_PATHS", _DISABLED_ACCESS_LOG_PATHS_RAW)
+    monkeypatch.setenv("EMBROUTER_DISABLE_ACCESS_LOG_PATHS", _DISABLED_ACCESS_LOG_PATHS_RAW)
     assert _emit_access_line(full_path) == ""
 
 
@@ -1650,23 +1650,23 @@ def test_uvicorn_access_logger_drops_a_configured_path(monkeypatch, full_path):
     ["/v1/chat/completions", "/health", "/health/liveliness/", "/metrics", "/v1/models?health=/health/liveliness"],
 )
 def test_uvicorn_access_logger_keeps_an_unconfigured_path(monkeypatch, full_path):
-    monkeypatch.setenv("LITELLM_DISABLE_ACCESS_LOG_PATHS", _DISABLED_ACCESS_LOG_PATHS_RAW)
+    monkeypatch.setenv("EMBROUTER_DISABLE_ACCESS_LOG_PATHS", _DISABLED_ACCESS_LOG_PATHS_RAW)
     assert f'"GET {full_path} HTTP/1.1" 200' in _emit_access_line(full_path)
 
 
 @pytest.mark.parametrize("raw", [None, "", " , ,"])
 def test_uvicorn_access_logger_keeps_every_line_when_no_path_is_configured(monkeypatch, raw):
     if raw is None:
-        monkeypatch.delenv("LITELLM_DISABLE_ACCESS_LOG_PATHS", raising=False)
+        monkeypatch.delenv("EMBROUTER_DISABLE_ACCESS_LOG_PATHS", raising=False)
     else:
-        monkeypatch.setenv("LITELLM_DISABLE_ACCESS_LOG_PATHS", raw)
+        monkeypatch.setenv("EMBROUTER_DISABLE_ACCESS_LOG_PATHS", raw)
     assert '"GET /health/liveliness HTTP/1.1" 200' in _emit_access_line("/health/liveliness")
 
 
 def test_access_log_path_filter_survives_the_uvicorn_json_log_config(monkeypatch):
     import logging.config
 
-    monkeypatch.setenv("LITELLM_DISABLE_ACCESS_LOG_PATHS", _DISABLED_ACCESS_LOG_PATHS_RAW)
+    monkeypatch.setenv("EMBROUTER_DISABLE_ACCESS_LOG_PATHS", _DISABLED_ACCESS_LOG_PATHS_RAW)
     names = ("uvicorn", "uvicorn.error", "uvicorn.access")
     saved = tuple((logging.getLogger(n), logging.getLogger(n).handlers[:], logging.getLogger(n).level) for n in names)
     try:
@@ -1683,7 +1683,7 @@ def test_access_log_path_filter_survives_the_uvicorn_json_log_config(monkeypatch
 
 @pytest.mark.parametrize("args", [None, ("127.0.0.1:1", "GET", 42)])
 def test_access_log_path_filter_keeps_a_record_without_a_string_path_arg(monkeypatch, args):
-    monkeypatch.setenv("LITELLM_DISABLE_ACCESS_LOG_PATHS", "/health/liveliness")
+    monkeypatch.setenv("EMBROUTER_DISABLE_ACCESS_LOG_PATHS", "/health/liveliness")
     record = logging.LogRecord(
         name="uvicorn.access",
         level=logging.INFO,
@@ -1699,9 +1699,9 @@ def test_access_log_path_filter_keeps_a_record_without_a_string_path_arg(monkeyp
 @pytest.mark.parametrize("native", (False, True), ids=("python", "rust"))
 def test_diagnostic_filter_scrubs_exc_stack_and_nested_extras(monkeypatch, native):
     if native:
-        pytest.importorskip("litellm.rust_bridge._native")
-    monkeypatch.setenv("LITELLM_RUST", "1" if native else "0")
-    monkeypatch.setattr("litellm._logging._ENABLE_SECRET_REDACTION", True)
+        pytest.importorskip("embrouter.rust_bridge._native")
+    monkeypatch.setenv("EMBROUTER_RUST", "1" if native else "0")
+    monkeypatch.setattr("embrouter._logging._ENABLE_SECRET_REDACTION", True)
     secret = "sk-" + "q" * 48
     try:
         raise ValueError(f"upstream rejected {secret}")
@@ -1727,9 +1727,9 @@ def test_diagnostic_filter_scrubs_exc_stack_and_nested_extras(monkeypatch, nativ
 @pytest.mark.parametrize("native", (False, True), ids=("python", "rust"))
 def test_diagnostic_filter_stamps_records_so_a_second_pass_is_free(monkeypatch, native):
     if native:
-        pytest.importorskip("litellm.rust_bridge._native")
-    monkeypatch.setenv("LITELLM_RUST", "1" if native else "0")
-    monkeypatch.setattr("litellm._logging._ENABLE_SECRET_REDACTION", True)
+        pytest.importorskip("embrouter.rust_bridge._native")
+    monkeypatch.setenv("EMBROUTER_RUST", "1" if native else "0")
+    monkeypatch.setattr("embrouter._logging._ENABLE_SECRET_REDACTION", True)
     record = _make_record(logging.WARNING, "api_key=secret123")
     diagnostic_filter = DiagnosticProcessingFilter()
 
@@ -1741,9 +1741,9 @@ def test_diagnostic_filter_stamps_records_so_a_second_pass_is_free(monkeypatch, 
 @pytest.mark.parametrize("native", (False, True), ids=("python", "rust"))
 def test_json_formatter_scrubs_unfiltered_extras(monkeypatch, native):
     if native:
-        pytest.importorskip("litellm.rust_bridge._native")
-    monkeypatch.setenv("LITELLM_RUST", "1" if native else "0")
-    monkeypatch.setattr("litellm._logging._ENABLE_SECRET_REDACTION", True)
+        pytest.importorskip("embrouter.rust_bridge._native")
+    monkeypatch.setenv("EMBROUTER_RUST", "1" if native else "0")
+    monkeypatch.setattr("embrouter._logging._ENABLE_SECRET_REDACTION", True)
     secret = "sk-" + "q" * 48
     record = _make_record(logging.INFO, "response complete")
     record.payload = {"api_key": secret, "nested": {"list": [secret]}}
@@ -1757,9 +1757,9 @@ def test_json_formatter_scrubs_unfiltered_extras(monkeypatch, native):
 @pytest.mark.parametrize("native", (False, True), ids=("python", "rust"))
 def test_diagnostic_filter_redacts_a_non_string_message_object(monkeypatch, native):
     if native:
-        pytest.importorskip("litellm.rust_bridge._native")
-    monkeypatch.setenv("LITELLM_RUST", "1" if native else "0")
-    monkeypatch.setattr("litellm._logging._ENABLE_SECRET_REDACTION", True)
+        pytest.importorskip("embrouter.rust_bridge._native")
+    monkeypatch.setenv("EMBROUTER_RUST", "1" if native else "0")
+    monkeypatch.setattr("embrouter._logging._ENABLE_SECRET_REDACTION", True)
     secret = "sk-" + "q" * 48
     record = _make_record(logging.ERROR, {"api_key": secret})
 

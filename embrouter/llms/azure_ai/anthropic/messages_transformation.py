@@ -4,11 +4,11 @@ Azure Anthropic messages transformation config - extends AnthropicMessagesConfig
 
 from typing import Any, Final
 
-from litellm.llms.anthropic.pass_through.messages.transformation import (
+from embrouter.llms.anthropic.pass_through.messages.transformation import (
     AnthropicMessagesConfig,
 )
-from litellm.llms.azure.common_utils import BaseAzureLLM
-from litellm.types.router import GenericLiteLLMParams
+from embrouter.llms.azure.common_utils import BaseAzureLLM
+from embrouter.types.router import GenericEmbRouterParams
 
 
 class AzureAnthropicMessagesConfig(AnthropicMessagesConfig):
@@ -31,7 +31,7 @@ class AzureAnthropicMessagesConfig(AnthropicMessagesConfig):
         model: str,
         messages: list[Any],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> tuple[dict, str | None]:
@@ -39,18 +39,18 @@ class AzureAnthropicMessagesConfig(AnthropicMessagesConfig):
         Validate environment and set up Azure authentication headers for /v1/messages endpoint.
         Azure Anthropic uses x-api-key header (not api-key).
         """
-        # Convert dict to GenericLiteLLMParams if needed
-        if isinstance(litellm_params, dict):
-            if api_key and "api_key" not in litellm_params:
-                litellm_params = {**litellm_params, "api_key": api_key}
-            litellm_params_obj = GenericLiteLLMParams(**litellm_params)
+        # Convert dict to GenericEmbRouterParams if needed
+        if isinstance(embrouter_params, dict):
+            if api_key and "api_key" not in embrouter_params:
+                embrouter_params = {**embrouter_params, "api_key": api_key}
+            embrouter_params_obj = GenericEmbRouterParams(**embrouter_params)
         else:
-            litellm_params_obj = litellm_params or GenericLiteLLMParams()
-            if api_key and not litellm_params_obj.api_key:
-                litellm_params_obj.api_key = api_key
+            embrouter_params_obj = embrouter_params or GenericEmbRouterParams()
+            if api_key and not embrouter_params_obj.api_key:
+                embrouter_params_obj.api_key = api_key
 
         # Use Azure authentication logic
-        headers = BaseAzureLLM._base_validate_azure_environment(headers=headers, litellm_params=litellm_params_obj)
+        headers = BaseAzureLLM._base_validate_azure_environment(headers=headers, embrouter_params=embrouter_params_obj)
 
         # Azure Anthropic uses x-api-key header (not api-key)
         # Convert api-key to x-api-key if present
@@ -79,14 +79,14 @@ class AzureAnthropicMessagesConfig(AnthropicMessagesConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         """
         Get the complete URL for Azure Anthropic /v1/messages endpoint.
         Azure Foundry endpoint format: https://<resource-name>.services.ai.azure.com/anthropic/v1/messages
         """
-        from litellm.secret_managers.main import get_secret_str
+        from embrouter.secret_managers.main import get_secret_str
 
         api_base = api_base or get_secret_str("AZURE_API_BASE")
         if api_base is None:
@@ -151,14 +151,14 @@ class AzureAnthropicMessagesConfig(AnthropicMessagesConfig):
         model: str,
         messages: list[dict],
         anthropic_messages_optional_request_params: dict,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> dict:
         anthropic_messages_request: Final = super().transform_anthropic_messages_request(
             model=model,
             messages=messages,
             anthropic_messages_optional_request_params=anthropic_messages_optional_request_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
         self._normalize_system_role_messages(anthropic_messages_request, model=model)

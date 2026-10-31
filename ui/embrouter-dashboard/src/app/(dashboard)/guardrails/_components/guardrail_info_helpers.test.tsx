@@ -27,7 +27,7 @@ describe("guardrail_info_helpers", () => {
       "PresidioPII",
       "Bedrock",
       "Lakera",
-      "LitellmContentFilter",
+      "EmbrouterContentFilter",
       "ToolPermission",
       "BlockCodeExecution",
     ]);
@@ -115,14 +115,14 @@ describe("guardrail_info_helpers", () => {
   });
 
   describe("shouldRenderContentFilterConfigSettings", () => {
-    it("should return true when dynamic providers include LiteLLM Content Filter", () => {
+    it("should return true when dynamic providers include EmbRouter Content Filter", () => {
       populateGuardrailProviders({
-        litellm_content_filter: {
-          ui_friendly_name: "LiteLLM Content Filter",
+        embrouter_content_filter: {
+          ui_friendly_name: "EmbRouter Content Filter",
         },
       });
 
-      expect(shouldRenderContentFilterConfigSettings("LitellmContentFilter")).toBe(true);
+      expect(shouldRenderContentFilterConfigSettings("EmbrouterContentFilter")).toBe(true);
     });
 
     it("should return false for unrelated providers", () => {

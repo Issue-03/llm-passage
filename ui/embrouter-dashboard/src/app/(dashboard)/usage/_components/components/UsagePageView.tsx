@@ -593,7 +593,7 @@ const UsagePage: React.FC<UsagePageProps> = ({
                                 </div>
                                 {/*
                                   TODO: drop the userSpendData fallback once every deployment
-                                  is writing LiteLLM_DailyGatewayRequests. It covers two cases
+                                  is writing EmbRouter_DailyGatewayRequests. It covers two cases
                                   today: a non-admin (who may not read deployment-wide counts)
                                   and an admin on a proxy whose table is still backfilling.
                                 */}

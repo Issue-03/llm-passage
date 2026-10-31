@@ -11,7 +11,7 @@ import IndexesTable from "./IndexesTable";
 export interface VectorStoreIndex {
   id: string;
   index_name: string;
-  litellm_params: {
+  embrouter_params: {
     vector_store_index: string;
     vector_store_name: string;
   };

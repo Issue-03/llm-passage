@@ -2,16 +2,16 @@ from collections.abc import Mapping
 from types import MappingProxyType
 from typing import Final
 
-from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM
-from litellm.llms.bedrock.common_utils import MANTLE_MESSAGES_PATH
-from litellm.llms.bedrock.messages.mantle_transformation import AmazonMantleMessagesConfig
-from litellm.llms.bedrock_mantle.common_utils import (
+from embrouter.llms.bedrock.base_aws_llm import BaseAWSLLM
+from embrouter.llms.bedrock.common_utils import MANTLE_MESSAGES_PATH
+from embrouter.llms.bedrock.messages.mantle_transformation import AmazonMantleMessagesConfig
+from embrouter.llms.bedrock_mantle.common_utils import (
     MANTLE_HOST_RE,
     BedrockMantleAuthMixin,
     resolve_mantle_region,
 )
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.anthropic import ANTHROPIC_BETA_HEADER_VALUES
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.anthropic import ANTHROPIC_BETA_HEADER_VALUES
 
 _BASE_SUFFIXES_TO_STRIP: Final = (
     MANTLE_MESSAGES_PATH,
@@ -23,8 +23,8 @@ _BASE_SUFFIXES_TO_STRIP: Final = (
 )
 
 
-def build_mantle_native_messages_url(api_base: str | None, litellm_params: Mapping[str, object]) -> str:
-    region: Final = resolve_mantle_region(MappingProxyType({**litellm_params, "api_base": api_base}))
+def build_mantle_native_messages_url(api_base: str | None, embrouter_params: Mapping[str, object]) -> str:
+    region: Final = resolve_mantle_region(MappingProxyType({**embrouter_params, "api_base": api_base}))
     configured: Final = (
         api_base or get_secret_str("BEDROCK_MANTLE_API_BASE") or f"https://bedrock-mantle.{region}.api.aws"
     ).rstrip("/")
@@ -61,7 +61,7 @@ class BedrockMantleAnthropicMessagesConfig(BedrockMantleAuthMixin, AmazonMantleM
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
-        return build_mantle_native_messages_url(api_base=api_base, litellm_params=litellm_params)
+        return build_mantle_native_messages_url(api_base=api_base, embrouter_params=embrouter_params)

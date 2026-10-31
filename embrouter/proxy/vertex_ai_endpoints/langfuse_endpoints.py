@@ -5,7 +5,7 @@ Logging Pass-Through Endpoints
 """
 
 """
-1. Create pass-through endpoints for any LITELLM_BASE_URL/langfuse/<endpoint> map to LANGFUSE_BASE_URL/<endpoint>
+1. Create pass-through endpoints for any EMBROUTER_BASE_URL/langfuse/<endpoint> map to LANGFUSE_BASE_URL/<endpoint>
 """
 
 import base64
@@ -17,13 +17,13 @@ from urllib.parse import unquote
 import httpx
 from fastapi import APIRouter, HTTPException, Request, Response, status
 
-import litellm
-from litellm.litellm_core_utils.url_utils import SSRFError, validate_url
-from litellm.proxy._types import *
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.common_utils.http_parsing_utils import _safe_get_request_headers
-from litellm.proxy.litellm_pre_call_utils import _get_dynamic_logging_metadata
-from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+import embrouter
+from embrouter.embrouter_core_utils.url_utils import SSRFError, validate_url
+from embrouter.proxy._types import *
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.common_utils.http_parsing_utils import _safe_get_request_headers
+from embrouter.proxy.embrouter_pre_call_utils import _get_dynamic_logging_metadata
+from embrouter.proxy.pass_through_endpoints.pass_through_endpoints import (
     create_pass_through_route,
 )
 
@@ -116,8 +116,8 @@ def _get_langfuse_proxy_credentials(
         return dynamic_langfuse_public_key, dynamic_langfuse_secret_key
 
     return (
-        dynamic_langfuse_public_key or litellm.utils.get_secret(secret_name="LANGFUSE_PUBLIC_KEY"),
-        dynamic_langfuse_secret_key or litellm.utils.get_secret(secret_name="LANGFUSE_SECRET_KEY"),
+        dynamic_langfuse_public_key or embrouter.utils.get_secret(secret_name="LANGFUSE_PUBLIC_KEY"),
+        dynamic_langfuse_secret_key or embrouter.utils.get_secret(secret_name="LANGFUSE_SECRET_KEY"),
     )
 
 
@@ -132,7 +132,7 @@ def _build_langfuse_proxy_target(
     updated_url: Final = base_url.copy_with(path=endpoint_path)
     custom_headers: Final = {}
 
-    if dynamic_host_supplied and getattr(litellm, "user_url_validation", True):
+    if dynamic_host_supplied and getattr(embrouter, "user_url_validation", True):
         try:
             target_url, host_header = validate_url(str(updated_url))
         except SSRFError as e:
@@ -157,13 +157,13 @@ async def langfuse_proxy_route(
     fastapi_response: Response,
 ):
     """
-    Call Langfuse via LiteLLM proxy. Works with Langfuse SDK.
+    Call Langfuse via EmbRouter proxy. Works with Langfuse SDK.
 
 
     """
-    from litellm.proxy.proxy_server import proxy_config
+    from embrouter.proxy.proxy_server import proxy_config
 
-    ## CHECK FOR LITELLM API KEY IN THE QUERY PARAMS - ?..key=LITELLM_API_KEY
+    ## CHECK FOR EMBROUTER API KEY IN THE QUERY PARAMS - ?..key=EMBROUTER_API_KEY
     api_key = request.headers.get("Authorization") or ""
 
     ## decrypt base64 hash

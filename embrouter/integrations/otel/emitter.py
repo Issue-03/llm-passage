@@ -11,11 +11,11 @@ from opentelemetry.sdk.trace import Span as SdkSpan
 from opentelemetry.trace import Link, Span, Tracer
 from opentelemetry.trace.status import Status, StatusCode
 
-from litellm.integrations.otel.mappers import resolve_mappers
-from litellm.integrations.otel.mappers.base import AttributeMapper, AttrValue, SpanData
-from litellm.integrations.otel.mappers.openinference import fit_indexed_messages
-from litellm.integrations.otel.model.config import OpenTelemetryV2Config
-from litellm.integrations.otel.model.payloads import (
+from embrouter.integrations.otel.mappers import resolve_mappers
+from embrouter.integrations.otel.mappers.base import AttributeMapper, AttrValue, SpanData
+from embrouter.integrations.otel.mappers.openinference import fit_indexed_messages
+from embrouter.integrations.otel.model.config import OpenTelemetryV2Config
+from embrouter.integrations.otel.model.payloads import (
     GuardrailSpanData,
     LLMCallSpanData,
     MCPListToolsSpanData,
@@ -23,8 +23,8 @@ from litellm.integrations.otel.model.payloads import (
     ServiceSpanData,
     SpanError,
 )
-from litellm.integrations.otel.model.semconv import Error, ExceptionEvent, LiteLLMError
-from litellm.integrations.otel.model.spans import (
+from embrouter.integrations.otel.model.semconv import Error, ExceptionEvent, EmbRouterError
+from embrouter.integrations.otel.model.spans import (
     SPAN_REGISTRY,
     SpanRole,
     guardrail_span_name,
@@ -33,8 +33,8 @@ from litellm.integrations.otel.model.spans import (
     mcp_tool_call_span_name,
     service_span_name,
 )
-from litellm.integrations.otel.plumbing.events import GenAIEventRecorder
-from litellm.integrations.otel.plumbing.providers import to_otel_span_kind
+from embrouter.integrations.otel.plumbing.events import GenAIEventRecorder
+from embrouter.integrations.otel.plumbing.providers import to_otel_span_kind
 
 # Roles emit() knows how to name and emit. PROXY_REQUEST and the management
 # routes are SERVER spans owned by the mounted FastAPI instrumentor, so they
@@ -68,7 +68,7 @@ _NO_ATTRIBUTES: Final[Mapping[str, AttrValue]] = MappingProxyType({})
 
 
 def error_attributes(error: SpanError) -> Mapping[str, AttrValue]:
-    """The v2 error attribute set: the OTel-semconv ``error.*`` pair plus the litellm detail keys that are
+    """The v2 error attribute set: the OTel-semconv ``error.*`` pair plus the embrouter detail keys that are
     populated, so guardrail-shape errors carrying only a message aren't polluted with empty detail keys."""
     resolved: Final = _resolve_error(error)
     if resolved is None:
@@ -77,9 +77,9 @@ def error_attributes(error: SpanError) -> Mapping[str, AttrValue]:
     pairs: Final = (
         (Error.TYPE, error_type),
         (Error.MESSAGE, message),
-        (LiteLLMError.CODE, error.code),
-        (LiteLLMError.STACK_TRACE, error.stack_trace),
-        (LiteLLMError.LLM_PROVIDER, error.llm_provider),
+        (EmbRouterError.CODE, error.code),
+        (EmbRouterError.STACK_TRACE, error.stack_trace),
+        (EmbRouterError.LLM_PROVIDER, error.llm_provider),
     )
     return MappingProxyType({key: value for key, value in pairs if value})
 
@@ -299,6 +299,6 @@ class SpanEmitter:
                 )
         # On success leave the status UNSET (the semconv default) rather than
         # forcing OK — that matches the FastAPI server span and avoids implying a
-        # span-level health signal litellm doesn't actually evaluate. Only a
+        # span-level health signal embrouter doesn't actually evaluate. Only a
         # genuine error sets a status.
         span.end(end_time=end_time_ns)

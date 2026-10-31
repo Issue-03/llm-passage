@@ -9,17 +9,17 @@ from urllib.parse import ParseResult, urlparse, urlsplit, urlunparse, urlunsplit
 from fastapi import HTTPException, Request
 from starlette.types import Scope
 
-from litellm._logging import verbose_logger
-from litellm.proxy._experimental.mcp_server.auth.token_endpoint_auth import (
+from embrouter._logging import verbose_logger
+from embrouter.proxy._experimental.mcp_server.auth.token_endpoint_auth import (
     TokenEndpointClientAuth,
     build_token_endpoint_client_auth,
     normalize_token_endpoint_auth_method,
 )
-from litellm.proxy.auth.ip_address_utils import IPAddressUtils
-from litellm.proxy.middleware.per_request_root_path_middleware import get_request_root_path
+from embrouter.proxy.auth.ip_address_utils import IPAddressUtils
+from embrouter.proxy.middleware.per_request_root_path_middleware import get_request_root_path
 
 if TYPE_CHECKING:
-    from litellm.types.mcp_server.mcp_server_manager import MCPServer
+    from embrouter.types.mcp_server.mcp_server_manager import MCPServer
 
 # RFC 6749 §5.1 / OAuth 2.1 draft-15 §4.1.3: token-endpoint responses
 # must not be cached — both success and error bodies may reveal secrets.
@@ -120,7 +120,7 @@ def _resolve_proxy_base_url_env() -> str | None:
         verbose_logger.warning(
             "PROXY_BASE_URL=%r is not a valid http(s) URL (missing scheme "
             "or host) and will be ignored for MCP OAuth origin resolution. "
-            "Set it to a full URL like https://litellm.example.com.",
+            "Set it to a full URL like https://embrouter.example.com.",
             configured,
         )
         _warned_invalid_proxy_base_url = configured
@@ -194,10 +194,10 @@ def get_route_relative_request_path(scope: Scope) -> str:
     deployment's ``root_path`` removed.
 
     ``scope["path"]`` and ``_original_path`` are both raw request-line paths, so on a sub-path
-    deployment they still carry the ``SERVER_ROOT_PATH`` prefix (``/litellm/{server}/mcp``) while
+    deployment they still carry the ``SERVER_ROOT_PATH`` prefix (``/embrouter/{server}/mcp``) while
     every route shape compared against them is root-relative. Mirrors the segment-boundary strip in
-    :func:`litellm.proxy.auth.auth_utils.get_request_route`, which the rest of the MCP auth path
-    already routes through, so ``/litellmfoo`` is not truncated under ``root_path=/litellm``."""
+    :func:`embrouter.proxy.auth.auth_utils.get_request_route`, which the rest of the MCP auth path
+    already routes through, so ``/embrouterfoo`` is not truncated under ``root_path=/embrouter``."""
     raw_path = str(scope.get("_original_path") or scope.get("path", "") or "")
     root_path = str(scope.get("app_root_path") or scope.get("root_path") or "").rstrip("/")
     if root_path and (raw_path == root_path or raw_path.startswith(f"{root_path}/")):
@@ -535,7 +535,7 @@ def _build_trusted_redirect_rejection_message(
     """Build a client-facing rejection message.
 
     Intentionally omits the proxy's resolved scheme / host / port to avoid
-    leaking internal network topology (e.g. ``http://litellm-internal:4000``)
+    leaking internal network topology (e.g. ``http://embrouter-internal:4000``)
     through an unauthenticated endpoint. Full diagnostic detail — including
     the computed proxy base — is logged server-side by the caller.
     """
@@ -577,7 +577,7 @@ def _raise_trusted_redirect_uri_rejected(
 
     hint: Final = (
         "Align the proxy public URL with the browser URL. Set PROXY_BASE_URL to your "
-        "HTTPS origin (e.g. https://litellm.example.com), or enable "
+        "HTTPS origin (e.g. https://embrouter.example.com), or enable "
         "general_settings.use_x_forwarded_for with mcp_trusted_proxy_ranges for your "
         "ingress. If the redirect_uri is a legitimate separate-origin OAuth client "
         "(e.g. a web app registering with the proxy from another host via dynamic client "

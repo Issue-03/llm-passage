@@ -3,7 +3,7 @@ Translate from OpenAI's `/v1/chat/completions` to Sagemaker's `/invocations` API
 
 Called if Sagemaker endpoint supports HF Messages API.
 
-LiteLLM
+EmbRouter
 Huggingface Docs: https://huggingface.co/docs/text-generation-inference/en/messages_api
 """
 
@@ -13,29 +13,29 @@ from typing import TYPE_CHECKING, Any, Final, cast
 import httpx
 from httpx._models import Headers
 
-from litellm.litellm_core_utils.aws_partition import get_aws_dns_suffix
-from litellm.litellm_core_utils.logging_utils import track_llm_api_timing
-from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.embrouter_core_utils.aws_partition import get_aws_dns_suffix
+from embrouter.embrouter_core_utils.logging_utils import track_llm_api_timing
+from embrouter.embrouter_core_utils.streaming_handler import CustomStreamWrapper
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.bedrock.base_aws_llm import BaseAWSLLM
+from embrouter.llms.custom_httpx.http_handler import (
     AsyncHTTPHandler,
     HTTPHandler,
     _get_httpx_client,
     get_async_httpx_client,
 )
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.utils import LlmProviders
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.utils import LlmProviders
 
 from ...openai.chat.gpt_transformation import OpenAIGPTConfig
 from ..common_utils import AWSEventStreamDecoder, SagemakerError
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 
 class SagemakerChatConfig(OpenAIGPTConfig, BaseAWSLLM):
@@ -52,7 +52,7 @@ class SagemakerChatConfig(OpenAIGPTConfig, BaseAWSLLM):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
@@ -66,17 +66,17 @@ class SagemakerChatConfig(OpenAIGPTConfig, BaseAWSLLM):
         model: str,
         messages: list[AllMessageValues],  # mutable-ok: matches the base chat transform signature
         optional_params: dict,  # mutable-ok: matches the base chat transform signature
-        litellm_params: dict,  # mutable-ok: matches the base chat transform signature
+        embrouter_params: dict,  # mutable-ok: matches the base chat transform signature
         headers: dict,  # mutable-ok: matches the base chat transform signature
     ) -> dict:  # mutable-ok: the handler sends this body straight to httpx
         request: Final = super().transform_request(
             model=model,
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
-        served_model_name: Final = litellm_params.get("hf_model_name")
+        served_model_name: Final = embrouter_params.get("hf_model_name")
         if not isinstance(served_model_name, str):
             return request
         return {**request, "model": served_model_name}
@@ -87,7 +87,7 @@ class SagemakerChatConfig(OpenAIGPTConfig, BaseAWSLLM):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         aws_region_name: Final = self._get_aws_region_name(
@@ -142,7 +142,7 @@ class SagemakerChatConfig(OpenAIGPTConfig, BaseAWSLLM):
         self,
         model: str,
         custom_llm_provider: str,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_base: str,
         headers: dict,
         data: dict,
@@ -151,7 +151,7 @@ class SagemakerChatConfig(OpenAIGPTConfig, BaseAWSLLM):
         json_mode: bool | None = None,
         signed_json_body: bytes | None = None,
         *,
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
     ) -> CustomStreamWrapper:
         if client is None or isinstance(client, AsyncHTTPHandler):
             client = _get_httpx_client(params={})
@@ -186,7 +186,7 @@ class SagemakerChatConfig(OpenAIGPTConfig, BaseAWSLLM):
         self,
         model: str,
         custom_llm_provider: str,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_base: str,
         headers: dict,
         data: dict,
@@ -195,7 +195,7 @@ class SagemakerChatConfig(OpenAIGPTConfig, BaseAWSLLM):
         json_mode: bool | None = None,
         signed_json_body: bytes | None = None,
         *,
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
     ) -> CustomStreamWrapper:
         if client is None or isinstance(client, HTTPHandler):
             try:

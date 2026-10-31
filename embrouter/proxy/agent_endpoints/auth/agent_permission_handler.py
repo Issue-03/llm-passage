@@ -1,5 +1,5 @@
 """
-Agent Permission Handler for LiteLLM Proxy.
+Agent Permission Handler for EmbRouter Proxy.
 
 Handles agent permission checking for keys and teams using object_permission_id.
 Follows the same pattern as MCP permission handling.
@@ -13,23 +13,23 @@ from typing import Final, TypeAlias
 
 from fastapi import HTTPException
 
-from litellm._logging import verbose_logger
-from litellm.proxy._experimental.mcp_server.ui_session_utils import build_effective_auth_contexts
-from litellm.proxy._types import (
+from embrouter._logging import verbose_logger
+from embrouter.proxy._experimental.mcp_server.ui_session_utils import build_effective_auth_contexts
+from embrouter.proxy._types import (
     UI_TEAM_ID,
-    LiteLLM_ObjectPermissionTable,
-    LiteLLM_TeamTable,
-    LitellmUserRoles,
+    EmbRouter_ObjectPermissionTable,
+    EmbRouter_TeamTable,
+    EmbrouterUserRoles,
     UserAPIKeyAuth,
 )
-from litellm.proxy.agent_endpoints.auth.agent_access_groups import (
+from embrouter.proxy.agent_endpoints.auth.agent_access_groups import (
     CeilingResolver,
     resolve_agent_access_group_ceiling,
 )
-from litellm.proxy.agent_endpoints.auth.agent_caller import agent_caller_auth
-from litellm.proxy.agent_endpoints.auth.managed_authorization import managed_agent_policy
-from litellm.repositories.table_repositories import AgentsRepository
-from litellm.types.agents import AgentResponse
+from embrouter.proxy.agent_endpoints.auth.agent_caller import agent_caller_auth
+from embrouter.proxy.agent_endpoints.auth.managed_authorization import managed_agent_policy
+from embrouter.repositories.table_repositories import AgentsRepository
+from embrouter.types.agents import AgentResponse
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,7 +48,7 @@ AgentAccess: TypeAlias = UnrestrictedAgentAccess | RestrictedAgentAccess
 
 
 def _to_stable_ids(agent_ids: frozenset[str]) -> frozenset[str]:
-    from litellm.proxy.agent_endpoints.agent_registry import global_agent_registry
+    from embrouter.proxy.agent_endpoints.agent_registry import global_agent_registry
 
     return frozenset(global_agent_registry.stable_agent_id(agent_id) for agent_id in agent_ids)
 
@@ -169,11 +169,11 @@ class AgentRequestHandler:
         Returns:
             bool: True if agent is allowed, False otherwise
         """
-        from litellm.proxy.agent_endpoints.agent_registry import global_agent_registry
-        from litellm.proxy.agent_endpoints.identity_store import AgentIdentityStore
-        from litellm.proxy.agent_endpoints.managed_identity import raise_identity_failure
-        from litellm.proxy.proxy_server import prisma_client
-        from litellm.types.proxy.agent_identity import AgentIdentityFailure
+        from embrouter.proxy.agent_endpoints.agent_registry import global_agent_registry
+        from embrouter.proxy.agent_endpoints.identity_store import AgentIdentityStore
+        from embrouter.proxy.agent_endpoints.managed_identity import raise_identity_failure
+        from embrouter.proxy.proxy_server import prisma_client
+        from embrouter.types.proxy.agent_identity import AgentIdentityFailure
 
         registered: Final = global_agent_registry.get_agent_by_id(agent_id)
         registry_managed: Final = isinstance(registered, AgentResponse) and registered.identity_managed
@@ -191,7 +191,7 @@ class AgentRequestHandler:
                     or user_api_key_auth is None
                 ):
                     return False
-                from litellm.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import MCPRequestHandler
+                from embrouter.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import MCPRequestHandler
 
                 key_hash: Final = user_api_key_auth.api_key or user_api_key_auth.token
                 authority: Final = (
@@ -224,12 +224,12 @@ class AgentRequestHandler:
     @staticmethod
     def _get_key_object_permission(
         user_api_key_auth: UserAPIKeyAuth | None = None,
-    ) -> LiteLLM_ObjectPermissionTable | None:
+    ) -> EmbRouter_ObjectPermissionTable | None:
         """
         Get key object_permission - already loaded by get_key_object() in main auth flow.
 
         Note: object_permission is automatically populated when the key is fetched via
-        get_key_object() in litellm/proxy/auth/auth_checks.py
+        get_key_object() in embrouter/proxy/auth/auth_checks.py
         """
         if not user_api_key_auth:
             return None
@@ -239,15 +239,15 @@ class AgentRequestHandler:
     @staticmethod
     async def _get_team_object_permission(
         user_api_key_auth: UserAPIKeyAuth | None = None,
-    ) -> LiteLLM_ObjectPermissionTable | None:
+    ) -> EmbRouter_ObjectPermissionTable | None:
         """
         Get team object_permission - automatically loaded by get_team_object() in main auth flow.
 
         Note: object_permission is automatically populated when the team is fetched via
-        get_team_object() in litellm/proxy/auth/auth_checks.py
+        get_team_object() in embrouter/proxy/auth/auth_checks.py
         """
-        from litellm.proxy.auth.auth_checks import get_team_object
-        from litellm.proxy.proxy_server import (
+        from embrouter.proxy.auth.auth_checks import get_team_object
+        from embrouter.proxy.proxy_server import (
             prisma_client,
             proxy_logging_obj,
             user_api_key_cache,
@@ -257,7 +257,7 @@ class AgentRequestHandler:
             return None
 
         # Get the team object (which has object_permission already loaded)
-        team_obj: Final[LiteLLM_TeamTable | None] = await get_team_object(
+        team_obj: Final[EmbRouter_TeamTable | None] = await get_team_object(
             team_id=user_api_key_auth.team_id,
             prisma_client=prisma_client,
             user_api_key_cache=user_api_key_cache,
@@ -355,8 +355,8 @@ class AgentRequestHandler:
             return UnrestrictedAgentAccess()
 
         try:
-            from litellm.proxy.auth.auth_checks import get_team_object
-            from litellm.proxy.proxy_server import (
+            from embrouter.proxy.auth.auth_checks import get_team_object
+            from embrouter.proxy.proxy_server import (
                 prisma_client,
                 proxy_logging_obj,
                 user_api_key_cache,
@@ -413,7 +413,7 @@ class AgentRequestHandler:
         except Exception as e:
             if strict:
                 raise HTTPException(503, "Agent invocation policy is unavailable") from e
-            # litellm-dashboard is the default UI team and will never have agents;
+            # embrouter-dashboard is the default UI team and will never have agents;
             # skip noisy warnings for it.
             if user_api_key_auth.team_id != UI_TEAM_ID:
                 verbose_logger.warning("Failed to get allowed agents for team: %s", e)
@@ -459,7 +459,7 @@ class AgentRequestHandler:
         """
         Resolve unified access group ids to agent IDs.
         """
-        from litellm.proxy.auth.auth_checks import _get_agent_ids_from_access_groups
+        from embrouter.proxy.auth.auth_checks import _get_agent_ids_from_access_groups
 
         return await _get_agent_ids_from_access_groups(access_group_ids=access_group_ids, check_db_only=check_db_only)
 
@@ -472,8 +472,8 @@ class AgentRequestHandler:
         """
         Resolve agent access groups to agent IDs by querying BOTH the agent table (DB) AND config-loaded agents.
         """
-        from litellm.proxy.agent_endpoints.agent_registry import global_agent_registry
-        from litellm.proxy.proxy_server import prisma_client
+        from embrouter.proxy.agent_endpoints.agent_registry import global_agent_registry
+        from embrouter.proxy.proxy_server import prisma_client
 
         config_agent_ids: Final = AgentRequestHandler._get_config_agent_ids_for_access_groups(
             global_agent_registry.agent_list, access_groups
@@ -512,8 +512,8 @@ class AgentRequestHandler:
         user_api_key_auth: UserAPIKeyAuth | None = None,
     ) -> list[str]:
         """Get agent access groups for the key."""
-        from litellm.proxy.auth.auth_checks import get_object_permission
-        from litellm.proxy.proxy_server import (
+        from embrouter.proxy.auth.auth_checks import get_object_permission
+        from embrouter.proxy.proxy_server import (
             prisma_client,
             proxy_logging_obj,
             user_api_key_cache,
@@ -550,8 +550,8 @@ class AgentRequestHandler:
         user_api_key_auth: UserAPIKeyAuth | None = None,
     ) -> list[str]:
         """Get agent access groups for the team."""
-        from litellm.proxy.auth.auth_checks import get_team_object
-        from litellm.proxy.proxy_server import (
+        from embrouter.proxy.auth.auth_checks import get_team_object
+        from embrouter.proxy.proxy_server import (
             prisma_client,
             proxy_logging_obj,
             user_api_key_cache,
@@ -568,7 +568,7 @@ class AgentRequestHandler:
             return []
 
         try:
-            team_obj: Final[LiteLLM_TeamTable | None] = await get_team_object(
+            team_obj: Final[EmbRouter_TeamTable | None] = await get_team_object(
                 team_id=user_api_key_auth.team_id,
                 prisma_client=prisma_client,
                 user_api_key_cache=user_api_key_cache,
@@ -622,10 +622,10 @@ async def accessible_agents(
     effective_contexts: EffectiveAuthContexts = build_effective_auth_contexts,
 ) -> tuple[AgentResponse, ...]:
     """Every registry agent for proxy admins, else only the agents the caller was granted."""
-    from litellm.proxy.agent_endpoints.agent_registry import global_agent_registry
+    from embrouter.proxy.agent_endpoints.agent_registry import global_agent_registry
 
     agents: Final = global_agent_registry.get_agent_list() if all_agents is None else all_agents
-    if user_api_key_auth.user_role in (LitellmUserRoles.PROXY_ADMIN, LitellmUserRoles.PROXY_ADMIN.value):
+    if user_api_key_auth.user_role in (EmbrouterUserRoles.PROXY_ADMIN, EmbrouterUserRoles.PROXY_ADMIN.value):
         return agents
     allowed_agent_ids: Final = await _granted_agent_ids(
         user_api_key_auth,
@@ -659,11 +659,11 @@ async def _managed_actor_agent_access(auth: UserAPIKeyAuth) -> AgentAccess:
     agent: Final = managed_agent_policy(auth)
     if agent is None or not agent.object_permission:
         return RestrictedAgentAccess(frozenset())
-    permission: Final = LiteLLM_ObjectPermissionTable.model_validate(agent.object_permission or MappingProxyType({}))
+    permission: Final = EmbRouter_ObjectPermissionTable.model_validate(agent.object_permission or MappingProxyType({}))
     own_auth: Final = UserAPIKeyAuth(object_permission=permission)
     own: Final = _granted_ids(await AgentRequestHandler.get_allowed_agents_for_key(own_auth, strict=True))
 
-    from litellm.proxy.agent_endpoints.auth.agent_access_groups import resolve_managed_agent_ceilings
+    from embrouter.proxy.agent_endpoints.auth.agent_access_groups import resolve_managed_agent_ceilings
 
     ceilings: Final = await resolve_managed_agent_ceilings(agent)
     grouped: Final = frozenset(target for target in own if all(target in ceiling.agent_ids for ceiling in ceilings))
@@ -681,7 +681,7 @@ async def _managed_actor_agent_access(auth: UserAPIKeyAuth) -> AgentAccess:
 async def _verified_human_agent_sources(
     user_id: str | None, *, allowed_team_ids: frozenset[str] | None = None
 ) -> tuple[tuple[str | None, frozenset[str]], ...]:
-    from litellm.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import MCPRequestHandler
+    from embrouter.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import MCPRequestHandler
 
     if user_id is None:
         return ()
@@ -718,4 +718,4 @@ async def resolve_delegated_agent_team(
         return team_id
     if not explicit_team and granting_teams:
         return min(granting_teams)
-    raise HTTPException(403, "Select a team that grants access to this agent using x-litellm-team-id")
+    raise HTTPException(403, "Select a team that grants access to this agent using x-embrouter-team-id")

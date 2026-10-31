@@ -57,7 +57,7 @@ class CompresrGuardrailOptionalParams(BaseModel):
     max_bytes_per_call: int | None = Field(
         default=None,
         description=(
-            "Cap on aggregate bytes of stored originals per litellm_call_id. "
+            "Cap on aggregate bytes of stored originals per embrouter_call_id. "
             "When a call exceeds this, oldest entries are evicted so the "
             "in-process store cannot grow without bound. Defaults to 10 MiB."
         ),

@@ -12,7 +12,7 @@ event turns one slow node into a proxy-wide latency spike while Redis itself sta
 healthy -- confirmed live: pausing one of three local cluster nodes made every concurrent
 command against the other two, untouched nodes stall for the full pause duration too.
 
-``get_litellm_async_redis_cluster_class`` returns a ``RedisCluster`` subclass that resets
+``get_embrouter_async_redis_cluster_class`` returns a ``RedisCluster`` subclass that resets
 only the node that actually failed (mirroring what a plain, non-cluster Redis client
 already does when one of its pooled connections errors), leaving every other node's
 connections untouched. Every other branch (MOVED, ASK, CLUSTERDOWN, slot-not-covered,
@@ -31,7 +31,7 @@ or ``aclose()`` still reinits).
 import asyncio
 from typing import TYPE_CHECKING, Final, Protocol
 
-from litellm._logging import verbose_logger
+from embrouter._logging import verbose_logger
 
 if TYPE_CHECKING:
     from redis.asyncio.cluster import RedisCluster as _AsyncRedisClusterType
@@ -83,7 +83,7 @@ _VERIFIED_REDIS_VERSIONS: Final = frozenset({"5.3.1"})
 _CONSECUTIVE_TIMEOUTS_BEFORE_REINIT: Final = 3
 
 
-def get_litellm_async_redis_cluster_class(  # noqa: C901  # supports redis-py version-specific cluster implementations
+def get_embrouter_async_redis_cluster_class(  # noqa: C901  # supports redis-py version-specific cluster implementations
     cluster_node_class: type | None = None,
     base_cluster_class: type | None = None,
 ) -> type["_AsyncRedisClusterType"]:
@@ -95,7 +95,7 @@ def get_litellm_async_redis_cluster_class(  # noqa: C901  # supports redis-py ve
     ``cluster_node_class`` and ``base_cluster_class`` exist for dependency injection in tests;
     production callers leave them unset and the installed redis-py classes are used.
 
-    Imported lazily because this module is reachable from a base ``import litellm`` while
+    Imported lazily because this module is reachable from a base ``import embrouter`` while
     redis is not a base dependency. Cheap to call repeatedly: the underlying redis
     submodules are cached in ``sys.modules`` after the first import.
     """
@@ -126,11 +126,11 @@ def get_litellm_async_redis_cluster_class(  # noqa: C901  # supports redis-py ve
     if hasattr(node_class, "update_active_connections_for_reconnect"):
         verbose_logger.debug(
             "redis-py %s recovers node connections per-connection upstream; using "
-            "LiteLLM's timeout-tolerant RedisCluster wrapper.",
+            "EmbRouter's timeout-tolerant RedisCluster wrapper.",
             redis.__version__,
         )
 
-        class LiteLLMAsyncRedisClusterTimeoutTolerant(
+        class EmbRouterAsyncRedisClusterTimeoutTolerant(
             base_class  # pyright: ignore[reportGeneralTypeIssues, reportUntypedBaseClass]  # the injected base class is selected at runtime
         ):
             def __init__(
@@ -138,23 +138,23 @@ def get_litellm_async_redis_cluster_class(  # noqa: C901  # supports redis-py ve
                 *args: object,
                 **kwargs: object,  # kwargs-ok: passes redis-py's constructor kwargs through untouched
             ) -> None:
-                self._litellm_initialize = False
-                self._litellm_reinit_requests = 0
-                self._litellm_tolerated_timeouts = 0
+                self._embrouter_initialize = False
+                self._embrouter_reinit_requests = 0
+                self._embrouter_tolerated_timeouts = 0
                 super().__init__(*args, **kwargs)
-                self._litellm_consecutive_timeouts: dict[  # mutable-ok: per-node counter updated on the command hot path
+                self._embrouter_consecutive_timeouts: dict[  # mutable-ok: per-node counter updated on the command hot path
                     str, int
                 ] = {}
 
             @property
             def _initialize(self) -> bool:
-                return self._litellm_initialize
+                return self._embrouter_initialize
 
             @_initialize.setter
             def _initialize(self, value: bool) -> None:
                 if value:
-                    self._litellm_reinit_requests += 1
-                self._litellm_initialize = value
+                    self._embrouter_reinit_requests += 1
+                self._embrouter_initialize = value
 
             async def _execute_command(
                 self,
@@ -162,28 +162,28 @@ def get_litellm_async_redis_cluster_class(  # noqa: C901  # supports redis-py ve
                 *args: object,
                 **kwargs: object,  # kwargs-ok: matches redis-py's own command dispatch signature
             ) -> object:
-                outstanding_before: Final = self._litellm_reinit_requests - self._litellm_tolerated_timeouts
-                pending_before: Final = self._litellm_initialize
+                outstanding_before: Final = self._embrouter_reinit_requests - self._embrouter_tolerated_timeouts
+                pending_before: Final = self._embrouter_initialize
                 try:
                     result: Final = await super()._execute_command(target_node, *args, **kwargs)
                 except _RedisTimeoutError:
-                    timeouts: Final = self._litellm_consecutive_timeouts.get(target_node.name, 0) + 1
+                    timeouts: Final = self._embrouter_consecutive_timeouts.get(target_node.name, 0) + 1
                     if timeouts >= _CONSECUTIVE_TIMEOUTS_BEFORE_REINIT:
-                        self._litellm_consecutive_timeouts.pop(target_node.name, None)
+                        self._embrouter_consecutive_timeouts.pop(target_node.name, None)
                         raise
-                    self._litellm_consecutive_timeouts[target_node.name] = timeouts
-                    self._litellm_tolerated_timeouts += 1
+                    self._embrouter_consecutive_timeouts[target_node.name] = timeouts
+                    self._embrouter_tolerated_timeouts += 1
                     if (
                         not pending_before
-                        and self._litellm_reinit_requests - self._litellm_tolerated_timeouts == outstanding_before
+                        and self._embrouter_reinit_requests - self._embrouter_tolerated_timeouts == outstanding_before
                     ):
                         self._initialize = False
                     raise
-                if self._litellm_consecutive_timeouts:
-                    self._litellm_consecutive_timeouts.pop(target_node.name, None)
+                if self._embrouter_consecutive_timeouts:
+                    self._embrouter_consecutive_timeouts.pop(target_node.name, None)
                 return result
 
-        return LiteLLMAsyncRedisClusterTimeoutTolerant
+        return EmbRouterAsyncRedisClusterTimeoutTolerant
 
     if redis.__version__ not in _VERIFIED_REDIS_VERSIONS:
         verbose_logger.warning(
@@ -194,7 +194,7 @@ def get_litellm_async_redis_cluster_class(  # noqa: C901  # supports redis-py ve
             sorted(_VERIFIED_REDIS_VERSIONS),
         )
 
-    class LiteLLMAsyncRedisCluster(
+    class EmbRouterAsyncRedisCluster(
         _BaseAsyncRedisCluster  # pyright: ignore[reportUntypedBaseClass]  # same stale-stub gap as the import above; the base class itself is unresolvable, not this subclass's own code
     ):
         async def _execute_command(
@@ -257,4 +257,4 @@ def get_litellm_async_redis_cluster_class(  # noqa: C901  # supports redis-py ve
 
             raise ClusterError("TTL exhausted.")
 
-    return LiteLLMAsyncRedisCluster
+    return EmbRouterAsyncRedisCluster

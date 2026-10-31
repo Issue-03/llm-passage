@@ -12,36 +12,36 @@ from typing import TYPE_CHECKING, Final, Literal, TypeVar
 
 from pydantic import BaseModel
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.constants import LOGS_GUARDRAIL_INFORMATION_MARKER
-from litellm.integrations.custom_guardrail import (
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.constants import LOGS_GUARDRAIL_INFORMATION_MARKER
+from embrouter.integrations.custom_guardrail import (
     CustomGuardrail,
     ModifyResponseException,
 )
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.core_helpers import (
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.embrouter_core_utils.core_helpers import (
     get_metadata_variable_name_from_kwargs,
     get_or_create_metadata_bucket,
     independent_snapshot,
 )
-from litellm.proxy.common_utils.callback_utils import add_guardrail_to_applied_guardrails_header
-from litellm.proxy.guardrails.guardrail_hooks.unified_guardrail.unified_guardrail import (
+from embrouter.proxy.common_utils.callback_utils import add_guardrail_to_applied_guardrails_header
+from embrouter.proxy.guardrails.guardrail_hooks.unified_guardrail.unified_guardrail import (
     UnifiedLLMGuardrails,
 )
-from litellm.types.proxy.policy_engine.pipeline_types import (
+from embrouter.types.proxy.policy_engine.pipeline_types import (
     PipelineExecutionResult,
     PipelineStep,
     PipelineStepResult,
 )
-from litellm.types.utils import GenericGuardrailAPIInputs, StandardLoggingGuardrailInformation
+from embrouter.types.utils import GenericGuardrailAPIInputs, StandardLoggingGuardrailInformation
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.llms.base_llm.guardrail_translation.base_translation import (
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.llms.base_llm.guardrail_translation.base_translation import (
         BaseTranslation,
     )
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
 try:
     from fastapi.exceptions import HTTPException
@@ -139,7 +139,7 @@ class _StreamRewriteObserver(CustomGuardrail):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict,  # mutable-ok: matches CustomGuardrail.apply_guardrail
         input_type: Literal["request", "response"],
-        logging_obj: "LiteLLMLoggingObj | None" = None,
+        logging_obj: "EmbRouterLoggingObj | None" = None,
     ) -> GenericGuardrailAPIInputs:
         sent_texts: Final = _text_snapshot(inputs.get("texts"))
         sent_tool_shapes: Final = _tool_call_shapes(inputs.get("tool_calls"))
@@ -177,7 +177,7 @@ class _ScannedTextRecorder(CustomGuardrail):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict,  # mutable-ok: matches CustomGuardrail.apply_guardrail
         input_type: Literal["request", "response"],
-        logging_obj: "LiteLLMLoggingObj | None" = None,
+        logging_obj: "EmbRouterLoggingObj | None" = None,
     ) -> GenericGuardrailAPIInputs:
         self.inputs = inputs
         return inputs
@@ -217,7 +217,7 @@ class _LegacyHookStreamAdapter(CustomGuardrail):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict,  # mutable-ok: matches CustomGuardrail.apply_guardrail
         input_type: Literal["request", "response"],
-        logging_obj: "LiteLLMLoggingObj | None" = None,
+        logging_obj: "EmbRouterLoggingObj | None" = None,
     ) -> GenericGuardrailAPIInputs:
         hooked: Final = self.endpoint_translation.post_call_hook_response(request_data.get("response"))
         replacement: Final = await self.inner.async_post_call_success_hook(
@@ -253,13 +253,13 @@ class _LegacyHookStreamAdapter(CustomGuardrail):
         return rewritten_inputs
 
     async def _rescan(
-        self, response: object, logging_obj: "LiteLLMLoggingObj | None"
+        self, response: object, logging_obj: "EmbRouterLoggingObj | None"
     ) -> GenericGuardrailAPIInputs | None:
         recorder: Final = _ScannedTextRecorder(self.guardrail_name or "unknown")
         await self.endpoint_translation.process_output_response(
             response=response,
             guardrail_to_apply=recorder,
-            litellm_logging_obj=logging_obj,
+            embrouter_logging_obj=logging_obj,
             user_api_key_dict=self.user_api_key_dict,
         )
         return recorder.inputs
@@ -433,7 +433,7 @@ class PipelineExecutor:
         streaming_chunks: list[object],  # mutable-ok: shared buffered-stream chunks the translation rewrites in place
         hook_input: dict[str, object],  # mutable-ok: same request-payload shape as data
         user_api_key_dict: "UserAPIKeyAuth",
-        litellm_logging_obj: "LiteLLMLoggingObj | None",
+        embrouter_logging_obj: "EmbRouterLoggingObj | None",
     ) -> None:
         """Run one streaming post_call step through the endpoint translation, delivering
         text and tool-call rewrites on translations that support ended-stream write-back. A
@@ -460,7 +460,7 @@ class PipelineExecutor:
                 await endpoint_translation.process_output_streaming_response(
                     responses_so_far=streaming_chunks,
                     guardrail_to_apply=observer,
-                    litellm_logging_obj=litellm_logging_obj,
+                    embrouter_logging_obj=embrouter_logging_obj,
                     user_api_key_dict=user_api_key_dict,
                     request_data=hook_input,
                     deliver_ended_stream_rewrites=True,
@@ -469,7 +469,7 @@ class PipelineExecutor:
                 await endpoint_translation.process_output_streaming_response(
                     responses_so_far=streaming_chunks,
                     guardrail_to_apply=observer,
-                    litellm_logging_obj=litellm_logging_obj,
+                    embrouter_logging_obj=embrouter_logging_obj,
                     user_api_key_dict=user_api_key_dict,
                     request_data=hook_input,
                 )
@@ -553,7 +553,7 @@ class PipelineExecutor:
                     streaming_chunks=streaming_chunks,
                     hook_input=hook_input,
                     user_api_key_dict=user_api_key_dict,
-                    litellm_logging_obj=data.get("litellm_logging_obj"),
+                    embrouter_logging_obj=data.get("embrouter_logging_obj"),
                 )
                 response = None
             elif mode == "post_call":
@@ -617,8 +617,8 @@ class PipelineExecutor:
 
     @staticmethod
     def find_guardrail_callback(guardrail_name: str) -> CustomGuardrail | None:
-        """Look up an initialized guardrail callback by name from litellm.callbacks."""
-        for callback in litellm.callbacks:
+        """Look up an initialized guardrail callback by name from embrouter.callbacks."""
+        for callback in embrouter.callbacks:
             if isinstance(callback, CustomGuardrail):
                 if callback.guardrail_name == guardrail_name:
                     return callback

@@ -4,10 +4,10 @@ from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.auth.auth_method import AuthMethod
-from litellm.proxy.auth.network import NetworkContext
-from litellm.proxy.auth.roles import Role, TeamRole
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.auth.auth_method import AuthMethod
+from embrouter.proxy.auth.network import NetworkContext
+from embrouter.proxy.auth.roles import Role, TeamRole
 
 
 class PrincipalType(str, Enum):

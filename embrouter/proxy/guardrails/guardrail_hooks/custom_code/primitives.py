@@ -16,11 +16,11 @@ import httpx
 from pydantic import JsonValue
 from typing_extensions import ReadOnly, TypedDict
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.litellm_core_utils.url_utils import SSRFError, async_safe_get, validate_url
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, get_async_httpx_client
-from litellm.types.llms.custom_http import httpxSpecialProvider
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.embrouter_core_utils.url_utils import SSRFError, async_safe_get, validate_url
+from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler, get_async_httpx_client
+from embrouter.types.llms.custom_http import httpxSpecialProvider
 
 # =============================================================================
 # Result Types - Used by Starlark code to return guardrail decisions
@@ -465,13 +465,13 @@ async def http_request(
     This function allows custom guardrails to call external APIs for
     additional validation, content moderation, or data enrichment.
 
-    Uses LiteLLM's global cached AsyncHTTPHandler for connection pooling
+    Uses EmbRouter's global cached AsyncHTTPHandler for connection pooling
     and better performance.
 
-    Destinations go through LiteLLM's SSRF validation: private, link-local,
+    Destinations go through EmbRouter's SSRF validation: private, link-local,
     loopback and cloud-metadata addresses are refused (every redirect hop
-    included) unless the host is listed in ``litellm_settings.user_url_allowed_hosts``
-    or ``litellm_settings.user_url_validation`` is turned off.
+    included) unless the host is listed in ``embrouter_settings.user_url_allowed_hosts``
+    or ``embrouter_settings.user_url_validation`` is turned off.
 
     Args:
         url: The URL to request
@@ -517,7 +517,7 @@ async def http_request(
         llm_provider=httpxSpecialProvider.GuardrailCallback,
         params={
             "timeout": httpx.Timeout(timeout=effective_timeout, connect=5.0),
-            "follow_redirects": not litellm.user_url_validation,
+            "follow_redirects": not embrouter.user_url_validation,
         },
     )
 
@@ -581,13 +581,13 @@ async def _execute_http_request(
 def _caller_headers(headers: dict[str, str] | None) -> dict[str, str]:
     if headers is None:
         return {}
-    if not litellm.user_url_validation:
+    if not embrouter.user_url_validation:
         return headers
     return {name: value for name, value in headers.items() if name.lower() != "host"}
 
 
 async def _validated_destination(url: str, headers: dict[str, str]) -> tuple[str, dict[str, str]]:
-    if not litellm.user_url_validation:
+    if not embrouter.user_url_validation:
         return url, headers
     destination_url, host_header = await asyncio.to_thread(validate_url, url)
     return destination_url, {**headers, "Host": host_header}

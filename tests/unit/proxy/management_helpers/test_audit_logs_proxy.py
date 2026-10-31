@@ -1,6 +1,6 @@
 import os
 import traceback
-from litellm._uuid import uuid
+from embrouter._uuid import uuid
 from datetime import datetime
 
 from dotenv import load_dotenv
@@ -11,7 +11,7 @@ from fastapi.routing import APIRoute
 import io
 import time
 
-# this file is to test litellm/proxy
+# this file is to test embrouter/proxy
 
 import asyncio
 import logging
@@ -19,11 +19,11 @@ import logging
 load_dotenv()
 
 import pytest
-import litellm
-from litellm._logging import verbose_proxy_logger
+import embrouter
+from embrouter._logging import verbose_proxy_logger
 
-from litellm.proxy.proxy_server import (
-    LitellmUserRoles,
+from embrouter.proxy.proxy_server import (
+    EmbrouterUserRoles,
     audio_transcriptions,
     chat_completion,
     completion,
@@ -33,18 +33,18 @@ from litellm.proxy.proxy_server import (
     user_api_key_auth,
 )
 
-from litellm.proxy.utils import PrismaClient, ProxyLogging, hash_token, update_spend
+from embrouter.proxy.utils import PrismaClient, ProxyLogging, hash_token, update_spend
 
 verbose_proxy_logger.setLevel(level=logging.DEBUG)
 
 from starlette.datastructures import URL
 
-from litellm.proxy.management_helpers.audit_logs import (
+from embrouter.proxy.management_helpers.audit_logs import (
     create_audit_log_for_update,
     get_audit_log_changed_by,
 )
-from litellm.proxy._types import LiteLLM_AuditLogs, LitellmTableNames, UserAPIKeyAuth
-from litellm.caching.caching import DualCache
+from embrouter.proxy._types import EmbRouter_AuditLogs, EmbrouterTableNames, UserAPIKeyAuth
+from embrouter.caching.caching import DualCache
 from unittest.mock import patch, AsyncMock
 
 proxy_logging_obj = ProxyLogging(user_api_key_cache=DualCache())
@@ -59,9 +59,9 @@ def test_get_audit_log_changed_by_prefers_authenticated_user():
 
     assert (
         get_audit_log_changed_by(
-            litellm_changed_by="spoofed-user",
+            embrouter_changed_by="spoofed-user",
             user_api_key_dict=user_api_key_dict,
-            litellm_proxy_admin_name="proxy-admin",
+            embrouter_proxy_admin_name="proxy-admin",
         )
         == "authenticated-user"
     )
@@ -71,14 +71,14 @@ def test_get_audit_log_changed_by_honors_header_with_admin_opt_in():
     user_api_key_dict = UserAPIKeyAuth(
         api_key="test-key",
         user_id="service-account",
-        metadata={"allow_litellm_changed_by_header": True},
+        metadata={"allow_embrouter_changed_by_header": True},
     )
 
     assert (
         get_audit_log_changed_by(
-            litellm_changed_by="delegated-user",
+            embrouter_changed_by="delegated-user",
             user_api_key_dict=user_api_key_dict,
-            litellm_proxy_admin_name="proxy-admin",
+            embrouter_proxy_admin_name="proxy-admin",
         )
         == "delegated-user"
     )
@@ -88,14 +88,14 @@ def test_get_audit_log_changed_by_honors_header_with_team_opt_in():
     user_api_key_dict = UserAPIKeyAuth(
         api_key="test-key",
         user_id="service-account",
-        team_metadata={"allow_litellm_changed_by_header": True},
+        team_metadata={"allow_embrouter_changed_by_header": True},
     )
 
     assert (
         get_audit_log_changed_by(
-            litellm_changed_by="delegated-user",
+            embrouter_changed_by="delegated-user",
             user_api_key_dict=user_api_key_dict,
-            litellm_proxy_admin_name="proxy-admin",
+            embrouter_proxy_admin_name="proxy-admin",
         )
         == "delegated-user"
     )
@@ -106,9 +106,9 @@ def test_get_audit_log_changed_by_ignores_header_without_opt_in_when_user_id_mis
 
     assert (
         get_audit_log_changed_by(
-            litellm_changed_by="spoofed-user",
+            embrouter_changed_by="spoofed-user",
             user_api_key_dict=user_api_key_dict,
-            litellm_proxy_admin_name="proxy-admin",
+            embrouter_proxy_admin_name="proxy-admin",
         )
         == "proxy-admin"
     )
@@ -117,14 +117,14 @@ def test_get_audit_log_changed_by_ignores_header_without_opt_in_when_user_id_mis
 def test_get_audit_log_changed_by_honors_header_with_opt_in_when_user_id_missing():
     user_api_key_dict = UserAPIKeyAuth(
         api_key="test-key",
-        metadata={"allow_litellm_changed_by_header": True},
+        metadata={"allow_embrouter_changed_by_header": True},
     )
 
     assert (
         get_audit_log_changed_by(
-            litellm_changed_by="delegated-user",
+            embrouter_changed_by="delegated-user",
             user_api_key_dict=user_api_key_dict,
-            litellm_proxy_admin_name="proxy-admin",
+            embrouter_proxy_admin_name="proxy-admin",
         )
         == "delegated-user"
     )
@@ -132,27 +132,27 @@ def test_get_audit_log_changed_by_honors_header_with_opt_in_when_user_id_missing
 
 @pytest.mark.asyncio
 async def test_create_internal_user_audit_log_uses_changed_by_helper():
-    from litellm.proxy.hooks.user_management_event_hooks import UserManagementEventHooks
+    from embrouter.proxy.hooks.user_management_event_hooks import UserManagementEventHooks
 
     user_api_key_dict = UserAPIKeyAuth(
         api_key="test-key",
         user_id="service-account",
-        metadata={"allow_litellm_changed_by_header": True},
+        metadata={"allow_embrouter_changed_by_header": True},
     )
 
     with (
-        patch("litellm.store_audit_logs", True),
+        patch("embrouter.store_audit_logs", True),
         patch(
-            "litellm.proxy.hooks.user_management_event_hooks.create_audit_log_for_update",
+            "embrouter.proxy.hooks.user_management_event_hooks.create_audit_log_for_update",
             new_callable=AsyncMock,
         ) as mock_create_audit_log_for_update,
     ):
         await UserManagementEventHooks.create_internal_user_audit_log(
             user_id="target-user",
             action="updated",
-            litellm_changed_by="delegated-user",
+            embrouter_changed_by="delegated-user",
             user_api_key_dict=user_api_key_dict,
-            litellm_proxy_admin_name="proxy-admin",
+            embrouter_proxy_admin_name="proxy-admin",
             before_value='{"before": true}',
             after_value='{"after": true}',
         )
@@ -172,19 +172,19 @@ async def test_create_audit_log_for_update_premium_user():
     Test that the audit log is created when a premium user updates a team
     """
     with (
-        patch("litellm.proxy.proxy_server.premium_user", True),
-        patch("litellm.store_audit_logs", True),
-        patch("litellm.proxy.proxy_server.prisma_client") as mock_prisma,
+        patch("embrouter.proxy.proxy_server.premium_user", True),
+        patch("embrouter.store_audit_logs", True),
+        patch("embrouter.proxy.proxy_server.prisma_client") as mock_prisma,
     ):
 
-        mock_prisma.db.litellm_auditlog.create = AsyncMock()
+        mock_prisma.db.embrouter_auditlog.create = AsyncMock()
 
-        request_data = LiteLLM_AuditLogs(
+        request_data = EmbRouter_AuditLogs(
             id="test_id",
             updated_at=datetime.now(),
             changed_by="test_changed_by",
             action="updated",
-            table_name=LitellmTableNames.TEAM_TABLE_NAME,
+            table_name=EmbrouterTableNames.TEAM_TABLE_NAME,
             object_id="test_object_id",
             updated_values=json.dumps({"key": "value"}),
             before_value=json.dumps({"old_key": "old_value"}),
@@ -192,7 +192,7 @@ async def test_create_audit_log_for_update_premium_user():
 
         await create_audit_log_for_update(request_data)
 
-        mock_prisma.db.litellm_auditlog.create.assert_called_once_with(
+        mock_prisma.db.embrouter_auditlog.create.assert_called_once_with(
             data={
                 "id": "test_id",
                 "updated_at": request_data.updated_at,
@@ -208,7 +208,7 @@ async def test_create_audit_log_for_update_premium_user():
 
 @pytest.fixture
 def prisma_client():
-    from litellm.proxy.proxy_cli import append_query_params
+    from embrouter.proxy.proxy_cli import append_query_params
 
     ### add connection pool + pool timeout args
     params = {"connection_limit": 100, "pool_timeout": 60}
@@ -229,21 +229,21 @@ def prisma_client():
 async def test_create_audit_log_in_db(prisma_client):
     print("prisma client=", prisma_client)
 
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", "sk-1234")
-    setattr(litellm.proxy.proxy_server, "premium_user", True)
-    setattr(litellm, "store_audit_logs", True)
+    setattr(embrouter.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(embrouter.proxy.proxy_server, "master_key", "sk-1234")
+    setattr(embrouter.proxy.proxy_server, "premium_user", True)
+    setattr(embrouter, "store_audit_logs", True)
 
-    await litellm.proxy.proxy_server.prisma_client.connect()
+    await embrouter.proxy.proxy_server.prisma_client.connect()
     audit_log_id = f"audit_log_id_{uuid.uuid4()}"
 
     # create a audit log for /key/generate
-    request_data = LiteLLM_AuditLogs(
+    request_data = EmbRouter_AuditLogs(
         id=audit_log_id,
         updated_at=datetime.now(),
         changed_by="test_changed_by",
         action="updated",
-        table_name=LitellmTableNames.TEAM_TABLE_NAME,
+        table_name=EmbrouterTableNames.TEAM_TABLE_NAME,
         object_id="test_object_id",
         updated_values=json.dumps({"key": "value"}),
         before_value=json.dumps({"old_key": "old_value"}),
@@ -254,10 +254,10 @@ async def test_create_audit_log_in_db(prisma_client):
     await asyncio.sleep(1)
 
     # now read the last log from the db
-    last_log = await prisma_client.db.litellm_auditlog.find_first(
+    last_log = await prisma_client.db.embrouter_auditlog.find_first(
         where={"id": audit_log_id}
     )
 
     assert last_log.id == audit_log_id
 
-    setattr(litellm, "store_audit_logs", False)
+    setattr(embrouter, "store_audit_logs", False)

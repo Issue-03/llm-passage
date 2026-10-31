@@ -1,4 +1,4 @@
-"""Map a native failure onto LiteLLM's public exception contract."""
+"""Map a native failure onto EmbRouter's public exception contract."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ import httpx
 import openai
 from pydantic import TypeAdapter, ValidationError
 
-import litellm
+import embrouter
 
 _UPSTREAM_ARGS: Final = TypeAdapter(tuple[int, str])
 _UPSTREAM_HEADERS: Final = TypeAdapter(list[tuple[str, str]])
@@ -51,7 +51,7 @@ class ExceptionMapper(Protocol):
 
 def map_failure(error: Exception, model: str, request_provider: str, kwargs: Mapping[str, object]) -> Exception:
     mapper: Final = cast(  # cast-ok: bounded adapter for the legacy public exception mapper
-        ExceptionMapper, litellm.exception_type
+        ExceptionMapper, embrouter.exception_type
     )
     try:
         return mapper(

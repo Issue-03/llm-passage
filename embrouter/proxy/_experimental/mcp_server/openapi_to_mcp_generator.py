@@ -15,8 +15,8 @@ from urllib.parse import quote
 import httpx
 from typing_extensions import ReadOnly, Required
 
-from litellm.llms.custom_httpx.http_handler import MaskedHTTPStatusError
-from litellm.proxy._experimental.mcp_server.exceptions import (
+from embrouter.llms.custom_httpx.http_handler import MaskedHTTPStatusError
+from embrouter.proxy._experimental.mcp_server.exceptions import (
     MCPOpenApiUpstreamError,
     MCPUpstreamAuthError,
 )
@@ -44,19 +44,19 @@ def sanitize_openapi_tool_name(raw_name: str) -> str:
     return sanitized[:_OPENAPI_TOOL_NAME_MAX_LEN]
 
 
-from litellm._logging import verbose_logger
-from litellm.litellm_core_utils.url_utils import async_safe_get
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter._logging import verbose_logger
+from embrouter.embrouter_core_utils.url_utils import async_safe_get
+from embrouter.llms.custom_httpx.http_handler import (
     AsyncHTTPHandler,
     get_async_httpx_client,
     header_value,
     httpxSpecialProvider,
 )
-from litellm.proxy._experimental.mcp_server.tool_outcome import JsonResult, TextResult, parse_http_body
-from litellm.proxy._experimental.mcp_server.tool_registry import (
+from embrouter.proxy._experimental.mcp_server.tool_outcome import JsonResult, TextResult, parse_http_body
+from embrouter.proxy._experimental.mcp_server.tool_registry import (
     global_mcp_tool_registry,
 )
-from litellm.types.mcp import MCPAuthType, credential_redirect_hook, custom_credential_slot
+from embrouter.types.mcp import MCPAuthType, credential_redirect_hook, custom_credential_slot
 
 
 class _OpenAPIJSONSchema(TypedDict, total=False):
@@ -408,7 +408,7 @@ def _merge_openapi_tool_request_headers(
            the MCP caller (allowlisted by ``MCPServer.extra_headers``)
 
     This matches the existing MCP invariant in
-    :func:`litellm.proxy._experimental.mcp_server.utils.merge_mcp_headers`
+    :func:`embrouter.proxy._experimental.mcp_server.utils.merge_mcp_headers`
     and the managed MCP path, where ``static_headers`` always wins over
     caller-forwarded headers. Keeping the same precedence here prevents an
     authenticated caller from overriding an operator-configured value
@@ -508,11 +508,11 @@ def create_tool_function(
         """
         effective_headers: Final = _merge_openapi_tool_request_headers(headers)
         if auth_type is not None:
-            from litellm.proxy._experimental.mcp_server.outbound_credentials.adapter import (
+            from embrouter.proxy._experimental.mcp_server.outbound_credentials.adapter import (
                 raise_public,
                 validate_static_credential,
             )
-            from litellm.proxy._experimental.mcp_server.outbound_credentials.result import Error, Ok
+            from embrouter.proxy._experimental.mcp_server.outbound_credentials.result import Error, Ok
 
             match validate_static_credential(auth_type, effective_headers, upstream_token_header, headers or ()):
                 case Error(error):

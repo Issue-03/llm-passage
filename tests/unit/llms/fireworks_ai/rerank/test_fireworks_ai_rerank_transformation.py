@@ -9,8 +9,8 @@ from unittest.mock import MagicMock
 import httpx
 import pytest
 
-from litellm.llms.fireworks_ai.rerank.transformation import FireworksAIRerankConfig
-from litellm.types.rerank import RerankResponse
+from embrouter.llms.fireworks_ai.rerank.transformation import FireworksAIRerankConfig
+from embrouter.types.rerank import RerankResponse
 
 
 class TestFireworksAIRerankTransform:

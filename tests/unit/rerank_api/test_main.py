@@ -6,7 +6,7 @@ import pytest
 import respx
 
 
-import litellm
+import embrouter
 
 MARKER_QUERY = "MARKER_QUERY_do_not_log_at_info"
 MARKER_DOC = "MARKER_DOC_sensitive_customer_text"
@@ -38,30 +38,30 @@ def test_rerank_does_not_log_request_content_at_info(caplog):
     ``documents``) bypasses ``turn_off_message_logging`` / ``redact_messages``,
     so logging it at INFO leaks raw request content into stdout and any log sink.
     """
-    litellm.cohere_key = "test_api_key"
-    caplog.set_level(logging.DEBUG, logger="LiteLLM")
+    embrouter.cohere_key = "test_api_key"
+    caplog.set_level(logging.DEBUG, logger="EmbRouter")
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.HTTPHandler.post",
+        "embrouter.llms.custom_httpx.http_handler.HTTPHandler.post",
         return_value=_mock_cohere_response(),
     ):
-        litellm.rerank(
+        embrouter.rerank(
             model="cohere/rerank-english-v3.0",
             query=MARKER_QUERY,
             documents=[MARKER_DOC, "unrelated"],
             top_n=2,
         )
 
-    litellm_records = [r for r in caplog.records if r.name == "LiteLLM"]
+    embrouter_records = [r for r in caplog.records if r.name == "EmbRouter"]
 
     info_or_above = [
         r.getMessage()
-        for r in litellm_records
+        for r in embrouter_records
         if r.levelno >= logging.INFO and (MARKER_QUERY in r.getMessage() or MARKER_DOC in r.getMessage())
     ]
     assert not info_or_above, f"rerank leaked request content at INFO+: {info_or_above}"
 
-    optional_params_logs = [r for r in litellm_records if "optional_rerank_params" in r.getMessage()]
+    optional_params_logs = [r for r in embrouter_records if "optional_rerank_params" in r.getMessage()]
     assert optional_params_logs, "expected the optional_rerank_params line to be logged"
     assert all(
         r.levelno == logging.DEBUG for r in optional_params_logs
@@ -83,7 +83,7 @@ def test_together_rerank_defaults_to_together_ai_host(respx_mock: respx.MockRout
     mock_route = respx_mock.post("https://api.together.ai/v1/rerank")
     mock_route.return_value = httpx.Response(200, json=TOGETHER_RERANK_BODY)
 
-    response = litellm.rerank(
+    response = embrouter.rerank(
         model="together_ai/mixedbread-ai/mxbai-rerank-large-v2",
         query=MARKER_QUERY,
         documents=[MARKER_DOC],
@@ -99,7 +99,7 @@ def test_together_rerank_honors_api_base(respx_mock: respx.MockRouter):
     mock_route = respx_mock.post("https://custom-together.example/v1/rerank")
     mock_route.return_value = httpx.Response(200, json=TOGETHER_RERANK_BODY)
 
-    litellm.rerank(
+    embrouter.rerank(
         model="together_ai/mixedbread-ai/mxbai-rerank-large-v2",
         query=MARKER_QUERY,
         documents=[MARKER_DOC],
@@ -130,7 +130,7 @@ def test_dashscope_rerank_defaults_to_live_rerank_route(respx_mock: respx.MockRo
     mock_route = respx_mock.post("https://dashscope.aliyuncs.com/compatible-api/v1/reranks")
     mock_route.return_value = httpx.Response(200, json=DASHSCOPE_RERANK_BODY)
 
-    response = litellm.rerank(
+    response = embrouter.rerank(
         model="dashscope/qwen3-rerank",
         query=MARKER_QUERY,
         documents=[MARKER_DOC],
@@ -150,7 +150,7 @@ def test_dashscope_rerank_chat_env_base_keeps_host_and_rerank_route(respx_mock: 
     mock_route = respx_mock.post("https://dashscope-intl.aliyuncs.com/compatible-api/v1/reranks")
     mock_route.return_value = httpx.Response(200, json=DASHSCOPE_RERANK_BODY)
 
-    litellm.rerank(
+    embrouter.rerank(
         model="dashscope/qwen3-rerank",
         query=MARKER_QUERY,
         documents=[MARKER_DOC],
@@ -166,7 +166,7 @@ def test_dashscope_rerank_explicit_api_base_wins(respx_mock: respx.MockRouter, m
     mock_route = respx_mock.post("https://custom-rerank.example/v1/reranks")
     mock_route.return_value = httpx.Response(200, json=DASHSCOPE_RERANK_BODY)
 
-    litellm.rerank(
+    embrouter.rerank(
         model="dashscope/qwen3-rerank",
         query=MARKER_QUERY,
         documents=[MARKER_DOC],
@@ -197,8 +197,8 @@ def test_rerank_error_names_provider_and_keeps_body(respx_mock: respx.MockRouter
     mock_route = respx_mock.post("https://dashscope.example/v1/reranks")
     mock_route.return_value = httpx.Response(404, json=DASHSCOPE_404_BODY)
 
-    with pytest.raises(litellm.NotFoundError) as exc_info:
-        litellm.rerank(
+    with pytest.raises(embrouter.NotFoundError) as exc_info:
+        embrouter.rerank(
             model="dashscope/does-not-exist",
             query=MARKER_QUERY,
             documents=[MARKER_DOC],
@@ -213,9 +213,9 @@ def test_rerank_error_names_provider_and_keeps_body(respx_mock: respx.MockRouter
 
 
 @pytest.mark.asyncio
-async def test_arerank_error_is_mapped_to_litellm_exception(respx_mock: respx.MockRouter, monkeypatch):
+async def test_arerank_error_is_mapped_to_embrouter_exception(respx_mock: respx.MockRouter, monkeypatch):
     """Regression for arerank's bare re-raise: provider errors escaped as raw
-    provider exception classes instead of the mapped litellm exception contract."""
+    provider exception classes instead of the mapped embrouter exception contract."""
     monkeypatch.delenv("DASHSCOPE_API_BASE", raising=False)
     monkeypatch.delenv("DASHSCOPE_API_BASE_RERANK", raising=False)
     monkeypatch.setenv("DISABLE_AIOHTTP_TRANSPORT", "True")
@@ -223,8 +223,8 @@ async def test_arerank_error_is_mapped_to_litellm_exception(respx_mock: respx.Mo
     mock_route = respx_mock.post("https://dashscope.example/v1/reranks")
     mock_route.return_value = httpx.Response(404, json=DASHSCOPE_404_BODY)
 
-    with pytest.raises(litellm.NotFoundError) as exc_info:
-        await litellm.arerank(
+    with pytest.raises(embrouter.NotFoundError) as exc_info:
+        await embrouter.arerank(
             model="dashscope/does-not-exist",
             query=MARKER_QUERY,
             documents=[MARKER_DOC],
@@ -244,7 +244,7 @@ async def test_arerank_declared_authenticating_provider_skips_resolution(monkeyp
     get_llm_provider runs the blocking OAuth device flow for github_copilot/chatgpt,
     so arerank must adopt the declared provider instead of resolving it, while the
     except path still maps with that declared provider."""
-    from litellm.llms.base_llm.chat.transformation import BaseLLMException
+    from embrouter.llms.base_llm.chat.transformation import BaseLLMException
 
     resolution_calls = []
 
@@ -255,14 +255,14 @@ async def test_arerank_declared_authenticating_provider_skips_resolution(monkeyp
     def rerank_raises_provider_error(*args, **kwargs):
         raise BaseLLMException(status_code=401, message='{"error":"bad key"}')
 
-    monkeypatch.setattr(litellm, "get_llm_provider", record_resolution)
+    monkeypatch.setattr(embrouter, "get_llm_provider", record_resolution)
     monkeypatch.setattr(
-        "litellm.litellm_core_utils.llm_response_utils.get_api_base.get_llm_provider", record_resolution
+        "embrouter.embrouter_core_utils.llm_response_utils.get_api_base.get_llm_provider", record_resolution
     )
-    monkeypatch.setattr("litellm.rerank_api.main.rerank", rerank_raises_provider_error)
+    monkeypatch.setattr("embrouter.rerank_api.main.rerank", rerank_raises_provider_error)
 
-    with pytest.raises(litellm.AuthenticationError) as exc_info:
-        await litellm.arerank(
+    with pytest.raises(embrouter.AuthenticationError) as exc_info:
+        await embrouter.arerank(
             model="github_copilot/gpt-4o",
             query=MARKER_QUERY,
             documents=[MARKER_DOC],
@@ -282,7 +282,7 @@ async def test_together_rerank_async_honors_env_api_base(respx_mock: respx.MockR
     mock_route = respx_mock.post("https://env-together.example/v1/rerank")
     mock_route.return_value = httpx.Response(200, json=TOGETHER_RERANK_BODY)
 
-    response = await litellm.arerank(
+    response = await embrouter.arerank(
         model="together_ai/mixedbread-ai/mxbai-rerank-large-v2",
         query=MARKER_QUERY,
         documents=[MARKER_DOC],

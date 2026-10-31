@@ -11,15 +11,15 @@ from typing import Final
 
 import httpx
 
-import litellm
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.base_llm.rerank.transformation import BaseRerankConfig
-from litellm.llms.vertex_ai.common_utils import (
-    vertex_request_labels_from_litellm_params,
+import embrouter
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.base_llm.rerank.transformation import BaseRerankConfig
+from embrouter.llms.vertex_ai.common_utils import (
+    vertex_request_labels_from_embrouter_params,
 )
-from litellm.llms.vertex_ai.vertex_llm_base import VertexBase
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.rerank import (
+from embrouter.llms.vertex_ai.vertex_llm_base import VertexBase
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.rerank import (
     RerankBilledUnits,
     RerankResponse,
     RerankResponseMeta,
@@ -63,12 +63,12 @@ class VertexAIRerankConfig(BaseRerankConfig, VertexBase):
             custom_llm_provider="vertex_ai",
         )
 
-        # Fallback to environment or litellm config
-        project_id: Final = vertex_project or get_secret_str("VERTEXAI_PROJECT") or litellm.vertex_project
+        # Fallback to environment or embrouter config
+        project_id: Final = vertex_project or get_secret_str("VERTEXAI_PROJECT") or embrouter.vertex_project
 
         if not project_id:
             raise ValueError(
-                "Vertex AI project ID is required. Please set 'VERTEXAI_PROJECT', 'litellm.vertex_project', or pass 'vertex_project' parameter"
+                "Vertex AI project ID is required. Please set 'VERTEXAI_PROJECT', 'embrouter.vertex_project', or pass 'vertex_project' parameter"
             )
 
         return f"https://discoveryengine.googleapis.com/v1/projects/{project_id}/locations/global/rankingConfigs/default_ranking_config:rank"
@@ -79,7 +79,7 @@ class VertexAIRerankConfig(BaseRerankConfig, VertexBase):
         model: str,
         api_key: str | None = None,
         optional_params: dict | None = None,
-        litellm_params: Mapping[str, object] | None = None,
+        embrouter_params: Mapping[str, object] | None = None,
     ) -> dict:
         """
         Validate and set up authentication for Vertex AI Discovery Engine API
@@ -114,7 +114,7 @@ class VertexAIRerankConfig(BaseRerankConfig, VertexBase):
         model: str,
         optional_rerank_params: dict,
         headers: dict,
-        litellm_params: dict | None = None,
+        embrouter_params: dict | None = None,
     ) -> dict:
         """
         Transform the request from Cohere format to Vertex AI Discovery Engine format
@@ -151,7 +151,7 @@ class VertexAIRerankConfig(BaseRerankConfig, VertexBase):
         # When return_documents is False, we want to ignore record details (return only IDs)
         request_data["ignoreRecordDetailsInResponse"] = not return_documents
 
-        user_labels: Final = vertex_request_labels_from_litellm_params(litellm_params)
+        user_labels: Final = vertex_request_labels_from_embrouter_params(embrouter_params)
         if user_labels:
             request_data["userLabels"] = user_labels
 
@@ -162,11 +162,11 @@ class VertexAIRerankConfig(BaseRerankConfig, VertexBase):
         model: str,
         raw_response: httpx.Response,
         model_response: RerankResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_key: str | None = None,
         request_data: dict = {},
         optional_params: dict = {},
-        litellm_params: dict = {},
+        embrouter_params: dict = {},
     ) -> RerankResponse:
         """
         Transform Vertex AI Discovery Engine response to Cohere format

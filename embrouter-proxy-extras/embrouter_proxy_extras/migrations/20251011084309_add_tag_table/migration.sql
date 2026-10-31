@@ -1,5 +1,5 @@
 -- CreateTable
-CREATE TABLE IF NOT EXISTS "LiteLLM_TagTable" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_TagTable" (
     "tag_name" TEXT NOT NULL,
     "description" TEXT,
     "models" TEXT[],
@@ -10,14 +10,14 @@ CREATE TABLE IF NOT EXISTS "LiteLLM_TagTable" (
     "created_by" TEXT,
     "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-    CONSTRAINT "LiteLLM_TagTable_pkey" PRIMARY KEY ("tag_name")
+    CONSTRAINT "EmbRouter_TagTable_pkey" PRIMARY KEY ("tag_name")
 );
 
 -- AddForeignKey
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'LiteLLM_TagTable_budget_id_fkey') THEN
-        ALTER TABLE "LiteLLM_TagTable" ADD CONSTRAINT "LiteLLM_TagTable_budget_id_fkey" FOREIGN KEY ("budget_id") REFERENCES "LiteLLM_BudgetTable"("budget_id") ON DELETE SET NULL ON UPDATE CASCADE;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'EmbRouter_TagTable_budget_id_fkey') THEN
+        ALTER TABLE "EmbRouter_TagTable" ADD CONSTRAINT "EmbRouter_TagTable_budget_id_fkey" FOREIGN KEY ("budget_id") REFERENCES "EmbRouter_BudgetTable"("budget_id") ON DELETE SET NULL ON UPDATE CASCADE;
     END IF;
 END $$;
 

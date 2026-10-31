@@ -54,8 +54,8 @@ from pydantic import BaseModel, Json, JsonValue, TypeAdapter, ValidationError
 from pydantic.fields import FieldInfo, PydanticUndefined
 from typing_extensions import NotRequired, ReadOnly, assert_never
 
-from litellm._uuid import uuid
-from litellm.constants import (
+from embrouter._uuid import uuid
+from embrouter.constants import (
     AIOHTTP_CONNECTOR_LIMIT,
     AIOHTTP_CONNECTOR_LIMIT_PER_HOST,
     AIOHTTP_KEEPALIVE_TIMEOUT,
@@ -70,25 +70,25 @@ from litellm.constants import (
     DEFAULT_SHARED_HEALTH_CHECK_TTL,
     DEFAULT_SLACK_ALERTING_THRESHOLD,
     LANGFUSE_SHUTDOWN_FLUSH_TIMEOUT_MILLIS,
-    LITELLM_EMBEDDING_PROVIDERS_SUPPORTING_INPUT_ARRAY_OF_TOKENS,
-    LITELLM_SETTINGS_SAFE_DB_OVERRIDES,
-    LITELLM_UI_ALLOW_HEADERS,
-    LITELLM_UI_SESSION_DURATION,
+    EMBROUTER_EMBEDDING_PROVIDERS_SUPPORTING_INPUT_ARRAY_OF_TOKENS,
+    EMBROUTER_SETTINGS_SAFE_DB_OVERRIDES,
+    EMBROUTER_UI_ALLOW_HEADERS,
+    EMBROUTER_UI_SESSION_DURATION,
     RUNTIME_UPDATABLE_ROUTER_SETTINGS,
 )
-from litellm.litellm_core_utils.asyncify import asyncify
-from litellm.litellm_core_utils.bug_report import (
+from embrouter.embrouter_core_utils.asyncify import asyncify
+from embrouter.embrouter_core_utils.bug_report import (
     allowlisted,
     bug_report_notice,
     should_report_bug,
 )
-from litellm.litellm_core_utils.litellm_logging import (
+from embrouter.embrouter_core_utils.embrouter_logging import (
     _init_custom_logger_compatible_class,
 )
-from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
-from litellm.litellm_core_utils.safe_json_loads import safe_json_loads
-from litellm.litellm_core_utils.token_counter import offload_token_count
-from litellm.proxy._types import (
+from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps
+from embrouter.embrouter_core_utils.safe_json_loads import safe_json_loads
+from embrouter.embrouter_core_utils.token_counter import offload_token_count
+from embrouter.proxy._types import (
     UI_TEAM_ID,
     CallbackDelete,
     CallInfo,
@@ -107,14 +107,14 @@ from litellm.proxy._types import (
     InvitationModel,
     InvitationNew,
     InvitationUpdate,
-    LiteLLM_EndUserTable,
-    Litellm_EntityType,
-    LiteLLM_JWTAuth,
-    LiteLLM_TagTable,
-    LiteLLM_TeamTable,
-    LiteLLM_TeamTableCachedObj,
-    LiteLLM_UserTable,
-    LitellmUserRoles,
+    EmbRouter_EndUserTable,
+    Embrouter_EntityType,
+    EmbRouter_JWTAuth,
+    EmbRouter_TagTable,
+    EmbRouter_TeamTable,
+    EmbRouter_TeamTableCachedObj,
+    EmbRouter_UserTable,
+    EmbrouterUserRoles,
     ModelAccessDeniedProxyException,
     PassThroughGenericEndpoint,
     ProxyErrorTypes,
@@ -126,21 +126,21 @@ from litellm.proxy._types import (
     TransformRequestBody,
     UserAPIKeyAuth,
 )
-from litellm.proxy.common_utils.cache_pydantic_utils import CacheCodec
-from litellm.proxy.common_utils.callback_utils import (
+from embrouter.proxy.common_utils.cache_pydantic_utils import CacheCodec
+from embrouter.proxy.common_utils.callback_utils import (
     is_sensitive_callback_key,
     normalize_callback_names,
     process_callback,
     strip_callback_config,
 )
-from litellm.proxy.common_utils.realtime_utils import _realtime_request_body
-from litellm.proxy.management_helpers.auto_router_availability import AutoRouterCatalogEntry, build_auto_router_catalog
-from litellm.router_utils.access_windows import access_windows_config_error
-from litellm.router_utils.add_retry_fallback_headers import (
+from embrouter.proxy.common_utils.realtime_utils import _realtime_request_body
+from embrouter.proxy.management_helpers.auto_router_availability import AutoRouterCatalogEntry, build_auto_router_catalog
+from embrouter.router_utils.access_windows import access_windows_config_error
+from embrouter.router_utils.add_retry_fallback_headers import (
     get_fallback_errors_from_headers,
     get_hidden_params_dict,
 )
-from litellm.router_utils.auto_router_model_naming import (
+from embrouter.router_utils.auto_router_model_naming import (
     GATED_AUTO_ROUTER_CAPABILITIES,
     STRATEGY_ROUTER_PARAM_FIELDS,
     capability_limit_violation,
@@ -148,16 +148,16 @@ from litellm.router_utils.auto_router_model_naming import (
     count_capability_routers,
     validate_complexity_router_config_placement,
 )
-from litellm.router_utils.auto_router_tuning_baseline import (
+from embrouter.router_utils.auto_router_tuning_baseline import (
     TUNING_BASELINE_PARAM_NAME,
     mutable_tuned_identities,
     snapshot_tuning_baselines,
     tuning_limit_violation,
 )
-from litellm.router_utils.common_utils import resolve_model_group_alias
-from litellm.router_utils.routing_groups import parse_routing_groups
-from litellm.types.caching import RedisPipelineIncrementOperation
-from litellm.types.utils import (
+from embrouter.router_utils.common_utils import resolve_model_group_alias
+from embrouter.router_utils.routing_groups import parse_routing_groups
+from embrouter.types.caching import RedisPipelineIncrementOperation
+from embrouter.types.utils import (
     PRICING_OVERRIDES_KEY,
     ModelResponse,
     ModelResponseStream,
@@ -168,7 +168,7 @@ from litellm.types.utils import (
     is_server_derived_pricing_key,
     pricing_override_fields,
 )
-from litellm.utils import cost_map_omits_token_price, load_credentials_from_list
+from embrouter.utils import cost_map_omits_token_price, load_credentials_from_list
 
 if TYPE_CHECKING:
     from aiohttp import ClientSession
@@ -176,8 +176,8 @@ if TYPE_CHECKING:
     from opentelemetry.trace import Span as _Span
     from prisma import models as prisma_models
 
-    from litellm.integrations.opentelemetry import OpenTelemetry
-    from litellm.proxy.health_check_utils.shared_health_check_manager import SharedHealthCheckManager
+    from embrouter.integrations.opentelemetry import OpenTelemetry
+    from embrouter.proxy.health_check_utils.shared_health_check_manager import SharedHealthCheckManager
 
     Span = _Span | Any
 else:
@@ -204,7 +204,7 @@ warnings.filterwarnings("default", category=UserWarning)
 
 
 messages: Final[list] = []
-sys.path.insert(0, os.path.abspath("../.."))  # Adds the parent directory to the system path - for litellm local dev
+sys.path.insert(0, os.path.abspath("../.."))  # Adds the parent directory to the system path - for embrouter local dev
 
 try:
     import logging
@@ -218,27 +218,27 @@ try:
     from apscheduler.triggers.base import BaseTrigger
     from apscheduler.triggers.interval import IntervalTrigger
 except ImportError as e:
-    raise ImportError(f"Missing dependency {e}. Run `pip install 'litellm[proxy]'`")
+    raise ImportError(f"Missing dependency {e}. Run `pip install 'embrouter[proxy]'`")
 
 import contextlib
 from collections import defaultdict
 from contextlib import asynccontextmanager
 from functools import lru_cache, partial
 
-import litellm
-import litellm._redis
-from litellm import Router
-from litellm._logging import _redact_string, verbose_proxy_logger, verbose_router_logger
-from litellm.caching.caching import DualCache, RedisCache
-from litellm.caching.dual_cache import DeclaredBatchRead
-from litellm.caching.redis_batch import (
+import embrouter
+import embrouter._redis
+from embrouter import Router
+from embrouter._logging import _redact_string, verbose_proxy_logger, verbose_router_logger
+from embrouter.caching.caching import DualCache, RedisCache
+from embrouter.caching.dual_cache import DeclaredBatchRead
+from embrouter.caching.redis_batch import (
     active_post_call_redis_batch,
     active_request_redis_batches,
     drain_post_call_redis_batches,
 )
-from litellm.caching.redis_cache import RedisCircuitBreakerOpenError, is_redis_timeout_failure
-from litellm.caching.redis_cluster_cache import RedisClusterCache
-from litellm.constants import (
+from embrouter.caching.redis_cache import RedisCircuitBreakerOpenError, is_redis_timeout_failure
+from embrouter.caching.redis_cluster_cache import RedisClusterCache
+from embrouter.constants import (
     _REALTIME_BODY_CACHE_SIZE,
     APSCHEDULER_COALESCE,
     APSCHEDULER_MAX_INSTANCES,
@@ -249,8 +249,8 @@ from litellm.constants import (
     DEFAULT_HEALTH_CHECK_INTERVAL,
     DEFAULT_MODEL_CREATED_AT_TIME,
     GLOBAL_PROXY_SPEND_CACHE_KEY,
-    LITELLM_PROXY_ADMIN_NAME,
-    LITELLM_PROXY_BUDGET_NAME,
+    EMBROUTER_PROXY_ADMIN_NAME,
+    EMBROUTER_PROXY_BUDGET_NAME,
     MONTHLY_SPEND_REPORT_JOB_ID,
     PROMETHEUS_FALLBACK_STATS_JOB_ID,
     PROMETHEUS_FALLBACK_STATS_SEND_TIME_HOURS,
@@ -267,63 +267,63 @@ from litellm.constants import (
     USER_SPEND_ALERTS_JOB_ID,
     WEEKLY_SPEND_REPORT_JOB_ID,
 )
-from litellm.exceptions import RejectedRequestError
-from litellm.integrations.custom_guardrail import CustomGuardrail, ModifyResponseException
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.integrations.SlackAlerting.slack_alerting import SlackAlerting
-from litellm.litellm_core_utils.agentic_loop_settings import (
+from embrouter.exceptions import RejectedRequestError
+from embrouter.integrations.custom_guardrail import CustomGuardrail, ModifyResponseException
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.integrations.SlackAlerting.slack_alerting import SlackAlerting
+from embrouter.embrouter_core_utils.agentic_loop_settings import (
     validated_max_agentic_loops,
 )
-from litellm.litellm_core_utils.audio_utils.utils import resolve_speech_media_type
-from litellm.litellm_core_utils.core_helpers import (
+from embrouter.embrouter_core_utils.audio_utils.utils import resolve_speech_media_type
+from embrouter.embrouter_core_utils.core_helpers import (
     _get_parent_otel_span_from_kwargs,
     drop_params_flag,
-    get_litellm_metadata_from_kwargs,
+    get_embrouter_metadata_from_kwargs,
 )
-from litellm.litellm_core_utils.credential_accessor import CredentialAccessor
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.litellm_core_utils.realtime_errors import (
+from embrouter.embrouter_core_utils.credential_accessor import CredentialAccessor
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.embrouter_core_utils.realtime_errors import (
     close_after_upstream_handshake_refusal,
     realtime_error_event,
     websocket_close_reason,
 )
-from litellm.litellm_core_utils.sensitive_data_masker import (
+from embrouter.embrouter_core_utils.sensitive_data_masker import (
     SensitiveDataMasker,
     mask_sensitive_keys,
 )
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-from litellm.llms.openai_like.model_info import MODEL_INFO_REFRESH_SECONDS
-from litellm.llms.vertex_ai.vertex_llm_base import VertexBase
-from litellm.proxy._experimental.mcp_server.byok_credential_cache import byok_credential_cache
-from litellm.proxy._lazy_features import attach_lazy_features, reserve_lazy_slot
-from litellm.proxy._types import *
-from litellm.proxy.analytics_endpoints.analytics_endpoints import (
+from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from embrouter.llms.openai_like.model_info import MODEL_INFO_REFRESH_SECONDS
+from embrouter.llms.vertex_ai.vertex_llm_base import VertexBase
+from embrouter.proxy._experimental.mcp_server.byok_credential_cache import byok_credential_cache
+from embrouter.proxy._lazy_features import attach_lazy_features, reserve_lazy_slot
+from embrouter.proxy._types import *
+from embrouter.proxy.analytics_endpoints.analytics_endpoints import (
     router as analytics_router,
 )
-from litellm.proxy.auth.auth_checks import (
+from embrouter.proxy.auth.auth_checks import (
     ROLE_BASED_PERMISSIONS_ADAPTER,
     ExperimentalUIJWTToken,
     can_key_call_resolved_model,
     get_team_object,
     log_db_metrics,
 )
-from litellm.proxy.auth.auth_utils import (
+from embrouter.proxy.auth.auth_utils import (
     check_response_size_is_safe,
     is_request_body_safe,
     log_once_if_budget_reservation_disabled,
     warn_once_if_custom_auth_skips_common_checks,
 )
-from litellm.proxy.auth.fallback_budget import router_fallback_budget_check
-from litellm.proxy.auth.fallback_model_access import router_fallback_access_check
-from litellm.proxy.auth.handle_jwt import JWTHandler
-from litellm.proxy.auth.litellm_license import AUTO_ROUTER_LICENSE_REMEDY, LicenseCheck
-from litellm.proxy.auth.login_throttle import (
+from embrouter.proxy.auth.fallback_budget import router_fallback_budget_check
+from embrouter.proxy.auth.fallback_model_access import router_fallback_access_check
+from embrouter.proxy.auth.handle_jwt import JWTHandler
+from embrouter.proxy.auth.embrouter_license import AUTO_ROUTER_LICENSE_REMEDY, LicenseCheck
+from embrouter.proxy.auth.login_throttle import (
     LoginThrottle,
     declared_proxy_ranges,
     warn_login_counters_are_per_worker,
     warn_source_login_limit_is_off,
 )
-from litellm.proxy.auth.master_key_boot_check import (
+from embrouter.proxy.auth.master_key_boot_check import (
     MASTER_KEY_ENV_VAR,
     SALT_KEY_ENV_VAR,
     WEAK_OR_UNSET_MASTER_KEY_OVERRIDE_ENV_VAR,
@@ -332,7 +332,7 @@ from litellm.proxy.auth.master_key_boot_check import (
     master_key_boot_verdict,
     with_stored_secrets_counted,
 )
-from litellm.proxy.auth.model_checks import (
+from embrouter.proxy.auth.model_checks import (
     expand_wildcard_deployments_for_model_info,
     get_all_fallbacks,
     get_complete_model_list,
@@ -340,18 +340,18 @@ from litellm.proxy.auth.model_checks import (
     get_mcp_server_ids,
     get_team_models,
 )
-from litellm.proxy.auth.password_policy import validate_password_not_breached, validate_password_policy
-from litellm.proxy.auth.user_api_key_auth import (
+from embrouter.proxy.auth.password_policy import validate_password_not_breached, validate_password_policy
+from embrouter.proxy.auth.user_api_key_auth import (
     _fetch_global_spend_with_event_coordination,
     user_api_key_auth,
     user_api_key_auth_websocket,
 )
-from litellm.proxy.batches_endpoints.endpoints import router as batches_router
-from litellm.proxy.bug_report_config import build_proxy_bug_report
+from embrouter.proxy.batches_endpoints.endpoints import router as batches_router
+from embrouter.proxy.bug_report_config import build_proxy_bug_report
 
 ## Import All Misc routes here ##
-from litellm.proxy.caching_routes import router as caching_router
-from litellm.proxy.common_request_processing import (
+from embrouter.proxy.caching_routes import router as caching_router
+from embrouter.proxy.common_request_processing import (
     KNOWN_PROXY_ROUTES,
     ProxyBaseLLMRequestProcessing,
     _is_azure_model_router_request,
@@ -359,40 +359,40 @@ from litellm.proxy.common_request_processing import (
     create_response,
     log_llm_api_exception,
     open_sse_before_first_byte,
-    request_litellm_call_id,
-    resolve_litellm_call_id,
+    request_embrouter_call_id,
+    resolve_embrouter_call_id,
     ttft_keepalive_interval,
 )
-from litellm.proxy.common_utils.auth_cache_invalidation_pubsub import (
+from embrouter.proxy.common_utils.auth_cache_invalidation_pubsub import (
     AuthCacheInvalidationSubscriber,
 )
-from litellm.proxy.common_utils.callback_utils import initialize_callbacks_on_proxy
-from litellm.proxy.common_utils.config_includes import resolve_include_file_path, resolve_includes
-from litellm.proxy.common_utils.config_sync_pubsub import ConfigSyncSubscriber
-from litellm.proxy.common_utils.debug_utils import init_verbose_loggers
-from litellm.proxy.common_utils.debug_utils import router as debugging_endpoints_router
-from litellm.proxy.common_utils.discoverable_model_filter import discoverable_rows, undiscoverable_model_names
-from litellm.proxy.common_utils.encrypt_decrypt_utils import (
+from embrouter.proxy.common_utils.callback_utils import initialize_callbacks_on_proxy
+from embrouter.proxy.common_utils.config_includes import resolve_include_file_path, resolve_includes
+from embrouter.proxy.common_utils.config_sync_pubsub import ConfigSyncSubscriber
+from embrouter.proxy.common_utils.debug_utils import init_verbose_loggers
+from embrouter.proxy.common_utils.debug_utils import router as debugging_endpoints_router
+from embrouter.proxy.common_utils.discoverable_model_filter import discoverable_rows, undiscoverable_model_names
+from embrouter.proxy.common_utils.encrypt_decrypt_utils import (
     decrypt_value_helper,
     encrypt_value_helper,
 )
-from litellm.proxy.common_utils.error_body_call_id import JSON_OBJECT, error_body_call_id, with_call_id
-from litellm.proxy.common_utils.healthy_model_filter import (
+from embrouter.proxy.common_utils.error_body_call_id import JSON_OBJECT, error_body_call_id, with_call_id
+from embrouter.proxy.common_utils.healthy_model_filter import (
     get_hidden_unhealthy_model_names,
     is_healthy_only_listing_default,
 )
-from litellm.proxy.common_utils.html_forms.default_credentials_hint import should_hide_default_credentials_hint
-from litellm.proxy.common_utils.html_forms.ui_login import build_ui_login_form
-from litellm.proxy.common_utils.http_parsing_utils import (
+from embrouter.proxy.common_utils.html_forms.default_credentials_hint import should_hide_default_credentials_hint
+from embrouter.proxy.common_utils.html_forms.ui_login import build_ui_login_form
+from embrouter.proxy.common_utils.http_parsing_utils import (
     _read_request_body,
     _safe_get_request_headers,
     check_file_size_under_limit,
     get_form_data,
     resolve_inference_model,
 )
-from litellm.proxy.common_utils.load_config_utils import get_config_from_bucket
-from litellm.proxy.common_utils.model_deprecation import collect_model_deprecations
-from litellm.proxy.common_utils.model_listing_utils import (
+from embrouter.proxy.common_utils.load_config_utils import get_config_from_bucket
+from embrouter.proxy.common_utils.model_deprecation import collect_model_deprecations
+from embrouter.proxy.common_utils.model_listing_utils import (
     ClaudeCodeRoutingNames,
     TeamModelNameTranslator,
     alias_listing_entries,
@@ -402,16 +402,16 @@ from litellm.proxy.common_utils.model_listing_utils import (
     configured_display_names,
     is_claude_code_client,
 )
-from litellm.proxy.common_utils.openai_endpoint_utils import (
+from embrouter.proxy.common_utils.openai_endpoint_utils import (
     remove_sensitive_info_from_deployment,
 )
-from litellm.proxy.common_utils.openai_error_payload import (
-    LITELLM_CALL_ID_HEADER,
-    headers_with_litellm_call_id,
-    litellm_call_id_headers,
-    with_litellm_call_id,
+from embrouter.proxy.common_utils.openai_error_payload import (
+    EMBROUTER_CALL_ID_HEADER,
+    headers_with_embrouter_call_id,
+    embrouter_call_id_headers,
+    with_embrouter_call_id,
 )
-from litellm.proxy.common_utils.periodic_reload_schedule import (
+from embrouter.proxy.common_utils.periodic_reload_schedule import (
     MODEL_COST_MAP_RELOAD_PARAM_NAME,
     clear_reload_interval,
     pod_reload_is_due,
@@ -422,21 +422,21 @@ from litellm.proxy.common_utils.periodic_reload_schedule import (
     utc_now,
     write_reload_interval,
 )
-from litellm.proxy.common_utils.proxy_state import ProxyState
-from litellm.proxy.common_utils.reset_budget_job import ResetBudgetJob
-from litellm.proxy.common_utils.responses_stream_errors import ResponsesStreamErrorState
-from litellm.proxy.common_utils.scheduled_job_stagger import (
+from embrouter.proxy.common_utils.proxy_state import ProxyState
+from embrouter.proxy.common_utils.reset_budget_job import ResetBudgetJob
+from embrouter.proxy.common_utils.responses_stream_errors import ResponsesStreamErrorState
+from embrouter.proxy.common_utils.scheduled_job_stagger import (
     apply_scheduled_job_stagger,
     attach_job_timing_logger,
     parse_stagger_settings,
     stagger_trigger,
 )
-from litellm.proxy.common_utils.swagger_utils import ERROR_RESPONSES
-from litellm.proxy.common_utils.timezone_utils import (
+from embrouter.proxy.common_utils.swagger_utils import ERROR_RESPONSES
+from embrouter.proxy.common_utils.timezone_utils import (
     get_budget_reset_settings,
     get_budget_reset_time,
 )
-from litellm.proxy.common_utils.user_api_key_cache import (
+from embrouter.proxy.common_utils.user_api_key_cache import (
     UserApiKeyCache,
     end_user_cache_key,
     get_management_object_ttl,
@@ -446,227 +446,227 @@ from litellm.proxy.common_utils.user_api_key_cache import (
     project_spend_counter_key,
     tag_cache_key,
 )
-from litellm.proxy.common_utils.validation_error_body import public_validation_errors
-from litellm.proxy.config_resolvers import (
+from embrouter.proxy.common_utils.validation_error_body import public_validation_errors
+from embrouter.proxy.config_resolvers import (
     FieldSource,
     SettingsStore,
     config_ownership_message,
     resolve_fields,
     source_for,
 )
-from litellm.proxy.config_resolvers.alerting import (
+from embrouter.proxy.config_resolvers.alerting import (
     EMAIL_DESCRIPTORS,
     MS_TEAMS_DESCRIPTORS,
     SLACK_DESCRIPTORS,
 )
-from litellm.proxy.config_resolvers.changed_section_keys import changed_section_keys
-from litellm.proxy.config_resolvers.settings_rules import (
+from embrouter.proxy.config_resolvers.changed_section_keys import changed_section_keys
+from embrouter.proxy.config_resolvers.settings_rules import (
     DbRow,
     Section,
     coerce_bool,
 )
-from litellm.proxy.config_resolvers.settings_rules import (
+from embrouter.proxy.config_resolvers.settings_rules import (
     JsonValue as SettingsJsonValue,
 )
-from litellm.proxy.container_endpoints.endpoints import router as container_router
-from litellm.proxy.credential_endpoints.endpoints import router as credential_router
-from litellm.proxy.db.create_views import SupportsRawQueries
-from litellm.proxy.db.db_transaction_queue.pod_lock_manager import PodLockManager
-from litellm.proxy.db.db_transaction_queue.spend_log_cleanup import SpendLogCleanup
-from litellm.proxy.db.db_transaction_queue.window_spend_update_queue import (
+from embrouter.proxy.container_endpoints.endpoints import router as container_router
+from embrouter.proxy.credential_endpoints.endpoints import router as credential_router
+from embrouter.proxy.db.create_views import SupportsRawQueries
+from embrouter.proxy.db.db_transaction_queue.pod_lock_manager import PodLockManager
+from embrouter.proxy.db.db_transaction_queue.spend_log_cleanup import SpendLogCleanup
+from embrouter.proxy.db.db_transaction_queue.window_spend_update_queue import (
     build_window_spend_transaction,
 )
-from litellm.proxy.db.exception_handler import (
+from embrouter.proxy.db.exception_handler import (
     PrismaDBExceptionHandler,
     call_with_db_reconnect_retry,
 )
-from litellm.proxy.db.gateway_request_tracking import (
+from embrouter.proxy.db.gateway_request_tracking import (
     GatewayRequestAccumulator,
     GatewayRequestRedisBuffer,
     flush_gateway_requests,
 )
-from litellm.proxy.db.master_key_migration import (
+from embrouter.proxy.db.master_key_migration import (
     count_values_encrypted_with_or_none,
     migrate_if_requested,
 )
-from litellm.proxy.db.proxy_worker_heartbeat import (
+from embrouter.proxy.db.proxy_worker_heartbeat import (
     PROXY_WORKER_HEARTBEAT_INTERVAL_SECONDS,
     ProxyWorkerHeartbeat,
 )
-from litellm.proxy.db.spend_counter_reseed import END_USER_COUNTER_PREFIX, SpendCounterReseed
-from litellm.proxy.discovery_endpoints import (
+from embrouter.proxy.db.spend_counter_reseed import END_USER_COUNTER_PREFIX, SpendCounterReseed
+from embrouter.proxy.discovery_endpoints import (
     agent_skills_discovery_router,
     ui_discovery_endpoints_router,
 )
-from litellm.proxy.fine_tuning_endpoints.endpoints import router as fine_tuning_router
-from litellm.proxy.fine_tuning_endpoints.endpoints import set_fine_tuning_config
-from litellm.proxy.google_endpoints.endpoints import router as google_router
-from litellm.proxy.guardrails.init_guardrails import (
+from embrouter.proxy.fine_tuning_endpoints.endpoints import router as fine_tuning_router
+from embrouter.proxy.fine_tuning_endpoints.endpoints import set_fine_tuning_config
+from embrouter.proxy.google_endpoints.endpoints import router as google_router
+from embrouter.proxy.guardrails.init_guardrails import (
     init_guardrails_v2,
     initialize_guardrails,
 )
-from litellm.proxy.health_check import (
+from embrouter.proxy.health_check import (
     filter_deployments_to_model_groups,
     health_check_filter_kwargs_from_general_settings,
     parse_background_health_check_model_groups,
     perform_health_check,
 )
-from litellm.proxy.health_endpoints._health_endpoints import router as health_router
-from litellm.proxy.hooks.model_max_budget_limiter import (
+from embrouter.proxy.health_endpoints._health_endpoints import router as health_router
+from embrouter.proxy.hooks.model_max_budget_limiter import (
     _PROXY_VirtualKeyModelMaxBudgetLimiter,
 )
-from litellm.proxy.hooks.parallel_request_limiter_v3 import fail_closed_rate_limit_enforcement_enabled
-from litellm.proxy.hooks.prompt_injection_detection import (
+from embrouter.proxy.hooks.parallel_request_limiter_v3 import fail_closed_rate_limit_enforcement_enabled
+from embrouter.proxy.hooks.prompt_injection_detection import (
     _OPTIONAL_PromptInjectionDetection,
 )
-from litellm.proxy.hooks.proxy_track_cost_callback import _ProxyDBLogger, run_spend_event
-from litellm.proxy.image_endpoints.endpoints import router as image_router
-from litellm.proxy.list_api.common import (
+from embrouter.proxy.hooks.proxy_track_cost_callback import _ProxyDBLogger, run_spend_event
+from embrouter.proxy.image_endpoints.endpoints import router as image_router
+from embrouter.proxy.list_api.common import (
     ManagementProblem,
     problem_response,
     request_validation_problem,
 )
-from litellm.proxy.litellm_pre_call_utils import LiteLLMProxyRequestSetup, add_litellm_data_to_request
-from litellm.proxy.logging_endpoints.callback_logs_endpoints import (
+from embrouter.proxy.embrouter_pre_call_utils import EmbRouterProxyRequestSetup, add_embrouter_data_to_request
+from embrouter.proxy.logging_endpoints.callback_logs_endpoints import (
     rust_control_plane_router,
 )
-from litellm.proxy.management_endpoints.auto_router_endpoints import (
+from embrouter.proxy.management_endpoints.auto_router_endpoints import (
     router as auto_router_management_router,
 )
-from litellm.proxy.management_endpoints.budget_management_endpoints import (
+from embrouter.proxy.management_endpoints.budget_management_endpoints import (
     router as budget_management_router,
 )
-from litellm.proxy.management_endpoints.cache_settings_endpoints import (
+from embrouter.proxy.management_endpoints.cache_settings_endpoints import (
     router as cache_settings_router,
 )
-from litellm.proxy.management_endpoints.callback_management_endpoints import (
+from embrouter.proxy.management_endpoints.callback_management_endpoints import (
     router as callback_management_endpoints_router,
 )
-from litellm.proxy.management_endpoints.common_utils import (
+from embrouter.proxy.management_endpoints.common_utils import (
     _user_has_admin_privileges,
     _user_has_admin_view,
     admin_can_invite_user,
 )
-from litellm.proxy.management_endpoints.coordination_redis_endpoints import (
+from embrouter.proxy.management_endpoints.coordination_redis_endpoints import (
     get_persisted_coordination_redis_settings,
 )
-from litellm.proxy.management_endpoints.coordination_redis_endpoints import (
+from embrouter.proxy.management_endpoints.coordination_redis_endpoints import (
     router as coordination_redis_settings_router,
 )
-from litellm.proxy.management_endpoints.cost_tracking_settings import (
+from embrouter.proxy.management_endpoints.cost_tracking_settings import (
     router as cost_tracking_settings_router,
 )
-from litellm.proxy.management_endpoints.customer_endpoints import (
+from embrouter.proxy.management_endpoints.customer_endpoints import (
     router as customer_router,
 )
-from litellm.proxy.management_endpoints.fallback_management_endpoints import (
+from embrouter.proxy.management_endpoints.fallback_management_endpoints import (
     router as fallback_management_router,
 )
-from litellm.proxy.management_endpoints.gateway_request_endpoints import (
+from embrouter.proxy.management_endpoints.gateway_request_endpoints import (
     router as gateway_request_router,
 )
-from litellm.proxy.management_endpoints.internal_user_endpoints import (
+from embrouter.proxy.management_endpoints.internal_user_endpoints import (
     router as internal_user_router,
 )
-from litellm.proxy.management_endpoints.internal_user_endpoints import (
+from embrouter.proxy.management_endpoints.internal_user_endpoints import (
     user_update,
 )
-from litellm.proxy.management_endpoints.key_management_endpoints import (
+from embrouter.proxy.management_endpoints.key_management_endpoints import (
     delete_verification_tokens,
     duration_in_seconds,
     generate_key_helper_fn,
     parse_key_alias_pattern,
 )
-from litellm.proxy.management_endpoints.key_management_endpoints import (
+from embrouter.proxy.management_endpoints.key_management_endpoints import (
     router as key_management_router,
 )
-from litellm.proxy.management_endpoints.management_v1 import (
+from embrouter.proxy.management_endpoints.management_v1 import (
     router as management_v1_router,
 )
-from litellm.proxy.management_endpoints.management_v1.common import MANAGEMENT_V1_PREFIX
-from litellm.proxy.management_endpoints.model_access_group_management_endpoints import (
+from embrouter.proxy.management_endpoints.management_v1.common import MANAGEMENT_V1_PREFIX
+from embrouter.proxy.management_endpoints.model_access_group_management_endpoints import (
     router as model_access_group_management_router,
 )
-from litellm.proxy.management_endpoints.model_management_endpoints import (
+from embrouter.proxy.management_endpoints.model_management_endpoints import (
     _add_model_to_db,
     _add_team_model_to_db,
-    _deduplicate_litellm_router_models,
+    _deduplicate_embrouter_router_models,
     live_model_ids_snapshot,
 )
-from litellm.proxy.management_endpoints.model_management_endpoints import (
+from embrouter.proxy.management_endpoints.model_management_endpoints import (
     router as model_management_router,
 )
-from litellm.proxy.management_endpoints.organization_endpoints import (
+from embrouter.proxy.management_endpoints.organization_endpoints import (
     router as organization_router,
 )
-from litellm.proxy.management_endpoints.password_endpoints import (
+from embrouter.proxy.management_endpoints.password_endpoints import (
     router as password_management_router,
 )
-from litellm.proxy.management_endpoints.prompt_caching_requests import (
+from embrouter.proxy.management_endpoints.prompt_caching_requests import (
     router as prompt_caching_requests_router,
 )
-from litellm.proxy.management_endpoints.router_settings_endpoints import (
+from embrouter.proxy.management_endpoints.router_settings_endpoints import (
     router as router_settings_router,
 )
-from litellm.proxy.management_endpoints.session_endpoints import (
+from embrouter.proxy.management_endpoints.session_endpoints import (
     router as session_management_router,
 )
-from litellm.proxy.management_endpoints.tag_management_endpoints import (
+from embrouter.proxy.management_endpoints.tag_management_endpoints import (
     router as tag_management_router,
 )
-from litellm.proxy.management_endpoints.team_callback_endpoints import (
+from embrouter.proxy.management_endpoints.team_callback_endpoints import (
     router as team_callback_router,
 )
-from litellm.proxy.management_endpoints.team_endpoints import router as team_router
-from litellm.proxy.management_endpoints.team_endpoints import (
+from embrouter.proxy.management_endpoints.team_endpoints import router as team_router
+from embrouter.proxy.management_endpoints.team_endpoints import (
     update_team,
     validate_membership,
 )
-from litellm.proxy.management_endpoints.ui_sso import (
+from embrouter.proxy.management_endpoints.ui_sso import (
     get_disabled_non_admin_personal_key_creation,
 )
-from litellm.proxy.management_endpoints.ui_sso import router as ui_sso_router
-from litellm.proxy.management_endpoints.user_agent_analytics_endpoints import (
+from embrouter.proxy.management_endpoints.ui_sso import router as ui_sso_router
+from embrouter.proxy.management_endpoints.user_agent_analytics_endpoints import (
     router as user_agent_analytics_router,
 )
-from litellm.proxy.management_endpoints.workflow_management_endpoints import (
+from embrouter.proxy.management_endpoints.workflow_management_endpoints import (
     router as workflow_management_router,
 )
-from litellm.proxy.management_helpers.audit_logs import (
+from embrouter.proxy.management_helpers.audit_logs import (
     create_audit_log_for_update,
     create_object_audit_log,
 )
-from litellm.proxy.management_helpers.team_metadata_validation import (
+from embrouter.proxy.management_helpers.team_metadata_validation import (
     TEAM_METADATA_SCHEMA_REGISTRY,
     TEAM_METADATA_VALIDATOR_REGISTRY,
     parse_team_metadata_schema,
 )
-from litellm.proxy.memory.memory_endpoints import router as memory_router
-from litellm.proxy.middleware.billable_request_metrics_middleware import (
+from embrouter.proxy.memory.memory_endpoints import router as memory_router
+from embrouter.proxy.middleware.billable_request_metrics_middleware import (
     BillableRequestMetricsMiddleware,
     BillingRecorder,
 )
-from litellm.proxy.middleware.budget_reservation_release_middleware import (
+from embrouter.proxy.middleware.budget_reservation_release_middleware import (
     BudgetReservationReleaseMiddleware,
 )
-from litellm.proxy.middleware.redis_request_batch_middleware import RedisRequestBatchMiddleware
-from litellm.proxy.plugin_routes import (
+from embrouter.proxy.middleware.redis_request_batch_middleware import RedisRequestBatchMiddleware
+from embrouter.proxy.plugin_routes import (
     register_plugins_from_config,
 )
-from litellm.proxy.plugin_routes import (
+from embrouter.proxy.plugin_routes import (
     router as plugin_router,
 )
-from litellm.proxy.spend_tracking.spend_event_producer import (
+from embrouter.proxy.spend_tracking.spend_event_producer import (
     CollectorSettings,
     SpendEventProducer,
     build_spend_event_producer,
 )
 
 try:
-    from litellm.proxy.enterprise_billing.billing_metrics import (
+    from embrouter.proxy.enterprise_billing.billing_metrics import (
         build_billing_metrics_recorder as _build_billing_metrics_recorder,
     )
-    from litellm.proxy.enterprise_billing.billing_metrics import (
+    from embrouter.proxy.enterprise_billing.billing_metrics import (
         shutdown_billing_metrics_recorder as _shutdown_billing_metrics_recorder,
     )
 
@@ -675,65 +675,65 @@ try:
 except ImportError:
     build_billing_metrics_recorder = None
     shutdown_billing_metrics_recorder = None
-from litellm.proxy.middleware.admission_control_middleware import (
+from embrouter.proxy.middleware.admission_control_middleware import (
     AdmissionControlMiddleware,
     admission_control_state,
     get_admission_control_settings,
 )
-from litellm.proxy.middleware.in_flight_requests_middleware import (
+from embrouter.proxy.middleware.in_flight_requests_middleware import (
     InFlightRequestsMiddleware,
 )
-from litellm.proxy.middleware.per_request_root_path_middleware import (
+from embrouter.proxy.middleware.per_request_root_path_middleware import (
     PerRequestRootPathMiddleware,
     get_server_root_paths,
 )
-from litellm.proxy.middleware.prometheus_auth_middleware import PrometheusAuthMiddleware
-from litellm.proxy.middleware.request_size_limit_middleware import (
+from embrouter.proxy.middleware.prometheus_auth_middleware import PrometheusAuthMiddleware
+from embrouter.proxy.middleware.request_size_limit_middleware import (
     RequestSizeLimitMiddleware,
 )
-from litellm.proxy.middleware.security_headers_middleware import (
+from embrouter.proxy.middleware.security_headers_middleware import (
     SecurityHeadersMiddleware,
 )
-from litellm.proxy.ocr_endpoints.endpoints import router as ocr_router
-from litellm.proxy.openai_files_endpoints.files_endpoints import (
+from embrouter.proxy.ocr_endpoints.endpoints import router as ocr_router
+from embrouter.proxy.openai_files_endpoints.files_endpoints import (
     router as openai_files_router,
 )
-from litellm.proxy.openai_files_endpoints.files_endpoints import (
+from embrouter.proxy.openai_files_endpoints.files_endpoints import (
     set_files_config,
 )
-from litellm.proxy.pass_through_endpoints.openai_passthrough_endpoints import (
+from embrouter.proxy.pass_through_endpoints.openai_passthrough_endpoints import (
     router as openai_passthrough_router,
 )
-from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+from embrouter.proxy.pass_through_endpoints.pass_through_endpoints import (
     initialize_pass_through_endpoints,
 )
-from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+from embrouter.proxy.pass_through_endpoints.pass_through_endpoints import (
     router as pass_through_router,
 )
-from litellm.proxy.prometheus_cleanup import mark_dead_workers, mark_worker_exit
-from litellm.proxy.public_endpoints import router as public_endpoints_router
-from litellm.proxy.public_endpoints.public_v1 import router as public_v1_router
-from litellm.proxy.rag_endpoints.endpoints import router as rag_router
-from litellm.proxy.rerank_endpoints.endpoints import router as rerank_router
-from litellm.proxy.response_api_endpoints.endpoints import router as response_router
-from litellm.proxy.route_llm_request import route_request
-from litellm.proxy.route_priority import hot_routes_first
-from litellm.proxy.search_endpoints.endpoints import router as search_router
-from litellm.proxy.shutdown.graceful_shutdown_manager import GracefulShutdownManager
-from litellm.proxy.shutdown.scheduled_jobs import (
+from embrouter.proxy.prometheus_cleanup import mark_dead_workers, mark_worker_exit
+from embrouter.proxy.public_endpoints import router as public_endpoints_router
+from embrouter.proxy.public_endpoints.public_v1 import router as public_v1_router
+from embrouter.proxy.rag_endpoints.endpoints import router as rag_router
+from embrouter.proxy.rerank_endpoints.endpoints import router as rerank_router
+from embrouter.proxy.response_api_endpoints.endpoints import router as response_router
+from embrouter.proxy.route_llm_request import route_request
+from embrouter.proxy.route_priority import hot_routes_first
+from embrouter.proxy.search_endpoints.endpoints import router as search_router
+from embrouter.proxy.shutdown.graceful_shutdown_manager import GracefulShutdownManager
+from embrouter.proxy.shutdown.scheduled_jobs import (
     AwaitableAsyncIOExecutor,
     pause_scheduled_jobs,
     stop_in_flight_scheduler_jobs,
 )
-from litellm.proxy.spend_tracking.budget_reservation import (
+from embrouter.proxy.spend_tracking.budget_reservation import (
     get_budget_window_start,
     release_unbound_budget_reservation,
     stamp_budget_reservation_actual_cost,
 )
-from litellm.proxy.spend_tracking.spend_capture_rate import (
+from embrouter.proxy.spend_tracking.spend_capture_rate import (
     run_scheduled_spend_capture_rate_check,
 )
-from litellm.proxy.spend_tracking.spend_counter_batch import (
+from embrouter.proxy.spend_tracking.spend_counter_batch import (
     PendingSpendIncrement,
     active_spend_counter_batch,
     forget_spend_counter,
@@ -742,21 +742,21 @@ from litellm.proxy.spend_tracking.spend_counter_batch import (
     record_spend_counter_value,
     spend_counter_batch_scope,
 )
-from litellm.proxy.spend_tracking.spend_management_endpoints import (
+from embrouter.proxy.spend_tracking.spend_management_endpoints import (
     router as spend_management_router,
 )
-from litellm.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
-from litellm.proxy.types_utils.utils import get_instance_fn
-from litellm.proxy.ui_crud_endpoints.proxy_setting_endpoints import (
+from embrouter.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
+from embrouter.proxy.types_utils.utils import get_instance_fn
+from embrouter.proxy.ui_crud_endpoints.proxy_setting_endpoints import (
     router as ui_crud_endpoints_router,
 )
-from litellm.proxy.ui_crud_endpoints.proxy_setting_endpoints import (
+from embrouter.proxy.ui_crud_endpoints.proxy_setting_endpoints import (
     sync_ui_settings_to_general_settings,
 )
-from litellm.proxy.ui_crud_endpoints.user_banner_endpoints import (
+from embrouter.proxy.ui_crud_endpoints.user_banner_endpoints import (
     router as user_banner_endpoints_router,
 )
-from litellm.proxy.utils import (
+from embrouter.proxy.utils import (
     PrismaClient,
     ProxyLogging,
     ProxyUpdateSpend,
@@ -776,26 +776,26 @@ from litellm.proxy.utils import (
     hash_password,
     hash_token,
     invalidate_config_param,
-    litellm_config_cache,
+    embrouter_config_cache,
     migrate_passwords_to_scrypt_async,
     model_dump_with_preserved_fields,
     prefetch_config_params,
     update_spend,
 )
-from litellm.proxy.video_endpoints.endpoints import router as video_router
-from litellm.repositories.base_repository import SupportsModelDump
-from litellm.repositories.credentials_repository import CredentialsRepository
-from litellm.repositories.prisma_protocols import TableActions
-from litellm.router import (
+from embrouter.proxy.video_endpoints.endpoints import router as video_router
+from embrouter.repositories.base_repository import SupportsModelDump
+from embrouter.repositories.credentials_repository import CredentialsRepository
+from embrouter.repositories.prisma_protocols import TableActions
+from embrouter.router import (
     AssistantsTypedDict,
     Deployment,
-    LiteLLM_Params,
+    EmbRouter_Params,
     ModelGroupInfo,
 )
-from litellm.scheduler import FlowItem, Scheduler
-from litellm.secret_managers.aws_secret_manager import load_aws_kms
-from litellm.secret_managers.google_kms import load_google_kms
-from litellm.secret_managers.main import (
+from embrouter.scheduler import FlowItem, Scheduler
+from embrouter.secret_managers.aws_secret_manager import load_aws_kms
+from embrouter.secret_managers.google_kms import load_google_kms
+from embrouter.secret_managers.main import (
     get_secret,
     get_secret_bool,
     get_secret_str,
@@ -803,34 +803,34 @@ from litellm.secret_managers.main import (
     secret_manager_would_be_consulted,
     str_to_bool,
 )
-from litellm.types.integrations.slack_alerting import AlertType, SlackAlertingArgs
-from litellm.types.llms.anthropic import (
+from embrouter.types.integrations.slack_alerting import AlertType, SlackAlertingArgs
+from embrouter.types.llms.anthropic import (
     AnthropicMessagesRequest,
     AnthropicResponse,
     AnthropicResponseContentBlockText,
     AnthropicResponseUsageBlock,
 )
-from litellm.types.llms.openai import (
+from embrouter.types.llms.openai import (
     AllMessageValues,
     ChatCompletionSystemMessage,
     ChatCompletionToolParam,
     HttpxBinaryResponseContent,
 )
-from litellm.types.proxy.control_plane_endpoints import WorkerRegistryEntry
-from litellm.types.proxy.management_endpoints.model_management_endpoints import (
+from embrouter.types.proxy.control_plane_endpoints import WorkerRegistryEntry
+from embrouter.types.proxy.management_endpoints.model_management_endpoints import (
     ModelGroupInfoProxy,
 )
-from litellm.types.proxy.management_endpoints.ui_sso import (
+from embrouter.types.proxy.management_endpoints.ui_sso import (
     DefaultTeamSSOParams,
-    LiteLLM_UpperboundKeyGenerateParams,
+    EmbRouter_UpperboundKeyGenerateParams,
 )
-from litellm.types.proxy.model_deprecation import (
+from embrouter.types.proxy.model_deprecation import (
     DEFAULT_DEPRECATION_WARN_DAYS,
     ModelDeprecationResponse,
 )
-from litellm.types.proxy.spend_capture_rate import SpendCaptureProvider, SpendCaptureRateCheckSettings
-from litellm.types.realtime import RealtimeQueryParams
-from litellm.types.router import (
+from embrouter.types.proxy.spend_capture_rate import SpendCaptureProvider, SpendCaptureRateCheckSettings
+from embrouter.types.realtime import RealtimeQueryParams
+from embrouter.types.router import (
     ClassifierPlugin,
     DeploymentTypedDict,
     RouterGeneralSettings,
@@ -839,21 +839,21 @@ from litellm.types.router import (
     SearchToolTypedDict,
     updateDeployment,
 )
-from litellm.types.router import ModelInfo as RouterModelInfo
-from litellm.types.scheduler import DefaultPriorities
-from litellm.types.secret_managers.main import (
+from embrouter.types.router import ModelInfo as RouterModelInfo
+from embrouter.types.scheduler import DefaultPriorities
+from embrouter.types.secret_managers.main import (
     KeyManagementSettings,
     KeyManagementSystem,
 )
-from litellm.types.utils import CredentialItem, CustomHuggingfaceTokenizer, RawRequestTypedDict, StandardLoggingPayload
-from litellm.types.utils import ModelInfo as ModelMapInfo
-from litellm.utils import _add_custom_logger_callback_to_specific_event
+from embrouter.types.utils import CredentialItem, CustomHuggingfaceTokenizer, RawRequestTypedDict, StandardLoggingPayload
+from embrouter.types.utils import ModelInfo as ModelMapInfo
+from embrouter.utils import _add_custom_logger_callback_to_specific_event
 
 try:
-    from litellm._version import version
+    from embrouter._version import version
 except Exception:
     version = "0.0.0"
-litellm.suppress_debug_info = True
+embrouter.suppress_debug_info = True
 import json
 
 from fastapi import (
@@ -894,10 +894,10 @@ from fastapi.staticfiles import StaticFiles
 # import enterprise folder
 enterprise_router = APIRouter()
 try:
-    # when using litellm cli
-    from litellm.proxy import enterprise
+    # when using embrouter cli
+    from embrouter.proxy import enterprise
 except Exception:
-    # when using litellm docker image
+    # when using embrouter docker image
     try:
         import enterprise
     except Exception:
@@ -906,8 +906,8 @@ except Exception:
 ###################
 # Import enterprise routes
 try:
-    from litellm_enterprise.proxy.enterprise_routes import router as _enterprise_router
-    from litellm_enterprise.proxy.proxy_server import EnterpriseProxyConfig
+    from embrouter_enterprise.proxy.enterprise_routes import router as _enterprise_router
+    from embrouter_enterprise.proxy.proxy_server import EnterpriseProxyConfig
 
     enterprise_router = _enterprise_router
     enterprise_proxy_config: EnterpriseProxyConfig | None = EnterpriseProxyConfig()
@@ -919,7 +919,7 @@ server_root_path: Final = get_server_root_path()
 _license_check = LicenseCheck()
 premium_user: bool = _license_check.is_premium()
 premium_user_data: Optional["EnterpriseLicenseData"] = _license_check.airgapped_license_data
-global_max_parallel_request_retries_env: Final[str | None] = os.getenv("LITELLM_GLOBAL_MAX_PARALLEL_REQUEST_RETRIES")
+global_max_parallel_request_retries_env: Final[str | None] = os.getenv("EMBROUTER_GLOBAL_MAX_PARALLEL_REQUEST_RETRIES")
 proxy_state: Final = ProxyState()
 SENSITIVE_DATA_MASKER: Final = SensitiveDataMasker()
 
@@ -946,7 +946,7 @@ def _redact_worker_config_for_logging(worker_config: str | dict[str, JsonValue] 
     to `initialize`. Both shapes can carry `master_key`, `database_url`,
     provider API keys, etc.; passing the raw value to `verbose_proxy_logger`
     leaks them whenever the last-line-of-defense regex filter is bypassed
-    (`LITELLM_DISABLE_REDACT_SECRETS=true`, an older log sink, a downstream
+    (`EMBROUTER_DISABLE_REDACT_SECRETS=true`, an older log sink, a downstream
     handler that captures records pre-filter). Redact at the source.
     """
     if worker_config is None:
@@ -965,7 +965,7 @@ else:
     global_max_parallel_request_retries = int(global_max_parallel_request_retries_env)
 
 global_max_parallel_request_retry_timeout_env: Final[str | None] = os.getenv(
-    "LITELLM_GLOBAL_MAX_PARALLEL_REQUEST_RETRY_TIMEOUT"
+    "EMBROUTER_GLOBAL_MAX_PARALLEL_REQUEST_RETRY_TIMEOUT"
 )
 if global_max_parallel_request_retry_timeout_env is None:
     global_max_parallel_request_retry_timeout: float = 60.0
@@ -975,16 +975,16 @@ else:
 ui_link: Final = f"{server_root_path}/ui"
 fallback_login_link: Final = f"{server_root_path}/fallback/login"
 model_hub_link: Final = f"{server_root_path}/ui/model_hub_table"
-ui_message = f"👉 [```LiteLLM Admin Panel on /ui```]({ui_link}). Create, Edit Keys with SSO. Having issues? Try [```Fallback Login```]({fallback_login_link})"
+ui_message = f"👉 [```EmbRouter Admin Panel on /ui```]({ui_link}). Create, Edit Keys with SSO. Having issues? Try [```Fallback Login```]({fallback_login_link})"
 
-ui_message += f"\n\n🔎 [```LiteLLM Model Hub```]({model_hub_link}). See available models on the proxy. **Docs**"
+ui_message += f"\n\n🔎 [```EmbRouter Model Hub```]({model_hub_link}). See available models on the proxy. **Docs**"
 
 custom_swagger_message: Final = (
     "**Customize Swagger Docs**"
 )
 
 ### CUSTOM BRANDING [ENTERPRISE FEATURE] ###
-_title: Final = os.getenv("DOCS_TITLE", "LiteLLM API") if premium_user else "LiteLLM API"
+_title: Final = os.getenv("DOCS_TITLE", "EmbRouter API") if premium_user else "EmbRouter API"
 _description: Final = (
     os.getenv(
         "DOCS_DESCRIPTION",
@@ -1051,7 +1051,7 @@ async def _flush_spend_logs_queue_on_shutdown() -> None:
         return
 
     try:
-        from litellm.proxy.utils import drain_spend_logs_queue
+        from embrouter.proxy.utils import drain_spend_logs_queue
 
         await drain_spend_logs_queue(
             prisma_client=prisma_client,
@@ -1064,7 +1064,7 @@ async def _flush_spend_logs_queue_on_shutdown() -> None:
 
 async def proxy_shutdown_event(worker_heartbeat: ProxyWorkerHeartbeat | None = None) -> None:
     global prisma_client, master_key, user_custom_auth, user_custom_key_generate, user_custom_key_update
-    verbose_proxy_logger.info("Shutting down LiteLLM Proxy Server")
+    verbose_proxy_logger.info("Shutting down EmbRouter Proxy Server")
     if worker_heartbeat is not None and prisma_client:
         await worker_heartbeat.deregister()
     if prisma_client:
@@ -1077,8 +1077,8 @@ async def proxy_shutdown_event(worker_heartbeat: ProxyWorkerHeartbeat | None = N
         await prisma_client.disconnect()
 
     await drain_post_call_redis_batches()
-    if litellm.cache is not None:
-        await litellm.cache.disconnect()
+    if embrouter.cache is not None:
+        await embrouter.cache.disconnect()
 
     await jwt_handler.close()
 
@@ -1090,9 +1090,9 @@ async def proxy_shutdown_event(worker_heartbeat: ProxyWorkerHeartbeat | None = N
     if shutdown_billing_metrics_recorder is not None:
         shutdown_billing_metrics_recorder()
 
-    if "litellm.integrations.langfuse.langfuse_sdk" in sys.modules:
+    if "embrouter.integrations.langfuse.langfuse_sdk" in sys.modules:
         try:
-            from litellm.integrations.langfuse.langfuse_sdk import flush_langfuse_tracing
+            from embrouter.integrations.langfuse.langfuse_sdk import flush_langfuse_tracing
 
             flushed: Final = await asyncio.to_thread(flush_langfuse_tracing, LANGFUSE_SHUTDOWN_FLUSH_TIMEOUT_MILLIS)
             if flushed:
@@ -1127,7 +1127,7 @@ async def _initialize_shared_aiohttp_session():
     try:
         from aiohttp import ClientSession, DummyCookieJar, TCPConnector
 
-        from litellm.llms.custom_httpx.http_handler import (
+        from embrouter.llms.custom_httpx.http_handler import (
             _build_aiohttp_keepalive_socket_factory,
         )
 
@@ -1181,7 +1181,7 @@ async def proxy_startup_event(app: FastAPI) -> AsyncGenerator[None, None]:
         general_settings, \
         proxy_budget_rescheduler_min_time, \
         proxy_budget_rescheduler_max_time, \
-        litellm_proxy_admin_name, \
+        embrouter_proxy_admin_name, \
         db_writer_client, \
         store_model_in_db, \
         premium_user, \
@@ -1197,7 +1197,7 @@ async def proxy_startup_event(app: FastAPI) -> AsyncGenerator[None, None]:
         mark_dead_workers(prometheus_multiproc_dir)
 
     ## RUN WORKER STARTUP HOOKS (e.g., gflags initialization) ##
-    _startup_hooks_env: Final = os.environ.get("LITELLM_WORKER_STARTUP_HOOKS", "")
+    _startup_hooks_env: Final = os.environ.get("EMBROUTER_WORKER_STARTUP_HOOKS", "")
     if _startup_hooks_env:
         for _hook_spec in _startup_hooks_env.split(","):
             _hook_spec = _hook_spec.strip()
@@ -1221,12 +1221,12 @@ async def proxy_startup_event(app: FastAPI) -> AsyncGenerator[None, None]:
                 raise
 
     ## CHECK PREMIUM USER
-    verbose_proxy_logger.debug("litellm.proxy.proxy_server.py::startup() - CHECKING PREMIUM USER - %s", premium_user)
+    verbose_proxy_logger.debug("embrouter.proxy.proxy_server.py::startup() - CHECKING PREMIUM USER - %s", premium_user)
     if premium_user is False:
         premium_user = _license_check.is_premium()
 
     ## CHECK MASTER KEY IN ENVIRONMENT ##
-    master_key = get_secret_str("LITELLM_MASTER_KEY")
+    master_key = get_secret_str("EMBROUTER_MASTER_KEY")
     ### LOAD CONFIG ###
     worker_config: str | dict | None = get_secret("WORKER_CONFIG")
     env_config_yaml: Final[str | None] = get_secret_str("CONFIG_FILE_PATH")
@@ -1246,7 +1246,7 @@ async def proxy_startup_event(app: FastAPI) -> AsyncGenerator[None, None]:
                 and os.path.isfile(worker_config)
                 and proxy_config.is_yaml(config_file_path=worker_config)
             )
-            or os.environ.get("LITELLM_CONFIG_BUCKET_NAME") is not None
+            or os.environ.get("EMBROUTER_CONFIG_BUCKET_NAME") is not None
             and isinstance(worker_config, str)
         ):
             (
@@ -1307,7 +1307,7 @@ async def proxy_startup_event(app: FastAPI) -> AsyncGenerator[None, None]:
         asyncio.create_task(_run_pw_migration())
 
         async def _run_agent_grant_id_migration() -> None:
-            from litellm.proxy.agent_endpoints.agent_registry import (
+            from embrouter.proxy.agent_endpoints.agent_registry import (
                 global_agent_registry,
                 object_permission_table,
             )
@@ -1341,7 +1341,7 @@ async def proxy_startup_event(app: FastAPI) -> AsyncGenerator[None, None]:
     ## which is only reachable once the prisma client exists. Apply it here, before
     ## the coordination Redis is published to its consumers below.
     db_coordination_redis_cache: Final = await ProxyStartupEvent._init_coordination_redis_from_db(
-        litellm_settings=proxy_config.get_config_state().get("litellm_settings") or {},
+        embrouter_settings=proxy_config.get_config_state().get("embrouter_settings") or {},
         llm_router=llm_router,
     )
     if db_coordination_redis_cache is not None:
@@ -1373,16 +1373,16 @@ async def proxy_startup_event(app: FastAPI) -> AsyncGenerator[None, None]:
     ## backend than the server span. A generic logger is built only when none was
     ## configured.
     try:
-        from litellm.integrations.otel.model.config import is_otel_v2_enabled
+        from embrouter.integrations.otel.model.config import is_otel_v2_enabled
 
         if is_otel_v2_enabled():
             from opentelemetry import trace as _otel_trace
 
-            from litellm.integrations.otel.logger import (
+            from embrouter.integrations.otel.logger import (
                 OpenTelemetryV2,
                 publish_global_otel_v2_provider,
             )
-            from litellm.litellm_core_utils.litellm_logging import _in_memory_loggers
+            from embrouter.embrouter_core_utils.embrouter_logging import _in_memory_loggers
 
             registered: Final = open_telemetry_logger if isinstance(open_telemetry_logger, OpenTelemetryV2) else None
             publish_global_otel_v2_provider(
@@ -1402,15 +1402,15 @@ async def proxy_startup_event(app: FastAPI) -> AsyncGenerator[None, None]:
     ProxyStartupEvent._warn_if_mock_testing_params_enabled(general_settings=general_settings)
 
     ## SEMANTIC TOOL FILTER ##
-    # Read litellm_settings from config for semantic filter initialization
+    # Read embrouter_settings from config for semantic filter initialization
     try:
         verbose_proxy_logger.debug("About to initialize semantic tool filter")
         _config: Final = proxy_config.get_config_state()
-        _litellm_settings: Final = _config.get("litellm_settings", {})
-        verbose_proxy_logger.debug("litellm_settings keys = %s", list(_litellm_settings.keys()))
+        _embrouter_settings: Final = _config.get("embrouter_settings", {})
+        verbose_proxy_logger.debug("embrouter_settings keys = %s", list(_embrouter_settings.keys()))
         await ProxyStartupEvent._initialize_semantic_tool_filter(
             llm_router=llm_router,
-            litellm_settings=_litellm_settings,
+            embrouter_settings=_embrouter_settings,
         )
         verbose_proxy_logger.debug("After semantic tool filter initialization")
     except Exception as e:
@@ -1426,7 +1426,7 @@ async def proxy_startup_event(app: FastAPI) -> AsyncGenerator[None, None]:
     ProxyStartupEvent._attach_router_to_prompt_injection_detectors(llm_router=llm_router)
 
     verbose_proxy_logger.debug("prisma_client: %s", prisma_client)
-    if prisma_client is not None and litellm.max_budget > 0:
+    if prisma_client is not None and embrouter.max_budget > 0:
         ProxyStartupEvent._add_proxy_budget_to_db()
         asyncio.create_task(
             ProxyStartupEvent._warm_global_spend_cache(
@@ -1435,7 +1435,7 @@ async def proxy_startup_event(app: FastAPI) -> AsyncGenerator[None, None]:
             )
         )
     ProxyStartupEvent._warn_budget_without_db(
-        max_budget=litellm.max_budget,
+        max_budget=embrouter.max_budget,
         prisma_client=prisma_client,
     )
     ProxyStartupEvent._warn_fail_closed_rate_limits_without_redis(
@@ -1481,7 +1481,7 @@ async def proxy_startup_event(app: FastAPI) -> AsyncGenerator[None, None]:
     ## [Optional] Initialize dd tracer
     ProxyStartupEvent._init_dd_tracer()
 
-    ## [Optional] Initialize Pyroscope continuous profiling (env: LITELLM_ENABLE_PYROSCOPE=true)
+    ## [Optional] Initialize Pyroscope continuous profiling (env: EMBROUTER_ENABLE_PYROSCOPE=true)
     ProxyStartupEvent._init_pyroscope()
 
     ## Initialize shared aiohttp session for connection reuse
@@ -1602,7 +1602,7 @@ _OPENAPI_HTTP_METHODS: Final = {
 # full Slack incoming-webhook URL is itself a credential, and the SMTP
 # password is a service password. Masked on read so plaintext never reaches
 # the UI. Kept here at module scope to match the analogous descriptor
-# `is_secret` flags in litellm.proxy.config_resolvers and the
+# `is_secret` flags in embrouter.proxy.config_resolvers and the
 # `_CACHE_SENSITIVE_FIELDS` constant in the cache endpoint file.
 _ALERTING_SENSITIVE_VARS: Final[set[str]] = {"ALERTING_WEBHOOK_URL", "SLACK_WEBHOOK_URL", "SMTP_PASSWORD"}
 
@@ -1675,12 +1675,12 @@ app = FastAPI(
 )
 
 ## V2 OTEL: instrument the FastAPI app for server spans (gated by
-## LITELLM_OTEL_V2). This MUST run at app-creation time — once the lifespan runs,
+## EMBROUTER_OTEL_V2). This MUST run at app-creation time — once the lifespan runs,
 ## the middleware stack is frozen and ``instrument_app`` raises "Cannot add
 ## middleware after an application has started". See
-## ``litellm.integrations.otel.mount`` for the full rationale; the call is a safe
+## ``embrouter.integrations.otel.mount`` for the full rationale; the call is a safe
 ## no-op when the gate is off or the instrumentation package is unavailable.
-from litellm.integrations.otel.mount import instrument_fastapi_app
+from embrouter.integrations.otel.mount import instrument_fastapi_app
 
 instrument_fastapi_app(app)
 
@@ -1741,7 +1741,7 @@ def get_openapi_schema():
         return app.openapi_schema
 
     # Use compatibility wrapper for FastAPI 0.120+ schema generation
-    from litellm.proxy.common_utils.openapi_schema_compat import (
+    from embrouter.proxy.common_utils.openapi_schema_compat import (
         get_openapi_schema_with_compat,
     )
 
@@ -1761,12 +1761,12 @@ def get_openapi_schema():
     openapi_schema = _inject_websocket_stubs_into_openapi_schema(openapi_schema, websocket_routes)
 
     # Add LLM API request schema bodies for documentation
-    from litellm.proxy.common_utils.custom_openapi_spec import CustomOpenAPISpec
+    from embrouter.proxy.common_utils.custom_openapi_spec import CustomOpenAPISpec
 
     openapi_schema = CustomOpenAPISpec.add_llm_api_request_schema_body(openapi_schema)
 
     # Stub unloaded lazy features so they appear as Swagger sections.
-    from litellm.proxy._lazy_features import inject_lazy_stubs, loaded_lazy_modules
+    from embrouter.proxy._lazy_features import inject_lazy_stubs, loaded_lazy_modules
 
     openapi_schema = inject_lazy_stubs(openapi_schema, loaded_lazy_modules(app))
     openapi_schema = ensure_unique_openapi_operation_ids(openapi_schema)
@@ -1785,7 +1785,7 @@ def custom_openapi():
     openapi_schema = get_openapi_schema()
 
     # Filter routes to include only specific ones
-    openai_routes: Final = LiteLLMRoutes.openai_routes.value
+    openai_routes: Final = EmbRouterRoutes.openai_routes.value
     paths_to_include: Final[dict] = {}
     for route in openai_routes:
         if route in openapi_schema["paths"]:
@@ -1793,12 +1793,12 @@ def custom_openapi():
     openapi_schema["paths"] = paths_to_include
 
     # Add LLM API request schema bodies for documentation
-    from litellm.proxy.common_utils.custom_openapi_spec import CustomOpenAPISpec
+    from embrouter.proxy.common_utils.custom_openapi_spec import CustomOpenAPISpec
 
     openapi_schema = CustomOpenAPISpec.add_llm_api_request_schema_body(openapi_schema)
 
     # Stub unloaded lazy features so they appear as Swagger sections.
-    from litellm.proxy._lazy_features import inject_lazy_stubs, loaded_lazy_modules
+    from embrouter.proxy._lazy_features import inject_lazy_stubs, loaded_lazy_modules
 
     openapi_schema = inject_lazy_stubs(openapi_schema, loaded_lazy_modules(app))
     openapi_schema = ensure_unique_openapi_operation_ids(openapi_schema)
@@ -1829,7 +1829,7 @@ async def openai_exception_handler(request: Request, exc: ProxyException):
     headers: Final = exc.headers
     error_dict: Final = with_call_id(
         JSON_OBJECT.validate_python(exc.to_dict()),
-        error_body_call_id(general_settings_view(), headers.get(LITELLM_CALL_ID_HEADER)),
+        error_body_call_id(general_settings_view(), headers.get(EMBROUTER_CALL_ID_HEADER)),
     )
     status_code: Final = int(exc.code) if exc.code else status.HTTP_500_INTERNAL_SERVER_ERROR
     _close_dangling_otel_server_span(request, status_code, exc=exc)
@@ -1860,7 +1860,7 @@ def _close_dangling_otel_server_span(request: Request, status_code: int, exc: Ex
     # span, which the instrumentor still owns) so pre-call failures carry the error
     # like v1 did. Otherwise close and annotate the dangling span ourselves.
     try:
-        from litellm.integrations.otel.model.config import is_otel_v2_enabled
+        from embrouter.integrations.otel.model.config import is_otel_v2_enabled
 
         v2_enabled = is_otel_v2_enabled()
     except Exception:
@@ -1922,11 +1922,11 @@ class _UserTeamsRow(Protocol):
     def teams(self) -> Sequence[str]: ...
 
 
-_ProxyModelRow: TypeAlias = "prisma_models.LiteLLM_ProxyModelTable"
+_ProxyModelRow: TypeAlias = "prisma_models.EmbRouter_ProxyModelTable"
 
 
 def _config_param_table(client: PrismaClient | None) -> TableActions[_ConfigParamRow]:
-    return cast(  # cast-ok: this is prisma's LiteLLM_Config actions object, which parses its Json column to a mapping
+    return cast(  # cast-ok: this is prisma's EmbRouter_Config actions object, which parses its Json column to a mapping
         "TableActions[_ConfigParamRow]", ConfigRepository(client).table
     )
 
@@ -2008,13 +2008,13 @@ def _get_cors_config(
     Extracted into a function so it can be unit-tested without reloading the module.
 
     Args:
-        cors_origins_env: Value of LITELLM_CORS_ORIGINS (defaults to os.getenv).
-        cors_credentials_env: Value of LITELLM_CORS_ALLOW_CREDENTIALS (defaults to os.getenv).
+        cors_origins_env: Value of EMBROUTER_CORS_ORIGINS (defaults to os.getenv).
+        cors_credentials_env: Value of EMBROUTER_CORS_ALLOW_CREDENTIALS (defaults to os.getenv).
 
     Returns:
         Tuple[List[str], bool]: (origins, allow_credentials)
     """
-    _origins_raw: Final = cors_origins_env if cors_origins_env is not None else os.getenv("LITELLM_CORS_ORIGINS")
+    _origins_raw: Final = cors_origins_env if cors_origins_env is not None else os.getenv("EMBROUTER_CORS_ORIGINS")
     if _origins_raw is None or _origins_raw.strip() == "":
         computed_origins = ["*"]
     else:
@@ -2023,11 +2023,11 @@ def _get_cors_config(
     # Disable credentials by default when wildcard origins are used — combining
     # allow_origins=["*"] with allow_credentials=True causes Starlette to reflect
     # the incoming Origin header, allowing any site to make credentialed requests.
-    # Set LITELLM_CORS_ALLOW_CREDENTIALS=true to explicitly restore the old behaviour
+    # Set EMBROUTER_CORS_ALLOW_CREDENTIALS=true to explicitly restore the old behaviour
     # (e.g. for non-browser clients that relied on the Access-Control-Allow-Credentials
     # header being present regardless of origin).
     _credentials_raw: Final = (
-        cors_credentials_env if cors_credentials_env is not None else os.getenv("LITELLM_CORS_ALLOW_CREDENTIALS")
+        cors_credentials_env if cors_credentials_env is not None else os.getenv("EMBROUTER_CORS_ALLOW_CREDENTIALS")
     )
     if _credentials_raw is not None:
         computed_credentials = _credentials_raw.strip().lower() == "true"
@@ -2045,7 +2045,7 @@ try:
     current_dir = os.path.dirname(os.path.abspath(__file__))
     packaged_ui_path: Final = os.path.join(current_dir, "_experimental", "out")
     ui_path = packaged_ui_path
-    litellm_asset_prefix: Final = "/litellm-asset-prefix"
+    embrouter_asset_prefix: Final = "/embrouter-asset-prefix"
 
     def _dir_has_content(path: str) -> bool:
         try:
@@ -2083,7 +2083,7 @@ try:
         Detect if UI directory is already pre-restructured and ready to serve.
 
         Returns True if:
-        1. Marker file .litellm_ui_ready exists (created by Dockerfile), OR
+        1. Marker file .embrouter_ui_ready exists (created by Dockerfile), OR
         2. Restructuring pattern detected (subdirectories with index.html inside)
 
         This allows skipping copy/restructure operations on read-only filesystems.
@@ -2092,7 +2092,7 @@ try:
             return False
 
         # Primary signal: marker file created by Dockerfile
-        marker_file: Final = os.path.join(ui_dir, ".litellm_ui_ready")
+        marker_file: Final = os.path.join(ui_dir, ".embrouter_ui_ready")
         if os.path.exists(marker_file):
             verbose_proxy_logger.debug("Found UI ready marker: %s", marker_file)
             return True
@@ -2147,16 +2147,16 @@ try:
     # Use a writable runtime UI directory whenever possible.
     # This prevents mutating the packaged UI directory (e.g. site-packages or the repo checkout)
     # and ensures extensionless routes like /ui/login work via <route>/index.html.
-    is_non_root: Final = os.getenv("LITELLM_NON_ROOT", "").lower() == "true"
+    is_non_root: Final = os.getenv("EMBROUTER_NON_ROOT", "").lower() == "true"
 
     # Determine runtime UI path
-    # Priority: LITELLM_UI_PATH env var > default path based on is_non_root
+    # Priority: EMBROUTER_UI_PATH env var > default path based on is_non_root
     if is_non_root:
-        default_runtime_ui_path = "/var/lib/litellm/ui"
+        default_runtime_ui_path = "/var/lib/embrouter/ui"
     else:
         default_runtime_ui_path = packaged_ui_path
 
-    runtime_ui_path: Final = os.getenv("LITELLM_UI_PATH", default_runtime_ui_path)
+    runtime_ui_path: Final = os.getenv("EMBROUTER_UI_PATH", default_runtime_ui_path)
 
     # Validate packaged UI before proceeding
     if not _validate_ui_directory(packaged_ui_path):
@@ -2203,7 +2203,7 @@ try:
             else:
                 # Case 4b: Population failed - fall back to packaged UI
                 verbose_proxy_logger.warning(
-                    "Failed to populate UI at %s: %s. Falling back to packaged UI at %s. For read-only deployments, pre-build UI in Dockerfile or set LITELLM_UI_PATH to a writable emptyDir volume.",
+                    "Failed to populate UI at %s: %s. Falling back to packaged UI at %s. For read-only deployments, pre-build UI in Dockerfile or set EMBROUTER_UI_PATH to a writable emptyDir volume.",
                     runtime_ui_path,
                     error,
                     packaged_ui_path,
@@ -2254,14 +2254,14 @@ try:
 
                         # Replace the asset prefix with the server root path
                         modified_content = content.replace(
-                            f"{litellm_asset_prefix}",
+                            f"{embrouter_asset_prefix}",
                             f"{server_root_path}",
                         )
 
-                        # Replace the /.well-known/litellm-ui-config with the server root path
+                        # Replace the /.well-known/embrouter-ui-config with the server root path
                         modified_content = modified_content.replace(
-                            "/litellm/.well-known/litellm-ui-config",
-                            f"{server_root_path}/.well-known/litellm-ui-config",
+                            "/embrouter/.well-known/embrouter-ui-config",
+                            f"{server_root_path}/.well-known/embrouter-ui-config",
                         )
 
                         with open(file_path, "w", encoding="utf-8") as f:
@@ -2277,7 +2277,7 @@ try:
         name="next_static",
     )
     app.mount(
-        f"{litellm_asset_prefix}/_next",
+        f"{embrouter_asset_prefix}/_next",
         StaticFiles(directory=os.path.join(ui_path, "_next")),
         name="next_static",
     )
@@ -2293,7 +2293,7 @@ try:
             first_segment = "" if rel_root == "." else rel_root.split(os.sep)[0]
 
             # Ignore Next.js asset directories
-            if first_segment in {"_next", "litellm-asset-prefix"}:
+            if first_segment in {"_next", "embrouter-asset-prefix"}:
                 continue
 
             for filename in files:
@@ -2348,7 +2348,7 @@ app.add_middleware(
     allow_credentials=allow_cors_credentials,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=LITELLM_UI_ALLOW_HEADERS,
+    expose_headers=EMBROUTER_UI_ALLOW_HEADERS,
 )
 
 app.add_middleware(PrometheusAuthMiddleware)
@@ -2371,7 +2371,7 @@ app.add_middleware(
             # global: that global is bound once at import and goes stale when
             # the license arrives via the YAML config's environment_variables.
             license_data=_license_check.airgapped_license_data,
-            litellm_version=version,
+            embrouter_version=version,
         )
         if build_billing_metrics_recorder is not None
         else None
@@ -2402,7 +2402,7 @@ def mount_swagger_ui():
     # <script> tag) since it's injected inside the existing inline script.
     from fastapi.responses import HTMLResponse
 
-    from litellm.proxy._lazy_features import lazy_tag_to_prefix
+    from embrouter.proxy._lazy_features import lazy_tag_to_prefix
 
     _lazy_plugin_js: Final = (
         "const TAG_TO_PREFIX = " + json.dumps(lazy_tag_to_prefix()) + ";"
@@ -2528,7 +2528,7 @@ user_api_key_cache: UserApiKeyCache = UserApiKeyCache(
 spend_counter_cache: Final = DualCache(default_in_memory_ttl=UserAPIKeyCacheTTLEnum.in_memory_cache_ttl.value)
 cli_sso_session_cache: Final = DualCache(default_in_memory_ttl=CLI_SSO_SESSION_TTL_SECONDS)
 model_max_budget_limiter: Final = _PROXY_VirtualKeyModelMaxBudgetLimiter(dual_cache=spend_counter_cache)
-litellm.logging_callback_manager.add_litellm_callback(model_max_budget_limiter)
+embrouter.logging_callback_manager.add_embrouter_callback(model_max_budget_limiter)
 redis_usage_cache: RedisCache | None = None  # redis cache used for tracking spend, tpm/rpm limits
 polling_via_cache_enabled: Literal["all"] | list[str] | bool = False
 native_background_mode: list[str] = []  # Models that should use native provider background mode instead of polling
@@ -2536,7 +2536,7 @@ polling_cache_ttl: int = 3600  # Default 1 hour TTL for polling cache
 user_custom_auth = None
 user_custom_key_generate = None
 # Sentinel: prevents PKCE-no-Redis advisory from re-logging on config hot-reload.
-# Tests that need to reset it can patch 'litellm.proxy.proxy_server._pkce_no_redis_warning_emitted'.
+# Tests that need to reset it can patch 'embrouter.proxy.proxy_server._pkce_no_redis_warning_emitted'.
 _pkce_no_redis_warning_emitted: bool = False
 _cp_no_redis_warning_emitted: bool = False
 user_custom_key_update = None
@@ -2553,15 +2553,15 @@ health_check_results: dict[str, int | list[dict[str, object]]] = {}
 background_health_check_loop_active = False
 background_health_check_cycle_seq = 0
 queue: Final[list] = []
-litellm_proxy_budget_name: Final = LITELLM_PROXY_BUDGET_NAME
-litellm_proxy_admin_name = LITELLM_PROXY_ADMIN_NAME
+embrouter_proxy_budget_name: Final = EMBROUTER_PROXY_BUDGET_NAME
+embrouter_proxy_admin_name = EMBROUTER_PROXY_ADMIN_NAME
 ui_access_mode: Literal["admin", "all"] | dict = "all"
 proxy_budget_rescheduler_min_time = PROXY_BUDGET_RESCHEDULER_MIN_TIME
 proxy_budget_rescheduler_max_time = PROXY_BUDGET_RESCHEDULER_MAX_TIME
 proxy_batch_polling_interval = PROXY_BATCH_POLLING_INTERVAL
 proxy_batch_write_at = PROXY_BATCH_WRITE_AT
 proxy_config_reload_interval_seconds = PROXY_CONFIG_RELOAD_INTERVAL_SECONDS
-litellm_master_key_hash = None
+embrouter_master_key_hash = None
 disable_spend_logs = False
 jwt_handler: Final = JWTHandler()
 prompt_injection_detection_obj: _OPTIONAL_PromptInjectionDetection | None = None
@@ -2569,7 +2569,7 @@ store_model_in_db: bool = False
 open_telemetry_logger: OpenTelemetry | None = None
 ### GATEWAY REQUEST COUNTS (SGR) ###
 # Folded in memory by BillableRequestMetricsMiddleware, drained to
-# LiteLLM_DailyGatewayRequests by the update_gateway_requests scheduler job.
+# EmbRouter_DailyGatewayRequests by the update_gateway_requests scheduler job.
 gateway_request_accumulator: Final = GatewayRequestAccumulator()
 ### INITIALIZE GLOBAL LOGGING OBJECT ###
 proxy_logging_obj: ProxyLogging = ProxyLogging(user_api_key_cache=user_api_key_cache, premium_user=premium_user)
@@ -2649,8 +2649,8 @@ def load_from_azure_key_vault(use_azure_key_vault: bool = False):
         # Create the SecretClient using the credential
         client: Final = SecretClient(vault_url=KVUri, credential=credential)
 
-        litellm.secret_manager_client = client
-        litellm._key_management_system = KeyManagementSystem.AZURE_KEY_VAULT
+        embrouter.secret_manager_client = client
+        embrouter._key_management_system = KeyManagementSystem.AZURE_KEY_VAULT
     except Exception as e:
         _error_str: Final = str(e)
         verbose_proxy_logger.exception(
@@ -2665,12 +2665,12 @@ spend_event_producer: SpendEventProducer | None = None
 def cost_tracking():
     global prisma_client, spend_event_producer
     if prisma_client is not None:
-        from litellm.integrations.shadow_eval_logger import ShadowEvalLogger
+        from embrouter.integrations.shadow_eval_logger import ShadowEvalLogger
 
         spend_event_producer = build_spend_event_producer(CollectorSettings(), fallback=run_spend_event)
-        litellm.logging_callback_manager.add_litellm_callback(_ProxyDBLogger(spend_event_producer))
-        litellm.logging_callback_manager.add_litellm_async_success_callback(_ProxyDBLogger(spend_event_producer))
-        litellm.logging_callback_manager.add_litellm_callback(ShadowEvalLogger())
+        embrouter.logging_callback_manager.add_embrouter_callback(_ProxyDBLogger(spend_event_producer))
+        embrouter.logging_callback_manager.add_embrouter_async_success_callback(_ProxyDBLogger(spend_event_producer))
+        embrouter.logging_callback_manager.add_embrouter_callback(ShadowEvalLogger())
 
 
 async def _drain_spend_event_producer_on_shutdown() -> None:
@@ -2740,7 +2740,7 @@ async def get_current_spend(
     authoritative source depends on the counter: primary key/team/user/org
     counters read the DB row; per-window counters (``window_start`` supplied)
     read the maintained window-spend row and only aggregate spend logs when
-    that row is missing or stale; end-user counters read ``LiteLLM_EndUserTable``, the
+    that row is missing or stale; end-user counters read ``EmbRouter_EndUserTable``, the
     row the budget reset zeroes; tag counters have no DB row, so the caller's
     ``fallback_spend`` (loaded fresh in auth) is authoritative. The DB read is
     skipped for healthy primary counters (counter at or above recorded spend)
@@ -3082,7 +3082,7 @@ async def _increment_spend_counters_batched(
                 else None
             )
             await _enqueue_window_spend_row_update(
-                entity_type=Litellm_EntityType.KEY,
+                entity_type=Embrouter_EntityType.KEY,
                 entity_id=hashed_token,
                 reset_at=key_window_reset_at,
                 window_duration=duration,
@@ -3143,7 +3143,7 @@ async def _increment_spend_counters_batched(
                 else None
             )
             await _enqueue_window_spend_row_update(
-                entity_type=Litellm_EntityType.TEAM,
+                entity_type=Embrouter_EntityType.TEAM,
                 entity_id=scope_team_id,
                 reset_at=team_window_reset_at,
                 window_duration=duration,
@@ -3276,7 +3276,7 @@ async def _reconcile_budget_reservation_for_counter_update(
     if budget_reservation is None or budget_reservation.get("finalized") is True:
         return _ReservationCounterUpdate()
 
-    from litellm.proxy.spend_tracking.budget_reservation import (
+    from embrouter.proxy.spend_tracking.budget_reservation import (
         get_reserved_counter_keys,
         invalidate_budget_reservation_counters,
         reconcile_budget_reservation,
@@ -3456,7 +3456,7 @@ async def _prepare_spend_counter_increment(
 
 
 async def _enqueue_window_spend_row_update(
-    entity_type: Litellm_EntityType,
+    entity_type: Embrouter_EntityType,
     entity_id: str,
     reset_at: datetime | str | None,
     window_duration: str,
@@ -3464,11 +3464,11 @@ async def _enqueue_window_spend_row_update(
     increment: float,
     request_started_at: datetime | None,
 ) -> None:
-    """Queue this request's cost against the LiteLLM_BudgetWindowSpend row for
+    """Queue this request's cost against the EmbRouter_BudgetWindowSpend row for
     the window, so enforcement can read a maintained total instead of
-    aggregating LiteLLM_SpendLogs.
+    aggregating EmbRouter_SpendLogs.
 
-    request_started_at is this request's LiteLLM_SpendLogs startTime; the flush
+    request_started_at is this request's EmbRouter_SpendLogs startTime; the flush
     stops the one-time seed there so a request its increment already covers is
     not counted twice.
 
@@ -3478,7 +3478,7 @@ async def _enqueue_window_spend_row_update(
 
     Windows with no reset_at slide with wall clock, so their window_start moves
     on every request and no single row can represent them. Those are left to
-    the read path's LiteLLM_SpendLogs fallback rather than rewritten per
+    the read path's EmbRouter_SpendLogs fallback rather than rewritten per
     request.
     """
     if window_start is None or not reset_at:
@@ -3899,7 +3899,7 @@ async def update_cache(
                 user_id=existing_spend_obj.user_id,
                 projected_spend=projected_spend,
                 projected_exceeded_date=str(projected_exceeded_date),
-                event_group=Litellm_EntityType.KEY,
+                event_group=Embrouter_EntityType.KEY,
             )
             # alert user
             asyncio.create_task(
@@ -3925,7 +3925,7 @@ async def update_cache(
                 if cached_user is None:
                     # do nothing if there is no cache value
                     return
-                existing_spend_obj = CacheCodec.deserialize(cached_user, LiteLLM_UserTable)
+                existing_spend_obj = CacheCodec.deserialize(cached_user, EmbRouter_UserTable)
                 if existing_spend_obj is None:
                     return
                 verbose_proxy_logger.debug(
@@ -3940,7 +3940,7 @@ async def update_cache(
                 values_to_update_in_cache.append(
                     (
                         _id,
-                        CacheCodec.serialize(existing_spend_obj, model_type=LiteLLM_UserTable),
+                        CacheCodec.serialize(existing_spend_obj, model_type=EmbRouter_UserTable),
                     )
                 )
             ## UPDATE GLOBAL PROXY ##
@@ -3972,10 +3972,10 @@ async def update_cache(
             # Fetch the existing cost for the given user
             cached_end_user: Final = cached_values.get(_id)
             if cached_end_user is None:
-                # if user does not exist in LiteLLM_UserTable, create a new user
+                # if user does not exist in EmbRouter_UserTable, create a new user
                 # do nothing if end-user not in api key cache
                 return
-            existing_spend_obj: Final = CacheCodec.deserialize(cached_end_user, LiteLLM_EndUserTable)
+            existing_spend_obj: Final = CacheCodec.deserialize(cached_end_user, EmbRouter_EndUserTable)
             if existing_spend_obj is None:
                 return
             verbose_proxy_logger.debug(
@@ -3990,7 +3990,7 @@ async def update_cache(
             values_to_update_in_cache.append(
                 (
                     _id,
-                    CacheCodec.serialize(existing_spend_obj, model_type=LiteLLM_EndUserTable),
+                    CacheCodec.serialize(existing_spend_obj, model_type=EmbRouter_EndUserTable),
                 )
             )
         except Exception as e:
@@ -4015,8 +4015,8 @@ async def update_cache(
             if cached_team is None:
                 # do nothing if team not in api key cache
                 return
-            existing_spend_obj: Final[LiteLLM_TeamTableCachedObj | None] = CacheCodec.deserialize(
-                cached_team, LiteLLM_TeamTableCachedObj
+            existing_spend_obj: Final[EmbRouter_TeamTableCachedObj | None] = CacheCodec.deserialize(
+                cached_team, EmbRouter_TeamTableCachedObj
             )
             if existing_spend_obj is None:
                 return
@@ -4032,7 +4032,7 @@ async def update_cache(
             values_to_update_in_cache.append(
                 (
                     _id,
-                    CacheCodec.serialize(existing_spend_obj, model_type=LiteLLM_TeamTableCachedObj),
+                    CacheCodec.serialize(existing_spend_obj, model_type=EmbRouter_TeamTableCachedObj),
                 )
             )
         except Exception as e:
@@ -4066,7 +4066,7 @@ async def update_cache(
                     # do nothing if tag not in api key cache
                     continue
 
-                existing_tag_obj = CacheCodec.deserialize(cached_tag, LiteLLM_TagTable)
+                existing_tag_obj = CacheCodec.deserialize(cached_tag, EmbRouter_TagTable)
                 if existing_tag_obj is None:
                     continue
 
@@ -4085,7 +4085,7 @@ async def update_cache(
                 values_to_update_in_cache.append(
                     (
                         cache_key,
-                        CacheCodec.serialize(existing_tag_obj, model_type=LiteLLM_TagTable),
+                        CacheCodec.serialize(existing_tag_obj, model_type=EmbRouter_TagTable),
                     )
                 )
         except Exception as e:
@@ -4123,7 +4123,7 @@ async def update_cache(
             user_api_key_cache.async_set_cache_pipeline(
                 cache_list=list(local_object_updates),
                 ttl=get_management_object_ttl(user_api_key_cache),
-                litellm_parent_otel_span=parent_otel_span,
+                embrouter_parent_otel_span=parent_otel_span,
                 local_only=True,
             )
         )
@@ -4132,7 +4132,7 @@ async def update_cache(
             user_api_key_cache.async_set_cache_pipeline(
                 cache_list=list(shared_scalar_updates),
                 ttl=get_management_object_ttl(user_api_key_cache),
-                litellm_parent_otel_span=parent_otel_span,
+                embrouter_parent_otel_span=parent_otel_span,
             )
         )
 
@@ -4145,7 +4145,7 @@ def run_ollama_serve():
             subprocess.Popen(command, stdout=devnull, stderr=devnull)
     except Exception as e:
         verbose_proxy_logger.debug(
-            "\n            LiteLLM Warning: proxy started with `ollama` model\n`ollama serve` failed with Exception%s. \nEnsure you run `ollama serve`\n        ",
+            "\n            EmbRouter Warning: proxy started with `ollama` model\n`ollama serve` failed with Exception%s. \nEnsure you run `ollama serve`\n        ",
             e,
         )
 
@@ -4260,7 +4260,7 @@ def _schedule_background_health_check_db_save(
         return
     import time as time_module
 
-    from litellm.proxy.health_endpoints._health_endpoints import (
+    from embrouter.proxy.health_endpoints._health_endpoints import (
         _save_background_health_checks_to_db,
     )
 
@@ -4308,9 +4308,9 @@ def _write_health_state_to_router_cache(
     stays behind that flag, so routing is untouched when only the listing filter
     is on.
     """
-    from litellm.proxy.health_check import build_deployment_health_states
-    from litellm.router_utils.cooldown_handlers import _set_cooldown_deployments
-    from litellm.router_utils.router_callbacks.track_deployment_metrics import (
+    from embrouter.proxy.health_check import build_deployment_health_states
+    from embrouter.router_utils.cooldown_handlers import _set_cooldown_deployments
+    from embrouter.router_utils.router_callbacks.track_deployment_metrics import (
         increment_deployment_failures_for_current_minute,
     )
 
@@ -4364,12 +4364,12 @@ def _write_health_state_to_router_cache(
                 continue
 
             increment_deployment_failures_for_current_minute(
-                litellm_router_instance=llm_router,
+                embrouter_router_instance=llm_router,
                 deployment_id=model_id,
             )
 
             _set_cooldown_deployments(
-                litellm_router_instance=llm_router,
+                embrouter_router_instance=llm_router,
                 original_exception=original_exception,
                 exception_status=exception_status,
                 deployment=model_id,
@@ -4450,7 +4450,7 @@ async def _run_background_health_check():
     # Initialize shared health check manager if Redis is available and feature is enabled
     shared_health_manager = None
     if use_shared_health_check and redis_usage_cache is not None:
-        from litellm.proxy.health_check_utils.shared_health_check_manager import (
+        from embrouter.proxy.health_check_utils.shared_health_check_manager import (
             SharedHealthCheckManager,
         )
 
@@ -4596,7 +4596,7 @@ class StreamingCallbackError(Exception):
     pass
 
 
-# Fields in ``litellm_settings`` / ``general_settings`` whose values flow
+# Fields in ``embrouter_settings`` / ``general_settings`` whose values flow
 # into ``get_instance_fn`` during config load. Remote-URL values
 # (``s3://`` / ``gcs://``) are scrubbed from these when the value
 # originates from a DB-overlay merge: at the point ``get_instance_fn``
@@ -4605,7 +4605,7 @@ class StreamingCallbackError(Exception):
 # from a DB-sourced value. Scrubbing at the merge boundary closes that
 # gap without tracking source on every config dict entry.
 _DB_OVERLAY_REMOTE_MODULE_STR_FIELDS: Final[dict[str, tuple[str, ...]]] = {
-    "litellm_settings": ("post_call_rules",),
+    "embrouter_settings": ("post_call_rules",),
     "general_settings": (
         "custom_auth",
         "custom_key_generate",
@@ -4617,7 +4617,7 @@ _DB_OVERLAY_REMOTE_MODULE_STR_FIELDS: Final[dict[str, tuple[str, ...]]] = {
     ),
 }
 _DB_OVERLAY_REMOTE_MODULE_LIST_FIELDS: Final[dict[str, tuple[str, ...]]] = {
-    "litellm_settings": (
+    "embrouter_settings": (
         "callbacks",
         "success_callback",
         "failure_callback",
@@ -4638,13 +4638,13 @@ def _scrub_guardrail_inner(inner: dict[str, JsonValue]) -> None:
         cleaned: Final = [c for c in cbs if not _is_remote_module_url(c)]
         if len(cleaned) != len(cbs):
             verbose_proxy_logger.warning(
-                "Refused %d remote-URL entries from DB-overlay litellm_settings.guardrails[...].callbacks",
+                "Refused %d remote-URL entries from DB-overlay embrouter_settings.guardrails[...].callbacks",
                 len(cbs) - len(cleaned),
             )
             inner["callbacks"] = cleaned
     if _is_remote_module_url(inner.get("guardrail")):
         verbose_proxy_logger.warning(
-            "Refused remote-URL guardrail module from DB-overlay litellm_settings.guardrails[...].guardrail: %r",
+            "Refused remote-URL guardrail module from DB-overlay embrouter_settings.guardrails[...].guardrail: %r",
             inner.get("guardrail"),
         )
         inner["guardrail"] = None
@@ -4690,23 +4690,23 @@ def _scrub_db_overlay_remote_module_loads(section: str, db_value: object) -> obj
                 sanitized[field] = cleaned
     # ``custom_provider_map`` is a list of dicts with ``custom_handler`` —
     # walk it explicitly.
-    if section == "litellm_settings":
+    if section == "embrouter_settings":
         cpm: Final = sanitized.get("custom_provider_map")
         if isinstance(cpm, list):
             for item in cpm:
                 if isinstance(item, dict) and _is_remote_module_url(item.get("custom_handler")):
                     verbose_proxy_logger.warning(
-                        "Refused remote-URL custom_handler from DB-overlay litellm_settings.custom_provider_map: %r",
+                        "Refused remote-URL custom_handler from DB-overlay embrouter_settings.custom_provider_map: %r",
                         item.get("custom_handler"),
                     )
                     item["custom_handler"] = None
-    # ``litellm_settings.guardrails`` is a list of single-key dicts in
+    # ``embrouter_settings.guardrails`` is a list of single-key dicts in
     # v1 ({guardrail_name: {callbacks: [...], default_on: bool}}) or a
-    # list of v2 entries ({guardrail_name, litellm_params: {guardrail:
+    # list of v2 entries ({guardrail_name, embrouter_params: {guardrail:
     # "module.path", callbacks: [...]}}). Both shapes terminate in
     # ``callbacks`` (a list) or ``guardrail`` (a single dotted name)
     # that flow into ``get_instance_fn`` during config load.
-    if section == "litellm_settings":
+    if section == "embrouter_settings":
         guardrails: Final = sanitized.get("guardrails")
         if isinstance(guardrails, list):
             for entry in guardrails:
@@ -4716,17 +4716,17 @@ def _scrub_db_overlay_remote_module_loads(section: str, db_value: object) -> obj
                     if not isinstance(inner, dict):
                         continue
                     _scrub_guardrail_inner(inner)
-                lp = entry.get("litellm_params")
+                lp = entry.get("embrouter_params")
                 if isinstance(lp, dict):
                     _scrub_guardrail_inner(lp)
 
-    # ``general_settings.litellm_jwtauth.custom_validate`` is a nested
+    # ``general_settings.embrouter_jwtauth.custom_validate`` is a nested
     # string field.
     if section == "general_settings":
-        jwt: Final = sanitized.get("litellm_jwtauth")
+        jwt: Final = sanitized.get("embrouter_jwtauth")
         if isinstance(jwt, dict) and _is_remote_module_url(jwt.get("custom_validate")):
             verbose_proxy_logger.warning(
-                "Refused remote-URL custom_validate from DB-overlay general_settings.litellm_jwtauth: %r",
+                "Refused remote-URL custom_validate from DB-overlay general_settings.embrouter_jwtauth: %r",
                 jwt.get("custom_validate"),
             )
             jwt["custom_validate"] = None
@@ -4760,14 +4760,14 @@ def _normalize_user_url_validation(value: object) -> bool | None:
 
 def _apply_ssrf_general_settings(settings: Mapping[str, object]) -> None:
     if "user_url_allowed_hosts" in settings:
-        litellm.user_url_allowed_hosts = cast(list[str], settings["user_url_allowed_hosts"])
+        embrouter.user_url_allowed_hosts = cast(list[str], settings["user_url_allowed_hosts"])
 
     user_url_validation: Final = _normalize_user_url_validation(settings.get("user_url_validation"))
     if user_url_validation is not None:
-        litellm.user_url_validation = user_url_validation
+        embrouter.user_url_validation = user_url_validation
 
     if "provider_url_destination_allowed_hosts" in settings:
-        litellm.provider_url_destination_allowed_hosts = cast(
+        embrouter.provider_url_destination_allowed_hosts = cast(
             list[str], settings["provider_url_destination_allowed_hosts"]
         )
 
@@ -4812,7 +4812,7 @@ def _environment_has_redis_connection_target() -> bool:
     know whether the env fallback would apply use this instead of building a
     client.
     """
-    redis_env_kwargs: Final = litellm._redis._redis_kwargs_from_environment()
+    redis_env_kwargs: Final = embrouter._redis._redis_kwargs_from_environment()
     return (
         "host" in redis_env_kwargs
         or "url" in redis_env_kwargs
@@ -4834,7 +4834,7 @@ def _build_redis_usage_cache_from_environment() -> RedisCache | None:
     """
     if not _environment_has_redis_connection_target():
         return None
-    return _build_redis_usage_cache(litellm._redis._redis_kwargs_from_environment())
+    return _build_redis_usage_cache(embrouter._redis._redis_kwargs_from_environment())
 
 
 def _attach_redis_usage_cache(redis_cache: RedisCache, enable_redis_auth_cache: bool) -> None:
@@ -4850,7 +4850,7 @@ def _attach_redis_usage_cache(redis_cache: RedisCache, enable_redis_auth_cache: 
     """
     spend_counter_cache.attach_redis_cache(
         redis_cache,
-        default_redis_ttl=litellm.default_redis_ttl,
+        default_redis_ttl=embrouter.default_redis_ttl,
     )
     cli_sso_session_cache.attach_redis_cache(
         redis_cache,
@@ -4859,7 +4859,7 @@ def _attach_redis_usage_cache(redis_cache: RedisCache, enable_redis_auth_cache: 
     if enable_redis_auth_cache is True:
         user_api_key_cache.attach_redis_cache(
             redis_cache,
-            default_redis_ttl=litellm.default_redis_ttl,
+            default_redis_ttl=embrouter.default_redis_ttl,
         )
         verbose_proxy_logger.info(
             "enable_redis_auth_cache=True: attached Redis to "
@@ -4870,10 +4870,10 @@ def _attach_redis_usage_cache(redis_cache: RedisCache, enable_redis_auth_cache: 
         verbose_proxy_logger.info(
             "enable_redis_auth_cache is not set: user_api_key_cache "
             "remains in-memory only (per-worker). Set "
-            "litellm_settings.enable_redis_auth_cache: true to share "
+            "embrouter_settings.enable_redis_auth_cache: true to share "
             "the auth cache across workers and reduce DB load."
         )
-    litellm_config_cache.redis_cache = redis_cache
+    embrouter_config_cache.redis_cache = redis_cache
 
 
 def resolve_routing_plugins(
@@ -4884,7 +4884,7 @@ def resolve_routing_plugins(
     """
     Resolves a list of routing-plugin entries to live `RoutingPlugin` instances.
     Each string entry is resolved through `get_instance_fn` (the same dotted-path
-    convention `litellm_settings.callbacks` uses, which resolves both local module
+    convention `embrouter_settings.callbacks` uses, which resolves both local module
     files next to the config and modules installed as Python packages); non-string
     entries are assumed to already be instances and passed through. Raises at
     config-load time if any entry resolves to something that doesn't implement
@@ -4946,22 +4946,22 @@ def validate_deployment_max_agentic_loops(model: Mapping[str, object]) -> None:
     """
     Reject a per-deployment `max_agentic_loops` the agentic loop cannot honor.
 
-    Checked here rather than on `LiteLLM_Params` because the proxy builds its
+    Checked here rather than on `EmbRouter_Params` because the proxy builds its
     router with `ignore_invalid_deployments=True`, so a validator down there
     turns a bad value into a silently missing model instead of a refusal to
     start. Left unchecked entirely, a `0` used to read as the default ceiling
     of 3 and a non-integer failed every request to that model instead.
     """
-    litellm_params: Final = model.get("litellm_params")
-    if not isinstance(litellm_params, Mapping):
+    embrouter_params: Final = model.get("embrouter_params")
+    if not isinstance(embrouter_params, Mapping):
         return
-    if "max_agentic_loops" not in litellm_params:
+    if "max_agentic_loops" not in embrouter_params:
         return
 
     model_name: Final = model.get("model_name", "")
     validated_max_agentic_loops(
-        litellm_params["max_agentic_loops"],
-        field=f"litellm_params.max_agentic_loops on model {model_name!r}",
+        embrouter_params["max_agentic_loops"],
+        field=f"embrouter_params.max_agentic_loops on model {model_name!r}",
     )
 
 
@@ -4969,20 +4969,20 @@ def validate_deployment_complexity_router_placement(model: Mapping[str, object])
     """
     Reject a complexity-router setting written one level above `complexity_router_config`.
 
-    Checked here rather than on `LiteLLM_Params` for the same reason as
+    Checked here rather than on `EmbRouter_Params` for the same reason as
     `max_agentic_loops`: the proxy builds its router with
     `ignore_invalid_deployments=True`, so a rejection further down turns a bad
     deployment into a silently missing model instead of a refusal to start.
     """
-    litellm_params: Final = model.get("litellm_params")
-    if not isinstance(litellm_params, Mapping):
+    embrouter_params: Final = model.get("embrouter_params")
+    if not isinstance(embrouter_params, Mapping):
         return
     present_fields: Final = frozenset(
-        field for field in STRATEGY_ROUTER_PARAM_FIELDS if litellm_params.get(field) is not None
+        field for field in STRATEGY_ROUTER_PARAM_FIELDS if embrouter_params.get(field) is not None
     )
-    if not carries_complexity_router_settings(str(litellm_params.get("model") or ""), present_fields):
+    if not carries_complexity_router_settings(str(embrouter_params.get("model") or ""), present_fields):
         return
-    violation: Final = validate_complexity_router_config_placement(litellm_params)
+    violation: Final = validate_complexity_router_config_placement(embrouter_params)
     if violation is not None:
         raise ValueError(f"model {model.get('model_name', '')!r}: {violation}")
 
@@ -5029,23 +5029,23 @@ def validate_auto_router_capability_limits(model_list: Sequence[Mapping[str, obj
 
 def pin_complexity_router_model_id(model: dict) -> None:  # mutable-ok: out-param, model_info is stamped in place
     """
-    Stamps `model_info.id` from the raw litellm_params before plugin resolution swaps
+    Stamps `model_info.id` from the raw embrouter_params before plugin resolution swaps
     dotted-path strings for live instances. `_delete_deployment` re-reads the raw config
     and re-hashes these params to decide which ids the config wants served; an id the
     Router derived from the resolved params would never match that hash, so the reconcile
     would evict every plugin-bearing deployment one sync after startup.
     """
-    litellm_params: Final = model.get("litellm_params")
-    if not isinstance(litellm_params, dict) or not isinstance(litellm_params.get("complexity_router_config"), dict):
+    embrouter_params: Final = model.get("embrouter_params")
+    if not isinstance(embrouter_params, dict) or not isinstance(embrouter_params.get("complexity_router_config"), dict):
         return
     model_info = model.get("model_info")
     if not isinstance(model_info, dict):
         model_info = {}  # mutable-ok: fresh model_info stamped onto the raw yaml model dict
         model["model_info"] = model_info  # rebind-ok: out-param, stamped in place
     if model_info.get("id") is None:
-        model_info["id"] = litellm.Router.generate_model_id(
+        model_info["id"] = embrouter.Router.generate_model_id(
             model_group=model.get("model_name", ""),
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
 
@@ -5073,7 +5073,7 @@ def resolve_classifier_plugin(
 
 
 def _swap_in_model_cost_map(new_model_cost_map: dict) -> int:
-    from litellm.litellm_core_utils.get_model_cost_map import adopt_model_cost_map
+    from embrouter.embrouter_core_utils.get_model_cost_map import adopt_model_cost_map
 
     return adopt_model_cost_map(new_model_cost_map)
 
@@ -5119,7 +5119,7 @@ def should_load_db_object(object_type: str | SupportedDBObjectType) -> bool:
     return any(str(obj) == object_type_str for obj in supported_db_objects)
 
 
-_CONFIG_PERSISTED_SECTIONS: Final = ("general_settings", "router_settings", "litellm_settings")
+_CONFIG_PERSISTED_SECTIONS: Final = ("general_settings", "router_settings", "embrouter_settings")
 _CONFIG_UNMANAGED_EXCLUSIONS: Final = frozenset(("environment_variables", "model_list"))
 _CONFIG_SECTION_VALUES: Final = TypeAdapter(Mapping[str, JsonValue])
 _CONFIG_SECTION_LOCK_SQL: Final = "SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtext($1))"
@@ -5206,7 +5206,7 @@ def _cleanup_schedule_of(settings: Mapping[str, object]) -> tuple[object, ...]:
 def _log_ignored_cost_map_copy(model_id: str, fields: tuple[str, ...]) -> None:
     verbose_proxy_logger.warning(
         "Deployment %s stores a copy of the cost map in model_info (%s); ignoring it so the deployment follows the "
-        "current cost map. Set the price on litellm_params to override the cost map on purpose.",
+        "current cost map. Set the price on embrouter_params to override the cost map on purpose.",
         model_id,
         ", ".join(fields),
     )
@@ -5225,7 +5225,7 @@ _CALLBACK_LIST_NAMES: Final = (
 
 
 def _callback_list_entries(list_name: str) -> tuple[tuple[str, object], ...]:
-    return tuple((list_name, entry) for entry in getattr(litellm, list_name))
+    return tuple((list_name, entry) for entry in getattr(embrouter, list_name))
 
 
 def _registered_callback_entries() -> tuple[tuple[str, object], ...]:
@@ -5246,22 +5246,22 @@ class _DbCallbackRegistration:
 
 
 def _restore_displaced_callback(list_name: str, entry: object) -> None:
-    callback_list: Final = getattr(litellm, list_name)
+    callback_list: Final = getattr(embrouter, list_name)
     if entry not in callback_list:
         callback_list.append(entry)
 
 
 def _unregister_db_callback(registration: _DbCallbackRegistration) -> None:
     for list_name, entry in registration.added:
-        litellm.logging_callback_manager.remove_callback_from_list_by_object(
-            getattr(litellm, list_name), entry, require_self=False
+        embrouter.logging_callback_manager.remove_callback_from_list_by_object(
+            getattr(embrouter, list_name), entry, require_self=False
         )
     for list_name, entry in registration.displaced:
         _restore_displaced_callback(list_name, entry)
 
 
-def _configured_db_callbacks(litellm_settings: Mapping[str, object], setting_key: str) -> tuple[tuple[str, str], ...]:
-    callbacks: Final = litellm_settings.get(setting_key)
+def _configured_db_callbacks(embrouter_settings: Mapping[str, object], setting_key: str) -> tuple[tuple[str, str], ...]:
+    callbacks: Final = embrouter_settings.get(setting_key)
     if not isinstance(callbacks, list):
         return ()
     return tuple((setting_key, callback) for callback in callbacks if isinstance(callback, str))
@@ -5285,7 +5285,7 @@ class ProxyConfig:
         self.worker_registry: list[WorkerRegistryEntry] = []
         self.config_sync_subscriber: ConfigSyncSubscriber | None = None
         self.auth_cache_invalidation_subscriber: AuthCacheInvalidationSubscriber | None = None
-        from litellm.litellm_core_utils.get_model_cost_map import (
+        from embrouter.embrouter_core_utils.get_model_cost_map import (
             get_model_cost_map_loaded_at,
         )
 
@@ -5296,7 +5296,7 @@ class ProxyConfig:
         self.model_cost_map_applied_revision: int = 0
         self.settings: Final[SettingsStore] = SettingsStore("general_settings")
         self.router_settings: Final[SettingsStore] = SettingsStore("router_settings")
-        self.litellm_settings: Final[SettingsStore] = SettingsStore("litellm_settings")
+        self.embrouter_settings: Final[SettingsStore] = SettingsStore("embrouter_settings")
         self.environment_variables: Final[SettingsStore] = SettingsStore("environment_variables")
         self._warned_shadowed_keys: frozenset[tuple[Section, str]] = frozenset()
         self._db_config_callback_entries: Mapping[tuple[str, str], _DbCallbackRegistration] = MappingProxyType({})
@@ -5304,7 +5304,7 @@ class ProxyConfig:
             {
                 "general_settings": self.settings,
                 "router_settings": self.router_settings,
-                "litellm_settings": self.litellm_settings,
+                "embrouter_settings": self.embrouter_settings,
                 "environment_variables": self.environment_variables,
             }
         )
@@ -5378,7 +5378,7 @@ class ProxyConfig:
                 "model_list": [],
                 "general_settings": {},
                 "router_settings": {},
-                "litellm_settings": {},
+                "embrouter_settings": {},
             }
 
         if config is None:
@@ -5400,7 +5400,7 @@ class ProxyConfig:
         include:
             - model_config.yaml
 
-        litellm_settings:
+        embrouter_settings:
             callbacks: ["prometheus"]
         ```
         """
@@ -5562,7 +5562,7 @@ class ProxyConfig:
     ) -> Mapping[str, JsonValue] | None:
         async with prisma_client.tx() as tx:
             await tx.query_raw(_CONFIG_SECTION_LOCK_SQL, section_name)
-            config_table: Final = cast("TableActions[_ConfigParamRow]", tx.litellm_config)
+            config_table: Final = cast("TableActions[_ConfigParamRow]", tx.embrouter_config)
             config_where: Final[_ConfigParamWhere] = {"param_name": section_name}
             existing_row: Final[_ConfigParamRow | None] = await config_table.find_first(where=config_where)
             existing_value: Final[object] = cast(object, existing_row.param_value) if existing_row is not None else None
@@ -5683,7 +5683,7 @@ class ProxyConfig:
         The manager's own settings can only come from real environment variables, so they are
         resolved against a throwaway copy and the config is left untouched for the main pass.
         """
-        if litellm.secret_manager_client is not None:
+        if embrouter.secret_manager_client is not None:
             return
 
         general_settings: Final = config.get("general_settings")
@@ -5701,7 +5701,7 @@ class ProxyConfig:
 
         raw_settings: Final = general_settings.get("key_management_settings")
         if isinstance(raw_settings, dict):
-            litellm._key_management_settings = KeyManagementSettings(
+            embrouter._key_management_settings = KeyManagementSettings(
                 **self._check_for_os_environ_vars(config=copy.deepcopy(raw_settings))
             )
 
@@ -5732,9 +5732,9 @@ class ProxyConfig:
         # load existing config
         config: Final = self.get_config_state()
 
-        ## LITELLM MODULE SETTINGS (e.g. litellm.drop_params=True,..)
-        litellm_settings: Final = config.get("litellm_settings", {})
-        all_teams_config: Final = litellm_settings.get("default_team_settings", None)
+        ## EMBROUTER MODULE SETTINGS (e.g. embrouter.drop_params=True,..)
+        embrouter_settings: Final = config.get("embrouter_settings", {})
+        all_teams_config: Final = embrouter_settings.get("default_team_settings", None)
         if all_teams_config is None:
             return {}
         team_config: Final = self._get_team_config(team_id=team_id, all_teams_config=all_teams_config)
@@ -5749,7 +5749,7 @@ class ProxyConfig:
         built client (None when the block is absent) for the caller to publish.
         """
         settings: Final = config.get("general_settings") or {}
-        litellm_settings: Final = config.get("litellm_settings") or {}
+        embrouter_settings: Final = config.get("embrouter_settings") or {}
         raw_params: Final = settings.get("coordination_redis")
         if raw_params is None:
             return None
@@ -5768,7 +5768,7 @@ class ProxyConfig:
         coordination_redis_cache: Final = _build_redis_usage_cache(coordination_params.model_dump(exclude_none=True))
         _attach_redis_usage_cache(
             coordination_redis_cache,
-            enable_redis_auth_cache=litellm_settings.get("enable_redis_auth_cache", False) is True,
+            enable_redis_auth_cache=embrouter_settings.get("enable_redis_auth_cache", False) is True,
         )
         verbose_proxy_logger.info(
             "coordination_redis: using a standalone Redis from general_settings "
@@ -5777,10 +5777,10 @@ class ProxyConfig:
         return coordination_redis_cache
 
     @staticmethod
-    async def _init_coordination_redis_env_fallback(litellm_settings: Mapping[str, object]) -> RedisCache | None:
+    async def _init_coordination_redis_env_fallback(embrouter_settings: Mapping[str, object]) -> RedisCache | None:
         """
         Last-resort coordination Redis, tried after an explicit
-        `general_settings.coordination_redis` block and `litellm_settings.cache`
+        `general_settings.coordination_redis` block and `embrouter_settings.cache`
         have both had a chance to resolve one. Without this, a deployment that
         only exports REDIS_HOST/REDIS_PORT (no cache block, no coordination_redis
         block) gets NO cross-pod coordination at all: spend counters, budget-window
@@ -5824,7 +5824,7 @@ class ProxyConfig:
             return None
         _attach_redis_usage_cache(
             env_coordination_redis_cache,
-            enable_redis_auth_cache=litellm_settings.get("enable_redis_auth_cache", False) is True,
+            enable_redis_auth_cache=embrouter_settings.get("enable_redis_auth_cache", False) is True,
         )
         verbose_proxy_logger.info(
             "coordination_redis: using a standalone Redis built from REDIS_* "
@@ -5845,18 +5845,18 @@ class ProxyConfig:
         coordination_redis block already set wins, else a plain-Redis response
         cache backend is borrowed, else the REDIS_* environment fallback applies.
         """
-        from litellm import Cache
+        from embrouter import Cache
 
         if "default_in_memory_ttl" in cache_params:
-            litellm.default_in_memory_ttl = cache_params["default_in_memory_ttl"]
+            embrouter.default_in_memory_ttl = cache_params["default_in_memory_ttl"]
 
         if "default_redis_ttl" in cache_params:
-            litellm.default_redis_ttl = cache_params["default_redis_ttl"]
+            embrouter.default_redis_ttl = cache_params["default_redis_ttl"]
 
-        litellm.cache = Cache(**cache_params)
+        embrouter.cache = Cache(**cache_params)
 
         resolved_usage_cache = redis_usage_cache
-        cache_backend: Final = litellm.cache.cache if litellm.cache is not None else None
+        cache_backend: Final = embrouter.cache.cache if embrouter.cache is not None else None
         if resolved_usage_cache is None:
             if isinstance(cache_backend, (RedisCache, RedisClusterCache)):
                 ## INIT PROXY REDIS USAGE CLIENT ##
@@ -5875,20 +5875,20 @@ class ProxyConfig:
             # Note: PKCE verifier storage uses redis_usage_cache directly (not
             # user_api_key_cache) to avoid routing all API-key lookups through Redis.
             _attach_redis_usage_cache(resolved_usage_cache, enable_redis_auth_cache)
-        elif litellm_config_cache.redis_cache is None:
-            verbose_proxy_logger.info("litellm_config_cache: no Redis configured; cluster-wide cache sharing disabled.")
+        elif embrouter_config_cache.redis_cache is None:
+            verbose_proxy_logger.info("embrouter_config_cache: no Redis configured; cluster-wide cache sharing disabled.")
         return resolved_usage_cache
 
     def switch_on_llm_response_caching(self):
         """
         Enable caching on the router by setting cache_responses=True.
         This ensures caching works without needing caching=True in request body.
-        Router passes caching=self.cache_responses to litellm.completion()
+        Router passes caching=self.cache_responses to embrouter.completion()
         """
         global llm_router
-        import litellm
+        import embrouter
 
-        if llm_router is not None and litellm.cache is not None and llm_router.cache_responses is not True:
+        if llm_router is not None and embrouter.cache is not None and llm_router.cache_responses is not True:
             llm_router.cache_responses = True
             verbose_proxy_logger.debug("Set router.cache_responses=True after initializing cache")
 
@@ -5897,7 +5897,7 @@ class ProxyConfig:
         Load config file
         Supports reading from:
         - .yaml file paths
-        - LiteLLM connected DB
+        - EmbRouter connected DB
         - GCS
         - S3
 
@@ -5910,13 +5910,13 @@ class ProxyConfig:
         global prisma_client, store_model_in_db
         # Load existing config
 
-        bucket_name: Final = os.environ.get("LITELLM_CONFIG_BUCKET_NAME")
+        bucket_name: Final = os.environ.get("EMBROUTER_CONFIG_BUCKET_NAME")
         if bucket_name is not None:
-            object_key: Final = os.environ.get("LITELLM_CONFIG_BUCKET_OBJECT_KEY")
-            bucket_type: Final = os.environ.get("LITELLM_CONFIG_BUCKET_TYPE")
+            object_key: Final = os.environ.get("EMBROUTER_CONFIG_BUCKET_OBJECT_KEY")
+            bucket_type: Final = os.environ.get("EMBROUTER_CONFIG_BUCKET_TYPE")
             verbose_proxy_logger.debug("bucket_name: %s, object_key: %s", bucket_name, object_key)
             if object_key is None:
-                raise Exception("LITELLM_CONFIG_BUCKET_OBJECT_KEY must be set to load the config from a bucket.")
+                raise Exception("EMBROUTER_CONFIG_BUCKET_OBJECT_KEY must be set to load the config from a bucket.")
 
             config = await get_config_from_bucket(
                 bucket_type=bucket_type,
@@ -6009,26 +6009,26 @@ class ProxyConfig:
         search_tools_parsed: Final[list[SearchToolTypedDict]] = []
 
         print(  # noqa: T201
-            "\033[32mLiteLLM: Proxy initialized with Search Tools:\033[0m"
+            "\033[32mEmbRouter: Proxy initialized with Search Tools:\033[0m"
         )
 
         for search_tool in search_tools_raw:
             # Display loaded search tool
             search_tool_name = search_tool.get("search_tool_name", "")
-            search_provider = search_tool.get("litellm_params", {}).get("search_provider", "")
+            search_provider = search_tool.get("embrouter_params", {}).get("search_provider", "")
             print(  # noqa: T201
                 f"\033[32m    {search_tool_name} ({search_provider})\033[0m"
             )
 
-            # Handle os.environ/ variables in litellm_params
-            litellm_params = search_tool.get("litellm_params", {})
-            if litellm_params:
-                for k, v in litellm_params.items():
+            # Handle os.environ/ variables in embrouter_params
+            embrouter_params = search_tool.get("embrouter_params", {})
+            if embrouter_params:
+                for k, v in embrouter_params.items():
                     if isinstance(v, str) and v.startswith("os.environ/"):
                         _v = v.replace("os.environ/", "")
                         v = get_secret(_v)
-                        litellm_params[k] = v
-                search_tool["litellm_params"] = litellm_params
+                        embrouter_params[k] = v
+                search_tool["embrouter_params"] = embrouter_params
 
             # Cast to SearchToolTypedDict for type safety
             try:
@@ -6089,25 +6089,25 @@ class ProxyConfig:
                     #########################################################
                     os.environ[key] = str(value)
 
-            # check if litellm_license in general_settings
-            if "LITELLM_LICENSE" in environment_variables:
-                _license_check.license_str = os.getenv("LITELLM_LICENSE", None)
+            # check if embrouter_license in general_settings
+            if "EMBROUTER_LICENSE" in environment_variables:
+                _license_check.license_str = os.getenv("EMBROUTER_LICENSE", None)
                 premium_user = _license_check.is_premium()
 
     def _warn_on_misplaced_jwt_keys(self, config: dict) -> tuple[str, ...]:
-        misplaced_jwt_keys = tuple(key for key in ("enable_jwt_auth", "litellm_jwtauth") if key in config)
+        misplaced_jwt_keys = tuple(key for key in ("enable_jwt_auth", "embrouter_jwtauth") if key in config)
         if not misplaced_jwt_keys:
             return misplaced_jwt_keys
         verbose_proxy_logger.warning(
             "Ignoring top-level config key(s) %s. JWT auth settings must live under "
             "'general_settings' (e.g. general_settings.enable_jwt_auth, "
-            "general_settings.litellm_jwtauth); placed at the top level they are silently "
+            "general_settings.embrouter_jwtauth); placed at the top level they are silently "
             "dropped and JWT auth (and JWT-to-virtual-key mapping) will not engage.",
             ", ".join(misplaced_jwt_keys),
         )
         return misplaced_jwt_keys
 
-    async def load_config(self, router: litellm.Router | None, config_file_path: str):
+    async def load_config(self, router: embrouter.Router | None, config_file_path: str):
         """
         Load config values into proxy global state
         """
@@ -6130,7 +6130,7 @@ class ProxyConfig:
             proxy_budget_rescheduler_max_time, \
             proxy_budget_rescheduler_min_time, \
             ui_access_mode, \
-            litellm_master_key_hash, \
+            embrouter_master_key_hash, \
             proxy_batch_write_at, \
             disable_spend_logs, \
             prompt_injection_detection_obj, \
@@ -6157,32 +6157,32 @@ class ProxyConfig:
         ## Callback settings
         callback_settings: Final = config.get("callback_settings", {})
         if callback_settings:
-            litellm.callback_settings = callback_settings
+            embrouter.callback_settings = callback_settings
 
-        ## LITELLM MODULE SETTINGS (e.g. litellm.drop_params=True,..)
-        litellm_settings = config.get("litellm_settings", None)
-        if litellm_settings is None:
-            litellm_settings = {}
-        if litellm_settings:
+        ## EMBROUTER MODULE SETTINGS (e.g. embrouter.drop_params=True,..)
+        embrouter_settings = config.get("embrouter_settings", None)
+        if embrouter_settings is None:
+            embrouter_settings = {}
+        if embrouter_settings:
             # Prometheus collectors have fixed label schemas. Load and validate this
             # setting before processing callbacks so YAML key order cannot construct
             # the collectors with the default caller-identity mode, and so an invalid
             # value fails the boot instead of being swallowed by callback init.
-            from litellm.types.integrations.prometheus import validate_caller_identity_settings
+            from embrouter.types.integrations.prometheus import validate_caller_identity_settings
 
-            validate_caller_identity_settings(litellm_settings)
+            validate_caller_identity_settings(embrouter_settings)
 
             # ANSI escape code for blue text
             blue_color_code: Final = "\033[94m"
             reset_color_code: Final = "\033[0m"
-            for key, value in litellm_settings.items():
+            for key, value in embrouter_settings.items():
                 if key == "cache" and value is True:
                     print(f"{blue_color_code}\nSetting Cache on Proxy")  # noqa: T201
-                    from litellm.caching.caching import Cache
+                    from embrouter.caching.caching import Cache
 
                     cache_params = {}
-                    if "cache_params" in litellm_settings:
-                        cache_params_in_config = litellm_settings["cache_params"]
+                    if "cache_params" in embrouter_settings:
+                        cache_params_in_config = embrouter_settings["cache_params"]
                         # overwrite cache_params with cache_params_in_config
                         cache_params.update(cache_params_in_config)
 
@@ -6245,11 +6245,11 @@ class ProxyConfig:
                     _set_redis_usage_cache(
                         self._init_cache(
                             cache_params=cache_params,
-                            enable_redis_auth_cache=litellm_settings.get("enable_redis_auth_cache", False) is True,
+                            enable_redis_auth_cache=embrouter_settings.get("enable_redis_auth_cache", False) is True,
                         )
                     )
-                    if litellm.cache is not None:
-                        verbose_proxy_logger.debug("%sSet Cache on LiteLLM Proxy%s", blue_color_code, reset_color_code)
+                    if embrouter.cache is not None:
+                        verbose_proxy_logger.debug("%sSet Cache on EmbRouter Proxy%s", blue_color_code, reset_color_code)
                 elif key == "cache" and value is False:
                     pass
                 elif key == "guardrails":
@@ -6257,82 +6257,82 @@ class ProxyConfig:
                         guardrails_config=value,
                         premium_user=premium_user,
                         config_file_path=config_file_path,
-                        litellm_settings=litellm_settings,
+                        embrouter_settings=embrouter_settings,
                     )
 
-                    litellm.guardrail_name_config_map = guardrail_name_config_map
+                    embrouter.guardrail_name_config_map = guardrail_name_config_map
 
                 elif key == "global_prompt_directory":
-                    from litellm.integrations.dotprompt import (
+                    from embrouter.integrations.dotprompt import (
                         set_global_prompt_directory,
                     )
 
                     set_global_prompt_directory(value)
                     verbose_proxy_logger.info(
-                        "%sSet Global Prompt Directory on LiteLLM Proxy%s", blue_color_code, reset_color_code
+                        "%sSet Global Prompt Directory on EmbRouter Proxy%s", blue_color_code, reset_color_code
                     )
                 elif key == "global_bitbucket_config":
-                    from litellm.integrations.bitbucket import (
+                    from embrouter.integrations.bitbucket import (
                         set_global_bitbucket_config,
                     )
 
                     set_global_bitbucket_config(value)
                     verbose_proxy_logger.info(
-                        "%sSet Global BitBucket Config on LiteLLM Proxy%s", blue_color_code, reset_color_code
+                        "%sSet Global BitBucket Config on EmbRouter Proxy%s", blue_color_code, reset_color_code
                     )
                 elif key == "global_gitlab_config":
-                    from litellm.integrations.gitlab import set_global_gitlab_config
+                    from embrouter.integrations.gitlab import set_global_gitlab_config
 
                     set_global_gitlab_config(value)
                     verbose_proxy_logger.info(
-                        "%sSet Global Gitlab Config on LiteLLM Proxy%s", blue_color_code, reset_color_code
+                        "%sSet Global Gitlab Config on EmbRouter Proxy%s", blue_color_code, reset_color_code
                     )
                 elif key == "priority_reservation_settings":
-                    from litellm.types.utils import PriorityReservationSettings
+                    from embrouter.types.utils import PriorityReservationSettings
 
-                    litellm.priority_reservation_settings = PriorityReservationSettings(**value)
+                    embrouter.priority_reservation_settings = PriorityReservationSettings(**value)
                 elif key == "callbacks":
                     initialize_callbacks_on_proxy(
                         value=value,
                         premium_user=premium_user,
                         config_file_path=config_file_path,
-                        litellm_settings=litellm_settings,
+                        embrouter_settings=embrouter_settings,
                         callback_specific_params=callback_settings,
                     )
 
                 elif key == "model_group_settings":
-                    from litellm.types.router import ModelGroupSettings
+                    from embrouter.types.router import ModelGroupSettings
 
-                    litellm.model_group_settings = ModelGroupSettings(**value)
+                    embrouter.model_group_settings = ModelGroupSettings(**value)
 
                 elif key == "post_call_rules":
-                    litellm.post_call_rules = [get_instance_fn(value=value, config_file_path=config_file_path)]
-                    verbose_proxy_logger.debug("litellm.post_call_rules: %s", litellm.post_call_rules)
+                    embrouter.post_call_rules = [get_instance_fn(value=value, config_file_path=config_file_path)]
+                    verbose_proxy_logger.debug("embrouter.post_call_rules: %s", embrouter.post_call_rules)
                 elif key == "max_budget":
-                    litellm.max_budget = float(value)
+                    embrouter.max_budget = float(value)
                 elif key == "max_internal_user_budget":
-                    litellm.max_internal_user_budget = float(value)
+                    embrouter.max_internal_user_budget = float(value)
                 elif key == "default_max_internal_user_budget":
-                    litellm.default_max_internal_user_budget = float(value)
-                    if litellm.max_internal_user_budget is None:
-                        litellm.max_internal_user_budget = litellm.default_max_internal_user_budget
+                    embrouter.default_max_internal_user_budget = float(value)
+                    if embrouter.max_internal_user_budget is None:
+                        embrouter.max_internal_user_budget = embrouter.default_max_internal_user_budget
                 elif key == "default_internal_user_params" and isinstance(value, dict):
-                    litellm.default_internal_user_params = (
+                    embrouter.default_internal_user_params = (
                         {**value, "max_budget": float(value["max_budget"])}
                         if value.get("max_budget") is not None
                         else value
                     )
                     verbose_proxy_logger.debug(
-                        "%s setting litellm.%s=%s%s",
+                        "%s setting embrouter.%s=%s%s",
                         blue_color_code,
                         key,
-                        _redact_general_setting_value(key, litellm.default_internal_user_params, is_full_admin=False),
+                        _redact_general_setting_value(key, embrouter.default_internal_user_params, is_full_admin=False),
                         reset_color_code,
                     )
                 elif key == "custom_provider_map":
-                    from litellm.utils import custom_llm_setup
+                    from embrouter.utils import custom_llm_setup
 
-                    litellm.custom_provider_map = [
+                    embrouter.custom_provider_map = [
                         {
                             "provider": item["provider"],
                             "custom_handler": get_instance_fn(
@@ -6345,23 +6345,23 @@ class ProxyConfig:
 
                     custom_llm_setup()
                 elif key == "success_callback":
-                    litellm.success_callback = []
+                    embrouter.success_callback = []
 
                     # initialize success callbacks
                     for callback in value:
                         # user passed custom_callbacks.async_on_succes_logger. They need us to import a function
                         if "." in callback:
-                            litellm.logging_callback_manager.add_litellm_success_callback(
+                            embrouter.logging_callback_manager.add_embrouter_success_callback(
                                 get_instance_fn(
                                     value=callback,
                                     config_file_path=config_file_path,
                                 )
                             )
-                        # these are litellm callbacks - "langfuse", "sentry", "wandb"
+                        # these are embrouter callbacks - "langfuse", "sentry", "wandb"
                         else:
-                            litellm.logging_callback_manager.add_litellm_success_callback(callback)
+                            embrouter.logging_callback_manager.add_embrouter_success_callback(callback)
                             if "prometheus" in callback:
-                                from litellm.integrations.prometheus import (
+                                from embrouter.integrations.prometheus import (
                                     PrometheusLogger,
                                 )
 
@@ -6369,51 +6369,51 @@ class ProxyConfig:
                                     verbose_proxy_logger.debug("mounting metrics endpoint")
                                     PrometheusLogger._mount_metrics_endpoint()
                     print(  # noqa: T201
-                        f"{blue_color_code} Initialized Success Callbacks - {litellm.success_callback} {reset_color_code}"
+                        f"{blue_color_code} Initialized Success Callbacks - {embrouter.success_callback} {reset_color_code}"
                     )
                 elif key == "failure_callback":
-                    litellm.failure_callback = []
+                    embrouter.failure_callback = []
 
                     # initialize success callbacks
                     for callback in value:
                         # user passed custom_callbacks.async_on_succes_logger. They need us to import a function
                         if "." in callback:
-                            litellm.logging_callback_manager.add_litellm_failure_callback(
+                            embrouter.logging_callback_manager.add_embrouter_failure_callback(
                                 get_instance_fn(
                                     value=callback,
                                     config_file_path=config_file_path,
                                 )
                             )
-                        # these are litellm callbacks - "langfuse", "sentry", "wandb"
+                        # these are embrouter callbacks - "langfuse", "sentry", "wandb"
                         else:
-                            litellm.logging_callback_manager.add_litellm_failure_callback(callback)
+                            embrouter.logging_callback_manager.add_embrouter_failure_callback(callback)
                     print(  # noqa: T201
-                        f"{blue_color_code} Initialized Failure Callbacks - {litellm.failure_callback} {reset_color_code}"
+                        f"{blue_color_code} Initialized Failure Callbacks - {embrouter.failure_callback} {reset_color_code}"
                     )
                 elif key == "audit_log_callbacks":
-                    from litellm.proxy.management_helpers.audit_logs import (
+                    from embrouter.proxy.management_helpers.audit_logs import (
                         is_audit_logging_enabled,
                         reset_audit_log_callback_cache,
                     )
 
                     reset_audit_log_callback_cache()
-                    litellm.audit_log_callbacks = []
+                    embrouter.audit_log_callbacks = []
 
                     for callback in value:
                         if "." in callback:
-                            litellm.audit_log_callbacks.append(
+                            embrouter.audit_log_callbacks.append(
                                 get_instance_fn(
                                     value=callback,
                                     config_file_path=config_file_path,
                                 )
                             )
                         else:
-                            litellm.audit_log_callbacks.append(callback)
+                            embrouter.audit_log_callbacks.append(callback)
 
-                    _store_audit_logs = litellm_settings.get("store_audit_logs", litellm.store_audit_logs)
+                    _store_audit_logs = embrouter_settings.get("store_audit_logs", embrouter.store_audit_logs)
                     if is_audit_logging_enabled(store_audit_logs=_store_audit_logs):
                         print(  # noqa: T201
-                            f"{blue_color_code} Initialized Audit Log Callbacks - {litellm.audit_log_callbacks} {reset_color_code}"
+                            f"{blue_color_code} Initialized Audit Log Callbacks - {embrouter.audit_log_callbacks} {reset_color_code}"
                         )
                     else:
                         verbose_proxy_logger.warning(
@@ -6439,11 +6439,11 @@ class ProxyConfig:
                         reset_color_code,
                     )
                 elif key == "max_ui_session_budget":
-                    litellm.max_ui_session_budget = float(value) if value is not None else None
+                    embrouter.max_ui_session_budget = float(value) if value is not None else None
                     verbose_proxy_logger.debug(
-                        "%s setting litellm.max_ui_session_budget=%s%s",
+                        "%s setting embrouter.max_ui_session_budget=%s%s",
                         blue_color_code,
-                        litellm.max_ui_session_budget,
+                        embrouter.max_ui_session_budget,
                         reset_color_code,
                     )
                 elif key == "default_team_settings":
@@ -6459,55 +6459,55 @@ class ProxyConfig:
                                 f"team_id missing from default_team_settings at index={idx}\npassed in value={type(team_setting)}"
                             )
                     verbose_proxy_logger.debug(
-                        "%s setting litellm.%s=%s%s",
+                        "%s setting embrouter.%s=%s%s",
                         blue_color_code,
                         key,
                         _redact_general_setting_value(key, value, is_full_admin=False),
                         reset_color_code,
                     )
-                    setattr(litellm, key, value)
+                    setattr(embrouter, key, value)
                 elif key == "upperbound_key_generate_params":
                     if value is not None and isinstance(value, dict):
                         for _k, _v in value.items():
                             if isinstance(_v, str) and _v.startswith("os.environ/"):
                                 value[_k] = get_secret(_v)
-                        litellm.upperbound_key_generate_params = LiteLLM_UpperboundKeyGenerateParams(**value)
+                        embrouter.upperbound_key_generate_params = EmbRouter_UpperboundKeyGenerateParams(**value)
                     else:
                         raise Exception(f"Invalid value set for upperbound_key_generate_params - value={value}")
                 elif key == "key_alias_pattern":
-                    litellm.key_alias_pattern = parse_key_alias_pattern(value)
+                    embrouter.key_alias_pattern = parse_key_alias_pattern(value)
                 elif key == "json_logs" and value is True:
-                    litellm.json_logs = True
-                    litellm._turn_on_json()
+                    embrouter.json_logs = True
+                    embrouter._turn_on_json()
                     verbose_proxy_logger.debug(
                         "%s Enabled JSON logging via config%s", blue_color_code, reset_color_code
                     )
                 elif key == "budget_reset_time":
-                    from litellm.proxy.common_utils.timezone_utils import (
+                    from embrouter.proxy.common_utils.timezone_utils import (
                         parse_budget_reset_time,
                     )
 
                     parse_budget_reset_time(value)
-                    setattr(litellm, key, value)
+                    setattr(embrouter, key, value)
                 elif key == "drop_params":
-                    litellm.drop_params = drop_params_flag(value, "litellm_settings.drop_params", verbose_proxy_logger)
+                    embrouter.drop_params = drop_params_flag(value, "embrouter_settings.drop_params", verbose_proxy_logger)
                 else:
                     verbose_proxy_logger.debug(
-                        "%s setting litellm.%s=%s%s",
+                        "%s setting embrouter.%s=%s%s",
                         blue_color_code,
                         key,
                         _redact_general_setting_value(key, value, is_full_admin=False),
                         reset_color_code,
                     )
-                    setattr(litellm, key, value)
+                    setattr(embrouter, key, value)
                     if key == "request_timeout":
-                        litellm.request_timeout_explicitly_set = True
+                        embrouter.request_timeout_explicitly_set = True
                     if key in {"s3_audit_callback_params", "s3_callback_params"}:
-                        from litellm.integrations.s3_v2 import S3Logger as S3V2Logger
-                        from litellm.litellm_core_utils.litellm_logging import (
+                        from embrouter.integrations.s3_v2 import S3Logger as S3V2Logger
+                        from embrouter.embrouter_core_utils.embrouter_logging import (
                             _in_memory_loggers,
                         )
-                        from litellm.proxy.management_helpers.audit_logs import (
+                        from embrouter.proxy.management_helpers.audit_logs import (
                             reset_audit_log_callback_cache,
                         )
 
@@ -6516,18 +6516,18 @@ class ProxyConfig:
 
         if redis_usage_cache is None:
             env_coordination_redis_cache: Final = await self._init_coordination_redis_env_fallback(
-                litellm_settings=litellm_settings
+                embrouter_settings=embrouter_settings
             )
             if env_coordination_redis_cache is not None:
                 _set_redis_usage_cache(env_coordination_redis_cache)
 
-        ## GENERAL SERVER SETTINGS (e.g. master key,..) # do this after initializing litellm, to ensure sentry logging works for proxylogging
+        ## GENERAL SERVER SETTINGS (e.g. master key,..) # do this after initializing embrouter, to ensure sentry logging works for proxylogging
         general_settings = config.get("general_settings", {})
         if general_settings is None:
             general_settings = {}
 
         if general_settings.get("mcp_advertised_versions") is not None:
-            from litellm.types.mcp import MCPAdvertisedVersions
+            from embrouter.types.mcp import MCPAdvertisedVersions
 
             TypeAdapter(MCPAdvertisedVersions).validate_python(general_settings["mcp_advertised_versions"])
 
@@ -6547,7 +6547,7 @@ class ProxyConfig:
             # picks up any of them that were themselves secret-manager backed.
             key_management_settings: Final = general_settings.get("key_management_settings", None)
             if key_management_settings is not None:
-                litellm._key_management_settings = KeyManagementSettings(**key_management_settings)
+                embrouter._key_management_settings = KeyManagementSettings(**key_management_settings)
 
             ### [DEPRECATED] LOAD FROM GOOGLE KMS ### old way of loading from google kms
             use_google_kms: Final = general_settings.get("use_google_kms", False)
@@ -6568,22 +6568,22 @@ class ProxyConfig:
                 database_url = get_secret(database_url)
                 verbose_proxy_logger.debug("Resolved database_url from secret manager")
             ### MASTER KEY ###
-            master_key = general_settings.get("master_key", get_secret("LITELLM_MASTER_KEY", None))
+            master_key = general_settings.get("master_key", get_secret("EMBROUTER_MASTER_KEY", None))
 
             if master_key and master_key.startswith("os.environ/"):
                 master_key = get_secret(master_key)
 
             if master_key is not None and isinstance(master_key, str):
-                litellm_master_key_hash = hash_token(master_key)
+                embrouter_master_key_hash = hash_token(master_key)
             else:
                 verbose_proxy_logger.critical(
-                    "LITELLM_MASTER_KEY is not set! All requests will be treated as INTERNAL_USER with no admin access. Set LITELLM_MASTER_KEY for production use."
+                    "EMBROUTER_MASTER_KEY is not set! All requests will be treated as INTERNAL_USER with no admin access. Set EMBROUTER_MASTER_KEY for production use."
                 )
             ### USER API KEY CACHE TTL (in-memory + Redis when Redis auth sharing is enabled) ###
             user_api_key_cache_ttl: Final = general_settings.get("user_api_key_cache_ttl", None)
             if user_api_key_cache_ttl is not None:
                 ttl: Final = float(user_api_key_cache_ttl)
-                # Mirror TTL on Redis as well when ``litellm_settings.enable_redis_auth_cache``
+                # Mirror TTL on Redis as well when ``embrouter_settings.enable_redis_auth_cache``
                 # attaches Redis to ``user_api_key_cache``; otherwise DualCache misses in
                 # memory fall back to a key that outlasts ``user_api_key_cache_ttl``.
                 user_api_key_cache.update_cache_ttl(
@@ -6610,7 +6610,7 @@ class ProxyConfig:
                 if not _pkce_no_redis_warning_emitted:
                     _pkce_no_redis_warning_emitted = True
                     verbose_proxy_logger.warning(
-                        "GENERIC_CLIENT_USE_PKCE=true but Redis is not configured for LiteLLM caching. "
+                        "GENERIC_CLIENT_USE_PKCE=true but Redis is not configured for EmbRouter caching. "
                         "PKCE verifiers will not be shared across instances — callbacks may land on a "
                         "different pod than the login request and fail silently. "
                         "Configure Redis via the 'cache' section in your proxy config, "
@@ -6626,7 +6626,7 @@ class ProxyConfig:
                 if not _cp_no_redis_warning_emitted:
                     _cp_no_redis_warning_emitted = True
                     verbose_proxy_logger.warning(
-                        "control_plane_url is configured but Redis is not configured for LiteLLM caching. "
+                        "control_plane_url is configured but Redis is not configured for EmbRouter caching. "
                         "Login codes (SSO and /v3/login) will not be shared across instances — "
                         "the /v3/login/exchange call may land on a different pod and fail with 401. "
                         "Configure Redis via the 'cache' section in your proxy config, "
@@ -6699,7 +6699,7 @@ class ProxyConfig:
             allowed_ips: Final = general_settings.get("allowed_ips", None)
             if allowed_ips is not None and premium_user is False:
                 raise ValueError(
-                    "allowed_ips is an Enterprise Feature. Please add a valid LITELLM_LICENSE to your envionment."
+                    "allowed_ips is an Enterprise Feature. Please add a valid EMBROUTER_LICENSE to your envionment."
                 )
             ## BUDGET RESCHEDULER ##
             proxy_budget_rescheduler_min_time = general_settings.get(
@@ -6755,13 +6755,13 @@ class ProxyConfig:
             if general_settings.get("enforced_params") is not None and premium_user is not True:
                 raise ValueError("Trying to use `enforced_params`" + CommonProxyErrors.not_premium_user.value)
 
-            # check if litellm_license in general_settings
-            if "litellm_license" in general_settings:
-                _license_check.license_str = general_settings["litellm_license"]
+            # check if embrouter_license in general_settings
+            if "embrouter_license" in general_settings:
+                _license_check.license_str = general_settings["embrouter_license"]
                 premium_user = _license_check.is_premium()
 
         router_params: Final[dict] = {
-            "cache_responses": litellm.cache is not None,  # cache if user passed in cache values
+            "cache_responses": embrouter.cache is not None,  # cache if user passed in cache values
         }
         # Health-check-driven routing params (from general_settings)
         if _enable_hc_routing:
@@ -6778,18 +6778,18 @@ class ProxyConfig:
             router_params["model_list"] = model_list
             validate_auto_router_capability_limits(model_list, limit=_license_check.auto_router_capability_limit())
             print(  # noqa: T201
-                "\033[32mLiteLLM: Proxy initialized with Config, Set models:\033[0m"
+                "\033[32mEmbRouter: Proxy initialized with Config, Set models:\033[0m"
             )
             for model in model_list:
                 ### LOAD FROM os.environ/ ###
-                for k, v in model["litellm_params"].items():
+                for k, v in model["embrouter_params"].items():
                     if isinstance(v, str) and v.startswith("os.environ/"):
-                        model["litellm_params"][k] = get_secret(v)
+                        model["embrouter_params"][k] = get_secret(v)
                 validate_deployment_max_agentic_loops(model)
                 validate_deployment_complexity_router_placement(model)
                 validate_deployment_access_windows(model)
                 pin_complexity_router_model_id(model)
-                complexity_router_config = model["litellm_params"].get("complexity_router_config")
+                complexity_router_config = model["embrouter_params"].get("complexity_router_config")
                 if isinstance(complexity_router_config, dict):
                     resolve_complexity_router_plugins(
                         model_name=model.get("model_name", ""),
@@ -6797,27 +6797,27 @@ class ProxyConfig:
                         config_file_path=config_file_path,
                     )
                 print(f"\033[32m    {model.get('model_name', '')}\033[0m")  # noqa: T201
-                litellm_model_name = model["litellm_params"]["model"]
-                litellm_model_api_base = model["litellm_params"].get("api_base", None)
-                if "ollama" in litellm_model_name and litellm_model_api_base is None:
+                embrouter_model_name = model["embrouter_params"]["model"]
+                embrouter_model_api_base = model["embrouter_params"].get("api_base", None)
+                if "ollama" in embrouter_model_name and embrouter_model_api_base is None:
                     run_ollama_serve()
 
         ## ASSISTANT SETTINGS
         assistants_config: AssistantsTypedDict | None = None
         assistant_settings: Final = config.get("assistant_settings", None)
         if assistant_settings:
-            for k, v in assistant_settings["litellm_params"].items():
+            for k, v in assistant_settings["embrouter_params"].items():
                 if isinstance(v, str) and v.startswith("os.environ/"):
                     _v = v.replace("os.environ/", "")
                     v = os.getenv(_v)
-                    assistant_settings["litellm_params"][k] = v
+                    assistant_settings["embrouter_params"][k] = v
             assistants_config = AssistantsTypedDict(**assistant_settings)
 
         ## SEARCH TOOLS SETTINGS
         search_tools: Final[list[SearchToolTypedDict] | None] = self.parse_search_tools(config)
 
         ## SANDBOX TOOLS SETTINGS
-        from litellm.sandbox.sandbox_tools import register_sandbox_tools
+        from embrouter.sandbox.sandbox_tools import register_sandbox_tools
 
         register_sandbox_tools(config.get("sandbox_tools") or [])
 
@@ -6830,7 +6830,7 @@ class ProxyConfig:
         set_files_config(config=files_config)
 
         ## default config for vertex ai routes
-        from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+        from embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
             passthrough_endpoint_router,
         )
 
@@ -6842,7 +6842,7 @@ class ProxyConfig:
 
         if router_settings and isinstance(router_settings, dict):
             available_args: Final = [
-                x for x in litellm.Router.get_valid_args() if x not in ROUTER_SETTINGS_MANAGED_OUTSIDE_CONFIG
+                x for x in embrouter.Router.get_valid_args() if x not in ROUTER_SETTINGS_MANAGED_OUTSIDE_CONFIG
             ]
 
             for k, v in router_settings.items():
@@ -6862,7 +6862,7 @@ class ProxyConfig:
                     verbose_proxy_logger.warning(
                         "Key '%s' is not a valid argument for Router.__init__(). Ignoring this key.", k
                     )
-        router = litellm.Router(
+        router = embrouter.Router(
             **router_params,
             assistants_config=assistants_config,
             search_tools=search_tools,
@@ -6902,13 +6902,13 @@ class ProxyConfig:
         if config is not None:
             prompts = config.get("prompts", None)
         if prompts:
-            from litellm.proxy.prompts.init_prompts import init_prompts
+            from embrouter.proxy.prompts.init_prompts import init_prompts
 
             init_prompts(all_prompts=prompts, config_file_path=config_file_path)
 
         ## CREDENTIALS
         credential_list_dict: Final = self.load_credential_list(config=config)
-        litellm.credential_list = credential_list_dict
+        embrouter.credential_list = credential_list_dict
 
         ## NON-LLM CONFIGS eg. MCP tools, vector stores, etc.
         await self._init_non_llm_configs(config=config, config_file_path=config_file_path)
@@ -6923,7 +6923,7 @@ class ProxyConfig:
         ## MCP TOOLS
         mcp_tools_config: Final = config.get("mcp_tools", None)
         if mcp_tools_config:
-            from litellm.proxy._experimental.mcp_server.tool_registry import (
+            from embrouter.proxy._experimental.mcp_server.tool_registry import (
                 global_mcp_tool_registry,
             )
 
@@ -6932,7 +6932,7 @@ class ProxyConfig:
         ## AGENTS
         agent_config: Final = config.get("agents", config.get("agent_list", None))
         if agent_config is not None:
-            from litellm.proxy.agent_endpoints.agent_registry import (
+            from embrouter.proxy.agent_endpoints.agent_registry import (
                 global_agent_registry,
             )
 
@@ -6940,26 +6940,26 @@ class ProxyConfig:
 
         mcp_servers_config: Final = config.get("mcp_servers", None)
         if mcp_servers_config:
-            from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+            from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
                 global_mcp_server_manager,
             )
 
-            # Get mcp_aliases from litellm_settings if available
-            litellm_settings: Final = config.get("litellm_settings", {})
-            mcp_aliases: Final = litellm_settings.get("mcp_aliases", None)
+            # Get mcp_aliases from embrouter_settings if available
+            embrouter_settings: Final = config.get("embrouter_settings", {})
+            mcp_aliases: Final = embrouter_settings.get("mcp_aliases", None)
 
             await global_mcp_server_manager.load_servers_from_config(mcp_servers_config, mcp_aliases)
 
         ## VECTOR STORES
         vector_store_registry_config: Final = config.get("vector_store_registry", None)
         if vector_store_registry_config:
-            from litellm.vector_stores.vector_store_registry import VectorStoreRegistry
+            from embrouter.vector_stores.vector_store_registry import VectorStoreRegistry
 
-            if litellm.vector_store_registry is None:
-                litellm.vector_store_registry = VectorStoreRegistry()
+            if embrouter.vector_store_registry is None:
+                embrouter.vector_store_registry = VectorStoreRegistry()
 
             # Load vector stores from config
-            litellm.vector_store_registry.load_vector_stores_from_config(vector_store_registry_config)
+            embrouter.vector_store_registry.load_vector_stores_from_config(vector_store_registry_config)
 
         ## WORKER REGISTRY (Global Control Plane)
         worker_registry_config: Final = config.get("worker_registry", None)
@@ -6985,8 +6985,8 @@ class ProxyConfig:
             llm_router: Optional LLM router for model validation
         """
 
-        from litellm.proxy.policy_engine.init_policies import init_policies
-        from litellm.proxy.policy_engine.policy_validator import PolicyValidator
+        from embrouter.proxy.policy_engine.init_policies import init_policies
+        from embrouter.proxy.policy_engine.policy_validator import PolicyValidator
 
         if config is None:
             verbose_proxy_logger.debug("Policy engine: config is None, skipping")
@@ -7039,7 +7039,7 @@ class ProxyConfig:
                 pass
             else:
                 # [NEW] v1 implementation - init as a custom logger
-                if _alert in litellm._known_custom_logger_compatible_callbacks:
+                if _alert in embrouter._known_custom_logger_compatible_callbacks:
                     _logger = _init_custom_logger_compatible_class(
                         logging_integration=_alert,
                         internal_usage_cache=None,
@@ -7047,7 +7047,7 @@ class ProxyConfig:
                         custom_logger_init_args={"alerting_args": general_settings.get("alerting_args", None)},
                     )
                     if _logger is not None:
-                        litellm.logging_callback_manager.add_litellm_callback(_logger)
+                        embrouter.logging_callback_manager.add_embrouter_callback(_logger)
 
     def initialize_secret_manager(
         self,
@@ -7057,7 +7057,7 @@ class ProxyConfig:
         """
         Initialize the relevant secret manager if `key_management_system` is provided
         """
-        previous_client: Final[object] = litellm.secret_manager_client
+        previous_client: Final[object] = embrouter.secret_manager_client
         if key_management_system is not None:
             if key_management_system == KeyManagementSystem.AZURE_KEY_VAULT.value:
                 ### LOAD FROM AZURE KEY VAULT ###
@@ -7068,37 +7068,37 @@ class ProxyConfig:
             elif (
                 key_management_system == KeyManagementSystem.AWS_SECRET_MANAGER.value  # noqa: F405
             ):
-                from litellm.secret_managers.aws_secret_manager_v2 import (
+                from embrouter.secret_managers.aws_secret_manager_v2 import (
                     AWSSecretsManagerV2,
                 )
 
                 AWSSecretsManagerV2.load_aws_secret_manager(
                     use_aws_secret_manager=True,
-                    key_management_settings=litellm._key_management_settings,
+                    key_management_settings=embrouter._key_management_settings,
                 )
             elif key_management_system == KeyManagementSystem.AWS_KMS.value:
                 load_aws_kms(use_aws_kms=True)
             elif key_management_system == KeyManagementSystem.GOOGLE_SECRET_MANAGER.value:
-                from litellm.secret_managers.google_secret_manager import (
+                from embrouter.secret_managers.google_secret_manager import (
                     GoogleSecretManager,
                 )
 
                 GoogleSecretManager()
             elif key_management_system == KeyManagementSystem.HASHICORP_VAULT.value:
-                from litellm.secret_managers.hashicorp_secret_manager import (
+                from embrouter.secret_managers.hashicorp_secret_manager import (
                     HashicorpSecretManager,
                 )
 
                 HashicorpSecretManager()
             elif key_management_system == KeyManagementSystem.CYBERARK.value:
-                from litellm.secret_managers.cyberark_secret_manager import (
+                from embrouter.secret_managers.cyberark_secret_manager import (
                     CyberArkSecretManager,
                 )
 
                 CyberArkSecretManager()
             elif key_management_system == KeyManagementSystem.CUSTOM.value:
                 ### LOAD CUSTOM SECRET MANAGER ###
-                from litellm.secret_managers.custom_secret_manager_loader import (
+                from embrouter.secret_managers.custom_secret_manager_loader import (
                     load_custom_secret_manager,
                 )
 
@@ -7106,10 +7106,10 @@ class ProxyConfig:
             else:
                 raise ValueError("Invalid Key Management System selected")
 
-            from litellm.rust_bridge.secret_manager import capture_secret_manager
+            from embrouter.rust_bridge.secret_manager import capture_secret_manager
 
-            if litellm.secret_manager_client is not previous_client:
-                capture_secret_manager(litellm.secret_manager_client, key_management_system)
+            if embrouter.secret_manager_client is not previous_client:
+                capture_secret_manager(embrouter.secret_manager_client, key_management_system)
 
     def get_model_info_with_id(self, model, db_model=False) -> RouterModelInfo:
         """
@@ -7127,7 +7127,7 @@ class ProxyConfig:
             model.model_info["blocked"] = bool(getattr(model, "blocked", False))
 
         if premium_user is True:
-            # seeing "created_at", "updated_at", "created_by", "updated_by" is a LiteLLM Enterprise Feature
+            # seeing "created_at", "updated_at", "created_by", "updated_by" is a EmbRouter Enterprise Feature
             model.model_info["created_at"] = getattr(model, "created_at", None)
             model.model_info["updated_at"] = getattr(model, "updated_at", None)
             model.model_info["created_by"] = getattr(model, "created_by", None)
@@ -7193,9 +7193,9 @@ class ProxyConfig:
         if model_list:
             for model in model_list:
                 ### LOAD FROM os.environ/ ###
-                for k, v in model["litellm_params"].items():
+                for k, v in model["embrouter_params"].items():
                     if isinstance(v, str) and v.startswith("os.environ/"):
-                        model["litellm_params"][k] = get_secret(v)
+                        model["embrouter_params"][k] = get_secret(v)
 
                 ## check if they have model-id's ##
                 model_id = model.get("model_info", {}).get("id", None)
@@ -7203,7 +7203,7 @@ class ProxyConfig:
                     ## else - generate stable id's ##
                     model_id = llm_router.generate_model_id(
                         model_group=model["model_name"],
-                        litellm_params=model["litellm_params"],
+                        embrouter_params=model["embrouter_params"],
                     )
                 else:
                     model_id = str(model_id)
@@ -7234,7 +7234,7 @@ class ProxyConfig:
                 llm_router.delete_deployment(id=model_id)
         return frozenset(combined_id_list) | kept_config_ids
 
-    def _resolve_db_litellm_param(self, key: str, value: object) -> object:
+    def _resolve_db_embrouter_param(self, key: str, value: object) -> object:
         if not isinstance(value, str):
             return value
 
@@ -7259,16 +7259,16 @@ class ProxyConfig:
         added_models = 0
         ## ADD MODEL LOGIC
         for m in db_models:
-            _litellm_params = m.litellm_params
-            if isinstance(_litellm_params, dict):
+            _embrouter_params = m.embrouter_params
+            if isinstance(_embrouter_params, dict):
                 # decrypt values
-                for k, v in _litellm_params.items():
-                    _litellm_params[k] = self._resolve_db_litellm_param(key=k, value=v)
-                _litellm_params = LiteLLM_Params.model_validate(_litellm_params)
+                for k, v in _embrouter_params.items():
+                    _embrouter_params[k] = self._resolve_db_embrouter_param(key=k, value=v)
+                _embrouter_params = EmbRouter_Params.model_validate(_embrouter_params)
 
             else:
                 verbose_proxy_logger.error(
-                    "Invalid model added to proxy db. Invalid litellm params. litellm_params=%s", _litellm_params
+                    "Invalid model added to proxy db. Invalid embrouter params. embrouter_params=%s", _embrouter_params
                 )
                 continue  # skip to next model
             _model_info = self.get_model_info_with_id(model=m, db_model=True)  ## 👈 FLAG = True for db_models
@@ -7276,7 +7276,7 @@ class ProxyConfig:
             added = llm_router.upsert_deployment(
                 deployment=Deployment(
                     model_name=m.model_name,
-                    litellm_params=_litellm_params,
+                    embrouter_params=_embrouter_params,
                     model_info=_model_info,
                 )
             )
@@ -7288,17 +7288,17 @@ class ProxyConfig:
     def decrypt_model_list_from_db(self, new_models: list) -> list:
         _model_list: Final[list] = []
         for m in new_models:
-            _litellm_params = m.litellm_params
-            if isinstance(_litellm_params, BaseModel):
-                _litellm_params = _litellm_params.model_dump()
-            if isinstance(_litellm_params, dict):
+            _embrouter_params = m.embrouter_params
+            if isinstance(_embrouter_params, BaseModel):
+                _embrouter_params = _embrouter_params.model_dump()
+            if isinstance(_embrouter_params, dict):
                 # decrypt values
-                for k, v in _litellm_params.items():
-                    _litellm_params[k] = self._resolve_db_litellm_param(key=k, value=v)
-                _litellm_params = LiteLLM_Params.model_validate(_litellm_params)
+                for k, v in _embrouter_params.items():
+                    _embrouter_params[k] = self._resolve_db_embrouter_param(key=k, value=v)
+                _embrouter_params = EmbRouter_Params.model_validate(_embrouter_params)
             else:
                 verbose_proxy_logger.error(
-                    "Invalid model added to proxy db. Invalid litellm params. litellm_params=%s", _litellm_params
+                    "Invalid model added to proxy db. Invalid embrouter params. embrouter_params=%s", _embrouter_params
                 )
                 continue  # skip to next model
 
@@ -7306,7 +7306,7 @@ class ProxyConfig:
             _model_list.append(
                 Deployment(
                     model_name=m.model_name,
-                    litellm_params=_litellm_params,
+                    embrouter_params=_embrouter_params,
                     model_info=_model_info,
                 ).to_json(exclude_none=True)
             )
@@ -7354,7 +7354,7 @@ class ProxyConfig:
                 # Router can function with model_list=[] if search_tools are configured
                 if len(_model_list) > 0 or search_tools:
                     verbose_proxy_logger.debug("_model_list: %s", _model_list)
-                    llm_router = litellm.Router(
+                    llm_router = embrouter.Router(
                         model_list=_model_list,
                         router_general_settings=RouterGeneralSettings(
                             async_only_mode=True  # only init async clients
@@ -7390,36 +7390,36 @@ class ProxyConfig:
 
         return still_desired_ids
 
-    def _add_callback_from_db_to_in_memory_litellm_callbacks(
+    def _add_callback_from_db_to_in_memory_embrouter_callbacks(
         self,
         callback: str,
         event_types: list[Literal["success", "failure"]],
         existing_callbacks: list,
     ) -> None:
         """
-        Helper method to add a single callback to litellm for specified event types.
+        Helper method to add a single callback to embrouter for specified event types.
 
         Args:
             callback: The callback name to add
             event_types: List of event types (e.g., ["success"], ["failure"], or ["success", "failure"])
             existing_callbacks: The existing callback list to check against
         """
-        if callback in litellm._known_custom_logger_compatible_callbacks:
+        if callback in embrouter._known_custom_logger_compatible_callbacks:
             for event_type in event_types:
                 _add_custom_logger_callback_to_specific_event(callback, event_type)
         elif callback not in existing_callbacks:
             if event_types == ["success"]:
-                litellm.logging_callback_manager.add_litellm_success_callback(callback)
+                embrouter.logging_callback_manager.add_embrouter_success_callback(callback)
             elif event_types == ["failure"]:
-                litellm.logging_callback_manager.add_litellm_failure_callback(callback)
+                embrouter.logging_callback_manager.add_embrouter_failure_callback(callback)
             else:  # Both success and failure
-                litellm.logging_callback_manager.add_litellm_callback(callback)
+                embrouter.logging_callback_manager.add_embrouter_callback(callback)
 
     def _add_callbacks_from_db_config(self, config_data: dict) -> None:
-        litellm_settings: Final = config_data.get("litellm_settings", {}) or {}
+        embrouter_settings: Final = config_data.get("embrouter_settings", {}) or {}
         configured: Final = tuple(
             chain.from_iterable(
-                _configured_db_callbacks(litellm_settings, setting_key)
+                _configured_db_callbacks(embrouter_settings, setting_key)
                 for setting_key in _DB_CONFIG_CALLBACK_EVENT_TYPES
             )
         )
@@ -7434,10 +7434,10 @@ class ProxyConfig:
     def _register_db_config_callback(self, setting_key: str, callback: str) -> _DbCallbackRegistration:
         previous: Final = self._db_config_callback_entries.get((setting_key, callback), _DbCallbackRegistration())
         before: Final = _registered_callback_entries()
-        self._add_callback_from_db_to_in_memory_litellm_callbacks(
+        self._add_callback_from_db_to_in_memory_embrouter_callbacks(
             callback=callback,
             event_types=list(_DB_CONFIG_CALLBACK_EVENT_TYPES[setting_key]),
-            existing_callbacks=getattr(litellm, setting_key),
+            existing_callbacks=getattr(embrouter, setting_key),
         )
         after: Final = _registered_callback_entries()
         return _DbCallbackRegistration(
@@ -7651,7 +7651,7 @@ class ProxyConfig:
         trigger: Final = self._spend_log_cleanup_trigger()
         if trigger is None:
             return
-        from litellm.proxy.db.db_transaction_queue.spend_log_cleanup import (
+        from embrouter.proxy.db.db_transaction_queue.spend_log_cleanup import (
             SpendLogCleanup,
         )
 
@@ -7882,8 +7882,8 @@ class ProxyConfig:
                 section,
                 _redact_config_param_value_for_logging(section, param_value),
             )
-            if section == "litellm_settings":
-                self._apply_litellm_settings_db_values(self._prepared_db_settings_values(section, param_value))
+            if section == "embrouter_settings":
+                self._apply_embrouter_settings_db_values(self._prepared_db_settings_values(section, param_value))
             else:
                 self._settings_stores[section].apply_db_row(
                     section,
@@ -7919,11 +7919,11 @@ class ProxyConfig:
         scrubbed: Final = _scrub_db_overlay_remote_module_loads(section=section, db_value=value)
         return _as_settings_mapping(scrubbed)
 
-    def _apply_litellm_settings_db_values(self, db_values: Mapping[str, SettingsJsonValue]) -> None:
-        self.litellm_settings.apply_db_row("litellm_settings", db_values)
-        for key in LITELLM_SETTINGS_SAFE_DB_OVERRIDES:
-            if key in db_values and (value := self.litellm_settings.get(key)) is not None:
-                setattr(litellm, key, value)
+    def _apply_embrouter_settings_db_values(self, db_values: Mapping[str, SettingsJsonValue]) -> None:
+        self.embrouter_settings.apply_db_row("embrouter_settings", db_values)
+        for key in EMBROUTER_SETTINGS_SAFE_DB_OVERRIDES:
+            if key in db_values and (value := self.embrouter_settings.get(key)) is not None:
+                setattr(embrouter, key, value)
 
     def _should_load_db_object(self, object_type: str | SupportedDBObjectType) -> bool:
         return should_load_db_object(object_type=object_type)
@@ -7958,7 +7958,7 @@ class ProxyConfig:
             return new_models
         except Exception as e:
             verbose_proxy_logger.exception(
-                "litellm.proxy_server.py::add_deployment() - Error getting new models from DB - %s", e
+                "embrouter.proxy_server.py::add_deployment() - Error getting new models from DB - %s", e
             )
             return None
 
@@ -8013,7 +8013,7 @@ class ProxyConfig:
                 [
                     "general_settings",
                     "router_settings",
-                    "litellm_settings",
+                    "embrouter_settings",
                     "environment_variables",
                     "anthropic_beta_headers_reload_config",
                 ],
@@ -8041,7 +8041,7 @@ class ProxyConfig:
             await self._init_non_llm_objects_in_db(prisma_client=prisma_client)
 
         except Exception as e:
-            verbose_proxy_logger.exception("litellm.proxy.proxy_server.py::ProxyConfig:add_deployment - %s", e)
+            verbose_proxy_logger.exception("embrouter.proxy.proxy_server.py::ProxyConfig:add_deployment - %s", e)
 
         # Read while the lock is still held: once it is released the next reconcile can
         # begin, and clear_cache's leading wipe would make this look like a mass drop.
@@ -8146,7 +8146,7 @@ class ProxyConfig:
         if self._should_load_db_object(object_type="sso_settings"):
             await self._init_sso_settings_in_db(prisma_client=prisma_client)
         if self._should_load_db_object(object_type="cache_settings"):
-            from litellm.proxy.management_endpoints.cache_settings_endpoints import (
+            from embrouter.proxy.management_endpoints.cache_settings_endpoints import (
                 CacheSettingsManager,
             )
 
@@ -8162,15 +8162,15 @@ class ProxyConfig:
             await self._init_hashicorp_vault_config_override(prisma_client=prisma_client)
             await self._init_cyberark_config_override(prisma_client=prisma_client)
 
-        await self._apply_safe_litellm_settings_overrides_from_db(prisma_client=prisma_client)
+        await self._apply_safe_embrouter_settings_overrides_from_db(prisma_client=prisma_client)
 
-    async def _apply_safe_litellm_settings_overrides_from_db(self, prisma_client: PrismaClient) -> None:
-        config_record: Final = await get_config_param(prisma_client, "litellm_settings")
+    async def _apply_safe_embrouter_settings_overrides_from_db(self, prisma_client: PrismaClient) -> None:
+        config_record: Final = await get_config_param(prisma_client, "embrouter_settings")
         if config_record is None or config_record.param_value is None:
             return
         raw_settings: Final = config_record.param_value
-        db_values: Final = self._prepared_db_settings_values("litellm_settings", raw_settings)
-        self._apply_litellm_settings_db_values(db_values)
+        db_values: Final = self._prepared_db_settings_values("embrouter_settings", raw_settings)
+        self._apply_embrouter_settings_db_values(db_values)
 
     async def _init_semantic_filter_settings_in_db(self, prisma_client: PrismaClient):
         """
@@ -8179,20 +8179,20 @@ class ProxyConfig:
         """
         import json
 
-        import litellm
-        from litellm.proxy.hooks.mcp_semantic_filter import SemanticToolFilterHook
+        import embrouter
+        from embrouter.proxy.hooks.mcp_semantic_filter import SemanticToolFilterHook
 
         try:
-            config_record: Final = await get_config_param(prisma_client, "litellm_settings")
+            config_record: Final = await get_config_param(prisma_client, "embrouter_settings")
 
             if config_record is None or config_record.param_value is None:
                 return
 
-            litellm_settings = config_record.param_value
-            if isinstance(litellm_settings, str):
-                litellm_settings = json.loads(litellm_settings)
+            embrouter_settings = config_record.param_value
+            if isinstance(embrouter_settings, str):
+                embrouter_settings = json.loads(embrouter_settings)
 
-            mcp_semantic_filter_config: Final = litellm_settings.get("mcp_semantic_tool_filter", None)
+            mcp_semantic_filter_config: Final = embrouter_settings.get("mcp_semantic_tool_filter", None)
 
             if mcp_semantic_filter_config is None:
                 return
@@ -8201,7 +8201,7 @@ class ProxyConfig:
             if hasattr(self, "_last_semantic_filter_config"):
                 if self._last_semantic_filter_config == mcp_semantic_filter_config:
                     # If hook is missing or router isn't built yet, reinitialize anyway
-                    active_hooks = litellm.logging_callback_manager.get_custom_loggers_for_type(SemanticToolFilterHook)
+                    active_hooks = embrouter.logging_callback_manager.get_custom_loggers_for_type(SemanticToolFilterHook)
                     if active_hooks:
                         for active_hook in active_hooks:
                             if isinstance(active_hook, SemanticToolFilterHook):
@@ -8215,7 +8215,7 @@ class ProxyConfig:
                     )
 
             # Remove old hooks using logging callback manager
-            litellm.logging_callback_manager.remove_callbacks_by_type(litellm.callbacks, SemanticToolFilterHook)
+            embrouter.logging_callback_manager.remove_callbacks_by_type(embrouter.callbacks, SemanticToolFilterHook)
 
             # Initialize new hook if enabled
             if mcp_semantic_filter_config.get("enabled", False):
@@ -8225,7 +8225,7 @@ class ProxyConfig:
                     llm_router=llm_router,
                 )
                 if hook:
-                    litellm.logging_callback_manager.add_litellm_callback(hook)
+                    embrouter.logging_callback_manager.add_embrouter_callback(hook)
                     verbose_proxy_logger.info("MCP Semantic Filter reinitialized from DB")
             else:
                 verbose_proxy_logger.info("MCP Semantic Filter disabled")
@@ -8243,22 +8243,22 @@ class ProxyConfig:
         """
         import json
 
-        import litellm
-        from litellm.integrations.websearch_interception.handler import (
+        import embrouter
+        from embrouter.integrations.websearch_interception.handler import (
             WebSearchInterceptionLogger,
         )
 
         try:
-            config_record: Final = await get_config_param(prisma_client, "litellm_settings")
+            config_record: Final = await get_config_param(prisma_client, "embrouter_settings")
 
             if config_record is None or config_record.param_value is None:
                 return
 
-            litellm_settings = config_record.param_value
-            if isinstance(litellm_settings, str):
-                litellm_settings = json.loads(litellm_settings)
+            embrouter_settings = config_record.param_value
+            if isinstance(embrouter_settings, str):
+                embrouter_settings = json.loads(embrouter_settings)
 
-            websearch_config: Final = litellm_settings.get("websearch_interception_params", None)
+            websearch_config: Final = embrouter_settings.get("websearch_interception_params", None)
 
             if not isinstance(websearch_config, Mapping):
                 return
@@ -8266,13 +8266,13 @@ class ProxyConfig:
             if "enabled" not in websearch_config and self._last_websearch_interception_config is None:
                 verbose_proxy_logger.debug(
                     "Web search interception: stored settings carry no 'enabled' flag and none were applied "
-                    "before, so litellm_settings.callbacks keeps ownership of the callback."
+                    "before, so embrouter_settings.callbacks keeps ownership of the callback."
                 )
                 return
 
             enabled: Final = bool(coerce_bool(websearch_config.get("enabled", True)))
             registered: Final = bool(
-                litellm.logging_callback_manager.get_custom_loggers_for_type(WebSearchInterceptionLogger)
+                embrouter.logging_callback_manager.get_custom_loggers_for_type(WebSearchInterceptionLogger)
             )
             if self._last_websearch_interception_config == websearch_config and registered == enabled:
                 return
@@ -8283,10 +8283,10 @@ class ProxyConfig:
                 else None
             )
 
-            litellm.logging_callback_manager.remove_callbacks_by_type(litellm.callbacks, WebSearchInterceptionLogger)
+            embrouter.logging_callback_manager.remove_callbacks_by_type(embrouter.callbacks, WebSearchInterceptionLogger)
 
             if replacement is not None:
-                litellm.logging_callback_manager.add_litellm_callback(replacement)
+                embrouter.logging_callback_manager.add_embrouter_callback(replacement)
                 verbose_proxy_logger.info("Web search interception reinitialized from DB")
             else:
                 verbose_proxy_logger.info("Web search interception disabled")
@@ -8318,7 +8318,7 @@ class ProxyConfig:
                 self._decrypt_and_set_db_env_variables(environment_variables=uppercase_sso_settings)
         except Exception as e:
             verbose_proxy_logger.exception(
-                "litellm.proxy.proxy_server.py::ProxyConfig:_init_sso_settings_in_db - %s", e
+                "embrouter.proxy.proxy_server.py::ProxyConfig:_init_sso_settings_in_db - %s", e
             )
 
     async def _init_hashicorp_vault_config_override(self, prisma_client: PrismaClient):
@@ -8327,7 +8327,7 @@ class ProxyConfig:
         Decrypts sensitive fields, sets HCP_VAULT_* env vars, and reinitializes the secret manager.
         Called periodically via _init_non_llm_objects_in_db to sync config across pods.
         """
-        from litellm.proxy.management_endpoints.config_override_endpoints import (
+        from embrouter.proxy.management_endpoints.config_override_endpoints import (
             HASHICORP_ENV_VAR_MAPPING,
             _clear_hashicorp_vault_state,
             _get_current_env_values,
@@ -8387,7 +8387,7 @@ class ProxyConfig:
         Decrypts sensitive fields, sets CYBERARK_* env vars, and reinitializes the secret manager.
         Called periodically via _init_non_llm_objects_in_db to sync config across pods.
         """
-        from litellm.proxy.management_endpoints.config_override_endpoints import (
+        from embrouter.proxy.management_endpoints.config_override_endpoints import (
             CYBERARK_ENV_VAR_MAPPING,
             _clear_cyberark_state,  # pyright: ignore[reportPrivateUsage]  # module-internal helper shared with the endpoint module
             _get_current_env_values,  # pyright: ignore[reportPrivateUsage]  # module-internal helper shared with the endpoint module
@@ -8470,12 +8470,12 @@ class ProxyConfig:
             if not is_due:
                 return
 
-            from litellm.litellm_core_utils.get_model_cost_map import (
+            from embrouter.embrouter_core_utils.get_model_cost_map import (
                 ModelCostMapReloadUnavailable,
                 refetch_model_cost_map,
             )
 
-            reload_result = await refetch_model_cost_map(url=litellm.model_cost_map_url)
+            reload_result = await refetch_model_cost_map(url=embrouter.model_cost_map_url)
             if isinstance(reload_result, ModelCostMapReloadUnavailable):
                 verbose_proxy_logger.warning(
                     "Model cost map reload failed (%s); keeping current pricing data. The revision stays "
@@ -8551,7 +8551,7 @@ class ProxyConfig:
 
             if should_reload:
                 # Perform the reload
-                from litellm.anthropic_beta_headers_manager import (
+                from embrouter.anthropic_beta_headers_manager import (
                     reload_beta_headers_config,
                 )
 
@@ -8606,20 +8606,20 @@ class ProxyConfig:
         Returns:
             The PromptSpec object
         """
-        from litellm.proxy.prompts.prompt_endpoints import create_versioned_prompt_spec
+        from embrouter.proxy.prompts.prompt_endpoints import create_versioned_prompt_spec
 
         return create_versioned_prompt_spec(db_prompt=db_prompt)
 
     async def _init_prompts_in_db(self, prisma_client: PrismaClient):
-        from litellm.proxy.prompts.prompt_registry import IN_MEMORY_PROMPT_REGISTRY, registry_key_for_prompt
-        from litellm.types.prompts.init_prompts import PromptSpec
+        from embrouter.proxy.prompts.prompt_registry import IN_MEMORY_PROMPT_REGISTRY, registry_key_for_prompt
+        from embrouter.types.prompts.init_prompts import PromptSpec
 
         def parse_row(db_prompt: object) -> PromptSpec | None:
             try:
                 return self._get_prompt_spec_for_db_prompt(db_prompt=db_prompt)
             except Exception as row_error:  # noqa: BLE001  # a malformed row must not block syncing the remaining prompts
                 verbose_proxy_logger.exception(
-                    "litellm.proxy.proxy_server.py::ProxyConfig:_init_prompts_in_db - failed to parse prompt row %s: %s",
+                    "embrouter.proxy.proxy_server.py::ProxyConfig:_init_prompts_in_db - failed to parse prompt row %s: %s",
                     getattr(db_prompt, "prompt_id", None),
                     row_error,
                 )
@@ -8636,7 +8636,7 @@ class ProxyConfig:
                     IN_MEMORY_PROMPT_REGISTRY.sync_prompt_from_db(prompt=prompt_spec)
                 except Exception as prompt_sync_error:  # noqa: BLE001  # one poisoned row must not block syncing the remaining prompts
                     verbose_proxy_logger.exception(
-                        "litellm.proxy.proxy_server.py::ProxyConfig:_init_prompts_in_db - failed to sync prompt %s: %s",
+                        "embrouter.proxy.proxy_server.py::ProxyConfig:_init_prompts_in_db - failed to sync prompt %s: %s",
                         prompt_spec.prompt_id,
                         prompt_sync_error,
                     )
@@ -8654,10 +8654,10 @@ class ProxyConfig:
                 for deleted_registry_key in deleted_db_registry_keys:
                     IN_MEMORY_PROMPT_REGISTRY.remove_prompt(registry_key=deleted_registry_key)
         except Exception as e:
-            verbose_proxy_logger.debug("litellm.proxy.proxy_server.py::ProxyConfig:_init_prompts_in_db - %s", e)
+            verbose_proxy_logger.debug("embrouter.proxy.proxy_server.py::ProxyConfig:_init_prompts_in_db - %s", e)
 
     async def _init_guardrails_in_db(self, prisma_client: PrismaClient):
-        from litellm.proxy.guardrails.guardrail_registry import (
+        from embrouter.proxy.guardrails.guardrail_registry import (
             GUARDRAIL_RECONCILE_LOCK,
             IN_MEMORY_GUARDRAIL_HANDLER,
             Guardrail,
@@ -8681,7 +8681,7 @@ class ProxyConfig:
                         )
                     except Exception as e:  # noqa: BLE001  # one unloadable row must not stop the remaining guardrails
                         verbose_proxy_logger.error(
-                            "litellm.proxy.proxy_server.py::ProxyConfig:_init_guardrails_in_db - "
+                            "embrouter.proxy.proxy_server.py::ProxyConfig:_init_guardrails_in_db - "
                             "skipping guardrail '%s' (ID: %s): %s: %s",
                             guardrail.get("guardrail_name"),
                             guardrail_id,
@@ -8693,16 +8693,16 @@ class ProxyConfig:
                 # pod. Config-loaded entries are never touched.
                 IN_MEMORY_GUARDRAIL_HANDLER.reconcile_db_guardrails(db_guardrail_ids=db_guardrail_ids)
         except Exception as e:
-            verbose_proxy_logger.exception("litellm.proxy.proxy_server.py::ProxyConfig:_init_guardrails_in_db - %s", e)
+            verbose_proxy_logger.exception("embrouter.proxy.proxy_server.py::ProxyConfig:_init_guardrails_in_db - %s", e)
 
     async def _init_policies_in_db(self, prisma_client: PrismaClient):
         """
         Initialize policies and policy attachments from database into the in-memory registries.
         """
-        from litellm.proxy.policy_engine.attachment_registry import (
+        from embrouter.proxy.policy_engine.attachment_registry import (
             get_attachment_registry,
         )
-        from litellm.proxy.policy_engine.policy_registry import get_policy_registry
+        from embrouter.proxy.policy_engine.policy_registry import get_policy_registry
 
         try:
             # Get the global singleton instances
@@ -8717,24 +8717,24 @@ class ProxyConfig:
 
             verbose_proxy_logger.debug("Successfully synced policies and attachments from DB")
         except Exception as e:
-            verbose_proxy_logger.exception("litellm.proxy.proxy_server.py::ProxyConfig:_init_policies_in_db - %s", e)
+            verbose_proxy_logger.exception("embrouter.proxy.proxy_server.py::ProxyConfig:_init_policies_in_db - %s", e)
 
     async def _init_tool_policy_in_db(self, prisma_client: PrismaClient):
         """
         Initialize tool policy from database into the in-memory registry.
         Synced periodically by add_deployment -> _init_non_llm_objects_in_db.
         """
-        from litellm.proxy.db.tool_registry_writer import get_tool_policy_registry
+        from embrouter.proxy.db.tool_registry_writer import get_tool_policy_registry
 
         try:
             registry: Final = get_tool_policy_registry()
             await registry.sync_tool_policy_from_db(prisma_client=prisma_client)
             verbose_proxy_logger.debug("Successfully synced tool policy from DB")
         except Exception as e:
-            verbose_proxy_logger.exception("litellm.proxy.proxy_server.py::ProxyConfig:_init_tool_policy_in_db - %s", e)
+            verbose_proxy_logger.exception("embrouter.proxy.proxy_server.py::ProxyConfig:_init_tool_policy_in_db - %s", e)
 
     async def _init_vector_stores_in_db(self, prisma_client: PrismaClient):
-        from litellm.vector_stores.vector_store_registry import VectorStoreRegistry
+        from embrouter.vector_stores.vector_store_registry import VectorStoreRegistry
 
         try:
             # read vector stores from db table
@@ -8742,18 +8742,18 @@ class ProxyConfig:
             if len(vector_stores) <= 0:
                 return
 
-            if litellm.vector_store_registry is None:
-                litellm.vector_store_registry = VectorStoreRegistry(vector_stores=vector_stores)
+            if embrouter.vector_store_registry is None:
+                embrouter.vector_store_registry = VectorStoreRegistry(vector_stores=vector_stores)
             else:
                 for vector_store in vector_stores:
-                    litellm.vector_store_registry.add_vector_store_to_registry(vector_store=vector_store)
+                    embrouter.vector_store_registry.add_vector_store_to_registry(vector_store=vector_store)
         except Exception as e:
             verbose_proxy_logger.exception(
-                "litellm.proxy.proxy_server.py::ProxyConfig:_init_vector_stores_in_db - %s", e
+                "embrouter.proxy.proxy_server.py::ProxyConfig:_init_vector_stores_in_db - %s", e
             )
 
     async def _init_vector_store_indexes_in_db(self, prisma_client: PrismaClient):
-        from litellm.vector_stores.vector_store_registry import VectorStoreIndexRegistry
+        from embrouter.vector_stores.vector_store_registry import VectorStoreIndexRegistry
 
         try:
             # read vector stores from db table
@@ -8764,32 +8764,32 @@ class ProxyConfig:
             if len(vector_store_indexes) <= 0:
                 return
 
-            if litellm.vector_store_index_registry is None:
-                litellm.vector_store_index_registry = VectorStoreIndexRegistry(
+            if embrouter.vector_store_index_registry is None:
+                embrouter.vector_store_index_registry = VectorStoreIndexRegistry(
                     vector_store_indexes=vector_store_indexes
                 )
             else:
                 for vector_store_index in vector_store_indexes:
-                    litellm.vector_store_index_registry.upsert_vector_store_index(vector_store_index=vector_store_index)
+                    embrouter.vector_store_index_registry.upsert_vector_store_index(vector_store_index=vector_store_index)
         except Exception as e:
             verbose_proxy_logger.exception(
-                "litellm.proxy.proxy_server.py::ProxyConfig:_init_vector_stores_in_db - %s", e
+                "embrouter.proxy.proxy_server.py::ProxyConfig:_init_vector_stores_in_db - %s", e
             )
 
     async def _init_mcp_servers_in_db(self):
-        from litellm.proxy._experimental.mcp_server.utils import is_mcp_available
+        from embrouter.proxy._experimental.mcp_server.utils import is_mcp_available
 
         if not is_mcp_available():
             verbose_proxy_logger.debug("MCP module not available, skipping MCP server initialization")
             return
 
-        from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+        from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
             global_mcp_server_manager,
         )
-        from litellm.proxy._experimental.mcp_server.oauth2_flow_backfill import (
+        from embrouter.proxy._experimental.mcp_server.oauth2_flow_backfill import (
             backfill_null_oauth2_flows,
         )
-        from litellm.proxy._experimental.mcp_server.oauth_issuer_stamp_backfill import (
+        from embrouter.proxy._experimental.mcp_server.oauth_issuer_stamp_backfill import (
             backfill_discovery_stamped_issuers,
         )
 
@@ -8798,7 +8798,7 @@ class ProxyConfig:
                 await backfill_null_oauth2_flows(prisma_client)
         except Exception as e:  # noqa: BLE001
             verbose_proxy_logger.exception(
-                "litellm.proxy.proxy_server.py::ProxyConfig:_init_mcp_servers_in_db backfill - %s", e
+                "embrouter.proxy.proxy_server.py::ProxyConfig:_init_mcp_servers_in_db backfill - %s", e
             )
 
         try:
@@ -8806,13 +8806,13 @@ class ProxyConfig:
                 await backfill_discovery_stamped_issuers(prisma_client)
         except Exception as e:  # noqa: BLE001
             verbose_proxy_logger.exception(
-                "litellm.proxy.proxy_server.py::ProxyConfig:_init_mcp_servers_in_db issuer stamp backfill - %s", e
+                "embrouter.proxy.proxy_server.py::ProxyConfig:_init_mcp_servers_in_db issuer stamp backfill - %s", e
             )
 
         try:
             await global_mcp_server_manager.reload_servers_from_database()
         except Exception as e:
-            verbose_proxy_logger.exception("litellm.proxy.proxy_server.py::ProxyConfig:_init_mcp_servers_in_db - %s", e)
+            verbose_proxy_logger.exception("embrouter.proxy.proxy_server.py::ProxyConfig:_init_mcp_servers_in_db - %s", e)
 
     async def init_mcp_servers_from_db(self) -> None:
         if self._should_load_db_object(object_type="mcp"):
@@ -8828,11 +8828,11 @@ class ProxyConfig:
         """
         if not self._should_load_db_object(object_type="mcp"):
             return
-        from litellm.proxy._experimental.mcp_server.utils import is_mcp_available
+        from embrouter.proxy._experimental.mcp_server.utils import is_mcp_available
 
         if not is_mcp_available():
             return
-        from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+        from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
             global_mcp_server_manager,
         )
 
@@ -8840,14 +8840,14 @@ class ProxyConfig:
             await global_mcp_server_manager.reload_servers_from_database()
         except Exception as e:  # noqa: BLE001  # scheduled job: a reload failure must not kill the recurring retry
             verbose_proxy_logger.exception(
-                "litellm.proxy.proxy_server.py::ProxyConfig:reload_mcp_servers_from_db - %s", e
+                "embrouter.proxy.proxy_server.py::ProxyConfig:reload_mcp_servers_from_db - %s", e
             )
 
     async def _init_agents_in_db(self, prisma_client: PrismaClient):
-        from litellm.proxy.agent_endpoints.agent_registry import (
+        from embrouter.proxy.agent_endpoints.agent_registry import (
             AGENT_RECONCILE_LOCK,
         )
-        from litellm.proxy.agent_endpoints.agent_registry import (
+        from embrouter.proxy.agent_endpoints.agent_registry import (
             global_agent_registry as AGENT_REGISTRY,
         )
 
@@ -8856,7 +8856,7 @@ class ProxyConfig:
                 db_agents: Final = await AGENT_REGISTRY.get_all_agents_from_db(prisma_client=prisma_client)
                 AGENT_REGISTRY.load_agents_from_db_and_config(db_agents=db_agents)
         except Exception as e:
-            verbose_proxy_logger.exception("litellm.proxy.proxy_server.py::ProxyConfig:_init_agents_in_db - %s", e)
+            verbose_proxy_logger.exception("embrouter.proxy.proxy_server.py::ProxyConfig:_init_agents_in_db - %s", e)
 
     async def _init_search_tools_in_db(self, prisma_client: PrismaClient):
         """
@@ -8864,10 +8864,10 @@ class ProxyConfig:
         """
         global llm_router
 
-        from litellm.proxy.search_endpoints.search_tool_registry import (
+        from embrouter.proxy.search_endpoints.search_tool_registry import (
             SearchToolRegistry,
         )
-        from litellm.router_utils.search_api_router import SearchAPIRouter
+        from embrouter.router_utils.search_api_router import SearchAPIRouter
 
         try:
             db_search_tools: Final = await SearchToolRegistry.get_all_search_tools_from_db(prisma_client=prisma_client)
@@ -8897,7 +8897,7 @@ class ProxyConfig:
 
         except Exception as e:
             verbose_proxy_logger.exception(
-                "litellm.proxy.proxy_server.py::ProxyConfig:_init_search_tools_in_db - %s", e
+                "embrouter.proxy.proxy_server.py::ProxyConfig:_init_search_tools_in_db - %s", e
             )
 
     async def reload_search_tools_from_db(self) -> None:
@@ -8936,7 +8936,7 @@ class ProxyConfig:
         ]
 
     async def _init_pass_through_endpoints_in_db(self):
-        from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+        from embrouter.proxy.pass_through_endpoints.pass_through_endpoints import (
             initialize_pass_through_endpoints_in_db,
         )
 
@@ -8958,8 +8958,8 @@ class ProxyConfig:
     async def delete_credentials(self, db_credentials: list[CredentialItem]):
         """
         Create all-up list of db credentials + local credentials
-        Compare to the litellm.credential_list
-        Delete any from litellm.credential_list that are not in the all-up list
+        Compare to the embrouter.credential_list
+        Delete any from embrouter.credential_list that are not in the all-up list
         """
         ## CONFIG credentials ##
         config: Final = await self.get_config(config_file_path=user_config_file_path)
@@ -8970,11 +8970,11 @@ class ProxyConfig:
 
         ## DELETE ##
         idx_to_delete: Final = []
-        for idx, credential in enumerate(litellm.credential_list):
+        for idx, credential in enumerate(embrouter.credential_list):
             if credential.credential_name not in [cred.credential_name for cred in combined_list]:
                 idx_to_delete.append(idx)
         for idx in sorted(idx_to_delete, reverse=True):
-            litellm.credential_list.pop(idx)
+            embrouter.credential_list.pop(idx)
 
     async def get_credentials(self, prisma_client: PrismaClient):
         try:
@@ -8984,7 +8984,7 @@ class ProxyConfig:
             CredentialAccessor.upsert_credentials(credentials)  # upsert credentials that are in the all-up list
         except Exception as e:
             verbose_proxy_logger.exception(
-                "litellm.proxy_server.py::get_credentials() - Error getting credentials from DB - %s", e
+                "embrouter.proxy_server.py::get_credentials() - Error getting credentials from DB - %s", e
             )
             return []
 
@@ -9045,7 +9045,7 @@ async def initialize(
     if debug is True:  # this needs to be first, so users can see Router init debugg
         import logging
 
-        from litellm._logging import (
+        from embrouter._logging import (
             verbose_logger,
             verbose_proxy_logger,
             verbose_router_logger,
@@ -9058,7 +9058,7 @@ async def initialize(
     if detailed_debug is True:
         import logging
 
-        from litellm._logging import (
+        from embrouter._logging import (
             verbose_logger,
             verbose_proxy_logger,
             verbose_router_logger,
@@ -9068,13 +9068,13 @@ async def initialize(
         verbose_router_logger.setLevel(level=logging.DEBUG)  # set router logs to debug
         verbose_proxy_logger.setLevel(level=logging.DEBUG)  # set proxy logs to debug
     elif debug is False and detailed_debug is False:
-        # users can control proxy debugging using env variable = 'LITELLM_LOG'
-        litellm_log_setting: Final = os.environ.get("LITELLM_LOG", "")
-        if litellm_log_setting is not None:
-            if litellm_log_setting.upper() == "INFO":
+        # users can control proxy debugging using env variable = 'EMBROUTER_LOG'
+        embrouter_log_setting: Final = os.environ.get("EMBROUTER_LOG", "")
+        if embrouter_log_setting is not None:
+            if embrouter_log_setting.upper() == "INFO":
                 import logging
 
-                from litellm._logging import (
+                from embrouter._logging import (
                     verbose_logger,
                     verbose_proxy_logger,
                     verbose_router_logger,
@@ -9085,10 +9085,10 @@ async def initialize(
                 verbose_logger.setLevel(level=logging.INFO)  # set package log to info
                 verbose_router_logger.setLevel(level=logging.INFO)  # set router logs to info
                 verbose_proxy_logger.setLevel(level=logging.INFO)  # set proxy logs to info
-            elif litellm_log_setting.upper() == "DEBUG":
+            elif embrouter_log_setting.upper() == "DEBUG":
                 import logging
 
-                from litellm._logging import (
+                from embrouter._logging import (
                     verbose_logger,
                     verbose_proxy_logger,
                     verbose_router_logger,
@@ -9111,7 +9111,7 @@ async def initialize(
         user_api_base = api_base
         dynamic_config[user_model]["api_base"] = api_base
     if api_version:
-        os.environ["AZURE_API_VERSION"] = api_version  # set this for azure - litellm can read this from the env
+        os.environ["AZURE_API_VERSION"] = api_version  # set this for azure - embrouter can read this from the env
     if max_tokens:  # model-specific param
         dynamic_config[user_model]["max_tokens"] = max_tokens
     if temperature:  # model-specific param
@@ -9122,15 +9122,15 @@ async def initialize(
         dynamic_config[user_model]["request_timeout"] = request_timeout
     if alias:  # model-specific param
         dynamic_config[user_model]["alias"] = alias
-    if drop_params is True:  # litellm-specific param
-        litellm.drop_params = True
+    if drop_params is True:  # embrouter-specific param
+        embrouter.drop_params = True
         dynamic_config["general"]["drop_params"] = True
-    if add_function_to_prompt is True:  # litellm-specific param
-        litellm.add_function_to_prompt = True
+    if add_function_to_prompt is True:  # embrouter-specific param
+        embrouter.add_function_to_prompt = True
         dynamic_config["general"]["add_function_to_prompt"] = True
-    if max_budget:  # litellm-specific param
-        litellm.max_budget = float(max_budget)
-        dynamic_config["general"]["max_budget"] = litellm.max_budget
+    if max_budget:  # embrouter-specific param
+        embrouter.max_budget = float(max_budget)
+        dynamic_config["general"]["max_budget"] = embrouter.max_budget
     if experimental:
         pass
 
@@ -9171,7 +9171,7 @@ async def async_assistants_data_generator(response, user_api_key_dict: UserAPIKe
         yield f"data: {done_message}\n\n"
     except Exception as e:
         verbose_proxy_logger.exception(
-            "litellm.proxy.proxy_server.async_assistants_data_generator(): Exception occured - %s", e
+            "embrouter.proxy.proxy_server.async_assistants_data_generator(): Exception occured - %s", e
         )
         await proxy_logging_obj.post_call_failure_hook(
             user_api_key_dict=user_api_key_dict,
@@ -9179,7 +9179,7 @@ async def async_assistants_data_generator(response, user_api_key_dict: UserAPIKe
             request_data=request_data,
         )
         verbose_proxy_logger.debug(
-            "\x1b[1;31mAn error occurred: %s\n\n Debug this by setting `--debug`, e.g. `litellm --model gpt-3.5-turbo --debug`",
+            "\x1b[1;31mAn error occurred: %s\n\n Debug this by setting `--debug`, e.g. `embrouter --model gpt-3.5-turbo --debug`",
             e,
         )
         if isinstance(e, HTTPException):
@@ -9207,7 +9207,7 @@ def _get_client_requested_model_for_streaming(request_data: dict) -> str:
     Pre-call processing can rewrite `request_data["model"]` for aliasing/routing purposes.
     The OpenAI-compatible public `model` field should reflect what the client sent.
     """
-    requested_model = request_data.get("_litellm_client_requested_model")
+    requested_model = request_data.get("_embrouter_client_requested_model")
     if isinstance(requested_model, str):
         return requested_model
 
@@ -9235,10 +9235,10 @@ def _get_streaming_fallback_metadata(
     if not isinstance(additional_headers, dict):
         return False, None, []
 
-    if not _is_positive_int_like(additional_headers.get("x-litellm-attempted-fallbacks")):
+    if not _is_positive_int_like(additional_headers.get("x-embrouter-attempted-fallbacks")):
         return False, None, []
 
-    fallback_model: Final = additional_headers.get("x-litellm-model-group")
+    fallback_model: Final = additional_headers.get("x-embrouter-model-group")
     fallback_errors: Final = get_fallback_errors_from_headers(additional_headers)
     if isinstance(fallback_model, str) and fallback_model:
         return True, fallback_model, fallback_errors
@@ -9253,12 +9253,12 @@ def _format_fallback_metadata_sse_event(
     import time
 
     payload: Final = {
-        "id": "litellm-fallback-metadata",
+        "id": "embrouter-fallback-metadata",
         "object": "chat.completion.chunk",
         "created": int(time.time()),
         "model": fallback_model or "",
         "choices": [],
-        "litellm_fallback": {
+        "embrouter_fallback": {
             "fallback_model": fallback_model,
             "errors": fallback_errors,
         },
@@ -9305,8 +9305,8 @@ def _restamp_streaming_chunk_model(
 
     if not model_mismatch_logged and downstream_model != target_model:
         verbose_proxy_logger.debug(
-            "litellm_call_id=%s: streaming chunk model mismatch - target=%r downstream=%r fallback_was_attempted=%s. Overriding chunk model to target.",
-            request_data.get("litellm_call_id"),
+            "embrouter_call_id=%s: streaming chunk model mismatch - target=%r downstream=%r fallback_was_attempted=%s. Overriding chunk model to target.",
+            request_data.get("embrouter_call_id"),
             target_model,
             downstream_model,
             fallback_was_attempted,
@@ -9321,8 +9321,8 @@ def _restamp_streaming_chunk_model(
         chunk.model = target_model
     except Exception as e:
         verbose_proxy_logger.error(
-            "litellm_call_id=%s: failed to override chunk.model=%r on chunk_type=%s. error=%s",
-            request_data.get("litellm_call_id"),
+            "embrouter_call_id=%s: failed to override chunk.model=%r on chunk_type=%s. error=%s",
+            request_data.get("embrouter_call_id"),
             target_model,
             type(chunk),
             str(e),
@@ -9453,7 +9453,7 @@ async def _apply_streaming_chunk_hooks(
     )
 
     if isinstance(chunk, (ModelResponse, ModelResponseStream)):
-        response_str: Final = litellm.get_response_string(response_obj=chunk)
+        response_str: Final = embrouter.get_response_string(response_obj=chunk)
         str_so_far += response_str
 
     return chunk, str_so_far
@@ -9565,8 +9565,8 @@ def _keepalive_from_deployment_config(
         if deployment is None:
             return None
         return _DeploymentKeepaliveConfig(
-            keepalive_seconds=getattr(deployment.litellm_params, "keepalive_seconds", None),
-            allow_client_override=bool(getattr(deployment.litellm_params, "allow_client_keepalive_override", False)),
+            keepalive_seconds=getattr(deployment.embrouter_params, "keepalive_seconds", None),
+            allow_client_override=bool(getattr(deployment.embrouter_params, "allow_client_keepalive_override", False)),
         )
 
     # No model_id at all to pin down which deployment actually served this
@@ -9576,9 +9576,9 @@ def _keepalive_from_deployment_config(
     # field unset), so a stream never inherits a sibling deployment's policy.
     configs: Final = frozenset(
         (
-            (deployment_dict.get("litellm_params") or _EMPTY_MAPPING).get("keepalive_seconds"),
+            (deployment_dict.get("embrouter_params") or _EMPTY_MAPPING).get("keepalive_seconds"),
             bool(
-                (deployment_dict.get("litellm_params") or _EMPTY_MAPPING).get("allow_client_keepalive_override", False)
+                (deployment_dict.get("embrouter_params") or _EMPTY_MAPPING).get("allow_client_keepalive_override", False)
             ),
         )
         for deployment_dict in llm_router.get_model_list(model_name=request_data.get("model")) or ()
@@ -9616,7 +9616,7 @@ def _resolve_keepalive_seconds(request_data: Mapping[str, object], response: obj
     # a client can't unilaterally enable heartbeats (and the LB-idle-timeout
     # evasion that comes with them) for a deployment that never configured this.
     # When neither the request nor the deployment sets a value, the operator's
-    # global `litellm_settings.sse_keepalive_ping_interval_seconds` applies; a
+    # global `embrouter_settings.sse_keepalive_ping_interval_seconds` applies; a
     # deployment's explicit `keepalive_seconds: 0` above still hard-disables it.
     client_supplied: Final = request_data.get("keepalive_seconds") if allow_client_override else None
     raw: Final = (
@@ -9624,7 +9624,7 @@ def _resolve_keepalive_seconds(request_data: Mapping[str, object], response: obj
         if client_supplied is not None
         else deployment_raw
         if deployment_raw is not None
-        else litellm.sse_keepalive_ping_interval_seconds
+        else embrouter.sse_keepalive_ping_interval_seconds
     )
     try:
         value: Final = float(raw) if isinstance(raw, (int, float, str)) else 0.0
@@ -9724,8 +9724,8 @@ async def async_data_generator(
         # happened to ship a streaming-iterator override (the default).
         needs_iterator_wrap: Final = proxy_logging_obj.needs_iterator_wrap()
         needs_per_chunk_hook: Final = proxy_logging_obj.needs_per_chunk_streaming_hook()
-        is_raw_sse_stream: Final = bool(request_data.get("_litellm_raw_sse_stream"))
-        strip_stream_usage: Final = bool(request_data.get("_litellm_strip_stream_usage"))
+        is_raw_sse_stream: Final = bool(request_data.get("_embrouter_raw_sse_stream"))
+        strip_stream_usage: Final = bool(request_data.get("_embrouter_strip_stream_usage"))
         raw_sse_buffer = ""
 
         if needs_iterator_wrap:
@@ -9873,7 +9873,7 @@ async def async_data_generator(
         if error_message is not None:
             yield error_message
         # OpenAI-compatible streams terminate with data: [DONE]; Google GenAI (?alt=sse) does not.
-        if not request_data.get("_litellm_skip_openai_stream_done"):
+        if not request_data.get("_embrouter_skip_openai_stream_done"):
             yield _OPENAI_STREAM_DONE_FRAME
     except (asyncio.CancelledError, GeneratorExit):
         # Client disconnected mid-stream. CancelledError / GeneratorExit are
@@ -9888,14 +9888,14 @@ async def async_data_generator(
             client_disconnected = True
         raise
     except Exception as e:
-        verbose_proxy_logger.exception("litellm.proxy.proxy_server.async_data_generator(): Exception occured - %s", e)
+        verbose_proxy_logger.exception("embrouter.proxy.proxy_server.async_data_generator(): Exception occured - %s", e)
         await proxy_logging_obj.post_call_failure_hook(
             user_api_key_dict=user_api_key_dict,
             original_exception=e,
             request_data=request_data,
         )
         verbose_proxy_logger.debug(
-            "\x1b[1;31mAn error occurred: %s\n\n Debug this by setting `--debug`, e.g. `litellm --model gpt-3.5-turbo --debug`",
+            "\x1b[1;31mAn error occurred: %s\n\n Debug this by setting `--debug`, e.g. `embrouter --model gpt-3.5-turbo --debug`",
             e,
         )
 
@@ -9904,7 +9904,7 @@ async def async_data_generator(
             error_frame: Final = error_state.format_failure(e)
             if error_frame is not None:
                 yield error_frame
-            if not request_data.get("_litellm_skip_openai_stream_done"):
+            if not request_data.get("_embrouter_skip_openai_stream_done"):
                 yield _OPENAI_STREAM_DONE_FRAME
             return
         if isinstance(e, HTTPException):
@@ -9956,25 +9956,25 @@ def select_data_generator(
 
 
 def _pricing_override_stamps(
-    model_info: Mapping[str, object], litellm_params: Mapping[str, object]
+    model_info: Mapping[str, object], embrouter_params: Mapping[str, object]
 ) -> Mapping[str, object]:
     own_pricing: Final = MappingProxyType(
-        {k: v for k, v in litellm_params.items() if v is not None and is_server_derived_pricing_key(k)}
+        {k: v for k, v in embrouter_params.items() if v is not None and is_server_derived_pricing_key(k)}
     )
     return MappingProxyType({**own_pricing, PRICING_OVERRIDES_KEY: pricing_override_fields(model_info, own_pricing)})
 
 
-def get_litellm_model_info(model: dict = {}):
+def get_embrouter_model_info(model: dict = {}):
     model_info: Final = model.get("model_info", {})
-    model_to_lookup = model.get("litellm_params", {}).get("model", None)
+    model_to_lookup = model.get("embrouter_params", {}).get("model", None)
     try:
         if "azure" in model_to_lookup or model_info.get("base_model"):
             model_to_lookup = model_info.get("base_model", None)
-        litellm_model_info: Final = litellm.get_model_info(model_to_lookup)
-        return litellm_model_info
+        embrouter_model_info: Final = embrouter.get_model_info(model_to_lookup)
+        return embrouter_model_info
     except Exception:
         # this should not block returning on /model/info
-        # if litellm does not have info on the model it should return {}
+        # if embrouter does not have info on the model it should return {}
         return {}
 
 
@@ -10002,7 +10002,7 @@ def giveup(e):
 class ProxyStartupEvent:
     @staticmethod
     def _attach_router_to_prompt_injection_detectors(llm_router: Router | None) -> None:
-        for callback in litellm.logging_callback_manager.get_custom_loggers_for_type(
+        for callback in embrouter.logging_callback_manager.get_custom_loggers_for_type(
             _OPTIONAL_PromptInjectionDetection
         ):
             if isinstance(callback, _OPTIONAL_PromptInjectionDetection):
@@ -10019,7 +10019,7 @@ class ProxyStartupEvent:
             return
 
         verbose_proxy_logger.warning(
-            "A proxy-wide budget (litellm.max_budget=%s) is configured but no database is connected, "
+            "A proxy-wide budget (embrouter.max_budget=%s) is configured but no database is connected, "
             "so the budget will NOT be enforced and requests will never be blocked. Set DATABASE_URL or "
             "general_settings.database_url and restart. Redis and fail_closed_budget_enforcement do not "
             "cover the proxy-wide budget because there is no global spend counter; Redis alone is not a substitute.",
@@ -10056,7 +10056,7 @@ class ProxyStartupEvent:
     @staticmethod
     def _warn_if_mock_testing_params_enabled(general_settings: dict) -> None:
         """Announce, loudly, that any caller may inject synthetic failures."""
-        from litellm.proxy.route_llm_request import (
+        from embrouter.proxy.route_llm_request import (
             GATED_MOCK_PARAM_NAMES,
             MOCK_TESTING_CONFIG_KEY,
         )
@@ -10091,9 +10091,9 @@ class ProxyStartupEvent:
     ):
         """
         Validates that when use_redis_transaction_buffer is enabled,
-        a Redis cache is properly configured in litellm_settings.
+        a Redis cache is properly configured in embrouter_settings.
         """
-        from litellm.secret_managers.main import str_to_bool
+        from embrouter.secret_managers.main import str_to_bool
 
         _use_redis_transaction_buffer: bool | str | None = general_settings.get("use_redis_transaction_buffer", False)
         if isinstance(_use_redis_transaction_buffer, str):
@@ -10103,8 +10103,8 @@ class ProxyStartupEvent:
             raise ValueError(
                 "`use_redis_transaction_buffer` is enabled in general_settings "
                 "but no Redis is configured. This will cause spend updates "
-                "to not be tracked. Add a Redis cache in litellm_settings:\n\n"
-                "litellm_settings:\n"
+                "to not be tracked. Add a Redis cache in embrouter_settings:\n\n"
+                "embrouter_settings:\n"
                 "  cache: true\n"
                 "  cache_params:\n"
                 "    type: redis\n"
@@ -10116,7 +10116,7 @@ class ProxyStartupEvent:
 
     @staticmethod
     async def _init_coordination_redis_from_db(
-        litellm_settings: Mapping[str, object],
+        embrouter_settings: Mapping[str, object],
         llm_router: Router | None,
     ) -> RedisCache | None:
         """
@@ -10146,7 +10146,7 @@ class ProxyStartupEvent:
         coordination_redis_cache: Final = _build_redis_usage_cache(coordination_params.model_dump(exclude_none=True))
         _attach_redis_usage_cache(
             coordination_redis_cache,
-            enable_redis_auth_cache=litellm_settings.get("enable_redis_auth_cache", False) is True,
+            enable_redis_auth_cache=embrouter_settings.get("enable_redis_auth_cache", False) is True,
         )
         if llm_router is not None and llm_router.cache.redis_cache is None:
             llm_router._update_redis_cache(cache=coordination_redis_cache)
@@ -10168,7 +10168,7 @@ class ProxyStartupEvent:
         Returns None when the buffer is disabled, or when no Redis host or url
         is set in the environment.
         """
-        from litellm.secret_managers.main import str_to_bool
+        from embrouter.secret_managers.main import str_to_bool
 
         _use_redis_transaction_buffer: bool | str | None = general_settings.get("use_redis_transaction_buffer", False)
         if isinstance(_use_redis_transaction_buffer, str):
@@ -10183,12 +10183,12 @@ class ProxyStartupEvent:
     async def _initialize_semantic_tool_filter(
         cls,
         llm_router: Router | None,
-        litellm_settings: dict[str, Any],
+        embrouter_settings: dict[str, Any],
     ):
         """Initialize MCP semantic tool filter if configured"""
-        from litellm.proxy.hooks.mcp_semantic_filter import SemanticToolFilterHook
+        from embrouter.proxy.hooks.mcp_semantic_filter import SemanticToolFilterHook
 
-        mcp_semantic_filter_config: Final = litellm_settings.get("mcp_semantic_tool_filter", None)
+        mcp_semantic_filter_config: Final = embrouter_settings.get("mcp_semantic_tool_filter", None)
 
         # Only proceed if the feature is configured and enabled
         if not mcp_semantic_filter_config or not mcp_semantic_filter_config.get("enabled", False):
@@ -10207,7 +10207,7 @@ class ProxyStartupEvent:
 
         if hook:
             verbose_proxy_logger.debug("Semantic tool filter hook registered")
-            litellm.logging_callback_manager.add_litellm_callback(hook)
+            embrouter.logging_callback_manager.add_embrouter_callback(hook)
         else:
             # Only warn if the feature was configured but failed to initialize
             verbose_proxy_logger.warning("Semantic tool filter hook was configured but failed to initialize")
@@ -10220,7 +10220,7 @@ class ProxyStartupEvent:
         user_api_key_cache: UserApiKeyCache,
     ):
         """Initialize JWT auth on startup"""
-        declared_jwtauth: Final = general_settings.get("litellm_jwtauth", None)
+        declared_jwtauth: Final = general_settings.get("embrouter_jwtauth", None)
         if declared_jwtauth is not None:
             resolved_jwtauth: Final = {
                 key: (get_secret(value) if isinstance(value, str) and value.startswith("os.environ/") else value)
@@ -10231,25 +10231,25 @@ class ProxyStartupEvent:
             # configured ``custom_validate: s3://...`` resolve through
             # the runtime gate; admin-API JWT config writes (no config
             # file context) hit the gate and refuse remote loads.
-            litellm_jwtauth = LiteLLM_JWTAuth(
+            embrouter_jwtauth = EmbRouter_JWTAuth(
                 config_file_path=user_config_file_path,
                 **resolved_jwtauth,
             )
         else:
-            litellm_jwtauth = LiteLLM_JWTAuth()
+            embrouter_jwtauth = EmbRouter_JWTAuth()
         jwt_handler.update_environment(
             prisma_client=prisma_client,
             user_api_key_cache=user_api_key_cache,
-            litellm_jwtauth=litellm_jwtauth,
+            embrouter_jwtauth=embrouter_jwtauth,
         )
-        from litellm.proxy.agent_endpoints.agent_registry import global_agent_registry
+        from embrouter.proxy.agent_endpoints.agent_registry import global_agent_registry
 
         jwt_handler.bind_agent_lookup(global_agent_registry)
 
     @classmethod
     def _add_proxy_budget_to_db(cls):
         """Adds a global proxy budget to db"""
-        if litellm.budget_duration is None:
+        if embrouter.budget_duration is None:
             raise Exception("budget_duration not set on Proxy. budget_duration is required to use max_budget.")
 
         asyncio.create_task(cls._upsert_proxy_budget_with_reset_at_backfill())
@@ -10273,34 +10273,34 @@ class ProxyStartupEvent:
             llm_router=llm_router,
             request_type="user",
             table_name="user",
-            user_id=LITELLM_PROXY_BUDGET_NAME,
+            user_id=EMBROUTER_PROXY_BUDGET_NAME,
             duration=None,
             models=[],
             aliases={},
             config={},
             spend=0,
-            max_budget=litellm.max_budget,
-            budget_duration=litellm.budget_duration,
+            max_budget=embrouter.max_budget,
+            budget_duration=embrouter.budget_duration,
             query_type="update_data",
             update_key_values={
-                "max_budget": litellm.max_budget,
-                "budget_duration": litellm.budget_duration,
+                "max_budget": embrouter.max_budget,
+                "budget_duration": embrouter.budget_duration,
             },
         )
 
         # Without this, the upsert leaves budget_reset_at=NULL on rows that
-        # took the UPDATE path, and reset_budget_for_litellm_users never
+        # took the UPDATE path, and reset_budget_for_embrouter_users never
         # matches them (NULL < now() is unknown in SQL) — so the proxy-wide
         # spend cap blocks forever once it's hit.
-        if prisma_client is not None and litellm.budget_duration is not None:
+        if prisma_client is not None and embrouter.budget_duration is not None:
             try:
                 await UserRepository(prisma_client).table.update_many(
                     where={
-                        "user_id": LITELLM_PROXY_BUDGET_NAME,
+                        "user_id": EMBROUTER_PROXY_BUDGET_NAME,
                         "budget_reset_at": None,
                     },
                     data={
-                        "budget_reset_at": get_budget_reset_time(budget_duration=litellm.budget_duration),
+                        "budget_reset_at": get_budget_reset_time(budget_duration=embrouter.budget_duration),
                         "spend": 0,
                     },
                 )
@@ -10327,12 +10327,12 @@ class ProxyStartupEvent:
     @classmethod
     async def _update_default_team_member_budget(cls):
         """Update the default team member budget"""
-        if litellm.default_internal_user_params is None:
+        if embrouter.default_internal_user_params is None:
             return
 
-        _teams: Final = litellm.default_internal_user_params.get("teams") or []
+        _teams: Final = embrouter.default_internal_user_params.get("teams") or []
         if _teams and all(isinstance(team, dict) for team in _teams):
-            from litellm.proxy.ui_crud_endpoints.proxy_setting_endpoints import (
+            from embrouter.proxy.ui_crud_endpoints.proxy_setting_endpoints import (
                 update_default_team_member_budget,
             )
 
@@ -10359,7 +10359,7 @@ class ProxyStartupEvent:
         from prisma.errors import UniqueViolationError
 
         try:
-            config_table: Final = prisma_client.db.litellm_config
+            config_table: Final = prisma_client.db.embrouter_config
             row: Final = await config_table.find_unique(
                 where={"param_name": TUNING_BASELINE_PARAM_NAME}  # mutable-ok: Prisma rejects mappingproxy input
             )
@@ -10522,7 +10522,7 @@ class ProxyStartupEvent:
         ### UPDATE DAILY TAG SPEND (separate scheduler job with longer interval) ###
         ## Reduces QPS as there are more tags for a single request
         tag_spend_update_interval: Final = int(batch_writing_interval * DAILY_TAG_SPEND_BATCH_MULTIPLIER)
-        from litellm.proxy.utils import update_daily_tag_spend
+        from embrouter.proxy.utils import update_daily_tag_spend
 
         scheduler.add_job(
             update_daily_tag_spend,
@@ -10551,7 +10551,7 @@ class ProxyStartupEvent:
 
         ### MONITOR SPEND LOGS QUEUE (queue-size-based job) ###
         if general_settings.get("disable_spend_logs", False) is False:
-            from litellm.proxy.utils import _monitor_spend_logs_queue
+            from embrouter.proxy.utils import _monitor_spend_logs_queue
 
             monitor_task: Final = asyncio.create_task(
                 _monitor_spend_logs_queue(
@@ -10681,12 +10681,12 @@ class ProxyStartupEvent:
         )
 
         ### PTU DAILY ROLLUP ###
-        from litellm.proxy.spend_tracking.ptu_feature_flag import (
+        from embrouter.proxy.spend_tracking.ptu_feature_flag import (
             is_ptu_cost_attribution_enabled,
         )
 
         if is_ptu_cost_attribution_enabled():
-            from litellm.proxy.spend_tracking.ptu_flat_cost_rollup import (
+            from embrouter.proxy.spend_tracking.ptu_flat_cost_rollup import (
                 PTU_ROLLUP_JOB_ID,
                 run_scheduled_ptu_rollup,
             )
@@ -10775,7 +10775,7 @@ class ProxyStartupEvent:
         ### CHECK BATCH COST ###
         if llm_router is not None and PROXY_BATCH_POLLING_ENABLED:
             try:
-                from litellm_enterprise.proxy.common_utils.check_batch_cost import (
+                from embrouter_enterprise.proxy.common_utils.check_batch_cost import (
                     CheckBatchCost,
                 )
 
@@ -10800,13 +10800,13 @@ class ProxyStartupEvent:
             except Exception as e:
                 verbose_proxy_logger.debug("Failed to setup batch cost checking: %s", e)
                 verbose_proxy_logger.debug(
-                    "Checking batch cost for LiteLLM Managed Files is an Enterprise Feature. Skipping..."
+                    "Checking batch cost for EmbRouter Managed Files is an Enterprise Feature. Skipping..."
                 )
 
         ### CHECK RESPONSES COST ###
         if llm_router is not None and PROXY_BATCH_POLLING_ENABLED:
             try:
-                from litellm_enterprise.proxy.common_utils.check_responses_cost import (
+                from embrouter_enterprise.proxy.common_utils.check_responses_cost import (
                     CheckResponsesCost,
                 )
 
@@ -10829,7 +10829,7 @@ class ProxyStartupEvent:
             except Exception as e:
                 verbose_proxy_logger.debug("Failed to setup responses cost checking: %s", e)
                 verbose_proxy_logger.debug(
-                    "Checking responses cost for LiteLLM Managed Files is an Enterprise Feature. Skipping..."
+                    "Checking responses cost for EmbRouter Managed Files is an Enterprise Feature. Skipping..."
                 )
 
         # MEMORY LEAK FIX: Start scheduler with paused=False to avoid backlog processing
@@ -10871,9 +10871,9 @@ class ProxyStartupEvent:
         ########################################################
         # CloudZero Background Job
         ########################################################
-        from litellm.integrations.cloudzero.cloudzero import CloudZeroLogger
-        from litellm.integrations.focus.focus_logger import FocusLogger
-        from litellm.proxy.spend_tracking.cloudzero_endpoints import is_cloudzero_setup
+        from embrouter.integrations.cloudzero.cloudzero import CloudZeroLogger
+        from embrouter.integrations.focus.focus_logger import FocusLogger
+        from embrouter.proxy.spend_tracking.cloudzero_endpoints import is_cloudzero_setup
 
         if await is_cloudzero_setup():
             await CloudZeroLogger.init_cloudzero_background_job(scheduler=scheduler)
@@ -10886,8 +10886,8 @@ class ProxyStartupEvent:
         ########################################################
         # Vantage Background Job
         ########################################################
-        from litellm.integrations.vantage.vantage_logger import VantageLogger
-        from litellm.proxy.spend_tracking.vantage_endpoints import (
+        from embrouter.integrations.vantage.vantage_logger import VantageLogger
+        from embrouter.proxy.spend_tracking.vantage_endpoints import (
             _get_vantage_settings,
             is_vantage_setup,
             is_vantage_setup_in_config,
@@ -10907,7 +10907,7 @@ class ProxyStartupEvent:
                             integration_token=db_settings.get("integration_token"),
                             base_url=db_settings.get("base_url"),
                         )
-                        litellm.logging_callback_manager.add_litellm_callback(vantage_logger)
+                        embrouter.logging_callback_manager.add_embrouter_callback(vantage_logger)
                 except Exception as e:
                     verbose_proxy_logger.warning("Failed to register VantageLogger from DB settings: %s", e)
             await VantageLogger.init_vantage_background_job(scheduler=scheduler)
@@ -10915,7 +10915,7 @@ class ProxyStartupEvent:
         ########################################################
         # Mavvrik FOCUS Background Job
         ########################################################
-        from litellm.integrations.mavvrik_focus.mavvrik_focus_logger import (  # noqa: PLC0415
+        from embrouter.integrations.mavvrik_focus.mavvrik_focus_logger import (  # noqa: PLC0415
             MavvrikFocusLogger,
         )
 
@@ -10924,24 +10924,24 @@ class ProxyStartupEvent:
         ########################################################
         # Prometheus Background Job
         ########################################################
-        if litellm.prometheus_initialize_budget_metrics is True:
-            from litellm.integrations.prometheus import PrometheusLogger
+        if embrouter.prometheus_initialize_budget_metrics is True:
+            from embrouter.integrations.prometheus import PrometheusLogger
 
             PrometheusLogger.initialize_budget_metrics_cron_job(scheduler=scheduler)
         ########################################################
         # Key Rotation Background Job
         ########################################################
-        from litellm.constants import (
-            LITELLM_KEY_ROTATION_CHECK_INTERVAL_SECONDS,
-            LITELLM_KEY_ROTATION_ENABLED,
+        from embrouter.constants import (
+            EMBROUTER_KEY_ROTATION_CHECK_INTERVAL_SECONDS,
+            EMBROUTER_KEY_ROTATION_ENABLED,
         )
 
-        key_rotation_enabled: Final[bool | None] = str_to_bool(LITELLM_KEY_ROTATION_ENABLED)
+        key_rotation_enabled: Final[bool | None] = str_to_bool(EMBROUTER_KEY_ROTATION_ENABLED)
         verbose_proxy_logger.debug("key_rotation_enabled: %s", key_rotation_enabled)
 
         if key_rotation_enabled is True:
             try:
-                from litellm.proxy.common_utils.key_rotation_manager import (
+                from embrouter.proxy.common_utils.key_rotation_manager import (
                     KeyRotationManager,
                 )
 
@@ -10954,13 +10954,13 @@ class ProxyStartupEvent:
                         pod_lock_manager=pod_lock_manager,
                     )
                     verbose_proxy_logger.debug(
-                        "Key rotation background job scheduled every %s seconds (LITELLM_KEY_ROTATION_ENABLED=true)",
-                        LITELLM_KEY_ROTATION_CHECK_INTERVAL_SECONDS,
+                        "Key rotation background job scheduled every %s seconds (EMBROUTER_KEY_ROTATION_ENABLED=true)",
+                        EMBROUTER_KEY_ROTATION_CHECK_INTERVAL_SECONDS,
                     )
                     scheduler.add_job(
                         key_rotation_manager.process_rotations,
                         "interval",
-                        seconds=LITELLM_KEY_ROTATION_CHECK_INTERVAL_SECONDS,
+                        seconds=EMBROUTER_KEY_ROTATION_CHECK_INTERVAL_SECONDS,
                         id="key_rotation_job",
                     )
                 else:
@@ -10968,7 +10968,7 @@ class ProxyStartupEvent:
             except Exception as e:
                 verbose_proxy_logger.warning("Failed to setup key rotation job: %s", e)
         else:
-            verbose_proxy_logger.debug("Key rotation disabled (set LITELLM_KEY_ROTATION_ENABLED=true to enable)")
+            verbose_proxy_logger.debug("Key rotation disabled (set EMBROUTER_KEY_ROTATION_ENABLED=true to enable)")
 
         await cls._initialize_expired_ui_session_key_cleanup_background_job(scheduler=scheduler)
 
@@ -10984,20 +10984,20 @@ class ProxyStartupEvent:
         ########################################################
         # Expired UI Session Key Cleanup Background Job
         ########################################################
-        from litellm.constants import (
+        from embrouter.constants import (
             EXPIRED_UI_SESSION_KEY_CLEANUP_JOB_NAME,
-            LITELLM_EXPIRED_UI_SESSION_KEY_CLEANUP_ENABLED,
-            LITELLM_EXPIRED_UI_SESSION_KEY_CLEANUP_INTERVAL_SECONDS,
+            EMBROUTER_EXPIRED_UI_SESSION_KEY_CLEANUP_ENABLED,
+            EMBROUTER_EXPIRED_UI_SESSION_KEY_CLEANUP_INTERVAL_SECONDS,
         )
 
         expired_ui_session_key_cleanup_enabled: Final[bool | None] = str_to_bool(
-            LITELLM_EXPIRED_UI_SESSION_KEY_CLEANUP_ENABLED
+            EMBROUTER_EXPIRED_UI_SESSION_KEY_CLEANUP_ENABLED
         )
         verbose_proxy_logger.debug("expired_ui_session_key_cleanup_enabled: %s", expired_ui_session_key_cleanup_enabled)
 
         if expired_ui_session_key_cleanup_enabled is True:
             try:
-                from litellm.proxy.common_utils.expired_ui_session_key_cleanup_manager import (
+                from embrouter.proxy.common_utils.expired_ui_session_key_cleanup_manager import (
                     ExpiredUISessionKeyCleanupManager,
                 )
 
@@ -11009,13 +11009,13 @@ class ProxyStartupEvent:
                         pod_lock_manager=pod_lock_manager,
                     )
                     verbose_proxy_logger.debug(
-                        "Expired UI session key cleanup background job scheduled every %s seconds (LITELLM_EXPIRED_UI_SESSION_KEY_CLEANUP_ENABLED=true)",
-                        LITELLM_EXPIRED_UI_SESSION_KEY_CLEANUP_INTERVAL_SECONDS,
+                        "Expired UI session key cleanup background job scheduled every %s seconds (EMBROUTER_EXPIRED_UI_SESSION_KEY_CLEANUP_ENABLED=true)",
+                        EMBROUTER_EXPIRED_UI_SESSION_KEY_CLEANUP_INTERVAL_SECONDS,
                     )
                     scheduler.add_job(
                         expired_ui_session_key_cleanup_manager.cleanup_expired_keys,
                         "interval",
-                        seconds=LITELLM_EXPIRED_UI_SESSION_KEY_CLEANUP_INTERVAL_SECONDS,
+                        seconds=EMBROUTER_EXPIRED_UI_SESSION_KEY_CLEANUP_INTERVAL_SECONDS,
                         id=EXPIRED_UI_SESSION_KEY_CLEANUP_JOB_NAME,
                     )
                 else:
@@ -11027,7 +11027,7 @@ class ProxyStartupEvent:
         else:
             verbose_proxy_logger.debug(
                 "Expired UI session key cleanup disabled (set "
-                "LITELLM_EXPIRED_UI_SESSION_KEY_CLEANUP_ENABLED=true to enable)"
+                "EMBROUTER_EXPIRED_UI_SESSION_KEY_CLEANUP_ENABLED=true to enable)"
             )
 
     @classmethod
@@ -11049,9 +11049,9 @@ class ProxyStartupEvent:
             )
 
         def publish(provider: str, capture_rate: float | None) -> None:
-            from litellm.integrations.prometheus import PrometheusLogger
+            from embrouter.integrations.prometheus import PrometheusLogger
 
-            for logger in litellm.logging_callback_manager.get_custom_loggers_for_type(callback_type=PrometheusLogger):
+            for logger in embrouter.logging_callback_manager.get_custom_loggers_for_type(callback_type=PrometheusLogger):
                 if isinstance(logger, PrometheusLogger):
                     logger.set_spend_capture_rate(api_provider=provider, capture_rate=capture_rate)
 
@@ -11269,7 +11269,7 @@ class ProxyStartupEvent:
         DD tracer is used to trace Python applications.
         Doc: https://docs.datadoghq.com/tracing/trace_collection/automatic_instrumentation/dd_libraries/python/
         """
-        from litellm.litellm_core_utils.dd_tracing import (
+        from embrouter.embrouter_core_utils.dd_tracing import (
             _should_use_dd_profiler,
             _should_use_dd_tracer,
         )
@@ -11291,15 +11291,15 @@ class ProxyStartupEvent:
         """
         Optional continuous profiling via Grafana Pyroscope.
 
-        Off by default. Enable with LITELLM_ENABLE_PYROSCOPE=true.
+        Off by default. Enable with EMBROUTER_ENABLE_PYROSCOPE=true.
         Requires: pip install pyroscope-io (optional dependency).
         When enabled, PYROSCOPE_SERVER_ADDRESS and PYROSCOPE_APP_NAME are required (no defaults).
         Optional: PYROSCOPE_SAMPLE_RATE (parsed as integer) to set the sample rate.
         Optional: PYROSCOPE_GRAFANA_USER and PYROSCOPE_GRAFANA_API_TOKEN for Grafana Cloud basic auth.
         """
-        if not get_secret_bool("LITELLM_ENABLE_PYROSCOPE", False):
+        if not get_secret_bool("EMBROUTER_ENABLE_PYROSCOPE", False):
             verbose_proxy_logger.debug(
-                "LiteLLM: Pyroscope profiling is disabled (set LITELLM_ENABLE_PYROSCOPE=true to enable)."
+                "EmbRouter: Pyroscope profiling is disabled (set EMBROUTER_ENABLE_PYROSCOPE=true to enable)."
             )
             return
         try:
@@ -11308,18 +11308,18 @@ class ProxyStartupEvent:
             app_name: Final = os.getenv("PYROSCOPE_APP_NAME")
             if not app_name:
                 raise ValueError(
-                    "LITELLM_ENABLE_PYROSCOPE is true but PYROSCOPE_APP_NAME is not set. "
+                    "EMBROUTER_ENABLE_PYROSCOPE is true but PYROSCOPE_APP_NAME is not set. "
                     "Set PYROSCOPE_APP_NAME when enabling Pyroscope."
                 )
             server_address: Final = os.getenv("PYROSCOPE_SERVER_ADDRESS")
             if not server_address:
                 raise ValueError(
-                    "LITELLM_ENABLE_PYROSCOPE is true but PYROSCOPE_SERVER_ADDRESS is not set. "
+                    "EMBROUTER_ENABLE_PYROSCOPE is true but PYROSCOPE_SERVER_ADDRESS is not set. "
                     "Set PYROSCOPE_SERVER_ADDRESS when enabling Pyroscope."
                 )
             tags: Final = {}
             env_name: Final = os.getenv("OTEL_ENVIRONMENT_NAME") or os.getenv(
-                "LITELLM_DEPLOYMENT_ENVIRONMENT",
+                "EMBROUTER_DEPLOYMENT_ENVIRONMENT",
             )
             if env_name:
                 tags["environment"] = env_name
@@ -11357,7 +11357,7 @@ class ProxyStartupEvent:
                     raise ValueError(f"PYROSCOPE_SAMPLE_RATE must be a number, got: {sample_rate_env!r}")
             pyroscope.configure(**configure_kwargs)
             msg = (
-                f"LiteLLM: Pyroscope profiling started (app_name={app_name}, server_address={server_address}). "
+                f"EmbRouter: Pyroscope profiling started (app_name={app_name}, server_address={server_address}). "
                 f"View CPU profiles at the Pyroscope UI and select application '{app_name}'."
             )
             if "sample_rate" in configure_kwargs:
@@ -11365,7 +11365,7 @@ class ProxyStartupEvent:
             verbose_proxy_logger.info(msg)
         except ImportError:
             verbose_proxy_logger.warning(
-                "LiteLLM: LITELLM_ENABLE_PYROSCOPE is set but the 'pyroscope-io' package is not installed. "
+                "EmbRouter: EMBROUTER_ENABLE_PYROSCOPE is set but the 'pyroscope-io' package is not installed. "
                 "Pyroscope profiling will not run. Install with: pip install pyroscope-io"
             )
 
@@ -11451,17 +11451,17 @@ async def model_list(
 
     settings: Final = cast(dict[str, object], general_settings)  # any-ok: legacy settings
 
-    from litellm.llms.anthropic.common_utils import (
+    from embrouter.llms.anthropic.common_utils import (
         create_anthropic_model_list_response,
     )
-    from litellm.proxy.management_endpoints.common_utils import (
+    from embrouter.proxy.management_endpoints.common_utils import (
         _user_has_admin_privileges,
     )
-    from litellm.proxy.utils import (
+    from embrouter.proxy.utils import (
         create_model_info_response,
         get_available_models_for_user,
     )
-    from litellm.types.proxy.model_listing import ModelInfoResponse
+    from embrouter.types.proxy.model_listing import ModelInfoResponse
 
     http_request: Final = cast(Request | None, request)  # cast-ok: in-process callers pass no request
     wants_anthropic_format: Final = (
@@ -11530,7 +11530,7 @@ async def model_list(
             proxy_model_list = list(set(proxy_model_list + list(model_access_groups.keys())))
 
         # Get complete model list including wildcard routes if requested
-        from litellm.proxy.auth.model_checks import get_complete_model_list
+        from embrouter.proxy.auth.model_checks import get_complete_model_list
 
         all_models = get_complete_model_list(
             key_models=[],
@@ -11680,7 +11680,7 @@ async def model_info(
 
     settings: Final = cast(dict[str, object], general_settings)  # any-ok: legacy settings
 
-    from litellm.proxy.utils import (
+    from embrouter.proxy.utils import (
         create_model_info_response,
         get_available_models_for_user,
         validate_model_access,
@@ -11761,8 +11761,8 @@ async def model_info(
             detail=f"Model '{model_id}' not found in router configuration",
         )
 
-    # Use the actual litellm model from the deployment to get provider info
-    _, provider, _, _ = litellm.get_llm_provider(model=deployment.litellm_params.model)
+    # Use the actual embrouter model from the deployment to get provider info
+    _, provider, _, _ = embrouter.get_llm_provider(model=deployment.embrouter_params.model)
 
     response: Final = create_model_info_response(
         model_id=resolved_model_id,
@@ -11775,7 +11775,7 @@ async def model_info(
     return {**response, "id": response_id}  # mutable-ok: response id differs
 
 
-def _blocked_response_usage(original_response: object | None) -> "litellm.Usage":
+def _blocked_response_usage(original_response: object | None) -> "embrouter.Usage":
     """
     Token usage for a synthetic guardrail-blocked response.
 
@@ -11786,9 +11786,9 @@ def _blocked_response_usage(original_response: object | None) -> "litellm.Usage"
     so usage is zero.
     """
     usage: Final = getattr(original_response, "usage", None) if original_response is not None else None
-    if isinstance(usage, litellm.Usage):
+    if isinstance(usage, embrouter.Usage):
         return usage
-    return litellm.Usage(prompt_tokens=0, completion_tokens=0, total_tokens=0)
+    return embrouter.Usage(prompt_tokens=0, completion_tokens=0, total_tokens=0)
 
 
 @router.post(
@@ -11889,13 +11889,13 @@ async def chat_completion(
         # Guardrail flagged content in passthrough mode - return 200 with violation message
         _data = e.request_data
         # Capture logging_obj before post_call_failure_hook pops it from _data.
-        _logging_obj: Final = _data.get("litellm_logging_obj")
+        _logging_obj: Final = _data.get("embrouter_logging_obj")
         await proxy_logging_obj.post_call_failure_hook(
             user_api_key_dict=user_api_key_dict,
             original_exception=e,
             request_data=_data,
         )
-        _chat_response = litellm.ModelResponse()
+        _chat_response = embrouter.ModelResponse()
         _chat_response.model = e.model
         _chat_response.choices[0].message.content = e.message
         _chat_response.choices[0].finish_reason = "content_filter"
@@ -11904,8 +11904,8 @@ async def chat_completion(
         _chat_response.usage = _blocked_response_usage(e.original_response)
 
         if data.get("stream", None) is not None and data["stream"] is True:
-            _iterator = litellm.utils.ModelResponseIterator(model_response=_chat_response, convert_to_delta=True)
-            _streaming_response = litellm.CustomStreamWrapper(
+            _iterator = embrouter.utils.ModelResponseIterator(model_response=_chat_response, convert_to_delta=True)
+            _streaming_response = embrouter.CustomStreamWrapper(
                 completion_stream=_iterator,
                 model=e.model,
                 custom_llm_provider="cached_response",
@@ -11931,16 +11931,16 @@ async def chat_completion(
             original_exception=e,
             request_data=_data,
         )
-        _chat_response = litellm.ModelResponse()
+        _chat_response = embrouter.ModelResponse()
         _chat_response.choices[0].message.content = e.message
 
         if data.get("stream", None) is not None and data["stream"] is True:
-            _iterator = litellm.utils.ModelResponseIterator(model_response=_chat_response, convert_to_delta=True)
-            _streaming_response = litellm.CustomStreamWrapper(
+            _iterator = embrouter.utils.ModelResponseIterator(model_response=_chat_response, convert_to_delta=True)
+            _streaming_response = embrouter.CustomStreamWrapper(
                 completion_stream=_iterator,
                 model=data.get("model", ""),
                 custom_llm_provider="cached_response",
-                logging_obj=_data.get("litellm_logging_obj", None),
+                logging_obj=_data.get("embrouter_logging_obj", None),
             )
             selected_data_generator = select_data_generator(
                 response=_streaming_response,
@@ -11954,7 +11954,7 @@ async def chat_completion(
                 media_type="text/event-stream",
                 status_code=(e.status_code if hasattr(e, "status_code") else status.HTTP_400_BAD_REQUEST),
             )
-        _usage: Final = litellm.Usage(prompt_tokens=0, completion_tokens=0, total_tokens=0)
+        _usage: Final = embrouter.Usage(prompt_tokens=0, completion_tokens=0, total_tokens=0)
         _chat_response.usage = _usage
         return _chat_response
     except Exception as e:
@@ -12047,15 +12047,15 @@ async def completion(
         )
 
         if _data.get("stream", None) is not None and _data["stream"] is True:
-            _text_response: Final = litellm.ModelResponse()
+            _text_response: Final = embrouter.ModelResponse()
             # Set text attribute dynamically for text completion format
             setattr(_text_response.choices[0], "text", e.message)
             _text_response.model = e.model
             _usage = _blocked_response_usage(e.original_response)
             # Set usage attribute dynamically (ModelResponse accepts usage in __init__ but it's not in type definition)
             setattr(_text_response, "usage", _usage)
-            _iterator = litellm.utils.ModelResponseIterator(model_response=_text_response, convert_to_delta=True)
-            _streaming_response = litellm.TextCompletionStreamWrapper(
+            _iterator = embrouter.utils.ModelResponseIterator(model_response=_text_response, convert_to_delta=True)
+            _streaming_response = embrouter.TextCompletionStreamWrapper(
                 completion_stream=_iterator,
                 model=e.model,
             )
@@ -12073,7 +12073,7 @@ async def completion(
                 status_code=200,  # Return 200 for passthrough mode
             )
         else:
-            _response = litellm.TextCompletionResponse()
+            _response = embrouter.TextCompletionResponse()
             _response.choices[0].text = e.message
             _response.model = e.model
             _usage = _blocked_response_usage(e.original_response)
@@ -12087,16 +12087,16 @@ async def completion(
             request_data=_data,
         )
         if _data.get("stream", None) is not None and _data["stream"] is True:
-            _chat_response: Final = litellm.ModelResponse()
-            _usage = litellm.Usage(
+            _chat_response: Final = embrouter.ModelResponse()
+            _usage = embrouter.Usage(
                 prompt_tokens=0,
                 completion_tokens=0,
                 total_tokens=0,
             )
             _chat_response.usage = _usage
             _chat_response.choices[0].message.content = e.message
-            _iterator = litellm.utils.ModelResponseIterator(model_response=_chat_response, convert_to_delta=True)
-            _streaming_response = litellm.TextCompletionStreamWrapper(
+            _iterator = embrouter.utils.ModelResponseIterator(model_response=_chat_response, convert_to_delta=True)
+            _streaming_response = embrouter.TextCompletionStreamWrapper(
                 completion_stream=_iterator,
                 model=_data.get("model", ""),
             )
@@ -12115,21 +12115,21 @@ async def completion(
                 status_code=(e.status_code if hasattr(e, "status_code") else status.HTTP_400_BAD_REQUEST),
             )
         else:
-            _response = litellm.TextCompletionResponse()
+            _response = embrouter.TextCompletionResponse()
             _response.choices[0].text = e.message
             return _response
     except Exception as e:
         await proxy_logging_obj.post_call_failure_hook(
             user_api_key_dict=user_api_key_dict, original_exception=e, request_data=data
         )
-        litellm_call_id: Final = request_litellm_call_id(data)
-        log_llm_api_exception(e, litellm_call_id)
+        embrouter_call_id: Final = request_embrouter_call_id(data)
+        log_llm_api_exception(e, embrouter_call_id)
         error_msg: Final = f"{e}"
         raise ProxyException(
             message=getattr(e, "message", error_msg),
             type=getattr(e, "type", "None"),
             param=getattr(e, "param", "None"),
-            headers=litellm_call_id_headers(litellm_call_id),
+            headers=embrouter_call_id_headers(embrouter_call_id),
             openai_code=getattr(e, "code", None),
             code=getattr(e, "status_code", 500),
         )
@@ -12201,18 +12201,18 @@ async def embeddings(
                 # Use router's O(1) lookup instead of O(N) iteration through llm_model_list
                 deployment: Final = llm_router.get_deployment_by_model_group_name(model_group_name=data["model"])
                 if deployment is not None:
-                    litellm_params: Final = deployment.get("litellm_params", {}) or {}
-                    litellm_model: Final = litellm_params.get("model", "")
+                    embrouter_params: Final = deployment.get("embrouter_params", {}) or {}
+                    embrouter_model: Final = embrouter_params.get("model", "")
                     # Check if this provider supports token arrays
-                    supports_token_arrays: Final = litellm_model in litellm.open_ai_embedding_models or any(
-                        litellm_model.startswith(provider)
-                        for provider in LITELLM_EMBEDDING_PROVIDERS_SUPPORTING_INPUT_ARRAY_OF_TOKENS
+                    supports_token_arrays: Final = embrouter_model in embrouter.open_ai_embedding_models or any(
+                        embrouter_model.startswith(provider)
+                        for provider in EMBROUTER_EMBEDDING_PROVIDERS_SUPPORTING_INPUT_ARRAY_OF_TOKENS
                     )
                     if not supports_token_arrays:
                         # non-openai/azure embedding model called with token input - decode tokens
                         input_list: Final = []
                         for i in data["input"]:
-                            input_list.append(litellm.decode(model="gpt-3.5-turbo", tokens=i))
+                            input_list.append(embrouter.decode(model="gpt-3.5-turbo", tokens=i))
                         data["input"] = input_list
 
         if user_api_key_dict is not None:
@@ -12286,15 +12286,15 @@ async def moderations(
     ```
     """
     global proxy_logging_obj
-    litellm_call_id: Final = resolve_litellm_call_id(request.headers.get("x-litellm-call-id"))
-    data: dict = {"litellm_call_id": litellm_call_id}
+    embrouter_call_id: Final = resolve_embrouter_call_id(request.headers.get("x-embrouter-call-id"))
+    data: dict = {"embrouter_call_id": embrouter_call_id}
     try:
         # Use orjson to parse JSON data, orjson speeds up requests significantly
         body: Final = await request.body()
         data = orjson.loads(body) | data
 
         # Include original request and headers in the data
-        data = await add_litellm_data_to_request(
+        data = await add_embrouter_data_to_request(
             data=data,
             request=request,
             general_settings=general_settings,
@@ -12322,7 +12322,7 @@ async def moderations(
         response: Final = await llm_call
 
         ### ALERTING ###
-        asyncio.create_task(proxy_logging_obj.update_request_status(litellm_call_id=litellm_call_id, status="success"))
+        asyncio.create_task(proxy_logging_obj.update_request_status(embrouter_call_id=embrouter_call_id, status="success"))
 
         ### RESPONSE HEADERS ###
         hidden_params: Final = getattr(response, "_hidden_params", {}) or {}
@@ -12348,15 +12348,15 @@ async def moderations(
         await proxy_logging_obj.post_call_failure_hook(
             user_api_key_dict=user_api_key_dict, original_exception=e, request_data=data
         )
-        log_llm_api_exception(e, litellm_call_id)
+        log_llm_api_exception(e, embrouter_call_id)
         if isinstance(e, ProxyException):
-            raise with_litellm_call_id(e, litellm_call_id)
+            raise with_embrouter_call_id(e, embrouter_call_id)
         if isinstance(e, HTTPException):
             raise ProxyException(
                 message=getattr(e, "message", str(e)),
                 type=getattr(e, "type", "None"),
                 param=getattr(e, "param", "None"),
-                headers=litellm_call_id_headers(litellm_call_id),
+                headers=embrouter_call_id_headers(embrouter_call_id),
                 code=getattr(e, "status_code", status.HTTP_400_BAD_REQUEST),
             )
         else:
@@ -12365,7 +12365,7 @@ async def moderations(
                 message=getattr(e, "message", error_msg),
                 type=getattr(e, "type", "None"),
                 param=getattr(e, "param", "None"),
-                headers=litellm_call_id_headers(litellm_call_id),
+                headers=embrouter_call_id_headers(embrouter_call_id),
                 code=getattr(e, "status_code", 500),
             )
 
@@ -12403,15 +12403,15 @@ async def audio_speech(
     https://platform.openai.com/docs/api-reference/audio/createSpeech
     """
     global proxy_logging_obj
-    litellm_call_id: Final = resolve_litellm_call_id(request.headers.get("x-litellm-call-id"))
-    data: dict = {"litellm_call_id": litellm_call_id}
+    embrouter_call_id: Final = resolve_embrouter_call_id(request.headers.get("x-embrouter-call-id"))
+    data: dict = {"embrouter_call_id": embrouter_call_id}
     try:
         # Use orjson to parse JSON data, orjson speeds up requests significantly
         body: Final = await request.body()
         data = orjson.loads(body) | data
 
         # Include original request and headers in the data
-        data = await add_litellm_data_to_request(
+        data = await add_embrouter_data_to_request(
             data=data,
             request=request,
             general_settings=general_settings,
@@ -12441,7 +12441,7 @@ async def audio_speech(
         response: Final = await llm_call
 
         ### ALERTING ###
-        asyncio.create_task(proxy_logging_obj.update_request_status(litellm_call_id=litellm_call_id, status="success"))
+        asyncio.create_task(proxy_logging_obj.update_request_status(embrouter_call_id=embrouter_call_id, status="success"))
 
         ### RESPONSE HEADERS ###
         hidden_params: Final = getattr(response, "_hidden_params", {}) or {}
@@ -12449,7 +12449,7 @@ async def audio_speech(
         cache_key: Final = hidden_params.get("cache_key", None) or ""
         api_base: Final = hidden_params.get("api_base", None) or ""
         response_cost: Final = hidden_params.get("response_cost", None) or ""
-        response_call_id: Final = hidden_params.get("litellm_call_id", None) or ""
+        response_call_id: Final = hidden_params.get("embrouter_call_id", None) or ""
 
         custom_headers: Final = ProxyBaseLLMRequestProcessing.get_custom_headers(
             user_api_key_dict=user_api_key_dict,
@@ -12496,20 +12496,20 @@ async def audio_speech(
             original_exception=e,
             request_data=data,
         )
-        log_llm_api_exception(e, litellm_call_id)
+        log_llm_api_exception(e, embrouter_call_id)
         if isinstance(e, ProxyException):
-            raise with_litellm_call_id(e, litellm_call_id)
+            raise with_embrouter_call_id(e, embrouter_call_id)
         if isinstance(e, HTTPException):
             raise HTTPException(
                 status_code=e.status_code,
                 detail=e.detail,
-                headers=headers_with_litellm_call_id(e.headers, litellm_call_id),
+                headers=headers_with_embrouter_call_id(e.headers, embrouter_call_id),
             )
         raise ProxyException(
             message=getattr(e, "message", f"{e}"),
             type=getattr(e, "type", "None"),
             param=getattr(e, "param", "None"),
-            headers=litellm_call_id_headers(litellm_call_id),
+            headers=embrouter_call_id_headers(embrouter_call_id),
             openai_code=getattr(e, "code", None),
             code=getattr(e, "status_code", 500),
         )
@@ -12537,15 +12537,15 @@ async def audio_transcriptions(
     https://platform.openai.com/docs/api-reference/audio/createTranscription?lang=curl
     """
     global proxy_logging_obj
-    litellm_call_id: Final = resolve_litellm_call_id(request.headers.get("x-litellm-call-id"))
-    data: dict = {"litellm_call_id": litellm_call_id}
+    embrouter_call_id: Final = resolve_embrouter_call_id(request.headers.get("x-embrouter-call-id"))
+    data: dict = {"embrouter_call_id": embrouter_call_id}
     try:
         # Use orjson to parse JSON data, orjson speeds up requests significantly
         form_data: Final = await get_form_data(request)
         data = {key: value for key, value in form_data.items() if key != "file"} | data
 
         # Include original request and headers in the data
-        data = await add_litellm_data_to_request(
+        data = await add_embrouter_data_to_request(
             data=data,
             request=request,
             general_settings=general_settings,
@@ -12603,7 +12603,7 @@ async def audio_transcriptions(
             file_object.close()  # close the file read in by io library
 
         ### ALERTING ###
-        asyncio.create_task(proxy_logging_obj.update_request_status(litellm_call_id=litellm_call_id, status="success"))
+        asyncio.create_task(proxy_logging_obj.update_request_status(embrouter_call_id=embrouter_call_id, status="success"))
 
         ### RESPONSE HEADERS ###
         hidden_params: Final = getattr(response, "_hidden_params", {}) or {}
@@ -12611,7 +12611,7 @@ async def audio_transcriptions(
         cache_key: Final = hidden_params.get("cache_key", None) or ""
         api_base: Final = hidden_params.get("api_base", None) or ""
         response_cost: Final = hidden_params.get("response_cost", None) or ""
-        response_call_id: Final = hidden_params.get("litellm_call_id", None) or ""
+        response_call_id: Final = hidden_params.get("embrouter_call_id", None) or ""
         additional_headers: Final[dict] = hidden_params.get("additional_headers", {}) or {}
 
         fastapi_response.headers.update(
@@ -12645,13 +12645,13 @@ async def audio_transcriptions(
         await proxy_logging_obj.post_call_failure_hook(
             user_api_key_dict=user_api_key_dict, original_exception=e, request_data=data
         )
-        log_llm_api_exception(e, litellm_call_id)
+        log_llm_api_exception(e, embrouter_call_id)
         if isinstance(e, HTTPException):
             raise ProxyException(
                 message=getattr(e, "message", str(e.detail)),
                 type=getattr(e, "type", "None"),
                 param=getattr(e, "param", "None"),
-                headers=litellm_call_id_headers(litellm_call_id),
+                headers=embrouter_call_id_headers(embrouter_call_id),
                 code=getattr(e, "status_code", status.HTTP_400_BAD_REQUEST),
             )
         else:
@@ -12660,7 +12660,7 @@ async def audio_transcriptions(
                 message=getattr(e, "message", error_msg),
                 type=getattr(e, "type", "None"),
                 param=getattr(e, "param", "None"),
-                headers=litellm_call_id_headers(litellm_call_id),
+                headers=embrouter_call_id_headers(embrouter_call_id),
                 openai_code=getattr(e, "code", None),
                 code=getattr(e, "status_code", 500),
             )
@@ -12695,7 +12695,7 @@ async def vertex_ai_live_passthrough_endpoint(
 
     This endpoint delegates to the WebSocket function defined in llm_passthrough_endpoints.py
     """
-    from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+    from embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
         vertex_ai_live_websocket_passthrough,
     )
 
@@ -12730,7 +12730,7 @@ def _realtime_query_params_template(model: str | None, intent: str | None) -> tu
 
 
 async def _release_realtime_budget_reservation(user_api_key_dict: UserAPIKeyAuth) -> None:
-    from litellm.proxy.spend_tracking.budget_reservation import (
+    from embrouter.proxy.spend_tracking.budget_reservation import (
         release_or_invalidate_budget_reservation,
     )
 
@@ -12848,7 +12848,7 @@ async def realtime_websocket_endpoint(
     try:
         (
             data,
-            litellm_logging_obj,
+            embrouter_logging_obj,
         ) = await base_llm_response_processor.common_processing_pre_call_logic(
             request=request,
             general_settings=general_settings,
@@ -12902,9 +12902,9 @@ async def realtime_websocket_endpoint(
         except Exception:  # noqa: BLE001  # the lower layer may have closed the socket already; closing twice is not an error
             verbose_proxy_logger.debug("Could not close realtime client websocket; it is already gone")
     finally:
-        if not litellm_logging_obj.model_call_details.get(REALTIME_SESSION_SUCCESS_LOGGED_KEY):
+        if not embrouter_logging_obj.model_call_details.get(REALTIME_SESSION_SUCCESS_LOGGED_KEY):
             await _release_realtime_budget_reservation(user_api_key_dict)
-            if not litellm_logging_obj.model_call_details.get(REALTIME_SESSION_FAILURE_LOGGED_KEY):
+            if not embrouter_logging_obj.model_call_details.get(REALTIME_SESSION_FAILURE_LOGGED_KEY):
                 await _release_realtime_max_parallel_slot(user_api_key_dict)
 
 
@@ -12943,7 +12943,7 @@ async def get_assistants(
         await request.body()
 
         # Include original request and headers in the data
-        data = await add_litellm_data_to_request(
+        data = await add_embrouter_data_to_request(
             data=data,
             request=request,
             general_settings=general_settings,
@@ -12952,14 +12952,14 @@ async def get_assistants(
             proxy_config=proxy_config,
         )
 
-        # for now use custom_llm_provider=="openai" -> this will change as LiteLLM adds more providers for acreate_batch
+        # for now use custom_llm_provider=="openai" -> this will change as EmbRouter adds more providers for acreate_batch
         if llm_router is None:
             raise HTTPException(status_code=500, detail={"error": CommonProxyErrors.no_llm_router.value})
         response: Final = await llm_router.aget_assistants(**data)
 
         ### ALERTING ###
         asyncio.create_task(
-            proxy_logging_obj.update_request_status(litellm_call_id=data.get("litellm_call_id", ""), status="success")
+            proxy_logging_obj.update_request_status(embrouter_call_id=data.get("embrouter_call_id", ""), status="success")
         )
 
         ### RESPONSE HEADERS ###
@@ -12986,7 +12986,7 @@ async def get_assistants(
         await proxy_logging_obj.post_call_failure_hook(
             user_api_key_dict=user_api_key_dict, original_exception=e, request_data=data
         )
-        verbose_proxy_logger.error("litellm.proxy.proxy_server.get_assistants(): Exception occured - %s", e)
+        verbose_proxy_logger.error("embrouter.proxy.proxy_server.get_assistants(): Exception occured - %s", e)
         verbose_proxy_logger.debug(traceback.format_exc())
         if isinstance(e, HTTPException):
             raise ProxyException(
@@ -13034,7 +13034,7 @@ async def create_assistant(
         data = orjson.loads(body)
 
         # Include original request and headers in the data
-        data = await add_litellm_data_to_request(
+        data = await add_embrouter_data_to_request(
             data=data,
             request=request,
             general_settings=general_settings,
@@ -13043,14 +13043,14 @@ async def create_assistant(
             proxy_config=proxy_config,
         )
 
-        # for now use custom_llm_provider=="openai" -> this will change as LiteLLM adds more providers for acreate_batch
+        # for now use custom_llm_provider=="openai" -> this will change as EmbRouter adds more providers for acreate_batch
         if llm_router is None:
             raise HTTPException(status_code=500, detail={"error": CommonProxyErrors.no_llm_router.value})
         response: Final = await llm_router.acreate_assistants(**data)
 
         ### ALERTING ###
         asyncio.create_task(
-            proxy_logging_obj.update_request_status(litellm_call_id=data.get("litellm_call_id", ""), status="success")
+            proxy_logging_obj.update_request_status(embrouter_call_id=data.get("embrouter_call_id", ""), status="success")
         )
 
         ### RESPONSE HEADERS ###
@@ -13077,7 +13077,7 @@ async def create_assistant(
         await proxy_logging_obj.post_call_failure_hook(
             user_api_key_dict=user_api_key_dict, original_exception=e, request_data=data
         )
-        verbose_proxy_logger.error("litellm.proxy.proxy_server.create_assistant(): Exception occured - %s", e)
+        verbose_proxy_logger.error("embrouter.proxy.proxy_server.create_assistant(): Exception occured - %s", e)
         verbose_proxy_logger.debug(traceback.format_exc())
         if isinstance(e, HTTPException):
             raise ProxyException(
@@ -13123,7 +13123,7 @@ async def delete_assistant(
         # Use orjson to parse JSON data, orjson speeds up requests significantly
 
         # Include original request and headers in the data
-        data = await add_litellm_data_to_request(
+        data = await add_embrouter_data_to_request(
             data=data,
             request=request,
             general_settings=general_settings,
@@ -13132,14 +13132,14 @@ async def delete_assistant(
             proxy_config=proxy_config,
         )
 
-        # for now use custom_llm_provider=="openai" -> this will change as LiteLLM adds more providers for acreate_batch
+        # for now use custom_llm_provider=="openai" -> this will change as EmbRouter adds more providers for acreate_batch
         if llm_router is None:
             raise HTTPException(status_code=500, detail={"error": CommonProxyErrors.no_llm_router.value})
         response: Final = await llm_router.adelete_assistant(assistant_id=assistant_id, **data)
 
         ### ALERTING ###
         asyncio.create_task(
-            proxy_logging_obj.update_request_status(litellm_call_id=data.get("litellm_call_id", ""), status="success")
+            proxy_logging_obj.update_request_status(embrouter_call_id=data.get("embrouter_call_id", ""), status="success")
         )
 
         ### RESPONSE HEADERS ###
@@ -13166,7 +13166,7 @@ async def delete_assistant(
         await proxy_logging_obj.post_call_failure_hook(
             user_api_key_dict=user_api_key_dict, original_exception=e, request_data=data
         )
-        verbose_proxy_logger.error("litellm.proxy.proxy_server.delete_assistant(): Exception occured - %s", e)
+        verbose_proxy_logger.error("embrouter.proxy.proxy_server.delete_assistant(): Exception occured - %s", e)
         verbose_proxy_logger.debug(traceback.format_exc())
         if isinstance(e, HTTPException):
             raise ProxyException(
@@ -13212,7 +13212,7 @@ async def create_threads(
         await request.body()
 
         # Include original request and headers in the data
-        data = await add_litellm_data_to_request(
+        data = await add_embrouter_data_to_request(
             data=data,
             request=request,
             general_settings=general_settings,
@@ -13221,14 +13221,14 @@ async def create_threads(
             proxy_config=proxy_config,
         )
 
-        # for now use custom_llm_provider=="openai" -> this will change as LiteLLM adds more providers for acreate_batch
+        # for now use custom_llm_provider=="openai" -> this will change as EmbRouter adds more providers for acreate_batch
         if llm_router is None:
             raise HTTPException(status_code=500, detail={"error": CommonProxyErrors.no_llm_router.value})
         response: Final = await llm_router.acreate_thread(**data)
 
         ### ALERTING ###
         asyncio.create_task(
-            proxy_logging_obj.update_request_status(litellm_call_id=data.get("litellm_call_id", ""), status="success")
+            proxy_logging_obj.update_request_status(embrouter_call_id=data.get("embrouter_call_id", ""), status="success")
         )
 
         ### RESPONSE HEADERS ###
@@ -13255,7 +13255,7 @@ async def create_threads(
         await proxy_logging_obj.post_call_failure_hook(
             user_api_key_dict=user_api_key_dict, original_exception=e, request_data=data
         )
-        verbose_proxy_logger.error("litellm.proxy.proxy_server.create_threads(): Exception occured - %s", e)
+        verbose_proxy_logger.error("embrouter.proxy.proxy_server.create_threads(): Exception occured - %s", e)
         verbose_proxy_logger.debug(traceback.format_exc())
         if isinstance(e, HTTPException):
             raise ProxyException(
@@ -13299,7 +13299,7 @@ async def get_thread(
     data: dict = {}
     try:
         # Include original request and headers in the data
-        data = await add_litellm_data_to_request(
+        data = await add_embrouter_data_to_request(
             data=data,
             request=request,
             general_settings=general_settings,
@@ -13308,14 +13308,14 @@ async def get_thread(
             proxy_config=proxy_config,
         )
 
-        # for now use custom_llm_provider=="openai" -> this will change as LiteLLM adds more providers for acreate_batch
+        # for now use custom_llm_provider=="openai" -> this will change as EmbRouter adds more providers for acreate_batch
         if llm_router is None:
             raise HTTPException(status_code=500, detail={"error": CommonProxyErrors.no_llm_router.value})
         response: Final = await llm_router.aget_thread(thread_id=thread_id, **data)
 
         ### ALERTING ###
         asyncio.create_task(
-            proxy_logging_obj.update_request_status(litellm_call_id=data.get("litellm_call_id", ""), status="success")
+            proxy_logging_obj.update_request_status(embrouter_call_id=data.get("embrouter_call_id", ""), status="success")
         )
 
         ### RESPONSE HEADERS ###
@@ -13342,7 +13342,7 @@ async def get_thread(
         await proxy_logging_obj.post_call_failure_hook(
             user_api_key_dict=user_api_key_dict, original_exception=e, request_data=data
         )
-        verbose_proxy_logger.error("litellm.proxy.proxy_server.get_thread(): Exception occured - %s", e)
+        verbose_proxy_logger.error("embrouter.proxy.proxy_server.get_thread(): Exception occured - %s", e)
         verbose_proxy_logger.debug(traceback.format_exc())
         if isinstance(e, HTTPException):
             raise ProxyException(
@@ -13390,7 +13390,7 @@ async def add_messages(
         data = orjson.loads(body)
 
         # Include original request and headers in the data
-        data = await add_litellm_data_to_request(
+        data = await add_embrouter_data_to_request(
             data=data,
             request=request,
             general_settings=general_settings,
@@ -13399,14 +13399,14 @@ async def add_messages(
             proxy_config=proxy_config,
         )
 
-        # for now use custom_llm_provider=="openai" -> this will change as LiteLLM adds more providers for acreate_batch
+        # for now use custom_llm_provider=="openai" -> this will change as EmbRouter adds more providers for acreate_batch
         if llm_router is None:
             raise HTTPException(status_code=500, detail={"error": CommonProxyErrors.no_llm_router.value})
         response: Final = await llm_router.a_add_message(thread_id=thread_id, **data)
 
         ### ALERTING ###
         asyncio.create_task(
-            proxy_logging_obj.update_request_status(litellm_call_id=data.get("litellm_call_id", ""), status="success")
+            proxy_logging_obj.update_request_status(embrouter_call_id=data.get("embrouter_call_id", ""), status="success")
         )
 
         ### RESPONSE HEADERS ###
@@ -13433,7 +13433,7 @@ async def add_messages(
         await proxy_logging_obj.post_call_failure_hook(
             user_api_key_dict=user_api_key_dict, original_exception=e, request_data=data
         )
-        verbose_proxy_logger.error("litellm.proxy.proxy_server.add_messages(): Exception occured - %s", e)
+        verbose_proxy_logger.error("embrouter.proxy.proxy_server.add_messages(): Exception occured - %s", e)
         verbose_proxy_logger.debug(traceback.format_exc())
         if isinstance(e, HTTPException):
             raise ProxyException(
@@ -13477,7 +13477,7 @@ async def get_messages(
     data: dict = {}
     try:
         # Include original request and headers in the data
-        data = await add_litellm_data_to_request(
+        data = await add_embrouter_data_to_request(
             data=data,
             request=request,
             general_settings=general_settings,
@@ -13486,14 +13486,14 @@ async def get_messages(
             proxy_config=proxy_config,
         )
 
-        # for now use custom_llm_provider=="openai" -> this will change as LiteLLM adds more providers for acreate_batch
+        # for now use custom_llm_provider=="openai" -> this will change as EmbRouter adds more providers for acreate_batch
         if llm_router is None:
             raise HTTPException(status_code=500, detail={"error": CommonProxyErrors.no_llm_router.value})
         response: Final = await llm_router.aget_messages(thread_id=thread_id, **data)
 
         ### ALERTING ###
         asyncio.create_task(
-            proxy_logging_obj.update_request_status(litellm_call_id=data.get("litellm_call_id", ""), status="success")
+            proxy_logging_obj.update_request_status(embrouter_call_id=data.get("embrouter_call_id", ""), status="success")
         )
 
         ### RESPONSE HEADERS ###
@@ -13520,7 +13520,7 @@ async def get_messages(
         await proxy_logging_obj.post_call_failure_hook(
             user_api_key_dict=user_api_key_dict, original_exception=e, request_data=data
         )
-        verbose_proxy_logger.error("litellm.proxy.proxy_server.get_messages(): Exception occured - %s", e)
+        verbose_proxy_logger.error("embrouter.proxy.proxy_server.get_messages(): Exception occured - %s", e)
         verbose_proxy_logger.debug(traceback.format_exc())
         if isinstance(e, HTTPException):
             raise ProxyException(
@@ -13566,7 +13566,7 @@ async def run_thread(
         body: Final = await request.body()
         data = orjson.loads(body)
         # Include original request and headers in the data
-        data = await add_litellm_data_to_request(
+        data = await add_embrouter_data_to_request(
             data=data,
             request=request,
             general_settings=general_settings,
@@ -13575,7 +13575,7 @@ async def run_thread(
             proxy_config=proxy_config,
         )
 
-        # for now use custom_llm_provider=="openai" -> this will change as LiteLLM adds more providers for acreate_batch
+        # for now use custom_llm_provider=="openai" -> this will change as EmbRouter adds more providers for acreate_batch
         if llm_router is None:
             raise HTTPException(status_code=500, detail={"error": CommonProxyErrors.no_llm_router.value})
         router: Final = llm_router
@@ -13615,7 +13615,7 @@ async def run_thread(
 
         ### ALERTING ###
         asyncio.create_task(
-            proxy_logging_obj.update_request_status(litellm_call_id=data.get("litellm_call_id", ""), status="success")
+            proxy_logging_obj.update_request_status(embrouter_call_id=data.get("embrouter_call_id", ""), status="success")
         )
 
         ### RESPONSE HEADERS ###
@@ -13642,7 +13642,7 @@ async def run_thread(
         await proxy_logging_obj.post_call_failure_hook(
             user_api_key_dict=user_api_key_dict, original_exception=e, request_data=data
         )
-        verbose_proxy_logger.error("litellm.proxy.proxy_server.run_thread(): Exception occured - %s", e)
+        verbose_proxy_logger.error("embrouter.proxy.proxy_server.run_thread(): Exception occured - %s", e)
         verbose_proxy_logger.debug(traceback.format_exc())
         if isinstance(e, HTTPException):
             raise ProxyException(
@@ -13669,19 +13669,19 @@ async def run_thread(
 #     dependencies=[Depends(user_api_key_auth)],
 # )
 # async def get_available_routes(user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth)):
-from litellm.llms.base_llm.base_utils import BaseTokenCounter
-from litellm.proxy.db.routing_prisma_wrapper import WriterPinnedClient
-from litellm.repositories.config_repository import ConfigRepository
-from litellm.repositories.model_repository import ModelRepository
-from litellm.repositories.table_repositories import (
+from embrouter.llms.base_llm.base_utils import BaseTokenCounter
+from embrouter.proxy.db.routing_prisma_wrapper import WriterPinnedClient
+from embrouter.repositories.config_repository import ConfigRepository
+from embrouter.repositories.model_repository import ModelRepository
+from embrouter.repositories.table_repositories import (
     AccessGroupRepository,
     ConfigOverridesRepository,
     InvitationLinkRepository,
     PromptRepository,
     SSOConfigRepository,
 )
-from litellm.repositories.team_repository import TeamRepository
-from litellm.repositories.user_repository import UserRepository
+from embrouter.repositories.team_repository import TeamRepository
+from embrouter.repositories.user_repository import UserRepository
 
 
 def _get_provider_token_counter(
@@ -13694,24 +13694,24 @@ def _get_provider_token_counter(
     if deployment is None:
         return None
 
-    from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
+    from embrouter.embrouter_core_utils.get_llm_provider_logic import get_llm_provider
 
-    full_model: Final = deployment.get("litellm_params", {}).get("model", "")
+    full_model: Final = deployment.get("embrouter_params", {}).get("model", "")
     model: str | None = None
     custom_llm_provider: str | None = None
 
     try:
-        # Use existing LiteLLM logic to determine provider
+        # Use existing EmbRouter logic to determine provider
         model, custom_llm_provider, dynamic_api_key, api_base = get_llm_provider(
             model=full_model,
-            custom_llm_provider=deployment.get("litellm_params", {}).get("custom_llm_provider"),
-            api_base=deployment.get("litellm_params", {}).get("api_base"),
-            api_key=deployment.get("litellm_params", {}).get("api_key"),
+            custom_llm_provider=deployment.get("embrouter_params", {}).get("custom_llm_provider"),
+            api_base=deployment.get("embrouter_params", {}).get("api_base"),
+            api_key=deployment.get("embrouter_params", {}).get("api_key"),
         )
 
         # Switch case pattern using existing get_provider_model_info
-        from litellm.types.utils import LlmProviders
-        from litellm.utils import ProviderConfigManager
+        from embrouter.types.utils import LlmProviders
+        from embrouter.utils import ProviderConfigManager
 
         # Convert string provider to LlmProviders enum
         llm_provider_enum: Final = LlmProviders(custom_llm_provider)
@@ -13731,7 +13731,7 @@ def _get_provider_token_counter(
     except Exception:
         # If provider detection fails, fall back to manual checks
         if full_model.startswith("anthropic/") or "anthropic" in full_model.lower():
-            from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+            from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
             anthropic_model_info: Final = AnthropicModelInfo()
             return anthropic_model_info.get_token_counter(), model, custom_llm_provider
@@ -13773,7 +13773,7 @@ async def _try_provider_token_count(
             code=status_code,
         )
     if result is not None and result.error is True:
-        if litellm.disable_token_counter is True:
+        if embrouter.disable_token_counter is True:
             raise ProxyException(
                 message=result.error_message or "Token counting failed",
                 type="token_counting_error",
@@ -13826,7 +13826,7 @@ async def token_counter(request: TokenCountRequest, call_endpoint: bool = False)
         raise HTTPException(status_code=400, detail="prompt or messages or contents must be provided")
 
     deployment: dict[str, Any] | None = None
-    litellm_model_name = None
+    embrouter_model_name = None
     model_info: ModelMapInfo | None = None
     if llm_router is not None:
         # get 1 deployment corresponding to the model
@@ -13837,19 +13837,19 @@ async def token_counter(request: TokenCountRequest, call_endpoint: bool = False)
             )
         except Exception:
             verbose_proxy_logger.exception(
-                "litellm.proxy.proxy_server.token_counter(): Exception occured while getting deployment"
+                "embrouter.proxy.proxy_server.token_counter(): Exception occured while getting deployment"
             )
     if deployment is not None:
-        litellm_model_name = deployment.get("litellm_params", {}).get("model")
+        embrouter_model_name = deployment.get("embrouter_params", {}).get("model")
         model_info = deployment.get("model_info", {})
-        load_credentials_from_list(deployment.get("litellm_params", {}))
-        # remove the custom_llm_provider_prefix in the litellm_model_name
-        if "/" in litellm_model_name:
-            litellm_model_name = litellm_model_name.split("/", 1)[1]
+        load_credentials_from_list(deployment.get("embrouter_params", {}))
+        # remove the custom_llm_provider_prefix in the embrouter_model_name
+        if "/" in embrouter_model_name:
+            embrouter_model_name = embrouter_model_name.split("/", 1)[1]
 
     model_to_use: str = (
-        litellm_model_name or request.model
-    )  # use litellm model name, if it's not avalable then fallback to request.model
+        embrouter_model_name or request.model
+    )  # use embrouter model name, if it's not avalable then fallback to request.model
 
     # Try provider-specific token counting first - only for non-direct requests (from provider endpoints)
     provider_counter: BaseTokenCounter | None = None
@@ -13876,7 +13876,7 @@ async def token_counter(request: TokenCountRequest, call_endpoint: bool = False)
             return result
 
     # Check if token counter is disabled before fallback
-    if litellm.disable_token_counter is True:
+    if embrouter.disable_token_counter is True:
         raise ProxyException(
             message="Token counting is disabled and no provider API result available",
             type="token_counting_disabled",
@@ -13884,14 +13884,14 @@ async def token_counter(request: TokenCountRequest, call_endpoint: bool = False)
             code=503,
         )
 
-    # Default LiteLLM token counting
+    # Default EmbRouter token counting
     custom_tokenizer: CustomHuggingfaceTokenizer | None = None
     if model_info is not None:
         custom_tokenizer = cast(
             CustomHuggingfaceTokenizer | None,
             model_info.get("custom_tokenizer", None),
         )
-    _tokenizer_used: Final = await asyncify(litellm.utils._select_tokenizer)(
+    _tokenizer_used: Final = await asyncify(embrouter.utils._select_tokenizer)(
         model=model_to_use, custom_tokenizer=custom_tokenizer
     )
 
@@ -13906,7 +13906,7 @@ async def token_counter(request: TokenCountRequest, call_endpoint: bool = False)
     counted_tools: Final = cast(  # cast-ok: raw OpenAI or Anthropic tool dicts, both of which token_counter formats
         list[ChatCompletionToolParam] | None, tools if counted_messages is not None else None
     )
-    total_tokens: Final = await offload_token_count(litellm.token_counter)(
+    total_tokens: Final = await offload_token_count(embrouter.token_counter)(
         model=model_to_use,
         text=prompt,
         messages=counted_messages,
@@ -13928,7 +13928,7 @@ async def token_counter(request: TokenCountRequest, call_endpoint: bool = False)
 )
 async def supported_openai_params(model: str):
     """
-    Returns supported openai params for a given litellm model name
+    Returns supported openai params for a given embrouter model name
 
     e.g. `gpt-4` vs `gpt-3.5-turbo`
 
@@ -13938,21 +13938,21 @@ async def supported_openai_params(model: str):
         --header 'Authorization: Bearer sk-1234'
     ```
     """
-    from litellm.litellm_core_utils.get_llm_provider_logic import declared_authenticating_provider
+    from embrouter.embrouter_core_utils.get_llm_provider_logic import declared_authenticating_provider
 
     global llm_router
     try:
-        resolved_models: Final = llm_router.resolved_litellm_models(model) if llm_router is not None else ()
+        resolved_models: Final = llm_router.resolved_embrouter_models(model) if llm_router is not None else ()
         target_model: Final = resolved_models[0] if resolved_models else model
         declared_provider: Final = declared_authenticating_provider(target_model)
-        litellm_model, custom_llm_provider = (
+        embrouter_model, custom_llm_provider = (
             (target_model.removeprefix(f"{declared_provider}/"), declared_provider)
             if declared_provider is not None
-            else litellm.get_llm_provider(model=target_model)[:2]
+            else embrouter.get_llm_provider(model=target_model)[:2]
         )
         return {
-            "supported_openai_params": litellm.get_supported_openai_params(
-                model=litellm_model, custom_llm_provider=custom_llm_provider
+            "supported_openai_params": embrouter.get_supported_openai_params(
+                model=embrouter_model, custom_llm_provider=custom_llm_provider
             )
         }
     except Exception:
@@ -13974,7 +13974,7 @@ async def model_info_lookup(model: str, custom_llm_provider: str | None = None):
     """
     Returns the model cost map entry (token limits, pricing, supports_* capabilities) for any model
     in the cost map, whether or not it is registered on this proxy. `model_info` carries every
-    field of the raw cost map entry plus the typed fields `litellm.get_model_info` derives from it
+    field of the raw cost map entry plus the typed fields `embrouter.get_model_info` derives from it
     (`key`, `supported_openai_params`).
 
     Example curl:
@@ -13987,15 +13987,15 @@ async def model_info_lookup(model: str, custom_llm_provider: str | None = None):
         "error": f"model={model}, custom_llm_provider={custom_llm_provider} is not in the model cost map"
     }
     try:
-        typed_model_info: Final = litellm.get_model_info(model=model, custom_llm_provider=custom_llm_provider)
+        typed_model_info: Final = embrouter.get_model_info(model=model, custom_llm_provider=custom_llm_provider)
     except Exception:
         raise HTTPException(status_code=404, detail=detail)
-    cost_map_entry: Final = litellm.model_cost.get(typed_model_info["key"])
+    cost_map_entry: Final = embrouter.model_cost.get(typed_model_info["key"])
     if cost_map_entry is None:
         raise HTTPException(status_code=404, detail=detail)
     response: Final[_ModelInfoLookupResponse] = {
         "model": model,
-        "custom_llm_provider": typed_model_info["litellm_provider"],
+        "custom_llm_provider": typed_model_info["embrouter_provider"],
         "model_info": {**typed_model_info, **cost_map_entry},
     }
     return response
@@ -14008,7 +14008,7 @@ async def model_info_lookup(model: str, custom_llm_provider: str | None = None):
     response_model=RawRequestTypedDict,
 )
 async def transform_request(request: TransformRequestBody):
-    from litellm.utils import return_raw_request
+    from embrouter.utils import return_raw_request
 
     try:
         is_request_body_safe(
@@ -14112,12 +14112,12 @@ async def non_admin_all_models(
             )
 
     # de-duplicate models. Only return unique model ids
-    unique_models: Final = _deduplicate_litellm_router_models(models=all_models)
+    unique_models: Final = _deduplicate_embrouter_router_models(models=all_models)
     return unique_models
 
 
 def _add_team_models_to_all_models(
-    team_db_objects_typed: list[LiteLLM_TeamTable],
+    team_db_objects_typed: list[EmbRouter_TeamTable],
     llm_router: Router,
 ) -> dict[str, set[str]]:
     """
@@ -14163,7 +14163,7 @@ def _add_team_models_to_all_models(
 
 
 async def _add_access_group_models_to_team_models(
-    team_db_objects_typed: list[LiteLLM_TeamTable],
+    team_db_objects_typed: list[EmbRouter_TeamTable],
     llm_router: Router,
     prisma_client: PrismaClient,
     team_models: dict[str, set[str]],
@@ -14178,7 +14178,7 @@ async def _add_access_group_models_to_team_models(
     (not directly in team.models) are included in the UI model listing.
     """
     # First pass: identify eligible teams and collect all distinct access group IDs
-    eligible_teams: Final[list[LiteLLM_TeamTable]] = []
+    eligible_teams: Final[list[EmbRouter_TeamTable]] = []
     all_access_group_ids: Final[set[str]] = set()
 
     for team_object in team_db_objects_typed:
@@ -14234,18 +14234,18 @@ async def get_all_team_models(
     3. Return {"model_id": ["team_id1", "team_id2"]}
     """
 
-    team_db_objects_typed: list[LiteLLM_TeamTable] = []
+    team_db_objects_typed: list[EmbRouter_TeamTable] = []
 
     if user_teams == "*":
         team_db_objects: Sequence[SupportsModelDump] = await TeamRepository(prisma_client).table.find_many()
         team_db_objects_typed = [
-            LiteLLM_TeamTable.model_validate(team_db_object.model_dump()) for team_db_object in team_db_objects
+            EmbRouter_TeamTable.model_validate(team_db_object.model_dump()) for team_db_object in team_db_objects
         ]
     else:
         team_db_objects = await TeamRepository(prisma_client).table.find_many(where={"team_id": {"in": user_teams}})
 
         team_db_objects_typed = [
-            LiteLLM_TeamTable.model_validate(team_db_object.model_dump()) for team_db_object in team_db_objects
+            EmbRouter_TeamTable.model_validate(team_db_object.model_dump()) for team_db_object in team_db_objects
         ]
 
     team_models = _add_team_models_to_all_models(
@@ -14296,7 +14296,7 @@ def _resolve_model_grant_to_deployment_ids(
 
 
 def get_direct_access_models(
-    user_db_object: LiteLLM_UserTable,
+    user_db_object: EmbRouter_UserTable,
     llm_router: Router,
     key_models: Sequence[str] = (),
 ) -> tuple[str, ...]:
@@ -14348,7 +14348,7 @@ async def _populate_team_access_on_models(
             where={"user_id": user_api_key_dict.user_id}
         )
         if user_db_object is not None:
-            user_object: Final = LiteLLM_UserTable.model_validate(user_db_object.model_dump())
+            user_object: Final = EmbRouter_UserTable.model_validate(user_db_object.model_dump())
             user_teams = user_object.teams or []
             direct_access_models = get_direct_access_models(
                 user_db_object=user_object,
@@ -14402,11 +14402,11 @@ async def get_all_team_and_direct_access_models(
     return _filter_models_to_user_accessible(all_models)
 
 
-def _enrich_model_info_with_litellm_data(
+def _enrich_model_info_with_embrouter_data(
     model: dict[str, Any], debug: bool = False, llm_router: Router | None = None
 ) -> dict[str, Any]:
     """
-    Enrich a model dictionary with litellm model info (pricing, context window, etc.)
+    Enrich a model dictionary with embrouter model info (pricing, context window, etc.)
     and remove sensitive information.
 
     Args:
@@ -14428,50 +14428,50 @@ def _enrich_model_info_with_litellm_data(
         openai_client: Final = str(_openai_client)
         model["openai_client"] = openai_client
 
-    # read litellm model_prices_and_context_window.json to get the following:
+    # read embrouter model_prices_and_context_window.json to get the following:
     # input_cost_per_token, output_cost_per_token, max_tokens
-    litellm_model_info = get_litellm_model_info(model=model)
+    embrouter_model_info = get_embrouter_model_info(model=model)
 
-    # 2nd pass on the model, try seeing if we can find model in litellm model_cost map
-    if litellm_model_info == {}:
-        # use litellm_param model_name to get model_info
-        litellm_params = model.get("litellm_params", {})
-        litellm_model = litellm_params.get("model", None)
+    # 2nd pass on the model, try seeing if we can find model in embrouter model_cost map
+    if embrouter_model_info == {}:
+        # use embrouter_param model_name to get model_info
+        embrouter_params = model.get("embrouter_params", {})
+        embrouter_model = embrouter_params.get("model", None)
         try:
-            litellm_model_info = litellm.get_model_info(model=litellm_model)
+            embrouter_model_info = embrouter.get_model_info(model=embrouter_model)
         except Exception:
-            litellm_model_info = {}
+            embrouter_model_info = {}
     # 3rd pass on the model, try seeing if we can find model but without the "/" in model cost map
-    if litellm_model_info == {}:
-        # use litellm_param model_name to get model_info
-        litellm_params = model.get("litellm_params", {})
-        litellm_model = litellm_params.get("model", None)
-        if litellm_model:
-            split_model: Final = litellm_model.split("/")
+    if embrouter_model_info == {}:
+        # use embrouter_param model_name to get model_info
+        embrouter_params = model.get("embrouter_params", {})
+        embrouter_model = embrouter_params.get("model", None)
+        if embrouter_model:
+            split_model: Final = embrouter_model.split("/")
             if len(split_model) > 0:
-                litellm_model = split_model[-1]
+                embrouter_model = split_model[-1]
             try:
-                litellm_model_info = litellm.get_model_info(model=litellm_model, custom_llm_provider=split_model[0])
+                embrouter_model_info = embrouter.get_model_info(model=embrouter_model, custom_llm_provider=split_model[0])
             except Exception:
-                litellm_model_info = {}
+                embrouter_model_info = {}
     discovered_model_info: Final = (
         llm_router.get_discovered_model_info(model_info.get("id")) if llm_router is not None else MappingProxyType({})
     )
-    unpriced: Final = cost_map_omits_token_price(model_info.get("id"), litellm_model_info.get("key"))
+    unpriced: Final = cost_map_omits_token_price(model_info.get("id"), embrouter_model_info.get("key"))
     stamped_model_info: Final = MappingProxyType(
-        {**model_info, **_pricing_override_stamps(model_info, model.get("litellm_params") or MappingProxyType({}))}
+        {**model_info, **_pricing_override_stamps(model_info, model.get("embrouter_params") or MappingProxyType({}))}
     )
     model["model_info"] = {
         **stamped_model_info,
         **{
             k: None if unpriced and k in ("input_cost_per_token", "output_cost_per_token") else v
-            for k, v in MappingProxyType({**litellm_model_info, **discovered_model_info}).items()
+            for k, v in MappingProxyType({**embrouter_model_info, **discovered_model_info}).items()
             if k not in stamped_model_info or (stamped_model_info[k] is None and k in discovered_model_info)
         },
     }
     # don't return the api key / vertex credentials
     # don't return the llm credentials
-    model = remove_sensitive_info_from_deployment(model, excluded_keys={"litellm_credential_name"})
+    model = remove_sensitive_info_from_deployment(model, excluded_keys={"embrouter_credential_name"})
     return model
 
 
@@ -14492,8 +14492,8 @@ async def _get_caller_byok_team_scope(
     if user_api_key_dict is None or prisma_client is None:
         return None
     if user_api_key_dict.user_role in (
-        LitellmUserRoles.PROXY_ADMIN,
-        LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY,
+        EmbrouterUserRoles.PROXY_ADMIN,
+        EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY,
     ):
         return None
     key_team_scope: Final[set[str]] = {user_api_key_dict.team_id} if user_api_key_dict.team_id else set()
@@ -14857,11 +14857,11 @@ def _is_auto_router_model(model: Mapping[str, object]) -> bool:
     *semantic* auto-router strategy" and returns False for the complexity and adaptive
     prefixes, so it is not reusable here.
     """
-    litellm_params: Final = model.get("litellm_params")
-    if not isinstance(litellm_params, Mapping):
+    embrouter_params: Final = model.get("embrouter_params")
+    if not isinstance(embrouter_params, Mapping):
         return False
-    litellm_model: Final = litellm_params.get("model")
-    return isinstance(litellm_model, str) and litellm_model.startswith("auto_router/")
+    embrouter_model: Final = embrouter_params.get("model")
+    return isinstance(embrouter_model, str) and embrouter_model.startswith("auto_router/")
 
 
 def _model_in_access_group(model: Mapping[str, object], access_group: str) -> bool:
@@ -14941,7 +14941,7 @@ def _team_models_resolve_to_names(team_models: list[str], access_groups: Mapping
     return resolved
 
 
-async def _load_team_object_for_model_filter(team_id: str, prisma_client: PrismaClient) -> LiteLLM_TeamTable | None:
+async def _load_team_object_for_model_filter(team_id: str, prisma_client: PrismaClient) -> EmbRouter_TeamTable | None:
     """Load team row from DB; returns None if missing or on error."""
     try:
         team_db_object: Final[SupportsModelDump | None] = await TeamRepository(prisma_client).table.find_unique(
@@ -14950,14 +14950,14 @@ async def _load_team_object_for_model_filter(team_id: str, prisma_client: Prisma
         if team_db_object is None:
             verbose_proxy_logger.warning("Team %s not found in database", team_id)
             return None
-        return LiteLLM_TeamTable.model_validate(team_db_object.model_dump())
+        return EmbRouter_TeamTable.model_validate(team_db_object.model_dump())
     except Exception as e:
         verbose_proxy_logger.exception("Error fetching team %s: %s", team_id, e)
         return None
 
 
 async def _gather_team_accessible_model_ids(
-    team_object: LiteLLM_TeamTable,
+    team_object: EmbRouter_TeamTable,
     team_id: str,
     prisma_client: PrismaClient,
     llm_router: Router,
@@ -15020,8 +15020,8 @@ async def _authorize_team_id_query(
     proxy admins or members of the requested team.
     """
     if user_api_key_dict.user_role in (
-        LitellmUserRoles.PROXY_ADMIN,
-        LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY,
+        EmbrouterUserRoles.PROXY_ADMIN,
+        EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY,
     ):
         return
 
@@ -15189,7 +15189,7 @@ async def model_info_v2(
     exclude_auto_routers: bool | None = fastapi.Query(
         False,
         description=(
-            "Omit auto-router deployments (litellm model prefixed `auto_router/`). "
+            "Omit auto-router deployments (embrouter model prefixed `auto_router/`). "
             "They select among deployments rather than being deployments themselves, so a "
             "caller rendering a deployment list can leave them out. Defaults to false, so "
             "existing callers are unaffected"
@@ -15217,7 +15217,7 @@ async def model_info_v2(
             on each model and filter to deployments the caller can use.
         page / size: Pagination controls (defaults: page=1, size=50).
         search: Case-insensitive partial match on model name or team public name.
-        modelId: Return a single deployment by LiteLLM model id.
+        modelId: Return a single deployment by EmbRouter model id.
         teamId: Filter to models with direct access or team membership for this team id.
         sortBy / sortOrder: Sort by model_name, created_at, updated_at, costs, or status.
         access_group: Only return deployments in this model access group.
@@ -15235,10 +15235,10 @@ async def model_info_v2(
         "data": [
             {
                 "model_name": "gpt-4",
-                "litellm_params": {"model": "openai/gpt-4.1"},
+                "embrouter_params": {"model": "openai/gpt-4.1"},
                 "model_info": {
                     "id": "abc123",
-                    "litellm_provider": "openai",
+                    "embrouter_provider": "openai",
                     "access_via_team_ids": ["team-1"],
                     "direct_access": true
                 }
@@ -15321,10 +15321,10 @@ async def model_info_v2(
             all_models=all_models,
         )
 
-    # Fill in model info based on config.yaml and litellm model_prices_and_context_window.json
+    # Fill in model info based on config.yaml and embrouter model_prices_and_context_window.json
     # This must happen before teamId filtering so that direct_access and access_via_team_ids are populated
     for i, _model in enumerate(all_models):
-        all_models[i] = _enrich_model_info_with_litellm_data(
+        all_models[i] = _enrich_model_info_with_embrouter_data(
             model=_model,
             debug=debug if debug is not None else False,
             llm_router=llm_router,
@@ -15364,7 +15364,7 @@ async def model_info_v2(
     verbose_proxy_logger.debug("all_models: %s", all_models)
 
     # Append A2A agents to models list
-    from litellm.proxy.agent_endpoints.model_list_helpers import (
+    from embrouter.proxy.agent_endpoints.model_list_helpers import (
         append_agents_to_model_info,
     )
 
@@ -15430,7 +15430,7 @@ async def model_streaming_metrics(
                 request_id,
                 EXTRACT(epoch FROM ("completionStartTime" - "startTime")) AS time_to_first_token
             FROM
-                "LiteLLM_SpendLogs"
+                "EmbRouter_SpendLogs"
             WHERE
                 "model_group" = $1 AND "cache_hit" != 'True'
                 AND "completionStartTime" IS NOT NULL
@@ -15453,7 +15453,7 @@ async def model_streaming_metrics(
                 DATE_TRUNC('day', "startTime")::DATE AS day,
                 AVG(EXTRACT(epoch FROM ("completionStartTime" - "startTime"))) AS time_to_first_token
             FROM
-                "LiteLLM_SpendLogs"
+                "EmbRouter_SpendLogs"
             WHERE
                 "startTime" BETWEEN $2::timestamp AND $3::timestamp
                 AND "model_group" = $1 AND "cache_hit" != 'True'
@@ -15566,7 +15566,7 @@ async def model_metrics(
             DATE_TRUNC('day', "startTime")::DATE AS day,
             AVG(EXTRACT(epoch FROM ("endTime" - "startTime")) / NULLIF("completion_tokens", 0)) AS avg_latency_per_token
         FROM
-            "LiteLLM_SpendLogs"
+            "EmbRouter_SpendLogs"
         WHERE
             "startTime" >= $2::timestamp AND "startTime" <= $3::timestamp
             AND "model_group" = $1 AND "cache_hit" != 'True'
@@ -15687,7 +15687,7 @@ SELECT
         ELSE 0
     END) AS slow_count
 FROM
-    "LiteLLM_SpendLogs"
+    "EmbRouter_SpendLogs"
 WHERE
     "model_group" = $2
     AND "cache_hit" != 'True'
@@ -15765,10 +15765,10 @@ async def model_metrics_exceptions(
     sql_query: Final = """
         WITH cte AS (
             SELECT
-                CASE WHEN api_base = '' THEN litellm_model_name ELSE CONCAT(litellm_model_name, '-', api_base) END AS combined_model_api_base,
+                CASE WHEN api_base = '' THEN embrouter_model_name ELSE CONCAT(embrouter_model_name, '-', api_base) END AS combined_model_api_base,
                 exception_type,
                 COUNT(*) AS num_rate_limit_exceptions
-            FROM "LiteLLM_ErrorLogs"
+            FROM "EmbRouter_ErrorLogs"
             WHERE
                 "startTime" >= $1::timestamp
                 AND "endTime" <= $2::timestamp
@@ -15903,7 +15903,7 @@ def _translate_model_name_for_response(model: dict) -> dict:
 
 
 def _get_proxy_model_info(model: dict) -> dict:
-    return _translate_model_name_for_response(_enrich_model_info_with_litellm_data(model=model, llm_router=llm_router))
+    return _translate_model_name_for_response(_enrich_model_info_with_embrouter_data(model=model, llm_router=llm_router))
 
 
 def _model_info_json_response(data: Sequence[Mapping[str, object]] | Mapping[str, object]) -> Response:
@@ -15925,7 +15925,7 @@ def _model_info_json_response(data: Sequence[Mapping[str, object]] | Mapping[str
 )
 async def model_info_v1(
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
-    litellm_model_id: str | None = None,
+    embrouter_model_id: str | None = None,
     include_team_models: bool | None = fastapi.Query(
         False,
         description="When true, filter to deployments the caller can use via direct access or team membership.",
@@ -15940,10 +15940,10 @@ async def model_info_v1(
     Provides more info about each model in /models, including config.yaml descriptions (except api key and api base)
 
     Parameters:
-        litellm_model_id: Optional[str] = None (this is the value of `x-litellm-model-id` returned in response headers)
+        embrouter_model_id: Optional[str] = None (this is the value of `x-embrouter-model-id` returned in response headers)
 
-        - When litellm_model_id is passed, it will return the info for that specific model
-        - When litellm_model_id is not passed, it will return the info for all models
+        - When embrouter_model_id is passed, it will return the info for that specific model
+        - When embrouter_model_id is not passed, it will return the info for all models
         - include_team_models: When true, filter to deployments the caller can use (same as /v2/model/info).
         - teamId: Filter to models accessible by the given team.
         - healthy_only: When true, hide models whose backing deployments are all marked
@@ -15952,7 +15952,7 @@ async def model_info_v1(
           caller without the query parameter. Requires `background_health_checks: true`,
           plus either `model_list_healthy_only` or `enable_health_check_routing` to keep
           deployment health state cached; without health state the listing is returned
-          unfiltered (fail open). Ignored when `litellm_model_id` is passed, since that
+          unfiltered (fail open). Ignored when `embrouter_model_id` is passed, since that
           is a direct lookup of one deployment rather than a listing. Hiding is
           presentation-only: a hidden model can still be called directly.
 
@@ -15968,7 +15968,7 @@ async def model_info_v1(
         "data": [
                     {
                         "model_name": "fake-openai-endpoint",
-                        "litellm_params": {
+                        "embrouter_params": {
                             "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                             "model": "openai/fake"
                         },
@@ -15991,14 +15991,14 @@ async def model_info_v1(
         teamId = None
 
     if user_model is not None:
-        # user is trying to get specific model from litellm router
+        # user is trying to get specific model from embrouter router
         try:
-            model_info: dict = cast(dict, litellm.get_model_info(model=user_model))
+            model_info: dict = cast(dict, embrouter.get_model_info(model=user_model))
         except Exception:
             model_info = {}
         _deployment_info: Final = Deployment(
             model_name="*",
-            litellm_params=LiteLLM_Params(
+            embrouter_params=EmbRouter_Params(
                 model=user_model,
             ),
             model_info=model_info,
@@ -16006,7 +16006,7 @@ async def model_info_v1(
         _deployment_info_dict = _deployment_info.model_dump()
         _deployment_info_dict = remove_sensitive_info_from_deployment(
             deployment_dict=_deployment_info_dict,
-            excluded_keys={"litellm_credential_name"},
+            excluded_keys={"embrouter_credential_name"},
         )
         return _model_info_json_response(_deployment_info_dict)
 
@@ -16014,7 +16014,7 @@ async def model_info_v1(
         raise HTTPException(
             status_code=500,
             detail={
-                "error": "LLM Model List not loaded in. Make sure you passed models in your config.yaml or on the LiteLLM Admin UI."
+                "error": "LLM Model List not loaded in. Make sure you passed models in your config.yaml or on the EmbRouter Admin UI."
             },
         )
 
@@ -16022,7 +16022,7 @@ async def model_info_v1(
         raise HTTPException(
             status_code=500,
             detail={
-                "error": "LLM Router is not loaded in. Make sure you passed models in your config.yaml or on the LiteLLM Admin UI."
+                "error": "LLM Router is not loaded in. Make sure you passed models in your config.yaml or on the EmbRouter Admin UI."
             },
         )
 
@@ -16032,13 +16032,13 @@ async def model_info_v1(
             detail={"error": CommonProxyErrors.db_not_connected_error.value},
         )
 
-    if litellm_model_id is not None:
-        # user is trying to get specific model from litellm router
-        deployment_info: Final = llm_router.get_deployment(model_id=litellm_model_id)
+    if embrouter_model_id is not None:
+        # user is trying to get specific model from embrouter router
+        deployment_info: Final = llm_router.get_deployment(model_id=embrouter_model_id)
         if deployment_info is None or await _deployment_hidden_by_listing_callbacks(deployment_info, user_api_key_dict):
             raise HTTPException(
                 status_code=400,
-                detail={"error": f"Model id = {litellm_model_id} not found on litellm proxy"},
+                detail={"error": f"Model id = {embrouter_model_id} not found on embrouter proxy"},
             )
         _deployment_info_dict = _get_proxy_model_info(model=deployment_info.model_dump(exclude_none=True))
         single_model_list: list[dict] = [_deployment_info_dict]
@@ -16106,7 +16106,7 @@ async def model_info_v1(
         all_models = _filter_models_to_user_accessible(all_models)
 
     all_models = [
-        _translate_model_name_for_response(_enrich_model_info_with_litellm_data(model=model, llm_router=llm_router))
+        _translate_model_name_for_response(_enrich_model_info_with_embrouter_data(model=model, llm_router=llm_router))
         for model in all_models
     ]
 
@@ -16208,9 +16208,9 @@ def _get_model_group_info(
             model_groups.append(model_group_info)
 
     ## check for public model groups
-    if litellm.public_model_groups is not None:
+    if embrouter.public_model_groups is not None:
         for mg in model_groups:
-            if mg.model_group in litellm.public_model_groups:
+            if mg.model_group in embrouter.public_model_groups:
                 mg.is_public_model_group = True
 
     return model_groups
@@ -16226,7 +16226,7 @@ async def model_group_info(
     model_group: str | None = None,
 ):
     """
-    Get information about all the deployments on litellm proxy, including config.yaml descriptions (except api key and api base)
+    Get information about all the deployments on embrouter proxy, including config.yaml descriptions (except api key and api base)
 
     - /model_group/info returns all model groups. End users of proxy should use /model_group/info since those models will be used for /chat/completions, /embeddings, etc.
     - /model_group/info?model_group=rerank-english-v3.0 returns all model groups for a specific model group (`model_name` in config.yaml)
@@ -16381,12 +16381,12 @@ async def model_group_info(
     if llm_model_list is None or llm_router is None or not llm_model_list:
         return {"data": []}
 
-    from litellm.proxy.utils import get_available_models_for_user
+    from embrouter.proxy.utils import get_available_models_for_user
 
     # Get available models for the user
     is_proxy_admin: Final = user_api_key_dict.user_role in (
-        LitellmUserRoles.PROXY_ADMIN,
-        LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY,
+        EmbrouterUserRoles.PROXY_ADMIN,
+        EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY,
     )
     all_models_str: Final = (
         get_complete_model_list(
@@ -16419,7 +16419,7 @@ async def model_group_info(
     listed_group_names: Final = tuple(name for name in all_models_str if name not in undiscoverable_group_names)
 
     # Append A2A agents to model groups
-    from litellm.proxy.agent_endpoints.model_list_helpers import (
+    from embrouter.proxy.agent_endpoints.model_list_helpers import (
         append_agents_to_model_group,
     )
 
@@ -16465,11 +16465,11 @@ async def model_settings():
     """
 
     returned_list: Final = []
-    for provider in litellm.provider_list:
+    for provider in embrouter.provider_list:
         returned_list.append(
             ProviderInfo(
                 name=provider,
-                fields=litellm.get_provider_fields(custom_llm_provider=provider),
+                fields=embrouter.get_provider_fields(custom_llm_provider=provider),
             )
         )
 
@@ -16643,7 +16643,7 @@ async def async_queue_request(
     data = {}
     try:
         data = await request.json()
-        data.pop("_litellm_strip_stream_usage", None)
+        data.pop("_embrouter_strip_stream_usage", None)
 
         # Include original request and headers in the data
         data["proxy_server_request"] = {
@@ -16670,7 +16670,7 @@ async def async_queue_request(
             # Covers both missing and JSON-string metadata (multipart /
             # extra_body); see above for the same guard upstream.
             data["metadata"] = {}
-        logged_api_key: Final = LiteLLMProxyRequestSetup.get_logged_api_key(user_api_key_dict)
+        logged_api_key: Final = EmbRouterProxyRequestSetup.get_logged_api_key(user_api_key_dict)
         data["metadata"]["user_api_key"] = logged_api_key
         data["metadata"]["user_api_key_hash"] = logged_api_key
         data["metadata"]["user_api_key_metadata"] = strip_callback_config(user_api_key_dict.metadata)
@@ -16726,7 +16726,7 @@ async def async_queue_request(
             )
 
         response: Final = await router.schedule_acompletion(**data)
-        fastapi_response.headers.update({"x-litellm-priority": str(data["priority"])})
+        fastapi_response.headers.update({"x-embrouter-priority": str(data["priority"])})
         return response
     except Exception as e:
         await proxy_logging_obj.post_call_failure_hook(
@@ -16753,10 +16753,10 @@ async def async_queue_request(
 async def fallback_login(request: Request):
     """
     Create Proxy API Keys using Google Workspace SSO. Requires setting PROXY_BASE_URL in .env
-    PROXY_BASE_URL should be the your deployed proxy endpoint, e.g. PROXY_BASE_URL="https://litellm-production-7002.up.railway.app/"
+    PROXY_BASE_URL should be the your deployed proxy endpoint, e.g. PROXY_BASE_URL="https://embrouter-production-7002.up.railway.app/"
     Example:
     """
-    from litellm.proxy.proxy_server import ui_link
+    from embrouter.proxy.proxy_server import ui_link
 
     # get url from request
     redirect_url = get_custom_url(str(request.base_url))
@@ -16778,8 +16778,8 @@ async def fallback_login(request: Request):
 @router.post("/login", include_in_schema=False)  # hidden since this is a helper for UI sso login
 async def login(request: Request):
     global premium_user, general_settings, master_key
-    from litellm.proxy.auth.login_utils import authenticate_user, create_ui_token_object, encode_ui_session_jwt
-    from litellm.proxy.utils import get_custom_url
+    from embrouter.proxy.auth.login_utils import authenticate_user, create_ui_token_object, encode_ui_session_jwt
+    from embrouter.proxy.utils import get_custom_url
 
     form: Final = await request.form()
     username: Final = str(form.get("username"))
@@ -16819,15 +16819,15 @@ async def login(request: Request):
     jwt_token: Final = encode_ui_session_jwt(returned_ui_token_object, cast(str, master_key))
 
     # Build redirect URL
-    litellm_dashboard_ui = get_custom_url(str(request.base_url))
-    litellm_dashboard_ui = litellm_dashboard_ui.rstrip("/")
-    litellm_dashboard_ui += "/ui?login=success"
+    embrouter_dashboard_ui = get_custom_url(str(request.base_url))
+    embrouter_dashboard_ui = embrouter_dashboard_ui.rstrip("/")
+    embrouter_dashboard_ui += "/ui?login=success"
 
     # Honor a same-origin return_to preserved by the sign-in page (e.g. the aggregate DCR connect flow's
     # authorize round-trip), mirroring the SSO callback; otherwise land on the dashboard. Gated by
     # _is_same_origin_return_path (strictly relative path) so it can never be an open redirect, and the
     # one-shot cookie is cleared after use.
-    from litellm.proxy.management_endpoints.ui_sso import (
+    from embrouter.proxy.management_endpoints.ui_sso import (
         _sso_return_to_redirect,
         set_session_token_cookie,
     )
@@ -16839,7 +16839,7 @@ async def login(request: Request):
     # return_to is honored for EVERY sign-in branch, so the write and read sets cannot diverge: it
     # sets the token cookie on the same-origin arm and hands off via a one-time login code on the
     # cross-origin arm, and clears the one-shot cookie in both.
-    cp_return_to: Final = request.cookies.get("litellm_cp_return_to")
+    cp_return_to: Final = request.cookies.get("embrouter_cp_return_to")
     if cp_return_to:
         try:
             resumed = await _sso_return_to_redirect(
@@ -16855,25 +16855,25 @@ async def login(request: Request):
             # the cookie's write and this read), and the user has ALREADY authenticated here —
             # failing their login over a stale one-shot cookie is the worst possible outcome. Land
             # on the dashboard instead; the cookie is cleared below either way.
-            verbose_proxy_logger.info("Ignoring stale litellm_cp_return_to cookie; landing on dashboard")
+            verbose_proxy_logger.info("Ignoring stale embrouter_cp_return_to cookie; landing on dashboard")
             resumed = None
         if resumed is not None:
             return resumed
 
     # Create redirect response with cookie
-    redirect_response: Final = RedirectResponse(url=litellm_dashboard_ui, status_code=303)
+    redirect_response: Final = RedirectResponse(url=embrouter_dashboard_ui, status_code=303)
     set_session_token_cookie(redirect_response, request, jwt_token)
     if cp_return_to:
-        redirect_response.delete_cookie(key="litellm_cp_return_to")
+        redirect_response.delete_cookie(key="embrouter_cp_return_to")
     return redirect_response
 
 
 @router.post("/v2/login", include_in_schema=False)  # hidden helper for UI logins via API
 async def login_v2(request: Request):
     global premium_user, general_settings, master_key
-    from litellm.proxy.auth.login_utils import authenticate_user, create_ui_token_object, encode_ui_session_jwt
-    from litellm.proxy.management_endpoints.ui_sso import set_session_token_cookie
-    from litellm.proxy.utils import get_custom_url
+    from embrouter.proxy.auth.login_utils import authenticate_user, create_ui_token_object, encode_ui_session_jwt
+    from embrouter.proxy.management_endpoints.ui_sso import set_session_token_cookie
+    from embrouter.proxy.utils import get_custom_url
 
     try:
         body: Final = await request.json()
@@ -16897,21 +16897,21 @@ async def login_v2(request: Request):
 
         jwt_token: Final = encode_ui_session_jwt(returned_ui_token_object, cast(str, master_key))
 
-        litellm_dashboard_ui = get_custom_url(str(request.base_url))
-        litellm_dashboard_ui = litellm_dashboard_ui.rstrip("/")
-        litellm_dashboard_ui += "/ui?login=success"
+        embrouter_dashboard_ui = get_custom_url(str(request.base_url))
+        embrouter_dashboard_ui = embrouter_dashboard_ui.rstrip("/")
+        embrouter_dashboard_ui += "/ui?login=success"
 
         # Token is included in the response body so the UI can set a JS-accessible
         # cookie even when a reverse proxy (e.g. nginx-ingress) adds HttpOnly to the
         # server-set cookie, which would otherwise cause an infinite login redirect.
         json_response: Final = JSONResponse(
-            content={"redirect_url": litellm_dashboard_ui, "token": jwt_token},
+            content={"redirect_url": embrouter_dashboard_ui, "token": jwt_token},
             status_code=status.HTTP_200_OK,
         )
         set_session_token_cookie(json_response, request, jwt_token)
         return json_response
     except Exception as e:
-        verbose_proxy_logger.exception("litellm.proxy.proxy_server.login_v2(): Exception occurred - %s", e)
+        verbose_proxy_logger.exception("embrouter.proxy.proxy_server.login_v2(): Exception occurred - %s", e)
         if isinstance(e, ProxyException):
             raise e
         elif isinstance(e, HTTPException):
@@ -16936,8 +16936,8 @@ async def login_v2(request: Request):
 )  # control-plane login — always returns token in body for cross-origin use
 async def login_v3(request: Request):
     global premium_user, general_settings, master_key
-    from litellm.proxy.auth.login_utils import authenticate_user, create_ui_token_object, encode_ui_session_jwt
-    from litellm.proxy.utils import get_custom_url
+    from embrouter.proxy.auth.login_utils import authenticate_user, create_ui_token_object, encode_ui_session_jwt
+    from embrouter.proxy.utils import get_custom_url
 
     try:
         if not general_settings.get("control_plane_url"):
@@ -16969,14 +16969,14 @@ async def login_v3(request: Request):
 
         jwt_token: Final = encode_ui_session_jwt(returned_ui_token_object, cast(str, master_key))
 
-        litellm_dashboard_ui = get_custom_url(str(request.base_url))
-        litellm_dashboard_ui = litellm_dashboard_ui.rstrip("/")
-        litellm_dashboard_ui += "/ui?login=success"
+        embrouter_dashboard_ui = get_custom_url(str(request.base_url))
+        embrouter_dashboard_ui = embrouter_dashboard_ui.rstrip("/")
+        embrouter_dashboard_ui += "/ui?login=success"
 
         # Store JWT behind a single-use opaque code (60s TTL)
         code: Final = secrets.token_urlsafe(32)
         cache_key: Final = f"login_code:{code}"
-        cache_value: Final = {"token": jwt_token, "redirect_url": litellm_dashboard_ui}
+        cache_value: Final = {"token": jwt_token, "redirect_url": embrouter_dashboard_ui}
         if redis_usage_cache is not None:
             await redis_usage_cache.async_set_cache(key=cache_key, value=cache_value, ttl=60)
         else:
@@ -16987,7 +16987,7 @@ async def login_v3(request: Request):
             status_code=status.HTTP_200_OK,
         )
     except Exception as e:
-        verbose_proxy_logger.exception("litellm.proxy.proxy_server.login_v3(): Exception occurred - %s", e)
+        verbose_proxy_logger.exception("embrouter.proxy.proxy_server.login_v3(): Exception occurred - %s", e)
         if isinstance(e, ProxyException):
             raise e
         elif isinstance(e, HTTPException):
@@ -17009,7 +17009,7 @@ async def login_v3(request: Request):
 
 @router.post("/v3/login/exchange", include_in_schema=False)  # exchange single-use opaque code for JWT
 async def login_v3_exchange(request: Request):
-    from litellm.proxy.management_endpoints.ui_sso import set_session_token_cookie
+    from embrouter.proxy.management_endpoints.ui_sso import set_session_token_cookie
 
     try:
         if not general_settings.get("control_plane_url"):
@@ -17062,7 +17062,7 @@ async def login_v3_exchange(request: Request):
     except ProxyException:
         raise
     except Exception as e:
-        verbose_proxy_logger.exception("litellm.proxy.proxy_server.login_v3_exchange(): Exception occurred - %s", e)
+        verbose_proxy_logger.exception("embrouter.proxy.proxy_server.login_v3_exchange(): Exception occurred - %s", e)
         raise ProxyException(
             message=str(e),
             type=ProxyErrorTypes.auth_error,
@@ -17081,11 +17081,11 @@ async def onboarding(invite_link: str, request: Request):
     - Pass in user_email if set
     """
     global prisma_client, master_key, general_settings
-    from litellm.types.proxy.ui_sso import ReturnedUITokenObject
+    from embrouter.types.proxy.ui_sso import ReturnedUITokenObject
 
     if master_key is None:
         raise ProxyException(
-            message="Master Key not set for Proxy. Please set Master Key to use Admin UI. Set `LITELLM_MASTER_KEY` in .env or set general_settings:master_key in config.yaml. If set, use `--detailed_debug` to debug issue.",
+            message="Master Key not set for Proxy. Please set Master Key to use Admin UI. Set `EMBROUTER_MASTER_KEY` in .env or set general_settings:master_key in config.yaml. If set, use `--detailed_debug` to debug issue.",
             type=ProxyErrorTypes.auth_error,
             param="master_key",
             code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -17104,7 +17104,7 @@ async def onboarding(invite_link: str, request: Request):
         raise HTTPException(status_code=401, detail={"error": "Invitation link does not exist in db."})
     #### CHECK IF EXPIRED
     # Extract the date part from both datetime objects
-    utc_now_date: Final = litellm.utils.get_utc_datetime().date()
+    utc_now_date: Final = embrouter.utils.get_utc_datetime().date()
     expires_at_date: Final = invite_obj.expires_at.date()
     if expires_at_date < utc_now_date:
         raise HTTPException(status_code=401, detail={"error": "Invitation link has expired."})
@@ -17124,18 +17124,18 @@ async def onboarding(invite_link: str, request: Request):
     if user_obj is None:
         raise HTTPException(status_code=401, detail={"error": "User does not exist in db."})
 
-    litellm_dashboard_ui = get_custom_url(str(request.base_url))
-    litellm_dashboard_ui = litellm_dashboard_ui.rstrip("/")
-    litellm_dashboard_ui += "/ui/onboarding"
+    embrouter_dashboard_ui = get_custom_url(str(request.base_url))
+    embrouter_dashboard_ui = embrouter_dashboard_ui.rstrip("/")
+    embrouter_dashboard_ui += "/ui/onboarding"
     import jwt
 
     user_email: Final = user_obj.user_email
     onboarding_token: Final = jwt.encode(
         {
-            "token_type": "litellm_onboarding",
+            "token_type": "embrouter_onboarding",
             "invitation_link": invite_link,
             "user_id": user_obj.user_id,
-            "exp": litellm.utils.get_utc_datetime() + timedelta(minutes=15),
+            "exp": embrouter.utils.get_utc_datetime() + timedelta(minutes=15),
         },
         master_key,
         algorithm="HS256",
@@ -17149,7 +17149,7 @@ async def onboarding(invite_link: str, request: Request):
         user_role=user_obj.user_role,  # pyright: ignore[reportArgumentType]  # nullable DB column, no unset contract
         login_method="username_password",
         premium_user=premium_user,
-        auth_header_name=general_settings.get("litellm_key_header_name", "Authorization"),
+        auth_header_name=general_settings.get("embrouter_key_header_name", "Authorization"),
         disabled_non_admin_personal_key_creation=disabled_non_admin_personal_key_creation,
         server_root_path=get_server_root_path(),
         password_reset_required=False,
@@ -17160,9 +17160,9 @@ async def onboarding(invite_link: str, request: Request):
         algorithm="HS256",
     )
 
-    litellm_dashboard_ui += f"?token={jwt_token}&user_email={user_email}"
+    embrouter_dashboard_ui += f"?token={jwt_token}&user_email={user_email}"
     return {
-        "login_url": litellm_dashboard_ui,
+        "login_url": embrouter_dashboard_ui,
         "token": jwt_token,
         "user_email": user_email,
     }
@@ -17173,13 +17173,13 @@ def _get_onboarding_claims_from_request(request: Request) -> dict:
 
     if master_key is None:
         raise ProxyException(
-            message="Master Key not set for Proxy. Please set Master Key to use Admin UI. Set `LITELLM_MASTER_KEY` in .env or set general_settings:master_key in config.yaml. If set, use `--detailed_debug` to debug issue.",
+            message="Master Key not set for Proxy. Please set Master Key to use Admin UI. Set `EMBROUTER_MASTER_KEY` in .env or set general_settings:master_key in config.yaml. If set, use `--detailed_debug` to debug issue.",
             type=ProxyErrorTypes.auth_error,
             param="master_key",
             code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
-    auth_header_name: Final = general_settings.get("litellm_key_header_name", "Authorization")
+    auth_header_name: Final = general_settings.get("embrouter_key_header_name", "Authorization")
     onboarding_auth_header: Final = request.headers.get(auth_header_name)
     if onboarding_auth_header is None:
         raise HTTPException(
@@ -17220,7 +17220,7 @@ async def _rollback_onboarding_invite_claim(
             data={
                 "accepted_at": None,
                 "is_accepted": False,
-                "updated_at": litellm.utils.get_utc_datetime(),
+                "updated_at": embrouter.utils.get_utc_datetime(),
                 "updated_by": user_id,
             },
         )
@@ -17236,8 +17236,8 @@ async def _generate_onboarding_ui_session_token(user_obj: _UserTableRow) -> str:
         request_type="key",
         **{
             "user_role": user_obj.user_role,
-            "duration": LITELLM_UI_SESSION_DURATION,
-            "key_max_budget": litellm.max_ui_session_budget,
+            "duration": EMBROUTER_UI_SESSION_DURATION,
+            "key_max_budget": embrouter.max_ui_session_budget,
             "models": [],
             "aliases": {},
             "config": {},
@@ -17250,7 +17250,7 @@ async def _generate_onboarding_ui_session_token(user_obj: _UserTableRow) -> str:
 
     import jwt
 
-    from litellm.types.proxy.ui_sso import ReturnedUITokenObject
+    from embrouter.types.proxy.ui_sso import ReturnedUITokenObject
 
     disabled_non_admin_personal_key_creation: Final = get_disabled_non_admin_personal_key_creation()
     returned_ui_token_object: Final = ReturnedUITokenObject(
@@ -17260,7 +17260,7 @@ async def _generate_onboarding_ui_session_token(user_obj: _UserTableRow) -> str:
         user_role=user_obj.user_role,  # pyright: ignore[reportArgumentType]  # nullable DB column, no unset contract
         login_method="username_password",
         premium_user=premium_user,
-        auth_header_name=general_settings.get("litellm_key_header_name", "Authorization"),
+        auth_header_name=general_settings.get("embrouter_key_header_name", "Authorization"),
         disabled_non_admin_personal_key_creation=disabled_non_admin_personal_key_creation,
         server_root_path=get_server_root_path(),
         password_reset_required=False,
@@ -17301,7 +17301,7 @@ async def claim_onboarding_link(data: InvitationClaim, request: Request):
         raise HTTPException(status_code=401, detail={"error": "Invitation link does not exist in db."})
     #### CHECK IF EXPIRED
     # Extract the date part from both datetime objects
-    utc_now_date: Final = litellm.utils.get_utc_datetime().date()
+    utc_now_date: Final = embrouter.utils.get_utc_datetime().date()
     expires_at_date: Final = invite_obj.expires_at.date()
     if expires_at_date < utc_now_date:
         raise HTTPException(status_code=401, detail={"error": "Invitation link has expired."})
@@ -17324,7 +17324,7 @@ async def claim_onboarding_link(data: InvitationClaim, request: Request):
 
     onboarding_claims: Final = _get_onboarding_claims_from_request(request=request)
     if (
-        onboarding_claims.get("token_type") != "litellm_onboarding"
+        onboarding_claims.get("token_type") != "embrouter_onboarding"
         or onboarding_claims.get("invitation_link") != data.invitation_link
         or onboarding_claims.get("user_id") != data.user_id
     ):
@@ -17336,9 +17336,9 @@ async def claim_onboarding_link(data: InvitationClaim, request: Request):
     validate_password_policy(data.password, general_settings)
     await validate_password_not_breached(data.password, general_settings)
     hashed_pw: Final = hash_password(data.password)
-    current_time = litellm.utils.get_utc_datetime()
+    current_time = embrouter.utils.get_utc_datetime()
     async with prisma_client.db.tx() as tx:
-        updated_count: Final = await tx.litellm_invitationlink.update_many(
+        updated_count: Final = await tx.embrouter_invitationlink.update_many(
             where={"id": data.invitation_link, "is_accepted": False},
             data={
                 "is_accepted": True,
@@ -17353,7 +17353,7 @@ async def claim_onboarding_link(data: InvitationClaim, request: Request):
             )
 
         ### UPDATE USER OBJECT ###
-        user_obj: Final[_UserTableRow | None] = await tx.litellm_usertable.update(
+        user_obj: Final[_UserTableRow | None] = await tx.embrouter_usertable.update(
             where={"user_id": invite_obj.user_id},
             data={
                 "password": hashed_pw,
@@ -17366,8 +17366,8 @@ async def claim_onboarding_link(data: InvitationClaim, request: Request):
             raise HTTPException(status_code=401, detail={"error": "User does not exist in db."})
 
         #### MARK LINK AS USED
-        current_time = litellm.utils.get_utc_datetime()
-        await tx.litellm_invitationlink.update(
+        current_time = embrouter.utils.get_utc_datetime()
+        await tx.embrouter_invitationlink.update(
             where={"id": data.invitation_link},
             data={
                 "accepted_at": current_time,
@@ -17383,7 +17383,7 @@ async def claim_onboarding_link(data: InvitationClaim, request: Request):
     # minted under the old password may be in hostile hands. Revoke them all —
     # the caller holds only the short-lived onboarding JWT, and the fresh
     # session key is minted below, after this sweep.
-    from litellm.proxy.management_endpoints.session_endpoints import (
+    from embrouter.proxy.management_endpoints.session_endpoints import (
         revoke_ui_session_keys,
     )
 
@@ -17406,11 +17406,11 @@ async def claim_onboarding_link(data: InvitationClaim, request: Request):
             detail={"error": "Failed to create onboarding session. Please retry the invitation link."},
         ) from e
 
-    litellm_dashboard_ui = get_custom_url(str(request.base_url))
-    litellm_dashboard_ui = litellm_dashboard_ui.rstrip("/")
-    litellm_dashboard_ui += "/ui?login=success"
+    embrouter_dashboard_ui = get_custom_url(str(request.base_url))
+    embrouter_dashboard_ui = embrouter_dashboard_ui.rstrip("/")
+    embrouter_dashboard_ui += "/ui?login=success"
     return {
-        "login_url": litellm_dashboard_ui,
+        "login_url": embrouter_dashboard_ui,
         "token": jwt_token,
         "user_email": user_obj.user_email,
         "user": user_obj,
@@ -17437,7 +17437,7 @@ def get_logo_url():
 
 def _serve_custom_ui_logo(candidate: str) -> Response | None:
     """Serve one admin-configured logo, or None when it is unusable so the caller falls back."""
-    from litellm.proxy.common_utils.static_asset_utils import (
+    from embrouter.proxy.common_utils.static_asset_utils import (
         resolve_validated_local_image_path,
     )
 
@@ -17471,12 +17471,12 @@ async def get_image(theme: Literal["light", "dark"] | None = None):
     )
     default_logo_filename: Final = os.path.basename(default_site_logo)
 
-    is_non_root: Final = os.getenv("LITELLM_NON_ROOT", "").lower() == "true"
+    is_non_root: Final = os.getenv("EMBROUTER_NON_ROOT", "").lower() == "true"
 
     # Determine assets directory
-    # Priority: LITELLM_ASSETS_PATH env var > default based on is_non_root
-    default_assets_dir: Final = "/var/lib/litellm/assets" if is_non_root else current_dir
-    assets_dir = os.getenv("LITELLM_ASSETS_PATH", default_assets_dir)
+    # Priority: EMBROUTER_ASSETS_PATH env var > default based on is_non_root
+    default_assets_dir: Final = "/var/lib/embrouter/assets" if is_non_root else current_dir
+    assets_dir = os.getenv("EMBROUTER_ASSETS_PATH", default_assets_dir)
 
     # Try to create assets_dir if it doesn't exist (simple try/except approach)
     if not os.path.exists(assets_dir):
@@ -17517,7 +17517,7 @@ async def get_image(theme: Literal["light", "dark"] | None = None):
     if custom_logo_response is not None:
         return custom_logo_response
 
-    from litellm.proxy.common_utils.static_asset_utils import (
+    from embrouter.proxy.common_utils.static_asset_utils import (
         resolve_validated_local_image_path,
     )
 
@@ -17532,14 +17532,14 @@ async def get_image(theme: Literal["light", "dark"] | None = None):
 @app.get("/get_favicon", include_in_schema=False)
 async def get_favicon():
     """Get custom favicon for the admin UI."""
-    from litellm.proxy.common_utils.static_asset_utils import (
+    from embrouter.proxy.common_utils.static_asset_utils import (
         resolve_validated_local_image_path,
     )
 
     current_dir: Final = os.path.dirname(os.path.abspath(__file__))
     default_favicon: Final = os.path.join(current_dir, "_experimental", "out", "favicon.ico")
 
-    favicon_url: Final = os.getenv("LITELLM_FAVICON_URL", "")
+    favicon_url: Final = os.getenv("EMBROUTER_FAVICON_URL", "")
 
     if not favicon_url:
         if os.path.exists(default_favicon):
@@ -17554,7 +17554,7 @@ async def get_favicon():
             safe_favicon_path, media_type = safe_favicon
             return FileResponse(safe_favicon_path, media_type=media_type)
         verbose_proxy_logger.warning(
-            "LITELLM_FAVICON_URL %r is not a supported image file or does not exist, falling back to default favicon",
+            "EMBROUTER_FAVICON_URL %r is not a supported image file or does not exist, falling back to default favicon",
             favicon_url,
         )
         if os.path.exists(default_favicon):
@@ -17580,12 +17580,12 @@ async def new_invitation(data: InvitationNew, user_api_key_dict: UserAPIKeyAuth 
     curl -X POST 'http://localhost:4000/invitation/new' \
         -H 'Content-Type: application/json' \
         -d '{
-            "user_id": "1234" // 👈 id of user in 'LiteLLM_UserTable'
+            "user_id": "1234" // 👈 id of user in 'EmbRouter_UserTable'
         }'
     ```
     """
     try:
-        from litellm.proxy.management_helpers.user_invitation import (
+        from embrouter.proxy.management_helpers.user_invitation import (
             create_invitation_for_user,
         )
 
@@ -17598,7 +17598,7 @@ async def new_invitation(data: InvitationNew, user_api_key_dict: UserAPIKeyAuth 
             )
 
         # Allow proxy admins and org/team admins (admin status from DB via get_user_object)
-        has_access = user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN or await _user_has_admin_privileges(
+        has_access = user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN or await _user_has_admin_privileges(
             user_api_key_dict=user_api_key_dict,
             prisma_client=prisma_client,
             user_api_key_cache=user_api_key_cache,
@@ -17613,7 +17613,7 @@ async def new_invitation(data: InvitationNew, user_api_key_dict: UserAPIKeyAuth 
             )
 
         # Org/team admins can only invite users within their org/team
-        if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+        if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
             can_invite: Final = await admin_can_invite_user(
                 target_user_id=data.user_id,
                 user_api_key_dict=user_api_key_dict,
@@ -17651,7 +17651,7 @@ async def invitation_info(invitation_id: str, user_api_key_dict: UserAPIKeyAuth 
     curl -X POST 'http://localhost:4000/invitation/new' \
         -H 'Content-Type: application/json' \
         -d '{
-            "user_id": "1234" // 👈 id of user in 'LiteLLM_UserTable'
+            "user_id": "1234" // 👈 id of user in 'EmbRouter_UserTable'
         }'
     ```
     """
@@ -17699,7 +17699,7 @@ async def invitation_update(
     curl -X POST 'http://localhost:4000/invitation/update' \
         -H 'Content-Type: application/json' \
         -d '{
-            "invitation_id": "1234" // 👈 id of invitation in 'LiteLLM_InvitationTable'
+            "invitation_id": "1234" // 👈 id of invitation in 'EmbRouter_InvitationTable'
             "is_accepted": True // when invitation is accepted
         }'
     ```
@@ -17718,7 +17718,7 @@ async def invitation_update(
             detail={"error": f"Unable to identify user id. Received={user_api_key_dict.user_id}"},
         )
 
-    current_time: Final = litellm.utils.get_utc_datetime()
+    current_time: Final = embrouter.utils.get_utc_datetime()
     response: Final[object] = await InvitationLinkRepository(prisma_client).table.update(
         where={"id": data.invitation_id},
         data={
@@ -17756,7 +17756,7 @@ async def invitation_delete(
     curl -X POST 'http://localhost:4000/invitation/delete' \
         -H 'Content-Type: application/json' \
         -d '{
-            "invitation_id": "1234" // 👈 id of invitation in 'LiteLLM_InvitationTable'
+            "invitation_id": "1234" // 👈 id of invitation in 'EmbRouter_InvitationTable'
         }'
     ```
     """
@@ -17769,7 +17769,7 @@ async def invitation_delete(
         )
 
     # Proxy admins can delete any invitation; org admins only their own
-    is_proxy_admin: Final = user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN
+    is_proxy_admin: Final = user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN
     is_other_admin: Final = await _user_has_admin_privileges(
         user_api_key_dict=user_api_key_dict,
         prisma_client=prisma_client,
@@ -17826,14 +17826,14 @@ async def update_config(
     """
     For Admin UI - allows admin to update config via UI.
 
-    Writes only the sections present in the request body to LiteLLM_Config rows
+    Writes only the sections present in the request body to EmbRouter_Config rows
     (one row per top-level section). Sections the caller did not send are left
     untouched — this endpoint never persists pre-existing YAML values to DB as
     a side effect of an unrelated update.
     """
     global llm_router, llm_model_list, general_settings, proxy_config, proxy_logging_obj, master_key, prisma_client
     try:
-        if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+        if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
             raise HTTPException(status_code=403, detail="Only proxy admins can update config")
 
         request_body: Final[Mapping[str, JsonValue]] = TypeAdapter(Mapping[str, JsonValue]).validate_python(
@@ -17842,7 +17842,7 @@ async def update_config(
         raw_router_settings: Final = request_body.get("router_settings")
         if isinstance(raw_router_settings, dict):
             supported_router_settings: Final = RUNTIME_UPDATABLE_ROUTER_SETTINGS | (
-                frozenset(litellm.Router.get_valid_args()) - ROUTER_SETTINGS_MANAGED_OUTSIDE_CONFIG
+                frozenset(embrouter.Router.get_valid_args()) - ROUTER_SETTINGS_MANAGED_OUTSIDE_CONFIG
             )
             unsupported_router_settings: Final = sorted(set(raw_router_settings) - supported_router_settings)
             if unsupported_router_settings:
@@ -17870,13 +17870,13 @@ async def update_config(
             if config_info.general_settings is not None
             else {}
         )
-        raw_litellm_settings: Final[Mapping[str, JsonValue]] = _CONFIG_SECTION_VALUES.validate_python(
-            config_info.litellm_settings if config_info.litellm_settings is not None else {}
+        raw_embrouter_settings: Final[Mapping[str, JsonValue]] = _CONFIG_SECTION_VALUES.validate_python(
+            config_info.embrouter_settings if config_info.embrouter_settings is not None else {}
         )
-        incoming_success_callback: Final = raw_litellm_settings.get("success_callback")
-        updated_litellm_settings: Final[Mapping[str, JsonValue]] = _CONFIG_SECTION_VALUES.validate_python(
+        incoming_success_callback: Final = raw_embrouter_settings.get("success_callback")
+        updated_embrouter_settings: Final[Mapping[str, JsonValue]] = _CONFIG_SECTION_VALUES.validate_python(
             {
-                **raw_litellm_settings,
+                **raw_embrouter_settings,
                 **(
                     {"success_callback": normalize_callback_names(incoming_success_callback)}
                     if isinstance(incoming_success_callback, list)
@@ -17904,7 +17904,7 @@ async def update_config(
         proxy_config.reject_config_owned_writes(
             section_name="general_settings", changed_keys=requested_general_settings
         )
-        proxy_config.reject_config_owned_writes(section_name="litellm_settings", changed_keys=raw_litellm_settings)
+        proxy_config.reject_config_owned_writes(section_name="embrouter_settings", changed_keys=raw_embrouter_settings)
         proxy_config.reject_config_owned_writes(section_name="router_settings", changed_keys=router_settings_updates)
 
         async def _read_section(param_name: str) -> dict:
@@ -17965,7 +17965,7 @@ async def update_config(
                 )
             )
 
-        # litellm_settings: merge existing + request, request wins (matching
+        # embrouter_settings: merge existing + request, request wins (matching
         # router_settings semantics — the caller's value for any given key is
         # what gets persisted). success_callback is special-cased: it is
         # always normalized + deduped, and unioned with any existing list,
@@ -17973,12 +17973,12 @@ async def update_config(
         # the full set). Normalizing on every write — not only when an
         # existing entry is present — keeps the DB free of mixed-case
         # entries that delete_callback (lowercase lookup) cannot find.
-        if config_info.litellm_settings is not None:
-            existing = await _read_section("litellm_settings")
-            before_litellm_settings: Final = copy.deepcopy(existing)
-            merged: Final = {**existing, **updated_litellm_settings}
+        if config_info.embrouter_settings is not None:
+            existing = await _read_section("embrouter_settings")
+            before_embrouter_settings: Final = copy.deepcopy(existing)
+            merged: Final = {**existing, **updated_embrouter_settings}
 
-            incoming_cb: Final = updated_litellm_settings.get("success_callback")
+            incoming_cb: Final = updated_embrouter_settings.get("success_callback")
             existing_cb: Final = existing.get("success_callback")
             if isinstance(incoming_cb, list):
                 if isinstance(existing_cb, list):
@@ -17990,10 +17990,10 @@ async def update_config(
                 else:
                     merged["success_callback"] = list(set(incoming_cb))
 
-            await _upsert_section("litellm_settings", merged)
+            await _upsert_section("embrouter_settings", merged)
             asyncio.create_task(
                 create_config_audit_log(
-                    "litellm_settings", "updated", before_litellm_settings, merged, user_api_key_dict
+                    "embrouter_settings", "updated", before_embrouter_settings, merged, user_api_key_dict
                 )
             )
 
@@ -18013,7 +18013,7 @@ async def update_config(
 
         return {"message": "Config updated successfully"}
     except Exception as e:
-        verbose_proxy_logger.error("litellm.proxy.proxy_server.update_config(): Exception occured - %s", e)
+        verbose_proxy_logger.error("embrouter.proxy.proxy_server.update_config(): Exception occured - %s", e)
         verbose_proxy_logger.debug(traceback.format_exc())
         if isinstance(e, HTTPException):
             raise ProxyException(
@@ -18127,7 +18127,7 @@ async def update_config_general_settings(
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
 ):
     """
-    Update a specific field in litellm general settings
+    Update a specific field in embrouter general settings
     """
     global prisma_client
     ## VALIDATION ##
@@ -18144,14 +18144,14 @@ async def update_config_general_settings(
             detail={"error": CommonProxyErrors.db_not_connected_error.value},
         )
 
-    if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+    if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
         raise HTTPException(
             status_code=400,
             detail={"error": CommonProxyErrors.not_allowed_access.value},
         )
 
-    if data.field_name in _GENERAL_SETTINGS_UI_LITELLM_FIELDS:
-        return await _persist_general_settings_ui_litellm_field(data.field_name, data.field_value, user_api_key_dict)
+    if data.field_name in _GENERAL_SETTINGS_UI_EMBROUTER_FIELDS:
+        return await _persist_general_settings_ui_embrouter_field(data.field_name, data.field_value, user_api_key_dict)
 
     if data.field_name not in ConfigGeneralSettings.model_fields:
         raise HTTPException(
@@ -18232,7 +18232,7 @@ def _is_secret_general_setting_field(field_name: str) -> bool:
     return field_name in _EXTRA_SECRET_GENERAL_SETTINGS_FIELDS or SENSITIVE_DATA_MASKER.is_sensitive_key(field_name)
 
 
-# Matches the cap on _redact_sensitive_litellm_params (the closest analog in the
+# Matches the cap on _redact_sensitive_embrouter_params (the closest analog in the
 # proxy). Past this depth we fail closed by returning "REDACTED" for the whole
 # subtree rather than recursing further — better to over-redact a pathological
 # config than to silently return a deeply-nested credential verbatim
@@ -18277,7 +18277,7 @@ def _redact_general_setting_value(field_name: str, value: JsonValue, is_full_adm
 
 def _dump_redacted_config(value: JsonValue | None, *, redact_all_values: bool = False) -> str | None:
     # `default=str` matches the sibling audit-log serializers in
-    # team_endpoints.py and the LiteLLM_AuditLogs validator, so a YAML-loaded
+    # team_endpoints.py and the EmbRouter_AuditLogs validator, so a YAML-loaded
     # value with a non-JSON-native leaf (datetime, custom object) cannot turn
     # an audit write into a 500.
     if value is None:
@@ -18293,9 +18293,9 @@ async def create_config_audit_log(
     before_value: JsonValue | None,
     after_value: JsonValue | None,
     user_api_key_dict: UserAPIKeyAuth,
-    table_name: LitellmTableNames = LitellmTableNames.CONFIG_TABLE_NAME,
+    table_name: EmbrouterTableNames = EmbrouterTableNames.CONFIG_TABLE_NAME,
 ) -> None:
-    """Record a system-wide settings change in LiteLLM_AuditLog.
+    """Record a system-wide settings change in EmbRouter_AuditLog.
 
     Secret leaves are redacted before the row is written. environment_variables
     hold arbitrary credentials under non-secret-looking uppercase keys (e.g.
@@ -18311,8 +18311,8 @@ async def create_config_audit_log(
         before_value=_dump_redacted_config(before_value, redact_all_values=redact_all_values),
         after_value=_dump_redacted_config(after_value, redact_all_values=redact_all_values),
         user_api_key_dict=user_api_key_dict,
-        litellm_changed_by=None,
-        litellm_proxy_admin_name=LITELLM_PROXY_ADMIN_NAME,
+        embrouter_changed_by=None,
+        embrouter_proxy_admin_name=EMBROUTER_PROXY_ADMIN_NAME,
     )
 
 
@@ -18416,7 +18416,7 @@ async def get_config_general_settings(
     field_value = _redact_general_setting_value(
         field_name,
         declared,
-        user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN,
+        user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN,
     )
     if field_name == "plugins" and isinstance(field_value, list):
         field_value = [
@@ -18432,10 +18432,10 @@ async def get_config_general_settings(
     )
 
 
-GeneralSettingsUILiteLLMValue = float | bool | str | None
+GeneralSettingsUIEmbRouterValue = float | bool | str | None
 
 
-class GeneralSettingsUILiteLLMFieldSpec(TypedDict):
+class GeneralSettingsUIEmbRouterFieldSpec(TypedDict):
     type: Literal["Float", "Dollar", "Boolean", "Select"]
     description: str
     options: NotRequired[tuple[str, ...]]
@@ -18443,7 +18443,7 @@ class GeneralSettingsUILiteLLMFieldSpec(TypedDict):
     default: NotRequired[float]  # reset/clear restores this instead of None; fields whose None means fail-open set it
 
 
-_GENERAL_SETTINGS_UI_LITELLM_FIELDS: Final[dict[str, GeneralSettingsUILiteLLMFieldSpec]] = {
+_GENERAL_SETTINGS_UI_EMBROUTER_FIELDS: Final[dict[str, GeneralSettingsUIEmbRouterFieldSpec]] = {
     "budget_exceeded_throttle_percentage": {
         "type": "Float",
         "description": (
@@ -18495,20 +18495,20 @@ _GENERAL_SETTINGS_UI_LITELLM_FIELDS: Final[dict[str, GeneralSettingsUILiteLLMFie
 }
 
 
-def _general_settings_ui_litellm_default(
-    spec: GeneralSettingsUILiteLLMFieldSpec,
-) -> GeneralSettingsUILiteLLMValue:
+def _general_settings_ui_embrouter_default(
+    spec: GeneralSettingsUIEmbRouterFieldSpec,
+) -> GeneralSettingsUIEmbRouterValue:
     """The value a field falls back to when it is cleared or reset."""
     if "default" in spec:
         return spec["default"]
     return False if spec["type"] == "Boolean" else None
 
 
-def _validate_general_settings_ui_litellm_value(field_name: str, value: object) -> GeneralSettingsUILiteLLMValue:
-    spec: Final = _GENERAL_SETTINGS_UI_LITELLM_FIELDS[field_name]
+def _validate_general_settings_ui_embrouter_value(field_name: str, value: object) -> GeneralSettingsUIEmbRouterValue:
+    spec: Final = _GENERAL_SETTINGS_UI_EMBROUTER_FIELDS[field_name]
     field_type: Final = spec["type"]
     if value is None or value == "":
-        return _general_settings_ui_litellm_default(spec)
+        return _general_settings_ui_embrouter_default(spec)
     match field_type:
         case "Boolean":
             if not isinstance(value, bool):
@@ -18543,30 +18543,30 @@ def _validate_general_settings_ui_litellm_value(field_name: str, value: object) 
             assert_never(field_type)
 
 
-async def _persist_general_settings_ui_litellm_field(
+async def _persist_general_settings_ui_embrouter_field(
     field_name: str, value: object, user_api_key_dict: UserAPIKeyAuth
 ) -> dict:
-    validated: Final = _validate_general_settings_ui_litellm_value(field_name, value)
-    proxy_config.reject_config_owned_writes(section_name="litellm_settings", changed_keys={field_name: validated})
+    validated: Final = _validate_general_settings_ui_embrouter_value(field_name, value)
+    proxy_config.reject_config_owned_writes(section_name="embrouter_settings", changed_keys={field_name: validated})
     config: Final = await proxy_config.get_config()
-    before_value: Final = config.get("litellm_settings", {}).get(field_name)
-    setattr(litellm, field_name, validated)
-    if "litellm_settings" not in config:
-        config["litellm_settings"] = {}
-    config["litellm_settings"][field_name] = validated
+    before_value: Final = config.get("embrouter_settings", {}).get(field_name)
+    setattr(embrouter, field_name, validated)
+    if "embrouter_settings" not in config:
+        config["embrouter_settings"] = {}
+    config["embrouter_settings"][field_name] = validated
     await proxy_config.save_config(new_config=config)
     asyncio.create_task(create_config_audit_log(field_name, "updated", before_value, validated, user_api_key_dict))
     return {"message": f"Field {field_name} updated", "status": "success"}
 
 
-async def _reset_general_settings_ui_litellm_field(field_name: str, user_api_key_dict: UserAPIKeyAuth) -> dict:
-    default_value: Final = _general_settings_ui_litellm_default(_GENERAL_SETTINGS_UI_LITELLM_FIELDS[field_name])
-    proxy_config.reject_config_owned_writes(section_name="litellm_settings", changed_keys={field_name: default_value})
+async def _reset_general_settings_ui_embrouter_field(field_name: str, user_api_key_dict: UserAPIKeyAuth) -> dict:
+    default_value: Final = _general_settings_ui_embrouter_default(_GENERAL_SETTINGS_UI_EMBROUTER_FIELDS[field_name])
+    proxy_config.reject_config_owned_writes(section_name="embrouter_settings", changed_keys={field_name: default_value})
     config: Final = await proxy_config.get_config()
-    before_value: Final = config.get("litellm_settings", {}).get(field_name)
-    setattr(litellm, field_name, default_value)
-    if "litellm_settings" in config:
-        config["litellm_settings"].pop(field_name, None)
+    before_value: Final = config.get("embrouter_settings", {}).get(field_name)
+    setattr(embrouter, field_name, default_value)
+    if "embrouter_settings" in config:
+        config["embrouter_settings"].pop(field_name, None)
     await proxy_config.save_config(new_config=config)
     asyncio.create_task(create_config_audit_log(field_name, "deleted", before_value, default_value, user_api_key_dict))
     return {"message": f"Field {field_name} reset", "status": "success"}
@@ -18605,7 +18605,7 @@ async def get_config_list(
             detail={"error": f"{CommonProxyErrors.not_allowed_access.value}, your role={user_api_key_dict.user_role}"},
         )
 
-    is_full_admin: Final = user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN
+    is_full_admin: Final = user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN
 
     ## get general settings from db
     db_general_settings: Final[_ConfigParamRow | None] = await _config_param_table(prisma_client).find_first(
@@ -18710,38 +18710,38 @@ async def get_config_list(
                 )
                 return_val.append(_response_obj)
 
-    db_litellm_settings_row: Final[_ConfigParamRow | None] = await _config_param_table(prisma_client).find_first(
-        where={"param_name": "litellm_settings"}
+    db_embrouter_settings_row: Final[_ConfigParamRow | None] = await _config_param_table(prisma_client).find_first(
+        where={"param_name": "embrouter_settings"}
     )
-    db_litellm_settings: Final[dict] = (
-        dict(db_litellm_settings_row.param_value)
-        if db_litellm_settings_row is not None and db_litellm_settings_row.param_value is not None
+    db_embrouter_settings: Final[dict] = (
+        dict(db_embrouter_settings_row.param_value)
+        if db_embrouter_settings_row is not None and db_embrouter_settings_row.param_value is not None
         else {}
     )
-    for litellm_field_name, spec in _GENERAL_SETTINGS_UI_LITELLM_FIELDS.items():
-        current_value: GeneralSettingsUILiteLLMValue = getattr(litellm, litellm_field_name, None)
-        default_value = _general_settings_ui_litellm_default(spec)
-        stored_in_db_litellm: bool | None
-        if litellm_field_name in db_litellm_settings:
-            stored_in_db_litellm = True
+    for embrouter_field_name, spec in _GENERAL_SETTINGS_UI_EMBROUTER_FIELDS.items():
+        current_value: GeneralSettingsUIEmbRouterValue = getattr(embrouter, embrouter_field_name, None)
+        default_value = _general_settings_ui_embrouter_default(spec)
+        stored_in_db_embrouter: bool | None
+        if embrouter_field_name in db_embrouter_settings:
+            stored_in_db_embrouter = True
         elif current_value != default_value:
-            stored_in_db_litellm = False
+            stored_in_db_embrouter = False
         else:
-            stored_in_db_litellm = None
-        _litellm_source = proxy_config.litellm_settings.source(litellm_field_name)
+            stored_in_db_embrouter = None
+        _embrouter_source = proxy_config.embrouter_settings.source(embrouter_field_name)
         return_val.append(
             ConfigList(
-                field_name=litellm_field_name,
+                field_name=embrouter_field_name,
                 field_type=spec["type"],
                 field_description=spec["description"],
                 field_value=current_value,
-                stored_in_db=stored_in_db_litellm,
+                stored_in_db=stored_in_db_embrouter,
                 field_default_value=default_value,
                 field_options=list(spec.get("options", ())) or None,
                 field_tab=spec.get("tab"),
                 nested_fields=None,
-                source=_litellm_source,
-                editable=_litellm_source != "config",
+                source=_embrouter_source,
+                editable=_embrouter_source != "config",
             )
         )
 
@@ -18759,7 +18759,7 @@ async def delete_config_general_settings(
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
 ):
     """
-    Delete the db value of this field in litellm general settings. Resets it to it's initial default value on litellm.
+    Delete the db value of this field in embrouter general settings. Resets it to it's initial default value on embrouter.
     """
     global prisma_client
     ## VALIDATION ##
@@ -18774,14 +18774,14 @@ async def delete_config_general_settings(
             detail={"error": CommonProxyErrors.db_not_connected_error.value},
         )
 
-    if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+    if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
         raise HTTPException(
             status_code=400,
             detail={"error": f"{CommonProxyErrors.not_allowed_access.value}, your role={user_api_key_dict.user_role}"},
         )
 
-    if data.field_name in _GENERAL_SETTINGS_UI_LITELLM_FIELDS:
-        return await _reset_general_settings_ui_litellm_field(data.field_name, user_api_key_dict)
+    if data.field_name in _GENERAL_SETTINGS_UI_EMBROUTER_FIELDS:
+        return await _reset_general_settings_ui_embrouter_field(data.field_name, user_api_key_dict)
 
     if data.field_name not in ConfigGeneralSettings.model_fields:
         raise HTTPException(
@@ -18853,7 +18853,7 @@ async def delete_callback(
             detail={"error": CommonProxyErrors.db_not_connected_error.value},
         )
 
-    if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+    if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
         raise HTTPException(
             status_code=400,
             detail={"error": f"{CommonProxyErrors.not_allowed_access.value}, your role={user_api_key_dict.user_role}"},
@@ -18871,8 +18871,8 @@ async def delete_callback(
         callback_name: Final = data.callback_name.lower()
 
         # Check if callback exists in current configuration
-        litellm_settings: Final = config.get("litellm_settings", {})
-        success_callbacks: Final = litellm_settings.get("success_callback", [])
+        embrouter_settings: Final = config.get("embrouter_settings", {})
+        success_callbacks: Final = embrouter_settings.get("success_callback", [])
 
         if callback_name not in success_callbacks:
             raise HTTPException(
@@ -18884,14 +18884,14 @@ async def delete_callback(
 
         # Remove callback from success_callback list
         success_callbacks.remove(callback_name)
-        config.setdefault("litellm_settings", {})["success_callback"] = success_callbacks
+        config.setdefault("embrouter_settings", {})["success_callback"] = success_callbacks
 
         # Save the updated configuration
         await proxy_config.save_config(new_config=config)
 
         asyncio.create_task(
             create_config_audit_log(
-                "litellm_settings",
+                "embrouter_settings",
                 "deleted",
                 {"success_callback": before_success_callbacks},
                 {"success_callback": success_callbacks},
@@ -18912,7 +18912,7 @@ async def delete_callback(
     except HTTPException:
         raise
     except Exception as e:
-        verbose_proxy_logger.error("litellm.proxy.proxy_server.delete_callback(): Exception occurred - %s", e)
+        verbose_proxy_logger.error("embrouter.proxy.proxy_server.delete_callback(): Exception occurred - %s", e)
         verbose_proxy_logger.debug(traceback.format_exc())
         raise ProxyException(
             message="Error deleting callback: " + str(e),
@@ -18943,12 +18943,12 @@ def _callback_module_name(callback: CustomLogger | Callable[..., object]) -> str
     return type(callback).__module__
 
 
-def _is_litellm_internal_callback(callback_name: str, callback: CustomLogger | Callable[..., object]) -> bool:
-    from litellm.litellm_core_utils.custom_logger_registry import CustomLoggerRegistry
+def _is_embrouter_internal_callback(callback_name: str, callback: CustomLogger | Callable[..., object]) -> bool:
+    from embrouter.embrouter_core_utils.custom_logger_registry import CustomLoggerRegistry
 
     module_owner: Final = _callback_module_name(callback).partition(".")[0]
     is_registered_integration: Final = callback_name in CustomLoggerRegistry.CALLBACK_CLASS_STR_TO_CLASS_TYPE
-    return not is_registered_integration and module_owner in ("litellm", "litellm_enterprise")
+    return not is_registered_integration and module_owner in ("embrouter", "embrouter_enterprise")
 
 
 def _is_instance_of_configured_callback(
@@ -18956,14 +18956,14 @@ def _is_instance_of_configured_callback(
 ) -> bool:
     """Self-naming OTel-family instances (`arize`, `weave_otel`) match by name, so a configured `logfire` (a bare
     `OpenTelemetry`) does not hide YAML-configured siblings of the same class."""
-    from litellm.litellm_core_utils.custom_logger_registry import CustomLoggerRegistry
+    from embrouter.embrouter_core_utils.custom_logger_registry import CustomLoggerRegistry
 
     class_derived_name: Final = CustomLoggerRegistry.get_callback_str_from_class_type(type(callback))
     return isinstance(callback, configured_classes) and callback_name in (class_derived_name, type(callback).__name__)
 
 
 def _hidden_runtime_callback_names(configured_callback_names: frozenset[str]) -> frozenset[str]:
-    from litellm.litellm_core_utils.custom_logger_registry import CustomLoggerRegistry
+    from embrouter.embrouter_core_utils.custom_logger_registry import CustomLoggerRegistry
 
     configured_classes: Final = tuple(
         CustomLoggerRegistry.CALLBACK_CLASS_STR_TO_CLASS_TYPE[name]
@@ -18974,9 +18974,9 @@ def _hidden_runtime_callback_names(configured_callback_names: frozenset[str]) ->
     internal_callback_names: Final = frozenset({"cache", "vector_store_pre_call_hook"})
     return internal_callback_names | frozenset(
         callback_name
-        for callback_name, callback in litellm.logging_callback_manager.get_callback_objects()
+        for callback_name, callback in embrouter.logging_callback_manager.get_callback_objects()
         if isinstance(callback, CustomGuardrail)
-        or _is_litellm_internal_callback(callback_name, callback)
+        or _is_embrouter_internal_callback(callback_name, callback)
         or _is_instance_of_configured_callback(callback_name, callback, configured_classes)
         or _callback_module_name(callback) in configured_modules
     )
@@ -19001,15 +19001,15 @@ async def get_config(
         all_available_callbacks: Final = AllCallbacks()
 
         config_data: Final = await proxy_config.get_config()
-        _litellm_settings: Final = config_data.get("litellm_settings", {})
+        _embrouter_settings: Final = config_data.get("embrouter_settings", {})
         _general_settings: Final = config_data.get("general_settings", {})
         environment_variables: Final = config_data.get("environment_variables", {})
 
-        is_full_admin: Final = user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN
+        is_full_admin: Final = user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN
 
-        _success_callbacks = _litellm_settings.get("success_callback", [])
-        _failure_callbacks = _litellm_settings.get("failure_callback", [])
-        _success_and_failure_callbacks = _litellm_settings.get("callbacks", [])
+        _success_callbacks = _embrouter_settings.get("success_callback", [])
+        _failure_callbacks = _embrouter_settings.get("failure_callback", [])
+        _success_and_failure_callbacks = _embrouter_settings.get("callbacks", [])
 
         # Normalize string callbacks to lists
         def normalize_callback(callback):
@@ -19052,7 +19052,7 @@ async def get_config(
             _normalize_callback_alias(callback)
             for callback in (_success_callbacks + _failure_callbacks + _success_and_failure_callbacks)
         )
-        runtime_callbacks_by_type: Final = litellm.logging_callback_manager.get_callbacks_by_type()
+        runtime_callbacks_by_type: Final = embrouter.logging_callback_manager.get_callbacks_by_type()
         hidden_callback_names: Final = _hidden_runtime_callback_names(configured_callback_names)
         runtime_callback_rows: Final = tuple(
             (_normalize_callback_alias(callback_name), callback_type)
@@ -19132,7 +19132,7 @@ async def get_config(
             "available_callbacks": all_available_callbacks,
         }
     except Exception as e:
-        verbose_proxy_logger.exception("litellm.proxy.proxy_server.get_config(): Exception occured - %s", e)
+        verbose_proxy_logger.exception("embrouter.proxy.proxy_server.get_config(): Exception occured - %s", e)
         if isinstance(e, HTTPException):
             raise ProxyException(
                 message=getattr(e, "detail", f"Authentication Error({e})"),
@@ -19163,9 +19163,9 @@ async def config_yaml_endpoint(config_info: ConfigYAML):
     Parameters:
 
     The config.yaml object has the following attributes:
-    - **model_list**: *Optional[List[ModelParams]]* - A list of supported models on the server, along with model-specific configurations. ModelParams includes "model_name" (name of the model), "litellm_params" (litellm-specific parameters for the model), and "model_info" (additional info about the model such as id, mode, cost per token, etc).
+    - **model_list**: *Optional[List[ModelParams]]* - A list of supported models on the server, along with model-specific configurations. ModelParams includes "model_name" (name of the model), "embrouter_params" (embrouter-specific parameters for the model), and "model_info" (additional info about the model such as id, mode, cost per token, etc).
 
-    - **litellm_settings**: *Optional[dict]*: Settings for the litellm module. You can specify multiple properties like "drop_params", "set_verbose", "api_base", "cache".
+    - **embrouter_settings**: *Optional[dict]*: Settings for the embrouter module. You can specify multiple properties like "drop_params", "set_verbose", "api_base", "cache".
 
     - **general_settings**: *Optional[ConfigGeneralSettings]*: General settings for the server like "completion_model" (default model for chat completion calls), "use_azure_key_vault" (option to load keys from azure key vault), "master_key" (key required for all calls to proxy), and others.
 
@@ -19192,7 +19192,7 @@ async def reload_model_cost_map(
     This will fetch fresh pricing data from the model_prices_and_context_window.json file.
     """
     # Check if user is admin
-    if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+    if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
         raise HTTPException(
             status_code=403,
             detail=f"Access denied. Admin role required. Current role: {user_api_key_dict.user_role}",
@@ -19204,13 +19204,13 @@ async def reload_model_cost_map(
             raise HTTPException(status_code=500, detail="Database connection not available")
 
         # Immediately reload the model cost map in the current pod
-        from litellm.litellm_core_utils.get_model_cost_map import (
+        from embrouter.embrouter_core_utils.get_model_cost_map import (
             ModelCostMapReloadUnavailable,
             get_model_cost_map_provenance,
             refetch_model_cost_map,
         )
 
-        reload_result = await refetch_model_cost_map(url=litellm.model_cost_map_url)
+        reload_result = await refetch_model_cost_map(url=embrouter.model_cost_map_url)
         if isinstance(reload_result, ModelCostMapReloadUnavailable):
             raise HTTPException(
                 status_code=502,
@@ -19261,7 +19261,7 @@ async def schedule_model_cost_map_reload(
     This will create a background job that reloads the model cost map every specified hours.
     """
     # Check if user is admin
-    if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+    if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
         raise HTTPException(
             status_code=403,
             detail=f"Access denied. Admin role required. Current role: {user_api_key_dict.user_role}",
@@ -19308,7 +19308,7 @@ async def cancel_model_cost_map_reload(
     Cancel the scheduled periodic reload of the model cost map.
     """
     # Check if user is admin
-    if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+    if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
         raise HTTPException(
             status_code=403,
             detail=f"Access denied. Admin role required. Current role: {user_api_key_dict.user_role}",
@@ -19356,7 +19356,7 @@ async def get_model_cost_map_reload_status(
 
     try:
         global prisma_client
-        from litellm.litellm_core_utils.get_model_cost_map import (
+        from embrouter.embrouter_core_utils.get_model_cost_map import (
             get_model_cost_map_provenance,
         )
 
@@ -19392,7 +19392,7 @@ async def get_model_cost_map_source(
     Response fields:
     - source: "local" (bundled backup) or "remote" (fetched from URL)
     - url: the remote URL that was attempted (null when env-forced local)
-    - is_env_forced: true if LITELLM_LOCAL_MODEL_COST_MAP=True forced local usage
+    - is_env_forced: true if EMBROUTER_LOCAL_MODEL_COST_MAP=True forced local usage
     - fallback_reason: human-readable reason why remote failed (null on success)
     - loaded_at: when this pod last loaded the map
     - source_revision: git blob id of the loaded file, what git rev-parse <commit>:<path> prints for it
@@ -19407,12 +19407,12 @@ async def get_model_cost_map_source(
         )
 
     try:
-        from litellm.litellm_core_utils.get_model_cost_map import (
+        from embrouter.embrouter_core_utils.get_model_cost_map import (
             get_model_cost_map_source_info,
         )
 
         source_info: Final = get_model_cost_map_source_info()
-        model_count: Final = len(litellm.model_cost) if litellm.model_cost else 0
+        model_count: Final = len(embrouter.model_cost) if embrouter.model_cost else 0
 
         return {
             **source_info,
@@ -19445,7 +19445,7 @@ async def reload_anthropic_beta_headers(
     This will fetch fresh configuration from the anthropic_beta_headers_config.json file.
     """
     # Check if user is admin
-    if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+    if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
         raise HTTPException(
             status_code=403,
             detail=f"Access denied. Admin role required. Current role: {user_api_key_dict.user_role}",
@@ -19457,7 +19457,7 @@ async def reload_anthropic_beta_headers(
             raise HTTPException(status_code=500, detail="Database connection not available")
 
         # Immediately reload the beta headers config in the current pod
-        from litellm.anthropic_beta_headers_manager import reload_beta_headers_config
+        from embrouter.anthropic_beta_headers_manager import reload_beta_headers_config
 
         new_config: Final = reload_beta_headers_config()
 
@@ -19519,7 +19519,7 @@ async def schedule_anthropic_beta_headers_reload(
     This will create a background job that reloads the configuration every specified hours.
     """
     # Check if user is admin
-    if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+    if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
         raise HTTPException(
             status_code=403,
             detail=f"Access denied. Admin role required. Current role: {user_api_key_dict.user_role}",
@@ -19577,7 +19577,7 @@ async def cancel_anthropic_beta_headers_reload(
     Cancel the scheduled periodic reload of the Anthropic beta headers configuration.
     """
     # Check if user is admin
-    if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+    if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
         raise HTTPException(
             status_code=403,
             detail=f"Access denied. Admin role required. Current role: {user_api_key_dict.user_role}",
@@ -19703,7 +19703,7 @@ async def get_anthropic_beta_headers_reload_status(
 
 @router.get("/", dependencies=[Depends(user_api_key_auth)])
 async def home(request: Request):
-    return "LiteLLM: RUNNING"
+    return "EmbRouter: RUNNING"
 
 
 @router.get(
@@ -19746,7 +19746,7 @@ async def get_routes():
     """
     Get a list of available routes in the FastAPI application.
     """
-    from litellm.proxy.common_utils.get_routes import GetRoutes
+    from embrouter.proxy.common_utils.get_routes import GetRoutes
 
     routes: Final = []
     for route in app.routes:
@@ -19782,7 +19782,7 @@ async def get_routes():
 #         issuer=os.getenv("OPENID_BASE_URL"),
 #         client_id=os.getenv("OPENID_CLIENT_ID"),
 #         client_secret=os.getenv("OPENID_CLIENT_SECRET"),
-#         scopes=["litellm_proxy_admin"],
+#         scopes=["embrouter_proxy_admin"],
 #     )
 
 #     token = auth_jwt_sso.create_access_token()
@@ -19962,11 +19962,11 @@ async def _stream_mcp_asgi_response(handle_fn, scope: dict, receive) -> "Streami
 )
 async def proxy_mcp_route(request: Request) -> Response:
     """Serve the fixed three-tool MCP proxy surface."""
-    from litellm.proxy._experimental.mcp_server.mcp_context import (  # pyright: ignore[reportPrivateUsage]  # route-owned mode
+    from embrouter.proxy._experimental.mcp_server.mcp_context import (  # pyright: ignore[reportPrivateUsage]  # route-owned mode
         _mcp_proxy_mode,  # pyright: ignore[reportPrivateUsage]  # route-owned mode
     )
-    from litellm.proxy._experimental.mcp_server.server import handle_streamable_http_mcp
-    from litellm.proxy._experimental.mcp_server.utils import is_mcp_available
+    from embrouter.proxy._experimental.mcp_server.server import handle_streamable_http_mcp
+    from embrouter.proxy._experimental.mcp_server.utils import is_mcp_available
 
     if not is_mcp_available():
         raise HTTPException(status_code=404, detail="Not Found")
@@ -19989,12 +19989,12 @@ async def aggregate_mcp_route(request: Request):
     """Serve the aggregate MCP endpoint on the bare ``/mcp`` spelling: the
     ``/mcp`` mount cannot match its bare prefix, and the resulting 307 breaks
     MCP clients behind TLS-terminating proxies."""
-    from litellm.proxy._experimental.mcp_server.utils import is_mcp_available
+    from embrouter.proxy._experimental.mcp_server.utils import is_mcp_available
 
     if not is_mcp_available():
         raise HTTPException(status_code=404, detail="Not Found")
 
-    from litellm.proxy._experimental.mcp_server.server import (
+    from embrouter.proxy._experimental.mcp_server.server import (
         handle_streamable_http_mcp,
     )
 
@@ -20020,10 +20020,10 @@ async def toolset_mcp_route(toolset_name: str, request: Request):
     will be rejected with a 403.
     """
     try:
-        from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+        from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
             global_mcp_server_manager,
         )
-        from litellm.proxy._experimental.mcp_server.server import (
+        from embrouter.proxy._experimental.mcp_server.server import (
             _mcp_active_toolset_id,
             handle_streamable_http_mcp,
         )
@@ -20056,7 +20056,7 @@ async def toolset_mcp_route(toolset_name: str, request: Request):
 
 async def _mcp_forward_as_path(path_segment: str, request: Request):
     """Rewrite path to /mcp/{path_segment} and stream the response."""
-    from litellm.proxy._experimental.mcp_server.server import (
+    from embrouter.proxy._experimental.mcp_server.server import (
         handle_streamable_http_mcp,
     )
 
@@ -20089,8 +20089,8 @@ async def _resolve_mcp_csv_tokens(csv_segment: str, client_ip: str | None) -> li
     all-unmatched server filter falls back to the full ``allowed_mcp_servers``
     list and silently broadens the request scope).
     """
-    from litellm.constants import DEFAULT_MCP_NAMESPACE_CSV_MAX_TOKENS
-    from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+    from embrouter.constants import DEFAULT_MCP_NAMESPACE_CSV_MAX_TOKENS
+    from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
         global_mcp_server_manager,
     )
 
@@ -20126,8 +20126,8 @@ async def _is_mcp_access_group_cached(name: str) -> bool:
     bounding staleness so a transient DB error (which surfaces as an empty
     list) cannot hide a real group for long.
     """
-    from litellm.constants import DEFAULT_MCP_ACCESS_GROUP_NEGATIVE_CACHE_TTL
-    from litellm.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import (
+    from embrouter.constants import DEFAULT_MCP_ACCESS_GROUP_NEGATIVE_CACHE_TTL
+    from embrouter.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import (
         MCPRequestHandler,
     )
 
@@ -20159,10 +20159,10 @@ async def dynamic_mcp_route(mcp_server_name: str, request: Request):
     4. MCP access group tag (DB lookup, cached)
     """
     try:
-        from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+        from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
             global_mcp_server_manager,
         )
-        from litellm.proxy.auth.ip_address_utils import IPAddressUtils
+        from embrouter.proxy.auth.ip_address_utils import IPAddressUtils
 
         client_ip: Final = IPAddressUtils.get_mcp_client_ip(request)
 
@@ -20187,7 +20187,7 @@ async def dynamic_mcp_route(mcp_server_name: str, request: Request):
 
         # 3. Toolset name (cached)
         if prisma_client is not None:
-            from litellm.proxy._experimental.mcp_server.server import (
+            from embrouter.proxy._experimental.mcp_server.server import (
                 _mcp_active_toolset_id,
                 handle_streamable_http_mcp,
             )

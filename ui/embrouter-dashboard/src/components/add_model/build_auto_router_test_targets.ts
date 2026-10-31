@@ -83,7 +83,7 @@ interface ComplexityRouterTierConfig {
 }
 
 interface ComplexityRouterModelData {
-  litellm_params?: {
+  embrouter_params?: {
     complexity_router_config?: ComplexityRouterTierConfig | string;
     complexity_router_default_model?: string;
   };
@@ -92,7 +92,7 @@ interface ComplexityRouterModelData {
 export const buildComplexityRouterTestTargets = (
   modelData: ComplexityRouterModelData | null | undefined,
 ): AutoRouterTestTarget[] => {
-  const rawConfig = modelData?.litellm_params?.complexity_router_config;
+  const rawConfig = modelData?.embrouter_params?.complexity_router_config;
   let config: ComplexityRouterTierConfig = {};
   if (typeof rawConfig === "string") {
     try {
@@ -109,11 +109,11 @@ export const buildComplexityRouterTestTargets = (
       ? Object.entries(config.tiers).map(([tier, models]) => [tier, normalizeTierModels(models)])
       : [];
 
-  // Mirrors init_complexity_router_deployment (litellm/router.py): litellm_params wins, otherwise
+  // Mirrors init_complexity_router_deployment (embrouter/router.py): embrouter_params wins, otherwise
   // pure tier-derivation. complexity_router_config.default_model is a UI-only marker the backend
   // never reads — folding it in here could point Test Connection at a model the router never
   // calls (see PR #36615 discussion).
-  const effectiveDefaultModel = modelData?.litellm_params?.complexity_router_default_model || undefined;
+  const effectiveDefaultModel = modelData?.embrouter_params?.complexity_router_default_model || undefined;
 
   const testTargetParams = {
     tiers,

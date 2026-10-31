@@ -8,11 +8,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from litellm.llms.vertex_ai.vertex_ai_partner_models.main import (
+from embrouter.llms.vertex_ai.vertex_ai_partner_models.main import (
     VertexAIPartnerModels,
 )
-from litellm.llms.vertex_ai.vertex_gemma_models.main import VertexAIGemmaModels
-from litellm.llms.vertex_ai.vertex_model_garden.main import VertexAIModelGardenModels
+from embrouter.llms.vertex_ai.vertex_gemma_models.main import VertexAIGemmaModels
+from embrouter.llms.vertex_ai.vertex_model_garden.main import VertexAIModelGardenModels
 
 
 def _mock_vertexai():
@@ -54,7 +54,7 @@ class TestPartnerModelsCredentialReuse:
                 return_value=("cached-token", "test-project"),
             ) as mock_ensure,
             patch(
-                "litellm.llms.vertex_ai.vertex_ai_partner_models.main.base_llm_http_handler"
+                "embrouter.llms.vertex_ai.vertex_ai_partner_models.main.base_llm_http_handler"
             ) as mock_handler,
         ):
             mock_handler.completion.return_value = "response"
@@ -71,7 +71,7 @@ class TestPartnerModelsCredentialReuse:
                 custom_prompt_dict={},
                 headers=None,
                 timeout=30.0,
-                litellm_params={},
+                embrouter_params={},
                 vertex_project="test-project",
                 vertex_location="us-central1",
                 vertex_credentials='{"type": "service_account"}',
@@ -99,7 +99,7 @@ class TestPartnerModelsCredentialReuse:
                 partner, "load_auth", return_value=(mock_creds, "proj")
             ) as mock_load,
             patch(
-                "litellm.llms.vertex_ai.vertex_ai_partner_models.main.base_llm_http_handler"
+                "embrouter.llms.vertex_ai.vertex_ai_partner_models.main.base_llm_http_handler"
             ) as mock_handler,
         ):
             mock_handler.completion.return_value = "resp"
@@ -116,7 +116,7 @@ class TestPartnerModelsCredentialReuse:
                 custom_prompt_dict={},
                 headers=None,
                 timeout=30.0,
-                litellm_params={},
+                embrouter_params={},
                 vertex_project="proj",
                 vertex_location="us-central1",
                 vertex_credentials='{"type": "service_account"}',
@@ -139,7 +139,7 @@ class TestPartnerModelsCredentialReuse:
                 return_value=("cached-token", "test-project"),
             ),
             patch(
-                "litellm.llms.vertex_ai.vertex_ai_partner_models.main.base_llm_http_handler"
+                "embrouter.llms.vertex_ai.vertex_ai_partner_models.main.base_llm_http_handler"
             ) as mock_handler,
         ):
             mock_handler.completion.return_value = "response"
@@ -156,7 +156,7 @@ class TestPartnerModelsCredentialReuse:
                 custom_prompt_dict={},
                 headers=None,
                 timeout=30.0,
-                litellm_params={},
+                embrouter_params={},
                 vertex_project="test-project",
                 vertex_location="us-central1",
                 vertex_credentials=None,
@@ -183,7 +183,7 @@ class TestGemmaModelsCredentialReuse:
                 return_value=("cached-token", "test-project"),
             ) as mock_ensure,
             patch(
-                "litellm.llms.vertex_ai.vertex_gemma_models.transformation.VertexGemmaConfig",
+                "embrouter.llms.vertex_ai.vertex_gemma_models.transformation.VertexGemmaConfig",
                 mock_gemma_config,
             ),
         ):
@@ -199,7 +199,7 @@ class TestGemmaModelsCredentialReuse:
                 custom_prompt_dict={},
                 headers=None,
                 timeout=30.0,
-                litellm_params={},
+                embrouter_params={},
                 vertex_project="test-project",
                 vertex_location="us-central1",
                 vertex_credentials='{"type": "service_account"}',
@@ -229,7 +229,7 @@ class TestModelGardenCredentialReuse:
                 return_value=("cached-token", "test-project"),
             ) as mock_ensure,
             patch(
-                "litellm.llms.openai_like.chat.handler.OpenAILikeChatHandler",
+                "embrouter.llms.openai_like.chat.handler.OpenAILikeChatHandler",
                 mock_handler,
             ),
         ):
@@ -245,7 +245,7 @@ class TestModelGardenCredentialReuse:
                 custom_prompt_dict={},
                 headers=None,
                 timeout=30.0,
-                litellm_params={},
+                embrouter_params={},
                 vertex_project="test-project",
                 vertex_location="us-central1",
                 vertex_credentials='{"type": "service_account"}',

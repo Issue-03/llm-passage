@@ -5,10 +5,10 @@ Anthropic Token Counter implementation using the CountTokens API.
 import os
 from typing import Any, Final
 
-from litellm._logging import verbose_logger
-from litellm.llms.anthropic.count_tokens.handler import AnthropicCountTokensHandler
-from litellm.llms.base_llm.base_utils import BaseTokenCounter
-from litellm.types.utils import LlmProviders, TokenCountResponse
+from embrouter._logging import verbose_logger
+from embrouter.llms.anthropic.count_tokens.handler import AnthropicCountTokensHandler
+from embrouter.llms.base_llm.base_utils import BaseTokenCounter
+from embrouter.types.utils import LlmProviders, TokenCountResponse
 
 # Global handler instance - reuse across all token counting requests
 anthropic_count_tokens_handler: Final = AnthropicCountTokensHandler()
@@ -40,22 +40,22 @@ class AnthropicTokenCounter(BaseTokenCounter):
             model_to_use: The model identifier
             messages: The messages to count tokens for
             contents: Alternative content format (not used for Anthropic)
-            deployment: Deployment configuration containing litellm_params
+            deployment: Deployment configuration containing embrouter_params
             request_model: The original request model name
 
         Returns:
             TokenCountResponse with token count, or None if counting fails
         """
-        from litellm.llms.anthropic.common_utils import AnthropicError
+        from embrouter.llms.anthropic.common_utils import AnthropicError
 
         if not messages:
             return None
 
         deployment = deployment or {}
-        litellm_params: Final = deployment.get("litellm_params", {})
+        embrouter_params: Final = deployment.get("embrouter_params", {})
 
         # Get Anthropic API key from deployment config or environment
-        api_key = litellm_params.get("api_key")
+        api_key = embrouter_params.get("api_key")
         if not api_key:
             api_key = os.getenv("ANTHROPIC_API_KEY")
 

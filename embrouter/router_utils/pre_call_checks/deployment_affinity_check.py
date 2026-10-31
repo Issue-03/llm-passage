@@ -18,14 +18,14 @@ from typing import Any, Final, cast
 
 from typing_extensions import ReadOnly, TypedDict
 
-from litellm._logging import verbose_router_logger
-from litellm.caching.affinity_cache import claim_affinity_pin, claim_affinity_pin_in_memory, set_local_affinity_pin
-from litellm.caching.dual_cache import DualCache
-from litellm.constants import SESSION_DEPLOYMENT_AFFINITY_TTL_METADATA_KEY, SESSION_ID_GENERATED_METADATA_KEY
-from litellm.integrations.custom_logger import CustomLogger, Span
-from litellm.responses.utils import ResponsesAPIRequestUtils
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.utils import CallTypes
+from embrouter._logging import verbose_router_logger
+from embrouter.caching.affinity_cache import claim_affinity_pin, claim_affinity_pin_in_memory, set_local_affinity_pin
+from embrouter.caching.dual_cache import DualCache
+from embrouter.constants import SESSION_DEPLOYMENT_AFFINITY_TTL_METADATA_KEY, SESSION_ID_GENERATED_METADATA_KEY
+from embrouter.integrations.custom_logger import CustomLogger, Span
+from embrouter.responses.utils import ResponsesAPIRequestUtils
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.utils import CallTypes
 
 
 class DeploymentAffinityCacheValue(TypedDict, closed=True):
@@ -137,8 +137,8 @@ class DeploymentAffinityCheck(CustomLogger):
         return hashlib.sha256(user_key.encode("utf-8")).hexdigest()
 
     @staticmethod
-    def _get_model_map_key_from_litellm_model_name(
-        litellm_model_name: str,
+    def _get_model_map_key_from_embrouter_model_name(
+        embrouter_model_name: str,
     ) -> str | None:
         """
         Best-effort derivation of a stable "model map key" for affinity scoping.
@@ -152,13 +152,13 @@ class DeploymentAffinityCheck(CustomLogger):
           differ across instances. If `base_model` is not explicitly set, we skip deriving a
           model-map key from the model string to avoid generating unstable keys.
         """
-        if not litellm_model_name:
+        if not embrouter_model_name:
             return None
 
-        if "/" not in litellm_model_name:
-            return litellm_model_name
+        if "/" not in embrouter_model_name:
+            return embrouter_model_name
 
-        provider_prefix, remainder = litellm_model_name.split("/", 1)
+        provider_prefix, remainder = embrouter_model_name.split("/", 1)
         if provider_prefix == "azure":
             return None
 
@@ -175,7 +175,7 @@ class DeploymentAffinityCheck(CustomLogger):
         `model_map_information.model_map_key` in standard logging.
 
         Prefer `base_model` when available (important for Azure), otherwise fall back to
-        parsing `litellm_params.model`.
+        parsing `embrouter_params.model`.
         """
         model_name: Final = deployment.get("model_name")
         if isinstance(model_name, str) and model_name:
@@ -187,14 +187,14 @@ class DeploymentAffinityCheck(CustomLogger):
             if isinstance(base_model, str) and base_model:
                 return base_model
 
-        litellm_params: Final = deployment.get("litellm_params")
-        if isinstance(litellm_params, dict):
-            base_model = litellm_params.get("base_model")
+        embrouter_params: Final = deployment.get("embrouter_params")
+        if isinstance(embrouter_params, dict):
+            base_model = embrouter_params.get("base_model")
             if isinstance(base_model, str) and base_model:
                 return base_model
-            litellm_model_name: Final = litellm_params.get("model")
-            if isinstance(litellm_model_name, str) and litellm_model_name:
-                return DeploymentAffinityCheck._get_model_map_key_from_litellm_model_name(litellm_model_name)
+            embrouter_model_name: Final = embrouter_params.get("model")
+            if isinstance(embrouter_model_name, str) and embrouter_model_name:
+                return DeploymentAffinityCheck._get_model_map_key_from_embrouter_model_name(embrouter_model_name)
 
         return None
 
@@ -255,12 +255,12 @@ class DeploymentAffinityCheck(CustomLogger):
         """
         Return all metadata dicts available on the request.
 
-        Depending on the endpoint, Router may populate `metadata` or `litellm_metadata`.
+        Depending on the endpoint, Router may populate `metadata` or `embrouter_metadata`.
         Users may also send one or both, so we check both (rather than using `or`).
         """
         return tuple(
             cast(Mapping[object, object], metadata)  # cast-ok: isinstance proves mapping shape; values remain opaque
-            for key in ("litellm_metadata", "metadata")
+            for key in ("embrouter_metadata", "metadata")
             if isinstance(metadata := request_kwargs.get(key), dict)
         )
 
@@ -480,7 +480,7 @@ class DeploymentAffinityCheck(CustomLogger):
         Persist/update the API-key -> deployment mapping for this request.
 
         Why pre-call?
-        - LiteLLM runs async success callbacks via a background logging worker for performance.
+        - EmbRouter runs async success callbacks via a background logging worker for performance.
         - We want affinity to be immediately available for subsequent requests.
         """
         metadata_dicts: Final = self._iter_metadata_dicts(kwargs)

@@ -9,12 +9,12 @@ Handles Key/Team Based Langfuse Logging
 import os
 from typing import TYPE_CHECKING, Any, Final
 
-from litellm.litellm_core_utils.litellm_logging import StandardCallbackDynamicParams
+from embrouter.embrouter_core_utils.embrouter_logging import StandardCallbackDynamicParams
 
 from .langfuse import LangFuseLogger, LangfuseLoggingConfig
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import DynamicLoggingCache
+    from embrouter.embrouter_core_utils.embrouter_logging import DynamicLoggingCache
 else:
     DynamicLoggingCache = Any
 
@@ -70,7 +70,7 @@ class LangFuseHandler:
         in_memory_dynamic_logger_cache: DynamicLoggingCache,
     ) -> LangFuseLogger:
         """
-        Returns the Global LangfuseLogger set on litellm
+        Returns the Global LangfuseLogger set on embrouter
 
         (this is the default langfuse logger - used when no dynamic credentials are passed)
 

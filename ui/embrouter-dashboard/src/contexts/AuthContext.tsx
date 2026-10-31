@@ -5,7 +5,7 @@ import { jwtDecode } from "jwt-decode";
 import { clearTokenCookies, getCookie } from "@/utils/cookieUtils";
 import { isJwtExpired } from "@/utils/jwtUtils";
 import { effectiveSessionRole } from "@/utils/roles";
-import { getUiConfig, setGlobalLitellmHeaderName } from "@/components/networking";
+import { getUiConfig, setGlobalEmbrouterHeaderName } from "@/components/networking";
 
 function deleteCookie(name: string, path = "/") {
   document.cookie = `${name}=; Max-Age=0; Path=${path}`;
@@ -121,7 +121,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setPremiumUser(decoded.premium_user);
     }
     if (decoded.auth_header_name) {
-      setGlobalLitellmHeaderName(decoded.auth_header_name);
+      setGlobalEmbrouterHeaderName(decoded.auth_header_name);
     }
     if (decoded.user_id) {
       setUserID(decoded.user_id);

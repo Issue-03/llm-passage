@@ -1,5 +1,5 @@
 """
-Sensitive Data Routing Hook for LiteLLM Proxy.
+Sensitive Data Routing Hook for EmbRouter Proxy.
 
 When a guardrail detects sensitive data and is configured with on_sensitive_data='route',
 this hook manages:
@@ -14,15 +14,15 @@ import logging
 import os
 from typing import TYPE_CHECKING, Any, Final
 
-from litellm._logging import verbose_proxy_logger
-from litellm.caching.caching import DualCache
-from litellm.caching.redis_cache import log_redis_failure
-from litellm.integrations.custom_guardrail import get_session_id_from_request_data
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.proxy._types import UserAPIKeyAuth
+from embrouter._logging import verbose_proxy_logger
+from embrouter.caching.caching import DualCache
+from embrouter.caching.redis_cache import log_redis_failure
+from embrouter.integrations.custom_guardrail import get_session_id_from_request_data
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.proxy._types import UserAPIKeyAuth
 
 if TYPE_CHECKING:
-    from litellm.proxy.utils import InternalUsageCache as _InternalUsageCache
+    from embrouter.proxy.utils import InternalUsageCache as _InternalUsageCache
 
     InternalUsageCache = _InternalUsageCache
 else:
@@ -46,7 +46,7 @@ class _PROXY_SensitiveDataRoutingHandler(CustomLogger):
         self.internal_usage_cache = internal_usage_cache
         self.ttl = int(
             os.getenv(
-                "LITELLM_SENSITIVE_ROUTING_TTL",
+                "EMBROUTER_SENSITIVE_ROUTING_TTL",
                 str(DEFAULT_SENSITIVE_ROUTING_TTL),
             )
         )
@@ -93,7 +93,7 @@ class _PROXY_SensitiveDataRoutingHandler(CustomLogger):
                         key=cache_key,
                         value=routed_model,
                         ttl=remaining_ttl if remaining_ttl is not None else self.ttl,
-                        litellm_parent_otel_span=None,
+                        embrouter_parent_otel_span=None,
                         local_only=True,
                     )
                     return routed_model
@@ -107,7 +107,7 @@ class _PROXY_SensitiveDataRoutingHandler(CustomLogger):
 
         result = await self.internal_usage_cache.async_get_cache(
             key=cache_key,
-            litellm_parent_otel_span=None,
+            embrouter_parent_otel_span=None,
             local_only=True,
         )
         if result is not None:
@@ -157,7 +157,7 @@ class _PROXY_SensitiveDataRoutingHandler(CustomLogger):
             key=cache_key,
             value=model,
             ttl=self.ttl,
-            litellm_parent_otel_span=None,
+            embrouter_parent_otel_span=None,
             local_only=True,
         )
 

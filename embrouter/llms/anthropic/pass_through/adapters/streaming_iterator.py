@@ -17,11 +17,11 @@ from typing import (
 
 from typing_extensions import assert_never
 
-from litellm._logging import verbose_logger
-from litellm._uuid import uuid
-from litellm.exceptions import MidStreamFallbackError
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.types.llms.anthropic import (
+from embrouter._logging import verbose_logger
+from embrouter._uuid import uuid
+from embrouter.exceptions import MidStreamFallbackError
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.types.llms.anthropic import (
     AppliedEdit,
     CompactionBlock,
     ContentBlockDelta,
@@ -32,12 +32,12 @@ from litellm.types.llms.anthropic import (
     UsageDelta,
     UsageIteration,
 )
-from litellm.types.utils import AdapterCompletionStreamWrapper, Delta
+from embrouter.types.utils import AdapterCompletionStreamWrapper, Delta
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObject
-    from litellm.types.llms.openai import AllMessageValues
-    from litellm.types.utils import ModelResponseStream
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObject
+    from embrouter.types.llms.openai import AllMessageValues
+    from embrouter.types.utils import ModelResponseStream
 
 
 _STREAMING_DELTA_TYPES: Final = frozenset(get_args(StreamingContentBlockDeltaType))
@@ -69,7 +69,7 @@ def _error_status_and_message(exc: Exception) -> tuple[int, str]:
 
 
 def _mid_stream_error_sse_event(exc: Exception) -> bytes:
-    from litellm.anthropic_interface.exceptions.exception_mapping_utils import (
+    from embrouter.anthropic_interface.exceptions.exception_mapping_utils import (
         anthropic_error_sse_frame,
     )
 
@@ -132,7 +132,7 @@ class _CombinedChunkSplitter:
     @staticmethod
     def _is_combined(chunk: "ModelResponseStream") -> bool:
         """True if ``chunk`` carries response content AND a finish_reason."""
-        from litellm.llms.anthropic.pass_through.messages.utils import (
+        from embrouter.llms.anthropic.pass_through.messages.utils import (
             openai_chat_refusal_text,
         )
 
@@ -300,7 +300,7 @@ class AnthropicStreamWrapper(AdapterCompletionStreamWrapper):
     - finish_reason must map exactly to anthropic reason, else anthropic client won't be able to parse it.
     """
 
-    from litellm.types.llms.anthropic import (
+    from embrouter.types.llms.anthropic import (
         ContentBlockContentBlockDict,
         ContentBlockStart,
         ContentBlockStartText,
@@ -325,7 +325,7 @@ class AnthropicStreamWrapper(AdapterCompletionStreamWrapper):
         applied_edits: list[AppliedEdit] | None = None,
         compaction_block: CompactionBlock | None = None,
         iterations_usage: list[UsageIteration] | None = None,
-        litellm_logging_obj: "LiteLLMLoggingObject | None" = None,
+        embrouter_logging_obj: "EmbRouterLoggingObject | None" = None,
     ):
         # Wrap the upstream stream so chunks that carry both content and a
         # finish_reason (fake-streamed providers) are split into two — see
@@ -333,8 +333,8 @@ class AnthropicStreamWrapper(AdapterCompletionStreamWrapper):
         super().__init__(_CombinedChunkSplitter(completion_stream))
         self.model = model
         self._message_id: str = f"msg_{uuid.uuid4()}"
-        if litellm_logging_obj is not None:
-            litellm_logging_obj.record_streamed_anthropic_message_id(self._message_id)
+        if embrouter_logging_obj is not None:
+            embrouter_logging_obj.record_streamed_anthropic_message_id(self._message_id)
         # Mapping of truncated tool names to original names (for OpenAI's 64-char limit)
         self.tool_name_mapping = tool_name_mapping or {}
         # Polyfill applied_edits on final message_delta.
@@ -393,9 +393,9 @@ class AnthropicStreamWrapper(AdapterCompletionStreamWrapper):
         if "delta" not in merged_chunk:
             merged_chunk["delta"] = {}
 
-        from .transformation import LiteLLMAnthropicMessagesAdapter
+        from .transformation import EmbRouterAnthropicMessagesAdapter
 
-        usage_dict: UsageDelta = LiteLLMAnthropicMessagesAdapter._translate_openai_usage_to_anthropic_usage_delta(
+        usage_dict: UsageDelta = EmbRouterAnthropicMessagesAdapter._translate_openai_usage_to_anthropic_usage_delta(
             chunk.usage
         )
         if self.applied_edits and "context_management" not in merged_chunk:
@@ -546,7 +546,7 @@ class AnthropicStreamWrapper(AdapterCompletionStreamWrapper):
         )
 
     def __next__(self):
-        from .transformation import LiteLLMAnthropicMessagesAdapter
+        from .transformation import EmbRouterAnthropicMessagesAdapter
 
         try:
             # Always return queued chunks first
@@ -615,7 +615,7 @@ class AnthropicStreamWrapper(AdapterCompletionStreamWrapper):
                     self.holding_stop_reason_chunk is not None and getattr(chunk, "usage", None) is not None
                 )
                 is_final_chunk = chunk.choices[0].finish_reason is not None
-                processed_chunk = LiteLLMAnthropicMessagesAdapter().translate_streaming_openai_response_to_anthropic(
+                processed_chunk = EmbRouterAnthropicMessagesAdapter().translate_streaming_openai_response_to_anthropic(
                     response=chunk,
                     current_content_block_index=self.current_content_block_index,
                     applied_edits=(self.applied_edits if is_final_chunk and not will_merge_into_held else None),
@@ -781,7 +781,7 @@ class AnthropicStreamWrapper(AdapterCompletionStreamWrapper):
             raise StopIteration
 
     async def __anext__(self):
-        from .transformation import LiteLLMAnthropicMessagesAdapter
+        from .transformation import EmbRouterAnthropicMessagesAdapter
 
         try:
             # Always return queued chunks first
@@ -850,7 +850,7 @@ class AnthropicStreamWrapper(AdapterCompletionStreamWrapper):
                     self.holding_stop_reason_chunk is not None and getattr(chunk, "usage", None) is not None
                 )
                 is_final_chunk = chunk.choices[0].finish_reason is not None
-                processed_chunk = LiteLLMAnthropicMessagesAdapter().translate_streaming_openai_response_to_anthropic(
+                processed_chunk = EmbRouterAnthropicMessagesAdapter().translate_streaming_openai_response_to_anthropic(
                     response=chunk,
                     current_content_block_index=self.current_content_block_index,
                     applied_edits=(self.applied_edits if is_final_chunk and not will_merge_into_held else None),
@@ -1055,7 +1055,7 @@ class AnthropicStreamWrapper(AdapterCompletionStreamWrapper):
         delta: Final = processed_chunk["delta"]
         if delta.get("stop_reason") == "max_tokens":
             return processed_chunk
-        from litellm.llms.anthropic.pass_through.messages.utils import (
+        from embrouter.llms.anthropic.pass_through.messages.utils import (
             refusal_stop_details,
         )
 
@@ -1108,8 +1108,8 @@ class AnthropicStreamWrapper(AdapterCompletionStreamWrapper):
 
     @staticmethod
     def _is_blank_delta(chunk: "ModelResponseStream") -> bool:
-        from litellm.llms.anthropic.common_utils import is_empty_unsigned_thinking_block
-        from litellm.llms.anthropic.pass_through.messages.utils import (
+        from embrouter.llms.anthropic.common_utils import is_empty_unsigned_thinking_block
+        from embrouter.llms.anthropic.pass_through.messages.utils import (
             openai_chat_refusal_text,
         )
 
@@ -1146,11 +1146,11 @@ class AnthropicStreamWrapper(AdapterCompletionStreamWrapper):
         - Different content types in the response
         - Specific markers in the content
         """
-        from litellm.llms.anthropic.pass_through.messages.utils import (
+        from embrouter.llms.anthropic.pass_through.messages.utils import (
             openai_chat_refusal_text,
         )
 
-        from .transformation import LiteLLMAnthropicMessagesAdapter
+        from .transformation import EmbRouterAnthropicMessagesAdapter
 
         if chunk.choices[0].finish_reason is not None:
             return False
@@ -1162,7 +1162,7 @@ class AnthropicStreamWrapper(AdapterCompletionStreamWrapper):
         (
             block_type,
             content_block_start,
-        ) = LiteLLMAnthropicMessagesAdapter()._translate_streaming_openai_chunk_to_anthropic_content_block(
+        ) = EmbRouterAnthropicMessagesAdapter()._translate_streaming_openai_chunk_to_anthropic_content_block(
             choices=chunk.choices
         )
 
@@ -1171,7 +1171,7 @@ class AnthropicStreamWrapper(AdapterCompletionStreamWrapper):
             # Type narrowing: content_block_start is ToolUseBlock when block_type is "tool_use"
             from typing import cast
 
-            from litellm.types.llms.anthropic import ToolUseBlock
+            from embrouter.types.llms.anthropic import ToolUseBlock
 
             tool_block = cast(ToolUseBlock, content_block_start)
 
@@ -1190,7 +1190,7 @@ class AnthropicStreamWrapper(AdapterCompletionStreamWrapper):
         if block_type == "tool_use":
             from typing import cast
 
-            from litellm.types.llms.anthropic import ToolUseBlock
+            from embrouter.types.llms.anthropic import ToolUseBlock
 
             tool_block = cast(ToolUseBlock, content_block_start)
             if tool_block.get("name"):

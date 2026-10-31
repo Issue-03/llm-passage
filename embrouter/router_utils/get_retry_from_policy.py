@@ -5,7 +5,7 @@ from itertools import chain
 from types import MappingProxyType
 from typing import Final
 
-from litellm.exceptions import (
+from embrouter.exceptions import (
     AuthenticationError,
     BadRequestError,
     ContentPolicyViolationError,
@@ -14,7 +14,7 @@ from litellm.exceptions import (
     ServiceUnavailableError,
     Timeout,
 )
-from litellm.types.router import RetryPolicy
+from embrouter.types.router import RetryPolicy
 
 _RETRIES_BY_EXCEPTION_TYPE: Final[Mapping[type, Callable[[RetryPolicy], int | None]]] = MappingProxyType(
     {

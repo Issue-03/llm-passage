@@ -15,8 +15,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-import litellm
-from litellm.anthropic_beta_headers_manager import (
+import embrouter
+from embrouter.anthropic_beta_headers_manager import (
     filter_and_transform_beta_headers,
     update_headers_with_filtered_beta,
     update_request_with_filtered_beta,
@@ -30,15 +30,15 @@ class TestAnthropicBetaHeadersFiltering:
     def setup(self, monkeypatch):
         """Load the beta headers config for testing."""
         # Force use of local config file for tests
-        monkeypatch.setenv("LITELLM_LOCAL_ANTHROPIC_BETA_HEADERS", "True")
+        monkeypatch.setenv("EMBROUTER_LOCAL_ANTHROPIC_BETA_HEADERS", "True")
 
         # Clear the cached config to ensure fresh load with local config
-        from litellm import anthropic_beta_headers_manager
+        from embrouter import anthropic_beta_headers_manager
 
         anthropic_beta_headers_manager._BETA_HEADERS_CONFIG = None
 
         config_path = os.path.join(
-            os.path.dirname(litellm.__file__),
+            os.path.dirname(embrouter.__file__),
             "anthropic_beta_headers_config.json",
         )
         with open(config_path, "r") as f:
@@ -152,7 +152,7 @@ class TestAnthropicBetaHeadersFiltering:
         unsupported = self.get_unsupported_headers("anthropic")
 
         with patch(
-            "litellm.llms.custom_httpx.http_handler.get_async_httpx_client"
+            "embrouter.llms.custom_httpx.http_handler.get_async_httpx_client"
         ) as mock_client_factory:
             mock_response = MagicMock()
             mock_response.status_code = 200
@@ -172,7 +172,7 @@ class TestAnthropicBetaHeadersFiltering:
             mock_client_factory.return_value = mock_client
 
             try:
-                await litellm.acompletion(
+                await embrouter.acompletion(
                     model="anthropic/claude-3-5-sonnet-20241022",
                     messages=[{"role": "user", "content": "Hi"}],
                     extra_headers={"anthropic-beta": ",".join(all_headers)},
@@ -200,7 +200,7 @@ class TestAnthropicBetaHeadersFiltering:
         unsupported = self.get_unsupported_headers("azure_ai")
 
         with patch(
-            "litellm.llms.custom_httpx.http_handler.get_async_httpx_client"
+            "embrouter.llms.custom_httpx.http_handler.get_async_httpx_client"
         ) as mock_client_factory:
             mock_response = MagicMock()
             mock_response.status_code = 200
@@ -220,7 +220,7 @@ class TestAnthropicBetaHeadersFiltering:
             mock_client_factory.return_value = mock_client
 
             try:
-                await litellm.acompletion(
+                await embrouter.acompletion(
                     model="azure_ai/claude-3-5-sonnet-20241022",
                     messages=[{"role": "user", "content": "Hi"}],
                     api_key="test-key",
@@ -268,7 +268,7 @@ class TestAnthropicBetaHeadersFiltering:
             mock_client_class.return_value.__aenter__.return_value = mock_client
 
             try:
-                await litellm.acompletion(
+                await embrouter.acompletion(
                     model="bedrock/converse/us.anthropic.claude-haiku-4-5-20251001-v1:0",
                     messages=[{"role": "user", "content": "Hi"}],
                     aws_access_key_id="test",
@@ -317,7 +317,7 @@ class TestAnthropicBetaHeadersFiltering:
         unsupported = self.get_unsupported_headers("vertex_ai")
 
         with patch(
-            "litellm.llms.custom_httpx.http_handler.get_async_httpx_client"
+            "embrouter.llms.custom_httpx.http_handler.get_async_httpx_client"
         ) as mock_client_factory:
             mock_response = MagicMock()
             mock_response.status_code = 200
@@ -337,12 +337,12 @@ class TestAnthropicBetaHeadersFiltering:
             mock_client_factory.return_value = mock_client
 
             with patch(
-                "litellm.llms.vertex_ai.vertex_llm_base.VertexBase._ensure_access_token"
+                "embrouter.llms.vertex_ai.vertex_llm_base.VertexBase._ensure_access_token"
             ) as mock_token:
                 mock_token.return_value = ("test-token", "test-project")
 
                 try:
-                    await litellm.acompletion(
+                    await embrouter.acompletion(
                         model="vertex_ai/claude-3-5-sonnet-20241022",
                         messages=[{"role": "user", "content": "Hi"}],
                         vertex_project="test-project",

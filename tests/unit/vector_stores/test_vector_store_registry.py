@@ -10,10 +10,10 @@ from fastapi.testclient import TestClient
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock
 
-import litellm
-from litellm.types.vector_stores import LiteLLM_ManagedVectorStore
-from litellm.vector_stores.main import search
-from litellm.vector_stores.vector_store_registry import VectorStoreRegistry
+import embrouter
+from embrouter.types.vector_stores import EmbRouter_ManagedVectorStore
+from embrouter.vector_stores.main import search
+from embrouter.vector_stores.vector_store_registry import VectorStoreRegistry
 
 
 @pytest.fixture(autouse=True)
@@ -22,7 +22,7 @@ def clear_client_cache():
     Clear the HTTP client cache before each test to ensure mocks are used.
     This prevents cached real clients from being reused across tests.
     """
-    cache = getattr(litellm, "in_memory_llm_clients_cache", None)
+    cache = getattr(embrouter, "in_memory_llm_clients_cache", None)
     if cache is not None:
         cache.flush_cache()
     yield
@@ -33,20 +33,20 @@ def clear_client_cache():
 def test_get_credentials_for_vector_store():
     """Test that get_credentials_for_vector_store returns correct credentials"""
     # Create test vector stores
-    vector_store_1 = LiteLLM_ManagedVectorStore(
+    vector_store_1 = EmbRouter_ManagedVectorStore(
         vector_store_id="test_id_1",
         custom_llm_provider="openai",
         vector_store_name="test_store_1",
-        litellm_credential_name="test_creds_1",
+        embrouter_credential_name="test_creds_1",
         created_at=datetime.now(timezone.utc),
         updated_at=datetime.now(timezone.utc),
     )
 
-    vector_store_2 = LiteLLM_ManagedVectorStore(
+    vector_store_2 = EmbRouter_ManagedVectorStore(
         vector_store_id="test_id_2",
         custom_llm_provider="bedrockc",
         vector_store_name="test_store_2",
-        litellm_credential_name="test_creds_2",
+        embrouter_credential_name="test_creds_2",
         created_at=datetime.now(timezone.utc),
         updated_at=datetime.now(timezone.utc),
     )
@@ -56,7 +56,7 @@ def test_get_credentials_for_vector_store():
 
     # Mock CredentialAccessor.get_credential_values
     with patch(
-        "litellm.litellm_core_utils.credential_accessor.CredentialAccessor.get_credential_values"
+        "embrouter.embrouter_core_utils.credential_accessor.CredentialAccessor.get_credential_values"
     ) as mock_get_creds:
         mock_get_creds.return_value = {"api_key": "test_key_1", "env": "test"}
 
@@ -74,7 +74,7 @@ def test_get_credentials_for_vector_store():
 def test_add_vector_store_to_registry():
     """Test that add_vector_store_to_registry adds vector store correctly when there are pre-existing stores"""
     # Create pre-existing vector stores
-    existing_store_1 = LiteLLM_ManagedVectorStore(
+    existing_store_1 = EmbRouter_ManagedVectorStore(
         vector_store_id="existing_id_1",
         custom_llm_provider="openai",
         vector_store_name="existing_store_1",
@@ -82,7 +82,7 @@ def test_add_vector_store_to_registry():
         updated_at=datetime.now(timezone.utc),
     )
 
-    existing_store_2 = LiteLLM_ManagedVectorStore(
+    existing_store_2 = EmbRouter_ManagedVectorStore(
         vector_store_id="existing_id_2",
         custom_llm_provider="openai",
         vector_store_name="existing_store_2",
@@ -95,7 +95,7 @@ def test_add_vector_store_to_registry():
     assert len(registry.vector_stores) == 2
 
     # Add a new vector store
-    new_store = LiteLLM_ManagedVectorStore(
+    new_store = EmbRouter_ManagedVectorStore(
         vector_store_id="new_id",
         custom_llm_provider="bedrock",
         vector_store_name="new_store",
@@ -111,7 +111,7 @@ def test_add_vector_store_to_registry():
     assert registry.vector_stores[2]["vector_store_name"] == "new_store"
 
     # Try to add duplicate - should not be added
-    duplicate_store = LiteLLM_ManagedVectorStore(
+    duplicate_store = EmbRouter_ManagedVectorStore(
         vector_store_id="existing_id_1",  # Same ID as existing store
         custom_llm_provider="different_provider",
         vector_store_name="duplicate_store",
@@ -130,17 +130,17 @@ def test_add_vector_store_to_registry():
 def test_search_uses_registry_credentials():
     """search() should pull credentials from vector_store_registry when available"""
     # Import the module to get the actual handler instance
-    import litellm.vector_stores.main as vector_stores_main
+    import embrouter.vector_stores.main as vector_stores_main
 
-    vector_store = LiteLLM_ManagedVectorStore(
+    vector_store = EmbRouter_ManagedVectorStore(
         vector_store_id="vs1",
         custom_llm_provider="bedrock",
         created_at=datetime.now(timezone.utc),
         updated_at=datetime.now(timezone.utc),
     )
     registry = VectorStoreRegistry([vector_store])
-    original_registry = getattr(litellm, "vector_store_registry", None)
-    litellm.vector_store_registry = registry
+    original_registry = getattr(embrouter, "vector_store_registry", None)
+    embrouter.vector_store_registry = registry
     try:
         logger = MagicMock()
         logger._response_cost_calculator.return_value = 0
@@ -165,7 +165,7 @@ def test_search_uses_registry_credentials():
                 },
             ) as mock_get_creds,
             patch(
-                "litellm.vector_stores.main.ProviderConfigManager.get_provider_vector_stores_config",
+                "embrouter.vector_stores.main.ProviderConfigManager.get_provider_vector_stores_config",
                 return_value=MagicMock(),
             ),
             patch.object(
@@ -174,14 +174,14 @@ def test_search_uses_registry_credentials():
                 return_value=mock_search_response,
             ) as mock_handler,
         ):
-            search(vector_store_id="vs1", query="test", litellm_logging_obj=logger)
+            search(vector_store_id="vs1", query="test", embrouter_logging_obj=logger)
             mock_get_creds.assert_called_once_with("vs1")
-            called_params = mock_handler.call_args.kwargs["litellm_params"]
+            called_params = mock_handler.call_args.kwargs["embrouter_params"]
             assert getattr(called_params, "aws_access_key_id") == "ABC"
             assert getattr(called_params, "aws_secret_access_key") == "DEF"
             assert getattr(called_params, "aws_region_name") == "us-east-1"
     finally:
-        litellm.vector_store_registry = original_registry
+        embrouter.vector_store_registry = original_registry
 
 
 def _config_registry(vector_store_id: str = "vs_from_config") -> VectorStoreRegistry:
@@ -190,15 +190,15 @@ def _config_registry(vector_store_id: str = "vs_from_config") -> VectorStoreRegi
         [
             {
                 "vector_store_name": "config-store",
-                "litellm_params": {"vector_store_id": vector_store_id, "custom_llm_provider": "openai"},
+                "embrouter_params": {"vector_store_id": vector_store_id, "custom_llm_provider": "openai"},
             }
         ]
     )
     return registry
 
 
-def _db_store(vector_store_id: str, vector_store_name: str) -> LiteLLM_ManagedVectorStore:
-    return LiteLLM_ManagedVectorStore(
+def _db_store(vector_store_id: str, vector_store_name: str) -> EmbRouter_ManagedVectorStore:
+    return EmbRouter_ManagedVectorStore(
         vector_store_id=vector_store_id,
         custom_llm_provider="openai",
         vector_store_name=vector_store_name,
@@ -211,7 +211,7 @@ def test_config_loaded_store_is_marked_config_owned_and_db_store_is_not():
     registry = _config_registry()
     registry.add_vector_store_to_registry(_db_store("vs_from_db", "db-store"))
 
-    assert registry.get_litellm_managed_vector_store_from_registry("vs_from_config")["is_config"] is True
+    assert registry.get_embrouter_managed_vector_store_from_registry("vs_from_config")["is_config"] is True
     assert registry.is_config_vector_store("vs_from_config") is True
     assert registry.is_config_vector_store("vs_from_db") is False
     assert registry.is_config_vector_store("vs_unknown") is False
@@ -224,12 +224,12 @@ def test_db_row_does_not_overwrite_config_owned_store_in_registry():
     registry.update_vector_store_in_registry("vs_from_config", _db_store("vs_from_config", "renamed-in-db"))
     registry.update_vector_store_in_registry("vs_from_db", _db_store("vs_from_db", "renamed-in-db"))
 
-    assert registry.get_litellm_managed_vector_store_from_registry("vs_from_config") == {
-        **registry.get_litellm_managed_vector_store_from_registry("vs_from_config"),
+    assert registry.get_embrouter_managed_vector_store_from_registry("vs_from_config") == {
+        **registry.get_embrouter_managed_vector_store_from_registry("vs_from_config"),
         "vector_store_name": "config-store",
         "is_config": True,
     }
-    assert registry.get_litellm_managed_vector_store_from_registry("vs_from_db")["vector_store_name"] == "renamed-in-db"
+    assert registry.get_embrouter_managed_vector_store_from_registry("vs_from_db")["vector_store_name"] == "renamed-in-db"
 
 
 @pytest.mark.asyncio
@@ -237,7 +237,7 @@ async def test_config_owned_store_survives_db_liveness_check_while_missing_db_st
     registry = _config_registry()
     registry.add_vector_store_to_registry(_db_store("vs_from_db", "db-store"))
     prisma_client = MagicMock()
-    prisma_client.db.litellm_managedvectorstorestable.find_unique = AsyncMock(return_value=None)
+    prisma_client.db.embrouter_managedvectorstorestable.find_unique = AsyncMock(return_value=None)
 
     to_run = await registry.pop_vector_stores_to_run_with_db_fallback(
         non_default_params={"vector_store_ids": ["vs_from_config", "vs_from_db"]},
@@ -246,6 +246,6 @@ async def test_config_owned_store_survives_db_liveness_check_while_missing_db_st
 
     assert [vs["vector_store_id"] for vs in to_run] == ["vs_from_config"]
     assert [vs["vector_store_id"] for vs in registry.vector_stores] == ["vs_from_config"]
-    prisma_client.db.litellm_managedvectorstorestable.find_unique.assert_awaited_once_with(
+    prisma_client.db.embrouter_managedvectorstorestable.find_unique.assert_awaited_once_with(
         where={"vector_store_id": "vs_from_db"}
     )

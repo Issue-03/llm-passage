@@ -6,14 +6,14 @@ Anthropic's native API accepts ``strict`` as a top-level tool field. See
 upstream #31582.
 
 That per-model gate only covers models whose cost-map entry carries the flag, so a
-``strict: false`` that litellm itself synthesized still broke unflagged models. Since
+``strict: false`` that embrouter itself synthesized still broke unflagged models. Since
 ``strict: false`` is the Chat Completions default, it is now dropped for every model
 rather than forwarded as a no-op the provider can reject. See upstream #33193.
 """
 
 import pytest
 
-from litellm.litellm_core_utils.prompt_templates.factory import _bedrock_tools_pt
+from embrouter.embrouter_core_utils.prompt_templates.factory import _bedrock_tools_pt
 
 _STRICT_TOOL = [
     {
@@ -126,8 +126,8 @@ def test_responses_bridge_function_tool_does_not_reach_bedrock_with_strict() -> 
     """The Responses-to-Chat-Completions bridge stamps ``strict: false`` onto every
     function tool even when the caller never sent one, which is how Codex CLI requests
     acquired the key. Assert the fabricated value does not survive to toolSpec."""
-    from litellm.responses.litellm_completion_transformation.transformation import (
-        LiteLLMCompletionResponsesConfig,
+    from embrouter.responses.embrouter_completion_transformation.transformation import (
+        EmbRouterCompletionResponsesConfig,
     )
 
     responses_tool = {
@@ -141,7 +141,7 @@ def test_responses_bridge_function_tool_does_not_reach_bedrock_with_strict() -> 
         },
     }
     chat_tools, _ = (
-        LiteLLMCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
+        EmbRouterCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
             [responses_tool]
         )
     )

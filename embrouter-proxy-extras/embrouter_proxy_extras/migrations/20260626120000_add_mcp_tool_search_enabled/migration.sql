@@ -1,2 +1,2 @@
 -- AlterTable
-ALTER TABLE "LiteLLM_ObjectPermissionTable" ADD COLUMN "mcp_tool_search_enabled" BOOLEAN;
+ALTER TABLE "EmbRouter_ObjectPermissionTable" ADD COLUMN "mcp_tool_search_enabled" BOOLEAN;

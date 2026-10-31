@@ -12,19 +12,19 @@ import httpx
 from pydantic import BaseModel, Field
 from typing_extensions import ReadOnly, TypedDict
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
     convert_content_list_to_str,
     get_content_from_model_response,
 )
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.types.integrations.base_health_check import IntegrationHealthCheckStatus
-from litellm.types.llms.openai import (
+from embrouter.types.integrations.base_health_check import IntegrationHealthCheckStatus
+from embrouter.types.llms.openai import (
     AllMessageValues,
     HttpxBinaryResponseContent,
     ResponsesAPIResponse,
@@ -87,7 +87,7 @@ class LLMResponse(BaseModel):
     num_total_tokens: int
     cost: float | None = Field(
         default=None,
-        description="Total cost of the LLM call in USD as computed by LiteLLM.",
+        description="Total cost of the LLM call in USD as computed by EmbRouter.",
     )
     output_logprobs: dict[str, object] | None = Field(
         default=None,
@@ -254,7 +254,7 @@ class GalileoObserve(CustomLogger):
             return str(dt)
 
         if dt.tzinfo is None:
-            # LiteLLM often passes naive datetimes in local time; convert to UTC
+            # EmbRouter often passes naive datetimes in local time; convert to UTC
             # instead of appending Z to local time (which shifts Traces tab sorting).
             dt = dt.replace(tzinfo=GalileoObserve._local_timezone())
 
@@ -297,7 +297,7 @@ class GalileoObserve(CustomLogger):
             "id": span_id,
             "trace_id": trace_id,
             "parent_id": trace_id,
-            "name": record.get("node_type", "litellm"),
+            "name": record.get("node_type", "embrouter"),
             "created_at": created_at,
             "input": GalileoObserve._galileo_input_messages(record.get("messages"), record.get("input_text", "")),
             "output": {
@@ -324,7 +324,7 @@ class GalileoObserve(CustomLogger):
         return {
             "type": "trace",
             "id": trace_id,
-            "name": record.get("node_type", "litellm"),
+            "name": record.get("node_type", "embrouter"),
             "created_at": created_at,
             "input": record.get("input_text", ""),
             "output": record.get("output_text", ""),
@@ -490,7 +490,7 @@ class GalileoObserve(CustomLogger):
         return json.dumps(prompt, default=str)
 
     @staticmethod
-    def _get_chat_content_for_galileo(response_obj: litellm.ModelResponse) -> object:
+    def _get_chat_content_for_galileo(response_obj: embrouter.ModelResponse) -> object:
         if response_obj.choices and len(response_obj.choices) > 0:
             message: Final = response_obj["choices"][0]["message"]
             if hasattr(message, "json"):
@@ -503,7 +503,7 @@ class GalileoObserve(CustomLogger):
 
     @staticmethod
     def _get_text_completion_content_for_galileo(
-        response_obj: litellm.TextCompletionResponse,
+        response_obj: embrouter.TextCompletionResponse,
     ) -> str | None:
         if response_obj.choices and len(response_obj.choices) > 0:
             return response_obj.choices[0].text
@@ -541,12 +541,12 @@ class GalileoObserve(CustomLogger):
             return self._prompt_to_input_text(prompt), status_message, prompt
 
         if response_obj is not None and (
-            call_type in ("embedding", "aembedding") or isinstance(response_obj, litellm.EmbeddingResponse)
+            call_type in ("embedding", "aembedding") or isinstance(response_obj, embrouter.EmbeddingResponse)
         ):
             # Match Langfuse OTEL: log embeddings without serializing vectors.
             return self._prompt_to_input_text(prompt), "embedding-output", prompt
 
-        if response_obj is not None and isinstance(response_obj, litellm.ModelResponse):
+        if response_obj is not None and isinstance(response_obj, embrouter.ModelResponse):
             output = self._get_chat_content_for_galileo(response_obj)
             return (
                 self._prompt_to_input_text(prompt),
@@ -557,7 +557,7 @@ class GalileoObserve(CustomLogger):
         if response_obj is not None and isinstance(response_obj, HttpxBinaryResponseContent):
             return self._prompt_to_input_text(prompt), "speech-output", prompt
 
-        if response_obj is not None and isinstance(response_obj, litellm.TextCompletionResponse):
+        if response_obj is not None and isinstance(response_obj, embrouter.TextCompletionResponse):
             output = self._get_text_completion_content_for_galileo(response_obj)
             return (
                 self._prompt_to_input_text(prompt),
@@ -565,7 +565,7 @@ class GalileoObserve(CustomLogger):
                 kwargs.get("messages") or [],
             )
 
-        if response_obj is not None and isinstance(response_obj, litellm.ImageResponse):
+        if response_obj is not None and isinstance(response_obj, embrouter.ImageResponse):
             output = response_obj.get("data", None)
             return (
                 self._prompt_to_input_text(prompt),
@@ -573,7 +573,7 @@ class GalileoObserve(CustomLogger):
                 prompt,
             )
 
-        if response_obj is not None and isinstance(response_obj, litellm.TranscriptionResponse):
+        if response_obj is not None and isinstance(response_obj, embrouter.TranscriptionResponse):
             output = response_obj.get("text", None)
             return (
                 self._prompt_to_input_text(prompt),
@@ -581,7 +581,7 @@ class GalileoObserve(CustomLogger):
                 prompt,
             )
 
-        if response_obj is not None and isinstance(response_obj, litellm.RerankResponse):
+        if response_obj is not None and isinstance(response_obj, embrouter.RerankResponse):
             output = response_obj.results
             rerank_prompt: Final = self._langfuse_style_rerank_prompt(kwargs)
             return (
@@ -694,7 +694,7 @@ class GalileoObserve(CustomLogger):
             verbose_logger.debug("Galileo Logger: no standard_logging_object in kwargs, skipping")
             return
 
-        _call_type: Final[str] = str(slo.get("call_type") or kwargs.get("call_type") or "litellm")
+        _call_type: Final[str] = str(slo.get("call_type") or kwargs.get("call_type") or "embrouter")
 
         input_text, output_text, messages = self._get_galileo_input_output_content(
             kwargs=kwargs, response_obj=response_obj

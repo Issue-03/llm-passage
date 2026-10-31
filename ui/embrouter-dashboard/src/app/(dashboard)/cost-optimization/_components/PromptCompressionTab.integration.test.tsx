@@ -36,7 +36,7 @@ describe("PromptCompressionTab submit payload", () => {
     await vi.waitFor(() =>
       expect(submittedPayload()).toEqual({
         guardrail_name: "headroom-compression",
-        litellm_params: {
+        embrouter_params: {
           guardrail: "headroom",
           mode: "pre_call",
           api_base: "https://headroom.example.com",
@@ -59,7 +59,7 @@ describe("PromptCompressionTab submit payload", () => {
     await vi.waitFor(() =>
       expect(submittedPayload()).toEqual({
         guardrail_name: "headroom-optin",
-        litellm_params: {
+        embrouter_params: {
           guardrail: "headroom",
           mode: "pre_call",
           api_base: "https://headroom.example.com",
@@ -111,12 +111,12 @@ describe("PromptCompressionTab submit payload", () => {
         {
           guardrail_id: "g-1",
           guardrail_name: "always-on-one",
-          litellm_params: { guardrail: "headroom", api_base: "https://a.example.com", default_on: true },
+          embrouter_params: { guardrail: "headroom", api_base: "https://a.example.com", default_on: true },
         },
         {
           guardrail_id: "g-2",
           guardrail_name: "opt-in-one",
-          litellm_params: { guardrail: "headroom", api_base: "https://b.example.com", default_on: false },
+          embrouter_params: { guardrail: "headroom", api_base: "https://b.example.com", default_on: false },
         },
       ],
     });

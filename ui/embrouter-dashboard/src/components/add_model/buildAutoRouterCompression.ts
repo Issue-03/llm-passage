@@ -1,6 +1,6 @@
 /**
- * Maps the auto router's compression form state to the two flat litellm_params keys
- * the backend reads (litellm.proxy.guardrails.auto_router_compression), and back.
+ * Maps the auto router's compression form state to the two flat embrouter_params keys
+ * the backend reads (embrouter.proxy.guardrails.auto_router_compression), and back.
  *
  * `routing` being undefined means the section was never touched: both keys are
  * omitted from the payload, and the request's own compression guardrails apply to
@@ -13,7 +13,7 @@
 export const NO_COMPRESSION = "none";
 
 /** Guardrail providers that compress prompts, mirroring COMPRESSION_GUARDRAIL_PROVIDERS in
- * litellm/proxy/guardrails/auto_router_compression.py. Both are selectable per hop. */
+ * embrouter/proxy/guardrails/auto_router_compression.py. Both are selectable per hop. */
 export const COMPRESSION_GUARDRAIL_PROVIDERS: readonly string[] = ["headroom", "compresr", "typesafe"];
 
 export const isCompressionGuardrailProvider = (provider: unknown): boolean =>
@@ -25,12 +25,12 @@ export interface AutoRouterCompressionState {
   model: string | undefined;
 }
 
-export interface AutoRouterCompressionLitellmParams {
+export interface AutoRouterCompressionEmbrouterParams {
   auto_router_routing_compression?: string;
   auto_router_model_compression?: string;
 }
 
-type AutoRouterCompressionPatch = Partial<Record<keyof AutoRouterCompressionLitellmParams, string | null>>;
+type AutoRouterCompressionPatch = Partial<Record<keyof AutoRouterCompressionEmbrouterParams, string | null>>;
 
 export const DEFAULT_AUTO_ROUTER_COMPRESSION: AutoRouterCompressionState = {
   routing: undefined,
@@ -40,7 +40,7 @@ export const DEFAULT_AUTO_ROUTER_COMPRESSION: AutoRouterCompressionState = {
 
 export const buildAutoRouterCompressionParams = (
   state: AutoRouterCompressionState,
-): AutoRouterCompressionLitellmParams => {
+): AutoRouterCompressionEmbrouterParams => {
   if (state.routing === undefined) return {};
   return {
     auto_router_routing_compression: state.routing,
@@ -48,15 +48,15 @@ export const buildAutoRouterCompressionParams = (
   };
 };
 
-export const hydrateAutoRouterCompression = (litellmParams: {
+export const hydrateAutoRouterCompression = (embrouterParams: {
   auto_router_routing_compression?: string | null;
   auto_router_model_compression?: string | null;
 }): AutoRouterCompressionState => {
-  const storedRouting = litellmParams.auto_router_routing_compression ?? undefined;
-  const storedModel = litellmParams.auto_router_model_compression ?? undefined;
+  const storedRouting = embrouterParams.auto_router_routing_compression ?? undefined;
+  const storedModel = embrouterParams.auto_router_model_compression ?? undefined;
 
   // Only neither key set means the section was never touched. The backend treats
-  // either key on its own as an authoritative policy (policy_from_litellm_params), so
+  // either key on its own as an authoritative policy (policy_from_embrouter_params), so
   // reading a model-only config as untouched would hide it from the form and let the
   // next save overwrite the stored model hop.
   if (storedRouting === undefined && storedModel === undefined) return DEFAULT_AUTO_ROUTER_COMPRESSION;

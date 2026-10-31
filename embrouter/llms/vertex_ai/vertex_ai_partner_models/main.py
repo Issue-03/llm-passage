@@ -6,10 +6,10 @@ from typing import Final
 
 import httpx
 
-import litellm
-from litellm import LlmProviders
-from litellm.types.llms.vertex_ai import VertexPartnerProvider
-from litellm.utils import ModelResponse
+import embrouter
+from embrouter import LlmProviders
+from embrouter.types.llms.vertex_ai import VertexPartnerProvider
+from embrouter.utils import ModelResponse
 
 from ...custom_httpx.llm_http_handler import BaseLLMHTTPHandler
 from ..vertex_llm_base import VertexBase
@@ -100,7 +100,7 @@ class VertexAIPartnerModels(VertexBase):
         custom_prompt_dict: dict,
         headers: dict | None,
         timeout: float | httpx.Timeout,
-        litellm_params: dict,
+        embrouter_params: dict,
         vertex_project=None,
         vertex_location=None,
         vertex_credentials=None,
@@ -109,11 +109,11 @@ class VertexAIPartnerModels(VertexBase):
         client=None,
     ):
         try:
-            from litellm.llms.anthropic.chat import AnthropicChatCompletion
-            from litellm.llms.codestral.completion.handler import (
+            from embrouter.llms.anthropic.chat import AnthropicChatCompletion
+            from embrouter.llms.codestral.completion.handler import (
                 CodestralTextCompletion,
             )
-            from litellm.llms.openai_like.chat.handler import OpenAILikeChatHandler
+            from embrouter.llms.openai_like.chat.handler import OpenAILikeChatHandler
         except Exception as e:
             raise VertexAIError(
                 status_code=400,
@@ -160,9 +160,9 @@ class VertexAIPartnerModels(VertexBase):
             if "codestral" in model or "mistral" in model:
                 model = model.split("@")[0]
 
-            if "codestral" in model and litellm_params.get("text_completion") is True:
+            if "codestral" in model and embrouter_params.get("text_completion") is True:
                 optional_params["model"] = model
-                text_completion_model_response: Final = litellm.TextCompletionResponse(stream=stream)
+                text_completion_model_response: Final = embrouter.TextCompletionResponse(stream=stream)
                 return codestral_fim_completions.completion(
                     model=model,
                     messages=messages,
@@ -174,7 +174,7 @@ class VertexAIPartnerModels(VertexBase):
                     logging_obj=logging_obj,
                     optional_params=optional_params,
                     acompletion=acompletion,
-                    litellm_params=litellm_params,
+                    embrouter_params=embrouter_params,
                     logger_fn=logger_fn,
                     timeout=timeout,
                     encoding=encoding,
@@ -198,11 +198,11 @@ class VertexAIPartnerModels(VertexBase):
                     messages=messages,
                     api_base=api_base,
                     acompletion=acompletion,
-                    custom_prompt_dict=litellm.custom_prompt_dict,
+                    custom_prompt_dict=embrouter.custom_prompt_dict,
                     model_response=model_response,
                     print_verbose=print_verbose,
                     optional_params=optional_params,
-                    litellm_params=litellm_params,
+                    embrouter_params=embrouter_params,
                     logger_fn=logger_fn,
                     encoding=encoding,  # for calculating input/output tokens
                     api_key=access_token,
@@ -221,7 +221,7 @@ class VertexAIPartnerModels(VertexBase):
                     api_base=api_base,
                     model_response=model_response,
                     optional_params=optional_params,
-                    litellm_params=litellm_params,
+                    embrouter_params=embrouter_params,
                     custom_llm_provider="vertex_ai",
                     timeout=timeout,
                     headers=headers,
@@ -241,7 +241,7 @@ class VertexAIPartnerModels(VertexBase):
                 logging_obj=logging_obj,
                 optional_params=optional_params,
                 acompletion=acompletion,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logger_fn=logger_fn,
                 client=client,
                 timeout=timeout,
@@ -259,7 +259,7 @@ class VertexAIPartnerModels(VertexBase):
         self,
         model: str,
         messages: list,
-        litellm_params: dict,
+        embrouter_params: dict,
         vertex_project=None,
         vertex_location=None,
         vertex_credentials=None,
@@ -270,7 +270,7 @@ class VertexAIPartnerModels(VertexBase):
         Args:
             model: The model name (e.g., "claude-3-5-sonnet-20241022")
             messages: List of messages in Anthropic Messages API format
-            litellm_params: LiteLLM parameters dict
+            embrouter_params: EmbRouter parameters dict
             vertex_project: Optional Google Cloud project ID
             vertex_location: Optional Vertex AI location
             vertex_credentials: Optional Vertex AI credentials
@@ -286,9 +286,9 @@ class VertexAIPartnerModels(VertexBase):
         # Gemini SDK. Requiring `google-cloud-aiplatform>=1.38` here turned a
         # SDK-free Anthropic-protocol call into a hard dependency on the Gemini
         # SDK (see #28084), breaking `/v1/messages/count_tokens` for Claude-on-
-        # Vertex on any LiteLLM install without that extra. Stay SDK-free.
+        # Vertex on any EmbRouter install without that extra. Stay SDK-free.
         try:
-            from litellm.llms.vertex_ai.vertex_ai_partner_models.count_tokens.handler import (
+            from embrouter.llms.vertex_ai.vertex_ai_partner_models.count_tokens.handler import (
                 VertexAIPartnerModelsTokenCounter,
             )
 
@@ -298,21 +298,21 @@ class VertexAIPartnerModels(VertexBase):
                 "messages": messages,
             }
 
-            # Prepare litellm_params with credentials
-            _litellm_params: Final = litellm_params.copy()
+            # Prepare embrouter_params with credentials
+            _embrouter_params: Final = embrouter_params.copy()
             if vertex_project:
-                _litellm_params["vertex_project"] = vertex_project
+                _embrouter_params["vertex_project"] = vertex_project
             if vertex_location:
-                _litellm_params["vertex_location"] = vertex_location
+                _embrouter_params["vertex_location"] = vertex_location
             if vertex_credentials:
-                _litellm_params["vertex_credentials"] = vertex_credentials
+                _embrouter_params["vertex_credentials"] = vertex_credentials
 
             # Call the token counter
             token_counter: Final = VertexAIPartnerModelsTokenCounter()
             result: Final = await token_counter.handle_count_tokens_request(
                 model=model,
                 request_data=request_data,
-                litellm_params=_litellm_params,
+                embrouter_params=_embrouter_params,
             )
 
             return result

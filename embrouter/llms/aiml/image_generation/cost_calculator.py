@@ -1,8 +1,8 @@
 from typing import Any, Final
 
-import litellm
-from litellm.litellm_core_utils.llm_cost_calc.utils import resolve_image_model_info
-from litellm.types.utils import ImageResponse, ModelInfo
+import embrouter
+from embrouter.embrouter_core_utils.llm_cost_calc.utils import resolve_image_model_info
+from embrouter.types.utils import ImageResponse, ModelInfo
 
 
 def cost_calculator(
@@ -15,7 +15,7 @@ def cost_calculator(
     """
     _model_info: Final = resolve_image_model_info(
         model=model,
-        custom_llm_provider=litellm.LlmProviders.AIML.value,
+        custom_llm_provider=embrouter.LlmProviders.AIML.value,
         model_info=model_info,
     )
     output_cost_per_image: Final[float] = _model_info.get("output_cost_per_image") or 0.0

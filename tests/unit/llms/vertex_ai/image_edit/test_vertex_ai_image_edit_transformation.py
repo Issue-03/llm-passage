@@ -8,10 +8,10 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-from litellm.llms.vertex_ai.image_edit.vertex_gemini_transformation import (
+from embrouter.llms.vertex_ai.image_edit.vertex_gemini_transformation import (
     VertexAIGeminiImageEditConfig,
 )
-from litellm.llms.vertex_ai.image_edit.vertex_imagen_transformation import (
+from embrouter.llms.vertex_ai.image_edit.vertex_imagen_transformation import (
     VertexAIImagenImageEditConfig,
 )
 
@@ -49,7 +49,7 @@ class TestVertexAIGeminiImageEditTransformation:
             url = self.config.get_complete_url(
                 model="gemini-2.5-flash",
                 api_base=None,
-                litellm_params={},
+                embrouter_params={},
             )
             assert "test-project" in url
             assert "us-central1" in url
@@ -68,7 +68,7 @@ class TestVertexAIGeminiImageEditTransformation:
             prompt=self.prompt,
             image=image,
             image_edit_optional_request_params=optional_params,
-            litellm_params=MagicMock(),
+            embrouter_params=MagicMock(),
             headers={},
         )
 
@@ -138,12 +138,12 @@ class TestVertexAIGeminiImageEditTransformation:
                 prompt=self.prompt,
                 image=[],
                 image_edit_optional_request_params=optional_params,
-                litellm_params=MagicMock(),
+                embrouter_params=MagicMock(),
                 headers={},
             )
 
-    def test_validate_environment_with_litellm_params(self) -> None:
-        """Test validate_environment uses credentials from litellm_params"""
+    def test_validate_environment_with_embrouter_params(self) -> None:
+        """Test validate_environment uses credentials from embrouter_params"""
         with patch.object(
             self.config,
             "_ensure_access_token",
@@ -154,7 +154,7 @@ class TestVertexAIGeminiImageEditTransformation:
                 "set_headers",
                 return_value={"Authorization": "Bearer test-token"},
             ) as mock_headers:
-                litellm_params = {
+                embrouter_params = {
                     "vertex_ai_project": "custom-project",
                     "vertex_ai_credentials": "/path/to/custom/credentials.json",
                 }
@@ -162,7 +162,7 @@ class TestVertexAIGeminiImageEditTransformation:
                 result = self.config.validate_environment(
                     headers={"X-Custom": "header"},
                     model=self.model,
-                    litellm_params=litellm_params,
+                    embrouter_params=embrouter_params,
                     api_base=None,
                 )
 
@@ -173,12 +173,12 @@ class TestVertexAIGeminiImageEditTransformation:
                 assert call_kwargs["project_id"] == "custom-project"
                 assert result == {"Authorization": "Bearer test-token"}
 
-    def test_get_complete_url_from_litellm_params(self) -> None:
-        """Test vertex_project/vertex_location read from litellm_params first"""
+    def test_get_complete_url_from_embrouter_params(self) -> None:
+        """Test vertex_project/vertex_location read from embrouter_params first"""
         url = self.config.get_complete_url(
             model="gemini-2.5-flash",
             api_base=None,
-            litellm_params={
+            embrouter_params={
                 "vertex_project": "params-project",
                 "vertex_location": "us-east1",
             },
@@ -191,7 +191,7 @@ class TestVertexAIGeminiImageEditTransformation:
         url = self.config.get_complete_url(
             model="gemini-2.5-flash",
             api_base=None,
-            litellm_params={
+            embrouter_params={
                 "vertex_project": "test-project",
                 "vertex_location": "global",
             },
@@ -200,8 +200,8 @@ class TestVertexAIGeminiImageEditTransformation:
         assert "global-aiplatform.googleapis.com" not in url
         assert "/locations/global/" in url
 
-    def test_get_complete_url_litellm_params_overrides_env(self) -> None:
-        """Test litellm_params takes precedence over environment variables"""
+    def test_get_complete_url_embrouter_params_overrides_env(self) -> None:
+        """Test embrouter_params takes precedence over environment variables"""
         with patch.dict(
             os.environ,
             {
@@ -212,7 +212,7 @@ class TestVertexAIGeminiImageEditTransformation:
             url = self.config.get_complete_url(
                 model="gemini-2.5-flash",
                 api_base=None,
-                litellm_params={
+                embrouter_params={
                     "vertex_project": "params-project",
                     "vertex_location": "eu-west1",
                 },
@@ -260,7 +260,7 @@ class TestVertexAIImagenImageEditTransformation:
             url = self.config.get_complete_url(
                 model="imagen-3.0-capability-001",
                 api_base=None,
-                litellm_params={},
+                embrouter_params={},
             )
             assert "test-project" in url
             assert "us-central1" in url
@@ -279,7 +279,7 @@ class TestVertexAIImagenImageEditTransformation:
             prompt=self.prompt,
             image=image,
             image_edit_optional_request_params=optional_params,
-            litellm_params=MagicMock(),
+            embrouter_params=MagicMock(),
             headers={},
         )
 
@@ -321,7 +321,7 @@ class TestVertexAIImagenImageEditTransformation:
             prompt=self.prompt,
             image=image,
             image_edit_optional_request_params=optional_params,
-            litellm_params=MagicMock(),
+            embrouter_params=MagicMock(),
             headers={},
         )
 
@@ -392,7 +392,7 @@ class TestVertexAIImagenImageEditTransformation:
                 prompt=self.prompt,
                 image=[],
                 image_edit_optional_request_params=optional_params,
-                litellm_params=MagicMock(),
+                embrouter_params=MagicMock(),
                 headers={},
             )
 

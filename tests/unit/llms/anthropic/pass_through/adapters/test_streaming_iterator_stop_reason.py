@@ -12,13 +12,13 @@ bridge emitted ``stop_reason: "end_turn"`` and Anthropic tool-runners
 
 import pytest
 
-from litellm.llms.anthropic.pass_through.adapters.streaming_iterator import (
+from embrouter.llms.anthropic.pass_through.adapters.streaming_iterator import (
     AnthropicStreamWrapper,
 )
-from litellm.llms.ollama.chat.transformation import (
+from embrouter.llms.ollama.chat.transformation import (
     OllamaChatCompletionResponseIterator,
 )
-from litellm.types.utils import ModelResponseStream
+from embrouter.types.utils import ModelResponseStream
 
 _OLLAMA_TOOL_CHUNK = {
     "model": "qwen3:8b",

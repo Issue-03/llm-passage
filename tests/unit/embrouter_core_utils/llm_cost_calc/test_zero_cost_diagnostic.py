@@ -3,13 +3,13 @@ from typing import Final
 
 import pytest
 
-from litellm.litellm_core_utils.llm_cost_calc.zero_cost_diagnostic import (
+from embrouter.embrouter_core_utils.llm_cost_calc.zero_cost_diagnostic import (
     ZERO_COST_COUNTER_NAME,
     diagnose_zero_cost,
     used_pricing_keys,
     zero_cost_warning,
 )
-from litellm.types.utils import CompletionTokensDetailsWrapper, PromptTokensDetailsWrapper, Usage
+from embrouter.types.utils import CompletionTokensDetailsWrapper, PromptTokensDetailsWrapper, Usage
 
 PER_SECOND_ENTRY: Final = {"cost_per_second": 0.00042}
 FREE_ENTRY: Final = {"input_cost_per_token": 0, "output_cost_per_token": 0, "cache_read_input_token_cost": 2e-08}
@@ -60,9 +60,9 @@ def test_request_without_usage_stays_silent(calculation_failed: bool) -> None:
 @pytest.mark.parametrize(
     "entry",
     [
-        {"litellm_provider": "openai", "mode": "chat", "supports_prompt_caching": True},
+        {"embrouter_provider": "openai", "mode": "chat", "supports_prompt_caching": True},
         {"tiered_pricing": [{"range": [0, 128000], "input_cost_per_token": 0, "output_cost_per_token": 0}]},
-        {"tiered_pricing": "not a tier table", "litellm_provider": "openai"},
+        {"tiered_pricing": "not a tier table", "embrouter_provider": "openai"},
     ],
 )
 def test_entry_that_declares_no_rate_stays_silent(entry: Mapping[str, object]) -> None:
@@ -107,7 +107,7 @@ def test_calculator_failure_on_a_free_entry_stays_silent() -> None:
 
 
 def test_calculator_failure_on_an_entry_that_declares_no_rate_stays_silent() -> None:
-    entry: Final = {"litellm_provider": "openai", "mode": "chat", "supports_prompt_caching": True}
+    entry: Final = {"embrouter_provider": "openai", "mode": "chat", "supports_prompt_caching": True}
     assert (
         diagnose_zero_cost(usage=TEXT_USAGE, pricing_model="dep-1", pricing_entry=entry, calculation_failed=True)
         is None

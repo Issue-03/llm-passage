@@ -15,9 +15,9 @@ from typing import Final, NoReturn, Protocol, runtime_checkable
 
 from pydantic import JsonValue, TypeAdapter
 
-import litellm
-from litellm._logging import _redact_string, verbose_proxy_logger
-from litellm.constants import (
+import embrouter
+from embrouter._logging import _redact_string, verbose_proxy_logger
+from embrouter.constants import (
     BEDROCK_REALTIME_COMMITTED_FAILURE_SCOPE_KEY,
     BEDROCK_REALTIME_PENDING_SESSION_UPDATE_SCOPE_KEY,
     BEDROCK_REALTIME_SDK_DISTRIBUTION,
@@ -25,13 +25,13 @@ from litellm.constants import (
     BEDROCK_REALTIME_SESSION_COMMITTED_SCOPE_KEY,
     REALTIME_SESSION_SUCCESS_LOGGED_KEY,
 )
-from litellm.litellm_core_utils.aws_partition import get_aws_dns_suffix
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLogging
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-from litellm.litellm_core_utils.realtime_streaming import DefaultLoggedRealTimeEventTypes
-from litellm.types.llms.bedrock import AwsAuthParams
-from litellm.types.llms.openai import OpenAIRealtimeEvents
-from litellm.types.realtime import RealtimeResponseTransformInput
+from embrouter.embrouter_core_utils.aws_partition import get_aws_dns_suffix
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLogging
+from embrouter.embrouter_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from embrouter.embrouter_core_utils.realtime_streaming import DefaultLoggedRealTimeEventTypes
+from embrouter.types.llms.bedrock import AwsAuthParams
+from embrouter.types.llms.openai import OpenAIRealtimeEvents
+from embrouter.types.realtime import RealtimeResponseTransformInput
 
 from ..base_aws_llm import BaseAWSLLM, run_aws_signing
 from ..common_utils import BedrockError
@@ -77,8 +77,8 @@ def _json_str(value: JsonValue) -> str | None:
 
 def _should_log_event(openai_message: Mapping[str, object]) -> bool:
     logged_types: Final = (
-        litellm.logged_real_time_event_types
-        if litellm.logged_real_time_event_types is not None
+        embrouter.logged_real_time_event_types
+        if embrouter.logged_real_time_event_types is not None
         else DefaultLoggedRealTimeEventTypes
     )
     if logged_types == "*":
@@ -138,7 +138,7 @@ def _installed_sdk_version() -> str | None:
 
 
 def _sdk_import_error(installed_version: str | None, cause: ImportError) -> ImportError:
-    install_hint: Final = "pip install 'litellm[bedrock-realtime]'"
+    install_hint: Final = "pip install 'embrouter[bedrock-realtime]'"
     requirement: Final = f"{BEDROCK_REALTIME_SDK_DISTRIBUTION}[awscrt]{BEDROCK_REALTIME_SDK_SUPPORTED_RANGE}"
     verbose_proxy_logger.error("Bedrock Realtime: SDK import failed (installed=%s): %s", installed_version, cause)
     if installed_version is None:
@@ -210,7 +210,7 @@ async def _ack_session_update(
     bedrock_stream: BedrockBidirectionalStream,
     transformation_config: BedrockRealtimeConfig,
     model: str,
-    logging_obj: LiteLLMLogging | None,
+    logging_obj: EmbRouterLogging | None,
     parsed_client_message: Mapping[str, JsonValue],
 ) -> bool:
     """Ack the client's session.update once Bedrock accepted the stream; False means the client is gone."""
@@ -243,7 +243,7 @@ class BedrockRealtime(BaseAWSLLM):
         self,
         model: str,
         websocket: RealtimeClientWebSocket,
-        logging_obj: LiteLLMLogging,
+        logging_obj: EmbRouterLogging,
         api_base: str | None = None,
         api_key: str | None = None,
         timeout: float | None = None,
@@ -267,7 +267,7 @@ class BedrockRealtime(BaseAWSLLM):
         Args:
             model: Model ID (e.g., 'amazon.nova-sonic-v1:0')
             websocket: Client WebSocket connection
-            logging_obj: LiteLLM logging object
+            logging_obj: EmbRouter logging object
             aws_region_name: AWS region
             Various AWS authentication parameters
         """
@@ -316,7 +316,7 @@ class BedrockRealtime(BaseAWSLLM):
             raise BedrockError(
                 status_code=401,
                 message=(
-                    "No AWS credentials found for Bedrock realtime. Set aws_* params in litellm_params "
+                    "No AWS credentials found for Bedrock realtime. Set aws_* params in embrouter_params "
                     "or configure credentials in the environment"
                 ),
             )
@@ -350,7 +350,7 @@ class BedrockRealtime(BaseAWSLLM):
         websocket: RealtimeClientWebSocket,
         open_bidirectional_stream: Callable[[], Awaitable[BedrockBidirectionalStream]],
         model: str,
-        logging_obj: LiteLLMLogging,
+        logging_obj: EmbRouterLogging,
         pending_session_update: str | None,
     ) -> None:
         transformation_config: Final = BedrockRealtimeConfig()
@@ -417,7 +417,7 @@ class BedrockRealtime(BaseAWSLLM):
         transformation_config: BedrockRealtimeConfig,
         model: str,
         session_state: RealtimeResponseTransformInput,
-        logging_obj: LiteLLMLogging,
+        logging_obj: EmbRouterLogging,
         initial_message: str | None,
     ) -> _BridgeOutcome:
         """Run both forwarding directions until the client leaves or either side fails."""
@@ -463,7 +463,7 @@ class BedrockRealtime(BaseAWSLLM):
         transformation_config: BedrockRealtimeConfig,
         model: str,
         session_state: RealtimeResponseTransformInput,
-        logging_obj: LiteLLMLogging | None = None,
+        logging_obj: EmbRouterLogging | None = None,
         initial_message: str | None = None,
     ) -> None:
         """Forward messages from client WebSocket to Bedrock stream.
@@ -516,7 +516,7 @@ class BedrockRealtime(BaseAWSLLM):
         client_ws: RealtimeClientWebSocket,
         transformation_config: BedrockRealtimeConfig,
         model: str,
-        logging_obj: LiteLLMLogging,
+        logging_obj: EmbRouterLogging,
         session_state: RealtimeResponseTransformInput,
     ) -> AsyncIterator[OpenAIRealtimeEvents]:
         """Forward messages from Bedrock to the client, yielding the ones to record for spend logging.

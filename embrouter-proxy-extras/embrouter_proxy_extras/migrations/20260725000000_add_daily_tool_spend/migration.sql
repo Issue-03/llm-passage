@@ -1,5 +1,5 @@
 -- CreateTable
-CREATE TABLE IF NOT EXISTS "LiteLLM_DailyToolSpend" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_DailyToolSpend" (
     "date" TEXT NOT NULL,
     "tool_name" TEXT NOT NULL,
     "spend" DOUBLE PRECISION NOT NULL DEFAULT 0.0,
@@ -8,5 +8,5 @@ CREATE TABLE IF NOT EXISTS "LiteLLM_DailyToolSpend" (
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
 
-    CONSTRAINT "LiteLLM_DailyToolSpend_pkey" PRIMARY KEY ("date","tool_name")
+    CONSTRAINT "EmbRouter_DailyToolSpend_pkey" PRIMARY KEY ("date","tool_name")
 );

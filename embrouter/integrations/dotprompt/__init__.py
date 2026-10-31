@@ -1,12 +1,12 @@
 from typing import TYPE_CHECKING, Final, Optional
 
 if TYPE_CHECKING:
-    from litellm.integrations.custom_prompt_management import CustomPromptManagement
-    from litellm.types.prompts.init_prompts import PromptLiteLLMParams, PromptSpec
+    from embrouter.integrations.custom_prompt_management import CustomPromptManagement
+    from embrouter.types.prompts.init_prompts import PromptEmbRouterParams, PromptSpec
 
     from .prompt_manager import PromptManager, PromptTemplate
 
-from litellm.types.prompts.init_prompts import SupportedPromptIntegrations
+from embrouter.types.prompts.init_prompts import SupportedPromptIntegrations
 
 from .dotprompt_manager import DotpromptManager
 
@@ -22,9 +22,9 @@ def set_global_prompt_directory(directory: str) -> None:
     Args:
         directory: Path to directory containing .prompt files
     """
-    import litellm
+    import embrouter
 
-    litellm.global_prompt_directory = directory
+    embrouter.global_prompt_directory = directory
 
 
 def _get_prompt_data_from_dotprompt_content(dotprompt_content: str) -> dict:
@@ -43,22 +43,22 @@ def _get_prompt_data_from_dotprompt_content(dotprompt_content: str) -> dict:
     return {"content": content.strip(), "metadata": metadata}
 
 
-def prompt_initializer(litellm_params: "PromptLiteLLMParams", prompt_spec: "PromptSpec") -> "CustomPromptManagement":
+def prompt_initializer(embrouter_params: "PromptEmbRouterParams", prompt_spec: "PromptSpec") -> "CustomPromptManagement":
     """
     Initialize a prompt from a .prompt file.
     """
-    prompt_directory: Final = getattr(litellm_params, "prompt_directory", None)
-    prompt_data = getattr(litellm_params, "prompt_data", None)
-    prompt_id: Final = getattr(litellm_params, "prompt_id", None)
+    prompt_directory: Final = getattr(embrouter_params, "prompt_directory", None)
+    prompt_data = getattr(embrouter_params, "prompt_data", None)
+    prompt_id: Final = getattr(embrouter_params, "prompt_id", None)
     if prompt_directory:
         raise ValueError(
             "Cannot set prompt_directory when working with prompt_initializer. Needs to be a specific dotprompt file"
         )
 
-    prompt_file: Final = getattr(litellm_params, "prompt_file", None)
+    prompt_file: Final = getattr(embrouter_params, "prompt_file", None)
 
     # Handle dotprompt_content from database
-    dotprompt_content: Final = getattr(litellm_params, "dotprompt_content", None)
+    dotprompt_content: Final = getattr(embrouter_params, "dotprompt_content", None)
     if dotprompt_content and not prompt_data and not prompt_file:
         prompt_data = _get_prompt_data_from_dotprompt_content(dotprompt_content)
 

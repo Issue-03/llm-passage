@@ -14,12 +14,12 @@ import json
 from types import SimpleNamespace
 from typing import AsyncIterator
 
-from litellm.llms.anthropic.pass_through.adapters.streaming_iterator import (
+from embrouter.llms.anthropic.pass_through.adapters.streaming_iterator import (
     AnthropicStreamWrapper,
     _CombinedChunkSplitter,
 )
-from litellm.llms.base_llm.base_model_iterator import MockResponseIterator
-from litellm.types.utils import (
+from embrouter.llms.base_llm.base_model_iterator import MockResponseIterator
+from embrouter.types.utils import (
     Choices,
     Delta,
     Message,

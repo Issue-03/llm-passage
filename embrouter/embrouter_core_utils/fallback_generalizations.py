@@ -6,36 +6,36 @@ holds an ordered list of rules. Each rule pairs a single case-insensitive regex
 with a ``model_info`` dict, and the structure of ``model_info`` decides which of
 two kinds the rule is.
 
-A ROUTING rule carries exactly one ``model_info`` key, ``litellm_provider``. It is
+A ROUTING rule carries exactly one ``model_info`` key, ``embrouter_provider``. It is
 consumed only by ``get_llm_provider`` bare-id inference: the first routing rule
 whose regex matches decides the provider. Routing rules never contribute to model
 info.
 
-A CAPABILITY rule carries any ``model_info`` keys except ``litellm_provider``
+A CAPABILITY rule carries any ``model_info`` keys except ``embrouter_provider``
 (``mode``, ``supports_*``, context window, pricing, ...). It is consumed by
 ``get_model_info`` fallback resolution: the ``model_info`` of ALL capability rules
 whose regex matches is unioned in file order, with later rules overriding earlier
-ones on key conflicts, and the caller backfills ``litellm_provider`` with the
+ones on key conflicts, and the caller backfills ``embrouter_provider`` with the
 provider it requested. If no capability rule matches, model-info resolution misses
 as if no rules existed.
 
 LEGACY-SCHEMA SHIM (temporary, until the new-schema JSON reaches main): released
 proxies fetch this JSON remotely from main, whose block still ships the old schema
-where a rule mixes ``litellm_provider`` with capability keys and may inherit a
+where a rule mixes ``embrouter_provider`` with capability keys and may inherit a
 parent's ``model_info`` via ``extends``. Such a legacy rule is tolerated rather
 than skipped: ``extends`` is resolved once at install time (single level, against
 raw parents), and the resolved rule acts as BOTH kinds, a routing rule (its
-``litellm_provider`` participates in first-hit inference) and a capability rule
+``embrouter_provider`` participates in first-hit inference) and a capability rule
 (its full ``model_info``, provider included, participates in the union). New-schema
 rules never mix the two and never use ``extends``. A rule whose
-``litellm_provider`` is not a string is invalid and is warned about and skipped
+``embrouter_provider`` is not a string is invalid and is warned about and skipped
 (a warning rather than a crash, for the same remote-fetch reason).
 
 Rules are only consulted after exact and case-insensitive lookups miss, so an
 exact cost-map entry always takes precedence over any rule.
 
 Rules flagged with ``fill_missing_for_providers: [..]`` also fill only keys
-missing from an exact cost-map entry when the entry's ``litellm_provider`` is
+missing from an exact cost-map entry when the entry's ``embrouter_provider`` is
 listed, while values already present on the entry win on conflict. Only flagged
 capability rules participate in this fill; routing rules never do.
 
@@ -57,11 +57,11 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Final
 
-verbose_logger: Final = logging.getLogger("LiteLLM")
+verbose_logger: Final = logging.getLogger("EmbRouter")
 NAME_FIELD: Final = "name"
 PATTERN_FIELD: Final = "pattern"
 MODEL_INFO_FIELD: Final = "model_info"
-PROVIDER_KEY: Final = "litellm_provider"
+PROVIDER_KEY: Final = "embrouter_provider"
 LEGACY_EXTENDS_FIELD: Final = "extends"
 FILL_MISSING_FOR_PROVIDERS_FIELD: Final = "fill_missing_for_providers"
 
@@ -119,7 +119,7 @@ def _parse_fill_missing_for_providers(rule: Mapping[str, object], pattern_label:
         isinstance(provider, str) for provider in raw_fill_missing_for_providers
     ):
         verbose_logger.warning(
-            "LiteLLM: skipping malformed fallback generalization rule %s ('%s' must be a list of provider strings).",
+            "EmbRouter: skipping malformed fallback generalization rule %s ('%s' must be a list of provider strings).",
             rule.get(NAME_FIELD, pattern_label),
             FILL_MISSING_FOR_PROVIDERS_FIELD,
         )
@@ -134,7 +134,7 @@ def _compile_rule(rule: object) -> tuple[_CompiledRule, ...]:
     model_info: Final = rule.get(MODEL_INFO_FIELD)
     if not isinstance(pattern, str) or not isinstance(model_info, dict):
         verbose_logger.warning(
-            "LiteLLM: skipping malformed fallback generalization rule %s (needs string '%s' and dict '%s').",
+            "EmbRouter: skipping malformed fallback generalization rule %s (needs string '%s' and dict '%s').",
             rule.get(NAME_FIELD, pattern),
             PATTERN_FIELD,
             MODEL_INFO_FIELD,
@@ -144,7 +144,7 @@ def _compile_rule(rule: object) -> tuple[_CompiledRule, ...]:
         compiled: Final = re.compile(pattern, re.IGNORECASE)
     except re.error as e:
         verbose_logger.warning(
-            "LiteLLM: skipping fallback generalization rule with invalid regex %r: %s",
+            "EmbRouter: skipping fallback generalization rule with invalid regex %r: %s",
             pattern,
             e,
         )
@@ -163,7 +163,7 @@ def _compile_rule(rule: object) -> tuple[_CompiledRule, ...]:
     provider: Final = model_info[PROVIDER_KEY]
     if not isinstance(provider, str):
         verbose_logger.warning(
-            "LiteLLM: skipping invalid fallback generalization rule %s: '%s' in '%s' must be a string.",
+            "EmbRouter: skipping invalid fallback generalization rule %s: '%s' in '%s' must be a string.",
             rule.get(NAME_FIELD, pattern),
             PROVIDER_KEY,
             MODEL_INFO_FIELD,
@@ -237,7 +237,7 @@ def set_fallback_generalizations(rules: list | None) -> None:
     """Install the active rule list, compiling and classifying each rule.
 
     Legacy ``extends`` inheritance is resolved here, once, before classification;
-    a legacy rule mixing ``litellm_provider`` with capability keys installs as both
+    a legacy rule mixing ``embrouter_provider`` with capability keys installs as both
     kinds. Malformed and invalid-regex rules are warned about and skipped. Called
     once when the model cost map is loaded (and again on any reload).
     """

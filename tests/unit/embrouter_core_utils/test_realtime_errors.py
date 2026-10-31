@@ -3,7 +3,7 @@ from typing import cast
 
 import pytest
 
-from litellm.litellm_core_utils.realtime_errors import (
+from embrouter.embrouter_core_utils.realtime_errors import (
     WEBSOCKET_CLOSE_REASON_MAX_BYTES,
     client_close_code,
     close_after_upstream_handshake_refusal,
@@ -11,7 +11,7 @@ from litellm.litellm_core_utils.realtime_errors import (
     upstream_handshake_close_code,
     websocket_close_reason,
 )
-from litellm.types.realtime import RealtimeErrorEvent
+from embrouter.types.realtime import RealtimeErrorEvent
 
 
 def test_realtime_error_event_shape():

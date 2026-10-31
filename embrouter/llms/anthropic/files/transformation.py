@@ -19,21 +19,21 @@ from typing import Final, cast
 import httpx
 from openai.types.file_deleted import FileDeleted
 
-from litellm.litellm_core_utils.prompt_templates.common_utils import extract_file_data
-from litellm.litellm_core_utils.url_utils import encode_url_path_segment
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.base_llm.files.transformation import (
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import extract_file_data
+from embrouter.embrouter_core_utils.url_utils import encode_url_path_segment
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.base_llm.files.transformation import (
     BaseFilesConfig,
-    LiteLLMLoggingObj,
+    EmbRouterLoggingObj,
 )
-from litellm.types.llms.openai import (
+from embrouter.types.llms.openai import (
     CreateFileRequest,
     FileContentRequest,
     HttpxBinaryResponseContent,
     OpenAICreateFileRequestOptionalParams,
     OpenAIFileObject,
 )
-from litellm.types.utils import LlmProviders
+from embrouter.types.utils import LlmProviders
 
 from ..common_utils import AnthropicError, AnthropicModelInfo
 
@@ -66,7 +66,7 @@ class AnthropicFilesConfig(BaseFilesConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         api_base = AnthropicModelInfo.get_api_base(api_base) or ANTHROPIC_FILES_API_BASE
@@ -90,12 +90,12 @@ class AnthropicFilesConfig(BaseFilesConfig):
         model: str,
         messages: list,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
-        if api_base is None and isinstance(litellm_params, dict):
-            api_base = litellm_params.get("api_base")
+        if api_base is None and isinstance(embrouter_params, dict):
+            api_base = embrouter_params.get("api_base")
         auth_header: Final = AnthropicModelInfo.get_auth_header(api_key, api_base)
         if auth_header is None:
             raise ValueError(
@@ -127,7 +127,7 @@ class AnthropicFilesConfig(BaseFilesConfig):
         model: str,
         create_file_data: CreateFileRequest,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> dict:
         """
         Transform to multipart form data for Anthropic file upload.
@@ -156,8 +156,8 @@ class AnthropicFilesConfig(BaseFilesConfig):
         self,
         model: str | None,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
-        litellm_params: dict,
+        logging_obj: EmbRouterLoggingObj,
+        embrouter_params: dict,
     ) -> OpenAIFileObject:
         """
         Transform Anthropic file response to OpenAI format.
@@ -179,17 +179,17 @@ class AnthropicFilesConfig(BaseFilesConfig):
         self,
         file_id: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> tuple[str, dict]:
-        api_base: Final = AnthropicModelInfo.get_api_base(litellm_params.get("api_base")) or ANTHROPIC_FILES_API_BASE
+        api_base: Final = AnthropicModelInfo.get_api_base(embrouter_params.get("api_base")) or ANTHROPIC_FILES_API_BASE
         encoded_file_id: Final = encode_url_path_segment(file_id, field_name="file_id")
         return f"{api_base.rstrip('/')}/v1/files/{encoded_file_id}", {}
 
     def transform_retrieve_file_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
-        litellm_params: dict,
+        logging_obj: EmbRouterLoggingObj,
+        embrouter_params: dict,
     ) -> OpenAIFileObject:
         response_json: Final = raw_response.json()
         return self._parse_anthropic_file(response_json)
@@ -198,17 +198,17 @@ class AnthropicFilesConfig(BaseFilesConfig):
         self,
         file_id: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> tuple[str, dict]:
-        api_base: Final = AnthropicModelInfo.get_api_base(litellm_params.get("api_base")) or ANTHROPIC_FILES_API_BASE
+        api_base: Final = AnthropicModelInfo.get_api_base(embrouter_params.get("api_base")) or ANTHROPIC_FILES_API_BASE
         encoded_file_id: Final = encode_url_path_segment(file_id, field_name="file_id")
         return f"{api_base.rstrip('/')}/v1/files/{encoded_file_id}", {}
 
     def transform_delete_file_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
-        litellm_params: dict,
+        logging_obj: EmbRouterLoggingObj,
+        embrouter_params: dict,
     ) -> FileDeleted:
         response_json: Final = raw_response.json()
         file_id: Final = response_json.get("id", "")
@@ -222,9 +222,9 @@ class AnthropicFilesConfig(BaseFilesConfig):
         self,
         purpose: str | None,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> tuple[str, dict]:
-        api_base: Final = AnthropicModelInfo.get_api_base(litellm_params.get("api_base")) or ANTHROPIC_FILES_API_BASE
+        api_base: Final = AnthropicModelInfo.get_api_base(embrouter_params.get("api_base")) or ANTHROPIC_FILES_API_BASE
         url: Final = f"{api_base.rstrip('/')}/v1/files"
         params: Final[dict[str, str]] = {}
         if purpose:
@@ -234,8 +234,8 @@ class AnthropicFilesConfig(BaseFilesConfig):
     def transform_list_files_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
-        litellm_params: dict,
+        logging_obj: EmbRouterLoggingObj,
+        embrouter_params: dict,
     ) -> list[OpenAIFileObject]:
         """
         Anthropic list response:
@@ -254,10 +254,10 @@ class AnthropicFilesConfig(BaseFilesConfig):
         self,
         file_content_request: FileContentRequest,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> tuple[str, dict]:
         file_id: Final = file_content_request.get("file_id")
-        api_base: Final = AnthropicModelInfo.get_api_base(litellm_params.get("api_base")) or ANTHROPIC_FILES_API_BASE
+        api_base: Final = AnthropicModelInfo.get_api_base(embrouter_params.get("api_base")) or ANTHROPIC_FILES_API_BASE
         encoded_file_id: Final = encode_url_path_segment(file_id, field_name="file_id")
         if file_id.startswith(ANTHROPIC_MESSAGE_BATCH_ID_PREFIX):
             return f"{api_base.rstrip('/')}/v1/messages/batches/{encoded_file_id}/results", {}
@@ -266,8 +266,8 @@ class AnthropicFilesConfig(BaseFilesConfig):
     def transform_file_content_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
-        litellm_params: dict,
+        logging_obj: EmbRouterLoggingObj,
+        embrouter_params: dict,
     ) -> HttpxBinaryResponseContent:
         return HttpxBinaryResponseContent(response=raw_response)
 

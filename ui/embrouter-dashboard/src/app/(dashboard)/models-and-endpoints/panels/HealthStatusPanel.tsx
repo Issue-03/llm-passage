@@ -24,7 +24,7 @@ export default function HealthStatusPanel() {
   const getProviderFromModel = useCallback(
     (model: string) => {
       if (modelCostMapData && typeof modelCostMapData === "object" && model in modelCostMapData) {
-        return modelCostMapData[model]["litellm_provider"];
+        return modelCostMapData[model]["embrouter_provider"];
       }
       return "openai";
     },

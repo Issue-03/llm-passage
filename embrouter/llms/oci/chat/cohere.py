@@ -14,11 +14,11 @@ from typing import Final
 import httpx
 from pydantic import JsonValue, TypeAdapter, ValidationError
 
-from litellm.llms.oci.chat.generic import (
+from embrouter.llms.oci.chat.generic import (
     _normalize_oci_finish_reason,
     _synthesize_oci_tool_call_id,
 )
-from litellm.llms.oci.common_utils import (
+from embrouter.llms.oci.common_utils import (
     OCI_JSON_TO_PYTHON_TYPES,
     OCIError,
     enrich_cohere_param_description,
@@ -26,7 +26,7 @@ from litellm.llms.oci.common_utils import (
     resolve_oci_schema_refs,
     sanitize_oci_schema,
 )
-from litellm.types.llms.oci import (
+from embrouter.types.llms.oci import (
     CohereChatResult,
     CohereMessage,
     CohereParameterDefinition,
@@ -36,8 +36,8 @@ from litellm.types.llms.oci import (
     CohereToolMessage,
     CohereToolResult,
 )
-from litellm.types.llms.openai import AllMessageValues, ChatCompletionAssistantToolCall
-from litellm.types.utils import (
+from embrouter.types.llms.openai import AllMessageValues, ChatCompletionAssistantToolCall
+from embrouter.types.utils import (
     Choices,
     Delta,
     ModelResponse,
@@ -222,7 +222,7 @@ def handle_cohere_response(
     model_response: ModelResponse,
     raw_response: httpx.Response,
 ) -> ModelResponse:
-    """Parse a non-streaming Cohere OCI response into a LiteLLM ModelResponse."""
+    """Parse a non-streaming Cohere OCI response into a EmbRouter ModelResponse."""
     try:
         cohere_response: Final = CohereChatResult.model_validate(json_response)
     except (TypeError, ValidationError) as e:
@@ -288,7 +288,7 @@ def handle_cohere_stream_chunk(
     prior_tool_calls_emitted: bool = False,
     prior_text_emitted: bool = False,
 ) -> ModelResponseStream:
-    """Parse a single Cohere SSE chunk into a LiteLLM ModelResponseStream.
+    """Parse a single Cohere SSE chunk into a EmbRouter ModelResponseStream.
 
     OCI Cohere streams the answer as single-token ``text`` deltas, then restates
     the whole assembled ``text`` on every chunk that carries ``toolCalls`` or

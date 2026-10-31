@@ -12,15 +12,15 @@ describe("APIReferenceView", () => {
   const codeBlockTestId = "api-reference-code-block";
 
   it("uses the API doc base url when provided", () => {
-    const apiDocUrl = "https://docs.litellm.test";
-    render(<APIReferenceView proxySettings={{ LITELLM_UI_API_DOC_BASE_URL: apiDocUrl }} />);
+    const apiDocUrl = "https://docs.embrouter.test";
+    render(<APIReferenceView proxySettings={{ EMBROUTER_UI_API_DOC_BASE_URL: apiDocUrl }} />);
 
     const codeBlocks = screen.getAllByTestId(codeBlockTestId);
     expect(codeBlocks[0]).toHaveTextContent(new RegExp(apiDocUrl));
   });
 
   it("falls back to the proxy base url when the docs url is missing", () => {
-    const proxyUrl = "https://proxy.litellm.test";
+    const proxyUrl = "https://proxy.embrouter.test";
     render(<APIReferenceView proxySettings={{ PROXY_BASE_URL: proxyUrl }} />);
 
     const codeBlocks = screen.getAllByTestId(codeBlockTestId);
@@ -28,13 +28,13 @@ describe("APIReferenceView", () => {
   });
 
   it("prefers the docs url when both urls are provided", () => {
-    const apiDocUrl = "https://docs-preferred.litellm.test";
-    const proxyUrl = "https://proxy-backup.litellm.test";
+    const apiDocUrl = "https://docs-preferred.embrouter.test";
+    const proxyUrl = "https://proxy-backup.embrouter.test";
 
     render(
       <APIReferenceView
         proxySettings={{
-          LITELLM_UI_API_DOC_BASE_URL: apiDocUrl,
+          EMBROUTER_UI_API_DOC_BASE_URL: apiDocUrl,
           PROXY_BASE_URL: proxyUrl,
         }}
       />,
@@ -47,7 +47,7 @@ describe("APIReferenceView", () => {
   });
 
   it("renders the page title and blurb without an external docs link", () => {
-    render(<APIReferenceView proxySettings={{ PROXY_BASE_URL: "https://proxy.litellm.test" }} />);
+    render(<APIReferenceView proxySettings={{ PROXY_BASE_URL: "https://proxy.embrouter.test" }} />);
 
     expect(screen.getByText("OpenAI Compatible Proxy: API Reference")).toBeInTheDocument();
     expect(screen.getByText(/EmbRouter is OpenAI Compatible/)).toBeInTheDocument();
@@ -56,7 +56,7 @@ describe("APIReferenceView", () => {
   });
 
   it("exposes the three SDK tabs with the first selected by default", () => {
-    render(<APIReferenceView proxySettings={{ PROXY_BASE_URL: "https://proxy.litellm.test" }} />);
+    render(<APIReferenceView proxySettings={{ PROXY_BASE_URL: "https://proxy.embrouter.test" }} />);
 
     expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
       "OpenAI Python SDK",
@@ -75,7 +75,7 @@ describe("APIReferenceView", () => {
     ["LlamaIndex", "from llama_index.llms import AzureOpenAI"],
     ["Langchain Py", "from langchain.chat_models import ChatOpenAI"],
   ])("selecting %s shows its snippet wired to the base url", async (tabName, marker) => {
-    const proxyUrl = "https://proxy.litellm.test";
+    const proxyUrl = "https://proxy.embrouter.test";
     const user = userEvent.setup();
     render(<APIReferenceView proxySettings={{ PROXY_BASE_URL: proxyUrl }} />);
 

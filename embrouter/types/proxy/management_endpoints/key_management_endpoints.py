@@ -4,15 +4,15 @@ from typing import Any, Final, Literal, TypeAlias
 from pydantic import BaseModel, ConfigDict, model_validator
 from typing_extensions import ReadOnly, TypedDict
 
-from litellm.models.verification_token import LiteLLM_VerificationToken
-from litellm.proxy._types import (
+from embrouter.models.verification_token import EmbRouter_VerificationToken
+from embrouter.proxy._types import (
     GenerateKeyRequest,
-    LiteLLM_ObjectPermissionBase,
+    EmbRouter_ObjectPermissionBase,
     RegenerateKeyRequest,
     UpdateKeyRequest,
 )
-from litellm.types.llms.base import LiteLLMPydanticObjectBase
-from litellm.types.proxy.management_endpoints.internal_user_endpoints import InsensitiveContains
+from embrouter.types.llms.base import EmbRouterPydanticObjectBase
+from embrouter.types.proxy.management_endpoints.internal_user_endpoints import InsensitiveContains
 
 
 class KeyTokenWhere(TypedDict):
@@ -37,7 +37,7 @@ class BulkUpdateKeyRequestItem(BaseModel):
     max_budget: float | None = None  # Max budget for key
     team_id: str | None = None  # Team ID associated with key
     tags: list[str] | None = None  # Tags for organizing keys
-    object_permission: LiteLLM_ObjectPermissionBase | None = None
+    object_permission: EmbRouter_ObjectPermissionBase | None = None
 
 
 class BulkUpdateKeyRequest(BaseModel):
@@ -137,7 +137,7 @@ class BulkUpdateTeamKeysRequest(BaseModel):
 CustomKeyPolicyOperation: TypeAlias = Literal["generate", "update", "regenerate"]
 
 
-class CustomKeyPolicyRequest(LiteLLMPydanticObjectBase):
+class CustomKeyPolicyRequest(EmbRouterPydanticObjectBase):
     """What `general_settings.custom_key_policy` receives.
 
     `effective_key` is the verification token row as it will be written: the existing row overlaid with the
@@ -150,6 +150,6 @@ class CustomKeyPolicyRequest(LiteLLMPydanticObjectBase):
     model_config = ConfigDict(protected_namespaces=(), frozen=True)
 
     operation: CustomKeyPolicyOperation
-    existing_key: LiteLLM_VerificationToken | None
-    effective_key: LiteLLM_VerificationToken
+    existing_key: EmbRouter_VerificationToken | None
+    effective_key: EmbRouter_VerificationToken
     request: GenerateKeyRequest | UpdateKeyRequest | RegenerateKeyRequest

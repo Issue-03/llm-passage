@@ -12,11 +12,11 @@ from typing import Final, Literal, Protocol
 from fastapi import HTTPException, Request
 from typing_extensions import assert_never
 
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy._experimental.mcp_server.gateway_dcr_flow import SubjectIdentity, SubjectTokenRefusal
-from litellm.proxy._types import JWTAuthBuilderResult, ProxyException
-from litellm.proxy.auth.handle_jwt import JWTAuthManager, JWTHandler
-from litellm.proxy.db.exception_handler import PrismaDBExceptionHandler
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy._experimental.mcp_server.gateway_dcr_flow import SubjectIdentity, SubjectTokenRefusal
+from embrouter.proxy._types import JWTAuthBuilderResult, ProxyException
+from embrouter.proxy.auth.handle_jwt import JWTAuthManager, JWTHandler
+from embrouter.proxy.db.exception_handler import PrismaDBExceptionHandler
 
 EXCHANGE_ROUTE: Final = "/token"
 REJECTED_SUBJECT_TOKEN: Final = "subject_token was rejected by the gateway's JWT auth"
@@ -74,7 +74,7 @@ class TokenExchangePrerequisites:
 
 
 def read_token_exchange_prerequisites() -> TokenExchangePrerequisites:
-    from litellm.proxy.proxy_server import (  # noqa: PLC0415  # rebound after startup, so read them per call
+    from embrouter.proxy.proxy_server import (  # noqa: PLC0415  # rebound after startup, so read them per call
         general_settings,
         jwt_handler,
         premium_user,
@@ -90,9 +90,9 @@ def read_token_exchange_prerequisites() -> TokenExchangePrerequisites:
 
 
 def _maps_jwts_to_virtual_keys(jwt_handler: JWTHandler) -> bool:
-    if not hasattr(jwt_handler, "litellm_jwtauth"):
+    if not hasattr(jwt_handler, "embrouter_jwtauth"):
         return False
-    return jwt_handler.litellm_jwtauth.is_virtual_key_mapping_configured()
+    return jwt_handler.embrouter_jwtauth.is_virtual_key_mapping_configured()
 
 
 def token_exchange_available() -> bool:
@@ -110,7 +110,7 @@ class AuthorizeSubjectToken(Protocol):
 
 
 async def exchange_idp_subject_token(subject_token: str, request: Request) -> SubjectIdentity | SubjectTokenRefusal:
-    from litellm.proxy.proxy_server import (  # noqa: PLC0415  # rebound after startup, so read them per call
+    from embrouter.proxy.proxy_server import (  # noqa: PLC0415  # rebound after startup, so read them per call
         general_settings,
         jwt_handler,
         prisma_client,

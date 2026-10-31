@@ -11,26 +11,26 @@ from typing import TYPE_CHECKING, Any, Final
 
 import httpx
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.litellm_core_utils.core_helpers import map_finish_reason
-from litellm.llms.base_llm.base_utils import type_to_response_format_param
-from litellm.llms.base_llm.chat.transformation import BaseConfig
-from litellm.llms.bedrock.chat.invoke_transformations.base_invoke_transformation import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.embrouter_core_utils.core_helpers import map_finish_reason
+from embrouter.llms.base_llm.base_utils import type_to_response_format_param
+from embrouter.llms.base_llm.chat.transformation import BaseConfig
+from embrouter.llms.bedrock.chat.invoke_transformations.base_invoke_transformation import (
     AmazonInvokeConfig,
 )
-from litellm.llms.bedrock.common_utils import BedrockError
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.utils import ModelResponse, Usage
-from litellm.utils import get_base64_str
+from embrouter.llms.bedrock.common_utils import BedrockError
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.utils import ModelResponse, Usage
+from embrouter.utils import get_base64_str
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 
 class AmazonTwelveLabsPegasusConfig(AmazonInvokeConfig, BaseConfig):
@@ -105,7 +105,7 @@ class AmazonTwelveLabsPegasusConfig(AmazonInvokeConfig, BaseConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         input_prompt: Final = self._convert_messages_to_prompt(messages=messages)
@@ -184,17 +184,17 @@ class AmazonTwelveLabsPegasusConfig(AmazonInvokeConfig, BaseConfig):
         model: str,
         raw_response: httpx.Response,
         model_response: ModelResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         request_data: dict,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,
     ) -> ModelResponse:
         """
-        Transform TwelveLabs Pegasus response to LiteLLM format.
+        Transform TwelveLabs Pegasus response to EmbRouter format.
 
         TwelveLabs response format:
         {
@@ -202,7 +202,7 @@ class AmazonTwelveLabsPegasusConfig(AmazonInvokeConfig, BaseConfig):
             "finishReason": "stop" | "length"
         }
 
-        LiteLLM format:
+        EmbRouter format:
         ModelResponse with choices[0].message.content and finish_reason
         """
         try:
@@ -222,7 +222,7 @@ class AmazonTwelveLabsPegasusConfig(AmazonInvokeConfig, BaseConfig):
         # Extract message content
         message_content: Final = completion_response.get("message", "")
 
-        # Extract finish reason and map to LiteLLM format
+        # Extract finish reason and map to EmbRouter format
         finish_reason_raw: Final = completion_response.get("finishReason", "stop")
         finish_reason: Final = map_finish_reason(finish_reason_raw)
 
@@ -248,11 +248,11 @@ class AmazonTwelveLabsPegasusConfig(AmazonInvokeConfig, BaseConfig):
         bedrock_input_tokens: Final = raw_response.headers.get("x-amzn-bedrock-input-token-count", None)
         bedrock_output_tokens: Final = raw_response.headers.get("x-amzn-bedrock-output-token-count", None)
 
-        prompt_tokens: Final = int(bedrock_input_tokens or litellm.token_counter(messages=messages))
+        prompt_tokens: Final = int(bedrock_input_tokens or embrouter.token_counter(messages=messages))
 
         completion_tokens: Final = int(
             bedrock_output_tokens
-            or litellm.token_counter(
+            or embrouter.token_counter(
                 text=model_response.choices[0].message.content,
                 count_response_tokens=True,
             )

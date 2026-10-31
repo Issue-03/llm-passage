@@ -11,15 +11,15 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Final
 
-from litellm.litellm_core_utils.llm_cost_calc.tiered_pricing import select_tier_for_input, tier_rate
-from litellm.litellm_core_utils.llm_cost_calc.utils import (
+from embrouter.embrouter_core_utils.llm_cost_calc.tiered_pricing import select_tier_for_input, tier_rate
+from embrouter.embrouter_core_utils.llm_cost_calc.utils import (
     TokenRates,
     apply_off_peak_pricing,
     parse_completion_tokens_details,
     parse_prompt_tokens_details,
 )
-from litellm.types.utils import ModelInfo, Usage
-from litellm.utils import get_model_info
+from embrouter.types.utils import ModelInfo, Usage
+from embrouter.utils import get_model_info
 
 
 @dataclass(frozen=True, slots=True)
@@ -119,7 +119,7 @@ def cost_per_token(
 
     Args:
         model: Model name without provider prefix
-        usage: LiteLLM Usage block
+        usage: EmbRouter Usage block
         custom_llm_provider: The provider id the request resolved to; dashscope or one of its brand aliases
         current_time: The moment the request is billed at; defaults to now, UTC
 

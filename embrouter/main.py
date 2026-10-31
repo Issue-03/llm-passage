@@ -1,4 +1,4 @@
-# LiteLLM main module: public completion, embedding, streaming, and moderation entrypoints.
+# EmbRouter main module: public completion, embedding, streaming, and moderation entrypoints.
 #
 # +-----------------------------------------------+
 # |                                               |
@@ -28,8 +28,8 @@ from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Final, Literal, Optional, Protocol, Union, cast, get_args
 from urllib.parse import urlsplit
 
-from litellm._logging import _redact_string
-from litellm._uuid import uuid
+from embrouter._logging import _redact_string
+from embrouter._uuid import uuid
 
 if TYPE_CHECKING:
     from aiohttp import ClientSession
@@ -40,47 +40,47 @@ import openai
 from pydantic import BaseModel
 from typing_extensions import assert_never, overload
 
-import litellm
+import embrouter
 
-# client must be imported from litellm as it's a decorator used at function definition time
-from litellm import client
+# client must be imported from embrouter as it's a decorator used at function definition time
+from embrouter import client
 
 # Other utils are imported directly to avoid circular imports
-from litellm.utils import (
+from embrouter.utils import (
     exception_type,
-    filter_out_litellm_params,
-    get_litellm_params,
+    filter_out_embrouter_params,
+    get_embrouter_params,
     get_optional_params,
     peek_reasoning_summary_aliases,
     strip_reasoning_summary_aliases_from_optional_params,
 )
 
-# Logging is imported lazily when needed to avoid loading litellm_logging at import time
+# Logging is imported lazily when needed to avoid loading embrouter_logging at import time
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging
-    from litellm.router import Router
-    from litellm.types.utils import TokenCountResponse
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging
+    from embrouter.router import Router
+    from embrouter.types.utils import TokenCountResponse
 
-from litellm.constants import (
+from embrouter.constants import (
     AZURE_OPENAI_AUDIO_PROVIDERS,
     DEFAULT_MOCK_RESPONSE_COMPLETION_TOKEN_COUNT,
     DEFAULT_MOCK_RESPONSE_PROMPT_TOKEN_COUNT,
     NADIR_DEFAULT_API_BASE,
     OPENAI_AUDIO_TRANSCRIPTION_PROVIDERS,
 )
-from litellm.exceptions import LiteLLMUnknownProvider
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.asyncify import asyncify, run_async_function
-from litellm.litellm_core_utils.audio_utils.utils import (
+from embrouter.exceptions import EmbRouterUnknownProvider
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.embrouter_core_utils.asyncify import asyncify, run_async_function
+from embrouter.embrouter_core_utils.audio_utils.utils import (
     calculate_request_duration,
     get_audio_file_for_health_check,
 )
-from litellm.litellm_core_utils.chat_completion_agentic_loop import (
+from embrouter.embrouter_core_utils.chat_completion_agentic_loop import (
     maybe_run_chat_completion_agentic_loop,
 )
-from litellm.litellm_core_utils.completion_timeout import CompletionTimeout
-from litellm.litellm_core_utils.dd_tracing import tracer
-from litellm.litellm_core_utils.get_litellm_params import (
+from embrouter.embrouter_core_utils.completion_timeout import CompletionTimeout
+from embrouter.embrouter_core_utils.dd_tracing import tracer
+from embrouter.embrouter_core_utils.get_embrouter_params import (
     AWS_CREDENTIAL_KWARGS_KEYS,
     OPTIONAL_KWARGS_KEYS,
     PROVIDER_AFFINITY_HEADER_KWARG_KEY,
@@ -88,58 +88,58 @@ from litellm.litellm_core_utils.get_litellm_params import (
     parse_control_options,
     with_control_options,
 )
-from litellm.litellm_core_utils.get_provider_specific_headers import (
+from embrouter.embrouter_core_utils.get_provider_specific_headers import (
     ProviderSpecificHeaderUtils,
 )
-from litellm.litellm_core_utils.health_check_utils import (
+from embrouter.embrouter_core_utils.health_check_utils import (
     _create_health_check_response,
     _filter_model_params,
 )
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.litellm_core_utils.mock_functions import (
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.embrouter_core_utils.mock_functions import (
     mock_embedding,
     mock_image_generation,
 )
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
     get_content_from_model_response,
 )
-from litellm.litellm_core_utils.provider_affinity import add_provider_affinity_header
-from litellm.litellm_core_utils.request_timeout_resolver import (
+from embrouter.embrouter_core_utils.provider_affinity import add_provider_affinity_header
+from embrouter.embrouter_core_utils.request_timeout_resolver import (
     get_configured_request_timeout,
 )
-from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
-from litellm.llms.azure_ai.common_utils import (
+from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
+from embrouter.llms.azure_ai.common_utils import (
     azure_ai_supports_native_responses,
     foundry_chat_rejects_function_tools_while_reasoning,
 )
-from litellm.llms.base_llm import BaseConfig, BaseImageGenerationConfig
-from litellm.llms.base_llm.base_model_iterator import (
+from embrouter.llms.base_llm import BaseConfig, BaseImageGenerationConfig
+from embrouter.llms.base_llm.base_model_iterator import (
     convert_model_response_to_streaming,
 )
-from litellm.llms.bedrock.common_utils import BedrockModelInfo
-from litellm.llms.cohere.common_utils import CohereModelInfo
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler, http2_enabled
-from litellm.llms.openai.chat.gpt_5_transformation import OpenAIGPT5Config
-from litellm.llms.openai_like.json_loader import JSONProviderRegistry
-from litellm.llms.vertex_ai.common_utils import (
+from embrouter.llms.bedrock.common_utils import BedrockModelInfo
+from embrouter.llms.cohere.common_utils import CohereModelInfo
+from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler, http2_enabled
+from embrouter.llms.openai.chat.gpt_5_transformation import OpenAIGPT5Config
+from embrouter.llms.openai_like.json_loader import JSONProviderRegistry
+from embrouter.llms.vertex_ai.common_utils import (
     VertexAIModelRoute,
     get_vertex_ai_model_route,
 )
-from litellm.realtime_api.main import _realtime_health_check
-from litellm.secret_managers.main import get_secret_bool, get_secret_str
-from litellm.types.completion import (
+from embrouter.realtime_api.main import _realtime_health_check
+from embrouter.secret_managers.main import get_secret_bool, get_secret_str
+from embrouter.types.completion import (
     _CompletionDispatchContext,
     _CompletionDispatchResult,
 )
-from litellm.types.litellm_params import ControlOptions, RetryStrategy
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import (
-    CustomPricingLiteLLMParams,
+from embrouter.types.embrouter_params import ControlOptions, RetryStrategy
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import (
+    CustomPricingEmbRouterParams,
     ModelResponseStream,
     RawRequestTypedDict,
     StreamingChoices,
 )
-from litellm.utils import (
+from embrouter.utils import (
     Choices,
     CustomStreamWrapper,
     EmbeddingResponse,
@@ -182,17 +182,17 @@ from litellm.utils import (
 
 from ._logging import verbose_logger
 from .caching.caching import disable_cache, enable_cache, update_cache
-from .litellm_core_utils.core_helpers import normalize_drop_params, safe_deep_copy
-from .litellm_core_utils.fallback_utils import (
+from .embrouter_core_utils.core_helpers import normalize_drop_params, safe_deep_copy
+from .embrouter_core_utils.fallback_utils import (
     async_completion_with_fallbacks,
     completion_with_fallbacks,
 )
-from .litellm_core_utils.prompt_templates.common_utils import (
+from .embrouter_core_utils.prompt_templates.common_utils import (
     add_system_prompt_to_messages,
     get_completion_messages,
     update_messages_with_model_file_ids,
 )
-from .litellm_core_utils.prompt_templates.factory import (
+from .embrouter_core_utils.prompt_templates.factory import (
     custom_prompt,
     function_call_prompt,
     map_system_message_pt,
@@ -200,7 +200,7 @@ from .litellm_core_utils.prompt_templates.factory import (
     prompt_factory,
     stringify_json_tool_call_content,
 )
-from .litellm_core_utils.streaming_chunk_builder_utils import ChunkProcessor
+from .embrouter_core_utils.streaming_chunk_builder_utils import ChunkProcessor
 from .llms.anthropic.chat import AnthropicChatCompletion
 from .llms.azure.audio_transcriptions import AzureAudioTranscription
 from .llms.azure.azure import AzureChatCompletion, _check_dynamic_azure_params
@@ -346,9 +346,9 @@ def _resolve_control_options(kwargs: Mapping[str, object], model: str) -> Contro
         case ControlOptions():
             return control
         case InvalidControlOption(param=param, message=message):
-            if litellm.drop_params is True or normalize_drop_params(kwargs.get("drop_params")) is True:
+            if embrouter.drop_params is True or normalize_drop_params(kwargs.get("drop_params")) is True:
                 return ControlOptions()
-            raise litellm.BadRequestError(message=message, model=model, llm_provider=None, body={"param": param})
+            raise embrouter.BadRequestError(message=message, model=model, llm_provider=None, body={"param": param})
         case _:
             return assert_never(control)
 
@@ -356,7 +356,7 @@ def _resolve_control_options(kwargs: Mapping[str, object], model: str) -> Contro
 ####### COMPLETION ENDPOINTS ################
 
 
-class LiteLLM:
+class EmbRouter:
     def __init__(
         self,
         *,
@@ -364,7 +364,7 @@ class LiteLLM:
         organization: str | None = None,
         base_url: str | None = None,
         timeout: float | None = 600,
-        max_retries: int | None = litellm.num_retries,
+        max_retries: int | None = embrouter.num_retries,
         default_headers: Mapping[str, str] | None = None,
     ):
         self.params = locals()
@@ -458,18 +458,18 @@ async def acompletion(
     api_key: str | None = None,
     model_list: list | None = None,  # pass in a list of api_base,keys, etc.
     extra_headers: dict | None = None,
-    # Optional liteLLM function params
+    # Optional embRouter function params
     thinking: AnthropicThinkingParam | None = None,
     web_search_options: OpenAIWebSearchOptions | None = None,
     include_server_side_tool_invocations: bool | None = None,
     # Session management
     shared_session: Optional["ClientSession"] = None,
-    # Per-request JSON schema validation (overrides litellm.enable_json_schema_validation)
+    # Per-request JSON schema validation (overrides embrouter.enable_json_schema_validation)
     enable_json_schema_validation: bool | None = None,
     **kwargs,
 ) -> ModelResponse | CustomStreamWrapper:
     """
-    Asynchronously executes a litellm.completion() call for any of litellm supported llms (example gpt-4, gpt-3.5-turbo, claude-2, command-nightly)
+    Asynchronously executes a embrouter.completion() call for any of embrouter supported llms (example gpt-4, gpt-3.5-turbo, claude-2, command-nightly)
 
     Parameters:
         model (str): The name of the language model to use for text completion.
@@ -500,7 +500,7 @@ async def acompletion(
         model_list (list, optional): List of api base, version, keys
         timeout (float, optional): The maximum execution time in seconds for the completion request.
 
-        LITELLM Specific Params
+        EMBROUTER Specific Params
         mock_response (str, optional): If provided, return a mock completion response for testing or debugging purposes (default is None).
         custom_llm_provider (str, optional): Used for Non-OpenAI LLMs, Example usage for bedrock, set model="amazon.titan-tg1-large" and custom_llm_provider="bedrock"
     Returns:
@@ -524,12 +524,12 @@ async def acompletion(
     ## PROMPT MANAGEMENT HOOKS ##
     #########################################################
     #########################################################
-    litellm_logging_obj: Final = kwargs.get("litellm_logging_obj", None)
+    embrouter_logging_obj: Final = kwargs.get("embrouter_logging_obj", None)
 
-    from litellm.integrations.anthropic_cache_control_hook import (
+    from embrouter.integrations.anthropic_cache_control_hook import (
         AnthropicCacheControlHook,
     )
-    from litellm.types.llms.openai import AllMessageValues
+    from embrouter.types.llms.openai import AllMessageValues
 
     AnthropicCacheControlHook.maybe_seed_default_injection_points(
         non_default_params=kwargs,
@@ -541,8 +541,8 @@ async def acompletion(
         api_base=kwargs.get("api_base") or base_url,
     )
 
-    if isinstance(litellm_logging_obj, LiteLLMLoggingObj) and (
-        litellm_logging_obj.should_run_prompt_management_hooks(
+    if isinstance(embrouter_logging_obj, EmbRouterLoggingObj) and (
+        embrouter_logging_obj.should_run_prompt_management_hooks(
             prompt_id=kwargs.get("prompt_id", None),
             non_default_params=kwargs,
             tools=tools,
@@ -552,7 +552,7 @@ async def acompletion(
             model,
             messages,
             _,
-        ) = await litellm_logging_obj.async_get_chat_completion_prompt(
+        ) = await embrouter_logging_obj.async_get_chat_completion_prompt(
             model=model,
             messages=messages,
             non_default_params=kwargs,
@@ -636,12 +636,12 @@ async def acompletion(
             api_base=kwargs.get("api_base") or base_url,
         )
 
-    fallbacks = fallbacks or litellm.model_fallbacks
+    fallbacks = fallbacks or embrouter.model_fallbacks
     if fallbacks is not None:
         response = await async_completion_with_fallbacks(**completion_kwargs, kwargs={"fallbacks": fallbacks, **kwargs})
         if response is None:
             raise Exception(
-                "No response from fallbacks. Got none. Turn on `litellm.set_verbose=True` to see more details."
+                "No response from fallbacks. Got none. Turn on `embrouter.set_verbose=True` to see more details."
             )
         return response
 
@@ -682,9 +682,9 @@ async def acompletion(
             or custom_llm_provider == "text-completion-codestral"
             or custom_llm_provider == "text-completion-inception"
         ) and isinstance(response, TextCompletionResponse):
-            response = litellm.OpenAITextCompletionConfig().convert_to_chat_model_response_object(
+            response = embrouter.OpenAITextCompletionConfig().convert_to_chat_model_response_object(
                 response_object=response,
-                model_response_object=litellm.ModelResponse(),
+                model_response_object=embrouter.ModelResponse(),
             )
         # Provider-agnostic dispatch point for the chat-completions agentic loop
         # (code-interpreter interception, etc). Chat routing forks per provider
@@ -694,7 +694,7 @@ async def acompletion(
         # reconverges, so the loop runs once for all providers. Responses needs
         # no equivalent: every provider already funnels through one shared
         # handler where the loop is dispatched.
-        if isinstance(response, litellm.ModelResponse):
+        if isinstance(response, embrouter.ModelResponse):
             looped: Final = await maybe_run_chat_completion_agentic_loop(
                 response=response,
                 model=model,
@@ -713,7 +713,7 @@ async def acompletion(
                     )
                 },
                 kwargs=kwargs,
-                logging_obj=kwargs.get("litellm_logging_obj"),
+                logging_obj=kwargs.get("embrouter_logging_obj"),
                 custom_llm_provider=custom_llm_provider,
                 stream=bool(stream),
             )
@@ -774,33 +774,33 @@ def _handle_mock_potential_exceptions(
     if isinstance(mock_response, Exception):
         if isinstance(mock_response, openai.APIError):
             raise mock_response
-        raise litellm.MockException(
+        raise embrouter.MockException(
             status_code=getattr(mock_response, "status_code", 500),
             message=getattr(mock_response, "text", str(mock_response)),
             llm_provider=getattr(mock_response, "llm_provider", custom_llm_provider or "openai"),
             model=model,
             request=httpx.Request(method="POST", url="https://api.openai.com/v1/"),
         )
-    elif isinstance(mock_response, str) and mock_response == "litellm.RateLimitError":
-        raise litellm.RateLimitError(
+    elif isinstance(mock_response, str) and mock_response == "embrouter.RateLimitError":
+        raise embrouter.RateLimitError(
             message="this is a mock rate limit error",
             llm_provider=getattr(mock_response, "llm_provider", custom_llm_provider or "openai"),
             model=model,
         )
-    elif isinstance(mock_response, str) and mock_response == "litellm.ContextWindowExceededError":
-        raise litellm.ContextWindowExceededError(
+    elif isinstance(mock_response, str) and mock_response == "embrouter.ContextWindowExceededError":
+        raise embrouter.ContextWindowExceededError(
             message="this is a mock context window exceeded error",
             llm_provider=getattr(mock_response, "llm_provider", custom_llm_provider or "openai"),
             model=model,
         )
-    elif isinstance(mock_response, str) and mock_response == "litellm.InternalServerError":
-        raise litellm.InternalServerError(
+    elif isinstance(mock_response, str) and mock_response == "embrouter.InternalServerError":
+        raise embrouter.InternalServerError(
             message="this is a mock internal server error",
             llm_provider=getattr(mock_response, "llm_provider", custom_llm_provider or "openai"),
             model=model,
         )
     elif isinstance(mock_response, str) and mock_response.startswith("Exception: content_filter_policy"):
-        raise litellm.MockException(
+        raise embrouter.MockException(
             status_code=400,
             message=mock_response,
             llm_provider="azure",
@@ -816,7 +816,7 @@ def _handle_mock_timeout(
 ):
     if mock_timeout is True and timeout is not None:
         _sleep_for_timeout(timeout)
-        raise litellm.Timeout(
+        raise embrouter.Timeout(
             message="This is a mock timeout error",
             llm_provider="openai",
             model=model,
@@ -830,7 +830,7 @@ async def _handle_mock_timeout_async(
 ):
     if mock_timeout is True and timeout is not None:
         await _sleep_for_timeout_async(timeout)
-        raise litellm.Timeout(
+        raise embrouter.Timeout(
             message="This is a mock timeout error",
             llm_provider="openai",
             model=model,
@@ -866,7 +866,7 @@ class _AdmissionMetadata(BaseModel):
 def admission_input_tokens(kwargs: Mapping[str, object]) -> int | None:
     reservations: Final = (
         _AdmissionMetadata.model_validate(kwargs.get(key) or {}).user_api_key_budget_reservation
-        for key in ("litellm_metadata", "metadata")
+        for key in ("embrouter_metadata", "metadata")
     )
     return next(
         (
@@ -913,7 +913,7 @@ def mock_completion(
         **kwargs: Additional keyword arguments that can be used but are not required.
 
     Returns:
-        litellm.ModelResponse: A ModelResponse simulating a completion response with the specified model, messages, and mock response.
+        embrouter.ModelResponse: A ModelResponse simulating a completion response with the specified model, messages, and mock response.
 
     Raises:
         Exception: If an error occurs during the generation of the mock completion response.
@@ -946,7 +946,7 @@ def mock_completion(
             str | dict | ModelResponse | ModelResponseStream, mock_response
         )  # after this point, mock_response is a string, dict, ModelResponse, or ModelResponseStream
         if isinstance(mock_response, str) and mock_response.startswith("Exception: mock_streaming_error"):
-            mock_response = litellm.MockException(
+            mock_response = embrouter.MockException(
                 message="This is a mock error raised mid-stream",
                 llm_provider="anthropic",
                 model=model,
@@ -990,7 +990,7 @@ def mock_completion(
                 logging_obj=logging,
                 count_prompt_tokens=count_prompt_tokens,
             )
-        if isinstance(mock_response, litellm.MockException):
+        if isinstance(mock_response, embrouter.MockException):
             raise mock_response
         # At this point, mock_response must be a string (all other types have been handled or returned early)
         mock_response = cast(str, mock_response)
@@ -1000,9 +1000,9 @@ def mock_completion(
         else:
             _all_choices: Final = []
             for i in range(n):
-                _choice = litellm.utils.Choices(
+                _choice = embrouter.utils.Choices(
                     index=i,
-                    message=litellm.utils.Message(content=mock_response, role="assistant"),
+                    message=embrouter.utils.Message(content=mock_response, role="assistant"),
                 )
                 _all_choices.append(_choice)
             model_response.choices = _all_choices
@@ -1031,7 +1031,7 @@ def mock_completion(
             model_response._hidden_params["custom_llm_provider"] = custom_llm_provider
         else:
             try:
-                _, inferred_provider, _, _ = litellm.utils.get_llm_provider(model=model)
+                _, inferred_provider, _, _ = embrouter.utils.get_llm_provider(model=model)
                 model_response._hidden_params["custom_llm_provider"] = inferred_provider
             except Exception:
                 # dont let setting a hidden param block a mock_respose
@@ -1064,11 +1064,11 @@ def _is_openai_backed_api_base(api_base: str) -> bool:
 def _resolve_openai_api_base(api_base: str | None) -> str:
     """Effective OpenAI base a chat request will hit: arg > global > env > default. The bridge gate
     and the ``_complete_custom_openai`` chat handler MUST resolve this identically, or a custom base
-    set via ``litellm.api_base`` or ``OPENAI_BASE_URL``/``OPENAI_API_BASE`` is invisible to the gate,
+    set via ``embrouter.api_base`` or ``OPENAI_BASE_URL``/``OPENAI_API_BASE`` is invisible to the gate,
     which then misreads it as the default OpenAI endpoint and bridges a request the backend can't serve."""
     return (
         api_base
-        or litellm.api_base
+        or embrouter.api_base
         or get_secret_str("OPENAI_BASE_URL")
         or get_secret_str("OPENAI_API_BASE")
         or _OPENAI_DEFAULT_API_BASE
@@ -1088,7 +1088,7 @@ def responses_api_bridge_check(
 
     # Global flag: route ALL OpenAI chat completions through Responses API.
     # Returns early with minimal model_info; callers only inspect the "mode" key.
-    if litellm.route_all_chat_openai_to_responses and custom_llm_provider == "openai":
+    if embrouter.route_all_chat_openai_to_responses and custom_llm_provider == "openai":
         model = model.replace("responses/", "")
         model_info["mode"] = "responses"
         return model_info, model
@@ -1154,7 +1154,7 @@ def responses_api_bridge_check(
     # The reasoning+tools constraint is enforced by the real OpenAI backend behind any api.openai.com
     # host (the default URL or a PrivateLink hostname such as <region>.privatelink.api.openai.com) and
     # by Azure OpenAI through the azure provider. Resolve the effective OpenAI base arg>global>env>default
-    # exactly as the chat handler does, so a custom base set via litellm.api_base or
+    # exactly as the chat handler does, so a custom base set via embrouter.api_base or
     # OPENAI_BASE_URL/OPENAI_API_BASE isn't misread as the default and bridged to a /responses route it
     # lacks. A whitespace-only base collapses to the default too.
     resolved_api_base: Final = _resolve_openai_api_base(api_base).strip()
@@ -1243,13 +1243,13 @@ def _build_custom_pricing_entry(
 ) -> dict:
     """Build a complete model cost entry from kwargs and model_info.
 
-    Collects all CustomPricingLiteLLMParams fields present in kwargs and
+    Collects all CustomPricingEmbRouterParams fields present in kwargs and
     merges metadata from model_info (mode, supports_prompt_caching, max_tokens)
     so that register_model() receives the full pricing configuration.
     """
-    entry: Final[dict] = {"litellm_provider": custom_llm_provider}
+    entry: Final[dict] = {"embrouter_provider": custom_llm_provider}
 
-    for field_name in CustomPricingLiteLLMParams.model_fields:
+    for field_name in CustomPricingEmbRouterParams.model_fields:
         value = kwargs.get(field_name)
         if value is not None:
             entry[field_name] = value
@@ -1263,7 +1263,7 @@ def _build_custom_pricing_entry(
 
 
 def _get_router_deployment_id(kwargs: dict) -> str | None:
-    for metadata_key in ("litellm_metadata", "metadata"):
+    for metadata_key in ("embrouter_metadata", "metadata"):
         metadata = kwargs.get(metadata_key) or {}
         if not isinstance(metadata, dict):
             continue
@@ -1282,7 +1282,7 @@ def _register_custom_pricing_for_request(
     kwargs: dict,
     model_info: dict | None,
 ) -> None:
-    """Register per-request custom pricing in litellm.model_cost.
+    """Register per-request custom pricing in embrouter.model_cost.
 
     Router-originated requests (identified by the deployment id the router puts
     in metadata) get their full pricing registered under that unique id only;
@@ -1300,12 +1300,12 @@ def _register_custom_pricing_for_request(
     shared_key: Final = f"{custom_llm_provider}/{model}"
     deployment_id: Final = _get_router_deployment_id(kwargs)
     if deployment_id is None:
-        litellm.register_model({shared_key: entry}, persist_across_reloads=False)
+        embrouter.register_model({shared_key: entry}, persist_across_reloads=False)
         return
-    litellm.register_model(
+    embrouter.register_model(
         {
             deployment_id: entry,
-            shared_key: CustomPricingLiteLLMParams.strip_custom_pricing_fields(entry),
+            shared_key: CustomPricingEmbRouterParams.strip_custom_pricing_fields(entry),
         },
         persist_across_reloads=False,
         warning_display_name=shared_key,
@@ -1340,7 +1340,7 @@ def _complete_azure(ctx: _CompletionDispatchContext) -> _CompletionDispatchResul
     custom_llm_provider: Final = ctx.custom_llm_provider
     extra_headers: Final = ctx.extra_headers
     headers = ctx.headers
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logger_fn: Final = ctx.logger_fn
     logging: Final = ctx.logging
     max_retries: Final = ctx.max_retries
@@ -1359,16 +1359,16 @@ def _complete_azure(ctx: _CompletionDispatchContext) -> _CompletionDispatchResul
 
     api_type: Final = get_secret("AZURE_API_TYPE") or "azure"
 
-    api_base = api_base or litellm.api_base or get_secret("AZURE_API_BASE")
+    api_base = api_base or embrouter.api_base or get_secret("AZURE_API_BASE")
 
     api_version = (
-        api_version or litellm.api_version or get_secret_str("AZURE_API_VERSION") or litellm.AZURE_DEFAULT_API_VERSION
+        api_version or embrouter.api_version or get_secret_str("AZURE_API_VERSION") or embrouter.AZURE_DEFAULT_API_VERSION
     )
 
     api_key = (
         api_key
-        or litellm.api_key
-        or litellm.azure_key
+        or embrouter.api_key
+        or embrouter.azure_key
         or get_secret_str("AZURE_OPENAI_API_KEY")
         or get_secret_str("AZURE_API_KEY")
     )
@@ -1377,19 +1377,19 @@ def _complete_azure(ctx: _CompletionDispatchContext) -> _CompletionDispatchResul
         "AZURE_AD_TOKEN"
     )
 
-    azure_ad_token_provider_value: Final = litellm_params.get("azure_ad_token_provider", None)
+    azure_ad_token_provider_value: Final = embrouter_params.get("azure_ad_token_provider", None)
     azure_ad_token_provider: Final = azure_ad_token_provider_value if callable(azure_ad_token_provider_value) else None
 
-    headers = headers or litellm.headers
+    headers = headers or embrouter.headers
 
     if extra_headers is not None:
         optional_params["extra_headers"] = extra_headers
     if max_retries is not None:
         optional_params["max_retries"] = max_retries
 
-    if litellm.AzureOpenAIO1Config().is_o_series_model(model=_azure_detection_model):
+    if embrouter.AzureOpenAIO1Config().is_o_series_model(model=_azure_detection_model):
         ## LOAD CONFIG - if set
-        config = litellm.AzureOpenAIO1Config.get_config()
+        config = embrouter.AzureOpenAIO1Config.get_config()
         for k, v in _provider_config_items(config):
             if (
                 k not in optional_params
@@ -1408,7 +1408,7 @@ def _complete_azure(ctx: _CompletionDispatchContext) -> _CompletionDispatchResul
             model_response=model_response,
             print_verbose=print_verbose,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             logger_fn=logger_fn,
             logging_obj=logging,
             acompletion=acompletion,
@@ -1418,7 +1418,7 @@ def _complete_azure(ctx: _CompletionDispatchContext) -> _CompletionDispatchResul
         )
     else:
         ## LOAD CONFIG - if set
-        config = litellm.AzureOpenAIConfig.get_config()
+        config = embrouter.AzureOpenAIConfig.get_config()
         for k, v in _provider_config_items(config):
             if (
                 k not in optional_params
@@ -1440,7 +1440,7 @@ def _complete_azure(ctx: _CompletionDispatchContext) -> _CompletionDispatchResul
             model_response=model_response,
             print_verbose=print_verbose,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             logger_fn=logger_fn,
             logging_obj=logging,
             acompletion=acompletion,
@@ -1472,7 +1472,7 @@ def _complete_azure_text(ctx: _CompletionDispatchContext) -> _CompletionDispatch
     client: Final = _dispatch_client_azure(ctx)
     extra_headers: Final = ctx.extra_headers
     headers = ctx.headers
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logger_fn: Final = ctx.logger_fn
     logging: Final = ctx.logging
     messages: Final = ctx.messages
@@ -1483,19 +1483,19 @@ def _complete_azure_text(ctx: _CompletionDispatchContext) -> _CompletionDispatch
 
     api_type: Final = get_secret_str("AZURE_API_TYPE") or "azure"
 
-    api_base = api_base or litellm.api_base or get_secret_str("AZURE_API_BASE")
+    api_base = api_base or embrouter.api_base or get_secret_str("AZURE_API_BASE")
 
     if api_base is None:
         raise ValueError(
             "api_base is required for Azure OpenAI LLM provider. Either set it dynamically or set the AZURE_API_BASE environment variable."
         )
 
-    api_version = api_version or litellm.api_version or get_secret_str("AZURE_API_VERSION")
+    api_version = api_version or embrouter.api_version or get_secret_str("AZURE_API_VERSION")
 
     api_key = (
         api_key
-        or litellm.api_key
-        or litellm.azure_key
+        or embrouter.api_key
+        or embrouter.azure_key
         or get_secret_str("AZURE_OPENAI_API_KEY")
         or get_secret_str("AZURE_API_KEY")
     )
@@ -1504,16 +1504,16 @@ def _complete_azure_text(ctx: _CompletionDispatchContext) -> _CompletionDispatch
         "AZURE_AD_TOKEN"
     )
 
-    azure_ad_token_provider_value: Final = litellm_params.get("azure_ad_token_provider", None)
+    azure_ad_token_provider_value: Final = embrouter_params.get("azure_ad_token_provider", None)
     azure_ad_token_provider: Final = azure_ad_token_provider_value if callable(azure_ad_token_provider_value) else None
 
-    headers = headers or litellm.headers
+    headers = headers or embrouter.headers
 
     if extra_headers is not None:
         optional_params["extra_headers"] = extra_headers
 
     ## LOAD CONFIG - if set
-    config: Final = litellm.AzureOpenAIConfig.get_config()
+    config: Final = embrouter.AzureOpenAIConfig.get_config()
     for k, v in _provider_config_items(config):
         if (
             k not in optional_params
@@ -1534,7 +1534,7 @@ def _complete_azure_text(ctx: _CompletionDispatchContext) -> _CompletionDispatch
         model_response=model_response,
         print_verbose=print_verbose,
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         logger_fn=logger_fn,
         logging_obj=logging,
         acompletion=acompletion,
@@ -1565,7 +1565,7 @@ def _complete_deepseek(ctx: _CompletionDispatchContext) -> _CompletionDispatchRe
     client: Final = _dispatch_client_http(ctx)
     custom_llm_provider: Final = ctx.custom_llm_provider
     headers: Final = ctx.headers
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logging: Final = ctx.logging
     messages: Final = ctx.messages
     model: Final = ctx.model
@@ -1587,7 +1587,7 @@ def _complete_deepseek(ctx: _CompletionDispatchContext) -> _CompletionDispatchRe
             acompletion=acompletion,
             logging_obj=logging,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             shared_session=shared_session,
             timeout=timeout,
             client=client,
@@ -1617,7 +1617,7 @@ def _complete_azure_ai(ctx: _CompletionDispatchContext) -> _CompletionDispatchRe
     custom_llm_provider: Final = ctx.custom_llm_provider
     extra_headers: Final = ctx.extra_headers
     headers = ctx.headers
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logger_fn: Final = ctx.logger_fn
     logging: Final = ctx.logging
     messages = ctx.messages
@@ -1628,13 +1628,13 @@ def _complete_azure_ai(ctx: _CompletionDispatchContext) -> _CompletionDispatchRe
     stream: Final = ctx.stream
     timeout: Final = ctx.timeout
 
-    from litellm.llms.azure_ai.common_utils import AzureFoundryModelInfo
+    from embrouter.llms.azure_ai.common_utils import AzureFoundryModelInfo
 
     azure_ai_route: Final = AzureFoundryModelInfo.get_azure_ai_route(model)
 
     # Check if this is an agents route - model format: azure_ai/agents/<agent_id>
     if azure_ai_route == "agents":
-        from litellm.llms.azure_ai.agents import AzureAIAgentsConfig
+        from embrouter.llms.azure_ai.agents import AzureAIAgentsConfig
 
         api_base = AzureFoundryModelInfo.get_api_base(api_base)
         if api_base is None:
@@ -1651,11 +1651,11 @@ def _complete_azure_ai(ctx: _CompletionDispatchContext) -> _CompletionDispatchRe
             model_response=model_response,
             logging_obj=logging,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             timeout=timeout,
             acompletion=acompletion,
             stream=stream,
-            headers=headers or litellm.headers,
+            headers=headers or embrouter.headers,
         )
 
     # Check if this is a Claude model - route to Azure Anthropic handler
@@ -1684,11 +1684,11 @@ def _complete_azure_ai(ctx: _CompletionDispatchContext) -> _CompletionDispatchRe
             messages=messages,
             api_base=api_base,
             acompletion=acompletion,
-            custom_prompt_dict=litellm.custom_prompt_dict,
+            custom_prompt_dict=embrouter.custom_prompt_dict,
             model_response=model_response,
             print_verbose=print_verbose,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             logger_fn=logger_fn,
             encoding=_get_encoding(),
             api_key=api_key,
@@ -1712,7 +1712,7 @@ def _complete_azure_ai(ctx: _CompletionDispatchContext) -> _CompletionDispatchRe
         # set API KEY
         api_key = AzureFoundryModelInfo.get_api_key(api_key)
 
-        headers = headers or litellm.headers
+        headers = headers or embrouter.headers
 
         if extra_headers is not None:
             optional_params["extra_headers"] = extra_headers
@@ -1733,7 +1733,7 @@ def _complete_azure_ai(ctx: _CompletionDispatchContext) -> _CompletionDispatchRe
                 acompletion=acompletion,
                 logging_obj=logging,
                 optional_params=optional_params,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 shared_session=shared_session,
                 timeout=timeout,
                 client=client,  # pass AsyncOpenAI, OpenAI client
@@ -1772,7 +1772,7 @@ def _complete_text_completion_openai(
     client: Final = _dispatch_client_openai(ctx)
     custom_llm_provider: Final = ctx.custom_llm_provider
     headers = ctx.headers
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logger_fn: Final = ctx.logger_fn
     logging: Final = ctx.logging
     messages: Final = ctx.messages
@@ -1786,7 +1786,7 @@ def _complete_text_completion_openai(
 
     api_base = (
         api_base
-        or litellm.api_base
+        or embrouter.api_base
         or get_secret("OPENAI_BASE_URL")
         or get_secret("OPENAI_API_BASE")
         or "https://api.openai.com/v1"
@@ -1795,19 +1795,19 @@ def _complete_text_completion_openai(
     openai.api_version = None
     # set API KEY
 
-    api_key = api_key or litellm.api_key or litellm.openai_key or get_secret("OPENAI_API_KEY")
+    api_key = api_key or embrouter.api_key or embrouter.openai_key or get_secret("OPENAI_API_KEY")
 
-    headers = headers or litellm.headers
+    headers = headers or embrouter.headers
 
     ## LOAD CONFIG - if set
-    config: Final = litellm.OpenAITextCompletionConfig.get_config()
+    config: Final = embrouter.OpenAITextCompletionConfig.get_config()
     for k, v in _provider_config_items(config):
         if (
             k not in optional_params
         ):  # completion(top_k=3) > openai_text_config(top_k=3) <- allows for dynamic variables to be passed in
             optional_params[k] = v
-    if litellm.organization:
-        openai.organization = litellm.organization
+    if embrouter.organization:
+        openai.organization = embrouter.organization
 
     ## COMPLETION CALL
     _response = openai_text_completions.completion(
@@ -1823,14 +1823,14 @@ def _complete_text_completion_openai(
         client=client,  # pass AsyncOpenAI, OpenAI client
         logging_obj=logging,
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         logger_fn=logger_fn,
         timeout=timeout,
     )
 
     if optional_params.get("stream", False) is False and acompletion is False and text_completion is False:
         # convert to chat completion response
-        _response = litellm.OpenAITextCompletionConfig().convert_to_chat_model_response_object(
+        _response = embrouter.OpenAITextCompletionConfig().convert_to_chat_model_response_object(
             response_object=_response, model_response_object=model_response
         )
 
@@ -1854,7 +1854,7 @@ def _complete_fireworks_ai(
     client: Final = _dispatch_client_http(ctx)
     custom_llm_provider: Final = ctx.custom_llm_provider
     headers: Final = ctx.headers
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logging: Final = ctx.logging
     messages: Final = ctx.messages
     model: Final = ctx.model
@@ -1865,7 +1865,7 @@ def _complete_fireworks_ai(
     timeout: Final = ctx.timeout
     optional_params: Final = (
         provider_config.map_extra_body_params(optional_params=ctx.optional_params, model=model)
-        if isinstance(provider_config, litellm.FireworksAIConfig)
+        if isinstance(provider_config, embrouter.FireworksAIConfig)
         else ctx.optional_params
     )
 
@@ -1880,7 +1880,7 @@ def _complete_fireworks_ai(
             acompletion=acompletion,
             logging_obj=logging,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             shared_session=shared_session,
             timeout=timeout,
             client=client,
@@ -1909,7 +1909,7 @@ def _complete_together_ai(ctx: _CompletionDispatchContext) -> _CompletionDispatc
     client: Final = _dispatch_client_http(ctx)
     custom_llm_provider: Final = ctx.custom_llm_provider
     headers: Final = ctx.headers
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logging: Final = ctx.logging
     messages: Final = ctx.messages
     model: Final = ctx.model
@@ -1931,7 +1931,7 @@ def _complete_together_ai(ctx: _CompletionDispatchContext) -> _CompletionDispatc
             acompletion=acompletion,
             logging_obj=logging,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             shared_session=shared_session,
             timeout=timeout,
             client=client,
@@ -1959,7 +1959,7 @@ def _complete_heroku(ctx: _CompletionDispatchContext) -> _CompletionDispatchResu
     client: Final = _dispatch_client_http(ctx)
     custom_llm_provider: Final = ctx.custom_llm_provider
     headers: Final = ctx.headers
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logging: Final = ctx.logging
     messages: Final = ctx.messages
     model: Final = ctx.model
@@ -1981,7 +1981,7 @@ def _complete_heroku(ctx: _CompletionDispatchContext) -> _CompletionDispatchResu
             acompletion=acompletion,
             logging_obj=logging,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             shared_session=shared_session,
             timeout=timeout,
             client=client,
@@ -2009,7 +2009,7 @@ def _complete_ragflow(ctx: _CompletionDispatchContext) -> _CompletionDispatchRes
     client: Final = _dispatch_client_http(ctx)
     custom_llm_provider: Final = ctx.custom_llm_provider
     headers: Final = ctx.headers
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logging: Final = ctx.logging
     messages: Final = ctx.messages
     model: Final = ctx.model
@@ -2031,7 +2031,7 @@ def _complete_ragflow(ctx: _CompletionDispatchContext) -> _CompletionDispatchRes
             acompletion=acompletion,
             logging_obj=logging,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             shared_session=shared_session,
             timeout=timeout,
             client=client,
@@ -2059,7 +2059,7 @@ def _complete_xai(ctx: _CompletionDispatchContext) -> _CompletionDispatchResult:
     client: Final = _dispatch_client_http(ctx)
     custom_llm_provider: Final = ctx.custom_llm_provider
     headers: Final = ctx.headers
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logging: Final = ctx.logging
     messages: Final = ctx.messages
     model: Final = ctx.model
@@ -2081,7 +2081,7 @@ def _complete_xai(ctx: _CompletionDispatchContext) -> _CompletionDispatchResult:
             acompletion=acompletion,
             logging_obj=logging,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             shared_session=shared_session,
             timeout=timeout,
             client=client,
@@ -2110,7 +2110,7 @@ def _complete_groq(ctx: _CompletionDispatchContext) -> _CompletionDispatchResult
     client: Final = _dispatch_client_http(ctx)
     custom_llm_provider: Final = ctx.custom_llm_provider
     headers = ctx.headers
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logging: Final = ctx.logging
     messages: Final = ctx.messages
     model: Final = ctx.model
@@ -2122,7 +2122,7 @@ def _complete_groq(ctx: _CompletionDispatchContext) -> _CompletionDispatchResult
 
     api_base = (
         api_base  # for deepinfra/perplexity/anyscale/groq/friendliai we check in get_llm_provider and pass in the api base from there
-        or litellm.api_base
+        or embrouter.api_base
         or get_secret("GROQ_API_BASE")
         or "https://api.groq.com/openai/v1"
     )
@@ -2130,15 +2130,15 @@ def _complete_groq(ctx: _CompletionDispatchContext) -> _CompletionDispatchResult
     # set API KEY
     api_key = (
         api_key
-        or litellm.api_key  # for deepinfra/perplexity/anyscale/friendliai we check in get_llm_provider and pass in the api key from there
-        or litellm.groq_key
+        or embrouter.api_key  # for deepinfra/perplexity/anyscale/friendliai we check in get_llm_provider and pass in the api key from there
+        or embrouter.groq_key
         or get_secret("GROQ_API_KEY")
     )
 
-    headers = headers or litellm.headers
+    headers = headers or embrouter.headers
 
     ## LOAD CONFIG - if set
-    config: Final = litellm.GroqChatConfig.get_config()
+    config: Final = embrouter.GroqChatConfig.get_config()
     for k, v in _provider_config_items(config):
         if (
             k not in optional_params
@@ -2153,7 +2153,7 @@ def _complete_groq(ctx: _CompletionDispatchContext) -> _CompletionDispatchResult
         api_base=api_base,
         model_response=model_response,
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         shared_session=shared_session,
         custom_llm_provider=custom_llm_provider,
         timeout=timeout,
@@ -2174,7 +2174,7 @@ def _complete_bedrock_mantle(
     client: Final = _dispatch_client_http(ctx)
     custom_llm_provider: Final = ctx.custom_llm_provider
     headers = ctx.headers
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logging: Final = ctx.logging
     messages: Final = ctx.messages
     model: Final = ctx.model
@@ -2184,10 +2184,10 @@ def _complete_bedrock_mantle(
     stream: Final = ctx.stream
     timeout: Final = ctx.timeout
 
-    api_base = api_base or litellm.api_base or get_secret("BEDROCK_MANTLE_API_BASE")
-    api_key = api_key or litellm.api_key or get_secret("BEDROCK_MANTLE_API_KEY")
-    headers = headers or litellm.headers
-    config: Final = litellm.BedrockMantleChatConfig.get_config()
+    api_base = api_base or embrouter.api_base or get_secret("BEDROCK_MANTLE_API_BASE")
+    api_key = api_key or embrouter.api_key or get_secret("BEDROCK_MANTLE_API_KEY")
+    headers = headers or embrouter.headers
+    config: Final = embrouter.BedrockMantleChatConfig.get_config()
     for k, v in _provider_config_items(config):
         if k not in optional_params:
             optional_params[k] = v
@@ -2199,7 +2199,7 @@ def _complete_bedrock_mantle(
         api_base=api_base,
         model_response=model_response,
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         shared_session=shared_session,
         custom_llm_provider=custom_llm_provider,
         timeout=timeout,
@@ -2218,7 +2218,7 @@ def _complete_a2a(ctx: _CompletionDispatchContext) -> _CompletionDispatchResult:
     client: Final = _dispatch_client_http(ctx)
     custom_llm_provider: Final = ctx.custom_llm_provider
     headers = ctx.headers
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logging: Final = ctx.logging
     messages: Final = ctx.messages
     model: Final = ctx.model
@@ -2233,7 +2233,7 @@ def _complete_a2a(ctx: _CompletionDispatchContext) -> _CompletionDispatchResult:
         api_base,
         api_key,
         headers,
-    ) = litellm.A2AConfig.resolve_agent_config_from_registry(
+    ) = embrouter.A2AConfig.resolve_agent_config_from_registry(
         agent_name=model,
         api_base=api_base,
         api_key=api_key,
@@ -2242,7 +2242,7 @@ def _complete_a2a(ctx: _CompletionDispatchContext) -> _CompletionDispatchResult:
     )
 
     # Fall back to environment variables and defaults
-    api_base = api_base or litellm.api_base or get_secret_str("A2A_API_BASE")
+    api_base = api_base or embrouter.api_base or get_secret_str("A2A_API_BASE")
 
     if api_base is None:
         raise Exception(
@@ -2251,7 +2251,7 @@ def _complete_a2a(ctx: _CompletionDispatchContext) -> _CompletionDispatchResult:
             "or register the agent in the proxy with model='a2a/<agent-name>'."
         )
 
-    headers = headers or litellm.headers
+    headers = headers or embrouter.headers
 
     return base_llm_http_handler.completion(
         model=model,
@@ -2261,7 +2261,7 @@ def _complete_a2a(ctx: _CompletionDispatchContext) -> _CompletionDispatchResult:
         api_base=api_base,
         model_response=model_response,
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         shared_session=shared_session,
         custom_llm_provider=custom_llm_provider,
         timeout=timeout,
@@ -2281,7 +2281,7 @@ def _complete_gigachat(ctx: _CompletionDispatchContext) -> _CompletionDispatchRe
     client: Final = _dispatch_client_http(ctx)
     custom_llm_provider: Final = ctx.custom_llm_provider
     headers = ctx.headers
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logging: Final = ctx.logging
     messages: Final = ctx.messages
     model: Final = ctx.model
@@ -2294,13 +2294,13 @@ def _complete_gigachat(ctx: _CompletionDispatchContext) -> _CompletionDispatchRe
 
     api_key = (
         api_key
-        or litellm.api_key
-        or litellm.gigachat_key
+        or embrouter.api_key
+        or embrouter.gigachat_key
         or get_secret("GIGACHAT_API_KEY")
         or get_secret("GIGACHAT_CREDENTIALS")
     )
 
-    headers = headers or litellm.headers or {}
+    headers = headers or embrouter.headers or {}
 
     ## COMPLETION CALL
     try:
@@ -2314,7 +2314,7 @@ def _complete_gigachat(ctx: _CompletionDispatchContext) -> _CompletionDispatchRe
             acompletion=acompletion,
             logging_obj=logging,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             shared_session=shared_session,
             timeout=timeout,
             client=client,
@@ -2343,7 +2343,7 @@ def _complete_sap(ctx: _CompletionDispatchContext) -> _CompletionDispatchResult:
     client: Final = _dispatch_client_http(ctx)
     custom_llm_provider: Final = ctx.custom_llm_provider
     headers = ctx.headers
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logging: Final = ctx.logging
     messages: Final = ctx.messages
     model: Final = ctx.model
@@ -2353,9 +2353,9 @@ def _complete_sap(ctx: _CompletionDispatchContext) -> _CompletionDispatchResult:
     stream: Final = ctx.stream
     timeout: Final = ctx.timeout
 
-    headers = headers or litellm.headers
+    headers = headers or embrouter.headers
     ## LOAD CONFIG - if set
-    config: Final = litellm.GenAIHubOrchestrationConfig.get_config()
+    config: Final = embrouter.GenAIHubOrchestrationConfig.get_config()
     for k, v in _provider_config_items(config):
         if (
             k not in optional_params
@@ -2370,7 +2370,7 @@ def _complete_sap(ctx: _CompletionDispatchContext) -> _CompletionDispatchResult:
         acompletion=acompletion,
         logging_obj=logging,
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         timeout=timeout,
         shared_session=shared_session,
         client=client,
@@ -2387,7 +2387,7 @@ def _complete_aiohttp_openai(
 ) -> _CompletionDispatchResult:
     if http2_enabled():
         verbose_logger.warning(
-            "litellm.http2 is enabled but aiohttp_openai/ always uses aiohttp, which has no HTTP/2 client; this request stays on HTTP/1.1"
+            "embrouter.http2 is enabled but aiohttp_openai/ always uses aiohttp, which has no HTTP/2 client; this request stays on HTTP/1.1"
         )
     acompletion: Final = ctx.acompletion
     api_base = ctx.api_base
@@ -2396,7 +2396,7 @@ def _complete_aiohttp_openai(
     custom_llm_provider: Final = ctx.custom_llm_provider
     extra_headers: Final = ctx.extra_headers
     headers = ctx.headers
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logging: Final = ctx.logging
     messages: Final = ctx.messages
     model: Final = ctx.model
@@ -2407,7 +2407,7 @@ def _complete_aiohttp_openai(
 
     api_base = (
         api_base  # for deepinfra/perplexity/anyscale/groq/friendliai we check in get_llm_provider and pass in the api base from there
-        or litellm.api_base
+        or embrouter.api_base
         or get_secret("OPENAI_BASE_URL")
         or get_secret("OPENAI_API_BASE")
         or "https://api.openai.com/v1"
@@ -2415,12 +2415,12 @@ def _complete_aiohttp_openai(
     # set API KEY
     api_key = (
         api_key
-        or litellm.api_key  # for deepinfra/perplexity/anyscale/friendliai we check in get_llm_provider and pass in the api key from there
-        or litellm.openai_key
+        or embrouter.api_key  # for deepinfra/perplexity/anyscale/friendliai we check in get_llm_provider and pass in the api key from there
+        or embrouter.openai_key
         or get_secret("OPENAI_API_KEY")
     )
 
-    headers = headers or litellm.headers
+    headers = headers or embrouter.headers
 
     if extra_headers is not None:
         optional_params["extra_headers"] = extra_headers
@@ -2434,7 +2434,7 @@ def _complete_aiohttp_openai(
         acompletion=acompletion,
         logging_obj=logging,
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         timeout=timeout,
         client=client,
         custom_llm_provider=custom_llm_provider,
@@ -2450,7 +2450,7 @@ def _complete_cometapi(ctx: _CompletionDispatchContext) -> _CompletionDispatchRe
     client: Final = _dispatch_client_http(ctx)
     custom_llm_provider: Final = ctx.custom_llm_provider
     headers: Final = ctx.headers
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logging: Final = ctx.logging
     messages: Final = ctx.messages
     model: Final = ctx.model
@@ -2461,9 +2461,9 @@ def _complete_cometapi(ctx: _CompletionDispatchContext) -> _CompletionDispatchRe
     stream: Final = ctx.stream
     timeout: Final = ctx.timeout
 
-    api_key = api_key or litellm.cometapi_key or get_secret_str("COMETAPI_KEY") or litellm.api_key
+    api_key = api_key or embrouter.cometapi_key or get_secret_str("COMETAPI_KEY") or embrouter.api_key
 
-    api_base = api_base or litellm.api_base or get_secret_str("COMETAPI_API_BASE") or "https://api.cometapi.com/v1"
+    api_base = api_base or embrouter.api_base or get_secret_str("COMETAPI_API_BASE") or "https://api.cometapi.com/v1"
 
     ## COMPLETION CALL
     response: Final = base_llm_http_handler.completion(
@@ -2476,7 +2476,7 @@ def _complete_cometapi(ctx: _CompletionDispatchContext) -> _CompletionDispatchRe
         acompletion=acompletion,
         logging_obj=logging,
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         shared_session=shared_session,
         timeout=timeout,
         client=client,
@@ -2499,7 +2499,7 @@ def _complete_minimax(ctx: _CompletionDispatchContext) -> _CompletionDispatchRes
     client: Final = _dispatch_client_http(ctx)
     custom_llm_provider: Final = ctx.custom_llm_provider
     headers: Final = ctx.headers
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logging: Final = ctx.logging
     messages: Final = ctx.messages
     model: Final = ctx.model
@@ -2510,9 +2510,9 @@ def _complete_minimax(ctx: _CompletionDispatchContext) -> _CompletionDispatchRes
     stream: Final = ctx.stream
     timeout: Final = ctx.timeout
 
-    api_key = api_key or get_secret_str("MINIMAX_API_KEY") or litellm.api_key
+    api_key = api_key or get_secret_str("MINIMAX_API_KEY") or embrouter.api_key
 
-    api_base = api_base or litellm.api_base or get_secret_str("MINIMAX_API_BASE") or "https://api.minimax.io/v1"
+    api_base = api_base or embrouter.api_base or get_secret_str("MINIMAX_API_BASE") or "https://api.minimax.io/v1"
 
     response: Final = base_llm_http_handler.completion(
         model=model,
@@ -2524,7 +2524,7 @@ def _complete_minimax(ctx: _CompletionDispatchContext) -> _CompletionDispatchRes
         logging_obj=logging,
         optional_params=optional_params,
         timeout=timeout,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         shared_session=shared_session,
         acompletion=acompletion,
         stream=stream,
@@ -2545,7 +2545,7 @@ def _complete_hosted_vllm(ctx: _CompletionDispatchContext) -> _CompletionDispatc
     client: Final = _dispatch_client_http(ctx)
     custom_llm_provider: Final = ctx.custom_llm_provider
     headers: Final = ctx.headers
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logging: Final = ctx.logging
     messages: Final = ctx.messages
     model: Final = ctx.model
@@ -2556,7 +2556,7 @@ def _complete_hosted_vllm(ctx: _CompletionDispatchContext) -> _CompletionDispatc
     stream: Final = ctx.stream
     timeout: Final = ctx.timeout
 
-    api_base = api_base or litellm.api_base or get_secret_str("HOSTED_VLLM_API_BASE")
+    api_base = api_base or embrouter.api_base or get_secret_str("HOSTED_VLLM_API_BASE")
 
     response: Final = base_llm_http_handler.completion(
         model=model,
@@ -2568,7 +2568,7 @@ def _complete_hosted_vllm(ctx: _CompletionDispatchContext) -> _CompletionDispatc
         logging_obj=logging,
         optional_params=optional_params,
         timeout=timeout,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         shared_session=shared_session,
         acompletion=acompletion,
         stream=stream,
@@ -2593,7 +2593,7 @@ def _complete_custom_openai(
     custom_prompt_dict: Final = ctx.custom_prompt_dict
     extra_headers = ctx.extra_headers
     headers = ctx.headers
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logger_fn: Final = ctx.logger_fn
     logging: Final = ctx.logging
     messages: Final = ctx.messages
@@ -2611,7 +2611,7 @@ def _complete_custom_openai(
     api_base = _resolve_openai_api_base(api_base)
     organization = (
         organization
-        or litellm.organization
+        or embrouter.organization
         or get_secret("OPENAI_ORGANIZATION")
         or None  # default - https://github.com/openai/openai-python/blob/284c1799070c723c6a553337134148a7ab088dd8/openai/util.py#L105
     )
@@ -2619,17 +2619,17 @@ def _complete_custom_openai(
     # set API KEY
     api_key = (
         api_key
-        or litellm.api_key  # for deepinfra/perplexity/anyscale/friendliai we check in get_llm_provider and pass in the api key from there
-        or litellm.openai_key
+        or embrouter.api_key  # for deepinfra/perplexity/anyscale/friendliai we check in get_llm_provider and pass in the api key from there
+        or embrouter.openai_key
         or get_secret("OPENAI_API_KEY")
     )
 
-    headers = headers or litellm.headers
+    headers = headers or embrouter.headers
 
     # Add GitHub Copilot headers (same as /responses endpoint does)
     if custom_llm_provider == "github_copilot":
-        from litellm.llms.github_copilot.authenticator import Authenticator
-        from litellm.llms.github_copilot.common_utils import (
+        from embrouter.llms.github_copilot.authenticator import Authenticator
+        from embrouter.llms.github_copilot.common_utils import (
             get_copilot_default_headers,
         )
 
@@ -2645,13 +2645,13 @@ def _complete_custom_openai(
     if extra_headers is not None and not use_base_llm_http_handler:
         optional_params["extra_headers"] = extra_headers
 
-    if litellm.enable_preview_features and metadata is not None:  # [PREVIEW] allow metadata to be passed to OPENAI
+    if embrouter.enable_preview_features and metadata is not None:  # [PREVIEW] allow metadata to be passed to OPENAI
         openai_metadata: Final = get_requester_metadata(metadata)
         if openai_metadata is not None:
             optional_params["metadata"] = openai_metadata
 
     ## LOAD CONFIG - if set
-    config: Final = litellm.OpenAIConfig.get_config()
+    config: Final = embrouter.OpenAIConfig.get_config()
     for k, v in _provider_config_items(config):
         if (
             k not in optional_params
@@ -2671,7 +2671,7 @@ def _complete_custom_openai(
                 logging_obj=logging,
                 optional_params=optional_params,
                 timeout=timeout,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 shared_session=shared_session,
                 acompletion=acompletion,
                 stream=stream,
@@ -2692,7 +2692,7 @@ def _complete_custom_openai(
                 acompletion=acompletion,
                 logging_obj=logging,
                 optional_params=optional_params,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logger_fn=logger_fn,
                 timeout=timeout,
                 custom_prompt_dict=custom_prompt_dict,
@@ -2730,7 +2730,7 @@ def _complete_mistral(ctx: _CompletionDispatchContext) -> _CompletionDispatchRes
     client: Final = _dispatch_client_http(ctx)
     custom_llm_provider: Final = ctx.custom_llm_provider
     headers: Final = ctx.headers
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logging: Final = ctx.logging
     messages: Final = ctx.messages
     model: Final = ctx.model
@@ -2741,8 +2741,8 @@ def _complete_mistral(ctx: _CompletionDispatchContext) -> _CompletionDispatchRes
     stream: Final = ctx.stream
     timeout: Final = ctx.timeout
 
-    api_key = api_key or litellm.api_key or get_secret("MISTRAL_API_KEY")
-    api_base = api_base or litellm.api_base or get_secret("MISTRAL_API_BASE") or "https://api.mistral.ai/v1"
+    api_key = api_key or embrouter.api_key or get_secret("MISTRAL_API_KEY")
+    api_base = api_base or embrouter.api_base or get_secret("MISTRAL_API_BASE") or "https://api.mistral.ai/v1"
 
     return base_llm_http_handler.completion(
         model=model,
@@ -2754,7 +2754,7 @@ def _complete_mistral(ctx: _CompletionDispatchContext) -> _CompletionDispatchRes
         logging_obj=logging,
         optional_params=optional_params,
         timeout=timeout,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         shared_session=shared_session,
         acompletion=acompletion,
         stream=stream,
@@ -2771,7 +2771,7 @@ def _complete_replicate(ctx: _CompletionDispatchContext) -> _CompletionDispatchR
     api_key: Final = ctx.api_key
     custom_prompt_dict = ctx.custom_prompt_dict
     headers: Final = ctx.headers
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logger_fn: Final = ctx.logger_fn
     logging: Final = ctx.logging
     messages: Final = ctx.messages
@@ -2781,15 +2781,15 @@ def _complete_replicate(ctx: _CompletionDispatchContext) -> _CompletionDispatchR
 
     replicate_key: Final = (
         api_key
-        or litellm.replicate_key
-        or litellm.api_key
+        or embrouter.replicate_key
+        or embrouter.api_key
         or get_secret("REPLICATE_API_KEY")
         or get_secret("REPLICATE_API_TOKEN")
     )
 
-    api_base = api_base or litellm.api_base or get_secret("REPLICATE_API_BASE") or "https://api.replicate.com/v1"
+    api_base = api_base or embrouter.api_base or get_secret("REPLICATE_API_BASE") or "https://api.replicate.com/v1"
 
-    custom_prompt_dict = custom_prompt_dict or litellm.custom_prompt_dict
+    custom_prompt_dict = custom_prompt_dict or embrouter.custom_prompt_dict
 
     model_response = replicate_chat_completion(
         model=model,
@@ -2798,7 +2798,7 @@ def _complete_replicate(ctx: _CompletionDispatchContext) -> _CompletionDispatchR
         model_response=model_response,
         print_verbose=print_verbose,
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         logger_fn=logger_fn,
         encoding=_get_encoding(),  # for calculating input/output tokens
         api_key=replicate_key,
@@ -2827,7 +2827,7 @@ def _complete_anthropic_text(
     api_key = ctx.api_key
     custom_prompt_dict = ctx.custom_prompt_dict
     headers: Final = ctx.headers
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logging: Final = ctx.logging
     messages: Final = ctx.messages
     model: Final = ctx.model
@@ -2837,23 +2837,23 @@ def _complete_anthropic_text(
     stream: Final = ctx.stream
     timeout: Final = ctx.timeout
 
-    api_key = api_key or litellm.anthropic_key or litellm.api_key or os.environ.get("ANTHROPIC_API_KEY")
-    custom_prompt_dict = custom_prompt_dict or litellm.custom_prompt_dict
+    api_key = api_key or embrouter.anthropic_key or embrouter.api_key or os.environ.get("ANTHROPIC_API_KEY")
+    custom_prompt_dict = custom_prompt_dict or embrouter.custom_prompt_dict
     api_base = cast(
         str | None,
         api_base
-        or litellm.api_base
+        or embrouter.api_base
         or get_secret("ANTHROPIC_API_BASE")
         or get_secret("ANTHROPIC_BASE_URL")
         or "https://api.anthropic.com/v1/complete",
     )
 
     # Check if we should disable automatic URL suffix appending
-    disable_url_suffix: Final = get_secret_bool("LITELLM_ANTHROPIC_DISABLE_URL_SUFFIX")
+    disable_url_suffix: Final = get_secret_bool("EMBROUTER_ANTHROPIC_DISABLE_URL_SUFFIX")
     if api_base is not None and not disable_url_suffix and not api_base.endswith("/v1/complete"):
         api_base += "/v1/complete"
     elif disable_url_suffix:
-        verbose_logger.debug("LITELLM_ANTHROPIC_DISABLE_URL_SUFFIX is set, skipping /v1/complete suffix")
+        verbose_logger.debug("EMBROUTER_ANTHROPIC_DISABLE_URL_SUFFIX is set, skipping /v1/complete suffix")
 
     return base_llm_http_handler.completion(
         model=model,
@@ -2863,7 +2863,7 @@ def _complete_anthropic_text(
         api_base=api_base,
         model_response=model_response,
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         shared_session=shared_session,
         custom_llm_provider="anthropic_text",
         timeout=timeout,
@@ -2882,7 +2882,7 @@ def _complete_anthropic(ctx: _CompletionDispatchContext) -> _CompletionDispatchR
     custom_llm_provider: Final = ctx.custom_llm_provider
     custom_prompt_dict = ctx.custom_prompt_dict
     headers: Final = ctx.headers
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logger_fn: Final = ctx.logger_fn
     logging: Final = ctx.logging
     messages: Final = ctx.messages
@@ -2891,36 +2891,36 @@ def _complete_anthropic(ctx: _CompletionDispatchContext) -> _CompletionDispatchR
     optional_params: Final = ctx.optional_params
     timeout: Final = ctx.timeout
 
-    api_key = api_key or litellm.anthropic_key or litellm.api_key or os.environ.get("ANTHROPIC_API_KEY")
-    custom_prompt_dict = custom_prompt_dict or litellm.custom_prompt_dict
+    api_key = api_key or embrouter.anthropic_key or embrouter.api_key or os.environ.get("ANTHROPIC_API_KEY")
+    custom_prompt_dict = custom_prompt_dict or embrouter.custom_prompt_dict
     # call /messages
     # default route for all anthropic models
     api_base = cast(
         str | None,
         api_base
-        or litellm.api_base
+        or embrouter.api_base
         or get_secret("ANTHROPIC_API_BASE")
         or get_secret("ANTHROPIC_BASE_URL")
         or "https://api.anthropic.com/v1/messages",
     )
 
     # Check if we should disable automatic URL suffix appending
-    disable_url_suffix: Final = get_secret_bool("LITELLM_ANTHROPIC_DISABLE_URL_SUFFIX")
+    disable_url_suffix: Final = get_secret_bool("EMBROUTER_ANTHROPIC_DISABLE_URL_SUFFIX")
     if api_base is not None and not disable_url_suffix and not api_base.endswith("/v1/messages"):
         api_base += "/v1/messages"
     elif disable_url_suffix:
-        verbose_logger.debug("LITELLM_ANTHROPIC_DISABLE_URL_SUFFIX is set, skipping /v1/messages suffix")
+        verbose_logger.debug("EMBROUTER_ANTHROPIC_DISABLE_URL_SUFFIX is set, skipping /v1/messages suffix")
 
     response: Final = anthropic_chat_completions.completion(
         model=model,
         messages=messages,
         api_base=api_base,
         acompletion=acompletion,
-        custom_prompt_dict=litellm.custom_prompt_dict,
+        custom_prompt_dict=embrouter.custom_prompt_dict,
         model_response=model_response,
         print_verbose=print_verbose,
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         logger_fn=logger_fn,
         encoding=_get_encoding(),  # for calculating input/output tokens
         api_key=api_key,
@@ -2944,7 +2944,7 @@ def _complete_nlp_cloud(ctx: _CompletionDispatchContext) -> _CompletionDispatchR
     acompletion: Final = ctx.acompletion
     api_base = ctx.api_base
     api_key: Final = ctx.api_key
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logger_fn: Final = ctx.logger_fn
     logging: Final = ctx.logging
     messages: Final = ctx.messages
@@ -2952,9 +2952,9 @@ def _complete_nlp_cloud(ctx: _CompletionDispatchContext) -> _CompletionDispatchR
     model_response: Final = ctx.model_response
     optional_params: Final = ctx.optional_params
 
-    nlp_cloud_key: Final = api_key or litellm.nlp_cloud_key or get_secret("NLP_CLOUD_API_KEY") or litellm.api_key
+    nlp_cloud_key: Final = api_key or embrouter.nlp_cloud_key or get_secret("NLP_CLOUD_API_KEY") or embrouter.api_key
 
-    api_base = api_base or litellm.api_base or get_secret("NLP_CLOUD_API_BASE") or "https://api.nlpcloud.io/v1/gpu/"
+    api_base = api_base or embrouter.api_base or get_secret("NLP_CLOUD_API_BASE") or "https://api.nlpcloud.io/v1/gpu/"
 
     response = nlp_cloud_chat_completion(
         model=model,
@@ -2963,7 +2963,7 @@ def _complete_nlp_cloud(ctx: _CompletionDispatchContext) -> _CompletionDispatchR
         model_response=model_response,
         print_verbose=print_verbose,
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         logger_fn=logger_fn,
         encoding=_get_encoding(),
         api_key=nlp_cloud_key,
@@ -2993,7 +2993,7 @@ def _complete_nlp_cloud(ctx: _CompletionDispatchContext) -> _CompletionDispatchR
 def _complete_aleph_alpha(ctx: _CompletionDispatchContext) -> _CompletionDispatchResult:
     api_base = ctx.api_base
     api_key: Final = ctx.api_key
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logger_fn: Final = ctx.logger_fn
     logging: Final = ctx.logging
     messages: Final = ctx.messages
@@ -3003,14 +3003,14 @@ def _complete_aleph_alpha(ctx: _CompletionDispatchContext) -> _CompletionDispatc
 
     aleph_alpha_key: Final = (
         api_key
-        or litellm.aleph_alpha_key
+        or embrouter.aleph_alpha_key
         or get_secret("ALEPH_ALPHA_API_KEY")
         or get_secret("ALEPHALPHA_API_KEY")
-        or litellm.api_key
+        or embrouter.api_key
     )
 
     api_base = (
-        api_base or litellm.api_base or get_secret("ALEPH_ALPHA_API_BASE") or "https://api.aleph-alpha.com/complete"
+        api_base or embrouter.api_base or get_secret("ALEPH_ALPHA_API_BASE") or "https://api.aleph-alpha.com/complete"
     )
 
     model_response = aleph_alpha.completion(
@@ -3020,10 +3020,10 @@ def _complete_aleph_alpha(ctx: _CompletionDispatchContext) -> _CompletionDispatc
         model_response=model_response,
         print_verbose=print_verbose,
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         logger_fn=logger_fn,
         encoding=_get_encoding(),
-        default_max_tokens_to_sample=litellm.max_tokens,
+        default_max_tokens_to_sample=embrouter.max_tokens,
         api_key=aleph_alpha_key,
         logging_obj=logging,  # model call logging done inside the class as we make need to modify I/O to fit aleph alpha's requirements
     )
@@ -3045,7 +3045,7 @@ def _complete_cohere_chat(ctx: _CompletionDispatchContext) -> _CompletionDispatc
     api_key: Final = ctx.api_key
     extra_headers: Final = ctx.extra_headers
     headers = ctx.headers
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logging: Final = ctx.logging
     messages: Final = ctx.messages
     model = ctx.model
@@ -3058,24 +3058,24 @@ def _complete_cohere_chat(ctx: _CompletionDispatchContext) -> _CompletionDispatc
 
     cohere_key: Final = (
         api_key
-        or litellm.cohere_key
+        or embrouter.cohere_key
         or get_secret_str("COHERE_API_KEY")
         or get_secret_str("CO_API_KEY")
-        or litellm.api_key
+        or embrouter.api_key
     )
 
     cohere_route: Final = CohereModelInfo.get_cohere_route(model)
     verbose_logger.debug("Cohere route: %s", cohere_route)
     # Set API base based on route
     if cohere_route == "v2":
-        api_base = api_base or litellm.api_base or get_secret_str("COHERE_API_BASE") or "https://api.cohere.com/v2/chat"
+        api_base = api_base or embrouter.api_base or get_secret_str("COHERE_API_BASE") or "https://api.cohere.com/v2/chat"
         # Remove v2/ prefix from model name for the actual API call
         if "v2/" in model:
             model = model.replace("v2/", "")
     else:
-        api_base = api_base or litellm.api_base or get_secret_str("COHERE_API_BASE") or "https://api.cohere.ai/v1/chat"
+        api_base = api_base or embrouter.api_base or get_secret_str("COHERE_API_BASE") or "https://api.cohere.ai/v1/chat"
 
-    headers = headers or litellm.headers or {}
+    headers = headers or embrouter.headers or {}
     if headers is None:
         headers = {}
 
@@ -3092,7 +3092,7 @@ def _complete_cohere_chat(ctx: _CompletionDispatchContext) -> _CompletionDispatc
         api_base=api_base,
         model_response=model_response,
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         shared_session=shared_session,
         custom_llm_provider="cohere_chat",
         timeout=timeout,
@@ -3108,7 +3108,7 @@ def _complete_maritalk(ctx: _CompletionDispatchContext) -> _CompletionDispatchRe
     api_base = ctx.api_base
     api_key: Final = ctx.api_key
     custom_prompt_dict: Final = ctx.custom_prompt_dict
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logger_fn: Final = ctx.logger_fn
     logging: Final = ctx.logging
     messages: Final = ctx.messages
@@ -3116,9 +3116,9 @@ def _complete_maritalk(ctx: _CompletionDispatchContext) -> _CompletionDispatchRe
     model_response: Final = ctx.model_response
     optional_params: Final = ctx.optional_params
 
-    maritalk_key: Final = api_key or litellm.maritalk_key or get_secret("MARITALK_API_KEY") or litellm.api_key
+    maritalk_key: Final = api_key or embrouter.maritalk_key or get_secret("MARITALK_API_KEY") or embrouter.api_key
 
-    api_base = api_base or litellm.api_base or get_secret("MARITALK_API_BASE") or "https://chat.maritaca.ai/api"
+    api_base = api_base or embrouter.api_base or get_secret("MARITALK_API_BASE") or "https://chat.maritaca.ai/api"
 
     return openai_like_chat_completion.completion(
         model=model,
@@ -3127,7 +3127,7 @@ def _complete_maritalk(ctx: _CompletionDispatchContext) -> _CompletionDispatchRe
         model_response=model_response,
         print_verbose=print_verbose,
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         logger_fn=logger_fn,
         encoding=_get_encoding(),
         api_key=maritalk_key,
@@ -3142,7 +3142,7 @@ def _complete_amazon_nova(ctx: _CompletionDispatchContext) -> _CompletionDispatc
     api_key = ctx.api_key
     custom_llm_provider: Final = ctx.custom_llm_provider
     custom_prompt_dict: Final = ctx.custom_prompt_dict
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logger_fn: Final = ctx.logger_fn
     logging: Final = ctx.logging
     messages: Final = ctx.messages
@@ -3151,9 +3151,9 @@ def _complete_amazon_nova(ctx: _CompletionDispatchContext) -> _CompletionDispatc
     optional_params: Final = ctx.optional_params
     timeout: Final = ctx.timeout
 
-    api_key = api_key or litellm.amazon_nova_api_key or get_secret_str("AMAZON_NOVA_API_KEY") or litellm.api_key
+    api_key = api_key or embrouter.amazon_nova_api_key or get_secret_str("AMAZON_NOVA_API_KEY") or embrouter.api_key
     api_base = (
-        api_base or litellm.api_base or get_secret_str("AMAZON_NOVA_API_BASE") or "https://api.nova.amazon.com/v1"
+        api_base or embrouter.api_base or get_secret_str("AMAZON_NOVA_API_BASE") or "https://api.nova.amazon.com/v1"
     )
     return openai_like_chat_completion.completion(
         model=model,
@@ -3162,7 +3162,7 @@ def _complete_amazon_nova(ctx: _CompletionDispatchContext) -> _CompletionDispatc
         model_response=model_response,
         print_verbose=print_verbose,
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         logger_fn=logger_fn,
         encoding=_get_encoding(),
         api_key=api_key,
@@ -3180,7 +3180,7 @@ def _complete_huggingface(ctx: _CompletionDispatchContext) -> _CompletionDispatc
     client: Final = _dispatch_client_http(ctx)
     custom_llm_provider: Final = ctx.custom_llm_provider
     headers: Final = ctx.headers
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logging: Final = ctx.logging
     messages: Final = ctx.messages
     model: Final = ctx.model
@@ -3191,12 +3191,12 @@ def _complete_huggingface(ctx: _CompletionDispatchContext) -> _CompletionDispatc
 
     huggingface_key: Final = (
         api_key
-        or litellm.huggingface_key
+        or embrouter.huggingface_key
         or os.environ.get("HF_TOKEN")
         or os.environ.get("HUGGINGFACE_API_KEY")
-        or litellm.api_key
+        or embrouter.api_key
     )
-    hf_headers: Final = headers or litellm.headers
+    hf_headers: Final = headers or embrouter.headers
     return base_llm_http_handler.completion(
         model=model,
         messages=messages,
@@ -3207,7 +3207,7 @@ def _complete_huggingface(ctx: _CompletionDispatchContext) -> _CompletionDispatc
         acompletion=acompletion,
         logging_obj=logging,
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         timeout=timeout,
         client=client,
         custom_llm_provider=custom_llm_provider,
@@ -3223,7 +3223,7 @@ def _complete_oci(ctx: _CompletionDispatchContext) -> _CompletionDispatchResult:
     client: Final = _dispatch_client_http(ctx)
     custom_llm_provider: Final = ctx.custom_llm_provider
     headers: Final = ctx.headers
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logging: Final = ctx.logging
     messages: Final = ctx.messages
     model: Final = ctx.model
@@ -3242,7 +3242,7 @@ def _complete_oci(ctx: _CompletionDispatchContext) -> _CompletionDispatchResult:
         acompletion=acompletion,
         logging_obj=logging,
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         timeout=timeout,
         client=client,
         custom_llm_provider=custom_llm_provider,
@@ -3258,7 +3258,7 @@ def _complete_compactifai(ctx: _CompletionDispatchContext) -> _CompletionDispatc
     client: Final = _dispatch_client_http(ctx)
     custom_llm_provider: Final = ctx.custom_llm_provider
     headers: Final = ctx.headers
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logging: Final = ctx.logging
     messages: Final = ctx.messages
     model: Final = ctx.model
@@ -3268,7 +3268,7 @@ def _complete_compactifai(ctx: _CompletionDispatchContext) -> _CompletionDispatc
     stream: Final = ctx.stream
     timeout: Final = ctx.timeout
 
-    api_key = api_key or get_secret_str("COMPACTIFAI_API_KEY") or litellm.api_key
+    api_key = api_key or get_secret_str("COMPACTIFAI_API_KEY") or embrouter.api_key
 
     api_base = api_base or "https://api.compactif.ai/v1"
 
@@ -3283,7 +3283,7 @@ def _complete_compactifai(ctx: _CompletionDispatchContext) -> _CompletionDispatc
         acompletion=acompletion,
         logging_obj=logging,
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         timeout=timeout,
         client=client,
         custom_llm_provider=custom_llm_provider,
@@ -3295,7 +3295,7 @@ def _complete_compactifai(ctx: _CompletionDispatchContext) -> _CompletionDispatc
 
 def _complete_oobabooga(ctx: _CompletionDispatchContext) -> _CompletionDispatchResult:
     api_base: Final = ctx.api_base
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logger_fn: Final = ctx.logger_fn
     logging: Final = ctx.logging
     messages: Final = ctx.messages
@@ -3310,7 +3310,7 @@ def _complete_oobabooga(ctx: _CompletionDispatchContext) -> _CompletionDispatchR
         api_base=api_base,
         print_verbose=print_verbose,
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         api_key=None,
         logger_fn=logger_fn,
         encoding=_get_encoding(),
@@ -3333,7 +3333,7 @@ def _complete_databricks(ctx: _CompletionDispatchContext) -> _CompletionDispatch
     api_key = ctx.api_key
     client: Final = _dispatch_client_http(ctx)
     headers = ctx.headers
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logging: Final = ctx.logging
     messages: Final = ctx.messages
     model: Final = ctx.model
@@ -3344,19 +3344,19 @@ def _complete_databricks(ctx: _CompletionDispatchContext) -> _CompletionDispatch
 
     api_base = (
         api_base  # for databricks we check in get_llm_provider and pass in the api base from there
-        or litellm.api_base
+        or embrouter.api_base
         or os.getenv("DATABRICKS_API_BASE")
     )
 
     # set API KEY
     api_key = (
         api_key
-        or litellm.api_key  # for databricks we check in get_llm_provider and pass in the api key from there
-        or litellm.databricks_key
+        or embrouter.api_key  # for databricks we check in get_llm_provider and pass in the api key from there
+        or embrouter.databricks_key
         or get_secret("DATABRICKS_API_KEY")
     )
 
-    headers = headers or litellm.headers
+    headers = headers or embrouter.headers
 
     ## COMPLETION CALL
     try:
@@ -3368,7 +3368,7 @@ def _complete_databricks(ctx: _CompletionDispatchContext) -> _CompletionDispatch
             api_base=api_base,
             model_response=model_response,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             custom_llm_provider="databricks",
             timeout=timeout,
             headers=headers,
@@ -3406,7 +3406,7 @@ def _complete_datarobot(ctx: _CompletionDispatchContext) -> _CompletionDispatchR
     client: Final = _dispatch_client_http(ctx)
     custom_llm_provider: Final = ctx.custom_llm_provider
     headers: Final = ctx.headers
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logging: Final = ctx.logging
     messages: Final = ctx.messages
     model: Final = ctx.model
@@ -3426,7 +3426,7 @@ def _complete_datarobot(ctx: _CompletionDispatchContext) -> _CompletionDispatchR
         acompletion=acompletion,
         logging_obj=logging,
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         timeout=timeout,
         client=client,
         custom_llm_provider=custom_llm_provider,
@@ -3442,7 +3442,7 @@ def _complete_openrouter(ctx: _CompletionDispatchContext) -> _CompletionDispatch
     api_key = ctx.api_key
     client: Final = _dispatch_client_http(ctx)
     headers = ctx.headers
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logging: Final = ctx.logging
     messages: Final = ctx.messages
     model: Final = ctx.model
@@ -3452,12 +3452,12 @@ def _complete_openrouter(ctx: _CompletionDispatchContext) -> _CompletionDispatch
     stream: Final = ctx.stream
     timeout: Final = ctx.timeout
 
-    api_base = api_base or litellm.api_base or get_secret_str("OPENROUTER_API_BASE") or "https://openrouter.ai/api/v1"
+    api_base = api_base or embrouter.api_base or get_secret_str("OPENROUTER_API_BASE") or "https://openrouter.ai/api/v1"
 
     api_key = (
         api_key
-        or litellm.api_key
-        or litellm.openrouter_key
+        or embrouter.api_key
+        or embrouter.openrouter_key
         or get_secret_str("OPENROUTER_API_KEY")
         or get_secret_str("OR_API_KEY")
     )
@@ -3470,14 +3470,14 @@ def _complete_openrouter(ctx: _CompletionDispatchContext) -> _CompletionDispatch
         "X-Title": openrouter_app_name,
     }
 
-    _headers: Final = headers or litellm.headers
+    _headers: Final = headers or embrouter.headers
     if _headers:
         openrouter_headers.update(_headers)
 
     headers = openrouter_headers
 
     ## Load Config
-    config: Final = litellm.OpenrouterConfig.get_config()
+    config: Final = embrouter.OpenrouterConfig.get_config()
     for k, v in _provider_config_items(config):
         if k == "extra_body":
             # we use openai 'extra_body' to pass openrouter specific params - transforms, route, models
@@ -3497,7 +3497,7 @@ def _complete_openrouter(ctx: _CompletionDispatchContext) -> _CompletionDispatch
         api_base=api_base,
         model_response=model_response,
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         shared_session=shared_session,
         custom_llm_provider="openrouter",
         timeout=timeout,
@@ -3514,7 +3514,7 @@ def _complete_openrouter(ctx: _CompletionDispatchContext) -> _CompletionDispatch
 
 
 def _complete_nadir(ctx: _CompletionDispatchContext) -> _CompletionDispatchResult:
-    api_base: Final = ctx.api_base or litellm.api_base or get_secret_str("NADIR_API_BASE") or NADIR_DEFAULT_API_BASE
+    api_base: Final = ctx.api_base or embrouter.api_base or get_secret_str("NADIR_API_BASE") or NADIR_DEFAULT_API_BASE
     api_key: Final = ctx.api_key
 
     response: Final = base_llm_http_handler.completion(
@@ -3525,11 +3525,11 @@ def _complete_nadir(ctx: _CompletionDispatchContext) -> _CompletionDispatchResul
         api_base=api_base,
         model_response=ctx.model_response,
         optional_params=ctx.optional_params,
-        litellm_params=ctx.litellm_params,
+        embrouter_params=ctx.embrouter_params,
         shared_session=ctx.shared_session,
         custom_llm_provider="nadir",
         timeout=ctx.timeout,
-        headers=ctx.headers or litellm.headers,
+        headers=ctx.headers or embrouter.headers,
         encoding=_get_encoding(),
         api_key=api_key,
         logging_obj=ctx.logging,
@@ -3548,7 +3548,7 @@ def _complete_vercel_ai_gateway(
     api_key = ctx.api_key
     client: Final = _dispatch_client_http(ctx)
     headers = ctx.headers
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logging: Final = ctx.logging
     messages: Final = ctx.messages
     model: Final = ctx.model
@@ -3560,12 +3560,12 @@ def _complete_vercel_ai_gateway(
 
     api_base = (
         api_base
-        or litellm.api_base
+        or embrouter.api_base
         or get_secret_str("VERCEL_AI_GATEWAY_API_BASE")
         or "https://ai-gateway.vercel.sh/v1"
     )
 
-    api_key = api_key or litellm.api_key or get_secret("VERCEL_AI_GATEWAY_API_KEY")
+    api_key = api_key or embrouter.api_key or get_secret("VERCEL_AI_GATEWAY_API_KEY")
 
     vercel_site_url: Final = get_secret("VERCEL_SITE_URL") or ""
     vercel_app_name: Final = get_secret("VERCEL_APP_NAME") or "EmbRouter"
@@ -3575,14 +3575,14 @@ def _complete_vercel_ai_gateway(
         "x-title": vercel_app_name,
     }
 
-    _headers: Final = headers or litellm.headers
+    _headers: Final = headers or embrouter.headers
     if _headers:
         vercel_headers.update(_headers)
 
     headers = vercel_headers
 
     ## Load Config
-    config: Final = litellm.VercelAIGatewayConfig.get_config()
+    config: Final = embrouter.VercelAIGatewayConfig.get_config()
     for k, v in _provider_config_items(config):
         if k == "extra_body":
             # we use openai 'extra_body' to pass vercel specific params - providerOptions
@@ -3602,7 +3602,7 @@ def _complete_vercel_ai_gateway(
         api_base=api_base,
         model_response=model_response,
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         shared_session=shared_session,
         custom_llm_provider="vercel_ai_gateway",
         timeout=timeout,
@@ -3619,8 +3619,8 @@ def _complete_vercel_ai_gateway(
 
 
 def _complete_edenai(ctx: _CompletionDispatchContext) -> _CompletionDispatchResult:
-    api_base: Final = litellm.EdenAIChatConfig.get_api_base(ctx.api_base)
-    api_key: Final = litellm.EdenAIChatConfig.get_api_key(ctx.api_key or litellm.api_key)
+    api_base: Final = embrouter.EdenAIChatConfig.get_api_base(ctx.api_base)
+    api_key: Final = embrouter.EdenAIChatConfig.get_api_key(ctx.api_key or embrouter.api_key)
     response: Final = base_llm_http_handler.completion(
         model=ctx.model,
         messages=ctx.messages,
@@ -3631,12 +3631,12 @@ def _complete_edenai(ctx: _CompletionDispatchContext) -> _CompletionDispatchResu
         logging_obj=ctx.logging,
         optional_params=ctx.optional_params,
         timeout=ctx.timeout,
-        litellm_params=ctx.litellm_params,
+        embrouter_params=ctx.embrouter_params,
         shared_session=ctx.shared_session,
         acompletion=ctx.acompletion,
         stream=ctx.stream,
         api_key=api_key,
-        headers=ctx.headers or litellm.headers,
+        headers=ctx.headers or embrouter.headers,
         client=_dispatch_client_http(ctx),
         provider_config=ctx.provider_config,
     )
@@ -3646,12 +3646,12 @@ def _complete_edenai(ctx: _CompletionDispatchContext) -> _CompletionDispatchResu
 
 def _complete_fal_ai(ctx: _CompletionDispatchContext) -> _CompletionDispatchResult:
     if ctx.stream:
-        raise litellm.FalAIError(
+        raise embrouter.FalAIError(
             status_code=400,
             message="fal_ai chat completions do not support streaming",
         )
-    api_base: Final = litellm.FalAIChatConfig.get_api_base(ctx.api_base)
-    api_key: Final = litellm.FalAIChatConfig.get_api_key(ctx.api_key or litellm.api_key)
+    api_base: Final = embrouter.FalAIChatConfig.get_api_base(ctx.api_base)
+    api_key: Final = embrouter.FalAIChatConfig.get_api_key(ctx.api_key or embrouter.api_key)
     response: Final = base_llm_http_handler.completion(
         model=ctx.model,
         messages=ctx.messages,
@@ -3662,12 +3662,12 @@ def _complete_fal_ai(ctx: _CompletionDispatchContext) -> _CompletionDispatchResu
         logging_obj=ctx.logging,
         optional_params=ctx.optional_params,
         timeout=ctx.timeout,
-        litellm_params=ctx.litellm_params,
+        embrouter_params=ctx.embrouter_params,
         shared_session=ctx.shared_session,
         acompletion=ctx.acompletion,
         stream=ctx.stream,
         api_key=api_key,
-        headers=ctx.headers or litellm.headers,
+        headers=ctx.headers or embrouter.headers,
         client=_dispatch_client_http(ctx),
         provider_config=ctx.provider_config,
     )
@@ -3684,7 +3684,7 @@ def _complete_vertex_ai_beta(
     client: Final = _dispatch_client_http(ctx)
     custom_llm_provider: Final = ctx.custom_llm_provider
     headers: Final = ctx.headers
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logger_fn: Final = ctx.logger_fn
     logging: Final = ctx.logging
     messages: Final = ctx.messages
@@ -3696,13 +3696,13 @@ def _complete_vertex_ai_beta(
     vertex_ai_project: Final = (
         optional_params.pop("vertex_project", None)
         or optional_params.pop("vertex_ai_project", None)
-        or litellm.vertex_project
+        or embrouter.vertex_project
         or get_secret("VERTEXAI_PROJECT")
     )
     vertex_ai_location: Final = (
         optional_params.pop("vertex_location", None)
         or optional_params.pop("vertex_ai_location", None)
-        or litellm.vertex_location
+        or embrouter.vertex_location
         or get_secret("VERTEXAI_LOCATION")
     )
     vertex_credentials: Final = (
@@ -3715,10 +3715,10 @@ def _complete_vertex_ai_beta(
         api_key
         or get_api_key_from_env()
         or get_secret("PALM_API_KEY")  # older palm api key should also work
-        or litellm.api_key
+        or embrouter.api_key
     )
 
-    api_base = api_base or litellm.api_base or get_secret("GEMINI_API_BASE")
+    api_base = api_base or embrouter.api_base or get_secret("GEMINI_API_BASE")
     new_params: Final = safe_deep_copy(optional_params or {})
     return vertex_chat_completion.completion(
         model=model,
@@ -3726,7 +3726,7 @@ def _complete_vertex_ai_beta(
         model_response=model_response,
         print_verbose=print_verbose,
         optional_params=new_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         logger_fn=logger_fn,
         encoding=_get_encoding(),
         vertex_location=vertex_ai_location,
@@ -3750,7 +3750,7 @@ def _complete_vertex_ai(ctx: _CompletionDispatchContext) -> _CompletionDispatchR
     custom_llm_provider: Final = ctx.custom_llm_provider
     custom_prompt_dict: Final = ctx.custom_prompt_dict
     headers: Final = ctx.headers
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logger_fn: Final = ctx.logger_fn
     logging: Final = ctx.logging
     messages: Final = ctx.messages
@@ -3763,13 +3763,13 @@ def _complete_vertex_ai(ctx: _CompletionDispatchContext) -> _CompletionDispatchR
     vertex_ai_project: Final = (
         optional_params.pop("vertex_project", None)
         or optional_params.pop("vertex_ai_project", None)
-        or litellm.vertex_project
+        or embrouter.vertex_project
         or get_secret("VERTEXAI_PROJECT")
     )
     vertex_ai_location: Final = (
         optional_params.pop("vertex_location", None)
         or optional_params.pop("vertex_ai_location", None)
-        or litellm.vertex_location
+        or embrouter.vertex_location
         or get_secret("VERTEXAI_LOCATION")
     )
     vertex_credentials: Final = (
@@ -3778,10 +3778,10 @@ def _complete_vertex_ai(ctx: _CompletionDispatchContext) -> _CompletionDispatchR
         or get_secret("VERTEXAI_CREDENTIALS")
     )
 
-    api_base = api_base or litellm.api_base or get_secret("VERTEXAI_API_BASE")
+    api_base = api_base or embrouter.api_base or get_secret("VERTEXAI_API_BASE")
 
     new_params: Final = safe_deep_copy(optional_params or {})
-    model_route: Final = get_vertex_ai_model_route(model=model, litellm_params=litellm_params)
+    model_route: Final = get_vertex_ai_model_route(model=model, embrouter_params=embrouter_params)
 
     if model_route == VertexAIModelRoute.PARTNER_MODELS:
         model_response = vertex_partner_models_chat_completion.completion(
@@ -3790,7 +3790,7 @@ def _complete_vertex_ai(ctx: _CompletionDispatchContext) -> _CompletionDispatchR
             model_response=model_response,
             print_verbose=print_verbose,
             optional_params=new_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             logger_fn=logger_fn,
             encoding=_get_encoding(),
             api_base=api_base,
@@ -3811,7 +3811,7 @@ def _complete_vertex_ai(ctx: _CompletionDispatchContext) -> _CompletionDispatchR
             model_response=model_response,
             print_verbose=print_verbose,
             optional_params=new_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             logger_fn=logger_fn,
             encoding=_get_encoding(),
             vertex_location=vertex_ai_location,
@@ -3834,7 +3834,7 @@ def _complete_vertex_ai(ctx: _CompletionDispatchContext) -> _CompletionDispatchR
             model_response=model_response,
             print_verbose=print_verbose,
             optional_params=new_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             logger_fn=logger_fn,
             encoding=_get_encoding(),
             api_base=api_base,
@@ -3856,7 +3856,7 @@ def _complete_vertex_ai(ctx: _CompletionDispatchContext) -> _CompletionDispatchR
             model_response=model_response,
             print_verbose=print_verbose,
             optional_params=new_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             logger_fn=logger_fn,
             encoding=_get_encoding(),
             api_base=api_base,
@@ -3872,16 +3872,16 @@ def _complete_vertex_ai(ctx: _CompletionDispatchContext) -> _CompletionDispatchR
         )
     elif model_route == VertexAIModelRoute.AGENT_ENGINE:
         # Vertex AI Agent Engine (Reasoning Engines)
-        from litellm.llms.vertex_ai.agent_engine.transformation import (
+        from embrouter.llms.vertex_ai.agent_engine.transformation import (
             VertexAgentEngineConfig,
         )
 
         vertex_agent_engine_config: Final = VertexAgentEngineConfig()
 
-        # Update litellm_params with vertex credentials
-        litellm_params["vertex_project"] = vertex_ai_project
-        litellm_params["vertex_location"] = vertex_ai_location
-        litellm_params["vertex_credentials"] = vertex_credentials
+        # Update embrouter_params with vertex credentials
+        embrouter_params["vertex_project"] = vertex_ai_project
+        embrouter_params["vertex_location"] = vertex_ai_location
+        embrouter_params["vertex_credentials"] = vertex_credentials
 
         model_response = base_llm_http_handler.completion(
             model=model,
@@ -3889,7 +3889,7 @@ def _complete_vertex_ai(ctx: _CompletionDispatchContext) -> _CompletionDispatchR
             messages=messages,
             model_response=model_response,
             optional_params=new_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             encoding=_get_encoding(),
             api_key=None,
             api_base=api_base,
@@ -3908,7 +3908,7 @@ def _complete_vertex_ai(ctx: _CompletionDispatchContext) -> _CompletionDispatchR
             model_response=model_response,
             print_verbose=print_verbose,
             optional_params=new_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             logger_fn=logger_fn,
             encoding=_get_encoding(),
             vertex_location=vertex_ai_location,
@@ -3933,7 +3933,7 @@ def _complete_predibase(ctx: _CompletionDispatchContext) -> _CompletionDispatchR
     api_base = ctx.api_base
     api_key = ctx.api_key
     custom_prompt_dict: Final = ctx.custom_prompt_dict
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logger_fn: Final = ctx.logger_fn
     logging: Final = ctx.logging
     messages: Final = ctx.messages
@@ -3945,7 +3945,7 @@ def _complete_predibase(ctx: _CompletionDispatchContext) -> _CompletionDispatchR
     tenant_id: Final = (
         optional_params.pop("tenant_id", None)
         or optional_params.pop("predibase_tenant_id", None)
-        or litellm.predibase_tenant_id
+        or embrouter.predibase_tenant_id
         or get_secret("PREDIBASE_TENANT_ID")
     )
 
@@ -3958,11 +3958,11 @@ def _complete_predibase(ctx: _CompletionDispatchContext) -> _CompletionDispatchR
         api_base
         or optional_params.pop("api_base", None)
         or optional_params.pop("base_url", None)
-        or litellm.api_base
+        or embrouter.api_base
         or get_secret("PREDIBASE_API_BASE")
     )
 
-    api_key = api_key or litellm.api_key or litellm.predibase_key or get_secret("PREDIBASE_API_KEY")
+    api_key = api_key or embrouter.api_key or embrouter.predibase_key or get_secret("PREDIBASE_API_KEY")
 
     _model_response: Final = predibase_chat_completions.completion(
         model=model,
@@ -3970,7 +3970,7 @@ def _complete_predibase(ctx: _CompletionDispatchContext) -> _CompletionDispatchR
         model_response=model_response,
         print_verbose=print_verbose,
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         logger_fn=logger_fn,
         encoding=_get_encoding(),
         logging_obj=logging,
@@ -3994,7 +3994,7 @@ def _complete_text_completion_codestral(
     api_base = ctx.api_base
     api_key = ctx.api_key
     custom_prompt_dict: Final = ctx.custom_prompt_dict
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logger_fn: Final = ctx.logger_fn
     logging: Final = ctx.logging
     messages: Final = ctx.messages
@@ -4007,13 +4007,13 @@ def _complete_text_completion_codestral(
         api_base
         or optional_params.pop("api_base", None)
         or optional_params.pop("base_url", None)
-        or litellm.api_base
+        or embrouter.api_base
         or "https://codestral.mistral.ai/v1/fim/completions"
     )
 
-    api_key = api_key or litellm.api_key or get_secret("CODESTRAL_API_KEY")
+    api_key = api_key or embrouter.api_key or get_secret("CODESTRAL_API_KEY")
 
-    text_completion_model_response: Final = litellm.TextCompletionResponse(stream=stream)
+    text_completion_model_response: Final = embrouter.TextCompletionResponse(stream=stream)
 
     _model_response: Final = codestral_text_completions.completion(
         model=model,
@@ -4021,7 +4021,7 @@ def _complete_text_completion_codestral(
         model_response=text_completion_model_response,
         print_verbose=print_verbose,
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         logger_fn=logger_fn,
         encoding=_get_encoding(),
         logging_obj=logging,
@@ -4045,7 +4045,7 @@ def _complete_text_completion_inception(
     api_key = ctx.api_key
     client: Final = _dispatch_client_openai(ctx)
     headers: Final = ctx.headers
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logger_fn: Final = ctx.logger_fn
     logging: Final = ctx.logging
     messages: Final = ctx.messages
@@ -4067,7 +4067,7 @@ def _complete_text_completion_inception(
     # api_base; only resolve it for the default/server base, or when the
     # caller passes their own key.
     if passed_api_base is None or api_key:
-        api_key = api_key or litellm.inception_key or get_secret_str("INCEPTION_API_KEY")
+        api_key = api_key or embrouter.inception_key or get_secret_str("INCEPTION_API_KEY")
 
     _response = openai_text_completions.completion(
         model=model,
@@ -4081,13 +4081,13 @@ def _complete_text_completion_inception(
         client=client,
         logging_obj=logging,
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         logger_fn=logger_fn,
         timeout=timeout,
     )
 
     if optional_params.get("stream", False) is False and acompletion is False and text_completion is False:
-        _response = litellm.OpenAITextCompletionConfig().convert_to_chat_model_response_object(
+        _response = embrouter.OpenAITextCompletionConfig().convert_to_chat_model_response_object(
             response_object=_response, model_response_object=model_response
         )
 
@@ -4110,7 +4110,7 @@ def _complete_sagemaker_chat(
     client: Final = _dispatch_client_http(ctx)
     custom_llm_provider: Final = ctx.custom_llm_provider
     headers: Final = ctx.headers
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logging: Final = ctx.logging
     messages: Final = ctx.messages
     model: Final = ctx.model
@@ -4127,7 +4127,7 @@ def _complete_sagemaker_chat(
         api_base=api_base,
         model_response=model_response,
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         custom_llm_provider=custom_llm_provider,
         timeout=timeout,
         headers=headers,
@@ -4142,7 +4142,7 @@ def _complete_sagemaker(ctx: _CompletionDispatchContext) -> _CompletionDispatchR
     acompletion: Final = ctx.acompletion
     custom_prompt_dict: Final = ctx.custom_prompt_dict
     hf_model_name: Final = ctx.hf_model_name
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logger_fn: Final = ctx.logger_fn
     logging: Final = ctx.logging
     messages: Final = ctx.messages
@@ -4156,7 +4156,7 @@ def _complete_sagemaker(ctx: _CompletionDispatchContext) -> _CompletionDispatchR
         model_response=model_response,
         print_verbose=print_verbose,
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         custom_prompt_dict=custom_prompt_dict,
         hf_model_name=hf_model_name,
         logger_fn=logger_fn,
@@ -4173,7 +4173,7 @@ def _complete_bedrock(ctx: _CompletionDispatchContext) -> _CompletionDispatchRes
     client: Final = _dispatch_client_http(ctx)
     custom_prompt_dict = ctx.custom_prompt_dict
     headers: Final = ctx.headers
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logger_fn: Final = ctx.logger_fn
     logging: Final = ctx.logging
     messages: Final = ctx.messages
@@ -4185,7 +4185,7 @@ def _complete_bedrock(ctx: _CompletionDispatchContext) -> _CompletionDispatchRes
     stream: Final = ctx.stream
     timeout: Final = ctx.timeout
 
-    custom_prompt_dict = custom_prompt_dict or litellm.custom_prompt_dict
+    custom_prompt_dict = custom_prompt_dict or embrouter.custom_prompt_dict
 
     if "aws_bedrock_client" in optional_params:
         verbose_logger.warning(
@@ -4219,7 +4219,7 @@ def _complete_bedrock(ctx: _CompletionDispatchContext) -> _CompletionDispatchRes
             api_base=api_base,
             model_response=model_response,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             shared_session=shared_session,
             custom_llm_provider="bedrock",
             timeout=timeout,
@@ -4238,7 +4238,7 @@ def _complete_bedrock(ctx: _CompletionDispatchContext) -> _CompletionDispatchRes
             custom_prompt_dict=custom_prompt_dict,
             model_response=model_response,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             logger_fn=logger_fn,
             encoding=_get_encoding(),
             logging_obj=logging,
@@ -4259,7 +4259,7 @@ def _complete_bedrock(ctx: _CompletionDispatchContext) -> _CompletionDispatchRes
             api_base=api_base,
             model_response=model_response,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             custom_llm_provider="bedrock",
             timeout=timeout,
             headers=headers,
@@ -4277,7 +4277,7 @@ def _complete_bedrock(ctx: _CompletionDispatchContext) -> _CompletionDispatchRes
             api_base=api_base,
             model_response=model_response,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             custom_llm_provider="bedrock",
             timeout=timeout,
             headers=headers,
@@ -4297,7 +4297,7 @@ def _complete_watsonx(ctx: _CompletionDispatchContext) -> _CompletionDispatchRes
     client: Final = _dispatch_client_http(ctx)
     custom_prompt_dict: Final = ctx.custom_prompt_dict
     headers: Final = ctx.headers
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logger_fn: Final = ctx.logger_fn
     logging: Final = ctx.logging
     messages: Final = ctx.messages
@@ -4317,7 +4317,7 @@ def _complete_watsonx(ctx: _CompletionDispatchContext) -> _CompletionDispatchRes
         acompletion=acompletion,
         logging_obj=logging,
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         logger_fn=logger_fn,
         timeout=timeout,
         custom_prompt_dict=custom_prompt_dict,
@@ -4335,7 +4335,7 @@ def _complete_watsonx_text(
     api_key = ctx.api_key
     client: Final = _dispatch_client_http(ctx)
     headers: Final = ctx.headers
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logging: Final = ctx.logging
     messages: Final = ctx.messages
     model: Final = ctx.model
@@ -4392,7 +4392,7 @@ def _complete_watsonx_text(
         api_base=api_base,
         model_response=model_response,
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         shared_session=shared_session,
         custom_llm_provider="watsonx_text",
         timeout=timeout,
@@ -4406,7 +4406,7 @@ def _complete_watsonx_text(
 
 def _complete_vllm(ctx: _CompletionDispatchContext) -> _CompletionDispatchResult:
     custom_prompt_dict = ctx.custom_prompt_dict
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logger_fn: Final = ctx.logger_fn
     logging: Final = ctx.logging
     messages: Final = ctx.messages
@@ -4414,7 +4414,7 @@ def _complete_vllm(ctx: _CompletionDispatchContext) -> _CompletionDispatchResult
     model_response = ctx.model_response
     optional_params: Final = ctx.optional_params
 
-    custom_prompt_dict = custom_prompt_dict or litellm.custom_prompt_dict
+    custom_prompt_dict = custom_prompt_dict or embrouter.custom_prompt_dict
     model_response = vllm_handler.completion(
         model=model,
         messages=messages,
@@ -4422,7 +4422,7 @@ def _complete_vllm(ctx: _CompletionDispatchContext) -> _CompletionDispatchResult
         model_response=model_response,
         print_verbose=print_verbose,
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         logger_fn=logger_fn,
         encoding=_get_encoding(),
         logging_obj=logging,
@@ -4447,7 +4447,7 @@ def _complete_ollama(ctx: _CompletionDispatchContext) -> _CompletionDispatchResu
     api_key: Final = ctx.api_key
     client: Final = _dispatch_client_http(ctx)
     headers: Final = ctx.headers
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logging: Final = ctx.logging
     messages: Final = ctx.messages
     model: Final = ctx.model
@@ -4457,7 +4457,7 @@ def _complete_ollama(ctx: _CompletionDispatchContext) -> _CompletionDispatchResu
     stream: Final = ctx.stream
     timeout: Final = ctx.timeout
 
-    api_base = litellm.api_base or api_base or get_secret("OLLAMA_API_BASE") or "http://localhost:11434"
+    api_base = embrouter.api_base or api_base or get_secret("OLLAMA_API_BASE") or "http://localhost:11434"
     if api_key is not None and "Authorization" not in headers:
         headers["Authorization"] = f"Bearer {api_key}"
 
@@ -4469,7 +4469,7 @@ def _complete_ollama(ctx: _CompletionDispatchContext) -> _CompletionDispatchResu
         api_base=api_base,
         model_response=model_response,
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         shared_session=shared_session,
         custom_llm_provider="ollama",
         timeout=timeout,
@@ -4487,7 +4487,7 @@ def _complete_ollama_chat(ctx: _CompletionDispatchContext) -> _CompletionDispatc
     api_key = ctx.api_key
     client: Final = _dispatch_client_http(ctx)
     headers: Final = ctx.headers
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logging: Final = ctx.logging
     messages: Final = ctx.messages
     model: Final = ctx.model
@@ -4497,9 +4497,9 @@ def _complete_ollama_chat(ctx: _CompletionDispatchContext) -> _CompletionDispatc
     stream: Final = ctx.stream
     timeout: Final = ctx.timeout
 
-    api_base = litellm.api_base or api_base or get_secret("OLLAMA_API_BASE") or "http://localhost:11434"
+    api_base = embrouter.api_base or api_base or get_secret("OLLAMA_API_BASE") or "http://localhost:11434"
 
-    api_key = api_key or litellm.ollama_key or os.environ.get("OLLAMA_API_KEY") or litellm.api_key
+    api_key = api_key or embrouter.ollama_key or os.environ.get("OLLAMA_API_KEY") or embrouter.api_key
     if api_key is not None and "Authorization" not in headers:
         headers["Authorization"] = f"Bearer {api_key}"
 
@@ -4511,7 +4511,7 @@ def _complete_ollama_chat(ctx: _CompletionDispatchContext) -> _CompletionDispatc
         api_base=api_base,
         model_response=model_response,
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         shared_session=shared_session,
         custom_llm_provider="ollama_chat",
         timeout=timeout,
@@ -4529,7 +4529,7 @@ def _complete_triton(ctx: _CompletionDispatchContext) -> _CompletionDispatchResu
     api_key: Final = ctx.api_key
     custom_llm_provider: Final = ctx.custom_llm_provider
     headers: Final = ctx.headers
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logging: Final = ctx.logging
     messages: Final = ctx.messages
     model: Final = ctx.model
@@ -4539,7 +4539,7 @@ def _complete_triton(ctx: _CompletionDispatchContext) -> _CompletionDispatchResu
     stream: Final = ctx.stream
     timeout: Final = ctx.timeout
 
-    api_base = litellm.api_base or api_base
+    api_base = embrouter.api_base or api_base
     return base_llm_http_handler.completion(
         model=model,
         stream=stream,
@@ -4548,7 +4548,7 @@ def _complete_triton(ctx: _CompletionDispatchContext) -> _CompletionDispatchResu
         api_base=api_base,
         model_response=model_response,
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         shared_session=shared_session,
         custom_llm_provider=custom_llm_provider,
         timeout=timeout,
@@ -4565,7 +4565,7 @@ def _complete_cloudflare(ctx: _CompletionDispatchContext) -> _CompletionDispatch
     api_key = ctx.api_key
     custom_prompt_dict = ctx.custom_prompt_dict
     headers: Final = ctx.headers
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logging: Final = ctx.logging
     messages: Final = ctx.messages
     model: Final = ctx.model
@@ -4575,10 +4575,10 @@ def _complete_cloudflare(ctx: _CompletionDispatchContext) -> _CompletionDispatch
     stream: Final = ctx.stream
     timeout: Final = ctx.timeout
 
-    api_key = api_key or litellm.cloudflare_api_key or litellm.api_key or get_secret("CLOUDFLARE_API_KEY")
-    api_base = api_base or litellm.api_base or get_secret("CLOUDFLARE_API_BASE")
+    api_key = api_key or embrouter.cloudflare_api_key or embrouter.api_key or get_secret("CLOUDFLARE_API_KEY")
+    api_base = api_base or embrouter.api_base or get_secret("CLOUDFLARE_API_BASE")
 
-    custom_prompt_dict = custom_prompt_dict or litellm.custom_prompt_dict
+    custom_prompt_dict = custom_prompt_dict or embrouter.custom_prompt_dict
     return base_llm_http_handler.completion(
         model=model,
         stream=stream,
@@ -4587,7 +4587,7 @@ def _complete_cloudflare(ctx: _CompletionDispatchContext) -> _CompletionDispatch
         api_base=api_base,
         model_response=model_response,
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         shared_session=shared_session,
         custom_llm_provider="cloudflare",
         timeout=timeout,
@@ -4601,7 +4601,7 @@ def _complete_cloudflare(ctx: _CompletionDispatchContext) -> _CompletionDispatch
 def _complete_petals(ctx: _CompletionDispatchContext) -> _CompletionDispatchResult:
     api_base = ctx.api_base
     client: Final = _dispatch_client_http(ctx)
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logger_fn: Final = ctx.logger_fn
     logging: Final = ctx.logging
     messages: Final = ctx.messages
@@ -4610,7 +4610,7 @@ def _complete_petals(ctx: _CompletionDispatchContext) -> _CompletionDispatchResu
     optional_params: Final = ctx.optional_params
     stream = ctx.stream
 
-    api_base = api_base or litellm.api_base
+    api_base = api_base or embrouter.api_base
 
     stream = optional_params.pop("stream", False)
     model_response = petals_handler.completion(
@@ -4620,7 +4620,7 @@ def _complete_petals(ctx: _CompletionDispatchContext) -> _CompletionDispatchResu
         model_response=model_response,
         print_verbose=print_verbose,
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         logger_fn=logger_fn,
         encoding=_get_encoding(),
         logging_obj=logging,
@@ -4645,7 +4645,7 @@ def _complete_snowflake(ctx: _CompletionDispatchContext) -> _CompletionDispatchR
     injected_client: Final = _dispatch_client_http(ctx)
     custom_llm_provider: Final = ctx.custom_llm_provider
     headers: Final = ctx.headers
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logging: Final = ctx.logging
     messages: Final = ctx.messages
     model: Final = ctx.model
@@ -4669,7 +4669,7 @@ def _complete_snowflake(ctx: _CompletionDispatchContext) -> _CompletionDispatchR
             acompletion=acompletion,
             logging_obj=logging,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             shared_session=shared_session,
             timeout=timeout,
             client=client,
@@ -4696,7 +4696,7 @@ def _complete_gradient_ai(ctx: _CompletionDispatchContext) -> _CompletionDispatc
     api_base = ctx.api_base
     api_key: Final = ctx.api_key
     headers: Final = ctx.headers
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logging: Final = ctx.logging
     messages: Final = ctx.messages
     model: Final = ctx.model
@@ -4706,7 +4706,7 @@ def _complete_gradient_ai(ctx: _CompletionDispatchContext) -> _CompletionDispatc
     stream: Final = ctx.stream
     timeout: Final = ctx.timeout
 
-    api_base = litellm.api_base or api_base
+    api_base = embrouter.api_base or api_base
     return base_llm_http_handler.completion(
         model=model,
         stream=stream,
@@ -4715,7 +4715,7 @@ def _complete_gradient_ai(ctx: _CompletionDispatchContext) -> _CompletionDispatc
         api_base=api_base,
         model_response=model_response,
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         shared_session=shared_session,
         custom_llm_provider="gradient_ai",
         timeout=timeout,
@@ -4733,7 +4733,7 @@ def _complete_gdc(ctx: _CompletionDispatchContext) -> _CompletionDispatchResult:
     client: Final = _dispatch_client_http(ctx)
     custom_llm_provider: Final = ctx.custom_llm_provider
     headers: Final = ctx.headers
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logging: Final = ctx.logging
     messages: Final = ctx.messages
     model: Final = ctx.model
@@ -4742,8 +4742,8 @@ def _complete_gdc(ctx: _CompletionDispatchContext) -> _CompletionDispatchResult:
     stream: Final = ctx.stream
     timeout: Final = ctx.timeout
 
-    api_key = api_key or litellm.gdc_key or get_secret_str("GDC_API_KEY") or litellm.api_key
-    api_base = api_base or litellm.gdc_api_base or get_secret_str("GDC_API_BASE") or litellm.api_base
+    api_key = api_key or embrouter.gdc_key or get_secret_str("GDC_API_KEY") or embrouter.api_key
+    api_base = api_base or embrouter.gdc_api_base or get_secret_str("GDC_API_BASE") or embrouter.api_base
 
     return base_llm_http_handler.completion(
         model=model,
@@ -4755,7 +4755,7 @@ def _complete_gdc(ctx: _CompletionDispatchContext) -> _CompletionDispatchResult:
         acompletion=acompletion,
         logging_obj=logging,
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         timeout=timeout,
         client=client,
         custom_llm_provider=custom_llm_provider,
@@ -4772,7 +4772,7 @@ def _complete_bytez(ctx: _CompletionDispatchContext) -> _CompletionDispatchResul
     client: Final = _dispatch_client_http(ctx)
     custom_llm_provider: Final = ctx.custom_llm_provider
     headers: Final = ctx.headers
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logging: Final = ctx.logging
     messages: Final = ctx.messages
     model: Final = ctx.model
@@ -4781,7 +4781,7 @@ def _complete_bytez(ctx: _CompletionDispatchContext) -> _CompletionDispatchResul
     stream: Final = ctx.stream
     timeout: Final = ctx.timeout
 
-    api_key = api_key or litellm.bytez_key or get_secret_str("BYTEZ_API_KEY") or litellm.api_key
+    api_key = api_key or embrouter.bytez_key or get_secret_str("BYTEZ_API_KEY") or embrouter.api_key
 
     response: Final = base_llm_http_handler.completion(
         model=model,
@@ -4793,7 +4793,7 @@ def _complete_bytez(ctx: _CompletionDispatchContext) -> _CompletionDispatchResul
         acompletion=acompletion,
         logging_obj=logging,
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         timeout=timeout,
         client=client,
         custom_llm_provider=custom_llm_provider,
@@ -4812,7 +4812,7 @@ def _complete_lemonade(ctx: _CompletionDispatchContext) -> _CompletionDispatchRe
     client: Final = _dispatch_client_http(ctx)
     custom_llm_provider: Final = ctx.custom_llm_provider
     headers: Final = ctx.headers
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logging: Final = ctx.logging
     messages: Final = ctx.messages
     model: Final = ctx.model
@@ -4821,7 +4821,7 @@ def _complete_lemonade(ctx: _CompletionDispatchContext) -> _CompletionDispatchRe
     stream: Final = ctx.stream
     timeout: Final = ctx.timeout
 
-    api_key = api_key or litellm.lemonade_key or get_secret_str("LEMONADE_API_KEY") or litellm.api_key
+    api_key = api_key or embrouter.lemonade_key or get_secret_str("LEMONADE_API_KEY") or embrouter.api_key
 
     response: Final = base_llm_http_handler.completion(
         model=model,
@@ -4833,7 +4833,7 @@ def _complete_lemonade(ctx: _CompletionDispatchContext) -> _CompletionDispatchRe
         acompletion=acompletion,
         logging_obj=logging,
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         timeout=timeout,
         client=client,
         custom_llm_provider=custom_llm_provider,
@@ -4852,7 +4852,7 @@ def _complete_ovhcloud(ctx: _CompletionDispatchContext) -> _CompletionDispatchRe
     client: Final = _dispatch_client_http(ctx)
     custom_llm_provider: Final = ctx.custom_llm_provider
     headers: Final = ctx.headers
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logging: Final = ctx.logging
     messages: Final = ctx.messages
     model: Final = ctx.model
@@ -4861,11 +4861,11 @@ def _complete_ovhcloud(ctx: _CompletionDispatchContext) -> _CompletionDispatchRe
     stream: Final = ctx.stream
     timeout: Final = ctx.timeout
 
-    api_key = api_key or litellm.ovhcloud_key or get_secret_str("OVHCLOUD_API_KEY") or litellm.api_key
+    api_key = api_key or embrouter.ovhcloud_key or get_secret_str("OVHCLOUD_API_KEY") or embrouter.api_key
 
     api_base = (
         api_base
-        or litellm.api_base
+        or embrouter.api_base
         or get_secret_str("OVHCLOUD_API_BASE")
         or "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
     )
@@ -4880,7 +4880,7 @@ def _complete_ovhcloud(ctx: _CompletionDispatchContext) -> _CompletionDispatchRe
         acompletion=acompletion,
         logging_obj=logging,
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         timeout=timeout,
         client=client,
         custom_llm_provider=custom_llm_provider,
@@ -4907,13 +4907,13 @@ def _complete_custom(ctx: _CompletionDispatchContext) -> _CompletionDispatchResu
     temperature: Final = ctx.temperature
     top_p: Final = ctx.top_p
 
-    url: Final = litellm.api_base or api_base or ""
+    url: Final = embrouter.api_base or api_base or ""
     if url is None or url == "":
-        raise ValueError("api_base not set. Set api_base or litellm.api_base for custom endpoints")
+        raise ValueError("api_base not set. Set api_base or embrouter.api_base for custom endpoints")
 
     """
     assume input to custom LLM api bases follow this format:
-    resp = litellm.module_level_client.post(
+    resp = embrouter.module_level_client.post(
         api_base,
         json={
             'model': 'meta-llama/Llama-2-13b-hf', # model name
@@ -4929,7 +4929,7 @@ def _complete_custom(ctx: _CompletionDispatchContext) -> _CompletionDispatchResu
 
     """
     prompt: Final = " ".join([message["content"] for message in messages])
-    resp: Final = litellm.module_level_client.post(
+    resp: Final = embrouter.module_level_client.post(
         url,
         headers=headers,
         json={
@@ -4975,7 +4975,7 @@ def _complete_custom_providers(
     custom_llm_provider: Final = ctx.custom_llm_provider
     custom_prompt_dict: Final = ctx.custom_prompt_dict
     headers = ctx.headers
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logger_fn: Final = ctx.logger_fn
     logging: Final = ctx.logging
     messages: Final = ctx.messages
@@ -4986,17 +4986,17 @@ def _complete_custom_providers(
     timeout: Final = ctx.timeout
 
     custom_handler: CustomLLM | None = None
-    for item in litellm.custom_provider_map:
+    for item in embrouter.custom_provider_map:
         if item["provider"] == custom_llm_provider:
             custom_handler = item["custom_handler"]
 
     if custom_handler is None:
-        raise LiteLLMUnknownProvider(model=model, custom_llm_provider=custom_llm_provider)
+        raise EmbRouterUnknownProvider(model=model, custom_llm_provider=custom_llm_provider)
 
     ## ROUTE LLM CALL ##
     handler_fn: Final = custom_chat_llm_router(async_fn=acompletion, stream=stream, custom_llm=custom_handler)
 
-    headers = headers or litellm.headers or {}
+    headers = headers or embrouter.headers or {}
 
     ## CALL FUNCTION
     response: Final = handler_fn(
@@ -5010,7 +5010,7 @@ def _complete_custom_providers(
         acompletion=acompletion,
         logging_obj=logging,
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         logger_fn=logger_fn,
         timeout=timeout,
         custom_prompt_dict=custom_prompt_dict,
@@ -5035,7 +5035,7 @@ def _complete_langgraph(ctx: _CompletionDispatchContext) -> _CompletionDispatchR
     client: Final = _dispatch_client_http(ctx)
     custom_llm_provider: Final = ctx.custom_llm_provider
     headers = ctx.headers
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logging: Final = ctx.logging
     messages: Final = ctx.messages
     model: Final = ctx.model
@@ -5045,17 +5045,17 @@ def _complete_langgraph(ctx: _CompletionDispatchContext) -> _CompletionDispatchR
     stream: Final = ctx.stream
     timeout: Final = ctx.timeout
 
-    from litellm.llms.langgraph.chat.transformation import LangGraphConfig
+    from embrouter.llms.langgraph.chat.transformation import LangGraphConfig
 
     (
         api_base,
         api_key,
     ) = LangGraphConfig()._get_openai_compatible_provider_info(
-        api_base=api_base or litellm.api_base,
-        api_key=api_key or litellm.api_key,
+        api_base=api_base or embrouter.api_base,
+        api_key=api_key or embrouter.api_key,
     )
 
-    headers = headers or litellm.headers
+    headers = headers or embrouter.headers
 
     return base_llm_http_handler.completion(
         model=model,
@@ -5065,7 +5065,7 @@ def _complete_langgraph(ctx: _CompletionDispatchContext) -> _CompletionDispatchR
         api_base=api_base,
         model_response=model_response,
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         shared_session=shared_session,
         custom_llm_provider=custom_llm_provider,
         timeout=timeout,
@@ -5084,7 +5084,7 @@ def _complete_langflow(ctx: _CompletionDispatchContext) -> _CompletionDispatchRe
     client: Final = _dispatch_client_http(ctx)
     custom_llm_provider: Final = ctx.custom_llm_provider
     headers = ctx.headers
-    litellm_params: Final = ctx.litellm_params
+    embrouter_params: Final = ctx.embrouter_params
     logging: Final = ctx.logging
     messages: Final = ctx.messages
     model: Final = ctx.model
@@ -5094,17 +5094,17 @@ def _complete_langflow(ctx: _CompletionDispatchContext) -> _CompletionDispatchRe
     stream: Final = ctx.stream
     timeout: Final = ctx.timeout
 
-    from litellm.llms.langflow.chat.transformation import LangFlowConfig
+    from embrouter.llms.langflow.chat.transformation import LangFlowConfig
 
     (
         api_base,
         api_key,
     ) = LangFlowConfig()._get_openai_compatible_provider_info(
-        api_base=api_base or litellm.api_base,
-        api_key=api_key or litellm.api_key,
+        api_base=api_base or embrouter.api_base,
+        api_key=api_key or embrouter.api_key,
     )
 
-    headers = headers or litellm.headers
+    headers = headers or embrouter.headers
 
     return base_llm_http_handler.completion(
         model=model,
@@ -5114,7 +5114,7 @@ def _complete_langflow(ctx: _CompletionDispatchContext) -> _CompletionDispatchRe
         api_base=api_base,
         model_response=model_response,
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         shared_session=shared_session,
         custom_llm_provider=custom_llm_provider,
         timeout=timeout,
@@ -5174,16 +5174,16 @@ def completion(
     api_version: str | None = None,
     api_key: str | None = None,
     model_list: list | None = None,  # pass in a list of api_base,keys, etc.
-    # Optional liteLLM function params
+    # Optional embRouter function params
     thinking: AnthropicThinkingParam | None = None,
     # Session management
     shared_session: Optional["ClientSession"] = None,
-    # Per-request JSON schema validation (overrides litellm.enable_json_schema_validation)
+    # Per-request JSON schema validation (overrides embrouter.enable_json_schema_validation)
     enable_json_schema_validation: bool | None = None,
     **kwargs,
 ) -> ModelResponse | CustomStreamWrapper:
     """
-    Perform a completion() using any of litellm supported llms (example gpt-4, gpt-3.5-turbo, claude-2, command-nightly)
+    Perform a completion() using any of embrouter supported llms (example gpt-4, gpt-3.5-turbo, claude-2, command-nightly)
     Parameters:
         model (str): The name of the language model to use for text completion.
         messages (List): A list of message objects representing the conversation context (default is an empty list).
@@ -5215,7 +5215,7 @@ def completion(
         model_list (list, optional): List of api base, version, keys
         extra_headers (dict, optional): Additional headers to include in the request.
 
-        LITELLM Specific Params
+        EMBROUTER Specific Params
         mock_response (str, optional): If provided, return a mock completion response for testing or debugging purposes (default is None).
         custom_llm_provider (str, optional): Used for Non-OpenAI LLMs, Example usage for bedrock, set model="amazon.titan-tg1-large" and custom_llm_provider="bedrock"
         max_retries (int, optional): The number of retries to attempt (default is 0).
@@ -5251,16 +5251,16 @@ def completion(
     control_options: Final = _resolve_control_options(kwargs, model)
     skip_mcp_handler: Final = kwargs.pop("_skip_mcp_handler", False)
     if not skip_mcp_handler and tools:
-        from litellm.responses.mcp.chat_completions_handler import acompletion_with_mcp
-        from litellm.responses.mcp.litellm_proxy_mcp_handler import (
-            LiteLLM_Proxy_MCP_Handler,
+        from embrouter.responses.mcp.chat_completions_handler import acompletion_with_mcp
+        from embrouter.responses.mcp.embrouter_proxy_mcp_handler import (
+            EmbRouter_Proxy_MCP_Handler,
         )
-        from litellm.types.llms.openai import ToolParam
+        from embrouter.types.llms.openai import ToolParam
 
         # Check if MCP tools are present (following responses pattern)
         # Cast tools to Optional[Iterable[ToolParam]] for type checking
         tools_for_mcp: Final = cast(Iterable[ToolParam] | None, tools)
-        if LiteLLM_Proxy_MCP_Handler._should_use_litellm_mcp_gateway(tools=tools_for_mcp):
+        if EmbRouter_Proxy_MCP_Handler._should_use_embrouter_mcp_gateway(tools=tools_for_mcp):
             return acompletion_with_mcp(  # pyright: ignore[reportReturnType]  # MCP path returns a coroutine that acompletion() awaits; completion()'s sync return type omits it
                 model=model,
                 messages=messages,
@@ -5315,7 +5315,7 @@ def completion(
     logger_fn: Final = kwargs.get("logger_fn", None)
     verbose: Final = kwargs.get("verbose", False)
     custom_llm_provider = kwargs.get("custom_llm_provider", None)
-    litellm_logging_obj: Final = kwargs.get("litellm_logging_obj", None)
+    embrouter_logging_obj: Final = kwargs.get("embrouter_logging_obj", None)
     id: Final = kwargs.get("id", None)
     metadata: Final = kwargs.get("metadata", None)
     model_info: Final = kwargs.get("model_info", None)
@@ -5334,9 +5334,9 @@ def completion(
     if extra_headers is not None:
         headers.update(extra_headers)
     # Inject proxy auth headers if configured
-    if litellm.proxy_auth is not None:
+    if embrouter.proxy_auth is not None:
         try:
-            proxy_headers: Final = _proxy_auth_headers(litellm.proxy_auth)
+            proxy_headers: Final = _proxy_auth_headers(embrouter.proxy_auth)
             headers.update(proxy_headers)
         except Exception as e:
             verbose_logger.warning("Failed to get proxy auth headers: %s", e)
@@ -5380,7 +5380,7 @@ def completion(
     ### PROMPT MANAGEMENT ###
     prompt_id: Final = cast(str | None, kwargs.get("prompt_id", None))
     prompt_variables: Final = cast(dict | None, kwargs.get("prompt_variables", None))
-    litellm_system_prompt: Final = kwargs.get("litellm_system_prompt", None)
+    embrouter_system_prompt: Final = kwargs.get("embrouter_system_prompt", None)
     ### COPY MESSAGES ###
     messages = get_completion_messages(
         messages=messages,
@@ -5392,10 +5392,10 @@ def completion(
     non_default_params: Final = get_non_default_completion_params(kwargs=kwargs)
     ## PROMPT MANAGEMENT HOOKS ##
 
-    from litellm.integrations.anthropic_cache_control_hook import (
+    from embrouter.integrations.anthropic_cache_control_hook import (
         AnthropicCacheControlHook,
     )
-    from litellm.types.llms.openai import AllMessageValues
+    from embrouter.types.llms.openai import AllMessageValues
 
     AnthropicCacheControlHook.maybe_seed_default_injection_points(
         non_default_params=non_default_params,
@@ -5407,8 +5407,8 @@ def completion(
         api_base=kwargs.get("api_base") or base_url,
     )
 
-    if isinstance(litellm_logging_obj, LiteLLMLoggingObj) and (
-        litellm_logging_obj.should_run_prompt_management_hooks(
+    if isinstance(embrouter_logging_obj, EmbRouterLoggingObj) and (
+        embrouter_logging_obj.should_run_prompt_management_hooks(
             prompt_id=prompt_id, non_default_params=non_default_params
         )
     ):
@@ -5416,7 +5416,7 @@ def completion(
             model,
             messages,
             optional_params,
-        ) = litellm_logging_obj.get_chat_completion_prompt(
+        ) = embrouter_logging_obj.get_chat_completion_prompt(
             model=model,
             messages=messages,
             non_default_params=non_default_params,
@@ -5427,39 +5427,39 @@ def completion(
             request_kwargs=kwargs,
         )
 
-    ### LITELLM SYSTEM PROMPT ###
-    if litellm_system_prompt:
+    ### EMBROUTER SYSTEM PROMPT ###
+    if embrouter_system_prompt:
         messages = add_system_prompt_to_messages(
             messages=messages,
-            system_prompt=litellm_system_prompt,
+            system_prompt=embrouter_system_prompt,
             merge_with_first_system=True,
         )
 
     try:
         if base_url is not None:
             api_base = base_url
-        is_router_call: Final = any("model_group" in (kwargs.get(k) or ()) for k in ("metadata", "litellm_metadata"))
+        is_router_call: Final = any("model_group" in (kwargs.get(k) or ()) for k in ("metadata", "embrouter_metadata"))
         if is_router_call:
             max_retries = 0
         elif num_retries is not None:
             max_retries = num_retries
-        logging: Final[LiteLLMLoggingObj] = cast(LiteLLMLoggingObj, litellm_logging_obj)
-        fallbacks = fallbacks or litellm.model_fallbacks
+        logging: Final[EmbRouterLoggingObj] = cast(EmbRouterLoggingObj, embrouter_logging_obj)
+        fallbacks = fallbacks or embrouter.model_fallbacks
         if fallbacks is not None:
             return completion_with_fallbacks(  # pyright: ignore[reportReturnType]  # fallback runner is untyped; resolves to ModelResponse|CustomStreamWrapper at runtime
                 **args
             )
         if model_list is not None:
-            deployments: Final = [m["litellm_params"] for m in model_list if m["model_name"] == model]
-            return litellm.batch_completion_models(  # pyright: ignore[reportReturnType]  # batch path returns a list of responses, outside completion()'s single-response return type
+            deployments: Final = [m["embrouter_params"] for m in model_list if m["model_name"] == model]
+            return embrouter.batch_completion_models(  # pyright: ignore[reportReturnType]  # batch path returns a list of responses, outside completion()'s single-response return type
                 deployments=deployments, **args
             )
-        if litellm.model_alias_map and model in litellm.model_alias_map:
-            model = litellm.model_alias_map[
+        if embrouter.model_alias_map and model in embrouter.model_alias_map:
+            model = embrouter.model_alias_map[
                 model
             ]  # update the model to the actual value if an alias has been passed in
         model_response: Final = ModelResponse()
-        setattr(model_response, "usage", litellm.Usage())
+        setattr(model_response, "usage", embrouter.Usage())
         if (
             kwargs.get("azure", False) is True
         ):  # don't remove flag check, to remain backwards compatible for repos like Codium
@@ -5473,8 +5473,8 @@ def completion(
             custom_llm_provider=custom_llm_provider,
             api_base=api_base,
             api_key=api_key,
-            litellm_params=(
-                GenericLiteLLMParams(**_supplemental_provider_params) if _supplemental_provider_params else None
+            embrouter_params=(
+                GenericEmbRouterParams(**_supplemental_provider_params) if _supplemental_provider_params else None
             ),
         )
 
@@ -5637,14 +5637,14 @@ def completion(
             provider_config=provider_config,
         )
 
-        if litellm.add_function_to_prompt and optional_params.get(
+        if embrouter.add_function_to_prompt and optional_params.get(
             "functions_unsupported_model", None
         ):  # if user opts to add it to prompt, when API doesn't support function calling
             functions_unsupported_model: Final = optional_params.pop("functions_unsupported_model")
             messages = function_call_prompt(messages=messages, functions=functions_unsupported_model)
 
-        # For logging - save the values of the litellm-specific params passed in
-        requested_litellm_params: Final = get_litellm_params(
+        # For logging - save the values of the embrouter-specific params passed in
+        requested_embrouter_params: Final = get_embrouter_params(
             acompletion=acompletion,
             api_key=api_key,
             force_timeout=force_timeout,
@@ -5652,8 +5652,8 @@ def completion(
             verbose=verbose,
             custom_llm_provider=custom_llm_provider,
             api_base=api_base,
-            litellm_call_id=kwargs.get("litellm_call_id", None),
-            model_alias_map=litellm.model_alias_map,
+            embrouter_call_id=kwargs.get("embrouter_call_id", None),
+            model_alias_map=embrouter.model_alias_map,
             completion_call_id=id,
             metadata=metadata,
             model_info=model_info,
@@ -5670,18 +5670,18 @@ def completion(
             azure_ad_token_provider=kwargs.get("azure_ad_token_provider"),
             user_continue_message=kwargs.get("user_continue_message"),
             base_model=base_model,
-            litellm_trace_id=kwargs.get("litellm_trace_id"),
-            litellm_session_id=kwargs.get("litellm_session_id"),
+            embrouter_trace_id=kwargs.get("embrouter_trace_id"),
+            embrouter_session_id=kwargs.get("embrouter_session_id"),
             hf_model_name=hf_model_name,
             custom_prompt_dict=custom_prompt_dict,
-            litellm_metadata=kwargs.get("litellm_metadata"),
+            embrouter_metadata=kwargs.get("embrouter_metadata"),
             disable_add_transform_inline_image_block=disable_add_transform_inline_image_block,
             drop_params=kwargs.get("drop_params"),
             prompt_id=prompt_id,
             prompt_variables=prompt_variables,
             ssl_verify=ssl_verify,
             merge_reasoning_content_in_choices=kwargs.get("merge_reasoning_content_in_choices", None),
-            use_litellm_proxy=kwargs.get("use_litellm_proxy", False),
+            use_embrouter_proxy=kwargs.get("use_embrouter_proxy", False),
             api_version=api_version,
             azure_ad_token=kwargs.get("azure_ad_token"),
             tenant_id=kwargs.get("tenant_id"),
@@ -5692,7 +5692,7 @@ def completion(
             azure_scope=kwargs.get("azure_scope"),
             max_retries=max_retries,
             timeout=timeout,
-            litellm_request_debug=kwargs.get("litellm_request_debug", False),
+            embrouter_request_debug=kwargs.get("embrouter_request_debug", False),
             tpm=kwargs.get("tpm"),
             rpm=kwargs.get("rpm"),
             use_xai_oauth=kwargs.get("use_xai_oauth", False),
@@ -5705,30 +5705,30 @@ def completion(
                 if key in kwargs
             },
         )
-        litellm_params: Final = with_control_options(requested_litellm_params, control_options)
-        if litellm_params.get("provider_affinity_header") is not None:
+        embrouter_params: Final = with_control_options(requested_embrouter_params, control_options)
+        if embrouter_params.get("provider_affinity_header") is not None:
             try:
                 headers = add_provider_affinity_header(
-                    headers=headers or litellm.headers or MappingProxyType({}),
-                    litellm_params=MappingProxyType(
+                    headers=headers or embrouter.headers or MappingProxyType({}),
+                    embrouter_params=MappingProxyType(
                         {
-                            "provider_affinity_header": litellm_params["provider_affinity_header"],
-                            "litellm_session_id": kwargs.get("litellm_session_id"),
+                            "provider_affinity_header": embrouter_params["provider_affinity_header"],
+                            "embrouter_session_id": kwargs.get("embrouter_session_id"),
                             "session_id": kwargs.get("session_id"),
                             "metadata": metadata,
-                            "litellm_metadata": kwargs.get("litellm_metadata"),
+                            "embrouter_metadata": kwargs.get("embrouter_metadata"),
                         }
                     ),
                 )
             except ValueError as affinity_error:
-                raise litellm.BadRequestError(
+                raise embrouter.BadRequestError(
                     message=str(affinity_error), model=model, llm_provider=custom_llm_provider
                 ) from affinity_error
-        cast(LiteLLMLoggingObj, logging).update_environment_variables(
+        cast(EmbRouterLoggingObj, logging).update_environment_variables(
             model=model,
             user=user,
             optional_params=processed_non_default_params,  # [IMPORTANT] - using processed_non_default_params ensures consistent params logged to langfuse for finetuning / eval datasets.
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             custom_llm_provider=custom_llm_provider,
         )
         if mock_response or mock_tool_calls or mock_timeout:
@@ -5751,7 +5751,7 @@ def completion(
                 ),
             )
 
-        ## RESPONSES API BRIDGE LOGIC ## - check if model has 'mode: responses' in litellm.model_cost map
+        ## RESPONSES API BRIDGE LOGIC ## - check if model has 'mode: responses' in embrouter.model_cost map
         # Only run the second bridge check if the first one didn't already
         # detect responses mode (e.g. via the "responses/" prefix).  The second
         # check handles cases like gpt-5.4+ with tools+reasoning_effort or
@@ -5774,7 +5774,7 @@ def completion(
         _azure_detection_model: Final = base_model or model
 
         if responses_api_model_info.get("mode") == "responses" and not skip_responses_api_bridge:
-            from litellm.completion_extras import responses_api_bridge
+            from embrouter.completion_extras import responses_api_bridge
 
             optional_params, rs_val = strip_reasoning_summary_aliases_from_optional_params(optional_params)
 
@@ -5802,7 +5802,7 @@ def completion(
                 acompletion=acompletion,
                 logging_obj=logging,
                 optional_params=optional_params,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 timeout=timeout,
                 client=client,  # pass AsyncOpenAI, OpenAI client
                 custom_llm_provider=custom_llm_provider,
@@ -5811,7 +5811,7 @@ def completion(
             )
         elif (custom_llm_provider == "openai" and OpenAIGPT5Config.is_model_gpt_5_model(model)) or (
             custom_llm_provider == "azure"
-            and litellm.AzureOpenAIGPT5Config.is_model_gpt_5_model(_azure_detection_model)
+            and embrouter.AzureOpenAIGPT5Config.is_model_gpt_5_model(_azure_detection_model)
         ):
             optional_params, _ = strip_reasoning_summary_aliases_from_optional_params(optional_params)
 
@@ -5828,7 +5828,7 @@ def completion(
             headers=headers,
             hf_model_name=hf_model_name,
             kwargs=kwargs,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             logger_fn=logger_fn,
             logging=logging,
             max_retries=max_retries,
@@ -5865,7 +5865,7 @@ def completion(
             custom_llm_provider == "text-completion-openai"
             or "ft:babbage-002" in model
             or "ft:davinci-002" in model  # support for finetuned completion models
-            or custom_llm_provider in litellm.openai_text_completion_compatible_providers
+            or custom_llm_provider in embrouter.openai_text_completion_compatible_providers
             and kwargs.get("text_completion") is True
         ):
             response = _complete_text_completion_openai(_dispatch_ctx)
@@ -5916,7 +5916,7 @@ def completion(
             # "openai", so a different value here was asked for explicitly (or came
             # from a register_model entry), and the provider config built for it
             # would be handed to the OpenAI handler.
-            (model in litellm.open_ai_chat_completion_models and custom_llm_provider in (None, "openai"))
+            (model in embrouter.open_ai_chat_completion_models and custom_llm_provider in (None, "openai"))
             or custom_llm_provider == "custom_openai"
             or custom_llm_provider == "deepinfra"
             or custom_llm_provider == "perplexity"
@@ -5930,7 +5930,7 @@ def completion(
             or custom_llm_provider == "nebius"
             or custom_llm_provider == "wandb"
             or custom_llm_provider == "clarifai"
-            or custom_llm_provider in litellm.openai_compatible_providers
+            or custom_llm_provider in embrouter.openai_compatible_providers
             or JSONProviderRegistry.exists(custom_llm_provider)  # JSON-configured providers
             or "ft:gpt-3.5-turbo" in model  # finetune gpt-3.5-turbo
         ):  # allow user to make an openai call with a custom base
@@ -5940,10 +5940,10 @@ def completion(
 
         elif custom_llm_provider == "mistral":
             response = _complete_mistral(_dispatch_ctx)
-        elif "replicate" in model or custom_llm_provider == "replicate" or model in litellm.replicate_models:
+        elif "replicate" in model or custom_llm_provider == "replicate" or model in embrouter.replicate_models:
             # Setting the relevant API KEY for replicate, replicate defaults to using os.environ.get("REPLICATE_API_TOKEN")
             response = _complete_replicate(_dispatch_ctx)
-        elif "clarifai" in model or custom_llm_provider == "clarifai" or model in litellm.clarifai_models:
+        elif "clarifai" in model or custom_llm_provider == "clarifai" or model in embrouter.clarifai_models:
             pass  # Deprecated - handled in the openai compatible provider section above
         elif custom_llm_provider == "anthropic_text":
             response = _complete_anthropic_text(_dispatch_ctx)
@@ -6021,9 +6021,9 @@ def completion(
         elif custom_llm_provider == "cloudflare":
             response = _complete_cloudflare(_dispatch_ctx)
 
-        elif custom_llm_provider == "petals" or model in litellm.petals_models:
+        elif custom_llm_provider == "petals" or model in embrouter.petals_models:
             response = _complete_petals(_dispatch_ctx)
-        elif custom_llm_provider == "snowflake" or model in litellm.snowflake_models:
+        elif custom_llm_provider == "snowflake" or model in embrouter.snowflake_models:
             response = _complete_snowflake(_dispatch_ctx)
         elif custom_llm_provider == "gradient_ai":
             response = _complete_gradient_ai(_dispatch_ctx)
@@ -6035,13 +6035,13 @@ def completion(
         elif custom_llm_provider == "lemonade":
             response = _complete_lemonade(_dispatch_ctx)
 
-        elif custom_llm_provider == "ovhcloud" or model in litellm.ovhcloud_models:
+        elif custom_llm_provider == "ovhcloud" or model in embrouter.ovhcloud_models:
             response = _complete_ovhcloud(_dispatch_ctx)
 
         elif custom_llm_provider == "custom":
             response = _complete_custom(_dispatch_ctx)
 
-        elif custom_llm_provider in litellm._custom_providers:  # Assume custom LLM provider
+        elif custom_llm_provider in embrouter._custom_providers:  # Assume custom LLM provider
             # Get the Custom Handler
             response = _complete_custom_providers(_dispatch_ctx)
 
@@ -6054,7 +6054,7 @@ def completion(
             response = _complete_langflow(_dispatch_ctx)
 
         else:
-            raise LiteLLMUnknownProvider(model=model, custom_llm_provider=custom_llm_provider)
+            raise EmbRouterUnknownProvider(model=model, custom_llm_provider=custom_llm_provider)
         return response
     except Exception as e:
         ## Map to OpenAI Exception
@@ -6069,7 +6069,7 @@ def completion(
 
 def completion_with_retries(*args, **kwargs):
     """
-    Executes a litellm.completion() with 3 retries
+    Executes a embrouter.completion() with 3 retries
     """
     try:
         import tenacity
@@ -6096,7 +6096,7 @@ def completion_with_retries(*args, **kwargs):
 async def acompletion_with_retries(*args, **kwargs):
     """
     [DEPRECATED]. Use 'acompletion' or router.acompletion instead!
-    Executes a litellm.completion() with 3 retries
+    Executes a embrouter.completion() with 3 retries
     """
     try:
         import tenacity
@@ -6121,14 +6121,14 @@ async def acompletion_with_retries(*args, **kwargs):
 
 def responses_with_retries(*args, **kwargs):
     """
-    Executes a litellm.responses() with retries
+    Executes a embrouter.responses() with retries
     """
     try:
         import tenacity
     except Exception as e:
         raise Exception(f"tenacity import failed please run `pip install tenacity`. Error{e}")
 
-    from litellm.responses.dispatch import responses
+    from embrouter.responses.dispatch import responses
 
     num_retries: Final = kwargs.pop("num_retries", 3)
     # reset retries in .responses()
@@ -6149,14 +6149,14 @@ def responses_with_retries(*args, **kwargs):
 
 async def aresponses_with_retries(*args, **kwargs):
     """
-    Executes a litellm.aresponses() with retries
+    Executes a embrouter.aresponses() with retries
     """
     try:
         import tenacity
     except Exception as e:
         raise Exception(f"tenacity import failed please run `pip install tenacity`. Error{e}")
 
-    from litellm.responses.dispatch import aresponses
+    from embrouter.responses.dispatch import aresponses
 
     num_retries: Final = kwargs.pop("num_retries", 3)
     kwargs["max_retries"] = 0
@@ -6252,7 +6252,7 @@ def embedding(
     caching: bool = False,
     user: str | None = None,
     custom_llm_provider=None,
-    litellm_call_id=None,
+    embrouter_call_id=None,
     logger_fn=None,
     *,
     aembedding: Literal[True],
@@ -6278,7 +6278,7 @@ def embedding(
     caching: bool = False,
     user: str | None = None,
     custom_llm_provider=None,
-    litellm_call_id=None,
+    embrouter_call_id=None,
     logger_fn=None,
     *,
     aembedding: Literal[False] = False,
@@ -6305,7 +6305,7 @@ def embedding(
     caching: bool = False,
     user: str | None = None,
     custom_llm_provider=None,
-    litellm_call_id=None,
+    embrouter_call_id=None,
     logger_fn=None,
     **kwargs,
 ) -> EmbeddingResponse | Coroutine[object, object, EmbeddingResponse]:
@@ -6318,8 +6318,8 @@ def embedding(
     - encoding_format: Optional[str] The format to return the embeddings in. Can be either `float` or `base64`
     - dimensions: The number of dimensions the resulting output embeddings should have. Only supported in text-embedding-3 and later models.
     - timeout: The timeout value for the API call, default 10 mins
-    - litellm_call_id: The call ID for litellm logging.
-    - litellm_logging_obj: The litellm logging object.
+    - embrouter_call_id: The call ID for embrouter logging.
+    - embrouter_logging_obj: The embrouter logging object.
     - logger_fn: The logger function.
     - api_base: Optional. The base URL for the API.
     - api_version: Optional. The version of the API.
@@ -6338,7 +6338,7 @@ def embedding(
     client: Final = kwargs.pop("client", None)
     shared_session: Final = kwargs.get("shared_session", None)
     max_retries: Final = kwargs.get("max_retries", None)
-    litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.get("litellm_logging_obj")
+    embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.get("embrouter_logging_obj")
     mock_response: Final[list[float] | None] = kwargs.get("mock_response", None)
     azure_ad_token_provider: Final = kwargs.get("azure_ad_token_provider", None)
     aembedding: Final[bool | None] = kwargs.get("aembedding", None)
@@ -6349,9 +6349,9 @@ def embedding(
     if extra_headers is not None:
         headers.update(extra_headers)
     # Inject proxy auth headers if configured
-    if litellm.proxy_auth is not None:
+    if embrouter.proxy_auth is not None:
         try:
-            proxy_headers: Final = _proxy_auth_headers(litellm.proxy_auth)
+            proxy_headers: Final = _proxy_auth_headers(embrouter.proxy_auth)
             headers.update(proxy_headers)
         except Exception as e:
             verbose_logger.warning("Failed to get proxy auth headers: %s", e)
@@ -6377,7 +6377,7 @@ def embedding(
         "encoding_format",
     ]
     default_params: Final = [*openai_params, "aembedding", "extra_headers"]
-    non_default_params: Final = filter_out_litellm_params(kwargs, excluding=default_params)
+    non_default_params: Final = filter_out_embrouter_params(kwargs, excluding=default_params)
 
     model, custom_llm_provider, dynamic_api_key, api_base = get_llm_provider(
         model=model,
@@ -6414,14 +6414,14 @@ def embedding(
             model_info=kwargs.get("model_info"),
         )
 
-    litellm_params_dict: Final = get_litellm_params(**kwargs)
+    embrouter_params_dict: Final = get_embrouter_params(**kwargs)
 
-    logging: Final[LiteLLMLoggingObj] = litellm_logging_obj
+    logging: Final[EmbRouterLoggingObj] = embrouter_logging_obj
     logging.update_environment_variables(
         model=model,
         user=user,
         optional_params=optional_params,
-        litellm_params=litellm_params_dict,
+        embrouter_params=embrouter_params_dict,
         custom_llm_provider=custom_llm_provider,
     )
 
@@ -6433,18 +6433,18 @@ def embedding(
         if azure is True or custom_llm_provider == "azure":
             # azure configs
 
-            api_base = api_base or litellm.api_base or get_secret_str("AZURE_API_BASE")
+            api_base = api_base or embrouter.api_base or get_secret_str("AZURE_API_BASE")
 
             api_version = (
                 api_version
-                or litellm.api_version
+                or embrouter.api_version
                 or get_secret_str("AZURE_API_VERSION")
-                or litellm.AZURE_DEFAULT_API_VERSION
+                or embrouter.AZURE_DEFAULT_API_VERSION
             )
 
             azure_ad_token: Final = optional_params.pop("azure_ad_token", None) or get_secret_str("AZURE_AD_TOKEN")
 
-            api_key = api_key or litellm.api_key or litellm.azure_key or get_secret_str("AZURE_API_KEY")
+            api_key = api_key or embrouter.api_key or embrouter.azure_key or get_secret_str("AZURE_API_KEY")
 
             if api_base is None:
                 raise ValueError("No API Base provided for Azure OpenAI LLM provider. Set 'AZURE_API_BASE' in .env")
@@ -6466,10 +6466,10 @@ def embedding(
                 aembedding=aembedding,
                 max_retries=max_retries,
                 headers=headers or extra_headers,
-                litellm_params=litellm_params_dict,
+                embrouter_params=embrouter_params_dict,
             )
         elif custom_llm_provider == "github_copilot":
-            api_key = api_key or litellm.api_key
+            api_key = api_key or embrouter.api_key
             response = base_llm_http_handler.embedding(
                 model=model,
                 input=input,
@@ -6482,29 +6482,29 @@ def embedding(
                 optional_params=optional_params,
                 client=client,
                 aembedding=aembedding,
-                litellm_params=litellm_params_dict,
+                embrouter_params=embrouter_params_dict,
             )
         elif (
             custom_llm_provider == "openai"
             or custom_llm_provider == "together_ai"
             or custom_llm_provider == "nvidia_nim"
-            or custom_llm_provider == "litellm_proxy"
-            or (model in litellm.open_ai_embedding_models and custom_llm_provider is None)
+            or custom_llm_provider == "embrouter_proxy"
+            or (model in embrouter.open_ai_embedding_models and custom_llm_provider is None)
         ):
             api_base = (
                 api_base
-                or litellm.api_base
+                or embrouter.api_base
                 or get_secret_str("OPENAI_BASE_URL")
                 or get_secret_str("OPENAI_API_BASE")
                 or "https://api.openai.com/v1"
             )
             openai.organization = (
-                litellm.organization
+                embrouter.organization
                 or get_secret_str("OPENAI_ORGANIZATION")
                 or None  # default - https://github.com/openai/openai-python/blob/284c1799070c723c6a553337134148a7ab088dd8/openai/util.py#L105
             )
             # set API KEY
-            api_key = api_key or litellm.api_key or litellm.openai_key or get_secret_str("OPENAI_API_KEY")
+            api_key = api_key or embrouter.api_key or embrouter.openai_key or get_secret_str("OPENAI_API_KEY")
 
             if headers is not None and headers != {}:
                 optional_params["extra_headers"] = headers
@@ -6512,7 +6512,7 @@ def embedding(
             requested_encoding_format: Final = (
                 encoding_format
                 or optional_params.get("encoding_format")
-                or get_secret_str("LITELLM_DEFAULT_EMBEDDING_ENCODING_FORMAT")
+                or get_secret_str("EMBROUTER_DEFAULT_EMBEDDING_ENCODING_FORMAT")
             )
             if requested_encoding_format is None or requested_encoding_format.strip().lower() == "none":
                 optional_params.pop("encoding_format", None)
@@ -6537,10 +6537,10 @@ def embedding(
                 shared_session=shared_session,
             )
         elif custom_llm_provider == "databricks":
-            api_base = api_base or litellm.api_base or get_secret("DATABRICKS_API_BASE")
+            api_base = api_base or embrouter.api_base or get_secret("DATABRICKS_API_BASE")
 
             # set API KEY
-            api_key = api_key or litellm.api_key or litellm.databricks_key or get_secret("DATABRICKS_API_KEY")
+            api_key = api_key or embrouter.api_key or embrouter.databricks_key or get_secret("DATABRICKS_API_KEY")
 
             ## EMBEDDING CALL
             response = databricks_embedding.embedding(
@@ -6556,11 +6556,11 @@ def embedding(
                 aembedding=aembedding,
             )
         elif custom_llm_provider == "hosted_vllm":
-            api_base = api_base or litellm.api_base or get_secret_str("HOSTED_VLLM_API_BASE")
+            api_base = api_base or embrouter.api_base or get_secret_str("HOSTED_VLLM_API_BASE")
 
             # set API KEY
             if api_key is None:
-                api_key = litellm.api_key or get_secret_str("HOSTED_VLLM_API_KEY")
+                api_key = embrouter.api_key or get_secret_str("HOSTED_VLLM_API_KEY")
 
             response = base_llm_http_handler.embedding(
                 model=model,
@@ -6574,7 +6574,7 @@ def embedding(
                 optional_params=optional_params,
                 client=client,
                 aembedding=aembedding,
-                litellm_params=litellm_params_dict,
+                embrouter_params=embrouter_params_dict,
                 headers=headers or {},
             )
         elif custom_llm_provider == "edenai":
@@ -6590,7 +6590,7 @@ def embedding(
                 optional_params=optional_params,
                 client=client,
                 aembedding=aembedding,
-                litellm_params=litellm_params_dict,
+                embrouter_params=embrouter_params_dict,
                 headers=headers,
             )
         elif (
@@ -6598,11 +6598,11 @@ def embedding(
             or custom_llm_provider == "llamafile"
             or custom_llm_provider == "lm_studio"
         ):
-            api_base = api_base or litellm.api_base or get_secret_str("OPENAI_LIKE_API_BASE")
+            api_base = api_base or embrouter.api_base or get_secret_str("OPENAI_LIKE_API_BASE")
 
             # set API KEY
             if api_key is None:
-                api_key = api_key or litellm.api_key or litellm.openai_like_key or get_secret_str("OPENAI_LIKE_API_KEY")
+                api_key = api_key or embrouter.api_key or embrouter.openai_like_key or get_secret_str("OPENAI_LIKE_API_KEY")
 
             if headers is not None and headers != {}:
                 optional_params["extra_headers"] = headers
@@ -6635,16 +6635,16 @@ def embedding(
                 optional_params=optional_params,
                 client=client,
                 aembedding=aembedding,
-                litellm_params=litellm_params_dict,
+                embrouter_params=embrouter_params_dict,
                 headers=headers,
             )
         elif custom_llm_provider == "cohere" or custom_llm_provider == "cohere_chat":
             cohere_key: Final = (
                 api_key
-                or litellm.cohere_key
+                or embrouter.cohere_key
                 or get_secret_str("COHERE_API_KEY")
                 or get_secret_str("CO_API_KEY")
-                or litellm.api_key
+                or embrouter.api_key
             )
 
             # Use the merged headers variable (already merged at the top of the function)
@@ -6664,18 +6664,18 @@ def embedding(
                 optional_params=optional_params,
                 client=client,
                 aembedding=aembedding,
-                litellm_params=litellm_params_dict,
+                embrouter_params=embrouter_params_dict,
                 headers=headers,
             )
         elif custom_llm_provider == "openrouter":
             api_base = (
-                api_base or litellm.api_base or get_secret_str("OPENROUTER_API_BASE") or "https://openrouter.ai/api/v1"
+                api_base or embrouter.api_base or get_secret_str("OPENROUTER_API_BASE") or "https://openrouter.ai/api/v1"
             )
 
             api_key = (
                 api_key
-                or litellm.api_key
-                or litellm.openrouter_key
+                or embrouter.api_key
+                or embrouter.openrouter_key
                 or get_secret_str("OPENROUTER_API_KEY")
                 or get_secret_str("OR_API_KEY")
             )
@@ -6688,7 +6688,7 @@ def embedding(
                 "X-Title": openrouter_app_name,
             }
 
-            _headers: Final = headers or litellm.headers
+            _headers: Final = headers or embrouter.headers
             if _headers:
                 openrouter_headers.update(_headers)
 
@@ -6706,20 +6706,20 @@ def embedding(
                 optional_params=optional_params,
                 client=client,
                 aembedding=aembedding,
-                litellm_params=litellm_params_dict,
+                embrouter_params=embrouter_params_dict,
                 headers=headers,
             )
         elif custom_llm_provider == "vercel_ai_gateway":
             api_base = (
                 api_base
-                or litellm.api_base
+                or embrouter.api_base
                 or get_secret_str("VERCEL_AI_GATEWAY_API_BASE")
                 or "https://ai-gateway.vercel.sh/v1"
             )
 
             api_key = (
                 api_key
-                or litellm.api_key
+                or embrouter.api_key
                 or get_secret_str("VERCEL_AI_GATEWAY_API_KEY")
                 or get_secret_str("VERCEL_OIDC_TOKEN")
             )
@@ -6736,11 +6736,11 @@ def embedding(
                 optional_params=optional_params,
                 client=client,
                 aembedding=aembedding,
-                litellm_params=litellm_params_dict,
+                embrouter_params=embrouter_params_dict,
                 headers=headers,
             )
         elif custom_llm_provider == "huggingface":
-            api_key = api_key or litellm.huggingface_key or get_secret("HUGGINGFACE_API_KEY") or litellm.api_key
+            api_key = api_key or embrouter.huggingface_key or get_secret("HUGGINGFACE_API_KEY") or embrouter.api_key
             response = huggingface_embed.embedding(
                 model=model,
                 input=input,
@@ -6752,7 +6752,7 @@ def embedding(
                 optional_params=optional_params,
                 client=client,
                 aembedding=aembedding,
-                litellm_params=litellm_params_dict,
+                embrouter_params=embrouter_params_dict,
                 headers=headers,
             )
         elif custom_llm_provider == "bedrock":
@@ -6770,7 +6770,7 @@ def embedding(
                 client=client,
                 timeout=timeout,
                 aembedding=aembedding,
-                litellm_params=litellm_params_dict,
+                embrouter_params=embrouter_params_dict,
                 api_base=api_base,
                 print_verbose=print_verbose,
                 extra_headers=headers,
@@ -6791,12 +6791,12 @@ def embedding(
                 optional_params=optional_params,
                 client=client,
                 aembedding=aembedding,
-                litellm_params={},
+                embrouter_params={},
             )
         elif custom_llm_provider == "gemini":
-            gemini_api_key: Final = api_key or get_api_key_from_env() or litellm.api_key
+            gemini_api_key: Final = api_key or get_api_key_from_env() or embrouter.api_key
 
-            api_base = api_base or litellm.api_base or get_secret_str("GEMINI_API_BASE")
+            api_base = api_base or embrouter.api_base or get_secret_str("GEMINI_API_BASE")
 
             response = google_batch_embeddings.batch_embeddings(
                 model=model,
@@ -6821,14 +6821,14 @@ def embedding(
             vertex_ai_project: Final = (
                 optional_params.pop("vertex_project", None)
                 or optional_params.pop("vertex_ai_project", None)
-                or litellm.vertex_project
+                or embrouter.vertex_project
                 or get_secret_str("VERTEXAI_PROJECT")
                 or get_secret_str("VERTEX_PROJECT")
             )
             vertex_ai_location: Final = (
                 optional_params.pop("vertex_location", None)
                 or optional_params.pop("vertex_ai_location", None)
-                or litellm.vertex_location
+                or embrouter.vertex_location
                 or get_secret_str("VERTEXAI_LOCATION")
                 or get_secret_str("VERTEX_LOCATION")
             )
@@ -6840,7 +6840,7 @@ def embedding(
             )
 
             api_base = (
-                api_base or litellm.api_base or get_secret_str("VERTEXAI_API_BASE") or get_secret_str("VERTEX_API_BASE")
+                api_base or embrouter.api_base or get_secret_str("VERTEXAI_API_BASE") or get_secret_str("VERTEX_API_BASE")
             )
 
             try:
@@ -6879,7 +6879,7 @@ def embedding(
                     encoding=_get_encoding(),
                     logging_obj=logging,
                     optional_params=optional_params,
-                    litellm_params=litellm_params_dict,
+                    embrouter_params=embrouter_params_dict,
                     model_response=EmbeddingResponse(),
                     vertex_project=vertex_ai_project,
                     vertex_location=vertex_ai_location,
@@ -6908,7 +6908,7 @@ def embedding(
                     api_key=api_key,
                     api_base=api_base,
                     client=client,
-                    litellm_params=litellm_params_dict,
+                    embrouter_params=embrouter_params_dict,
                 )
         elif custom_llm_provider == "oobabooga":
             response = oobabooga.embedding(
@@ -6922,12 +6922,12 @@ def embedding(
                 api_key=api_key,
             )
         elif custom_llm_provider == "ollama":
-            api_base = litellm.api_base or api_base or get_secret_str("OLLAMA_API_BASE") or "http://localhost:11434"
+            api_base = embrouter.api_base or api_base or get_secret_str("OLLAMA_API_BASE") or "http://localhost:11434"
 
             if isinstance(input, str):
                 input = [input]
             if not all(isinstance(item, str) for item in input):
-                raise litellm.BadRequestError(
+                raise embrouter.BadRequestError(
                     message=f"Invalid input for ollama embeddings. input={input}",
                     model=model,
                     llm_provider="ollama",
@@ -6953,7 +6953,7 @@ def embedding(
                 print_verbose=print_verbose,
             )
         elif custom_llm_provider == "mistral":
-            api_key = api_key or litellm.api_key or get_secret_str("MISTRAL_API_KEY")
+            api_key = api_key or embrouter.api_key or get_secret_str("MISTRAL_API_KEY")
             response = openai_chat_completions.embedding(
                 model=model,
                 input=input,
@@ -6967,7 +6967,7 @@ def embedding(
                 aembedding=aembedding,
             )
         elif custom_llm_provider == "fireworks_ai":
-            api_key = api_key or litellm.api_key or get_secret_str("FIREWORKS_AI_API_KEY")
+            api_key = api_key or embrouter.api_key or get_secret_str("FIREWORKS_AI_API_KEY")
             response = openai_chat_completions.embedding(
                 model=model,
                 input=input,
@@ -6981,8 +6981,8 @@ def embedding(
                 aembedding=aembedding,
             )
         elif custom_llm_provider == "nebius":
-            api_key = api_key or litellm.api_key or get_secret_str("NEBIUS_API_KEY")
-            api_base = api_base or litellm.api_base or get_secret_str("NEBIUS_API_BASE") or "api.studio.nebius.ai/v1"
+            api_key = api_key or embrouter.api_key or get_secret_str("NEBIUS_API_KEY")
+            api_base = api_base or embrouter.api_base or get_secret_str("NEBIUS_API_BASE") or "api.studio.nebius.ai/v1"
 
             response = openai_chat_completions.embedding(
                 model=model,
@@ -6997,9 +6997,9 @@ def embedding(
                 aembedding=aembedding,
             )
         elif custom_llm_provider == "wandb":
-            api_key = api_key or litellm.api_key or get_secret_str("WANDB_API_KEY")
+            api_key = api_key or embrouter.api_key or get_secret_str("WANDB_API_KEY")
             api_base = (
-                api_base or litellm.api_base or get_secret_str("WANDB_API_BASE") or "https://api.inference.wandb.ai/v1"
+                api_base or embrouter.api_base or get_secret_str("WANDB_API_BASE") or "https://api.inference.wandb.ai/v1"
             )
 
             response = openai_chat_completions.embedding(
@@ -7015,9 +7015,9 @@ def embedding(
                 aembedding=aembedding,
             )
         elif custom_llm_provider == "sambanova":
-            api_key = api_key or litellm.api_key or get_secret_str("SAMBANOVA_API_KEY")
+            api_key = api_key or embrouter.api_key or get_secret_str("SAMBANOVA_API_KEY")
             api_base = (
-                api_base or litellm.api_base or get_secret_str("SAMBANOVA_API_BASE") or "https://api.sambanova.ai/v1"
+                api_base or embrouter.api_base or get_secret_str("SAMBANOVA_API_BASE") or "https://api.sambanova.ai/v1"
             )
             response = base_llm_http_handler.embedding(
                 model=model,
@@ -7031,7 +7031,7 @@ def embedding(
                 optional_params=optional_params,
                 client=client,
                 aembedding=aembedding,
-                litellm_params={},
+                embrouter_params={},
             )
         elif custom_llm_provider == "voyage" or custom_llm_provider == "infinity":
             response = base_llm_http_handler.embedding(
@@ -7046,7 +7046,7 @@ def embedding(
                 optional_params=optional_params,
                 client=client,
                 aembedding=aembedding,
-                litellm_params={},
+                embrouter_params={},
             )
         elif custom_llm_provider == "watsonx":
             credentials: Final = IBMWatsonXMixin.get_watsonx_credentials(
@@ -7069,16 +7069,16 @@ def embedding(
                 timeout=timeout,
                 model_response=EmbeddingResponse(),
                 optional_params=optional_params,
-                litellm_params={},
+                embrouter_params={},
                 client=client,
                 aembedding=aembedding,
             )
         elif custom_llm_provider == "xinference":
             api_key = (
-                api_key or litellm.api_key or get_secret_str("XINFERENCE_API_KEY") or "stub-xinference-key"
+                api_key or embrouter.api_key or get_secret_str("XINFERENCE_API_KEY") or "stub-xinference-key"
             )  # xinference does not need an api key, pass a stub key if user did not set one
             api_base = (
-                api_base or litellm.api_base or get_secret_str("XINFERENCE_API_BASE") or "http://127.0.0.1:9997/v1"
+                api_base or embrouter.api_base or get_secret_str("XINFERENCE_API_BASE") or "http://127.0.0.1:9997/v1"
             )
             response = openai_chat_completions.embedding(
                 model=model,
@@ -7103,24 +7103,24 @@ def embedding(
                 timeout=timeout,
                 model_response=EmbeddingResponse(),
                 optional_params=optional_params,
-                litellm_params={},
+                embrouter_params={},
                 client=client,
                 aembedding=aembedding,
             )
         elif custom_llm_provider == "azure_ai":
-            from litellm.llms.azure_ai.common_utils import get_azure_ai_entra_token
+            from embrouter.llms.azure_ai.common_utils import get_azure_ai_entra_token
 
             api_base = (
                 api_base  # for deepinfra/perplexity/anyscale/groq/friendliai we check in get_llm_provider and pass in the api base from there
-                or litellm.api_base
+                or embrouter.api_base
                 or get_secret_str("AZURE_AI_API_BASE")
             )
             # set API KEY
             api_key = (
                 api_key
-                or litellm.api_key  # for deepinfra/perplexity/anyscale/friendliai we check in get_llm_provider and pass in the api key from there
+                or embrouter.api_key  # for deepinfra/perplexity/anyscale/friendliai we check in get_llm_provider and pass in the api key from there
                 or get_secret_str("AZURE_AI_API_KEY")
-                or get_azure_ai_entra_token(litellm_params=litellm_params_dict)
+                or get_azure_ai_entra_token(embrouter_params=embrouter_params_dict)
             )
 
             ## EMBEDDING CALL
@@ -7151,13 +7151,13 @@ def embedding(
                 timeout=timeout,
                 model_response=EmbeddingResponse(),
                 optional_params=optional_params,
-                litellm_params={},
+                embrouter_params={},
                 client=client,
                 aembedding=aembedding,
             )
         elif custom_llm_provider == "volcengine":
             volcengine_key: Final = (
-                api_key or litellm.api_key or get_secret_str("ARK_API_KEY") or get_secret_str("VOLCENGINE_API_KEY")
+                api_key or embrouter.api_key or get_secret_str("ARK_API_KEY") or get_secret_str("VOLCENGINE_API_KEY")
             )
             if volcengine_key is None:
                 raise ValueError(
@@ -7175,7 +7175,7 @@ def embedding(
                 logging_obj=logging,
                 api_base=api_base,
                 optional_params=optional_params,
-                litellm_params={},
+                embrouter_params={},
                 model_response=EmbeddingResponse(),
                 api_key=volcengine_key,
                 client=client,
@@ -7183,14 +7183,14 @@ def embedding(
                 headers=headers,
             )
         elif custom_llm_provider in ("dashscope", "qwencloud", "qwen_ai_platform"):
-            from litellm.llms.dashscope.common_utils import (
+            from embrouter.llms.dashscope.common_utils import (
                 missing_dashscope_family_key_message,
                 resolve_dashscope_family_api_key,
             )
 
             dashscope_key: Final = resolve_dashscope_family_api_key(
                 custom_llm_provider=custom_llm_provider,
-                api_key=api_key or litellm.api_key,
+                api_key=api_key or embrouter.api_key,
             )
             if dashscope_key is None:
                 raise ValueError(missing_dashscope_family_key_message(custom_llm_provider))
@@ -7206,7 +7206,7 @@ def embedding(
                 logging_obj=logging,
                 api_base=api_base,
                 optional_params=optional_params,
-                litellm_params={},
+                embrouter_params={},
                 model_response=EmbeddingResponse(),
                 api_key=dashscope_key,
                 client=client,
@@ -7214,10 +7214,10 @@ def embedding(
                 headers=headers,
             )
         elif custom_llm_provider == "ovhcloud":
-            api_key = api_key or litellm.api_key or get_secret_str("OVHCLOUD_API_KEY")
+            api_key = api_key or embrouter.api_key or get_secret_str("OVHCLOUD_API_KEY")
             api_base = (
                 api_base
-                or litellm.api_base
+                or embrouter.api_base
                 or get_secret_str("OVHCLOUD_API_BASE")
                 or "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1"
             )
@@ -7233,12 +7233,12 @@ def embedding(
                 optional_params=optional_params,
                 client=client,
                 aembedding=aembedding,
-                litellm_params={},
+                embrouter_params={},
             )
         elif custom_llm_provider == "cometapi":
-            api_key = api_key or litellm.cometapi_key or get_secret_str("COMETAPI_KEY") or litellm.api_key
+            api_key = api_key or embrouter.cometapi_key or get_secret_str("COMETAPI_KEY") or embrouter.api_key
             api_base = (
-                api_base or litellm.api_base or get_secret_str("COMETAPI_API_BASE") or "https://api.cometapi.com/v1"
+                api_base or embrouter.api_base or get_secret_str("COMETAPI_API_BASE") or "https://api.cometapi.com/v1"
             )
             response = base_llm_http_handler.embedding(
                 model=model,
@@ -7252,16 +7252,16 @@ def embedding(
                 optional_params=optional_params,
                 client=client,
                 aembedding=aembedding,
-                litellm_params={},
+                embrouter_params={},
             )
-        elif custom_llm_provider in litellm._custom_providers:
+        elif custom_llm_provider in embrouter._custom_providers:
             custom_handler: CustomLLM | None = None
-            for item in litellm.custom_provider_map:
+            for item in embrouter.custom_provider_map:
                 if item["provider"] == custom_llm_provider:
                     custom_handler = item["custom_handler"]
 
             if custom_handler is None:
-                raise LiteLLMUnknownProvider(model=model, custom_llm_provider=custom_llm_provider)
+                raise EmbRouterUnknownProvider(model=model, custom_llm_provider=custom_llm_provider)
 
             handler_fn: Final = custom_handler.embedding if not aembedding else custom_handler.aembedding
 
@@ -7275,7 +7275,7 @@ def embedding(
                 optional_params=optional_params,
                 model_response=EmbeddingResponse(),
                 print_verbose=print_verbose,
-                litellm_params=litellm_params_dict,
+                embrouter_params=embrouter_params_dict,
             )
         elif custom_llm_provider == "snowflake":
             api_key = api_key or get_secret_str("SNOWFLAKE_JWT")
@@ -7291,13 +7291,13 @@ def embedding(
                 optional_params=optional_params,
                 client=client,
                 aembedding=aembedding,
-                litellm_params={},
+                embrouter_params={},
             )
         elif custom_llm_provider == "gigachat":
             api_key = (
                 api_key
-                or litellm.api_key
-                or litellm.gigachat_key
+                or embrouter.api_key
+                or embrouter.gigachat_key
                 or get_secret_str("GIGACHAT_CREDENTIALS")
                 or get_secret_str("GIGACHAT_API_KEY")
             )
@@ -7313,7 +7313,7 @@ def embedding(
                 optional_params=optional_params,
                 client=client,
                 aembedding=aembedding,
-                litellm_params={"ssl_verify": kwargs.get("ssl_verify", None)},
+                embrouter_params={"ssl_verify": kwargs.get("ssl_verify", None)},
             )
         elif custom_llm_provider == "perplexity":
             response = base_llm_http_handler.embedding(
@@ -7328,19 +7328,19 @@ def embedding(
                 optional_params=optional_params,
                 client=client,
                 aembedding=aembedding,
-                litellm_params={},
+                embrouter_params={},
             )
         else:
-            raise LiteLLMUnknownProvider(model=model, custom_llm_provider=custom_llm_provider)
+            raise EmbRouterUnknownProvider(model=model, custom_llm_provider=custom_llm_provider)
         if response is not None and hasattr(response, "_hidden_params") and isinstance(response, EmbeddingResponse):
             response._hidden_params["custom_llm_provider"] = custom_llm_provider
 
         if response is None:
-            raise LiteLLMUnknownProvider(model=model, custom_llm_provider=custom_llm_provider)
+            raise EmbRouterUnknownProvider(model=model, custom_llm_provider=custom_llm_provider)
         return response
     except Exception as e:
         ## LOGGING
-        litellm_logging_obj.post_call(
+        embrouter_logging_obj.post_call(
             input=input,
             api_key=api_key,
             original_response=str(e),
@@ -7422,7 +7422,7 @@ async def atext_completion(*args, **kwargs) -> TextCompletionResponse | TextComp
                 response = await _resolve_pending_chat_response(response)
 
             text_completion_response = TextCompletionResponse()
-            text_completion_response = litellm.utils.LiteLLMResponseObjectHandler.convert_chat_to_text_completion(
+            text_completion_response = embrouter.utils.EmbRouterResponseObjectHandler.convert_chat_to_text_completion(
                 text_completion_response=text_completion_response,
                 response=response,
                 custom_llm_provider=custom_llm_provider,
@@ -7464,7 +7464,7 @@ def text_completion(
     api_version: str | None = None,
     api_key: str | None = None,
     model_list: list | None = None,  # pass in a list of api_base,keys, etc.
-    # Optional liteLLM function params
+    # Optional embRouter function params
     custom_llm_provider: str | None = None,
     *args,
     **kwargs,
@@ -7507,7 +7507,7 @@ def text_completion(
     text_completion_response = TextCompletionResponse()
 
     optional_params: Final[dict[str, Any]] = {}
-    # default values for all optional params are none, litellm only passes them to the llm when they are set to non None values
+    # default values for all optional params are none, embrouter only passes them to the llm when they are set to non None values
     if best_of is not None:
         optional_params["best_of"] = best_of
     if echo is not None:
@@ -7565,7 +7565,7 @@ def text_completion(
         if isinstance(prompt, list):
             import concurrent.futures
 
-            from litellm.rust_bridge.tokenizer import get_encoding
+            from embrouter.rust_bridge.tokenizer import get_encoding
 
             tokenizer: Final = get_encoding("p50k_base")
             ## if it's a 2d list - each element in the list is a text_completion() request
@@ -7636,7 +7636,7 @@ def text_completion(
     if (
         _model is not None and (custom_llm_provider == "openai")
     ):  # for openai compatible endpoints - e.g. vllm, call the native /v1/completions endpoint for text completion calls
-        if _model not in litellm.open_ai_chat_completion_models:
+        if _model not in embrouter.open_ai_chat_completion_models:
             model = "text-completion-openai/" + _model
             optional_params.pop("custom_llm_provider", None)
 
@@ -7667,7 +7667,7 @@ def text_completion(
     if isinstance(response, TextCompletionResponse):
         return response
 
-    text_completion_response = litellm.utils.LiteLLMResponseObjectHandler.convert_chat_to_text_completion(
+    text_completion_response = embrouter.utils.EmbRouterResponseObjectHandler.convert_chat_to_text_completion(
         response=response,
         text_completion_response=text_completion_response,
     )
@@ -7684,13 +7684,13 @@ async def aadapter_completion(*, adapter_id: str, **kwargs) -> BaseModel | Adapt
     """
     try:
         translation_obj: CustomLogger | None = None
-        for item in litellm.adapters:
+        for item in embrouter.adapters:
             if item["id"] == adapter_id:
                 translation_obj = item["adapter"]
 
         if translation_obj is None:
             raise ValueError(
-                f"No matching adapter given. Received 'adapter_id'={adapter_id}, litellm.adapters={litellm.adapters}"
+                f"No matching adapter given. Received 'adapter_id'={adapter_id}, embrouter.adapters={embrouter.adapters}"
             )
 
         new_kwargs: Final = translation_obj.translate_completion_input_params(kwargs=kwargs)
@@ -7712,7 +7712,7 @@ async def aadapter_completion(*, adapter_id: str, **kwargs) -> BaseModel | Adapt
 async def aadapter_generate_content(
     **kwargs,
 ) -> dict[str, object] | AsyncIterator[bytes]:
-    from litellm.google_genai.adapters.handler import GenerateContentToCompletionHandler
+    from embrouter.google_genai.adapters.handler import GenerateContentToCompletionHandler
 
     coro: Final = cast(
         Coroutine[object, object, dict[str, object] | AsyncIterator[bytes]],
@@ -7723,13 +7723,13 @@ async def aadapter_generate_content(
 
 def adapter_completion(*, adapter_id: str, **kwargs) -> BaseModel | AdapterCompletionStreamWrapper | None:
     translation_obj: CustomLogger | None = None
-    for item in litellm.adapters:
+    for item in embrouter.adapters:
         if item["id"] == adapter_id:
             translation_obj = item["adapter"]
 
     if translation_obj is None:
         raise ValueError(
-            f"No matching adapter given. Received 'adapter_id'={adapter_id}, litellm.adapters={litellm.adapters}"
+            f"No matching adapter given. Received 'adapter_id'={adapter_id}, embrouter.adapters={embrouter.adapters}"
         )
 
     new_kwargs: Final = translation_obj.translate_completion_input_params(kwargs=kwargs)
@@ -7749,7 +7749,7 @@ def adapter_completion(*, adapter_id: str, **kwargs) -> BaseModel | AdapterCompl
 
 def moderation(input: str, model: str | None = None, api_key: str | None = None, **kwargs) -> OpenAIModerationResponse:
     # only supports open ai for now
-    api_key = api_key or litellm.api_key or litellm.openai_key or get_secret_str("OPENAI_API_KEY")
+    api_key = api_key or embrouter.api_key or embrouter.openai_key or get_secret_str("OPENAI_API_KEY")
 
     # Extract api_base from kwargs
     api_base: Final = kwargs.get("api_base", None)
@@ -7767,7 +7767,7 @@ def moderation(input: str, model: str | None = None, api_key: str | None = None,
         response = openai_client.moderations.create(input=input)
 
     response_dict: Final[dict] = response.model_dump()
-    return litellm.utils.LiteLLMResponseObjectHandler.convert_to_moderation_response(
+    return embrouter.utils.EmbRouterResponseObjectHandler.convert_to_moderation_response(
         response_object=response_dict,
     )
 
@@ -7783,9 +7783,9 @@ async def amoderation(
     from openai import AsyncOpenAI
 
     # only supports open ai for now
-    api_key = api_key or litellm.api_key or litellm.openai_key or get_secret_str("OPENAI_API_KEY")
-    optional_params: Final = GenericLiteLLMParams(**kwargs)
-    litellm_logging_obj: Final[LiteLLMLoggingObj | None] = kwargs.get("litellm_logging_obj", None)
+    api_key = api_key or embrouter.api_key or embrouter.openai_key or get_secret_str("OPENAI_API_KEY")
+    optional_params: Final = GenericEmbRouterParams(**kwargs)
+    embrouter_logging_obj: Final[EmbRouterLoggingObj | None] = kwargs.get("embrouter_logging_obj", None)
     _dynamic_api_base = None
     try:
         (
@@ -7793,13 +7793,13 @@ async def amoderation(
             custom_llm_provider,
             _dynamic_api_key,
             _dynamic_api_base,
-        ) = litellm.get_llm_provider(
+        ) = embrouter.get_llm_provider(
             model=model or "",
             custom_llm_provider=custom_llm_provider,
             api_base=optional_params.api_base,
             api_key=optional_params.api_key,
         )
-    except litellm.BadRequestError:
+    except embrouter.BadRequestError:
         # `model` is optional field for moderation - get_llm_provider will throw BadRequestError if model is not set / not recognized
         pass
 
@@ -7815,20 +7815,20 @@ async def amoderation(
     else:
         _openai_client = openai_client
 
-    # update litellm_logging_obj with environment variables
-    custom_llm_provider = custom_llm_provider or litellm.LlmProviders.OPENAI.value
-    if litellm_logging_obj is not None:
-        litellm_logging_obj.update_environment_variables(
+    # update embrouter_logging_obj with environment variables
+    custom_llm_provider = custom_llm_provider or embrouter.LlmProviders.OPENAI.value
+    if embrouter_logging_obj is not None:
+        embrouter_logging_obj.update_environment_variables(
             model=model,
             user=kwargs.get("user", None),
             optional_params={},
-            litellm_params={
+            embrouter_params={
                 **kwargs,
             },
             custom_llm_provider=custom_llm_provider,
         )
         moderation_request: Final = {"input": input, "model": model}  # mutable-ok: logged as the raw request body
-        litellm_logging_obj.pre_call(
+        embrouter_logging_obj.pre_call(
             input=input,
             api_key=api_key,
             additional_args={  # mutable-ok: loggers isinstance-check this payload as a dict
@@ -7842,7 +7842,7 @@ async def amoderation(
     else:
         response = await _openai_client.moderations.create(input=input)
     response_dict: Final[dict] = response.model_dump()
-    return litellm.utils.LiteLLMResponseObjectHandler.convert_to_moderation_response(
+    return embrouter.utils.EmbRouterResponseObjectHandler.convert_to_moderation_response(
         response_object=response_dict,
     )
 
@@ -7922,7 +7922,7 @@ def transcription(
     response_format: Literal["json", "text", "srt", "verbose_json", "vtt"] | None = None,
     timestamp_granularities: list[Literal["word", "segment"]] | None = None,
     temperature: int | None = None,  # openai defaults this to 0
-    ## LITELLM PARAMS ##
+    ## EMBROUTER PARAMS ##
     user: str | None = None,
     timeout=600,  # default to 10 minutes
     api_key: str | None = None,
@@ -7937,12 +7937,12 @@ def transcription(
 
     Allows router to load balance between them
     """
-    litellm_call_id: Final = kwargs.get("litellm_call_id", None)
+    embrouter_call_id: Final = kwargs.get("embrouter_call_id", None)
     proxy_server_request: Final = kwargs.get("proxy_server_request", None)
     model_info: Final = kwargs.get("model_info", None)
     metadata: Final = kwargs.get("metadata", None)
     atranscription: Final = kwargs.pop("atranscription", False)
-    litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.get("litellm_logging_obj")
+    embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.get("embrouter_logging_obj")
     extra_headers: Final = kwargs.get("extra_headers", None)
     shared_session: Final = kwargs.get("shared_session", None)
     kwargs.pop("tags", [])
@@ -7952,13 +7952,13 @@ def transcription(
         "client", None
     )
 
-    if litellm_logging_obj:
-        litellm_logging_obj.model_call_details["client"] = str(client)
+    if embrouter_logging_obj:
+        embrouter_logging_obj.model_call_details["client"] = str(client)
 
     if max_retries is None:
         max_retries = openai.DEFAULT_MAX_RETRIES
 
-    model_response: Final = litellm.utils.TranscriptionResponse()
+    model_response: Final = embrouter.utils.TranscriptionResponse()
 
     model, custom_llm_provider, dynamic_api_key, api_base = get_llm_provider(
         model=model,
@@ -7980,14 +7980,14 @@ def transcription(
         **non_default_params,
     )
 
-    litellm_params_dict: Final = get_litellm_params(**kwargs)
+    embrouter_params_dict: Final = get_embrouter_params(**kwargs)
 
-    litellm_logging_obj.update_environment_variables(
+    embrouter_logging_obj.update_environment_variables(
         model=model,
         user=user,
         optional_params={},
-        litellm_params={
-            "litellm_call_id": litellm_call_id,
+        embrouter_params={
+            "embrouter_call_id": embrouter_call_id,
             "proxy_server_request": proxy_server_request,
             "model_info": model_info,
             "metadata": metadata,
@@ -8011,13 +8011,13 @@ def transcription(
 
     if custom_llm_provider in AZURE_OPENAI_AUDIO_PROVIDERS and provider_config is None:
         # azure configs
-        api_base = api_base or litellm.api_base or get_secret_str("AZURE_API_BASE")
+        api_base = api_base or embrouter.api_base or get_secret_str("AZURE_API_BASE")
 
-        api_version = api_version or litellm.api_version or get_secret_str("AZURE_API_VERSION")
+        api_version = api_version or embrouter.api_version or get_secret_str("AZURE_API_VERSION")
 
         azure_ad_token: Final = kwargs.pop("azure_ad_token", None) or get_secret_str("AZURE_AD_TOKEN")
 
-        api_key = api_key or litellm.api_key or litellm.azure_key or get_secret_str("AZURE_API_KEY")
+        api_key = api_key or embrouter.api_key or embrouter.azure_key or get_secret_str("AZURE_API_KEY")
 
         optional_params["extra_headers"] = extra_headers
 
@@ -8029,31 +8029,31 @@ def transcription(
             atranscription=atranscription,
             client=client,
             timeout=timeout,
-            logging_obj=litellm_logging_obj,
+            logging_obj=embrouter_logging_obj,
             api_base=api_base,
             api_key=api_key,
             api_version=api_version,
             azure_ad_token=azure_ad_token,
             max_retries=max_retries,
-            litellm_params=litellm_params_dict,
+            embrouter_params=embrouter_params_dict,
             custom_llm_provider=custom_llm_provider,
         )
     elif uses_openai_transport:
         api_base = (
             api_base
-            or litellm.api_base
+            or embrouter.api_base
             or get_secret("OPENAI_BASE_URL")
             or get_secret("OPENAI_API_BASE")
             or "https://api.openai.com/v1"
         )
         openai.organization = (
-            litellm.organization
+            embrouter.organization
             or get_secret("OPENAI_ORGANIZATION")
             or None  # default - https://github.com/openai/openai-python/blob/284c1799070c723c6a553337134148a7ab088dd8/openai/util.py#L105
         )
         # set API KEY
 
-        api_key = api_key or litellm.api_key or litellm.openai_key or get_secret("OPENAI_API_KEY")
+        api_key = api_key or embrouter.api_key or embrouter.openai_key or get_secret("OPENAI_API_KEY")
         response = openai_audio_transcriptions.audio_transcriptions(
             model=model,
             audio_file=file,
@@ -8062,12 +8062,12 @@ def transcription(
             atranscription=atranscription,
             client=client,
             timeout=timeout,
-            logging_obj=litellm_logging_obj,
+            logging_obj=embrouter_logging_obj,
             max_retries=max_retries,
             api_base=api_base,
             api_key=api_key,
             provider_config=provider_config,
-            litellm_params=litellm_params_dict,
+            embrouter_params=embrouter_params_dict,
             shared_session=shared_session,
         )
     elif custom_llm_provider == "nvidia_riva":
@@ -8077,11 +8077,11 @@ def transcription(
             model=model,
             audio_file=file,
             optional_params=optional_params,
-            litellm_params=litellm_params_dict,
+            embrouter_params=embrouter_params_dict,
             model_response=model_response,
             atranscription=atranscription,
             timeout=timeout,
-            logging_obj=litellm_logging_obj,
+            logging_obj=embrouter_logging_obj,
             api_base=api_base,
             api_key=api_key,
             provider_config=(
@@ -8089,7 +8089,7 @@ def transcription(
             ),
         )
     elif custom_llm_provider == "soniox":
-        from litellm.llms.soniox.audio_transcription.handler import (
+        from embrouter.llms.soniox.audio_transcription.handler import (
             SonioxAudioTranscriptionHandler,
         )
 
@@ -8097,7 +8097,7 @@ def transcription(
             model=model,
             audio_file=file,
             optional_params=optional_params,
-            litellm_params=litellm_params_dict,
+            embrouter_params=embrouter_params_dict,
             model_response=model_response,
             atranscription=atranscription,
             client=(
@@ -8107,14 +8107,14 @@ def transcription(
             ),
             timeout=timeout,
             max_retries=max_retries,
-            logging_obj=litellm_logging_obj,
+            logging_obj=embrouter_logging_obj,
             api_base=api_base,
             api_key=api_key,
             headers=extra_headers,
             provider_config=provider_config,
         )
     elif custom_llm_provider == "bedrock":
-        from litellm.llms.bedrock.audio_transcription import BedrockAudioTranscriptionRustDispatch
+        from embrouter.llms.bedrock.audio_transcription import BedrockAudioTranscriptionRustDispatch
 
         dispatch: Final = BedrockAudioTranscriptionRustDispatch()
         if atranscription:
@@ -8144,7 +8144,7 @@ def transcription(
             model=model,
             audio_file=file,
             optional_params=optional_params,
-            litellm_params=litellm_params_dict,
+            embrouter_params=embrouter_params_dict,
             model_response=model_response,
             atranscription=atranscription,
             client=(
@@ -8154,7 +8154,7 @@ def transcription(
             ),
             timeout=timeout,
             max_retries=max_retries,
-            logging_obj=litellm_logging_obj,
+            logging_obj=embrouter_logging_obj,
             api_base=api_base,
             api_key=api_key,
             custom_llm_provider=custom_llm_provider,
@@ -8239,7 +8239,7 @@ def speech(
     **kwargs,
 ) -> HttpxBinaryResponseContent | Coroutine[object, object, HttpxBinaryResponseContent]:
     user: Final = kwargs.get("user", None)
-    litellm_call_id: Final[str | None] = kwargs.get("litellm_call_id", None)
+    embrouter_call_id: Final[str | None] = kwargs.get("embrouter_call_id", None)
     proxy_server_request: Final = kwargs.get("proxy_server_request", None)
     extra_headers: Final = kwargs.get("extra_headers", None)
     model_info: Final = kwargs.get("model_info", None)
@@ -8258,16 +8258,16 @@ def speech(
         optional_params["instructions"] = instructions
 
     if timeout is None:
-        timeout = litellm.request_timeout
+        timeout = embrouter.request_timeout
 
     if max_retries is None:
-        max_retries = litellm.num_retries or openai.DEFAULT_MAX_RETRIES
-    litellm_params_dict: Final = get_litellm_params(metadata=metadata, api_key=api_key or dynamic_api_key, **kwargs)
+        max_retries = embrouter.num_retries or openai.DEFAULT_MAX_RETRIES
+    embrouter_params_dict: Final = get_embrouter_params(metadata=metadata, api_key=api_key or dynamic_api_key, **kwargs)
 
     # Get provider-specific text-to-speech config and map parameters
     text_to_speech_provider_config = ProviderConfigManager.get_provider_text_to_speech_config(
         model=model,
-        provider=litellm.LlmProviders(custom_llm_provider),
+        provider=embrouter.LlmProviders(custom_llm_provider),
     )
 
     # Map OpenAI params to provider-specific params if config exists
@@ -8280,13 +8280,13 @@ def speech(
             kwargs=kwargs,
         )
 
-    logging_obj: Final[LiteLLMLoggingObj] = cast(LiteLLMLoggingObj, kwargs.get("litellm_logging_obj"))
+    logging_obj: Final[EmbRouterLoggingObj] = cast(EmbRouterLoggingObj, kwargs.get("embrouter_logging_obj"))
     logging_obj.update_environment_variables(
         model=model,
         user=user,
         optional_params=optional_params,
-        litellm_params={
-            "litellm_call_id": litellm_call_id,
+        embrouter_params={
+            "embrouter_call_id": embrouter_call_id,
             "proxy_server_request": proxy_server_request,
             "model_info": model_info,
             "metadata": metadata,
@@ -8298,15 +8298,15 @@ def speech(
     )
     response: HttpxBinaryResponseContent | Coroutine[object, object, HttpxBinaryResponseContent] | None = None
     if custom_llm_provider == "edenai":
-        litellm_params_dict["api_base"] = api_base
+        embrouter_params_dict["api_base"] = api_base
         response = base_llm_http_handler.text_to_speech_handler(
             model=model,
             input=input,
             voice=voice if isinstance(voice, str) else None,
-            text_to_speech_provider_config=text_to_speech_provider_config or litellm.EdenAITextToSpeechConfig(),
+            text_to_speech_provider_config=text_to_speech_provider_config or embrouter.EdenAITextToSpeechConfig(),
             text_to_speech_optional_params=optional_params,
             custom_llm_provider=custom_llm_provider,
-            litellm_params=litellm_params_dict,
+            embrouter_params=embrouter_params_dict,
             logging_obj=logging_obj,
             timeout=timeout,
             extra_headers=extra_headers,
@@ -8314,18 +8314,18 @@ def speech(
             _is_async=aspeech or False,
         )
     elif custom_llm_provider == "openai" or (
-        custom_llm_provider in litellm.openai_compatible_providers
+        custom_llm_provider in embrouter.openai_compatible_providers
         and custom_llm_provider not in AZURE_OPENAI_AUDIO_PROVIDERS
     ):
         if voice is None or not (isinstance(voice, str)):
-            raise litellm.BadRequestError(
+            raise embrouter.BadRequestError(
                 message="'voice' is required to be passed as a string for OpenAI TTS",
                 model=model,
                 llm_provider=custom_llm_provider,
             )
         api_base = (
             api_base  # for deepinfra/perplexity/anyscale/groq/friendliai we check in get_llm_provider and pass in the api base from there
-            or litellm.api_base
+            or embrouter.api_base
             or get_secret("OPENAI_BASE_URL")
             or get_secret("OPENAI_API_BASE")
             or "https://api.openai.com/v1"
@@ -8333,26 +8333,26 @@ def speech(
         # set API KEY
         api_key = (
             api_key
-            or litellm.api_key  # for deepinfra/perplexity/anyscale we check in get_llm_provider and pass in the api key from there
-            or litellm.openai_key
+            or embrouter.api_key  # for deepinfra/perplexity/anyscale we check in get_llm_provider and pass in the api key from there
+            or embrouter.openai_key
             or get_secret("OPENAI_API_KEY")
         )
 
         organization = (
             organization
-            or litellm.organization
+            or embrouter.organization
             or get_secret("OPENAI_ORGANIZATION")
             or None  # default - https://github.com/openai/openai-python/blob/284c1799070c723c6a553337134148a7ab088dd8/openai/util.py#L105
         )
 
         project = (
             project
-            or litellm.project
+            or embrouter.project
             or get_secret("OPENAI_PROJECT")
             or None  # default - https://github.com/openai/openai-python/blob/284c1799070c723c6a553337134148a7ab088dd8/openai/util.py#L105
         )
 
-        headers = headers or litellm.headers
+        headers = headers or embrouter.headers
 
         response = openai_chat_completions.audio_speech(
             model=model,
@@ -8373,13 +8373,13 @@ def speech(
     elif custom_llm_provider in AZURE_OPENAI_AUDIO_PROVIDERS:
         # Check if this is Azure Speech Service (Cognitive Services TTS)
         if model.startswith("speech/"):
-            from litellm.llms.azure.text_to_speech.transformation import (
+            from embrouter.llms.azure.text_to_speech.transformation import (
                 AzureAVATextToSpeechConfig,
             )
 
             # Azure AVA (Cognitive Services) Text-to-Speech
             if text_to_speech_provider_config is None:
-                raise litellm.BadRequestError(
+                raise embrouter.BadRequestError(
                     message="Azure Speech Service configuration not found",
                     model=model,
                     llm_provider=custom_llm_provider,
@@ -8393,7 +8393,7 @@ def speech(
                 input=input,
                 voice=voice,
                 optional_params=optional_params,
-                litellm_params_dict=litellm_params_dict,
+                embrouter_params_dict=embrouter_params_dict,
                 logging_obj=logging_obj,
                 timeout=timeout,
                 extra_headers=extra_headers,
@@ -8406,19 +8406,19 @@ def speech(
         else:
             # Azure OpenAI TTS
             if voice is None or not (isinstance(voice, str)):
-                raise litellm.BadRequestError(
+                raise embrouter.BadRequestError(
                     message="'voice' is required to be passed as a string for Azure TTS",
                     model=model,
                     llm_provider=custom_llm_provider,
                 )
-            api_base = api_base or litellm.api_base or get_secret("AZURE_API_BASE")
+            api_base = api_base or embrouter.api_base or get_secret("AZURE_API_BASE")
 
-            api_version = api_version or litellm.api_version or get_secret("AZURE_API_VERSION")
+            api_version = api_version or embrouter.api_version or get_secret("AZURE_API_VERSION")
 
             api_key = (
                 api_key
-                or litellm.api_key
-                or litellm.azure_key
+                or embrouter.api_key
+                or embrouter.azure_key
                 or get_secret("AZURE_OPENAI_API_KEY")
                 or get_secret("AZURE_API_KEY")
             )
@@ -8447,10 +8447,10 @@ def speech(
                 logging_obj=logging_obj,
                 client=client,  # pass AsyncOpenAI, OpenAI client
                 aspeech=aspeech,
-                litellm_params=litellm_params_dict,
+                embrouter_params=embrouter_params_dict,
             )
     elif custom_llm_provider == "elevenlabs":
-        from litellm.llms.elevenlabs.text_to_speech.transformation import (
+        from embrouter.llms.elevenlabs.text_to_speech.transformation import (
             ElevenLabsTextToSpeechConfig,
         )
 
@@ -8461,7 +8461,7 @@ def speech(
 
         voice_id = voice if isinstance(voice, str) else None
         if voice_id is None or not voice_id.strip():
-            raise litellm.BadRequestError(
+            raise embrouter.BadRequestError(
                 message="'voice' must resolve to an ElevenLabs voice id for ElevenLabs TTS",
                 model=model,
                 llm_provider=custom_llm_provider,
@@ -8470,14 +8470,14 @@ def speech(
 
         query_params: Final = kwargs.pop(ElevenLabsTextToSpeechConfig.ELEVENLABS_QUERY_PARAMS_KEY, None)
         if isinstance(query_params, dict):
-            litellm_params_dict[ElevenLabsTextToSpeechConfig.ELEVENLABS_QUERY_PARAMS_KEY] = query_params
+            embrouter_params_dict[ElevenLabsTextToSpeechConfig.ELEVENLABS_QUERY_PARAMS_KEY] = query_params
 
-        litellm_params_dict[ElevenLabsTextToSpeechConfig.ELEVENLABS_VOICE_ID_KEY] = voice_id
+        embrouter_params_dict[ElevenLabsTextToSpeechConfig.ELEVENLABS_VOICE_ID_KEY] = voice_id
 
         if api_base is not None:
-            litellm_params_dict["api_base"] = api_base
+            embrouter_params_dict["api_base"] = api_base
         if api_key is not None:
-            litellm_params_dict["api_key"] = api_key
+            embrouter_params_dict["api_key"] = api_key
 
         response = base_llm_http_handler.text_to_speech_handler(
             model=model,
@@ -8486,7 +8486,7 @@ def speech(
             text_to_speech_provider_config=elevenlabs_config,
             text_to_speech_optional_params=optional_params,
             custom_llm_provider=custom_llm_provider,
-            litellm_params=litellm_params_dict,
+            embrouter_params=embrouter_params_dict,
             logging_obj=logging_obj,
             timeout=timeout,
             extra_headers=extra_headers,
@@ -8494,12 +8494,12 @@ def speech(
             _is_async=aspeech or False,
         )
     elif custom_llm_provider == "vertex_ai" or custom_llm_provider == "vertex_ai_beta":
-        from litellm.llms.vertex_ai.text_to_speech.transformation import (
+        from embrouter.llms.vertex_ai.text_to_speech.transformation import (
             VertexAILyriaTextToSpeechConfig,
             VertexAITextToSpeechConfig,
         )
 
-        generic_optional_params: Final = GenericLiteLLMParams(**kwargs)
+        generic_optional_params: Final = GenericEmbRouterParams(**kwargs)
 
         # Handle Gemini models separately (they use speech_to_completion_bridge)
         if "gemini" in model:
@@ -8512,7 +8512,7 @@ def speech(
                 input=input,
                 voice=voice,
                 optional_params=optional_params,
-                litellm_params=litellm_params_dict,
+                embrouter_params=embrouter_params_dict,
                 headers=headers or {},
                 logging_obj=logging_obj,
                 custom_llm_provider=custom_llm_provider,
@@ -8529,8 +8529,8 @@ def speech(
         # Cast to specific Vertex AI config type to access dispatch method
         vertex_config: Final = cast(VertexAITextToSpeechConfig, text_to_speech_provider_config)
 
-        # Store Vertex AI specific params in litellm_params_dict
-        litellm_params_dict.update(
+        # Store Vertex AI specific params in embrouter_params_dict
+        embrouter_params_dict.update(
             {
                 "vertex_project": generic_optional_params.vertex_project,
                 "vertex_location": generic_optional_params.vertex_location,
@@ -8543,7 +8543,7 @@ def speech(
             input=input,
             voice=voice,
             optional_params=optional_params,
-            litellm_params_dict=litellm_params_dict,
+            embrouter_params_dict=embrouter_params_dict,
             logging_obj=logging_obj,
             timeout=timeout,
             extra_headers=headers,
@@ -8563,19 +8563,19 @@ def speech(
             input=input,
             voice=voice,
             optional_params=optional_params,
-            litellm_params=litellm_params_dict,
+            embrouter_params=embrouter_params_dict,
             headers=headers or {},
             logging_obj=logging_obj,
             custom_llm_provider=custom_llm_provider,
         )
     elif custom_llm_provider == "runwayml":
-        from litellm.llms.runwayml.text_to_speech.transformation import (
+        from embrouter.llms.runwayml.text_to_speech.transformation import (
             RunwayMLTextToSpeechConfig,
         )
 
         # RunwayML Text-to-Speech
         if text_to_speech_provider_config is None:
-            raise litellm.BadRequestError(
+            raise embrouter.BadRequestError(
                 message="RunwayML Text-to-Speech configuration not found",
                 model=model,
                 llm_provider=custom_llm_provider,
@@ -8589,7 +8589,7 @@ def speech(
             input=input,
             voice=voice,
             optional_params=optional_params,
-            litellm_params_dict=litellm_params_dict,
+            embrouter_params_dict=embrouter_params_dict,
             logging_obj=logging_obj,
             timeout=timeout,
             extra_headers=extra_headers,
@@ -8600,7 +8600,7 @@ def speech(
             **kwargs,
         )
     elif custom_llm_provider == "minimax":
-        from litellm.llms.minimax.text_to_speech.transformation import (
+        from embrouter.llms.minimax.text_to_speech.transformation import (
             MinimaxTextToSpeechConfig,
         )
 
@@ -8611,9 +8611,9 @@ def speech(
         minimax_config: Final = cast(MinimaxTextToSpeechConfig, text_to_speech_provider_config)
 
         if api_base is not None:
-            litellm_params_dict["api_base"] = api_base
+            embrouter_params_dict["api_base"] = api_base
         if api_key is not None:
-            litellm_params_dict["api_key"] = api_key
+            embrouter_params_dict["api_key"] = api_key
 
         # Convert voice to string if it's a dict (minimax handler expects Optional[str])
         voice_str: str | None = None
@@ -8630,7 +8630,7 @@ def speech(
             text_to_speech_provider_config=minimax_config,
             text_to_speech_optional_params=optional_params,
             custom_llm_provider=custom_llm_provider,
-            litellm_params=litellm_params_dict,
+            embrouter_params=embrouter_params_dict,
             logging_obj=logging_obj,
             timeout=timeout,
             extra_headers=extra_headers,
@@ -8638,16 +8638,16 @@ def speech(
             _is_async=aspeech or False,
         )
     elif custom_llm_provider == "mistral":
-        from litellm.llms.mistral.audio_speech.transformation import (
+        from embrouter.llms.mistral.audio_speech.transformation import (
             MistralTextToSpeechConfig,
         )
 
         mistral_tts_config: Final = text_to_speech_provider_config or MistralTextToSpeechConfig()
 
         if api_base is not None:
-            litellm_params_dict["api_base"] = api_base
+            embrouter_params_dict["api_base"] = api_base
         if api_key is not None:
-            litellm_params_dict["api_key"] = api_key
+            embrouter_params_dict["api_key"] = api_key
 
         mistral_voice: Final[str | None] = voice if isinstance(voice, str) else None
 
@@ -8658,7 +8658,7 @@ def speech(
             text_to_speech_provider_config=mistral_tts_config,
             text_to_speech_optional_params=optional_params,
             custom_llm_provider=custom_llm_provider,
-            litellm_params=litellm_params_dict,
+            embrouter_params=embrouter_params_dict,
             logging_obj=logging_obj,
             timeout=timeout,
             extra_headers=extra_headers,
@@ -8666,7 +8666,7 @@ def speech(
             _is_async=aspeech or False,
         )
     elif custom_llm_provider == "aws_polly":
-        from litellm.llms.aws_polly.text_to_speech.transformation import (
+        from embrouter.llms.aws_polly.text_to_speech.transformation import (
             AWSPollyTextToSpeechConfig,
         )
 
@@ -8682,7 +8682,7 @@ def speech(
             input=input,
             voice=voice,
             optional_params=optional_params,
-            litellm_params_dict=litellm_params_dict,
+            embrouter_params_dict=embrouter_params_dict,
             logging_obj=logging_obj,
             timeout=timeout,
             extra_headers=extra_headers,
@@ -8695,7 +8695,7 @@ def speech(
 
     if response is None:
         raise Exception(
-            f"Unable to map the custom llm provider={custom_llm_provider} to a known provider={litellm.provider_list}."
+            f"Unable to map the custom llm provider={custom_llm_provider} to a known provider={embrouter.provider_list}."
         )
     return response
 
@@ -8719,27 +8719,27 @@ async def ahealth_check(
             "x-ms-region": str,
         }
     """
-    from litellm.litellm_core_utils.cached_imports import get_litellm_logging_class
-    from litellm.litellm_core_utils.health_check_helpers import HealthCheckHelpers
+    from embrouter.embrouter_core_utils.cached_imports import get_embrouter_logging_class
+    from embrouter.embrouter_core_utils.health_check_helpers import HealthCheckHelpers
 
     # Use cached import helper to lazy-load Logging class (only loads when function is called)
-    Logging: Final = get_litellm_logging_class()
+    Logging: Final = get_embrouter_logging_class()
 
     # Map modes to their corresponding health check calls
     #########################################################
     # Init request with tracking information
     #########################################################
-    litellm_logging_obj: Final = Logging(
+    embrouter_logging_obj: Final = Logging(
         model="",
         messages=[],
         stream=False,
         call_type="acompletion",
-        litellm_call_id=str(uuid.uuid4()),
+        embrouter_call_id=str(uuid.uuid4()),
         start_time=datetime.datetime.now(),
         function_id=str(uuid.uuid4()),
         log_raw_request_response=True,
     )
-    model_params["litellm_logging_obj"] = litellm_logging_obj
+    model_params["embrouter_logging_obj"] = embrouter_logging_obj
     model_params = HealthCheckHelpers._update_model_params_with_health_check_tracking_information(
         model_params=model_params
     )
@@ -8749,8 +8749,8 @@ async def ahealth_check(
         if model is None:
             raise Exception("model not set")
 
-        if model in litellm.model_cost and mode is None:
-            mode = litellm.model_cost[model].get("mode")
+        if model in embrouter.model_cost and mode is None:
+            mode = embrouter.model_cost[model].get("mode")
 
         custom_llm_provider_from_params: Final = model_params.get("custom_llm_provider", None)
         api_base_from_params: Final = model_params.get("api_base", None)
@@ -8762,8 +8762,8 @@ async def ahealth_check(
             api_base=api_base_from_params,
             api_key=api_key_from_params,
         )
-        if model in litellm.model_cost and mode is None:
-            mode = litellm.model_cost[model].get("mode")
+        if model in embrouter.model_cost and mode is None:
+            mode = embrouter.model_cost[model].get("mode")
 
         model_params["cache"] = {"no-cache": True}  # don't used cached responses for making health check calls
         mode = mode or "chat"
@@ -8772,7 +8772,7 @@ async def ahealth_check(
                 model=model,
                 custom_llm_provider=custom_llm_provider,
                 model_params=model_params,
-                litellm_logging_obj=litellm_logging_obj,
+                embrouter_logging_obj=embrouter_logging_obj,
             )
 
         mode_handlers: Final = HealthCheckHelpers.get_mode_handlers(
@@ -8803,7 +8803,7 @@ async def ahealth_check(
 
         error_to_return: Final = str(e) + "\nstack trace: " + stack_trace
 
-        raw_request_typed_dict: Final = litellm_logging_obj.model_call_details.get("raw_request_typed_dict")
+        raw_request_typed_dict: Final = embrouter_logging_obj.model_call_details.get("raw_request_typed_dict")
 
         return {
             "error": error_to_return,
@@ -8813,24 +8813,24 @@ async def ahealth_check(
 
 
 ####### HELPER FUNCTIONS ################
-## Set verbose to true -> ```litellm.set_verbose = True```
+## Set verbose to true -> ```embrouter.set_verbose = True```
 def print_verbose(print_statement):
     try:
         verbose_logger.debug(print_statement)
-        if litellm.set_verbose:
+        if embrouter.set_verbose:
             print(print_statement)  # noqa: T201
     except Exception:
         pass
 
 
 def config_completion(**kwargs):
-    if litellm.config_path is not None:
-        config_args: Final = read_config_args(litellm.config_path)
+    if embrouter.config_path is not None:
+        config_args: Final = read_config_args(embrouter.config_path)
         # overwrite any args passed in with config args
         return completion(**kwargs, **config_args)
     else:
         raise ValueError(
-            "No config path set, please set a config path using `litellm.config_path = 'path/to/config.json'`"
+            "No config path set, please set a config path using `embrouter.config_path = 'path/to/config.json'`"
         )
 
 
@@ -8908,7 +8908,7 @@ def _stream_builder_response_cost(response: ModelResponse, logging_obj: Optional
         "custom_llm_provider"
     )
     try:
-        return litellm.completion_cost(completion_response=response, custom_llm_provider=provider_hint)
+        return embrouter.completion_cost(completion_response=response, custom_llm_provider=provider_hint)
     except Exception:
         return _stream_builder_model_map_cost(response)
 
@@ -8925,7 +8925,7 @@ def _stream_builder_model_map_cost(response: ModelResponse) -> float | None:
     if not model_name or not isinstance(usage, Usage):
         return None
     try:
-        prompt_cost, completion_tokens_cost = litellm.cost_per_token(model=model_name, usage_object=usage)
+        prompt_cost, completion_tokens_cost = embrouter.cost_per_token(model=model_name, usage_object=usage)
         return prompt_cost + completion_tokens_cost
     except Exception:  # noqa: BLE001  # cost_per_token raises bare Exception for unpriceable models
         return None
@@ -8992,7 +8992,7 @@ def stream_chunk_builder(
 ) -> ModelResponse | TextCompletionResponse | None:
     try:
         if chunks is None:
-            raise litellm.APIError(
+            raise embrouter.APIError(
                 status_code=500,
                 message="Error building chunks for logging/streaming usage calculation",
                 llm_provider="",
@@ -9010,7 +9010,7 @@ def stream_chunk_builder(
         ## Route to the text completion logic
         first_chunk_with_choices: Final = next((c for c in chunks if c.get("choices")), None)
         if first_chunk_with_choices is not None and isinstance(
-            first_chunk_with_choices["choices"][0], litellm.utils.TextChoices
+            first_chunk_with_choices["choices"][0], embrouter.utils.TextChoices
         ):  # route to the text completion logic
             return stream_chunk_builder_text_completion(chunks=chunks, messages=messages)
 
@@ -9243,8 +9243,8 @@ def stream_chunk_builder(
         processor.apply_provider_assembled_streaming_metadata(response, chunks, logging_obj)
         return response
     except Exception as e:
-        verbose_logger.exception("litellm.main.py::stream_chunk_builder() - Exception occurred - %s", e)
-        raise litellm.APIError(
+        verbose_logger.exception("embrouter.main.py::stream_chunk_builder() - Exception occurred - %s", e)
+        raise embrouter.APIError(
             status_code=500,
             message="Error building chunks for logging/streaming usage calculation",
             llm_provider="",
@@ -9280,9 +9280,9 @@ async def acount_tokens(
     Returns:
         TokenCountResponse with total_tokens and metadata
     """
-    from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
-    from litellm.types.utils import LlmProviders, TokenCountResponse
-    from litellm.utils import ProviderConfigManager
+    from embrouter.embrouter_core_utils.get_llm_provider_logic import get_llm_provider
+    from embrouter.types.utils import LlmProviders, TokenCountResponse
+    from embrouter.utils import ProviderConfigManager
 
     # Determine provider from model string
     (
@@ -9304,7 +9304,7 @@ async def acount_tokens(
 
     # Build deployment dict for the token counter
     deployment: Final[dict[str, object]] = {
-        "litellm_params": {
+        "embrouter_params": {
             "model": model,
             "api_key": api_key,
             "api_base": api_base,
@@ -9339,7 +9339,7 @@ async def acount_tokens(
     fallback_messages = messages or []
     if system and fallback_messages:
         fallback_messages = [{"role": "system", "content": system}] + fallback_messages
-    local_count: Final = await asyncify(litellm.token_counter)(
+    local_count: Final = await asyncify(embrouter.token_counter)(
         model=model,
         messages=fallback_messages,
         tools=tools,
@@ -9373,7 +9373,7 @@ def _get_encoding() -> Tokenizer:
 
 
 def _load_default_encoding() -> Tokenizer:
-    from litellm._lazy_imports import _get_default_encoding
+    from embrouter._lazy_imports import _get_default_encoding
 
     return _get_default_encoding()
 

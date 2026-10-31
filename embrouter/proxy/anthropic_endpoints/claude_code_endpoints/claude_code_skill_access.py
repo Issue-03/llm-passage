@@ -7,11 +7,11 @@ are private and resolve only for proxy admins or keys granted them via
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Final, Protocol
 
-from litellm.proxy._types import LiteLLM_ObjectPermissionTable, UserAPIKeyAuth
-from litellm.proxy.common_utils.resource_ownership import is_proxy_admin
+from embrouter.proxy._types import EmbRouter_ObjectPermissionTable, UserAPIKeyAuth
+from embrouter.proxy.common_utils.resource_ownership import is_proxy_admin
 
 if TYPE_CHECKING:
-    from prisma.types import LiteLLM_ClaudeCodePluginTableWhereInput
+    from prisma.types import EmbRouter_ClaudeCodePluginTableWhereInput
 
 
 class _SkillRecord(Protocol):
@@ -19,7 +19,7 @@ class _SkillRecord(Protocol):
     enabled: bool
 
 
-def _skills_of(permission: LiteLLM_ObjectPermissionTable | None) -> frozenset[str]:
+def _skills_of(permission: EmbRouter_ObjectPermissionTable | None) -> frozenset[str]:
     return frozenset(permission.skills or ()) if permission is not None else frozenset()
 
 
@@ -48,7 +48,7 @@ class SkillVisibility:
     def allows(self, skill: _SkillRecord) -> bool:
         return skill.enabled or self.sees_private or skill.name in self.granted
 
-    def where(self) -> "LiteLLM_ClaudeCodePluginTableWhereInput":
+    def where(self) -> "EmbRouter_ClaudeCodePluginTableWhereInput":
         if self.sees_private:
             return {}
         if not self.granted:

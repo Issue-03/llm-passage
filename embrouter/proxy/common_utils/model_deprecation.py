@@ -7,9 +7,9 @@ from itertools import groupby
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Final
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.types.proxy.model_deprecation import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.types.proxy.model_deprecation import (
     DEFAULT_DEPRECATION_WARN_DAYS,
     DeprecationStatus,
     ModelDeprecationInfo,
@@ -17,7 +17,7 @@ from litellm.types.proxy.model_deprecation import (
 )
 
 if TYPE_CHECKING:
-    from litellm.router import Router
+    from embrouter.router import Router
 
 _NO_MODEL_METADATA: Final[Mapping[str, object]] = MappingProxyType({})
 
@@ -25,8 +25,8 @@ _NO_MODEL_METADATA: Final[Mapping[str, object]] = MappingProxyType({})
 @dataclass(frozen=True, slots=True)
 class _ResolvedDeprecation:
     deprecation_date: date
-    litellm_model: str | None
-    litellm_provider: str | None
+    embrouter_model: str | None
+    embrouter_provider: str | None
 
 
 def _parse_deprecation_date(raw_value: object) -> date | None:
@@ -45,17 +45,17 @@ def _parse_deprecation_date(raw_value: object) -> date | None:
 def _cost_map_lookup(model_key: object) -> _ResolvedDeprecation | None:
     if not isinstance(model_key, str) or not model_key:
         return None
-    entry: Final = litellm.model_cost.get(model_key)
+    entry: Final = embrouter.model_cost.get(model_key)
     if not isinstance(entry, Mapping):
         return None
     parsed: Final = _parse_deprecation_date(entry.get("deprecation_date"))
     if parsed is None:
         return None
-    provider: Final = entry.get("litellm_provider")
+    provider: Final = entry.get("embrouter_provider")
     return _ResolvedDeprecation(
         deprecation_date=parsed,
-        litellm_model=model_key,
-        litellm_provider=provider if isinstance(provider, str) else None,
+        embrouter_model=model_key,
+        embrouter_provider=provider if isinstance(provider, str) else None,
     )
 
 
@@ -69,15 +69,15 @@ def _resolve_deployment_deprecation(
 ) -> _ResolvedDeprecation | None:
     """Resolve a deployment's deprecation date, preferring its explicit override"""
     model_info: Final = _mapping_field(deployment, "model_info")
-    raw_model: Final = _mapping_field(deployment, "litellm_params").get("model")
+    raw_model: Final = _mapping_field(deployment, "embrouter_params").get("model")
 
     override: Final = _parse_deprecation_date(model_info.get("deprecation_date"))
     if override is not None:
-        provider: Final = model_info.get("litellm_provider")
+        provider: Final = model_info.get("embrouter_provider")
         return _ResolvedDeprecation(
             deprecation_date=override,
-            litellm_model=raw_model if isinstance(raw_model, str) else None,
-            litellm_provider=provider if isinstance(provider, str) else None,
+            embrouter_model=raw_model if isinstance(raw_model, str) else None,
+            embrouter_provider=provider if isinstance(provider, str) else None,
         )
 
     unprefixed: Final = raw_model.split("/", 1)[1] if isinstance(raw_model, str) and "/" in raw_model else None
@@ -115,11 +115,11 @@ def _build_info(deployment: Mapping[str, object], today: date, warn_within_days:
     days_until: Final = (resolved.deprecation_date - today).days
     return ModelDeprecationInfo(
         model_name=model_name,
-        litellm_model=resolved.litellm_model,
+        embrouter_model=resolved.embrouter_model,
         deprecation_date=resolved.deprecation_date,
         days_until_deprecation=days_until,
         status=_classify(days_until, warn_within_days),
-        litellm_provider=resolved.litellm_provider,
+        embrouter_provider=resolved.embrouter_provider,
     )
 
 
@@ -188,7 +188,7 @@ def _format_entry(info: ModelDeprecationInfo) -> str:
     )
     return (
         f"• `{_escape_slack_mrkdwn(info.model_name)}` "
-        f"(provider: {_escape_slack_mrkdwn(info.litellm_provider) if info.litellm_provider else 'unknown'}, "
+        f"(provider: {_escape_slack_mrkdwn(info.embrouter_provider) if info.embrouter_provider else 'unknown'}, "
         f"deprecates {info.deprecation_date.isoformat()}, {suffix})"
     )
 

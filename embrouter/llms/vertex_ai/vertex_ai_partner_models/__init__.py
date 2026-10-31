@@ -1,4 +1,4 @@
-from litellm.llms.base_llm.chat.transformation import BaseConfig
+from embrouter.llms.base_llm.chat.transformation import BaseConfig
 
 
 def get_vertex_ai_partner_model_config(model: str, vertex_publisher_or_api_spec: str) -> BaseConfig:

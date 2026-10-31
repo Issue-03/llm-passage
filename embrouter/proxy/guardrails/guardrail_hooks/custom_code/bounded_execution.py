@@ -20,7 +20,7 @@ from collections.abc import Awaitable, Callable, Iterable, Iterator
 from dataclasses import dataclass
 from typing import Final, Generic, TypeVar
 
-from litellm._logging import verbose_proxy_logger
+from embrouter._logging import verbose_proxy_logger
 
 T: Final = TypeVar("T")
 

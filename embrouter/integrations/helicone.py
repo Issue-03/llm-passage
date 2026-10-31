@@ -4,9 +4,9 @@ import os
 import traceback
 from typing import Final
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.integrations.helicone_mock_client import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.integrations.helicone_mock_client import (
     create_mock_helicone_client,
     should_use_helicone_mock,
 )
@@ -94,24 +94,24 @@ class HeliconeLogger:
         return claude_response_obj
 
     @staticmethod
-    def add_metadata_from_header(litellm_params: dict, metadata: dict) -> dict:
+    def add_metadata_from_header(embrouter_params: dict, metadata: dict) -> dict:
         """
         Adds metadata from proxy request headers to Helicone logging if keys start with "helicone_"
-        and overwrites litellm_params.metadata if already included.
+        and overwrites embrouter_params.metadata if already included.
 
         For example if you want to add custom property to your request, send
         `headers: { ..., helicone-property-something: 1234 }` via proxy request.
         """
-        if litellm_params is None:
+        if embrouter_params is None:
             return metadata
 
-        if litellm_params.get("proxy_server_request") is None:
+        if embrouter_params.get("proxy_server_request") is None:
             return metadata
 
         if metadata is None:
             metadata = {}
 
-        proxy_headers: Final = litellm_params.get("proxy_server_request", {}).get("headers", {}) or {}
+        proxy_headers: Final = embrouter_params.get("proxy_server_request", {}).get("headers", {}) or {}
 
         for header_key in proxy_headers:
             if header_key.startswith("helicone_"):
@@ -119,8 +119,8 @@ class HeliconeLogger:
 
         # Remove OpenTelemetry span from metadata as it's not JSON serializable
         # The span is used internally for tracing but shouldn't be logged to external services
-        if "litellm_parent_otel_span" in metadata:
-            metadata.pop("litellm_parent_otel_span")
+        if "embrouter_parent_otel_span" in metadata:
+            metadata.pop("embrouter_parent_otel_span")
 
         return metadata
 
@@ -128,11 +128,11 @@ class HeliconeLogger:
         # Method definition
         try:
             print_verbose(f"Helicone Logging - Enters logging function for model {model}")
-            litellm_params: Final = kwargs.get("litellm_params", {})
-            custom_llm_provider: Final = litellm_params.get("custom_llm_provider", "")
-            kwargs.get("litellm_call_id", None)
-            metadata = litellm_params.get("metadata", {}) or {}
-            metadata = self.add_metadata_from_header(litellm_params, metadata)
+            embrouter_params: Final = kwargs.get("embrouter_params", {})
+            custom_llm_provider: Final = embrouter_params.get("custom_llm_provider", "")
+            kwargs.get("embrouter_call_id", None)
+            metadata = embrouter_params.get("metadata", {}) or {}
+            metadata = self.add_metadata_from_header(embrouter_params, metadata)
 
             # Check if model is a vertex_ai model
             is_vertex_ai: Final = custom_llm_provider == "vertex_ai" or model.startswith("vertex_ai/")
@@ -143,7 +143,7 @@ class HeliconeLogger:
                 else "gpt-3.5-turbo"
             )
             provider_request: Final = {"model": model, "messages": messages}
-            if isinstance(response_obj, litellm.EmbeddingResponse) or isinstance(response_obj, litellm.ModelResponse):
+            if isinstance(response_obj, embrouter.EmbeddingResponse) or isinstance(response_obj, embrouter.ModelResponse):
                 response_obj = response_obj.json()
 
             if "claude" in model and not is_vertex_ai:
@@ -195,7 +195,7 @@ class HeliconeLogger:
                     },
                 },  # {"seconds": .., "milliseconds": ..}
             }
-            response: Final = litellm.module_level_client.post(url, headers=headers, json=data)
+            response: Final = embrouter.module_level_client.post(url, headers=headers, json=data)
             if response.status_code == 200:
                 if self.is_mock_mode:
                     print_verbose("[HELICONE MOCK] Helicone Logging - Successfully mocked!")

@@ -88,7 +88,7 @@ describe("LicenseExpiryBannerView", () => {
 
   it("still shows a critical alert even when its date was previously dismissed", () => {
     const expiration = daysFromNow(5);
-    sessionStorage.setItem(`litellm:licenseExpiryBannerDismissed:${expiration}`, "true");
+    sessionStorage.setItem(`embrouter:licenseExpiryBannerDismissed:${expiration}`, "true");
     render(<LicenseExpiryBannerView licenseInfo={licenseWith(expiration)} />);
     expect(screen.getByText(/expires in 5 days/)).toBeInTheDocument();
   });

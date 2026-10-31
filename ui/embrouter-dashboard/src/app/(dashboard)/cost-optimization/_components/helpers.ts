@@ -1,4 +1,4 @@
-export interface GuardrailLitellmParams {
+export interface GuardrailEmbrouterParams {
   guardrail?: string | null;
   api_base?: string | null;
   default_on?: boolean | null;
@@ -7,7 +7,7 @@ export interface GuardrailLitellmParams {
 export interface GuardrailListItem {
   guardrail_id: string;
   guardrail_name: string | null;
-  litellm_params?: GuardrailLitellmParams | null;
+  embrouter_params?: GuardrailEmbrouterParams | null;
 }
 
 export interface GuardrailListResponse {
@@ -17,7 +17,7 @@ export interface GuardrailListResponse {
 export const COMPRESSION_GUARDRAIL_PROVIDER = "headroom";
 
 export const isCompressionGuardrail = (guardrail: GuardrailListItem): boolean =>
-  (guardrail.litellm_params?.guardrail ?? "").toLowerCase() === COMPRESSION_GUARDRAIL_PROVIDER;
+  (guardrail.embrouter_params?.guardrail ?? "").toLowerCase() === COMPRESSION_GUARDRAIL_PROVIDER;
 
 export const compressionGuardrailsOf = (response: GuardrailListResponse): GuardrailListItem[] =>
   (response.guardrails ?? []).filter(isCompressionGuardrail);
@@ -30,7 +30,7 @@ export interface CompressionGuardrailInput {
 
 export const buildCompressionGuardrailPayload = (input: CompressionGuardrailInput): Record<string, unknown> => ({
   guardrail_name: input.name.trim(),
-  litellm_params: {
+  embrouter_params: {
     guardrail: COMPRESSION_GUARDRAIL_PROVIDER,
     mode: "pre_call",
     api_base: input.apiBase.trim(),

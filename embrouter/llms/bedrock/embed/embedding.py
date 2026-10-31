@@ -10,21 +10,21 @@ from typing import TYPE_CHECKING, Final, get_args, overload
 
 import httpx
 
-import litellm
-from litellm.constants import BEDROCK_EMBEDDING_PROVIDERS_LITERAL
-from litellm.llms.cohere.embed.handler import embedding as cohere_embedding
-from litellm.llms.custom_httpx.http_handler import (
+import embrouter
+from embrouter.constants import BEDROCK_EMBEDDING_PROVIDERS_LITERAL
+from embrouter.llms.cohere.embed.handler import embedding as cohere_embedding
+from embrouter.llms.custom_httpx.http_handler import (
     AsyncHTTPHandler,
     HTTPHandler,
     _get_httpx_client,
     get_async_httpx_client,
 )
-from litellm.secret_managers.main import get_secret
-from litellm.types.llms.bedrock import (
+from embrouter.secret_managers.main import get_secret
+from embrouter.types.llms.bedrock import (
     AmazonEmbeddingRequest,
     CohereEmbeddingRequest,
 )
-from litellm.types.utils import EmbeddingResponse, LlmProviders
+from embrouter.types.utils import EmbeddingResponse, LlmProviders
 
 from ..base_aws_llm import (
     AWSPreparedRequest,
@@ -45,7 +45,7 @@ from .cohere_transformation import BedrockCohereEmbeddingConfig
 from .twelvelabs_marengo_transformation import TwelveLabsMarengoEmbeddingConfig, drop_params_enabled
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
 
 
 def _sign_get_request(
@@ -88,10 +88,10 @@ class BedrockEmbedding(BaseAWSLLM):
         ### SET REGION NAME ###
         if aws_region_name is None:
             # check env #
-            litellm_aws_region_name: Final = get_secret("AWS_REGION_NAME", None)
+            embrouter_aws_region_name: Final = get_secret("AWS_REGION_NAME", None)
 
-            if litellm_aws_region_name is not None and isinstance(litellm_aws_region_name, str):
-                aws_region_name = litellm_aws_region_name
+            if embrouter_aws_region_name is not None and isinstance(embrouter_aws_region_name, str):
+                aws_region_name = embrouter_aws_region_name
 
             standard_aws_region_name: Final = get_secret("AWS_REGION", None)
             if standard_aws_region_name is not None and isinstance(standard_aws_region_name, str):
@@ -155,7 +155,7 @@ class BedrockEmbedding(BaseAWSLLM):
                 if isinstance(timeout, float) or isinstance(timeout, int):
                     timeout = httpx.Timeout(timeout)
                 _params["timeout"] = timeout
-            client = get_async_httpx_client(params=_params, llm_provider=litellm.LlmProviders.BEDROCK)
+            client = get_async_httpx_client(params=_params, llm_provider=embrouter.LlmProviders.BEDROCK)
         else:
             client = client
 
@@ -202,7 +202,7 @@ class BedrockEmbedding(BaseAWSLLM):
                 # For other providers, create a generic async response
                 invocation_arn: Final = response_list[0].get("invocationArn", "")
 
-                from litellm.types.utils import Embedding, Usage
+                from embrouter.types.utils import Embedding, Usage
 
                 embedding: Final = Embedding(
                     embedding=[],
@@ -212,7 +212,7 @@ class BedrockEmbedding(BaseAWSLLM):
                 usage: Final = Usage(prompt_tokens=0, total_tokens=0)
 
                 # Create hidden params with job ID
-                from litellm.types.llms.base import HiddenParams
+                from embrouter.types.llms.base import HiddenParams
 
                 hidden_params: Final = HiddenParams()
                 setattr(hidden_params, "_invocation_arn", invocation_arn)
@@ -261,7 +261,7 @@ class BedrockEmbedding(BaseAWSLLM):
         endpoint_url: str,
         aws_region_name: str,
         model: str,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
         provider: BEDROCK_EMBEDDING_PROVIDERS_LITERAL,
         api_key: str | None = None,
         is_async_invoke: bool | None = False,
@@ -329,7 +329,7 @@ class BedrockEmbedding(BaseAWSLLM):
         endpoint_url: str,
         aws_region_name: str,
         model: str,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
         provider: BEDROCK_EMBEDDING_PROVIDERS_LITERAL,
         api_key: str | None = None,
         is_async_invoke: bool | None = False,
@@ -404,7 +404,7 @@ class BedrockEmbedding(BaseAWSLLM):
         aembedding: bool | None,
         extra_headers: dict | None,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
     ) -> EmbeddingResponse:
         credentials, aws_region_name = self._load_credentials(
@@ -489,7 +489,7 @@ class BedrockEmbedding(BaseAWSLLM):
                     async_invoke_route=has_async_invoke,
                     model_id=modelId,
                     output_s3_uri=inference_params.get("output_s3_uri"),
-                    drop_params=drop_params_enabled(litellm_params),
+                    drop_params=drop_params_enabled(embrouter_params),
                 )
                 batch_data.append(twelvelabs_request)
         elif provider == "nova":
@@ -628,7 +628,7 @@ class BedrockEmbedding(BaseAWSLLM):
             # Create custom curl command for GET request
             masked_headers: Final = logging_obj._get_masked_headers(prepped.headers)
             formatted_headers: Final = " ".join([f"-H '{k}: {v}'" for k, v in masked_headers.items()])
-            custom_curl = "\n\nGET Request Sent from LiteLLM:\n"
+            custom_curl = "\n\nGET Request Sent from EmbRouter:\n"
             custom_curl += "curl -X GET \\\n"
             custom_curl += f"{prepped.url} \\\n"
             custom_curl += f"{formatted_headers}\n"

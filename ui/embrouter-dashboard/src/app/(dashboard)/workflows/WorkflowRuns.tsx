@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { ArrowLeft, ChevronDown, RefreshCw } from "lucide-react";
 import type { ColumnDef, ColumnFiltersState } from "@tanstack/react-table";
-import { getGlobalLitellmHeaderName, proxyBaseUrl } from "@/components/networking";
+import { getGlobalEmbrouterHeaderName, proxyBaseUrl } from "@/components/networking";
 import {
   DataTable,
   DataTableFilterDrawer,
@@ -395,7 +395,7 @@ const WorkflowRuns: React.FC<WorkflowRunsProps> = ({ accessToken }) => {
     setLoadingRuns(true);
     try {
       const res = await fetch(`${proxyBaseUrl ?? ""}/v1/workflows/runs?limit=100`, {
-        headers: { [getGlobalLitellmHeaderName()]: `Bearer ${accessToken}` },
+        headers: { [getGlobalEmbrouterHeaderName()]: `Bearer ${accessToken}` },
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
@@ -419,10 +419,10 @@ const WorkflowRuns: React.FC<WorkflowRunsProps> = ({ accessToken }) => {
         const base = proxyBaseUrl ?? "";
         const [evRes, msgRes] = await Promise.all([
           fetch(`${base}/v1/workflows/runs/${run.run_id}/events`, {
-            headers: { [getGlobalLitellmHeaderName()]: `Bearer ${accessToken}` },
+            headers: { [getGlobalEmbrouterHeaderName()]: `Bearer ${accessToken}` },
           }),
           fetch(`${base}/v1/workflows/runs/${run.run_id}/messages`, {
-            headers: { [getGlobalLitellmHeaderName()]: `Bearer ${accessToken}` },
+            headers: { [getGlobalEmbrouterHeaderName()]: `Bearer ${accessToken}` },
           }),
         ]);
         const evData = evRes.ok ? await evRes.json() : { events: [] };

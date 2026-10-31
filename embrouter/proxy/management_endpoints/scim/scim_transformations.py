@@ -3,15 +3,15 @@ from typing import Final, TypeVar
 
 from pydantic import ValidationError
 
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy._types import (
-    LiteLLM_TeamTable,
-    LiteLLM_UserTable,
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy._types import (
+    EmbRouter_TeamTable,
+    EmbRouter_UserTable,
     Member,
     NewUserResponse,
 )
-from litellm.repositories.team_repository import TeamRepository
-from litellm.types.proxy.management_endpoints.scim_v2 import *
+from embrouter.repositories.team_repository import TeamRepository
+from embrouter.types.proxy.management_endpoints.scim_v2 import *
 
 T = TypeVar("T")
 
@@ -23,10 +23,10 @@ class ScimTransformations:
     DEFAULT_SCIM_MEMBER_VALUE = "Unknown Member Value"
 
     @staticmethod
-    async def transform_litellm_user_to_scim_user(
-        user: LiteLLM_UserTable | NewUserResponse,
+    async def transform_embrouter_user_to_scim_user(
+        user: EmbRouter_UserTable | NewUserResponse,
     ) -> SCIMUser:
-        from litellm.proxy.proxy_server import prisma_client
+        from embrouter.proxy.proxy_server import prisma_client
 
         if prisma_client is None:
             raise HTTPException(status_code=500, detail={"error": "No database connected"})
@@ -91,7 +91,7 @@ class ScimTransformations:
 
     @staticmethod
     def _parse_directory_metadata(
-        user: LiteLLM_UserTable | NewUserResponse,
+        user: EmbRouter_UserTable | NewUserResponse,
         key: str,
         validate: Callable[[object], T],
     ) -> T | None:
@@ -115,7 +115,7 @@ class ScimTransformations:
             return None
 
     @staticmethod
-    def _get_scim_user_name(user: LiteLLM_UserTable | NewUserResponse) -> str:
+    def _get_scim_user_name(user: EmbRouter_UserTable | NewUserResponse) -> str:
         """
         SCIM requires a display name with length > 0
 
@@ -126,13 +126,13 @@ class ScimTransformations:
         return ScimTransformations.DEFAULT_SCIM_DISPLAY_NAME
 
     @staticmethod
-    def _get_scim_family_name(user: LiteLLM_UserTable | NewUserResponse) -> str:
+    def _get_scim_family_name(user: EmbRouter_UserTable | NewUserResponse) -> str:
         """
         SCIM requires a family name with length > 0
         """
         metadata: Final = user.metadata or {}
         if "scim_metadata" in metadata:
-            scim_metadata: Final[LiteLLM_UserScimMetadata] = LiteLLM_UserScimMetadata(**metadata["scim_metadata"])
+            scim_metadata: Final[EmbRouter_UserScimMetadata] = EmbRouter_UserScimMetadata(**metadata["scim_metadata"])
             if scim_metadata.familyName and len(scim_metadata.familyName) > 0:
                 return scim_metadata.familyName
 
@@ -141,13 +141,13 @@ class ScimTransformations:
         return ScimTransformations.DEFAULT_SCIM_FAMILY_NAME
 
     @staticmethod
-    def _get_scim_given_name(user: LiteLLM_UserTable | NewUserResponse) -> str:
+    def _get_scim_given_name(user: EmbRouter_UserTable | NewUserResponse) -> str:
         """
         SCIM requires a given name with length > 0
         """
         metadata: Final = user.metadata or {}
         if "scim_metadata" in metadata:
-            scim_metadata: Final[LiteLLM_UserScimMetadata] = LiteLLM_UserScimMetadata(**metadata["scim_metadata"])
+            scim_metadata: Final[EmbRouter_UserScimMetadata] = EmbRouter_UserScimMetadata(**metadata["scim_metadata"])
             if scim_metadata.givenName and len(scim_metadata.givenName) > 0:
                 return scim_metadata.givenName
 
@@ -156,16 +156,16 @@ class ScimTransformations:
         return ScimTransformations.DEFAULT_SCIM_NAME
 
     @staticmethod
-    async def transform_litellm_team_to_scim_group(
-        team: LiteLLM_TeamTable | dict,
+    async def transform_embrouter_team_to_scim_group(
+        team: EmbRouter_TeamTable | dict,
     ) -> SCIMGroup:
-        from litellm.proxy.proxy_server import prisma_client
+        from embrouter.proxy.proxy_server import prisma_client
 
         if prisma_client is None:
             raise HTTPException(status_code=500, detail={"error": "No database connected"})
 
         if isinstance(team, dict):
-            team = LiteLLM_TeamTable(**team)
+            team = EmbRouter_TeamTable(**team)
 
         # Get team members with proper display names
         scim_members: Final[list[SCIMMember]] = []
@@ -199,7 +199,7 @@ class ScimTransformations:
 
     @staticmethod
     def _get_scim_member_value(member: Member) -> str:
-        """The member's SCIM resource id, which LiteLLM serves as user_id (RFC 7643 §8.7.1)."""
+        """The member's SCIM resource id, which EmbRouter serves as user_id (RFC 7643 §8.7.1)."""
         return member.user_id or ScimTransformations.DEFAULT_SCIM_MEMBER_VALUE
 
     @staticmethod

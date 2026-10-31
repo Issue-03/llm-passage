@@ -1,5 +1,5 @@
 """
-Unit tests for batch ID encoding when x-litellm-model header is used.
+Unit tests for batch ID encoding when x-embrouter-model header is used.
 
 Verifies that create_batch encodes response IDs with model info so that
 retrieve_batch can route back to the correct provider/credentials.
@@ -11,13 +11,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.openai_files_endpoints.common_utils import (
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.openai_files_endpoints.common_utils import (
     decode_model_from_file_id,
     get_batch_id_from_unified_batch_id,
     get_original_file_id,
 )
-from litellm.types.utils import LiteLLMBatch
+from embrouter.types.utils import EmbRouterBatch
 
 
 def _make_mock_request(headers: dict) -> MagicMock:
@@ -33,7 +33,7 @@ def _make_mock_request(headers: dict) -> MagicMock:
 
 
 def _make_unified_batch_id(model_id: str, batch_id: str) -> str:
-    decoded_id = f"litellm_proxy;model_id:{model_id};llm_batch_id:{batch_id}"
+    decoded_id = f"embrouter_proxy;model_id:{model_id};llm_batch_id:{batch_id}"
     return base64.urlsafe_b64encode(decoded_id.encode()).decode().rstrip("=")
 
 
@@ -43,9 +43,9 @@ def _make_batch_response(
     output_file_id: Optional[str] = None,
     error_file_id: Optional[str] = None,
     status: str = "validating",
-) -> LiteLLMBatch:
-    """Create a mock LiteLLMBatch response from a provider."""
-    return LiteLLMBatch(
+) -> EmbRouterBatch:
+    """Create a mock EmbRouterBatch response from a provider."""
+    return EmbRouterBatch(
         id=batch_id,
         object="batch",
         status=status,
@@ -59,24 +59,24 @@ def _make_batch_response(
 
 
 def test_get_batch_id_from_unified_batch_id_handles_appended_fields():
-    decoded_id = "litellm_proxy;model_id:deployment-123;llm_batch_id:batch_openai_123;llm_output_file_id:file-output"
+    decoded_id = "embrouter_proxy;model_id:deployment-123;llm_batch_id:batch_openai_123;llm_output_file_id:file-output"
 
     assert get_batch_id_from_unified_batch_id(decoded_id) == "batch_openai_123"
 
 
 @pytest.mark.asyncio
-async def test_create_batch_with_x_litellm_model_encodes_batch_id():
+async def test_create_batch_with_x_embrouter_model_encodes_batch_id():
     """
-    When x-litellm-model header is provided, create_batch should encode the
+    When x-embrouter-model header is provided, create_batch should encode the
     response batch_id with model info so retrieve_batch can route correctly.
     """
-    from litellm.proxy.batches_endpoints.endpoints import create_batch
+    from embrouter.proxy.batches_endpoints.endpoints import create_batch
 
     model_name = "my-vllm-model"
     raw_batch_id = "batch_abc123"
 
     mock_response = _make_batch_response(batch_id=raw_batch_id)
-    mock_request = _make_mock_request(headers={"x-litellm-model": model_name})
+    mock_request = _make_mock_request(headers={"x-embrouter-model": model_name})
     mock_fastapi_response = MagicMock()
     mock_user_api_key_dict = MagicMock()
     mock_user_api_key_dict.parent_otel_span = None
@@ -91,7 +91,7 @@ async def test_create_batch_with_x_litellm_model_encodes_batch_id():
 
     with (
         patch(
-            "litellm.proxy.batches_endpoints.endpoints._read_request_body",
+            "embrouter.proxy.batches_endpoints.endpoints._read_request_body",
             new=AsyncMock(
                 return_value={
                     "input_file_id": "file-input456",
@@ -105,28 +105,28 @@ async def test_create_batch_with_x_litellm_model_encodes_batch_id():
                 }
             ),
         ),
-        patch("litellm.proxy.batches_endpoints.endpoints.ProxyBaseLLMRequestProcessing") as mock_processor_cls,
+        patch("embrouter.proxy.batches_endpoints.endpoints.ProxyBaseLLMRequestProcessing") as mock_processor_cls,
         patch(
-            "litellm.proxy.batches_endpoints.endpoints.get_authorized_credentials_for_model",
+            "embrouter.proxy.batches_endpoints.endpoints.get_authorized_credentials_for_model",
             new=AsyncMock(return_value=mock_credentials),
         ),
         patch(
-            "litellm.proxy.batches_endpoints.endpoints.prepare_data_with_credentials",
+            "embrouter.proxy.batches_endpoints.endpoints.prepare_data_with_credentials",
         ),
         patch(
-            "litellm.acreate_batch",
+            "embrouter.acreate_batch",
             new_callable=AsyncMock,
         ) as mock_create_batch,
         patch(
-            "litellm.proxy.batches_endpoints.endpoints.is_known_model",
+            "embrouter.proxy.batches_endpoints.endpoints.is_known_model",
             return_value=False,
         ),
-        patch("litellm.proxy.proxy_server.general_settings", {}),
-        patch("litellm.proxy.proxy_server.llm_router", MagicMock()),
-        patch("litellm.proxy.proxy_server.proxy_config", MagicMock()),
-        patch("litellm.proxy.proxy_server.version", "1.0.0"),
+        patch("embrouter.proxy.proxy_server.general_settings", {}),
+        patch("embrouter.proxy.proxy_server.llm_router", MagicMock()),
+        patch("embrouter.proxy.proxy_server.proxy_config", MagicMock()),
+        patch("embrouter.proxy.proxy_server.version", "1.0.0"),
         patch(
-            "litellm.proxy.proxy_server.proxy_logging_obj",
+            "embrouter.proxy.proxy_server.proxy_logging_obj",
             MagicMock(
                 post_call_success_hook=AsyncMock(return_value=mock_response),
                 update_request_status=AsyncMock(),
@@ -174,12 +174,12 @@ async def test_create_batch_with_x_litellm_model_encodes_batch_id():
 
 
 @pytest.mark.asyncio
-async def test_create_batch_with_x_litellm_model_encodes_output_and_error_file_ids():
+async def test_create_batch_with_x_embrouter_model_encodes_output_and_error_file_ids():
     """
     When a completed batch is returned with output_file_id and error_file_id,
     these should also be encoded with model info.
     """
-    from litellm.proxy.batches_endpoints.endpoints import create_batch
+    from embrouter.proxy.batches_endpoints.endpoints import create_batch
 
     model_name = "my-vllm-model"
     raw_output_file = "file-output789"
@@ -191,7 +191,7 @@ async def test_create_batch_with_x_litellm_model_encodes_output_and_error_file_i
         error_file_id=raw_error_file,
         status="completed",
     )
-    mock_request = _make_mock_request(headers={"x-litellm-model": model_name})
+    mock_request = _make_mock_request(headers={"x-embrouter-model": model_name})
     mock_fastapi_response = MagicMock()
     mock_user_api_key_dict = MagicMock()
     mock_user_api_key_dict.parent_otel_span = None
@@ -206,7 +206,7 @@ async def test_create_batch_with_x_litellm_model_encodes_output_and_error_file_i
 
     with (
         patch(
-            "litellm.proxy.batches_endpoints.endpoints._read_request_body",
+            "embrouter.proxy.batches_endpoints.endpoints._read_request_body",
             new=AsyncMock(
                 return_value={
                     "input_file_id": "file-input456",
@@ -215,28 +215,28 @@ async def test_create_batch_with_x_litellm_model_encodes_output_and_error_file_i
                 }
             ),
         ),
-        patch("litellm.proxy.batches_endpoints.endpoints.ProxyBaseLLMRequestProcessing") as mock_processor_cls,
+        patch("embrouter.proxy.batches_endpoints.endpoints.ProxyBaseLLMRequestProcessing") as mock_processor_cls,
         patch(
-            "litellm.proxy.batches_endpoints.endpoints.get_authorized_credentials_for_model",
+            "embrouter.proxy.batches_endpoints.endpoints.get_authorized_credentials_for_model",
             new=AsyncMock(return_value=mock_credentials),
         ),
         patch(
-            "litellm.proxy.batches_endpoints.endpoints.prepare_data_with_credentials",
+            "embrouter.proxy.batches_endpoints.endpoints.prepare_data_with_credentials",
         ),
         patch(
-            "litellm.acreate_batch",
+            "embrouter.acreate_batch",
             new=AsyncMock(return_value=mock_response),
         ),
         patch(
-            "litellm.proxy.batches_endpoints.endpoints.is_known_model",
+            "embrouter.proxy.batches_endpoints.endpoints.is_known_model",
             return_value=False,
         ),
-        patch("litellm.proxy.proxy_server.general_settings", {}),
-        patch("litellm.proxy.proxy_server.llm_router", MagicMock()),
-        patch("litellm.proxy.proxy_server.proxy_config", MagicMock()),
-        patch("litellm.proxy.proxy_server.version", "1.0.0"),
+        patch("embrouter.proxy.proxy_server.general_settings", {}),
+        patch("embrouter.proxy.proxy_server.llm_router", MagicMock()),
+        patch("embrouter.proxy.proxy_server.proxy_config", MagicMock()),
+        patch("embrouter.proxy.proxy_server.version", "1.0.0"),
         patch(
-            "litellm.proxy.proxy_server.proxy_logging_obj",
+            "embrouter.proxy.proxy_server.proxy_logging_obj",
             MagicMock(
                 post_call_success_hook=AsyncMock(return_value=mock_response),
                 update_request_status=AsyncMock(),
@@ -273,12 +273,12 @@ async def test_create_batch_with_x_litellm_model_encodes_output_and_error_file_i
 
 
 @pytest.mark.asyncio
-async def test_create_batch_without_x_litellm_model_returns_raw_ids(monkeypatch):
+async def test_create_batch_without_x_embrouter_model_returns_raw_ids(monkeypatch):
     """
-    Without x-litellm-model header, create_batch should NOT encode batch IDs
+    Without x-embrouter-model header, create_batch should NOT encode batch IDs
     (falls through to Scenario 3 / custom_llm_provider fallback).
     """
-    from litellm.proxy.batches_endpoints.endpoints import create_batch
+    from embrouter.proxy.batches_endpoints.endpoints import create_batch
 
     monkeypatch.setenv("OPENAI_API_KEY", "sk-env-openai")
 
@@ -293,7 +293,7 @@ async def test_create_batch_without_x_litellm_model_returns_raw_ids(monkeypatch)
 
     with (
         patch(
-            "litellm.proxy.batches_endpoints.endpoints._read_request_body",
+            "embrouter.proxy.batches_endpoints.endpoints._read_request_body",
             new=AsyncMock(
                 return_value={
                     "input_file_id": "file-input456",
@@ -302,21 +302,21 @@ async def test_create_batch_without_x_litellm_model_returns_raw_ids(monkeypatch)
                 }
             ),
         ),
-        patch("litellm.proxy.batches_endpoints.endpoints.ProxyBaseLLMRequestProcessing") as mock_processor_cls,
+        patch("embrouter.proxy.batches_endpoints.endpoints.ProxyBaseLLMRequestProcessing") as mock_processor_cls,
         patch(
-            "litellm.acreate_batch",
+            "embrouter.acreate_batch",
             new=AsyncMock(return_value=mock_response),
         ),
         patch(
-            "litellm.proxy.batches_endpoints.endpoints.is_known_model",
+            "embrouter.proxy.batches_endpoints.endpoints.is_known_model",
             return_value=False,
         ),
-        patch("litellm.proxy.proxy_server.general_settings", {}),
-        patch("litellm.proxy.proxy_server.llm_router", None),
-        patch("litellm.proxy.proxy_server.proxy_config", MagicMock()),
-        patch("litellm.proxy.proxy_server.version", "1.0.0"),
+        patch("embrouter.proxy.proxy_server.general_settings", {}),
+        patch("embrouter.proxy.proxy_server.llm_router", None),
+        patch("embrouter.proxy.proxy_server.proxy_config", MagicMock()),
+        patch("embrouter.proxy.proxy_server.version", "1.0.0"),
         patch(
-            "litellm.proxy.proxy_server.proxy_logging_obj",
+            "embrouter.proxy.proxy_server.proxy_logging_obj",
             MagicMock(
                 post_call_success_hook=AsyncMock(return_value=mock_response),
                 update_request_status=AsyncMock(),
@@ -343,7 +343,7 @@ async def test_create_batch_without_x_litellm_model_returns_raw_ids(monkeypatch)
             user_api_key_dict=mock_user_api_key_dict,
         )
 
-    # Without x-litellm-model, the batch_id should remain raw
+    # Without x-embrouter-model, the batch_id should remain raw
     assert response.id == raw_batch_id
     assert decode_model_from_file_id(response.id) is None
 
@@ -359,7 +359,7 @@ class TestBatchIdRoundTripWithRetrieve:
         Simulates the full round-trip: create encodes the ID,
         retrieve decodes it to get the model and original batch_id.
         """
-        from litellm.proxy.openai_files_endpoints.common_utils import (
+        from embrouter.proxy.openai_files_endpoints.common_utils import (
             encode_file_id_with_model,
         )
 
@@ -381,7 +381,7 @@ class TestBatchIdRoundTripWithRetrieve:
         VLLM may return batch IDs in various formats.
         Verify round-trip works for common patterns.
         """
-        from litellm.proxy.openai_files_endpoints.common_utils import (
+        from embrouter.proxy.openai_files_endpoints.common_utils import (
             encode_file_id_with_model,
         )
 
@@ -400,7 +400,7 @@ class TestBatchIdRoundTripWithRetrieve:
 
 @pytest.mark.asyncio
 async def test_cancel_batch_with_unified_id_routes_with_decoded_model_and_batch_id():
-    from litellm.proxy.batches_endpoints.endpoints import cancel_batch
+    from embrouter.proxy.batches_endpoints.endpoints import cancel_batch
 
     model_id = "deployment-123"
     raw_batch_id = "batch_openai_123"
@@ -416,22 +416,22 @@ async def test_cancel_batch_with_unified_id_routes_with_decoded_model_and_batch_
     mock_user_api_key_dict = UserAPIKeyAuth(api_key="sk-test", user_id="test_user", team_metadata={})
 
     with (
-        patch("litellm.proxy.batches_endpoints.endpoints.ProxyBaseLLMRequestProcessing") as mock_processor_cls,
+        patch("embrouter.proxy.batches_endpoints.endpoints.ProxyBaseLLMRequestProcessing") as mock_processor_cls,
         patch(
-            "litellm.proxy.batches_endpoints.endpoints.update_batch_in_database",
+            "embrouter.proxy.batches_endpoints.endpoints.update_batch_in_database",
             new=AsyncMock(),
         ),
         patch(
-            "litellm.proxy.proxy_server.add_litellm_data_to_request",
+            "embrouter.proxy.proxy_server.add_embrouter_data_to_request",
             new=AsyncMock(side_effect=lambda data, **_: data),
         ),
-        patch("litellm.proxy.proxy_server.general_settings", {}),
-        patch("litellm.proxy.proxy_server.llm_router", mock_router),
-        patch("litellm.proxy.proxy_server.proxy_config", MagicMock()),
-        patch("litellm.proxy.proxy_server.version", "1.0.0"),
-        patch("litellm.proxy.proxy_server.prisma_client", None),
+        patch("embrouter.proxy.proxy_server.general_settings", {}),
+        patch("embrouter.proxy.proxy_server.llm_router", mock_router),
+        patch("embrouter.proxy.proxy_server.proxy_config", MagicMock()),
+        patch("embrouter.proxy.proxy_server.version", "1.0.0"),
+        patch("embrouter.proxy.proxy_server.prisma_client", None),
         patch(
-            "litellm.proxy.proxy_server.proxy_logging_obj",
+            "embrouter.proxy.proxy_server.proxy_logging_obj",
             MagicMock(
                 get_proxy_hook=MagicMock(return_value=None),
                 post_call_success_hook=AsyncMock(return_value=mock_response),

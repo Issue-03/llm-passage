@@ -13,25 +13,25 @@ from typing import TYPE_CHECKING, Final
 
 from pydantic import BaseModel, ConfigDict
 
-from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
-from litellm.proxy._types import (
-    LiteLLM_TeamTable,
-    LitellmTableNames,
-    LitellmUserRoles,
+from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps
+from embrouter.proxy._types import (
+    EmbRouter_TeamTable,
+    EmbrouterTableNames,
+    EmbrouterUserRoles,
     Member,
     UserAPIKeyAuth,
 )
-from litellm.proxy.auth.auth_checks import invalidate_team_member_spend_state
-from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-from litellm.proxy.db.routing_prisma_wrapper import WriterPinnedClient
-from litellm.proxy.management_endpoints.common_utils import (
+from embrouter.proxy.auth.auth_checks import invalidate_team_member_spend_state
+from embrouter.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+from embrouter.proxy.db.routing_prisma_wrapper import WriterPinnedClient
+from embrouter.proxy.management_endpoints.common_utils import (
     _is_user_org_admin_for_team,  # pyright: ignore[reportPrivateUsage]  # same check /team/member_update uses
     _is_user_team_admin,  # pyright: ignore[reportPrivateUsage]  # same check /team/member_update uses
     _upsert_budget_and_membership,  # pyright: ignore[reportPrivateUsage]  # the single-member write, shared so the two surfaces cannot drift
     member_budget_patch,
 )
-from litellm.proxy.management_helpers.audit_logs import create_object_audit_log
-from litellm.proxy.management_helpers.bulk_user_deletion import (
+from embrouter.proxy.management_helpers.audit_logs import create_object_audit_log
+from embrouter.proxy.management_helpers.bulk_user_deletion import (
     _duplicate_member_indexes,  # pyright: ignore[reportPrivateUsage]  # same duplicate rule as members/bulk_delete
     _eq_filter,  # pyright: ignore[reportPrivateUsage]  # same prisma filter shape as members/bulk_delete
     _forbidden,  # pyright: ignore[reportPrivateUsage]  # same problem shape as members/bulk_delete
@@ -39,9 +39,9 @@ from litellm.proxy.management_helpers.bulk_user_deletion import (
     _team_not_found,  # pyright: ignore[reportPrivateUsage]  # same problem shape as members/bulk_delete
     _team_users_filter,  # pyright: ignore[reportPrivateUsage]  # same prisma filter shape as members/bulk_delete
 )
-from litellm.proxy.utils import PrismaClient
-from litellm.repositories.team_repository import TeamRepository
-from litellm.types.proxy.management_endpoints.team_endpoints import (
+from embrouter.proxy.utils import PrismaClient
+from embrouter.repositories.team_repository import TeamRepository
+from embrouter.types.proxy.management_endpoints.team_endpoints import (
     BulkTeamMemberBudgetUpdateRequest,
     TeamMemberBudgetPatch,
     TeamMemberBudgetUpdateResult,
@@ -51,19 +51,19 @@ if TYPE_CHECKING:
     from prisma import Prisma
     from prisma import models as prisma_models
 
-    from litellm.repositories.prisma_protocols import TableActions
+    from embrouter.repositories.prisma_protocols import TableActions
 
 _BATCH_TX_TIMEOUT: Final = timedelta(seconds=60)
 _NO_METADATA: Final = MappingProxyType({})
-_WITH_BUDGET: Final = MappingProxyType({"litellm_budget_table": True})
+_WITH_BUDGET: Final = MappingProxyType({"embrouter_budget_table": True})
 
 
-def _membership_tx_db(tx: "Prisma") -> "TableActions[prisma_models.LiteLLM_TeamMembership]":
-    return tx.litellm_teammembership  # pyright: ignore[reportReturnType]  # TableActions widens the generated inputs to Mapping, as the repositories do
+def _membership_tx_db(tx: "Prisma") -> "TableActions[prisma_models.EmbRouter_TeamMembership]":
+    return tx.embrouter_teammembership  # pyright: ignore[reportReturnType]  # TableActions widens the generated inputs to Mapping, as the repositories do
 
 
-def _budget_tx_db(tx: "Prisma") -> "TableActions[prisma_models.LiteLLM_BudgetTable]":
-    return tx.litellm_budgettable  # pyright: ignore[reportReturnType]  # TableActions widens the generated inputs to Mapping, as the repositories do
+def _budget_tx_db(tx: "Prisma") -> "TableActions[prisma_models.EmbRouter_BudgetTable]":
+    return tx.embrouter_budgettable  # pyright: ignore[reportReturnType]  # TableActions widens the generated inputs to Mapping, as the repositories do
 
 
 def _roster_user_id(member: TeamMemberBudgetPatch, roster: Sequence[Member]) -> str | None:
@@ -73,7 +73,7 @@ def _roster_user_id(member: TeamMemberBudgetPatch, roster: Sequence[Member]) -> 
     return next((m.user_id for m in roster if m.user_email is not None and m.user_email == member.user_email), None)
 
 
-def _team_default_budget_id(team: LiteLLM_TeamTable) -> str | None:
+def _team_default_budget_id(team: EmbRouter_TeamTable) -> str | None:
     raw: Final = (team.metadata or _NO_METADATA).get("team_member_budget_id")
     return raw if isinstance(raw, str) else None
 
@@ -110,8 +110,8 @@ class _AuditedMemberBudgets(BaseModel):
     team_member_budgets: tuple[_AuditedMemberBudget, ...]
 
 
-def _audited_member_budget(row: "prisma_models.LiteLLM_TeamMembership") -> _AuditedMemberBudget:
-    budget: Final = row.litellm_budget_table
+def _audited_member_budget(row: "prisma_models.EmbRouter_TeamMembership") -> _AuditedMemberBudget:
+    budget: Final = row.embrouter_budget_table
     if budget is None:
         return _AuditedMemberBudget(user_id=row.user_id, budget_id=row.budget_id)
     return _AuditedMemberBudget(
@@ -126,7 +126,7 @@ def _audited_member_budget(row: "prisma_models.LiteLLM_TeamMembership") -> _Audi
     )
 
 
-def _limits_audit_value(rows: "Sequence[prisma_models.LiteLLM_TeamMembership]") -> str:
+def _limits_audit_value(rows: "Sequence[prisma_models.EmbRouter_TeamMembership]") -> str:
     """Serialize the members' limits for an audit-log value, dropping the limits they do not set."""
     return safe_dumps(
         _AuditedMemberBudgets(
@@ -139,7 +139,7 @@ def _result(
     member: TeamMemberBudgetPatch,
     user_id: str | None,
     error: str | None,
-    budget_of: "MappingProxyType[str, prisma_models.LiteLLM_BudgetTable | None]",
+    budget_of: "MappingProxyType[str, prisma_models.EmbRouter_BudgetTable | None]",
     team_default_max_budget: float | None,
 ) -> TeamMemberBudgetUpdateResult:
     if error is not None or user_id is None:
@@ -172,8 +172,8 @@ async def bulk_update_team_member_budgets(
     user_api_key_dict: UserAPIKeyAuth,
     prisma_client: PrismaClient,
     user_api_key_cache: UserApiKeyCache,
-    litellm_proxy_admin_name: str,
-    litellm_changed_by: str | None = None,
+    embrouter_proxy_admin_name: str,
+    embrouter_changed_by: str | None = None,
 ) -> tuple[TeamMemberBudgetUpdateResult, ...]:
     """Apply one merge patch of per-member limits per requested member, in one transaction."""
     team: Final = await TeamRepository(WriterPinnedClient(prisma_client.db)).find_by_id(team_id)
@@ -181,7 +181,7 @@ async def bulk_update_team_member_budgets(
         raise _team_not_found(team_id)
 
     if (
-        user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN.value
+        user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN.value
         and not _is_user_team_admin(user_api_key_dict=user_api_key_dict, team_obj=team)
         and not await _is_user_org_admin_for_team(user_api_key_dict=user_api_key_dict, team_obj=team)
     ):
@@ -242,15 +242,15 @@ async def bulk_update_team_member_budgets(
     await create_object_audit_log(
         object_id=team_id,
         action="updated",
-        litellm_changed_by=litellm_changed_by,
+        embrouter_changed_by=embrouter_changed_by,
         user_api_key_dict=user_api_key_dict,
-        litellm_proxy_admin_name=litellm_proxy_admin_name,
-        table_name=LitellmTableNames.TEAM_TABLE_NAME,
+        embrouter_proxy_admin_name=embrouter_proxy_admin_name,
+        table_name=EmbrouterTableNames.TEAM_TABLE_NAME,
         before_value=_limits_audit_value(memberships),
         after_value=_limits_audit_value(written),
     )
 
-    budget_of: Final = MappingProxyType({m.user_id: m.litellm_budget_table for m in written})
+    budget_of: Final = MappingProxyType({m.user_id: m.embrouter_budget_table for m in written})
     return tuple(
         _result(
             member,

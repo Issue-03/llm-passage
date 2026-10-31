@@ -1,12 +1,12 @@
 """
 This file is used to store the state variables of the proxy server.
 
-Example: `spend_logs_row_count` is used to store the number of rows in the `LiteLLM_SpendLogs` table.
+Example: `spend_logs_row_count` is used to store the number of rows in the `EmbRouter_SpendLogs` table.
 """
 
 from typing import Any, Literal
 
-from litellm.proxy._types import ProxyStateVariables
+from embrouter.proxy._types import ProxyStateVariables
 
 
 class ProxyState:

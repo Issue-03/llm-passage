@@ -1,11 +1,11 @@
 from typing import TYPE_CHECKING
 
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
     get_last_user_message,
 )
 
 if TYPE_CHECKING:
-    from litellm.types.llms.openai import AllMessageValues
+    from embrouter.types.llms.openai import AllMessageValues
 
 
 class OpenAIGuardrailBase:

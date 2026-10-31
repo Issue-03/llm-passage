@@ -11,19 +11,19 @@ from typing import TYPE_CHECKING, Any, Final
 import httpx
 from httpx import Headers
 
-import litellm
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.base_llm.text_to_speech.transformation import (
+import embrouter
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.base_llm.text_to_speech.transformation import (
     BaseTextToSpeechConfig,
     TextToSpeechRequestData,
 )
-from litellm.secret_managers.main import get_secret_str
+from embrouter.secret_managers.main import get_secret_str
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.types.llms.openai import HttpxBinaryResponseContent
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.types.llms.openai import HttpxBinaryResponseContent
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
     HttpxBinaryResponseContent = Any
 
 
@@ -187,7 +187,7 @@ class MinimaxTextToSpeechConfig(BaseTextToSpeechConfig):
         """
         Validate MiniMax environment and set up authentication headers
         """
-        api_key = api_key or litellm.api_key or get_secret_str("MINIMAX_API_KEY")
+        api_key = api_key or embrouter.api_key or get_secret_str("MINIMAX_API_KEY")
 
         if api_key is None:
             raise ValueError(
@@ -212,7 +212,7 @@ class MinimaxTextToSpeechConfig(BaseTextToSpeechConfig):
         input: str,
         voice: str | None,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> TextToSpeechRequestData:
         """
@@ -278,7 +278,7 @@ class MinimaxTextToSpeechConfig(BaseTextToSpeechConfig):
         self,
         model: str,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> "HttpxBinaryResponseContent":
         """
         Transform MiniMax response to standard format.
@@ -295,7 +295,7 @@ class MinimaxTextToSpeechConfig(BaseTextToSpeechConfig):
         import base64
         import json
 
-        from litellm.types.llms.openai import HttpxBinaryResponseContent
+        from embrouter.types.llms.openai import HttpxBinaryResponseContent
 
         try:
             # Parse JSON response
@@ -395,7 +395,7 @@ class MinimaxTextToSpeechConfig(BaseTextToSpeechConfig):
         self,
         model: str,
         api_base: str | None,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> str:
         """
         Construct the MiniMax endpoint URL.

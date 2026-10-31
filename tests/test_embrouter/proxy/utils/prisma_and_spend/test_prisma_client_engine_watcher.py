@@ -29,7 +29,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from litellm.proxy.utils import PrismaClient
+from embrouter.proxy.utils import PrismaClient
 
 
 pytestmark = pytest.mark.skipif(

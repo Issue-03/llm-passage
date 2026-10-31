@@ -13,7 +13,7 @@ every ``description`` string in the schema lead ``texts``, so a guardrail that
 blocks or masks them decides what the client gets to see in ``tools/list``.
 
 Note: For MCP tool definitions (schema) -> OpenAI tools=[], see
-litellm.experimental_mcp_client.tools.transform_mcp_tool_to_openai_tool
+embrouter.experimental_mcp_client.tools.transform_mcp_tool_to_openai_tool
 when you have a full MCP Tool from list_tools. Here we only have the call
 payload (name + arguments) so we just build the tool definition.
 """
@@ -24,10 +24,10 @@ from typing import TYPE_CHECKING, Any, Final
 from fastapi import HTTPException
 from mcp.types import Tool as MCPTool
 
-from litellm._logging import verbose_proxy_logger
-from litellm.experimental_mcp_client.tools import transform_mcp_tool_to_openai_tool
-from litellm.llms.base_llm.guardrail_translation.base_translation import BaseTranslation
-from litellm.proxy._experimental.mcp_server.utils import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.experimental_mcp_client.tools import transform_mcp_tool_to_openai_tool
+from embrouter.llms.base_llm.guardrail_translation.base_translation import BaseTranslation
+from embrouter.proxy._experimental.mcp_server.utils import (
     MAX_STRUCTURED_CONTENT_SCAN_DEPTH,
     JSONLeafPath,
     json_string_leaves,
@@ -39,17 +39,17 @@ from litellm.proxy._experimental.mcp_server.utils import (
     with_json_string_leaves,
     with_mcp_content_item_text,
 )
-from litellm.types.llms.openai import (
+from embrouter.types.llms.openai import (
     ChatCompletionToolParam,
     ChatCompletionToolParamFunctionChunk,
 )
-from litellm.types.utils import GenericGuardrailAPIInputs
+from embrouter.types.utils import GenericGuardrailAPIInputs
 
 if TYPE_CHECKING:
     from mcp.types import CallToolResult
 
-    from litellm.integrations.custom_guardrail import CustomGuardrail
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+    from embrouter.integrations.custom_guardrail import CustomGuardrail
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
 
 
 def _blocked(reason: str) -> HTTPException:
@@ -141,7 +141,7 @@ class MCPGuardrailTranslationHandler(BaseTranslation):
         self,
         data: dict[str, Any],
         guardrail_to_apply: "CustomGuardrail",
-        litellm_logging_obj: "LiteLLMLoggingObj | None" = None,
+        embrouter_logging_obj: "EmbRouterLoggingObj | None" = None,
     ) -> dict[str, Any]:
         mcp_tool_name: Final = data.get("mcp_tool_name") or data.get("name")
         mcp_arguments: Final[object] = data.get("mcp_arguments") or data.get("arguments")
@@ -152,7 +152,7 @@ class MCPGuardrailTranslationHandler(BaseTranslation):
             verbose_proxy_logger.debug("MCP Guardrail: mcp_tool_name missing")
             return data
 
-        # Convert MCP input via transform_mcp_tool_to_openai_tool, then map to litellm
+        # Convert MCP input via transform_mcp_tool_to_openai_tool, then map to embrouter
         # ChatCompletionToolParam (openai SDK type has incompatible strict/cache_control).
         mcp_tool: Final = MCPTool(
             name=mcp_tool_name,
@@ -196,7 +196,7 @@ class MCPGuardrailTranslationHandler(BaseTranslation):
             inputs=inputs,
             request_data=data,
             input_type="request",
-            logging_obj=litellm_logging_obj,
+            logging_obj=embrouter_logging_obj,
         )
         masked_texts: Final = _masked_texts(guarded, len(scanned_texts))
         if masked_texts is None:
@@ -229,7 +229,7 @@ class MCPGuardrailTranslationHandler(BaseTranslation):
         self,
         response: "CallToolResult",
         guardrail_to_apply: "CustomGuardrail",
-        litellm_logging_obj: "LiteLLMLoggingObj | None" = None,
+        embrouter_logging_obj: "EmbRouterLoggingObj | None" = None,
         user_api_key_dict: Any | None = None,
         request_data: dict | None = None,
     ) -> Any:
@@ -275,7 +275,7 @@ class MCPGuardrailTranslationHandler(BaseTranslation):
             inputs=GenericGuardrailAPIInputs(texts=list(originals)),
             request_data=request_data if request_data is not None else {},
             input_type="response",
-            logging_obj=litellm_logging_obj,
+            logging_obj=embrouter_logging_obj,
         )
         masked_texts: Final = guardrailed_inputs.get("texts") if guardrailed_inputs else None
         if masked_texts is None:

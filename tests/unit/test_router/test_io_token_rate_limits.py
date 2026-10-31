@@ -6,10 +6,10 @@ import asyncio
 
 import pytest
 
-import litellm
-from litellm import Router
-from litellm.caching.dual_cache import DualCache
-from litellm.router_utils.pre_call_checks.io_token_rate_limit_check import (
+import embrouter
+from embrouter import Router
+from embrouter.caching.dual_cache import DualCache
+from embrouter.router_utils.pre_call_checks.io_token_rate_limit_check import (
     ITPM_CACHE_KEY,
     ITPM_RESERVED_KEY,
     OTPM_CACHE_KEY,
@@ -26,16 +26,16 @@ from litellm.router_utils.pre_call_checks.io_token_rate_limit_check import (
     refund_stale_reservation_before_retry,
     set_io_token_rate_limit_request_kwargs,
 )
-from litellm.router_utils.pre_call_checks.model_rate_limit_check import (
+from embrouter.router_utils.pre_call_checks.model_rate_limit_check import (
     ModelRateLimitingCheck,
 )
-from litellm.types.utils import ModelResponse, Usage
+from embrouter.types.utils import ModelResponse, Usage
 
 
 class TestIOTokenRateLimitHelpers:
     def test_deployment_has_io_token_limits(self):
-        assert deployment_has_io_token_limits({"litellm_params": {"itpm": 100, "otpm": 50}})
-        assert not deployment_has_io_token_limits({"litellm_params": {"model": "x"}})
+        assert deployment_has_io_token_limits({"embrouter_params": {"itpm": 100, "otpm": 50}})
+        assert not deployment_has_io_token_limits({"embrouter_params": {"model": "x"}})
 
     def test_reservation_value_minimal_when_estimate_fails(self):
         # A failed/empty estimate (0) must reserve a minimal slot, not the
@@ -48,7 +48,7 @@ class TestIOTokenRateLimitHelpers:
         assert _reservation_value(42, 100) == 42
 
     def test_resolve_max_tokens_respects_explicit_zero(self):
-        deployment = {"litellm_params": {"model": "openai/gpt-4o-mini"}}
+        deployment = {"embrouter_params": {"model": "openai/gpt-4o-mini"}}
         # An explicit max_tokens=0 is honored, not replaced by the model default.
         assert _resolve_max_tokens({"max_tokens": 0}, deployment) == 0
         # max_completion_tokens is the fallback only when max_tokens is absent.
@@ -71,12 +71,12 @@ class TestIOTokenRateLimitHelpers:
 class TestModelRateLimitingCheckIOTokens:
     @pytest.mark.asyncio
     async def test_itpm_reservation_and_reconcile(self):
-        from litellm.utils import get_utc_datetime
+        from embrouter.utils import get_utc_datetime
 
         dual_cache = DualCache()
         check = ModelRateLimitingCheck(dual_cache=dual_cache)
         deployment = {
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "bedrock_mantle/anthropic.claude-opus-4-7",
                 "itpm": 100,
                 "otpm": 50,
@@ -100,7 +100,7 @@ class TestModelRateLimitingCheckIOTokens:
         kwargs = {
             "standard_logging_object": {
                 "model_id": "io-test-id",
-                "hidden_params": {"litellm_model_name": "bedrock_mantle/anthropic.claude-opus-4-7"},
+                "hidden_params": {"embrouter_model_name": "bedrock_mantle/anthropic.claude-opus-4-7"},
                 "metadata": dict(request_kwargs["metadata"]),
             },
             "metadata": request_kwargs["metadata"],
@@ -128,7 +128,7 @@ class TestModelRateLimitingCheckIOTokens:
         dual_cache = DualCache()
         check = ModelRateLimitingCheck(dual_cache=dual_cache)
         deployment = {
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "bedrock_mantle/anthropic.claude-opus-4-7",
                 "itpm": 5,
             },
@@ -151,21 +151,21 @@ class TestModelRateLimitingCheckIOTokens:
             }
         )
 
-        with pytest.raises(litellm.RateLimitError) as exc_info:
+        with pytest.raises(embrouter.RateLimitError) as exc_info:
             await check.async_pre_call_check(deployment)
 
         assert "ITPM limit=5" in str(exc_info.value)
 
     @pytest.mark.asyncio
     async def test_otpm_atomic_reservation_no_overshoot_under_concurrency(self):
-        from litellm.utils import get_utc_datetime
+        from embrouter.utils import get_utc_datetime
 
         dual_cache = DualCache()
         check = ModelRateLimitingCheck(dual_cache=dual_cache)
         otpm_limit = 10
         max_tokens = 4
         deployment = {
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "bedrock_mantle/anthropic.claude-opus-4-7",
                 "otpm": otpm_limit,
             },
@@ -185,7 +185,7 @@ class TestModelRateLimitingCheckIOTokens:
             try:
                 await check.async_pre_call_check(deployment)
                 return True
-            except litellm.RateLimitError:
+            except embrouter.RateLimitError:
                 return False
 
         results = await asyncio.gather(*[_attempt() for _ in range(8)])
@@ -211,13 +211,13 @@ class TestModelRateLimitingCheckIOTokens:
         concurrent request is rejected until it completes - effectively
         serializing traffic to the deployment.
         """
-        from litellm.utils import get_utc_datetime
+        from embrouter.utils import get_utc_datetime
 
         dual_cache = DualCache()
         check = ModelRateLimitingCheck(dual_cache=dual_cache)
         itpm_limit = 5
         deployment = {
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "bedrock_mantle/anthropic.claude-opus-4-7",
                 "itpm": itpm_limit,
             },
@@ -237,7 +237,7 @@ class TestModelRateLimitingCheckIOTokens:
             try:
                 await check.async_pre_call_check(deployment)
                 return True
-            except litellm.RateLimitError:
+            except embrouter.RateLimitError:
                 return False
 
         results = await asyncio.gather(*[_attempt() for _ in range(8)])
@@ -254,8 +254,8 @@ class TestModelRateLimitingCheckIOTokens:
         assert successes == itpm_limit
 
     @pytest.mark.asyncio
-    async def test_reservation_read_prefers_top_level_metadata_over_litellm_params(self):
-        from litellm.utils import get_utc_datetime
+    async def test_reservation_read_prefers_top_level_metadata_over_embrouter_params(self):
+        from embrouter.utils import get_utc_datetime
 
         dual_cache = DualCache()
         check = ModelRateLimitingCheck(dual_cache=dual_cache)
@@ -263,16 +263,16 @@ class TestModelRateLimitingCheckIOTokens:
         itpm_key = f"global_router:io-lp-id:bedrock_mantle/test:itpm:{minute}"
         await dual_cache.async_increment_cache(key=itpm_key, value=20, ttl=60)
 
-        # Production kwargs commonly carry litellm_params.metadata; the stashed
+        # Production kwargs commonly carry embrouter_params.metadata; the stashed
         # reservation lives in the top-level metadata and must still be found.
         kwargs = {
             "standard_logging_object": {
                 "model_id": "io-lp-id",
-                "hidden_params": {"litellm_model_name": "bedrock_mantle/test"},
+                "hidden_params": {"embrouter_model_name": "bedrock_mantle/test"},
                 "metadata": {},
             },
             "metadata": {ITPM_RESERVED_KEY: 20, ITPM_CACHE_KEY: itpm_key},
-            "litellm_params": {"metadata": {"user_api_key_hash": "abc123"}},
+            "embrouter_params": {"metadata": {"user_api_key_hash": "abc123"}},
         }
         await check.async_log_failure_event(kwargs, None, None, None)
 
@@ -281,12 +281,12 @@ class TestModelRateLimitingCheckIOTokens:
 
     @pytest.mark.asyncio
     async def test_reconcile_tracks_actual_usage_when_estimate_zero(self):
-        from litellm.utils import get_utc_datetime
+        from embrouter.utils import get_utc_datetime
 
         dual_cache = DualCache()
         check = ModelRateLimitingCheck(dual_cache=dual_cache)
         deployment = {
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "bedrock_mantle/anthropic.claude-opus-4-7",
                 "itpm": 100,
             },
@@ -307,7 +307,7 @@ class TestModelRateLimitingCheckIOTokens:
         kwargs = {
             "standard_logging_object": {
                 "model_id": "io-zero-est-id",
-                "hidden_params": {"litellm_model_name": "bedrock_mantle/anthropic.claude-opus-4-7"},
+                "hidden_params": {"embrouter_model_name": "bedrock_mantle/anthropic.claude-opus-4-7"},
                 "metadata": dict(request_kwargs["metadata"]),
             },
             "metadata": request_kwargs["metadata"],
@@ -330,7 +330,7 @@ class TestModelRateLimitingCheckIOTokens:
         dual_cache = DualCache()
         check = ModelRateLimitingCheck(dual_cache=dual_cache)
         deployment = {
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "bedrock_mantle/anthropic.claude-opus-4-7",
                 "itpm": 2,
             },
@@ -347,7 +347,7 @@ class TestModelRateLimitingCheckIOTokens:
 
         # A third exceeds the limit and is rejected.
         set_io_token_rate_limit_request_kwargs({"max_tokens": 5, "metadata": {}})
-        with pytest.raises(litellm.RateLimitError):
+        with pytest.raises(embrouter.RateLimitError):
             await check.async_pre_call_check(deployment)
 
     @pytest.mark.asyncio
@@ -355,7 +355,7 @@ class TestModelRateLimitingCheckIOTokens:
         dual_cache = DualCache()
         check = ModelRateLimitingCheck(dual_cache=dual_cache)
         deployment = {
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "bedrock_mantle/anthropic.claude-opus-4-7",
                 "otpm": 5,
             },
@@ -386,12 +386,12 @@ class TestModelRateLimitingCheckIOTokens:
         assert await dual_cache.async_get_cache(key=normal_output_otpm_key) == 5
 
     def test_sync_io_pre_call_reserves_and_reconciles(self):
-        from litellm.utils import get_utc_datetime
+        from embrouter.utils import get_utc_datetime
 
         dual_cache = DualCache()
         check = ModelRateLimitingCheck(dual_cache=dual_cache)
         deployment = {
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "bedrock_mantle/anthropic.claude-opus-4-7",
                 "itpm": 100,
                 "otpm": 50,
@@ -413,7 +413,7 @@ class TestModelRateLimitingCheckIOTokens:
         kwargs = {
             "standard_logging_object": {
                 "model_id": "io-sync-id",
-                "hidden_params": {"litellm_model_name": "bedrock_mantle/anthropic.claude-opus-4-7"},
+                "hidden_params": {"embrouter_model_name": "bedrock_mantle/anthropic.claude-opus-4-7"},
                 "metadata": dict(request_kwargs["metadata"]),
             },
             "metadata": request_kwargs["metadata"],
@@ -438,7 +438,7 @@ class TestModelRateLimitingCheckIOTokens:
         # IO reconciliation must still run off the stashed cache key.
         kwargs = {
             "standard_logging_object": {
-                "hidden_params": {"litellm_model_name": "bedrock_mantle/test"},
+                "hidden_params": {"embrouter_model_name": "bedrock_mantle/test"},
                 "metadata": {},
             },
             "metadata": {ITPM_RESERVED_KEY: 10, ITPM_CACHE_KEY: itpm_key},
@@ -453,7 +453,7 @@ class TestModelRateLimitingCheckIOTokens:
 
     @pytest.mark.asyncio
     async def test_failure_clears_reservation_so_retry_is_not_poisoned(self):
-        from litellm.utils import get_utc_datetime
+        from embrouter.utils import get_utc_datetime
 
         dual_cache = DualCache()
         check = ModelRateLimitingCheck(dual_cache=dual_cache)
@@ -467,7 +467,7 @@ class TestModelRateLimitingCheckIOTokens:
             "metadata": metadata,
             "standard_logging_object": {
                 "model_id": "io-first",
-                "hidden_params": {"litellm_model_name": "bedrock_mantle/test"},
+                "hidden_params": {"embrouter_model_name": "bedrock_mantle/test"},
                 "metadata": {},
             },
         }
@@ -482,7 +482,7 @@ class TestModelRateLimitingCheckIOTokens:
             "metadata": metadata,
             "standard_logging_object": {
                 "model_id": "non-io-second",
-                "hidden_params": {"litellm_model_name": "openai/gpt-4o-mini"},
+                "hidden_params": {"embrouter_model_name": "openai/gpt-4o-mini"},
                 "metadata": {},
                 "total_tokens": 12,
             },
@@ -511,7 +511,7 @@ class TestModelRateLimitingCheckIOTokens:
         elevated by the reservation until its TTL expires, and the
         now-orphaned sentinels must not leak into B's accounting either.
         """
-        from litellm.utils import get_utc_datetime
+        from embrouter.utils import get_utc_datetime
 
         dual_cache = DualCache()
         minute = get_utc_datetime().strftime("%H-%M")
@@ -553,16 +553,16 @@ class TestModelRateLimitingCheckIOTokens:
         # must be removed before the router captures the request kwargs.
         forged = {
             "metadata": {ITPM_RESERVED_KEY: 999999, ITPM_CACHE_KEY: "attacker:key:itpm:00-00"},
-            "litellm_metadata": {OTPM_RESERVED_KEY: 7},
-            "litellm_params": {"metadata": {OTPM_CACHE_KEY: "attacker:key:otpm:00-00"}},
+            "embrouter_metadata": {OTPM_RESERVED_KEY: 7},
+            "embrouter_params": {"metadata": {OTPM_CACHE_KEY: "attacker:key:otpm:00-00"}},
         }
         set_io_token_rate_limit_request_kwargs(forged)
         stored = get_io_token_rate_limit_request_kwargs()
 
         assert ITPM_RESERVED_KEY not in stored["metadata"]
         assert ITPM_CACHE_KEY not in stored["metadata"]
-        assert OTPM_RESERVED_KEY not in stored["litellm_metadata"]
-        assert OTPM_CACHE_KEY not in stored["litellm_params"]["metadata"]
+        assert OTPM_RESERVED_KEY not in stored["embrouter_metadata"]
+        assert OTPM_CACHE_KEY not in stored["embrouter_params"]["metadata"]
 
     @pytest.mark.asyncio
     async def test_forged_reservation_cannot_decrement_counter(self):
@@ -576,7 +576,7 @@ class TestModelRateLimitingCheckIOTokens:
             "metadata": {ITPM_RESERVED_KEY: 100, ITPM_CACHE_KEY: victim_key},
             "standard_logging_object": {
                 "model_id": "m",
-                "hidden_params": {"litellm_model_name": "model"},
+                "hidden_params": {"embrouter_model_name": "model"},
                 "metadata": {},
                 "total_tokens": 2,
             },
@@ -594,7 +594,7 @@ class TestModelRateLimitingCheckIOTokens:
 
     @pytest.mark.asyncio
     async def test_otpm_reservation_error_rolls_back_itpm(self):
-        from litellm.utils import get_utc_datetime
+        from embrouter.utils import get_utc_datetime
 
         class _OtpmFailCache(DualCache):
             async def async_increment_cache(self, key, **kwargs):
@@ -604,7 +604,7 @@ class TestModelRateLimitingCheckIOTokens:
 
         dual_cache = _OtpmFailCache()
         deployment = {
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "bedrock_mantle/anthropic.claude-opus-4-7",
                 "itpm": 1000,
                 "otpm": 1000,
@@ -658,10 +658,10 @@ class TestModelRateLimitingCheckIOTokens:
 
         check = ModelRateLimitingCheck(dual_cache=DualCache())
         deployment = {
-            "litellm_params": {"model": "openai/gpt-4o-mini", "itpm": 100, "tpm": 1000},
+            "embrouter_params": {"model": "openai/gpt-4o-mini", "itpm": 100, "tpm": 1000},
             "model_info": {},
         }
-        with caplog.at_level(logging.WARNING, logger="LiteLLM Router"):
+        with caplog.at_level(logging.WARNING, logger="EmbRouter Router"):
             check._warn_io_token_and_tpm_rpm_coexist_once(deployment)
             check._warn_io_token_and_tpm_rpm_coexist_once(deployment)
 
@@ -673,7 +673,7 @@ class TestModelRateLimitingCheckIOTokens:
     async def test_missing_deployment_id_skips_io_reservation(self):
         dual_cache = DualCache()
         deployment = {
-            "litellm_params": {"model": "openai/gpt-4o-mini", "itpm": 100},
+            "embrouter_params": {"model": "openai/gpt-4o-mini", "itpm": 100},
             "model_info": {},  # no id -> cannot build a per-deployment cache key
             "model_name": "opus",
         }
@@ -827,14 +827,14 @@ class TestModelRateLimitingCheckIOTokens:
     async def test_io_and_tpm_rpm_limits_both_enforced_with_warning(self, caplog):
         import logging
 
-        from litellm.utils import get_utc_datetime
+        from embrouter.utils import get_utc_datetime
 
         dual_cache = DualCache()
         check = ModelRateLimitingCheck(dual_cache=dual_cache)
         model_id = "io-mixed-id"
         deployment_name = "bedrock_mantle/anthropic.claude-opus-4-7"
         deployment = {
-            "litellm_params": {
+            "embrouter_params": {
                 "model": deployment_name,
                 "itpm": 100,
                 "rpm": 1,
@@ -855,8 +855,8 @@ class TestModelRateLimitingCheckIOTokens:
         }
         set_io_token_rate_limit_request_kwargs(request_kwargs)
 
-        with caplog.at_level(logging.WARNING, logger="LiteLLM Router"):
-            with pytest.raises(litellm.RateLimitError):
+        with caplog.at_level(logging.WARNING, logger="EmbRouter Router"):
+            with pytest.raises(embrouter.RateLimitError):
                 await check.async_pre_call_check(deployment)
 
         assert await dual_cache.async_get_cache(key=rpm_key) == 6
@@ -871,7 +871,7 @@ class TestModelRateLimitingCheckIOTokens:
         success, otherwise the tpm_key the pre-call check reads is never written
         and the tpm_limit can never be enforced.
         """
-        from litellm.utils import get_utc_datetime
+        from embrouter.utils import get_utc_datetime
 
         dual_cache = DualCache()
         check = ModelRateLimitingCheck(dual_cache=dual_cache)
@@ -887,7 +887,7 @@ class TestModelRateLimitingCheckIOTokens:
             "standard_logging_object": {
                 "model_id": model_id,
                 "total_tokens": 7,
-                "hidden_params": {"litellm_model_name": deployment_name},
+                "hidden_params": {"embrouter_model_name": deployment_name},
             },
         }
         response = ModelResponse(
@@ -903,7 +903,7 @@ class TestModelRateLimitingCheckIOTokens:
         assert await dual_cache.async_get_cache(key=tpm_key) == 7
 
     def test_io_success_still_tracks_tpm_for_mixed_deployment_sync(self):
-        from litellm.utils import get_utc_datetime
+        from embrouter.utils import get_utc_datetime
 
         dual_cache = DualCache()
         check = ModelRateLimitingCheck(dual_cache=dual_cache)
@@ -919,7 +919,7 @@ class TestModelRateLimitingCheckIOTokens:
             "standard_logging_object": {
                 "model_id": model_id,
                 "total_tokens": 7,
-                "hidden_params": {"litellm_model_name": deployment_name},
+                "hidden_params": {"embrouter_model_name": deployment_name},
             },
         }
         response = ModelResponse(
@@ -934,7 +934,7 @@ class TestModelRateLimitingCheckIOTokens:
 
     @pytest.mark.asyncio
     async def test_failure_refunds_itpm_reservation(self):
-        from litellm.utils import get_utc_datetime
+        from embrouter.utils import get_utc_datetime
 
         dual_cache = DualCache()
         check = ModelRateLimitingCheck(dual_cache=dual_cache)
@@ -946,7 +946,7 @@ class TestModelRateLimitingCheckIOTokens:
         kwargs = {
             "standard_logging_object": {
                 "model_id": "io-refund-id",
-                "hidden_params": {"litellm_model_name": "bedrock_mantle/test"},
+                "hidden_params": {"embrouter_model_name": "bedrock_mantle/test"},
                 "metadata": dict(reservation),
             },
             "metadata": dict(reservation),
@@ -964,7 +964,7 @@ class TestRouterIOTokenIntegration:
             model_list=[
                 {
                     "model_name": "opus",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "bedrock_mantle/anthropic.claude-opus-4-7",
                         "itpm": 100,
                         "otpm": 20,
@@ -1011,7 +1011,7 @@ class TestContextSlotRetention:
             model_list=[
                 {
                     "model_name": "plain",
-                    "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-test"},
+                    "embrouter_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-test"},
                 }
             ]
         )
@@ -1028,7 +1028,7 @@ class TestContextSlotRetention:
             model_list=[
                 {
                     "model_name": "limited",
-                    "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-test", "itpm": 100},
+                    "embrouter_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-test", "itpm": 100},
                 }
             ],
             optional_pre_call_checks=["enforce_model_rate_limits"],

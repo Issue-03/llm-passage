@@ -6,29 +6,29 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.caching import DualCache
-from litellm.models.budget import LiteLLM_BudgetTable
-from litellm.proxy import proxy_server
-from litellm.proxy._types import (
-    LiteLLM_TeamMembership,
-    LiteLLM_TeamTable,
-    LiteLLM_UserTable,
+import embrouter
+from embrouter.caching import DualCache
+from embrouter.models.budget import EmbRouter_BudgetTable
+from embrouter.proxy import proxy_server
+from embrouter.proxy._types import (
+    EmbRouter_TeamMembership,
+    EmbRouter_TeamTable,
+    EmbRouter_UserTable,
     UserAPIKeyAuth,
 )
-from litellm.proxy.common_utils.user_api_key_cache import (
+from embrouter.proxy.common_utils.user_api_key_cache import (
     UserApiKeyCache,
     team_membership_reservation_cache_key,
 )
-from litellm.proxy.spend_tracking.budget_reservation import (
+from embrouter.proxy.spend_tracking.budget_reservation import (
     _get_team_member_budget_counter,
     estimate_request_max_cost,
     release_unbound_budget_reservation,
     reserve_budget_for_request,
 )
-from litellm.proxy.utils import ProxyLogging
-from litellm.router import Router
-from litellm.types.router import Deployment, LiteLLM_Params, ModelInfo
+from embrouter.proxy.utils import ProxyLogging
+from embrouter.router import Router
+from embrouter.types.router import Deployment, EmbRouter_Params, ModelInfo
 
 TOKEN_COUNTING_ROUTES: Final = (
     "/responses/input_tokens",
@@ -80,7 +80,7 @@ async def test_non_exempt_llm_route_still_reserves_budget():
 @pytest.mark.asyncio
 async def test_reservation_carries_the_admission_input_token_count():
     reservation: Final = await _reserve("/v1/responses")
-    expected: Final = litellm.token_counter(model="gpt-4o", text="hello")
+    expected: Final = embrouter.token_counter(model="gpt-4o", text="hello")
 
     assert reservation is not None
     assert expected > 0
@@ -175,7 +175,7 @@ def test_bedrock_converse_body_reserves_the_prompt_not_the_context_window():
 def _tiered_deployment(input_cost_per_token: float) -> Deployment:
     return Deployment(
         model_name="tiered-group",
-        litellm_params=LiteLLM_Params(model="dashscope/qwen3-max", api_key="sk-fake"),
+        embrouter_params=EmbRouter_Params(model="dashscope/qwen3-max", api_key="sk-fake"),
         model_info=ModelInfo(
             id="tiered-deployment",
             max_output_tokens=1000,
@@ -232,12 +232,12 @@ async def test_team_member_reservation_counter_honours_temp_budget_increase(
     cache: Final = UserApiKeyCache()
     await cache.async_set_cache(
         key=team_membership_reservation_cache_key(user_id=user_id, team_id=team_id),
-        value=LiteLLM_TeamMembership(
+        value=EmbRouter_TeamMembership(
             user_id=user_id,
             team_id=team_id,
             spend=0.5,
             budget_id="budget-temp",
-            litellm_budget_table=LiteLLM_BudgetTable(
+            embrouter_budget_table=EmbRouter_BudgetTable(
                 max_budget=2.0,
                 temp_budget_increase=1.0,
                 temp_budget_expiry=datetime.now(timezone.utc) + expiry_offset,
@@ -247,8 +247,8 @@ async def test_team_member_reservation_counter_honours_temp_budget_increase(
 
     counter: Final = await _get_team_member_budget_counter(
         valid_token=UserAPIKeyAuth(token="hashed", user_id=user_id, team_id=team_id),
-        team_object=LiteLLM_TeamTable(team_id=team_id),
-        user_object=LiteLLM_UserTable(user_id=user_id),
+        team_object=EmbRouter_TeamTable(team_id=team_id),
+        user_object=EmbRouter_UserTable(user_id=user_id),
         user_api_key_cache=cache,
     )
 
@@ -274,16 +274,16 @@ async def test_team_member_reservation_counter_adds_temp_increase_to_live_team_d
     cache: Final = UserApiKeyCache()
     await cache.async_set_cache(
         key="team_member_default_budget:default-bare",
-        value=LiteLLM_BudgetTable(budget_id="default-bare", max_budget=default_cap),
+        value=EmbRouter_BudgetTable(budget_id="default-bare", max_budget=default_cap),
     )
     await cache.async_set_cache(
         key=team_membership_reservation_cache_key(user_id=user_id, team_id=team_id),
-        value=LiteLLM_TeamMembership(
+        value=EmbRouter_TeamMembership(
             user_id=user_id,
             team_id=team_id,
             spend=0.5,
             budget_id="budget-bare",
-            litellm_budget_table=LiteLLM_BudgetTable(
+            embrouter_budget_table=EmbRouter_BudgetTable(
                 max_budget=None,
                 temp_budget_increase=1.0,
                 temp_budget_expiry=datetime.now(timezone.utc) + expiry_offset,
@@ -293,8 +293,8 @@ async def test_team_member_reservation_counter_adds_temp_increase_to_live_team_d
 
     counter: Final = await _get_team_member_budget_counter(
         valid_token=UserAPIKeyAuth(token="hashed", user_id=user_id, team_id=team_id),
-        team_object=LiteLLM_TeamTable(team_id=team_id, metadata={"team_member_budget_id": "default-bare"}),
-        user_object=LiteLLM_UserTable(user_id=user_id),
+        team_object=EmbRouter_TeamTable(team_id=team_id, metadata={"team_member_budget_id": "default-bare"}),
+        user_object=EmbRouter_UserTable(user_id=user_id),
         user_api_key_cache=cache,
     )
 

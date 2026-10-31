@@ -1,5 +1,5 @@
 {
-  "_comment": "This file defines which endpoints are supported by each LiteLLM provider",
+  "_comment": "This file defines which endpoints are supported by each EmbRouter provider",
   "_schema": {
     "provider_slug": {
       "display_name": "Display name shown in README (e.g., 'OpenAI (`openai`)')",
@@ -1511,8 +1511,8 @@
         "a2a": false
       }
     },
-    "litellm_proxy": {
-      "display_name": "LiteLLM Proxy (`litellm_proxy`)",
+    "embrouter_proxy": {
+      "display_name": "EmbRouter Proxy (`embrouter_proxy`)",
       "url": "",
       "endpoints": {
         "chat_completions": true,
@@ -1763,7 +1763,7 @@
     },
     "novita": {
       "display_name": "Novita AI (`novita`)",
-      "url": "https://novita.ai/models/llm?utm_source=github_litellm&utm_medium=github_readme&utm_campaign=github_link",
+      "url": "https://novita.ai/models/llm?utm_source=github_embrouter&utm_medium=github_readme&utm_campaign=github_link",
       "endpoints": {
         "chat_completions": true,
         "messages": true,

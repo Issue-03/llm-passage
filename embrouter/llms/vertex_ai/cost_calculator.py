@@ -2,14 +2,14 @@
 ## Cost calculation for Google AI Studio / Vertex AI models
 from typing import Final, Literal
 
-import litellm
-from litellm import verbose_logger
-from litellm.litellm_core_utils.llm_cost_calc.utils import (
+import embrouter
+from embrouter import verbose_logger
+from embrouter.embrouter_core_utils.llm_cost_calc.utils import (
     _is_above_128k,
     generic_cost_per_token,
     get_vertex_regional_endpoint_uplift,
 )
-from litellm.types.utils import ModelInfo, Usage
+from embrouter.types.utils import ModelInfo, Usage
 
 """
 Gemini pricing covers: 
@@ -87,7 +87,7 @@ def cost_per_character(
         Exception if model requires >128k pricing, but model cost not mapped
     """
     ## GET MODEL INFO
-    model_info = litellm.get_model_info(model=model, custom_llm_provider=custom_llm_provider)
+    model_info = embrouter.get_model_info(model=model, custom_llm_provider=custom_llm_provider)
 
     ## CALCULATE INPUT COST
     if prompt_characters is None:
@@ -120,7 +120,7 @@ def cost_per_character(
                 prompt_cost = prompt_characters * model_info["input_cost_per_character"]
         except Exception as e:
             verbose_logger.debug(
-                "litellm.litellm_core_utils.llm_cost_calc.google.py::cost_per_character(): Exception occured - %s\nDefaulting to None",
+                "embrouter.embrouter_core_utils.llm_cost_calc.google.py::cost_per_character(): Exception occured - %s\nDefaulting to None",
                 e,
             )
             prompt_cost, _ = cost_per_token(
@@ -161,7 +161,7 @@ def cost_per_character(
                 completion_cost = completion_characters * model_info["output_cost_per_character"]
         except Exception as e:
             verbose_logger.debug(
-                "litellm.litellm_core_utils.llm_cost_calc.google.py::cost_per_character(): Exception occured - %s\nDefaulting to None",
+                "embrouter.embrouter_core_utils.llm_cost_calc.google.py::cost_per_character(): Exception occured - %s\nDefaulting to None",
                 e,
             )
             _, completion_cost = cost_per_token(
@@ -229,7 +229,7 @@ def cost_per_token(
     """
 
     ## GET MODEL INFO
-    model_info: Final = litellm.get_model_info(model=model, custom_llm_provider=custom_llm_provider)
+    model_info: Final = embrouter.get_model_info(model=model, custom_llm_provider=custom_llm_provider)
 
     ## HANDLE 128k+ PRICING
     input_cost_per_token_above_128k_tokens: Final = model_info.get("input_cost_per_token_above_128k_tokens")

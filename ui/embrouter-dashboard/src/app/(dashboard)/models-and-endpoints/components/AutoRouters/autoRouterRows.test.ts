@@ -11,7 +11,7 @@ const VIEW_ONLY_ADMIN = { userRole: "Admin", userID: "u-viewer", isViewOnly: tru
 
 const complexityDeployment = {
   model_name: "tri-tier-router",
-  litellm_params: {
+  embrouter_params: {
     model: "auto_router/complexity_router",
     complexity_router_config: {
       tiers: {
@@ -29,7 +29,7 @@ const complexityDeployment = {
 
 const semanticDeployment = {
   model_name: "support-router",
-  litellm_params: {
+  embrouter_params: {
     model: "auto_router/support-router",
     auto_router_config: JSON.stringify({
       routes: [
@@ -67,8 +67,8 @@ describe("autoRouterRows", () => {
     const row = toAutoRouterRow(
       {
         ...complexityDeployment,
-        litellm_params: {
-          ...complexityDeployment.litellm_params,
+        embrouter_params: {
+          ...complexityDeployment.embrouter_params,
           complexity_router_config: {
             tiers: { SIMPLE: "gpt-4o-mini", MEDIUM: ["anthropic-sonnet-4-6"], COMPLEX: "", REASONING: [] },
             classifier_type: "heuristic",
@@ -90,8 +90,8 @@ describe("autoRouterRows", () => {
     const row = toAutoRouterRow(
       {
         ...complexityDeployment,
-        litellm_params: {
-          ...complexityDeployment.litellm_params,
+        embrouter_params: {
+          ...complexityDeployment.embrouter_params,
           complexity_router_config: { tiers: {}, classifier_type: classifierType, adaptive: true },
         },
       },
@@ -111,7 +111,7 @@ describe("autoRouterRows", () => {
     const row = toAutoRouterRow(
       {
         model_name: "broken",
-        litellm_params: { model: "auto_router/broken", auto_router_config: "{not json" },
+        embrouter_params: { model: "auto_router/broken", auto_router_config: "{not json" },
         model_info: { id: "bid-1" },
       },
       0,
@@ -126,8 +126,8 @@ describe("autoRouterRows", () => {
   it("falls back to a stable synthetic id when the deployment has no model_info id", () => {
     const rows = toAutoRouterRows(
       [
-        { model_name: "a", litellm_params: { model: "auto_router/a" } },
-        { model_name: "b", litellm_params: { model: "auto_router/b" } },
+        { model_name: "a", embrouter_params: { model: "auto_router/a" } },
+        { model_name: "b", embrouter_params: { model: "auto_router/b" } },
       ],
       ADMIN,
       null,
@@ -141,7 +141,7 @@ describe("autoRouterRows", () => {
     const row = toAutoRouterRow(
       {
         model_name: "smart-router",
-        litellm_params: {
+        embrouter_params: {
           model: "auto_router/adaptive_router",
           adaptive_router_default_model: "gpt-4o-mini",
           adaptive_router_config: { available_models: ["gpt-4o", "gpt-4o-mini"] },
@@ -163,7 +163,7 @@ describe("autoRouterRows", () => {
     const row = toAutoRouterRow(
       {
         model_name: "quality-router",
-        litellm_params: {
+        embrouter_params: {
           model: "auto_router/quality_router",
           quality_router_default_model: "gpt-4o",
           quality_router_config: { available_models: ["gpt-4o"] },
@@ -194,7 +194,7 @@ describe("autoRouterRows", () => {
   // and POST /model/delete 400s.
   const rowFor = (model: string, dbModel: boolean) =>
     toAutoRouterRow(
-      { model_name: "r", litellm_params: { model }, model_info: { id: "x", db_model: dbModel } },
+      { model_name: "r", embrouter_params: { model }, model_info: { id: "x", db_model: dbModel } },
       0,
       ADMIN,
       null,

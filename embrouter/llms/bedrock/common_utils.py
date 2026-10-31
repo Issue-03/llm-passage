@@ -15,24 +15,24 @@ from typing import TYPE_CHECKING, Any, Final, Literal, TypedDict
 if TYPE_CHECKING:
     from botocore.model import Shape
 
-    from litellm.types.llms.bedrock import BedrockCreateBatchRequest
+    from embrouter.types.llms.bedrock import BedrockCreateBatchRequest
 
 import httpx
 from pydantic import TypeAdapter, ValidationError
 
-import litellm
-from litellm import verbose_logger
-from litellm.litellm_core_utils.aws_partition import get_aws_dns_suffix
-from litellm.llms.base_llm.anthropic_messages.transformation import (
+import embrouter
+from embrouter import verbose_logger
+from embrouter.embrouter_core_utils.aws_partition import get_aws_dns_suffix
+from embrouter.llms.base_llm.anthropic_messages.transformation import (
     BaseAnthropicMessagesConfig,
 )
-from litellm.llms.base_llm.base_utils import BaseLLMModelInfo, BaseTokenCounter
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.secret_managers.main import get_secret, get_secret_str
-from litellm.types.llms.bedrock import AWS_AUTH_PARAM_KEYS, AwsAuthParams
+from embrouter.llms.base_llm.base_utils import BaseLLMModelInfo, BaseTokenCounter
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.secret_managers.main import get_secret, get_secret_str
+from embrouter.types.llms.bedrock import AWS_AUTH_PARAM_KEYS, AwsAuthParams
 
 if TYPE_CHECKING:
-    from litellm.types.llms.openai import AllMessageValues
+    from embrouter.types.llms.openai import AllMessageValues
 
 
 _ERROR_REQUEST_URL: Final = "http://localhost"
@@ -89,7 +89,7 @@ _BEDROCK_AWS_AUTH_PARAMETER_KEYS: Final[tuple[str, ...]] = (*AWS_AUTH_PARAM_KEYS
 
 
 def merge_bedrock_aws_request_params(
-    litellm_params: Mapping[str, object],
+    embrouter_params: Mapping[str, object],
     optional_params: Mapping[str, object],
 ) -> dict[str, Any]:
     """Merge deployment and request parameters without allowing auth escalation.
@@ -100,14 +100,14 @@ def merge_bedrock_aws_request_params(
     server. Requests may still provide AWS credentials when the deployment has
     no static credentials configured.
     """
-    request_params: Final = {**optional_params, **litellm_params}  # mutable-ok: AWS helpers require a plain dict
+    request_params: Final = {**optional_params, **embrouter_params}  # mutable-ok: AWS helpers require a plain dict
     has_static_deployment_credentials: Final = all(
-        isinstance(litellm_params.get(key), str) and bool(litellm_params.get(key))
+        isinstance(embrouter_params.get(key), str) and bool(embrouter_params.get(key))
         for key in ("aws_access_key_id", "aws_secret_access_key", "aws_region_name")
     )
     if has_static_deployment_credentials:
         for key in _BEDROCK_AWS_AUTH_PARAMETER_KEYS:
-            if key not in litellm_params:
+            if key not in embrouter_params:
                 request_params.pop(key, None)
     return request_params
 
@@ -146,7 +146,7 @@ def get_cached_model_info():
     """
     global _get_model_info
     if _get_model_info is None:
-        from litellm import get_model_info
+        from embrouter import get_model_info
 
         _get_model_info = get_model_info
     return _get_model_info
@@ -154,7 +154,7 @@ def get_cached_model_info():
 
 @functools.lru_cache(maxsize=1)
 def _get_local_model_cost_map() -> dict:
-    from litellm.litellm_core_utils.get_model_cost_map import GetModelCostMap
+    from embrouter.embrouter_core_utils.get_model_cost_map import GetModelCostMap
 
     return GetModelCostMap.load_local_model_cost_map()
 
@@ -226,7 +226,7 @@ def convert_bedrock_invoke_output_format_to_inline_schema(
 
 
 def _bedrock_model_supports(model: str, key: str) -> bool:
-    from litellm.utils import _supports_factory
+    from embrouter.utils import _supports_factory
 
     return _supports_factory(model=model, custom_llm_provider="bedrock", key=key)
 
@@ -286,7 +286,7 @@ def strip_unsupported_bedrock_invoke_output_config_keys(
     ``supports_*_reasoning_effort`` tier; otherwise they are dropped with a
     warning so Bedrock does not reject the request.
     """
-    from litellm.llms.anthropic.chat.transformation import AnthropicConfig
+    from embrouter.llms.anthropic.chat.transformation import AnthropicConfig
 
     output_config: Final = request_body.get("output_config")
     if not isinstance(output_config, dict):
@@ -422,7 +422,7 @@ def ensure_bedrock_anthropic_messages_tool_names(request_body: dict) -> None:
     Some clients send only ``input_schema``; Bedrock then errors with
     ``tools.0.custom.name: Field required``.
 
-    In-place: set ``name`` to ``litellm_unnamed_tool_{index}`` when missing or blank.
+    In-place: set ``name`` to ``embrouter_unnamed_tool_{index}`` when missing or blank.
     """
     tools: Final = request_body.get("tools")
     if not tools or not isinstance(tools, list):
@@ -432,7 +432,7 @@ def ensure_bedrock_anthropic_messages_tool_names(request_body: dict) -> None:
             continue
         name = tool.get("name")
         if name is None or (isinstance(name, str) and not name.strip()):
-            tool["name"] = f"litellm_unnamed_tool_{i}"
+            tool["name"] = f"embrouter_unnamed_tool_{i}"
 
 
 class AmazonBedrockGlobalConfig:
@@ -530,7 +530,7 @@ def _get_bedrock_client_ssl_verify() -> bool | str:
     - False: Disable SSL verification
     - str: Path to a custom CA bundle file
     """
-    from litellm.llms.custom_httpx.http_handler import get_ssl_verify
+    from embrouter.llms.custom_httpx.http_handler import get_ssl_verify
 
     return get_ssl_verify()
 
@@ -549,7 +549,7 @@ def init_bedrock_client(
     timeout: float | httpx.Timeout | None = None,
 ):
     # check for custom AWS_REGION_NAME and use it if not passed to init_bedrock_client
-    litellm_aws_region_name: Final = get_secret("AWS_REGION_NAME", None)
+    embrouter_aws_region_name: Final = get_secret("AWS_REGION_NAME", None)
     standard_aws_region_name: Final = get_secret("AWS_REGION", None)
     ## CHECK IS  'os.environ/' passed in
     # Define the list of parameters to check
@@ -586,7 +586,7 @@ def init_bedrock_client(
     resolved_region_name: Final = next(
         (
             candidate
-            for candidate in (region_name, aws_region_name, litellm_aws_region_name, standard_aws_region_name)
+            for candidate in (region_name, aws_region_name, embrouter_aws_region_name, standard_aws_region_name)
             if isinstance(candidate, str) and candidate
         ),
         None,
@@ -669,7 +669,7 @@ def init_bedrock_client(
         )
     elif aws_access_key_id is not None:
         # uses auth params passed to completion
-        # aws_access_key_id is not None, assume user is trying to auth using litellm.completion
+        # aws_access_key_id is not None, assume user is trying to auth using embrouter.completion
 
         client = boto3.client(
             service_name="bedrock-runtime",
@@ -735,7 +735,7 @@ class ModelResponseIterator:
 
 def get_bedrock_tool_name(response_tool_name: str) -> str:
     """
-    If litellm formatted the input tool name, we need to convert it back to the original name.
+    If embrouter formatted the input tool name, we need to convert it back to the original name.
 
     Args:
         response_tool_name (str): The name of the tool as received from the response.
@@ -744,8 +744,8 @@ def get_bedrock_tool_name(response_tool_name: str) -> str:
         str: The original name of the tool.
     """
 
-    if response_tool_name in litellm.bedrock_tool_name_mappings.cache_dict:
-        response_tool_name = litellm.bedrock_tool_name_mappings.cache_dict[response_tool_name]
+    if response_tool_name in embrouter.bedrock_tool_name_mappings.cache_dict:
+        response_tool_name = embrouter.bedrock_tool_name_mappings.cache_dict[response_tool_name]
     return response_tool_name
 
 
@@ -786,7 +786,7 @@ def is_bedrock_application_inference_profile_arn(model: str) -> bool:
 
 
 def strip_bedrock_routing_prefix(model: str) -> str:
-    """Strip LiteLLM routing prefixes from model name."""
+    """Strip EmbRouter routing prefixes from model name."""
     for prefix in ["bedrock/", "converse/", "invoke/", "openai/", "mantle/", "nova-2/", "nova/"]:
         if model.startswith(prefix):
             model = model.split("/", 1)[1]
@@ -905,7 +905,7 @@ def get_bedrock_base_model(model: str) -> str:
 
 def bedrock_converse_supports_parallel_tool_use_config(model: str) -> bool:
     return any(
-        (litellm.model_cost.get(candidate) or {}).get("supports_parallel_tool_use_config") is True
+        (embrouter.model_cost.get(candidate) or {}).get("supports_parallel_tool_use_config") is True
         for candidate in (model, get_bedrock_base_model(model))
     )
 
@@ -920,7 +920,7 @@ def bedrock_model_accepts_cache_points(model: str | None) -> bool:
     request did not allow prompt caching"), so a model whose cost-map entry does not declare
     ``supports_prompt_caching`` must not receive them. A model absent from the map
     (an application inference profile ARN, a model newer than the map) keeps emitting
-    so existing caching setups never silently degrade. ``litellm.utils.supports_prompt_caching``
+    so existing caching setups never silently degrade. ``embrouter.utils.supports_prompt_caching``
     is not reusable here: it returns False for unmapped models, the opposite polarity.
     """
     if model is None:
@@ -930,7 +930,7 @@ def bedrock_model_accepts_cache_points(model: str | None) -> bool:
     entries: Final = tuple(
         entry
         for candidate in (model, get_bedrock_base_model(model))
-        if (entry := litellm.model_cost.get(candidate)) is not None
+        if (entry := embrouter.model_cost.get(candidate)) is not None
     )
     if not entries:
         return True
@@ -946,7 +946,7 @@ def bedrock_supports_tool_search(model: str) -> bool:
     newly released Claude carries the flag with no code change. An explicit ``false`` on the
     resolved entry wins over the rule.
     """
-    from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+    from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
     return AnthropicModelInfo._supports_model_capability(model, "supports_tool_search", "bedrock")
 
@@ -962,7 +962,7 @@ def is_claude_4_5_on_bedrock(model: str) -> bool:
     their pricing entry ships, with no code change required here.
     """
     return any(
-        (litellm.model_cost.get(candidate) or {}).get("cache_creation_input_token_cost_above_1hr") is not None
+        (embrouter.model_cost.get(candidate) or {}).get("cache_creation_input_token_cost_above_1hr") is not None
         for candidate in (model, get_bedrock_base_model(model))
     )
 
@@ -1066,7 +1066,7 @@ def _get_bedrock_output_config_effort_ceiling(
 
 
 # Import after standalone functions to avoid circular imports
-from litellm.llms.bedrock.count_tokens.bedrock_token_counter import BedrockTokenCounter
+from embrouter.llms.bedrock.count_tokens.bedrock_token_counter import BedrockTokenCounter
 
 
 class BedrockModelInfo(BaseLLMModelInfo):
@@ -1093,7 +1093,7 @@ class BedrockModelInfo(BaseLLMModelInfo):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
@@ -1133,7 +1133,7 @@ class BedrockModelInfo(BaseLLMModelInfo):
         return extract_model_name_from_bedrock_arn(model)
 
     @staticmethod
-    def get_non_litellm_routing_model_name(model: str) -> str:
+    def get_non_embrouter_routing_model_name(model: str) -> str:
         """Wrapper for standalone function. See strip_bedrock_routing_prefix()."""
         return strip_bedrock_routing_prefix(model)
 
@@ -1206,8 +1206,8 @@ class BedrockModelInfo(BaseLLMModelInfo):
             return "converse"
 
         base_model: Final = BedrockModelInfo.get_base_model(model)
-        alt_model: Final = BedrockModelInfo.get_non_litellm_routing_model_name(model=model)
-        if base_model in litellm.bedrock_converse_models or alt_model in litellm.bedrock_converse_models:
+        alt_model: Final = BedrockModelInfo.get_non_embrouter_routing_model_name(model=model)
+        if base_model in embrouter.bedrock_converse_models or alt_model in embrouter.bedrock_converse_models:
             return "converse"
         if _OPENAI_FAMILY_MODEL_RE.search(base_model):
             return "converse"
@@ -1323,17 +1323,17 @@ class BedrockModelInfo(BaseLLMModelInfo):
 
         Only route to AmazonAnthropicClaude3MessagesConfig() for BaseMessagesConfig
 
-        All other routes should return None since they will go through litellm.completion
+        All other routes should return None since they will go through embrouter.completion
         """
 
         #########################################################
         # Claude Platform route uses Anthropic Messages API via the AWS gateway.
         #########################################################
         if BedrockModelInfo._explicit_claude_platform_route(model):
-            return litellm.BedrockClaudePlatformMessagesConfig()
+            return embrouter.BedrockClaudePlatformMessagesConfig()
 
         #########################################################
-        # Converse routes should go through litellm.completion()
+        # Converse routes should go through embrouter.completion()
         if BedrockModelInfo._explicit_converse_route(model):
             return None
 
@@ -1341,21 +1341,21 @@ class BedrockModelInfo(BaseLLMModelInfo):
         # Mantle route uses the bedrock-mantle endpoint (not bedrock-runtime)
         #########################################################
         if BedrockModelInfo._explicit_mantle_route(model):
-            from litellm.llms.bedrock.messages.mantle_transformation import (
+            from embrouter.llms.bedrock.messages.mantle_transformation import (
                 AmazonMantleMessagesConfig,
             )
 
             return AmazonMantleMessagesConfig()
 
         #########################################################
-        # This goes through litellm.AmazonAnthropicClaude3MessagesConfig()
+        # This goes through embrouter.AmazonAnthropicClaude3MessagesConfig()
         # Since bedrock Invoke supports Native Anthropic Messages API
         #########################################################
         if "claude" in model:
-            return litellm.AmazonAnthropicClaudeMessagesConfig()
+            return embrouter.AmazonAnthropicClaudeMessagesConfig()
 
         #########################################################
-        # These routes will go through litellm.completion()
+        # These routes will go through embrouter.completion()
         #########################################################
         return None
 
@@ -1370,7 +1370,7 @@ def get_bedrock_chat_config(model: str):
     Returns:
         The appropriate Bedrock config class instance
     """
-    from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM
+    from embrouter.llms.bedrock.base_aws_llm import BaseAWSLLM
 
     bedrock_route: Final = BedrockModelInfo.get_bedrock_route(model)
     bedrock_invoke_provider: Final = BaseAWSLLM.get_bedrock_invoke_provider(model=model)
@@ -1378,25 +1378,25 @@ def get_bedrock_chat_config(model: str):
 
     # Handle explicit routes first
     if bedrock_route == "claude_platform":
-        return litellm.BedrockClaudePlatformConfig()
+        return embrouter.BedrockClaudePlatformConfig()
     elif bedrock_route == "converse" or bedrock_route == "converse_like":
-        return litellm.AmazonConverseConfig()
+        return embrouter.AmazonConverseConfig()
     elif bedrock_route == "openai":
-        return litellm.AmazonBedrockOpenAIConfig()
+        return embrouter.AmazonBedrockOpenAIConfig()
     elif bedrock_route == "agent":
-        from litellm.llms.bedrock.chat.invoke_agent.transformation import (
+        from embrouter.llms.bedrock.chat.invoke_agent.transformation import (
             AmazonInvokeAgentConfig,
         )
 
         return AmazonInvokeAgentConfig()
     elif bedrock_route == "agentcore":
-        from litellm.llms.bedrock.chat.agentcore.transformation import (
+        from embrouter.llms.bedrock.chat.agentcore.transformation import (
             AmazonAgentCoreConfig,
         )
 
         return AmazonAgentCoreConfig()
     elif bedrock_route == "mantle":
-        from litellm.llms.bedrock.chat.mantle.transformation import (
+        from embrouter.llms.bedrock.chat.mantle.transformation import (
             AmazonMantleConfig,
         )
 
@@ -1404,34 +1404,34 @@ def get_bedrock_chat_config(model: str):
 
     # Handle provider-specific configs
     if bedrock_invoke_provider == "amazon":
-        return litellm.AmazonTitanConfig()
+        return embrouter.AmazonTitanConfig()
     elif bedrock_invoke_provider == "anthropic":
-        if base_model in litellm.AmazonAnthropicConfig.get_legacy_anthropic_model_names():
-            return litellm.AmazonAnthropicConfig()
+        if base_model in embrouter.AmazonAnthropicConfig.get_legacy_anthropic_model_names():
+            return embrouter.AmazonAnthropicConfig()
         else:
-            return litellm.AmazonAnthropicClaudeConfig()
+            return embrouter.AmazonAnthropicClaudeConfig()
     elif bedrock_invoke_provider == "meta" or bedrock_invoke_provider == "llama":
-        return litellm.AmazonLlamaConfig()
+        return embrouter.AmazonLlamaConfig()
     elif bedrock_invoke_provider == "ai21":
-        return litellm.AmazonAI21Config()
+        return embrouter.AmazonAI21Config()
     elif bedrock_invoke_provider == "cohere":
-        return litellm.AmazonCohereConfig()
+        return embrouter.AmazonCohereConfig()
     elif bedrock_invoke_provider == "mistral":
-        return litellm.AmazonMistralConfig()
+        return embrouter.AmazonMistralConfig()
     elif bedrock_invoke_provider == "moonshot":
-        return litellm.AmazonMoonshotConfig()
+        return embrouter.AmazonMoonshotConfig()
     elif bedrock_invoke_provider == "deepseek_r1":
-        return litellm.AmazonDeepSeekR1Config()
+        return embrouter.AmazonDeepSeekR1Config()
     elif bedrock_invoke_provider == "nova":
-        return litellm.AmazonInvokeNovaConfig()
+        return embrouter.AmazonInvokeNovaConfig()
     elif bedrock_invoke_provider == "qwen3":
-        return litellm.AmazonQwen3Config()
+        return embrouter.AmazonQwen3Config()
     elif bedrock_invoke_provider == "qwen2":
-        return litellm.AmazonQwen2Config()
+        return embrouter.AmazonQwen2Config()
     elif bedrock_invoke_provider == "twelvelabs":
-        return litellm.AmazonTwelveLabsPegasusConfig()
+        return embrouter.AmazonTwelveLabsPegasusConfig()
     else:
-        return litellm.AmazonInvokeConfig()
+        return embrouter.AmazonInvokeConfig()
 
 
 def _load_bedrock_response_stream_shape():
@@ -1450,7 +1450,7 @@ def _load_bedrock_response_stream_shape():
         return ServiceModel(service_dict).shape_for("ResponseStream")
     except Exception as e:
         verbose_logger.warning(
-            "litellm: could not load bedrock-runtime response stream shape "
+            "embrouter: could not load bedrock-runtime response stream shape "
             "— Bedrock event-stream decoding will be unavailable. Error: %s",
             e,
         )
@@ -1582,39 +1582,39 @@ def get_anthropic_beta_from_headers(headers: dict) -> list[str]:
 
 
 def resolve_s3_encryption_key_id(
-    litellm_params: Mapping[str, object],
+    embrouter_params: Mapping[str, object],
     optional_params: Mapping[str, object] | None = None,
 ) -> str | None:
     """
     Resolve the SSE-KMS key configured for Bedrock batch/file S3 objects.
 
-    Precedence: `s3_encryption_key_id` in litellm_params, then optional_params
+    Precedence: `s3_encryption_key_id` in embrouter_params, then optional_params
     (client-side / request params), then the AWS_S3_ENCRYPTION_KEY_ID env var.
     """
-    return _resolve_s3_setting("s3_encryption_key_id", "AWS_S3_ENCRYPTION_KEY_ID", litellm_params, optional_params)
+    return _resolve_s3_setting("s3_encryption_key_id", "AWS_S3_ENCRYPTION_KEY_ID", embrouter_params, optional_params)
 
 
 def resolve_s3_bucket_owner(
-    litellm_params: Mapping[str, object],
+    embrouter_params: Mapping[str, object],
     optional_params: Mapping[str, object] | None = None,
 ) -> str | None:
     """
     Resolve the AWS account id that owns the S3 buckets used by Bedrock batch jobs.
 
-    Precedence: `s3_bucket_owner` in litellm_params, then optional_params
+    Precedence: `s3_bucket_owner` in embrouter_params, then optional_params
     (client-side / request params), then the AWS_S3_BUCKET_OWNER env var.
     """
-    return _resolve_s3_setting("s3_bucket_owner", "AWS_S3_BUCKET_OWNER", litellm_params, optional_params)
+    return _resolve_s3_setting("s3_bucket_owner", "AWS_S3_BUCKET_OWNER", embrouter_params, optional_params)
 
 
 def _resolve_s3_setting(
     param_name: str,
     env_var: str,
-    litellm_params: Mapping[str, object],
+    embrouter_params: Mapping[str, object],
     optional_params: Mapping[str, object] | None,
 ) -> str | None:
     candidates: Final = tuple(
-        source.get(param_name) for source in (litellm_params, optional_params) if source is not None
+        source.get(param_name) for source in (embrouter_params, optional_params) if source is not None
     )
     explicit: Final = next((value for value in candidates if isinstance(value, str) and value), None)
     return explicit or get_secret_str(env_var) or None
@@ -1632,12 +1632,12 @@ class CommonBatchFilesUtils:
 
         self._base_aws = BaseAWSLLM()
 
-    def get_bedrock_model_id_from_litellm_model(self, model: str) -> str:
+    def get_bedrock_model_id_from_embrouter_model(self, model: str) -> str:
         """
-        Extract the actual Bedrock model ID from LiteLLM model name.
+        Extract the actual Bedrock model ID from EmbRouter model name.
 
         Args:
-            model: LiteLLM model name (e.g., "bedrock/anthropic.claude-3-sonnet-20240229-v1:0")
+            model: EmbRouter model name (e.g., "bedrock/anthropic.claude-3-sonnet-20240229-v1:0")
 
         Returns:
             Bedrock model ID (e.g., "anthropic.claude-3-sonnet-20240229-v1:0")
@@ -1673,21 +1673,21 @@ class CommonBatchFilesUtils:
         Extract model ID from S3 file path.
 
         The Bedrock file transformation creates S3 objects with the model name embedded:
-        Format: s3://bucket/litellm-bedrock-files-{model}-{uuid}.jsonl
+        Format: s3://bucket/embrouter-bedrock-files-{model}-{uuid}.jsonl
         """
         # Check if model is provided in optional_params first
         if "model" in optional_params and optional_params["model"]:
-            return self.get_bedrock_model_id_from_litellm_model(optional_params["model"])
+            return self.get_bedrock_model_id_from_embrouter_model(optional_params["model"])
 
         # Extract model from S3 URI path
-        # Expected format: s3://bucket/litellm-bedrock-files-{model}-{uuid}.jsonl
+        # Expected format: s3://bucket/embrouter-bedrock-files-{model}-{uuid}.jsonl
         try:
             bucket, object_key = self.parse_s3_uri(s3_uri)
 
             # Extract model from object key if it follows our naming pattern
-            if object_key.startswith("litellm-bedrock-files-"):
+            if object_key.startswith("embrouter-bedrock-files-"):
                 # Remove prefix and suffix to get model part
-                model_part: Final = object_key[22:]  # Remove "litellm-bedrock-files-"
+                model_part: Final = object_key[22:]  # Remove "embrouter-bedrock-files-"
                 # Find the last dash before the UUID
                 parts: Final = model_part.split("-")
                 if len(parts) > 1:
@@ -1760,7 +1760,7 @@ class CommonBatchFilesUtils:
             (request_data.encode("utf-8") if isinstance(request_data, str) else request_data),
         )
 
-    def generate_unique_job_name(self, model: str, prefix: str = "litellm") -> str:
+    def generate_unique_job_name(self, model: str, prefix: str = "embrouter") -> str:
         """
         Generate a unique job name for AWS services.
         AWS services often have length limits, so this creates a concise name.
@@ -1772,27 +1772,27 @@ class CommonBatchFilesUtils:
         Returns:
             Unique job name (≤ 63 characters for Bedrock compatibility)
         """
-        from litellm._uuid import uuid
+        from embrouter._uuid import uuid
 
         unique_id: Final = str(uuid.uuid4())[:8]
         # Format: {prefix}-batch-{model}-{uuid}
-        # Example: litellm-batch-claude-266c398e
+        # Example: embrouter-batch-claude-266c398e
         job_name: Final = f"{prefix}-batch-{unique_id}"
 
         return job_name
 
     def get_s3_bucket_and_key_from_config(
         self,
-        litellm_params: dict,
+        embrouter_params: dict,
         optional_params: dict,
         bucket_env_var: str = "AWS_S3_BUCKET_NAME",
-        key_prefix: str = "litellm",
+        key_prefix: str = "embrouter",
     ) -> tuple:
         """
         Get S3 bucket and generate a unique key from configuration.
 
         Args:
-            litellm_params: LiteLLM parameters
+            embrouter_params: EmbRouter parameters
             optional_params: Optional parameters
             bucket_env_var: Environment variable name for bucket
             key_prefix: Prefix for the S3 key
@@ -1802,11 +1802,11 @@ class CommonBatchFilesUtils:
         """
         import time
 
-        from litellm._uuid import uuid
+        from embrouter._uuid import uuid
 
         # Get bucket name
         bucket_name: Final = (
-            litellm_params.get("s3_bucket_name") or optional_params.get("s3_bucket_name") or os.getenv(bucket_env_var)
+            embrouter_params.get("s3_bucket_name") or optional_params.get("s3_bucket_name") or os.getenv(bucket_env_var)
         )
         if not bucket_name:
             raise ValueError(f"S3 bucket name is required. Set 's3_bucket_name' parameter or {bucket_env_var} env var")

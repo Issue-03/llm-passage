@@ -11,7 +11,7 @@ catch-all handler in _update_llm_router.
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from litellm.proxy.proxy_server import ProxyConfig
+from embrouter.proxy.proxy_server import ProxyConfig
 
 
 def _make_db_model(model_name: str, model_id: str):
@@ -19,7 +19,7 @@ def _make_db_model(model_name: str, model_id: str):
     record = MagicMock()
     record.model_id = model_id
     record.model_name = model_name
-    record.litellm_params = {"model": model_name}
+    record.embrouter_params = {"model": model_name}
     record.model_info = {"id": model_id}
     record.created_by = "default_user_id"
     record.created_at = None
@@ -58,10 +58,10 @@ class TestUpdateLlmRouterResilience:
                 new_callable=AsyncMock,
                 return_value=0,
             ),
-            patch("litellm.proxy.proxy_server.llm_router", mock_router),
-            patch("litellm.proxy.proxy_server.master_key", "sk-test"),
-            patch("litellm.proxy.proxy_server.llm_model_list", []),
-            patch("litellm.proxy.proxy_server.general_settings", {}),
+            patch("embrouter.proxy.proxy_server.llm_router", mock_router),
+            patch("embrouter.proxy.proxy_server.master_key", "sk-test"),
+            patch("embrouter.proxy.proxy_server.llm_model_list", []),
+            patch("embrouter.proxy.proxy_server.general_settings", {}),
         ):
             await proxy_config._update_llm_router(
                 new_models=db_models,
@@ -98,10 +98,10 @@ class TestUpdateLlmRouterResilience:
                 new_callable=AsyncMock,
                 return_value=0,
             ),
-            patch("litellm.proxy.proxy_server.llm_router", mock_router),
-            patch("litellm.proxy.proxy_server.master_key", "sk-test"),
-            patch("litellm.proxy.proxy_server.llm_model_list", []),
-            patch("litellm.proxy.proxy_server.general_settings", {}),
+            patch("embrouter.proxy.proxy_server.llm_router", mock_router),
+            patch("embrouter.proxy.proxy_server.master_key", "sk-test"),
+            patch("embrouter.proxy.proxy_server.llm_model_list", []),
+            patch("embrouter.proxy.proxy_server.general_settings", {}),
         ):
             await proxy_config._update_llm_router(
                 new_models=db_models,
@@ -133,8 +133,8 @@ class TestDeleteDeploymentResilience:
                 new_callable=AsyncMock,
                 side_effect=Exception("httpcore.ReadTimeout"),
             ),
-            patch("litellm.proxy.proxy_server.llm_router", mock_router),
-            patch("litellm.proxy.proxy_server.premium_user", False),
+            patch("embrouter.proxy.proxy_server.llm_router", mock_router),
+            patch("embrouter.proxy.proxy_server.premium_user", False),
         ):
             result = await proxy_config._delete_deployment(db_models=db_models)
 
@@ -165,14 +165,14 @@ class TestDeleteDeploymentResilience:
                     "model_list": [
                         {
                             "model_name": "gpt-4",
-                            "litellm_params": {"model": "gpt-4"},
+                            "embrouter_params": {"model": "gpt-4"},
                             "model_info": {"id": "config-id-1"},
                         }
                     ]
                 },
             ),
-            patch("litellm.proxy.proxy_server.llm_router", mock_router),
-            patch("litellm.proxy.proxy_server.premium_user", False),
+            patch("embrouter.proxy.proxy_server.llm_router", mock_router),
+            patch("embrouter.proxy.proxy_server.premium_user", False),
         ):
             result = await proxy_config._delete_deployment(db_models=db_models)
 
@@ -185,7 +185,7 @@ class TestDeleteDeploymentResilience:
 
 
 class TestDeleteDeploymentKeepsPluginConfigModels:
-    """Regression: _delete_deployment re-reads the raw config and hashes litellm_params to
+    """Regression: _delete_deployment re-reads the raw config and hashes embrouter_params to
     compute the ids the config wants served. The Router used to derive plugin-bearing
     deployment ids from the RESOLVED params (dotted paths swapped for live instances), so
     the reconcile computed different ids and evicted every plugin-bearing auto-router one
@@ -211,7 +211,7 @@ class TestDeleteDeploymentKeepsPluginConfigModels:
     def _raw_model_entry():
         return {
             "model_name": "smart-router",
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "auto_router/complexity_router",
                 "complexity_router_default_model": "gpt-4o-mini",
                 "complexity_router_config": {
@@ -227,8 +227,8 @@ class TestDeleteDeploymentKeepsPluginConfigModels:
     async def test_plugin_bearing_config_model_survives_reconcile_and_stale_ids_still_evict(self, tmp_path):
         import copy
 
-        from litellm import Router
-        from litellm.proxy.proxy_server import (
+        from embrouter import Router
+        from embrouter.proxy.proxy_server import (
             pin_complexity_router_model_id,
             resolve_complexity_router_plugins,
         )
@@ -240,16 +240,16 @@ class TestDeleteDeploymentKeepsPluginConfigModels:
         pin_complexity_router_model_id(resolved_entry)
         resolve_complexity_router_plugins(
             model_name="smart-router",
-            complexity_router_config=resolved_entry["litellm_params"]["complexity_router_config"],
+            complexity_router_config=resolved_entry["embrouter_params"]["complexity_router_config"],
             config_file_path=config_file_path,
         )
         router = Router(
             model_list=[
-                {"model_name": "gpt-4o-mini", "litellm_params": {"model": "gpt-4o-mini"}},
+                {"model_name": "gpt-4o-mini", "embrouter_params": {"model": "gpt-4o-mini"}},
                 resolved_entry,
                 {
                     "model_name": "stale-model",
-                    "litellm_params": {"model": "gpt-4o"},
+                    "embrouter_params": {"model": "gpt-4o"},
                     "model_info": {"id": "stale-id"},
                 },
             ]
@@ -259,16 +259,16 @@ class TestDeleteDeploymentKeepsPluginConfigModels:
 
         raw_config = {
             "model_list": [
-                {"model_name": "gpt-4o-mini", "litellm_params": {"model": "gpt-4o-mini"}},
+                {"model_name": "gpt-4o-mini", "embrouter_params": {"model": "gpt-4o-mini"}},
                 self._raw_model_entry(),
             ]
         }
         proxy_config = ProxyConfig()
         with (
             patch.object(proxy_config, "get_config", new_callable=AsyncMock, return_value=raw_config),
-            patch("litellm.proxy.proxy_server.llm_router", router),
-            patch("litellm.proxy.proxy_server.user_config_file_path", config_file_path),
-            patch("litellm.proxy.proxy_server.premium_user", False),
+            patch("embrouter.proxy.proxy_server.llm_router", router),
+            patch("embrouter.proxy.proxy_server.user_config_file_path", config_file_path),
+            patch("embrouter.proxy.proxy_server.premium_user", False),
         ):
             result = await proxy_config._delete_deployment(db_models=[])
 
@@ -277,7 +277,7 @@ class TestDeleteDeploymentKeepsPluginConfigModels:
         assert "stale-model" not in router.model_names
 
     def test_pin_respects_an_explicit_model_id(self):
-        from litellm.proxy.proxy_server import pin_complexity_router_model_id
+        from embrouter.proxy.proxy_server import pin_complexity_router_model_id
 
         entry = self._raw_model_entry()
         entry["model_info"] = {"id": "operator-pinned"}
@@ -285,9 +285,9 @@ class TestDeleteDeploymentKeepsPluginConfigModels:
         assert entry["model_info"]["id"] == "operator-pinned"
 
     def test_pin_is_a_noop_without_a_complexity_router_config(self):
-        from litellm.proxy.proxy_server import pin_complexity_router_model_id
+        from embrouter.proxy.proxy_server import pin_complexity_router_model_id
 
-        entry = {"model_name": "gpt-4o-mini", "litellm_params": {"model": "gpt-4o-mini"}}
+        entry = {"model_name": "gpt-4o-mini", "embrouter_params": {"model": "gpt-4o-mini"}}
         pin_complexity_router_model_id(entry)
         assert "model_info" not in entry
 
@@ -300,8 +300,8 @@ class TestDeleteDeploymentKeepsConfigModelsOnEmptyConfigRead:
 
     @staticmethod
     def _router(model_list):
-        from litellm import Router
-        from litellm.types.router import RouterGeneralSettings
+        from embrouter import Router
+        from embrouter.types.router import RouterGeneralSettings
 
         return Router(
             model_list=model_list,
@@ -317,21 +317,21 @@ class TestDeleteDeploymentKeepsConfigModelsOnEmptyConfigRead:
             [
                 {
                     "model_name": "config-model",
-                    "litellm_params": {"model": "gpt-4o-mini"},
+                    "embrouter_params": {"model": "gpt-4o-mini"},
                     "model_info": {"id": "config-model-1"},
                 },
                 {
                     "model_name": "db-model",
-                    "litellm_params": {"model": "gpt-4o-mini"},
+                    "embrouter_params": {"model": "gpt-4o-mini"},
                     "model_info": {"id": "db-model-1", "db_model": True},
                 },
             ]
         )
         proxy_config = ProxyConfig()
         with (
-            patch("litellm.proxy.proxy_server.llm_router", router),  # test-quality-ok: reads module global
+            patch("embrouter.proxy.proxy_server.llm_router", router),  # test-quality-ok: reads module global
             patch(  # test-quality-ok: reads module global
-                "litellm.proxy.proxy_server.user_config_file_path",
+                "embrouter.proxy.proxy_server.user_config_file_path",
                 config_file_path,
             ),
         ):
@@ -349,7 +349,7 @@ class TestDeleteDeploymentKeepsConfigModelsOnEmptyConfigRead:
         (tmp_path / "config.yaml").write_text(
             "model_list:\n"
             "  - model_name: model-a\n"
-            "    litellm_params:\n"
+            "    embrouter_params:\n"
             "      model: gpt-4o-mini\n"
             "    model_info:\n"
             "      id: model-a-id\n"
@@ -359,21 +359,21 @@ class TestDeleteDeploymentKeepsConfigModelsOnEmptyConfigRead:
             [
                 {
                     "model_name": "model-a",
-                    "litellm_params": {"model": "gpt-4o-mini"},
+                    "embrouter_params": {"model": "gpt-4o-mini"},
                     "model_info": {"id": "model-a-id"},
                 },
                 {
                     "model_name": "model-b",
-                    "litellm_params": {"model": "gpt-4o-mini"},
+                    "embrouter_params": {"model": "gpt-4o-mini"},
                     "model_info": {"id": "model-b-id"},
                 },
             ]
         )
         proxy_config = ProxyConfig()
         with (
-            patch("litellm.proxy.proxy_server.llm_router", router),  # test-quality-ok: reads module global
+            patch("embrouter.proxy.proxy_server.llm_router", router),  # test-quality-ok: reads module global
             patch(  # test-quality-ok: reads module global
-                "litellm.proxy.proxy_server.user_config_file_path",
+                "embrouter.proxy.proxy_server.user_config_file_path",
                 config_file_path,
             ),
         ):
@@ -393,16 +393,16 @@ class TestDeleteDeploymentKeepsConfigModelsOnEmptyConfigRead:
             [
                 {
                     "model_name": "config-model",
-                    "litellm_params": {"model": "gpt-4o-mini"},
+                    "embrouter_params": {"model": "gpt-4o-mini"},
                     "model_info": {"id": "config-model-1"},
                 },
             ]
         )
         proxy_config = ProxyConfig()
         with (
-            patch("litellm.proxy.proxy_server.llm_router", router),  # test-quality-ok: reads module global
+            patch("embrouter.proxy.proxy_server.llm_router", router),  # test-quality-ok: reads module global
             patch(  # test-quality-ok: reads module global
-                "litellm.proxy.proxy_server.user_config_file_path",
+                "embrouter.proxy.proxy_server.user_config_file_path",
                 config_file_path,
             ),
         ):

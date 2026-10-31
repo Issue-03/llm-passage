@@ -6,8 +6,8 @@ from typing import Final, TypeVar, cast  # noqa: TID251  # a rebuilt chat row ha
 
 from pydantic import BaseModel
 
-from litellm.types.llms.anthropic_messages.anthropic_response import AnthropicUsage
-from litellm.types.llms.openai import AllMessageValues, ResponseAPIUsage
+from embrouter.types.llms.anthropic_messages.anthropic_response import AnthropicUsage
+from embrouter.types.llms.openai import AllMessageValues, ResponseAPIUsage
 
 
 def _anthropic_stream_chunk_events(item: object) -> list[dict]:
@@ -195,18 +195,18 @@ def effective_skip_system_message_for_guardrail(guardrail_to_apply: object) -> b
     per: Final = getattr(guardrail_to_apply, "skip_system_message_in_guardrail", None)
     if per is not None:
         return bool(per)
-    import litellm
+    import embrouter
 
-    return bool(getattr(litellm, "skip_system_message_in_guardrail", False))
+    return bool(getattr(embrouter, "skip_system_message_in_guardrail", False))
 
 
 def effective_skip_tool_message_for_guardrail(guardrail_to_apply: object) -> bool:
     per: Final = getattr(guardrail_to_apply, "skip_tool_message_in_guardrail", None)
     if per is not None:
         return bool(per)
-    import litellm
+    import embrouter
 
-    return bool(getattr(litellm, "skip_tool_message_in_guardrail", False))
+    return bool(getattr(embrouter, "skip_tool_message_in_guardrail", False))
 
 
 def _message_role(message: AllMessageValues) -> str:

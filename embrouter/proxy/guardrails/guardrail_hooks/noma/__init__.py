@@ -1,54 +1,54 @@
 from typing import TYPE_CHECKING, Final
 
-from litellm.types.guardrails import SupportedGuardrailIntegrations
+from embrouter.types.guardrails import SupportedGuardrailIntegrations
 
 from .noma import NomaGuardrail
 from .noma_v2 import NomaV2Guardrail
 
 if TYPE_CHECKING:
-    from litellm.types.guardrails import Guardrail, LitellmParams
+    from embrouter.types.guardrails import Guardrail, EmbrouterParams
 
 
-def initialize_guardrail(litellm_params: "LitellmParams", guardrail: "Guardrail"):
-    use_v2 = getattr(litellm_params, "use_v2", False)
+def initialize_guardrail(embrouter_params: "EmbrouterParams", guardrail: "Guardrail"):
+    use_v2 = getattr(embrouter_params, "use_v2", False)
     if isinstance(use_v2, str):
         use_v2 = use_v2.lower() == "true"
     if use_v2:
-        return initialize_guardrail_v2(litellm_params=litellm_params, guardrail=guardrail)
+        return initialize_guardrail_v2(embrouter_params=embrouter_params, guardrail=guardrail)
 
-    import litellm
+    import embrouter
 
     _noma_callback: Final = NomaGuardrail(
         guardrail_name=guardrail.get("guardrail_name", ""),
-        api_key=litellm_params.api_key,
-        api_base=litellm_params.api_base,
-        application_id=litellm_params.application_id,
-        monitor_mode=litellm_params.monitor_mode,
-        block_failures=litellm_params.block_failures,
-        anonymize_input=litellm_params.anonymize_input,
-        event_hook=litellm_params.mode,
-        default_on=litellm_params.default_on,
+        api_key=embrouter_params.api_key,
+        api_base=embrouter_params.api_base,
+        application_id=embrouter_params.application_id,
+        monitor_mode=embrouter_params.monitor_mode,
+        block_failures=embrouter_params.block_failures,
+        anonymize_input=embrouter_params.anonymize_input,
+        event_hook=embrouter_params.mode,
+        default_on=embrouter_params.default_on,
     )
-    litellm.logging_callback_manager.add_litellm_callback(_noma_callback)
+    embrouter.logging_callback_manager.add_embrouter_callback(_noma_callback)
 
     return _noma_callback
 
 
-def initialize_guardrail_v2(litellm_params: "LitellmParams", guardrail: "Guardrail"):
-    import litellm
+def initialize_guardrail_v2(embrouter_params: "EmbrouterParams", guardrail: "Guardrail"):
+    import embrouter
 
     _noma_v2_callback: Final = NomaV2Guardrail(
         guardrail_name=guardrail.get("guardrail_name", ""),
-        api_key=litellm_params.api_key,
-        api_base=litellm_params.api_base,
-        application_id=litellm_params.application_id,
-        gateway_name=litellm_params.gateway_name,
-        monitor_mode=litellm_params.monitor_mode,
-        block_failures=litellm_params.block_failures,
-        event_hook=litellm_params.mode,
-        default_on=litellm_params.default_on,
+        api_key=embrouter_params.api_key,
+        api_base=embrouter_params.api_base,
+        application_id=embrouter_params.application_id,
+        gateway_name=embrouter_params.gateway_name,
+        monitor_mode=embrouter_params.monitor_mode,
+        block_failures=embrouter_params.block_failures,
+        event_hook=embrouter_params.mode,
+        default_on=embrouter_params.default_on,
     )
-    litellm.logging_callback_manager.add_litellm_callback(_noma_v2_callback)
+    embrouter.logging_callback_manager.add_embrouter_callback(_noma_v2_callback)
 
     return _noma_v2_callback
 

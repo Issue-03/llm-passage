@@ -2,13 +2,13 @@ from unittest.mock import Mock
 
 import httpx
 
-import litellm
-from litellm.llms.xai.chat.transformation import (
+import embrouter
+from embrouter.llms.xai.chat.transformation import (
     XAIChatCompletionStreamingHandler,
     XAIChatConfig,
 )
-from litellm.llms.xai.cost_calculator import cost_per_token
-from litellm.types.utils import (
+from embrouter.llms.xai.cost_calculator import cost_per_token
+from embrouter.types.utils import (
     CompletionTokensDetailsWrapper,
     ModelResponse,
     Usage,
@@ -91,7 +91,7 @@ class TestXAIReasoningTokenFolding:
 
 
 def test_max_completion_tokens_is_accepted_and_mapped_to_max_tokens() -> None:
-    optional_params = litellm.get_optional_params(
+    optional_params = embrouter.get_optional_params(
         model="grok-4.20",
         custom_llm_provider="xai",
         max_completion_tokens=64,
@@ -120,7 +120,7 @@ class TestXAIParallelToolCalls:
             model="xai/grok-4.20",
             messages=messages,
             optional_params=optional_params,
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -137,9 +137,9 @@ class TestXAIChatWebSearchOptions:
 
         result = config.transform_request(
             model="xai/grok-4.6",
-            messages=[{"role": "user", "content": "newest litellm version?"}],
+            messages=[{"role": "user", "content": "newest embrouter version?"}],
             optional_params={"web_search_options": {"search_context_size": "medium"}, "temperature": 0.5},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -206,9 +206,9 @@ class TestXAIChatWebSearchBilling:
 
 
 class TestXAIReportedCost:
-    """xAI reports what it charged; the transformation moves it to where litellm bills from.
+    """xAI reports what it charged; the transformation moves it to where embrouter bills from.
 
-    ``cost`` is the field litellm already carries a provider stated cost in, so restating
+    ``cost`` is the field embrouter already carries a provider stated cost in, so restating
     ``cost_in_usd_ticks`` there is what lets ``llms/xai/cost_calculator.py`` bill the
     reported figure. At 10^10 ticks to the dollar, 37756000 ticks is $0.0037756.
     """
@@ -241,7 +241,7 @@ class TestXAIReportedCost:
             request_data={},
             messages=[{"role": "user", "content": "hi"}],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             encoding=None,
         )
         return response.usage
@@ -303,7 +303,7 @@ class TestXAIReportedCost:
 
         assert parsed.usage.cost == 0.0037756
 
-        assembled = litellm.stream_chunk_builder(chunks=[parsed])
+        assembled = embrouter.stream_chunk_builder(chunks=[parsed])
         assert assembled.usage.cost == 0.0037756
         assert cost_per_token(model="grok-4-latest", usage=assembled.usage) == (
             0.0,

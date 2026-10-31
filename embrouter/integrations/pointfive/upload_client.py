@@ -15,17 +15,17 @@ from typing import Final
 import httpx
 from pydantic import BaseModel, Field, ValidationError
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.litellm_core_utils.url_utils import SSRFError, validate_url
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.types.integrations.pointfive import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.embrouter_core_utils.url_utils import SSRFError, validate_url
+from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from embrouter.types.integrations.pointfive import (
     RETRYABLE_UPLOAD_STATUS_CODES,
     PointFiveUploadFailure,
     PointFiveUploadTarget,
 )
 
-UPLOAD_KIND: Final = "LITELLM"
+UPLOAD_KIND: Final = "EMBROUTER"
 UPLOAD_URL_PATH: Final = "/upload-url"
 PING_PATH: Final = "/ping"
 PUT_HEADERS: Final = MappingProxyType({"Content-Type": "application/x-ndjson", "Content-Encoding": "gzip"})
@@ -186,7 +186,7 @@ class PointFiveUploadClient:
         return None
 
     def _destination(self, upload_url: str) -> tuple[str, str | None] | PointFiveUploadFailure:
-        if not getattr(litellm, "user_url_validation", True):
+        if not getattr(embrouter, "user_url_validation", True):
             return upload_url, None
         try:
             return self.validate_upload_url(upload_url)

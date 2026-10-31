@@ -19,17 +19,17 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, TypeAdapter
 
 if TYPE_CHECKING:
-    from prisma.models import LiteLLM_DailyTagSpend as PrismaDailyTagSpendRow
-    from prisma.models import LiteLLM_UserTable as PrismaUserRow
-    from prisma.models import LiteLLM_VerificationToken as PrismaVerificationTokenRow
+    from prisma.models import EmbRouter_DailyTagSpend as PrismaDailyTagSpendRow
+    from prisma.models import EmbRouter_UserTable as PrismaUserRow
+    from prisma.models import EmbRouter_VerificationToken as PrismaVerificationTokenRow
 
-    from litellm.proxy.utils import PrismaClient
+    from embrouter.proxy.utils import PrismaClient
 
-from litellm.proxy._types import CommonProxyErrors, UserAPIKeyAuth
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.repositories.table_repositories import DailyTagSpendRepository
-from litellm.repositories.user_repository import UserRepository
-from litellm.repositories.verification_token_repository import (
+from embrouter.proxy._types import CommonProxyErrors, UserAPIKeyAuth
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.repositories.table_repositories import DailyTagSpendRepository
+from embrouter.repositories.user_repository import UserRepository
+from embrouter.repositories.verification_token_repository import (
     VerificationTokenRepository,
 )
 
@@ -177,7 +177,7 @@ async def get_distinct_user_agent_tags(
     Returns:
         DistinctTagsResponse: List of distinct user agent tags
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(
@@ -190,7 +190,7 @@ async def get_distinct_user_agent_tags(
         SELECT 
             dts.tag,
             COUNT(*) as usage_count
-        FROM "LiteLLM_DailyTagSpend" dts
+        FROM "EmbRouter_DailyTagSpend" dts
         WHERE dts.tag LIKE 'User-Agent:%' OR dts.tag NOT LIKE '%:%'
         GROUP BY dts.tag
         ORDER BY usage_count DESC
@@ -240,7 +240,7 @@ async def get_daily_active_users(
     Returns:
         ActiveUsersAnalyticsResponse: DAU data by tag for each of the last {MAX_DAYS} days
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(
@@ -280,8 +280,8 @@ async def get_daily_active_users(
             dts.tag,
             dts.date,
             COUNT(DISTINCT vt.user_id) as active_users
-        FROM "LiteLLM_DailyTagSpend" dts
-        INNER JOIN "LiteLLM_VerificationToken" vt ON dts.api_key = vt.token
+        FROM "EmbRouter_DailyTagSpend" dts
+        INNER JOIN "EmbRouter_VerificationToken" vt ON dts.api_key = vt.token
         {where_clause}
         GROUP BY dts.tag, dts.date
         ORDER BY dts.date DESC, active_users DESC
@@ -336,7 +336,7 @@ async def get_weekly_active_users(
     Returns:
         ActiveUsersAnalyticsResponse: WAU data by tag for each of the last {MAX_WEEKS} weeks with descriptive week labels (e.g., "Week 1 (Jan 1)")
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(
@@ -381,8 +381,8 @@ async def get_weekly_active_users(
                 vt.user_id,
                 -- Calculate week number (0 = Week 1 most recent, 1 = Week 2, etc.)
                 FLOOR((DATE '{end_date}' - dts.date::date) / 7) as week_offset
-            FROM "LiteLLM_DailyTagSpend" dts
-            INNER JOIN "LiteLLM_VerificationToken" vt ON dts.api_key = vt.token
+            FROM "EmbRouter_DailyTagSpend" dts
+            INNER JOIN "EmbRouter_VerificationToken" vt ON dts.api_key = vt.token
             {where_clause}
         )
         SELECT 
@@ -457,7 +457,7 @@ async def get_monthly_active_users(
     Returns:
         ActiveUsersAnalyticsResponse: MAU data by tag for each of the last {MAX_MONTHS} months with descriptive month labels (e.g., "Month 1 (Nov)")
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(
@@ -502,8 +502,8 @@ async def get_monthly_active_users(
                 vt.user_id,
                 -- Calculate month number (0 = Month 1 most recent, 1 = Month 2, etc.)
                 FLOOR((DATE '{end_date}' - dts.date::date) / 30) as month_offset
-            FROM "LiteLLM_DailyTagSpend" dts
-            INNER JOIN "LiteLLM_VerificationToken" vt ON dts.api_key = vt.token
+            FROM "EmbRouter_DailyTagSpend" dts
+            INNER JOIN "EmbRouter_VerificationToken" vt ON dts.api_key = vt.token
             {where_clause}
         )
         SELECT 
@@ -575,7 +575,7 @@ async def get_tag_summary(
     Returns:
         TagSummaryResponse: Summary analytics data by tag
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(
@@ -613,8 +613,8 @@ async def get_tag_summary(
             SUM(dts.failed_requests) as failed_requests,
             SUM(dts.prompt_tokens + dts.completion_tokens) as total_tokens,
             SUM(dts.spend) as total_spend
-        FROM "LiteLLM_DailyTagSpend" dts
-        LEFT JOIN "LiteLLM_VerificationToken" vt ON dts.api_key = vt.token
+        FROM "EmbRouter_DailyTagSpend" dts
+        LEFT JOIN "EmbRouter_VerificationToken" vt ON dts.api_key = vt.token
         {where_clause}
         GROUP BY dts.tag
         ORDER BY total_requests DESC
@@ -683,7 +683,7 @@ async def get_per_user_analytics(
     Returns:
         PerUserAnalyticsResponse: Analytics data broken down by individual users for the last 30 days
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(

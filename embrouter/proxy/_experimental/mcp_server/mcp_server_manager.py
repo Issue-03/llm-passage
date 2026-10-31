@@ -51,10 +51,10 @@ from mcp.types import Tool as MCPTool
 from pydantic import AnyUrl, BaseModel, TypeAdapter
 from typing_extensions import ReadOnly
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.caching.in_memory_cache import InMemoryCache
-from litellm.constants import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.caching.in_memory_cache import InMemoryCache
+from embrouter.constants import (
     MCP_CLIENT_TIMEOUT,
     MCP_HEALTH_CHECK_TIMEOUT,
     MCP_METADATA_TIMEOUT,
@@ -62,49 +62,49 @@ from litellm.constants import (
     MCP_STDIO_ALLOWED_COMMANDS,
     MCP_TOOL_LISTING_TIMEOUT,
 )
-from litellm.exceptions import BlockedPiiEntityError, GuardrailRaisedException
-from litellm.experimental_mcp_client.client import MCPClient, MCPSigV4Auth, strip_auth_scheme, to_basic_credentials
-from litellm.integrations.custom_guardrail import (
+from embrouter.exceptions import BlockedPiiEntityError, GuardrailRaisedException
+from embrouter.experimental_mcp_client.client import MCPClient, MCPSigV4Auth, strip_auth_scheme, to_basic_credentials
+from embrouter.integrations.custom_guardrail import (
     _sync_guardrail_info_to_logging_obj,  # pyright: ignore[reportPrivateUsage] - the same bridge @log_guardrail_information uses; reimplementing it here would fork the metadata-key logic
 )
-from litellm.litellm_core_utils.url_utils import SSRFError, async_safe_get
-from litellm.llms.custom_httpx.http_handler import get_async_httpx_client
-from litellm.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import (
+from embrouter.embrouter_core_utils.url_utils import SSRFError, async_safe_get
+from embrouter.llms.custom_httpx.http_handler import get_async_httpx_client
+from embrouter.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import (
     MCPRequestHandler,
     MCPServerAccess,
     _is_mcp_admitted_user_subject,
 )
-from litellm.proxy._experimental.mcp_server.contracts import OperationContext
-from litellm.proxy._experimental.mcp_server.elicitation_handler import (
+from embrouter.proxy._experimental.mcp_server.contracts import OperationContext
+from embrouter.proxy._experimental.mcp_server.elicitation_handler import (
     MCP_ELICITATION_AVAILABLE,
 )
-from litellm.proxy._experimental.mcp_server.exceptions import (
+from embrouter.proxy._experimental.mcp_server.exceptions import (
     MCPServerListError,
     MCPUpstreamAuthError,
 )
-from litellm.proxy._experimental.mcp_server.faults.list_outcomes import (
+from embrouter.proxy._experimental.mcp_server.faults.list_outcomes import (
     ServerListFault,
     raise_classified_list_failure,
     upstream_auth_challenge,
 )
-from litellm.proxy._experimental.mcp_server.mcp_debug import describe_upstream_http_failure, record_auth_resolution
-from litellm.proxy._experimental.mcp_server.oauth2_token_cache import (
+from embrouter.proxy._experimental.mcp_server.mcp_debug import describe_upstream_http_failure, record_auth_resolution
+from embrouter.proxy._experimental.mcp_server.oauth2_token_cache import (
     MCPPerUserTokenCache,
     mcp_per_user_token_cache,
     resolve_mcp_auth,
     resolved_token_header,
 )
-from litellm.proxy._experimental.mcp_server.oauth_utils import (
+from embrouter.proxy._experimental.mcp_server.oauth_utils import (
     _redact_mcp_resource_url,
     canonicalize_url_identity,
     get_byok_www_authenticate,
 )
-from litellm.proxy._experimental.mcp_server.outbound_credentials import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials import (
     Error,
     Ok,
     UpstreamCredentialProvider,
 )
-from litellm.proxy._experimental.mcp_server.outbound_credentials.adapter import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.adapter import (
     prepare_mcp_client,
     raise_public,
     raise_token_exchange_challenge,
@@ -112,17 +112,17 @@ from litellm.proxy._experimental.mcp_server.outbound_credentials.adapter import 
     to_server_spec,
     to_subject,
 )
-from litellm.proxy._experimental.mcp_server.outbound_credentials.oauth_token_store import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.oauth_token_store import (
     InvalidatableOAuthTokenStore,
 )
-from litellm.proxy._experimental.mcp_server.outbound_credentials.per_user_oauth_store import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.per_user_oauth_store import (
     LazyPerUserOAuthTokenStore,
 )
-from litellm.proxy._experimental.mcp_server.outbound_credentials.resolver import resolve_credentials_with_source
-from litellm.proxy._experimental.mcp_server.outbound_credentials.token_exchange_provider import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.resolver import resolve_credentials_with_source
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.token_exchange_provider import (
     build_token_exchanger,
 )
-from litellm.proxy._experimental.mcp_server.outbound_credentials.types import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.types import (
     DEFAULT_CREDENTIAL_HEADER,
     AuthorizationCodeConfig,
     AuthResolution,
@@ -133,22 +133,22 @@ from litellm.proxy._experimental.mcp_server.outbound_credentials.types import (
     ServerSpec,
     TokenExchangeConfig,
 )
-from litellm.proxy._experimental.mcp_server.result_conversion import (
+from embrouter.proxy._experimental.mcp_server.result_conversion import (
     WireCompat,
     complete_call_tool_result,
     handler_outcome,
     to_gateway_tool,
 )
-from litellm.proxy._experimental.mcp_server.sampling_handler import (
+from embrouter.proxy._experimental.mcp_server.sampling_handler import (
     MCP_SAMPLING_AVAILABLE,
 )
-from litellm.proxy._experimental.mcp_server.tool_catalog_guard import (
+from embrouter.proxy._experimental.mcp_server.tool_catalog_guard import (
     CatalogAlert,
     apply_description_overrides,
     pin_tool_catalog,
     scan_tool_descriptions,
 )
-from litellm.proxy._experimental.mcp_server.utils import (
+from embrouter.proxy._experimental.mcp_server.utils import (
     MCP_TOOL_PREFIX_SEPARATOR,
     MCPMissingUserEnvVarsError,
     add_server_prefix_to_name,
@@ -171,8 +171,8 @@ from litellm.proxy._experimental.mcp_server.utils import (
     strip_known_server_prefix,
     validate_mcp_server_name,
 )
-from litellm.proxy._types import (
-    LiteLLM_MCPServerTable,
+from embrouter.proxy._types import (
+    EmbRouter_MCPServerTable,
     MCPAuthType,
     MCPEnvVar,
     MCPTransport,
@@ -181,21 +181,21 @@ from litellm.proxy._types import (
     UserAPIKeyAuth,
     is_per_server_oauth_discovery_eligible,
 )
-from litellm.proxy.agent_endpoints.auth.managed_authorization import managed_agent_policy
-from litellm.proxy.auth.ip_address_utils import IPAddressUtils
-from litellm.proxy.common_utils.encrypt_decrypt_utils import decrypt_value_helper
-from litellm.proxy.common_utils.user_api_key_cache import get_management_object_ttl
-from litellm.proxy.management_endpoints.sso.id_jag_assertion_capture import (
+from embrouter.proxy.agent_endpoints.auth.managed_authorization import managed_agent_policy
+from embrouter.proxy.auth.ip_address_utils import IPAddressUtils
+from embrouter.proxy.common_utils.encrypt_decrypt_utils import decrypt_value_helper
+from embrouter.proxy.common_utils.user_api_key_cache import get_management_object_ttl
+from embrouter.proxy.management_endpoints.sso.id_jag_assertion_capture import (
     id_jag_assertion_capture_gap_at_startup,
 )
-from litellm.proxy.middleware.per_request_root_path_middleware import (
+from embrouter.proxy.middleware.per_request_root_path_middleware import (
     get_request_root_path,
 )
-from litellm.proxy.utils import PrismaClient, ProxyLogging
-from litellm.repositories.table_repositories import MCPServerRepository
-from litellm.types.integrations.slack_alerting import AlertType
-from litellm.types.llms.custom_http import httpxSpecialProvider
-from litellm.types.mcp import (
+from embrouter.proxy.utils import PrismaClient, ProxyLogging
+from embrouter.repositories.table_repositories import MCPServerRepository
+from embrouter.types.integrations.slack_alerting import AlertType
+from embrouter.types.llms.custom_http import httpxSpecialProvider
+from embrouter.types.mcp import (
     DEFAULT_SUBJECT_TOKEN_TYPE,
     MCPAuth,
     MCPStdioConfig,
@@ -204,17 +204,17 @@ from litellm.types.mcp import (
     has_header,
     without_header,
 )
-from litellm.types.mcp_server.mcp_server_manager import (
+from embrouter.types.mcp_server.mcp_server_manager import (
     MCPInfo,
     MCPOAuthMetadata,
     MCPServer,
     parse_pinned_tools,
 )
-from litellm.types.utils import CallTypes
+from embrouter.types.utils import CallTypes
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.types.mcp_server.mcp_toolset import MCPToolset
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.types.mcp_server.mcp_toolset import MCPToolset
 
 try:
     from mcp.shared.tool_name_validation import (
@@ -235,7 +235,7 @@ except ImportError:
 
 
 # Probe includes characters on both sides of the separator to mimic real prefixed tool names.
-_separator_probe_tool_name: Final = f"litellm{MCP_TOOL_PREFIX_SEPARATOR}probe"
+_separator_probe_tool_name: Final = f"embrouter{MCP_TOOL_PREFIX_SEPARATOR}probe"
 _separator_probe: Final = validate_tool_name(_separator_probe_tool_name)
 if not _separator_probe.is_valid:
     verbose_logger.warning(
@@ -269,7 +269,7 @@ _UPSTREAM_OAUTH_DISCOVERY_AUTH_TYPES: Final[tuple[MCPAuth, ...]] = (
 )
 
 
-_MCP_OAUTH_DISCOVERY_ON_STARTUP_ENV: Final = "LITELLM_MCP_OAUTH_DISCOVERY_ON_STARTUP"
+_MCP_OAUTH_DISCOVERY_ON_STARTUP_ENV: Final = "EMBROUTER_MCP_OAUTH_DISCOVERY_ON_STARTUP"
 _TRUE_ENV_VALUES: Final = frozenset(("1", "true", "yes", "on"))
 _OAUTH_DISCOVERY_RETRY_DELAYS_SECONDS: Final = (0.05, 0.15)
 _OAUTH_DISCOVERY_RETRY_BASE_SECONDS: Final = 30.0
@@ -478,7 +478,7 @@ def _pinned_config_server_id(raw_server_id: object, server_name: str) -> str | N
     edits. Blank and non-string values are rejected rather than silently falling back to the hash,
     because a config that pins an id and still churns is the failure this field exists to prevent.
 
-    Under ``LITELLM_USE_SHORT_MCP_TOOL_PREFIX`` the tool prefix is derived from the server_id, so
+    Under ``EMBROUTER_USE_SHORT_MCP_TOOL_PREFIX`` the tool prefix is derived from the server_id, so
     pinning an id other than the one already in use renames every tool that server exposes.
     """
     if raw_server_id is None:
@@ -538,7 +538,7 @@ def _config_identifier_owners(
     entry's grants. Derived ids are hashes and never collide with a name, so this only matters once
     an id is pinned.
 
-    An alias is either set on the entry or mapped to it from ``litellm_settings.mcp_aliases``. Only
+    An alias is either set on the entry or mapped to it from ``embrouter_settings.mcp_aliases``. Only
     a name the loader below will really assign is reserved: the mapping is ignored for an entry that
     sets its own ``alias``, and only the first mapping wins for one that does not, so reserving every
     mapping would fail startup on a pin that was never going to collide.
@@ -944,8 +944,8 @@ async def _openapi_spec_health(
     spec_path: str, *, timeout: float
 ) -> tuple[Literal["healthy", "unhealthy", "unknown"], str | None]:
     """Check specification availability, not upstream operations or user credentials."""
-    from litellm.llms.custom_httpx.http_handler import HTTPResponseLimitError
-    from litellm.proxy._experimental.mcp_server.openapi_to_mcp_generator import load_openapi_spec_async
+    from embrouter.llms.custom_httpx.http_handler import HTTPResponseLimitError
+    from embrouter.proxy._experimental.mcp_server.openapi_to_mcp_generator import load_openapi_spec_async
 
     if not spec_path.startswith(("http://", "https://")):
         return "unknown", "OpenAPI servers have no protocol-level health probe"
@@ -1099,9 +1099,9 @@ def _should_strip_caller_authorization(
       per-user token, so a caller-supplied bearer cannot override another
       user's stored credential. Delegate / pass-through keep forwarding it.
     - **OAuth pass-through servers**: strip when the ``Authorization``
-      header is actually the LiteLLM API key — either because admission
+      header is actually the EmbRouter API key — either because admission
       validated it (``user_api_key_auth.api_key`` is set) and the caller
-      did NOT also supply ``x-litellm-api-key`` to disambiguate, or
+      did NOT also supply ``x-embrouter-api-key`` to disambiguate, or
       because the legacy ``user_api_key_auth is None`` call sites did
       not supply an explicit admission header.  In the anonymous /
       pass-through cold-start case (RFC 9728) the bearer in
@@ -1109,7 +1109,7 @@ def _should_strip_caller_authorization(
       forwarded, so we keep it.
     - **Delegated OAuth servers**: admission always runs and there is no
       anonymous path, so the caller's separate ``Authorization`` is
-      forwarded only when a distinct ``x-litellm-api-key`` carried
+      forwarded only when a distinct ``x-embrouter-api-key`` carried
       admission. Without that header the ``Authorization`` *was* the
       admission credential — a virtual key, an IdP JWT, or an SSO / OIDC /
       session token whose ``api_key`` is ``None`` — and must never reach
@@ -1133,38 +1133,38 @@ def _should_strip_caller_authorization(
     if not (mcp_server.is_oauth_passthrough or is_delegated_oauth):
         return False
 
-    has_explicit_litellm_admission_header: Final = _has_explicit_litellm_admission_header(raw_headers)
+    has_explicit_embrouter_admission_header: Final = _has_explicit_embrouter_admission_header(raw_headers)
     if is_delegated_oauth:
-        return not has_explicit_litellm_admission_header or _authorization_is_litellm_admission_credential(
+        return not has_explicit_embrouter_admission_header or _authorization_is_embrouter_admission_credential(
             raw_headers, user_api_key_auth
         )
-    return _authorization_is_litellm_admission_credential(raw_headers, user_api_key_auth) or (
-        user_api_key_auth is None and not has_explicit_litellm_admission_header
+    return _authorization_is_embrouter_admission_credential(raw_headers, user_api_key_auth) or (
+        user_api_key_auth is None and not has_explicit_embrouter_admission_header
     )
 
 
-LITELLM_VIRTUAL_KEY_PREFIX: Final = "sk-"
+EMBROUTER_VIRTUAL_KEY_PREFIX: Final = "sk-"
 
 
 def _raw_header_value(raw_headers: Mapping[str, str] | None, name: str) -> str | None:
     return next((v for k, v in (raw_headers or {}).items() if isinstance(k, str) and k.lower() == name), None)
 
 
-def _has_explicit_litellm_admission_header(raw_headers: Mapping[str, str] | None) -> bool:
-    """Admission only consumes a non-empty ``x-litellm-api-key``; an empty one falls back to ``Authorization``."""
-    return bool(_raw_header_value(raw_headers, "x-litellm-api-key"))
+def _has_explicit_embrouter_admission_header(raw_headers: Mapping[str, str] | None) -> bool:
+    """Admission only consumes a non-empty ``x-embrouter-api-key``; an empty one falls back to ``Authorization``."""
+    return bool(_raw_header_value(raw_headers, "x-embrouter-api-key"))
 
 
-def _authorization_is_litellm_admission_credential(
+def _authorization_is_embrouter_admission_credential(
     raw_headers: Mapping[str, str] | None,
     user_api_key_auth: UserAPIKeyAuth | None,
 ) -> bool:
-    """True when ``Authorization`` carries the LiteLLM key admission validated.
+    """True when ``Authorization`` carries the EmbRouter key admission validated.
 
-    That is the case when no usable ``x-litellm-api-key`` was sent, or when the client repeated the
+    That is the case when no usable ``x-embrouter-api-key`` was sent, or when the client repeated the
     same key in both headers.
     """
-    admission_header: Final = _raw_header_value(raw_headers, "x-litellm-api-key")
+    admission_header: Final = _raw_header_value(raw_headers, "x-embrouter-api-key")
     authorization: Final = _raw_header_value(raw_headers, "authorization")
     if admission_header and authorization:
         return strip_auth_scheme(authorization, "Bearer") == strip_auth_scheme(admission_header, "Bearer")
@@ -1269,7 +1269,7 @@ async def _resolve_byok_mcp_auth_header(
     if not mcp_server.is_byok:
         return mcp_auth_header
 
-    from litellm.proxy._experimental.mcp_server.operations import (
+    from embrouter.proxy._experimental.mcp_server.operations import (
         _check_byok_credential,
         _get_byok_credential,
     )
@@ -1305,7 +1305,7 @@ def _client_forwarded_authorization_headers(
     """Egress headers for the client-forwarded-token modes (``true_passthrough`` / ``oauth_delegate``).
 
     Forwards the caller's ``Authorization`` to the upstream, stripped when
-    ``_should_strip_caller_authorization`` says it was consumed as the LiteLLM admission key. Shared by
+    ``_should_strip_caller_authorization`` says it was consumed as the EmbRouter admission key. Shared by
     ``_call_regular_mcp_tool`` and ``server.py``'s ``_prepare_mcp_server_headers`` so the two egress
     paths cannot drift, mirroring the ``_should_strip_caller_authorization`` split.
     """
@@ -1546,7 +1546,7 @@ def _warn_legacy_delegate_auth_if_applicable(server: MCPServer, *, source: str) 
     label: Final = get_server_prefix(server)
     verbose_logger.warning(
         "MCP server %r (id=%s, source=%s) uses deprecated auth_type=oauth2 with "
-        "delegate_auth_to_upstream=true. LiteLLM admission is now required; migrate to "
+        "delegate_auth_to_upstream=true. EmbRouter admission is now required; migrate to "
         "auth_type=oauth_delegate for client-forwarded OAuth.",
         label,
         server.server_id,
@@ -1665,7 +1665,7 @@ def _create_sampling_callback(
 ):
     if not MCP_SAMPLING_AVAILABLE:
         return None
-    from litellm.proxy._experimental.mcp_server.legacy_callbacks import create_sampling_callback
+    from embrouter.proxy._experimental.mcp_server.legacy_callbacks import create_sampling_callback
 
     return create_sampling_callback(user_api_key_auth, raw_headers, client_ip, operation_context)
 
@@ -1673,14 +1673,14 @@ def _create_sampling_callback(
 def _create_elicitation_callback():
     if not MCP_ELICITATION_AVAILABLE:
         return None
-    from litellm.proxy._experimental.mcp_server.legacy_callbacks import create_elicitation_callback
+    from embrouter.proxy._experimental.mcp_server.legacy_callbacks import create_elicitation_callback
 
     return create_elicitation_callback()
 
 
 def _record_mcp_guardrail_evaluations(
     synthetic_llm_data: dict[str, Any],  # mutable-ok: `_sync_guardrail_info_to_logging_obj` takes a concrete dict
-    litellm_logging_obj: "LiteLLMLoggingObj | None",
+    embrouter_logging_obj: "EmbRouterLoggingObj | None",
 ) -> None:
     """Bridge guardrail decision records off an MCP synthetic request onto the request's logger.
 
@@ -1695,11 +1695,11 @@ def _record_mcp_guardrail_evaluations(
     arguments stay behind: they can carry end-user data, and the monitor needs none
     of it.
     """
-    if litellm_logging_obj is None:
+    if embrouter_logging_obj is None:
         return
 
     try:
-        _sync_guardrail_info_to_logging_obj(synthetic_llm_data, litellm_logging_obj)
+        _sync_guardrail_info_to_logging_obj(synthetic_llm_data, embrouter_logging_obj)
     except Exception as e:  # noqa: BLE001  # callers run this from a `finally` on the block path
         # The breadth is the point. Narrowing to the knowable AttributeError/TypeError
         # would let an unexpected type escape that ``finally`` and replace the guardrail's
@@ -1794,14 +1794,14 @@ class _DiscoveryCache(Generic[_DiscoveryItem]):
 
 
 def _mcp_discovery_cache_ttl() -> float:
-    raw: Final = os.environ.get("LITELLM_MCP_DISCOVERY_CACHE_TTL", "60")
+    raw: Final = os.environ.get("EMBROUTER_MCP_DISCOVERY_CACHE_TTL", "60")
     try:
         ttl: Final = float(raw)
     except ValueError:
-        verbose_logger.warning("Invalid LITELLM_MCP_DISCOVERY_CACHE_TTL; using 60 seconds")
+        verbose_logger.warning("Invalid EMBROUTER_MCP_DISCOVERY_CACHE_TTL; using 60 seconds")
         return 60.0
     if not math.isfinite(ttl) or ttl < 0:
-        verbose_logger.warning("Invalid LITELLM_MCP_DISCOVERY_CACHE_TTL; using 60 seconds")
+        verbose_logger.warning("Invalid EMBROUTER_MCP_DISCOVERY_CACHE_TTL; using 60 seconds")
         return 60.0
     return ttl
 
@@ -2381,7 +2381,7 @@ class MCPServerManager:
         Config servers are rowless and persistent, so their DCR client belongs in the server-scoped
         store; a rowless server that is NOT config-declared is a throwaway temp/session server whose
         client must not be persisted. This never overrides the row-existence check: a server that has
-        a LiteLLM_MCPServerTable row is always resolved to that row first."""
+        a EmbRouter_MCPServerTable row is always resolved to that row first."""
         return server_id in self.config_mcp_servers
 
     async def load_servers_from_config(
@@ -2394,7 +2394,7 @@ class MCPServerManager:
 
         Args:
             mcp_servers_config: Dictionary of MCP server configurations
-            mcp_aliases: Optional dictionary mapping aliases to server names from litellm_settings
+            mcp_aliases: Optional dictionary mapping aliases to server names from embrouter_settings
         """
         verbose_logger.debug("Loading MCP Servers from config-----")
         self._upstream_initialize_instructions_by_server_id.clear()
@@ -2705,7 +2705,7 @@ class MCPServerManager:
         """Overlay each config-declared server's persisted DCR client (from the server-scoped
         store) onto its in-memory object so token refresh authenticates after a restart. A
         best-effort no-op when the DB is unreachable at config-load time."""
-        from litellm.proxy._experimental.mcp_server.discoverable_endpoints import (  # noqa: PLC0415  # circular import
+        from embrouter.proxy._experimental.mcp_server.discoverable_endpoints import (  # noqa: PLC0415  # circular import
             hydrate_config_server_dcr_client,
         )
 
@@ -2737,16 +2737,16 @@ class MCPServerManager:
             server: The MCPServer instance to register tools for
             base_url: Base URL for API calls
         """
-        from litellm.proxy._experimental.mcp_server.openapi_to_mcp_generator import (
+        from embrouter.proxy._experimental.mcp_server.openapi_to_mcp_generator import (
             build_input_schema,
             create_tool_function,
             load_openapi_spec_async,
             resolve_operation_params,
         )
-        from litellm.proxy._experimental.mcp_server.openapi_to_mcp_generator import (
+        from embrouter.proxy._experimental.mcp_server.openapi_to_mcp_generator import (
             get_base_url as get_openapi_base_url,
         )
-        from litellm.proxy._experimental.mcp_server.tool_registry import (
+        from embrouter.proxy._experimental.mcp_server.tool_registry import (
             global_mcp_tool_registry,
         )
 
@@ -2767,7 +2767,7 @@ class MCPServerManager:
 
             # Add authentication headers if configured
             if server.authentication_token:
-                from litellm.types.mcp import MCPAuth
+                from embrouter.types.mcp import MCPAuth
 
                 if server.auth_type == MCPAuth.bearer_token:
                     headers["Authorization"] = f"Bearer {strip_auth_scheme(server.authentication_token, 'Bearer')}"
@@ -2874,7 +2874,7 @@ class MCPServerManager:
         mappings make ``_get_mcp_server_from_tool_name`` resolve to a prefix that
         no longer exists in the live registry.
         """
-        from litellm.proxy._experimental.mcp_server.tool_registry import (
+        from embrouter.proxy._experimental.mcp_server.tool_registry import (
             global_mcp_tool_registry,
         )
 
@@ -2922,7 +2922,7 @@ class MCPServerManager:
         matched: Final = match_known_server_prefix(tool_name, prefix_to_server.keys())
         return None if matched is None else prefix_to_server.get(matched[0])
 
-    def remove_server(self, mcp_server: LiteLLM_MCPServerTable):
+    def remove_server(self, mcp_server: EmbRouter_MCPServerTable):
         """
         Remove a server from the registry
         """
@@ -2938,13 +2938,13 @@ class MCPServerManager:
 
     def _resolve_env_vars_list(
         self,
-        mcp_server: LiteLLM_MCPServerTable,
+        mcp_server: EmbRouter_MCPServerTable,
         *,
         env_vars_are_encrypted: bool,
     ) -> _EnvVarList | None:
         env_vars_list: Final = _deserialize_json_list(getattr(mcp_server, "env_vars", None))
         if env_vars_are_encrypted:
-            from litellm.proxy._experimental.mcp_server.db import (  # noqa: PLC0415
+            from embrouter.proxy._experimental.mcp_server.db import (  # noqa: PLC0415
                 decrypt_global_env_var_values,
             )
 
@@ -2954,7 +2954,7 @@ class MCPServerManager:
     async def _resolve_table_oauth_metadata(
         self,
         *,
-        mcp_server: LiteLLM_MCPServerTable,
+        mcp_server: EmbRouter_MCPServerTable,
         auth_type: MCPAuthType,
         server_url: str | None,
         manual_issuer: str | None,
@@ -3019,7 +3019,7 @@ class MCPServerManager:
 
     async def build_mcp_server_from_table(
         self,
-        mcp_server: LiteLLM_MCPServerTable,
+        mcp_server: EmbRouter_MCPServerTable,
         *,
         credentials_are_encrypted: bool = True,
         env_vars_are_encrypted: bool | None = None,
@@ -3269,7 +3269,7 @@ class MCPServerManager:
             if initialize_mapping:
                 self.initialize_tool_name_to_mcp_server_name_mapping()
 
-    async def add_server(self, mcp_server: LiteLLM_MCPServerTable):
+    async def add_server(self, mcp_server: EmbRouter_MCPServerTable):
         # The runtime registry is the allowlist for tool calls and health
         # probes (which spawn the underlying transport, including stdio
         # subprocesses). Match the eligibility set used by the bulk DB
@@ -3296,7 +3296,7 @@ class MCPServerManager:
             verbose_logger.debug("Failed to add MCP server: %s", e)
             raise e
 
-    async def update_server(self, mcp_server: LiteLLM_MCPServerTable):
+    async def update_server(self, mcp_server: EmbRouter_MCPServerTable):
         # If a previously-active server has been moved out of the active
         # state, evict any stale registry entry so subsequent tool calls and
         # health probes can't reach it.
@@ -3352,7 +3352,7 @@ class MCPServerManager:
         if not user_id:
             return
         try:
-            from litellm.proxy.proxy_server import user_api_key_cache
+            from embrouter.proxy.proxy_server import user_api_key_cache
 
             await user_api_key_cache.async_delete_cache(key=self.get_byom_submitted_servers_cache_key(user_id))
         except Exception as e:  # noqa: BLE001
@@ -3366,10 +3366,10 @@ class MCPServerManager:
             return []
 
         try:
-            from litellm.proxy._experimental.mcp_server.db import (  # noqa: PLC0415
+            from embrouter.proxy._experimental.mcp_server.db import (  # noqa: PLC0415
                 get_active_submitted_mcp_server_ids_for_user,
             )
-            from litellm.proxy.proxy_server import prisma_client, user_api_key_cache
+            from embrouter.proxy.proxy_server import prisma_client, user_api_key_cache
         except Exception as e:  # noqa: BLE001
             verbose_logger.warning("Failed to load BYOM submitted MCP server cache dependencies: %s", e)
             return []
@@ -3484,7 +3484,7 @@ class MCPServerManager:
             managed: Final = await MCPRequestHandler.get_allowed_mcp_servers(user_api_key_auth)
             return managed if access is None else [server for server in managed if server in access.server_ids]
 
-        from litellm.proxy.proxy_server import general_settings as proxy_general_settings
+        from embrouter.proxy.proxy_server import general_settings as proxy_general_settings
 
         resolved_general_settings: Final = proxy_general_settings if general_settings is None else general_settings
         explicit_grants_only: Final = bool(user_api_key_auth and user_api_key_auth.mcp_explicit_grants_only)
@@ -3616,8 +3616,8 @@ class MCPServerManager:
         one silently renames the tool when a native name happens to begin with
         it (``greyhound_internal_events`` on a server prefixed ``greyhound``).
         """
-        from litellm.proxy._experimental.mcp_server.toolset_db import list_mcp_toolsets
-        from litellm.proxy.proxy_server import prisma_client, user_api_key_cache
+        from embrouter.proxy._experimental.mcp_server.toolset_db import list_mcp_toolsets
+        from embrouter.proxy.proxy_server import prisma_client, user_api_key_cache
 
         if not toolset_ids or prisma_client is None:
             return {}
@@ -3662,7 +3662,7 @@ class MCPServerManager:
         # Clear the in-memory layer of the shared DualCache for affected keys.
         # We can't enumerate Redis keys by pattern, so Redis entries expire via TTL.
         try:
-            from litellm.proxy.proxy_server import user_api_key_cache
+            from embrouter.proxy.proxy_server import user_api_key_cache
 
             in_mem: Final[InMemoryCache | None] = getattr(user_api_key_cache, "in_memory_cache", None)
             if in_mem is None:
@@ -3698,8 +3698,8 @@ class MCPServerManager:
         deployments.  On a cache hit we reconstruct the ``MCPToolset`` Pydantic object
         so callers can always use attribute access (e.g. ``toolset.toolset_id``).
         """
-        from litellm.proxy.proxy_server import user_api_key_cache
-        from litellm.types.mcp_server.mcp_toolset import MCPToolset
+        from embrouter.proxy.proxy_server import user_api_key_cache
+        from embrouter.types.mcp_server.mcp_toolset import MCPToolset
 
         cache_key: Final = f"toolset_name:{toolset_name}"
         cached: Final = await user_api_key_cache.async_get_cache(key=cache_key)
@@ -3713,7 +3713,7 @@ class MCPServerManager:
                 return MCPToolset(**cached)
             return cached
 
-        from litellm.proxy._experimental.mcp_server.toolset_db import (
+        from embrouter.proxy._experimental.mcp_server.toolset_db import (
             get_mcp_toolset_by_name,
         )
 
@@ -3864,15 +3864,15 @@ class MCPServerManager:
         raw_headers: Mapping[str, str] | None,
         user_api_key_auth: UserAPIKeyAuth | None,
     ) -> str | None:
-        """The caller's upstream identity token, or ``None`` when the bearer is a LiteLLM key.
+        """The caller's upstream identity token, or ``None`` when the bearer is a EmbRouter key.
 
         Rejects the key admission validated and, because virtual keys always carry the ``sk-`` prefix,
-        any other LiteLLM key a client puts in ``Authorization`` next to ``x-litellm-api-key``.
+        any other EmbRouter key a client puts in ``Authorization`` next to ``x-embrouter-api-key``.
         """
-        if _authorization_is_litellm_admission_credential(raw_headers, user_api_key_auth):
+        if _authorization_is_embrouter_admission_credential(raw_headers, user_api_key_auth):
             return None
         bearer: Final = MCPServerManager._extract_bearer_token(oauth2_headers, raw_headers)
-        if bearer is not None and bearer.startswith(LITELLM_VIRTUAL_KEY_PREFIX):
+        if bearer is not None and bearer.startswith(EMBROUTER_VIRTUAL_KEY_PREFIX):
             return None
         return bearer
 
@@ -3948,7 +3948,7 @@ class MCPServerManager:
         """Return server.static_headers with ``${NAME}`` interpolated.
 
         Globals come from ``server.env_vars`` entries with ``scope=="global"``.
-        Per-user values come from the ``LiteLLM_MCPUserEnvVars`` row for the
+        Per-user values come from the ``EmbRouter_MCPUserEnvVars`` row for the
         calling user.
 
         When ``raise_on_missing`` is ``True`` (the tool-*call* path), raises
@@ -4066,7 +4066,7 @@ class MCPServerManager:
                 if time.monotonic() - ts < _USER_ENV_VARS_CACHE_TTL:
                     return values
 
-        from litellm.proxy.proxy_server import prisma_client  # noqa: PLC0415
+        from embrouter.proxy.proxy_server import prisma_client  # noqa: PLC0415
 
         if prisma_client is None:
             raise RuntimeError(
@@ -4074,7 +4074,7 @@ class MCPServerManager:
                 "is configured. Connect a database to your proxy to use per-user "
                 "MCP env vars."
             )
-        from litellm.proxy._experimental.mcp_server.db import (  # noqa: PLC0415
+        from embrouter.proxy._experimental.mcp_server.db import (  # noqa: PLC0415
             get_user_env_vars,
         )
 
@@ -4172,7 +4172,7 @@ class MCPServerManager:
         nothing to exchange and the missing-subject case stays the preemptive challenge's job.
         ``oauth2_id_jag`` is the mirror image: tool listing resolves it from the identity assertion
         captured for this user at SSO login and never from the inbound bearer, so the pre-flight is
-        faithful exactly when no identity bearer was sent (a LiteLLM key in ``Authorization`` is not one),
+        faithful exactly when no identity bearer was sent (a EmbRouter key in ``Authorization`` is not one),
         and a caller that did send one is passed through
         untouched rather than judged against a subject the listing will not use. That store-sourced
         case is the one whose missing-assertion 412 and store-outage 503 the session cannot report.
@@ -4311,7 +4311,7 @@ class MCPServerManager:
                     raise HTTPException(
                         status_code=403,
                         detail=f"MCP stdio command '{resolved_server.command}' is not in the allowlist ({sorted(MCP_STDIO_ALLOWED_COMMANDS)}). "
-                        f"Add it to LITELLM_MCP_STDIO_EXTRA_COMMANDS to allow this command.",
+                        f"Add it to EMBROUTER_MCP_STDIO_EXTRA_COMMANDS to allow this command.",
                     )
 
             stdio_config: MCPStdioConfig | None = None
@@ -4437,7 +4437,7 @@ class MCPServerManager:
         Returns:
             List[MCPTool]: List of tools available on the server with prefixed names
         """
-        from litellm.proxy._experimental.mcp_server.tool_registry import (
+        from embrouter.proxy._experimental.mcp_server.tool_registry import (
             global_mcp_tool_registry,
         )
 
@@ -4472,7 +4472,7 @@ class MCPServerManager:
             # applies extra_headers after writing Authorization from auth_value, so
             # an injected JWT would otherwise clobber the per-user token).
             if user_api_key_auth is not None and not server.spec_path:
-                from litellm.proxy.guardrails.guardrail_hooks.mcp_jwt_signer.mcp_jwt_signer import (
+                from embrouter.proxy.guardrails.guardrail_hooks.mcp_jwt_signer.mcp_jwt_signer import (
                     get_mcp_jwt_signer,
                     inject_mcp_jwt_headers_for_upstream,
                 )
@@ -4603,7 +4603,7 @@ class MCPServerManager:
         self._template_discovery_cache.invalidate(server_id)
 
     def _invalidate_server_definition_caches(self, server_id: str) -> None:
-        from litellm.proxy._experimental.mcp_server.discoverable_endpoints import (  # noqa: PLC0415  # lazy: discoverable_endpoints lazily imports this module's manager singleton
+        from embrouter.proxy._experimental.mcp_server.discoverable_endpoints import (  # noqa: PLC0415  # lazy: discoverable_endpoints lazily imports this module's manager singleton
             invalidate_oauth_metadata_cache,
         )
 
@@ -5404,7 +5404,7 @@ class MCPServerManager:
 
         Called at registration time for every MCP server entering the
         registry.  Mutates ``server.short_prefix`` in place.  No-ops when
-        ``LITELLM_USE_SHORT_MCP_TOOL_PREFIX`` is disabled, when the server
+        ``EMBROUTER_USE_SHORT_MCP_TOOL_PREFIX`` is disabled, when the server
         has no ``server_id`` (synthetic temp-server objects), or when a
         prefix is already cached.
 
@@ -5614,7 +5614,7 @@ class MCPServerManager:
         deriving the spellings routing accepts, never by stripping the entry, which would
         cut a second boundary out of a native name that opens with the server prefix.
         """
-        from litellm.proxy._experimental.mcp_server.utils import (
+        from embrouter.proxy._experimental.mcp_server.utils import (
             server_applies_tool_allowlist,
         )
 
@@ -5677,7 +5677,7 @@ class MCPServerManager:
         Raises:
             HTTPException: If tool is not allowed for this key/team
         """
-        from litellm.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import (
+        from embrouter.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import (
             MCPRequestHandler,
         )
 
@@ -5722,7 +5722,7 @@ class MCPServerManager:
         """
         from mcp.types import TextContent
 
-        from litellm.proxy._experimental.mcp_server.tool_registry import (
+        from embrouter.proxy._experimental.mcp_server.tool_registry import (
             global_mcp_tool_registry,
         )
 
@@ -5769,7 +5769,7 @@ class MCPServerManager:
         proxy_logging_obj: ProxyLogging | None,
         server: MCPServer,
         raw_headers: dict[str, str] | None = None,
-        litellm_logging_obj: "LiteLLMLoggingObj | None" = None,
+        embrouter_logging_obj: "EmbRouterLoggingObj | None" = None,
         guardrail_context: Mapping[str, object] | None = None,
     ) -> dict[str, Any]:
         """
@@ -5780,7 +5780,7 @@ class MCPServerManager:
         present. An absent logger must never be able to turn an authorization
         decision into a no-op.
 
-        ``litellm_logging_obj`` is the request's logger, and it is what lands a
+        ``embrouter_logging_obj`` is the request's logger, and it is what lands a
         ``pre_mcp_call`` evaluation (or a block) on the spend-log row the Guardrails
         Monitor counts. It stays optional so callers that do no logging are unchanged.
 
@@ -5858,7 +5858,7 @@ class MCPServerManager:
         # evaluations itself; the ``finally`` below covers native guardrails, which
         # never receive it. Same seeding the pass-through routes do.
         synthetic_llm_data: Final = proxy_logging_obj._convert_mcp_to_llm_format(mcp_request_obj, pre_hook_kwargs)
-        synthetic_llm_data["litellm_logging_obj"] = litellm_logging_obj
+        synthetic_llm_data["embrouter_logging_obj"] = embrouter_logging_obj
 
         try:
             # Use standard pre_call_hook
@@ -5888,7 +5888,7 @@ class MCPServerManager:
             # here, and the failure spend-log row that "Total Blocked" counts is built
             # from this logger further up the stack, so the record has to be attached
             # before the exception leaves this frame.
-            _record_mcp_guardrail_evaluations(synthetic_llm_data, litellm_logging_obj)
+            _record_mcp_guardrail_evaluations(synthetic_llm_data, embrouter_logging_obj)
 
         return hook_result
 
@@ -5900,17 +5900,17 @@ class MCPServerManager:
         user_api_key_auth: UserAPIKeyAuth | None,
         proxy_logging_obj: ProxyLogging,
         start_time: datetime.datetime,
-        litellm_logging_obj: "LiteLLMLoggingObj | None" = None,
+        embrouter_logging_obj: "EmbRouterLoggingObj | None" = None,
         guardrail_context: Mapping[str, object] | None = None,
     ):
         """Create and return a during hook task for MCP tool calls.
 
-        ``litellm_logging_obj`` is the request's logger; see ``pre_call_tool_check``.
+        ``embrouter_logging_obj`` is the request's logger; see ``pre_call_tool_check``.
         The task is awaited before the tool call's success logging runs, so a
         ``during_mcp_call`` evaluation recorded on it is serialized with that call.
         """
-        from litellm.types.llms.base import HiddenParams
-        from litellm.types.mcp import MCPDuringCallRequestObject
+        from embrouter.types.llms.base import HiddenParams
+        from embrouter.types.mcp import MCPDuringCallRequestObject
 
         request_obj: Final = MCPDuringCallRequestObject(
             tool_name=name,
@@ -5930,7 +5930,7 @@ class MCPServerManager:
 
         # Seeded for the same reason as in ``pre_call_tool_check``.
         synthetic_llm_data: Final = proxy_logging_obj._convert_mcp_to_llm_format(request_obj, during_hook_kwargs)
-        synthetic_llm_data["litellm_logging_obj"] = litellm_logging_obj
+        synthetic_llm_data["embrouter_logging_obj"] = embrouter_logging_obj
 
         # Wrapped so the bridge runs inside the task: the caller only holds the task and
         # gathers it later, so there is no other point that still sees a block here.
@@ -5942,7 +5942,7 @@ class MCPServerManager:
                     call_type=CallTypes.call_mcp_tool.value,
                 )
             finally:
-                _record_mcp_guardrail_evaluations(synthetic_llm_data, litellm_logging_obj)
+                _record_mcp_guardrail_evaluations(synthetic_llm_data, embrouter_logging_obj)
 
         return asyncio.create_task(_run_during_call_hook())
 
@@ -6064,7 +6064,7 @@ class MCPServerManager:
         """
         # Get server-specific auth header if available (case-insensitive)
         # FIX: Added case-insensitive matching to handle auth header keys that may not match
-        # the exact case of server alias/name (e.g., '1litellmagcgateway' vs '1LiteLLMAGCGateway')
+        # the exact case of server alias/name (e.g., '1embrouteragcgateway' vs '1EmbRouterAGCGateway')
         server_auth_header: dict[str, str] | str | None = None
         if mcp_server_auth_headers:
             server_auth_header = lookup_mcp_server_auth_in_headers(
@@ -6388,7 +6388,7 @@ class MCPServerManager:
             return oauth2_headers
 
         try:
-            from litellm.proxy._experimental.mcp_server.operations import (  # noqa: PLC0415
+            from embrouter.proxy._experimental.mcp_server.operations import (  # noqa: PLC0415
                 _get_user_oauth_extra_headers_from_db,
             )
 
@@ -6492,7 +6492,7 @@ class MCPServerManager:
         oauth2_headers: dict[str, str] | None = None,
         raw_headers: dict[str, str] | None = None,
         host_progress_callback: Callable | None = None,
-        litellm_logging_obj: "LiteLLMLoggingObj | None" = None,
+        embrouter_logging_obj: "EmbRouterLoggingObj | None" = None,
         guardrail_context: Mapping[str, object] | None = None,
         client_ip: str | None = None,
         wire_compat: WireCompat = WireCompat.LEGACY,
@@ -6508,7 +6508,7 @@ class MCPServerManager:
             mcp_auth_header: MCP auth header (deprecated)
             mcp_server_auth_headers: Optional dict of server-specific auth headers {server_alias: auth_value}
             proxy_logging_obj: Optional ProxyLogging object for hook integration
-            litellm_logging_obj: Optional request logger the guardrail hooks record
+            embrouter_logging_obj: Optional request logger the guardrail hooks record
                 their evaluations onto, so MCP guardrail activity reaches the
                 Guardrails Monitor. See ``pre_call_tool_check``
 
@@ -6541,7 +6541,7 @@ class MCPServerManager:
             proxy_logging_obj=proxy_logging_obj,
             server=mcp_server,
             raw_headers=raw_headers,
-            litellm_logging_obj=litellm_logging_obj,
+            embrouter_logging_obj=embrouter_logging_obj,
             guardrail_context=guardrail_context,
         )
         if "arguments" in hook_result:
@@ -6557,7 +6557,7 @@ class MCPServerManager:
                 user_api_key_auth=user_api_key_auth,
                 proxy_logging_obj=proxy_logging_obj,
                 start_time=start_time,
-                litellm_logging_obj=litellm_logging_obj,
+                embrouter_logging_obj=embrouter_logging_obj,
                 guardrail_context=guardrail_context,
             )
             tasks.append(during_hook_task)
@@ -6594,7 +6594,7 @@ class MCPServerManager:
             )
 
             async def _call_openapi_via_handler():
-                from litellm.proxy._experimental.mcp_server.openapi_to_mcp_generator import (
+                from embrouter.proxy._experimental.mcp_server.openapi_to_mcp_generator import (
                     _request_auth_header,
                     _request_extra_headers,
                     _request_resolved_auth_headers,
@@ -6717,7 +6717,7 @@ class MCPServerManager:
 
     async def reload_servers_from_database(self):
         """Re-synchronize the in-memory MCP server registry with the database."""
-        from litellm.proxy.management_endpoints.mcp_management_endpoints import (
+        from embrouter.proxy.management_endpoints.mcp_management_endpoints import (
             get_prisma_client_or_throw,
         )
 
@@ -6729,7 +6729,7 @@ class MCPServerManager:
         prisma_client: Final = get_prisma_client_or_throw("Database not connected. Connect a database to your proxy")
         # Load only "active", legacy "approved", and NULL (no approval workflow) rows.
         # Pending/rejected servers are excluded at the DB level so we never load them.
-        from litellm.proxy._experimental.mcp_server.db import LiteLLM_MCPServerTable
+        from embrouter.proxy._experimental.mcp_server.db import EmbRouter_MCPServerTable
 
         raw_rows: Final[Sequence[BaseModel]] = await MCPServerRepository(prisma_client).table.find_many(
             where={
@@ -6749,7 +6749,7 @@ class MCPServerManager:
         # iteration order.
         for row in raw_rows:
             try:
-                server = LiteLLM_MCPServerTable.model_validate(row.model_dump())
+                server = EmbRouter_MCPServerTable.model_validate(row.model_dump())
                 existing_server = previous_registry.get(server.server_id)
 
                 if (
@@ -6875,7 +6875,7 @@ class MCPServerManager:
     def _get_general_settings(self) -> dict[str, Any]:
         """Get general_settings, importing lazily to avoid circular imports."""
         try:
-            from litellm.proxy.proxy_server import (
+            from embrouter.proxy.proxy_server import (
                 general_settings as proxy_general_settings,
             )
 
@@ -6896,8 +6896,8 @@ class MCPServerManager:
             return True
         if server.available_on_public_internet:
             return True
-        # Check backwards compat: litellm.public_mcp_servers
-        public_ids: Final = set(litellm.public_mcp_servers or [])
+        # Check backwards compat: embrouter.public_mcp_servers
+        public_ids: Final = set(embrouter.public_mcp_servers or [])
         if server.server_id in public_ids:
             return True
         # Non-public server: only accessible from internal IPs
@@ -6917,30 +6917,30 @@ class MCPServerManager:
 
     def is_mcp_server_public(self, server_id: str, *, public_ids: Container[str] | None = None) -> bool:
         server: Final = self.registry.get(server_id) or self.config_mcp_servers.get(server_id)
-        published_ids: Final = (litellm.public_mcp_servers or ()) if public_ids is None else public_ids
+        published_ids: Final = (embrouter.public_mcp_servers or ()) if public_ids is None else public_ids
         return server is not None and (
             server_id in published_ids
-            or (not litellm.public_mcp_hub_strict_whitelist and server.available_on_public_internet)
+            or (not embrouter.public_mcp_hub_strict_whitelist and server.available_on_public_internet)
         )
 
     def get_public_mcp_servers(self) -> list[MCPServer]:
         """
         Return the MCP servers published to the AI Hub via /v1/mcp/make_public.
 
-        Default (litellm.public_mcp_hub_strict_whitelist=True): mirrors
+        Default (embrouter.public_mcp_hub_strict_whitelist=True): mirrors
         /public/model_hub and /public/agent_hub — gates strictly on the
-        litellm.public_mcp_servers whitelist. Returns an empty list when no
+        embrouter.public_mcp_servers whitelist. Returns an empty list when no
         servers have been published. The per-server available_on_public_internet
         flag is unrelated — it governs IP-based access in
         _is_server_accessible_from_ip, not hub visibility.
 
-        Legacy (litellm.public_mcp_hub_strict_whitelist=False): preserves the
+        Legacy (embrouter.public_mcp_hub_strict_whitelist=False): preserves the
         pre-fix behavior where any server with available_on_public_internet=True
         is also included. Intended as a one-release migration window for
         deployments that relied on the OR-with-default semantics; will be
         removed in a future release.
         """
-        public_ids: Final = frozenset(litellm.public_mcp_servers or ())
+        public_ids: Final = frozenset(embrouter.public_mcp_servers or ())
         return [
             server
             for server in self.get_registry().values()
@@ -7102,7 +7102,7 @@ class MCPServerManager:
         # Take first 32 characters and format as UUID-like string
         return hash_hex[:32]
 
-    async def health_check_server(self, server_id: str, mcp_auth_header: str | None = None) -> LiteLLM_MCPServerTable:
+    async def health_check_server(self, server_id: str, mcp_auth_header: str | None = None) -> EmbRouter_MCPServerTable:
         """
         Perform a health check on a specific MCP server.
 
@@ -7118,7 +7118,7 @@ class MCPServerManager:
         server: Final = self.get_mcp_server_by_id(server_id)
         if not server:
             verbose_logger.warning("MCP Server %s not found", server_id)
-            return LiteLLM_MCPServerTable(
+            return EmbRouter_MCPServerTable(
                 server_id=server_id,
                 server_name=None,
                 transport=MCPTransport.http,  # Default transport for not found servers
@@ -7185,7 +7185,7 @@ class MCPServerManager:
                 health_check_error = str(e)
                 status = "unhealthy"
 
-        return LiteLLM_MCPServerTable(
+        return EmbRouter_MCPServerTable(
             server_id=server.server_id,
             server_name=server.server_name,
             alias=server.alias,
@@ -7231,7 +7231,7 @@ class MCPServerManager:
         server_ids: list[str] | None = None,
         *,
         checked_server_ids: frozenset[str] = frozenset(),
-    ) -> list[LiteLLM_MCPServerTable]:
+    ) -> list[EmbRouter_MCPServerTable]:
         """
         Get all MCP servers that the user has access to, with health status and team information.
 
@@ -7260,7 +7260,7 @@ class MCPServerManager:
     async def get_all_allowed_mcp_servers(
         self,
         user_api_key_auth: UserAPIKeyAuth | None = None,
-    ) -> list[LiteLLM_MCPServerTable]:
+    ) -> list[EmbRouter_MCPServerTable]:
         """
         Get all MCP servers that the user has access to.
 
@@ -7273,7 +7273,7 @@ class MCPServerManager:
         # Get allowed server IDs
         allowed_server_ids: Final = await self.get_allowed_mcp_servers(user_api_key_auth)
 
-        list_mcp_servers: Final[list[LiteLLM_MCPServerTable]] = []
+        list_mcp_servers: Final[list[EmbRouter_MCPServerTable]] = []
 
         for server_id in allowed_server_ids:
             server = self.get_mcp_server_by_id(server_id)
@@ -7294,8 +7294,8 @@ class MCPServerManager:
             return None
         return [MCPEnvVar.model_validate(env_var) for env_var in env_vars]
 
-    def _build_mcp_server_table(self, server: MCPServer) -> LiteLLM_MCPServerTable:
-        return LiteLLM_MCPServerTable(
+    def _build_mcp_server_table(self, server: MCPServer) -> EmbRouter_MCPServerTable:
+        return EmbRouter_MCPServerTable(
             server_id=server.server_id,
             is_config=self.is_config_declared_server(server.server_id) and server.server_id not in self.registry,
             server_name=server.server_name,
@@ -7352,21 +7352,21 @@ class MCPServerManager:
             max_concurrent_requests=server.max_concurrent_requests,
         )
 
-    async def get_all_mcp_servers_unfiltered(self) -> list[LiteLLM_MCPServerTable]:
+    async def get_all_mcp_servers_unfiltered(self) -> list[EmbRouter_MCPServerTable]:
         """Return all MCP servers from registry without applying access controls."""
 
         registry: Final = self.get_registry()
         if not registry:
             return []
 
-        servers: Final[list[LiteLLM_MCPServerTable]] = []
+        servers: Final[list[EmbRouter_MCPServerTable]] = []
         for server in registry.values():
             servers.append(self._build_mcp_server_table(server))
         return servers
 
     async def get_all_mcp_servers_with_health_unfiltered(
         self, server_ids: list[str] | None = None
-    ) -> list[LiteLLM_MCPServerTable]:
+    ) -> list[EmbRouter_MCPServerTable]:
         """Return health info for all servers in registry regardless of user access."""
 
         registry: Final = self.get_registry()
@@ -7383,7 +7383,7 @@ class MCPServerManager:
 
         return await self._run_health_checks(target_server_ids)
 
-    async def _run_health_checks(self, target_server_ids: list[str]) -> list[LiteLLM_MCPServerTable]:
+    async def _run_health_checks(self, target_server_ids: list[str]) -> list[EmbRouter_MCPServerTable]:
         if not target_server_ids:
             return []
 

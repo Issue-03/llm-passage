@@ -6,13 +6,13 @@ used by the proxy's ``/v1/files``, ``/v1/batches`` and passthrough
 routing code paths to resolve the upstream credentials for a deployment
 by model_id::
 
-    return CredentialLiteLLMParams(
-        **deployment.litellm_params.model_dump(exclude_none=True)
+    return CredentialEmbRouterParams(
+        **deployment.embrouter_params.model_dump(exclude_none=True)
     ).model_dump(exclude_none=True)
 
 That re-validation is strict. Any field NOT declared on
-``CredentialLiteLLMParams`` gets dropped on the way through, even when
-it was present on the original ``litellm_params``.
+``CredentialEmbRouterParams`` gets dropped on the way through, even when
+it was present on the original ``embrouter_params``.
 
 Pre-fix, ``azure_ad_token`` was undeclared, so Azure deployments
 configured with OAuth/M2M (``azure_ad_token`` in place of ``api_key``)
@@ -22,10 +22,10 @@ silently lost their token on every file upload and the proxy returned::
     azure_ad_token_provider, ...
 
 Tests below pin two things:
-1. ``CredentialLiteLLMParams`` directly accepts and round-trips
+1. ``CredentialEmbRouterParams`` directly accepts and round-trips
    ``azure_ad_token``.
 2. ``Router.get_deployment_credentials_with_provider`` preserves
-   ``azure_ad_token`` from a deployment's ``litellm_params``.
+   ``azure_ad_token`` from a deployment's ``embrouter_params``.
 """
 
 from unittest.mock import MagicMock, patch
@@ -33,19 +33,19 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 
-class TestCredentialLiteLLMParamsAzureAdToken:
+class TestCredentialEmbRouterParamsAzureAdToken:
     def test_azure_ad_token_round_trips_through_model_dump(self):
-        from litellm.types.router import CredentialLiteLLMParams
+        from embrouter.types.router import CredentialEmbRouterParams
 
-        params = CredentialLiteLLMParams(
+        params = CredentialEmbRouterParams(
             api_base="https://my.openai.azure.com",
             api_version="2024-08-01-preview",
             azure_ad_token="oauth-bearer-token-xyz",
         )
         dumped = params.model_dump(exclude_none=True)
         assert dumped["azure_ad_token"] == "oauth-bearer-token-xyz", (
-            "azure_ad_token dropped from CredentialLiteLLMParams.model_dump() — "
-            "every callsite that round-trips litellm_params through this class "
+            "azure_ad_token dropped from CredentialEmbRouterParams.model_dump() — "
+            "every callsite that round-trips embrouter_params through this class "
             "will lose the token (#30235)"
         )
 
@@ -53,9 +53,9 @@ class TestCredentialLiteLLMParamsAzureAdToken:
         """Adding the field must not break deployments that don't use it
         — confirm the default is None and it's excluded by
         ``exclude_none``."""
-        from litellm.types.router import CredentialLiteLLMParams
+        from embrouter.types.router import CredentialEmbRouterParams
 
-        params = CredentialLiteLLMParams(api_key="sk-static")
+        params = CredentialEmbRouterParams(api_key="sk-static")
         dumped = params.model_dump(exclude_none=True)
         assert "azure_ad_token" not in dumped
         assert dumped["api_key"] == "sk-static"
@@ -65,7 +65,7 @@ class TestCredentialLiteLLMParamsAzureAdToken:
         construct from a dict that has azure_ad_token alongside other
         fields, dump, expect azure_ad_token to ride through alongside
         the other declared fields."""
-        from litellm.types.router import CredentialLiteLLMParams
+        from embrouter.types.router import CredentialEmbRouterParams
 
         source = {
             "api_base": "https://my.openai.azure.com",
@@ -73,7 +73,7 @@ class TestCredentialLiteLLMParamsAzureAdToken:
             "azure_ad_token": "tok-123",
             "api_key": None,  # M2M deployment has no static key
         }
-        rebuilt = CredentialLiteLLMParams(
+        rebuilt = CredentialEmbRouterParams(
             **{k: v for k, v in source.items() if v is not None}
         ).model_dump(exclude_none=True)
         assert rebuilt.get("azure_ad_token") == "tok-123"
@@ -87,14 +87,14 @@ class TestRouterCredentialResolution:
     files endpoint can forward it to the Azure files client."""
 
     def test_credentials_preserve_azure_ad_token(self):
-        from litellm import Router
+        from embrouter import Router
 
         deployment_id = "azure-m2m-deployment-fixed-uuid"
         router = Router(
             model_list=[
                 {
                     "model_name": "gpt-4o-azure-m2m",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "azure/gpt-4o",
                         "api_base": "https://my.openai.azure.com",
                         "api_version": "2024-08-01-preview",
@@ -119,14 +119,14 @@ class TestRouterCredentialResolution:
         """Don't break the pre-fix happy path: a deployment with a
         static api_key (no azure_ad_token) keeps its api_key and
         azure_ad_token doesn't appear in the dump."""
-        from litellm import Router
+        from embrouter import Router
 
         deployment_id = "azure-static-key-deployment-fixed-uuid"
         router = Router(
             model_list=[
                 {
                     "model_name": "gpt-4o-azure-static",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "azure/gpt-4o",
                         "api_base": "https://my.openai.azure.com",
                         "api_version": "2024-08-01-preview",
@@ -151,19 +151,19 @@ class TestRouterCredentialResolutionS3OutputBucket:
     ``s3_output_bucket_name`` when it differs from the input bucket. The
     file-content retrieval path validates a file id against the buckets in the
     trusted credential snapshot, and that snapshot is built by round-tripping
-    the deployment's ``litellm_params`` through ``CredentialLiteLLMParams``. If
+    the deployment's ``embrouter_params`` through ``CredentialEmbRouterParams``. If
     the field is undeclared it is dropped, so the output bucket never reaches
     retrieval and output-bucket file ids are rejected as foreign."""
 
     def test_credentials_preserve_s3_output_bucket_name(self):
-        from litellm import Router
+        from embrouter import Router
 
         deployment_id = "bedrock-batch-output-bucket-fixed-uuid"
         router = Router(
             model_list=[
                 {
                     "model_name": "bedrock-batch",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "bedrock/anthropic.claude-3-sonnet-20240229-v1:0",
                         "s3_bucket_name": "in-bucket",
                         "s3_output_bucket_name": "out-bucket",
@@ -188,14 +188,14 @@ class TestRouterCredentialResolutionS3OutputBucket:
     def test_credentials_without_output_bucket_unaffected(self):
         """A deployment that configures only the input bucket keeps it and does
         not gain a phantom output bucket in the resolved credentials."""
-        from litellm import Router
+        from embrouter import Router
 
         deployment_id = "bedrock-batch-input-only-fixed-uuid"
         router = Router(
             model_list=[
                 {
                     "model_name": "bedrock-batch-input-only",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "bedrock/anthropic.claude-3-sonnet-20240229-v1:0",
                         "s3_bucket_name": "in-bucket",
                         "aws_region_name": "us-west-2",

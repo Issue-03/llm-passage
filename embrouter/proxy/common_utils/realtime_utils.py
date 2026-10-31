@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from litellm.constants import _REALTIME_BODY_CACHE_SIZE
+from embrouter.constants import _REALTIME_BODY_CACHE_SIZE
 
 
 @lru_cache(maxsize=_REALTIME_BODY_CACHE_SIZE)

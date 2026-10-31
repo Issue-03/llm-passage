@@ -7,11 +7,11 @@ alongside its standard OpenAI-compatible chat completions endpoint.
 
 from typing import Any
 
-import litellm
-from litellm.llms.anthropic.pass_through.messages.transformation import (
+import embrouter
+from embrouter.llms.anthropic.pass_through.messages.transformation import (
     AnthropicMessagesConfig,
 )
-from litellm.secret_managers.main import get_secret_str
+from embrouter.secret_managers.main import get_secret_str
 
 
 class TencentAnthropicMessagesConfig(AnthropicMessagesConfig):
@@ -32,7 +32,7 @@ class TencentAnthropicMessagesConfig(AnthropicMessagesConfig):
 
     @staticmethod
     def get_api_key(api_key: str | None = None) -> str | None:
-        return api_key or get_secret_str("TENCENT_API_KEY") or litellm.api_key
+        return api_key or get_secret_str("TENCENT_API_KEY") or embrouter.api_key
 
     @staticmethod
     def get_api_base(api_base: str | None = None) -> str:
@@ -49,7 +49,7 @@ class TencentAnthropicMessagesConfig(AnthropicMessagesConfig):
         model: str,
         messages: list[Any],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> tuple[dict, str | None]:
@@ -58,7 +58,7 @@ class TencentAnthropicMessagesConfig(AnthropicMessagesConfig):
             model=model,
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             api_key=self.get_api_key(api_key=api_key),
             api_base=api_base,
         )
@@ -69,7 +69,7 @@ class TencentAnthropicMessagesConfig(AnthropicMessagesConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         base_url = self.get_api_base(api_base=api_base).rstrip("/")

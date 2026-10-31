@@ -13,8 +13,8 @@ vi.mock("@/components/networking", () => ({
   serverRootPath: "",
 }));
 
-const FLOW_STATE_KEY = "litellm-mcp-oauth-flow-state";
-const RESULT_KEY = "litellm-mcp-oauth-result";
+const FLOW_STATE_KEY = "embrouter-mcp-oauth-flow-state";
+const RESULT_KEY = "embrouter-mcp-oauth-result";
 
 /** Seed the redirect result (the code returned by the IdP callback). */
 function seedResult(code: string) {

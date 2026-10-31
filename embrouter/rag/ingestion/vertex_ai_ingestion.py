@@ -15,18 +15,18 @@ from typing import TYPE_CHECKING, Final
 
 from typing_extensions import ReadOnly, TypedDict
 
-from litellm._logging import verbose_logger
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter._logging import verbose_logger
+from embrouter.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.llms.vertex_ai.common_utils import get_vertex_base_url
-from litellm.llms.vertex_ai.vertex_llm_base import VertexBase
-from litellm.rag.ingestion.base_ingestion import BaseRAGIngestion
+from embrouter.llms.vertex_ai.common_utils import get_vertex_base_url
+from embrouter.llms.vertex_ai.vertex_llm_base import VertexBase
+from embrouter.rag.ingestion.base_ingestion import BaseRAGIngestion
 
 if TYPE_CHECKING:
-    from litellm import Router
-    from litellm.types.rag import RAGIngestOptions
+    from embrouter import Router
+    from embrouter.types.rag import RAGIngestOptions
 
 
 def _present_fields(fields: tuple[tuple[str, object], ...]) -> Mapping[str, object]:
@@ -86,12 +86,12 @@ class VertexAIRAGIngestion(BaseRAGIngestion, VertexBase):
         VertexBase.__init__(self)
 
         # Extract Vertex AI specific configs from vector_store_config
-        litellm_params: Final = dict(self.vector_store_config)
+        embrouter_params: Final = dict(self.vector_store_config)
 
         # Get project, location, and credentials using VertexBase methods
-        self.project_id = self.safe_get_vertex_ai_project(litellm_params)
-        self.location = self.get_vertex_ai_location(litellm_params) or "us-central1"
-        self.vertex_credentials = self.safe_get_vertex_ai_credentials(litellm_params)
+        self.project_id = self.safe_get_vertex_ai_project(embrouter_params)
+        self.location = self.get_vertex_ai_location(embrouter_params) or "us-central1"
+        self.vertex_credentials = self.safe_get_vertex_ai_credentials(embrouter_params)
 
     async def embed(
         self,
@@ -140,7 +140,7 @@ class VertexAIRAGIngestion(BaseRAGIngestion, VertexBase):
         rag_corpus_id = self.vector_store_config.get("vector_store_id")
         if not rag_corpus_id:
             rag_corpus_id = await self._create_rag_corpus(
-                display_name=self.ingest_name or "litellm-rag-corpus",
+                display_name=self.ingest_name or "embrouter-rag-corpus",
                 description=self.vector_store_config.get("description"),
             )
 

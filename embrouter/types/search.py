@@ -1,12 +1,12 @@
 """
-LiteLLM Search API Types
+EmbRouter Search API Types
 
 This module defines types for the unified search API across different providers.
 """
 
 from typing_extensions import Required, TypedDict
 
-from litellm.types.utils import SearchProviders
+from embrouter.types.utils import SearchProviders
 
 # Re-export SearchProviders as SearchProvider for backwards compatibility
 SearchProvider = SearchProviders
@@ -14,9 +14,9 @@ SearchProvider = SearchProviders
 __all__ = ["SearchProvider", "SearchProviders"]
 
 
-class SearchToolLiteLLMParams(TypedDict, total=False):
+class SearchToolEmbRouterParams(TypedDict, total=False):
     """
-    LiteLLM params for search tools configuration.
+    EmbRouter params for search tools configuration.
     """
 
     search_provider: Required[str]
@@ -33,8 +33,8 @@ class SearchTool(TypedDict, total=False):
     Example:
         {
             "search_tool_id": "123e4567-e89b-12d3-a456-426614174000",
-            "search_tool_name": "litellm-search",
-            "litellm_params": {
+            "search_tool_name": "embrouter-search",
+            "embrouter_params": {
                 "search_provider": "perplexity",
                 "api_key": "sk-..."
             },
@@ -46,7 +46,7 @@ class SearchTool(TypedDict, total=False):
 
     search_tool_id: str | None
     search_tool_name: Required[str]
-    litellm_params: Required[SearchToolLiteLLMParams]
+    embrouter_params: Required[SearchToolEmbRouterParams]
     search_tool_info: dict | None
     created_at: str | None
     updated_at: str | None
@@ -57,7 +57,7 @@ class SearchToolInfoResponse(TypedDict, total=False):
 
     search_tool_id: str | None
     search_tool_name: str
-    litellm_params: dict
+    embrouter_params: dict
     search_tool_info: dict | None
     created_at: str | None
     updated_at: str | None

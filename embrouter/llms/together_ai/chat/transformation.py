@@ -15,17 +15,17 @@ from typing import (
 
 from typing_extensions import ReadOnly, TypedDict
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.exceptions import UnsupportedParamsError
-from litellm.router_utils.reasoning_effort_capability import declared_reasoning_efforts_for_model
-from litellm.types.llms.openai import AllMessageValues
-from litellm.utils import supports_function_calling, supports_reasoning, supports_response_schema
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.exceptions import UnsupportedParamsError
+from embrouter.router_utils.reasoning_effort_capability import declared_reasoning_efforts_for_model
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.utils import supports_function_calling, supports_reasoning, supports_response_schema
 
 from ...openai.chat.gpt_transformation import OpenAIGPTConfig
 
 TOOL_CALLING_PARAMS: Final = ("tools", "tool_choice", "function_call")
-LITELLM_INTERNAL_ASSISTANT_FIELDS: Final = frozenset({"thinking_blocks", "provider_specific_fields"})
+EMBROUTER_INTERNAL_ASSISTANT_FIELDS: Final = frozenset({"thinking_blocks", "provider_specific_fields"})
 FUNCTION_CALLING_DOCS_URL: Final = "https://docs.together.ai/docs/function-calling"
 STRUCTURED_OUTPUTS_DOCS_URL: Final = "https://docs.together.ai/docs/inference/chat/structured-outputs"
 
@@ -36,7 +36,7 @@ def _registry_verdict(model: str, flag: str, check: Callable[[str], bool]) -> bo
             return True
     except Exception as e:
         verbose_logger.debug("Error checking together_ai %s for %s: %s", flag, model, e)
-    registry_entry: Final = litellm.model_cost.get(f"together_ai/{model}")
+    registry_entry: Final = embrouter.model_cost.get(f"together_ai/{model}")
     if isinstance(registry_entry, dict) and registry_entry.get(flag) is False:
         return False
     return None
@@ -101,7 +101,7 @@ def _tool_params_to_drop(passed_params: Container[str], model: str, drop_params:
             FUNCTION_CALLING_DOCS_URL,
         )
         return ()
-    if drop_params or litellm.drop_params:
+    if drop_params or embrouter.drop_params:
         verbose_logger.warning(
             "together_ai model %s does not support function calling per the model registry; dropping %s. Docs - %s",
             model,
@@ -111,7 +111,7 @@ def _tool_params_to_drop(passed_params: Container[str], model: str, drop_params:
         return passed_tool_params
     raise UnsupportedParamsError(
         status_code=500,
-        message=f"together_ai does not support parameters: {', '.join(passed_tool_params)}, for model={model}. To drop it from the call, set `litellm.drop_params = True`.",
+        message=f"together_ai does not support parameters: {', '.join(passed_tool_params)}, for model={model}. To drop it from the call, set `embrouter.drop_params = True`.",
     )
 
 
@@ -160,7 +160,7 @@ def _drop_response_format(passed_params: Container[str], model: str, drop_params
             STRUCTURED_OUTPUTS_DOCS_URL,
         )
         return False
-    if drop_params or litellm.drop_params:
+    if drop_params or embrouter.drop_params:
         verbose_logger.warning(
             "together_ai model %s does not support structured outputs per the model registry; dropping response_format. Docs - %s",
             model,
@@ -169,17 +169,17 @@ def _drop_response_format(passed_params: Container[str], model: str, drop_params
         return True
     raise UnsupportedParamsError(
         status_code=500,
-        message=f"together_ai does not support parameters: response_format, for model={model}. To drop it from the call, set `litellm.drop_params = True`.",
+        message=f"together_ai does not support parameters: response_format, for model={model}. To drop it from the call, set `embrouter.drop_params = True`.",
     )
 
 
-def _without_litellm_internal_fields(message: AllMessageValues) -> AllMessageValues:
-    if message["role"] != "assistant" or LITELLM_INTERNAL_ASSISTANT_FIELDS.isdisjoint(message):
+def _without_embrouter_internal_fields(message: AllMessageValues) -> AllMessageValues:
+    if message["role"] != "assistant" or EMBROUTER_INTERNAL_ASSISTANT_FIELDS.isdisjoint(message):
         return message
     return cast(  # cast-ok: rebuilding the same TypedDict minus internal keys loses the narrowed type
         "AllMessageValues",
         {  # mutable-ok: TypedDict rebuild minus internal keys
-            key: value for key, value in message.items() if key not in LITELLM_INTERNAL_ASSISTANT_FIELDS
+            key: value for key, value in message.items() if key not in EMBROUTER_INTERNAL_ASSISTANT_FIELDS
         },
     )
 
@@ -209,9 +209,9 @@ class TogetherAIChatConfig(OpenAIGPTConfig):
     ) -> list[AllMessageValues] | Coroutine[object, object, list[AllMessageValues]]:  # mutable-ok: inherited contract
         """Together consumes replayed assistant `reasoning_content` (preserved thinking via
         `chat_template_kwargs: {"clear_thinking": false}`), so it must stay in the payload;
-        only litellm-internal fields are stripped before sending."""
+        only embrouter-internal fields are stripped before sending."""
         stripped: Final = [  # mutable-ok: super() requires a list
-            _without_litellm_internal_fields(message) for message in messages
+            _without_embrouter_internal_fields(message) for message in messages
         ]
         if is_async:
             return super()._transform_messages(stripped, model, is_async=True)

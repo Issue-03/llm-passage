@@ -212,21 +212,21 @@ class ProxyAuthHandler:
     - Automatically refreshes tokens before they expire (60s buffer)
     - Generates Authorization headers for HTTP requests
 
-    Set this as litellm.proxy_auth to automatically inject auth headers
-    into all requests to your LiteLLM Proxy.
+    Set this as embrouter.proxy_auth to automatically inject auth headers
+    into all requests to your EmbRouter Proxy.
 
     Example:
-        import litellm
-        from litellm.proxy_auth import AzureADCredential, ProxyAuthHandler
+        import embrouter
+        from embrouter.proxy_auth import AzureADCredential, ProxyAuthHandler
 
-        litellm.proxy_auth = ProxyAuthHandler(
+        embrouter.proxy_auth = ProxyAuthHandler(
             credential=AzureADCredential(),
-            scope="api://my-litellm-proxy/.default"
+            scope="api://my-embrouter-proxy/.default"
         )
-        litellm.api_base = "https://my-proxy.example.com"
+        embrouter.api_base = "https://my-proxy.example.com"
 
         # Auth headers are now automatically injected
-        response = litellm.completion(model="gpt-4", messages=[...])
+        response = embrouter.completion(model="gpt-4", messages=[...])
     """
 
     def __init__(self, credential: TokenCredential, scope: str):

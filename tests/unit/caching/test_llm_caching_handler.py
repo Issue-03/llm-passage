@@ -14,8 +14,8 @@ import warnings
 import pytest
 
 
-from litellm.caching.evicted_client_closer import EvictedClientCloser
-from litellm.caching.llm_caching_handler import LLMClientCache
+from embrouter.caching.evicted_client_closer import EvictedClientCloser
+from embrouter.caching.llm_caching_handler import LLMClientCache
 
 
 class MockAsyncClient:
@@ -166,7 +166,7 @@ class _FakeClock:
 
 
 @pytest.mark.asyncio
-async def test_evicted_litellm_owned_client_is_closed_once_the_grace_window_elapses():
+async def test_evicted_embrouter_owned_client_is_closed_once_the_grace_window_elapses():
     """
     Eviction only drops the cache's reference. The SDK clients are reference
     cycles, so without an explicit close the client keeps its connection pool
@@ -179,7 +179,7 @@ async def test_evicted_litellm_owned_client_is_closed_once_the_grace_window_elap
     )
 
     client = MockAsyncClient()
-    cache.set_cache("client-key", client, litellm_owned_client=True, ttl=600)
+    cache.set_cache("client-key", client, embrouter_owned_client=True, ttl=600)
 
     cache.ttl_dict = {key: 0 for key in cache.ttl_dict}
     cache.expiration_heap = [(0, key) for _, key in cache.expiration_heap]
@@ -196,7 +196,7 @@ async def test_evicted_litellm_owned_client_is_closed_once_the_grace_window_elap
 
 @pytest.mark.asyncio
 async def test_evicted_caller_supplied_client_is_never_closed():
-    """litellm does not own a client the caller passed in, so it must stay open."""
+    """embrouter does not own a client the caller passed in, so it must stay open."""
     clock = _FakeClock()
     cache = LLMClientCache(
         max_size_in_memory=2,

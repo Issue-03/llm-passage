@@ -6,13 +6,13 @@ from typing import Final
 
 import httpx
 
-from litellm._logging import verbose_proxy_logger
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.litellm_core_utils.litellm_logging import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.embrouter_core_utils.embrouter_logging import (
     get_standard_logging_object_payload,
 )
-from litellm.proxy._types import PassThroughEndpointLoggingTypedDict
-from litellm.types.utils import StandardPassThroughResponseObject
+from embrouter.proxy._types import PassThroughEndpointLoggingTypedDict
+from embrouter.types.utils import StandardPassThroughResponseObject
 
 COMPREHEND_MEDICAL_CHARS_PER_UNIT: Final = 100
 COMPREHEND_MEDICAL_COST_PER_UNIT_USD: Final[Mapping[str, float]] = MappingProxyType(
@@ -44,7 +44,7 @@ class ComprehendMedicalPassthroughLoggingHandler:
     @staticmethod
     def comprehend_medical_passthrough_handler(
         httpx_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         url_route: str,
         result: str,
         start_time: datetime,

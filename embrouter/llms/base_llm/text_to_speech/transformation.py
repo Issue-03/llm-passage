@@ -5,18 +5,18 @@ from typing import TYPE_CHECKING, Any, TypedDict
 import httpx
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
-    from litellm.types.llms.openai import (
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
+    from embrouter.types.llms.openai import (
         HttpxBinaryResponseContent as _HttpxBinaryResponseContent,
     )
 
     from ..chat.transformation import BaseLLMException as _BaseLLMException
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
     BaseLLMException = _BaseLLMException
     HttpxBinaryResponseContent = _HttpxBinaryResponseContent
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
     BaseLLMException = Any
     HttpxBinaryResponseContent = Any
 
@@ -94,7 +94,7 @@ class BaseTextToSpeechConfig(ABC):
         self,
         model: str,
         api_base: str | None,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> str:
         """
         Get the complete url for the request
@@ -110,7 +110,7 @@ class BaseTextToSpeechConfig(ABC):
         input: str,
         voice: str | None,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> TextToSpeechRequestData:
         """
@@ -127,7 +127,7 @@ class BaseTextToSpeechConfig(ABC):
         self,
         model: str,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> "HttpxBinaryResponseContent":
         """
         Transform provider response to standard format

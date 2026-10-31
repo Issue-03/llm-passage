@@ -5,18 +5,18 @@ Test suite for XAI cost calculation functionality.
 import math
 import os
 
-import litellm
-from litellm.litellm_core_utils.llm_cost_calc.tool_call_cost_tracking import (
+import embrouter
+from embrouter.embrouter_core_utils.llm_cost_calc.tool_call_cost_tracking import (
     StandardBuiltInToolCostTracking,
 )
-from litellm.llms.xai.cost_calculator import (
+from embrouter.llms.xai.cost_calculator import (
     _DEFAULT_WEB_SEARCH_COST_PER_CALL,
     _web_search_cost_per_call_from_model_info,
     apply_server_side_tool_usage_details_to_usage,
     cost_per_token,
     cost_per_web_search_request,
 )
-from litellm.types.utils import (
+from embrouter.types.utils import (
     Choices,
     Message,
     ModelResponse,
@@ -36,17 +36,17 @@ class TestXAICostCalculator:
         try:
             with open("model_prices_and_context_window.json", "r") as f:
                 model_cost_map = json.load(f)
-            litellm.model_cost = model_cost_map
+            embrouter.model_cost = model_cost_map
         except FileNotFoundError:
             # Fallback to default behavior
-            os.environ["LITELLM_LOCAL_MODEL_COST_MAP"] = "True"
-            litellm.model_cost = litellm.get_model_cost_map(url="")
+            os.environ["EMBROUTER_LOCAL_MODEL_COST_MAP"] = "True"
+            embrouter.model_cost = embrouter.get_model_cost_map(url="")
 
     def test_tiered_pricing_model_without_tiered_pricing(self):
-        litellm.model_cost["xai/flat-rate-fixture"] = {
+        embrouter.model_cost["xai/flat-rate-fixture"] = {
             "input_cost_per_token": 3e-7,
             "output_cost_per_token": 5e-7,
-            "litellm_provider": "xai",
+            "embrouter_provider": "xai",
             "mode": "chat",
         }
         usage = Usage(prompt_tokens=250000, completion_tokens=50000, total_tokens=300000)
@@ -141,7 +141,7 @@ class TestXAICostCalculator:
 
         Legacy behaviour stays intact when xAI reports no cost.
         """
-        from litellm.llms import get_cost_for_web_search_request
+        from embrouter.llms import get_cost_for_web_search_request
 
         usage = Usage(prompt_tokens=100, completion_tokens=50, total_tokens=150)
         setattr(usage, "server_side_tool_usage_details", {"web_search_calls": 3})
@@ -171,7 +171,7 @@ class TestXAICostCalculator:
             usage=Usage(prompt_tokens=198, completion_tokens=353, total_tokens=551, cost=0.0009956),
         )
 
-        billed = litellm.completion_cost(
+        billed = embrouter.completion_cost(
             completion_response=response,
             model="xai/grok-4-latest",
             custom_llm_provider="xai",
@@ -184,9 +184,9 @@ class TestXAICostCalculator:
     def test_deployment_custom_pricing_beats_the_reported_cost(self, monkeypatch):
         deployment_id = "xai-deployment-priced-by-the-operator"
         monkeypatch.setitem(
-            litellm.model_cost,
+            embrouter.model_cost,
             deployment_id,
-            {"input_cost_per_token": 0.001, "output_cost_per_token": 0.001, "litellm_provider": "xai", "mode": "chat"},
+            {"input_cost_per_token": 0.001, "output_cost_per_token": 0.001, "embrouter_provider": "xai", "mode": "chat"},
         )
         response = ModelResponse(
             id="chatcmpl-xai",
@@ -195,7 +195,7 @@ class TestXAICostCalculator:
             usage=Usage(prompt_tokens=198, completion_tokens=353, total_tokens=551, cost=0.0009956),
         )
 
-        billed = litellm.completion_cost(
+        billed = embrouter.completion_cost(
             completion_response=response,
             model="xai/grok-4-latest",
             custom_llm_provider="xai",

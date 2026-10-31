@@ -48,7 +48,7 @@ const vectorStoreEditShape = {
   vector_store_name: z.string().nullish(),
   vector_store_description: z.string().nullish(),
   custom_llm_provider: z.string().min(1, "Please select a provider"),
-  litellm_credential_name: z.string().nullable().optional(),
+  embrouter_credential_name: z.string().nullable().optional(),
 };
 
 const vectorStoreEditSchema = z.object(vectorStoreEditShape);
@@ -65,7 +65,7 @@ const toFormValues = (vectorStore: VectorStore): VectorStoreEditValues => ({
   vector_store_name: vectorStore.vector_store_name,
   vector_store_description: vectorStore.vector_store_description,
   custom_llm_provider: vectorStore.custom_llm_provider ?? "",
-  litellm_credential_name: vectorStore.litellm_credential_name,
+  embrouter_credential_name: vectorStore.embrouter_credential_name,
 });
 
 interface CredentialOption {
@@ -320,7 +320,7 @@ const VectorStoreInfoView: React.FC<VectorStoreInfoViewProps> = ({
                           Either select existing credentials OR enter provider credentials below
                         </p>
 
-                        <FormField control={form.control} name="litellm_credential_name" label="Existing Credentials">
+                        <FormField control={form.control} name="embrouter_credential_name" label="Existing Credentials">
                           {({
                             id,
                             value,

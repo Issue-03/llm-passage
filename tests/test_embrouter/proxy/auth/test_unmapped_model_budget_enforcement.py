@@ -9,29 +9,29 @@ causing _is_model_cost_zero() to return True and skip all budget checks.
 
 import copy
 
-import litellm
-from litellm.proxy.auth.auth_checks import _is_model_cost_zero
-from litellm.router import Router
+import embrouter
+from embrouter.proxy.auth.auth_checks import _is_model_cost_zero
+from embrouter.router import Router
 
 
 class TestUnmappedModelBudgetEnforcement:
     """Unmapped models must NOT bypass budget checks."""
 
     def setup_method(self):
-        """Snapshot litellm.model_cost before each test."""
-        self._saved_model_cost = copy.deepcopy(litellm.model_cost)
+        """Snapshot embrouter.model_cost before each test."""
+        self._saved_model_cost = copy.deepcopy(embrouter.model_cost)
 
     def teardown_method(self):
-        """Restore litellm.model_cost after each test."""
-        litellm.model_cost = self._saved_model_cost
+        """Restore embrouter.model_cost after each test."""
+        embrouter.model_cost = self._saved_model_cost
 
     def test_unmapped_model_enforces_budget(self):
-        """A model not in litellm.model_cost should have budget enforced."""
+        """A model not in embrouter.model_cost should have budget enforced."""
         router = Router(
             model_list=[
                 {
                     "model_name": "custom-model",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "openai/totally-nonexistent-model-xyz",
                         "api_key": "sk-fake",
                     },
@@ -50,7 +50,7 @@ class TestUnmappedModelBudgetEnforcement:
             model_list=[
                 {
                     "model_name": "free-model",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "ollama/llama2",
                         "api_base": "http://localhost:11434",
                         "input_cost_per_token": 0.0,
@@ -75,7 +75,7 @@ class TestUnmappedModelBudgetEnforcement:
             model_list=[
                 {
                     "model_name": "paid-model",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "openai/gpt-4o-mini",
                         "api_key": "sk-fake",
                     },
@@ -85,13 +85,13 @@ class TestUnmappedModelBudgetEnforcement:
         result = _is_model_cost_zero(model="paid-model", llm_router=router)
         assert result is False, "Known paid model should enforce budget (return False)"
 
-    def test_unmapped_model_with_litellm_params_pricing(self):
-        """A model with cost=0 in litellm_params (not model_info) should bypass budget."""
+    def test_unmapped_model_with_embrouter_params_pricing(self):
+        """A model with cost=0 in embrouter_params (not model_info) should bypass budget."""
         router = Router(
             model_list=[
                 {
                     "model_name": "free-via-params",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "openai/nonexistent-but-free-model",
                         "api_key": "sk-fake",
                         "input_cost_per_token": 0.0,
@@ -103,7 +103,7 @@ class TestUnmappedModelBudgetEnforcement:
         result = _is_model_cost_zero(model="free-via-params", llm_router=router)
         assert (
             result is True
-        ), "Model with explicit cost=0 in litellm_params should bypass budget"
+        ), "Model with explicit cost=0 in embrouter_params should bypass budget"
 
     def test_cache_invalidates_on_in_place_pricing_update(self):
         """
@@ -113,13 +113,13 @@ class TestUnmappedModelBudgetEnforcement:
         cached ``_is_model_cost_zero=True`` answer so budget checks resume
         immediately — not after the next proxy restart.
         """
-        from litellm.types.router import Deployment, LiteLLM_Params, ModelInfo
+        from embrouter.types.router import Deployment, EmbRouter_Params, ModelInfo
 
         router = Router(
             model_list=[
                 {
                     "model_name": "ramping-model",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "openai/ramping-deploy",
                         "api_key": "sk-fake",
                         "input_cost_per_token": 0.0,
@@ -143,7 +143,7 @@ class TestUnmappedModelBudgetEnforcement:
         router.upsert_deployment(
             deployment=Deployment(
                 model_name="ramping-model",
-                litellm_params=LiteLLM_Params(
+                embrouter_params=EmbRouter_Params(
                     model="openai/ramping-deploy",
                     api_key="sk-fake",
                     input_cost_per_token=0.000002,
@@ -170,7 +170,7 @@ class TestUnmappedModelBudgetEnforcement:
             model_list=[
                 {
                     "model_name": "smart-router",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "auto_router/complexity_router/smart-router",
                         "complexity_router_default_model": "paid-model",
                         "input_cost_per_token": 0.0,
@@ -181,13 +181,13 @@ class TestUnmappedModelBudgetEnforcement:
                 },
                 {
                     "model_name": "paid-model",
-                    "litellm_params": {"model": "openai/gpt-4o", "api_key": "sk-fake"},
+                    "embrouter_params": {"model": "openai/gpt-4o", "api_key": "sk-fake"},
                     "model_info": {"id": "paid-id"},
                 },
             ]
         )
 
-        assert "input_cost_per_token" not in litellm.model_cost.get("alias-id", {})
+        assert "input_cost_per_token" not in embrouter.model_cost.get("alias-id", {})
         assert _is_model_cost_zero(model="smart-router", llm_router=router) is False
 
     def test_model_group_alias_to_free_model_bypasses_budget(self):
@@ -200,7 +200,7 @@ class TestUnmappedModelBudgetEnforcement:
             model_list=[
                 {
                     "model_name": "free-model",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "ollama/llama2",
                         "api_base": "http://localhost:11434",
                         "input_cost_per_token": 0.0,
@@ -223,7 +223,7 @@ class TestUnmappedModelBudgetEnforcement:
             model_list=[
                 {
                     "model_name": "free-model",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "ollama/llama2",
                         "api_base": "http://localhost:11434",
                         "input_cost_per_token": 0.0,
@@ -243,7 +243,7 @@ class TestUnmappedModelBudgetEnforcement:
             model_list=[
                 {
                     "model_name": "paid-model",
-                    "litellm_params": {"model": "gpt-3.5-turbo", "api_key": "sk-fake"},
+                    "embrouter_params": {"model": "gpt-3.5-turbo", "api_key": "sk-fake"},
                     "model_info": {"id": "paid-model-id"},
                 },
             ],
@@ -263,7 +263,7 @@ class TestUnmappedModelBudgetEnforcement:
             model_list=[
                 {
                     "model_name": "ptu-model",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "azure/ptu-deployment",
                         "api_base": "https://fake.openai.azure.com",
                         "api_key": "sk-fake",
@@ -292,7 +292,7 @@ class TestUnmappedModelBudgetEnforcement:
             model_list=[
                 {
                     "model_name": "free-model",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "ollama/llama2",
                         "api_base": "http://localhost:11434",
                         "input_cost_per_token": 0.0,
@@ -312,7 +312,7 @@ class TestUnmappedModelBudgetEnforcement:
             model_list=[
                 {
                     "model_name": "free-model",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "ollama/llama2",
                         "api_base": "http://localhost:11434",
                         "input_cost_per_token": 0.0,
@@ -332,7 +332,7 @@ class TestUnmappedModelBudgetEnforcement:
         compute a correct answer, just without caching."""
         from unittest.mock import MagicMock
 
-        from litellm.types.router import ModelGroupInfo
+        from embrouter.types.router import ModelGroupInfo
 
         mock_router = MagicMock(spec=Router)
         mock_router.model_list = []

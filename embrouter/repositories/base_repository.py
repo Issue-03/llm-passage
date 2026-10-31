@@ -8,7 +8,7 @@ from typing import Any, Final, Generic, Protocol, TypeVar, runtime_checkable
 
 from pydantic import BaseModel
 
-from litellm.repositories.prisma_protocols import TableActions
+from embrouter.repositories.prisma_protocols import TableActions
 
 T = TypeVar("T", bound=BaseModel)
 

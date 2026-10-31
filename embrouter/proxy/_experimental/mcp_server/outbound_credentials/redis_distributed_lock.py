@@ -8,7 +8,7 @@ PX-expired and was re-acquired by another worker cannot delete the new holder's 
 ``EXISTS``. Every key is run through the injected ``namespace_key`` before it reaches Redis, so lock
 keys carry the same namespace as cache keys and cannot collide with another deployment sharing Redis.
 
-The Redis client is injected (in production the async client from LiteLLM's ``RedisCache``), so the
+The Redis client is injected (in production the async client from EmbRouter's ``RedisCache``), so the
 lock is unit-testable with a fake. A transport error on ``acquire`` returns ``LockAcquisition.ERROR`` -
 distinct from ``HELD`` - so the coordinator refreshes anyway instead of mistaking a dead backend for a
 busy holder; a Redis blip degrades to an extra refresh, never a stale bearer.
@@ -20,8 +20,8 @@ from collections.abc import Callable
 from dataclasses import KW_ONLY, dataclass
 from typing import Final, Protocol
 
-from litellm._logging import verbose_logger
-from litellm.proxy._experimental.mcp_server.outbound_credentials.redis_refresh_coordinator import (
+from embrouter._logging import verbose_logger
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.redis_refresh_coordinator import (
     LockAcquisition,
 )
 

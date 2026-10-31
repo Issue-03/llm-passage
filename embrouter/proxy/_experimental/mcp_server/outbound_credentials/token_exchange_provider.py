@@ -13,17 +13,17 @@ from typing import Final
 
 import httpx
 
-from litellm._logging import verbose_logger
-from litellm.constants import (
+from embrouter._logging import verbose_logger
+from embrouter.constants import (
     MCP_OAUTH2_TOKEN_CACHE_DEFAULT_TTL,
     MCP_OAUTH2_TOKEN_CACHE_MIN_TTL,
     MCP_OAUTH2_TOKEN_EXPIRY_BUFFER_SECONDS,
     MCP_TOKEN_EXCHANGE_CACHE_MAX_SIZE,
 )
-from litellm.proxy._experimental.mcp_server.outbound_credentials.oauth_token_store import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.oauth_token_store import (
     InMemoryTokenCacheBackend,
 )
-from litellm.proxy._experimental.mcp_server.outbound_credentials.token_exchanger import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.token_exchanger import (
     OboTokenExchanger,
     SubjectTokenRejected,
     TokenExchangeClientError,
@@ -62,12 +62,12 @@ def _oauth_error_fields(response: httpx.Response) -> tuple[str | None, str | Non
 async def _post_exchange_endpoint(
     url: str, form: dict[str, str], client_auth_headers: dict[str, str]
 ) -> dict[str, object] | None:
-    from litellm.llms.custom_httpx.http_handler import (  # noqa: PLC0415
+    from embrouter.llms.custom_httpx.http_handler import (  # noqa: PLC0415
         get_async_httpx_client,  # pyright: ignore
     )
-    from litellm.types.llms.custom_http import httpxSpecialProvider  # noqa: PLC0415
+    from embrouter.types.llms.custom_http import httpxSpecialProvider  # noqa: PLC0415
 
-    # litellm's httpx handler and httpx.Response are only partially typed; the IdP returns a JSON
+    # embrouter's httpx handler and httpx.Response are only partially typed; the IdP returns a JSON
     # object and the exchanger validates each field, so the untyped boundary is contained here.
     # A 4xx is the IdP rejecting the subject (non-retryable -> 401 via SubjectTokenRejected); any
     # other failure is a miss (-> None -> upstream_unavailable -> 503), matching v1's fail-closed.

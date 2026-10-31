@@ -11,21 +11,21 @@ from typing import Any, Final, Literal
 
 from fastapi import HTTPException
 
-from litellm._logging import verbose_proxy_logger
-from litellm.integrations.custom_guardrail import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.integrations.custom_guardrail import (
     CustomGuardrail,
     log_guardrail_information,
 )
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.guardrails import GuardrailEventHooks, LitellmParams
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
-from litellm.types.utils import GenericGuardrailAPIInputs
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.guardrails import GuardrailEventHooks, EmbrouterParams
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
+from embrouter.types.utils import GenericGuardrailAPIInputs
 
 GUARDRAIL_NAME: Final = "qualifire"
 DEFAULT_QUALIFIRE_API_BASE: Final = "https://proxy.qualifire.ai"
@@ -101,7 +101,7 @@ class QualifireGuardrail(CustomGuardrail):
 
     def _validate_on_flagged(self, on_flagged: str) -> None:
         if on_flagged not in ("block", "monitor"):
-            # on_flagged is defined on LakeraV2GuardrailConfigModel but LitellmParams
+            # on_flagged is defined on LakeraV2GuardrailConfigModel but EmbrouterParams
             # flattens every guardrail config mixin together, so a value Lakera
             # supports (e.g. "inject_system_message") type-checks for any guardrail,
             # including this one, which never implements it. Reject it explicitly
@@ -111,9 +111,9 @@ class QualifireGuardrail(CustomGuardrail):
                 "only 'block' and 'monitor' are supported."
             )
 
-    def update_in_memory_litellm_params(self, litellm_params: LitellmParams) -> None:
+    def update_in_memory_embrouter_params(self, embrouter_params: EmbrouterParams) -> None:
         """
-        The base implementation blindly ``setattr``s every field on ``litellm_params``
+        The base implementation blindly ``setattr``s every field on ``embrouter_params``
         (including ``on_flagged``) onto this live instance with no revalidation, so an
         in-place config update (via the DB/UI, without a restart) could otherwise
         reintroduce the exact invalid on_flagged value __init__ rejects. Validate the
@@ -121,9 +121,9 @@ class QualifireGuardrail(CustomGuardrail):
         the live instance untouched instead of raising after it's already been
         corrupted. Mirrors LakeraAIGuardrail's own override of this same method.
         """
-        prospective_on_flagged: Final = litellm_params.on_flagged or self.on_flagged
+        prospective_on_flagged: Final = embrouter_params.on_flagged or self.on_flagged
         self._validate_on_flagged(prospective_on_flagged)
-        super().update_in_memory_litellm_params(litellm_params=litellm_params)
+        super().update_in_memory_embrouter_params(embrouter_params=embrouter_params)
 
     def _has_any_check_enabled(self) -> bool:
         """Check if any evaluation check is explicitly enabled."""
@@ -141,7 +141,7 @@ class QualifireGuardrail(CustomGuardrail):
 
     def _convert_messages_to_api_format(self, messages: list[AllMessageValues]) -> list[dict[str, object]]:
         """
-        Convert LiteLLM messages to Qualifire API format.
+        Convert EmbRouter messages to Qualifire API format.
         Supports tool calls for tool_selection_quality_check.
 
         Returns a list of dicts matching the API's ModelInvocationCanonicalMessage schema:
@@ -425,7 +425,7 @@ class QualifireGuardrail(CustomGuardrail):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict,
         input_type: Literal["request", "response"],
-        logging_obj: LiteLLMLoggingObj | None = None,
+        logging_obj: EmbRouterLoggingObj | None = None,
     ) -> GenericGuardrailAPIInputs:
         """
         Apply Qualifire guardrail to the given inputs.
@@ -493,7 +493,7 @@ class QualifireGuardrail(CustomGuardrail):
 
     @staticmethod
     def get_config_model() -> type["GuardrailConfigModel"] | None:
-        from litellm.types.proxy.guardrails.guardrail_hooks.qualifire import (
+        from embrouter.types.proxy.guardrails.guardrail_hooks.qualifire import (
             QualifireGuardrailConfigModel,
         )
 

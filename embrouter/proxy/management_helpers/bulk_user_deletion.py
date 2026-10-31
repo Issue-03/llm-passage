@@ -19,42 +19,42 @@ from typing import TYPE_CHECKING, Final
 from fastapi import HTTPException
 from typing_extensions import ReadOnly, TypedDict
 
-from litellm._logging import verbose_proxy_logger
-from litellm.integrations.prometheus import PrometheusLogger
-from litellm.proxy._types import (
-    LiteLLM_TeamTable,
-    LitellmUserRoles,
+from embrouter._logging import verbose_proxy_logger
+from embrouter.integrations.prometheus import PrometheusLogger
+from embrouter.proxy._types import (
+    EmbRouter_TeamTable,
+    EmbrouterUserRoles,
     Member,
     MemberDeleteRequest,
     UserAPIKeyAuth,
 )
-from litellm.proxy.auth.auth_checks import delete_cache_key_objects, get_jwt_key_mapping_cache_keys_for_tokens
-from litellm.proxy.common_utils.auth_cache_invalidation_pubsub import evict_and_broadcast
-from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-from litellm.proxy.hooks.key_management_event_hooks import KeyManagementEventHooks
-from litellm.proxy.hooks.user_management_event_hooks import UserManagementEventHooks
-from litellm.proxy.list_api.common import PROBLEM_TYPE_BASE, ManagementProblem
-from litellm.proxy.management_endpoints.common_utils import (
+from embrouter.proxy.auth.auth_checks import delete_cache_key_objects, get_jwt_key_mapping_cache_keys_for_tokens
+from embrouter.proxy.common_utils.auth_cache_invalidation_pubsub import evict_and_broadcast
+from embrouter.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+from embrouter.proxy.hooks.key_management_event_hooks import KeyManagementEventHooks
+from embrouter.proxy.hooks.user_management_event_hooks import UserManagementEventHooks
+from embrouter.proxy.list_api.common import PROBLEM_TYPE_BASE, ManagementProblem
+from embrouter.proxy.management_endpoints.common_utils import (
     _is_user_org_admin_for_team,  # pyright: ignore[reportPrivateUsage]  # same check /team/member_delete uses
     _is_user_team_admin,  # pyright: ignore[reportPrivateUsage]  # same check /team/member_delete uses
 )
-from litellm.proxy.management_endpoints.key_management_endpoints import (
+from embrouter.proxy.management_endpoints.key_management_endpoints import (
     _persist_deleted_verification_tokens,  # pyright: ignore[reportPrivateUsage]  # same audit path /key/delete uses
 )
-from litellm.proxy.management_helpers.access_group_team_sync import TEAM_ADVISORY_LOCK_SQL
-from litellm.proxy.utils import PrismaClient, ProxyLogging
-from litellm.repositories.table_repositories import (
+from embrouter.proxy.management_helpers.access_group_team_sync import TEAM_ADVISORY_LOCK_SQL
+from embrouter.proxy.utils import PrismaClient, ProxyLogging
+from embrouter.repositories.table_repositories import (
     OrganizationMembershipRepository,
     TeamMembershipRepository,
 )
-from litellm.repositories.team_repository import TeamRepository
-from litellm.repositories.user_repository import UserRepository
-from litellm.types.proxy.management_endpoints.internal_user_endpoints import (
+from embrouter.repositories.team_repository import TeamRepository
+from embrouter.repositories.user_repository import UserRepository
+from embrouter.types.proxy.management_endpoints.internal_user_endpoints import (
     BulkDeleteUserRequest,
     UserDeleteResult,
 )
-from litellm.types.proxy.management_endpoints.management_v1 import ProblemDetail
-from litellm.types.proxy.management_endpoints.team_endpoints import (
+from embrouter.types.proxy.management_endpoints.management_v1 import ProblemDetail
+from embrouter.types.proxy.management_endpoints.team_endpoints import (
     BulkTeamMemberDeleteRequest,
     TeamMemberDeleteResult,
 )
@@ -63,7 +63,7 @@ if TYPE_CHECKING:
     from prisma import Prisma
     from prisma import models as prisma_models
 
-    from litellm.repositories.prisma_protocols import TableActions
+    from embrouter.repositories.prisma_protocols import TableActions
 
 _AUDIT_LOG_CONCURRENCY: Final = 10
 _BATCH_TX_TIMEOUT: Final = timedelta(seconds=60)
@@ -91,10 +91,10 @@ class _TeamRemoval:
     """One team's rewrite. `removed` holds the user ids taken off the team (roster, `teams` array, or both);
     `matched` holds the indexes into the requested members that named at least one of them."""
 
-    team: LiteLLM_TeamTable
+    team: EmbRouter_TeamTable
     removed: frozenset[str]
     matched: frozenset[int]
-    deleted_keys: tuple["prisma_models.LiteLLM_VerificationToken", ...]
+    deleted_keys: tuple["prisma_models.EmbRouter_VerificationToken", ...]
     jwt_mapping_cache_keys: tuple[str, ...]
 
     @property
@@ -105,7 +105,7 @@ class _TeamRemoval:
 @dataclass(frozen=True, slots=True)
 class _UserBatchDeletion:
     removals: Mapping[str, _TeamRemoval]
-    deleted_keys: tuple["prisma_models.LiteLLM_VerificationToken", ...]
+    deleted_keys: tuple["prisma_models.EmbRouter_VerificationToken", ...]
     jwt_mapping_cache_keys: tuple[str, ...]
 
     @property
@@ -115,7 +115,7 @@ class _UserBatchDeletion:
 
 @dataclass(frozen=True, slots=True)
 class _DeletedKeys:
-    keys: tuple["prisma_models.LiteLLM_VerificationToken", ...]
+    keys: tuple["prisma_models.EmbRouter_VerificationToken", ...]
     jwt_mapping_cache_keys: tuple[str, ...]
 
 
@@ -152,28 +152,28 @@ def _any_filter(*clauses: Mapping[str, object]) -> Mapping[str, object]:
     return {"OR": clauses}  # mutable-ok: Prisma query filters are dict-shaped
 
 
-def _team_tx_db(tx: "Prisma") -> "TableActions[prisma_models.LiteLLM_TeamTable]":
-    return tx.litellm_teamtable  # pyright: ignore[reportReturnType]  # TableActions widens the generated inputs to Mapping, as the repositories do
+def _team_tx_db(tx: "Prisma") -> "TableActions[prisma_models.EmbRouter_TeamTable]":
+    return tx.embrouter_teamtable  # pyright: ignore[reportReturnType]  # TableActions widens the generated inputs to Mapping, as the repositories do
 
 
-def _user_tx_db(tx: "Prisma") -> "TableActions[prisma_models.LiteLLM_UserTable]":
-    return tx.litellm_usertable  # pyright: ignore[reportReturnType]  # TableActions widens the generated inputs to Mapping, as the repositories do
+def _user_tx_db(tx: "Prisma") -> "TableActions[prisma_models.EmbRouter_UserTable]":
+    return tx.embrouter_usertable  # pyright: ignore[reportReturnType]  # TableActions widens the generated inputs to Mapping, as the repositories do
 
 
-def _membership_tx_db(tx: "Prisma") -> "TableActions[prisma_models.LiteLLM_TeamMembership]":
-    return tx.litellm_teammembership  # pyright: ignore[reportReturnType]  # TableActions widens the generated inputs to Mapping, as the repositories do
+def _membership_tx_db(tx: "Prisma") -> "TableActions[prisma_models.EmbRouter_TeamMembership]":
+    return tx.embrouter_teammembership  # pyright: ignore[reportReturnType]  # TableActions widens the generated inputs to Mapping, as the repositories do
 
 
-def _token_tx_db(tx: "Prisma") -> "TableActions[prisma_models.LiteLLM_VerificationToken]":
-    return tx.litellm_verificationtoken  # pyright: ignore[reportReturnType]  # TableActions widens the generated inputs to Mapping, as the repositories do
+def _token_tx_db(tx: "Prisma") -> "TableActions[prisma_models.EmbRouter_VerificationToken]":
+    return tx.embrouter_verificationtoken  # pyright: ignore[reportReturnType]  # TableActions widens the generated inputs to Mapping, as the repositories do
 
 
-def _invitation_tx_db(tx: "Prisma") -> "TableActions[prisma_models.LiteLLM_InvitationLink]":
-    return tx.litellm_invitationlink  # pyright: ignore[reportReturnType]  # TableActions widens the generated inputs to Mapping, as the repositories do
+def _invitation_tx_db(tx: "Prisma") -> "TableActions[prisma_models.EmbRouter_InvitationLink]":
+    return tx.embrouter_invitationlink  # pyright: ignore[reportReturnType]  # TableActions widens the generated inputs to Mapping, as the repositories do
 
 
-def _org_membership_tx_db(tx: "Prisma") -> "TableActions[prisma_models.LiteLLM_OrganizationMembership]":
-    return tx.litellm_organizationmembership  # pyright: ignore[reportReturnType]  # TableActions widens the generated inputs to Mapping, as the repositories do
+def _org_membership_tx_db(tx: "Prisma") -> "TableActions[prisma_models.EmbRouter_OrganizationMembership]":
+    return tx.embrouter_organizationmembership  # pyright: ignore[reportReturnType]  # TableActions widens the generated inputs to Mapping, as the repositories do
 
 
 def _same_email(email: str | None, request: MemberDeleteRequest) -> bool:
@@ -192,7 +192,7 @@ def _with_row_email(request: MemberDeleteRequest, email_of: Mapping[str, str]) -
     return MemberDeleteRequest(user_id=request.user_id, user_email=email_of.get(request.user_id))
 
 
-def _addresses_user(user: "prisma_models.LiteLLM_UserTable", request: MemberDeleteRequest) -> bool:
+def _addresses_user(user: "prisma_models.EmbRouter_UserTable", request: MemberDeleteRequest) -> bool:
     if request.user_id is None:
         return _same_email(user.user_email, request)
     return request.user_id == user.user_id
@@ -270,16 +270,16 @@ async def _remove_members_from_team(
     await _membership_tx_db(tx).delete_many(where=_team_users_filter(team_id, cleanup_ids))
     if keys:
         await _persist_deleted_verification_tokens(
-            keys=keys,  # pyright: ignore[reportArgumentType]  # generated row model carries the same columns as LiteLLM_VerificationToken
+            keys=keys,  # pyright: ignore[reportArgumentType]  # generated row model carries the same columns as EmbRouter_VerificationToken
             prisma_client=prisma_client,
             user_api_key_dict=user_api_key_dict,
-            litellm_changed_by=None,
+            embrouter_changed_by=None,
             tx=tx,
         )
         await _token_tx_db(tx).delete_many(where=_team_users_filter(team_id, cleanup_ids))
 
     return _TeamRemoval(
-        team=LiteLLM_TeamTable(
+        team=EmbRouter_TeamTable(
             team_id=team_id,
             members_with_roles=kept_members,  # pyright: ignore[reportArgumentType]  # pydantic coerces the tuple into the list field
         ),
@@ -290,7 +290,7 @@ async def _remove_members_from_team(
     )
 
 
-def _emit_team_members_metric(team: LiteLLM_TeamTable) -> None:
+def _emit_team_members_metric(team: EmbRouter_TeamTable) -> None:
     prometheus_logger: Final = PrometheusLogger.get_instance()
     if prometheus_logger is None:
         return
@@ -325,7 +325,7 @@ async def bulk_remove_team_members(
         raise _team_not_found(team_id)
 
     if (
-        user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN.value
+        user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN.value
         and not _is_user_team_admin(user_api_key_dict=user_api_key_dict, team_obj=team)
         and not await _is_user_org_admin_for_team(user_api_key_dict=user_api_key_dict, team_obj=team)
     ):
@@ -343,7 +343,7 @@ async def bulk_remove_team_members(
         KeyManagementEventHooks.create_key_deleted_audit_logs(
             keys_being_deleted=removal.deleted_keys,
             user_api_key_dict=user_api_key_dict,
-            litellm_changed_by=None,
+            embrouter_changed_by=None,
         )
     await delete_cache_key_objects(
         hashed_tokens=removal.deleted_key_tokens,
@@ -372,11 +372,11 @@ async def bulk_remove_team_members(
 
 
 async def _caller_admin_org_ids(prisma_client: PrismaClient, user_api_key_dict: UserAPIKeyAuth) -> frozenset[str]:
-    if user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN.value or not user_api_key_dict.user_id:
+    if user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN.value or not user_api_key_dict.user_id:
         return frozenset()
     where: Final[_OrgAdminFilter] = {
         "user_id": user_api_key_dict.user_id,
-        "user_role": LitellmUserRoles.ORG_ADMIN.value,
+        "user_role": EmbrouterUserRoles.ORG_ADMIN.value,
     }
     memberships: Final = await OrganizationMembershipRepository(prisma_client).table.find_many(where=where)
     return frozenset(m.organization_id for m in memberships if m.organization_id)
@@ -396,7 +396,7 @@ async def _delete_user_rows(
     tx: "Prisma",
     user_ids: frozenset[str],
     user_api_key_dict: UserAPIKeyAuth,
-    litellm_changed_by: str | None,
+    embrouter_changed_by: str | None,
 ) -> _DeletedKeys:
     keys: Final = await _token_tx_db(tx).find_many(where=_in_filter("user_id", user_ids))
     jwt_mapping_cache_keys: Final = await get_jwt_key_mapping_cache_keys_for_tokens(
@@ -405,10 +405,10 @@ async def _delete_user_rows(
     )
     if keys:
         await _persist_deleted_verification_tokens(
-            keys=keys,  # pyright: ignore[reportArgumentType]  # generated row model carries the same columns as LiteLLM_VerificationToken
+            keys=keys,  # pyright: ignore[reportArgumentType]  # generated row model carries the same columns as EmbRouter_VerificationToken
             prisma_client=prisma_client,
             user_api_key_dict=user_api_key_dict,
-            litellm_changed_by=litellm_changed_by,
+            embrouter_changed_by=embrouter_changed_by,
             tx=tx,
         )
         await _token_tx_db(tx).delete_many(where=_in_filter("user_id", user_ids))
@@ -427,10 +427,10 @@ async def _delete_user_rows(
 
 async def _delete_users_tx(
     prisma_client: PrismaClient,
-    users: Sequence["prisma_models.LiteLLM_UserTable"],
+    users: Sequence["prisma_models.EmbRouter_UserTable"],
     teams_of: Mapping[str, frozenset[str]],
     user_api_key_dict: UserAPIKeyAuth,
-    litellm_changed_by: str | None,
+    embrouter_changed_by: str | None,
 ) -> _UserBatchDeletion:
     """Rewrites every team the users belong to and deletes their rows in one transaction, so a
     failure anywhere rolls back the whole batch. Teams a user still names but which no longer exist
@@ -457,7 +457,7 @@ async def _delete_users_tx(
             }
         )
         deleted_keys: Final = await _delete_user_rows(
-            prisma_client, tx, frozenset(u.user_id for u in users), user_api_key_dict, litellm_changed_by
+            prisma_client, tx, frozenset(u.user_id for u in users), user_api_key_dict, embrouter_changed_by
         )
     return _UserBatchDeletion(
         removals=removals,
@@ -469,18 +469,18 @@ async def _delete_users_tx(
 
 async def _delete_users(
     prisma_client: PrismaClient,
-    users: Sequence["prisma_models.LiteLLM_UserTable"],
+    users: Sequence["prisma_models.EmbRouter_UserTable"],
     teams_of: Mapping[str, frozenset[str]],
     user_api_key_dict: UserAPIKeyAuth,
     user_api_key_cache: UserApiKeyCache,
     proxy_logging_obj: ProxyLogging | None,
-    litellm_proxy_admin_name: str | None,
-    litellm_changed_by: str | None,
+    embrouter_proxy_admin_name: str | None,
+    embrouter_changed_by: str | None,
 ) -> _UserBatchDeletion | str:
     """Returns the error message when the transaction rolled back, in which case no row was touched."""
     user_ids: Final = frozenset(u.user_id for u in users)
     try:
-        deletion: Final = await _delete_users_tx(prisma_client, users, teams_of, user_api_key_dict, litellm_changed_by)
+        deletion: Final = await _delete_users_tx(prisma_client, users, teams_of, user_api_key_dict, embrouter_changed_by)
     except Exception as e:  # noqa: BLE001  # the rolled-back batch is reported per row, not as a request failure
         verbose_proxy_logger.error("users/bulk_delete: failed to delete users %s: %s", sorted(user_ids), e)
         return _error_message(e)
@@ -488,7 +488,7 @@ async def _delete_users(
         KeyManagementEventHooks.create_key_deleted_audit_logs(
             keys_being_deleted=deletion.deleted_keys,
             user_api_key_dict=user_api_key_dict,
-            litellm_changed_by=litellm_changed_by,
+            embrouter_changed_by=embrouter_changed_by,
         )
     await delete_cache_key_objects(
         hashed_tokens=deletion.deleted_key_tokens,
@@ -503,9 +503,9 @@ async def _delete_users(
         UserManagementEventHooks.create_internal_user_audit_log(
             user_id=u.user_id,
             action="deleted",
-            litellm_changed_by=litellm_changed_by,
+            embrouter_changed_by=embrouter_changed_by,
             user_api_key_dict=user_api_key_dict,
-            litellm_proxy_admin_name=litellm_proxy_admin_name,
+            embrouter_proxy_admin_name=embrouter_proxy_admin_name,
             before_value=u.model_dump_json(exclude_none=True),
         )
         for u in users
@@ -522,10 +522,10 @@ async def bulk_delete_users(
     prisma_client: PrismaClient,
     user_api_key_cache: UserApiKeyCache,
     proxy_logging_obj: ProxyLogging | None,
-    litellm_proxy_admin_name: str | None,
-    litellm_changed_by: str | None,
+    embrouter_proxy_admin_name: str | None,
+    embrouter_changed_by: str | None,
 ) -> tuple[UserDeleteResult, ...]:
-    caller_is_proxy_admin: Final = user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN.value
+    caller_is_proxy_admin: Final = user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN.value
     caller_admin_org_ids: Final = await _caller_admin_org_ids(prisma_client, user_api_key_dict)
     if not caller_is_proxy_admin and not caller_admin_org_ids:
         raise _forbidden("Only PROXY_ADMIN or ORG_ADMIN users may delete users.")
@@ -572,8 +572,8 @@ async def bulk_delete_users(
             user_api_key_dict,
             user_api_key_cache,
             proxy_logging_obj,
-            litellm_proxy_admin_name,
-            litellm_changed_by,
+            embrouter_proxy_admin_name,
+            embrouter_changed_by,
         )
         if candidates
         else _UserBatchDeletion(removals=MappingProxyType({}), deleted_keys=(), jwt_mapping_cache_keys=())

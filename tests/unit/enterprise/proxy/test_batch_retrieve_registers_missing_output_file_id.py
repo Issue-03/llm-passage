@@ -7,15 +7,15 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.openai_files_endpoints.common_utils import (
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.openai_files_endpoints.common_utils import (
     ensure_batch_response_managed_file_ids,
     get_batch_from_database,
 )
-from litellm.types.utils import LiteLLMBatch
+from embrouter.types.utils import EmbRouterBatch
 
 
-UNIFIED_BATCH_ID = "litellm_proxy;model_id:my-model;llm_batch_id:batch-raw-123"
+UNIFIED_BATCH_ID = "embrouter_proxy;model_id:my-model;llm_batch_id:batch-raw-123"
 ENCODED_UNIFIED_BATCH_ID = (
     base64.urlsafe_b64encode(UNIFIED_BATCH_ID.encode()).decode().rstrip("=")
 )
@@ -25,8 +25,8 @@ def _build_batch_response(
     *,
     output_file_id: str = "file-rawoutput789",
     error_file_id: str | None = None,
-) -> LiteLLMBatch:
-    return LiteLLMBatch(
+) -> EmbRouterBatch:
+    return EmbRouterBatch(
         id="batch-raw-123",
         object="batch",
         status="completed",
@@ -48,7 +48,7 @@ def _build_managed_files_mock(unified_id: str = "file-bWFuYWdlZF9vdXRwdXRfaWQ=")
 
 def _build_prisma_mock():
     mock = MagicMock()
-    mock.db.litellm_managedfiletable.find_first = AsyncMock(return_value=None)
+    mock.db.embrouter_managedfiletable.find_first = AsyncMock(return_value=None)
     return mock
 
 
@@ -131,10 +131,10 @@ async def test_get_batch_from_database_registers_missing_output_file_id():
         status="complete",
     )
     prisma = MagicMock()
-    prisma.db.litellm_managedobjecttable.find_first = AsyncMock(
+    prisma.db.embrouter_managedobjecttable.find_first = AsyncMock(
         return_value=batch_db_record
     )
-    prisma.db.litellm_managedfiletable.find_first = AsyncMock(return_value=None)
+    prisma.db.embrouter_managedfiletable.find_first = AsyncMock(return_value=None)
 
     mock_managed_files = _build_managed_files_mock(unified_id=unified_output_file_id)
 
@@ -181,15 +181,15 @@ async def test_ensure_batch_response_uses_batch_owner_when_db_batch_object_prese
 
 @pytest.mark.asyncio
 async def test_registered_output_file_row_denies_cross_user_access():
-    from litellm_enterprise.proxy.hooks.managed_files import (
-        _PROXY_LiteLLMManagedFiles,
+    from embrouter_enterprise.proxy.hooks.managed_files import (
+        _PROXY_EmbRouterManagedFiles,
     )
 
     raw_output_file_id = "file-raw-output"
     prisma = MagicMock()
-    prisma.db.litellm_managedfiletable.upsert = AsyncMock()
-    prisma.db.litellm_managedfiletable.find_first = AsyncMock(return_value=None)
-    managed_files = _PROXY_LiteLLMManagedFiles(
+    prisma.db.embrouter_managedfiletable.upsert = AsyncMock()
+    prisma.db.embrouter_managedfiletable.find_first = AsyncMock(return_value=None)
+    managed_files = _PROXY_EmbRouterManagedFiles(
         internal_usage_cache=MagicMock(),
         prisma_client=prisma,
     )
@@ -209,14 +209,14 @@ async def test_registered_output_file_row_denies_cross_user_access():
 
     unified_output_file_id = response.output_file_id
     assert unified_output_file_id != raw_output_file_id
-    registered_row = prisma.db.litellm_managedfiletable.upsert.call_args.kwargs[
+    registered_row = prisma.db.embrouter_managedfiletable.upsert.call_args.kwargs[
         "data"
     ]["create"]
     assert registered_row["unified_file_id"] == unified_output_file_id
     assert registered_row["created_by"] == "batch-owner"
     assert registered_row["team_id"] == "team-owner"
 
-    prisma.db.litellm_managedfiletable.find_first = AsyncMock(
+    prisma.db.embrouter_managedfiletable.find_first = AsyncMock(
         return_value=SimpleNamespace(**registered_row)
     )
 

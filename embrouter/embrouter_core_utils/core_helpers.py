@@ -10,13 +10,13 @@ from typing import TYPE_CHECKING, Any, Final, Literal, Protocol
 import httpx
 from pydantic import TypeAdapter, ValidationError
 
-from litellm._logging import verbose_logger
-from litellm.types.llms.openai import AllMessageValues, OpenAIChatCompletionFinishReason
+from embrouter._logging import verbose_logger
+from embrouter.types.llms.openai import AllMessageValues, OpenAIChatCompletionFinishReason
 
 if TYPE_CHECKING:
     from opentelemetry.trace import Span as _Span
 
-    from litellm.types.utils import ModelResponseStream
+    from embrouter.types.utils import ModelResponseStream
 
     Span = _Span | Any
 else:
@@ -67,7 +67,7 @@ def drop_params_flag(value: object, source: str, logger: logging.Logger) -> bool
     return bool(normalized)
 
 
-DROP_PARAMS_ENV_VAR: Final = "LITELLM_DROP_PARAMS"
+DROP_PARAMS_ENV_VAR: Final = "EMBROUTER_DROP_PARAMS"
 
 
 def drop_params_env_flag(environ: Mapping[str, str], logger: logging.Logger) -> bool:
@@ -104,17 +104,17 @@ def safe_divide(
     return numerator / denominator
 
 
-def _is_litellm_limit_rejection(exception: BaseException) -> bool:
-    from litellm.exceptions import RateLimitErrorCategory
+def _is_embrouter_limit_rejection(exception: BaseException) -> bool:
+    from embrouter.exceptions import RateLimitErrorCategory
 
-    litellm_limit_categories: Final = frozenset(
-        (RateLimitErrorCategory.LITELLM_RATE_LIMIT.value, RateLimitErrorCategory.LITELLM_BATCH_RATE_LIMIT.value)
+    embrouter_limit_categories: Final = frozenset(
+        (RateLimitErrorCategory.EMBROUTER_RATE_LIMIT.value, RateLimitErrorCategory.EMBROUTER_BATCH_RATE_LIMIT.value)
     )
-    return getattr(exception, "category", None) in litellm_limit_categories
+    return getattr(exception, "category", None) in embrouter_limit_categories
 
 
 def _is_proxy_rejection(exception: BaseException) -> bool:
-    if _is_litellm_limit_rejection(exception):
+    if _is_embrouter_limit_rejection(exception):
         return True
     try:
         from starlette.exceptions import HTTPException
@@ -128,7 +128,7 @@ def _is_provider_originated(exception: BaseException) -> bool:
         return False
     if getattr(exception, "llm_provider", None):
         return True
-    from litellm.llms.base_llm.chat.transformation import BaseLLMException
+    from embrouter.llms.base_llm.chat.transformation import BaseLLMException
 
     return isinstance(exception, BaseLLMException)
 
@@ -138,17 +138,17 @@ def is_expected_client_error(exception: BaseException | None) -> bool:
     True when the proxy itself rejected the request with an HTTP 4xx before any
     provider call (bad key, budget, unknown model, guardrail). A 4xx returned by
     a provider is an upstream or deployment problem, so it is never an expected
-    client error and keeps its traceback: a mapped litellm exception carries
+    client error and keeps its traceback: a mapped embrouter exception carries
     ``llm_provider``, and the raw ``BaseLLMException`` that provider handlers
     raise before mapping (the /v1/messages route surfaces it as-is) is one too.
     The proxy's own limiters raise ``HTTPException`` subclasses that also carry
     an ``llm_provider``, so any ``HTTPException`` stays a proxy rejection, and
-    so does any exception whose unified rate-limit ``category`` names litellm's
+    so does any exception whose unified rate-limit ``category`` names embrouter's
     own limiter (``BudgetExceededError`` is a plain ``Exception`` that the auth
     handler decorates with the requested model's provider).
 
     ProxyException stores the status on .code (as a str), HTTPException and
-    litellm exceptions on .status_code.
+    embrouter exceptions on .status_code.
     """
     if exception is None:
         return False
@@ -170,7 +170,7 @@ def coerce_token_limit(value: object) -> int | None:
     Coerce a max_input_tokens / max_output_tokens value to an int, treating a
     malformed value as absent.
 
-    A deployment's model_info is registered into litellm.model_cost verbatim, so a
+    A deployment's model_info is registered into embrouter.model_cost verbatim, so a
     config value like "128,000" or "" reaches the /v1/models listing uncoerced from
     both the router index and the cost map. Returning None omits that one limit
     instead of failing the whole listing.
@@ -279,35 +279,35 @@ def remove_items_at_indices(items: list[Any] | None, indices: Iterable[int]) -> 
             items.pop(index)
 
 
-def add_missing_spend_metadata_to_litellm_metadata(litellm_metadata: dict, metadata: dict) -> dict:
+def add_missing_spend_metadata_to_embrouter_metadata(embrouter_metadata: dict, metadata: dict) -> dict:
     """
-    Helper to get litellm metadata for spend tracking
+    Helper to get embrouter metadata for spend tracking
 
-    PATCH for issue where both `litellm_metadata` and `metadata` are present in the kwargs
+    PATCH for issue where both `embrouter_metadata` and `metadata` are present in the kwargs
     and user_api_key values are in 'metadata'.
     """
     potential_spend_tracking_metadata_substring: Final = "user_api_key"
     for key, value in metadata.items():
         if potential_spend_tracking_metadata_substring in key:
-            litellm_metadata[key] = value
-    return litellm_metadata
+            embrouter_metadata[key] = value
+    return embrouter_metadata
 
 
 def get_metadata_variable_name_from_kwargs(
     kwargs: Mapping[str, object],
-) -> Literal["metadata", "litellm_metadata"]:
+) -> Literal["metadata", "embrouter_metadata"]:
     """
     Helper to return what the "metadata" field should be called in the request data
 
-    - New endpoints return `litellm_metadata`
+    - New endpoints return `embrouter_metadata`
     - Old endpoints return `metadata`
 
     Context:
-    - LiteLLM used `metadata` as an internal field for storing metadata
+    - EmbRouter used `metadata` as an internal field for storing metadata
     - OpenAI then started using this field for their metadata
-    - LiteLLM is now moving to using `litellm_metadata` for our metadata
+    - EmbRouter is now moving to using `embrouter_metadata` for our metadata
     """
-    return "litellm_metadata" if "litellm_metadata" in kwargs else "metadata"
+    return "embrouter_metadata" if "embrouter_metadata" in kwargs else "metadata"
 
 
 def max_retries_per_request_hit(kwargs: Mapping[str, object], num_retries_per_request: int | None) -> bool:
@@ -322,11 +322,11 @@ def max_retries_per_request_hit(kwargs: Mapping[str, object], num_retries_per_re
 
 def get_or_create_metadata_bucket(
     request_data: dict,
-) -> tuple[Literal["metadata", "litellm_metadata"], dict]:
+) -> tuple[Literal["metadata", "embrouter_metadata"], dict]:
     """
     Return the proxy-internal metadata bucket for this request, creating it if absent.
 
-    Batch/file routes store proxy state in ``litellm_metadata`` so the OpenAI
+    Batch/file routes store proxy state in ``embrouter_metadata`` so the OpenAI
     ``metadata`` field can remain provider-safe (string values only). Every writer and
     reader of proxy-internal metadata resolves the bucket through here, so a caller that
     supplies its own ``metadata`` field cannot split them across two dicts.
@@ -339,20 +339,20 @@ def get_or_create_metadata_bucket(
     return metadata_key, metadata_bucket
 
 
-def get_litellm_metadata_from_kwargs(kwargs: dict):
+def get_embrouter_metadata_from_kwargs(kwargs: dict):
     """
-    Helper to get litellm metadata from all litellm request kwargs
+    Helper to get embrouter metadata from all embrouter request kwargs
 
-    Return `litellm_metadata` if it exists, otherwise return `metadata`
+    Return `embrouter_metadata` if it exists, otherwise return `metadata`
     """
-    litellm_params: Final = kwargs.get("litellm_params", {})
-    if litellm_params:
-        metadata: Final = litellm_params.get("metadata", {})
-        litellm_metadata = litellm_params.get("litellm_metadata", {})
-        if litellm_metadata and metadata:
-            litellm_metadata = add_missing_spend_metadata_to_litellm_metadata(litellm_metadata, metadata)
-        if litellm_metadata:
-            return litellm_metadata
+    embrouter_params: Final = kwargs.get("embrouter_params", {})
+    if embrouter_params:
+        metadata: Final = embrouter_params.get("metadata", {})
+        embrouter_metadata = embrouter_params.get("embrouter_metadata", {})
+        if embrouter_metadata and metadata:
+            embrouter_metadata = add_missing_spend_metadata_to_embrouter_metadata(embrouter_metadata, metadata)
+        if embrouter_metadata:
+            return embrouter_metadata
         elif metadata:
             return metadata
 
@@ -373,9 +373,9 @@ def budget_reservation_from_metadata(metadata: Mapping[str, object]) -> dict[str
     return on_auth_object if isinstance(on_auth_object, dict) else None
 
 
-def _stamp_budget_reservation_callback_bound(litellm_params: Mapping[str, object], callback_bound: bool) -> None:
-    for metadata_variable_name in ("metadata", "litellm_metadata"):
-        metadata = litellm_params.get(metadata_variable_name)
+def _stamp_budget_reservation_callback_bound(embrouter_params: Mapping[str, object], callback_bound: bool) -> None:
+    for metadata_variable_name in ("metadata", "embrouter_metadata"):
+        metadata = embrouter_params.get(metadata_variable_name)
         if not isinstance(metadata, Mapping):
             continue
         budget_reservation = budget_reservation_from_metadata(metadata)
@@ -383,7 +383,7 @@ def _stamp_budget_reservation_callback_bound(litellm_params: Mapping[str, object
             budget_reservation["callback_bound"] = callback_bound
 
 
-def bind_budget_reservation_to_callbacks(litellm_params: Mapping[str, object]) -> None:
+def bind_budget_reservation_to_callbacks(embrouter_params: Mapping[str, object]) -> None:
     """Mark the request's budget reservation as owned by the success callbacks of this call.
 
     The proxy releases any reservation still unbound when the request ends; one bound here
@@ -391,12 +391,12 @@ def bind_budget_reservation_to_callbacks(litellm_params: Mapping[str, object]) -
     only where a success handler is guaranteed to run: a logging object merely existing is
     not that, since the proxy builds one for every route before calling anything.
     """
-    _stamp_budget_reservation_callback_bound(litellm_params, True)
+    _stamp_budget_reservation_callback_bound(embrouter_params, True)
 
 
-def unbind_budget_reservation_from_callbacks(litellm_params: Mapping[str, object]) -> None:
+def unbind_budget_reservation_from_callbacks(embrouter_params: Mapping[str, object]) -> None:
     """Hand a failed call's reservation back to the request-end release: failure handlers never settle it."""
-    _stamp_budget_reservation_callback_bound(litellm_params, False)
+    _stamp_budget_reservation_callback_bound(embrouter_params, False)
 
 
 def reconstruct_model_name(
@@ -425,18 +425,18 @@ def _get_parent_otel_span_from_kwargs(
     try:
         if kwargs is None:
             return None
-        litellm_params: Final = kwargs.get("litellm_params")
+        embrouter_params: Final = kwargs.get("embrouter_params")
         _metadata: Final = kwargs.get("metadata") or {}
-        if "litellm_parent_otel_span" in _metadata:
-            return _metadata["litellm_parent_otel_span"]
+        if "embrouter_parent_otel_span" in _metadata:
+            return _metadata["embrouter_parent_otel_span"]
         elif (
-            litellm_params is not None
-            and litellm_params.get("metadata") is not None
-            and "litellm_parent_otel_span" in litellm_params.get("metadata", {})
+            embrouter_params is not None
+            and embrouter_params.get("metadata") is not None
+            and "embrouter_parent_otel_span" in embrouter_params.get("metadata", {})
         ):
-            return litellm_params["metadata"]["litellm_parent_otel_span"]
-        elif "litellm_parent_otel_span" in kwargs:
-            return kwargs["litellm_parent_otel_span"]
+            return embrouter_params["metadata"]["embrouter_parent_otel_span"]
+        elif "embrouter_parent_otel_span" in kwargs:
+            return kwargs["embrouter_parent_otel_span"]
         return None
     except Exception as e:
         verbose_logger.exception("Error in _get_parent_otel_span_from_kwargs: " + str(e))
@@ -445,25 +445,25 @@ def _get_parent_otel_span_from_kwargs(
 
 def process_response_headers(
     response_headers: httpx.Headers | dict,
-    preserve_litellm_internal_headers: bool = False,
+    preserve_embrouter_internal_headers: bool = False,
 ) -> dict:
     """
-    `preserve_litellm_internal_headers` must only be True when the input is a
-    LiteLLM-owned dict (e.g. `_hidden_params["additional_headers"]` that has
+    `preserve_embrouter_internal_headers` must only be True when the input is a
+    EmbRouter-owned dict (e.g. `_hidden_params["additional_headers"]` that has
     already been through one round of processing).  For raw upstream provider
     headers — whether passed as `httpx.Headers` or a plain dict — it must
-    remain False, otherwise a malicious provider returning `x-litellm-*` could
-    spoof LiteLLM-internal markers (e.g. `x-litellm-attempted-fallbacks`).
+    remain False, otherwise a malicious provider returning `x-embrouter-*` could
+    spoof EmbRouter-internal markers (e.g. `x-embrouter-attempted-fallbacks`).
 
     When the input is an `httpx.Headers` object the flag is always treated as
     False regardless of what the caller requested, because `httpx.Headers` is
-    always a raw provider response and can never be LiteLLM-owned.
+    always a raw provider response and can never be EmbRouter-owned.
     """
-    from litellm.types.utils import OPENAI_RESPONSE_HEADERS
+    from embrouter.types.utils import OPENAI_RESPONSE_HEADERS
 
     # Raw httpx.Headers objects come directly from provider HTTP responses and
-    # must never be treated as LiteLLM-owned, regardless of caller intent.
-    _preserve: Final = preserve_litellm_internal_headers and isinstance(response_headers, dict)
+    # must never be treated as EmbRouter-owned, regardless of caller intent.
+    _preserve: Final = preserve_embrouter_internal_headers and isinstance(response_headers, dict)
 
     openai_headers: Final = {}
     processed_headers: Final = {}
@@ -474,9 +474,9 @@ def process_response_headers(
             openai_headers[k] = v
         if k.startswith("llm_provider-"):  # return raw provider headers (incl. openai-compatible ones)
             processed_headers[k] = v
-        elif _preserve and k.startswith("x-litellm-"):
-            # LiteLLM's own internal headers (e.g. x-litellm-attempted-fallbacks,
-            # x-litellm-model-group) are not LLM provider headers and must not be
+        elif _preserve and k.startswith("x-embrouter-"):
+            # EmbRouter's own internal headers (e.g. x-embrouter-attempted-fallbacks,
+            # x-embrouter-model-group) are not LLM provider headers and must not be
             # prefixed. Downstream consumers (proxy override, callers checking
             # whether a fallback happened) look up the bare key.
             processed_headers[k] = v
@@ -508,7 +508,7 @@ def safe_deep_copy(data):
     """
     Safe Deep Copy
 
-    The LiteLLM request may contain objects that cannot be pickled/deep-copied
+    The EmbRouter request may contain objects that cannot be pickled/deep-copied
     (e.g., tracing spans, locks, clients).
 
     This helper deep-copies each top-level key independently; on failure keeps
@@ -516,22 +516,22 @@ def safe_deep_copy(data):
     """
     import copy
 
-    import litellm
+    import embrouter
 
-    if litellm.safe_memory_mode is True:
+    if embrouter.safe_memory_mode is True:
         return data
 
-    litellm_parent_otel_span: object | None = None
-    # Step 1: Remove the litellm_parent_otel_span
-    litellm_parent_otel_span = None
+    embrouter_parent_otel_span: object | None = None
+    # Step 1: Remove the embrouter_parent_otel_span
+    embrouter_parent_otel_span = None
     if isinstance(data, dict):
-        # remove litellm_parent_otel_span since this is not picklable
-        if "metadata" in data and "litellm_parent_otel_span" in data["metadata"]:
-            litellm_parent_otel_span = data["metadata"].pop("litellm_parent_otel_span")
-            data["metadata"]["litellm_parent_otel_span"] = "placeholder"
-        if "litellm_metadata" in data and "litellm_parent_otel_span" in data["litellm_metadata"]:
-            litellm_parent_otel_span = data["litellm_metadata"].pop("litellm_parent_otel_span")
-            data["litellm_metadata"]["litellm_parent_otel_span"] = "placeholder"
+        # remove embrouter_parent_otel_span since this is not picklable
+        if "metadata" in data and "embrouter_parent_otel_span" in data["metadata"]:
+            embrouter_parent_otel_span = data["metadata"].pop("embrouter_parent_otel_span")
+            data["metadata"]["embrouter_parent_otel_span"] = "placeholder"
+        if "embrouter_metadata" in data and "embrouter_parent_otel_span" in data["embrouter_metadata"]:
+            embrouter_parent_otel_span = data["embrouter_metadata"].pop("embrouter_parent_otel_span")
+            data["embrouter_metadata"]["embrouter_parent_otel_span"] = "placeholder"
 
     # Step 2: Per-key deepcopy with fallback
     if isinstance(data, dict):
@@ -547,12 +547,12 @@ def safe_deep_copy(data):
         except Exception:
             new_data = data
 
-    # Step 3: re-add the litellm_parent_otel_span after doing a deep copy
-    if isinstance(data, dict) and litellm_parent_otel_span is not None:
-        if "metadata" in data and "litellm_parent_otel_span" in data["metadata"]:
-            data["metadata"]["litellm_parent_otel_span"] = litellm_parent_otel_span
-        if "litellm_metadata" in data and "litellm_parent_otel_span" in data["litellm_metadata"]:
-            data["litellm_metadata"]["litellm_parent_otel_span"] = litellm_parent_otel_span
+    # Step 3: re-add the embrouter_parent_otel_span after doing a deep copy
+    if isinstance(data, dict) and embrouter_parent_otel_span is not None:
+        if "metadata" in data and "embrouter_parent_otel_span" in data["metadata"]:
+            data["metadata"]["embrouter_parent_otel_span"] = embrouter_parent_otel_span
+        if "embrouter_metadata" in data and "embrouter_parent_otel_span" in data["embrouter_metadata"]:
+            data["embrouter_metadata"]["embrouter_parent_otel_span"] = embrouter_parent_otel_span
     return new_data
 
 
@@ -562,12 +562,12 @@ def independent_snapshot(
     """
     A copy of ``data`` whose top-level keys are deep-copied independently
     where possible -- always attempted, regardless of
-    ``litellm.safe_memory_mode``. Unlike ``safe_deep_copy``, which can return
+    ``embrouter.safe_memory_mode``. Unlike ``safe_deep_copy``, which can return
     the *original* object outright under that mode (defeating any isolation
     guarantee for every key, not just the ones that need it), this never
     skips copying wholesale.
 
-    Real proxy requests carry ``data["litellm_logging_obj"]`` (a ``Logging``
+    Real proxy requests carry ``data["embrouter_logging_obj"]`` (a ``Logging``
     instance nesting a live OTel span with a real lock) by the time
     ``pre_call_hook`` runs, which can never be deep-copied. Any individual
     key that fails to deep-copy falls back to sharing its original
@@ -575,15 +575,15 @@ def independent_snapshot(
     fallback; callers needing true isolation (e.g. a guardrail's
     ``scan_raw_request`` snapshot) only depend on the keys that are plain,
     cleanly-copyable structures (``messages``/``input``,
-    ``metadata``/``litellm_metadata``).
+    ``metadata``/``embrouter_metadata``).
     """
     sanitized: Final = {
         key: (
             {  # mutable-ok: same request-payload shape as data
-                inner_key: ("placeholder" if inner_key == "litellm_parent_otel_span" else inner_value)
+                inner_key: ("placeholder" if inner_key == "embrouter_parent_otel_span" else inner_value)
                 for inner_key, inner_value in value.items()
             }
-            if key in ("metadata", "litellm_metadata") and isinstance(value, dict)
+            if key in ("metadata", "embrouter_metadata") and isinstance(value, dict)
             else value
         )
         for key, value in data.items()
@@ -596,14 +596,14 @@ def independent_snapshot(
             return data.get(key)
         original_value: Final = data.get(key)
         if (
-            key in ("metadata", "litellm_metadata")
+            key in ("metadata", "embrouter_metadata")
             and isinstance(copied_value, dict)
             and isinstance(original_value, dict)
-            and "litellm_parent_otel_span" in original_value
+            and "embrouter_parent_otel_span" in original_value
         ):
             return {  # mutable-ok: same request-payload shape as data
                 **copied_value,
-                "litellm_parent_otel_span": original_value["litellm_parent_otel_span"],
+                "embrouter_parent_otel_span": original_value["embrouter_parent_otel_span"],
             }
         return copied_value
 
@@ -640,7 +640,7 @@ def filter_exceptions_from_params(data: object, max_depth: int = 20) -> Any:
         return None
     # Skip known non-serializable object types (Logging, Router, etc.)
     obj_type_name: Final = type(data).__name__
-    if obj_type_name in ["Logging", "LiteLLMLoggingObj", "Router"]:
+    if obj_type_name in ["Logging", "EmbRouterLoggingObj", "Router"]:
         return None
 
     if isinstance(data, dict):
@@ -677,9 +677,9 @@ def filter_exceptions_from_params(data: object, max_depth: int = 20) -> Any:
 
 def filter_internal_params(data: dict, additional_internal_params: set | None = None) -> dict:
     """
-    Filter out LiteLLM internal parameters that shouldn't be sent to provider APIs.
+    Filter out EmbRouter internal parameters that shouldn't be sent to provider APIs.
 
-    This removes internal/MCP-related parameters that are used by LiteLLM internally
+    This removes internal/MCP-related parameters that are used by EmbRouter internally
     but should not be included in API requests to providers.
 
     Args:
@@ -746,7 +746,7 @@ def redact_nested_match_and_regex_keys(
     return redacted
 
 
-RESPONSE_COST_HEADER: Final = "llm_provider-x-litellm-response-cost"
+RESPONSE_COST_HEADER: Final = "llm_provider-x-embrouter-response-cost"
 _NO_HEADERS: Final[Mapping[str, object]] = MappingProxyType({})
 
 

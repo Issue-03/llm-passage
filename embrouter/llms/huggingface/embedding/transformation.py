@@ -7,28 +7,28 @@ from typing import TYPE_CHECKING, Any, Final, Protocol
 
 import httpx
 
-import litellm
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+import embrouter
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
     convert_content_list_to_str,
 )
-from litellm.litellm_core_utils.prompt_templates.factory import (
+from embrouter.embrouter_core_utils.prompt_templates.factory import (
     custom_prompt,
     prompt_factory,
 )
-from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
-from litellm.llms.base_llm.chat.transformation import BaseConfig, BaseLLMException
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.utils import Choices, Message, ModelResponse, Usage
-from litellm.utils import token_counter
+from embrouter.embrouter_core_utils.streaming_handler import CustomStreamWrapper
+from embrouter.llms.base_llm.chat.transformation import BaseConfig, BaseLLMException
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.utils import Choices, Message, ModelResponse, Usage
+from embrouter.utils import token_counter
 
 from ..common_utils import HuggingFaceError, hf_task_list, hf_tasks, output_parser
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
 
-    LoggingClass = LiteLLMLoggingObj
+    LoggingClass = EmbRouterLoggingObj
 else:
     LoggingClass = Any
 
@@ -49,7 +49,7 @@ class HuggingFaceEmbeddingConfig(BaseConfig):
     """
 
     hf_task: hf_tasks | None = (
-        None  # litellm-specific param, used to know the api spec to use when calling huggingface api
+        None  # embrouter-specific param, used to know the api spec to use when calling huggingface api
     )
     best_of: int | None = None
     decoder_input_details: bool | None = None
@@ -210,16 +210,16 @@ class HuggingFaceEmbeddingConfig(BaseConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
-        task: Final = litellm_params.get("task", None)
+        task: Final = embrouter_params.get("task", None)
         ## VALIDATE API FORMAT
         if task is None or not isinstance(task, str) or task not in hf_task_list:
             raise Exception(f"Invalid hf task - {task}. Valid formats - {hf_tasks}.")
 
         ## Load Config
-        config: Final = litellm.HuggingFaceEmbeddingConfig.get_config()
+        config: Final = embrouter.HuggingFaceEmbeddingConfig.get_config()
         for k, v in config.items():
             if (
                 k not in optional_params
@@ -266,9 +266,9 @@ class HuggingFaceEmbeddingConfig(BaseConfig):
 
         elif task == "text-generation-inference":
             # always send "details" and "return_full_text" as params
-            if model in litellm.custom_prompt_dict:
+            if model in embrouter.custom_prompt_dict:
                 # check if the model has a registered custom prompt
-                model_prompt_details = litellm.custom_prompt_dict[model]
+                model_prompt_details = embrouter.custom_prompt_dict[model]
                 prompt = custom_prompt(
                     role_dict=model_prompt_details.get("roles") or {},
                     initial_prompt_value=model_prompt_details.get("initial_prompt_value", ""),
@@ -291,9 +291,9 @@ class HuggingFaceEmbeddingConfig(BaseConfig):
         else:
             # Non TGI and Conversational llms
             # We need this branch, it removes 'details' and 'return_full_text' from params
-            if model in litellm.custom_prompt_dict:
+            if model in embrouter.custom_prompt_dict:
                 # check if the model has a registered custom prompt
-                model_prompt_details = litellm.custom_prompt_dict[model]
+                model_prompt_details = embrouter.custom_prompt_dict[model]
                 prompt = custom_prompt(
                     role_dict=model_prompt_details.get("roles", {}),
                     initial_prompt_value=model_prompt_details.get("initial_prompt_value", ""),
@@ -326,7 +326,7 @@ class HuggingFaceEmbeddingConfig(BaseConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
@@ -477,13 +477,13 @@ class HuggingFaceEmbeddingConfig(BaseConfig):
         request_data: dict,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,
     ) -> ModelResponse:
         ## Some servers might return streaming responses even though stream was not set to true. (e.g. Baseten)
-        task: Final = litellm_params.get("task", None)
+        task: Final = embrouter_params.get("task", None)
         is_streamed = False
         if raw_response.__dict__["headers"].get("Content-Type", "") == "text/event-stream":
             is_streamed = True

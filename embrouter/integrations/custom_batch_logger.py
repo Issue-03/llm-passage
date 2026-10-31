@@ -8,9 +8,9 @@ import asyncio
 import time
 from typing import Final
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.integrations.custom_logger import CustomLogger
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.integrations.custom_logger import CustomLogger
 
 
 class CustomBatchLogger(CustomLogger):
@@ -37,8 +37,8 @@ class CustomBatchLogger(CustomLogger):
             max_queue_size (Optional[int], optional): Maximum number of events to retain in ``log_queue``. When the limit is exceeded (e.g. because the send destination is unreachable and events are preserved for retry), the oldest events are dropped. Defaults to ``DEFAULT_MAX_QUEUE_SIZE``.
         """
         self.log_queue: list = []
-        self.flush_interval = flush_interval or litellm.DEFAULT_FLUSH_INTERVAL_SECONDS
-        self.batch_size: int = batch_size or litellm.DEFAULT_BATCH_SIZE
+        self.flush_interval = flush_interval or embrouter.DEFAULT_FLUSH_INTERVAL_SECONDS
+        self.batch_size: int = batch_size or embrouter.DEFAULT_BATCH_SIZE
         self.last_flush_time = time.time()
         self.flush_lock = flush_lock
         self.max_queue_size: int = max_queue_size if max_queue_size is not None else self.DEFAULT_MAX_QUEUE_SIZE

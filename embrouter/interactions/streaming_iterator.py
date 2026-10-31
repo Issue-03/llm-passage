@@ -12,18 +12,18 @@ from typing import Any, Final
 
 import httpx
 
-from litellm._logging import verbose_logger
-from litellm.constants import STREAM_SSE_DONE_STRING
-from litellm.litellm_core_utils.asyncify import run_async_function
-from litellm.litellm_core_utils.core_helpers import process_response_headers
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.litellm_core_utils.llm_response_utils.get_api_base import get_api_base
-from litellm.litellm_core_utils.thread_pool_executor import executor
-from litellm.llms.base_llm.interactions.transformation import BaseInteractionsAPIConfig
-from litellm.types.interactions import (
+from embrouter._logging import verbose_logger
+from embrouter.constants import STREAM_SSE_DONE_STRING
+from embrouter.embrouter_core_utils.asyncify import run_async_function
+from embrouter.embrouter_core_utils.core_helpers import process_response_headers
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.embrouter_core_utils.llm_response_utils.get_api_base import get_api_base
+from embrouter.embrouter_core_utils.thread_pool_executor import executor
+from embrouter.llms.base_llm.interactions.transformation import BaseInteractionsAPIConfig
+from embrouter.types.interactions import (
     InteractionsAPIStreamingResponse,
 )
-from litellm.utils import CustomStreamWrapper
+from embrouter.utils import CustomStreamWrapper
 
 
 class BaseInteractionsAPIStreamingIterator:
@@ -38,8 +38,8 @@ class BaseInteractionsAPIStreamingIterator:
         response: httpx.Response,
         model: str | None,
         interactions_api_config: BaseInteractionsAPIConfig,
-        logging_obj: LiteLLMLoggingObj,
-        litellm_metadata: dict[str, Any] | None = None,
+        logging_obj: EmbRouterLoggingObj,
+        embrouter_metadata: dict[str, Any] | None = None,
         custom_llm_provider: str | None = None,
     ):
         self.response = response
@@ -51,15 +51,15 @@ class BaseInteractionsAPIStreamingIterator:
         self.start_time = datetime.now()
 
         # set request kwargs
-        self.litellm_metadata = litellm_metadata
+        self.embrouter_metadata = embrouter_metadata
         self.custom_llm_provider = custom_llm_provider
 
         # set hidden params for response headers
         _api_base: Final = get_api_base(
             model=model or "",
-            optional_params=self.logging_obj.model_call_details.get("litellm_params", {}),
+            optional_params=self.logging_obj.model_call_details.get("embrouter_params", {}),
         )
-        _model_info: Final[dict] = litellm_metadata.get("model_info", {}) if litellm_metadata else {}
+        _model_info: Final[dict] = embrouter_metadata.get("model_info", {}) if embrouter_metadata else {}
         self._hidden_params = {
             "model_id": _model_info.get("id", None),
             "api_base": _api_base,
@@ -126,8 +126,8 @@ class InteractionsAPIStreamingIterator(BaseInteractionsAPIStreamingIterator):
         response: httpx.Response,
         model: str | None,
         interactions_api_config: BaseInteractionsAPIConfig,
-        logging_obj: LiteLLMLoggingObj,
-        litellm_metadata: dict[str, Any] | None = None,
+        logging_obj: EmbRouterLoggingObj,
+        embrouter_metadata: dict[str, Any] | None = None,
         custom_llm_provider: str | None = None,
     ):
         super().__init__(
@@ -135,7 +135,7 @@ class InteractionsAPIStreamingIterator(BaseInteractionsAPIStreamingIterator):
             model=model,
             interactions_api_config=interactions_api_config,
             logging_obj=logging_obj,
-            litellm_metadata=litellm_metadata,
+            embrouter_metadata=embrouter_metadata,
             custom_llm_provider=custom_llm_provider,
         )
         self.stream_iterator = response.aiter_lines()
@@ -193,8 +193,8 @@ class SyncInteractionsAPIStreamingIterator(BaseInteractionsAPIStreamingIterator)
         response: httpx.Response,
         model: str | None,
         interactions_api_config: BaseInteractionsAPIConfig,
-        logging_obj: LiteLLMLoggingObj,
-        litellm_metadata: dict[str, Any] | None = None,
+        logging_obj: EmbRouterLoggingObj,
+        embrouter_metadata: dict[str, Any] | None = None,
         custom_llm_provider: str | None = None,
     ):
         super().__init__(
@@ -202,7 +202,7 @@ class SyncInteractionsAPIStreamingIterator(BaseInteractionsAPIStreamingIterator)
             model=model,
             interactions_api_config=interactions_api_config,
             logging_obj=logging_obj,
-            litellm_metadata=litellm_metadata,
+            embrouter_metadata=embrouter_metadata,
             custom_llm_provider=custom_llm_provider,
         )
         self.stream_iterator = response.iter_lines()

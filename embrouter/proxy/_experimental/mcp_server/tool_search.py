@@ -11,23 +11,23 @@ from typing import TYPE_CHECKING, Any, Final, TypedDict
 from pydantic import ValidationError
 from typing_extensions import ReadOnly, Required, assert_never
 
-import litellm
-from litellm.llms.litellm_proxy.skills.skill_search import DEFAULT_SKILL_SEARCH_TOP_K
-from litellm.proxy._experimental.mcp_server.result_conversion import WireCompat, complete_call_tool_result
-from litellm.proxy.agent_endpoints.agent_search import DEFAULT_AGENT_SEARCH_TOP_K
-from litellm.proxy.common_utils.semantic_text_index import (
+import embrouter
+from embrouter.llms.embrouter_proxy.skills.skill_search import DEFAULT_SKILL_SEARCH_TOP_K
+from embrouter.proxy._experimental.mcp_server.result_conversion import WireCompat, complete_call_tool_result
+from embrouter.proxy.agent_endpoints.agent_search import DEFAULT_AGENT_SEARCH_TOP_K
+from embrouter.proxy.common_utils.semantic_text_index import (
     Embedder,
     EmbeddingFailed,
     SemanticTextIndex,
     router_embedder,
 )
-from litellm.types.mcp import MCPToolSearchSettings
+from embrouter.types.mcp import MCPToolSearchSettings
 
 if TYPE_CHECKING:
     from mcp.types import CallToolResult, Tool
 
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.proxy._types import UserAPIKeyAuth
 
 MCP_TOOL_SEARCH_SETTINGS_KEY: Final[str] = "mcp_tool_search"
 MCP_TOOL_SEARCH_TOOL_NAME: Final[str] = "mcp_tool_search"
@@ -94,7 +94,7 @@ global_mcp_tool_search_index: Final = SemanticTextIndex()
 
 def mcp_tool_search_settings() -> MCPToolSearchSettings | ValidationError:
     try:
-        return MCPToolSearchSettings.model_validate(litellm.mcp_tool_search or {})
+        return MCPToolSearchSettings.model_validate(embrouter.mcp_tool_search or {})
     except ValidationError as exc:
         return exc
 
@@ -116,7 +116,7 @@ def _scored_result(tool: Tool, score: float) -> ToolSearchResult:
     }
 
 
-_MCP_PROXY_IDENTITY_META_KEY: Final[str] = "litellm.ai/proxy_tool_identity"
+_MCP_PROXY_IDENTITY_META_KEY: Final[str] = "embrouter.ai/proxy_tool_identity"
 
 
 def with_mcp_proxy_identity(tool: Tool, server_id: str) -> Tool:
@@ -388,7 +388,7 @@ def _text_tool_result(text: str, is_error: bool) -> CallToolResult:
 
 
 async def handle_agent_search(query: str, top_k: int, user_api_key_dict: UserAPIKeyAuth) -> CallToolResult:
-    from litellm.proxy.agent_endpoints.agent_search import (
+    from embrouter.proxy.agent_endpoints.agent_search import (
         AgentSearchEmbeddingFailed,
         AgentSearchHits,
         AgentSearchNotConfigured,
@@ -396,9 +396,9 @@ async def handle_agent_search(query: str, top_k: int, user_api_key_dict: UserAPI
         global_agent_search_index,
         search_agents,
     )
-    from litellm.proxy.agent_endpoints.auth.agent_permission_handler import accessible_agents
-    from litellm.proxy.common_utils.rbac_utils import check_feature_access_for_user
-    from litellm.proxy.proxy_server import llm_router, proxy_logging_obj
+    from embrouter.proxy.agent_endpoints.auth.agent_permission_handler import accessible_agents
+    from embrouter.proxy.common_utils.rbac_utils import check_feature_access_for_user
+    from embrouter.proxy.proxy_server import llm_router, proxy_logging_obj
 
     await check_feature_access_for_user(user_api_key_dict, "agents")
     outcome: Final = await search_agents(
@@ -406,7 +406,7 @@ async def handle_agent_search(query: str, top_k: int, user_api_key_dict: UserAPI
         agents=await accessible_agents(user_api_key_dict),
         top_k=max(top_k, 1),
         router=llm_router,
-        embedding_model=litellm.agent_search_embedding_model,
+        embedding_model=embrouter.agent_search_embedding_model,
         index=global_agent_search_index,
         user_api_key_dict=user_api_key_dict,
         proxy_logging_obj=proxy_logging_obj,
@@ -422,8 +422,8 @@ async def handle_agent_search(query: str, top_k: int, user_api_key_dict: UserAPI
 
 
 async def handle_skill_search(query: str, top_k: int, user_api_key_dict: UserAPIKeyAuth) -> CallToolResult:
-    from litellm.llms.litellm_proxy.skills.handler import LiteLLMSkillsHandler
-    from litellm.llms.litellm_proxy.skills.skill_search import (
+    from embrouter.llms.embrouter_proxy.skills.handler import EmbRouterSkillsHandler
+    from embrouter.llms.embrouter_proxy.skills.skill_search import (
         MAX_SKILL_SEARCH_TOP_K,
         SkillSearchEmbeddingFailed,
         SkillSearchHits,
@@ -432,14 +432,14 @@ async def handle_skill_search(query: str, top_k: int, user_api_key_dict: UserAPI
         search_skills,
         skill_search_result,
     )
-    from litellm.proxy.proxy_server import llm_router, proxy_logging_obj
+    from embrouter.proxy.proxy_server import llm_router, proxy_logging_obj
 
     outcome: Final = await search_skills(
         query=query,
-        skills=await LiteLLMSkillsHandler.list_skills_for_search(user_api_key_dict),
+        skills=await EmbRouterSkillsHandler.list_skills_for_search(user_api_key_dict),
         top_k=min(max(top_k, 1), MAX_SKILL_SEARCH_TOP_K),
         router=llm_router,
-        embedding_model=litellm.skill_search_embedding_model,
+        embedding_model=embrouter.skill_search_embedding_model,
         index=global_skill_search_index,
         user_api_key_dict=user_api_key_dict,
         proxy_logging_obj=proxy_logging_obj,
@@ -465,19 +465,19 @@ async def handle_mcp_tool_search(
     oauth2_headers: dict[str, str] | None = None,
     raw_headers: dict[str, str] | None = None,
 ) -> CallToolResult:
-    from litellm.proxy._experimental.mcp_server.operations import (
+    from embrouter.proxy._experimental.mcp_server.operations import (
         _list_mcp_tools,
     )
-    from litellm.proxy.proxy_server import llm_router, proxy_logging_obj
+    from embrouter.proxy.proxy_server import llm_router, proxy_logging_obj
 
     settings: Final = mcp_tool_search_settings()
     if isinstance(settings, ValidationError):
         return _text_tool_result(
-            f"litellm_settings.{MCP_TOOL_SEARCH_SETTINGS_KEY} is invalid: {settings}", is_error=True
+            f"embrouter_settings.{MCP_TOOL_SEARCH_SETTINGS_KEY} is invalid: {settings}", is_error=True
         )
     if settings.embedding_model is not None and llm_router is None:
         return _text_tool_result(
-            f"litellm_settings.{MCP_TOOL_SEARCH_SETTINGS_KEY}.embedding_model needs a model_list so it can be called",
+            f"embrouter_settings.{MCP_TOOL_SEARCH_SETTINGS_KEY}.embedding_model needs a model_list so it can be called",
             is_error=True,
         )
     ranker: Final = (
@@ -514,14 +514,14 @@ async def handle_mcp_proxy_tool(
     mcp_server_auth_headers: dict[str, dict[str, str]] | None = None,  # mutable-ok: preserve forwarded headers
     oauth2_headers: dict[str, str] | None = None,  # mutable-ok: preserve forwarded headers
     raw_headers: dict[str, str] | None = None,  # mutable-ok: preserve request headers
-    litellm_logging_obj: LiteLLMLoggingObj | None = None,
+    embrouter_logging_obj: EmbRouterLoggingObj | None = None,
 ) -> CallToolResult:
     from fastapi import HTTPException
     from jsonschema import ValidationError as JsonSchemaValidationError
     from jsonschema import validate
 
-    from litellm.proxy import proxy_server
-    from litellm.proxy._experimental.mcp_server.operations import (
+    from embrouter.proxy import proxy_server
+    from embrouter.proxy._experimental.mcp_server.operations import (
         _list_mcp_tools,
     )
 
@@ -545,7 +545,7 @@ async def handle_mcp_proxy_tool(
             return _text_tool_result(str(settings), is_error=True)
         if settings.embedding_model is not None and llm_router is None:
             return _text_tool_result(
-                f"litellm_settings.{MCP_TOOL_SEARCH_SETTINGS_KEY}.embedding_model needs a model_list so it can be called",
+                f"embrouter_settings.{MCP_TOOL_SEARCH_SETTINGS_KEY}.embedding_model needs a model_list so it can be called",
                 is_error=True,
             )
         ranker: Final = (
@@ -591,7 +591,7 @@ async def handle_mcp_proxy_tool(
         mcp_server_auth_headers=mcp_server_auth_headers,
         oauth2_headers=oauth2_headers,
         raw_headers=raw_headers,
-        litellm_logging_obj=litellm_logging_obj,
+        embrouter_logging_obj=embrouter_logging_obj,
     )
 
 
@@ -605,11 +605,11 @@ async def handle_mcp_tool_call(
     mcp_server_auth_headers: dict[str, dict[str, str]] | None = None,
     oauth2_headers: dict[str, str] | None = None,
     raw_headers: dict[str, str] | None = None,
-    litellm_logging_obj: LiteLLMLoggingObj | None = None,
+    embrouter_logging_obj: EmbRouterLoggingObj | None = None,
     requested_server_id: str | None = None,
     guardrail_context: Mapping[str, object] | None = None,
 ) -> CallToolResult:
-    from litellm.proxy._experimental.mcp_server.operations import (
+    from embrouter.proxy._experimental.mcp_server.operations import (
         _get_allowed_mcp_servers,
         execute_mcp_tool,
         raise_denied_scoped_mcp_access,
@@ -646,7 +646,7 @@ async def handle_mcp_tool_call(
         oauth2_headers=oauth2_headers,
         raw_headers=raw_headers,
         client_ip=client_ip,
-        litellm_logging_obj=litellm_logging_obj,
+        embrouter_logging_obj=embrouter_logging_obj,
         requested_server_id=requested_server_id,
         guardrail_context=guardrail_context,
     )

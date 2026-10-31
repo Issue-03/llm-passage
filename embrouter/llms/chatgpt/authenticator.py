@@ -8,8 +8,8 @@ from typing import Final, TypeAlias
 import httpx
 from pydantic import JsonValue, TypeAdapter, ValidationError
 
-from litellm._logging import verbose_logger
-from litellm.llms.custom_httpx.http_handler import _get_httpx_client
+from embrouter._logging import verbose_logger
+from embrouter.llms.custom_httpx.http_handler import _get_httpx_client
 
 from .common_utils import (
     CHATGPT_API_BASE,
@@ -44,7 +44,7 @@ class Authenticator:
     def __init__(self) -> None:
         self.token_dir = os.getenv(
             "CHATGPT_TOKEN_DIR",
-            os.path.expanduser("~/.config/litellm/chatgpt"),
+            os.path.expanduser("~/.config/embrouter/chatgpt"),
         )
         self.auth_file = os.path.join(self.token_dir, os.getenv("CHATGPT_AUTH_FILE", "auth.json"))
         self._ensure_token_dir()

@@ -14,11 +14,11 @@ from typing import Final
 
 from pydantic import TypeAdapter, ValidationError
 
-from litellm.proxy._experimental.mcp_server.outbound_credentials.oauth_token_store import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.oauth_token_store import (
     OAuthToken,
 )
 
-_BOUND_PREFIX: Final = "litellm-bound-oauth-v1:"
+_BOUND_PREFIX: Final = "embrouter-bound-oauth-v1:"
 _BOUND_PAYLOAD: Final = TypeAdapter(dict[str, str])
 
 

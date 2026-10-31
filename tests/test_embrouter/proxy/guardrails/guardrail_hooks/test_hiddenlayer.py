@@ -11,16 +11,16 @@ from httpx import Request, Response
 import requests
 
 
-import litellm
-from litellm import ModelResponse
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.proxy.guardrails.guardrail_hooks.hiddenlayer.hiddenlayer import (
+import embrouter
+from embrouter import ModelResponse
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.proxy.guardrails.guardrail_hooks.hiddenlayer.hiddenlayer import (
     HiddenlayerGuardrail,
     HiddenlayerGuardrailV2,
     _get_jwt,
 )
-from litellm.proxy.guardrails.init_guardrails import init_guardrails_v2
-from litellm.types.utils import (
+from embrouter.proxy.guardrails.init_guardrails import init_guardrails_v2
+from embrouter.types.utils import (
     ChatCompletionMessageToolCall,
     Choices,
     GenericGuardrailAPIInputs,
@@ -30,7 +30,7 @@ from litellm.types.utils import (
 
 def test_hiddenlayer_config_saas(monkeypatch: pytest.MonkeyPatch):
     """Test Hiddenlayer SaaS configuration with init_guardrails_v2."""
-    monkeypatch.setattr(litellm, "guardrail_name_config_map", {})
+    monkeypatch.setattr(embrouter, "guardrail_name_config_map", {})
 
     # Set environment variables for testing
     monkeypatch.setenv("HIDDENLAYER_API_BASE", "https://my.hiddenlayer")
@@ -39,7 +39,7 @@ def test_hiddenlayer_config_saas(monkeypatch: pytest.MonkeyPatch):
         all_guardrails=[
             {
                 "guardrail_name": "hiddenlayer-guardrails",
-                "litellm_params": {
+                "embrouter_params": {
                     "guardrail": "hiddenlayer",
                     "mode": "pre_call",
                     "default_on": True,
@@ -112,12 +112,12 @@ class TestHiddenlayerGuardrail:
         }
 
         # Create logging object
-        logging_obj = LiteLLMLoggingObj(
+        logging_obj = EmbRouterLoggingObj(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "Hello, how are you?"}],
             stream=False,
             call_type="completion",
-            litellm_call_id="test-call-id",
+            embrouter_call_id="test-call-id",
             function_id="test-function-id",
             start_time=None,
         )
@@ -177,12 +177,12 @@ class TestHiddenlayerGuardrail:
             }
         }
 
-        logging_obj = LiteLLMLoggingObj(
+        logging_obj = EmbRouterLoggingObj(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "What is AI?"}],
             stream=False,
             call_type="completion",
-            litellm_call_id="test-call-id-2",
+            embrouter_call_id="test-call-id-2",
             function_id="test-function-id-2",
             start_time=None,
         )
@@ -250,12 +250,12 @@ class TestHiddenlayerGuardrail:
         mock_api_response.raise_for_status = MagicMock()
 
         # Create logging object
-        logging_obj = LiteLLMLoggingObj(
+        logging_obj = EmbRouterLoggingObj(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "What is AI?"}],
             stream=False,
             call_type="completion",
-            litellm_call_id="test-call-id-2",
+            embrouter_call_id="test-call-id-2",
             function_id="test-function-id-2",
             start_time=None,
         )
@@ -316,12 +316,12 @@ class TestHiddenlayerGuardrail:
 
         request_data = mock_model_response
 
-        logging_obj = LiteLLMLoggingObj(
+        logging_obj = EmbRouterLoggingObj(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "What is AI?"}],
             stream=False,
             call_type="completion",
-            litellm_call_id="test-call-id-2",
+            embrouter_call_id="test-call-id-2",
             function_id="test-function-id-2",
             start_time=None,
         )
@@ -364,12 +364,12 @@ class TestHiddenlayerGuardrail:
             }
         }
 
-        logging_obj = LiteLLMLoggingObj(
+        logging_obj = EmbRouterLoggingObj(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "What is AI?"}],
             stream=False,
             call_type="completion",
-            litellm_call_id="test-call-id-2",
+            embrouter_call_id="test-call-id-2",
             function_id="test-function-id-2",
             start_time=None,
         )
@@ -425,7 +425,7 @@ class TestHiddenlayerGuardrail:
                 json={"metadata": metadata, "input": messages},
                 headers={
                     "Content-Type": "application/json",
-                    "hl-runtime-edge-provider": "litellm",
+                    "hl-runtime-edge-provider": "embrouter",
                     "hl-runtime-edge-provider-version": "1",
                 },
             )
@@ -461,12 +461,12 @@ class TestHiddenlayerGuardrail:
             }
         }
 
-        logging_obj = LiteLLMLoggingObj(
+        logging_obj = EmbRouterLoggingObj(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": multimodal_content}],
             stream=False,
             call_type="completion",
-            litellm_call_id="test-call-id",
+            embrouter_call_id="test-call-id",
             function_id="test-function-id",
             start_time=None,
         )
@@ -521,12 +521,12 @@ class TestHiddenlayerGuardrail:
 
         request_data = {"proxy_server_request": {"headers": {}}}
 
-        logging_obj = LiteLLMLoggingObj(
+        logging_obj = EmbRouterLoggingObj(
             model="gpt-4o-mini",
             messages=[],
             stream=False,
             call_type="completion",
-            litellm_call_id="test-call-id",
+            embrouter_call_id="test-call-id",
             function_id="test-function-id",
             start_time=None,
         )
@@ -571,7 +571,7 @@ class TestHiddenlayerGuardrail:
 
 def test_hiddenlayer_config_v2(monkeypatch: pytest.MonkeyPatch):
     """Test HiddenLayer V2 configuration with init_guardrails_v2."""
-    monkeypatch.setattr(litellm, "guardrail_name_config_map", {})
+    monkeypatch.setattr(embrouter, "guardrail_name_config_map", {})
 
     monkeypatch.setenv("HIDDENLAYER_API_BASE", "https://my.hiddenlayer")
 
@@ -579,7 +579,7 @@ def test_hiddenlayer_config_v2(monkeypatch: pytest.MonkeyPatch):
         all_guardrails=[
             {
                 "guardrail_name": "hiddenlayer-guardrails-v2",
-                "litellm_params": {
+                "embrouter_params": {
                     "guardrail": "hiddenlayer",
                     "mode": "pre_call",
                     "default_on": True,
@@ -650,12 +650,12 @@ class TestHiddenlayerGuardrailV2:
             }
         }
 
-        logging_obj = LiteLLMLoggingObj(
+        logging_obj = EmbRouterLoggingObj(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "Hello, how are you?"}],
             stream=False,
             call_type="completion",
-            litellm_call_id="test-call-id",
+            embrouter_call_id="test-call-id",
             function_id="test-function-id",
             start_time=None,
         )
@@ -717,12 +717,12 @@ class TestHiddenlayerGuardrailV2:
             }
         }
 
-        logging_obj = LiteLLMLoggingObj(
+        logging_obj = EmbRouterLoggingObj(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "test"}],
             stream=False,
             call_type="completion",
-            litellm_call_id="test-call-id",
+            embrouter_call_id="test-call-id",
             function_id="test-function-id",
             start_time=None,
         )
@@ -766,12 +766,12 @@ class TestHiddenlayerGuardrailV2:
             }
         }
 
-        logging_obj = LiteLLMLoggingObj(
+        logging_obj = EmbRouterLoggingObj(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "What is AI?"}],
             stream=False,
             call_type="completion",
-            litellm_call_id="test-call-id",
+            embrouter_call_id="test-call-id",
             function_id="test-function-id",
             start_time=None,
         )
@@ -829,12 +829,12 @@ class TestHiddenlayerGuardrailV2:
             }
         }
 
-        logging_obj = LiteLLMLoggingObj(
+        logging_obj = EmbRouterLoggingObj(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "test"}],
             stream=False,
             call_type="completion",
-            litellm_call_id="test-call-id",
+            embrouter_call_id="test-call-id",
             function_id="test-function-id",
             start_time=None,
         )
@@ -887,12 +887,12 @@ class TestHiddenlayerGuardrailV2:
             }
         }
 
-        logging_obj = LiteLLMLoggingObj(
+        logging_obj = EmbRouterLoggingObj(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "What's the weather?"}],
             stream=False,
             call_type="completion",
-            litellm_call_id="test-call-id",
+            embrouter_call_id="test-call-id",
             function_id="test-function-id",
             start_time=None,
         )
@@ -984,12 +984,12 @@ class TestHiddenlayerGuardrailV2:
             }
         }
 
-        logging_obj = LiteLLMLoggingObj(
+        logging_obj = EmbRouterLoggingObj(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": multimodal_content}],
             stream=False,
             call_type="completion",
-            litellm_call_id="test-call-id",
+            embrouter_call_id="test-call-id",
             function_id="test-function-id",
             start_time=None,
         )
@@ -1053,12 +1053,12 @@ class TestHiddenlayerGuardrailV2:
             }
         }
 
-        logging_obj = LiteLLMLoggingObj(
+        logging_obj = EmbRouterLoggingObj(
             model="gpt-4o-mini",
             messages=[],
             stream=False,
             call_type="completion",
-            litellm_call_id="test-call-id",
+            embrouter_call_id="test-call-id",
             function_id="test-function-id",
             start_time=None,
         )

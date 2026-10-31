@@ -4,7 +4,7 @@ from typing import Any, Final
 
 import requests
 
-from litellm.litellm_core_utils.secret_redaction import redact_string
+from embrouter.embrouter_core_utils.secret_redaction import redact_string
 
 from .exceptions import UnauthorizedError
 
@@ -15,7 +15,7 @@ class KeysManagementClient:
         Initialize the KeysManagementClient.
 
         Args:
-            base_url (str): The base URL of the LiteLLM proxy server (e.g., "http://localhost:8000")
+            base_url (str): The base URL of the EmbRouter proxy server (e.g., "http://localhost:8000")
             api_key (Optional[str]): API key for authentication. If provided, it will be sent as a Bearer token.
             timeout (int): Request timeout in seconds (default: 30)
         """

@@ -22,7 +22,7 @@ interface OrganizationBudget {
 }
 
 const getOrganizationBudget = (organization: Organization): OrganizationBudget =>
-  (organization.litellm_budget_table ?? {}) as OrganizationBudget;
+  (organization.embrouter_budget_table ?? {}) as OrganizationBudget;
 
 function OrganizationLimitsCell({ organization }: { organization: Organization }) {
   const { tpm_limit, rpm_limit } = getOrganizationBudget(organization);

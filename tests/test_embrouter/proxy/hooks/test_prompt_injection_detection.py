@@ -7,19 +7,19 @@ from concurrent.futures import ThreadPoolExecutor
 import pytest
 from fastapi import HTTPException
 
-import litellm
-from litellm.caching.caching import DualCache
-from litellm.proxy._types import LiteLLMPromptInjectionParams, UserAPIKeyAuth
-from litellm.proxy.hooks.prompt_injection_detection import (
+import embrouter
+from embrouter.caching.caching import DualCache
+from embrouter.proxy._types import EmbRouterPromptInjectionParams, UserAPIKeyAuth
+from embrouter.proxy.hooks.prompt_injection_detection import (
     _OPTIONAL_PromptInjectionDetection,
 )
-from litellm.proxy.utils import ProxyLogging
-from litellm.router import Router
+from embrouter.proxy.utils import ProxyLogging
+from embrouter.router import Router
 
 
 def _moderation_detector(verdict: str) -> _OPTIONAL_PromptInjectionDetection:
     detector = _OPTIONAL_PromptInjectionDetection(
-        prompt_injection_params=LiteLLMPromptInjectionParams(
+        prompt_injection_params=EmbRouterPromptInjectionParams(
             heuristics_check=False,
             llm_api_check=True,
             llm_api_name="moderation-model",
@@ -32,7 +32,7 @@ def _moderation_detector(verdict: str) -> _OPTIONAL_PromptInjectionDetection:
             model_list=[
                 {
                     "model_name": "moderation-model",
-                    "litellm_params": {"model": "openai/gpt-4o", "api_key": "sk-fake", "mock_response": verdict},
+                    "embrouter_params": {"model": "openai/gpt-4o", "api_key": "sk-fake", "mock_response": verdict},
                 }
             ]
         )
@@ -135,7 +135,7 @@ async def test_moderation_hook_skips_llm_check_without_prompt_text():
 
 @pytest.mark.asyncio
 async def test_proxy_during_call_hook_runs_configured_llm_api_check(monkeypatch):
-    monkeypatch.setattr(litellm, "callbacks", [_moderation_detector(verdict="UNSAFE")])
+    monkeypatch.setattr(embrouter, "callbacks", [_moderation_detector(verdict="UNSAFE")])
 
     with pytest.raises(HTTPException) as exc_info:
         await ProxyLogging(user_api_key_cache=DualCache()).during_call_hook(
@@ -150,7 +150,7 @@ async def test_proxy_during_call_hook_runs_configured_llm_api_check(monkeypatch)
 @pytest.mark.asyncio
 async def test_heuristics_check_keeps_event_loop_responsive():
     detector = _OPTIONAL_PromptInjectionDetection(
-        prompt_injection_params=LiteLLMPromptInjectionParams(heuristics_check=True)
+        prompt_injection_params=EmbRouterPromptInjectionParams(heuristics_check=True)
     )
     data = {"model": "test-model", "messages": [{"role": "user", "content": LONG_SAFE_PROMPT}]}
 
@@ -179,7 +179,7 @@ async def test_heuristics_check_keeps_event_loop_responsive():
 @pytest.mark.asyncio
 async def test_heuristics_check_does_not_occupy_default_executor():
     detector = _OPTIONAL_PromptInjectionDetection(
-        prompt_injection_params=LiteLLMPromptInjectionParams(heuristics_check=True)
+        prompt_injection_params=EmbRouterPromptInjectionParams(heuristics_check=True)
     )
     data = {"model": "test-model", "messages": [{"role": "user", "content": LONG_SAFE_PROMPT}]}
     loop = asyncio.get_running_loop()
@@ -213,7 +213,7 @@ async def test_heuristics_check_does_not_occupy_default_executor():
 def test_heuristics_thread_count_config_is_honoured(monkeypatch: pytest.MonkeyPatch, configured: str, expected: int):
     monkeypatch.setenv("PROMPT_INJECTION_HEURISTICS_MAX_THREADS", configured)
     try:
-        assert importlib.reload(litellm.constants).PROMPT_INJECTION_HEURISTICS_MAX_THREADS == expected
+        assert importlib.reload(embrouter.constants).PROMPT_INJECTION_HEURISTICS_MAX_THREADS == expected
     finally:
         monkeypatch.delenv("PROMPT_INJECTION_HEURISTICS_MAX_THREADS")
-        importlib.reload(litellm.constants)
+        importlib.reload(embrouter.constants)

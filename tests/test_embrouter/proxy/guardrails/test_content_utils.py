@@ -1,6 +1,6 @@
 """Tests for the shared guardrail content extraction helpers."""
 
-from litellm.proxy.guardrails._content_utils import (
+from embrouter.proxy.guardrails._content_utils import (
     apply_redacted_messages_back,
     build_inspection_messages,
     has_non_string_content,
@@ -682,7 +682,7 @@ def test_iter_message_text_walks_custom_tool_call_output():
             {"type": "custom_tool_call_output", "output": "tool-secret"},
         ]
     }
-    from litellm.proxy.guardrails._content_utils import iter_message_text
+    from embrouter.proxy.guardrails._content_utils import iter_message_text
     texts = list(iter_message_text(data))
     assert "tool-secret" in texts
 

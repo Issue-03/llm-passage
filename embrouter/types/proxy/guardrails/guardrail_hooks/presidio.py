@@ -2,7 +2,7 @@ from typing import Any
 
 from typing_extensions import TypedDict
 
-from litellm.types.guardrails import PiiEntityType
+from embrouter.types.guardrails import PiiEntityType
 
 
 class PresidioAnalyzeRequest(TypedDict, total=False):

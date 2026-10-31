@@ -1,6 +1,6 @@
 import time
 import traceback
-from litellm._uuid import uuid
+from embrouter._uuid import uuid
 
 from dotenv import load_dotenv
 
@@ -11,63 +11,63 @@ import random
 
 import pytest
 
-import litellm
-from litellm import aembedding, completion, embedding, aresponses, responses
-from litellm.caching.caching import Cache
-from litellm.responses.streaming_iterator import CachedResponsesAPIStreamingIterator
+import embrouter
+from embrouter import aembedding, completion, embedding, aresponses, responses
+from embrouter.caching.caching import Cache
+from embrouter.responses.streaming_iterator import CachedResponsesAPIStreamingIterator
 
 from unittest.mock import AsyncMock, patch, MagicMock
-from litellm.caching.caching_handler import (
+from embrouter.caching.caching_handler import (
     LLMCachingHandler,
     CachingHandlerResponse,
     _is_chat_completion_cached_dict,
     _should_defer_streaming_cache_hit_callbacks,
 )
-from litellm.caching.caching import LiteLLMCacheType
-from litellm.types.utils import CallTypes
-from litellm.types.rerank import RerankResponse
-from litellm.types.utils import (
+from embrouter.caching.caching import EmbRouterCacheType
+from embrouter.types.utils import CallTypes
+from embrouter.types.rerank import RerankResponse
+from embrouter.types.utils import (
     ModelResponse,
     EmbeddingResponse,
     TextCompletionResponse,
     TranscriptionResponse,
     Embedding,
 )
-from litellm.types.llms.openai import ResponsesAPIResponse
+from embrouter.types.llms.openai import ResponsesAPIResponse
 from datetime import timedelta, datetime
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLogging
-from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
-from litellm._logging import verbose_logger
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLogging
+from embrouter.embrouter_core_utils.streaming_handler import CustomStreamWrapper
+from embrouter._logging import verbose_logger
 import logging
 import json
 import httpx
 import respx
 from fastapi.testclient import TestClient
-from litellm._internal_context import in_post_response_phase
-from litellm.caching.caching_handler import _PENDING_CACHE_WRITES
+from embrouter._internal_context import in_post_response_phase
+from embrouter.caching.caching_handler import _PENDING_CACHE_WRITES
 
 
 def setup_cache():
     # Set up the cache
-    cache = Cache(type=LiteLLMCacheType.LOCAL)
-    litellm.cache = cache
+    cache = Cache(type=EmbRouterCacheType.LOCAL)
+    embrouter.cache = cache
     return cache
 
 
-chat_completion_response = litellm.ModelResponse(
+chat_completion_response = embrouter.ModelResponse(
     id=str(uuid.uuid4()),
     choices=[
-        litellm.Choices(
-            message=litellm.Message(
+        embrouter.Choices(
+            message=embrouter.Message(
                 role="assistant", content="Hello, how can I help you today?"
             )
         )
     ],
 )
 
-text_completion_response = litellm.TextCompletionResponse(
+text_completion_response = embrouter.TextCompletionResponse(
     id=str(uuid.uuid4()),
-    choices=[litellm.utils.TextChoices(text="Hello, how can I help you today?")],
+    choices=[embrouter.utils.TextChoices(text="Hello, how can I help you today?")],
 )
 
 
@@ -76,7 +76,7 @@ text_completion_response = litellm.TextCompletionResponse(
     "response", [chat_completion_response, text_completion_response]
 )
 async def test_async_set_get_cache(response):
-    litellm.set_verbose = True
+    embrouter.set_verbose = True
     setup_cache()
     verbose_logger.setLevel(logging.DEBUG)
     caching_handler = LLMCachingHandler(
@@ -85,8 +85,8 @@ async def test_async_set_get_cache(response):
 
     messages = [{"role": "user", "content": f"Unique message {datetime.now()}"}]
 
-    logging_obj = LiteLLMLogging(
-        litellm_call_id=str(datetime.now()),
+    logging_obj = EmbRouterLogging(
+        embrouter_call_id=str(datetime.now()),
         call_type=CallTypes.completion.value,
         model="gpt-3.5-turbo",
         messages=messages,
@@ -99,11 +99,11 @@ async def test_async_set_get_cache(response):
     print("result", result)
 
     original_function = (
-        litellm.acompletion
-        if isinstance(response, litellm.ModelResponse)
-        else litellm.atext_completion
+        embrouter.acompletion
+        if isinstance(response, embrouter.ModelResponse)
+        else embrouter.atext_completion
     )
-    if isinstance(response, litellm.ModelResponse):
+    if isinstance(response, embrouter.ModelResponse):
         kwargs = {"messages": messages}
         call_type = CallTypes.acompletion.value
     else:
@@ -225,8 +225,8 @@ def test_convert_cached_result_to_model_response(
     caching_handler = LLMCachingHandler(
         original_function=lambda: None, request_kwargs={}, start_time=datetime.now()
     )
-    logging_obj = LiteLLMLogging(
-        litellm_call_id=str(datetime.now()),
+    logging_obj = EmbRouterLogging(
+        embrouter_call_id=str(datetime.now()),
         call_type=call_type,
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": "Hello, how can I help you today?"}],
@@ -376,8 +376,8 @@ async def test_embedding_cache_model_field_consistency():
     )
 
     # Mock logging object
-    logging_obj = LiteLLMLogging(
-        litellm_call_id=str(datetime.now()),
+    logging_obj = EmbRouterLogging(
+        embrouter_call_id=str(datetime.now()),
         call_type=CallTypes.aembedding.value,
         model=original_model,
         messages=[],  # Not used for embeddings
@@ -458,8 +458,8 @@ async def test_embedding_cache_model_field_with_vendor_prefix():
     )
 
     # Mock logging object
-    logging_obj = LiteLLMLogging(
-        litellm_call_id=str(datetime.now()),
+    logging_obj = EmbRouterLogging(
+        embrouter_call_id=str(datetime.now()),
         call_type=CallTypes.aembedding.value,
         model=vendor_model,
         messages=[],
@@ -588,8 +588,8 @@ async def test_async_responses_api_caching():
     )
 
     # Mock logging object
-    logging_obj = LiteLLMLogging(
-        litellm_call_id=str(datetime.now()),
+    logging_obj = EmbRouterLogging(
+        embrouter_call_id=str(datetime.now()),
         call_type=CallTypes.aresponses.value,
         model=original_model,
         messages=[],  # Responses API uses input, not messages
@@ -649,8 +649,8 @@ async def test_async_get_cache_updates_request_kwargs_for_streaming_responses():
         start_time=datetime.now(),
     )
 
-    logging_obj = LiteLLMLogging(
-        litellm_call_id=str(datetime.now()),
+    logging_obj = EmbRouterLogging(
+        embrouter_call_id=str(datetime.now()),
         call_type=CallTypes.aresponses.value,
         model="gpt-4o",
         messages=[],
@@ -679,7 +679,7 @@ async def test_async_get_cache_updates_request_kwargs_for_streaming_responses():
     assert caching_handler.request_kwargs["model"] == "gpt-4o"
     assert caching_handler.request_kwargs["input"] == "hello"
     assert caching_handler.request_kwargs["stream"] is True
-    assert caching_handler.request_kwargs["cache_key"] == litellm.cache.get_cache_key(
+    assert caching_handler.request_kwargs["cache_key"] == embrouter.cache.get_cache_key(
         **caching_handler.request_kwargs
     )
 
@@ -721,8 +721,8 @@ def test_sync_responses_api_caching():
     )
 
     # Mock logging object
-    logging_obj = LiteLLMLogging(
-        litellm_call_id=str(datetime.now()),
+    logging_obj = EmbRouterLogging(
+        embrouter_call_id=str(datetime.now()),
         call_type=CallTypes.responses.value,
         model=original_model,
         messages=[],
@@ -772,8 +772,8 @@ def test_convert_cached_responses_api_result_to_model_response():
         original_function=responses, request_kwargs={}, start_time=datetime.now()
     )
 
-    logging_obj = LiteLLMLogging(
-        litellm_call_id=str(datetime.now()),
+    logging_obj = EmbRouterLogging(
+        embrouter_call_id=str(datetime.now()),
         call_type=CallTypes.responses.value,
         model="gpt-4o",
         messages=[],
@@ -825,7 +825,7 @@ def test_convert_cached_responses_api_result_to_model_response():
 
 
 def test_sync_get_cache_does_not_eagerly_log_streaming_responses_hits():
-    litellm.set_verbose = True
+    embrouter.set_verbose = True
     setup_cache()
     caching_handler = LLMCachingHandler(
         original_function=responses, request_kwargs={}, start_time=datetime.now()
@@ -855,8 +855,8 @@ def test_sync_get_cache_does_not_eagerly_log_streaming_responses_hits():
         ],
     )
 
-    logging_obj = LiteLLMLogging(
-        litellm_call_id=str(datetime.now()),
+    logging_obj = EmbRouterLogging(
+        embrouter_call_id=str(datetime.now()),
         call_type=CallTypes.responses.value,
         model=original_model,
         messages=[],
@@ -892,15 +892,15 @@ def test_sync_get_cache_does_not_eagerly_log_streaming_responses_hits():
 
 
 def test_sync_get_cache_defers_streaming_completion_hit_callbacks():
-    litellm.set_verbose = True
+    embrouter.set_verbose = True
     setup_cache()
     caching_handler = LLMCachingHandler(
         original_function=completion, request_kwargs={}, start_time=datetime.now()
     )
 
     original_model = "gpt-4o"
-    logging_obj = LiteLLMLogging(
-        litellm_call_id=str(datetime.now()),
+    logging_obj = EmbRouterLogging(
+        embrouter_call_id=str(datetime.now()),
         call_type=CallTypes.completion.value,
         model=original_model,
         messages=[],
@@ -945,7 +945,7 @@ def test_should_defer_streaming_cache_hit_callbacks_for_any_streaming_request():
 
 @pytest.mark.asyncio
 async def test_async_get_cache_defers_streaming_completion_hit_callbacks():
-    litellm.set_verbose = True
+    embrouter.set_verbose = True
     setup_cache()
     caching_handler = LLMCachingHandler(
         original_function=completion, request_kwargs={}, start_time=datetime.now()
@@ -961,13 +961,13 @@ async def test_async_get_cache_defers_streaming_completion_hit_callbacks():
 
     await caching_handler.async_set_cache(
         result=chat_completion_response,
-        original_function=litellm.acompletion,
+        original_function=embrouter.acompletion,
         kwargs=kwargs,
     )
     await asyncio.sleep(0.2)
 
-    logging_obj = LiteLLMLogging(
-        litellm_call_id=str(datetime.now()),
+    logging_obj = EmbRouterLogging(
+        embrouter_call_id=str(datetime.now()),
         call_type=CallTypes.acompletion.value,
         model=original_model,
         messages=[],
@@ -979,7 +979,7 @@ async def test_async_get_cache_defers_streaming_completion_hit_callbacks():
 
     cached_response = await caching_handler._async_get_cache(
         model=original_model,
-        original_function=litellm.acompletion,
+        original_function=embrouter.acompletion,
         logging_obj=logging_obj,
         start_time=datetime.now(),
         call_type=CallTypes.acompletion.value,
@@ -1000,8 +1000,8 @@ def test_convert_cached_streaming_responses_result_to_iterator():
         original_function=responses, request_kwargs={}, start_time=datetime.now()
     )
 
-    logging_obj = LiteLLMLogging(
-        litellm_call_id=str(datetime.now()),
+    logging_obj = EmbRouterLogging(
+        embrouter_call_id=str(datetime.now()),
         call_type=CallTypes.responses.value,
         model="gpt-4o",
         messages=[],
@@ -1084,8 +1084,8 @@ def test_convert_cached_aresponses_bridge_chat_completion_stream():
     caching_handler = LLMCachingHandler(
         original_function=aresponses, request_kwargs={}, start_time=datetime.now()
     )
-    logging_obj = LiteLLMLogging(
-        litellm_call_id=str(datetime.now()),
+    logging_obj = EmbRouterLogging(
+        embrouter_call_id=str(datetime.now()),
         call_type=CallTypes.aresponses.value,
         model="gpt-5.4",
         messages=[],
@@ -1133,8 +1133,8 @@ def test_convert_cached_streaming_reasoning_result_to_iterator():
         original_function=responses, request_kwargs={}, start_time=datetime.now()
     )
 
-    logging_obj = LiteLLMLogging(
-        litellm_call_id=str(datetime.now()),
+    logging_obj = EmbRouterLogging(
+        embrouter_call_id=str(datetime.now()),
         call_type=CallTypes.responses.value,
         model="gpt-4o",
         messages=[],
@@ -1286,8 +1286,8 @@ async def test_responses_api_cache_with_different_inputs():
     await asyncio.sleep(0.5)
 
     # Retrieve both from cache
-    logging_obj_1 = LiteLLMLogging(
-        litellm_call_id=str(datetime.now()),
+    logging_obj_1 = EmbRouterLogging(
+        embrouter_call_id=str(datetime.now()),
         call_type=CallTypes.aresponses.value,
         model=original_model,
         messages=[],
@@ -1296,8 +1296,8 @@ async def test_responses_api_cache_with_different_inputs():
         start_time=datetime.now(),
     )
 
-    logging_obj_2 = LiteLLMLogging(
-        litellm_call_id=str(datetime.now()),
+    logging_obj_2 = EmbRouterLogging(
+        embrouter_call_id=str(datetime.now()),
         call_type=CallTypes.aresponses.value,
         model=original_model,
         messages=[],
@@ -1418,8 +1418,8 @@ def test_convert_cached_responses_result_parameterized(
     caching_handler = LLMCachingHandler(
         original_function=lambda: None, request_kwargs={}, start_time=datetime.now()
     )
-    logging_obj = LiteLLMLogging(
-        litellm_call_id=str(datetime.now()),
+    logging_obj = EmbRouterLogging(
+        embrouter_call_id=str(datetime.now()),
         call_type=call_type,
         model="gpt-4o",
         messages=[],
@@ -1596,7 +1596,7 @@ async def test_embedding_cache_aggregates_multiple_image_counts():
 
 def test_combine_usage_merges_prompt_tokens_details():
     """Test that combine_usage merges prompt_tokens_details from both Usage objects."""
-    from litellm.types.utils import PromptTokensDetailsWrapper, Usage
+    from embrouter.types.utils import PromptTokensDetailsWrapper, Usage
 
     llm_caching_handler = LLMCachingHandler(
         original_function=MagicMock(),
@@ -1627,7 +1627,7 @@ def test_combine_usage_merges_prompt_tokens_details():
 
 def test_combine_usage_handles_none_details():
     """Test that combine_usage works when one or both sides have null prompt_tokens_details."""
-    from litellm.types.utils import PromptTokensDetailsWrapper, Usage
+    from embrouter.types.utils import PromptTokensDetailsWrapper, Usage
 
     llm_caching_handler = LLMCachingHandler(
         original_function=MagicMock(),
@@ -1661,10 +1661,10 @@ def test_combine_usage_handles_none_details():
 def _build_logging_obj(call_type: str, stream: bool):
     import uuid as _uuid
 
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLogging
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLogging
 
-    return LiteLLMLogging(
-        litellm_call_id=str(datetime.now()),
+    return EmbRouterLogging(
+        embrouter_call_id=str(datetime.now()),
         call_type=call_type,
         model="gpt-5.4",
         messages=[],
@@ -1676,8 +1676,8 @@ def _build_logging_obj(call_type: str, stream: bool):
 
 def test_convert_cached_responses_bridge_chat_completion_nonstream():
     """openai/responses chat-completions bridge: non-streaming cache hit replays as ModelResponse."""
-    from litellm import responses
-    from litellm.types.utils import CallTypes, ModelResponse
+    from embrouter import responses
+    from embrouter.types.utils import CallTypes, ModelResponse
 
     caching_handler = LLMCachingHandler(
         original_function=responses, request_kwargs={}, start_time=datetime.now()
@@ -1716,9 +1716,9 @@ def test_convert_cached_responses_bridge_chat_completion_nonstream():
 
 def test_convert_cached_responses_legacy_nonstream_path():
     """Genuine ResponsesAPIResponse dict (no chatcmpl/choices) falls through legacy path."""
-    from litellm import responses
-    from litellm.types.llms.openai import ResponsesAPIResponse
-    from litellm.types.utils import CallTypes
+    from embrouter import responses
+    from embrouter.types.llms.openai import ResponsesAPIResponse
+    from embrouter.types.utils import CallTypes
 
     caching_handler = LLMCachingHandler(
         original_function=responses, request_kwargs={}, start_time=datetime.now()
@@ -1761,11 +1761,11 @@ def test_convert_cached_responses_legacy_nonstream_path():
 
 def test_convert_cached_responses_legacy_stream_path():
     """Genuine ResponsesAPIResponse dict (no chatcmpl/choices) on stream falls through legacy path."""
-    from litellm import responses
-    from litellm.responses.streaming_iterator import (
+    from embrouter import responses
+    from embrouter.responses.streaming_iterator import (
         CachedResponsesAPIStreamingIterator,
     )
-    from litellm.types.utils import CallTypes
+    from embrouter.types.utils import CallTypes
 
     caching_handler = LLMCachingHandler(
         original_function=responses, request_kwargs={}, start_time=datetime.now()
@@ -1929,7 +1929,7 @@ async def test_embedding_cache_falls_back_to_token_counter_for_legacy_entries():
 async def test_embedding_cache_hit_sets_custom_llm_provider_on_logging_obj():
     """A full embedding cache hit must stamp the resolved provider onto the logging
     obj so spend logs record the provider instead of None/unknown."""
-    from litellm.types.utils import CallTypes
+    from embrouter.types.utils import CallTypes
 
     llm_caching_handler = LLMCachingHandler(
         original_function=MagicMock(),
@@ -1964,11 +1964,11 @@ async def test_embedding_cache_hit_sets_custom_llm_provider_on_logging_obj():
 
 
 def test_sync_stream_responses_cache_hit_sets_custom_llm_provider_on_logging_obj(monkeypatch):
-    import litellm
-    from litellm.caching.caching import Cache
-    from litellm.types.utils import CallTypes
+    import embrouter
+    from embrouter.caching.caching import Cache
+    from embrouter.types.utils import CallTypes
 
-    monkeypatch.setattr(litellm, "cache", Cache(type="local"))
+    monkeypatch.setattr(embrouter, "cache", Cache(type="local"))
     kwargs = {"model": "azure/gpt-5.4-mini", "input": "hello", "stream": True}
     cached_response = {
         "id": "resp_sync_stream",
@@ -1986,13 +1986,13 @@ def test_sync_stream_responses_cache_hit_sets_custom_llm_provider_on_logging_obj
             }
         ],
     }
-    litellm.cache.add_cache(json.dumps(cached_response), **kwargs)
-    handler = LLMCachingHandler(original_function=litellm.responses, request_kwargs=kwargs, start_time=datetime.now())
+    embrouter.cache.add_cache(json.dumps(cached_response), **kwargs)
+    handler = LLMCachingHandler(original_function=embrouter.responses, request_kwargs=kwargs, start_time=datetime.now())
     logging_obj = _build_logging_obj(CallTypes.responses.value, stream=True)
 
     hit = handler._sync_get_cache(
         model="azure/gpt-5.4-mini",
-        original_function=litellm.responses,
+        original_function=embrouter.responses,
         logging_obj=logging_obj,
         start_time=datetime.now(),
         call_type=CallTypes.responses.value,
@@ -2002,13 +2002,13 @@ def test_sync_stream_responses_cache_hit_sets_custom_llm_provider_on_logging_obj
 
     assert hit.cached_result is not None
     assert logging_obj.model_call_details["custom_llm_provider"] == "azure"
-    assert logging_obj.model_call_details["litellm_params"]["custom_llm_provider"] == "azure"
+    assert logging_obj.model_call_details["embrouter_params"]["custom_llm_provider"] == "azure"
 
 
 def test_request_kwargs_does_not_retain_logging_obj():
     """
     The caching handler lives on logging_obj._llm_caching_handler, so keeping
-    litellm_logging_obj inside request_kwargs closes a reference cycle
+    embrouter_logging_obj inside request_kwargs closes a reference cycle
     (Logging -> LLMCachingHandler -> kwargs -> Logging). That cycle keeps the
     full request payload alive until a generational GC pass instead of being
     freed by refcount when the request finishes; under bursts of large-token
@@ -2019,7 +2019,7 @@ def test_request_kwargs_does_not_retain_logging_obj():
     kwargs = {
         "model": "gpt-4o",
         "messages": [{"role": "user", "content": "hello"}],
-        "litellm_logging_obj": logging_obj,
+        "embrouter_logging_obj": logging_obj,
     }
 
     handler = LLMCachingHandler(
@@ -2028,7 +2028,7 @@ def test_request_kwargs_does_not_retain_logging_obj():
         start_time=datetime.now(),
     )
 
-    assert "litellm_logging_obj" not in handler.request_kwargs
+    assert "embrouter_logging_obj" not in handler.request_kwargs
     assert handler.request_kwargs["messages"] == kwargs["messages"]
     assert handler.request_kwargs["model"] == "gpt-4o"
 
@@ -2040,7 +2040,7 @@ def test_async_cache_write_completes_when_asyncio_run_closes_the_loop(monkeypatc
     asyncio.run cancelled it at loop close before the write landed (LIT-6184,
     deterministic with hiredis installed). The write must survive loop shutdown.
     """
-    import litellm
+    import embrouter
 
     writes = []
 
@@ -2060,11 +2060,11 @@ def test_async_cache_write_completes_when_asyncio_run_closes_the_loop(monkeypatc
         request_kwargs={},
         start_time=datetime.now(),
     )
-    monkeypatch.setattr(litellm, "cache", _SlowWriteCache())
+    monkeypatch.setattr(embrouter, "cache", _SlowWriteCache())
 
     async def _short_lived_script():
         await handler.async_set_cache(
-            result=litellm.ModelResponse(),
+            result=embrouter.ModelResponse(),
             original_function=acompletion,
             kwargs={},
         )
@@ -2078,7 +2078,7 @@ def test_async_cache_write_runs_in_the_post_response_phase_without_leaking_it(mo
     """The response-cache write happens after the response is handed to the caller, so the
     service spans it logs must detach from the request trace even while the server span is
     still open. The marker must stay inside the write task and not leak into the request."""
-    import litellm
+    import embrouter
 
     phases = []
 
@@ -2093,10 +2093,10 @@ def test_async_cache_write_runs_in_the_post_response_phase_without_leaking_it(mo
         return None
 
     handler = LLMCachingHandler(original_function=acompletion, request_kwargs={}, start_time=datetime.now())
-    monkeypatch.setattr(litellm, "cache", _PhaseRecordingCache())
+    monkeypatch.setattr(embrouter, "cache", _PhaseRecordingCache())
 
     async def _request():
-        await handler.async_set_cache(result=litellm.ModelResponse(), original_function=acompletion, kwargs={})
+        await handler.async_set_cache(result=embrouter.ModelResponse(), original_function=acompletion, kwargs={})
         leaked = in_post_response_phase()
         await asyncio.gather(*_PENDING_CACHE_WRITES)
         return leaked
@@ -2108,17 +2108,17 @@ def test_async_cache_write_runs_in_the_post_response_phase_without_leaking_it(mo
 @pytest.mark.asyncio
 async def test_cache_hit_records_the_looked_up_key_as_the_preset_cache_key(monkeypatch):
     """The spend log for a cache hit must reuse the key the lookup already computed instead of hashing again."""
-    import litellm
-    from litellm.caching.caching import Cache
-    from litellm.types.utils import CallTypes
+    import embrouter
+    from embrouter.caching.caching import Cache
+    from embrouter.types.utils import CallTypes
 
     async def acompletion(**kwargs):
         return None
 
-    monkeypatch.setattr(litellm, "cache", Cache(type="local"))
+    monkeypatch.setattr(embrouter, "cache", Cache(type="local"))
     kwargs = {"model": "gpt-5.4", "messages": [{"role": "user", "content": "hello"}], "caching": True}
-    await litellm.cache.async_add_cache(
-        litellm.ModelResponse(choices=[{"message": {"role": "assistant", "content": "hi"}}]), **kwargs
+    await embrouter.cache.async_add_cache(
+        embrouter.ModelResponse(choices=[{"message": {"role": "assistant", "content": "hi"}}]), **kwargs
     )
     handler = LLMCachingHandler(original_function=acompletion, request_kwargs=kwargs, start_time=datetime.now())
     logging_obj = _build_logging_obj(CallTypes.acompletion.value, stream=False)
@@ -2136,20 +2136,20 @@ async def test_cache_hit_records_the_looked_up_key_as_the_preset_cache_key(monke
 
     assert hit is not None and hit.cached_result is not None
     assert handler.preset_cache_key is not None
-    assert logging_obj.litellm_params["preset_cache_key"] == handler.preset_cache_key
+    assert logging_obj.embrouter_params["preset_cache_key"] == handler.preset_cache_key
     assert hit.cached_result._hidden_params["cache_key"] == handler.preset_cache_key
 
 
 @pytest.mark.asyncio
 async def test_converted_stream_cache_hit_replayed_as_plain_object_logs_at_hit_time(monkeypatch):
-    import litellm
-    from litellm.caching.caching import Cache
-    from litellm.types.utils import CallTypes
+    import embrouter
+    from embrouter.caching.caching import Cache
+    from embrouter.types.utils import CallTypes
 
     async def aanthropic_messages(**kwargs):
         return None
 
-    monkeypatch.setattr(litellm, "cache", Cache(type="local"))
+    monkeypatch.setattr(embrouter, "cache", Cache(type="local"))
     kwargs = {
         "model": "claude-sonnet-5",
         "messages": [{"role": "user", "content": "hello"}],
@@ -2164,7 +2164,7 @@ async def test_converted_stream_cache_hit_replayed_as_plain_object_logs_at_hit_t
         "role": "assistant",
         "content": [{"type": "text", "text": "hi"}],
     }
-    await litellm.cache.async_add_cache(cached_message, **kwargs)
+    await embrouter.cache.async_add_cache(cached_message, **kwargs)
     handler = LLMCachingHandler(original_function=aanthropic_messages, request_kwargs=kwargs, start_time=datetime.now())
     logging_obj = _build_logging_obj(CallTypes.aanthropic_messages.value, stream=False)
     logging_obj.async_success_handler = AsyncMock()
@@ -2187,14 +2187,14 @@ async def test_converted_stream_cache_hit_replayed_as_plain_object_logs_at_hit_t
 
 @pytest.mark.asyncio
 async def test_agentic_loop_followup_cache_hit_with_converted_stream_marker_replays_as_plain_object(monkeypatch):
-    import litellm
-    from litellm.caching.caching import Cache
-    from litellm.types.utils import CallTypes
+    import embrouter
+    from embrouter.caching.caching import Cache
+    from embrouter.types.utils import CallTypes
 
     async def acompletion(**kwargs):
         return None
 
-    monkeypatch.setattr(litellm, "cache", Cache(type="local"))
+    monkeypatch.setattr(embrouter, "cache", Cache(type="local"))
     kwargs = {
         "model": "gpt-5.6",
         "messages": [{"role": "user", "content": "run the code"}],
@@ -2203,8 +2203,8 @@ async def test_agentic_loop_followup_cache_hit_with_converted_stream_marker_repl
         "_code_interpreter_interception_converted_stream": True,
         "_agentic_loop_depth": 1,
     }
-    await litellm.cache.async_add_cache(
-        litellm.ModelResponse(choices=[{"message": {"role": "assistant", "content": "done"}}]), **kwargs
+    await embrouter.cache.async_add_cache(
+        embrouter.ModelResponse(choices=[{"message": {"role": "assistant", "content": "done"}}]), **kwargs
     )
     handler = LLMCachingHandler(original_function=acompletion, request_kwargs=kwargs, start_time=datetime.now())
     logging_obj = _build_logging_obj(CallTypes.acompletion.value, stream=False)
@@ -2221,7 +2221,7 @@ async def test_agentic_loop_followup_cache_hit_with_converted_stream_marker_repl
         args=(),
     )
 
-    assert hit is not None and isinstance(hit.cached_result, litellm.ModelResponse)
+    assert hit is not None and isinstance(hit.cached_result, embrouter.ModelResponse)
     assert hit.cached_result.choices[0].message.content == "done"
     logging_obj.handle_sync_success_callbacks_for_async_calls.assert_called_once()
     assert logging_obj.handle_sync_success_callbacks_for_async_calls.call_args.kwargs["cache_hit"] is True
@@ -2229,10 +2229,10 @@ async def test_agentic_loop_followup_cache_hit_with_converted_stream_marker_repl
 
 @pytest.mark.asyncio
 async def test_partial_embedding_cache_hit_sends_only_misses_and_keeps_input_order(monkeypatch):
-    import litellm
-    from litellm import CustomLLM
-    from litellm.caching.caching import Cache
-    from litellm.types.utils import Embedding, EmbeddingResponse
+    import embrouter
+    from embrouter import CustomLLM
+    from embrouter.caching.caching import Cache
+    from embrouter.types.utils import Embedding, EmbeddingResponse
 
     class RecordingEmbedder(CustomLLM):
         provider_inputs: tuple[tuple[str, ...], ...] = ()
@@ -2248,15 +2248,15 @@ async def test_partial_embedding_cache_hit_sends_only_misses_and_keeps_input_ord
             )
 
     embedder = RecordingEmbedder()
-    monkeypatch.setattr(litellm, "custom_provider_map", [{"provider": "recording-embedder", "custom_handler": embedder}])
-    monkeypatch.setattr(litellm, "provider_list", [*litellm.provider_list, "recording-embedder"])
-    monkeypatch.setattr(litellm, "_custom_providers", [*litellm._custom_providers, "recording-embedder"])
-    monkeypatch.setattr(litellm, "cache", Cache(type="local"))
+    monkeypatch.setattr(embrouter, "custom_provider_map", [{"provider": "recording-embedder", "custom_handler": embedder}])
+    monkeypatch.setattr(embrouter, "provider_list", [*embrouter.provider_list, "recording-embedder"])
+    monkeypatch.setattr(embrouter, "_custom_providers", [*embrouter._custom_providers, "recording-embedder"])
+    monkeypatch.setattr(embrouter, "cache", Cache(type="local"))
 
-    await litellm.aembedding(model="recording-embedder/m", input=["aa", "bbbb"])
+    await embrouter.aembedding(model="recording-embedder/m", input=["aa", "bbbb"])
     await asyncio.gather(*_PENDING_CACHE_WRITES)
     mixed_input = ["c", "aa", "ddd", "bbbb", "eeeee"]
-    response = await litellm.aembedding(model="recording-embedder/m", input=mixed_input)
+    response = await embrouter.aembedding(model="recording-embedder/m", input=mixed_input)
     await asyncio.gather(*_PENDING_CACHE_WRITES)
 
     assert embedder.provider_inputs == (("aa", "bbbb"), ("c", "ddd", "eeeee")), embedder.provider_inputs
@@ -2264,7 +2264,7 @@ async def test_partial_embedding_cache_hit_sends_only_misses_and_keeps_input_ord
     assert [item["embedding"] for item in response.data] == [[float(len(text))] for text in mixed_input]
     assert response._hidden_params["cache_hit"] is True, "a partial hit must still be reported as a cache hit"
 
-    repeat = await litellm.aembedding(model="recording-embedder/m", input=mixed_input)
+    repeat = await embrouter.aembedding(model="recording-embedder/m", input=mixed_input)
 
     assert len(embedder.provider_inputs) == 2, embedder.provider_inputs
     assert [item["embedding"] for item in repeat.data] == [[float(len(text))] for text in mixed_input]

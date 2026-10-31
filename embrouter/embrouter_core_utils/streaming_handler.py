@@ -16,18 +16,18 @@ import httpx
 from pydantic import BaseModel, ValidationError
 from typing_extensions import NotRequired, TypedDict
 
-import litellm
-from litellm import verbose_logger
-from litellm._uuid import uuid
-from litellm.litellm_core_utils.asyncify import asyncify
-from litellm.litellm_core_utils.model_response_utils import (
+import embrouter
+from embrouter import verbose_logger
+from embrouter._uuid import uuid
+from embrouter.embrouter_core_utils.asyncify import asyncify
+from embrouter.embrouter_core_utils.model_response_utils import (
     is_model_response_stream_empty,
 )
-from litellm.litellm_core_utils.redact_messages import LiteLLMLoggingObject
-from litellm.litellm_core_utils.thread_pool_executor import executor
-from litellm.types.llms.openai import OpenAIChatCompletionChunk
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import (
+from embrouter.embrouter_core_utils.redact_messages import EmbRouterLoggingObject
+from embrouter.embrouter_core_utils.thread_pool_executor import executor
+from embrouter.types.llms.openai import OpenAIChatCompletionChunk
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import (
     CacheCreationTokenDetails,
     CompletionTokensDetailsWrapper,
     Delta,
@@ -38,7 +38,7 @@ from litellm.types.utils import (
     StreamingChoices,
     Usage,
 )
-from litellm.types.utils import GenericStreamingChunk as GChunk
+from embrouter.types.utils import GenericStreamingChunk as GChunk
 
 from ..exceptions import OpenAIError
 from .core_helpers import map_finish_reason, process_response_headers
@@ -93,7 +93,7 @@ def is_async_iterable(obj: object) -> bool:
 
 def print_verbose(print_statement: object):
     try:
-        if litellm.set_verbose:
+        if embrouter.set_verbose:
             print(print_statement)  # noqa: T201
     except Exception:
         pass
@@ -211,7 +211,7 @@ class CustomStreamWrapper:
         self,
         completion_stream,
         model,
-        logging_obj: LiteLLMLoggingObject,
+        logging_obj: EmbRouterLoggingObject,
         custom_llm_provider: str | None = None,
         stream_options=None,
         make_call: Callable | None = None,
@@ -222,16 +222,16 @@ class CustomStreamWrapper:
         self.make_call = make_call
         self.count_prompt_tokens = count_prompt_tokens
         self.custom_llm_provider = custom_llm_provider
-        self.logging_obj: LiteLLMLoggingObject = logging_obj
+        self.logging_obj: EmbRouterLoggingObject = logging_obj
         self.completion_stream = completion_stream
         self.sent_first_chunk = False
         self.sent_last_chunk = False
         self._stream_created_time: float = time.time()
 
-        litellm_params: Final[GenericLiteLLMParams] = GenericLiteLLMParams.model_validate(
-            dict(**self.logging_obj.model_call_details.get("litellm_params", {}))
+        embrouter_params: Final[GenericEmbRouterParams] = GenericEmbRouterParams.model_validate(
+            dict(**self.logging_obj.model_call_details.get("embrouter_params", {}))
         )
-        self.merge_reasoning_content_in_choices: bool = litellm_params.merge_reasoning_content_in_choices or False
+        self.merge_reasoning_content_in_choices: bool = embrouter_params.merge_reasoning_content_in_choices or False
         self.sent_first_thinking_block = False
         self.sent_last_thinking_block = False
         self.thinking_content = ""
@@ -252,17 +252,17 @@ class CustomStreamWrapper:
         self.holding_chunk = ""
         self.complete_response = ""
         self.response_uptil_now = ""
-        _model_info: Final[dict] = litellm_params.model_info or {}
+        _model_info: Final[dict] = embrouter_params.model_info or {}
 
         _api_base: Final = get_api_base(
             model=model or "",
-            optional_params=self.logging_obj.model_call_details.get("litellm_params", {}),
+            optional_params=self.logging_obj.model_call_details.get("embrouter_params", {}),
         )
 
         self._hidden_params = {
             "model_id": (_model_info.get("id", None)),
             "api_base": _api_base,
-        }  # returned as x-litellm-model-id response header in proxy
+        }  # returned as x-embrouter-model-id response header in proxy
 
         self._hidden_params["additional_headers"] = process_response_headers(
             _response_headers or {}
@@ -290,7 +290,7 @@ class CustomStreamWrapper:
             _effective_model = f"{_cached_logging_provider}/{_effective_model}"
         self._cached_model_name: str = _effective_model
 
-        # Snapshot assumes self._hidden_params is populated from litellm_params
+        # Snapshot assumes self._hidden_params is populated from embrouter_params
         # at init and never mutated during the stream. If that ever changes,
         # this cache must be removed.
         self._base_hidden_params: dict[str, object] = {
@@ -301,15 +301,15 @@ class CustomStreamWrapper:
         self._post_streaming_hooks: list | None = None
 
     def _check_max_streaming_duration(self) -> None:
-        """Raise litellm.Timeout if the stream has exceeded LITELLM_MAX_STREAMING_DURATION_SECONDS."""
-        from litellm.constants import LITELLM_MAX_STREAMING_DURATION_SECONDS
+        """Raise embrouter.Timeout if the stream has exceeded EMBROUTER_MAX_STREAMING_DURATION_SECONDS."""
+        from embrouter.constants import EMBROUTER_MAX_STREAMING_DURATION_SECONDS
 
-        if LITELLM_MAX_STREAMING_DURATION_SECONDS is None:
+        if EMBROUTER_MAX_STREAMING_DURATION_SECONDS is None:
             return
         elapsed: Final = time.time() - self._stream_created_time
-        if elapsed > LITELLM_MAX_STREAMING_DURATION_SECONDS:
-            raise litellm.Timeout(
-                message=f"Stream exceeded max streaming duration of {LITELLM_MAX_STREAMING_DURATION_SECONDS}s (elapsed {elapsed:.1f}s)",
+        if elapsed > EMBROUTER_MAX_STREAMING_DURATION_SECONDS:
+            raise embrouter.Timeout(
+                message=f"Stream exceeded max streaming duration of {EMBROUTER_MAX_STREAMING_DURATION_SECONDS}s (elapsed {elapsed:.1f}s)",
                 model=self.model or "",
                 llm_provider=self.custom_llm_provider or "",
             )
@@ -414,7 +414,7 @@ class CustomStreamWrapper:
         return stream_options is not None and stream_options.get("include_usage", False) is True
 
     def check_is_function_call(self, logging_obj) -> bool:
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             is_function_call,
         )
 
@@ -471,9 +471,9 @@ class CustomStreamWrapper:
         else:
             self._repeated_messages_count = 1
 
-        if self._repeated_messages_count >= litellm.REPEATED_STREAMING_CHUNK_LIMIT:
+        if self._repeated_messages_count >= embrouter.REPEATED_STREAMING_CHUNK_LIMIT:
             # All last n chunks are identical
-            raise litellm.InternalServerError(
+            raise embrouter.InternalServerError(
                 message=f"The model is repeating the same chunk = {last_content}.",
                 model="",
                 llm_provider="",
@@ -950,7 +950,7 @@ class CustomStreamWrapper:
         model_response: ModelResponseStream,
         response_obj: dict[str, Any],
     ):
-        from litellm.litellm_core_utils.core_helpers import (
+        from embrouter.embrouter_core_utils.core_helpers import (
             preserve_upstream_non_openai_attributes,
         )
 
@@ -1112,7 +1112,7 @@ class CustomStreamWrapper:
         if (
             isinstance(chunk, ModelResponseStream)
             and self.custom_llm_provider is not None
-            and self.custom_llm_provider in litellm._custom_providers
+            and self.custom_llm_provider in embrouter._custom_providers
         ):
             _has_content: Final = bool(
                 chunk.choices
@@ -1135,7 +1135,7 @@ class CustomStreamWrapper:
         if (
             isinstance(chunk, dict)
             and generic_chunk_has_all_required_fields(chunk=chunk)  # check if chunk is a generic streaming chunk
-        ) or (self.custom_llm_provider and self.custom_llm_provider in litellm._custom_providers):
+        ) or (self.custom_llm_provider and self.custom_llm_provider in embrouter._custom_providers):
             if self.received_finish_reason is not None:
                 _chunk_has_content: Final = isinstance(chunk, dict) and (
                     bool(chunk.get("text", ""))
@@ -1158,7 +1158,7 @@ class CustomStreamWrapper:
                 setattr(
                     model_response,
                     "usage",
-                    litellm.Usage(**anthropic_response_obj["usage"]),
+                    embrouter.Usage(**anthropic_response_obj["usage"]),
                 )
 
             if "tool_use" in anthropic_response_obj and anthropic_response_obj["tool_use"] is not None:
@@ -1235,7 +1235,7 @@ class CustomStreamWrapper:
                                 args_str: Final = json.dumps(args_dict)
                             except Exception as e:
                                 raise e
-                            _delta_obj: Final = litellm.utils.Delta(
+                            _delta_obj: Final = embrouter.utils.Delta(
                                 content=None,
                                 tool_calls=[
                                     {
@@ -1292,7 +1292,7 @@ class CustomStreamWrapper:
                 setattr(
                     model_response,
                     "usage",
-                    litellm.Usage(
+                    embrouter.Usage(
                         prompt_tokens=_text_completion_usage.prompt_tokens,
                         completion_tokens=_text_completion_usage.completion_tokens,
                         total_tokens=_text_completion_usage.total_tokens,
@@ -1303,7 +1303,7 @@ class CustomStreamWrapper:
                 raise ValueError(f"chunk is not a string: {chunk}")
             response_obj = cast(
                 dict[str, object],
-                litellm.CodestralTextCompletionConfig()._chunk_parser(chunk),
+                embrouter.CodestralTextCompletionConfig()._chunk_parser(chunk),
             )
             completion_obj["content"] = response_obj["text"]
             print_verbose(f"completion obj content: {completion_obj['content']}")
@@ -1314,7 +1314,7 @@ class CustomStreamWrapper:
                 setattr(
                     model_response,
                     "usage",
-                    litellm.Usage(
+                    embrouter.Usage(
                         prompt_tokens=_codestral_usage.prompt_tokens,
                         completion_tokens=_codestral_usage.completion_tokens,
                         total_tokens=_codestral_usage.total_tokens,
@@ -1382,7 +1382,7 @@ class CustomStreamWrapper:
                     setattr(
                         model_response,
                         "usage",
-                        litellm.Usage(
+                        embrouter.Usage(
                             prompt_tokens=response_obj["usage"].get("prompt_tokens", None) or None,
                             completion_tokens=response_obj["usage"].get("completion_tokens", None) or None,
                             total_tokens=response_obj["usage"].get("total_tokens", None) or None,
@@ -1398,7 +1398,7 @@ class CustomStreamWrapper:
                     setattr(
                         model_response,
                         "usage",
-                        litellm.Usage(**response_obj["usage"].model_dump()),
+                        embrouter.Usage(**response_obj["usage"].model_dump()),
                     )
         return _ProviderChunkParsed(response_obj)
 
@@ -1480,7 +1480,7 @@ class CustomStreamWrapper:
                             model_response.choices[0].delta = Delta(**_json_delta)
                         except Exception as e:
                             verbose_logger.exception(
-                                "litellm.CustomStreamWrapper.chunk_creator(): Exception occured - %s", e
+                                "embrouter.CustomStreamWrapper.chunk_creator(): Exception occured - %s", e
                             )
                             model_response.choices[0].delta = Delta()
                     elif self._has_any_special_delta_attributes(delta):
@@ -1537,11 +1537,11 @@ class CustomStreamWrapper:
 
     def set_logging_event_loop(self, loop):
         """
-        import litellm, asyncio
+        import embrouter, asyncio
 
         loop = asyncio.get_event_loop() # 👈 gets the current event loop
 
-        response = litellm.completion(.., stream=True)
+        response = embrouter.completion(.., stream=True)
 
         response.set_logging_event_loop(loop=loop) # 👈 enables async_success callbacks for sync logging
 
@@ -1557,14 +1557,14 @@ class CustomStreamWrapper:
         This allows callbacks to modify streaming chunks before they're returned.
         """
         try:
-            import litellm
-            from litellm.integrations.custom_logger import CustomLogger
-            from litellm.types.utils import CallTypes
+            import embrouter
+            from embrouter.integrations.custom_logger import CustomLogger
+            from embrouter.types.utils import CallTypes
 
             if self._post_streaming_hooks is None:
                 self._post_streaming_hooks = [
                     cb
-                    for cb in litellm.callbacks
+                    for cb in embrouter.callbacks
                     if isinstance(cb, CustomLogger) and hasattr(cb, "async_post_call_streaming_deployment_hook")
                 ]
 
@@ -1590,7 +1590,7 @@ class CustomStreamWrapper:
 
             return chunk
         except Exception as e:
-            from litellm._logging import verbose_logger
+            from embrouter._logging import verbose_logger
 
             verbose_logger.exception("Error in post-call streaming deployment hook: %s", e)
             return chunk
@@ -1630,7 +1630,7 @@ class CustomStreamWrapper:
                         setattr(choice.delta, "provider_specific_fields", provider_fields)
 
         except Exception as e:
-            from litellm._logging import verbose_logger
+            from embrouter._logging import verbose_logger
 
             verbose_logger.exception("Error adding MCP list tools to first chunk: %s", e)
 
@@ -1667,7 +1667,7 @@ class CustomStreamWrapper:
                         setattr(choice.delta, "provider_specific_fields", provider_fields)
 
         except Exception as e:
-            from litellm._logging import verbose_logger
+            from embrouter._logging import verbose_logger
 
             verbose_logger.exception("Error adding MCP metadata to final chunk: %s", e)
 
@@ -1691,10 +1691,10 @@ class CustomStreamWrapper:
         """
         Runs success logging in a thread and adds the response to the cache
         """
-        if litellm.disable_streaming_logging is True:
+        if embrouter.disable_streaming_logging is True:
             """
             [NOT RECOMMENDED]
-            Set this via `litellm.disable_streaming_logging = True`.
+            Set this via `embrouter.disable_streaming_logging = True`.
 
             Disables streaming logging.
             """
@@ -1710,8 +1710,8 @@ class CustomStreamWrapper:
         else:
             asyncio.run(self.logging_obj.async_success_handler(processed_chunk, None, None, cache_hit))
         ## SYNC LOGGING — only for sync SDK entrypoints; async proxy paths export via async_success_handler
-        litellm_params: Final = self.logging_obj.model_call_details.get("litellm_params", {})
-        if self.logging_obj._is_sync_litellm_request(litellm_params):
+        embrouter_params: Final = self.logging_obj.model_call_details.get("embrouter_params", {})
+        if self.logging_obj._is_sync_embrouter_request(embrouter_params):
             self.logging_obj.success_handler(processed_chunk, None, None, cache_hit)
 
     def finish_reason_handler(self):
@@ -1765,7 +1765,7 @@ class CustomStreamWrapper:
         if _cost is not None:
             if "additional_headers" not in response._hidden_params:
                 response._hidden_params["additional_headers"] = {}
-            response._hidden_params["additional_headers"]["llm_provider-x-litellm-response-cost"] = _cost
+            response._hidden_params["additional_headers"]["llm_provider-x-embrouter-response-cost"] = _cost
 
     def __next__(self) -> "ModelResponseStream":
         cache_hit = False
@@ -1797,7 +1797,7 @@ class CustomStreamWrapper:
                     if self.logging_obj.completion_start_time is None:
                         self.logging_obj._update_completion_start_time(completion_start_time=datetime.datetime.now())
                     ## LOGGING
-                    if not litellm.disable_streaming_logging:
+                    if not embrouter.disable_streaming_logging:
                         executor.submit(
                             self.run_success_logging_and_cache_storage,
                             response,
@@ -1850,7 +1850,7 @@ class CustomStreamWrapper:
         except StopIteration:
             if self.sent_last_chunk is True:
                 try:
-                    complete_streaming_response = litellm.stream_chunk_builder(
+                    complete_streaming_response = embrouter.stream_chunk_builder(
                         chunks=self.chunks,
                         messages=self.messages,
                         logging_obj=self.logging_obj,
@@ -1964,7 +1964,7 @@ class CustomStreamWrapper:
     def fetch_sync_stream(self):
         if self.completion_stream is None and self.make_call is not None:
             # Call make_call to get the completion stream
-            self.completion_stream = self.make_call(client=litellm.module_level_client)
+            self.completion_stream = self.make_call(client=embrouter.module_level_client)
             self._stream_iter = self.completion_stream.__iter__()
 
         return self.completion_stream
@@ -1972,7 +1972,7 @@ class CustomStreamWrapper:
     async def fetch_stream(self):
         if self.completion_stream is None and self.make_call is not None:
             # Call make_call to get the completion stream
-            self.completion_stream = await self.make_call(client=litellm.module_level_aclient)
+            self.completion_stream = await self.make_call(client=embrouter.module_level_aclient)
             self._stream_iter = self.completion_stream.__aiter__()
 
         return self.completion_stream
@@ -1982,7 +1982,7 @@ class CustomStreamWrapper:
         if self.custom_llm_provider is not None and self.custom_llm_provider == "cached_response":
             cache_hit = True
         try:
-            # Inside the try (not before it) so a raised litellm.Timeout flows
+            # Inside the try (not before it) so a raised embrouter.Timeout flows
             # through the same except Exception -> _handle_stream_fallback_error
             # path as every other failure, restoring the consumer's correlation
             # context - a check before the try would bypass that entirely.
@@ -2084,8 +2084,8 @@ class CustomStreamWrapper:
             return await self._finalize_completed_stream(cache_hit=cache_hit)
         except httpx.TimeoutException as e:  # if httpx read timeout error occues
             traceback_exception = traceback.format_exc()
-            ## ADD DEBUG INFORMATION - E.G. LITELLM REQUEST TIMEOUT
-            traceback_exception += f"\nLiteLLM Default Request Timeout - {litellm.request_timeout}"
+            ## ADD DEBUG INFORMATION - E.G. EMBROUTER REQUEST TIMEOUT
+            traceback_exception += f"\nEmbRouter Default Request Timeout - {embrouter.request_timeout}"
             if self.logging_obj is not None:
                 self._record_partial_usage_for_failure()
                 ## LOGGING
@@ -2104,7 +2104,7 @@ class CustomStreamWrapper:
         if self.sent_last_chunk is True:
             # log the final chunk with accurate streaming values
             try:
-                complete_streaming_response = await asyncify(litellm.stream_chunk_builder)(
+                complete_streaming_response = await asyncify(embrouter.stream_chunk_builder)(
                     chunks=self.chunks,
                     messages=self.messages,
                     logging_obj=self.logging_obj,
@@ -2229,7 +2229,7 @@ class CustomStreamWrapper:
         if self.logging_obj is None or not self.chunks:
             return
         try:
-            partial_response: Final = litellm.stream_chunk_builder(
+            partial_response: Final = embrouter.stream_chunk_builder(
                 chunks=self.chunks,
                 messages=self.messages if isinstance(self.messages, list) else None,
                 logging_obj=self.logging_obj,
@@ -2264,7 +2264,7 @@ class CustomStreamWrapper:
         429 (rate-limit) is explicitly exempted from the 4xx filter because
         it is transient and the Router should switch to another model group.
         """
-        from litellm.exceptions import MidStreamFallbackError
+        from embrouter.exceptions import MidStreamFallbackError
 
         # Map to OpenAI exception format. Some providers' mappers (e.g.
         # _map_anthropic_exception, _map_aleph_alpha_exception) synchronously
@@ -2408,7 +2408,7 @@ def _coerce_token_details(
 
 def calculate_total_usage(chunks: list[ModelResponse]) -> Usage:
     """Assume most recent usage chunk has total usage uptil then."""
-    from litellm.litellm_core_utils.streaming_chunk_builder_utils import (
+    from embrouter.embrouter_core_utils.streaming_chunk_builder_utils import (
         attach_cache_creation_token_details,
         capture_cache_creation_token_details,
     )
@@ -2473,7 +2473,7 @@ def generic_chunk_has_all_required_fields(chunk: dict) -> bool:
 def convert_generic_chunk_to_model_response_stream(
     chunk: GChunk,
 ) -> ModelResponseStream:
-    from litellm.types.utils import Delta
+    from embrouter.types.utils import Delta
 
     model_response_stream: Final = ModelResponseStream(
         id=str(uuid.uuid4()),

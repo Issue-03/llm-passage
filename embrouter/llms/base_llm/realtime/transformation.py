@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING, Any, Protocol
 import httpx
 from typing_extensions import Self
 
-from litellm.types.llms.openai import OpenAIRealtimeStreamSessionEvents
-from litellm.types.realtime import (
+from embrouter.types.llms.openai import OpenAIRealtimeStreamSessionEvents
+from embrouter.types.realtime import (
     RealtimeInputAudioTranscriptionUsage,
     RealtimeResponseTransformInput,
     RealtimeResponseTypedDict,
@@ -16,11 +16,11 @@ from litellm.types.realtime import (
 from ..chat.transformation import BaseLLMException
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 
 class RealtimeBackend(Protocol):
@@ -119,7 +119,7 @@ class BaseRealtimeConfig(ABC):
         self,
         message: str | bytes,
         model: str,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         realtime_response_transform_input: RealtimeResponseTransformInput,
     ) -> RealtimeResponseTypedDict:  # message sent to setup the realtime session
         """

@@ -15,28 +15,28 @@ import pytest
 from botocore.auth import SigV4Auth
 from botocore.awsrequest import AWSRequest
 
-import litellm
-from litellm.llms.bedrock_mantle.chat.transformation import BedrockMantleChatConfig
-from litellm.llms.bedrock.base_aws_llm import sign_request_off_loop_if_aws
-from litellm.types.utils import LlmProviders
+import embrouter
+from embrouter.llms.bedrock_mantle.chat.transformation import BedrockMantleChatConfig
+from embrouter.llms.bedrock.base_aws_llm import sign_request_off_loop_if_aws
+from embrouter.types.utils import LlmProviders
 from tests.unit.llms.bedrock.event_loop_probe import EventLoopProbe
 
 
 @pytest.fixture
 def local_cost_map(monkeypatch):
-    original_model_cost = litellm.model_cost
-    original_bedrock_mantle_models = set(litellm.bedrock_mantle_models)
+    original_model_cost = embrouter.model_cost
+    original_bedrock_mantle_models = set(embrouter.bedrock_mantle_models)
     try:
-        monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "true")
-        litellm.model_cost = litellm.get_model_cost_map(url="")
-        litellm.get_model_info.cache_clear()
-        litellm.add_known_models()
+        monkeypatch.setenv("EMBROUTER_LOCAL_MODEL_COST_MAP", "true")
+        embrouter.model_cost = embrouter.get_model_cost_map(url="")
+        embrouter.get_model_info.cache_clear()
+        embrouter.add_known_models()
         yield
     finally:
-        litellm.model_cost = original_model_cost
-        litellm.bedrock_mantle_models.clear()
-        litellm.bedrock_mantle_models.update(original_bedrock_mantle_models)
-        litellm.get_model_info.cache_clear()
+        embrouter.model_cost = original_model_cost
+        embrouter.bedrock_mantle_models.clear()
+        embrouter.bedrock_mantle_models.update(original_bedrock_mantle_models)
+        embrouter.get_model_info.cache_clear()
 
 
 class TestBedrockMantleProviderRegistration:
@@ -44,7 +44,7 @@ class TestBedrockMantleProviderRegistration:
         assert LlmProviders.BEDROCK_MANTLE == "bedrock_mantle"
 
     def test_provider_in_provider_list(self):
-        assert "bedrock_mantle" in litellm.provider_list
+        assert "bedrock_mantle" in embrouter.provider_list
 
 
 class TestBedrockMantleConfig:
@@ -77,18 +77,18 @@ class TestBedrockMantleConfig:
         assert api_base == "https://bedrock-mantle.ca-central-1.api.aws/v1"
 
     def test_aws_region_name_param_overrides_env(self, monkeypatch):
-        from litellm.types.router import GenericLiteLLMParams
+        from embrouter.types.router import GenericEmbRouterParams
 
         monkeypatch.setenv("BEDROCK_MANTLE_REGION", "us-west-2")
         monkeypatch.delenv("BEDROCK_MANTLE_API_BASE", raising=False)
         cfg = BedrockMantleChatConfig()
         api_base, _ = cfg._get_openai_compatible_provider_info(
-            None, None, litellm_params=GenericLiteLLMParams(aws_region_name="us-east-2")
+            None, None, embrouter_params=GenericEmbRouterParams(aws_region_name="us-east-2")
         )
         assert api_base == "https://bedrock-mantle.us-east-2.api.aws/v1"
 
     def test_malicious_aws_region_name_rejected(self, monkeypatch):
-        from litellm.types.router import GenericLiteLLMParams
+        from embrouter.types.router import GenericEmbRouterParams
 
         monkeypatch.delenv("BEDROCK_MANTLE_REGION", raising=False)
         monkeypatch.delenv("BEDROCK_MANTLE_API_BASE", raising=False)
@@ -98,22 +98,22 @@ class TestBedrockMantleConfig:
             cfg._get_openai_compatible_provider_info(
                 None,
                 None,
-                litellm_params=GenericLiteLLMParams(
+                embrouter_params=GenericEmbRouterParams(
                     aws_region_name="us-east-1.api.aws.attacker.example/"
                 ),
             )
 
     def test_get_llm_provider_rejects_malicious_aws_region_name(self, monkeypatch):
-        from litellm.types.router import GenericLiteLLMParams
+        from embrouter.types.router import GenericEmbRouterParams
 
         monkeypatch.delenv("BEDROCK_MANTLE_REGION", raising=False)
         monkeypatch.delenv("BEDROCK_MANTLE_API_BASE", raising=False)
         monkeypatch.delenv("AWS_REGION", raising=False)
-        with pytest.raises(litellm.exceptions.BadRequestError):
-            litellm.get_llm_provider(
+        with pytest.raises(embrouter.exceptions.BadRequestError):
+            embrouter.get_llm_provider(
                 model="openai.gpt-5.5",
                 custom_llm_provider="bedrock_mantle",
-                litellm_params=GenericLiteLLMParams(
+                embrouter_params=GenericEmbRouterParams(
                     aws_region_name="us-east-1.api.aws.attacker.example/"
                 ),
             )
@@ -121,15 +121,15 @@ class TestBedrockMantleConfig:
     def test_get_llm_provider_uses_aws_region_name_for_responses(
         self, monkeypatch, local_cost_map
     ):
-        from litellm.types.router import GenericLiteLLMParams
+        from embrouter.types.router import GenericEmbRouterParams
 
         monkeypatch.delenv("BEDROCK_MANTLE_REGION", raising=False)
         monkeypatch.delenv("BEDROCK_MANTLE_API_BASE", raising=False)
         monkeypatch.delenv("AWS_REGION", raising=False)
-        _, provider, _, api_base = litellm.get_llm_provider(
+        _, provider, _, api_base = embrouter.get_llm_provider(
             model="openai.gpt-5.5",
             custom_llm_provider="bedrock_mantle",
-            litellm_params=GenericLiteLLMParams(aws_region_name="us-east-2"),
+            embrouter_params=GenericEmbRouterParams(aws_region_name="us-east-2"),
         )
         assert provider == "bedrock_mantle"
         # gpt-5.x carries use_openai_responses_path, so it is served on the
@@ -144,7 +144,7 @@ class TestBedrockMantleConfig:
         assert api_base == "https://bedrock-mantle.us-gov-west-1.api.aws/openai/v1"
 
     def test_aws_region_name_param_beats_model_region_prefix(self, monkeypatch, local_cost_map):
-        from litellm.types.router import GenericLiteLLMParams
+        from embrouter.types.router import GenericEmbRouterParams
 
         for var in ("BEDROCK_MANTLE_REGION", "BEDROCK_MANTLE_API_BASE", "AWS_REGION", "AWS_REGION_NAME"):
             monkeypatch.delenv(var, raising=False)
@@ -152,7 +152,7 @@ class TestBedrockMantleConfig:
         api_base, _ = cfg._get_openai_compatible_provider_info(
             None,
             None,
-            litellm_params=GenericLiteLLMParams(aws_region_name="us-east-1"),
+            embrouter_params=GenericEmbRouterParams(aws_region_name="us-east-1"),
             model="us-gov-west-1/xai.grok-4.3",
         )
         assert api_base == "https://bedrock-mantle.us-east-1.api.aws/openai/v1"
@@ -247,7 +247,7 @@ class TestBedrockMantleConfig:
     def test_verbosity_passes_through_for_gpt_5_models(self):
         cfg = BedrockMantleChatConfig()
         assert "verbosity" in cfg.get_supported_openai_params("openai.gpt-5.6-sol")
-        optional_params = litellm.get_optional_params(
+        optional_params = embrouter.get_optional_params(
             model="openai.gpt-5.6-sol",
             custom_llm_provider="bedrock_mantle",
             verbosity="low",
@@ -264,7 +264,7 @@ class TestBedrockMantleChatAuth:
     def _signer_that_forbids_credentials(self):
         from unittest.mock import MagicMock
 
-        from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM
+        from embrouter.llms.bedrock.base_aws_llm import BaseAWSLLM
 
         signer = BaseAWSLLM()
         signer.get_credentials = MagicMock(
@@ -328,7 +328,7 @@ class TestBedrockMantleChatAuth:
         signer.get_credentials.assert_not_called()
 
     def test_no_bearer_signs_with_sigv4(self, monkeypatch):
-        from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM
+        from embrouter.llms.bedrock.base_aws_llm import BaseAWSLLM
 
         monkeypatch.delenv("BEDROCK_MANTLE_API_KEY", raising=False)
         monkeypatch.delenv("AWS_BEARER_TOKEN_BEDROCK", raising=False)
@@ -360,7 +360,7 @@ class TestBedrockMantleChatAuth:
         # Chat passes the OpenAI-mapped optional_params (no aws_region_name) to
         # sign_request, so the SigV4 credential scope has to come from the already
         # region-resolved api_base host or it would disagree with the URL -> 401.
-        from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM
+        from embrouter.llms.bedrock.base_aws_llm import BaseAWSLLM
 
         for var in (
             "BEDROCK_MANTLE_API_KEY",
@@ -394,7 +394,7 @@ class TestBedrockMantleChatAuth:
         # match the URL host or Bedrock rejects the request with 401. Without the
         # fix, sign_request would prefer aws_region_name and sign for us-west-2
         # while POSTing to eu-west-1.
-        from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM
+        from embrouter.llms.bedrock.base_aws_llm import BaseAWSLLM
 
         for var in (
             "BEDROCK_MANTLE_API_KEY",
@@ -432,7 +432,7 @@ class TestBedrockMantleChatAuth:
     def test_sigv4_scope_ignores_the_region_segment_of_a_lookalike_host(
         self, monkeypatch, region_params, env, expected_region
     ):
-        from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM
+        from embrouter.llms.bedrock.base_aws_llm import BaseAWSLLM
 
         for var in (
             "BEDROCK_MANTLE_API_KEY",
@@ -467,7 +467,7 @@ class TestBedrockMantleChatAuth:
 
         from botocore.exceptions import NoCredentialsError
 
-        from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM
+        from embrouter.llms.bedrock.base_aws_llm import BaseAWSLLM
 
         monkeypatch.delenv("BEDROCK_MANTLE_API_KEY", raising=False)
         monkeypatch.delenv("AWS_BEARER_TOKEN_BEDROCK", raising=False)
@@ -535,9 +535,9 @@ class TestBedrockMantleChatAuth:
             )
 
         with patch(
-            "litellm.llms.custom_httpx.http_handler.HTTPHandler.post", mock_post
+            "embrouter.llms.custom_httpx.http_handler.HTTPHandler.post", mock_post
         ):
-            response = litellm.completion(
+            response = embrouter.completion(
                 model="bedrock_mantle/openai.gpt-oss-120b",
                 messages=[{"role": "user", "content": "hello"}],
             )
@@ -554,10 +554,10 @@ class TestBedrockMantleChatAuth:
 
         from botocore.credentials import Credentials
 
-        from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM
-        from litellm.llms.custom_httpx.http_handler import HTTPHandler
-        from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
-        from litellm.types.utils import ModelResponse
+        from embrouter.llms.bedrock.base_aws_llm import BaseAWSLLM
+        from embrouter.llms.custom_httpx.http_handler import HTTPHandler
+        from embrouter.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+        from embrouter.types.utils import ModelResponse
 
         for var in ("BEDROCK_MANTLE_API_KEY", "AWS_BEARER_TOKEN_BEDROCK", "BEDROCK_MANTLE_API_BASE"):
             monkeypatch.delenv(var, raising=False)
@@ -597,7 +597,7 @@ class TestBedrockMantleChatAuth:
             logging_obj=Mock(),
             optional_params={},
             timeout=10,
-            litellm_params={
+            embrouter_params={
                 "aws_role_name": "arn:aws:iam::000000000000:role/attributed-role",
                 "aws_session_name": "user-123",
                 "aws_region_name": "us-east-1",
@@ -623,7 +623,7 @@ class TestBedrockMantleProjectHeader:
             model="openai.gpt-oss-120b",
             messages=[{"role": "user", "content": "hi"}],
             optional_params={},
-            litellm_params={"aws_bedrock_project_id": "proj_abc123def456"},
+            embrouter_params={"aws_bedrock_project_id": "proj_abc123def456"},
             api_key="fake-key",
         )
         assert headers["OpenAI-Project"] == "proj_abc123def456"
@@ -636,7 +636,7 @@ class TestBedrockMantleProjectHeader:
             model="openai.gpt-oss-120b",
             messages=[{"role": "user", "content": "hi"}],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             api_key="fake-key",
         )
         assert "OpenAI-Project" not in headers
@@ -673,9 +673,9 @@ class TestBedrockMantleProjectHeader:
             )
 
         with patch(
-            "litellm.llms.custom_httpx.http_handler.HTTPHandler.post", mock_post
+            "embrouter.llms.custom_httpx.http_handler.HTTPHandler.post", mock_post
         ):
-            response = litellm.completion(
+            response = embrouter.completion(
                 model="bedrock_mantle/openai.gpt-oss-120b",
                 messages=[{"role": "user", "content": "hello"}],
                 api_key="fake-key",
@@ -690,14 +690,14 @@ class TestBedrockMantleProjectHeader:
 
 class TestBedrockMantleProviderResolution:
     def test_get_llm_provider_resolves_correctly(self):
-        model, provider, _, _ = litellm.get_llm_provider(
+        model, provider, _, _ = embrouter.get_llm_provider(
             "bedrock_mantle/openai.gpt-oss-120b"
         )
         assert provider == "bedrock_mantle"
         assert model == "openai.gpt-oss-120b"
 
     def test_get_llm_provider_20b(self):
-        model, provider, _, _ = litellm.get_llm_provider(
+        model, provider, _, _ = embrouter.get_llm_provider(
             "bedrock_mantle/openai.gpt-oss-20b"
         )
         assert provider == "bedrock_mantle"
@@ -707,13 +707,13 @@ class TestBedrockMantleProviderResolution:
     def test_get_llm_provider_strips_region_prefix(self, monkeypatch, local_cost_map):
         for var in ("BEDROCK_MANTLE_REGION", "BEDROCK_MANTLE_API_BASE", "AWS_REGION", "AWS_REGION_NAME"):
             monkeypatch.delenv(var, raising=False)
-        model, provider, _, api_base = litellm.get_llm_provider("bedrock_mantle/us-gov-west-1/xai.grok-4.3")
+        model, provider, _, api_base = embrouter.get_llm_provider("bedrock_mantle/us-gov-west-1/xai.grok-4.3")
         assert provider == "bedrock_mantle"
         assert model == "xai.grok-4.3"
         assert api_base == "https://bedrock-mantle.us-gov-west-1.api.aws/openai/v1"
 
     def test_completion_region_prefixed_model_sends_bare_model_to_that_region(self, monkeypatch, local_cost_map):
-        from litellm.llms.custom_httpx.http_handler import HTTPHandler
+        from embrouter.llms.custom_httpx.http_handler import HTTPHandler
 
         for var in (
             "BEDROCK_MANTLE_API_KEY",
@@ -743,13 +743,13 @@ class TestBedrockMantleProviderResolution:
             )
 
         handler = Mock(side_effect=respond)
-        response = litellm.completion(
+        response = embrouter.completion(
             model="bedrock_mantle/us-gov-west-1/xai.grok-4.3",
             messages=[{"role": "user", "content": "hello"}],
             client=HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(handler))),
         )
 
-        gov = litellm.model_cost["bedrock_mantle/us-gov-west-1/xai.grok-4.3"]
+        gov = embrouter.model_cost["bedrock_mantle/us-gov-west-1/xai.grok-4.3"]
         sent = handler.call_args.args[0]
         assert str(sent.url) == "https://bedrock-mantle.us-gov-west-1.api.aws/openai/v1/chat/completions"
         assert json.loads(sent.content)["model"] == "xai.grok-4.3"
@@ -759,7 +759,7 @@ class TestBedrockMantleProviderResolution:
         )
 
     def test_responses_region_prefixed_model_prices_from_that_region_over_env_region(self, monkeypatch, local_cost_map):
-        from litellm.llms.custom_httpx.http_handler import HTTPHandler
+        from embrouter.llms.custom_httpx.http_handler import HTTPHandler
 
         for var in (
             "BEDROCK_MANTLE_API_KEY",
@@ -802,13 +802,13 @@ class TestBedrockMantleProviderResolution:
             )
 
         handler = Mock(side_effect=respond)
-        response = litellm.responses(
+        response = embrouter.responses(
             model="bedrock_mantle/us-gov-west-1/xai.grok-4.3",
             input="hello",
             client=HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(handler))),
         )
 
-        gov = litellm.model_cost["bedrock_mantle/us-gov-west-1/xai.grok-4.3"]
+        gov = embrouter.model_cost["bedrock_mantle/us-gov-west-1/xai.grok-4.3"]
         sent = handler.call_args.args[0]
         assert str(sent.url) == "https://bedrock-mantle.us-gov-west-1.api.aws/openai/v1/responses"
         assert json.loads(sent.content)["model"] == "xai.grok-4.3"
@@ -833,9 +833,9 @@ class TestBedrockMantlePricing:
 def test_gemma_4_models_register_under_bedrock_mantle(local_cost_map, model_id):
     full_model_name = f"bedrock_mantle/{model_id}"
 
-    assert full_model_name in litellm.bedrock_mantle_models
+    assert full_model_name in embrouter.bedrock_mantle_models
 
-    resolved_model, provider, _, _ = litellm.get_llm_provider(full_model_name)
+    resolved_model, provider, _, _ = embrouter.get_llm_provider(full_model_name)
     assert provider == "bedrock_mantle"
     assert resolved_model == model_id
 

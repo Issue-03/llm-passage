@@ -5,27 +5,27 @@ from typing import TYPE_CHECKING, Any, Final, Literal, Optional, Protocol, TypeA
 import httpx
 from typing_extensions import ReadOnly, TypedDict, Unpack
 
-from litellm._logging import verbose_proxy_logger
-from litellm.exceptions import GuardrailRaisedException
-from litellm.exceptions import Timeout as LiteLLMTimeout
-from litellm.integrations.custom_guardrail import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.exceptions import GuardrailRaisedException
+from embrouter.exceptions import Timeout as EmbRouterTimeout
+from embrouter.integrations.custom_guardrail import (
     CustomGuardrail,
     log_guardrail_information,
 )
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.llms.openai import ChatCompletionToolCallChunk
-from litellm.types.utils import ChatCompletionMessageToolCall, GenericGuardrailAPIInputs
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.guardrails import GuardrailEventHooks
+from embrouter.types.llms.openai import ChatCompletionToolCallChunk
+from embrouter.types.utils import ChatCompletionMessageToolCall, GenericGuardrailAPIInputs
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import (
-        Logging as LiteLLMLoggingObj,
+    from embrouter.embrouter_core_utils.embrouter_logging import (
+        Logging as EmbRouterLoggingObj,
     )
-    from litellm.types.proxy.guardrails.guardrail_hooks.base import (
+    from embrouter.types.proxy.guardrails.guardrail_hooks.base import (
         GuardrailConfigModel,
     )
 
@@ -139,7 +139,7 @@ class VigilGuardGuardrail(CustomGuardrail):
 
     @staticmethod
     def get_config_model() -> type["GuardrailConfigModel"] | None:
-        from litellm.types.proxy.guardrails.guardrail_hooks.vigil_guard import (
+        from embrouter.types.proxy.guardrails.guardrail_hooks.vigil_guard import (
             VigilGuardGuardrailConfigModel,
         )
 
@@ -158,7 +158,7 @@ class VigilGuardGuardrail(CustomGuardrail):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict,
         input_type: Literal["request", "response"],
-        logging_obj: Optional["LiteLLMLoggingObj"] = None,
+        logging_obj: Optional["EmbRouterLoggingObj"] = None,
     ) -> GenericGuardrailAPIInputs:
         texts: Final = inputs.get("texts") or []
         has_text: Final = any(isinstance(text, str) and text.strip() for text in texts)
@@ -179,7 +179,7 @@ class VigilGuardGuardrail(CustomGuardrail):
                 analysis = await self._analyze(text=text, source=source, metadata=metadata)
             except (
                 httpx.HTTPError,
-                LiteLLMTimeout,
+                EmbRouterTimeout,
                 JSONDecodeError,
                 OSError,
             ) as exc:
@@ -230,7 +230,7 @@ class VigilGuardGuardrail(CustomGuardrail):
                 analysis = await self._analyze(text=arguments, source=source, metadata=metadata)
             except (
                 httpx.HTTPError,
-                LiteLLMTimeout,
+                EmbRouterTimeout,
                 JSONDecodeError,
                 OSError,
             ) as exc:
@@ -392,7 +392,7 @@ class VigilGuardGuardrail(CustomGuardrail):
                 httpx.ConnectTimeout,
                 httpx.ReadTimeout,
                 httpx.RemoteProtocolError,
-                LiteLLMTimeout,
+                EmbRouterTimeout,
             ),
         )
 
@@ -418,12 +418,12 @@ class VigilGuardGuardrail(CustomGuardrail):
         return original
 
     def _collect_metadata(
-        self, request_data: dict, logging_obj: Optional["LiteLLMLoggingObj"]
+        self, request_data: dict, logging_obj: Optional["EmbRouterLoggingObj"]
     ) -> Mapping[str, _MetadataValue]:
         sources: Final[list[dict]] = []
         if isinstance(request_data, dict):
             sources.append(request_data)
-            for nested_key in ("metadata", "litellm_metadata"):
+            for nested_key in ("metadata", "embrouter_metadata"):
                 nested = request_data.get(nested_key)
                 if isinstance(nested, dict):
                     sources.append(nested)
@@ -439,7 +439,7 @@ class VigilGuardGuardrail(CustomGuardrail):
 
         call_id: Final = self._extract_call_id(request_data, logging_obj)
         if call_id:
-            collected["litellm_call_id"] = call_id
+            collected["embrouter_call_id"] = call_id
 
         return collected
 
@@ -464,18 +464,18 @@ class VigilGuardGuardrail(CustomGuardrail):
         return None
 
     @staticmethod
-    def _extract_call_id(request_data: dict, logging_obj: Optional["LiteLLMLoggingObj"]) -> str | None:
+    def _extract_call_id(request_data: dict, logging_obj: Optional["EmbRouterLoggingObj"]) -> str | None:
         if logging_obj is not None:
-            call_id = getattr(logging_obj, "litellm_call_id", None)
+            call_id = getattr(logging_obj, "embrouter_call_id", None)
             if isinstance(call_id, str) and call_id:
                 return call_id
         if isinstance(request_data, dict):
-            call_id = request_data.get("litellm_call_id")
+            call_id = request_data.get("embrouter_call_id")
             if isinstance(call_id, str) and call_id:
                 return call_id
             metadata: Final = request_data.get("metadata")
             if isinstance(metadata, dict):
-                nested: Final = metadata.get("litellm_call_id")
+                nested: Final = metadata.get("embrouter_call_id")
                 if isinstance(nested, str) and nested:
                     return nested
         return None

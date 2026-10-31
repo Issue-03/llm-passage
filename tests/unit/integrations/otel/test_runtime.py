@@ -9,7 +9,7 @@ import lock. These tests pin the import to a single resolution.
 
 import builtins
 
-import litellm.integrations.otel.runtime as runtime
+import embrouter.integrations.otel.runtime as runtime
 
 
 def test_logger_not_reimported_after_first_resolution(monkeypatch):
@@ -19,7 +19,7 @@ def test_logger_not_reimported_after_first_resolution(monkeypatch):
     real_import = builtins.__import__
 
     def counting_import(name, globals=None, locals=None, fromlist=(), level=0):
-        if name == "litellm.integrations.otel" and fromlist and "logger" in fromlist:
+        if name == "embrouter.integrations.otel" and fromlist and "logger" in fromlist:
             counts["n"] += 1
         return real_import(name, globals, locals, fromlist, level)
 

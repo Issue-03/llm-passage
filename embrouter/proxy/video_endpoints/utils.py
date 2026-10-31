@@ -2,7 +2,7 @@ from typing import Any, Final
 
 import orjson
 
-from litellm.types.videos.utils import encode_character_id_with_provider
+from embrouter.types.videos.utils import encode_character_id_with_provider
 
 
 def extract_model_from_target_model_names(target_model_names: Any) -> str | None:

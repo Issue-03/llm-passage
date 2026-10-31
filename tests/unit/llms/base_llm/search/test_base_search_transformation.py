@@ -14,29 +14,29 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-import litellm
-from litellm.llms.apiserpent.search.transformation import APISerpentSearchConfig
-from litellm.llms.azure.search.transformation import BingGroundingSearchConfig
-from litellm.llms.base_llm.search.transformation import (
+import embrouter
+from embrouter.llms.apiserpent.search.transformation import APISerpentSearchConfig
+from embrouter.llms.azure.search.transformation import BingGroundingSearchConfig
+from embrouter.llms.base_llm.search.transformation import (
     BaseSearchConfig,
     _is_trusted_search_api_base,
 )
-from litellm.llms.brave.search.transformation import BraveSearchConfig
-from litellm.llms.dataforseo.search.transformation import DataForSEOSearchConfig
-from litellm.llms.exa_ai.search.transformation import ExaAISearchConfig
-from litellm.llms.fastcrw.search.transformation import FastCRWSearchConfig
-from litellm.llms.firecrawl.search.transformation import FirecrawlSearchConfig
-from litellm.llms.google_pse.search.transformation import GooglePSESearchConfig
-from litellm.llms.linkup.search.transformation import LinkupSearchConfig
-from litellm.llms.nimble.search.transformation import NimbleSearchConfig
-from litellm.llms.parallel_ai.search.transformation import ParallelAISearchConfig
-from litellm.llms.perplexity.search.transformation import PerplexitySearchConfig
-from litellm.llms.searchapi.search.transformation import SearchAPIConfig
-from litellm.llms.searxng.search.transformation import SearXNGSearchConfig
-from litellm.llms.serper.search.transformation import SerperSearchConfig
-from litellm.llms.tavily.search.transformation import TavilySearchConfig
-from litellm.llms.tinyfish.search.transformation import TinyfishSearchConfig
-from litellm.llms.you_com.search.transformation import YouComSearchConfig
+from embrouter.llms.brave.search.transformation import BraveSearchConfig
+from embrouter.llms.dataforseo.search.transformation import DataForSEOSearchConfig
+from embrouter.llms.exa_ai.search.transformation import ExaAISearchConfig
+from embrouter.llms.fastcrw.search.transformation import FastCRWSearchConfig
+from embrouter.llms.firecrawl.search.transformation import FirecrawlSearchConfig
+from embrouter.llms.google_pse.search.transformation import GooglePSESearchConfig
+from embrouter.llms.linkup.search.transformation import LinkupSearchConfig
+from embrouter.llms.nimble.search.transformation import NimbleSearchConfig
+from embrouter.llms.parallel_ai.search.transformation import ParallelAISearchConfig
+from embrouter.llms.perplexity.search.transformation import PerplexitySearchConfig
+from embrouter.llms.searchapi.search.transformation import SearchAPIConfig
+from embrouter.llms.searxng.search.transformation import SearXNGSearchConfig
+from embrouter.llms.serper.search.transformation import SerperSearchConfig
+from embrouter.llms.tavily.search.transformation import TavilySearchConfig
+from embrouter.llms.tinyfish.search.transformation import TinyfishSearchConfig
+from embrouter.llms.you_com.search.transformation import YouComSearchConfig
 
 ATTACKER_BASE = "https://attacker.example.com"
 
@@ -265,16 +265,16 @@ async def test_asearch_does_not_leak_server_key_to_caller_api_base(
 
     with (
         patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "embrouter.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             new_callable=AsyncMock,
         ) as mock_post,
         patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.get",
+            "embrouter.llms.custom_httpx.http_handler.AsyncHTTPHandler.get",
             new_callable=AsyncMock,
         ) as mock_get,
     ):
-        with pytest.raises(litellm.APIConnectionError):
-            await litellm.asearch(
+        with pytest.raises(embrouter.APIConnectionError):
+            await embrouter.asearch(
                 query="secrets",
                 search_provider="serper",
                 api_base=ATTACKER_BASE,
@@ -319,11 +319,11 @@ async def test_query_param_key_not_leaked_with_dummy_caller_key(
         raise RuntimeError("stop after capturing the outbound url")
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.get",
+        "embrouter.llms.custom_httpx.http_handler.AsyncHTTPHandler.get",
         fake_get,
     ):
-        with pytest.raises(litellm.APIConnectionError):
-            await litellm.asearch(
+        with pytest.raises(embrouter.APIConnectionError):
+            await embrouter.asearch(
                 query="secrets",
                 search_provider=provider,
                 api_key="sk-CALLER-DUMMY",

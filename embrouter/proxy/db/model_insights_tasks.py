@@ -3,7 +3,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Final
 
-from litellm.types.model_insights import ModelInsightTask
+from embrouter.types.model_insights import ModelInsightTask
 
 _TASKS_FILE: Final = Path(__file__).resolve().parent.parent / "model_insights_tasks.json"
 

@@ -9,8 +9,8 @@ sys.path.insert(
     0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../.."))
 )
 
-from litellm.llms.openai_like.dynamic_config import create_config_class
-from litellm.llms.openai_like.json_loader import JSONProviderRegistry
+from embrouter.llms.openai_like.dynamic_config import create_config_class
+from embrouter.llms.openai_like.json_loader import JSONProviderRegistry
 
 EMPIRIOLABS_BASE_URL = "https://api.empiriolabs.ai/v1"
 
@@ -57,7 +57,7 @@ def test_empiriolabs_complete_url_appends_endpoint():
         api_key="test-key",
         model="empiriolabs/qwen3-7-plus",
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         stream=False,
     )
     assert url == f"{EMPIRIOLABS_BASE_URL}/chat/completions"

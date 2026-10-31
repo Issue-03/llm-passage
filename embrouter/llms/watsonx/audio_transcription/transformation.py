@@ -8,14 +8,14 @@ from typing import Final
 
 from httpx import Response
 
-import litellm
-from litellm.litellm_core_utils.audio_utils.utils import process_audio_file
-from litellm.types.llms.openai import (
+import embrouter
+from embrouter.embrouter_core_utils.audio_utils.utils import process_audio_file
+from embrouter.types.llms.openai import (
     AllMessageValues,
     OpenAIAudioTranscriptionOptionalParams,
 )
-from litellm.types.llms.watsonx import WatsonXAudioTranscriptionRequestBody
-from litellm.types.utils import FileTypes, TranscriptionResponse
+from embrouter.types.llms.watsonx import WatsonXAudioTranscriptionRequestBody
+from embrouter.types.utils import FileTypes, TranscriptionResponse
 
 from ...base_llm.audio_transcription.transformation import (
     AudioTranscriptionRequestData,
@@ -41,7 +41,7 @@ class IBMWatsonXAudioTranscriptionConfig(IBMWatsonXMixin, OpenAIWhisperAudioTran
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
@@ -56,7 +56,7 @@ class IBMWatsonXAudioTranscriptionConfig(IBMWatsonXMixin, OpenAIWhisperAudioTran
             model=model,
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             api_key=api_key,
             api_base=api_base,
         )
@@ -81,7 +81,7 @@ class IBMWatsonXAudioTranscriptionConfig(IBMWatsonXMixin, OpenAIWhisperAudioTran
         model: str,
         audio_file: FileTypes,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> AudioTranscriptionRequestData:
         """
         Transform the audio transcription request for WatsonX.
@@ -134,7 +134,7 @@ class IBMWatsonXAudioTranscriptionConfig(IBMWatsonXMixin, OpenAIWhisperAudioTran
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         """
@@ -152,7 +152,7 @@ class IBMWatsonXAudioTranscriptionConfig(IBMWatsonXMixin, OpenAIWhisperAudioTran
         url = f"{url}/ml/v1/audio/transcriptions"
 
         # Add version parameter (only version in query string, not project_id)
-        api_version: Final = optional_params.get("api_version", None) or litellm.WATSONX_DEFAULT_API_VERSION
+        api_version: Final = optional_params.get("api_version", None) or embrouter.WATSONX_DEFAULT_API_VERSION
         url = f"{url}?version={api_version}"
 
         return url

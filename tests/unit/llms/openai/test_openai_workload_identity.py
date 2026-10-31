@@ -8,18 +8,18 @@ import pytest
 import respx
 from openai import AsyncOpenAI, OpenAI
 
-import litellm
-from litellm.llms.litellm_proxy.responses.transformation import LiteLLMProxyResponsesAPIConfig
-from litellm.llms.openai.common_utils import BaseOpenAILLM, OpenAIError
-from litellm.llms.openai.openai import OpenAIChatCompletion
-from litellm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
-from litellm.llms.openai.workload_identity import (
+import embrouter
+from embrouter.llms.embrouter_proxy.responses.transformation import EmbRouterProxyResponsesAPIConfig
+from embrouter.llms.openai.common_utils import BaseOpenAILLM, OpenAIError
+from embrouter.llms.openai.openai import OpenAIChatCompletion
+from embrouter.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
+from embrouter.llms.openai.workload_identity import (
     OpenAIWorkloadIdentityConfig,
     _workload_identity_auth,
     get_workload_identity_bearer_token,
     resolve_openai_workload_identity_config,
 )
-from litellm.types.router import GenericLiteLLMParams
+from embrouter.types.router import GenericEmbRouterParams
 
 TOKEN_EXCHANGE_URL: Final = "https://auth.openai.com/oauth/token"
 
@@ -31,12 +31,12 @@ def wif_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> OpenAIWorkloadId
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
     monkeypatch.delenv("OPENAI_API_BASE", raising=False)
-    monkeypatch.setattr(litellm, "api_base", None)
+    monkeypatch.setattr(embrouter, "api_base", None)
     monkeypatch.setenv("OPENAI_IDENTITY_PROVIDER_ID", "idp_test123")
     monkeypatch.setenv("OPENAI_SERVICE_ACCOUNT_ID", "user-test456")
     monkeypatch.setenv("OPENAI_IDENTITY_TOKEN_FILE", str(token_file))
     _workload_identity_auth.cache_clear()
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    embrouter.in_memory_llm_clients_cache.flush_cache()
     return OpenAIWorkloadIdentityConfig(
         identity_provider_id="idp_test123",
         service_account_id="user-test456",
@@ -122,10 +122,10 @@ class TestResolveConfig:
         monkeypatch.setenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
         assert resolve_openai_workload_identity_config(api_key=None, api_base=None) == wif_env
 
-    def test_foreign_litellm_api_base_disables(
+    def test_foreign_embrouter_api_base_disables(
         self, wif_env: OpenAIWorkloadIdentityConfig, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.setattr(litellm, "api_base", "https://my-vllm.internal/v1")
+        monkeypatch.setattr(embrouter, "api_base", "https://my-vllm.internal/v1")
         assert resolve_openai_workload_identity_config(api_key=None, api_base=None) is None
 
     @pytest.mark.parametrize(
@@ -246,13 +246,13 @@ class TestResponsesValidateEnvironment:
     def test_mints_bearer_when_wif_configured(self, wif_env: OpenAIWorkloadIdentityConfig) -> None:
         mock_token_exchange()
         headers: Final = OpenAIResponsesAPIConfig().validate_environment(
-            headers={}, model="gpt-4o-mini", litellm_params=GenericLiteLLMParams()
+            headers={}, model="gpt-4o-mini", embrouter_params=GenericEmbRouterParams()
         )
         assert headers["Authorization"] == "Bearer exchanged-bearer-token"
 
     def test_static_key_wins(self, wif_env: OpenAIWorkloadIdentityConfig) -> None:
         headers: Final = OpenAIResponsesAPIConfig().validate_environment(
-            headers={}, model="gpt-4o-mini", litellm_params=GenericLiteLLMParams(api_key="sk-responses")
+            headers={}, model="gpt-4o-mini", embrouter_params=GenericEmbRouterParams(api_key="sk-responses")
         )
         assert headers["Authorization"] == "Bearer sk-responses"
 
@@ -260,7 +260,7 @@ class TestResponsesValidateEnvironment:
         headers: Final = OpenAIResponsesAPIConfig().validate_environment(
             headers={},
             model="gpt-4o-mini",
-            litellm_params=GenericLiteLLMParams(api_base="https://my-vllm.internal/v1"),
+            embrouter_params=GenericEmbRouterParams(api_base="https://my-vllm.internal/v1"),
         )
         assert headers["Authorization"] == "Bearer None"
 
@@ -270,12 +270,12 @@ class TestResponsesValidateEnvironment:
         headers: Final = OpenAIResponsesAPIConfig().validate_environment(
             headers={},
             model="gpt-4o-mini",
-            litellm_params=GenericLiteLLMParams(api_base="https://southcentralus.privatelink.api.openai.com/v1"),
+            embrouter_params=GenericEmbRouterParams(api_base="https://southcentralus.privatelink.api.openai.com/v1"),
         )
         assert headers["Authorization"] == "Bearer exchanged-bearer-token"
 
-    def test_litellm_proxy_subclass_never_mints_wif(self, wif_env: OpenAIWorkloadIdentityConfig) -> None:
-        headers: Final = LiteLLMProxyResponsesAPIConfig().validate_environment(
-            headers={}, model="gpt-4o-mini", litellm_params=GenericLiteLLMParams()
+    def test_embrouter_proxy_subclass_never_mints_wif(self, wif_env: OpenAIWorkloadIdentityConfig) -> None:
+        headers: Final = EmbRouterProxyResponsesAPIConfig().validate_environment(
+            headers={}, model="gpt-4o-mini", embrouter_params=GenericEmbRouterParams()
         )
         assert headers["Authorization"] == "Bearer None"

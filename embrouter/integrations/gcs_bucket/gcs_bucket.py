@@ -6,28 +6,28 @@ import time
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Any, Final
 
-from litellm._logging import verbose_logger
-from litellm._uuid import uuid
-from litellm.constants import LITELLM_ASYNCIO_QUEUE_MAXSIZE
-from litellm.integrations.additional_logging_utils import AdditionalLoggingUtils
-from litellm.integrations.gcs_bucket.gcs_bucket_base import GCSBucketBase
-from litellm.litellm_core_utils.cloud_storage_security import (
+from embrouter._logging import verbose_logger
+from embrouter._uuid import uuid
+from embrouter.constants import EMBROUTER_ASYNCIO_QUEUE_MAXSIZE
+from embrouter.integrations.additional_logging_utils import AdditionalLoggingUtils
+from embrouter.integrations.gcs_bucket.gcs_bucket_base import GCSBucketBase
+from embrouter.embrouter_core_utils.cloud_storage_security import (
     sanitize_cloud_object_component,
 )
-from litellm.types.integrations.base_health_check import IntegrationHealthCheckStatus
-from litellm.types.integrations.gcs_bucket import *
-from litellm.types.utils import StandardLoggingPayload
+from embrouter.types.integrations.base_health_check import IntegrationHealthCheckStatus
+from embrouter.types.integrations.gcs_bucket import *
+from embrouter.types.utils import StandardLoggingPayload
 
 if TYPE_CHECKING:
-    from litellm.llms.vertex_ai.vertex_llm_base import VertexBase
+    from embrouter.llms.vertex_ai.vertex_llm_base import VertexBase
 else:
     VertexBase = Any
 
 
 class GCSBucketLogger(GCSBucketBase, AdditionalLoggingUtils):
     def __init__(self, bucket_name: str | None = None) -> None:
-        from litellm.proxy._types import CommonProxyErrors
-        from litellm.proxy.proxy_server import premium_user
+        from embrouter.proxy._types import CommonProxyErrors
+        from embrouter.proxy.proxy_server import premium_user
 
         self.batch_size = int(os.getenv("GCS_BATCH_SIZE", GCS_DEFAULT_BATCH_SIZE))
         self.flush_interval = int(os.getenv("GCS_FLUSH_INTERVAL", GCS_DEFAULT_FLUSH_INTERVAL_SECONDS))
@@ -41,7 +41,7 @@ class GCSBucketLogger(GCSBucketBase, AdditionalLoggingUtils):
             batch_size=self.batch_size,
             flush_interval=self.flush_interval,
         )
-        self.log_queue: asyncio.Queue[GCSLogQueueItem] = asyncio.Queue(maxsize=LITELLM_ASYNCIO_QUEUE_MAXSIZE)
+        self.log_queue: asyncio.Queue[GCSLogQueueItem] = asyncio.Queue(maxsize=EMBROUTER_ASYNCIO_QUEUE_MAXSIZE)
         asyncio.create_task(self.periodic_flush())
         AdditionalLoggingUtils.__init__(self)
 
@@ -52,8 +52,8 @@ class GCSBucketLogger(GCSBucketBase, AdditionalLoggingUtils):
 
     #### ASYNC ####
     async def async_log_success_event(self, kwargs, response_obj, start_time, end_time):
-        from litellm.proxy._types import CommonProxyErrors
-        from litellm.proxy.proxy_server import premium_user
+        from embrouter.proxy._types import CommonProxyErrors
+        from embrouter.proxy.proxy_server import premium_user
 
         if premium_user is not True:
             raise ValueError(
@@ -293,8 +293,8 @@ class GCSBucketLogger(GCSBucketBase, AdditionalLoggingUtils):
             )
 
         # used for testing
-        _litellm_params: Final = kwargs.get("litellm_params", None) or {}
-        _metadata: Final = _litellm_params.get("metadata", None) or {}
+        _embrouter_params: Final = kwargs.get("embrouter_params", None) or {}
+        _metadata: Final = _embrouter_params.get("metadata", None) or {}
         if "gcs_log_id" in _metadata:
             safe_log_id: Final = sanitize_cloud_object_component(_metadata.get("gcs_log_id"), fallback="")
             if safe_log_id:

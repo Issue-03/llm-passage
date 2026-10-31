@@ -1,4 +1,4 @@
-"""Tests for litellm/a2a_protocol/main.py non-streaming send behavior."""
+"""Tests for embrouter/a2a_protocol/main.py non-streaming send behavior."""
 
 import asyncio
 
@@ -14,18 +14,18 @@ from a2a.compat.v0_3.types import (
     SendStreamingMessageRequest,
 )
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.a2a_protocol.main import (
+import embrouter
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.a2a_protocol.main import (
     _send_message,
     _stream_messages,
     aget_agent_card,
     asend_message,
     create_a2a_client,
 )
-from litellm.caching.llm_caching_handler import LLMClientCache
-from litellm.constants import DEFAULT_A2A_AGENT_TIMEOUT
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.caching.llm_caching_handler import LLMClientCache
+from embrouter.constants import DEFAULT_A2A_AGENT_TIMEOUT
+from embrouter.llms.custom_httpx.http_handler import (
     AsyncHTTPHandler,
     get_async_httpx_client,
     httpxSpecialProvider,
@@ -84,7 +84,7 @@ async def test_send_message_rejects_update_event_final_with_runtime_error():
 
 @pytest.mark.asyncio
 async def test_streaming_trace_id_prefers_logging_trace_id():
-    """The streaming X-LiteLLM-Trace-Id must use the logging object's trace id (same
+    """The streaming X-EmbRouter-Trace-Id must use the logging object's trace id (same
     as the non-streaming path), not the JSON-RPC request id, so traces correlate."""
     from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -93,8 +93,8 @@ async def test_streaming_trace_id_prefers_logging_trace_id():
         SendStreamingMessageRequest,
     )
 
-    from litellm.a2a_protocol import main as a2a_main
-    from litellm.litellm_core_utils.litellm_logging import Logging
+    from embrouter.a2a_protocol import main as a2a_main
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging
 
     request = SendStreamingMessageRequest(
         id="rpc-1",
@@ -107,7 +107,7 @@ async def test_streaming_trace_id_prefers_logging_trace_id():
         ),
     )
     logging_obj = MagicMock(spec=Logging)
-    logging_obj.litellm_trace_id = "trace-from-logging"
+    logging_obj.embrouter_trace_id = "trace-from-logging"
 
     captured: dict = {}
 
@@ -120,11 +120,11 @@ async def test_streaming_trace_id_prefers_logging_trace_id():
             async for _ in a2a_main.asend_message_streaming(
                 request=request,
                 api_base="http://upstream.local",
-                litellm_logging_obj=logging_obj,
+                embrouter_logging_obj=logging_obj,
             ):
                 pass
 
-    assert captured["extra_headers"]["X-LiteLLM-Trace-Id"] == "trace-from-logging"
+    assert captured["extra_headers"]["X-EmbRouter-Trace-Id"] == "trace-from-logging"
 
 
 def test_streaming_logging_obj_carries_call_type_into_model_call_details():
@@ -135,7 +135,7 @@ def test_streaming_logging_obj_carries_call_type_into_model_call_details():
     and OTel's GenAI metrics label it ``chat`` instead of ``invoke_agent``."""
     from a2a.compat.v0_3.types import MessageSendParams, SendStreamingMessageRequest
 
-    from litellm.a2a_protocol.main import _build_streaming_logging_obj
+    from embrouter.a2a_protocol.main import _build_streaming_logging_obj
 
     request = SendStreamingMessageRequest(
         id="rpc-call-type",
@@ -148,7 +148,7 @@ def test_streaming_logging_obj_carries_call_type_into_model_call_details():
         request=request,
         agent_name="some-agent",
         agent_id=None,
-        litellm_params=None,
+        embrouter_params=None,
         metadata=None,
         proxy_server_request=None,
     )
@@ -271,7 +271,7 @@ async def _seed_shared_a2a_client(
     handler.client = httpx.AsyncClient(transport=httpx.MockTransport(recorder))
     await owned_client.aclose()
 
-    litellm.in_memory_llm_clients_cache.set_cache(
+    embrouter.in_memory_llm_clients_cache.set_cache(
         key=_a2a_client_cache_key(DEFAULT_A2A_AGENT_TIMEOUT, provider), value=handler
     )
     seeded = get_async_httpx_client(
@@ -287,7 +287,7 @@ async def _seed_shared_a2a_client(
 @pytest.fixture
 def isolated_client_cache(monkeypatch):
     cache = LLMClientCache()
-    monkeypatch.setattr(litellm, "in_memory_llm_clients_cache", cache)
+    monkeypatch.setattr(embrouter, "in_memory_llm_clients_cache", cache)
     return cache
 
 
@@ -322,9 +322,9 @@ async def test_callers_with_different_headers_reuse_one_pooled_client(isolated_c
     client_b = await create_a2a_client(base_url="http://127.0.0.1:9", extra_headers=_AGENT_B_HEADERS)
     client_none = await create_a2a_client(base_url="http://127.0.0.1:9")
 
-    assert client_a._litellm_httpx_client is recorder.client
-    assert client_b._litellm_httpx_client is recorder.client
-    assert client_none._litellm_httpx_client is recorder.client
+    assert client_a._embrouter_httpx_client is recorder.client
+    assert client_b._embrouter_httpx_client is recorder.client
+    assert client_none._embrouter_httpx_client is recorder.client
 
     cached = [key for key in isolated_client_cache.cache_dict if "a2a_provider" in key]
     assert len(cached) == 1, f"expected one pooled A2A client, cached: {cached}"
@@ -387,7 +387,7 @@ async def test_lowercase_protocol_binding_card_round_trips_the_langgraph_dialect
 
     assert type(response.root.result).__name__ == "Task"
     assert response.root.result.artifacts[0].parts[0].root.text == "langgraph echo: hi"
-    interface = a2a_client._litellm_agent_card.supported_interfaces[0]
+    interface = a2a_client._embrouter_agent_card.supported_interfaces[0]
     assert interface.protocol_binding == "JSONRPC"
     assert interface.protocol_version == "0.3"
 
@@ -414,7 +414,7 @@ async def test_agent_card_path_param_fetches_that_path_with_the_agents_headers(i
     await asend_message(
         request=_send_request("req-foundry"),
         api_base="http://127.0.0.1:9",
-        litellm_params={"agent_card_path": "agentCard/v1.0"},
+        embrouter_params={"agent_card_path": "agentCard/v1.0"},
         agent_extra_headers=_AGENT_A_HEADERS,
     )
 
@@ -469,7 +469,7 @@ class _UsageRecorder(CustomLogger):
 @pytest.mark.asyncio
 async def test_asend_message_counts_usage_off_the_event_loop(monkeypatch):
     from tests.large_text import text
-    from tests.unit.litellm_core_utils.event_loop_lag import (
+    from tests.unit.embrouter_core_utils.event_loop_lag import (
         assert_loop_stayed_free,
         timed_with_loop_lags,
         warm_tokenizer,
@@ -477,9 +477,9 @@ async def test_asend_message_counts_usage_off_the_event_loop(monkeypatch):
 
     warm_tokenizer("gpt-5.6-luna")
     recorder = _UsageRecorder()
-    monkeypatch.setattr(litellm, "callbacks", [recorder])
-    monkeypatch.setattr(litellm, "success_callback", [recorder])
-    monkeypatch.setattr(litellm, "_async_success_callback", [recorder])
+    monkeypatch.setattr(embrouter, "callbacks", [recorder])
+    monkeypatch.setattr(embrouter, "success_callback", [recorder])
+    monkeypatch.setattr(embrouter, "_async_success_callback", [recorder])
 
     reply = _conv.pb2_v10.StreamResponse()
     reply.message.message_id = "reply-1"
@@ -504,9 +504,9 @@ async def test_asend_message_counts_usage_off_the_event_loop(monkeypatch):
 
 
 def test_streaming_logging_obj_keeps_agent_credentials_out_of_logging_params():
-    """Callbacks receive the streaming logging object's litellm_params as raw kwargs, so an agent's
+    """Callbacks receive the streaming logging object's embrouter_params as raw kwargs, so an agent's
     Entra, Databricks, or static credentials must never be copied into it; only pricing keys are."""
-    from litellm.a2a_protocol.main import _build_streaming_logging_obj
+    from embrouter.a2a_protocol.main import _build_streaming_logging_obj
 
     request = SendStreamingMessageRequest(
         id="rpc-secrets",
@@ -519,7 +519,7 @@ def test_streaming_logging_obj_keeps_agent_credentials_out_of_logging_params():
         request=request,
         agent_name="foundry-agent",
         agent_id="agent-1",
-        litellm_params={
+        embrouter_params={
             "client_secret": "sp-secret",
             "azure_ad_token": "entra-token",
             "tenant_id": "tenant",
@@ -536,6 +536,6 @@ def test_streaming_logging_obj_keeps_agent_credentials_out_of_logging_params():
         "metadata": {"user_api_key": "hashed"},
         "proxy_server_request": {"url": "http://localhost:4000"},
     }
-    assert logging_obj.litellm_params == expected
+    assert logging_obj.embrouter_params == expected
     assert logging_obj.optional_params == expected
-    assert logging_obj.model_call_details["litellm_params"] == expected
+    assert logging_obj.model_call_details["embrouter_params"] == expected

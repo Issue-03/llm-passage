@@ -96,7 +96,7 @@ function LoginPageContent() {
     // exchange endpoint.
     const ssoCode = rawSsoCode && /^[a-zA-Z0-9._~+/=-]+$/.test(rawSsoCode) ? rawSsoCode : null;
     if (ssoCode) {
-      const rawWorkerUrl = localStorage.getItem("litellm_worker_url");
+      const rawWorkerUrl = localStorage.getItem("embrouter_worker_url");
       // Validate the stored worker URL: only allow http(s) URLs.
       const workerUrl = rawWorkerUrl && /^https?:\/\/.+/.test(rawWorkerUrl) ? rawWorkerUrl : null;
       exchangeLoginCode(ssoCode, workerUrl).then(() => {
@@ -327,7 +327,7 @@ function LoginPageContent() {
                           const selectedWorker = workers.find((w) => w.worker_id === selectedWorkerId);
                           if (selectedWorker) {
                             // Store worker selection so useWorker hook restores it after redirect
-                            localStorage.setItem("litellm_selected_worker_id", selectedWorkerId!);
+                            localStorage.setItem("embrouter_selected_worker_id", selectedWorkerId!);
                             switchToWorkerUrl(selectedWorker.url);
                           }
                           // SSO on the worker (or this instance if no worker), always

@@ -4,8 +4,8 @@ Tool usage tracking for the dashboard.
 At request time the spend writer builds one ToolUsageTransaction per request that
 invoked tools (MCP namespaced tool name plus response tool_calls; declared-but-not-
 invoked tools are excluded) and queues it on the prisma client. The spend-log flush
-job drains the queue into LiteLLM_SpendLogToolIndex (per-request drill-down) and
-LiteLLM_DailyToolSpend (the per-day rollup the Cost Optimization card reads). The
+job drains the queue into EmbRouter_SpendLogToolIndex (per-request drill-down) and
+EmbRouter_DailyToolSpend (the per-day rollup the Cost Optimization card reads). The
 index rows are keyed on (request_id, tool_name) and written with skip_duplicates,
 so they go out as bounded standalone statements; every rollup upsert stays in one
 transaction, so a failed flush never leaves a partial rollup increment.
@@ -21,13 +21,13 @@ from datetime import datetime, timezone
 from itertools import groupby
 from typing import TYPE_CHECKING, Any, Final
 
-from litellm.constants import SPEND_LOG_WRITE_BATCH_MAX_BYTES, SPEND_LOG_WRITE_BATCH_MAX_ROWS
-from litellm.proxy._types import DB_RETRY_SAFE_ERROR_TYPES
-from litellm.proxy.db.spend_log_batching import spend_log_write_batches
-from litellm.repositories.table_repositories import SpendLogToolIndexRepository
+from embrouter.constants import SPEND_LOG_WRITE_BATCH_MAX_BYTES, SPEND_LOG_WRITE_BATCH_MAX_ROWS
+from embrouter.proxy._types import DB_RETRY_SAFE_ERROR_TYPES
+from embrouter.proxy.db.spend_log_batching import spend_log_write_batches
+from embrouter.repositories.table_repositories import SpendLogToolIndexRepository
 
 if TYPE_CHECKING:
-    from litellm.proxy.utils import PrismaClient
+    from embrouter.proxy.utils import PrismaClient
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,7 +47,7 @@ def response_tool_call_names(completion_response: object) -> tuple[str, ...]:
     an ``n>1`` chat response: each choice cost money and its tool calls ran."""
     if completion_response is None or isinstance(completion_response, Exception):
         return ()
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from embrouter.embrouter_core_utils.prompt_templates.factory import (
         get_tool_calls_from_response,
     )
 
@@ -72,7 +72,7 @@ def build_tool_usage_transaction(
     on a response object, so they are normalized through the same owner by
     wrapping them in the chat-completion shape. Date derivation must match the
     daily spend writer's ``startTime.split("T")[0]`` so rollup rows land in the
-    same UTC day bucket as LiteLLM_DailyUserSpend."""
+    same UTC day bucket as EmbRouter_DailyUserSpend."""
     mcp_names: Final = (
         (mcp_namespaced_tool_name.strip(),) if mcp_namespaced_tool_name and mcp_namespaced_tool_name.strip() else ()
     )
@@ -141,7 +141,7 @@ async def flush_tool_usage_transactions(
                     entries = tuple(grouped)
                     spend = sum(entry[2] for entry in entries)
                     total_tokens = sum(entry[3] for entry in entries)
-                    batcher.litellm_dailytoolspend.upsert(
+                    batcher.embrouter_dailytoolspend.upsert(
                         where={"date_tool_name": {"date": date_key, "tool_name": tool_name}},
                         data={
                             "create": {

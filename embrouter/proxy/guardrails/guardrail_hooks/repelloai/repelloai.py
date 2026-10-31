@@ -9,25 +9,25 @@ from httpx import HTTPError
 from httpx import Response as HttpxResponse
 from pydantic import BaseModel, TypeAdapter, ValidationError
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.llms.custom_httpx.http_handler import (
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.integrations.custom_guardrail import CustomGuardrail
+from embrouter.llms.custom_httpx.http_handler import (
     get_async_httpx_client,  # pyright: ignore[reportUnknownVariableType]
     httpxSpecialProvider,
 )
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.common_utils.callback_utils import (
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.common_utils.callback_utils import (
     add_guardrail_to_applied_guardrails_header,  # pyright: ignore[reportUnknownVariableType]
 )
-from litellm.proxy.guardrails._content_utils import build_inspection_messages
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.guardrails import GuardrailEventHooks, Mode
-from litellm.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
-from litellm.types.proxy.guardrails.guardrail_hooks.repelloai import (
+from embrouter.proxy.guardrails._content_utils import build_inspection_messages
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.guardrails import GuardrailEventHooks, Mode
+from embrouter.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
+from embrouter.types.proxy.guardrails.guardrail_hooks.repelloai import (
     RepelloAIAnalyzeResponse,
 )
-from litellm.types.utils import (
+from embrouter.types.utils import (
     CallTypesLiteral,
     GuardrailStatus,
     LLMResponseTypes,
@@ -376,7 +376,7 @@ class RepelloAIGuardrail(CustomGuardrail):
     async def async_pre_call_hook(
         self,
         user_api_key_dict: UserAPIKeyAuth,
-        cache: litellm.DualCache,
+        cache: embrouter.DualCache,
         data: dict[str, object],
         call_type: CallTypesLiteral,
     ) -> Exception | str | dict[str, object] | None:
@@ -446,7 +446,7 @@ class RepelloAIGuardrail(CustomGuardrail):
         response: AsyncGenerator[ModelResponseStream, None],
         request_data: dict[str, object],
     ) -> AsyncGenerator[ModelResponseStream, None]:
-        from litellm import main as litellm_main
+        from embrouter import main as embrouter_main
 
         event_type: Final = GuardrailEventHooks.post_call
         if (
@@ -463,7 +463,7 @@ class RepelloAIGuardrail(CustomGuardrail):
         async for chunk in response:
             chunks.append(chunk)
 
-        assembled = litellm_main.stream_chunk_builder(  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
+        assembled = embrouter_main.stream_chunk_builder(  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
             chunks=chunks
         )
         text: Final = self._extract_response_text(assembled) if isinstance(assembled, ModelResponse) else None
@@ -477,7 +477,7 @@ class RepelloAIGuardrail(CustomGuardrail):
             if repelloai_response is not None:
                 self._log_flagged_verdict(repelloai_response)
             if self._verdict_blocks(repelloai_response):
-                from litellm.proxy.proxy_server import StreamingCallbackError
+                from embrouter.proxy.proxy_server import StreamingCallbackError
 
                 raise StreamingCallbackError("Blocked by RepelloAI Argus guardrail")
             add_guardrail_to_applied_guardrails_header(request_data=request_data, guardrail_name=self.guardrail_name)
@@ -563,7 +563,7 @@ class RepelloAIGuardrail(CustomGuardrail):
 
     @staticmethod
     def get_config_model() -> type[GuardrailConfigModel[BaseModel]] | None:
-        from litellm.types.proxy.guardrails.guardrail_hooks.repelloai import (
+        from embrouter.types.proxy.guardrails.guardrail_hooks.repelloai import (
             RepelloAIGuardrailConfigModel,
         )
 

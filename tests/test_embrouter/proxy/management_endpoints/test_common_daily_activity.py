@@ -10,8 +10,8 @@ import pytest
 from psycopg.rows import dict_row
 from pytest_postgresql import factories
 
-from litellm.constants import PTU_SENTINEL_API_KEY
-from litellm.proxy.management_endpoints.common_daily_activity import (
+from embrouter.constants import PTU_SENTINEL_API_KEY
+from embrouter.proxy.management_endpoints.common_daily_activity import (
     _adjust_dates_for_timezone,
     _build_aggregated_sql_query,
     _build_entity_rollup_sql_query,
@@ -22,9 +22,9 @@ from litellm.proxy.management_endpoints.common_daily_activity import (
     get_daily_activity_aggregated,
     update_metrics,
 )
-from litellm.proxy.spend_tracking.ptu_feature_flag import PTU_COST_ATTRIBUTION_ENV_VAR
-from litellm.proxy.utils import hash_token
-from litellm.types.proxy.management_endpoints.common_daily_activity import (
+from embrouter.proxy.spend_tracking.ptu_feature_flag import PTU_COST_ATTRIBUTION_ENV_VAR
+from embrouter.proxy.utils import hash_token
+from embrouter.types.proxy.management_endpoints.common_daily_activity import (
     DailySpendMetadata,
     SpendMetrics,
 )
@@ -40,16 +40,16 @@ async def test_get_daily_activity_empty_entity_id_list():
     mock_table = MagicMock()
     mock_table.count = AsyncMock(return_value=0)
     mock_table.find_many = AsyncMock(return_value=[])
-    mock_prisma.db.litellm_verificationtoken = MagicMock()
-    mock_prisma.db.litellm_verificationtoken.find_many = AsyncMock(return_value=[])
+    mock_prisma.db.embrouter_verificationtoken = MagicMock()
+    mock_prisma.db.embrouter_verificationtoken.find_many = AsyncMock(return_value=[])
 
     # Set the table name dynamically
-    mock_prisma.db.litellm_dailyspend = mock_table
+    mock_prisma.db.embrouter_dailyspend = mock_table
 
     # Call the function with empty entity_id list
     result = await get_daily_activity(
         prisma_client=mock_prisma,
-        table_name="litellm_dailyspend",
+        table_name="embrouter_dailyspend",
         entity_id_field="team_id",
         entity_id=[],
         entity_metadata_field=None,
@@ -76,7 +76,7 @@ async def test_get_daily_activity_order_has_id_tiebreaker():
     """Regression for #30164.
 
     ``date`` alone is not a unique sort key for either
-    ``LiteLLM_DailyUserSpend`` or ``LiteLLM_DailyTeamSpend`` -- a busy
+    ``EmbRouter_DailyUserSpend`` or ``EmbRouter_DailyTeamSpend`` -- a busy
     tenant has many rows per date (one per api_key, model, model_group,
     provider, endpoint, ...).  Offset pagination over a non-unique sort
     landed on arbitrary page boundaries between queries, so summing
@@ -90,13 +90,13 @@ async def test_get_daily_activity_order_has_id_tiebreaker():
     mock_table = MagicMock()
     mock_table.count = AsyncMock(return_value=0)
     mock_table.find_many = AsyncMock(return_value=[])
-    mock_prisma.db.litellm_verificationtoken = MagicMock()
-    mock_prisma.db.litellm_verificationtoken.find_many = AsyncMock(return_value=[])
-    mock_prisma.db.litellm_dailyspend = mock_table
+    mock_prisma.db.embrouter_verificationtoken = MagicMock()
+    mock_prisma.db.embrouter_verificationtoken.find_many = AsyncMock(return_value=[])
+    mock_prisma.db.embrouter_dailyspend = mock_table
 
     await get_daily_activity(
         prisma_client=mock_prisma,
-        table_name="litellm_dailyspend",
+        table_name="embrouter_dailyspend",
         entity_id_field="team_id",
         entity_id="team-1",
         entity_metadata_field=None,
@@ -246,13 +246,13 @@ async def test_get_daily_activity_aggregated_with_endpoint_breakdown():
     ]
 
     mock_prisma.db.query_raw = AsyncMock(return_value=mock_rows)
-    mock_prisma.db.litellm_verificationtoken = MagicMock()
-    mock_prisma.db.litellm_verificationtoken.find_many = AsyncMock(return_value=[])
+    mock_prisma.db.embrouter_verificationtoken = MagicMock()
+    mock_prisma.db.embrouter_verificationtoken.find_many = AsyncMock(return_value=[])
 
     # Call the function
     result = await get_daily_activity_aggregated(
         prisma_client=mock_prisma,
-        table_name="litellm_dailyuserspend",
+        table_name="embrouter_dailyuserspend",
         entity_id_field="user_id",
         entity_id=None,
         entity_metadata_field=None,
@@ -306,7 +306,7 @@ async def test_get_api_key_metadata_returns_active_key_metadata():
     mock_active_key.key_alias = "my-active-key"
     mock_active_key.team_id = "team-abc"
 
-    mock_prisma.db.litellm_verificationtoken.find_many = AsyncMock(return_value=[mock_active_key])
+    mock_prisma.db.embrouter_verificationtoken.find_many = AsyncMock(return_value=[mock_active_key])
 
     result = await get_api_key_metadata(
         prisma_client=mock_prisma,
@@ -324,7 +324,7 @@ async def test_get_api_key_metadata_falls_back_to_deleted_keys():
     mock_prisma = MagicMock()
 
     # No active keys found
-    mock_prisma.db.litellm_verificationtoken.find_many = AsyncMock(return_value=[])
+    mock_prisma.db.embrouter_verificationtoken.find_many = AsyncMock(return_value=[])
 
     # Deleted key record exists
     mock_deleted_key = MagicMock()
@@ -332,7 +332,7 @@ async def test_get_api_key_metadata_falls_back_to_deleted_keys():
     mock_deleted_key.key_alias = "toto-test-2"
     mock_deleted_key.team_id = "team-xyz"
 
-    mock_prisma.db.litellm_deletedverificationtoken.find_many = AsyncMock(return_value=[mock_deleted_key])
+    mock_prisma.db.embrouter_deletedverificationtoken.find_many = AsyncMock(return_value=[mock_deleted_key])
 
     result = await get_api_key_metadata(
         prisma_client=mock_prisma,
@@ -344,7 +344,7 @@ async def test_get_api_key_metadata_falls_back_to_deleted_keys():
     assert result["deleted-key-hash-456"]["team_id"] == "team-xyz"
 
     # Verify deleted table was queried with the missing key
-    mock_prisma.db.litellm_deletedverificationtoken.find_many.assert_called_once_with(
+    mock_prisma.db.embrouter_deletedverificationtoken.find_many.assert_called_once_with(
         where={"token": {"in": ["deleted-key-hash-456"]}},
         order={"deleted_at": "desc"},
     )
@@ -361,7 +361,7 @@ async def test_get_api_key_metadata_mixed_active_and_deleted_keys():
     mock_active_key.key_alias = "active-alias"
     mock_active_key.team_id = "team-active"
 
-    mock_prisma.db.litellm_verificationtoken.find_many = AsyncMock(return_value=[mock_active_key])
+    mock_prisma.db.embrouter_verificationtoken.find_many = AsyncMock(return_value=[mock_active_key])
 
     # One deleted key found
     mock_deleted_key = MagicMock()
@@ -369,7 +369,7 @@ async def test_get_api_key_metadata_mixed_active_and_deleted_keys():
     mock_deleted_key.key_alias = "deleted-alias"
     mock_deleted_key.team_id = "team-deleted"
 
-    mock_prisma.db.litellm_deletedverificationtoken.find_many = AsyncMock(return_value=[mock_deleted_key])
+    mock_prisma.db.embrouter_deletedverificationtoken.find_many = AsyncMock(return_value=[mock_deleted_key])
 
     result = await get_api_key_metadata(
         prisma_client=mock_prisma,
@@ -394,9 +394,9 @@ async def test_get_api_key_metadata_deleted_table_not_queried_when_all_keys_foun
     mock_active_key.key_alias = "alias-1"
     mock_active_key.team_id = "team-1"
 
-    mock_prisma.db.litellm_verificationtoken.find_many = AsyncMock(return_value=[mock_active_key])
-    mock_prisma.db.litellm_deletedverificationtoken = MagicMock()
-    mock_prisma.db.litellm_deletedverificationtoken.find_many = AsyncMock(return_value=[])
+    mock_prisma.db.embrouter_verificationtoken.find_many = AsyncMock(return_value=[mock_active_key])
+    mock_prisma.db.embrouter_deletedverificationtoken = MagicMock()
+    mock_prisma.db.embrouter_deletedverificationtoken.find_many = AsyncMock(return_value=[])
 
     result = await get_api_key_metadata(
         prisma_client=mock_prisma,
@@ -406,7 +406,7 @@ async def test_get_api_key_metadata_deleted_table_not_queried_when_all_keys_foun
     assert len(result) == 1
     assert result["key-hash-1"]["key_alias"] == "alias-1"
     # Deleted table should NOT have been queried
-    mock_prisma.db.litellm_deletedverificationtoken.find_many.assert_not_called()
+    mock_prisma.db.embrouter_deletedverificationtoken.find_many.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -415,10 +415,10 @@ async def test_get_api_key_metadata_deleted_table_error_handled_gracefully():
     mock_prisma = MagicMock()
 
     # No active keys found
-    mock_prisma.db.litellm_verificationtoken.find_many = AsyncMock(return_value=[])
+    mock_prisma.db.embrouter_verificationtoken.find_many = AsyncMock(return_value=[])
 
     # Deleted table raises an error (e.g., table doesn't exist in older schema)
-    mock_prisma.db.litellm_deletedverificationtoken.find_many = AsyncMock(side_effect=Exception("Table not found"))
+    mock_prisma.db.embrouter_deletedverificationtoken.find_many = AsyncMock(side_effect=Exception("Table not found"))
 
     result = await get_api_key_metadata(
         prisma_client=mock_prisma,
@@ -435,7 +435,7 @@ async def test_get_api_key_metadata_regenerated_key_uses_most_recent_deleted_rec
     mock_prisma = MagicMock()
 
     # No active keys found (old hash no longer in active table after regeneration)
-    mock_prisma.db.litellm_verificationtoken.find_many = AsyncMock(return_value=[])
+    mock_prisma.db.embrouter_verificationtoken.find_many = AsyncMock(return_value=[])
 
     # Multiple deleted records for same token (e.g., regenerated multiple times)
     mock_deleted_1 = MagicMock()
@@ -449,7 +449,7 @@ async def test_get_api_key_metadata_regenerated_key_uses_most_recent_deleted_rec
     mock_deleted_2.team_id = "older-team"
 
     # Ordered by deleted_at desc, so first record is the most recent
-    mock_prisma.db.litellm_deletedverificationtoken.find_many = AsyncMock(return_value=[mock_deleted_1, mock_deleted_2])
+    mock_prisma.db.embrouter_deletedverificationtoken.find_many = AsyncMock(return_value=[mock_deleted_1, mock_deleted_2])
 
     result = await get_api_key_metadata(
         prisma_client=mock_prisma,
@@ -469,13 +469,13 @@ async def test_get_api_key_metadata_recovers_double_hashed_key_via_reverse_hash(
     rows looked like key-hash-... with a null alias. Recovery asks Postgres for the
     key whose hashed token matches the dirty value and maps it back to its alias.
     """
-    from litellm.proxy.utils import hash_token
+    from embrouter.proxy.utils import hash_token
 
     double_hashed = hash_token("a" * 64)
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_verificationtoken.find_many = AsyncMock(return_value=[])
-    mock_prisma.db.litellm_deletedverificationtoken.find_many = AsyncMock(return_value=[])
-    mock_prisma.db.litellm_usertable.find_many = AsyncMock(
+    mock_prisma.db.embrouter_verificationtoken.find_many = AsyncMock(return_value=[])
+    mock_prisma.db.embrouter_deletedverificationtoken.find_many = AsyncMock(return_value=[])
+    mock_prisma.db.embrouter_usertable.find_many = AsyncMock(
         return_value=[SimpleNamespace(user_id="alice", user_email="alice@example.com")]
     )
     mock_prisma.db.query_raw = AsyncMock(
@@ -491,20 +491,20 @@ async def test_get_api_key_metadata_recovers_double_hashed_key_via_reverse_hash(
     assert result[double_hashed]["team_id"] == "team-1"
     assert result[double_hashed]["user_email"] == "alice@example.com"
     ((digest_sql, digests),) = [call.args for call in mock_prisma.db.query_raw.call_args_list]
-    assert '"LiteLLM_VerificationToken"' in digest_sql
+    assert '"EmbRouter_VerificationToken"' in digest_sql
     assert digests == [double_hashed]
 
 
 @pytest.mark.asyncio
 async def test_get_api_key_metadata_permanent_miss_never_pages_tokens_or_reads_spend_logs():
     """Without a spend-log window a dirty key no table can explain costs two digest lookups and never a token page walk."""
-    from litellm.proxy.utils import hash_token
+    from embrouter.proxy.utils import hash_token
 
     double_hashed = hash_token("b" * 64)
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_verificationtoken.find_many = AsyncMock(return_value=[])
-    mock_prisma.db.litellm_deletedverificationtoken.find_many = AsyncMock(return_value=[])
-    mock_prisma.db.litellm_usertable.find_many = AsyncMock(return_value=[])
+    mock_prisma.db.embrouter_verificationtoken.find_many = AsyncMock(return_value=[])
+    mock_prisma.db.embrouter_deletedverificationtoken.find_many = AsyncMock(return_value=[])
+    mock_prisma.db.embrouter_usertable.find_many = AsyncMock(return_value=[])
     mock_prisma.db.query_raw = AsyncMock(return_value=[])
     recovery_query_raw = _recovery_transaction(mock_prisma)
 
@@ -519,14 +519,14 @@ async def test_get_api_key_metadata_permanent_miss_never_pages_tokens_or_reads_s
     assert _DAILY_USER_SPEND in owner_sql
     assert owner_keys == [double_hashed]
     token_lookups = (
-        mock_prisma.db.litellm_verificationtoken.find_many.call_args_list
-        + mock_prisma.db.litellm_deletedverificationtoken.find_many.call_args_list
+        mock_prisma.db.embrouter_verificationtoken.find_many.call_args_list
+        + mock_prisma.db.embrouter_deletedverificationtoken.find_many.call_args_list
     )
     assert all("take" not in call.kwargs and "skip" not in call.kwargs for call in token_lookups)
 
 
-_DAILY_USER_SPEND: Final = '"LiteLLM_DailyUserSpend"'
-_SPEND_LOGS: Final = '"LiteLLM_SpendLogs"'
+_DAILY_USER_SPEND: Final = '"EmbRouter_DailyUserSpend"'
+_SPEND_LOGS: Final = '"EmbRouter_SpendLogs"'
 
 
 def _recovery_transaction(
@@ -562,14 +562,14 @@ def _spend_log_row(digest: str, key_alias: str, user_id: str) -> dict[str, str |
 
 @pytest.mark.asyncio
 async def test_get_api_key_metadata_permanent_miss_with_a_window_reads_spend_logs_once_within_it():
-    from litellm.proxy.utils import hash_token
+    from embrouter.proxy.utils import hash_token
 
     double_hashed = hash_token("permanent-miss-with-window-6852")
     window = (datetime(2024, 1, 1), datetime(2024, 1, 4))
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_verificationtoken.find_many = AsyncMock(return_value=[])
-    mock_prisma.db.litellm_deletedverificationtoken.find_many = AsyncMock(return_value=[])
-    mock_prisma.db.litellm_usertable.find_many = AsyncMock(return_value=[])
+    mock_prisma.db.embrouter_verificationtoken.find_many = AsyncMock(return_value=[])
+    mock_prisma.db.embrouter_deletedverificationtoken.find_many = AsyncMock(return_value=[])
+    mock_prisma.db.embrouter_usertable.find_many = AsyncMock(return_value=[])
     mock_prisma.db.query_raw = AsyncMock(return_value=[])
     recovery_query_raw = _recovery_transaction(mock_prisma)
 
@@ -586,7 +586,7 @@ async def test_get_api_key_metadata_permanent_miss_with_a_window_reads_spend_log
 
 @pytest.mark.asyncio
 async def test_get_daily_activity_recovers_a_session_key_alias_from_spend_logs_around_the_page_dates():
-    from litellm.proxy.utils import hash_token
+    from embrouter.proxy.utils import hash_token
 
     session_digest = hash_token("cli-session-daily-activity-6852")
     records = [_daily_user_spend_record(user_id="session-user", api_key=session_digest, spend=1.5)]
@@ -595,10 +595,10 @@ async def test_get_daily_activity_recovers_a_session_key_alias_from_spend_logs_a
     mock_table = MagicMock()
     mock_table.count = AsyncMock(return_value=len(records))
     mock_table.find_many = AsyncMock(return_value=records)
-    mock_prisma.db.litellm_dailyuserspend = mock_table
-    mock_prisma.db.litellm_verificationtoken.find_many = AsyncMock(return_value=[])
-    mock_prisma.db.litellm_deletedverificationtoken.find_many = AsyncMock(return_value=[])
-    mock_prisma.db.litellm_usertable.find_many = AsyncMock(
+    mock_prisma.db.embrouter_dailyuserspend = mock_table
+    mock_prisma.db.embrouter_verificationtoken.find_many = AsyncMock(return_value=[])
+    mock_prisma.db.embrouter_deletedverificationtoken.find_many = AsyncMock(return_value=[])
+    mock_prisma.db.embrouter_usertable.find_many = AsyncMock(
         return_value=[SimpleNamespace(user_id="session-user", user_email="session@example.com")]
     )
 
@@ -609,7 +609,7 @@ async def test_get_daily_activity_recovers_a_session_key_alias_from_spend_logs_a
 
     result = await get_daily_activity(
         prisma_client=mock_prisma,
-        table_name="litellm_dailyuserspend",
+        table_name="embrouter_dailyuserspend",
         entity_id_field="user_id",
         entity_id=None,
         entity_metadata_field=None,
@@ -630,7 +630,7 @@ async def test_get_daily_activity_recovers_a_session_key_alias_from_spend_logs_a
 
 
 def test_key_metadata_includes_recovered_user_email():
-    from litellm.proxy.management_endpoints.common_daily_activity import _key_metadata
+    from embrouter.proxy.management_endpoints.common_daily_activity import _key_metadata
 
     meta = _key_metadata(
         {
@@ -650,7 +650,7 @@ def test_key_metadata_includes_recovered_user_email():
 
 
 def test_key_metadata_includes_user_id_without_user_email():
-    from litellm.proxy.management_endpoints.common_daily_activity import _key_metadata
+    from embrouter.proxy.management_endpoints.common_daily_activity import _key_metadata
 
     meta = _key_metadata(
         {
@@ -668,8 +668,8 @@ def test_key_metadata_includes_user_id_without_user_email():
 
 
 def test_update_breakdown_metrics_includes_user_email():
-    from litellm.proxy.management_endpoints.common_daily_activity import update_breakdown_metrics
-    from litellm.types.proxy.management_endpoints.common_daily_activity import BreakdownMetrics
+    from embrouter.proxy.management_endpoints.common_daily_activity import update_breakdown_metrics
+    from embrouter.types.proxy.management_endpoints.common_daily_activity import BreakdownMetrics
 
     breakdown = BreakdownMetrics()
     record = SimpleNamespace(
@@ -738,7 +738,7 @@ async def test_tag_daily_activity_metadata_totals_not_zero():
 
     Regression test: the tag endpoint previously passed metadata_metrics_func=
     compute_tag_metadata_totals, which skipped every row whose request_id is
-    NULL.  Rows in litellm_dailytagspend are pre-aggregated and always have
+    NULL.  Rows in embrouter_dailytagspend are pre-aggregated and always have
     NULL request_id, so the totals panel showed $0.  The fix is to pass
     metadata_metrics_func=None so the fallback aggregation path is used instead.
     """
@@ -801,13 +801,13 @@ async def test_tag_daily_activity_metadata_totals_not_zero():
     mock_table = MagicMock()
     mock_table.count = AsyncMock(return_value=2)
     mock_table.find_many = AsyncMock(return_value=[mock_record_1, mock_record_2])
-    mock_prisma.db.litellm_dailytagspend = mock_table
-    mock_prisma.db.litellm_verificationtoken = MagicMock()
-    mock_prisma.db.litellm_verificationtoken.find_many = AsyncMock(return_value=[])
+    mock_prisma.db.embrouter_dailytagspend = mock_table
+    mock_prisma.db.embrouter_verificationtoken = MagicMock()
+    mock_prisma.db.embrouter_verificationtoken.find_many = AsyncMock(return_value=[])
 
     result = await get_daily_activity(
         prisma_client=mock_prisma,
-        table_name="litellm_dailytagspend",
+        table_name="embrouter_dailytagspend",
         entity_id_field="tag",
         entity_id=None,
         entity_metadata_field=None,
@@ -898,8 +898,8 @@ async def test_aggregated_activity_preserves_metadata_for_deleted_keys():
     mock_prisma.db.query_raw = AsyncMock(return_value=mock_rows)
 
     # Active table returns nothing for this key
-    mock_prisma.db.litellm_verificationtoken = MagicMock()
-    mock_prisma.db.litellm_verificationtoken.find_many = AsyncMock(return_value=[])
+    mock_prisma.db.embrouter_verificationtoken = MagicMock()
+    mock_prisma.db.embrouter_verificationtoken.find_many = AsyncMock(return_value=[])
 
     # Deleted table returns the metadata
     mock_deleted_key = MagicMock()
@@ -908,13 +908,13 @@ async def test_aggregated_activity_preserves_metadata_for_deleted_keys():
     mock_deleted_key.team_id = "69cd4b77-b095-4489-8c46-4f2f31d840a2"
     mock_deleted_key.user_id = "deleted-key-owner"
 
-    mock_prisma.db.litellm_deletedverificationtoken = MagicMock()
-    mock_prisma.db.litellm_deletedverificationtoken.find_many = AsyncMock(return_value=[mock_deleted_key])
-    mock_prisma.db.litellm_usertable.find_many = AsyncMock(return_value=[])
+    mock_prisma.db.embrouter_deletedverificationtoken = MagicMock()
+    mock_prisma.db.embrouter_deletedverificationtoken.find_many = AsyncMock(return_value=[mock_deleted_key])
+    mock_prisma.db.embrouter_usertable.find_many = AsyncMock(return_value=[])
 
     result = await get_daily_activity_aggregated(
         prisma_client=mock_prisma,
-        table_name="litellm_dailyuserspend",
+        table_name="embrouter_dailyuserspend",
         entity_id_field="user_id",
         entity_id=None,
         entity_metadata_field=None,
@@ -967,17 +967,17 @@ async def test_aggregated_activity_flags_only_keys_that_key_info_can_still_resol
     mock_prisma.db.query_raw = AsyncMock(
         return_value=[{**base, "api_key": key} for key in ("active-key", "deleted-key", "session-key")]
     )
-    mock_prisma.db.litellm_verificationtoken.find_many = AsyncMock(
+    mock_prisma.db.embrouter_verificationtoken.find_many = AsyncMock(
         return_value=[SimpleNamespace(token="active-key", key_alias="active", team_id=None, user_id="owner")]
     )
-    mock_prisma.db.litellm_deletedverificationtoken.find_many = AsyncMock(
+    mock_prisma.db.embrouter_deletedverificationtoken.find_many = AsyncMock(
         return_value=[SimpleNamespace(token="deleted-key", key_alias="deleted", team_id=None, user_id="owner")]
     )
-    mock_prisma.db.litellm_usertable.find_many = AsyncMock(return_value=[])
+    mock_prisma.db.embrouter_usertable.find_many = AsyncMock(return_value=[])
 
     result = await get_daily_activity_aggregated(
         prisma_client=mock_prisma,
-        table_name="litellm_dailyuserspend",
+        table_name="embrouter_dailyuserspend",
         entity_id_field="user_id",
         entity_id=None,
         entity_metadata_field=None,
@@ -997,7 +997,7 @@ async def test_aggregated_activity_flags_only_keys_that_key_info_can_still_resol
 
 
 def _daily_user_spend_record(*, user_id, api_key, spend, model="gpt-4", model_group="gpt-4"):
-    """A LiteLLM_DailyUserSpend row as the per-user breakdown reads it."""
+    """A EmbRouter_DailyUserSpend row as the per-user breakdown reads it."""
     return SimpleNamespace(
         date="2024-01-01",
         user_id=user_id,
@@ -1046,9 +1046,9 @@ async def test_get_daily_activity_applies_resolve_entity_metadata_to_breakdown()
     mock_table = MagicMock()
     mock_table.count = AsyncMock(return_value=len(records))
     mock_table.find_many = AsyncMock(return_value=records)
-    mock_prisma.db.litellm_dailyuserspend = mock_table
-    mock_prisma.db.litellm_verificationtoken = MagicMock()
-    mock_prisma.db.litellm_verificationtoken.find_many = AsyncMock(return_value=[])
+    mock_prisma.db.embrouter_dailyuserspend = mock_table
+    mock_prisma.db.embrouter_verificationtoken = MagicMock()
+    mock_prisma.db.embrouter_verificationtoken.find_many = AsyncMock(return_value=[])
 
     seen_user_ids = {}
 
@@ -1058,7 +1058,7 @@ async def test_get_daily_activity_applies_resolve_entity_metadata_to_breakdown()
 
     result = await get_daily_activity(
         prisma_client=mock_prisma,
-        table_name="litellm_dailyuserspend",
+        table_name="embrouter_dailyuserspend",
         entity_id_field="user_id",
         entity_id=None,
         entity_metadata_field=None,
@@ -1088,7 +1088,7 @@ async def test_model_groups_breakdown_keys_by_public_name_with_model_fallback():
     Keys must be the requested public model name (model_group), and rows with a
     NULL or empty model_group (pre-routing failures, rows written before the
     column existed) must fall back to their model name instead of being dropped
-    from the breakdown. The models breakdown keeps the upstream litellm names.
+    from the breakdown. The models breakdown keeps the upstream embrouter names.
     """
     mock_prisma = MagicMock()
     mock_prisma.db = MagicMock()
@@ -1102,13 +1102,13 @@ async def test_model_groups_breakdown_keys_by_public_name_with_model_fallback():
     mock_table = MagicMock()
     mock_table.count = AsyncMock(return_value=len(records))
     mock_table.find_many = AsyncMock(return_value=records)
-    mock_prisma.db.litellm_dailyuserspend = mock_table
-    mock_prisma.db.litellm_verificationtoken = MagicMock()
-    mock_prisma.db.litellm_verificationtoken.find_many = AsyncMock(return_value=[])
+    mock_prisma.db.embrouter_dailyuserspend = mock_table
+    mock_prisma.db.embrouter_verificationtoken = MagicMock()
+    mock_prisma.db.embrouter_verificationtoken.find_many = AsyncMock(return_value=[])
 
     result = await get_daily_activity(
         prisma_client=mock_prisma,
-        table_name="litellm_dailyuserspend",
+        table_name="embrouter_dailyuserspend",
         entity_id_field="user_id",
         entity_id=None,
         entity_metadata_field=None,
@@ -1271,7 +1271,7 @@ class TestBuildAggregatedSqlQuery:
     @pytest.mark.parametrize("offset_minutes", [None, 0, -330, 480])
     def test_sql_date_bounds_are_user_supplied_dates(self, offset_minutes):
         sql, params = _build_aggregated_sql_query(
-            table_name="litellm_dailyuserspend",
+            table_name="embrouter_dailyuserspend",
             entity_id_field="user_id",
             entity_id="user-1",
             start_date="2026-05-29",
@@ -1299,7 +1299,7 @@ class TestBuildAggregatedSqlQuery:
         utc_today: Final = datetime.now(timezone.utc).date().isoformat()
 
         _sql, params = build(
-            table_name="litellm_dailyuserspend",
+            table_name="embrouter_dailyuserspend",
             entity_id_field="user_id",
             entity_id="user-1",
             start_date="2026-05-01",
@@ -1315,7 +1315,7 @@ class TestBuildAggregatedSqlQuery:
 
     def test_optional_filters_appear_in_params_in_order(self):
         sql, params = _build_aggregated_sql_query(
-            table_name="litellm_dailyuserspend",
+            table_name="embrouter_dailyuserspend",
             entity_id_field="user_id",
             entity_id="user-1",
             start_date="2026-05-29",
@@ -1342,7 +1342,7 @@ class TestAggregatedEmptyEntityFilter:
     @pytest.mark.parametrize("build", _BUILDERS)
     def test_empty_entity_list_emits_no_degenerate_in_clause(self, build):
         sql, params = build(
-            table_name="litellm_dailyteamspend",
+            table_name="embrouter_dailyteamspend",
             entity_id_field="team_id",
             entity_id=[],
             start_date="2026-08-01",
@@ -1359,7 +1359,7 @@ class TestAggregatedEmptyEntityFilter:
     @pytest.mark.parametrize("build", _BUILDERS)
     def test_empty_entity_list_matches_nothing_rather_than_everything(self, build):
         sql, _ = build(
-            table_name="litellm_dailyteamspend",
+            table_name="embrouter_dailyteamspend",
             entity_id_field="team_id",
             entity_id=[],
             start_date="2026-08-01",
@@ -1373,7 +1373,7 @@ class TestAggregatedEmptyEntityFilter:
     @pytest.mark.parametrize("build", _BUILDERS)
     def test_populated_entity_list_still_filters_on_its_ids(self, build):
         sql, params = build(
-            table_name="litellm_dailyteamspend",
+            table_name="embrouter_dailyteamspend",
             entity_id_field="team_id",
             entity_id=["team-alpha", "team-beta"],
             start_date="2026-08-01",
@@ -1431,7 +1431,7 @@ async def test_get_daily_activity_aggregated_empty_result_set():
 
     result = await get_daily_activity_aggregated(
         prisma_client=mock_prisma,
-        table_name="litellm_dailyuserspend",
+        table_name="embrouter_dailyuserspend",
         entity_id_field="user_id",
         entity_id=None,
         entity_metadata_field=None,
@@ -1458,7 +1458,7 @@ _aggregated_postgresql_proc: Final = factories.postgresql_proc()
 _aggregated_postgresql: Final = factories.postgresql("_aggregated_postgresql_proc")
 
 _DAILY_USER_SPEND_DDL: Final = """
-    CREATE TABLE "LiteLLM_DailyUserSpend" (
+    CREATE TABLE "EmbRouter_DailyUserSpend" (
         id TEXT PRIMARY KEY,
         user_id TEXT,
         date TEXT NOT NULL,
@@ -1492,7 +1492,7 @@ def _seed_daily_user_spend(conn: psycopg.Connection, rows: Sequence[tuple[object
         cur.execute(_DAILY_USER_SPEND_DDL)
         cur.executemany(
             """
-            INSERT INTO "LiteLLM_DailyUserSpend"
+            INSERT INTO "EmbRouter_DailyUserSpend"
                 (id, user_id, date, api_key, model, model_group, custom_llm_provider,
                  endpoint, prompt_tokens, spend, api_requests, successful_requests)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
@@ -1562,14 +1562,14 @@ async def test_get_daily_activity_aggregated_returns_every_api_key(
     mock_prisma = MagicMock()
     mock_prisma.db = MagicMock()
     mock_prisma.db.query_raw = _psycopg_query_raw(_aggregated_postgresql, [])
-    mock_prisma.db.litellm_verificationtoken.find_many = AsyncMock(return_value=[])
-    mock_prisma.db.litellm_deletedverificationtoken.find_many = AsyncMock(return_value=[])
-    mock_prisma.db.litellm_usertable = MagicMock()
-    mock_prisma.db.litellm_usertable.find_many = AsyncMock(return_value=[])
+    mock_prisma.db.embrouter_verificationtoken.find_many = AsyncMock(return_value=[])
+    mock_prisma.db.embrouter_deletedverificationtoken.find_many = AsyncMock(return_value=[])
+    mock_prisma.db.embrouter_usertable = MagicMock()
+    mock_prisma.db.embrouter_usertable.find_many = AsyncMock(return_value=[])
 
     result = await get_daily_activity_aggregated(
         prisma_client=mock_prisma,
-        table_name="litellm_dailyuserspend",
+        table_name="embrouter_dailyuserspend",
         entity_id_field="user_id",
         entity_id=None,
         entity_metadata_field=None,
@@ -1619,14 +1619,14 @@ async def test_get_daily_activity_aggregated_explicit_api_key_filter_scopes_resu
     mock_prisma = MagicMock()
     mock_prisma.db = MagicMock()
     mock_prisma.db.query_raw = _psycopg_query_raw(_aggregated_postgresql, [])
-    mock_prisma.db.litellm_verificationtoken.find_many = AsyncMock(return_value=[])
-    mock_prisma.db.litellm_deletedverificationtoken.find_many = AsyncMock(return_value=[])
-    mock_prisma.db.litellm_usertable = MagicMock()
-    mock_prisma.db.litellm_usertable.find_many = AsyncMock(return_value=[])
+    mock_prisma.db.embrouter_verificationtoken.find_many = AsyncMock(return_value=[])
+    mock_prisma.db.embrouter_deletedverificationtoken.find_many = AsyncMock(return_value=[])
+    mock_prisma.db.embrouter_usertable = MagicMock()
+    mock_prisma.db.embrouter_usertable.find_many = AsyncMock(return_value=[])
 
     result = await get_daily_activity_aggregated(
         prisma_client=mock_prisma,
-        table_name="litellm_dailyuserspend",
+        table_name="embrouter_dailyuserspend",
         entity_id_field="user_id",
         entity_id=None,
         entity_metadata_field=None,
@@ -1673,14 +1673,14 @@ async def test_get_daily_activity_aggregated_model_group_rollups_fall_back_to_mo
     mock_prisma = MagicMock()
     mock_prisma.db = MagicMock()
     mock_prisma.db.query_raw = _psycopg_query_raw(_aggregated_postgresql, [])
-    mock_prisma.db.litellm_verificationtoken.find_many = AsyncMock(return_value=[])
-    mock_prisma.db.litellm_deletedverificationtoken.find_many = AsyncMock(return_value=[])
-    mock_prisma.db.litellm_usertable = MagicMock()
-    mock_prisma.db.litellm_usertable.find_many = AsyncMock(return_value=[])
+    mock_prisma.db.embrouter_verificationtoken.find_many = AsyncMock(return_value=[])
+    mock_prisma.db.embrouter_deletedverificationtoken.find_many = AsyncMock(return_value=[])
+    mock_prisma.db.embrouter_usertable = MagicMock()
+    mock_prisma.db.embrouter_usertable.find_many = AsyncMock(return_value=[])
 
     result = await get_daily_activity_aggregated(
         prisma_client=mock_prisma,
-        table_name="litellm_dailyuserspend",
+        table_name="embrouter_dailyuserspend",
         entity_id_field="user_id",
         entity_id=None,
         entity_metadata_field=None,
@@ -1770,7 +1770,7 @@ class TestEverySavingsDriverSurvivesTheReadPath:
 
     def test_every_driver_is_summed_by_the_rollup_query(self):
         sql, _ = _build_aggregated_sql_query(
-            table_name="litellm_dailyuserspend",
+            table_name="embrouter_dailyuserspend",
             entity_id_field="user_id",
             entity_id="user-1",
             start_date="2026-07-01",
@@ -1811,7 +1811,7 @@ class TestResponseTimeSurvivesTheReadPath:
 
     def test_both_halves_are_summed_by_the_rollup_query(self):
         sql, _ = _build_aggregated_sql_query(
-            table_name="litellm_dailyuserspend",
+            table_name="embrouter_dailyuserspend",
             entity_id_field="user_id",
             entity_id="user-1",
             start_date="2026-09-01",
@@ -1891,9 +1891,9 @@ def test_update_metrics_accumulates_ptu_flat_cost(ptu_cost_attribution_enabled):
 
 
 def test_ptu_sentinel_excluded_from_key_breakdown_but_flat_cost_aggregates(ptu_cost_attribution_enabled):
-    from litellm.constants import PTU_SENTINEL_API_KEY
-    from litellm.proxy.management_endpoints.common_daily_activity import update_breakdown_metrics
-    from litellm.types.proxy.management_endpoints.common_daily_activity import BreakdownMetrics
+    from embrouter.constants import PTU_SENTINEL_API_KEY
+    from embrouter.proxy.management_endpoints.common_daily_activity import update_breakdown_metrics
+    from embrouter.types.proxy.management_endpoints.common_daily_activity import BreakdownMetrics
 
     breakdown = BreakdownMetrics()
     update_breakdown_metrics(breakdown, _spend_record("real-key", spend=5.0, ptu_flat_cost=0.0), {}, {}, {})
@@ -1920,7 +1920,7 @@ def _grouping_row(
     spend=0.0,
     ptu_flat_cost=0.0,
 ):
-    from litellm.proxy.management_endpoints.common_daily_activity import _GroupingSetsRow
+    from embrouter.proxy.management_endpoints.common_daily_activity import _GroupingSetsRow
 
     return _GroupingSetsRow(
         date="2024-01-01",
@@ -1953,8 +1953,8 @@ def _grouping_row(
 def test_grouping_sets_dispatcher_excludes_ptu_sentinel_from_key_breakdowns(ptu_cost_attribution_enabled):
     """The GROUPING SETS path must mirror the per-row path: the flat-cost sentinel
     aggregates into the date/model/total metrics but never surfaces as an api_key."""
-    from litellm.constants import PTU_SENTINEL_API_KEY
-    from litellm.proxy.management_endpoints.common_daily_activity import (
+    from embrouter.constants import PTU_SENTINEL_API_KEY
+    from embrouter.proxy.management_endpoints.common_daily_activity import (
         _GROUP_DATE_API_KEY,
         _GROUP_DATE_MODEL,
         _GROUP_DATE_MODEL_API_KEY,
@@ -1990,8 +1990,8 @@ def test_grouping_sets_dispatcher_excludes_ptu_sentinel_from_key_breakdowns(ptu_
 def test_grouping_sets_dispatcher_populates_every_breakdown_level(ptu_cost_attribution_enabled):
     """Every GROUPING SETS level lands in its bucket, and the flat-cost sentinel
     is kept out of the model_group and provider api_key sub-breakdowns too."""
-    from litellm.constants import PTU_SENTINEL_API_KEY
-    from litellm.proxy.management_endpoints.common_daily_activity import (
+    from embrouter.constants import PTU_SENTINEL_API_KEY
+    from embrouter.proxy.management_endpoints.common_daily_activity import (
         _GROUP_DATE_ENDPOINT,
         _GROUP_DATE_ENDPOINT_API_KEY,
         _GROUP_DATE_MCP,
@@ -2042,7 +2042,7 @@ def test_grouping_sets_dispatcher_populates_every_breakdown_level(ptu_cost_attri
 def test_grouping_sets_dispatcher_keeps_ptu_flat_cost_out_of_the_provider_breakdown():
     """Sentinel rows carry no provider, so their flat cost must not surface under the
     "unknown" provider - the per-row path skips them for exactly the same reason."""
-    from litellm.proxy.management_endpoints.common_daily_activity import (
+    from embrouter.proxy.management_endpoints.common_daily_activity import (
         _GROUP_DATE_PROVIDER,
         _aggregate_grouping_sets_records_sync,
     )
@@ -2065,7 +2065,7 @@ def test_grouping_sets_dispatcher_keeps_ptu_flat_cost_out_of_the_provider_breakd
 def test_grouping_sets_dispatcher_keeps_a_real_provider_row_that_shares_the_sentinel_shape():
     """A request row whose provider is empty still gets its "unknown" bucket - only the
     flat cost is withheld, so provider attribution of real spend is unchanged."""
-    from litellm.proxy.management_endpoints.common_daily_activity import (
+    from embrouter.proxy.management_endpoints.common_daily_activity import (
         _GROUP_DATE_PROVIDER,
         _aggregate_grouping_sets_records_sync,
     )
@@ -2082,9 +2082,9 @@ def test_grouping_sets_dispatcher_keeps_a_real_provider_row_that_shares_the_sent
 def test_update_breakdown_metrics_covers_mcp_endpoint_and_entity(ptu_cost_attribution_enabled):
     """A full request record fans out into the mcp, endpoint, provider and entity
     breakdowns, while the flat-cost sentinel stays out of the entity api_key sub-map."""
-    from litellm.constants import PTU_SENTINEL_API_KEY
-    from litellm.proxy.management_endpoints.common_daily_activity import update_breakdown_metrics
-    from litellm.types.proxy.management_endpoints.common_daily_activity import BreakdownMetrics
+    from embrouter.constants import PTU_SENTINEL_API_KEY
+    from embrouter.proxy.management_endpoints.common_daily_activity import update_breakdown_metrics
+    from embrouter.types.proxy.management_endpoints.common_daily_activity import BreakdownMetrics
 
     breakdown = BreakdownMetrics()
     record = SimpleNamespace(
@@ -2129,10 +2129,10 @@ def test_update_breakdown_metrics_covers_mcp_endpoint_and_entity(ptu_cost_attrib
 
 
 def test_grouping_sets_dispatcher_keeps_an_all_zero_legacy_provider_bucket():
-    """LiteLLM_DailyTeamSpend predates its api_requests column; the migration that added it
+    """EmbRouter_DailyTeamSpend predates its api_requests column; the migration that added it
     backfilled NOT NULL DEFAULT 0, so a legacy keyless row is all zeroes. Dropping those
     would silently remove a provider the base build reported."""
-    from litellm.proxy.management_endpoints.common_daily_activity import (
+    from embrouter.proxy.management_endpoints.common_daily_activity import (
         _GROUP_DATE_PROVIDER,
         _aggregate_grouping_sets_records_sync,
     )
@@ -2161,8 +2161,8 @@ class TestSentinelRowsDisplayTheirModelName:
 
     @staticmethod
     def _breakdown(records):
-        from litellm.proxy.management_endpoints.common_daily_activity import update_breakdown_metrics
-        from litellm.types.proxy.management_endpoints.common_daily_activity import BreakdownMetrics
+        from embrouter.proxy.management_endpoints.common_daily_activity import update_breakdown_metrics
+        from embrouter.types.proxy.management_endpoints.common_daily_activity import BreakdownMetrics
 
         breakdown = BreakdownMetrics()
         for record in records:
@@ -2171,7 +2171,7 @@ class TestSentinelRowsDisplayTheirModelName:
 
     @staticmethod
     def _sentinel(*, model_id, model_group, flat_cost=480.0):
-        from litellm.constants import PTU_SENTINEL_API_KEY
+        from embrouter.constants import PTU_SENTINEL_API_KEY
 
         record = _spend_record(PTU_SENTINEL_API_KEY, model=model_id, spend=0.0, ptu_flat_cost=flat_cost)
         record.model_group = model_group
@@ -2215,18 +2215,18 @@ class TestSentinelRowsDisplayTheirModelName:
 
 
 def _daily_team_row(api_key, *, spend=0.0, ptu_flat_cost=0.0):
-    """A LiteLLM_DailyTeamSpend row as the paginated read path receives it from find_many."""
+    """A EmbRouter_DailyTeamSpend row as the paginated read path receives it from find_many."""
     base: Final = _spend_record(api_key, spend=spend, ptu_flat_cost=ptu_flat_cost)
     return SimpleNamespace(**{**base.__dict__, "date": "2026-07-01", "team_id": "team-1"})
 
 
 class TestPtuCostAttributionDisabled:
-    """With LITELLM_ENABLE_PTU_COST_ATTRIBUTION unset, both read paths report zero flat
+    """With EMBROUTER_ENABLE_PTU_COST_ATTRIBUTION unset, both read paths report zero flat
     cost, while the sentinel filtering that keeps ``__ptu_flat_cost__`` out of the
     breakdowns keeps running.
 
     Filtering is deliberately not gated: an operator can enable the flag, accrue
-    sentinel rows, then disable it, and those rows stay in LiteLLM_DailyTeamSpend
+    sentinel rows, then disable it, and those rows stay in EmbRouter_DailyTeamSpend
     forever. Gating the filter too would surface the sentinel as a bogus api_key and
     mint a provider bucket for its empty provider.
     """
@@ -2242,7 +2242,7 @@ class TestPtuCostAttributionDisabled:
         assert metrics.spend == 1.0
 
     def test_aggregated_path_reports_zero_flat_cost(self):
-        from litellm.proxy.management_endpoints.common_daily_activity import _GROUP_GRAND_TOTAL
+        from embrouter.proxy.management_endpoints.common_daily_activity import _GROUP_GRAND_TOTAL
 
         metrics = _record_to_spend_metrics(_grouping_row(_GROUP_GRAND_TOTAL, spend=5.0, ptu_flat_cost=240.0))
 
@@ -2250,8 +2250,8 @@ class TestPtuCostAttributionDisabled:
         assert metrics.spend == 5.0
 
     def test_aggregated_totals_and_buckets_report_zero_flat_cost(self):
-        from litellm.constants import PTU_SENTINEL_API_KEY
-        from litellm.proxy.management_endpoints.common_daily_activity import (
+        from embrouter.constants import PTU_SENTINEL_API_KEY
+        from embrouter.proxy.management_endpoints.common_daily_activity import (
             _GROUP_DATE_API_KEY,
             _GROUP_DATE_MODEL,
             _GROUP_GRAND_TOTAL,
@@ -2271,9 +2271,9 @@ class TestPtuCostAttributionDisabled:
         assert aggregated["results"][0].breakdown.models["gpt-4o-mini-ptu"].metrics.flat_cost == 0.0
 
     def test_sentinel_still_excluded_from_the_api_key_breakdown(self):
-        from litellm.constants import PTU_SENTINEL_API_KEY
-        from litellm.proxy.management_endpoints.common_daily_activity import update_breakdown_metrics
-        from litellm.types.proxy.management_endpoints.common_daily_activity import BreakdownMetrics
+        from embrouter.constants import PTU_SENTINEL_API_KEY
+        from embrouter.proxy.management_endpoints.common_daily_activity import update_breakdown_metrics
+        from embrouter.types.proxy.management_endpoints.common_daily_activity import BreakdownMetrics
 
         breakdown = BreakdownMetrics()
         update_breakdown_metrics(breakdown, _spend_record("real-key", spend=5.0), {}, {}, {})
@@ -2286,9 +2286,9 @@ class TestPtuCostAttributionDisabled:
         assert "real-key" in breakdown.models["gpt-4o-mini-ptu"].api_key_breakdown
 
     def test_sentinel_still_excluded_from_the_provider_breakdown(self):
-        from litellm.constants import PTU_SENTINEL_API_KEY
-        from litellm.proxy.management_endpoints.common_daily_activity import update_breakdown_metrics
-        from litellm.types.proxy.management_endpoints.common_daily_activity import BreakdownMetrics
+        from embrouter.constants import PTU_SENTINEL_API_KEY
+        from embrouter.proxy.management_endpoints.common_daily_activity import update_breakdown_metrics
+        from embrouter.types.proxy.management_endpoints.common_daily_activity import BreakdownMetrics
 
         breakdown = BreakdownMetrics()
         update_breakdown_metrics(breakdown, _spend_record(PTU_SENTINEL_API_KEY, ptu_flat_cost=240.0), {}, {}, {})
@@ -2296,8 +2296,8 @@ class TestPtuCostAttributionDisabled:
         assert breakdown.providers == {}
 
     def test_grouping_sets_sentinel_still_excluded_from_breakdowns(self):
-        from litellm.constants import PTU_SENTINEL_API_KEY
-        from litellm.proxy.management_endpoints.common_daily_activity import (
+        from embrouter.constants import PTU_SENTINEL_API_KEY
+        from embrouter.proxy.management_endpoints.common_daily_activity import (
             _GROUP_DATE_API_KEY,
             _GROUP_DATE_MODEL,
             _GROUP_DATE_MODEL_API_KEY,
@@ -2324,7 +2324,7 @@ class TestPtuCostAttributionDisabled:
     async def test_team_daily_activity_endpoint_reports_zero_flat_cost(self):
         """/team/daily/activity reads rows with find_many rather than the aggregated SQL, so
         forcing the SQL select to a constant zero would leave this path reporting flat cost."""
-        from litellm.constants import PTU_SENTINEL_API_KEY
+        from embrouter.constants import PTU_SENTINEL_API_KEY
 
         mock_prisma = MagicMock()
         mock_prisma.db = MagicMock()
@@ -2336,13 +2336,13 @@ class TestPtuCostAttributionDisabled:
                 _daily_team_row(PTU_SENTINEL_API_KEY, ptu_flat_cost=240.0),
             ]
         )
-        mock_prisma.db.litellm_verificationtoken = MagicMock()
-        mock_prisma.db.litellm_verificationtoken.find_many = AsyncMock(return_value=[])
-        mock_prisma.db.litellm_dailyteamspend = mock_table
+        mock_prisma.db.embrouter_verificationtoken = MagicMock()
+        mock_prisma.db.embrouter_verificationtoken.find_many = AsyncMock(return_value=[])
+        mock_prisma.db.embrouter_dailyteamspend = mock_table
 
         result = await get_daily_activity(
             prisma_client=mock_prisma,
-            table_name="litellm_dailyteamspend",
+            table_name="embrouter_dailyteamspend",
             entity_id_field="team_id",
             entity_id="team-1",
             entity_metadata_field=None,
@@ -2360,7 +2360,7 @@ class TestPtuCostAttributionDisabled:
 
     @pytest.mark.asyncio
     async def test_team_daily_activity_endpoint_reports_flat_cost_once_enabled(self, monkeypatch):
-        from litellm.constants import PTU_SENTINEL_API_KEY
+        from embrouter.constants import PTU_SENTINEL_API_KEY
 
         monkeypatch.setenv(PTU_COST_ATTRIBUTION_ENV_VAR, "true")
 
@@ -2374,13 +2374,13 @@ class TestPtuCostAttributionDisabled:
                 _daily_team_row(PTU_SENTINEL_API_KEY, ptu_flat_cost=240.0),
             ]
         )
-        mock_prisma.db.litellm_verificationtoken = MagicMock()
-        mock_prisma.db.litellm_verificationtoken.find_many = AsyncMock(return_value=[])
-        mock_prisma.db.litellm_dailyteamspend = mock_table
+        mock_prisma.db.embrouter_verificationtoken = MagicMock()
+        mock_prisma.db.embrouter_verificationtoken.find_many = AsyncMock(return_value=[])
+        mock_prisma.db.embrouter_dailyteamspend = mock_table
 
         result = await get_daily_activity(
             prisma_client=mock_prisma,
-            table_name="litellm_dailyteamspend",
+            table_name="embrouter_dailyteamspend",
             entity_id_field="team_id",
             entity_id="team-1",
             entity_metadata_field=None,
@@ -2403,8 +2403,8 @@ class TestFlagIsNotReadOnTheHotPath:
 
     @staticmethod
     def _count_flag_reads(records):
-        import litellm.proxy.management_endpoints.common_daily_activity as cda
-        from litellm.types.proxy.management_endpoints.common_daily_activity import BreakdownMetrics
+        import embrouter.proxy.management_endpoints.common_daily_activity as cda
+        from embrouter.types.proxy.management_endpoints.common_daily_activity import BreakdownMetrics
 
         reads = []
         real = cda.is_ptu_cost_attribution_enabled
@@ -2431,7 +2431,7 @@ class TestFlagIsNotReadOnTheHotPath:
         assert self._count_flag_reads(rows) == 0
 
     def test_a_sentinel_row_still_consults_the_flag(self):
-        from litellm.constants import PTU_SENTINEL_API_KEY
+        from embrouter.constants import PTU_SENTINEL_API_KEY
 
         reads = self._count_flag_reads([_spend_record(PTU_SENTINEL_API_KEY, spend=0.0, ptu_flat_cost=240.0)])
         assert reads > 0
@@ -2442,12 +2442,12 @@ def test_entity_rollup_sql_query_and_api_key_list_filter():
     by GROUPING(api_key), shares the WHERE builder (list api_key becomes a
     parameterized IN, an empty list must match nothing), and the main
     aggregated query stays entity-free."""
-    from litellm.proxy.management_endpoints.common_daily_activity import (
+    from embrouter.proxy.management_endpoints.common_daily_activity import (
         _build_entity_rollup_sql_query,
     )
 
     sql, params = _build_entity_rollup_sql_query(
-        table_name="litellm_dailyteamspend",
+        table_name="embrouter_dailyteamspend",
         entity_id_field="team_id",
         entity_id=None,
         start_date="2024-01-01",
@@ -2464,7 +2464,7 @@ def test_entity_rollup_sql_query_and_api_key_list_filter():
     assert params == ["2024-01-01", "2024-01-31", "key-1", "key-2"]
 
     plain_sql, _ = _build_aggregated_sql_query(
-        table_name="litellm_dailyteamspend",
+        table_name="embrouter_dailyteamspend",
         entity_id_field="team_id",
         entity_id=None,
         start_date="2024-01-01",
@@ -2476,7 +2476,7 @@ def test_entity_rollup_sql_query_and_api_key_list_filter():
     assert "GROUPING(date" in plain_sql
 
     empty_sql, empty_params = _build_aggregated_sql_query(
-        table_name="litellm_dailyteamspend",
+        table_name="embrouter_dailyteamspend",
         entity_id_field="team_id",
         entity_id=None,
         start_date="2024-01-01",
@@ -2551,12 +2551,12 @@ async def test_get_daily_activity_aggregated_with_entity_breakdown():
     ]
 
     mock_prisma.db.query_raw = AsyncMock(side_effect=[main_rows, entity_rows])
-    mock_prisma.db.litellm_verificationtoken = MagicMock()
-    mock_prisma.db.litellm_verificationtoken.find_many = AsyncMock(return_value=[])
+    mock_prisma.db.embrouter_verificationtoken = MagicMock()
+    mock_prisma.db.embrouter_verificationtoken.find_many = AsyncMock(return_value=[])
 
     result = await get_daily_activity_aggregated(
         prisma_client=mock_prisma,
-        table_name="litellm_dailyteamspend",
+        table_name="embrouter_dailyteamspend",
         entity_id_field="team_id",
         entity_id=None,
         entity_metadata_field={"team-a": {"team_alias": "Alpha"}},
@@ -2595,13 +2595,13 @@ async def test_get_daily_activity_aggregated_with_entity_breakdown():
 
 @pytest.mark.asyncio
 async def test_get_api_key_metadata_resolves_session_key_via_spend_log_window():
-    from litellm.proxy.utils import hash_token
+    from embrouter.proxy.utils import hash_token
 
     session_digest = hash_token("cli-session-user-42")
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_verificationtoken.find_many = AsyncMock(return_value=[])
-    mock_prisma.db.litellm_deletedverificationtoken.find_many = AsyncMock(return_value=[])
-    mock_prisma.db.litellm_usertable.find_many = AsyncMock(
+    mock_prisma.db.embrouter_verificationtoken.find_many = AsyncMock(return_value=[])
+    mock_prisma.db.embrouter_deletedverificationtoken.find_many = AsyncMock(return_value=[])
+    mock_prisma.db.embrouter_usertable.find_many = AsyncMock(
         return_value=[SimpleNamespace(user_id="user-42", user_email="user42@example.com")]
     )
 
@@ -2625,7 +2625,7 @@ async def test_get_api_key_metadata_resolves_session_key_via_spend_log_window():
 
 
 def test_spend_logs_window_pads_min_minus_one_day_and_max_plus_two_days():
-    from litellm.proxy.management_endpoints.common_daily_activity import _spend_logs_window
+    from embrouter.proxy.management_endpoints.common_daily_activity import _spend_logs_window
 
     window = _spend_logs_window({"2026-09-08", "2026-09-05", "not-a-date"})
 
@@ -2633,7 +2633,7 @@ def test_spend_logs_window_pads_min_minus_one_day_and_max_plus_two_days():
 
 
 def test_spend_logs_window_is_none_when_no_date_parses():
-    from litellm.proxy.management_endpoints.common_daily_activity import _spend_logs_window
+    from embrouter.proxy.management_endpoints.common_daily_activity import _spend_logs_window
 
     assert _spend_logs_window({"garbage", ""}) is None
 
@@ -2641,10 +2641,10 @@ def test_spend_logs_window_is_none_when_no_date_parses():
 @pytest.mark.asyncio
 async def test_get_api_key_metadata_resolves_cli_session_keys_from_the_key_itself():
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_verificationtoken.find_many = AsyncMock(return_value=[])
-    mock_prisma.db.litellm_deletedverificationtoken.find_many = AsyncMock(return_value=[])
+    mock_prisma.db.embrouter_verificationtoken.find_many = AsyncMock(return_value=[])
+    mock_prisma.db.embrouter_deletedverificationtoken.find_many = AsyncMock(return_value=[])
     mock_prisma.db.query_raw = AsyncMock(side_effect=AssertionError("no reverse-hash or spend-log scan expected"))
-    mock_prisma.db.litellm_usertable.find_many = AsyncMock(
+    mock_prisma.db.embrouter_usertable.find_many = AsyncMock(
         return_value=[SimpleNamespace(user_id="alice", user_email="alice@example.com", teams=["team-a"])]
     )
 
@@ -2660,9 +2660,9 @@ async def test_get_api_key_metadata_recovers_legacy_hashed_jwt_owner_from_daily_
     api_key: Final = f"hashed-jwt-{hash_token('legacy-cli-session-daily-spend-owner')}"
     user_id: Final = "legacy-owner"
     mock_prisma: Final = MagicMock()
-    mock_prisma.db.litellm_verificationtoken.find_many = AsyncMock(return_value=[])
-    mock_prisma.db.litellm_deletedverificationtoken.find_many = AsyncMock(return_value=[])
-    mock_prisma.db.litellm_usertable.find_many = AsyncMock(
+    mock_prisma.db.embrouter_verificationtoken.find_many = AsyncMock(return_value=[])
+    mock_prisma.db.embrouter_deletedverificationtoken.find_many = AsyncMock(return_value=[])
+    mock_prisma.db.embrouter_usertable.find_many = AsyncMock(
         return_value=[SimpleNamespace(user_id=user_id, user_email="legacy-owner@example.com", teams=[])]
     )
     recovery_query_raw: Final = _recovery_transaction(
@@ -2692,9 +2692,9 @@ async def test_get_api_key_metadata_preserves_deleted_key_metadata_when_recoveri
     deleted_key.key_alias = "legacy-cli-key"
     deleted_key.team_id = "team-legacy"
     deleted_key.user_id = None
-    mock_prisma.db.litellm_verificationtoken.find_many = AsyncMock(return_value=[])
-    mock_prisma.db.litellm_deletedverificationtoken.find_many = AsyncMock(return_value=[deleted_key])
-    mock_prisma.db.litellm_usertable.find_many = AsyncMock(
+    mock_prisma.db.embrouter_verificationtoken.find_many = AsyncMock(return_value=[])
+    mock_prisma.db.embrouter_deletedverificationtoken.find_many = AsyncMock(return_value=[deleted_key])
+    mock_prisma.db.embrouter_usertable.find_many = AsyncMock(
         return_value=[SimpleNamespace(user_id=user_id, user_email="legacy-owner@example.com", teams=[])]
     )
     recovery_query_raw: Final = _recovery_transaction(
@@ -2721,9 +2721,9 @@ async def test_get_api_key_metadata_does_not_recover_daily_spend_owner_for_activ
     active_key.key_alias = "active-key-alias"
     active_key.team_id = "active-team"
     active_key.user_id = "active-owner"
-    mock_prisma.db.litellm_verificationtoken.find_many = AsyncMock(return_value=[active_key])
-    mock_prisma.db.litellm_deletedverificationtoken.find_many = AsyncMock(return_value=[])
-    mock_prisma.db.litellm_usertable.find_many = AsyncMock(
+    mock_prisma.db.embrouter_verificationtoken.find_many = AsyncMock(return_value=[active_key])
+    mock_prisma.db.embrouter_deletedverificationtoken.find_many = AsyncMock(return_value=[])
+    mock_prisma.db.embrouter_usertable.find_many = AsyncMock(
         return_value=[SimpleNamespace(user_id="active-owner", user_email="active-owner@example.com", teams=[])]
     )
     recovery_query_raw: Final = _recovery_transaction(

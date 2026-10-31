@@ -1,21 +1,21 @@
 from typing import TYPE_CHECKING, Any
 
-from litellm.llms.azure.common_utils import BaseAzureLLM
-from litellm.llms.openai.videos.transformation import OpenAIVideoConfig
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.videos.main import VideoCreateOptionalRequestParams
+from embrouter.llms.azure.common_utils import BaseAzureLLM
+from embrouter.llms.openai.videos.transformation import OpenAIVideoConfig
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.videos.main import VideoCreateOptionalRequestParams
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
 
     from ...base_llm.chat.transformation import BaseLLMException as _BaseLLMException
     from ...base_llm.videos.transformation import BaseVideoConfig as _BaseVideoConfig
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
     BaseVideoConfig = _BaseVideoConfig
     BaseLLMException = _BaseLLMException
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
     BaseVideoConfig = Any
     BaseLLMException = Any
 
@@ -56,36 +56,36 @@ class AzureVideoConfig(OpenAIVideoConfig):
         headers: dict,
         model: str,
         api_key: str | None = None,
-        litellm_params: GenericLiteLLMParams | None = None,
+        embrouter_params: GenericEmbRouterParams | None = None,
     ) -> dict:
         """
         Validate Azure environment and set up authentication headers.
-        Uses _base_validate_azure_environment to properly handle credentials from litellm_credential_name.
+        Uses _base_validate_azure_environment to properly handle credentials from embrouter_credential_name.
         """
-        # If litellm_params is provided, use it; otherwise create a new one
-        if litellm_params is None:
-            litellm_params = GenericLiteLLMParams()
+        # If embrouter_params is provided, use it; otherwise create a new one
+        if embrouter_params is None:
+            embrouter_params = GenericEmbRouterParams()
 
-        if api_key and not litellm_params.api_key:
-            litellm_params.api_key = api_key
+        if api_key and not embrouter_params.api_key:
+            embrouter_params.api_key = api_key
 
         # Use the base Azure validation method which properly handles:
-        # 1. Credentials from litellm_credential_name via litellm_params
+        # 1. Credentials from embrouter_credential_name via embrouter_params
         # 2. Sets the correct "api-key" header (not "Authorization: Bearer")
-        return BaseAzureLLM._base_validate_azure_environment(headers=headers, litellm_params=litellm_params)
+        return BaseAzureLLM._base_validate_azure_environment(headers=headers, embrouter_params=embrouter_params)
 
     def get_complete_url(
         self,
         model: str,
         api_base: str | None,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> str:
         """
         Constructs a complete URL for the API request.
         """
         return BaseAzureLLM._get_base_azure_url(
             api_base=api_base,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             route="/openai/v1/videos",
             default_api_version="",
         )

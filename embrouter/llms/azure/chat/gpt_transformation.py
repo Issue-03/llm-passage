@@ -4,24 +4,24 @@ from typing import TYPE_CHECKING, Any, Final
 
 from httpx._models import Headers, Response
 
-import litellm
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+import embrouter
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
     drop_tool_reference_parts_from_tool_messages,
     flatten_combinators_and_drop_non_python_regex_patterns,
     hoist_images_from_tool_messages,
     system_messages_first,
     tool_with_sanitized_parameters,
 )
-from litellm.litellm_core_utils.prompt_templates.factory import (
+from embrouter.embrouter_core_utils.prompt_templates.factory import (
     convert_to_azure_openai_messages,
 )
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.openai.chat.gpt_5_transformation import GPT_REASONING_SERIES_MARKERS
-from litellm.types.llms.azure import (
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.openai.chat.gpt_5_transformation import GPT_REASONING_SERIES_MARKERS
+from embrouter.types.llms.azure import (
     API_VERSION_MONTH_SUPPORTED_RESPONSE_FORMAT,
     API_VERSION_YEAR_SUPPORTED_RESPONSE_FORMAT,
 )
-from litellm.types.utils import ModelResponse
+from embrouter.types.utils import ModelResponse
 
 from ....exceptions import UnsupportedParamsError
 from ....types.llms.openai import AllMessageValues
@@ -29,10 +29,10 @@ from ...base_llm.chat.transformation import BaseConfig
 from ..common_utils import AzureOpenAIError
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
 
-    LoggingClass = LiteLLMLoggingObj
+    LoggingClass = EmbRouterLoggingObj
 else:
     LoggingClass = Any
 
@@ -224,7 +224,7 @@ class AzureOpenAIConfig(BaseConfig):
                         or (api_version_year == "2023" and api_version_month < "12")
                         or (api_version_year == "2023" and api_version_month == "12" and api_version_day < "01")
                     ):
-                        if litellm.drop_params is True or (drop_params is not None and drop_params is True):
+                        if embrouter.drop_params is True or (drop_params is not None and drop_params is True):
                             pass
                         else:
                             raise UnsupportedParamsError(
@@ -234,12 +234,12 @@ class AzureOpenAIConfig(BaseConfig):
                     elif value == "required" and (
                         api_version_year == "2024" and api_version_month <= "05"
                     ):  ## check if tool_choice value is supported ##
-                        if litellm.drop_params is True or (drop_params is not None and drop_params is True):
+                        if embrouter.drop_params is True or (drop_params is not None and drop_params is True):
                             pass
                         else:
                             raise UnsupportedParamsError(
                                 status_code=400,
-                                message=f"Azure does not support '{value}' as a {param} param, for api_version={api_version}. To drop 'tool_choice=required' for calls with this Azure API version, set `litellm.drop_params=True` or for proxy:\n\n`litellm_settings:\n drop_params: true`\nAzure API Reference: https://learn.microsoft.com/en-us/azure/ai-services/openai/reference#chat-completions",
+                                message=f"Azure does not support '{value}' as a {param} param, for api_version={api_version}. To drop 'tool_choice=required' for calls with this Azure API version, set `embrouter.drop_params=True` or for proxy:\n\n`embrouter_settings:\n drop_params: true`\nAzure API Reference: https://learn.microsoft.com/en-us/azure/ai-services/openai/reference#chat-completions",
                             )
                     else:
                         optional_params["tool_choice"] = value
@@ -273,10 +273,10 @@ class AzureOpenAIConfig(BaseConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
-        ordered_messages: Final = system_messages_first(messages) if litellm.openai_system_messages_first else messages
+        ordered_messages: Final = system_messages_first(messages) if embrouter.openai_system_messages_first else messages
         stripped_messages: Final = drop_tool_reference_parts_from_tool_messages(ordered_messages)
         azure_messages: Final = convert_to_azure_openai_messages(hoist_images_from_tool_messages(stripped_messages))
         request_params: Final = MappingProxyType(
@@ -302,7 +302,7 @@ class AzureOpenAIConfig(BaseConfig):
         request_data: dict,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,
@@ -352,7 +352,7 @@ class AzureOpenAIConfig(BaseConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:

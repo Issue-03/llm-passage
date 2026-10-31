@@ -8,13 +8,13 @@ from typing import Any, Final, Literal
 
 from pydantic import PrivateAttr
 
-from litellm.types.llms.base import LiteLLMPydanticObjectBase
+from embrouter.types.llms.base import EmbRouterPydanticObjectBase
 
 DocumentType = Mapping[str, object]
 
-OCRRequestFormat = Literal["litellm", "native"]
+OCRRequestFormat = Literal["embrouter", "native"]
 
-OCR_REQUEST_FORMATS: Final[tuple[OCRRequestFormat, ...]] = ("litellm", "native")
+OCR_REQUEST_FORMATS: Final[tuple[OCRRequestFormat, ...]] = ("embrouter", "native")
 
 OCR_REQUEST_FORMAT_PARAM: Final = "req_format"
 
@@ -24,8 +24,8 @@ PROVIDER_NATIVE_RESPONSE_KEY: Final = "provider_native_response"
 
 
 def parse_ocr_request_format(value: object) -> OCRRequestFormat:
-    if value == "litellm":
-        return "litellm"
+    if value == "embrouter":
+        return "embrouter"
     if value == "native":
         return "native"
     raise ValueError(
@@ -33,7 +33,7 @@ def parse_ocr_request_format(value: object) -> OCRRequestFormat:
     )
 
 
-class OCRPageDimensions(LiteLLMPydanticObjectBase):
+class OCRPageDimensions(EmbRouterPydanticObjectBase):
     """Page dimensions from OCR response."""
 
     dpi: int | None = None
@@ -41,7 +41,7 @@ class OCRPageDimensions(LiteLLMPydanticObjectBase):
     width: int | None = None
 
 
-class OCRPageImage(LiteLLMPydanticObjectBase):
+class OCRPageImage(EmbRouterPydanticObjectBase):
     """Image extracted from OCR page."""
 
     image_base64: str | None = None
@@ -50,7 +50,7 @@ class OCRPageImage(LiteLLMPydanticObjectBase):
     model_config = {"extra": "allow"}
 
 
-class OCRPage(LiteLLMPydanticObjectBase):
+class OCRPage(EmbRouterPydanticObjectBase):
     """Single page from OCR response."""
 
     index: int
@@ -61,7 +61,7 @@ class OCRPage(LiteLLMPydanticObjectBase):
     model_config = {"extra": "allow"}
 
 
-class OCRUsageInfo(LiteLLMPydanticObjectBase):
+class OCRUsageInfo(EmbRouterPydanticObjectBase):
     """Usage information from OCR response."""
 
     pages_processed: int | None = None
@@ -72,7 +72,7 @@ class OCRUsageInfo(LiteLLMPydanticObjectBase):
     model_config = {"extra": "allow"}
 
 
-class OCRResponse(LiteLLMPydanticObjectBase):
+class OCRResponse(EmbRouterPydanticObjectBase):
     """
     Standard OCR response format.
     Standardized to Mistral OCR format - other providers should transform to this format.

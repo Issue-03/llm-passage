@@ -1,11 +1,11 @@
 """
-LiteLLM Agents API - Main Module
+EmbRouter Agents API - Main Module
 
 Usage:
-    import litellm
+    import embrouter
 
     # Create
-    response = litellm.interactions.agents.create(
+    response = embrouter.interactions.agents.create(
         name="waverunner",
         custom_llm_provider="gemini",
         api_key="...",
@@ -14,16 +14,16 @@ Usage:
     )
 
     # List
-    response = litellm.interactions.agents.list(api_key="...", custom_llm_provider="gemini")
+    response = embrouter.interactions.agents.list(api_key="...", custom_llm_provider="gemini")
 
     # Get
-    response = litellm.interactions.agents.get(name="waverunner", api_key="...")
+    response = embrouter.interactions.agents.get(name="waverunner", api_key="...")
 
     # Delete
-    result = litellm.interactions.agents.delete(name="waverunner", api_key="...")
+    result = embrouter.interactions.agents.delete(name="waverunner", api_key="...")
 
     # List versions
-    result = litellm.interactions.agents.list_versions(name="waverunner", api_key="...")
+    result = embrouter.interactions.agents.list_versions(name="waverunner", api_key="...")
 
     # Async versions: acreate, alist, aget, adelete, alist_versions
 """
@@ -36,19 +36,19 @@ from typing import Any, Final
 
 import httpx
 
-import litellm
-from litellm.interactions.agents.http_handler import agents_http_handler
-from litellm.interactions.agents.utils import get_provider_agents_api_config
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.types.agents import (
+import embrouter
+from embrouter.interactions.agents.http_handler import agents_http_handler
+from embrouter.interactions.agents.utils import get_provider_agents_api_config
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.types.agents import (
     AgentCreateResponse,
     AgentDeleteResult,
     AgentListResponse,
     AgentVersionsResponse,
 )
-from litellm.types.interactions import InteractionEnvironment
-from litellm.types.router import GenericLiteLLMParams
-from litellm.utils import client
+from embrouter.types.interactions import InteractionEnvironment
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.utils import client
 
 # ------------------------------------------------------------------ #
 # Shared helpers                                                       #
@@ -58,7 +58,7 @@ from litellm.utils import client
 def _get_agents_api_config(custom_llm_provider: str):
     config: Final = get_provider_agents_api_config(custom_llm_provider)
     if config is None:
-        raise litellm.BadRequestError(
+        raise embrouter.BadRequestError(
             message=(
                 f"Provider '{custom_llm_provider}' does not have a native "
                 "agents API. Use the proxy POST /v1/agents endpoint to store "
@@ -76,17 +76,17 @@ def _make_logging_obj(
     custom_llm_provider: str,
     call_type: str,
     optional_params: dict[str, object],
-) -> LiteLLMLoggingObj:
-    litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.get("litellm_logging_obj")
-    litellm_call_id: Final[str | None] = kwargs.get("litellm_call_id", None)
-    litellm_logging_obj.update_from_kwargs(
+) -> EmbRouterLoggingObj:
+    embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.get("embrouter_logging_obj")
+    embrouter_call_id: Final[str | None] = kwargs.get("embrouter_call_id", None)
+    embrouter_logging_obj.update_from_kwargs(
         kwargs=kwargs,
         model=model,
         optional_params=optional_params,
-        litellm_params={"litellm_call_id": litellm_call_id},
+        embrouter_params={"embrouter_call_id": embrouter_call_id},
         custom_llm_provider=custom_llm_provider,
     )
-    return litellm_logging_obj
+    return embrouter_logging_obj
 
 
 # ================================================================== #
@@ -129,7 +129,7 @@ async def acreate(
             return await init_response
         return init_response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=name,
             custom_llm_provider=custom_llm_provider or "gemini",
             original_exception=e,
@@ -163,7 +163,7 @@ def create(
         extra_headers: Additional HTTP headers.
         extra_body: Additional request body fields.
         timeout: Request timeout.
-        **kwargs: Forwarded to GenericLiteLLMParams (api_key, api_base, etc.).
+        **kwargs: Forwarded to GenericEmbRouterParams (api_key, api_base, etc.).
     """
     local_vars: Final = locals()
     custom_llm_provider = custom_llm_provider or kwargs.get("custom_llm_provider") or "gemini"
@@ -176,13 +176,13 @@ def create(
         if base_environment is not None:
             kwargs["base_environment"] = base_environment
         kwargs.setdefault("custom_llm_provider", custom_llm_provider)
-        litellm_params: Final = GenericLiteLLMParams(**kwargs)
+        embrouter_params: Final = GenericEmbRouterParams(**kwargs)
         logging_obj: Final = _make_logging_obj(kwargs, name, custom_llm_provider, "create_agent", {})
         config: Final = _get_agents_api_config(custom_llm_provider)
         return agents_http_handler.create_agent(
             agents_api_config=config,
             name=name,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             logging_obj=logging_obj,
             extra_headers=extra_headers,
             extra_body=extra_body,
@@ -190,7 +190,7 @@ def create(
             _is_async=_is_async,
         )
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=name,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -229,7 +229,7 @@ async def alist(
             return await init_response
         return init_response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model="",
             custom_llm_provider=custom_llm_provider or "gemini",
             original_exception=e,
@@ -251,19 +251,19 @@ def list(
     try:
         _is_async: Final = kwargs.pop("alist_agents", False) is True
         kwargs.setdefault("custom_llm_provider", custom_llm_provider)
-        litellm_params: Final = GenericLiteLLMParams(**kwargs)
+        embrouter_params: Final = GenericEmbRouterParams(**kwargs)
         logging_obj: Final = _make_logging_obj(kwargs, "", custom_llm_provider, "list_agents", {})
         config: Final = _get_agents_api_config(custom_llm_provider)
         return agents_http_handler.list_agents(
             agents_api_config=config,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             logging_obj=logging_obj,
             extra_headers=extra_headers,
             timeout=timeout,
             _is_async=_is_async,
         )
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model="",
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -304,7 +304,7 @@ async def aget(
             return await init_response
         return init_response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=name,
             custom_llm_provider=custom_llm_provider or "gemini",
             original_exception=e,
@@ -327,20 +327,20 @@ def get(
     try:
         _is_async: Final = kwargs.pop("aget_agent", False) is True
         kwargs.setdefault("custom_llm_provider", custom_llm_provider)
-        litellm_params: Final = GenericLiteLLMParams(**kwargs)
+        embrouter_params: Final = GenericEmbRouterParams(**kwargs)
         logging_obj: Final = _make_logging_obj(kwargs, name, custom_llm_provider, "get_agent", {"name": name})
         config: Final = _get_agents_api_config(custom_llm_provider)
         return agents_http_handler.get_agent(
             agents_api_config=config,
             name=name,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             logging_obj=logging_obj,
             extra_headers=extra_headers,
             timeout=timeout,
             _is_async=_is_async,
         )
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=name,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -381,7 +381,7 @@ async def adelete(
             return await init_response
         return init_response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=name,
             custom_llm_provider=custom_llm_provider or "gemini",
             original_exception=e,
@@ -404,20 +404,20 @@ def delete(
     try:
         _is_async: Final = kwargs.pop("adelete_agent", False) is True
         kwargs.setdefault("custom_llm_provider", custom_llm_provider)
-        litellm_params: Final = GenericLiteLLMParams(**kwargs)
+        embrouter_params: Final = GenericEmbRouterParams(**kwargs)
         logging_obj: Final = _make_logging_obj(kwargs, name, custom_llm_provider, "delete_agent", {"name": name})
         config: Final = _get_agents_api_config(custom_llm_provider)
         return agents_http_handler.delete_agent(
             agents_api_config=config,
             name=name,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             logging_obj=logging_obj,
             extra_headers=extra_headers,
             timeout=timeout,
             _is_async=_is_async,
         )
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=name,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -458,7 +458,7 @@ async def alist_versions(
             return await init_response
         return init_response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=name,
             custom_llm_provider=custom_llm_provider or "gemini",
             original_exception=e,
@@ -481,20 +481,20 @@ def list_versions(
     try:
         _is_async: Final = kwargs.pop("alist_agent_versions", False) is True
         kwargs.setdefault("custom_llm_provider", custom_llm_provider)
-        litellm_params: Final = GenericLiteLLMParams(**kwargs)
+        embrouter_params: Final = GenericEmbRouterParams(**kwargs)
         logging_obj: Final = _make_logging_obj(kwargs, name, custom_llm_provider, "list_agent_versions", {"name": name})
         config: Final = _get_agents_api_config(custom_llm_provider)
         return agents_http_handler.list_agent_versions(
             agents_api_config=config,
             name=name,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             logging_obj=logging_obj,
             extra_headers=extra_headers,
             timeout=timeout,
             _is_async=_is_async,
         )
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=name,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,

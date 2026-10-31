@@ -10,8 +10,8 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 
-from litellm.constants import STREAM_SSE_KEEPALIVE_PING_BYTES
-from litellm.llms.anthropic.pass_through.messages.agentic_streaming_iterator import (
+from embrouter.constants import STREAM_SSE_KEEPALIVE_PING_BYTES
+from embrouter.llms.anthropic.pass_through.messages.agentic_streaming_iterator import (
     SERVER_FULFILLED_TOOL_LEAK_ERROR_SSE_BYTES,
     AgenticAnthropicStreamingIterator,
     _handle_content_block_delta,
@@ -161,7 +161,7 @@ def _build_tool_use_stream() -> List[bytes]:
                 "content_block": {
                     "type": "tool_use",
                     "id": "toolu_001",
-                    "name": "litellm_content_retrieve",
+                    "name": "embrouter_content_retrieve",
                     "input": {},
                 },
             },
@@ -259,7 +259,7 @@ def _build_hold_back_iterator(
     stream: MockAsyncStream,
     mock_handler: MagicMock,
     ping_interval_seconds: float = 15.0,
-    server_fulfilled_tool_names: frozenset = frozenset({"litellm_content_retrieve"}),
+    server_fulfilled_tool_names: frozenset = frozenset({"embrouter_content_retrieve"}),
 ) -> AgenticAnthropicStreamingIterator:
     return AgenticAnthropicStreamingIterator(
         completion_stream=stream,
@@ -488,7 +488,7 @@ class TestRebuildAnthropicResponse:
         tool = result["content"][1]
         assert tool["type"] == "tool_use"
         assert tool["id"] == "toolu_001"
-        assert tool["name"] == "litellm_content_retrieve"
+        assert tool["name"] == "embrouter_content_retrieve"
         assert tool["input"] == {"key": "section_1"}
 
     def test_should_return_none_without_message_start(self):
@@ -669,7 +669,7 @@ class TestAgenticStreamingIteratorPhase1:
 
         assert captured_response["id"] == "msg_tool_456"
         assert captured_response["stop_reason"] == "tool_use"
-        assert captured_response["content"][1]["name"] == "litellm_content_retrieve"
+        assert captured_response["content"][1]["name"] == "embrouter_content_retrieve"
 
 
 class TestAgenticStreamingIteratorPhase2:
@@ -762,7 +762,7 @@ class TestAgenticStreamingIteratorErrorHandling:
         )
 
         mock_logging = MagicMock()
-        mock_logging.litellm_call_id = "test_call_123"
+        mock_logging.embrouter_call_id = "test_call_123"
 
         iterator = AgenticAnthropicStreamingIterator(
             completion_stream=mock_stream,
@@ -857,7 +857,7 @@ class TestAgenticStreamingIteratorHoldBack:
 
         non_ping = [c for c in collected if c != STREAM_SSE_KEEPALIVE_PING_BYTES]
         assert non_ping == phase2_chunks
-        assert b"litellm_content_retrieve" not in b"".join(collected)
+        assert b"embrouter_content_retrieve" not in b"".join(collected)
         assert collected[0] == STREAM_SSE_KEEPALIVE_PING_BYTES
 
     @pytest.mark.asyncio
@@ -964,7 +964,7 @@ class TestAgenticStreamingIteratorHoldBack:
             collected.append(chunk)
 
         assert [c for c in collected if c != STREAM_SSE_KEEPALIVE_PING_BYTES] == [SERVER_FULFILLED_TOOL_LEAK_ERROR_SSE_BYTES]
-        assert b"litellm_content_retrieve" not in b"".join(collected)
+        assert b"embrouter_content_retrieve" not in b"".join(collected)
 
     @pytest.mark.asyncio
     async def test_should_error_instead_of_replaying_when_no_hook_fires_on_tool_use(self):

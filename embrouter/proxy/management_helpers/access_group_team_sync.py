@@ -1,7 +1,7 @@
 """
 Reverse sync for the team side of the team <-> access group relationship.
 
-`litellm_accessgrouptable.assigned_team_ids` and `litellm_teamtable.access_group_ids`
+`embrouter_accessgrouptable.assigned_team_ids` and `embrouter_teamtable.access_group_ids`
 are two copies of the same relationship, and both are read: the access group's
 attached-teams view reads the former, and so does the key-side grant check in
 `auth_checks.get_authorized_resources_from_key_access_groups`. The access-group
@@ -20,7 +20,7 @@ from typing import Final, Protocol
 
 from pydantic import BaseModel, TypeAdapter
 
-from litellm.proxy.auth.auth_checks import _delete_cache_access_object
+from embrouter.proxy.auth.auth_checks import _delete_cache_access_object
 
 # hashtext collisions only cost two unrelated teams a little serialization, and the
 # lock is never taken by the access-group endpoints as a SELECT ... FOR UPDATE row lock,
@@ -29,19 +29,19 @@ from litellm.proxy.auth.auth_checks import _delete_cache_access_object
 # other and against this mirror, rather than defining a second, divergent lock on the same key.
 TEAM_ADVISORY_LOCK_SQL: Final = "SELECT pg_advisory_xact_lock(hashtext($1)) IS NULL AS locked"
 
-_READ_TEAM_SQL: Final = 'SELECT access_group_ids FROM "LiteLLM_TeamTable" WHERE team_id = $1'
+_READ_TEAM_SQL: Final = 'SELECT access_group_ids FROM "EmbRouter_TeamTable" WHERE team_id = $1'
 
 # The groups the team is on either side of the reconcile, so the cache step is driven by
 # desired state rather than by which rows this attempt happened to change. A retry after a
 # failed invalidation finds the same set even though its statements are already no-ops.
 _AFFECTED_SQL: Final = """
-SELECT access_group_id FROM "LiteLLM_AccessGroupTable"
+SELECT access_group_id FROM "EmbRouter_AccessGroupTable"
 WHERE access_group_id = ANY($2::TEXT[])
    OR $1 = ANY(COALESCE(assigned_team_ids, ARRAY[]::TEXT[]))
 """
 
 _ATTACH_SQL: Final = """
-UPDATE "LiteLLM_AccessGroupTable"
+UPDATE "EmbRouter_AccessGroupTable"
 SET assigned_team_ids = array_append(COALESCE(assigned_team_ids, ARRAY[]::TEXT[]), $1)
 WHERE access_group_id = ANY($2::TEXT[])
   AND NOT ($1 = ANY(COALESCE(assigned_team_ids, ARRAY[]::TEXT[])))
@@ -49,7 +49,7 @@ RETURNING access_group_id
 """
 
 _DETACH_SQL: Final = """
-UPDATE "LiteLLM_AccessGroupTable"
+UPDATE "EmbRouter_AccessGroupTable"
 SET assigned_team_ids = array_remove(assigned_team_ids, $1)
 WHERE $1 = ANY(COALESCE(assigned_team_ids, ARRAY[]::TEXT[]))
   AND NOT (access_group_id = ANY($2::TEXT[]))
@@ -95,7 +95,7 @@ async def invalidate_access_group_cache(access_group_id: str) -> None:
     Uses a lazy import of user_api_key_cache and proxy_logging_obj from proxy_server
     to avoid circular imports, following the same pattern as key_management_endpoints.
     """
-    from litellm.proxy.proxy_server import proxy_logging_obj, user_api_key_cache
+    from embrouter.proxy.proxy_server import proxy_logging_obj, user_api_key_cache
 
     await _delete_cache_access_object(
         access_group_id=access_group_id,

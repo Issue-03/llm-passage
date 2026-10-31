@@ -4,10 +4,10 @@ Azure Anthropic transformation config - extends AnthropicConfig with Azure authe
 
 from typing import Final
 
-from litellm.llms.anthropic.chat.transformation import AnthropicConfig
-from litellm.llms.azure.common_utils import BaseAzureLLM
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.router import GenericLiteLLMParams
+from embrouter.llms.anthropic.chat.transformation import AnthropicConfig
+from embrouter.llms.azure.common_utils import BaseAzureLLM
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.router import GenericEmbRouterParams
 
 
 def _promote_extra_body_to_optional_params(optional_params: dict) -> None:
@@ -48,7 +48,7 @@ class AzureAnthropicConfig(AnthropicConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict | GenericLiteLLMParams,
+        embrouter_params: dict | GenericEmbRouterParams,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
@@ -60,20 +60,20 @@ class AzureAnthropicConfig(AnthropicConfig):
         """
         _promote_extra_body_to_optional_params(optional_params)
 
-        # Convert dict to GenericLiteLLMParams if needed
-        if isinstance(litellm_params, dict):
+        # Convert dict to GenericEmbRouterParams if needed
+        if isinstance(embrouter_params, dict):
             # Ensure api_key is included if provided
-            if api_key and "api_key" not in litellm_params:
-                litellm_params = {**litellm_params, "api_key": api_key}
-            litellm_params_obj = GenericLiteLLMParams(**litellm_params)
+            if api_key and "api_key" not in embrouter_params:
+                embrouter_params = {**embrouter_params, "api_key": api_key}
+            embrouter_params_obj = GenericEmbRouterParams(**embrouter_params)
         else:
-            litellm_params_obj = litellm_params or GenericLiteLLMParams()
+            embrouter_params_obj = embrouter_params or GenericEmbRouterParams()
             # Set api_key if provided and not already set
-            if api_key and not litellm_params_obj.api_key:
-                litellm_params_obj.api_key = api_key
+            if api_key and not embrouter_params_obj.api_key:
+                embrouter_params_obj.api_key = api_key
 
         # Use Azure authentication logic
-        headers = BaseAzureLLM._base_validate_azure_environment(headers=headers, litellm_params=litellm_params_obj)
+        headers = BaseAzureLLM._base_validate_azure_environment(headers=headers, embrouter_params=embrouter_params_obj)
 
         # Get tools and other anthropic-specific setup
         tools: Final = optional_params.get("tools")
@@ -111,7 +111,7 @@ class AzureAnthropicConfig(AnthropicConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         """
@@ -124,7 +124,7 @@ class AzureAnthropicConfig(AnthropicConfig):
             model=model,
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 

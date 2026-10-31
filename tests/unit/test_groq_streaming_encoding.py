@@ -11,7 +11,7 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from litellm.llms.openai_like.chat.handler import make_call, make_sync_call
+from embrouter.llms.openai_like.chat.handler import make_call, make_sync_call
 
 
 class MockResponse:

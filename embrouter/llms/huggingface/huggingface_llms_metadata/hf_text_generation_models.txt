@@ -21107,7 +21107,7 @@ pragmatic-programs/moe_speaker-utterance_lm-suffix-idx
 arusejin/GrisaiaGPT-small
 Aeala/Alpaca-elina-65b
 tarek23/flan-t5-qg-LQ-tarek-test-LQQ
-currentlyexhausted/lite-llm
+currentlyexhausted/emb-router
 harshuos/flan-t5-base-Fine-grained-v18-edos_labelled_aggregated
 TasmiaAzmi/masked-sentence-generation
 emonty777/t5-large-finetuned-cnndm_3
@@ -24769,7 +24769,7 @@ csmxo/squad_final
 hanabisuri/clm-model-book
 amr1999/mt5-small-finetuned-SummaryData
 hanabisuri/clm-model-tweet
-currentlyexhausted/lite-llm-248
+currentlyexhausted/emb-router-248
 hanabisuri/clm-model
 Chy084/my_awesome_patent_t_model
 Chy084/my_awesome_patent_d_model

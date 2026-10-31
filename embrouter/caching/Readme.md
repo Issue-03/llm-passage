@@ -1,6 +1,6 @@
-# Caching on LiteLLM
+# Caching on EmbRouter
 
-LiteLLM supports multiple caching mechanisms. This allows users to choose the most suitable caching solution for their use case.
+EmbRouter supports multiple caching mechanisms. This allows users to choose the most suitable caching solution for their use case.
 
 The following caching mechanisms are supported:
 
@@ -16,7 +16,7 @@ The following caching mechanisms are supported:
 ## Folder Structure
 
 ```
-litellm/caching/
+embrouter/caching/
 ├── base_cache.py
 ├── caching.py
 ├── caching_handler.py
@@ -30,8 +30,8 @@ litellm/caching/
 ```
 
 ## Documentation
-- Caching on LiteLLM Gateway
-- Caching on LiteLLM Python
+- Caching on EmbRouter Gateway
+- Caching on EmbRouter Python
 
 
 

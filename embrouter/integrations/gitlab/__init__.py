@@ -1,13 +1,13 @@
 from typing import TYPE_CHECKING, Any, Final
 
 if TYPE_CHECKING:
-    from litellm.integrations.custom_prompt_management import CustomPromptManagement
-    from litellm.types.prompts.init_prompts import PromptLiteLLMParams, PromptSpec
+    from embrouter.integrations.custom_prompt_management import CustomPromptManagement
+    from embrouter.types.prompts.init_prompts import PromptEmbRouterParams, PromptSpec
 
     from .gitlab_prompt_manager import GitLabPromptManager
 
-from litellm.integrations.custom_prompt_management import CustomPromptManagement
-from litellm.types.prompts.init_prompts import PromptLiteLLMParams, PromptSpec, SupportedPromptIntegrations
+from embrouter.integrations.custom_prompt_management import CustomPromptManagement
+from embrouter.types.prompts.init_prompts import PromptEmbRouterParams, PromptSpec, SupportedPromptIntegrations
 
 from .gitlab_prompt_manager import GitLabPromptCache, GitLabPromptManager
 
@@ -26,17 +26,17 @@ def set_global_gitlab_config(config: dict) -> None:
                 - access_token: gitlab access token
                 - branch: Branch to fetch prompts from (default: main)
     """
-    import litellm
+    import embrouter
 
-    litellm.global_gitlab_config = config
+    embrouter.global_gitlab_config = config
 
 
-def prompt_initializer(litellm_params: "PromptLiteLLMParams", prompt_spec: "PromptSpec") -> "CustomPromptManagement":
+def prompt_initializer(embrouter_params: "PromptEmbRouterParams", prompt_spec: "PromptSpec") -> "CustomPromptManagement":
     """
     Initialize a prompt from a Gitlab repository.
     """
-    gitlab_config: Final = getattr(litellm_params, "gitlab_config", None)
-    prompt_id: Final = getattr(litellm_params, "prompt_id", None)
+    gitlab_config: Final = getattr(embrouter_params, "gitlab_config", None)
+    prompt_id: Final = getattr(embrouter_params, "prompt_id", None)
 
     if not gitlab_config:
         raise ValueError("gitlab_config is required for gitlab prompt integration")
@@ -53,21 +53,21 @@ def prompt_initializer(litellm_params: "PromptLiteLLMParams", prompt_spec: "Prom
 
 
 def _gitlab_prompt_initializer(
-    litellm_params: PromptLiteLLMParams,
+    embrouter_params: PromptEmbRouterParams,
     prompt: PromptSpec,
 ) -> CustomPromptManagement:
     """
     Build a GitLab-backed prompt manager for this prompt.
-    Expected fields on litellm_params:
+    Expected fields on embrouter_params:
       - prompt_integration="gitlab"  (handled by the caller)
       - gitlab_config: Dict[str, Any] (project/access_token/branch/prompts_path/etc.)
       - git_ref (optional): per-prompt tag/branch/SHA override
     """
-    # You can store arbitrary integration-specific config on PromptLiteLLMParams.
+    # You can store arbitrary integration-specific config on PromptEmbRouterParams.
     # If your dataclass doesn't have these attributes, add them or put inside
-    # `litellm_params.extra` and pull them from there.
-    gitlab_config: Final[dict[str, Any]] = getattr(litellm_params, "gitlab_config", None) or {}
-    git_ref: Final[str | None] = getattr(litellm_params, "git_ref", None)
+    # `embrouter_params.extra` and pull them from there.
+    gitlab_config: Final[dict[str, Any]] = getattr(embrouter_params, "gitlab_config", None) or {}
+    git_ref: Final[str | None] = getattr(embrouter_params, "git_ref", None)
 
     if not gitlab_config:
         raise ValueError("gitlab_config is required for gitlab prompt integration")

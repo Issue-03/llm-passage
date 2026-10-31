@@ -14,7 +14,7 @@ import { getProxyBaseUrl, serverRootPath } from "@/components/networking";
  * server list and useUserMcpOAuthFlow never re-mounts to persist the credential.
  * Mirrors the admin edit flow's EDIT_OAUTH_UI_STATE_KEY.
  */
-export const TOOLS_OAUTH_UI_STATE_KEY = "litellm-mcp-oauth-tools-state";
+export const TOOLS_OAUTH_UI_STATE_KEY = "embrouter-mcp-oauth-tools-state";
 
 /**
  * Build the OAuth callback URL for the current UI deployment.

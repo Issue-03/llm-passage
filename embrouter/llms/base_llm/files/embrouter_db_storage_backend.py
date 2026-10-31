@@ -1,22 +1,22 @@
 from typing import TYPE_CHECKING, Final
 
-from litellm.llms.base_llm.files.storage_backend import BaseFileStorageBackend
-from litellm.repositories.managed_file_content_repository import ManagedFileContentRepository
+from embrouter.llms.base_llm.files.storage_backend import BaseFileStorageBackend
+from embrouter.repositories.managed_file_content_repository import ManagedFileContentRepository
 
 if TYPE_CHECKING:
-    from litellm.proxy.utils import PrismaClient
+    from embrouter.proxy.utils import PrismaClient
 
-LITELLM_DB_STORAGE_BACKEND_NAME: Final = "litellm_db"
-LITELLM_DB_STORAGE_URL_PREFIX: Final = f"{LITELLM_DB_STORAGE_BACKEND_NAME}://"
+EMBROUTER_DB_STORAGE_BACKEND_NAME: Final = "embrouter_db"
+EMBROUTER_DB_STORAGE_URL_PREFIX: Final = f"{EMBROUTER_DB_STORAGE_BACKEND_NAME}://"
 
 
 def storage_url_to_row_id(storage_url: str) -> str:
-    if not storage_url.startswith(LITELLM_DB_STORAGE_URL_PREFIX):
-        raise ValueError(f"Not a {LITELLM_DB_STORAGE_BACKEND_NAME} storage url: {storage_url}")
-    return storage_url.removeprefix(LITELLM_DB_STORAGE_URL_PREFIX)
+    if not storage_url.startswith(EMBROUTER_DB_STORAGE_URL_PREFIX):
+        raise ValueError(f"Not a {EMBROUTER_DB_STORAGE_BACKEND_NAME} storage url: {storage_url}")
+    return storage_url.removeprefix(EMBROUTER_DB_STORAGE_URL_PREFIX)
 
 
-class LiteLLMDbStorageBackend(BaseFileStorageBackend):
+class EmbRouterDbStorageBackend(BaseFileStorageBackend):
     def __init__(self, prisma_client: "PrismaClient") -> None:
         self._contents = ManagedFileContentRepository(prisma_client)
 
@@ -28,7 +28,7 @@ class LiteLLMDbStorageBackend(BaseFileStorageBackend):
         path_prefix: str | None = None,
         file_naming_strategy: str = "uuid",
     ) -> str:
-        return f"{LITELLM_DB_STORAGE_URL_PREFIX}{await self._contents.store(file_content)}"
+        return f"{EMBROUTER_DB_STORAGE_URL_PREFIX}{await self._contents.store(file_content)}"
 
     async def download_file(self, storage_url: str) -> bytes:
         content: Final = await self._contents.load(storage_url_to_row_id(storage_url))

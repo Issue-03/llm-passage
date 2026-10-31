@@ -5,12 +5,12 @@ from typing import TYPE_CHECKING, Final
 
 from pydantic import TypeAdapter
 
-from litellm.caching.base_cache import BaseCache
-from litellm.caching.caching import Cache as CacheFacade
-from litellm.types.caching import LiteLLMCacheType
+from embrouter.caching.base_cache import BaseCache
+from embrouter.caching.caching import Cache as CacheFacade
+from embrouter.types.caching import EmbRouterCacheType
 
 if TYPE_CHECKING:
-    from litellm.rust_bridge._native import NativeCacheHandle
+    from embrouter.rust_bridge._native import NativeCacheHandle
 
 _DURATION: Final[TypeAdapter[float | None]] = TypeAdapter(float | None)
 
@@ -59,14 +59,14 @@ class NativeBackend(BaseCache):
 class Cache:
     @staticmethod
     def memory(*, ttl: float = 600, capacity: int = 200, max_entry_bytes: int = 4194304) -> CacheFacade:
-        from litellm.rust_bridge._native import NativeCacheHandle
+        from embrouter.rust_bridge._native import NativeCacheHandle
 
         handle: Final = NativeCacheHandle.memory(ttl=ttl, capacity=capacity, max_entry_bytes=max_entry_bytes)
-        return CacheFacade(type=LiteLLMCacheType.LOCAL, ttl=ttl, _backend=NativeBackend(handle))
+        return CacheFacade(type=EmbRouterCacheType.LOCAL, ttl=ttl, _backend=NativeBackend(handle))
 
     @staticmethod
     def redis(url: str, *, namespace: str, ttl: float = 600, max_entry_bytes: int = 4194304) -> CacheFacade:
-        from litellm.rust_bridge._native import NativeCacheHandle
+        from embrouter.rust_bridge._native import NativeCacheHandle
 
         handle: Final = NativeCacheHandle.redis(url, namespace=namespace, ttl=ttl, max_entry_bytes=max_entry_bytes)
-        return CacheFacade(type=LiteLLMCacheType.REDIS, namespace=namespace, ttl=ttl, _backend=NativeBackend(handle))
+        return CacheFacade(type=EmbRouterCacheType.REDIS, namespace=namespace, ttl=ttl, _backend=NativeBackend(handle))

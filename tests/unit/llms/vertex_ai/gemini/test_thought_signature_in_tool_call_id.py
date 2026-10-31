@@ -1,7 +1,7 @@
 """
 Tests for embedding thought signatures in tool call IDs for OpenAI client compatibility.
 
-When using OpenAI clients (instead of LiteLLM SDK), provider_specific_fields are not preserved.
+When using OpenAI clients (instead of EmbRouter SDK), provider_specific_fields are not preserved.
 This test suite validates that thought signatures can be embedded in tool call IDs and extracted
 when converting back to Gemini format.
 
@@ -11,17 +11,17 @@ enable_preview_features=True to be enabled.
 
 import pytest
 
-import litellm
-from litellm.litellm_core_utils.prompt_templates.factory import (
+import embrouter
+from embrouter.embrouter_core_utils.prompt_templates.factory import (
     THOUGHT_SIGNATURE_SEPARATOR,
     _encode_tool_call_id_with_signature,
     _get_thought_signature_from_tool,
     convert_to_gemini_tool_call_invoke,
 )
-from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
     VertexGeminiConfig,
 )
-from litellm.types.llms.vertex_ai import HttpxPartType
+from embrouter.types.llms.vertex_ai import HttpxPartType
 
 
 def test_encode_decode_tool_call_id_with_signature():
@@ -111,7 +111,7 @@ def test_get_thought_signature_backward_compatibility():
     """Test that provider_specific_fields still works (backward compatibility)"""
     test_signature = "Co4CAdHtim/rWgXbz2Ghp4tShzLeMASrPw6JJyYIC3cbVyZnKzU3uv8/wVzyS2sKRPL2m8QQHHXbNQhEEz500G7n/4ZMmksdTtfQcJMoT76S1DGwhnAiLwTgWCNXs3lEb4M19EVYoWFxhrH5Lr9YMIquoU9U4paydGwvZyIyigamIg4B6WnxrRsf0KZV12gJed0DZuKczvOFtHz3zUnmZRlOiTzd5gBVyQM+5jv1VI8m4WUKd6cN/5a5ZvaA0ggiO6kdVhlpIVs7GczSEVJD8KH4u02X7VSnb7CvykqDntZzV0y8rZFBEFGKrChmeHlWXP4D1IB3F9KQyhuLgWImMzg4BajKVxxMU737JGnNISy5"
 
-    # Test with provider_specific_fields (LiteLLM SDK scenario)
+    # Test with provider_specific_fields (EmbRouter SDK scenario)
     tool = {
         "id": "call_abc123",
         "type": "function",
@@ -185,10 +185,10 @@ def test_convert_to_gemini_with_embedded_signature():
 def test_openai_client_e2e_flow(enable_preview_features):
     """
     End-to-end test simulating OpenAI client usage:
-    1. LiteLLM receives response from Gemini with thought signature
-    2. LiteLLM embeds signature in tool call ID (if preview features enabled)
+    1. EmbRouter receives response from Gemini with thought signature
+    2. EmbRouter embeds signature in tool call ID (if preview features enabled)
     3. OpenAI client sends message back with same tool call ID
-    4. LiteLLM extracts signature from ID/provider_specific_fields and sends to Gemini
+    4. EmbRouter extracts signature from ID/provider_specific_fields and sends to Gemini
     """
     test_signature = "Co4CAdHtim/rWgXbz2Ghp4tShzLeMASrPw6JJyYIC3cbVyZnKzU3uv8/wVzyS2sKRPL2m8QQHHXbNQhEEz500G7n/4ZMmksdTtfQcJMoT76S1DGwhnAiLwTgWCNXs3lEb4M19EVYoWFxhrH5Lr9YMIquoU9U4paydGwvZyIyigamIg4B6WnxrRsf0KZV12gJed0DZuKczvOFtHz3zUnmZRlOiTzd5gBVyQM+5jv1VI8m4WUKd6cN/5a5ZvaA0ggiO6kdVhlpIVs7GczSEVJD8KH4u02X7VSnb7CvykqDntZzV0y8rZFBEFGKrChmeHlWXP4D1IB3F9KQyhuLgWImMzg4BajKVxxMU737JGnNISy5"
 
@@ -203,7 +203,7 @@ def test_openai_client_e2e_flow(enable_preview_features):
         )
     ]
 
-    # Step 2: LiteLLM transforms to OpenAI format
+    # Step 2: EmbRouter transforms to OpenAI format
     function, tools, _ = VertexGeminiConfig._transform_parts(
         parts=gemini_parts,
         cumulative_tool_call_idx=0,
@@ -233,7 +233,7 @@ def test_openai_client_e2e_flow(enable_preview_features):
             }
         ],
     }
-    # Step 4: LiteLLM converts back to Gemini format, extracting signature
+    # Step 4: EmbRouter converts back to Gemini format, extracting signature
     gemini_parts_converted = convert_to_gemini_tool_call_invoke(
         openai_assistant_message
     )

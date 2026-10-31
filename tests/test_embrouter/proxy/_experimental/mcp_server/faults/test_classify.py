@@ -6,11 +6,11 @@ from typing import Final
 import pytest
 import httpx
 
-from litellm.proxy._experimental.mcp_server.faults.classify import (
+from embrouter.proxy._experimental.mcp_server.faults.classify import (
     classify_upstream_dcr_rejection,
     classify_upstream_token_rejection,
 )
-from litellm.proxy._experimental.mcp_server.faults.types import (
+from embrouter.proxy._experimental.mcp_server.faults.types import (
     CallerRejected,
     GatewayRejected,
     UpstreamProtocolFault,

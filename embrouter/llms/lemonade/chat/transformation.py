@@ -7,19 +7,19 @@ from urllib.parse import quote
 
 import httpx
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.openai import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.openai import (
     AllMessageValues,
 )
-from litellm.types.utils import ModelResponse
+from embrouter.types.utils import ModelResponse
 
 from ...openai_like.chat.transformation import OpenAILikeChatConfig
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
 
 
 class LemonadeChatConfig(OpenAILikeChatConfig):
@@ -90,7 +90,7 @@ class LemonadeChatConfig(OpenAILikeChatConfig):
 
         # Getting the list of models from lemonade
         try:
-            response: Final = litellm.module_level_client.get(
+            response: Final = embrouter.module_level_client.get(
                 url=f"{api_base}/models",
                 headers=self._get_auth_headers(api_key),
             )
@@ -156,7 +156,7 @@ class LemonadeChatConfig(OpenAILikeChatConfig):
     def _get_default_model_info(self, model: str) -> dict:
         return {
             "key": "lemonade/" + model,
-            "litellm_provider": "lemonade",
+            "embrouter_provider": "lemonade",
             "mode": "chat",
             "input_cost_per_token": 0.0,
             "output_cost_per_token": 0.0,
@@ -178,7 +178,7 @@ class LemonadeChatConfig(OpenAILikeChatConfig):
         encoded_model: Final = quote(model, safe="")
 
         try:
-            response: Final = litellm.module_level_client.get(
+            response: Final = embrouter.module_level_client.get(
                 url=f"{api_base}/models/{encoded_model}",
                 headers=self._get_auth_headers(api_key),
             )
@@ -213,7 +213,7 @@ class LemonadeChatConfig(OpenAILikeChatConfig):
         api_base = api_base or get_secret_str("LEMONADE_API_BASE") or "http://localhost:8000/api/v1"
         key = self._DEFAULT_API_KEY
         if passed_api_base is None or api_key:
-            key = api_key or litellm.lemonade_key or get_secret_str("LEMONADE_API_KEY") or self._DEFAULT_API_KEY
+            key = api_key or embrouter.lemonade_key or get_secret_str("LEMONADE_API_KEY") or self._DEFAULT_API_KEY
         return api_base, key
 
     def _get_auth_headers(self, api_key: str | None) -> dict:
@@ -226,11 +226,11 @@ class LemonadeChatConfig(OpenAILikeChatConfig):
         model: str,
         raw_response: httpx.Response,
         model_response: ModelResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         request_data: dict,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,
@@ -245,7 +245,7 @@ class LemonadeChatConfig(OpenAILikeChatConfig):
             encoding=encoding,
             optional_params=optional_params,
             json_mode=json_mode,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             api_key=api_key,
         )
 

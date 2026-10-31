@@ -1,6 +1,6 @@
 -- Rolls back db_scripts/partition_spend_logs.sql: converts the native
--- range-partitioned "LiteLLM_SpendLogs" table back into a plain,
--- non-partitioned table matching the default LiteLLM schema.
+-- range-partitioned "EmbRouter_SpendLogs" table back into a plain,
+-- non-partitioned table matching the default EmbRouter schema.
 --
 -- When/why: run this if you want to stop using partition-based retention and
 -- return to DELETE-based cleanup, or to restore the original single-column
@@ -21,54 +21,54 @@
 
 BEGIN;
 
-ALTER TABLE "LiteLLM_SpendLogs" RENAME TO "LiteLLM_SpendLogs_partitioned";
+ALTER TABLE "EmbRouter_SpendLogs" RENAME TO "EmbRouter_SpendLogs_partitioned";
 
 -- Renaming a table does NOT rename its indexes, and index names are unique per
 -- schema. Move the partitioned table's indexes aside so the CREATE INDEX
 -- statements below actually create indexes on the new plain table instead of
 -- being silently skipped by IF NOT EXISTS, and so the new PK keeps the
 -- canonical name.
-ALTER INDEX IF EXISTS "LiteLLM_SpendLogs_pkey"
-    RENAME TO "LiteLLM_SpendLogs_partitioned_pkey";
-ALTER INDEX IF EXISTS "LiteLLM_SpendLogs_pkey1"
-    RENAME TO "LiteLLM_SpendLogs_partitioned_pkey1";
-ALTER INDEX IF EXISTS "LiteLLM_SpendLogs_startTime_idx"
-    RENAME TO "LiteLLM_SpendLogs_partitioned_startTime_idx";
-ALTER INDEX IF EXISTS "LiteLLM_SpendLogs_startTime_request_id_idx"
-    RENAME TO "LiteLLM_SpendLogs_partitioned_startTime_request_id_idx";
-ALTER INDEX IF EXISTS "LiteLLM_SpendLogs_end_user_idx"
-    RENAME TO "LiteLLM_SpendLogs_partitioned_end_user_idx";
-ALTER INDEX IF EXISTS "LiteLLM_SpendLogs_session_id_idx"
-    RENAME TO "LiteLLM_SpendLogs_partitioned_session_id_idx";
-ALTER INDEX IF EXISTS "LiteLLM_SpendLogs_api_key_startTime_idx"
-    RENAME TO "LiteLLM_SpendLogs_partitioned_api_key_startTime_idx";
+ALTER INDEX IF EXISTS "EmbRouter_SpendLogs_pkey"
+    RENAME TO "EmbRouter_SpendLogs_partitioned_pkey";
+ALTER INDEX IF EXISTS "EmbRouter_SpendLogs_pkey1"
+    RENAME TO "EmbRouter_SpendLogs_partitioned_pkey1";
+ALTER INDEX IF EXISTS "EmbRouter_SpendLogs_startTime_idx"
+    RENAME TO "EmbRouter_SpendLogs_partitioned_startTime_idx";
+ALTER INDEX IF EXISTS "EmbRouter_SpendLogs_startTime_request_id_idx"
+    RENAME TO "EmbRouter_SpendLogs_partitioned_startTime_request_id_idx";
+ALTER INDEX IF EXISTS "EmbRouter_SpendLogs_end_user_idx"
+    RENAME TO "EmbRouter_SpendLogs_partitioned_end_user_idx";
+ALTER INDEX IF EXISTS "EmbRouter_SpendLogs_session_id_idx"
+    RENAME TO "EmbRouter_SpendLogs_partitioned_session_id_idx";
+ALTER INDEX IF EXISTS "EmbRouter_SpendLogs_api_key_startTime_idx"
+    RENAME TO "EmbRouter_SpendLogs_partitioned_api_key_startTime_idx";
 
-CREATE TABLE "LiteLLM_SpendLogs" (
-    LIKE "LiteLLM_SpendLogs_partitioned" INCLUDING DEFAULTS INCLUDING GENERATED
+CREATE TABLE "EmbRouter_SpendLogs" (
+    LIKE "EmbRouter_SpendLogs_partitioned" INCLUDING DEFAULTS INCLUDING GENERATED
 );
 
-ALTER TABLE "LiteLLM_SpendLogs"
+ALTER TABLE "EmbRouter_SpendLogs"
     ADD PRIMARY KEY ("request_id");
 
-CREATE INDEX IF NOT EXISTS "LiteLLM_SpendLogs_startTime_idx"
-    ON "LiteLLM_SpendLogs" ("startTime");
+CREATE INDEX IF NOT EXISTS "EmbRouter_SpendLogs_startTime_idx"
+    ON "EmbRouter_SpendLogs" ("startTime");
 
-CREATE INDEX IF NOT EXISTS "LiteLLM_SpendLogs_startTime_request_id_idx"
-    ON "LiteLLM_SpendLogs" ("startTime", "request_id");
+CREATE INDEX IF NOT EXISTS "EmbRouter_SpendLogs_startTime_request_id_idx"
+    ON "EmbRouter_SpendLogs" ("startTime", "request_id");
 
-CREATE INDEX IF NOT EXISTS "LiteLLM_SpendLogs_end_user_idx"
-    ON "LiteLLM_SpendLogs" ("end_user");
+CREATE INDEX IF NOT EXISTS "EmbRouter_SpendLogs_end_user_idx"
+    ON "EmbRouter_SpendLogs" ("end_user");
 
-CREATE INDEX IF NOT EXISTS "LiteLLM_SpendLogs_session_id_idx"
-    ON "LiteLLM_SpendLogs" ("session_id");
+CREATE INDEX IF NOT EXISTS "EmbRouter_SpendLogs_session_id_idx"
+    ON "EmbRouter_SpendLogs" ("session_id");
 
-CREATE INDEX IF NOT EXISTS "LiteLLM_SpendLogs_api_key_startTime_idx"
-    ON "LiteLLM_SpendLogs" ("api_key", "startTime");
+CREATE INDEX IF NOT EXISTS "EmbRouter_SpendLogs_api_key_startTime_idx"
+    ON "EmbRouter_SpendLogs" ("api_key", "startTime");
 
-INSERT INTO "LiteLLM_SpendLogs"
-SELECT * FROM "LiteLLM_SpendLogs_partitioned"
+INSERT INTO "EmbRouter_SpendLogs"
+SELECT * FROM "EmbRouter_SpendLogs_partitioned"
 ON CONFLICT ("request_id") DO NOTHING;
 
-DROP TABLE "LiteLLM_SpendLogs_partitioned";
+DROP TABLE "EmbRouter_SpendLogs_partitioned";
 
 COMMIT;

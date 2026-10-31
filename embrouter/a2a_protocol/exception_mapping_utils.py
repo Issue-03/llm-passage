@@ -1,23 +1,23 @@
 """
 A2A Protocol Exception Mapping Utils.
 
-Maps A2A SDK exceptions to LiteLLM A2A exception types.
+Maps A2A SDK exceptions to EmbRouter A2A exception types.
 """
 
 from typing import TYPE_CHECKING, Any, Final
 
-from litellm._logging import verbose_logger
-from litellm.a2a_protocol.card_resolver import (
+from embrouter._logging import verbose_logger
+from embrouter.a2a_protocol.card_resolver import (
     is_localhost_or_internal_url,
     set_agent_card_url,
 )
-from litellm.a2a_protocol.exceptions import (
+from embrouter.a2a_protocol.exceptions import (
     A2AAgentCardError,
     A2AConnectionError,
     A2AError,
     A2ALocalhostURLError,
 )
-from litellm.constants import CONNECTION_ERROR_PATTERNS
+from embrouter.constants import CONNECTION_ERROR_PATTERNS
 
 if TYPE_CHECKING:
     from a2a.client import Client as A2AClientType
@@ -101,7 +101,7 @@ def map_a2a_exception(
     model: str | None = None,
 ) -> Exception:
     """
-    Map an A2A SDK exception to a LiteLLM A2A exception type.
+    Map an A2A SDK exception to a EmbRouter A2A exception type.
 
     Args:
         original_exception: The original exception from the A2A SDK
@@ -110,7 +110,7 @@ def map_a2a_exception(
         model: The model/agent name
 
     Returns:
-        A mapped LiteLLM A2A exception
+        A mapped EmbRouter A2A exception
 
     Raises:
         A2ALocalhostURLError: If the error is a connection error to a localhost URL
@@ -202,14 +202,14 @@ async def handle_a2a_localhost_retry(
     # Fix the agent card URL
     set_agent_card_url(agent_card, error.base_url)
 
-    # Reuse the httpx client and call context LiteLLM attached at creation, since the
+    # Reuse the httpx client and call context EmbRouter attached at creation, since the
     # context carries this agent's trace-id/auth headers. Only clients built by
     # ``create_a2a_client`` have them; an externally-supplied client cannot be retried.
-    httpx_client: Final = getattr(a2a_client, "_litellm_httpx_client", None)
+    httpx_client: Final = getattr(a2a_client, "_embrouter_httpx_client", None)
     if httpx_client is None:
         raise RuntimeError(
             "Cannot retry A2A localhost URL fix: the client was not created by "
-            "create_a2a_client, so no LiteLLM httpx client is attached."
+            "create_a2a_client, so no EmbRouter httpx client is attached."
         )
 
     new_client: Final = await create_client(  # pyright: ignore[reportOptionalCall]
@@ -219,9 +219,9 @@ async def handle_a2a_localhost_retry(
             streaming=is_streaming,
         ),
     )
-    new_client._litellm_httpx_client = httpx_client
-    new_client._litellm_call_context = getattr(  # pyright: ignore[reportAttributeAccessIssue]  # LiteLLM-owned stash
-        a2a_client, "_litellm_call_context", None
+    new_client._embrouter_httpx_client = httpx_client
+    new_client._embrouter_call_context = getattr(  # pyright: ignore[reportAttributeAccessIssue]  # EmbRouter-owned stash
+        a2a_client, "_embrouter_call_context", None
     )
-    new_client._litellm_agent_card = agent_card
+    new_client._embrouter_agent_card = agent_card
     return new_client

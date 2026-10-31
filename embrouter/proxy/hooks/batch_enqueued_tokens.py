@@ -19,15 +19,15 @@ from typing import TYPE_CHECKING, Annotated, Final, Literal, Protocol, TypeAlias
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 
-from litellm._logging import verbose_proxy_logger
-from litellm.caching.redis_cache import log_redis_failure
-from litellm.constants import BATCH_ENQUEUED_TOKEN_LIMIT_METADATA_KEY, BATCH_ENQUEUED_TOKEN_TTL_SECONDS
-from litellm.proxy._types import UserAPIKeyAuth
+from embrouter._logging import verbose_proxy_logger
+from embrouter.caching.redis_cache import log_redis_failure
+from embrouter.constants import BATCH_ENQUEUED_TOKEN_LIMIT_METADATA_KEY, BATCH_ENQUEUED_TOKEN_TTL_SECONDS
+from embrouter.proxy._types import UserAPIKeyAuth
 
 if TYPE_CHECKING:
     from opentelemetry.trace import Span as _Span
 
-    from litellm.proxy.utils import InternalUsageCache as _InternalUsageCache
+    from embrouter.proxy.utils import InternalUsageCache as _InternalUsageCache
 
     Span = _Span
     InternalUsageCache = _InternalUsageCache
@@ -145,7 +145,7 @@ def resolve_batch_enqueued_token_scopes(
 
 
 def canonical_provider_batch_id(batch_id: str) -> str:
-    from litellm.proxy.openai_files_endpoints.common_utils import (
+    from embrouter.proxy.openai_files_endpoints.common_utils import (
         _is_base64_encoded_unified_file_id,  # pyright: ignore[reportPrivateUsage]  # canonical unified-id decoder has no public wrapper
         get_batch_id_from_unified_batch_id,
         get_original_file_id,
@@ -225,7 +225,7 @@ class BatchEnqueuedTokenStore:
         self,
         tokens: int,
         scopes: tuple[BatchEnqueuedTokenScope, ...],
-        litellm_parent_otel_span: "Span | None" = None,
+        embrouter_parent_otel_span: "Span | None" = None,
     ) -> BatchEnqueuedTokenOutcome:
         if tokens <= 0 or not scopes:
             return BatchEnqueuedTokenReservation(tokens=max(tokens, 0), scopes=scopes)
@@ -241,7 +241,7 @@ class BatchEnqueuedTokenStore:
                     "Redis enqueued-token reserve failed, falling back to in-memory",
                     e,
                 )
-        return await self._reserve_in_memory(tokens=tokens, scopes=scopes, span=litellm_parent_otel_span)
+        return await self._reserve_in_memory(tokens=tokens, scopes=scopes, span=embrouter_parent_otel_span)
 
     async def _reserve_via_redis(
         self,
@@ -328,7 +328,7 @@ class BatchEnqueuedTokenStore:
     async def refund(
         self,
         reservation: BatchEnqueuedTokenReservation,
-        litellm_parent_otel_span: "Span | None" = None,
+        embrouter_parent_otel_span: "Span | None" = None,
     ) -> None:
         if reservation.tokens <= 0 or not reservation.scopes:
             return
@@ -342,12 +342,12 @@ class BatchEnqueuedTokenStore:
             return
         async with self._lock:
             for scope in reservation.scopes:
-                current = await self._get_local_counter(scope, litellm_parent_otel_span)
+                current = await self._get_local_counter(scope, embrouter_parent_otel_span)
                 remaining = current - reservation.tokens
                 if remaining <= 0:
                     self.internal_usage_cache.dual_cache.in_memory_cache.delete_cache(key=self._counter_key(scope))
                 else:
-                    await self._set_local_counter(scope, remaining, litellm_parent_otel_span)
+                    await self._set_local_counter(scope, remaining, embrouter_parent_otel_span)
 
     async def _refund_redis_reservation(self, reservation: BatchEnqueuedTokenReservation) -> None:
         refund_script: Final = self._refund_script
@@ -367,7 +367,7 @@ class BatchEnqueuedTokenStore:
         self,
         batch_id: str,
         reservation: BatchEnqueuedTokenReservation,
-        litellm_parent_otel_span: "Span | None" = None,
+        embrouter_parent_otel_span: "Span | None" = None,
     ) -> None:
         serialized: Final = _RESERVATION_ADAPTER.dump_json(reservation).decode("utf-8")
         elapsed: Final = self._monotonic() - reservation.reserved_at_monotonic
@@ -391,24 +391,24 @@ class BatchEnqueuedTokenStore:
             key=self._record_key(batch_id),
             value=serialized,
             ttl=ttl,
-            litellm_parent_otel_span=litellm_parent_otel_span,
+            embrouter_parent_otel_span=embrouter_parent_otel_span,
             local_only=True,
         )
 
     async def pop_reservation(
         self,
         batch_id: str,
-        litellm_parent_otel_span: "Span | None" = None,
+        embrouter_parent_otel_span: "Span | None" = None,
     ) -> BatchEnqueuedTokenReservation | None:
         redis_raw: Final = await self._pop_redis_record(batch_id)
         if redis_raw is not None and not redis_raw:
             # The Redis pop tombstones popped records in place, so a hit on the empty
             # tombstone means the batch was already refunded elsewhere; a local copy
             # left behind by a save that raised after landing must not refund again.
-            await self._pop_local_record(batch_id, litellm_parent_otel_span)
+            await self._pop_local_record(batch_id, embrouter_parent_otel_span)
             return None
         raw: Final = (
-            redis_raw if redis_raw is not None else await self._pop_local_record(batch_id, litellm_parent_otel_span)
+            redis_raw if redis_raw is not None else await self._pop_local_record(batch_id, embrouter_parent_otel_span)
         )
         if raw is None:
             return None
@@ -441,7 +441,7 @@ class BatchEnqueuedTokenStore:
         async with self._lock:
             stored = await self.internal_usage_cache.async_get_cache(
                 key=self._record_key(batch_id),
-                litellm_parent_otel_span=span,
+                embrouter_parent_otel_span=span,
                 local_only=True,
             )
             if stored is None:
@@ -452,7 +452,7 @@ class BatchEnqueuedTokenStore:
     async def _get_local_counter(self, scope: BatchEnqueuedTokenScope, span: "Span | None") -> int:
         stored = await self.internal_usage_cache.async_get_cache(
             key=self._counter_key(scope),
-            litellm_parent_otel_span=span,
+            embrouter_parent_otel_span=span,
             local_only=True,
         )
         return _STORED_COUNTER_ADAPTER.validate_python(stored) or 0
@@ -462,6 +462,6 @@ class BatchEnqueuedTokenStore:
             key=self._counter_key(scope),
             value=value,
             ttl=BATCH_ENQUEUED_TOKEN_TTL_SECONDS,
-            litellm_parent_otel_span=span,
+            embrouter_parent_otel_span=span,
             local_only=True,
         )

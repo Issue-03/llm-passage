@@ -11,7 +11,7 @@ streaming chunks and correctly set finish_reason on the final chunk.
 
 from unittest.mock import MagicMock
 
-from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
     ModelResponseIterator,
 )
 

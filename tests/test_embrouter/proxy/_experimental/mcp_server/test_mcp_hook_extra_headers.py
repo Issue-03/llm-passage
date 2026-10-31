@@ -19,11 +19,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from mcp.types import CallToolResult
 
-from litellm.proxy._experimental.mcp_server.mcp_server_manager import MCPServerManager
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.utils import ProxyLogging
-from litellm.types.mcp import MCPAuth, MCPTransport
-from litellm.types.mcp_server.mcp_server_manager import MCPServer
+from embrouter.proxy._experimental.mcp_server.mcp_server_manager import MCPServerManager
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.utils import ProxyLogging
+from embrouter.types.mcp import MCPAuth, MCPTransport
+from embrouter.types.mcp_server.mcp_server_manager import MCPServer
 
 
 class TestConvertMcpHookResponseToKwargs:
@@ -412,7 +412,7 @@ class TestCallToolFlowsHookHeaders:
                         new_callable=AsyncMock,
                         return_value=CallToolResult(content=[], isError=False),
                     ):
-                        import litellm.proxy._experimental.mcp_server.mcp_server_manager as mgr_mod
+                        import embrouter.proxy._experimental.mcp_server.mcp_server_manager as mgr_mod
 
                         proxy_logging = MagicMock(spec=ProxyLogging)
 
@@ -599,10 +599,10 @@ class TestHookHeaderMergePriority:
                             "X-OAuth": "yes",
                         },
                         raw_headers={
-                            "x-litellm-api-key": "Bearer sk-litellm-key",
+                            "x-embrouter-api-key": "Bearer sk-embrouter-key",
                             "authorization": "Bearer oauth2-token",
                         },
-                        user_api_key_auth=UserAPIKeyAuth(api_key="sk-litellm-key"),
+                        user_api_key_auth=UserAPIKeyAuth(api_key="sk-embrouter-key"),
                         proxy_logging_obj=None,
                         hook_extra_headers={
                             "Authorization": "Bearer hook-jwt",
@@ -853,8 +853,8 @@ class TestHookHeaderMergePriority:
         assert captured.get("mcp_auth_header") == {"authorization": "Bearer per-server-token"}
 
     @pytest.mark.asyncio
-    async def test_m2m_oauth2_does_not_forward_litellm_caller_authorization(self):
-        """M2M must not put caller Bearer (LiteLLM API key) into extra_headers (#23652)."""
+    async def test_m2m_oauth2_does_not_forward_embrouter_caller_authorization(self):
+        """M2M must not put caller Bearer (EmbRouter API key) into extra_headers (#23652)."""
         manager = MCPServerManager()
         server = MCPServer(
             server_id="test-id",
@@ -953,7 +953,7 @@ class TestUserAPIKeyAuthJwtClaims:
         assert auth.jwt_claims is None
 
     def test_jwt_claims_field_accepts_dict(self):
-        claims = {"sub": "user-123", "iss": "litellm", "exp": 9999999999}
+        claims = {"sub": "user-123", "iss": "embrouter", "exp": 9999999999}
         auth = UserAPIKeyAuth(api_key="test-key", jwt_claims=claims)
         assert auth.jwt_claims == claims
         assert auth.jwt_claims["sub"] == "user-123"
@@ -1059,7 +1059,7 @@ class TestOpenApiByokCallTool:
     @pytest.mark.asyncio
     async def test_call_tool_openapi_byok_injects_request_auth_contextvar(self):
         """Playground/responses call call_tool directly; BYOK must reach OpenAPI handlers."""
-        from litellm.proxy._experimental.mcp_server.openapi_to_mcp_generator import (
+        from embrouter.proxy._experimental.mcp_server.openapi_to_mcp_generator import (
             _request_auth_header,
         )
 
@@ -1083,7 +1083,7 @@ class TestOpenApiByokCallTool:
 
         with patch.object(manager, "_resolve_mcp_server_for_tool_call", return_value=server):
             with patch(
-                "litellm.proxy._experimental.mcp_server.mcp_server_manager._resolve_byok_mcp_auth_header",
+                "embrouter.proxy._experimental.mcp_server.mcp_server_manager._resolve_byok_mcp_auth_header",
                 new=AsyncMock(return_value="fc-test-key"),
             ):
                 with patch.object(
@@ -1113,21 +1113,21 @@ class TestFormatByokOpenapiAuthHeader:
         )
 
     def test_api_key_auth_type(self):
-        from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+        from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
             _format_byok_openapi_auth_header,
         )
 
         assert _format_byok_openapi_auth_header(self._server(MCPAuth.api_key), "secret") == "ApiKey secret"
 
     def test_basic_auth_type(self):
-        from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+        from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
             _format_byok_openapi_auth_header,
         )
 
         assert _format_byok_openapi_auth_header(self._server(MCPAuth.basic), "secret") == "Basic secret"
 
     def test_defaults_to_bearer(self):
-        from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+        from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
             _format_byok_openapi_auth_header,
         )
 
@@ -1146,7 +1146,7 @@ class TestOpenapiForwardedExtraHeaders:
         )
 
     def test_returns_none_without_extra_headers_config(self):
-        from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+        from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
             _openapi_forwarded_extra_headers,
         )
 
@@ -1154,7 +1154,7 @@ class TestOpenapiForwardedExtraHeaders:
         assert _openapi_forwarded_extra_headers(server, {"X-Custom": "v"}, None) is None
 
     def test_returns_none_without_raw_headers(self):
-        from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+        from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
             _openapi_forwarded_extra_headers,
         )
 
@@ -1162,7 +1162,7 @@ class TestOpenapiForwardedExtraHeaders:
         assert _openapi_forwarded_extra_headers(server, None, None) is None
 
     def test_forwards_configured_header_case_insensitively(self):
-        from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+        from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
             _openapi_forwarded_extra_headers,
         )
 
@@ -1171,7 +1171,7 @@ class TestOpenapiForwardedExtraHeaders:
         assert result == {"X-Custom": "v"}
 
     def test_returns_none_when_no_configured_header_is_present(self):
-        from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+        from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
             _openapi_forwarded_extra_headers,
         )
 
@@ -1179,7 +1179,7 @@ class TestOpenapiForwardedExtraHeaders:
         assert _openapi_forwarded_extra_headers(server, {"x-custom": "v"}, None) is None
 
     def test_skips_authorization_when_caller_header_must_be_stripped(self):
-        from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+        from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
             _openapi_forwarded_extra_headers,
         )
 
@@ -1189,7 +1189,7 @@ class TestOpenapiForwardedExtraHeaders:
         assert result is None
 
     def test_skips_non_string_header_entries(self):
-        from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+        from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
             _openapi_forwarded_extra_headers,
         )
 
@@ -1212,7 +1212,7 @@ class TestResolveByokMcpAuthHeader:
 
     @pytest.mark.asyncio
     async def test_non_byok_server_passes_header_through_unchanged(self):
-        from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+        from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
             _resolve_byok_mcp_auth_header,
         )
 
@@ -1222,7 +1222,7 @@ class TestResolveByokMcpAuthHeader:
 
     @pytest.mark.asyncio
     async def test_byok_server_uses_stored_credential_when_no_header_supplied(self):
-        from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+        from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
             _resolve_byok_mcp_auth_header,
         )
 
@@ -1230,7 +1230,7 @@ class TestResolveByokMcpAuthHeader:
         user_auth = UserAPIKeyAuth(user_id="user-1", api_key="sk-dashboard")
 
         with patch(
-            "litellm.proxy._experimental.mcp_server.operations._get_byok_credential",
+            "embrouter.proxy._experimental.mcp_server.operations._get_byok_credential",
             new=AsyncMock(return_value="stored-cred"),
         ):
             result = await _resolve_byok_mcp_auth_header(server, user_auth, None)
@@ -1241,7 +1241,7 @@ class TestResolveByokMcpAuthHeader:
     async def test_byok_server_raises_401_when_no_credential_stored(self, monkeypatch):
         from fastapi import HTTPException
 
-        from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+        from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
             _resolve_byok_mcp_auth_header,
         )
 
@@ -1250,7 +1250,7 @@ class TestResolveByokMcpAuthHeader:
         user_auth = UserAPIKeyAuth(user_id="user-1", api_key="sk-dashboard")
 
         with patch(
-            "litellm.proxy._experimental.mcp_server.operations._get_byok_credential",
+            "embrouter.proxy._experimental.mcp_server.operations._get_byok_credential",
             new=AsyncMock(return_value=None),
         ):
             with pytest.raises(HTTPException) as exc_info:
@@ -1264,7 +1264,7 @@ class TestResolveByokMcpAuthHeader:
 
     @pytest.mark.asyncio
     async def test_byok_server_checks_credential_and_keeps_caller_header_when_supplied(self):
-        from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+        from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
             _resolve_byok_mcp_auth_header,
         )
 
@@ -1273,7 +1273,7 @@ class TestResolveByokMcpAuthHeader:
         check_mock = AsyncMock(return_value=None)
 
         with patch(
-            "litellm.proxy._experimental.mcp_server.operations._check_byok_credential",
+            "embrouter.proxy._experimental.mcp_server.operations._check_byok_credential",
             new=check_mock,
         ):
             result = await _resolve_byok_mcp_auth_header(server, user_auth, "caller-header")
@@ -1304,13 +1304,13 @@ class TestOpenApiResolvedUpstreamAuth:
     async def test_call_tool_openapi_injects_v2_resolved_token_contextvar(self):
         """The managed spec_path arm resolves the v2 credential and sets the ContextVar; kills
         the mutant that drops the resolve_openapi_upstream_auth call in call_tool."""
-        from litellm.proxy._experimental.mcp_server.openapi_to_mcp_generator import (
+        from embrouter.proxy._experimental.mcp_server.openapi_to_mcp_generator import (
             _request_resolved_auth_headers,
         )
-        from litellm.proxy._experimental.mcp_server.outbound_credentials.httpx_auth import (
+        from embrouter.proxy._experimental.mcp_server.outbound_credentials.httpx_auth import (
             StaticHeaderAuth,
         )
-        from litellm.proxy._experimental.mcp_server.outbound_credentials.result import Ok
+        from embrouter.proxy._experimental.mcp_server.outbound_credentials.result import Ok
 
         manager = MCPServerManager()
         server = self._oauth_server()
@@ -1387,7 +1387,7 @@ class TestOpenApiResolvedUpstreamAuth:
 
         resolved, forwarded = await manager.resolve_openapi_upstream_auth(
             mcp_server=server,
-            oauth2_headers={"Authorization": "Bearer sk-litellm-gateway-key"},
+            oauth2_headers={"Authorization": "Bearer sk-embrouter-gateway-key"},
             raw_headers=None,
             mcp_auth_header="user-byok-key",
             user_api_key_auth=UserAPIKeyAuth(user_id="alice", api_key="sk-user"),
@@ -1481,7 +1481,7 @@ class TestPreCallToolCheckExposesClientHeaders:
                         user_api_key_auth=None,
                         proxy_logging_obj=proxy_logging,
                         server=server,
-                        raw_headers={"x-nuid": "nuid-1", "x-litellm-api-key": "sk-proxy"},
+                        raw_headers={"x-nuid": "nuid-1", "x-embrouter-api-key": "sk-proxy"},
                     )
 
         assert captured["headers"] == {"x-nuid": "nuid-1"}

@@ -20,8 +20,8 @@ export async function revokeSessionAndClearClientState(accessToken: string | nul
   }
   clearTokenCookies();
   clearStoredReturnUrl();
-  localStorage.removeItem("litellm_selected_worker_id");
-  localStorage.removeItem("litellm_worker_url");
+  localStorage.removeItem("embrouter_selected_worker_id");
+  localStorage.removeItem("embrouter_worker_url");
 }
 
 /**

@@ -5,9 +5,9 @@ import pytest
 from mcp.types import CallToolResult, TextContent
 from unittest.mock import patch
 
-from litellm.proxy._experimental.mcp_server.mcp_server_manager import MCPServerManager
-from litellm.types.mcp import MCPAuth, MCPTransport
-from litellm.types.mcp_server.mcp_server_manager import MCPServer
+from embrouter.proxy._experimental.mcp_server.mcp_server_manager import MCPServerManager
+from embrouter.types.mcp import MCPAuth, MCPTransport
+from embrouter.types.mcp_server.mcp_server_manager import MCPServer
 
 HOLD_SECONDS = 0.1
 

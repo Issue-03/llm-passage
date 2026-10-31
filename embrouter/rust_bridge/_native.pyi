@@ -5,15 +5,15 @@ from typing import Never, final
 import httpx
 from pydantic import JsonValue
 
-from litellm.llms.base_llm.ocr.transformation import OCRResponse
-from litellm.rust_bridge.chat_completions.entrypoints import LiteLLMChatCompletionsRequest
-from litellm.rust_bridge.embeddings.entrypoints import LiteLLMEmbeddingRequest
-from litellm.rust_bridge.messages.entrypoints import LiteLLMMessagesRequest
-from litellm.rust_bridge.ocr.entrypoints import LiteLLMOcrRequest
-from litellm.rust_bridge.responses.entrypoints import LiteLLMResponsesRequest
-from litellm.types.llms.anthropic_messages.anthropic_response import AnthropicMessagesResponse
-from litellm.types.llms.openai import ResponsesAPIResponse
-from litellm.types.utils import EmbeddingResponse, ModelResponse
+from embrouter.llms.base_llm.ocr.transformation import OCRResponse
+from embrouter.rust_bridge.chat_completions.entrypoints import EmbRouterChatCompletionsRequest
+from embrouter.rust_bridge.embeddings.entrypoints import EmbRouterEmbeddingRequest
+from embrouter.rust_bridge.messages.entrypoints import EmbRouterMessagesRequest
+from embrouter.rust_bridge.ocr.entrypoints import EmbRouterOcrRequest
+from embrouter.rust_bridge.responses.entrypoints import EmbRouterResponsesRequest
+from embrouter.types.llms.anthropic_messages.anthropic_response import AnthropicMessagesResponse
+from embrouter.types.llms.openai import ResponsesAPIResponse
+from embrouter.types.utils import EmbeddingResponse, ModelResponse
 
 class RustBridgeDeclined(Exception): ...
 class RustUpstreamError(Exception): ...
@@ -50,24 +50,24 @@ class NativeDiagnosticProcessor:
     def scrub_access_arguments(self, arguments: Sequence[str]) -> list[str]: ...
 
 def ocr(
-    request: LiteLLMOcrRequest,
+    request: EmbRouterOcrRequest,
     args: tuple[object, ...],
     kwargs: dict[str, object],
 ) -> OCRResponse: ...
 def aocr(
-    request: LiteLLMOcrRequest,
+    request: EmbRouterOcrRequest,
     args: tuple[object, ...],
     kwargs: dict[str, object],
 ) -> Coroutine[object, object, OCRResponse]: ...
 def ocr_health_check_document(model: str, custom_llm_provider: str | None) -> dict[str, object]: ...
 def ocr_passthrough_response(model: str, endpoint: str, body: bytes) -> dict[str, object] | None: ...
 def embedding(
-    request: LiteLLMEmbeddingRequest,
+    request: EmbRouterEmbeddingRequest,
     args: tuple[object, ...],
     kwargs: Mapping[str, object],
 ) -> EmbeddingResponse: ...
 def aembedding(
-    request: LiteLLMEmbeddingRequest,
+    request: EmbRouterEmbeddingRequest,
     args: tuple[object, ...],
     kwargs: Mapping[str, object],
 ) -> Coroutine[object, object, EmbeddingResponse]: ...
@@ -92,32 +92,32 @@ def atranscription(
     timeout_seconds: float | None = None,
 ) -> Future[dict[str, object]]: ...
 def completion(
-    request: LiteLLMChatCompletionsRequest,
+    request: EmbRouterChatCompletionsRequest,
     args: tuple[object, ...],
     kwargs: Mapping[str, object],
 ) -> ModelResponse: ...
 def acompletion(
-    request: LiteLLMChatCompletionsRequest,
+    request: EmbRouterChatCompletionsRequest,
     args: tuple[object, ...],
     kwargs: Mapping[str, object],
 ) -> Coroutine[object, object, ModelResponse]: ...
 def responses(
-    request: LiteLLMResponsesRequest,
+    request: EmbRouterResponsesRequest,
     args: tuple[object, ...],
     kwargs: Mapping[str, object],
 ) -> ResponsesAPIResponse: ...
 def aresponses(
-    request: LiteLLMResponsesRequest,
+    request: EmbRouterResponsesRequest,
     args: tuple[object, ...],
     kwargs: Mapping[str, object],
 ) -> Coroutine[object, object, ResponsesAPIResponse]: ...
 def messages(
-    request: LiteLLMMessagesRequest,
+    request: EmbRouterMessagesRequest,
     args: tuple[object, ...],
     kwargs: dict[str, object],
 ) -> AnthropicMessagesResponse | Iterator[bytes]: ...
 def amessages(
-    request: LiteLLMMessagesRequest,
+    request: EmbRouterMessagesRequest,
     args: tuple[object, ...],
     kwargs: dict[str, object],
 ) -> Coroutine[object, object, AnthropicMessagesResponse | AsyncIterator[bytes]]: ...

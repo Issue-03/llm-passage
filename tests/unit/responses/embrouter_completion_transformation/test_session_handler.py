@@ -5,14 +5,14 @@ import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
-import litellm
-from litellm.responses.litellm_completion_transformation import session_handler
-from litellm.responses.litellm_completion_transformation.session_handler import (
+import embrouter
+from embrouter.responses.embrouter_completion_transformation import session_handler
+from embrouter.responses.embrouter_completion_transformation.session_handler import (
     ResponsesSessionHandler,
     _normalize_redacted_tool_call_arguments,
 )
-from litellm.responses.utils import ResponsesAPIRequestUtils
-from litellm.types.utils import Message
+from embrouter.responses.utils import ResponsesAPIRequestUtils
+from embrouter.types.utils import Message
 
 
 @pytest.mark.asyncio
@@ -126,10 +126,10 @@ async def test_get_chat_completion_message_history_for_previous_response_id():
 
         # Verify the returned ChatCompletionSession structure
         assert "messages" in result
-        assert "litellm_session_id" in result
+        assert "embrouter_session_id" in result
 
         # Verify session_id is extracted correctly
-        assert result["litellm_session_id"] == "a96757c4-c6dc-4c76-b37e-e7dfa526b701"
+        assert result["embrouter_session_id"] == "a96757c4-c6dc-4c76-b37e-e7dfa526b701"
 
         # Verify messages structure
         messages = result["messages"]
@@ -177,7 +177,7 @@ async def test_get_chat_completion_message_history_empty_spend_logs():
 
         # Verify empty result structure
         assert result.get("messages") == []
-        assert result.get("litellm_session_id") is None
+        assert result.get("embrouter_session_id") is None
 
 
 @pytest.mark.asyncio
@@ -191,7 +191,7 @@ async def test_e2e_cold_storage_successful_retrieval():
             "request_id": "chatcmpl-test-123",
             "session_id": "session-456",
             "metadata": '{"cold_storage_object_key": "s3://test-bucket/requests/session_456_req1.json"}',
-            "proxy_server_request": '{"litellm_truncated": true}',  # Truncated payload
+            "proxy_server_request": '{"embrouter_truncated": true}',  # Truncated payload
             "response": {
                 "id": "chatcmpl-test-123",
                 "object": "chat.completion",
@@ -222,7 +222,7 @@ async def test_e2e_cold_storage_successful_retrieval():
             new_callable=AsyncMock,
         ) as mock_get_spend_logs,
         patch.object(session_handler, "COLD_STORAGE_HANDLER") as mock_cold_storage,
-        patch("litellm.cold_storage_custom_logger", return_value="s3"),
+        patch("embrouter.cold_storage_custom_logger", return_value="s3"),
     ):
 
         # Setup mocks
@@ -242,7 +242,7 @@ async def test_e2e_cold_storage_successful_retrieval():
         )
 
         # Verify result structure
-        assert result.get("litellm_session_id") == "session-456"
+        assert result.get("embrouter_session_id") == "session-456"
         assert len(result.get("messages", [])) >= 1  # At least the assistant response
 
 
@@ -295,7 +295,7 @@ async def test_e2e_cold_storage_fallback_to_truncated_payload():
         mock_cold_storage.get_proxy_server_request_from_cold_storage_with_object_key.assert_not_called()
 
         # Verify result structure
-        assert result.get("litellm_session_id") == "session-999"
+        assert result.get("embrouter_session_id") == "session-999"
         assert len(result.get("messages", [])) >= 1  # At least the assistant response
 
 
@@ -318,14 +318,14 @@ async def test_should_check_cold_storage_for_full_payload():
                     },
                     {
                         "type": "input_image",
-                        "image_url": "data:application/pdf;base64,JVBERi0xLjcKJYGBgYEKCjcgMCBvYmoKPDwKL0ZpbHRlciAvRmxhdGVEZWNvZGUKL0xlbmd0aCA1NjcxCj4+CnN0cmVhbQp4nO1dW4/cthV+31+h5wKVeb8AhoG9Bn0I0DYL9NlInQBFHKSpA+Tnl5qRNNRIn8ij4WpnbdqAsRaX90Oe23cOWyH94U/Dwt+/ttF/neKt59675sfPN/+9Ubp1MvwRjfAtN92fRkgn2+5jI5Xyre9++fdPN//6S/NrqCFax4XqvnVtn/631FLogjfd339+1xx/+P3nm3ffyebn/92ww2Bc46zRrGv/p5vWMOmb+N9Qb/4xtOEazn2oH3rjfV3fDTj+t6s7+zjU5XFdFxo9fPs8/CiaX26cYmc/svDjhlF+Pv7QNdT30/9wbI8dFjK0cfzhUO8wPjaOr/Eq/v/d8827vzfv37/7/v5vD6HKhw93D/c3755UI3jYuOb5p7Dsh53nYQtZqyUXugn71Dx/vnnPmHQfmuf/3HDdKhY2z8jwq8//broSjkrE/aHEtZIxZhQ/VbHHKqoVQhsv7KmKgyUWdcPkoUSHaYgwmmhk5liFt85w45WcDUC0RgntpTp1o44lMhCpl95eNOZ+AI/f3988Pp9tAV/dAu5VKz0Ls+SB0vstgNNZWTUDtw1vqC65oahKctUW5gl3etg1EnXSCWplzHewG7gDoq9jWu28DYuzPB3NucmZzm3UmvFcLI/aMpcxT0w1AvUi2aFEsJZLprxMF0xIQzmXQQArRwA2Fo/YCm7P13LxdIrodIa7QIojL5zekqblloeuwkiGI3o7jk+zMEJ9vqW+NWFDtTDnU7KtCpet1WZGHqyVxjLNxPlcdcudsU648xnNOxmIY95Wf3JduAidF3q+bgtVUC/s6VAgZ/TUE9q8oD+DCwM2qA/UFD/eWqY1RrFQ61QgUYFDBRYV3GOKkSPFaEQxQqqWWRcGzZ3u... (litellm_truncated 1197576 chars)",
+                        "image_url": "data:application/pdf;base64,JVBERi0xLjcKJYGBgYEKCjcgMCBvYmoKPDwKL0ZpbHRlciAvRmxhdGVEZWNvZGUKL0xlbmd0aCA1NjcxCj4+CnN0cmVhbQp4nO1dW4/cthV+31+h5wKVeb8AhoG9Bn0I0DYL9NlInQBFHKSpA+Tnl5qRNNRIn8ij4WpnbdqAsRaX90Oe23cOWyH94U/Dwt+/ttF/neKt59675sfPN/+9Ubp1MvwRjfAtN92fRkgn2+5jI5Xyre9++fdPN//6S/NrqCFax4XqvnVtn/631FLogjfd339+1xx/+P3nm3ffyebn/92ww2Bc46zRrGv/p5vWMOmb+N9Qb/4xtOEazn2oH3rjfV3fDTj+t6s7+zjU5XFdFxo9fPs8/CiaX26cYmc/svDjhlF+Pv7QNdT30/9wbI8dFjK0cfzhUO8wPjaOr/Eq/v/d8827vzfv37/7/v5vD6HKhw93D/c3755UI3jYuOb5p7Dsh53nYQtZqyUXugn71Dx/vnnPmHQfmuf/3HDdKhY2z8jwq8//broSjkrE/aHEtZIxZhQ/VbHHKqoVQhsv7KmKgyUWdcPkoUSHaYgwmmhk5liFt85w45WcDUC0RgntpTp1o44lMhCpl95eNOZ+AI/f3988Pp9tAV/dAu5VKz0Ls+SB0vstgNNZWTUDtw1vqC65oahKctUW5gl3etg1EnXSCWplzHewG7gDoq9jWu28DYuzPB3NucmZzm3UmvFcLI/aMpcxT0w1AvUi2aFEsJZLprxMF0xIQzmXQQArRwA2Fo/YCm7P13LxdIrodIa7QIojL5zekqblloeuwkiGI3o7jk+zMEJ9vqW+NWFDtTDnU7KtCpet1WZGHqyVxjLNxPlcdcudsU648xnNOxmIY95Wf3JduAidF3q+bgtVUC/s6VAgZ/TUE9q8oD+DCwM2qA/UFD/eWqY1RrFQ61QgUYFDBRYV3GOKkSPFaEQxQqqWWRcGzZ3u... (embrouter_truncated 1197576 chars)",
                     },
                 ],
             }
         ],
         "model": "anthropic/claude-4-sonnet-20250514",
         "stream": True,
-        "litellm_trace_id": "16b86861-c120-4ecb-865b-4d2238bfd8f0",
+        "embrouter_trace_id": "16b86861-c120-4ecb-865b-4d2238bfd8f0",
     }
 
     # Test case 2: Regular proxy request without truncation (should return False)
@@ -347,7 +347,7 @@ async def test_should_check_cold_storage_for_full_payload():
     # Test case 4: None request (should return True)
     proxy_request_none = None
 
-    with patch("litellm.cold_storage_custom_logger", return_value="s3"):
+    with patch("embrouter.cold_storage_custom_logger", return_value="s3"):
         # Test case 1: Should return True for truncated content
         result1 = ResponsesSessionHandler._should_check_cold_storage_for_full_payload(
             proxy_request_with_truncated_pdf
@@ -377,7 +377,7 @@ async def test_should_check_cold_storage_for_full_payload():
         assert result4 == True, "Should return True for None proxy request"
 
     # Test case 5: Should return False when cold storage is not configured
-    with patch.object(litellm, "cold_storage_custom_logger", None):
+    with patch.object(embrouter, "cold_storage_custom_logger", None):
         result5 = ResponsesSessionHandler._should_check_cold_storage_for_full_payload(
             proxy_request_with_truncated_pdf
         )
@@ -432,7 +432,7 @@ async def test_get_chat_completion_message_history_empty_response_dict():
         assert messages[0]["content"] == "test input"
 
         # Verify the session was still created correctly
-        assert result["litellm_session_id"] == "test-session"
+        assert result["embrouter_session_id"] == "test-session"
 
 
 def _chat_completion_response(request_id: str, content: str) -> dict:
@@ -483,7 +483,7 @@ def _spend_log(request_id: str, session_id: str, prompt: str, answer: str) -> di
 
 @pytest.fixture
 def instant_session_lookup_retries(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm.constants, "RESPONSES_SESSION_LOOKUP_RETRY_INTERVAL", 0.0)
+    monkeypatch.setattr(embrouter.constants, "RESPONSES_SESSION_LOOKUP_RETRY_INTERVAL", 0.0)
 
 
 @pytest.mark.asyncio
@@ -518,7 +518,7 @@ async def test_message_history_reconstructs_list_shaped_input():
         ("user", "Remember this: my favorite color is chartreuse."),
         ("assistant", "OK"),
     ]
-    assert result["litellm_session_id"] == "a96757c4-c6dc-4c76-b37e-e7dfa526b701"
+    assert result["embrouter_session_id"] == "a96757c4-c6dc-4c76-b37e-e7dfa526b701"
 
 
 @pytest.mark.asyncio
@@ -539,7 +539,7 @@ async def test_message_history_retries_a_spend_log_the_batch_writer_has_not_flus
     )
     fake_prisma_client = _FakePrismaClient(results=[[], [spend_log]])
 
-    with patch("litellm.proxy.proxy_server.prisma_client", fake_prisma_client):
+    with patch("embrouter.proxy.proxy_server.prisma_client", fake_prisma_client):
         result = await ResponsesSessionHandler.get_chat_completion_message_history_for_previous_response_id(
             request_id
         )
@@ -549,7 +549,7 @@ async def test_message_history_retries_a_spend_log_the_batch_writer_has_not_flus
         ("user", "Remember this: my favorite color is chartreuse."),
         ("assistant", "OK"),
     ]
-    assert result["litellm_session_id"] == session_id
+    assert result["embrouter_session_id"] == session_id
     assert fake_prisma_client.db.calls == [(request_id,), (request_id,)]
 
 
@@ -567,7 +567,7 @@ async def test_message_history_reconstructs_every_turn_of_the_session_in_order()
         ]
     )
 
-    with patch("litellm.proxy.proxy_server.prisma_client", fake_prisma_client):
+    with patch("embrouter.proxy.proxy_server.prisma_client", fake_prisma_client):
         result = await ResponsesSessionHandler.get_chat_completion_message_history_for_previous_response_id(
             second_request_id
         )
@@ -579,7 +579,7 @@ async def test_message_history_reconstructs_every_turn_of_the_session_in_order()
         ("user", "And my favorite city is Lisbon."),
         ("assistant", "Noted."),
     ]
-    assert result["litellm_session_id"] == session_id
+    assert result["embrouter_session_id"] == session_id
 
 
 @pytest.mark.asyncio
@@ -588,13 +588,13 @@ async def test_session_lookup_stops_retrying_once_the_budget_is_spent(
 ):
     fake_prisma_client = _FakePrismaClient(results=[])
 
-    with patch("litellm.proxy.proxy_server.prisma_client", fake_prisma_client):
+    with patch("embrouter.proxy.proxy_server.prisma_client", fake_prisma_client):
         spend_logs = await ResponsesSessionHandler.get_all_spend_logs_for_previous_response_id(
             "chatcmpl-does-not-exist"
         )
 
     assert spend_logs == []
-    assert len(fake_prisma_client.db.calls) == litellm.constants.RESPONSES_SESSION_LOOKUP_MAX_ATTEMPTS
+    assert len(fake_prisma_client.db.calls) == embrouter.constants.RESPONSES_SESSION_LOOKUP_MAX_ATTEMPTS
 
 
 @pytest.mark.asyncio
@@ -613,7 +613,7 @@ async def test_message_history_looks_up_the_decoded_chat_completion_id():
         results=[[_spend_log(request_id, "session-a", "Hello.", "Hi.")]]
     )
 
-    with patch("litellm.proxy.proxy_server.prisma_client", fake_prisma_client):
+    with patch("embrouter.proxy.proxy_server.prisma_client", fake_prisma_client):
         await ResponsesSessionHandler.get_all_spend_logs_for_previous_response_id(
             encoded_response_id
         )
@@ -631,8 +631,8 @@ async def test_session_lookup_does_not_retry_when_spend_logs_are_disabled(
     """
     fake_prisma_client = _FakePrismaClient(results=[])
 
-    with patch("litellm.proxy.proxy_server.prisma_client", fake_prisma_client), patch(
-        "litellm.proxy.proxy_server.disable_spend_logs", True
+    with patch("embrouter.proxy.proxy_server.prisma_client", fake_prisma_client), patch(
+        "embrouter.proxy.proxy_server.disable_spend_logs", True
     ):
         spend_logs = await ResponsesSessionHandler.get_all_spend_logs_for_previous_response_id(
             "chatcmpl-does-not-exist"
@@ -648,7 +648,7 @@ def test_normalize_redacted_arguments_skips_custom_tool_calls():
         content=None,
         tool_calls=[
             {"id": "call_c", "type": "custom", "custom": {"name": "run_code", "input": "print(1)"}},
-            {"id": "call_f", "type": "function", "function": {"name": "get_weather", "arguments": "redacted-by-litellm"}},
+            {"id": "call_f", "type": "function", "function": {"name": "get_weather", "arguments": "redacted-by-embrouter"}},
         ],
     )
 
@@ -687,7 +687,7 @@ async def test_message_history_normalizes_redacted_tool_call_arguments():
                                     "type": "function",
                                     "function": {
                                         "name": "get_weather",
-                                        "arguments": "redacted-by-litellm",
+                                        "arguments": "redacted-by-embrouter",
                                     },
                                 }
                             ],

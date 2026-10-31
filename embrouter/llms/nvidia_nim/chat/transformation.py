@@ -10,7 +10,7 @@ API calling is done using the OpenAI SDK with an api_base
 
 from typing import Final
 
-from litellm.llms.openai.chat.gpt_transformation import OpenAIGPTConfig
+from embrouter.llms.openai.chat.gpt_transformation import OpenAIGPTConfig
 
 
 class NvidiaNimConfig(OpenAIGPTConfig):

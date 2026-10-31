@@ -6,13 +6,13 @@ from typing import TYPE_CHECKING, Final, cast  # noqa: TID251  # native class is
 import tiktoken
 from tokenizers import Tokenizer as PythonHuggingFaceTokenizer
 
-from litellm.litellm_core_utils.tokenizer import Encoding, HuggingFace, HuggingFaceTokenizer, OpenAIEncoding
-from litellm.rust_bridge import runtime
-from litellm.rust_bridge.bindings import NativeBinding
-from litellm.rust_bridge.catalog import Route, RouteContext
+from embrouter.embrouter_core_utils.tokenizer import Encoding, HuggingFace, HuggingFaceTokenizer, OpenAIEncoding
+from embrouter.rust_bridge import runtime
+from embrouter.rust_bridge.bindings import NativeBinding
+from embrouter.rust_bridge.catalog import Route, RouteContext
 
 if TYPE_CHECKING:
-    from litellm.rust_bridge._native import Tokenizer as NativeTokenizer
+    from embrouter.rust_bridge._native import Tokenizer as NativeTokenizer
 
 
 def _as_factory(value: object) -> type[NativeTokenizer] | None:
@@ -38,7 +38,7 @@ def _native_tiktoken(factory: type[NativeTokenizer], name: str) -> NativeTokeniz
 
 @lru_cache(maxsize=1)
 def _native_anthropic(factory: type[NativeTokenizer]) -> NativeTokenizer:
-    from litellm.utils import claude_json_str
+    from embrouter.utils import claude_json_str
 
     return factory.from_json(claude_json_str)
 
@@ -62,7 +62,7 @@ def native_anthropic() -> NativeTokenizer | None:
 
 
 def _python_encoding(name: str) -> tiktoken.Encoding:
-    from litellm.litellm_core_utils.default_encoding import encoding
+    from embrouter.embrouter_core_utils.default_encoding import encoding
 
     return encoding if name == encoding.name else tiktoken.get_encoding(name)
 
@@ -78,7 +78,7 @@ def get_encoding(name: str) -> Encoding:
 
 def anthropic() -> HuggingFace:
     """The packaged Anthropic tokenizer on the selected backend."""
-    from litellm.utils import claude_json_str
+    from embrouter.utils import claude_json_str
 
     return runtime.run(
         HUGGINGFACE_CONTEXT,

@@ -1,5 +1,5 @@
 """
-Tests for LiteLLM proxy realtime WebRTC HTTP endpoints:
+Tests for EmbRouter proxy realtime WebRTC HTTP endpoints:
 - POST /v1/realtime/client_secrets
 - POST /v1/realtime/calls
 """
@@ -16,13 +16,13 @@ from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
 
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.common_utils.encrypt_decrypt_utils import (
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.common_utils.encrypt_decrypt_utils import (
     decrypt_value_helper,
     encrypt_value_helper,
 )
-from litellm.proxy.realtime_endpoints.endpoints import (
+from embrouter.proxy.realtime_endpoints.endpoints import (
     _decode_realtime_token_payload,
     _encode_realtime_token_payload,
 )
@@ -114,7 +114,7 @@ def test_decode_realtime_token_payload_ephemeral_key_not_string():
 
 @pytest.fixture
 def proxy_app(monkeypatch):
-    from litellm.proxy import proxy_server
+    from embrouter.proxy import proxy_server
 
     monkeypatch.setattr(proxy_server, "master_key", "sk-test-master-key")
     return proxy_server.app
@@ -162,7 +162,7 @@ def mock_route_request_realtime_calls():
     return _mock_route
 
 
-class AddLitellmDataToRequest(Protocol):
+class AddEmbrouterDataToRequest(Protocol):
     def __call__(self, data: dict[str, object], **kwargs: object) -> Awaitable[dict[str, object]]: ...
 
 
@@ -173,7 +173,7 @@ class PreCallHook(Protocol):
 
 
 @pytest.fixture
-def mock_add_litellm_data() -> AddLitellmDataToRequest:
+def mock_add_embrouter_data() -> AddEmbrouterDataToRequest:
     async def _mock(data: dict[str, object], **kwargs: object) -> dict[str, object]:
         return data
 
@@ -211,7 +211,7 @@ def test_client_secrets_requires_auth(proxy_app):
 async def test_client_secrets_success_with_mock(
     proxy_app,
     mock_route_request_client_secrets,
-    mock_add_litellm_data,
+    mock_add_embrouter_data,
     mock_pre_call_hook,
 ):
     """POST /v1/realtime/client_secrets returns 200 with valid auth and mocked upstream."""
@@ -222,14 +222,14 @@ async def test_client_secrets_success_with_mock(
         client = TestClient(proxy_app)
         with (
             patch(
-                "litellm.proxy.proxy_server.route_request",
+                "embrouter.proxy.proxy_server.route_request",
                 side_effect=mock_route_request_client_secrets,
             ),
             patch(
-                "litellm.proxy.proxy_server.add_litellm_data_to_request",
-                side_effect=mock_add_litellm_data,
+                "embrouter.proxy.proxy_server.add_embrouter_data_to_request",
+                side_effect=mock_add_embrouter_data,
             ),
-            patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_logging,
+            patch("embrouter.proxy.proxy_server.proxy_logging_obj") as mock_logging,
         ):
             mock_logging.pre_call_hook = AsyncMock(side_effect=mock_pre_call_hook)
             mock_logging.post_call_failure_hook = AsyncMock()
@@ -262,8 +262,8 @@ async def test_client_secrets_transcription_rejects_disallowed_nested_model(
     try:
         client = TestClient(proxy_app, raise_server_exceptions=False)
         with (
-            patch("litellm.proxy.proxy_server.route_request") as mock_route_request,
-            patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_logging,
+            patch("embrouter.proxy.proxy_server.route_request") as mock_route_request,
+            patch("embrouter.proxy.proxy_server.proxy_logging_obj") as mock_logging,
         ):
             mock_logging.post_call_failure_hook = AsyncMock()
 
@@ -296,7 +296,7 @@ async def test_client_secrets_transcription_rejects_disallowed_nested_model(
 @pytest.mark.asyncio
 async def test_client_secrets_transcription_routes_on_nested_model(
     proxy_app,
-    mock_add_litellm_data,
+    mock_add_embrouter_data,
     mock_pre_call_hook,
 ):
     proxy_app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(
@@ -331,14 +331,14 @@ async def test_client_secrets_transcription_routes_on_nested_model(
         client = TestClient(proxy_app)
         with (
             patch(
-                "litellm.proxy.proxy_server.route_request",
+                "embrouter.proxy.proxy_server.route_request",
                 side_effect=_capturing_route,
             ),
             patch(
-                "litellm.proxy.proxy_server.add_litellm_data_to_request",
-                side_effect=mock_add_litellm_data,
+                "embrouter.proxy.proxy_server.add_embrouter_data_to_request",
+                side_effect=mock_add_embrouter_data,
             ),
-            patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_logging,
+            patch("embrouter.proxy.proxy_server.proxy_logging_obj") as mock_logging,
         ):
             mock_logging.pre_call_hook = AsyncMock(side_effect=mock_pre_call_hook)
             mock_logging.post_call_failure_hook = AsyncMock()
@@ -418,7 +418,7 @@ def test_realtime_calls_invalid_token_returns_401(proxy_app):
 async def test_realtime_calls_success_with_valid_encrypted_token(
     proxy_app,
     mock_route_request_realtime_calls,
-    mock_add_litellm_data,
+    mock_add_embrouter_data,
     mock_pre_call_hook,
 ):
     """POST /v1/realtime/calls returns 201 with valid encrypted token from client_secrets."""
@@ -436,14 +436,14 @@ async def test_realtime_calls_success_with_valid_encrypted_token(
     client = TestClient(proxy_app)
     with (
         patch(
-            "litellm.proxy.proxy_server.route_request",
+            "embrouter.proxy.proxy_server.route_request",
             side_effect=mock_route_request_realtime_calls,
         ),
         patch(
-            "litellm.proxy.proxy_server.add_litellm_data_to_request",
-            side_effect=mock_add_litellm_data,
+            "embrouter.proxy.proxy_server.add_embrouter_data_to_request",
+            side_effect=mock_add_embrouter_data,
         ),
-        patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_logging,
+        patch("embrouter.proxy.proxy_server.proxy_logging_obj") as mock_logging,
     ):
         mock_logging.pre_call_hook = AsyncMock(side_effect=mock_pre_call_hook)
         mock_logging.post_call_failure_hook = AsyncMock()
@@ -477,7 +477,7 @@ def test_token_payload_carries_session_type():
 @pytest.mark.asyncio
 async def test_realtime_calls_replays_transcription_session_type(
     proxy_app,
-    mock_add_litellm_data,
+    mock_add_embrouter_data,
     mock_pre_call_hook,
 ):
     """
@@ -511,14 +511,14 @@ async def test_realtime_calls_replays_transcription_session_type(
     client = TestClient(proxy_app)
     with (
         patch(
-            "litellm.proxy.proxy_server.route_request",
+            "embrouter.proxy.proxy_server.route_request",
             side_effect=_capturing_route,
         ),
         patch(
-            "litellm.proxy.proxy_server.add_litellm_data_to_request",
-            side_effect=mock_add_litellm_data,
+            "embrouter.proxy.proxy_server.add_embrouter_data_to_request",
+            side_effect=mock_add_embrouter_data,
         ),
-        patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_logging,
+        patch("embrouter.proxy.proxy_server.proxy_logging_obj") as mock_logging,
     ):
         mock_logging.pre_call_hook = AsyncMock(side_effect=mock_pre_call_hook)
         mock_logging.post_call_failure_hook = AsyncMock()
@@ -597,8 +597,8 @@ async def test_transcription_sessions_rejects_disallowed_resolved_model(
     try:
         client = TestClient(proxy_app, raise_server_exceptions=False)
         with (
-            patch("litellm.proxy.proxy_server.route_request") as mock_route_request,
-            patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_logging,
+            patch("embrouter.proxy.proxy_server.route_request") as mock_route_request,
+            patch("embrouter.proxy.proxy_server.proxy_logging_obj") as mock_logging,
         ):
             mock_logging.post_call_failure_hook = AsyncMock()
 
@@ -621,9 +621,9 @@ async def test_transcription_sessions_rejects_disallowed_resolved_model(
 async def test_transcription_sessions_rejects_disallowed_team_model_scope(
     proxy_app,
 ):
-    from litellm.proxy._types import LiteLLM_TeamTableCachedObj
+    from embrouter.proxy._types import EmbRouter_TeamTableCachedObj
 
-    team = LiteLLM_TeamTableCachedObj(
+    team = EmbRouter_TeamTableCachedObj(
         team_id="team-a",
         models=["gpt-4o-realtime-preview"],
     )
@@ -635,14 +635,14 @@ async def test_transcription_sessions_rejects_disallowed_team_model_scope(
     try:
         client = TestClient(proxy_app, raise_server_exceptions=False)
         with (
-            patch("litellm.proxy.proxy_server.route_request") as mock_route_request,
-            patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_logging,
+            patch("embrouter.proxy.proxy_server.route_request") as mock_route_request,
+            patch("embrouter.proxy.proxy_server.proxy_logging_obj") as mock_logging,
             patch(
-                "litellm.proxy.auth.auth_checks.get_team_object",
+                "embrouter.proxy.auth.auth_checks.get_team_object",
                 new=AsyncMock(return_value=team),
             ),
             patch(
-                "litellm.proxy.auth.auth_checks.get_team_membership",
+                "embrouter.proxy.auth.auth_checks.get_team_membership",
                 new=AsyncMock(return_value=None),
             ),
         ):
@@ -668,9 +668,9 @@ async def test_transcription_sessions_rejects_disallowed_team_model_scope(
 async def test_transcription_sessions_rejects_disallowed_project_model_scope(
     proxy_app,
 ):
-    from litellm.proxy._types import LiteLLM_ProjectTableCachedObj
+    from embrouter.proxy._types import EmbRouter_ProjectTableCachedObj
 
-    project = LiteLLM_ProjectTableCachedObj(
+    project = EmbRouter_ProjectTableCachedObj(
         project_id="project-a",
         models=["gpt-4o-realtime-preview"],
         created_by="test-user",
@@ -684,10 +684,10 @@ async def test_transcription_sessions_rejects_disallowed_project_model_scope(
     try:
         client = TestClient(proxy_app, raise_server_exceptions=False)
         with (
-            patch("litellm.proxy.proxy_server.route_request") as mock_route_request,
-            patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_logging,
+            patch("embrouter.proxy.proxy_server.route_request") as mock_route_request,
+            patch("embrouter.proxy.proxy_server.proxy_logging_obj") as mock_logging,
             patch(
-                "litellm.proxy.auth.auth_checks.get_project_object",
+                "embrouter.proxy.auth.auth_checks.get_project_object",
                 new=AsyncMock(return_value=project),
             ),
         ):
@@ -713,17 +713,17 @@ async def test_transcription_sessions_rejects_disallowed_project_model_scope(
 async def test_transcription_sessions_rejects_disallowed_team_member_model_scope(
     proxy_app,
 ):
-    from litellm.proxy._types import (
-        LiteLLM_BudgetTable,
-        LiteLLM_TeamMembership,
-        LiteLLM_TeamTableCachedObj,
+    from embrouter.proxy._types import (
+        EmbRouter_BudgetTable,
+        EmbRouter_TeamMembership,
+        EmbRouter_TeamTableCachedObj,
     )
 
-    team = LiteLLM_TeamTableCachedObj(team_id="team-a", models=["*"])
-    membership = LiteLLM_TeamMembership(
+    team = EmbRouter_TeamTableCachedObj(team_id="team-a", models=["*"])
+    membership = EmbRouter_TeamMembership(
         user_id="test-user",
         team_id="team-a",
-        litellm_budget_table=LiteLLM_BudgetTable(
+        embrouter_budget_table=EmbRouter_BudgetTable(
             allowed_models=["gpt-4o-realtime-preview"],
         ),
     )
@@ -735,14 +735,14 @@ async def test_transcription_sessions_rejects_disallowed_team_member_model_scope
     try:
         client = TestClient(proxy_app, raise_server_exceptions=False)
         with (
-            patch("litellm.proxy.proxy_server.route_request") as mock_route_request,
-            patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_logging,
+            patch("embrouter.proxy.proxy_server.route_request") as mock_route_request,
+            patch("embrouter.proxy.proxy_server.proxy_logging_obj") as mock_logging,
             patch(
-                "litellm.proxy.auth.auth_checks.get_team_object",
+                "embrouter.proxy.auth.auth_checks.get_team_object",
                 new=AsyncMock(return_value=team),
             ),
             patch(
-                "litellm.proxy.auth.auth_checks.get_team_membership",
+                "embrouter.proxy.auth.auth_checks.get_team_membership",
                 new=AsyncMock(return_value=membership),
             ),
         ):
@@ -765,7 +765,7 @@ async def test_transcription_sessions_rejects_disallowed_team_member_model_scope
 
 @pytest.mark.asyncio
 async def test_realtime_transcription_websocket_default_model_checks_key_scope():
-    from litellm.proxy import proxy_server
+    from embrouter.proxy import proxy_server
 
     websocket = MagicMock()
     websocket.headers = {}
@@ -788,10 +788,10 @@ async def test_realtime_transcription_websocket_default_model_checks_key_scope()
 
 @pytest.mark.asyncio
 async def test_realtime_transcription_websocket_default_model_checks_team_scope():
-    from litellm.proxy import proxy_server
-    from litellm.proxy._types import LiteLLM_TeamTableCachedObj
+    from embrouter.proxy import proxy_server
+    from embrouter.proxy._types import EmbRouter_TeamTableCachedObj
 
-    team = LiteLLM_TeamTableCachedObj(
+    team = EmbRouter_TeamTableCachedObj(
         team_id="team-a",
         models=["gpt-4o-realtime-preview"],
     )
@@ -802,11 +802,11 @@ async def test_realtime_transcription_websocket_default_model_checks_team_scope(
 
     with (
         patch(
-            "litellm.proxy.auth.auth_checks.get_team_object",
+            "embrouter.proxy.auth.auth_checks.get_team_object",
             new=AsyncMock(return_value=team),
         ),
         patch(
-            "litellm.proxy.auth.auth_checks.get_team_membership",
+            "embrouter.proxy.auth.auth_checks.get_team_membership",
             new=AsyncMock(return_value=None),
         ),
     ):
@@ -835,7 +835,7 @@ async def test_realtime_websocket_phase2_failure_sends_error_event_and_reasoned_
     reason "Internal server error" and no error event, leaving the client with
     no clue what happened. The client must get an OpenAI-style error event and
     a close reason naming the failure."""
-    from litellm.proxy import proxy_server
+    from embrouter.proxy import proxy_server
 
     events = []
 
@@ -853,15 +853,15 @@ async def test_realtime_websocket_phase2_failure_sends_error_event_and_reasoned_
 
     with (
         patch(
-            "litellm.proxy.proxy_server.can_key_call_resolved_model",
+            "embrouter.proxy.proxy_server.can_key_call_resolved_model",
             new=AsyncMock(return_value=None),
         ),
         patch(
-            "litellm.proxy.proxy_server.ProxyBaseLLMRequestProcessing",
+            "embrouter.proxy.proxy_server.ProxyBaseLLMRequestProcessing",
             return_value=mock_processor,
         ),
         patch(
-            "litellm.proxy.proxy_server.route_request",
+            "embrouter.proxy.proxy_server.route_request",
             new=AsyncMock(side_effect=RuntimeError("vertex token refresh exploded")),
         ),
     ):
@@ -894,7 +894,7 @@ async def test_realtime_websocket_phase2_failure_on_closed_socket_does_not_escap
     re-raise). Send and close must each be guarded: the close is still
     attempted after a failed send, and neither failure escapes to the ASGI
     layer."""
-    from litellm.proxy import proxy_server
+    from embrouter.proxy import proxy_server
 
     websocket = MagicMock()
     websocket.headers = {}
@@ -910,15 +910,15 @@ async def test_realtime_websocket_phase2_failure_on_closed_socket_does_not_escap
 
     with (
         patch(
-            "litellm.proxy.proxy_server.can_key_call_resolved_model",
+            "embrouter.proxy.proxy_server.can_key_call_resolved_model",
             new=AsyncMock(return_value=None),
         ),
         patch(
-            "litellm.proxy.proxy_server.ProxyBaseLLMRequestProcessing",
+            "embrouter.proxy.proxy_server.ProxyBaseLLMRequestProcessing",
             return_value=mock_processor,
         ),
         patch(
-            "litellm.proxy.proxy_server.route_request",
+            "embrouter.proxy.proxy_server.route_request",
             new=AsyncMock(side_effect=RuntimeError("vertex token refresh exploded")),
         ),
     ):
@@ -940,7 +940,7 @@ async def test_realtime_websocket_phase2_failure_on_closed_socket_does_not_escap
 async def test_transcription_sessions_encrypts_client_secret(
     proxy_app,
     mock_route_request_transcription_sessions,
-    mock_add_litellm_data,
+    mock_add_embrouter_data,
     mock_pre_call_hook,
 ):
     """
@@ -960,14 +960,14 @@ async def test_transcription_sessions_encrypts_client_secret(
         client = TestClient(proxy_app)
         with (
             patch(
-                "litellm.proxy.proxy_server.route_request",
+                "embrouter.proxy.proxy_server.route_request",
                 side_effect=_capturing_route,
             ),
             patch(
-                "litellm.proxy.proxy_server.add_litellm_data_to_request",
-                side_effect=mock_add_litellm_data,
+                "embrouter.proxy.proxy_server.add_embrouter_data_to_request",
+                side_effect=mock_add_embrouter_data,
             ),
-            patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_logging,
+            patch("embrouter.proxy.proxy_server.proxy_logging_obj") as mock_logging,
         ):
             mock_logging.pre_call_hook = AsyncMock(side_effect=mock_pre_call_hook)
             mock_logging.post_call_failure_hook = AsyncMock()
@@ -1035,8 +1035,8 @@ async def test_client_secrets_realtime_default_model_blocked_when_not_in_key_sco
     try:
         client = TestClient(proxy_app, raise_server_exceptions=False)
         with (
-            patch("litellm.proxy.proxy_server.route_request") as mock_route_request,
-            patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_logging,
+            patch("embrouter.proxy.proxy_server.route_request") as mock_route_request,
+            patch("embrouter.proxy.proxy_server.proxy_logging_obj") as mock_logging,
         ):
             mock_logging.post_call_failure_hook = AsyncMock()
 
@@ -1065,8 +1065,8 @@ async def test_client_secrets_realtime_explicit_model_blocked_when_not_in_key_sc
     try:
         client = TestClient(proxy_app, raise_server_exceptions=False)
         with (
-            patch("litellm.proxy.proxy_server.route_request") as mock_route_request,
-            patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_logging,
+            patch("embrouter.proxy.proxy_server.route_request") as mock_route_request,
+            patch("embrouter.proxy.proxy_server.proxy_logging_obj") as mock_logging,
         ):
             mock_logging.post_call_failure_hook = AsyncMock()
 
@@ -1087,7 +1087,7 @@ async def test_client_secrets_realtime_explicit_model_blocked_when_not_in_key_sc
 async def test_client_secrets_realtime_default_model_allowed_when_in_key_scope(
     proxy_app,
     mock_route_request_client_secrets,
-    mock_add_litellm_data,
+    mock_add_embrouter_data,
     mock_pre_call_hook,
 ):
     """Omitting model should succeed when the default (gpt-4o-realtime-preview) is in scope."""
@@ -1099,14 +1099,14 @@ async def test_client_secrets_realtime_default_model_allowed_when_in_key_scope(
         client = TestClient(proxy_app)
         with (
             patch(
-                "litellm.proxy.proxy_server.route_request",
+                "embrouter.proxy.proxy_server.route_request",
                 side_effect=mock_route_request_client_secrets,
             ),
             patch(
-                "litellm.proxy.proxy_server.add_litellm_data_to_request",
-                side_effect=mock_add_litellm_data,
+                "embrouter.proxy.proxy_server.add_embrouter_data_to_request",
+                side_effect=mock_add_embrouter_data,
             ),
-            patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_logging,
+            patch("embrouter.proxy.proxy_server.proxy_logging_obj") as mock_logging,
         ):
             mock_logging.pre_call_hook = AsyncMock(side_effect=mock_pre_call_hook)
             mock_logging.post_call_failure_hook = AsyncMock()
@@ -1125,7 +1125,7 @@ async def test_client_secrets_realtime_default_model_allowed_when_in_key_scope(
 @pytest.mark.asyncio
 async def test_transcription_sessions_returns_upstream_error_verbatim(
     proxy_app,
-    mock_add_litellm_data,
+    mock_add_embrouter_data,
     mock_pre_call_hook,
 ):
     """Non-200 upstream response is forwarded unchanged (no encryption attempted)."""
@@ -1149,14 +1149,14 @@ async def test_transcription_sessions_returns_upstream_error_verbatim(
         client = TestClient(proxy_app)
         with (
             patch(
-                "litellm.proxy.proxy_server.route_request",
+                "embrouter.proxy.proxy_server.route_request",
                 side_effect=_mock_route,
             ),
             patch(
-                "litellm.proxy.proxy_server.add_litellm_data_to_request",
-                side_effect=mock_add_litellm_data,
+                "embrouter.proxy.proxy_server.add_embrouter_data_to_request",
+                side_effect=mock_add_embrouter_data,
             ),
-            patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_logging,
+            patch("embrouter.proxy.proxy_server.proxy_logging_obj") as mock_logging,
         ):
             mock_logging.pre_call_hook = AsyncMock(side_effect=mock_pre_call_hook)
             mock_logging.post_call_failure_hook = AsyncMock()
@@ -1175,7 +1175,7 @@ async def test_transcription_sessions_returns_upstream_error_verbatim(
 @pytest.mark.asyncio
 async def test_transcription_sessions_wraps_route_exception(
     proxy_app,
-    mock_add_litellm_data,
+    mock_add_embrouter_data,
     mock_pre_call_hook,
 ):
     """A route exception is wrapped in a ProxyException with a human-readable message."""
@@ -1191,14 +1191,14 @@ async def test_transcription_sessions_wraps_route_exception(
         client = TestClient(proxy_app, raise_server_exceptions=False)
         with (
             patch(
-                "litellm.proxy.proxy_server.route_request",
+                "embrouter.proxy.proxy_server.route_request",
                 side_effect=_raise_http,
             ),
             patch(
-                "litellm.proxy.proxy_server.add_litellm_data_to_request",
-                side_effect=mock_add_litellm_data,
+                "embrouter.proxy.proxy_server.add_embrouter_data_to_request",
+                side_effect=mock_add_embrouter_data,
             ),
-            patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_logging,
+            patch("embrouter.proxy.proxy_server.proxy_logging_obj") as mock_logging,
         ):
             mock_logging.pre_call_hook = AsyncMock(side_effect=mock_pre_call_hook)
             mock_logging.post_call_failure_hook = AsyncMock()
@@ -1216,7 +1216,7 @@ async def test_transcription_sessions_wraps_route_exception(
 
 def test_realtime_calls_upstream_rejection_answers_an_openai_typed_error(
     proxy_app: FastAPI,
-    mock_add_litellm_data: AddLitellmDataToRequest,
+    mock_add_embrouter_data: AddEmbrouterDataToRequest,
     mock_pre_call_hook: PreCallHook,
     monkeypatch: pytest.MonkeyPatch,
 ):
@@ -1240,9 +1240,9 @@ def test_realtime_calls_upstream_rejection_answers_an_openai_typed_error(
     proxy_logging = MagicMock()
     proxy_logging.pre_call_hook = AsyncMock(side_effect=mock_pre_call_hook)
     proxy_logging.post_call_failure_hook = AsyncMock()
-    monkeypatch.setattr("litellm.proxy.proxy_server.route_request", failing_route_request)
-    monkeypatch.setattr("litellm.proxy.proxy_server.add_litellm_data_to_request", mock_add_litellm_data)
-    monkeypatch.setattr("litellm.proxy.proxy_server.proxy_logging_obj", proxy_logging)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.route_request", failing_route_request)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.add_embrouter_data_to_request", mock_add_embrouter_data)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.proxy_logging_obj", proxy_logging)
 
     response = TestClient(proxy_app).post(
         "/v1/realtime/calls",
@@ -1256,7 +1256,7 @@ def test_realtime_calls_upstream_rejection_answers_an_openai_typed_error(
 
 def test_transcription_sessions_rejection_answers_an_openai_typed_error(
     proxy_app: FastAPI,
-    mock_add_litellm_data: AddLitellmDataToRequest,
+    mock_add_embrouter_data: AddEmbrouterDataToRequest,
     mock_pre_call_hook: PreCallHook,
     monkeypatch: pytest.MonkeyPatch,
 ):
@@ -1272,9 +1272,9 @@ def test_transcription_sessions_rejection_answers_an_openai_typed_error(
     proxy_logging = MagicMock()
     proxy_logging.pre_call_hook = AsyncMock(side_effect=mock_pre_call_hook)
     proxy_logging.post_call_failure_hook = AsyncMock()
-    monkeypatch.setattr("litellm.proxy.proxy_server.route_request", failing_route_request)
-    monkeypatch.setattr("litellm.proxy.proxy_server.add_litellm_data_to_request", mock_add_litellm_data)
-    monkeypatch.setattr("litellm.proxy.proxy_server.proxy_logging_obj", proxy_logging)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.route_request", failing_route_request)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.add_embrouter_data_to_request", mock_add_embrouter_data)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.proxy_logging_obj", proxy_logging)
     proxy_app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(user_id="test-user")
     try:
         response = TestClient(proxy_app, raise_server_exceptions=False).post(

@@ -5,7 +5,7 @@
     "description": "Standard A2A protocol",
     "logo_url": "/ui/assets/logos/a2a_agent.png",
     "credential_fields": [],
-    "litellm_params_template": {}
+    "embrouter_params_template": {}
   },
   {
     "agent_type": "langflow",
@@ -22,7 +22,7 @@
         "required": true,
         "field_type": "text",
         "default_value": null,
-        "include_in_litellm_params": false
+        "include_in_embrouter_params": false
       },
       {
         "key": "api_base",
@@ -32,7 +32,7 @@
         "required": true,
         "field_type": "text",
         "default_value": "http://localhost:7860",
-        "include_in_litellm_params": true
+        "include_in_embrouter_params": true
       },
       {
         "key": "api_key",
@@ -42,10 +42,10 @@
         "required": false,
         "field_type": "password",
         "default_value": null,
-        "include_in_litellm_params": true
+        "include_in_embrouter_params": true
       }
     ],
-    "litellm_params_template": {
+    "embrouter_params_template": {
       "custom_llm_provider": "langflow"
     }
   },
@@ -64,7 +64,7 @@
         "required": true,
         "field_type": "text",
         "default_value": "agent",
-        "include_in_litellm_params": false
+        "include_in_embrouter_params": false
       },
       {
         "key": "api_base",
@@ -74,7 +74,7 @@
         "required": true,
         "field_type": "text",
         "default_value": "http://localhost:2024",
-        "include_in_litellm_params": true
+        "include_in_embrouter_params": true
       },
       {
         "key": "api_key",
@@ -84,10 +84,10 @@
         "required": false,
         "field_type": "password",
         "default_value": null,
-        "include_in_litellm_params": true
+        "include_in_embrouter_params": true
       }
     ],
-    "litellm_params_template": {
+    "embrouter_params_template": {
       "custom_llm_provider": "langgraph"
     }
   },
@@ -107,12 +107,12 @@
         "required": true,
         "field_type": "text",
         "default_value": null,
-        "include_in_litellm_params": false,
+        "include_in_embrouter_params": false,
         "validation_pattern": "^arn:aws[a-zA-Z0-9-]*:bedrock-agentcore:[a-z0-9-]+:[0-9]{12}:runtime/.+$",
         "validation_message": "Enter the complete Bedrock AgentCore runtime ARN, including the runtime ID after \"runtime/\" (e.g. arn:aws:bedrock-agentcore:us-west-2:123456789012:runtime/my-agent-runtime)."
       }
     ],
-    "litellm_params_template": {
+    "embrouter_params_template": {
       "custom_llm_provider": "bedrock"
     }
   },
@@ -132,7 +132,7 @@
         "required": true,
         "field_type": "text",
         "default_value": null,
-        "include_in_litellm_params": false
+        "include_in_embrouter_params": false
       },
       {
         "key": "api_base",
@@ -142,7 +142,7 @@
         "required": true,
         "field_type": "text",
         "default_value": null,
-        "include_in_litellm_params": true
+        "include_in_embrouter_params": true
       },
       {
         "key": "api_key",
@@ -152,7 +152,7 @@
         "required": false,
         "field_type": "password",
         "default_value": null,
-        "include_in_litellm_params": true
+        "include_in_embrouter_params": true
       },
       {
         "key": "tenant_id",
@@ -162,7 +162,7 @@
         "required": false,
         "field_type": "text",
         "default_value": null,
-        "include_in_litellm_params": true
+        "include_in_embrouter_params": true
       },
       {
         "key": "client_id",
@@ -172,7 +172,7 @@
         "required": false,
         "field_type": "text",
         "default_value": null,
-        "include_in_litellm_params": true
+        "include_in_embrouter_params": true
       },
       {
         "key": "client_secret",
@@ -182,10 +182,10 @@
         "required": false,
         "field_type": "password",
         "default_value": null,
-        "include_in_litellm_params": true
+        "include_in_embrouter_params": true
       }
     ],
-    "litellm_params_template": {
+    "embrouter_params_template": {
       "custom_llm_provider": "azure_ai"
     }
   },
@@ -204,10 +204,10 @@
         "required": true,
         "field_type": "text",
         "default_value": "http://localhost:9999",
-        "include_in_litellm_params": true
+        "include_in_embrouter_params": true
       }
     ],
-    "litellm_params_template": {
+    "embrouter_params_template": {
       "custom_llm_provider": "pydantic_ai_agents"
     }
   },
@@ -227,10 +227,10 @@
         "required": true,
         "field_type": "text",
         "default_value": null,
-        "include_in_litellm_params": false
+        "include_in_embrouter_params": false
       }
     ],
-    "litellm_params_template": {
+    "embrouter_params_template": {
       "custom_llm_provider": "vertex_ai"
     }
   },
@@ -248,7 +248,7 @@
         "required": true,
         "field_type": "text",
         "default_value": null,
-        "include_in_litellm_params": true
+        "include_in_embrouter_params": true
       },
       {
         "key": "instance_id",
@@ -258,7 +258,7 @@
         "required": true,
         "field_type": "text",
         "default_value": null,
-        "include_in_litellm_params": true
+        "include_in_embrouter_params": true
       },
       {
         "key": "wxo_agent_id",
@@ -268,7 +268,7 @@
         "required": true,
         "field_type": "text",
         "default_value": null,
-        "include_in_litellm_params": true
+        "include_in_embrouter_params": true
       },
       {
         "key": "auth_mode",
@@ -279,7 +279,7 @@
         "field_type": "select",
         "options": ["cp4d", "ibm_cloud"],
         "default_value": "cp4d",
-        "include_in_litellm_params": true
+        "include_in_embrouter_params": true
       },
       {
         "key": "username",
@@ -289,7 +289,7 @@
         "required": false,
         "field_type": "text",
         "default_value": null,
-        "include_in_litellm_params": true
+        "include_in_embrouter_params": true
       },
       {
         "key": "api_key",
@@ -299,10 +299,10 @@
         "required": true,
         "field_type": "password",
         "default_value": null,
-        "include_in_litellm_params": true
+        "include_in_embrouter_params": true
       }
     ],
-    "litellm_params_template": {
+    "embrouter_params_template": {
       "custom_llm_provider": "watsonx_orchestrate"
     }
   }

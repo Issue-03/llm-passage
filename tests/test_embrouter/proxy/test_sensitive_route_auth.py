@@ -1,8 +1,8 @@
 from fastapi.routing import APIRoute
 
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.common_utils.debug_utils import router as debug_router
-from litellm.proxy.spend_tracking.spend_management_endpoints import (
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.common_utils.debug_utils import router as debug_router
+from embrouter.proxy.spend_tracking.spend_management_endpoints import (
     router as spend_router,
 )
 

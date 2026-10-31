@@ -103,7 +103,7 @@ def test_added_chat_model_matches_reviewed_registry_shape() -> None:
     assert outcome.cost_map["together_ai/moonshotai/Kimi-K3"] == {
         "cache_read_input_token_cost": 3e-07,
         "input_cost_per_token": 3e-06,
-        "litellm_provider": "together_ai",
+        "embrouter_provider": "together_ai",
         "max_input_tokens": 1048576,
         "max_tokens": 1048576,
         "mode": "chat",
@@ -123,7 +123,7 @@ def test_added_embedding_model_has_no_output_token_cap() -> None:
     outcome = sync.compute_sync({}, RECORDED_CATALOG, RECORDED_DOC)
     assert outcome.cost_map["together_ai/intfloat/multilingual-e5-large-instruct"] == {
         "input_cost_per_token": 2e-08,
-        "litellm_provider": "together_ai",
+        "embrouter_provider": "together_ai",
         "max_input_tokens": 514,
         "max_tokens": 514,
         "mode": "embedding",
@@ -155,7 +155,7 @@ def test_output_ceiling_comes_from_the_rule_never_from_context_length() -> None:
     inflated = {
         "together_ai/zai-org/GLM-5.2": {
             "input_cost_per_token": 1.4e-06,
-            "litellm_provider": "together_ai",
+            "embrouter_provider": "together_ai",
             "max_input_tokens": 1048575,
             "max_output_tokens": 1048575,
             "max_tokens": 1048575,
@@ -179,7 +179,7 @@ def test_price_change_updates_api_fields_and_keeps_curated_ones() -> None:
     registry = {
         "together_ai/acme/chat-1": {
             "input_cost_per_token": 9e-07,
-            "litellm_provider": "together_ai",
+            "embrouter_provider": "together_ai",
             "max_input_tokens": 4096,
             "max_output_tokens": 2048,
             "max_tokens": 2048,
@@ -203,7 +203,7 @@ def test_cached_input_appearing_and_disappearing() -> None:
         "together_ai/acme/chat-1": {
             "cache_read_input_token_cost": 1e-07,
             "input_cost_per_token": 1e-06,
-            "litellm_provider": "together_ai",
+            "embrouter_provider": "together_ai",
             "max_input_tokens": 4096,
             "mode": "chat",
             "output_cost_per_token": 1e-06,
@@ -211,7 +211,7 @@ def test_cached_input_appearing_and_disappearing() -> None:
         },
         "together_ai/acme/chat-2": {
             "input_cost_per_token": 1e-06,
-            "litellm_provider": "together_ai",
+            "embrouter_provider": "together_ai",
             "max_input_tokens": 4096,
             "mode": "chat",
             "output_cost_per_token": 1e-06,
@@ -229,7 +229,7 @@ def test_capability_rule_backfills_existing_entry() -> None:
     registry = {
         "together_ai/moonshotai/Kimi-K3": {
             "input_cost_per_token": 3e-06,
-            "litellm_provider": "together_ai",
+            "embrouter_provider": "together_ai",
             "max_input_tokens": 1048576,
             "mode": "chat",
             "output_cost_per_token": 1.5e-05,
@@ -245,7 +245,7 @@ def test_disappeared_model_gets_docs_date_and_is_never_deleted() -> None:
     registry = {
         "together_ai/acme/gone": {
             "input_cost_per_token": 1e-06,
-            "litellm_provider": "together_ai",
+            "embrouter_provider": "together_ai",
             "mode": "chat",
             "output_cost_per_token": 1e-06,
         }
@@ -259,7 +259,7 @@ def test_disappeared_model_without_docs_date_warns_instead() -> None:
     registry = {
         "together_ai/acme/gone": {
             "input_cost_per_token": 1e-06,
-            "litellm_provider": "together_ai",
+            "embrouter_provider": "together_ai",
             "mode": "chat",
             "output_cost_per_token": 1e-06,
         }
@@ -275,7 +275,7 @@ def test_curated_deprecation_date_is_never_overwritten() -> None:
         "together_ai/acme/gone": {
             "deprecation_date": "2026-06-15",
             "input_cost_per_token": 1e-06,
-            "litellm_provider": "together_ai",
+            "embrouter_provider": "together_ai",
             "mode": "chat",
             "output_cost_per_token": 1e-06,
         }
@@ -306,13 +306,13 @@ def test_successor_written_only_when_not_curated() -> None:
     registry = {
         "together_ai/acme/a": {
             "input_cost_per_token": 1e-06,
-            "litellm_provider": "together_ai",
+            "embrouter_provider": "together_ai",
             "mode": "chat",
             "output_cost_per_token": 1e-06,
         },
         "together_ai/acme/b": {
             "input_cost_per_token": 1e-06,
-            "litellm_provider": "together_ai",
+            "embrouter_provider": "together_ai",
             "metadata": {"successor": "together_ai/acme/curated"},
             "mode": "chat",
             "output_cost_per_token": 1e-06,
@@ -330,7 +330,7 @@ def test_reappearance_clears_deprecation_date() -> None:
         "together_ai/acme/back": {
             "deprecation_date": "2026-05-01",
             "input_cost_per_token": 1e-06,
-            "litellm_provider": "together_ai",
+            "embrouter_provider": "together_ai",
             "max_input_tokens": 4096,
             "mode": "chat",
             "output_cost_per_token": 1e-06,
@@ -351,7 +351,7 @@ def test_new_keys_land_at_the_end_of_the_provider_block() -> None:
         "aaa": {"mode": "chat"},
         "together_ai/acme/old": {
             "input_cost_per_token": 1e-06,
-            "litellm_provider": "together_ai",
+            "embrouter_provider": "together_ai",
             "mode": "chat",
             "output_cost_per_token": 1e-06,
         },

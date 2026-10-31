@@ -1,4 +1,4 @@
-"""Loader for the packaged LiteLLM Rust extension."""
+"""Loader for the packaged EmbRouter Rust extension."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ def get_native_bridge() -> ModuleType | None:
         return _cached_bridge if isinstance(_cached_bridge, ModuleType) else None
 
     try:
-        from litellm.rust_bridge import _native
+        from embrouter.rust_bridge import _native
     except ImportError:
         _cached_bridge = None
         return None

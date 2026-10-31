@@ -5,13 +5,13 @@ Each uvicorn worker owns a Prisma query engine with its own pool of
 against Postgres scale as ``workers * connection_limit`` and a database with a
 fixed connection ceiling runs out of room as pods and workers are added.
 
-When ``LITELLM_PGBOUNCER_ENABLED`` is set, the supervisor process starts one
+When ``EMBROUTER_PGBOUNCER_ENABLED`` is set, the supervisor process starts one
 PgBouncer next to the workers (no extra network hop: it listens on loopback
 inside the pod) in transaction pooling mode, points ``DATABASE_URL`` at it
 with ``pgbouncer=true`` so Prisma stops using server-side prepared statements,
 and keeps it running for the life of the proxy. Every worker's pool then
 becomes cheap client connections to PgBouncer while the upstream connection
-count is capped at ``LITELLM_PGBOUNCER_MAX_DB_CONNECTIONS`` per pod, no matter
+count is capped at ``EMBROUTER_PGBOUNCER_MAX_DB_CONNECTIONS`` per pod, no matter
 how many workers run.
 
 Migrations and the schema diff run in the supervisor before the pooler is
@@ -19,14 +19,14 @@ started, so they always go straight to Postgres. ``DATABASE_URL_READ_REPLICA``
 is left untouched.
 
 The workers never hold the upstream credential: they log in to PgBouncer as
-``litellm_pgbouncer`` with a random password made at startup, and PgBouncer
+``embrouter_pgbouncer`` with a random password made at startup, and PgBouncer
 takes the database user's password from its auth file. Under
 ``IAM_TOKEN_DB_AUTH`` or ``AZURE_POSTGRESQL_AUTH`` that password is a
 short-lived token, so the supervisor mints a new one before it expires,
 rewrites the auth file and asks PgBouncer to reload; only new upstream
 connections authenticate, so live ones are unaffected. The pooled
 ``DATABASE_URL`` then carries a static password, and the workers must not run
-their own token refresh against it: ``LITELLM_PGBOUNCER_POOLED_DATABASE_URL``
+their own token refresh against it: ``EMBROUTER_PGBOUNCER_POOLED_DATABASE_URL``
 tells them so, while a read replica keeps refreshing its own token.
 """
 
@@ -56,8 +56,8 @@ from typing import Final
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy.db.token_auth import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy.db.token_auth import (
     DatabaseTokenAuth,
     IAMEndpoint,
     mint_database_token,
@@ -65,10 +65,10 @@ from litellm.proxy.db.token_auth import (
     parse_iam_endpoint_from_url,
 )
 
-PGBOUNCER_ENV_PREFIX: Final = "LITELLM_PGBOUNCER_"
-PGBOUNCER_POOLED_ENV_VAR: Final = "LITELLM_PGBOUNCER_POOLED_DATABASE_URL"
+PGBOUNCER_ENV_PREFIX: Final = "EMBROUTER_PGBOUNCER_"
+PGBOUNCER_POOLED_ENV_VAR: Final = "EMBROUTER_PGBOUNCER_POOLED_DATABASE_URL"
 PGBOUNCER_LISTEN_ADDR: Final = "127.0.0.1"
-PGBOUNCER_POOL_USER: Final = "litellm_pgbouncer"
+PGBOUNCER_POOL_USER: Final = "embrouter_pgbouncer"
 PGBOUNCER_INI_NAME: Final = "pgbouncer.ini"
 PGBOUNCER_USERLIST_NAME: Final = "userlist.txt"
 PGBOUNCER_CA_NAME: Final = "server-ca.pem"
@@ -97,7 +97,7 @@ PGBOUNCER_SSLMODES: Final[frozenset[str]] = frozenset(
 
 
 class PgBouncerSettings(BaseSettings):
-    """``LITELLM_PGBOUNCER_*`` env vars, read once in the supervisor."""
+    """``EMBROUTER_PGBOUNCER_*`` env vars, read once in the supervisor."""
 
     model_config = SettingsConfigDict(
         env_prefix=PGBOUNCER_ENV_PREFIX, case_sensitive=False, extra="ignore", frozen=True
@@ -415,7 +415,7 @@ class PgBouncerTokenRefresher:
         if isinstance(primed, PgBouncerError):
             return primed
         self._delay = primed
-        self._thread = threading.Thread(target=self._run, daemon=True, name="litellm-pgbouncer-token-refresh")
+        self._thread = threading.Thread(target=self._run, daemon=True, name="embrouter-pgbouncer-token-refresh")
         self._thread.start()
         return None
 
@@ -588,7 +588,7 @@ class PgBouncerProcess:
 
     def _watch(self, process: subprocess.Popen[bytes]) -> None:
         threading.Thread(
-            target=self._supervise, args=(process,), daemon=True, name="litellm-pgbouncer-supervisor"
+            target=self._supervise, args=(process,), daemon=True, name="embrouter-pgbouncer-supervisor"
         ).start()
 
     def _supervise(self, process: subprocess.Popen[bytes]) -> None:
@@ -624,7 +624,7 @@ class PgBouncerProcess:
         verbose_proxy_logger.error(
             "In-container pgbouncer could not be restarted (%s); retrying in %.1fs.", reason, self.restart_delay_seconds
         )
-        threading.Thread(target=self._restart_after_delay, daemon=True, name="litellm-pgbouncer-supervisor").start()
+        threading.Thread(target=self._restart_after_delay, daemon=True, name="embrouter-pgbouncer-supervisor").start()
 
     def reload(self) -> None:
         with self._lock:
@@ -707,7 +707,7 @@ def start_in_container_pgbouncer(
             f"cannot tell it apart from another listener; {PGBOUNCER_MIN_VERSION[0]}.{PGBOUNCER_MIN_VERSION[1]} "
             "or newer is required"
         )
-    runtime_dir: Final = Path(tempfile.mkdtemp(prefix="litellm-pgbouncer-"))
+    runtime_dir: Final = Path(tempfile.mkdtemp(prefix="embrouter-pgbouncer-"))
     register_exit_hook(_only_in_this_process(lambda: shutil.rmtree(runtime_dir, ignore_errors=True)))
     run_as_user: Final = PGBOUNCER_UNPRIVILEGED_USER if os.geteuid() == 0 else None
     plan: Final = plan_pgbouncer(upstream_url, settings, runtime_dir, run_as_user)

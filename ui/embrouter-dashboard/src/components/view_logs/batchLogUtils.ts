@@ -4,7 +4,7 @@
  * The proxy's batch cost poller (CheckBatchCost) writes one spend log per completed batch
  * with request_id "<batch_id>_batch_cost" and call_type "aretrieve_batch", carrying
  * batch_models / batch_successful_requests / batch_failed_requests in metadata
- * (see litellm/proxy/spend_tracking/spend_tracking_utils.py).
+ * (see embrouter/proxy/spend_tracking/spend_tracking_utils.py).
  */
 
 import { BATCH_CALL_TYPES } from "./constants";

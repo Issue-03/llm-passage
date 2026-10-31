@@ -9,9 +9,9 @@ from typing import Final, Literal, TypeVar
 from pydantic import BaseModel, TypeAdapter
 from typing_extensions import ReadOnly, TypedDict
 
-from litellm._logging import verbose_proxy_logger
-from litellm.caching.in_memory_cache import InMemoryCache
-from litellm.constants import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.caching.in_memory_cache import InMemoryCache
+from embrouter.constants import (
     CLI_SESSION_KEY_PREFIX,
     SPEND_LOG_KEY_METADATA_CACHE_MAX_ITEMS,
     SPEND_LOG_KEY_METADATA_CACHE_TTL,
@@ -19,23 +19,23 @@ from litellm.constants import (
     SPEND_LOG_KEY_METADATA_QUERY_TIMEOUT_MS,
     SPEND_LOG_KEY_METADATA_ROWS_PER_PROBE,
 )
-from litellm.litellm_core_utils.litellm_logging import is_valid_sha256_hash
-from litellm.proxy.utils import PrismaClient
-from litellm.repositories.chunked_in import find_many_in
-from litellm.repositories.user_repository import UserRepository
+from embrouter.embrouter_core_utils.embrouter_logging import is_valid_sha256_hash
+from embrouter.proxy.utils import PrismaClient
+from embrouter.repositories.chunked_in import find_many_in
+from embrouter.repositories.user_repository import UserRepository
 
 _T = TypeVar("_T")
 
 _ACTIVE_TOKEN_DIGEST_SQL: Final = """
 SELECT encode(sha256(convert_to(token, 'UTF8')), 'hex') AS digest, key_alias, team_id, user_id
-FROM "LiteLLM_VerificationToken"
+FROM "EmbRouter_VerificationToken"
 WHERE encode(sha256(convert_to(token, 'UTF8')), 'hex') = ANY($1::text[])
 """
 
 _DELETED_TOKEN_DIGEST_SQL: Final = """
 SELECT DISTINCT ON (token)
     encode(sha256(convert_to(token, 'UTF8')), 'hex') AS digest, key_alias, team_id, user_id
-FROM "LiteLLM_DeletedVerificationToken"
+FROM "EmbRouter_DeletedVerificationToken"
 WHERE encode(sha256(convert_to(token, 'UTF8')), 'hex') = ANY($1::text[])
 ORDER BY token, deleted_at DESC
 """
@@ -53,7 +53,7 @@ def _named_spend_log_edge_row_sql(
             COALESCE(NULLIF("user", ''), NULLIF(metadata->>'user_api_key_user_id', '')) AS user_id
         FROM (
             SELECT "startTime", metadata, team_id, "user"
-            FROM "LiteLLM_SpendLogs"
+            FROM "EmbRouter_SpendLogs"
             WHERE api_key = keys.digest
               AND "startTime" >= {since}
               AND "startTime" < $3::timestamp
@@ -70,7 +70,7 @@ def _named_spend_log_edge_row_sql(
 _OLDEST_PROBE_STOPPED_AT_SQL: Final = f"""
     SELECT COALESCE(first_row."startTime", (
         SELECT "startTime"
-        FROM "LiteLLM_SpendLogs"
+        FROM "EmbRouter_SpendLogs"
         WHERE api_key = keys.digest
           AND "startTime" >= $2::timestamp
           AND "startTime" < $3::timestamp
@@ -96,7 +96,7 @@ LEFT JOIN LATERAL ({_named_spend_log_edge_row_sql("DESC", "oldest_probe.stopped_
 
 _DAILY_USER_SPEND_OWNER_SQL: Final = """
 SELECT api_key, MIN(user_id) AS first_owner, MAX(user_id) AS last_owner
-FROM "LiteLLM_DailyUserSpend"
+FROM "EmbRouter_DailyUserSpend"
 WHERE api_key = ANY($1::text[]) AND user_id IS NOT NULL AND user_id <> ''
 GROUP BY api_key
 """

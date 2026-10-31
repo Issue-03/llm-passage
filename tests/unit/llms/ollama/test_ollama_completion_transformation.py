@@ -2,19 +2,19 @@ import base64
 import io
 import json
 import sys
-from litellm._uuid import uuid
+from embrouter._uuid import uuid
 from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
 
-import litellm
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.llms.ollama.completion.transformation import (
+import embrouter
+from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from embrouter.llms.ollama.completion.transformation import (
     OllamaConfig,
     OllamaTextCompletionResponseIterator,
 )
-from litellm.types.utils import Message, ModelResponse, ModelResponseStream
+from embrouter.types.utils import Message, ModelResponse, ModelResponseStream
 
 
 class TestOllamaConfig:
@@ -49,7 +49,7 @@ class TestOllamaConfig:
             request_data={},
             messages=[],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             encoding=mock_encoding,
         )
 
@@ -98,7 +98,7 @@ class TestOllamaConfig:
             request_data={"format": "json"},
             messages=[],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             encoding=mock_encoding,
         )
 
@@ -147,7 +147,7 @@ class TestOllamaConfig:
             request_data={"format": "json"},
             messages=[],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             encoding=mock_encoding,
         )
 
@@ -191,7 +191,7 @@ class TestOllamaConfig:
             request_data={},
             messages=[],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             encoding=mock_encoding,
         )
 
@@ -233,7 +233,7 @@ class TestOllamaConfig:
             request_data={},
             messages=[],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             encoding=mock_encoding,
         )
 
@@ -275,7 +275,7 @@ class TestOllamaConfig:
             request_data={},
             messages=[],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             encoding=mock_encoding,
         )
 
@@ -318,7 +318,7 @@ class TestOllamaConfig:
             request_data={},
             messages=[],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             encoding=mock_encoding,
         )
 
@@ -360,7 +360,7 @@ class TestOllamaConfig:
             request_data={"format": "json"},
             messages=[],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             encoding=mock_encoding,
         )
 
@@ -402,7 +402,7 @@ class TestOllamaConfig:
             request_data={},
             messages=[],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             encoding=mock_encoding,
         )
 
@@ -436,7 +436,7 @@ class TestOllamaConfig:
             request_data=request_data or {},
             messages=[],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             encoding=mock_encoding,
         )
 
@@ -686,7 +686,7 @@ async def test_ollama_async_completion_inlines_remote_images_off_the_event_loop(
     client = AsyncHTTPHandler()
     client.client = httpx.AsyncClient(transport=httpx.MockTransport(handle))
 
-    response = await litellm.acompletion(
+    response = await embrouter.acompletion(
         model="ollama/llava",
         messages=[
             {
@@ -730,7 +730,7 @@ def _transform_image_request(image_base64: str, mime_subtype: str) -> dict:
             }
         ],
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 

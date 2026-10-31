@@ -11,12 +11,12 @@ reasoning.encrypted_content for multi-turn stateless workflows.
 
 import pytest
 
-import litellm
-from litellm.llms.openrouter.responses.transformation import (
+import embrouter
+from embrouter.llms.openrouter.responses.transformation import (
     OpenRouterResponsesAPIConfig,
 )
-from litellm.types.utils import LlmProviders
-from litellm.utils import ProviderConfigManager
+from embrouter.types.utils import LlmProviders
+from embrouter.utils import ProviderConfigManager
 
 
 class TestOpenRouterResponsesAPIConfig:
@@ -30,7 +30,7 @@ class TestOpenRouterResponsesAPIConfig:
     def test_get_complete_url_default(self):
         """Default URL should point to OpenRouter's Responses API endpoint."""
         config = OpenRouterResponsesAPIConfig()
-        url = config.get_complete_url(api_base=None, litellm_params={})
+        url = config.get_complete_url(api_base=None, embrouter_params={})
         assert url == "https://openrouter.ai/api/v1/responses"
 
     def test_get_complete_url_custom_base(self):
@@ -38,7 +38,7 @@ class TestOpenRouterResponsesAPIConfig:
         config = OpenRouterResponsesAPIConfig()
         url = config.get_complete_url(
             api_base="https://custom.openrouter.ai/api/v1",
-            litellm_params={},
+            embrouter_params={},
         )
         assert url == "https://custom.openrouter.ai/api/v1/responses"
 
@@ -47,28 +47,28 @@ class TestOpenRouterResponsesAPIConfig:
         config = OpenRouterResponsesAPIConfig()
         url = config.get_complete_url(
             api_base="https://openrouter.ai/api/v1/",
-            litellm_params={},
+            embrouter_params={},
         )
         assert url == "https://openrouter.ai/api/v1/responses"
 
     def test_validate_environment_sets_auth_header(self):
         """validate_environment should set the Authorization header."""
         config = OpenRouterResponsesAPIConfig()
-        from litellm.types.router import GenericLiteLLMParams
+        from embrouter.types.router import GenericEmbRouterParams
 
-        params = GenericLiteLLMParams(api_key="sk-or-test-key")
+        params = GenericEmbRouterParams(api_key="sk-or-test-key")
         headers = config.validate_environment(
-            headers={}, model="openai/o4-mini", litellm_params=params
+            headers={}, model="openai/o4-mini", embrouter_params=params
         )
         assert headers["Authorization"] == "Bearer sk-or-test-key"
 
     def test_validate_environment_raises_without_key(self, monkeypatch):
         """validate_environment should raise when no API key is available."""
         config = OpenRouterResponsesAPIConfig()
-        from litellm.types.router import GenericLiteLLMParams
+        from embrouter.types.router import GenericEmbRouterParams
 
         # Clear any globally set API keys so the validation correctly raises
-        monkeypatch.setattr(litellm, "api_key", None)
+        monkeypatch.setattr(embrouter, "api_key", None)
         monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
         monkeypatch.delenv("OR_API_KEY", raising=False)
 
@@ -76,7 +76,7 @@ class TestOpenRouterResponsesAPIConfig:
             config.validate_environment(
                 headers={},
                 model="openai/o4-mini",
-                litellm_params=GenericLiteLLMParams(),
+                embrouter_params=GenericEmbRouterParams(),
             )
         e = exc_info.value
         assert "OpenRouter API key is required" in str(e)
@@ -114,5 +114,5 @@ class TestOpenRouterResponsesAPIRegistration:
         # If config is not None, the native Responses API path is used
         assert config is not None
         # The URL should point to OpenRouter's responses endpoint
-        url = config.get_complete_url(api_base=None, litellm_params={})
+        url = config.get_complete_url(api_base=None, embrouter_params={})
         assert "/responses" in url

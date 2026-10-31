@@ -8,34 +8,34 @@ from urllib.parse import quote
 import httpx
 from httpx._types import FileContent, FileTypes, RequestFiles
 
-import litellm
-from litellm.litellm_core_utils.url_utils import encode_url_path_segment
-from litellm.llms.base_llm.videos.transformation import BaseVideoConfig
-from litellm.llms.openai.image_edit.transformation import ImageEditRequestUtils
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.openai import CreateVideoRequest
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.videos.main import (
+import embrouter
+from embrouter.embrouter_core_utils.url_utils import encode_url_path_segment
+from embrouter.llms.base_llm.videos.transformation import BaseVideoConfig
+from embrouter.llms.openai.image_edit.transformation import ImageEditRequestUtils
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.openai import CreateVideoRequest
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.videos.main import (
     CharacterObject,
     VideoCreateOptionalRequestParams,
     VideoObject,
 )
-from litellm.types.videos.utils import (
+from embrouter.types.videos.utils import (
     encode_video_id_with_provider,
     extract_original_character_id,
     extract_original_video_id,
 )
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
+    from embrouter.llms.custom_httpx.http_handler import HTTPHandler
 
     from ...base_llm.chat.transformation import BaseLLMException as _BaseLLMException
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
     BaseLLMException = _BaseLLMException
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
     BaseLLMException = Any
 
 
@@ -76,13 +76,13 @@ class OpenAIVideoConfig(BaseVideoConfig):
         headers: dict,
         model: str,
         api_key: str | None = None,
-        litellm_params: GenericLiteLLMParams | None = None,
+        embrouter_params: GenericEmbRouterParams | None = None,
     ) -> dict:
-        # Use api_key from litellm_params if available, otherwise fall back to other sources
-        if litellm_params and litellm_params.api_key:
-            api_key = api_key or litellm_params.api_key
+        # Use api_key from embrouter_params if available, otherwise fall back to other sources
+        if embrouter_params and embrouter_params.api_key:
+            api_key = api_key or embrouter_params.api_key
 
-        api_key = api_key or litellm.api_key or litellm.openai_key or get_secret_str("OPENAI_API_KEY")
+        api_key = api_key or embrouter.api_key or embrouter.openai_key or get_secret_str("OPENAI_API_KEY")
         headers.update(
             {
                 "Authorization": f"Bearer {api_key}",
@@ -94,7 +94,7 @@ class OpenAIVideoConfig(BaseVideoConfig):
         self,
         model: str,
         api_base: str | None,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> str:
         """
         Get the complete URL for OpenAI video generation.
@@ -113,7 +113,7 @@ class OpenAIVideoConfig(BaseVideoConfig):
         prompt: str,
         api_base: str,
         video_create_optional_request_params: dict,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[dict, RequestFiles, str]:
         """
@@ -147,7 +147,7 @@ class OpenAIVideoConfig(BaseVideoConfig):
 
     def _decode_character_ids_in_create_video_request(self, request_dict: dict) -> dict:
         """
-        Decode LiteLLM-managed encoded character ids for provider requests.
+        Decode EmbRouter-managed encoded character ids for provider requests.
 
         OpenAI expects character ids like `char_...`. If a caller sends
         `character_<base64-encoded-provider-payload>`, convert it back to the
@@ -178,7 +178,7 @@ class OpenAIVideoConfig(BaseVideoConfig):
         self,
         model: str,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         custom_llm_provider: str | None = None,
         request_data: dict | None = None,
     ) -> VideoObject:
@@ -203,7 +203,7 @@ class OpenAIVideoConfig(BaseVideoConfig):
         self,
         video_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
         variant: str | None = None,
     ) -> tuple[str, dict]:
@@ -236,7 +236,7 @@ class OpenAIVideoConfig(BaseVideoConfig):
         video_id: str,
         prompt: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
         extra_body: dict[str, object] | None = None,
     ) -> tuple[str, dict]:
@@ -264,7 +264,7 @@ class OpenAIVideoConfig(BaseVideoConfig):
     def transform_video_content_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> bytes:
         """Transform the OpenAI video content download response."""
         return raw_response.content
@@ -272,7 +272,7 @@ class OpenAIVideoConfig(BaseVideoConfig):
     def transform_video_remix_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         custom_llm_provider: str | None = None,
     ) -> VideoObject:
         """
@@ -301,7 +301,7 @@ class OpenAIVideoConfig(BaseVideoConfig):
     def transform_video_list_request(
         self,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
         after: str | None = None,
         limit: int | None = None,
@@ -336,7 +336,7 @@ class OpenAIVideoConfig(BaseVideoConfig):
     def transform_video_list_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         custom_llm_provider: str | None = None,
     ) -> dict[str, str]:
         response_data: Final = raw_response.json()
@@ -378,7 +378,7 @@ class OpenAIVideoConfig(BaseVideoConfig):
         self,
         video_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict]:
         """
@@ -401,7 +401,7 @@ class OpenAIVideoConfig(BaseVideoConfig):
     def transform_video_delete_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> VideoObject:
         """
         Transform the OpenAI video delete response.
@@ -415,7 +415,7 @@ class OpenAIVideoConfig(BaseVideoConfig):
         self,
         video_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict]:
         """
@@ -436,7 +436,7 @@ class OpenAIVideoConfig(BaseVideoConfig):
     def transform_video_status_retrieve_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         custom_llm_provider: str | None = None,
         client: "HTTPHandler | None" = None,
     ) -> VideoObject:
@@ -465,7 +465,7 @@ class OpenAIVideoConfig(BaseVideoConfig):
         name: str,
         video: FileContent,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, list]:
         url: Final = f"{api_base.rstrip('/')}/characters"
@@ -476,7 +476,7 @@ class OpenAIVideoConfig(BaseVideoConfig):
     def transform_video_create_character_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> CharacterObject:
         return CharacterObject.model_validate(raw_response.json())
 
@@ -484,7 +484,7 @@ class OpenAIVideoConfig(BaseVideoConfig):
         self,
         character_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict]:
         original_character_id: Final = extract_original_character_id(character_id)
@@ -495,7 +495,7 @@ class OpenAIVideoConfig(BaseVideoConfig):
     def transform_video_get_character_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> CharacterObject:
         return CharacterObject.model_validate(raw_response.json())
 
@@ -504,7 +504,7 @@ class OpenAIVideoConfig(BaseVideoConfig):
         prompt: str,
         video_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
         video_file: FileContent | None = None,
         extra_body: dict[str, object] | None = None,
@@ -530,7 +530,7 @@ class OpenAIVideoConfig(BaseVideoConfig):
     def transform_video_edit_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         custom_llm_provider: str | None = None,
         request_data: dict | None = None,
     ) -> VideoObject:
@@ -545,7 +545,7 @@ class OpenAIVideoConfig(BaseVideoConfig):
         video_id: str,
         seconds: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
         extra_body: dict[str, object] | None = None,
     ) -> tuple[str, dict]:
@@ -563,7 +563,7 @@ class OpenAIVideoConfig(BaseVideoConfig):
     def transform_video_extension_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         custom_llm_provider: str | None = None,
     ) -> VideoObject:
         video_obj: Final = VideoObject.model_validate(raw_response.json())

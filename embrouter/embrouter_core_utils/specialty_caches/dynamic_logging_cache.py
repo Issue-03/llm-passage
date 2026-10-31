@@ -10,16 +10,16 @@ import hashlib
 import json
 from typing import Any, Final
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.constants import _DEFAULT_TTL_FOR_HTTPX_CLIENTS
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.constants import _DEFAULT_TTL_FOR_HTTPX_CLIENTS
 
 from ...caching import InMemoryCache
 
 
 class LangfuseInMemoryCache(InMemoryCache):
     """
-    Decrements ``litellm.initialized_langfuse_clients`` when a LangFuseLogger entry expires.
+    Decrements ``embrouter.initialized_langfuse_clients`` when a LangFuseLogger entry expires.
 
     The counter is a soft budget: loggers built concurrently for one credential set before the
     first lands in the cache each take a slot, and only the cached one gives it back on expiry.
@@ -28,7 +28,7 @@ class LangfuseInMemoryCache(InMemoryCache):
     """
 
     def _remove_key(self, key: str) -> None:
-        from litellm.integrations.langfuse.langfuse import LangFuseLogger
+        from embrouter.integrations.langfuse.langfuse import LangFuseLogger
 
         evicted: Final = self.cache_dict.pop(key, None)
         self.ttl_dict.pop(key, None)
@@ -36,7 +36,7 @@ class LangfuseInMemoryCache(InMemoryCache):
             return
 
         if isinstance(evicted, LangFuseLogger):
-            litellm.initialized_langfuse_clients -= 1
+            embrouter.initialized_langfuse_clients -= 1
 
         # Loggers with a periodic flush task (e.g. NewRelicMetricsLogger) expose
         # stop() so eviction actually ends the task instead of leaking it.

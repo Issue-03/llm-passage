@@ -5,15 +5,15 @@ Responses API request tools they were flattened from
 
 import copy
 
-from litellm.llms.openai.responses.guardrail_translation.tool_merge import merge_guardrailed_tools
-from litellm.responses.litellm_completion_transformation.transformation import (
-    LiteLLMCompletionResponsesConfig,
+from embrouter.llms.openai.responses.guardrail_translation.tool_merge import merge_guardrailed_tools
+from embrouter.responses.embrouter_completion_transformation.transformation import (
+    EmbRouterCompletionResponsesConfig,
 )
-from litellm.types.proxy.guardrails.guardrail_hooks.generic_guardrail_api import GuardrailToolParam
+from embrouter.types.proxy.guardrails.guardrail_hooks.generic_guardrail_api import GuardrailToolParam
 
 
 def _groups(tools):
-    return [form.chat_tools for form in LiteLLMCompletionResponsesConfig.responses_tools_to_chat_forms(tools)]
+    return [form.chat_tools for form in EmbRouterCompletionResponsesConfig.responses_tools_to_chat_forms(tools)]
 
 
 def _flat(groups):

@@ -63,7 +63,7 @@ describe("UpdateModelCredentialsModal", () => {
     expect(token).toBe("test-token");
     expect(modelId).toBe("model-123");
     // Exactly the new key plus the id — nothing else from the deployment.
-    expect(payload).toEqual({ litellm_params: { api_key: "sk-rotated-9988" }, model_info: { id: "model-123" } });
+    expect(payload).toEqual({ embrouter_params: { api_key: "sk-rotated-9988" }, model_info: { id: "model-123" } });
     expect(onUpdated).toHaveBeenCalledTimes(1);
     expect(onCancel).toHaveBeenCalledTimes(1);
   });
@@ -108,7 +108,7 @@ describe("UpdateModelCredentialsModal", () => {
 
     await waitFor(() => expect(mockModelPatchUpdateCall).toHaveBeenCalledTimes(1));
     expect(mockModelPatchUpdateCall.mock.calls[0][1]).toEqual({
-      litellm_params: { api_key: "sk-pad-77" },
+      embrouter_params: { api_key: "sk-pad-77" },
       model_info: { id: "model-123" },
     });
   });
@@ -121,7 +121,7 @@ describe("UpdateModelCredentialsModal", () => {
 
     await waitFor(() => expect(mockModelPatchUpdateCall).toHaveBeenCalledTimes(1));
     expect(mockModelPatchUpdateCall.mock.calls[0][1]).toEqual({
-      litellm_params: { api_key: "sk-enter-1" },
+      embrouter_params: { api_key: "sk-enter-1" },
       model_info: { id: "model-123" },
     });
   });

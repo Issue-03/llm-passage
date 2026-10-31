@@ -3,9 +3,9 @@ import sys
 from types import MappingProxyType
 from typing import Final, Literal
 
-from litellm.litellm_core_utils.env_utils import get_env_int, get_env_int_in_range, get_env_int_or_none
+from embrouter.embrouter_core_utils.env_utils import get_env_int, get_env_int_in_range, get_env_int_or_none
 
-DEFAULT_HEALTH_CHECK_PROMPT: Final = str(os.getenv("DEFAULT_HEALTH_CHECK_PROMPT", "test from litellm"))
+DEFAULT_HEALTH_CHECK_PROMPT: Final = str(os.getenv("DEFAULT_HEALTH_CHECK_PROMPT", "test from embrouter"))
 AZURE_DEFAULT_RESPONSES_API_VERSION: Final = str(os.getenv("AZURE_DEFAULT_RESPONSES_API_VERSION", "preview"))
 AZURE_OPENAI_AUDIO_PROVIDERS: Final = frozenset({"azure", "azure_ai"})
 ROUTER_MAX_FALLBACKS: Final = int(os.getenv("ROUTER_MAX_FALLBACKS", 5))
@@ -59,7 +59,7 @@ MAX_S3_OBJECT_DOWNLOAD_FILENAME_BYTES: Final = 1024
 S3_LOG_PROMPTS_ONLY_ENV_VAR: Final = "S3_LOG_PROMPTS_ONLY"
 MAX_FILE_LIST_LIMIT: Final = 10000
 DEFAULT_SQS_FLUSH_INTERVAL_SECONDS: Final = int(os.getenv("DEFAULT_SQS_FLUSH_INTERVAL_SECONDS", 10))
-DEFAULT_NUM_WORKERS_LITELLM_PROXY: Final = int(os.getenv("DEFAULT_NUM_WORKERS_LITELLM_PROXY", 1))
+DEFAULT_NUM_WORKERS_EMBROUTER_PROXY: Final = int(os.getenv("DEFAULT_NUM_WORKERS_EMBROUTER_PROXY", 1))
 budget_reservation_disabled_info_emitted = False
 DYNAMIC_RATE_LIMIT_ERROR_THRESHOLD_PER_MINUTE = int(os.getenv("DYNAMIC_RATE_LIMIT_ERROR_THRESHOLD_PER_MINUTE", 1))
 DEFAULT_SQS_BATCH_SIZE: Final = int(os.getenv("DEFAULT_SQS_BATCH_SIZE", 512))
@@ -89,8 +89,8 @@ HF_CONFIG_FETCH_TIMEOUT_SECONDS: Final = 10.0
 # Maximum wall-clock seconds a streaming response is allowed to run.
 # Streams exceeding this duration are terminated with a Timeout error.
 # None (default) = no limit.  Set env var to a number of seconds to enable globally.
-_max_stream_duration_env: Final = os.getenv("LITELLM_MAX_STREAMING_DURATION_SECONDS", None)
-LITELLM_MAX_STREAMING_DURATION_SECONDS: Final = (
+_max_stream_duration_env: Final = os.getenv("EMBROUTER_MAX_STREAMING_DURATION_SECONDS", None)
+EMBROUTER_MAX_STREAMING_DURATION_SECONDS: Final = (
     float(_max_stream_duration_env) if _max_stream_duration_env is not None else None
 )
 
@@ -99,7 +99,7 @@ LITELLM_MAX_STREAMING_DURATION_SECONDS: Final = (
 # Set to 0 to disable truncation.
 MAX_BASE64_LENGTH_FOR_LOGGING: Final = int(os.getenv("MAX_BASE64_LENGTH_FOR_LOGGING", 64))
 BASE64_TRUNCATION_OFFLOAD_THRESHOLD_CHARS: Final = 256 * 1024
-REDACTED_BY_LITELLM: Final = "redacted-by-litellm"
+REDACTED_BY_EMBROUTER: Final = "redacted-by-embrouter"
 # in-memory stand-in handed to provider converters for redacted arguments; never stored
 REDACTED_TOOL_CALL_ARGUMENTS_PLACEHOLDER: Final = "{}"
 
@@ -107,8 +107,8 @@ MAX_STRING_LENGTH_STDOUT_LOG: Final = get_env_int("MAX_STRING_LENGTH_STDOUT_LOG"
 MAX_BASE64_LENGTH_STDOUT_LOG: Final = get_env_int("MAX_BASE64_LENGTH_STDOUT_LOG", 4096)
 
 # When true, adds detailed per-phase timing breakdown headers to responses.
-# Headers: x-litellm-timing-{pre-processing,llm-api,post-processing,message-copy}-ms
-LITELLM_DETAILED_TIMING: Final = os.getenv("LITELLM_DETAILED_TIMING", "false").lower() == "true"
+# Headers: x-embrouter-timing-{pre-processing,llm-api,post-processing,message-copy}-ms
+EMBROUTER_DETAILED_TIMING: Final = os.getenv("EMBROUTER_DETAILED_TIMING", "false").lower() == "true"
 
 # Model cost map validation constants
 MODEL_COST_MAP_MIN_MODEL_COUNT: Final = int(
@@ -149,7 +149,7 @@ DEFAULT_MCP_SEMANTIC_FILTER_SIMILARITY_THRESHOLD: Final = float(
     os.getenv("DEFAULT_MCP_SEMANTIC_FILTER_SIMILARITY_THRESHOLD", 0.3)
 )
 MAX_MCP_SEMANTIC_FILTER_TOOLS_HEADER_LENGTH: Final = int(os.getenv("MAX_MCP_SEMANTIC_FILTER_TOOLS_HEADER_LENGTH", 150))
-MAX_LITELLM_CALL_ID_LENGTH: Final = 256
+MAX_EMBROUTER_CALL_ID_LENGTH: Final = 256
 MAX_GUARDRAIL_SCAN_METADATA_HEADER_LENGTH: Final = 2048
 
 DEFAULT_AUTO_ROUTER_MAX_INPUT_CHARS: Final = 2000
@@ -185,10 +185,10 @@ MCP_PER_USER_TOKEN_DEFAULT_TTL: Final = int(
 MCP_PER_USER_TOKEN_EXPIRY_BUFFER_SECONDS: Final = int(os.getenv("MCP_PER_USER_TOKEN_EXPIRY_BUFFER_SECONDS", "60"))
 
 # MCP timeout defaults (seconds). Override via env vars for slow/custom MCP servers.
-MCP_CLIENT_TIMEOUT: Final = float(os.getenv("LITELLM_MCP_CLIENT_TIMEOUT", "60.0"))
-MCP_TOOL_LISTING_TIMEOUT: Final = float(os.getenv("LITELLM_MCP_TOOL_LISTING_TIMEOUT", "30.0"))
-MCP_METADATA_TIMEOUT: Final = float(os.getenv("LITELLM_MCP_METADATA_TIMEOUT", "10.0"))
-MCP_HEALTH_CHECK_TIMEOUT: Final = float(os.getenv("LITELLM_MCP_HEALTH_CHECK_TIMEOUT", "10.0"))
+MCP_CLIENT_TIMEOUT: Final = float(os.getenv("EMBROUTER_MCP_CLIENT_TIMEOUT", "60.0"))
+MCP_TOOL_LISTING_TIMEOUT: Final = float(os.getenv("EMBROUTER_MCP_TOOL_LISTING_TIMEOUT", "30.0"))
+MCP_METADATA_TIMEOUT: Final = float(os.getenv("EMBROUTER_MCP_METADATA_TIMEOUT", "10.0"))
+MCP_HEALTH_CHECK_TIMEOUT: Final = float(os.getenv("EMBROUTER_MCP_HEALTH_CHECK_TIMEOUT", "10.0"))
 MCP_TOOL_LISTING_MAX_PAGES: Final = 1000
 MCP_GATEWAY_SESSION_ID_PREFIX_LENGTH: Final = 8
 MCP_BYOK_CREDENTIAL_CACHE_TTL_SECONDS: Final = 60
@@ -198,8 +198,8 @@ MCP_BYOK_CREDENTIAL_CACHE_MAX_SIZE: Final = 4096
 # Prevents arbitrary command execution via /mcp-rest/test/* endpoints or server creation.
 # Note: allowlisted runtimes can still execute code via args (e.g. python -c "...").
 # This is an accepted residual risk since these endpoints require PROXY_ADMIN.
-# Extend via LITELLM_MCP_STDIO_EXTRA_COMMANDS env var (comma-separated).
-_MCP_STDIO_EXTRA_COMMANDS: Final = os.getenv("LITELLM_MCP_STDIO_EXTRA_COMMANDS", "")
+# Extend via EMBROUTER_MCP_STDIO_EXTRA_COMMANDS env var (comma-separated).
+_MCP_STDIO_EXTRA_COMMANDS: Final = os.getenv("EMBROUTER_MCP_STDIO_EXTRA_COMMANDS", "")
 MCP_STDIO_ALLOWED_COMMANDS: Final[frozenset] = frozenset(
     {"npx", "uvx", "python", "python3", "node", "docker", "deno"} | (set(_MCP_STDIO_EXTRA_COMMANDS.split(",")) - {""})
 )
@@ -207,14 +207,14 @@ MCP_STDIO_ALLOWED_COMMANDS: Final[frozenset] = frozenset(
 # MCP OAuth2 Token Exchange (OBO) Defaults
 MCP_TOKEN_EXCHANGE_CACHE_MAX_SIZE: Final = int(os.getenv("MCP_TOKEN_EXCHANGE_CACHE_MAX_SIZE", "500"))
 
-LITELLM_UI_ALLOW_HEADERS: Final = [
-    "x-litellm-semantic-filter",
-    "x-litellm-semantic-filter-tools",
-    "x-litellm-adaptive-router-model",
-    "x-litellm-applied-guardrails",
-    "x-litellm-guardrail-scan-id",
-    "x-litellm-guardrail-scan-metadata",
-    "x-litellm-cache-key",
+EMBROUTER_UI_ALLOW_HEADERS: Final = [
+    "x-embrouter-semantic-filter",
+    "x-embrouter-semantic-filter-tools",
+    "x-embrouter-adaptive-router-model",
+    "x-embrouter-applied-guardrails",
+    "x-embrouter-guardrail-scan-id",
+    "x-embrouter-guardrail-scan-metadata",
+    "x-embrouter-cache-key",
 ]
 
 # Gemini model-specific minimal thinking budget constants
@@ -230,20 +230,20 @@ DEFAULT_REASONING_EFFORT_MINIMAL_THINKING_BUDGET_GEMINI_2_5_FLASH_LITE: Final = 
 
 # Maximum number of callbacks that can be registered
 # This prevents callbacks from exponentially growing and consuming CPU resources
-# Override with LITELLM_MAX_CALLBACKS env var for large deployments (e.g., many teams with guardrails)
-MAX_CALLBACKS: Final = get_env_int("LITELLM_MAX_CALLBACKS", 100)
+# Override with EMBROUTER_MAX_CALLBACKS env var for large deployments (e.g., many teams with guardrails)
+MAX_CALLBACKS: Final = get_env_int("EMBROUTER_MAX_CALLBACKS", 100)
 
 # Metadata key recording which pre_call guardrails the proxy loop already ran,
 # so the deployment-level hook does not re-run them for the same request
 PRE_CALL_EXECUTED_GUARDRAILS_KEY: Final = "_pre_call_executed_guardrails"
 
 # Attribute stamped on log_guardrail_information wrappers so __init_subclass__ does not wrap them again
-LOGS_GUARDRAIL_INFORMATION_MARKER: Final = "_litellm_logs_guardrail_information"
+LOGS_GUARDRAIL_INFORMATION_MARKER: Final = "_embrouter_logs_guardrail_information"
 
 # llm_provider stamped on proxy-side rate limit errors when the model resolves to no deployment
-PROXY_LLM_PROVIDER_FALLBACK: Final = "litellm_proxy"
+PROXY_LLM_PROVIDER_FALLBACK: Final = "embrouter_proxy"
 
-# litellm_params flag on failure logs for requests the proxy rejected before routing to a deployment
+# embrouter_params flag on failure logs for requests the proxy rejected before routing to a deployment
 PROXY_REJECTED_BEFORE_ROUTING_KEY: Final = "proxy_rejected_before_routing"
 
 # Generic fallback for unknown models
@@ -283,7 +283,7 @@ RUNWAYML_POLLING_TIMEOUT = int(os.getenv("RUNWAYML_POLLING_TIMEOUT", 600))  # 10
 ########## Networking constants ##############################################################
 _DEFAULT_TTL_FOR_HTTPX_CLIENTS: Final = 3600  # 1 hour, re-use the same httpx client for 1 hour
 
-# The earliest an evicted, litellm-created client may be closed. A request handed the
+# The earliest an evicted, embrouter-created client may be closed. A request handed the
 # client just before eviction is still using it, so nothing is closed inside this window;
 # past it, the client is closed once it reports no connection in flight.
 EVICTED_LLM_CLIENT_CLOSE_GRACE_SECONDS: Final = 900
@@ -334,13 +334,13 @@ DEEPGRAM_DEFAULT_API_BASE: Final = "https://api.deepgram.com/v1"
 NADIR_DEFAULT_API_BASE: Final = "https://api.getnadir.com/v1"
 DEEPGRAM_LISTEN_DEFAULT_MODEL: Final = "nova-3"
 
-BEDROCK_REALTIME_PENDING_SESSION_UPDATE_SCOPE_KEY: Final = "litellm.bedrock_realtime.pending_session_update"
-BEDROCK_REALTIME_SESSION_COMMITTED_SCOPE_KEY: Final = "litellm.bedrock_realtime.session_committed"
-BEDROCK_REALTIME_COMMITTED_FAILURE_SCOPE_KEY: Final = "litellm.bedrock_realtime.committed_failure"
+BEDROCK_REALTIME_PENDING_SESSION_UPDATE_SCOPE_KEY: Final = "embrouter.bedrock_realtime.pending_session_update"
+BEDROCK_REALTIME_SESSION_COMMITTED_SCOPE_KEY: Final = "embrouter.bedrock_realtime.session_committed"
+BEDROCK_REALTIME_COMMITTED_FAILURE_SCOPE_KEY: Final = "embrouter.bedrock_realtime.committed_failure"
 BEDROCK_REALTIME_SDK_DISTRIBUTION: Final = "aws-sdk-bedrock-runtime"
 BEDROCK_REALTIME_SDK_SUPPORTED_RANGE: Final = ">=0.10.0,<0.12.0"
-CLIENT_REQUESTED_MODEL_SCOPE_KEY: Final = "litellm.client_requested_model"
-MODEL_GROUP_ALIAS_RESOLVED_SCOPE_KEY: Final = "litellm.model_group_alias_resolved"
+CLIENT_REQUESTED_MODEL_SCOPE_KEY: Final = "embrouter.client_requested_model"
+MODEL_GROUP_ALIAS_RESOLVED_SCOPE_KEY: Final = "embrouter.model_group_alias_resolved"
 REALTIME_SESSION_SUCCESS_LOGGED_KEY: Final = "realtime_session_success_logged"
 REALTIME_SESSION_FAILURE_LOGGED_KEY: Final = "realtime_session_failure_logged"
 
@@ -348,7 +348,7 @@ REALTIME_SESSION_FAILURE_LOGGED_KEY: Final = "realtime_session_failure_logged"
 # Strategy: Strongly prefer fast modern ciphers, but allow fallback to commonly supported ones
 # This balances performance with broad compatibility
 DEFAULT_SSL_CIPHERS: Final = os.getenv(
-    "LITELLM_SSL_CIPHERS",
+    "EMBROUTER_SSL_CIPHERS",
     # Priority 1: TLS 1.3 ciphers (fastest, ~50ms handshake)
     "TLS_AES_256_GCM_SHA384:"  # Fastest observed in testing
     "TLS_AES_128_GCM_SHA256:"  # Slightly faster than 256-bit
@@ -369,21 +369,21 @@ DEFAULT_SSL_CIPHERS: Final = os.getenv(
 )
 
 ########### v2 Architecture constants for managing writing updates to the database ###########
-REDIS_UPDATE_BUFFER_KEY: Final = "litellm_spend_update_buffer"
-REDIS_GATEWAY_REQUESTS_BUFFER_KEY: Final = "litellm_gateway_requests_buffer"
-REDIS_DAILY_SPEND_UPDATE_BUFFER_KEY: Final = "litellm_daily_spend_update_buffer"
-REDIS_DAILY_TEAM_SPEND_UPDATE_BUFFER_KEY: Final = "litellm_daily_team_spend_update_buffer"
-REDIS_DAILY_ORG_SPEND_UPDATE_BUFFER_KEY: Final = "litellm_daily_org_spend_update_buffer"
-REDIS_DAILY_END_USER_SPEND_UPDATE_BUFFER_KEY: Final = "litellm_daily_end_user_spend_update_buffer"
-REDIS_DAILY_AGENT_SPEND_UPDATE_BUFFER_KEY: Final = "litellm_daily_agent_spend_update_buffer"
-REDIS_DAILY_TAG_SPEND_UPDATE_BUFFER_KEY: Final = "litellm_daily_tag_spend_update_buffer"
-REDIS_WINDOW_SPEND_UPDATE_BUFFER_KEY: Final = "litellm_window_spend_update_buffer"
+REDIS_UPDATE_BUFFER_KEY: Final = "embrouter_spend_update_buffer"
+REDIS_GATEWAY_REQUESTS_BUFFER_KEY: Final = "embrouter_gateway_requests_buffer"
+REDIS_DAILY_SPEND_UPDATE_BUFFER_KEY: Final = "embrouter_daily_spend_update_buffer"
+REDIS_DAILY_TEAM_SPEND_UPDATE_BUFFER_KEY: Final = "embrouter_daily_team_spend_update_buffer"
+REDIS_DAILY_ORG_SPEND_UPDATE_BUFFER_KEY: Final = "embrouter_daily_org_spend_update_buffer"
+REDIS_DAILY_END_USER_SPEND_UPDATE_BUFFER_KEY: Final = "embrouter_daily_end_user_spend_update_buffer"
+REDIS_DAILY_AGENT_SPEND_UPDATE_BUFFER_KEY: Final = "embrouter_daily_agent_spend_update_buffer"
+REDIS_DAILY_TAG_SPEND_UPDATE_BUFFER_KEY: Final = "embrouter_daily_tag_spend_update_buffer"
+REDIS_WINDOW_SPEND_UPDATE_BUFFER_KEY: Final = "embrouter_window_spend_update_buffer"
 MAX_REDIS_BUFFER_DEQUEUE_COUNT: Final = int(os.getenv("MAX_REDIS_BUFFER_DEQUEUE_COUNT", 100))
-REDIS_SPEND_LOGS_BUFFER_KEY: Final = "litellm_spend_logs_buffer"
+REDIS_SPEND_LOGS_BUFFER_KEY: Final = "embrouter_spend_logs_buffer"
 REDIS_SPEND_LOGS_BUFFER_MAX_ROWS: Final = 100000
 REDIS_SPEND_LOGS_BUFFER_DEQUEUE_COUNT: Final = 1000
 # Bounds asyncio.Queue() instances (log queues, spend update queues, etc.) to prevent unbounded memory growth
-LITELLM_ASYNCIO_QUEUE_MAXSIZE: Final = int(os.getenv("LITELLM_ASYNCIO_QUEUE_MAXSIZE", 1000))
+EMBROUTER_ASYNCIO_QUEUE_MAXSIZE: Final = int(os.getenv("EMBROUTER_ASYNCIO_QUEUE_MAXSIZE", 1000))
 TOOL_POLICY_CACHE_TTL_SECONDS: Final = int(os.getenv("TOOL_POLICY_CACHE_TTL_SECONDS", 60))
 GUARDRAIL_SCANNED_MESSAGES_CACHE_TTL_SECONDS: Final = int(
     os.getenv("GUARDRAIL_SCANNED_MESSAGES_CACHE_TTL_SECONDS", 24 * 60 * 60)
@@ -395,8 +395,8 @@ DEFAULT_PRESIDIO_ANALYZE_CHUNK_SIZE_BYTES: Final = 500_000
 PRESIDIO_ANALYZE_CHUNK_OVERLAP_CHARS: Final = 4096
 PRESIDIO_ANALYZE_CHUNK_CONCURRENCY: Final = 8
 # Aggregation threshold: default to 80% of the asyncio queue maxsize so the check can always trigger.
-# Must be < LITELLM_ASYNCIO_QUEUE_MAXSIZE; if set higher the aggregation logic will never fire.
-MAX_SIZE_IN_MEMORY_QUEUE: Final = int(os.getenv("MAX_SIZE_IN_MEMORY_QUEUE", int(LITELLM_ASYNCIO_QUEUE_MAXSIZE * 0.8)))
+# Must be < EMBROUTER_ASYNCIO_QUEUE_MAXSIZE; if set higher the aggregation logic will never fire.
+MAX_SIZE_IN_MEMORY_QUEUE: Final = int(os.getenv("MAX_SIZE_IN_MEMORY_QUEUE", int(EMBROUTER_ASYNCIO_QUEUE_MAXSIZE * 0.8)))
 MAX_IN_MEMORY_QUEUE_FLUSH_COUNT: Final = int(os.getenv("MAX_IN_MEMORY_QUEUE_FLUSH_COUNT", 1000))
 ###############################################################################################
 # Providers will not cache a prefix below a minimum size. That minimum is per-model, not global:
@@ -545,8 +545,8 @@ AUDIO_SPEECH_CHUNK_SIZE: Final = int(
 )  # chunk_size for audio speech streaming. Balance between latency and memory usage
 DEFAULT_MAX_TOKENS_FOR_TRITON: Final = int(os.getenv("DEFAULT_MAX_TOKENS_FOR_TRITON", 2000))
 #### Networking settings ####
-# Sentinel used when `REQUEST_TIMEOUT` is unset: `litellm.request_timeout` keeps this
-# value so longer-running surfaces (Router `timeout or litellm.request_timeout`,
+# Sentinel used when `REQUEST_TIMEOUT` is unset: `embrouter.request_timeout` keeps this
+# value so longer-running surfaces (Router `timeout or embrouter.request_timeout`,
 # speech/TTS, responses, vector stores, etc.) get a long HTTP deadline. Chat
 # `completion()` maps this sentinel down to 600s when the caller did not set a
 # per-request/model timeout—see ``CompletionTimeout.resolve`` in completion_timeout.py. MCP uses
@@ -637,7 +637,7 @@ DD_TRACER_STREAMING_CHUNK_YIELD_RESOURCE: Final = os.getenv(
     "DD_TRACER_STREAMING_CHUNK_YIELD_RESOURCE", "streaming.chunk.yield"
 )
 
-LITELLM_HTTP_STATUS_CLIENT_DISCONNECTED: Final = 499
+EMBROUTER_HTTP_STATUS_CLIENT_DISCONNECTED: Final = 499
 
 EMAIL_BUDGET_ALERT_TTL: Final = int(os.getenv("EMAIL_BUDGET_ALERT_TTL", 24 * 60 * 60))  # 24 hours in seconds
 EMAIL_BUDGET_ALERT_MAX_SPEND_ALERT_PERCENTAGE: Final = float(
@@ -655,9 +655,9 @@ ANTHROPIC_WEB_SEARCH_TOOL_MAX_USES: Final = {
     "high": 10,
 }
 
-# LiteLLM standard web search tool name
+# EmbRouter standard web search tool name
 # Used for web search interception across providers
-LITELLM_WEB_SEARCH_TOOL_NAME: Final = "litellm_web_search"
+EMBROUTER_WEB_SEARCH_TOOL_NAME: Final = "embrouter_web_search"
 
 DEFAULT_IMAGE_ENDPOINT_MODEL: Final = "dall-e-2"
 DEFAULT_VIDEO_ENDPOINT_MODEL: Final = "sora-2"
@@ -669,7 +669,7 @@ DEFAULT_DATAFORSEO_LOCATION_CODE: Final = int(
     os.getenv("DEFAULT_DATAFORSEO_LOCATION_CODE", 2250)
 )  # Default to France (2250) - lower number, commonly used location
 
-LITELLM_CHAT_PROVIDERS: Final = [
+EMBROUTER_CHAT_PROVIDERS: Final = [
     "openai",
     "openai_like",
     "bytez",
@@ -736,7 +736,7 @@ LITELLM_CHAT_PROVIDERS: Final = [
     "empower",
     "github",
     "custom",
-    "litellm_proxy",
+    "embrouter_proxy",
     "hosted_vllm",
     "llamafile",
     "lm_studio",
@@ -779,7 +779,7 @@ PROVIDERS_THAT_AUTHENTICATE_ON_PROVIDER_INFO: Final = frozenset(
     }
 )
 
-LITELLM_EMBEDDING_PROVIDERS_SUPPORTING_INPUT_ARRAY_OF_TOKENS: Final = [
+EMBROUTER_EMBEDDING_PROVIDERS_SUPPORTING_INPUT_ARRAY_OF_TOKENS: Final = [
     "openai",
     "azure",
     "hosted_vllm",
@@ -978,7 +978,7 @@ openai_compatible_providers: Final[list] = [
     "friendliai",
     "azure_ai",
     "github",
-    "litellm_proxy",
+    "embrouter_proxy",
     "hosted_vllm",
     "llamafile",
     "lm_studio",
@@ -1129,7 +1129,7 @@ huggingface_models: Final[set] = set(
         "meta-llama/Llama-2-70b",
         "meta-llama/Llama-2-70b-chat",
     ]
-)  # these have been tested on extensively. But by default all text2text-generation and text-generation models are supported by liteLLM.
+)  # these have been tested on extensively. But by default all text2text-generation and text-generation models are supported by embRouter.
 empower_models: Final = set(
     [
         "empower/empower-functions",
@@ -1536,54 +1536,54 @@ MAXIMUM_TRACEBACK_LINES_TO_LOG: Final = int(os.getenv("MAXIMUM_TRACEBACK_LINES_T
 PASSTHROUGH_UPSTREAM_ERROR_BODY_MAX_LOG_CHARS: Final = 4096
 
 # Headers to control callbacks
-X_LITELLM_DISABLE_CALLBACKS: Final = "x-litellm-disable-callbacks"
-LITELLM_METADATA_FIELD: Final = "litellm_metadata"
-OLD_LITELLM_METADATA_FIELD: Final = "metadata"
+X_EMBROUTER_DISABLE_CALLBACKS: Final = "x-embrouter-disable-callbacks"
+EMBROUTER_METADATA_FIELD: Final = "embrouter_metadata"
+OLD_EMBROUTER_METADATA_FIELD: Final = "metadata"
 RETURN_RAW_MODEL_NAME_METADATA_KEY: Final = "_complexity_router_return_raw_model_name"
 SESSION_DEPLOYMENT_AFFINITY_TTL_METADATA_KEY: Final = "_session_deployment_affinity_ttl"
 OUTPUT_TOKEN_CEILING_PARAMS: Final = frozenset({"max_tokens", "max_completion_tokens", "max_output_tokens"})
 CLIENT_OUTPUT_CEILING_METADATA_KEY: Final = "_client_output_ceiling"
 CONSUMED_REQUEST_TAGS_METADATA_KEY: Final = "_consumed_request_tags"
 ROUTING_REQUEST_TAGS_METADATA_KEY: Final = "_routing_request_tags"
-ROUTER_USAGE_COUNTED_TOKENS_METADATA_KEY: Final = "_litellm_router_usage_counted_tokens"
+ROUTER_USAGE_COUNTED_TOKENS_METADATA_KEY: Final = "_embrouter_router_usage_counted_tokens"
 INTERNAL_CALL_ORIGIN_METADATA_KEY: Final = "internal_call_origin"
-SESSION_ID_GENERATED_METADATA_KEY: Final = "litellm_session_id_generated"
-SESSION_ID_OMITTED_METADATA_KEY: Final = "litellm_session_id_omitted"
-LITELLM_TRUNCATED_PAYLOAD_FIELD: Final = "litellm_truncated"
-LITELLM_TRUNCATION_DB_SAFEGUARD_NOTE: Final = (
+SESSION_ID_GENERATED_METADATA_KEY: Final = "embrouter_session_id_generated"
+SESSION_ID_OMITTED_METADATA_KEY: Final = "embrouter_session_id_omitted"
+EMBROUTER_TRUNCATED_PAYLOAD_FIELD: Final = "embrouter_truncated"
+EMBROUTER_TRUNCATION_DB_SAFEGUARD_NOTE: Final = (
     "Truncation is a DB storage safeguard. "
     "Full, untruncated data is logged to logging callbacks (OTEL, Datadog, etc.). "
     "To increase the truncation limit, set `MAX_STRING_LENGTH_PROMPT_IN_DB` in your env."
 )
-LITELLM_TRUNCATION_STDOUT_SAFEGUARD_NOTE: Final = (
+EMBROUTER_TRUNCATION_STDOUT_SAFEGUARD_NOTE: Final = (
     "Truncation is a stdout logging safeguard. "
     "Full, untruncated data is logged to logging callbacks (OTEL, Datadog, etc.) and at DEBUG level. "
     "To increase the truncation limit, set `MAX_STRING_LENGTH_STDOUT_LOG` in your env."
 )
 
-########################### LiteLLM Proxy Specific Constants ###########################
+########################### EmbRouter Proxy Specific Constants ###########################
 ########################################################################################
 
 # Standard headers that are always checked for customer/end-user ID (no configuration required)
 # These headers work out-of-the-box for tools like Claude Code that support custom headers
 STANDARD_CUSTOMER_ID_HEADERS: Final = [
-    "x-litellm-customer-id",
-    "x-litellm-end-user-id",
+    "x-embrouter-customer-id",
+    "x-embrouter-end-user-id",
 ]
 MAX_SPENDLOG_ROWS_TO_QUERY: Final = int(
     os.getenv("MAX_SPENDLOG_ROWS_TO_QUERY", 1_000_000)
 )  # if spendLogs has more than 1M rows, do not query the DB
 DEFAULT_SOFT_BUDGET: Final = float(
     os.getenv("DEFAULT_SOFT_BUDGET", 50.0)
-)  # by default all litellm proxy keys have a soft budget of 50.0
-# makes it clear this is a rate limit error for a litellm virtual key
-RATE_LIMIT_ERROR_MESSAGE_FOR_VIRTUAL_KEY: Final = "LiteLLM Virtual Key user_api_key_hash"
+)  # by default all embrouter proxy keys have a soft budget of 50.0
+# makes it clear this is a rate limit error for a embrouter virtual key
+RATE_LIMIT_ERROR_MESSAGE_FOR_VIRTUAL_KEY: Final = "EmbRouter Virtual Key user_api_key_hash"
 # Prefix of the 401 raised when a submitted virtual key is not shaped like one.
-INVALID_VIRTUAL_KEY_ERROR_MESSAGE: Final = "LiteLLM Virtual Key expected"
+INVALID_VIRTUAL_KEY_ERROR_MESSAGE: Final = "EmbRouter Virtual Key expected"
 # Attribute stamped on that 401 at its raise site so log routing recognises it by
 # provenance. Message text is caller-influenceable on other 401s, so it must not
 # be used to classify.
-INVALID_VIRTUAL_KEY_ERROR_MARKER: Final = "_litellm_invalid_virtual_key_error"
+INVALID_VIRTUAL_KEY_ERROR_MARKER: Final = "_embrouter_invalid_virtual_key_error"
 
 # Python garbage collection threshold configuration
 # Format: "gen0,gen1,gen2" e.g., "1000,50,50"
@@ -1612,7 +1612,7 @@ ALLOWED_VERTEX_AI_PASSTHROUGH_HEADERS: Final = {
 # e.g., 'x-pass-anthropic-beta: value' becomes 'anthropic-beta: value'
 # Works for all LLM pass-through endpoints (Vertex AI, Anthropic, Bedrock, etc.)
 PASS_THROUGH_HEADER_PREFIX: Final = "x-pass-"
-INTERNAL_KWARG_PREFIX: Final = "_litellm_"
+INTERNAL_KWARG_PREFIX: Final = "_embrouter_"
 CONTROL_OPTIONS_KEY: Final = f"{INTERNAL_KWARG_PREFIX}control"
 
 AZURE_SPEECH_CUSTOM_LLM_PROVIDER: Final = "azure_speech"
@@ -1674,20 +1674,20 @@ try:
 except (ValueError, TypeError):
     BACKGROUND_HEALTH_CHECK_MAX_TOKENS_REASONING = None
 
-LITTELM_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME: Final = "litellm-internal-health-check"
-LITTELM_CLI_SERVICE_ACCOUNT_NAME: Final = "litellm-cli"
-LITELLM_INTERNAL_JOBS_SERVICE_ACCOUNT_NAME: Final = "litellm_internal_jobs"
+EMBROUTER_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME: Final = "embrouter-internal-health-check"
+EMBROUTER_CLI_SERVICE_ACCOUNT_NAME: Final = "embrouter-cli"
+EMBROUTER_INTERNAL_JOBS_SERVICE_ACCOUNT_NAME: Final = "embrouter_internal_jobs"
 # Stable identifier substituted in place of the master key on UserAPIKeyAuth
 # objects so the master key (or its hash) never propagates to spend logs,
 # Prometheus metrics, audit trails, or any other downstream consumer.
-LITELLM_PROXY_MASTER_KEY_ALIAS: Final = "litellm_proxy_master_key"
+EMBROUTER_PROXY_MASTER_KEY_ALIAS: Final = "embrouter_proxy_master_key"
 
 # Marker placed in ``model_call_details`` on a synthetic ``Logging`` object that
 # records a proxy-gate error (auth/rate-limit rejection) for a request that never
 # reached an upstream provider. Tracing callbacks key off it to avoid fabricating
 # an LLM-call span for a call that did not happen. See
 # ``ProxyLogging._handle_logging_proxy_only_error``.
-LITELLM_LOGGING_NO_UPSTREAM_LLM_CALL: Final = "litellm_no_upstream_llm_call"
+EMBROUTER_LOGGING_NO_UPSTREAM_LLM_CALL: Final = "embrouter_no_upstream_llm_call"
 
 # Key/team metadata fields naming the OTel Resource ``service.name``, highest
 # precedence first. Shared between the OTel v2 tenant router (which reads them
@@ -1696,53 +1696,53 @@ LITELLM_LOGGING_NO_UPSTREAM_LLM_CALL: Final = "litellm_no_upstream_llm_call"
 OTEL_SERVICE_NAME_METADATA_KEYS: Final = ("otel_service_name_override", "otel_service_name")
 
 # Key Rotation Constants
-LITELLM_KEY_ROTATION_ENABLED: Final = os.getenv("LITELLM_KEY_ROTATION_ENABLED", "false")
-LITELLM_KEY_ROTATION_CHECK_INTERVAL_SECONDS: Final = int(
-    os.getenv("LITELLM_KEY_ROTATION_CHECK_INTERVAL_SECONDS", 86400)
+EMBROUTER_KEY_ROTATION_ENABLED: Final = os.getenv("EMBROUTER_KEY_ROTATION_ENABLED", "false")
+EMBROUTER_KEY_ROTATION_CHECK_INTERVAL_SECONDS: Final = int(
+    os.getenv("EMBROUTER_KEY_ROTATION_CHECK_INTERVAL_SECONDS", 86400)
 )  # 24 hours default
-LITELLM_KEY_ROTATION_GRACE_PERIOD: Final[str] = os.getenv(
-    "LITELLM_KEY_ROTATION_GRACE_PERIOD", ""
+EMBROUTER_KEY_ROTATION_GRACE_PERIOD: Final[str] = os.getenv(
+    "EMBROUTER_KEY_ROTATION_GRACE_PERIOD", ""
 )  # Duration to keep old key valid after rotation (e.g. "24h", "2d"); empty = immediate revoke (default)
-LITELLM_KEY_ROTATION_LOCK_TTL_SECONDS: Final = int(
-    os.getenv("LITELLM_KEY_ROTATION_LOCK_TTL_SECONDS", 600)
+EMBROUTER_KEY_ROTATION_LOCK_TTL_SECONDS: Final = int(
+    os.getenv("EMBROUTER_KEY_ROTATION_LOCK_TTL_SECONDS", 600)
 )  # 10 minutes default — caps the deadlock window if a pod crashes mid-rotation
-UI_SESSION_TOKEN_TEAM_ID: Final = "litellm-dashboard"
-LITELLM_EXPIRED_UI_SESSION_KEY_CLEANUP_ENABLED = os.getenv("LITELLM_EXPIRED_UI_SESSION_KEY_CLEANUP_ENABLED", "false")
-LITELLM_EXPIRED_UI_SESSION_KEY_CLEANUP_INTERVAL_SECONDS: Final = int(
-    os.getenv("LITELLM_EXPIRED_UI_SESSION_KEY_CLEANUP_INTERVAL_SECONDS", 86400)
+UI_SESSION_TOKEN_TEAM_ID: Final = "embrouter-dashboard"
+EMBROUTER_EXPIRED_UI_SESSION_KEY_CLEANUP_ENABLED = os.getenv("EMBROUTER_EXPIRED_UI_SESSION_KEY_CLEANUP_ENABLED", "false")
+EMBROUTER_EXPIRED_UI_SESSION_KEY_CLEANUP_INTERVAL_SECONDS: Final = int(
+    os.getenv("EMBROUTER_EXPIRED_UI_SESSION_KEY_CLEANUP_INTERVAL_SECONDS", 86400)
 )  # 24 hours default
-LITELLM_EXPIRED_UI_SESSION_KEY_CLEANUP_BATCH_SIZE: Final = int(
-    os.getenv("LITELLM_EXPIRED_UI_SESSION_KEY_CLEANUP_BATCH_SIZE", 1000)
+EMBROUTER_EXPIRED_UI_SESSION_KEY_CLEANUP_BATCH_SIZE: Final = int(
+    os.getenv("EMBROUTER_EXPIRED_UI_SESSION_KEY_CLEANUP_BATCH_SIZE", 1000)
 )
 LOGIN_THROTTLE_CACHE_KEY_PREFIX: Final = "login_fail"
 LOGIN_THROTTLE_UNKNOWN_SOURCE: Final = "unknown"
 LOGIN_THROTTLE_MAX_TRACKED_COUNTERS: Final = 20_000
 LOGIN_THROTTLE_MAX_TRACKED_BLOCKS: Final = 10_000
 LOGIN_THROTTLE_NOT_BLOCKED: Final = (0, 0)
-LITELLM_PROXY_ADMIN_NAME: Final = "default_user_id"
-LITELLM_PROXY_BUDGET_NAME: Final = "litellm-proxy-budget"
-GLOBAL_PROXY_SPEND_CACHE_KEY: Final = f"{LITELLM_PROXY_ADMIN_NAME}:spend"
-LITELLM_EXECUTED_BATCH_CONCURRENCY: Final = max(1, int(os.getenv("LITELLM_EXECUTED_BATCH_CONCURRENCY", "4")))
+EMBROUTER_PROXY_ADMIN_NAME: Final = "default_user_id"
+EMBROUTER_PROXY_BUDGET_NAME: Final = "embrouter-proxy-budget"
+GLOBAL_PROXY_SPEND_CACHE_KEY: Final = f"{EMBROUTER_PROXY_ADMIN_NAME}:spend"
+EMBROUTER_EXECUTED_BATCH_CONCURRENCY: Final = max(1, int(os.getenv("EMBROUTER_EXECUTED_BATCH_CONCURRENCY", "4")))
 
 ########################### CLI SSO AUTHENTICATION CONSTANTS ###########################
-LITELLM_CLI_SOURCE_IDENTIFIER: Final = "litellm-cli"
-LITELLM_CLI_SESSION_TOKEN_PREFIX: Final = "litellm-session-token"
+EMBROUTER_CLI_SOURCE_IDENTIFIER: Final = "embrouter-cli"
+EMBROUTER_CLI_SESSION_TOKEN_PREFIX: Final = "embrouter-session-token"
 CLI_SSO_SESSION_CACHE_KEY_PREFIX: Final = "cli_sso_session"
 CLI_SSO_SESSION_TTL_SECONDS: Final = 600
 CLI_SESSION_KEY_PREFIX: Final = "cli-session"
-# Support both CLI_JWT_EXPIRATION_HOURS and LITELLM_CLI_JWT_EXPIRATION_HOURS for backwards compatibility
+# Support both CLI_JWT_EXPIRATION_HOURS and EMBROUTER_CLI_JWT_EXPIRATION_HOURS for backwards compatibility
 CLI_JWT_EXPIRATION_HOURS: Final = int(
-    os.getenv("CLI_JWT_EXPIRATION_HOURS") or os.getenv("LITELLM_CLI_JWT_EXPIRATION_HOURS") or 24
+    os.getenv("CLI_JWT_EXPIRATION_HOURS") or os.getenv("EMBROUTER_CLI_JWT_EXPIRATION_HOURS") or 24
 )
 # Comma-separated allowlisted OIDC claim map for CLI SSO polling, e.g.
 # "employment_type->acme_employment_type,org_info.department->department"
-CLI_SSO_CLAIM_MAP: Final = os.getenv("CLI_SSO_CLAIM_MAP") or os.getenv("LITELLM_CLI_SSO_CLAIM_MAP") or ""
+CLI_SSO_CLAIM_MAP: Final = os.getenv("CLI_SSO_CLAIM_MAP") or os.getenv("EMBROUTER_CLI_SSO_CLAIM_MAP") or ""
 CLI_SSO_CLAIM_MAX_SCALAR_LENGTH: Final = 1024
 
 ########################### UI SESSION DURATION ###########################
 # Duration for UI login session (username/password, SSO, invitation links). Format: "30s", "30m", "24h", "7d"
 # Does NOT apply to EXPERIMENTAL_UI_LOGIN flow, which intentionally uses a fixed 10-minute expiry for security.
-LITELLM_UI_SESSION_DURATION: Final = os.getenv("LITELLM_UI_SESSION_DURATION", "24h")
+EMBROUTER_UI_SESSION_DURATION: Final = os.getenv("EMBROUTER_UI_SESSION_DURATION", "24h")
 
 ########################### DB CRON JOB NAMES ###########################
 DB_SPEND_UPDATE_JOB_NAME: Final = "db_spend_update_job"
@@ -1753,8 +1753,8 @@ MAVVRIK_FOCUS_EXPORT_JOB_NAME: Final = "mavvrik_focus_export_usage_data"
 CLOUDZERO_MAX_FETCHED_DATA_RECORDS: Final = int(os.getenv("CLOUDZERO_MAX_FETCHED_DATA_RECORDS", 50000))
 SPEND_LOG_CLEANUP_JOB_NAME: Final = "spend_log_cleanup"
 BACKGROUND_HEALTH_CHECK_DB_SAVE_JOB_NAME: Final = "background_health_check_db_save"
-KEY_ROTATION_JOB_NAME: Final = "litellm_key_rotation_job"
-EXPIRED_UI_SESSION_KEY_CLEANUP_JOB_NAME: Final = "litellm_expired_ui_session_key_cleanup_job"
+KEY_ROTATION_JOB_NAME: Final = "embrouter_key_rotation_job"
+EXPIRED_UI_SESSION_KEY_CLEANUP_JOB_NAME: Final = "embrouter_expired_ui_session_key_cleanup_job"
 WEEKLY_SPEND_REPORT_JOB_ID: Final = "weekly_spend_report_job"
 MONTHLY_SPEND_REPORT_JOB_ID: Final = "monthly_spend_report_job"
 USER_SPEND_ALERTS_JOB_ID: Final = "user_spend_alerts_job"
@@ -1868,11 +1868,11 @@ DEFAULT_SLACK_ALERTING_THRESHOLD: Final = int(os.getenv("DEFAULT_SLACK_ALERTING_
 MAX_TEAM_LIST_LIMIT: Final = int(os.getenv("MAX_TEAM_LIST_LIMIT", 20))
 MAX_POLICY_ESTIMATE_IMPACT_ROWS: Final = int(os.getenv("MAX_POLICY_ESTIMATE_IMPACT_ROWS", 1000))
 DEFAULT_PROMPT_INJECTION_SIMILARITY_THRESHOLD = float(os.getenv("DEFAULT_PROMPT_INJECTION_SIMILARITY_THRESHOLD", 0.7))
-LENGTH_OF_LITELLM_GENERATED_KEY: Final = int(os.getenv("LENGTH_OF_LITELLM_GENERATED_KEY", 16))
+LENGTH_OF_EMBROUTER_GENERATED_KEY: Final = int(os.getenv("LENGTH_OF_EMBROUTER_GENERATED_KEY", 16))
 MINIMUM_CUSTOM_KEY_LENGTH: Final = int(os.getenv("MINIMUM_CUSTOM_KEY_LENGTH", 16))
 SECRET_MANAGER_REFRESH_INTERVAL: Final = int(os.getenv("SECRET_MANAGER_REFRESH_INTERVAL", 86400))
 OPENAI_SYSTEM_MESSAGES_FIRST_PROVIDERS: Final = frozenset({"openai", "azure"})
-LITELLM_SETTINGS_SAFE_DB_OVERRIDES: Final = [
+EMBROUTER_SETTINGS_SAFE_DB_OVERRIDES: Final = [
     "default_internal_user_params",
     "default_team_params",
     "public_mcp_servers",
@@ -1884,8 +1884,8 @@ LITELLM_SETTINGS_SAFE_DB_OVERRIDES: Final = [
     "block_requests_for_models_without_pricing",
     "budget_exceeded_throttle_percentage",
     "log_auth_failure_key_identity",
-    # Every field editable from the Admin UI (proxy_server._GENERAL_SETTINGS_UI_LITELLM_FIELDS)
-    # must be listed here so a DB write from one worker overrides the live litellm attribute on
+    # Every field editable from the Admin UI (proxy_server._GENERAL_SETTINGS_UI_EMBROUTER_FIELDS)
+    # must be listed here so a DB write from one worker overrides the live embrouter attribute on
     # the others when config reloads; otherwise peer workers stay on their startup value.
     # test_general_settings_ui_fields_are_db_overridable enforces that pairing.
     "enable_anthropic_prompt_caching",
@@ -1901,7 +1901,7 @@ LITELLM_SETTINGS_SAFE_DB_OVERRIDES: Final = [
     "pointfive_params",
     "aws_sqs_callback_params",
 ]
-SPECIAL_LITELLM_AUTH_TOKEN: Final = ["ui-token"]
+SPECIAL_EMBROUTER_AUTH_TOKEN: Final = ["ui-token"]
 DEFAULT_MANAGEMENT_OBJECT_IN_MEMORY_CACHE_TTL = int(os.getenv("DEFAULT_MANAGEMENT_OBJECT_IN_MEMORY_CACHE_TTL", 60))
 DEFAULT_ACCESS_GROUP_CACHE_TTL: Final = int(os.getenv("DEFAULT_ACCESS_GROUP_CACHE_TTL", 600))
 SPEND_LOG_KEY_METADATA_CACHE_TTL: Final = 600
@@ -1961,7 +1961,7 @@ SENTRY_DENYLIST: Final = [
     "connection_string",
     # Authentication and Security
     "master_key",
-    "LITELLM_MASTER_KEY",
+    "EMBROUTER_MASTER_KEY",
     "auth_token",
     "jwt_token",
     "private_key",
@@ -1970,7 +1970,7 @@ SENTRY_DENYLIST: Final = [
     "x-api-key",
     "x-goog-api-key",
     "ocp-apim-subscription-key",
-    "x-litellm-api-key",
+    "x-embrouter-api-key",
     "x-mcp-auth",
     "cookie",
     "set-cookie",
@@ -2039,7 +2039,7 @@ COMPETITOR_LLM_TEMPERATURE: Final = float(os.getenv("COMPETITOR_LLM_TEMPERATURE"
 DEFAULT_COMPETITOR_DISCOVERY_MODEL: Final = "gpt-4o-mini"
 
 # Advisor tool orchestration
-# Providers that support advisor_20260301 natively (no LiteLLM orchestration needed).
+# Providers that support advisor_20260301 natively (no EmbRouter orchestration needed).
 # Add vertex_ai here once verified.
 ADVISOR_NATIVE_PROVIDERS: Final[frozenset] = frozenset({"anthropic"})
 # Hard cap on advisor iterations per request to prevent runaway loops.
@@ -2141,7 +2141,7 @@ UNKNOWN_MODEL_SPEND_LOG_MODEL: Final[str] = "unknown-model"
 MAX_SPEND_LOG_MODEL_NAME_LENGTH: Final[int] = 256
 MCP_SPEND_LOG_MODEL_PREFIX: Final[str] = "MCP: "
 
-# PTU reservation rollup writes rows to LiteLLM_DailyTeamSpend with this
+# PTU reservation rollup writes rows to EmbRouter_DailyTeamSpend with this
 # sentinel api_key so PTU flat cost stays distinguishable from real per-request
 # spend under the table's composite unique constraint.
 PTU_SENTINEL_API_KEY: Final[str] = "__ptu_flat_cost__"

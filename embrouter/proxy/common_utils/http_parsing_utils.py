@@ -8,17 +8,17 @@ import orjson
 from fastapi import Request, UploadFile, status
 from typing_extensions import NotRequired, ReadOnly, Required, assert_never
 
-from litellm._logging import verbose_proxy_logger
-from litellm.constants import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.constants import (
     AZURE_SPEECH_PASS_THROUGH_ROUTE_PREFIX,
     CLIENT_REQUESTED_MODEL_SCOPE_KEY,
     MAX_REQUEST_BODY_SIZE_TO_REPAIR_MB,
 )
-from litellm.proxy._types import ProxyException
-from litellm.proxy.common_utils.callback_utils import (
+from embrouter.proxy._types import ProxyException
+from embrouter.proxy.common_utils.callback_utils import (
     get_metadata_variable_name_from_kwargs,
 )
-from litellm.types.router import Deployment
+from embrouter.types.router import Deployment
 
 _FORM_CONTENT_TYPES: Final[frozenset[str]] = frozenset({"application/x-www-form-urlencoded", "multipart/form-data"})
 
@@ -374,7 +374,7 @@ def check_file_size_under_limit(
     Returns True -> when file size is under max_file_size_mb limit
     Raises ProxyException -> when file size is over max_file_size_mb limit or not a premium_user
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         CommonProxyErrors,
         ProxyException,
         llm_router,
@@ -395,10 +395,10 @@ def check_file_size_under_limit(
             )
             if (
                 deployment
-                and deployment.litellm_params is not None
-                and deployment.litellm_params.max_file_size_mb is not None
+                and deployment.embrouter_params is not None
+                and deployment.embrouter_params.max_file_size_mb is not None
             ):
-                max_file_size_mb = deployment.litellm_params.max_file_size_mb
+                max_file_size_mb = deployment.embrouter_params.max_file_size_mb
         except Exception as e:
             verbose_proxy_logger.error("Got error when checking file size: %s", (str(e)))
 
@@ -447,10 +447,10 @@ async def convert_upload_files_to_file_data(
     form_data: dict[str, Any],
 ) -> dict[str, Any]:
     """
-    Convert FastAPI UploadFile objects to file data tuples for litellm.
+    Convert FastAPI UploadFile objects to file data tuples for embrouter.
 
     Converts UploadFile objects to tuples of (filename, content, content_type)
-    which is the format expected by httpx and litellm's HTTP handlers.
+    which is the format expected by httpx and embrouter's HTTP handlers.
 
     Args:
         form_data: Dictionary containing form data with potential UploadFile objects
@@ -504,20 +504,20 @@ async def get_request_body(request: Request) -> dict[str, Any]:
 
 
 def extract_nested_form_metadata(
-    form_data: Mapping[str, object], prefix: str = "litellm_metadata["
+    form_data: Mapping[str, object], prefix: str = "embrouter_metadata["
 ) -> dict[str, object]:
     """
     Extract nested metadata from form data with bracket notation.
 
     Handles form data that uses bracket notation to represent nested dictionaries,
-    such as litellm_metadata[spend_logs_metadata][owner] = "value".
+    such as embrouter_metadata[spend_logs_metadata][owner] = "value".
 
     This is commonly encountered when SDKs or clients send form data with nested
     structures using bracket notation instead of JSON.
 
     Args:
         form_data: Dictionary containing form data (from request.form())
-        prefix: The prefix to look for in form keys (default: "litellm_metadata[")
+        prefix: The prefix to look for in form keys (default: "embrouter_metadata[")
 
     Returns:
         Dictionary with nested structure reconstructed from bracket notation
@@ -525,9 +525,9 @@ def extract_nested_form_metadata(
     Example:
         Input form_data:
         {
-            "litellm_metadata[spend_logs_metadata][owner]": "john",
-            "litellm_metadata[spend_logs_metadata][team]": "engineering",
-            "litellm_metadata[tags]": "production",
+            "embrouter_metadata[spend_logs_metadata][owner]": "john",
+            "embrouter_metadata[spend_logs_metadata][team]": "engineering",
+            "embrouter_metadata[tags]": "production",
             "other_field": "value"
         }
 
@@ -556,7 +556,7 @@ def extract_nested_form_metadata(
             continue
 
         # Extract the nested path from bracket notation
-        # Example: "litellm_metadata[spend_logs_metadata][owner]" -> ["spend_logs_metadata", "owner"]
+        # Example: "embrouter_metadata[spend_logs_metadata][owner]" -> ["spend_logs_metadata", "owner"]
         try:
             # Remove the prefix and strip trailing ']'
             path_string = key.replace(prefix, "").rstrip("]")
@@ -606,7 +606,7 @@ def get_tags_from_request_body(request_body: Mapping[str, object]) -> list[str]:
     # metadata can arrive as a JSON string from multipart/form-data or extra_body;
     # coerce defensively so .get() below never raises AttributeError.
     if isinstance(metadata, str):
-        from litellm.litellm_core_utils.safe_json_loads import safe_json_loads
+        from embrouter.embrouter_core_utils.safe_json_loads import safe_json_loads
 
         parsed: Final[object] = safe_json_loads(metadata)
         metadata = parsed if isinstance(parsed, dict) else {}
@@ -686,7 +686,7 @@ def _add_vector_store_id_from_path(request_data: dict, request: Request) -> None
         request: The FastAPI Request object
     """
     # Inline import — auth_utils participates in a proxy import cycle.
-    from litellm.proxy.auth.auth_utils import get_request_route  # noqa: PLC0415
+    from embrouter.proxy.auth.auth_utils import get_request_route  # noqa: PLC0415
 
     path: Final = get_request_route(request)
     vector_store_match: Final = re.search(r"/vector_stores/([^/]+)/", path)

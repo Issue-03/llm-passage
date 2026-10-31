@@ -2,8 +2,8 @@ from typing import Any, Final
 
 from fastapi import Request
 
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy.auth.network import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy.auth.network import (
     ip_in_networks,
     normalize_cidr_ranges,
     parse_trusted_proxy_ranges,
@@ -14,7 +14,7 @@ TRUSTED_PROXY_RANGES_KEY: Final = "trusted_proxy_ranges"
 
 def _get_proxy_general_settings() -> dict[str, Any]:
     try:
-        from litellm.proxy.proxy_server import general_settings
+        from embrouter.proxy.proxy_server import general_settings
 
         return general_settings or {}
     except ImportError:

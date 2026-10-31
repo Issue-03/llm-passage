@@ -3,8 +3,8 @@
 from datetime import datetime, timezone
 from typing import Any, Final
 
-from litellm import _logging
-from litellm.integrations.opik import utils
+from embrouter import _logging
+from embrouter.integrations.opik import utils
 
 from . import types
 

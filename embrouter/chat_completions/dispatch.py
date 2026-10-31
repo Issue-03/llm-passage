@@ -3,15 +3,15 @@ from collections.abc import Awaitable, Callable, Coroutine, Mapping
 from types import MappingProxyType
 from typing import Final, TypeAlias, cast  # noqa: TID251  # native binding selects a sync result or an async awaitable
 
-from litellm import main
-from litellm.rust_bridge.catalog import Route, RouteContext
-from litellm.rust_bridge.chat_completions.entrypoints import (
+from embrouter import main
+from embrouter.rust_bridge.catalog import Route, RouteContext
+from embrouter.rust_bridge.chat_completions.entrypoints import (
     NATIVE_ACOMPLETION,
     NATIVE_COMPLETION,
-    LiteLLMChatCompletionsRequest,
+    EmbRouterChatCompletionsRequest,
 )
-from litellm.rust_bridge.dispatch import PublicDispatch, call_hook
-from litellm.rust_bridge.public_call import (
+from embrouter.rust_bridge.dispatch import PublicDispatch, call_hook
+from embrouter.rust_bridge.public_call import (
     bind,
     optional_bool,
     optional_mapping,
@@ -19,8 +19,8 @@ from litellm.rust_bridge.public_call import (
     optional_str,
     signature,
 )
-from litellm.types.utils import ModelResponse
-from litellm.utils import CustomStreamWrapper
+from embrouter.types.utils import ModelResponse
+from embrouter.utils import CustomStreamWrapper
 
 __all__ = ("acompletion", "completion")
 
@@ -51,7 +51,7 @@ _ACOMPLETION: Final = signature(_PYTHON_ACOMPLETION)
 
 def _public_request(
     legacy: inspect.Signature, args: tuple[object, ...], kwargs: Mapping[str, object]
-) -> LiteLLMChatCompletionsRequest | None:
+) -> EmbRouterChatCompletionsRequest | None:
     fields: Final = bind(legacy, args, kwargs)
     if fields is None:
         return None
@@ -60,7 +60,7 @@ def _public_request(
     extra: Final = optional_mapping(fields.get("kwargs")) or MappingProxyType({})
     if not isinstance(model, str) or messages is None:
         return None
-    return LiteLLMChatCompletionsRequest(
+    return EmbRouterChatCompletionsRequest(
         model=model,
         messages=messages,
         stream=optional_bool(fields.get("stream")),
@@ -73,7 +73,7 @@ def _public_request(
     )
 
 
-def _context(request: LiteLLMChatCompletionsRequest) -> RouteContext:
+def _context(request: EmbRouterChatCompletionsRequest) -> RouteContext:
     return RouteContext(
         Route.CHAT_COMPLETIONS,
         provider=request.custom_llm_provider,

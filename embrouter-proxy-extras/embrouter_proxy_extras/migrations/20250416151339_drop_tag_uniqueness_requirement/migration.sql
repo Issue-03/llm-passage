@@ -1,3 +1,3 @@
 -- DropIndex
-DROP INDEX IF EXISTS "LiteLLM_DailyTagSpend_tag_key";
+DROP INDEX IF EXISTS "EmbRouter_DailyTagSpend_tag_key";
 

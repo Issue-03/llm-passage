@@ -8,8 +8,8 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from openai import APIConnectionError
 
-import litellm
-from litellm.llms.litellm_proxy.skills.skill_search import (
+import embrouter
+from embrouter.llms.embrouter_proxy.skills.skill_search import (
     MAX_SKILL_SEARCH_TEXT_CHARS,
     SkillSearchEmbeddingFailed,
     SkillSearchHits,
@@ -18,24 +18,24 @@ from litellm.llms.litellm_proxy.skills.skill_search import (
     search_skills,
     skill_search_text,
 )
-from litellm.proxy._types import LiteLLM_SkillsTable, UserAPIKeyAuth
-from litellm.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
-from litellm.proxy.common_utils.semantic_text_index import Vector, cosine_similarity
+from embrouter.proxy._types import EmbRouter_SkillsTable, UserAPIKeyAuth
+from embrouter.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
+from embrouter.proxy.common_utils.semantic_text_index import Vector, cosine_similarity
 
 CALLER: Final = UserAPIKeyAuth(api_key="hashed-caller-key", team_id="team-1", user_id="user-1")
 
-TRANSLATOR: Final = LiteLLM_SkillsTable(
+TRANSLATOR: Final = EmbRouter_SkillsTable(
     skill_id="translate-file",
     display_title="Document Translator",
     description="Converts files from one language into another",
     instructions="Take an uploaded document and produce it in the target language",
 )
-SQL_ANALYST: Final = LiteLLM_SkillsTable(
+SQL_ANALYST: Final = EmbRouter_SkillsTable(
     skill_id="warehouse-sql-analyst",
     display_title="Warehouse SQL Analyst",
     description="Runs SQL against the inventory database",
 )
-TRIP_PLANNER: Final = LiteLLM_SkillsTable(
+TRIP_PLANNER: Final = EmbRouter_SkillsTable(
     skill_id="trip-planner",
     display_title="Trip Planner",
     description="Books flights and hotels",
@@ -61,7 +61,7 @@ def _pass_through_key_limits() -> MagicMock:
 def _embedding_router() -> MagicMock:
     router = MagicMock()
     router.aembedding = AsyncMock(
-        side_effect=lambda model, input, metadata: litellm.EmbeddingResponse(
+        side_effect=lambda model, input, metadata: embrouter.EmbeddingResponse(
             model=model,
             data=[{"object": "embedding", "index": i, "embedding": list(VECTORS[t])} for i, t in enumerate(input)],
         )
@@ -98,13 +98,13 @@ class TestSkillSearchText:
         )
 
     def test_missing_fields_fall_back_to_whatever_is_present(self) -> None:
-        assert skill_search_text(LiteLLM_SkillsTable(skill_id="bare", display_title="bare")) == "bare"
+        assert skill_search_text(EmbRouter_SkillsTable(skill_id="bare", display_title="bare")) == "bare"
 
     def test_all_fields_absent_is_an_empty_string(self) -> None:
-        assert skill_search_text(LiteLLM_SkillsTable(skill_id="empty")) == ""
+        assert skill_search_text(EmbRouter_SkillsTable(skill_id="empty")) == ""
 
     def test_oversized_instructions_are_cut_so_one_skill_cannot_blow_up_the_embedding_batch(self) -> None:
-        bloated = LiteLLM_SkillsTable(
+        bloated = EmbRouter_SkillsTable(
             skill_id="bloated", display_title="Bloated", instructions="x" * (MAX_SKILL_SEARCH_TEXT_CHARS * 3)
         )
         text = skill_search_text(bloated)
@@ -187,7 +187,7 @@ class TestSkillSearchIndex:
     async def test_least_recently_searched_skills_are_evicted_once_the_index_is_full(self) -> None:
         index = SkillSearchIndex(max_entries=len(SKILLS))
         embedder = FixedDimensionEmbedder(3)
-        newcomer = LiteLLM_SkillsTable(skill_id="newcomer", display_title="Newcomer")
+        newcomer = EmbRouter_SkillsTable(skill_id="newcomer", display_title="Newcomer")
         await index.search("q", SKILLS, top_k=5, embed=embedder, embedding_model="m")
         await index.search("q", SKILLS[:1], top_k=5, embed=embedder, embedding_model="m")
         await index.search("q", (newcomer,), top_k=5, embed=embedder, embedding_model="m")
@@ -199,7 +199,7 @@ class TestSkillSearchIndex:
         index = SkillSearchIndex(max_entries=2)
         embedder = FixedDimensionEmbedder(3)
         for generation in range(50):
-            skill = LiteLLM_SkillsTable(skill_id=f"gen-{generation}", display_title=f"Generation {generation}")
+            skill = EmbRouter_SkillsTable(skill_id=f"gen-{generation}", display_title=f"Generation {generation}")
             await index.search("q", (skill,), top_k=5, embed=embedder, embedding_model="m")
         await index.search("q", SKILLS, top_k=5, embed=embedder, embedding_model="m")
         await index.search("q", SKILLS, top_k=5, embed=embedder, embedding_model="m")
@@ -352,7 +352,7 @@ class TestSearchSkills:
     async def test_the_embedding_model_sees_the_request_as_the_guardrails_rewrote_it(self) -> None:
         router = MagicMock()
         router.aembedding = AsyncMock(
-            side_effect=lambda model, input, metadata: litellm.EmbeddingResponse(
+            side_effect=lambda model, input, metadata: embrouter.EmbeddingResponse(
                 model=model,
                 data=[{"object": "embedding", "index": i, "embedding": [1.0, 0.0, 0.0]} for i in range(len(input))],
             )
@@ -404,7 +404,7 @@ class TestSearchSkills:
 def accessible_skills(monkeypatch: pytest.MonkeyPatch) -> AsyncMock:
     list_for_search = AsyncMock(return_value=list(SKILLS))
     monkeypatch.setattr(
-        "litellm.llms.litellm_proxy.skills.handler.LiteLLMSkillsHandler.list_skills_for_search", list_for_search
+        "embrouter.llms.embrouter_proxy.skills.handler.EmbRouterSkillsHandler.list_skills_for_search", list_for_search
     )
     return list_for_search
 
@@ -412,15 +412,15 @@ def accessible_skills(monkeypatch: pytest.MonkeyPatch) -> AsyncMock:
 @pytest.fixture
 def key_limits(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
     limits = _pass_through_key_limits()
-    monkeypatch.setattr("litellm.proxy.proxy_server.proxy_logging_obj", limits)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.proxy_logging_obj", limits)
     return limits
 
 
 @pytest.fixture
 def embedding_router(monkeypatch: pytest.MonkeyPatch, key_limits: MagicMock) -> MagicMock:
     router = _embedding_router()
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", router)
-    monkeypatch.setattr(litellm, "skill_search_embedding_model", "text-embedding-3-small")
+    monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", router)
+    monkeypatch.setattr(embrouter, "skill_search_embedding_model", "text-embedding-3-small")
     return router
 
 
@@ -429,11 +429,11 @@ class TestHandleSkillSearchMCP:
     async def test_top_k_is_clamped_to_the_same_ceiling_as_rest(
         self, accessible_skills: AsyncMock, embedding_router: MagicMock
     ) -> None:
-        from litellm.llms.litellm_proxy.skills.skill_search import MAX_SKILL_SEARCH_TOP_K
-        from litellm.proxy._experimental.mcp_server.tool_search import handle_skill_search
+        from embrouter.llms.embrouter_proxy.skills.skill_search import MAX_SKILL_SEARCH_TOP_K
+        from embrouter.proxy._experimental.mcp_server.tool_search import handle_skill_search
 
         many_skills: Final = tuple(
-            LiteLLM_SkillsTable(
+            EmbRouter_SkillsTable(
                 skill_id=f"skill-{i}", display_title=TRIP_PLANNER.display_title, description=TRIP_PLANNER.description
             )
             for i in range(MAX_SKILL_SEARCH_TOP_K + 50)
@@ -450,7 +450,7 @@ class TestHandleSkillSearchMCP:
     async def test_top_k_below_one_is_raised_to_one(
         self, accessible_skills: AsyncMock, embedding_router: MagicMock
     ) -> None:
-        from litellm.proxy._experimental.mcp_server.tool_search import handle_skill_search
+        from embrouter.proxy._experimental.mcp_server.tool_search import handle_skill_search
 
         result = await handle_skill_search(
             query="language translation", top_k=0, user_api_key_dict=UserAPIKeyAuth(user_id="u")

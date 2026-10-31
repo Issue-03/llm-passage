@@ -4,9 +4,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from litellm.integrations.langfuse.langfuse_otel import LangfuseOtelLogger
-from litellm.integrations.opentelemetry import OpenTelemetryConfig
-from litellm.types.llms.openai import ResponsesAPIResponse
+from embrouter.integrations.langfuse.langfuse_otel import LangfuseOtelLogger
+from embrouter.integrations.opentelemetry import OpenTelemetryConfig
+from embrouter.types.llms.openai import ResponsesAPIResponse
 
 
 class TestLangfuseOtelIntegration:
@@ -96,7 +96,7 @@ class TestLangfuseOtelIntegration:
 
     def test_set_langfuse_otel_attributes(self):
         """Test that set_langfuse_otel_attributes calls the Arize utils function."""
-        from litellm.integrations.langfuse.langfuse_otel_attributes import (
+        from embrouter.integrations.langfuse.langfuse_otel_attributes import (
             LangfuseLLMObsOTELAttributes,
         )
 
@@ -105,7 +105,7 @@ class TestLangfuseOtelIntegration:
         mock_response = {"test": "response"}
 
         with patch(
-            "litellm.integrations.arize._utils.set_attributes"
+            "embrouter.integrations.arize._utils.set_attributes"
         ) as mock_set_attributes:
             LangfuseOtelLogger.set_langfuse_otel_attributes(
                 mock_span, mock_kwargs, mock_response
@@ -126,7 +126,7 @@ class TestLangfuseOtelIntegration:
 
         with patch.dict(os.environ, {"LANGFUSE_TRACING_ENVIRONMENT": test_env}):
             with patch(
-                "litellm.integrations.arize._utils.safe_set_attribute"
+                "embrouter.integrations.arize._utils.safe_set_attribute"
             ) as mock_safe_set_attribute:
                 LangfuseOtelLogger._set_langfuse_specific_attributes(
                     mock_span, mock_kwargs, {}
@@ -164,9 +164,9 @@ class TestLangfuseOtelIntegration:
         assert span.attributes["langfuse.environment"] == "team-a-env"
 
     def test_extract_langfuse_metadata_basic(self):
-        """Ensure metadata is correctly pulled from litellm_params."""
+        """Ensure metadata is correctly pulled from embrouter_params."""
         metadata_in = {"generation_name": "my-gen", "custom": "data"}
-        kwargs = {"litellm_params": {"metadata": metadata_in}}
+        kwargs = {"embrouter_params": {"metadata": metadata_in}}
         extracted = LangfuseOtelLogger._extract_langfuse_metadata(kwargs)
         assert extracted == metadata_in
 
@@ -176,11 +176,11 @@ class TestLangfuseOtelIntegration:
         import types
 
         # Build a stub module + class on-the-fly
-        stub_module = types.ModuleType("litellm.integrations.langfuse.langfuse")
+        stub_module = types.ModuleType("embrouter.integrations.langfuse.langfuse")
 
         class StubLFLogger:
             @staticmethod
-            def add_metadata_from_header(litellm_params, metadata):
+            def add_metadata_from_header(embrouter_params, metadata):
                 # Echo back existing metadata plus a marker
                 return {**metadata, "enriched": True}
 
@@ -191,9 +191,9 @@ class TestLangfuseOtelIntegration:
         # preventing sys.modules corruption that would break patch() targets in
         # later tests (the patch would hit the stub while the real module's
         # globals remain unpatched).
-        monkeypatch.setitem(sys.modules, "litellm.integrations.langfuse.langfuse", stub_module)  # type: ignore
+        monkeypatch.setitem(sys.modules, "embrouter.integrations.langfuse.langfuse", stub_module)  # type: ignore
 
-        kwargs = {"litellm_params": {"metadata": {"foo": "bar"}}}
+        kwargs = {"embrouter_params": {"metadata": {"foo": "bar"}}}
         extracted = LangfuseOtelLogger._extract_langfuse_metadata(kwargs)
         assert extracted.get("foo") == "bar"
         assert extracted.get("enriched") is True
@@ -220,18 +220,18 @@ class TestLangfuseOtelIntegration:
             "update_trace_keys": ["key1", "key2"],
             "debug_langfuse": True,
         }
-        kwargs = {"litellm_params": {"metadata": metadata}}
+        kwargs = {"embrouter_params": {"metadata": metadata}}
 
         # Capture calls to safe_set_attribute
         with patch(
-            "litellm.integrations.arize._utils.safe_set_attribute"
+            "embrouter.integrations.arize._utils.safe_set_attribute"
         ) as mock_safe_set_attribute:
             LangfuseOtelLogger._set_langfuse_specific_attributes(
                 MagicMock(), kwargs, None
             )
 
             # Build expected calls manually for clarity
-            from litellm.types.integrations.langfuse_otel import LangfuseSpanAttributes
+            from embrouter.types.integrations.langfuse_otel import LangfuseSpanAttributes
 
             expected = {
                 LangfuseSpanAttributes.GENERATION_NAME.value: "gen-name",
@@ -286,10 +286,10 @@ class TestLangfuseOtelIntegration:
         ],
     )
     def test_version_emitted_on_langfuse_v4_key(self, metadata, expected_version):
-        kwargs = {"litellm_params": {"metadata": {"trace_release": "rel-9", **metadata}}}
+        kwargs = {"embrouter_params": {"metadata": {"trace_release": "rel-9", **metadata}}}
 
         with patch(
-            "litellm.integrations.arize._utils.safe_set_attribute"
+            "embrouter.integrations.arize._utils.safe_set_attribute"
         ) as mock_safe_set_attribute:
             LangfuseOtelLogger._set_langfuse_specific_attributes(
                 MagicMock(), kwargs, None
@@ -313,8 +313,8 @@ class TestLangfuseOtelIntegration:
 
     def test_set_langfuse_specific_attributes_with_content(self):
         """Test that _set_langfuse_specific_attributes correctly sets observation.output with regular content response."""
-        from litellm.types.integrations.langfuse_otel import LangfuseSpanAttributes
-        from litellm.types.utils import Choices, ModelResponse
+        from embrouter.types.integrations.langfuse_otel import LangfuseSpanAttributes
+        from embrouter.types.utils import Choices, ModelResponse
 
         # Create response with content
         response_obj = ModelResponse(
@@ -336,7 +336,7 @@ class TestLangfuseOtelIntegration:
         }
 
         with patch(
-            "litellm.integrations.arize._utils.safe_set_attribute"
+            "embrouter.integrations.arize._utils.safe_set_attribute"
         ) as mock_safe_set_attribute:
             LangfuseOtelLogger._set_langfuse_specific_attributes(
                 MagicMock(), kwargs, response_obj
@@ -364,8 +364,8 @@ class TestLangfuseOtelIntegration:
 
     def test_set_langfuse_specific_attributes_with_tool_calls(self):
         """Test that _set_langfuse_specific_attributes correctly sets observation.output with tool calls in Langfuse format."""
-        from litellm.types.integrations.langfuse_otel import LangfuseSpanAttributes
-        from litellm.types.utils import (
+        from embrouter.types.integrations.langfuse_otel import LangfuseSpanAttributes
+        from embrouter.types.utils import (
             ChatCompletionMessageToolCall,
             Choices,
             Function,
@@ -397,7 +397,7 @@ class TestLangfuseOtelIntegration:
         )
 
         with patch(
-            "litellm.integrations.arize._utils.safe_set_attribute"
+            "embrouter.integrations.arize._utils.safe_set_attribute"
         ) as mock_safe_set_attribute:
             LangfuseOtelLogger._set_langfuse_specific_attributes(
                 MagicMock(), {}, response_obj
@@ -426,7 +426,7 @@ class TestLangfuseOtelIntegration:
 
     def test_construct_dynamic_otel_headers_with_langfuse_keys(self):
         """Test that construct_dynamic_otel_headers creates proper auth headers when langfuse keys are provided."""
-        from litellm.types.utils import StandardCallbackDynamicParams
+        from embrouter.types.utils import StandardCallbackDynamicParams
 
         # Create dynamic params with langfuse keys
         dynamic_params = StandardCallbackDynamicParams(
@@ -455,7 +455,7 @@ class TestLangfuseOtelIntegration:
 
     def test_construct_dynamic_otel_headers_empty_params(self):
         """Test that construct_dynamic_otel_headers returns empty dict when no langfuse keys are provided."""
-        from litellm.types.utils import StandardCallbackDynamicParams
+        from embrouter.types.utils import StandardCallbackDynamicParams
 
         # Create dynamic params without langfuse keys
         dynamic_params = StandardCallbackDynamicParams()
@@ -505,7 +505,7 @@ class TestLangfuseOtelKeyDynamicConfig:
         return patch.dict(os.environ, cleaned, clear=True)
 
     def _dynamic_params(self, **overrides):
-        from litellm.types.utils import StandardCallbackDynamicParams
+        from embrouter.types.utils import StandardCallbackDynamicParams
 
         params = {
             "langfuse_public_key": "key_public",
@@ -624,7 +624,7 @@ class TestLangfuseOtelKeyDynamicConfig:
             OTLPSpanExporter,
         )
 
-        from litellm.integrations import opentelemetry as otel_module
+        from embrouter.integrations import opentelemetry as otel_module
 
         secret = base64.b64encode(b"key_public:key_secret").decode()
 
@@ -689,20 +689,20 @@ class TestLangfuseOtelResponsesAPI:
             "messages": [{"role": "user", "content": "Hello"}],
             "model": "gpt-4o",
             "optional_params": {},
-            "litellm_params": {"metadata": test_metadata},
+            "embrouter_params": {"metadata": test_metadata},
         }
 
         mock_span = MagicMock()
 
-        from litellm.integrations.langfuse.langfuse_otel_attributes import (
+        from embrouter.integrations.langfuse.langfuse_otel_attributes import (
             LangfuseLLMObsOTELAttributes,
         )
 
         with patch(
-            "litellm.integrations.arize._utils.set_attributes"
+            "embrouter.integrations.arize._utils.set_attributes"
         ) as mock_set_attributes:
             with patch(
-                "litellm.integrations.arize._utils.safe_set_attribute"
+                "embrouter.integrations.arize._utils.safe_set_attribute"
             ) as mock_safe_set_attribute:
                 logger = LangfuseOtelLogger()
                 logger.set_langfuse_otel_attributes(mock_span, kwargs, mock_response)
@@ -725,8 +725,8 @@ class TestLangfuseOtelResponsesAPI:
         # Clean up any existing module mocks
         import sys
 
-        if "litellm.integrations.langfuse.langfuse" in sys.modules:
-            sys.modules["litellm.integrations.langfuse.langfuse"]
+        if "embrouter.integrations.langfuse.langfuse" in sys.modules:
+            sys.modules["embrouter.integrations.langfuse.langfuse"]
 
         test_metadata = {
             "user_id": "responses_user_123",
@@ -739,7 +739,7 @@ class TestLangfuseOtelResponsesAPI:
         kwargs = {
             "call_type": "responses",
             "model": "gpt-4o",
-            "litellm_params": {"metadata": test_metadata},
+            "embrouter_params": {"metadata": test_metadata},
         }
 
         extracted_metadata = LangfuseOtelLogger._extract_langfuse_metadata(kwargs)
@@ -764,17 +764,17 @@ class TestLangfuseOtelResponsesAPI:
             "trace_metadata": {"source": "responses_api", "version": "1.0"},
         }
 
-        kwargs = {"call_type": "responses", "litellm_params": {"metadata": metadata}}
+        kwargs = {"call_type": "responses", "embrouter_params": {"metadata": metadata}}
 
         mock_span = MagicMock()
 
         with patch(
-            "litellm.integrations.arize._utils.safe_set_attribute"
+            "embrouter.integrations.arize._utils.safe_set_attribute"
         ) as mock_safe_set_attribute:
             LangfuseOtelLogger._set_langfuse_specific_attributes(mock_span, kwargs, {})
 
             # Verify specific attributes were set
-            from litellm.types.integrations.langfuse_otel import LangfuseSpanAttributes
+            from embrouter.types.integrations.langfuse_otel import LangfuseSpanAttributes
 
             expected_calls = [
                 (
@@ -817,7 +817,7 @@ class TestLangfuseOtelResponsesAPI:
             ResponseOutputText,
         )
         from openai.types.responses.response_reasoning_item import Summary
-        from litellm.types.integrations.langfuse_otel import LangfuseSpanAttributes
+        from embrouter.types.integrations.langfuse_otel import LangfuseSpanAttributes
 
         # Create Responses API response with reasoning and message
         response_obj = ResponsesAPIResponse(
@@ -862,7 +862,7 @@ class TestLangfuseOtelResponsesAPI:
         mock_span = MagicMock()
 
         with patch(
-            "litellm.integrations.arize._utils.safe_set_attribute"
+            "embrouter.integrations.arize._utils.safe_set_attribute"
         ) as mock_safe_set_attribute:
             LangfuseOtelLogger._set_langfuse_specific_attributes(
                 mock_span, kwargs, response_obj
@@ -899,7 +899,7 @@ class TestLangfuseOtelResponsesAPI:
 
     def test_responses_api_with_function_calls(self):
         """Test Langfuse OTEL logger with Responses API function_call output."""
-        from litellm.types.integrations.langfuse_otel import LangfuseSpanAttributes
+        from embrouter.types.integrations.langfuse_otel import LangfuseSpanAttributes
         from openai.types.responses import ResponseFunctionToolCall
 
         # Create Responses API response with function call
@@ -930,7 +930,7 @@ class TestLangfuseOtelResponsesAPI:
         mock_span = MagicMock()
 
         with patch(
-            "litellm.integrations.arize._utils.safe_set_attribute"
+            "embrouter.integrations.arize._utils.safe_set_attribute"
         ) as mock_safe_set_attribute:
             LangfuseOtelLogger._set_langfuse_specific_attributes(
                 mock_span, kwargs, response_obj
@@ -963,7 +963,7 @@ class TestLangfuseOtelResponsesAPI:
         """Sentinel arguments (invalid JSON) must not kill the whole observation output."""
         from openai.types.responses import ResponseFunctionToolCall
 
-        from litellm.types.integrations.langfuse_otel import LangfuseSpanAttributes
+        from embrouter.types.integrations.langfuse_otel import LangfuseSpanAttributes
 
         response_obj = ResponsesAPIResponse(
             id="response-redacted",
@@ -974,7 +974,7 @@ class TestLangfuseOtelResponsesAPI:
                     type="function_call",
                     name="get_weather",
                     call_id="call-redacted",
-                    arguments="redacted-by-litellm",
+                    arguments="redacted-by-embrouter",
                     status="completed",
                 )
             ],
@@ -990,7 +990,7 @@ class TestLangfuseOtelResponsesAPI:
         mock_span = MagicMock()
 
         with patch(  # test-quality-ok: the span attribute sink is the observable boundary; sibling tests in this class stub the same seam
-            "litellm.integrations.arize._utils.safe_set_attribute"
+            "embrouter.integrations.arize._utils.safe_set_attribute"
         ) as mock_safe_set_attribute:
             LangfuseOtelLogger._set_langfuse_specific_attributes(mock_span, kwargs, response_obj)
 

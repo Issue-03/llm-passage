@@ -8,7 +8,7 @@ Base class for Additional Logging Utils for CustomLoggers
 from abc import ABC, abstractmethod
 from datetime import datetime
 
-from litellm.types.integrations.base_health_check import IntegrationHealthCheckStatus
+from embrouter.types.integrations.base_health_check import IntegrationHealthCheckStatus
 
 
 class AdditionalLoggingUtils(ABC):

@@ -7,11 +7,11 @@ import httpx
 import pytest
 import respx
 
-import litellm
-import litellm.proxy.proxy_server
-from litellm.secret_managers.cyberark_secret_manager import CyberArkSecretManager
+import embrouter
+import embrouter.proxy.proxy_server
+from embrouter.secret_managers.cyberark_secret_manager import CyberArkSecretManager
 
-FIXTURE_PATH: Final = Path(__file__).resolve().parents[3] / "litellm-rust/crates/secrets-cyberark/tests/fixtures/parity.json"
+FIXTURE_PATH: Final = Path(__file__).resolve().parents[3] / "embrouter-rust/crates/secrets-cyberark/tests/fixtures/parity.json"
 
 
 class ParitySecret(TypedDict):
@@ -37,7 +37,7 @@ def _fixture() -> ParityFixture:
 
 
 def _configure_manager(monkeypatch: pytest.MonkeyPatch, fixture: ParityFixture) -> CyberArkSecretManager:
-    monkeypatch.setattr(litellm.proxy.proxy_server, "premium_user", True)
+    monkeypatch.setattr(embrouter.proxy.proxy_server, "premium_user", True)
     monkeypatch.setenv("CYBERARK_API_BASE", fixture["endpoint"])
     monkeypatch.setenv("CYBERARK_ACCOUNT", fixture["account"])
     monkeypatch.setenv("CYBERARK_USERNAME", fixture["username"])
@@ -92,7 +92,7 @@ def test_sync_read_matches_parity_fixture(monkeypatch: pytest.MonkeyPatch) -> No
 @pytest.mark.asyncio
 @respx.mock
 async def test_async_write_matches_parity_fixture(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
     fixture: Final = _fixture()
     manager: Final = _configure_manager(monkeypatch, fixture)
     secret: Final = fixture["secrets"][0]
@@ -112,7 +112,7 @@ async def test_async_write_matches_parity_fixture(monkeypatch: pytest.MonkeyPatc
 @pytest.mark.asyncio
 @respx.mock
 async def test_async_write_retries_policy_load_conflict(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
     fixture: Final = _fixture()
     manager: Final = _configure_manager(monkeypatch, fixture)
     secret: Final = fixture["secrets"][0]
@@ -142,7 +142,7 @@ async def test_async_write_retries_policy_load_conflict(monkeypatch: pytest.Monk
 async def test_async_write_does_not_retry_non_conflict_policy_failures(
     monkeypatch: pytest.MonkeyPatch, policy_outcome: int | httpx.ConnectError
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
     fixture: Final = _fixture()
     manager: Final = _configure_manager(monkeypatch, fixture)
     secret: Final = fixture["secrets"][0]
@@ -164,7 +164,7 @@ async def test_async_write_does_not_retry_non_conflict_policy_failures(
 @pytest.mark.asyncio
 @respx.mock
 async def test_concurrent_async_writes_load_policy_one_at_a_time(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
     fixture: Final = _fixture()
     manager: Final = _configure_manager(monkeypatch, fixture)
     endpoint: Final = fixture["endpoint"]
@@ -190,7 +190,7 @@ async def test_concurrent_async_writes_load_policy_one_at_a_time(monkeypatch: py
 
 
 def test_missing_credentials_raise_value_error(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm.proxy.proxy_server, "premium_user", True)
+    monkeypatch.setattr(embrouter.proxy.proxy_server, "premium_user", True)
     for name in (
         "CYBERARK_API_KEY",
         "CYBERARK_CLIENT_CERT",

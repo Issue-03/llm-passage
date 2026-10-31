@@ -1,5 +1,5 @@
 -- CreateTable
-CREATE TABLE IF NOT EXISTS "LiteLLM_DailyGuardrailMetrics" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_DailyGuardrailMetrics" (
     "guardrail_id" TEXT NOT NULL,
     "date" TEXT NOT NULL,
     "requests_evaluated" BIGINT NOT NULL DEFAULT 0,
@@ -11,11 +11,11 @@ CREATE TABLE IF NOT EXISTS "LiteLLM_DailyGuardrailMetrics" (
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
 
-    CONSTRAINT "LiteLLM_DailyGuardrailMetrics_pkey" PRIMARY KEY ("guardrail_id","date")
+    CONSTRAINT "EmbRouter_DailyGuardrailMetrics_pkey" PRIMARY KEY ("guardrail_id","date")
 );
 
 -- CreateTable
-CREATE TABLE IF NOT EXISTS "LiteLLM_DailyPolicyMetrics" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_DailyPolicyMetrics" (
     "policy_id" TEXT NOT NULL,
     "date" TEXT NOT NULL,
     "requests_evaluated" BIGINT NOT NULL DEFAULT 0,
@@ -27,34 +27,34 @@ CREATE TABLE IF NOT EXISTS "LiteLLM_DailyPolicyMetrics" (
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
 
-    CONSTRAINT "LiteLLM_DailyPolicyMetrics_pkey" PRIMARY KEY ("policy_id","date")
+    CONSTRAINT "EmbRouter_DailyPolicyMetrics_pkey" PRIMARY KEY ("policy_id","date")
 );
 
 -- CreateTable
-CREATE TABLE IF NOT EXISTS "LiteLLM_SpendLogGuardrailIndex" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_SpendLogGuardrailIndex" (
     "request_id" TEXT NOT NULL,
     "guardrail_id" TEXT NOT NULL,
     "policy_id" TEXT,
     "start_time" TIMESTAMP(3) NOT NULL,
 
-    CONSTRAINT "LiteLLM_SpendLogGuardrailIndex_pkey" PRIMARY KEY ("request_id","guardrail_id")
+    CONSTRAINT "EmbRouter_SpendLogGuardrailIndex_pkey" PRIMARY KEY ("request_id","guardrail_id")
 );
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "LiteLLM_DailyGuardrailMetrics_date_idx" ON "LiteLLM_DailyGuardrailMetrics"("date");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyGuardrailMetrics_date_idx" ON "EmbRouter_DailyGuardrailMetrics"("date");
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "LiteLLM_DailyGuardrailMetrics_guardrail_id_idx" ON "LiteLLM_DailyGuardrailMetrics"("guardrail_id");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyGuardrailMetrics_guardrail_id_idx" ON "EmbRouter_DailyGuardrailMetrics"("guardrail_id");
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "LiteLLM_DailyPolicyMetrics_date_idx" ON "LiteLLM_DailyPolicyMetrics"("date");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyPolicyMetrics_date_idx" ON "EmbRouter_DailyPolicyMetrics"("date");
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "LiteLLM_DailyPolicyMetrics_policy_id_idx" ON "LiteLLM_DailyPolicyMetrics"("policy_id");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyPolicyMetrics_policy_id_idx" ON "EmbRouter_DailyPolicyMetrics"("policy_id");
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "LiteLLM_SpendLogGuardrailIndex_guardrail_id_start_time_idx" ON "LiteLLM_SpendLogGuardrailIndex"("guardrail_id", "start_time");
+CREATE INDEX IF NOT EXISTS "EmbRouter_SpendLogGuardrailIndex_guardrail_id_start_time_idx" ON "EmbRouter_SpendLogGuardrailIndex"("guardrail_id", "start_time");
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "LiteLLM_SpendLogGuardrailIndex_policy_id_start_time_idx" ON "LiteLLM_SpendLogGuardrailIndex"("policy_id", "start_time");
+CREATE INDEX IF NOT EXISTS "EmbRouter_SpendLogGuardrailIndex_policy_id_start_time_idx" ON "EmbRouter_SpendLogGuardrailIndex"("policy_id", "start_time");
 

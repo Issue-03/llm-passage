@@ -12,16 +12,16 @@ from unittest.mock import AsyncMock
 import pytest
 from fastapi import HTTPException
 
-from litellm.proxy import proxy_server
-from litellm.proxy._types import LitellmUserRoles
-from litellm.proxy.management_endpoints import credential_migration as cm
-from litellm.proxy.management_endpoints.key_management_endpoints import (
+from embrouter.proxy import proxy_server
+from embrouter.proxy._types import EmbrouterUserRoles
+from embrouter.proxy.management_endpoints import credential_migration as cm
+from embrouter.proxy.management_endpoints.key_management_endpoints import (
     check_encryption_endpoint,
     migrate_encryption_endpoint,
 )
 
-ADMIN = SimpleNamespace(user_role=LitellmUserRoles.PROXY_ADMIN.value)
-NONADMIN = SimpleNamespace(user_role=LitellmUserRoles.INTERNAL_USER.value)
+ADMIN = SimpleNamespace(user_role=EmbrouterUserRoles.PROXY_ADMIN.value)
+NONADMIN = SimpleNamespace(user_role=EmbrouterUserRoles.INTERNAL_USER.value)
 
 
 def _sample_report() -> cm.MigrationReport:

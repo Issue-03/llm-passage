@@ -1,18 +1,18 @@
 """
 Organization table model.
 
-Canonical definition for ``litellm_organizationtable``. Re-exported from
-``litellm.proxy._types`` for backwards compatibility.
+Canonical definition for ``embrouter_organizationtable``. Re-exported from
+``embrouter.proxy._types`` for backwards compatibility.
 """
 
-from litellm.models.budget import LiteLLM_BudgetTable
-from litellm.models.object_permission import LiteLLM_ObjectPermissionTable
-from litellm.models.user import LiteLLM_UserTable
-from litellm.types.llms.base import LiteLLMPydanticObjectBase
+from embrouter.models.budget import EmbRouter_BudgetTable
+from embrouter.models.object_permission import EmbRouter_ObjectPermissionTable
+from embrouter.models.user import EmbRouter_UserTable
+from embrouter.types.llms.base import EmbRouterPydanticObjectBase
 
 
-class LiteLLM_OrganizationTable(LiteLLMPydanticObjectBase):
-    """Represents user-controllable params for a LiteLLM_OrganizationTable record"""
+class EmbRouter_OrganizationTable(EmbRouterPydanticObjectBase):
+    """Represents user-controllable params for a EmbRouter_OrganizationTable record"""
 
     organization_id: str | None = None
     organization_alias: str | None = None
@@ -23,7 +23,7 @@ class LiteLLM_OrganizationTable(LiteLLMPydanticObjectBase):
     model_spend: dict | None = {}
     created_by: str
     updated_by: str
-    users: list[LiteLLM_UserTable] | None = None
-    litellm_budget_table: LiteLLM_BudgetTable | None = None
-    object_permission: LiteLLM_ObjectPermissionTable | None = None
+    users: list[EmbRouter_UserTable] | None = None
+    embrouter_budget_table: EmbRouter_BudgetTable | None = None
+    object_permission: EmbRouter_ObjectPermissionTable | None = None
     object_permission_id: str | None = None

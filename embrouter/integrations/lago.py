@@ -7,11 +7,11 @@ from typing import Final, Literal
 
 import httpx
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm._uuid import uuid
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.llms.custom_httpx.http_handler import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter._uuid import uuid
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.llms.custom_httpx.http_handler import (
     HTTPHandler,
     get_async_httpx_client,
     httpxSpecialProvider,
@@ -61,14 +61,14 @@ class LagoLogger(CustomLogger):
             raise Exception(f"Missing keys={missing_keys} in environment.")
 
     def _common_logic(self, kwargs: dict, response_obj) -> dict:
-        response_obj.get("id", kwargs.get("litellm_call_id"))
+        response_obj.get("id", kwargs.get("embrouter_call_id"))
         get_utc_datetime().isoformat()
         cost: Final = kwargs.get("response_cost", None)
         model: Final = kwargs.get("model")
         usage = {}
 
         if (
-            isinstance(response_obj, litellm.ModelResponse) or isinstance(response_obj, litellm.EmbeddingResponse)
+            isinstance(response_obj, embrouter.ModelResponse) or isinstance(response_obj, embrouter.EmbeddingResponse)
         ) and hasattr(response_obj, "usage"):
             usage = {
                 "prompt_tokens": response_obj["usage"].get("prompt_tokens", 0),
@@ -76,12 +76,12 @@ class LagoLogger(CustomLogger):
                 "total_tokens": response_obj["usage"].get("total_tokens"),
             }
 
-        litellm_params: Final = kwargs.get("litellm_params", {}) or {}
-        proxy_server_request: Final = litellm_params.get("proxy_server_request") or {}
+        embrouter_params: Final = kwargs.get("embrouter_params", {}) or {}
+        proxy_server_request: Final = embrouter_params.get("proxy_server_request") or {}
         end_user_id: Final = proxy_server_request.get("body", {}).get("user", None)
-        user_id: Final = litellm_params["metadata"].get("user_api_key_user_id", None)
-        team_id: Final = litellm_params["metadata"].get("user_api_key_team_id", None)
-        litellm_params["metadata"].get("user_api_key_org_id", None)
+        user_id: Final = embrouter_params["metadata"].get("user_api_key_user_id", None)
+        team_id: Final = embrouter_params["metadata"].get("user_api_key_team_id", None)
+        embrouter_params["metadata"].get("user_api_key_org_id", None)
 
         charge_by: Literal["end_user_id", "team_id", "user_id"] = "end_user_id"
         external_customer_id: str | None = None

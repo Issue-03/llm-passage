@@ -1,8 +1,8 @@
 import types
 from typing import Final
 
-from litellm.llms.base_llm.chat.transformation import BaseConfig
-from litellm.llms.bedrock.chat.invoke_transformations.base_invoke_transformation import (
+from embrouter.llms.base_llm.chat.transformation import BaseConfig
+from embrouter.llms.bedrock.chat.invoke_transformations.base_invoke_transformation import (
     AmazonInvokeConfig,
 )
 

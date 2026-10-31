@@ -5,9 +5,9 @@ from urllib.parse import urlparse
 
 import pytest
 
-import litellm
-from litellm.integrations.s3_v2 import S3Logger
-from litellm.litellm_core_utils.aws_partition import (
+import embrouter
+from embrouter.integrations.s3_v2 import S3Logger
+from embrouter.embrouter_core_utils.aws_partition import (
     AwsPartition,
     contains_aws_arn,
     contains_bedrock_arn,
@@ -16,13 +16,13 @@ from litellm.litellm_core_utils.aws_partition import (
     get_aws_partition,
     is_bedrock_arn,
 )
-from litellm.llms.aws_polly.text_to_speech.transformation import AWSPollyTextToSpeechConfig
-from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM
-from litellm.llms.bedrock.batches.transformation import BedrockBatchesConfig
-from litellm.llms.bedrock.chat.agentcore.transformation import AmazonAgentCoreConfig
-from litellm.llms.bedrock.common_utils import init_bedrock_client
-from litellm.llms.bedrock.responses.transformation import BedrockOpenAIResponsesConfig
-from litellm.llms.sagemaker.chat.transformation import SagemakerChatConfig
+from embrouter.llms.aws_polly.text_to_speech.transformation import AWSPollyTextToSpeechConfig
+from embrouter.llms.bedrock.base_aws_llm import BaseAWSLLM
+from embrouter.llms.bedrock.batches.transformation import BedrockBatchesConfig
+from embrouter.llms.bedrock.chat.agentcore.transformation import AmazonAgentCoreConfig
+from embrouter.llms.bedrock.common_utils import init_bedrock_client
+from embrouter.llms.bedrock.responses.transformation import BedrockOpenAIResponsesConfig
+from embrouter.llms.sagemaker.chat.transformation import SagemakerChatConfig
 
 
 @pytest.mark.parametrize(
@@ -122,7 +122,7 @@ ENDPOINT_BUILDERS: Final = {
         api_key=None,
         model="anthropic.claude-3",
         optional_params={"aws_region_name": region},
-        litellm_params={},
+        embrouter_params={},
         data={"input_file_id": "s3://bucket/key.jsonl"},
     ),
     "bedrock_agentcore_invoke": lambda region: AmazonAgentCoreConfig().get_complete_url(
@@ -130,19 +130,19 @@ ENDPOINT_BUILDERS: Final = {
         api_key=None,
         model=_agentcore_model(region),
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
     ),
     "polly": lambda region: AWSPollyTextToSpeechConfig().get_complete_url(
         model="polly/neural",
         api_base=None,
-        litellm_params={"aws_region_name": region},
+        embrouter_params={"aws_region_name": region},
     ),
     "sagemaker_chat": lambda region: SagemakerChatConfig().get_complete_url(
         api_base=None,
         api_key=None,
         model="my-endpoint",
         optional_params={"aws_region_name": region},
-        litellm_params={},
+        embrouter_params={},
         stream=False,
     ),
     "sagemaker_chat_stream": lambda region: SagemakerChatConfig().get_complete_url(
@@ -150,12 +150,12 @@ ENDPOINT_BUILDERS: Final = {
         api_key=None,
         model="my-endpoint",
         optional_params={"aws_region_name": region},
-        litellm_params={},
+        embrouter_params={},
         stream=True,
     ),
     "bedrock_openai_responses": lambda region: BedrockOpenAIResponsesConfig().get_complete_url(
         api_base=None,
-        litellm_params={"aws_region_name": region},
+        embrouter_params={"aws_region_name": region},
     ),
     "s3_object_url": _s3_object_url,
 }
@@ -188,10 +188,10 @@ def test_every_endpoint_builder_keeps_amazonaws_com_outside_cn(builder_name: str
 
 
 def _fstring_literal_offenders(needle: str) -> list[str]:
-    litellm_root = Path(litellm.__file__).parent
+    embrouter_root = Path(embrouter.__file__).parent
     return [
-        f"{path.relative_to(litellm_root)}: {part.value!r}"
-        for path in sorted(litellm_root.rglob("*.py"))
+        f"{path.relative_to(embrouter_root)}: {part.value!r}"
+        for path in sorted(embrouter_root.rglob("*.py"))
         for node in ast.walk(ast.parse(path.read_text(encoding="utf-8")))
         if isinstance(node, ast.JoinedStr)
         for part in node.values

@@ -10,9 +10,9 @@ from datetime import datetime, timezone
 from types import MappingProxyType
 from typing import Final, Literal
 
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.llms.vertex_ai import CachedContentRequestBody
-from litellm.utils import is_cached_message
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.llms.vertex_ai import CachedContentRequestBody
+from embrouter.utils import is_cached_message
 
 from ..common_utils import get_supports_system_message
 from ..gemini.transformation import (

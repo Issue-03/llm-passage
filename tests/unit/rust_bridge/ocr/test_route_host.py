@@ -2,12 +2,12 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.rust_bridge.ocr.route_host import UpstreamFailure, map_failure
-from litellm.rust_bridge.ocr.route_host import response as build_ocr_response
-from litellm.rust_bridge.ocr.entrypoints import LiteLLMOcrRequest
+import embrouter
+from embrouter.rust_bridge.ocr.route_host import UpstreamFailure, map_failure
+from embrouter.rust_bridge.ocr.route_host import response as build_ocr_response
+from embrouter.rust_bridge.ocr.entrypoints import EmbRouterOcrRequest
 
-REQUEST: Final = LiteLLMOcrRequest(
+REQUEST: Final = EmbRouterOcrRequest(
     model="mistral/mistral-ocr-latest",
     document={"type": "document_url", "document_url": "https://example.com/file.pdf"},
     api_key="test-key",
@@ -51,7 +51,7 @@ def test_map_failure_builds_public_error_from_upstream_status_and_headers() -> N
 
     public_error: Final = map_failure(error, REQUEST, "mistral")
 
-    assert isinstance(public_error, litellm.RateLimitError)
+    assert isinstance(public_error, embrouter.RateLimitError)
     assert public_error.status_code == 429
     assert public_error.response.headers["retry-after"] == "7"
     assert public_error.response.text == '{"message": "slow down"}'
@@ -64,7 +64,7 @@ def test_map_failure_maps_upstream_401_to_authentication_error() -> None:
 
     public_error: Final = map_failure(error, REQUEST, "mistral")
 
-    assert isinstance(public_error, litellm.AuthenticationError)
+    assert isinstance(public_error, embrouter.AuthenticationError)
     assert public_error.status_code == 401
     assert public_error.response.text == '{"message": "Unauthorized"}'
     assert public_error.__context__ is error
@@ -76,10 +76,10 @@ def test_map_failure_leaves_non_upstream_errors_unwrapped() -> None:
     public_error: Final = map_failure(error, REQUEST, "mistral")
 
     assert not isinstance(public_error, UpstreamFailure)
-    assert isinstance(public_error, litellm.APIConnectionError)
+    assert isinstance(public_error, embrouter.APIConnectionError)
     assert "bridge exploded" in str(public_error)
 
 
 def test_map_failure_reports_invalid_request_format_as_unsupported_params() -> None:
-    with pytest.raises(litellm.UnsupportedParamsError, match="Invalid `req_format`: 'markdown'"):
+    with pytest.raises(embrouter.UnsupportedParamsError, match="Invalid `req_format`: 'markdown'"):
         raise map_failure(RustFormatError(), REQUEST, "mistral")

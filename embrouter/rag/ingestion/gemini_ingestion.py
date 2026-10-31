@@ -9,18 +9,18 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Final, cast
 
-from litellm._logging import verbose_logger
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter._logging import verbose_logger
+from embrouter.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
     header_value,
     httpxSpecialProvider,
 )
-from litellm.llms.gemini.common_utils import GeminiModelInfo
-from litellm.rag.ingestion.base_ingestion import BaseRAGIngestion
+from embrouter.llms.gemini.common_utils import GeminiModelInfo
+from embrouter.rag.ingestion.base_ingestion import BaseRAGIngestion
 
 if TYPE_CHECKING:
-    from litellm import Router
-    from litellm.types.rag import RAGIngestOptions
+    from embrouter import Router
+    from embrouter.types.rag import RAGIngestOptions
 
 
 class GeminiRAGIngestion(BaseRAGIngestion):
@@ -104,7 +104,7 @@ class GeminiRAGIngestion(BaseRAGIngestion):
             vector_store_id = await self._create_file_search_store(
                 api_key=api_key,
                 base_url=base_url,
-                display_name=self.ingest_name or "litellm-rag-ingest",
+                display_name=self.ingest_name or "embrouter-rag-ingest",
             )
 
         # Upload file to File Search store

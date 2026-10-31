@@ -7,17 +7,17 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import Final
 
-from litellm.constants import CLI_JWT_EXPIRATION_HOURS
-from litellm.proxy._experimental.mcp_server.bridge_token_flow import load_active_user_by_id
-from litellm.proxy._experimental.mcp_server.gateway_dcr_flow import (
+from embrouter.constants import CLI_JWT_EXPIRATION_HOURS
+from embrouter.proxy._experimental.mcp_server.bridge_token_flow import load_active_user_by_id
+from embrouter.proxy._experimental.mcp_server.gateway_dcr_flow import (
     ConsentTeam,
     MintedProxyCredential,
     ProxyCredentialMintFailure,
     ReloadUserFailure,
 )
-from litellm.proxy._types import LiteLLM_UserTable
-from litellm.proxy.auth.auth_checks import ExperimentalUIJWTToken, effective_user_role
-from litellm.proxy.management_endpoints.ui_sso import (
+from embrouter.proxy._types import EmbRouter_UserTable
+from embrouter.proxy.auth.auth_checks import ExperimentalUIJWTToken, effective_user_role
+from embrouter.proxy.management_endpoints.ui_sso import (
     CliSsoTeamDetail,
     fetch_cli_sso_team_details,
     selected_cli_sso_team_detail,
@@ -68,7 +68,7 @@ async def mint_proxy_credential(
     if selected is None:
         return "not_a_member"
     key: Final = ExperimentalUIJWTToken.get_cli_jwt_auth_token(
-        user_info=LiteLLM_UserTable(
+        user_info=EmbRouter_UserTable(
             user_id=user.user_id, user_role=effective_user_role(user.user_role).value, models=user.models
         ),
         team_id=team_id,
@@ -85,7 +85,7 @@ async def mint_proxy_credential(
 
 
 async def _team_details(teams: Sequence[str]) -> tuple[CliSsoTeamDetail, ...] | None:
-    from litellm.proxy.proxy_server import prisma_client  # noqa: PLC0415  # rebound after startup, so read it per call
+    from embrouter.proxy.proxy_server import prisma_client  # noqa: PLC0415  # rebound after startup, so read it per call
 
     if prisma_client is None:
         return None

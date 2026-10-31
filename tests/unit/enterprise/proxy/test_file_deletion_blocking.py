@@ -15,18 +15,18 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi import HTTPException
 
-from litellm.proxy._types import UserAPIKeyAuth
+from embrouter.proxy._types import UserAPIKeyAuth
 
 
 def _make_unified_file_id(file_id: str = "file-abc123") -> str:
     """Create a base64-encoded unified file ID."""
-    raw = f"litellm_proxy:application/json;unified_id,test-{file_id};target_model_names,azure-gpt-4;llm_output_file_id,{file_id};llm_output_file_model_id,model-123"
+    raw = f"embrouter_proxy:application/json;unified_id,test-{file_id};target_model_names,azure-gpt-4;llm_output_file_id,{file_id};llm_output_file_model_id,model-123"
     return base64.urlsafe_b64encode(raw.encode()).decode().rstrip("=")
 
 
 def _make_unified_batch_id(batch_id: str = "batch-123") -> str:
     """Create a base64-encoded unified batch ID."""
-    raw = f"litellm_proxy;model_id:model-deploy-xyz;llm_batch_id:{batch_id};llm_output_file_id:file-output"
+    raw = f"embrouter_proxy;model_id:model-deploy-xyz;llm_batch_id:{batch_id};llm_output_file_id:file-output"
     return base64.urlsafe_b64encode(raw.encode()).decode().rstrip("=")
 
 
@@ -60,15 +60,15 @@ def _make_managed_files_instance_with_batches(
     file_created_by: str = "user-A",
 ):
     """
-    Create a _PROXY_LiteLLMManagedFiles instance with mocked DB and batches.
+    Create a _PROXY_EmbRouterManagedFiles instance with mocked DB and batches.
     
     Args:
         file_id: The unified file ID
         batches: List of batch records to return from DB
         file_created_by: The user who created the file
     """
-    from litellm_enterprise.proxy.hooks.managed_files import (
-        _PROXY_LiteLLMManagedFiles,
+    from embrouter_enterprise.proxy.hooks.managed_files import (
+        _PROXY_EmbRouterManagedFiles,
     )
 
     # Mock file record
@@ -81,15 +81,15 @@ def _make_managed_files_instance_with_batches(
     mock_prisma = MagicMock()
     
     # Mock file table queries
-    mock_prisma.db.litellm_managedfiletable.find_first = AsyncMock(
+    mock_prisma.db.embrouter_managedfiletable.find_first = AsyncMock(
         return_value=mock_file_record
     )
-    mock_prisma.db.litellm_managedfiletable.delete = AsyncMock(
+    mock_prisma.db.embrouter_managedfiletable.delete = AsyncMock(
         return_value=mock_file_record
     )
     
     # Mock batch/object table queries
-    mock_prisma.db.litellm_managedobjecttable.find_many = AsyncMock(
+    mock_prisma.db.embrouter_managedobjecttable.find_many = AsyncMock(
         return_value=batches
     )
 
@@ -102,7 +102,7 @@ def _make_managed_files_instance_with_batches(
     })
     mock_cache.async_set_cache = AsyncMock()
 
-    instance = _PROXY_LiteLLMManagedFiles(
+    instance = _PROXY_EmbRouterManagedFiles(
         internal_usage_cache=mock_cache,
         prisma_client=mock_prisma,
     )
@@ -114,11 +114,11 @@ def _make_managed_files_instance_with_batches(
 
 def test_is_batch_polling_enabled_when_job_registered():
     """Test that batch polling is detected as enabled when scheduler job is registered."""
-    from litellm_enterprise.proxy.hooks.managed_files import (
-        _PROXY_LiteLLMManagedFiles,
+    from embrouter_enterprise.proxy.hooks.managed_files import (
+        _PROXY_EmbRouterManagedFiles,
     )
     
-    instance = _PROXY_LiteLLMManagedFiles(
+    instance = _PROXY_EmbRouterManagedFiles(
         internal_usage_cache=MagicMock(),
         prisma_client=MagicMock(),
     )
@@ -128,17 +128,17 @@ def test_is_batch_polling_enabled_when_job_registered():
     mock_job = MagicMock()
     mock_scheduler.get_job.return_value = mock_job
     
-    with patch("litellm.proxy.proxy_server.scheduler", mock_scheduler):
+    with patch("embrouter.proxy.proxy_server.scheduler", mock_scheduler):
         assert instance._is_batch_polling_enabled() is True
 
 
 def test_is_batch_polling_disabled_when_job_not_registered():
     """Test that batch polling is detected as disabled when scheduler job is not registered."""
-    from litellm_enterprise.proxy.hooks.managed_files import (
-        _PROXY_LiteLLMManagedFiles,
+    from embrouter_enterprise.proxy.hooks.managed_files import (
+        _PROXY_EmbRouterManagedFiles,
     )
     
-    instance = _PROXY_LiteLLMManagedFiles(
+    instance = _PROXY_EmbRouterManagedFiles(
         internal_usage_cache=MagicMock(),
         prisma_client=MagicMock(),
     )
@@ -147,22 +147,22 @@ def test_is_batch_polling_disabled_when_job_not_registered():
     mock_scheduler = MagicMock()
     mock_scheduler.get_job.return_value = None
     
-    with patch("litellm.proxy.proxy_server.scheduler", mock_scheduler):
+    with patch("embrouter.proxy.proxy_server.scheduler", mock_scheduler):
         assert instance._is_batch_polling_enabled() is False
 
 
 def test_is_batch_polling_disabled_when_no_scheduler():
     """Test that batch polling is detected as disabled when scheduler is not available."""
-    from litellm_enterprise.proxy.hooks.managed_files import (
-        _PROXY_LiteLLMManagedFiles,
+    from embrouter_enterprise.proxy.hooks.managed_files import (
+        _PROXY_EmbRouterManagedFiles,
     )
     
-    instance = _PROXY_LiteLLMManagedFiles(
+    instance = _PROXY_EmbRouterManagedFiles(
         internal_usage_cache=MagicMock(),
         prisma_client=MagicMock(),
     )
     
-    with patch("litellm.proxy.proxy_server.scheduler", None):
+    with patch("embrouter.proxy.proxy_server.scheduler", None):
         assert instance._is_batch_polling_enabled() is False
 
 
@@ -322,7 +322,7 @@ async def test_file_deletion_blocked_when_batch_polling_enabled_and_batch_refere
     mock_scheduler = MagicMock()
     mock_scheduler.get_job.return_value = MagicMock()  # Job exists
     
-    with patch("litellm.proxy.proxy_server.scheduler", mock_scheduler):
+    with patch("embrouter.proxy.proxy_server.scheduler", mock_scheduler):
         with pytest.raises(HTTPException) as exc_info:
             await managed_files._check_file_deletion_allowed(unified_file_id)
         
@@ -364,7 +364,7 @@ async def test_file_deletion_allowed_when_batch_polling_disabled():
     mock_scheduler = MagicMock()
     mock_scheduler.get_job.return_value = None
     
-    with patch("litellm.proxy.proxy_server.scheduler", mock_scheduler):
+    with patch("embrouter.proxy.proxy_server.scheduler", mock_scheduler):
         # Should not raise an exception
         await managed_files._check_file_deletion_allowed(unified_file_id)
 
@@ -386,7 +386,7 @@ async def test_file_deletion_allowed_when_no_batches_reference_file():
     mock_scheduler = MagicMock()
     mock_scheduler.get_job.return_value = MagicMock()
     
-    with patch("litellm.proxy.proxy_server.scheduler", mock_scheduler):
+    with patch("embrouter.proxy.proxy_server.scheduler", mock_scheduler):
         # Should not raise an exception
         await managed_files._check_file_deletion_allowed(unified_file_id)
 
@@ -424,11 +424,11 @@ async def test_afile_delete_calls_check_deletion_allowed():
     mock_scheduler = MagicMock()
     mock_scheduler.get_job.return_value = MagicMock()
     
-    with patch("litellm.proxy.proxy_server.scheduler", mock_scheduler):
+    with patch("embrouter.proxy.proxy_server.scheduler", mock_scheduler):
         with pytest.raises(HTTPException) as exc_info:
             await managed_files.afile_delete(
                 file_id=unified_file_id,
-                litellm_parent_otel_span=None,
+                embrouter_parent_otel_span=None,
                 llm_router=mock_router,
             )
         
@@ -474,7 +474,7 @@ async def test_database_limit_respected():
     mock_scheduler = MagicMock()
     mock_scheduler.get_job.return_value = MagicMock()
     
-    with patch("litellm.proxy.proxy_server.scheduler", mock_scheduler):
+    with patch("embrouter.proxy.proxy_server.scheduler", mock_scheduler):
         with pytest.raises(HTTPException) as exc_info:
             await managed_files._check_file_deletion_allowed(unified_file_id)
         
@@ -513,7 +513,7 @@ async def test_error_message_includes_batch_details():
     mock_scheduler = MagicMock()
     mock_scheduler.get_job.return_value = MagicMock()
     
-    with patch("litellm.proxy.proxy_server.scheduler", mock_scheduler):
+    with patch("embrouter.proxy.proxy_server.scheduler", mock_scheduler):
         with pytest.raises(HTTPException) as exc_info:
             await managed_files._check_file_deletion_allowed(unified_file_id)
         

@@ -280,13 +280,13 @@ describe("MakeMCPPublicForm", () => {
     await user.click(screen.getByRole("button", { name: "Copy code" }));
 
     expect(await navigator.clipboard.readText()).toBe(
-      'litellm_settings:\n  public_mcp_hub_strict_whitelist: true\n  public_mcp_servers:\n    - "server-2"',
+      'embrouter_settings:\n  public_mcp_hub_strict_whitelist: true\n  public_mcp_servers:\n    - "server-2"',
     );
 
     await user.click(screen.getByRole("checkbox", { name: "Publish Test Server 2" }));
     await user.click(screen.getByRole("button", { name: "Copy code" }));
     expect(await navigator.clipboard.readText()).toBe(
-      "litellm_settings:\n  public_mcp_hub_strict_whitelist: true\n  public_mcp_servers: []",
+      "embrouter_settings:\n  public_mcp_hub_strict_whitelist: true\n  public_mcp_servers: []",
     );
   });
 
@@ -408,7 +408,7 @@ describe("MakeMCPPublicForm", () => {
   });
 
   it("should handle submit error properly", async () => {
-    const error = new Error("Update litellm_settings.public_mcp_servers in your YAML configuration");
+    const error = new Error("Update embrouter_settings.public_mcp_servers in your YAML configuration");
     mockMakeMCPPublicCall.mockRejectedValueOnce(error);
 
     render(<MakeMCPPublicForm {...mockProps} />);

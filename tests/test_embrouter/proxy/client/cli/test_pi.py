@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 import requests
 
-from litellm.proxy.client.cli.commands.pi import (
+from embrouter.proxy.client.cli.commands.pi import (
     ListingFailure,
     ModelLimits,
     PiSyncError,
@@ -195,7 +195,7 @@ class TestProviderBlock:
         assert block == {
             "baseUrl": "http://localhost:4000/v1",
             "api": "openai-completions",
-            "apiKey": "$LITELLM_PROXY_API_KEY",
+            "apiKey": "$EMBROUTER_PROXY_API_KEY",
             "models": [{"id": "m-1"}, {"id": "m-2"}],
         }
 
@@ -219,8 +219,8 @@ class TestSyncModelsJson:
         path = tmp_path / "agent" / "models.json"
         assert sync_models_json(path, "http://localhost:4000", ("m-1",)) is None
         written = json.loads(path.read_text())
-        assert written["providers"]["litellm"]["baseUrl"] == "http://localhost:4000/v1"
-        assert written["providers"]["litellm"]["models"] == [{"id": "m-1"}]
+        assert written["providers"]["embrouter"]["baseUrl"] == "http://localhost:4000/v1"
+        assert written["providers"]["embrouter"]["models"] == [{"id": "m-1"}]
 
     def test_preserves_other_providers_and_top_level_keys(self, tmp_path):
         path = tmp_path / "models.json"
@@ -230,7 +230,7 @@ class TestSyncModelsJson:
                     "somethingElse": True,
                     "providers": {
                         "ollama": {"baseUrl": "http://localhost:11434/v1"},
-                        "litellm": {"baseUrl": "http://stale:1234/v1", "models": []},
+                        "embrouter": {"baseUrl": "http://stale:1234/v1", "models": []},
                     },
                 }
             )
@@ -239,8 +239,8 @@ class TestSyncModelsJson:
         written = json.loads(path.read_text())
         assert written["somethingElse"] is True
         assert written["providers"]["ollama"] == {"baseUrl": "http://localhost:11434/v1"}
-        assert written["providers"]["litellm"]["baseUrl"] == "http://localhost:4000/v1"
-        assert written["providers"]["litellm"]["models"] == [{"id": "m-1"}]
+        assert written["providers"]["embrouter"]["baseUrl"] == "http://localhost:4000/v1"
+        assert written["providers"]["embrouter"]["models"] == [{"id": "m-1"}]
 
     def test_write_leaves_no_staging_file_behind(self, tmp_path):
         path = tmp_path / "models.json"
@@ -271,7 +271,7 @@ class TestSyncModelsJson:
 
         assert results == [None] * 60
         written = json.loads(path.read_text())
-        assert written["providers"]["litellm"]["models"] in ([{"id": "m-a"}], [{"id": "m-b"}])
+        assert written["providers"]["embrouter"]["models"] in ([{"id": "m-a"}], [{"id": "m-b"}])
         assert list(tmp_path.glob("models.json.*.tmp")) == []
 
     def test_invalid_json_is_a_value_and_file_untouched(self, tmp_path):

@@ -1,8 +1,8 @@
 
 import pytest
 
-import litellm
-from litellm.litellm_core_utils.llm_cost_calc.guardrail_cost import (
+import embrouter
+from embrouter.embrouter_core_utils.llm_cost_calc.guardrail_cost import (
     bedrock_guardrail_cost,
     bedrock_guardrail_cost_by_unit,
     billed_guardrail_cost_by_unit,
@@ -15,7 +15,7 @@ from litellm.litellm_core_utils.llm_cost_calc.guardrail_cost import (
 @pytest.fixture
 def synthetic_cost_map(monkeypatch):
     monkeypatch.setattr(
-        litellm,
+        embrouter,
         "model_cost",
         {
             "bedrock/guardrails": {
@@ -54,7 +54,7 @@ def test_bedrock_guardrail_cost_malformed_regional_entry_falls_back(synthetic_co
 
 
 def test_bedrock_guardrail_cost_no_pricing_entry(monkeypatch):
-    monkeypatch.setattr(litellm, "model_cost", {})
+    monkeypatch.setattr(embrouter, "model_cost", {})
     assert bedrock_guardrail_cost(usage_units={"contentPolicyUnits": 1}, aws_region_name="us-east-1") == 0.0
 
 
@@ -81,7 +81,7 @@ def test_bedrock_guardrail_cost_by_unit_is_none_without_pricing_so_unpriced_is_n
     """The scalar keeps returning 0.0 for the spend path; the per-unit view must
     say "unknown" instead so the rollup stores NULL rather than a $0 that would
     hide the exact silent-spend problem this feature exists to surface."""
-    monkeypatch.setattr(litellm, "model_cost", {})
+    monkeypatch.setattr(embrouter, "model_cost", {})
     assert bedrock_guardrail_cost_by_unit(usage_units={"contentPolicyUnits": 1}, aws_region_name="us-east-1") is None
 
 
@@ -162,7 +162,7 @@ def test_cost_breakdown_with_guardrail_merges_and_creates():
 
 
 def test_azure_prompt_shield_guardrail_cost_paid_tier_prices_text_records():
-    from litellm.litellm_core_utils.llm_cost_calc.guardrail_cost import (
+    from embrouter.embrouter_core_utils.llm_cost_calc.guardrail_cost import (
         azure_prompt_shield_guardrail_cost,
     )
 
@@ -175,7 +175,7 @@ def test_azure_prompt_shield_guardrail_cost_paid_tier_prices_text_records():
 
 
 def test_azure_prompt_shield_guardrail_cost_free_tier_is_zero():
-    from litellm.litellm_core_utils.llm_cost_calc.guardrail_cost import (
+    from embrouter.embrouter_core_utils.llm_cost_calc.guardrail_cost import (
         azure_prompt_shield_guardrail_cost,
     )
 
@@ -183,7 +183,7 @@ def test_azure_prompt_shield_guardrail_cost_free_tier_is_zero():
 
 
 def test_azure_prompt_shield_guardrail_cost_unconfigured_is_none():
-    from litellm.litellm_core_utils.llm_cost_calc.guardrail_cost import (
+    from embrouter.embrouter_core_utils.llm_cost_calc.guardrail_cost import (
         azure_prompt_shield_guardrail_cost,
     )
 
@@ -191,7 +191,7 @@ def test_azure_prompt_shield_guardrail_cost_unconfigured_is_none():
 
 
 def test_azure_prompt_shield_guardrail_cost_no_text_records_is_zero():
-    from litellm.litellm_core_utils.llm_cost_calc.guardrail_cost import (
+    from embrouter.embrouter_core_utils.llm_cost_calc.guardrail_cost import (
         azure_prompt_shield_guardrail_cost,
     )
 

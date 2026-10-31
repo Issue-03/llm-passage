@@ -7,19 +7,19 @@ from typing import Final
 
 import httpx
 
-import litellm
-from litellm import verbose_logger
-from litellm.integrations.braintrust_mock_client import (
+import embrouter
+from embrouter import verbose_logger
+from embrouter.integrations.braintrust_mock_client import (
     create_mock_braintrust_client,
     should_use_braintrust_mock,
 )
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.llms.custom_httpx.http_handler import (
     HTTPHandler,
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.utils import print_verbose
+from embrouter.utils import print_verbose
 
 API_BASE: Final = "https://api.braintrustdata.com/v1"
 
@@ -109,7 +109,7 @@ class BraintrustLogger(CustomLogger):
 
     async def create_default_project_and_experiment(self):
         project: Final = await self.global_braintrust_http_handler.post(
-            f"{self.api_base}/project", headers=self.headers, json={"name": "litellm"}
+            f"{self.api_base}/project", headers=self.headers, json={"name": "embrouter"}
         )
 
         project_dict: Final = project.json()
@@ -118,7 +118,7 @@ class BraintrustLogger(CustomLogger):
 
     def create_sync_default_project_and_experiment(self):
         project: Final = self.global_braintrust_sync_http_handler.post(
-            f"{self.api_base}/project", headers=self.headers, json={"name": "litellm"}
+            f"{self.api_base}/project", headers=self.headers, json={"name": "embrouter"}
         )
 
         project_dict: Final = project.json()
@@ -128,27 +128,27 @@ class BraintrustLogger(CustomLogger):
     def log_success_event(self, kwargs, response_obj, start_time, end_time):
         verbose_logger.debug("REACHES BRAINTRUST SUCCESS")
         try:
-            litellm_call_id: Final = kwargs.get("litellm_call_id")
+            embrouter_call_id: Final = kwargs.get("embrouter_call_id")
             standard_logging_object: Final = kwargs.get("standard_logging_object", {})
             prompt: Final = {"messages": kwargs.get("messages")}
 
             output = None
             choices = []
             if response_obj is not None and (
-                kwargs.get("call_type", None) == "embedding" or isinstance(response_obj, litellm.EmbeddingResponse)
+                kwargs.get("call_type", None) == "embedding" or isinstance(response_obj, embrouter.EmbeddingResponse)
             ):
                 output = None
-            elif response_obj is not None and isinstance(response_obj, litellm.ModelResponse):
+            elif response_obj is not None and isinstance(response_obj, embrouter.ModelResponse):
                 output = response_obj.choices[0].message.json()
                 choices = response_obj["choices"]
-            elif response_obj is not None and isinstance(response_obj, litellm.TextCompletionResponse):
+            elif response_obj is not None and isinstance(response_obj, embrouter.TextCompletionResponse):
                 output = response_obj.choices[0].text
                 choices = response_obj.choices
-            elif response_obj is not None and isinstance(response_obj, litellm.ImageResponse):
+            elif response_obj is not None and isinstance(response_obj, embrouter.ImageResponse):
                 output = response_obj.data
 
-            litellm_params: Final = kwargs.get("litellm_params", {}) or {}
-            dynamic_metadata: Final = litellm_params.get("metadata", {}) or {}
+            embrouter_params: Final = kwargs.get("embrouter_params", {}) or {}
+            dynamic_metadata: Final = embrouter_params.get("metadata", {}) or {}
 
             # Get project_id from metadata or create default if needed
             project_id = dynamic_metadata.get("project_id")
@@ -165,11 +165,11 @@ class BraintrustLogger(CustomLogger):
 
             if isinstance(dynamic_metadata, dict):
                 for key, value in dynamic_metadata.items():
-                    # generate langfuse tags - Default Tags sent to Langfuse from LiteLLM Proxy
+                    # generate langfuse tags - Default Tags sent to Langfuse from EmbRouter Proxy
                     if (
-                        litellm.langfuse_default_tags is not None
-                        and isinstance(litellm.langfuse_default_tags, list)
-                        and key in litellm.langfuse_default_tags
+                        embrouter.langfuse_default_tags is not None
+                        and isinstance(embrouter.langfuse_default_tags, list)
+                        and key in embrouter.langfuse_default_tags
                     ):
                         tags.append(f"{key}:{value}")
 
@@ -182,8 +182,8 @@ class BraintrustLogger(CustomLogger):
 
             metrics: dict | None = None
             usage_obj: Final = getattr(response_obj, "usage", None)
-            if usage_obj and isinstance(usage_obj, litellm.Usage):
-                litellm.utils.get_logging_id(start_time, response_obj)
+            if usage_obj and isinstance(usage_obj, embrouter.Usage):
+                embrouter.utils.get_logging_id(start_time, response_obj)
                 metrics = {
                     "prompt_tokens": usage_obj.prompt_tokens,
                     "completion_tokens": usage_obj.completion_tokens,
@@ -212,7 +212,7 @@ class BraintrustLogger(CustomLogger):
             }
 
             request_data: Final = {
-                "id": litellm_call_id,
+                "id": embrouter_call_id,
                 "input": prompt["messages"],
                 "metadata": standard_logging_object,
                 "span_attributes": {"name": span_name, "type": "llm"},
@@ -254,26 +254,26 @@ class BraintrustLogger(CustomLogger):
     async def async_log_success_event(self, kwargs, response_obj, start_time, end_time):
         verbose_logger.debug("REACHES BRAINTRUST SUCCESS")
         try:
-            litellm_call_id: Final = kwargs.get("litellm_call_id")
+            embrouter_call_id: Final = kwargs.get("embrouter_call_id")
             standard_logging_object: Final = kwargs.get("standard_logging_object", {})
             prompt: Final = {"messages": kwargs.get("messages")}
             output = None
             choices = []
             if response_obj is not None and (
-                kwargs.get("call_type", None) == "embedding" or isinstance(response_obj, litellm.EmbeddingResponse)
+                kwargs.get("call_type", None) == "embedding" or isinstance(response_obj, embrouter.EmbeddingResponse)
             ):
                 output = None
-            elif response_obj is not None and isinstance(response_obj, litellm.ModelResponse):
+            elif response_obj is not None and isinstance(response_obj, embrouter.ModelResponse):
                 output = response_obj.choices[0].message.json()
                 choices = response_obj["choices"]
-            elif response_obj is not None and isinstance(response_obj, litellm.TextCompletionResponse):
+            elif response_obj is not None and isinstance(response_obj, embrouter.TextCompletionResponse):
                 output = response_obj.choices[0].text
                 choices = response_obj.choices
-            elif response_obj is not None and isinstance(response_obj, litellm.ImageResponse):
+            elif response_obj is not None and isinstance(response_obj, embrouter.ImageResponse):
                 output = response_obj.data
 
-            litellm_params: Final = kwargs.get("litellm_params", {})
-            dynamic_metadata: Final = litellm_params.get("metadata", {}) or {}
+            embrouter_params: Final = kwargs.get("embrouter_params", {})
+            dynamic_metadata: Final = embrouter_params.get("metadata", {}) or {}
 
             # Get project_id from metadata or create default if needed
             project_id = dynamic_metadata.get("project_id")
@@ -290,11 +290,11 @@ class BraintrustLogger(CustomLogger):
 
             if isinstance(dynamic_metadata, dict):
                 for key, value in dynamic_metadata.items():
-                    # generate langfuse tags - Default Tags sent to Langfuse from LiteLLM Proxy
+                    # generate langfuse tags - Default Tags sent to Langfuse from EmbRouter Proxy
                     if (
-                        litellm.langfuse_default_tags is not None
-                        and isinstance(litellm.langfuse_default_tags, list)
-                        and key in litellm.langfuse_default_tags
+                        embrouter.langfuse_default_tags is not None
+                        and isinstance(embrouter.langfuse_default_tags, list)
+                        and key in embrouter.langfuse_default_tags
                     ):
                         tags.append(f"{key}:{value}")
 
@@ -307,8 +307,8 @@ class BraintrustLogger(CustomLogger):
 
             metrics: dict | None = None
             usage_obj: Final = getattr(response_obj, "usage", None)
-            if usage_obj and isinstance(usage_obj, litellm.Usage):
-                litellm.utils.get_logging_id(start_time, response_obj)
+            if usage_obj and isinstance(usage_obj, embrouter.Usage):
+                embrouter.utils.get_logging_id(start_time, response_obj)
                 metrics = {
                     "prompt_tokens": usage_obj.prompt_tokens,
                     "completion_tokens": usage_obj.completion_tokens,
@@ -342,7 +342,7 @@ class BraintrustLogger(CustomLogger):
             }
 
             request_data: Final = {
-                "id": litellm_call_id,
+                "id": embrouter_call_id,
                 "input": prompt["messages"],
                 "output": output,
                 "metadata": standard_logging_object,

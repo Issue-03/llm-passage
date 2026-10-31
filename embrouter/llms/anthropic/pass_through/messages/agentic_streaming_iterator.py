@@ -20,12 +20,12 @@ import json
 from collections.abc import AsyncIterator
 from typing import TYPE_CHECKING, Any, Final, cast
 
-from litellm._logging import verbose_logger
-from litellm.constants import STREAM_SSE_KEEPALIVE_PING_BYTES
+from embrouter._logging import verbose_logger
+from embrouter.constants import STREAM_SSE_KEEPALIVE_PING_BYTES
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.llms.base_llm.anthropic_messages.transformation import (
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.llms.base_llm.anthropic_messages.transformation import (
         BaseAnthropicMessagesConfig,
     )
 
@@ -187,7 +187,7 @@ class AgenticAnthropicStreamingIterator:
         messages: list[dict],
         anthropic_messages_provider_config: "BaseAnthropicMessagesConfig",
         anthropic_messages_optional_request_params: dict,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
         custom_llm_provider: str,
         kwargs: dict,
         hold_back: bool = False,
@@ -336,7 +336,7 @@ class AgenticAnthropicStreamingIterator:
             await task
 
     async def aclose(self) -> None:
-        from litellm.llms.anthropic.pass_through.messages.streaming_iterator import (
+        from embrouter.llms.anthropic.pass_through.messages.streaming_iterator import (
             aclose_if_supported,
         )
 
@@ -379,10 +379,10 @@ class AgenticAnthropicStreamingIterator:
             if hasattr(result, "__aiter__"):
                 self._follow_up_iterator = result.__aiter__()
             elif isinstance(result, dict):
-                from litellm.llms.anthropic.pass_through.messages.fake_stream_iterator import (
+                from embrouter.llms.anthropic.pass_through.messages.fake_stream_iterator import (
                     FakeAnthropicMessagesStreamIterator,
                 )
-                from litellm.types.llms.anthropic_messages.anthropic_response import (
+                from embrouter.types.llms.anthropic_messages.anthropic_response import (
                     AnthropicMessagesResponse,
                 )
 
@@ -394,7 +394,7 @@ class AgenticAnthropicStreamingIterator:
                     type(result).__name__,
                 )
         except Exception as e:
-            _call_id: Final = getattr(self._logging_obj, "litellm_call_id", "unknown")
+            _call_id: Final = getattr(self._logging_obj, "embrouter_call_id", "unknown")
             verbose_logger.exception(
                 "AgenticStreamingIterator: Error in agentic hook processing [call_id=%s model=%s]: %s",
                 _call_id,

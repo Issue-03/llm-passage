@@ -14,13 +14,13 @@
 #
 # CHANGELOG: 2025-01-19 - Initial CZRN module for CloudZero Resource Names (erik.peterson)
 
-"""CloudZero Resource Names (CZRN) generation and validation for LiteLLM resources."""
+"""CloudZero Resource Names (CZRN) generation and validation for EmbRouter resources."""
 
 import re
 from enum import Enum
 from typing import Any, Final, cast
 
-import litellm
+import embrouter
 
 
 class CZEntityType(str, Enum):
@@ -28,27 +28,27 @@ class CZEntityType(str, Enum):
 
 
 class CZRNGenerator:
-    """Generate CloudZero Resource Names (CZRNs) for LiteLLM resources."""
+    """Generate CloudZero Resource Names (CZRNs) for EmbRouter resources."""
 
     CZRN_REGEX = re.compile(r"^czrn:([a-z0-9-]+):([a-zA-Z0-9-]+):([a-z0-9-]+):([a-z0-9-]+):([a-z0-9-]+):(.+)$")
 
     def __init__(self):
         """Initialize CZRN generator."""
 
-    def create_from_litellm_data(self, row: dict[str, Any]) -> str:
-        """Create a CZRN from LiteLLM daily spend data.
+    def create_from_embrouter_data(self, row: dict[str, Any]) -> str:
+        """Create a CZRN from EmbRouter daily spend data.
 
         CZRN format: czrn:<service-type>:<provider>:<region>:<owner-account-id>:<resource-type>:<cloud-local-id>
 
-        For LiteLLM resources, we map:
-        - service-type: 'litellm' (the service managing the LLM calls)
+        For EmbRouter resources, we map:
+        - service-type: 'embrouter' (the service managing the LLM calls)
         - provider: The custom_llm_provider (e.g., 'openai', 'anthropic', 'azure')
-        - region: 'cross-region' (LiteLLM operates across regions)
+        - region: 'cross-region' (EmbRouter operates across regions)
         - owner-account-id: The team_id or user_id (entity_id)
         - resource-type: 'llm-usage' (represents LLM usage/inference)
         - cloud-local-id: model
         """
-        service_type: Final = "litellm"
+        service_type: Final = "embrouter"
         provider: Final = self._normalize_provider(row.get("custom_llm_provider", "unknown"))
         region: Final = "cross-region"
 
@@ -116,21 +116,21 @@ class CZRNGenerator:
         """Normalize provider names to standard CZRN format."""
         # Map common provider names to CZRN standards
         provider_map: Final = {
-            litellm.LlmProviders.AZURE.value: "azure",
-            litellm.LlmProviders.AZURE_AI.value: "azure",
-            litellm.LlmProviders.ANTHROPIC.value: "anthropic",
-            litellm.LlmProviders.BEDROCK.value: "aws",
-            litellm.LlmProviders.VERTEX_AI.value: "gcp",
-            litellm.LlmProviders.GEMINI.value: "google",
-            litellm.LlmProviders.COHERE.value: "cohere",
-            litellm.LlmProviders.HUGGINGFACE.value: "huggingface",
-            litellm.LlmProviders.REPLICATE.value: "replicate",
-            litellm.LlmProviders.TOGETHER_AI.value: "together-ai",
+            embrouter.LlmProviders.AZURE.value: "azure",
+            embrouter.LlmProviders.AZURE_AI.value: "azure",
+            embrouter.LlmProviders.ANTHROPIC.value: "anthropic",
+            embrouter.LlmProviders.BEDROCK.value: "aws",
+            embrouter.LlmProviders.VERTEX_AI.value: "gcp",
+            embrouter.LlmProviders.GEMINI.value: "google",
+            embrouter.LlmProviders.COHERE.value: "cohere",
+            embrouter.LlmProviders.HUGGINGFACE.value: "huggingface",
+            embrouter.LlmProviders.REPLICATE.value: "replicate",
+            embrouter.LlmProviders.TOGETHER_AI.value: "together-ai",
         }
 
         normalized: Final = provider.lower().replace("_", "-")
 
-        # use litellm custom llm provider if not in provider_map
+        # use embrouter custom llm provider if not in provider_map
         if normalized not in provider_map:
             return normalized
         return provider_map.get(normalized, normalized)

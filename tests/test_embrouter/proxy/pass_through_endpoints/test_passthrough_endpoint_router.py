@@ -1,16 +1,16 @@
 import pytest
 
-import litellm
-from litellm.litellm_core_utils.credential_accessor import CredentialAccessor
-from litellm.proxy.pass_through_endpoints.passthrough_endpoint_router import (
+import embrouter
+from embrouter.embrouter_core_utils.credential_accessor import CredentialAccessor
+from embrouter.proxy.pass_through_endpoints.passthrough_endpoint_router import (
     PassthroughEndpointRouter,
 )
-from litellm.types.utils import CredentialItem
+from embrouter.types.utils import CredentialItem
 
 
 @pytest.fixture(autouse=True)
 def isolated_credential_list(monkeypatch):
-    monkeypatch.setattr(litellm, "credential_list", [])
+    monkeypatch.setattr(embrouter, "credential_list", [])
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.delenv("ASSEMBLYAI_API_KEY", raising=False)
@@ -24,20 +24,20 @@ def _credential(name: str, api_key: str) -> CredentialItem:
     )
 
 
-def _flagged_deployment(model: str, **litellm_params) -> dict:
+def _flagged_deployment(model: str, **embrouter_params) -> dict:
     return {
         "model_name": model.split("/", 1)[-1],
-        "litellm_params": {"model": model, "use_in_pass_through": True, **litellm_params},
+        "embrouter_params": {"model": model, "use_in_pass_through": True, **embrouter_params},
     }
 
 
-def _passthrough_router(llm_router: litellm.Router | None) -> PassthroughEndpointRouter:
+def _passthrough_router(llm_router: embrouter.Router | None) -> PassthroughEndpointRouter:
     return PassthroughEndpointRouter(llm_router_getter=lambda: llm_router)
 
 
 def test_credential_loaded_after_deployment_registration_still_resolves():
-    llm_router = litellm.Router(
-        model_list=[_flagged_deployment("openai/gpt-4o", litellm_credential_name="cred_openai")]
+    llm_router = embrouter.Router(
+        model_list=[_flagged_deployment("openai/gpt-4o", embrouter_credential_name="cred_openai")]
     )
     passthrough_router = _passthrough_router(llm_router)
 
@@ -53,8 +53,8 @@ def test_credential_loaded_after_deployment_registration_still_resolves():
 
 def test_credential_rotation_is_reflected_without_deployment_update():
     CredentialAccessor.upsert_credentials([_credential("cred_openai", "sk-before-rotation")])
-    llm_router = litellm.Router(
-        model_list=[_flagged_deployment("openai/gpt-4o", litellm_credential_name="cred_openai")]
+    llm_router = embrouter.Router(
+        model_list=[_flagged_deployment("openai/gpt-4o", embrouter_credential_name="cred_openai")]
     )
     passthrough_router = _passthrough_router(llm_router)
 
@@ -72,7 +72,7 @@ def test_credential_rotation_is_reflected_without_deployment_update():
 
 
 def test_deleted_deployment_stops_serving_its_key(monkeypatch):
-    llm_router = litellm.Router(model_list=[_flagged_deployment("openai/gpt-4o", api_key="sk-inline")])
+    llm_router = embrouter.Router(model_list=[_flagged_deployment("openai/gpt-4o", api_key="sk-inline")])
     passthrough_router = _passthrough_router(llm_router)
 
     assert passthrough_router.get_credentials(custom_llm_provider="openai", region_name=None) == "sk-inline"
@@ -86,7 +86,7 @@ def test_deleted_deployment_stops_serving_its_key(monkeypatch):
 
 
 def test_inline_api_key_resolves_without_credential_name():
-    llm_router = litellm.Router(
+    llm_router = embrouter.Router(
         model_list=[_flagged_deployment("anthropic/claude-sonnet-4-5", api_key="sk-ant-inline")]
     )
     passthrough_router = _passthrough_router(llm_router)
@@ -98,8 +98,8 @@ def test_inline_api_key_resolves_without_credential_name():
 
 
 def test_missing_credential_and_no_inline_key_falls_back_to_env(monkeypatch):
-    llm_router = litellm.Router(
-        model_list=[_flagged_deployment("openai/gpt-4o", litellm_credential_name="cred_deleted")]
+    llm_router = embrouter.Router(
+        model_list=[_flagged_deployment("openai/gpt-4o", embrouter_credential_name="cred_deleted")]
     )
     passthrough_router = _passthrough_router(llm_router)
     monkeypatch.setenv("OPENAI_API_KEY", "sk-from-env")
@@ -110,7 +110,7 @@ def test_missing_credential_and_no_inline_key_falls_back_to_env(monkeypatch):
 
 
 def test_deployment_for_other_provider_does_not_match():
-    llm_router = litellm.Router(
+    llm_router = embrouter.Router(
         model_list=[_flagged_deployment("anthropic/claude-sonnet-4-5", api_key="sk-ant-inline")]
     )
     passthrough_router = _passthrough_router(llm_router)
@@ -119,11 +119,11 @@ def test_deployment_for_other_provider_does_not_match():
 
 
 def test_unflagged_deployment_does_not_match():
-    llm_router = litellm.Router(
+    llm_router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4o",
-                "litellm_params": {"model": "openai/gpt-4o", "api_key": "sk-not-flagged"},
+                "embrouter_params": {"model": "openai/gpt-4o", "api_key": "sk-not-flagged"},
             }
         ]
     )
@@ -133,7 +133,7 @@ def test_unflagged_deployment_does_not_match():
 
 
 def test_first_matching_deployment_wins():
-    llm_router = litellm.Router(
+    llm_router = embrouter.Router(
         model_list=[
             _flagged_deployment("openai/gpt-4o", api_key="sk-first"),
             _flagged_deployment("openai/gpt-4o-mini", api_key="sk-second"),
@@ -145,7 +145,7 @@ def test_first_matching_deployment_wins():
 
 
 def test_assemblyai_region_matching():
-    llm_router = litellm.Router(
+    llm_router = embrouter.Router(
         model_list=[
             _flagged_deployment(
                 "assemblyai/best", api_key="sk-eu", api_base="https://api.eu.assemblyai.com"
@@ -162,9 +162,9 @@ def test_assemblyai_region_matching():
 def test_azure_speech_dashboard_credential_resolves_through_flagged_deployment(monkeypatch):
     monkeypatch.delenv("AZURE_SPEECH_API_KEY", raising=False)
     CredentialAccessor.upsert_credentials([_credential("azure-speech-prod", "azure-subscription-key")])
-    llm_router = litellm.Router(
+    llm_router = embrouter.Router(
         model_list=[
-            _flagged_deployment("azure_speech/short-audio", litellm_credential_name="azure-speech-prod"),
+            _flagged_deployment("azure_speech/short-audio", embrouter_credential_name="azure-speech-prod"),
         ]
     )
     passthrough_router = _passthrough_router(llm_router)
@@ -194,10 +194,10 @@ def _vertex_credential(name: str, values: dict) -> CredentialItem:
     return CredentialItem(credential_name=name, credential_values=values, credential_info={})
 
 
-def _vertex_deployment(model_name: str, model: str, **litellm_params) -> dict:
+def _vertex_deployment(model_name: str, model: str, **embrouter_params) -> dict:
     return {
         "model_name": model_name,
-        "litellm_params": {"model": model, "use_in_pass_through": True, **litellm_params},
+        "embrouter_params": {"model": model, "use_in_pass_through": True, **embrouter_params},
     }
 
 
@@ -214,10 +214,10 @@ def test_vertex_deployment_resolves_via_named_credential():
             )
         ]
     )
-    llm_router = litellm.Router(
+    llm_router = embrouter.Router(
         model_list=[
             _vertex_deployment(
-                "gemini-live", "vertex_ai/gemini-live-2.5-flash", litellm_credential_name="cred_gcp"
+                "gemini-live", "vertex_ai/gemini-live-2.5-flash", embrouter_credential_name="cred_gcp"
             )
         ]
     )
@@ -231,8 +231,8 @@ def test_vertex_deployment_resolves_via_named_credential():
     assert resolved.vertex_credentials == '{"type": "service_account"}'
 
 
-def test_vertex_deployment_resolves_from_inline_litellm_params():
-    llm_router = litellm.Router(
+def test_vertex_deployment_resolves_from_inline_embrouter_params():
+    llm_router = embrouter.Router(
         model_list=[
             _vertex_deployment(
                 "gemini-live",
@@ -253,8 +253,8 @@ def test_vertex_deployment_resolves_from_inline_litellm_params():
     assert resolved.vertex_credentials == '{"type": "service_account", "project_id": "proj-inline"}'
 
 
-def _two_vertex_deployments_router() -> litellm.Router:
-    return litellm.Router(
+def _two_vertex_deployments_router() -> embrouter.Router:
+    return embrouter.Router(
         model_list=[
             _vertex_deployment(
                 "gemini-flash",
@@ -292,7 +292,7 @@ def test_vertex_without_usable_hint_refuses_to_guess_between_projects():
 
 
 def test_vertex_without_hint_falls_back_when_deployments_share_a_target():
-    llm_router = litellm.Router(
+    llm_router = embrouter.Router(
         model_list=[
             _vertex_deployment(
                 "gemini-flash", "vertex_ai/gemini-2.5-flash", vertex_project="proj-one", vertex_location="global"
@@ -310,7 +310,7 @@ def test_vertex_without_hint_falls_back_when_deployments_share_a_target():
 
 
 def test_vertex_without_hint_refuses_to_guess_between_service_accounts():
-    llm_router = litellm.Router(
+    llm_router = embrouter.Router(
         model_list=[
             _vertex_deployment(
                 "gemini-flash",
@@ -347,10 +347,10 @@ def test_vertex_named_credential_keeps_dict_service_account():
             )
         ]
     )
-    llm_router = litellm.Router(
+    llm_router = embrouter.Router(
         model_list=[
             _vertex_deployment(
-                "gemini-live", "vertex_ai/gemini-live-2.5-flash", litellm_credential_name="cred_gcp_dict"
+                "gemini-live", "vertex_ai/gemini-live-2.5-flash", embrouter_credential_name="cred_gcp_dict"
             )
         ]
     )
@@ -363,11 +363,11 @@ def test_vertex_named_credential_keeps_dict_service_account():
 
 
 def test_no_flagged_vertex_deployment_returns_none():
-    llm_router = litellm.Router(
+    llm_router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gemini-live",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "vertex_ai/gemini-live-2.5-flash",
                     "vertex_project": "proj-unflagged",
                     "vertex_location": "global",
@@ -386,14 +386,14 @@ def test_vertex_deployment_with_deleted_credential_is_skipped(monkeypatch):
     CredentialAccessor.upsert_credentials(
         [_vertex_credential("cred_gone", {"vertex_project": "proj-db", "vertex_location": "global"})]
     )
-    llm_router = litellm.Router(
+    llm_router = embrouter.Router(
         model_list=[
             _vertex_deployment(
-                "gemini-live", "vertex_ai/gemini-live-2.5-flash", litellm_credential_name="cred_gone"
+                "gemini-live", "vertex_ai/gemini-live-2.5-flash", embrouter_credential_name="cred_gone"
             )
         ]
     )
     passthrough_router = _passthrough_router(llm_router)
-    monkeypatch.setattr(litellm, "credential_list", [])
+    monkeypatch.setattr(embrouter, "credential_list", [])
 
     assert passthrough_router.get_vertex_credentials_from_router_deployments(model=None) is None

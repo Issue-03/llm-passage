@@ -154,7 +154,7 @@ const RoutingGroups: React.FC = () => {
             isLoading={isLoading}
             onEdit={openEdit}
             onDelete={(g) => setDeletingGroup(g)}
-            proxyBaseUrl={proxySettings.LITELLM_UI_API_DOC_BASE_URL?.trim() || proxySettings.PROXY_BASE_URL || ""}
+            proxyBaseUrl={proxySettings.EMBROUTER_UI_API_DOC_BASE_URL?.trim() || proxySettings.PROXY_BASE_URL || ""}
           />
         </CardContent>
       </Card>

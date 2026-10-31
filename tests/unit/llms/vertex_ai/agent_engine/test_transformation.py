@@ -8,10 +8,10 @@ Tests the request transformation and streaming chunk parsing without making real
 import pytest
 
 
-from litellm.llms.vertex_ai.agent_engine.sse_iterator import (
+from embrouter.llms.vertex_ai.agent_engine.sse_iterator import (
     VertexAgentEngineResponseIterator,
 )
-from litellm.llms.vertex_ai.agent_engine.transformation import VertexAgentEngineConfig
+from embrouter.llms.vertex_ai.agent_engine.transformation import VertexAgentEngineConfig
 
 
 class TestVertexAgentEngineTransformRequest:
@@ -25,13 +25,13 @@ class TestVertexAgentEngineTransformRequest:
 
         messages = [{"role": "user", "content": "Hello, what can you do?"}]
         optional_params = {"user_id": "test-user-123"}
-        litellm_params = {}
+        embrouter_params = {}
 
         result = config.transform_request(
             model="agent_engine/123456789",
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers={},
         )
 
@@ -51,13 +51,13 @@ class TestVertexAgentEngineTransformRequest:
             "user_id": "test-user-123",
             "session_id": "session-abc-456",
         }
-        litellm_params = {}
+        embrouter_params = {}
 
         result = config.transform_request(
             model="agent_engine/123456789",
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers={},
         )
 

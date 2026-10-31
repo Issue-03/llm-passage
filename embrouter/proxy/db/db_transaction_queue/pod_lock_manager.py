@@ -3,12 +3,12 @@ import json
 import logging
 from typing import TYPE_CHECKING, Any, Final
 
-from litellm._logging import verbose_proxy_logger
-from litellm._uuid import uuid
-from litellm.caching.redis_cache import RedisCache, log_redis_failure
-from litellm.constants import DEFAULT_CRON_JOB_LOCK_TTL_SECONDS
-from litellm.proxy.db.db_transaction_queue.base_update_queue import service_logger_obj
-from litellm.types.services import ServiceTypes
+from embrouter._logging import verbose_proxy_logger
+from embrouter._uuid import uuid
+from embrouter.caching.redis_cache import RedisCache, log_redis_failure
+from embrouter.constants import DEFAULT_CRON_JOB_LOCK_TTL_SECONDS
+from embrouter.proxy.db.db_transaction_queue.base_update_queue import service_logger_obj
+from embrouter.types.services import ServiceTypes
 
 if TYPE_CHECKING:
     ProxyLogging = Any

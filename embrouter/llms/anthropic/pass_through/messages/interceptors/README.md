@@ -12,7 +12,7 @@ Use a **pre-request hook** (`_execute_pre_request_hooks` / `CustomLogger.async_p
 |---|---|
 | Replace the backend call with a loop or synthetic response | Interceptor |
 | Translate or strip tools before the call | Pre-request hook |
-| Feature that is always active (built-in LiteLLM behavior) | Interceptor |
+| Feature that is always active (built-in EmbRouter behavior) | Interceptor |
 | Optional integration that operators register | `CustomLogger` callback |
 
 ## How to add a new interceptor

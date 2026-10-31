@@ -101,7 +101,7 @@ The handler supports multiple A2A response formats:
 
 The handler is automatically discovered and applied when guardrails are used with A2A endpoints.
 
-### Via LiteLLM Proxy
+### Via EmbRouter Proxy
 
 ```bash
 curl -X POST 'http://localhost:4000/a2a/my-agent' \

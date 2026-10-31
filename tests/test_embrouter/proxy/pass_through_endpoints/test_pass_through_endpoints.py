@@ -21,15 +21,15 @@ from pydantic import TypeAdapter, ValidationError
 from starlette.datastructures import FormData, Headers, QueryParams
 from starlette.datastructures import UploadFile as StarletteUploadFile
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.constants import DEFAULT_REQUEST_TIMEOUT_SECONDS
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.proxy._types import ProxyException, UserAPIKeyAuth
-from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.constants import DEFAULT_REQUEST_TIMEOUT_SECONDS
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.proxy._types import ProxyException, UserAPIKeyAuth
+from embrouter.proxy.pass_through_endpoints.pass_through_endpoints import (
     DEFAULT_PASS_THROUGH_REQUEST_TIMEOUT_SECONDS,
-    LITELLM_PASS_THROUGH_CUSTOM_BODY_STATE_KEY,
+    EMBROUTER_PASS_THROUGH_CUSTOM_BODY_STATE_KEY,
     HttpPassThroughEndpointHelpers,
     InitPassThroughEndpointHelpers,
     _registered_pass_through_routes,
@@ -43,21 +43,21 @@ from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
     resolve_pass_through_request_timeout,
     websocket_passthrough_request,
 )
-from litellm.proxy.pass_through_endpoints.success_handler import (
+from embrouter.proxy.pass_through_endpoints.success_handler import (
     PassThroughEndpointLogging,
 )
-from litellm.proxy.route_llm_request import ProxyModelNotFoundError
-from litellm.types import utils as types_utils
-from litellm.types.passthrough_endpoints.pass_through_endpoints import (
-    LITELLM_PASS_THROUGH_DEPLOYMENT_MODEL_INFO_STATE_KEY,
-    LITELLM_PASS_THROUGH_RAW_BODY_STATE_KEY,
+from embrouter.proxy.route_llm_request import ProxyModelNotFoundError
+from embrouter.types import utils as types_utils
+from embrouter.types.passthrough_endpoints.pass_through_endpoints import (
+    EMBROUTER_PASS_THROUGH_DEPLOYMENT_MODEL_INFO_STATE_KEY,
+    EMBROUTER_PASS_THROUGH_RAW_BODY_STATE_KEY,
 )
 
 MESSAGE_START_SSE_FRAME = b'event: message_start\ndata: {"type": "message_start"}\n\n'
 
 
 def test_with_trace_context_without_opentelemetry(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setitem(sys.modules, "litellm.integrations.otel.plumbing.context", None)
+    monkeypatch.setitem(sys.modules, "embrouter.integrations.otel.plumbing.context", None)
 
     headers = _with_trace_context({"authorization": "x"}, parent_span=None)
 
@@ -322,7 +322,7 @@ async def test_make_multipart_http_request_removes_content_type_header():
 @pytest.mark.asyncio
 async def test_non_streaming_http_request_handler_multipart_with_non_empty_parsed_body():
     """
-    Regression: pass_through_request injects litellm_logging_obj into _parsed_body before
+    Regression: pass_through_request injects embrouter_logging_obj into _parsed_body before
     forwarding. Multipart uploads must still use files=, not json=_parsed_body.
     """
     request = MagicMock(spec=Request)
@@ -347,7 +347,7 @@ async def test_non_streaming_http_request_handler_multipart_with_non_empty_parse
         url=httpx.URL("http://test.com"),
         headers={},
         requested_query_params=None,
-        _parsed_body={"litellm_logging_obj": MagicMock()},
+        _parsed_body={"embrouter_logging_obj": MagicMock()},
         forward_multipart=True,
     )
 
@@ -363,12 +363,12 @@ async def test_pass_through_request_failure_handler():
     """
     Test that the failure handler is called when pass_through_request fails
 
-    Critical Test: When a users pass through endpoint request fails, we must log the failure code, exception in litellm spend logs.
+    Critical Test: When a users pass through endpoint request fails, we must log the failure code, exception in embrouter spend logs.
     """
-    with patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
-        with patch("litellm.llms.custom_httpx.http_handler.get_async_httpx_client") as mock_get_client:
+    with patch("embrouter.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
+        with patch("embrouter.llms.custom_httpx.http_handler.get_async_httpx_client") as mock_get_client:
             with patch(
-                "litellm.proxy.pass_through_endpoints.pass_through_endpoints.ProxyBaseLLMRequestProcessing"
+                "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.ProxyBaseLLMRequestProcessing"
             ) as mock_processing:
                 # Setup mock for post_call_failure_hook and pre_call_hook
                 mock_proxy_logging.post_call_failure_hook = AsyncMock()
@@ -424,7 +424,7 @@ async def test_pass_through_request_preserves_proxy_exception_status():
         openai_code="integer_above_max_value",
     )
 
-    with patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
+    with patch("embrouter.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
         mock_proxy_logging.post_call_failure_hook = AsyncMock()
         mock_proxy_logging.pre_call_hook = AsyncMock(side_effect=original)
 
@@ -553,15 +553,15 @@ async def test_custom_passthrough_predict_path_logs_via_generic_handler():
     """
     from datetime import datetime
 
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.types.passthrough_endpoints.pass_through_endpoints import (
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.types.passthrough_endpoints.pass_through_endpoints import (
         PassthroughStandardLoggingPayload,
     )
 
     handler = PassThroughEndpointLogging()
     handler._handle_logging = AsyncMock()
 
-    mock_logging_obj = MagicMock(spec=LiteLLMLoggingObj)
+    mock_logging_obj = MagicMock(spec=EmbRouterLoggingObj)
     mock_logging_obj.model_call_details = {}
 
     mock_response = MagicMock(spec=httpx.Response)
@@ -575,7 +575,7 @@ async def test_custom_passthrough_predict_path_logs_via_generic_handler():
     )
 
     with patch(
-        "litellm.proxy.pass_through_endpoints.success_handler.VertexPassthroughLoggingHandler.vertex_passthrough_handler"
+        "embrouter.proxy.pass_through_endpoints.success_handler.VertexPassthroughLoggingHandler.vertex_passthrough_handler"
     ) as mock_vertex_handler:
         await handler.pass_through_async_success_handler(
             httpx_response=mock_response,
@@ -603,15 +603,15 @@ async def test_langfuse_passthrough_no_logging():
     """
     from datetime import datetime
 
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.types.passthrough_endpoints.pass_through_endpoints import (
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.types.passthrough_endpoints.pass_through_endpoints import (
         PassthroughStandardLoggingPayload,
     )
 
     handler = PassThroughEndpointLogging()
 
     # Mock the logging object
-    mock_logging_obj = MagicMock(spec=LiteLLMLoggingObj)
+    mock_logging_obj = MagicMock(spec=EmbRouterLoggingObj)
     mock_logging_obj.model_call_details = {}
 
     # Mock httpx response for langfuse request
@@ -652,7 +652,7 @@ def test_construct_target_url_with_subpath():
     """
     Test that construct_target_url_with_subpath correctly constructs target URLs
     """
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from embrouter.proxy.pass_through_endpoints.pass_through_endpoints import (
         HttpPassThroughEndpointHelpers,
     )
 
@@ -697,7 +697,7 @@ def test_add_exact_path_route():
     """
     Test that add_exact_path_route correctly adds exact path routes
     """
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from embrouter.proxy.pass_through_endpoints.pass_through_endpoints import (
         InitPassThroughEndpointHelpers,
     )
 
@@ -739,7 +739,7 @@ def test_add_subpath_route():
     """
     Test that add_subpath_route correctly adds wildcard routes for sub-paths
     """
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from embrouter.proxy.pass_through_endpoints.pass_through_endpoints import (
         InitPassThroughEndpointHelpers,
     )
 
@@ -787,7 +787,7 @@ async def test_pass_through_handler_rejects_unregistered_method():
     """
     from fastapi import HTTPException
 
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from embrouter.proxy.pass_through_endpoints.pass_through_endpoints import (
         create_pass_through_route,
     )
 
@@ -801,16 +801,16 @@ async def test_pass_through_handler_rejects_unregistered_method():
     with (
         patch.dict(os.environ, {"SERVER_ROOT_PATH": ""}),
         patch(
-            "litellm.proxy.auth.auth_utils.get_request_route",
+            "embrouter.proxy.auth.auth_utils.get_request_route",
             return_value="/test/path",
         ),
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints._parse_request_data_by_content_type",
+            "embrouter.proxy.pass_through_endpoints.pass_through_endpoints._parse_request_data_by_content_type",
             new_callable=AsyncMock,
             return_value=({}, {}, None, False),
         ),
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints._registered_pass_through_routes",
+            "embrouter.proxy.pass_through_endpoints.pass_through_endpoints._registered_pass_through_routes",
             {
                 "test-endpoint-id:exact:/test/path:POST": {
                     "endpoint_id": "test-endpoint-id",
@@ -842,23 +842,23 @@ async def test_initialize_pass_through_endpoints_with_include_subpath():
     """
     Test that initialize_pass_through_endpoints adds wildcard routes when include_subpath is True
     """
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from embrouter.proxy.pass_through_endpoints.pass_through_endpoints import (
         initialize_pass_through_endpoints,
     )
 
     # Mock the helper functions directly
     with patch(
-        "litellm.proxy.pass_through_endpoints.pass_through_endpoints.InitPassThroughEndpointHelpers.add_exact_path_route"
+        "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.InitPassThroughEndpointHelpers.add_exact_path_route"
     ) as mock_add_exact_route:
         with patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.InitPassThroughEndpointHelpers.add_subpath_route"
+            "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.InitPassThroughEndpointHelpers.add_subpath_route"
         ) as mock_add_subpath_route:
             with patch(
-                "litellm.proxy.proxy_server.premium_user",
+                "embrouter.proxy.proxy_server.premium_user",
                 True,
             ):
                 with patch(
-                    "litellm.proxy.pass_through_endpoints.pass_through_endpoints.set_env_variables_in_header"
+                    "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.set_env_variables_in_header"
                 ) as mock_set_env:
                     mock_set_env.return_value = {}
 
@@ -893,23 +893,23 @@ async def test_initialize_pass_through_endpoints_without_include_subpath():
     """
     Test that initialize_pass_through_endpoints only adds exact route when include_subpath is False
     """
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from embrouter.proxy.pass_through_endpoints.pass_through_endpoints import (
         initialize_pass_through_endpoints,
     )
 
     # Mock the helper functions directly
     with patch(
-        "litellm.proxy.pass_through_endpoints.pass_through_endpoints.InitPassThroughEndpointHelpers.add_exact_path_route"
+        "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.InitPassThroughEndpointHelpers.add_exact_path_route"
     ) as mock_add_exact_route:
         with patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.InitPassThroughEndpointHelpers.add_subpath_route"
+            "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.InitPassThroughEndpointHelpers.add_subpath_route"
         ) as mock_add_subpath_route:
             with patch(
-                "litellm.proxy.proxy_server.premium_user",
+                "embrouter.proxy.proxy_server.premium_user",
                 True,
             ):
                 with patch(
-                    "litellm.proxy.pass_through_endpoints.pass_through_endpoints.set_env_variables_in_header"
+                    "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.set_env_variables_in_header"
                 ) as mock_set_env:
                     mock_set_env.return_value = {}
 
@@ -939,15 +939,15 @@ def test_set_cost_per_request():
     Test that _set_cost_per_request correctly sets the cost in logging object and kwargs
     """
 
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.types.passthrough_endpoints.pass_through_endpoints import (
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.types.passthrough_endpoints.pass_through_endpoints import (
         PassthroughStandardLoggingPayload,
     )
 
     handler = PassThroughEndpointLogging()
 
     # Mock the logging object
-    mock_logging_obj = MagicMock(spec=LiteLLMLoggingObj)
+    mock_logging_obj = MagicMock(spec=EmbRouterLoggingObj)
     mock_logging_obj.model_call_details = {}
 
     # Test with cost_per_request set
@@ -977,15 +977,15 @@ def test_set_cost_per_request_none():
     """
     Test that _set_cost_per_request does nothing when cost_per_request is None
     """
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.types.passthrough_endpoints.pass_through_endpoints import (
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.types.passthrough_endpoints.pass_through_endpoints import (
         PassthroughStandardLoggingPayload,
     )
 
     handler = PassThroughEndpointLogging()
 
     # Mock the logging object
-    mock_logging_obj = MagicMock(spec=LiteLLMLoggingObj)
+    mock_logging_obj = MagicMock(spec=EmbRouterLoggingObj)
     mock_logging_obj.model_call_details = {}
 
     # Test with cost_per_request not set (None)
@@ -1018,15 +1018,15 @@ async def test_pass_through_success_handler_with_cost_per_request():
     """
     from datetime import datetime
 
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.types.passthrough_endpoints.pass_through_endpoints import (
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.types.passthrough_endpoints.pass_through_endpoints import (
         PassthroughStandardLoggingPayload,
     )
 
     handler = PassThroughEndpointLogging()
 
     # Mock the logging object
-    mock_logging_obj = MagicMock(spec=LiteLLMLoggingObj)
+    mock_logging_obj = MagicMock(spec=EmbRouterLoggingObj)
     mock_logging_obj.model_call_details = {}
 
     # Mock the _handle_logging method to capture the call
@@ -1075,7 +1075,7 @@ async def test_create_pass_through_route_with_cost_per_request():
     """
     Test that create_pass_through_route correctly passes cost_per_request to the endpoint function
     """
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from embrouter.proxy.pass_through_endpoints.pass_through_endpoints import (
         create_pass_through_route,
     )
 
@@ -1093,12 +1093,12 @@ async def test_create_pass_through_route_with_cost_per_request():
 
     # Mock the pass_through_request function to capture its call
     with (
-        patch("litellm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_request") as mock_pass_through,
+        patch("embrouter.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_request") as mock_pass_through,
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.InitPassThroughEndpointHelpers.is_registered_pass_through_route"
+            "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.InitPassThroughEndpointHelpers.is_registered_pass_through_route"
         ) as mock_is_registered,
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.InitPassThroughEndpointHelpers.get_registered_pass_through_route"
+            "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.InitPassThroughEndpointHelpers.get_registered_pass_through_route"
         ) as mock_get_registered,
     ):
         mock_pass_through.return_value = MagicMock()
@@ -1133,13 +1133,13 @@ def test_resolve_pass_through_request_timeout_precedence():
     assert resolve_pass_through_request_timeout(endpoint_timeout=900) == 900.0
 
     with patch(
-        "litellm.proxy.proxy_server.general_settings",
+        "embrouter.proxy.proxy_server.general_settings",
         {"pass_through_request_timeout": 1200},
     ):
         assert resolve_pass_through_request_timeout() == 1200.0
         assert resolve_pass_through_request_timeout(endpoint_timeout=800) == 800.0
 
-    with patch("litellm.proxy.proxy_server.general_settings", {}):
+    with patch("embrouter.proxy.proxy_server.general_settings", {}):
         assert resolve_pass_through_request_timeout() == DEFAULT_PASS_THROUGH_REQUEST_TIMEOUT_SECONDS
 
 
@@ -1148,44 +1148,44 @@ def test_resolve_llm_passthrough_timeout_precedence():
     assert (
         resolve_llm_passthrough_timeout(
             kwargs={"request_timeout": 30},
-            litellm_params={"timeout": 60},
+            embrouter_params={"timeout": 60},
         )
         == 30.0
     )
     assert (
         resolve_llm_passthrough_timeout(
-            litellm_params={"timeout": 90},
+            embrouter_params={"timeout": 90},
         )
         == 90.0
     )
 
     with patch(
-        "litellm.proxy.proxy_server.general_settings",
+        "embrouter.proxy.proxy_server.general_settings",
         {"pass_through_request_timeout": 6},
     ):
         assert resolve_llm_passthrough_timeout() == 6.0
 
 
 def test_resolve_llm_passthrough_timeout_honors_explicit_global_request_timeout(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr("litellm.request_timeout", 44.0, raising=False)
-    monkeypatch.setattr("litellm.request_timeout_explicitly_set", True, raising=False)
+    monkeypatch.setattr("embrouter.request_timeout", 44.0, raising=False)
+    monkeypatch.setattr("embrouter.request_timeout_explicitly_set", True, raising=False)
 
-    with patch("litellm.proxy.proxy_server.general_settings", {"pass_through_request_timeout": 6}):
+    with patch("embrouter.proxy.proxy_server.general_settings", {"pass_through_request_timeout": 6}):
         assert resolve_llm_passthrough_timeout() == 44.0
         assert resolve_llm_passthrough_timeout(kwargs={"stream": True}) == 44.0
         assert resolve_llm_passthrough_timeout(router_timeout=120) == 120.0
         assert resolve_llm_passthrough_timeout(kwargs={"stream": True}, router_stream_timeout=900) == 900.0
-        assert resolve_llm_passthrough_timeout(litellm_params={"timeout": 90}) == 90.0
+        assert resolve_llm_passthrough_timeout(embrouter_params={"timeout": 90}) == 90.0
         assert resolve_llm_passthrough_timeout(kwargs={"timeout": 45}) == 45.0
 
 
 def test_resolve_llm_passthrough_timeout_skips_unset_global_request_timeout(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr("litellm.request_timeout", float(DEFAULT_REQUEST_TIMEOUT_SECONDS), raising=False)
-    monkeypatch.setattr("litellm.request_timeout_explicitly_set", False, raising=False)
+    monkeypatch.setattr("embrouter.request_timeout", float(DEFAULT_REQUEST_TIMEOUT_SECONDS), raising=False)
+    monkeypatch.setattr("embrouter.request_timeout_explicitly_set", False, raising=False)
 
-    with patch("litellm.proxy.proxy_server.general_settings", {"pass_through_request_timeout": 6}):
+    with patch("embrouter.proxy.proxy_server.general_settings", {"pass_through_request_timeout": 6}):
         assert resolve_llm_passthrough_timeout() == 6.0
-    with patch("litellm.proxy.proxy_server.general_settings", {}):
+    with patch("embrouter.proxy.proxy_server.general_settings", {}):
         assert resolve_llm_passthrough_timeout() == DEFAULT_PASS_THROUGH_REQUEST_TIMEOUT_SECONDS
 
 
@@ -1199,14 +1199,14 @@ def test_resolve_llm_passthrough_timeout_stream_timeout_precedence():
     assert (
         resolve_llm_passthrough_timeout(
             kwargs={"stream": True, "timeout": 45},
-            litellm_params={"stream_timeout": 1800, "timeout": 90},
+            embrouter_params={"stream_timeout": 1800, "timeout": 90},
         )
         == 1800.0
     )
     assert (
         resolve_llm_passthrough_timeout(
             kwargs={"stream": True, "timeout": 45},
-            litellm_params={"timeout": 90},
+            embrouter_params={"timeout": 90},
             router_timeout=120,
             router_stream_timeout=1800,
         )
@@ -1222,7 +1222,7 @@ def test_resolve_llm_passthrough_timeout_stream_timeout_precedence():
     assert (
         resolve_llm_passthrough_timeout(
             kwargs={"stream": True},
-            litellm_params={"timeout": 90},
+            embrouter_params={"timeout": 90},
             router_timeout=120,
         )
         == 90.0
@@ -1230,14 +1230,14 @@ def test_resolve_llm_passthrough_timeout_stream_timeout_precedence():
     assert (
         resolve_llm_passthrough_timeout(
             kwargs={"stream": False, "stream_timeout": 1800},
-            litellm_params={"stream_timeout": 1800, "timeout": 90},
+            embrouter_params={"stream_timeout": 1800, "timeout": 90},
             router_stream_timeout=1800,
         )
         == 90.0
     )
     assert (
         resolve_llm_passthrough_timeout(
-            litellm_params={"stream_timeout": 1800},
+            embrouter_params={"stream_timeout": 1800},
             router_timeout=120,
             router_stream_timeout=1800,
         )
@@ -1253,14 +1253,14 @@ def test_resolve_llm_passthrough_timeout_reads_stream_by_truthiness(stream: obje
     assert (
         resolve_llm_passthrough_timeout(
             kwargs={"stream": stream},
-            litellm_params={"stream_timeout": 1800, "timeout": 90},
+            embrouter_params={"stream_timeout": 1800, "timeout": 90},
         )
         == expected
     )
 
 
 @pytest.mark.parametrize(
-    "kwargs, litellm_params, expected",
+    "kwargs, embrouter_params, expected",
     [
         ({"stream": True, "stream_timeout": 1800, "timeout": httpx.Timeout(30.0)}, {}, 1800.0),
         ({"stream": False}, {"stream_timeout": httpx.Timeout(30.0), "timeout": 90}, 90.0),
@@ -1268,9 +1268,9 @@ def test_resolve_llm_passthrough_timeout_reads_stream_by_truthiness(stream: obje
     ],
 )
 def test_resolve_llm_passthrough_timeout_validates_only_the_winning_value(
-    kwargs: dict[str, object], litellm_params: dict[str, object], expected: float
+    kwargs: dict[str, object], embrouter_params: dict[str, object], expected: float
 ):
-    assert resolve_llm_passthrough_timeout(kwargs=kwargs, litellm_params=litellm_params) == expected
+    assert resolve_llm_passthrough_timeout(kwargs=kwargs, embrouter_params=embrouter_params) == expected
 
 
 def test_resolve_llm_passthrough_timeout_rejects_a_non_numeric_winner():
@@ -1280,9 +1280,9 @@ def test_resolve_llm_passthrough_timeout_rejects_a_non_numeric_winner():
 
 @pytest.mark.asyncio
 async def test_pass_through_request_uses_resolved_timeout():
-    with patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
+    with patch("embrouter.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
         with patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
+            "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
         ) as mock_get_client:
             mock_proxy_logging.pre_call_hook = AsyncMock(side_effect=lambda **kwargs: kwargs["data"])
 
@@ -1326,12 +1326,12 @@ async def test_create_pass_through_route_forwards_timeout():
     )
 
     with (
-        patch("litellm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_request") as mock_pass_through,
+        patch("embrouter.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_request") as mock_pass_through,
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.InitPassThroughEndpointHelpers.is_registered_pass_through_route"
+            "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.InitPassThroughEndpointHelpers.is_registered_pass_through_route"
         ) as mock_is_registered,
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.InitPassThroughEndpointHelpers.get_registered_pass_through_route"
+            "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.InitPassThroughEndpointHelpers.get_registered_pass_through_route"
         ) as mock_get_registered,
     ):
         mock_pass_through.return_value = MagicMock()
@@ -1361,7 +1361,7 @@ def test_initialize_pass_through_endpoints_with_cost_per_request():
     """
     Test that initialize_pass_through_endpoints correctly passes cost_per_request to route creation
     """
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from embrouter.proxy.pass_through_endpoints.pass_through_endpoints import (
         InitPassThroughEndpointHelpers,
     )
 
@@ -1425,18 +1425,18 @@ async def test_pass_through_request_contains_proxy_server_request_in_kwargs():
     Critical Test: Ensures that when pass_through_request is called, the kwargs passed to
     downstream methods contain the proxy server request details (url, method, body).
     """
-    with patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
+    with patch("embrouter.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
         with patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.HttpPassThroughEndpointHelpers.non_streaming_http_request_handler"
+            "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.HttpPassThroughEndpointHelpers.non_streaming_http_request_handler"
         ) as mock_http_handler:
             with patch(
-                "litellm.proxy.pass_through_endpoints.pass_through_endpoints.ProxyBaseLLMRequestProcessing"
+                "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.ProxyBaseLLMRequestProcessing"
             ) as mock_processing:
                 with patch(
-                    "litellm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler"
+                    "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler"
                 ) as mock_success_handler:
                     with patch(
-                        "litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_response_body"
+                        "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.get_response_body"
                     ) as mock_get_response_body:
                         # Setup mock for pre_call_hook and post_call_failure_hook
                         mock_proxy_logging.pre_call_hook = AsyncMock(return_value={"test": "data"})
@@ -1500,13 +1500,13 @@ async def test_pass_through_request_contains_proxy_server_request_in_kwargs():
                         # Extract the kwargs passed to the success handler
                         call_kwargs = mock_success_handler.call_args[1]
 
-                        # Verify that litellm_params exists in kwargs
-                        assert "litellm_params" in call_kwargs
-                        litellm_params = call_kwargs["litellm_params"]
+                        # Verify that embrouter_params exists in kwargs
+                        assert "embrouter_params" in call_kwargs
+                        embrouter_params = call_kwargs["embrouter_params"]
 
-                        # Verify that proxy_server_request exists in litellm_params
-                        assert "proxy_server_request" in litellm_params
-                        proxy_server_request = litellm_params["proxy_server_request"]
+                        # Verify that proxy_server_request exists in embrouter_params
+                        assert "proxy_server_request" in embrouter_params
+                        proxy_server_request = embrouter_params["proxy_server_request"]
 
                         # Verify the proxy_server_request contains expected fields
                         assert "url" in proxy_server_request
@@ -1522,12 +1522,12 @@ async def test_pass_through_request_contains_proxy_server_request_in_kwargs():
                         # Verify other required kwargs are present
                         assert "call_type" in call_kwargs
                         assert call_kwargs["call_type"] == "pass_through_endpoint"
-                        assert "litellm_call_id" in call_kwargs
+                        assert "embrouter_call_id" in call_kwargs
                         assert "passthrough_logging_payload" in call_kwargs
 
                         # Verify metadata contains user information
-                        assert "metadata" in litellm_params
-                        metadata = litellm_params["metadata"]
+                        assert "metadata" in embrouter_params
+                        metadata = embrouter_params["metadata"]
                         assert metadata["user_api_key_hash"] == "test-api-key"
                         assert metadata["user_api_key_alias"] == "test-alias"
                         assert metadata["user_api_key_user_email"] == "test@example.com"
@@ -1542,12 +1542,12 @@ async def test_pass_through_request_streaming_marks_logging_obj_as_stream():
     response is dispatched, so cost/success callbacks treat it as a stream and the
     streaming dedup guard fires instead of double-logging.
     """
-    with patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
+    with patch("embrouter.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
         with patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
+            "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
         ) as mock_get_client:
             with patch(
-                "litellm.proxy.pass_through_endpoints.pass_through_endpoints.PassThroughStreamingHandler.chunk_processor"
+                "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.PassThroughStreamingHandler.chunk_processor"
             ) as mock_chunk_processor:
                 mock_proxy_logging.pre_call_hook = AsyncMock(return_value={"model": "claude-3", "stream": True})
                 mock_proxy_logging.post_call_failure_hook = AsyncMock()
@@ -1590,7 +1590,7 @@ async def test_pass_through_request_streaming_marks_logging_obj_as_stream():
                 assert async_client.send.call_args.kwargs["stream"] is True
 
                 mock_chunk_processor.assert_called_once()
-                logging_obj = mock_chunk_processor.call_args.kwargs["litellm_logging_obj"]
+                logging_obj = mock_chunk_processor.call_args.kwargs["embrouter_logging_obj"]
                 assert logging_obj.stream is True
                 assert logging_obj.model_call_details["stream"] is True
 
@@ -1604,12 +1604,12 @@ async def test_pass_through_request_sse_response_marks_logging_obj_as_stream():
     cost/success callbacks treat the assembled stream as a non-stream and the dedup
     guard never fires, double-logging the request.
     """
-    with patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
+    with patch("embrouter.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
         with patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
+            "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
         ) as mock_get_client:
             with patch(
-                "litellm.proxy.pass_through_endpoints.pass_through_endpoints.PassThroughStreamingHandler.chunk_processor"
+                "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.PassThroughStreamingHandler.chunk_processor"
             ) as mock_chunk_processor:
                 mock_proxy_logging.pre_call_hook = AsyncMock(return_value={"model": "claude-3"})
                 mock_proxy_logging.post_call_failure_hook = AsyncMock()
@@ -1651,7 +1651,7 @@ async def test_pass_through_request_sse_response_marks_logging_obj_as_stream():
                 async_client.send.assert_awaited_once()
 
                 mock_chunk_processor.assert_called_once()
-                logging_obj = mock_chunk_processor.call_args.kwargs["litellm_logging_obj"]
+                logging_obj = mock_chunk_processor.call_args.kwargs["embrouter_logging_obj"]
                 assert logging_obj.stream is True
                 assert logging_obj.model_call_details["stream"] is True
 
@@ -1663,9 +1663,9 @@ async def test_pass_through_request_streamed_response_is_owned_by_the_caller():
     POST /openai_passthrough/v1/responses left the raw resp_ id in the stream and
     recorded no owner, so any other key could read, continue, and delete it.
     """
-    import litellm
-    from litellm.llms.custom_httpx.http_handler import get_async_httpx_client
-    from litellm.types.llms.custom_http import httpxSpecialProvider
+    import embrouter
+    from embrouter.llms.custom_httpx.http_handler import get_async_httpx_client
+    from embrouter.types.llms.custom_http import httpxSpecialProvider
 
     raw_id = "resp_0123456789abcdef"
     upstream_body = (
@@ -1673,9 +1673,9 @@ async def test_pass_through_request_streamed_response_is_owned_by_the_caller():
         b'event: response.completed\ndata: {"type": "response.completed", "response": {"id": "%s"}}\n\n'
     ) % (raw_id.encode(), raw_id.encode())
     prisma_client = MagicMock()
-    prisma_client.db.litellm_managedobjecttable.find_first = AsyncMock(return_value=None)
-    prisma_client.db.litellm_managedobjecttable.upsert = AsyncMock(return_value=None)
-    prisma_client.db.litellm_managedfiletable.find_first = AsyncMock(return_value=None)
+    prisma_client.db.embrouter_managedobjecttable.find_first = AsyncMock(return_value=None)
+    prisma_client.db.embrouter_managedobjecttable.upsert = AsyncMock(return_value=None)
+    prisma_client.db.embrouter_managedfiletable.find_first = AsyncMock(return_value=None)
 
     def transport_handler(upstream_request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, content=upstream_body, headers={"content-type": "text/event-stream"})
@@ -1684,7 +1684,7 @@ async def test_pass_through_request_streamed_response_is_owned_by_the_caller():
         llm_provider=httpxSpecialProvider.PassThroughEndpoint,
         params={"timeout": resolve_pass_through_request_timeout(None)},
     )
-    cache_dict = litellm.in_memory_llm_clients_cache.cache_dict
+    cache_dict = embrouter.in_memory_llm_clients_cache.cache_dict
     cache_key = next(key for key, cached in cache_dict.items() if cached is real_handler)
     cache_dict[cache_key] = SimpleNamespace(client=httpx.AsyncClient(transport=httpx.MockTransport(transport_handler)))
 
@@ -1705,9 +1705,9 @@ async def test_pass_through_request_streamed_response_is_owned_by_the_caller():
 
     flag_on = {"passthrough_managed_object_ids": True}
     proxy_server_globals = (
-        patch("litellm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging),  # test-quality-ok: read at call time
-        patch("litellm.proxy.proxy_server.general_settings", flag_on),  # test-quality-ok: read at call time
-        patch("litellm.proxy.proxy_server.prisma_client", prisma_client),  # test-quality-ok: read at call time
+        patch("embrouter.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging),  # test-quality-ok: read at call time
+        patch("embrouter.proxy.proxy_server.general_settings", flag_on),  # test-quality-ok: read at call time
+        patch("embrouter.proxy.proxy_server.prisma_client", prisma_client),  # test-quality-ok: read at call time
     )
 
     try:
@@ -1726,8 +1726,8 @@ async def test_pass_through_request_streamed_response_is_owned_by_the_caller():
         cache_dict[cache_key] = real_handler
 
     assert response.status_code == 200
-    prisma_client.db.litellm_managedobjecttable.upsert.assert_awaited_once()
-    created = prisma_client.db.litellm_managedobjecttable.upsert.await_args.kwargs["data"]["create"]
+    prisma_client.db.embrouter_managedobjecttable.upsert.assert_awaited_once()
+    created = prisma_client.db.embrouter_managedobjecttable.upsert.await_args.kwargs["data"]["create"]
     assert created["created_by"] == "user-a"
     assert created["team_id"] == "team-a"
     assert created["model_object_id"] == f"passthrough:openai:{raw_id}"
@@ -1747,19 +1747,19 @@ async def test_create_pass_through_endpoint():
     3. Adds the endpoint to the database
     4. Returns the created endpoint with the generated ID
     """
-    from litellm.proxy._types import (
+    from embrouter.proxy._types import (
         ConfigFieldInfo,
         PassThroughEndpointResponse,
         PassThroughGenericEndpoint,
         UserAPIKeyAuth,
     )
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from embrouter.proxy.pass_through_endpoints.pass_through_endpoints import (
         create_pass_through_endpoints,
     )
 
     # Mock the database functions
-    with patch("litellm.proxy.proxy_server.get_config_general_settings") as mock_get_config:
-        with patch("litellm.proxy.proxy_server.update_config_general_settings") as mock_update_config:
+    with patch("embrouter.proxy.proxy_server.get_config_general_settings") as mock_get_config:
+        with patch("embrouter.proxy.proxy_server.update_config_general_settings") as mock_update_config:
             # Mock existing config (empty list)
             mock_get_config.return_value = ConfigFieldInfo(field_name="pass_through_endpoints", field_value=[])
 
@@ -1820,19 +1820,19 @@ async def test_update_pass_through_endpoint():
     4. Updates the database with the modified endpoint
     5. Returns the updated endpoint
     """
-    from litellm.proxy._types import (
+    from embrouter.proxy._types import (
         ConfigFieldInfo,
         PassThroughEndpointResponse,
         PassThroughGenericEndpoint,
         UserAPIKeyAuth,
     )
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from embrouter.proxy.pass_through_endpoints.pass_through_endpoints import (
         update_pass_through_endpoints,
     )
 
     # Mock the database functions
-    with patch("litellm.proxy.proxy_server.get_config_general_settings") as mock_get_config:
-        with patch("litellm.proxy.proxy_server.update_config_general_settings") as mock_update_config:
+    with patch("embrouter.proxy.proxy_server.get_config_general_settings") as mock_get_config:
+        with patch("embrouter.proxy.proxy_server.update_config_general_settings") as mock_update_config:
             # Create existing endpoint data
             existing_endpoint_id = "test-endpoint-123"
             existing_endpoints = [
@@ -1916,23 +1916,23 @@ async def test_create_pass_through_endpoint_auth_true_enforces_allowlist():
     """
     from fastapi import HTTPException
 
-    from litellm.proxy._types import (
+    from embrouter.proxy._types import (
         ConfigFieldInfo,
         PassThroughGenericEndpoint,
         UserAPIKeyAuth,
     )
-    from litellm.proxy.auth.route_checks import RouteChecks
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from embrouter.proxy.auth.route_checks import RouteChecks
+    from embrouter.proxy.pass_through_endpoints.pass_through_endpoints import (
         create_pass_through_endpoints,
     )
 
     registry: dict = {}
 
     with (
-        patch("litellm.proxy.proxy_server.get_config_general_settings") as mock_get_config,
-        patch("litellm.proxy.proxy_server.update_config_general_settings"),
+        patch("embrouter.proxy.proxy_server.get_config_general_settings") as mock_get_config,
+        patch("embrouter.proxy.proxy_server.update_config_general_settings"),
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints._registered_pass_through_routes",
+            "embrouter.proxy.pass_through_endpoints.pass_through_endpoints._registered_pass_through_routes",
             registry,
         ),
     ):
@@ -1990,13 +1990,13 @@ async def test_update_pass_through_endpoint_auth_true_enforces_allowlist():
     """
     from fastapi import HTTPException
 
-    from litellm.proxy._types import (
+    from embrouter.proxy._types import (
         ConfigFieldInfo,
         PassThroughGenericEndpoint,
         UserAPIKeyAuth,
     )
-    from litellm.proxy.auth.route_checks import RouteChecks
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from embrouter.proxy.auth.route_checks import RouteChecks
+    from embrouter.proxy.pass_through_endpoints.pass_through_endpoints import (
         update_pass_through_endpoints,
     )
 
@@ -2013,10 +2013,10 @@ async def test_update_pass_through_endpoint_auth_true_enforces_allowlist():
     ]
 
     with (
-        patch("litellm.proxy.proxy_server.get_config_general_settings") as mock_get_config,
-        patch("litellm.proxy.proxy_server.update_config_general_settings"),
+        patch("embrouter.proxy.proxy_server.get_config_general_settings") as mock_get_config,
+        patch("embrouter.proxy.proxy_server.update_config_general_settings"),
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints._registered_pass_through_routes",
+            "embrouter.proxy.pass_through_endpoints.pass_through_endpoints._registered_pass_through_routes",
             registry,
         ),
     ):
@@ -2060,13 +2060,13 @@ async def test_update_pass_through_endpoint_preserves_auth_false():
     naive exclude_none merge would overwrite the stored auth=false and start
     rejecting every team/key that lacks allowed_passthrough_routes.
     """
-    from litellm.proxy._types import (
+    from embrouter.proxy._types import (
         ConfigFieldInfo,
         PassThroughGenericEndpoint,
         UserAPIKeyAuth,
     )
-    from litellm.proxy.auth.route_checks import RouteChecks
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from embrouter.proxy.auth.route_checks import RouteChecks
+    from embrouter.proxy.pass_through_endpoints.pass_through_endpoints import (
         update_pass_through_endpoints,
     )
 
@@ -2083,10 +2083,10 @@ async def test_update_pass_through_endpoint_preserves_auth_false():
     ]
 
     with (
-        patch("litellm.proxy.proxy_server.get_config_general_settings") as mock_get_config,
-        patch("litellm.proxy.proxy_server.update_config_general_settings") as mock_update_config,
+        patch("embrouter.proxy.proxy_server.get_config_general_settings") as mock_get_config,
+        patch("embrouter.proxy.proxy_server.update_config_general_settings") as mock_update_config,
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints._registered_pass_through_routes",
+            "embrouter.proxy.pass_through_endpoints.pass_through_endpoints._registered_pass_through_routes",
             registry,
         ),
     ):
@@ -2121,17 +2121,17 @@ async def test_update_pass_through_endpoint_not_found():
     """
     from fastapi import HTTPException
 
-    from litellm.proxy._types import (
+    from embrouter.proxy._types import (
         ConfigFieldInfo,
         PassThroughGenericEndpoint,
         UserAPIKeyAuth,
     )
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from embrouter.proxy.pass_through_endpoints.pass_through_endpoints import (
         update_pass_through_endpoints,
     )
 
     # Mock the database functions
-    with patch("litellm.proxy.proxy_server.get_config_general_settings") as mock_get_config:
+    with patch("embrouter.proxy.proxy_server.get_config_general_settings") as mock_get_config:
         # Mock existing config with different endpoint
         existing_endpoints = [
             {
@@ -2178,18 +2178,18 @@ async def test_delete_pass_through_endpoint():
     2. Removes it from the database
     3. Returns the deleted endpoint
     """
-    from litellm.proxy._types import (
+    from embrouter.proxy._types import (
         ConfigFieldInfo,
         PassThroughEndpointResponse,
         UserAPIKeyAuth,
     )
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from embrouter.proxy.pass_through_endpoints.pass_through_endpoints import (
         delete_pass_through_endpoints,
     )
 
     # Mock the database functions
-    with patch("litellm.proxy.proxy_server.get_config_general_settings") as mock_get_config:
-        with patch("litellm.proxy.proxy_server.update_config_general_settings") as mock_update_config:
+    with patch("embrouter.proxy.proxy_server.get_config_general_settings") as mock_get_config:
+        with patch("embrouter.proxy.proxy_server.update_config_general_settings") as mock_update_config:
             # Create existing endpoint data
             endpoint_to_delete_id = "test-endpoint-123"
             other_endpoint_id = "other-endpoint-456"
@@ -2261,13 +2261,13 @@ async def test_delete_pass_through_endpoint_not_found():
     """
     from fastapi import HTTPException
 
-    from litellm.proxy._types import ConfigFieldInfo, UserAPIKeyAuth
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from embrouter.proxy._types import ConfigFieldInfo, UserAPIKeyAuth
+    from embrouter.proxy.pass_through_endpoints.pass_through_endpoints import (
         delete_pass_through_endpoints,
     )
 
     # Mock the database functions
-    with patch("litellm.proxy.proxy_server.get_config_general_settings") as mock_get_config:
+    with patch("embrouter.proxy.proxy_server.get_config_general_settings") as mock_get_config:
         # Mock existing config with different endpoint
         existing_endpoints = [
             {
@@ -2306,12 +2306,12 @@ async def test_get_pass_through_endpoints_includes_config_and_db():
     with correct is_from_config flag. Config-only endpoints have is_from_config=True,
     DB endpoints have is_from_config=False. When same path exists in both, DB overrides.
     """
-    from litellm.proxy._types import (
+    from embrouter.proxy._types import (
         PassThroughEndpointResponse,
         PassThroughGenericEndpoint,
         UserAPIKeyAuth,
     )
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from embrouter.proxy.pass_through_endpoints.pass_through_endpoints import (
         get_pass_through_endpoints,
     )
 
@@ -2348,15 +2348,15 @@ async def test_get_pass_through_endpoints_includes_config_and_db():
     ]
 
     with patch(
-        "litellm.proxy.proxy_server.prisma_client",
+        "embrouter.proxy.proxy_server.prisma_client",
         MagicMock(),
     ):
         with patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints._get_pass_through_endpoints_from_db",
+            "embrouter.proxy.pass_through_endpoints.pass_through_endpoints._get_pass_through_endpoints_from_db",
             new_callable=AsyncMock,
         ) as mock_get_db:
             with patch(
-                "litellm.proxy.pass_through_endpoints.pass_through_endpoints._get_pass_through_endpoints_from_config"
+                "embrouter.proxy.pass_through_endpoints.pass_through_endpoints._get_pass_through_endpoints_from_config"
             ) as mock_get_config:
                 db_objects = [PassThroughGenericEndpoint(**ep, is_from_config=False) for ep in db_endpoints]
                 config_objects = [PassThroughGenericEndpoint(**ep, is_from_config=True) for ep in config_endpoints]
@@ -2392,7 +2392,7 @@ def test_get_pass_through_endpoints_from_config_skips_malformed():
     Test that _get_pass_through_endpoints_from_config skips malformed endpoints
     and returns only valid ones, without raising.
     """
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from embrouter.proxy.pass_through_endpoints.pass_through_endpoints import (
         _get_pass_through_endpoints_from_config,
     )
 
@@ -2406,7 +2406,7 @@ def test_get_pass_through_endpoints_from_config_skips_malformed():
     ]
 
     with patch(
-        "litellm.proxy.proxy_server.config_passthrough_endpoints",
+        "embrouter.proxy.proxy_server.config_passthrough_endpoints",
         config_passthrough_endpoints,
     ):
         result = _get_pass_through_endpoints_from_config()
@@ -2427,13 +2427,13 @@ async def test_delete_pass_through_endpoint_empty_list():
     """
     from fastapi import HTTPException
 
-    from litellm.proxy._types import ConfigFieldInfo, UserAPIKeyAuth
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from embrouter.proxy._types import ConfigFieldInfo, UserAPIKeyAuth
+    from embrouter.proxy.pass_through_endpoints.pass_through_endpoints import (
         delete_pass_through_endpoints,
     )
 
     # Mock the database functions
-    with patch("litellm.proxy.proxy_server.get_config_general_settings") as mock_get_config:
+    with patch("embrouter.proxy.proxy_server.get_config_general_settings") as mock_get_config:
         # Mock empty config
         mock_get_config.return_value = ConfigFieldInfo(field_name="pass_through_endpoints", field_value=None)
 
@@ -2459,18 +2459,18 @@ async def test_pass_through_request_query_params_forwarding():
     This test verifies the fix for the bug where query parameters like api-version were being lost
     when forwarding requests to Azure OpenAI and other pass-through endpoints.
     """
-    with patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
+    with patch("embrouter.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
         with patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.HttpPassThroughEndpointHelpers.non_streaming_http_request_handler"
+            "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.HttpPassThroughEndpointHelpers.non_streaming_http_request_handler"
         ) as mock_http_handler:
             with patch(
-                "litellm.proxy.pass_through_endpoints.pass_through_endpoints.ProxyBaseLLMRequestProcessing"
+                "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.ProxyBaseLLMRequestProcessing"
             ) as mock_processing:
                 with patch(
-                    "litellm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler"
+                    "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler"
                 ) as mock_success_handler:
                     with patch(
-                        "litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_response_body"
+                        "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.get_response_body"
                     ) as mock_get_response_body:
                         # Setup mock for pre_call_hook
                         test_body = {"name": "Azure Assistant", "model": "gpt-4o"}
@@ -2549,7 +2549,7 @@ class _FakeManagedFilesHook:
     def __init__(self, file_row: SimpleNamespace):
         self._file_row = file_row
 
-    async def get_unified_file_id(self, file_id: str, litellm_parent_otel_span=None) -> SimpleNamespace:
+    async def get_unified_file_id(self, file_id: str, embrouter_parent_otel_span=None) -> SimpleNamespace:
         return self._file_row
 
 
@@ -2562,9 +2562,9 @@ async def _run_pass_through_and_capture_wire_url(
     managed_files_hook: _FakeManagedFilesHook | None = None,
     user_api_key_dict: UserAPIKeyAuth | None = None,
 ) -> httpx.URL:
-    import litellm
-    from litellm.llms.custom_httpx.http_handler import get_async_httpx_client
-    from litellm.types.llms.custom_http import httpxSpecialProvider
+    import embrouter
+    from embrouter.llms.custom_httpx.http_handler import get_async_httpx_client
+    from embrouter.types.llms.custom_http import httpxSpecialProvider
 
     recorded_requests = []
 
@@ -2576,7 +2576,7 @@ async def _run_pass_through_and_capture_wire_url(
         llm_provider=httpxSpecialProvider.PassThroughEndpoint,
         params={"timeout": resolve_pass_through_request_timeout(None)},
     )
-    cache_dict = litellm.in_memory_llm_clients_cache.cache_dict
+    cache_dict = embrouter.in_memory_llm_clients_cache.cache_dict
     cache_key = next((key for key, cached in cache_dict.items() if cached is real_handler), None)
     assert cache_key is not None, (
         "PassThroughEndpoint client not found in in_memory_llm_clients_cache; "
@@ -2598,15 +2598,15 @@ async def _run_pass_through_and_capture_wire_url(
 
     try:
         with ExitStack() as stack:
-            stack.enter_context(patch("litellm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging))
+            stack.enter_context(patch("embrouter.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging))
             if managed_files_hook is not None:
                 stack.enter_context(
                     patch(
-                        "litellm.proxy.proxy_server.general_settings",
+                        "embrouter.proxy.proxy_server.general_settings",
                         {"passthrough_managed_object_ids": True},
                     )
                 )
-                stack.enter_context(patch("litellm.proxy.proxy_server.prisma_client", None))
+                stack.enter_context(patch("embrouter.proxy.proxy_server.prisma_client", None))
             response = await pass_through_request(
                 request=mock_request,
                 target=target,
@@ -2634,13 +2634,13 @@ async def test_pass_through_request_merge_query_params_preserves_target_query_on
     """
     wire_url = await _run_pass_through_and_capture_wire_url(
         target="https://www.bing.com/search?setLang=en-US&mkt=en-US",
-        incoming_query="q=litellm",
+        incoming_query="q=embrouter",
         merge_query_params=True,
     )
     assert dict(wire_url.params) == {
         "setLang": "en-US",
         "mkt": "en-US",
-        "q": "litellm",
+        "q": "embrouter",
     }
 
 
@@ -2667,9 +2667,9 @@ async def test_pass_through_request_default_query_params_reach_the_wire():
 async def test_pass_through_request_without_merge_replaces_target_query():
     wire_url = await _run_pass_through_and_capture_wire_url(
         target="https://www.bing.com/search?setLang=en-US",
-        incoming_query="q=litellm",
+        incoming_query="q=embrouter",
     )
-    assert dict(wire_url.params) == {"q": "litellm"}
+    assert dict(wire_url.params) == {"q": "embrouter"}
 
 
 @pytest.mark.asyncio
@@ -2689,7 +2689,7 @@ async def test_pass_through_request_merge_query_params_rewrites_managed_ids_on_t
     first bakes the un-rewritten managed ID into the URL and hands the rewriter
     None, leaking the managed ID upstream.
     """
-    from litellm.proxy.pass_through_endpoints.managed_id_codec import new_managed_id
+    from embrouter.proxy.pass_through_endpoints.managed_id_codec import new_managed_id
 
     managed_id = new_managed_id("openai", "file-raw-123")
     hook = _FakeManagedFilesHook(SimpleNamespace(created_by="user-1", team_id=None))
@@ -2718,7 +2718,7 @@ async def test_pass_through_with_httpbin_redirect():
     from fastapi import Request
     from starlette.datastructures import Headers, QueryParams
 
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from embrouter.proxy.pass_through_endpoints.pass_through_endpoints import (
         pass_through_request,
     )
 
@@ -2768,8 +2768,8 @@ async def test_filter_endpoints_by_team_allowed_routes_with_filter():
     Test that _filter_endpoints_by_team_allowed_routes correctly filters endpoints
     when team has allowed_passthrough_routes in metadata
     """
-    from litellm.proxy._types import PassThroughGenericEndpoint
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from embrouter.proxy._types import PassThroughGenericEndpoint
+    from embrouter.proxy.pass_through_endpoints.pass_through_endpoints import (
         _filter_endpoints_by_team_allowed_routes,
     )
 
@@ -2784,7 +2784,7 @@ async def test_filter_endpoints_by_team_allowed_routes_with_filter():
     mock_prisma_client = MagicMock()
     mock_team = MagicMock()
     mock_team.metadata = {"allowed_passthrough_routes": ["/api/allowed1", "/api/allowed2"]}
-    mock_prisma_client.db.litellm_teamtable.find_unique = AsyncMock(return_value=mock_team)
+    mock_prisma_client.db.embrouter_teamtable.find_unique = AsyncMock(return_value=mock_team)
 
     # Call the function
     result = await _filter_endpoints_by_team_allowed_routes(
@@ -2799,7 +2799,7 @@ async def test_filter_endpoints_by_team_allowed_routes_with_filter():
     assert result[1].path == "/api/allowed2"
 
     # Verify database call
-    mock_prisma_client.db.litellm_teamtable.find_unique.assert_called_once_with(where={"team_id": "test-team-123"})
+    mock_prisma_client.db.embrouter_teamtable.find_unique.assert_called_once_with(where={"team_id": "test-team-123"})
 
 
 @pytest.mark.asyncio
@@ -2810,8 +2810,8 @@ async def test_filter_endpoints_by_team_allowed_routes_team_not_found():
     """
     from fastapi import HTTPException
 
-    from litellm.proxy._types import PassThroughGenericEndpoint
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from embrouter.proxy._types import PassThroughGenericEndpoint
+    from embrouter.proxy.pass_through_endpoints.pass_through_endpoints import (
         _filter_endpoints_by_team_allowed_routes,
     )
 
@@ -2822,7 +2822,7 @@ async def test_filter_endpoints_by_team_allowed_routes_team_not_found():
 
     # Mock prisma client to return None (team not found)
     mock_prisma_client = MagicMock()
-    mock_prisma_client.db.litellm_teamtable.find_unique = AsyncMock(return_value=None)
+    mock_prisma_client.db.embrouter_teamtable.find_unique = AsyncMock(return_value=None)
 
     # Call the function and expect HTTPException
     with pytest.raises(HTTPException) as exc_info:
@@ -2843,8 +2843,8 @@ async def test_filter_endpoints_by_team_allowed_routes_no_metadata():
     Test that _filter_endpoints_by_team_allowed_routes returns all endpoints
     when team has no metadata
     """
-    from litellm.proxy._types import PassThroughGenericEndpoint
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from embrouter.proxy._types import PassThroughGenericEndpoint
+    from embrouter.proxy.pass_through_endpoints.pass_through_endpoints import (
         _filter_endpoints_by_team_allowed_routes,
     )
 
@@ -2858,7 +2858,7 @@ async def test_filter_endpoints_by_team_allowed_routes_no_metadata():
     mock_prisma_client = MagicMock()
     mock_team = MagicMock()
     mock_team.metadata = None
-    mock_prisma_client.db.litellm_teamtable.find_unique = AsyncMock(return_value=mock_team)
+    mock_prisma_client.db.embrouter_teamtable.find_unique = AsyncMock(return_value=mock_team)
 
     # Call the function
     result = await _filter_endpoints_by_team_allowed_routes(
@@ -2879,8 +2879,8 @@ async def test_filter_endpoints_by_team_allowed_routes_no_allowed_routes_key():
     Test that _filter_endpoints_by_team_allowed_routes returns all endpoints
     when team metadata doesn't have allowed_passthrough_routes key
     """
-    from litellm.proxy._types import PassThroughGenericEndpoint
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from embrouter.proxy._types import PassThroughGenericEndpoint
+    from embrouter.proxy.pass_through_endpoints.pass_through_endpoints import (
         _filter_endpoints_by_team_allowed_routes,
     )
 
@@ -2894,7 +2894,7 @@ async def test_filter_endpoints_by_team_allowed_routes_no_allowed_routes_key():
     mock_prisma_client = MagicMock()
     mock_team = MagicMock()
     mock_team.metadata = {"some_other_key": "some_value"}
-    mock_prisma_client.db.litellm_teamtable.find_unique = AsyncMock(return_value=mock_team)
+    mock_prisma_client.db.embrouter_teamtable.find_unique = AsyncMock(return_value=mock_team)
 
     # Call the function
     result = await _filter_endpoints_by_team_allowed_routes(
@@ -2915,8 +2915,8 @@ async def test_filter_endpoints_by_team_allowed_routes_empty_allowed_list():
     Test that _filter_endpoints_by_team_allowed_routes returns empty list
     when team has empty allowed_passthrough_routes list
     """
-    from litellm.proxy._types import PassThroughGenericEndpoint
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from embrouter.proxy._types import PassThroughGenericEndpoint
+    from embrouter.proxy.pass_through_endpoints.pass_through_endpoints import (
         _filter_endpoints_by_team_allowed_routes,
     )
 
@@ -2930,7 +2930,7 @@ async def test_filter_endpoints_by_team_allowed_routes_empty_allowed_list():
     mock_prisma_client = MagicMock()
     mock_team = MagicMock()
     mock_team.metadata = {"allowed_passthrough_routes": []}
-    mock_prisma_client.db.litellm_teamtable.find_unique = AsyncMock(return_value=mock_team)
+    mock_prisma_client.db.embrouter_teamtable.find_unique = AsyncMock(return_value=mock_team)
 
     # Call the function
     result = await _filter_endpoints_by_team_allowed_routes(
@@ -2949,8 +2949,8 @@ async def test_filter_endpoints_by_team_allowed_routes_partial_match():
     Test that _filter_endpoints_by_team_allowed_routes correctly filters
     when only some endpoints match allowed routes
     """
-    from litellm.proxy._types import PassThroughGenericEndpoint
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from embrouter.proxy._types import PassThroughGenericEndpoint
+    from embrouter.proxy.pass_through_endpoints.pass_through_endpoints import (
         _filter_endpoints_by_team_allowed_routes,
     )
 
@@ -2970,7 +2970,7 @@ async def test_filter_endpoints_by_team_allowed_routes_partial_match():
     mock_prisma_client = MagicMock()
     mock_team = MagicMock()
     mock_team.metadata = {"allowed_passthrough_routes": ["/api/openai", "/api/azure"]}
-    mock_prisma_client.db.litellm_teamtable.find_unique = AsyncMock(return_value=mock_team)
+    mock_prisma_client.db.embrouter_teamtable.find_unique = AsyncMock(return_value=mock_team)
 
     # Call the function
     result = await _filter_endpoints_by_team_allowed_routes(
@@ -2991,18 +2991,18 @@ async def test_bedrock_router_passthrough_metadata_initialization():
     Test that bedrock router passthrough properly initializes metadata for hooks.
 
     This test verifies the fix for issue #15826 where metadata.headers and
-    litellm_params.proxy_server_request were missing for /bedrock passthrough
+    embrouter_params.proxy_server_request were missing for /bedrock passthrough
     requests with router models.
 
     The fix ensures router bedrock models use the same common processing path
     as non-router models, which properly initializes all metadata structures.
     """
-    from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+    from embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
         handle_bedrock_passthrough_router_model,
     )
 
     # Mock ProxyBaseLLMRequestProcessing to verify it's used
-    with patch("litellm.proxy.common_request_processing.ProxyBaseLLMRequestProcessing") as mock_processing_class:
+    with patch("embrouter.proxy.common_request_processing.ProxyBaseLLMRequestProcessing") as mock_processing_class:
         # Setup mock instance
         mock_processor = MagicMock()
         mock_processing_class.return_value = mock_processor
@@ -3089,9 +3089,9 @@ async def test_bedrock_router_passthrough_metadata_initialization():
 
 
 @pytest.mark.asyncio
-async def test_add_litellm_data_to_request_adds_headers_to_metadata():
+async def test_add_embrouter_data_to_request_adds_headers_to_metadata():
     """
-    Test that add_litellm_data_to_request adds headers to metadata for guardrails.
+    Test that add_embrouter_data_to_request adds headers to metadata for guardrails.
 
     This test verifies the fix for issue #17477 where guardrails couldn't access
     request headers (like User-Agent) on Bedrock pass-through endpoints.
@@ -3099,8 +3099,8 @@ async def test_add_litellm_data_to_request_adds_headers_to_metadata():
     The fix ensures headers are available in data["metadata"]["headers"] so
     guardrails can validate User-Agent, API keys, and other header-based checks.
     """
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.litellm_pre_call_utils import add_litellm_data_to_request
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy.embrouter_pre_call_utils import add_embrouter_data_to_request
 
     # Create mock request with headers including User-Agent
     mock_request = MagicMock(spec=Request)
@@ -3130,8 +3130,8 @@ async def test_add_litellm_data_to_request_adds_headers_to_metadata():
         "messages": [{"role": "user", "content": "Hello"}],
     }
 
-    # Call add_litellm_data_to_request
-    result = await add_litellm_data_to_request(
+    # Call add_embrouter_data_to_request
+    result = await add_embrouter_data_to_request(
         data=data,
         request=mock_request,
         user_api_key_dict=mock_user_api_key_dict,
@@ -3140,15 +3140,15 @@ async def test_add_litellm_data_to_request_adds_headers_to_metadata():
         version="1.0",
     )
 
-    # Verify headers are added to litellm_metadata for guardrails.
-    # Bedrock passthrough uses litellm_metadata to prevent key-level
+    # Verify headers are added to embrouter_metadata for guardrails.
+    # Bedrock passthrough uses embrouter_metadata to prevent key-level
     # tags from leaking into the provider payload (GH#30629).
-    assert "litellm_metadata" in result, "litellm_metadata should be present in result"
-    assert "headers" in result["litellm_metadata"], "headers should be present in litellm_metadata"
-    assert isinstance(result["litellm_metadata"]["headers"], dict), "headers should be a dictionary"
+    assert "embrouter_metadata" in result, "embrouter_metadata should be present in result"
+    assert "headers" in result["embrouter_metadata"], "headers should be present in embrouter_metadata"
+    assert isinstance(result["embrouter_metadata"]["headers"], dict), "headers should be a dictionary"
 
     # Verify specific headers are accessible (important for guardrails)
-    headers = result["litellm_metadata"]["headers"]
+    headers = result["embrouter_metadata"]["headers"]
     assert "user-agent" in headers or "User-Agent" in headers, "User-Agent header should be accessible in metadata"
 
     # Also verify proxy_server_request has headers (original location)
@@ -3160,13 +3160,13 @@ async def test_add_litellm_data_to_request_adds_headers_to_metadata():
 async def test_create_pass_through_route_custom_body_url_target():
     """
     Test that programmatic callers (e.g. Bedrock proxy) can attach a JSON body via
-    request.state[LITELLM_PASS_THROUGH_CUSTOM_BODY_STATE_KEY]; it is forwarded to
+    request.state[EMBROUTER_PASS_THROUGH_CUSTOM_BODY_STATE_KEY]; it is forwarded to
     pass_through_request and takes precedence over the request-parsed body.
 
     We cannot use a `custom_body: dict` route parameter: FastAPI would treat it as
     the HTTP body and reject multipart/form-data before the handler runs.
     """
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from embrouter.proxy.pass_through_endpoints.pass_through_endpoints import (
         create_pass_through_route,
     )
 
@@ -3184,15 +3184,15 @@ async def test_create_pass_through_route_custom_body_url_target():
     )
 
     with (
-        patch("litellm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_request") as mock_pass_through,
+        patch("embrouter.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_request") as mock_pass_through,
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.InitPassThroughEndpointHelpers.is_registered_pass_through_route"
+            "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.InitPassThroughEndpointHelpers.is_registered_pass_through_route"
         ) as mock_is_registered,
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.InitPassThroughEndpointHelpers.get_registered_pass_through_route"
+            "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.InitPassThroughEndpointHelpers.get_registered_pass_through_route"
         ) as mock_get_registered,
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints._parse_request_data_by_content_type"
+            "embrouter.proxy.pass_through_endpoints.pass_through_endpoints._parse_request_data_by_content_type"
         ) as mock_parse_request,
     ):
         mock_pass_through.return_value = MagicMock()
@@ -3221,7 +3221,7 @@ async def test_create_pass_through_route_custom_body_url_target():
             "retrievalQuery": {"text": "What is in the knowledge base?"},
         }
 
-        setattr(mock_request.state, LITELLM_PASS_THROUGH_CUSTOM_BODY_STATE_KEY, bedrock_body)
+        setattr(mock_request.state, EMBROUTER_PASS_THROUGH_CUSTOM_BODY_STATE_KEY, bedrock_body)
 
         await endpoint_func(
             request=mock_request,
@@ -3258,7 +3258,7 @@ async def test_pass_through_request_non_streaming_uses_content_for_state_raw_bod
     mock_request.query_params = QueryParams({})
     mock_request.headers = Headers({"Content-Type": "application/json"})
     mock_request.state = SimpleNamespace()
-    setattr(mock_request.state, LITELLM_PASS_THROUGH_RAW_BODY_STATE_KEY, raw_signed)
+    setattr(mock_request.state, EMBROUTER_PASS_THROUGH_RAW_BODY_STATE_KEY, raw_signed)
     mock_request.body = AsyncMock(return_value=json.dumps(parsed_from_wire).encode("utf-8"))
 
     mock_user = MagicMock()
@@ -3288,19 +3288,19 @@ async def test_pass_through_request_non_streaming_uses_content_for_state_raw_bod
 
     with (
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client",
+            "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client",
             return_value=mock_client_obj,
         ),
         patch(
-            "litellm.proxy.proxy_server.proxy_logging_obj.pre_call_hook",
+            "embrouter.proxy.proxy_server.proxy_logging_obj.pre_call_hook",
             new=AsyncMock(side_effect=_hook_mutates_body),
         ),
         patch(
-            "litellm.proxy.proxy_server.proxy_logging_obj.post_call_response_headers_hook",
+            "embrouter.proxy.proxy_server.proxy_logging_obj.post_call_response_headers_hook",
             new=AsyncMock(return_value={}),
         ),
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler",
+            "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler",
             new=AsyncMock(),
         ),
     ):
@@ -3331,7 +3331,7 @@ async def test_pass_through_request_streaming_uses_content_for_state_raw_body():
     mock_request.query_params = QueryParams({})
     mock_request.headers = Headers({"Content-Type": "application/json"})
     mock_request.state = SimpleNamespace()
-    setattr(mock_request.state, LITELLM_PASS_THROUGH_RAW_BODY_STATE_KEY, raw_signed)
+    setattr(mock_request.state, EMBROUTER_PASS_THROUGH_RAW_BODY_STATE_KEY, raw_signed)
     mock_request.body = AsyncMock(return_value=json.dumps(parsed_from_wire).encode("utf-8"))
 
     mock_user = MagicMock()
@@ -3352,19 +3352,19 @@ async def test_pass_through_request_streaming_uses_content_for_state_raw_body():
 
     with (
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client",
+            "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client",
             return_value=mock_client_obj,
         ),
         patch(
-            "litellm.proxy.proxy_server.proxy_logging_obj.pre_call_hook",
+            "embrouter.proxy.proxy_server.proxy_logging_obj.pre_call_hook",
             new=AsyncMock(side_effect=lambda **kw: kw["data"]),
         ),
         patch(
-            "litellm.proxy.proxy_server.proxy_logging_obj.post_call_response_headers_hook",
+            "embrouter.proxy.proxy_server.proxy_logging_obj.post_call_response_headers_hook",
             new=AsyncMock(return_value={}),
         ),
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler",
+            "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler",
             new=AsyncMock(),
         ),
     ):
@@ -3394,7 +3394,7 @@ async def test_create_pass_through_route_no_custom_body_falls_back():
     This ensures the default pass-through behavior is preserved — only the
     Bedrock proxy route (and similar callers) supply a pre-built body.
     """
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from embrouter.proxy.pass_through_endpoints.pass_through_endpoints import (
         create_pass_through_route,
     )
 
@@ -3406,15 +3406,15 @@ async def test_create_pass_through_route_no_custom_body_falls_back():
     )
 
     with (
-        patch("litellm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_request") as mock_pass_through,
+        patch("embrouter.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_request") as mock_pass_through,
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.InitPassThroughEndpointHelpers.is_registered_pass_through_route"
+            "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.InitPassThroughEndpointHelpers.is_registered_pass_through_route"
         ) as mock_is_registered,
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.InitPassThroughEndpointHelpers.get_registered_pass_through_route"
+            "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.InitPassThroughEndpointHelpers.get_registered_pass_through_route"
         ) as mock_get_registered,
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints._parse_request_data_by_content_type"
+            "embrouter.proxy.pass_through_endpoints.pass_through_endpoints._parse_request_data_by_content_type"
         ) as mock_parse_request,
     ):
         mock_pass_through.return_value = MagicMock()
@@ -3457,7 +3457,7 @@ def test_is_registered_pass_through_route_with_custom_root():
     Registry stores bare paths; incoming routes may be bare (get_request_route)
     or prefixed (request.url.path). Both should resolve via normalization.
     """
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from embrouter.proxy.pass_through_endpoints.pass_through_endpoints import (
         InitPassThroughEndpointHelpers,
         _registered_pass_through_routes,
     )
@@ -3474,11 +3474,11 @@ def test_is_registered_pass_through_route_with_custom_root():
         "headers": {},
     }
 
-    with patch("litellm.proxy.utils.get_server_root_path", return_value="/proxy"):
+    with patch("embrouter.proxy.utils.get_server_root_path", return_value="/proxy"):
         assert InitPassThroughEndpointHelpers.is_registered_pass_through_route("/proxy/api/endpoint") is True
         assert InitPassThroughEndpointHelpers.is_registered_pass_through_route("/api/endpoint") is True
 
-    with patch("litellm.proxy.utils.get_server_root_path", return_value="/"):
+    with patch("embrouter.proxy.utils.get_server_root_path", return_value="/"):
         assert InitPassThroughEndpointHelpers.is_registered_pass_through_route("/api/endpoint") is True
         assert InitPassThroughEndpointHelpers.is_registered_pass_through_route("/proxy/api/endpoint") is False
 
@@ -3491,7 +3491,7 @@ def test_get_registered_pass_through_route_with_custom_root():
     get_registered_pass_through_route matches bare registry paths against
     bare or SERVER_ROOT_PATH-prefixed incoming routes.
     """
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from embrouter.proxy.pass_through_endpoints.pass_through_endpoints import (
         InitPassThroughEndpointHelpers,
         _registered_pass_through_routes,
     )
@@ -3510,9 +3510,9 @@ def test_get_registered_pass_through_route_with_custom_root():
     route_key = f"{endpoint_id}:exact:{path}"
     _registered_pass_through_routes[route_key] = target_config
 
-    with patch("litellm.proxy.utils.get_server_root_path", return_value="/litellm"):
+    with patch("embrouter.proxy.utils.get_server_root_path", return_value="/embrouter"):
         # Prefixed incoming route
-        result = InitPassThroughEndpointHelpers.get_registered_pass_through_route("/litellm/chat/completions")
+        result = InitPassThroughEndpointHelpers.get_registered_pass_through_route("/embrouter/chat/completions")
         assert result is not None
         assert result["target"] == "http://api.example.com/v1/chat/completions"
         assert result["headers"]["Authorization"] == "Bearer token123"
@@ -3522,7 +3522,7 @@ def test_get_registered_pass_through_route_with_custom_root():
         assert result is not None
         assert result["target"] == "http://api.example.com/v1/chat/completions"
 
-    with patch("litellm.proxy.utils.get_server_root_path", return_value="/"):
+    with patch("embrouter.proxy.utils.get_server_root_path", return_value="/"):
         result = InitPassThroughEndpointHelpers.get_registered_pass_through_route("/chat/completions")
         assert result is not None
         assert result["target"] == "http://api.example.com/v1/chat/completions"
@@ -3556,7 +3556,7 @@ def test_db_registered_pass_through_route_bare_path_convention(
     Regression: #28547 / SERVER_ROOT_PATH — registry stores bare /ml paths;
     get_request_route() supplies bare paths; prefixed url.path must still match.
     """
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from embrouter.proxy.pass_through_endpoints.pass_through_endpoints import (
         InitPassThroughEndpointHelpers,
         _registered_pass_through_routes,
     )
@@ -3574,7 +3574,7 @@ def test_db_registered_pass_through_route_bare_path_convention(
     }
 
     with patch(
-        "litellm.proxy.utils.get_server_root_path",
+        "embrouter.proxy.utils.get_server_root_path",
         return_value=server_root_path,
     ):
         assert InitPassThroughEndpointHelpers.is_registered_pass_through_route(incoming_route) is should_match
@@ -3589,17 +3589,17 @@ def test_mapped_pass_through_routes_with_server_root_path():
 
 
     """
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from embrouter.proxy.pass_through_endpoints.pass_through_endpoints import (
         InitPassThroughEndpointHelpers,
     )
 
-    with patch("litellm.proxy.utils.get_server_root_path", return_value="/litellm"):
+    with patch("embrouter.proxy.utils.get_server_root_path", return_value="/embrouter"):
         # prefixed route should match mapped routes like /vertex_ai
         assert (
-            InitPassThroughEndpointHelpers.is_registered_pass_through_route("/litellm/vertex_ai/v1/projects/foo")
+            InitPassThroughEndpointHelpers.is_registered_pass_through_route("/embrouter/vertex_ai/v1/projects/foo")
             is True
         )
-        assert InitPassThroughEndpointHelpers.is_registered_pass_through_route("/litellm/bedrock/model/invoke") is True
+        assert InitPassThroughEndpointHelpers.is_registered_pass_through_route("/embrouter/bedrock/model/invoke") is True
 
         # bare route without prefix should not match when root is set
         assert InitPassThroughEndpointHelpers.is_registered_pass_through_route("/vertex_ai/v1/projects/foo") is False
@@ -3736,12 +3736,12 @@ class TestStaleRouteCleanupOnReload:
         stack = ExitStack()
         stack.enter_context(
             patch(
-                "litellm.proxy.pass_through_endpoints.pass_through_endpoints.SafeRouteAdder.add_api_route_if_not_exists"
+                "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.SafeRouteAdder.add_api_route_if_not_exists"
             )
         )
-        stack.enter_context(patch("litellm.proxy.proxy_server.premium_user", True))
+        stack.enter_context(patch("embrouter.proxy.proxy_server.premium_user", True))
         mock_set_env = stack.enter_context(
-            patch("litellm.proxy.pass_through_endpoints.pass_through_endpoints.set_env_variables_in_header")
+            patch("embrouter.proxy.pass_through_endpoints.pass_through_endpoints.set_env_variables_in_header")
         )
         mock_set_env.return_value = {}
         return stack
@@ -3825,12 +3825,12 @@ class TestStaleRouteCleanupOnReload:
 # even though the client correctly receives the 4xx.
 from fastapi import HTTPException as _FastAPIHTTPException
 
-from litellm.exceptions import (
+from embrouter.exceptions import (
     BlockedPiiEntityError,
     GuardrailRaisedException,
 )
 
-_PT_MODULE = "litellm.proxy.pass_through_endpoints.pass_through_endpoints"
+_PT_MODULE = "embrouter.proxy.pass_through_endpoints.pass_through_endpoints"
 
 
 def _lit3538_user_api_key_dict():
@@ -3869,7 +3869,7 @@ async def _drive_pass_through_block(raised_exception):
     logger = MagicMock()
 
     patches = [
-        patch("litellm.proxy.proxy_server.proxy_logging_obj", proxy_logging),
+        patch("embrouter.proxy.proxy_server.proxy_logging_obj", proxy_logging),
         patch(f"{_PT_MODULE}.verbose_proxy_logger", logger),
         patch(
             f"{_PT_MODULE}._read_request_body",
@@ -3878,7 +3878,7 @@ async def _drive_pass_through_block(raised_exception):
         ),
         patch(f"{_PT_MODULE}._safe_get_request_headers", return_value={}),
         patch(
-            "litellm.proxy.pass_through_endpoints.passthrough_guardrails."
+            "embrouter.proxy.pass_through_endpoints.passthrough_guardrails."
             "PassthroughGuardrailHandler.collect_guardrails",
             return_value=[],
         ),
@@ -3960,15 +3960,15 @@ async def test_pass_through_request_non_streaming_upstream_error_returned_unchan
         request=httpx.Request("POST", "http://target-api.com/api/denied"),
     )
 
-    with patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
+    with patch("embrouter.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
         with patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
+            "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
         ) as mock_get_client:
             with patch(
-                "litellm.proxy.pass_through_endpoints.pass_through_endpoints.ProxyBaseLLMRequestProcessing"
+                "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.ProxyBaseLLMRequestProcessing"
             ) as mock_processing:
                 with patch(
-                    "litellm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler"
+                    "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler"
                 ) as mock_success_handler:
                     mock_proxy_logging.pre_call_hook = AsyncMock(return_value={})
                     mock_proxy_logging.post_call_failure_hook = AsyncMock()
@@ -4044,15 +4044,15 @@ async def test_pass_through_request_upstream_error_failure_hook_exception_is_swa
         request=httpx.Request("POST", "http://target-api.com/api/denied"),
     )
 
-    with patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
+    with patch("embrouter.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
         with patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
+            "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
         ) as mock_get_client:
             with patch(
-                "litellm.proxy.pass_through_endpoints.pass_through_endpoints.ProxyBaseLLMRequestProcessing"
+                "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.ProxyBaseLLMRequestProcessing"
             ) as mock_processing:
                 with patch(
-                    "litellm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler"
+                    "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler"
                 ) as mock_success_handler:
                     mock_proxy_logging.pre_call_hook = AsyncMock(return_value={})
                     mock_proxy_logging.post_call_failure_hook = AsyncMock(
@@ -4099,12 +4099,12 @@ async def test_pass_through_request_streaming_upstream_error_returned_unchanged(
         request=httpx.Request("GET", "http://target-api.com/api/stream-denied"),
     )
 
-    with patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
+    with patch("embrouter.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
         with patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
+            "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
         ) as mock_get_client:
             with patch(
-                "litellm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler"
+                "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler"
             ) as mock_success_handler:
                 mock_proxy_logging.pre_call_hook = AsyncMock(return_value={})
                 mock_proxy_logging.post_call_failure_hook = AsyncMock()
@@ -4195,13 +4195,13 @@ async def test_pass_through_request_non_streaming_upstream_error_body_logged_and
         request=httpx.Request("POST", "http://target-api.com/v1beta/models/claude-nope-9:generateContent"),
     )
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
-        with patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
+    with caplog.at_level(logging.WARNING, logger="EmbRouter Proxy"):
+        with patch("embrouter.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
             with patch(
-                "litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
+                "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
             ) as mock_get_client:
                 with patch(
-                    "litellm.proxy.pass_through_endpoints.pass_through_endpoints.ProxyBaseLLMRequestProcessing"
+                    "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.ProxyBaseLLMRequestProcessing"
                 ) as mock_processing:
                     mock_proxy_logging.pre_call_hook = AsyncMock(return_value={})
                     mock_proxy_logging.post_call_failure_hook = AsyncMock()
@@ -4251,12 +4251,12 @@ async def test_pass_through_request_streaming_upstream_error_body_reaches_client
         request=httpx.Request("POST", "http://target-api.com/v1beta/models/claude-nope-9:streamGenerateContent"),
     )
 
-    with patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
+    with patch("embrouter.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
         with patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
+            "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
         ) as mock_get_client:
             with patch(
-                "litellm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler"
+                "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler"
             ) as mock_success_handler:
                 mock_proxy_logging.pre_call_hook = AsyncMock(return_value={})
                 mock_proxy_logging.post_call_failure_hook = AsyncMock()
@@ -4304,12 +4304,12 @@ async def test_truncate_upstream_error_body_caps_at_log_limit():
         content=long_body.encode("utf-8"),
         request=httpx.Request("POST", "http://target-api.com/api/big-error"),
     )
-    with patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
+    with patch("embrouter.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
         with patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
+            "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
         ) as mock_get_client:
             with patch(
-                "litellm.proxy.pass_through_endpoints.pass_through_endpoints.ProxyBaseLLMRequestProcessing"
+                "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.ProxyBaseLLMRequestProcessing"
             ) as mock_processing:
                 mock_proxy_logging.pre_call_hook = AsyncMock(return_value={})
                 mock_proxy_logging.post_call_failure_hook = AsyncMock()
@@ -4346,12 +4346,12 @@ async def test_pass_through_request_upstream_error_log_strips_provider_key_from_
     )
 
     with patch.object(verbose_proxy_logger, "warning") as mock_warning:
-        with patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
+        with patch("embrouter.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
             with patch(
-                "litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
+                "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
             ) as mock_get_client:
                 with patch(
-                    "litellm.proxy.pass_through_endpoints.pass_through_endpoints.ProxyBaseLLMRequestProcessing"
+                    "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.ProxyBaseLLMRequestProcessing"
                 ) as mock_processing:
                     mock_proxy_logging.pre_call_hook = AsyncMock(return_value={})
                     mock_proxy_logging.post_call_failure_hook = AsyncMock()
@@ -4408,12 +4408,12 @@ async def test_passthrough_upstream_error_body_redacted_when_message_logging_off
     user_api_key_dict.team_id = None
 
     with patch.object(verbose_proxy_logger, "warning") as mock_warning:
-        with patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
+        with patch("embrouter.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
             with patch(
-                "litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
+                "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
             ) as mock_get_client:
                 with patch(
-                    "litellm.proxy.pass_through_endpoints.pass_through_endpoints.ProxyBaseLLMRequestProcessing"
+                    "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.ProxyBaseLLMRequestProcessing"
                 ) as mock_processing:
                     mock_proxy_logging.pre_call_hook = AsyncMock(return_value={})
                     mock_proxy_logging.post_call_failure_hook = AsyncMock()
@@ -4447,9 +4447,9 @@ async def test_passthrough_upstream_error_body_redacted_when_message_logging_off
     detail: Final = mock_proxy_logging.post_call_failure_hook.call_args.kwargs["original_exception"].detail
 
     if turn_off_message_logging:
-        assert logged_body == "redacted-by-litellm"
+        assert logged_body == "redacted-by-embrouter"
         assert "upstream body says the project was not found" not in logged_body
-        assert detail == "Upstream passthrough request failed with status 404: redacted-by-litellm"
+        assert detail == "Upstream passthrough request failed with status 404: redacted-by-embrouter"
     else:
         assert "upstream body says the project was not found" in logged_body
         assert detail == f"Upstream passthrough request failed with status 404: {upstream_content.decode()}"
@@ -4488,12 +4488,12 @@ async def test_pass_through_request_streaming_upstream_error_reads_only_preview_
         return real_warning(*args, **kwargs)
 
     with patch.object(verbose_proxy_logger, "warning", side_effect=_recording_warning):
-        with patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
+        with patch("embrouter.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
             with patch(
-                "litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
+                "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
             ) as mock_get_client:
                 with patch(
-                    "litellm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler"
+                    "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler"
                 ) as mock_success_handler:
                     mock_proxy_logging.pre_call_hook = AsyncMock(return_value={})
                     mock_proxy_logging.post_call_failure_hook = AsyncMock()
@@ -4553,12 +4553,12 @@ async def test_pass_through_request_streaming_upstream_error_single_large_chunk_
         return real_warning(*args, **kwargs)
 
     with patch.object(verbose_proxy_logger, "warning", side_effect=_recording_warning):
-        with patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
+        with patch("embrouter.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
             with patch(
-                "litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
+                "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
             ) as mock_get_client:
                 with patch(
-                    "litellm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler"
+                    "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler"
                 ) as mock_success_handler:
                     mock_proxy_logging.pre_call_hook = AsyncMock(return_value={})
                     mock_proxy_logging.post_call_failure_hook = AsyncMock()
@@ -4625,12 +4625,12 @@ async def test_pass_through_request_streaming_upstream_error_body_read_failure_k
         return real_warning(*args, **kwargs)
 
     with patch.object(verbose_proxy_logger, "warning", side_effect=_recording_warning):
-        with patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
+        with patch("embrouter.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
             with patch(
-                "litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
+                "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
             ) as mock_get_client:
                 with patch(
-                    "litellm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler"
+                    "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler"
                 ) as mock_success_handler:
                     mock_proxy_logging.pre_call_hook = AsyncMock(return_value={})
                     mock_proxy_logging.post_call_failure_hook = AsyncMock()
@@ -4708,12 +4708,12 @@ async def test_pass_through_request_streaming_upstream_error_gzip_read_failure_r
         return real_warning(*args, **kwargs)
 
     with patch.object(verbose_proxy_logger, "warning", side_effect=_recording_warning):
-        with patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
+        with patch("embrouter.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
             with patch(
-                "litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
+                "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
             ) as mock_get_client:
                 with patch(
-                    "litellm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler"
+                    "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler"
                 ) as mock_success_handler:
                     mock_proxy_logging.pre_call_hook = AsyncMock(return_value={})
                     mock_proxy_logging.post_call_failure_hook = AsyncMock()
@@ -4762,12 +4762,12 @@ async def test_pass_through_request_streaming_upstream_error_gzip_body_decoded_f
     )
 
     with patch.object(verbose_proxy_logger, "warning") as mock_warning:
-        with patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
+        with patch("embrouter.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
             with patch(
-                "litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
+                "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
             ) as mock_get_client:
                 with patch(
-                    "litellm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler"
+                    "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler"
                 ) as mock_success_handler:
                     mock_proxy_logging.pre_call_hook = AsyncMock(return_value={})
                     mock_proxy_logging.post_call_failure_hook = AsyncMock()
@@ -4815,12 +4815,12 @@ async def test_pass_through_request_upstream_error_body_sanitized_against_log_fo
     )
 
     with patch.object(verbose_proxy_logger, "warning") as mock_warning:
-        with patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
+        with patch("embrouter.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
             with patch(
-                "litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
+                "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
             ) as mock_get_client:
                 with patch(
-                    "litellm.proxy.pass_through_endpoints.pass_through_endpoints.ProxyBaseLLMRequestProcessing"
+                    "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.ProxyBaseLLMRequestProcessing"
                 ) as mock_processing:
                     mock_proxy_logging.pre_call_hook = AsyncMock(return_value={})
                     mock_proxy_logging.post_call_failure_hook = AsyncMock()
@@ -4874,8 +4874,8 @@ async def test_pass_through_request_mid_stream_upstream_drop_fires_failure_hook(
     proxy-level failure hook at all, so the request left no spend row, no
     failure metric, and no alert; the pre-stream 4xx/5xx path already fires it.
     """
-    from litellm.llms.custom_httpx.http_handler import get_async_httpx_client
-    from litellm.types.llms.custom_http import httpxSpecialProvider
+    from embrouter.llms.custom_httpx.http_handler import get_async_httpx_client
+    from embrouter.types.llms.custom_http import httpxSpecialProvider
 
     def transport_handler(upstream_request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, stream=_UpstreamDroppingMidStream(), headers={"content-type": "text/event-stream"})
@@ -4884,7 +4884,7 @@ async def test_pass_through_request_mid_stream_upstream_drop_fires_failure_hook(
         llm_provider=httpxSpecialProvider.PassThroughEndpoint,
         params={"timeout": resolve_pass_through_request_timeout(None)},
     )
-    cache_dict = litellm.in_memory_llm_clients_cache.cache_dict
+    cache_dict = embrouter.in_memory_llm_clients_cache.cache_dict
     cache_key = next(key for key, cached in cache_dict.items() if cached is real_handler)
     cache_dict[cache_key] = SimpleNamespace(client=httpx.AsyncClient(transport=httpx.MockTransport(transport_handler)))
 
@@ -4905,7 +4905,7 @@ async def test_pass_through_request_mid_stream_upstream_drop_fires_failure_hook(
 
     try:
         with patch(  # test-quality-ok: proxy_logging_obj is a proxy_server module global read inside pass_through_request; there is no injection seam
-            "litellm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging
+            "embrouter.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging
         ):
             response = await pass_through_request(
                 request=mock_request,
@@ -4924,9 +4924,9 @@ async def test_pass_through_request_mid_stream_upstream_drop_fires_failure_hook(
     failure_call_kwargs = mock_proxy_logging.post_call_failure_hook.call_args.kwargs
     assert isinstance(failure_call_kwargs["original_exception"], httpx.ReadError)
     request_data = failure_call_kwargs["request_data"]
-    assert request_data["litellm_call_id"]
+    assert request_data["embrouter_call_id"]
     assert request_data["model"] == "gpt-5.6"
-    assert isinstance(request_data["litellm_logging_obj"], LiteLLMLoggingObj)
+    assert isinstance(request_data["embrouter_logging_obj"], EmbRouterLoggingObj)
 
 
 @pytest.mark.asyncio
@@ -4941,15 +4941,15 @@ async def test_pass_through_request_non_streaming_success_unchanged():
         request=httpx.Request("GET", "http://target-api.com/api/success"),
     )
 
-    with patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
+    with patch("embrouter.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
         with patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
+            "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
         ) as mock_get_client:
             with patch(
-                "litellm.proxy.pass_through_endpoints.pass_through_endpoints.ProxyBaseLLMRequestProcessing"
+                "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.ProxyBaseLLMRequestProcessing"
             ) as mock_processing:
                 with patch(
-                    "litellm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler"
+                    "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler"
                 ) as mock_success_handler:
                     mock_proxy_logging.pre_call_hook = AsyncMock(return_value={})
                     mock_proxy_logging.post_call_failure_hook = AsyncMock()
@@ -5007,12 +5007,12 @@ async def test_pass_through_request_claims_the_budget_reservation_only_when_its_
     )
 
     with (
-        patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging,
-        patch("litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client") as mock_get_client,
+        patch("embrouter.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging,
+        patch("embrouter.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client") as mock_get_client,
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.ProxyBaseLLMRequestProcessing"
+            "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.ProxyBaseLLMRequestProcessing"
         ) as mock_processing,
-        patch("litellm.proxy.pass_through_endpoints.pass_through_endpoints.GLOBAL_LOGGING_WORKER") as mock_worker,
+        patch("embrouter.proxy.pass_through_endpoints.pass_through_endpoints.GLOBAL_LOGGING_WORKER") as mock_worker,
     ):
         mock_proxy_logging.pre_call_hook = AsyncMock(return_value={})
         mock_proxy_logging.post_call_failure_hook = AsyncMock()
@@ -5061,12 +5061,12 @@ async def test_pass_through_request_leaves_the_budget_reservation_for_the_reques
         raise RuntimeError("logging worker is shutting down")
 
     with (
-        patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging,
-        patch("litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client") as mock_get_client,
+        patch("embrouter.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging,
+        patch("embrouter.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client") as mock_get_client,
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.ProxyBaseLLMRequestProcessing"
+            "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.ProxyBaseLLMRequestProcessing"
         ) as mock_processing,
-        patch("litellm.proxy.pass_through_endpoints.pass_through_endpoints.GLOBAL_LOGGING_WORKER") as mock_worker,
+        patch("embrouter.proxy.pass_through_endpoints.pass_through_endpoints.GLOBAL_LOGGING_WORKER") as mock_worker,
     ):
         mock_proxy_logging.pre_call_hook = AsyncMock(return_value={})
         mock_proxy_logging.post_call_failure_hook = AsyncMock()
@@ -5102,9 +5102,9 @@ async def test_pass_through_request_internal_failure_still_raises_proxy_exceptio
     made) must still surface as ProxyException, distinct from upstream
     passthrough errors which are now returned unchanged.
     """
-    from litellm.proxy._types import ProxyException
+    from embrouter.proxy._types import ProxyException
 
-    with patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
+    with patch("embrouter.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging:
         mock_proxy_logging.pre_call_hook = AsyncMock(side_effect=RuntimeError("auth backend unavailable"))
         mock_proxy_logging.post_call_failure_hook = AsyncMock()
 
@@ -5165,15 +5165,15 @@ def _inject_fake_passthrough_client(transport, timeout):
     returned, so the internal cache-key format is never duplicated here. Must
     run inside the test's event loop because cache keys are loop-scoped.
     Returns (client, cleanup)."""
-    import litellm
-    from litellm.llms.custom_httpx.http_handler import get_async_httpx_client
-    from litellm.types.llms.custom_http import httpxSpecialProvider
+    import embrouter
+    from embrouter.llms.custom_httpx.http_handler import get_async_httpx_client
+    from embrouter.types.llms.custom_http import httpxSpecialProvider
 
     real_handler = get_async_httpx_client(
         httpxSpecialProvider.PassThroughEndpoint,
         params={"timeout": resolve_pass_through_request_timeout(timeout)},
     )
-    cache = litellm.in_memory_llm_clients_cache
+    cache = embrouter.in_memory_llm_clients_cache
     cache_key = next(
         (key for key, cached in cache.cache_dict.items() if cached is real_handler),
         None,
@@ -5192,15 +5192,15 @@ def _inject_fake_passthrough_client(transport, timeout):
 
 
 def _enter_relay_logging_mocks(stack, parsed_body):
-    from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+    from embrouter.embrouter_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
 
-    mock_proxy_logging = stack.enter_context(patch("litellm.proxy.proxy_server.proxy_logging_obj"))
+    mock_proxy_logging = stack.enter_context(patch("embrouter.proxy.proxy_server.proxy_logging_obj"))
     mock_proxy_logging.pre_call_hook = AsyncMock(return_value=parsed_body)
     mock_proxy_logging.post_call_failure_hook = AsyncMock()
     mock_proxy_logging.post_call_response_headers_hook = AsyncMock(return_value=None)
     mock_success_handler = stack.enter_context(
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler"
+            "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.pass_through_endpoint_logging.pass_through_async_success_handler"
         )
     )
     mock_success_handler.return_value = None
@@ -5237,7 +5237,7 @@ async def test_pass_through_request_propagates_active_trace_context(span_source:
         with ExitStack() as stack:
             _enter_relay_logging_mocks(stack, {})
             if span_source == "auth_parent_span":
-                span = tracer.start_span("litellm_request")
+                span = tracer.start_span("embrouter_request")
                 stack.callback(span.end)
                 user_api_key_dict = UserAPIKeyAuth(api_key="sk-test", parent_otel_span=span)
             else:
@@ -5273,7 +5273,7 @@ async def _relay_with_trace_headers(inbound_headers: dict[str, str], forward_hea
     try:
         with ExitStack() as stack:
             _enter_relay_logging_mocks(stack, {})
-            span = tracer.start_span("litellm_request")
+            span = tracer.start_span("embrouter_request")
             stack.callback(span.end)
             request = _relay_client_request(method="POST")
             request.headers = Headers(inbound_headers)
@@ -5330,14 +5330,14 @@ async def test_pass_through_request_relays_non_json_body_without_buffering():
 
     A non-JSON 2xx body must be relayed as a StreamingResponse whose chunks are
     pulled from the upstream one at a time, with zero chunks consumed before the
-    handler returns, upstream status/headers plus x-litellm-* headers preserved,
+    handler returns, upstream status/headers plus x-embrouter-* headers preserved,
     and the success-handler logging fired with response_body=None once the
     stream completes. Pre-fix, the handler returned a plain Response after
     reading the entire body, so these assertions fail on the old code.
     """
     from fastapi.responses import StreamingResponse
 
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     upstream_chunks = (
         b'{"custom_id": "a", "result": {}}\n',
@@ -5384,7 +5384,7 @@ async def test_pass_through_request_relays_non_json_body_without_buffering():
 
             assert response.status_code == 200
             assert response.headers["x-upstream-marker"] == "batch-results"
-            assert "x-litellm-call-id" in response.headers
+            assert "x-embrouter-call-id" in response.headers
             assert "content-length" not in response.headers
 
             mock_success_handler.assert_called_once()
@@ -5408,7 +5408,7 @@ async def test_pass_through_request_json_response_stays_buffered_for_logging(con
     """
     from fastapi.responses import StreamingResponse
 
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     upstream_chunks = (b'{"id": "file-123"', b', "status": "processed"}')
     upstream_stream = _RecordingUpstreamByteStream(upstream_chunks)
@@ -5457,7 +5457,7 @@ async def test_pass_through_request_upstream_error_body_stays_buffered():
     """
     from fastapi.responses import StreamingResponse
 
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     upstream_stream = _RecordingUpstreamByteStream((b"upstream ", b"exploded"))
     fake_client, cleanup = _inject_fake_passthrough_client(
@@ -5496,7 +5496,7 @@ _UPSTREAM_JSON_ERROR: Final = b'{"error": {"message": "bad request", "type": "in
 async def _relay_upstream_through_pass_through_request(
     general_settings, status_code, content_type, body, callback_headers=None
 ):
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     fake_client, cleanup = _inject_fake_passthrough_client(
         _FakeUpstreamTransport(
@@ -5510,7 +5510,7 @@ async def _relay_upstream_through_pass_through_request(
         with ExitStack() as stack:
             mock_proxy_logging, _ = _enter_relay_logging_mocks(stack, {})
             mock_proxy_logging.post_call_response_headers_hook = AsyncMock(return_value=callback_headers)
-            stack.enter_context(patch("litellm.proxy.proxy_server.general_settings", general_settings))
+            stack.enter_context(patch("embrouter.proxy.proxy_server.general_settings", general_settings))
             return await pass_through_request(
                 request=_relay_client_request(),
                 target="http://upstream.test/v1/messages",
@@ -5526,32 +5526,32 @@ async def _relay_upstream_through_pass_through_request(
 @pytest.mark.asyncio
 async def test_pass_through_error_body_carries_the_call_id_when_opted_in():
     """With include_call_id_in_error_body on, a buffered upstream JSON error gets a top-level
-    litellm_call_id byte-identical to the x-litellm-call-id header, and content-length still
+    embrouter_call_id byte-identical to the x-embrouter-call-id header, and content-length still
     matches the rewritten body."""
     response = await _relay_upstream_through_pass_through_request(
         {"include_call_id_in_error_body": True}, 400, "application/json", _UPSTREAM_JSON_ERROR
     )
 
-    call_id = response.headers["x-litellm-call-id"]
+    call_id = response.headers["x-embrouter-call-id"]
     assert response.status_code == 400
-    assert json.loads(response.body) == {**json.loads(_UPSTREAM_JSON_ERROR), "litellm_call_id": call_id}
+    assert json.loads(response.body) == {**json.loads(_UPSTREAM_JSON_ERROR), "embrouter_call_id": call_id}
     assert int(response.headers["content-length"]) == len(response.body)
 
 
 @pytest.mark.asyncio
 async def test_pass_through_error_body_call_id_follows_a_restamped_header():
-    """A post_call_response_headers_hook that rewrites x-litellm-call-id wins in the header, so the
+    """A post_call_response_headers_hook that rewrites x-embrouter-call-id wins in the header, so the
     body copies the emitted header value rather than the id the proxy generated."""
     response = await _relay_upstream_through_pass_through_request(
         {"include_call_id_in_error_body": True},
         400,
         "application/json",
         _UPSTREAM_JSON_ERROR,
-        callback_headers={"x-litellm-call-id": "restamped-by-hook"},
+        callback_headers={"x-embrouter-call-id": "restamped-by-hook"},
     )
 
-    assert response.headers["x-litellm-call-id"] == "restamped-by-hook"
-    assert json.loads(response.body)["litellm_call_id"] == "restamped-by-hook"
+    assert response.headers["x-embrouter-call-id"] == "restamped-by-hook"
+    assert json.loads(response.body)["embrouter_call_id"] == "restamped-by-hook"
 
 
 @pytest.mark.asyncio
@@ -5571,7 +5571,7 @@ async def test_pass_through_body_stays_byte_identical_outside_the_opt_in(
 
     assert response.status_code == status_code
     assert response.body == body
-    assert "x-litellm-call-id" in response.headers
+    assert "x-embrouter-call-id" in response.headers
 
 
 _PARTIAL_RELAY_WARNING_MARKER = "ended before upstream body was fully relayed"
@@ -5589,7 +5589,7 @@ async def test_pass_through_relay_client_disconnect_logs_partial_relay_warning(c
     """
     from fastapi.responses import StreamingResponse
 
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     upstream_chunks = (b'{"custom_id": "a"}\n', b'{"custom_id": "b"}\n')
     upstream_stream = _RecordingUpstreamByteStream(upstream_chunks)
@@ -5618,7 +5618,7 @@ async def test_pass_through_relay_client_disconnect_logs_partial_relay_warning(c
             first_chunk = await iterator.__anext__()
             assert first_chunk == upstream_chunks[0]
 
-            with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+            with caplog.at_level(logging.WARNING, logger="EmbRouter Proxy"):
                 await iterator.aclose()
 
             partial_relay_warnings = [
@@ -5646,7 +5646,7 @@ async def test_pass_through_relay_full_consumption_logs_no_partial_relay_warning
     """
     from fastapi.responses import StreamingResponse
 
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     upstream_chunks = (b'{"custom_id": "a"}\n', b'{"custom_id": "b"}\n')
     upstream_stream = _RecordingUpstreamByteStream(upstream_chunks)
@@ -5671,7 +5671,7 @@ async def test_pass_through_relay_full_consumption_logs_no_partial_relay_warning
             )
 
             assert isinstance(response, StreamingResponse)
-            with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+            with caplog.at_level(logging.WARNING, logger="EmbRouter Proxy"):
                 relayed = [chunk async for chunk in response.body_iterator]
 
             assert b"".join(relayed) == b"".join(upstream_chunks)
@@ -5696,24 +5696,24 @@ class _StandardLoggingPayloadRecorder(CustomLogger):
 
 @contextmanager
 def _recording_success_callback():
-    import litellm
+    import embrouter
 
     recorder = _StandardLoggingPayloadRecorder()
-    original = litellm._async_success_callback
-    litellm._async_success_callback = [*original, recorder]
+    original = embrouter._async_success_callback
+    embrouter._async_success_callback = [*original, recorder]
     try:
         yield recorder
     finally:
-        litellm._async_success_callback = original
+        embrouter._async_success_callback = original
 
 
 def _enter_upstream_usage_mocks(stack, parsed_body):
     """Same seams as _enter_relay_logging_mocks, but leaves the real
     pass-through success handler in place and captures the coroutines the
     logging worker would have run so the test can await them."""
-    from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+    from embrouter.embrouter_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
 
-    mock_proxy_logging = stack.enter_context(patch("litellm.proxy.proxy_server.proxy_logging_obj"))
+    mock_proxy_logging = stack.enter_context(patch("embrouter.proxy.proxy_server.proxy_logging_obj"))
     mock_proxy_logging.pre_call_hook = AsyncMock(return_value=parsed_body)
     mock_proxy_logging.post_call_failure_hook = AsyncMock()
     mock_proxy_logging.post_call_response_headers_hook = AsyncMock(return_value=None)
@@ -5733,7 +5733,7 @@ def _enter_upstream_usage_mocks(stack, parsed_body):
 async def _run_upstream_reporting_passthrough(upstream_headers, status_code=200, cost_per_request=None):
     """Drive a generic pass-through against an upstream that reports its own
     cost/usage. Returns (recorded standard logging payloads, proxy logging mock)."""
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     fake_client, cleanup = _inject_fake_passthrough_client(
         _FakeUpstreamTransport(
@@ -5766,14 +5766,14 @@ async def _run_upstream_reporting_passthrough(upstream_headers, status_code=200,
 async def test_passthrough_records_cost_and_tokens_reported_by_upstream():
     """
     A pass-through target that prices the request itself reports the totals in
-    x-litellm-response-cost / x-litellm-total-tokens. LiteLLM must record those
+    x-embrouter-response-cost / x-embrouter-total-tokens. EmbRouter must record those
     values verbatim; before this, a generic pass-through always logged 0 spend
     and 0 tokens because there was nothing in the body to price.
     """
     payloads, _ = await _run_upstream_reporting_passthrough(
         {
-            "x-litellm-response-cost": "0.000415",
-            "x-litellm-total-tokens": "1874",
+            "x-embrouter-response-cost": "0.000415",
+            "x-embrouter-total-tokens": "1874",
         }
     )
 
@@ -5785,7 +5785,7 @@ async def test_passthrough_records_cost_and_tokens_reported_by_upstream():
 @pytest.mark.asyncio
 async def test_passthrough_records_zero_when_upstream_reports_zero():
     payloads, _ = await _run_upstream_reporting_passthrough(
-        {"x-litellm-response-cost": "0", "x-litellm-total-tokens": "0"}
+        {"x-embrouter-response-cost": "0", "x-embrouter-total-tokens": "0"}
     )
 
     assert len(payloads) == 1
@@ -5809,12 +5809,12 @@ async def test_passthrough_records_upstream_reported_cost_on_error_response():
     the error response, so the spend must land on the failure row rather than
     being dropped because the status code was >= 400.
     """
-    import litellm
+    import embrouter
 
     _, mock_proxy_logging = await _run_upstream_reporting_passthrough(
         {
-            "x-litellm-response-cost": "0.00021",
-            "x-litellm-total-tokens": "930",
+            "x-embrouter-response-cost": "0.00021",
+            "x-embrouter-total-tokens": "930",
         },
         status_code=500,
     )
@@ -5822,7 +5822,7 @@ async def test_passthrough_records_upstream_reported_cost_on_error_response():
     mock_proxy_logging.post_call_failure_hook.assert_awaited_once()
     request_data = mock_proxy_logging.post_call_failure_hook.await_args.kwargs["request_data"]
     assert request_data["response_cost"] == 0.00021
-    assert request_data["combined_usage_object"] == litellm.Usage(total_tokens=930)
+    assert request_data["combined_usage_object"] == embrouter.Usage(total_tokens=930)
 
 
 @pytest.mark.asyncio
@@ -5843,15 +5843,15 @@ async def test_streaming_passthrough_records_cost_and_tokens_reported_by_upstrea
     """
     from fastapi.responses import StreamingResponse
 
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     fake_client, cleanup = _inject_fake_passthrough_client(
         _FakeUpstreamTransport(
             status_code=200,
             headers={
                 "content-type": "text/event-stream",
-                "x-litellm-response-cost": "0.00312",
-                "x-litellm-total-tokens": "4021",
+                "x-embrouter-response-cost": "0.00312",
+                "x-embrouter-total-tokens": "4021",
             },
             stream=_RecordingUpstreamByteStream((b'data: {"delta": "hi"}\n\n',)),
         ),
@@ -5890,8 +5890,8 @@ async def test_upstream_reported_cost_survives_default_cost_per_request():
     """
     payloads, _ = await _run_upstream_reporting_passthrough(
         {
-            "x-litellm-response-cost": "0.000415",
-            "x-litellm-total-tokens": "1874",
+            "x-embrouter-response-cost": "0.000415",
+            "x-embrouter-total-tokens": "1874",
         },
         cost_per_request=0.0,
     )
@@ -5916,7 +5916,7 @@ async def test_unusable_upstream_cost_records_zero_not_the_flat_estimate():
     to a flat cost_per_request the upstream just contradicted.
     """
     payloads, _ = await _run_upstream_reporting_passthrough(
-        {"x-litellm-response-cost": "not-a-number", "x-litellm-total-tokens": "1874"},
+        {"x-embrouter-response-cost": "not-a-number", "x-embrouter-total-tokens": "1874"},
         cost_per_request=0.05,
     )
 
@@ -5974,12 +5974,12 @@ async def test_websocket_passthrough_forwards_non_ascii_first_frame():
     websocket.client_state = WebSocketState.CONNECTED
 
     with (
-        patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging,
+        patch("embrouter.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging,
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.connect",
+            "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.connect",
             return_value=FakeUpstreamConnect(upstream_ws),
         ),
-        patch("litellm.proxy.pass_through_endpoints.pass_through_endpoints.GLOBAL_LOGGING_WORKER") as mock_worker,
+        patch("embrouter.proxy.pass_through_endpoints.pass_through_endpoints.GLOBAL_LOGGING_WORKER") as mock_worker,
     ):
         mock_proxy_logging.pre_call_hook = AsyncMock(return_value={})
         mock_proxy_logging.post_call_success_hook = AsyncMock()
@@ -6038,18 +6038,18 @@ async def test_websocket_passthrough_propagates_active_trace_context(
     mock_proxy_logging.post_call_failure_hook = AsyncMock()
     mock_worker = MagicMock()
     mock_worker.ensure_initialized_and_enqueue = MagicMock(side_effect=lambda async_coroutine: async_coroutine.close())
-    monkeypatch.setattr("litellm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging)
     monkeypatch.setattr(
-        "litellm.proxy.pass_through_endpoints.pass_through_endpoints.connect",
+        "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.connect",
         fake_connect,
     )
     monkeypatch.setattr(
-        "litellm.proxy.pass_through_endpoints.pass_through_endpoints.GLOBAL_LOGGING_WORKER",
+        "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.GLOBAL_LOGGING_WORKER",
         mock_worker,
     )
     with ExitStack() as stack:
         if span_source == "auth_parent_span":
-            span = tracer.start_span("litellm_request")
+            span = tracer.start_span("embrouter_request")
             stack.callback(span.end)
             user_api_key_dict = UserAPIKeyAuth(parent_otel_span=span)
         else:
@@ -6104,13 +6104,13 @@ async def test_websocket_passthrough_never_forwards_caller_credentials_upstream(
     mock_proxy_logging.post_call_failure_hook = AsyncMock()
     mock_worker = MagicMock()
     mock_worker.ensure_initialized_and_enqueue = MagicMock(side_effect=lambda async_coroutine: async_coroutine.close())
-    monkeypatch.setattr("litellm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging)
     monkeypatch.setattr(
-        "litellm.proxy.pass_through_endpoints.pass_through_endpoints.connect",
+        "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.connect",
         fake_connect,
     )
     monkeypatch.setattr(
-        "litellm.proxy.pass_through_endpoints.pass_through_endpoints.GLOBAL_LOGGING_WORKER",
+        "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.GLOBAL_LOGGING_WORKER",
         mock_worker,
     )
     await websocket_passthrough_request(
@@ -6185,12 +6185,12 @@ def _client_websocket(receive):
 @contextmanager
 def _patched_websocket_passthrough_environment(upstream_ws):
     with (
-        patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging,
+        patch("embrouter.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging,
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints.connect",
+            "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.connect",
             return_value=FakeUpstreamConnect(upstream_ws),
         ),
-        patch("litellm.proxy.pass_through_endpoints.pass_through_endpoints.GLOBAL_LOGGING_WORKER") as mock_worker,
+        patch("embrouter.proxy.pass_through_endpoints.pass_through_endpoints.GLOBAL_LOGGING_WORKER") as mock_worker,
     ):
         mock_proxy_logging.pre_call_hook = AsyncMock(return_value={})
         mock_proxy_logging.post_call_success_hook = AsyncMock()
@@ -6259,7 +6259,7 @@ async def test_websocket_passthrough_keeps_normal_upstream_close_normal():
 
 
 async def _run_setup_rewrite_passthrough(setup_model: str, llm_router) -> str:
-    from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+    from embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
         _build_vertex_live_setup_model_rewriter,
     )
 
@@ -6309,11 +6309,11 @@ async def test_websocket_passthrough_rewrites_setup_model_to_full_resource(setup
 
 @pytest.mark.asyncio
 async def test_websocket_passthrough_rewrites_gateway_alias_setup_model():
-    llm_router = litellm.Router(
+    llm_router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gemini-live",
-                "litellm_params": {"model": "vertex_ai/gemini-live-2.5-flash"},
+                "embrouter_params": {"model": "vertex_ai/gemini-live-2.5-flash"},
             }
         ]
     )
@@ -6336,10 +6336,10 @@ def test_vertex_live_setup_model_resolves_before_extraction(setup_model):
     client that addressed the gateway the documented way, by alias, logged no model and therefore
     resolved no cost-map entry. Resolving first is what puts the real name on the logging object.
     """
-    from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+    from embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
         _build_vertex_live_setup_model_rewriter,
     )
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from embrouter.proxy.pass_through_endpoints.pass_through_endpoints import (
         _extract_model_from_vertex_ai_setup,
         _resolved_vertex_live_setup,
     )
@@ -6362,7 +6362,7 @@ async def test_websocket_passthrough_logs_a_bare_alias_setup_model():
     before the rewrite, so this one drives the real websocket relay and asserts on what got logged,
     which is the name the cost map is looked up by. An unbilled session logs ``unknown``.
     """
-    from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+    from embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
         _build_vertex_live_setup_model_rewriter,
     )
 
@@ -6377,7 +6377,7 @@ async def test_websocket_passthrough_logs_a_bare_alias_setup_model():
         )
     )
     built = []
-    real_logging = litellm.litellm_core_utils.litellm_logging.Logging
+    real_logging = embrouter.embrouter_core_utils.embrouter_logging.Logging
 
     def _capture(*args, **kwargs):
         obj = real_logging(*args, **kwargs)
@@ -6385,7 +6385,7 @@ async def test_websocket_passthrough_logs_a_bare_alias_setup_model():
         return obj
 
     with _patched_websocket_passthrough_environment(upstream_ws):
-        with patch("litellm.litellm_core_utils.litellm_logging.Logging", side_effect=_capture):
+        with patch("embrouter.embrouter_core_utils.embrouter_logging.Logging", side_effect=_capture):
             await websocket_passthrough_request(
                 websocket=websocket,
                 target="wss://aiplatform.googleapis.com/ws/google.cloud.aiplatform.v1.LlmBidiService/BidiGenerateContent",
@@ -6405,7 +6405,7 @@ async def test_websocket_passthrough_logs_a_bare_alias_setup_model():
 
 def test_vertex_live_setup_resolution_is_inert_without_a_rewriter():
     """Non-Live passthrough routes pass no rewriter, so the frame must be handed over untouched."""
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from embrouter.proxy.pass_through_endpoints.pass_through_endpoints import (
         _extract_model_from_vertex_ai_setup,
         _resolved_vertex_live_setup,
     )
@@ -6450,7 +6450,7 @@ async def test_websocket_passthrough_does_not_relay_unsendable_upstream_close(rc
 async def test_websocket_passthrough_rewrites_alias_of_unrecognised_upstream_model():
     llm_router = MagicMock()
     llm_router.get_model_list.return_value = [
-        {"model_name": "gemini-live", "litellm_params": {"model": "self-hosted-live-endpoint"}}
+        {"model_name": "gemini-live", "embrouter_params": {"model": "self-hosted-live-endpoint"}}
     ]
 
     sent_frame = await _run_setup_rewrite_passthrough("gemini-live", llm_router=llm_router)
@@ -6485,7 +6485,7 @@ async def test_websocket_passthrough_does_not_close_twice_when_success_logging_f
     with (
         _patched_websocket_passthrough_environment(upstream_ws),
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints."
+            "embrouter.proxy.pass_through_endpoints.pass_through_endpoints."
             "GLOBAL_LOGGING_WORKER.ensure_initialized_and_enqueue",
             side_effect=RuntimeError("logging worker down"),
         ),
@@ -6533,7 +6533,7 @@ async def _relay_deepgram_listen(upstream_ws, client_receive):
     with (
         _patched_websocket_passthrough_environment(upstream_ws),
         patch(  # test-quality-ok: pass_through_endpoint_logging is a module global read inside websocket_passthrough_request; there is no injection seam
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints."
+            "embrouter.proxy.pass_through_endpoints.pass_through_endpoints."
             "pass_through_endpoint_logging.pass_through_async_success_handler",
             new=AsyncMock(),
         ) as success_handler,
@@ -6619,7 +6619,7 @@ async def test_websocket_passthrough_vertex_live_setup_ack_names_the_model_but_i
     with (
         _patched_websocket_passthrough_environment(upstream_ws),
         patch(  # test-quality-ok: pass_through_endpoint_logging is a module global read inside websocket_passthrough_request; there is no injection seam
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints."
+            "embrouter.proxy.pass_through_endpoints.pass_through_endpoints."
             "pass_through_endpoint_logging.pass_through_async_success_handler",
             new=AsyncMock(),
         ) as success_handler,
@@ -6658,14 +6658,14 @@ def _passthrough_kwargs_for_reservation(
         passthrough_logging_payload=MagicMock(),
         logging_obj=MagicMock(),
         _parsed_body=parsed_body if parsed_body is not None else {},
-        litellm_call_id="lit-5425-call-id",
+        embrouter_call_id="lit-5425-call-id",
     )
 
 
 async def _track_cost_for_passthrough_kwargs(kwargs: dict) -> AsyncMock:
     from datetime import datetime
 
-    from litellm.proxy.hooks.proxy_track_cost_callback import _ProxyDBLogger
+    from embrouter.proxy.hooks.proxy_track_cost_callback import _ProxyDBLogger
 
     callback_kwargs = {
         **kwargs,
@@ -6678,12 +6678,12 @@ async def _track_cost_for_passthrough_kwargs(kwargs: dict) -> AsyncMock:
 
     increment_spend_counters = AsyncMock()
     with (
-        patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging,
+        patch("embrouter.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging,
         patch(
-            "litellm.proxy.proxy_server.increment_spend_counters",
+            "embrouter.proxy.proxy_server.increment_spend_counters",
             increment_spend_counters,
         ),
-        patch("litellm.proxy.proxy_server.update_cache", new_callable=AsyncMock),
+        patch("embrouter.proxy.proxy_server.update_cache", new_callable=AsyncMock),
     ):
         mock_proxy_logging.db_spend_update_writer.update_database = AsyncMock()
         mock_proxy_logging.slack_alerting_instance.customer_spend_alert = AsyncMock()
@@ -6719,7 +6719,7 @@ async def test_passthrough_success_reconciles_budget_reservation():
 
     reservation = user_api_key_dict.budget_reservation
     kwargs = _passthrough_kwargs_for_reservation(user_api_key_dict)
-    assert kwargs["litellm_params"]["metadata"]["user_api_key_budget_reservation"] is reservation
+    assert kwargs["embrouter_params"]["metadata"]["user_api_key_budget_reservation"] is reservation
 
     increment_spend_counters = await _track_cost_for_passthrough_kwargs(kwargs)
 
@@ -6743,9 +6743,9 @@ async def test_passthrough_body_cannot_forge_budget_reservation():
 
     kwargs = _passthrough_kwargs_for_reservation(
         user_api_key_dict,
-        parsed_body={"litellm_metadata": {"user_api_key_budget_reservation": forged}},
+        parsed_body={"embrouter_metadata": {"user_api_key_budget_reservation": forged}},
     )
-    assert kwargs["litellm_params"]["metadata"]["user_api_key_budget_reservation"] is None
+    assert kwargs["embrouter_params"]["metadata"]["user_api_key_budget_reservation"] is None
 
     increment_spend_counters = await _track_cost_for_passthrough_kwargs(kwargs)
 
@@ -6760,14 +6760,14 @@ async def _drive_streaming_pass_through(upstream_content_type, chunk_delay_secon
     dispatch branches runs: the up-front one, and the one that only discovers the
     response is a stream from its content-type.
     """
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from embrouter.proxy.pass_through_endpoints.pass_through_endpoints import (
         PassThroughStreamingHandler,
     )
 
     with ExitStack() as stack:
-        mock_proxy_logging = stack.enter_context(patch("litellm.proxy.proxy_server.proxy_logging_obj"))
+        mock_proxy_logging = stack.enter_context(patch("embrouter.proxy.proxy_server.proxy_logging_obj"))
         mock_get_client = stack.enter_context(
-            patch("litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client")
+            patch("embrouter.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client")
         )
         mock_chunk_processor = stack.enter_context(patch.object(PassThroughStreamingHandler, "chunk_processor"))
 
@@ -6827,7 +6827,7 @@ async def test_pass_through_sse_stream_emits_keepalive_before_the_first_upstream
     Both dispatch branches are covered: a request that declared stream=true, and
     one whose response is only recognised as a stream from its content-type.
     """
-    with patch.object(litellm, "sse_keepalive_ping_interval_seconds", 0.05):
+    with patch.object(embrouter, "sse_keepalive_ping_interval_seconds", 0.05):
         collected = await _drive_streaming_pass_through(
             upstream_content_type="text/event-stream",
             chunk_delay_seconds=0.2,
@@ -6840,7 +6840,7 @@ async def test_pass_through_sse_stream_emits_keepalive_before_the_first_upstream
 
 @pytest.mark.asyncio
 async def test_pass_through_sse_stream_stays_silent_when_keepalive_is_unconfigured():
-    with patch.object(litellm, "sse_keepalive_ping_interval_seconds", None):
+    with patch.object(embrouter, "sse_keepalive_ping_interval_seconds", None):
         collected = await _drive_streaming_pass_through(
             upstream_content_type="text/event-stream", chunk_delay_seconds=0.2
         )
@@ -6851,7 +6851,7 @@ async def test_pass_through_sse_stream_stays_silent_when_keepalive_is_unconfigur
 @pytest.mark.asyncio
 async def test_pass_through_binary_event_stream_is_never_given_an_sse_comment():
     """An AWS event stream is a binary transport: a ": ping" frame would corrupt it."""
-    with patch.object(litellm, "sse_keepalive_ping_interval_seconds", 0.05):
+    with patch.object(embrouter, "sse_keepalive_ping_interval_seconds", 0.05):
         collected = await _drive_streaming_pass_through(
             upstream_content_type="application/vnd.amazon.eventstream",
             chunk_delay_seconds=0.2,
@@ -6869,7 +6869,7 @@ async def test_pass_through_route_pings_while_the_upstream_call_is_still_running
     from fastapi import Response
     from fastapi.responses import StreamingResponse
 
-    module = "litellm.proxy.pass_through_endpoints.pass_through_endpoints"
+    module = "embrouter.proxy.pass_through_endpoints.pass_through_endpoints"
 
     async def _relayed():
         yield MESSAGE_START_SSE_FRAME
@@ -6892,7 +6892,7 @@ async def test_pass_through_route_pings_while_the_upstream_call_is_still_running
             )
         )
         stack.enter_context(patch(f"{module}.pass_through_request", slow_pass_through))
-        stack.enter_context(patch.object(litellm, "sse_keepalive_ping_interval_seconds", configured_interval))
+        stack.enter_context(patch.object(embrouter, "sse_keepalive_ping_interval_seconds", configured_interval))
 
         endpoint_func = create_pass_through_route(
             endpoint="/v1/messages",
@@ -6925,7 +6925,7 @@ def test_passthrough_carries_the_per_model_budgets():
     """
     Native passthrough builds its logging metadata from
     StandardLoggingUserAPIKeyMetadata, which has no budget field, and never calls
-    add_litellm_data_to_request. Without these three keys the post-call increment
+    add_embrouter_data_to_request. Without these three keys the post-call increment
     exits early, so a /bedrock/... request is costed but its per-model counter is
     never written: the budget reports zero forever and enforces nothing.
     """
@@ -6943,7 +6943,7 @@ def test_passthrough_carries_the_per_model_budgets():
         )
     )
 
-    metadata = kwargs["litellm_params"]["metadata"]
+    metadata = kwargs["embrouter_params"]["metadata"]
     assert metadata["user_api_key_model_max_budget"] == key_budget
     assert metadata["user_api_key_user_model_max_budget"] == user_budget
     assert metadata["user_api_key_end_user_model_max_budget"] == end_user_budget
@@ -6960,26 +6960,26 @@ def test_passthrough_budget_metadata_cannot_be_forged_by_the_request_body():
     kwargs = _passthrough_kwargs_for_reservation(
         UserAPIKeyAuth(token="hash", user_id="u-1", model_max_budget=key_budget),
         parsed_body={
-            "litellm_metadata": {
+            "embrouter_metadata": {
                 "user_api_key_model_max_budget": {"claude-opus-4-8": {"budget_limit": 999999.0, "time_period": "18h"}}
             }
         },
     )
 
-    metadata = kwargs["litellm_params"]["metadata"]
+    metadata = kwargs["embrouter_params"]["metadata"]
     assert metadata["user_api_key_model_max_budget"] == key_budget
 
 
 def _marked_pass_through_endpoint():
     """An endpoint carrying the marker ``create_pass_through_route`` sets."""
-    from litellm.types.passthrough_endpoints.pass_through_endpoints import (
-        LITELLM_PASS_THROUGH_ENDPOINT_MARKER,
+    from embrouter.types.passthrough_endpoints.pass_through_endpoints import (
+        EMBROUTER_PASS_THROUGH_ENDPOINT_MARKER,
     )
 
     def _endpoint():  # pragma: no cover - identity only
         return None
 
-    setattr(_endpoint, LITELLM_PASS_THROUGH_ENDPOINT_MARKER, True)  # noqa: B010  # name is a module constant
+    setattr(_endpoint, EMBROUTER_PASS_THROUGH_ENDPOINT_MARKER, True)  # noqa: B010  # name is a module constant
     return _endpoint
 
 
@@ -6987,13 +6987,13 @@ def test_user_defined_passthrough_is_neither_tracked_nor_enforced():
     """
     `get_model_from_request` returns None for a user-defined pass-through on
     purpose: the body is forwarded verbatim, so its `model` names an UPSTREAM
-    model rather than a LiteLLM-managed one, and enforcing key/team allowlists
+    model rather than a EmbRouter-managed one, and enforcing key/team allowlists
     against it would reject valid requests. Enforcement is therefore skipped
     on those routes.
 
     Attaching the budget metadata anyway would charge a counter that nothing on
     that route can refuse, and would attribute the spend to a budget the operator
-    scoped to a LiteLLM model that merely shares the name. Tracking and
+    scoped to a EmbRouter model that merely shares the name. Tracking and
     enforcement have to agree: both on for the built-in provider routes, both off
     here.
     """
@@ -7006,7 +7006,7 @@ def test_user_defined_passthrough_is_neither_tracked_nor_enforced():
         user_defined_route=True,
     )
 
-    metadata = kwargs["litellm_params"]["metadata"]
+    metadata = kwargs["embrouter_params"]["metadata"]
     for field in (
         "user_api_key_model_max_budget",
         "user_api_key_user_model_max_budget",
@@ -7039,13 +7039,13 @@ def test_builtin_provider_routes_do_not_carry_the_user_defined_marker(handler_na
     test pins the distinction between calling the factory and being dispatched as
     its product, which is easy to misread from a grep alone.
     """
-    from litellm.proxy.pass_through_endpoints import llm_passthrough_endpoints
-    from litellm.types.passthrough_endpoints.pass_through_endpoints import (
-        LITELLM_PASS_THROUGH_ENDPOINT_MARKER,
+    from embrouter.proxy.pass_through_endpoints import llm_passthrough_endpoints
+    from embrouter.types.passthrough_endpoints.pass_through_endpoints import (
+        EMBROUTER_PASS_THROUGH_ENDPOINT_MARKER,
     )
 
     handler = getattr(llm_passthrough_endpoints, handler_name)
-    assert getattr(handler, LITELLM_PASS_THROUGH_ENDPOINT_MARKER, False) is False, (
+    assert getattr(handler, EMBROUTER_PASS_THROUGH_ENDPOINT_MARKER, False) is False, (
         f"{handler_name} is marked as a user-defined pass-through, so per-model budget "
         "metadata would be skipped and native provider spend would go untracked"
     )
@@ -7053,8 +7053,8 @@ def test_builtin_provider_routes_do_not_carry_the_user_defined_marker(handler_na
 
 def test_the_marker_check_distinguishes_the_two_route_kinds():
     """Positive control: the factory's product IS marked, so the check can discriminate."""
-    from litellm.proxy.auth.auth_utils import request_dispatched_to_pass_through_endpoint
-    from litellm.proxy.pass_through_endpoints import llm_passthrough_endpoints
+    from embrouter.proxy.auth.auth_utils import request_dispatched_to_pass_through_endpoint
+    from embrouter.proxy.pass_through_endpoints import llm_passthrough_endpoints
 
     marked = MagicMock(spec=Request)
     marked.scope = {"endpoint": _marked_pass_through_endpoint()}
@@ -7067,11 +7067,11 @@ def test_the_marker_check_distinguishes_the_two_route_kinds():
 
 async def _drive_passthrough_request_and_capture_logging(
     user_api_key_dict: UserAPIKeyAuth,
-    on_pre_call: Callable[[LiteLLMLoggingObj | None], None] | None = None,
-) -> tuple[int, LiteLLMLoggingObj | None]:
-    import litellm
-    from litellm.llms.custom_httpx.http_handler import get_async_httpx_client
-    from litellm.types.llms.custom_http import httpxSpecialProvider
+    on_pre_call: Callable[[EmbRouterLoggingObj | None], None] | None = None,
+) -> tuple[int, EmbRouterLoggingObj | None]:
+    import embrouter
+    from embrouter.llms.custom_httpx.http_handler import get_async_httpx_client
+    from embrouter.types.llms.custom_http import httpxSpecialProvider
 
     def transport_handler(upstream_request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, json={"ok": True})
@@ -7080,7 +7080,7 @@ async def _drive_passthrough_request_and_capture_logging(
         llm_provider=httpxSpecialProvider.PassThroughEndpoint,
         params={"timeout": resolve_pass_through_request_timeout(None)},
     )
-    cache_dict = litellm.in_memory_llm_clients_cache.cache_dict
+    cache_dict = embrouter.in_memory_llm_clients_cache.cache_dict
     cache_key = next((key for key, cached in cache_dict.items() if cached is real_handler), None)
     assert cache_key is not None
     cache_dict[cache_key] = SimpleNamespace(client=httpx.AsyncClient(transport=httpx.MockTransport(transport_handler)))
@@ -7096,7 +7096,7 @@ async def _drive_passthrough_request_and_capture_logging(
     async def capture_pre_call_hook(user_api_key_dict, data, call_type):
         captured_data.update(data)
         if on_pre_call is not None:
-            on_pre_call(data.get("litellm_logging_obj"))
+            on_pre_call(data.get("embrouter_logging_obj"))
         return data
 
     mock_proxy_logging = MagicMock()
@@ -7107,7 +7107,7 @@ async def _drive_passthrough_request_and_capture_logging(
 
     try:
         with patch(  # test-quality-ok: proxy_logging_obj is a proxy_server module global read inside pass_through_request; there is no injection seam
-            "litellm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging
+            "embrouter.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging
         ):
             response = await pass_through_request(
                 request=mock_request,
@@ -7118,14 +7118,14 @@ async def _drive_passthrough_request_and_capture_logging(
     finally:
         cache_dict[cache_key] = real_handler
 
-    return response.status_code, captured_data.get("litellm_logging_obj")
+    return response.status_code, captured_data.get("embrouter_logging_obj")
 
 
 @pytest.mark.asyncio
 async def test_pass_through_request_wires_team_callbacks():
     """LIT-5152 regression: pass_through_request must resolve team-level logging
     callbacks from key/team metadata and wire them into the Logging object, the
-    same way add_litellm_data_to_request does for normal LLM routes."""
+    same way add_embrouter_data_to_request does for normal LLM routes."""
     user_api_key_dict = UserAPIKeyAuth(
         api_key="test-key",
         team_id="test-team",
@@ -7211,10 +7211,10 @@ async def test_resolve_team_callback_wiring_fails_open_on_operational_error():
     """LIT-5152 fail-open: an operational error while resolving callback metadata
     (e.g. team config lookup hitting a dead secret manager) must not raise; the
     request proceeds without dynamic callbacks and the error is logged."""
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from embrouter.proxy.pass_through_endpoints.pass_through_endpoints import (
         _resolve_team_callback_wiring,
     )
-    from litellm.proxy.proxy_server import ProxyConfig
+    from embrouter.proxy.proxy_server import ProxyConfig
 
     class RaisingTeamConfig(ProxyConfig):
         def load_team_config(self, team_id: str) -> dict:
@@ -7235,7 +7235,7 @@ async def test_resolve_team_callback_wiring_fails_open_on_operational_error():
 async def test_pass_through_request_leaves_guardrail_readable_metadata():
     """A pre-call guardrail reads the request headers off the passthrough logging
     params without raising."""
-    from litellm.proxy.guardrails.guardrail_hooks.hiddenlayer.hiddenlayer import (
+    from embrouter.proxy.guardrails.guardrail_hooks.hiddenlayer.hiddenlayer import (
         _logged_request_headers,
     )
 
@@ -7258,7 +7258,7 @@ async def test_pass_through_request_leaves_guardrail_readable_metadata():
 
     observed: dict[str, dict[str, str] | BaseException] = {}  # mutable-ok: the pre-call hook records into it
 
-    def read_headers_the_way_a_guardrail_does(logging_obj: LiteLLMLoggingObj | None) -> None:
+    def read_headers_the_way_a_guardrail_does(logging_obj: EmbRouterLoggingObj | None) -> None:
         assert logging_obj is not None
         try:
             observed["headers"] = _logged_request_headers(logging_obj)
@@ -7282,9 +7282,9 @@ async def test_pass_through_request_leaves_cost_router_logger_working():
     """The cost router's logger reads the deployment id off the passthrough logging
     params without raising. least_busy shares the read but swallows the exception,
     so this is the strategy where the break is observable."""
-    from litellm._logging import verbose_logger
-    from litellm.caching.caching import DualCache
-    from litellm.router_strategy.lowest_cost import LowestCostLoggingHandler
+    from embrouter._logging import verbose_logger
+    from embrouter.caching.caching import DualCache
+    from embrouter.router_strategy.lowest_cost import LowestCostLoggingHandler
 
     handler = LowestCostLoggingHandler(router_cache=DualCache())
 
@@ -7331,12 +7331,12 @@ async def test_pass_through_request_leaves_cost_router_logger_working():
     assert not raised, f"cost router logger raised on the passthrough logging params: {raised[0].exc_info}"
 
 
-@pytest.mark.parametrize("client_metadata_key", ["litellm_metadata", "metadata"])
+@pytest.mark.parametrize("client_metadata_key", ["embrouter_metadata", "metadata"])
 def test_passthrough_client_cannot_forge_session_id_omission(client_metadata_key: str):
     """The omit marker is proxy-owned: only the pre-call policy may set it. A pass-through body that carries
     it in its own metadata must not null out SpendLogs.session_id on a request the proxy never omitted."""
-    from litellm.constants import SESSION_ID_OMITTED_METADATA_KEY
-    from litellm.proxy.spend_tracking.spend_tracking_utils import _get_session_id_for_spend_log
+    from embrouter.constants import SESSION_ID_OMITTED_METADATA_KEY
+    from embrouter.proxy.spend_tracking.spend_tracking_utils import _get_session_id_for_spend_log
 
     mock_request = MagicMock(spec=Request)
     mock_request.method = "POST"
@@ -7350,10 +7350,10 @@ def test_passthrough_client_cannot_forge_session_id_omission(client_metadata_key
         passthrough_logging_payload=MagicMock(),
         logging_obj=MagicMock(),
         _parsed_body={client_metadata_key: {SESSION_ID_OMITTED_METADATA_KEY: True}},
-        litellm_call_id="lit-6694-call-id",
+        embrouter_call_id="lit-6694-call-id",
     )
 
-    metadata = kwargs["litellm_params"]["metadata"]
+    metadata = kwargs["embrouter_params"]["metadata"]
     assert SESSION_ID_OMITTED_METADATA_KEY not in metadata
     assert (
         _get_session_id_for_spend_log(
@@ -7366,7 +7366,7 @@ def test_passthrough_client_cannot_forge_session_id_omission(client_metadata_key
     )
 
 
-@pytest.mark.parametrize("client_metadata_key", ["litellm_metadata", "metadata"])
+@pytest.mark.parametrize("client_metadata_key", ["embrouter_metadata", "metadata"])
 def test_passthrough_logs_the_resolved_deployment_model_info_over_the_request_body(client_metadata_key: str):
     """A provider route that resolved a router deployment stashes its model_info on request.state. That
     deployment, not a model_info the client put in its own body, is what spend logs and metrics attribute
@@ -7377,7 +7377,7 @@ def test_passthrough_logs_the_resolved_deployment_model_info_over_the_request_bo
     mock_request.headers = Headers({})
     mock_request.scope = {}
     mock_request.state = SimpleNamespace(
-        **{LITELLM_PASS_THROUGH_DEPLOYMENT_MODEL_INFO_STATE_KEY: {"id": "vertex-gemini-38-flash-dep"}}
+        **{EMBROUTER_PASS_THROUGH_DEPLOYMENT_MODEL_INFO_STATE_KEY: {"id": "vertex-gemini-38-flash-dep"}}
     )
 
     kwargs = HttpPassThroughEndpointHelpers._init_kwargs_for_pass_through_endpoint(
@@ -7386,19 +7386,19 @@ def test_passthrough_logs_the_resolved_deployment_model_info_over_the_request_bo
         passthrough_logging_payload=MagicMock(),
         logging_obj=MagicMock(),
         _parsed_body={client_metadata_key: {"model_info": {"id": "client-forged-id"}}},
-        litellm_call_id="lit-1761-call-id",
+        embrouter_call_id="lit-1761-call-id",
     )
 
-    assert kwargs["litellm_params"]["metadata"]["model_info"] == {"id": "vertex-gemini-38-flash-dep"}
+    assert kwargs["embrouter_params"]["metadata"]["model_info"] == {"id": "vertex-gemini-38-flash-dep"}
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class _PassThroughSplit:
-    litellm_params: Mapping[str, object]
+    embrouter_params: Mapping[str, object]
     forwarded_body: Mapping[str, object]
 
 
-_LITELLM_PARAMS: Final = TypeAdapter(dict[str, object])
+_EMBROUTER_PARAMS: Final = TypeAdapter(dict[str, object])
 _PROXY_SERVER_REQUEST: Final = TypeAdapter(dict[str, object])
 
 
@@ -7416,15 +7416,15 @@ def _split_pass_through_body(body: str) -> _PassThroughSplit:
         passthrough_logging_payload=MagicMock(),
         logging_obj=MagicMock(),
         _parsed_body=json.loads(body),
-        litellm_call_id="lit-owned-keys-call-id",
+        embrouter_call_id="lit-owned-keys-call-id",
     )
-    validate_litellm_params: Final = _LITELLM_PARAMS.validate_python  # pyright: ignore[reportUnknownArgumentType]  # untyped legacy helper
-    litellm_params: Final = validate_litellm_params(kwargs["litellm_params"])
+    validate_embrouter_params: Final = _EMBROUTER_PARAMS.validate_python  # pyright: ignore[reportUnknownArgumentType]  # untyped legacy helper
+    embrouter_params: Final = validate_embrouter_params(kwargs["embrouter_params"])
     return _PassThroughSplit(
-        litellm_params=MappingProxyType(litellm_params),
+        embrouter_params=MappingProxyType(embrouter_params),
         forwarded_body=MappingProxyType(
-            _LITELLM_PARAMS.validate_python(
-                _PROXY_SERVER_REQUEST.validate_python(litellm_params["proxy_server_request"])["body"]
+            _EMBROUTER_PARAMS.validate_python(
+                _PROXY_SERVER_REQUEST.validate_python(embrouter_params["proxy_server_request"])["body"]
             )
         ),
     )
@@ -7434,19 +7434,19 @@ GEMINI_BODY: Final = '{"contents": [{"parts": [{"text": "hi"}]}], "generationCon
 
 
 def _metadata_of(split: _PassThroughSplit) -> Mapping[str, object]:
-    return MappingProxyType(_LITELLM_PARAMS.validate_python(split.litellm_params["metadata"]))
+    return MappingProxyType(_EMBROUTER_PARAMS.validate_python(split.embrouter_params["metadata"]))
 
 
-def test_passthrough_moves_every_litellm_owned_key_from_the_forwarded_body_into_litellm_params() -> None:
+def test_passthrough_moves_every_embrouter_owned_key_from_the_forwarded_body_into_embrouter_params() -> None:
     split: Final = _split_pass_through_body(
         '{"ttl": 30, "contents": [{"parts": [{"text": "hi"}]}], "num_retries": 2,'
-        ' "generationConfig": {"temperature": 0}, "litellm_trace_id": "trace-a"}'
+        ' "generationConfig": {"temperature": 0}, "embrouter_trace_id": "trace-a"}'
     )
 
-    assert frozenset(split.litellm_params) == frozenset(
-        ("ttl", "num_retries", "litellm_trace_id", "metadata", "proxy_server_request")
+    assert frozenset(split.embrouter_params) == frozenset(
+        ("ttl", "num_retries", "embrouter_trace_id", "metadata", "proxy_server_request")
     )
-    assert tuple(split.litellm_params[k] for k in ("ttl", "num_retries", "litellm_trace_id")) == (30, 2, "trace-a")
+    assert tuple(split.embrouter_params[k] for k in ("ttl", "num_retries", "embrouter_trace_id")) == (30, 2, "trace-a")
     assert split.forwarded_body == json.loads(GEMINI_BODY)
 
 
@@ -7454,9 +7454,9 @@ PROXY_STAMPED_NAMES: Final = frozenset(
     (
         "proxy_server_request",
         "secret_fields",
-        "litellm_trusted_callback_vars",
-        "_litellm_addressed_response_id",
-        "_litellm_strip_stream_usage",
+        "embrouter_trusted_callback_vars",
+        "_embrouter_addressed_response_id",
+        "_embrouter_strip_stream_usage",
         "client_side_timeout",
         "model_file_id_mapping",
     )
@@ -7465,13 +7465,13 @@ PROXY_STAMPED_NAMES: Final = frozenset(
 
 @pytest.mark.parametrize(
     "name",
-    sorted(frozenset(litellm.all_litellm_params) - frozenset(("metadata", "litellm_metadata")) - PROXY_STAMPED_NAMES),
+    sorted(frozenset(embrouter.all_embrouter_params) - frozenset(("metadata", "embrouter_metadata")) - PROXY_STAMPED_NAMES),
 )
-def test_passthrough_keeps_each_registered_litellm_owned_name_out_of_the_forwarded_body(name: str) -> None:
+def test_passthrough_keeps_each_registered_embrouter_owned_name_out_of_the_forwarded_body(name: str) -> None:
     split: Final = _split_pass_through_body(json.dumps({name: "owned", **json.loads(GEMINI_BODY)}))
 
-    assert frozenset(split.litellm_params) == frozenset((name, "metadata", "proxy_server_request"))
-    assert split.litellm_params[name] == "owned"
+    assert frozenset(split.embrouter_params) == frozenset((name, "metadata", "proxy_server_request"))
+    assert split.embrouter_params[name] == "owned"
     assert split.forwarded_body == json.loads(GEMINI_BODY)
 
 
@@ -7479,25 +7479,25 @@ def test_passthrough_keeps_each_registered_litellm_owned_name_out_of_the_forward
 def test_passthrough_drops_a_client_supplied_proxy_stamped_name(name: str) -> None:
     split: Final = _split_pass_through_body(json.dumps({name: {"forged": "by-client"}, **json.loads(GEMINI_BODY)}))
 
-    assert frozenset(split.litellm_params) == frozenset(("metadata", "proxy_server_request"))
-    assert split.litellm_params["proxy_server_request"] != {"forged": "by-client"}, split.litellm_params
+    assert frozenset(split.embrouter_params) == frozenset(("metadata", "proxy_server_request"))
+    assert split.embrouter_params["proxy_server_request"] != {"forged": "by-client"}, split.embrouter_params
     assert split.forwarded_body == json.loads(GEMINI_BODY)
 
 
 def test_passthrough_merges_both_metadata_carriers_from_the_body_into_one_metadata_key() -> None:
     split: Final = _split_pass_through_body(
         '{"metadata": {"client_tag": "a"}, "contents": [{"parts": [{"text": "hi"}]}], "ttl": 30,'
-        ' "litellm_metadata": {"lm": "b"}, "generationConfig": {"temperature": 0}}'
+        ' "embrouter_metadata": {"lm": "b"}, "generationConfig": {"temperature": 0}}'
     )
 
-    assert frozenset(split.litellm_params) == frozenset(("ttl", "metadata", "proxy_server_request"))
+    assert frozenset(split.embrouter_params) == frozenset(("ttl", "metadata", "proxy_server_request"))
     assert _metadata_of(split) == {**_metadata_of(_split_pass_through_body(GEMINI_BODY)), "client_tag": "a", "lm": "b"}
     assert split.forwarded_body == json.loads(GEMINI_BODY)
 
 
-def test_passthrough_lets_metadata_win_over_litellm_metadata_on_a_shared_key() -> None:
+def test_passthrough_lets_metadata_win_over_embrouter_metadata_on_a_shared_key() -> None:
     split: Final = _split_pass_through_body(
-        '{"litellm_metadata": {"shared": "from-litellm-metadata", "lm": "b"},'
+        '{"embrouter_metadata": {"shared": "from-embrouter-metadata", "lm": "b"},'
         ' "metadata": {"shared": "from-metadata", "client_tag": "a"}, "contents": []}'
     )
 
@@ -7509,13 +7509,13 @@ def test_passthrough_lets_metadata_win_over_litellm_metadata_on_a_shared_key() -
     }
 
 
-def test_passthrough_orders_extracted_litellm_params_by_the_registry() -> None:
+def test_passthrough_orders_extracted_embrouter_params_by_the_registry() -> None:
     body: Final = json.dumps({"ttl": 30, "tags": ["team-a"], "num_retries": 2, "contents": []})
     split: Final = _split_pass_through_body(body)
     body_keys: Final = frozenset(json.loads(body))
 
-    assert tuple(k for k in split.litellm_params if k in body_keys) == tuple(
-        k for k in types_utils.all_litellm_params if k in body_keys
+    assert tuple(k for k in split.embrouter_params if k in body_keys) == tuple(
+        k for k in types_utils.all_embrouter_params if k in body_keys
     )
 
 
@@ -7523,22 +7523,22 @@ LATE_REGISTERED_BODY: Final = '{"registered_later": 1, "contents": [{"parts": [{
 
 
 def test_passthrough_sees_a_name_appended_to_the_public_list_after_import() -> None:
-    litellm.all_litellm_params.append("registered_later")
+    embrouter.all_embrouter_params.append("registered_later")
     try:
         split: Final = _split_pass_through_body(LATE_REGISTERED_BODY)
     finally:
-        litellm.all_litellm_params.remove("registered_later")
+        embrouter.all_embrouter_params.remove("registered_later")
 
-    assert frozenset(split.litellm_params) == frozenset(("registered_later", "metadata", "proxy_server_request"))
+    assert frozenset(split.embrouter_params) == frozenset(("registered_later", "metadata", "proxy_server_request"))
     assert split.forwarded_body == {"contents": [{"parts": [{"text": "hi"}]}]}
 
 
 def test_passthrough_sees_the_public_list_rebound_after_import(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(types_utils, "all_litellm_params", (*litellm.all_litellm_params, "registered_later"))
+    monkeypatch.setattr(types_utils, "all_embrouter_params", (*embrouter.all_embrouter_params, "registered_later"))
 
     split: Final = _split_pass_through_body(LATE_REGISTERED_BODY)
 
-    assert frozenset(split.litellm_params) == frozenset(("registered_later", "metadata", "proxy_server_request"))
+    assert frozenset(split.embrouter_params) == frozenset(("registered_later", "metadata", "proxy_server_request"))
     assert split.forwarded_body == {"contents": [{"parts": [{"text": "hi"}]}]}
 
 
@@ -7552,14 +7552,14 @@ async def test_chat_completion_pass_through_endpoint_answers_an_openai_typed_err
     proxy_logging.pre_call_hook = AsyncMock(side_effect=lambda **kwargs: kwargs["data"])
     proxy_logging.post_call_failure_hook = AsyncMock()
 
-    async def fake_add_litellm_data_to_request(**kwargs: object) -> object:
+    async def fake_add_embrouter_data_to_request(**kwargs: object) -> object:
         return kwargs["data"]
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.proxy_logging_obj", proxy_logging)
-    monkeypatch.setattr("litellm.proxy.proxy_server.add_litellm_data_to_request", fake_add_litellm_data_to_request)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.user_model", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
+    monkeypatch.setattr("embrouter.proxy.proxy_server.proxy_logging_obj", proxy_logging)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.add_embrouter_data_to_request", fake_add_embrouter_data_to_request)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.user_model", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.general_settings", {})
 
     request = MagicMock(spec=Request)
     request.body = AsyncMock(
@@ -7586,14 +7586,14 @@ async def test_chat_completion_pass_through_endpoint_keeps_the_raw_model_out_of_
     proxy_logging.pre_call_hook = AsyncMock(side_effect=lambda **kwargs: kwargs["data"])
     proxy_logging.post_call_failure_hook = AsyncMock()
 
-    async def fake_add_litellm_data_to_request(**kwargs: object) -> object:
+    async def fake_add_embrouter_data_to_request(**kwargs: object) -> object:
         return kwargs["data"]
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.proxy_logging_obj", proxy_logging)
-    monkeypatch.setattr("litellm.proxy.proxy_server.add_litellm_data_to_request", fake_add_litellm_data_to_request)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.user_model", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
+    monkeypatch.setattr("embrouter.proxy.proxy_server.proxy_logging_obj", proxy_logging)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.add_embrouter_data_to_request", fake_add_embrouter_data_to_request)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.user_model", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.general_settings", {})
 
     request: Final = MagicMock(spec=Request)
     request.body = AsyncMock(
@@ -7618,7 +7618,7 @@ async def test_chat_completion_pass_through_endpoint_keeps_the_raw_model_out_of_
 
 
 @pytest.mark.asyncio
-async def test_chat_completion_pass_through_endpoint_failure_carries_the_callers_litellm_call_id(
+async def test_chat_completion_pass_through_endpoint_failure_carries_the_callers_embrouter_call_id(
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
 ):
@@ -7627,22 +7627,22 @@ async def test_chat_completion_pass_through_endpoint_failure_carries_the_callers
     proxy_logging.pre_call_hook = AsyncMock(side_effect=lambda **kwargs: kwargs["data"])
     proxy_logging.post_call_failure_hook = AsyncMock()
 
-    async def fake_add_litellm_data_to_request(**kwargs: object) -> object:
+    async def fake_add_embrouter_data_to_request(**kwargs: object) -> object:
         return kwargs["data"]
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.proxy_logging_obj", proxy_logging)
-    monkeypatch.setattr("litellm.proxy.proxy_server.add_litellm_data_to_request", fake_add_litellm_data_to_request)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.user_model", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
+    monkeypatch.setattr("embrouter.proxy.proxy_server.proxy_logging_obj", proxy_logging)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.add_embrouter_data_to_request", fake_add_embrouter_data_to_request)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.user_model", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.general_settings", {})
 
     request = MagicMock(spec=Request)
-    request.headers = Headers({"x-litellm-call-id": call_id})
+    request.headers = Headers({"x-embrouter-call-id": call_id})
     request.body = AsyncMock(
         return_value=json.dumps({"model": "unknown-model", "messages": [{"role": "user", "content": "hi"}]}).encode()
     )
 
-    with caplog.at_level(logging.ERROR, logger="LiteLLM Proxy"), pytest.raises(ProxyException) as raised:
+    with caplog.at_level(logging.ERROR, logger="EmbRouter Proxy"), pytest.raises(ProxyException) as raised:
         await chat_completion_pass_through_endpoint(
             fastapi_response=Response(),
             request=request,
@@ -7650,14 +7650,14 @@ async def test_chat_completion_pass_through_endpoint_failure_carries_the_callers
             user_api_key_dict=UserAPIKeyAuth(api_key="sk-test"),
         )
 
-    assert raised.value.headers["x-litellm-call-id"] == call_id
+    assert raised.value.headers["x-embrouter-call-id"] == call_id
     record = next(r for r in caplog.records if "Exception occured" in r.getMessage())
-    assert record.litellm_call_id == call_id
+    assert record.embrouter_call_id == call_id
     assert call_id in record.getMessage()
 
 
 def test_passthrough_attributes_a_cli_session_to_its_alias_not_the_login_token():
-    from litellm.proxy.spend_tracking.spend_tracking_utils import _get_spend_logs_metadata
+    from embrouter.proxy.spend_tracking.spend_tracking_utils import _get_spend_logs_metadata
 
     mock_request = MagicMock(spec=Request)
     mock_request.method = "POST"
@@ -7677,9 +7677,9 @@ def test_passthrough_attributes_a_cli_session_to_its_alias_not_the_login_token()
         passthrough_logging_payload=MagicMock(),
         logging_obj=MagicMock(),
         _parsed_body={},
-        litellm_call_id="lit-6852-passthrough-call-id",
+        embrouter_call_id="lit-6852-passthrough-call-id",
     )
 
-    metadata = kwargs["litellm_params"]["metadata"]
+    metadata = kwargs["embrouter_params"]["metadata"]
     assert metadata["user_api_key"] == "cli-session-alice"
     assert _get_spend_logs_metadata(metadata)["user_api_key"] == "cli-session-alice"

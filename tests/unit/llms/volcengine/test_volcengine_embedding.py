@@ -1,5 +1,5 @@
 """
-Integration tests for Volcengine embedding following LiteLLM testing patterns
+Integration tests for Volcengine embedding following EmbRouter testing patterns
 Based on the BaseLLMEmbeddingTest framework
 """
 
@@ -9,15 +9,15 @@ import pytest
 # Add parent directory to path for imports
 
 from tests.llm_translation.base_embedding_unit_tests import BaseLLMEmbeddingTest
-import litellm
-from litellm.types.utils import EmbeddingResponse
+import embrouter
+from embrouter.types.utils import EmbeddingResponse
 
 
 class TestVolcEngineEmbedding(BaseLLMEmbeddingTest):
-    """Test Volcengine embedding integration following LiteLLM patterns"""
+    """Test Volcengine embedding integration following EmbRouter patterns"""
 
-    def get_custom_llm_provider(self) -> litellm.LlmProviders:
-        return litellm.LlmProviders.VOLCENGINE
+    def get_custom_llm_provider(self) -> embrouter.LlmProviders:
+        return embrouter.LlmProviders.VOLCENGINE
 
     def get_base_embedding_call_args(self) -> dict:
         return {
@@ -32,8 +32,8 @@ class TestVolcEngineEmbedding(BaseLLMEmbeddingTest):
 
         # Mock the embedding functions to avoid actual API calls
         with (
-            patch("litellm.embedding") as mock_embedding,
-            patch("litellm.aembedding") as mock_aembedding,
+            patch("embrouter.embedding") as mock_embedding,
+            patch("embrouter.aembedding") as mock_aembedding,
         ):
             # Create realistic Volcengine response
             mock_response = MagicMock()
@@ -61,7 +61,7 @@ class TestVolcEngineEmbedding(BaseLLMEmbeddingTest):
 
             # Test sync mode
             if sync_mode is True:
-                response = litellm.embedding(
+                response = embrouter.embedding(
                     **embedding_call_args,
                     input=["hello", "world"],
                 )
@@ -75,7 +75,7 @@ class TestVolcEngineEmbedding(BaseLLMEmbeddingTest):
 
             # Test async mode
             else:
-                response = await litellm.aembedding(
+                response = await embrouter.aembedding(
                     **embedding_call_args,
                     input=["hello", "world"],
                 )
@@ -98,7 +98,7 @@ def test_volcengine_embedding_with_encoding_formats():
     ]
 
     for params in test_cases:
-        with patch("litellm.embedding") as mock_embedding:
+        with patch("embrouter.embedding") as mock_embedding:
             # Create mock response based on encoding format
             mock_response = MagicMock()
             mock_response.model = "doubao-embedding-text-240715"
@@ -128,7 +128,7 @@ def test_volcengine_embedding_with_encoding_formats():
             mock_embedding.return_value = mock_response
 
             # Test the call
-            litellm.embedding(
+            embrouter.embedding(
                 model="volcengine/doubao-embedding-text-240715",
                 input=["test text"],
                 **params,
@@ -147,7 +147,7 @@ def test_volcengine_embedding_with_encoding_formats():
 def test_volcengine_embedding_with_user_parameter():
     """Test Volcengine embedding with user parameter for tracking"""
 
-    with patch("litellm.embedding") as mock_embedding:
+    with patch("embrouter.embedding") as mock_embedding:
         mock_response = MagicMock()
         mock_response.model = "doubao-embedding-text-240715"
         mock_response.object = "list"
@@ -159,7 +159,7 @@ def test_volcengine_embedding_with_user_parameter():
         mock_embedding.return_value = mock_response
 
         # Test with user parameter
-        litellm.embedding(
+        embrouter.embedding(
             model="volcengine/doubao-embedding-text-240715",
             input=["user tracking test"],
             user="test-user-12345",
@@ -186,7 +186,7 @@ def test_volcengine_embedding_error_scenarios():
     ]
 
     for scenario in error_scenarios:
-        with patch("litellm.embedding") as mock_embedding:
+        with patch("embrouter.embedding") as mock_embedding:
             # Configure mock to raise appropriate errors
             if "invalid-model" in scenario.get("model", ""):
                 mock_embedding.side_effect = Exception("Model not found")
@@ -199,7 +199,7 @@ def test_volcengine_embedding_error_scenarios():
             }
 
             with pytest.raises(Exception, match=f"(?i){scenario['expected_error_pattern']}") as exc_info:
-                litellm.embedding(input=["test"], **test_params)
+                embrouter.embedding(input=["test"], **test_params)
 
             # Verify error message contains expected pattern
             assert (
@@ -228,7 +228,7 @@ def test_volcengine_embedding_with_multiple_inputs():
     ]
 
     for test_input in test_inputs:
-        with patch("litellm.embedding") as mock_embedding:
+        with patch("embrouter.embedding") as mock_embedding:
             # Create proportional mock response
             mock_response = MagicMock()
             mock_response.model = "doubao-embedding-text-240715"
@@ -248,7 +248,7 @@ def test_volcengine_embedding_with_multiple_inputs():
             mock_embedding.return_value = mock_response
 
             # Test the call
-            response = litellm.embedding(
+            response = embrouter.embedding(
                 model="volcengine/doubao-embedding-text-240715", input=test_input
             )
 

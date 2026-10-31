@@ -6,32 +6,32 @@ from urllib.parse import urlparse
 import httpx
 from typing_extensions import ReadOnly, TypedDict
 
-import litellm
-from litellm.litellm_core_utils.url_utils import (
+import embrouter
+from embrouter.embrouter_core_utils.url_utils import (
     async_safe_get,
     encode_url_path_segment,
     safe_get,
 )
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.llms.custom_httpx.http_handler import (
     HTTPHandler,
     _get_httpx_client,
     get_async_httpx_client,
 )
-from litellm.llms.vertex_ai.common_utils import VertexAIError, get_vertex_base_url
-from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import VertexLLM
-from litellm.llms.vertex_ai.vertex_llm_base import _graft_default_vertex_path
-from litellm.types.llms.openai import CreateBatchRequest
-from litellm.types.llms.vertex_ai import (
+from embrouter.llms.vertex_ai.common_utils import VertexAIError, get_vertex_base_url
+from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import VertexLLM
+from embrouter.llms.vertex_ai.vertex_llm_base import _graft_default_vertex_path
+from embrouter.types.llms.openai import CreateBatchRequest
+from embrouter.types.llms.vertex_ai import (
     VERTEX_CREDENTIALS_TYPES,
     VertexAIBatchPredictionJob,
     VertexBatchPredictionResponse,
 )
-from litellm.types.utils import LiteLLMBatch
+from embrouter.types.utils import EmbRouterBatch
 
 from .transformation import VertexAIBatchTransformation
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
 
 
 class _VertexBatchJsonSource(Protocol):
@@ -96,13 +96,13 @@ class VertexAIBatchPrediction(VertexLLM):
         timeout: float | httpx.Timeout,
         max_retries: int | None,
         custom_endpoint: bool | None = None,
-    ) -> LiteLLMBatch | Coroutine[object, object, LiteLLMBatch]:
+    ) -> EmbRouterBatch | Coroutine[object, object, EmbRouterBatch]:
         if custom_endpoint:
             raise VertexAIError(
                 status_code=400,
                 message=(
                     "Vertex AI batch prediction is not supported for `custom_endpoint` deployments. "
-                    "The OpenAI-compatible custom endpoint path has no batch surface in LiteLLM; "
+                    "The OpenAI-compatible custom endpoint path has no batch surface in EmbRouter; "
                     "use a publisher model or fine-tuned Gemini endpoint deployment instead."
                 ),
             )
@@ -254,9 +254,9 @@ class VertexAIBatchPrediction(VertexLLM):
         vertex_batch_request: VertexAIBatchPredictionJob,
         api_base: str,
         headers: dict[str, str],
-    ) -> LiteLLMBatch:
+    ) -> EmbRouterBatch:
         client: Final = get_async_httpx_client(
-            llm_provider=litellm.LlmProviders.VERTEX_AI,
+            llm_provider=embrouter.LlmProviders.VERTEX_AI,
         )
         try:
             response: Final = await client.post(
@@ -266,7 +266,7 @@ class VertexAIBatchPrediction(VertexLLM):
             )
         except httpx.HTTPStatusError as e:
             error_body: Final = e.response.text
-            litellm.verbose_logger.error(
+            embrouter.verbose_logger.error(
                 "Vertex AI batch create failed: status=%s, body=%s",
                 e.response.status_code,
                 error_body[:1000],
@@ -300,8 +300,8 @@ class VertexAIBatchPrediction(VertexLLM):
         vertex_location: str | None,
         timeout: float | httpx.Timeout,
         max_retries: int | None,
-        logging_obj: "LiteLLMLoggingObj | None" = None,
-    ) -> LiteLLMBatch | Coroutine[object, object, LiteLLMBatch]:
+        logging_obj: "EmbRouterLoggingObj | None" = None,
+    ) -> EmbRouterBatch | Coroutine[object, object, EmbRouterBatch]:
         sync_handler: Final = _get_httpx_client()
 
         access_token, project_id = self._ensure_access_token(
@@ -352,7 +352,7 @@ class VertexAIBatchPrediction(VertexLLM):
 
         # Log the request using logging_obj if available
         if logging_obj is not None:
-            from litellm.litellm_core_utils.litellm_logging import Logging
+            from embrouter.embrouter_core_utils.embrouter_logging import Logging
 
             if isinstance(logging_obj, Logging):
                 logging_obj.pre_call(
@@ -363,7 +363,7 @@ class VertexAIBatchPrediction(VertexLLM):
                         "api_base": api_base,
                         "headers": headers,
                         "request_str": (
-                            f"\nGET Request Sent from LiteLLM:\n"
+                            f"\nGET Request Sent from EmbRouter:\n"
                             f"curl -X GET \\\n"
                             f"{api_base} \\\n"
                             f"-H 'Authorization: Bearer ***REDACTED***' \\\n"
@@ -400,15 +400,15 @@ class VertexAIBatchPrediction(VertexLLM):
         self,
         api_base: str,
         headers: dict[str, str],
-        logging_obj: "LiteLLMLoggingObj | None" = None,
-    ) -> LiteLLMBatch:
+        logging_obj: "EmbRouterLoggingObj | None" = None,
+    ) -> EmbRouterBatch:
         client: Final = get_async_httpx_client(
-            llm_provider=litellm.LlmProviders.VERTEX_AI,
+            llm_provider=embrouter.LlmProviders.VERTEX_AI,
         )
 
         # Log the request using logging_obj if available
         if logging_obj is not None:
-            from litellm.litellm_core_utils.litellm_logging import Logging
+            from embrouter.embrouter_core_utils.embrouter_logging import Logging
 
             if isinstance(logging_obj, Logging):
                 logging_obj.pre_call(
@@ -419,7 +419,7 @@ class VertexAIBatchPrediction(VertexLLM):
                         "api_base": api_base,
                         "headers": headers,
                         "request_str": (
-                            f"\nGET Request Sent from LiteLLM:\n"
+                            f"\nGET Request Sent from EmbRouter:\n"
                             f"curl -X GET \\\n"
                             f"{api_base} \\\n"
                             f"-H 'Authorization: Bearer ***REDACTED***' \\\n"
@@ -532,7 +532,7 @@ class VertexAIBatchPrediction(VertexLLM):
         params: dict[str, str],
     ):
         client: Final = get_async_httpx_client(
-            llm_provider=litellm.LlmProviders.VERTEX_AI,
+            llm_provider=embrouter.LlmProviders.VERTEX_AI,
         )
         response: Final = await client.get(
             url=api_base,
@@ -562,7 +562,7 @@ class VertexAIBatchPrediction(VertexLLM):
         vertex_location: str | None,
         timeout: float | httpx.Timeout,
         max_retries: int | None,
-    ) -> LiteLLMBatch | Coroutine[object, object, LiteLLMBatch]:
+    ) -> EmbRouterBatch | Coroutine[object, object, EmbRouterBatch]:
         access_token, project_id = self._ensure_access_token(
             credentials=vertex_credentials,
             project_id=vertex_project,
@@ -619,7 +619,7 @@ class VertexAIBatchPrediction(VertexLLM):
                 timeout=timeout,
             )
         except httpx.HTTPStatusError as e:
-            litellm.verbose_logger.error(
+            embrouter.verbose_logger.error(
                 "Vertex AI batch cancel failed: status=%s, body=%s",
                 e.response.status_code,
                 e.response.text[:1000],
@@ -632,7 +632,7 @@ class VertexAIBatchPrediction(VertexLLM):
             headers=headers,
         )
         if retrieve_response.status_code != 200:
-            litellm.verbose_logger.error(
+            embrouter.verbose_logger.error(
                 "Vertex AI batch retrieve-after-cancel failed: status=%s, body=%s",
                 retrieve_response.status_code,
                 retrieve_response.text[:1000],
@@ -653,9 +653,9 @@ class VertexAIBatchPrediction(VertexLLM):
         retrieve_api_base: str,
         headers: dict[str, str],
         timeout: float | httpx.Timeout = 600.0,
-    ) -> LiteLLMBatch:
+    ) -> EmbRouterBatch:
         client: Final = get_async_httpx_client(
-            llm_provider=litellm.LlmProviders.VERTEX_AI,
+            llm_provider=embrouter.LlmProviders.VERTEX_AI,
         )
         try:
             await client.post(
@@ -665,7 +665,7 @@ class VertexAIBatchPrediction(VertexLLM):
                 timeout=timeout,
             )
         except httpx.HTTPStatusError as e:
-            litellm.verbose_logger.error(
+            embrouter.verbose_logger.error(
                 "Vertex AI batch cancel failed: status=%s, body=%s",
                 e.response.status_code,
                 e.response.text[:1000],
@@ -678,7 +678,7 @@ class VertexAIBatchPrediction(VertexLLM):
             headers=headers,
         )
         if retrieve_response.status_code != 200:
-            litellm.verbose_logger.error(
+            embrouter.verbose_logger.error(
                 "Vertex AI batch retrieve-after-cancel failed: status=%s, body=%s",
                 retrieve_response.status_code,
                 retrieve_response.text[:1000],

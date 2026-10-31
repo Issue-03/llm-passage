@@ -2,8 +2,8 @@ import io
 
 import pytest
 
-from litellm.proxy._types import ProxyException
-from litellm.proxy.openai_files_endpoints.batch_file_validation import (
+from embrouter.proxy._types import ProxyException
+from embrouter.proxy.openai_files_endpoints.batch_file_validation import (
     BATCH_LINE_SHAPE,
     PASSTHROUGH_BATCH_LINE_SHAPE,
     BatchFileEmpty,

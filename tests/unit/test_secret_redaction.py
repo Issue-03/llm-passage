@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 import pytest
 
-from litellm._logging import (
+from embrouter._logging import (
     JsonFormatter,
     _redact_string,
     _secret_filter,
@@ -19,7 +19,7 @@ from litellm._logging import (
     verbose_proxy_logger,
     verbose_router_logger,
 )
-from litellm.litellm_core_utils.secret_redaction import (
+from embrouter.embrouter_core_utils.secret_redaction import (
     redact_internal_details,
     redact_string,
     redact_structured_value,
@@ -31,12 +31,12 @@ SECRET = "sk-proj-abc123def456ghi789jklmnopqrst"
 @pytest.fixture(autouse=True)
 def _enable_redaction():
     """Ensure secret redaction is on (the default) for all tests in this module."""
-    with patch("litellm._logging._ENABLE_SECRET_REDACTION", True):
+    with patch("embrouter._logging._ENABLE_SECRET_REDACTION", True):
         yield
 
 
 def _capture_logger_output(fn):
-    """Run fn with all litellm loggers wired to a StringIO buffer, return output."""
+    """Run fn with all embrouter loggers wired to a StringIO buffer, return output."""
     buf = StringIO()
     h = logging.StreamHandler(buf)
     h.addFilter(_secret_filter)
@@ -78,8 +78,8 @@ def test_redact_string_catches_secret_patterns():
 @pytest.mark.parametrize("native", (False, True), ids=("python", "rust"))
 def test_diagnostic_redaction_policy_matches_across_backends(monkeypatch: pytest.MonkeyPatch, native: bool) -> None:
     if native:
-        pytest.importorskip("litellm.rust_bridge._native")
-    monkeypatch.setenv("LITELLM_RUST", "1" if native else "0")
+        pytest.importorskip("embrouter.rust_bridge._native")
+    monkeypatch.setenv("EMBROUTER_RUST", "1" if native else "0")
 
     assert redact_string("GET /v1?api_key=abcdefgh12345&page=2") == "GET /v1?REDACTED&page=2"
     assert redact_structured_value("db_url", "postgresql://reader@example.org/database") == "REDACTED"
@@ -99,9 +99,9 @@ def test_diagnostic_redaction_policy_matches_across_backends(monkeypatch: pytest
         "amqp://guest:gu@st3cret:1@rabbit:5672/",
         # An AWS RDS IAM auth token is a presigned query string used as the
         # password, so the userinfo runs to several hundred characters.
-        "postgresql://litellm:host%3A5432%2F%3FAction%3Dconnect%26X-Amz-Signature%3D"
+        "postgresql://embrouter:host%3A5432%2F%3FAction%3Dconnect%26X-Amz-Signature%3D"
         + "f" * 540
-        + "s3cret@db.host:5432/litellm",
+        + "s3cret@db.host:5432/embrouter",
     ],
 )
 def test_redact_string_still_catches_connection_string_credentials(connection_string):
@@ -276,8 +276,8 @@ def test_filter_redacts_secrets_substituted_into_color_message():
 
 
 def test_disable_redaction_passes_secrets_through():
-    """When LITELLM_DISABLE_REDACT_SECRETS=true, secrets pass through."""
-    with patch("litellm._logging._ENABLE_SECRET_REDACTION", False):
+    """When EMBROUTER_DISABLE_REDACT_SECRETS=true, secrets pass through."""
+    with patch("embrouter._logging._ENABLE_SECRET_REDACTION", False):
         record = logging.LogRecord(
             name="test",
             level=logging.DEBUG,
@@ -313,7 +313,7 @@ def test_json_excepthook_redacts_secrets():
 
     # Capture what the excepthook would emit
     record = logging.LogRecord(
-        name="LiteLLM",
+        name="EmbRouter",
         level=logging.ERROR,
         pathname="",
         lineno=0,
@@ -341,7 +341,7 @@ def test_json_excepthook_redacts_traceback_secrets():
         exc_info = sys.exc_info()
 
     record = logging.LogRecord(
-        name="LiteLLM",
+        name="EmbRouter",
         level=logging.ERROR,
         pathname="",
         lineno=0,
@@ -358,7 +358,7 @@ def test_json_excepthook_redacts_traceback_secrets():
 def test_xai_key_redaction_catches_proxy_log_and_config_dump():
     """xai_key is redacted in proxy log and config dump formats."""
     cases = [
-        ("setting litellm.xai_key=xai-test-secret-123456", "xai-test-secret-123456"),
+        ("setting embrouter.xai_key=xai-test-secret-123456", "xai-test-secret-123456"),
         ("'xai_key': 'xai-test-secret-123456'", "xai-test-secret-123456"),
     ]
     for secret_line, secret in cases:
@@ -370,9 +370,9 @@ def test_xai_key_redaction_catches_proxy_log_and_config_dump():
 def test_module_level_provider_key_redaction_catches_proxy_log_format():
     """Provider module-level keys are redacted when logged by proxy startup."""
     cases = [
-        ("setting litellm.groq_key=gsk-test-secret-123456", "gsk-test-secret-123456"),
+        ("setting embrouter.groq_key=gsk-test-secret-123456", "gsk-test-secret-123456"),
         (
-            "setting litellm.openai_key=openai-test-secret-123456",
+            "setting embrouter.openai_key=openai-test-secret-123456",
             "openai-test-secret-123456",
         ),
     ]
@@ -391,9 +391,9 @@ def test_key_name_redaction_catches_secrets_in_dict_repr():
         # Python dict repr (the exact leak format from the bug report)
         "param_name=general_settings, param_value={'master_key': 'my-random-secret-key-1234', 'enable_jwt_auth': True}",
         # database_url
-        "'database_url': 'postgres://admin:password@db.example.com:5432/litellm'",
+        "'database_url': 'postgres://admin:password@db.example.com:5432/embrouter'",
         # JSON format
-        '"database_url": "postgres://admin:password@db.example.com:5432/litellm"',
+        '"database_url": "postgres://admin:password@db.example.com:5432/embrouter"',
         # access_token
         "'access_token': 'some-opaque-token-value'",
         # refresh_token
@@ -414,12 +414,12 @@ def test_key_name_redaction_catches_secrets_in_dict_repr():
 
 def test_key_name_redaction_in_general_settings_dict():
     """End-to-end: secrets inside a general_settings dict dump are redacted
-    when logged through the named litellm loggers."""
+    when logged through the named embrouter loggers."""
 
     def log_messages():
         general_settings = {
             "master_key": "my-random-secret-key-1234",
-            "database_url": "postgres://admin:password@db.example.com:5432/litellm",
+            "database_url": "postgres://admin:password@db.example.com:5432/embrouter",
             "enable_jwt_auth": True,
             "store_model_in_db": True,
         }
@@ -522,7 +522,7 @@ THIRD_PARTY_LOGGERS = (
 def _capture_from_logger(logger_name: str, emit: Callable[[logging.Logger], None]) -> str:
     """Emit via `logger_name` and return only that logger's output as seen by a root handler.
 
-    A handler on the root logger stands in for a log-shipping sink litellm does not own.
+    A handler on the root logger stands in for a log-shipping sink embrouter does not own.
     The name predicate keeps the assertion scoped to the logger under test, so records
     from any other logger cannot decide the result.
 
@@ -585,7 +585,7 @@ def test_redaction_survives_uvicorn_logging_reconfiguration():
     of every logger it names. Redaction is attached to the logger rather than to a handler
     so that it outlives that; moving it onto a handler would fail here.
 
-    The config below is written out rather than imported from the one litellm ships on
+    The config below is written out rather than imported from the one embrouter ships on
     purpose. What is under test is `dictConfig` semantics, so any config that names the
     loggers exercises it; importing the real one would add coupling without adding
     coverage. The capture reads the reconfigured logger's own handler because the config
@@ -645,7 +645,7 @@ def test_aws_credential_redaction_catches_quoted_values():
 
 
 def test_bedrock_batch_s3_credential_redaction_in_deployment_dump():
-    """The router logs each deployment's litellm_params at DEBUG. A Bedrock batch
+    """The router logs each deployment's embrouter_params at DEBUG. A Bedrock batch
     deployment carries s3_secret_access_key there, which the aws_* key-name rule
     did not cover, so the S3 secret was printed verbatim (LIT-8290)."""
     cases = (
@@ -700,9 +700,9 @@ def test_json_formatter_redacts_non_string_extra_values(extra):
 @pytest.mark.parametrize(
     "text,leaked",
     (
-        ("config file /etc/litellm/secrets/db.yaml", "/etc/litellm/secrets/db.yaml"),
-        ("home dir /Users/admin/.litellm/master_key.txt", "/Users/admin/.litellm/master_key.txt"),
-        ("cache at /var/cache/litellm/tokens.db", "/var/cache/litellm/tokens.db"),
+        ("config file /etc/embrouter/secrets/db.yaml", "/etc/embrouter/secrets/db.yaml"),
+        ("home dir /Users/admin/.embrouter/master_key.txt", "/Users/admin/.embrouter/master_key.txt"),
+        ("cache at /var/cache/embrouter/tokens.db", "/var/cache/embrouter/tokens.db"),
         ("path C:\\Users\\admin\\secrets.env", "C:\\Users\\admin\\secrets.env"),
         ("connecting to host 10.20.30.40", "10.20.30.40"),
         ("connecting to host 192.168.1.5", "192.168.1.5"),
@@ -719,7 +719,7 @@ def test_redact_internal_details_catches_paths_and_hostnames(text, leaked):
 
 
 def test_redact_internal_details_leaves_public_hostnames_and_routes_alone():
-    """litellm's own error messages rely on routes like /v1/models staying legible."""
+    """embrouter's own error messages rely on routes like /v1/models staying legible."""
     safe_strings = (
         "call https://api.openai.com/v1/chat/completions",
         "/chat/completions: Invalid model name passed in model=gpt-9",
@@ -731,7 +731,7 @@ def test_redact_internal_details_leaves_public_hostnames_and_routes_alone():
 
 
 def test_redact_internal_details_layers_on_top_of_credential_redaction():
-    text = "postgresql://litellm_internal:S3cr3tPGPass@10.20.30.40:5432/litellm_prod"
+    text = "postgresql://embrouter_internal:S3cr3tPGPass@10.20.30.40:5432/embrouter_prod"
     result = redact_internal_details(text)
     assert "S3cr3tPGPass" not in result
     assert "10.20.30.40" not in result
@@ -744,16 +744,16 @@ def test_redact_internal_details_drops_embedded_traceback():
         raise RuntimeError("socket hung up")
     except RuntimeError:
         raw_tb = traceback.format_exc()
-    message = f"litellm.APIConnectionError: MinimaxException - socket hung up\n{raw_tb}"
+    message = f"embrouter.APIConnectionError: MinimaxException - socket hung up\n{raw_tb}"
 
     result = redact_internal_details(message)
 
-    assert result == "litellm.APIConnectionError: MinimaxException - socket hung up"
+    assert result == "embrouter.APIConnectionError: MinimaxException - socket hung up"
     assert "Traceback (most recent call last)" not in result
     assert __file__.split("/")[-1] not in result
 
 
 def test_redact_internal_details_from_client_message_respects_disable_flag():
-    with patch("litellm._logging._ENABLE_SECRET_REDACTION", False):  # test-quality-ok: the opt-out flag is the SUT
-        text = "config file /etc/litellm/secrets/db.yaml"
+    with patch("embrouter._logging._ENABLE_SECRET_REDACTION", False):  # test-quality-ok: the opt-out flag is the SUT
+        text = "config file /etc/embrouter/secrets/db.yaml"
         assert redact_internal_details_from_client_message(text) == text

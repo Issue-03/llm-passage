@@ -1,18 +1,18 @@
 from typing import TYPE_CHECKING, Final, Literal, Optional
 
-import litellm
-from litellm.proxy.guardrails.guardrail_hooks.mcp_security.mcp_security_guardrail import (
+import embrouter
+from embrouter.proxy.guardrails.guardrail_hooks.mcp_security.mcp_security_guardrail import (
     MCPSecurityGuardrail,
 )
-from litellm.types.guardrails import SupportedGuardrailIntegrations
+from embrouter.types.guardrails import SupportedGuardrailIntegrations
 
 if TYPE_CHECKING:
-    from litellm import Router
-    from litellm.types.guardrails import Guardrail, LitellmParams
+    from embrouter import Router
+    from embrouter.types.guardrails import Guardrail, EmbrouterParams
 
 
 def initialize_guardrail(
-    litellm_params: "LitellmParams",
+    embrouter_params: "EmbrouterParams",
     guardrail: "Guardrail",
     llm_router: Optional["Router"] = None,
 ):
@@ -20,16 +20,16 @@ def initialize_guardrail(
     if not guardrail_name:
         raise ValueError("MCP Security: guardrail_name is required")
 
-    on_violation: Final[Literal["block", "alert"]] = "block" if litellm_params.on_violation == "block" else "alert"
+    on_violation: Final[Literal["block", "alert"]] = "block" if embrouter_params.on_violation == "block" else "alert"
 
     mcp_security_guardrail: Final = MCPSecurityGuardrail(
         guardrail_name=guardrail_name,
-        event_hook=litellm_params.mode,
-        default_on=litellm_params.default_on or False,
+        event_hook=embrouter_params.mode,
+        default_on=embrouter_params.default_on or False,
         on_violation=on_violation,
     )
 
-    litellm.logging_callback_manager.add_litellm_callback(mcp_security_guardrail)
+    embrouter.logging_callback_manager.add_embrouter_callback(mcp_security_guardrail)
     return mcp_security_guardrail
 
 

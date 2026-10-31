@@ -7,9 +7,9 @@ from typing import Final
 
 from fastapi import HTTPException
 
-from litellm._logging import verbose_logger
-from litellm.constants import UI_SESSION_TOKEN_TEAM_ID
-from litellm.proxy._types import UserAPIKeyAuth
+from embrouter._logging import verbose_logger
+from embrouter.constants import UI_SESSION_TOKEN_TEAM_ID
+from embrouter.proxy._types import UserAPIKeyAuth
 
 
 def clone_user_api_key_auth_with_team(
@@ -41,8 +41,8 @@ async def resolve_ui_session_team_ids(
     if not is_ui_session_credential(user_api_key_auth):
         return []
 
-    from litellm.proxy.auth.auth_checks import get_user_object
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.auth.auth_checks import get_user_object
+    from embrouter.proxy.proxy_server import (
         prisma_client,
         proxy_logging_obj,
         user_api_key_cache,
@@ -88,7 +88,7 @@ async def admitted_user_context(user_api_key_auth: UserAPIKeyAuth) -> UserAPIKey
     user_id: Final = user_api_key_auth.user_id
     if not is_ui_session_credential(user_api_key_auth) or user_id is None:
         return None
-    from litellm.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import (
+    from embrouter.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import (
         MCPRequestHandler,
     )
 
@@ -116,7 +116,7 @@ async def acting_user_auth(user_api_key_auth: UserAPIKeyAuth) -> UserAPIKeyAuth:
 
     if not is_ui_session_credential(user_api_key_auth):
         return user_api_key_auth
-    from litellm.proxy.management_endpoints.common_utils import _user_has_admin_view
+    from embrouter.proxy.management_endpoints.common_utils import _user_has_admin_view
 
     if _user_has_admin_view(user_api_key_auth):
         return user_api_key_auth

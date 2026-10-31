@@ -5,8 +5,8 @@ import pytest
 from httpx import Response
 
 
-import litellm
-from litellm_enterprise.enterprise_callbacks.send_emails.resend_email import (
+import embrouter
+from embrouter_enterprise.enterprise_callbacks.send_emails.resend_email import (
     ResendEmailLogger,
 )
 
@@ -19,7 +19,7 @@ def clear_client_cache():
     Clear the HTTP client cache before each test to ensure mocks are used.
     This prevents cached real clients from being reused across tests.
     """
-    cache = getattr(litellm, "in_memory_llm_clients_cache", None)
+    cache = getattr(embrouter, "in_memory_llm_clients_cache", None)
     if cache is not None:
         cache.flush_cache()
     yield
@@ -183,7 +183,7 @@ async def test_send_email_uses_resend_from_email_override():
         logger.async_httpx_client = mock_async_client
 
         await logger.send_email(
-            from_email="notifications@alerts.litellm.ai",
+            from_email="notifications@alerts.embrouter.ai",
             to_email=["recipient@example.com"],
             subject="Test Subject",
             html_body="<p>Test email body</p>",
@@ -209,7 +209,7 @@ async def test_send_email_falls_back_to_argument_when_override_unset(mock_env_va
     logger.async_httpx_client = mock_async_client
 
     await logger.send_email(
-        from_email="notifications@alerts.litellm.ai",
+        from_email="notifications@alerts.embrouter.ai",
         to_email=["recipient@example.com"],
         subject="Test Subject",
         html_body="<p>Test email body</p>",
@@ -217,4 +217,4 @@ async def test_send_email_falls_back_to_argument_when_override_unset(mock_env_va
 
     mock_async_client.post.assert_called_once()
     request_body = mock_async_client.post.call_args[1]["json"]
-    assert request_body["from"] == "notifications@alerts.litellm.ai"
+    assert request_body["from"] == "notifications@alerts.embrouter.ai"

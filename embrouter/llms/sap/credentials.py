@@ -13,9 +13,9 @@ from typing import Any, Final, Protocol
 import httpx
 from typing_extensions import NotRequired, ReadOnly, TypedDict
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.llms.custom_httpx.http_handler import HTTPHandler, _get_httpx_client
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.llms.custom_httpx.http_handler import HTTPHandler, _get_httpx_client
 
 AUTH_ENDPOINT_SUFFIX: Final = "/oauth/token"
 
@@ -249,7 +249,7 @@ def fetch_credentials(
     """
     config: Final = init_conf(profile)
 
-    service_key = _parse_service_key_once(service_key or litellm.sap_service_key or os.environ.get(SERVICE_KEY_ENV_VAR))
+    service_key = _parse_service_key_once(service_key or embrouter.sap_service_key or os.environ.get(SERVICE_KEY_ENV_VAR))
     vcap_service: Final = _get_vcap_service(VCAP_AICORE_SERVICE_NAME)
 
     sources: Final = [

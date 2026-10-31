@@ -4,8 +4,8 @@ Transformation for Calling Google models in their native format.
 
 from typing import Any, Final, Literal
 
-from litellm.llms.gemini.google_genai.transformation import GoogleGenAIConfig
-from litellm.types.router import GenericLiteLLMParams
+from embrouter.llms.gemini.google_genai.transformation import GoogleGenAIConfig
+from embrouter.types.router import GenericEmbRouterParams
 
 
 class VertexAIGoogleGenAIConfig(GoogleGenAIConfig):
@@ -25,7 +25,7 @@ class VertexAIGoogleGenAIConfig(GoogleGenAIConfig):
         api_key: str | None,
         headers: dict | None,
         model: str,
-        litellm_params: GenericLiteLLMParams | dict | None,
+        embrouter_params: GenericEmbRouterParams | dict | None,
     ) -> dict:
         default_headers: Final = {
             "Content-Type": "application/json",

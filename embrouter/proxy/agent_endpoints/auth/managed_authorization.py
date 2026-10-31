@@ -5,11 +5,11 @@ from typing import Annotated, Final, Literal
 
 from pydantic import Field, TypeAdapter, ValidationError
 
-from litellm.proxy._types import LiteLLMRoutes, UserAPIKeyAuth
-from litellm.proxy.agent_endpoints.identity_store import AgentIdentityStore
-from litellm.proxy.agent_endpoints.managed_identity import raise_identity_failure
-from litellm.types.agents import AgentResponse
-from litellm.types.proxy.agent_identity import AgentIdentityFailure, ManagedAgentContext
+from embrouter.proxy._types import EmbRouterRoutes, UserAPIKeyAuth
+from embrouter.proxy.agent_endpoints.identity_store import AgentIdentityStore
+from embrouter.proxy.agent_endpoints.managed_identity import raise_identity_failure
+from embrouter.types.agents import AgentResponse
+from embrouter.types.proxy.agent_identity import AgentIdentityFailure, ManagedAgentContext
 
 _MANAGED_REALTIME_ROUTES: Final = frozenset(("/realtime", "/v1/realtime", "/openai/v1/realtime"))
 _MANAGED_MODEL_ROUTES: Final = frozenset(
@@ -58,7 +58,7 @@ _MANAGED_MODEL_PATHS: Final = (
     "/models/{model_name:path}:streamGenerateContent",
 )
 _MANAGED_MCP_ROUTES: Final = tuple(
-    route for route in LiteLLMRoutes.mcp_inference_routes.value if route not in ("/token", "/introspect")
+    route for route in EmbRouterRoutes.mcp_inference_routes.value if route not in ("/token", "/introspect")
 )
 
 
@@ -79,7 +79,7 @@ _MODEL_ROUTE_KINDS: Final[
 
 
 def managed_agent_route_allowed(route: str, method: str | None) -> bool:
-    from litellm.proxy.auth.route_checks import RouteChecks
+    from embrouter.proxy.auth.route_checks import RouteChecks
 
     if route in ("/agents", "/v1/agents"):
         return method in (None, "GET", "HEAD")
@@ -88,7 +88,7 @@ def managed_agent_route_allowed(route: str, method: str | None) -> bool:
     if route in _MANAGED_MODEL_ROUTES or RouteChecks.check_route_access(route, _MANAGED_MODEL_PATHS):
         return method in (None, "POST")
     return RouteChecks.check_route_access(route, _MANAGED_MCP_ROUTES) or RouteChecks.check_route_access(
-        route, LiteLLMRoutes.agent_inference_routes.value
+        route, EmbRouterRoutes.agent_inference_routes.value
     )
 
 
@@ -100,7 +100,7 @@ def managed_inference_request(
     path_model: object = None,
     query_model: object = None,
 ) -> dict[str, object]:
-    from litellm.proxy.auth.route_checks import RouteChecks
+    from embrouter.proxy.auth.route_checks import RouteChecks
 
     if route in _MANAGED_REALTIME_ROUTES:
         model: Final = query_model or body.get("model")
@@ -111,7 +111,7 @@ def managed_inference_request(
         return {**body, "model": model}  # mutable-ok: centralized auth hooks add request tags and budget metadata
     if route not in _MANAGED_MODEL_ROUTES and not RouteChecks.check_route_access(route, _MANAGED_MODEL_PATHS):
         return dict(body)  # mutable-ok: centralized auth hooks add request tags and budget metadata
-    from litellm.proxy.common_utils.http_parsing_utils import resolve_inference_model
+    from embrouter.proxy.common_utils.http_parsing_utils import resolve_inference_model
 
     kind: Final = next((kind for suffix, kind in _MODEL_ROUTE_KINDS.items() if route.endswith(suffix)), "completion")
     endpoint_model: Final = path_model or (
@@ -141,7 +141,7 @@ async def admit_managed_actor(auth: UserAPIKeyAuth, store: AgentIdentityStore | 
     if auth.agent_id is None:
         return
     if store is None:
-        from litellm.proxy.agent_endpoints.agent_registry import global_agent_registry
+        from embrouter.proxy.agent_endpoints.agent_registry import global_agent_registry
 
         registered: Final = global_agent_registry.get_agent_by_id(auth.agent_id)
         if auth.managed_agent_context is not None or (
@@ -176,7 +176,7 @@ async def admit_managed_actor(auth: UserAPIKeyAuth, store: AgentIdentityStore | 
         and auth.managed_agent_context.mode == "delegated"
         and not delegation_verified
     ):
-        from litellm.proxy.agent_endpoints.auth.agent_permission_handler import verified_human_agent_grants
+        from embrouter.proxy.agent_endpoints.auth.agent_permission_handler import verified_human_agent_grants
 
         grants: Final = await verified_human_agent_grants(auth.managed_agent_context.user_id, auth.team_id)
         if agent.agent_id not in grants:
@@ -217,8 +217,8 @@ def invocation_target(route: str, body: Mapping[str, object]) -> str | None:
 async def prepare_agent_invocation(
     auth: UserAPIKeyAuth, target_name: str, store: AgentIdentityStore | None, *, billable: bool = True
 ) -> None:
-    from litellm.proxy.agent_endpoints.auth.agent_permission_handler import AgentRequestHandler
-    from litellm.proxy.common_utils.registry_read_through import get_agent_with_read_through
+    from embrouter.proxy.agent_endpoints.auth.agent_permission_handler import AgentRequestHandler
+    from embrouter.proxy.common_utils.registry_read_through import get_agent_with_read_through
 
     registered: Final = await get_agent_with_read_through(target_name)
     if registered is None:
@@ -242,7 +242,7 @@ async def prepare_agent_invocation(
     auth.invoked_agent_policy = effective
     if auth.agent_id is None and effective.identity_managed:
         auth.billing_agent_policy = effective
-    raw_fee: Final = (effective.litellm_params or MappingProxyType({})).get("cost_per_query", 0.0) if billable else 0.0
+    raw_fee: Final = (effective.embrouter_params or MappingProxyType({})).get("cost_per_query", 0.0) if billable else 0.0
     try:
         fee: Final = _INVOCATION_COST.validate_python(raw_fee)
     except ValidationError:

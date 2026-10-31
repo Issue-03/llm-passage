@@ -1,7 +1,7 @@
 from typing import Any, Final
 
-from litellm.llms.gemini.count_tokens.handler import GoogleAIStudioTokenCounter
-from litellm.llms.vertex_ai.vertex_llm_base import VertexBase
+from embrouter.llms.gemini.count_tokens.handler import GoogleAIStudioTokenCounter
+from embrouter.llms.vertex_ai.vertex_llm_base import VertexBase
 
 
 class VertexAITokenCounter(GoogleAIStudioTokenCounter, VertexBase):
@@ -11,15 +11,15 @@ class VertexAITokenCounter(GoogleAIStudioTokenCounter, VertexBase):
         api_key: str | None = None,
         headers: dict[str, Any] | None = None,
         model: str = "",
-        litellm_params: dict[str, Any] | None = None,
+        embrouter_params: dict[str, Any] | None = None,
     ) -> tuple[dict[str, Any], str]:
         """
         Returns a Tuple of headers and url for the Vertex AI countTokens endpoint.
         """
-        litellm_params = litellm_params or {}
-        vertex_credentials: Final = self.get_vertex_ai_credentials(litellm_params=litellm_params)
-        vertex_project = self.get_vertex_ai_project(litellm_params=litellm_params)
-        vertex_location: Final = self.get_vertex_ai_location(litellm_params=litellm_params)
+        embrouter_params = embrouter_params or {}
+        vertex_credentials: Final = self.get_vertex_ai_credentials(embrouter_params=embrouter_params)
+        vertex_project = self.get_vertex_ai_project(embrouter_params=embrouter_params)
+        vertex_location: Final = self.get_vertex_ai_location(embrouter_params=embrouter_params)
         _auth_header, vertex_project = await self._ensure_access_token_async(
             credentials=vertex_credentials,
             project_id=vertex_project,

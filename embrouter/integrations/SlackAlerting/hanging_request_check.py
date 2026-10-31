@@ -11,18 +11,18 @@ import asyncio
 import time
 from typing import TYPE_CHECKING, Any, Final
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.caching.in_memory_cache import InMemoryCache
-from litellm.litellm_core_utils.core_helpers import get_litellm_metadata_from_kwargs
-from litellm.types.integrations.slack_alerting import (
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.caching.in_memory_cache import InMemoryCache
+from embrouter.embrouter_core_utils.core_helpers import get_embrouter_metadata_from_kwargs
+from embrouter.types.integrations.slack_alerting import (
     HANGING_ALERT_BUFFER_TIME_SECONDS,
     MAX_OLDEST_HANGING_REQUESTS_TO_CHECK,
     HangingRequestData,
 )
 
 if TYPE_CHECKING:
-    from litellm.integrations.SlackAlerting.slack_alerting import SlackAlerting
+    from embrouter.integrations.SlackAlerting.slack_alerting import SlackAlerting
 else:
     SlackAlerting = Any
 
@@ -57,18 +57,18 @@ class AlertingHangingRequestCheck:
         if request_data is None:
             return
 
-        request_metadata: Final = get_litellm_metadata_from_kwargs(kwargs=request_data)
+        request_metadata: Final = get_embrouter_metadata_from_kwargs(kwargs=request_data)
         model: Final = request_data.get("model", "")
         api_base: str | None = None
 
         if request_data.get("deployment", None) is not None and isinstance(request_data["deployment"], dict):
-            api_base = litellm.get_api_base(
+            api_base = embrouter.get_api_base(
                 model=model,
-                optional_params=request_data["deployment"].get("litellm_params", {}),
+                optional_params=request_data["deployment"].get("embrouter_params", {}),
             )
 
         hanging_request_data: Final = HangingRequestData(
-            request_id=request_data.get("litellm_call_id", ""),
+            request_id=request_data.get("embrouter_call_id", ""),
             model=model,
             api_base=api_base,
             key_alias=request_metadata.get("user_api_key_alias", ""),
@@ -86,7 +86,7 @@ class AlertingHangingRequestCheck:
         """
         Send alerts for hanging requests
         """
-        from litellm.proxy.proxy_server import proxy_logging_obj
+        from embrouter.proxy.proxy_server import proxy_logging_obj
 
         #########################################################
         # Find all requests that have been hanging for more than the alerting threshold
@@ -113,7 +113,7 @@ class AlertingHangingRequestCheck:
 
             request_status = await proxy_logging_obj.internal_usage_cache.async_get_cache(
                 key=f"request_status:{hanging_request_data.request_id}",
-                litellm_parent_otel_span=None,
+                embrouter_parent_otel_span=None,
                 local_only=True,
             )
             # this means the request status was either success or fail
@@ -161,7 +161,7 @@ class AlertingHangingRequestCheck:
         """
         Send a hanging request alert
         """
-        from litellm.integrations.SlackAlerting.slack_alerting import AlertType
+        from embrouter.integrations.SlackAlerting.slack_alerting import AlertType
 
         ################
         # Send the Alert on Slack

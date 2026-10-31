@@ -8,11 +8,11 @@ from typing import Final
 import pytest
 from pydantic import TypeAdapter
 
-from litellm._internal_context import is_internal_call
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.rust_bridge import callbacks_legacy_python as legacy
-from litellm.rust_bridge.callbacks_legacy_python import failure_handler, setup
-from litellm.types.utils import ModelResponse
+from embrouter._internal_context import is_internal_call
+from embrouter.embrouter_core_utils.embrouter_logging import Logging
+from embrouter.rust_bridge import callbacks_legacy_python as legacy
+from embrouter.rust_bridge.callbacks_legacy_python import failure_handler, setup
+from embrouter.types.utils import ModelResponse
 
 _OCR_KWARGS: Final = MappingProxyType(
     {
@@ -29,7 +29,7 @@ def _supplied_logger() -> Logging:
         stream=False,
         call_type="aocr",
         start_time=datetime.datetime.now(),
-        litellm_call_id="supplied",
+        embrouter_call_id="supplied",
         function_id="supplied",
     )
 
@@ -37,7 +37,7 @@ def _supplied_logger() -> Logging:
 def test_setup_reuses_a_supplied_logger() -> None:
     supplied: Final = _supplied_logger()
     result: Final = setup(
-        "aocr", (), {**_OCR_KWARGS, "litellm_logging_obj": supplied}, datetime.datetime.now(), asynchronous=True
+        "aocr", (), {**_OCR_KWARGS, "embrouter_logging_obj": supplied}, datetime.datetime.now(), asynchronous=True
     )
     assert result.logger is supplied
 
@@ -57,7 +57,7 @@ def test_cache_hit_finalization_preserves_execution_provider_attribution(explici
         prepared.kwargs,
         "resolved-cache-model",
         {},
-        {**prepared.logger.litellm_params, "custom_llm_provider": "azure"},
+        {**prepared.logger.embrouter_params, "custom_llm_provider": "azure"},
         "azure",
     )
     prepared.logger.model_call_details.update({"cache_hit": True, "cache_key": "cached-response"})
@@ -65,7 +65,7 @@ def test_cache_hit_finalization_preserves_execution_provider_attribution(explici
     legacy.finalize(response, prepared.logger, prepared.kwargs, now, now)
     assert prepared.logger.model_call_details["custom_llm_provider"] == "azure"
     assert prepared.logger.model_call_details["model"] == "resolved-cache-model"
-    assert prepared.logger.litellm_params["metadata"]["user_api_key"] == "key-hash"
+    assert prepared.logger.embrouter_params["metadata"]["user_api_key"] == "key-hash"
     assert response._hidden_params["cache_key"] == "cached-response"
     assert response._hidden_params["response_cost"] == 0
 
@@ -80,7 +80,7 @@ def test_cache_hit_finalization_preserves_execution_provider_attribution(explici
 )
 def test_setup_builds_a_logger_when_none_is_supplied(call_type: str, kwargs: Mapping[str, object]) -> None:
     result: Final = setup(call_type, (), kwargs, datetime.datetime.now(), asynchronous=True)
-    assert result.logger.litellm_call_id == result.kwargs["litellm_call_id"]
+    assert result.logger.embrouter_call_id == result.kwargs["embrouter_call_id"]
 
 
 def _budget_reservation() -> dict:
@@ -103,11 +103,11 @@ def test_setup_claims_the_budget_reservation_a_supplied_logger_already_saw() -> 
     reservation: Final = _budget_reservation()
     supplied: Final = _supplied_logger()
     supplied.update_environment_variables(
-        litellm_params={"metadata": {"user_api_key_budget_reservation": reservation}}, optional_params={}
+        embrouter_params={"metadata": {"user_api_key_budget_reservation": reservation}}, optional_params={}
     )
     assert reservation["callback_bound"] is False
 
-    setup("aocr", (), {**_OCR_KWARGS, "litellm_logging_obj": supplied}, datetime.datetime.now(), asynchronous=True)
+    setup("aocr", (), {**_OCR_KWARGS, "embrouter_logging_obj": supplied}, datetime.datetime.now(), asynchronous=True)
 
     assert reservation["callback_bound"] is True
 
@@ -160,7 +160,7 @@ def test_failure_handler_of_an_internal_call_leaves_the_outer_budget_reservation
 
 
 CONTRACT_PATH: Final = (
-    Path(__file__).parents[3] / "litellm-rust/crates/callbacks-legacy-python/python_contract.json"
+    Path(__file__).parents[3] / "embrouter-rust/crates/callbacks-legacy-python/python_contract.json"
 )
 
 

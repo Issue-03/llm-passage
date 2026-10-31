@@ -16,11 +16,11 @@ from typing import Final
 
 import pytest
 
-from litellm.caching.caching import DualCache
-from litellm.caching.redis_cache import RedisCircuitBreakerOpenError
-from litellm.constants import BATCH_ENQUEUED_TOKEN_TTL_SECONDS
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.hooks.batch_enqueued_tokens import (
+from embrouter.caching.caching import DualCache
+from embrouter.caching.redis_cache import RedisCircuitBreakerOpenError
+from embrouter.constants import BATCH_ENQUEUED_TOKEN_TTL_SECONDS
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.hooks.batch_enqueued_tokens import (
     BatchEnqueuedTokenOverLimit,
     BatchEnqueuedTokenReservation,
     BatchEnqueuedTokenScope,
@@ -29,7 +29,7 @@ from litellm.proxy.hooks.batch_enqueued_tokens import (
     canonical_provider_batch_id,
     resolve_batch_enqueued_token_scopes,
 )
-from litellm.proxy.utils import InternalUsageCache
+from embrouter.proxy.utils import InternalUsageCache
 
 
 def _in_memory_store() -> BatchEnqueuedTokenStore:
@@ -299,7 +299,7 @@ async def test_local_ghost_left_by_landed_save_never_refunds_twice():
     assert await store.pop_reservation("batch_ghost") is None
     assert (
         await store.internal_usage_cache.async_get_cache(
-            key=record_key, litellm_parent_otel_span=None, local_only=True
+            key=record_key, embrouter_parent_otel_span=None, local_only=True
         )
         is None
     )
@@ -381,13 +381,13 @@ def test_canonical_provider_batch_id_passes_raw_ids_through():
 
 
 def test_canonical_provider_batch_id_decodes_unified_batch_ids():
-    unified = "litellm_proxy;model_id:m-1;llm_batch_id:batch_prov_9;llm_output_file_id:file-9"
+    unified = "embrouter_proxy;model_id:m-1;llm_batch_id:batch_prov_9;llm_output_file_id:file-9"
     encoded = base64.urlsafe_b64encode(unified.encode()).decode().rstrip("=")
     assert canonical_provider_batch_id(encoded) == "batch_prov_9"
 
 
 def test_canonical_provider_batch_id_decodes_model_embedded_ids():
-    from litellm.proxy.openai_files_endpoints.common_utils import encode_file_id_with_model
+    from embrouter.proxy.openai_files_endpoints.common_utils import encode_file_id_with_model
 
     encoded = encode_file_id_with_model(file_id="batch_prov_7", model="my-alias", id_type="batch")
     assert canonical_provider_batch_id(encoded) == "batch_prov_7"
@@ -414,7 +414,7 @@ def _local_redis_port() -> int | None:
 @pytest.mark.asyncio
 @pytest.mark.skipif(_local_redis_port() is None, reason="requires a local Redis on 6379 for the Lua script path")
 async def test_redis_lua_path_full_lifecycle():
-    from litellm.caching.redis_cache import RedisCache
+    from embrouter.caching.redis_cache import RedisCache
 
     port = _local_redis_port()
     redis_cache = RedisCache(host="127.0.0.1", port=port)
@@ -458,7 +458,7 @@ async def test_an_open_circuit_breaker_keeps_reservations_in_memory_without_a_wa
         internal_usage_cache=InternalUsageCache(DualCache(redis_cache=_OpenBreakerRedis(), default_in_memory_ttl=60))  # pyright: ignore[reportArgumentType]  # duck-typed Redis double
     )
 
-    with caplog.at_level(logging.DEBUG, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.DEBUG, logger="EmbRouter Proxy"):
         reservation = await store.reserve(tokens=60, scopes=(scope,))
         assert isinstance(reservation, BatchEnqueuedTokenReservation)
         assert reservation.backend == "memory"

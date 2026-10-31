@@ -2,11 +2,11 @@
 
 from typing import Final
 
-from litellm.llms.pass_through.guardrail_translation.handler import (
+from embrouter.llms.pass_through.guardrail_translation.handler import (
     LlmPassthroughRouteHandler,
     PassThroughEndpointHandler,
 )
-from litellm.types.utils import CallTypes
+from embrouter.types.utils import CallTypes
 
 guardrail_translation_mappings: Final = {
     CallTypes.pass_through: PassThroughEndpointHandler,

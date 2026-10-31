@@ -19,8 +19,8 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-from litellm.llms.bedrock.batches.transformation import BedrockBatchesConfig
-from litellm.types.utils import LlmProviders
+from embrouter.llms.bedrock.batches.transformation import BedrockBatchesConfig
+from embrouter.types.utils import LlmProviders
 
 # AWS JobStatus -> OpenAI BatchJobStatus, exactly as encoded in transformation.py
 # (both transform_create_batch_response and transform_retrieve_batch_response).
@@ -60,7 +60,7 @@ def test_get_complete_batch_url_uses_region(config):
         api_key=None,
         model="anthropic.claude-3",
         optional_params={"aws_region_name": "eu-central-1"},
-        litellm_params={},
+        embrouter_params={},
         data={"input_file_id": "s3://b/k"},
     )
     assert url == "https://bedrock.eu-central-1.amazonaws.com/model-invocation-job"
@@ -75,7 +75,7 @@ def test_create_request_builds_s3_input_output_and_arn(config):
     with patch.object(
         config.common_utils,
         "generate_unique_job_name",
-        return_value="litellm-batch-deadbeef",
+        return_value="embrouter-batch-deadbeef",
     ), patch.object(config.common_utils, "sign_aws_request") as mock_sign:
         mock_sign.return_value = ({"Authorization": "signed"}, b'{"x": 1}')
         result = config.transform_create_batch_request(
@@ -86,7 +86,7 @@ def test_create_request_builds_s3_input_output_and_arn(config):
                 "completion_window": "24h",
             },
             optional_params={"aws_region_name": "us-west-2"},
-            litellm_params={
+            embrouter_params={
                 "s3_output_bucket_name": "out-bucket",
                 "aws_batch_role_arn": "arn:aws:iam::123:role/my-batch-role",
             },
@@ -94,7 +94,7 @@ def test_create_request_builds_s3_input_output_and_arn(config):
 
     bedrock_request = mock_sign.call_args.kwargs["data"]
     assert bedrock_request["modelId"] == "anthropic.claude-3-5-sonnet"
-    assert bedrock_request["jobName"] == "litellm-batch-deadbeef"
+    assert bedrock_request["jobName"] == "embrouter-batch-deadbeef"
     assert bedrock_request["roleArn"] == "arn:aws:iam::123:role/my-batch-role"
     assert (
         bedrock_request["inputDataConfig"]["s3InputDataConfig"]["s3Uri"]
@@ -102,7 +102,7 @@ def test_create_request_builds_s3_input_output_and_arn(config):
     )
     assert (
         bedrock_request["outputDataConfig"]["s3OutputDataConfig"]["s3Uri"]
-        == "s3://out-bucket/litellm-batch-outputs/litellm-batch-deadbeef/"
+        == "s3://out-bucket/embrouter-batch-outputs/embrouter-batch-deadbeef/"
     )
     # 24h completion window -> 24 hour timeout
     assert bedrock_request["timeoutDurationInHours"] == 24
@@ -124,19 +124,19 @@ def test_create_request_defaults_output_bucket_to_input_bucket(config):
     with patch.object(
         config.common_utils,
         "generate_unique_job_name",
-        return_value="litellm-batch-cafef00d",
+        return_value="embrouter-batch-cafef00d",
     ), patch.object(config.common_utils, "sign_aws_request") as mock_sign:
         mock_sign.return_value = ({}, b"{}")
         config.transform_create_batch_request(
             model="m",
             create_batch_data={"input_file_id": "s3://same-bucket/in.jsonl"},
             optional_params={},
-            litellm_params={"aws_batch_role_arn": "arn:aws:iam::1:role/r"},
+            embrouter_params={"aws_batch_role_arn": "arn:aws:iam::1:role/r"},
         )
     bedrock_request = mock_sign.call_args.kwargs["data"]
     assert (
         bedrock_request["outputDataConfig"]["s3OutputDataConfig"]["s3Uri"]
-        == "s3://same-bucket/litellm-batch-outputs/litellm-batch-cafef00d/"
+        == "s3://same-bucket/embrouter-batch-outputs/embrouter-batch-cafef00d/"
     )
 
 
@@ -144,14 +144,14 @@ def test_create_request_adds_kms_encryption_key_when_provided(config):
     with patch.object(
         config.common_utils,
         "generate_unique_job_name",
-        return_value="litellm-batch-1",
+        return_value="embrouter-batch-1",
     ), patch.object(config.common_utils, "sign_aws_request") as mock_sign:
         mock_sign.return_value = ({}, b"{}")
         config.transform_create_batch_request(
             model="m",
             create_batch_data={"input_file_id": "s3://b/in.jsonl"},
             optional_params={},
-            litellm_params={
+            embrouter_params={
                 "aws_batch_role_arn": "arn:aws:iam::1:role/r",
                 "s3_encryption_key_id": "kms-key-123",
             },
@@ -166,9 +166,9 @@ def test_create_request_omits_kms_key_when_absent(config):
     with patch.object(
         config.common_utils,
         "generate_unique_job_name",
-        return_value="litellm-batch-1",
+        return_value="embrouter-batch-1",
     ), patch.object(config.common_utils, "sign_aws_request") as mock_sign, patch(
-        "litellm.llms.bedrock.common_utils.get_secret_str",
+        "embrouter.llms.bedrock.common_utils.get_secret_str",
         return_value=None,
     ):
         mock_sign.return_value = ({}, b"{}")
@@ -176,7 +176,7 @@ def test_create_request_omits_kms_key_when_absent(config):
             model="m",
             create_batch_data={"input_file_id": "s3://b/in.jsonl"},
             optional_params={},
-            litellm_params={"aws_batch_role_arn": "arn:aws:iam::1:role/r"},
+            embrouter_params={"aws_batch_role_arn": "arn:aws:iam::1:role/r"},
         )
     s3out = mock_sign.call_args.kwargs["data"]["outputDataConfig"][
         "s3OutputDataConfig"
@@ -184,26 +184,26 @@ def test_create_request_omits_kms_key_when_absent(config):
     assert "s3EncryptionKeyId" not in s3out
 
 
-def _signed_batch_request(config, litellm_params: dict, optional_params: dict) -> dict:
+def _signed_batch_request(config, embrouter_params: dict, optional_params: dict) -> dict:
     with patch.object(
         config.common_utils,
         "generate_unique_job_name",
-        return_value="litellm-batch-1",
+        return_value="embrouter-batch-1",
     ), patch.object(config.common_utils, "sign_aws_request") as mock_sign:
         mock_sign.return_value = ({}, b"{}")
         config.transform_create_batch_request(
             model="m",
             create_batch_data={"input_file_id": "s3://in-bucket/in.jsonl"},
             optional_params=optional_params,
-            litellm_params={"aws_batch_role_arn": "arn:aws:iam::1:role/r", **litellm_params},
+            embrouter_params={"aws_batch_role_arn": "arn:aws:iam::1:role/r", **embrouter_params},
         )
     return mock_sign.call_args.kwargs["data"]
 
 
 @pytest.mark.parametrize(
-    ("litellm_params", "optional_params", "env_owner", "expected_owner"),
+    ("embrouter_params", "optional_params", "env_owner", "expected_owner"),
     [
-        pytest.param({"s3_bucket_owner": "111111111111"}, {}, None, "111111111111", id="litellm_params"),
+        pytest.param({"s3_bucket_owner": "111111111111"}, {}, None, "111111111111", id="embrouter_params"),
         pytest.param({}, {"s3_bucket_owner": "222222222222"}, None, "222222222222", id="optional_params"),
         pytest.param({}, {}, "333333333333", "333333333333", id="env"),
         pytest.param(
@@ -211,7 +211,7 @@ def _signed_batch_request(config, litellm_params: dict, optional_params: dict) -
             {"s3_bucket_owner": "222222222222"},
             "333333333333",
             "111111111111",
-            id="litellm_params_wins",
+            id="embrouter_params_wins",
         ),
         pytest.param(
             {}, {"s3_bucket_owner": "222222222222"}, "333333333333", "222222222222", id="optional_params_beats_env"
@@ -219,7 +219,7 @@ def _signed_batch_request(config, litellm_params: dict, optional_params: dict) -
     ],
 )
 def test_create_request_sets_s3_bucket_owner_on_input_and_output(
-    config, monkeypatch, litellm_params, optional_params, env_owner, expected_owner
+    config, monkeypatch, embrouter_params, optional_params, env_owner, expected_owner
 ):
     monkeypatch.delenv("AWS_S3_ENCRYPTION_KEY_ID", raising=False)
     if env_owner is None:
@@ -227,14 +227,14 @@ def test_create_request_sets_s3_bucket_owner_on_input_and_output(
     else:
         monkeypatch.setenv("AWS_S3_BUCKET_OWNER", env_owner)
 
-    bedrock_request = _signed_batch_request(config, litellm_params, optional_params)
+    bedrock_request = _signed_batch_request(config, embrouter_params, optional_params)
 
     assert bedrock_request["inputDataConfig"] == {
         "s3InputDataConfig": {"s3Uri": "s3://in-bucket/in.jsonl", "s3BucketOwner": expected_owner}
     }
     assert bedrock_request["outputDataConfig"] == {
         "s3OutputDataConfig": {
-            "s3Uri": "s3://in-bucket/litellm-batch-outputs/litellm-batch-1/",
+            "s3Uri": "s3://in-bucket/embrouter-batch-outputs/embrouter-batch-1/",
             "s3BucketOwner": expected_owner,
         }
     }
@@ -248,7 +248,7 @@ def test_create_request_omits_s3_bucket_owner_when_unset(config, monkeypatch):
 
     assert bedrock_request["inputDataConfig"] == {"s3InputDataConfig": {"s3Uri": "s3://in-bucket/in.jsonl"}}
     assert bedrock_request["outputDataConfig"] == {
-        "s3OutputDataConfig": {"s3Uri": "s3://in-bucket/litellm-batch-outputs/litellm-batch-1/"}
+        "s3OutputDataConfig": {"s3Uri": "s3://in-bucket/embrouter-batch-outputs/embrouter-batch-1/"}
     }
 
 
@@ -262,7 +262,7 @@ def test_create_request_keeps_kms_key_alongside_s3_bucket_owner(config, monkeypa
 
     assert bedrock_request["outputDataConfig"] == {
         "s3OutputDataConfig": {
-            "s3Uri": "s3://in-bucket/litellm-batch-outputs/litellm-batch-1/",
+            "s3Uri": "s3://in-bucket/embrouter-batch-outputs/embrouter-batch-1/",
             "s3BucketOwner": "111111111111",
             "s3EncryptionKeyId": "kms-key-123",
         }
@@ -276,7 +276,7 @@ def test_create_request_omits_kms_key_when_env_var_is_blank(config, monkeypatch)
     bedrock_request = _signed_batch_request(config, {}, {})
 
     assert bedrock_request["outputDataConfig"] == {
-        "s3OutputDataConfig": {"s3Uri": "s3://in-bucket/litellm-batch-outputs/litellm-batch-1/"}
+        "s3OutputDataConfig": {"s3Uri": "s3://in-bucket/embrouter-batch-outputs/embrouter-batch-1/"}
     }
 
 
@@ -288,7 +288,7 @@ def test_create_request_omits_s3_bucket_owner_when_env_var_is_blank(config, monk
 
     assert bedrock_request["inputDataConfig"] == {"s3InputDataConfig": {"s3Uri": "s3://in-bucket/in.jsonl"}}
     assert bedrock_request["outputDataConfig"] == {
-        "s3OutputDataConfig": {"s3Uri": "s3://in-bucket/litellm-batch-outputs/litellm-batch-1/"}
+        "s3OutputDataConfig": {"s3Uri": "s3://in-bucket/embrouter-batch-outputs/embrouter-batch-1/"}
     }
 
 
@@ -301,7 +301,7 @@ def test_create_request_emits_real_values_alongside_blank_sibling_env_var(config
     assert bedrock_request["inputDataConfig"] == {"s3InputDataConfig": {"s3Uri": "s3://in-bucket/in.jsonl"}}
     assert bedrock_request["outputDataConfig"] == {
         "s3OutputDataConfig": {
-            "s3Uri": "s3://in-bucket/litellm-batch-outputs/litellm-batch-1/",
+            "s3Uri": "s3://in-bucket/embrouter-batch-outputs/embrouter-batch-1/",
             "s3EncryptionKeyId": "kms-key-123",
         }
     }
@@ -313,7 +313,7 @@ def test_create_request_missing_input_file_id_raises(config):
             model="m",
             create_batch_data={},
             optional_params={},
-            litellm_params={"aws_batch_role_arn": "arn:aws:iam::1:role/r"},
+            embrouter_params={"aws_batch_role_arn": "arn:aws:iam::1:role/r"},
         )
 
 
@@ -324,7 +324,7 @@ def test_create_request_missing_role_arn_raises(config, monkeypatch):
             model="m",
             create_batch_data={"input_file_id": "s3://b/in.jsonl"},
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
         )
 
 
@@ -333,14 +333,14 @@ def test_create_request_role_arn_from_env(config, monkeypatch):
     with patch.object(
         config.common_utils,
         "generate_unique_job_name",
-        return_value="litellm-batch-1",
+        return_value="embrouter-batch-1",
     ), patch.object(config.common_utils, "sign_aws_request") as mock_sign:
         mock_sign.return_value = ({}, b"{}")
         config.transform_create_batch_request(
             model="m",
             create_batch_data={"input_file_id": "s3://b/in.jsonl"},
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
         )
     assert (
         mock_sign.call_args.kwargs["data"]["roleArn"]
@@ -354,7 +354,7 @@ def test_create_request_missing_model_raises(config):
             model="",
             create_batch_data={"input_file_id": "s3://b/in.jsonl"},
             optional_params={},
-            litellm_params={"aws_batch_role_arn": "arn:aws:iam::1:role/r"},
+            embrouter_params={"aws_batch_role_arn": "arn:aws:iam::1:role/r"},
         )
 
 
@@ -362,7 +362,7 @@ def test_create_request_no_timeout_for_non_24h_window(config):
     with patch.object(
         config.common_utils,
         "generate_unique_job_name",
-        return_value="litellm-batch-1",
+        return_value="embrouter-batch-1",
     ), patch.object(config.common_utils, "sign_aws_request") as mock_sign:
         mock_sign.return_value = ({}, b"{}")
         config.transform_create_batch_request(
@@ -372,12 +372,12 @@ def test_create_request_no_timeout_for_non_24h_window(config):
                 "completion_window": "48h",
             },
             optional_params={},
-            litellm_params={"aws_batch_role_arn": "arn:aws:iam::1:role/r"},
+            embrouter_params={"aws_batch_role_arn": "arn:aws:iam::1:role/r"},
         )
     assert "timeoutDurationInHours" not in mock_sign.call_args.kwargs["data"]
 
 
-def test_create_request_forwards_bedrock_tags_from_litellm_params(config):
+def test_create_request_forwards_bedrock_tags_from_embrouter_params(config):
     tags = [
         {"key": "application", "value": "genai-proxy"},
         {"key": "team", "value": "ml-platform"},
@@ -385,14 +385,14 @@ def test_create_request_forwards_bedrock_tags_from_litellm_params(config):
     with patch.object(
         config.common_utils,
         "generate_unique_job_name",
-        return_value="litellm-batch-1",
+        return_value="embrouter-batch-1",
     ), patch.object(config.common_utils, "sign_aws_request") as mock_sign:
         mock_sign.return_value = ({}, b"{}")
         config.transform_create_batch_request(
             model="m",
             create_batch_data={"input_file_id": "s3://b/in.jsonl"},
             optional_params={},
-            litellm_params={
+            embrouter_params={
                 "aws_batch_role_arn": "arn:aws:iam::1:role/r",
                 "bedrock_tags": tags,
             },
@@ -405,30 +405,30 @@ def test_create_request_forwards_bedrock_tags_from_optional_params(config):
     with patch.object(
         config.common_utils,
         "generate_unique_job_name",
-        return_value="litellm-batch-1",
+        return_value="embrouter-batch-1",
     ), patch.object(config.common_utils, "sign_aws_request") as mock_sign:
         mock_sign.return_value = ({}, b"{}")
         config.transform_create_batch_request(
             model="m",
             create_batch_data={"input_file_id": "s3://b/in.jsonl"},
             optional_params={"bedrock_tags": tags},
-            litellm_params={"aws_batch_role_arn": "arn:aws:iam::1:role/r"},
+            embrouter_params={"aws_batch_role_arn": "arn:aws:iam::1:role/r"},
         )
     assert mock_sign.call_args.kwargs["data"]["tags"] == tags
 
 
-def test_create_request_empty_litellm_params_tags_do_not_fall_through(config):
+def test_create_request_empty_embrouter_params_tags_do_not_fall_through(config):
     with patch.object(
         config.common_utils,
         "generate_unique_job_name",
-        return_value="litellm-batch-1",
+        return_value="embrouter-batch-1",
     ), patch.object(config.common_utils, "sign_aws_request") as mock_sign:
         mock_sign.return_value = ({}, b"{}")
         config.transform_create_batch_request(
             model="m",
             create_batch_data={"input_file_id": "s3://b/in.jsonl"},
             optional_params={"bedrock_tags": [{"key": "env", "value": "prod"}]},
-            litellm_params={
+            embrouter_params={
                 "aws_batch_role_arn": "arn:aws:iam::1:role/r",
                 "bedrock_tags": [],
             },
@@ -440,14 +440,14 @@ def test_create_request_omits_tags_when_bedrock_tags_absent(config):
     with patch.object(
         config.common_utils,
         "generate_unique_job_name",
-        return_value="litellm-batch-1",
+        return_value="embrouter-batch-1",
     ), patch.object(config.common_utils, "sign_aws_request") as mock_sign:
         mock_sign.return_value = ({}, b"{}")
         config.transform_create_batch_request(
             model="m",
             create_batch_data={"input_file_id": "s3://b/in.jsonl"},
             optional_params={},
-            litellm_params={"aws_batch_role_arn": "arn:aws:iam::1:role/r"},
+            embrouter_params={"aws_batch_role_arn": "arn:aws:iam::1:role/r"},
         )
     assert "tags" not in mock_sign.call_args.kwargs["data"]
 
@@ -467,7 +467,7 @@ def test_create_request_rejects_malformed_bedrock_tags(config, bad_tags):
     with patch.object(
         config.common_utils,
         "generate_unique_job_name",
-        return_value="litellm-batch-1",
+        return_value="embrouter-batch-1",
     ), patch.object(config.common_utils, "sign_aws_request") as mock_sign:
         mock_sign.return_value = ({}, b"{}")
         with pytest.raises(ValueError, match="Invalid 'bedrock_tags' value"):
@@ -475,7 +475,7 @@ def test_create_request_rejects_malformed_bedrock_tags(config, bad_tags):
                 model="m",
                 create_batch_data={"input_file_id": "s3://b/in.jsonl"},
                 optional_params={},
-                litellm_params={
+                embrouter_params={
                     "aws_batch_role_arn": "arn:aws:iam::1:role/r",
                     "bedrock_tags": bad_tags,
                 },
@@ -484,7 +484,7 @@ def test_create_request_rejects_malformed_bedrock_tags(config, bad_tags):
 
 
 # --------------------------------------------------------------------------- #
-# transform_create_batch_response - status mapping + LiteLLMBatch shape
+# transform_create_batch_response - status mapping + EmbRouterBatch shape
 # --------------------------------------------------------------------------- #
 
 
@@ -494,7 +494,7 @@ def test_create_response_status_mapping(config, bedrock_status, openai_status):
         model=None,
         raw_response=_raw({"jobArn": ARN, "status": bedrock_status}),
         logging_obj=MagicMock(),
-        litellm_params={},
+        embrouter_params={},
     )
     assert out.status == openai_status
     assert out.id == ARN
@@ -506,7 +506,7 @@ def test_create_response_unknown_status_falls_back_to_validating(config):
         model=None,
         raw_response=_raw({"jobArn": ARN, "status": "SomeFutureStatus"}),
         logging_obj=MagicMock(),
-        litellm_params={},
+        embrouter_params={},
     )
     assert out.status == "validating"
 
@@ -517,7 +517,7 @@ def test_create_response_default_status_when_missing(config):
         model=None,
         raw_response=_raw({"jobArn": ARN}),
         logging_obj=MagicMock(),
-        litellm_params={},
+        embrouter_params={},
     )
     assert out.status == "validating"
 
@@ -527,7 +527,7 @@ def test_create_response_in_progress_sets_in_progress_at(config):
         model=None,
         raw_response=_raw({"jobArn": ARN, "status": "InProgress"}),
         logging_obj=MagicMock(),
-        litellm_params={},
+        embrouter_params={},
     )
     assert out.status == "in_progress"
     assert isinstance(out.in_progress_at, int)
@@ -538,7 +538,7 @@ def test_create_response_non_in_progress_leaves_in_progress_at_none(config):
         model=None,
         raw_response=_raw({"jobArn": ARN, "status": "Submitted"}),
         logging_obj=MagicMock(),
-        litellm_params={},
+        embrouter_params={},
     )
     assert out.in_progress_at is None
 
@@ -548,7 +548,7 @@ def test_create_response_uses_original_request_fields(config):
         model=None,
         raw_response=_raw({"jobArn": ARN, "status": "Submitted"}),
         logging_obj=MagicMock(),
-        litellm_params={
+        embrouter_params={
             "original_batch_request": {
                 "endpoint": "/v1/embeddings",
                 "input_file_id": "s3://b/in.jsonl",
@@ -567,7 +567,7 @@ def test_create_response_default_endpoint_when_no_original_request(config):
         model=None,
         raw_response=_raw({"jobArn": ARN, "status": "Submitted"}),
         logging_obj=MagicMock(),
-        litellm_params={},
+        embrouter_params={},
     )
     assert out.endpoint == "/v1/chat/completions"
     assert out.completion_window == "24h"
@@ -580,7 +580,7 @@ def test_create_response_raises_on_unparseable_body(config):
             model=None,
             raw_response=bad,
             logging_obj=MagicMock(),
-            litellm_params={},
+            embrouter_params={},
         )
 
 
@@ -593,7 +593,7 @@ def test_retrieve_request_builds_encoded_arn_url(config):
     with patch.object(config.common_utils, "sign_aws_request") as mock_sign:
         mock_sign.return_value = ({"Authorization": "signed"}, b"")
         result = config.transform_retrieve_batch_request(
-            batch_id=ARN, optional_params={}, litellm_params={}
+            batch_id=ARN, optional_params={}, embrouter_params={}
         )
     # ARN is URL-encoded (colons and slashes escaped) into the path
     assert result["method"] == "GET"
@@ -611,14 +611,14 @@ def test_retrieve_request_builds_encoded_arn_url(config):
 def test_retrieve_request_rejects_non_arn(config):
     with pytest.raises(ValueError, match="Expected ARN"):
         config.transform_retrieve_batch_request(
-            batch_id="abc1234567", optional_params={}, litellm_params={}
+            batch_id="abc1234567", optional_params={}, embrouter_params={}
         )
 
 
 def test_retrieve_request_rejects_short_arn(config):
     with pytest.raises(ValueError, match="Invalid ARN format"):
         config.transform_retrieve_batch_request(
-            batch_id="arn:aws:bedrock:us-west-2", optional_params={}, litellm_params={}
+            batch_id="arn:aws:bedrock:us-west-2", optional_params={}, embrouter_params={}
         )
 
 
@@ -626,7 +626,7 @@ def test_retrieve_request_rejects_bad_region(config):
     bad = "arn:aws:bedrock:US_WEST:123:model-invocation-job/x"
     with pytest.raises(ValueError, match="Invalid region in ARN"):
         config.transform_retrieve_batch_request(
-            batch_id=bad, optional_params={}, litellm_params={}
+            batch_id=bad, optional_params={}, embrouter_params={}
         )
 
 
@@ -641,7 +641,7 @@ def test_retrieve_response_status_mapping(config, bedrock_status, openai_status)
         model=None,
         raw_response=_raw({"jobArn": ARN, "status": bedrock_status}),
         logging_obj=MagicMock(),
-        litellm_params={},
+        embrouter_params={},
     )
     assert out.status == openai_status
 
@@ -651,7 +651,7 @@ def test_retrieve_response_unknown_status_falls_back_to_validating(config):
         model=None,
         raw_response=_raw({"jobArn": ARN, "status": "NewStatus"}),
         logging_obj=MagicMock(),
-        litellm_params={},
+        embrouter_params={},
     )
     assert out.status == "validating"
 
@@ -667,7 +667,7 @@ def test_retrieve_response_extracts_file_configs(config):
         model=None,
         raw_response=_raw(body),
         logging_obj=MagicMock(),
-        litellm_params={},
+        embrouter_params={},
     )
     assert out.input_file_id == "s3://b/in.jsonl"
     assert out.output_file_id == "s3://b/out/"
@@ -685,7 +685,7 @@ def test_retrieve_response_parses_timestamps_for_completed(config):
         model=None,
         raw_response=_raw(body),
         logging_obj=MagicMock(),
-        litellm_params={},
+        embrouter_params={},
     )
     import datetime
 
@@ -717,7 +717,7 @@ def test_retrieve_response_failed_sets_failed_at_from_end_time(config):
         model=None,
         raw_response=_raw(body),
         logging_obj=MagicMock(),
-        litellm_params={},
+        embrouter_params={},
     )
     import datetime
 
@@ -734,7 +734,7 @@ def test_retrieve_response_stopped_sets_cancelled_at(config):
         model=None,
         raw_response=_raw(body),
         logging_obj=MagicMock(),
-        litellm_params={},
+        embrouter_params={},
     )
     import datetime
 
@@ -755,7 +755,7 @@ def test_retrieve_response_in_progress_sets_in_progress_at_from_last_modified(co
         model=None,
         raw_response=_raw(body),
         logging_obj=MagicMock(),
-        litellm_params={},
+        embrouter_params={},
     )
     import datetime
 
@@ -775,7 +775,7 @@ def test_retrieve_response_invalid_timestamp_becomes_none(config):
         model=None,
         raw_response=_raw(body),
         logging_obj=MagicMock(),
-        litellm_params={},
+        embrouter_params={},
     )
     # created_at falls back to int(time.time()) when submitTime unparseable
     assert isinstance(out.created_at, int)
@@ -788,7 +788,7 @@ def test_retrieve_response_builds_errors_from_message(config):
         model=None,
         raw_response=_raw(body, status_code=400),
         logging_obj=MagicMock(),
-        litellm_params={},
+        embrouter_params={},
     )
     assert out.errors is not None
     assert out.errors.data[0].message == "validation failed"
@@ -800,7 +800,7 @@ def test_retrieve_response_no_errors_when_no_message(config):
         model=None,
         raw_response=_raw({"jobArn": ARN, "status": "Completed"}),
         logging_obj=MagicMock(),
-        litellm_params={},
+        embrouter_params={},
     )
     assert out.errors is None
 
@@ -809,7 +809,7 @@ def test_retrieve_response_enriches_metadata(config):
     body = {
         "jobArn": ARN,
         "status": "Completed",
-        "jobName": "litellm-batch-1",
+        "jobName": "embrouter-batch-1",
         "modelId": "anthropic.claude-3",
         "roleArn": "arn:aws:iam::1:role/r",
         "timeoutDurationInHours": 24,
@@ -820,9 +820,9 @@ def test_retrieve_response_enriches_metadata(config):
         model=None,
         raw_response=_raw(body),
         logging_obj=MagicMock(),
-        litellm_params={},
+        embrouter_params={},
     )
-    assert out.metadata["jobName"] == "litellm-batch-1"
+    assert out.metadata["jobName"] == "embrouter-batch-1"
     assert out.metadata["modelId"] == "anthropic.claude-3"
     assert out.metadata["roleArn"] == "arn:aws:iam::1:role/r"
     # non-string scalar is stringified
@@ -840,7 +840,7 @@ def test_retrieve_response_raises_on_unparseable_body(config):
             model=None,
             raw_response=bad,
             logging_obj=MagicMock(),
-            litellm_params={},
+            embrouter_params={},
         )
 
 
@@ -869,7 +869,7 @@ def test_validate_environment_passes_headers_through(config):
         model="m",
         messages=[],
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
     )
     assert out == headers
 
@@ -915,7 +915,7 @@ def test_get_complete_batch_url_cn_partition(config: BedrockBatchesConfig) -> No
         api_key=None,
         model="anthropic.claude-3",
         optional_params={"aws_region_name": "cn-north-1"},
-        litellm_params={},
+        embrouter_params={},
         data={"input_file_id": "s3://b/k"},
     )
     assert url == "https://bedrock.cn-north-1.amazonaws.com.cn/model-invocation-job"
@@ -938,6 +938,6 @@ def test_retrieve_request_accepts_partition_arns(config: BedrockBatchesConfig, a
     with patch.object(config.common_utils, "sign_aws_request") as mock_sign:
         mock_sign.return_value = ({"Authorization": "signed"}, b"")
         result = config.transform_retrieve_batch_request(
-            batch_id=arn, optional_params={}, litellm_params={}
+            batch_id=arn, optional_params={}, embrouter_params={}
         )
     assert result["url"].startswith(expected_prefix)

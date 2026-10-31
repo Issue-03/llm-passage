@@ -14,12 +14,12 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 from typing_extensions import NotRequired, ReadOnly, TypedDict
 
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.guardrails.usage_tracking import guardrail_status_to_action
-from litellm.repositories.prisma_protocols import TableActions
-from litellm.repositories.table_repositories import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.guardrails.usage_tracking import guardrail_status_to_action
+from embrouter.repositories.prisma_protocols import TableActions
+from embrouter.repositories.table_repositories import (
     DailyGuardrailMetricsRepository,
     DailyGuardrailUsageUnitsRepository,
     DailyPolicyMetricsRepository,
@@ -33,11 +33,11 @@ if TYPE_CHECKING:
     from prisma import models as prisma_models
     from prisma import types as prisma_types
 
-    from litellm.proxy.utils import PrismaClient
-    from litellm.types.guardrails import Guardrail
+    from embrouter.proxy.utils import PrismaClient
+    from embrouter.types.guardrails import Guardrail
 
-    _DbOrConfigGuardrail = prisma_models.LiteLLM_GuardrailsTable | Guardrail
-    _DailyMetricsRow = prisma_models.LiteLLM_DailyGuardrailMetrics | prisma_models.LiteLLM_DailyPolicyMetrics
+    _DbOrConfigGuardrail = prisma_models.EmbRouter_GuardrailsTable | Guardrail
+    _DailyMetricsRow = prisma_models.EmbRouter_DailyGuardrailMetrics | prisma_models.EmbRouter_DailyPolicyMetrics
 
 router: Final = APIRouter()
 
@@ -84,8 +84,8 @@ def _resolve_usage_window(start_date: str | None, end_date: str | None) -> tuple
 
 def _guardrails_table(
     prisma_client: "PrismaClient",
-) -> "TableActions[prisma_models.LiteLLM_GuardrailsTable]":
-    guardrails_table: Final[TableActions[prisma_models.LiteLLM_GuardrailsTable]] = GuardrailsRepository(
+) -> "TableActions[prisma_models.EmbRouter_GuardrailsTable]":
+    guardrails_table: Final[TableActions[prisma_models.EmbRouter_GuardrailsTable]] = GuardrailsRepository(
         prisma_client
     ).table
     return guardrails_table
@@ -93,15 +93,15 @@ def _guardrails_table(
 
 def _policies_table(
     prisma_client: "PrismaClient",
-) -> "TableActions[prisma_models.LiteLLM_PolicyTable]":
-    policies_table: Final[TableActions[prisma_models.LiteLLM_PolicyTable]] = PolicyRepository(prisma_client).table
+) -> "TableActions[prisma_models.EmbRouter_PolicyTable]":
+    policies_table: Final[TableActions[prisma_models.EmbRouter_PolicyTable]] = PolicyRepository(prisma_client).table
     return policies_table
 
 
 def _daily_guardrail_metrics_table(
     prisma_client: "PrismaClient",
-) -> "TableActions[prisma_models.LiteLLM_DailyGuardrailMetrics]":
-    metrics_table: Final[TableActions[prisma_models.LiteLLM_DailyGuardrailMetrics]] = DailyGuardrailMetricsRepository(
+) -> "TableActions[prisma_models.EmbRouter_DailyGuardrailMetrics]":
+    metrics_table: Final[TableActions[prisma_models.EmbRouter_DailyGuardrailMetrics]] = DailyGuardrailMetricsRepository(
         prisma_client
     ).table
     return metrics_table
@@ -109,8 +109,8 @@ def _daily_guardrail_metrics_table(
 
 def _daily_policy_metrics_table(
     prisma_client: "PrismaClient",
-) -> "TableActions[prisma_models.LiteLLM_DailyPolicyMetrics]":
-    metrics_table: Final[TableActions[prisma_models.LiteLLM_DailyPolicyMetrics]] = DailyPolicyMetricsRepository(
+) -> "TableActions[prisma_models.EmbRouter_DailyPolicyMetrics]":
+    metrics_table: Final[TableActions[prisma_models.EmbRouter_DailyPolicyMetrics]] = DailyPolicyMetricsRepository(
         prisma_client
     ).table
     return metrics_table
@@ -118,22 +118,22 @@ def _daily_policy_metrics_table(
 
 async def _find_daily_guardrail_metrics(
     prisma_client: "PrismaClient",
-    where: "prisma_types.LiteLLM_DailyGuardrailMetricsWhereInput",
-) -> "Sequence[prisma_models.LiteLLM_DailyGuardrailMetrics]":
+    where: "prisma_types.EmbRouter_DailyGuardrailMetricsWhereInput",
+) -> "Sequence[prisma_models.EmbRouter_DailyGuardrailMetrics]":
     return await _daily_guardrail_metrics_table(prisma_client).find_many(where=where)
 
 
 async def _find_daily_policy_metrics(
     prisma_client: "PrismaClient",
-    where: "prisma_types.LiteLLM_DailyPolicyMetricsWhereInput",
-) -> "Sequence[prisma_models.LiteLLM_DailyPolicyMetrics]":
+    where: "prisma_types.EmbRouter_DailyPolicyMetricsWhereInput",
+) -> "Sequence[prisma_models.EmbRouter_DailyPolicyMetrics]":
     return await _daily_policy_metrics_table(prisma_client).find_many(where=where)
 
 
 def _daily_guardrail_usage_units_table(
     prisma_client: "PrismaClient",
-) -> "TableActions[prisma_models.LiteLLM_DailyGuardrailUsageUnits]":
-    units_table: Final[TableActions[prisma_models.LiteLLM_DailyGuardrailUsageUnits]] = (
+) -> "TableActions[prisma_models.EmbRouter_DailyGuardrailUsageUnits]":
+    units_table: Final[TableActions[prisma_models.EmbRouter_DailyGuardrailUsageUnits]] = (
         DailyGuardrailUsageUnitsRepository(prisma_client).table
     )
     return units_table
@@ -141,50 +141,50 @@ def _daily_guardrail_usage_units_table(
 
 async def _find_daily_guardrail_usage_units(
     prisma_client: "PrismaClient",
-    where: "prisma_types.LiteLLM_DailyGuardrailUsageUnitsWhereInput",
-) -> "Sequence[prisma_models.LiteLLM_DailyGuardrailUsageUnits]":
+    where: "prisma_types.EmbRouter_DailyGuardrailUsageUnitsWhereInput",
+) -> "Sequence[prisma_models.EmbRouter_DailyGuardrailUsageUnits]":
     from prisma.errors import TableNotFoundError
 
     try:
         return await _daily_guardrail_usage_units_table(prisma_client).find_many(where=where)
     except TableNotFoundError as e:
         verbose_proxy_logger.warning(
-            "Guardrail usage units are unavailable until the LiteLLM_DailyGuardrailUsageUnits migration is applied: %s",
+            "Guardrail usage units are unavailable until the EmbRouter_DailyGuardrailUsageUnits migration is applied: %s",
             e,
         )
         return ()
 
 
-def _counter_name(row: "prisma_models.LiteLLM_DailyGuardrailUsageUnits") -> str:
+def _counter_name(row: "prisma_models.EmbRouter_DailyGuardrailUsageUnits") -> str:
     return row.usage_unit
 
 
-def _team_of(row: "prisma_models.LiteLLM_DailyGuardrailUsageUnits") -> str:
+def _team_of(row: "prisma_models.EmbRouter_DailyGuardrailUsageUnits") -> str:
     return row.team_id
 
 
-def _key_of(row: "prisma_models.LiteLLM_DailyGuardrailUsageUnits") -> str:
+def _key_of(row: "prisma_models.EmbRouter_DailyGuardrailUsageUnits") -> str:
     return row.api_key
 
 
-def _row_untracked_units(row: "prisma_models.LiteLLM_DailyGuardrailUsageUnits") -> int:
+def _row_untracked_units(row: "prisma_models.EmbRouter_DailyGuardrailUsageUnits") -> int:
     """A row written before the cost column carries NULL cost and is untracked in full."""
     return int(row.units) if row.cost is None else int(row.untracked_units)
 
 
-def _row_tracked_cost(row: "prisma_models.LiteLLM_DailyGuardrailUsageUnits") -> float | None:
+def _row_tracked_cost(row: "prisma_models.EmbRouter_DailyGuardrailUsageUnits") -> float | None:
     """The row's cost when it prices at least one unit; None when every unit is untracked."""
     return None if row.cost is None or _row_untracked_units(row) >= int(row.units) else row.cost
 
 
-def _sum_counter_units(rows: "Iterable[prisma_models.LiteLLM_DailyGuardrailUsageUnits]") -> Mapping[str, int]:
+def _sum_counter_units(rows: "Iterable[prisma_models.EmbRouter_DailyGuardrailUsageUnits]") -> Mapping[str, int]:
     ordered: Final = sorted(rows, key=_counter_name)
     return MappingProxyType(
         {name: sum(int(r.units) for r in group) for name, group in groupby(ordered, key=_counter_name)}
     )
 
 
-def _sum_untracked_units(rows: "Iterable[prisma_models.LiteLLM_DailyGuardrailUsageUnits]") -> Mapping[str, int]:
+def _sum_untracked_units(rows: "Iterable[prisma_models.EmbRouter_DailyGuardrailUsageUnits]") -> Mapping[str, int]:
     ordered: Final = sorted(rows, key=_counter_name)
     per_counter: Final = tuple(
         (name, sum(map(_row_untracked_units, group))) for name, group in groupby(ordered, key=_counter_name)
@@ -192,16 +192,16 @@ def _sum_untracked_units(rows: "Iterable[prisma_models.LiteLLM_DailyGuardrailUsa
     return MappingProxyType({name: units for name, units in per_counter if units})
 
 
-def _sum_tracked_cost(rows: "Iterable[prisma_models.LiteLLM_DailyGuardrailUsageUnits]") -> float | None:
+def _sum_tracked_cost(rows: "Iterable[prisma_models.EmbRouter_DailyGuardrailUsageUnits]") -> float | None:
     """Sum over rows that price at least one unit; None when no row does."""
     tracked: Final = tuple(cost for cost in map(_row_tracked_cost, rows) if cost is not None)
     return sum(tracked) if tracked else None
 
 
 def _by(
-    rows: "Sequence[prisma_models.LiteLLM_DailyGuardrailUsageUnits]",
-    key_of: "Callable[[prisma_models.LiteLLM_DailyGuardrailUsageUnits], str]",
-    reduce: "Callable[[Iterable[prisma_models.LiteLLM_DailyGuardrailUsageUnits]], _T]",
+    rows: "Sequence[prisma_models.EmbRouter_DailyGuardrailUsageUnits]",
+    key_of: "Callable[[prisma_models.EmbRouter_DailyGuardrailUsageUnits], str]",
+    reduce: "Callable[[Iterable[prisma_models.EmbRouter_DailyGuardrailUsageUnits]], _T]",
 ) -> Mapping[str, _T]:
     ordered: Final = sorted(rows, key=key_of)
     return MappingProxyType({key: reduce(group) for key, group in groupby(ordered, key=key_of)})
@@ -402,7 +402,7 @@ def _chart_from_metrics(metrics: "Sequence[_DailyMetricsRow]") -> list[UsageChar
 
 
 _GuardrailStrField = Literal["guardrail_id", "guardrail_name"]
-_GuardrailObjectField = Literal["litellm_params", "guardrail_info"]
+_GuardrailObjectField = Literal["embrouter_params", "guardrail_info"]
 
 
 @overload
@@ -421,7 +421,7 @@ def _get_guardrail_field(g: "_DbOrConfigGuardrail", field: _GuardrailStrField | 
 
 
 def _to_dict(value: object) -> dict[str, Any]:
-    """Coerce a pydantic model (e.g. LitellmParams) / dict value into a plain dict."""
+    """Coerce a pydantic model (e.g. EmbrouterParams) / dict value into a plain dict."""
     if isinstance(value, BaseModel):
         return value.model_dump(exclude_none=True)
     if isinstance(value, dict):
@@ -463,8 +463,8 @@ def _guardrail_overview_rows(
                 break
         req, blocked = a["requests"], a["blocked"]
         fail_rate = (100.0 * blocked / req) if req else 0.0
-        litellm_params = _to_dict(_get_guardrail_field(g, "litellm_params"))
-        provider = _field_str(litellm_params, "guardrail", "Unknown")
+        embrouter_params = _to_dict(_get_guardrail_field(g, "embrouter_params"))
+        provider = _field_str(embrouter_params, "guardrail", "Unknown")
         guardrail_info = _to_dict(_get_guardrail_field(g, "guardrail_info"))
         gtype = _field_str(guardrail_info, "type", "Guardrail")
         prev_fail = 0.0
@@ -519,7 +519,7 @@ def _guardrail_overview_rows(
 
 
 def _policy_overview_rows(
-    policies: "Sequence[prisma_models.LiteLLM_PolicyTable]",
+    policies: "Sequence[prisma_models.EmbRouter_PolicyTable]",
     agg: Mapping[str, _MetricTotals],
     prev_agg: Mapping[str, float],
 ) -> list[UsageOverviewRow]:
@@ -535,7 +535,7 @@ def _policy_overview_rows(
                 id=pid,
                 name=p.policy_name or pid,
                 type="Policy",
-                provider="LiteLLM",
+                provider="EmbRouter",
                 requestsEvaluated=req,
                 failRate=round(fail_rate, 1),
                 avgScore=None,
@@ -562,14 +562,14 @@ async def guardrails_usage_overview(
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
 ):
     """Return guardrail performance overview for the dashboard."""
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         return _EMPTY_OVERVIEW
 
     start, end = _resolve_usage_window(start_date, end_date)
 
-    from litellm.proxy.guardrails.guardrail_registry import IN_MEMORY_GUARDRAIL_HANDLER
+    from embrouter.proxy.guardrails.guardrail_registry import IN_MEMORY_GUARDRAIL_HANDLER
 
     try:
         db_guardrails: Final = await _guardrails_table(prisma_client).find_many()
@@ -580,21 +580,21 @@ async def guardrails_usage_overview(
         guardrails: Final[Sequence[_DbOrConfigGuardrail]] = [*db_guardrails, *config_guardrails]
 
         # Daily metrics in range
-        metrics: Final[Sequence[prisma_models.LiteLLM_DailyGuardrailMetrics]] = await _find_daily_guardrail_metrics(
+        metrics: Final[Sequence[prisma_models.EmbRouter_DailyGuardrailMetrics]] = await _find_daily_guardrail_metrics(
             prisma_client, where={"date": {"gte": start, "lte": end}}
         )
 
         # Previous period for trend
         start_prev: Final = (date.fromisoformat(start) - timedelta(days=7)).isoformat()
-        metrics_prev: Sequence[prisma_models.LiteLLM_DailyGuardrailMetrics] = await _find_daily_guardrail_metrics(
+        metrics_prev: Sequence[prisma_models.EmbRouter_DailyGuardrailMetrics] = await _find_daily_guardrail_metrics(
             prisma_client, where={"date": {"gte": start_prev, "lt": start}}
         )
 
-        units_where: Final[prisma_types.LiteLLM_DailyGuardrailUsageUnitsWhereInput] = {
+        units_where: Final[prisma_types.EmbRouter_DailyGuardrailUsageUnitsWhereInput] = {
             "date": {"gte": start, "lte": end}
         }
         units_rows: Final[
-            Sequence[prisma_models.LiteLLM_DailyGuardrailUsageUnits]
+            Sequence[prisma_models.EmbRouter_DailyGuardrailUsageUnits]
         ] = await _find_daily_guardrail_usage_units(prisma_client, where=units_where)
 
         agg: Final = _aggregate_daily_metrics(metrics, lambda m: m.guardrail_id)
@@ -618,7 +618,7 @@ async def guardrails_usage_overview(
             totalUntrackedUsageUnits=_sum_untracked_units(units_rows),
         )
     except Exception as e:
-        from litellm.proxy.utils import handle_exception_on_proxy
+        from embrouter.proxy.utils import handle_exception_on_proxy
 
         raise handle_exception_on_proxy(e)
 
@@ -636,7 +636,7 @@ async def guardrails_usage_detail(
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
 ):
     """Return single guardrail usage metrics and time series."""
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         from fastapi import HTTPException
@@ -645,7 +645,7 @@ async def guardrails_usage_detail(
 
     start, end = _resolve_usage_window(start_date, end_date)
 
-    from litellm.proxy.guardrails.guardrail_registry import IN_MEMORY_GUARDRAIL_HANDLER
+    from embrouter.proxy.guardrails.guardrail_registry import IN_MEMORY_GUARDRAIL_HANDLER
 
     guardrail = await _guardrails_table(prisma_client).find_unique(where={"guardrail_id": guardrail_id})
     if guardrail is None:
@@ -659,7 +659,7 @@ async def guardrails_usage_detail(
     logical_id: Final = _get_guardrail_field(guardrail, "guardrail_name")
     metric_ids: Final = [i for i in (logical_id, guardrail_id) if i]
 
-    metrics: Final[Sequence[prisma_models.LiteLLM_DailyGuardrailMetrics]] = await _find_daily_guardrail_metrics(
+    metrics: Final[Sequence[prisma_models.EmbRouter_DailyGuardrailMetrics]] = await _find_daily_guardrail_metrics(
         prisma_client,
         where={
             "guardrail_id": {"in": metric_ids},
@@ -667,19 +667,19 @@ async def guardrails_usage_detail(
         },
     )
     start_prev: Final = (date.fromisoformat(start) - timedelta(days=7)).isoformat()
-    metrics_prev: Final[Sequence[prisma_models.LiteLLM_DailyGuardrailMetrics]] = await _find_daily_guardrail_metrics(
+    metrics_prev: Final[Sequence[prisma_models.EmbRouter_DailyGuardrailMetrics]] = await _find_daily_guardrail_metrics(
         prisma_client,
         where={
             "guardrail_id": {"in": metric_ids},
             "date": {"gte": start_prev, "lt": start},
         },
     )
-    units_where: Final[prisma_types.LiteLLM_DailyGuardrailUsageUnitsWhereInput] = {
+    units_where: Final[prisma_types.EmbRouter_DailyGuardrailUsageUnitsWhereInput] = {
         "guardrail_id": {"in": metric_ids},
         "date": {"gte": start, "lte": end},
     }
     units_rows: Final[
-        Sequence[prisma_models.LiteLLM_DailyGuardrailUsageUnits]
+        Sequence[prisma_models.EmbRouter_DailyGuardrailUsageUnits]
     ] = await _find_daily_guardrail_usage_units(prisma_client, where=units_where)
 
     requests: Final = sum(int(m.requests_evaluated or 0) for m in metrics)
@@ -703,7 +703,7 @@ async def guardrails_usage_detail(
         {"date": d, "passed": v["passed"], "blocked": v["blocked"], "score": None}
         for d, v in sorted(ts_by_date.items())
     ]
-    litellm_params: Final = _to_dict(_get_guardrail_field(guardrail, "litellm_params"))
+    embrouter_params: Final = _to_dict(_get_guardrail_field(guardrail, "embrouter_params"))
     guardrail_info: Final = _to_dict(_get_guardrail_field(guardrail, "guardrail_info"))
     _guardrail_name: Final = _get_guardrail_field(guardrail, "guardrail_name")
     daily_unit_sums: Final = sorted(_by(units_rows, lambda r: r.date, _sum_counter_units).items())
@@ -716,7 +716,7 @@ async def guardrails_usage_detail(
         guardrail_id=guardrail_id,
         guardrail_name=_guardrail_name or guardrail_id,
         type=_field_str(guardrail_info, "type", "Guardrail"),
-        provider=_field_str(litellm_params, "guardrail", "Unknown"),
+        provider=_field_str(embrouter_params, "guardrail", "Unknown"),
         requestsEvaluated=requests,
         failRate=round(fail_rate, 1),
         avgScore=None,
@@ -744,8 +744,8 @@ def _build_usage_logs_where(
     policy_id: str | None,
     start_date: str | None,
     end_date: str | None,
-) -> "prisma_types.LiteLLM_SpendLogGuardrailIndexWhereInput":
-    where: Final[prisma_types.LiteLLM_SpendLogGuardrailIndexWhereInput] = {}
+) -> "prisma_types.EmbRouter_SpendLogGuardrailIndexWhereInput":
+    where: Final[prisma_types.EmbRouter_SpendLogGuardrailIndexWhereInput] = {}
     if guardrail_ids:
         where["guardrail_id"] = {"in": guardrail_ids} if len(guardrail_ids) > 1 else guardrail_ids[0]
     if policy_id:
@@ -767,8 +767,8 @@ def _build_usage_logs_where(
 
 
 def _usage_log_entry_from_row(
-    r: "prisma_models.LiteLLM_SpendLogGuardrailIndex",
-    sl: "prisma_models.LiteLLM_SpendLogs",
+    r: "prisma_models.EmbRouter_SpendLogGuardrailIndex",
+    sl: "prisma_models.EmbRouter_SpendLogs",
     action_filter: str | None,
 ) -> UsageLogEntry | None:
     meta = sl.metadata
@@ -837,7 +837,7 @@ def _snippet(text: object, max_len: int = 200) -> str | None:
     return result
 
 
-def _input_snippet_for_log(sl: "prisma_models.LiteLLM_SpendLogs") -> str | None:
+def _input_snippet_for_log(sl: "prisma_models.EmbRouter_SpendLogs") -> str | None:
     """Snippet for request input: prefer messages, fall back to proxy_server_request (same as drawer)."""
     out = _snippet(sl.messages)
     if out:
@@ -878,7 +878,7 @@ async def guardrails_usage_logs(
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
 ):
     """Return paginated run logs for a guardrail (or policy) from SpendLogs via index."""
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         return UsageLogsResponse(logs=[], total=0, page=page, page_size=page_size)
@@ -891,7 +891,7 @@ async def guardrails_usage_logs(
         # Query by both so we match regardless of which was written.
         effective_guardrail_ids: Final[list[str]] = [guardrail_id] if guardrail_id else []
         if guardrail_id:
-            from litellm.proxy.guardrails.guardrail_registry import IN_MEMORY_GUARDRAIL_HANDLER
+            from embrouter.proxy.guardrails.guardrail_registry import IN_MEMORY_GUARDRAIL_HANDLER
 
             guardrail = await _guardrails_table(prisma_client).find_unique(where={"guardrail_id": guardrail_id})
             if guardrail is None:
@@ -902,7 +902,7 @@ async def guardrails_usage_logs(
                     effective_guardrail_ids.append(logical_name)
 
         where: Final = _build_usage_logs_where(effective_guardrail_ids or None, policy_id, start_date, end_date)
-        index_rows: Sequence[prisma_models.LiteLLM_SpendLogGuardrailIndex] = await SpendLogGuardrailIndexRepository(
+        index_rows: Sequence[prisma_models.EmbRouter_SpendLogGuardrailIndex] = await SpendLogGuardrailIndexRepository(
             prisma_client
         ).table.find_many(
             where=where,
@@ -914,7 +914,7 @@ async def guardrails_usage_logs(
         request_ids: Final = [r.request_id for r in index_rows[:page_size]]
         if not request_ids:
             return UsageLogsResponse(logs=[], total=total, page=page, page_size=page_size)
-        spend_logs: Final[Sequence[prisma_models.LiteLLM_SpendLogs]] = await SpendLogsRepository(
+        spend_logs: Final[Sequence[prisma_models.EmbRouter_SpendLogs]] = await SpendLogsRepository(
             prisma_client
         ).table.find_many(where={"request_id": {"in": request_ids}})
         log_by_id: Final = {s.request_id: s for s in spend_logs}
@@ -928,7 +928,7 @@ async def guardrails_usage_logs(
                 logs_out.append(entry)
         return UsageLogsResponse(logs=logs_out, total=total, page=page, page_size=page_size)
     except Exception as e:
-        from litellm.proxy.utils import handle_exception_on_proxy
+        from embrouter.proxy.utils import handle_exception_on_proxy
 
         raise handle_exception_on_proxy(e)
 
@@ -948,7 +948,7 @@ async def policies_usage_overview(
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
 ):
     """Return policy performance overview for the dashboard."""
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         return _EMPTY_OVERVIEW
@@ -957,10 +957,10 @@ async def policies_usage_overview(
 
     try:
         policies: Final = await _policies_table(prisma_client).find_many()
-        metrics: Final[Sequence[prisma_models.LiteLLM_DailyPolicyMetrics]] = await _find_daily_policy_metrics(
+        metrics: Final[Sequence[prisma_models.EmbRouter_DailyPolicyMetrics]] = await _find_daily_policy_metrics(
             prisma_client, where={"date": {"gte": start, "lte": end}}
         )
-        metrics_prev: Final[Sequence[prisma_models.LiteLLM_DailyPolicyMetrics]] = await _find_daily_policy_metrics(
+        metrics_prev: Final[Sequence[prisma_models.EmbRouter_DailyPolicyMetrics]] = await _find_daily_policy_metrics(
             prisma_client,
             where={
                 "date": {
@@ -987,6 +987,6 @@ async def policies_usage_overview(
             totalUntrackedUsageUnits=_EMPTY_UNITS,
         )
     except Exception as e:
-        from litellm.proxy.utils import handle_exception_on_proxy
+        from embrouter.proxy.utils import handle_exception_on_proxy
 
         raise handle_exception_on_proxy(e)

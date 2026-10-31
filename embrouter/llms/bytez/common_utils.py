@@ -2,7 +2,7 @@ from typing import Final
 
 import httpx
 
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
 
 API_BASE: Final = "https://api.bytez.com/models/v2"
 

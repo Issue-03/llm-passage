@@ -12,9 +12,9 @@ import pytest
 from fastapi import HTTPException, Request, Response
 
 
-import litellm
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+import embrouter
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
     watsonx_proxy_route,
 )
 
@@ -51,11 +51,11 @@ class TestWatsonxProxyRoute:
 
         with (
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_passthrough_config",
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_passthrough_config",
                 return_value=mock_provider_config,
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
                 return_value=mock_endpoint_func,
             ) as mock_create_route,
         ):
@@ -85,7 +85,7 @@ class TestWatsonxProxyRoute:
             assert call_args["custom_llm_provider"] == "watsonx"
             assert (
                 call_args["query_params"]["version"]
-                == litellm.WATSONX_DEFAULT_API_VERSION
+                == embrouter.WATSONX_DEFAULT_API_VERSION
             )
 
             # Verify endpoint function was called
@@ -122,11 +122,11 @@ class TestWatsonxProxyRoute:
 
         with (
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_passthrough_config",
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_passthrough_config",
                 return_value=mock_provider_config,
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
                 return_value=mock_endpoint_func,
             ) as mock_create_route,
         ):
@@ -170,11 +170,11 @@ class TestWatsonxProxyRoute:
 
         with (
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_passthrough_config",
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_passthrough_config",
                 return_value=mock_provider_config,
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
                 return_value=mock_endpoint_func,
             ) as mock_create_route,
         ):
@@ -221,15 +221,15 @@ class TestWatsonxProxyRoute:
 
         with (
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_passthrough_config",
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_passthrough_config",
                 return_value=mock_provider_config,
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_form_data",
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_form_data",
                 return_value=mock_form_data,
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
                 return_value=mock_endpoint_func,
             ) as mock_create_route,
         ):
@@ -260,7 +260,7 @@ class TestWatsonxProxyRoute:
 
         with (
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_passthrough_config",
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_passthrough_config",
                 return_value=None,
             ),
         ):
@@ -302,11 +302,11 @@ class TestWatsonxProxyRoute:
 
         with (
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_passthrough_config",
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_passthrough_config",
                 return_value=mock_provider_config,
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
                 return_value=mock_endpoint_func,
             ) as mock_create_route,
         ):
@@ -324,7 +324,7 @@ class TestWatsonxProxyRoute:
             assert "version" in call_args["query_params"]
             assert (
                 call_args["query_params"]["version"]
-                == litellm.WATSONX_DEFAULT_API_VERSION
+                == embrouter.WATSONX_DEFAULT_API_VERSION
             )
 
     @pytest.mark.asyncio
@@ -355,11 +355,11 @@ class TestWatsonxProxyRoute:
 
         with (
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_passthrough_config",
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_passthrough_config",
                 return_value=mock_provider_config,
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
                 return_value=mock_endpoint_func,
             ) as mock_create_route,
         ):
@@ -414,11 +414,11 @@ class TestWatsonxProxyRoute:
 
             with (
                 patch(
-                    "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_passthrough_config",
+                    "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_passthrough_config",
                     return_value=mock_provider_config,
                 ),
                 patch(
-                    "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
+                    "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
                     return_value=mock_endpoint_func,
                 ) as mock_create_route,
             ):

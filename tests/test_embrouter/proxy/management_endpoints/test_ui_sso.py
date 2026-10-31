@@ -9,13 +9,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi import HTTPException, Request
 
-import litellm
-from litellm._uuid import uuid
-from litellm.proxy._types import LiteLLM_UserTable, NewUserResponse
-from litellm.proxy.auth.handle_jwt import JWTHandler
-from litellm.proxy.management_endpoints.sso import CustomMicrosoftSSO
-from litellm.proxy.management_endpoints.types import CustomOpenID
-from litellm.proxy.management_endpoints.ui_sso import (
+import embrouter
+from embrouter._uuid import uuid
+from embrouter.proxy._types import EmbRouter_UserTable, NewUserResponse
+from embrouter.proxy.auth.handle_jwt import JWTHandler
+from embrouter.proxy.management_endpoints.sso import CustomMicrosoftSSO
+from embrouter.proxy.management_endpoints.types import CustomOpenID
+from embrouter.proxy.management_endpoints.ui_sso import (
     GoogleSSOHandler,
     MicrosoftSSOHandler,
     SSOAuthenticationHandler,
@@ -24,7 +24,7 @@ from litellm.proxy.management_endpoints.ui_sso import (
     normalize_email,
     process_sso_jwt_access_token,
 )
-from litellm.types.proxy.management_endpoints.ui_sso import (
+from embrouter.types.proxy.management_endpoints.ui_sso import (
     DefaultTeamSSOParams,
     MicrosoftGraphAPIUserGroupDirectoryObject,
     MicrosoftGraphAPIUserGroupResponse,
@@ -49,7 +49,7 @@ def _wire_team_create_tx(prisma_client):
     @asynccontextmanager
     async def _tx():
         yield SimpleNamespace(
-            litellm_teamtable=prisma_client.db.litellm_teamtable,
+            embrouter_teamtable=prisma_client.db.embrouter_teamtable,
             query_raw=AsyncMock(return_value=[]),
         )
 
@@ -155,36 +155,36 @@ def test_microsoft_sso_handler_openid_from_response_with_custom_attributes():
 
     # Act
     with (
-        patch("litellm.constants.MICROSOFT_USER_EMAIL_ATTRIBUTE", "custom_email_field"),
+        patch("embrouter.constants.MICROSOFT_USER_EMAIL_ATTRIBUTE", "custom_email_field"),
         patch(
-            "litellm.constants.MICROSOFT_USER_DISPLAY_NAME_ATTRIBUTE",
+            "embrouter.constants.MICROSOFT_USER_DISPLAY_NAME_ATTRIBUTE",
             "custom_display_name",
         ),
-        patch("litellm.constants.MICROSOFT_USER_ID_ATTRIBUTE", "custom_id_field"),
+        patch("embrouter.constants.MICROSOFT_USER_ID_ATTRIBUTE", "custom_id_field"),
         patch(
-            "litellm.constants.MICROSOFT_USER_FIRST_NAME_ATTRIBUTE", "custom_first_name"
+            "embrouter.constants.MICROSOFT_USER_FIRST_NAME_ATTRIBUTE", "custom_first_name"
         ),
         patch(
-            "litellm.constants.MICROSOFT_USER_LAST_NAME_ATTRIBUTE", "custom_last_name"
+            "embrouter.constants.MICROSOFT_USER_LAST_NAME_ATTRIBUTE", "custom_last_name"
         ),
         patch(
-            "litellm.proxy.management_endpoints.ui_sso.MICROSOFT_USER_EMAIL_ATTRIBUTE",
+            "embrouter.proxy.management_endpoints.ui_sso.MICROSOFT_USER_EMAIL_ATTRIBUTE",
             "custom_email_field",
         ),
         patch(
-            "litellm.proxy.management_endpoints.ui_sso.MICROSOFT_USER_DISPLAY_NAME_ATTRIBUTE",
+            "embrouter.proxy.management_endpoints.ui_sso.MICROSOFT_USER_DISPLAY_NAME_ATTRIBUTE",
             "custom_display_name",
         ),
         patch(
-            "litellm.proxy.management_endpoints.ui_sso.MICROSOFT_USER_ID_ATTRIBUTE",
+            "embrouter.proxy.management_endpoints.ui_sso.MICROSOFT_USER_ID_ATTRIBUTE",
             "custom_id_field",
         ),
         patch(
-            "litellm.proxy.management_endpoints.ui_sso.MICROSOFT_USER_FIRST_NAME_ATTRIBUTE",
+            "embrouter.proxy.management_endpoints.ui_sso.MICROSOFT_USER_FIRST_NAME_ATTRIBUTE",
             "custom_first_name",
         ),
         patch(
-            "litellm.proxy.management_endpoints.ui_sso.MICROSOFT_USER_LAST_NAME_ATTRIBUTE",
+            "embrouter.proxy.management_endpoints.ui_sso.MICROSOFT_USER_LAST_NAME_ATTRIBUTE",
             "custom_last_name",
         ),
     ):
@@ -341,7 +341,7 @@ async def test_get_user_groups_from_graph_api():
         return mock
 
     with patch(
-        "litellm.proxy.management_endpoints.ui_sso.get_async_httpx_client"
+        "embrouter.proxy.management_endpoints.ui_sso.get_async_httpx_client"
     ) as mock_client:
         mock_client.return_value = MagicMock()
         mock_client.return_value.get = mock_get
@@ -372,7 +372,7 @@ async def test_get_user_groups_empty_response():
         return mock
 
     with patch(
-        "litellm.proxy.management_endpoints.ui_sso.get_async_httpx_client"
+        "embrouter.proxy.management_endpoints.ui_sso.get_async_httpx_client"
     ) as mock_client:
         mock_client.return_value = MagicMock()
         mock_client.return_value.get = mock_get
@@ -394,7 +394,7 @@ async def test_get_user_groups_error_handling():
         raise Exception("API Error")
 
     with patch(
-        "litellm.proxy.management_endpoints.ui_sso.get_async_httpx_client"
+        "embrouter.proxy.management_endpoints.ui_sso.get_async_httpx_client"
     ) as mock_client:
         mock_client.return_value = MagicMock()
         mock_client.return_value.get = mock_get
@@ -422,7 +422,7 @@ async def test_get_user_groups_uses_default_graph_endpoint(monkeypatch):
         return mock
 
     with patch(
-        "litellm.proxy.management_endpoints.ui_sso.get_async_httpx_client"
+        "embrouter.proxy.management_endpoints.ui_sso.get_async_httpx_client"
     ) as mock_client:
         mock_client.return_value = MagicMock()
         mock_client.return_value.get = mock_get
@@ -445,7 +445,7 @@ async def test_get_user_groups_uses_configured_graph_endpoint(monkeypatch):
         return mock
 
     with patch(
-        "litellm.proxy.management_endpoints.ui_sso.get_async_httpx_client"
+        "embrouter.proxy.management_endpoints.ui_sso.get_async_httpx_client"
     ) as mock_client:
         mock_client.return_value = MagicMock()
         mock_client.return_value.get = mock_get
@@ -585,27 +585,27 @@ def test_get_group_ids_from_graph_api_response():
 )
 async def test_default_team_params(team_params):
     """
-    When litellm.default_team_params is set, it should be used to create a new team
+    When embrouter.default_team_params is set, it should be used to create a new team
     """
     # Arrange
-    litellm.default_team_params = team_params
+    embrouter.default_team_params = team_params
 
     def mock_jsonify_team_object(db_data):
         return db_data
 
     # Mock Prisma client
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_teamtable.find_first = AsyncMock(return_value=None)
-    mock_prisma.db.litellm_teamtable.create = AsyncMock()
+    mock_prisma.db.embrouter_teamtable.find_first = AsyncMock(return_value=None)
+    mock_prisma.db.embrouter_teamtable.create = AsyncMock()
     _wire_team_create_tx(mock_prisma)
-    mock_prisma.db.litellm_teamtable.count = AsyncMock(return_value=0)
+    mock_prisma.db.embrouter_teamtable.count = AsyncMock(return_value=0)
     mock_prisma.get_data = AsyncMock(return_value=None)
     mock_prisma.jsonify_team_object = MagicMock(side_effect=mock_jsonify_team_object)
 
-    with patch("litellm.proxy.proxy_server.prisma_client", mock_prisma):
+    with patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma):
         # Act
         team_id = str(uuid.uuid4())
-        await MicrosoftSSOHandler.create_litellm_teams_from_service_principal_team_ids(
+        await MicrosoftSSOHandler.create_embrouter_teams_from_service_principal_team_ids(
             service_principal_teams=[
                 MicrosoftServicePrincipalTeam(
                     principalId=team_id,
@@ -616,8 +616,8 @@ async def test_default_team_params(team_params):
 
         # Assert
         # Verify team was created with correct parameters
-        mock_prisma.db.litellm_teamtable.create.assert_called_once()
-        create_call_args = mock_prisma.db.litellm_teamtable.create.call_args.kwargs[
+        mock_prisma.db.embrouter_teamtable.create.assert_called_once()
+        create_call_args = mock_prisma.db.embrouter_teamtable.create.call_args.kwargs[
             "data"
         ]
         assert create_call_args["team_id"] == team_id
@@ -638,31 +638,31 @@ async def test_default_team_params(team_params):
 async def test_default_team_params_organization_id_reaches_sso_created_team(team_params):
     """The SSO auto-team path builds NewTeamRequest straight from default_team_params,
     so a default organization_id must land on the created team row and be validated."""
-    from litellm.proxy._types import LiteLLM_OrganizationTable
+    from embrouter.proxy._types import EmbRouter_OrganizationTable
 
-    litellm.default_team_params = team_params
+    embrouter.default_team_params = team_params
 
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_teamtable.find_first = AsyncMock(return_value=None)
-    mock_prisma.db.litellm_teamtable.create = AsyncMock()
+    mock_prisma.db.embrouter_teamtable.find_first = AsyncMock(return_value=None)
+    mock_prisma.db.embrouter_teamtable.create = AsyncMock()
     _wire_team_create_tx(mock_prisma)
-    mock_prisma.db.litellm_teamtable.count = AsyncMock(return_value=0)
+    mock_prisma.db.embrouter_teamtable.count = AsyncMock(return_value=0)
     mock_prisma.get_data = AsyncMock(return_value=None)
     mock_prisma.jsonify_team_object = MagicMock(side_effect=lambda db_data: db_data)
 
-    mock_org = LiteLLM_OrganizationTable(
+    mock_org = EmbRouter_OrganizationTable(
         organization_id="default-org",
         budget_id="budget-id",
         created_by="admin",
         updated_by="admin",
     )
 
-    with patch("litellm.proxy.proxy_server.prisma_client", mock_prisma), patch(
-        "litellm.proxy.management_endpoints.team_endpoints.get_org_object",
+    with patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma), patch(
+        "embrouter.proxy.management_endpoints.team_endpoints.get_org_object",
         AsyncMock(return_value=mock_org),
     ) as mock_get_org:
         team_id = str(uuid.uuid4())
-        await MicrosoftSSOHandler.create_litellm_teams_from_service_principal_team_ids(
+        await MicrosoftSSOHandler.create_embrouter_teams_from_service_principal_team_ids(
             service_principal_teams=[
                 MicrosoftServicePrincipalTeam(
                     principalId=team_id,
@@ -671,8 +671,8 @@ async def test_default_team_params_organization_id_reaches_sso_created_team(team
             ]
         )
 
-        mock_prisma.db.litellm_teamtable.create.assert_called_once()
-        create_call_args = mock_prisma.db.litellm_teamtable.create.call_args.kwargs["data"]
+        mock_prisma.db.embrouter_teamtable.create.assert_called_once()
+        create_call_args = mock_prisma.db.embrouter_teamtable.create.call_args.kwargs["data"]
         assert create_call_args["organization_id"] == "default-org"
         assert mock_get_org.call_args.kwargs["org_id"] == "default-org"
 
@@ -680,28 +680,28 @@ async def test_default_team_params_organization_id_reaches_sso_created_team(team
 @pytest.mark.asyncio
 async def test_create_team_without_default_params():
     """
-    Test team creation when litellm.default_team_params is None
+    Test team creation when embrouter.default_team_params is None
     Should create team with just the basic required fields
     """
     # Arrange
-    litellm.default_team_params = None
+    embrouter.default_team_params = None
 
     def mock_jsonify_team_object(db_data):
         return db_data
 
     # Mock Prisma client
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_teamtable.find_first = AsyncMock(return_value=None)
-    mock_prisma.db.litellm_teamtable.create = AsyncMock()
+    mock_prisma.db.embrouter_teamtable.find_first = AsyncMock(return_value=None)
+    mock_prisma.db.embrouter_teamtable.create = AsyncMock()
     _wire_team_create_tx(mock_prisma)
-    mock_prisma.db.litellm_teamtable.count = AsyncMock(return_value=0)
+    mock_prisma.db.embrouter_teamtable.count = AsyncMock(return_value=0)
     mock_prisma.get_data = AsyncMock(return_value=None)
     mock_prisma.jsonify_team_object = MagicMock(side_effect=mock_jsonify_team_object)
 
-    with patch("litellm.proxy.proxy_server.prisma_client", mock_prisma):
+    with patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma):
         # Act
         team_id = str(uuid.uuid4())
-        await MicrosoftSSOHandler.create_litellm_teams_from_service_principal_team_ids(
+        await MicrosoftSSOHandler.create_embrouter_teams_from_service_principal_team_ids(
             service_principal_teams=[
                 MicrosoftServicePrincipalTeam(
                     principalId=team_id,
@@ -711,8 +711,8 @@ async def test_create_team_without_default_params():
         )
 
         # Assert
-        mock_prisma.db.litellm_teamtable.create.assert_called_once()
-        create_call_args = mock_prisma.db.litellm_teamtable.create.call_args.kwargs[
+        mock_prisma.db.embrouter_teamtable.create.assert_called_once()
+        create_call_args = mock_prisma.db.embrouter_teamtable.create.call_args.kwargs[
             "data"
         ]
         assert create_call_args["team_id"] == team_id
@@ -724,12 +724,12 @@ async def test_create_team_without_default_params():
 
 
 def test_apply_user_info_values_to_sso_user_defined_values():
-    from litellm.proxy._types import LiteLLM_UserTable, SSOUserDefinedValues
-    from litellm.proxy.management_endpoints.ui_sso import (
+    from embrouter.proxy._types import EmbRouter_UserTable, SSOUserDefinedValues
+    from embrouter.proxy.management_endpoints.ui_sso import (
         apply_user_info_values_to_sso_user_defined_values,
     )
 
-    user_info = LiteLLM_UserTable(
+    user_info = EmbRouter_UserTable(
         user_id="123",
         user_email="test@example.com",
         user_role="admin",
@@ -755,13 +755,13 @@ def test_apply_user_info_values_to_sso_user_defined_values():
 
 def test_apply_user_info_values_to_sso_user_defined_values_with_models():
     """Test that user's models from DB are preserved when they log in via SSO"""
-    from litellm.proxy._types import LiteLLM_UserTable, SSOUserDefinedValues
-    from litellm.proxy.management_endpoints.ui_sso import (
+    from embrouter.proxy._types import EmbRouter_UserTable, SSOUserDefinedValues
+    from embrouter.proxy.management_endpoints.ui_sso import (
         apply_user_info_values_to_sso_user_defined_values,
     )
 
     # Simulate existing user with models=['no-default-models'] in DB
-    user_info = LiteLLM_UserTable(
+    user_info = EmbRouter_UserTable(
         user_id="123",
         user_email="test@example.com",
         user_role="admin",
@@ -796,12 +796,12 @@ def test_apply_user_info_values_sso_role_takes_precedence():
     When Microsoft SSO returns a user_role, it should be used instead of the role stored in the database.
     This ensures SSO is the authoritative source for user roles.
     """
-    from litellm.proxy._types import LiteLLM_UserTable, SSOUserDefinedValues
-    from litellm.proxy.management_endpoints.ui_sso import (
+    from embrouter.proxy._types import EmbRouter_UserTable, SSOUserDefinedValues
+    from embrouter.proxy.management_endpoints.ui_sso import (
         apply_user_info_values_to_sso_user_defined_values,
     )
 
-    user_info = LiteLLM_UserTable(
+    user_info = EmbRouter_UserTable(
         user_id="123",
         user_email="test@example.com",
         user_role="internal_user_viewer",
@@ -832,9 +832,9 @@ def test_build_sso_user_update_data_with_valid_role():
     """
     Test that _build_sso_user_update_data includes role when SSO provides a valid role.
     """
-    from litellm.proxy._types import LitellmUserRoles
-    from litellm.proxy.management_endpoints.types import CustomOpenID
-    from litellm.proxy.management_endpoints.ui_sso import _build_sso_user_update_data
+    from embrouter.proxy._types import EmbrouterUserRoles
+    from embrouter.proxy.management_endpoints.types import CustomOpenID
+    from embrouter.proxy.management_endpoints.ui_sso import _build_sso_user_update_data
 
     sso_result = CustomOpenID(
         id="test-user-123",
@@ -842,7 +842,7 @@ def test_build_sso_user_update_data_with_valid_role():
         display_name="Test User",
         provider="microsoft",
         team_ids=[],
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN,
     )
 
     update_data = _build_sso_user_update_data(
@@ -859,8 +859,8 @@ def test_build_sso_user_update_data_without_role():
     """
     Test that _build_sso_user_update_data only includes email when SSO has no role.
     """
-    from litellm.proxy.management_endpoints.types import CustomOpenID
-    from litellm.proxy.management_endpoints.ui_sso import _build_sso_user_update_data
+    from embrouter.proxy.management_endpoints.types import CustomOpenID
+    from embrouter.proxy.management_endpoints.ui_sso import _build_sso_user_update_data
 
     sso_result = CustomOpenID(
         id="test-user-456",
@@ -905,8 +905,8 @@ def test_build_sso_user_update_data_normalizes_email():
     """
     Test that _build_sso_user_update_data normalizes email addresses to lowercase.
     """
-    from litellm.proxy.management_endpoints.types import CustomOpenID
-    from litellm.proxy.management_endpoints.ui_sso import _build_sso_user_update_data
+    from embrouter.proxy.management_endpoints.types import CustomOpenID
+    from embrouter.proxy.management_endpoints.ui_sso import _build_sso_user_update_data
 
     sso_result = CustomOpenID(
         id="test-user-789",
@@ -932,7 +932,7 @@ def test_generic_response_convertor_normalizes_email():
     """
     Test that generic_response_convertor normalizes email addresses.
     """
-    from litellm.proxy.management_endpoints.ui_sso import generic_response_convertor
+    from embrouter.proxy.management_endpoints.ui_sso import generic_response_convertor
 
     mock_response = {
         "preferred_username": "user123",
@@ -966,18 +966,18 @@ async def test_upsert_sso_user_updates_role_for_existing_user():
     Test that upsert_sso_user updates the user role in database when SSO provides a valid role.
 
     When a user's role is updated in the SSO provider (e.g., Azure), the role should be
-    updated in the LiteLLM database on subsequent logins, not just at initial user creation.
+    updated in the EmbRouter database on subsequent logins, not just at initial user creation.
     """
-    from litellm.proxy._types import LiteLLM_UserTable, LitellmUserRoles
-    from litellm.proxy.management_endpoints.types import CustomOpenID
-    from litellm.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
+    from embrouter.proxy._types import EmbRouter_UserTable, EmbrouterUserRoles
+    from embrouter.proxy.management_endpoints.types import CustomOpenID
+    from embrouter.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
 
     # Mock prisma client
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_usertable.update_many = AsyncMock()
+    mock_prisma.db.embrouter_usertable.update_many = AsyncMock()
 
     # Existing user in DB with old role
-    existing_user = LiteLLM_UserTable(
+    existing_user = EmbRouter_UserTable(
         user_id="test-user-123",
         user_email="test@example.com",
         user_role="internal_user",
@@ -991,7 +991,7 @@ async def test_upsert_sso_user_updates_role_for_existing_user():
         display_name="Test User",
         provider="microsoft",
         team_ids=["team-1"],
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN,
     )
 
     # Act
@@ -1004,8 +1004,8 @@ async def test_upsert_sso_user_updates_role_for_existing_user():
     )
 
     # Assert - verify database was updated with both email and role
-    mock_prisma.db.litellm_usertable.update_many.assert_called_once()
-    call_args = mock_prisma.db.litellm_usertable.update_many.call_args
+    mock_prisma.db.embrouter_usertable.update_many.assert_called_once()
+    call_args = mock_prisma.db.embrouter_usertable.update_many.call_args
     assert call_args.kwargs["where"] == {"user_id": "test-user-123"}
     assert call_args.kwargs["data"]["user_email"] == "test@example.com"
     assert call_args.kwargs["data"]["user_role"] == "proxy_admin"
@@ -1016,18 +1016,18 @@ async def test_upsert_sso_user_does_not_update_invalid_role():
     """
     Test that upsert_sso_user does not update the role if SSO provides an invalid role.
 
-    If the SSO returns a role that is not a valid LiteLLM role, it should be ignored
+    If the SSO returns a role that is not a valid EmbRouter role, it should be ignored
     and only the email should be updated.
     """
-    from litellm.proxy._types import LiteLLM_UserTable
-    from litellm.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
+    from embrouter.proxy._types import EmbRouter_UserTable
+    from embrouter.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
 
     # Mock prisma client
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_usertable.update_many = AsyncMock()
+    mock_prisma.db.embrouter_usertable.update_many = AsyncMock()
 
     # Existing user in DB
-    existing_user = LiteLLM_UserTable(
+    existing_user = EmbRouter_UserTable(
         user_id="test-user-456",
         user_email="test@example.com",
         user_role="internal_user",
@@ -1049,8 +1049,8 @@ async def test_upsert_sso_user_does_not_update_invalid_role():
     )
 
     # Assert - verify only email was updated, not role
-    mock_prisma.db.litellm_usertable.update_many.assert_called_once()
-    call_args = mock_prisma.db.litellm_usertable.update_many.call_args
+    mock_prisma.db.embrouter_usertable.update_many.assert_called_once()
+    call_args = mock_prisma.db.embrouter_usertable.update_many.call_args
     assert call_args.kwargs["where"] == {"user_id": "test-user-456"}
     assert call_args.kwargs["data"]["user_email"] == "test@example.com"
     assert "user_role" not in call_args.kwargs["data"]
@@ -1063,16 +1063,16 @@ async def test_upsert_sso_user_no_role_in_sso_response():
 
     When the SSO provider does not return a role, only the email should be updated.
     """
-    from litellm.proxy._types import LiteLLM_UserTable
-    from litellm.proxy.management_endpoints.types import CustomOpenID
-    from litellm.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
+    from embrouter.proxy._types import EmbRouter_UserTable
+    from embrouter.proxy.management_endpoints.types import CustomOpenID
+    from embrouter.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
 
     # Mock prisma client
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_usertable.update_many = AsyncMock()
+    mock_prisma.db.embrouter_usertable.update_many = AsyncMock()
 
     # Existing user in DB
-    existing_user = LiteLLM_UserTable(
+    existing_user = EmbRouter_UserTable(
         user_id="test-user-789",
         user_email="old@example.com",
         user_role="internal_user",
@@ -1099,8 +1099,8 @@ async def test_upsert_sso_user_no_role_in_sso_response():
     )
 
     # Assert - verify only email was updated
-    mock_prisma.db.litellm_usertable.update_many.assert_called_once()
-    call_args = mock_prisma.db.litellm_usertable.update_many.call_args
+    mock_prisma.db.embrouter_usertable.update_many.assert_called_once()
+    call_args = mock_prisma.db.embrouter_usertable.update_many.call_args
     assert call_args.kwargs["where"] == {"user_id": "test-user-789"}
     assert call_args.kwargs["data"]["user_email"] == "new@example.com"
     assert "user_role" not in call_args.kwargs["data"]
@@ -1113,9 +1113,9 @@ def test_get_user_email_and_id_extracts_microsoft_role():
     This ensures Microsoft SSO roles (from app_roles in id_token) are properly
     extracted and converted from enum to string.
     """
-    from litellm.proxy._types import LitellmUserRoles
-    from litellm.proxy.management_endpoints.types import CustomOpenID
-    from litellm.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
+    from embrouter.proxy._types import EmbrouterUserRoles
+    from embrouter.proxy.management_endpoints.types import CustomOpenID
+    from embrouter.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
 
     result = CustomOpenID(
         id="test-user-id",
@@ -1123,7 +1123,7 @@ def test_get_user_email_and_id_extracts_microsoft_role():
         display_name="Test User",
         provider="microsoft",
         team_ids=["team-1"],
-        user_role=LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY,
     )
 
     parsed = SSOAuthenticationHandler._get_user_email_and_id_from_result(
@@ -1141,7 +1141,7 @@ async def test_get_user_info_from_db_user_exists():
     """
     Test that get_user_info_from_db finds existing user and calls upsert_sso_user to update.
     """
-    from litellm.proxy.management_endpoints.ui_sso import get_user_info_from_db
+    from embrouter.proxy.management_endpoints.ui_sso import get_user_info_from_db
 
     prisma_client = MagicMock()
     user_api_key_cache = MagicMock()
@@ -1173,7 +1173,7 @@ async def test_get_user_info_from_db_user_exists():
         "user_defined_values": user_defined_values,
     }
     with patch(
-        "litellm.proxy.management_endpoints.ui_sso.get_user_object"
+        "embrouter.proxy.management_endpoints.ui_sso.get_user_object"
     ) as mock_get_user_object:
         await get_user_info_from_db(**args)
         mock_get_user_object.assert_called_once()
@@ -1182,7 +1182,7 @@ async def test_get_user_info_from_db_user_exists():
 
 @pytest.mark.asyncio
 async def test_get_user_info_from_db_user_exists_alternate_user_id():
-    from litellm.proxy.management_endpoints.ui_sso import get_user_info_from_db
+    from embrouter.proxy.management_endpoints.ui_sso import get_user_info_from_db
 
     prisma_client = MagicMock()
     user_api_key_cache = MagicMock()
@@ -1215,7 +1215,7 @@ async def test_get_user_info_from_db_user_exists_alternate_user_id():
         "alternate_user_id": "krrishd-email1234",
     }
     with patch(
-        "litellm.proxy.management_endpoints.ui_sso.get_user_object"
+        "embrouter.proxy.management_endpoints.ui_sso.get_user_object"
     ) as mock_get_user_object:
         await get_user_info_from_db(**args)
         mock_get_user_object.assert_called_once()
@@ -1232,8 +1232,8 @@ async def test_get_user_info_from_db_user_not_exists_creates_user():
     2. upsert_sso_user should call insert_sso_user to create the user
     3. Add user to teams from SSO response
     """
-    from litellm.proxy._types import NewUserResponse, SSOUserDefinedValues
-    from litellm.proxy.management_endpoints.ui_sso import get_user_info_from_db
+    from embrouter.proxy._types import NewUserResponse, SSOUserDefinedValues
+    from embrouter.proxy.management_endpoints.ui_sso import get_user_info_from_db
 
     prisma_client = MagicMock()
     user_api_key_cache = MagicMock()
@@ -1277,15 +1277,15 @@ async def test_get_user_info_from_db_user_not_exists_creates_user():
 
     with (
         patch(
-            "litellm.proxy.management_endpoints.ui_sso.get_existing_user_info_from_db",
+            "embrouter.proxy.management_endpoints.ui_sso.get_existing_user_info_from_db",
             return_value=None,  # User doesn't exist
         ) as mock_get_existing,
         patch(
-            "litellm.proxy.management_endpoints.ui_sso.SSOAuthenticationHandler.upsert_sso_user",
+            "embrouter.proxy.management_endpoints.ui_sso.SSOAuthenticationHandler.upsert_sso_user",
             return_value=mock_new_user,
         ) as mock_upsert,
         patch(
-            "litellm.proxy.management_endpoints.ui_sso.SSOAuthenticationHandler.add_user_to_teams_from_sso_response",
+            "embrouter.proxy.management_endpoints.ui_sso.SSOAuthenticationHandler.add_user_to_teams_from_sso_response",
         ) as mock_add_teams,
     ):
         # Act
@@ -1324,8 +1324,8 @@ async def test_get_user_info_from_db_user_exists_updates_user():
     2. upsert_sso_user should update the user in the database
     3. Add user to teams from SSO response
     """
-    from litellm.proxy._types import LiteLLM_UserTable, SSOUserDefinedValues
-    from litellm.proxy.management_endpoints.ui_sso import get_user_info_from_db
+    from embrouter.proxy._types import EmbRouter_UserTable, SSOUserDefinedValues
+    from embrouter.proxy.management_endpoints.ui_sso import get_user_info_from_db
 
     prisma_client = MagicMock()
     user_api_key_cache = MagicMock()
@@ -1352,7 +1352,7 @@ async def test_get_user_info_from_db_user_exists_updates_user():
     )
 
     # Existing user in DB
-    existing_user = LiteLLM_UserTable(
+    existing_user = EmbRouter_UserTable(
         user_id="existing-user-456",
         user_email="old@example.com",
         user_role="internal_user",
@@ -1361,7 +1361,7 @@ async def test_get_user_info_from_db_user_exists_updates_user():
     )
 
     # Updated user after upsert
-    updated_user = LiteLLM_UserTable(
+    updated_user = EmbRouter_UserTable(
         user_id="existing-user-456",
         user_email="existing@example.com",  # Updated email
         user_role="internal_user",
@@ -1380,15 +1380,15 @@ async def test_get_user_info_from_db_user_exists_updates_user():
 
     with (
         patch(
-            "litellm.proxy.management_endpoints.ui_sso.get_existing_user_info_from_db",
+            "embrouter.proxy.management_endpoints.ui_sso.get_existing_user_info_from_db",
             return_value=existing_user,  # User exists
         ) as mock_get_existing,
         patch(
-            "litellm.proxy.management_endpoints.ui_sso.SSOAuthenticationHandler.upsert_sso_user",
+            "embrouter.proxy.management_endpoints.ui_sso.SSOAuthenticationHandler.upsert_sso_user",
             return_value=updated_user,
         ) as mock_upsert,
         patch(
-            "litellm.proxy.management_endpoints.ui_sso.SSOAuthenticationHandler.add_user_to_teams_from_sso_response",
+            "embrouter.proxy.management_endpoints.ui_sso.SSOAuthenticationHandler.add_user_to_teams_from_sso_response",
         ) as mock_add_teams,
     ):
         # Act
@@ -1420,14 +1420,14 @@ async def test_check_and_update_if_proxy_admin_id():
     """
     Test that a user with matching PROXY_ADMIN_ID gets their role updated to admin
     """
-    from litellm.proxy._types import LitellmUserRoles
-    from litellm.proxy.management_endpoints.ui_sso import (
+    from embrouter.proxy._types import EmbrouterUserRoles
+    from embrouter.proxy.management_endpoints.ui_sso import (
         check_and_update_if_proxy_admin_id,
     )
 
     # Mock Prisma client
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_usertable.update = AsyncMock()
+    mock_prisma.db.embrouter_usertable.update = AsyncMock()
 
     # Set up test data
     test_user_id = "test_admin_123"
@@ -1440,10 +1440,10 @@ async def test_check_and_update_if_proxy_admin_id():
         )
 
         # Assert
-        assert updated_role == LitellmUserRoles.PROXY_ADMIN.value
-        mock_prisma.db.litellm_usertable.update.assert_called_once_with(
+        assert updated_role == EmbrouterUserRoles.PROXY_ADMIN.value
+        mock_prisma.db.embrouter_usertable.update.assert_called_once_with(
             where={"user_id": test_user_id},
-            data={"user_role": LitellmUserRoles.PROXY_ADMIN.value},
+            data={"user_role": EmbrouterUserRoles.PROXY_ADMIN.value},
         )
 
 
@@ -1452,18 +1452,18 @@ async def test_check_and_update_if_proxy_admin_id_already_admin():
     """
     Test that a user who is already an admin doesn't get their role updated
     """
-    from litellm.proxy._types import LitellmUserRoles
-    from litellm.proxy.management_endpoints.ui_sso import (
+    from embrouter.proxy._types import EmbrouterUserRoles
+    from embrouter.proxy.management_endpoints.ui_sso import (
         check_and_update_if_proxy_admin_id,
     )
 
     # Mock Prisma client
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_usertable.update = AsyncMock()
+    mock_prisma.db.embrouter_usertable.update = AsyncMock()
 
     # Set up test data
     test_user_id = "test_admin_123"
-    test_user_role = LitellmUserRoles.PROXY_ADMIN.value
+    test_user_role = EmbrouterUserRoles.PROXY_ADMIN.value
 
     with patch.dict(os.environ, {"PROXY_ADMIN_ID": test_user_id}):
         # Act
@@ -1472,8 +1472,8 @@ async def test_check_and_update_if_proxy_admin_id_already_admin():
         )
 
         # Assert
-        assert updated_role == LitellmUserRoles.PROXY_ADMIN.value
-        mock_prisma.db.litellm_usertable.update.assert_not_called()
+        assert updated_role == EmbrouterUserRoles.PROXY_ADMIN.value
+        mock_prisma.db.embrouter_usertable.update.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -1482,7 +1482,7 @@ async def test_get_generic_sso_response_with_additional_headers():
     Test that GENERIC_SSO_HEADERS environment variable is correctly processed
     and passed to generic_sso.verify_and_process
     """
-    from litellm.proxy.management_endpoints.ui_sso import get_generic_sso_response
+    from embrouter.proxy.management_endpoints.ui_sso import get_generic_sso_response
 
     # Arrange
     mock_request = MagicMock(spec=Request)
@@ -1555,7 +1555,7 @@ async def test_get_generic_sso_response_with_empty_headers():
     """
     Test that when GENERIC_SSO_HEADERS is not set, an empty headers dict is passed
     """
-    from litellm.proxy.management_endpoints.ui_sso import get_generic_sso_response
+    from embrouter.proxy.management_endpoints.ui_sso import get_generic_sso_response
 
     # Arrange
     mock_request = MagicMock(spec=Request)
@@ -1615,8 +1615,8 @@ async def test_get_generic_sso_response_with_empty_headers():
 async def test_get_generic_sso_response_includes_token_claims_when_enabled(monkeypatch):
     import jwt as pyjwt
 
-    from litellm.proxy._types import LitellmUserRoles
-    from litellm.proxy.management_endpoints.ui_sso import get_generic_sso_response
+    from embrouter.proxy._types import EmbrouterUserRoles
+    from embrouter.proxy.management_endpoints.ui_sso import get_generic_sso_response
 
     mock_request = MagicMock(spec=Request)
     mock_jwt_handler = MagicMock(spec=JWTHandler)
@@ -1680,7 +1680,7 @@ async def test_get_generic_sso_response_includes_token_claims_when_enabled(monke
     assert result.last_name == "User"
     assert result.display_name == "Token User"
     assert result.team_ids == ["team-from-userinfo"]
-    assert result.user_role == LitellmUserRoles.PROXY_ADMIN
+    assert result.user_role == EmbrouterUserRoles.PROXY_ADMIN
     assert received_response is not None
     assert "access_token" not in received_response
     assert "id_token" not in received_response
@@ -1691,8 +1691,8 @@ async def test_get_generic_sso_response_includes_token_claims_when_enabled(monke
 async def test_get_generic_sso_response_does_not_include_token_claims_when_disabled(monkeypatch):
     import jwt as pyjwt
 
-    from litellm.proxy._types import LitellmUserRoles
-    from litellm.proxy.management_endpoints.ui_sso import get_generic_sso_response
+    from embrouter.proxy._types import EmbrouterUserRoles
+    from embrouter.proxy.management_endpoints.ui_sso import get_generic_sso_response
 
     mock_request = MagicMock(spec=Request)
     mock_jwt_handler = MagicMock(spec=JWTHandler)
@@ -1737,14 +1737,14 @@ async def test_get_generic_sso_response_does_not_include_token_claims_when_disab
     assert result.email is None
     assert result.display_name is None
     assert result.team_ids == ["team-from-userinfo"]
-    assert result.user_role == LitellmUserRoles.PROXY_ADMIN
+    assert result.user_role == EmbrouterUserRoles.PROXY_ADMIN
     assert received_response == {"sub": "subject-only", "groups": ["admins"]}
 
 
 def test_merge_sso_token_claims_precedence_and_invalid_tokens():
     import jwt as pyjwt
 
-    from litellm.proxy.management_endpoints.ui_sso import _merge_sso_token_claims
+    from embrouter.proxy.management_endpoints.ui_sso import _merge_sso_token_claims
 
     id_token = pyjwt.encode(
         {"preferred_username": "id-user", "email": "id@example.com", "id_only": "id-value"},
@@ -1787,7 +1787,7 @@ async def test_get_generic_sso_response_pkce_merges_token_claims_and_excludes_cr
     import jwt as pyjwt
     from starlette.requests import Request as StarletteRequest
 
-    from litellm.proxy.management_endpoints.ui_sso import get_generic_sso_response
+    from embrouter.proxy.management_endpoints.ui_sso import get_generic_sso_response
 
     access_token = pyjwt.encode(
         {"sub": "token-user", "email": "token-user@example.com"}, "test-secret", algorithm="HS256"
@@ -1798,7 +1798,7 @@ async def test_get_generic_sso_response_pkce_merges_token_claims_and_excludes_cr
             "method": "GET",
             "path": "/sso/callback",
             "query_string": b"code=test-code&state=test-state",
-            "headers": [(b"cookie", b"litellm_oauth_state=test-state")],
+            "headers": [(b"cookie", b"embrouter_oauth_state=test-state")],
         }
     )
 
@@ -1829,10 +1829,10 @@ async def test_get_generic_sso_response_pkce_merges_token_claims_and_excludes_cr
     monkeypatch.setenv("GENERIC_USER_EMAIL_ATTRIBUTE", "email")
 
     with (
-        patch("litellm.proxy.proxy_server.redis_usage_cache", None),
-        patch("litellm.proxy.proxy_server.user_api_key_cache", pkce_cache),
+        patch("embrouter.proxy.proxy_server.redis_usage_cache", None),
+        patch("embrouter.proxy.proxy_server.user_api_key_cache", pkce_cache),
         patch(
-            "litellm.proxy.management_endpoints.ui_sso.get_async_httpx_client",
+            "embrouter.proxy.management_endpoints.ui_sso.get_async_httpx_client",
             side_effect=[token_client, userinfo_client],
         ),
     ):
@@ -1857,7 +1857,7 @@ async def test_get_generic_sso_response_pkce_merges_token_claims_and_excludes_cr
 async def test_get_generic_sso_response_ignores_opaque_and_empty_token_claims(monkeypatch):
     import jwt as pyjwt
 
-    from litellm.proxy.management_endpoints.ui_sso import get_generic_sso_response
+    from embrouter.proxy.management_endpoints.ui_sso import get_generic_sso_response
 
     mock_request = MagicMock(spec=Request)
     mock_jwt_handler = MagicMock(spec=JWTHandler)
@@ -1946,13 +1946,13 @@ class TestAuthCallbackRouting:
 
     def test_cli_state_detection_and_routing(self):
         """Test that CLI states are properly detected and would route to CLI callback"""
-        from litellm.constants import LITELLM_CLI_SESSION_TOKEN_PREFIX
+        from embrouter.constants import EMBROUTER_CLI_SESSION_TOKEN_PREFIX
 
         # Test CLI state detection logic
-        cli_state = f"{LITELLM_CLI_SESSION_TOKEN_PREFIX}:cli-test1234567890"
+        cli_state = f"{EMBROUTER_CLI_SESSION_TOKEN_PREFIX}:cli-test1234567890"
 
         # This mimics the logic in auth_callback
-        if cli_state and cli_state.startswith(f"{LITELLM_CLI_SESSION_TOKEN_PREFIX}:"):
+        if cli_state and cli_state.startswith(f"{EMBROUTER_CLI_SESSION_TOKEN_PREFIX}:"):
             # Extract the login ID from the state
             key_id = cli_state.split(":", 1)[1]
             assert key_id == "cli-test1234567890"
@@ -1961,7 +1961,7 @@ class TestAuthCallbackRouting:
 
     def test_non_cli_state_routing(self):
         """Test that non-CLI states don't trigger CLI routing"""
-        from litellm.constants import LITELLM_CLI_SESSION_TOKEN_PREFIX
+        from embrouter.constants import EMBROUTER_CLI_SESSION_TOKEN_PREFIX
 
         non_cli_states = [
             "regular_oauth_state",
@@ -1974,7 +1974,7 @@ class TestAuthCallbackRouting:
         for state in non_cli_states:
             # This mimics the routing logic in auth_callback
             should_route_to_cli = state and state.startswith(
-                f"{LITELLM_CLI_SESSION_TOKEN_PREFIX}:"
+                f"{EMBROUTER_CLI_SESSION_TOKEN_PREFIX}:"
             )
             assert not should_route_to_cli, f"State '{state}' should not route to CLI"
 
@@ -1984,26 +1984,26 @@ class TestGoogleLoginCLIIntegration:
 
     def test_google_login_cli_state_generation(self):
         """Test that google_login generates CLI state when CLI parameters are provided"""
-        from litellm.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
+        from embrouter.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
 
         # Test the CLI state generation logic used in google_login
-        source = "litellm-cli"
+        source = "embrouter-cli"
         key = "cli-test1234567890"
 
         cli_state = SSOAuthenticationHandler._get_cli_state(source=source, key=key)
 
         assert cli_state is not None
-        assert cli_state.startswith("litellm-session-token:")
+        assert cli_state.startswith("embrouter-session-token:")
         assert "cli-test1234567890" in cli_state
 
     def test_google_login_no_cli_state_when_missing_params(self):
         """Test that google_login doesn't generate CLI state when CLI parameters are missing"""
-        from litellm.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
+        from embrouter.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
 
         # Test various parameter combinations that shouldn't generate CLI state
         test_cases = [
             (None, None),
-            ("litellm-cli", None),
+            ("embrouter-cli", None),
             (None, "cli-test1234567890"),
             ("wrong-source", "cli-test1234567890"),
         ]
@@ -2020,7 +2020,7 @@ class TestSSOHandlerIntegration:
 
     def test_should_use_sso_handler(self):
         """Test the SSO handler detection logic"""
-        from litellm.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
+        from embrouter.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
 
         # Test that SSO handler is used when client IDs are provided
         assert (
@@ -2045,7 +2045,7 @@ class TestSSOHandlerIntegration:
     @patch.dict(os.environ, {}, clear=False)
     def test_get_redirect_url_for_sso(self):
         """Test the redirect URL generation for SSO"""
-        from litellm.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
+        from embrouter.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
 
         # Remove env vars that override request base_url so the test is
         # isolated from local settings.
@@ -2054,14 +2054,14 @@ class TestSSOHandlerIntegration:
 
         # Mock request object
         mock_request = MagicMock()
-        mock_request.base_url = "https://test.litellm.ai/"
+        mock_request.base_url = "https://test.embrouter.ai/"
 
         # Test redirect URL generation
         redirect_url = SSOAuthenticationHandler.get_redirect_url_for_sso(
             request=mock_request, sso_callback_route="sso/callback"
         )
 
-        assert redirect_url.startswith("https://test.litellm.ai")
+        assert redirect_url.startswith("https://test.embrouter.ai")
         assert "sso/callback" in redirect_url
 
 
@@ -2070,31 +2070,31 @@ class TestUISSO_FunctionsExistence:
 
     def test_cli_sso_callback_exists(self):
         """Test that cli_sso_callback function exists"""
-        from litellm.proxy.management_endpoints.ui_sso import cli_sso_callback
+        from embrouter.proxy.management_endpoints.ui_sso import cli_sso_callback
 
         assert callable(cli_sso_callback)
 
     def test_cli_poll_key_exists(self):
         """Test that cli_poll_key function exists"""
-        from litellm.proxy.management_endpoints.ui_sso import cli_poll_key
+        from embrouter.proxy.management_endpoints.ui_sso import cli_poll_key
 
         assert callable(cli_poll_key)
 
     def test_auth_callback_exists(self):
         """Test that auth_callback function exists"""
-        from litellm.proxy.management_endpoints.ui_sso import auth_callback
+        from embrouter.proxy.management_endpoints.ui_sso import auth_callback
 
         assert callable(auth_callback)
 
     def test_google_login_exists(self):
         """Test that google_login function exists"""
-        from litellm.proxy.management_endpoints.ui_sso import google_login
+        from embrouter.proxy.management_endpoints.ui_sso import google_login
 
         assert callable(google_login)
 
     def test_sso_authentication_handler_exists(self):
         """Test that SSOAuthenticationHandler class exists with new methods"""
-        from litellm.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
+        from embrouter.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
 
         # Check that the class exists
         assert SSOAuthenticationHandler is not None
@@ -2109,19 +2109,19 @@ class TestSSOStateHandling:
 
     def test_get_cli_state_valid(self):
         """Test generating CLI state with valid parameters"""
-        from litellm.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
+        from embrouter.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
 
         state = SSOAuthenticationHandler._get_cli_state(
-            source="litellm-cli", key="cli-test1234567890"
+            source="embrouter-cli", key="cli-test1234567890"
         )
 
         assert state is not None
-        assert state.startswith("litellm-session-token:")
+        assert state.startswith("embrouter-session-token:")
         assert "cli-test1234567890" in state
 
     def test_get_cli_state_invalid_source(self):
         """Test generating CLI state with invalid source"""
-        from litellm.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
+        from embrouter.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
 
         state = SSOAuthenticationHandler._get_cli_state(
             source="invalid_source", key="cli-test1234567890"
@@ -2131,15 +2131,15 @@ class TestSSOStateHandling:
 
     def test_get_cli_state_no_key(self):
         """Test generating CLI state without key"""
-        from litellm.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
+        from embrouter.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
 
-        state = SSOAuthenticationHandler._get_cli_state(source="litellm-cli", key=None)
+        state = SSOAuthenticationHandler._get_cli_state(source="embrouter-cli", key=None)
 
         assert state is None
 
     def test_get_cli_state_no_source(self):
         """Test generating CLI state without source"""
-        from litellm.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
+        from embrouter.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
 
         state = SSOAuthenticationHandler._get_cli_state(
             source=None, key="cli-test1234567890"
@@ -2149,32 +2149,32 @@ class TestSSOStateHandling:
 
     def test_get_cli_state_ignores_existing_key(self):
         """Test CLI state does not embed an existing key"""
-        from litellm.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
+        from embrouter.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
 
         state = SSOAuthenticationHandler._get_cli_state(
-            source="litellm-cli",
+            source="embrouter-cli",
             key="cli-new-key-1234567890",
             existing_key="sk-existing-key-456",
         )
 
         assert state is not None
-        assert state.startswith("litellm-session-token:")
+        assert state.startswith("embrouter-session-token:")
         assert "cli-new-key-1234567890" in state
         assert "sk-existing-key-456" not in state
-        assert state == "litellm-session-token:cli-new-key-1234567890"
+        assert state == "embrouter-session-token:cli-new-key-1234567890"
 
     def test_get_cli_state_without_existing_key(self):
         """Test generating CLI state without existing_key"""
-        from litellm.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
+        from embrouter.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
 
         state = SSOAuthenticationHandler._get_cli_state(
-            source="litellm-cli", key="cli-new-key-789123456", existing_key=None
+            source="embrouter-cli", key="cli-new-key-789123456", existing_key=None
         )
 
         assert state is not None
-        assert state.startswith("litellm-session-token:")
+        assert state.startswith("embrouter-session-token:")
         assert "cli-new-key-789123456" in state
-        assert state == "litellm-session-token:cli-new-key-789123456"
+        assert state == "embrouter-session-token:cli-new-key-789123456"
         assert state.count(":") == 1  # Only one colon separator
 
 
@@ -2183,11 +2183,11 @@ class TestStateRouting:
 
     def test_cli_state_detection(self):
         """Test detection of CLI state parameters"""
-        from litellm.constants import LITELLM_CLI_SESSION_TOKEN_PREFIX
+        from embrouter.constants import EMBROUTER_CLI_SESSION_TOKEN_PREFIX
 
         # Test CLI state format
-        cli_state = f"{LITELLM_CLI_SESSION_TOKEN_PREFIX}:cli-test1234567890"
-        assert cli_state.startswith(f"{LITELLM_CLI_SESSION_TOKEN_PREFIX}:")
+        cli_state = f"{EMBROUTER_CLI_SESSION_TOKEN_PREFIX}:cli-test1234567890"
+        assert cli_state.startswith(f"{EMBROUTER_CLI_SESSION_TOKEN_PREFIX}:")
 
         # Test extraction of key from state
         key_id = cli_state.split(":", 1)[1]
@@ -2195,9 +2195,9 @@ class TestStateRouting:
 
     def test_cli_state_parsing_uses_single_login_id(self):
         """Test parsing CLI state with a single login ID"""
-        from litellm.constants import LITELLM_CLI_SESSION_TOKEN_PREFIX
+        from embrouter.constants import EMBROUTER_CLI_SESSION_TOKEN_PREFIX
 
-        cli_state = f"{LITELLM_CLI_SESSION_TOKEN_PREFIX}:cli-new-key-456123"
+        cli_state = f"{EMBROUTER_CLI_SESSION_TOKEN_PREFIX}:cli-new-key-456123"
 
         # Parse as done in auth_callback
         state_parts = cli_state.split(":", 1)
@@ -2207,10 +2207,10 @@ class TestStateRouting:
 
     def test_cli_state_parsing_without_extra_segments(self):
         """Test parsing CLI state uses a single login ID"""
-        from litellm.constants import LITELLM_CLI_SESSION_TOKEN_PREFIX
+        from embrouter.constants import EMBROUTER_CLI_SESSION_TOKEN_PREFIX
 
         # State format: {PREFIX}:{key}
-        cli_state = f"{LITELLM_CLI_SESSION_TOKEN_PREFIX}:cli-new-key-999123"
+        cli_state = f"{EMBROUTER_CLI_SESSION_TOKEN_PREFIX}:cli-new-key-999123"
 
         # Parse as done in auth_callback
         state_parts = cli_state.split(":", 1)
@@ -2220,7 +2220,7 @@ class TestStateRouting:
 
     def test_non_cli_state_detection(self):
         """Test detection of non-CLI state parameters"""
-        from litellm.constants import LITELLM_CLI_SESSION_TOKEN_PREFIX
+        from embrouter.constants import EMBROUTER_CLI_SESSION_TOKEN_PREFIX
 
         # Test various non-CLI states
         test_states = [
@@ -2233,9 +2233,9 @@ class TestStateRouting:
 
         for state in test_states:
             if state:
-                assert not state.startswith(f"{LITELLM_CLI_SESSION_TOKEN_PREFIX}:")
+                assert not state.startswith(f"{EMBROUTER_CLI_SESSION_TOKEN_PREFIX}:")
             else:
-                assert state != f"{LITELLM_CLI_SESSION_TOKEN_PREFIX}:"
+                assert state != f"{EMBROUTER_CLI_SESSION_TOKEN_PREFIX}:"
 
 
 class TestHTMLIntegration:
@@ -2243,7 +2243,7 @@ class TestHTMLIntegration:
 
     def test_html_render_utils_import(self):
         """Test that HTML render utils can be imported correctly"""
-        from litellm.proxy.common_utils.html_forms.cli_sso_success import (
+        from embrouter.proxy.common_utils.html_forms.cli_sso_success import (
             render_cli_sso_success_page,
         )
 
@@ -2263,7 +2263,7 @@ class TestHTMLIntegration:
         'Closing...'. The page must instead always show the manual-close instruction
         and never advertise an auto-close that won't happen.
         """
-        from litellm.proxy.common_utils.html_forms.cli_sso_success import (
+        from embrouter.proxy.common_utils.html_forms.cli_sso_success import (
             render_cli_sso_success_page,
         )
 
@@ -2286,27 +2286,27 @@ class TestCustomUISSO:
         mock_request.base_url = "https://test.example.com/"
 
         # Mock user_custom_ui_sso_sign_in_handler to exist but make enterprise import fail
-        with patch("litellm.proxy.proxy_server.premium_user", True):
+        with patch("embrouter.proxy.proxy_server.premium_user", True):
             with patch(
-                "litellm.proxy.proxy_server.user_custom_ui_sso_sign_in_handler",
+                "embrouter.proxy.proxy_server.user_custom_ui_sso_sign_in_handler",
                 MagicMock(),
             ):
                 with patch.dict(
                     "sys.modules",
-                    {"litellm_enterprise.proxy.auth.custom_sso_handler": None},
+                    {"embrouter_enterprise.proxy.auth.custom_sso_handler": None},
                 ):
                     # Temporarily mock the google_login function call to test the import error path
                     async def mock_google_login():
                         # This mimics the relevant part of google_login that would trigger the import error
                         try:
-                            from litellm_enterprise.proxy.auth.custom_sso_handler import (  # noqa: F401
+                            from embrouter_enterprise.proxy.auth.custom_sso_handler import (  # noqa: F401
                                 EnterpriseCustomSSOHandler,
                             )
 
                             return "success"
                         except ImportError:
                             raise ValueError(
-                                "Enterprise features are not available. Custom UI SSO sign-in requires LiteLLM Enterprise."
+                                "Enterprise features are not available. Custom UI SSO sign-in requires EmbRouter Enterprise."
                             )
 
                     # Test that the ValueError is raised with the correct message
@@ -2321,20 +2321,20 @@ class TestCustomUISSO:
     async def test_handle_custom_ui_sso_sign_in_success(self):
         """Test successful custom UI SSO sign-in with valid headers"""
         from fastapi_sso.sso.base import OpenID
-        from litellm_enterprise.proxy.auth.custom_sso_handler import (
+        from embrouter_enterprise.proxy.auth.custom_sso_handler import (
             EnterpriseCustomSSOHandler,
         )
 
-        from litellm.integrations.custom_sso_handler import CustomSSOLoginHandler
+        from embrouter.integrations.custom_sso_handler import CustomSSOLoginHandler
 
         # Mock request with custom headers
         mock_request = MagicMock(spec=Request)
         mock_request.headers = {
-            "x-litellm-user-id": "test_user_123",
-            "x-litellm-user-email": "test@example.com",
+            "x-embrouter-user-id": "test_user_123",
+            "x-embrouter-user-email": "test@example.com",
             "x-forwarded-for": "192.168.1.1",
         }
-        mock_request.base_url = "https://test.litellm.ai/"
+        mock_request.base_url = "https://test.embrouter.ai/"
         mock_request.client.host = "10.0.0.10"
 
         # Mock the custom handler
@@ -2356,13 +2356,13 @@ class TestCustomUISSO:
         mock_redirect_response = MagicMock()
         mock_redirect_response.status_code = 303
 
-        with patch("litellm.proxy.proxy_server.premium_user", True):
+        with patch("embrouter.proxy.proxy_server.premium_user", True):
             with patch(
-                "litellm.proxy.proxy_server.user_custom_ui_sso_sign_in_handler",
+                "embrouter.proxy.proxy_server.user_custom_ui_sso_sign_in_handler",
                 mock_custom_handler,
             ):
                 with patch(
-                    "litellm.proxy.proxy_server.general_settings",
+                    "embrouter.proxy.proxy_server.general_settings",
                     {"trusted_proxy_ranges": ["10.0.0.0/24"]},
                 ):
                     with patch.object(
@@ -2397,30 +2397,30 @@ class TestCustomUISSO:
     @pytest.mark.asyncio
     async def test_handle_custom_ui_sso_sign_in_rejects_untrusted_proxy(self):
         """Custom UI SSO rejects spoofed identity headers from direct clients."""
-        from litellm_enterprise.proxy.auth.custom_sso_handler import (
+        from embrouter_enterprise.proxy.auth.custom_sso_handler import (
             EnterpriseCustomSSOHandler,
         )
 
-        from litellm.integrations.custom_sso_handler import CustomSSOLoginHandler
+        from embrouter.integrations.custom_sso_handler import CustomSSOLoginHandler
 
         mock_request = MagicMock(spec=Request)
         mock_request.headers = {
-            "x-litellm-user-id": "admin",
-            "x-litellm-user-email": "admin@example.com",
+            "x-embrouter-user-id": "admin",
+            "x-embrouter-user-email": "admin@example.com",
         }
-        mock_request.base_url = "https://test.litellm.ai/"
+        mock_request.base_url = "https://test.embrouter.ai/"
         mock_request.client.host = "203.0.113.10"
 
         mock_custom_handler = MagicMock(spec=CustomSSOLoginHandler)
         mock_custom_handler.handle_custom_ui_sso_sign_in = AsyncMock()
 
-        with patch("litellm.proxy.proxy_server.premium_user", True):
+        with patch("embrouter.proxy.proxy_server.premium_user", True):
             with patch(
-                "litellm.proxy.proxy_server.user_custom_ui_sso_sign_in_handler",
+                "embrouter.proxy.proxy_server.user_custom_ui_sso_sign_in_handler",
                 mock_custom_handler,
             ):
                 with patch(
-                    "litellm.proxy.proxy_server.general_settings",
+                    "embrouter.proxy.proxy_server.general_settings",
                     {"trusted_proxy_ranges": ["10.0.0.0/24"]},
                 ):
                     with pytest.raises(ValueError, match="not trusted"):
@@ -2437,11 +2437,11 @@ class TestCustomUISSO:
         and its methods are called with the correct parameters
         """
         from fastapi_sso.sso.base import OpenID
-        from litellm_enterprise.proxy.auth.custom_sso_handler import (
+        from embrouter_enterprise.proxy.auth.custom_sso_handler import (
             EnterpriseCustomSSOHandler,
         )
 
-        from litellm.integrations.custom_sso_handler import CustomSSOLoginHandler
+        from embrouter.integrations.custom_sso_handler import CustomSSOLoginHandler
 
         # Create a real custom handler class instance
         class TestCustomSSOHandler(CustomSSOLoginHandler):
@@ -2457,9 +2457,9 @@ class TestCustomUISSO:
                 # Parse headers like the actual implementation would
                 request_headers_dict = dict(request.headers)
                 return OpenID(
-                    id=request_headers_dict.get("x-litellm-user-id", "default_user"),
+                    id=request_headers_dict.get("x-embrouter-user-id", "default_user"),
                     email=request_headers_dict.get(
-                        "x-litellm-user-email", "default@test.com"
+                        "x-embrouter-user-email", "default@test.com"
                     ),
                     first_name="Custom",
                     last_name="Handler",
@@ -2474,24 +2474,24 @@ class TestCustomUISSO:
         # Mock request with custom headers
         mock_request = MagicMock(spec=Request)
         mock_request.headers = {
-            "x-litellm-user-id": "custom_test_user_456",
-            "x-litellm-user-email": "custom@example.com",
+            "x-embrouter-user-id": "custom_test_user_456",
+            "x-embrouter-user-email": "custom@example.com",
             "x-forwarded-for": "10.0.0.1",
         }
-        mock_request.base_url = "https://custom.litellm.ai/"
+        mock_request.base_url = "https://custom.embrouter.ai/"
         mock_request.client.host = "10.0.0.20"
 
         # Mock the redirect response method
         mock_redirect_response = MagicMock()
         mock_redirect_response.status_code = 303
 
-        with patch("litellm.proxy.proxy_server.premium_user", True):
+        with patch("embrouter.proxy.proxy_server.premium_user", True):
             with patch(
-                "litellm.proxy.proxy_server.user_custom_ui_sso_sign_in_handler",
+                "embrouter.proxy.proxy_server.user_custom_ui_sso_sign_in_handler",
                 test_handler_instance,
             ):
                 with patch(
-                    "litellm.proxy.proxy_server.general_settings",
+                    "embrouter.proxy.proxy_server.general_settings",
                     {"trusted_proxy_ranges": ["10.0.0.0/24"]},
                 ):
                     with patch.object(
@@ -2537,7 +2537,7 @@ class TestCLIKeyRegenerationFlow:
 
     def test_cli_sso_login_id_validation_restricts_charset(self):
         """Test CLI SSO login IDs only allow the generated character set"""
-        from litellm.proxy.management_endpoints.ui_sso import (
+        from embrouter.proxy.management_endpoints.ui_sso import (
             _is_valid_cli_sso_login_id,
         )
 
@@ -2549,7 +2549,7 @@ class TestCLIKeyRegenerationFlow:
 
     def test_cli_sso_flow_lookup_tells_legacy_clients_to_upgrade(self):
         """Legacy CLIs send self-generated sk-<uuid> login ids; the 400 must say the CLI is outdated"""
-        from litellm.proxy.management_endpoints.ui_sso import (
+        from embrouter.proxy.management_endpoints.ui_sso import (
             _get_cli_sso_flow_or_raise,
         )
 
@@ -2586,7 +2586,7 @@ class TestCLIKeyRegenerationFlow:
         sso_complete/session_data update another worker wrote, which is exactly the
         multi-worker failure this fix targets.
         """
-        from litellm.proxy.management_endpoints.ui_sso import (
+        from embrouter.proxy.management_endpoints.ui_sso import (
             CLI_SSO_SESSION_TTL_SECONDS,
             _get_cli_sso_flow_cache_key,
             _get_cli_sso_flow_or_raise,
@@ -2623,8 +2623,8 @@ class TestCLIKeyRegenerationFlow:
         The direct Redis read is what keeps the flow authoritative across workers, so the
         refusal must not fall back to a possibly stale in-memory copy either.
         """
-        from litellm.caching.redis_cache import RedisCircuitBreakerOpenError
-        from litellm.proxy.management_endpoints.ui_sso import _get_cli_sso_flow_or_raise
+        from embrouter.caching.redis_cache import RedisCircuitBreakerOpenError
+        from embrouter.proxy.management_endpoints.ui_sso import _get_cli_sso_flow_or_raise
 
         redis_cache = MagicMock()
         redis_cache.get_cache.side_effect = RedisCircuitBreakerOpenError("Redis circuit breaker is open")
@@ -2648,9 +2648,9 @@ class TestCLIKeyRegenerationFlow:
         SyntaxError and returned 400 "session not found". The flow must survive
         a real Redis serialization round trip.
         """
-        from litellm.caching.redis_cache import RedisCache
-        from litellm.proxy._types import LitellmUserRoles
-        from litellm.proxy.management_endpoints.ui_sso import (
+        from embrouter.caching.redis_cache import RedisCache
+        from embrouter.proxy._types import EmbrouterUserRoles
+        from embrouter.proxy.management_endpoints.ui_sso import (
             _get_cli_sso_flow_or_raise,
             _set_cli_sso_flow,
         )
@@ -2662,7 +2662,7 @@ class TestCLIKeyRegenerationFlow:
             "user_code_verified": False,
             "session_data": {
                 "user_id": "user-1",
-                "user_role": LitellmUserRoles.INTERNAL_USER_VIEW_ONLY,
+                "user_role": EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY,
                 "models": [],
                 "teams": ["team-1"],
                 "team_details": [{"team_id": "team-1", "team_alias": "alias"}],
@@ -2684,13 +2684,13 @@ class TestCLIKeyRegenerationFlow:
         flow = _get_cli_sso_flow_or_raise(login_id=login_id, cache=cache)
 
         assert flow["sso_complete"] is True
-        assert flow["session_data"]["user_role"] == LitellmUserRoles.INTERNAL_USER_VIEW_ONLY.value
+        assert flow["session_data"]["user_role"] == EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY.value
         assert flow["session_data"]["team_details"] == [{"team_id": "team-1", "team_alias": "alias"}]
 
     @pytest.mark.asyncio
     async def test_cli_sso_start_creates_bound_flow(self):
         """Test CLI SSO start creates a polling secret bound flow"""
-        from litellm.proxy.management_endpoints.ui_sso import (
+        from embrouter.proxy.management_endpoints.ui_sso import (
             _hash_cli_sso_secret,
             _normalize_cli_sso_user_code,
             cli_sso_start,
@@ -2703,8 +2703,8 @@ class TestCLIKeyRegenerationFlow:
         mock_cache.increment_cache.return_value = 1
 
         with (
-            patch("litellm.proxy.proxy_server.user_api_key_cache", mock_cache),
-            patch("litellm.proxy.proxy_server.cli_sso_session_cache", mock_cache),
+            patch("embrouter.proxy.proxy_server.user_api_key_cache", mock_cache),
+            patch("embrouter.proxy.proxy_server.cli_sso_session_cache", mock_cache),
         ):
             result = await cli_sso_start(request=mock_request)
 
@@ -2728,7 +2728,7 @@ class TestCLIKeyRegenerationFlow:
     @pytest.mark.asyncio
     async def test_cli_sso_start_rate_limits_by_client_ip(self):
         """Test CLI SSO start enforces a coarse per-client rate limit"""
-        from litellm.proxy.management_endpoints.ui_sso import cli_sso_start
+        from embrouter.proxy.management_endpoints.ui_sso import cli_sso_start
 
         mock_request = MagicMock(spec=Request)
         mock_request.client = SimpleNamespace(host="127.0.0.1")
@@ -2737,8 +2737,8 @@ class TestCLIKeyRegenerationFlow:
         mock_cache.increment_cache.return_value = 31
 
         with (
-            patch("litellm.proxy.proxy_server.user_api_key_cache", mock_cache),
-            patch("litellm.proxy.proxy_server.cli_sso_session_cache", mock_cache),
+            patch("embrouter.proxy.proxy_server.user_api_key_cache", mock_cache),
+            patch("embrouter.proxy.proxy_server.cli_sso_session_cache", mock_cache),
         ):
             with pytest.raises(HTTPException) as exc_info:
                 await cli_sso_start(request=mock_request)
@@ -2751,8 +2751,8 @@ class TestCLIKeyRegenerationFlow:
         """Test CLI SSO start returns a verification_uri_complete that round-trips the user_code only when the operator opts in"""
         from urllib.parse import parse_qs, urlparse
 
-        from litellm.constants import LITELLM_CLI_SOURCE_IDENTIFIER
-        from litellm.proxy.management_endpoints.ui_sso import cli_sso_start
+        from embrouter.constants import EMBROUTER_CLI_SOURCE_IDENTIFIER
+        from embrouter.proxy.management_endpoints.ui_sso import cli_sso_start
 
         mock_request = MagicMock(spec=Request)
         mock_request.client = SimpleNamespace(host="127.0.0.1")
@@ -2766,9 +2766,9 @@ class TestCLIKeyRegenerationFlow:
                 os.environ,
                 {"PROXY_BASE_URL": "https://proxy.example.com", "SERVER_ROOT_PATH": ""},
             ),
-            patch("litellm.proxy.proxy_server.user_api_key_cache", mock_cache),
+            patch("embrouter.proxy.proxy_server.user_api_key_cache", mock_cache),
             patch(
-                "litellm.proxy.proxy_server.general_settings",
+                "embrouter.proxy.proxy_server.general_settings",
                 {"allow_cli_sso_verification_uri_complete": True},
             ),
         ):
@@ -2779,14 +2779,14 @@ class TestCLIKeyRegenerationFlow:
         query = parse_qs(parsed.query)
 
         assert parsed.path.endswith("/sso/key/generate")
-        assert query["source"] == [LITELLM_CLI_SOURCE_IDENTIFIER]
+        assert query["source"] == [EMBROUTER_CLI_SOURCE_IDENTIFIER]
         assert query["key"] == [result["login_id"]]
         assert query["user_code"] == [result["user_code"]]
 
     @pytest.mark.asyncio
     async def test_cli_sso_start_omits_verification_uri_complete_by_default(self):
         """Test CLI SSO start does NOT advertise verification_uri_complete unless the operator enables it (default off)"""
-        from litellm.proxy.management_endpoints.ui_sso import cli_sso_start
+        from embrouter.proxy.management_endpoints.ui_sso import cli_sso_start
 
         mock_request = MagicMock(spec=Request)
         mock_request.client = SimpleNamespace(host="127.0.0.1")
@@ -2796,8 +2796,8 @@ class TestCLIKeyRegenerationFlow:
         mock_cache.increment_cache.return_value = 1
 
         with (
-            patch("litellm.proxy.proxy_server.user_api_key_cache", mock_cache),
-            patch("litellm.proxy.proxy_server.general_settings", {}),
+            patch("embrouter.proxy.proxy_server.user_api_key_cache", mock_cache),
+            patch("embrouter.proxy.proxy_server.general_settings", {}),
         ):
             result = await cli_sso_start(request=mock_request)
 
@@ -2807,14 +2807,14 @@ class TestCLIKeyRegenerationFlow:
 
     def test_cli_sso_verification_uri_complete_enabled_reads_general_settings(self):
         """Test the operator opt-in flag is read from general_settings and defaults off"""
-        from litellm.proxy.management_endpoints.ui_sso import (
+        from embrouter.proxy.management_endpoints.ui_sso import (
             _cli_sso_verification_uri_complete_enabled,
         )
 
-        with patch("litellm.proxy.proxy_server.general_settings", {}):
+        with patch("embrouter.proxy.proxy_server.general_settings", {}):
             assert _cli_sso_verification_uri_complete_enabled() is False
         with patch(
-            "litellm.proxy.proxy_server.general_settings",
+            "embrouter.proxy.proxy_server.general_settings",
             {"allow_cli_sso_verification_uri_complete": True},
         ):
             assert _cli_sso_verification_uri_complete_enabled() is True
@@ -2822,7 +2822,7 @@ class TestCLIKeyRegenerationFlow:
     @pytest.mark.asyncio
     async def test_google_login_only_threads_user_code_when_enabled(self):
         """Test google_login forwards user_code into the OAuth state only when the operator opt-in is on, dropping it otherwise"""
-        from litellm.proxy.management_endpoints.ui_sso import google_login
+        from embrouter.proxy.management_endpoints.ui_sso import google_login
 
         mock_request = MagicMock(spec=Request)
         mock_request.base_url = "https://proxy.example.com/"
@@ -2837,34 +2837,34 @@ class TestCLIKeyRegenerationFlow:
         async def drive(enabled: bool):
             with (
                 patch.dict(os.environ, env_without_sso_providers, clear=True),
-                patch("litellm.proxy.proxy_server.premium_user", True),
-                patch("litellm.proxy.proxy_server.prisma_client", MagicMock()),
-                patch("litellm.proxy.proxy_server.user_api_key_cache", mock_cache),
-                patch("litellm.proxy.proxy_server.cli_sso_session_cache", mock_cache),
+                patch("embrouter.proxy.proxy_server.premium_user", True),
+                patch("embrouter.proxy.proxy_server.prisma_client", MagicMock()),
+                patch("embrouter.proxy.proxy_server.user_api_key_cache", mock_cache),
+                patch("embrouter.proxy.proxy_server.cli_sso_session_cache", mock_cache),
                 patch(
-                    "litellm.proxy.proxy_server.user_custom_ui_sso_sign_in_handler",
+                    "embrouter.proxy.proxy_server.user_custom_ui_sso_sign_in_handler",
                     None,
                 ),
                 patch(
-                    "litellm.proxy.proxy_server.general_settings",
+                    "embrouter.proxy.proxy_server.general_settings",
                     {"allow_cli_sso_verification_uri_complete": enabled},
                 ),
                 patch(
-                    "litellm.proxy.management_endpoints.ui_sso.show_missing_vars_in_env",
+                    "embrouter.proxy.management_endpoints.ui_sso.show_missing_vars_in_env",
                     return_value=None,
                 ),
                 patch(
-                    "litellm.proxy.management_endpoints.ui_sso.SSOAuthenticationHandler.get_redirect_url_for_sso",
+                    "embrouter.proxy.management_endpoints.ui_sso.SSOAuthenticationHandler.get_redirect_url_for_sso",
                     return_value="https://proxy.example.com/sso/callback",
                 ),
                 patch(
-                    "litellm.proxy.management_endpoints.ui_sso.SSOAuthenticationHandler._get_cli_state",
+                    "embrouter.proxy.management_endpoints.ui_sso.SSOAuthenticationHandler._get_cli_state",
                     return_value=None,
                 ) as mock_get_cli_state,
             ):
                 await google_login(
                     request=mock_request,
-                    source="litellm-cli",
+                    source="embrouter-cli",
                     key="cli-validsessionkey123456",
                     user_code="WXYZ-2345",
                 )
@@ -2876,24 +2876,24 @@ class TestCLIKeyRegenerationFlow:
 
     def test_get_cli_state_appends_user_code_for_prefill(self):
         """Test the OAuth state carries the user_code only for the opt-in prefill flow"""
-        from litellm.constants import (
-            LITELLM_CLI_SESSION_TOKEN_PREFIX,
-            LITELLM_CLI_SOURCE_IDENTIFIER,
+        from embrouter.constants import (
+            EMBROUTER_CLI_SESSION_TOKEN_PREFIX,
+            EMBROUTER_CLI_SOURCE_IDENTIFIER,
         )
-        from litellm.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
+        from embrouter.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
 
         manual_state = SSOAuthenticationHandler._get_cli_state(
-            source=LITELLM_CLI_SOURCE_IDENTIFIER, key="cli-abc123"
+            source=EMBROUTER_CLI_SOURCE_IDENTIFIER, key="cli-abc123"
         )
         prefill_state = SSOAuthenticationHandler._get_cli_state(
-            source=LITELLM_CLI_SOURCE_IDENTIFIER,
+            source=EMBROUTER_CLI_SOURCE_IDENTIFIER,
             key="cli-abc123",
             user_code="WXYZ-2345",
         )
 
-        assert manual_state == f"{LITELLM_CLI_SESSION_TOKEN_PREFIX}:cli-abc123"
+        assert manual_state == f"{EMBROUTER_CLI_SESSION_TOKEN_PREFIX}:cli-abc123"
         assert (
-            prefill_state == f"{LITELLM_CLI_SESSION_TOKEN_PREFIX}:cli-abc123:WXYZ-2345"
+            prefill_state == f"{EMBROUTER_CLI_SESSION_TOKEN_PREFIX}:cli-abc123:WXYZ-2345"
         )
         assert (
             SSOAuthenticationHandler._get_cli_state(
@@ -2904,17 +2904,17 @@ class TestCLIKeyRegenerationFlow:
 
     def test_get_cli_state_drops_malformed_user_code(self):
         """Test a user_code that is not a server-issued code is dropped before reaching the size-limited OAuth state"""
-        from litellm.constants import (
-            LITELLM_CLI_SESSION_TOKEN_PREFIX,
-            LITELLM_CLI_SOURCE_IDENTIFIER,
+        from embrouter.constants import (
+            EMBROUTER_CLI_SESSION_TOKEN_PREFIX,
+            EMBROUTER_CLI_SOURCE_IDENTIFIER,
         )
-        from litellm.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
+        from embrouter.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
 
-        manual_only = f"{LITELLM_CLI_SESSION_TOKEN_PREFIX}:cli-abc123"
+        manual_only = f"{EMBROUTER_CLI_SESSION_TOKEN_PREFIX}:cli-abc123"
         for bad_user_code in ("A" * 4096, "not-a-code", "WXYZ2345", "WXYZ-234", ""):
             assert (
                 SSOAuthenticationHandler._get_cli_state(
-                    source=LITELLM_CLI_SOURCE_IDENTIFIER,
+                    source=EMBROUTER_CLI_SOURCE_IDENTIFIER,
                     key="cli-abc123",
                     user_code=bad_user_code,
                 )
@@ -2923,7 +2923,7 @@ class TestCLIKeyRegenerationFlow:
 
     def test_is_valid_cli_sso_user_code_matches_generated_format(self):
         """Test the user_code validator accepts a freshly generated code and rejects malformed input"""
-        from litellm.proxy.management_endpoints.ui_sso import (
+        from embrouter.proxy.management_endpoints.ui_sso import (
             _generate_cli_sso_user_code,
             _is_valid_cli_sso_user_code,
         )
@@ -2938,11 +2938,11 @@ class TestCLIKeyRegenerationFlow:
 
     def test_cli_state_round_trips_user_code_to_callback_parser(self):
         """Test the callback's state parser recovers login_id and user_code from the state _get_cli_state builds"""
-        from litellm.constants import LITELLM_CLI_SOURCE_IDENTIFIER
-        from litellm.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
+        from embrouter.constants import EMBROUTER_CLI_SOURCE_IDENTIFIER
+        from embrouter.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
 
         state = SSOAuthenticationHandler._get_cli_state(
-            source=LITELLM_CLI_SOURCE_IDENTIFIER,
+            source=EMBROUTER_CLI_SOURCE_IDENTIFIER,
             key="cli-abc123",
             user_code="WXYZ-2345",
         )
@@ -2956,7 +2956,7 @@ class TestCLIKeyRegenerationFlow:
 
     def test_render_cli_sso_verification_page_prefills_user_code(self):
         """Test the verify page pre-fills the user_code input (HTML-escaped) when provided"""
-        from litellm.proxy.management_endpoints.ui_sso import (
+        from embrouter.proxy.management_endpoints.ui_sso import (
             _render_cli_sso_verification_page,
         )
 
@@ -2974,7 +2974,7 @@ class TestCLIKeyRegenerationFlow:
 
     def test_render_cli_sso_verification_page_omits_value_without_prefill(self):
         """Test the verify page renders the empty manual input when no prefill is provided (backward compatible)"""
-        from litellm.proxy.management_endpoints.ui_sso import (
+        from embrouter.proxy.management_endpoints.ui_sso import (
             _render_cli_sso_verification_page,
         )
 
@@ -2992,14 +2992,14 @@ class TestCLIKeyRegenerationFlow:
     @pytest.mark.asyncio
     async def test_cli_sso_callback_prefills_user_code_on_verify_page(self):
         """Test the CLI SSO callback threads prefill_user_code into the rendered verify page"""
-        from litellm.proxy._types import LiteLLM_UserTable
-        from litellm.proxy.management_endpoints.ui_sso import cli_sso_callback
+        from embrouter.proxy._types import EmbRouter_UserTable
+        from embrouter.proxy.management_endpoints.ui_sso import cli_sso_callback
 
         mock_request = MagicMock(spec=Request)
         mock_request.scope = {}
         mock_request.base_url = "https://proxy.example.com/"
 
-        mock_user_info = LiteLLM_UserTable(
+        mock_user_info = EmbRouter_UserTable(
             user_id="test-user-123",
             user_role="internal_user",
             teams=[],
@@ -3021,12 +3021,12 @@ class TestCLIKeyRegenerationFlow:
                 {"PROXY_BASE_URL": "https://proxy.example.com", "SERVER_ROOT_PATH": ""},
             ),
             patch(
-                "litellm.proxy.management_endpoints.ui_sso.get_user_info_from_db",
+                "embrouter.proxy.management_endpoints.ui_sso.get_user_info_from_db",
                 return_value=mock_user_info,
             ),
-            patch("litellm.proxy.proxy_server.prisma_client", MagicMock()),
-            patch("litellm.proxy.proxy_server.user_api_key_cache", mock_cache),
-            patch("litellm.proxy.proxy_server.cli_sso_session_cache", mock_cache),
+            patch("embrouter.proxy.proxy_server.prisma_client", MagicMock()),
+            patch("embrouter.proxy.proxy_server.user_api_key_cache", mock_cache),
+            patch("embrouter.proxy.proxy_server.cli_sso_session_cache", mock_cache),
         ):
             result = await cli_sso_callback(
                 request=mock_request,
@@ -3041,7 +3041,7 @@ class TestCLIKeyRegenerationFlow:
     @pytest.mark.asyncio
     async def test_cli_sso_complete_verifies_user_code(self):
         """Test CLI SSO complete marks a session as verified"""
-        from litellm.proxy.management_endpoints.ui_sso import (
+        from embrouter.proxy.management_endpoints.ui_sso import (
             _hash_cli_sso_secret,
             _normalize_cli_sso_user_code,
             cli_sso_complete,
@@ -3064,10 +3064,10 @@ class TestCLIKeyRegenerationFlow:
         }
 
         with (
-            patch("litellm.proxy.proxy_server.user_api_key_cache", mock_cache),
-            patch("litellm.proxy.proxy_server.cli_sso_session_cache", mock_cache),
+            patch("embrouter.proxy.proxy_server.user_api_key_cache", mock_cache),
+            patch("embrouter.proxy.proxy_server.cli_sso_session_cache", mock_cache),
             patch(
-                "litellm.proxy.common_utils.html_forms.cli_sso_success.render_cli_sso_success_page",
+                "embrouter.proxy.common_utils.html_forms.cli_sso_success.render_cli_sso_success_page",
                 return_value="<html>Success</html>",
             ),
         ):
@@ -3082,7 +3082,7 @@ class TestCLIKeyRegenerationFlow:
     @pytest.mark.asyncio
     async def test_cli_sso_complete_requires_callback_token(self):
         """Test CLI SSO complete requires the callback-delivered token"""
-        from litellm.proxy.management_endpoints.ui_sso import (
+        from embrouter.proxy.management_endpoints.ui_sso import (
             _hash_cli_sso_secret,
             _normalize_cli_sso_user_code,
             cli_sso_complete,
@@ -3103,8 +3103,8 @@ class TestCLIKeyRegenerationFlow:
         }
 
         with (
-            patch("litellm.proxy.proxy_server.user_api_key_cache", mock_cache),
-            patch("litellm.proxy.proxy_server.cli_sso_session_cache", mock_cache),
+            patch("embrouter.proxy.proxy_server.user_api_key_cache", mock_cache),
+            patch("embrouter.proxy.proxy_server.cli_sso_session_cache", mock_cache),
         ):
             with pytest.raises(HTTPException) as exc_info:
                 await cli_sso_complete(
@@ -3117,7 +3117,7 @@ class TestCLIKeyRegenerationFlow:
     @pytest.mark.asyncio
     async def test_cli_sso_complete_waits_for_callback_before_token_checks(self):
         """Test CLI SSO complete returns not-ready before verification checks"""
-        from litellm.proxy.management_endpoints.ui_sso import (
+        from embrouter.proxy.management_endpoints.ui_sso import (
             _hash_cli_sso_secret,
             _normalize_cli_sso_user_code,
             cli_sso_complete,
@@ -3139,8 +3139,8 @@ class TestCLIKeyRegenerationFlow:
         }
 
         with (
-            patch("litellm.proxy.proxy_server.user_api_key_cache", mock_cache),
-            patch("litellm.proxy.proxy_server.cli_sso_session_cache", mock_cache),
+            patch("embrouter.proxy.proxy_server.user_api_key_cache", mock_cache),
+            patch("embrouter.proxy.proxy_server.cli_sso_session_cache", mock_cache),
         ):
             with pytest.raises(HTTPException) as exc_info:
                 await cli_sso_complete(
@@ -3155,8 +3155,8 @@ class TestCLIKeyRegenerationFlow:
     @pytest.mark.asyncio
     async def test_cli_sso_callback_stores_session(self):
         """Test CLI SSO callback stores session data in cache for JWT generation"""
-        from litellm.proxy._types import LiteLLM_UserTable
-        from litellm.proxy.management_endpoints.ui_sso import cli_sso_callback
+        from embrouter.proxy._types import EmbRouter_UserTable
+        from embrouter.proxy.management_endpoints.ui_sso import cli_sso_callback
 
         # Mock request
         mock_request = MagicMock(spec=Request)
@@ -3167,7 +3167,7 @@ class TestCLIKeyRegenerationFlow:
         session_key = "cli-session-4567890"
 
         # Mock user info
-        mock_user_info = LiteLLM_UserTable(
+        mock_user_info = EmbRouter_UserTable(
             user_id="test-user-123",
             user_role="internal_user",
             teams=["team1", "team2"],
@@ -3187,7 +3187,7 @@ class TestCLIKeyRegenerationFlow:
             "session_data": None,
         }
         mock_prisma = MagicMock()
-        mock_prisma.db.litellm_teamtable.find_many = AsyncMock(
+        mock_prisma.db.embrouter_teamtable.find_many = AsyncMock(
             return_value=[
                 MagicMock(
                     model_dump=lambda team_id=team_id: {
@@ -3208,14 +3208,14 @@ class TestCLIKeyRegenerationFlow:
                 },
             ),
             patch(
-                "litellm.proxy.management_endpoints.ui_sso.get_user_info_from_db",
+                "embrouter.proxy.management_endpoints.ui_sso.get_user_info_from_db",
                 return_value=mock_user_info,
             ),
-            patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
-            patch("litellm.proxy.proxy_server.user_api_key_cache", mock_cache),
-            patch("litellm.proxy.proxy_server.cli_sso_session_cache", mock_cache),
+            patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma),
+            patch("embrouter.proxy.proxy_server.user_api_key_cache", mock_cache),
+            patch("embrouter.proxy.proxy_server.cli_sso_session_cache", mock_cache),
             patch(
-                "litellm.proxy.common_utils.html_forms.cli_sso_success.render_cli_sso_success_page",
+                "embrouter.proxy.common_utils.html_forms.cli_sso_success.render_cli_sso_success_page",
                 return_value="<html>Success</html>",
             ),
         ):
@@ -3259,7 +3259,7 @@ class TestCLIKeyRegenerationFlow:
     @pytest.mark.asyncio
     async def test_cli_poll_key_returns_teams_for_selection(self):
         """Test CLI poll endpoint returns teams for user selection when multiple teams exist"""
-        from litellm.proxy.management_endpoints.ui_sso import (
+        from embrouter.proxy.management_endpoints.ui_sso import (
             _hash_cli_sso_secret,
             cli_poll_key,
         )
@@ -3283,14 +3283,14 @@ class TestCLIKeyRegenerationFlow:
         }
 
         with (
-            patch("litellm.proxy.proxy_server.user_api_key_cache", mock_cache),
-            patch("litellm.proxy.proxy_server.cli_sso_session_cache", mock_cache),
+            patch("embrouter.proxy.proxy_server.user_api_key_cache", mock_cache),
+            patch("embrouter.proxy.proxy_server.cli_sso_session_cache", mock_cache),
         ):
             # Act - First poll without team_id
             result = await cli_poll_key(
                 key_id=session_key,
                 team_id=None,
-                x_litellm_cli_poll_secret="poll-secret",
+                x_embrouter_cli_poll_secret="poll-secret",
             )
 
             # Assert - should return teams list for selection
@@ -3306,7 +3306,7 @@ class TestCLIKeyRegenerationFlow:
     @pytest.mark.asyncio
     async def test_cli_poll_key_requires_poll_secret(self):
         """Test CLI poll endpoint rejects callers without the polling secret"""
-        from litellm.proxy.management_endpoints.ui_sso import (
+        from embrouter.proxy.management_endpoints.ui_sso import (
             _hash_cli_sso_secret,
             cli_poll_key,
         )
@@ -3325,8 +3325,8 @@ class TestCLIKeyRegenerationFlow:
         }
 
         with (
-            patch("litellm.proxy.proxy_server.user_api_key_cache", mock_cache),
-            patch("litellm.proxy.proxy_server.cli_sso_session_cache", mock_cache),
+            patch("embrouter.proxy.proxy_server.user_api_key_cache", mock_cache),
+            patch("embrouter.proxy.proxy_server.cli_sso_session_cache", mock_cache),
         ):
             with pytest.raises(HTTPException) as exc_info:
                 await cli_poll_key(key_id="cli-session-789123", team_id=None)
@@ -3336,7 +3336,7 @@ class TestCLIKeyRegenerationFlow:
     @pytest.mark.asyncio
     async def test_cli_poll_key_waits_for_user_code_verification(self):
         """Test CLI poll endpoint stays pending until user code verification"""
-        from litellm.proxy.management_endpoints.ui_sso import (
+        from embrouter.proxy.management_endpoints.ui_sso import (
             _hash_cli_sso_secret,
             cli_poll_key,
         )
@@ -3355,13 +3355,13 @@ class TestCLIKeyRegenerationFlow:
         }
 
         with (
-            patch("litellm.proxy.proxy_server.user_api_key_cache", mock_cache),
-            patch("litellm.proxy.proxy_server.cli_sso_session_cache", mock_cache),
+            patch("embrouter.proxy.proxy_server.user_api_key_cache", mock_cache),
+            patch("embrouter.proxy.proxy_server.cli_sso_session_cache", mock_cache),
         ):
             result = await cli_poll_key(
                 key_id="cli-session-789123",
                 team_id=None,
-                x_litellm_cli_poll_secret="poll-secret",
+                x_embrouter_cli_poll_secret="poll-secret",
             )
 
         assert result == {"status": "pending"}
@@ -3369,30 +3369,30 @@ class TestCLIKeyRegenerationFlow:
     @pytest.mark.asyncio
     async def test_auth_callback_routes_to_cli(self):
         """Test that auth_callback properly routes CLI requests"""
-        from litellm.constants import LITELLM_CLI_SESSION_TOKEN_PREFIX
-        from litellm.proxy.management_endpoints.ui_sso import auth_callback
+        from embrouter.constants import EMBROUTER_CLI_SESSION_TOKEN_PREFIX
+        from embrouter.proxy.management_endpoints.ui_sso import auth_callback
 
         # Mock request
         mock_request = MagicMock(spec=Request)
         mock_request.query_params = {"code": "some-auth-code"}
 
-        cli_state = f"{LITELLM_CLI_SESSION_TOKEN_PREFIX}:cli-new-session-key-456"
+        cli_state = f"{EMBROUTER_CLI_SESSION_TOKEN_PREFIX}:cli-new-session-key-456"
 
         # Mock the CLI callback and required proxy server components
         mock_result = {"user_id": "test-user", "email": "test@example.com"}
 
         with (
             patch(
-                "litellm.proxy.management_endpoints.ui_sso.cli_sso_callback"
+                "embrouter.proxy.management_endpoints.ui_sso.cli_sso_callback"
             ) as mock_cli_callback,
-            patch("litellm.proxy.proxy_server.prisma_client", MagicMock()),
-            patch("litellm.proxy.proxy_server.master_key", "test-master-key"),
-            patch("litellm.proxy.proxy_server.general_settings", {}),
-            patch("litellm.proxy.proxy_server.jwt_handler", MagicMock()),
-            patch("litellm.proxy.proxy_server.user_api_key_cache", MagicMock()),
+            patch("embrouter.proxy.proxy_server.prisma_client", MagicMock()),
+            patch("embrouter.proxy.proxy_server.master_key", "test-master-key"),
+            patch("embrouter.proxy.proxy_server.general_settings", {}),
+            patch("embrouter.proxy.proxy_server.jwt_handler", MagicMock()),
+            patch("embrouter.proxy.proxy_server.user_api_key_cache", MagicMock()),
             patch.dict(os.environ, {"GOOGLE_CLIENT_ID": "test-google-id"}, clear=True),
             patch(
-                "litellm.proxy.management_endpoints.ui_sso.GoogleSSOHandler.get_google_callback_response",
+                "embrouter.proxy.management_endpoints.ui_sso.GoogleSSOHandler.get_google_callback_response",
                 return_value=mock_result,
             ),
         ):
@@ -3413,28 +3413,28 @@ class TestCLIKeyRegenerationFlow:
     @pytest.mark.asyncio
     async def test_auth_callback_forwards_prefill_user_code_from_state(self):
         """Test auth_callback recovers the user_code from the state and forwards it for prefill"""
-        from litellm.constants import LITELLM_CLI_SESSION_TOKEN_PREFIX
-        from litellm.proxy.management_endpoints.ui_sso import auth_callback
+        from embrouter.constants import EMBROUTER_CLI_SESSION_TOKEN_PREFIX
+        from embrouter.proxy.management_endpoints.ui_sso import auth_callback
 
         mock_request = MagicMock(spec=Request)
         mock_request.query_params = {"code": "some-auth-code"}
         cli_state = (
-            f"{LITELLM_CLI_SESSION_TOKEN_PREFIX}:cli-new-session-key-456:WXYZ-2345"
+            f"{EMBROUTER_CLI_SESSION_TOKEN_PREFIX}:cli-new-session-key-456:WXYZ-2345"
         )
         mock_result = {"user_id": "test-user", "email": "test@example.com"}
 
         with (
             patch(
-                "litellm.proxy.management_endpoints.ui_sso.cli_sso_callback"
+                "embrouter.proxy.management_endpoints.ui_sso.cli_sso_callback"
             ) as mock_cli_callback,
-            patch("litellm.proxy.proxy_server.prisma_client", MagicMock()),
-            patch("litellm.proxy.proxy_server.master_key", "test-master-key"),
-            patch("litellm.proxy.proxy_server.general_settings", {}),
-            patch("litellm.proxy.proxy_server.jwt_handler", MagicMock()),
-            patch("litellm.proxy.proxy_server.user_api_key_cache", MagicMock()),
+            patch("embrouter.proxy.proxy_server.prisma_client", MagicMock()),
+            patch("embrouter.proxy.proxy_server.master_key", "test-master-key"),
+            patch("embrouter.proxy.proxy_server.general_settings", {}),
+            patch("embrouter.proxy.proxy_server.jwt_handler", MagicMock()),
+            patch("embrouter.proxy.proxy_server.user_api_key_cache", MagicMock()),
             patch.dict(os.environ, {"GOOGLE_CLIENT_ID": "test-google-id"}, clear=True),
             patch(
-                "litellm.proxy.management_endpoints.ui_sso.GoogleSSOHandler.get_google_callback_response",
+                "embrouter.proxy.management_endpoints.ui_sso.GoogleSSOHandler.get_google_callback_response",
                 return_value=mock_result,
             ),
         ):
@@ -3453,14 +3453,14 @@ class TestCLIKeyRegenerationFlow:
 
     def test_get_redirect_url_does_not_include_existing_key_in_url(self):
         """Test that redirect URL generation does NOT include existing_key in URL"""
-        from litellm.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
+        from embrouter.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
 
         # Mock request
         mock_request = MagicMock()
-        mock_request.base_url = "https://test.litellm.ai/"
+        mock_request.base_url = "https://test.embrouter.ai/"
 
         with patch(
-            "litellm.proxy.utils.get_custom_url", return_value="https://test.litellm.ai"
+            "embrouter.proxy.utils.get_custom_url", return_value="https://test.embrouter.ai"
         ):
             # Test with existing_key - should NOT be in URL
             redirect_url = SSOAuthenticationHandler.get_redirect_url_for_sso(
@@ -3470,32 +3470,32 @@ class TestCLIKeyRegenerationFlow:
             )
 
             # existing_key should NOT be in the URL
-            assert "https://test.litellm.ai/sso/callback" == redirect_url
+            assert "https://test.embrouter.ai/sso/callback" == redirect_url
             assert "existing_key" not in redirect_url
 
     def test_get_redirect_url_without_existing_key(self):
         """Test that redirect URL generation works without existing_key parameter"""
-        from litellm.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
+        from embrouter.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
 
         # Mock request
         mock_request = MagicMock()
-        mock_request.base_url = "https://test.litellm.ai/"
+        mock_request.base_url = "https://test.embrouter.ai/"
 
         with patch(
-            "litellm.proxy.utils.get_custom_url", return_value="https://test.litellm.ai"
+            "embrouter.proxy.utils.get_custom_url", return_value="https://test.embrouter.ai"
         ):
             # Test without existing_key
             redirect_url = SSOAuthenticationHandler.get_redirect_url_for_sso(
                 request=mock_request, sso_callback_route="sso/callback"
             )
 
-            assert "https://test.litellm.ai/sso/callback" == redirect_url
+            assert "https://test.embrouter.ai/sso/callback" == redirect_url
 
     @pytest.mark.asyncio
     async def test_cli_poll_key_generates_jwt_with_team(self):
         """Test CLI poll endpoint generates JWT when team_id is provided"""
-        from litellm.proxy._types import LiteLLM_UserTable
-        from litellm.proxy.management_endpoints.ui_sso import (
+        from embrouter.proxy._types import EmbRouter_UserTable
+        from embrouter.proxy.management_endpoints.ui_sso import (
             _hash_cli_sso_secret,
             cli_poll_key,
         )
@@ -3517,7 +3517,7 @@ class TestCLIKeyRegenerationFlow:
         }
 
         # Mock user info
-        mock_user_info = LiteLLM_UserTable(
+        mock_user_info = EmbRouter_UserTable(
             user_id="test-user-789",
             user_role="internal_user",
             teams=["team-a", "team-b", "team-c"],
@@ -3536,19 +3536,19 @@ class TestCLIKeyRegenerationFlow:
         mock_jwt_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test.token"
 
         with (
-            patch("litellm.proxy.proxy_server.user_api_key_cache", mock_cache),
-            patch("litellm.proxy.proxy_server.cli_sso_session_cache", mock_cache),
-            patch("litellm.proxy.proxy_server.prisma_client"),
+            patch("embrouter.proxy.proxy_server.user_api_key_cache", mock_cache),
+            patch("embrouter.proxy.proxy_server.cli_sso_session_cache", mock_cache),
+            patch("embrouter.proxy.proxy_server.prisma_client"),
             patch(
-                "litellm.proxy.auth.auth_checks.ExperimentalUIJWTToken.get_cli_jwt_auth_token",
+                "embrouter.proxy.auth.auth_checks.ExperimentalUIJWTToken.get_cli_jwt_auth_token",
                 return_value=mock_jwt_token,
             ) as mock_get_jwt,
             patch(
-                "litellm.proxy.auth.auth_checks.get_user_object",
+                "embrouter.proxy.auth.auth_checks.get_user_object",
                 new=AsyncMock(return_value=mock_user_info),
             ),
             patch(
-                "litellm.proxy.auth.auth_checks.get_team_object",
+                "embrouter.proxy.auth.auth_checks.get_team_object",
                 new=AsyncMock(side_effect=Exception("no team")),
             ),
         ):
@@ -3556,7 +3556,7 @@ class TestCLIKeyRegenerationFlow:
             result = await cli_poll_key(
                 key_id=session_key,
                 team_id=selected_team,
-                x_litellm_cli_poll_secret="poll-secret",
+                x_embrouter_cli_poll_secret="poll-secret",
             )
 
             # Assert - should return JWT
@@ -3586,7 +3586,7 @@ class TestCLIKeyRegenerationFlow:
         The joined alias table is stored JSON-encoded, so it has to be decoded here
         too, otherwise alias lookup at request time is a substring match on a string.
         """
-        from litellm.proxy.management_endpoints.ui_sso import (
+        from embrouter.proxy.management_endpoints.ui_sso import (
             fetch_cli_sso_team_details,
         )
 
@@ -3595,7 +3595,7 @@ class TestCLIKeyRegenerationFlow:
             "team_id": "team-a",
             "team_alias": "Team A",
             "models": ["claude-sonnet-4-5", "gpt-4.1"],
-            "litellm_model_table": {
+            "embrouter_model_table": {
                 "id": 7,
                 "model_aliases": json.dumps({"team-fast": "gpt-4.1-mini"}),
                 "created_by": "admin",
@@ -3604,13 +3604,13 @@ class TestCLIKeyRegenerationFlow:
         }
         find_many = AsyncMock(return_value=[team_row])
         prisma_client = MagicMock()
-        prisma_client.db.litellm_teamtable.find_many = find_many
+        prisma_client.db.embrouter_teamtable.find_many = find_many
 
         details = await fetch_cli_sso_team_details(
             prisma_client=prisma_client, teams=["team-a"]
         )
 
-        assert find_many.await_args.kwargs["include"] == {"litellm_model_table": True}
+        assert find_many.await_args.kwargs["include"] == {"embrouter_model_table": True}
         assert [detail.model_dump() for detail in details] == [
             {
                 "team_id": "team-a",
@@ -3628,12 +3628,12 @@ class TestCLIKeyRegenerationFlow:
         answer. The callback needs them apart: a blip has to fail the login, while a
         real empty answer means the team rows are genuinely gone.
         """
-        from litellm.proxy.management_endpoints.ui_sso import (
+        from embrouter.proxy.management_endpoints.ui_sso import (
             fetch_cli_sso_team_details,
         )
 
         failing_client = MagicMock()
-        failing_client.db.litellm_teamtable.find_many = AsyncMock(
+        failing_client.db.embrouter_teamtable.find_many = AsyncMock(
             side_effect=Exception("connection reset")
         )
         assert (
@@ -3644,7 +3644,7 @@ class TestCLIKeyRegenerationFlow:
         )
 
         empty_client = MagicMock()
-        empty_client.db.litellm_teamtable.find_many = AsyncMock(return_value=[])
+        empty_client.db.embrouter_teamtable.find_many = AsyncMock(return_value=[])
         assert (
             await fetch_cli_sso_team_details(
                 prisma_client=empty_client, teams=["team-a"]
@@ -3655,7 +3655,7 @@ class TestCLIKeyRegenerationFlow:
     @pytest.mark.asyncio
     async def test_cli_poll_key_mints_jwt_with_selected_team_grants(self):
         """The selected team's grants must reach the mint, not just its alias."""
-        from litellm.proxy.management_endpoints.ui_sso import (
+        from embrouter.proxy.management_endpoints.ui_sso import (
             _hash_cli_sso_secret,
             cli_poll_key,
         )
@@ -3690,16 +3690,16 @@ class TestCLIKeyRegenerationFlow:
         }
 
         with (
-            patch("litellm.proxy.proxy_server.cli_sso_session_cache", mock_cache),
+            patch("embrouter.proxy.proxy_server.cli_sso_session_cache", mock_cache),
             patch(
-                "litellm.proxy.auth.auth_checks.ExperimentalUIJWTToken.get_cli_jwt_auth_token",
+                "embrouter.proxy.auth.auth_checks.ExperimentalUIJWTToken.get_cli_jwt_auth_token",
                 return_value="minted-token",
             ) as mock_get_jwt,
         ):
             result = await cli_poll_key(
                 key_id="cli-session-grants",
                 team_id="team-b",
-                x_litellm_cli_poll_secret="poll-secret",
+                x_embrouter_cli_poll_secret="poll-secret",
             )
 
         assert result["status"] == "ready"
@@ -3733,7 +3733,7 @@ class TestCLIKeyRegenerationFlow:
         an empty key allowlist by design. So minting an unresolved team as empty would
         hand a team-bound CLI session every model on the proxy.
         """
-        from litellm.proxy.management_endpoints.ui_sso import (
+        from embrouter.proxy.management_endpoints.ui_sso import (
             _hash_cli_sso_secret,
             cli_poll_key,
         )
@@ -3754,9 +3754,9 @@ class TestCLIKeyRegenerationFlow:
         }
 
         with (
-            patch("litellm.proxy.proxy_server.cli_sso_session_cache", mock_cache),
+            patch("embrouter.proxy.proxy_server.cli_sso_session_cache", mock_cache),
             patch(
-                "litellm.proxy.auth.auth_checks.ExperimentalUIJWTToken.get_cli_jwt_auth_token",
+                "embrouter.proxy.auth.auth_checks.ExperimentalUIJWTToken.get_cli_jwt_auth_token",
                 return_value="minted-token",
             ) as mock_get_jwt,
         ):
@@ -3764,7 +3764,7 @@ class TestCLIKeyRegenerationFlow:
                 await cli_poll_key(
                     key_id="cli-session-grants",
                     team_id="team-a",
-                    x_litellm_cli_poll_secret="poll-secret",
+                    x_embrouter_cli_poll_secret="poll-secret",
                 )
 
         assert exc_info.value.status_code == 500
@@ -3775,7 +3775,7 @@ class TestCLIKeyRegenerationFlow:
     @pytest.mark.asyncio
     async def test_cli_poll_key_mints_teamless_session_without_team_grants(self):
         """A user with no team still mints, keeping their personal allowlist in the key slot."""
-        from litellm.proxy.management_endpoints.ui_sso import (
+        from embrouter.proxy.management_endpoints.ui_sso import (
             _hash_cli_sso_secret,
             cli_poll_key,
         )
@@ -3796,16 +3796,16 @@ class TestCLIKeyRegenerationFlow:
         }
 
         with (
-            patch("litellm.proxy.proxy_server.cli_sso_session_cache", mock_cache),
+            patch("embrouter.proxy.proxy_server.cli_sso_session_cache", mock_cache),
             patch(
-                "litellm.proxy.auth.auth_checks.ExperimentalUIJWTToken.get_cli_jwt_auth_token",
+                "embrouter.proxy.auth.auth_checks.ExperimentalUIJWTToken.get_cli_jwt_auth_token",
                 return_value="minted-token",
             ) as mock_get_jwt,
         ):
             result = await cli_poll_key(
                 key_id="cli-session-teamless",
                 team_id=None,
-                x_litellm_cli_poll_secret="poll-secret",
+                x_embrouter_cli_poll_secret="poll-secret",
             )
 
         assert result["status"] == "ready"
@@ -3817,8 +3817,8 @@ class TestCLIKeyRegenerationFlow:
     @pytest.mark.asyncio
     async def test_cli_poll_key_does_not_cap_session_when_user_has_budget(self):
         """A user with a configured budget must not get the max_ui_session_budget fallback cap."""
-        from litellm.proxy._types import LiteLLM_UserTable
-        from litellm.proxy.management_endpoints.ui_sso import (
+        from embrouter.proxy._types import EmbRouter_UserTable
+        from embrouter.proxy.management_endpoints.ui_sso import (
             _hash_cli_sso_secret,
             cli_poll_key,
         )
@@ -3831,7 +3831,7 @@ class TestCLIKeyRegenerationFlow:
             "models": ["gpt-4"],
             "user_email": "budgeted@example.com",
         }
-        mock_user_info = LiteLLM_UserTable(
+        mock_user_info = EmbRouter_UserTable(
             user_id="budgeted-user",
             user_role="internal_user",
             teams=[],
@@ -3848,19 +3848,19 @@ class TestCLIKeyRegenerationFlow:
         mock_jwt_token = "eyJhbGciOiJIUzI1NiJ9.budgeted.token"
 
         with (
-            patch("litellm.proxy.proxy_server.user_api_key_cache", mock_cache),
-            patch("litellm.proxy.proxy_server.cli_sso_session_cache", mock_cache),
-            patch("litellm.proxy.proxy_server.prisma_client"),
+            patch("embrouter.proxy.proxy_server.user_api_key_cache", mock_cache),
+            patch("embrouter.proxy.proxy_server.cli_sso_session_cache", mock_cache),
+            patch("embrouter.proxy.proxy_server.prisma_client"),
             patch(
-                "litellm.proxy.auth.auth_checks.ExperimentalUIJWTToken.get_cli_jwt_auth_token",
+                "embrouter.proxy.auth.auth_checks.ExperimentalUIJWTToken.get_cli_jwt_auth_token",
                 return_value=mock_jwt_token,
             ) as mock_get_jwt,
             patch(
-                "litellm.proxy.auth.auth_checks.get_user_object",
+                "embrouter.proxy.auth.auth_checks.get_user_object",
                 new=AsyncMock(return_value=mock_user_info),
             ),
             patch(
-                "litellm.proxy.auth.auth_checks.get_team_object",
+                "embrouter.proxy.auth.auth_checks.get_team_object",
                 new=AsyncMock(
                     side_effect=AssertionError("team lookup must be skipped")
                 ),
@@ -3869,7 +3869,7 @@ class TestCLIKeyRegenerationFlow:
             result = await cli_poll_key(
                 key_id="cli-session-budgeted",
                 team_id=None,
-                x_litellm_cli_poll_secret="poll-secret",
+                x_embrouter_cli_poll_secret="poll-secret",
             )
 
         assert result["status"] == "ready"
@@ -3882,7 +3882,7 @@ class TestCLIKeyRegenerationFlow:
         (max_ui_session_budget). Even when the user and team have no budget of their
         own, the minted token carries max_budget=None and is governed only by the
         real user/team budgets at request time."""
-        from litellm.proxy.management_endpoints.ui_sso import (
+        from embrouter.proxy.management_endpoints.ui_sso import (
             _hash_cli_sso_secret,
             cli_poll_key,
         )
@@ -3905,17 +3905,17 @@ class TestCLIKeyRegenerationFlow:
         mock_jwt_token = "eyJhbGciOiJIUzI1NiJ9.unbudgeted.token"
 
         with (
-            patch("litellm.proxy.proxy_server.user_api_key_cache", mock_cache),
-            patch("litellm.proxy.proxy_server.cli_sso_session_cache", mock_cache),
+            patch("embrouter.proxy.proxy_server.user_api_key_cache", mock_cache),
+            patch("embrouter.proxy.proxy_server.cli_sso_session_cache", mock_cache),
             patch(
-                "litellm.proxy.auth.auth_checks.ExperimentalUIJWTToken.get_cli_jwt_auth_token",
+                "embrouter.proxy.auth.auth_checks.ExperimentalUIJWTToken.get_cli_jwt_auth_token",
                 return_value=mock_jwt_token,
             ) as mock_get_jwt,
         ):
             result = await cli_poll_key(
                 key_id="cli-session-unbudgeted",
                 team_id="team-x",
-                x_litellm_cli_poll_secret="poll-secret",
+                x_embrouter_cli_poll_secret="poll-secret",
             )
 
         assert result["status"] == "ready"
@@ -4073,7 +4073,7 @@ class TestProcessSSOJWTAccessToken:
         self, mock_jwt_handler, sample_jwt_token
     ):
         """Test that existing team IDs are not overwritten"""
-        from litellm.proxy.management_endpoints.ui_sso import (
+        from embrouter.proxy.management_endpoints.ui_sso import (
             process_sso_jwt_access_token,
         )
 
@@ -4111,7 +4111,7 @@ class TestProcessSSOJWTAccessToken:
         self, mock_jwt_handler, sample_jwt_token, sample_jwt_payload
     ):
         """Test processing with a dictionary result object"""
-        from litellm.proxy.management_endpoints.ui_sso import (
+        from embrouter.proxy.management_endpoints.ui_sso import (
             process_sso_jwt_access_token,
         )
 
@@ -4142,7 +4142,7 @@ class TestProcessSSOJWTAccessToken:
         self, mock_jwt_handler, sample_jwt_token
     ):
         """Test that existing team IDs in dictionary are not overwritten"""
-        from litellm.proxy.management_endpoints.ui_sso import (
+        from embrouter.proxy.management_endpoints.ui_sso import (
             process_sso_jwt_access_token,
         )
 
@@ -4175,7 +4175,7 @@ class TestProcessSSOJWTAccessToken:
 
     def test_process_sso_jwt_access_token_no_access_token(self, mock_jwt_handler):
         """Test that nothing happens when access token is None or empty"""
-        from litellm.proxy.management_endpoints.ui_sso import (
+        from embrouter.proxy.management_endpoints.ui_sso import (
             process_sso_jwt_access_token,
         )
 
@@ -4207,7 +4207,7 @@ class TestProcessSSOJWTAccessToken:
         self, mock_jwt_handler, sample_jwt_token
     ):
         """Test that nothing happens when result is None"""
-        from litellm.proxy.management_endpoints.ui_sso import (
+        from embrouter.proxy.management_endpoints.ui_sso import (
             process_sso_jwt_access_token,
         )
 
@@ -4229,7 +4229,7 @@ class TestProcessSSOJWTAccessToken:
         """Test that non-DecodeError JWT exceptions still propagate up."""
         import jwt as pyjwt
 
-        from litellm.proxy.management_endpoints.ui_sso import (
+        from embrouter.proxy.management_endpoints.ui_sso import (
             process_sso_jwt_access_token,
         )
 
@@ -4252,7 +4252,7 @@ class TestProcessSSOJWTAccessToken:
         self, mock_jwt_handler, sample_jwt_token, sample_jwt_payload
     ):
         """Test processing when JWT handler returns empty team IDs"""
-        from litellm.proxy.management_endpoints.ui_sso import (
+        from embrouter.proxy.management_endpoints.ui_sso import (
             process_sso_jwt_access_token,
         )
 
@@ -4280,7 +4280,7 @@ class TestProcessSSOJWTAccessToken:
 
     def test_process_sso_jwt_access_token_with_opaque_token(self, mock_jwt_handler):
         """Test that opaque (non-JWT) access tokens are handled gracefully without raising."""
-        from litellm.proxy.management_endpoints.ui_sso import (
+        from embrouter.proxy.management_endpoints.ui_sso import (
             process_sso_jwt_access_token,
         )
 
@@ -4316,7 +4316,7 @@ class TestProcessSSOJWTAccessToken:
         """Test that a real JWT containing role and team fields is correctly processed."""
         import jwt as pyjwt
 
-        from litellm.proxy.management_endpoints.ui_sso import (
+        from embrouter.proxy.management_endpoints.ui_sso import (
             process_sso_jwt_access_token,
         )
 
@@ -4355,15 +4355,15 @@ class TestProcessSSOJWTAccessToken:
         assert result.team_ids == ["team_alpha", "team_beta"]
 
         # Role should be extracted from the "role" field in the JWT
-        from litellm.proxy._types import LitellmUserRoles
+        from embrouter.proxy._types import EmbrouterUserRoles
 
-        assert result.user_role == LitellmUserRoles.PROXY_ADMIN
+        assert result.user_role == EmbrouterUserRoles.PROXY_ADMIN
 
     def test_process_sso_jwt_access_token_real_jwt_without_role_and_teams(self):
         """Test that a real JWT without role/team fields leaves result unchanged."""
         import jwt as pyjwt
 
-        from litellm.proxy.management_endpoints.ui_sso import (
+        from embrouter.proxy.management_endpoints.ui_sso import (
             process_sso_jwt_access_token,
         )
 
@@ -4402,7 +4402,7 @@ async def test_get_ui_settings_includes_api_doc_base_url():
     """Ensure the UI settings endpoint surfaces the optional API doc override."""
     from fastapi import Request
 
-    from litellm.proxy.management_endpoints.ui_sso import get_ui_settings
+    from embrouter.proxy.management_endpoints.ui_sso import get_ui_settings
 
     mock_request = Request(
         scope={
@@ -4419,11 +4419,11 @@ async def test_get_ui_settings_includes_api_doc_base_url():
     with patch.dict(
         os.environ,
         {
-            "LITELLM_UI_API_DOC_BASE_URL": "https://custom.docs",
+            "EMBROUTER_UI_API_DOC_BASE_URL": "https://custom.docs",
         },
     ):
         response = await get_ui_settings(mock_request)
-        assert response["LITELLM_UI_API_DOC_BASE_URL"] == "https://custom.docs"
+        assert response["EMBROUTER_UI_API_DOC_BASE_URL"] == "https://custom.docs"
 
 
 class TestGenericResponseConvertorNestedAttributes:
@@ -4434,7 +4434,7 @@ class TestGenericResponseConvertorNestedAttributes:
         Test that generic_response_convertor handles nested attributes with dotted notation
         like "attributes.userId"
         """
-        from litellm.proxy.management_endpoints.ui_sso import generic_response_convertor
+        from embrouter.proxy.management_endpoints.ui_sso import generic_response_convertor
 
         # Mock JWT handler
         mock_jwt_handler = MagicMock(spec=JWTHandler)
@@ -4502,11 +4502,11 @@ class TestGenericResponseConvertorUserRole:
 
     def test_generic_response_convertor_extracts_valid_user_role(self):
         """
-        Test that generic_response_convertor extracts a valid LiteLLM user role
+        Test that generic_response_convertor extracts a valid EmbRouter user role
         from the SSO token using the GENERIC_USER_ROLE_ATTRIBUTE env var.
         """
-        from litellm.proxy._types import LitellmUserRoles
-        from litellm.proxy.management_endpoints.ui_sso import generic_response_convertor
+        from embrouter.proxy._types import EmbrouterUserRoles
+        from embrouter.proxy.management_endpoints.ui_sso import generic_response_convertor
 
         mock_jwt_handler = MagicMock(spec=JWTHandler)
         mock_jwt_handler.get_team_ids_from_jwt.return_value = []
@@ -4529,14 +4529,14 @@ class TestGenericResponseConvertorUserRole:
             )
 
             assert isinstance(result, CustomOpenID)
-            assert result.user_role == LitellmUserRoles.PROXY_ADMIN
+            assert result.user_role == EmbrouterUserRoles.PROXY_ADMIN
 
     def test_generic_response_convertor_ignores_invalid_user_role(self):
         """
         Test that generic_response_convertor ignores invalid role values
         and sets user_role to None.
         """
-        from litellm.proxy.management_endpoints.ui_sso import generic_response_convertor
+        from embrouter.proxy.management_endpoints.ui_sso import generic_response_convertor
 
         mock_jwt_handler = MagicMock(spec=JWTHandler)
         mock_jwt_handler.get_team_ids_from_jwt.return_value = []
@@ -4568,10 +4568,10 @@ class TestGetGenericSSORedirectParams:
         """
         Test that CLI state takes highest priority when provided
         """
-        from litellm.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
+        from embrouter.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
 
         # Arrange
-        cli_state = "litellm-session-token:cli-test1234567890"
+        cli_state = "embrouter-session-token:cli-test1234567890"
 
         with patch.dict(os.environ, {"GENERIC_CLIENT_STATE": "env_state_value"}):
             # Act
@@ -4591,7 +4591,7 @@ class TestGetGenericSSORedirectParams:
         """
         Test that GENERIC_CLIENT_STATE environment variable is used when CLI state is not provided
         """
-        from litellm.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
+        from embrouter.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
 
         # Arrange
         env_state = "custom_env_state_value"
@@ -4614,7 +4614,7 @@ class TestGetGenericSSORedirectParams:
         """
         Test that a UUID is generated when neither CLI state nor env variable is provided
         """
-        from litellm.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
+        from embrouter.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
 
         # Arrange - no CLI state and no env variable
         with patch.dict(os.environ, {}, clear=False):
@@ -4643,7 +4643,7 @@ class TestGetGenericSSORedirectParams:
         import base64
         import hashlib
 
-        from litellm.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
+        from embrouter.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
 
         # Arrange
         test_state = "test_state_123"
@@ -4683,7 +4683,7 @@ class TestGetGenericSSORedirectParams:
         """
         Test that PKCE parameters are NOT generated when GENERIC_CLIENT_USE_PKCE is false
         """
-        from litellm.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
+        from embrouter.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
 
         # Arrange
         test_state = "test_state_456"
@@ -4708,7 +4708,7 @@ class TestGetGenericSSORedirectParams:
         """
         Test that CLI state takes priority over env variable even when PKCE is enabled
         """
-        from litellm.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
+        from embrouter.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
 
         # Arrange
         cli_state = "cli_state_priority"
@@ -4743,7 +4743,7 @@ class TestGetGenericSSORedirectParams:
         """
         Test that empty string state is treated as None and uses env variable
         """
-        from litellm.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
+        from embrouter.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
 
         # Arrange
         env_state = "env_state_for_empty_cli"
@@ -4767,7 +4767,7 @@ class TestGetGenericSSORedirectParams:
         """
         Test that multiple calls without state generate different UUIDs
         """
-        from litellm.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
+        from embrouter.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
 
         # Arrange - no state provided
         with patch.dict(os.environ, {}, clear=False):
@@ -4799,7 +4799,7 @@ class TestPKCEFunctionality:
         import base64
         import hashlib
 
-        from litellm.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
+        from embrouter.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
 
         # Act
         code_verifier, code_challenge = SSOAuthenticationHandler.generate_pkce_params()
@@ -4828,7 +4828,7 @@ class TestPKCEFunctionality:
         """
         Test prepare_token_exchange_parameters retrieves PKCE code_verifier from cache
         """
-        from litellm.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
+        from embrouter.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
 
         # Mock request with state parameter
         mock_request = MagicMock(spec=Request)
@@ -4844,8 +4844,8 @@ class TestPKCEFunctionality:
         mock_cache.async_delete_cache = AsyncMock()
 
         with (
-            patch("litellm.proxy.proxy_server.redis_usage_cache", None),
-            patch("litellm.proxy.proxy_server.user_api_key_cache", mock_cache),
+            patch("embrouter.proxy.proxy_server.redis_usage_cache", None),
+            patch("embrouter.proxy.proxy_server.user_api_key_cache", mock_cache),
             patch.dict(os.environ, {"GENERIC_CLIENT_USE_PKCE": "true"}),
         ):
             # Act
@@ -4873,7 +4873,7 @@ class TestPKCEFunctionality:
         """
         Test get_generic_sso_redirect_response with PKCE enabled stores verifier and adds challenge to URL
         """
-        from litellm.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
+        from embrouter.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
 
         # Mock SSO provider
         mock_sso = MagicMock()
@@ -4893,8 +4893,8 @@ class TestPKCEFunctionality:
 
         with patch.dict(os.environ, {"GENERIC_CLIENT_USE_PKCE": "true"}):
             with (
-                patch("litellm.proxy.proxy_server.redis_usage_cache", None),
-                patch("litellm.proxy.proxy_server.user_api_key_cache", mock_cache),
+                patch("embrouter.proxy.proxy_server.redis_usage_cache", None),
+                patch("embrouter.proxy.proxy_server.user_api_key_cache", mock_cache),
             ):
                 # Act
                 result = await SSOAuthenticationHandler.get_generic_sso_redirect_response(
@@ -4927,7 +4927,7 @@ class TestPKCEFunctionality:
         Mock Redis to verify PKCE code_verifier round-trip across "pods":
         Pod A stores verifier in Redis; Pod B retrieves it (no real IdP).
         """
-        from litellm.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
+        from embrouter.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
 
         # In-memory mock of Redis (shared between "pods")
         class MockRedisCache:
@@ -4965,9 +4965,9 @@ class TestPKCEFunctionality:
         mock_sso.__exit__ = MagicMock(return_value=False)
 
         with patch.dict(os.environ, {"GENERIC_CLIENT_USE_PKCE": "true"}):
-            with patch("litellm.proxy.proxy_server.redis_usage_cache", mock_redis):
+            with patch("embrouter.proxy.proxy_server.redis_usage_cache", mock_redis):
                 with patch(
-                    "litellm.proxy.proxy_server.user_api_key_cache", mock_in_memory
+                    "embrouter.proxy.proxy_server.user_api_key_cache", mock_in_memory
                 ):
                     # Pod A: start login, store code_verifier in "Redis"
                     await SSOAuthenticationHandler.get_generic_sso_redirect_response(
@@ -5009,7 +5009,7 @@ class TestPKCEFunctionality:
         Roundtrip works when callback hits same pod (same in-memory cache).
         Single-pod or no-Redis deployments must continue to work.
         """
-        from litellm.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
+        from embrouter.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
 
         # In-memory store (simulates user_api_key_cache on one pod)
         in_memory_store = {}
@@ -5038,9 +5038,9 @@ class TestPKCEFunctionality:
         mock_sso.__exit__ = MagicMock(return_value=False)
 
         with patch.dict(os.environ, {"GENERIC_CLIENT_USE_PKCE": "true"}):
-            with patch("litellm.proxy.proxy_server.redis_usage_cache", None):
+            with patch("embrouter.proxy.proxy_server.redis_usage_cache", None):
                 with patch(
-                    "litellm.proxy.proxy_server.user_api_key_cache", mock_in_memory
+                    "embrouter.proxy.proxy_server.user_api_key_cache", mock_in_memory
                 ):
                     # Pod A: start login, store code_verifier in in-memory cache
                     await SSOAuthenticationHandler.get_generic_sso_redirect_response(
@@ -5083,14 +5083,14 @@ class TestPKCEFunctionality:
         Regression: prepare_token_exchange_parameters with no state in request
         does not call cache and does not add code_verifier.
         """
-        from litellm.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
+        from embrouter.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
 
         mock_redis = MagicMock()
         mock_in_memory = MagicMock()
 
         with (
-            patch("litellm.proxy.proxy_server.redis_usage_cache", mock_redis),
-            patch("litellm.proxy.proxy_server.user_api_key_cache", mock_in_memory),
+            patch("embrouter.proxy.proxy_server.redis_usage_cache", mock_redis),
+            patch("embrouter.proxy.proxy_server.user_api_key_cache", mock_in_memory),
             patch.dict(os.environ, {"GENERIC_CLIENT_USE_PKCE": "true"}, clear=False),
         ):
             mock_request = MagicMock(spec=Request)
@@ -5150,7 +5150,7 @@ class TestPKCEFunctionality:
         mock_userinfo_client.get = AsyncMock(return_value=mock_userinfo_response)
 
         with patch(
-            "litellm.proxy.management_endpoints.ui_sso.get_async_httpx_client"
+            "embrouter.proxy.management_endpoints.ui_sso.get_async_httpx_client"
         ) as mock_get_client:
             mock_get_client.side_effect = [mock_token_client, mock_userinfo_client]
 
@@ -5220,7 +5220,7 @@ class TestPKCEFunctionality:
         mock_userinfo_client.get = AsyncMock(return_value=mock_userinfo)
 
         with patch(
-            "litellm.proxy.management_endpoints.ui_sso.get_async_httpx_client"
+            "embrouter.proxy.management_endpoints.ui_sso.get_async_httpx_client"
         ) as mock_get_client:
             mock_get_client.side_effect = [mock_token_client, mock_userinfo_client]
 
@@ -5246,7 +5246,7 @@ class TestPKCEFunctionality:
     @pytest.mark.asyncio
     async def test_pkce_token_exchange_http200_with_error_body(self):
         """Provider returns HTTP 200 but with an error field instead of tokens."""
-        from litellm.proxy._types import ProxyException
+        from embrouter.proxy._types import ProxyException
 
         error_body = {
             "error": "invalid_grant",
@@ -5254,7 +5254,7 @@ class TestPKCEFunctionality:
         }
 
         with patch(
-            "litellm.proxy.management_endpoints.ui_sso.get_async_httpx_client"
+            "embrouter.proxy.management_endpoints.ui_sso.get_async_httpx_client"
         ) as mock_get_client:
             mock_client = MagicMock()
             mock_resp = MagicMock()
@@ -5295,7 +5295,7 @@ class TestPKCEFunctionality:
         fake_id_token = f"eyJhbGciOiJSUzI1NiJ9.{encoded_payload}.fakesig"
 
         with patch(
-            "litellm.proxy.management_endpoints.ui_sso.get_async_httpx_client"
+            "embrouter.proxy.management_endpoints.ui_sso.get_async_httpx_client"
         ) as mock_get_client:
             mock_client = MagicMock()
             mock_fail = MagicMock()
@@ -5319,7 +5319,7 @@ class TestPKCEFunctionality:
         import base64
         import json as _json
 
-        from litellm.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
+        from embrouter.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
 
         payload = {"sub": "id_token_user", "email": "id@example.com"}
         encoded_payload = (
@@ -5343,11 +5343,11 @@ class TestPKCEFunctionality:
     @pytest.mark.asyncio
     async def test_pkce_userinfo_raises_when_both_sources_unavailable(self):
         """When userinfo endpoint fails AND no id_token, raise ProxyException."""
-        from litellm.proxy._types import ProxyException
-        from litellm.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
+        from embrouter.proxy._types import ProxyException
+        from embrouter.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
 
         with patch(
-            "litellm.proxy.management_endpoints.ui_sso.get_async_httpx_client"
+            "embrouter.proxy.management_endpoints.ui_sso.get_async_httpx_client"
         ) as mock_get_client:
             mock_client = MagicMock()
             mock_fail = MagicMock()
@@ -5370,15 +5370,15 @@ class TestPKCEFunctionality:
     async def test_pkce_userinfo_http200_empty_body_no_id_token_raises(self):
         """When userinfo returns HTTP 200 with an empty/null body and no id_token is
         available, _get_pkce_userinfo raises ProxyException."""
-        from litellm.proxy._types import ProxyException
-        from litellm.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
+        from embrouter.proxy._types import ProxyException
+        from embrouter.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
 
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = None  # HTTP 200 with null JSON body
 
         with patch(
-            "litellm.proxy.management_endpoints.ui_sso.get_async_httpx_client"
+            "embrouter.proxy.management_endpoints.ui_sso.get_async_httpx_client"
         ) as mock_get_client:
             mock_client = MagicMock()
             mock_client.get = AsyncMock(return_value=mock_resp)
@@ -5408,8 +5408,8 @@ class TestPKCEFunctionality:
 
         from starlette.requests import Request
 
-        from litellm.proxy._types import ProxyException
-        from litellm.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
+        from embrouter.proxy._types import ProxyException
+        from embrouter.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
 
         mock_cache = MagicMock(redis_cache=None)
         mock_cache.async_get_cache = AsyncMock(return_value=None)  # verifier not found
@@ -5418,8 +5418,8 @@ class TestPKCEFunctionality:
         mock_request.query_params = {"state": "missing_state_123"}
 
         with (
-            patch("litellm.proxy.proxy_server.redis_usage_cache", None),
-            patch("litellm.proxy.proxy_server.user_api_key_cache", mock_cache),
+            patch("embrouter.proxy.proxy_server.redis_usage_cache", None),
+            patch("embrouter.proxy.proxy_server.user_api_key_cache", mock_cache),
             patch.dict(
                 os.environ,
                 {"GENERIC_CLIENT_USE_PKCE": "true", "PKCE_STRICT_CACHE_MISS": "true"},
@@ -5440,7 +5440,7 @@ class TestPKCEFunctionality:
     async def test_pkce_token_exchange_public_client_no_secret(self):
         """Public PKCE client (include_client_id=False, no secret) sends client_id in
         POST body and does NOT include Basic Auth or client_secret."""
-        from litellm.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
+        from embrouter.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
 
         token_resp = {
             "access_token": "tok_public",
@@ -5477,7 +5477,7 @@ class TestPKCEFunctionality:
         mock_userinfo_client.get = AsyncMock(return_value=mock_userinfo)
 
         with patch(
-            "litellm.proxy.management_endpoints.ui_sso.get_async_httpx_client"
+            "embrouter.proxy.management_endpoints.ui_sso.get_async_httpx_client"
         ) as mock_get_client:
             mock_get_client.side_effect = [mock_token_client, mock_userinfo_client]
 
@@ -5503,7 +5503,7 @@ class TestPKCEFunctionality:
         """
         from unittest.mock import AsyncMock, MagicMock, patch
 
-        from litellm.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
+        from embrouter.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
 
         failing_cache = MagicMock()
         failing_cache.async_delete_cache = AsyncMock(
@@ -5512,8 +5512,8 @@ class TestPKCEFunctionality:
 
         # Should NOT raise even though the underlying cache delete fails
         with (
-            patch("litellm.proxy.proxy_server.redis_usage_cache", None),
-            patch("litellm.proxy.proxy_server.user_api_key_cache", failing_cache),
+            patch("embrouter.proxy.proxy_server.redis_usage_cache", None),
+            patch("embrouter.proxy.proxy_server.user_api_key_cache", failing_cache),
         ):
             await SSOAuthenticationHandler._delete_pkce_verifier(
                 "pkce_verifier:test_state"
@@ -5533,8 +5533,8 @@ class TestPKCEFunctionality:
 
         from starlette.requests import Request
 
-        from litellm.proxy._types import ProxyException
-        from litellm.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
+        from embrouter.proxy._types import ProxyException
+        from embrouter.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
 
         # Cache returns an integer — unexpected format
         mock_cache = MagicMock(redis_cache=None)
@@ -5545,8 +5545,8 @@ class TestPKCEFunctionality:
         mock_request.query_params = {"state": "bad_format_state"}
 
         with (
-            patch("litellm.proxy.proxy_server.redis_usage_cache", None),
-            patch("litellm.proxy.proxy_server.user_api_key_cache", mock_cache),
+            patch("embrouter.proxy.proxy_server.redis_usage_cache", None),
+            patch("embrouter.proxy.proxy_server.user_api_key_cache", mock_cache),
             patch.dict(
                 os.environ,
                 {"GENERIC_CLIENT_USE_PKCE": "true", "PKCE_STRICT_CACHE_MISS": "true"},
@@ -5577,7 +5577,7 @@ class TestPKCEFunctionality:
 
         from starlette.requests import Request
 
-        from litellm.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
+        from embrouter.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
 
         mock_cache = MagicMock(redis_cache=None)
         mock_cache.async_get_cache = AsyncMock(return_value=None)  # verifier not found
@@ -5590,8 +5590,8 @@ class TestPKCEFunctionality:
         # to avoid permanently mutating the test process environment.
         with (
             caplog.at_level(logging.WARNING),
-            patch("litellm.proxy.proxy_server.redis_usage_cache", None),
-            patch("litellm.proxy.proxy_server.user_api_key_cache", mock_cache),
+            patch("embrouter.proxy.proxy_server.redis_usage_cache", None),
+            patch("embrouter.proxy.proxy_server.user_api_key_cache", mock_cache),
             patch.dict(
                 os.environ,
                 {"GENERIC_CLIENT_USE_PKCE": "true", "PKCE_STRICT_CACHE_MISS": "false"},
@@ -5621,15 +5621,15 @@ class TestPKCEFunctionality:
         returns a non-200 status (e.g. 401 Unauthorized from provider)."""
         from unittest.mock import AsyncMock, MagicMock, patch
 
-        from litellm.proxy._types import ProxyException
-        from litellm.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
+        from embrouter.proxy._types import ProxyException
+        from embrouter.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
 
         mock_response = MagicMock()
         mock_response.status_code = 401
         mock_response.text = "Unauthorized"
 
         with patch(
-            "litellm.proxy.management_endpoints.ui_sso.get_async_httpx_client"
+            "embrouter.proxy.management_endpoints.ui_sso.get_async_httpx_client"
         ) as mock_get_client:
             mock_client = MagicMock()
             mock_client.post = AsyncMock(return_value=mock_response)
@@ -5664,7 +5664,7 @@ class TestPKCEFunctionality:
 
         from starlette.requests import Request
 
-        from litellm.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
+        from embrouter.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
 
         # Cache returns an integer — unexpected format
         mock_cache = MagicMock(redis_cache=None)
@@ -5679,8 +5679,8 @@ class TestPKCEFunctionality:
         # mutating the test process environment with os.environ.pop().
         with (
             caplog.at_level(logging.WARNING),
-            patch("litellm.proxy.proxy_server.redis_usage_cache", None),
-            patch("litellm.proxy.proxy_server.user_api_key_cache", mock_cache),
+            patch("embrouter.proxy.proxy_server.redis_usage_cache", None),
+            patch("embrouter.proxy.proxy_server.user_api_key_cache", mock_cache),
             patch.dict(
                 os.environ,
                 {"GENERIC_CLIENT_USE_PKCE": "true", "PKCE_STRICT_CACHE_MISS": "false"},
@@ -5716,7 +5716,7 @@ class TestPKCEFunctionality:
 
         from starlette.requests import Request
 
-        from litellm.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
+        from embrouter.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
 
         legacy_verifier = "legacy_plain_string_verifier_abc123"
         mock_cache = MagicMock(redis_cache=None)
@@ -5726,8 +5726,8 @@ class TestPKCEFunctionality:
         mock_request.query_params = {"state": "legacy_state_xyz"}
 
         with (
-            patch("litellm.proxy.proxy_server.redis_usage_cache", None),
-            patch("litellm.proxy.proxy_server.user_api_key_cache", mock_cache),
+            patch("embrouter.proxy.proxy_server.redis_usage_cache", None),
+            patch("embrouter.proxy.proxy_server.user_api_key_cache", mock_cache),
             patch.dict(os.environ, {"GENERIC_CLIENT_USE_PKCE": "true"}, clear=False),
         ):
             result = await SSOAuthenticationHandler.prepare_token_exchange_parameters(
@@ -5741,11 +5741,11 @@ class TestPKCEFunctionality:
     async def test_pkce_token_exchange_null_json_body_raises_proxy_exception(self):
         """HTTP 200 with JSON body `null` raises a clean ProxyException instead of
         AttributeError when .get() is called on the None return value."""
-        from litellm.proxy._types import ProxyException
-        from litellm.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
+        from embrouter.proxy._types import ProxyException
+        from embrouter.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
 
         with patch(
-            "litellm.proxy.management_endpoints.ui_sso.get_async_httpx_client"
+            "embrouter.proxy.management_endpoints.ui_sso.get_async_httpx_client"
         ) as mock_get_client:
             mock_client = MagicMock()
             mock_resp = MagicMock()
@@ -5775,13 +5775,13 @@ class TestPKCEFunctionality:
     async def test_pkce_token_exchange_http200_no_error_field_no_access_token(self):
         """HTTP 200 with no error field and no access_token raises ProxyException
         with a descriptive message showing the actual response keys."""
-        from litellm.proxy._types import ProxyException
-        from litellm.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
+        from embrouter.proxy._types import ProxyException
+        from embrouter.proxy.management_endpoints.ui_sso import SSOAuthenticationHandler
 
         body_without_token = {"token_type": "Bearer", "scope": "openid"}
 
         with patch(
-            "litellm.proxy.management_endpoints.ui_sso.get_async_httpx_client"
+            "embrouter.proxy.management_endpoints.ui_sso.get_async_httpx_client"
         ) as mock_get_client:
             mock_client = MagicMock()
             mock_resp = MagicMock()
@@ -5822,8 +5822,8 @@ class TestAddMissingTeamMember:
 
         Currently FAILS: The function returns early when teams is None.
         """
-        from litellm.proxy._types import NewUserResponse
-        from litellm.proxy.management_endpoints.ui_sso import add_missing_team_member
+        from embrouter.proxy._types import NewUserResponse
+        from embrouter.proxy.management_endpoints.ui_sso import add_missing_team_member
 
         # Simulate a new SSO user - NewUserResponse has teams=None by default
         new_user = NewUserResponse(
@@ -5835,7 +5835,7 @@ class TestAddMissingTeamMember:
         sso_teams = ["team-from-entra-1", "team-from-entra-2"]
 
         with patch(
-            "litellm.proxy.management_endpoints.ui_sso.create_team_member_add_task"
+            "embrouter.proxy.management_endpoints.ui_sso.create_team_member_add_task"
         ) as mock_add_task:
             mock_add_task.return_value = AsyncMock()
 
@@ -5853,18 +5853,18 @@ class TestAddMissingTeamMember:
             }
 
     @pytest.mark.asyncio
-    async def test_add_missing_team_member_with_litellm_user_table_empty_teams(self):
+    async def test_add_missing_team_member_with_embrouter_user_table_empty_teams(self):
         """
-        Control test: When a LiteLLM_UserTable has teams=[] (existing user, no teams),
+        Control test: When a EmbRouter_UserTable has teams=[] (existing user, no teams),
         add_missing_team_member() should add the user to SSO teams.
 
-        This test PASSES because LiteLLM_UserTable defaults teams to [] not None.
+        This test PASSES because EmbRouter_UserTable defaults teams to [] not None.
         """
-        from litellm.proxy._types import LiteLLM_UserTable
-        from litellm.proxy.management_endpoints.ui_sso import add_missing_team_member
+        from embrouter.proxy._types import EmbRouter_UserTable
+        from embrouter.proxy.management_endpoints.ui_sso import add_missing_team_member
 
         # Existing user has teams=[] by default (not None)
-        existing_user = LiteLLM_UserTable(
+        existing_user = EmbRouter_UserTable(
             user_id="existing-user-456",
             teams=[],  # Empty list, not None
         )
@@ -5872,7 +5872,7 @@ class TestAddMissingTeamMember:
         sso_teams = ["team-from-entra-1", "team-from-entra-2"]
 
         with patch(
-            "litellm.proxy.management_endpoints.ui_sso.create_team_member_add_task"
+            "embrouter.proxy.management_endpoints.ui_sso.create_team_member_add_task"
         ) as mock_add_task:
             mock_add_task.return_value = AsyncMock()
 
@@ -5887,9 +5887,9 @@ class TestAddMissingTeamMember:
         Integration test: Simulates the SSO response handler with a new user
         that has teams=None from NewUserResponse.
         """
-        from litellm.proxy._types import NewUserResponse
-        from litellm.proxy.management_endpoints.types import CustomOpenID
-        from litellm.proxy.management_endpoints.ui_sso import (
+        from embrouter.proxy._types import NewUserResponse
+        from embrouter.proxy.management_endpoints.types import CustomOpenID
+        from embrouter.proxy.management_endpoints.ui_sso import (
             SSOAuthenticationHandler,
         )
 
@@ -5908,7 +5908,7 @@ class TestAddMissingTeamMember:
         )
 
         with patch(
-            "litellm.proxy.management_endpoints.ui_sso.add_missing_team_member"
+            "embrouter.proxy.management_endpoints.ui_sso.add_missing_team_member"
         ) as mock_add_member:
             await SSOAuthenticationHandler.add_user_to_teams_from_sso_response(
                 result=sso_result,
@@ -5926,8 +5926,8 @@ class TestAddMissingTeamMember:
         End-to-end test: Simulates complete first-time SSO login with Entra groups.
         Verifies teams are created AND user is added as a member.
         """
-        from litellm.proxy._types import NewUserResponse
-        from litellm.proxy.management_endpoints.ui_sso import add_missing_team_member
+        from embrouter.proxy._types import NewUserResponse
+        from embrouter.proxy.management_endpoints.ui_sso import add_missing_team_member
 
         team_member_calls = []
 
@@ -5944,7 +5944,7 @@ class TestAddMissingTeamMember:
         sso_teams = ["entra-team-alpha", "entra-team-beta"]
 
         with patch(
-            "litellm.proxy.management_endpoints.ui_sso.create_team_member_add_task",
+            "embrouter.proxy.management_endpoints.ui_sso.create_team_member_add_task",
             side_effect=track_team_member_add,
         ):
             await add_missing_team_member(user_info=new_user, sso_teams=sso_teams)
@@ -5971,16 +5971,16 @@ class TestAddMissingTeamMember:
                 ["team-1", "team-2"],  # Should still add teams
                 id="new_user_teams_none",
             ),
-            # Working case: LiteLLM_UserTable with teams=[]
+            # Working case: EmbRouter_UserTable with teams=[]
             pytest.param(
-                lambda uid: LiteLLM_UserTable(user_id=uid, teams=[]),
+                lambda uid: EmbRouter_UserTable(user_id=uid, teams=[]),
                 [],
                 ["team-1", "team-2"],
                 id="existing_user_empty_teams",
             ),
             # Existing user with some teams already
             pytest.param(
-                lambda uid: LiteLLM_UserTable(user_id=uid, teams=["team-1"]),
+                lambda uid: EmbRouter_UserTable(user_id=uid, teams=["team-1"]),
                 ["team-1"],
                 ["team-2"],  # Only missing team should be added
                 id="existing_user_partial_teams",
@@ -5993,7 +5993,7 @@ class TestAddMissingTeamMember:
         """
         Parametrized test ensuring add_missing_team_member works for all user types.
         """
-        from litellm.proxy.management_endpoints.ui_sso import add_missing_team_member
+        from embrouter.proxy.management_endpoints.ui_sso import add_missing_team_member
 
         user_info = user_info_factory("test-user-id")
         sso_teams = ["team-1", "team-2"]
@@ -6004,7 +6004,7 @@ class TestAddMissingTeamMember:
             added_teams.append(team_id)
 
         with patch(
-            "litellm.proxy.management_endpoints.ui_sso.create_team_member_add_task",
+            "embrouter.proxy.management_endpoints.ui_sso.create_team_member_add_task",
             side_effect=mock_create_task,
         ):
             await add_missing_team_member(user_info=user_info, sso_teams=sso_teams)
@@ -6020,15 +6020,15 @@ async def test_role_mappings_override_default_internal_user_params():
     Test that when role_mappings is configured in SSO settings,
     the SSO-extracted role overrides default_internal_user_params role.
     """
-    from litellm.proxy._types import NewUserResponse, SSOUserDefinedValues
-    from litellm.proxy.management_endpoints.ui_sso import insert_sso_user
+    from embrouter.proxy._types import NewUserResponse, SSOUserDefinedValues
+    from embrouter.proxy.management_endpoints.ui_sso import insert_sso_user
 
     # Save original default_internal_user_params
-    original_default_params = getattr(litellm, "default_internal_user_params", None)
+    original_default_params = getattr(embrouter, "default_internal_user_params", None)
 
     try:
         # Set default_internal_user_params with a role that should be overridden
-        litellm.default_internal_user_params = {
+        embrouter.default_internal_user_params = {
             "user_role": "internal_user",
             "max_budget": 100,
             "budget_duration": "30d",
@@ -6062,7 +6062,7 @@ async def test_role_mappings_override_default_internal_user_params():
         )
 
         with patch(
-            "litellm.proxy.management_endpoints.ui_sso.new_user",
+            "embrouter.proxy.management_endpoints.ui_sso.new_user",
             return_value=mock_new_user_response,
         ) as mock_new_user:
             # Act
@@ -6091,8 +6091,8 @@ async def test_role_mappings_override_default_internal_user_params():
 
     finally:
         # Restore original default_internal_user_params (always assign, never delattr —
-        # the attribute is defined in litellm/__init__.py and delattr-ing it breaks parallel tests)
-        litellm.default_internal_user_params = original_default_params
+        # the attribute is defined in embrouter/__init__.py and delattr-ing it breaks parallel tests)
+        embrouter.default_internal_user_params = original_default_params
 
 
 @pytest.mark.asyncio
@@ -6101,18 +6101,18 @@ async def test_sso_role_preserved_without_role_mappings():
     Test that SSO-extracted role is preserved even when role_mappings is NOT configured.
 
     This covers the case where the role comes from Microsoft app_roles or
-    GENERIC_USER_ROLE_ATTRIBUTE (not from LiteLLM's role_mappings feature).
+    GENERIC_USER_ROLE_ATTRIBUTE (not from EmbRouter's role_mappings feature).
     Previously, the role was only preserved when role_mappings was configured,
     causing admin users to be downgraded to internal_user.
     """
-    from litellm.proxy._types import NewUserResponse, SSOUserDefinedValues
-    from litellm.proxy.management_endpoints.ui_sso import insert_sso_user
+    from embrouter.proxy._types import NewUserResponse, SSOUserDefinedValues
+    from embrouter.proxy.management_endpoints.ui_sso import insert_sso_user
 
-    original_default_params = getattr(litellm, "default_internal_user_params", None)
+    original_default_params = getattr(embrouter, "default_internal_user_params", None)
 
     try:
         # Set default_internal_user_params (as most deployments do)
-        litellm.default_internal_user_params = {
+        embrouter.default_internal_user_params = {
             "user_role": "internal_user",
             "max_budget": 50,
         }
@@ -6145,7 +6145,7 @@ async def test_sso_role_preserved_without_role_mappings():
 
         # No role_mappings configured anywhere - the role came from app_roles
         with patch(
-            "litellm.proxy.management_endpoints.ui_sso.new_user",
+            "embrouter.proxy.management_endpoints.ui_sso.new_user",
             return_value=mock_new_user_response,
         ) as mock_new_user:
             _ = await insert_sso_user(
@@ -6175,8 +6175,8 @@ async def test_sso_role_preserved_without_role_mappings():
     finally:
         # Restore original default_internal_user_params (always assign, never delattr —
         # deleting the attribute causes AttributeError in subsequent tests because
-        # litellm.__getattr__ has no handler for this name)
-        litellm.default_internal_user_params = original_default_params
+        # embrouter.__getattr__ has no handler for this name)
+        embrouter.default_internal_user_params = original_default_params
 
 
 class TestSSOReadinessEndpoint:
@@ -6187,13 +6187,13 @@ class TestSSOReadinessEndpoint:
         """Test that readiness returns healthy when no SSO is configured"""
         from fastapi.testclient import TestClient
 
-        from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-        from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-        from litellm.proxy.proxy_server import app
+        from embrouter.proxy._types import EmbrouterUserRoles, UserAPIKeyAuth
+        from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+        from embrouter.proxy.proxy_server import app
 
         mock_user_auth = UserAPIKeyAuth(
             user_id="test-user-123",
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=EmbrouterUserRoles.PROXY_ADMIN,
         )
         app.dependency_overrides[user_api_key_auth] = lambda: mock_user_auth
 
@@ -6216,13 +6216,13 @@ class TestSSOReadinessEndpoint:
         """Test that readiness returns healthy when Google SSO is fully configured"""
         from fastapi.testclient import TestClient
 
-        from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-        from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-        from litellm.proxy.proxy_server import app
+        from embrouter.proxy._types import EmbrouterUserRoles, UserAPIKeyAuth
+        from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+        from embrouter.proxy.proxy_server import app
 
         mock_user_auth = UserAPIKeyAuth(
             user_id="test-user-123",
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=EmbrouterUserRoles.PROXY_ADMIN,
         )
         app.dependency_overrides[user_api_key_auth] = lambda: mock_user_auth
 
@@ -6253,13 +6253,13 @@ class TestSSOReadinessEndpoint:
         """Test that readiness returns unhealthy when Google SSO is missing GOOGLE_CLIENT_SECRET"""
         from fastapi.testclient import TestClient
 
-        from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-        from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-        from litellm.proxy.proxy_server import app
+        from embrouter.proxy._types import EmbrouterUserRoles, UserAPIKeyAuth
+        from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+        from embrouter.proxy.proxy_server import app
 
         mock_user_auth = UserAPIKeyAuth(
             user_id="test-user-123",
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=EmbrouterUserRoles.PROXY_ADMIN,
         )
         app.dependency_overrides[user_api_key_auth] = lambda: mock_user_auth
 
@@ -6314,13 +6314,13 @@ class TestSSOReadinessEndpoint:
         """Test Microsoft SSO readiness with both fully configured and missing variables"""
         from fastapi.testclient import TestClient
 
-        from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-        from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-        from litellm.proxy.proxy_server import app
+        from embrouter.proxy._types import EmbrouterUserRoles, UserAPIKeyAuth
+        from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+        from embrouter.proxy.proxy_server import app
 
         mock_user_auth = UserAPIKeyAuth(
             user_id="test-user-123",
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=EmbrouterUserRoles.PROXY_ADMIN,
         )
         app.dependency_overrides[user_api_key_auth] = lambda: mock_user_auth
 
@@ -6384,13 +6384,13 @@ class TestSSOReadinessEndpoint:
         """Test Generic SSO readiness with both fully configured and missing variables"""
         from fastapi.testclient import TestClient
 
-        from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-        from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-        from litellm.proxy.proxy_server import app
+        from embrouter.proxy._types import EmbrouterUserRoles, UserAPIKeyAuth
+        from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+        from embrouter.proxy.proxy_server import app
 
         mock_user_auth = UserAPIKeyAuth(
             user_id="test-user-123",
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=EmbrouterUserRoles.PROXY_ADMIN,
         )
         app.dependency_overrides[user_api_key_auth] = lambda: mock_user_auth
 
@@ -6561,12 +6561,12 @@ async def test_setup_team_mappings():
     mock_prisma = MagicMock()
     mock_sso_config = MagicMock()
     mock_sso_config.sso_settings = {"team_mappings": {"team_ids_jwt_field": "groups"}}
-    mock_prisma.db.litellm_ssoconfig.find_unique = AsyncMock(
+    mock_prisma.db.embrouter_ssoconfig.find_unique = AsyncMock(
         return_value=mock_sso_config
     )
 
     with patch(
-        "litellm.proxy.utils.get_prisma_client_or_throw",
+        "embrouter.proxy.utils.get_prisma_client_or_throw",
         return_value=mock_prisma,
     ):
         # Act
@@ -6576,50 +6576,50 @@ async def test_setup_team_mappings():
         assert result is not None
         assert isinstance(result, TeamMappings)
         assert result.team_ids_jwt_field == "groups"
-        mock_prisma.db.litellm_ssoconfig.find_unique.assert_called_once_with(
+        mock_prisma.db.embrouter_ssoconfig.find_unique.assert_called_once_with(
             where={"id": "sso_config"}
         )
 
 
 # ============================================================================
-# Tests for get_litellm_user_role with list inputs (Keycloak returns lists)
+# Tests for get_embrouter_user_role with list inputs (Keycloak returns lists)
 # ============================================================================
 
 
-def test_get_litellm_user_role_with_string():
-    """Test that get_litellm_user_role works with a plain string."""
-    from litellm.proxy._types import LitellmUserRoles
-    from litellm.proxy.management_endpoints.types import get_litellm_user_role
+def test_get_embrouter_user_role_with_string():
+    """Test that get_embrouter_user_role works with a plain string."""
+    from embrouter.proxy._types import EmbrouterUserRoles
+    from embrouter.proxy.management_endpoints.types import get_embrouter_user_role
 
-    result = get_litellm_user_role("proxy_admin")
-    assert result == LitellmUserRoles.PROXY_ADMIN
+    result = get_embrouter_user_role("proxy_admin")
+    assert result == EmbrouterUserRoles.PROXY_ADMIN
 
 
-def test_get_litellm_user_role_with_list():
+def test_get_embrouter_user_role_with_list():
     """
-    Test that get_litellm_user_role handles list inputs.
+    Test that get_embrouter_user_role handles list inputs.
     Keycloak returns roles as arrays like ["proxy_admin"] instead of strings.
     """
-    from litellm.proxy._types import LitellmUserRoles
-    from litellm.proxy.management_endpoints.types import get_litellm_user_role
+    from embrouter.proxy._types import EmbrouterUserRoles
+    from embrouter.proxy.management_endpoints.types import get_embrouter_user_role
 
-    result = get_litellm_user_role(["proxy_admin"])
-    assert result == LitellmUserRoles.PROXY_ADMIN
+    result = get_embrouter_user_role(["proxy_admin"])
+    assert result == EmbrouterUserRoles.PROXY_ADMIN
 
 
-def test_get_litellm_user_role_with_empty_list():
-    """Test that get_litellm_user_role returns None for empty lists."""
-    from litellm.proxy.management_endpoints.types import get_litellm_user_role
+def test_get_embrouter_user_role_with_empty_list():
+    """Test that get_embrouter_user_role returns None for empty lists."""
+    from embrouter.proxy.management_endpoints.types import get_embrouter_user_role
 
-    result = get_litellm_user_role([])
+    result = get_embrouter_user_role([])
     assert result is None
 
 
-def test_get_litellm_user_role_with_invalid_role():
-    """Test that get_litellm_user_role returns None for invalid roles."""
-    from litellm.proxy.management_endpoints.types import get_litellm_user_role
+def test_get_embrouter_user_role_with_invalid_role():
+    """Test that get_embrouter_user_role returns None for invalid roles."""
+    from embrouter.proxy.management_endpoints.types import get_embrouter_user_role
 
-    result = get_litellm_user_role("not_a_real_role")
+    result = get_embrouter_user_role("not_a_real_role")
     assert result is None
 
 
@@ -6630,12 +6630,12 @@ def test_get_litellm_user_role_with_invalid_role():
         ["internal_user", "proxy_admin"],
     ],
 )
-def test_get_litellm_user_role_picks_highest_privilege_regardless_of_order(role_claim):
+def test_get_embrouter_user_role_picks_highest_privilege_regardless_of_order(role_claim):
     """A multi-valued role claim resolves to the most privileged role, not the first one listed."""
-    from litellm.proxy._types import LitellmUserRoles
-    from litellm.proxy.management_endpoints.types import get_litellm_user_role
+    from embrouter.proxy._types import EmbrouterUserRoles
+    from embrouter.proxy.management_endpoints.types import get_embrouter_user_role
 
-    assert get_litellm_user_role(role_claim) == LitellmUserRoles.PROXY_ADMIN
+    assert get_embrouter_user_role(role_claim) == EmbrouterUserRoles.PROXY_ADMIN
 
 
 @pytest.mark.parametrize(
@@ -6645,31 +6645,31 @@ def test_get_litellm_user_role_picks_highest_privilege_regardless_of_order(role_
         ["internal_user", "proxy_admin_viewer"],
     ],
 )
-def test_get_litellm_user_role_keeps_org_spend_visibility_for_mixed_roles(role_claim):
+def test_get_embrouter_user_role_keeps_org_spend_visibility_for_mixed_roles(role_claim):
     """
     Regression for LIT-6077: a user holding both proxy_admin_viewer and internal_user kept
     losing org-level spend visibility whenever the IdP happened to list internal_user first.
     """
-    from litellm.proxy._types import LitellmUserRoles
-    from litellm.proxy.management_endpoints.types import get_litellm_user_role
+    from embrouter.proxy._types import EmbrouterUserRoles
+    from embrouter.proxy.management_endpoints.types import get_embrouter_user_role
 
-    assert get_litellm_user_role(role_claim) == LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY
-
-
-def test_get_litellm_user_role_ignores_unrecognised_entries():
-    """Roles LiteLLM does not know about are skipped rather than swallowing the whole claim."""
-    from litellm.proxy._types import LitellmUserRoles
-    from litellm.proxy.management_endpoints.types import get_litellm_user_role
-
-    assert get_litellm_user_role(["some_idp_group", "internal_user"]) == LitellmUserRoles.INTERNAL_USER
-    assert get_litellm_user_role(["some_idp_group", "another_group"]) is None
+    assert get_embrouter_user_role(role_claim) == EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY
 
 
-def test_get_litellm_user_role_list_lookup_is_case_insensitive():
-    from litellm.proxy._types import LitellmUserRoles
-    from litellm.proxy.management_endpoints.types import get_litellm_user_role
+def test_get_embrouter_user_role_ignores_unrecognised_entries():
+    """Roles EmbRouter does not know about are skipped rather than swallowing the whole claim."""
+    from embrouter.proxy._types import EmbrouterUserRoles
+    from embrouter.proxy.management_endpoints.types import get_embrouter_user_role
 
-    assert get_litellm_user_role(["INTERNAL_USER", "Proxy_Admin"]) == LitellmUserRoles.PROXY_ADMIN
+    assert get_embrouter_user_role(["some_idp_group", "internal_user"]) == EmbrouterUserRoles.INTERNAL_USER
+    assert get_embrouter_user_role(["some_idp_group", "another_group"]) is None
+
+
+def test_get_embrouter_user_role_list_lookup_is_case_insensitive():
+    from embrouter.proxy._types import EmbrouterUserRoles
+    from embrouter.proxy.management_endpoints.types import get_embrouter_user_role
+
+    assert get_embrouter_user_role(["INTERNAL_USER", "Proxy_Admin"]) == EmbrouterUserRoles.PROXY_ADMIN
 
 
 @pytest.mark.parametrize(
@@ -6679,12 +6679,12 @@ def test_get_litellm_user_role_list_lookup_is_case_insensitive():
         ["team", "org_admin"],
     ],
 )
-def test_get_litellm_user_role_is_deterministic_for_unranked_roles(role_claim):
+def test_get_embrouter_user_role_is_deterministic_for_unranked_roles(role_claim):
     """Roles outside the privilege hierarchy still resolve the same way in either claim order."""
-    from litellm.proxy._types import LitellmUserRoles
-    from litellm.proxy.management_endpoints.types import get_litellm_user_role
+    from embrouter.proxy._types import EmbrouterUserRoles
+    from embrouter.proxy.management_endpoints.types import get_embrouter_user_role
 
-    assert get_litellm_user_role(role_claim) == LitellmUserRoles.ORG_ADMIN
+    assert get_embrouter_user_role(role_claim) == EmbrouterUserRoles.ORG_ADMIN
 
 
 @pytest.mark.parametrize(
@@ -6694,23 +6694,23 @@ def test_get_litellm_user_role_is_deterministic_for_unranked_roles(role_claim):
         ["internal_user", "org_admin"],
     ],
 )
-def test_get_litellm_user_role_prefers_a_ranked_role_over_an_unranked_one(role_claim):
+def test_get_embrouter_user_role_prefers_a_ranked_role_over_an_unranked_one(role_claim):
     """
     org_admin, team and customer sit outside the privilege ladder, so a claim mixing one of
     them with a ranked role settles on the ranked role in either order. Same rule the Entra
     app_roles and role_mappings paths already follow.
     """
-    from litellm.proxy._types import LitellmUserRoles
-    from litellm.proxy.management_endpoints.types import get_litellm_user_role
+    from embrouter.proxy._types import EmbrouterUserRoles
+    from embrouter.proxy.management_endpoints.types import get_embrouter_user_role
 
-    assert get_litellm_user_role(role_claim) == LitellmUserRoles.INTERNAL_USER
+    assert get_embrouter_user_role(role_claim) == EmbrouterUserRoles.INTERNAL_USER
 
 
-def test_get_litellm_user_role_returns_none_for_non_string_claims():
-    from litellm.proxy.management_endpoints.types import get_litellm_user_role
+def test_get_embrouter_user_role_returns_none_for_non_string_claims():
+    from embrouter.proxy.management_endpoints.types import get_embrouter_user_role
 
-    assert get_litellm_user_role(None) is None
-    assert get_litellm_user_role({"role": "proxy_admin"}) is None
+    assert get_embrouter_user_role(None) is None
+    assert get_embrouter_user_role({"role": "proxy_admin"}) is None
 
 
 # ============================================================================
@@ -6729,13 +6729,13 @@ def test_process_sso_jwt_access_token_extracts_role_from_access_token():
     """
     import jwt as pyjwt
 
-    from litellm.proxy._types import LitellmUserRoles
+    from embrouter.proxy._types import EmbrouterUserRoles
 
     # Create a JWT access token with role claims (as Keycloak would)
     access_token_payload = {
         "sub": "user-123",
         "email": "admin@test.com",
-        "litellm_role": ["proxy_admin"],
+        "embrouter_role": ["proxy_admin"],
     }
     access_token_str = pyjwt.encode(access_token_payload, "secret", algorithm="HS256")
 
@@ -6748,8 +6748,8 @@ def test_process_sso_jwt_access_token_extracts_role_from_access_token():
         user_role=None,
     )
 
-    # Call with GENERIC_USER_ROLE_ATTRIBUTE pointing to litellm_role
-    with patch.dict(os.environ, {"GENERIC_USER_ROLE_ATTRIBUTE": "litellm_role"}):
+    # Call with GENERIC_USER_ROLE_ATTRIBUTE pointing to embrouter_role
+    with patch.dict(os.environ, {"GENERIC_USER_ROLE_ATTRIBUTE": "embrouter_role"}):
         process_sso_jwt_access_token(
             access_token_str=access_token_str,
             sso_jwt_handler=None,
@@ -6757,7 +6757,7 @@ def test_process_sso_jwt_access_token_extracts_role_from_access_token():
             role_mappings=None,
         )
 
-    assert result.user_role == LitellmUserRoles.PROXY_ADMIN
+    assert result.user_role == EmbrouterUserRoles.PROXY_ADMIN
 
 
 @pytest.mark.parametrize(
@@ -6774,10 +6774,10 @@ def test_process_sso_jwt_access_token_resolves_highest_privilege_role(role_claim
     """
     import jwt as pyjwt
 
-    from litellm.proxy._types import LitellmUserRoles
+    from embrouter.proxy._types import EmbrouterUserRoles
 
     access_token_str = pyjwt.encode(
-        {"sub": "user-123", "email": "mixed@test.com", "litellm_role": role_claim},
+        {"sub": "user-123", "email": "mixed@test.com", "embrouter_role": role_claim},
         "secret",
         algorithm="HS256",
     )
@@ -6789,7 +6789,7 @@ def test_process_sso_jwt_access_token_resolves_highest_privilege_role(role_claim
         user_role=None,
     )
 
-    with patch.dict(os.environ, {"GENERIC_USER_ROLE_ATTRIBUTE": "litellm_role"}):
+    with patch.dict(os.environ, {"GENERIC_USER_ROLE_ATTRIBUTE": "embrouter_role"}):
         process_sso_jwt_access_token(
             access_token_str=access_token_str,
             sso_jwt_handler=None,
@@ -6797,7 +6797,7 @@ def test_process_sso_jwt_access_token_resolves_highest_privilege_role(role_claim
             role_mappings=None,
         )
 
-    assert result.user_role == LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY
+    assert result.user_role == EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY
 
 
 def test_process_sso_jwt_access_token_does_not_override_existing_role():
@@ -6807,11 +6807,11 @@ def test_process_sso_jwt_access_token_does_not_override_existing_role():
     """
     import jwt as pyjwt
 
-    from litellm.proxy._types import LitellmUserRoles
+    from embrouter.proxy._types import EmbrouterUserRoles
 
     access_token_payload = {
         "sub": "user-123",
-        "litellm_role": ["internal_user"],
+        "embrouter_role": ["internal_user"],
     }
     access_token_str = pyjwt.encode(access_token_payload, "secret", algorithm="HS256")
 
@@ -6821,10 +6821,10 @@ def test_process_sso_jwt_access_token_does_not_override_existing_role():
         email="admin@test.com",
         display_name="Admin User",
         team_ids=[],
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN,
     )
 
-    with patch.dict(os.environ, {"GENERIC_USER_ROLE_ATTRIBUTE": "litellm_role"}):
+    with patch.dict(os.environ, {"GENERIC_USER_ROLE_ATTRIBUTE": "embrouter_role"}):
         process_sso_jwt_access_token(
             access_token_str=access_token_str,
             sso_jwt_handler=None,
@@ -6833,7 +6833,7 @@ def test_process_sso_jwt_access_token_does_not_override_existing_role():
         )
 
     # Should keep the original role
-    assert result.user_role == LitellmUserRoles.PROXY_ADMIN
+    assert result.user_role == EmbrouterUserRoles.PROXY_ADMIN
 
 
 def test_process_sso_jwt_access_token_extracts_role_from_nested_field():
@@ -6842,7 +6842,7 @@ def test_process_sso_jwt_access_token_extracts_role_from_nested_field():
     """
     import jwt as pyjwt
 
-    from litellm.proxy._types import LitellmUserRoles
+    from embrouter.proxy._types import EmbrouterUserRoles
 
     access_token_payload = {
         "sub": "user-123",
@@ -6868,7 +6868,7 @@ def test_process_sso_jwt_access_token_extracts_role_from_nested_field():
             role_mappings=None,
         )
 
-    assert result.user_role == LitellmUserRoles.PROXY_ADMIN
+    assert result.user_role == EmbrouterUserRoles.PROXY_ADMIN
 
 
 def test_process_sso_jwt_access_token_with_role_mappings():
@@ -6878,8 +6878,8 @@ def test_process_sso_jwt_access_token_with_role_mappings():
     """
     import jwt as pyjwt
 
-    from litellm.proxy._types import LitellmUserRoles
-    from litellm.types.proxy.management_endpoints.ui_sso import RoleMappings
+    from embrouter.proxy._types import EmbrouterUserRoles
+    from embrouter.types.proxy.management_endpoints.ui_sso import RoleMappings
 
     access_token_payload = {
         "sub": "user-123",
@@ -6898,10 +6898,10 @@ def test_process_sso_jwt_access_token_with_role_mappings():
     role_mappings = RoleMappings(
         provider="generic",
         group_claim="groups",
-        default_role=LitellmUserRoles.INTERNAL_USER,
+        default_role=EmbrouterUserRoles.INTERNAL_USER,
         roles={
-            LitellmUserRoles.PROXY_ADMIN: ["keycloak-admins"],
-            LitellmUserRoles.INTERNAL_USER: ["developers"],
+            EmbrouterUserRoles.PROXY_ADMIN: ["keycloak-admins"],
+            EmbrouterUserRoles.INTERNAL_USER: ["developers"],
         },
     )
 
@@ -6913,12 +6913,12 @@ def test_process_sso_jwt_access_token_with_role_mappings():
     )
 
     # Should get highest privilege role
-    assert result.user_role == LitellmUserRoles.PROXY_ADMIN
+    assert result.user_role == EmbrouterUserRoles.PROXY_ADMIN
 
 
 def test_generic_response_convertor_with_extra_attributes(monkeypatch):
     """Test that extra attributes are extracted when GENERIC_USER_EXTRA_ATTRIBUTES is set"""
-    from litellm.proxy.management_endpoints.ui_sso import generic_response_convertor
+    from embrouter.proxy.management_endpoints.ui_sso import generic_response_convertor
 
     monkeypatch.setenv("GENERIC_CLIENT_ID", "test_client")
     monkeypatch.setenv(
@@ -6955,7 +6955,7 @@ def test_generic_response_convertor_with_extra_attributes(monkeypatch):
 
 def test_generic_response_convertor_without_extra_attributes(monkeypatch):
     """Test backward compatibility - extra_fields is None when env var not set"""
-    from litellm.proxy.management_endpoints.ui_sso import generic_response_convertor
+    from embrouter.proxy.management_endpoints.ui_sso import generic_response_convertor
 
     monkeypatch.setenv("GENERIC_CLIENT_ID", "test_client")
     # Don't set GENERIC_USER_EXTRA_ATTRIBUTES
@@ -6986,7 +6986,7 @@ def test_generic_response_convertor_without_extra_attributes(monkeypatch):
 
 def test_generic_response_convertor_extra_attributes_with_nested_paths(monkeypatch):
     """Test that nested paths work with dot notation"""
-    from litellm.proxy.management_endpoints.ui_sso import generic_response_convertor
+    from embrouter.proxy.management_endpoints.ui_sso import generic_response_convertor
 
     monkeypatch.setenv("GENERIC_CLIENT_ID", "test_client")
     monkeypatch.setenv(
@@ -7016,7 +7016,7 @@ def test_generic_response_convertor_extra_attributes_with_nested_paths(monkeypat
 
 def test_generic_response_convertor_extra_attributes_missing_field(monkeypatch):
     """Test that missing fields return None"""
-    from litellm.proxy.management_endpoints.ui_sso import generic_response_convertor
+    from embrouter.proxy.management_endpoints.ui_sso import generic_response_convertor
 
     monkeypatch.setenv("GENERIC_CLIENT_ID", "test_client")
     monkeypatch.setenv("GENERIC_USER_EXTRA_ATTRIBUTES", "missing_field,another_missing")
@@ -7045,7 +7045,7 @@ class TestCliSsoAttributionMetadata:
     """CLI SSO allowlisted OIDC claim persistence and poll exposure."""
 
     def test_parse_cli_sso_claim_map(self, monkeypatch):
-        from litellm.proxy.management_endpoints import ui_sso
+        from embrouter.proxy.management_endpoints import ui_sso
 
         monkeypatch.setattr(
             ui_sso,
@@ -7058,8 +7058,8 @@ class TestCliSsoAttributionMetadata:
         ]
 
     def test_build_cli_sso_attribution_metadata_filters_non_scalars(self, monkeypatch):
-        from litellm.proxy.management_endpoints import ui_sso
-        from litellm.proxy.management_endpoints.types import CustomOpenID
+        from embrouter.proxy.management_endpoints import ui_sso
+        from embrouter.proxy.management_endpoints.types import CustomOpenID
 
         monkeypatch.setattr(
             ui_sso,
@@ -7084,7 +7084,7 @@ class TestCliSsoAttributionMetadata:
         assert metadata == {"acme_employment_type": "full_time"}
 
     def test_build_cli_sso_attribution_metadata_from_oidc_dict(self, monkeypatch):
-        from litellm.proxy.management_endpoints import ui_sso
+        from embrouter.proxy.management_endpoints import ui_sso
 
         monkeypatch.setattr(
             ui_sso,
@@ -7104,15 +7104,15 @@ class TestCliSsoAttributionMetadata:
     @pytest.mark.asyncio
     async def test_cli_sso_callback_passes_user_defined_values_for_new_users(self):
         """First CLI SSO login must supply SSOUserDefinedValues so upsert can create the user."""
-        from litellm.proxy._types import LiteLLM_UserTable
-        from litellm.proxy.management_endpoints import ui_sso
-        from litellm.proxy.management_endpoints.types import CustomOpenID
+        from embrouter.proxy._types import EmbRouter_UserTable
+        from embrouter.proxy.management_endpoints import ui_sso
+        from embrouter.proxy.management_endpoints.types import CustomOpenID
 
         mock_request = MagicMock(spec=Request)
         mock_request.scope = {}
         mock_request.base_url = "http://internal-proxy.local/"
         session_key = "cli-session-new-user"
-        mock_user_info = LiteLLM_UserTable(
+        mock_user_info = EmbRouter_UserTable(
             user_id="cli-test-user",
             user_role="internal_user",
             teams=[],
@@ -7137,13 +7137,13 @@ class TestCliSsoAttributionMetadata:
 
         with (
             patch(
-                "litellm.proxy.management_endpoints.ui_sso.get_user_info_from_db",
+                "embrouter.proxy.management_endpoints.ui_sso.get_user_info_from_db",
                 get_user_info_mock,
             ),
-            patch("litellm.proxy.proxy_server.prisma_client", MagicMock()),
-            patch("litellm.proxy.proxy_server.user_api_key_cache", mock_cache),
-            patch("litellm.proxy.proxy_server.cli_sso_session_cache", mock_cache),
-            patch("litellm.proxy.proxy_server.user_custom_sso", None),
+            patch("embrouter.proxy.proxy_server.prisma_client", MagicMock()),
+            patch("embrouter.proxy.proxy_server.user_api_key_cache", mock_cache),
+            patch("embrouter.proxy.proxy_server.cli_sso_session_cache", mock_cache),
+            patch("embrouter.proxy.proxy_server.user_custom_sso", None),
         ):
             await ui_sso.cli_sso_callback(
                 request=mock_request,
@@ -7161,9 +7161,9 @@ class TestCliSsoAttributionMetadata:
     @pytest.mark.asyncio
     async def test_cli_sso_callback_rejects_restricted_sso_group(self):
         """CLI SSO must enforce restricted_sso_group before upserting the user."""
-        from litellm.proxy._types import ProxyException
-        from litellm.proxy.management_endpoints import ui_sso
-        from litellm.proxy.management_endpoints.types import CustomOpenID
+        from embrouter.proxy._types import ProxyException
+        from embrouter.proxy.management_endpoints import ui_sso
+        from embrouter.proxy.management_endpoints.types import CustomOpenID
 
         mock_request = MagicMock(spec=Request)
         mock_request.base_url = "http://internal-proxy.local/"
@@ -7185,15 +7185,15 @@ class TestCliSsoAttributionMetadata:
 
         with (
             patch(
-                "litellm.proxy.management_endpoints.ui_sso.get_user_info_from_db",
+                "embrouter.proxy.management_endpoints.ui_sso.get_user_info_from_db",
                 new=AsyncMock(),
             ) as get_user_info_mock,
-            patch("litellm.proxy.proxy_server.prisma_client", MagicMock()),
-            patch("litellm.proxy.proxy_server.user_api_key_cache", mock_cache),
-            patch("litellm.proxy.proxy_server.cli_sso_session_cache", mock_cache),
-            patch("litellm.proxy.proxy_server.user_custom_sso", None),
+            patch("embrouter.proxy.proxy_server.prisma_client", MagicMock()),
+            patch("embrouter.proxy.proxy_server.user_api_key_cache", mock_cache),
+            patch("embrouter.proxy.proxy_server.cli_sso_session_cache", mock_cache),
+            patch("embrouter.proxy.proxy_server.user_custom_sso", None),
             patch(
-                "litellm.proxy.proxy_server.general_settings",
+                "embrouter.proxy.proxy_server.general_settings",
                 {
                     "ui_access_mode": {
                         "type": "restricted_sso_group",
@@ -7214,8 +7214,8 @@ class TestCliSsoAttributionMetadata:
 
     @pytest.mark.asyncio
     async def test_cli_sso_callback_persists_attribution_metadata(self, monkeypatch):
-        from litellm.proxy._types import LiteLLM_UserTable
-        from litellm.proxy.management_endpoints import ui_sso
+        from embrouter.proxy._types import EmbRouter_UserTable
+        from embrouter.proxy.management_endpoints import ui_sso
 
         monkeypatch.setattr(
             ui_sso,
@@ -7227,7 +7227,7 @@ class TestCliSsoAttributionMetadata:
         mock_request.scope = {}
         mock_request.base_url = "http://internal-proxy.local/"
         session_key = "cli-session-4567890"
-        mock_user_info = LiteLLM_UserTable(
+        mock_user_info = EmbRouter_UserTable(
             user_id="test-user-123",
             user_role="internal_user",
             teams=["team1"],
@@ -7247,11 +7247,11 @@ class TestCliSsoAttributionMetadata:
             "session_data": None,
         }
         mock_prisma = MagicMock()
-        mock_prisma.db.litellm_usertable.find_unique = AsyncMock(
+        mock_prisma.db.embrouter_usertable.find_unique = AsyncMock(
             return_value=MagicMock(metadata={"auth_provider": "generic"})
         )
-        mock_prisma.db.litellm_usertable.update_many = AsyncMock()
-        mock_prisma.db.litellm_teamtable.find_many = AsyncMock(
+        mock_prisma.db.embrouter_usertable.update_many = AsyncMock()
+        mock_prisma.db.embrouter_teamtable.find_many = AsyncMock(
             return_value=[
                 MagicMock(
                     model_dump=lambda: {
@@ -7272,15 +7272,15 @@ class TestCliSsoAttributionMetadata:
                 },
             ),
             patch(
-                "litellm.proxy.management_endpoints.ui_sso.get_user_info_from_db",
+                "embrouter.proxy.management_endpoints.ui_sso.get_user_info_from_db",
                 return_value=mock_user_info,
             ),
-            patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
-            patch("litellm.proxy.proxy_server.user_api_key_cache", mock_cache),
-            patch("litellm.proxy.proxy_server.cli_sso_session_cache", mock_cache),
-            patch("litellm.proxy.proxy_server.user_custom_sso", None),
+            patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma),
+            patch("embrouter.proxy.proxy_server.user_api_key_cache", mock_cache),
+            patch("embrouter.proxy.proxy_server.cli_sso_session_cache", mock_cache),
+            patch("embrouter.proxy.proxy_server.user_custom_sso", None),
             patch(
-                "litellm.proxy.common_utils.html_forms.cli_sso_success.render_cli_sso_success_page",
+                "embrouter.proxy.common_utils.html_forms.cli_sso_success.render_cli_sso_success_page",
                 return_value="<html>Success</html>",
             ),
         ):
@@ -7294,8 +7294,8 @@ class TestCliSsoAttributionMetadata:
         assert flow_data["session_data"]["attribution_metadata"] == {
             "acme_employment_type": "contractor"
         }
-        mock_prisma.db.litellm_usertable.update_many.assert_awaited_once()
-        update_data = mock_prisma.db.litellm_usertable.update_many.call_args.kwargs[
+        mock_prisma.db.embrouter_usertable.update_many.assert_awaited_once()
+        update_data = mock_prisma.db.embrouter_usertable.update_many.call_args.kwargs[
             "data"
         ]
         assert update_data["metadata"]["acme_employment_type"] == "contractor"
@@ -7303,7 +7303,7 @@ class TestCliSsoAttributionMetadata:
 
     @pytest.mark.asyncio
     async def test_cli_poll_key_returns_attribution_metadata(self, monkeypatch):
-        from litellm.proxy.management_endpoints.ui_sso import (
+        from embrouter.proxy.management_endpoints.ui_sso import (
             _hash_cli_sso_secret,
             cli_poll_key,
         )
@@ -7328,13 +7328,13 @@ class TestCliSsoAttributionMetadata:
         }
 
         with (
-            patch("litellm.proxy.proxy_server.user_api_key_cache", mock_cache),
-            patch("litellm.proxy.proxy_server.cli_sso_session_cache", mock_cache),
+            patch("embrouter.proxy.proxy_server.user_api_key_cache", mock_cache),
+            patch("embrouter.proxy.proxy_server.cli_sso_session_cache", mock_cache),
         ):
             result = await cli_poll_key(
                 key_id=session_key,
                 team_id=None,
-                x_litellm_cli_poll_secret="poll-secret",
+                x_embrouter_cli_poll_secret="poll-secret",
             )
 
         assert result["attribution_metadata"] == {
@@ -7348,7 +7348,7 @@ class TestValidateReturnTo:
 
     def test_returns_false_when_no_control_plane_url_configured(self, monkeypatch):
         """return_to should be silently ignored if control_plane_url is not in general_settings."""
-        monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
+        monkeypatch.setattr("embrouter.proxy.proxy_server.general_settings", {})
         result = SSOAuthenticationHandler._validate_return_to(
             "https://cp.example.com/ui"
         )
@@ -7357,7 +7357,7 @@ class TestValidateReturnTo:
     def test_allows_matching_origin(self, monkeypatch):
         """return_to matching the configured control_plane_url origin should pass."""
         monkeypatch.setattr(
-            "litellm.proxy.proxy_server.general_settings",
+            "embrouter.proxy.proxy_server.general_settings",
             {"control_plane_url": "https://cp.example.com"},
         )
         # Should not raise
@@ -7368,7 +7368,7 @@ class TestValidateReturnTo:
     def test_allows_matching_origin_with_trailing_slash(self, monkeypatch):
         """Trailing slash on control_plane_url should not affect origin comparison."""
         monkeypatch.setattr(
-            "litellm.proxy.proxy_server.general_settings",
+            "embrouter.proxy.proxy_server.general_settings",
             {"control_plane_url": "https://cp.example.com/"},
         )
         SSOAuthenticationHandler._validate_return_to("https://cp.example.com/ui")
@@ -7376,7 +7376,7 @@ class TestValidateReturnTo:
     def test_rejects_prefix_attack(self, monkeypatch):
         """return_to like cp.example.com.evil.com must be rejected (not just prefix match)."""
         monkeypatch.setattr(
-            "litellm.proxy.proxy_server.general_settings",
+            "embrouter.proxy.proxy_server.general_settings",
             {"control_plane_url": "https://cp.example.com"},
         )
         with pytest.raises(HTTPException) as exc_info:
@@ -7388,7 +7388,7 @@ class TestValidateReturnTo:
     def test_rejects_different_origin(self, monkeypatch):
         """return_to pointing to a completely different domain should be rejected."""
         monkeypatch.setattr(
-            "litellm.proxy.proxy_server.general_settings",
+            "embrouter.proxy.proxy_server.general_settings",
             {"control_plane_url": "https://cp.example.com"},
         )
         with pytest.raises(HTTPException) as exc_info:
@@ -7398,7 +7398,7 @@ class TestValidateReturnTo:
     def test_case_insensitive_hostname(self, monkeypatch):
         """Hostname comparison should be case-insensitive per RFC 3986."""
         monkeypatch.setattr(
-            "litellm.proxy.proxy_server.general_settings",
+            "embrouter.proxy.proxy_server.general_settings",
             {"control_plane_url": "https://CP.Example.COM"},
         )
         # Should not raise
@@ -7407,7 +7407,7 @@ class TestValidateReturnTo:
     def test_rejects_scheme_mismatch(self, monkeypatch):
         """http:// must be rejected when control_plane_url uses https://."""
         monkeypatch.setattr(
-            "litellm.proxy.proxy_server.general_settings",
+            "embrouter.proxy.proxy_server.general_settings",
             {"control_plane_url": "https://cp.example.com"},
         )
         with pytest.raises(HTTPException) as exc_info:
@@ -7417,7 +7417,7 @@ class TestValidateReturnTo:
     def test_rejects_port_mismatch(self, monkeypatch):
         """Non-default port must be rejected."""
         monkeypatch.setattr(
-            "litellm.proxy.proxy_server.general_settings",
+            "embrouter.proxy.proxy_server.general_settings",
             {"control_plane_url": "https://cp.example.com"},
         )
         with pytest.raises(HTTPException) as exc_info:
@@ -7429,7 +7429,7 @@ class TestValidateReturnTo:
     def test_allows_explicit_default_port(self, monkeypatch):
         """https://host:443 should match https://host (default port normalisation)."""
         monkeypatch.setattr(
-            "litellm.proxy.proxy_server.general_settings",
+            "embrouter.proxy.proxy_server.general_settings",
             {"control_plane_url": "https://cp.example.com"},
         )
         SSOAuthenticationHandler._validate_return_to("https://cp.example.com:443/ui")
@@ -7437,7 +7437,7 @@ class TestValidateReturnTo:
     def test_allows_matching_custom_port(self, monkeypatch):
         """Both sides on the same custom port should match."""
         monkeypatch.setattr(
-            "litellm.proxy.proxy_server.general_settings",
+            "embrouter.proxy.proxy_server.general_settings",
             {"control_plane_url": "https://cp.example.com:3000"},
         )
         SSOAuthenticationHandler._validate_return_to("https://cp.example.com:3000/ui")
@@ -7448,29 +7448,29 @@ class TestSyncUserRoleFromJwtRoleMap:
 
     @staticmethod
     def _make_jwt_handler():
-        from litellm.caching.caching import DualCache
-        from litellm.proxy._types import (
-            JWTLiteLLMRoleMap,
-            LiteLLM_JWTAuth,
-            LitellmUserRoles,
+        from embrouter.caching.caching import DualCache
+        from embrouter.proxy._types import (
+            JWTEmbRouterRoleMap,
+            EmbRouter_JWTAuth,
+            EmbrouterUserRoles,
         )
 
         handler = JWTHandler()
         handler.update_environment(
             prisma_client=None,
             user_api_key_cache=DualCache(),
-            litellm_jwtauth=LiteLLM_JWTAuth(
+            embrouter_jwtauth=EmbRouter_JWTAuth(
                 roles_jwt_field="custom_roles",
                 user_id_upsert=True,
                 sync_user_role_and_teams=True,
-                jwt_litellm_role_map=[
-                    JWTLiteLLMRoleMap(
+                jwt_embrouter_role_map=[
+                    JWTEmbRouterRoleMap(
                         jwt_role="my-admin",
-                        litellm_role=LitellmUserRoles.PROXY_ADMIN,
+                        embrouter_role=EmbrouterUserRoles.PROXY_ADMIN,
                     ),
-                    JWTLiteLLMRoleMap(
+                    JWTEmbRouterRoleMap(
                         jwt_role="my-viewer",
-                        litellm_role=LitellmUserRoles.INTERNAL_USER,
+                        embrouter_role=EmbrouterUserRoles.INTERNAL_USER,
                     ),
                 ],
             ),
@@ -7479,7 +7479,7 @@ class TestSyncUserRoleFromJwtRoleMap:
 
     @staticmethod
     def _make_sso_values(user_role=None):
-        from litellm.proxy._types import SSOUserDefinedValues
+        from embrouter.proxy._types import SSOUserDefinedValues
 
         user_id = "testuser@example.com"
         return SSOUserDefinedValues(
@@ -7494,7 +7494,7 @@ class TestSyncUserRoleFromJwtRoleMap:
     @pytest.mark.asyncio
     async def test_stripped_response_has_no_roles(self):
         """Bug repro: stripped received_response lacks role claims."""
-        from litellm.caching.caching import DualCache
+        from embrouter.caching.caching import DualCache
 
         handler = self._make_jwt_handler()
         sso_values = self._make_sso_values()
@@ -7513,8 +7513,8 @@ class TestSyncUserRoleFromJwtRoleMap:
     @pytest.mark.asyncio
     async def test_decoded_access_token_maps_role(self):
         """Decoded JWT payload with role claims maps correctly."""
-        from litellm.caching.caching import DualCache
-        from litellm.proxy._types import LitellmUserRoles
+        from embrouter.caching.caching import DualCache
+        from embrouter.proxy._types import EmbrouterUserRoles
 
         handler = self._make_jwt_handler()
         sso_values = self._make_sso_values()
@@ -7531,30 +7531,30 @@ class TestSyncUserRoleFromJwtRoleMap:
             user_defined_values=sso_values,
         )
 
-        assert sso_values["user_role"] == LitellmUserRoles.PROXY_ADMIN.value
+        assert sso_values["user_role"] == EmbrouterUserRoles.PROXY_ADMIN.value
 
     @pytest.mark.asyncio
     async def test_existing_user_role_updated_in_db_and_cache(self):
         """Existing user with stale role gets updated in DB and cache."""
-        from litellm.caching.caching import DualCache
-        from litellm.proxy._types import LitellmUserRoles
+        from embrouter.caching.caching import DualCache
+        from embrouter.proxy._types import EmbrouterUserRoles
 
         handler = self._make_jwt_handler()
         cache = DualCache()
         prisma = AsyncMock()
-        prisma.db.litellm_usertable.update = AsyncMock()
+        prisma.db.embrouter_usertable.update = AsyncMock()
         user_id = "testuser@example.com"
 
-        existing_user = LiteLLM_UserTable(
+        existing_user = EmbRouter_UserTable(
             user_id=user_id,
-            user_role=LitellmUserRoles.INTERNAL_USER_VIEW_ONLY.value,
+            user_role=EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY.value,
         )
         await cache.async_set_cache(
             key=user_id, value=existing_user.model_dump(), ttl=60
         )
 
         sso_values = self._make_sso_values(
-            user_role=LitellmUserRoles.INTERNAL_USER_VIEW_ONLY.value,
+            user_role=EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY.value,
         )
 
         await _sync_user_role_from_jwt_role_map(
@@ -7566,30 +7566,30 @@ class TestSyncUserRoleFromJwtRoleMap:
             user_defined_values=sso_values,
         )
 
-        prisma.db.litellm_usertable.update.assert_called_once_with(
+        prisma.db.embrouter_usertable.update.assert_called_once_with(
             where={"user_id": user_id},
-            data={"user_role": LitellmUserRoles.PROXY_ADMIN.value},
+            data={"user_role": EmbrouterUserRoles.PROXY_ADMIN.value},
         )
-        assert existing_user.user_role == LitellmUserRoles.PROXY_ADMIN.value
-        assert sso_values["user_role"] == LitellmUserRoles.PROXY_ADMIN.value
+        assert existing_user.user_role == EmbrouterUserRoles.PROXY_ADMIN.value
+        assert sso_values["user_role"] == EmbrouterUserRoles.PROXY_ADMIN.value
 
     @pytest.mark.asyncio
     async def test_same_role_no_db_write(self):
         """No DB update when the mapped role matches the existing role."""
-        from litellm.caching.caching import DualCache
-        from litellm.proxy._types import LitellmUserRoles
+        from embrouter.caching.caching import DualCache
+        from embrouter.proxy._types import EmbrouterUserRoles
 
         handler = self._make_jwt_handler()
         prisma = AsyncMock()
-        prisma.db.litellm_usertable.update = AsyncMock()
+        prisma.db.embrouter_usertable.update = AsyncMock()
 
-        existing_user = LiteLLM_UserTable(
+        existing_user = EmbRouter_UserTable(
             user_id="testuser@example.com",
-            user_role=LitellmUserRoles.PROXY_ADMIN.value,
+            user_role=EmbrouterUserRoles.PROXY_ADMIN.value,
         )
 
         sso_values = self._make_sso_values(
-            user_role=LitellmUserRoles.PROXY_ADMIN.value,
+            user_role=EmbrouterUserRoles.PROXY_ADMIN.value,
         )
 
         await _sync_user_role_from_jwt_role_map(
@@ -7604,7 +7604,7 @@ class TestSyncUserRoleFromJwtRoleMap:
             user_defined_values=sso_values,
         )
 
-        prisma.db.litellm_usertable.update.assert_not_called()
+        prisma.db.embrouter_usertable.update.assert_not_called()
 
 
 # ── VERIA-34 regression: PKCE state-to-session-cookie binding ───────────────
@@ -7615,20 +7615,20 @@ class TestPKCEStateCookieBinding:
     cache-key for the PKCE ``code_verifier`` without binding the state to
     the caller's browser.  An attacker who pre-mints a state + cached
     verifier could hand the link to a victim and capture the resulting
-    access token.  Fix: set ``litellm_oauth_state`` HttpOnly cookie on
+    access token.  Fix: set ``embrouter_oauth_state`` HttpOnly cookie on
     the redirect; verify the URL state matches the cookie before doing
     the PKCE token exchange."""
 
     @pytest.mark.asyncio
     async def test_redirect_response_sets_oauth_state_cookie_when_pkce_enabled(self):
         """``get_generic_sso_redirect_response`` must set
-        ``litellm_oauth_state`` on the redirect response when PKCE is on so
+        ``embrouter_oauth_state`` on the redirect response when PKCE is on so
         the callback can verify it later.  The cookie must carry HttpOnly,
         SameSite=Lax, and (because no http request was supplied to the
         helper) the production-safe ``Secure`` default."""
         from fastapi.responses import RedirectResponse
 
-        from litellm.proxy.management_endpoints.ui_sso import (
+        from embrouter.proxy.management_endpoints.ui_sso import (
             SSOAuthenticationHandler,
         )
 
@@ -7656,11 +7656,11 @@ class TestPKCEStateCookieBinding:
         assert response is not None
         cookie_headers = response.headers.getlist("set-cookie")
         cookie_str = next(
-            (c for c in cookie_headers if "litellm_oauth_state=" in c), None
+            (c for c in cookie_headers if "embrouter_oauth_state=" in c), None
         )
         assert (
             cookie_str is not None
-        ), f"litellm_oauth_state cookie not set; got: {cookie_headers}"
+        ), f"embrouter_oauth_state cookie not set; got: {cookie_headers}"
         assert "test-state-xyz" in cookie_str
         assert "HttpOnly" in cookie_str
         assert "SameSite=lax" in cookie_str
@@ -7678,7 +7678,7 @@ class TestPKCEStateCookieBinding:
         the same browser)."""
         from fastapi.responses import RedirectResponse
 
-        from litellm.proxy.management_endpoints.ui_sso import (
+        from embrouter.proxy.management_endpoints.ui_sso import (
             SSOAuthenticationHandler,
         )
 
@@ -7706,8 +7706,8 @@ class TestPKCEStateCookieBinding:
         assert response is not None
         cookie_headers = response.headers.getlist("set-cookie")
         assert not any(
-            "litellm_oauth_state=" in c for c in cookie_headers
-        ), f"litellm_oauth_state cookie set on non-PKCE flow; got: {cookie_headers}"
+            "embrouter_oauth_state=" in c for c in cookie_headers
+        ), f"embrouter_oauth_state cookie set on non-PKCE flow; got: {cookie_headers}"
 
     @pytest.mark.asyncio
     async def test_redirect_response_drops_secure_flag_for_http_dev(self):
@@ -7716,7 +7716,7 @@ class TestPKCEStateCookieBinding:
         the callback hop."""
         from fastapi.responses import RedirectResponse
 
-        from litellm.proxy.management_endpoints.ui_sso import (
+        from embrouter.proxy.management_endpoints.ui_sso import (
             SSOAuthenticationHandler,
         )
 
@@ -7747,7 +7747,7 @@ class TestPKCEStateCookieBinding:
 
         cookie_headers = response.headers.getlist("set-cookie")
         cookie_str = next(
-            (c for c in cookie_headers if "litellm_oauth_state=" in c), None
+            (c for c in cookie_headers if "embrouter_oauth_state=" in c), None
         )
         assert cookie_str is not None
         assert "Secure" not in cookie_str
@@ -7756,14 +7756,14 @@ class TestPKCEStateCookieBinding:
     async def test_redirect_response_sets_secure_flag_behind_trusted_tls_terminating_proxy(
         self, monkeypatch
     ):
-        """Regression: litellm sees a plain-HTTP hop when TLS terminates at a reverse
+        """Regression: embrouter sees a plain-HTTP hop when TLS terminates at a reverse
         proxy. The Secure flag must still be set when the direct peer is a configured
         trusted proxy and it reports X-Forwarded-Proto: https -- but NOT from an
         unconfigured/untrusted caller spoofing the same header (see the sibling test
         below)."""
         from fastapi.responses import RedirectResponse
 
-        from litellm.proxy.management_endpoints.ui_sso import (
+        from embrouter.proxy.management_endpoints.ui_sso import (
             SSOAuthenticationHandler,
         )
 
@@ -7782,7 +7782,7 @@ class TestPKCEStateCookieBinding:
         proxied_request.client.host = "10.0.0.5"
 
         monkeypatch.setattr(
-            "litellm.proxy.proxy_server.general_settings",
+            "embrouter.proxy.proxy_server.general_settings",
             {"use_x_forwarded_for": True, "mcp_trusted_proxy_ranges": ["10.0.0.0/8"]},
         )
 
@@ -7802,7 +7802,7 @@ class TestPKCEStateCookieBinding:
 
         cookie_headers = response.headers.getlist("set-cookie")
         cookie_str = next(
-            (c for c in cookie_headers if "litellm_oauth_state=" in c), None
+            (c for c in cookie_headers if "embrouter_oauth_state=" in c), None
         )
         assert cookie_str is not None
         assert "Secure" in cookie_str
@@ -7817,7 +7817,7 @@ class TestPKCEStateCookieBinding:
         warns against."""
         from fastapi.responses import RedirectResponse
 
-        from litellm.proxy.management_endpoints.ui_sso import (
+        from embrouter.proxy.management_endpoints.ui_sso import (
             SSOAuthenticationHandler,
         )
 
@@ -7835,7 +7835,7 @@ class TestPKCEStateCookieBinding:
         spoofed_request.client = MagicMock()
         spoofed_request.client.host = "203.0.113.5"
 
-        monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
+        monkeypatch.setattr("embrouter.proxy.proxy_server.general_settings", {})
 
         with patch.dict(
             os.environ,
@@ -7853,7 +7853,7 @@ class TestPKCEStateCookieBinding:
 
         cookie_headers = response.headers.getlist("set-cookie")
         cookie_str = next(
-            (c for c in cookie_headers if "litellm_oauth_state=" in c), None
+            (c for c in cookie_headers if "embrouter_oauth_state=" in c), None
         )
         assert cookie_str is not None
         assert "Secure" not in cookie_str
@@ -7861,10 +7861,10 @@ class TestPKCEStateCookieBinding:
     @pytest.mark.asyncio
     async def test_pkce_callback_rejects_missing_cookie(self):
         """When PKCE is enabled and a code_verifier is in the cache, the
-        callback must reject a request that has no ``litellm_oauth_state``
+        callback must reject a request that has no ``embrouter_oauth_state``
         cookie (browser-to-server binding missing)."""
-        from litellm.proxy._types import ProxyException
-        from litellm.proxy.management_endpoints.ui_sso import (
+        from embrouter.proxy._types import ProxyException
+        from embrouter.proxy.management_endpoints.ui_sso import (
             SSOAuthenticationHandler,
             get_generic_sso_response,
         )
@@ -7916,8 +7916,8 @@ class TestPKCEStateCookieBinding:
     async def test_pkce_callback_rejects_state_cookie_mismatch(self):
         """The Login-CSRF shape: attacker mints state ``A``, victim's browser
         carries cookie state ``B``.  The callback must reject."""
-        from litellm.proxy._types import ProxyException
-        from litellm.proxy.management_endpoints.ui_sso import (
+        from embrouter.proxy._types import ProxyException
+        from embrouter.proxy.management_endpoints.ui_sso import (
             SSOAuthenticationHandler,
             get_generic_sso_response,
         )
@@ -7927,7 +7927,7 @@ class TestPKCEStateCookieBinding:
             "state": "attacker-minted-state",
             "code": "auth-code",
         }
-        mock_request.cookies = {"litellm_oauth_state": "victim-browser-state"}
+        mock_request.cookies = {"embrouter_oauth_state": "victim-browser-state"}
 
         with (
             patch.object(
@@ -7969,14 +7969,14 @@ class TestPKCEStateCookieBinding:
         """Happy path: URL state and cookie state match (the legitimate
         flow where the same browser that started the redirect lands on
         the callback) → the PKCE token exchange proceeds."""
-        from litellm.proxy.management_endpoints.ui_sso import (
+        from embrouter.proxy.management_endpoints.ui_sso import (
             SSOAuthenticationHandler,
             get_generic_sso_response,
         )
 
         mock_request = MagicMock(spec=Request)
         mock_request.query_params = {"state": "matched-state", "code": "auth-code"}
-        mock_request.cookies = {"litellm_oauth_state": "matched-state"}
+        mock_request.cookies = {"embrouter_oauth_state": "matched-state"}
 
         with (
             patch.object(
@@ -8041,7 +8041,7 @@ async def test_sso_debug_routes_return_404_unless_explicitly_enabled(enable_sso_
     /sso/debug/login and /sso/debug/callback must 404 unless ENABLE_SSO_DEBUG is
     explicitly set to a truthy value.
     """
-    from litellm.proxy.management_endpoints.ui_sso import debug_sso_callback, debug_sso_login
+    from embrouter.proxy.management_endpoints.ui_sso import debug_sso_callback, debug_sso_login
 
     mock_request = MagicMock(spec=Request)
     mock_request.base_url = "http://proxy.example.com/"
@@ -8073,7 +8073,7 @@ async def test_debug_sso_callback_renders_full_jwt_claims():
     addition to the proxy-parsed OpenID fields. Bearer tokens must be stripped
     even if a non-conforming IdP places them in its userinfo response.
     """
-    from litellm.proxy.management_endpoints.ui_sso import debug_sso_callback
+    from embrouter.proxy.management_endpoints.ui_sso import debug_sso_callback
 
     mock_request = MagicMock(spec=Request)
     mock_request.base_url = "http://proxy.example.com/"
@@ -8097,7 +8097,7 @@ async def test_debug_sso_callback_renders_full_jwt_claims():
         "team_id": "ord-engineering-high",
         "team_alias": "ord-engineering-high",
         "teams": ["ord-engineering-high"],
-        "roles": ["litellm.api.user"],
+        "roles": ["embrouter.api.user"],
         # Defense-in-depth: a non-conforming IdP could shove a bearer token
         # into userinfo. The debug endpoint must strip it before rendering.
         "access_token": "should-not-render",
@@ -8107,7 +8107,7 @@ async def test_debug_sso_callback_renders_full_jwt_claims():
     access_token_payload = {
         "sub": "user_123",
         "scope": "openid profile email",
-        "groups": ["litellm-users"],
+        "groups": ["embrouter-users"],
     }
 
     async def fake_get_generic_sso_response(**kwargs):
@@ -8120,13 +8120,13 @@ async def test_debug_sso_callback_renders_full_jwt_claims():
             clear=False,
         ),
         patch(
-            "litellm.proxy.management_endpoints.ui_sso.get_generic_sso_response",
+            "embrouter.proxy.management_endpoints.ui_sso.get_generic_sso_response",
             side_effect=fake_get_generic_sso_response,
         ),
-        patch("litellm.proxy.proxy_server.general_settings", {}),
-        patch("litellm.proxy.proxy_server.prisma_client", MagicMock()),
-        patch("litellm.proxy.proxy_server.user_api_key_cache", MagicMock()),
-        patch("litellm.proxy.proxy_server.jwt_handler", MagicMock(spec=JWTHandler)),
+        patch("embrouter.proxy.proxy_server.general_settings", {}),
+        patch("embrouter.proxy.proxy_server.prisma_client", MagicMock()),
+        patch("embrouter.proxy.proxy_server.user_api_key_cache", MagicMock()),
+        patch("embrouter.proxy.proxy_server.jwt_handler", MagicMock(spec=JWTHandler)),
     ):
         # Microsoft / Google envs may leak in from other tests — ensure only
         # the generic path runs.
@@ -8159,7 +8159,7 @@ async def test_debug_sso_callback_renders_full_jwt_claims():
     assert payload["raw_claims"]["team_id"] == "ord-engineering-high"
     assert payload["raw_claims"]["team_alias"] == "ord-engineering-high"
     assert payload["raw_claims"]["teams"] == ["ord-engineering-high"]
-    assert payload["raw_claims"]["roles"] == ["litellm.api.user"]
+    assert payload["raw_claims"]["roles"] == ["embrouter.api.user"]
 
     # Defense-in-depth: bearer tokens must never appear in the rendered HTML
     assert "access_token" not in payload["raw_claims"]
@@ -8167,7 +8167,7 @@ async def test_debug_sso_callback_renders_full_jwt_claims():
     assert "should-not-render" not in body
 
     # Decoded access-token JWT claims are surfaced
-    assert payload["access_token_claims"]["groups"] == ["litellm-users"]
+    assert payload["access_token_claims"]["groups"] == ["embrouter-users"]
 
 
 @pytest.mark.asyncio
@@ -8177,7 +8177,7 @@ async def test_debug_sso_callback_handles_missing_raw_response():
     payload. The debug endpoint must still render successfully with empty
     sections instead of crashing.
     """
-    from litellm.proxy.management_endpoints.ui_sso import debug_sso_callback
+    from embrouter.proxy.management_endpoints.ui_sso import debug_sso_callback
 
     mock_request = MagicMock(spec=Request)
     mock_request.base_url = "http://proxy.example.com/"
@@ -8209,10 +8209,10 @@ async def test_debug_sso_callback_handles_missing_raw_response():
             "get_microsoft_callback_response",
             side_effect=fake_microsoft_callback,
         ),
-        patch("litellm.proxy.proxy_server.general_settings", {}),
-        patch("litellm.proxy.proxy_server.prisma_client", MagicMock()),
-        patch("litellm.proxy.proxy_server.user_api_key_cache", MagicMock()),
-        patch("litellm.proxy.proxy_server.jwt_handler", MagicMock(spec=JWTHandler)),
+        patch("embrouter.proxy.proxy_server.general_settings", {}),
+        patch("embrouter.proxy.proxy_server.prisma_client", MagicMock()),
+        patch("embrouter.proxy.proxy_server.user_api_key_cache", MagicMock()),
+        patch("embrouter.proxy.proxy_server.jwt_handler", MagicMock(spec=JWTHandler)),
     ):
         for var in ("GENERIC_CLIENT_ID", "GOOGLE_CLIENT_ID"):
             os.environ.pop(var, None)
@@ -8233,7 +8233,7 @@ _GENERIC_DEBUG_CLIENT_ID = "debug-generic-client-id"
 
 async def _render_debug_page(provider_env, id_jag_registered, force_inert=False):
     """Drive /sso/debug/callback and return the raw response body."""
-    from litellm.proxy.management_endpoints.ui_sso import GoogleSSOHandler, debug_sso_callback
+    from embrouter.proxy.management_endpoints.ui_sso import GoogleSSOHandler, debug_sso_callback
 
     mock_request = MagicMock(spec=Request)
     mock_request.base_url = "http://proxy.example.com/"
@@ -8251,24 +8251,24 @@ async def _render_debug_page(provider_env, id_jag_registered, force_inert=False)
     stack = [
         patch.dict(os.environ, {**provider_env, "ENABLE_SSO_DEBUG": "true"}, clear=False),
         patch(  # test-quality-ok: endpoint test stubs the upstream generic IdP boundary
-            "litellm.proxy.management_endpoints.ui_sso.get_generic_sso_response", side_effect=fake_generic
+            "embrouter.proxy.management_endpoints.ui_sso.get_generic_sso_response", side_effect=fake_generic
         ),
         patch.object(  # test-quality-ok: endpoint test stubs the upstream Google IdP boundary
             GoogleSSOHandler, "get_google_callback_response", side_effect=fake_google
         ),
         patch(  # test-quality-ok: debug endpoint reads this module global without an injection seam
-            "litellm.proxy.management_endpoints.ui_sso.ema_assertion_retention_enabled",
+            "embrouter.proxy.management_endpoints.ui_sso.ema_assertion_retention_enabled",
             AsyncMock(return_value=id_jag_registered),
         ),
-        patch("litellm.proxy.proxy_server.general_settings", {}),  # test-quality-ok: debug endpoint reads proxy globals
-        patch("litellm.proxy.proxy_server.prisma_client", MagicMock()),  # test-quality-ok: debug endpoint reads proxy DB
-        patch("litellm.proxy.proxy_server.user_api_key_cache", MagicMock()),  # test-quality-ok: debug endpoint reads proxy globals
-        patch("litellm.proxy.proxy_server.jwt_handler", MagicMock(spec=JWTHandler)),  # test-quality-ok: debug endpoint reads proxy globals
+        patch("embrouter.proxy.proxy_server.general_settings", {}),  # test-quality-ok: debug endpoint reads proxy globals
+        patch("embrouter.proxy.proxy_server.prisma_client", MagicMock()),  # test-quality-ok: debug endpoint reads proxy DB
+        patch("embrouter.proxy.proxy_server.user_api_key_cache", MagicMock()),  # test-quality-ok: debug endpoint reads proxy globals
+        patch("embrouter.proxy.proxy_server.jwt_handler", MagicMock(spec=JWTHandler)),  # test-quality-ok: debug endpoint reads proxy globals
     ]
     if force_inert:
         stack.append(
             patch(  # test-quality-ok: force-inert reference isolates the endpoint's pre-change response
-                "litellm.proxy.management_endpoints.ui_sso.warn_if_id_jag_capture_gap",
+                "embrouter.proxy.management_endpoints.ui_sso.warn_if_id_jag_capture_gap",
                 AsyncMock(return_value=None),
             )
         )
@@ -8286,7 +8286,7 @@ async def _render_debug_page(provider_env, id_jag_registered, force_inert=False)
 
 @pytest.mark.asyncio
 async def test_debug_page_logs_the_capture_gap_but_never_renders_it(caplog):
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="EmbRouter Proxy"):
         body = await _render_debug_page({"GOOGLE_CLIENT_ID": _GOOGLE_DEBUG_CLIENT_ID}, id_jag_registered=True)
 
     warnings = _id_jag_gap_warnings(caplog)
@@ -8335,11 +8335,11 @@ async def test_debug_page_is_byte_identical_when_no_id_jag_server_is_registered(
 async def test_debug_page_survives_a_store_outage(monkeypatch, caplog):
     """The page's job is to render claims; an unreachable MCP table must cost it the annotation,
     not the page."""
-    from litellm.proxy.management_endpoints.ui_sso import warn_if_id_jag_capture_gap
+    from embrouter.proxy.management_endpoints.ui_sso import warn_if_id_jag_capture_gap
 
     monkeypatch.setenv("GOOGLE_CLIENT_ID", _GOOGLE_DEBUG_CLIENT_ID)
     retention_check = AsyncMock(side_effect=Exception("db down"))
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="EmbRouter Proxy"):
         assert await warn_if_id_jag_capture_gap(retention_enabled=retention_check) is None
 
     retention_check.assert_awaited_once()
@@ -8348,7 +8348,7 @@ async def test_debug_page_survives_a_store_outage(monkeypatch, caplog):
 
 
 async def _render_legacy_login_page(env_overrides, general_settings):
-    from litellm.proxy.management_endpoints.ui_sso import google_login
+    from embrouter.proxy.management_endpoints.ui_sso import google_login
 
     mock_request = MagicMock(spec=Request)
     mock_request.base_url = "http://proxy.example.com/"
@@ -8356,12 +8356,12 @@ async def _render_legacy_login_page(env_overrides, general_settings):
     with (
         # snapshot os.environ so the mutations below are reverted on exit
         patch.dict(os.environ, {}, clear=False),
-        patch("litellm.proxy.proxy_server.master_key", "sk-1234"),
-        patch("litellm.proxy.proxy_server.prisma_client", MagicMock()),
-        patch("litellm.proxy.proxy_server.premium_user", False),
-        patch("litellm.proxy.proxy_server.general_settings", general_settings),
-        patch("litellm.proxy.proxy_server.user_api_key_cache", MagicMock()),
-        patch("litellm.proxy.proxy_server.user_custom_ui_sso_sign_in_handler", None),
+        patch("embrouter.proxy.proxy_server.master_key", "sk-1234"),
+        patch("embrouter.proxy.proxy_server.prisma_client", MagicMock()),
+        patch("embrouter.proxy.proxy_server.premium_user", False),
+        patch("embrouter.proxy.proxy_server.general_settings", general_settings),
+        patch("embrouter.proxy.proxy_server.user_api_key_cache", MagicMock()),
+        patch("embrouter.proxy.proxy_server.user_custom_ui_sso_sign_in_handler", None),
     ):
         # No SSO provider configured, so /sso/key/generate renders the legacy
         # username/password form rather than redirecting to an IdP.
@@ -8369,7 +8369,7 @@ async def _render_legacy_login_page(env_overrides, general_settings):
             "MICROSOFT_CLIENT_ID",
             "GOOGLE_CLIENT_ID",
             "GENERIC_CLIENT_ID",
-            "LITELLM_HIDE_DEFAULT_CREDENTIALS_HINT",
+            "EMBROUTER_HIDE_DEFAULT_CREDENTIALS_HINT",
             "UI_PASSWORD",
         ):
             os.environ.pop(var, None)
@@ -8393,11 +8393,11 @@ async def test_legacy_login_page_hides_credentials_hint_via_env_flag():
     """
     Regression: an anonymous GET /sso/key/generate must not disclose the
     'admin / MASTER_KEY' default-credentials hint when
-    LITELLM_HIDE_DEFAULT_CREDENTIALS_HINT is set. The legacy server-rendered
+    EMBROUTER_HIDE_DEFAULT_CREDENTIALS_HINT is set. The legacy server-rendered
     page previously ignored this flag while the new UI honored it.
     """
     response = await _render_legacy_login_page(
-        env_overrides={"LITELLM_HIDE_DEFAULT_CREDENTIALS_HINT": "true"},
+        env_overrides={"EMBROUTER_HIDE_DEFAULT_CREDENTIALS_HINT": "true"},
         general_settings={},
     )
 
@@ -8441,7 +8441,7 @@ async def test_legacy_login_page_hides_credentials_hint_when_ui_password_set():
 async def test_saml_callback_blocked_when_admin_ui_disabled():
     """An IdP-initiated assertion must not mint a UI session when the admin UI is
     disabled; the ACS enforces DISABLE_ADMIN_UI like the SP-initiated login route."""
-    from litellm.proxy.management_endpoints.ui_sso import saml_callback
+    from embrouter.proxy.management_endpoints.ui_sso import saml_callback
 
     with patch.dict(os.environ, {"DISABLE_ADMIN_UI": "true"}):
         response = await saml_callback(SimpleNamespace(cookies={}))
@@ -8455,17 +8455,17 @@ async def test_saml_callback_enforces_free_sso_user_limit_after_validation():
     """An IdP-initiated assertion must not bypass the >5 free-SSO-user Enterprise gate
     that /sso/key/generate enforces; the ACS re-checks it after validating the assertion,
     so the entitlement DB query never runs on unvalidated input."""
-    from litellm.proxy._types import ProxyException
-    from litellm.proxy.management_endpoints.types import CustomOpenID
-    from litellm.proxy.management_endpoints.ui_sso import saml_callback
+    from embrouter.proxy._types import ProxyException
+    from embrouter.proxy.management_endpoints.types import CustomOpenID
+    from embrouter.proxy.management_endpoints.ui_sso import saml_callback
 
     call_order: list[str] = []
 
     async def _fake_handle_acs(**kwargs):
         call_order.append("validate")
         return CustomOpenID(
-            id="dana@litellm.ai",
-            email="dana@litellm.ai",
+            id="dana@embrouter.ai",
+            email="dana@embrouter.ai",
             first_name=None,
             last_name=None,
             display_name="dana",
@@ -8485,14 +8485,14 @@ async def test_saml_callback_enforces_free_sso_user_limit_after_validation():
     request_double = SimpleNamespace(cookies={}, headers={}, stream=_stream)
 
     with patch.dict(os.environ, {"DISABLE_ADMIN_UI": "false"}), patch(
-        "litellm.proxy.proxy_server.premium_user", False
-    ), patch("litellm.proxy.proxy_server.prisma_client", MagicMock()), patch(
-        "litellm.proxy.proxy_server.master_key", "sk-1234"
+        "embrouter.proxy.proxy_server.premium_user", False
+    ), patch("embrouter.proxy.proxy_server.prisma_client", MagicMock()), patch(
+        "embrouter.proxy.proxy_server.master_key", "sk-1234"
     ), patch(
-        "litellm.proxy.management_endpoints.sso.saml_sso.SAMLAuthHandler.handle_acs",
+        "embrouter.proxy.management_endpoints.sso.saml_sso.SAMLAuthHandler.handle_acs",
         new=_fake_handle_acs,
     ), patch(
-        "litellm.repositories.user_repository.UserRepository.count_billable_users",
+        "embrouter.repositories.user_repository.UserRepository.count_billable_users",
         new=AsyncMock(side_effect=_fake_count_billable_users),
     ):
         with pytest.raises(ProxyException) as exc:
@@ -8507,7 +8507,7 @@ async def test_cli_poll_key_tolerates_missing_user_row():
     """The CLI poll must still mint the JWT when the user lookup raises,
     e.g. the user row was created moments ago and a negative-cache window
     from the pre-creation SSO existence check is still active on this pod."""
-    from litellm.proxy.management_endpoints.ui_sso import (
+    from embrouter.proxy.management_endpoints.ui_sso import (
         _hash_cli_sso_secret,
         cli_poll_key,
     )
@@ -8531,22 +8531,22 @@ async def test_cli_poll_key_tolerates_missing_user_row():
     mock_jwt_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.missing.user"
 
     with (
-        patch("litellm.proxy.proxy_server.user_api_key_cache", mock_cache),
-        patch("litellm.proxy.proxy_server.cli_sso_session_cache", mock_cache),
-        patch("litellm.proxy.proxy_server.prisma_client"),
+        patch("embrouter.proxy.proxy_server.user_api_key_cache", mock_cache),
+        patch("embrouter.proxy.proxy_server.cli_sso_session_cache", mock_cache),
+        patch("embrouter.proxy.proxy_server.prisma_client"),
         patch(
-            "litellm.proxy.auth.auth_checks.ExperimentalUIJWTToken.get_cli_jwt_auth_token",
+            "embrouter.proxy.auth.auth_checks.ExperimentalUIJWTToken.get_cli_jwt_auth_token",
             return_value=mock_jwt_token,
         ),
         patch(
-            "litellm.proxy.auth.auth_checks.get_user_object",
+            "embrouter.proxy.auth.auth_checks.get_user_object",
             new=AsyncMock(side_effect=ValueError("User doesn't exist in db. 'user_id'=just-created-user")),
         ),
     ):
         result = await cli_poll_key(
             key_id=session_key,
             team_id=None,
-            x_litellm_cli_poll_secret="poll-secret",
+            x_embrouter_cli_poll_secret="poll-secret",
         )
 
     assert result["status"] == "ready"
@@ -8567,7 +8567,7 @@ async def test_auth_callback_surfaces_oauth_error_with_description():
     ?error=...&error_description=... and no `code`. The callback must surface
     that reason as a 401 instead of failing later on the missing `code` param.
     """
-    from litellm.proxy.management_endpoints.ui_sso import auth_callback
+    from embrouter.proxy.management_endpoints.ui_sso import auth_callback
 
     mock_request = _make_sso_callback_request(
         {"error": "access_denied", "error_description": "User is not assigned to the client application"}
@@ -8584,7 +8584,7 @@ async def test_auth_callback_surfaces_oauth_error_with_description():
 @pytest.mark.asyncio
 async def test_auth_callback_surfaces_oauth_error_without_description():
     """error_description is optional in the OAuth error response; the 401 detail must not render 'None'."""
-    from litellm.proxy.management_endpoints.ui_sso import auth_callback
+    from embrouter.proxy.management_endpoints.ui_sso import auth_callback
 
     mock_request = _make_sso_callback_request({"error": "access_denied"})
 
@@ -8600,11 +8600,11 @@ async def test_auth_callback_surfaces_oauth_error_without_description():
 @pytest.mark.asyncio
 async def test_auth_callback_without_oauth_error_proceeds_to_normal_flow():
     """Without an `error` query param the guard must not fire; the callback proceeds into the normal flow."""
-    from litellm.proxy.management_endpoints.ui_sso import auth_callback
+    from embrouter.proxy.management_endpoints.ui_sso import auth_callback
 
     mock_request = _make_sso_callback_request({"code": "some-auth-code"})
 
-    with patch("litellm.proxy.proxy_server.prisma_client", None):
+    with patch("embrouter.proxy.proxy_server.prisma_client", None):
         with pytest.raises(HTTPException) as exc_info:
             await auth_callback(request=mock_request, state=None)
 
@@ -8631,7 +8631,7 @@ def _ema_id_token(sub: str = "u1") -> str:
 async def test_pkce_arm_captures_sso_assertion():
     """The PKCE token exchange strips bearer fields from received_response for safety;
     the typed assertion carrier must still capture id_token + refresh_token."""
-    from litellm.proxy.management_endpoints.ui_sso import (
+    from embrouter.proxy.management_endpoints.ui_sso import (
         SSOAuthenticationHandler,
         get_generic_sso_response,
     )
@@ -8639,7 +8639,7 @@ async def test_pkce_arm_captures_sso_assertion():
     id_token = _ema_id_token()
     mock_request = MagicMock(spec=Request)
     mock_request.query_params = {"state": "matched-state", "code": "auth-code"}
-    mock_request.cookies = {"litellm_oauth_state": "matched-state"}
+    mock_request.cookies = {"embrouter_oauth_state": "matched-state"}
 
     with (
         patch.object(
@@ -8701,7 +8701,7 @@ async def test_pkce_arm_captures_sso_assertion():
 @pytest.mark.asyncio
 async def test_verify_and_process_arm_captures_sso_assertion():
     """The non-PKCE generic arm reads the raw bearer fields off the fastapi-sso client."""
-    from litellm.proxy.management_endpoints.ui_sso import get_generic_sso_response
+    from embrouter.proxy.management_endpoints.ui_sso import get_generic_sso_response
 
     id_token = _ema_id_token()
     mock_request = MagicMock(spec=Request)
@@ -8749,7 +8749,7 @@ async def test_redirect_from_openid_persists_assertion_under_canonical_user_id()
     """The browser funnel persists the captured assertion AFTER canonical user
     resolution, keyed by the user_id admission will later resolve (the key-generation
     response user_id), not the raw IdP subject."""
-    from litellm.proxy._experimental.mcp_server.outbound_credentials.sso_assertion_store import (
+    from embrouter.proxy._experimental.mcp_server.outbound_credentials.sso_assertion_store import (
         assertion_from_sso_login,
     )
 
@@ -8762,30 +8762,30 @@ async def test_redirect_from_openid_persists_assertion_under_canonical_user_id()
 
     retain_mock = AsyncMock()
     with (
-        patch("litellm.proxy.utils.get_prisma_client_or_throw", return_value=MagicMock()),
-        patch("litellm.proxy.proxy_server.master_key", "sk-master"),
-        patch("litellm.proxy.proxy_server.general_settings", {}),
-        patch("litellm.proxy.proxy_server.premium_user", False),
-        patch("litellm.proxy.proxy_server.user_custom_sso", None),
-        patch("litellm.proxy.proxy_server.proxy_logging_obj", MagicMock()),
-        patch("litellm.proxy.proxy_server.redis_usage_cache", None),
-        patch("litellm.proxy.proxy_server.user_api_key_cache", MagicMock()),
+        patch("embrouter.proxy.utils.get_prisma_client_or_throw", return_value=MagicMock()),
+        patch("embrouter.proxy.proxy_server.master_key", "sk-master"),
+        patch("embrouter.proxy.proxy_server.general_settings", {}),
+        patch("embrouter.proxy.proxy_server.premium_user", False),
+        patch("embrouter.proxy.proxy_server.user_custom_sso", None),
+        patch("embrouter.proxy.proxy_server.proxy_logging_obj", MagicMock()),
+        patch("embrouter.proxy.proxy_server.redis_usage_cache", None),
+        patch("embrouter.proxy.proxy_server.user_api_key_cache", MagicMock()),
         patch(
-            "litellm.proxy.proxy_server.generate_key_helper_fn",
+            "embrouter.proxy.proxy_server.generate_key_helper_fn",
             AsyncMock(
                 return_value={"token": "sk-ui-key", "user_id": "canonical-user-id"}
             ),
         ),
         patch(
-            "litellm.proxy.management_endpoints.ui_sso.get_user_info_from_db",
+            "embrouter.proxy.management_endpoints.ui_sso.get_user_info_from_db",
             AsyncMock(return_value=None),
         ),
         patch(
-            "litellm.proxy.management_endpoints.ui_sso.check_and_update_if_proxy_admin_id",
+            "embrouter.proxy.management_endpoints.ui_sso.check_and_update_if_proxy_admin_id",
             AsyncMock(return_value="internal_user"),
         ),
         patch(
-            "litellm.proxy.management_endpoints.ui_sso.retain_sso_identity_assertion_for_ema",
+            "embrouter.proxy.management_endpoints.ui_sso.retain_sso_identity_assertion_for_ema",
             retain_mock,
         ),
     ):
@@ -8818,10 +8818,10 @@ async def test_redirect_from_openid_persists_assertion_under_canonical_user_id()
 @pytest.mark.asyncio
 async def test_cli_completion_persists_assertion_under_db_user_id():
     """The CLI funnel persists the captured assertion under the DB-resolved user_id."""
-    from litellm.proxy._experimental.mcp_server.outbound_credentials.sso_assertion_store import (
+    from embrouter.proxy._experimental.mcp_server.outbound_credentials.sso_assertion_store import (
         assertion_from_sso_login,
     )
-    from litellm.proxy.management_endpoints.ui_sso import (
+    from embrouter.proxy.management_endpoints.ui_sso import (
         _complete_cli_sso_callback_session,
     )
 
@@ -8840,19 +8840,19 @@ async def test_cli_completion_persists_assertion_under_db_user_id():
     retain_mock = AsyncMock()
     with (
         patch(
-            "litellm.proxy.management_endpoints.ui_sso.get_user_info_from_db",
+            "embrouter.proxy.management_endpoints.ui_sso.get_user_info_from_db",
             AsyncMock(return_value=user_info),
         ),
         patch(
-            "litellm.proxy.management_endpoints.ui_sso.fetch_cli_sso_team_details",
+            "embrouter.proxy.management_endpoints.ui_sso.fetch_cli_sso_team_details",
             AsyncMock(return_value=[]),
         ),
         patch(
-            "litellm.proxy.management_endpoints.ui_sso.build_cli_sso_attribution_metadata",
+            "embrouter.proxy.management_endpoints.ui_sso.build_cli_sso_attribution_metadata",
             return_value={},
         ),
         patch(
-            "litellm.proxy.management_endpoints.ui_sso.retain_sso_identity_assertion_for_ema",
+            "embrouter.proxy.management_endpoints.ui_sso.retain_sso_identity_assertion_for_ema",
             retain_mock,
         ),
     ):
@@ -8900,7 +8900,7 @@ async def test_uncaptured_assertion_warns_when_an_id_jag_server_is_registered(
 ):
     """A provider with no capture path leaves ID-JAG permanently broken, and the only place
     that is knowable is the login itself; without this line the operator sees nothing at all."""
-    from litellm.proxy.management_endpoints.ui_sso import (
+    from embrouter.proxy.management_endpoints.ui_sso import (
         warn_if_id_jag_assertion_uncaptured,
     )
 
@@ -8909,7 +8909,7 @@ async def test_uncaptured_assertion_warns_when_an_id_jag_server_is_registered(
     for name, value in provider_env.items():
         monkeypatch.setenv(name, value)
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="EmbRouter Proxy"):
         await warn_if_id_jag_assertion_uncaptured(None, retention_enabled=AsyncMock(return_value=True))
 
     warnings = _id_jag_gap_warnings(caplog)
@@ -8921,7 +8921,7 @@ async def test_uncaptured_assertion_warns_when_an_id_jag_server_is_registered(
 async def test_generic_provider_that_returned_no_id_token_still_warns(monkeypatch, caplog):
     """Generic OIDC has a capture path, so there is no configuration gap to report; the login
     still handed the id_jag arm nothing, and that must not pass silently."""
-    from litellm.proxy.management_endpoints.ui_sso import (
+    from embrouter.proxy.management_endpoints.ui_sso import (
         warn_if_id_jag_assertion_uncaptured,
     )
 
@@ -8929,7 +8929,7 @@ async def test_generic_provider_that_returned_no_id_token_still_warns(monkeypatc
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv("GENERIC_CLIENT_ID", "cid")
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="EmbRouter Proxy"):
         await warn_if_id_jag_assertion_uncaptured(None, retention_enabled=AsyncMock(return_value=True))
 
     warnings = _id_jag_gap_warnings(caplog)
@@ -8939,10 +8939,10 @@ async def test_generic_provider_that_returned_no_id_token_still_warns(monkeypatc
 
 @pytest.mark.asyncio
 async def test_no_warning_when_the_assertion_was_captured(monkeypatch, caplog):
-    from litellm.proxy._experimental.mcp_server.outbound_credentials.sso_assertion_store import (
+    from embrouter.proxy._experimental.mcp_server.outbound_credentials.sso_assertion_store import (
         assertion_from_sso_login,
     )
-    from litellm.proxy.management_endpoints.ui_sso import (
+    from embrouter.proxy.management_endpoints.ui_sso import (
         warn_if_id_jag_assertion_uncaptured,
     )
 
@@ -8951,7 +8951,7 @@ async def test_no_warning_when_the_assertion_was_captured(monkeypatch, caplog):
     assert assertion is not None
 
     retention_mock = AsyncMock(return_value=True)
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="EmbRouter Proxy"):
         await warn_if_id_jag_assertion_uncaptured(assertion, retention_enabled=retention_mock)
 
     assert _id_jag_gap_warnings(caplog) == []
@@ -8962,12 +8962,12 @@ async def test_no_warning_when_the_assertion_was_captured(monkeypatch, caplog):
 async def test_no_warning_when_no_id_jag_server_is_registered(monkeypatch, caplog):
     """Most deployments never register one; a warning about ID-JAG on every login there would
     be pure noise and would train operators to ignore it."""
-    from litellm.proxy.management_endpoints.ui_sso import (
+    from embrouter.proxy.management_endpoints.ui_sso import (
         warn_if_id_jag_assertion_uncaptured,
     )
 
     monkeypatch.setenv("GOOGLE_CLIENT_ID", "cid")
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="EmbRouter Proxy"):
         await warn_if_id_jag_assertion_uncaptured(None, retention_enabled=AsyncMock(return_value=False))
 
     assert _id_jag_gap_warnings(caplog) == []
@@ -8975,12 +8975,12 @@ async def test_no_warning_when_no_id_jag_server_is_registered(monkeypatch, caplo
 
 @pytest.mark.asyncio
 async def test_store_outage_does_not_break_the_login(monkeypatch, caplog):
-    from litellm.proxy.management_endpoints.ui_sso import (
+    from embrouter.proxy.management_endpoints.ui_sso import (
         warn_if_id_jag_assertion_uncaptured,
     )
 
     monkeypatch.setenv("GOOGLE_CLIENT_ID", "cid")
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="EmbRouter Proxy"):
         assert (
             await warn_if_id_jag_assertion_uncaptured(
                 None, retention_enabled=AsyncMock(side_effect=Exception("db down"))
@@ -9002,37 +9002,37 @@ async def test_browser_funnel_reports_an_uncaptured_assertion(monkeypatch, caplo
 
     with (
         patch(  # test-quality-ok: endpoint test stubs the Prisma client lookup
-            "litellm.proxy.utils.get_prisma_client_or_throw", return_value=MagicMock()
+            "embrouter.proxy.utils.get_prisma_client_or_throw", return_value=MagicMock()
         ),
-        patch("litellm.proxy.proxy_server.master_key", "sk-master"),  # test-quality-ok: endpoint reads proxy globals
-        patch("litellm.proxy.proxy_server.general_settings", {}),  # test-quality-ok: endpoint reads proxy globals
-        patch("litellm.proxy.proxy_server.premium_user", False),  # test-quality-ok: endpoint reads proxy globals
-        patch("litellm.proxy.proxy_server.user_custom_sso", None),  # test-quality-ok: endpoint reads proxy globals
-        patch("litellm.proxy.proxy_server.proxy_logging_obj", MagicMock()),  # test-quality-ok: endpoint reads proxy globals
-        patch("litellm.proxy.proxy_server.redis_usage_cache", None),  # test-quality-ok: endpoint reads proxy globals
-        patch("litellm.proxy.proxy_server.user_api_key_cache", MagicMock()),  # test-quality-ok: endpoint reads proxy globals
+        patch("embrouter.proxy.proxy_server.master_key", "sk-master"),  # test-quality-ok: endpoint reads proxy globals
+        patch("embrouter.proxy.proxy_server.general_settings", {}),  # test-quality-ok: endpoint reads proxy globals
+        patch("embrouter.proxy.proxy_server.premium_user", False),  # test-quality-ok: endpoint reads proxy globals
+        patch("embrouter.proxy.proxy_server.user_custom_sso", None),  # test-quality-ok: endpoint reads proxy globals
+        patch("embrouter.proxy.proxy_server.proxy_logging_obj", MagicMock()),  # test-quality-ok: endpoint reads proxy globals
+        patch("embrouter.proxy.proxy_server.redis_usage_cache", None),  # test-quality-ok: endpoint reads proxy globals
+        patch("embrouter.proxy.proxy_server.user_api_key_cache", MagicMock()),  # test-quality-ok: endpoint reads proxy globals
         patch(  # test-quality-ok: endpoint test stubs key generation at its module boundary
-            "litellm.proxy.proxy_server.generate_key_helper_fn",
+            "embrouter.proxy.proxy_server.generate_key_helper_fn",
             AsyncMock(return_value={"token": "sk-ui-key", "user_id": "canonical-user-id"}),
         ),
         patch(  # test-quality-ok: endpoint test stubs the user database lookup
-            "litellm.proxy.management_endpoints.ui_sso.get_user_info_from_db",
+            "embrouter.proxy.management_endpoints.ui_sso.get_user_info_from_db",
             AsyncMock(return_value=None),
         ),
         patch(  # test-quality-ok: endpoint test stubs the admin database lookup
-            "litellm.proxy.management_endpoints.ui_sso.check_and_update_if_proxy_admin_id",
+            "embrouter.proxy.management_endpoints.ui_sso.check_and_update_if_proxy_admin_id",
             AsyncMock(return_value="internal_user"),
         ),
         patch(  # test-quality-ok: endpoint test stubs assertion persistence
-            "litellm.proxy.management_endpoints.ui_sso.retain_sso_identity_assertion_for_ema",
+            "embrouter.proxy.management_endpoints.ui_sso.retain_sso_identity_assertion_for_ema",
             AsyncMock(),
         ),
         patch(  # test-quality-ok: endpoint reads this module global without an injection seam
-            "litellm.proxy.management_endpoints.ui_sso.ema_assertion_retention_enabled",
+            "embrouter.proxy.management_endpoints.ui_sso.ema_assertion_retention_enabled",
             AsyncMock(return_value=True),
         ),
     ):
-        with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+        with caplog.at_level(logging.WARNING, logger="EmbRouter Proxy"):
             await SSOAuthenticationHandler.get_redirect_response_from_openid(
                 result=CustomOpenID(
                     id="raw-idp-subject",
@@ -9061,7 +9061,7 @@ async def test_browser_funnel_reports_an_uncaptured_assertion(monkeypatch, caplo
 @pytest.mark.asyncio
 async def test_cli_funnel_reports_an_uncaptured_assertion(monkeypatch, caplog):
     """Wiring: the CLI login path shares the gap, so it must share the diagnostic."""
-    from litellm.proxy.management_endpoints.ui_sso import (
+    from embrouter.proxy.management_endpoints.ui_sso import (
         _complete_cli_sso_callback_session,
     )
 
@@ -9078,27 +9078,27 @@ async def test_cli_funnel_reports_an_uncaptured_assertion(monkeypatch, caplog):
 
     with (
         patch(  # test-quality-ok: endpoint test stubs the user database lookup
-            "litellm.proxy.management_endpoints.ui_sso.get_user_info_from_db",
+            "embrouter.proxy.management_endpoints.ui_sso.get_user_info_from_db",
             AsyncMock(return_value=user_info),
         ),
         patch(  # test-quality-ok: endpoint test stubs CLI team lookup
-            "litellm.proxy.management_endpoints.ui_sso.fetch_cli_sso_team_details",
+            "embrouter.proxy.management_endpoints.ui_sso.fetch_cli_sso_team_details",
             AsyncMock(return_value=[]),
         ),
         patch(  # test-quality-ok: endpoint test stubs attribution metadata
-            "litellm.proxy.management_endpoints.ui_sso.build_cli_sso_attribution_metadata",
+            "embrouter.proxy.management_endpoints.ui_sso.build_cli_sso_attribution_metadata",
             return_value={},
         ),
         patch(  # test-quality-ok: endpoint test stubs assertion persistence
-            "litellm.proxy.management_endpoints.ui_sso.retain_sso_identity_assertion_for_ema",
+            "embrouter.proxy.management_endpoints.ui_sso.retain_sso_identity_assertion_for_ema",
             AsyncMock(),
         ),
         patch(  # test-quality-ok: endpoint reads this module global without an injection seam
-            "litellm.proxy.management_endpoints.ui_sso.ema_assertion_retention_enabled",
+            "embrouter.proxy.management_endpoints.ui_sso.ema_assertion_retention_enabled",
             AsyncMock(return_value=True),
         ),
     ):
-        with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+        with caplog.at_level(logging.WARNING, logger="EmbRouter Proxy"):
             await _complete_cli_sso_callback_session(
                 request=mock_request,
                 key="cli-login-id",
@@ -9166,7 +9166,7 @@ async def test_cli_completion_drops_teams_whose_rows_no_longer_exist():
     for a single-team user, its grants could never resolve, and every future login
     would be refused with no way for the user to recover.
     """
-    from litellm.proxy.management_endpoints.ui_sso import (
+    from embrouter.proxy.management_endpoints.ui_sso import (
         CliSsoTeamDetail,
         _complete_cli_sso_callback_session,
     )
@@ -9177,19 +9177,19 @@ async def test_cli_completion_drops_teams_whose_rows_no_longer_exist():
     flow = {}
     with (
         patch(
-            "litellm.proxy.management_endpoints.ui_sso.get_user_info_from_db",
+            "embrouter.proxy.management_endpoints.ui_sso.get_user_info_from_db",
             AsyncMock(return_value=_cli_callback_user_info(["team-live", "team-deleted"])),
         ),
         patch(
-            "litellm.proxy.management_endpoints.ui_sso.fetch_cli_sso_team_details",
+            "embrouter.proxy.management_endpoints.ui_sso.fetch_cli_sso_team_details",
             AsyncMock(return_value=(live_detail,)),
         ),
         patch(
-            "litellm.proxy.management_endpoints.ui_sso.build_cli_sso_attribution_metadata",
+            "embrouter.proxy.management_endpoints.ui_sso.build_cli_sso_attribution_metadata",
             return_value={},
         ),
         patch(
-            "litellm.proxy.management_endpoints.ui_sso.retain_sso_identity_assertion_for_ema",
+            "embrouter.proxy.management_endpoints.ui_sso.retain_sso_identity_assertion_for_ema",
             AsyncMock(),
         ),
     ):
@@ -9208,22 +9208,22 @@ async def test_cli_completion_fails_the_login_when_team_lookup_fails():
     their personal allowlist, which is the same "unknown grant treated as a real
     grant" bug in a quieter form.
     """
-    from litellm.proxy.management_endpoints.ui_sso import (
+    from embrouter.proxy.management_endpoints.ui_sso import (
         _complete_cli_sso_callback_session,
     )
 
     flow = {}
     with (
         patch(
-            "litellm.proxy.management_endpoints.ui_sso.get_user_info_from_db",
+            "embrouter.proxy.management_endpoints.ui_sso.get_user_info_from_db",
             AsyncMock(return_value=_cli_callback_user_info(["team-live"])),
         ),
         patch(
-            "litellm.proxy.management_endpoints.ui_sso.fetch_cli_sso_team_details",
+            "embrouter.proxy.management_endpoints.ui_sso.fetch_cli_sso_team_details",
             AsyncMock(return_value=None),
         ),
         patch(
-            "litellm.proxy.management_endpoints.ui_sso.retain_sso_identity_assertion_for_ema",
+            "embrouter.proxy.management_endpoints.ui_sso.retain_sso_identity_assertion_for_ema",
             AsyncMock(),
         ),
     ):
@@ -9240,13 +9240,13 @@ class TestSameOriginReturnPath:
     browser off the gateway origin."""
 
     def test_accepts_relative_paths(self):
-        from litellm.proxy.management_endpoints.ui_sso import _is_same_origin_return_path
+        from embrouter.proxy.management_endpoints.ui_sso import _is_same_origin_return_path
 
         assert _is_same_origin_return_path("/authorize?client_id=llm_dcrc_x&state=s") is True
         assert _is_same_origin_return_path("/some_server/authorize") is True
 
     def test_rejects_absolute_protocol_relative_and_backslash_paths(self):
-        from litellm.proxy.management_endpoints.ui_sso import _is_same_origin_return_path
+        from embrouter.proxy.management_endpoints.ui_sso import _is_same_origin_return_path
 
         assert _is_same_origin_return_path("https://evil.example.com/authorize") is False
         assert _is_same_origin_return_path("//evil.example.com/authorize") is False
@@ -9286,54 +9286,54 @@ class TestPersistReturnToCookieSharedHelper:
     def test_sets_cookie_for_same_origin_relative_path(self, monkeypatch):
         from fastapi import Response
 
-        from litellm.proxy.management_endpoints.ui_sso import _persist_return_to_cookie
+        from embrouter.proxy.management_endpoints.ui_sso import _persist_return_to_cookie
 
-        monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
+        monkeypatch.setattr("embrouter.proxy.proxy_server.general_settings", {})
         resp = Response()
         _persist_return_to_cookie(resp, "/mcp/authorize?client_id=llm_dcrc_abc", _make_https_request())
-        assert "litellm_cp_return_to=" in self._cookie(resp)
+        assert "embrouter_cp_return_to=" in self._cookie(resp)
 
     def test_bad_absolute_with_control_plane_configured_does_not_raise_and_is_not_stored(self, monkeypatch):
         """THE regression: a non-matching absolute return_to with control_plane_url set must NOT raise
         (it did, blocking the login form) and must NOT be stored — sign-in proceeds."""
         from fastapi import Response
 
-        from litellm.proxy.management_endpoints.ui_sso import _persist_return_to_cookie
+        from embrouter.proxy.management_endpoints.ui_sso import _persist_return_to_cookie
 
         monkeypatch.setattr(
-            "litellm.proxy.proxy_server.general_settings", {"control_plane_url": "https://cp.example.com"}
+            "embrouter.proxy.proxy_server.general_settings", {"control_plane_url": "https://cp.example.com"}
         )
         resp = Response()
         _persist_return_to_cookie(resp, "https://evil.example.com/steal", _make_https_request())  # must not raise
-        assert "litellm_cp_return_to=" not in self._cookie(resp)
+        assert "embrouter_cp_return_to=" not in self._cookie(resp)
 
     def test_none_return_to_is_a_noop(self):
         from fastapi import Response
 
-        from litellm.proxy.management_endpoints.ui_sso import _persist_return_to_cookie
+        from embrouter.proxy.management_endpoints.ui_sso import _persist_return_to_cookie
 
         resp = Response()
         _persist_return_to_cookie(resp, None, _make_https_request())
-        assert "litellm_cp_return_to=" not in self._cookie(resp)
+        assert "embrouter_cp_return_to=" not in self._cookie(resp)
 
     def test_control_plane_matching_absolute_is_stored(self, monkeypatch):
         from fastapi import Response
 
-        from litellm.proxy.management_endpoints.ui_sso import _persist_return_to_cookie
+        from embrouter.proxy.management_endpoints.ui_sso import _persist_return_to_cookie
 
         monkeypatch.setattr(
-            "litellm.proxy.proxy_server.general_settings", {"control_plane_url": "https://cp.example.com"}
+            "embrouter.proxy.proxy_server.general_settings", {"control_plane_url": "https://cp.example.com"}
         )
         resp = Response()
         _persist_return_to_cookie(resp, "https://cp.example.com/ui?page=models", _make_https_request())
-        assert "litellm_cp_return_to=" in self._cookie(resp)
+        assert "embrouter_cp_return_to=" in self._cookie(resp)
 
     def test_cookie_is_secure_and_httponly_over_https(self, monkeypatch):
         from fastapi import Response
 
-        from litellm.proxy.management_endpoints.ui_sso import _persist_return_to_cookie
+        from embrouter.proxy.management_endpoints.ui_sso import _persist_return_to_cookie
 
-        monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
+        monkeypatch.setattr("embrouter.proxy.proxy_server.general_settings", {})
         resp = Response()
         _persist_return_to_cookie(resp, "/mcp/authorize", _make_https_request())
         cookie = self._cookie(resp)
@@ -9344,23 +9344,23 @@ class TestPersistReturnToCookieSharedHelper:
     def test_cookie_is_not_secure_over_plain_http_direct(self, monkeypatch):
         from fastapi import Response
 
-        from litellm.proxy.management_endpoints.ui_sso import _persist_return_to_cookie
+        from embrouter.proxy.management_endpoints.ui_sso import _persist_return_to_cookie
 
-        monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
+        monkeypatch.setattr("embrouter.proxy.proxy_server.general_settings", {})
         resp = Response()
         _persist_return_to_cookie(resp, "/mcp/authorize", _make_http_request())
         assert "Secure" not in self._cookie(resp)
 
     def test_cookie_is_secure_behind_trusted_tls_terminating_proxy(self, monkeypatch):
-        """Regression for the reported bug: TLS terminates at a reverse proxy, litellm only
+        """Regression for the reported bug: TLS terminates at a reverse proxy, embrouter only
         sees a plain-HTTP hop, but a trusted X-Forwarded-Proto: https must still mark the
         cookie Secure."""
         from fastapi import Response
 
-        from litellm.proxy.management_endpoints.ui_sso import _persist_return_to_cookie
+        from embrouter.proxy.management_endpoints.ui_sso import _persist_return_to_cookie
 
         monkeypatch.setattr(
-            "litellm.proxy.proxy_server.general_settings",
+            "embrouter.proxy.proxy_server.general_settings",
             {"use_x_forwarded_for": True, "mcp_trusted_proxy_ranges": ["10.0.0.0/8"]},
         )
         resp = Response()
@@ -9385,7 +9385,7 @@ class TestSessionTokenCookie:
     def test_secure_over_direct_https(self, monkeypatch):
         from fastapi import Response
 
-        from litellm.proxy.management_endpoints.ui_sso import set_session_token_cookie
+        from embrouter.proxy.management_endpoints.ui_sso import set_session_token_cookie
 
         monkeypatch.delenv("PROXY_BASE_URL", raising=False)
         resp = Response()
@@ -9399,7 +9399,7 @@ class TestSessionTokenCookie:
     def test_not_secure_over_direct_http(self, monkeypatch):
         from fastapi import Response
 
-        from litellm.proxy.management_endpoints.ui_sso import set_session_token_cookie
+        from embrouter.proxy.management_endpoints.ui_sso import set_session_token_cookie
 
         monkeypatch.delenv("PROXY_BASE_URL", raising=False)
         resp = Response()
@@ -9407,16 +9407,16 @@ class TestSessionTokenCookie:
         assert "Secure" not in self._cookie(resp)
 
     def test_secure_behind_trusted_tls_terminating_proxy(self, monkeypatch):
-        """THE regression: TLS terminates at a reverse proxy, litellm only sees a
+        """THE regression: TLS terminates at a reverse proxy, embrouter only sees a
         plain-HTTP hop, but the session cookie must still be marked Secure when the
         operator has configured a trusted proxy that reports X-Forwarded-Proto: https."""
         from fastapi import Response
 
-        from litellm.proxy.management_endpoints.ui_sso import set_session_token_cookie
+        from embrouter.proxy.management_endpoints.ui_sso import set_session_token_cookie
 
         monkeypatch.delenv("PROXY_BASE_URL", raising=False)
         monkeypatch.setattr(
-            "litellm.proxy.proxy_server.general_settings",
+            "embrouter.proxy.proxy_server.general_settings",
             {"use_x_forwarded_for": True, "mcp_trusted_proxy_ranges": ["10.0.0.0/8"]},
         )
         request = _make_http_request()
@@ -9429,10 +9429,10 @@ class TestSessionTokenCookie:
     def test_untrusted_spoofed_forwarded_proto_is_ignored(self, monkeypatch):
         from fastapi import Response
 
-        from litellm.proxy.management_endpoints.ui_sso import set_session_token_cookie
+        from embrouter.proxy.management_endpoints.ui_sso import set_session_token_cookie
 
         monkeypatch.delenv("PROXY_BASE_URL", raising=False)
-        monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
+        monkeypatch.setattr("embrouter.proxy.proxy_server.general_settings", {})
         request = _make_http_request()
         request.headers = {"X-Forwarded-Proto": "https"}
         resp = Response()
@@ -9442,9 +9442,9 @@ class TestSessionTokenCookie:
     def test_proxy_base_url_https_overrides_literal_http_scheme(self, monkeypatch):
         from fastapi import Response
 
-        from litellm.proxy.management_endpoints.ui_sso import set_session_token_cookie
+        from embrouter.proxy.management_endpoints.ui_sso import set_session_token_cookie
 
-        monkeypatch.setenv("PROXY_BASE_URL", "https://litellm.example.com")
+        monkeypatch.setenv("PROXY_BASE_URL", "https://embrouter.example.com")
         resp = Response()
         set_session_token_cookie(resp, _make_http_request(), "jwt-token-value")
         assert "Secure" in self._cookie(resp)
@@ -9458,14 +9458,14 @@ async def test_cli_sign_in_enrolls_only_verified_subjects_before_completing(
 ) -> None:
     from typing import Final
 
-    from litellm.proxy.management_endpoints import ui_sso
-    from litellm.types.proxy.agent_identity import MicrosoftInteractiveSubject
+    from embrouter.proxy.management_endpoints import ui_sso
+    from embrouter.types.proxy.agent_identity import MicrosoftInteractiveSubject
 
     flow: Final[dict[str, object]] = {}
     kwargs: Final = _cli_callback_kwargs(flow)
     subject: Final = MicrosoftInteractiveSubject(issuer="issuer", tenant_id="tenant", oid="subject")
-    kwargs["request"].scope = {"litellm_microsoft_interactive_subject": subject if trusted else subject.model_dump()}
-    table: Final = kwargs["prisma_client"].writer_db.litellm_verifiedsubject
+    kwargs["request"].scope = {"embrouter_microsoft_interactive_subject": subject if trusted else subject.model_dump()}
+    table: Final = kwargs["prisma_client"].writer_db.embrouter_verifiedsubject
     table.upsert = AsyncMock(
         return_value=SimpleNamespace(kind="human", user_id="cli-user-id", verified_via="sso_interactive"),
         side_effect=None if storage_available else RuntimeError("storage unavailable"),

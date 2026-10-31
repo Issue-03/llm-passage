@@ -3,12 +3,12 @@ import time
 import httpx
 import pytest
 
-import litellm
-from litellm.exceptions import MidStreamFallbackError
-from litellm.litellm_core_utils.error_normalization import normalize_error
-from litellm.litellm_core_utils.litellm_logging import StandardLoggingPayloadSetup
-from litellm.proxy._types import ProxyErrorTypes, ProxyException
-from litellm.types.router import RouterErrors
+import embrouter
+from embrouter.exceptions import MidStreamFallbackError
+from embrouter.embrouter_core_utils.error_normalization import normalize_error
+from embrouter.embrouter_core_utils.embrouter_logging import StandardLoggingPayloadSetup
+from embrouter.proxy._types import ProxyErrorTypes, ProxyException
+from embrouter.types.router import RouterErrors
 
 _RESPONSE = httpx.Response(status_code=500, request=httpx.Request("POST", "https://example.invalid"))
 
@@ -29,15 +29,15 @@ def _proxy_exc(message: str, error_type: str, code: int) -> ProxyException:
         ),
         (
             (
-                litellm.BudgetExceededError(current_cost=3501.85, max_budget=3500),
+                embrouter.BudgetExceededError(current_cost=3501.85, max_budget=3500),
                 _proxy_exc(
                     "User=abc, Current cost=1000.03, Max budget=1000", ProxyErrorTypes.budget_exceeded.value, 400
                 ),
-                litellm.RateLimitError(
+                embrouter.RateLimitError(
                     "budget",
                     llm_provider="openai",
                     model="gpt",
-                    rate_limit_type=litellm.exceptions.RateLimitType.BUDGET,
+                    rate_limit_type=embrouter.exceptions.RateLimitType.BUDGET,
                 ),
             ),
             "429_BUDGET_EXCEEDED",
@@ -46,7 +46,7 @@ def _proxy_exc(message: str, error_type: str, code: int) -> ProxyException:
             (
                 _proxy_exc("Token Expired", ProxyErrorTypes.expired_key.value, 401),
                 _proxy_exc("Malformed API Key", ProxyErrorTypes.auth_error.value, 401),
-                litellm.AuthenticationError("Signature verification failed", llm_provider="azure", model="gpt"),
+                embrouter.AuthenticationError("Signature verification failed", llm_provider="azure", model="gpt"),
             ),
             "401_AUTHENTICATION_FAILED",
         ),
@@ -63,31 +63,31 @@ def _proxy_exc(message: str, error_type: str, code: int) -> ProxyException:
         (
             (
                 _proxy_exc("Missing required parameter: messages", ProxyErrorTypes.bad_request_error.value, 400),
-                litellm.BadRequestError("Missing required parameter: input", llm_provider="openai", model="gpt"),
+                embrouter.BadRequestError("Missing required parameter: input", llm_provider="openai", model="gpt"),
             ),
             "400_MISSING_REQUIRED_PARAMETER",
         ),
         (
             (
-                litellm.ContextWindowExceededError(
+                embrouter.ContextWindowExceededError(
                     "1002823 tokens > 1000000 maximum", model="g", llm_provider="vertex"
                 ),
-                litellm.BadRequestError("Input is too long for requested model", llm_provider="anthropic", model="c"),
+                embrouter.BadRequestError("Input is too long for requested model", llm_provider="anthropic", model="c"),
             ),
             "400_CONTEXT_WINDOW_EXCEEDED",
         ),
         (
             (
-                litellm.NotFoundError("Response id xxx not found", llm_provider="openai", model="gpt"),
+                embrouter.NotFoundError("Response id xxx not found", llm_provider="openai", model="gpt"),
                 _proxy_exc("No vector store found with id abc", ProxyErrorTypes.not_found_error.value, 404),
             ),
             "404_RESOURCE_NOT_FOUND",
         ),
         (
             (
-                litellm.APIConnectionError("Connection error", llm_provider="openai", model="gpt"),
-                litellm.InternalServerError("TransferEncodingError", llm_provider="openai", model="gpt"),
-                litellm.APIError(500, "Response payload is not completed", llm_provider="openai", model="gpt"),
+                embrouter.APIConnectionError("Connection error", llm_provider="openai", model="gpt"),
+                embrouter.InternalServerError("TransferEncodingError", llm_provider="openai", model="gpt"),
+                embrouter.APIError(500, "Response payload is not completed", llm_provider="openai", model="gpt"),
                 httpx.RemoteProtocolError(
                     "peer closed connection without sending complete message body (incomplete chunked read)"
                 ),
@@ -96,20 +96,20 @@ def _proxy_exc(message: str, error_type: str, code: int) -> ProxyException:
         ),
         (
             (
-                litellm.ServiceUnavailableError("server_is_overloaded", llm_provider="anthropic", model="c"),
-                litellm.InternalServerError(
+                embrouter.ServiceUnavailableError("server_is_overloaded", llm_provider="anthropic", model="c"),
+                embrouter.InternalServerError(
                     "Bedrock is unable to process your request", llm_provider="bedrock", model="c"
                 ),
-                litellm.APIError(529, "Overloaded", llm_provider="anthropic", model="c"),
+                embrouter.APIError(529, "Overloaded", llm_provider="anthropic", model="c"),
             ),
             "503_PROVIDER_OVERLOADED",
         ),
         (
             (
-                litellm.InternalServerError(
+                embrouter.InternalServerError(
                     "The server had an error while processing your request", llm_provider="openai", model="gpt"
                 ),
-                litellm.APIError(500, "server_error", llm_provider="openai", model="gpt"),
+                embrouter.APIError(500, "server_error", llm_provider="openai", model="gpt"),
             ),
             "500_PROVIDER_INTERNAL_ERROR",
         ),
@@ -139,8 +139,8 @@ def _proxy_exc(message: str, error_type: str, code: int) -> ProxyException:
         ),
         (
             (
-                litellm.Timeout("Timeout on reading data from socket", model="gpt", llm_provider="openai"),
-                litellm.APIError(504, "Request timed out", llm_provider="openai", model="gpt"),
+                embrouter.Timeout("Timeout on reading data from socket", model="gpt", llm_provider="openai"),
+                embrouter.APIError(504, "Request timed out", llm_provider="openai", model="gpt"),
             ),
             "408_UPSTREAM_TIMEOUT",
         ),
@@ -179,32 +179,32 @@ def test_normalize_error_passthrough_prefix_wins_over_upstream_body_text() -> No
 
 def test_router_no_healthy_deployment_wording_clusters_as_no_healthy_deployments() -> None:
     for message in (RouterErrors.no_healthy_deployments.value, "No healthy deployments found."):
-        exc = litellm.BadRequestError(message, llm_provider="openai", model="gpt-4o")
+        exc = embrouter.BadRequestError(message, llm_provider="openai", model="gpt-4o")
         assert normalize_error(exc, "400", message) == "429_NO_HEALTHY_DEPLOYMENTS", message
 
 
 def test_provider_budget_routing_wording_clusters_as_budget_exceeded() -> None:
     message = RouterErrors.no_deployments_with_provider_budget_routing.value
-    exc = litellm.BadRequestError(message, llm_provider="openai", model="gpt-4o")
+    exc = embrouter.BadRequestError(message, llm_provider="openai", model="gpt-4o")
     assert normalize_error(exc, "400", message) == "429_BUDGET_EXCEEDED"
 
 
 def test_router_fallback_wording_does_not_hide_the_wrapped_exception_class() -> None:
-    provider_message = "litellm.AuthenticationError: OpenAIException - Incorrect API key provided"
-    exc = litellm.AuthenticationError(
+    provider_message = "embrouter.AuthenticationError: OpenAIException - Incorrect API key provided"
+    exc = embrouter.AuthenticationError(
         provider_message + "\nNo fallback model group found for lookup_groups=['x']",
         llm_provider="openai",
         model="gpt",
     )
     assert normalize_error(exc, "401", str(exc)) == "401_AUTHENTICATION_FAILED"
-    wrapped = litellm.AuthenticationError(
+    wrapped = embrouter.AuthenticationError(
         "Error doing the fallback: " + provider_message, llm_provider="openai", model="gpt"
     )
     assert normalize_error(wrapped, "401", str(wrapped)) == "401_AUTHENTICATION_FAILED"
 
 
 def test_parameter_length_error_is_not_a_context_window_error() -> None:
-    exc = litellm.BadRequestError("string too long: 'user' max 64 chars", llm_provider="openai", model="gpt")
+    exc = embrouter.BadRequestError("string too long: 'user' max 64 chars", llm_provider="openai", model="gpt")
     assert StandardLoggingPayloadSetup.get_error_information(exc)["normalized_error"] == "400_INVALID_REQUEST"
 
 
@@ -218,7 +218,7 @@ def test_unknown_exception_falls_back_to_status_then_unclassified() -> None:
 
 
 def test_budget_exceeded_error_with_custom_wording_is_still_a_budget_error() -> None:
-    exc = litellm.BudgetExceededError(current_cost=2.0, max_budget=1.0, message="Spending cap reached for key")
+    exc = embrouter.BudgetExceededError(current_cost=2.0, max_budget=1.0, message="Spending cap reached for key")
     assert StandardLoggingPayloadSetup.get_error_information(exc)["normalized_error"] == "429_BUDGET_EXCEEDED"
 
 
@@ -250,7 +250,7 @@ def test_repeated_exceeded_in_a_288kb_message_classifies_in_linear_time() -> Non
     message = (
         f"/chat/completions: Invalid model name passed in model={model}. Call `/v1/models` to view available models"
     )
-    exc = litellm.BadRequestError(message=message, model="unknown-model", llm_provider="openai")
+    exc = embrouter.BadRequestError(message=message, model="unknown-model", llm_provider="openai")
     started = time.perf_counter()
     code = normalize_error(exc, "400", message)
     elapsed = time.perf_counter() - started
@@ -263,7 +263,7 @@ def test_repeated_exceeded_in_a_288kb_message_classifies_in_linear_time() -> Non
     [
         "ExceededBudget: User=abc over budget. Spend=12.5, Budget=10.0",
         "Exceeded budget for provider openai: 105.2 >= 100.0",
-        "LiteLLM Team: team-1, exceeded budget for model=gpt-4o-mini",
+        "EmbRouter Team: team-1, exceeded budget for model=gpt-4o-mini",
         "ExceededBudget: Key over 1d budget. Spend=3.0, Budget=2.0",
         "Budget has been exceeded! Key=sk-... Current cost: 11.0, Max budget: 10.0",
         "EXCEEDED " + "x" * 65 + " BuDgEt",

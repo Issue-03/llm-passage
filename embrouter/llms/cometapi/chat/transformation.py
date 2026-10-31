@@ -10,10 +10,10 @@ from typing import Any, Final
 
 import httpx
 
-from litellm.llms.base_llm.base_model_iterator import BaseModelResponseIterator
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.types.llms.openai import AllMessageValues, ChatCompletionToolParam
-from litellm.types.utils import ModelResponse, ModelResponseStream
+from embrouter.llms.base_llm.base_model_iterator import BaseModelResponseIterator
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.types.llms.openai import AllMessageValues, ChatCompletionToolParam
+from embrouter.types.utils import ModelResponse, ModelResponseStream
 
 from ...openai.chat.gpt_transformation import OpenAIGPTConfig
 from ..common_utils import CometAPIException
@@ -69,7 +69,7 @@ class CometAPIConfig(OpenAIGPTConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         """
@@ -79,7 +79,7 @@ class CometAPIConfig(OpenAIGPTConfig):
             dict: The transformed request. Sent as the body of the API call.
         """
         extra_body: Final = optional_params.pop("extra_body", {})
-        response: Final = super().transform_request(model, messages, optional_params, litellm_params, headers)
+        response: Final = super().transform_request(model, messages, optional_params, embrouter_params, headers)
         response.update(extra_body)
         return response
 
@@ -89,7 +89,7 @@ class CometAPIConfig(OpenAIGPTConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         """

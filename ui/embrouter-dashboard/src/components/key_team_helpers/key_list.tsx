@@ -65,7 +65,7 @@ export interface KeyResponse {
   blocked: boolean;
   deleted_at?: string | null;
   deleted_by?: string | null;
-  litellm_budget_table: Record<string, unknown>;
+  embrouter_budget_table: Record<string, unknown>;
   organization_id: string | null;
   org_id?: string | null;
   created_at: string;

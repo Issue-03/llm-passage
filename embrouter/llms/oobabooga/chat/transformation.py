@@ -3,18 +3,18 @@ from typing import TYPE_CHECKING, Any, Final
 
 import httpx
 
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.openai.chat.gpt_transformation import OpenAIGPTConfig
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.utils import ModelResponse, Usage
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.openai.chat.gpt_transformation import OpenAIGPTConfig
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.utils import ModelResponse, Usage
 
 from ..common_utils import OobaboogaError
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
 
-    LoggingClass = LiteLLMLoggingObj
+    LoggingClass = EmbRouterLoggingObj
 else:
     LoggingClass = Any
 
@@ -37,7 +37,7 @@ class OobaboogaConfig(OpenAIGPTConfig):
         request_data: dict,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,
@@ -85,7 +85,7 @@ class OobaboogaConfig(OpenAIGPTConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:

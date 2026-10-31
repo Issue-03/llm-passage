@@ -1,17 +1,17 @@
 import re
 from typing import TYPE_CHECKING, Any, Final
 
-from litellm._logging import verbose_proxy_logger
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
     get_last_user_message,
 )
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
     httpxSpecialProvider,
 )
 
 if TYPE_CHECKING:
-    from litellm.types.llms.openai import AllMessageValues
+    from embrouter.types.llms.openai import AllMessageValues
 
 # Azure Content Safety APIs have a 10,000 character limit per request.
 AZURE_CONTENT_SAFETY_MAX_TEXT_LENGTH: Final = 10000

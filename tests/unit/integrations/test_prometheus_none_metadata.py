@@ -1,7 +1,7 @@
 """
-Unit tests for Prometheus handling of None metadata in litellm_params.
+Unit tests for Prometheus handling of None metadata in embrouter_params.
 
-When the Responses API sends streaming requests, litellm_params.metadata
+When the Responses API sends streaming requests, embrouter_params.metadata
 can be None, causing AttributeError: 'NoneType' object has no attribute 'get'
 in set_llm_deployment_success_metrics.
 """
@@ -12,8 +12,8 @@ import pytest
 from prometheus_client import REGISTRY
 
 
-from litellm.integrations.prometheus import PrometheusLogger
-from litellm.types.integrations.prometheus import UserAPIKeyLabelValues
+from embrouter.integrations.prometheus import PrometheusLogger
+from embrouter.types.integrations.prometheus import UserAPIKeyLabelValues
 
 
 @pytest.fixture(scope="function")
@@ -30,7 +30,7 @@ class TestNoneMetadataHandling:
     Test that Prometheus metrics don't crash when metadata is None.
 
     This targets the bug where Responses API streaming sets
-    litellm_params["metadata"] = None, causing:
+    embrouter_params["metadata"] = None, causing:
         _metadata.get("model_info") -> AttributeError
     """
 
@@ -39,10 +39,10 @@ class TestNoneMetadataHandling:
     ):
         """
         set_llm_deployment_success_metrics should not raise when
-        litellm_params.metadata is None.
+        embrouter_params.metadata is None.
         """
         request_kwargs = {
-            "litellm_params": {
+            "embrouter_params": {
                 "metadata": None,  # Bug trigger
                 "custom_llm_provider": "openai",
             },
@@ -51,7 +51,7 @@ class TestNoneMetadataHandling:
                 "api_base": "https://api.openai.com",
                 "hidden_params": {
                     "additional_headers": None,
-                    "litellm_overhead_time_ms": None,
+                    "embrouter_overhead_time_ms": None,
                 },
                 "metadata": {
                     "user_api_key_hash": "test-key",
@@ -81,12 +81,12 @@ class TestNoneMetadataHandling:
             output_tokens=10.0,
         )
 
-    def test_set_llm_deployment_success_metrics_with_missing_litellm_params(
+    def test_set_llm_deployment_success_metrics_with_missing_embrouter_params(
         self, prometheus_logger
     ):
         """
         set_llm_deployment_success_metrics should not raise when
-        litellm_params is missing entirely.
+        embrouter_params is missing entirely.
         """
         request_kwargs = {
             "model": "gpt-4o",
@@ -94,7 +94,7 @@ class TestNoneMetadataHandling:
                 "api_base": "https://api.openai.com",
                 "hidden_params": {
                     "additional_headers": None,
-                    "litellm_overhead_time_ms": None,
+                    "embrouter_overhead_time_ms": None,
                 },
                 "metadata": {
                     "user_api_key_hash": "test-key",
@@ -124,17 +124,17 @@ class TestNoneMetadataHandling:
             output_tokens=10.0,
         )
 
-    def test_set_llm_deployment_success_metrics_with_litellm_metadata_key(
+    def test_set_llm_deployment_success_metrics_with_embrouter_metadata_key(
         self, prometheus_logger
     ):
         """
-        set_llm_deployment_success_metrics should pick up litellm_metadata
-        when metadata is None, using get_litellm_metadata_from_kwargs.
+        set_llm_deployment_success_metrics should pick up embrouter_metadata
+        when metadata is None, using get_embrouter_metadata_from_kwargs.
         """
         request_kwargs = {
-            "litellm_params": {
+            "embrouter_params": {
                 "metadata": None,
-                "litellm_metadata": {"model_info": {"id": "test-model-id"}},
+                "embrouter_metadata": {"model_info": {"id": "test-model-id"}},
                 "custom_llm_provider": "openai",
             },
             "model": "gpt-4o",
@@ -142,7 +142,7 @@ class TestNoneMetadataHandling:
                 "api_base": "https://api.openai.com",
                 "hidden_params": {
                     "additional_headers": None,
-                    "litellm_overhead_time_ms": None,
+                    "embrouter_overhead_time_ms": None,
                 },
                 "metadata": {
                     "user_api_key_hash": "test-key",
@@ -163,7 +163,7 @@ class TestNoneMetadataHandling:
             requested_model="gpt-4o",
         )
 
-        # Should not raise, and should pick up litellm_metadata
+        # Should not raise, and should pick up embrouter_metadata
         prometheus_logger.set_llm_deployment_success_metrics(
             request_kwargs=request_kwargs,
             start_time=datetime.now(),

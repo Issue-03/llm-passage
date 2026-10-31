@@ -4,14 +4,14 @@ from typing import Final, Literal, Protocol, get_args
 
 import httpx
 
-import litellm
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.custom_httpx.http_handler import (
+import embrouter
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.custom_httpx.http_handler import (
     AsyncHTTPHandler,
     HTTPHandler,
     get_async_httpx_client,
 )
-from litellm.types.utils import EmbeddingResponse
+from embrouter.types.utils import EmbeddingResponse
 
 from ...base import BaseLLM
 from ..common_utils import HuggingFaceError
@@ -58,7 +58,7 @@ async def async_get_hf_task_embedding_for_model(model: str, task_type: str | Non
         else:
             raise Exception(f"Invalid task_type={task_type}. Expected one of={hf_tasks_embeddings}")
     http_client: Final = get_async_httpx_client(
-        llm_provider=litellm.LlmProviders.HUGGINGFACE,
+        llm_provider=embrouter.LlmProviders.HUGGINGFACE,
     )
 
     model_info: Final = await http_client.get(url=f"{api_base}/api/models/{model}")
@@ -218,7 +218,7 @@ class HuggingFaceEmbedding(BaseLLM):
         setattr(
             model_response,
             "usage",
-            litellm.Usage(
+            embrouter.Usage(
                 prompt_tokens=input_tokens,
                 completion_tokens=input_tokens,
                 total_tokens=input_tokens,
@@ -232,9 +232,9 @@ class HuggingFaceEmbedding(BaseLLM):
         self,
         model: str,
         input: list,
-        model_response: litellm.utils.EmbeddingResponse,
+        model_response: embrouter.utils.EmbeddingResponse,
         timeout: float | httpx.Timeout,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         optional_params: dict,
         api_base: str,
         api_key: str | None,
@@ -264,7 +264,7 @@ class HuggingFaceEmbedding(BaseLLM):
         ## COMPLETION CALL
         if client is None:
             client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders.HUGGINGFACE,
+                llm_provider=embrouter.LlmProviders.HUGGINGFACE,
             )
 
         response: Final = await client.post(api_base, headers=headers, data=json.dumps(data))
@@ -297,8 +297,8 @@ class HuggingFaceEmbedding(BaseLLM):
         input: list,
         model_response: EmbeddingResponse,
         optional_params: dict,
-        litellm_params: dict,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: dict,
+        logging_obj: EmbRouterLoggingObj,
         encoding: _SupportsTokenEncode,
         api_key: str | None = None,
         api_base: str | None = None,
@@ -314,7 +314,7 @@ class HuggingFaceEmbedding(BaseLLM):
             model=model,
             optional_params=optional_params,
             messages=[],
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
         task_type: Final = optional_params.get("input_type", None)
         task: Final = get_hf_task_embedding_for_model(model=model, task_type=task_type, api_base=HF_HUB_URL)

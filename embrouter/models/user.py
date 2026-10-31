@@ -1,22 +1,22 @@
 """
 User table model.
 
-Canonical definition for ``litellm_usertable``. Re-exported from
-``litellm.proxy._types`` for backwards compatibility.
+Canonical definition for ``embrouter_usertable``. Re-exported from
+``embrouter.proxy._types`` for backwards compatibility.
 """
 
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from litellm.models.object_permission import LiteLLM_ObjectPermissionTable
-from litellm.models.organization_membership import (
-    LiteLLM_OrganizationMembershipTable,
+from embrouter.models.object_permission import EmbRouter_ObjectPermissionTable
+from embrouter.models.organization_membership import (
+    EmbRouter_OrganizationMembershipTable,
 )
-from litellm.types.llms.base import LiteLLMPydanticObjectBase
+from embrouter.types.llms.base import EmbRouterPydanticObjectBase
 
 
-class LiteLLM_UserTable(LiteLLMPydanticObjectBase):
+class EmbRouter_UserTable(EmbRouterPydanticObjectBase):
     user_id: str
     user_alias: str | None = None
     team_id: str | None = None
@@ -44,8 +44,8 @@ class LiteLLM_UserTable(LiteLLMPydanticObjectBase):
     model_max_budget: dict | None = {}
     created_at: datetime | None = None
     updated_at: datetime | None = None
-    organization_memberships: list[LiteLLM_OrganizationMembershipTable] | None = None
-    object_permission: LiteLLM_ObjectPermissionTable | None = None
+    organization_memberships: list[EmbRouter_OrganizationMembershipTable] | None = None
+    object_permission: EmbRouter_ObjectPermissionTable | None = None
 
     model_config = ConfigDict(protected_namespaces=())
 

@@ -11,46 +11,46 @@ from typing import TYPE_CHECKING, Final, Literal, Protocol, cast, runtime_checka
 
 from pydantic import BaseModel, JsonValue
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.constants import (
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.constants import (
     CLI_SESSION_KEY_PREFIX,
     EMPTY_MAPPING,
-    LITELLM_PROXY_MASTER_KEY_ALIAS,
-    LITELLM_TRUNCATED_PAYLOAD_FIELD,
-    LITELLM_TRUNCATION_DB_SAFEGUARD_NOTE,
-    LITTELM_CLI_SERVICE_ACCOUNT_NAME,
-    LITTELM_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME,
+    EMBROUTER_PROXY_MASTER_KEY_ALIAS,
+    EMBROUTER_TRUNCATED_PAYLOAD_FIELD,
+    EMBROUTER_TRUNCATION_DB_SAFEGUARD_NOTE,
+    EMBROUTER_CLI_SERVICE_ACCOUNT_NAME,
+    EMBROUTER_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME,
     MAX_SPEND_LOG_MODEL_NAME_LENGTH,
     MCP_SPEND_LOG_MODEL_PREFIX,
     REDACTED_BY_LITELM_STRING,
     SESSION_ID_OMITTED_METADATA_KEY,
     UNKNOWN_MODEL_SPEND_LOG_MODEL,
 )
-from litellm.constants import (
+from embrouter.constants import (
     MAX_STRING_LENGTH_PROMPT_IN_DB as DEFAULT_MAX_STRING_LENGTH_PROMPT_IN_DB,
 )
-from litellm.litellm_core_utils.classifier_logging import classifier_audit_fields, without_classifier_audit
-from litellm.litellm_core_utils.core_helpers import (
-    get_litellm_metadata_from_kwargs,
+from embrouter.embrouter_core_utils.classifier_logging import classifier_audit_fields, without_classifier_audit
+from embrouter.embrouter_core_utils.core_helpers import (
+    get_embrouter_metadata_from_kwargs,
     reconstruct_model_name,
 )
-from litellm.litellm_core_utils.get_llm_provider_logic import declared_authenticating_provider
-from litellm.litellm_core_utils.internal_call_metadata import is_unbilled_non_inference_call
-from litellm.litellm_core_utils.litellm_logging import (
+from embrouter.embrouter_core_utils.get_llm_provider_logic import declared_authenticating_provider
+from embrouter.embrouter_core_utils.internal_call_metadata import is_unbilled_non_inference_call
+from embrouter.embrouter_core_utils.embrouter_logging import (
     coerce_model_access_groups,
     is_valid_sha256_hash,
-    request_model_access_groups_from_litellm_params,
+    request_model_access_groups_from_embrouter_params,
 )
-from litellm.litellm_core_utils.ptu_pricing import azure_spillover
-from litellm.litellm_core_utils.safe_json_dumps import safe_dumps, strip_null_bytes
-from litellm.litellm_core_utils.sensitive_data_masker import SensitiveDataMasker
-from litellm.proxy._types import SpendLogsMetadata, SpendLogsPayload, SpendLogsRouterMetadata
-from litellm.proxy.route_llm_request import ProxyModelNotFoundError
-from litellm.proxy.spend_tracking.spend_log_error_logger import spend_log_error
-from litellm.proxy.utils import PrismaClient, hash_token
-from litellm.types.router import DeploymentTypedDict, LiteLLM_Params
-from litellm.types.utils import (
+from embrouter.embrouter_core_utils.ptu_pricing import azure_spillover
+from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps, strip_null_bytes
+from embrouter.embrouter_core_utils.sensitive_data_masker import SensitiveDataMasker
+from embrouter.proxy._types import SpendLogsMetadata, SpendLogsPayload, SpendLogsRouterMetadata
+from embrouter.proxy.route_llm_request import ProxyModelNotFoundError
+from embrouter.proxy.spend_tracking.spend_log_error_logger import spend_log_error
+from embrouter.proxy.utils import PrismaClient, hash_token
+from embrouter.types.router import DeploymentTypedDict, EmbRouter_Params
+from embrouter.types.utils import (
     PROMPT_CARRYING_GUARDRAIL_FIELDS,
     AzureSpillover,
     CallTypes,
@@ -64,10 +64,10 @@ from litellm.types.utils import (
     StandardLoggingVectorStoreRequest,
     VectorStoreSearchResponse,
 )
-from litellm.utils import get_end_user_id_for_cost_tracking
+from embrouter.utils import get_end_user_id_for_cost_tracking
 
 if TYPE_CHECKING:
-    from litellm.router import Router
+    from embrouter.router import Router
 
 
 def _get_max_string_length_prompt_in_db() -> int:
@@ -97,9 +97,9 @@ def _is_master_key(api_key: str | None, _master_key: str | None) -> bool:
 _HASHED_JWT_RE = re.compile(r"hashed-jwt-[a-fA-F0-9]{64}")
 _NON_SECRET_KEY_ALIASES: Final = frozenset(
     {
-        LITELLM_PROXY_MASTER_KEY_ALIAS,
-        LITTELM_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME,
-        LITTELM_CLI_SERVICE_ACCOUNT_NAME,
+        EMBROUTER_PROXY_MASTER_KEY_ALIAS,
+        EMBROUTER_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME,
+        EMBROUTER_CLI_SERVICE_ACCOUNT_NAME,
     }
 )
 
@@ -171,9 +171,9 @@ def _get_spend_logs_metadata(
     usage_object: dict | None = None,
     model_map_information: StandardLoggingModelInformation | None = None,
     cold_storage_object_key: str | None = None,
-    litellm_overhead_time_ms: float | None = None,
+    embrouter_overhead_time_ms: float | None = None,
     cost_breakdown: CostBreakdown | None = None,
-    litellm_call_id: str | None = None,
+    embrouter_call_id: str | None = None,
     autorouter_savings: float | None = None,
     autorouter_savings_estimate: Mapping[str, JsonValue] | None = None,
     autorouter_baseline_observation: str | None = None,
@@ -209,7 +209,7 @@ def _get_spend_logs_metadata(
             internal_call_origin=None,
             eval_information=None,
             cold_storage_object_key=cold_storage_object_key,
-            litellm_overhead_time_ms=None,
+            embrouter_overhead_time_ms=None,
             attempted_retries=None,
             max_retries=None,
             attempted_fallbacks=None,
@@ -219,8 +219,8 @@ def _get_spend_logs_metadata(
             autorouter_savings=autorouter_savings,
             autorouter_savings_estimate=autorouter_savings_estimate,
             autorouter_baseline_observation=autorouter_baseline_observation,
-            litellm_gateway_injected_cache=None,
-            litellm_call_id=litellm_call_id,
+            embrouter_gateway_injected_cache=None,
+            embrouter_call_id=embrouter_call_id,
             router_metadata=router_metadata,
             azure_spillover=azure_spillover,
         )
@@ -262,9 +262,9 @@ def _get_spend_logs_metadata(
     clean_metadata["usage_object"] = usage_object
     clean_metadata["model_map_information"] = model_map_information
     clean_metadata["cold_storage_object_key"] = cold_storage_object_key
-    clean_metadata["litellm_overhead_time_ms"] = litellm_overhead_time_ms
+    clean_metadata["embrouter_overhead_time_ms"] = embrouter_overhead_time_ms
     clean_metadata["cost_breakdown"] = cost_breakdown
-    clean_metadata["litellm_call_id"] = litellm_call_id
+    clean_metadata["embrouter_call_id"] = embrouter_call_id
 
     return clean_metadata
 
@@ -277,7 +277,7 @@ def get_spend_logs_id(call_type: str, response_obj: dict, kwargs: dict) -> str |
     candidate_ids: Final = (
         response_obj.get("id"),
         standard_logging_payload.get("id") if isinstance(standard_logging_payload, dict) else None,
-        kwargs.get("litellm_call_id"),
+        kwargs.get("embrouter_call_id"),
     )
     resolved_id: Final = next(
         (candidate for candidate in candidate_ids if isinstance(candidate, str) and candidate), None
@@ -372,10 +372,10 @@ def get_request_model_access_groups(kwargs: Mapping[str, object] | None) -> tupl
         if from_payload:
             return from_payload
 
-    litellm_params: Final = kwargs.get("litellm_params")
-    if not isinstance(litellm_params, Mapping):
+    embrouter_params: Final = kwargs.get("embrouter_params")
+    if not isinstance(embrouter_params, Mapping):
         return ()
-    return request_model_access_groups_from_litellm_params(litellm_params)
+    return request_model_access_groups_from_embrouter_params(embrouter_params)
 
 
 def _sl_attribution_fallback(
@@ -388,17 +388,17 @@ def _sl_attribution_fallback(
 
 
 def _deployment_provider(deployment: DeploymentTypedDict) -> str | None:
-    litellm_params: Final = LiteLLM_Params.model_validate(deployment["litellm_params"])
-    if litellm.LiteLLMProxyChatConfig.should_use_litellm_proxy_by_default(litellm_params=litellm_params):
-        return LlmProviders.LITELLM_PROXY.value
-    declared: Final = declared_authenticating_provider(litellm_params.model, litellm_params.custom_llm_provider)
+    embrouter_params: Final = EmbRouter_Params.model_validate(deployment["embrouter_params"])
+    if embrouter.EmbRouterProxyChatConfig.should_use_embrouter_proxy_by_default(embrouter_params=embrouter_params):
+        return LlmProviders.EMBROUTER_PROXY.value
+    declared: Final = declared_authenticating_provider(embrouter_params.model, embrouter_params.custom_llm_provider)
     if declared is not None:
         return declared
     try:
-        _, provider, _, _ = litellm.get_llm_provider(
-            model=litellm_params.model, custom_llm_provider=litellm_params.custom_llm_provider
+        _, provider, _, _ = embrouter.get_llm_provider(
+            model=embrouter_params.model, custom_llm_provider=embrouter_params.custom_llm_provider
         )
-    except litellm.exceptions.BadRequestError:
+    except embrouter.exceptions.BadRequestError:
         return None
     return provider or None
 
@@ -426,8 +426,8 @@ def _looks_like_model_name(model: str) -> bool:
 
 
 _TRUNCATION_MARKER: Final = re.compile(
-    rf"\.\.\. \({re.escape(LITELLM_TRUNCATED_PAYLOAD_FIELD)} skipped \d+ chars\. "
-    rf"{re.escape(LITELLM_TRUNCATION_DB_SAFEGUARD_NOTE)}\) \.\.\."
+    rf"\.\.\. \({re.escape(EMBROUTER_TRUNCATED_PAYLOAD_FIELD)} skipped \d+ chars\. "
+    rf"{re.escape(EMBROUTER_TRUNCATION_DB_SAFEGUARD_NOTE)}\) \.\.\."
 )
 _SCRUBBED_ERROR_TEXT_FIELDS: Final = frozenset(("error_message", "traceback"))
 
@@ -505,8 +505,8 @@ def get_logging_payload(
     elif not isinstance(response_obj, BaseModel) and not isinstance(response_obj, dict):
         response_obj = {"result": str(response_obj)}
     # standardize this function to be used across, s3, dynamoDB, langfuse logging
-    litellm_params: Final = kwargs.get("litellm_params", {})
-    metadata: Final = get_litellm_metadata_from_kwargs(kwargs)
+    embrouter_params: Final = kwargs.get("embrouter_params", {})
+    metadata: Final = get_embrouter_metadata_from_kwargs(kwargs)
     completion_start_time: Final = kwargs.get("completion_start_time", end_time)
     call_type: Final = kwargs.get("call_type")
     cache_hit: Final = kwargs.get("cache_hit", False)
@@ -526,7 +526,7 @@ def get_logging_payload(
     elif not is_unbilled_non_inference_call(call_type, metadata, response_obj_dict):
         # Use response_obj_dict instead of response_obj to avoid calling .get() on Pydantic models
         _usage: Final = response_obj_dict.get("usage", None) or {}
-        if isinstance(_usage, litellm.Usage):
+        if isinstance(_usage, embrouter.Usage):
             usage = dict(_usage)
         elif isinstance(_usage, dict):
             usage = _usage
@@ -535,13 +535,13 @@ def get_logging_payload(
     # streaming handler may have recovered the usage from the chunks already
     # delivered. Honor that override so the partial usage lands in spend tracking.
     _combined_usage: Final = kwargs.get("combined_usage_object")
-    if not usage and isinstance(_combined_usage, litellm.Usage):
+    if not usage and isinstance(_combined_usage, embrouter.Usage):
         usage = _combined_usage.model_dump()
 
     id = get_spend_logs_id(call_type or "acompletion", response_obj_dict, kwargs)
     standard_logging_payload: Final = cast(StandardLoggingPayload | None, kwargs.get("standard_logging_object", None))
 
-    end_user_id = get_end_user_id_for_cost_tracking(litellm_params)
+    end_user_id = get_end_user_id_for_cost_tracking(embrouter_params)
 
     api_key = metadata.get("user_api_key", "")
 
@@ -586,15 +586,15 @@ def get_logging_payload(
     _model_group: Final = metadata.get("model_group", "") or _sl_attribution_fallback(
         standard_logging_payload, "model_group"
     )
-    _api_base: Final = litellm_params.get("api_base", "") or _sl_attribution_fallback(
+    _api_base: Final = embrouter_params.get("api_base", "") or _sl_attribution_fallback(
         standard_logging_payload, "api_base"
     )
 
     # Extract overhead from hidden_params if available
-    litellm_overhead_time_ms = None
+    embrouter_overhead_time_ms = None
     if standard_logging_payload is not None:
         hidden_params: Final = standard_logging_payload.get("hidden_params", {})
-        litellm_overhead_time_ms = hidden_params.get("litellm_overhead_time_ms")
+        embrouter_overhead_time_ms = hidden_params.get("embrouter_overhead_time_ms")
 
     logged_provider: Final = (
         kwargs.get("custom_llm_provider")
@@ -634,12 +634,12 @@ def get_logging_payload(
         if model_is_placeholdered
         else metadata
     )
-    litellm_call_id: Final = cast(
+    embrouter_call_id: Final = cast(
         str | None,
-        kwargs.get("litellm_call_id") or litellm_params.get("litellm_call_id"),
+        kwargs.get("embrouter_call_id") or embrouter_params.get("embrouter_call_id"),
     )
 
-    # clean up litellm metadata
+    # clean up embrouter metadata
     clean_metadata = _get_spend_logs_metadata(
         persisted_metadata,
         applied_guardrails=(
@@ -690,7 +690,7 @@ def get_logging_payload(
             if standard_logging_payload is not None
             else None
         ),
-        litellm_overhead_time_ms=litellm_overhead_time_ms,
+        embrouter_overhead_time_ms=embrouter_overhead_time_ms,
         cost_breakdown=(
             standard_logging_payload.get("cost_breakdown", None) if standard_logging_payload is not None else None
         ),
@@ -707,13 +707,13 @@ def get_logging_payload(
             if standard_logging_payload is not None
             else None
         ),
-        litellm_call_id=litellm_call_id,
+        embrouter_call_id=embrouter_call_id,
         router_metadata=_get_router_metadata_for_spend_log(
             metadata=metadata,
             requested_model=persisted_model_group,
             selected_model=model_name,
             selected_provider=custom_llm_provider,
-            router_correlation_id=litellm_call_id,
+            router_correlation_id=embrouter_call_id,
         ),
         azure_spillover=azure_spillover(
             response_headers=kwargs.get("response_headers")
@@ -751,12 +751,12 @@ def get_logging_payload(
                 additional_usage_values["cache_creation_input_tokens"] = cache_write_tokens
     clean_metadata["additional_usage_values"] = additional_usage_values
 
-    if litellm.cache is None:
+    if embrouter.cache is None:
         cache_key = "Cache OFF"
-    elif litellm_params.get("preset_cache_key") is not None:
-        cache_key = litellm_params["preset_cache_key"]
+    elif embrouter_params.get("preset_cache_key") is not None:
+        cache_key = embrouter_params["preset_cache_key"]
     else:
-        cache_key = litellm.cache.get_cache_key(**kwargs)
+        cache_key = embrouter.cache.get_cache_key(**kwargs)
     if cache_hit is True:
         import time
 
@@ -805,10 +805,10 @@ def get_logging_payload(
             response=_get_response_for_spend_logs_payload(payload=standard_logging_payload, kwargs=kwargs),
             proxy_server_request=_get_proxy_server_request_for_spend_logs_payload(
                 metadata=metadata,
-                litellm_params=(
-                    _placeholder_stored_request_body(litellm_params, persisted_model_group, raw_model)
+                embrouter_params=(
+                    _placeholder_stored_request_body(embrouter_params, persisted_model_group, raw_model)
                     if model_is_placeholdered
-                    else litellm_params
+                    else embrouter_params
                 ),
                 kwargs=kwargs,
             ),
@@ -823,7 +823,7 @@ def get_logging_payload(
             status=_get_status_for_spend_log(
                 metadata=metadata,
             ),
-            litellm_call_id=litellm_call_id,
+            embrouter_call_id=embrouter_call_id,
         )
 
         verbose_proxy_logger.debug(
@@ -845,14 +845,14 @@ def get_logging_payload(
 def _omits_session_id_when_missing(metadata: Mapping[str, object] | None) -> bool:
     """The pre-call stamp pins `omit` on for the requests that carry it, so a config reload between pre-call and spend
     logging cannot fabricate a session. `apply_missing_session_id_policy` drops any client-supplied copy of the key
-    from both metadata buckets before stamping, which the merge of `litellm_metadata` into `metadata` makes
+    from both metadata buckets before stamping, which the merge of `embrouter_metadata` into `metadata` makes
     necessary, so a caller cannot forge it. Requests that never reach the pre-call helper, router-model
     passthrough among them, carry no stamp, so they fall back to the configured policy and `omit` still covers their
     spend logs."""
     if metadata is not None and metadata.get(SESSION_ID_OMITTED_METADATA_KEY):
         return True
 
-    from litellm.proxy.proxy_server import general_settings
+    from embrouter.proxy.proxy_server import general_settings
 
     return general_settings.get("missing_session_id") == "omit"
 
@@ -884,21 +884,21 @@ def _get_session_id_for_spend_log(
     omit_when_missing: bool,
     batch_trace_session_id: str | None = None,
 ) -> str | None:
-    """Under `omit` only `metadata.session_id`, the key Langfuse reads, counts as a session; `litellm_session_id` may
+    """Under `omit` only `metadata.session_id`, the key Langfuse reads, counts as a session; `embrouter_session_id` may
     be a copied trace id. Batch call types carry a deterministic session derived from the batch id, which outranks
     the per-request trace ids because those differ between the create call and the cost poller's row."""
     if omit_when_missing:
         session_id: Final = metadata.get("session_id") if metadata else None
         return str(session_id) if session_id else None
 
-    from litellm._uuid import uuid
+    from embrouter._uuid import uuid
 
     if batch_trace_session_id is not None:
         return batch_trace_session_id
     if standard_logging_payload is not None and standard_logging_payload.get("trace_id") is not None:
         return str(standard_logging_payload.get("trace_id"))
-    if kwargs.get("litellm_trace_id") is not None:
-        return str(kwargs.get("litellm_trace_id"))
+    if kwargs.get("embrouter_trace_id") is not None:
+        return str(kwargs.get("embrouter_trace_id"))
     return str(uuid.uuid4())
 
 
@@ -940,9 +940,9 @@ async def get_spend_by_team(
             SUM(sl.spend) AS model_api_spend,
             SUM(sl.total_tokens) AS model_api_tokens
         FROM
-            "LiteLLM_SpendLogs" sl
+            "EmbRouter_SpendLogs" sl
         LEFT JOIN
-            "LiteLLM_TeamTable" tt
+            "EmbRouter_TeamTable" tt
         ON
             sl.team_id = tt.team_id
         WHERE
@@ -1010,9 +1010,9 @@ async def get_spend_by_team_and_customer(
             SUM(sl.spend) AS model_api_spend,
             SUM(sl.total_tokens) AS model_api_tokens
         FROM 
-            "LiteLLM_SpendLogs" sl
+            "EmbRouter_SpendLogs" sl
         LEFT JOIN 
-            "LiteLLM_TeamTable" tt 
+            "EmbRouter_TeamTable" tt 
         ON 
             sl.team_id = tt.team_id
         WHERE
@@ -1105,9 +1105,9 @@ def _sanitize_request_body_for_spend_logs_payload(
     which holds raw HTTP headers including Authorization tokens), and replaces string values under keys
     SensitiveDataMasker classifies as credentials with REDACTED_BY_LITELM_STRING.
     """
-    from litellm.constants import (
-        LITELLM_TRUNCATED_PAYLOAD_FIELD,
-        LITELLM_TRUNCATION_DB_SAFEGUARD_NOTE,
+    from embrouter.constants import (
+        EMBROUTER_TRUNCATED_PAYLOAD_FIELD,
+        EMBROUTER_TRUNCATION_DB_SAFEGUARD_NOTE,
     )
 
     if visited is None:
@@ -1152,8 +1152,8 @@ def _sanitize_request_body_for_spend_logs_payload(
                 # Build the truncated string: beginning + truncation marker + end
                 truncated_value: Final = (
                     f"{value[:start_chars]}"
-                    f"... ({LITELLM_TRUNCATED_PAYLOAD_FIELD} skipped {skipped_chars} chars. "
-                    f"{LITELLM_TRUNCATION_DB_SAFEGUARD_NOTE}) ..."
+                    f"... ({EMBROUTER_TRUNCATED_PAYLOAD_FIELD} skipped {skipped_chars} chars. "
+                    f"{EMBROUTER_TRUNCATION_DB_SAFEGUARD_NOTE}) ..."
                     f"{value[-end_chars:]}"
                 )
                 return truncated_value
@@ -1315,11 +1315,11 @@ def _sanitize_guardrail_information_for_spend_logs(
     """
     When ``store_prompts_in_spend_logs`` is False, redact prompt-carrying fields
     (``guardrail_request``, ``guardrail_response``, ``match_details``,
-    ``classification``) before they land in ``LiteLLM_SpendLogs.metadata``.
+    ``classification``) before they land in ``EmbRouter_SpendLogs.metadata``.
 
     Guardrail hooks may echo the LLM request payload back into
     ``guardrail_response``, and two first-party hooks
-    (``block_code_execution``, ``litellm_content_filter``) inline user-prompt
+    (``block_code_execution``, ``embrouter_content_filter``) inline user-prompt
     substrings into ``match_details`` / ``classification`` too, so the flag
     must cover all four fields. Every other typed field on the entry (name,
     provider, mode, status, timings, action, violation_categories, risk_score,
@@ -1383,7 +1383,7 @@ def _sanitize_error_information_for_spend_logs(
     original_exception: BaseException | None = None,
 ) -> StandardLoggingPayloadErrorInformation | None:
     """
-    Sanitize ``error_information`` before it lands in ``LiteLLM_SpendLogs.metadata``.
+    Sanitize ``error_information`` before it lands in ``EmbRouter_SpendLogs.metadata``.
 
     Provider errors are stored verbatim via ``str(original_exception)``; those
     strings can echo the full request body, producing multi-megabyte spend-log
@@ -1397,7 +1397,7 @@ def _sanitize_error_information_for_spend_logs(
       ``traceback`` so prompts cannot leak through either field.
 
     Scoped to the spend-log path — OTEL/Datadog/etc. callbacks still receive
-    the untruncated error per ``LITELLM_TRUNCATION_DB_SAFEGUARD_NOTE``.
+    the untruncated error per ``EMBROUTER_TRUNCATION_DB_SAFEGUARD_NOTE``.
     """
     if error_information is None:
         return None
@@ -1508,14 +1508,14 @@ def _placeholder_stored_request_body_metadata(
 
 
 def _placeholder_stored_request_body(
-    litellm_params: Mapping[str, object], persisted_model_group: str, raw_model: str
+    embrouter_params: Mapping[str, object], persisted_model_group: str, raw_model: str
 ) -> Mapping[str, object]:
-    proxy_server_request: Final = litellm_params.get("proxy_server_request")
+    proxy_server_request: Final = embrouter_params.get("proxy_server_request")
     if not isinstance(proxy_server_request, Mapping):
-        return litellm_params
+        return embrouter_params
     request_body: Final = proxy_server_request.get("body")
     if not isinstance(request_body, Mapping):
-        return litellm_params
+        return embrouter_params
     model_placeholdered: Final = (
         MappingProxyType({**request_body, "model": UNKNOWN_MODEL_SPEND_LOG_MODEL})
         if "model" in request_body
@@ -1523,7 +1523,7 @@ def _placeholder_stored_request_body(
     )
     return MappingProxyType(
         {
-            **litellm_params,
+            **embrouter_params,
             "proxy_server_request": MappingProxyType(
                 {
                     **proxy_server_request,
@@ -1538,7 +1538,7 @@ def _placeholder_stored_request_body(
 
 def _get_proxy_server_request_for_spend_logs_payload(
     metadata: dict,
-    litellm_params: Mapping[str, object],
+    embrouter_params: Mapping[str, object],
     kwargs: dict | None = None,
 ) -> str:
     """
@@ -1547,7 +1547,7 @@ def _get_proxy_server_request_for_spend_logs_payload(
     If turn_off_message_logging is enabled, redact messages in the request body.
     """
     if should_store_prompts_and_responses_in_spend_logs():
-        _proxy_server_request: Final = cast(dict | None, litellm_params.get("proxy_server_request", EMPTY_MAPPING))
+        _proxy_server_request: Final = cast(dict | None, embrouter_params.get("proxy_server_request", EMPTY_MAPPING))
         if _proxy_server_request is not None:
             _request_body = _proxy_server_request.get("body", EMPTY_MAPPING) or EMPTY_MAPPING
 
@@ -1563,14 +1563,14 @@ def _get_proxy_server_request_for_spend_logs_payload(
 
             # Apply message redaction if turn_off_message_logging is enabled
             if kwargs is not None:
-                from litellm.litellm_core_utils.redact_messages import (
+                from embrouter.embrouter_core_utils.redact_messages import (
                     perform_redaction,
                     should_redact_message_logging,
                 )
 
                 # Build model_call_details dict to check redaction settings
                 model_call_details: Final = {
-                    "litellm_params": litellm_params,
+                    "embrouter_params": embrouter_params,
                     "standard_callback_dynamic_params": kwargs.get("standard_callback_dynamic_params"),
                 }
 
@@ -1581,10 +1581,10 @@ def _get_proxy_server_request_for_spend_logs_payload(
 
             _request_body = _sanitize_request_body_for_spend_logs_payload(_request_body)
             _request_body_json_str: Final = safe_dumps(_request_body)
-            if LITELLM_TRUNCATED_PAYLOAD_FIELD in _request_body_json_str:
+            if EMBROUTER_TRUNCATED_PAYLOAD_FIELD in _request_body_json_str:
                 verbose_proxy_logger.info(
                     "Spend Log: request body was truncated before storing in DB. %s",
-                    LITELLM_TRUNCATION_DB_SAFEGUARD_NOTE,
+                    EMBROUTER_TRUNCATION_DB_SAFEGUARD_NOTE,
                 )
             return _request_body_json_str
     return "{}"
@@ -1633,14 +1633,14 @@ def _get_response_for_spend_logs_payload(
 
         # Apply message redaction if turn_off_message_logging is enabled
         if kwargs is not None:
-            from litellm.litellm_core_utils.redact_messages import (
+            from embrouter.embrouter_core_utils.redact_messages import (
                 perform_redaction,
                 should_redact_message_logging,
             )
 
-            litellm_params: Final = kwargs.get("litellm_params", {})
+            embrouter_params: Final = kwargs.get("embrouter_params", {})
             model_call_details: Final = {
-                "litellm_params": litellm_params,
+                "embrouter_params": embrouter_params,
                 "standard_callback_dynamic_params": kwargs.get("standard_callback_dynamic_params"),
             }
 
@@ -1659,18 +1659,18 @@ def _get_response_for_spend_logs_payload(
             result_str = strip_null_bytes(sanitized_response)
         else:
             result_str = safe_dumps(sanitized_response)
-        if LITELLM_TRUNCATED_PAYLOAD_FIELD in result_str:
+        if EMBROUTER_TRUNCATED_PAYLOAD_FIELD in result_str:
             verbose_proxy_logger.info(
                 "Spend Log: response was truncated before storing in DB. %s",
-                LITELLM_TRUNCATION_DB_SAFEGUARD_NOTE,
+                EMBROUTER_TRUNCATION_DB_SAFEGUARD_NOTE,
             )
         return result_str
     return "{}"
 
 
 def should_store_prompts_and_responses_in_spend_logs() -> bool:
-    from litellm.proxy.proxy_server import general_settings
-    from litellm.secret_managers.main import get_secret_bool
+    from embrouter.proxy.proxy_server import general_settings
+    from embrouter.secret_managers.main import get_secret_bool
 
     # Check general_settings (from DB or proxy_config.yaml)
     store_prompts_value: Final = general_settings.get("store_prompts_in_spend_logs")

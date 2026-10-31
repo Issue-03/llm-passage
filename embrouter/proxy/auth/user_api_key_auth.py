@@ -1,7 +1,7 @@
 """
-This file handles authentication for the LiteLLM Proxy.
+This file handles authentication for the EmbRouter Proxy.
 
-it checks if the user passed a valid API Key to the LiteLLM Proxy
+it checks if the user passed a valid API Key to the EmbRouter Proxy
 
 Returns a UserAPIKeyAuth object if the API key is valid
 
@@ -21,26 +21,26 @@ from fastapi import HTTPException, Request, WebSocket, status
 from fastapi.security.api_key import APIKeyHeader
 from starlette.exceptions import WebSocketException
 
-import litellm
-from litellm._logging import verbose_logger, verbose_proxy_logger
-from litellm._service_logger import ServiceLogging
-from litellm.caching.redis_cache import RedisCache
-from litellm.constants import (
+import embrouter
+from embrouter._logging import verbose_logger, verbose_proxy_logger
+from embrouter._service_logger import ServiceLogging
+from embrouter.caching.redis_cache import RedisCache
+from embrouter.constants import (
     CLIENT_REQUESTED_MODEL_SCOPE_KEY,
     GLOBAL_PROXY_SPEND_CACHE_KEY,
     INVALID_VIRTUAL_KEY_ERROR_MARKER,
     INVALID_VIRTUAL_KEY_ERROR_MESSAGE,
-    LITELLM_PROXY_BUDGET_NAME,
-    LITELLM_PROXY_MASTER_KEY_ALIAS,
+    EMBROUTER_PROXY_BUDGET_NAME,
+    EMBROUTER_PROXY_MASTER_KEY_ALIAS,
     MODEL_GROUP_ALIAS_RESOLVED_SCOPE_KEY,
 )
-from litellm.integrations.otel.model.config import is_otel_v2_enabled
-from litellm.integrations.otel.runtime import phase_span, seed_request_identity
-from litellm.litellm_core_utils.dd_tracing import tracer
-from litellm.litellm_core_utils.dot_notation_indexing import get_nested_value
-from litellm.proxy._types import *
-from litellm.proxy.agent_endpoints.auth.agent_caller import agent_caller_from_headers
-from litellm.proxy.auth.auth_checks import (
+from embrouter.integrations.otel.model.config import is_otel_v2_enabled
+from embrouter.integrations.otel.runtime import phase_span, seed_request_identity
+from embrouter.embrouter_core_utils.dd_tracing import tracer
+from embrouter.embrouter_core_utils.dot_notation_indexing import get_nested_value
+from embrouter.proxy._types import *
+from embrouter.proxy.agent_endpoints.auth.agent_caller import agent_caller_from_headers
+from embrouter.proxy.auth.auth_checks import (
     ExperimentalUIJWTToken,
     TeamNotFoundError,
     _cache_key_object,
@@ -71,10 +71,10 @@ from litellm.proxy.auth.auth_checks import (
     resolve_and_validate_end_user_id,
     resolve_default_end_user_budget,
 )
-from litellm.proxy.auth.auth_exception_handler import UserAPIKeyAuthExceptionHandler
-from litellm.proxy.auth.auth_method import AuthMethod
-from litellm.proxy.auth.auth_object_prefetch import AuthObjectRefs, prefetch_auth_objects, prefetch_identity_keys
-from litellm.proxy.auth.auth_utils import (
+from embrouter.proxy.auth.auth_exception_handler import UserAPIKeyAuthExceptionHandler
+from embrouter.proxy.auth.auth_method import AuthMethod
+from embrouter.proxy.auth.auth_object_prefetch import AuthObjectRefs, prefetch_auth_objects, prefetch_identity_keys
+from embrouter.proxy.auth.auth_utils import (
     abbreviate_api_key,
     get_end_user_id_from_request_body,
     get_model_from_request,
@@ -88,12 +88,12 @@ from litellm.proxy.auth.auth_utils import (
     request_dispatched_to_provider_pass_through,
     route_in_additonal_public_routes,
 )
-from litellm.proxy.auth.handle_jwt import JWTAuthManager, JWTHandler
-from litellm.proxy.auth.network import TrustedProxyConfig, resolve_network_context
-from litellm.proxy.auth.oauth2_check import Oauth2Handler
-from litellm.proxy.auth.oauth2_proxy_hook import handle_oauth2_proxy_request
-from litellm.proxy.auth.resolvers import CredentialRef, Principal
-from litellm.proxy.auth.resolvers.grants import (
+from embrouter.proxy.auth.handle_jwt import JWTAuthManager, JWTHandler
+from embrouter.proxy.auth.network import TrustedProxyConfig, resolve_network_context
+from embrouter.proxy.auth.oauth2_check import Oauth2Handler
+from embrouter.proxy.auth.oauth2_proxy_hook import handle_oauth2_proxy_request
+from embrouter.proxy.auth.resolvers import CredentialRef, Principal
+from embrouter.proxy.auth.resolvers.grants import (
     GrantResolver,
     LookupDegraded,
     ResolvedGrants,
@@ -101,12 +101,12 @@ from litellm.proxy.auth.resolvers.grants import (
     raise_public,
     user_models,
 )
-from litellm.proxy.auth.resolvers.store import IdentityStore
-from litellm.proxy.auth.route_checks import RouteChecks
-from litellm.proxy.auth.team_grants import team_grants
-from litellm.proxy.auth.trusted_proxy_utils import get_trusted_proxy_cidrs
-from litellm.proxy.common_utils.cache_coordinator import EventDrivenCacheCoordinator
-from litellm.proxy.common_utils.http_parsing_utils import (
+from embrouter.proxy.auth.resolvers.store import IdentityStore
+from embrouter.proxy.auth.route_checks import RouteChecks
+from embrouter.proxy.auth.team_grants import team_grants
+from embrouter.proxy.auth.trusted_proxy_utils import get_trusted_proxy_cidrs
+from embrouter.proxy.common_utils.cache_coordinator import EventDrivenCacheCoordinator
+from embrouter.proxy.common_utils.http_parsing_utils import (
     _read_request_body,
     _safe_get_request_headers,
     _safe_get_request_query_params,
@@ -116,36 +116,36 @@ from litellm.proxy.common_utils.http_parsing_utils import (
     read_raw_json_body,
     rewrite_request_model,
 )
-from litellm.proxy.common_utils.model_listing_utils import claude_code_requested_group
-from litellm.proxy.common_utils.realtime_utils import _realtime_request_body
-from litellm.proxy.common_utils.user_api_key_cache import (
+from embrouter.proxy.common_utils.model_listing_utils import claude_code_requested_group
+from embrouter.proxy.common_utils.realtime_utils import _realtime_request_body
+from embrouter.proxy.common_utils.user_api_key_cache import (
     UserApiKeyCache,
     end_user_cache_key,
     end_user_restricted_registry_cache_key,
     model_access_group_registry_cache_key,
     team_membership_auth_cache_key,
 )
-from litellm.proxy.db.db_lookup_gate import bounded_db_lookup
-from litellm.proxy.db.exception_handler import PrismaDBExceptionHandler
-from litellm.proxy.litellm_pre_call_utils import LiteLLMProxyRequestSetup
-from litellm.proxy.spend_tracking.carried_budget_state import carry_team_and_user_budget_state
-from litellm.proxy.spend_tracking.spend_counter_batch import (
+from embrouter.proxy.db.db_lookup_gate import bounded_db_lookup
+from embrouter.proxy.db.exception_handler import PrismaDBExceptionHandler
+from embrouter.proxy.embrouter_pre_call_utils import EmbRouterProxyRequestSetup
+from embrouter.proxy.spend_tracking.carried_budget_state import carry_team_and_user_budget_state
+from embrouter.proxy.spend_tracking.spend_counter_batch import (
     bind_admission_counter_keys,
     release_spend_counter_batch,
     spend_counter_batch_scope,
 )
-from litellm.proxy.utils import (
+from embrouter.proxy.utils import (
     PrismaClient,
     ProxyLogging,
     normalize_route_for_root_path,
 )
-from litellm.repositories.table_repositories import TeamMembershipRepository
-from litellm.router_utils.common_utils import resolve_model_group_alias
-from litellm.secret_managers.main import get_secret_bool
-from litellm.types.services import ServiceTypes
+from embrouter.repositories.table_repositories import TeamMembershipRepository
+from embrouter.router_utils.common_utils import resolve_model_group_alias
+from embrouter.secret_managers.main import get_secret_bool
+from embrouter.types.services import ServiceTypes
 
 try:
-    from litellm_enterprise.proxy.auth.user_api_key_auth import (
+    from embrouter_enterprise.proxy.auth.user_api_key_auth import (
         enterprise_custom_auth as _enterprise_custom_auth,
     )
 
@@ -166,13 +166,13 @@ def _normalize_public_auth_route(route: str) -> str:
 def _route_requires_auth_despite_public(route: str, general_settings: dict | None) -> bool:
     normalized_route: Final = _normalize_public_auth_route(route)
     if normalized_route == "/metrics":
-        return litellm.require_auth_for_metrics_endpoint is not False
+        return embrouter.require_auth_for_metrics_endpoint is not False
 
     return False
 
 
-custom_litellm_key_header: Final = APIKeyHeader(
-    name=SpecialHeaders.custom_litellm_api_key.value,
+custom_embrouter_key_header: Final = APIKeyHeader(
+    name=SpecialHeaders.custom_embrouter_api_key.value,
     auto_error=False,
     description="Bearer token",
 )
@@ -224,13 +224,13 @@ def _get_model_from_request_context(
 _CLAUDE_MODEL_ROUTES: Final = frozenset(
     f"/{prefix}{endpoint}" for prefix in ("", "v1/") for endpoint in ("messages", "chat/completions", "responses")
 )
-_CLAUDE_MODEL_NORMALIZED: Final = "litellm.claude_model_normalized"
+_CLAUDE_MODEL_NORMALIZED: Final = "embrouter.claude_model_normalized"
 
 
 async def _normalize_claude_model(
     request_data: dict, valid_token: UserAPIKeyAuth, request: Request | None, route: str
 ) -> None:
-    from litellm.proxy.proxy_server import llm_router, prisma_client, proxy_config, proxy_logging_obj
+    from embrouter.proxy.proxy_server import llm_router, prisma_client, proxy_config, proxy_logging_obj
 
     if route not in _CLAUDE_MODEL_ROUTES or llm_router is None:
         return
@@ -264,7 +264,7 @@ async def _resolve_router_settings_model_group_alias(
     """Rewrite the requested model through the key's or team's ``router_settings.model_group_alias``
     before the allowlist checks, so they authorize the model group the request is routed to.
     """
-    from litellm.proxy.proxy_server import llm_router, prisma_client, proxy_config, proxy_logging_obj
+    from embrouter.proxy.proxy_server import llm_router, prisma_client, proxy_config, proxy_logging_obj
 
     if request is None or llm_router is None or not RouteChecks.is_llm_api_route(route=route):
         return
@@ -421,7 +421,7 @@ async def _check_key_model_budget_with_fallback(
     request_data: dict,
     request: Request,
     llm_model_list: list | None = None,
-    llm_router: litellm.Router | None = None,
+    llm_router: embrouter.Router | None = None,
 ) -> None:
     """
     Enforce the key's per-model budget for `model_name`. If exceeded and the
@@ -451,7 +451,7 @@ async def _check_key_model_budget_with_fallback(
             user_api_key_dict=valid_token,
             model=model_name,
         )
-    except litellm.BudgetExceededError as e:
+    except embrouter.BudgetExceededError as e:
         if request_data.get("model") != model_name:
             raise e
         fallback_model: Final = await model_max_budget_limiter.get_fallback_model_within_budget(
@@ -566,7 +566,7 @@ def _matches_routing_override(token_claims: dict, override: "JWTRoutingOverride"
 
 
 def _should_route_jwt_to_oauth2_override(token: str, jwt_handler: JWTHandler) -> bool:
-    routing_overrides: Final = jwt_handler.litellm_jwtauth.routing_overrides
+    routing_overrides: Final = jwt_handler.embrouter_jwtauth.routing_overrides
     if not routing_overrides:
         return False
 
@@ -612,7 +612,7 @@ def _get_bearer_token(
 
 def _apply_budget_limits_to_end_user_params(
     end_user_params: dict,
-    budget_info: LiteLLM_BudgetTable,
+    budget_info: EmbRouter_BudgetTable,
     end_user_id: str | None,
 ) -> None:
     """
@@ -740,12 +740,12 @@ async def _fetch_global_spend_with_event_coordination(
     Uses EventDrivenCacheCoordinator: first request queries DB and signals others when done.
 
     Reads the proxy budget aggregate user row, which accrues proxy-wide spend
-    per request and is zeroed by ResetBudgetJob every ``litellm.budget_duration``.
+    per request and is zeroed by ResetBudgetJob every ``embrouter.budget_duration``.
     """
 
     async def _load_global_spend() -> float | None:
         proxy_budget_row: Final = await bounded_db_lookup(
-            prisma_client.db.litellm_usertable.find_unique(where={"user_id": LITELLM_PROXY_BUDGET_NAME}),
+            prisma_client.db.embrouter_usertable.find_unique(where={"user_id": EMBROUTER_PROXY_BUDGET_NAME}),
             name="proxy_budget",
         )
         return float(proxy_budget_row.spend) if proxy_budget_row is not None else None
@@ -758,14 +758,14 @@ async def _fetch_global_spend_with_event_coordination(
 
 
 async def get_global_proxy_spend(
-    litellm_proxy_admin_name: str,
+    embrouter_proxy_admin_name: str,
     user_api_key_cache: UserApiKeyCache,
     prisma_client: PrismaClient | None,
     token: str,
     proxy_logging_obj: ProxyLogging,
 ) -> float | None:
     global_proxy_spend = None
-    if litellm.max_budget > 0 and prisma_client is not None:  # user set proxy max budget
+    if embrouter.max_budget > 0 and prisma_client is not None:  # user set proxy max budget
         # Use event-driven coordination to prevent cache stampede
         cache_key: Final = GLOBAL_PROXY_SPEND_CACHE_KEY
         global_proxy_spend = await _fetch_global_spend_with_event_coordination(
@@ -775,11 +775,11 @@ async def get_global_proxy_spend(
         )
         if global_proxy_spend is not None:
             user_info: Final = CallInfo(
-                user_id=litellm_proxy_admin_name,
-                max_budget=litellm.max_budget,
+                user_id=embrouter_proxy_admin_name,
+                max_budget=embrouter.max_budget,
                 spend=global_proxy_spend,
                 token=token,
-                event_group=Litellm_EntityType.PROXY,
+                event_group=Embrouter_EntityType.PROXY,
             )
             asyncio.create_task(
                 proxy_logging_obj.budget_alerts(
@@ -793,13 +793,13 @@ async def get_global_proxy_spend(
 def get_rbac_role(jwt_handler: JWTHandler, scopes: list[str]) -> str:
     is_admin: Final = jwt_handler.is_admin(scopes=scopes)
     if is_admin:
-        return LitellmUserRoles.PROXY_ADMIN
+        return EmbrouterUserRoles.PROXY_ADMIN
     else:
-        return LitellmUserRoles.TEAM
+        return EmbrouterUserRoles.TEAM
 
 
 def get_api_key(
-    custom_litellm_key_header: str | None,
+    custom_embrouter_key_header: str | None,
     api_key: str,
     azure_api_key_header: str | None,
     anthropic_api_key_header: str | None,
@@ -813,16 +813,16 @@ def get_api_key(
     Returns:
         Tuple[Optional[str], Optional[str]]: Tuple of the api_key and the passed_in_key
     """
-    from litellm.proxy.auth.route_checks import RouteChecks
-    from litellm.proxy.common_utils.http_parsing_utils import (
+    from embrouter.proxy.auth.route_checks import RouteChecks
+    from embrouter.proxy.common_utils.http_parsing_utils import (
         _safe_get_request_query_params,
     )
 
     api_key = api_key
     passed_in_key: str | None = None
-    if isinstance(custom_litellm_key_header, str):
-        passed_in_key = custom_litellm_key_header
-        api_key = _get_bearer_token_or_received_api_key(custom_litellm_key_header)
+    if isinstance(custom_embrouter_key_header, str):
+        passed_in_key = custom_embrouter_key_header
+        api_key = _get_bearer_token_or_received_api_key(custom_embrouter_key_header)
     elif isinstance(api_key, str) and len(api_key) > 0:
         passed_in_key = api_key
         api_key = _get_bearer_token(api_key=api_key)
@@ -851,7 +851,7 @@ def get_api_key(
             if endpoint.get("path", "") == route:
                 headers: dict | None = endpoint.get("headers", None)
                 if headers is not None:
-                    header_key: str = headers.get("litellm_user_api_key", "")
+                    header_key: str = headers.get("embrouter_user_api_key", "")
                     if request.headers.get(header_key) is not None:
                         api_key = request.headers.get(header_key) or ""
                         passed_in_key = api_key
@@ -867,13 +867,13 @@ async def check_api_key_for_custom_headers_or_pass_through_endpoints(
     is_mapped_pass_through_route: bool = False
     normalized_route: Final = normalize_route_for_root_path(route)
     if normalized_route is not None:
-        for mapped_route in LiteLLMRoutes.mapped_pass_through_routes.value:
+        for mapped_route in EmbRouterRoutes.mapped_pass_through_routes.value:
             if normalized_route.startswith(mapped_route):
                 is_mapped_pass_through_route = True
                 break
     if is_mapped_pass_through_route:
-        if request.headers.get("litellm_user_api_key") is not None:
-            api_key = request.headers.get("litellm_user_api_key") or ""
+        if request.headers.get("embrouter_user_api_key") is not None:
+            api_key = request.headers.get("embrouter_user_api_key") or ""
     if pass_through_endpoints is not None:
         for endpoint in pass_through_endpoints:
             if isinstance(endpoint, dict) and endpoint.get("path", "") == route:
@@ -889,7 +889,7 @@ async def check_api_key_for_custom_headers_or_pass_through_endpoints(
                 ### IF CUSTOM PARSER REQUIRED
                 if endpoint.get("custom_auth_parser") is not None and endpoint.get("custom_auth_parser") == "langfuse":
                     # langfuse returns {'Authorization': 'Basic <base64(username:password)>'}
-                    # check the langfuse public key if it contains the litellm api key
+                    # check the langfuse public key if it contains the embrouter api key
                     import base64
 
                     api_key = api_key.replace("Basic ", "").strip()
@@ -899,7 +899,7 @@ async def check_api_key_for_custom_headers_or_pass_through_endpoints(
                 else:
                     headers = endpoint.get("headers", None)
                     if headers is not None:
-                        header_key = headers.get("litellm_user_api_key", "")
+                        header_key = headers.get("embrouter_user_api_key", "")
                         if isinstance(request.headers, dict) and request.headers.get(key=header_key) is not None:
                             api_key = request.headers.get(key=header_key)
     return api_key
@@ -965,18 +965,18 @@ async def _auto_register_jwt_mapping(
 
     Race safety: if two concurrent requests both reach here simultaneously (both
     saw no mapping in the DB), one will win the unique-constraint race on
-    litellm_jwtkeymapping. The loser catches the conflict, deletes its orphaned
+    embrouter_jwtkeymapping. The loser catches the conflict, deletes its orphaned
     key, fetches the winner's mapping, and proceeds — no error surfaced.
     """
     # Inline import required: key_management_endpoints imports user_api_key_auth
     # (line 51) so a module-level import here would create a circular dependency.
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from embrouter.proxy.management_endpoints.key_management_endpoints import (
         generate_key_helper_fn,
     )
 
     # ``table_name="key"`` is required: without it, generate_key_helper_fn
     # falls into the user-upsert branch (`table_name is None or "user"`) and
-    # attempts to insert into LiteLLM_UserTable with user_id=None, which fails
+    # attempts to insert into EmbRouter_UserTable with user_id=None, which fails
     # the NOT NULL @id constraint. Every successful key-creation caller (e.g.
     # /key/generate) passes table_name="key" explicitly.
     key_data: Final = await generate_key_helper_fn(
@@ -994,12 +994,12 @@ async def _auto_register_jwt_mapping(
         },
     )
     # generate_key_helper_fn returns the plaintext key in "token"; the persisted
-    # row in LiteLLM_VerificationToken uses its hash, so hash here to get the FK
-    # value referenced by LiteLLM_JWTKeyMapping.token.
+    # row in EmbRouter_VerificationToken uses its hash, so hash here to get the FK
+    # value referenced by EmbRouter_JWTKeyMapping.token.
     token_hash = hash_token(key_data["token"])
 
     try:
-        await prisma_client.db.litellm_jwtkeymapping.create(
+        await prisma_client.db.embrouter_jwtkeymapping.create(
             data={
                 "jwt_issuer": jwt_issuer or "",
                 "jwt_claim_name": virtual_key_claim_field,
@@ -1013,7 +1013,7 @@ async def _auto_register_jwt_mapping(
         error_str: Final = str(e).lower()
         if "unique" in error_str or "p2002" in error_str:
             # A concurrent request won the race. The key generate_key_helper_fn
-            # just persisted to LiteLLM_VerificationToken is orphaned — nothing
+            # just persisted to EmbRouter_VerificationToken is orphaned — nothing
             # maps to it, but it's a fully valid unrestricted API key sitting in
             # the DB and the cleartext is in memory on this request. Delete it
             # so orphans don't accumulate under sustained concurrency.
@@ -1024,7 +1024,7 @@ async def _auto_register_jwt_mapping(
                 claim_value,
             )
             try:
-                await prisma_client.db.litellm_verificationtoken.delete(where={"token": token_hash})
+                await prisma_client.db.embrouter_verificationtoken.delete(where={"token": token_hash})
             except Exception as delete_err:
                 # Don't fail the request if cleanup fails — the orphan is
                 # unmapped and inert. Log so an operator can prune it later.
@@ -1057,7 +1057,7 @@ async def _auto_register_jwt_mapping(
     await user_api_key_cache.async_set_cache(
         key=cache_key,
         value=token_hash,
-        ttl=jwt_handler.litellm_jwtauth.virtual_key_mapping_cache_ttl,
+        ttl=jwt_handler.embrouter_jwtauth.virtual_key_mapping_cache_ttl,
     )
 
     verbose_proxy_logger.info(
@@ -1141,12 +1141,12 @@ async def _resolve_jwt_to_virtual_key(
       - Raises HTTPException: REJECT policy hit, missing claim under
         REJECT/AUTO_REGISTER, or other policy violations.
     """
-    raw_issuer: Final = jwt_claims.get(JWTHandler.LITELLM_JWT_ISSUER_CLAIM)
+    raw_issuer: Final = jwt_claims.get(JWTHandler.EMBROUTER_JWT_ISSUER_CLAIM)
     normalized_issuer: Final = raw_issuer if isinstance(raw_issuer, str) else None
-    virtual_key_claim_field: Final = jwt_handler.litellm_jwtauth.get_virtual_key_claim_field(normalized_issuer)
+    virtual_key_claim_field: Final = jwt_handler.embrouter_jwtauth.get_virtual_key_claim_field(normalized_issuer)
     if virtual_key_claim_field is None:
         return None
-    behavior: Final = jwt_handler.litellm_jwtauth.get_unregistered_jwt_client_behavior(normalized_issuer)
+    behavior: Final = jwt_handler.embrouter_jwtauth.get_unregistered_jwt_client_behavior(normalized_issuer)
 
     claim_value: Final = get_nested_value(
         data=jwt_claims,
@@ -1247,7 +1247,7 @@ async def _resolve_jwt_to_virtual_key(
             claim_value=str(claim_value),
             normalized_issuer=normalized_issuer,
             cache_key=cache_key,
-            ttl=jwt_handler.litellm_jwtauth.virtual_key_mapping_cache_ttl,
+            ttl=jwt_handler.embrouter_jwtauth.virtual_key_mapping_cache_ttl,
         )
         if prisma_client is not None
         else None
@@ -1270,7 +1270,7 @@ async def _resolve_jwt_to_virtual_key(
         await user_api_key_cache.async_set_cache(
             key=cache_key,
             value="__NO_MAPPING__",
-            ttl=jwt_handler.litellm_jwtauth.virtual_key_mapping_cache_ttl,
+            ttl=jwt_handler.embrouter_jwtauth.virtual_key_mapping_cache_ttl,
         )
         raise HTTPException(
             status_code=403,
@@ -1302,26 +1302,26 @@ async def _resolve_jwt_to_virtual_key(
     await user_api_key_cache.async_set_cache(
         key=cache_key,
         value="__NO_MAPPING__",
-        ttl=jwt_handler.litellm_jwtauth.virtual_key_mapping_cache_ttl,
+        ttl=jwt_handler.embrouter_jwtauth.virtual_key_mapping_cache_ttl,
     )
     return None
 
 
-def _ensure_litellm_received_at_on_request_state(request: Request) -> datetime:
-    """Idempotently stamp ``request.state.litellm_received_at`` with the moment
-    litellm's own code started handling this request -- the first line of
+def _ensure_embrouter_received_at_on_request_state(request: Request) -> datetime:
+    """Idempotently stamp ``request.state.embrouter_received_at`` with the moment
+    embrouter's own code started handling this request -- the first line of
     ``user_api_key_auth``, before any auth/pre-call work runs. This is the
     basis for the request-latency Prometheus metrics (see
-    ``litellm/integrations/prometheus.py``), and unlike the OTEL SERVER span
+    ``embrouter/integrations/prometheus.py``), and unlike the OTEL SERVER span
     below, it is set unconditionally so those metrics don't depend on OTEL
     being configured.
     """
-    existing_received_at: Final[datetime | None] = getattr(request.state, "litellm_received_at", None)
+    existing_received_at: Final[datetime | None] = getattr(request.state, "embrouter_received_at", None)
     if existing_received_at is not None:
         return existing_received_at
     received_at: Final = datetime.now(timezone.utc)
     try:
-        request.state.litellm_received_at = received_at
+        request.state.embrouter_received_at = received_at
     except Exception:
         pass
     return received_at
@@ -1335,15 +1335,15 @@ def _ensure_parent_otel_span_on_request_state(request: Request) -> None:
     have a span to close) and inside ``_user_api_key_auth_builder`` (for
     callers that bypass ``user_api_key_auth``, e.g. MCP).
     """
-    from litellm.proxy.proxy_server import open_telemetry_logger
+    from embrouter.proxy.proxy_server import open_telemetry_logger
 
-    start_time: Final = _ensure_litellm_received_at_on_request_state(request)
+    start_time: Final = _ensure_embrouter_received_at_on_request_state(request)
 
     if open_telemetry_logger is None:
         return
     if getattr(request.state, "parent_otel_span", None) is not None:
         return
-    parent_otel_span: Final = open_telemetry_logger.create_litellm_proxy_request_started_span(
+    parent_otel_span: Final = open_telemetry_logger.create_embrouter_proxy_request_started_span(
         start_time=start_time,
         headers=_safe_get_request_headers(request),
     )
@@ -1392,7 +1392,7 @@ async def _record_unparsable_body_failure(
     spend log row the Admin UI reads. Logging must not change what the caller
     sees, so a failure here is swallowed and the 400 is raised either way.
     """
-    from litellm.proxy.proxy_server import proxy_logging_obj
+    from embrouter.proxy.proxy_server import proxy_logging_obj
 
     try:
         await proxy_logging_obj.post_call_failure_hook(  # pyright: ignore[reportUnknownMemberType]  # bare dict in sig
@@ -1431,7 +1431,7 @@ async def _refresh_session_token_grants(
     ).resolve(UserLookup(user_id=valid_token.user_id), team_id=valid_token.team_id)
     match outcome:
         case ResolvedGrants(
-            user_object=LiteLLM_UserTable() as user_object, team_object=team_object, team_membership=team_membership
+            user_object=EmbRouter_UserTable() as user_object, team_object=team_object, team_membership=team_membership
         ):
             return UserAPIKeyAuth.model_validate(
                 MappingProxyType(
@@ -1458,7 +1458,7 @@ async def _resolve_object_permission_for_unresolvable_team(
     user_api_key_cache: UserApiKeyCache,
     parent_otel_span: Span | None,
     proxy_logging_obj: ProxyLogging,
-) -> LiteLLM_ObjectPermissionTable | None:
+) -> EmbRouter_ObjectPermissionTable | None:
     """Re-resolve a team's object permission by id when the team row itself is unreadable, so the
     token-derived fallback doesn't silently drop it."""
     if object_permission_id is None or prisma_client is None:
@@ -1480,12 +1480,12 @@ async def _user_api_key_auth_builder(
     google_ai_studio_api_key_header: str | None,
     azure_apim_header: str | None,
     request_data: dict,
-    custom_litellm_key_header: str | None = None,
+    custom_embrouter_key_header: str | None = None,
 ) -> UserAPIKeyAuth:
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         jwt_handler,
-        litellm_proxy_admin_name,
+        embrouter_proxy_admin_name,
         llm_model_list,
         llm_router,
         master_key,
@@ -1501,9 +1501,9 @@ async def _user_api_key_auth_builder(
     # Prefer the receive-instant stamped by the early helper in
     # user_api_key_auth (before body parse) — overwriting it would shorten
     # the preprocessing-duration measurement by the body-parse window.
-    start_time: Final = getattr(request.state, "litellm_received_at", None) or datetime.now(timezone.utc)
+    start_time: Final = getattr(request.state, "embrouter_received_at", None) or datetime.now(timezone.utc)
     try:
-        request.state.litellm_received_at = start_time
+        request.state.embrouter_received_at = start_time
     except Exception:
         pass
     route: Final[str] = get_request_route(request=request)
@@ -1511,7 +1511,7 @@ async def _user_api_key_auth_builder(
     custom_auth_api_key: bool = False
 
     try:
-        with tracer.trace("litellm.proxy.auth.pre_db_read_auth_checks"):
+        with tracer.trace("embrouter.proxy.auth.pre_db_read_auth_checks"):
             await pre_db_read_auth_checks(
                 request_data=request_data,
                 request=request,
@@ -1520,7 +1520,7 @@ async def _user_api_key_auth_builder(
         pass_through_endpoints: Final[list[dict] | None] = general_settings.get("pass_through_endpoints", None)
         ## CHECK IF X-LITELM-API-KEY IS PASSED IN - supercedes Authorization header
         api_key, passed_in_key = get_api_key(
-            custom_litellm_key_header=custom_litellm_key_header,
+            custom_embrouter_key_header=custom_embrouter_key_header,
             api_key=api_key,
             azure_api_key_header=azure_api_key_header,
             anthropic_api_key_header=anthropic_api_key_header,
@@ -1530,12 +1530,12 @@ async def _user_api_key_auth_builder(
             route=route,
             request=request,
         )
-        # if user wants to pass LiteLLM_Master_Key as a custom header, example pass litellm keys as X-LiteLLM-Key: Bearer sk-1234
-        custom_litellm_key_header_name: Final = general_settings.get("litellm_key_header_name")
-        if custom_litellm_key_header_name is not None:
+        # if user wants to pass EmbRouter_Master_Key as a custom header, example pass embrouter keys as X-EmbRouter-Key: Bearer sk-1234
+        custom_embrouter_key_header_name: Final = general_settings.get("embrouter_key_header_name")
+        if custom_embrouter_key_header_name is not None:
             api_key = get_api_key_from_custom_header(
                 request=request,
-                custom_litellm_key_header_name=custom_litellm_key_header_name,
+                custom_embrouter_key_header_name=custom_embrouter_key_header_name,
             )
 
         if open_telemetry_logger is not None:
@@ -1547,13 +1547,13 @@ async def _user_api_key_auth_builder(
 
         ### USER-DEFINED AUTH FUNCTION ###
         if enterprise_custom_auth is not None:
-            with tracer.trace("litellm.proxy.auth.enterprise_custom_auth"):
+            with tracer.trace("embrouter.proxy.auth.enterprise_custom_auth"):
                 response = await enterprise_custom_auth(
                     request=request, api_key=api_key, user_custom_auth=user_custom_auth
                 )
             if response is not None and isinstance(response, UserAPIKeyAuth):
                 validated = UserAPIKeyAuth.model_validate(response)
-                if getattr(litellm, "enable_post_custom_auth_checks", False):
+                if getattr(embrouter, "enable_post_custom_auth_checks", False):
                     validated = await _run_post_custom_auth_checks(
                         valid_token=validated,
                         request=request,
@@ -1569,7 +1569,7 @@ async def _user_api_key_auth_builder(
         elif user_custom_auth is not None:
             response = await user_custom_auth(request=request, api_key=api_key)
             validated = UserAPIKeyAuth.model_validate(response)
-            if getattr(litellm, "enable_post_custom_auth_checks", False):
+            if getattr(embrouter, "enable_post_custom_auth_checks", False):
                 validated = await _run_post_custom_auth_checks(
                     valid_token=validated,
                     request=request,
@@ -1580,10 +1580,10 @@ async def _user_api_key_auth_builder(
             validated.authenticated_by_custom_auth = True
             return validated
 
-        ### LITELLM-DEFINED AUTH FUNCTION ###
+        ### EMBROUTER-DEFINED AUTH FUNCTION ###
         #### IF JWT ####
         """
-        LiteLLM supports using JWTs.
+        EmbRouter supports using JWTs.
 
         Enable this in proxy config, by setting
         ```
@@ -1594,10 +1594,10 @@ async def _user_api_key_auth_builder(
 
         ######## Route Checks Before Reading DB / Cache for "token" ################
         if not _route_requires_auth_despite_public(route=route, general_settings=general_settings) and (
-            route in LiteLLMRoutes.public_routes.value or route_in_additonal_public_routes(current_route=route)
+            route in EmbRouterRoutes.public_routes.value or route_in_additonal_public_routes(current_route=route)
         ):
             # check if public endpoint
-            return UserAPIKeyAuth(user_role=LitellmUserRoles.INTERNAL_USER_VIEW_ONLY)
+            return UserAPIKeyAuth(user_role=EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY)
 
         ########## End of Route Checks Before Reading DB / Cache for "token" ########
 
@@ -1619,7 +1619,7 @@ async def _user_api_key_auth_builder(
             RouteChecks.is_llm_api_route(route=route) or RouteChecks.is_info_route(route=route)
         )
         if (should_apply_global_oauth2 and not is_jwt) or should_apply_override_oauth2:
-            from litellm.proxy.proxy_server import premium_user
+            from embrouter.proxy.proxy_server import premium_user
 
             if premium_user is not True:
                 raise ProxyException(
@@ -1639,7 +1639,7 @@ async def _user_api_key_auth_builder(
             is_jwt = jwt_handler.is_jwt(token=api_key)
             verbose_proxy_logger.debug("is_jwt: %s", is_jwt)
             if is_jwt:
-                from litellm.proxy.proxy_server import premium_user
+                from embrouter.proxy.proxy_server import premium_user
 
                 if premium_user is not True:
                     raise ProxyException(
@@ -1652,15 +1652,15 @@ async def _user_api_key_auth_builder(
                 # unnecessary DB queries in auth_builder
                 do_standard_jwt_auth = True
                 pending_auto_register: _PendingAutoRegister | None = None
-                if jwt_handler.litellm_jwtauth.is_virtual_key_mapping_configured():
+                if jwt_handler.embrouter_jwtauth.is_virtual_key_mapping_configured():
                     # Decode JWT to get claims without running full auth_builder
                     jwt_claims: dict | None
-                    if jwt_handler.litellm_jwtauth.oidc_userinfo_enabled and not is_jwt:
+                    if jwt_handler.embrouter_jwtauth.oidc_userinfo_enabled and not is_jwt:
                         jwt_claims = await jwt_handler.get_oidc_userinfo(token=api_key)
                     else:
                         jwt_claims = await jwt_handler.auth_jwt(token=api_key)
 
-                    from litellm.proxy.agent_endpoints.identity_store import resolve_managed_agent
+                    from embrouter.proxy.agent_endpoints.identity_store import resolve_managed_agent
 
                     if (
                         jwt_claims
@@ -1713,7 +1713,7 @@ async def _user_api_key_auth_builder(
                     # standard JWT auth_builder below
 
                 if do_standard_jwt_auth:
-                    with tracer.trace("litellm.proxy.auth.jwt_auth_builder"):
+                    with tracer.trace("embrouter.proxy.auth.jwt_auth_builder"):
                         result: Final = await JWTAuthManager.auth_builder(
                             request_data=request_data,
                             general_settings=general_settings,
@@ -1760,7 +1760,7 @@ async def _user_api_key_auth_builder(
                             await user_api_key_cache.async_set_cache(
                                 key=pending_auto_register.cache_key,
                                 value=_JWT_PROXY_ADMIN_SENTINEL,
-                                ttl=jwt_handler.litellm_jwtauth.virtual_key_mapping_cache_ttl,
+                                ttl=jwt_handler.embrouter_jwtauth.virtual_key_mapping_cache_ttl,
                             )
                         return JWTAuthManager.user_api_key_auth_from_result(result, parent_otel_span)
 
@@ -1812,7 +1812,7 @@ async def _user_api_key_auth_builder(
                     )
                     skip_budget_checks = False
                     if model is not None and llm_router is not None:
-                        from litellm.proxy.auth.auth_checks import _is_model_cost_zero
+                        from embrouter.proxy.auth.auth_checks import _is_model_cost_zero
 
                         skip_budget_checks = _is_model_cost_zero(model=model, llm_router=llm_router)
                         if skip_budget_checks:
@@ -1873,12 +1873,12 @@ async def _user_api_key_auth_builder(
             if isinstance(api_key, str):
                 return UserAPIKeyAuth(
                     api_key=api_key,
-                    user_role=LitellmUserRoles.INTERNAL_USER,
+                    user_role=EmbrouterUserRoles.INTERNAL_USER,
                     parent_otel_span=parent_otel_span,
                 )
             else:
                 return UserAPIKeyAuth(
-                    user_role=LitellmUserRoles.INTERNAL_USER,
+                    user_role=EmbrouterUserRoles.INTERNAL_USER,
                     parent_otel_span=parent_otel_span,
                 )
         elif api_key is None:  # only require api key if master key is set
@@ -1918,7 +1918,7 @@ async def _user_api_key_auth_builder(
             try:
                 end_user_params["end_user_id"] = end_user_id
 
-                with tracer.trace("litellm.proxy.auth.get_end_user_object"):
+                with tracer.trace("embrouter.proxy.auth.get_end_user_object"):
                     _end_user_object = await get_end_user_object(
                         end_user_id=end_user_id,
                         prisma_client=prisma_client,
@@ -1929,15 +1929,15 @@ async def _user_api_key_auth_builder(
                     )
                 if _end_user_object is not None:
                     end_user_params["allowed_model_region"] = _end_user_object.allowed_model_region
-                    if _end_user_object.litellm_budget_table is not None:
+                    if _end_user_object.embrouter_budget_table is not None:
                         _apply_budget_limits_to_end_user_params(
                             end_user_params=end_user_params,
-                            budget_info=_end_user_object.litellm_budget_table,
+                            budget_info=_end_user_object.embrouter_budget_table,
                             end_user_id=end_user_id,
                         )
-                elif litellm.max_end_user_budget_id is not None:
+                elif embrouter.max_end_user_budget_id is not None:
                     # End user doesn't exist yet, but apply default budget limits if configured
-                    from litellm.proxy.auth.auth_checks import (
+                    from embrouter.proxy.auth.auth_checks import (
                         get_default_end_user_budget,
                     )
 
@@ -1953,7 +1953,7 @@ async def _user_api_key_auth_builder(
                             end_user_id=end_user_id,
                         )
             except Exception as e:
-                if isinstance(e, litellm.BudgetExceededError):
+                if isinstance(e, embrouter.BudgetExceededError):
                     raise e
                 verbose_proxy_logger.debug("Unable to find user in db. Error - %s", e)
 
@@ -1964,7 +1964,7 @@ async def _user_api_key_auth_builder(
         if valid_token is None:
             ## Check CACHE
             try:
-                with tracer.trace("litellm.proxy.auth.get_key_object_check_cache"):
+                with tracer.trace("embrouter.proxy.auth.get_key_object_check_cache"):
                     valid_token = IdentityStore.key_from_principal(
                         await IdentityStore(
                             prisma_client,
@@ -2009,7 +2009,7 @@ async def _user_api_key_auth_builder(
         if (
             valid_token is not None
             and isinstance(valid_token, UserAPIKeyAuth)
-            and valid_token.user_role == LitellmUserRoles.PROXY_ADMIN
+            and valid_token.user_role == EmbrouterUserRoles.PROXY_ADMIN
         ):
             if valid_token.expires is not None:
                 current_time = datetime.now(timezone.utc)
@@ -2048,7 +2048,7 @@ async def _user_api_key_auth_builder(
         ):
             ## UPDATE TEAM VALUES BASED ON CACHED TEAM OBJECT - allows `/team/update` values to work for cached token
             try:
-                team_obj: Final[LiteLLM_TeamTableCachedObj] = await get_team_object(
+                team_obj: Final[EmbRouter_TeamTableCachedObj] = await get_team_object(
                     team_id=valid_token.team_id,
                     prisma_client=prisma_client,
                     user_api_key_cache=user_api_key_cache,
@@ -2090,12 +2090,12 @@ async def _user_api_key_auth_builder(
             # downstream consumer of UserAPIKeyAuth.api_key.
             _user_api_key_obj = await _return_user_api_key_auth_obj(
                 user_obj=None,
-                user_role=LitellmUserRoles.PROXY_ADMIN,
-                api_key=LITELLM_PROXY_MASTER_KEY_ALIAS,
+                user_role=EmbrouterUserRoles.PROXY_ADMIN,
+                api_key=EMBROUTER_PROXY_MASTER_KEY_ALIAS,
                 parent_otel_span=parent_otel_span,
                 valid_token_dict={
                     **end_user_params,
-                    "user_id": litellm_proxy_admin_name,
+                    "user_id": embrouter_proxy_admin_name,
                 },
                 route=route,
                 start_time=start_time,
@@ -2118,7 +2118,7 @@ async def _user_api_key_auth_builder(
 
         ## IF it's not a master key
         ## Route should not be in master_key_only_routes
-        if route in LiteLLMRoutes.master_key_only_routes.value:
+        if route in EmbRouterRoutes.master_key_only_routes.value:
             raise Exception(f"Tried to access route={route}, which is only for MASTER KEY")
 
         ## Check DB
@@ -2151,7 +2151,7 @@ async def _user_api_key_auth_builder(
                     raise _malformed_key_error
             else:
                 verbose_logger.warning(
-                    "litellm.proxy.proxy_server.user_api_key_auth(): Warning - Key is not a string. Got type={}".format(
+                    "embrouter.proxy.proxy_server.user_api_key_auth(): Warning - Key is not a string. Got type={}".format(
                         type(api_key) if api_key is not None else "None"
                     )
                 )
@@ -2160,7 +2160,7 @@ async def _user_api_key_auth_builder(
                 api_key = hash_token(token=api_key)
 
             try:
-                with tracer.trace("litellm.proxy.auth.get_key_object_from_db"):
+                with tracer.trace("embrouter.proxy.auth.get_key_object_from_db"):
                     valid_token = IdentityStore.key_from_principal(
                         await IdentityStore(
                             prisma_client,
@@ -2171,7 +2171,7 @@ async def _user_api_key_auth_builder(
                     )
             except ProxyException as e:
                 if e.code == 401 or e.code == "401":
-                    e.message = f"Authentication Error, Invalid proxy server token passed. Received API Key = {abbreviated_api_key}, Key Hash (Token) ={api_key}. Unable to find token in cache or `LiteLLM_VerificationTokenTable`"
+                    e.message = f"Authentication Error, Invalid proxy server token passed. Received API Key = {abbreviated_api_key}, Key Hash (Token) ={api_key}. Unable to find token in cache or `EmbRouter_VerificationTokenTable`"
                 raise e
             # update end-user params on valid token
             # These can change per request - it's important to update them here
@@ -2184,7 +2184,7 @@ async def _user_api_key_auth_builder(
         if valid_token is not None:
             valid_token = _update_key_budget_with_temp_budget_increase(valid_token)
 
-        user_obj: LiteLLM_UserTable | None = None
+        user_obj: EmbRouter_UserTable | None = None
         valid_token_dict: dict = {}
         if valid_token is not None:
             # Got Valid Token from Cache, DB
@@ -2218,7 +2218,7 @@ async def _user_api_key_auth_builder(
             # Check 2. If user_id for this token is in budget - done in common_checks()
             if valid_token.user_id is not None:
                 try:
-                    with tracer.trace("litellm.proxy.auth.get_user_object"):
+                    with tracer.trace("embrouter.proxy.auth.get_user_object"):
                         user_obj = await get_user_object(
                             user_id=valid_token.user_id,
                             prisma_client=prisma_client,
@@ -2229,7 +2229,7 @@ async def _user_api_key_auth_builder(
                         )
                 except Exception as e:
                     verbose_logger.debug(
-                        "litellm.proxy.auth.user_api_key_auth.py::user_api_key_auth() - Unable to get user from db/cache. Setting user_obj to None. Exception received - %s",
+                        "embrouter.proxy.auth.user_api_key_auth.py::user_api_key_auth() - Unable to get user from db/cache. Setting user_obj to None. Exception received - %s",
                         e,
                     )
                     user_obj = None
@@ -2259,7 +2259,7 @@ async def _user_api_key_auth_builder(
             )
             skip_budget_checks = False
             if model is not None and llm_router is not None:
-                from litellm.proxy.auth.auth_checks import _is_model_cost_zero
+                from embrouter.proxy.auth.auth_checks import _is_model_cost_zero
 
                 skip_budget_checks = _is_model_cost_zero(model=model, llm_router=llm_router)
                 if skip_budget_checks:
@@ -2274,7 +2274,7 @@ async def _user_api_key_auth_builder(
 
                     team_member_info = await user_api_key_cache.async_get_cache(
                         key=_cache_key,
-                        model_type=LiteLLM_TeamMembership,
+                        model_type=EmbRouter_TeamMembership,
                     )
                     if team_member_info is None:
                         # read from DB
@@ -2283,24 +2283,24 @@ async def _user_api_key_auth_builder(
                                 "user_id": _user_id,
                                 "team_id": _team_id,
                             },
-                            include={"litellm_budget_table": True},
+                            include={"embrouter_budget_table": True},
                         )
                         if _db_member is not None:
-                            team_member_info = LiteLLM_TeamMembership(**_db_member.model_dump())
+                            team_member_info = EmbRouter_TeamMembership(**_db_member.model_dump())
                             await user_api_key_cache.async_set_cache(
                                 key=_cache_key,
                                 value=team_member_info,
-                                model_type=LiteLLM_TeamMembership,
+                                model_type=EmbRouter_TeamMembership,
                                 ttl=5,
                             )
 
-                    if team_member_info is not None and team_member_info.litellm_budget_table is not None:
-                        team_member_budget: Final = team_member_info.litellm_budget_table.effective_max_budget(
+                    if team_member_info is not None and team_member_info.embrouter_budget_table is not None:
+                        team_member_budget: Final = team_member_info.embrouter_budget_table.effective_max_budget(
                             now=datetime.now(timezone.utc),
                         )
                         if team_member_budget is not None and team_member_budget > 0:
                             # Read from cross-pod counter (Redis-first) if available
-                            from litellm.proxy.proxy_server import get_current_spend
+                            from embrouter.proxy.proxy_server import get_current_spend
 
                             team_member_spend = valid_token.team_member_spend
                             if valid_token.user_id is not None and valid_token.team_id is not None:
@@ -2324,14 +2324,14 @@ async def _user_api_key_auth_builder(
                                     max_budget=team_member_budget,
                                 )
                                 _entity_id: Final = f"{valid_token.user_id}:{valid_token.team_id}"
-                                raise litellm.BudgetExceededError(
+                                raise embrouter.BudgetExceededError(
                                     current_cost=team_member_spend,
                                     max_budget=team_member_budget,
                                     message=(
                                         f"Budget has been exceeded! TeamMember={_entity_id} "
                                         f"Current cost: {team_member_spend}, Max budget: {team_member_budget}"
                                     ),
-                                    entity_type=Litellm_EntityType.TEAM_MEMBER.value,
+                                    entity_type=Embrouter_EntityType.TEAM_MEMBER.value,
                                     entity_id=_entity_id,
                                 )
 
@@ -2357,7 +2357,7 @@ async def _user_api_key_auth_builder(
                     )
 
             if not skip_budget_checks:
-                with tracer.trace("litellm.proxy.auth.budget_checks"):
+                with tracer.trace("embrouter.proxy.auth.budget_checks"):
                     # Check 4. Max Budget Alert Check (runs before budget enforcement
                     # so multi-threshold 100% alerts fire on the request that crosses
                     # max_budget, before BudgetExceededError is raised below)
@@ -2453,7 +2453,7 @@ async def _user_api_key_auth_builder(
                 try:
                     if valid_token.team_id == UI_TEAM_ID:
                         raise TeamNotFoundError(team_id=UI_TEAM_ID)
-                    with tracer.trace("litellm.proxy.auth.get_team_object"):
+                    with tracer.trace("embrouter.proxy.auth.get_team_object"):
                         _team_obj = await get_team_object(
                             team_id=valid_token.team_id,
                             prisma_client=prisma_client,
@@ -2463,7 +2463,7 @@ async def _user_api_key_auth_builder(
                         )
                 except HTTPException:
                     token_team_models: Final = _token_team_models(valid_token)
-                    _team_obj = LiteLLM_TeamTableCachedObj(
+                    _team_obj = EmbRouter_TeamTableCachedObj(
                         team_id=valid_token.team_id,
                         max_budget=valid_token.team_max_budget,
                         soft_budget=valid_token.team_soft_budget,
@@ -2510,9 +2510,9 @@ async def _user_api_key_auth_builder(
                     valid_token.project_alias = _project_obj.project_alias
 
             global_proxy_spend = None
-            if litellm.max_budget > 0 and prisma_client is not None:  # user set proxy max budget
+            if embrouter.max_budget > 0 and prisma_client is not None:  # user set proxy max budget
                 cache_key: Final = GLOBAL_PROXY_SPEND_CACHE_KEY
-                with tracer.trace("litellm.proxy.auth.get_global_proxy_spend"):
+                with tracer.trace("embrouter.proxy.auth.get_global_proxy_spend"):
                     global_proxy_spend = await _fetch_global_spend_with_event_coordination(
                         cache_key=cache_key,
                         user_api_key_cache=user_api_key_cache,
@@ -2523,10 +2523,10 @@ async def _user_api_key_auth_builder(
                     call_info: Final = CallInfo(
                         token=valid_token.token,
                         spend=global_proxy_spend,
-                        max_budget=litellm.max_budget,
-                        user_id=litellm_proxy_admin_name,
+                        max_budget=embrouter.max_budget,
+                        user_id=embrouter_proxy_admin_name,
                         team_id=valid_token.team_id,
-                        event_group=Litellm_EntityType.PROXY,
+                        event_group=Embrouter_EntityType.PROXY,
                     )
                     asyncio.create_task(
                         proxy_logging_obj.budget_alerts(
@@ -2553,7 +2553,7 @@ async def _user_api_key_auth_builder(
                 valid_token_dict.update(end_user_params)
                 valid_token_dict["end_user_object_permission"] = _end_user_object.object_permission
 
-        # check if token is from litellm-ui, litellm ui makes keys to allow users to login with sso. These keys can only be used for LiteLLM UI functions
+        # check if token is from embrouter-ui, embrouter ui makes keys to allow users to login with sso. These keys can only be used for EmbRouter UI functions
         # sso/login, ui/login, /key functions and /user functions
         # this will never be allowed to call /chat/completions
 
@@ -2594,7 +2594,7 @@ async def _safe_fetch(label: str, awaitable):
     """
     try:
         return await awaitable
-    except (HTTPException, ProxyException, litellm.BudgetExceededError) as e:
+    except (HTTPException, ProxyException, embrouter.BudgetExceededError) as e:
         verbose_proxy_logger.debug(
             "centralized auth: %s fetch failed (%s: %s)",
             label,
@@ -2612,13 +2612,13 @@ async def _safe_fetch(label: str, awaitable):
         return None
 
 
-def _team_obj_from_token(valid_token: UserAPIKeyAuth) -> LiteLLM_TeamTableCachedObj:
+def _team_obj_from_token(valid_token: UserAPIKeyAuth) -> EmbRouter_TeamTableCachedObj:
     """Reconstruct a cached team object from the fields already on the
     UserAPIKeyAuth. Only called when valid_token.team_id is known to be
     non-None (the caller gates on it)."""
     assert valid_token.team_id is not None
     token_team_models: Final = _token_team_models(valid_token)
-    return LiteLLM_TeamTableCachedObj(
+    return EmbRouter_TeamTableCachedObj(
         team_id=valid_token.team_id,
         max_budget=valid_token.team_max_budget,
         soft_budget=valid_token.team_soft_budget,
@@ -2666,7 +2666,7 @@ def _token_can_vouch_for_team(valid_token: UserAPIKeyAuth, lookup_error: BaseExc
 
 async def _inherit_org_identity(
     user_api_key_auth_obj: UserAPIKeyAuth,
-    team_object: LiteLLM_TeamTableCachedObj | None,
+    team_object: EmbRouter_TeamTableCachedObj | None,
     prisma_client: PrismaClient | None,
     user_api_key_cache: UserApiKeyCache,
     parent_otel_span: Span | None,
@@ -2697,7 +2697,7 @@ async def _inherit_org_identity(
         return
     user_api_key_auth_obj.organization_alias = org_object.organization_alias
     user_api_key_auth_obj.organization_metadata = org_object.metadata
-    budget: Final = org_object.litellm_budget_table
+    budget: Final = org_object.embrouter_budget_table
     if budget is None:
         return
     user_api_key_auth_obj.organization_max_budget = budget.max_budget
@@ -2735,9 +2735,9 @@ async def _run_centralized_common_checks(
       too. Admin status is honored where the underlying check exempts it
       (``_is_api_route_allowed``, ``organization_role_based_access_check``).
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
-        litellm_proxy_admin_name,
+        embrouter_proxy_admin_name,
         llm_router,
         master_key,
         model_max_budget_limiter,
@@ -2751,7 +2751,7 @@ async def _run_centralized_common_checks(
     # auth in the builder — the wrapper must not retroactively apply
     # authz on top, or k8s readiness probes and other unauthenticated
     # callers get 401.
-    if route in LiteLLMRoutes.public_routes.value or route_in_additonal_public_routes(current_route=route):
+    if route in EmbRouterRoutes.public_routes.value or route_in_additonal_public_routes(current_route=route):
         return
 
     # User-configured pass-through endpoints with ``auth: false`` are
@@ -2871,7 +2871,7 @@ async def _run_centralized_common_checks(
         _safe_fetch(
             "global_spend",
             get_global_proxy_spend(
-                litellm_proxy_admin_name=litellm_proxy_admin_name,
+                embrouter_proxy_admin_name=embrouter_proxy_admin_name,
                 user_api_key_cache=user_api_key_cache,
                 prisma_client=prisma_client,
                 token=user_api_key_auth_obj.token or "",
@@ -2906,7 +2906,7 @@ async def _run_centralized_common_checks(
         end_user_result,
         global_spend_result,
     ):
-        if isinstance(r, (ProxyException, litellm.BudgetExceededError)):
+        if isinstance(r, (ProxyException, embrouter.BudgetExceededError)):
             raise r
 
     # Use BaseException (not HTTPException) in the narrowing checks so
@@ -2914,7 +2914,7 @@ async def _run_centralized_common_checks(
     # else branch. After the for-loop above, the only BaseException that
     # can still appear here is HTTPException (other listed re-raises were
     # propagated; non-listed exceptions were already swallowed to None).
-    team_object: LiteLLM_TeamTableCachedObj | None
+    team_object: EmbRouter_TeamTableCachedObj | None
     if isinstance(team_result, BaseException):
         # Token-derived fallback only valid when a team_id is set;
         # _team_obj_from_token asserts that precondition.
@@ -2929,11 +2929,11 @@ async def _run_centralized_common_checks(
             _team_obj_from_token(user_api_key_auth_obj) if user_api_key_auth_obj.team_id == UI_TEAM_ID else team_result
         )
 
-    user_object: LiteLLM_UserTable | None = None if isinstance(user_result, BaseException) else user_result
-    project_object: Final[LiteLLM_ProjectTableCachedObj | None] = (
+    user_object: EmbRouter_UserTable | None = None if isinstance(user_result, BaseException) else user_result
+    project_object: Final[EmbRouter_ProjectTableCachedObj | None] = (
         None if isinstance(project_result, BaseException) else project_result
     )
-    end_user_object: Final[LiteLLM_EndUserTable | None] = (
+    end_user_object: Final[EmbRouter_EndUserTable | None] = (
         None if isinstance(end_user_result, BaseException) else end_user_result
     )
     global_proxy_spend: float | None = None if isinstance(global_spend_result, BaseException) else global_spend_result
@@ -2955,15 +2955,15 @@ async def _run_centralized_common_checks(
     # common_checks identifies admin via user_object, not the token
     # (non_proxy_admin_allowed_routes_check). JWT admin shortcut and
     # master_key tokens get admin from the token; the DB row for the
-    # same user_id (e.g. litellm_proxy_admin_name = "default_user_id")
+    # same user_id (e.g. embrouter_proxy_admin_name = "default_user_id")
     # may have a non-admin user_role and would otherwise demote the
     # caller. The token is the source of truth for these paths — force
     # the admin user_object whenever the token says PROXY_ADMIN, even
     # if a DB row was fetched.
-    if user_api_key_auth_obj.user_role == LitellmUserRoles.PROXY_ADMIN:
-        user_object = LiteLLM_UserTable(
-            user_id=user_api_key_auth_obj.user_id or litellm_proxy_admin_name,
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+    if user_api_key_auth_obj.user_role == EmbrouterUserRoles.PROXY_ADMIN:
+        user_object = EmbRouter_UserTable(
+            user_id=user_api_key_auth_obj.user_id or embrouter_proxy_admin_name,
+            user_role=EmbrouterUserRoles.PROXY_ADMIN,
             spend=user_object.spend if user_object is not None else 0.0,
         )
 
@@ -2990,22 +2990,22 @@ async def _run_centralized_common_checks(
         team_id=user_api_key_auth_obj.team_id,
     )
 
-    # Pin the metadata variable name (litellm_metadata vs metadata) before
+    # Pin the metadata variable name (embrouter_metadata vs metadata) before
     # any tag merge runs. Without this, header tags from
     # apply_client_tag_policy_pre_auth would land in `metadata` while the
     # later seed in common_checks pushes key tags and the
-    # _tag_max_budget_check read into `litellm_metadata`, hiding header
-    # tags from per-tag budget enforcement on LITELLM_METADATA_ROUTES.
-    LiteLLMProxyRequestSetup.pre_seed_litellm_metadata_for_route(
+    # _tag_max_budget_check read into `embrouter_metadata`, hiding header
+    # tags from per-tag budget enforcement on EMBROUTER_METADATA_ROUTES.
+    EmbRouterProxyRequestSetup.pre_seed_embrouter_metadata_for_route(
         request_data=request_data,
         route=route,
     )
 
-    # Merge x-litellm-tags into request_data BEFORE common_checks runs.
+    # Merge x-embrouter-tags into request_data BEFORE common_checks runs.
     # _tag_max_budget_check inside common_checks only inspects request_data;
     # without this pre-merge, header-supplied tags bypass tag-budget
     # enforcement.
-    LiteLLMProxyRequestSetup.apply_client_tag_policy_pre_auth(
+    EmbRouterProxyRequestSetup.apply_client_tag_policy_pre_auth(
         request=request,
         request_data=request_data,
         user_api_key_dict=user_api_key_auth_obj,
@@ -3071,7 +3071,7 @@ async def _noop_none() -> None:
 
 async def _apply_key_end_user_default_budget_to_token(
     valid_token: UserAPIKeyAuth,
-    end_user_object: LiteLLM_EndUserTable | None,
+    end_user_object: EmbRouter_EndUserTable | None,
     key_end_user_budget_id: str,
     prisma_client: PrismaClient,
     user_api_key_cache: UserApiKeyCache,
@@ -3085,7 +3085,7 @@ async def _apply_key_end_user_default_budget_to_token(
     limits are caps the custom auth callable set, so the key budget only fills the ones it left
     unset."""
     default_budget: Final = (
-        end_user_object.litellm_budget_table
+        end_user_object.embrouter_budget_table
         if end_user_object is not None
         else await resolve_default_end_user_budget(
             prisma_client=prisma_client,
@@ -3114,20 +3114,20 @@ async def _reserve_budget_after_common_checks(
     request_data: dict,
     route: str,
     llm_router: Any | None,
-    team_object: LiteLLM_TeamTableCachedObj | None,
-    user_object: LiteLLM_UserTable | None,
+    team_object: EmbRouter_TeamTableCachedObj | None,
+    user_object: EmbRouter_UserTable | None,
     prisma_client: PrismaClient | None,
     user_api_key_cache: UserApiKeyCache,
     proxy_logging_obj: ProxyLogging,
     skip_budget_checks: bool,
     general_settings: dict,
     end_user_id: str | None = None,
-    end_user_object: LiteLLM_EndUserTable | None = None,
+    end_user_object: EmbRouter_EndUserTable | None = None,
     request: Request | None = None,
 ) -> None:
     user_api_key_auth_obj.budget_reservation = None
     if not skip_budget_checks and general_settings.get("disable_budget_reservation") is not True:
-        from litellm.proxy.spend_tracking.budget_reservation import (
+        from embrouter.proxy.spend_tracking.budget_reservation import (
             reserve_budget_for_request,
         )
 
@@ -3221,15 +3221,15 @@ async def _authorize_authenticated_request(
     # admin-only-route / model-access / budget checks) surface as
     # ProxyException consistently with pre-refactor behavior.
     try:
-        from litellm.proxy.agent_endpoints.auth.managed_authorization import (
+        from embrouter.proxy.agent_endpoints.auth.managed_authorization import (
             admit_managed_actor,
             invocation_target,
             managed_agent_route_allowed,
             managed_inference_request,
             prepare_agent_invocation,
         )
-        from litellm.proxy.agent_endpoints.identity_store import AgentIdentityStore
-        from litellm.proxy.proxy_server import general_settings, prisma_client, user_model
+        from embrouter.proxy.agent_endpoints.identity_store import AgentIdentityStore
+        from embrouter.proxy.proxy_server import general_settings, prisma_client, user_model
 
         store: Final = AgentIdentityStore.from_client(prisma_client) if prisma_client is not None else None
         if user_api_key_auth_obj.agent_id is not None:
@@ -3281,9 +3281,9 @@ async def _authorize_authenticated_request(
     # the end-user resolution block. If those paths produced an auth obj
     # without an ``end_user_id`` set, fall back to extracting from the request
     # body so spend logs are still attributed correctly. Validation honours
-    # ``litellm.validate_end_user_id_in_db``.
+    # ``embrouter.validate_end_user_id_in_db``.
     if user_api_key_auth_obj.end_user_id is None:
-        from litellm.proxy.proxy_server import (
+        from embrouter.proxy.proxy_server import (
             prisma_client,
             proxy_logging_obj,
             user_api_key_cache,
@@ -3306,7 +3306,7 @@ async def _authorize_authenticated_request(
 
 
 def _spend_counter_redis_cache() -> RedisCache | None:
-    from litellm.proxy.proxy_server import spend_counter_cache
+    from embrouter.proxy.proxy_server import spend_counter_cache
 
     return spend_counter_cache.redis_cache
 
@@ -3350,7 +3350,7 @@ def _seed_request_destinations(user_api_key_dict: UserAPIKeyAuth, request: Reque
     tasks that close the LLM span. Best-effort: trace routing must never fail auth.
 
     ``request`` carries the headers, so a backend this request disabled with
-    ``x-litellm-disable-callbacks`` resolves to no destination.
+    ``x-embrouter-disable-callbacks`` resolves to no destination.
 
     Only destinations the published fan-out can build are anchored. Anchoring one is
     what tells the operator's exporter to hold that backend's spans back under
@@ -3362,10 +3362,10 @@ def _seed_request_destinations(user_api_key_dict: UserAPIKeyAuth, request: Reque
     is set.
     """
     try:
-        from litellm.integrations.otel.logger import fan_out_provider
-        from litellm.integrations.otel.plumbing.context import set_request_destinations
-        from litellm.integrations.otel.plumbing.providers import deliverable_destinations
-        from litellm.proxy.litellm_pre_call_utils import (
+        from embrouter.integrations.otel.logger import fan_out_provider
+        from embrouter.integrations.otel.plumbing.context import set_request_destinations
+        from embrouter.integrations.otel.plumbing.providers import deliverable_destinations
+        from embrouter.proxy.embrouter_pre_call_utils import (
             resolve_tenant_otel_destinations,
         )
 
@@ -3387,7 +3387,7 @@ async def user_api_key_auth(
     anthropic_api_key_header: str | None = fastapi.Security(anthropic_api_key_header),
     google_ai_studio_api_key_header: str | None = fastapi.Security(google_ai_studio_api_key_header),
     azure_apim_header: str | None = fastapi.Security(azure_apim_header),
-    custom_litellm_key_header: str | None = fastapi.Security(custom_litellm_key_header),
+    custom_embrouter_key_header: str | None = fastapi.Security(custom_embrouter_key_header),
 ) -> UserAPIKeyAuth:
     """
     Parent function to authenticate user api key / jwt token.
@@ -3416,7 +3416,7 @@ async def user_api_key_auth(
                 google_ai_studio_api_key_header=google_ai_studio_api_key_header,
                 azure_apim_header=azure_apim_header,
                 request_data=request_data,
-                custom_litellm_key_header=custom_litellm_key_header,
+                custom_embrouter_key_header=custom_embrouter_key_header,
             )
         except Exception:
             # The body was read first, so a caller who sent both a malformed body and
@@ -3480,13 +3480,13 @@ async def user_api_key_auth(
 
 
 async def _return_user_api_key_auth_obj(
-    user_obj: LiteLLM_UserTable | None,
+    user_obj: EmbRouter_UserTable | None,
     api_key: str,
     parent_otel_span: Span | None,
     valid_token_dict: dict,
     route: str,
     start_time: datetime,
-    user_role: LitellmUserRoles | None = None,
+    user_role: EmbrouterUserRoles | None = None,
 ) -> UserAPIKeyAuth:
     end_time: Final = datetime.now(timezone.utc)
 
@@ -3501,7 +3501,7 @@ async def _return_user_api_key_auth_obj(
         )
     )
 
-    retrieved_user_role: Final = user_role or _get_user_role(user_obj=user_obj) or LitellmUserRoles.INTERNAL_USER
+    retrieved_user_role: Final = user_role or _get_user_role(user_obj=user_obj) or EmbrouterUserRoles.INTERNAL_USER
 
     user_api_key_kwargs: Final = {
         "api_key": api_key,
@@ -3520,44 +3520,44 @@ async def _return_user_api_key_auth_obj(
         )
     if user_obj is not None and _is_user_proxy_admin(user_obj=user_obj):
         user_api_key_kwargs.update(
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=EmbrouterUserRoles.PROXY_ADMIN,
         )
         return UserAPIKeyAuth.model_validate(user_api_key_kwargs)
     else:
         return UserAPIKeyAuth.model_validate(user_api_key_kwargs)
 
 
-def get_api_key_from_custom_header(request: Request, custom_litellm_key_header_name: str) -> str:
+def get_api_key_from_custom_header(request: Request, custom_embrouter_key_header_name: str) -> str:
     """
     Get API key from custom header
 
     Args:
         request (Request): Request object
-        custom_litellm_key_header_name (str): Custom header name
+        custom_embrouter_key_header_name (str): Custom header name
 
     Returns:
         Optional[str]: API key
     """
     api_key: str = ""
-    # use this as the virtual key passed to litellm proxy
-    custom_litellm_key_header_name = custom_litellm_key_header_name.lower()
+    # use this as the virtual key passed to embrouter proxy
+    custom_embrouter_key_header_name = custom_embrouter_key_header_name.lower()
     _headers: Final = {k.lower(): v for k, v in request.headers.items()}
     verbose_proxy_logger.debug(
-        "searching for custom_litellm_key_header_name= %s, in headers=%s",
-        custom_litellm_key_header_name,
+        "searching for custom_embrouter_key_header_name= %s, in headers=%s",
+        custom_embrouter_key_header_name,
         _headers,
     )
-    custom_api_key: Final = _headers.get(custom_litellm_key_header_name)
+    custom_api_key: Final = _headers.get(custom_embrouter_key_header_name)
     if custom_api_key:
         api_key = _get_bearer_token(api_key=custom_api_key)
         verbose_proxy_logger.debug(
             "Found custom API key using header: %s, setting api_key=%s",
-            custom_litellm_key_header_name,
+            custom_embrouter_key_header_name,
             abbreviate_api_key(api_key),
         )
     else:
         verbose_proxy_logger.exception(
-            "No LiteLLM Virtual Key pass. Please set header=%s: Bearer <api_key>", custom_litellm_key_header_name
+            "No EmbRouter Virtual Key pass. Please set header=%s: Bearer <api_key>", custom_embrouter_key_header_name
         )
     return api_key
 
@@ -3611,16 +3611,16 @@ async def _lookup_end_user_and_apply_budget(
                 "end_user_id": valid_token.end_user_id,
                 "allowed_model_region": end_user_object.allowed_model_region,
             }
-            if end_user_object.litellm_budget_table is not None:
+            if end_user_object.embrouter_budget_table is not None:
                 _apply_budget_limits_to_end_user_params(
                     end_user_params=end_user_params,
-                    budget_info=end_user_object.litellm_budget_table,
+                    budget_info=end_user_object.embrouter_budget_table,
                     end_user_id=valid_token.end_user_id or "",
                 )
             valid_token = update_valid_token_with_end_user_params(
                 valid_token=valid_token, end_user_params=end_user_params
             )
-        elif key_end_user_budget_id is not None or litellm.max_end_user_budget_id is not None:
+        elif key_end_user_budget_id is not None or embrouter.max_end_user_budget_id is not None:
             default_budget: Final = await resolve_default_end_user_budget(
                 prisma_client=prisma_client,
                 user_api_key_cache=user_api_key_cache,
@@ -3640,7 +3640,7 @@ async def _lookup_end_user_and_apply_budget(
                 if valid_token.end_user_max_budget is None:
                     valid_token.end_user_max_budget = default_budget.max_budget
     except Exception as e:
-        if isinstance(e, litellm.BudgetExceededError):
+        if isinstance(e, embrouter.BudgetExceededError):
             raise e
         verbose_proxy_logger.debug("Unable to find user in db. Error - %s", e)
     return valid_token, end_user_object
@@ -3723,7 +3723,7 @@ async def _run_post_custom_auth_checks(
     route: str,
     parent_otel_span: Span | None,
 ) -> UserAPIKeyAuth:
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_model_list,
         llm_router,

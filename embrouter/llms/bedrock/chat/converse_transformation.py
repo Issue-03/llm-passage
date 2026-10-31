@@ -13,51 +13,51 @@ from typing import TYPE_CHECKING, Final, Literal, cast, overload
 
 import httpx
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.constants import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.constants import (
     BEDROCK_MIN_THINKING_BUDGET_TOKENS,
     RESPONSE_FORMAT_TOOL_NAME,
 )
-from litellm.litellm_core_utils.core_helpers import (
+from embrouter.embrouter_core_utils.core_helpers import (
     filter_exceptions_from_params,
     filter_internal_params,
     map_finish_reason,
     safe_deep_copy,
 )
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+from embrouter.embrouter_core_utils.embrouter_logging import Logging
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
     _parse_content_for_reasoning,
 )
-from litellm.litellm_core_utils.prompt_templates.factory import (
+from embrouter.embrouter_core_utils.prompt_templates.factory import (
     BedrockConverseMessagesProcessor,
     _bedrock_converse_messages_pt,
     _bedrock_tools_pt,
     make_valid_bedrock_tool_name,
 )
-from litellm.litellm_core_utils.prompt_templates.mid_conversation_system import (
+from embrouter.embrouter_core_utils.prompt_templates.mid_conversation_system import (
     CONVERTED_SYSTEM_NOTE,
     is_system_message,
     message_field,
     parts_of,
 )
-from litellm.llms.anthropic.chat.transformation import (
+from embrouter.llms.anthropic.chat.transformation import (
     DROP_UNSUPPORTED_ADAPTIVE_THINKING_WARNING,
     DROP_UNSUPPORTED_OUTPUT_CONFIG_WARNING,
     REASONING_EFFORT_TO_OUTPUT_CONFIG_EFFORT,
     AnthropicConfig,
 )
-from litellm.llms.anthropic.common_utils import AnthropicModelInfo
-from litellm.llms.base_llm.chat.transformation import BaseConfig, BaseLLMException
-from litellm.llms.bedrock.request_metadata import (
+from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
+from embrouter.llms.base_llm.chat.transformation import BaseConfig, BaseLLMException
+from embrouter.llms.bedrock.request_metadata import (
     bedrock_request_metadata_headers,
     bedrock_request_metadata_is_owned,
     merge_bedrock_invoke_headers,
     resolve_bedrock_request_metadata,
 )
-from litellm.types.llms.anthropic import ANTHROPIC_FINE_GRAINED_TOOL_STREAMING_BETA_HEADER
-from litellm.types.llms.bedrock import *
-from litellm.types.llms.openai import (
+from embrouter.types.llms.anthropic import ANTHROPIC_FINE_GRAINED_TOOL_STREAMING_BETA_HEADER
+from embrouter.types.llms.bedrock import *
+from embrouter.types.llms.openai import (
     AllMessageValues,
     ChatCompletionAnnotation,
     ChatCompletionAssistantMessage,
@@ -76,7 +76,7 @@ from litellm.types.llms.openai import (
     OpenAIChatCompletionToolParam,
     OpenAIMessageContentListBlock,
 )
-from litellm.types.utils import (
+from embrouter.types.utils import (
     CacheCreationTokenDetails,
     ChatCompletionMessageToolCall,
     CompletionTokensDetailsWrapper,
@@ -86,7 +86,7 @@ from litellm.types.utils import (
     PromptTokensDetailsWrapper,
     Usage,
 )
-from litellm.utils import (
+from embrouter.utils import (
     add_dummy_tool,
     any_assistant_message_has_thinking_blocks,
     has_tool_call_blocks,
@@ -108,7 +108,7 @@ from ..common_utils import (
 )
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
 
 # Computer use tool prefixes supported by Bedrock
 BEDROCK_COMPUTER_USE_TOOLS: Final = [
@@ -231,7 +231,7 @@ class AmazonConverseConfig(BaseConfig):
         if optional_params.get("tools") or not AmazonConverseConfig._has_orphaned_tool_blocks(messages):
             return messages
 
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             convert_content_list_to_str,
         )
 
@@ -270,7 +270,7 @@ class AmazonConverseConfig(BaseConfig):
             return message
 
         verbose_logger.warning(
-            "litellm.bedrock: request has tool blocks in message history but no "
+            "embrouter.bedrock: request has tool blocks in message history but no "
             "`tools=` param; neutralizing orphaned tool blocks to text so Bedrock "
             "accepts the request without a toolConfig. Non-text tool-result "
             "payloads are dropped. Pass `tools=` to preserve structured tool calling."
@@ -279,18 +279,18 @@ class AmazonConverseConfig(BaseConfig):
 
     @staticmethod
     def _handle_orphaned_tool_blocks(messages: list[AllMessageValues], optional_params: dict) -> list[AllMessageValues]:
-        if litellm.bedrock_neutralize_orphaned_tool_blocks:
+        if embrouter.bedrock_neutralize_orphaned_tool_blocks:
             return AmazonConverseConfig._neutralize_orphaned_tool_blocks(messages, optional_params)
 
         if "tools" in optional_params or not has_tool_call_blocks(messages):
             return messages
 
-        if litellm.modify_params:
+        if embrouter.modify_params:
             optional_params["tools"] = add_dummy_tool(custom_llm_provider="bedrock_converse")
             return messages
 
-        raise litellm.utils.UnsupportedParamsError(
-            message="Bedrock doesn't support tool calling without `tools=` param specified. Pass `tools=` param OR set `litellm.modify_params = True` // `litellm_settings::modify_params: True` to add dummy tool to the request.",
+        raise embrouter.utils.UnsupportedParamsError(
+            message="Bedrock doesn't support tool calling without `tools=` param specified. Pass `tools=` param OR set `embrouter.modify_params = True` // `embrouter_settings::modify_params: True` to add dummy tool to the request.",
             model="",
             llm_provider="bedrock",
         )
@@ -325,14 +325,14 @@ class AmazonConverseConfig(BaseConfig):
         import re
 
         if not isinstance(metadata, dict):
-            raise litellm.exceptions.BadRequestError(
+            raise embrouter.exceptions.BadRequestError(
                 message="requestMetadata must be a dictionary",
                 model="bedrock",
                 llm_provider="bedrock",
             )
 
         if len(metadata) > 16:
-            raise litellm.exceptions.BadRequestError(
+            raise embrouter.exceptions.BadRequestError(
                 message="requestMetadata can contain a maximum of 16 items",
                 model="bedrock",
                 llm_provider="bedrock",
@@ -343,42 +343,42 @@ class AmazonConverseConfig(BaseConfig):
 
         for key, value in metadata.items():
             if not isinstance(key, str):
-                raise litellm.exceptions.BadRequestError(
+                raise embrouter.exceptions.BadRequestError(
                     message="requestMetadata keys must be strings",
                     model="bedrock",
                     llm_provider="bedrock",
                 )
 
             if not isinstance(value, str):
-                raise litellm.exceptions.BadRequestError(
+                raise embrouter.exceptions.BadRequestError(
                     message="requestMetadata values must be strings",
                     model="bedrock",
                     llm_provider="bedrock",
                 )
 
             if len(key) == 0 or len(key) > 256:
-                raise litellm.exceptions.BadRequestError(
+                raise embrouter.exceptions.BadRequestError(
                     message="requestMetadata key length must be 1-256 characters",
                     model="bedrock",
                     llm_provider="bedrock",
                 )
 
             if len(value) > 256:
-                raise litellm.exceptions.BadRequestError(
+                raise embrouter.exceptions.BadRequestError(
                     message="requestMetadata value length must be 0-256 characters",
                     model="bedrock",
                     llm_provider="bedrock",
                 )
 
             if not key_pattern.match(key):
-                raise litellm.exceptions.BadRequestError(
+                raise embrouter.exceptions.BadRequestError(
                     message=f"requestMetadata key '{key}' contains invalid characters. Allowed: [a-zA-Z0-9\\s:_@$#=/+,.-]",
                     model="bedrock",
                     llm_provider="bedrock",
                 )
 
             if not value_pattern.match(value):
-                raise litellm.exceptions.BadRequestError(
+                raise embrouter.exceptions.BadRequestError(
                     message=f"requestMetadata value '{value}' contains invalid characters. Allowed: [a-zA-Z0-9\\s:_@$#=/+,.-]",
                     model="bedrock",
                     llm_provider="bedrock",
@@ -503,7 +503,7 @@ class AmazonConverseConfig(BaseConfig):
         """
         valid_values: Final = ["low", "medium", "high"]
         if reasoning_effort not in valid_values:
-            raise litellm.exceptions.BadRequestError(
+            raise embrouter.exceptions.BadRequestError(
                 message=f"Invalid reasoning_effort value '{reasoning_effort}' for Nova 2 models. "
                 f"Supported values: {valid_values}",
                 model="amazon.nova-2-lite-v1:0",
@@ -573,7 +573,7 @@ class AmazonConverseConfig(BaseConfig):
         """Validate ``output_config.effort`` for adaptive-thinking Claude 4.6/4.7."""
         valid_efforts: Final = {"high", "medium", "low", "xhigh", "max"}
         if effort not in valid_efforts:
-            raise litellm.exceptions.BadRequestError(
+            raise embrouter.exceptions.BadRequestError(
                 message=(
                     f"Invalid reasoning_effort/output_config.effort value: "
                     f"{effort!r}. Must be one of: 'low', 'medium', 'high', "
@@ -584,7 +584,7 @@ class AmazonConverseConfig(BaseConfig):
             )
         error = AnthropicConfig._validate_effort_for_model(model=model, effort=effort, custom_llm_provider="bedrock")
         if error is not None:
-            raise litellm.exceptions.BadRequestError(
+            raise embrouter.exceptions.BadRequestError(
                 message=error,
                 model=model,
                 llm_provider="bedrock_converse",
@@ -640,7 +640,7 @@ class AmazonConverseConfig(BaseConfig):
 
     @classmethod
     def _supports_sampling_params(cls, model: str) -> bool:
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
         base_model: Final = BedrockModelInfo.get_base_model(model)
         if base_model.startswith("anthropic"):
@@ -656,7 +656,7 @@ class AmazonConverseConfig(BaseConfig):
         return True
 
     def get_supported_openai_params(self, model: str) -> list[str]:
-        from litellm.utils import supports_function_calling
+        from embrouter.utils import supports_function_calling
 
         supports_sampling: Final = self._supports_sampling_params(model)
         supported_params: Final = [
@@ -704,9 +704,9 @@ class AmazonConverseConfig(BaseConfig):
         if base_model.startswith("amazon.nova"):
             supported_params.append("web_search_options")
 
-        if litellm.utils.supports_tool_choice(
+        if embrouter.utils.supports_tool_choice(
             model=model, custom_llm_provider=self.custom_llm_provider
-        ) or litellm.utils.supports_tool_choice(model=base_model, custom_llm_provider=self.custom_llm_provider):
+        ) or embrouter.utils.supports_tool_choice(model=base_model, custom_llm_provider=self.custom_llm_provider):
             # only anthropic and mistral support tool choice config. otherwise (E.g. cohere) will fail the call - https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_ToolChoice.html
             supported_params.append("tool_choice")
 
@@ -740,11 +740,11 @@ class AmazonConverseConfig(BaseConfig):
         self, model: str, tool_choice: str | dict, drop_params: bool
     ) -> ToolChoiceValuesBlock | None:
         if tool_choice == "none":
-            if litellm.drop_params is True or drop_params is True:
+            if embrouter.drop_params is True or drop_params is True:
                 return None
             else:
-                raise litellm.utils.UnsupportedParamsError(
-                    message=f"Bedrock doesn't support tool_choice={tool_choice}. To drop it from the call, set `litellm.drop_params = True.",
+                raise embrouter.utils.UnsupportedParamsError(
+                    message=f"Bedrock doesn't support tool_choice={tool_choice}. To drop it from the call, set `embrouter.drop_params = True.",
                     status_code=400,
                 )
         elif tool_choice == "required":
@@ -762,8 +762,8 @@ class AmazonConverseConfig(BaseConfig):
             )
             return ToolChoiceValuesBlock(tool=specific_tool)
         else:
-            raise litellm.utils.UnsupportedParamsError(
-                message=f"Bedrock doesn't support tool_choice={tool_choice}. Supported tool_choice values=['auto', 'required', json object]. To drop it from the call, set `litellm.drop_params = True.",
+            raise embrouter.utils.UnsupportedParamsError(
+                message=f"Bedrock doesn't support tool_choice={tool_choice}. Supported tool_choice values=['auto', 'required', json object]. To drop it from the call, set `embrouter.drop_params = True.",
                 status_code=400,
             )
 
@@ -910,11 +910,11 @@ class AmazonConverseConfig(BaseConfig):
         """Check if the Bedrock model supports native structured outputs (outputConfig.textFormat).
 
         Delegates to the standard ``supports_native_structured_output`` utility
-        which looks up the flag in ``litellm.model_cost`` via
+        which looks up the flag in ``embrouter.model_cost`` via
         ``_get_model_info_helper``.
         Ref: https://docs.aws.amazon.com/bedrock/latest/userguide/structured-output.html
         """
-        from litellm.utils import supports_native_structured_output
+        from embrouter.utils import supports_native_structured_output
 
         return supports_native_structured_output(model=model, custom_llm_provider=custom_llm_provider)
 
@@ -1055,11 +1055,11 @@ class AmazonConverseConfig(BaseConfig):
                         output_key="topP" if param == "top_p" else param,
                     )
                 elif not self._supports_sampling_params(model):
-                    if not (litellm.drop_params or drop_params):
-                        raise litellm.utils.UnsupportedParamsError(
+                    if not (embrouter.drop_params or drop_params):
+                        raise embrouter.utils.UnsupportedParamsError(
                             message=(
                                 f"{model} does not support {param}={value}. "
-                                "To drop unsupported params, set `litellm.drop_params = True`."
+                                "To drop unsupported params, set `embrouter.drop_params = True`."
                             ),
                             status_code=400,
                         )
@@ -1109,7 +1109,7 @@ class AmazonConverseConfig(BaseConfig):
                     if capped is not None:
                         optional_params["thinking"] = capped
                     else:
-                        litellm.verbose_logger.warning(DROP_UNSUPPORTED_ADAPTIVE_THINKING_WARNING, model)
+                        embrouter.verbose_logger.warning(DROP_UNSUPPORTED_ADAPTIVE_THINKING_WARNING, model)
                 else:
                     optional_params["thinking"] = value
                     AnthropicModelInfo.translate_legacy_thinking_for_adaptive_model(
@@ -1249,7 +1249,7 @@ class AmazonConverseConfig(BaseConfig):
             optional_params = self._add_tools_to_optional_params(optional_params=optional_params, tools=[_tool])
 
             if (
-                litellm.utils.supports_tool_choice(model=model, custom_llm_provider=self.custom_llm_provider)
+                embrouter.utils.supports_tool_choice(model=model, custom_llm_provider=self.custom_llm_provider)
                 and not is_thinking_enabled
                 and not AnthropicModelInfo.forced_tool_use_unsupported(model)
             ):
@@ -1279,7 +1279,7 @@ class AmazonConverseConfig(BaseConfig):
         Also clamps thinking.budget_tokens to the Bedrock minimum (1024) to
         prevent 400 errors from the Bedrock API.
         """
-        from litellm.constants import DEFAULT_MAX_TOKENS
+        from embrouter.constants import DEFAULT_MAX_TOKENS
 
         self._clamp_thinking_budget_tokens(optional_params)
 
@@ -1617,7 +1617,7 @@ class AmazonConverseConfig(BaseConfig):
                 description=output_config_format.get("description"),
             )
         elif output_config is None and output_config_format is not None:
-            litellm.verbose_logger.warning(
+            embrouter.verbose_logger.warning(
                 "Bedrock Converse: dropping `output_config.format` for model=%s — "
                 "model does not advertise `supports_native_structured_output` in "
                 "model_prices_and_context_window.json. The schema will not be "
@@ -1644,7 +1644,7 @@ class AmazonConverseConfig(BaseConfig):
         additional_request_params.update(self._handle_top_k_value(model, inference_params, drop_params))
 
         # Filter out internal/MCP-related parameters that shouldn't be sent to the API
-        # These are LiteLLM internal parameters, not API parameters
+        # These are EmbRouter internal parameters, not API parameters
         additional_request_params = filter_internal_params(additional_request_params)
 
         # Filter out non-serializable objects (exceptions, callables, logging objects, etc.)
@@ -1659,8 +1659,8 @@ class AmazonConverseConfig(BaseConfig):
             if is_bedrock_application_inference_profile_arn(model):
                 additional_request_params["output_config"] = anthropic_output_config
             elif base_model.startswith("anthropic"):
-                if litellm.drop_params is True and not AnthropicConfig._model_supports_effort_param(model, "bedrock"):
-                    litellm.verbose_logger.warning(
+                if embrouter.drop_params is True and not AnthropicConfig._model_supports_effort_param(model, "bedrock"):
+                    embrouter.verbose_logger.warning(
                         DROP_UNSUPPORTED_OUTPUT_CONFIG_WARNING,
                         model,
                     )
@@ -1806,7 +1806,7 @@ class AmazonConverseConfig(BaseConfig):
                 and output_config.get("effort") is not None
                 and not AnthropicConfig._is_adaptive_thinking_model(model, "bedrock")
             ):
-                from litellm.types.llms.anthropic import (
+                from embrouter.types.llms.anthropic import (
                     ANTHROPIC_EFFORT_BETA_HEADER,
                 )
 
@@ -1831,10 +1831,10 @@ class AmazonConverseConfig(BaseConfig):
         anthropic_beta_list: list,
     ) -> None:
         """Keep only compact_20260112 edits for Bedrock; add beta header or drop field."""
-        from litellm.llms.anthropic.pass_through.context_management.constants import (
+        from embrouter.llms.anthropic.pass_through.context_management.constants import (
             COMPACT_EDIT_TYPE,
         )
-        from litellm.types.llms.anthropic import ANTHROPIC_BETA_HEADER_VALUES
+        from embrouter.types.llms.anthropic import ANTHROPIC_BETA_HEADER_VALUES
 
         cm: Final = additional_request_params.get("context_management")
         if not isinstance(cm, dict):
@@ -1865,7 +1865,7 @@ class AmazonConverseConfig(BaseConfig):
         messages: list[AllMessageValues] | None = None,
         headers: dict | None = None,
         drop_params: bool = False,
-        litellm_params: Mapping[str, object] | None = None,
+        embrouter_params: Mapping[str, object] | None = None,
     ) -> CommonRequestObject:
         # Drop thinking param if thinking is enabled but thinking_blocks are missing
         # This prevents the error: "Expected thinking or redacted_thinking, but found tool_use"
@@ -1878,9 +1878,9 @@ class AmazonConverseConfig(BaseConfig):
             and last_assistant_with_tool_calls_has_no_thinking_blocks(messages)
             and not any_assistant_message_has_thinking_blocks(messages)
         ):
-            if litellm.modify_params:
+            if embrouter.modify_params:
                 optional_params.pop("thinking", None)
-                litellm.verbose_logger.warning(
+                embrouter.verbose_logger.warning(
                     "Dropping 'thinking' param because the last assistant message with tool_calls "
                     "has no thinking_blocks. The model won't use extended thinking for this turn."
                 )
@@ -1917,12 +1917,12 @@ class AmazonConverseConfig(BaseConfig):
                     # this is the one place a tool_config point becomes one. The hook that reads
                     # the configuration cannot record it: whether a cachePoint lands depends on
                     # this provider and on the request carrying tools, neither of which it sees.
-                    if litellm_params is not None:
-                        from litellm.integrations.anthropic_cache_control_hook import (
+                    if embrouter_params is not None:
+                        from embrouter.integrations.anthropic_cache_control_hook import (
                             AnthropicCacheControlHook,
                         )
 
-                        AnthropicCacheControlHook.record_gateway_injection(litellm_params, 1)
+                        AnthropicCacheControlHook.record_gateway_injection(embrouter_params, 1)
                     break
 
         bedrock_tool_config: ToolConfigBlock | None = None
@@ -1972,7 +1972,7 @@ class AmazonConverseConfig(BaseConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict | None = None,
     ) -> RequestObject:
         messages, system_content_blocks = self._transform_system_message(messages, model=model)
@@ -1989,19 +1989,19 @@ class AmazonConverseConfig(BaseConfig):
             optional_params=optional_params,
             messages=messages,
             headers=headers,
-            drop_params=litellm_params.get("drop_params") is True,
-            litellm_params=litellm_params,
+            drop_params=embrouter_params.get("drop_params") is True,
+            embrouter_params=embrouter_params,
         )
 
         bedrock_messages: Final = await BedrockConverseMessagesProcessor._bedrock_converse_messages_pt_async(
             messages=messages,
             model=model,
             llm_provider="bedrock_converse",
-            user_continue_message=litellm_params.pop("user_continue_message", None),
+            user_continue_message=embrouter_params.pop("user_continue_message", None),
         )
 
         request_metadata: Final = resolve_bedrock_request_metadata(
-            litellm_params=litellm_params, caller_metadata=_data.get("requestMetadata")
+            embrouter_params=embrouter_params, caller_metadata=_data.get("requestMetadata")
         )
         if bedrock_request_metadata_is_owned():
             _data.pop("requestMetadata", None)
@@ -2016,7 +2016,7 @@ class AmazonConverseConfig(BaseConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         return cast(
@@ -2025,7 +2025,7 @@ class AmazonConverseConfig(BaseConfig):
                 model=model,
                 messages=messages,
                 optional_params=optional_params,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 headers=headers,
             ),
         )
@@ -2035,7 +2035,7 @@ class AmazonConverseConfig(BaseConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict | None = None,
     ) -> RequestObject:
         messages, system_content_blocks = self._transform_system_message(messages, model=model)
@@ -2051,8 +2051,8 @@ class AmazonConverseConfig(BaseConfig):
             optional_params=optional_params,
             messages=messages,
             headers=headers,
-            drop_params=litellm_params.get("drop_params") is True,
-            litellm_params=litellm_params,
+            drop_params=embrouter_params.get("drop_params") is True,
+            embrouter_params=embrouter_params,
         )
 
         ## TRANSFORMATION ##
@@ -2060,11 +2060,11 @@ class AmazonConverseConfig(BaseConfig):
             messages=messages,
             model=model,
             llm_provider="bedrock_converse",
-            user_continue_message=litellm_params.pop("user_continue_message", None),
+            user_continue_message=embrouter_params.pop("user_continue_message", None),
         )
 
         request_metadata: Final = resolve_bedrock_request_metadata(
-            litellm_params=litellm_params, caller_metadata=_data.get("requestMetadata")
+            embrouter_params=embrouter_params, caller_metadata=_data.get("requestMetadata")
         )
         if bedrock_request_metadata_is_owned():
             _data.pop("requestMetadata", None)
@@ -2083,7 +2083,7 @@ class AmazonConverseConfig(BaseConfig):
         request_data: dict,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,
@@ -2348,7 +2348,7 @@ class AmazonConverseConfig(BaseConfig):
                 if _content_str is not None:
                     content_str += _content_str
             if "toolUse" in content:
-                ## check tool name was formatted by litellm
+                ## check tool name was formatted by embrouter
                 _response_tool_name = content["toolUse"]["name"]
                 response_tool_name = get_bedrock_tool_name(response_tool_name=_response_tool_name)
                 _function_chunk = ChatCompletionToolCallFunctionChunk(
@@ -2553,7 +2553,7 @@ class AmazonConverseConfig(BaseConfig):
             completion_response: Final = ConverseResponseBlock(**response.json())
         except Exception as e:
             raise BedrockError(
-                message=f"Error converting to valid response block={e}. File an issue if litellm error",
+                message=f"Error converting to valid response block={e}. File an issue if embrouter error",
                 status_code=422,
                 headers=response.headers,
             )
@@ -2675,7 +2675,7 @@ class AmazonConverseConfig(BaseConfig):
             initial_finish_reason=initial_finish_reason,
         )
         model_response.choices = [
-            litellm.Choices(
+            embrouter.Choices(
                 finish_reason=returned_finish_reason,
                 index=0,
                 message=returned_message,
@@ -2712,13 +2712,13 @@ class AmazonConverseConfig(BaseConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
         if api_key:
             headers["Authorization"] = f"Bearer {api_key}"
-        owned_names, metadata_headers = bedrock_request_metadata_headers(litellm_params)
+        owned_names, metadata_headers = bedrock_request_metadata_headers(embrouter_params)
         return merge_bedrock_invoke_headers(headers, (), metadata_headers, owned_names)
 
     def should_fake_stream(

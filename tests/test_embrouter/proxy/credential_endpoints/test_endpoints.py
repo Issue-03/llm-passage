@@ -7,12 +7,12 @@ import pytest
 from fastapi.testclient import TestClient
 
 
-import litellm
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.credential_endpoints.endpoints import get_llm_router
-from litellm.proxy.proxy_server import app
-from litellm.types.utils import CredentialItem
+import embrouter
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.credential_endpoints.endpoints import get_llm_router
+from embrouter.proxy.proxy_server import app
+from embrouter.types.utils import CredentialItem
 
 client = TestClient(app)
 
@@ -59,11 +59,11 @@ def credential_store():
         llm_router: object | None = None,
         **repository_calls: AsyncMock,
     ) -> None:
-        patch("litellm.proxy.proxy_server.prisma_client", MagicMock() if connected else None).start()
-        patch("litellm.proxy.proxy_server.master_key", "sk-test-master").start()
-        patch.object(litellm, "credential_list", list(in_memory)).start()
+        patch("embrouter.proxy.proxy_server.prisma_client", MagicMock() if connected else None).start()
+        patch("embrouter.proxy.proxy_server.master_key", "sk-test-master").start()
+        patch.object(embrouter, "credential_list", list(in_memory)).start()
         app.dependency_overrides[get_llm_router] = lambda: llm_router
-        repository = patch("litellm.proxy.credential_endpoints.endpoints.CredentialsRepository").start()
+        repository = patch("embrouter.proxy.credential_endpoints.endpoints.CredentialsRepository").start()
         for call_name, result in repository_calls.items():
             setattr(repository.return_value, call_name, result)
 
@@ -153,7 +153,7 @@ def test_delete_credential_still_answers_200_and_drops_the_credential_from_memor
 
     assert response.status_code == 200, response.text
     assert response.json()["success"] is True
-    assert [credential.credential_name for credential in litellm.credential_list] == ["keeper"]
+    assert [credential.credential_name for credential in embrouter.credential_list] == ["keeper"]
 
 
 def test_delete_credential_leaves_a_credential_that_only_exists_in_memory_in_place(credential_store):
@@ -170,7 +170,7 @@ def test_delete_credential_leaves_a_credential_that_only_exists_in_memory_in_pla
     response = _delete_credential("from-config-yaml")
 
     assert response.status_code == 404, response.text
-    assert [credential.credential_name for credential in litellm.credential_list] == ["from-config-yaml"]
+    assert [credential.credential_name for credential in embrouter.credential_list] == ["from-config-yaml"]
 
 
 def test_delete_credential_answers_500_when_the_database_is_not_connected(credential_store):

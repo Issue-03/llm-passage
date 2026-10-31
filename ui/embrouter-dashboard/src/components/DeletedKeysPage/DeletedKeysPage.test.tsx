@@ -44,7 +44,7 @@ const mockDeletedKey: DeletedKeyResponse = {
   model_max_budget: {},
   soft_budget_cooldown: false,
   blocked: false,
-  litellm_budget_table: {},
+  embrouter_budget_table: {},
   organization_id: "org-1",
   created_at: "2024-11-01T10:00:00Z",
   updated_at: "2024-11-15T10:00:00Z",

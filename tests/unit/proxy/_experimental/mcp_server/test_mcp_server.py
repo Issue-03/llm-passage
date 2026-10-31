@@ -5,12 +5,12 @@ from unittest.mock import ANY, AsyncMock, MagicMock, patch
 from contextlib import asynccontextmanager
 
 
-from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
     MCPServerManager,
     MCPServer,
     MCPTransport,
 )
-from litellm.proxy._types import LiteLLM_ObjectPermissionTable
+from embrouter.proxy._types import EmbRouter_ObjectPermissionTable
 from mcp.types import Tool as MCPTool, CallToolResult, ListToolsResult
 from mcp.types import TextContent
 
@@ -71,7 +71,7 @@ async def test_mcp_server_manager_https_server():
         return mock_client
 
     with patch(
-        "litellm.proxy._experimental.mcp_server.mcp_server_manager.MCPClient",
+        "embrouter.proxy._experimental.mcp_server.mcp_server_manager.MCPClient",
         mock_client_constructor,
     ):
         await mcp_server_manager.load_servers_from_config(
@@ -179,7 +179,7 @@ async def test_mcp_http_transport_list_tools_mock():
         return mock_client
 
     with patch(
-        "litellm.proxy._experimental.mcp_server.mcp_server_manager.MCPClient",
+        "embrouter.proxy._experimental.mcp_server.mcp_server_manager.MCPClient",
         mock_client_constructor,
     ):
         # Load server config with HTTP transport
@@ -256,7 +256,7 @@ async def test_mcp_http_transport_call_tool_mock():
         return mock_client
 
     with patch(
-        "litellm.proxy._experimental.mcp_server.mcp_server_manager.MCPClient",
+        "embrouter.proxy._experimental.mcp_server.mcp_server_manager.MCPClient",
         mock_client_constructor,
     ):
         # Load server config with HTTP transport
@@ -322,7 +322,7 @@ async def test_mcp_http_transport_call_tool_error_mock():
         return mock_client
 
     with patch(
-        "litellm.proxy._experimental.mcp_server.mcp_server_manager.MCPClient",
+        "embrouter.proxy._experimental.mcp_server.mcp_server_manager.MCPClient",
         mock_client_constructor,
     ):
         # Load server config with HTTP transport
@@ -420,26 +420,26 @@ async def test_streamable_http_mcp_handler_mock():
 
     with (
         patch(
-            "litellm.proxy._experimental.mcp_server.server._SESSION_MANAGERS_INITIALIZED",
+            "embrouter.proxy._experimental.mcp_server.server._SESSION_MANAGERS_INITIALIZED",
             True,
         ),
         patch(
-            "litellm.proxy._experimental.mcp_server.server.session_manager_stateless",
+            "embrouter.proxy._experimental.mcp_server.server.session_manager_stateless",
             mock_session_manager_stateless,
         ),
         patch(
-            "litellm.proxy._experimental.mcp_server.server.session_manager_stateful",
+            "embrouter.proxy._experimental.mcp_server.server.session_manager_stateful",
             mock_session_manager_stateful,
         ),
         patch(
-            "litellm.proxy._experimental.mcp_server.server.extract_mcp_auth_context",
+            "embrouter.proxy._experimental.mcp_server.server.extract_mcp_auth_context",
             AsyncMock(return_value=mock_auth_context),
         ),
         patch(
-            "litellm.proxy._experimental.mcp_server.server.set_auth_context",
+            "embrouter.proxy._experimental.mcp_server.server.set_auth_context",
         ),
     ):
-        from litellm.proxy._experimental.mcp_server.server import (
+        from embrouter.proxy._experimental.mcp_server.server import (
             handle_streamable_http_mcp,
         )
 
@@ -454,7 +454,7 @@ async def test_streamable_http_mcp_handler_mock():
 @pytest.mark.asyncio
 async def test_sse_mcp_handler_mock():
     """Test the SSE MCP handler functionality"""
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     read_stream, write_stream = MagicMock(), MagicMock()
 
@@ -489,24 +489,24 @@ async def test_sse_mcp_handler_mock():
     )
 
     with (
-        patch("litellm.proxy._experimental.mcp_server.server.serve_loop", run),
+        patch("embrouter.proxy._experimental.mcp_server.server.serve_loop", run),
         patch(
-            "litellm.proxy._experimental.mcp_server.server._SESSION_MANAGERS_INITIALIZED",
+            "embrouter.proxy._experimental.mcp_server.server._SESSION_MANAGERS_INITIALIZED",
             True,
         ),
         patch(
-            "litellm.proxy._experimental.mcp_server.server.sse",
+            "embrouter.proxy._experimental.mcp_server.server.sse",
             mock_sse,
         ),
         patch(
-            "litellm.proxy._experimental.mcp_server.server.extract_mcp_auth_context",
+            "embrouter.proxy._experimental.mcp_server.server.extract_mcp_auth_context",
             new=AsyncMock(return_value=mock_auth_result),
         ),
         patch(
-            "litellm.proxy._experimental.mcp_server.server.set_auth_context",
+            "embrouter.proxy._experimental.mcp_server.server.set_auth_context",
         ),
     ):
-        from litellm.proxy._experimental.mcp_server.server import handle_sse_mcp
+        from embrouter.proxy._experimental.mcp_server.server import handle_sse_mcp
 
         # Call the handler
         await handle_sse_mcp(mock_scope, mock_receive, mock_send)
@@ -522,7 +522,7 @@ async def test_sse_mcp_handler_propagates_passthrough_401():
     the SSE session start and silently return empty tool lists."""
     from fastapi import HTTPException
 
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     mock_scope = {
         "type": "http",
@@ -546,33 +546,33 @@ async def test_sse_mcp_handler_propagates_passthrough_401():
 
     with (
         patch(
-            "litellm.proxy._experimental.mcp_server.server._SESSION_MANAGERS_INITIALIZED",
+            "embrouter.proxy._experimental.mcp_server.server._SESSION_MANAGERS_INITIALIZED",
             True,
         ),
         patch(
-            "litellm.proxy._experimental.mcp_server.server.sse",
+            "embrouter.proxy._experimental.mcp_server.server.sse",
         ) as transport,
         patch(
-            "litellm.proxy._experimental.mcp_server.server.server.run",
+            "embrouter.proxy._experimental.mcp_server.server.server.run",
             AsyncMock(),
         ),
         patch(
-            "litellm.proxy._experimental.mcp_server.server.extract_mcp_auth_context",
+            "embrouter.proxy._experimental.mcp_server.server.extract_mcp_auth_context",
             new=AsyncMock(return_value=mock_auth_result),
         ),
         patch(
-            "litellm.proxy._experimental.mcp_server.server.set_auth_context",
+            "embrouter.proxy._experimental.mcp_server.server.set_auth_context",
         ),
         patch(
-            "litellm.proxy._experimental.mcp_server.server._raise_preemptive_401_for_unauthenticated_servers",
+            "embrouter.proxy._experimental.mcp_server.server._raise_preemptive_401_for_unauthenticated_servers",
             new=AsyncMock(),
         ),
         patch(
-            "litellm.proxy._experimental.mcp_server.server._check_passthrough_upstream_auth",
+            "embrouter.proxy._experimental.mcp_server.server._check_passthrough_upstream_auth",
             new=AsyncMock(side_effect=challenge),
         ),
     ):
-        from litellm.proxy._experimental.mcp_server.server import handle_sse_mcp
+        from embrouter.proxy._experimental.mcp_server.server import handle_sse_mcp
 
         with pytest.raises(HTTPException) as excinfo:
             await handle_sse_mcp(mock_scope, mock_receive, mock_send)
@@ -737,18 +737,18 @@ def test_generate_stable_server_id():
 @pytest.mark.asyncio
 async def test_list_tools_rest_api_server_not_found():
     """Test the list_tools REST API when server is not found"""
-    from litellm.proxy._experimental.mcp_server.rest_endpoints import (
+    from embrouter.proxy._experimental.mcp_server.rest_endpoints import (
         list_tool_rest_api,
         global_mcp_server_manager,
     )
     from fastapi import Query
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     # Mock UserAPIKeyAuth with explicit permission to access the requested server id
     mock_user_auth = UserAPIKeyAuth(
         api_key="test",
         user_id="test",
-        object_permission=LiteLLM_ObjectPermissionTable(
+        object_permission=EmbRouter_ObjectPermissionTable(
             object_permission_id="dummy",
             mcp_servers=["non_existent_server_id"],
         ),
@@ -762,7 +762,7 @@ async def test_list_tools_rest_api_server_not_found():
 
     # Mock the global_mcp_server_manager to allow the server ID but return None for the server
     with patch(
-        "litellm.proxy._experimental.mcp_server.rest_endpoints.global_mcp_server_manager"
+        "embrouter.proxy._experimental.mcp_server.rest_endpoints.global_mcp_server_manager"
     ) as mock_manager:
         # Allow the server ID in permissions
         mock_manager.get_allowed_mcp_servers = AsyncMock(
@@ -791,14 +791,14 @@ async def test_list_tools_rest_api_server_not_found():
 @pytest.mark.asyncio
 async def test_list_tools_rest_api_success():
     """Test the list_tools REST API successful case"""
-    from litellm.proxy._experimental.mcp_server.rest_endpoints import (
+    from embrouter.proxy._experimental.mcp_server.rest_endpoints import (
         list_tool_rest_api,
     )
-    from litellm.proxy._experimental.mcp_server.server import (
+    from embrouter.proxy._experimental.mcp_server.server import (
         ListMCPToolsRestAPIResponseObject,
     )
     from fastapi import Query
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     # Mock successful tools
     mock_tools = [
@@ -821,7 +821,7 @@ async def test_list_tools_rest_api_success():
     mock_user_auth = UserAPIKeyAuth(
         api_key="test",
         user_id="test",
-        object_permission=LiteLLM_ObjectPermissionTable(
+        object_permission=EmbRouter_ObjectPermissionTable(
             object_permission_id="dummy",
             mcp_servers=["test-server-123"],
         ),
@@ -835,7 +835,7 @@ async def test_list_tools_rest_api_success():
 
     # Mock the global_mcp_server_manager
     with patch(
-        "litellm.proxy._experimental.mcp_server.rest_endpoints.global_mcp_server_manager"
+        "embrouter.proxy._experimental.mcp_server.rest_endpoints.global_mcp_server_manager"
     ) as mock_manager:
         mock_manager.get_allowed_mcp_servers = AsyncMock(
             return_value=["test-server-123"]
@@ -848,7 +848,7 @@ async def test_list_tools_rest_api_success():
 
         # Mock the _get_tools_for_single_server function
         with patch(
-            "litellm.proxy._experimental.mcp_server.rest_endpoints._get_tools_for_single_server"
+            "embrouter.proxy._experimental.mcp_server.rest_endpoints._get_tools_for_single_server"
         ) as mock_get_tools:
             mock_get_tools.return_value = mock_tools
 
@@ -867,11 +867,11 @@ async def test_list_tools_rest_api_success():
 @pytest.mark.asyncio
 async def test_get_tools_from_mcp_servers():
     """Test _get_tools_from_mcp_servers function with both specific and no server filters"""
-    from litellm.proxy._experimental.mcp_server.server import (
+    from embrouter.proxy._experimental.mcp_server.server import (
         _get_tools_from_mcp_servers,
     )
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
         MCPServer,
         MCPTransport,
     )
@@ -931,7 +931,7 @@ async def test_get_tools_from_mcp_servers():
         )
 
         with patch(
-            "litellm.proxy._experimental.mcp_server.operations.global_mcp_server_manager",
+            "embrouter.proxy._experimental.mcp_server.operations.global_mcp_server_manager",
             mock_manager,
         ):
             # Test with specific servers
@@ -977,7 +977,7 @@ async def test_get_tools_from_mcp_servers():
             )
 
         with patch(
-            "litellm.proxy._experimental.mcp_server.operations.global_mcp_server_manager",
+            "embrouter.proxy._experimental.mcp_server.operations.global_mcp_server_manager",
             mock_manager_2,
         ):
             result = await _get_tools_from_mcp_servers(
@@ -1009,11 +1009,11 @@ async def test_get_tools_from_mcp_servers():
         )
 
         with patch(
-            "litellm.proxy._experimental.mcp_server.operations.global_mcp_server_manager",
+            "embrouter.proxy._experimental.mcp_server.operations.global_mcp_server_manager",
             mock_manager,
         ):
             with patch(
-                "litellm.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp.MCPRequestHandler._get_mcp_servers_from_access_groups",
+                "embrouter.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp.MCPRequestHandler._get_mcp_servers_from_access_groups",
                 AsyncMock(return_value=["server3_id"]),
             ):
                 # Test with specific servers
@@ -1093,11 +1093,11 @@ async def test_list_tools_only_returns_allowed_servers(monkeypatch):
         return mock_client
 
     with patch(
-        "litellm.proxy._experimental.mcp_server.mcp_server_manager.MCPClient",
+        "embrouter.proxy._experimental.mcp_server.mcp_server_manager.MCPClient",
         mock_client_constructor,
     ):
         # Call list_tools
-        from litellm.proxy._types import UserAPIKeyAuth
+        from embrouter.proxy._types import UserAPIKeyAuth
 
         tools = await test_manager.list_tools(user_api_key_auth=UserAPIKeyAuth())
         # Should only return tools from server_a
@@ -1139,13 +1139,13 @@ async def test_mcp_server_manager_access_groups_from_config(config_only_mcp_mana
     assert config_server is not None
     assert set(config_server.access_groups) == {"group-a", "group-b"}
     # Check that the lookup logic finds the correct server ids
-    from litellm.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import (
+    from embrouter.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import (
         MCPRequestHandler,
     )
 
     # Patch global_mcp_server_manager for this test and restore afterwards to
     # avoid leaking state into other tests (e.g. the proxy MCP e2e suite).
-    import litellm.proxy._experimental.mcp_server.mcp_server_manager as mcp_server_manager_mod
+    import embrouter.proxy._experimental.mcp_server.mcp_server_manager as mcp_server_manager_mod
 
     original_manager = mcp_server_manager_mod.global_mcp_server_manager
     mcp_server_manager_mod.global_mcp_server_manager = test_manager
@@ -1185,7 +1185,7 @@ async def test_mcp_server_manager_config_integration_with_database(config_only_m
     specifically testing access_groups and description fields.
     """
     import datetime
-    from litellm.proxy._types import LiteLLM_MCPServerTable
+    from embrouter.proxy._types import EmbRouter_MCPServerTable
 
     test_manager = config_only_mcp_manager_factory()
 
@@ -1209,7 +1209,7 @@ async def test_mcp_server_manager_config_integration_with_database(config_only_m
     assert config_server.mcp_info["description"] == "Test config server"
 
     # Test 2: Create a database server record and test add_update_server method
-    db_server = LiteLLM_MCPServerTable(
+    db_server = EmbRouter_MCPServerTable(
         server_id="db-server-123",
         server_name="database-server",
         url="https://db-server.com/mcp",
@@ -1232,11 +1232,11 @@ async def test_mcp_server_manager_config_integration_with_database(config_only_m
     assert db_server_in_registry.access_groups == ["db_group", "test_group"]
     assert db_server_in_registry.server_name == "database-server"
 
-    # Test 3: Test config server conversion to LiteLLM_MCPServerTable format
+    # Test 3: Test config server conversion to EmbRouter_MCPServerTable format
     # This tests that config servers are properly converted with access_groups and description fields
 
     # Mock user auth to get all servers
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     mock_user_auth = UserAPIKeyAuth(user_role="proxy_admin")
 
@@ -1253,7 +1253,7 @@ async def test_mcp_server_manager_config_integration_with_database(config_only_m
         server = test_manager.get_mcp_server_by_id(server_id)
         if not server:
             return None
-        return LiteLLM_MCPServerTable(
+        return EmbRouter_MCPServerTable(
             server_id=server_id,
             server_name=server.name,
             url=server.url,
@@ -1291,7 +1291,7 @@ def test_get_server_prefix_with_alias():
     """
     Test that get_server_prefix returns alias when present.
     """
-    from litellm.proxy._experimental.mcp_server.utils import get_server_prefix
+    from embrouter.proxy._experimental.mcp_server.utils import get_server_prefix
 
     # Create a mock server with alias
     mock_server = MagicMock()
@@ -1307,7 +1307,7 @@ def test_get_server_prefix_without_alias():
     """
     Test that get_server_prefix falls back to server_name when alias is not present.
     """
-    from litellm.proxy._experimental.mcp_server.utils import get_server_prefix
+    from embrouter.proxy._experimental.mcp_server.utils import get_server_prefix
 
     # Create a mock server without alias
     mock_server = MagicMock()
@@ -1323,7 +1323,7 @@ def test_get_server_prefix_fallback_to_server_id():
     """
     Test that get_server_prefix falls back to server_id when neither alias nor server_name are present.
     """
-    from litellm.proxy._experimental.mcp_server.utils import get_server_prefix
+    from embrouter.proxy._experimental.mcp_server.utils import get_server_prefix
 
     # Create a mock server without alias or server_name
     mock_server = MagicMock()
@@ -1339,7 +1339,7 @@ def test_get_server_prefix_empty_strings():
     """
     Test that get_server_prefix handles empty strings correctly.
     """
-    from litellm.proxy._experimental.mcp_server.utils import get_server_prefix
+    from embrouter.proxy._experimental.mcp_server.utils import get_server_prefix
 
     # Create a mock server with empty strings
     mock_server = MagicMock()
@@ -1390,7 +1390,7 @@ async def test_mcp_server_manager_alias_tool_prefixing():
         return mock_client
 
     with patch(
-        "litellm.proxy._experimental.mcp_server.mcp_server_manager.MCPClient",
+        "embrouter.proxy._experimental.mcp_server.mcp_server_manager.MCPClient",
         mock_client_constructor,
     ):
         # Get tools from server
@@ -1450,7 +1450,7 @@ async def test_mcp_server_manager_server_name_tool_prefixing():
         return mock_client
 
     with patch(
-        "litellm.proxy._experimental.mcp_server.mcp_server_manager.MCPClient",
+        "embrouter.proxy._experimental.mcp_server.mcp_server_manager.MCPClient",
         mock_client_constructor,
     ):
         # Get tools from server
@@ -1510,7 +1510,7 @@ async def test_mcp_server_manager_server_id_tool_prefixing():
         return mock_client
 
     with patch(
-        "litellm.proxy._experimental.mcp_server.mcp_server_manager.MCPClient",
+        "embrouter.proxy._experimental.mcp_server.mcp_server_manager.MCPClient",
         mock_client_constructor,
     ):
         # Get tools from server
@@ -1540,7 +1540,7 @@ async def test_add_update_server_with_alias():
     """
     test_manager = MCPServerManager()
 
-    # Create a mock LiteLLM_MCPServerTable with alias
+    # Create a mock EmbRouter_MCPServerTable with alias
     mock_mcp_server = MagicMock()
     mock_mcp_server.server_id = "test-server-123"
     mock_mcp_server.alias = "my_alias"
@@ -1604,7 +1604,7 @@ async def test_add_update_server_without_alias():
     """
     test_manager = MCPServerManager()
 
-    # Create a mock LiteLLM_MCPServerTable without alias
+    # Create a mock EmbRouter_MCPServerTable without alias
     mock_mcp_server = MagicMock()
     mock_mcp_server.server_id = "test-server-123"
     mock_mcp_server.alias = None
@@ -1668,7 +1668,7 @@ async def test_add_update_server_fallback_to_server_id():
     """
     test_manager = MCPServerManager()
 
-    # Create a mock LiteLLM_MCPServerTable without alias or server_name
+    # Create a mock EmbRouter_MCPServerTable without alias or server_name
     mock_mcp_server = MagicMock()
     mock_mcp_server.server_id = "test-server-123"
     mock_mcp_server.alias = None
@@ -1729,7 +1729,7 @@ def test_normalize_server_name():
     """
     Test that normalize_server_name correctly replaces spaces with underscores.
     """
-    from litellm.proxy._experimental.mcp_server.utils import normalize_server_name
+    from embrouter.proxy._experimental.mcp_server.utils import normalize_server_name
 
     # Test basic space replacement
     assert normalize_server_name("My Server Name") == "My_Server_Name"
@@ -1749,7 +1749,7 @@ def test_normalize_server_name():
 
 def test_add_server_prefix_to_name():
     """Ensure add_server_prefix_to_name correctly formats resource names."""
-    from litellm.proxy._experimental.mcp_server.utils import add_server_prefix_to_name
+    from embrouter.proxy._experimental.mcp_server.utils import add_server_prefix_to_name
 
     # Test basic prefixing
     result = add_server_prefix_to_name("send_email", "My Server")
@@ -1770,7 +1770,7 @@ def test_add_server_prefix_to_name():
 
 def test_get_server_auth_header_with_alias():
     """Test _get_server_auth_header function with server alias."""
-    from litellm.proxy._experimental.mcp_server.rest_endpoints import (
+    from embrouter.proxy._experimental.mcp_server.rest_endpoints import (
         _get_server_auth_header,
     )
 
@@ -1805,7 +1805,7 @@ def test_get_server_auth_header_with_alias():
 
 def test_get_server_auth_header_with_server_name():
     """Test _get_server_auth_header function with server name (no alias)."""
-    from litellm.proxy._experimental.mcp_server.rest_endpoints import (
+    from embrouter.proxy._experimental.mcp_server.rest_endpoints import (
         _get_server_auth_header,
     )
 
@@ -1840,7 +1840,7 @@ def test_get_server_auth_header_with_server_name():
 
 def test_get_server_auth_header_fallback_to_default():
     """Test _get_server_auth_header function fallback to default auth header."""
-    from litellm.proxy._experimental.mcp_server.rest_endpoints import (
+    from embrouter.proxy._experimental.mcp_server.rest_endpoints import (
         _get_server_auth_header,
     )
 
@@ -1868,7 +1868,7 @@ def test_get_server_auth_header_fallback_to_default():
 
 def test_get_server_auth_header_hyphenated_alias_sanitized_header_key():
     """Header keys use sanitized alias; lookup must match legacy hyphenated aliases."""
-    from litellm.proxy._experimental.mcp_server.rest_endpoints import (
+    from embrouter.proxy._experimental.mcp_server.rest_endpoints import (
         _get_server_auth_header,
     )
 
@@ -1888,7 +1888,7 @@ def test_get_server_auth_header_hyphenated_alias_sanitized_header_key():
 
 def test_get_server_auth_header_no_auth_headers():
     """Test _get_server_auth_header function with no auth headers."""
-    from litellm.proxy._experimental.mcp_server.rest_endpoints import (
+    from embrouter.proxy._experimental.mcp_server.rest_endpoints import (
         _get_server_auth_header,
     )
 
@@ -1907,10 +1907,10 @@ def test_get_server_auth_header_no_auth_headers():
 
 def test_create_tool_response_objects():
     """Test _create_tool_response_objects enriches mcp_info with server_id and alias."""
-    from litellm.proxy._experimental.mcp_server.rest_endpoints import (
+    from embrouter.proxy._experimental.mcp_server.rest_endpoints import (
         _create_tool_response_objects,
     )
-    from litellm.types.mcp_server.mcp_server_manager import MCPServer
+    from embrouter.types.mcp_server.mcp_server_manager import MCPServer
     from mcp.types import Tool as MCPTool
 
     # Create mock tools
@@ -1958,7 +1958,7 @@ def test_create_tool_response_objects():
 @pytest.mark.asyncio
 async def test_get_tools_for_single_server():
     """Test _get_tools_for_single_server function."""
-    from litellm.proxy._experimental.mcp_server.rest_endpoints import (
+    from embrouter.proxy._experimental.mcp_server.rest_endpoints import (
         _get_tools_for_single_server,
     )
     from mcp.types import Tool as MCPTool
@@ -1982,7 +1982,7 @@ async def test_get_tools_for_single_server():
 
     # Mock the global_mcp_server_manager
     with patch(
-        "litellm.proxy._experimental.mcp_server.rest_endpoints.global_mcp_server_manager"
+        "embrouter.proxy._experimental.mcp_server.rest_endpoints.global_mcp_server_manager"
     ) as mock_manager:
         mock_manager._get_tools_from_server = AsyncMock(return_value=mock_tools)
 
@@ -2013,7 +2013,7 @@ async def test_get_tools_for_single_server():
 @pytest.mark.asyncio
 async def test_get_tools_for_single_server_applies_disallowed_tools_without_allowlist():
     """REST listing must honor disallowed_tools even when no allowlist is set."""
-    from litellm.proxy._experimental.mcp_server.rest_endpoints import (
+    from embrouter.proxy._experimental.mcp_server.rest_endpoints import (
         _get_tools_for_single_server,
     )
     from mcp.types import Tool as MCPTool
@@ -2042,7 +2042,7 @@ async def test_get_tools_for_single_server_applies_disallowed_tools_without_allo
     ]
 
     with patch(
-        "litellm.proxy._experimental.mcp_server.rest_endpoints.global_mcp_server_manager"
+        "embrouter.proxy._experimental.mcp_server.rest_endpoints.global_mcp_server_manager"
     ) as mock_manager:
         mock_manager._get_tools_from_server = AsyncMock(return_value=mock_tools)
 
@@ -2060,13 +2060,13 @@ async def test_rest_listing_hides_key_grants_dispatch_would_refuse():
     therefore grants nothing, and REST listing that matched the prefixed
     spelling would advertise a tool the very next call refuses.
     """
-    from litellm.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import (
+    from embrouter.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import (
         MCPRequestHandler,
     )
-    from litellm.proxy._experimental.mcp_server.rest_endpoints import (
+    from embrouter.proxy._experimental.mcp_server.rest_endpoints import (
         _get_tools_for_single_server,
     )
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
     from mcp.types import Tool as MCPTool
 
     server_id = "3c6f6617-d23c-4f48-bfb0-f205e3b27bab"
@@ -2090,9 +2090,9 @@ async def test_rest_listing_hides_key_grants_dispatch_would_refuse():
     ]
 
     with patch(
-        "litellm.proxy._experimental.mcp_server.rest_endpoints.global_mcp_server_manager"
+        "embrouter.proxy._experimental.mcp_server.rest_endpoints.global_mcp_server_manager"
     ) as mock_manager, patch(
-        "litellm.proxy._experimental.mcp_server.operations.global_mcp_server_manager"
+        "embrouter.proxy._experimental.mcp_server.operations.global_mcp_server_manager"
     ) as mock_server_manager, patch.object(
         MCPRequestHandler,
         "get_allowed_tools_for_server",
@@ -2113,11 +2113,11 @@ async def test_rest_listing_hides_key_grants_dispatch_would_refuse():
 @pytest.mark.asyncio
 async def test_list_tool_rest_api_with_server_specific_auth():
     """Test list_tool_rest_api with server-specific auth headers."""
-    from litellm.proxy._experimental.mcp_server.rest_endpoints import list_tool_rest_api
-    from litellm.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import (
+    from embrouter.proxy._experimental.mcp_server.rest_endpoints import list_tool_rest_api
+    from embrouter.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import (
         MCPRequestHandler,
     )
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     # Create mock request with server-specific auth headers
     mock_request = MagicMock()
@@ -2142,7 +2142,7 @@ async def test_list_tool_rest_api_with_server_specific_auth():
 
             # Mock the global_mcp_server_manager
             with patch(
-                "litellm.proxy._experimental.mcp_server.rest_endpoints.global_mcp_server_manager"
+                "embrouter.proxy._experimental.mcp_server.rest_endpoints.global_mcp_server_manager"
             ) as mock_manager:
                 mock_manager.get_allowed_mcp_servers = AsyncMock(
                     return_value=["test-server-123"]
@@ -2163,7 +2163,7 @@ async def test_list_tool_rest_api_with_server_specific_auth():
                 mock_user_api_key_dict = UserAPIKeyAuth(
                     api_key="test",
                     user_id="test_user",
-                    object_permission=LiteLLM_ObjectPermissionTable(
+                    object_permission=EmbRouter_ObjectPermissionTable(
                         object_permission_id="dummy",
                         mcp_servers=[mock_server.server_id],
                     ),
@@ -2171,9 +2171,9 @@ async def test_list_tool_rest_api_with_server_specific_auth():
 
                 # Mock the _get_tools_for_single_server function
                 with patch(
-                    "litellm.proxy._experimental.mcp_server.rest_endpoints._get_tools_for_single_server"
+                    "embrouter.proxy._experimental.mcp_server.rest_endpoints._get_tools_for_single_server"
                 ) as mock_get_tools:
-                    from litellm.proxy._experimental.mcp_server.server import (
+                    from embrouter.proxy._experimental.mcp_server.server import (
                         ListMCPToolsRestAPIResponseObject,
                     )
 
@@ -2211,11 +2211,11 @@ async def test_list_tool_rest_api_with_server_specific_auth():
 @pytest.mark.asyncio
 async def test_list_tool_rest_api_with_default_auth():
     """Test list_tool_rest_api with default auth header when no server-specific header is found."""
-    from litellm.proxy._experimental.mcp_server.rest_endpoints import list_tool_rest_api
-    from litellm.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import (
+    from embrouter.proxy._experimental.mcp_server.rest_endpoints import list_tool_rest_api
+    from embrouter.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import (
         MCPRequestHandler,
     )
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     # Create mock request with default auth header only
     mock_request = MagicMock()
@@ -2236,7 +2236,7 @@ async def test_list_tool_rest_api_with_default_auth():
 
             # Mock the global_mcp_server_manager
             with patch(
-                "litellm.proxy._experimental.mcp_server.rest_endpoints.global_mcp_server_manager"
+                "embrouter.proxy._experimental.mcp_server.rest_endpoints.global_mcp_server_manager"
             ) as mock_manager:
                 mock_manager.get_allowed_mcp_servers = AsyncMock(
                     return_value=["test-server-123"]
@@ -2257,7 +2257,7 @@ async def test_list_tool_rest_api_with_default_auth():
                 mock_user_api_key_dict = UserAPIKeyAuth(
                     api_key="test",
                     user_id="test_user",
-                    object_permission=LiteLLM_ObjectPermissionTable(
+                    object_permission=EmbRouter_ObjectPermissionTable(
                         object_permission_id="dummy",
                         mcp_servers=[mock_server.server_id],
                     ),
@@ -2265,9 +2265,9 @@ async def test_list_tool_rest_api_with_default_auth():
 
                 # Mock the _get_tools_for_single_server function
                 with patch(
-                    "litellm.proxy._experimental.mcp_server.rest_endpoints._get_tools_for_single_server"
+                    "embrouter.proxy._experimental.mcp_server.rest_endpoints._get_tools_for_single_server"
                 ) as mock_get_tools:
-                    from litellm.proxy._experimental.mcp_server.server import (
+                    from embrouter.proxy._experimental.mcp_server.server import (
                         ListMCPToolsRestAPIResponseObject,
                     )
 
@@ -2305,11 +2305,11 @@ async def test_list_tool_rest_api_with_default_auth():
 @pytest.mark.asyncio
 async def test_list_tool_rest_api_all_servers_with_auth():
     """Test list_tool_rest_api for all servers with server-specific auth headers."""
-    from litellm.proxy._experimental.mcp_server.rest_endpoints import list_tool_rest_api
-    from litellm.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import (
+    from embrouter.proxy._experimental.mcp_server.rest_endpoints import list_tool_rest_api
+    from embrouter.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import (
         MCPRequestHandler,
     )
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     # Create mock request with server-specific auth headers
     mock_request = MagicMock()
@@ -2334,7 +2334,7 @@ async def test_list_tool_rest_api_all_servers_with_auth():
 
             # Mock the global_mcp_server_manager
             with patch(
-                "litellm.proxy._experimental.mcp_server.rest_endpoints.global_mcp_server_manager"
+                "embrouter.proxy._experimental.mcp_server.rest_endpoints.global_mcp_server_manager"
             ) as mock_manager:
                 # Create mock servers
                 mock_zapier_server = MagicMock()
@@ -2367,7 +2367,7 @@ async def test_list_tool_rest_api_all_servers_with_auth():
                 mock_user_api_key_dict = UserAPIKeyAuth(
                     api_key="test",
                     user_id="test_user",
-                    object_permission=LiteLLM_ObjectPermissionTable(
+                    object_permission=EmbRouter_ObjectPermissionTable(
                         object_permission_id="dummy",
                         mcp_servers=["zapier", "slack"],
                     ),
@@ -2375,9 +2375,9 @@ async def test_list_tool_rest_api_all_servers_with_auth():
 
                 # Mock the _get_tools_for_single_server function
                 with patch(
-                    "litellm.proxy._experimental.mcp_server.rest_endpoints._get_tools_for_single_server"
+                    "embrouter.proxy._experimental.mcp_server.rest_endpoints._get_tools_for_single_server"
                 ) as mock_get_tools:
-                    from litellm.proxy._experimental.mcp_server.server import (
+                    from embrouter.proxy._experimental.mcp_server.server import (
                         ListMCPToolsRestAPIResponseObject,
                     )
 
@@ -2432,10 +2432,10 @@ async def test_list_tool_rest_api_all_servers_with_auth():
 @pytest.mark.asyncio
 async def test_filter_tools_by_allowed_tools_integration():
     """Test that filter_tools_by_allowed_tools works correctly via _get_tools_from_mcp_servers"""
-    from litellm.proxy._experimental.mcp_server.server import (
+    from embrouter.proxy._experimental.mcp_server.server import (
         _get_tools_from_mcp_servers,
     )
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
     from mcp.types import Tool as MCPTool
 
     # Create a mock user auth
@@ -2489,7 +2489,7 @@ async def test_filter_tools_by_allowed_tools_integration():
 
     # Mock the global MCP server manager
     with patch(
-        "litellm.proxy._experimental.mcp_server.operations.global_mcp_server_manager"
+        "embrouter.proxy._experimental.mcp_server.operations.global_mcp_server_manager"
     ) as mock_manager:
         # Mock manager methods
         mock_manager.get_allowed_mcp_servers = AsyncMock(
@@ -2506,7 +2506,7 @@ async def test_filter_tools_by_allowed_tools_integration():
 
         # Mock the MCPClient constructor
         with patch(
-            "litellm.proxy._experimental.mcp_server.mcp_server_manager.MCPClient",
+            "embrouter.proxy._experimental.mcp_server.mcp_server_manager.MCPClient",
             mock_client_constructor,
         ):
             # Call _get_tools_from_mcp_servers which should apply the filtering
@@ -2547,10 +2547,10 @@ async def test_filter_tools_by_allowed_tools_integration():
 @pytest.mark.asyncio
 async def test_filter_tools_by_disallowed_tools_integration():
     """Test that filter_tools_by_allowed_tools works correctly with disallowed_tools via _get_tools_from_mcp_servers"""
-    from litellm.proxy._experimental.mcp_server.server import (
+    from embrouter.proxy._experimental.mcp_server.server import (
         _get_tools_from_mcp_servers,
     )
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
     from mcp.types import Tool as MCPTool
 
     # Create a mock user auth
@@ -2604,7 +2604,7 @@ async def test_filter_tools_by_disallowed_tools_integration():
 
     # Mock the global MCP server manager
     with patch(
-        "litellm.proxy._experimental.mcp_server.operations.global_mcp_server_manager"
+        "embrouter.proxy._experimental.mcp_server.operations.global_mcp_server_manager"
     ) as mock_manager:
         # Mock manager methods
         mock_manager.get_allowed_mcp_servers = AsyncMock(
@@ -2620,7 +2620,7 @@ async def test_filter_tools_by_disallowed_tools_integration():
 
         # Mock the MCPClient constructor
         with patch(
-            "litellm.proxy._experimental.mcp_server.mcp_server_manager.MCPClient",
+            "embrouter.proxy._experimental.mcp_server.mcp_server_manager.MCPClient",
             mock_client_constructor,
         ):
             # Call _get_tools_from_mcp_servers which should apply the filtering
@@ -2661,10 +2661,10 @@ async def test_filter_tools_by_disallowed_tools_integration():
 @pytest.mark.asyncio
 async def test_filter_tools_no_restrictions_integration():
     """Test that filter_tools_by_allowed_tools returns all tools when no restrictions are set"""
-    from litellm.proxy._experimental.mcp_server.server import (
+    from embrouter.proxy._experimental.mcp_server.server import (
         _get_tools_from_mcp_servers,
     )
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
     from mcp.types import Tool as MCPTool
 
     # Create a mock user auth
@@ -2705,7 +2705,7 @@ async def test_filter_tools_no_restrictions_integration():
 
     # Mock the global MCP server manager
     with patch(
-        "litellm.proxy._experimental.mcp_server.operations.global_mcp_server_manager"
+        "embrouter.proxy._experimental.mcp_server.operations.global_mcp_server_manager"
     ) as mock_manager:
         # Mock manager methods
         mock_manager.get_allowed_mcp_servers = AsyncMock(
@@ -2722,7 +2722,7 @@ async def test_filter_tools_no_restrictions_integration():
 
         # Mock the MCPClient constructor
         with patch(
-            "litellm.proxy._experimental.mcp_server.mcp_server_manager.MCPClient",
+            "embrouter.proxy._experimental.mcp_server.mcp_server_manager.MCPClient",
             mock_client_constructor,
         ):
             # Call _get_tools_from_mcp_servers which should apply the filtering
@@ -2746,10 +2746,10 @@ async def test_filter_tools_no_restrictions_integration():
 @pytest.mark.asyncio
 async def test_mcp_access_group_permission_inheritance_integration():
     """Integration test for MCP access group permission inheritance"""
-    from litellm.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import (
+    from embrouter.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import (
         MCPRequestHandler,
     )
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     # Test scenario: team has access groups, key has no permissions -> should inherit
     # Use direct mocking of the helper functions instead of complex database mocking
@@ -2786,10 +2786,10 @@ async def test_mcp_access_group_permission_inheritance_integration():
 @pytest.mark.asyncio
 async def test_mcp_access_group_permission_intersection_integration():
     """Integration test for MCP access group permission intersection"""
-    from litellm.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import (
+    from embrouter.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import (
         MCPRequestHandler,
     )
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     # Test scenario: both team and key have access groups -> should intersect
     # Use direct mocking of the helper functions instead of complex database mocking
@@ -2829,11 +2829,11 @@ async def test_mcp_access_group_permission_intersection_integration():
 @pytest.mark.asyncio
 async def test_mcp_server_manager_with_access_groups_integration(config_only_mcp_manager_factory):
     """Integration test for MCPServerManager with access group filtering"""
-    from litellm.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import (
+    from embrouter.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import (
         MCPRequestHandler,
         MCPServerAccess,
     )
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     # Create a test manager
     test_manager = config_only_mcp_manager_factory()
@@ -2880,8 +2880,8 @@ async def test_mcp_server_manager_with_access_groups_integration(config_only_mcp
 
 @pytest.mark.asyncio
 async def test_get_allowed_mcp_servers_returns_registry_for_admin(config_only_mcp_manager_factory):
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-    from litellm.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import (
+    from embrouter.proxy._types import EmbrouterUserRoles, UserAPIKeyAuth
+    from embrouter.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import (
         MCPRequestHandler,
     )
 
@@ -2901,7 +2901,7 @@ async def test_get_allowed_mcp_servers_returns_registry_for_admin(config_only_mc
 
     admin_auth = UserAPIKeyAuth(
         api_key="admin-key",
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN,
     )
 
     with patch.object(
@@ -2915,8 +2915,8 @@ async def test_get_allowed_mcp_servers_returns_registry_for_admin(config_only_mc
 
 @pytest.mark.asyncio
 async def test_get_allowed_mcp_servers_returns_empty_for_non_admin_without_permissions(config_only_mcp_manager_factory):
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-    from litellm.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import (
+    from embrouter.proxy._types import EmbrouterUserRoles, UserAPIKeyAuth
+    from embrouter.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import (
         MCPRequestHandler,
         MCPServerAccess,
     )
@@ -2937,7 +2937,7 @@ async def test_get_allowed_mcp_servers_returns_empty_for_non_admin_without_permi
 
     user_auth = UserAPIKeyAuth(
         api_key="user-key",
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=EmbrouterUserRoles.INTERNAL_USER,
     )
 
     with patch.object(
@@ -2952,7 +2952,7 @@ async def test_get_allowed_mcp_servers_returns_empty_for_non_admin_without_permi
 
 @pytest.mark.asyncio
 async def test_call_mcp_tool_uses_manager_permission_lookup():
-    from litellm.proxy._experimental.mcp_server.server import (
+    from embrouter.proxy._experimental.mcp_server.server import (
         call_mcp_tool,
         global_mcp_server_manager,
     )
@@ -2986,14 +2986,14 @@ async def test_call_mcp_tool_uses_manager_permission_lookup():
             return_value=mock_server,
         ) as mock_get_server,
         patch(
-            "litellm.proxy._experimental.mcp_server.operations.global_mcp_tool_registry"
+            "embrouter.proxy._experimental.mcp_server.operations.global_mcp_tool_registry"
         ) as mock_tool_registry,
         patch(
-            "litellm.proxy._experimental.mcp_server.operations._handle_managed_mcp_tool",
+            "embrouter.proxy._experimental.mcp_server.operations._handle_managed_mcp_tool",
             new_callable=AsyncMock,
         ) as mock_handle_managed,
         patch(
-            "litellm.proxy._experimental.mcp_server.server.MCPRequestHandler.is_tool_allowed",
+            "embrouter.proxy._experimental.mcp_server.server.MCPRequestHandler.is_tool_allowed",
             return_value=True,
         ),
     ):
@@ -3028,7 +3028,7 @@ async def test_call_mcp_tool_resolves_unprefixed_tool_name_and_checks_permission
     Ensure `call_mcp_tool` correctly resolves the MCP server for an unprefixed tool
     name and enforces server-level permissions using that resolved server.
     """
-    from litellm.proxy._experimental.mcp_server.server import (
+    from embrouter.proxy._experimental.mcp_server.server import (
         call_mcp_tool,
         global_mcp_server_manager,
     )
@@ -3062,14 +3062,14 @@ async def test_call_mcp_tool_resolves_unprefixed_tool_name_and_checks_permission
             return_value=mock_server,
         ) as mock_get_server,
         patch(
-            "litellm.proxy._experimental.mcp_server.operations.global_mcp_tool_registry"
+            "embrouter.proxy._experimental.mcp_server.operations.global_mcp_tool_registry"
         ) as mock_tool_registry,
         patch(
-            "litellm.proxy._experimental.mcp_server.operations._handle_managed_mcp_tool",
+            "embrouter.proxy._experimental.mcp_server.operations._handle_managed_mcp_tool",
             new_callable=AsyncMock,
         ) as mock_handle_managed,
         patch(
-            "litellm.proxy._experimental.mcp_server.server.MCPRequestHandler.is_tool_allowed",
+            "embrouter.proxy._experimental.mcp_server.server.MCPRequestHandler.is_tool_allowed",
             return_value=True,
         ) as mock_is_allowed,
     ):

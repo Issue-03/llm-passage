@@ -8,21 +8,21 @@ from typing import TYPE_CHECKING, Any, Final
 import httpx
 from typing_extensions import ReadOnly, TypedDict
 
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.openai.common_utils import OpenAIError
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.utils import ModelResponse
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.openai.common_utils import OpenAIError
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.utils import ModelResponse
 
 from ...openai.chat.gpt_transformation import OpenAIGPTConfig
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 
 class CompactifAIResponseFields(TypedDict, total=False):
@@ -60,17 +60,17 @@ class CompactifAIChatConfig(OpenAIGPTConfig):
         model: str,
         raw_response: httpx.Response,
         model_response: ModelResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         request_data: Mapping[str, object],
         messages: Sequence[AllMessageValues],
         optional_params: Mapping[str, object],
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,
     ) -> ModelResponse:
         """
-        Transform CompactifAI response to LiteLLM format.
+        Transform CompactifAI response to EmbRouter format.
         Since CompactifAI is OpenAI-compatible, we can use the standard OpenAI transformation.
         """
         ## LOGGING

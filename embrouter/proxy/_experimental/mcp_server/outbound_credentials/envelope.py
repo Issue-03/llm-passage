@@ -1,8 +1,8 @@
 """Client-held sealed envelope for the oauth_delegate DCR bridge.
 
-A DCR-bridge client holds ONE bearer that must carry BOTH a litellm identity and the
+A DCR-bridge client holds ONE bearer that must carry BOTH a embrouter identity and the
 upstream OAuth grant, with zero server-side storage. The gateway token endpoint mints a
-litellm-signed envelope (:func:`mint_envelope`); the MCP edge validates it, recovers the
+embrouter-signed envelope (:func:`mint_envelope`); the MCP edge validates it, recovers the
 identity claims and the inner upstream grant (:func:`open_envelope`), and forwards the
 inner access token upstream. This module is pure and unwired: it imports nothing from
 endpoint or edge code, reads no proxy globals, and takes all key material and the clock
@@ -40,7 +40,7 @@ from typing import Final, Literal, TypeAlias
 import jwt
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError
 
-from litellm.proxy.common_utils.encrypt_decrypt_utils import decrypt_value, encrypt_value
+from embrouter.proxy.common_utils.encrypt_decrypt_utils import decrypt_value, encrypt_value
 
 ENVELOPE_PREFIX: Final = "llm_env_"
 """Marker prefix on every serialized ACCESS envelope so the edge can cheaply tell an envelope
@@ -52,7 +52,7 @@ routable without crypto and, together with the signed ``kind`` claim, stops one 
 where the other is expected: a refresh envelope carries a long-lived upstream refresh token and is only
 ever presented back to the token endpoint, never forwarded upstream on a tool call."""
 
-ENVELOPE_ISSUER: Final = "litellm-mcp-bridge"
+ENVELOPE_ISSUER: Final = "embrouter-mcp-bridge"
 """``iss`` claim stamped into every envelope and required back on open."""
 
 MAX_ENVELOPE_TTL_SECONDS: Final = 3600
@@ -64,7 +64,7 @@ still-valid provider refresh grant."""
 
 MAX_REFRESH_ENVELOPE_TTL_SECONDS: Final = 1209600
 """Hard ceiling on REFRESH envelope lifetime (14 days). A refresh envelope only renews the short-lived
-access envelope, and each renewal re-validates the sealed litellm key (revocation gates it) and is
+access envelope, and each renewal re-validates the sealed embrouter key (revocation gates it) and is
 re-minted with a fresh window, so the practical bound is idle time, not a fixed session. ``exp`` is
 ``min(upstream refresh_expires_in, this cap)`` (the cap alone when the upstream omits it); if the
 upstream refresh token dies first, the next renewal simply fails at the upstream and the client
@@ -88,10 +88,10 @@ signature-valid envelope of one kind cannot be replayed as the other even if its
 
 
 EnvelopeSubjectType: TypeAlias = Literal["key_hash", "user_id"]
-"""Discriminator for what litellm principal the envelope binds the grant to.
+"""Discriminator for what embrouter principal the envelope binds the grant to.
 
 ``key_hash`` is a hashed virtual key (the scripted two-header client mints under the key it
-presents at the token endpoint); ``user_id`` is a litellm user subject (the interactive DCR
+presents at the token endpoint); ``user_id`` is a embrouter user subject (the interactive DCR
 client mints under the SSO-authenticated user, which is the only identity that browser login
 yields). Admission reloads a key record for the first and a user record for the second, then
 runs both through the same live-policy gate, so team/org/budget/revocation enforcement is
@@ -99,10 +99,10 @@ identical either way."""
 
 
 class EnvelopeIdentity(BaseModel):
-    """The litellm principal the envelope binds the inner grant to.
+    """The embrouter principal the envelope binds the inner grant to.
 
     ``subject`` is the principal identifier and ``subject_type`` says how to resolve it: a
-    hashed litellm key (``key_hash``) or a litellm user id (``user_id``), never a raw
+    hashed embrouter key (``key_hash``) or a embrouter user id (``user_id``), never a raw
     credential (and the edge rejects a bare hash or id presented as a bearer). Admission
     reloads the live record by it, so the principal's current team/org restrictions and its
     revocation state are enforced at use time rather than frozen at mint time. ``server_id``

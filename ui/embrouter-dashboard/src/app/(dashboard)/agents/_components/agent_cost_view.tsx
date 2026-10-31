@@ -6,7 +6,7 @@ interface AgentCostViewProps {
 }
 
 const AgentCostView: React.FC<AgentCostViewProps> = ({ agent }) => {
-  const params = agent.litellm_params;
+  const params = agent.embrouter_params;
 
   if (
     params?.cost_per_query === undefined &&

@@ -4,25 +4,25 @@ from typing import Final, cast  # noqa: TID251  # narrows legacy callable signat
 
 import pytest
 
-import litellm
-from litellm.responses import dispatch as responses_dispatch
-from litellm.responses import main as python_responses
-from litellm.responses.dispatch import (
+import embrouter
+from embrouter.responses import dispatch as responses_dispatch
+from embrouter.responses import main as python_responses
+from embrouter.responses.dispatch import (
     _ADISPATCH,  # pyright: ignore[reportPrivateUsage]  # tests configured dispatch
     _DISPATCH,  # pyright: ignore[reportPrivateUsage]  # tests configured dispatch
 )
-from litellm.rust_bridge import catalog
-from litellm.rust_bridge.bindings import NativeBinding
-from litellm.rust_bridge.catalog import Route, RouteRule
-from litellm.rust_bridge.configuration import Rollout
-from litellm.rust_bridge.responses.entrypoints import (
+from embrouter.rust_bridge import catalog
+from embrouter.rust_bridge.bindings import NativeBinding
+from embrouter.rust_bridge.catalog import Route, RouteRule
+from embrouter.rust_bridge.configuration import Rollout
+from embrouter.rust_bridge.responses.entrypoints import (
     NATIVE_ARESPONSES,
     NATIVE_RESPONSES,
-    LiteLLMResponsesRequest,
+    EmbRouterResponsesRequest,
     NativeAresponses,
     NativeResponses,
 )
-from litellm.types.llms.openai import ResponsesAPIResponse
+from embrouter.types.llms.openai import ResponsesAPIResponse
 
 INPUT: Final = [{"role": "user", "content": "hi"}]
 PYTHON_RULES: Final = ()
@@ -48,9 +48,9 @@ def aresponses_binding(native: NativeAresponses | None) -> NativeBinding[NativeA
 
 
 def test_public_signature_is_the_legacy_signature() -> None:
-    public_responses: Final = cast(Callable[..., object], litellm.responses)
+    public_responses: Final = cast(Callable[..., object], embrouter.responses)
     legacy_responses: Final = cast(Callable[..., object], python_responses.responses)
-    public_aresponses: Final = cast(Callable[..., object], litellm.aresponses)
+    public_aresponses: Final = cast(Callable[..., object], embrouter.aresponses)
     legacy_aresponses: Final = cast(Callable[..., object], python_responses.aresponses)
     assert inspect.signature(public_responses) == inspect.signature(legacy_responses)
     assert inspect.signature(public_aresponses) == inspect.signature(legacy_aresponses)
@@ -59,7 +59,7 @@ def test_public_signature_is_the_legacy_signature() -> None:
 def test_python_route_forwards_original_call_shape() -> None:
     metadata: Final = {"user_id": "u"}
     args: Final[tuple[object, ...]] = (INPUT, "gpt-4o")
-    kwargs: Final[Mapping[str, object]] = {"temperature": 0.1, "litellm_metadata": metadata}
+    kwargs: Final[Mapping[str, object]] = {"temperature": 0.1, "embrouter_metadata": metadata}
     captured: Final[list[tuple[tuple[object, ...], Mapping[str, object]]]] = []
     response: Final = _response()
 
@@ -68,7 +68,7 @@ def test_python_route_forwards_original_call_shape() -> None:
         return response
 
     def native(
-        request: LiteLLMResponsesRequest,
+        request: EmbRouterResponsesRequest,
         args: tuple[object, ...],
         kwargs: Mapping[str, object],
     ) -> ResponsesAPIResponse:
@@ -89,15 +89,15 @@ def test_python_route_forwards_original_call_shape() -> None:
     assert call_args == args
     assert call_args[0] is INPUT
     assert call_kwargs == kwargs
-    assert call_kwargs["litellm_metadata"] is metadata
-    assert kwargs == {"temperature": 0.1, "litellm_metadata": metadata}
+    assert call_kwargs["embrouter_metadata"] is metadata
+    assert kwargs == {"temperature": 0.1, "embrouter_metadata": metadata}
 
 
 @pytest.mark.asyncio
 async def test_async_python_route_forwards_original_call_shape() -> None:
     metadata: Final = {"user_id": "u"}
     args: Final[tuple[object, ...]] = (INPUT, "gpt-4o")
-    kwargs: Final[Mapping[str, object]] = {"temperature": 0.1, "litellm_metadata": metadata}
+    kwargs: Final[Mapping[str, object]] = {"temperature": 0.1, "embrouter_metadata": metadata}
     captured: Final[list[tuple[tuple[object, ...], Mapping[str, object]]]] = []
     response: Final = _response()
 
@@ -109,7 +109,7 @@ async def test_async_python_route_forwards_original_call_shape() -> None:
         return response
 
     async def native(
-        request: LiteLLMResponsesRequest,
+        request: EmbRouterResponsesRequest,
         args: tuple[object, ...],
         kwargs: Mapping[str, object],
     ) -> ResponsesAPIResponse:
@@ -128,8 +128,8 @@ async def test_async_python_route_forwards_original_call_shape() -> None:
     assert call_args == args
     assert call_args[0] is INPUT
     assert call_kwargs == kwargs
-    assert call_kwargs["litellm_metadata"] is metadata
-    assert kwargs == {"temperature": 0.1, "litellm_metadata": metadata}
+    assert call_kwargs["embrouter_metadata"] is metadata
+    assert kwargs == {"temperature": 0.1, "embrouter_metadata": metadata}
 
 
 def test_native_receives_normalized_request_and_original_call_shape() -> None:
@@ -142,16 +142,16 @@ def test_native_receives_normalized_request_and_original_call_shape() -> None:
         "base_url": "https://example.invalid",
         "extra_headers": extra_headers,
         "custom_llm_provider": "anthropic",
-        "litellm_metadata": metadata,
+        "embrouter_metadata": metadata,
     }
-    captured: Final[list[tuple[LiteLLMResponsesRequest, tuple[object, ...], Mapping[str, object]]]] = []
+    captured: Final[list[tuple[EmbRouterResponsesRequest, tuple[object, ...], Mapping[str, object]]]] = []
     response: Final = _response("anthropic/claude-sonnet-4-5")
 
     def python(*call_args: object, **call_kwargs: object) -> ResponsesAPIResponse:  # kwargs-ok: rejected fallback
         pytest.fail("Required Rust dispatch must not call Python")
 
     def native(
-        request: LiteLLMResponsesRequest,
+        request: EmbRouterResponsesRequest,
         args: tuple[object, ...],
         kwargs: Mapping[str, object],
     ) -> ResponsesAPIResponse:
@@ -179,14 +179,14 @@ def test_native_receives_normalized_request_and_original_call_shape() -> None:
     assert request.kwargs == {
         "api_key": "sk-test",
         "base_url": "https://example.invalid",
-        "litellm_metadata": metadata,
+        "embrouter_metadata": metadata,
     }
-    assert request.kwargs["litellm_metadata"] is metadata
+    assert request.kwargs["embrouter_metadata"] is metadata
     assert call_args == args
     assert call_args[0] is INPUT
     assert call_kwargs == kwargs
     assert call_kwargs["extra_headers"] is extra_headers
-    assert call_kwargs["litellm_metadata"] is metadata
+    assert call_kwargs["embrouter_metadata"] is metadata
 
 
 def test_internal_async_marker_bypasses_native() -> None:
@@ -200,7 +200,7 @@ def test_internal_async_marker_bypasses_native() -> None:
         return response
 
     def native(
-        request: LiteLLMResponsesRequest,
+        request: EmbRouterResponsesRequest,
         args: tuple[object, ...],
         kwargs: Mapping[str, object],
     ) -> ResponsesAPIResponse:
@@ -236,7 +236,7 @@ def test_binding_errors_delegate_unchanged_to_python(args: tuple[object, ...], k
         return response
 
     def native(
-        request: LiteLLMResponsesRequest,
+        request: EmbRouterResponsesRequest,
         args: tuple[object, ...],
         kwargs: Mapping[str, object],
     ) -> ResponsesAPIResponse:
@@ -257,11 +257,11 @@ def test_binding_errors_delegate_unchanged_to_python(args: tuple[object, ...], k
 
 
 def test_public_responses_routes_through_dispatch(monkeypatch: pytest.MonkeyPatch) -> None:
-    captured: Final[list[LiteLLMResponsesRequest]] = []
+    captured: Final[list[EmbRouterResponsesRequest]] = []
     expected: Final = _response()
 
     def native(
-        request: LiteLLMResponsesRequest,
+        request: EmbRouterResponsesRequest,
         args: tuple[object, ...],
         kwargs: Mapping[str, object],
     ) -> ResponsesAPIResponse:
@@ -270,7 +270,7 @@ def test_public_responses_routes_through_dispatch(monkeypatch: pytest.MonkeyPatc
 
     NATIVE_RESPONSES.override(native)
     monkeypatch.setattr(catalog, "RULES", RUST_RULES)
-    public_responses: Final = cast(Callable[..., ResponsesAPIResponse], litellm.responses)
+    public_responses: Final = cast(Callable[..., ResponsesAPIResponse], embrouter.responses)
     try:
         result: Final = public_responses(input=INPUT, model="gpt-4o")
     finally:
@@ -281,11 +281,11 @@ def test_public_responses_routes_through_dispatch(monkeypatch: pytest.MonkeyPatc
 
 @pytest.mark.asyncio
 async def test_public_aresponses_routes_through_dispatch(monkeypatch: pytest.MonkeyPatch) -> None:
-    captured: Final[list[LiteLLMResponsesRequest]] = []
+    captured: Final[list[EmbRouterResponsesRequest]] = []
     expected: Final = _response()
 
     async def native(
-        request: LiteLLMResponsesRequest,
+        request: EmbRouterResponsesRequest,
         args: tuple[object, ...],
         kwargs: Mapping[str, object],
     ) -> ResponsesAPIResponse:
@@ -294,7 +294,7 @@ async def test_public_aresponses_routes_through_dispatch(monkeypatch: pytest.Mon
 
     NATIVE_ARESPONSES.override(native)
     monkeypatch.setattr(catalog, "RULES", RUST_RULES)
-    public_aresponses: Final = cast(Callable[..., Awaitable[ResponsesAPIResponse]], litellm.aresponses)
+    public_aresponses: Final = cast(Callable[..., Awaitable[ResponsesAPIResponse]], embrouter.aresponses)
     try:
         result: Final = await public_aresponses(input=INPUT, model="gpt-4o")
     finally:
@@ -312,7 +312,7 @@ def test_responses_with_retries_uses_the_dispatch_entrypoint(monkeypatch: pytest
         return expected
 
     monkeypatch.setattr(responses_dispatch, "responses", dispatch_responses)
-    retry: Final = cast(Callable[..., ResponsesAPIResponse], litellm.responses_with_retries)
+    retry: Final = cast(Callable[..., ResponsesAPIResponse], embrouter.responses_with_retries)
     result: Final = retry(input=INPUT, model="gpt-4o", num_retries=1)
     assert result is expected
     assert calls[0]["num_retries"] == 0

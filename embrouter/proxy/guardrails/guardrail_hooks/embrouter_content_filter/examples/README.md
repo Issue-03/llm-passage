@@ -34,8 +34,8 @@ In `config.yaml`:
 ```yaml
 guardrails:
   - guardrail_name: "airline-competitor-intent"
-    litellm_params:
-      guardrail: litellm_content_filter
+    embrouter_params:
+      guardrail: embrouter_content_filter
       mode: pre_call
       competitor_intent_config:
         competitor_intent_type: airline

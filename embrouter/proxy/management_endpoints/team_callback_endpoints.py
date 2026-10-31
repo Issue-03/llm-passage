@@ -13,14 +13,14 @@ from typing import Annotated, Final
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 
-from litellm._logging import verbose_proxy_logger
-from litellm._uuid import uuid
-from litellm.proxy._types import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter._uuid import uuid
+from embrouter.proxy._types import (
     AddTeamCallback,
-    LiteLLM_AuditLogs,
-    LiteLLM_TeamTable,
-    LitellmTableNames,
-    LitellmUserRoles,
+    EmbRouter_AuditLogs,
+    EmbRouter_TeamTable,
+    EmbrouterTableNames,
+    EmbrouterUserRoles,
     ProxyErrorTypes,
     ProxyException,
     TeamCallbackDeleteResponse,
@@ -28,28 +28,28 @@ from litellm.proxy._types import (
     TeamCallbackMetadata,
     UserAPIKeyAuth,
 )
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.common_utils.callback_config_validation import (
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.common_utils.callback_config_validation import (
     callback_config_error,
     conflicting_span_scope_error,
     cross_entry_family_error,
 )
-from litellm.proxy.common_utils.callback_utils import (
+from embrouter.proxy.common_utils.callback_utils import (
     _CALLBACK_VAR_ENCRYPTED_PREFIX,
     decrypt_callback_vars,
     encrypt_callback_vars,
     is_sensitive_callback_key,
 )
-from litellm.proxy.litellm_pre_call_utils import (
+from embrouter.proxy.embrouter_pre_call_utils import (
     _get_validated_callback_metadata,
     convert_key_logging_metadata_to_callback,
 )
-from litellm.proxy.management_endpoints.team_endpoints import (
+from embrouter.proxy.management_endpoints.team_endpoints import (
     _refresh_cached_team,
     _verify_team_access,
 )
-from litellm.proxy.management_helpers.utils import management_endpoint_wrapper
-from litellm.repositories.team_repository import TeamRepository
+from embrouter.proxy.management_helpers.utils import management_endpoint_wrapper
+from embrouter.repositories.team_repository import TeamRepository
 
 router: Final = APIRouter()
 
@@ -74,7 +74,7 @@ def _redact_callback_secrets(metadata: object) -> object:
     ``team_metadata["callback_settings"]["callback_vars"]`` carry provider
     credentials such as ``langfuse_secret_key``, ``langsmith_api_key``, and
     ``gcs_path_service_account``.  Persisting them verbatim into
-    ``LiteLLM_AuditLogs`` would let anyone with read access to the audit
+    ``EmbRouter_AuditLogs`` would let anyone with read access to the audit
     table harvest team callback credentials, so we replace each value with
     a fixed marker.  The keys themselves are kept so the audit reader can
     still see *which* fields changed.
@@ -184,24 +184,24 @@ async def _emit_team_callback_audit_log(
     before_metadata: object,
     after_metadata: object,
     user_api_key_dict: UserAPIKeyAuth,
-    litellm_changed_by: str | None,
+    embrouter_changed_by: str | None,
 ) -> None:
     """Emit an audit-log row for a team-callback mutation.
 
     Mirrors the ``store_audit_logs``-gated pattern used in
     ``team_endpoints.py``: the call is async-fire-and-forget and is a no-op
     when audit logging is not enabled on the proxy.  Captured under
-    ``LitellmTableNames.TEAM_TABLE_NAME`` so the row co-locates with other
+    ``EmbrouterTableNames.TEAM_TABLE_NAME`` so the row co-locates with other
     team mutations in the audit table.
 
     Callback secrets are redacted before serialization so the audit table
     cannot itself become a credential-harvest sink.
     """
-    from litellm.proxy.management_helpers.audit_logs import (
+    from embrouter.proxy.management_helpers.audit_logs import (
         create_audit_log_for_update,
         is_audit_logging_enabled,
     )
-    from litellm.proxy.proxy_server import litellm_proxy_admin_name
+    from embrouter.proxy.proxy_server import embrouter_proxy_admin_name
 
     if not is_audit_logging_enabled():
         return
@@ -211,12 +211,12 @@ async def _emit_team_callback_audit_log(
 
     task: Final = asyncio.create_task(
         create_audit_log_for_update(
-            request_data=LiteLLM_AuditLogs(
+            request_data=EmbRouter_AuditLogs(
                 id=str(uuid.uuid4()),
                 updated_at=datetime.now(timezone.utc),
-                changed_by=litellm_changed_by or user_api_key_dict.user_id or litellm_proxy_admin_name,
+                changed_by=embrouter_changed_by or user_api_key_dict.user_id or embrouter_proxy_admin_name,
                 changed_by_api_key=user_api_key_dict.api_key,
-                table_name=LitellmTableNames.TEAM_TABLE_NAME,
+                table_name=EmbrouterTableNames.TEAM_TABLE_NAME,
                 object_id=team_id,
                 action="updated",
                 updated_values=json.dumps({"metadata": redacted_after}, default=str),
@@ -243,7 +243,7 @@ def _unknown_team_error(team_id: str, user_api_key_dict: UserAPIKeyAuth, status_
     any valid key probe which team ids exist, so a caller who could not have managed
     the team either way gets the same 403 body _verify_team_access raises.
     """
-    if user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN:
+    if user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN:
         return _callback_error(status_code, f"Team id = {team_id} does not exist.")
     return HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,
@@ -262,9 +262,9 @@ async def add_team_callbacks(
     http_request: Request,
     team_id: str,
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
-    litellm_changed_by: str | None = Header(
+    embrouter_changed_by: str | None = Header(
         None,
-        description="The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability",
+        description="The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability",
     ),
 ):
     """
@@ -290,7 +290,7 @@ async def add_team_callbacks(
         - langsmith_api_key: The API key for the Langsmith callback
         - langsmith_project: The project for the Langsmith callback
         - langsmith_base_url: The base URL for the Langsmith callback
-        - newrelic_api_key: The ingest license key for the team's New Relic account; routes both LLM/agent traces and cost metrics to that account. Requires the proxy to run with LITELLM_OTEL_V2=true, otherwise this callback is rejected with a 400
+        - newrelic_api_key: The ingest license key for the team's New Relic account; routes both LLM/agent traces and cost metrics to that account. Requires the proxy to run with EMBROUTER_OTEL_V2=true, otherwise this callback is rejected with a 400
         - newrelic_region: The New Relic region for the team's account ("us" or "eu"), riding the team's own key
 
     Example curl:
@@ -310,8 +310,8 @@ async def add_team_callbacks(
 
     """
     try:
-        from litellm.proxy._types import CommonProxyErrors
-        from litellm.proxy.proxy_server import (
+        from embrouter.proxy._types import CommonProxyErrors
+        from embrouter.proxy.proxy_server import (
             prisma_client,
             proxy_logging_obj,
             user_api_key_cache,
@@ -333,7 +333,7 @@ async def add_team_callbacks(
         # authenticated key holder could overwrite another team's logging
         # config (and read back the credentials they wrote).
         await _verify_team_access(
-            team_obj=LiteLLM_TeamTable(**_existing_team.model_dump()),
+            team_obj=EmbRouter_TeamTable(**_existing_team.model_dump()),
             user_api_key_dict=user_api_key_dict,
         )
 
@@ -362,7 +362,7 @@ async def add_team_callbacks(
         # back nowhere. Repeating a value the owning entry already stores is
         # fine, which is how one integration covers both events. Proxy admins
         # are exempt: they already hold every credential the proxy has.
-        if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+        if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
             family_error: Final = cross_entry_family_error(data.callback_vars, stored_entry_vars)
             if family_error is not None:
                 raise HTTPException(
@@ -414,7 +414,7 @@ async def add_team_callbacks(
             before_metadata=before_metadata,
             after_metadata=team_metadata,
             user_api_key_dict=user_api_key_dict,
-            litellm_changed_by=litellm_changed_by,
+            embrouter_changed_by=embrouter_changed_by,
         )
 
         return {
@@ -427,7 +427,7 @@ async def add_team_callbacks(
     except ProxyException as e:
         raise e
     except Exception as e:
-        verbose_proxy_logger.exception("litellm.proxy.proxy_server.add_team_callbacks(): Exception occured - %s", e)
+        verbose_proxy_logger.exception("embrouter.proxy.proxy_server.add_team_callbacks(): Exception occured - %s", e)
         raise ProxyException(
             message="Internal Server Error, " + str(e),
             type=ProxyErrorTypes.internal_server_error.value,
@@ -448,10 +448,10 @@ async def delete_team_callback(
     team_id: str,
     callback_name: str,
     user_api_key_dict: Annotated[UserAPIKeyAuth, Depends(user_api_key_auth)],
-    litellm_changed_by: Annotated[
+    embrouter_changed_by: Annotated[
         str | None,
         Header(
-            description="The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability"
+            description="The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability"
         ),
     ] = None,
 ):
@@ -482,8 +482,8 @@ async def delete_team_callback(
     Returns 404 if the team does not exist, or if callback_name is not registered for the team.
     """
     try:
-        from litellm.proxy._types import CommonProxyErrors
-        from litellm.proxy.proxy_server import (
+        from embrouter.proxy._types import CommonProxyErrors
+        from embrouter.proxy.proxy_server import (
             prisma_client,
             proxy_logging_obj,
             user_api_key_cache,
@@ -502,7 +502,7 @@ async def delete_team_callback(
         # deregister its callbacks, otherwise any authenticated key holder could
         # silence another team's observability integration.
         await _verify_team_access(
-            team_obj=LiteLLM_TeamTable(**_existing_team.model_dump()),
+            team_obj=EmbRouter_TeamTable(**_existing_team.model_dump()),
             user_api_key_dict=user_api_key_dict,
         )
 
@@ -544,7 +544,7 @@ async def delete_team_callback(
             before_metadata=team_metadata,
             after_metadata=encrypted_metadata,
             user_api_key_dict=user_api_key_dict,
-            litellm_changed_by=litellm_changed_by,
+            embrouter_changed_by=embrouter_changed_by,
         )
 
         # Report what survives with the same resolution the GET endpoint uses, so a
@@ -569,7 +569,7 @@ async def delete_team_callback(
     except ProxyException:
         raise
     except Exception as e:
-        verbose_proxy_logger.error("litellm.proxy.proxy_server.delete_team_callback(): Exception occurred - %s", e)
+        verbose_proxy_logger.error("embrouter.proxy.proxy_server.delete_team_callback(): Exception occurred - %s", e)
         verbose_proxy_logger.debug(traceback.format_exc())
         raise ProxyException(
             message="Internal Server Error, " + str(e),
@@ -591,9 +591,9 @@ async def disable_team_logging(
     http_request: Request,
     team_id: str,
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
-    litellm_changed_by: str | None = Header(
+    embrouter_changed_by: str | None = Header(
         None,
-        description="The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability",
+        description="The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability",
     ),
 ):
     """
@@ -614,7 +614,7 @@ async def disable_team_logging(
 
     """
     try:
-        from litellm.proxy.proxy_server import (
+        from embrouter.proxy.proxy_server import (
             prisma_client,
             proxy_logging_obj,
             user_api_key_cache,
@@ -635,7 +635,7 @@ async def disable_team_logging(
         # team may disable its logging — otherwise any authenticated key
         # holder can silence audit logging for any team.
         await _verify_team_access(
-            team_obj=LiteLLM_TeamTable(**_existing_team.model_dump()),
+            team_obj=EmbRouter_TeamTable(**_existing_team.model_dump()),
             user_api_key_dict=user_api_key_dict,
         )
 
@@ -689,7 +689,7 @@ async def disable_team_logging(
             before_metadata=before_metadata,
             after_metadata=encrypted_metadata,
             user_api_key_dict=user_api_key_dict,
-            litellm_changed_by=litellm_changed_by,
+            embrouter_changed_by=embrouter_changed_by,
         )
 
         return {
@@ -710,7 +710,7 @@ async def disable_team_logging(
     except ProxyException:
         raise
     except Exception as e:
-        verbose_proxy_logger.error("litellm.proxy.proxy_server.disable_team_logging(): Exception occurred - %s", e)
+        verbose_proxy_logger.error("embrouter.proxy.proxy_server.disable_team_logging(): Exception occurred - %s", e)
         verbose_proxy_logger.debug(traceback.format_exc())
         raise ProxyException(
             message="Internal Server Error, " + str(e),
@@ -762,7 +762,7 @@ async def get_team_callbacks(
         }
     """
     try:
-        from litellm.proxy.proxy_server import prisma_client
+        from embrouter.proxy.proxy_server import prisma_client
 
         if prisma_client is None:
             raise HTTPException(status_code=500, detail={"error": "No db connected"})
@@ -776,7 +776,7 @@ async def get_team_callbacks(
         # (Langfuse / Langsmith / GCS). Only proxy admins / org admins /
         # team admins of THIS team may read them.
         await _verify_team_access(
-            team_obj=LiteLLM_TeamTable(**_existing_team.model_dump()),
+            team_obj=EmbRouter_TeamTable(**_existing_team.model_dump()),
             user_api_key_dict=user_api_key_dict,
         )
 
@@ -800,7 +800,7 @@ async def get_team_callbacks(
     except ProxyException:
         raise
     except Exception as e:
-        verbose_proxy_logger.error("litellm.proxy.proxy_server.get_team_callbacks(): Exception occurred - %s", e)
+        verbose_proxy_logger.error("embrouter.proxy.proxy_server.get_team_callbacks(): Exception occurred - %s", e)
         verbose_proxy_logger.debug(traceback.format_exc())
         if isinstance(e, HTTPException):
             raise ProxyException(

@@ -5,13 +5,13 @@ from typing import TYPE_CHECKING, Any, Final
 
 import httpx
 
-from litellm.llms.base_llm.vector_store.transformation import (
+from embrouter.llms.base_llm.vector_store.transformation import (
     BaseQueryEmbeddingVectorStoreConfig,
     VectorStoreEmbeddingExecutor,
 )
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.vector_stores import (
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.vector_stores import (
     BaseVectorStoreAuthCredentials,
     VectorStoreCreateOptionalRequestParams,
     VectorStoreCreateResponse,
@@ -23,11 +23,11 @@ from litellm.types.vector_stores import (
 )
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 MILVUS_OPTIONAL_PARAMS: Final = {
     "annsField",
@@ -46,31 +46,31 @@ class MilvusVectorStoreConfig(BaseQueryEmbeddingVectorStoreConfig):
     Configuration for Milvus Vector Store
 
     This implementation uses the Azure AI Search API for vector store operations.
-    Supports vector search with embeddings generated via litellm.embeddings.
+    Supports vector search with embeddings generated via embrouter.embeddings.
     """
 
     def __init__(self):
         super().__init__()
 
-    def validate_environment(self, headers: dict, litellm_params: GenericLiteLLMParams | None) -> dict:
+    def validate_environment(self, headers: dict, embrouter_params: GenericEmbRouterParams | None) -> dict:
         api_key: str | None = None
-        if litellm_params is not None:
-            api_key = litellm_params.api_key or get_secret_str("MILVUS_API_KEY")
+        if embrouter_params is not None:
+            api_key = embrouter_params.api_key or get_secret_str("MILVUS_API_KEY")
 
         if not api_key:
             raise ValueError(
-                "MILVUS_API_KEY is not set. Either set it in the litellm_params or set the MILVUS_API_KEY environment variable."
+                "MILVUS_API_KEY is not set. Either set it in the embrouter_params or set the MILVUS_API_KEY environment variable."
             )
 
         headers.update({"Authorization": f"Bearer {api_key}"})
 
         return headers
 
-    def get_auth_credentials(self, litellm_params: dict) -> BaseVectorStoreAuthCredentials:
-        api_key: Final = litellm_params.get("api_key")
+    def get_auth_credentials(self, embrouter_params: dict) -> BaseVectorStoreAuthCredentials:
+        api_key: Final = embrouter_params.get("api_key")
         if not api_key:
             raise ValueError(
-                "MILVUS_API_KEY is not set. Either set it in the litellm_params or set the MILVUS_API_KEY environment variable."
+                "MILVUS_API_KEY is not set. Either set it in the embrouter_params or set the MILVUS_API_KEY environment variable."
             )
         return {
             "headers": {
@@ -100,7 +100,7 @@ class MilvusVectorStoreConfig(BaseQueryEmbeddingVectorStoreConfig):
     def get_complete_url(
         self,
         api_base: str | None,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> str:
         """
         Get the base endpoint for Milvus API
@@ -111,7 +111,7 @@ class MilvusVectorStoreConfig(BaseQueryEmbeddingVectorStoreConfig):
 
         if not api_base:
             raise ValueError(
-                "Milvus API base URL is required. Set MILVUS_API_BASE environment variable or pass api_base in litellm_params."
+                "Milvus API base URL is required. Set MILVUS_API_BASE environment variable or pass api_base in embrouter_params."
             )
 
         if api_base:
@@ -125,21 +125,21 @@ class MilvusVectorStoreConfig(BaseQueryEmbeddingVectorStoreConfig):
         query: str | Sequence[str],
         vector_store_search_optional_params: VectorStoreSearchOptionalRequestParams,
         api_base: str,
-        litellm_logging_obj: LiteLLMLoggingObj,
-        litellm_params: Mapping[str, object],
+        embrouter_logging_obj: EmbRouterLoggingObj,
+        embrouter_params: Mapping[str, object],
         extra_body: Mapping[str, object] | None = None,
         embedding_executor: VectorStoreEmbeddingExecutor | None = None,
     ) -> tuple[str, dict[str, object]]:
         query_text: Final = self.query_text(query)
-        query_vector: Final = self.embed_query(query_text, litellm_params, embedding_executor)
+        query_vector: Final = self.embed_query(query_text, embrouter_params, embedding_executor)
         return self._search_request(
             vector_store_id,
             query_text,
             query_vector,
             vector_store_search_optional_params,
             api_base,
-            litellm_logging_obj,
-            litellm_params,
+            embrouter_logging_obj,
+            embrouter_params,
         )
 
     async def atransform_search_vector_store_request(
@@ -148,21 +148,21 @@ class MilvusVectorStoreConfig(BaseQueryEmbeddingVectorStoreConfig):
         query: str | Sequence[str],
         vector_store_search_optional_params: VectorStoreSearchOptionalRequestParams,
         api_base: str,
-        litellm_logging_obj: LiteLLMLoggingObj,
-        litellm_params: Mapping[str, object],
+        embrouter_logging_obj: EmbRouterLoggingObj,
+        embrouter_params: Mapping[str, object],
         extra_body: Mapping[str, object] | None = None,
         embedding_executor: VectorStoreEmbeddingExecutor | None = None,
     ) -> tuple[str, dict[str, object]]:
         query_text: Final = self.query_text(query)
-        query_vector: Final = await self.aembed_query(query_text, litellm_params, embedding_executor)
+        query_vector: Final = await self.aembed_query(query_text, embrouter_params, embedding_executor)
         return self._search_request(
             vector_store_id,
             query_text,
             query_vector,
             vector_store_search_optional_params,
             api_base,
-            litellm_logging_obj,
-            litellm_params,
+            embrouter_logging_obj,
+            embrouter_params,
         )
 
     @staticmethod
@@ -172,19 +172,19 @@ class MilvusVectorStoreConfig(BaseQueryEmbeddingVectorStoreConfig):
         query_vector: Sequence[float],
         vector_store_search_optional_params: VectorStoreSearchOptionalRequestParams,
         api_base: str,
-        litellm_logging_obj: LiteLLMLoggingObj,
-        litellm_params: Mapping[str, object],
+        embrouter_logging_obj: EmbRouterLoggingObj,
+        embrouter_params: Mapping[str, object],
     ) -> tuple[str, dict[str, object]]:
         scope: Final = {
             key: value
             for key, value in (
-                ("dbName", litellm_params.get("milvus_db_name")),
-                ("partitionNames", litellm_params.get("milvus_partition_names")),
+                ("dbName", embrouter_params.get("milvus_db_name")),
+                ("partitionNames", embrouter_params.get("milvus_partition_names")),
             )
             if value
         }
-        litellm_logging_obj.model_call_details["input"] = query_text
-        litellm_logging_obj.model_call_details["embedding_model"] = litellm_params.get("litellm_embedding_model")
+        embrouter_logging_obj.model_call_details["input"] = query_text
+        embrouter_logging_obj.model_call_details["embedding_model"] = embrouter_params.get("embrouter_embedding_model")
         return f"{api_base}/v2/vectordb/entities/search", {
             "collectionName": vector_store_id,
             "data": [query_vector],
@@ -194,7 +194,7 @@ class MilvusVectorStoreConfig(BaseQueryEmbeddingVectorStoreConfig):
         }
 
     def transform_search_vector_store_response(
-        self, response: httpx.Response, litellm_logging_obj: LiteLLMLoggingObj
+        self, response: httpx.Response, embrouter_logging_obj: EmbRouterLoggingObj
     ) -> VectorStoreSearchResponse:
         """
         Transform Azure AI Search API response to standard vector store search response
@@ -216,14 +216,14 @@ class MilvusVectorStoreConfig(BaseQueryEmbeddingVectorStoreConfig):
             # Extract results from Azure AI Search API response
             results: Final = response_json.get("data", [])
 
-            # Try to get text_field from optional_params first, then litellm_params
-            optional_params: Final = litellm_logging_obj.model_call_details.get("optional_params", {})
+            # Try to get text_field from optional_params first, then embrouter_params
+            optional_params: Final = embrouter_logging_obj.model_call_details.get("optional_params", {})
             text_field = optional_params.get("milvus_text_field", "")
 
-            # Fallback to litellm_params if not in optional_params
+            # Fallback to embrouter_params if not in optional_params
 
             if not text_field:
-                text_field = litellm_logging_obj.model_call_details.get("litellm_params", {}).get(
+                text_field = embrouter_logging_obj.model_call_details.get("embrouter_params", {}).get(
                     "milvus_text_field", ""
                 )
 
@@ -261,7 +261,7 @@ class MilvusVectorStoreConfig(BaseQueryEmbeddingVectorStoreConfig):
 
             return VectorStoreSearchResponse(
                 object="vector_store.search_results.page",
-                search_query=litellm_logging_obj.model_call_details.get("input", ""),
+                search_query=embrouter_logging_obj.model_call_details.get("input", ""),
                 data=search_results,
             )
 

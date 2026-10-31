@@ -4,23 +4,23 @@ from typing import Annotated, Final
 
 from fastapi import APIRouter, Depends, Header
 
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy._types import CommonProxyErrors, UserAPIKeyAuth
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.list_api.common import PROBLEM_TYPE_BASE, ManagementProblem, reject_unknown_query_params
-from litellm.proxy.management_endpoints.management_v1.common import MANAGEMENT_V1_PREFIX
-from litellm.proxy.management_helpers.bulk_user_creation import bulk_create_users
-from litellm.proxy.management_helpers.bulk_user_deletion import bulk_delete_users
-from litellm.proxy.management_helpers.utils import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy._types import CommonProxyErrors, UserAPIKeyAuth
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.list_api.common import PROBLEM_TYPE_BASE, ManagementProblem, reject_unknown_query_params
+from embrouter.proxy.management_endpoints.management_v1.common import MANAGEMENT_V1_PREFIX
+from embrouter.proxy.management_helpers.bulk_user_creation import bulk_create_users
+from embrouter.proxy.management_helpers.bulk_user_deletion import bulk_delete_users
+from embrouter.proxy.management_helpers.utils import (
     management_endpoint_wrapper,  # pyright: ignore[reportUnknownVariableType]  # legacy untyped decorator
 )
-from litellm.types.proxy.management_endpoints.internal_user_endpoints import (
+from embrouter.types.proxy.management_endpoints.internal_user_endpoints import (
     BulkDeleteUserRequest,
     BulkDeleteUsersResponse,
     BulkNewUserRequest,
     BulkNewUserResponse,
 )
-from litellm.types.proxy.management_endpoints.management_v1 import ProblemDetail
+from embrouter.types.proxy.management_endpoints.management_v1 import ProblemDetail
 
 router: Final = APIRouter(prefix=MANAGEMENT_V1_PREFIX)
 
@@ -68,9 +68,9 @@ async def bulk_create_users_route(
     `key`, `error`) and `meta` with `total_requested`, `created` and `failed`.
     """
     try:
-        from litellm.proxy.proxy_server import (
+        from embrouter.proxy.proxy_server import (
             _license_check,  # pyright: ignore[reportPrivateUsage]  # same proxy license singleton /user/new reads
-            litellm_proxy_admin_name,
+            embrouter_proxy_admin_name,
             prisma_client,
             user_api_key_cache,
         )
@@ -90,7 +90,7 @@ async def bulk_create_users_route(
             user_api_key_dict=user_api_key_dict,
             prisma_client=prisma_client,
             license_check=_license_check,
-            litellm_proxy_admin_name=litellm_proxy_admin_name,
+            embrouter_proxy_admin_name=embrouter_proxy_admin_name,
             user_api_key_cache=user_api_key_cache,
         )
 
@@ -118,7 +118,7 @@ async def bulk_create_users_route(
 async def bulk_delete_users_action(
     data: BulkDeleteUserRequest,
     user_api_key_dict: Annotated[UserAPIKeyAuth, Depends(user_api_key_auth)],
-    litellm_changed_by: Annotated[
+    embrouter_changed_by: Annotated[
         str | None,
         Header(description="Who the caller is acting for; recorded on the audit log entries this call writes."),
     ] = None,
@@ -142,8 +142,8 @@ async def bulk_delete_users_action(
     ```
     """
     try:
-        from litellm.proxy.proxy_server import (
-            litellm_proxy_admin_name,
+        from embrouter.proxy.proxy_server import (
+            embrouter_proxy_admin_name,
             prisma_client,
             proxy_logging_obj,
             user_api_key_cache,
@@ -165,8 +165,8 @@ async def bulk_delete_users_action(
             prisma_client=prisma_client,
             user_api_key_cache=user_api_key_cache,
             proxy_logging_obj=proxy_logging_obj,
-            litellm_proxy_admin_name=litellm_proxy_admin_name,
-            litellm_changed_by=litellm_changed_by,
+            embrouter_proxy_admin_name=embrouter_proxy_admin_name,
+            embrouter_changed_by=embrouter_changed_by,
         )
         return BulkDeleteUsersResponse(data=results)
 
@@ -174,7 +174,7 @@ async def bulk_delete_users_action(
         raise
     except Exception as e:  # noqa: BLE001  # a driver error answers as a problem document, not the OpenAI error shape
         verbose_proxy_logger.exception(
-            "litellm.proxy.management_endpoints.management_v1.users.bulk_delete_users_action(): Exception occured - %s",
+            "embrouter.proxy.management_endpoints.management_v1.users.bulk_delete_users_action(): Exception occured - %s",
             e,
         )
         raise ManagementProblem(

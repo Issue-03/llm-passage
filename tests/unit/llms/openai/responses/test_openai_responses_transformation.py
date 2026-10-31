@@ -6,18 +6,18 @@ from unittest.mock import MagicMock, Mock, patch
 import pytest
 
 
-import litellm
-from litellm.llms.base_llm.responses.transformation import BaseResponsesAPIConfig
-from litellm.llms.azure.responses.transformation import AzureOpenAIResponsesAPIConfig
-from litellm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
-from litellm.types.llms.openai import (
+import embrouter
+from embrouter.llms.base_llm.responses.transformation import BaseResponsesAPIConfig
+from embrouter.llms.azure.responses.transformation import AzureOpenAIResponsesAPIConfig
+from embrouter.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
+from embrouter.types.llms.openai import (
     ImageGenerationPartialImageEvent,
     OutputTextDeltaEvent,
     ResponseCompletedEvent,
     ResponsesAPIResponse,
     ResponsesAPIStreamEvents,
 )
-from litellm.types.router import GenericLiteLLMParams
+from embrouter.types.router import GenericEmbRouterParams
 
 _ARTIFACT_FIELD_PATTERN: Final = r'^(?!__.*__$)[^\p{Cc}\p{Cf}\p{Zl}\p{Zp}"\\./[\]]{1,200}$'
 
@@ -122,7 +122,7 @@ class TestOpenAIResponsesAPIConfig:
             model=self.model,
             input=input_text,
             response_api_optional_request_params=optional_params,
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -164,7 +164,7 @@ class TestOpenAIResponsesAPIConfig:
             model=self.model,
             input=input_with_cache_control,
             response_api_optional_request_params={},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -195,7 +195,7 @@ class TestOpenAIResponsesAPIConfig:
             model=self.model,
             input="hi",
             response_api_optional_request_params={"tools": tools_with_cache_control},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -215,7 +215,7 @@ class TestOpenAIResponsesAPIConfig:
             model=self.model,
             input=input_clean,
             response_api_optional_request_params={},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -258,7 +258,7 @@ class TestOpenAIResponsesAPIConfig:
             model=self.model,
             input=replayed_input,
             response_api_optional_request_params={},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -274,7 +274,7 @@ class TestOpenAIResponsesAPIConfig:
     def test_transform_keeps_foreign_tool_call_item_ids_for_other_providers(self):
         """Providers reusing this config that do not enforce OpenAI's id
         shapes must keep replayed ids untouched."""
-        from litellm.types.utils import LlmProviders
+        from embrouter.types.utils import LlmProviders
 
         class _OpenRouterLikeConfig(OpenAIResponsesAPIConfig):
             @property
@@ -295,7 +295,7 @@ class TestOpenAIResponsesAPIConfig:
             model="openrouter/some-model",
             input=replayed_input,
             response_api_optional_request_params={},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -316,7 +316,7 @@ class TestOpenAIResponsesAPIConfig:
             response_api_optional_request_params={
                 "tools": [{"type": "function", "name": "get_weather", "parameters": raw_parameters}]
             },
-            litellm_params=GenericLiteLLMParams(),
+            embrouter_params=GenericEmbRouterParams(),
             headers={},
         )
 
@@ -335,7 +335,7 @@ class TestOpenAIResponsesAPIConfig:
                 "tools": [{"type": "function", "name": "get_weather", "parameters": '{"type": "object"}'}]
             },
             api_base="https://api.openai.com/v1/responses",
-            litellm_params=GenericLiteLLMParams(),
+            embrouter_params=GenericEmbRouterParams(),
             headers={},
         )
 
@@ -344,7 +344,7 @@ class TestOpenAIResponsesAPIConfig:
     @pytest.mark.parametrize("raw_parameters", ['"just a string"', "not json at all", "[1, 2, 3]", 42])
     def test_transform_rejects_tool_parameters_that_are_not_an_object(self, raw_parameters: object):
         """Neither an object nor a string encoding one is a client error naming the tool index."""
-        with pytest.raises(litellm.BadRequestError) as exc_info:
+        with pytest.raises(embrouter.BadRequestError) as exc_info:
             self.config.transform_responses_api_request(
                 model=self.model,
                 input="weather in Paris",
@@ -354,7 +354,7 @@ class TestOpenAIResponsesAPIConfig:
                         {"type": "function", "name": "get_weather", "parameters": raw_parameters},
                     ]
                 },
-                litellm_params=GenericLiteLLMParams(),
+                embrouter_params=GenericEmbRouterParams(),
                 headers={},
             )
 
@@ -375,7 +375,7 @@ class TestOpenAIResponsesAPIConfig:
             model=self.model,
             input="weather in Paris",
             response_api_optional_request_params={"tools": tools},
-            litellm_params=GenericLiteLLMParams(),
+            embrouter_params=GenericEmbRouterParams(),
             headers={},
         )
 
@@ -402,7 +402,7 @@ class TestOpenAIResponsesAPIConfig:
             input=replayed_input,
             response_api_optional_request_params={},
             api_base="https://api.openai.com/v1/responses",
-            litellm_params=GenericLiteLLMParams(),
+            embrouter_params=GenericEmbRouterParams(),
             headers={},
         )
 
@@ -479,9 +479,9 @@ class TestOpenAIResponsesAPIConfig:
         # Test with provided API key
         headers = {}
         api_key = "test_api_key"
-        litellm_params = GenericLiteLLMParams(api_key=api_key)
+        embrouter_params = GenericEmbRouterParams(api_key=api_key)
         result = self.config.validate_environment(
-            headers=headers, model=self.model, litellm_params=litellm_params
+            headers=headers, model=self.model, embrouter_params=embrouter_params
         )
 
         assert "Authorization" in result
@@ -491,23 +491,23 @@ class TestOpenAIResponsesAPIConfig:
         # Test with empty headers
         headers = {}
 
-        with patch("litellm.api_key", "litellm_api_key"):
-            litellm_params = GenericLiteLLMParams()
+        with patch("embrouter.api_key", "embrouter_api_key"):
+            embrouter_params = GenericEmbRouterParams()
             result = self.config.validate_environment(
-                headers=headers, model=self.model, litellm_params=litellm_params
+                headers=headers, model=self.model, embrouter_params=embrouter_params
             )
 
             assert "Authorization" in result
-            assert result["Authorization"] == "Bearer litellm_api_key"
+            assert result["Authorization"] == "Bearer embrouter_api_key"
 
         # Test with existing headers
         headers = {"Content-Type": "application/json"}
 
-        with patch("litellm.openai_key", "openai_key"):
-            with patch("litellm.api_key", None):
-                litellm_params = GenericLiteLLMParams()
+        with patch("embrouter.openai_key", "openai_key"):
+            with patch("embrouter.api_key", None):
+                embrouter_params = GenericEmbRouterParams()
                 result = self.config.validate_environment(
-                    headers=headers, model=self.model, litellm_params=litellm_params
+                    headers=headers, model=self.model, embrouter_params=embrouter_params
                 )
 
                 assert "Authorization" in result
@@ -518,15 +518,15 @@ class TestOpenAIResponsesAPIConfig:
         # Test with environment variable
         headers = {}
 
-        with patch("litellm.api_key", None):
-            with patch("litellm.openai_key", None):
+        with patch("embrouter.api_key", None):
+            with patch("embrouter.openai_key", None):
                 with patch(
-                    "litellm.llms.openai.responses.transformation.get_secret_str",
+                    "embrouter.llms.openai.responses.transformation.get_secret_str",
                     return_value="env_api_key",
                 ):
-                    litellm_params = GenericLiteLLMParams()
+                    embrouter_params = GenericEmbRouterParams()
                     result = self.config.validate_environment(
-                        headers=headers, model=self.model, litellm_params=litellm_params
+                        headers=headers, model=self.model, embrouter_params=embrouter_params
                     )
 
                     assert "Authorization" in result
@@ -539,42 +539,42 @@ class TestOpenAIResponsesAPIConfig:
 
         result = self.config.get_complete_url(
             api_base=api_base,
-            litellm_params={},
+            embrouter_params={},
         )
 
         assert result == "https://custom-openai.example.com/v1/responses"
 
-        # Test with litellm.api_base
-        with patch("litellm.api_base", "https://litellm-api-base.example.com/v1"):
+        # Test with embrouter.api_base
+        with patch("embrouter.api_base", "https://embrouter-api-base.example.com/v1"):
             result = self.config.get_complete_url(
                 api_base=None,
-                litellm_params={},
+                embrouter_params={},
             )
 
-            assert result == "https://litellm-api-base.example.com/v1/responses"
+            assert result == "https://embrouter-api-base.example.com/v1/responses"
 
         # Test with environment variable
-        with patch("litellm.api_base", None):
+        with patch("embrouter.api_base", None):
             with patch(
-                "litellm.llms.openai.responses.transformation.get_secret_str",
+                "embrouter.llms.openai.responses.transformation.get_secret_str",
                 return_value="https://env-api-base.example.com/v1",
             ):
                 result = self.config.get_complete_url(
                     api_base=None,
-                    litellm_params={},
+                    embrouter_params={},
                 )
 
                 assert result == "https://env-api-base.example.com/v1/responses"
 
         # Test with default API base
-        with patch("litellm.api_base", None):
+        with patch("embrouter.api_base", None):
             with patch(
-                "litellm.llms.openai.responses.transformation.get_secret_str",
+                "embrouter.llms.openai.responses.transformation.get_secret_str",
                 return_value=None,
             ):
                 result = self.config.get_complete_url(
                     api_base=None,
-                    litellm_params={},
+                    embrouter_params={},
                 )
 
                 assert result == "https://api.openai.com/v1/responses"
@@ -584,7 +584,7 @@ class TestOpenAIResponsesAPIConfig:
 
         result = self.config.get_complete_url(
             api_base=api_base,
-            litellm_params={},
+            embrouter_params={},
         )
 
         assert result == "https://custom-openai.example.com/v1/responses"
@@ -597,7 +597,7 @@ class TestOpenAIResponsesAPIConfig:
         url, data = self.config.transform_list_input_items_request(
             response_id=response_id,
             api_base=api_base,
-            litellm_params=GenericLiteLLMParams(),
+            embrouter_params=GenericEmbRouterParams(),
             headers={},
         )
 
@@ -609,7 +609,7 @@ class TestOpenAIResponsesAPIConfig:
 
     def test_get_event_model_class_generic_event(self):
         """Test that get_event_model_class returns the correct event model class"""
-        from litellm.types.llms.openai import GenericEvent
+        from embrouter.types.llms.openai import GenericEvent
 
         event_type = "test"
         result = self.config.get_event_model_class(event_type)
@@ -617,7 +617,7 @@ class TestOpenAIResponsesAPIConfig:
 
     def test_transform_streaming_response_generic_event(self):
         """Test that transform_streaming_response returns the correct event model class"""
-        from litellm.types.llms.openai import GenericEvent
+        from embrouter.types.llms.openai import GenericEvent
 
         chunk = {"type": "test", "test": "test"}
         result = self.config.transform_streaming_response(
@@ -698,7 +698,7 @@ class TestOpenAIResponsesAPIConfig:
             model=self.model,
             input=input_text,
             response_api_optional_request_params=optional_params,
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -728,7 +728,7 @@ class TestOpenAIResponsesAPIConfig:
                 model=self.model,
                 input=input_text,
                 response_api_optional_request_params=optional_params,
-                litellm_params={},
+                embrouter_params={},
                 headers={},
             )
 
@@ -740,7 +740,7 @@ class TestOpenAIResponsesAPIConfig:
         transform_streaming_response coalesces it to 'unknown_error' and returns
         an ErrorEvent instance without raising a ValidationError.
         """
-        from litellm.types.llms.openai import ErrorEvent
+        from embrouter.types.llms.openai import ErrorEvent
 
         parsed_chunk = {
             "type": "error",
@@ -770,7 +770,7 @@ class TestOpenAIResponsesAPIConfig:
 
         Reproduces
         """
-        from litellm.types.llms.openai import ResponseCreatedEvent
+        from embrouter.types.llms.openai import ResponseCreatedEvent
 
         # Minimal payload an OpenAI-compatible provider might send,
         # omitting `created_at` and `output` inside the response object.
@@ -799,7 +799,7 @@ class TestOpenAIResponsesAPIConfig:
 
         Reproduces
         """
-        from litellm.types.llms.openai import OutputTextDeltaEvent
+        from embrouter.types.llms.openai import OutputTextDeltaEvent
 
         # Provider omits output_index and content_index
         parsed_chunk = {
@@ -825,7 +825,7 @@ class TestOpenAIResponsesAPIConfig:
 
         Reproduces
         """
-        from litellm.types.llms.openai import ContentPartAddedEvent
+        from embrouter.types.llms.openai import ContentPartAddedEvent
 
         # Provider omits output_index and content_index
         parsed_chunk = {
@@ -850,7 +850,7 @@ class TestOpenAIResponsesAPIConfig:
 
         Reproduces
         """
-        from litellm.types.llms.openai import OutputItemAddedEvent
+        from embrouter.types.llms.openai import OutputItemAddedEvent
 
         # Provider omits output_index
         parsed_chunk = {
@@ -930,7 +930,7 @@ class TestOpenAIResponsesAPIConfig:
             model=self.model,
             input=input_items,
             response_api_optional_request_params={},
-            litellm_params=GenericLiteLLMParams(),
+            embrouter_params=GenericEmbRouterParams(),
             headers={},
         )
         assert body["input"][0].get("namespace") == "my_tools"
@@ -956,7 +956,7 @@ class TestAzureResponsesAPIConfig:
             response_api_optional_request_params={
                 "tools": [{"type": "function", "function": {"name": "get_weather", "parameters": '{"type":"object"}'}}]
             },
-            litellm_params=GenericLiteLLMParams(),
+            embrouter_params=GenericEmbRouterParams(),
             headers={},
         )
 
@@ -964,36 +964,36 @@ class TestAzureResponsesAPIConfig:
 
     def test_azure_get_complete_url_with_version_types(self):
         """Test Azure get_complete_url with different API version types"""
-        base_url = "https://litellm8397336933.openai.azure.com"
+        base_url = "https://embrouter8397336933.openai.azure.com"
 
         # Test with preview version - should use openai/v1/responses
         result_preview = self.config.get_complete_url(
             api_base=base_url,
-            litellm_params={"api_version": "preview"},
+            embrouter_params={"api_version": "preview"},
         )
         assert (
             result_preview
-            == "https://litellm8397336933.openai.azure.com/openai/v1/responses?api-version=preview"
+            == "https://embrouter8397336933.openai.azure.com/openai/v1/responses?api-version=preview"
         )
 
         # Test with latest version - should use openai/v1/responses
         result_latest = self.config.get_complete_url(
             api_base=base_url,
-            litellm_params={"api_version": "latest"},
+            embrouter_params={"api_version": "latest"},
         )
         assert (
             result_latest
-            == "https://litellm8397336933.openai.azure.com/openai/v1/responses?api-version=latest"
+            == "https://embrouter8397336933.openai.azure.com/openai/v1/responses?api-version=latest"
         )
 
         # Test with date-based version - should use openai/responses
         result_date = self.config.get_complete_url(
             api_base=base_url,
-            litellm_params={"api_version": "2025-01-01"},
+            embrouter_params={"api_version": "2025-01-01"},
         )
         assert (
             result_date
-            == "https://litellm8397336933.openai.azure.com/openai/responses?api-version=2025-01-01"
+            == "https://embrouter8397336933.openai.azure.com/openai/responses?api-version=2025-01-01"
         )
 
     def test_azure_transform_then_normalize_strips_custom_tool_call_namespace(self):
@@ -1027,7 +1027,7 @@ class TestAzureResponsesAPIConfig:
             model=self.model,
             input=input_items,
             response_api_optional_request_params={},
-            litellm_params=GenericLiteLLMParams(),
+            embrouter_params=GenericEmbRouterParams(),
             headers={},
         )
         assert body["input"][1].get("namespace") == "None"
@@ -1050,7 +1050,7 @@ class TestTransformListInputItemsRequest:
         self.azure_config = AzureOpenAIResponsesAPIConfig()
         self.response_id = "resp_abc123"
         self.api_base = "https://api.openai.com/v1/responses"
-        self.litellm_params = GenericLiteLLMParams()
+        self.embrouter_params = GenericEmbRouterParams()
         self.headers = {"Authorization": "Bearer test-key"}
 
     def test_openai_transform_list_input_items_request_minimal(self):
@@ -1059,7 +1059,7 @@ class TestTransformListInputItemsRequest:
         url, params = self.openai_config.transform_list_input_items_request(
             response_id=self.response_id,
             api_base=self.api_base,
-            litellm_params=self.litellm_params,
+            embrouter_params=self.embrouter_params,
             headers=self.headers,
         )
 
@@ -1074,7 +1074,7 @@ class TestTransformListInputItemsRequest:
         url, params = self.openai_config.transform_list_input_items_request(
             response_id=self.response_id,
             api_base=self.api_base,
-            litellm_params=self.litellm_params,
+            embrouter_params=self.embrouter_params,
             headers=self.headers,
             after="cursor_after_123",
             before="cursor_before_456",
@@ -1101,7 +1101,7 @@ class TestTransformListInputItemsRequest:
         url, params = self.openai_config.transform_list_input_items_request(
             response_id=self.response_id,
             api_base=self.api_base,
-            litellm_params=self.litellm_params,
+            embrouter_params=self.embrouter_params,
             headers=self.headers,
             include=["metadata", "content", "annotations"],
         )
@@ -1115,7 +1115,7 @@ class TestTransformListInputItemsRequest:
         url, params = self.openai_config.transform_list_input_items_request(
             response_id=self.response_id,
             api_base=self.api_base,
-            litellm_params=self.litellm_params,
+            embrouter_params=self.embrouter_params,
             headers=self.headers,
             after=None,
             before=None,
@@ -1137,7 +1137,7 @@ class TestTransformListInputItemsRequest:
         url, params = self.openai_config.transform_list_input_items_request(
             response_id=self.response_id,
             api_base=self.api_base,
-            litellm_params=self.litellm_params,
+            embrouter_params=self.embrouter_params,
             headers=self.headers,
             include=[],
         )
@@ -1156,7 +1156,7 @@ class TestTransformListInputItemsRequest:
             input="hello",
             response_api_optional_request_params={},
             api_base=azure_style_api_base,
-            litellm_params=self.litellm_params,
+            embrouter_params=self.embrouter_params,
             headers=self.headers,
         )
 
@@ -1176,7 +1176,7 @@ class TestTransformListInputItemsRequest:
             input="hello",
             response_api_optional_request_params={},
             api_base="https://api.openai.com/v1/responses",
-            litellm_params=self.litellm_params,
+            embrouter_params=self.embrouter_params,
             headers=self.headers,
         )
 
@@ -1194,7 +1194,7 @@ class TestTransformListInputItemsRequest:
         url, params = self.azure_config.transform_list_input_items_request(
             response_id=self.response_id,
             api_base=AZURE_AI_API_BASE,
-            litellm_params=self.litellm_params,
+            embrouter_params=self.embrouter_params,
             headers=self.headers,
         )
 
@@ -1212,7 +1212,7 @@ class TestTransformListInputItemsRequest:
         url, params = self.azure_config.transform_list_input_items_request(
             response_id=self.response_id,
             api_base=AZURE_AI_API_BASE,
-            litellm_params=self.litellm_params,
+            embrouter_params=self.embrouter_params,
             headers=self.headers,
         )
 
@@ -1231,7 +1231,7 @@ class TestTransformListInputItemsRequest:
         url, params = self.azure_config.transform_list_input_items_request(
             response_id=self.response_id,
             api_base=AZURE_AI_API_BASE,
-            litellm_params=self.litellm_params,
+            embrouter_params=self.embrouter_params,
             headers=self.headers,
             after="cursor_after_123",
             before="cursor_before_456",
@@ -1250,11 +1250,11 @@ class TestTransformListInputItemsRequest:
         }
         assert params == expected_params
 
-    @patch("litellm.router.Router")
-    def test_mock_litellm_router_with_transform_list_input_items_request(
+    @patch("embrouter.router.Router")
+    def test_mock_embrouter_router_with_transform_list_input_items_request(
         self, mock_router
     ):
-        """Mock test using litellm.router for transform_list_input_items_request"""
+        """Mock test using embrouter.router for transform_list_input_items_request"""
         # Setup mock router
         mock_router_instance = Mock()
         mock_router.return_value = mock_router_instance
@@ -1278,7 +1278,7 @@ class TestTransformListInputItemsRequest:
         url, params = mock_provider_config.transform_list_input_items_request(
             response_id=response_id,
             api_base="https://api.openai.com/v1/responses",
-            litellm_params=GenericLiteLLMParams(),
+            embrouter_params=GenericEmbRouterParams(),
             headers={"Authorization": "Bearer test"},
             after="cursor_123",
             include=["metadata"],
@@ -1289,7 +1289,7 @@ class TestTransformListInputItemsRequest:
         mock_provider_config.transform_list_input_items_request.assert_called_once_with(
             response_id=response_id,
             api_base="https://api.openai.com/v1/responses",
-            litellm_params=GenericLiteLLMParams(),
+            embrouter_params=GenericEmbRouterParams(),
             headers={"Authorization": "Bearer test"},
             after="cursor_123",
             include=["metadata"],
@@ -1298,9 +1298,9 @@ class TestTransformListInputItemsRequest:
         assert url == "https://api.openai.com/v1/responses/resp_123/input_items"
         assert params == {"limit": 20, "order": "desc"}
 
-    @patch("litellm.list_input_items")
-    def test_mock_litellm_list_input_items_integration(self, mock_list_input_items):
-        """Test integration with litellm.list_input_items function"""
+    @patch("embrouter.list_input_items")
+    def test_mock_embrouter_list_input_items_integration(self, mock_list_input_items):
+        """Test integration with embrouter.list_input_items function"""
         # Setup mock response
         mock_response = {
             "object": "list",
@@ -1343,7 +1343,7 @@ class TestTransformListInputItemsRequest:
         url, params = self.openai_config.transform_list_input_items_request(
             response_id=self.response_id,
             api_base=self.api_base,
-            litellm_params=self.litellm_params,
+            embrouter_params=self.embrouter_params,
             headers=self.headers,
             limit=0,
         )
@@ -1353,7 +1353,7 @@ class TestTransformListInputItemsRequest:
         url, params = self.openai_config.transform_list_input_items_request(
             response_id=self.response_id,
             api_base=self.api_base,
-            litellm_params=self.litellm_params,
+            embrouter_params=self.embrouter_params,
             headers=self.headers,
             limit=1000,
         )
@@ -1363,7 +1363,7 @@ class TestTransformListInputItemsRequest:
         url, params = self.openai_config.transform_list_input_items_request(
             response_id=self.response_id,
             api_base=self.api_base,
-            litellm_params=self.litellm_params,
+            embrouter_params=self.embrouter_params,
             headers=self.headers,
             include=["metadata"],
         )
@@ -1390,7 +1390,7 @@ class TestTransformListInputItemsRequest:
             url, params = self.openai_config.transform_list_input_items_request(
                 response_id=self.response_id,
                 api_base=case["api_base"],
-                litellm_params=self.litellm_params,
+                embrouter_params=self.embrouter_params,
                 headers=self.headers,
             )
             assert url.endswith(case["expected_suffix"])
@@ -1400,7 +1400,7 @@ class TestTransformListInputItemsRequest:
         url, params = self.openai_config.transform_list_input_items_request(
             response_id=self.response_id,
             api_base=self.api_base,
-            litellm_params=self.litellm_params,
+            embrouter_params=self.embrouter_params,
             headers=self.headers,
         )
 
@@ -1437,12 +1437,12 @@ class TestPhaseParameter:
 
     @staticmethod
     def _make_output_text(text: str):
-        from litellm.types.responses.main import OutputText
+        from embrouter.types.responses.main import OutputText
 
         return OutputText(type="output_text", text=text, annotations=[])
 
     def test_generic_response_output_item_accepts_phase_commentary(self):
-        from litellm.types.responses.main import GenericResponseOutputItem
+        from embrouter.types.responses.main import GenericResponseOutputItem
 
         item = GenericResponseOutputItem(
             type="message",
@@ -1455,7 +1455,7 @@ class TestPhaseParameter:
         assert item.phase == "commentary"
 
     def test_generic_response_output_item_accepts_phase_final_answer(self):
-        from litellm.types.responses.main import GenericResponseOutputItem
+        from embrouter.types.responses.main import GenericResponseOutputItem
 
         item = GenericResponseOutputItem(
             type="message",
@@ -1468,7 +1468,7 @@ class TestPhaseParameter:
         assert item.phase == "final_answer"
 
     def test_generic_response_output_item_phase_defaults_to_none(self):
-        from litellm.types.responses.main import GenericResponseOutputItem
+        from embrouter.types.responses.main import GenericResponseOutputItem
 
         item = GenericResponseOutputItem(
             type="message",
@@ -1480,7 +1480,7 @@ class TestPhaseParameter:
         assert item.phase is None
 
     def test_output_function_tool_call_accepts_phase(self):
-        from litellm.types.responses.main import OutputFunctionToolCall
+        from embrouter.types.responses.main import OutputFunctionToolCall
 
         item = OutputFunctionToolCall(
             type="function_call",
@@ -1531,7 +1531,7 @@ class TestPhaseParameter:
 
     def test_input_passthrough_pydantic_preserves_non_null_phase(self):
         """Pydantic input items must preserve non-null phase values."""
-        from litellm.types.responses.main import GenericResponseOutputItem
+        from embrouter.types.responses.main import GenericResponseOutputItem
 
         item = GenericResponseOutputItem(
             type="message",
@@ -1591,7 +1591,7 @@ class TestPhaseParameter:
 
     def test_streaming_output_item_done_preserves_phase(self):
         """OutputItemDoneEvent must preserve phase on its item."""
-        from litellm.types.llms.openai import (
+        from embrouter.types.llms.openai import (
             OutputItemDoneEvent,
             ResponsesAPIStreamEvents,
         )
@@ -1620,7 +1620,7 @@ class TestPhaseParameter:
 
     def test_streaming_output_item_added_preserves_phase(self):
         """OutputItemAddedEvent must preserve phase on its item."""
-        from litellm.types.llms.openai import (
+        from embrouter.types.llms.openai import (
             OutputItemAddedEvent,
             ResponsesAPIStreamEvents,
         )
@@ -1747,7 +1747,7 @@ class TestPromptCacheOptionsOnResponsesPath:
     OPTIONS = {"mode": "explicit", "ttl": "30m"}
 
     def test_prompt_cache_options_survives_optional_param_filter(self):
-        from litellm.responses.utils import ResponsesAPIRequestUtils
+        from embrouter.responses.utils import ResponsesAPIRequestUtils
 
         result = ResponsesAPIRequestUtils.get_requested_response_api_optional_param(
             {"prompt_cache_options": dict(self.OPTIONS), "temperature": 0.2, "not_a_responses_param": 1}
@@ -1767,7 +1767,7 @@ class TestPromptCacheOptionsOnResponsesPath:
             model="gpt-5.6",
             input="hi",
             response_api_optional_request_params=mapped,
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
         assert result["prompt_cache_options"] == self.OPTIONS
@@ -1789,7 +1789,7 @@ class TestPromptCacheOptionsOnResponsesPath:
                 }
             ],
             response_api_optional_request_params={},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
         assert result["input"][0]["content"][0] == {
@@ -1859,7 +1859,7 @@ class TestResponsesSurfaceSharesTheEffortRule:
         assert ("top_p" in mapped) is top_p_survives
 
     def test_top_p_raises_without_drop_params(self, local_model_cost_map):
-        with pytest.raises(litellm.UnsupportedParamsError):
+        with pytest.raises(embrouter.UnsupportedParamsError):
             OpenAIResponsesAPIConfig().map_openai_params(
                 response_api_optional_params={"top_p": 0.9},
                 model="gpt-5.5",
@@ -1928,7 +1928,7 @@ class TestFlattenToolSchemaCombinatorsWiring:
             model="gpt-4o",
             input="hi",
             response_api_optional_request_params={"tools": [self._flat_function_tool()]},
-            litellm_params=GenericLiteLLMParams(),
+            embrouter_params=GenericEmbRouterParams(),
             headers={},
         )
 
@@ -1944,7 +1944,7 @@ class TestFlattenToolSchemaCombinatorsWiring:
             model="gpt-4o",
             input="hi",
             response_api_optional_request_params={"tools": [self._codex_namespace_tool()]},
-            litellm_params=GenericLiteLLMParams(),
+            embrouter_params=GenericEmbRouterParams(),
             headers={},
         )
 
@@ -1959,7 +1959,7 @@ class TestFlattenToolSchemaCombinatorsWiring:
             input="hi",
             response_api_optional_request_params={"tools": [self._flat_function_tool()]},
             api_base="https://api.openai.com/v1/responses",
-            litellm_params=GenericLiteLLMParams(),
+            embrouter_params=GenericEmbRouterParams(),
             headers={},
         )
 
@@ -1976,7 +1976,7 @@ class TestFlattenToolSchemaCombinatorsWiring:
             model="gpt-4o",
             input="hi",
             response_api_optional_request_params={"tools": [clean_tool]},
-            litellm_params=GenericLiteLLMParams(),
+            embrouter_params=GenericEmbRouterParams(),
             headers={},
         )
 
@@ -1989,20 +1989,20 @@ class TestFlattenToolSchemaCombinatorsWiring:
             model="gpt-4o",
             input="hi",
             response_api_optional_request_params={"tools": [tool]},
-            litellm_params=GenericLiteLLMParams(),
+            embrouter_params=GenericEmbRouterParams(),
             headers={},
         )
 
         assert "anyOf" in tool["parameters"]
 
     def test_non_openai_subclass_does_not_flatten(self):
-        from litellm.llms.hosted_vllm.responses.transformation import HostedVLLMResponsesAPIConfig
+        from embrouter.llms.hosted_vllm.responses.transformation import HostedVLLMResponsesAPIConfig
 
         result = HostedVLLMResponsesAPIConfig().transform_responses_api_request(
             model="hosted_vllm/qwen",
             input="hi",
             response_api_optional_request_params={"tools": [self._flat_function_tool()]},
-            litellm_params=GenericLiteLLMParams(),
+            embrouter_params=GenericEmbRouterParams(),
             headers={},
         )
 
@@ -2026,7 +2026,7 @@ class TestFlattenToolSchemaCombinatorsWiring:
             model=model,
             input="hi",
             response_api_optional_request_params={"tools": [self._flat_function_tool()]},
-            litellm_params=GenericLiteLLMParams(),
+            embrouter_params=GenericEmbRouterParams(),
             headers={},
         )
 
@@ -2042,7 +2042,7 @@ class TestFlattenToolSchemaCombinatorsWiring:
             model=model,
             input="hi",
             response_api_optional_request_params={"tools": [tool]},
-            litellm_params=GenericLiteLLMParams(),
+            embrouter_params=GenericEmbRouterParams(),
             headers={},
         )
 
@@ -2055,7 +2055,7 @@ class TestFlattenToolSchemaCombinatorsWiring:
             model="gpt-4o",
             input="hi",
             response_api_optional_request_params={"tools": [opaque_tool, self._flat_function_tool()]},
-            litellm_params=GenericLiteLLMParams(),
+            embrouter_params=GenericEmbRouterParams(),
             headers={},
         )
 
@@ -2091,7 +2091,7 @@ class TestToolSchemaRegexPatternWiring:
             model=model,
             input="hi",
             response_api_optional_request_params={"tools": [tool]},
-            litellm_params=GenericLiteLLMParams(),
+            embrouter_params=GenericEmbRouterParams(),
             headers={},
         )
 
@@ -2109,7 +2109,7 @@ class TestToolSchemaRegexPatternWiring:
             model="gpt-5.6",
             input="hi",
             response_api_optional_request_params={"tools": [namespace]},
-            litellm_params=GenericLiteLLMParams(),
+            embrouter_params=GenericEmbRouterParams(),
             headers={},
         )
 
@@ -2121,14 +2121,14 @@ class TestToolSchemaRegexPatternWiring:
             input="hi",
             response_api_optional_request_params={"tools": [self._artifact_tool()]},
             api_base="https://api.openai.com/v1/responses",
-            litellm_params=GenericLiteLLMParams(),
+            embrouter_params=GenericEmbRouterParams(),
             headers={},
         )
 
         assert data["tools"][0]["parameters"]["properties"]["field"] == {"type": "string"}
 
     def test_non_openai_subclass_keeps_patterns(self):
-        from litellm.llms.hosted_vllm.responses.transformation import HostedVLLMResponsesAPIConfig
+        from embrouter.llms.hosted_vllm.responses.transformation import HostedVLLMResponsesAPIConfig
 
         tool = self._artifact_tool()
 
@@ -2136,7 +2136,7 @@ class TestToolSchemaRegexPatternWiring:
             model="hosted_vllm/qwen",
             input="hi",
             response_api_optional_request_params={"tools": [tool]},
-            litellm_params=GenericLiteLLMParams(),
+            embrouter_params=GenericEmbRouterParams(),
             headers={},
         )
 
@@ -2188,9 +2188,9 @@ class TestReasoningFollowsModelSupport:
     ):
         lagging = {
             name: {field: value for field, value in entry.items() if field != "supports_reasoning"}
-            for name, entry in litellm.model_cost.items()
+            for name, entry in embrouter.model_cost.items()
         }
-        monkeypatch.setattr(litellm, "model_cost", lagging)
+        monkeypatch.setattr(embrouter, "model_cost", lagging)
         mapped = OpenAIResponsesAPIConfig().map_openai_params(
             response_api_optional_params={"reasoning": {"effort": "medium"}},
             model=model,
@@ -2198,9 +2198,9 @@ class TestReasoningFollowsModelSupport:
         )
         assert ("reasoning" in mapped) is reasoning_survives
 
-    def test_without_drop_params_the_error_is_litellms_400(self, local_model_cost_map, monkeypatch):
-        monkeypatch.setattr(litellm, "drop_params", False)
-        with pytest.raises(litellm.UnsupportedParamsError) as excinfo:
+    def test_without_drop_params_the_error_is_embrouters_400(self, local_model_cost_map, monkeypatch):
+        monkeypatch.setattr(embrouter, "drop_params", False)
+        with pytest.raises(embrouter.UnsupportedParamsError) as excinfo:
             OpenAIResponsesAPIConfig().map_openai_params(
                 response_api_optional_params={"reasoning": {"effort": "medium"}},
                 model="gpt-4o",
@@ -2218,7 +2218,7 @@ class TestReasoningFollowsModelSupport:
     def test_reasoning_without_an_effort_passes_through_on_non_reasoning_models(
         self, local_model_cost_map, monkeypatch, drop_params, reasoning
     ):
-        monkeypatch.setattr(litellm, "drop_params", drop_params)
+        monkeypatch.setattr(embrouter, "drop_params", drop_params)
         mapped = OpenAIResponsesAPIConfig().map_openai_params(
             response_api_optional_params={"reasoning": dict(reasoning)},
             model="gpt-4o",
@@ -2229,9 +2229,9 @@ class TestReasoningFollowsModelSupport:
     def test_an_explicit_supports_reasoning_false_beats_the_bundled_floor(self, local_model_cost_map, monkeypatch):
         overridden = {
             name: ({**entry, "supports_reasoning": False} if name == "o3" else entry)
-            for name, entry in litellm.model_cost.items()
+            for name, entry in embrouter.model_cost.items()
         }
-        monkeypatch.setattr(litellm, "model_cost", overridden)
+        monkeypatch.setattr(embrouter, "model_cost", overridden)
         mapped = OpenAIResponsesAPIConfig().map_openai_params(
             response_api_optional_params={"reasoning": {"effort": "medium"}},
             model="o3",

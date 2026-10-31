@@ -4,10 +4,10 @@ from unittest.mock import Mock
 
 import pytest
 
-from litellm import Router
-from litellm.constants import ROUTER_FALLBACK_ERROR_DETAIL_MAX_CHARS
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.router_utils.common_utils import (
+from embrouter import Router
+from embrouter.constants import ROUTER_FALLBACK_ERROR_DETAIL_MAX_CHARS
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.router_utils.common_utils import (
     _deployment_supports_web_search,
     add_model_file_id_mappings,
     filter_team_based_models,
@@ -85,11 +85,11 @@ class TestFilterTeamBasedModels:
         result_ids = [d.get("model_info", {}).get("id") for d in result]
         assert sorted(result_ids) == sorted(expected_ids)
 
-    def test_filter_team_based_models_team_match_litellm_metadata(
+    def test_filter_team_based_models_team_match_embrouter_metadata(
         self, sample_deployments_with_teams
     ):
-        """Test filtering when team_id is in litellm_metadata"""
-        request_kwargs = {"litellm_metadata": {"user_api_key_team_id": "team-b"}}
+        """Test filtering when team_id is in embrouter_metadata"""
+        request_kwargs = {"embrouter_metadata": {"user_api_key_team_id": "team-b"}}
         result = filter_team_based_models(sample_deployments_with_teams, request_kwargs)
 
         # Should include:
@@ -102,19 +102,19 @@ class TestFilterTeamBasedModels:
         result_ids = [d.get("model_info", {}).get("id") for d in result]
         assert sorted(result_ids) == sorted(expected_ids)
 
-    def test_filter_team_based_models_priority_metadata_over_litellm(
+    def test_filter_team_based_models_priority_metadata_over_embrouter(
         self, sample_deployments_with_teams
     ):
-        """Test that metadata.user_api_key_team_id takes priority over litellm_metadata.user_api_key_team_id"""
+        """Test that metadata.user_api_key_team_id takes priority over embrouter_metadata.user_api_key_team_id"""
         request_kwargs = {
             "metadata": {
                 "user_api_key_team_id": "team-a",  # This should take priority
-                "litellm_metadata": {"user_api_key_team_id": "team-b"},
+                "embrouter_metadata": {"user_api_key_team_id": "team-b"},
             }
         }
         result = filter_team_based_models(sample_deployments_with_teams, request_kwargs)
 
-        # Should filter based on team-a (from metadata, not litellm_metadata)
+        # Should filter based on team-a (from metadata, not embrouter_metadata)
         expected_ids = ["deployment-1", "deployment-3", "deployment-4"]
         result_ids = [d.get("model_info", {}).get("id") for d in result]
         assert sorted(result_ids) == sorted(expected_ids)
@@ -218,7 +218,7 @@ class TestDeploymentSupportsWebSearch:
 
     def test_no_config_defaults_to_true(self):
         """When no supports_web_search in config, default to True"""
-        deployment = {"litellm_params": {"model": "gpt-4"}, "model_info": {"id": "123"}}
+        deployment = {"embrouter_params": {"model": "gpt-4"}, "model_info": {"id": "123"}}
         assert _deployment_supports_web_search(deployment) is True
 
     def test_empty_deployment_defaults_to_true(self):
@@ -227,7 +227,7 @@ class TestDeploymentSupportsWebSearch:
 
     def test_missing_model_info_defaults_to_true(self):
         """When model_info missing, default to True"""
-        deployment = {"litellm_params": {"model": "gpt-4"}}
+        deployment = {"embrouter_params": {"model": "gpt-4"}}
         assert _deployment_supports_web_search(deployment) is True
 
 
@@ -360,7 +360,7 @@ def test_invalidate_model_group_info_cache():
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {"model": "gpt-4", "api_key": "fake-key"},
+                "embrouter_params": {"model": "gpt-4", "api_key": "fake-key"},
             }
         ]
     )
@@ -382,12 +382,12 @@ def test_filter_deployments_by_model_access_groups_access_group_only_key():
         model_list=[
             {
                 "model_name": "gpt-5",
-                "litellm_params": {"model": "openai/gpt-5.1", "api_key": "key-1"},
+                "embrouter_params": {"model": "openai/gpt-5.1", "api_key": "key-1"},
                 "model_info": {"access_groups": ["AG1"]},
             },
             {
                 "model_name": "gpt-5",
-                "litellm_params": {"model": "openai/gpt-4o", "api_key": "key-2"},
+                "embrouter_params": {"model": "openai/gpt-4o", "api_key": "key-2"},
                 "model_info": {"access_groups": ["AG2"]},
             },
         ]
@@ -436,12 +436,12 @@ class TestAddModelFileIdMappings:
         deployments = [
             {
                 "model_name": "gpt-4",
-                "litellm_params": {"model": "gpt-4"},
+                "embrouter_params": {"model": "gpt-4"},
                 "model_info": {"id": "deployment-1"},
             },
             {
                 "model_name": "gpt-4",
-                "litellm_params": {"model": "gpt-4"},
+                "embrouter_params": {"model": "gpt-4"},
                 "model_info": {"id": "deployment-2"},
             },
         ]
@@ -455,11 +455,11 @@ class TestAddModelFileIdMappings:
         """Regression test: when `_common_checks_available_deployment` resolves
         a specific deployment (returned as a dict, not a list), the function
         must still extract `model_info.id` rather than iterate over the
-        deployment's own keys (`model_name`, `litellm_params`, `model_info`).
+        deployment's own keys (`model_name`, `embrouter_params`, `model_info`).
         """
         deployment = {
             "model_name": "gpt-4",
-            "litellm_params": {"model": "gpt-4", "api_key": "sk-test"},
+            "embrouter_params": {"model": "gpt-4", "api_key": "sk-test"},
             "model_info": {"id": "deployment-1", "mode": "chat"},
         }
         responses = [self._make_response("file-1")]
@@ -474,11 +474,11 @@ class TestAddModelFileIdMappings:
         intentionally set equal to `model_name`, the router resolves a single
         deployment via `has_model_id` and returns it as a dict. The mapping
         must contain only `{id: file_id}` with string values so the resulting
-        `LiteLLM_ManagedFileTable` Pydantic validation passes.
+        `EmbRouter_ManagedFileTable` Pydantic validation passes.
         """
         deployment = {
             "model_name": "openai/openai/gpt-5.5-batch",
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "openai/gpt-5.5",
                 "api_key": "sk-test",
                 "tpm": 40000000,
@@ -495,22 +495,22 @@ class TestAddModelFileIdMappings:
 
         result = add_model_file_id_mappings(deployment, responses)
 
-        # Bug case would have produced keys ["model_name", "litellm_params",
+        # Bug case would have produced keys ["model_name", "embrouter_params",
         # "model_info"] with non-string values.
         assert result == {"openai/openai/gpt-5.5-batch": "file-batch-1"}
-        assert "litellm_params" not in result
+        assert "embrouter_params" not in result
         assert "model_info" not in result
 
     def test_should_skip_deployment_when_model_info_id_missing(self):
         deployments = [
             {
                 "model_name": "gpt-4",
-                "litellm_params": {"model": "gpt-4"},
+                "embrouter_params": {"model": "gpt-4"},
                 "model_info": {},
             },
             {
                 "model_name": "gpt-4",
-                "litellm_params": {"model": "gpt-4"},
+                "embrouter_params": {"model": "gpt-4"},
                 "model_info": {"id": "deployment-2"},
             },
         ]
@@ -555,7 +555,7 @@ class TestResolveModelGroupAlias:
             model_list=[
                 {
                     "model_name": "group-b",
-                    "litellm_params": {"model": "openai/gpt-4o", "api_key": "sk-fake"},
+                    "embrouter_params": {"model": "openai/gpt-4o", "api_key": "sk-fake"},
                 }
             ],
             model_group_alias={"group-a": "group-b", "group-item": {"model": "group-b", "hidden": True}},
@@ -592,7 +592,7 @@ class TestTruncateFallbackErrorDetail:
 
 class TestWarnOnProviderCredentialMismatch:
     """A deployment that carries one provider's credentials while resolving to
-    another is silently broken: litellm ignores the credentials and sends the
+    another is silently broken: embrouter ignores the credentials and sends the
     request to the resolved provider, which 401s. The classic shape is a bedrock
     model group where one entry lost its route prefix, which fails only on the
     requests the router happens to send to that entry."""
@@ -600,7 +600,7 @@ class TestWarnOnProviderCredentialMismatch:
     def test_warns_when_aws_params_sit_on_an_anthropic_model(self):
         warning = warn_on_provider_credential_mismatch(
             model_name="claude-sonnet-5",
-            litellm_params={"model": "claude-sonnet-5", "aws_region_name": "eu-central-1"},
+            embrouter_params={"model": "claude-sonnet-5", "aws_region_name": "eu-central-1"},
         )
 
         assert warning is not None
@@ -612,7 +612,7 @@ class TestWarnOnProviderCredentialMismatch:
         assert (
             warn_on_provider_credential_mismatch(
                 model_name="claude-sonnet-5",
-                litellm_params={
+                embrouter_params={
                     "model": "bedrock/invoke/us.anthropic.claude-haiku-4-5-20251001-v1:0",
                     "aws_region_name": "eu-central-1",
                 },
@@ -626,7 +626,7 @@ class TestWarnOnProviderCredentialMismatch:
         assert (
             warn_on_provider_credential_mismatch(
                 model_name="claude-sonnet-5",
-                litellm_params={
+                embrouter_params={
                     "model": "anthropic.claude-sonnet-4-5-20250929-v1:0",
                     "custom_llm_provider": "bedrock",
                     "aws_region_name": "eu-central-1",
@@ -638,7 +638,7 @@ class TestWarnOnProviderCredentialMismatch:
     def test_silent_when_no_provider_scoped_credentials_are_set(self):
         assert (
             warn_on_provider_credential_mismatch(
-                model_name="gpt-5.5", litellm_params={"model": "gpt-5.5"}
+                model_name="gpt-5.5", embrouter_params={"model": "gpt-5.5"}
             )
             is None
         )
@@ -648,20 +648,20 @@ class TestWarnOnProviderCredentialMismatch:
         sends the operator to the wrong prefix."""
         warning = warn_on_provider_credential_mismatch(
             model_name="claude-on-vertex",
-            litellm_params={"model": "claude-sonnet-5", "vertex_project": "my-project"},
+            embrouter_params={"model": "claude-sonnet-5", "vertex_project": "my-project"},
         )
 
         assert warning is not None
         assert "vertex_ai/claude-sonnet-5" in warning
         assert "bedrock" not in warning
 
-    def test_silent_for_a_model_litellm_cannot_classify(self):
+    def test_silent_for_a_model_embrouter_cannot_classify(self):
         """An unresolvable model must not warn and must not raise: this runs on
         the router startup path, so a wrong guess would spam every boot."""
         assert (
             warn_on_provider_credential_mismatch(
                 model_name="mystery",
-                litellm_params={"model": "not-a-real-provider-model-xyz", "aws_region_name": "us-east-1"},
+                embrouter_params={"model": "not-a-real-provider-model-xyz", "aws_region_name": "us-east-1"},
             )
             is None
         )
@@ -669,19 +669,19 @@ class TestWarnOnProviderCredentialMismatch:
     def test_router_warns_for_a_config_shaped_model_list(self, caplog):
         """The whole point is that this fires where operators declare models, so
         drive Router rather than the helper."""
-        with caplog.at_level(logging.WARNING, logger="LiteLLM Router"):
+        with caplog.at_level(logging.WARNING, logger="EmbRouter Router"):
             Router(
                 model_list=[
                     {
                         "model_name": "claude-sonnet-5",
-                        "litellm_params": {
+                        "embrouter_params": {
                             "model": "bedrock/invoke/us.anthropic.claude-haiku-4-5-20251001-v1:0",
                             "aws_region_name": "us-east-1",
                         },
                     },
                     {
                         "model_name": "claude-sonnet-5",
-                        "litellm_params": {
+                        "embrouter_params": {
                             "model": "claude-sonnet-5",
                             "aws_region_name": "us-east-1",
                         },
@@ -712,7 +712,7 @@ class TestWarnOnProviderCredentialMismatch:
         assert (
             warn_on_provider_credential_mismatch(
                 model_name="aws-deployment",
-                litellm_params={"model": model, "aws_region_name": "us-east-1"},
+                embrouter_params={"model": model, "aws_region_name": "us-east-1"},
             )
             is None
         )
@@ -720,7 +720,7 @@ class TestWarnOnProviderCredentialMismatch:
     def test_every_aws_family_provider_is_covered(self):
         """Pins the derivation itself: a newly added bedrock_*/sagemaker_* provider
         must join the set automatically, or it starts drawing false warnings."""
-        from litellm.types.utils import LlmProviders
+        from embrouter.types.utils import LlmProviders
 
         aws_family = {p.value for p in LlmProviders if p.value.startswith(("bedrock", "sagemaker"))}
         assert aws_family <= PROVIDER_SCOPED_CREDENTIAL_PARAMS["aws_region_name"]
@@ -732,9 +732,9 @@ class TestWarnOnProviderCredentialMismatch:
         assert (
             warn_on_provider_credential_mismatch(
                 model_name="claude-sonnet-5",
-                litellm_params={
+                embrouter_params={
                     "model": "bedrock/invoke/us.anthropic.claude-haiku-4-5-20251001-v1:0",
-                    "litellm_credential_name": "my-aws-creds",
+                    "embrouter_credential_name": "my-aws-creds",
                 },
             )
             is None
@@ -749,7 +749,7 @@ class TestWarnOnProviderCredentialMismatch:
         assert (
             warn_on_provider_credential_mismatch(
                 model_name="aws-deployment",
-                litellm_params={
+                embrouter_params={
                     "model": "anthropic.claude-sonnet-4-5-20250929-v1:0",
                     "custom_llm_provider": provider,
                     "aws_region_name": "us-east-1",
@@ -760,7 +760,7 @@ class TestWarnOnProviderCredentialMismatch:
 
 
 @pytest.mark.parametrize(
-    ("litellm_params", "expected"),
+    ("embrouter_params", "expected"),
     [
         ({"model": "azure_ai/gpt-5.4-mini", "custom_llm_provider": "azure"}, "azure"),
         ({"model": "azure_ai/gpt-5.4-mini", "api_base": "https://my-resource.openai.azure.com"}, "azure_ai"),
@@ -771,6 +771,6 @@ class TestWarnOnProviderCredentialMismatch:
     ],
     ids=["declared_wins", "prefix_beats_host_flip", "prefix_beats_cohere_chat_flip", "unprefixed_inferred", "unknown", "no_model"],
 )
-def test_provider_for_generic_call(litellm_params, expected, monkeypatch):
+def test_provider_for_generic_call(embrouter_params, expected, monkeypatch):
     monkeypatch.setenv("AZURE_AI_API_BASE", "https://unrelated.openai.azure.com")
-    assert provider_for_generic_call(litellm_params) == expected
+    assert provider_for_generic_call(embrouter_params) == expected

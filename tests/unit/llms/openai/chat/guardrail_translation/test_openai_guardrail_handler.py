@@ -12,12 +12,12 @@ from typing import Any, Literal, Optional
 import pytest
 
 
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.llms.base_llm.guardrail_translation.base_translation import StreamingScanKey
-from litellm.llms.openai.chat.guardrail_translation.handler import (
+from embrouter.integrations.custom_guardrail import CustomGuardrail
+from embrouter.llms.base_llm.guardrail_translation.base_translation import StreamingScanKey
+from embrouter.llms.openai.chat.guardrail_translation.handler import (
     OpenAIChatCompletionsHandler,
 )
-from litellm.types.utils import (
+from embrouter.types.utils import (
     ChatCompletionMessageToolCall,
     Choices,
     Function,
@@ -627,7 +627,7 @@ class TestOpenAIChatCompletionsHandlerToolCallsOutput:
                                 function=Function(
                                     name="web_search",
                                     arguments=json.dumps(
-                                        {"keywords": "litellm documentation"}
+                                        {"keywords": "embrouter documentation"}
                                     ),
                                 ),
                             )
@@ -656,7 +656,7 @@ class TestOpenAIChatCompletionsHandlerToolCallsOutput:
         )
         response_tool_call = response.choices[0].message.tool_calls[0]
         args = json.loads(response_tool_call.function.arguments)
-        assert args["keywords"] == "LITELLM DOCUMENTATION"
+        assert args["keywords"] == "EMBROUTER DOCUMENTATION"
 
     @pytest.mark.asyncio
     async def test_extract_multiple_tool_calls_from_output(self):
@@ -931,7 +931,7 @@ class TestOpenAIChatCompletionsHandlerStreamingOutput:
         This test verifies the fix for the bug where accessing chunk.choices[0]
         would raise IndexError when a streaming chunk has an empty choices list.
         """
-        from litellm.types.utils import ModelResponseStream
+        from embrouter.types.utils import ModelResponseStream
 
         handler = OpenAIChatCompletionsHandler()
         guardrail = MockPassThroughGuardrail(guardrail_name="test")
@@ -951,7 +951,7 @@ class TestOpenAIChatCompletionsHandlerStreamingOutput:
         result = await handler.process_output_streaming_response(
             responses_so_far=responses_so_far,
             guardrail_to_apply=guardrail,
-            litellm_logging_obj=None,
+            embrouter_logging_obj=None,
         )
 
         # Should return the responses unchanged
@@ -960,7 +960,7 @@ class TestOpenAIChatCompletionsHandlerStreamingOutput:
     @pytest.mark.asyncio
     async def test_process_output_streaming_response_with_valid_choices(self):
         """Test that streaming response with valid choices still works correctly"""
-        from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices
+        from embrouter.types.utils import Delta, ModelResponseStream, StreamingChoices
 
         handler = OpenAIChatCompletionsHandler()
         guardrail = MockPassThroughGuardrail(guardrail_name="test")
@@ -1000,7 +1000,7 @@ class TestOpenAIChatCompletionsHandlerStreamingOutput:
         result = await handler.process_output_streaming_response(
             responses_so_far=responses_so_far,
             guardrail_to_apply=guardrail,
-            litellm_logging_obj=None,
+            embrouter_logging_obj=None,
         )
 
         # Should return the responses
@@ -1015,7 +1015,7 @@ class TestOpenAIChatCompletionsHandlerStreamingOutput:
         This tests the has_stream_ended check when iterating through chunks with mixed choices.
         The stream hasn't finished yet (no finish_reason), so it won't trigger stream_chunk_builder.
         """
-        from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices
+        from embrouter.types.utils import Delta, ModelResponseStream, StreamingChoices
 
         handler = OpenAIChatCompletionsHandler()
         guardrail = MockPassThroughGuardrail(guardrail_name="test")
@@ -1050,7 +1050,7 @@ class TestOpenAIChatCompletionsHandlerStreamingOutput:
         result = await handler.process_output_streaming_response(
             responses_so_far=responses_so_far,
             guardrail_to_apply=guardrail,
-            litellm_logging_obj=None,
+            embrouter_logging_obj=None,
         )
 
         # Should return the responses
@@ -1058,7 +1058,7 @@ class TestOpenAIChatCompletionsHandlerStreamingOutput:
 
     @staticmethod
     def _ended_stream_chunks() -> list:
-        from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices
+        from embrouter.types.utils import Delta, ModelResponseStream, StreamingChoices
 
         return [
             ModelResponseStream(
@@ -1086,7 +1086,7 @@ class TestOpenAIChatCompletionsHandlerStreamingOutput:
         result = await handler.process_output_streaming_response(
             responses_so_far=chunks,
             guardrail_to_apply=guardrail,
-            litellm_logging_obj=None,
+            embrouter_logging_obj=None,
             deliver_ended_stream_rewrites=True,
         )
 
@@ -1097,7 +1097,7 @@ class TestOpenAIChatCompletionsHandlerStreamingOutput:
 
     @staticmethod
     def _ended_tool_call_stream_chunks() -> list:
-        from litellm.types.utils import (
+        from embrouter.types.utils import (
             ChatCompletionDeltaToolCall,
             Delta,
             Function,
@@ -1141,7 +1141,7 @@ class TestOpenAIChatCompletionsHandlerStreamingOutput:
         result = await handler.process_output_streaming_response(
             responses_so_far=chunks,
             guardrail_to_apply=guardrail,
-            litellm_logging_obj=None,
+            embrouter_logging_obj=None,
             deliver_ended_stream_rewrites=True,
         )
 
@@ -1167,7 +1167,7 @@ class TestOpenAIChatCompletionsHandlerStreamingOutput:
         await handler.process_output_streaming_response(
             responses_so_far=chunks,
             guardrail_to_apply=RenameTool(guardrail_name="test"),
-            litellm_logging_obj=None,
+            embrouter_logging_obj=None,
             deliver_ended_stream_rewrites=True,
         )
 
@@ -1185,7 +1185,7 @@ class TestOpenAIChatCompletionsHandlerStreamingOutput:
         await handler.process_output_streaming_response(
             responses_so_far=chunks,
             guardrail_to_apply=guardrail,
-            litellm_logging_obj=None,
+            embrouter_logging_obj=None,
         )
 
         fragments = [chunk.choices[0].delta.tool_calls for chunk in chunks[:3]]
@@ -1200,7 +1200,7 @@ class TestOpenAIChatCompletionsHandlerStreamingOutput:
         await handler.process_output_streaming_response(
             responses_so_far=chunks,
             guardrail_to_apply=guardrail,
-            litellm_logging_obj=None,
+            embrouter_logging_obj=None,
         )
 
         assert chunks[0].choices[0].delta.content == "Hello"
@@ -1209,7 +1209,7 @@ class TestOpenAIChatCompletionsHandlerStreamingOutput:
 
     @staticmethod
     def _two_choice_stream_chunks() -> list:
-        from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices
+        from embrouter.types.utils import Delta, ModelResponseStream, StreamingChoices
 
         def chunk(index: int, content: str, finish_reason: Optional[str] = None) -> ModelResponseStream:
             return ModelResponseStream(
@@ -1250,7 +1250,7 @@ class TestOpenAIChatCompletionsHandlerStreamingOutput:
         result = await handler.process_output_streaming_response(
             responses_so_far=chunks,
             guardrail_to_apply=self._world_masking_guardrail(),
-            litellm_logging_obj=None,
+            embrouter_logging_obj=None,
             deliver_ended_stream_rewrites=True,
         )
 
@@ -1272,7 +1272,7 @@ class TestOpenAIChatCompletionsHandlerStreamingOutput:
         await handler.process_output_streaming_response(
             responses_so_far=chunks,
             guardrail_to_apply=guardrail,
-            litellm_logging_obj=None,
+            embrouter_logging_obj=None,
             deliver_ended_stream_rewrites=True,
         )
 
@@ -1286,7 +1286,7 @@ class TestOpenAIChatCompletionsHandlerStreamingOutput:
 
     @pytest.mark.asyncio
     async def test_deliver_ended_stream_rewrites_every_choice_when_a_usage_only_chunk_closes_the_stream(self):
-        from litellm.types.utils import ModelResponseStream, Usage
+        from embrouter.types.utils import ModelResponseStream, Usage
 
         handler = OpenAIChatCompletionsHandler()
         guardrail = MockGuardrail(guardrail_name="test")
@@ -1303,7 +1303,7 @@ class TestOpenAIChatCompletionsHandlerStreamingOutput:
         result = await handler.process_output_streaming_response(
             responses_so_far=chunks,
             guardrail_to_apply=guardrail,
-            litellm_logging_obj=None,
+            embrouter_logging_obj=None,
             deliver_ended_stream_rewrites=True,
         )
 
@@ -1321,7 +1321,7 @@ class TestOpenAIChatCompletionsHandlerStreamingOutput:
 
     @staticmethod
     def _two_choice_tool_call_stream_chunks() -> list:
-        from litellm.types.utils import (
+        from embrouter.types.utils import (
             ChatCompletionDeltaToolCall,
             Delta,
             Function,
@@ -1390,7 +1390,7 @@ class TestOpenAIChatCompletionsHandlerStreamingOutput:
         await handler.process_output_streaming_response(
             responses_so_far=chunks,
             guardrail_to_apply=guardrail,
-            litellm_logging_obj=None,
+            embrouter_logging_obj=None,
             deliver_ended_stream_rewrites=True,
         )
 
@@ -1401,7 +1401,7 @@ class TestOpenAIChatCompletionsHandlerStreamingOutput:
 
     @pytest.mark.asyncio
     async def test_deliver_ended_stream_tool_call_rewrite_on_multi_choice_stream_fails_closed(self):
-        from litellm.proxy.policy_engine.pipeline_executor import UndeliverableStreamRewrite
+        from embrouter.proxy.policy_engine.pipeline_executor import UndeliverableStreamRewrite
 
         handler = OpenAIChatCompletionsHandler()
         chunks = self._two_choice_tool_call_stream_chunks()
@@ -1410,7 +1410,7 @@ class TestOpenAIChatCompletionsHandlerStreamingOutput:
             await handler.process_output_streaming_response(
                 responses_so_far=chunks,
                 guardrail_to_apply=MockGuardrail(guardrail_name="test"),
-                litellm_logging_obj=None,
+                embrouter_logging_obj=None,
                 deliver_ended_stream_rewrites=True,
             )
 
@@ -1427,7 +1427,7 @@ class TestOpenAIChatCompletionsHandlerStreamingOutput:
         result = await handler.process_output_streaming_response(
             responses_so_far=chunks,
             guardrail_to_apply=MockPassThroughGuardrail(guardrail_name="test"),
-            litellm_logging_obj=None,
+            embrouter_logging_obj=None,
             deliver_ended_stream_rewrites=True,
         )
 
@@ -1436,7 +1436,7 @@ class TestOpenAIChatCompletionsHandlerStreamingOutput:
 
     @pytest.mark.asyncio
     async def test_deliver_ended_stream_rewrite_lands_on_nonzero_choice_index(self):
-        from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices
+        from embrouter.types.utils import Delta, ModelResponseStream, StreamingChoices
 
         handler = OpenAIChatCompletionsHandler()
 
@@ -1454,7 +1454,7 @@ class TestOpenAIChatCompletionsHandlerStreamingOutput:
         result = await handler.process_output_streaming_response(
             responses_so_far=chunks,
             guardrail_to_apply=self._world_masking_guardrail(),
-            litellm_logging_obj=None,
+            embrouter_logging_obj=None,
             deliver_ended_stream_rewrites=True,
         )
 
@@ -1562,11 +1562,11 @@ class TestIncrementalScanRespectsSkipFlags:
     content on any turn, including a session's first turn where every segment is new.
     Verified live against a real Bedrock ApplyGuardrail before being encoded here.
     The flags are set as instance attributes, mirroring how guardrail_registry
-    applies litellm_params to the callback (they are not constructor kwargs).
+    applies embrouter_params to the callback (they are not constructor kwargs).
     """
 
     def _bedrock_guardrail(self):
-        from litellm.proxy.guardrails.guardrail_hooks.bedrock_guardrails import BedrockGuardrail
+        from embrouter.proxy.guardrails.guardrail_hooks.bedrock_guardrails import BedrockGuardrail
 
         guardrail = BedrockGuardrail(
             guardrail_name="bedrock-incremental-skip-flags",
@@ -1605,7 +1605,7 @@ class TestIncrementalScanRespectsSkipFlags:
 
         handler = OpenAIChatCompletionsHandler()
         guardrail = self._bedrock_guardrail()
-        data = {"messages": self._messages(), "litellm_session_id": "skip-flags-turn1"}
+        data = {"messages": self._messages(), "embrouter_session_id": "skip-flags-turn1"}
         with patch.object(guardrail, "make_bedrock_api_request", new_callable=AsyncMock) as mock_api:
             mock_api.return_value = {"action": "NONE", "output": [], "outputs": []}
             await handler.process_input_messages(data=data, guardrail_to_apply=guardrail)
@@ -1633,12 +1633,12 @@ class TestIncrementalScanRespectsSkipFlags:
         with patch.object(guardrail, "make_bedrock_api_request", new_callable=AsyncMock) as mock_api:
             mock_api.return_value = {"action": "NONE", "output": [], "outputs": []}
             await handler.process_input_messages(
-                data={"messages": self._messages(), "litellm_session_id": session},
+                data={"messages": self._messages(), "embrouter_session_id": session},
                 guardrail_to_apply=guardrail,
             )
             mock_api.reset_mock()
             await handler.process_input_messages(
-                data={"messages": self._messages(followup), "litellm_session_id": session},
+                data={"messages": self._messages(followup), "embrouter_session_id": session},
                 guardrail_to_apply=guardrail,
             )
             assert mock_api.call_count == 1
@@ -1756,7 +1756,7 @@ class DuplicateToolReturningGuardrail(CustomGuardrail):
 
 class TestScanOnlyToolResults:
     def _bedrock_guardrail(self):
-        from litellm.proxy.guardrails.guardrail_hooks.bedrock_guardrails import BedrockGuardrail
+        from embrouter.proxy.guardrails.guardrail_hooks.bedrock_guardrails import BedrockGuardrail
 
         guardrail = BedrockGuardrail(
             guardrail_name="bedrock-scan-only-tool-results",
@@ -1988,7 +1988,7 @@ class TestNoScannableContentRecordsNotRun:
         return {"messages": [{"role": "system", "content": "SYSTEM-PROMPT"}]}
 
     def _recorded_entries(self, data: dict) -> list:
-        metadata = data.get("metadata") or data.get("litellm_metadata") or {}
+        metadata = data.get("metadata") or data.get("embrouter_metadata") or {}
         return metadata.get("standard_logging_guardrail_information") or []
 
     @pytest.mark.asyncio
@@ -2139,7 +2139,7 @@ class TestPerMessageTextWriteBack:
 
     @pytest.mark.asyncio
     async def test_fewer_texts_than_extracted_over_a_tool_message_is_rejected(self):
-        from litellm.llms.base_llm.guardrail_translation.utils import UnappliableRequestRewrite
+        from embrouter.llms.base_llm.guardrail_translation.utils import UnappliableRequestRewrite
 
         handler = OpenAIChatCompletionsHandler()
         original_messages = [
@@ -2162,7 +2162,7 @@ class TestBuildBlockSseChunks:
     """build_block_sse_chunks turns a streaming ModifyResponseException into 200 SSE chunks"""
 
     def _exc(self, original_response=None):
-        from litellm.exceptions import ModifyResponseException
+        from embrouter.exceptions import ModifyResponseException
 
         return ModifyResponseException(
             message="Blocked by policy.",
@@ -2231,7 +2231,7 @@ class TestCheckStreamingHasEnded:
         assert handler._check_streaming_has_ended(chunks) is True
 
     def test_object_finish_chunk_marks_stream_ended(self):
-        from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices
+        from embrouter.types.utils import Delta, ModelResponseStream, StreamingChoices
 
         handler = OpenAIChatCompletionsHandler()
         chunks = [
@@ -2248,7 +2248,7 @@ class TestStreamingScanKey:
 
     @staticmethod
     def _chunk(content, finish_reason=None, index=0):
-        from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices
+        from embrouter.types.utils import Delta, ModelResponseStream, StreamingChoices
 
         return ModelResponseStream(
             choices=[StreamingChoices(index=index, delta=Delta(content=content), finish_reason=finish_reason)]
@@ -2274,7 +2274,7 @@ class TestStreamingScanKey:
         assert ended_key == open_key
 
     def test_tool_calls_only_enter_the_key_once_the_stream_has_ended(self):
-        from litellm.types.utils import (
+        from embrouter.types.utils import (
             ChatCompletionDeltaToolCall,
             Delta,
             Function,
@@ -2302,7 +2302,7 @@ class TestStreamingScanKey:
         assert ended_key != open_key
 
     def test_legacy_function_call_delta_is_held_like_a_tool_call(self):
-        from litellm.types.utils import Delta, FunctionCall, ModelResponseStream, StreamingChoices
+        from embrouter.types.utils import Delta, FunctionCall, ModelResponseStream, StreamingChoices
 
         handler = OpenAIChatCompletionsHandler()
         function_chunk = ModelResponseStream(

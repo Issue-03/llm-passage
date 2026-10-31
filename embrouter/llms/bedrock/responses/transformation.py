@@ -24,7 +24,7 @@ bridge also downloaded ``input_image`` http(s) URLs for Converse, while
 bedrock-runtime only accepts ``data:`` and ``s3://`` image URLs, so remote image
 URLs are fetched and inlined as data URIs before the request is signed.
 
-Auth: Bearer token (litellm_params.api_key or the standard AWS_BEARER_TOKEN_BEDROCK)
+Auth: Bearer token (embrouter_params.api_key or the standard AWS_BEARER_TOKEN_BEDROCK)
 when present; otherwise AWS SigV4 (service "bedrock") over the standard credential
 chain, signed via BaseAWSLLM._sign_request once the body is final.
 
@@ -40,24 +40,24 @@ from typing import Final
 
 import httpx
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.litellm_core_utils.prompt_templates.image_handling import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.embrouter_core_utils.prompt_templates.image_handling import (
     async_convert_url_to_base64,
     convert_url_to_base64,
 )
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.base_llm.responses.codex_compat import drop_unsupported_tools, normalize_codex_input_items
-from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM
-from litellm.llms.bedrock.common_utils import (
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.base_llm.responses.codex_compat import drop_unsupported_tools, normalize_codex_input_items
+from embrouter.llms.bedrock.base_aws_llm import BaseAWSLLM
+from embrouter.llms.bedrock.common_utils import (
     BedrockError,
     bedrock_supports_openai_responses,
 )
-from litellm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.openai import ResponseInputParam, ResponsesAPIOptionalRequestParams
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import LlmProviders
+from embrouter.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.openai import ResponseInputParam, ResponsesAPIOptionalRequestParams
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import LlmProviders
 
 BEDROCK_RUNTIME_OPENAI_RESPONSES_PATH: Final = "/openai/v1/responses"
 BEDROCK_RUNTIME_OPENAI_BASE_SUFFIXES: Final = (
@@ -170,7 +170,7 @@ class BedrockOpenAIResponsesConfig(BaseAWSLLM, OpenAIResponsesAPIConfig):
         Bedrock adapter. ``None`` leaves the caller's existing behaviour untouched --
         chat-only Bedrock models keep the Chat Completions bridge.
         """
-        if not bedrock_supports_openai_responses(model, litellm.model_cost):
+        if not bedrock_supports_openai_responses(model, embrouter.model_cost):
             return None
         return cls()
 
@@ -187,12 +187,12 @@ class BedrockOpenAIResponsesConfig(BaseAWSLLM, OpenAIResponsesAPIConfig):
     def get_complete_url(
         self,
         api_base: str | None,
-        litellm_params: dict,  # mutable-ok: signature fixed by the BaseResponsesAPIConfig override contract
+        embrouter_params: dict,  # mutable-ok: signature fixed by the BaseResponsesAPIConfig override contract
     ) -> str:
-        region: Final = self._get_aws_region_name(optional_params=litellm_params, model=None)
+        region: Final = self._get_aws_region_name(optional_params=embrouter_params, model=None)
         override: Final = (
             api_base
-            or litellm_params.get("aws_bedrock_runtime_endpoint")
+            or embrouter_params.get("aws_bedrock_runtime_endpoint")
             or get_secret_str("AWS_BEDROCK_RUNTIME_ENDPOINT")
         )
         # Partition-aware: bedrock-runtime is amazonaws.com.cn in China, and other
@@ -213,9 +213,9 @@ class BedrockOpenAIResponsesConfig(BaseAWSLLM, OpenAIResponsesAPIConfig):
         self,
         headers: dict,  # mutable-ok: signature fixed by the BaseResponsesAPIConfig override contract
         model: str,
-        litellm_params: GenericLiteLLMParams | None,
+        embrouter_params: GenericEmbRouterParams | None,
     ) -> dict:  # mutable-ok: signature fixed by the BaseResponsesAPIConfig override contract
-        api_key: Final = litellm_params.api_key if litellm_params is not None else None
+        api_key: Final = embrouter_params.api_key if embrouter_params is not None else None
         bearer: Final = resolve_bedrock_bearer_token(api_key)
         if not bearer:
             return headers
@@ -285,7 +285,7 @@ class BedrockOpenAIResponsesConfig(BaseAWSLLM, OpenAIResponsesAPIConfig):
         model: str,
         input: "str | ResponseInputParam",
         response_api_optional_request_params: dict,  # mutable-ok: signature fixed by the override contract
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,  # mutable-ok: same
     ) -> dict:  # mutable-ok: same
         inlined: Final = MappingProxyType({url: self.fetch_image(url) for url in collect_remote_image_urls(input)})
@@ -293,7 +293,7 @@ class BedrockOpenAIResponsesConfig(BaseAWSLLM, OpenAIResponsesAPIConfig):
             model=model,
             input=inline_remote_image_urls(input, inlined),
             response_api_optional_request_params=response_api_optional_request_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
@@ -302,7 +302,7 @@ class BedrockOpenAIResponsesConfig(BaseAWSLLM, OpenAIResponsesAPIConfig):
         model: str,
         input: "str | ResponseInputParam",
         response_api_optional_request_params: dict,  # mutable-ok: signature fixed by the override contract
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,  # mutable-ok: same
     ) -> dict:  # mutable-ok: same
         remote_urls: Final = collect_remote_image_urls(input)
@@ -311,7 +311,7 @@ class BedrockOpenAIResponsesConfig(BaseAWSLLM, OpenAIResponsesAPIConfig):
             model=model,
             input=inline_remote_image_urls(input, MappingProxyType(dict(zip(remote_urls, data_uris, strict=True)))),
             response_api_optional_request_params=response_api_optional_request_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
@@ -320,7 +320,7 @@ class BedrockOpenAIResponsesConfig(BaseAWSLLM, OpenAIResponsesAPIConfig):
         model: str,
         input: "str | ResponseInputParam",
         response_api_optional_request_params: dict,  # mutable-ok: signature fixed by the override contract
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,  # mutable-ok: same
     ) -> dict:  # mutable-ok: same
         normalized_input, rewritten_types = normalize_codex_input_items(input)
@@ -333,6 +333,6 @@ class BedrockOpenAIResponsesConfig(BaseAWSLLM, OpenAIResponsesAPIConfig):
             model=model,
             input=normalized_input,
             response_api_optional_request_params=response_api_optional_request_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )

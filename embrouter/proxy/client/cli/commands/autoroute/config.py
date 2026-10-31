@@ -131,11 +131,11 @@ def validate_config(config: AutorouteConfig, discovered: tuple[DiscoveredModel, 
         )
 
 
-def _litellm_proxy_deployment(name: str, base_url: str, api_key: str) -> dict[str, JsonValue]:
+def _embrouter_proxy_deployment(name: str, base_url: str, api_key: str) -> dict[str, JsonValue]:
     return {
         "model_name": name,
-        "litellm_params": {
-            "model": f"litellm_proxy/{name}",
+        "embrouter_params": {
+            "model": f"embrouter_proxy/{name}",
             "api_base": base_url,
             "api_key": api_key,
         },
@@ -146,7 +146,7 @@ def build_generated_model_list(config: AutorouteConfig) -> list[JsonValue]:
     """Build the model_list for the ephemeral proxy's config.yaml.
 
     Every real model referenced anywhere (tier targets, classifier, embedding) is deduplicated
-    to exactly one `litellm_proxy/<name>` deployment forwarding to the customer's real proxy,
+    to exactly one `embrouter_proxy/<name>` deployment forwarding to the customer's real proxy,
     plus one `auto_router/complexity_router` deployment tying the tiers together.
     """
     referenced_names: Final = {model for models in config.tiers.values() for model in models}
@@ -157,7 +157,7 @@ def build_generated_model_list(config: AutorouteConfig) -> list[JsonValue]:
         referenced_names.add(config.semantic_matching.embedding_model)
 
     proxy_deployments: Final = [
-        _litellm_proxy_deployment(name, config.base_url, config.api_key) for name in sorted(referenced_names)
+        _embrouter_proxy_deployment(name, config.base_url, config.api_key) for name in sorted(referenced_names)
     ]
 
     complexity_router_config: Final[dict[str, JsonValue]] = {
@@ -181,7 +181,7 @@ def build_generated_model_list(config: AutorouteConfig) -> list[JsonValue]:
     if config.adaptive:
         complexity_router_config["adaptive"] = True
 
-    auto_router_litellm_params: Final[dict[str, JsonValue]] = {
+    auto_router_embrouter_params: Final[dict[str, JsonValue]] = {
         "model": "auto_router/complexity_router",
         "complexity_router_config": complexity_router_config,
     }
@@ -194,16 +194,16 @@ def build_generated_model_list(config: AutorouteConfig) -> list[JsonValue]:
     # ANTHROPIC_DEFAULT_*_MODEL in settings.py's merge_claude_settings_static_token).
     return [
         *proxy_deployments,
-        {"model_name": AUTOROUTER_MODEL_NAME, "litellm_params": auto_router_litellm_params},
+        {"model_name": AUTOROUTER_MODEL_NAME, "embrouter_params": auto_router_embrouter_params},
     ]
 
 
 def build_generated_proxy_config(config: AutorouteConfig, master_key: str) -> dict[str, JsonValue]:
     """Full config.yaml content for the ephemeral proxy, including its own auth key.
 
-    master_key must live under general_settings, not litellm_settings -- the proxy server
+    master_key must live under general_settings, not embrouter_settings -- the proxy server
     only ever reads general_settings.master_key (proxy_server.py:4530) to authenticate
-    requests; a key placed under litellm_settings is silently ignored, leaving the proxy
+    requests; a key placed under embrouter_settings is silently ignored, leaving the proxy
     with no real auth at all.
     """
     return {

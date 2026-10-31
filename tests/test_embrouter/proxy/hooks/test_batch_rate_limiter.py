@@ -14,14 +14,14 @@ from typing import Final
 import pytest
 from fastapi import HTTPException
 
-from litellm import DualCache
-from litellm.constants import BATCH_TPD_WINDOW_SECONDS
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.hooks.batch_rate_limiter import BatchFileUsage
-from litellm.proxy.hooks.parallel_request_limiter_v3 import (
+from embrouter import DualCache
+from embrouter.constants import BATCH_TPD_WINDOW_SECONDS
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.hooks.batch_rate_limiter import BatchFileUsage
+from embrouter.proxy.hooks.parallel_request_limiter_v3 import (
     _PROXY_MaxParallelRequestsHandler_v3,
 )
-from litellm.proxy.utils import InternalUsageCache, hash_token
+from embrouter.proxy.utils import InternalUsageCache, hash_token
 
 
 class _Clock:
@@ -42,7 +42,7 @@ def _make_limiters(clock: _Clock | None = None):
 
 async def _counter(internal_usage_cache, rate_limiter, descriptor_key, value, rate_limit_type):
     cache_key = rate_limiter.create_rate_limit_keys(descriptor_key, value, rate_limit_type)
-    raw = await internal_usage_cache.async_get_cache(key=cache_key, litellm_parent_otel_span=None, local_only=True)
+    raw = await internal_usage_cache.async_get_cache(key=cache_key, embrouter_parent_otel_span=None, local_only=True)
     return int(raw or 0)
 
 

@@ -16,13 +16,13 @@ from typing import TYPE_CHECKING, Any, Final, NamedTuple, TypeVar
 
 from typing_extensions import ReadOnly, TypedDict
 
-from litellm._logging import verbose_proxy_logger
-from litellm.constants import SPEND_LOG_WRITE_BATCH_MAX_BYTES, SPEND_LOG_WRITE_BATCH_MAX_ROWS
-from litellm.litellm_core_utils.llm_cost_calc.guardrail_cost import billed_guardrail_cost_by_unit
-from litellm.proxy._types import DB_RETRY_SAFE_ERROR_TYPES
-from litellm.proxy.db.spend_log_batching import spend_log_write_batches
-from litellm.proxy.utils import PrismaClient
-from litellm.repositories.table_repositories import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.constants import SPEND_LOG_WRITE_BATCH_MAX_BYTES, SPEND_LOG_WRITE_BATCH_MAX_ROWS
+from embrouter.embrouter_core_utils.llm_cost_calc.guardrail_cost import billed_guardrail_cost_by_unit
+from embrouter.proxy._types import DB_RETRY_SAFE_ERROR_TYPES
+from embrouter.proxy.db.spend_log_batching import spend_log_write_batches
+from embrouter.proxy.utils import PrismaClient
+from embrouter.repositories.table_repositories import (
     DailyGuardrailMetricsRepository,
     DailyGuardrailUsageUnitsRepository,
     SpendLogGuardrailIndexRepository,
@@ -281,7 +281,7 @@ def _sum_usage_unit_increments(
 async def _upsert_usage_unit_row(
     prisma_client: PrismaClient, key: _UsageUnitKey, increment: _UsageUnitIncrement
 ) -> None:
-    row: Final[prisma_types.LiteLLM_DailyGuardrailUsageUnitsCreateInput] = {
+    row: Final[prisma_types.EmbRouter_DailyGuardrailUsageUnitsCreateInput] = {
         "guardrail_id": key.guardrail_id,
         "date": key.date,
         "team_id": key.team_id,
@@ -301,7 +301,7 @@ async def _upsert_usage_unit_row(
         }
     }
     # A row written before the cost column has NULL cost, and NULL + x stays NULL, so it keeps reading as unknown
-    data: Final[prisma_types.LiteLLM_DailyGuardrailUsageUnitsUpsertInput] = {
+    data: Final[prisma_types.EmbRouter_DailyGuardrailUsageUnitsUpsertInput] = {
         "create": row,
         "update": {
             "units": {"increment": increment.units},

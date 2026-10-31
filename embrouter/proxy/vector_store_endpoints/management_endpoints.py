@@ -16,35 +16,35 @@ from fastapi import APIRouter, Depends, HTTPException
 from typing_extensions import ReadOnly, TypedDict
 
 if TYPE_CHECKING:
-    from prisma.models import LiteLLM_ManagedVectorStoresTable as _VectorStoreRow
+    from prisma.models import EmbRouter_ManagedVectorStoresTable as _VectorStoreRow
 
-    from litellm.proxy.utils import PrismaClient
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.constants import REDACTED_BY_LITELM_STRING
-from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
-from litellm.litellm_core_utils.sensitive_data_masker import SensitiveDataMasker
-from litellm.proxy._types import (
-    LiteLLM_ManagedVectorStoresTable,
-    ResponseLiteLLM_ManagedVectorStore,
+    from embrouter.proxy.utils import PrismaClient
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.constants import REDACTED_BY_LITELM_STRING
+from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps
+from embrouter.embrouter_core_utils.sensitive_data_masker import SensitiveDataMasker
+from embrouter.proxy._types import (
+    EmbRouter_ManagedVectorStoresTable,
+    ResponseEmbRouter_ManagedVectorStore,
     UserAPIKeyAuth,
 )
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.common_utils.rbac_utils import check_feature_access_for_user
-from litellm.proxy.vector_store_endpoints.utils import (
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.common_utils.rbac_utils import check_feature_access_for_user
+from embrouter.proxy.vector_store_endpoints.utils import (
     can_user_access_vector_store,
     filter_listable_vector_stores,
 )
-from litellm.repositories.prisma_protocols import TableActions
-from litellm.repositories.table_repositories import ManagedVectorStoresRepository
-from litellm.types.vector_stores import (
-    LiteLLM_ManagedVectorStore,
-    LiteLLM_ManagedVectorStoreListResponse,
+from embrouter.repositories.prisma_protocols import TableActions
+from embrouter.repositories.table_repositories import ManagedVectorStoresRepository
+from embrouter.types.vector_stores import (
+    EmbRouter_ManagedVectorStore,
+    EmbRouter_ManagedVectorStoreListResponse,
     VectorStoreDeleteRequest,
     VectorStoreInfoRequest,
     VectorStoreUpdateRequest,
 )
-from litellm.vector_stores.vector_store_registry import VectorStoreRegistry
+from embrouter.vector_stores.vector_store_registry import VectorStoreRegistry
 
 router: Final = APIRouter()
 
@@ -53,8 +53,8 @@ def _vector_store_table(prisma_client: "PrismaClient") -> "TableActions[_VectorS
     return ManagedVectorStoresRepository(prisma_client).table
 
 
-def _row_to_vector_store(row: "_VectorStoreRow") -> LiteLLM_ManagedVectorStore:
-    return LiteLLM_ManagedVectorStore(**row.model_dump())
+def _row_to_vector_store(row: "_VectorStoreRow") -> EmbRouter_ManagedVectorStore:
+    return EmbRouter_ManagedVectorStore(**row.model_dump())
 
 
 class _ConfigOwnedDetail(TypedDict):
@@ -63,7 +63,7 @@ class _ConfigOwnedDetail(TypedDict):
 
 
 def _raise_if_config_owned(vector_store_id: str) -> None:
-    if litellm.vector_store_registry is None or not litellm.vector_store_registry.is_config_vector_store(
+    if embrouter.vector_store_registry is None or not embrouter.vector_store_registry.is_config_vector_store(
         vector_store_id
     ):
         return
@@ -78,26 +78,26 @@ def _raise_if_config_owned(vector_store_id: str) -> None:
     raise HTTPException(status_code=400, detail=detail)
 
 
-def _with_ownership(vector_store: LiteLLM_ManagedVectorStore) -> LiteLLM_ManagedVectorStore:
-    ownership: Final = LiteLLM_ManagedVectorStore(is_config=vector_store.get("is_config", False))
+def _with_ownership(vector_store: EmbRouter_ManagedVectorStore) -> EmbRouter_ManagedVectorStore:
+    ownership: Final = EmbRouter_ManagedVectorStore(is_config=vector_store.get("is_config", False))
     return vector_store | ownership
 
 
-_LITELLM_PARAMS_MASKER: Final = SensitiveDataMasker(extra_sensitive_patterns=frozenset(("connection",)))
+_EMBROUTER_PARAMS_MASKER: Final = SensitiveDataMasker(extra_sensitive_patterns=frozenset(("connection",)))
 
 
-_REDACT_LITELLM_PARAMS_MAX_DEPTH: Final = 10
+_REDACT_EMBROUTER_PARAMS_MAX_DEPTH: Final = 10
 
 
-def _redact_sensitive_litellm_params(litellm_params: object, _depth: int = 0) -> Any:
+def _redact_sensitive_embrouter_params(embrouter_params: object, _depth: int = 0) -> Any:
     """
-    Replace credential-bearing values in ``litellm_params`` with
+    Replace credential-bearing values in ``embrouter_params`` with
     ``REDACTED_BY_LITELM`` while preserving non-secret keys (``api_base``,
     ``region``, ``model``, ``api_version``).
 
     Handles three input shapes:
 
-    * ``dict`` — recurse into nested dicts (e.g. ``litellm_embedding_config``
+    * ``dict`` — recurse into nested dicts (e.g. ``embrouter_embedding_config``
       which itself carries ``api_key`` / ``aws_*`` / ``vertex_credentials``).
     * ``str`` — the in-memory registry occasionally holds the params as a
       JSON-serialized string. Parse, redact, re-serialize. If parsing
@@ -105,28 +105,28 @@ def _redact_sensitive_litellm_params(litellm_params: object, _depth: int = 0) ->
       back verbatim.
     * Anything else, or ``None`` — passed through.
 
-    Recursion depth is bounded by ``_REDACT_LITELLM_PARAMS_MAX_DEPTH`` —
+    Recursion depth is bounded by ``_REDACT_EMBROUTER_PARAMS_MAX_DEPTH`` —
     matching the convention of other allowlisted recursive helpers in the
     repo (see ``tests/code_coverage_tests/recursive_detector.py``).
     """
-    if _depth >= _REDACT_LITELLM_PARAMS_MAX_DEPTH:
+    if _depth >= _REDACT_EMBROUTER_PARAMS_MAX_DEPTH:
         return REDACTED_BY_LITELM_STRING
-    if litellm_params is None:
+    if embrouter_params is None:
         return None
-    if isinstance(litellm_params, str):
+    if isinstance(embrouter_params, str):
         try:
-            parsed: Final[object] = json.loads(litellm_params)
+            parsed: Final[object] = json.loads(embrouter_params)
         except (TypeError, ValueError):
             return REDACTED_BY_LITELM_STRING
-        return json.dumps(_redact_sensitive_litellm_params(parsed, _depth + 1))
-    if not isinstance(litellm_params, dict):
-        return litellm_params
+        return json.dumps(_redact_sensitive_embrouter_params(parsed, _depth + 1))
+    if not isinstance(embrouter_params, dict):
+        return embrouter_params
     out: Final[dict[str, object]] = {}
-    for k, v in litellm_params.items():
-        if _LITELLM_PARAMS_MASKER.is_sensitive_key(k):
+    for k, v in embrouter_params.items():
+        if _EMBROUTER_PARAMS_MASKER.is_sensitive_key(k):
             out[k] = REDACTED_BY_LITELM_STRING
         elif isinstance(v, dict):
-            out[k] = _redact_sensitive_litellm_params(v, _depth + 1)
+            out[k] = _redact_sensitive_embrouter_params(v, _depth + 1)
         else:
             out[k] = v
     return out
@@ -136,7 +136,7 @@ async def _fetch_and_authorize_vector_store(
     vector_store_id: str,
     user_api_key_dict: UserAPIKeyAuth,
     prisma_client: "PrismaClient",
-) -> "LiteLLM_ManagedVectorStore":
+) -> "EmbRouter_ManagedVectorStore":
     """
     Look up a vector store by id and confirm the caller can access it.
     Raises HTTPException(404) on miss and HTTPException(403) on access
@@ -161,7 +161,7 @@ async def _fetch_and_authorize_vector_store(
 # Helper Functions
 ########################################################
 async def _check_vector_store_access(
-    vector_store: LiteLLM_ManagedVectorStore,
+    vector_store: EmbRouter_ManagedVectorStore,
     user_api_key_dict: UserAPIKeyAuth,
 ) -> bool:
     """
@@ -183,11 +183,11 @@ async def create_vector_store_in_db(
     vector_store_name: str | None = None,
     vector_store_description: str | None = None,
     vector_store_metadata: dict | None = None,
-    litellm_params: dict | None = None,
-    litellm_credential_name: str | None = None,
+    embrouter_params: dict | None = None,
+    embrouter_credential_name: str | None = None,
     team_id: str | None = None,
     user_id: str | None = None,
-) -> LiteLLM_ManagedVectorStore:
+) -> EmbRouter_ManagedVectorStore:
     """
     Helper function to create a vector store in the database.
 
@@ -197,12 +197,12 @@ async def create_vector_store_in_db(
     - Adding it to the vector store registry
 
     Returns:
-        LiteLLM_ManagedVectorStore: The created vector store object
+        EmbRouter_ManagedVectorStore: The created vector store object
 
     Raises:
         HTTPException: If vector store already exists or database error occurs
     """
-    from litellm.types.router import GenericLiteLLMParams
+    from embrouter.types.router import GenericEmbRouterParams
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail="Database not connected")
@@ -229,37 +229,37 @@ async def create_vector_store_in_db(
         data_to_create["vector_store_description"] = vector_store_description
     if vector_store_metadata is not None:
         data_to_create["vector_store_metadata"] = safe_dumps(vector_store_metadata)
-    if litellm_credential_name is not None:
-        data_to_create["litellm_credential_name"] = litellm_credential_name
+    if embrouter_credential_name is not None:
+        data_to_create["embrouter_credential_name"] = embrouter_credential_name
     if team_id is not None:
         data_to_create["team_id"] = team_id
     if user_id is not None:
         data_to_create["user_id"] = user_id
 
-    # Handle litellm_params - always provide at least an empty dict.
-    # The earlier behaviour resolved ``litellm_embedding_config`` from the
+    # Handle embrouter_params - always provide at least an empty dict.
+    # The earlier behaviour resolved ``embrouter_embedding_config`` from the
     # admin-configured router/DB model and persisted the cleartext result
     # (``api_key``, ``api_base``, ``api_version``) into this row. That
     # exposed every env-stored embedding-model credential on the
     # ``/vector_store/{new,info,update,list}`` responses. Keep the user's
-    # raw ``litellm_embedding_model`` reference; each search embeds the
+    # raw ``embrouter_embedding_model`` reference; each search embeds the
     # query through the router at request time, so the credentials stay
     # on the deployment and never reach the database.
-    if litellm_params:
-        litellm_params_dict: Final = GenericLiteLLMParams(**litellm_params).model_dump(exclude_none=True)
-        data_to_create["litellm_params"] = safe_dumps(litellm_params_dict)
+    if embrouter_params:
+        embrouter_params_dict: Final = GenericEmbRouterParams(**embrouter_params).model_dump(exclude_none=True)
+        data_to_create["embrouter_params"] = safe_dumps(embrouter_params_dict)
     else:
-        # Provide empty dict if no litellm_params provided
-        data_to_create["litellm_params"] = safe_dumps({})
+        # Provide empty dict if no embrouter_params provided
+        data_to_create["embrouter_params"] = safe_dumps({})
 
     # Create in database
     _new_vector_store: Final = await _vector_store_table(prisma_client).create(data=data_to_create)
 
-    new_vector_store: Final[LiteLLM_ManagedVectorStore] = _row_to_vector_store(_new_vector_store)
+    new_vector_store: Final[EmbRouter_ManagedVectorStore] = _row_to_vector_store(_new_vector_store)
 
     # Add vector store to registry
-    if litellm.vector_store_registry is not None:
-        litellm.vector_store_registry.add_vector_store_to_registry(vector_store=new_vector_store)
+    if embrouter.vector_store_registry is not None:
+        embrouter.vector_store_registry.add_vector_store_to_registry(vector_store=new_vector_store)
 
     verbose_proxy_logger.info("Vector store %s created in database successfully", vector_store_id)
 
@@ -275,7 +275,7 @@ async def create_vector_store_in_db(
     dependencies=[Depends(user_api_key_auth)],
 )
 async def new_vector_store(
-    vector_store: LiteLLM_ManagedVectorStore,
+    vector_store: EmbRouter_ManagedVectorStore,
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
 ):
     """
@@ -290,7 +290,7 @@ async def new_vector_store(
     """
     await check_feature_access_for_user(user_api_key_dict, "vector_stores")
 
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     try:
         vector_store_id: Final = vector_store.get("vector_store_id")
@@ -316,18 +316,18 @@ async def new_vector_store(
             vector_store_name=vector_store.get("vector_store_name"),
             vector_store_description=vector_store.get("vector_store_description"),
             vector_store_metadata=validated_metadata,
-            litellm_params=vector_store.get("litellm_params"),
-            litellm_credential_name=vector_store.get("litellm_credential_name"),
+            embrouter_params=vector_store.get("embrouter_params"),
+            embrouter_credential_name=vector_store.get("embrouter_credential_name"),
             team_id=user_api_key_dict.team_id,
             user_id=user_api_key_dict.user_id,
         )
 
-        # Apply the same litellm_params redaction the list / info / update
+        # Apply the same embrouter_params redaction the list / info / update
         # endpoints already use, so a caller-supplied credential or a
         # cleartext value persisted by an earlier proxy version doesn't
         # come back in the response.
-        response_vs: Final = LiteLLM_ManagedVectorStore(**new_vector_store)
-        response_vs["litellm_params"] = _redact_sensitive_litellm_params(new_vector_store.get("litellm_params"))
+        response_vs: Final = EmbRouter_ManagedVectorStore(**new_vector_store)
+        response_vs["embrouter_params"] = _redact_sensitive_embrouter_params(new_vector_store.get("embrouter_params"))
 
         return {
             "status": "success",
@@ -345,13 +345,13 @@ async def new_vector_store(
     "/vector_store/list",
     tags=["vector store management"],
     dependencies=[Depends(user_api_key_auth)],
-    response_model=LiteLLM_ManagedVectorStoreListResponse,
+    response_model=EmbRouter_ManagedVectorStoreListResponse,
 )
 @router.get(
     "/v1/vector_store/list",
     tags=["vector store management"],
     dependencies=[Depends(user_api_key_auth)],
-    response_model=LiteLLM_ManagedVectorStoreListResponse,
+    response_model=EmbRouter_ManagedVectorStoreListResponse,
 )
 async def list_vector_stores(
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
@@ -371,9 +371,9 @@ async def list_vector_stores(
     """
     await check_feature_access_for_user(user_api_key_dict, "vector_stores")
 
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
-    vector_store_map: Final[dict[str, LiteLLM_ManagedVectorStore]] = {}
+    vector_store_map: Final[dict[str, EmbRouter_ManagedVectorStore]] = {}
     db_vector_store_ids: Final[set] = set()
 
     try:
@@ -388,8 +388,8 @@ async def list_vector_stores(
                 db_vector_store_ids.add(vector_store_id)
 
         # Process in-memory vector stores
-        if litellm.vector_store_registry is not None:
-            in_memory_vector_stores: Final = copy.deepcopy(litellm.vector_store_registry.vector_stores)
+        if embrouter.vector_store_registry is not None:
+            in_memory_vector_stores: Final = copy.deepcopy(embrouter.vector_store_registry.vector_stores)
 
             vector_stores_to_delete_from_memory: Final[list[str]] = []
 
@@ -414,14 +414,14 @@ async def list_vector_stores(
             # Synchronize in-memory registry with database
             # 1. Remove deleted vector stores from memory
             for vs_id in vector_stores_to_delete_from_memory:
-                litellm.vector_store_registry.delete_vector_store_from_registry(vector_store_id=vs_id)
+                embrouter.vector_store_registry.delete_vector_store_from_registry(vector_store_id=vs_id)
                 verbose_proxy_logger.debug("Removed deleted vector store %s from in-memory registry", vs_id)
 
             # 2. Update in-memory registry with database versions (for updates)
             for vector_store in vector_stores_from_db:
                 vector_store_id = vector_store.get("vector_store_id", None)
                 if vector_store_id:
-                    litellm.vector_store_registry.update_vector_store_in_registry(
+                    embrouter.vector_store_registry.update_vector_store_in_registry(
                         vector_store_id=vector_store_id, updated_data=vector_store
                     )
 
@@ -429,14 +429,14 @@ async def list_vector_stores(
         accessible_vector_stores: Final = []
         for vs in await filter_listable_vector_stores(vector_store_map.values(), user_api_key_dict):
             redacted = _with_ownership(vs)
-            redacted["litellm_params"] = _redact_sensitive_litellm_params(vs.get("litellm_params"))
+            redacted["embrouter_params"] = _redact_sensitive_embrouter_params(vs.get("embrouter_params"))
             accessible_vector_stores.append(redacted)
 
         total_count: Final = len(accessible_vector_stores)
         total_pages: Final = (total_count + page_size - 1) // page_size
 
-        # Format response using LiteLLM_ManagedVectorStoreListResponse
-        response: Final = LiteLLM_ManagedVectorStoreListResponse(
+        # Format response using EmbRouter_ManagedVectorStoreListResponse
+        response: Final = EmbRouter_ManagedVectorStoreListResponse(
             object="list",
             data=accessible_vector_stores,
             total_count=total_count,
@@ -467,7 +467,7 @@ async def delete_vector_store(
     """
     await check_feature_access_for_user(user_api_key_dict, "vector_stores")
 
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail="Database not connected")
@@ -486,8 +486,8 @@ async def delete_vector_store(
             vector_store_to_check = _row_to_vector_store(existing_vector_store)
 
         # Check in-memory registry
-        if litellm.vector_store_registry is not None:
-            memory_vector_store: Final = litellm.vector_store_registry.get_litellm_managed_vector_store_from_registry(
+        if embrouter.vector_store_registry is not None:
+            memory_vector_store: Final = embrouter.vector_store_registry.get_embrouter_managed_vector_store_from_registry(
                 vector_store_id=data.vector_store_id
             )
             if memory_vector_store is not None:
@@ -515,8 +515,8 @@ async def delete_vector_store(
             await _vector_store_table(prisma_client).delete(where={"vector_store_id": data.vector_store_id})
 
         # Delete from in-memory registry if exists
-        if memory_vector_store_exists and litellm.vector_store_registry is not None:
-            litellm.vector_store_registry.delete_vector_store_from_registry(vector_store_id=data.vector_store_id)
+        if memory_vector_store_exists and embrouter.vector_store_registry is not None:
+            embrouter.vector_store_registry.delete_vector_store_from_registry(vector_store_id=data.vector_store_id)
 
         return {
             "status": "success",
@@ -533,7 +533,7 @@ async def delete_vector_store(
     "/vector_store/info",
     tags=["vector store management"],
     dependencies=[Depends(user_api_key_auth)],
-    response_model=ResponseLiteLLM_ManagedVectorStore,
+    response_model=ResponseEmbRouter_ManagedVectorStore,
 )
 async def get_vector_store_info(
     data: VectorStoreInfoRequest,
@@ -542,14 +542,14 @@ async def get_vector_store_info(
     """Return a single vector store's details"""
     await check_feature_access_for_user(user_api_key_dict, "vector_stores")
 
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail="Database not connected")
 
     try:
-        if litellm.vector_store_registry is not None:
-            vector_store: Final = litellm.vector_store_registry.get_litellm_managed_vector_store_from_registry(
+        if embrouter.vector_store_registry is not None:
+            vector_store: Final = embrouter.vector_store_registry.get_embrouter_managed_vector_store_from_registry(
                 vector_store_id=data.vector_store_id
             )
             if vector_store is not None:
@@ -568,7 +568,7 @@ async def get_vector_store_info(
                 elif isinstance(vector_store_metadata, dict):
                     parsed_metadata = vector_store_metadata
 
-                vector_store_pydantic_obj: Final = LiteLLM_ManagedVectorStoresTable(
+                vector_store_pydantic_obj: Final = EmbRouter_ManagedVectorStoresTable(
                     vector_store_id=vector_store.get("vector_store_id") or "",
                     custom_llm_provider=vector_store.get("custom_llm_provider") or "",
                     vector_store_name=vector_store.get("vector_store_name") or None,
@@ -576,8 +576,8 @@ async def get_vector_store_info(
                     vector_store_metadata=parsed_metadata,
                     created_at=vector_store.get("created_at") or None,
                     updated_at=vector_store.get("updated_at") or None,
-                    litellm_credential_name=vector_store.get("litellm_credential_name"),
-                    litellm_params=_redact_sensitive_litellm_params(vector_store.get("litellm_params")),
+                    embrouter_credential_name=vector_store.get("embrouter_credential_name"),
+                    embrouter_params=_redact_sensitive_embrouter_params(vector_store.get("embrouter_params")),
                     team_id=vector_store.get("team_id") or None,
                     user_id=vector_store.get("user_id") or None,
                     is_config=vector_store.get("is_config", False),
@@ -590,8 +590,8 @@ async def get_vector_store_info(
             prisma_client=prisma_client,
         )
         vector_store_dict: Final = dict(vector_store_typed)
-        if "litellm_params" in vector_store_dict:
-            vector_store_dict["litellm_params"] = _redact_sensitive_litellm_params(vector_store_dict["litellm_params"])
+        if "embrouter_params" in vector_store_dict:
+            vector_store_dict["embrouter_params"] = _redact_sensitive_embrouter_params(vector_store_dict["embrouter_params"])
         return {"vector_store": vector_store_dict}
     except HTTPException:
         # Preserve 403/404 from the access-control / not-found checks above;
@@ -617,8 +617,8 @@ async def update_vector_store(
     """
     await check_feature_access_for_user(user_api_key_dict, "vector_stores")
 
-    from litellm.proxy.proxy_server import prisma_client
-    from litellm.types.router import GenericLiteLLMParams
+    from embrouter.proxy.proxy_server import prisma_client
+    from embrouter.types.router import GenericEmbRouterParams
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail="Database not connected")
@@ -642,15 +642,15 @@ async def update_vector_store(
         if update_data.get("vector_store_metadata") is not None:
             update_data["vector_store_metadata"] = safe_dumps(update_data["vector_store_metadata"])
 
-        # Handle litellm_params if provided. As with the create path, the
+        # Handle embrouter_params if provided. As with the create path, the
         # embedding-config auto-resolve previously persisted cleartext
         # credentials into the row; each search now embeds the query
         # through the router at request time, so this row only ever stores
-        # the user-supplied ``litellm_embedding_model`` reference.
-        if "litellm_params" in update_data:
-            _input_litellm_params: Final[dict] = update_data.get("litellm_params", {}) or {}
-            litellm_params_dict: Final = GenericLiteLLMParams(**_input_litellm_params).model_dump(exclude_none=True)
-            update_data["litellm_params"] = safe_dumps(litellm_params_dict)
+        # the user-supplied ``embrouter_embedding_model`` reference.
+        if "embrouter_params" in update_data:
+            _input_embrouter_params: Final[dict] = update_data.get("embrouter_params", {}) or {}
+            embrouter_params_dict: Final = GenericEmbRouterParams(**_input_embrouter_params).model_dump(exclude_none=True)
+            update_data["embrouter_params"] = safe_dumps(embrouter_params_dict)
 
         # Update in database
         updated: Final = await _vector_store_table(prisma_client).update(
@@ -667,8 +667,8 @@ async def update_vector_store(
         updated_vs: Final = _row_to_vector_store(updated)
 
         # Immediately update in-memory registry to keep it in sync
-        if litellm.vector_store_registry is not None:
-            litellm.vector_store_registry.update_vector_store_in_registry(
+        if embrouter.vector_store_registry is not None:
+            embrouter.vector_store_registry.update_vector_store_in_registry(
                 vector_store_id=vector_store_id,
                 updated_data=updated_vs,
             )
@@ -677,11 +677,11 @@ async def update_vector_store(
             )
 
         # The DB row is returned in full, so the response would otherwise
-        # echo the persisted ``litellm_params`` (including provider
+        # echo the persisted ``embrouter_params`` (including provider
         # credentials) back to the caller — even when the caller only
         # changed unrelated fields like ``vector_store_description``.
-        response_vs: Final = LiteLLM_ManagedVectorStore(**updated_vs)
-        response_vs["litellm_params"] = _redact_sensitive_litellm_params(updated_vs.get("litellm_params"))
+        response_vs: Final = EmbRouter_ManagedVectorStore(**updated_vs)
+        response_vs["embrouter_params"] = _redact_sensitive_embrouter_params(updated_vs.get("embrouter_params"))
         return {
             "status": "success",
             "message": f"Vector store {vector_store_id} updated successfully",

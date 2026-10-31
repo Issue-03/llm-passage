@@ -122,7 +122,7 @@ const Fallbacks: React.FC<FallbacksProps> = ({ accessToken, userRole, userID }) 
   const { data: modelCostMapData } = useModelCostMap();
   const getProviderFromModel = (model: string): string => {
     if (modelCostMapData != null && typeof modelCostMapData === "object" && model in modelCostMapData) {
-      return modelCostMapData[model]["litellm_provider"] ?? "";
+      return modelCostMapData[model]["embrouter_provider"] ?? "";
     }
     return "";
   };

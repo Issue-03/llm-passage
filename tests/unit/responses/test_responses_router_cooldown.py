@@ -1,6 +1,6 @@
 """
 Regression: Responses API router must register cooldowns on deployment
-failures. Previously the Responses API path built ``litellm_params`` without
+failures. Previously the Responses API path built ``embrouter_params`` without
 ``model_info``, so ``Router.deployment_callback_on_failure`` exited early via
 the "No model_info found" branch and the failing deployment was never added
 to the cooldown set.
@@ -12,19 +12,19 @@ import httpx
 import pytest
 
 
-import litellm
-from litellm.router_utils.cooldown_handlers import _async_get_cooldown_deployments
+import embrouter
+from embrouter.router_utils.cooldown_handlers import _async_get_cooldown_deployments
 
 
 @pytest.mark.asyncio
 async def test_responses_api_rate_limit_marks_deployment_for_cooldown():
     failing_deployment_id = "deployment-rate-limited"
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "openai.gpt-5.1-codex",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-5.1-codex",
                     "api_key": "mock-api-key-1",
                 },
@@ -32,7 +32,7 @@ async def test_responses_api_rate_limit_marks_deployment_for_cooldown():
             },
             {
                 "model_name": "openai.gpt-5.1-codex",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-5.1-codex",
                     "api_key": "mock-api-key-2",
                 },
@@ -43,7 +43,7 @@ async def test_responses_api_rate_limit_marks_deployment_for_cooldown():
         cooldown_time=60,
     )
 
-    rate_limit_error = litellm.RateLimitError(
+    rate_limit_error = embrouter.RateLimitError(
         message="upstream throttled",
         llm_provider="openai",
         model="openai/gpt-5.1-codex",
@@ -61,23 +61,23 @@ async def test_responses_api_rate_limit_marks_deployment_for_cooldown():
 
     with (
         patch(
-            "litellm.llms.custom_httpx.llm_http_handler.BaseLLMHTTPHandler.async_response_api_handler",
+            "embrouter.llms.custom_httpx.llm_http_handler.BaseLLMHTTPHandler.async_response_api_handler",
             new_callable=AsyncMock,
             side_effect=rate_limit_error,
         ),
         patch(
-            "litellm.router_strategy.simple_shuffle.random.choice",
+            "embrouter.router_strategy.simple_shuffle.random.choice",
             side_effect=pin_to_failing_deployment,
         ),
     ):
-        with pytest.raises(litellm.RateLimitError):
+        with pytest.raises(embrouter.RateLimitError):
             await router.aresponses(
                 model="openai.gpt-5.1-codex",
                 input="hi",
             )
 
     cooldown_ids = await _async_get_cooldown_deployments(
-        litellm_router_instance=router, parent_otel_span=None
+        embrouter_router_instance=router, parent_otel_span=None
     )
     assert failing_deployment_id in cooldown_ids, (
         f"Responses API failure callback did not register cooldown for "

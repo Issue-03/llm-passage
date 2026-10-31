@@ -7,17 +7,17 @@ from urllib.parse import quote
 import httpx
 import yaml
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.caching import InMemoryCache
-from litellm.llms.custom_httpx.http_handler import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.caching import InMemoryCache
+from embrouter.llms.custom_httpx.http_handler import (
     AsyncHTTPHandler,
     _get_httpx_client,
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.proxy._types import KeyManagementSystem
-from litellm.rust_bridge.secret_manager import resolve_native_provider_reader, resolve_native_provider_writer
+from embrouter.proxy._types import KeyManagementSystem
+from embrouter.rust_bridge.secret_manager import resolve_native_provider_reader, resolve_native_provider_writer
 
 from .base_secret_manager import BaseSecretManager, raise_if_unsafe_secret_name
 from .main import str_to_bool
@@ -28,7 +28,7 @@ CYBERARK_POLICY_LOAD_RETRY_DELAY_SECONDS: Final = 0.2
 
 class CyberArkSecretManager(BaseSecretManager):
     def __init__(self):
-        from litellm.proxy.proxy_server import CommonProxyErrors, premium_user
+        from embrouter.proxy.proxy_server import CommonProxyErrors, premium_user
 
         # CyberArk Conjur-specific config
         self.conjur_addr = os.getenv("CYBERARK_API_BASE", "http://127.0.0.1:8080")
@@ -52,8 +52,8 @@ class CyberArkSecretManager(BaseSecretManager):
                 "Missing CyberArk credentials. Please set CYBERARK_API_KEY or both CYBERARK_CLIENT_CERT and CYBERARK_CLIENT_KEY in your environment."
             )
 
-        litellm.secret_manager_client = self
-        litellm._key_management_system = KeyManagementSystem.CYBERARK
+        embrouter.secret_manager_client = self
+        embrouter._key_management_system = KeyManagementSystem.CYBERARK
 
         # Tokens expire after ~8 minutes, so we cache for 5 minutes to be safe
         _refresh_interval: Final = int(os.environ.get("CYBERARK_REFRESH_INTERVAL", "300"))

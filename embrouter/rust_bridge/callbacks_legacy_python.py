@@ -22,7 +22,7 @@ from typing import (
 )
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging
 
 
 class MetadataUpdater(Protocol):
@@ -50,14 +50,14 @@ def setup(
     start_time: datetime.datetime,
     asynchronous: bool,
 ) -> CallSetup:
-    from litellm.litellm_core_utils.litellm_logging import Logging
-    from litellm.utils import Rules, function_setup
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging
+    from embrouter.utils import Rules, function_setup
 
     arguments: Final = {  # mutable-ok: function_setup consumes an owned kwargs dict
-        "litellm_call_id": str(uuid.uuid4()),
+        "embrouter_call_id": str(uuid.uuid4()),
         **kwargs,
     }
-    supplied: Final = arguments.get("litellm_logging_obj")
+    supplied: Final = arguments.get("embrouter_logging_obj")
     if isinstance(supplied, Logging):
         return _claim_budget_reservation(CallSetup(supplied, arguments), asynchronous)
     logger, prepared = function_setup(call_type, Rules(), start_time, *args, is_async_call=asynchronous, **arguments)
@@ -65,10 +65,10 @@ def setup(
 
 
 def _claim_budget_reservation(call_setup: CallSetup, asynchronous: bool) -> CallSetup:
-    from litellm.litellm_core_utils.core_helpers import bind_budget_reservation_to_callbacks
+    from embrouter.embrouter_core_utils.core_helpers import bind_budget_reservation_to_callbacks
 
     if asynchronous and not is_internal_call():
-        bind_budget_reservation_to_callbacks(call_setup.logger.litellm_params)
+        bind_budget_reservation_to_callbacks(call_setup.logger.embrouter_params)
     return call_setup
 
 
@@ -79,7 +79,7 @@ def finalize(
     start_time: datetime.datetime,
     end_time: datetime.datetime,
 ) -> None:
-    from litellm.litellm_core_utils.llm_response_utils import response_metadata
+    from embrouter.embrouter_core_utils.llm_response_utils import response_metadata
 
     model: Final = kwargs.get("model")
     update: Final = cast(  # cast-ok: legacy metadata function accepts concrete kwargs
@@ -88,7 +88,7 @@ def finalize(
     update(response, logger, model if isinstance(model, str) else None, kwargs, start_time, end_time)
     cache_key: Final = logger.model_call_details.get("cache_key")
     if logger.model_call_details.get("cache_hit") is True and isinstance(cache_key, str):
-        from litellm.router_utils.add_retry_fallback_headers import get_hidden_params_dict
+        from embrouter.router_utils.add_retry_fallback_headers import get_hidden_params_dict
 
         hidden: Final = get_hidden_params_dict(response, create=True)
         hidden.update({"cache_key": cache_key, "cache_hit": True})
@@ -99,12 +99,12 @@ class LoggingSurface(Protocol):
     def model_call_details(self) -> Mapping[str, object]: ...
 
     @property
-    def litellm_params(self) -> Mapping[str, object]: ...
+    def embrouter_params(self) -> Mapping[str, object]: ...
 
     def update_from_kwargs(
         self,
         kwargs: dict[str, object],
-        litellm_params: dict[str, object] | None = None,
+        embrouter_params: dict[str, object] | None = None,
         optional_params: dict[str, object] | None = None,
         model: str | None = None,
         user: str | None = None,
@@ -174,7 +174,7 @@ class StreamingLogBuilder(Protocol):
     def __call__(
         self,
         *,
-        litellm_logging_obj: Logging,
+        embrouter_logging_obj: Logging,
         passthrough_success_handler_obj: object,
         url_route: str,
         request_body: dict[str, object],
@@ -202,14 +202,14 @@ def update_logging(
     kwargs: dict[str, object],
     model: str,
     optional_params: dict[str, object],
-    litellm_params: dict[str, object],
+    embrouter_params: dict[str, object],
     custom_llm_provider: str,
 ) -> None:
     logger.update_from_kwargs(
         kwargs=kwargs,
         model=model,
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         custom_llm_provider=custom_llm_provider,
     )
 
@@ -250,19 +250,19 @@ def sync_success_for_async_call(
 def failure_handler(
     logger: LoggingSurface, error: Exception, start: datetime.datetime, end: datetime.datetime, asynchronous: bool
 ) -> Coroutine[object, object, None] | None:
-    from litellm.litellm_core_utils.core_helpers import unbind_budget_reservation_from_callbacks
+    from embrouter.embrouter_core_utils.core_helpers import unbind_budget_reservation_from_callbacks
 
     trace: Final = "".join(traceback.format_exception(error))
     if asynchronous:
         if not is_internal_call():
-            unbind_budget_reservation_from_callbacks(logger.litellm_params)
+            unbind_budget_reservation_from_callbacks(logger.embrouter_params)
         return logger.async_failure_handler(error, trace, start, end)
     logger.failure_handler(error, trace, start, end)
     return None
 
 
 def submit_success(logger: LoggingSurface, response: object, start: datetime.datetime, end: datetime.datetime) -> None:
-    from litellm.litellm_core_utils.litellm_logging import executor
+    from embrouter.embrouter_core_utils.embrouter_logging import executor
 
     executor.submit(
         contextvars.copy_context().run,
@@ -281,7 +281,7 @@ def async_success_handler(
 
 
 def enqueue_logging(coroutine: Coroutine[object, object, None]) -> None:
-    from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+    from embrouter.embrouter_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
 
     worker: Final = cast(  # cast-ok: bounded adapter for the untyped logging worker
         LoggingWorker, GLOBAL_LOGGING_WORKER
@@ -290,7 +290,7 @@ def enqueue_logging(coroutine: Coroutine[object, object, None]) -> None:
 
 
 def restore_context(logger: LoggingSurface) -> None:
-    from litellm.utils import (
+    from embrouter.utils import (
         _restore_correlation_context_if_supported,  # pyright: ignore[reportPrivateUsage]  # the @client wrapper restores the same correlation context
     )
 
@@ -298,19 +298,19 @@ def restore_context(logger: LoggingSurface) -> None:
 
 
 def custom_pricing_fields() -> tuple[str, ...]:
-    from litellm.types.utils import CustomPricingLiteLLMParams
+    from embrouter.types.utils import CustomPricingEmbRouterParams
 
-    return tuple(CustomPricingLiteLLMParams.model_fields)
+    return tuple(CustomPricingEmbRouterParams.model_fields)
 
 
 def is_internal_call() -> bool:
-    from litellm._internal_context import is_internal_call as internal
+    from embrouter._internal_context import is_internal_call as internal
 
     return internal.get()
 
 
 def before_deployment_call(kwargs: dict[str, object], call_type: str) -> Awaitable[object]:
-    from litellm import utils
+    from embrouter import utils
 
     hook: Final = cast(  # cast-ok: bounded adapter for the untyped deployment hook
         DeploymentHook, utils.async_pre_call_deployment_hook
@@ -319,8 +319,8 @@ def before_deployment_call(kwargs: dict[str, object], call_type: str) -> Awaitab
 
 
 def after_deployment_success(kwargs: dict[str, object], response: object, call_type: str) -> Awaitable[object]:
-    from litellm import utils
-    from litellm.types.utils import CallTypes
+    from embrouter import utils
+    from embrouter.types.utils import CallTypes
 
     hook: Final = cast(  # cast-ok: bounded adapter for the untyped deployment hook
         DeploymentSuccessHook, utils.async_post_call_success_deployment_hook
@@ -329,7 +329,7 @@ def after_deployment_success(kwargs: dict[str, object], response: object, call_t
 
 
 def after_deployment_failure(kwargs: dict[str, object], error: Exception, call_type: str) -> Awaitable[None]:
-    from litellm import utils
+    from embrouter import utils
 
     hook: Final = cast(  # cast-ok: bounded adapter for the untyped deployment hook
         DeploymentFailureHook, utils.async_post_call_failure_deployment_hook
@@ -352,11 +352,11 @@ def stream_success(
     end: datetime.datetime,
     first_chunk: datetime.datetime | None,
 ) -> None:
-    from litellm.llms.anthropic.pass_through.messages.streaming_iterator import (
+    from embrouter.llms.anthropic.pass_through.messages.streaming_iterator import (
         GLOBAL_PASS_THROUGH_SUCCESS_HANDLER_OBJ,
     )
-    from litellm.proxy.pass_through_endpoints.streaming_handler import PassThroughStreamingHandler
-    from litellm.types.passthrough_endpoints.pass_through_endpoints import EndpointType
+    from embrouter.proxy.pass_through_endpoints.streaming_handler import PassThroughStreamingHandler
+    from embrouter.types.passthrough_endpoints.pass_through_endpoints import EndpointType
 
     if first_chunk is not None:
         logger.completion_start_time = first_chunk
@@ -366,7 +366,7 @@ def stream_success(
         PassThroughStreamingHandler._route_streaming_logging_to_handler,  # pyright: ignore[reportPrivateUsage]  # the Messages stream iterator bills through the same builder
     )
     coroutine: Final = build(
-        litellm_logging_obj=logger,
+        embrouter_logging_obj=logger,
         passthrough_success_handler_obj=GLOBAL_PASS_THROUGH_SUCCESS_HANDLER_OBJ,
         url_route=url_route,
         request_body=request_body,
@@ -381,7 +381,7 @@ def stream_success(
     try:
         asyncio.get_running_loop()
     except RuntimeError:
-        from litellm.litellm_core_utils.litellm_logging import executor
+        from embrouter.embrouter_core_utils.embrouter_logging import executor
 
         executor.submit(contextvars.copy_context().run, asyncio.run, coroutine)
         return
@@ -395,11 +395,11 @@ def stream_failure(
     chunks: list[bytes],
     error: Exception,
 ) -> Coroutine[object, object, None]:
-    from litellm.proxy.pass_through_endpoints.streaming_handler import PassThroughStreamingHandler
-    from litellm.types.passthrough_endpoints.pass_through_endpoints import EndpointType
+    from embrouter.proxy.pass_through_endpoints.streaming_handler import PassThroughStreamingHandler
+    from embrouter.types.passthrough_endpoints.pass_through_endpoints import EndpointType
 
     return PassThroughStreamingHandler.schedule_stream_failure_logging(
-        litellm_logging_obj=logger,
+        embrouter_logging_obj=logger,
         endpoint_type=EndpointType(endpoint_type),
         request_body=request_body,
         raw_bytes=chunks,

@@ -1,4 +1,4 @@
-"""Video generation and management functions for LiteLLM."""
+"""Video generation and management functions for EmbRouter."""
 
 from .main import (
     avideo_content,

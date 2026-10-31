@@ -956,7 +956,7 @@ const Teams: React.FC<TeamProps> = ({ accessToken, userID, userRole, premiumUser
                               ref={ref}
                               value={value ?? ""}
                               rows={4}
-                              placeholder='{"namespace": "admin", "mount": "secret", "path_prefix": "litellm"}'
+                              placeholder='{"namespace": "admin", "mount": "secret", "path_prefix": "embrouter"}'
                               disabled={!premiumUser}
                             />
                           )}

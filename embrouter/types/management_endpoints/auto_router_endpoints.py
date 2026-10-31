@@ -9,8 +9,8 @@ from typing import Final, Literal, TypeAlias
 
 from pydantic import BaseModel, Field, computed_field, field_validator, model_validator
 
-from litellm.router_strategy.complexity_router.config import ComplexityRouterConfig
-from litellm.types.utils import StandardLoggingRoutingDecision
+from embrouter.router_strategy.complexity_router.config import ComplexityRouterConfig
+from embrouter.types.utils import StandardLoggingRoutingDecision
 
 DEFAULT_ROUTING_TEST_ROUTER_NAME: Final[str] = "auto_router_routing_test"
 
@@ -547,7 +547,7 @@ class ShadowEvalSlice(BaseModel):
         default=0.0,
         description=(
             "USD the real arm billed on this slice's judged turns, completion plus its own routing "
-            "classifier when it routed, excluding turns litellm's response cache served for free"
+            "classifier when it routed, excluding turns embrouter's response cache served for free"
         ),
     )
     shadow_spend: float = Field(
@@ -560,7 +560,7 @@ class ShadowEvalSlice(BaseModel):
     cache_hit_turns: int = Field(
         default=0,
         description=(
-            "Judged turns litellm's response cache served, excluded from both spends: an adopted router "
+            "Judged turns embrouter's response cache served, excluded from both spends: an adopted router "
             "would be served by the same cache, so those turns cost the same either way"
         ),
     )

@@ -1,5 +1,5 @@
 """
-LiteLLM Interactions API - Main Module
+EmbRouter Interactions API - Main Module
 
 Per OpenAPI spec (https://ai.google.dev/static/api/interactions.openapi.json):
 - Create interaction: POST /{api_version}/interactions
@@ -7,28 +7,28 @@ Per OpenAPI spec (https://ai.google.dev/static/api/interactions.openapi.json):
 - Delete interaction: DELETE /{api_version}/interactions/{interaction_id}
 
 Usage:
-    import litellm
+    import embrouter
 
     # Create an interaction with a model
-    response = litellm.interactions.create(
+    response = embrouter.interactions.create(
         model="gemini-2.5-flash",
         input="Hello, how are you?"
     )
 
     # Create an interaction with an agent
-    response = litellm.interactions.create(
+    response = embrouter.interactions.create(
         agent="deep-research-pro-preview-12-2025",
         input="Research the current state of cancer research"
     )
 
     # Async version
-    response = await litellm.interactions.acreate(...)
+    response = await embrouter.interactions.acreate(...)
 
     # Get an interaction
-    response = litellm.interactions.get(interaction_id="...")
+    response = embrouter.interactions.get(interaction_id="...")
 
     # Delete an interaction
-    result = litellm.interactions.delete(interaction_id="...")
+    result = embrouter.interactions.delete(interaction_id="...")
 """
 
 import asyncio
@@ -39,18 +39,18 @@ from typing import Any, Final
 
 import httpx
 
-import litellm
-from litellm.interactions.background_cost_polling import (
+import embrouter
+from embrouter.interactions.background_cost_polling import (
     maybe_schedule_background_interaction_cost_polling,
     maybe_settle_background_interaction_before_delete,
 )
-from litellm.interactions.http_handler import interactions_http_handler
-from litellm.interactions.utils import (
+from embrouter.interactions.http_handler import interactions_http_handler
+from embrouter.interactions.utils import (
     InteractionsAPIRequestUtils,
     get_provider_interactions_api_config,
 )
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.types.interactions import (
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.types.interactions import (
     CancelInteractionResult,
     DeleteInteractionResult,
     InteractionEnvironment,
@@ -59,8 +59,8 @@ from litellm.types.interactions import (
     InteractionsAPIStreamingResponse,
     InteractionTool,
 )
-from litellm.types.router import GenericLiteLLMParams
-from litellm.utils import client
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.utils import client
 
 # ============================================================
 # SDK Methods - CREATE INTERACTION
@@ -98,7 +98,7 @@ async def acreate(
     extra_headers: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
     timeout: float | httpx.Timeout | None = None,
-    # LiteLLM params
+    # EmbRouter params
     custom_llm_provider: str | None = None,
     **kwargs,
 ) -> InteractionsAPIResponse | AsyncIterator[InteractionsAPIStreamingResponse]:
@@ -139,7 +139,7 @@ async def acreate(
         kwargs["acreate_interaction"] = True
 
         if custom_llm_provider is None and model:
-            _, custom_llm_provider, _, _ = litellm.get_llm_provider(model=model, api_base=kwargs.get("api_base", None))
+            _, custom_llm_provider, _, _ = embrouter.get_llm_provider(model=model, api_base=kwargs.get("api_base", None))
         elif custom_llm_provider is None:
             custom_llm_provider = "gemini"
 
@@ -183,7 +183,7 @@ async def acreate(
 
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=model,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -223,7 +223,7 @@ def create(
     extra_headers: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
     timeout: float | httpx.Timeout | None = None,
-    # LiteLLM params
+    # EmbRouter params
     custom_llm_provider: str | None = None,
     **kwargs,
 ) -> (
@@ -265,11 +265,11 @@ def create(
     local_vars: Final = locals()
 
     try:
-        litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.get("litellm_logging_obj")
-        litellm_call_id: Final[str | None] = kwargs.get("litellm_call_id", None)
+        embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.get("embrouter_logging_obj")
+        embrouter_call_id: Final[str | None] = kwargs.get("embrouter_call_id", None)
         _is_async: Final = kwargs.pop("acreate_interaction", False) is True
 
-        litellm_params: Final = GenericLiteLLMParams(**kwargs)
+        embrouter_params: Final = GenericEmbRouterParams(**kwargs)
 
         # Routing logic:
         # - agent provided (no model, or model accidentally set to agent name) → gemini
@@ -279,11 +279,11 @@ def create(
         if agent and not model:
             custom_llm_provider = custom_llm_provider or "gemini"
         elif model:
-            model, custom_llm_provider, _, _ = litellm.get_llm_provider(
+            model, custom_llm_provider, _, _ = embrouter.get_llm_provider(
                 model=model,
                 custom_llm_provider=custom_llm_provider,
-                api_base=litellm_params.api_base,
-                api_key=litellm_params.api_key,
+                api_base=embrouter_params.api_base,
+                api_key=embrouter_params.api_key,
             )
         else:
             custom_llm_provider = custom_llm_provider or "gemini"
@@ -297,15 +297,15 @@ def create(
         local_vars.update(kwargs)
         optional_params: Final = InteractionsAPIRequestUtils.get_requested_interactions_api_optional_params(local_vars)
 
-        # Check if this is a bridge provider (litellm_responses) - similar to responses API
-        # Either provider is explicitly "litellm_responses" or no config found (bridge to responses)
-        if custom_llm_provider == "litellm_responses" or interactions_api_config is None:
-            # Bridge to litellm.responses() for non-native providers
-            from litellm.interactions.litellm_responses_transformation.handler import (
-                LiteLLMResponsesInteractionsHandler,
+        # Check if this is a bridge provider (embrouter_responses) - similar to responses API
+        # Either provider is explicitly "embrouter_responses" or no config found (bridge to responses)
+        if custom_llm_provider == "embrouter_responses" or interactions_api_config is None:
+            # Bridge to embrouter.responses() for non-native providers
+            from embrouter.interactions.embrouter_responses_transformation.handler import (
+                EmbRouterResponsesInteractionsHandler,
             )
 
-            handler: Final = LiteLLMResponsesInteractionsHandler()
+            handler: Final = EmbRouterResponsesInteractionsHandler()
             return handler.interactions_api_handler(
                 model=model or "",
                 input=input,
@@ -316,11 +316,11 @@ def create(
                 **kwargs,
             )
 
-        litellm_logging_obj.update_from_kwargs(
+        embrouter_logging_obj.update_from_kwargs(
             kwargs=kwargs,
             model=model,
             optional_params=dict(optional_params),
-            litellm_params={"litellm_call_id": litellm_call_id},
+            embrouter_params={"embrouter_call_id": embrouter_call_id},
             custom_llm_provider=custom_llm_provider,
         )
 
@@ -331,8 +331,8 @@ def create(
             interactions_api_config=interactions_api_config,
             optional_params=optional_params,
             custom_llm_provider=custom_llm_provider,
-            litellm_params=litellm_params,
-            logging_obj=litellm_logging_obj,
+            embrouter_params=embrouter_params,
+            logging_obj=embrouter_logging_obj,
             extra_headers=extra_headers,
             extra_body=extra_body,
             timeout=timeout,
@@ -342,7 +342,7 @@ def create(
 
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=model,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -390,7 +390,7 @@ async def aget(
 
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider or "gemini",
             original_exception=e,
@@ -412,11 +412,11 @@ def get(
     custom_llm_provider = custom_llm_provider or "gemini"
 
     try:
-        litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.get("litellm_logging_obj")
-        litellm_call_id: Final[str | None] = kwargs.get("litellm_call_id", None)
+        embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.get("embrouter_logging_obj")
+        embrouter_call_id: Final[str | None] = kwargs.get("embrouter_call_id", None)
         _is_async: Final = kwargs.pop("aget_interaction", False) is True
 
-        litellm_params: Final = GenericLiteLLMParams(**kwargs)
+        embrouter_params: Final = GenericEmbRouterParams(**kwargs)
 
         interactions_api_config: Final = get_provider_interactions_api_config(
             provider=custom_llm_provider,
@@ -425,11 +425,11 @@ def get(
         if interactions_api_config is None:
             raise ValueError(f"Interactions API not supported for: {custom_llm_provider}")
 
-        litellm_logging_obj.update_from_kwargs(
+        embrouter_logging_obj.update_from_kwargs(
             kwargs=kwargs,
             model=None,
             optional_params={"interaction_id": interaction_id},
-            litellm_params={"litellm_call_id": litellm_call_id},
+            embrouter_params={"embrouter_call_id": embrouter_call_id},
             custom_llm_provider=custom_llm_provider,
         )
 
@@ -437,14 +437,14 @@ def get(
             interaction_id=interaction_id,
             interactions_api_config=interactions_api_config,
             custom_llm_provider=custom_llm_provider,
-            litellm_params=litellm_params,
-            logging_obj=litellm_logging_obj,
+            embrouter_params=embrouter_params,
+            logging_obj=embrouter_logging_obj,
             extra_headers=extra_headers,
             timeout=timeout,
             _is_async=_is_async,
         )
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -494,7 +494,7 @@ async def adelete(
 
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider or "gemini",
             original_exception=e,
@@ -516,11 +516,11 @@ def delete(
     custom_llm_provider = custom_llm_provider or "gemini"
 
     try:
-        litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.get("litellm_logging_obj")
-        litellm_call_id: Final[str | None] = kwargs.get("litellm_call_id", None)
+        embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.get("embrouter_logging_obj")
+        embrouter_call_id: Final[str | None] = kwargs.get("embrouter_call_id", None)
         _is_async: Final = kwargs.pop("adelete_interaction", False) is True
 
-        litellm_params: Final = GenericLiteLLMParams(**kwargs)
+        embrouter_params: Final = GenericEmbRouterParams(**kwargs)
 
         interactions_api_config: Final = get_provider_interactions_api_config(
             provider=custom_llm_provider,
@@ -529,11 +529,11 @@ def delete(
         if interactions_api_config is None:
             raise ValueError(f"Interactions API not supported for: {custom_llm_provider}")
 
-        litellm_logging_obj.update_from_kwargs(
+        embrouter_logging_obj.update_from_kwargs(
             kwargs=kwargs,
             model=None,
             optional_params={"interaction_id": interaction_id},
-            litellm_params={"litellm_call_id": litellm_call_id},
+            embrouter_params={"embrouter_call_id": embrouter_call_id},
             custom_llm_provider=custom_llm_provider,
         )
 
@@ -541,14 +541,14 @@ def delete(
             interaction_id=interaction_id,
             interactions_api_config=interactions_api_config,
             custom_llm_provider=custom_llm_provider,
-            litellm_params=litellm_params,
-            logging_obj=litellm_logging_obj,
+            embrouter_params=embrouter_params,
+            logging_obj=embrouter_logging_obj,
             extra_headers=extra_headers,
             timeout=timeout,
             _is_async=_is_async,
         )
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -596,7 +596,7 @@ async def acancel(
 
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider or "gemini",
             original_exception=e,
@@ -618,11 +618,11 @@ def cancel(
     custom_llm_provider = custom_llm_provider or "gemini"
 
     try:
-        litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.get("litellm_logging_obj")
-        litellm_call_id: Final[str | None] = kwargs.get("litellm_call_id", None)
+        embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.get("embrouter_logging_obj")
+        embrouter_call_id: Final[str | None] = kwargs.get("embrouter_call_id", None)
         _is_async: Final = kwargs.pop("acancel_interaction", False) is True
 
-        litellm_params: Final = GenericLiteLLMParams(**kwargs)
+        embrouter_params: Final = GenericEmbRouterParams(**kwargs)
 
         interactions_api_config: Final = get_provider_interactions_api_config(
             provider=custom_llm_provider,
@@ -631,11 +631,11 @@ def cancel(
         if interactions_api_config is None:
             raise ValueError(f"Interactions API not supported for: {custom_llm_provider}")
 
-        litellm_logging_obj.update_from_kwargs(
+        embrouter_logging_obj.update_from_kwargs(
             kwargs=kwargs,
             model=None,
             optional_params={"interaction_id": interaction_id},
-            litellm_params={"litellm_call_id": litellm_call_id},
+            embrouter_params={"embrouter_call_id": embrouter_call_id},
             custom_llm_provider=custom_llm_provider,
         )
 
@@ -643,14 +643,14 @@ def cancel(
             interaction_id=interaction_id,
             interactions_api_config=interactions_api_config,
             custom_llm_provider=custom_llm_provider,
-            litellm_params=litellm_params,
-            logging_obj=litellm_logging_obj,
+            embrouter_params=embrouter_params,
+            logging_obj=embrouter_logging_obj,
             extra_headers=extra_headers,
             timeout=timeout,
             _is_async=_is_async,
         )
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,

@@ -4,7 +4,7 @@
  */
 import type { Span, SpanType } from "./traceTypes";
 
-export type ErrorSource = "model" | "tool" | "litellm";
+export type ErrorSource = "model" | "tool" | "embrouter";
 
 export interface SpanRowData {
   kind: "span";

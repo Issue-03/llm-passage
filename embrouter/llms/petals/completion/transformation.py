@@ -2,19 +2,19 @@ from typing import TYPE_CHECKING, Final
 
 from httpx import Headers, Response
 
-import litellm
-from litellm.llms.base_llm.chat.transformation import (
+import embrouter
+from embrouter.llms.base_llm.chat.transformation import (
     BaseConfig,
     BaseLLMException,
-    LiteLLMLoggingObj,
+    EmbRouterLoggingObj,
 )
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.utils import ModelResponse
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.utils import ModelResponse
 
 from ..common_utils import PetalsError
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
 
 
 class PetalsConfig(BaseConfig):
@@ -40,7 +40,7 @@ class PetalsConfig(BaseConfig):
     """
 
     max_length: int | None = None
-    max_new_tokens: int | None = litellm.max_tokens  # petals requires max tokens to be set
+    max_new_tokens: int | None = embrouter.max_tokens  # petals requires max tokens to be set
     do_sample: bool | None = None
     temperature: float | None = None
     top_k: int | None = None
@@ -50,7 +50,7 @@ class PetalsConfig(BaseConfig):
     def __init__(
         self,
         max_length: int | None = None,
-        max_new_tokens: int | None = litellm.max_tokens,  # petals requires max tokens to be set
+        max_new_tokens: int | None = embrouter.max_tokens,  # petals requires max tokens to be set
         do_sample: bool | None = None,
         temperature: float | None = None,
         top_k: int | None = None,
@@ -95,7 +95,7 @@ class PetalsConfig(BaseConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         raise NotImplementedError(
@@ -107,11 +107,11 @@ class PetalsConfig(BaseConfig):
         model: str,
         raw_response: Response,
         model_response: ModelResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         request_data: dict,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,
@@ -126,7 +126,7 @@ class PetalsConfig(BaseConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:

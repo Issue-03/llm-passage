@@ -12,23 +12,23 @@ pytest.importorskip("opentelemetry")
 
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter  # noqa: E402
 
-import litellm  # noqa: E402
-from litellm.caching.dual_cache import DualCache  # noqa: E402
-from litellm.integrations.otel.logger import OpenTelemetryV2, build_otel_v2_logger  # noqa: E402
-from litellm.integrations.otel.model.config import OpenTelemetryV2Config, is_otel_v2_enabled  # noqa: E402
-from litellm.integrations.otel.model.spans import LITELLM_PROXY_REQUEST_SPAN_NAME, SpanRole  # noqa: E402
-from litellm.integrations.otel.plumbing import context as otel_context  # noqa: E402
-from litellm.integrations.otel.plumbing import providers  # noqa: E402
-from litellm.integrations.otel.plumbing.context import set_request_root_span  # noqa: E402
-from litellm.litellm_core_utils.litellm_logging import _maybe_construct_otel_v2  # noqa: E402
-from litellm.proxy._types import UserAPIKeyAuth  # noqa: E402
-from litellm.proxy.utils import ProxyLogging  # noqa: E402
-from litellm.types.llms.openai import (  # noqa: E402
+import embrouter  # noqa: E402
+from embrouter.caching.dual_cache import DualCache  # noqa: E402
+from embrouter.integrations.otel.logger import OpenTelemetryV2, build_otel_v2_logger  # noqa: E402
+from embrouter.integrations.otel.model.config import OpenTelemetryV2Config, is_otel_v2_enabled  # noqa: E402
+from embrouter.integrations.otel.model.spans import EMBROUTER_PROXY_REQUEST_SPAN_NAME, SpanRole  # noqa: E402
+from embrouter.integrations.otel.plumbing import context as otel_context  # noqa: E402
+from embrouter.integrations.otel.plumbing import providers  # noqa: E402
+from embrouter.integrations.otel.plumbing.context import set_request_root_span  # noqa: E402
+from embrouter.embrouter_core_utils.embrouter_logging import _maybe_construct_otel_v2  # noqa: E402
+from embrouter.proxy._types import UserAPIKeyAuth  # noqa: E402
+from embrouter.proxy.utils import ProxyLogging  # noqa: E402
+from embrouter.types.llms.openai import (  # noqa: E402
     ResponseCompletedEvent,
     ResponsesAPIResponse,
     ResponsesAPIStreamEvents,
 )
-from litellm.types.utils import (  # noqa: E402
+from embrouter.types.utils import (  # noqa: E402
     Choices,
     Delta,
     Embedding,
@@ -61,14 +61,14 @@ def _logger(*, capture: str = "span_only", mappers: Sequence[str] = ("genai", "l
 
 
 def _start_root(logger):
-    root = logger._emitter.start_span(SpanRole.PROXY_REQUEST, LITELLM_PROXY_REQUEST_SPAN_NAME)
+    root = logger._emitter.start_span(SpanRole.PROXY_REQUEST, EMBROUTER_PROXY_REQUEST_SPAN_NAME)
     set_request_root_span(root)
     return root
 
 
 def _root_attrs(exporter):
     by_name = {span.name: span for span in exporter.get_finished_spans()}
-    return dict(by_name[LITELLM_PROXY_REQUEST_SPAN_NAME].attributes or {})
+    return dict(by_name[EMBROUTER_PROXY_REQUEST_SPAN_NAME].attributes or {})
 
 
 def _run_request(logger, data: dict, call_type: str, response: object):
@@ -232,7 +232,7 @@ def test_root_observation_io_survives_the_root_ending_before_the_success_callbac
     logger.log_pre_api_call(
         model="gpt-5.4-mini",
         messages=[],
-        kwargs={"litellm_call_id": "call_1", "litellm_params": {"metadata": {}}},
+        kwargs={"embrouter_call_id": "call_1", "embrouter_params": {"metadata": {}}},
     )
     asyncio.run(
         logger.async_post_call_success_hook(data=CHAT_DATA, user_api_key_dict=UserAPIKeyAuth(), response=response)
@@ -246,19 +246,19 @@ def test_root_observation_io_survives_the_root_ending_before_the_success_callbac
         "messages": CHAT_DATA["messages"],
         "response": response.model_dump(),
         "status": "success",
-        "litellm_call_id": "call_1",
+        "embrouter_call_id": "call_1",
         "metadata": {},
         "hidden_params": {},
     }
     asyncio.run(
         logger.async_log_success_event(
-            {"standard_logging_object": payload, "litellm_params": {"metadata": {}}}, response, None, None
+            {"standard_logging_object": payload, "embrouter_params": {"metadata": {}}}, response, None, None
         )
     )
 
     attrs = _root_attrs(exporter)
     assert INPUT_ATTR in attrs and OUTPUT_ATTR in attrs
-    generation = next(span for span in exporter.get_finished_spans() if span.name != LITELLM_PROXY_REQUEST_SPAN_NAME)
+    generation = next(span for span in exporter.get_finished_spans() if span.name != EMBROUTER_PROXY_REQUEST_SPAN_NAME)
     assert OUTPUT_ATTR in dict(generation.attributes or {})
 
 
@@ -309,12 +309,12 @@ def test_unrenderable_output_never_raises_into_the_request():
 
 
 def _run_named_request(
-    logger: OpenTelemetryV2, exporter: InMemorySpanExporter, litellm_params: Mapping[str, object]
+    logger: OpenTelemetryV2, exporter: InMemorySpanExporter, embrouter_params: Mapping[str, object]
 ) -> tuple[Mapping[str, object], Mapping[str, object]]:
     response: Final = ModelResponse(choices=[Choices(message=Message(role="assistant", content="pong"))])
     root: Final = _start_root(logger)
     logger.log_pre_api_call(
-        model="gpt-5.4-mini", messages=[], kwargs={"litellm_call_id": "call_1", "litellm_params": litellm_params}
+        model="gpt-5.4-mini", messages=[], kwargs={"embrouter_call_id": "call_1", "embrouter_params": embrouter_params}
     )
     root.end()
     payload: Final = {
@@ -324,17 +324,17 @@ def _run_named_request(
         "messages": CHAT_DATA["messages"],
         "response": response.model_dump(),
         "status": "success",
-        "litellm_call_id": "call_1",
+        "embrouter_call_id": "call_1",
         "metadata": {},
         "hidden_params": {},
     }
     asyncio.run(
         logger.async_log_success_event(
-            {"standard_logging_object": payload, "litellm_params": litellm_params}, response, None, None
+            {"standard_logging_object": payload, "embrouter_params": embrouter_params}, response, None, None
         )
     )
     generation: Final = next(
-        span for span in exporter.get_finished_spans() if span.name != LITELLM_PROXY_REQUEST_SPAN_NAME
+        span for span in exporter.get_finished_spans() if span.name != EMBROUTER_PROXY_REQUEST_SPAN_NAME
     )
     return _root_attrs(exporter), dict(generation.attributes or {})
 
@@ -422,11 +422,11 @@ def test_langfuse_user_and_session_headers_beat_body_metadata_on_both_spans():
 def test_caller_metadata_cannot_override_the_proxy_team_identity():
     logger, exporter = _logger()
     response: Final = ModelResponse(choices=[Choices(message=Message(role="assistant", content="pong"))])
-    litellm_params: Final = {
+    embrouter_params: Final = {
         "metadata": {"trace_user_id": "u", "trace_metadata": {"team_id": "spoofed"}, "team_id": "spoofed"}
     }
     logger.log_pre_api_call(
-        model="gpt-5.4-mini", messages=[], kwargs={"litellm_call_id": "call_1", "litellm_params": litellm_params}
+        model="gpt-5.4-mini", messages=[], kwargs={"embrouter_call_id": "call_1", "embrouter_params": embrouter_params}
     )
     payload: Final = {
         "call_type": "acompletion",
@@ -435,7 +435,7 @@ def test_caller_metadata_cannot_override_the_proxy_team_identity():
         "messages": CHAT_DATA["messages"],
         "response": response.model_dump(),
         "status": "success",
-        "litellm_call_id": "call_1",
+        "embrouter_call_id": "call_1",
         "metadata": {
             "user_api_key_team_id": "real-team",
             "user_api_key_team_alias": "real-alias",
@@ -446,7 +446,7 @@ def test_caller_metadata_cannot_override_the_proxy_team_identity():
     }
     asyncio.run(
         logger.async_log_success_event(
-            {"standard_logging_object": payload, "litellm_params": litellm_params}, response, None, None
+            {"standard_logging_object": payload, "embrouter_params": embrouter_params}, response, None, None
         )
     )
 
@@ -492,13 +492,13 @@ def test_only_langfuse_content_capture_takes_proxy_streams_off_the_fast_path(
     monkeypatch, capture, mappers, relays_streams
 ):
     logger, _ = _logger(capture=capture, mappers=mappers)
-    monkeypatch.setattr(litellm, "callbacks", [logger])
+    monkeypatch.setattr(embrouter, "callbacks", [logger])
 
     assert ProxyLogging._callback_capabilities().has_iterator_override is relays_streams
 
 
 def test_langfuse_otel_preset_builds_a_logger_that_stamps_the_root(monkeypatch):
-    monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+    monkeypatch.setenv("EMBROUTER_OTEL_V2", "true")
     monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk")
     monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk")
     monkeypatch.setenv("LANGFUSE_HOST", "https://cloud.langfuse.com")

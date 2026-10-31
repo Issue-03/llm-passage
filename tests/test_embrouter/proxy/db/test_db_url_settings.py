@@ -2,7 +2,7 @@
 
 The model assembles ``DATABASE_URL`` (and optionally
 ``DATABASE_URL_READ_REPLICA``) from the discrete ``DATABASE_*`` env vars
-emitted by the ``helm/litellm`` chart, before Prisma initializes. It covers
+emitted by the ``helm/embrouter`` chart, before Prisma initializes. It covers
 both token auth (mint a short-lived AWS RDS IAM or Microsoft Entra ID token)
 and password auth, for both the writer and the read replica.
 
@@ -31,7 +31,7 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from pydantic import ValidationError
 
-from litellm.proxy.db.db_url_settings import (
+from embrouter.proxy.db.db_url_settings import (
     PG_SSL_REQUEST,
     DatabaseURLSettings,
     token_refresh_params_from_url,
@@ -39,8 +39,8 @@ from litellm.proxy.db.db_url_settings import (
     unsupported_db_scheme,
     unsupported_db_scheme_message,
 )
-from litellm.proxy.db.pgbouncer import PgBouncerPlan, PgBouncerSettings, plan_pgbouncer
-from litellm.proxy.db.token_auth import AzureEntraTokenAuth, RdsIamTokenAuth
+from embrouter.proxy.db.pgbouncer import PgBouncerPlan, PgBouncerSettings, plan_pgbouncer
+from embrouter.proxy.db.token_auth import AzureEntraTokenAuth, RdsIamTokenAuth
 
 
 def _apply() -> bool:
@@ -96,7 +96,7 @@ def _scrub_db_env(monkeypatch):
 def _stub_iam_token(token: str = "FAKE_TOKEN"):
     """Patch the AWS-touching token mint so tests don't need boto3 / network."""
     return patch(
-        "litellm.proxy.auth.rds_iam_token.generate_iam_auth_token",
+        "embrouter.proxy.auth.rds_iam_token.generate_iam_auth_token",
         return_value=token,
     )
 
@@ -104,7 +104,7 @@ def _stub_iam_token(token: str = "FAKE_TOKEN"):
 def _stub_entra_token(token: str = "FAKE_TOKEN"):
     """Patch the Azure-touching token provider so tests don't need azure-identity."""
     return patch(
-        "litellm.secret_managers.get_azure_ad_token_provider.get_azure_ad_token_provider",
+        "embrouter.secret_managers.get_azure_ad_token_provider.get_azure_ad_token_provider",
         return_value=lambda: token,
     )
 
@@ -123,15 +123,15 @@ def test_returns_false_when_nothing_configured(monkeypatch):
 def test_assembles_writer_url_when_iam_enabled(monkeypatch):
     monkeypatch.setenv("IAM_TOKEN_DB_AUTH", "true")
     monkeypatch.setenv("DATABASE_HOST", "writer.example.com")
-    monkeypatch.setenv("DATABASE_USER", "litellm")
-    monkeypatch.setenv("DATABASE_NAME", "litellm_db")
+    monkeypatch.setenv("DATABASE_USER", "embrouter")
+    monkeypatch.setenv("DATABASE_NAME", "embrouter_db")
 
     with _stub_iam_token("WRITER_TOKEN"):
         assert _apply() is True
 
     assert (
         os.environ["DATABASE_URL"]
-        == "postgresql://litellm:WRITER_TOKEN@writer.example.com:5432/litellm_db?max_idle_connection_lifetime=60"
+        == "postgresql://embrouter:WRITER_TOKEN@writer.example.com:5432/embrouter_db?max_idle_connection_lifetime=60"
     )
     # Reader was never configured, so it must not have been set.
     assert "DATABASE_URL_READ_REPLICA" not in os.environ
@@ -145,13 +145,13 @@ def test_a_pre_encoded_iam_user_survives_url_assembly(monkeypatch):
     monkeypatch.setenv("IAM_TOKEN_DB_AUTH", "true")
     monkeypatch.setenv("DATABASE_HOST", "writer.example.com")
     monkeypatch.setenv("DATABASE_USER", "svc%40corp")
-    monkeypatch.setenv("DATABASE_NAME", "litellm_db")
+    monkeypatch.setenv("DATABASE_NAME", "embrouter_db")
 
     with _stub_iam_token("WRITER_TOKEN"):
         assert _apply() is True
 
     assert os.environ["DATABASE_URL"] == (
-        "postgresql://svc%40corp:WRITER_TOKEN@writer.example.com:5432/litellm_db?max_idle_connection_lifetime=60"
+        "postgresql://svc%40corp:WRITER_TOKEN@writer.example.com:5432/embrouter_db?max_idle_connection_lifetime=60"
     )
 
 
@@ -161,8 +161,8 @@ def test_an_unreadable_toggle_fails_the_settings_model(monkeypatch):
     token auth down to password auth, with no log line saying so."""
     monkeypatch.setenv("IAM_TOKEN_DB_AUTH", "enabled")
     monkeypatch.setenv("DATABASE_HOST", "writer.example.com")
-    monkeypatch.setenv("DATABASE_USER", "litellm")
-    monkeypatch.setenv("DATABASE_NAME", "litellm_db")
+    monkeypatch.setenv("DATABASE_USER", "embrouter")
+    monkeypatch.setenv("DATABASE_NAME", "embrouter_db")
 
     with pytest.raises(ValidationError, match="IAM_TOKEN_DB_AUTH"):
         DatabaseURLSettings.from_env()
@@ -171,8 +171,8 @@ def test_an_unreadable_toggle_fails_the_settings_model(monkeypatch):
 def test_missing_writer_envs_raises(monkeypatch):
     monkeypatch.setenv("IAM_TOKEN_DB_AUTH", "true")
     # DATABASE_HOST intentionally unset.
-    monkeypatch.setenv("DATABASE_USER", "litellm")
-    monkeypatch.setenv("DATABASE_NAME", "litellm_db")
+    monkeypatch.setenv("DATABASE_USER", "embrouter")
+    monkeypatch.setenv("DATABASE_NAME", "embrouter_db")
 
     with pytest.raises(RuntimeError, match="DATABASE_HOST"):
         _apply()
@@ -181,8 +181,8 @@ def test_missing_writer_envs_raises(monkeypatch):
 def test_reader_url_assembled_when_host_set_and_url_unset(monkeypatch):
     monkeypatch.setenv("IAM_TOKEN_DB_AUTH", "true")
     monkeypatch.setenv("DATABASE_HOST", "writer.example.com")
-    monkeypatch.setenv("DATABASE_USER", "litellm")
-    monkeypatch.setenv("DATABASE_NAME", "litellm_db")
+    monkeypatch.setenv("DATABASE_USER", "embrouter")
+    monkeypatch.setenv("DATABASE_NAME", "embrouter_db")
     monkeypatch.setenv("DATABASE_HOST_READ_REPLICA", "reader.example.com")
 
     with _stub_iam_token("READER_TOKEN"):
@@ -190,7 +190,7 @@ def test_reader_url_assembled_when_host_set_and_url_unset(monkeypatch):
 
     assert (
         os.environ["DATABASE_URL_READ_REPLICA"]
-        == "postgresql://litellm:READER_TOKEN@reader.example.com:5432/litellm_db?max_idle_connection_lifetime=60"
+        == "postgresql://embrouter:READER_TOKEN@reader.example.com:5432/embrouter_db?max_idle_connection_lifetime=60"
     )
 
 
@@ -200,12 +200,12 @@ def test_reader_url_not_clobbered_when_already_set(monkeypatch):
     DATABASE_HOST_READ_REPLICA is also set."""
     monkeypatch.setenv("IAM_TOKEN_DB_AUTH", "true")
     monkeypatch.setenv("DATABASE_HOST", "writer.example.com")
-    monkeypatch.setenv("DATABASE_USER", "litellm")
-    monkeypatch.setenv("DATABASE_NAME", "litellm_db")
+    monkeypatch.setenv("DATABASE_USER", "embrouter")
+    monkeypatch.setenv("DATABASE_NAME", "embrouter_db")
     monkeypatch.setenv("DATABASE_HOST_READ_REPLICA", "reader.example.com")
     monkeypatch.setenv(
         "DATABASE_URL_READ_REPLICA",
-        "postgresql://app:secret@reader.example.com:5432/litellm_db",
+        "postgresql://app:secret@reader.example.com:5432/embrouter_db",
     )
 
     with _stub_iam_token("READER_TOKEN"):
@@ -213,15 +213,15 @@ def test_reader_url_not_clobbered_when_already_set(monkeypatch):
 
     assert (
         os.environ["DATABASE_URL_READ_REPLICA"]
-        == "postgresql://app:secret@reader.example.com:5432/litellm_db?max_idle_connection_lifetime=60"
+        == "postgresql://app:secret@reader.example.com:5432/embrouter_db?max_idle_connection_lifetime=60"
     )
 
 
 def test_reader_url_skipped_when_host_unset(monkeypatch):
     monkeypatch.setenv("IAM_TOKEN_DB_AUTH", "true")
     monkeypatch.setenv("DATABASE_HOST", "writer.example.com")
-    monkeypatch.setenv("DATABASE_USER", "litellm")
-    monkeypatch.setenv("DATABASE_NAME", "litellm_db")
+    monkeypatch.setenv("DATABASE_USER", "embrouter")
+    monkeypatch.setenv("DATABASE_NAME", "embrouter_db")
 
     with _stub_iam_token("WRITER_TOKEN"):
         _apply()
@@ -234,8 +234,8 @@ def test_reader_field_fallbacks_default_to_writer_values(monkeypatch):
     back to the writer's user / name / schema."""
     monkeypatch.setenv("IAM_TOKEN_DB_AUTH", "true")
     monkeypatch.setenv("DATABASE_HOST", "writer.example.com")
-    monkeypatch.setenv("DATABASE_USER", "litellm")
-    monkeypatch.setenv("DATABASE_NAME", "litellm_db")
+    monkeypatch.setenv("DATABASE_USER", "embrouter")
+    monkeypatch.setenv("DATABASE_NAME", "embrouter_db")
     monkeypatch.setenv("DATABASE_SCHEMA", "public")
     monkeypatch.setenv("DATABASE_HOST_READ_REPLICA", "reader.example.com")
 
@@ -244,7 +244,7 @@ def test_reader_field_fallbacks_default_to_writer_values(monkeypatch):
 
     assert (
         os.environ["DATABASE_URL_READ_REPLICA"]
-        == "postgresql://litellm:READER_TOKEN@reader.example.com:5432/litellm_db"
+        == "postgresql://embrouter:READER_TOKEN@reader.example.com:5432/embrouter_db"
         "?schema=public&max_idle_connection_lifetime=60"
     )
 
@@ -257,15 +257,15 @@ def test_reader_field_fallbacks_default_to_writer_values(monkeypatch):
 def test_assembles_writer_url_when_azure_entra_enabled(monkeypatch):
     monkeypatch.setenv("AZURE_POSTGRESQL_AUTH", "true")
     monkeypatch.setenv("DATABASE_HOST", "writer.postgres.database.azure.com")
-    monkeypatch.setenv("DATABASE_USER", "litellm@contoso.onmicrosoft.com")
-    monkeypatch.setenv("DATABASE_NAME", "litellm_db")
+    monkeypatch.setenv("DATABASE_USER", "embrouter@contoso.onmicrosoft.com")
+    monkeypatch.setenv("DATABASE_NAME", "embrouter_db")
 
     with _stub_entra_token("ENTRA_TOKEN"):
         assert _apply() is True
 
     assert os.environ["DATABASE_URL"] == (
-        "postgresql://litellm%40contoso.onmicrosoft.com:ENTRA_TOKEN"
-        "@writer.postgres.database.azure.com:5432/litellm_db?max_idle_connection_lifetime=60"
+        "postgresql://embrouter%40contoso.onmicrosoft.com:ENTRA_TOKEN"
+        "@writer.postgres.database.azure.com:5432/embrouter_db?max_idle_connection_lifetime=60"
     )
     assert os.environ["AZURE_POSTGRESQL_AUTH"] == "True"
     assert "IAM_TOKEN_DB_AUTH" not in os.environ
@@ -274,8 +274,8 @@ def test_assembles_writer_url_when_azure_entra_enabled(monkeypatch):
 def test_azure_reader_url_assembled_from_writer_fallbacks(monkeypatch):
     monkeypatch.setenv("AZURE_POSTGRESQL_AUTH", "true")
     monkeypatch.setenv("DATABASE_HOST", "writer.postgres.database.azure.com")
-    monkeypatch.setenv("DATABASE_USER", "litellm@contoso.onmicrosoft.com")
-    monkeypatch.setenv("DATABASE_NAME", "litellm_db")
+    monkeypatch.setenv("DATABASE_USER", "embrouter@contoso.onmicrosoft.com")
+    monkeypatch.setenv("DATABASE_NAME", "embrouter_db")
     monkeypatch.setenv("DATABASE_SCHEMA", "public")
     monkeypatch.setenv("DATABASE_HOST_READ_REPLICA", "reader.postgres.database.azure.com")
 
@@ -283,16 +283,16 @@ def test_azure_reader_url_assembled_from_writer_fallbacks(monkeypatch):
         _apply()
 
     assert os.environ["DATABASE_URL_READ_REPLICA"] == (
-        "postgresql://litellm%40contoso.onmicrosoft.com:ENTRA_TOKEN"
-        "@reader.postgres.database.azure.com:5432/litellm_db?schema=public&max_idle_connection_lifetime=60"
+        "postgresql://embrouter%40contoso.onmicrosoft.com:ENTRA_TOKEN"
+        "@reader.postgres.database.azure.com:5432/embrouter_db?schema=public&max_idle_connection_lifetime=60"
     )
 
 
 def test_azure_missing_writer_envs_names_the_azure_toggle(monkeypatch):
     monkeypatch.setenv("AZURE_POSTGRESQL_AUTH", "true")
     # DATABASE_HOST intentionally unset.
-    monkeypatch.setenv("DATABASE_USER", "litellm@contoso.onmicrosoft.com")
-    monkeypatch.setenv("DATABASE_NAME", "litellm_db")
+    monkeypatch.setenv("DATABASE_USER", "embrouter@contoso.onmicrosoft.com")
+    monkeypatch.setenv("DATABASE_NAME", "embrouter_db")
 
     with pytest.raises(RuntimeError, match="AZURE_POSTGRESQL_AUTH is enabled but"):
         _apply()
@@ -302,8 +302,8 @@ def test_both_token_toggles_is_a_startup_error(monkeypatch):
     monkeypatch.setenv("IAM_TOKEN_DB_AUTH", "true")
     monkeypatch.setenv("AZURE_POSTGRESQL_AUTH", "true")
     monkeypatch.setenv("DATABASE_HOST", "writer.example.com")
-    monkeypatch.setenv("DATABASE_USER", "litellm")
-    monkeypatch.setenv("DATABASE_NAME", "litellm_db")
+    monkeypatch.setenv("DATABASE_USER", "embrouter")
+    monkeypatch.setenv("DATABASE_NAME", "embrouter_db")
 
     with pytest.raises(RuntimeError, match="can only come from one token source"):
         _apply()
@@ -326,7 +326,7 @@ def test_the_toggle_agrees_with_the_refresh_loop_on_every_spelling(monkeypatch):
     """This model and `resolve_database_token_auth` (which arms the refresh loop) both
     read the same env var. When they disagreed, `AZURE_POSTGRESQL_AUTH=1` minted a token
     here and left the refresh loop convinced token auth was off."""
-    from litellm.proxy.db.token_auth import resolve_database_token_auth
+    from embrouter.proxy.db.token_auth import resolve_database_token_auth
 
     monkeypatch.setenv("AZURE_POSTGRESQL_AUTH", "1")
 
@@ -355,8 +355,8 @@ def test_apply_writer_url_to_env_leaves_the_reader_alone(monkeypatch):
     it must not start writing DATABASE_URL_READ_REPLICA as a side effect."""
     monkeypatch.setenv("AZURE_POSTGRESQL_AUTH", "true")
     monkeypatch.setenv("DATABASE_HOST", "writer.postgres.database.azure.com")
-    monkeypatch.setenv("DATABASE_USER", "litellm")
-    monkeypatch.setenv("DATABASE_NAME", "litellm_db")
+    monkeypatch.setenv("DATABASE_USER", "embrouter")
+    monkeypatch.setenv("DATABASE_NAME", "embrouter_db")
     monkeypatch.setenv("DATABASE_HOST_READ_REPLICA", "reader.postgres.database.azure.com")
 
     with _stub_entra_token("ENTRA_TOKEN"):
@@ -373,55 +373,55 @@ def test_apply_writer_url_to_env_leaves_the_reader_alone(monkeypatch):
 
 def test_assembles_writer_url_from_password(monkeypatch):
     monkeypatch.setenv("DATABASE_HOST", "writer.example.com")
-    monkeypatch.setenv("DATABASE_USER", "litellm")
-    monkeypatch.setenv("DATABASE_NAME", "litellm_db")
+    monkeypatch.setenv("DATABASE_USER", "embrouter")
+    monkeypatch.setenv("DATABASE_NAME", "embrouter_db")
     monkeypatch.setenv("DATABASE_PASSWORD", "s3cr3t")
 
     assert _apply() is True
     assert (
         os.environ["DATABASE_URL"]
-        == "postgresql://litellm:s3cr3t@writer.example.com:5432/litellm_db?max_idle_connection_lifetime=60"
+        == "postgresql://embrouter:s3cr3t@writer.example.com:5432/embrouter_db?max_idle_connection_lifetime=60"
     )
 
 
 def test_writer_password_is_percent_encoded(monkeypatch):
     monkeypatch.setenv("DATABASE_HOST", "writer.example.com")
-    monkeypatch.setenv("DATABASE_USER", "litellm")
-    monkeypatch.setenv("DATABASE_NAME", "litellm_db")
+    monkeypatch.setenv("DATABASE_USER", "embrouter")
+    monkeypatch.setenv("DATABASE_NAME", "embrouter_db")
     monkeypatch.setenv("DATABASE_PASSWORD", "p@ss/w:rd")
 
     assert _apply() is True
     assert (
         os.environ["DATABASE_URL"]
-        == "postgresql://litellm:p%40ss%2Fw%3Ard@writer.example.com:5432/litellm_db?max_idle_connection_lifetime=60"
+        == "postgresql://embrouter:p%40ss%2Fw%3Ard@writer.example.com:5432/embrouter_db?max_idle_connection_lifetime=60"
     )
 
 
 def test_writer_url_not_clobbered_when_already_set(monkeypatch):
     """An operator-pinned DATABASE_URL (e.g. helm's $(VAR) assembly) always
     wins over the discrete fields."""
-    monkeypatch.setenv("DATABASE_URL", "postgresql://pinned:url@db.example.com:5432/litellm_db")
+    monkeypatch.setenv("DATABASE_URL", "postgresql://pinned:url@db.example.com:5432/embrouter_db")
     monkeypatch.setenv("DATABASE_HOST", "writer.example.com")
-    monkeypatch.setenv("DATABASE_USER", "litellm")
-    monkeypatch.setenv("DATABASE_NAME", "litellm_db")
+    monkeypatch.setenv("DATABASE_USER", "embrouter")
+    monkeypatch.setenv("DATABASE_NAME", "embrouter_db")
     monkeypatch.setenv("DATABASE_PASSWORD", "s3cr3t")
 
     assert _apply() is False
     assert (
         os.environ["DATABASE_URL"]
-        == "postgresql://pinned:url@db.example.com:5432/litellm_db?max_idle_connection_lifetime=60"
+        == "postgresql://pinned:url@db.example.com:5432/embrouter_db?max_idle_connection_lifetime=60"
     )
 
 
 def test_writer_url_passwordless(monkeypatch):
     monkeypatch.setenv("DATABASE_HOST", "writer.example.com")
-    monkeypatch.setenv("DATABASE_USER", "litellm")
-    monkeypatch.setenv("DATABASE_NAME", "litellm_db")
+    monkeypatch.setenv("DATABASE_USER", "embrouter")
+    monkeypatch.setenv("DATABASE_NAME", "embrouter_db")
 
     assert _apply() is True
     assert (
         os.environ["DATABASE_URL"]
-        == "postgresql://litellm@writer.example.com:5432/litellm_db?max_idle_connection_lifetime=60"
+        == "postgresql://embrouter@writer.example.com:5432/embrouter_db?max_idle_connection_lifetime=60"
     )
 
 
@@ -429,44 +429,44 @@ def test_database_username_alias(monkeypatch):
     """DATABASE_USERNAME is accepted as an alias for DATABASE_USER (parity
     with construct_database_url_from_env_vars)."""
     monkeypatch.setenv("DATABASE_HOST", "writer.example.com")
-    monkeypatch.setenv("DATABASE_USERNAME", "litellm")
-    monkeypatch.setenv("DATABASE_NAME", "litellm_db")
+    monkeypatch.setenv("DATABASE_USERNAME", "embrouter")
+    monkeypatch.setenv("DATABASE_NAME", "embrouter_db")
     monkeypatch.setenv("DATABASE_PASSWORD", "s3cr3t")
 
     assert _apply() is True
     assert (
         os.environ["DATABASE_URL"]
-        == "postgresql://litellm:s3cr3t@writer.example.com:5432/litellm_db?max_idle_connection_lifetime=60"
+        == "postgresql://embrouter:s3cr3t@writer.example.com:5432/embrouter_db?max_idle_connection_lifetime=60"
     )
 
 
 def test_password_reader_falls_back_to_writer_password(monkeypatch):
     monkeypatch.setenv("DATABASE_HOST", "writer.example.com")
-    monkeypatch.setenv("DATABASE_USER", "litellm")
-    monkeypatch.setenv("DATABASE_NAME", "litellm_db")
+    monkeypatch.setenv("DATABASE_USER", "embrouter")
+    monkeypatch.setenv("DATABASE_NAME", "embrouter_db")
     monkeypatch.setenv("DATABASE_PASSWORD", "s3cr3t")
     monkeypatch.setenv("DATABASE_HOST_READ_REPLICA", "reader.example.com")
 
     assert _apply() is True
     assert (
         os.environ["DATABASE_URL_READ_REPLICA"]
-        == "postgresql://litellm:s3cr3t@reader.example.com:5432/litellm_db?max_idle_connection_lifetime=60"
+        == "postgresql://embrouter:s3cr3t@reader.example.com:5432/embrouter_db?max_idle_connection_lifetime=60"
     )
 
 
 def test_password_reader_uses_own_credentials(monkeypatch):
     monkeypatch.setenv("DATABASE_HOST", "writer.example.com")
-    monkeypatch.setenv("DATABASE_USER", "litellm")
-    monkeypatch.setenv("DATABASE_NAME", "litellm_db")
+    monkeypatch.setenv("DATABASE_USER", "embrouter")
+    monkeypatch.setenv("DATABASE_NAME", "embrouter_db")
     monkeypatch.setenv("DATABASE_PASSWORD", "s3cr3t")
     monkeypatch.setenv("DATABASE_HOST_READ_REPLICA", "reader.example.com")
-    monkeypatch.setenv("DATABASE_USER_READ_REPLICA", "litellm_ro")
+    monkeypatch.setenv("DATABASE_USER_READ_REPLICA", "embrouter_ro")
     monkeypatch.setenv("DATABASE_PASSWORD_READ_REPLICA", "ro_pw")
 
     assert _apply() is True
     assert (
         os.environ["DATABASE_URL_READ_REPLICA"]
-        == "postgresql://litellm_ro:ro_pw@reader.example.com:5432/litellm_db?max_idle_connection_lifetime=60"
+        == "postgresql://embrouter_ro:ro_pw@reader.example.com:5432/embrouter_db?max_idle_connection_lifetime=60"
     )
 
 
@@ -486,7 +486,7 @@ def test_unsupported_db_scheme_accepts_postgres(url):
 @pytest.mark.parametrize(
     "url,scheme",
     [
-        ("sqlite:///data/litellm.db", "sqlite"),
+        ("sqlite:///data/embrouter.db", "sqlite"),
         ("sqlite:///./local.db", "sqlite"),
         ("mysql://u:p@host:3306/db", "mysql"),
         ("mssql://host/db", "mssql"),
@@ -499,7 +499,7 @@ def test_unsupported_db_scheme_rejects_non_postgres(url, scheme):
 def test_unsupported_db_scheme_does_not_echo_schemeless_credentials():
     """A malformed schemeless DSN must not leak its embedded credentials
     through the return value (which callers log)."""
-    leaky = "litellm:s3cr3t_password@db.internal:5432/litellm"
+    leaky = "embrouter:s3cr3t_password@db.internal:5432/embrouter"
 
     result = unsupported_db_scheme(leaky)
 
@@ -511,20 +511,20 @@ def test_unsupported_db_scheme_does_not_echo_schemeless_credentials():
 def test_apply_to_env_rejects_pinned_sqlite_writer(monkeypatch):
     """Componentized entrypoints pin DATABASE_URL and call apply_to_env; a
     sqlite writer must raise here rather than reach Prisma."""
-    monkeypatch.setenv("DATABASE_URL", "sqlite:///data/litellm.db")
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///data/embrouter.db")
 
     with pytest.raises(RuntimeError, match="sqlite"):
         _apply()
 
     # The bad URL must not have been propagated as a usable connection string.
-    assert os.environ["DATABASE_URL"] == "sqlite:///data/litellm.db"
+    assert os.environ["DATABASE_URL"] == "sqlite:///data/embrouter.db"
 
 
 def test_apply_to_env_rejects_pinned_sqlite_direct_url(monkeypatch):
     """DIRECT_URL reaches Prisma the same way DATABASE_URL does; a non-postgres
     direct URL must be rejected in apply_to_env, matching the CLI startup guard."""
     monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@writer.example.com:5432/db")
-    monkeypatch.setenv("DIRECT_URL", "sqlite:///data/litellm.db")
+    monkeypatch.setenv("DIRECT_URL", "sqlite:///data/embrouter.db")
 
     with pytest.raises(RuntimeError, match=r"DIRECT_URL.*sqlite"):
         _apply()
@@ -590,15 +590,15 @@ def test_assembled_reader_url_inherits_writer_connection_params(monkeypatch):
     monkeypatch.setenv(
         "DATABASE_URL", "postgresql://u:p@writer.example.com:5432/db?connection_limit=3&schema=writer_schema"
     )
-    monkeypatch.setenv("DATABASE_USER", "litellm")
-    monkeypatch.setenv("DATABASE_NAME", "litellm_db")
+    monkeypatch.setenv("DATABASE_USER", "embrouter")
+    monkeypatch.setenv("DATABASE_NAME", "embrouter_db")
     monkeypatch.setenv("DATABASE_PASSWORD", "s3cr3t")
     monkeypatch.setenv("DATABASE_HOST_READ_REPLICA", "reader.example.com")
 
     _apply()
 
     reader_url = os.environ["DATABASE_URL_READ_REPLICA"]
-    assert reader_url.startswith("postgresql://litellm:s3cr3t@reader.example.com:5432/litellm_db?")
+    assert reader_url.startswith("postgresql://embrouter:s3cr3t@reader.example.com:5432/embrouter_db?")
     query = urllib.parse.parse_qs(urllib.parse.urlsplit(reader_url).query)
     assert query["connection_limit"] == ["3"]
     assert "schema" not in query
@@ -678,13 +678,13 @@ def test_reader_url_left_alone_when_nothing_is_missing(monkeypatch):
 def test_disable_prepared_statements_appends_pgbouncer_to_assembled_writer(monkeypatch):
     monkeypatch.setenv("DATABASE_DISABLE_PREPARED_STATEMENTS", "true")
     monkeypatch.setenv("DATABASE_HOST", "writer.example.com")
-    monkeypatch.setenv("DATABASE_USER", "litellm")
-    monkeypatch.setenv("DATABASE_NAME", "litellm_db")
+    monkeypatch.setenv("DATABASE_USER", "embrouter")
+    monkeypatch.setenv("DATABASE_NAME", "embrouter_db")
     monkeypatch.setenv("DATABASE_PASSWORD", "s3cr3t")
 
     assert _apply() is True
     assert os.environ["DATABASE_URL"] == (
-        "postgresql://litellm:s3cr3t@writer.example.com:5432/litellm_db?pgbouncer=true&max_idle_connection_lifetime=60"
+        "postgresql://embrouter:s3cr3t@writer.example.com:5432/embrouter_db?pgbouncer=true&max_idle_connection_lifetime=60"
     )
     assert "DIRECT_URL" not in os.environ
 
@@ -695,34 +695,34 @@ def test_disable_prepared_statements_appends_pgbouncer_to_pinned_writer(monkeypa
     keeps named prepared statements and 42P05 collisions surface behind a
     transaction-pooling pgbouncer."""
     monkeypatch.setenv("DATABASE_DISABLE_PREPARED_STATEMENTS", "true")
-    monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@db.example.com:5432/litellm_db")
+    monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@db.example.com:5432/embrouter_db")
 
     assert _apply() is False
     assert os.environ["DATABASE_URL"] == (
-        "postgresql://u:p@db.example.com:5432/litellm_db?pgbouncer=true&max_idle_connection_lifetime=60"
+        "postgresql://u:p@db.example.com:5432/embrouter_db?pgbouncer=true&max_idle_connection_lifetime=60"
     )
 
 
 def test_disable_prepared_statements_respects_a_pinned_pgbouncer_value(monkeypatch):
     monkeypatch.setenv("DATABASE_DISABLE_PREPARED_STATEMENTS", "true")
-    monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@db.example.com:5432/litellm_db?pgbouncer=false")
+    monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@db.example.com:5432/embrouter_db?pgbouncer=false")
 
     _apply()
 
     assert os.environ["DATABASE_URL"] == (
-        "postgresql://u:p@db.example.com:5432/litellm_db?pgbouncer=false&max_idle_connection_lifetime=60"
+        "postgresql://u:p@db.example.com:5432/embrouter_db?pgbouncer=false&max_idle_connection_lifetime=60"
     )
 
 
 def test_disable_prepared_statements_applies_to_direct_url(monkeypatch):
     monkeypatch.setenv("DATABASE_DISABLE_PREPARED_STATEMENTS", "true")
-    monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@db.example.com:5432/litellm_db")
-    monkeypatch.setenv("DIRECT_URL", "postgresql://u:p@direct.example.com:5432/litellm_db")
+    monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@db.example.com:5432/embrouter_db")
+    monkeypatch.setenv("DIRECT_URL", "postgresql://u:p@direct.example.com:5432/embrouter_db")
 
     _apply()
 
     assert os.environ["DIRECT_URL"] == (
-        "postgresql://u:p@direct.example.com:5432/litellm_db?pgbouncer=true&max_idle_connection_lifetime=60"
+        "postgresql://u:p@direct.example.com:5432/embrouter_db?pgbouncer=true&max_idle_connection_lifetime=60"
     )
 
 
@@ -739,12 +739,12 @@ def test_reader_inherits_pgbouncer_from_disable_prepared_statements(monkeypatch)
 
 def test_disable_prepared_statements_off_leaves_urls_alone(monkeypatch):
     monkeypatch.setenv("DATABASE_DISABLE_PREPARED_STATEMENTS", "false")
-    monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@db.example.com:5432/litellm_db")
+    monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@db.example.com:5432/embrouter_db")
 
     _apply()
 
     assert os.environ["DATABASE_URL"] == (
-        "postgresql://u:p@db.example.com:5432/litellm_db?max_idle_connection_lifetime=60"
+        "postgresql://u:p@db.example.com:5432/embrouter_db?max_idle_connection_lifetime=60"
     )
 
 
@@ -772,7 +772,7 @@ def test_libpq_verify_full_and_sslrootcert_become_prisma_strict_sslcert(monkeypa
     check. The URL Prisma actually receives must carry its own strict dialect."""
     monkeypatch.setenv(
         "DATABASE_URL",
-        "postgresql://u:p@db.example.com:5432/litellm_db?sslmode=verify-full&sslrootcert=/certs/rds-bundle.pem",
+        "postgresql://u:p@db.example.com:5432/embrouter_db?sslmode=verify-full&sslrootcert=/certs/rds-bundle.pem",
     )
 
     assert _apply() is False
@@ -787,8 +787,8 @@ def test_libpq_verify_full_and_sslrootcert_become_prisma_strict_sslcert(monkeypa
 
 def _tls_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("DATABASE_HOST", "writer.example.com")
-    monkeypatch.setenv("DATABASE_USER", "litellm")
-    monkeypatch.setenv("DATABASE_NAME", "litellm_db")
+    monkeypatch.setenv("DATABASE_USER", "embrouter")
+    monkeypatch.setenv("DATABASE_NAME", "embrouter_db")
     monkeypatch.setenv("DATABASE_SSLMODE", "verify-full")
     monkeypatch.setenv("DATABASE_SSLROOTCERT", "/certs/rds-bundle.pem")
 
@@ -804,7 +804,7 @@ def test_tls_env_vars_make_the_minted_iam_writer_url_verify_the_server(monkeypat
         assert _apply() is True
 
     url: Final = os.environ["DATABASE_URL"]
-    assert url.startswith("postgresql://litellm:WRITER_TOKEN@writer.example.com:5432/litellm_db?")
+    assert url.startswith("postgresql://embrouter:WRITER_TOKEN@writer.example.com:5432/embrouter_db?")
     assert _query(url) == {
         "sslmode": ["require"],
         "sslcert": ["/certs/rds-bundle.pem"],
@@ -828,10 +828,10 @@ def test_tls_env_vars_apply_to_the_password_writer_and_the_assembled_reader(monk
         "sslaccept": ["strict"],
         "max_idle_connection_lifetime": ["60"],
     }
-    assert os.environ["DATABASE_URL"].startswith("postgresql://litellm:s3cr3t@writer.example.com:5432/litellm_db?")
+    assert os.environ["DATABASE_URL"].startswith("postgresql://embrouter:s3cr3t@writer.example.com:5432/embrouter_db?")
     assert _query(os.environ["DATABASE_URL"]) == expected
     assert os.environ["DATABASE_URL_READ_REPLICA"].startswith(
-        "postgresql://litellm:s3cr3t@reader.example.com:5432/litellm_db?"
+        "postgresql://embrouter:s3cr3t@reader.example.com:5432/embrouter_db?"
     )
     assert _query(os.environ["DATABASE_URL_READ_REPLICA"]) == expected
 
@@ -861,9 +861,9 @@ def test_sslrootcert_env_var_alone_means_verify_full_for_prisma_and_pgbouncer(mo
 
 def test_tls_env_vars_never_override_a_pinned_database_url(monkeypatch: pytest.MonkeyPatch):
     writer: Final = (
-        "postgresql://pinned:url@db.example.com:5432/litellm_db?sslmode=disable&max_idle_connection_lifetime=60"
+        "postgresql://pinned:url@db.example.com:5432/embrouter_db?sslmode=disable&max_idle_connection_lifetime=60"
     )
-    reader: Final = "postgresql://pinned:url@reader.example.com:5432/litellm_db?max_idle_connection_lifetime=60"
+    reader: Final = "postgresql://pinned:url@reader.example.com:5432/embrouter_db?max_idle_connection_lifetime=60"
     monkeypatch.setenv("DATABASE_URL", writer)
     monkeypatch.setenv("DATABASE_URL_READ_REPLICA", reader)
     monkeypatch.setenv("DATABASE_HOST_READ_REPLICA", "reader.example.com")
@@ -877,7 +877,7 @@ def test_tls_env_vars_never_override_a_pinned_database_url(monkeypatch: pytest.M
 
 def test_token_refresh_params_keep_the_prisma_tls_dialect_but_not_the_schema():
     kept: Final = token_refresh_params_from_url(
-        "postgresql://u:TOKEN@db.example.com:5432/litellm_db"
+        "postgresql://u:TOKEN@db.example.com:5432/embrouter_db"
         "?schema=tenant&connection_limit=5&sslmode=require&sslcert=/certs/root.pem&sslaccept=strict"
     )
     assert dict(kept) == {
@@ -988,7 +988,7 @@ def test_multi_root_bundle_is_pinned_to_the_root_the_server_chains_to(
     receives must point at a single-certificate file holding the server's root."""
     monkeypatch.setenv(
         "DATABASE_URL",
-        f"postgresql://u:p@localhost:{rds_like_pki.port}/litellm_db?sslmode=verify-full&sslrootcert={rds_like_pki.bundle}",
+        f"postgresql://u:p@localhost:{rds_like_pki.port}/embrouter_db?sslmode=verify-full&sslrootcert={rds_like_pki.bundle}",
     )
 
     _apply()
@@ -1008,13 +1008,13 @@ def test_pinned_root_replaces_a_planted_symlink_instead_of_writing_through_it(
     root_der: Final = x509.load_pem_x509_certificate(rds_like_pki.root.read_bytes()).public_bytes(
         serialization.Encoding.DER
     )
-    pinned: Final = tmp_path / f"litellm-sslcert-{hashlib.sha256(root_der).hexdigest()[:16]}.pem"
+    pinned: Final = tmp_path / f"embrouter-sslcert-{hashlib.sha256(root_der).hexdigest()[:16]}.pem"
     victim: Final = tmp_path / "victim.txt"
     victim.write_text("untouched")
     pinned.symlink_to(victim)
     monkeypatch.setenv(
         "DATABASE_URL",
-        f"postgresql://u:p@localhost:{rds_like_pki.port}/litellm_db?sslmode=verify-full&sslrootcert={rds_like_pki.bundle}",
+        f"postgresql://u:p@localhost:{rds_like_pki.port}/embrouter_db?sslmode=verify-full&sslrootcert={rds_like_pki.bundle}",
     )
 
     _apply()
@@ -1032,7 +1032,7 @@ def test_bundle_without_the_servers_root_is_passed_through_unchanged(
     operator never shipped."""
     monkeypatch.setenv(
         "DATABASE_URL",
-        f"postgresql://u:p@localhost:{rds_like_pki.port}/litellm_db"
+        f"postgresql://u:p@localhost:{rds_like_pki.port}/embrouter_db"
         f"?sslmode=verify-full&sslrootcert={rds_like_pki.wrong_bundle}",
     )
 
@@ -1046,14 +1046,14 @@ def test_root_cert_resolver_receives_the_urls_host_and_default_port():
         return f"/pinned/{host}/{port}{cert_path}"
 
     url: Final = translate_libpq_ssl_params(
-        "postgresql://u:p@db.example.com/litellm_db?sslmode=verify-full&sslrootcert=/certs/bundle.pem", resolver
+        "postgresql://u:p@db.example.com/embrouter_db?sslmode=verify-full&sslrootcert=/certs/bundle.pem", resolver
     )
 
     assert ("sslcert", "/pinned/db.example.com/5432/certs/bundle.pem") in _params(url)
 
 
 def test_libpq_verify_ca_becomes_prisma_strict(monkeypatch):
-    monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@db.example.com:5432/litellm_db?sslmode=verify-ca")
+    monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@db.example.com:5432/embrouter_db?sslmode=verify-ca")
 
     _apply()
 
@@ -1068,7 +1068,7 @@ def test_sslrootcert_alone_turns_on_strict_verification(monkeypatch):
     """libpq verifies the chain whenever a root cert is supplied under
     ``sslmode=require``; Prisma needs ``sslaccept=strict`` to do the same."""
     monkeypatch.setenv(
-        "DATABASE_URL", "postgresql://u:p@db.example.com:5432/litellm_db?sslmode=require&sslrootcert=/certs/ca.pem"
+        "DATABASE_URL", "postgresql://u:p@db.example.com:5432/embrouter_db?sslmode=require&sslrootcert=/certs/ca.pem"
     )
 
     _apply()
@@ -1084,7 +1084,7 @@ def test_sslrootcert_alone_turns_on_strict_verification(monkeypatch):
 def test_pinned_prisma_ssl_params_win_over_libpq_translation(monkeypatch):
     monkeypatch.setenv(
         "DATABASE_URL",
-        "postgresql://u:p@db.example.com:5432/litellm_db"
+        "postgresql://u:p@db.example.com:5432/embrouter_db"
         "?sslmode=verify-full&sslrootcert=/ignored.pem&sslcert=/pinned.pem&sslaccept=accept_invalid_certs",
     )
 
@@ -1100,7 +1100,7 @@ def test_pinned_prisma_ssl_params_win_over_libpq_translation(monkeypatch):
 
 def test_prisma_native_ssl_url_is_left_untouched(monkeypatch):
     url = (
-        "postgresql://u:p@db.example.com:5432/litellm_db"
+        "postgresql://u:p@db.example.com:5432/embrouter_db"
         "?sslmode=require&sslcert=/certs/ca.pem&sslaccept=strict&max_idle_connection_lifetime=60"
     )
     monkeypatch.setenv("DATABASE_URL", url)
@@ -1126,44 +1126,44 @@ def test_libpq_ssl_translation_covers_direct_url_and_read_replica(monkeypatch):
 
 
 def test_default_idle_lifetime_applied_to_pinned_writer_and_direct_url(monkeypatch):
-    monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@db.example.com:5432/litellm_db")
-    monkeypatch.setenv("DIRECT_URL", "postgresql://u:p@direct.example.com:5432/litellm_db")
+    monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@db.example.com:5432/embrouter_db")
+    monkeypatch.setenv("DIRECT_URL", "postgresql://u:p@direct.example.com:5432/embrouter_db")
 
     assert _apply() is False
 
     assert os.environ["DATABASE_URL"] == (
-        "postgresql://u:p@db.example.com:5432/litellm_db?max_idle_connection_lifetime=60"
+        "postgresql://u:p@db.example.com:5432/embrouter_db?max_idle_connection_lifetime=60"
     )
     assert os.environ["DIRECT_URL"] == (
-        "postgresql://u:p@direct.example.com:5432/litellm_db?max_idle_connection_lifetime=60"
+        "postgresql://u:p@direct.example.com:5432/embrouter_db?max_idle_connection_lifetime=60"
     )
 
 
 def test_url_pinned_idle_lifetime_wins_over_default_and_env_knob(monkeypatch):
     monkeypatch.setenv("DATABASE_MAX_IDLE_CONNECTION_LIFETIME", "45")
     monkeypatch.setenv(
-        "DATABASE_URL", "postgresql://u:p@db.example.com:5432/litellm_db?max_idle_connection_lifetime=300"
+        "DATABASE_URL", "postgresql://u:p@db.example.com:5432/embrouter_db?max_idle_connection_lifetime=300"
     )
 
     _apply()
 
     assert os.environ["DATABASE_URL"] == (
-        "postgresql://u:p@db.example.com:5432/litellm_db?max_idle_connection_lifetime=300"
+        "postgresql://u:p@db.example.com:5432/embrouter_db?max_idle_connection_lifetime=300"
     )
 
 
 def test_env_knob_overrides_default_idle_lifetime(monkeypatch):
     monkeypatch.setenv("DATABASE_MAX_IDLE_CONNECTION_LIFETIME", "45")
-    monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@db.example.com:5432/litellm_db")
-    monkeypatch.setenv("DIRECT_URL", "postgresql://u:p@direct.example.com:5432/litellm_db")
+    monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@db.example.com:5432/embrouter_db")
+    monkeypatch.setenv("DIRECT_URL", "postgresql://u:p@direct.example.com:5432/embrouter_db")
 
     _apply()
 
     assert os.environ["DATABASE_URL"] == (
-        "postgresql://u:p@db.example.com:5432/litellm_db?max_idle_connection_lifetime=45"
+        "postgresql://u:p@db.example.com:5432/embrouter_db?max_idle_connection_lifetime=45"
     )
     assert os.environ["DIRECT_URL"] == (
-        "postgresql://u:p@direct.example.com:5432/litellm_db?max_idle_connection_lifetime=45"
+        "postgresql://u:p@direct.example.com:5432/embrouter_db?max_idle_connection_lifetime=45"
     )
 
 

@@ -10,18 +10,18 @@ Reference: https://docs.databricks.com/aws/en/machine-learning/foundation-model-
 import os
 from typing import TYPE_CHECKING, Any, Final
 
-from litellm.llms.databricks.common_utils import DatabricksBase
-from litellm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
-from litellm.types.llms.openai import ResponseInputParam
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import LlmProviders
+from embrouter.llms.databricks.common_utils import DatabricksBase
+from embrouter.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
+from embrouter.types.llms.openai import ResponseInputParam
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import LlmProviders
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 
 class DatabricksResponsesAPIConfig(DatabricksBase, OpenAIResponsesAPIConfig):
@@ -42,11 +42,11 @@ class DatabricksResponsesAPIConfig(DatabricksBase, OpenAIResponsesAPIConfig):
         self,
         headers: dict,
         model: str,
-        litellm_params: GenericLiteLLMParams | None,
+        embrouter_params: GenericEmbRouterParams | None,
     ) -> dict:
-        litellm_params = litellm_params or GenericLiteLLMParams()
-        api_key: Final = litellm_params.api_key or os.getenv("DATABRICKS_API_KEY")
-        api_base: Final = litellm_params.api_base or os.getenv("DATABRICKS_API_BASE")
+        embrouter_params = embrouter_params or GenericEmbRouterParams()
+        api_key: Final = embrouter_params.api_key or os.getenv("DATABRICKS_API_KEY")
+        api_base: Final = embrouter_params.api_base or os.getenv("DATABRICKS_API_BASE")
 
         # Reuse Databricks auth logic (OAuth M2M, PAT, SDK fallback).
         # custom_endpoint=False allows SDK auth fallback; the appended
@@ -66,7 +66,7 @@ class DatabricksResponsesAPIConfig(DatabricksBase, OpenAIResponsesAPIConfig):
     def get_complete_url(
         self,
         api_base: str | None,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> str:
         api_base = api_base or os.getenv("DATABRICKS_API_BASE")
         api_base = self._get_api_base(api_base)
@@ -78,7 +78,7 @@ class DatabricksResponsesAPIConfig(DatabricksBase, OpenAIResponsesAPIConfig):
         model: str,
         input: str | ResponseInputParam,
         response_api_optional_request_params: dict,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> dict:
         """
@@ -94,7 +94,7 @@ class DatabricksResponsesAPIConfig(DatabricksBase, OpenAIResponsesAPIConfig):
             model=model,
             input=input,
             response_api_optional_request_params=response_api_optional_request_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 

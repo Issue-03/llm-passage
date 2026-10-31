@@ -13,13 +13,13 @@ from typing import Any, Final
 import httpx
 from pydantic import ValidationError
 
-from litellm.llms.oci.common_utils import (
+from embrouter.llms.oci.common_utils import (
     OCIError,
     resolve_oci_schema_anyof,
     resolve_oci_schema_refs,
     sanitize_oci_schema,
 )
-from litellm.types.llms.oci import (
+from embrouter.types.llms.oci import (
     OCICompletionResponse,
     OCIContentPartUnion,
     OCIImageContentPart,
@@ -32,8 +32,8 @@ from litellm.types.llms.oci import (
     OCIToolDefinition,
     OCIVendors,
 )
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.utils import (
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.utils import (
     ChatCompletionMessageToolCall,
     Delta,
     ModelResponse,
@@ -304,7 +304,7 @@ def handle_generic_response(
     model_response: ModelResponse,
     raw_response: httpx.Response,
 ) -> ModelResponse:
-    """Parse a non-streaming GENERIC OCI response into a LiteLLM ModelResponse."""
+    """Parse a non-streaming GENERIC OCI response into a EmbRouter ModelResponse."""
     try:
         completion_response: Final = OCICompletionResponse(**json_data)
     except (TypeError, ValidationError) as e:
@@ -358,7 +358,7 @@ def handle_generic_response(
 
 
 def handle_generic_stream_chunk(dict_chunk: dict) -> ModelResponseStream:
-    """Parse a single GENERIC SSE chunk into a LiteLLM ModelResponseStream."""
+    """Parse a single GENERIC SSE chunk into a EmbRouter ModelResponseStream."""
     # OCI streams tool calls progressively — early chunks may omit required fields.
     if dict_chunk.get("message") and dict_chunk["message"].get("toolCalls"):
         for tool_call in dict_chunk["message"]["toolCalls"]:

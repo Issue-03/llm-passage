@@ -106,7 +106,7 @@ const mockKey: KeyResponse = {
   model_max_budget: { "gpt-3.5-turbo": 50, "gpt-4": 50 },
   soft_budget_cooldown: false,
   blocked: false,
-  litellm_budget_table: {},
+  embrouter_budget_table: {},
   organization_id: "org-1",
   created_at: "2024-11-01T10:00:00Z",
   created_by: "user-1",
@@ -578,13 +578,13 @@ describe("entity links out of the key rows", () => {
     expect(within(row).queryByRole("link", { name: "Proxy Admin" })).not.toBeInTheDocument();
   });
 
-  it("leaves the litellm-dashboard session team unlinked", async () => {
-    mockUseKeys.mockReturnValue(keysResult([{ ...mockKey, team_id: "litellm-dashboard" }]));
+  it("leaves the embrouter-dashboard session team unlinked", async () => {
+    mockUseKeys.mockReturnValue(keysResult([{ ...mockKey, team_id: "embrouter-dashboard" }]));
     renderWithProviders(<VirtualKeysTable />);
 
     const row = await keyRow();
-    expect(within(row).getByText("litellm-dashboard")).toBeInTheDocument();
-    expect(within(row).queryByRole("link", { name: "litellm-dashboard" })).not.toBeInTheDocument();
+    expect(within(row).getByText("embrouter-dashboard")).toBeInTheDocument();
+    expect(within(row).queryByRole("link", { name: "embrouter-dashboard" })).not.toBeInTheDocument();
   });
 });
 
@@ -1078,7 +1078,7 @@ describe("table state lives in the URL so it survives leaving and returning to t
 });
 
 describe("column choices survive a reload", () => {
-  const STORAGE_KEY = "litellm_table_columns_virtual-keys";
+  const STORAGE_KEY = "embrouter_table_columns_virtual-keys";
   const storedColumns = () => JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "null");
 
   it("hides a column that was hidden on a previous visit while the default-hidden columns stay hidden", () => {

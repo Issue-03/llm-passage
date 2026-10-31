@@ -77,7 +77,7 @@ vi.mock("@/components/networking", () => {
     // Used to build the redirect URL
     proxyBaseUrl: "https://example.com",
     // Called when decoding a valid token
-    setGlobalLitellmHeaderName: vi.fn(),
+    setGlobalEmbrouterHeaderName: vi.fn(),
     Organization: {},
     // Daily activity calls used by UsagePage components in the render tree
     tagDailyActivityCall: vi.fn().mockResolvedValue({ results: [], metadata: {} }),
@@ -256,7 +256,7 @@ describe("CreateKeyPage auth behavior", () => {
         user_email: "user@example.com",
         login_method: "username_password",
         premium_user: false,
-        auth_header_name: "x-litellm-auth",
+        auth_header_name: "x-embrouter-auth",
         user_id: "u_123",
       };
     });
@@ -287,7 +287,7 @@ describe("CreateKeyPage auth behavior", () => {
         user_email: "user@example.com",
         login_method: "username_password",
         premium_user: false,
-        auth_header_name: "x-litellm-auth",
+        auth_header_name: "x-embrouter-auth",
         user_id: "u_123",
       };
     });

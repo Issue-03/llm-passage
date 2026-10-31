@@ -6,19 +6,19 @@ import pytest
 
 import json
 
-import litellm
-from litellm.types.llms.openai import HttpxBinaryResponseContent
+import embrouter
+from embrouter.types.llms.openai import HttpxBinaryResponseContent
 
 
 @pytest.mark.parametrize("stream", (False, True))
 def test_completion_response_reasoning_summary_round_trip(stream: bool) -> None:
     from typing import Final
 
-    from litellm.types.llms.openai import (
+    from embrouter.types.llms.openai import (
         ChatCompletionReasoningItem,
         ChatCompletionReasoningSummaryTextBlock,
     )
-    from litellm.types.utils import (
+    from embrouter.types.utils import (
         Choices,
         Delta,
         Message,
@@ -46,7 +46,7 @@ def test_completion_response_reasoning_summary_round_trip(stream: bool) -> None:
 
 
 def test_generic_event():
-    from litellm.types.llms.openai import GenericEvent
+    from embrouter.types.llms.openai import GenericEvent
 
     event = {"type": "test", "test": "test"}
     event = GenericEvent(**event)
@@ -55,7 +55,7 @@ def test_generic_event():
 
 
 def test_output_item_added_event():
-    from litellm.types.llms.openai import OutputItemAddedEvent
+    from embrouter.types.llms.openai import OutputItemAddedEvent
 
     event = {
         "type": "response.output_item.added",
@@ -75,7 +75,7 @@ class TestResponsesAPIResponseOutputText:
 
     def test_output_text_with_single_message(self):
         """Test output_text with a single message containing text output"""
-        from litellm.types.llms.openai import ResponsesAPIResponse
+        from embrouter.types.llms.openai import ResponsesAPIResponse
 
         response = ResponsesAPIResponse(
             id="resp_123",
@@ -100,7 +100,7 @@ class TestResponsesAPIResponseOutputText:
 
     def test_output_text_with_multiple_messages(self):
         """Test output_text with multiple messages aggregates all text"""
-        from litellm.types.llms.openai import ResponsesAPIResponse
+        from embrouter.types.llms.openai import ResponsesAPIResponse
 
         response = ResponsesAPIResponse(
             id="resp_123",
@@ -137,7 +137,7 @@ class TestResponsesAPIResponseOutputText:
 
     def test_output_text_with_no_text_content(self):
         """Test output_text returns empty string when no output_text content exists"""
-        from litellm.types.llms.openai import ResponsesAPIResponse
+        from embrouter.types.llms.openai import ResponsesAPIResponse
 
         response = ResponsesAPIResponse(
             id="resp_123",
@@ -157,7 +157,7 @@ class TestResponsesAPIResponseOutputText:
 
     def test_output_text_with_mixed_content(self):
         """Test output_text only aggregates output_text type content"""
-        from litellm.types.llms.openai import ResponsesAPIResponse
+        from embrouter.types.llms.openai import ResponsesAPIResponse
 
         response = ResponsesAPIResponse(
             id="resp_123",
@@ -193,7 +193,7 @@ class TestResponsesAPIResponseOutputText:
 
     def test_output_text_with_empty_output(self):
         """Test output_text returns empty string with empty output list"""
-        from litellm.types.llms.openai import ResponsesAPIResponse
+        from embrouter.types.llms.openai import ResponsesAPIResponse
 
         response = ResponsesAPIResponse(
             id="resp_123",
@@ -241,7 +241,7 @@ class TestAssistantMessageImageUrlContent:
 
         from pydantic import TypeAdapter
 
-        from litellm.types.llms.openai import ChatCompletionAssistantMessage
+        from embrouter.types.llms.openai import ChatCompletionAssistantMessage
 
         adapter = TypeAdapter(ChatCompletionAssistantMessage)
         validated = adapter.validate_python(self.ASSISTANT_MESSAGE_WITH_IMAGE)
@@ -272,12 +272,12 @@ class TestAssistantMessageImageUrlContent:
 
         from pydantic import TypeAdapter
 
-        from litellm.types.llms.openai import AllMessageValues
+        from embrouter.types.llms.openai import AllMessageValues
 
         conversation = [
             {
                 "role": "user",
-                "content": "Generate an image of a banana wearing a LiteLLM costume",
+                "content": "Generate an image of a banana wearing a EmbRouter costume",
             },
             self.ASSISTANT_MESSAGE_WITH_IMAGE,
         ]
@@ -307,7 +307,7 @@ class TestResponsesAPIReasoningNullFields:
     Tests for issue #16824: reasoning output items should not include null
     status/content/encrypted_content fields.
 
-    When a provider returns reasoning items without these fields, LiteLLM's
+    When a provider returns reasoning items without these fields, EmbRouter's
     Pydantic parsing adds them as Optional defaults (None). Serializing them
     as null breaks downstream SDKs (e.g., the OpenAI C# SDK crashes on
     status=null).
@@ -318,7 +318,7 @@ class TestResponsesAPIReasoningNullFields:
     """
 
     def _make_response(self, output):
-        from litellm.types.llms.openai import ResponsesAPIResponse
+        from embrouter.types.llms.openai import ResponsesAPIResponse
 
         return ResponsesAPIResponse(
             id="resp_test",
@@ -454,7 +454,7 @@ class TestResponsesAPIReasoningNullFields:
 
 
 def test_normalize_fine_tuning_job_dict_maps_azure_pending():
-    from litellm.llms.openai.fine_tuning.handler import _normalize_fine_tuning_job_dict
+    from embrouter.llms.openai.fine_tuning.handler import _normalize_fine_tuning_job_dict
 
     out = _normalize_fine_tuning_job_dict(
         {"organization_id": None, "result_files": None, "status": "pending"},
@@ -466,7 +466,7 @@ def test_normalize_fine_tuning_job_dict_maps_azure_pending():
 
 
 def test_normalize_fine_tuning_job_dict_openai_unchanged():
-    from litellm.llms.openai.fine_tuning.handler import _normalize_fine_tuning_job_dict
+    from embrouter.llms.openai.fine_tuning.handler import _normalize_fine_tuning_job_dict
 
     data = {"organization_id": None, "result_files": None, "status": "pending"}
     out = _normalize_fine_tuning_job_dict(data, is_azure=False)
@@ -474,7 +474,7 @@ def test_normalize_fine_tuning_job_dict_openai_unchanged():
 
 
 def test_openai_file_object_accepts_pending_status():
-    from litellm.types.llms.openai import OpenAIFileObject
+    from embrouter.types.llms.openai import OpenAIFileObject
 
     file_obj = OpenAIFileObject(
         id="file-123",
@@ -489,11 +489,11 @@ def test_openai_file_object_accepts_pending_status():
 
 
 class TestOpenAIFileObjectBatchGuardrailSerialization:
-    """The proxy-only `litellm_batch_guardrail` key must reach the wire only when something set it."""
+    """The proxy-only `embrouter_batch_guardrail` key must reach the wire only when something set it."""
 
     @staticmethod
     def _file_object(**overrides):
-        from litellm.types.llms.openai import OpenAIFileObject
+        from embrouter.types.llms.openai import OpenAIFileObject
 
         return OpenAIFileObject(
             id="file-123",
@@ -508,7 +508,7 @@ class TestOpenAIFileObjectBatchGuardrailSerialization:
 
     @staticmethod
     def _report():
-        from litellm.types.llms.openai import BatchGuardrailRecord, BatchGuardrailReport
+        from embrouter.types.llms.openai import BatchGuardrailRecord, BatchGuardrailReport
 
         return BatchGuardrailReport(
             submitted_records=3,
@@ -517,23 +517,23 @@ class TestOpenAIFileObjectBatchGuardrailSerialization:
 
     @pytest.mark.parametrize("mode", ["python", "json"])
     def test_key_absent_when_unset(self, mode):
-        assert "litellm_batch_guardrail" not in self._file_object().model_dump(mode=mode)
+        assert "embrouter_batch_guardrail" not in self._file_object().model_dump(mode=mode)
 
     @pytest.mark.parametrize("mode", ["python", "json"])
     def test_key_present_when_set(self, mode):
-        dumped = self._file_object(litellm_batch_guardrail=self._report()).model_dump(mode=mode)
-        assert dumped["litellm_batch_guardrail"]["submitted_records"] == 3
+        dumped = self._file_object(embrouter_batch_guardrail=self._report()).model_dump(mode=mode)
+        assert dumped["embrouter_batch_guardrail"]["submitted_records"] == 3
 
     def test_nested_nulls_of_a_set_report_survive(self):
         """`exclude_none=True` was rejected as the fix because it would strip these."""
-        dumped = self._file_object(litellm_batch_guardrail=self._report()).model_dump(mode="json")
-        assert dumped["litellm_batch_guardrail"]["modified_records"] == [
+        dumped = self._file_object(embrouter_batch_guardrail=self._report()).model_dump(mode="json")
+        assert dumped["embrouter_batch_guardrail"]["modified_records"] == [
             {"line": 2, "custom_id": "dirty", "action": "redacted", "guardrail": None}
         ]
 
     def test_by_alias_dump_also_omits_the_key(self):
         """Tripwire: the serializer filters a literal key name, which an added alias would bypass."""
-        assert "litellm_batch_guardrail" not in self._file_object().model_dump(mode="json", by_alias=True)
+        assert "embrouter_batch_guardrail" not in self._file_object().model_dump(mode="json", by_alias=True)
 
     def test_other_optional_fields_still_serialize_as_null(self):
         dumped = self._file_object().model_dump(mode="json")
@@ -541,23 +541,23 @@ class TestOpenAIFileObjectBatchGuardrailSerialization:
         assert dumped["status_details"] is None
 
     def test_round_trip_of_a_set_report_is_lossless(self):
-        from litellm.types.llms.openai import OpenAIFileObject
+        from embrouter.types.llms.openai import OpenAIFileObject
 
-        original = self._file_object(litellm_batch_guardrail=self._report())
+        original = self._file_object(embrouter_batch_guardrail=self._report())
         assert OpenAIFileObject(**original.model_dump()) == original
 
     def test_serialization_json_schema_still_describes_the_model(self):
         """A return annotation on the wrap serializer would collapse this to a bare object."""
-        from litellm.types.llms.openai import OpenAIFileObject
+        from embrouter.types.llms.openai import OpenAIFileObject
 
         schema = OpenAIFileObject.model_json_schema(mode="serialization")
-        assert "litellm_batch_guardrail" in schema["properties"]
+        assert "embrouter_batch_guardrail" in schema["properties"]
 
     def test_key_omitted_inside_a_file_list_page(self):
-        from litellm.types.llms.openai import FileListPage
+        from embrouter.types.llms.openai import FileListPage
 
         page = FileListPage(object="list", data=[self._file_object()], has_more=False)
-        assert "litellm_batch_guardrail" not in page.model_dump(mode="json")["data"][0]
+        assert "embrouter_batch_guardrail" not in page.model_dump(mode="json")["data"][0]
 
 
 def _binary_content(payload: bytes) -> HttpxBinaryResponseContent:

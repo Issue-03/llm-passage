@@ -7,13 +7,13 @@ from typing import Final
 
 import httpx
 
-import litellm
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.azure_ai.common_utils import get_azure_ai_auth_headers
-from litellm.llms.cohere.rerank.transformation import CohereRerankConfig
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.utils import RerankResponse
-from litellm.utils import _add_path_to_api_base
+import embrouter
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.azure_ai.common_utils import get_azure_ai_auth_headers
+from embrouter.llms.cohere.rerank.transformation import CohereRerankConfig
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.utils import RerankResponse
+from embrouter.utils import _add_path_to_api_base
 
 
 class AzureAIRerankConfig(CohereRerankConfig):
@@ -66,13 +66,13 @@ class AzureAIRerankConfig(CohereRerankConfig):
         model: str,
         api_key: str | None = None,
         optional_params: dict | None = None,
-        litellm_params: Mapping[str, object] | None = None,
+        embrouter_params: Mapping[str, object] | None = None,
     ) -> dict:
         if api_key is None:
-            api_key = get_secret_str("AZURE_AI_API_KEY") or litellm.azure_key
+            api_key = get_secret_str("AZURE_AI_API_KEY") or embrouter.azure_key
 
         default_headers: Final = {
-            **get_azure_ai_auth_headers(api_key=api_key, litellm_params=litellm_params),
+            **get_azure_ai_auth_headers(api_key=api_key, embrouter_params=embrouter_params),
             "accept": "application/json",
             "content-type": "application/json",
         }
@@ -89,11 +89,11 @@ class AzureAIRerankConfig(CohereRerankConfig):
         model: str,
         raw_response: httpx.Response,
         model_response: RerankResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_key: str | None = None,
         request_data: dict = {},
         optional_params: dict = {},
-        litellm_params: dict = {},
+        embrouter_params: dict = {},
     ) -> RerankResponse:
         rerank_response: Final = super().transform_rerank_response(
             model=model,
@@ -103,7 +103,7 @@ class AzureAIRerankConfig(CohereRerankConfig):
             api_key=api_key,
             request_data=request_data,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
         base_model: Final = self._get_base_model(rerank_response._hidden_params.get("llm_provider-azureml-model-group"))
         rerank_response._hidden_params["model"] = base_model

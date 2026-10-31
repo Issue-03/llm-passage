@@ -3,14 +3,14 @@ from typing import Final
 import httpx
 from typing_extensions import TypedDict
 
-import litellm
-from litellm.llms.custom_httpx.http_handler import (
+import embrouter
+from embrouter.llms.custom_httpx.http_handler import (
     _get_httpx_client,
     get_async_httpx_client,
 )
-from litellm.llms.openai.openai import HttpxBinaryResponseContent
-from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import VertexLLM
-from litellm.types.llms.vertex_ai import VERTEX_CREDENTIALS_TYPES
+from embrouter.llms.openai.openai import HttpxBinaryResponseContent
+from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import VertexLLM
+from embrouter.types.llms.vertex_ai import VERTEX_CREDENTIALS_TYPES
 
 
 class VertexInput(TypedDict, total=False):
@@ -176,7 +176,7 @@ class VertexTextToSpeechAPI(VertexLLM):
     ) -> HttpxBinaryResponseContent:
         import base64
 
-        async_handler: Final = get_async_httpx_client(llm_provider=litellm.LlmProviders.VERTEX_AI)
+        async_handler: Final = get_async_httpx_client(llm_provider=embrouter.LlmProviders.VERTEX_AI)
 
         response = await async_handler.post(
             url=url,
@@ -221,7 +221,7 @@ def validate_vertex_input(input_data: VertexInput, kwargs: dict, optional_params
         elif "ssml" not in input_data:
             raise ValueError("SSML input is required when use_ssml is True.")
     else:
-        # LiteLLM will auto-detect if text is in ssml format
+        # EmbRouter will auto-detect if text is in ssml format
         # check if "text" is an ssml - in this case we should pass it as ssml instead of text
         if input_data:
             _text: Final = input_data.get("text", None) or ""

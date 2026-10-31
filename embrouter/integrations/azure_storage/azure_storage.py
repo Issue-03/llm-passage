@@ -6,28 +6,28 @@ from datetime import datetime, timedelta
 from functools import cache
 from typing import Final
 
-from litellm._logging import verbose_logger
-from litellm._uuid import uuid
-from litellm.constants import (
+from embrouter._logging import verbose_logger
+from embrouter._uuid import uuid
+from embrouter.constants import (
     _DEFAULT_TTL_FOR_HTTPX_CLIENTS,
     AZURE_STORAGE_DEFAULT_ENDPOINT_SUFFIX,
     AZURE_STORAGE_MSFT_VERSION,
 )
-from litellm.integrations.custom_batch_logger import CustomBatchLogger
-from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
-from litellm.llms.azure.common_utils import get_azure_ad_token_from_entra_id
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.integrations.custom_batch_logger import CustomBatchLogger
+from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps
+from embrouter.llms.azure.common_utils import get_azure_ad_token_from_entra_id
+from embrouter.llms.custom_httpx.http_handler import (
     AsyncHTTPHandler,
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.secret_managers.get_azure_ad_token_provider import (
+from embrouter.secret_managers.get_azure_ad_token_provider import (
     get_azure_ad_token_provider,
 )
-from litellm.types.secret_managers.get_azure_ad_token_provider import (
+from embrouter.types.secret_managers.get_azure_ad_token_provider import (
     AzureCredentialType,
 )
-from litellm.types.utils import StandardLoggingPayload
+from embrouter.types.utils import StandardLoggingPayload
 
 AZURE_STORAGE_TOKEN_SCOPE: Final = "https://storage.azure.com/.default"
 
@@ -320,7 +320,7 @@ class AzureBlobStorageLogger(CustomBatchLogger):
         """
         Checks if the user is a premium user, raises an error if not
         """
-        from litellm.proxy.proxy_server import CommonProxyErrors, premium_user
+        from embrouter.proxy.proxy_server import CommonProxyErrors, premium_user
 
         if premium_user is not True:
             raise ValueError(

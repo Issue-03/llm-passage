@@ -8,13 +8,13 @@ from typing import Final, Literal
 import httpx
 from pydantic import BaseModel, Field
 
-from litellm.llms.base_llm.embedding.transformation import (
+from embrouter.llms.base_llm.embedding.transformation import (
     BaseEmbeddingConfig,
-    LiteLLMLoggingObj,
+    EmbRouterLoggingObj,
 )
-from litellm.llms.sap.chat.models import MaskingModuleConfig
-from litellm.types.llms.openai import AllEmbeddingInputValues
-from litellm.types.utils import EmbeddingResponse
+from embrouter.llms.sap.chat.models import MaskingModuleConfig
+from embrouter.types.llms.openai import AllEmbeddingInputValues
+from embrouter.types.utils import EmbeddingResponse
 
 from ..chat.handler import GenAIHubOrchestrationError
 from ..credentials import get_token_creator
@@ -92,7 +92,7 @@ class GenAIHubEmbeddingConfig(BaseEmbeddingConfig):
             "Authorization": access_token,
             "AI-Resource-Group": self.resource_group,
             "Content-Type": "application/json",
-            "AI-Client-Type": "LiteLLM",
+            "AI-Client-Type": "EmbRouter",
         }
         return headers
 
@@ -140,7 +140,7 @@ class GenAIHubEmbeddingConfig(BaseEmbeddingConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         url: Final = self.deployment_url.rstrip("/") + "/v2/embeddings"
@@ -181,10 +181,10 @@ class GenAIHubEmbeddingConfig(BaseEmbeddingConfig):
         model: str,
         raw_response: httpx.Response,
         model_response: EmbeddingResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_key: str | None,
         request_data: dict,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> EmbeddingResponse:
         return EmbeddingResponse.model_validate(raw_response.json()["final_result"])

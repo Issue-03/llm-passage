@@ -8,9 +8,9 @@ from typing import Any, Final, NamedTuple
 
 from typing_extensions import LiteralString
 
-from litellm._logging import print_verbose, verbose_logger
-from litellm._uuid import uuid
-from litellm.litellm_core_utils.redact_messages import redact_user_api_key_info
+from embrouter._logging import print_verbose, verbose_logger
+from embrouter._uuid import uuid
+from embrouter.embrouter_core_utils.redact_messages import redact_user_api_key_info
 
 
 class SpanConfig(NamedTuple):
@@ -56,7 +56,7 @@ class LogfireLogger:
             )
         else:
             return SpanConfig(
-                message_template="Litellm Call with {request_data[model]!r}",
+                message_template="Embrouter Call with {request_data[model]!r}",
                 span_data={"request_data": payload},
             )
 
@@ -94,8 +94,8 @@ class LogfireLogger:
 
             if not response_obj:
                 response_obj = {}
-            litellm_params: Final = kwargs.get("litellm_params", {})
-            metadata: Final = litellm_params.get("metadata", {}) or {}  # if litellm_params['metadata'] == None
+            embrouter_params: Final = kwargs.get("embrouter_params", {})
+            metadata: Final = embrouter_params.get("metadata", {}) or {}  # if embrouter_params['metadata'] == None
             messages: Final = kwargs.get("messages")
             optional_params: Final = kwargs.get("optional_params", {})
             call_type: Final = kwargs.get("call_type", "completion")
@@ -109,11 +109,11 @@ class LogfireLogger:
 
             # Clean Metadata before logging - never log raw metadata
             # the raw metadata can contain circular references which leads to infinite recursion
-            # we clean out all extra litellm metadata params before logging
+            # we clean out all extra embrouter metadata params before logging
             clean_metadata = {}
             if isinstance(metadata, dict):
                 for key, value in metadata.items():
-                    # clean litellm metadata before logging
+                    # clean embrouter metadata before logging
                     if key in [
                         "endpoint",
                         "caching_groups",

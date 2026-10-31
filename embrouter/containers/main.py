@@ -7,16 +7,16 @@ from typing import Final, Literal, overload
 
 import httpx
 
-import litellm
-from litellm.constants import request_timeout as DEFAULT_REQUEST_TIMEOUT
-from litellm.containers.utils import (
+import embrouter
+from embrouter.constants import request_timeout as DEFAULT_REQUEST_TIMEOUT
+from embrouter.containers.utils import (
     ContainerRequestUtils,
     decode_managed_container_id_for_request,
 )
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.base_llm.containers.transformation import BaseContainerConfig
-from litellm.main import base_llm_http_handler
-from litellm.types.containers.main import (
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.base_llm.containers.transformation import BaseContainerConfig
+from embrouter.main import base_llm_http_handler
+from embrouter.types.containers.main import (
     ContainerCreateOptionalRequestParams,
     ContainerFileListResponse,
     ContainerFileObject,
@@ -25,10 +25,10 @@ from litellm.types.containers.main import (
     ContainerObject,
     DeleteContainerResult,
 )
-from litellm.types.llms.openai import FileTypes
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import CallTypes
-from litellm.utils import ProviderConfigManager, client
+from embrouter.types.llms.openai import FileTypes
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import CallTypes
+from embrouter.utils import ProviderConfigManager, client
 
 __all__ = [
     "acreate_container",
@@ -60,7 +60,7 @@ async def acreate_container(
     expires_after: Mapping[str, object] | None = None,
     file_ids: list[str] | None = None,
     timeout: float | httpx.Timeout = 600,  # default to 10 minutes
-    # LiteLLM specific params,
+    # EmbRouter specific params,
     custom_llm_provider: Literal["openai", "azure", "azure_text"] = "openai",
     # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
     # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -114,7 +114,7 @@ async def acreate_container(
 
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model="",
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -185,9 +185,9 @@ def create_container(
 
     Example:
     ```python
-    import litellm
+    import embrouter
 
-    response = litellm.create_container(
+    response = embrouter.create_container(
         name="My Container",
         custom_llm_provider="openai",
     )
@@ -196,8 +196,8 @@ def create_container(
     """
     local_vars: Final = locals()
     try:
-        litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.pop("litellm_logging_obj")
-        litellm_call_id: Final[str | None] = kwargs.get("litellm_call_id")
+        embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.pop("embrouter_logging_obj")
+        embrouter_call_id: Final[str | None] = kwargs.get("embrouter_call_id")
         _is_async: Final = kwargs.pop("async_call", False) is True
 
         # Check for mock response first
@@ -211,7 +211,7 @@ def create_container(
 
         # get llm provider logic
         # Pass credential params explicitly since they're named args, not in kwargs
-        litellm_params: Final = GenericLiteLLMParams(
+        embrouter_params: Final = GenericEmbRouterParams(
             api_key=api_key,
             api_base=api_base,
             api_version=api_version,
@@ -219,7 +219,7 @@ def create_container(
         )
         # get provider config
         container_provider_config: BaseContainerConfig | None = ProviderConfigManager.get_provider_container_config(
-            provider=litellm.LlmProviders(custom_llm_provider),
+            provider=embrouter.LlmProviders(custom_llm_provider),
         )
 
         if container_provider_config is None:
@@ -238,26 +238,26 @@ def create_container(
         )
 
         # Pre Call logging
-        litellm_logging_obj.update_from_kwargs(
+        embrouter_logging_obj.update_from_kwargs(
             kwargs=kwargs,
             model="",
             optional_params=dict(container_create_request_params),
-            litellm_params={
-                "litellm_call_id": litellm_call_id,
+            embrouter_params={
+                "embrouter_call_id": embrouter_call_id,
                 **container_create_request_params,
             },
             custom_llm_provider=custom_llm_provider,
         )
 
         # Set the correct call type for container creation
-        litellm_logging_obj.call_type = CallTypes.create_container.value
+        embrouter_logging_obj.call_type = CallTypes.create_container.value
 
         container_obj = base_llm_http_handler.container_create_handler(
             name=name,
             container_create_request_params=container_create_request_params,
             container_provider_config=container_provider_config,
-            litellm_params=litellm_params,
-            logging_obj=litellm_logging_obj,
+            embrouter_params=embrouter_params,
+            logging_obj=embrouter_logging_obj,
             extra_headers=extra_headers,
             timeout=timeout or DEFAULT_REQUEST_TIMEOUT,
             _is_async=_is_async,
@@ -266,7 +266,7 @@ def create_container(
         encode: Final = partial(
             ContainerRequestUtils.encode_container_id_in_response,
             custom_llm_provider=custom_llm_provider,
-            litellm_metadata=kwargs.get("litellm_metadata"),
+            embrouter_metadata=kwargs.get("embrouter_metadata"),
             extra_body=extra_body,
         )
         if isinstance(container_obj, ContainerObject):
@@ -275,7 +275,7 @@ def create_container(
         return _encode_created_container_id(pending=container_obj, encode=encode)
 
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model="",
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -344,7 +344,7 @@ async def alist_containers(
 
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model="",
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -414,8 +414,8 @@ def list_containers(
     """
     local_vars: Final = locals()
     try:
-        litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.pop("litellm_logging_obj")
-        litellm_call_id: Final[str | None] = kwargs.get("litellm_call_id")
+        embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.pop("embrouter_logging_obj")
+        embrouter_call_id: Final[str | None] = kwargs.get("embrouter_call_id")
         _is_async: Final = kwargs.pop("async_call", False) is True
 
         # Check for mock response first
@@ -429,7 +429,7 @@ def list_containers(
 
         # get llm provider logic
         # Pass credential params explicitly since they're named args, not in kwargs
-        litellm_params: Final = GenericLiteLLMParams(
+        embrouter_params: Final = GenericEmbRouterParams(
             api_key=api_key,
             api_base=api_base,
             api_version=api_version,
@@ -437,7 +437,7 @@ def list_containers(
         )
         # get provider config
         container_provider_config: BaseContainerConfig | None = ProviderConfigManager.get_provider_container_config(
-            provider=litellm.LlmProviders(custom_llm_provider),
+            provider=embrouter.LlmProviders(custom_llm_provider),
         )
 
         if container_provider_config is None:
@@ -449,24 +449,24 @@ def list_containers(
         )
 
         # Pre Call logging
-        litellm_logging_obj.update_from_kwargs(
+        embrouter_logging_obj.update_from_kwargs(
             kwargs=kwargs,
             model="",
             optional_params=dict(container_list_optional_params),
-            litellm_params={
-                "litellm_call_id": litellm_call_id,
+            embrouter_params={
+                "embrouter_call_id": embrouter_call_id,
                 **container_list_optional_params,
             },
             custom_llm_provider=custom_llm_provider,
         )
 
         # Set the correct call type
-        litellm_logging_obj.call_type = CallTypes.list_containers.value
+        embrouter_logging_obj.call_type = CallTypes.list_containers.value
 
         return base_llm_http_handler.container_list_handler(
             container_provider_config=container_provider_config,
-            litellm_params=litellm_params,
-            logging_obj=litellm_logging_obj,
+            embrouter_params=embrouter_params,
+            logging_obj=embrouter_logging_obj,
             after=after,
             limit=limit,
             order=order,
@@ -477,7 +477,7 @@ def list_containers(
         )
 
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model="",
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -540,7 +540,7 @@ async def aretrieve_container(
 
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model="",
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -605,8 +605,8 @@ def retrieve_container(
     local_vars: Final = locals()
     try:
         resolved_custom_llm_provider: str = custom_llm_provider
-        litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.pop("litellm_logging_obj")
-        litellm_call_id: Final[str | None] = kwargs.get("litellm_call_id")
+        embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.pop("embrouter_logging_obj")
+        embrouter_call_id: Final[str | None] = kwargs.get("embrouter_call_id")
         _is_async: Final = kwargs.pop("async_call", False) is True
 
         # Check for mock response first
@@ -620,7 +620,7 @@ def retrieve_container(
 
         # get llm provider logic
         # Pass credential params explicitly since they're named args, not in kwargs
-        litellm_params = GenericLiteLLMParams(
+        embrouter_params = GenericEmbRouterParams(
             api_key=api_key,
             api_base=api_base,
             api_version=api_version,
@@ -628,41 +628,41 @@ def retrieve_container(
         )
 
         # Decode container ID and extract provider info
-        original_container_id, resolved_custom_llm_provider, litellm_params = decode_managed_container_id_for_request(
+        original_container_id, resolved_custom_llm_provider, embrouter_params = decode_managed_container_id_for_request(
             container_id=container_id,
             custom_llm_provider=custom_llm_provider,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
-        # True when input was a LiteLLM-managed ID (any length); needed to re-encode output for routing affinity
+        # True when input was a EmbRouter-managed ID (any length); needed to re-encode output for routing affinity
         was_encoded: Final = original_container_id != container_id
 
         # get provider config
         container_provider_config: BaseContainerConfig | None = ProviderConfigManager.get_provider_container_config(
-            provider=litellm.LlmProviders(resolved_custom_llm_provider),
+            provider=embrouter.LlmProviders(resolved_custom_llm_provider),
         )
 
         if container_provider_config is None:
             raise ValueError(f"Container provider config not found for provider: {resolved_custom_llm_provider}")
 
         # Pre Call logging
-        litellm_logging_obj.update_from_kwargs(
+        embrouter_logging_obj.update_from_kwargs(
             kwargs=kwargs,
             model="",
             optional_params={},
-            litellm_params={
-                "litellm_call_id": litellm_call_id,
+            embrouter_params={
+                "embrouter_call_id": embrouter_call_id,
             },
             custom_llm_provider=resolved_custom_llm_provider,
         )
 
         # Set the correct call type
-        litellm_logging_obj.call_type = CallTypes.retrieve_container.value
+        embrouter_logging_obj.call_type = CallTypes.retrieve_container.value
 
         container_obj = base_llm_http_handler.container_retrieve_handler(
             container_id=original_container_id,  # Use decoded original ID
             container_provider_config=container_provider_config,
-            litellm_params=litellm_params,
-            logging_obj=litellm_logging_obj,
+            embrouter_params=embrouter_params,
+            logging_obj=embrouter_logging_obj,
             extra_headers=extra_headers,
             extra_query=extra_query,
             timeout=timeout or DEFAULT_REQUEST_TIMEOUT,
@@ -673,26 +673,26 @@ def retrieve_container(
         # If input was encoded, preserve encoding in output using the decoded model_id
         if isinstance(container_obj, ContainerObject):
             # If input was encoded, use model_id from decoded params
-            litellm_metadata = kwargs.get("litellm_metadata", {})
-            if was_encoded and litellm_params.get("model_id"):
-                # Inject model_id from decoded container_id into litellm_metadata
-                if not litellm_metadata:
-                    litellm_metadata = {}
-                if "model_info" not in litellm_metadata:
-                    litellm_metadata["model_info"] = {}
-                litellm_metadata["model_info"]["id"] = litellm_params["model_id"]
+            embrouter_metadata = kwargs.get("embrouter_metadata", {})
+            if was_encoded and embrouter_params.get("model_id"):
+                # Inject model_id from decoded container_id into embrouter_metadata
+                if not embrouter_metadata:
+                    embrouter_metadata = {}
+                if "model_info" not in embrouter_metadata:
+                    embrouter_metadata["model_info"] = {}
+                embrouter_metadata["model_info"]["id"] = embrouter_params["model_id"]
 
             container_obj = ContainerRequestUtils.encode_container_id_in_response(
                 response_obj=container_obj,
                 custom_llm_provider=resolved_custom_llm_provider,
-                litellm_metadata=litellm_metadata,
+                embrouter_metadata=embrouter_metadata,
                 extra_body=None,
             )
 
         return container_obj
 
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model="",
             custom_llm_provider=resolved_custom_llm_provider,
             original_exception=e,
@@ -755,7 +755,7 @@ async def adelete_container(
 
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model="",
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -820,8 +820,8 @@ def delete_container(
     local_vars: Final = locals()
     try:
         resolved_custom_llm_provider: str = custom_llm_provider
-        litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.pop("litellm_logging_obj")
-        litellm_call_id: Final[str | None] = kwargs.get("litellm_call_id")
+        embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.pop("embrouter_logging_obj")
+        embrouter_call_id: Final[str | None] = kwargs.get("embrouter_call_id")
         _is_async: Final = kwargs.pop("async_call", False) is True
 
         # Check for mock response first
@@ -835,7 +835,7 @@ def delete_container(
 
         # get llm provider logic
         # Pass credential params explicitly since they're named args, not in kwargs
-        litellm_params = GenericLiteLLMParams(
+        embrouter_params = GenericEmbRouterParams(
             api_key=api_key,
             api_base=api_base,
             api_version=api_version,
@@ -843,41 +843,41 @@ def delete_container(
         )
 
         # Decode container ID and extract provider info
-        original_container_id, resolved_custom_llm_provider, litellm_params = decode_managed_container_id_for_request(
+        original_container_id, resolved_custom_llm_provider, embrouter_params = decode_managed_container_id_for_request(
             container_id=container_id,
             custom_llm_provider=custom_llm_provider,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
-        # True when input was a LiteLLM-managed ID (any length); needed to re-encode output for routing affinity
+        # True when input was a EmbRouter-managed ID (any length); needed to re-encode output for routing affinity
         was_encoded: Final = original_container_id != container_id
 
         # get provider config
         container_provider_config: BaseContainerConfig | None = ProviderConfigManager.get_provider_container_config(
-            provider=litellm.LlmProviders(resolved_custom_llm_provider),
+            provider=embrouter.LlmProviders(resolved_custom_llm_provider),
         )
 
         if container_provider_config is None:
             raise ValueError(f"Container provider config not found for provider: {resolved_custom_llm_provider}")
 
         # Pre Call logging
-        litellm_logging_obj.update_from_kwargs(
+        embrouter_logging_obj.update_from_kwargs(
             kwargs=kwargs,
             model="",
             optional_params={},
-            litellm_params={
-                "litellm_call_id": litellm_call_id,
+            embrouter_params={
+                "embrouter_call_id": embrouter_call_id,
             },
             custom_llm_provider=resolved_custom_llm_provider,
         )
 
         # Set the correct call type
-        litellm_logging_obj.call_type = CallTypes.delete_container.value
+        embrouter_logging_obj.call_type = CallTypes.delete_container.value
 
         delete_result = base_llm_http_handler.container_delete_handler(
             container_id=original_container_id,  # Use decoded original ID
             container_provider_config=container_provider_config,
-            litellm_params=litellm_params,
-            logging_obj=litellm_logging_obj,
+            embrouter_params=embrouter_params,
+            logging_obj=embrouter_logging_obj,
             extra_headers=extra_headers,
             extra_query=extra_query,
             timeout=timeout or DEFAULT_REQUEST_TIMEOUT,
@@ -888,26 +888,26 @@ def delete_container(
         # If input was encoded, preserve encoding in output using the decoded model_id
         if isinstance(delete_result, DeleteContainerResult):
             # If input was encoded, use model_id from decoded params
-            litellm_metadata = kwargs.get("litellm_metadata", {})
-            if was_encoded and litellm_params.get("model_id"):
-                # Inject model_id from decoded container_id into litellm_metadata
-                if not litellm_metadata:
-                    litellm_metadata = {}
-                if "model_info" not in litellm_metadata:
-                    litellm_metadata["model_info"] = {}
-                litellm_metadata["model_info"]["id"] = litellm_params["model_id"]
+            embrouter_metadata = kwargs.get("embrouter_metadata", {})
+            if was_encoded and embrouter_params.get("model_id"):
+                # Inject model_id from decoded container_id into embrouter_metadata
+                if not embrouter_metadata:
+                    embrouter_metadata = {}
+                if "model_info" not in embrouter_metadata:
+                    embrouter_metadata["model_info"] = {}
+                embrouter_metadata["model_info"]["id"] = embrouter_params["model_id"]
 
             delete_result = ContainerRequestUtils.encode_container_id_in_response(
                 response_obj=delete_result,
                 custom_llm_provider=resolved_custom_llm_provider,
-                litellm_metadata=litellm_metadata,
+                embrouter_metadata=embrouter_metadata,
                 extra_body=None,
             )
 
         return delete_result
 
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model="",
             custom_llm_provider=resolved_custom_llm_provider,
             original_exception=e,
@@ -977,7 +977,7 @@ async def alist_container_files(
 
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model="",
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -1049,8 +1049,8 @@ def list_container_files(
     local_vars: Final = locals()
     try:
         resolved_custom_llm_provider: str = custom_llm_provider
-        litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.pop("litellm_logging_obj")
-        litellm_call_id: Final[str | None] = kwargs.get("litellm_call_id")
+        embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.pop("embrouter_logging_obj")
+        embrouter_call_id: Final[str | None] = kwargs.get("embrouter_call_id")
         _is_async: Final = kwargs.pop("async_call", False) is True
 
         # Check for mock response first
@@ -1064,7 +1064,7 @@ def list_container_files(
 
         # get llm provider logic
         # Pass credential params explicitly since they're named args, not in kwargs
-        litellm_params = GenericLiteLLMParams(
+        embrouter_params = GenericEmbRouterParams(
             api_key=api_key,
             api_base=api_base,
             api_version=api_version,
@@ -1072,22 +1072,22 @@ def list_container_files(
         )
 
         # Decode container ID and extract provider info
-        original_container_id, resolved_custom_llm_provider, litellm_params = decode_managed_container_id_for_request(
+        original_container_id, resolved_custom_llm_provider, embrouter_params = decode_managed_container_id_for_request(
             container_id=container_id,
             custom_llm_provider=custom_llm_provider,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
         # get provider config
         container_provider_config: BaseContainerConfig | None = ProviderConfigManager.get_provider_container_config(
-            provider=litellm.LlmProviders(resolved_custom_llm_provider),
+            provider=embrouter.LlmProviders(resolved_custom_llm_provider),
         )
 
         if container_provider_config is None:
             raise ValueError(f"Container provider config not found for provider: {resolved_custom_llm_provider}")
 
         # Pre Call logging
-        litellm_logging_obj.update_from_kwargs(
+        embrouter_logging_obj.update_from_kwargs(
             kwargs=kwargs,
             model="",
             optional_params={
@@ -1096,20 +1096,20 @@ def list_container_files(
                 "limit": limit,
                 "order": order,
             },
-            litellm_params={
-                "litellm_call_id": litellm_call_id,
+            embrouter_params={
+                "embrouter_call_id": embrouter_call_id,
             },
             custom_llm_provider=resolved_custom_llm_provider,
         )
 
         # Set the correct call type
-        litellm_logging_obj.call_type = CallTypes.list_container_files.value
+        embrouter_logging_obj.call_type = CallTypes.list_container_files.value
 
         return base_llm_http_handler.container_file_list_handler(
             container_id=original_container_id,  # Use decoded original ID
             container_provider_config=container_provider_config,
-            litellm_params=litellm_params,
-            logging_obj=litellm_logging_obj,
+            embrouter_params=embrouter_params,
+            logging_obj=embrouter_logging_obj,
             after=after,
             limit=limit,
             order=order,
@@ -1120,7 +1120,7 @@ def list_container_files(
         )
 
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model="",
             custom_llm_provider=resolved_custom_llm_provider,
             original_exception=e,
@@ -1166,10 +1166,10 @@ async def aupload_container_file(
 
     Example:
     ```python
-    import litellm
+    import embrouter
 
     # Upload a CSV file
-    response = await litellm.aupload_container_file(
+    response = await embrouter.aupload_container_file(
         container_id="container_abc123",
         file=("data.csv", open("data.csv", "rb").read(), "text/csv"),
         custom_llm_provider="openai",
@@ -1205,7 +1205,7 @@ async def aupload_container_file(
 
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model="",
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -1276,10 +1276,10 @@ def upload_container_file(
 
     Example:
     ```python
-    import litellm
+    import embrouter
 
     # Upload a CSV file
-    response = litellm.upload_container_file(
+    response = embrouter.upload_container_file(
         container_id="container_abc123",
         file=("data.csv", open("data.csv", "rb").read(), "text/csv"),
         custom_llm_provider="openai",
@@ -1287,7 +1287,7 @@ def upload_container_file(
     print(response)
 
     # Upload a Python script
-    response = litellm.upload_container_file(
+    response = embrouter.upload_container_file(
         container_id="container_abc123",
         file=("script.py", b"print('hello world')", "text/x-python"),
         custom_llm_provider="openai",
@@ -1295,13 +1295,13 @@ def upload_container_file(
     print(response)
     ```
     """
-    from litellm.llms.custom_httpx.container_handler import generic_container_handler
+    from embrouter.llms.custom_httpx.container_handler import generic_container_handler
 
     local_vars: Final = locals()
     try:
         resolved_custom_llm_provider: str = custom_llm_provider
-        litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.pop("litellm_logging_obj")
-        litellm_call_id: Final[str | None] = kwargs.get("litellm_call_id")
+        embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.pop("embrouter_logging_obj")
+        embrouter_call_id: Final[str | None] = kwargs.get("embrouter_call_id")
         _is_async: Final = kwargs.pop("async_call", False) is True
 
         # Check for mock response first
@@ -1315,7 +1315,7 @@ def upload_container_file(
 
         # get llm provider logic
         # Pass credential params explicitly since they're named args, not in kwargs
-        litellm_params = GenericLiteLLMParams(
+        embrouter_params = GenericEmbRouterParams(
             api_key=api_key,
             api_base=api_base,
             api_version=api_version,
@@ -1323,39 +1323,39 @@ def upload_container_file(
         )
 
         # Decode container ID and extract provider info
-        original_container_id, resolved_custom_llm_provider, litellm_params = decode_managed_container_id_for_request(
+        original_container_id, resolved_custom_llm_provider, embrouter_params = decode_managed_container_id_for_request(
             container_id=container_id,
             custom_llm_provider=custom_llm_provider,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
         # get provider config
         container_provider_config: BaseContainerConfig | None = ProviderConfigManager.get_provider_container_config(
-            provider=litellm.LlmProviders(resolved_custom_llm_provider),
+            provider=embrouter.LlmProviders(resolved_custom_llm_provider),
         )
 
         if container_provider_config is None:
             raise ValueError(f"Container provider config not found for provider: {resolved_custom_llm_provider}")
 
         # Pre Call logging
-        litellm_logging_obj.update_from_kwargs(
+        embrouter_logging_obj.update_from_kwargs(
             kwargs=kwargs,
             model="",
             optional_params={"container_id": container_id},
-            litellm_params={
-                "litellm_call_id": litellm_call_id,
+            embrouter_params={
+                "embrouter_call_id": embrouter_call_id,
             },
             custom_llm_provider=resolved_custom_llm_provider,
         )
 
         # Set the correct call type
-        litellm_logging_obj.call_type = CallTypes.upload_container_file.value
+        embrouter_logging_obj.call_type = CallTypes.upload_container_file.value
 
         return generic_container_handler.handle(
             endpoint_name="upload_container_file",
             container_provider_config=container_provider_config,
-            litellm_params=litellm_params,
-            logging_obj=litellm_logging_obj,
+            embrouter_params=embrouter_params,
+            logging_obj=embrouter_logging_obj,
             extra_headers=extra_headers,
             extra_query=extra_query,
             timeout=timeout or DEFAULT_REQUEST_TIMEOUT,
@@ -1365,7 +1365,7 @@ def upload_container_file(
         )
 
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model="",
             custom_llm_provider=resolved_custom_llm_provider,
             original_exception=e,

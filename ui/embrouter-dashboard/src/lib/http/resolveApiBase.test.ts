@@ -46,7 +46,7 @@ describe("resolveApiBase", () => {
     });
 
     it("prefixes a relative base with the server root path", () => {
-      expect(resolveApiBase({ serverRootPath: "/litellm" })).toBe("/litellm");
+      expect(resolveApiBase({ serverRootPath: "/embrouter" })).toBe("/embrouter");
     });
   });
 
@@ -58,24 +58,24 @@ describe("resolveApiBase", () => {
     });
 
     it("appends the server root path to the explicit base", () => {
-      expect(resolveApiBase({ explicitBase: "http://localhost:4000", serverRootPath: "/litellm" })).toBe(
-        "http://localhost:4000/litellm",
+      expect(resolveApiBase({ explicitBase: "http://localhost:4000", serverRootPath: "/embrouter" })).toBe(
+        "http://localhost:4000/embrouter",
       );
     });
   });
 
   describe("dedup — base already includes the root path", () => {
     it("does not double the root path", () => {
-      expect(resolveApiBase({ explicitBase: "http://localhost:4000/litellm", serverRootPath: "/litellm" })).toBe(
-        "http://localhost:4000/litellm",
+      expect(resolveApiBase({ explicitBase: "http://localhost:4000/embrouter", serverRootPath: "/embrouter" })).toBe(
+        "http://localhost:4000/embrouter",
       );
     });
   });
 
   describe("normalization", () => {
     it("trims a trailing slash from the explicit base before appending", () => {
-      expect(resolveApiBase({ explicitBase: "http://localhost:4000/", serverRootPath: "/litellm" })).toBe(
-        "http://localhost:4000/litellm",
+      expect(resolveApiBase({ explicitBase: "http://localhost:4000/", serverRootPath: "/embrouter" })).toBe(
+        "http://localhost:4000/embrouter",
       );
     });
 
@@ -86,35 +86,35 @@ describe("resolveApiBase", () => {
     });
 
     it("adds a leading slash to a root path that lacks one", () => {
-      expect(resolveApiBase({ explicitBase: "http://localhost:4000", serverRootPath: "litellm" })).toBe(
-        "http://localhost:4000/litellm",
+      expect(resolveApiBase({ explicitBase: "http://localhost:4000", serverRootPath: "embrouter" })).toBe(
+        "http://localhost:4000/embrouter",
       );
     });
 
     it("trims a trailing slash from the root path", () => {
-      expect(resolveApiBase({ explicitBase: "http://localhost:4000", serverRootPath: "/litellm/" })).toBe(
-        "http://localhost:4000/litellm",
+      expect(resolveApiBase({ explicitBase: "http://localhost:4000", serverRootPath: "/embrouter/" })).toBe(
+        "http://localhost:4000/embrouter",
       );
     });
 
     it("ignores whitespace around inputs", () => {
-      expect(resolveApiBase({ explicitBase: "  http://localhost:4000  ", serverRootPath: "  /litellm  " })).toBe(
-        "http://localhost:4000/litellm",
+      expect(resolveApiBase({ explicitBase: "  http://localhost:4000  ", serverRootPath: "  /embrouter  " })).toBe(
+        "http://localhost:4000/embrouter",
       );
     });
   });
 
   describe("multi-segment root paths", () => {
     it("appends a nested root path", () => {
-      expect(resolveApiBase({ explicitBase: "http://localhost:4000", serverRootPath: "/team/litellm" })).toBe(
-        "http://localhost:4000/team/litellm",
+      expect(resolveApiBase({ explicitBase: "http://localhost:4000", serverRootPath: "/team/embrouter" })).toBe(
+        "http://localhost:4000/team/embrouter",
       );
     });
 
     it("dedups a nested root path", () => {
       expect(
-        resolveApiBase({ explicitBase: "http://localhost:4000/team/litellm", serverRootPath: "/team/litellm" }),
-      ).toBe("http://localhost:4000/team/litellm");
+        resolveApiBase({ explicitBase: "http://localhost:4000/team/embrouter", serverRootPath: "/team/embrouter" }),
+      ).toBe("http://localhost:4000/team/embrouter");
     });
   });
 });

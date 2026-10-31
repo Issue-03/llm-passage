@@ -36,7 +36,7 @@
   },
   "ramp": {
     "event_types": ["llm_api_success"],
-    "endpoint": "https://api.ramp.com/developer/v1/ai-usage/litellm",
+    "endpoint": "https://api.ramp.com/developer/v1/ai-usage/embrouter",
     "headers": {
       "Content-Type": "application/json",
       "Authorization": "Bearer {{environment_variables.RAMP_API_KEY}}"

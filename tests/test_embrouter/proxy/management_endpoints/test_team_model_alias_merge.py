@@ -11,8 +11,8 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 
-from litellm.proxy._types import (
-    LitellmUserRoles,
+from embrouter.proxy._types import (
+    EmbrouterUserRoles,
     TeamModelAddRequest,
     UserAPIKeyAuth,
 )
@@ -26,11 +26,11 @@ class TestTeamModelAddAtomicAppend:
         """team_model_add must call execute_raw with DISTINCT unnest SQL."""
         from unittest.mock import patch
 
-        from litellm.proxy.management_endpoints.team_endpoints import team_model_add
+        from embrouter.proxy.management_endpoints.team_endpoints import team_model_add
 
         mock_request = MagicMock()
         mock_user = UserAPIKeyAuth(
-            user_role=LitellmUserRoles.PROXY_ADMIN, user_id="test_user"
+            user_role=EmbrouterUserRoles.PROXY_ADMIN, user_id="test_user"
         )
 
         existing_team = MagicMock()
@@ -47,19 +47,19 @@ class TestTeamModelAddAtomicAppend:
         }
 
         with (
-            patch("litellm.proxy.proxy_server.prisma_client") as mock_prisma,
+            patch("embrouter.proxy.proxy_server.prisma_client") as mock_prisma,
             patch(
-                "litellm.proxy.management_endpoints.team_endpoints._cache_team_object",
+                "embrouter.proxy.management_endpoints.team_endpoints._cache_team_object",
                 new_callable=AsyncMock,
             ),
-            patch("litellm.proxy.proxy_server.user_api_key_cache"),
-            patch("litellm.proxy.proxy_server.proxy_logging_obj"),
+            patch("embrouter.proxy.proxy_server.user_api_key_cache"),
+            patch("embrouter.proxy.proxy_server.proxy_logging_obj"),
         ):
-            mock_prisma.db.litellm_teamtable.find_unique = AsyncMock(
+            mock_prisma.db.embrouter_teamtable.find_unique = AsyncMock(
                 return_value=existing_team
             )
             mock_prisma.db.execute_raw = AsyncMock(return_value=None)
-            mock_prisma.db.litellm_teamtable.update = AsyncMock(
+            mock_prisma.db.embrouter_teamtable.update = AsyncMock(
                 return_value=updated_team
             )
 
@@ -77,4 +77,4 @@ class TestTeamModelAddAtomicAppend:
             assert mock_prisma.db.execute_raw.call_args[0][2] == "team-1"
 
             # Should use write-routed update to re-fetch, not find_unique
-            mock_prisma.db.litellm_teamtable.update.assert_called_once()
+            mock_prisma.db.embrouter_teamtable.update.assert_called_once()

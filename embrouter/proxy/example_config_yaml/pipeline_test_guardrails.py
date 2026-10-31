@@ -9,11 +9,11 @@ from typing import Optional, Union
 
 from fastapi import HTTPException
 
-from litellm._logging import verbose_proxy_logger
-from litellm.caching.caching import DualCache
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.types.utils import CallTypesLiteral
+from embrouter._logging import verbose_proxy_logger
+from embrouter.caching.caching import DualCache
+from embrouter.integrations.custom_guardrail import CustomGuardrail
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.types.utils import CallTypesLiteral
 
 
 class StrictFilter(CustomGuardrail):

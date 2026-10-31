@@ -1,10 +1,10 @@
 from typing import Final
 
-from litellm._logging import verbose_logger
-from litellm.integrations.custom_prompt_management import CustomPromptManagement
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.prompts.init_prompts import PromptSpec
-from litellm.types.utils import StandardCallbackDynamicParams
+from embrouter._logging import verbose_logger
+from embrouter.integrations.custom_prompt_management import CustomPromptManagement
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.prompts.init_prompts import PromptSpec
+from embrouter.types.utils import StandardCallbackDynamicParams
 
 
 class X42PromptManagement(CustomPromptManagement):

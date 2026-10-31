@@ -1,17 +1,17 @@
 """
 Lazy Import System
 
-This module implements lazy loading for LiteLLM attributes. Instead of importing
+This module implements lazy loading for EmbRouter attributes. Instead of importing
 everything when the module loads, we only import things when they're actually used.
 
 How it works:
-1. When someone accesses `litellm.some_attribute`, Python calls __getattr__ in __init__.py
+1. When someone accesses `embrouter.some_attribute`, Python calls __getattr__ in __init__.py
 2. __getattr__ looks up the attribute name in a registry
 3. The registry points to a handler function (like _lazy_import_utils)
 4. The handler function imports the module and returns the attribute
 5. The result is cached so we don't import it again
 
-This makes importing litellm much faster because we don't load heavy dependencies
+This makes importing embrouter much faster because we don't load heavy dependencies
 until they're actually needed.
 """
 
@@ -31,7 +31,7 @@ from ._lazy_imports_registry import (
     _CACHING_IMPORT_MAP,
     _COST_CALCULATOR_IMPORT_MAP,
     _DOTPROMPT_IMPORT_MAP,
-    _LITELLM_LOGGING_IMPORT_MAP,
+    _EMBROUTER_LOGGING_IMPORT_MAP,
     _LLM_CONFIGS_IMPORT_MAP,
     _LLM_PROVIDER_LOGIC_IMPORT_MAP,
     _TOKEN_COUNTER_IMPORT_MAP,
@@ -45,7 +45,7 @@ from ._lazy_imports_registry import (
     COST_CALCULATOR_NAMES,
     DOTPROMPT_NAMES,
     HTTP_HANDLER_NAMES,
-    LITELLM_LOGGING_NAMES,
+    EMBROUTER_LOGGING_NAMES,
     LLM_CLIENT_CACHE_NAMES,
     LLM_CONFIG_NAMES,
     LLM_PROVIDER_LOGIC_NAMES,
@@ -59,17 +59,17 @@ from ._lazy_imports_registry import (
 if TYPE_CHECKING:
     import httpx
 
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
 
 
-def get_litellm_globals() -> dict[str, object]:
+def get_embrouter_globals() -> dict[str, object]:
     """
-    Get the globals dictionary of the litellm module.
+    Get the globals dictionary of the embrouter module.
 
     This is where we cache imported attributes so we don't import them twice.
-    When you do `litellm.some_function`, it gets stored in this dictionary.
+    When you do `embrouter.some_function`, it gets stored in this dictionary.
     """
-    return sys.modules["litellm"].__dict__
+    return sys.modules["embrouter"].__dict__
 
 
 def _get_utils_globals() -> dict[str, object]:
@@ -77,14 +77,14 @@ def _get_utils_globals() -> dict[str, object]:
     Get the globals dictionary of the utils module.
 
     This is where we cache imported attributes so we don't import them twice.
-    When you do `litellm.utils.some_function`, it gets stored in this dictionary.
+    When you do `embrouter.utils.some_function`, it gets stored in this dictionary.
     """
-    return sys.modules["litellm.utils"].__dict__
+    return sys.modules["embrouter.utils"].__dict__
 
 
-def _get_module_level_client_timeout(litellm_globals: Mapping[str, Any]) -> "float | httpx.Timeout | None":
-    """Read the configured `litellm.request_timeout` used for the module level http clients."""
-    return litellm_globals.get("request_timeout")
+def _get_module_level_client_timeout(embrouter_globals: Mapping[str, Any]) -> "float | httpx.Timeout | None":
+    """Read the configured `embrouter.request_timeout` used for the module level http clients."""
+    return embrouter_globals.get("request_timeout")
 
 
 # These are special lazy loaders for things that are used internally
@@ -92,7 +92,7 @@ def _get_module_level_client_timeout(litellm_globals: Mapping[str, Any]) -> "flo
 
 
 def _get_default_encoding() -> "Tokenizer":
-    from litellm.rust_bridge.tokenizer import get_encoding
+    from embrouter.rust_bridge.tokenizer import get_encoding
 
     return get_encoding("cl100k_base")
 
@@ -105,7 +105,7 @@ def _get_modified_max_tokens() -> "Callable[..., int | None]":
     """
     Lazily load and cache the get_modified_max_tokens function.
 
-    This avoids importing `litellm.litellm_core_utils.token_counter` at `litellm` import time.
+    This avoids importing `embrouter.embrouter_core_utils.token_counter` at `embrouter` import time.
     The function is cached after the first import.
 
     This is used internally by utils.py functions that need the token counter but shouldn't
@@ -113,7 +113,7 @@ def _get_modified_max_tokens() -> "Callable[..., int | None]":
     """
     global _get_modified_max_tokens_func
     if _get_modified_max_tokens_func is None:
-        from litellm.litellm_core_utils.token_counter import (
+        from embrouter.embrouter_core_utils.token_counter import (
             get_modified_max_tokens as _get_modified_max_tokens_imported,
         )
 
@@ -129,7 +129,7 @@ def _get_token_counter_new() -> "Callable[..., int]":
     """
     Lazily load and cache the token_counter function (aliased as token_counter_new).
 
-    This avoids importing `litellm.litellm_core_utils.token_counter` at `litellm` import time.
+    This avoids importing `embrouter.embrouter_core_utils.token_counter` at `embrouter` import time.
     The function is cached after the first import.
 
     This is used internally by utils.py functions that need the token counter but shouldn't
@@ -137,7 +137,7 @@ def _get_token_counter_new() -> "Callable[..., int]":
     """
     global _token_counter_new_func
     if _token_counter_new_func is None:
-        from litellm.litellm_core_utils.token_counter import (
+        from embrouter.embrouter_core_utils.token_counter import (
             token_counter as _token_counter_imported,
         )
 
@@ -174,8 +174,8 @@ def _get_lazy_import_registry() -> dict[str, Callable[[str], object]]:
         # Example: All names in UTILS_NAMES get mapped to _lazy_import_utils
         for name in COST_CALCULATOR_NAMES:
             _LAZY_IMPORT_REGISTRY[name] = _lazy_import_cost_calculator
-        for name in LITELLM_LOGGING_NAMES:
-            _LAZY_IMPORT_REGISTRY[name] = _lazy_import_litellm_logging
+        for name in EMBROUTER_LOGGING_NAMES:
+            _LAZY_IMPORT_REGISTRY[name] = _lazy_import_embrouter_logging
         for name in UTILS_NAMES:
             _LAZY_IMPORT_REGISTRY[name] = _lazy_import_utils
         for name in TOKEN_COUNTER_NAMES:
@@ -242,7 +242,7 @@ def _generic_lazy_import(name: str, import_map: Mapping[str, tuple[str, str]], c
         raise AttributeError(f"{category} lazy import: unknown attribute {name!r}")
 
     # Step 2: Get the cache (where we store imported things)
-    _globals: Final = get_litellm_globals()
+    _globals: Final = get_embrouter_globals()
 
     # Step 3: If we've already imported it, just return the cached version
     if name in _globals:
@@ -255,10 +255,10 @@ def _generic_lazy_import(name: str, import_map: Mapping[str, tuple[str, str]], c
 
     # Step 5: Import the module
     # Python automatically caches modules in sys.modules, so calling this twice is fast
-    # If module_path starts with ".", it's a relative import (needs package="litellm")
-    # Otherwise it's an absolute import (like "litellm.caching.caching")
+    # If module_path starts with ".", it's a relative import (needs package="embrouter")
+    # Otherwise it's an absolute import (like "embrouter.caching.caching")
     if module_path.startswith("."):
-        module = importlib.import_module(module_path, package="litellm")
+        module = importlib.import_module(module_path, package="embrouter")
     else:
         module = importlib.import_module(module_path)
 
@@ -302,7 +302,7 @@ def _lazy_import_bedrock_types(name: str) -> object:
 
 
 def _lazy_import_types_utils(name: str) -> object:
-    """Handler for types from litellm.types.utils (BudgetConfig, ImageObject, etc.)"""
+    """Handler for types from embrouter.types.utils (BudgetConfig, ImageObject, etc.)"""
     return _generic_lazy_import(name, _TYPES_UTILS_IMPORT_MAP, "Types utils")
 
 
@@ -326,9 +326,9 @@ def _lazy_import_llm_configs(name: str) -> object:
     return _generic_lazy_import(name, _LLM_CONFIGS_IMPORT_MAP, "LLM config")
 
 
-def _lazy_import_litellm_logging(name: str) -> object:
-    """Handler for litellm_logging module (Logging, modify_integration)"""
-    return _generic_lazy_import(name, _LITELLM_LOGGING_IMPORT_MAP, "Litellm logging")
+def _lazy_import_embrouter_logging(name: str) -> object:
+    """Handler for embrouter_logging module (Logging, modify_integration)"""
+    return _generic_lazy_import(name, _EMBROUTER_LOGGING_IMPORT_MAP, "Embrouter logging")
 
 
 def _lazy_import_llm_provider_logic(name: str) -> object:
@@ -341,7 +341,7 @@ def _lazy_import_utils_module(name: str) -> object:
     Handler for utils module lazy imports.
 
     This uses a custom implementation because utils module needs to use
-    _get_utils_globals() instead of get_litellm_globals() for caching.
+    _get_utils_globals() instead of get_embrouter_globals() for caching.
     """
     # Check if this attribute exists in our map
     if name not in _UTILS_MODULE_IMPORT_MAP:
@@ -359,7 +359,7 @@ def _lazy_import_utils_module(name: str) -> object:
 
     # Import the module
     if module_path.startswith("."):
-        module = importlib.import_module(module_path, package="litellm")
+        module = importlib.import_module(module_path, package="embrouter")
     else:
         module = importlib.import_module(module_path)
 
@@ -388,14 +388,14 @@ def _lazy_import_llm_client_cache(name: str) -> object:
     - "in_memory_llm_clients_cache" is a singleton instance of that class
     So we need custom logic to handle both cases.
     """
-    _globals: Final = get_litellm_globals()
+    _globals: Final = get_embrouter_globals()
 
     # If already cached, return it
     if name in _globals:
         return _globals[name]
 
     # Import the class
-    from litellm.caching.llm_caching_handler import LLMClientCache
+    from embrouter.caching.llm_caching_handler import LLMClientCache
 
     # If they want the class itself, return it
     if name == "LLMClientCache":
@@ -420,18 +420,18 @@ def _lazy_import_http_handlers(name: str) -> object:
     - They need configuration (timeout, etc.) from the module globals
     - They use factory functions instead of direct instantiation
     """
-    _globals: Final = get_litellm_globals()
+    _globals: Final = get_embrouter_globals()
 
     if name == "module_level_aclient":
         # Create an async HTTP client using the factory function
-        from litellm.llms.custom_httpx.http_handler import get_async_httpx_client
+        from embrouter.llms.custom_httpx.http_handler import get_async_httpx_client
 
         # Get timeout from module config (if set)
         async_timeout: Final = _get_module_level_client_timeout(_globals)
         params: Final = {"timeout": async_timeout, "client_alias": "module level aclient"}
 
         # Create the client instance
-        provider_id: Final = cast(Any, "litellm_module_level_client")
+        provider_id: Final = cast(Any, "embrouter_module_level_client")
         async_client: Final = get_async_httpx_client(
             llm_provider=provider_id,
             params=params,
@@ -443,7 +443,7 @@ def _lazy_import_http_handlers(name: str) -> object:
 
     if name == "module_level_client":
         # Create a sync HTTP client
-        from litellm.llms.custom_httpx.http_handler import HTTPHandler
+        from embrouter.llms.custom_httpx.http_handler import HTTPHandler
 
         sync_timeout: Final = _get_module_level_client_timeout(_globals)
         sync_client: Final = HTTPHandler(timeout=sync_timeout)

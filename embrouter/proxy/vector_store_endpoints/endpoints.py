@@ -9,30 +9,30 @@ from typing import (
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 
-from litellm.integrations.vector_store_integrations.vector_store_pre_call_hook import (
-    LiteLLM_ManagedVectorStore,
+from embrouter.integrations.vector_store_integrations.vector_store_pre_call_hook import (
+    EmbRouter_ManagedVectorStore,
 )
-from litellm.proxy._types import CommonProxyErrors, UserAPIKeyAuth
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
-from litellm.proxy.utils import jsonify_object
-from litellm.proxy.vector_store_endpoints.utils import (
+from embrouter.proxy._types import CommonProxyErrors, UserAPIKeyAuth
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+from embrouter.proxy.utils import jsonify_object
+from embrouter.proxy.vector_store_endpoints.utils import (
     assert_proxy_admin_for_vector_store_index_management,
     assert_user_can_access_vector_store,
-    get_litellm_managed_vector_store,
+    get_embrouter_managed_vector_store,
 )
-from litellm.repositories.table_repositories import ManagedVectorStoreIndexRepository
-from litellm.types.vector_stores import IndexCreateRequest, IndexListResponse
-from litellm.vector_stores.vector_store_registry import VectorStoreIndexRegistry
+from embrouter.repositories.table_repositories import ManagedVectorStoreIndexRepository
+from embrouter.types.vector_stores import IndexCreateRequest, IndexListResponse
+from embrouter.vector_stores.vector_store_registry import VectorStoreIndexRegistry
 
 router: Final = APIRouter()
 
 BLOCKED_QUERY_EMBEDDING_SELECTION_PARAMS: Final = frozenset(
     {
         "embedding_model",
-        "litellm_embedding_model",
-        "litellm_embedding_config",
-        "litellm_credential_name",
+        "embrouter_embedding_model",
+        "embrouter_embedding_config",
+        "embrouter_credential_name",
     }
 )
 
@@ -55,26 +55,26 @@ def reject_caller_embedding_selection_params(payload: Mapping[str, object], sour
 
 
 def build_request_data_from_managed_vector_store(
-    vector_store: LiteLLM_ManagedVectorStore,
+    vector_store: EmbRouter_ManagedVectorStore,
 ) -> Mapping[str, object]:
     top_level: Final = MappingProxyType(
         {
             key: vector_store.get(key)
-            for key in ("custom_llm_provider", "litellm_credential_name")
+            for key in ("custom_llm_provider", "embrouter_credential_name")
             if key in vector_store
         }
     )
-    litellm_params: Final = vector_store.get("litellm_params") or MappingProxyType({})
-    return MappingProxyType({**top_level, **litellm_params})
+    embrouter_params: Final = vector_store.get("embrouter_params") or MappingProxyType({})
+    return MappingProxyType({**top_level, **embrouter_params})
 
 
-async def _update_request_data_with_litellm_managed_vector_store_registry(
+async def _update_request_data_with_embrouter_managed_vector_store_registry(
     data: dict,
     vector_store_id: str,
     user_api_key_dict: UserAPIKeyAuth | None = None,
 ) -> dict:
     """
-    Update the request data with the litellm managed vector store registry.
+    Update the request data with the embrouter managed vector store registry.
 
     Args:
         data: Request data to update
@@ -84,7 +84,7 @@ async def _update_request_data_with_litellm_managed_vector_store_registry(
     Raises:
         HTTPException: If user doesn't have access to the vector store
     """
-    vector_store_to_run: Final[LiteLLM_ManagedVectorStore | None] = await get_litellm_managed_vector_store(
+    vector_store_to_run: Final[EmbRouter_ManagedVectorStore | None] = await get_embrouter_managed_vector_store(
         vector_store_id=vector_store_id
     )
     if vector_store_to_run is None:
@@ -117,7 +117,7 @@ async def vector_store_search(
     API Reference:
     https://platform.openai.com/docs/api-reference/vector-stores/search
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         _read_request_body,
         general_settings,
         llm_router,
@@ -137,7 +137,7 @@ async def vector_store_search(
     data["vector_store_id"] = vector_store_id
 
     # Check for legacy vector store registry (non-managed vector stores)
-    data = await _update_request_data_with_litellm_managed_vector_store_registry(
+    data = await _update_request_data_with_embrouter_managed_vector_store_registry(
         data=data, vector_store_id=vector_store_id, user_api_key_dict=user_api_key_dict
     )
 
@@ -197,7 +197,7 @@ async def vector_store_create(
     }
     ```
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         _read_request_body,
         general_settings,
         llm_router,
@@ -248,7 +248,7 @@ async def vector_store_create(
             create_request=data,
             llm_router=llm_router,
             target_model_names_list=target_model_names_list,
-            litellm_parent_otel_span=user_api_key_dict.parent_otel_span,
+            embrouter_parent_otel_span=user_api_key_dict.parent_otel_span,
             user_api_key_dict=user_api_key_dict,
         )
 
@@ -297,7 +297,7 @@ async def vector_store_retrieve(
     API Reference:
     https://platform.openai.com/docs/api-reference/vector-stores/retrieve
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         proxy_config,
@@ -313,7 +313,7 @@ async def vector_store_retrieve(
 
     data = {"vector_store_id": vector_store_id}
 
-    data = await _update_request_data_with_litellm_managed_vector_store_registry(
+    data = await _update_request_data_with_embrouter_managed_vector_store_registry(
         data=data, vector_store_id=vector_store_id, user_api_key_dict=user_api_key_dict
     )
 
@@ -363,7 +363,7 @@ async def vector_store_list(
     API Reference:
     https://platform.openai.com/docs/api-reference/vector-stores/list
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         proxy_config,
@@ -430,7 +430,7 @@ async def vector_store_update(
     API Reference:
     https://platform.openai.com/docs/api-reference/vector-stores/modify
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         _read_request_body,
         general_settings,
         llm_router,
@@ -449,7 +449,7 @@ async def vector_store_update(
     if "vector_store_id" not in data:
         data["vector_store_id"] = vector_store_id
 
-    data = await _update_request_data_with_litellm_managed_vector_store_registry(
+    data = await _update_request_data_with_embrouter_managed_vector_store_registry(
         data=data, vector_store_id=vector_store_id, user_api_key_dict=user_api_key_dict
     )
 
@@ -496,7 +496,7 @@ async def vector_store_delete(
     API Reference:
     https://platform.openai.com/docs/api-reference/vector-stores/delete
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         proxy_config,
@@ -512,7 +512,7 @@ async def vector_store_delete(
 
     data = {"vector_store_id": vector_store_id}
 
-    data = await _update_request_data_with_litellm_managed_vector_store_registry(
+    data = await _update_request_data_with_embrouter_managed_vector_store_registry(
         data=data, vector_store_id=vector_store_id, user_api_key_dict=user_api_key_dict
     )
 
@@ -564,14 +564,14 @@ async def index_create(
         -H 'Authorization: Bearer sk-1234' \
         -d '{
             "index_name": "dall-e-3",
-            "litellm_params": {
+            "embrouter_params": {
                 "vector_store_index": "real-index-name",
                 "vector_store_name": "azure-ai-search"
             }
         }'
     ```
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     assert_proxy_admin_for_vector_store_index_management(
         user_api_key_dict,
@@ -625,7 +625,7 @@ async def index_list(
         -H 'Authorization: Bearer sk-1234'
     ```
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     assert_proxy_admin_for_vector_store_index_management(
         user_api_key_dict,

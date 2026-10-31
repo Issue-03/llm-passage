@@ -1,5 +1,5 @@
 """
-Push-based OTLP metering for enterprise litellm deployments.
+Push-based OTLP metering for enterprise embrouter deployments.
 
 Owns a dedicated OpenTelemetry meter provider and an OTLP/HTTP exporter
 authenticated to our global collector with a TLS client certificate. The
@@ -24,19 +24,19 @@ from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
 from opentelemetry.sdk.resources import Resource
 
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy.middleware.billable_request_metrics_middleware import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy.middleware.billable_request_metrics_middleware import (
     BillableCategory,
 )
 
 if TYPE_CHECKING:
-    from litellm.proxy._types import EnterpriseLicenseData
+    from embrouter.proxy._types import EnterpriseLicenseData
 
-ENDPOINT_ENV: Final = "LITELLM_BILLING_METRICS_ENDPOINT"
-CLIENT_CERT_ENV: Final = "LITELLM_BILLING_METRICS_CLIENT_CERT"
-CLIENT_KEY_ENV: Final = "LITELLM_BILLING_METRICS_CLIENT_KEY"
-CA_CERT_ENV: Final = "LITELLM_BILLING_METRICS_CA_CERT"
-EXPORT_INTERVAL_ENV: Final = "LITELLM_BILLING_METRICS_EXPORT_INTERVAL_MS"
+ENDPOINT_ENV: Final = "EMBROUTER_BILLING_METRICS_ENDPOINT"
+CLIENT_CERT_ENV: Final = "EMBROUTER_BILLING_METRICS_CLIENT_CERT"
+CLIENT_KEY_ENV: Final = "EMBROUTER_BILLING_METRICS_CLIENT_KEY"
+CA_CERT_ENV: Final = "EMBROUTER_BILLING_METRICS_CA_CERT"
+EXPORT_INTERVAL_ENV: Final = "EMBROUTER_BILLING_METRICS_EXPORT_INTERVAL_MS"
 DEFAULT_EXPORT_INTERVAL_MS: Final = 60_000
 SHUTDOWN_FLUSH_TIMEOUT_MS: Final = 5_000
 _METRICS_PATH: Final = "/v1/metrics"
@@ -44,14 +44,14 @@ _METRICS_PATH: Final = "/v1/metrics"
 # The cert env vars take a path or the PEM itself. Secret stores that inject
 # values as env content cannot mount them as files, so inline PEM is written out.
 _PEM_PREFIX: Final = "-----BEGIN"
-_PEM_DIR_PREFIX: Final = "litellm-billing-mtls-"
+_PEM_DIR_PREFIX: Final = "embrouter-billing-mtls-"
 _PEM_FILE_MODE: Final = 0o600
 _CLIENT_CERT_FILENAME: Final = "client.crt"
 _CLIENT_KEY_FILENAME: Final = "client.key"
 _CA_CERT_FILENAME: Final = "ca.crt"
 
-METRIC_NAME: Final = "litellm.enterprise.billable_requests"
-METER_NAME: Final = "litellm.enterprise.billing"
+METRIC_NAME: Final = "embrouter.enterprise.billable_requests"
+METER_NAME: Final = "embrouter.enterprise.billing"
 
 AttributeValue = str | int
 
@@ -63,7 +63,7 @@ class BillingMetricsConfig:
     client_key_path: str
     ca_cert_path: str | None
     export_interval_ms: int
-    litellm_version: str
+    embrouter_version: str
     license_id: str | None
 
 
@@ -75,10 +75,10 @@ def _metrics_endpoint(endpoint: str) -> str:
 
 def _resource_attributes(config: BillingMetricsConfig) -> dict[str, AttributeValue]:
     base: Final[dict[str, AttributeValue]] = {
-        "service.name": "litellm-proxy",
-        "litellm.version": config.litellm_version,
+        "service.name": "embrouter-proxy",
+        "embrouter.version": config.embrouter_version,
     }
-    license_attr: dict[str, AttributeValue] = {"litellm.license.id": config.license_id} if config.license_id else {}
+    license_attr: dict[str, AttributeValue] = {"embrouter.license.id": config.license_id} if config.license_id else {}
     return {**base, **license_attr}
 
 
@@ -86,11 +86,11 @@ def _billable_attributes(
     category: BillableCategory, route: str, status_code: int, model_id: str | None
 ) -> dict[str, AttributeValue]:
     base: Final[dict[str, AttributeValue]] = {
-        "litellm.endpoint.category": category.value,
+        "embrouter.endpoint.category": category.value,
         "http.route": route,
         "http.response.status_code": status_code,
     }
-    model_attr: Final[dict[str, AttributeValue]] = {"litellm.model_id": model_id} if model_id else {}
+    model_attr: Final[dict[str, AttributeValue]] = {"embrouter.model_id": model_id} if model_id else {}
     return {**base, **model_attr}
 
 
@@ -196,7 +196,7 @@ def _resolve_credential_paths(*, client_cert: str, client_key: str, ca_cert: str
 
 
 def load_billing_metrics_config(
-    *, license_data: Optional["EnterpriseLicenseData"], litellm_version: str
+    *, license_data: Optional["EnterpriseLicenseData"], embrouter_version: str
 ) -> BillingMetricsConfig | None:
     endpoint: Final = os.getenv(ENDPOINT_ENV)
     client_cert: Final = os.getenv(CLIENT_CERT_ENV)
@@ -256,7 +256,7 @@ def load_billing_metrics_config(
         client_key_path=paths.client_key_path,
         ca_cert_path=paths.ca_cert_path,
         export_interval_ms=_export_interval_ms(),
-        litellm_version=litellm_version,
+        embrouter_version=embrouter_version,
         license_id=(license_data or {}).get("user_id"),
     )
 
@@ -282,7 +282,7 @@ _ACTIVE_RECORDER: Final = _ActiveRecorderRegistry()
 
 
 def build_billing_metrics_recorder(
-    *, premium: bool, license_data: Optional["EnterpriseLicenseData"], litellm_version: str
+    *, premium: bool, license_data: Optional["EnterpriseLicenseData"], embrouter_version: str
 ) -> BillingMetricsRecorder | None:
     """Build the recorder, or None when the deployment is not licensed or metering is unconfigured."""
     if not premium:
@@ -291,7 +291,7 @@ def build_billing_metrics_recorder(
         verbose_proxy_logger.debug("Enterprise billing metrics disabled: deployment is not licensed")
         return None
 
-    config: Final = load_billing_metrics_config(license_data=license_data, litellm_version=litellm_version)
+    config: Final = load_billing_metrics_config(license_data=license_data, embrouter_version=embrouter_version)
     if config is None:
         return None
 

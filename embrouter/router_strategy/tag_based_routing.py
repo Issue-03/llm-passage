@@ -12,20 +12,20 @@ from collections.abc import Mapping, Sequence
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Final, Literal, Protocol, overload
 
-from litellm._logging import verbose_logger
-from litellm.constants import CONSUMED_REQUEST_TAGS_METADATA_KEY, ROUTING_REQUEST_TAGS_METADATA_KEY
-from litellm.litellm_core_utils.core_helpers import get_metadata_variable_name_from_kwargs
-from litellm.types.router import ConsumedRequestTagsStamp, DeploymentTypedDict, RouterErrors
+from embrouter._logging import verbose_logger
+from embrouter.constants import CONSUMED_REQUEST_TAGS_METADATA_KEY, ROUTING_REQUEST_TAGS_METADATA_KEY
+from embrouter.embrouter_core_utils.core_helpers import get_metadata_variable_name_from_kwargs
+from embrouter.types.router import ConsumedRequestTagsStamp, DeploymentTypedDict, RouterErrors
 
 if TYPE_CHECKING:
-    from litellm.router import Router as _Router
+    from embrouter.router import Router as _Router
 
-    LitellmRouter = _Router
+    EmbrouterRouter = _Router
 else:
-    LitellmRouter = Any
+    EmbrouterRouter = Any
 
 
-class _TagLitellmParamsLike(Protocol):
+class _TagEmbrouterParamsLike(Protocol):
     @overload
     def get(self, key: Literal["tags"], /) -> Sequence[str] | None: ...
     @overload
@@ -43,7 +43,7 @@ class _ModelInfoLike(Protocol):
 
 class _DeploymentLike(Protocol):
     @overload
-    def get(self, key: Literal["litellm_params"], default: Mapping[str, object], /) -> _TagLitellmParamsLike: ...
+    def get(self, key: Literal["embrouter_params"], default: Mapping[str, object], /) -> _TagEmbrouterParamsLike: ...
     @overload
     def get(self, key: Literal["model_info"], /) -> _ModelInfoLike | None: ...
     @overload
@@ -63,9 +63,9 @@ class _MetadataLike(Protocol):
     def __setitem__(self, key: Literal["tag_routing"], value: Mapping[str, object], /) -> None: ...
 
 
-class _NestedLitellmParamsLike(Protocol):
+class _NestedEmbrouterParamsLike(Protocol):
     def get(
-        self, key: Literal["metadata", "litellm_metadata"], default: Mapping[str, object], /
+        self, key: Literal["metadata", "embrouter_metadata"], default: Mapping[str, object], /
     ) -> _MetadataLike | None: ...
 
 
@@ -73,12 +73,12 @@ class _RequestKwargsLike(Protocol):
     @overload
     def get(self, key: Literal["enable_tag_filtering"], /) -> bool | None: ...
     @overload
-    def get(self, key: Literal["metadata", "litellm_metadata"], /) -> _MetadataLike | None: ...
+    def get(self, key: Literal["metadata", "embrouter_metadata"], /) -> _MetadataLike | None: ...
     def __contains__(self, key: object, /) -> bool: ...
     @overload
-    def __getitem__(self, key: Literal["metadata", "litellm_metadata"], /) -> _MetadataLike: ...
+    def __getitem__(self, key: Literal["metadata", "embrouter_metadata"], /) -> _MetadataLike: ...
     @overload
-    def __getitem__(self, key: Literal["litellm_params"], /) -> _NestedLitellmParamsLike: ...
+    def __getitem__(self, key: Literal["embrouter_params"], /) -> _NestedEmbrouterParamsLike: ...
 
 
 _DeploymentPool = Sequence[_DeploymentLike] | Mapping[_DeploymentLike, object]
@@ -152,9 +152,9 @@ def _match_deployment(
       2. Regex match — skipped when match_any=False and the tag check already
          ran and failed, so the regex cannot override strict-tag policy.
     """
-    litellm_params: Final = deployment.get("litellm_params", {})
-    deployment_tags: Final[Sequence[str] | None] = litellm_params.get("tags")
-    deployment_tag_regex: Final[Sequence[str] | None] = litellm_params.get("tag_regex")
+    embrouter_params: Final = deployment.get("embrouter_params", {})
+    deployment_tags: Final[Sequence[str] | None] = embrouter_params.get("tags")
+    deployment_tag_regex: Final[Sequence[str] | None] = embrouter_params.get("tag_regex")
 
     # 1. Exact tag match (existing behaviour).
     if deployment_tags and request_tags:
@@ -228,7 +228,7 @@ def _exclude_deployments(
 ) -> Sequence[_DeploymentLike]:
     if not excluded_set:
         return list(deployments)
-    return [d for d in deployments if not excluded_set.intersection(d.get("litellm_params", {}).get("tags") or [])]
+    return [d for d in deployments if not excluded_set.intersection(d.get("embrouter_params", {}).get("tags") or [])]
 
 
 def _require_all_tags(
@@ -237,19 +237,19 @@ def _require_all_tags(
 ) -> tuple[_DeploymentLike, ...]:
     if not required_set:
         return tuple(deployments)
-    return tuple(d for d in deployments if required_set.issubset(d.get("litellm_params", {}).get("tags") or []))
+    return tuple(d for d in deployments if required_set.issubset(d.get("embrouter_params", {}).get("tags") or []))
 
 
 def _default_tagged_pool(
     deployments: _DeploymentPool,
 ) -> tuple[_DeploymentLike, ...]:
-    defaults: Final = tuple(d for d in deployments if "default" in (d.get("litellm_params", {}).get("tags") or []))
+    defaults: Final = tuple(d for d in deployments if "default" in (d.get("embrouter_params", {}).get("tags") or []))
     return defaults if defaults else tuple(deployments)
 
 
 def _known_tag_values(deployments: _DeploymentPool) -> frozenset[str]:
     return frozenset(
-        tag for d in deployments for tag in (d.get("litellm_params", MappingProxyType({})).get("tags") or ())
+        tag for d in deployments for tag in (d.get("embrouter_params", MappingProxyType({})).get("tags") or ())
     )
 
 
@@ -378,7 +378,7 @@ def _resolve_constraint_only_pool(
 
 
 def _all_deployments_or_fallback(
-    llm_router_instance: LitellmRouter,
+    llm_router_instance: EmbrouterRouter,
     model: str,
     fallback: _DeploymentPool,
 ) -> Sequence[_DeploymentLike | DeploymentTypedDict] | Mapping[_DeploymentLike, object]:
@@ -389,7 +389,7 @@ def _all_deployments_or_fallback(
 
 
 def _chain_tag_filtering_override(
-    llm_router_instance: LitellmRouter,
+    llm_router_instance: EmbrouterRouter,
     model: str,
     healthy_deployments: _DeploymentPool,
 ) -> bool | None:
@@ -419,7 +419,7 @@ def _inherited_constraint_sets(
     # protected," not "nothing is inherited," see _trusted_only_pool.
     # metadata.inherited_tags is a snapshot of whatever key/team/project policy
     # merged into "tags" *before* this request's own caller-supplied tags were
-    # merged in on top (see litellm_pre_call_utils.py), so a value present here is
+    # merged in on top (see embrouter_pre_call_utils.py), so a value present here is
     # policy-backed regardless of whether the caller also happens to submit the
     # identical value. inherited_tags is stripped through the same routing_prefix
     # as the main request tags so a policy-inherited prefixed tag still matches
@@ -433,7 +433,7 @@ def _inherited_constraint_sets(
 
 
 def _tag_known_to_group(
-    llm_router_instance: LitellmRouter,
+    llm_router_instance: EmbrouterRouter,
     model: str,
     positive_tags: Sequence[str],
     routing_confirmed: frozenset[str],
@@ -446,7 +446,7 @@ def _tag_known_to_group(
     except Exception:  # noqa: BLE001  # fail safe toward "unrecognized" so lookup errors preserve the existing silent-fallback behavior
         return False
     return any(
-        tag_set.intersection(d.get("litellm_params", MappingProxyType({})).get("tags") or ()) for d in all_deployments
+        tag_set.intersection(d.get("embrouter_params", MappingProxyType({})).get("tags") or ()) for d in all_deployments
     )
 
 
@@ -475,11 +475,11 @@ def _request_tags_after_router_consumption(metadata: object, model: str) -> Sequ
 
 
 async def get_deployments_for_tag(
-    llm_router_instance: LitellmRouter,
+    llm_router_instance: EmbrouterRouter,
     model: str,  # used to raise the correct error
     healthy_deployments: _DeploymentPool,
     request_kwargs: _RequestKwargsLike | None = None,
-    metadata_variable_name: Literal["metadata", "litellm_metadata"] = "metadata",
+    metadata_variable_name: Literal["metadata", "embrouter_metadata"] = "metadata",
 ) -> _DeploymentPool:
     """
     Returns a list of deployments that match the requested model and tags in the request.
@@ -540,7 +540,7 @@ async def get_deployments_for_tag(
         allowed_deployments: Final = _exclude_deployments(healthy_deployments, excluded_set)
         candidates: Final = _require_all_tags(allowed_deployments, required_set)
 
-        has_regex_deployments: Final = any(d.get("litellm_params", {}).get("tag_regex") for d in candidates)
+        has_regex_deployments: Final = any(d.get("embrouter_params", {}).get("tag_regex") for d in candidates)
         has_positive_filter: Final = bool(positive_tags) or (
             bool(header_strings) and has_regex_deployments and not required_set
         )
@@ -594,7 +594,7 @@ async def get_deployments_for_tag(
                         }
             new_healthy_deployments: Final = [d for d, result in deployment_matches if result is not None]
             default_deployments: Final = [
-                d for d, _ in deployment_matches if "default" in (d.get("litellm_params", {}).get("tags") or ())
+                d for d, _ in deployment_matches if "default" in (d.get("embrouter_params", {}).get("tags") or ())
             ]
 
             if len(new_healthy_deployments) == 0 and len(default_deployments) == 0:
@@ -633,7 +633,7 @@ async def get_deployments_for_tag(
     _default_deployments_with_tags: Final = [
         deployment
         for deployment in healthy_deployments
-        if "default" in deployment.get("litellm_params", {}).get("tags", [])
+        if "default" in deployment.get("embrouter_params", {}).get("tags", [])
     ]
 
     if len(_default_deployments_with_tags) > 0:
@@ -667,7 +667,7 @@ def _tags_in_metadata(metadata: object, key: str = "tags") -> list[str]:
 
 def _get_tags_from_request_kwargs(
     request_kwargs: Mapping[str, object] | None = None,
-    metadata_variable_name: Literal["metadata", "litellm_metadata"] | None = None,
+    metadata_variable_name: Literal["metadata", "embrouter_metadata"] | None = None,
 ) -> list[str]:
     """
     Helper to get tags from request kwargs
@@ -676,7 +676,7 @@ def _get_tags_from_request_kwargs(
         request_kwargs: The request kwargs to get tags from
         metadata_variable_name: Which metadata dict holds proxy metadata; resolved
             from the kwargs when not pinned, so /v1/messages-shaped requests
-            (``litellm_metadata``) read the same bucket the proxy wrote tags to
+            (``embrouter_metadata``) read the same bucket the proxy wrote tags to
 
     Returns:
         List[str]: The tags from the request kwargs
@@ -686,10 +686,10 @@ def _get_tags_from_request_kwargs(
     resolved_variable_name: Final = metadata_variable_name or get_metadata_variable_name_from_kwargs(request_kwargs)
     if resolved_variable_name in request_kwargs:
         return _tags_in_metadata(request_kwargs[resolved_variable_name])
-    if "litellm_params" in request_kwargs:
-        litellm_params: Final = request_kwargs["litellm_params"]
-        if not isinstance(litellm_params, Mapping):
+    if "embrouter_params" in request_kwargs:
+        embrouter_params: Final = request_kwargs["embrouter_params"]
+        if not isinstance(embrouter_params, Mapping):
             return []
-        typed_litellm_params: Final[Mapping[str, object]] = litellm_params
-        return _tags_in_metadata(typed_litellm_params.get(resolved_variable_name))
+        typed_embrouter_params: Final[Mapping[str, object]] = embrouter_params
+        return _tags_in_metadata(typed_embrouter_params.get(resolved_variable_name))
     return []

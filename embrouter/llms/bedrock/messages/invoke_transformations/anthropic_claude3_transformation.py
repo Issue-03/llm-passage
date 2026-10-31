@@ -4,31 +4,31 @@ from typing import TYPE_CHECKING, Any, Final, cast
 
 import httpx
 
-import litellm
-from litellm.anthropic_beta_headers_manager import filter_and_transform_beta_headers
-from litellm.constants import (
+import embrouter
+from embrouter.anthropic_beta_headers_manager import filter_and_transform_beta_headers
+from embrouter.constants import (
     BEDROCK_MIN_THINKING_BUDGET_TOKENS,
     DEFAULT_REASONING_EFFORT_HIGH_THINKING_BUDGET,
     DEFAULT_REASONING_EFFORT_MEDIUM_THINKING_BUDGET,
     DEFAULT_REASONING_EFFORT_XHIGH_THINKING_BUDGET,
 )
-from litellm.litellm_core_utils.litellm_logging import verbose_logger
-from litellm.llms.anthropic.chat.transformation import (
+from embrouter.embrouter_core_utils.embrouter_logging import verbose_logger
+from embrouter.llms.anthropic.chat.transformation import (
     DROP_UNSUPPORTED_OUTPUT_CONFIG_WARNING,
     AnthropicConfig,
 )
-from litellm.llms.anthropic.common_utils import AnthropicModelInfo
-from litellm.llms.anthropic.pass_through.messages.transformation import (
+from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
+from embrouter.llms.anthropic.pass_through.messages.transformation import (
     AnthropicMessagesConfig,
 )
-from litellm.llms.base_llm.anthropic_messages.transformation import (
+from embrouter.llms.base_llm.anthropic_messages.transformation import (
     BaseAnthropicMessagesConfig,
 )
-from litellm.llms.bedrock.chat.invoke_handler import AWSEventStreamDecoder
-from litellm.llms.bedrock.chat.invoke_transformations.base_invoke_transformation import (
+from embrouter.llms.bedrock.chat.invoke_handler import AWSEventStreamDecoder
+from embrouter.llms.bedrock.chat.invoke_transformations.base_invoke_transformation import (
     AmazonInvokeConfig,
 )
-from litellm.llms.bedrock.common_utils import (
+from embrouter.llms.bedrock.common_utils import (
     BedrockError,
     apply_bedrock_invoke_structured_output,
     bedrock_supports_tool_search,
@@ -41,27 +41,27 @@ from litellm.llms.bedrock.common_utils import (
     strip_unsupported_bedrock_invoke_output_config_keys,
     tools_without_eager_input_streaming,
 )
-from litellm.llms.bedrock.request_metadata import (
+from embrouter.llms.bedrock.request_metadata import (
     bedrock_request_metadata_headers,
     merge_bedrock_invoke_headers,
 )
-from litellm.types.llms.anthropic import (
+from embrouter.types.llms.anthropic import (
     ANTHROPIC_BETA_HEADER_VALUES,
     ANTHROPIC_FINE_GRAINED_TOOL_STREAMING_BETA_HEADER,
     ANTHROPIC_TOOL_SEARCH_BETA_HEADER,
 )
-from litellm.types.llms.bedrock import BedrockInvokeAnthropicMessagesRequest
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import GenericStreamingChunk, ModelResponseStream
-from litellm.types.utils import GenericStreamingChunk as GChunk
+from embrouter.types.llms.bedrock import BedrockInvokeAnthropicMessagesRequest
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import GenericStreamingChunk, ModelResponseStream
+from embrouter.types.utils import GenericStreamingChunk as GChunk
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 
 class AmazonAnthropicClaudeMessagesConfig(
@@ -104,11 +104,11 @@ class AmazonAnthropicClaudeMessagesConfig(
         model: str,
         messages: list[Any],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> tuple[dict, str | None]:
-        owned_names, metadata_headers = bedrock_request_metadata_headers(litellm_params)
+        owned_names, metadata_headers = bedrock_request_metadata_headers(embrouter_params)
         return merge_bedrock_invoke_headers(headers, (), metadata_headers, owned_names), api_base
 
     def sign_request(
@@ -140,7 +140,7 @@ class AmazonAnthropicClaudeMessagesConfig(
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         return AmazonInvokeConfig.get_complete_url(
@@ -149,7 +149,7 @@ class AmazonAnthropicClaudeMessagesConfig(
             api_key=api_key,
             model=model,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             stream=stream,
         )
 
@@ -440,7 +440,7 @@ class AmazonAnthropicClaudeMessagesConfig(
 
     # Bedrock-InvokeModel-supported ``context_management.edits`` types and the
     # ``anthropic-beta`` header that each one requires. ``clear_thinking_20251015``
-    # is intentionally absent — it is LiteLLM-internal, consumed via
+    # is intentionally absent — it is EmbRouter-internal, consumed via
     # ``_ensure_thinking_for_clear_thinking_context_management``, and forwarding
     # the raw edit trips Bedrock's
     # ``"context_management: Extra inputs are not permitted"`` 400.
@@ -470,7 +470,7 @@ class AmazonAnthropicClaudeMessagesConfig(
         - ``clear_tool_uses_20250919`` -> ``context-management-2025-06-27``
 
         Other edit types (notably ``clear_thinking_20251015``, which Claude Code
-        sends on every request) are LiteLLM-internal: thinking is injected
+        sends on every request) are EmbRouter-internal: thinking is injected
         separately via ``_ensure_thinking_for_clear_thinking_context_management``,
         and forwarding the raw edit would trip Bedrock's
         ``"context_management: Extra inputs are not permitted"`` 400.
@@ -591,11 +591,11 @@ class AmazonAnthropicClaudeMessagesConfig(
         error that names the problem and the fix instead.
 
         When web search interception is enabled
-        (``litellm_settings.callbacks: ["websearch_interception"]``), the tool
+        (``embrouter_settings.callbacks: ["websearch_interception"]``), the tool
         is converted to a regular function tool before this transform runs, so
         this guard never fires.
         """
-        from litellm.integrations.websearch_interception.tools import (
+        from embrouter.integrations.websearch_interception.tools import (
             is_anthropic_native_web_search_tool,
         )
 
@@ -608,11 +608,11 @@ class AmazonAnthropicClaudeMessagesConfig(
         )
         if web_search_tool is None:
             return
-        raise litellm.BadRequestError(
+        raise embrouter.BadRequestError(
             message=(
                 f"Bedrock does not support Anthropic's server-side web search tool "
                 f"(tool type '{web_search_tool.get('type')}', model '{model}'). "
-                "To use web search with this model, enable LiteLLM's web search interception "
+                "To use web search with this model, enable EmbRouter's web search interception "
                 "so the proxy executes the search instead. "
                 "Alternatively, remove the web_search tool from the request."
             ),
@@ -658,7 +658,7 @@ class AmazonAnthropicClaudeMessagesConfig(
         model: str,
         messages: list[dict],
         anthropic_messages_optional_request_params: dict,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> dict:
         self._clamp_adaptive_reasoning_effort_for_bedrock(
@@ -670,7 +670,7 @@ class AmazonAnthropicClaudeMessagesConfig(
             model=model,
             messages=messages,
             anthropic_messages_optional_request_params=anthropic_messages_optional_request_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
         self._normalize_system_role_messages(anthropic_messages_request, model=model)
@@ -743,7 +743,7 @@ class AmazonAnthropicClaudeMessagesConfig(
 
         remaining_output_config: Final = anthropic_messages_request.get("output_config")
         if (
-            litellm.drop_params is True
+            embrouter.drop_params is True
             and isinstance(remaining_output_config, dict)
             and any(key != "format" for key in remaining_output_config)
             and not AnthropicConfig._model_supports_effort_param(model, "bedrock")
@@ -767,7 +767,7 @@ class AmazonAnthropicClaudeMessagesConfig(
         model: str,
         httpx_response: httpx.Response,
         request_body: dict,
-        litellm_logging_obj: LiteLLMLoggingObj,
+        embrouter_logging_obj: EmbRouterLoggingObj,
     ) -> AsyncIterator:
         aws_decoder: Final = AmazonAnthropicClaudeMessagesStreamDecoder(
             model=model,
@@ -778,18 +778,18 @@ class AmazonAnthropicClaudeMessagesConfig(
         # Convert decoded Bedrock events to Server-Sent Events expected by Anthropic clients.
         return self.bedrock_sse_wrapper(
             completion_stream=completion_stream,
-            litellm_logging_obj=litellm_logging_obj,
+            embrouter_logging_obj=embrouter_logging_obj,
             request_body=request_body,
         )
 
     async def bedrock_sse_wrapper(
         self,
         completion_stream: AsyncIterator[bytes | GenericStreamingChunk | ModelResponseStream | dict],
-        litellm_logging_obj: LiteLLMLoggingObj,
+        embrouter_logging_obj: EmbRouterLoggingObj,
         request_body: dict,
     ):
         """
-        Bedrock invoke does not return SSE formatted data. This function is a wrapper to ensure litellm chunks are SSE formatted.
+        Bedrock invoke does not return SSE formatted data. This function is a wrapper to ensure embrouter chunks are SSE formatted.
 
         Bedrock's Anthropic-compatible streaming usually puts cache usage fields
         (cache_creation_input_tokens, cache_read_input_tokens) on message_stop.
@@ -800,12 +800,12 @@ class AmazonAnthropicClaudeMessagesConfig(
         merge them from ``message_start`` so logging/cost sees a consistent usage
         object (fixes negative input costs: LIT-2411).
         """
-        from litellm.llms.anthropic.pass_through.messages.streaming_iterator import (
+        from embrouter.llms.anthropic.pass_through.messages.streaming_iterator import (
             BaseAnthropicMessagesStreamingIterator,
         )
 
         handler: Final = BaseAnthropicMessagesStreamingIterator(
-            litellm_logging_obj=litellm_logging_obj,
+            embrouter_logging_obj=embrouter_logging_obj,
             request_body=request_body,
         )
 

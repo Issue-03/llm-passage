@@ -15,12 +15,12 @@ from typing import TYPE_CHECKING, Any, Final
 
 import httpx
 
-import litellm
-from litellm._logging import verbose_router_logger
-from litellm.caching.dual_cache import DualCache
-from litellm.caching.redis_cache import RedisCircuitBreakerOpenError
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.router_utils.pre_call_checks.io_token_rate_limit_check import (
+import embrouter
+from embrouter._logging import verbose_router_logger
+from embrouter.caching.dual_cache import DualCache
+from embrouter.caching.redis_cache import RedisCircuitBreakerOpenError
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.router_utils.pre_call_checks.io_token_rate_limit_check import (
     ITPM_RESERVED_KEY,
     async_io_token_pre_call_check,
     async_io_token_reconcile_success,
@@ -31,9 +31,9 @@ from litellm.router_utils.pre_call_checks.io_token_rate_limit_check import (
     io_token_reconcile_success,
     io_token_refund_failure,
 )
-from litellm.types.router import RouterErrors
-from litellm.types.utils import StandardLoggingPayload
-from litellm.utils import get_utc_datetime
+from embrouter.types.router import RouterErrors
+from embrouter.types.utils import StandardLoggingPayload
+from embrouter.utils import get_utc_datetime
 
 if TYPE_CHECKING:
     from opentelemetry.trace import Span as _Span
@@ -103,7 +103,7 @@ class ModelRateLimitingCheck(CustomLogger):
 
         Checks in order:
         1. Top-level 'tpm'/'rpm' fields
-        2. litellm_params.tpm/rpm
+        2. embrouter_params.tpm/rpm
         3. model_info.tpm/rpm
 
         Returns:
@@ -113,11 +113,11 @@ class ModelRateLimitingCheck(CustomLogger):
         tpm = deployment.get("tpm")
         rpm = deployment.get("rpm")
 
-        # Check litellm_params
+        # Check embrouter_params
         if tpm is None:
-            tpm = deployment.get("litellm_params", {}).get("tpm")
+            tpm = deployment.get("embrouter_params", {}).get("tpm")
         if rpm is None:
-            rpm = deployment.get("litellm_params", {}).get("rpm")
+            rpm = deployment.get("embrouter_params", {}).get("rpm")
 
         # Check model_info
         if tpm is None:
@@ -130,7 +130,7 @@ class ModelRateLimitingCheck(CustomLogger):
     def _get_cache_keys(self, deployment: dict, current_minute: str) -> tuple[str, str]:
         """Get the cache keys for TPM and RPM tracking."""
         model_id: Final = deployment.get("model_info", {}).get("id")
-        deployment_name: Final = deployment.get("litellm_params", {}).get("model")
+        deployment_name: Final = deployment.get("embrouter_params", {}).get("model")
 
         tpm_key: Final = f"{model_id}:{deployment_name}:tpm:{current_minute}"
         rpm_key: Final = f"{model_id}:{deployment_name}:rpm:{current_minute}"
@@ -184,14 +184,14 @@ class ModelRateLimitingCheck(CustomLogger):
             tpm_key, rpm_key = self._get_cache_keys(deployment, current_minute)
 
             model_id: Final = deployment.get("model_info", {}).get("id")
-            model_name: Final = deployment.get("litellm_params", {}).get("model")
+            model_name: Final = deployment.get("embrouter_params", {}).get("model")
             model_group: Final = deployment.get("model_name", "")
 
             # Check TPM limit
             if tpm_limit is not None:
                 current_tpm: Final = self._get_current_tpm(tpm_key, tpm_limit)
                 if current_tpm is not None and current_tpm >= tpm_limit:
-                    raise litellm.RateLimitError(
+                    raise embrouter.RateLimitError(
                         message=f"Model rate limit exceeded. TPM limit={tpm_limit}, current usage={current_tpm}",
                         llm_provider="",
                         model=model_name,
@@ -210,7 +210,7 @@ class ModelRateLimitingCheck(CustomLogger):
             if rpm_limit is not None:
                 current_rpm: Final = self.dual_cache.increment_cache(key=rpm_key, value=1, ttl=RoutingArgs.ttl)
                 if current_rpm is not None and current_rpm > rpm_limit:
-                    raise litellm.RateLimitError(
+                    raise embrouter.RateLimitError(
                         message=f"Model rate limit exceeded. RPM limit={rpm_limit}, current usage={current_rpm}",
                         llm_provider="",
                         model=model_name,
@@ -227,7 +227,7 @@ class ModelRateLimitingCheck(CustomLogger):
 
             return deployment
 
-        except litellm.RateLimitError:
+        except embrouter.RateLimitError:
             if io_reservation_made:
                 self._refund_io_token_reservation_if_any()
             raise
@@ -264,14 +264,14 @@ class ModelRateLimitingCheck(CustomLogger):
             tpm_key, rpm_key = self._get_cache_keys(deployment, current_minute)
 
             model_id: Final = deployment.get("model_info", {}).get("id")
-            model_name: Final = deployment.get("litellm_params", {}).get("model")
+            model_name: Final = deployment.get("embrouter_params", {}).get("model")
             model_group: Final = deployment.get("model_name", "")
 
             # Check TPM limit
             if tpm_limit is not None:
                 current_tpm: Final = await self._async_get_current_tpm(tpm_key, tpm_limit, parent_otel_span)
                 if current_tpm is not None and current_tpm >= tpm_limit:
-                    raise litellm.RateLimitError(
+                    raise embrouter.RateLimitError(
                         message=f"Model rate limit exceeded. TPM limit={tpm_limit}, current usage={current_tpm}",
                         llm_provider="",
                         model=model_name,
@@ -296,7 +296,7 @@ class ModelRateLimitingCheck(CustomLogger):
                     parent_otel_span=parent_otel_span,
                 )
                 if current_rpm is not None and current_rpm > rpm_limit:
-                    raise litellm.RateLimitError(
+                    raise embrouter.RateLimitError(
                         message=f"Model rate limit exceeded. RPM limit={rpm_limit}, current usage={current_rpm}",
                         llm_provider="",
                         model=model_name,
@@ -314,7 +314,7 @@ class ModelRateLimitingCheck(CustomLogger):
 
             return deployment
 
-        except litellm.RateLimitError:
+        except embrouter.RateLimitError:
             if io_reservation_made:
                 await self._async_refund_io_token_reservation_if_any(parent_otel_span=parent_otel_span)
             raise
@@ -324,7 +324,7 @@ class ModelRateLimitingCheck(CustomLogger):
             return deployment
 
     async def async_log_success_event(self, kwargs, response_obj, start_time, end_time):
-        from litellm.litellm_core_utils.core_helpers import (
+        from embrouter.embrouter_core_utils.core_helpers import (
             _get_parent_otel_span_from_kwargs,
         )
 
@@ -357,7 +357,7 @@ class ModelRateLimitingCheck(CustomLogger):
                 return
 
             total_tokens: Final = standard_logging_object.get("total_tokens", 0)
-            model: Final = standard_logging_object.get("hidden_params", {}).get("litellm_model_name")
+            model: Final = standard_logging_object.get("hidden_params", {}).get("embrouter_model_name")
 
             verbose_router_logger.debug(
                 "[TPM TRACKING] model_id=%s, total_tokens=%s, model=%s", model_id, total_tokens, model
@@ -382,7 +382,7 @@ class ModelRateLimitingCheck(CustomLogger):
             verbose_router_logger.debug("Error in ModelRateLimitingCheck.async_log_success_event: %s", e)
 
     async def async_log_failure_event(self, kwargs, response_obj, start_time, end_time):
-        from litellm.litellm_core_utils.core_helpers import (
+        from embrouter.embrouter_core_utils.core_helpers import (
             _get_parent_otel_span_from_kwargs,
         )
 
@@ -421,7 +421,7 @@ class ModelRateLimitingCheck(CustomLogger):
                 return
 
             total_tokens: Final = standard_logging_object.get("total_tokens", 0)
-            model: Final = standard_logging_object.get("hidden_params", {}).get("litellm_model_name")
+            model: Final = standard_logging_object.get("hidden_params", {}).get("embrouter_model_name")
 
             if not model or not total_tokens:
                 return

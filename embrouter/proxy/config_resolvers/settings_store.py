@@ -4,8 +4,8 @@ from collections.abc import Iterator, Mapping, MutableMapping
 from types import MappingProxyType
 from typing import Final
 
-from litellm.proxy.config_resolvers._descriptors import FieldSource
-from litellm.proxy.config_resolvers.settings_rules import (
+from embrouter.proxy.config_resolvers._descriptors import FieldSource
+from embrouter.proxy.config_resolvers.settings_rules import (
     ABSENT,
     Absent,
     DbRow,

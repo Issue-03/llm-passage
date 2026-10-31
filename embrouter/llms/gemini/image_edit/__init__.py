@@ -1,4 +1,4 @@
-from litellm.llms.base_llm.image_edit.transformation import BaseImageEditConfig
+from embrouter.llms.base_llm.image_edit.transformation import BaseImageEditConfig
 
 from .cost_calculator import cost_calculator
 from .transformation import GeminiImageEditConfig

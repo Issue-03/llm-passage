@@ -2,10 +2,10 @@ from unittest.mock import patch
 
 import pytest
 
-from litellm.constants import DEFAULT_MAX_RECURSE_DEPTH
+from embrouter.constants import DEFAULT_MAX_RECURSE_DEPTH
 
 
-from litellm.llms.vertex_ai.common_utils import (
+from embrouter.llms.vertex_ai.common_utils import (
     _get_vertex_url,
     convert_anyof_null_to_nullable,
     get_vertex_location_from_url,
@@ -14,7 +14,7 @@ from litellm.llms.vertex_ai.common_utils import (
     set_schema_property_ordering,
     supports_response_json_schema,
     validate_vertex_location,
-    vertex_request_labels_from_litellm_params,
+    vertex_request_labels_from_embrouter_params,
 )
 
 
@@ -146,7 +146,7 @@ def test_anyof_with_excessive_nesting():
 @pytest.mark.asyncio
 async def test_get_supports_system_message():
     """Test get_supports_system_message with different models"""
-    from litellm.llms.vertex_ai.common_utils import get_supports_system_message
+    from embrouter.llms.vertex_ai.common_utils import get_supports_system_message
 
     # fine-tuned vertex gemini models will specifiy they are in the /gemini spec format
     result = get_supports_system_message(
@@ -213,7 +213,7 @@ def test_set_schema_property_ordering_skips_non_dict_property_values():
 
 def test_build_vertex_schema():
     """Test build_vertex_schema with a sample schema"""
-    from litellm.llms.vertex_ai.common_utils import _build_vertex_schema
+    from embrouter.llms.vertex_ai.common_utils import _build_vertex_schema
 
     parameters = {
         "properties": {
@@ -301,7 +301,7 @@ def test_build_vertex_schema():
 def test_process_items_with_excessive_nesting():
     """Test process_items with excessive nesting > max levels +1 deep."""
     # generate a schema with excessive nesting
-    from litellm.llms.vertex_ai.common_utils import process_items
+    from embrouter.llms.vertex_ai.common_utils import process_items
 
     schema = {"type": "object", "properties": {}}
     current = schema
@@ -318,7 +318,7 @@ def test_process_items_with_excessive_nesting():
 
 def test_process_items_basic():
     """Test basic functionality of process_items."""
-    from litellm.llms.vertex_ai.common_utils import process_items
+    from embrouter.llms.vertex_ai.common_utils import process_items
 
     # Test empty items
     schema = {"type": "array", "items": {}}
@@ -363,7 +363,7 @@ def test_build_vertex_schema_array_branch_missing_items_in_anyof():
     end up with synthesized `items: {"type": "object"}` after the schema
     transform — Vertex returns INVALID_ARGUMENT otherwise.
     """
-    from litellm.llms.vertex_ai.common_utils import _build_vertex_schema
+    from embrouter.llms.vertex_ai.common_utils import _build_vertex_schema
 
     parameters = {
         "properties": {
@@ -391,7 +391,7 @@ def test_build_vertex_schema_array_branch_missing_items_in_anyof():
 def test_vertex_ai_complex_response_schema():
     from copy import deepcopy
 
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
 
@@ -630,10 +630,10 @@ def test_get_vertex_url_global_region(stream, expected_endpoint_suffix):
     vertex_location = "global"
     vertex_api_version = "v1"
 
-    # Mock litellm.VertexGeminiConfig.get_model_for_vertex_ai_url to return model as is
+    # Mock embrouter.VertexGeminiConfig.get_model_for_vertex_ai_url to return model as is
     # as we are not testing that part here, just the URL construction
     with patch(
-        "litellm.VertexGeminiConfig.get_model_for_vertex_ai_url",
+        "embrouter.VertexGeminiConfig.get_model_for_vertex_ai_url",
         side_effect=lambda model: model,
     ):
         url, endpoint = _get_vertex_url(
@@ -693,13 +693,13 @@ def test_get_vertex_region_global_only_model(
     model_cost_entry, vertex_region, expected_region
 ):
     """Test get_vertex_region resolves region from model_cost supported_regions"""
-    import litellm
-    from litellm.llms.vertex_ai.vertex_llm_base import VertexBase
+    import embrouter
+    from embrouter.llms.vertex_ai.vertex_llm_base import VertexBase
 
     vertex_base = VertexBase()
 
     with patch.dict(
-        litellm.model_cost,
+        embrouter.model_cost,
         {"vertex_ai/test-model": model_cost_entry},
         clear=False,
     ):
@@ -713,7 +713,7 @@ def test_get_vertex_region_global_only_model(
 def test_vertex_filter_format_uri():
     import json
 
-    from litellm.llms.vertex_ai.common_utils import filter_schema_fields
+    from embrouter.llms.vertex_ai.common_utils import filter_schema_fields
 
     parameters = {
         "type": "object",
@@ -773,7 +773,7 @@ def test_convert_schema_types_type_array_conversion():
 
 
     """
-    from litellm.llms.vertex_ai.common_utils import _convert_schema_types
+    from embrouter.llms.vertex_ai.common_utils import _convert_schema_types
 
     # Input: OpenAI-style schema with type array (the problematic case)
     input_schema = {
@@ -838,7 +838,7 @@ def test_fix_enum_empty_strings():
 
     Relevant issue: Gemini does not accept empty strings in enum values
     """
-    from litellm.llms.vertex_ai.common_utils import _fix_enum_empty_strings
+    from embrouter.llms.vertex_ai.common_utils import _fix_enum_empty_strings
 
     # Input: Schema with empty string in enum (the problematic case)
     input_schema = {
@@ -886,7 +886,7 @@ def test_fix_enum_empty_strings():
 
 def test_get_vertex_model_id_from_url():
     """Test get_vertex_model_id_from_url with various URLs"""
-    from litellm.llms.vertex_ai.common_utils import get_vertex_model_id_from_url
+    from embrouter.llms.vertex_ai.common_utils import get_vertex_model_id_from_url
 
     # Test with valid URL
     url = "https://us-central1-aiplatform.googleapis.com/v1/projects/test-project/locations/us-central1/publishers/google/models/gemini-pro:streamGenerateContent"
@@ -906,7 +906,7 @@ def test_get_vertex_model_id_from_url_with_slashes():
     were being truncated (e.g., 'gcp/google/gemini-2.5-flash' -> 'gcp'), causing access_groups
     checks to fail.
     """
-    from litellm.llms.vertex_ai.common_utils import get_vertex_model_id_from_url
+    from embrouter.llms.vertex_ai.common_utils import get_vertex_model_id_from_url
 
     # Test with model name containing slashes: gcp/google/gemini-2.5-flash
     url = "https://us-central1-aiplatform.googleapis.com/v1/projects/test-project/locations/us-central1/publishers/google/models/gcp/google/gemini-2.5-flash:generateContent"
@@ -931,7 +931,7 @@ def test_get_vertex_model_id_from_url_with_slashes():
 
 def test_construct_target_url_with_version_prefix():
     """Test construct_target_url with version prefixes"""
-    from litellm.llms.vertex_ai.common_utils import construct_target_url
+    from embrouter.llms.vertex_ai.common_utils import construct_target_url
 
     # Test with /v1/ prefix
     url = "/v1/publishers/google/models/gemini-pro:streamGenerateContent"
@@ -993,7 +993,7 @@ def test_construct_target_url_with_version_prefix():
     ],
 )
 def test_construct_target_url_versionless_project_route_gets_api_version(requested_route: str, expected_url: str) -> None:
-    from litellm.llms.vertex_ai.common_utils import construct_target_url
+    from embrouter.llms.vertex_ai.common_utils import construct_target_url
 
     target_url = construct_target_url(
         base_url="https://aiplatform.googleapis.com",
@@ -1014,7 +1014,7 @@ def test_fix_enum_types():
 
     Relevant issue: Gemini only allows enums for string-typed fields
     """
-    from litellm.llms.vertex_ai.common_utils import _fix_enum_types
+    from embrouter.llms.vertex_ai.common_utils import _fix_enum_types
 
     # Input: Schema with enum on non-string type (the problematic case)
     input_schema = {
@@ -1140,7 +1140,7 @@ def test_fix_enum_types():
 
 
 def test_get_token_url():
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexLLM,
     )
 
@@ -1193,14 +1193,14 @@ async def test_vertex_ai_token_counter_routes_partner_models():
     """
     from unittest.mock import patch
 
-    from litellm.llms.vertex_ai.common_utils import VertexAITokenCounter
-    from litellm.types.utils import TokenCountResponse
+    from embrouter.llms.vertex_ai.common_utils import VertexAITokenCounter
+    from embrouter.types.utils import TokenCountResponse
 
     token_counter = VertexAITokenCounter()
 
     # Mock the partner models handler
     with patch(
-        "litellm.llms.vertex_ai.vertex_ai_partner_models.main.VertexAIPartnerModels.count_tokens"
+        "embrouter.llms.vertex_ai.vertex_ai_partner_models.main.VertexAIPartnerModels.count_tokens"
     ) as mock_partner_count_tokens:
         mock_partner_count_tokens.return_value = {
             "input_tokens": 42,
@@ -1213,7 +1213,7 @@ async def test_vertex_ai_token_counter_routes_partner_models():
             messages=[{"role": "user", "content": "Hello"}],
             contents=None,
             deployment={
-                "litellm_params": {
+                "embrouter_params": {
                     "vertex_project": "test-project",
                     "vertex_location": "us-east5",
                 }
@@ -1240,13 +1240,13 @@ async def test_vertex_ai_token_counter_uses_count_tokens_location():
     """
     from unittest.mock import patch
 
-    from litellm.llms.vertex_ai.common_utils import VertexAITokenCounter
+    from embrouter.llms.vertex_ai.common_utils import VertexAITokenCounter
 
     token_counter = VertexAITokenCounter()
 
     # Mock the partner models handler
     with patch(
-        "litellm.llms.vertex_ai.vertex_ai_partner_models.main.VertexAIPartnerModels.count_tokens"
+        "embrouter.llms.vertex_ai.vertex_ai_partner_models.main.VertexAIPartnerModels.count_tokens"
     ) as mock_partner_count_tokens:
         mock_partner_count_tokens.return_value = {
             "input_tokens": 42,
@@ -1259,7 +1259,7 @@ async def test_vertex_ai_token_counter_uses_count_tokens_location():
             messages=[{"role": "user", "content": "Hello"}],
             contents=None,
             deployment={
-                "litellm_params": {
+                "embrouter_params": {
                     "vertex_project": "test-project",
                     "vertex_location": "global",  # Original location (not supported for count_tokens)
                     "vertex_count_tokens_location": "us-east5",  # Override for count_tokens
@@ -1283,14 +1283,14 @@ async def test_vertex_ai_token_counter_routes_gemini_models():
     """
     from unittest.mock import patch
 
-    from litellm.llms.vertex_ai.common_utils import VertexAITokenCounter
-    from litellm.types.utils import TokenCountResponse
+    from embrouter.llms.vertex_ai.common_utils import VertexAITokenCounter
+    from embrouter.types.utils import TokenCountResponse
 
     token_counter = VertexAITokenCounter()
 
     # Mock the Gemini handler (different import path)
     with patch(
-        "litellm.llms.vertex_ai.count_tokens.handler.VertexAITokenCounter.acount_tokens"
+        "embrouter.llms.vertex_ai.count_tokens.handler.VertexAITokenCounter.acount_tokens"
     ) as mock_gemini_count_tokens:
         mock_gemini_count_tokens.return_value = {
             "totalTokens": 50,
@@ -1303,7 +1303,7 @@ async def test_vertex_ai_token_counter_routes_gemini_models():
             messages=[{"role": "user", "content": "Hello"}],
             contents=None,
             deployment={
-                "litellm_params": {
+                "embrouter_params": {
                     "vertex_project": "test-project",
                     "vertex_location": "us-central1",
                 }
@@ -1328,12 +1328,12 @@ async def test_vertex_ai_token_counter_converts_messages_to_contents_for_gemini(
     """
     from unittest.mock import patch
 
-    from litellm.llms.vertex_ai.common_utils import VertexAITokenCounter
+    from embrouter.llms.vertex_ai.common_utils import VertexAITokenCounter
 
     token_counter = VertexAITokenCounter()
 
     with patch(
-        "litellm.llms.vertex_ai.count_tokens.handler.VertexAITokenCounter.acount_tokens"
+        "embrouter.llms.vertex_ai.count_tokens.handler.VertexAITokenCounter.acount_tokens"
     ) as mock_acount_tokens:
         mock_acount_tokens.return_value = {
             "totalTokens": 42,
@@ -1345,7 +1345,7 @@ async def test_vertex_ai_token_counter_converts_messages_to_contents_for_gemini(
             messages=[{"role": "user", "content": "Hello, how are you?"}],
             contents=None,
             deployment={
-                "litellm_params": {
+                "embrouter_params": {
                     "vertex_project": "test-project",
                     "vertex_location": "us-central1",
                 }
@@ -1372,12 +1372,12 @@ async def test_vertex_ai_token_counter_returns_none_when_api_omits_total_tokens(
     """
     from unittest.mock import patch
 
-    from litellm.llms.vertex_ai.common_utils import VertexAITokenCounter
+    from embrouter.llms.vertex_ai.common_utils import VertexAITokenCounter
 
     token_counter = VertexAITokenCounter()
 
     with patch(
-        "litellm.llms.vertex_ai.count_tokens.handler.VertexAITokenCounter.acount_tokens"
+        "embrouter.llms.vertex_ai.count_tokens.handler.VertexAITokenCounter.acount_tokens"
     ) as mock_acount_tokens:
         mock_acount_tokens.return_value = {"tokenizer_used": "gemini"}
 
@@ -1386,7 +1386,7 @@ async def test_vertex_ai_token_counter_returns_none_when_api_omits_total_tokens(
             messages=[{"role": "user", "content": "Hello"}],
             contents=None,
             deployment={
-                "litellm_params": {
+                "embrouter_params": {
                     "vertex_project": "test-project",
                     "vertex_location": "us-central1",
                 }
@@ -1403,7 +1403,7 @@ async def test_vertex_ai_partner_model_detection():
     Test that VertexAIPartnerModels.is_vertex_partner_model correctly identifies
     partner models (Claude, Mistral, Llama, etc.).
     """
-    from litellm.llms.vertex_ai.vertex_ai_partner_models.main import (
+    from embrouter.llms.vertex_ai.vertex_ai_partner_models.main import (
         VertexAIPartnerModels,
     )
 
@@ -1439,7 +1439,7 @@ def test_vertex_ai_minimax_uses_openai_handler():
     """
     Ensure Minimax partner models re-use the OpenAI-format handler.
     """
-    from litellm.llms.vertex_ai.vertex_ai_partner_models.main import (
+    from embrouter.llms.vertex_ai.vertex_ai_partner_models.main import (
         VertexAIPartnerModels,
     )
 
@@ -1450,7 +1450,7 @@ def test_vertex_ai_moonshot_uses_openai_handler():
     """
     Ensure Moonshot partner models re-use the OpenAI-format handler.
     """
-    from litellm.llms.vertex_ai.vertex_ai_partner_models.main import (
+    from embrouter.llms.vertex_ai.vertex_ai_partner_models.main import (
         VertexAIPartnerModels,
     )
 
@@ -1463,7 +1463,7 @@ def test_vertex_ai_zai_uses_openai_handler():
     """
     Ensure ZAI partner models re-use the OpenAI-format handler.
     """
-    from litellm.llms.vertex_ai.vertex_ai_partner_models.main import (
+    from embrouter.llms.vertex_ai.vertex_ai_partner_models.main import (
         VertexAIPartnerModels,
     )
 
@@ -1474,7 +1474,7 @@ def test_vertex_ai_zai_is_partner_model():
     """
     Ensure ZAI models are detected as Vertex AI partner models.
     """
-    from litellm.llms.vertex_ai.vertex_ai_partner_models.main import (
+    from embrouter.llms.vertex_ai.vertex_ai_partner_models.main import (
         VertexAIPartnerModels,
     )
 
@@ -1487,7 +1487,7 @@ def test_vertex_ai_gemma_maas_is_partner_model():
     route through the OpenAI-compatible /endpoints/openapi path (not the
     legacy non-gemini path or the vertex_ai/gemma/ predict-endpoint handler).
     """
-    from litellm.llms.vertex_ai.vertex_ai_partner_models.main import (
+    from embrouter.llms.vertex_ai.vertex_ai_partner_models.main import (
         VertexAIPartnerModels,
     )
 
@@ -1500,7 +1500,7 @@ def test_vertex_ai_gemma_maas_uses_openai_handler():
     """
     Ensure Gemma MaaS partner models re-use the OpenAI-format handler.
     """
-    from litellm.llms.vertex_ai.vertex_ai_partner_models.main import (
+    from embrouter.llms.vertex_ai.vertex_ai_partner_models.main import (
         VertexAIPartnerModels,
     )
 
@@ -1515,7 +1515,7 @@ def test_vertex_ai_gemma_maas_routes_to_partner_models():
     a gemma model. get_vertex_ai_model_route must return PARTNER_MODELS, never
     GEMMA, MODEL_GARDEN, or NON_GEMINI.
     """
-    from litellm.llms.vertex_ai.common_utils import (
+    from embrouter.llms.vertex_ai.common_utils import (
         VertexAIModelRoute,
         get_vertex_ai_model_route,
     )
@@ -1530,7 +1530,7 @@ def test_vertex_ai_google_gemini_not_detected_as_gemma_maas():
     other google/* models like google/gemini-* (which should keep flowing
     through the gemini route, not partner_models).
     """
-    from litellm.llms.vertex_ai.vertex_ai_partner_models.main import (
+    from embrouter.llms.vertex_ai.vertex_ai_partner_models.main import (
         VertexAIPartnerModels,
     )
 
@@ -1551,7 +1551,7 @@ def test_build_vertex_schema_empty_properties():
 
     The fix removes empty properties objects and their associated type/required fields.
     """
-    from litellm.llms.vertex_ai.common_utils import _build_vertex_schema
+    from embrouter.llms.vertex_ai.common_utils import _build_vertex_schema
 
     # Input: Schema with empty properties (the problematic case from real request)
     input_schema = {
@@ -1625,7 +1625,7 @@ def test_add_object_type_schema_with_no_properties_and_no_type():
     Test that add_object_type adds type: object when schema has no properties and no type.
     Fixes issue where tools with no arguments (e.g. EnterPlanMode) fail on Gemini.
     """
-    from litellm.llms.vertex_ai.common_utils import add_object_type
+    from embrouter.llms.vertex_ai.common_utils import add_object_type
 
     # Input: Schema with no properties and no type (the problematic case)
     input_schema = {"$schema": "https://json-schema.org/draft/2020-12/schema"}
@@ -1644,7 +1644,7 @@ def test_add_object_type_does_not_override_existing_type():
     """
     Test add_object_type does not override existing type field.
     """
-    from litellm.llms.vertex_ai.common_utils import add_object_type
+    from embrouter.llms.vertex_ai.common_utils import add_object_type
 
     # Input: Schema with existing type
     input_schema = {"type": "string", "description": "A string field"}
@@ -1660,7 +1660,7 @@ def test_add_object_type_does_not_add_type_when_anyof_present():
     """
     Test add_object_type does not add type: object when anyOf is present.
     """
-    from litellm.llms.vertex_ai.common_utils import add_object_type
+    from embrouter.llms.vertex_ai.common_utils import add_object_type
 
     # Input: Schema with anyOf but no type
     input_schema = {"anyOf": [{"type": "string"}, {"type": "null"}]}
@@ -1672,58 +1672,58 @@ def test_add_object_type_does_not_add_type_when_anyof_present():
     assert "type" not in input_schema, "type should not be added when anyOf is present"
 
 
-def test_vertex_request_labels_from_litellm_params_extracts_requester_metadata():
-    assert vertex_request_labels_from_litellm_params(None) is None
-    assert vertex_request_labels_from_litellm_params({}) is None
-    assert vertex_request_labels_from_litellm_params({"metadata": None}) is None
+def test_vertex_request_labels_from_embrouter_params_extracts_requester_metadata():
+    assert vertex_request_labels_from_embrouter_params(None) is None
+    assert vertex_request_labels_from_embrouter_params({}) is None
+    assert vertex_request_labels_from_embrouter_params({"metadata": None}) is None
     lp = {"metadata": {"requester_metadata": {"team": "analytics", "count": 3}}}
-    assert vertex_request_labels_from_litellm_params(lp) == {"team": "analytics"}
+    assert vertex_request_labels_from_embrouter_params(lp) == {"team": "analytics"}
 
 
-def test_vertex_request_labels_from_litellm_params_accepts_litellm_metadata():
-    lp = {"litellm_metadata": {"requester_metadata": {"team": "platform", "count": 3}}}
-    assert vertex_request_labels_from_litellm_params(lp) == {"team": "platform"}
+def test_vertex_request_labels_from_embrouter_params_accepts_embrouter_metadata():
+    lp = {"embrouter_metadata": {"requester_metadata": {"team": "platform", "count": 3}}}
+    assert vertex_request_labels_from_embrouter_params(lp) == {"team": "platform"}
 
 
-def test_vertex_request_labels_prefers_metadata_over_litellm_metadata():
+def test_vertex_request_labels_prefers_metadata_over_embrouter_metadata():
     lp = {
         "metadata": {"requester_metadata": {"source": "metadata"}},
-        "litellm_metadata": {"requester_metadata": {"source": "litellm_metadata"}},
+        "embrouter_metadata": {"requester_metadata": {"source": "embrouter_metadata"}},
     }
-    assert vertex_request_labels_from_litellm_params(lp) == {"source": "metadata"}
+    assert vertex_request_labels_from_embrouter_params(lp) == {"source": "metadata"}
 
 
 def test_pop_vertex_request_labels_prefers_explicit_labels_then_metadata():
     optional = {"labels": {"env": "prod"}}
-    litellm_params = {"metadata": {"requester_metadata": {"team": "x"}}}
-    assert pop_vertex_request_labels(optional, litellm_params) == {"env": "prod"}
+    embrouter_params = {"metadata": {"requester_metadata": {"team": "x"}}}
+    assert pop_vertex_request_labels(optional, embrouter_params) == {"env": "prod"}
     assert "labels" not in optional
 
     optional2: dict = {}
-    assert pop_vertex_request_labels(optional2, litellm_params) == {"team": "x"}
+    assert pop_vertex_request_labels(optional2, embrouter_params) == {"team": "x"}
 
     optional3 = {"labels": {"team": 123}}
-    assert pop_vertex_request_labels(optional3, litellm_params) == {"team": "x"}
+    assert pop_vertex_request_labels(optional3, embrouter_params) == {"team": "x"}
 
 
-def test_pop_vertex_request_labels_uses_litellm_metadata_when_metadata_absent():
+def test_pop_vertex_request_labels_uses_embrouter_metadata_when_metadata_absent():
     optional: dict = {}
-    litellm_params = {
-        "litellm_metadata": {"requester_metadata": {"team": "from_litellm_meta"}}
+    embrouter_params = {
+        "embrouter_metadata": {"requester_metadata": {"team": "from_embrouter_meta"}}
     }
-    assert pop_vertex_request_labels(optional, litellm_params) == {
-        "team": "from_litellm_meta"
+    assert pop_vertex_request_labels(optional, embrouter_params) == {
+        "team": "from_embrouter_meta"
     }
 
 
 def test_vertex_text_embedding_request_includes_labels_from_metadata():
-    import litellm
+    import embrouter
 
-    req = litellm.vertexAITextEmbeddingConfig.transform_openai_request_to_vertex_embedding_request(
+    req = embrouter.vertexAITextEmbeddingConfig.transform_openai_request_to_vertex_embedding_request(
         input="hi",
         optional_params={},
         model="text-embedding-004",
-        litellm_params={
+        embrouter_params={
             "metadata": {"requester_metadata": {"project_id": "cost-center-1"}}
         },
     )
@@ -1740,7 +1740,7 @@ def test_vertex_text_embedding_request_includes_labels_from_metadata():
     ],
 )
 def test_get_vertex_ai_lyria_model_info_resolves_audio_api(model, expected_api):
-    from litellm.llms.vertex_ai.common_utils import get_vertex_ai_lyria_model_info
+    from embrouter.llms.vertex_ai.common_utils import get_vertex_ai_lyria_model_info
 
     model_info = get_vertex_ai_lyria_model_info(model=model)
 
@@ -1750,7 +1750,7 @@ def test_get_vertex_ai_lyria_model_info_resolves_audio_api(model, expected_api):
 
 @pytest.mark.parametrize("model", ["en-US-Studio-O", "gemini-2.5-flash-preview-tts", "chirp-3-hd-charon"])
 def test_get_vertex_ai_lyria_model_info_is_none_for_non_lyria_speech_models(model):
-    from litellm.llms.vertex_ai.common_utils import get_vertex_ai_lyria_model_info
+    from embrouter.llms.vertex_ai.common_utils import get_vertex_ai_lyria_model_info
 
     assert get_vertex_ai_lyria_model_info(model=model) is None
 

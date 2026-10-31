@@ -4,10 +4,10 @@ from unittest.mock import MagicMock, patch
 
 from pydantic import BaseModel
 
-from litellm.llms.volcengine.chat.transformation import (
+from embrouter.llms.volcengine.chat.transformation import (
     VolcEngineChatConfig as VolcEngineConfig,
 )
-from litellm.utils import get_optional_params
+from embrouter.utils import get_optional_params
 
 
 class TestVolcEngineConfig:
@@ -112,8 +112,8 @@ class TestVolcEngineConfig:
     def test_e2e_completion(self):
         from openai import OpenAI
 
-        from litellm import completion
-        from litellm.types.utils import ModelResponse
+        from embrouter import completion
+        from embrouter.types.utils import ModelResponse
 
         client = OpenAI(api_key="test_api_key")
 

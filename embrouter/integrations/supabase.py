@@ -7,7 +7,7 @@ import sys
 import traceback
 from typing import Final
 
-import litellm
+import embrouter
 
 
 class Supabase:
@@ -26,11 +26,11 @@ class Supabase:
 
         if self.supabase_url is None or self.supabase_key is None:
             raise ValueError(
-                "LiteLLM Error, trying to use Supabase but url or key not passed. Create a table and set `litellm.supabase_url=<your-url>` and `litellm.supabase_key=<your-key>`"
+                "EmbRouter Error, trying to use Supabase but url or key not passed. Create a table and set `embrouter.supabase_url=<your-url>` and `embrouter.supabase_key=<your-key>`"
             )
         self.supabase_client = supabase.create_client(self.supabase_url, self.supabase_key)
 
-    def input_log_event(self, model, messages, end_user, litellm_call_id, print_verbose):
+    def input_log_event(self, model, messages, end_user, embrouter_call_id, print_verbose):
         try:
             print_verbose(f"Supabase Logging - Enters input logging function for model {model}")
             supabase_data_obj: Final = {
@@ -38,7 +38,7 @@ class Supabase:
                 "messages": messages,
                 "end_user": end_user,
                 "status": "initiated",
-                "litellm_call_id": litellm_call_id,
+                "embrouter_call_id": embrouter_call_id,
             }
             data, count = self.supabase_client.table(self.supabase_table_name).insert(supabase_data_obj).execute()
             print_verbose(f"data: {data}")
@@ -53,13 +53,13 @@ class Supabase:
         response_obj,
         start_time,
         end_time,
-        litellm_call_id,
+        embrouter_call_id,
         print_verbose,
     ):
         try:
             print_verbose(f"Supabase Logging - Enters logging function for model {model}, response_obj: {response_obj}")
 
-            total_cost = litellm.completion_cost(completion_response=response_obj)
+            total_cost = embrouter.completion_cost(completion_response=response_obj)
 
             response_time: Final = (end_time - start_time).total_seconds()
             if "choices" in response_obj:
@@ -70,13 +70,13 @@ class Supabase:
                     "messages": messages,
                     "response": response_obj["choices"][0]["message"]["content"],
                     "end_user": end_user,
-                    "litellm_call_id": litellm_call_id,
+                    "embrouter_call_id": embrouter_call_id,
                     "status": "success",
                 }
                 print_verbose(f"Supabase Logging - final data object: {supabase_data_obj}")
                 data, count = (
                     self.supabase_client.table(self.supabase_table_name)
-                    .upsert(supabase_data_obj, on_conflict="litellm_call_id")
+                    .upsert(supabase_data_obj, on_conflict="embrouter_call_id")
                     .execute()
                 )
             elif "error" in response_obj:
@@ -89,13 +89,13 @@ class Supabase:
                     "messages": messages,
                     "error": response_obj["error"],
                     "end_user": end_user,
-                    "litellm_call_id": litellm_call_id,
+                    "embrouter_call_id": embrouter_call_id,
                     "status": "failure",
                 }
                 print_verbose(f"Supabase Logging - final data object: {supabase_data_obj}")
                 data, count = (
                     self.supabase_client.table(self.supabase_table_name)
-                    .upsert(supabase_data_obj, on_conflict="litellm_call_id")
+                    .upsert(supabase_data_obj, on_conflict="embrouter_call_id")
                     .execute()
                 )
 

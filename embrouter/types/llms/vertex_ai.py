@@ -6,7 +6,7 @@ from typing_extensions import (
     TypedDict,
 )
 
-from litellm.types.llms.openai import EmbeddingInput
+from embrouter.types.llms.openai import EmbeddingInput
 
 # Gemini supports nested-list inputs (e.g. [["text", "image"]]) as an explicit
 # opt-in for combined embeddings — a provider-specific extension of the

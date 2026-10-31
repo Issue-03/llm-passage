@@ -11,8 +11,8 @@ Error: ValidationError: 1 validation error for OCIStreamChunk message.toolCalls.
 
 
 
-from litellm.llms.oci.chat.generic import handle_generic_stream_chunk
-from litellm.types.utils import ModelResponseStream
+from embrouter.llms.oci.chat.generic import handle_generic_stream_chunk
+from embrouter.types.utils import ModelResponseStream
 
 
 class TestOCIStreamingToolCalls:

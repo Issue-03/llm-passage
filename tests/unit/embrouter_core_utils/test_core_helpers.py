@@ -1,11 +1,11 @@
-"""Tests for litellm_core_utils.core_helpers module."""
+"""Tests for embrouter_core_utils.core_helpers module."""
 
 import logging
 
 import httpx
 import pytest
 
-from litellm.litellm_core_utils.core_helpers import (
+from embrouter.embrouter_core_utils.core_helpers import (
     _FINISH_REASON_MAP,
     RESPONSE_COST_HEADER,
     bind_budget_reservation_to_callbacks,
@@ -21,8 +21,8 @@ from litellm.litellm_core_utils.core_helpers import (
     set_provider_response_headers_in_hidden_params,
     unbind_budget_reservation_from_callbacks,
 )
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.types.utils import ImageResponse, TranscriptionResponse
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.types.utils import ImageResponse, TranscriptionResponse
 
 
 class TestBudgetReservationBinding:
@@ -34,7 +34,7 @@ class TestBudgetReservationBinding:
     def _reservation() -> dict:
         return {"reserved_cost": 0.5, "entries": [], "finalized": False, "callback_bound": False}
 
-    @pytest.mark.parametrize("metadata_variable_name", ["metadata", "litellm_metadata"])
+    @pytest.mark.parametrize("metadata_variable_name", ["metadata", "embrouter_metadata"])
     def test_reservation_stamped_on_the_metadata_is_bound(self, metadata_variable_name: str):
         reservation = self._reservation()
 
@@ -60,17 +60,17 @@ class TestBudgetReservationBinding:
 
     def test_unbind_hands_a_claimed_reservation_back(self):
         reservation = self._reservation()
-        litellm_params = {"litellm_metadata": {"user_api_key_budget_reservation": reservation}}
-        bind_budget_reservation_to_callbacks(litellm_params)
+        embrouter_params = {"embrouter_metadata": {"user_api_key_budget_reservation": reservation}}
+        bind_budget_reservation_to_callbacks(embrouter_params)
 
-        unbind_budget_reservation_from_callbacks(litellm_params)
+        unbind_budget_reservation_from_callbacks(embrouter_params)
 
         assert reservation["callback_bound"] is False
 
     def test_request_without_a_reservation_binds_nothing(self):
         metadata = {"user_api_key_auth": UserAPIKeyAuth(token="hashed")}
 
-        bind_budget_reservation_to_callbacks({"metadata": metadata, "litellm_metadata": None})
+        bind_budget_reservation_to_callbacks({"metadata": metadata, "embrouter_metadata": None})
 
         assert budget_reservation_from_metadata(metadata) is None
         assert "user_api_key_budget_reservation" not in metadata
@@ -80,15 +80,15 @@ class TestGetOrCreateMetadataBucket:
     """The single owner every guardrail writer and reader shares, so the response
     header and the spend log can never disagree about which dict a record lives in."""
 
-    def test_prefers_litellm_metadata_when_both_present(self):
-        request_data = {"metadata": {"user_id": "caller"}, "litellm_metadata": {}}
+    def test_prefers_embrouter_metadata_when_both_present(self):
+        request_data = {"metadata": {"user_id": "caller"}, "embrouter_metadata": {}}
 
         key, bucket = get_or_create_metadata_bucket(request_data)
 
-        assert key == "litellm_metadata"
-        assert bucket is request_data["litellm_metadata"]
+        assert key == "embrouter_metadata"
+        assert bucket is request_data["embrouter_metadata"]
 
-    def test_uses_metadata_when_litellm_metadata_absent(self):
+    def test_uses_metadata_when_embrouter_metadata_absent(self):
         request_data = {"metadata": {"user_id": "caller"}}
 
         key, bucket = get_or_create_metadata_bucket(request_data)
@@ -107,13 +107,13 @@ class TestGetOrCreateMetadataBucket:
         assert request_data["metadata"]["k"] == "v"
 
     def test_replaces_a_non_dict_bucket(self):
-        request_data = {"litellm_metadata": None}
+        request_data = {"embrouter_metadata": None}
 
         key, bucket = get_or_create_metadata_bucket(request_data)
 
-        assert key == "litellm_metadata"
-        assert isinstance(request_data["litellm_metadata"], dict)
-        assert bucket is request_data["litellm_metadata"]
+        assert key == "embrouter_metadata"
+        assert isinstance(request_data["embrouter_metadata"], dict)
+        assert bucket is request_data["embrouter_metadata"]
 
 
 def test_reconstruct_model_name_prefers_deployment_value():
@@ -270,7 +270,7 @@ class TestMapFinishReasonGenericError:
 
     def test_lowercase_error_does_not_warn(self, mocker):
         warn = mocker.patch(
-            "litellm.litellm_core_utils.core_helpers.verbose_logger.warning"
+            "embrouter.embrouter_core_utils.core_helpers.verbose_logger.warning"
         )
         assert map_finish_reason("error") == "stop"
         warn.assert_not_called()
@@ -379,26 +379,26 @@ def test_normalize_drop_params(value, expected):
 @pytest.mark.parametrize("value, expected", [("true", True), ("off", False), (None, False)])
 def test_drop_params_flag_returns_a_bool_without_a_warning(value, expected, caplog):
     with caplog.at_level(logging.WARNING, logger="drop-params-test"):
-        assert drop_params_flag(value, "LITELLM_DROP_PARAMS", logging.getLogger("drop-params-test")) is expected
+        assert drop_params_flag(value, "EMBROUTER_DROP_PARAMS", logging.getLogger("drop-params-test")) is expected
     assert caplog.text == ""
 
 
 @pytest.mark.parametrize("value", ["temperature", "ture", 2])
 def test_drop_params_flag_treats_non_flag_values_as_off_with_a_warning(value, caplog):
     with caplog.at_level(logging.WARNING, logger="drop-params-test"):
-        assert drop_params_flag(value, "LITELLM_DROP_PARAMS", logging.getLogger("drop-params-test")) is False
-    assert f"LITELLM_DROP_PARAMS={value!r} is not a flag value, treating it as off" in caplog.text
+        assert drop_params_flag(value, "EMBROUTER_DROP_PARAMS", logging.getLogger("drop-params-test")) is False
+    assert f"EMBROUTER_DROP_PARAMS={value!r} is not a flag value, treating it as off" in caplog.text
 
 
 @pytest.mark.parametrize(
     "environ, expected",
     [
         ({}, False),
-        ({"LITELLM_DROP_PARAMS": ""}, False),
-        ({"LITELLM_DROP_PARAMS": "   "}, False),
-        ({"LITELLM_DROP_PARAMS": "true"}, True),
-        ({"LITELLM_DROP_PARAMS": " False "}, False),
-        ({"LITELLM_DROP_PARAMS": "0"}, False),
+        ({"EMBROUTER_DROP_PARAMS": ""}, False),
+        ({"EMBROUTER_DROP_PARAMS": "   "}, False),
+        ({"EMBROUTER_DROP_PARAMS": "true"}, True),
+        ({"EMBROUTER_DROP_PARAMS": " False "}, False),
+        ({"EMBROUTER_DROP_PARAMS": "0"}, False),
     ],
 )
 def test_drop_params_env_flag_reads_a_flag_without_a_warning(environ, expected, caplog):
@@ -410,16 +410,16 @@ def test_drop_params_env_flag_reads_a_flag_without_a_warning(environ, expected, 
 @pytest.mark.parametrize("configured", ["temperature", "temperature,top_p", "enabled"])
 def test_drop_params_env_flag_keeps_a_non_flag_value_on_with_a_warning(configured, caplog):
     with caplog.at_level(logging.WARNING, logger="drop-params-test"):
-        assert drop_params_env_flag({"LITELLM_DROP_PARAMS": configured}, logging.getLogger("drop-params-test")) is True
+        assert drop_params_env_flag({"EMBROUTER_DROP_PARAMS": configured}, logging.getLogger("drop-params-test")) is True
     assert (
-        f"LITELLM_DROP_PARAMS={configured!r} is not a flag value, treating it as on. Set it to true or false"
+        f"EMBROUTER_DROP_PARAMS={configured!r} is not a flag value, treating it as on. Set it to true or false"
         in caplog.text
     )
 
 
 class TestIsExpectedClientError:
     def test_status_ranges(self):
-        from litellm.litellm_core_utils.core_helpers import is_expected_client_error
+        from embrouter.embrouter_core_utils.core_helpers import is_expected_client_error
 
         class WithStatusCode(Exception):
             def __init__(self, status_code):
@@ -443,10 +443,10 @@ class TestIsExpectedClientError:
         """Regression for LIT-6163: a 4xx the provider returned is an upstream or
         deployment problem, so it keeps its traceback; only the proxy's own
         pre-call rejections (no llm_provider) are expected client errors."""
-        from litellm.exceptions import AuthenticationError, RateLimitError
-        from litellm.litellm_core_utils.core_helpers import is_expected_client_error
-        from litellm.llms.anthropic.common_utils import AnthropicError
-        from litellm.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
+        from embrouter.exceptions import AuthenticationError, RateLimitError
+        from embrouter.embrouter_core_utils.core_helpers import is_expected_client_error
+        from embrouter.llms.anthropic.common_utils import AnthropicError
+        from embrouter.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
 
         provider_auth_failure = AuthenticationError(
             message="AnthropicException - API key is invalid.", llm_provider="anthropic", model="claude-haiku-4-5"
@@ -476,18 +476,18 @@ class TestIsExpectedClientError:
         """The auth handler stamps the requested model's provider onto the proxy's
         own BudgetExceededError before logging it, which must not turn a key-over-budget
         429 into a provider error that keeps its traceback."""
-        from litellm.exceptions import BudgetExceededError, RateLimitError, RateLimitErrorCategory
-        from litellm.litellm_core_utils.core_helpers import is_expected_client_error
+        from embrouter.exceptions import BudgetExceededError, RateLimitError, RateLimitErrorCategory
+        from embrouter.embrouter_core_utils.core_helpers import is_expected_client_error
 
         over_budget = BudgetExceededError(current_cost=0.01, max_budget=0.0, llm_provider="anthropic")
         assert over_budget.llm_provider == "anthropic"
         assert is_expected_client_error(over_budget) is True
 
-        litellm_limit = RateLimitError(
+        embrouter_limit = RateLimitError(
             message="key over rpm", llm_provider="anthropic", model="claude-haiku-4-5",
-            category=RateLimitErrorCategory.LITELLM_RATE_LIMIT,
+            category=RateLimitErrorCategory.EMBROUTER_RATE_LIMIT,
         )
-        assert is_expected_client_error(litellm_limit) is True
+        assert is_expected_client_error(embrouter_limit) is True
 
         vendor_limit = RateLimitError(
             message="rate limited upstream", llm_provider="anthropic", model="claude-haiku-4-5",
@@ -514,7 +514,7 @@ class TestProviderResponseHeadersInHiddenParams:
         assert additional_headers["x-ratelimit-remaining-requests"] == "41"
         assert additional_headers[RESPONSE_COST_HEADER] == 0.04
 
-    def test_litellm_owned_additional_headers_win_over_provider_headers(self):
+    def test_embrouter_owned_additional_headers_win_over_provider_headers(self):
         response = TranscriptionResponse(text="hi")
         response._hidden_params = {"additional_headers": {"llm_provider-x-request-id": "kept"}}
 

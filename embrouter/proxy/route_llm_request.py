@@ -5,16 +5,16 @@ from typing import TYPE_CHECKING, Any, Final, Literal
 import httpx
 from fastapi import HTTPException, status
 
-import litellm
-from litellm.proxy._types import ProxyException, UserAPIKeyAuth
-from litellm.router_utils.common_utils import _is_proxy_admin_request
+import embrouter
+from embrouter.proxy._types import ProxyException, UserAPIKeyAuth
+from embrouter.router_utils.common_utils import _is_proxy_admin_request
 
 # Client-supplied params that make the router or the call path fabricate a
 # failure or a delay instead of calling the provider. The ``mock_testing_*``
-# names are kept in sync with ``litellm.types.router.MockRouterTestingParams``
+# names are kept in sync with ``embrouter.types.router.MockRouterTestingParams``
 # by ``test_gated_mock_params_cover_mock_router_testing_params``. Hardcoding
 # (rather than deriving via ``dataclasses.fields(MockRouterTestingParams)`` at
-# import time) avoids a cyclic import: ``litellm.types.router`` imports
+# import time) avoids a cyclic import: ``embrouter.types.router`` imports
 # back into proxy modules before this module finishes loading.
 GATED_MOCK_PARAM_NAMES: Final[tuple[str, ...]] = (
     "mock_testing_fallbacks",
@@ -28,11 +28,11 @@ GATED_MOCK_PARAM_NAMES: Final[tuple[str, ...]] = (
 MOCK_TESTING_CONFIG_KEY: Final = "dangerously_allow_mock_testing_request_params"
 
 if TYPE_CHECKING:
-    from litellm.router import Router as _Router
+    from embrouter.router import Router as _Router
 
-    LitellmRouter = _Router
+    EmbrouterRouter = _Router
 else:
-    LitellmRouter = Any
+    EmbrouterRouter = Any
 
 
 def _route_user_config_request(data: dict, route_type: str):
@@ -41,10 +41,10 @@ def _route_user_config_request(data: dict, route_type: str):
 
     # Filter router_config to only include valid Router.__init__ arguments
     # This prevents TypeError when invalid parameters are stored in the database
-    valid_args: Final = litellm.Router.get_valid_args()
+    valid_args: Final = embrouter.Router.get_valid_args()
     filtered_config: Final = {k: v for k, v in router_config.items() if k in valid_args}
 
-    user_router: Final = litellm.Router(**filtered_config)
+    user_router: Final = embrouter.Router(**filtered_config)
     ret_val: Final = getattr(user_router, f"{route_type}")(**data)
     user_router.discard()
     return ret_val
@@ -55,14 +55,14 @@ def _is_a2a_agent_model(model_name: object) -> bool:
     return isinstance(model_name, str) and model_name.startswith("a2a/")
 
 
-def _raise_if_model_fully_blocked(llm_router: LitellmRouter, model_name: object, team_id: str | None) -> None:
+def _raise_if_model_fully_blocked(llm_router: EmbrouterRouter, model_name: object, team_id: str | None) -> None:
     if not isinstance(model_name, str) or not model_name:
         return
-    if not isinstance(llm_router, litellm.Router):
+    if not isinstance(llm_router, embrouter.Router):
         return
     deployments: Final = llm_router.get_model_list(model_name=model_name, team_id=team_id) or []
     if llm_router._are_all_deployments_blocked(deployments):
-        raise litellm.PermissionDeniedError(
+        raise embrouter.PermissionDeniedError(
             message="Model is blocked",
             model=model_name,
             llm_provider="",
@@ -218,23 +218,23 @@ def raise_if_mock_testing_params_disallowed(data: Mapping[str, object], *, allow
 
 def mock_testing_params_allowed() -> bool:
     """Read the opt-in from the running proxy's ``general_settings``."""
-    from litellm.proxy import proxy_server
+    from embrouter.proxy import proxy_server
 
     return proxy_server.general_settings.get(MOCK_TESTING_CONFIG_KEY, False) is True
 
 
 def get_team_id_from_data(data: dict) -> str | None:
     """
-    Get the team id from the data's metadata or litellm_metadata params.
+    Get the team id from the data's metadata or embrouter_metadata params.
     """
     if "metadata" in data and data["metadata"] is not None and "user_api_key_team_id" in data["metadata"]:
         return data["metadata"].get("user_api_key_team_id")
     elif (
-        "litellm_metadata" in data
-        and data["litellm_metadata"] is not None
-        and "user_api_key_team_id" in data["litellm_metadata"]
+        "embrouter_metadata" in data
+        and data["embrouter_metadata"] is not None
+        and "user_api_key_team_id" in data["embrouter_metadata"]
     ):
-        return data["litellm_metadata"].get("user_api_key_team_id")
+        return data["embrouter_metadata"].get("user_api_key_team_id")
     return None
 
 
@@ -267,8 +267,8 @@ async def add_shared_session_to_data(data: dict) -> None:
         data: Dictionary to add the shared session to
     """
     try:
-        from litellm._logging import verbose_proxy_logger
-        from litellm.proxy import proxy_server
+        from embrouter._logging import verbose_proxy_logger
+        from embrouter.proxy import proxy_server
 
         session = proxy_server.shared_aiohttp_session
 
@@ -315,7 +315,7 @@ async def add_shared_session_to_data(data: dict) -> None:
         # and other unexpected errors to avoid breaking the request path.
         # Inner recovery logic has its own specific exception handling.
         try:
-            from litellm._logging import verbose_proxy_logger
+            from embrouter._logging import verbose_proxy_logger
 
             verbose_proxy_logger.debug(
                 "SESSION REUSE: Unexpected error in session setup, continuing without reuse",
@@ -426,7 +426,7 @@ RouteType = Literal[
 
 async def route_request(
     data: dict,
-    llm_router: LitellmRouter | None,
+    llm_router: EmbrouterRouter | None,
     user_model: str | None,
     route_type: RouteType,
     user_api_key_dict: UserAPIKeyAuth | None = None,
@@ -446,8 +446,8 @@ async def route_request(
         requested_model: Final = data.get("model", "")
         if not e.retryable_with_model_read_through or not isinstance(requested_model, str) or not requested_model:
             raise
-        from litellm.proxy import proxy_server
-        from litellm.proxy.common_utils.registry_read_through import (
+        from embrouter.proxy import proxy_server
+        from embrouter.proxy.common_utils.registry_read_through import (
             model_registry_read_through,
         )
 
@@ -464,7 +464,7 @@ async def route_request(
 
 async def _route_request_single_attempt(  # noqa: ANN202  # returns unawaited provider coroutines; the inferred union keeps route_request's callers typed
     data: dict,  # mutable-ok: request body is the proxy-wide mutable dict contract shared with route_request
-    llm_router: LitellmRouter | None,
+    llm_router: EmbrouterRouter | None,
     user_model: str | None,
     route_type: RouteType,
     user_api_key_dict: UserAPIKeyAuth | None = None,
@@ -490,7 +490,7 @@ async def _route_request_single_attempt(  # noqa: ANN202  # returns unawaited pr
         if llm_router is not None:
             return getattr(llm_router, f"{route_type}")(**data)
         else:
-            return getattr(litellm, f"{route_type}")(**data)
+            return getattr(embrouter, f"{route_type}")(**data)
 
     elif (
         route_type == "acompletion"
@@ -537,10 +537,10 @@ async def _route_request_single_attempt(  # noqa: ANN202  # returns unawaited pr
         if llm_router is not None:
             return getattr(llm_router, f"{route_type}")(**data)
         else:
-            return getattr(litellm, f"{route_type}")(**data)
+            return getattr(embrouter, f"{route_type}")(**data)
     elif llm_router is not None:
         _raise_if_model_fully_blocked(llm_router=llm_router, model_name=data.get("model"), team_id=team_id)
-        # Evals API: always route to litellm directly (not through router)
+        # Evals API: always route to embrouter directly (not through router)
         # But extract model credentials if a model is provided
         if route_type in [
             "acreate_eval",
@@ -566,10 +566,10 @@ async def _route_request_single_attempt(  # noqa: ANN202  # returns unawaited pr
                         deployment: Final = llm_router.get_deployment_by_model_group_name(model_group_name=model)
                         if (
                             deployment
-                            and deployment.litellm_params
+                            and deployment.embrouter_params
                             and not llm_router._is_deployment_blocked(deployment)
                         ):
-                            deployment_creds = deployment.litellm_params.model_dump(exclude_none=True)
+                            deployment_creds = deployment.embrouter_params.model_dump(exclude_none=True)
 
                     # If we found credentials, merge them into data (but don't override user-provided values)
                     if deployment_creds:
@@ -578,7 +578,7 @@ async def _route_request_single_attempt(  # noqa: ANN202  # returns unawaited pr
                     # If we can't get deployment creds, continue without them
                     pass
 
-            return getattr(litellm, f"{route_type}")(**data)
+            return getattr(embrouter, f"{route_type}")(**data)
         # Skip model-based routing for container operations
         if route_type in [
             "acreate_container",
@@ -629,7 +629,7 @@ async def _route_request_single_attempt(  # noqa: ANN202  # returns unawaited pr
             "aingest",
         ] and (data.get("model") is None or data.get("model") == ""):
             # These endpoints don't need a model, use custom_llm_provider directly
-            return getattr(litellm, f"{route_type}")(**data)
+            return getattr(embrouter, f"{route_type}")(**data)
 
         team_model_name: Final = llm_router.map_team_model(data["model"], team_id) if team_id is not None else None
         if team_model_name is not None:
@@ -647,7 +647,7 @@ async def _route_request_single_attempt(  # noqa: ANN202  # returns unawaited pr
             # Check wildcards before checking deployment_names
             # Priority: 1. Exact model_name match, 2. Wildcard match, 3. deployment_names match
             if llm_router.router_general_settings.pass_through_all_models:
-                return getattr(litellm, f"{route_type}")(**data)
+                return getattr(embrouter, f"{route_type}")(**data)
             elif llm_router.default_deployment is not None or len(llm_router.pattern_router.patterns) > 0:
                 return getattr(llm_router, f"{route_type}")(**data)
             elif data["model"] in llm_router.deployment_names:
@@ -699,9 +699,9 @@ async def _route_request_single_attempt(  # noqa: ANN202  # returns unawaited pr
                     return getattr(llm_router, f"{route_type}")(**data)
                 except Exception:
                     # If router fails (e.g., model not found in router), fall back to direct call
-                    return getattr(litellm, f"{route_type}")(**data)
+                    return getattr(embrouter, f"{route_type}")(**data)
             elif _is_a2a_agent_model(data.get("model", "")):
-                from litellm.proxy.agent_endpoints.a2a_routing import (
+                from embrouter.proxy.agent_endpoints.a2a_routing import (
                     route_a2a_agent_request,
                 )
 
@@ -711,7 +711,7 @@ async def _route_request_single_attempt(  # noqa: ANN202  # returns unawaited pr
                 # Fall through to raise exception below if result is None
 
     elif user_model is not None or route_type == "allm_passthrough_route":
-        return getattr(litellm, f"{route_type}")(**data)
+        return getattr(embrouter, f"{route_type}")(**data)
 
     # if no route found then it's a bad request
     route_name: Final = ROUTE_ENDPOINT_MAPPING.get(route_type, route_type)

@@ -1,41 +1,41 @@
 """
 AWS Bedrock CountTokens API handler.
 
-Simplified handler leveraging existing LiteLLM Bedrock infrastructure.
+Simplified handler leveraging existing EmbRouter Bedrock infrastructure.
 """
 
 from typing import Any, Final
 
 import httpx
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.llms.bedrock.base_aws_llm import run_aws_signing
-from litellm.llms.bedrock.common_utils import BedrockError
-from litellm.llms.bedrock.count_tokens.transformation import BedrockCountTokensConfig
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, get_async_httpx_client
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.llms.bedrock.base_aws_llm import run_aws_signing
+from embrouter.llms.bedrock.common_utils import BedrockError
+from embrouter.llms.bedrock.count_tokens.transformation import BedrockCountTokensConfig
+from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler, get_async_httpx_client
 
 
 class BedrockCountTokensHandler(BedrockCountTokensConfig):
     """
     Simplified handler for AWS Bedrock CountTokens API requests.
 
-    Uses existing LiteLLM infrastructure for authentication and request handling.
+    Uses existing EmbRouter infrastructure for authentication and request handling.
     """
 
     async def handle_count_tokens_request(
         self,
         request_data: dict[str, Any],
-        litellm_params: dict[str, Any],
+        embrouter_params: dict[str, Any],
         resolved_model: str,
         client: AsyncHTTPHandler | None = None,
     ) -> dict[str, Any]:
         """
-        Handle a CountTokens request using existing LiteLLM patterns.
+        Handle a CountTokens request using existing EmbRouter patterns.
 
         Args:
             request_data: The incoming request payload
-            litellm_params: LiteLLM configuration parameters
+            embrouter_params: EmbRouter configuration parameters
             resolved_model: The actual model ID resolved from router
 
         Returns:
@@ -47,9 +47,9 @@ class BedrockCountTokensHandler(BedrockCountTokensConfig):
 
             verbose_logger.debug("Processing CountTokens request for resolved model: %s", resolved_model)
 
-            # Get AWS region using existing LiteLLM function
+            # Get AWS region using existing EmbRouter function
             aws_region_name: Final = self._get_aws_region_name(
-                optional_params=litellm_params,
+                optional_params=embrouter_params,
                 model=resolved_model,
                 model_id=None,
             )
@@ -62,8 +62,8 @@ class BedrockCountTokensHandler(BedrockCountTokensConfig):
             verbose_logger.debug("Transformed request: %s", bedrock_request)
 
             # Get endpoint URL using simplified function
-            api_base: Final = litellm_params.get("api_base", None)
-            aws_bedrock_runtime_endpoint: Final = litellm_params.get("aws_bedrock_runtime_endpoint", None)
+            api_base: Final = embrouter_params.get("api_base", None)
+            aws_bedrock_runtime_endpoint: Final = embrouter_params.get("aws_bedrock_runtime_endpoint", None)
             endpoint_url: Final = self.get_bedrock_count_tokens_endpoint(
                 model=resolved_model,
                 aws_region_name=aws_region_name,
@@ -75,20 +75,20 @@ class BedrockCountTokensHandler(BedrockCountTokensConfig):
 
             # Use existing _sign_request method from BaseAWSLLM
             # Extract api_key for bearer token auth if provided
-            api_key: Final = litellm_params.get("api_key", None)
+            api_key: Final = embrouter_params.get("api_key", None)
             headers: Final = {"Content-Type": "application/json"}
             signed_headers, signed_body = await run_aws_signing(
                 self._sign_request,
                 service_name="bedrock",
                 headers=headers,
-                optional_params=litellm_params,
+                optional_params=embrouter_params,
                 request_data=bedrock_request,
                 api_base=endpoint_url,
                 model=resolved_model,
                 api_key=api_key,
             )
 
-            async_client: Final = client or get_async_httpx_client(llm_provider=litellm.LlmProviders.BEDROCK)
+            async_client: Final = client or get_async_httpx_client(llm_provider=embrouter.LlmProviders.BEDROCK)
 
             response: Final = await async_client.post(
                 endpoint_url,

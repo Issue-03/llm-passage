@@ -1,5 +1,5 @@
 """
-Tests for litellm.litellm_core_utils.logging_utils — base64 truncation helpers.
+Tests for embrouter.embrouter_core_utils.logging_utils — base64 truncation helpers.
 """
 
 import datetime
@@ -8,8 +8,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from litellm.litellm_core_utils import logging_utils
-from litellm.litellm_core_utils.logging_utils import (
+from embrouter.embrouter_core_utils import logging_utils
+from embrouter.embrouter_core_utils.logging_utils import (
     _set_duration_in_model_call_details,
     _truncate_base64_in_string,
     format_base64_size,
@@ -22,7 +22,7 @@ class TestSetDurationInModelCallDetails:
     def test_records_provider_attempt_windows_in_shared_metadata(self):
         metadata = {"request_id": "test"}
         logging_obj = MagicMock()
-        logging_obj.model_call_details = {"litellm_params": {"metadata": metadata}}
+        logging_obj.model_call_details = {"embrouter_params": {"metadata": metadata}}
         first_start = datetime.datetime(2025, 1, 1, 0, 0, 0)
         first_end = first_start + datetime.timedelta(milliseconds=300)
         second_start = datetime.datetime(2025, 1, 1, 0, 0, 1)

@@ -1,9 +1,9 @@
 from collections.abc import Mapping
 from typing import Final
 
-from litellm._logging import verbose_logger
-from litellm.types.llms.openai import AllMessageValues, OpenAITextCompletionUserMessage
-from litellm.utils import supports_reasoning
+from embrouter._logging import verbose_logger
+from embrouter.types.llms.openai import AllMessageValues, OpenAITextCompletionUserMessage
+from embrouter.utils import supports_reasoning
 
 from ...base_llm.completion.transformation import BaseTextCompletionConfig
 from ...openai.completion.utils import _transform_prompt
@@ -23,7 +23,7 @@ _TEXT_COMPLETION_STRIP_PARAMS: Final = (
 class FireworksAITextCompletionConfig(FireworksAIMixin, BaseTextCompletionConfig):
     def get_supported_openai_params(self, model: str) -> list:
         """
-        See how LiteLLM supports Provider-specific parameters
+        See how EmbRouter supports Provider-specific parameters
         """
         return [
             "max_tokens",

@@ -476,16 +476,16 @@ def _codes_at(tmp_path, parts, source):
 
 def test_config_surface_module_scope_is_exempt(tmp_path):
     src = "api_key = None\napi_key = 'sk'\n"
-    assert "LIT010" not in _codes_at(tmp_path, ("litellm", "__init__.py"), src)
+    assert "LIT010" not in _codes_at(tmp_path, ("embrouter", "__init__.py"), src)
 
 
 def test_config_surface_function_scopes_are_still_checked(tmp_path):
     src = "def f() -> None:\n    x = 1\n"
-    assert "LIT010" in _codes_at(tmp_path, ("litellm", "__init__.py"), src)
+    assert "LIT010" in _codes_at(tmp_path, ("embrouter", "__init__.py"), src)
 
 
 def test_nested_init_modules_are_not_config_surface(tmp_path):
-    assert "LIT010" in _codes_at(tmp_path, ("litellm", "types", "__init__.py"), "x = 1\n")
+    assert "LIT010" in _codes_at(tmp_path, ("embrouter", "types", "__init__.py"), "x = 1\n")
 
 
 # --------------------------------------------------------------------------- #

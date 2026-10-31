@@ -14,7 +14,7 @@ const langgraphInfo: AgentCreateInfo = {
   agent_type: "langgraph",
   agent_type_display_name: "LangGraph",
   model_template: "langgraph/{assistant_id}",
-  credential_fields: [{ key: "assistant_id", label: "Assistant ID", required: true, include_in_litellm_params: false }],
+  credential_fields: [{ key: "assistant_id", label: "Assistant ID", required: true, include_in_embrouter_params: false }],
 };
 
 const killSwitchForm: KillSwitchFormValue = {
@@ -41,7 +41,7 @@ describe("buildDynamicAgentData kill switch", () => {
       auth: { type: "bearer", token: "tok" },
     };
     expect(payload.kill_switch).toEqual(expected);
-    expect(payload.litellm_params).toMatchObject({ model: "langgraph/asst_1" });
+    expect(payload.embrouter_params).toMatchObject({ model: "langgraph/asst_1" });
   });
 
   it("leaves kill_switch off the payload when the section was never mounted", () => {

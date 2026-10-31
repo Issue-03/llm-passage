@@ -101,7 +101,7 @@ const buildMetadataJson = (values: Record<string, unknown>, input: KeyCreateInpu
       : parsed;
   const disabled =
     input.disabledCallbacks.length > 0
-      ? { ...(logged as object), litellm_disabled_callbacks: mapDisplayToInternalNames(input.disabledCallbacks) }
+      ? { ...(logged as object), embrouter_disabled_callbacks: mapDisplayToInternalNames(input.disabledCallbacks) }
       : logged;
   return JSON.stringify(disabled);
 };

@@ -10,12 +10,12 @@ from unittest.mock import MagicMock
 import httpx
 import pytest
 
-from litellm.llms.stability.image_generation import StabilityImageGenerationConfig
-from litellm.types.llms.stability import (
+from embrouter.llms.stability.image_generation import StabilityImageGenerationConfig
+from embrouter.types.llms.stability import (
     OPENAI_SIZE_TO_STABILITY_ASPECT_RATIO,
     STABILITY_GENERATION_MODELS,
 )
-from litellm.types.utils import ImageResponse
+from embrouter.types.utils import ImageResponse
 
 
 class TestStabilityImageGenerationConfig:
@@ -132,7 +132,7 @@ class TestStabilityImageGenerationConfig:
             api_key="test-key",
             model="stability/sd3",
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
         )
 
         assert url == "https://api.stability.ai/v2beta/stable-image/generate/sd3"
@@ -144,7 +144,7 @@ class TestStabilityImageGenerationConfig:
             api_key="test-key",
             model="stability/sd3",
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
         )
 
         assert url == "https://custom.stability.ai/v2beta/stable-image/generate/sd3"
@@ -156,7 +156,7 @@ class TestStabilityImageGenerationConfig:
             model="stability/sd3",
             messages=[],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             api_key="test-api-key",
         )
 
@@ -171,7 +171,7 @@ class TestStabilityImageGenerationConfig:
                 model="stability/sd3",
                 messages=[],
                 optional_params={},
-                litellm_params={},
+                embrouter_params={},
                 api_key=None,
             )
 
@@ -183,7 +183,7 @@ class TestStabilityImageGenerationConfig:
             model="stability/sd3",
             prompt="A beautiful sunset",
             optional_params={"aspect_ratio": "16:9", "negative_prompt": "blurry"},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -198,7 +198,7 @@ class TestStabilityImageGenerationConfig:
             model="stability/sd3",
             prompt="Test",
             optional_params={"_n": 2, "_response_format": "url", "aspect_ratio": "1:1"},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -228,7 +228,7 @@ class TestStabilityImageGenerationConfig:
             logging_obj=mock_logging,
             request_data={},
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             encoding=None,
         )
 
@@ -256,7 +256,7 @@ class TestStabilityImageGenerationConfig:
                 logging_obj=mock_logging,
                 request_data={},
                 optional_params={},
-                litellm_params={},
+                embrouter_params={},
                 encoding=None,
             )
 

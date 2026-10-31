@@ -27,7 +27,7 @@ Two known limitations of that narrow scope, both shared with `fallback_model_acc
   `reserve_budget_for_request`, which the zero-cost bypass skips. Turning the soft cap into a hard
   one means reserving per fallback attempt and reconciling on completion.
 * A request that reaches the router without `metadata["user_api_key_auth"]` is not restricted.
-  Only `add_litellm_data_to_request` populates that key, so endpoints that assemble metadata by
+  Only `add_embrouter_data_to_request` populates that key, so endpoints that assemble metadata by
   hand (for example `/queue/chat/completions`) fall through as unauthenticated.
 """
 
@@ -37,12 +37,12 @@ from typing import Final
 
 from pydantic import BaseModel, ValidationError
 
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.auth.auth_checks import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.auth.auth_checks import (
     _is_model_cost_zero,  # pyright: ignore[reportPrivateUsage]  # the zero-cost predicate the auth-time budget checks use; no public equivalent
 )
-from litellm.router import Router
+from embrouter.router import Router
 
 
 class _RequestMetadata(BaseModel):
@@ -64,7 +64,7 @@ def _user_api_key_auth_from_request(request_kwargs: Mapping[str, object]) -> Use
     return next(
         (
             token
-            for field in ("metadata", "litellm_metadata")
+            for field in ("metadata", "embrouter_metadata")
             if (token := _token_in_metadata(request_kwargs.get(field))) is not None
         ),
         None,
@@ -72,13 +72,13 @@ def _user_api_key_auth_from_request(request_kwargs: Mapping[str, object]) -> Use
 
 
 def _enforced_by_general_settings() -> bool:
-    from litellm.proxy.proxy_server import general_settings
+    from embrouter.proxy.proxy_server import general_settings
 
     return _FallbackBudgetSettings.model_validate(general_settings).enforce_fallback_budget
 
 
 def _applies_user_budget_to_team_keys() -> bool:
-    from litellm.proxy.proxy_server import general_settings
+    from embrouter.proxy.proxy_server import general_settings
 
     return general_settings.get("apply_user_budget_to_team_keys") is True
 
@@ -92,7 +92,7 @@ async def _counter_spend(counter_key: str, fallback_spend: float, max_budget: fl
     reads as a hit rather than a clean miss, so without this the reseed path never runs and a
     stale-low counter would keep admitting paid fallbacks past the cap.
     """
-    from litellm.proxy.proxy_server import get_current_spend
+    from embrouter.proxy.proxy_server import get_current_spend
 
     return await get_current_spend(
         counter_key=counter_key,

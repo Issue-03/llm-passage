@@ -26,7 +26,7 @@ export function ClassifierAuditView({ request, response }: ClassifierAuditViewPr
 
 function AuditField({ title, value, children }: { title: string; value: unknown; children: ReactNode }) {
   const serialized = JSON.stringify(value);
-  const truncated = serialized?.includes("litellm_truncated") ?? false;
+  const truncated = serialized?.includes("embrouter_truncated") ?? false;
 
   return (
     <Card size="sm" role="region" aria-label={title}>

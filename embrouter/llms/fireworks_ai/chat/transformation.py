@@ -4,22 +4,22 @@ from typing import TYPE_CHECKING, Final, Literal, cast
 
 import httpx
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm._uuid import uuid
-from litellm.constants import RESPONSE_FORMAT_TOOL_NAME
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.litellm_core_utils.llm_response_utils.get_headers import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter._uuid import uuid
+from embrouter.constants import RESPONSE_FORMAT_TOOL_NAME
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.embrouter_core_utils.llm_response_utils.get_headers import (
     get_response_headers,
 )
-from litellm.litellm_core_utils.prompt_templates.common_utils import unpack_legacy_defs
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.openai import (
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import unpack_legacy_defs
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.openai import (
     AllMessageValues,
     ChatCompletionToolParam,
     OpenAIChatCompletionToolParam,
 )
-from litellm.types.utils import (
+from embrouter.types.utils import (
     ChatCompletionMessageToolCall,
     Choices,
     Function,
@@ -28,7 +28,7 @@ from litellm.types.utils import (
     ModelResponseStream,
     ProviderSpecificModelInfo,
 )
-from litellm.utils import (
+from embrouter.utils import (
     get_model_cost_mutation_generation,
     supports_function_calling,
     supports_reasoning,
@@ -47,7 +47,7 @@ from ..common_utils import (
 )
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
 
 
 def _map_reasoning_effort(value: object) -> object:
@@ -204,7 +204,7 @@ class FireworksAIConfig(FireworksAIMixin, OpenAIGPTConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
@@ -218,11 +218,11 @@ class FireworksAIConfig(FireworksAIMixin, OpenAIGPTConfig):
             model=model,
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             api_key=api_key,
             api_base=api_base,
         )
-        return self._add_session_affinity_header(validated_headers, litellm_params)
+        return self._add_session_affinity_header(validated_headers, embrouter_params)
 
     def get_supported_openai_params(self, model: str):
         # Base parameters supported by all models
@@ -309,7 +309,7 @@ class FireworksAIConfig(FireworksAIMixin, OpenAIGPTConfig):
         supported_openai_params: Final = self.get_supported_openai_params(model=model)
         is_tools_set: Final = any(param == "tools" and value is not None for param, value in non_default_params.items())
         if non_default_params.get("thinking") is not None and non_default_params.get("reasoning_effort") is not None:
-            raise litellm.BadRequestError(
+            raise embrouter.BadRequestError(
                 message=(
                     "Fireworks AI chat completions does not support specifying both "
                     "`thinking` and `reasoning_effort` in the same request."
@@ -472,12 +472,12 @@ class FireworksAIConfig(FireworksAIMixin, OpenAIGPTConfig):
         return tools
 
     def _transform_messages_helper(
-        self, messages: list[AllMessageValues], model: str, litellm_params: dict
+        self, messages: list[AllMessageValues], model: str, embrouter_params: dict
     ) -> list[AllMessageValues]:
         """
         Strip fields not permitted by FireworksAI from messages.
         """
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             filter_value_from_dict,
         )
 
@@ -490,7 +490,7 @@ class FireworksAIConfig(FireworksAIMixin, OpenAIGPTConfig):
                         if not isinstance(content, dict):
                             continue
                         if content.get("type") == "file":
-                            raise litellm.BadRequestError(
+                            raise embrouter.BadRequestError(
                                 message=(
                                     "Fireworks AI chat completions does not support "
                                     "file content blocks. For PDFs, convert pages to "
@@ -502,7 +502,7 @@ class FireworksAIConfig(FireworksAIMixin, OpenAIGPTConfig):
                                 llm_provider="fireworks_ai",
                             )
                         if content.get("type") == "image_url" and supports_vision_value is False:
-                            raise litellm.BadRequestError(
+                            raise embrouter.BadRequestError(
                                 message=(
                                     f"Fireworks AI model {model} does not support "
                                     "image inputs. Use a Fireworks vision model or "
@@ -522,7 +522,7 @@ class FireworksAIConfig(FireworksAIMixin, OpenAIGPTConfig):
 
         return messages
 
-    # Cached index of fireworks_ai/* entries from litellm.model_cost. Building
+    # Cached index of fireworks_ai/* entries from embrouter.model_cost. Building
     # this index requires a full scan of model_cost (tens of thousands of
     # entries), so we memoize it. The cache key is (id(model_cost),
     # mutation_generation): the generation counter is bumped on every
@@ -532,7 +532,7 @@ class FireworksAIConfig(FireworksAIMixin, OpenAIGPTConfig):
 
     @classmethod
     def _get_fireworks_index(cls) -> list[tuple[str, dict]]:
-        model_cost: Final = litellm.model_cost
+        model_cost: Final = embrouter.model_cost
         signature: Final = (id(model_cost), get_model_cost_mutation_generation())
         cached: Final = cls._fireworks_index_cache
         if cached is not None and cached[0] == signature[0] and cached[1] == signature[1]:
@@ -590,7 +590,7 @@ class FireworksAIConfig(FireworksAIMixin, OpenAIGPTConfig):
             *self._firerouter_family_cost_keys(model),
         )
         for candidate_key in candidate_keys:
-            model_info = litellm.model_cost.get(candidate_key)
+            model_info = embrouter.model_cost.get(candidate_key)
             if model_info is not None and model_info.get(capability) is not None:
                 return cast(bool | None, model_info.get(capability))
         return None
@@ -654,12 +654,12 @@ class FireworksAIConfig(FireworksAIMixin, OpenAIGPTConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         resolved_model: Final = resolve_fireworks_resource_name(model)
         messages = self._transform_messages_helper(
-            messages=messages, model=resolved_model, litellm_params=litellm_params
+            messages=messages, model=resolved_model, embrouter_params=embrouter_params
         )
         if "tools" in optional_params and optional_params["tools"] is not None:
             tools: Final = self._transform_tools(tools=optional_params["tools"])
@@ -677,7 +677,7 @@ class FireworksAIConfig(FireworksAIMixin, OpenAIGPTConfig):
             model=resolved_model,
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
@@ -711,11 +711,11 @@ class FireworksAIConfig(FireworksAIMixin, OpenAIGPTConfig):
         model: str,
         raw_response: httpx.Response,
         model_response: ModelResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         request_data: dict,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,
@@ -801,7 +801,7 @@ class FireworksAIConfig(FireworksAIMixin, OpenAIGPTConfig):
 
         base = api_base.rstrip("/")
         base = base.removesuffix("/v1")
-        response: Final = litellm.module_level_client.get(
+        response: Final = embrouter.module_level_client.get(
             url=f"{base}/v1/accounts/{account_id}/models",
             headers={"Authorization": f"Bearer {api_key}"},
         )

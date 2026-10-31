@@ -2,7 +2,7 @@
 Evaluation suite for the ComplexityRouter.
 
 Tests the router's ability to correctly classify prompts into complexity tiers.
-Run with: python -m litellm.router_strategy.complexity_router.evals.eval_complexity_router
+Run with: python -m embrouter.router_strategy.complexity_router.evals.eval_complexity_router
 """
 
 import os
@@ -18,8 +18,8 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../.
 
 from typing import Final
 
-from litellm.router_strategy.complexity_router.complexity_router import ComplexityRouter
-from litellm.router_strategy.complexity_router.config import ComplexityTier
+from embrouter.router_strategy.complexity_router.complexity_router import ComplexityRouter
+from embrouter.router_strategy.complexity_router.config import ComplexityTier
 
 
 @dataclass
@@ -242,7 +242,7 @@ def run_eval() -> tuple[int, int, list[dict]]:
     mock_router: Final = MagicMock()
     router: Final = ComplexityRouter(
         model_name="eval-router",
-        litellm_router_instance=mock_router,
+        embrouter_router_instance=mock_router,
     )
 
     passed = 0

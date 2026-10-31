@@ -1,18 +1,18 @@
 import asyncio
 from typing import Final
 
-from litellm._logging import verbose_proxy_logger
-from litellm.constants import LITELLM_ASYNCIO_QUEUE_MAXSIZE
-from litellm.proxy._types import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.constants import EMBROUTER_ASYNCIO_QUEUE_MAXSIZE
+from embrouter.proxy._types import (
     DBSpendUpdateTransactions,
-    Litellm_EntityType,
+    Embrouter_EntityType,
     SpendUpdateQueueItem,
 )
-from litellm.proxy.db.db_transaction_queue.base_update_queue import (
+from embrouter.proxy.db.db_transaction_queue.base_update_queue import (
     BaseUpdateQueue,
     service_logger_obj,
 )
-from litellm.types.services import ServiceTypes
+from embrouter.types.services import ServiceTypes
 
 
 class SpendUpdateQueue(BaseUpdateQueue):
@@ -22,7 +22,7 @@ class SpendUpdateQueue(BaseUpdateQueue):
 
     def __init__(self):
         super().__init__()
-        self.update_queue: asyncio.Queue[SpendUpdateQueueItem] = asyncio.Queue(maxsize=LITELLM_ASYNCIO_QUEUE_MAXSIZE)
+        self.update_queue: asyncio.Queue[SpendUpdateQueueItem] = asyncio.Queue(maxsize=EMBROUTER_ASYNCIO_QUEUE_MAXSIZE)
 
     async def flush_and_get_aggregated_db_spend_update_transactions(
         self,
@@ -146,17 +146,17 @@ class SpendUpdateQueue(BaseUpdateQueue):
 
         # Map entity types to their corresponding transaction dictionary keys
         entity_type_to_dict_key: Final = {
-            Litellm_EntityType.USER: "user_list_transactions",
-            Litellm_EntityType.END_USER: "end_user_list_transactions",
-            Litellm_EntityType.KEY: "key_list_transactions",
-            Litellm_EntityType.TEAM: "team_list_transactions",
-            Litellm_EntityType.TEAM_MEMBER: "team_member_list_transactions",
-            Litellm_EntityType.ORGANIZATION: "org_list_transactions",
-            Litellm_EntityType.ORGANIZATION_MEMBER: "org_member_list_transactions",
-            Litellm_EntityType.PROJECT: "project_list_transactions",
-            Litellm_EntityType.TAG: "tag_list_transactions",
-            Litellm_EntityType.AGENT: "agent_list_transactions",
-            Litellm_EntityType.MODEL_ACCESS_GROUP: "model_access_group_list_transactions",
+            Embrouter_EntityType.USER: "user_list_transactions",
+            Embrouter_EntityType.END_USER: "end_user_list_transactions",
+            Embrouter_EntityType.KEY: "key_list_transactions",
+            Embrouter_EntityType.TEAM: "team_list_transactions",
+            Embrouter_EntityType.TEAM_MEMBER: "team_member_list_transactions",
+            Embrouter_EntityType.ORGANIZATION: "org_list_transactions",
+            Embrouter_EntityType.ORGANIZATION_MEMBER: "org_member_list_transactions",
+            Embrouter_EntityType.PROJECT: "project_list_transactions",
+            Embrouter_EntityType.TAG: "tag_list_transactions",
+            Embrouter_EntityType.AGENT: "agent_list_transactions",
+            Embrouter_EntityType.MODEL_ACCESS_GROUP: "model_access_group_list_transactions",
         }
 
         for update in updates:

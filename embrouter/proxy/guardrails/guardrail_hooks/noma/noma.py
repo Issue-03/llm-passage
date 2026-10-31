@@ -1,6 +1,6 @@
 # +-------------------------------------------------------------+
 #
-#           Noma Security Guardrail Integration for LiteLLM
+#           Noma Security Guardrail Integration for EmbRouter
 #                       https://noma.security
 #
 # +-------------------------------------------------------------+
@@ -21,22 +21,22 @@ from urllib.parse import urljoin
 
 from fastapi import HTTPException
 
-import litellm
-from litellm import DualCache, ModelResponse
-from litellm._logging import verbose_proxy_logger
-from litellm.completion_extras.litellm_responses_transformation.transformation import (
-    LiteLLMResponsesTransformationHandler,
+import embrouter
+from embrouter import DualCache, ModelResponse
+from embrouter._logging import verbose_proxy_logger
+from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
+    EmbRouterResponsesTransformationHandler,
 )
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.llms.base_llm.base_model_iterator import MockResponseIterator
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.integrations.custom_guardrail import CustomGuardrail
+from embrouter.llms.base_llm.base_model_iterator import MockResponseIterator
+from embrouter.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.main import stream_chunk_builder
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.utils import (
+from embrouter.main import stream_chunk_builder
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.types.guardrails import GuardrailEventHooks
+from embrouter.types.utils import (
     CallTypes,
     CallTypesLiteral,
     GuardrailStatus,
@@ -56,7 +56,7 @@ _LLMResponseT: Final = TypeVar("_LLMResponseT")
 _LEGACY_NOMA_DEPRECATION_WARNED = False
 
 if TYPE_CHECKING:
-    from litellm.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
+    from embrouter.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
 
 
 class NomaBlockedMessage(HTTPException):
@@ -89,7 +89,7 @@ class NomaBlockedMessage(HTTPException):
 
 class NomaGuardrail(CustomGuardrail):
     """
-    Noma Security Guardrail for LiteLLM
+    Noma Security Guardrail for EmbRouter
 
     This guardrail integrates with Noma Security's AI-DR API to provide
     content moderation and safety checks for LLM inputs and outputs.
@@ -129,11 +129,11 @@ class NomaGuardrail(CustomGuardrail):
             _LEGACY_NOMA_DEPRECATION_WARNED = True
 
         self.async_handler = get_async_httpx_client(llm_provider=httpxSpecialProvider.GuardrailCallback)
-        self._responses_transform_handler = LiteLLMResponsesTransformationHandler()
+        self._responses_transform_handler = EmbRouterResponsesTransformationHandler()
         self.api_key = api_key or os.environ.get("NOMA_API_KEY")
         self.api_base = api_base or os.environ.get("NOMA_API_BASE", NomaGuardrail._DEFAULT_API_BASE)
         self.application_id = application_id or os.environ.get("NOMA_APPLICATION_ID")
-        self.default_application_id = "litellm"
+        self.default_application_id = "embrouter"
 
         if monitor_mode is None:
             self.monitor_mode = os.environ.get("NOMA_MONITOR_MODE", "false").lower() == "true"
@@ -249,12 +249,12 @@ class NomaGuardrail(CustomGuardrail):
         start_time: Final = datetime.now()
         extra_data: Final = self.get_guardrail_dynamic_request_body_params(request_data)
 
-        if not isinstance(response, litellm.ModelResponse):
+        if not isinstance(response, embrouter.ModelResponse):
             return None
 
         content = None
         for choice in response.choices:
-            if isinstance(choice, litellm.Choices) and choice.message.content:
+            if isinstance(choice, embrouter.Choices) and choice.message.content:
                 content = choice.message.content
                 break
 
@@ -494,12 +494,12 @@ class NomaGuardrail(CustomGuardrail):
             response: The original LLM response
             anonymized_content: The anonymized content to replace with
         """
-        if not isinstance(response, litellm.ModelResponse):
+        if not isinstance(response, embrouter.ModelResponse):
             return
 
         # Replace content in all choices
         for choice in response.choices:
-            if isinstance(choice, litellm.Choices) and choice.message.content:
+            if isinstance(choice, embrouter.Choices) and choice.message.content:
                 choice.message.content = anonymized_content
 
     async def _check_user_message_background(
@@ -727,7 +727,7 @@ class NomaGuardrail(CustomGuardrail):
         user_auth: UserAPIKeyAuth,
         extra_data: dict,
     ) -> dict:
-        call_id: Final = request_data.get("litellm_call_id")
+        call_id: Final = request_data.get("embrouter_call_id")
         headers: Final = {
             **({"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}),
             **({"X-Noma-Request-ID": call_id} if call_id else {}),
@@ -788,7 +788,7 @@ class NomaGuardrail(CustomGuardrail):
 
     @staticmethod
     def get_config_model() -> type["GuardrailConfigModel"] | None:
-        from litellm.types.proxy.guardrails.guardrail_hooks.noma import (
+        from embrouter.types.proxy.guardrails.guardrail_hooks.noma import (
             NomaGuardrailConfigModel,
         )
 

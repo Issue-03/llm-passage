@@ -11,40 +11,40 @@ import httpx
 import pytest
 from botocore.credentials import RefreshableCredentials
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.integrations.code_interpreter_interception.handler import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.integrations.code_interpreter_interception.handler import (
     CodeInterpreterInterceptionLogger,
-    LITELLM_CODE_EXECUTION_TOOL_NAME,
+    EMBROUTER_CODE_EXECUTION_TOOL_NAME,
 )
-from litellm.llms.base_llm.audio_transcription.transformation import (
+from embrouter.llms.base_llm.audio_transcription.transformation import (
     AudioTranscriptionRequestData,
     BaseAudioTranscriptionConfig,
 )
-from litellm.llms.base_llm.chat.transformation import BaseConfig, BaseLLMException
-from litellm.llms.base_llm.search.transformation import BaseSearchConfig, SearchResponse
-from litellm.llms.bedrock.base_aws_llm import SignsRequestsWithAWS
-from litellm.llms.brave.search.transformation import BraveSearchConfig
-from litellm.llms.base_llm.image_edit.transformation import BaseImageEditConfig
-from litellm.llms.base_llm.image_generation.transformation import BaseImageGenerationConfig
-from litellm.llms.base_llm.text_to_speech.transformation import BaseTextToSpeechConfig
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-from litellm.llms.custom_httpx.llm_http_handler import (
+from embrouter.llms.base_llm.chat.transformation import BaseConfig, BaseLLMException
+from embrouter.llms.base_llm.search.transformation import BaseSearchConfig, SearchResponse
+from embrouter.llms.bedrock.base_aws_llm import SignsRequestsWithAWS
+from embrouter.llms.brave.search.transformation import BraveSearchConfig
+from embrouter.llms.base_llm.image_edit.transformation import BaseImageEditConfig
+from embrouter.llms.base_llm.image_generation.transformation import BaseImageGenerationConfig
+from embrouter.llms.base_llm.text_to_speech.transformation import BaseTextToSpeechConfig
+from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from embrouter.llms.custom_httpx.llm_http_handler import (
     BaseLLMHTTPHandler,
     _collect_ws_project_quota_callbacks,
     _google_genai_streaming_hidden_params,
     _has_pre_call_deployment_hook,
     _rust_responses_websocket_enabled,
 )
-from litellm.llms.azure.videos.transformation import AzureVideoConfig
-from litellm.llms.bedrock.messages.invoke_transformations.anthropic_claude3_transformation import (
+from embrouter.llms.azure.videos.transformation import AzureVideoConfig
+from embrouter.llms.bedrock.messages.invoke_transformations.anthropic_claude3_transformation import (
     AmazonAnthropicClaudeMessagesConfig,
 )
-from litellm.llms.openai.videos.transformation import OpenAIVideoConfig
-from litellm.llms.tinyfish.search.transformation import TinyfishSearchConfig
-from litellm.types.llms.openai import HttpxBinaryResponseContent, ResponsesAPIResponse
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import ImageObject, ImageResponse, ModelResponse, TranscriptionResponse
+from embrouter.llms.openai.videos.transformation import OpenAIVideoConfig
+from embrouter.llms.tinyfish.search.transformation import TinyfishSearchConfig
+from embrouter.types.llms.openai import HttpxBinaryResponseContent, ResponsesAPIResponse
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import ImageObject, ImageResponse, ModelResponse, TranscriptionResponse
 from tests.unit.llms.bedrock.event_loop_probe import EventLoopProbe
 
 _ACTIVE_KEY = "_code_interpreter_interception_active"
@@ -222,7 +222,7 @@ def test_response_api_handler_streams_when_provider_transform_adds_stream():
         responses_api_provider_config=config,
         response_api_optional_request_params={},
         custom_llm_provider="chatgpt",
-        litellm_params=GenericLiteLLMParams(),
+        embrouter_params=GenericEmbRouterParams(),
         logging_obj=logging_obj,
         client=client,
     )
@@ -264,7 +264,7 @@ def test_response_api_handler_runs_agentic_hooks_in_sync_path(monkeypatch):
         responses_api_provider_config=config,
         response_api_optional_request_params={},
         custom_llm_provider="openai",
-        litellm_params=GenericLiteLLMParams(),
+        embrouter_params=GenericEmbRouterParams(),
         logging_obj=logging_obj,
         client=client,
     )
@@ -308,8 +308,8 @@ def test_response_api_handler_runs_responses_pre_call_hook_before_transform():
     logging_obj = Mock()
     logging_obj.dynamic_success_callbacks = []
 
-    old_callbacks = list(litellm.callbacks)
-    litellm.callbacks = [CodeInterpreterInterceptionLogger()]
+    old_callbacks = list(embrouter.callbacks)
+    embrouter.callbacks = [CodeInterpreterInterceptionLogger()]
     try:
         response = handler.response_api_handler(
             model="gpt-5",
@@ -319,23 +319,23 @@ def test_response_api_handler_runs_responses_pre_call_hook_before_transform():
                 "tools": [{"type": "code_interpreter", "container": {"type": "auto"}}]
             },
             custom_llm_provider="openai",
-            litellm_params=GenericLiteLLMParams(api_key="sk-test"),
+            embrouter_params=GenericEmbRouterParams(api_key="sk-test"),
             logging_obj=logging_obj,
             client=client,
         )
     finally:
-        litellm.callbacks = old_callbacks
+        embrouter.callbacks = old_callbacks
 
     assert response is initial_response
     transform_kwargs = config.transform_responses_api_request.call_args.kwargs
     tools = transform_kwargs["response_api_optional_request_params"]["tools"]
     assert not any(tool.get("type") == "code_interpreter" for tool in tools)
     assert any(
-        tool.get("type") == "function" and tool.get("name") == LITELLM_CODE_EXECUTION_TOOL_NAME for tool in tools
+        tool.get("type") == "function" and tool.get("name") == EMBROUTER_CODE_EXECUTION_TOOL_NAME for tool in tools
     )
-    hook_litellm_params = transform_kwargs["litellm_params"]
-    assert hook_litellm_params.get(_ACTIVE_KEY) is True
-    assert hook_litellm_params.get(_SANDBOX_KEY)
+    hook_embrouter_params = transform_kwargs["embrouter_params"]
+    assert hook_embrouter_params.get(_ACTIVE_KEY) is True
+    assert hook_embrouter_params.get(_SANDBOX_KEY)
 
 
 @pytest.mark.asyncio
@@ -363,7 +363,7 @@ async def test_async_response_api_handler_streams_when_provider_transform_adds_s
         responses_api_provider_config=config,
         response_api_optional_request_params={},
         custom_llm_provider="chatgpt",
-        litellm_params=GenericLiteLLMParams(),
+        embrouter_params=GenericEmbRouterParams(),
         logging_obj=logging_obj,
         client=client,
     )
@@ -376,7 +376,7 @@ async def test_async_response_api_handler_streams_when_provider_transform_adds_s
 async def test_async_response_api_handler_streaming_passes_logging_obj_to_post():
     """LIT-5466: @track_llm_api_timing only records llm_api_duration_ms when the POST
     receives logging_obj; without it streaming /v1/responses never gets
-    x-litellm-overhead-duration-ms (the non-streaming site is pinned by
+    x-embrouter-overhead-duration-ms (the non-streaming site is pinned by
     test_async_responses_records_llm_api_duration below)."""
     handler = BaseLLMHTTPHandler()
     config = Mock()
@@ -401,7 +401,7 @@ async def test_async_response_api_handler_streaming_passes_logging_obj_to_post()
         responses_api_provider_config=config,
         response_api_optional_request_params={},
         custom_llm_provider="chatgpt",
-        litellm_params=GenericLiteLLMParams(),
+        embrouter_params=GenericEmbRouterParams(),
         logging_obj=logging_obj,
         client=client,
     )
@@ -435,7 +435,7 @@ async def test_async_response_api_handler_posts_the_async_transform_hook_result(
         responses_api_provider_config=config,
         response_api_optional_request_params={},
         custom_llm_provider="chatgpt",
-        litellm_params=GenericLiteLLMParams(),
+        embrouter_params=GenericEmbRouterParams(),
         logging_obj=Mock(),
         client=client,
     )
@@ -447,7 +447,7 @@ async def test_async_response_api_handler_posts_the_async_transform_hook_result(
 @pytest.mark.asyncio
 async def test_async_responses_records_llm_api_duration():
     """aresponses must feed the httpx timing into the logging obj, so the proxy can emit
-    x-litellm-overhead-duration-ms on /v1/responses (mirrors the arerank regression test)."""
+    x-embrouter-overhead-duration-ms on /v1/responses (mirrors the arerank regression test)."""
 
     def handle(request: httpx.Request) -> httpx.Response:
         return httpx.Response(
@@ -477,15 +477,15 @@ async def test_async_responses_records_llm_api_duration():
     client = AsyncHTTPHandler()
     client.client = httpx.AsyncClient(transport=httpx.MockTransport(handle))
 
-    response = await litellm.aresponses(
+    response = await embrouter.aresponses(
         model="openai/gpt-4o-mini",
         input="ping",
         api_key="fake-key",
         client=client,
     )
 
-    assert response._hidden_params["litellm_overhead_time_ms"] is not None
-    assert response._hidden_params["_response_ms"] >= response._hidden_params["litellm_overhead_time_ms"]
+    assert response._hidden_params["embrouter_overhead_time_ms"] is not None
+    assert response._hidden_params["_response_ms"] >= response._hidden_params["embrouter_overhead_time_ms"]
 
 
 def test_get_agentic_loop_settings_defaults_and_overrides():
@@ -511,14 +511,14 @@ def test_get_agentic_loop_settings_defaults_and_overrides():
 def test_has_agentic_completion_hook_detection(monkeypatch):
     """The streaming path skips the agentic wrapper only when no callback
     overrides async_should_run_agentic_loop. Verify both directions."""
-    from litellm.integrations.custom_logger import CustomLogger
+    from embrouter.integrations.custom_logger import CustomLogger
 
     handler = BaseLLMHTTPHandler()
     logging_obj = Mock()
     logging_obj.dynamic_success_callbacks = []
 
     # No callbacks at all -> no agentic hook.
-    monkeypatch.setattr(litellm, "callbacks", [])
+    monkeypatch.setattr(embrouter, "callbacks", [])
     assert handler._has_agentic_completion_hook(logging_obj) is False
 
     # A plain CustomLogger that does NOT override the gate -> still no hook
@@ -526,7 +526,7 @@ def test_has_agentic_completion_hook_detection(monkeypatch):
     class _PlainLogger(CustomLogger):
         pass
 
-    monkeypatch.setattr(litellm, "callbacks", [_PlainLogger()])
+    monkeypatch.setattr(embrouter, "callbacks", [_PlainLogger()])
     assert handler._has_agentic_completion_hook(logging_obj) is False
 
     # A logger that overrides the gate (directly) -> hook present.
@@ -536,7 +536,7 @@ def test_has_agentic_completion_hook_detection(monkeypatch):
         ):
             return True, {}
 
-    monkeypatch.setattr(litellm, "callbacks", [_AgenticLogger()])
+    monkeypatch.setattr(embrouter, "callbacks", [_AgenticLogger()])
     assert handler._has_agentic_completion_hook(logging_obj) is True
 
     # Override inherited through an intermediate class is still detected
@@ -544,11 +544,11 @@ def test_has_agentic_completion_hook_detection(monkeypatch):
     class _DerivedAgenticLogger(_AgenticLogger):
         pass
 
-    monkeypatch.setattr(litellm, "callbacks", [_DerivedAgenticLogger()])
+    monkeypatch.setattr(embrouter, "callbacks", [_DerivedAgenticLogger()])
     assert handler._has_agentic_completion_hook(logging_obj) is True
 
     # Hook supplied via logging_obj.dynamic_success_callbacks is detected too.
-    monkeypatch.setattr(litellm, "callbacks", [])
+    monkeypatch.setattr(embrouter, "callbacks", [])
     logging_obj.dynamic_success_callbacks = [_AgenticLogger()]
     assert handler._has_agentic_completion_hook(logging_obj) is True
 
@@ -559,17 +559,17 @@ def test_has_agentic_completion_hook_detection(monkeypatch):
     # skipped and the buffering wrapper would never fire.
     logging_obj.dynamic_success_callbacks = []
     agentic_via_string = _AgenticLogger()
-    monkeypatch.setattr(litellm, "callbacks", ["fake_string_callback"])
+    monkeypatch.setattr(embrouter, "callbacks", ["fake_string_callback"])
     monkeypatch.setattr(
-        "litellm.litellm_core_utils.litellm_logging.get_custom_logger_compatible_class",
+        "embrouter.embrouter_core_utils.embrouter_logging.get_custom_logger_compatible_class",
         lambda name: agentic_via_string if name == "fake_string_callback" else None,
     )
     assert handler._has_agentic_completion_hook(logging_obj) is True
 
     # Unresolvable string (returns None) is skipped, no false positive.
-    monkeypatch.setattr(litellm, "callbacks", ["unknown_callback"])
+    monkeypatch.setattr(embrouter, "callbacks", ["unknown_callback"])
     monkeypatch.setattr(
-        "litellm.litellm_core_utils.litellm_logging.get_custom_logger_compatible_class",
+        "embrouter.embrouter_core_utils.embrouter_logging.get_custom_logger_compatible_class",
         lambda name: None,
     )
     assert handler._has_agentic_completion_hook(logging_obj) is False
@@ -629,7 +629,7 @@ async def test_async_anthropic_messages_handler_extra_headers():
     }
 
     with patch(
-        "litellm.litellm_core_utils.get_provider_specific_headers.ProviderSpecificHeaderUtils.get_provider_specific_headers"
+        "embrouter.embrouter_core_utils.get_provider_specific_headers.ProviderSpecificHeaderUtils.get_provider_specific_headers"
     ) as mock_provider_headers:
         mock_provider_headers.return_value = None
 
@@ -649,7 +649,7 @@ async def test_async_anthropic_messages_handler_extra_headers():
                 anthropic_messages_provider_config=mock_config,
                 anthropic_messages_optional_request_params={},
                 custom_llm_provider="anthropic",
-                litellm_params=GenericLiteLLMParams(),
+                embrouter_params=GenericEmbRouterParams(),
                 logging_obj=mock_logging_obj,
                 client=mock_client,
                 kwargs=kwargs,
@@ -676,7 +676,7 @@ async def test_async_anthropic_messages_handler_streaming_forwards_provider_resp
     """
     from collections.abc import AsyncIterator as ABCAsyncIterator
 
-    from litellm.llms.anthropic.pass_through.messages.transformation import (
+    from embrouter.llms.anthropic.pass_through.messages.transformation import (
         AnthropicMessagesConfig,
     )
 
@@ -707,7 +707,7 @@ async def test_async_anthropic_messages_handler_streaming_forwards_provider_resp
         anthropic_messages_provider_config=AnthropicMessagesConfig(),
         anthropic_messages_optional_request_params={"max_tokens": 32},
         custom_llm_provider="anthropic",
-        litellm_params=GenericLiteLLMParams(),
+        embrouter_params=GenericEmbRouterParams(),
         logging_obj=mock_logging_obj,
         client=mock_client,
         api_key="sk-test",
@@ -737,11 +737,11 @@ async def test_async_anthropic_messages_handler_agentic_streaming_forwards_provi
     """
     from collections.abc import AsyncIterator as ABCAsyncIterator
 
-    from litellm.integrations.custom_logger import CustomLogger
-    from litellm.llms.anthropic.pass_through.messages.agentic_streaming_iterator import (
+    from embrouter.integrations.custom_logger import CustomLogger
+    from embrouter.llms.anthropic.pass_through.messages.agentic_streaming_iterator import (
         AgenticAnthropicStreamingIterator,
     )
-    from litellm.llms.anthropic.pass_through.messages.transformation import (
+    from embrouter.llms.anthropic.pass_through.messages.transformation import (
         AnthropicMessagesConfig,
     )
 
@@ -783,7 +783,7 @@ async def test_async_anthropic_messages_handler_agentic_streaming_forwards_provi
         anthropic_messages_provider_config=AnthropicMessagesConfig(),
         anthropic_messages_optional_request_params={"max_tokens": 32},
         custom_llm_provider="anthropic",
-        litellm_params=GenericLiteLLMParams(),
+        embrouter_params=GenericEmbRouterParams(),
         logging_obj=mock_logging_obj,
         client=mock_client,
         api_key="sk-test",
@@ -809,7 +809,7 @@ async def test_anthropic_messages_streaming_response_aclose_closes_upstream_stre
     the upstream stream so provider connections are released on client
     disconnect instead of lingering until garbage collection.
     """
-    from litellm.llms.anthropic.pass_through.messages.streaming_iterator import (
+    from embrouter.llms.anthropic.pass_through.messages.streaming_iterator import (
         AnthropicMessagesStreamingResponse,
     )
 
@@ -841,10 +841,10 @@ async def test_anthropic_messages_streaming_response_aclose_closes_upstream_stre
 
 @pytest.mark.asyncio
 async def test_anthropic_messages_streaming_response_aclose_closes_agentic_upstream_stream():
-    from litellm.llms.anthropic.pass_through.messages.agentic_streaming_iterator import (
+    from embrouter.llms.anthropic.pass_through.messages.agentic_streaming_iterator import (
         AgenticAnthropicStreamingIterator,
     )
-    from litellm.llms.anthropic.pass_through.messages.streaming_iterator import (
+    from embrouter.llms.anthropic.pass_through.messages.streaming_iterator import (
         AnthropicMessagesStreamingResponse,
     )
 
@@ -931,7 +931,7 @@ async def test_async_anthropic_messages_handler_signs_bedrock_off_the_event_loop
         anthropic_messages_provider_config=_ProbedBedrockMessagesConfig(probe),
         anthropic_messages_optional_request_params={"max_tokens": 16},
         custom_llm_provider="bedrock",
-        litellm_params=GenericLiteLLMParams(aws_region_name="us-west-2"),
+        embrouter_params=GenericEmbRouterParams(aws_region_name="us-west-2"),
         logging_obj=mock_logging_obj,
         client=mock_client,
         stream=False,
@@ -945,10 +945,10 @@ async def test_async_anthropic_messages_handler_signs_bedrock_off_the_event_loop
 
 
 @pytest.mark.asyncio
-async def test_async_anthropic_messages_handler_passes_litellm_metadata():
-    """Ensure litellm_metadata from kwargs is forwarded via update_from_kwargs.
+async def test_async_anthropic_messages_handler_passes_embrouter_metadata():
+    """Ensure embrouter_metadata from kwargs is forwarded via update_from_kwargs.
 
-    Routes like /messages store model_info under kwargs['litellm_metadata'].
+    Routes like /messages store model_info under kwargs['embrouter_metadata'].
     The handler must forward this so that use_custom_pricing_for_model can
     detect custom pricing. Regression test for #23185.
     """
@@ -986,7 +986,7 @@ async def test_async_anthropic_messages_handler_passes_litellm_metadata():
         "output_cost_per_token": 0.0015,
     }
     kwargs = {
-        "litellm_metadata": {
+        "embrouter_metadata": {
             "model_info": custom_model_info,
             "deployment": "anthropic/claude-sonnet-4-20250514",
         },
@@ -999,7 +999,7 @@ async def test_async_anthropic_messages_handler_passes_litellm_metadata():
             anthropic_messages_provider_config=mock_config,
             anthropic_messages_optional_request_params={},
             custom_llm_provider="anthropic",
-            litellm_params=GenericLiteLLMParams(),
+            embrouter_params=GenericEmbRouterParams(),
             logging_obj=mock_logging_obj,
             client=mock_client,
             kwargs=kwargs,
@@ -1015,19 +1015,19 @@ async def test_async_anthropic_messages_handler_passes_litellm_metadata():
         else call_kwargs[1].get("kwargs", {})
     )
 
-    assert "litellm_metadata" in kwargs_arg
-    assert kwargs_arg["litellm_metadata"]["model_info"] == custom_model_info
+    assert "embrouter_metadata" in kwargs_arg
+    assert kwargs_arg["embrouter_metadata"]["model_info"] == custom_model_info
 
 
 @pytest.mark.asyncio
 async def test_async_anthropic_messages_handler_forwards_router_model_info():
-    """Ensure router deployment model_info is forwarded into litellm_params.
+    """Ensure router deployment model_info is forwarded into embrouter_params.
 
     The Router stamps kwargs['model_info'] on every deployment dispatch via
     _update_kwargs_with_deployment. Downstream cooldown / success callbacks
     (router.deployment_callback_on_failure, deployment_callback_on_success)
-    look up the deployment id via kwargs['litellm_params']['model_info']['id'].
-    If async_anthropic_messages_handler builds its own litellm_params dict
+    look up the deployment id via kwargs['embrouter_params']['model_info']['id'].
+    If async_anthropic_messages_handler builds its own embrouter_params dict
     without forwarding model_info, the id is missing and cooldown is silently
     skipped for /v1/messages requests under the Router.
     """
@@ -1071,7 +1071,7 @@ async def test_async_anthropic_messages_handler_forwards_router_model_info():
             anthropic_messages_provider_config=mock_config,
             anthropic_messages_optional_request_params={},
             custom_llm_provider="anthropic",
-            litellm_params=GenericLiteLLMParams(),
+            embrouter_params=GenericEmbRouterParams(),
             logging_obj=mock_logging_obj,
             client=mock_client,
             kwargs={"model_info": deployment_model_info},
@@ -1081,13 +1081,13 @@ async def test_async_anthropic_messages_handler_forwards_router_model_info():
 
     mock_logging_obj.update_from_kwargs.assert_called_once()
     call_kwargs = mock_logging_obj.update_from_kwargs.call_args
-    litellm_params_arg = (
-        call_kwargs.kwargs.get("litellm_params", call_kwargs[1].get("litellm_params", {}))
+    embrouter_params_arg = (
+        call_kwargs.kwargs.get("embrouter_params", call_kwargs[1].get("embrouter_params", {}))
         if call_kwargs.kwargs
-        else call_kwargs[1].get("litellm_params", {})
+        else call_kwargs[1].get("embrouter_params", {})
     )
 
-    assert litellm_params_arg.get("model_info") == deployment_model_info
+    assert embrouter_params_arg.get("model_info") == deployment_model_info
 
 
 @pytest.mark.asyncio
@@ -1113,7 +1113,7 @@ async def test_async_anthropic_messages_handler_header_priority():
     }
 
     with patch(
-        "litellm.litellm_core_utils.get_provider_specific_headers.ProviderSpecificHeaderUtils.get_provider_specific_headers"
+        "embrouter.embrouter_core_utils.get_provider_specific_headers.ProviderSpecificHeaderUtils.get_provider_specific_headers"
     ) as mock_provider_headers:
         mock_provider_headers.return_value = {
             "X-Priority": "provider",
@@ -1138,7 +1138,7 @@ async def test_async_anthropic_messages_handler_header_priority():
                 anthropic_messages_provider_config=mock_config,
                 anthropic_messages_optional_request_params={},
                 custom_llm_provider="anthropic",
-                litellm_params=GenericLiteLLMParams(),
+                embrouter_params=GenericEmbRouterParams(),
                 logging_obj=mock_logging_obj,
                 client=mock_client,
                 kwargs=kwargs,
@@ -1203,7 +1203,7 @@ async def test_async_anthropic_messages_handler_drops_top_level_and_nested_param
     }
 
     with patch(
-        "litellm.litellm_core_utils.get_provider_specific_headers.ProviderSpecificHeaderUtils.get_provider_specific_headers"
+        "embrouter.embrouter_core_utils.get_provider_specific_headers.ProviderSpecificHeaderUtils.get_provider_specific_headers"
     ) as mock_provider_headers:
         mock_provider_headers.return_value = None
         try:
@@ -1213,7 +1213,7 @@ async def test_async_anthropic_messages_handler_drops_top_level_and_nested_param
                 anthropic_messages_provider_config=mock_config,
                 anthropic_messages_optional_request_params=optional_params,
                 custom_llm_provider="bedrock",
-                litellm_params=GenericLiteLLMParams(
+                embrouter_params=GenericEmbRouterParams(
                     additional_drop_params=[
                         "thinking",
                         "context_management",
@@ -1239,7 +1239,7 @@ def test_google_genai_streaming_hidden_params_model_info_and_router_fallback():
 
     from_model_info = _google_genai_streaming_hidden_params(
         api_base="https://generativelanguage.googleapis.com/v1beta",
-        litellm_params=GenericLiteLLMParams(model_info={"id": "info-id"}),
+        embrouter_params=GenericEmbRouterParams(model_info={"id": "info-id"}),
         logging_obj=logging_obj,
         response_headers=httpx.Headers({"x-ratelimit-remaining": "10"}),
     )
@@ -1249,7 +1249,7 @@ def test_google_genai_streaming_hidden_params_model_info_and_router_fallback():
 
     from_router = _google_genai_streaming_hidden_params(
         api_base="https://x",
-        litellm_params=GenericLiteLLMParams(),
+        embrouter_params=GenericEmbRouterParams(),
         logging_obj=logging_obj,
         response_headers=httpx.Headers({}),
     )
@@ -1286,7 +1286,7 @@ def test_async_delete_responses_omits_body_for_azure():
 
     async def run():
         with patch.object(AsyncHTTPHandler, "delete", new=fake_async_delete):
-            await litellm.adelete_responses(
+            await embrouter.adelete_responses(
                 response_id="resp_xyz",
                 custom_llm_provider="azure",
                 api_base="https://test.openai.azure.com",
@@ -1306,7 +1306,7 @@ def test_sync_delete_responses_omits_body_for_azure():
     _, fake_sync_delete = _build_delete_response_mock(captured)
 
     with patch.object(HTTPHandler, "delete", new=fake_sync_delete):
-        litellm.delete_responses(
+        embrouter.delete_responses(
             response_id="resp_xyz",
             custom_llm_provider="azure",
             api_base="https://test.openai.azure.com",
@@ -1334,7 +1334,7 @@ def test_async_delete_responses_sets_json_content_type():
 
     async def run():
         with patch.object(AsyncHTTPHandler, "delete", new=fake_async_delete):
-            await litellm.adelete_responses(
+            await embrouter.adelete_responses(
                 response_id="resp_xyz",
                 custom_llm_provider="openai",
                 api_key="test-key",
@@ -1350,7 +1350,7 @@ def test_sync_delete_responses_sets_json_content_type():
     _, fake_sync_delete = _build_delete_response_mock(captured)
 
     with patch.object(HTTPHandler, "delete", new=fake_sync_delete):
-        litellm.delete_responses(
+        embrouter.delete_responses(
             response_id="resp_xyz",
             custom_llm_provider="openai",
             api_key="test-key",
@@ -1366,7 +1366,7 @@ def test_sync_delete_responses_sets_json_content_type():
 
 
 @pytest.mark.parametrize(
-    "litellm_params_kwargs, stream, global_timeout, expected",
+    "embrouter_params_kwargs, stream, global_timeout, expected",
     [
         ({"timeout": 12.0}, False, None, 12.0),
         ({"request_timeout": 30.0}, False, None, 30.0),
@@ -1379,29 +1379,29 @@ def test_sync_delete_responses_sets_json_content_type():
     ],
 )
 def test_resolve_anthropic_messages_timeout(
-    monkeypatch, litellm_params_kwargs, stream, global_timeout, expected
+    monkeypatch, embrouter_params_kwargs, stream, global_timeout, expected
 ):
-    from litellm.constants import DEFAULT_REQUEST_TIMEOUT_SECONDS
+    from embrouter.constants import DEFAULT_REQUEST_TIMEOUT_SECONDS
 
     if global_timeout is None:
         monkeypatch.setattr(
-            "litellm.request_timeout",
+            "embrouter.request_timeout",
             float(DEFAULT_REQUEST_TIMEOUT_SECONDS),
             raising=False,
         )
         monkeypatch.setattr(
-            "litellm.request_timeout_explicitly_set",
+            "embrouter.request_timeout_explicitly_set",
             False,
             raising=False,
         )
     else:
-        monkeypatch.setattr("litellm.request_timeout", global_timeout, raising=False)
+        monkeypatch.setattr("embrouter.request_timeout", global_timeout, raising=False)
         monkeypatch.setattr(
-            "litellm.request_timeout_explicitly_set", True, raising=False
+            "embrouter.request_timeout_explicitly_set", True, raising=False
         )
 
     resolved = BaseLLMHTTPHandler._resolve_anthropic_messages_timeout(
-        litellm_params=GenericLiteLLMParams(**litellm_params_kwargs),
+        embrouter_params=GenericEmbRouterParams(**embrouter_params_kwargs),
         stream=stream,
         custom_llm_provider="anthropic",
     )
@@ -1411,11 +1411,11 @@ def test_resolve_anthropic_messages_timeout(
 
 @pytest.mark.asyncio
 async def test_async_anthropic_messages_handler_forwards_request_timeout(monkeypatch):
-    from litellm.constants import DEFAULT_REQUEST_TIMEOUT_SECONDS
+    from embrouter.constants import DEFAULT_REQUEST_TIMEOUT_SECONDS
 
-    monkeypatch.setattr(litellm, "callbacks", [])
-    monkeypatch.setattr(litellm, "request_timeout", float(DEFAULT_REQUEST_TIMEOUT_SECONDS))
-    monkeypatch.setattr(litellm, "request_timeout_explicitly_set", False)
+    monkeypatch.setattr(embrouter, "callbacks", [])
+    monkeypatch.setattr(embrouter, "request_timeout", float(DEFAULT_REQUEST_TIMEOUT_SECONDS))
+    monkeypatch.setattr(embrouter, "request_timeout_explicitly_set", False)
     handler = BaseLLMHTTPHandler()
 
     mock_config = Mock()
@@ -1447,7 +1447,7 @@ async def test_async_anthropic_messages_handler_forwards_request_timeout(monkeyp
         anthropic_messages_provider_config=mock_config,
         anthropic_messages_optional_request_params={},
         custom_llm_provider="anthropic",
-        litellm_params=GenericLiteLLMParams(request_timeout=0.3),
+        embrouter_params=GenericEmbRouterParams(request_timeout=0.3),
         logging_obj=logging_obj,
         client=mock_client,
         kwargs={},
@@ -1459,11 +1459,11 @@ async def test_async_anthropic_messages_handler_forwards_request_timeout(monkeyp
 
 @pytest.mark.asyncio
 async def test_async_anthropic_messages_handler_forwards_stream_timeout(monkeypatch):
-    from litellm.constants import DEFAULT_REQUEST_TIMEOUT_SECONDS
+    from embrouter.constants import DEFAULT_REQUEST_TIMEOUT_SECONDS
 
-    monkeypatch.setattr(litellm, "callbacks", [])
-    monkeypatch.setattr(litellm, "request_timeout", float(DEFAULT_REQUEST_TIMEOUT_SECONDS))
-    monkeypatch.setattr(litellm, "request_timeout_explicitly_set", False)
+    monkeypatch.setattr(embrouter, "callbacks", [])
+    monkeypatch.setattr(embrouter, "request_timeout", float(DEFAULT_REQUEST_TIMEOUT_SECONDS))
+    monkeypatch.setattr(embrouter, "request_timeout_explicitly_set", False)
     handler = BaseLLMHTTPHandler()
 
     mock_config = Mock()
@@ -1495,7 +1495,7 @@ async def test_async_anthropic_messages_handler_forwards_stream_timeout(monkeypa
         anthropic_messages_provider_config=mock_config,
         anthropic_messages_optional_request_params={},
         custom_llm_provider="anthropic",
-        litellm_params=GenericLiteLLMParams(timeout=9.0, stream_timeout=0.7),
+        embrouter_params=GenericEmbRouterParams(timeout=9.0, stream_timeout=0.7),
         logging_obj=logging_obj,
         client=mock_client,
         stream=True,
@@ -1536,7 +1536,7 @@ async def test_anthropic_post_uses_prebuilt_body_without_redumping():
         stream=False,
         logging_obj=logging_obj,
         provider_config=provider_config,
-        litellm_params=GenericLiteLLMParams(),
+        embrouter_params=GenericEmbRouterParams(),
         api_key="k",
         model="claude",
     )
@@ -1576,7 +1576,7 @@ async def test_anthropic_post_falls_back_to_json_dumps_when_unsigned_none():
         stream=False,
         logging_obj=logging_obj,
         provider_config=provider_config,
-        litellm_params=GenericLiteLLMParams(),
+        embrouter_params=GenericEmbRouterParams(),
         api_key="k",
         model="claude",
     )
@@ -1624,7 +1624,7 @@ async def test_anthropic_post_retry_reserializes_mutated_body():
         stream=False,
         logging_obj=logging_obj,
         provider_config=provider_config,
-        litellm_params=GenericLiteLLMParams(),
+        embrouter_params=GenericEmbRouterParams(),
         api_key="k",
         model="claude",
     )
@@ -1642,7 +1642,7 @@ def test_base_responses_config_sign_request_is_noop_by_default():
     Guards the 15 existing responses providers from accidental signing when the
     handler starts calling sign_request.
     """
-    from litellm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
+    from embrouter.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
 
     cfg = OpenAIResponsesAPIConfig()
     headers = {"Authorization": "Bearer sk-existing"}
@@ -1664,9 +1664,9 @@ def _make_responses_handler_call(signed_body):
     signing provider (e.g. Bedrock Mantle).
     """
     from unittest.mock import MagicMock
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
-    from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
-    from litellm.types.router import GenericLiteLLMParams
+    from embrouter.llms.custom_httpx.http_handler import HTTPHandler
+    from embrouter.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+    from embrouter.types.router import GenericEmbRouterParams
 
     provider_config = MagicMock()
     provider_config.validate_environment.return_value = {}
@@ -1685,7 +1685,7 @@ def _make_responses_handler_call(signed_body):
         responses_api_provider_config=provider_config,
         response_api_optional_request_params={},
         custom_llm_provider="bedrock_mantle",
-        litellm_params=GenericLiteLLMParams(aws_region_name="us-east-2"),
+        embrouter_params=GenericEmbRouterParams(aws_region_name="us-east-2"),
         logging_obj=MagicMock(),
         client=mock_client,
         _is_async=False,
@@ -1719,10 +1719,10 @@ def test_responses_handler_signs_after_fake_stream_prep_strips_stream():
     We snapshot request_data at sign time and assert "stream" is already gone.
     """
     from unittest.mock import MagicMock
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
-    from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
-    from litellm.types.llms.openai import ResponsesAPIResponse
-    from litellm.types.router import GenericLiteLLMParams
+    from embrouter.llms.custom_httpx.http_handler import HTTPHandler
+    from embrouter.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+    from embrouter.types.llms.openai import ResponsesAPIResponse
+    from embrouter.types.router import GenericEmbRouterParams
 
     provider_config = MagicMock()
     provider_config.validate_environment.return_value = {}
@@ -1758,7 +1758,7 @@ def test_responses_handler_signs_after_fake_stream_prep_strips_stream():
         responses_api_provider_config=provider_config,
         response_api_optional_request_params={"stream": True},
         custom_llm_provider="bedrock_mantle",
-        litellm_params=GenericLiteLLMParams(aws_region_name="us-east-2"),
+        embrouter_params=GenericEmbRouterParams(aws_region_name="us-east-2"),
         logging_obj=MagicMock(),
         client=mock_client,
         _is_async=False,
@@ -1782,9 +1782,9 @@ def _make_compact_handler_call(signed_body, is_async):
     signing provider (e.g. Bedrock Mantle SigV4 / bearer).
     """
     from unittest.mock import MagicMock
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-    from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
-    from litellm.types.router import GenericLiteLLMParams
+    from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+    from embrouter.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+    from embrouter.types.router import GenericEmbRouterParams
 
     compact_url = "https://bedrock-mantle.us-east-2.api.aws/openai/v1/responses/compact"
     provider_config = MagicMock()
@@ -1811,7 +1811,7 @@ def _make_compact_handler_call(signed_body, is_async):
         responses_api_provider_config=provider_config,
         response_api_optional_request_params={},
         custom_llm_provider="bedrock_mantle",
-        litellm_params=GenericLiteLLMParams(aws_region_name="us-east-2"),
+        embrouter_params=GenericEmbRouterParams(aws_region_name="us-east-2"),
         logging_obj=MagicMock(),
         client=mock_client,
         _is_async=is_async,
@@ -1905,8 +1905,8 @@ async def test_async_anthropic_messages_handler_passes_api_key_to_agentic_hooks(
     with (
         patch.object(handler, "_async_post_anthropic_messages_with_http_error_retry", new=AsyncMock(return_value=mock_httpx_response)),
         patch.object(handler, "_call_agentic_completion_hooks", side_effect=fake_agentic_hooks),
-        patch("litellm.llms.custom_httpx.llm_http_handler.get_async_httpx_client"),
-        patch("litellm.litellm_core_utils.get_provider_specific_headers.ProviderSpecificHeaderUtils.get_provider_specific_headers", return_value=None),
+        patch("embrouter.llms.custom_httpx.llm_http_handler.get_async_httpx_client"),
+        patch("embrouter.embrouter_core_utils.get_provider_specific_headers.ProviderSpecificHeaderUtils.get_provider_specific_headers", return_value=None),
     ):
         result = await handler.async_anthropic_messages_handler(
             model="claude-haiku",
@@ -1914,7 +1914,7 @@ async def test_async_anthropic_messages_handler_passes_api_key_to_agentic_hooks(
             anthropic_messages_provider_config=mock_config,
             anthropic_messages_optional_request_params={"stream": False},
             custom_llm_provider="anthropic",
-            litellm_params=GenericLiteLLMParams(api_key="sk-real-anthropic-key"),
+            embrouter_params=GenericEmbRouterParams(api_key="sk-real-anthropic-key"),
             logging_obj=mock_logging_obj,
             api_key="sk-real-anthropic-key",
             stream=False,
@@ -1955,8 +1955,8 @@ async def test_async_anthropic_messages_handler_passes_deployment_api_base_to_ag
     both the non-streaming and the streaming path, or the follow-up fails with
     "Missing Azure API Base" and the client gets the dangling tool_use back.
     """
-    from litellm.integrations.custom_logger import CustomLogger
-    from litellm.llms.azure_ai.anthropic.messages_transformation import AzureAnthropicMessagesConfig
+    from embrouter.integrations.custom_logger import CustomLogger
+    from embrouter.llms.azure_ai.anthropic.messages_transformation import AzureAnthropicMessagesConfig
 
     monkeypatch.delenv("AZURE_API_BASE", raising=False)
 
@@ -2002,7 +2002,7 @@ async def test_async_anthropic_messages_handler_passes_deployment_api_base_to_ag
         anthropic_messages_provider_config=AzureAnthropicMessagesConfig(),
         anthropic_messages_optional_request_params={"max_tokens": 32},
         custom_llm_provider="azure_ai",
-        litellm_params=GenericLiteLLMParams(api_key="foundry-key", api_base=_FOUNDRY_API_BASE),
+        embrouter_params=GenericEmbRouterParams(api_key="foundry-key", api_base=_FOUNDRY_API_BASE),
         logging_obj=mock_logging_obj,
         client=mock_client,
         api_key="foundry-key",
@@ -2188,16 +2188,16 @@ class _JSONBodyAudioTranscriptionConfig(BaseAudioTranscriptionConfig):
         model,
         messages,
         optional_params,
-        litellm_params,
+        embrouter_params,
         api_key=None,
         api_base=None,
     ):
         return {**headers, "Authorization": "Bearer test-token"}
 
-    def get_complete_url(self, api_base, api_key, model, optional_params, litellm_params, stream=None):
+    def get_complete_url(self, api_base, api_key, model, optional_params, embrouter_params, stream=None):
         return "https://transcription.example/recognize"
 
-    def transform_audio_transcription_request(self, model, audio_file, optional_params, litellm_params):
+    def transform_audio_transcription_request(self, model, audio_file, optional_params, embrouter_params):
         return AudioTranscriptionRequestData(data={"config": {"model": model}, "content": "YXVkaW8="})
 
     def transform_audio_transcription_response(self, raw_response):
@@ -2212,7 +2212,7 @@ def _json_transcription_call_kwargs(provider_config):
         "model": "test-model",
         "audio_file": b"raw-audio",
         "optional_params": {},
-        "litellm_params": {},
+        "embrouter_params": {},
         "model_response": TranscriptionResponse(),
         "timeout": 10.0,
         "max_retries": 0,
@@ -2346,8 +2346,8 @@ async def test_async_retrieve_file_content_raises_on_http_error():
     as file content, which downstream batch cost tracking would parse as an
     empty results file and bill $0.
     """
-    from litellm.llms.anthropic.common_utils import AnthropicError
-    from litellm.llms.anthropic.files.transformation import AnthropicFilesConfig
+    from embrouter.llms.anthropic.common_utils import AnthropicError
+    from embrouter.llms.anthropic.files.transformation import AnthropicFilesConfig
 
     handler = BaseLLMHTTPHandler()
     client = Mock(spec=AsyncHTTPHandler)
@@ -2362,7 +2362,7 @@ async def test_async_retrieve_file_content_raises_on_http_error():
         await handler.async_retrieve_file_content(
             file_content_request={"file_id": "msgbatch_123"},
             provider_config=AnthropicFilesConfig(),
-            litellm_params={"api_key": "sk-test"},
+            embrouter_params={"api_key": "sk-test"},
             headers={},
             logging_obj=Mock(),
             client=client,
@@ -2373,8 +2373,8 @@ async def test_async_retrieve_file_content_raises_on_http_error():
 
 
 def test_sync_retrieve_file_content_raises_on_http_error():
-    from litellm.llms.anthropic.common_utils import AnthropicError
-    from litellm.llms.anthropic.files.transformation import AnthropicFilesConfig
+    from embrouter.llms.anthropic.common_utils import AnthropicError
+    from embrouter.llms.anthropic.files.transformation import AnthropicFilesConfig
 
     handler = BaseLLMHTTPHandler()
     client = Mock(spec=HTTPHandler)
@@ -2389,7 +2389,7 @@ def test_sync_retrieve_file_content_raises_on_http_error():
         handler.retrieve_file_content(
             file_content_request={"file_id": "file-abc"},
             provider_config=AnthropicFilesConfig(),
-            litellm_params={"api_key": "sk-test"},
+            embrouter_params={"api_key": "sk-test"},
             headers={},
             logging_obj=Mock(),
             client=client,
@@ -2426,8 +2426,8 @@ def _sync_handler_returning(status_code: int, body: dict) -> HTTPHandler:
 async def test_aget_responses_surfaces_upstream_error_status_instead_of_500():
     client = _async_handler_returning(404, _UPSTREAM_NOT_FOUND_BODY)
 
-    with pytest.raises(litellm.NotFoundError) as excinfo:
-        await litellm.aget_responses(
+    with pytest.raises(embrouter.NotFoundError) as excinfo:
+        await embrouter.aget_responses(
             response_id="resp_abc",
             custom_llm_provider="azure",
             api_base="https://test.openai.azure.com",
@@ -2443,8 +2443,8 @@ async def test_aget_responses_surfaces_upstream_error_status_instead_of_500():
 def test_get_responses_surfaces_upstream_error_status_instead_of_500():
     client = _sync_handler_returning(404, _UPSTREAM_NOT_FOUND_BODY)
 
-    with pytest.raises(litellm.NotFoundError) as excinfo:
-        litellm.get_responses(
+    with pytest.raises(embrouter.NotFoundError) as excinfo:
+        embrouter.get_responses(
             response_id="resp_abc",
             custom_llm_provider="azure",
             api_base="https://test.openai.azure.com",
@@ -2460,8 +2460,8 @@ def test_get_responses_surfaces_upstream_error_status_instead_of_500():
 def test_list_input_items_surfaces_upstream_error_status():
     client = _sync_handler_returning(404, _UPSTREAM_NOT_FOUND_BODY)
 
-    with pytest.raises(litellm.NotFoundError) as excinfo:
-        litellm.list_input_items(
+    with pytest.raises(embrouter.NotFoundError) as excinfo:
+        embrouter.list_input_items(
             response_id="resp_abc",
             custom_llm_provider="azure",
             api_base="https://test.openai.azure.com",
@@ -2477,8 +2477,8 @@ def test_list_input_items_surfaces_upstream_error_status():
 async def test_alist_input_items_surfaces_upstream_error_status():
     client = _async_handler_returning(404, _UPSTREAM_NOT_FOUND_BODY)
 
-    with pytest.raises(litellm.NotFoundError) as excinfo:
-        await litellm.alist_input_items(
+    with pytest.raises(embrouter.NotFoundError) as excinfo:
+        await embrouter.alist_input_items(
             response_id="resp_abc",
             custom_llm_provider="azure",
             api_base="https://test.openai.azure.com",
@@ -2495,7 +2495,7 @@ async def test_anthropic_invalid_thinking_signature_retry_resigns_bedrock_reques
     """Regression: after Bedrock rejects a replayed thinking block (400 invalid signature),
     the strip-and-retry re-sign must not inherit attempt 1's SigV4 Authorization/X-Amz-Date;
     reusing them over the new stripped body makes AWS return 403 SignatureDoesNotMatch."""
-    from litellm.llms.bedrock.messages.invoke_transformations.anthropic_claude3_transformation import (
+    from embrouter.llms.bedrock.messages.invoke_transformations.anthropic_claude3_transformation import (
         AmazonAnthropicClaudeMessagesConfig,
     )
 
@@ -2504,7 +2504,7 @@ async def test_anthropic_invalid_thinking_signature_retry_resigns_bedrock_reques
 
     handler = BaseLLMHTTPHandler()
     provider_config = AmazonAnthropicClaudeMessagesConfig()
-    litellm_params = GenericLiteLLMParams(
+    embrouter_params = GenericEmbRouterParams(
         aws_access_key_id="AKIAIOSFODNN7EXAMPLE",
         aws_secret_access_key="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
         aws_region_name="us-east-1",
@@ -2527,7 +2527,7 @@ async def test_anthropic_invalid_thinking_signature_retry_resigns_bedrock_reques
     }
     first_attempt_headers, signed_json_body = provider_config.sign_request(
         headers={"Content-Type": "application/json"},
-        optional_params=dict(litellm_params),
+        optional_params=dict(embrouter_params),
         request_data=request_body,
         api_base=request_url,
         api_key=None,
@@ -2563,7 +2563,7 @@ async def test_anthropic_invalid_thinking_signature_retry_resigns_bedrock_reques
         stream=False,
         logging_obj=logging_obj,
         provider_config=provider_config,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         api_key=None,
         model="test-model",
     )
@@ -2584,7 +2584,7 @@ async def test_anthropic_invalid_thinking_signature_retry_resigns_bedrock_reques
 
 
 def test_aws_signing_overrides_only_fills_missing_credentials():
-    from litellm.llms.custom_httpx.llm_http_handler import _aws_signing_overrides
+    from embrouter.llms.custom_httpx.llm_http_handler import _aws_signing_overrides
 
     overrides = _aws_signing_overrides(
         {"temperature": 0.2, "aws_region_name": "us-west-2"},
@@ -2613,7 +2613,7 @@ class TestServerFulfilledToolsInRequest:
         return logging_obj
 
     def test_should_hold_back_when_callback_owns_tool_in_request(self):
-        from litellm.integrations.custom_logger import CustomLogger
+        from embrouter.integrations.custom_logger import CustomLogger
 
         class RetrievalCallback(CustomLogger):
             server_fulfilled_tool_names = frozenset({"headroom_retrieve"})
@@ -2627,7 +2627,7 @@ class TestServerFulfilledToolsInRequest:
         ) == frozenset({"headroom_retrieve"})
 
     def test_should_stream_live_when_tool_absent_from_request(self):
-        from litellm.integrations.custom_logger import CustomLogger
+        from embrouter.integrations.custom_logger import CustomLogger
 
         class RetrievalCallback(CustomLogger):
             server_fulfilled_tool_names = frozenset({"headroom_retrieve"})
@@ -2641,7 +2641,7 @@ class TestServerFulfilledToolsInRequest:
         )
 
     def test_should_stream_live_when_no_callback_declares_tool_names(self):
-        from litellm.integrations.custom_logger import CustomLogger
+        from embrouter.integrations.custom_logger import CustomLogger
 
         tools = [{"name": "headroom_retrieve", "input_schema": {"type": "object"}}]
         assert (
@@ -2658,23 +2658,23 @@ class TestServerFulfilledToolsInRequest:
         )
 
     def test_interception_callbacks_declare_their_retrieval_tools(self):
-        from litellm.integrations.compression_interception.handler import (
-            LITELLM_CONTENT_RETRIEVE_TOOL_NAME,
+        from embrouter.integrations.compression_interception.handler import (
+            EMBROUTER_CONTENT_RETRIEVE_TOOL_NAME,
             CompressionInterceptionLogger,
         )
-        from litellm.proxy.guardrails.guardrail_hooks.headroom.headroom import (
+        from embrouter.proxy.guardrails.guardrail_hooks.headroom.headroom import (
             HEADROOM_RETRIEVE_TOOL_NAME,
             HeadroomGuardrail,
         )
 
         assert HeadroomGuardrail.server_fulfilled_tool_names == frozenset({HEADROOM_RETRIEVE_TOOL_NAME})
         assert CompressionInterceptionLogger.server_fulfilled_tool_names == frozenset(
-            {LITELLM_CONTENT_RETRIEVE_TOOL_NAME}
+            {EMBROUTER_CONTENT_RETRIEVE_TOOL_NAME}
         )
 
 
 def _make_stub_direct_vector_store_config(response):
-    from litellm.llms.base_llm.vector_store.transformation import (
+    from embrouter.llms.base_llm.vector_store.transformation import (
         BaseDirectVectorStoreConfig,
     )
 
@@ -2701,14 +2701,14 @@ def test_vector_store_search_handler_direct_config_sync_skips_http():
     config = _make_stub_direct_vector_store_config(stub_response)
     logging_obj = Mock()
 
-    with patch("litellm.llms.custom_httpx.llm_http_handler._get_httpx_client") as mock_get_client:
+    with patch("embrouter.llms.custom_httpx.llm_http_handler._get_httpx_client") as mock_get_client:
         result = handler.vector_store_search_handler(
             vector_store_id="vs_direct",
             query="q",
             vector_store_search_optional_params={"max_num_results": 4},
             vector_store_provider_config=config,
             custom_llm_provider="valkey",
-            litellm_params=GenericLiteLLMParams(valkey_host="localhost"),
+            embrouter_params=GenericEmbRouterParams(valkey_host="localhost"),
             logging_obj=logging_obj,
             timeout=12.5,
             _is_async=False,
@@ -2722,8 +2722,8 @@ def test_vector_store_search_handler_direct_config_sync_skips_http():
     assert call["query"] == "q"
     assert call["timeout"] == 12.5
     assert call["vector_store_search_optional_params"] == {"max_num_results": 4}
-    assert isinstance(call["litellm_params"], dict)
-    assert call["litellm_params"]["valkey_host"] == "localhost"
+    assert isinstance(call["embrouter_params"], dict)
+    assert call["embrouter_params"]["valkey_host"] == "localhost"
     pre_call_args = logging_obj.pre_call.call_args.kwargs["additional_args"]
     assert pre_call_args["query"] == "q"
     assert pre_call_args["vector_store_id"] == "vs_direct"
@@ -2736,14 +2736,14 @@ async def test_vector_store_search_handler_direct_config_async_skips_http():
     config = _make_stub_direct_vector_store_config(stub_response)
     logging_obj = Mock()
 
-    with patch("litellm.llms.custom_httpx.llm_http_handler.get_async_httpx_client") as mock_get_client:
+    with patch("embrouter.llms.custom_httpx.llm_http_handler.get_async_httpx_client") as mock_get_client:
         result = await handler.vector_store_search_handler(
             vector_store_id="vs_direct",
             query=["q1", "q2"],
             vector_store_search_optional_params={},
             vector_store_provider_config=config,
             custom_llm_provider="valkey",
-            litellm_params=GenericLiteLLMParams(valkey_host="localhost"),
+            embrouter_params=GenericEmbRouterParams(valkey_host="localhost"),
             logging_obj=logging_obj,
             timeout=7.0,
             _is_async=True,
@@ -2753,7 +2753,7 @@ async def test_vector_store_search_handler_direct_config_async_skips_http():
     mock_get_client.assert_not_called()
     assert len(config.async_calls) == 1
     assert config.async_calls[0]["query"] == ["q1", "q2"]
-    assert config.async_calls[0]["litellm_params"]["valkey_host"] == "localhost"
+    assert config.async_calls[0]["embrouter_params"]["valkey_host"] == "localhost"
     assert config.async_calls[0]["timeout"] == 7.0
     pre_call_args = logging_obj.pre_call.call_args.kwargs["additional_args"]
     assert pre_call_args["query"] == ["q1", "q2"]
@@ -2761,29 +2761,29 @@ async def test_vector_store_search_handler_direct_config_async_skips_http():
 
 
 def _direct_vector_store_debug_logging_obj():
-    from litellm.litellm_core_utils.litellm_logging import Logging as LitellmLogging
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbrouterLogging
 
-    logging_obj = LitellmLogging(
+    logging_obj = EmbrouterLogging(
         model="valkey",
         messages=[{"role": "user", "content": "q"}],
         stream=False,
         call_type="vector_store_search",
         start_time=time.time(),
-        litellm_call_id="vs-debug-call-id",
+        embrouter_call_id="vs-debug-call-id",
         function_id="vs-debug-function-id",
         log_raw_request_response=True,
     )
     logging_obj.update_environment_variables(
         model="valkey",
         optional_params={"vector_store_id": "vs_direct", "query": "q"},
-        litellm_params={
-            "litellm_call_id": "vs-debug-call-id",
+        embrouter_params={
+            "embrouter_call_id": "vs-debug-call-id",
             "vector_store_id": "vs_direct",
-            "litellm_request_debug": True,
+            "embrouter_request_debug": True,
             "metadata": {"user_api_key_alias": "vs-test-key"},
             "valkey_host": "valkey.internal",
             "valkey_password": "sup3r-s3cret-valkey-pw",
-            "litellm_embedding_config": {"api_key": "sk-embedding-s3cret"},
+            "embrouter_embedding_config": {"api_key": "sk-embedding-s3cret"},
         },
     )
     return logging_obj
@@ -2805,7 +2805,7 @@ def test_direct_vector_store_search_debug_log_omits_stored_credentials(caplog, i
             vector_store_search_optional_params={"max_num_results": 4},
             vector_store_provider_config=config,
             custom_llm_provider="valkey",
-            litellm_params=GenericLiteLLMParams(
+            embrouter_params=GenericEmbRouterParams(
                 valkey_host="valkey.internal",
                 valkey_password="sup3r-s3cret-valkey-pw",
             ),
@@ -2816,7 +2816,7 @@ def test_direct_vector_store_search_debug_log_omits_stored_credentials(caplog, i
             result = asyncio.run(result)
 
     assert result is stub_response
-    raw_request = logging_obj.model_call_details["litellm_params"]["metadata"]["raw_request"]
+    raw_request = logging_obj.model_call_details["embrouter_params"]["metadata"]["raw_request"]
     assert "sup3r-s3cret-valkey-pw" not in raw_request
     assert "sk-embedding-s3cret" not in raw_request
     assert "valkey://vs_direct" in raw_request
@@ -2831,8 +2831,8 @@ async def test_async_retrieve_batch_masks_presigned_auth_header_in_raw_request_l
     header inside the transformed request, which pre_call logs verbatim as the raw request
     body, so the provider key landed unmasked in raw_request_typed_dict and every
     raw-request callback."""
-    from litellm.litellm_core_utils.litellm_logging import Logging as LitellmLogging
-    from litellm.llms.mistral.batches.transformation import MistralBatchesConfig
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbrouterLogging
+    from embrouter.llms.mistral.batches.transformation import MistralBatchesConfig
 
     provider_key = "mistral-s3cret-provider-key-123456"
     job_payload = {
@@ -2852,25 +2852,25 @@ async def test_async_retrieve_batch_masks_presigned_auth_header_in_raw_request_l
     client = AsyncHTTPHandler()
     client.client = httpx.AsyncClient(transport=httpx.MockTransport(_capture))
 
-    logging_obj = LitellmLogging(
+    logging_obj = EmbrouterLogging(
         model="mistral/mistral-ocr-latest",
         messages=[],
         stream=False,
         call_type="batch_retrieve",
         start_time=time.time(),
-        litellm_call_id="batch-retrieve-call-id",
+        embrouter_call_id="batch-retrieve-call-id",
         function_id="batch-retrieve-function-id",
         log_raw_request_response=True,
     )
     logging_obj.update_environment_variables(
         model="mistral/mistral-ocr-latest",
         optional_params={},
-        litellm_params={"litellm_call_id": "batch-retrieve-call-id", "metadata": {}},
+        embrouter_params={"embrouter_call_id": "batch-retrieve-call-id", "metadata": {}},
     )
 
     result = await BaseLLMHTTPHandler().retrieve_batch(
         batch_id="batch-1",
-        litellm_params={"api_key": provider_key},
+        embrouter_params={"api_key": provider_key},
         provider_config=MistralBatchesConfig(),
         headers={},
         api_base=None,
@@ -2898,13 +2898,13 @@ async def test_async_anthropic_messages_handler_carries_deployment_vertex_locati
     import contextlib
     from datetime import datetime
 
-    from litellm.litellm_core_utils.litellm_logging import (
+    from embrouter.embrouter_core_utils.embrouter_logging import (
         Logging,
         _resolve_vertex_location_for_cost,
     )
 
     monkeypatch.setenv("VERTEXAI_LOCATION", "us-east5")
-    monkeypatch.setattr(litellm, "vertex_location", None)
+    monkeypatch.setattr(embrouter, "vertex_location", None)
 
     handler = BaseLLMHTTPHandler()
 
@@ -2915,14 +2915,14 @@ async def test_async_anthropic_messages_handler_carries_deployment_vertex_locati
             stream=False,
             call_type="anthropic_messages",
             start_time=datetime.now(),
-            litellm_call_id="vertex-messages-location",
+            embrouter_call_id="vertex-messages-location",
             function_id="f",
         )
         logging_obj.update_environment_variables(
             model="vertex_ai/claude-haiku-4-5@20251001",
             user="",
             optional_params={},
-            litellm_params={"api_base": ""},
+            embrouter_params={"api_base": ""},
             custom_llm_provider="vertex_ai",
         )
         mock_config = Mock()
@@ -2939,27 +2939,27 @@ async def test_async_anthropic_messages_handler_carries_deployment_vertex_locati
                 anthropic_messages_provider_config=mock_config,
                 anthropic_messages_optional_request_params={"max_tokens": 10},
                 custom_llm_provider="vertex_ai",
-                litellm_params=generic_params,
+                embrouter_params=generic_params,
                 logging_obj=logging_obj,
                 client=AsyncMock(),
                 kwargs={},
             )
         return logging_obj
 
-    global_deployment = await logging_obj_after_handler(GenericLiteLLMParams(vertex_location="global"))
-    assert global_deployment.litellm_params["vertex_location"] == "global"
+    global_deployment = await logging_obj_after_handler(GenericEmbRouterParams(vertex_location="global"))
+    assert global_deployment.embrouter_params["vertex_location"] == "global"
     assert (
         _resolve_vertex_location_for_cost(
             custom_llm_provider="vertex_ai",
-            litellm_params=global_deployment.litellm_params,
+            embrouter_params=global_deployment.embrouter_params,
             optional_params=global_deployment.optional_params,
             model="claude-haiku-4-5@20251001",
         )
         == "global"
     )
 
-    unconfigured_deployment = await logging_obj_after_handler(GenericLiteLLMParams())
-    assert "vertex_location" not in unconfigured_deployment.litellm_params
+    unconfigured_deployment = await logging_obj_after_handler(GenericEmbRouterParams())
+    assert "vertex_location" not in unconfigured_deployment.embrouter_params
 
 
 _GENERIC_STREAM_SSE = (
@@ -2996,7 +2996,7 @@ def test_generic_http_handler_sync_streaming_forwards_provider_response_headers(
     mock_client = Mock(spec=HTTPHandler)
     mock_client.post = Mock(return_value=_generic_stream_upstream_response())
 
-    response = litellm.completion(
+    response = embrouter.completion(
         model="hosted_vllm/test-model",
         messages=[{"role": "user", "content": "Hello"}],
         api_base="https://fake-vllm.test/v1",
@@ -3021,7 +3021,7 @@ async def test_generic_http_handler_async_streaming_forwards_provider_response_h
     mock_client = AsyncMock(spec=AsyncHTTPHandler)
     mock_client.post = AsyncMock(return_value=_generic_stream_upstream_response())
 
-    response = await litellm.acompletion(
+    response = await embrouter.acompletion(
         model="hosted_vllm/test-model",
         messages=[{"role": "user", "content": "Hello"}],
         api_base="https://fake-vllm.test/v1",
@@ -3040,15 +3040,15 @@ async def test_generic_http_handler_async_streaming_forwards_provider_response_h
 
 @pytest.mark.parametrize("custom_llm_provider", ["openai", "azure", "hosted_vllm", None])
 def test_the_rust_responses_websocket_stays_on_python_with_the_switch_on(custom_llm_provider, monkeypatch):
-    from litellm.rust_bridge import configuration
+    from embrouter.rust_bridge import configuration
 
     configuration.reset_rust_configuration()
-    monkeypatch.setenv("LITELLM_RUST", "1")
+    monkeypatch.setenv("EMBROUTER_RUST", "1")
     assert _rust_responses_websocket_enabled(custom_llm_provider) is False
 
 
 def test_a_plain_callback_does_not_advertise_a_pre_call_deployment_hook(monkeypatch):
-    from litellm.integrations.custom_logger import CustomLogger
+    from embrouter.integrations.custom_logger import CustomLogger
 
     class _PlainLogger(CustomLogger):
         pass
@@ -3056,15 +3056,15 @@ def test_a_plain_callback_does_not_advertise_a_pre_call_deployment_hook(monkeypa
     logging_obj = Mock()
     logging_obj.dynamic_success_callbacks = []
 
-    monkeypatch.setattr(litellm, "callbacks", [])
+    monkeypatch.setattr(embrouter, "callbacks", [])
     assert _has_pre_call_deployment_hook(logging_obj) is False
 
-    monkeypatch.setattr(litellm, "callbacks", [_PlainLogger()])
+    monkeypatch.setattr(embrouter, "callbacks", [_PlainLogger()])
     assert _has_pre_call_deployment_hook(logging_obj) is False
 
 
 def test_a_callback_that_overrides_the_deployment_hook_is_detected(monkeypatch):
-    from litellm.integrations.custom_logger import CustomLogger
+    from embrouter.integrations.custom_logger import CustomLogger
 
     class _DeploymentHookLogger(CustomLogger):
         async def async_pre_call_deployment_hook(self, kwargs, call_type):
@@ -3076,19 +3076,19 @@ def test_a_callback_that_overrides_the_deployment_hook_is_detected(monkeypatch):
     logging_obj = Mock()
     logging_obj.dynamic_success_callbacks = []
 
-    monkeypatch.setattr(litellm, "callbacks", [_DeploymentHookLogger()])
+    monkeypatch.setattr(embrouter, "callbacks", [_DeploymentHookLogger()])
     assert _has_pre_call_deployment_hook(logging_obj) is True
 
-    monkeypatch.setattr(litellm, "callbacks", [_InheritsTheHook()])
+    monkeypatch.setattr(embrouter, "callbacks", [_InheritsTheHook()])
     assert _has_pre_call_deployment_hook(logging_obj) is True
 
-    monkeypatch.setattr(litellm, "callbacks", [])
+    monkeypatch.setattr(embrouter, "callbacks", [])
     logging_obj.dynamic_success_callbacks = [_DeploymentHookLogger()]
     assert _has_pre_call_deployment_hook(logging_obj) is True
 
 
 def test_only_callbacks_that_can_charge_a_frame_are_collected_for_ws_quota(monkeypatch):
-    from litellm.integrations.custom_logger import CustomLogger
+    from embrouter.integrations.custom_logger import CustomLogger
 
     class _PlainLogger(CustomLogger):
         pass
@@ -3102,17 +3102,17 @@ def test_only_callbacks_that_can_charge_a_frame_are_collected_for_ws_quota(monke
 
     plain, quota, decoy = _PlainLogger(), _QuotaLogger(), _NotCallableAttribute()
 
-    monkeypatch.setattr(litellm, "callbacks", [plain, decoy])
+    monkeypatch.setattr(embrouter, "callbacks", [plain, decoy])
     assert _collect_ws_project_quota_callbacks() == ()
 
-    monkeypatch.setattr(litellm, "callbacks", [plain, quota, decoy])
+    monkeypatch.setattr(embrouter, "callbacks", [plain, quota, decoy])
     assert _collect_ws_project_quota_callbacks() == (quota,)
 
 
 @pytest.mark.asyncio
 async def test_async_rerank_records_llm_api_duration():
     """arerank must feed the httpx timing into the logging obj, so the proxy can emit
-    x-litellm-overhead-duration-ms / x-litellm-timing-* on /rerank."""
+    x-embrouter-overhead-duration-ms / x-embrouter-timing-* on /rerank."""
 
     def handle(request: httpx.Request) -> httpx.Response:
         return httpx.Response(
@@ -3127,7 +3127,7 @@ async def test_async_rerank_records_llm_api_duration():
     client = AsyncHTTPHandler()
     client.client = httpx.AsyncClient(transport=httpx.MockTransport(handle))
 
-    response = await litellm.arerank(
+    response = await embrouter.arerank(
         model="cohere/rerank-v3.5",
         query="what is the capital of france",
         documents=["paris", "berlin"],
@@ -3136,8 +3136,8 @@ async def test_async_rerank_records_llm_api_duration():
         client=client,
     )
 
-    assert response._hidden_params["litellm_overhead_time_ms"] is not None
-    assert response._hidden_params["_response_ms"] >= response._hidden_params["litellm_overhead_time_ms"]
+    assert response._hidden_params["embrouter_overhead_time_ms"] is not None
+    assert response._hidden_params["_response_ms"] >= response._hidden_params["embrouter_overhead_time_ms"]
 
 
 class _JSONBodyVideoConfig(OpenAIVideoConfig):
@@ -3152,7 +3152,7 @@ def _video_create_call_kwargs(config, **optional_params):
         "video_generation_provider_config": config,
         "video_generation_optional_request_params": {"seconds": "4", **optional_params},
         "custom_llm_provider": "openai",
-        "litellm_params": GenericLiteLLMParams(api_key="sk-test", api_base="https://video.example/v1"),
+        "embrouter_params": GenericEmbRouterParams(api_key="sk-test", api_base="https://video.example/v1"),
         "logging_obj": Mock(),
         "timeout": 10.0,
     }
@@ -3182,7 +3182,7 @@ def _multipart_text_fields(content_type: str, body: bytes) -> dict:
 def test_video_generation_without_file_sends_multipart_form_data():
     """Regression for #36493: the OpenAI SDK always sends /videos requests as
     multipart/form-data, so OpenAI-compatible backends (SGLang Diffusion,
-    vLLM-Omni) reject the JSON body LiteLLM used to send when no
+    vLLM-Omni) reject the JSON body EmbRouter used to send when no
     input_reference file was attached."""
     captured = {}
     client = HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(_capture_video_create_request(captured))))
@@ -3307,7 +3307,7 @@ class _RecordedAzureAI:
 
 @pytest.fixture
 def httpx_transport(monkeypatch):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
 
 
 def _rejection(message: str) -> httpx.Response:
@@ -3319,7 +3319,7 @@ def _call_azure_ai(recorder: _RecordedAzureAI, **overrides):
 
     with respx.mock(assert_all_called=True) as router:
         router.post(AZURE_AI_CHAT_COMPLETIONS_URL).mock(side_effect=recorder)
-        return litellm.completion(
+        return embrouter.completion(
             model="azure_ai/grok-3",
             messages=[{"role": "user", "content": "hi"}],
             tools=[_a_tool_with_an_unsupported_field()],
@@ -3358,7 +3358,7 @@ def test_the_retry_changes_only_the_field_the_provider_named():
 def test_a_provider_that_keeps_rejecting_is_not_retried_forever():
     recorder = _RecordedAzureAI([_rejection(TOOL_LEVEL_REJECTION)])
 
-    with pytest.raises(litellm.BadRequestError) as raised:
+    with pytest.raises(embrouter.BadRequestError) as raised:
         _call_azure_ai(recorder)
 
     assert len(recorder.bodies) == 2
@@ -3368,7 +3368,7 @@ def test_a_provider_that_keeps_rejecting_is_not_retried_forever():
 def test_a_rejection_the_provider_cannot_fix_is_not_retried_at_all():
     recorder = _RecordedAzureAI([_rejection(A_REJECTION_THE_PROVIDER_CANNOT_FIX)])
 
-    with pytest.raises(litellm.BadRequestError):
+    with pytest.raises(embrouter.BadRequestError):
         _call_azure_ai(recorder)
 
     assert len(recorder.bodies) == 1
@@ -3377,7 +3377,7 @@ def test_a_rejection_the_provider_cannot_fix_is_not_retried_at_all():
 def test_an_extra_input_outside_a_tool_is_not_retried_unless_dropping_params_was_asked_for():
     recorder = _RecordedAzureAI([_rejection(UNRELATED_REJECTION)])
 
-    with pytest.raises(litellm.BadRequestError):
+    with pytest.raises(embrouter.BadRequestError):
         _call_azure_ai(recorder)
 
     assert len(recorder.bodies) == 1
@@ -3406,7 +3406,7 @@ async def test_a_tool_field_the_provider_rejects_is_dropped_and_retried_on_the_a
 
     with respx.mock(assert_all_called=True) as router:
         router.post(AZURE_AI_CHAT_COMPLETIONS_URL).mock(side_effect=recorder)
-        response = await litellm.acompletion(
+        response = await embrouter.acompletion(
             model="azure_ai/grok-3",
             messages=[{"role": "user", "content": "hi"}],
             tools=[_a_tool_with_an_unsupported_field()],
@@ -3430,8 +3430,8 @@ async def test_a_provider_that_keeps_rejecting_is_not_retried_forever_on_the_asy
 
     with respx.mock(assert_all_called=True) as router:
         router.post(AZURE_AI_CHAT_COMPLETIONS_URL).mock(side_effect=recorder)
-        with pytest.raises(litellm.BadRequestError):
-            await litellm.acompletion(
+        with pytest.raises(embrouter.BadRequestError):
+            await embrouter.acompletion(
                 model="azure_ai/grok-3",
                 messages=[{"role": "user", "content": "hi"}],
                 tools=[_a_tool_with_an_unsupported_field()],
@@ -3483,13 +3483,13 @@ def _container_async_client(response: httpx.Response) -> AsyncHTTPHandler:
 
 
 def test_container_retrieve_handler_raises_upstream_error_status_and_message():
-    from litellm.llms.openai.containers.transformation import OpenAIContainerConfig
+    from embrouter.llms.openai.containers.transformation import OpenAIContainerConfig
 
     with pytest.raises(BaseLLMException) as exc_info:
         BaseLLMHTTPHandler().container_retrieve_handler(
             container_id="cntr_gone",
             container_provider_config=OpenAIContainerConfig(),
-            litellm_params=GenericLiteLLMParams(api_key="sk-test"),
+            embrouter_params=GenericEmbRouterParams(api_key="sk-test"),
             logging_obj=Mock(),
             client=_container_sync_client(httpx.Response(404, json=CONTAINER_NOT_FOUND_BODY)),
         )
@@ -3500,12 +3500,12 @@ def test_container_retrieve_handler_raises_upstream_error_status_and_message():
 
 @pytest.mark.asyncio
 async def test_async_container_list_handler_raises_upstream_error_status_and_message():
-    from litellm.llms.openai.containers.transformation import OpenAIContainerConfig
+    from embrouter.llms.openai.containers.transformation import OpenAIContainerConfig
 
     with pytest.raises(BaseLLMException) as exc_info:
         await BaseLLMHTTPHandler().async_container_list_handler(
             container_provider_config=OpenAIContainerConfig(),
-            litellm_params=GenericLiteLLMParams(api_key="sk-rejected"),
+            embrouter_params=GenericEmbRouterParams(api_key="sk-rejected"),
             logging_obj=Mock(),
             client=_container_async_client(httpx.Response(401, json=INVALID_API_KEY_BODY)),
         )
@@ -3516,11 +3516,11 @@ async def test_async_container_list_handler_raises_upstream_error_status_and_mes
 
 @pytest.mark.asyncio
 async def test_async_container_list_handler_transforms_success_response():
-    from litellm.llms.openai.containers.transformation import OpenAIContainerConfig
+    from embrouter.llms.openai.containers.transformation import OpenAIContainerConfig
 
     response = await BaseLLMHTTPHandler().async_container_list_handler(
         container_provider_config=OpenAIContainerConfig(),
-        litellm_params=GenericLiteLLMParams(api_key="sk-test"),
+        embrouter_params=GenericEmbRouterParams(api_key="sk-test"),
         logging_obj=Mock(),
         limit=1,
         client=_container_async_client(httpx.Response(200, json=CONTAINER_LIST_BODY)),
@@ -3547,15 +3547,15 @@ class _TransformRecordingConfig(BaseConfig):
         return optional_params
 
     def validate_environment(
-        self, headers, model, messages, optional_params, litellm_params, api_key=None, api_base=None
+        self, headers, model, messages, optional_params, embrouter_params, api_key=None, api_base=None
     ):
         return {}
 
-    def transform_request(self, model, messages, optional_params, litellm_params, headers):
+    def transform_request(self, model, messages, optional_params, embrouter_params, headers):
         self.transform_calls.append("sync")
         return {"transformed_by": "sync"}
 
-    async def async_transform_request(self, model, messages, optional_params, litellm_params, headers):
+    async def async_transform_request(self, model, messages, optional_params, embrouter_params, headers):
         self.transform_calls.append("async")
         return {"transformed_by": "async"}
 
@@ -3574,7 +3574,7 @@ class _TransformRecordingConfig(BaseConfig):
         request_data,
         messages,
         optional_params,
-        litellm_params,
+        embrouter_params,
         encoding,
         api_key=None,
         json_mode=None,
@@ -3586,7 +3586,7 @@ class _TransformRecordingConfig(BaseConfig):
         return BaseLLMException(status_code=status_code, message=error_message, headers=headers)
 
     def get_model_response_iterator(self, streaming_response, sync_stream, json_mode=False):
-        return litellm.OpenAIGPTConfig().get_model_response_iterator(
+        return embrouter.OpenAIGPTConfig().get_model_response_iterator(
             streaming_response=streaming_response, sync_stream=sync_stream, json_mode=json_mode
         )
 
@@ -3610,7 +3610,7 @@ def _start_async_completion(config, logging_obj=None):
         logging_obj=logging_obj if logging_obj is not None else Mock(dynamic_success_callbacks=None, model_call_details={}),
         optional_params={},
         timeout=10.0,
-        litellm_params={},
+        embrouter_params={},
         acompletion=True,
         client=client,
         provider_config=config,
@@ -3698,7 +3698,7 @@ def _sse_echoing_transformed_by(request):
 
 
 def _streaming_logging_obj():
-    from litellm.litellm_core_utils.litellm_logging import Logging
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging
 
     logging_obj = Logging(
         model="stub-model",
@@ -3706,11 +3706,11 @@ def _streaming_logging_obj():
         stream=True,
         call_type="acompletion",
         start_time=time.time(),
-        litellm_call_id="async-transform-stream",
+        embrouter_call_id="async-transform-stream",
         function_id="f",
     )
     logging_obj.update_environment_variables(
-        model="stub-model", user="", optional_params={}, litellm_params={}, custom_llm_provider="openai"
+        model="stub-model", user="", optional_params={}, embrouter_params={}, custom_llm_provider="openai"
     )
     return logging_obj
 
@@ -3731,7 +3731,7 @@ async def test_completion_streams_after_the_async_transform_request():
         logging_obj=_streaming_logging_obj(),
         optional_params={},
         timeout=10.0,
-        litellm_params={},
+        embrouter_params={},
         acompletion=True,
         stream=True,
         client=client,
@@ -3754,23 +3754,23 @@ class _ImageEditRecordingConfig(BaseImageEditConfig):
     def map_openai_params(self, image_edit_optional_params, model, drop_params):
         return dict(image_edit_optional_params)
 
-    def validate_environment(self, headers, model, api_key=None, litellm_params=None, api_base=None):
+    def validate_environment(self, headers, model, api_key=None, embrouter_params=None, api_base=None):
         return {}
 
-    def get_complete_url(self, model, api_base, litellm_params):
+    def get_complete_url(self, model, api_base, embrouter_params):
         return "https://images.example/v1/edits"
 
     def use_multipart_form_data(self):
         return False
 
     def transform_image_edit_request(
-        self, model, prompt, image, image_edit_optional_request_params, litellm_params, headers
+        self, model, prompt, image, image_edit_optional_request_params, embrouter_params, headers
     ):
         self.transform_calls.append("sync")
         return {"transformed_by": "sync"}, []
 
     async def async_transform_image_edit_request(
-        self, model, prompt, image, image_edit_optional_request_params, litellm_params, headers
+        self, model, prompt, image, image_edit_optional_request_params, embrouter_params, headers
     ):
         self.transform_calls.append("async")
         return {"transformed_by": "async"}, []
@@ -3800,7 +3800,7 @@ async def test_async_image_edit_handler_awaits_the_async_transform():
         image_edit_provider_config=config,
         image_edit_optional_request_params={},
         custom_llm_provider="openai",
-        litellm_params=GenericLiteLLMParams(),
+        embrouter_params=GenericEmbRouterParams(),
         logging_obj=Mock(),
         timeout=10.0,
         client=client,
@@ -3824,7 +3824,7 @@ def test_image_edit_handler_keeps_the_sync_transform():
         image_edit_provider_config=config,
         image_edit_optional_request_params={},
         custom_llm_provider="openai",
-        litellm_params=GenericLiteLLMParams(),
+        embrouter_params=GenericEmbRouterParams(),
         logging_obj=Mock(),
         timeout=10.0,
         client=client,
@@ -3870,8 +3870,8 @@ async def test_async_realtime_bridges_a_transcription_session_through_the_provid
         StreamingRecognizeResponse,
     )
 
-    from litellm.llms.vertex_ai.audio_transcription.realtime_backend import SpeechStreamingBackend
-    from litellm.llms.vertex_ai.audio_transcription.realtime_transformation import VertexChirpRealtimeConfig
+    from embrouter.llms.vertex_ai.audio_transcription.realtime_backend import SpeechStreamingBackend
+    from embrouter.llms.vertex_ai.audio_transcription.realtime_transformation import VertexChirpRealtimeConfig
 
     def google_response(transcript: str, is_final: bool, billed: float) -> StreamingRecognizeResponse:
         return StreamingRecognizeResponse(
@@ -3941,7 +3941,7 @@ async def test_async_realtime_bridges_a_transcription_session_through_the_provid
         last_event_type="conversation.item.input_audio_transcription.completed",
     )
     logging_obj = Mock()
-    logging_obj.litellm_trace_id = "trace_1"
+    logging_obj.embrouter_trace_id = "trace_1"
     logging_obj.model_call_details = {}
     logging_obj.dispatch_success_handlers = AsyncMock()
     logging_obj.dispatch_failure_handlers = AsyncMock()
@@ -3984,8 +3984,8 @@ async def test_async_realtime_bridges_a_transcription_session_through_the_provid
 @pytest.mark.asyncio
 async def test_responses_agentic_followup_does_not_repeat_request_params_from_plan_kwargs(monkeypatch):
     """A plan whose kwargs repeat a request param must not crash the Responses follow-up with a duplicate keyword"""
-    from litellm.integrations.custom_logger import CustomLogger
-    from litellm.types.integrations.custom_logger import AgenticLoopPlan, AgenticLoopRequestPatch
+    from embrouter.integrations.custom_logger import CustomLogger
+    from embrouter.types.integrations.custom_logger import AgenticLoopPlan, AgenticLoopRequestPatch
 
     followup_calls: list[dict[str, object]] = []
 
@@ -3993,7 +3993,7 @@ async def test_responses_agentic_followup_does_not_repeat_request_params_from_pl
         followup_calls.append(kwargs)
         return "followup-response"
 
-    monkeypatch.setattr(litellm, "aresponses", fake_aresponses)
+    monkeypatch.setattr(embrouter, "aresponses", fake_aresponses)
     request_kwargs: Final = {"prompt_cache_key": "thread-1", "metadata": {"user": "u1"}}
     plan: Final = AgenticLoopPlan(
         run_agentic_loop=True,
@@ -4009,7 +4009,7 @@ async def test_responses_agentic_followup_does_not_repeat_request_params_from_pl
         plan=plan,
         model="gpt-5",
         response_api_optional_request_params={"prompt_cache_key": "thread-1"},
-        logging_obj=Mock(litellm_call_id="call-1"),
+        logging_obj=Mock(embrouter_call_id="call-1"),
         kwargs=dict(request_kwargs),
         depth=0,
         max_loops=3,
@@ -4027,8 +4027,8 @@ async def test_responses_agentic_followup_does_not_repeat_request_params_from_pl
 
 @pytest.mark.asyncio
 async def test_responses_agentic_followup_sends_the_plans_request_param_over_a_stale_kwargs_copy(monkeypatch):
-    from litellm.integrations.custom_logger import CustomLogger
-    from litellm.types.integrations.custom_logger import AgenticLoopPlan, AgenticLoopRequestPatch
+    from embrouter.integrations.custom_logger import CustomLogger
+    from embrouter.types.integrations.custom_logger import AgenticLoopPlan, AgenticLoopRequestPatch
 
     followup_calls: list[dict[str, object]] = []
 
@@ -4036,7 +4036,7 @@ async def test_responses_agentic_followup_sends_the_plans_request_param_over_a_s
         followup_calls.append(kwargs)
         return "followup-response"
 
-    monkeypatch.setattr(litellm, "aresponses", fake_aresponses)
+    monkeypatch.setattr(embrouter, "aresponses", fake_aresponses)
 
     await BaseLLMHTTPHandler()._execute_responses_agentic_plan(
         plan=AgenticLoopPlan(
@@ -4050,7 +4050,7 @@ async def test_responses_agentic_followup_sends_the_plans_request_param_over_a_s
         ),
         model="gpt-5",
         response_api_optional_request_params={"prompt_cache_key": "from-request"},
-        logging_obj=Mock(litellm_call_id="call-1"),
+        logging_obj=Mock(embrouter_call_id="call-1"),
         kwargs={},
         depth=0,
         max_loops=3,
@@ -4065,7 +4065,7 @@ async def test_responses_agentic_followup_sends_the_plans_request_param_over_a_s
 @pytest.mark.asyncio
 async def test_chat_completion_agentic_followup_does_not_repeat_request_params_from_plan_kwargs(monkeypatch):
     """A plan whose kwargs repeat a request param, or the explicitly passed model, must not crash the chat follow-up with a duplicate keyword"""
-    from litellm.types.integrations.custom_logger import AgenticLoopPlan, AgenticLoopRequestPatch
+    from embrouter.types.integrations.custom_logger import AgenticLoopPlan, AgenticLoopRequestPatch
 
     followup_calls: list[dict[str, object]] = []
 
@@ -4073,7 +4073,7 @@ async def test_chat_completion_agentic_followup_does_not_repeat_request_params_f
         followup_calls.append(kwargs)
         return "followup-response"
 
-    monkeypatch.setattr(litellm, "acompletion", fake_acompletion)
+    monkeypatch.setattr(embrouter, "acompletion", fake_acompletion)
     request_kwargs: Final = {"temperature": 0.2, "api_base": "https://a", "model": "gpt-5"}
     plan: Final = AgenticLoopPlan(
         run_agentic_loop=True,
@@ -4159,7 +4159,7 @@ def _image_edit_call_kwargs() -> dict:
         "image_edit_provider_config": _ImageEditRecordingConfig(),
         "image_edit_optional_request_params": {},
         "custom_llm_provider": "openai",
-        "litellm_params": GenericLiteLLMParams(),
+        "embrouter_params": GenericEmbRouterParams(),
         "logging_obj": Mock(),
         "timeout": 10.0,
     }
@@ -4191,10 +4191,10 @@ class _HeaderImageGenerationConfig(BaseImageGenerationConfig):
     def map_openai_params(self, non_default_params, optional_params, model, drop_params):
         return optional_params
 
-    def get_complete_url(self, api_base, api_key, model, optional_params, litellm_params, stream=None):
+    def get_complete_url(self, api_base, api_key, model, optional_params, embrouter_params, stream=None):
         return "https://images.example/v1/generations"
 
-    def transform_image_generation_request(self, model, prompt, optional_params, litellm_params, headers):
+    def transform_image_generation_request(self, model, prompt, optional_params, embrouter_params, headers):
         return {"prompt": prompt}
 
     def transform_image_generation_response(
@@ -4205,7 +4205,7 @@ class _HeaderImageGenerationConfig(BaseImageGenerationConfig):
         logging_obj,
         request_data,
         optional_params,
-        litellm_params,
+        embrouter_params,
         encoding,
         api_key=None,
         json_mode=None,
@@ -4220,7 +4220,7 @@ def _image_generation_call_kwargs() -> dict:
         "image_generation_provider_config": _HeaderImageGenerationConfig(),
         "image_generation_optional_request_params": {},
         "custom_llm_provider": "openai",
-        "litellm_params": {},
+        "embrouter_params": {},
         "logging_obj": Mock(),
         "timeout": 10.0,
     }
@@ -4259,10 +4259,10 @@ class _HeaderTextToSpeechConfig(BaseTextToSpeechConfig):
     def validate_environment(self, headers, model, api_key=None, api_base=None):
         return {}
 
-    def get_complete_url(self, model, api_base, litellm_params):
+    def get_complete_url(self, model, api_base, embrouter_params):
         return "https://tts.example/v1/speech"
 
-    def transform_text_to_speech_request(self, model, input, voice, optional_params, litellm_params, headers):
+    def transform_text_to_speech_request(self, model, input, voice, optional_params, embrouter_params, headers):
         return {"dict_body": {"input": input}}
 
     def transform_text_to_speech_response(self, model, raw_response, logging_obj):
@@ -4277,7 +4277,7 @@ def _text_to_speech_call_kwargs() -> dict:
         "text_to_speech_provider_config": _HeaderTextToSpeechConfig(),
         "text_to_speech_optional_params": {},
         "custom_llm_provider": "openai",
-        "litellm_params": {},
+        "embrouter_params": {},
         "logging_obj": Mock(),
         "timeout": 10.0,
     }

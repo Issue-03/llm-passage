@@ -9,11 +9,11 @@ from typing import Any, Final
 
 import httpx
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.llms.custom_httpx.http_handler import get_async_httpx_client
-from litellm.llms.openai.common_utils import OpenAIError
-from litellm.llms.openai.responses.count_tokens.transformation import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.llms.custom_httpx.http_handler import get_async_httpx_client
+from embrouter.llms.openai.common_utils import OpenAIError
+from embrouter.llms.openai.responses.count_tokens.transformation import (
     OpenAICountTokensConfig,
 )
 
@@ -60,9 +60,9 @@ class OpenAICountTokensHandler(OpenAICountTokensConfig):
 
             headers: Final = self.get_required_headers(api_key)
 
-            async_client: Final = get_async_httpx_client(llm_provider=litellm.LlmProviders.OPENAI)
+            async_client: Final = get_async_httpx_client(llm_provider=embrouter.LlmProviders.OPENAI)
 
-            request_timeout: Final = timeout if timeout is not None else litellm.request_timeout
+            request_timeout: Final = timeout if timeout is not None else embrouter.request_timeout
 
             response: Final = await async_client.post(
                 endpoint_url,

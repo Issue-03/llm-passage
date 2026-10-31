@@ -8,19 +8,19 @@ CredError]``) rather than raised, so every seam is total. Nothing here is wired 
 request path yet.
 """
 
-from litellm.proxy._experimental.mcp_server.outbound_credentials.httpx_auth import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.httpx_auth import (
     NoOpAuth,
     StaticHeaderAuth,
 )
-from litellm.proxy._experimental.mcp_server.outbound_credentials.resolver import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.resolver import (
     UpstreamCredentialProvider,
 )
-from litellm.proxy._experimental.mcp_server.outbound_credentials.result import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.result import (
     Error,
     Ok,
     Result,
 )
-from litellm.proxy._experimental.mcp_server.outbound_credentials.types import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.types import (
     DEFAULT_CREDENTIAL_HEADER,
     Ambient,
     ApiKeyConfig,

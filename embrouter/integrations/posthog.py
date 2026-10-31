@@ -17,24 +17,24 @@ from typing import Final
 
 from typing_extensions import ReadOnly, TypedDict
 
-from litellm._logging import verbose_logger
-from litellm._uuid import uuid
-from litellm.integrations.custom_batch_logger import CustomBatchLogger
-from litellm.integrations.posthog_mock_client import (
+from embrouter._logging import verbose_logger
+from embrouter._uuid import uuid
+from embrouter.integrations.custom_batch_logger import CustomBatchLogger
+from embrouter.integrations.posthog_mock_client import (
     create_mock_posthog_client,
     should_use_posthog_mock,
 )
-from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps
+from embrouter.llms.custom_httpx.http_handler import (
     _get_httpx_client,
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.types.integrations.posthog import (
+from embrouter.types.integrations.posthog import (
     POSTHOG_MAX_BATCH_SIZE,
     PostHogEventPayload,
 )
-from litellm.types.utils import StandardCallbackDynamicParams, StandardLoggingPayload
+from embrouter.types.utils import StandardCallbackDynamicParams, StandardLoggingPayload
 
 
 class PostHogBatchPayload(TypedDict):
@@ -42,14 +42,14 @@ class PostHogBatchPayload(TypedDict):
     batch: ReadOnly[Sequence[PostHogEventPayload]]
 
 
-class PostHogLiteLLMParams(TypedDict, total=False):
+class PostHogEmbRouterParams(TypedDict, total=False):
     metadata: ReadOnly[Mapping[str, object]]
 
 
 class PostHogLogKwargs(TypedDict, total=False):
     standard_logging_object: ReadOnly[StandardLoggingPayload]
     standard_callback_dynamic_params: ReadOnly[StandardCallbackDynamicParams]
-    litellm_params: ReadOnly[PostHogLiteLLMParams]
+    embrouter_params: ReadOnly[PostHogEmbRouterParams]
 
 
 class PostHogLogger(CustomBatchLogger):
@@ -259,7 +259,7 @@ class PostHogLogger(CustomBatchLogger):
         if not isinstance(metadata, dict):
             return
 
-        litellm_internal_fields: Final = {
+        embrouter_internal_fields: Final = {
             "endpoint",
             "caching_groups",
             "user_api_key_hash",
@@ -272,7 +272,7 @@ class PostHogLogger(CustomBatchLogger):
             "user_api_key_user_email",
             "user_api_key",
             "user_api_end_user_max_budget",
-            "litellm_api_version",
+            "embrouter_api_version",
             "global_max_parallel_requests",
             "user_api_key_team_max_budget",
             "user_api_key_team_spend",
@@ -281,7 +281,7 @@ class PostHogLogger(CustomBatchLogger):
             "user_api_key_model_max_budget",
             "user_api_key_metadata",
             "headers",
-            "litellm_parent_otel_span",
+            "embrouter_parent_otel_span",
             "requester_ip_address",
             "model_group",
             "model_group_size",
@@ -295,7 +295,7 @@ class PostHogLogger(CustomBatchLogger):
         }
 
         for key, value in metadata.items():
-            if key not in litellm_internal_fields:
+            if key not in embrouter_internal_fields:
                 properties[key] = value
 
     def _get_distinct_id(self, standard_logging_object: StandardLoggingPayload, kwargs: PostHogLogKwargs) -> str:
@@ -402,8 +402,8 @@ class PostHogLogger(CustomBatchLogger):
                 raise
 
     def _extract_metadata(self, kwargs: PostHogLogKwargs) -> Mapping[str, object]:
-        litellm_params: Final[PostHogLiteLLMParams] = kwargs.get("litellm_params", {}) or {}
-        metadata: Final[Mapping[str, object]] = litellm_params.get("metadata", {}) or {}
+        embrouter_params: Final[PostHogEmbRouterParams] = kwargs.get("embrouter_params", {}) or {}
+        metadata: Final[Mapping[str, object]] = embrouter_params.get("metadata", {}) or {}
         return metadata
 
     def _safe_uuid(self) -> str:

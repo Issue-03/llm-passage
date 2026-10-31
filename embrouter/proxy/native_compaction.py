@@ -8,14 +8,14 @@ from fastapi import Request
 from pydantic import TypeAdapter, ValidationError
 from starlette.types import ASGIApp
 
-from litellm.exceptions import BadRequestError
-from litellm.litellm_core_utils.initialize_dynamic_callback_params import (
+from embrouter.exceptions import BadRequestError
+from embrouter.embrouter_core_utils.initialize_dynamic_callback_params import (
     inherit_message_logging_privacy,
     initialize_standard_callback_dynamic_params,
 )
-from litellm.llms.custom_httpx.asgi_handler import get_async_asgi_client
-from litellm.proxy.litellm_pre_call_utils import UNTRUSTED_REQUEST_HEADER_CONTROL_FIELDS
-from litellm.router_strategy.complexity_router.context_compaction import (
+from embrouter.llms.custom_httpx.asgi_handler import get_async_asgi_client
+from embrouter.proxy.embrouter_pre_call_utils import UNTRUSTED_REQUEST_HEADER_CONTROL_FIELDS
+from embrouter.router_strategy.complexity_router.context_compaction import (
     compaction_executor,
     native_compaction_call,
 )
@@ -27,10 +27,10 @@ _JSON_OBJECT: Final = TypeAdapter(Mapping[str, object])
 _REMOVED_HEADERS: Final = frozenset(
     (
         b"content-length",
-        b"x-litellm-call-id",
-        b"x-litellm-num-retries",
-        b"x-litellm-timeout",
-        b"x-litellm-stream-timeout",
+        b"x-embrouter-call-id",
+        b"x-embrouter-num-retries",
+        b"x-embrouter-timeout",
+        b"x-embrouter-stream-timeout",
     )
 )
 

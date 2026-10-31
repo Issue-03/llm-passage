@@ -1,5 +1,5 @@
 """
-Unit tests for litellm/llms/anthropic/batches/handler.py
+Unit tests for embrouter/llms/anthropic/batches/handler.py
 
 AnthropicBatchesHandler is the HTTP/auth glue for retrieving Anthropic Message
 Batches. It resolves credentials, builds the retrieve URL + auth headers via the
@@ -7,7 +7,7 @@ provider config, fires a single GET against the async httpx client, and hands th
 response to the config's transform. These tests mock ONLY the genuine I/O seams -
 the async httpx client (network) and credential resolution (secret managers /
 env) - and assert exactly which seam fired, with what URL/headers, and that the
-parsed result is the LiteLLMBatch the transform produced.
+parsed result is the EmbRouterBatch the transform produced.
 
 The sync ``retrieve_batch`` dispatch (``_is_async`` true -> coroutine, false ->
 asyncio.run) is exercised directly.
@@ -19,8 +19,8 @@ import httpx
 import pytest
 
 
-from litellm.llms.anthropic.batches.handler import AnthropicBatchesHandler
-from litellm.types.utils import LiteLLMBatch
+from embrouter.llms.anthropic.batches.handler import AnthropicBatchesHandler
+from embrouter.types.utils import EmbRouterBatch
 
 
 def _ok_batch_response():
@@ -51,7 +51,7 @@ def patched_client():
     fake_client = MagicMock()
     fake_client.get = AsyncMock(return_value=_ok_batch_response())
     with patch(
-        "litellm.llms.anthropic.batches.handler.get_async_httpx_client",
+        "embrouter.llms.anthropic.batches.handler.get_async_httpx_client",
         return_value=fake_client,
     ) as factory:
         yield fake_client, factory
@@ -85,7 +85,7 @@ async def test_aretrieve_batch_fires_get_with_correct_url_and_headers(
     assert headers["anthropic-beta"] == "message-batches-2024-09-24"
 
     # Response parsed through the config transform.
-    assert isinstance(batch, LiteLLMBatch)
+    assert isinstance(batch, EmbRouterBatch)
     assert batch.id == "msgbatch_abc"
     assert batch.status == "completed"
     assert batch.request_counts.completed == 2
@@ -95,7 +95,7 @@ async def test_aretrieve_batch_fires_get_with_correct_url_and_headers(
 async def test_aretrieve_batch_uses_anthropic_provider_for_client(
     handler, patched_client
 ):
-    from litellm.types.utils import LlmProviders
+    from embrouter.types.utils import LlmProviders
 
     _, factory = patched_client
     await handler.aretrieve_batch(
@@ -182,7 +182,7 @@ async def test_aretrieve_batch_raises_for_status(handler):
     fake_client = MagicMock()
     fake_client.get = AsyncMock(return_value=error_response)
     with patch(
-        "litellm.llms.anthropic.batches.handler.get_async_httpx_client",
+        "embrouter.llms.anthropic.batches.handler.get_async_httpx_client",
         return_value=fake_client,
     ):
         with pytest.raises(httpx.HTTPStatusError):
@@ -225,7 +225,7 @@ async def test_aretrieve_batch_builds_default_logging_obj_when_absent(
     # must still complete (no AttributeError on a missing logger).
     _, _ = patched_client
     with patch(
-        "litellm.litellm_core_utils.litellm_logging.Logging"
+        "embrouter.embrouter_core_utils.embrouter_logging.Logging"
     ) as logging_cls:
         logging_cls.return_value = MagicMock()
         batch = await handler.aretrieve_batch(
@@ -268,7 +268,7 @@ async def test_retrieve_batch_async_returns_coroutine(handler, patched_client):
 
 
 def test_retrieve_batch_sync_runs_to_result(handler, patched_client):
-    # _is_async=False -> asyncio.run(...) returns the resolved LiteLLMBatch.
+    # _is_async=False -> asyncio.run(...) returns the resolved EmbRouterBatch.
     batch = handler.retrieve_batch(
         _is_async=False,
         batch_id="msgbatch_abc",
@@ -277,6 +277,6 @@ def test_retrieve_batch_sync_runs_to_result(handler, patched_client):
         timeout=60.0,
         max_retries=0,
     )
-    assert isinstance(batch, LiteLLMBatch)
+    assert isinstance(batch, EmbRouterBatch)
     assert batch.id == "msgbatch_abc"
     assert batch.status == "completed"

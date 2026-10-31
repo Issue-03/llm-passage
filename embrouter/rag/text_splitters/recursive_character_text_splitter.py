@@ -6,7 +6,7 @@ A simple implementation that splits text recursively by different separators.
 
 from typing import Final
 
-from litellm.constants import DEFAULT_CHUNK_OVERLAP, DEFAULT_CHUNK_SIZE
+from embrouter.constants import DEFAULT_CHUNK_OVERLAP, DEFAULT_CHUNK_SIZE
 
 
 class RecursiveCharacterTextSplitter:
@@ -33,7 +33,7 @@ class RecursiveCharacterTextSplitter:
 
     def _split_text(self, text: str, separators: list[str], depth: int = 0) -> list[str]:
         """Recursively split text using separators."""
-        from litellm.constants import DEFAULT_MAX_RECURSE_DEPTH
+        from embrouter.constants import DEFAULT_MAX_RECURSE_DEPTH
 
         if depth > DEFAULT_MAX_RECURSE_DEPTH:
             # Max depth reached, return text as-is split into chunk_size pieces

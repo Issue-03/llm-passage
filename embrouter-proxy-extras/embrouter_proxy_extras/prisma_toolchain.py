@@ -29,9 +29,9 @@ Every Prisma command therefore runs in a process group of its own, and a
 timeout kills the whole group.
 
 All three budgets are overridable so an operator can widen them without a
-release: ``LITELLM_PRISMA_BOOTSTRAP_TIMEOUT`` for the toolchain install,
-``LITELLM_PRISMA_MIGRATE_DEPLOY_TIMEOUT`` for ``prisma migrate deploy`` and
-``LITELLM_PRISMA_COMMAND_TIMEOUT`` for every other Prisma command. The
+release: ``EMBROUTER_PRISMA_BOOTSTRAP_TIMEOUT`` for the toolchain install,
+``EMBROUTER_PRISMA_MIGRATE_DEPLOY_TIMEOUT`` for ``prisma migrate deploy`` and
+``EMBROUTER_PRISMA_COMMAND_TIMEOUT`` for every other Prisma command. The
 per-command budget used to bound migrate deploy as well, so a deployment that
 raised it above the deploy default keeps that larger budget for deploy unless
 the deploy override says otherwise.
@@ -49,17 +49,17 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import IO, Optional, Union
 
-from litellm_proxy_extras._logging import logger
+from embrouter_proxy_extras._logging import logger
 
 try:
     from prisma import config as prisma_config
 except ImportError:
     prisma_config = None
 
-PRISMA_COMMAND_TIMEOUT_ENV_VAR = "LITELLM_PRISMA_COMMAND_TIMEOUT"
-PRISMA_BOOTSTRAP_TIMEOUT_ENV_VAR = "LITELLM_PRISMA_BOOTSTRAP_TIMEOUT"
-PRISMA_MIGRATE_DEPLOY_TIMEOUT_ENV_VAR = "LITELLM_PRISMA_MIGRATE_DEPLOY_TIMEOUT"
-MIGRATION_LOCK_TIMEOUT_ENV_VAR = "LITELLM_MIGRATION_LOCK_TIMEOUT"
+PRISMA_COMMAND_TIMEOUT_ENV_VAR = "EMBROUTER_PRISMA_COMMAND_TIMEOUT"
+PRISMA_BOOTSTRAP_TIMEOUT_ENV_VAR = "EMBROUTER_PRISMA_BOOTSTRAP_TIMEOUT"
+PRISMA_MIGRATE_DEPLOY_TIMEOUT_ENV_VAR = "EMBROUTER_PRISMA_MIGRATE_DEPLOY_TIMEOUT"
+MIGRATION_LOCK_TIMEOUT_ENV_VAR = "EMBROUTER_MIGRATION_LOCK_TIMEOUT"
 NODEENV_CACHE_DIR_ENV_VAR = "PRISMA_NODEENV_CACHE_DIR"
 
 DEFAULT_PRISMA_COMMAND_TIMEOUT = 60.0

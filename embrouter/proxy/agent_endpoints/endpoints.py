@@ -1,5 +1,5 @@
 """
-Agent endpoints for registering + discovering agents via LiteLLM.
+Agent endpoints for registering + discovering agents via EmbRouter.
 
 Follows the A2A Spec.
 
@@ -18,27 +18,27 @@ from typing import Annotated, Final, TypedDict
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from typing_extensions import ReadOnly, Required, assert_never
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.llms.custom_httpx.http_handler import get_async_httpx_client
-from litellm.proxy._types import (
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.llms.custom_httpx.http_handler import get_async_httpx_client
+from embrouter.proxy._types import (
     CommonProxyErrors,
-    LitellmUserRoles,
+    EmbrouterUserRoles,
     UserAPIKeyAuth,
     user_api_key_has_admin_view,
 )
-from litellm.proxy.a2a.agent_card import (
+from embrouter.proxy.a2a.agent_card import (
     SUPPORTED_A2A_PROTOCOL_VERSIONS,
     merge_agent_card,
     normalize_protocol_version,
 )
-from litellm.proxy.agent_endpoints.agent_registry import (
+from embrouter.proxy.agent_endpoints.agent_registry import (
     AgentIdWhere,
     parse_agent_kill_switch,
-    parse_agent_litellm_params,
-    redact_sensitive_agent_litellm_params,
+    parse_agent_embrouter_params,
+    redact_sensitive_agent_embrouter_params,
 )
-from litellm.proxy.agent_endpoints.agent_search import (
+from embrouter.proxy.agent_endpoints.agent_search import (
     DEFAULT_AGENT_SEARCH_TOP_K,
     AgentSearchEmbeddingFailed,
     AgentSearchHits,
@@ -46,8 +46,8 @@ from litellm.proxy.agent_endpoints.agent_search import (
     global_agent_search_index,
     search_agents,
 )
-from litellm.proxy.agent_endpoints.auth.agent_permission_handler import accessible_agents
-from litellm.proxy.agent_endpoints.kill_switch import (
+from embrouter.proxy.agent_endpoints.auth.agent_permission_handler import accessible_agents
+from embrouter.proxy.agent_endpoints.kill_switch import (
     KillSwitchAuditLogWriter,
     KillSwitchHttpClient,
     build_kill_switch_audit_log,
@@ -56,11 +56,11 @@ from litellm.proxy.agent_endpoints.kill_switch import (
     fire_kill_switch,
     redact_kill_switch,
 )
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.common_utils.rbac_utils import check_feature_access_for_user
-from litellm.proxy.management_endpoints.common_daily_activity import get_daily_activity
-from litellm.proxy.utils import get_custom_url
-from litellm.types.agents import (
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.common_utils.rbac_utils import check_feature_access_for_user
+from embrouter.proxy.management_endpoints.common_daily_activity import get_daily_activity
+from embrouter.proxy.utils import get_custom_url
+from embrouter.types.agents import (
     AgentCard,
     AgentConfig,
     AgentKeySummary,
@@ -71,8 +71,8 @@ from litellm.types.agents import (
     MakeAgentsPublicRequest,
     PatchAgentRequest,
 )
-from litellm.types.llms.custom_http import httpxSpecialProvider
-from litellm.types.proxy.management_endpoints.common_daily_activity import (
+from embrouter.types.llms.custom_http import httpxSpecialProvider
+from embrouter.types.proxy.management_endpoints.common_daily_activity import (
     DailySpendMetadata,
     SpendAnalyticsPaginatedResponse,
 )
@@ -103,7 +103,7 @@ def _build_merged_agent_card(
     http_request: Request,
     agent_name: str | None = None,
 ) -> dict[str, object]:
-    """Apply the LiteLLM-fronting merge to ``upstream_card`` for ``agent_id``."""
+    """Apply the EmbRouter-fronting merge to ``upstream_card`` for ``agent_id``."""
     proxy_base: Final = _proxy_base_url(http_request)
     _validate_protocol_version(upstream_card)
     # Prefer a card-supplied ``name`` (the discovery UI exposes an editable
@@ -127,14 +127,14 @@ async def _attach_keys_to_agents(agents: Sequence[AgentResponse], prisma_client)
     foreign key. Mirrors how spend is joined into the agent response so the UI
     never has to cross-reference a full key dump client-side. Only non-secret
     fields are exposed (alias, masked key_name, hashed token)."""
-    from litellm.proxy.agent_endpoints.agent_registry import global_agent_registry
+    from embrouter.proxy.agent_endpoints.agent_registry import global_agent_registry
 
     agent_ids: Final = tuple(
         alias_id for agent in agents for alias_id in global_agent_registry.ids_for_agent(agent.agent_id)
     )
     if not agent_ids:
         return
-    key_rows: Final = await prisma_client.db.litellm_verificationtoken.find_many(
+    key_rows: Final = await prisma_client.db.embrouter_verificationtoken.find_many(
         where={"agent_id": {"in": agent_ids}},
     )
     keys_by_agent: Final[dict[str, list[AgentKeySummary]]] = {}
@@ -155,14 +155,14 @@ async def _attach_keys_to_agents(agents: Sequence[AgentResponse], prisma_client)
         agent.keys = matched_keys or None
 
 
-def _redact_agent_litellm_params_dict(
-    litellm_params: Mapping[str, object],
-) -> dict[str, object]:  # mutable-ok: AgentResponse.litellm_params is declared as a plain dict, not Mapping
+def _redact_agent_embrouter_params_dict(
+    embrouter_params: Mapping[str, object],
+) -> dict[str, object]:  # mutable-ok: AgentResponse.embrouter_params is declared as a plain dict, not Mapping
     """Type-narrowing wrapper: a dict in always yields a dict back from
-    ``redact_sensitive_agent_litellm_params``, which the function's general
+    ``redact_sensitive_agent_embrouter_params``, which the function's general
     (possible-JSON-string, possibly-None) signature can't express."""
-    return dict(  # mutable-ok: AgentResponse.litellm_params is declared as a plain dict, not Mapping
-        parse_agent_litellm_params(redact_sensitive_agent_litellm_params(litellm_params))
+    return dict(  # mutable-ok: AgentResponse.embrouter_params is declared as a plain dict, not Mapping
+        parse_agent_embrouter_params(redact_sensitive_agent_embrouter_params(embrouter_params))
     )
 
 
@@ -172,7 +172,7 @@ def _redact_sensitive_agent_fields(
     is_admin: bool,
 ) -> list[AgentResponse]:
     """
-    Return copies of the given agents with credential-bearing litellm_params
+    Return copies of the given agents with credential-bearing embrouter_params
     values and kill-switch auth secrets replaced by a fixed marker (never
     returned to ANY caller, admin included) and, for non-admin callers,
     virtual-key, header and kill-switch fields stripped entirely. The original
@@ -186,8 +186,8 @@ def _redact_sensitive_agent_fields(
             copy.extra_headers = None
             copy.keys = None
             copy.kill_switch = None
-        if copy.litellm_params:
-            copy.litellm_params = _redact_agent_litellm_params_dict(copy.litellm_params)
+        if copy.embrouter_params:
+            copy.embrouter_params = _redact_agent_embrouter_params_dict(copy.embrouter_params)
         copy.kill_switch = redact_kill_switch(copy.kill_switch)
         redacted.append(copy)
     return redacted
@@ -199,7 +199,7 @@ def _check_agent_management_permission(user_api_key_dict: UserAPIKeyAuth) -> Non
     or delete agents.  Only PROXY_ADMIN users are allowed to perform these
     write operations.
     """
-    if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+    if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
         raise HTTPException(
             status_code=403,
             detail={
@@ -208,8 +208,8 @@ def _check_agent_management_permission(user_api_key_dict: UserAPIKeyAuth) -> Non
         )
 
 
-AGENT_HEALTH_CHECK_TIMEOUT_SECONDS: Final = float(os.environ.get("LITELLM_AGENT_HEALTH_CHECK_TIMEOUT", "5.0"))
-AGENT_HEALTH_CHECK_GATHER_TIMEOUT_SECONDS = float(os.environ.get("LITELLM_AGENT_HEALTH_CHECK_GATHER_TIMEOUT", "30.0"))
+AGENT_HEALTH_CHECK_TIMEOUT_SECONDS: Final = float(os.environ.get("EMBROUTER_AGENT_HEALTH_CHECK_TIMEOUT", "5.0"))
+AGENT_HEALTH_CHECK_GATHER_TIMEOUT_SECONDS = float(os.environ.get("EMBROUTER_AGENT_HEALTH_CHECK_GATHER_TIMEOUT", "30.0"))
 
 
 class _AgentHealthResult(TypedDict, total=False):
@@ -265,14 +265,14 @@ def _agent_search_error(status_code: int, error: str, message: str) -> HTTPExcep
 async def _rank_agents_by_query(
     query: str, agents: Sequence[AgentResponse], top_k: int, user_api_key_dict: UserAPIKeyAuth
 ) -> tuple[AgentResponse, ...]:
-    from litellm.proxy.proxy_server import llm_router, proxy_logging_obj
+    from embrouter.proxy.proxy_server import llm_router, proxy_logging_obj
 
     outcome: Final = await search_agents(
         query=query,
         agents=agents,
         top_k=top_k,
         router=llm_router,
-        embedding_model=litellm.agent_search_embedding_model,
+        embedding_model=embrouter.agent_search_embedding_model,
         index=global_agent_search_index,
         user_api_key_dict=user_api_key_dict,
         proxy_logging_obj=proxy_logging_obj,
@@ -304,7 +304,7 @@ async def get_agents(
         str | None,
         Query(
             min_length=1,
-            description="Describe the task in natural language to rank the agents you can reach by semantic similarity over their name, description, and skills. Each result carries a search_score. Requires litellm_settings.agent_search_embedding_model.",
+            description="Describe the task in natural language to rank the agents you can reach by semantic similarity over their name, description, and skills. Each result carries a search_score. Requires embrouter_settings.agent_search_embedding_model.",
         ),
     ] = None,
     top_k: Annotated[
@@ -340,13 +340,13 @@ async def get_agents(
     """
     await check_feature_access_for_user(user_api_key_dict, "agents")
 
-    from litellm.proxy.agent_endpoints.agent_registry import global_agent_registry
+    from embrouter.proxy.agent_endpoints.agent_registry import global_agent_registry
 
     try:
         returned_agents: Sequence[AgentResponse] = await accessible_agents(user_api_key_dict)
 
         # Fetch current spend from DB for all returned agents
-        from litellm.proxy.proxy_server import prisma_client
+        from embrouter.proxy.proxy_server import prisma_client
 
         if prisma_client is not None:
             agent_ids: Final = tuple(
@@ -371,17 +371,17 @@ async def get_agents(
 
         # add is_public field to each agent - we do it this way, to allow setting config agents as public
         for agent in returned_agents:
-            if agent.litellm_params is None:
-                agent.litellm_params = {}
-            agent.litellm_params["is_public"] = litellm.public_agent_groups is not None and not (
-                global_agent_registry.ids_for_agent(agent.agent_id).isdisjoint(litellm.public_agent_groups)
+            if agent.embrouter_params is None:
+                agent.embrouter_params = {}
+            agent.embrouter_params["is_public"] = embrouter.public_agent_groups is not None and not (
+                global_agent_registry.ids_for_agent(agent.agent_id).isdisjoint(embrouter.public_agent_groups)
             )
 
-        # litellm_params secrets are always redacted; keys/headers stay
+        # embrouter_params secrets are always redacted; keys/headers stay
         # admin-only.
         is_admin: Final = (
-            user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN
-            or user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN.value
+            user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN
+            or user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN.value
         )
         returned_agents = _redact_sensitive_agent_fields(returned_agents, is_admin=is_admin)
 
@@ -415,16 +415,16 @@ async def get_agents(
     except HTTPException:
         raise
     except Exception as e:
-        verbose_proxy_logger.exception("litellm.proxy.agent_endpoints.get_agents(): Exception occurred - %s", e)
+        verbose_proxy_logger.exception("embrouter.proxy.agent_endpoints.get_agents(): Exception occurred - %s", e)
         raise HTTPException(status_code=500, detail={"error": f"Internal server error: {e}"})
 
 
 #### CRUD ENDPOINTS FOR AGENTS ####
 
-from litellm.proxy.agent_endpoints.agent_registry import (
+from embrouter.proxy.agent_endpoints.agent_registry import (
     agents_table,
 )
-from litellm.proxy.agent_endpoints.agent_registry import (
+from embrouter.proxy.agent_endpoints.agent_registry import (
     global_agent_registry as AGENT_REGISTRY,
 )
 
@@ -471,7 +471,7 @@ async def create_agent(
                     }
                 ]
             },
-            "litellm_params": {
+            "embrouter_params": {
                 "make_public": true
             }
         }'
@@ -479,7 +479,7 @@ async def create_agent(
     """
     await check_feature_access_for_user(user_api_key_dict, "agents")
 
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     _check_agent_management_permission(user_api_key_dict)
 
@@ -498,7 +498,7 @@ async def create_agent(
                 detail=f"Agent with name {request.get('agent_name')} already exists",
             )
 
-        # Apply the LiteLLM-fronting merge only when the admin actually
+        # Apply the EmbRouter-fronting merge only when the admin actually
         # provided an agent card. Plain chat/LLM agents register without
         # ``agent_card_params``, and synthesising a default A2A card for them
         # would advertise capabilities (``supportedInterfaces``, security
@@ -537,7 +537,7 @@ async def create_agent(
                 "Failed to register agent '%s' (ID: %s) in memory: %s", agent_name, agent_id, reg_error
             )
 
-        # The caller is a proxy admin (enforced above); litellm_params
+        # The caller is a proxy admin (enforced above); embrouter_params
         # secrets are still never echoed back in the response.
         return _redact_sensitive_agent_fields((result,), is_admin=True)[0]
 
@@ -570,7 +570,7 @@ async def get_agent_by_id(
     await check_feature_access_for_user(user_api_key_dict, "agents")
 
     if not user_api_key_has_admin_view(user_api_key_dict):
-        from litellm.proxy.agent_endpoints.auth.agent_permission_handler import (
+        from embrouter.proxy.agent_endpoints.auth.agent_permission_handler import (
             AgentRequestHandler,
         )
 
@@ -581,7 +581,7 @@ async def get_agent_by_id(
                 detail=f"Agent '{agent_id}' is not allowed for your key/team. Contact proxy admin for access.",
             )
 
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail="Prisma client not initialized")
@@ -612,11 +612,11 @@ async def get_agent_by_id(
 
         await _attach_keys_to_agents([agent], prisma_client)
 
-        # litellm_params secrets are always redacted; keys/headers stay
+        # embrouter_params secrets are always redacted; keys/headers stay
         # admin-only.
         is_admin = (
-            user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN
-            or user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN.value
+            user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN
+            or user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN.value
         )
         agent = _redact_sensitive_agent_fields((agent,), is_admin=is_admin)[0]
 
@@ -663,7 +663,7 @@ async def update_agent(
                 },
                 "skills": []
             },
-            "litellm_params": {
+            "embrouter_params": {
                 "make_public": false
             }
         }'
@@ -671,7 +671,7 @@ async def update_agent(
     """
     await check_feature_access_for_user(user_api_key_dict, "agents")
 
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     _check_agent_management_permission(user_api_key_dict)
 
@@ -690,7 +690,7 @@ async def update_agent(
         # Get the user ID from the API key auth
         updated_by: Final = user_api_key_dict.user_id or "unknown"
 
-        # Re-apply the LiteLLM-fronting merge — an update is a re-registration,
+        # Re-apply the EmbRouter-fronting merge — an update is a re-registration,
         # so any new upstream card the admin pasted must go through the same
         # transformation as initial create. Plain agents without an
         # ``agent_card_params`` skip the merge so we don't synthesise an A2A
@@ -765,7 +765,7 @@ async def patch_agent(
                 },
                 "skills": []
             },
-            "litellm_params": {
+            "embrouter_params": {
                 "make_public": false
             }
         }'
@@ -773,7 +773,7 @@ async def patch_agent(
     """
     await check_feature_access_for_user(user_api_key_dict, "agents")
 
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     _check_agent_management_permission(user_api_key_dict)
 
@@ -793,10 +793,10 @@ async def patch_agent(
         updated_by: Final = user_api_key_dict.user_id or "unknown"
 
         # Re-merge only when the patch actually touches agent_card_params; a
-        # patch updating just litellm_params/rate limits (``agent_card_params``
+        # patch updating just embrouter_params/rate limits (``agent_card_params``
         # omitted) shouldn't rewrite the stored card. An explicitly provided
         # ``agent_card_params`` — even an empty dict — still goes through the
-        # merge so LiteLLM applies its security schemes and supported
+        # merge so EmbRouter applies its security schemes and supported
         # interfaces instead of storing a bare card.
         patch_payload: PatchAgentRequest = request
         upstream_card: Final = request.get("agent_card_params")
@@ -860,7 +860,7 @@ async def delete_agent(
     """
     await check_feature_access_for_user(user_api_key_dict, "agents")
 
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     _check_agent_management_permission(user_api_key_dict)
 
@@ -903,8 +903,8 @@ async def trigger_agent_kill_switch(
     """
     Fire the agent's configured kill switch webhook. Proxy admin only.
 
-    LiteLLM only makes the configured HTTP call and reports what came back; it
-    does not change the agent's state in LiteLLM. Returns 200 when the webhook
+    EmbRouter only makes the configured HTTP call and reports what came back; it
+    does not change the agent's state in EmbRouter. Returns 200 when the webhook
     answered 2xx, 502 with the same result body otherwise. Every attempt is
     written to the audit log as a `kill_switch_fired` row against the agent.
 
@@ -914,7 +914,7 @@ async def trigger_agent_kill_switch(
         -H "Authorization: Bearer <your_api_key>"
     ```
     """
-    from litellm.proxy.proxy_server import litellm_proxy_admin_name
+    from embrouter.proxy.proxy_server import embrouter_proxy_admin_name
 
     await check_feature_access_for_user(user_api_key_dict, "agents")
     _check_agent_management_permission(user_api_key_dict)
@@ -931,7 +931,7 @@ async def trigger_agent_kill_switch(
         build_kill_switch_audit_log(
             result=result,
             user_api_key_dict=user_api_key_dict,
-            litellm_proxy_admin_name=litellm_proxy_admin_name,
+            embrouter_proxy_admin_name=embrouter_proxy_admin_name,
         )
     )
     if not result.succeeded:
@@ -942,7 +942,7 @@ async def trigger_agent_kill_switch(
 async def _resolve_agent_kill_switch(agent_id: str) -> tuple[str, AgentKillSwitchConfig | None] | None:
     """The DB row wins over this replica's in-memory registry so a trigger never fires a webhook another
     replica has since changed; config.yaml agents have no row and fall back to the registry."""
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is not None:
         where: Final[AgentIdWhere] = {"agent_id": agent_id}
@@ -981,7 +981,7 @@ async def make_agent_public(
     {
         "agent_id": "123e4567-e89b-12d3-a456-426614174000",
         "agent_name": "my-custom-agent",
-        "litellm_params": {
+        "embrouter_params": {
             "make_public": true
         },
         "agent_card_params": {...},
@@ -992,21 +992,21 @@ async def make_agent_public(
     }
     ```
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail=CommonProxyErrors.db_not_connected_error.value)
 
     try:
         # Update the public model groups
-        import litellm
-        from litellm.proxy.agent_endpoints.agent_registry import (
+        import embrouter
+        from embrouter.proxy.agent_endpoints.agent_registry import (
             global_agent_registry as AGENT_REGISTRY,
         )
-        from litellm.proxy.proxy_server import proxy_config
+        from embrouter.proxy.proxy_server import proxy_config
 
         # Check if user has admin permissions
-        if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+        if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
             raise HTTPException(
                 status_code=403,
                 detail={
@@ -1026,7 +1026,7 @@ async def make_agent_public(
 
         config: Final = await proxy_config.get_config()
 
-        current_public_agent_groups: Final = list(litellm.public_agent_groups or [])
+        current_public_agent_groups: Final = list(embrouter.public_agent_groups or [])
         if not AGENT_REGISTRY.ids_for_agent(agent.agent_id).isdisjoint(current_public_agent_groups):
             raise HTTPException(
                 status_code=400,
@@ -1034,14 +1034,14 @@ async def make_agent_public(
             )
         updated_public_agent_groups: Final = [*current_public_agent_groups, agent.agent_id]
 
-        if "litellm_settings" not in config or config["litellm_settings"] is None:
-            config["litellm_settings"] = {}
+        if "embrouter_settings" not in config or config["embrouter_settings"] is None:
+            config["embrouter_settings"] = {}
 
-        config["litellm_settings"]["public_agent_groups"] = updated_public_agent_groups
+        config["embrouter_settings"]["public_agent_groups"] = updated_public_agent_groups
 
         await proxy_config.save_config(new_config=config)
 
-        litellm.public_agent_groups = updated_public_agent_groups
+        embrouter.public_agent_groups = updated_public_agent_groups
 
         verbose_proxy_logger.debug(
             "Updated public agent groups to: %s by user: %s", updated_public_agent_groups, user_api_key_dict.user_id
@@ -1087,7 +1087,7 @@ async def make_agents_public(
     {
         "agent_id": "123e4567-e89b-12d3-a456-426614174000",
         "agent_name": "my-custom-agent",
-        "litellm_params": {
+        "embrouter_params": {
             "make_public": true
         },
         "agent_card_params": {...},
@@ -1098,23 +1098,23 @@ async def make_agents_public(
     }
     ```
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail=CommonProxyErrors.db_not_connected_error.value)
 
     try:
         # Update the public model groups
-        import litellm
-        from litellm.proxy.agent_endpoints.agent_registry import (
+        import embrouter
+        from embrouter.proxy.agent_endpoints.agent_registry import (
             global_agent_registry as AGENT_REGISTRY,
         )
-        from litellm.proxy.proxy_server import proxy_config
+        from embrouter.proxy.proxy_server import proxy_config
 
         # Load existing config
         config: Final = await proxy_config.get_config()
         # Check if user has admin permissions
-        if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+        if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
             raise HTTPException(
                 status_code=403,
                 detail={
@@ -1122,8 +1122,8 @@ async def make_agents_public(
                 },
             )
 
-        if litellm.public_agent_groups is None:
-            litellm.public_agent_groups = []
+        if embrouter.public_agent_groups is None:
+            embrouter.public_agent_groups = []
 
         for agent_id in request.agent_ids:
             agent = AGENT_REGISTRY.get_agent_by_id(agent_id=agent_id)
@@ -1136,24 +1136,24 @@ async def make_agents_public(
                 if agent is None:
                     raise HTTPException(status_code=404, detail=f"Agent with ID {agent_id} not found")
 
-        litellm.public_agent_groups = request.agent_ids
+        embrouter.public_agent_groups = request.agent_ids
 
         # Update config with new settings
-        if "litellm_settings" not in config or config["litellm_settings"] is None:
-            config["litellm_settings"] = {}
+        if "embrouter_settings" not in config or config["embrouter_settings"] is None:
+            config["embrouter_settings"] = {}
 
-        config["litellm_settings"]["public_agent_groups"] = litellm.public_agent_groups
+        config["embrouter_settings"]["public_agent_groups"] = embrouter.public_agent_groups
 
         # Save the updated config
         await proxy_config.save_config(new_config=config)
 
         verbose_proxy_logger.debug(
-            "Updated public agent groups to: %s by user: %s", litellm.public_agent_groups, user_api_key_dict.user_id
+            "Updated public agent groups to: %s by user: %s", embrouter.public_agent_groups, user_api_key_dict.user_id
         )
 
         return {
             "message": "Successfully updated public agent groups",
-            "public_agent_groups": litellm.public_agent_groups,
+            "public_agent_groups": embrouter.public_agent_groups,
             "updated_by": user_api_key_dict.user_id,
         }
     except HTTPException:
@@ -1185,7 +1185,7 @@ async def get_agent_daily_activity(
     """
     await check_feature_access_for_user(user_api_key_dict, "agents")
 
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(
@@ -1202,12 +1202,12 @@ async def get_agent_daily_activity(
     # spend/token rows on the proxy. Restrict non-admin callers to the
     # agents they're permitted to invoke (or that they created), and
     # intersect their explicit `agent_ids` filter with the same allowlist.
-    from litellm.proxy.agent_endpoints.auth.agent_permission_handler import (
+    from embrouter.proxy.agent_endpoints.auth.agent_permission_handler import (
         AgentRequestHandler,
         RestrictedAgentAccess,
         UnrestrictedAgentAccess,
     )
-    from litellm.proxy.management_endpoints.common_utils import _user_has_admin_view
+    from embrouter.proxy.management_endpoints.common_utils import _user_has_admin_view
 
     where_condition: Final[dict[str, object]] = {}
     if not _user_has_admin_view(user_api_key_dict):
@@ -1265,7 +1265,7 @@ async def get_agent_daily_activity(
 
     return await get_daily_activity(
         prisma_client=prisma_client,
-        table_name="litellm_dailyagentspend",
+        table_name="embrouter_dailyagentspend",
         entity_id_field="agent_id",
         entity_id=agent_ids_list,
         entity_metadata_field=agent_metadata,

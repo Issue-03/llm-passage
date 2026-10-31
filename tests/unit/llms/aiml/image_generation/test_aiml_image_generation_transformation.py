@@ -3,19 +3,19 @@ import os
 import pytest
 
 
-os.environ["LITELLM_LOCAL_MODEL_COST_MAP"] = "True"
+os.environ["EMBROUTER_LOCAL_MODEL_COST_MAP"] = "True"
 
-import litellm
+import embrouter
 
-litellm.model_cost = litellm.get_model_cost_map(url="")
+embrouter.model_cost = embrouter.get_model_cost_map(url="")
 
-from litellm.llms.aiml.image_generation.cost_calculator import (
+from embrouter.llms.aiml.image_generation.cost_calculator import (
     cost_calculator as aiml_cost_calculator,
 )
-from litellm.llms.aiml.image_generation.transformation import (
+from embrouter.llms.aiml.image_generation.transformation import (
     AimlImageGenerationConfig,
 )
-from litellm.types.utils import ImageObject, ImageResponse
+from embrouter.types.utils import ImageObject, ImageResponse
 
 
 def test_openai_style_model_supports_full_openai_param_surface():
@@ -64,7 +64,7 @@ def test_openai_style_request_passes_params_through_unchanged():
         model="openai/gpt-image-2",
         prompt="A cute baby sea otter",
         optional_params=mapped,
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -96,7 +96,7 @@ def test_flux_style_request_still_remaps_to_legacy_fields():
         model="flux-pro/v1.1",
         prompt="hello",
         optional_params=mapped,
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 

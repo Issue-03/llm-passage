@@ -4,8 +4,8 @@ from typing import Any, Final
 
 import httpx
 
-from litellm import verbose_logger
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter import verbose_logger
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
 
 
 class OllamaError(BaseLLMException):
@@ -42,7 +42,7 @@ def _convert_image(image: str) -> str:
     return _reencode_as_jpeg(raw_image, original=image)
 
 
-from litellm.llms.base_llm.base_utils import BaseLLMModelInfo
+from embrouter.llms.base_llm.base_utils import BaseLLMModelInfo
 
 
 class OllamaModelInfo(BaseLLMModelInfo):
@@ -54,23 +54,23 @@ class OllamaModelInfo(BaseLLMModelInfo):
 
     @staticmethod
     def get_api_key(api_key=None) -> str | None:
-        """Get API key from environment variables or litellm configuration"""
+        """Get API key from environment variables or embrouter configuration"""
         import os
 
-        import litellm
-        from litellm.secret_managers.main import get_secret_str
+        import embrouter
+        from embrouter.secret_managers.main import get_secret_str
 
         return (
             api_key
             or os.environ.get("OLLAMA_API_KEY")
-            or litellm.api_key
-            or litellm.openai_key
+            or embrouter.api_key
+            or embrouter.openai_key
             or get_secret_str("OLLAMA_API_KEY")
         )
 
     @staticmethod
     def get_api_base(api_base: str | None = None) -> str:
-        from litellm.secret_managers.main import get_secret_str
+        from embrouter.secret_managers.main import get_secret_str
 
         # env var OLLAMA_API_BASE or default
         return api_base or get_secret_str("OLLAMA_API_BASE") or "http://localhost:11434"
@@ -122,7 +122,7 @@ class OllamaModelInfo(BaseLLMModelInfo):
             verbose_logger.warning("Error retrieving ollama tag endpoint: %s", e)
             # If tags endpoint fails, fall back to static list
             try:
-                from litellm import models_by_provider
+                from embrouter import models_by_provider
 
                 static: Final = models_by_provider.get("ollama", []) or []
                 return [f"ollama/{m}" for m in static]
@@ -141,7 +141,7 @@ class OllamaModelInfo(BaseLLMModelInfo):
 
     @staticmethod
     def _is_static_ollama_model(model: str) -> bool:
-        from litellm import model_cost
+        from embrouter import model_cost
 
         stripped_model: Final = OllamaModelInfo._strip_ollama_model_prefix(model)
         potential_model_names: Final = {
@@ -173,7 +173,7 @@ class OllamaModelInfo(BaseLLMModelInfo):
         api_base: str | None = None,
         api_key: str | None = None,
     ) -> dict[str, Any]:
-        from litellm import module_level_client
+        from embrouter import module_level_client
 
         model = self._strip_ollama_model_prefix(model)
         passed_api_base: Final = api_base
@@ -192,7 +192,7 @@ class OllamaModelInfo(BaseLLMModelInfo):
             verbose_logger.debug("OllamaError: Could not get model info.")
             return {
                 "key": model,
-                "litellm_provider": "ollama",
+                "embrouter_provider": "ollama",
                 "mode": "chat",
                 "input_cost_per_token": 0.0,
                 "output_cost_per_token": 0.0,
@@ -206,7 +206,7 @@ class OllamaModelInfo(BaseLLMModelInfo):
 
         return {
             "key": model,
-            "litellm_provider": "ollama",
+            "embrouter_provider": "ollama",
             "mode": "chat",
             "supports_function_calling": self._supports_function_calling(model_info),
             "input_cost_per_token": 0.0,
@@ -232,7 +232,7 @@ class OllamaModelInfo(BaseLLMModelInfo):
         model: str,
         messages: list,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key=None,
         api_base=None,
     ) -> dict:

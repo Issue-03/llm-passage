@@ -18,7 +18,7 @@ class LLMClientCache(InMemoryCache):
 
     Nor can eviction be left to rely on garbage collection. The SDK clients are
     reference cycles, so an evicted client and its open TCP connections survive
-    until a generational collection runs. Instead a client litellm created is
+    until a generational collection runs. Instead a client embrouter created is
     handed to ``EvictedClientCloser``, which closes it once a grace window has
     passed. Clients the caller supplied are left untouched.
     """
@@ -55,15 +55,15 @@ class LLMClientCache(InMemoryCache):
         except RuntimeError:  # handle no current running event loop
             return key
 
-    def set_cache(self, key: str, value: object, litellm_owned_client: bool = False, **kwargs):
-        """``litellm_owned_client`` marks a client litellm built, so it may be closed once evicted."""
-        if litellm_owned_client:
+    def set_cache(self, key: str, value: object, embrouter_owned_client: bool = False, **kwargs):
+        """``embrouter_owned_client`` marks a client embrouter built, so it may be closed once evicted."""
+        if embrouter_owned_client:
             self.evicted_client_closer.mark_owned(value)
         key = self.update_cache_key_with_event_loop(key)
         return super().set_cache(key, value, **kwargs)
 
-    async def async_set_cache(self, key: str, value: object, litellm_owned_client: bool = False, **kwargs):
-        if litellm_owned_client:
+    async def async_set_cache(self, key: str, value: object, embrouter_owned_client: bool = False, **kwargs):
+        if embrouter_owned_client:
             self.evicted_client_closer.mark_owned(value)
         key = self.update_cache_key_with_event_loop(key)
         return await super().async_set_cache(key, value, **kwargs)

@@ -3,7 +3,7 @@ import { makeInteractionsRequest } from "./interactions_api";
 
 vi.mock("@/components/networking", () => ({
   getProxyBaseUrl: vi.fn(() => "https://example.com"),
-  getGlobalLitellmHeaderName: vi.fn(() => "Authorization"),
+  getGlobalEmbrouterHeaderName: vi.fn(() => "Authorization"),
 }));
 
 vi.mock("@/lib/toast", () => ({

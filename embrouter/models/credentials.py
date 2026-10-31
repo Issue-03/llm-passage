@@ -2,7 +2,7 @@
 Credential table models.
 
 These are the canonical credential types for the proxy. They live in the model
-layer; ``litellm.types.utils`` re-exports them for backwards compatibility.
+layer; ``embrouter.types.utils`` re-exports them for backwards compatibility.
 """
 
 from collections.abc import Mapping

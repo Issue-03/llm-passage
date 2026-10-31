@@ -5,10 +5,10 @@ import { renderWithProviders } from "@/../tests/test-utils";
 import AgentCostView from "./agent_cost_view";
 import type { Agent } from "@/components/agents/types";
 
-const makeAgent = (litellmParams: Agent["litellm_params"]): Agent => ({
+const makeAgent = (embrouterParams: Agent["embrouter_params"]): Agent => ({
   agent_id: "agent-1",
   agent_name: "Test Agent",
-  litellm_params: litellmParams,
+  embrouter_params: embrouterParams,
 });
 
 describe("AgentCostView", () => {

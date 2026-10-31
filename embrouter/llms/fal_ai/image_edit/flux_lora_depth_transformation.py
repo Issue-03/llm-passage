@@ -4,10 +4,10 @@ from typing import Final
 
 from httpx._types import RequestFiles
 
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.images.main import ImageEditOptionalRequestParams
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import FileTypes
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.images.main import ImageEditOptionalRequestParams
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import FileTypes
 
 from .transformation import DEFAULT_BASE_URL, FalAIImageEditConfig, to_data_url
 
@@ -43,7 +43,7 @@ class FalAIFluxLoraDepthEditConfig(FalAIImageEditConfig):
         self,
         model: str,
         api_base: str | None,
-        litellm_params: dict,  # mutable-ok: base class contract
+        embrouter_params: dict,  # mutable-ok: base class contract
     ) -> str:
         base_url: Final = (api_base or get_secret_str("FAL_AI_API_BASE") or DEFAULT_BASE_URL).rstrip("/")
         return f"{base_url}/{FLUX_LORA_DEPTH_ENDPOINT}"
@@ -54,7 +54,7 @@ class FalAIFluxLoraDepthEditConfig(FalAIImageEditConfig):
         prompt: str | None,
         image: FileTypes | None,
         image_edit_optional_request_params: dict,  # mutable-ok: base class contract
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,  # mutable-ok: base class contract
     ) -> tuple[dict, RequestFiles]:  # mutable-ok: base class contract returns a dict
         images: Final = tuple(img for img in (image if isinstance(image, list) else (image,)) if img is not None)

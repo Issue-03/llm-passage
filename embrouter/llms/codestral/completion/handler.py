@@ -9,19 +9,19 @@ from typing import Final, Protocol
 import httpx
 from typing_extensions import NotRequired, ReadOnly, TypedDict
 
-import litellm
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLogging
-from litellm.litellm_core_utils.logging_utils import track_llm_api_timing
-from litellm.litellm_core_utils.prompt_templates.factory import (
+import embrouter
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLogging
+from embrouter.embrouter_core_utils.logging_utils import track_llm_api_timing
+from embrouter.embrouter_core_utils.prompt_templates.factory import (
     custom_prompt,
     prompt_factory,
 )
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.llms.custom_httpx.http_handler import (
     AsyncHTTPHandler,
     get_async_httpx_client,
 )
-from litellm.types.utils import TextChoices
-from litellm.utils import CustomStreamWrapper, TextCompletionResponse
+from embrouter.types.utils import TextChoices
+from embrouter.utils import CustomStreamWrapper, TextCompletionResponse
 
 
 class _CodestralChoiceMessage(TypedDict):
@@ -166,7 +166,7 @@ class CodestralTextCompletion:
         response: _CodestralHTTPResponse,
         model_response: TextCompletionResponse,
         stream: bool,
-        logging_obj: LiteLLMLogging,
+        logging_obj: EmbRouterLogging,
         optional_params: dict,
         api_key: str,
         data: dict | str,
@@ -213,7 +213,7 @@ class CodestralTextCompletion:
             _logprobs = None
 
             _choice_message = choice.get("message", {})
-            _choice = litellm.utils.TextChoices(
+            _choice = embrouter.utils.TextChoices(
                 finish_reason=choice.get("finish_reason"),
                 index=choice.get("index"),
                 text=_choice_message.get("content"),
@@ -222,7 +222,7 @@ class CodestralTextCompletion:
 
             _choices.append(_choice)
 
-        _response: Final = litellm.TextCompletionResponse(
+        _response: Final = embrouter.TextCompletionResponse(
             id=completion_response.get("id"),
             choices=_choices,
             created=completion_response.get("created"),
@@ -243,11 +243,11 @@ class CodestralTextCompletion:
         print_verbose: Callable,
         encoding,
         api_key: str,
-        logging_obj: LiteLLMLogging,
+        logging_obj: EmbRouterLogging,
         optional_params: dict,
         timeout: float | httpx.Timeout,
         acompletion=None,
-        litellm_params=None,
+        embrouter_params=None,
         logger_fn=None,
         headers: dict = {},
     ) -> TextCompletionResponse | CustomStreamWrapper:
@@ -271,7 +271,7 @@ class CodestralTextCompletion:
             prompt = prompt_factory(model=model, messages=messages)
 
         ## Load Config
-        config: Final = litellm.CodestralTextCompletionConfig.get_config()
+        config: Final = embrouter.CodestralTextCompletionConfig.get_config()
         for k, v in config.items():
             if (
                 k not in optional_params
@@ -312,7 +312,7 @@ class CodestralTextCompletion:
                     api_key=api_key,
                     logging_obj=logging_obj,
                     optional_params=optional_params,
-                    litellm_params=litellm_params,
+                    embrouter_params=embrouter_params,
                     logger_fn=logger_fn,
                     headers=headers,
                     timeout=timeout,
@@ -331,7 +331,7 @@ class CodestralTextCompletion:
                     logging_obj=logging_obj,
                     optional_params=optional_params,
                     stream=False,
-                    litellm_params=litellm_params,
+                    embrouter_params=embrouter_params,
                     logger_fn=logger_fn,
                     headers=headers,
                     timeout=timeout,
@@ -339,7 +339,7 @@ class CodestralTextCompletion:
 
         ### SYNC STREAMING
         if stream is True:
-            response = litellm.module_level_client.post(
+            response = embrouter.module_level_client.post(
                 completion_url,
                 headers=headers,
                 data=json.dumps(data),
@@ -354,7 +354,7 @@ class CodestralTextCompletion:
             return _response
         ### SYNC COMPLETION
         else:
-            response = litellm.module_level_client.post(
+            response = embrouter.module_level_client.post(
                 url=completion_url,
                 headers=headers,
                 data=json.dumps(data),
@@ -388,12 +388,12 @@ class CodestralTextCompletion:
         data: dict,
         optional_params: dict,
         timeout: float | httpx.Timeout,
-        litellm_params=None,
+        embrouter_params=None,
         logger_fn=None,
         headers={},
     ) -> TextCompletionResponse:
         async_handler: Final = get_async_httpx_client(
-            llm_provider=litellm.LlmProviders.TEXT_COMPLETION_CODESTRAL,
+            llm_provider=embrouter.LlmProviders.TEXT_COMPLETION_CODESTRAL,
             params={"timeout": timeout},
         )
         try:
@@ -431,11 +431,11 @@ class CodestralTextCompletion:
         print_verbose: Callable,
         encoding,
         api_key,
-        logging_obj: LiteLLMLogging,
+        logging_obj: EmbRouterLogging,
         data: dict,
         timeout: float | httpx.Timeout,
         optional_params=None,
-        litellm_params=None,
+        embrouter_params=None,
         logger_fn=None,
         headers={},
     ) -> CustomStreamWrapper:

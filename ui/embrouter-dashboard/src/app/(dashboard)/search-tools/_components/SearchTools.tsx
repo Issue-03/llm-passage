@@ -91,8 +91,8 @@ const SearchTools: React.FC<SearchToolsProps> = ({ accessToken, userRole, userID
     }
     const editFormValues: EditSearchToolFormValues = {
       search_tool_name: tool.search_tool_name,
-      search_provider: tool.litellm_params.search_provider,
-      api_key: tool.litellm_params.api_key,
+      search_provider: tool.embrouter_params.search_provider,
+      api_key: tool.embrouter_params.api_key,
       description: tool.search_tool_info?.description,
     };
     form.reset(editFormValues);
@@ -131,7 +131,7 @@ const SearchTools: React.FC<SearchToolsProps> = ({ accessToken, userRole, userID
 
   const toolToDelete = searchTools?.find((t) => t.search_tool_id === toolIdToDelete);
   const providerInfo = toolToDelete
-    ? availableProviders.find((p) => p.provider_name === toolToDelete.litellm_params.search_provider)
+    ? availableProviders.find((p) => p.provider_name === toolToDelete.embrouter_params.search_provider)
     : null;
 
   const handleCreateSuccess = (newSearchTool: SearchTool) => {
@@ -224,7 +224,7 @@ const SearchTools: React.FC<SearchToolsProps> = ({ accessToken, userRole, userID
           searchTools?.find((tool: SearchTool) => tool.search_tool_id === selectedToolId) || {
             search_tool_id: "",
             search_tool_name: "",
-            litellm_params: {
+            embrouter_params: {
               search_provider: "",
             },
           }
@@ -265,7 +265,7 @@ const SearchTools: React.FC<SearchToolsProps> = ({ accessToken, userRole, userID
                 { label: "ID", value: toolToDelete.search_tool_id, code: true },
                 {
                   label: "Provider",
-                  value: providerInfo?.ui_friendly_name || toolToDelete.litellm_params.search_provider,
+                  value: providerInfo?.ui_friendly_name || toolToDelete.embrouter_params.search_provider,
                 },
                 { label: "Description", value: toolToDelete.search_tool_info?.description || "-" },
               ]

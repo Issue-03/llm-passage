@@ -6,30 +6,30 @@ from typing import Any, Final, Literal, TypedDict
 from fastapi import HTTPException
 from typing_extensions import ReadOnly, Required
 
-from litellm import ChatCompletionToolParam
-from litellm._logging import verbose_proxy_logger
-from litellm.caching.dual_cache import DualCache
-from litellm.exceptions import GuardrailRaisedException
-from litellm.integrations.custom_guardrail import (
+from embrouter import ChatCompletionToolParam
+from embrouter._logging import verbose_proxy_logger
+from embrouter.caching.dual_cache import DualCache
+from embrouter.exceptions import GuardrailRaisedException
+from embrouter.integrations.custom_guardrail import (
     CustomGuardrail,
     log_guardrail_information,
 )
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.common_utils.callback_utils import (
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.common_utils.callback_utils import (
     add_guardrail_to_applied_guardrails_header,
 )
-from litellm.proxy.guardrails.anthropic_sse import (
+from embrouter.proxy.guardrails.anthropic_sse import (
     anthropic_sse_chunks_from_response,
     assemble_anthropic_sse_stream,
     is_raw_sse_stream,
 )
-from litellm.types.guardrails import GuardrailEventHooks, LitellmParams
-from litellm.types.proxy.guardrails.guardrail_hooks.tool_permission import (
+from embrouter.types.guardrails import GuardrailEventHooks, EmbrouterParams
+from embrouter.types.proxy.guardrails.guardrail_hooks.tool_permission import (
     PermissionError,
     ToolPermissionRule,
     ToolResult,
 )
-from litellm.types.utils import (
+from embrouter.types.utils import (
     CallTypesLiteral,
     ChatCompletionMessageToolCall,
     Choices,
@@ -114,7 +114,7 @@ class ToolPermissionGuardrail(CustomGuardrail):
 
         ``self.rules`` plus ``_compiled_rule_targets`` / ``_compiled_rule_patterns``
         are the state every matching path reads. Centralizing the build here lets
-        both ``__init__`` and ``update_in_memory_litellm_params`` recompile from a
+        both ``__init__`` and ``update_in_memory_embrouter_params`` recompile from a
         single source of truth, so an in-place update (PUT /guardrails, immediate
         sync) reflects rule changes instead of keeping the construction-time maps.
         """
@@ -159,7 +159,7 @@ class ToolPermissionGuardrail(CustomGuardrail):
         self._compiled_rule_targets = compiled_targets
         self._compiled_rule_patterns = compiled_patterns
 
-    def update_in_memory_litellm_params(self, litellm_params: LitellmParams | dict) -> None:
+    def update_in_memory_embrouter_params(self, embrouter_params: EmbrouterParams | dict) -> None:
         """Apply updated params in place, rebuilding the compiled rule state.
 
         The base implementation only ``setattr``s raw fields, which would leave
@@ -169,17 +169,17 @@ class ToolPermissionGuardrail(CustomGuardrail):
         immediate in-memory sync take effect, mirroring the PresidioGuardrail
         override of this method.
         """
-        # ``litellm_params`` may arrive as the raw DB dict (the proxy ``cast()``s
-        # it to ``LitellmParams`` without converting), so handle both shapes. The
+        # ``embrouter_params`` may arrive as the raw DB dict (the proxy ``cast()``s
+        # it to ``EmbrouterParams`` without converting), so handle both shapes. The
         # base ``setattr`` loop is model-only, so apply the dict case here.
         previous_rules: Final = self.rules
-        if isinstance(litellm_params, dict):
-            params = litellm_params
+        if isinstance(embrouter_params, dict):
+            params = embrouter_params
             for key, value in params.items():
                 setattr(self, key, value)
         else:
-            super().update_in_memory_litellm_params(litellm_params)
-            params = vars(litellm_params)
+            super().update_in_memory_embrouter_params(embrouter_params)
+            params = vars(embrouter_params)
 
         # The generic update above sets ``self.rules`` from the incoming value
         # (None on a partial update that omits rules), but never rebuilds the
@@ -208,7 +208,7 @@ class ToolPermissionGuardrail(CustomGuardrail):
 
     @staticmethod
     def get_config_model():
-        from litellm.types.proxy.guardrails.guardrail_hooks.tool_permission import (
+        from embrouter.types.proxy.guardrails.guardrail_hooks.tool_permission import (
             ToolPermissionGuardrailConfigModel,
         )
 
@@ -343,7 +343,7 @@ class ToolPermissionGuardrail(CustomGuardrail):
         collected: dict[str, list[object]],
         depth: int = 0,
     ) -> None:
-        from litellm.constants import DEFAULT_MAX_RECURSE_DEPTH
+        from embrouter.constants import DEFAULT_MAX_RECURSE_DEPTH
 
         if depth > DEFAULT_MAX_RECURSE_DEPTH:
             return
@@ -799,7 +799,7 @@ class ToolPermissionGuardrail(CustomGuardrail):
         """ """
         verbose_proxy_logger.debug("Tool Permission Guardrail Pre-Call Hook")
 
-        from litellm.proxy.common_utils.callback_utils import (
+        from embrouter.proxy.common_utils.callback_utils import (
             add_guardrail_to_applied_guardrails_header,
         )
 
@@ -907,9 +907,9 @@ class ToolPermissionGuardrail(CustomGuardrail):
         """
 
         # Import here to avoid circular imports
-        from litellm.llms.base_llm.base_model_iterator import MockResponseIterator
-        from litellm.main import stream_chunk_builder
-        from litellm.types.utils import TextCompletionResponse
+        from embrouter.llms.base_llm.base_model_iterator import MockResponseIterator
+        from embrouter.main import stream_chunk_builder
+        from embrouter.types.utils import TextCompletionResponse
 
         # Collect all chunks to process them together
         all_chunks: Final[list[ModelResponseStream]] = []

@@ -9,14 +9,14 @@ from typing import TYPE_CHECKING, Final
 
 import httpx
 
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.base_llm.text_to_speech.transformation import BaseTextToSpeechConfig, TextToSpeechRequestData
-from litellm.types.llms.openai import HttpxBinaryResponseContent
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.base_llm.text_to_speech.transformation import BaseTextToSpeechConfig, TextToSpeechRequestData
+from embrouter.types.llms.openai import HttpxBinaryResponseContent
 
 from ..common_utils import EdenAIException, endpoint_url, json_headers, reported_cost
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
 
 _SUPPORTED_PARAMS: Final = ("voice", "response_format", "speed", "instructions")
 
@@ -48,7 +48,7 @@ class EdenAITextToSpeechConfig(BaseTextToSpeechConfig):
         self,
         model: str,
         api_base: str | None,
-        litellm_params: dict[str, object],  # mutable-ok: inherited contract
+        embrouter_params: dict[str, object],  # mutable-ok: inherited contract
     ) -> str:
         return endpoint_url(api_base, "audio/speech")
 
@@ -58,7 +58,7 @@ class EdenAITextToSpeechConfig(BaseTextToSpeechConfig):
         input: str,
         voice: str | None,
         optional_params: dict[str, object],  # mutable-ok: inherited contract
-        litellm_params: dict[str, object],  # mutable-ok: inherited contract
+        embrouter_params: dict[str, object],  # mutable-ok: inherited contract
         headers: dict[str, object],  # mutable-ok: inherited contract
     ) -> TextToSpeechRequestData:
         fields: Final = (("model", model), ("input", input), ("voice", voice), *optional_params.items())
@@ -70,7 +70,7 @@ class EdenAITextToSpeechConfig(BaseTextToSpeechConfig):
         self,
         model: str,
         raw_response: httpx.Response,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
     ) -> HttpxBinaryResponseContent:
         response: Final = HttpxBinaryResponseContent(response=raw_response)
         response.set_response_cost(reported_cost(raw_response.headers))

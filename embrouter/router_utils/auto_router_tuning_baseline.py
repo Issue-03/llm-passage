@@ -8,7 +8,7 @@ from typing import Final
 
 from pydantic import ValidationError
 
-from litellm.router_strategy.complexity_router.config import ComplexityRouterConfig
+from embrouter.router_strategy.complexity_router.config import ComplexityRouterConfig
 
 # v2 hashes combine models and scoring rules; a new snapshot is required to separate them.
 TUNING_BASELINE_PARAM_NAME: Final = "auto_router_tuning_baseline_v3"
@@ -48,7 +48,7 @@ def tuning_fingerprint(complexity_router_config: object) -> str | None:
     except ValidationError:
         return None
     # The UI always writes this built-in marker. Freeze its spelling so future defaults cannot change recorded hashes.
-    default_escalation: Final = validated.escalation_keywords in (None, ["LITELLM ESCALATE"])
+    default_escalation: Final = validated.escalation_keywords in (None, ["EMBROUTER ESCALATE"])
     supplied: Final = (_TUNING_FIELD_SET & frozenset(raw)) - (
         frozenset(("escalation_keywords",)) if default_escalation else frozenset()
     )
@@ -83,8 +83,8 @@ def router_identity(deployment: Mapping[str, object]) -> str | None:
     model_name: Final = deployment.get("model_name")
     if not isinstance(model_name, str) or not model_name:
         return None
-    litellm_params: Final = _mapping(deployment.get("litellm_params"))
-    tags: Final = litellm_params.get("tags")
+    embrouter_params: Final = _mapping(deployment.get("embrouter_params"))
+    tags: Final = embrouter_params.get("tags")
     normalized_tags: Final = (
         tuple(sorted(str(tag) for tag in tags))
         if isinstance(tags, Iterable) and not isinstance(tags, str)
@@ -95,9 +95,9 @@ def router_identity(deployment: Mapping[str, object]) -> str | None:
 
 def heuristic_v1_router_fingerprint(deployment: Mapping[str, object]) -> tuple[str, str] | None:
     """The identity/fingerprint pair for a heuristic-v1 complexity router, else None."""
-    litellm_params: Final = _mapping(deployment.get("litellm_params"))
-    model: Final = litellm_params.get("model")
-    config: Final = litellm_params.get("complexity_router_config")
+    embrouter_params: Final = _mapping(deployment.get("embrouter_params"))
+    model: Final = embrouter_params.get("model")
+    config: Final = embrouter_params.get("complexity_router_config")
     if (
         not isinstance(model, str)
         or not model.startswith(_AUTO_ROUTER_COMPLEXITY_PREFIX)

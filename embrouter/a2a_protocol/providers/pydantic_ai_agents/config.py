@@ -5,8 +5,8 @@ Pydantic AI provider configuration.
 from collections.abc import AsyncIterator
 from typing import Any
 
-from litellm.a2a_protocol.providers.base import BaseA2AProviderConfig
-from litellm.a2a_protocol.providers.pydantic_ai_agents.handler import PydanticAIHandler
+from embrouter.a2a_protocol.providers.base import BaseA2AProviderConfig
+from embrouter.a2a_protocol.providers.pydantic_ai_agents.handler import PydanticAIHandler
 
 
 class PydanticAIProviderConfig(BaseA2AProviderConfig):

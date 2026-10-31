@@ -2,6 +2,6 @@
 Serper Search API module.
 """
 
-from litellm.llms.serper.search.transformation import SerperSearchConfig
+from embrouter.llms.serper.search.transformation import SerperSearchConfig
 
 __all__ = ["SerperSearchConfig"]

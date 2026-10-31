@@ -3,9 +3,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from litellm.proxy.guardrails.guardrail_hooks.noma import NomaV2Guardrail
-from litellm.proxy.guardrails.guardrail_hooks.noma.noma import NomaBlockedMessage
-from litellm.types.proxy.guardrails.guardrail_hooks.noma import (
+from embrouter.proxy.guardrails.guardrail_hooks.noma import NomaV2Guardrail
+from embrouter.proxy.guardrails.guardrail_hooks.noma.noma import NomaBlockedMessage
+from embrouter.types.proxy.guardrails.guardrail_hooks.noma import (
     NomaV2GuardrailConfigModel,
 )
 
@@ -27,7 +27,7 @@ def noma_v2_guardrail():
 class TestNomaV2Configuration:
     @pytest.mark.asyncio
     async def test_provider_specific_params_include_noma_v2_fields(self):
-        from litellm.proxy.guardrails.guardrail_endpoints import (
+        from embrouter.proxy.guardrails.guardrail_endpoints import (
             get_provider_specific_params,
         )
 
@@ -118,8 +118,8 @@ class TestNomaV2Configuration:
         request_data = {
             "messages": [{"role": "user", "content": "hello"}],
             "metadata": {"headers": {"x-noma-application-id": "header-app"}},
-            "litellm_metadata": {"user_api_key_alias": "litellm-alias"},
-            "litellm_call_id": "call-id-1",
+            "embrouter_metadata": {"user_api_key_alias": "embrouter-alias"},
+            "embrouter_call_id": "call-id-1",
         }
         payload = noma_v2_guardrail._build_scan_payload(
             inputs=inputs,
@@ -152,7 +152,7 @@ class TestNomaV2Configuration:
             "messages": [{"role": "user", "content": "hello"}],
             "input": [{"role": "user", "content": "hello"}],
             "metadata": {"headers": {"x-noma-application-id": "header-app"}},
-            "litellm_call_id": "call-id-1",
+            "embrouter_call_id": "call-id-1",
             "stream": True,
         }
 
@@ -168,7 +168,7 @@ class TestNomaV2Configuration:
         assert "input" not in payload["request_data"]
         # Keys the scanner reads for context must survive.
         assert payload["request_data"]["metadata"] == request_data["metadata"]
-        assert payload["request_data"]["litellm_call_id"] == "call-id-1"
+        assert payload["request_data"]["embrouter_call_id"] == "call-id-1"
         assert payload["request_data"]["stream"] is True
         # The conversation still reaches the scanner through `inputs`.
         assert payload["inputs"] == inputs
@@ -255,13 +255,13 @@ class TestNomaV2Configuration:
                     "complete_streaming_response": {"status": "completed"},
                     "stream": False,
                     "call_type": "acompletion",
-                    "litellm_call_id": "call-id-123",
+                    "embrouter_call_id": "call-id-123",
                     "function_id": "fn-id-456",
-                    "litellm_trace_id": "trace-id-789",
+                    "embrouter_trace_id": "trace-id-789",
                     "api_key": "included-as-is",
                 }
 
-        request_data = {"litellm_logging_obj": "<Logging object>"}
+        request_data = {"embrouter_logging_obj": "<Logging object>"}
         payload = noma_v2_guardrail._build_scan_payload(
             inputs={"texts": ["hello"]},
             request_data=request_data,
@@ -270,18 +270,18 @@ class TestNomaV2Configuration:
             application_id="test-app",
         )
 
-        assert payload["request_data"]["litellm_logging_obj"] == {
+        assert payload["request_data"]["embrouter_logging_obj"] == {
             "complete_streaming_response": {"status": "completed"},
             "model": "gpt-4.1-mini",
             "stream": False,
             "call_type": "acompletion",
-            "litellm_call_id": "call-id-123",
+            "embrouter_call_id": "call-id-123",
             "function_id": "fn-id-456",
-            "litellm_trace_id": "trace-id-789",
+            "embrouter_trace_id": "trace-id-789",
             "api_key": "included-as-is",
         }
         assert "logging_obj" not in payload
-        assert request_data["litellm_logging_obj"] == "<Logging object>"
+        assert request_data["embrouter_logging_obj"] == "<Logging object>"
 
     def test_build_scan_payload_forwards_non_dict_model_call_details_unchanged(
         self, noma_v2_guardrail
@@ -292,13 +292,13 @@ class TestNomaV2Configuration:
 
         payload = noma_v2_guardrail._build_scan_payload(
             inputs={"texts": ["hello"]},
-            request_data={"litellm_call_id": "call-id-1"},
+            request_data={"embrouter_call_id": "call-id-1"},
             input_type="request",
             logging_obj=_LoggingObjWithoutDetails(),
             application_id="test-app",
         )
 
-        assert payload["request_data"]["litellm_logging_obj"] is None
+        assert payload["request_data"]["embrouter_logging_obj"] is None
 
     @pytest.mark.asyncio
     async def test_call_noma_scan_sanitizes_response_model_dump_object(
@@ -335,11 +335,11 @@ class TestNomaV2Configuration:
         self, noma_v2_guardrail
     ):
         with patch(
-            "litellm.proxy.guardrails.guardrail_hooks.noma.noma_v2.json.dumps",
+            "embrouter.proxy.guardrails.guardrail_hooks.noma.noma_v2.json.dumps",
             side_effect=TypeError("cannot serialize"),
         ):
             with patch(
-                "litellm.proxy.guardrails.guardrail_hooks.noma.noma_v2.safe_dumps",
+                "embrouter.proxy.guardrails.guardrail_hooks.noma.noma_v2.safe_dumps",
                 return_value='{"fallback": true}',
             ) as mock_safe_dumps:
                 sanitized = noma_v2_guardrail._sanitize_payload_for_transport(
@@ -353,11 +353,11 @@ class TestNomaV2Configuration:
         self, noma_v2_guardrail
     ):
         with patch(
-            "litellm.proxy.guardrails.guardrail_hooks.noma.noma_v2.safe_json_loads",
+            "embrouter.proxy.guardrails.guardrail_hooks.noma.noma_v2.safe_json_loads",
             return_value={},
         ):
             with patch(
-                "litellm.proxy.guardrails.guardrail_hooks.noma.noma_v2.verbose_proxy_logger.warning"
+                "embrouter.proxy.guardrails.guardrail_hooks.noma.noma_v2.verbose_proxy_logger.warning"
             ) as mock_warning:
                 sanitized = noma_v2_guardrail._sanitize_payload_for_transport(
                     {"inputs": {"texts": ["hello"]}}
@@ -372,11 +372,11 @@ class TestNomaV2Configuration:
         self, noma_v2_guardrail
     ):
         with patch(
-            "litellm.proxy.guardrails.guardrail_hooks.noma.noma_v2.safe_json_loads",
+            "embrouter.proxy.guardrails.guardrail_hooks.noma.noma_v2.safe_json_loads",
             return_value=["not-a-dict"],
         ):
             with patch(
-                "litellm.proxy.guardrails.guardrail_hooks.noma.noma_v2.verbose_proxy_logger.warning"
+                "embrouter.proxy.guardrails.guardrail_hooks.noma.noma_v2.verbose_proxy_logger.warning"
             ) as mock_warning:
                 sanitized = noma_v2_guardrail._sanitize_payload_for_transport(
                     {"inputs": {"texts": ["hello"]}}
@@ -617,7 +617,7 @@ class TestNomaV2ApplicationIdResolution:
         assert payload["application_id"] == "test-app"
 
     @pytest.mark.asyncio
-    async def test_apply_guardrail_falls_back_to_key_alias_from_litellm_metadata(
+    async def test_apply_guardrail_falls_back_to_key_alias_from_embrouter_metadata(
         self, noma_v2_guardrail
     ):
         """When no explicit application_id is set, fall back to user_api_key_alias
@@ -626,7 +626,7 @@ class TestNomaV2ApplicationIdResolution:
         call_mock = AsyncMock(return_value={"action": "NONE"})
         request_data = {
             "metadata": {},
-            "litellm_metadata": {"user_api_key_alias": "test-key-alias"},
+            "embrouter_metadata": {"user_api_key_alias": "test-key-alias"},
         }
         with patch.object(
             noma_v2_guardrail,

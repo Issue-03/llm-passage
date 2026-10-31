@@ -28,78 +28,78 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import TypeAdapter
 from typing_extensions import ReadOnly, TypedDict
 
-from litellm._logging import verbose_proxy_logger
-from litellm._uuid import uuid
-from litellm.proxy._types import *
-from litellm.proxy.auth.auth_checks import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter._uuid import uuid
+from embrouter.proxy._types import *
+from embrouter.proxy.auth.auth_checks import (
     can_user_call_model,
     delete_cache_key_objects,
     get_jwt_key_mapping_cache_keys_for_tokens,
     get_user_object,
 )
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.common_utils.auth_cache_invalidation_pubsub import evict_and_broadcast
-from litellm.proxy.common_utils.timezone_utils import get_budget_reset_time
-from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-from litellm.proxy.management_endpoints.budget_management_endpoints import (
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.common_utils.auth_cache_invalidation_pubsub import evict_and_broadcast
+from embrouter.proxy.common_utils.timezone_utils import get_budget_reset_time
+from embrouter.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+from embrouter.proxy.management_endpoints.budget_management_endpoints import (
     new_budget,
     update_budget,
 )
-from litellm.proxy.management_endpoints.common_daily_activity import get_daily_activity
-from litellm.proxy.management_endpoints.common_utils import (
+from embrouter.proxy.management_endpoints.common_daily_activity import get_daily_activity
+from embrouter.proxy.management_endpoints.common_utils import (
     _set_object_metadata_field,
     _user_has_admin_view,
     validate_budget_duration,
 )
-from litellm.proxy.management_helpers.object_permission_utils import (
+from embrouter.proxy.management_helpers.object_permission_utils import (
     handle_update_object_permission_common,
     prepare_object_permission_upsert,
     reject_ambiguous_mcp_tool_permission_keys,
 )
-from litellm.proxy.management_helpers.utils import (
+from embrouter.proxy.management_helpers.utils import (
     get_new_internal_user_defaults,
     management_endpoint_wrapper,
 )
-from litellm.proxy.utils import PrismaClient, ProxyLogging
-from litellm.repositories.budget_repository import BudgetRepository
-from litellm.repositories.object_permission_repository import ObjectPermissionRepository
-from litellm.repositories.organization_repository import OrganizationRepository
-from litellm.repositories.table_repositories import OrganizationMembershipRepository
-from litellm.repositories.team_repository import TeamRepository
-from litellm.repositories.user_repository import UserRepository
-from litellm.repositories.verification_token_repository import (
+from embrouter.proxy.utils import PrismaClient, ProxyLogging
+from embrouter.repositories.budget_repository import BudgetRepository
+from embrouter.repositories.object_permission_repository import ObjectPermissionRepository
+from embrouter.repositories.organization_repository import OrganizationRepository
+from embrouter.repositories.table_repositories import OrganizationMembershipRepository
+from embrouter.repositories.team_repository import TeamRepository
+from embrouter.repositories.user_repository import UserRepository
+from embrouter.repositories.verification_token_repository import (
     VerificationTokenRepository,
 )
-from litellm.types.proxy.management_endpoints.common_daily_activity import (
+from embrouter.types.proxy.management_endpoints.common_daily_activity import (
     SpendAnalyticsPaginatedResponse,
 )
-from litellm.utils import _update_dictionary
+from embrouter.utils import _update_dictionary
 
 if TYPE_CHECKING:
     from types import TracebackType
 
-    from prisma.models import LiteLLM_BudgetTable as PrismaBudgetTable
+    from prisma.models import EmbRouter_BudgetTable as PrismaBudgetTable
     from prisma.models import (
-        LiteLLM_ObjectPermissionTable as PrismaObjectPermissionTable,
+        EmbRouter_ObjectPermissionTable as PrismaObjectPermissionTable,
     )
     from prisma.models import (
-        LiteLLM_OrganizationMembership as PrismaOrganizationMembership,
+        EmbRouter_OrganizationMembership as PrismaOrganizationMembership,
     )
-    from prisma.models import LiteLLM_OrganizationTable as PrismaOrganizationTable
-    from prisma.models import LiteLLM_UserTable as PrismaUserTable
-    from prisma.models import LiteLLM_VerificationToken as PrismaVerificationToken
+    from prisma.models import EmbRouter_OrganizationTable as PrismaOrganizationTable
+    from prisma.models import EmbRouter_UserTable as PrismaUserTable
+    from prisma.models import EmbRouter_VerificationToken as PrismaVerificationToken
 
 
 async def _enterprise_license_required(
     _user_api_key_dict: Annotated[UserAPIKeyAuth, Depends(user_api_key_auth)],
 ) -> None:
-    from litellm.proxy.proxy_server import premium_user
+    from embrouter.proxy.proxy_server import premium_user
 
     if not premium_user:
         raise HTTPException(
             status_code=403,
             detail={
-                "error": "Organizations are only available for LiteLLM Enterprise users. "
+                "error": "Organizations are only available for EmbRouter Enterprise users. "
                 f"{CommonProxyErrors.not_premium_user.value}"
             },
         )
@@ -198,13 +198,13 @@ class _BudgetTxClient(Protocol):
 
 class _TransactionTables(Protocol):
     @property
-    def litellm_objectpermissiontable(self) -> "_ObjectPermissionTxClient": ...
+    def embrouter_objectpermissiontable(self) -> "_ObjectPermissionTxClient": ...
 
     @property
-    def litellm_budgettable(self) -> "_BudgetTxClient": ...
+    def embrouter_budgettable(self) -> "_BudgetTxClient": ...
 
     @property
-    def litellm_organizationtable(self) -> "_OrganizationTableClient": ...
+    def embrouter_organizationtable(self) -> "_OrganizationTableClient": ...
 
 
 class _TransactionManager(Protocol):
@@ -278,7 +278,7 @@ async def _verify_org_access(
             detail="You do not have access to this organization",
         )
 
-    from litellm.proxy.proxy_server import proxy_logging_obj, user_api_key_cache
+    from embrouter.proxy.proxy_server import proxy_logging_obj, user_api_key_cache
 
     caller_user: Final = await get_user_object(
         user_id=user_api_key_dict.user_id,
@@ -294,7 +294,7 @@ async def _verify_org_access(
         )
 
     for m in caller_user.organization_memberships or []:
-        if m.organization_id == organization_id and m.user_role == LitellmUserRoles.ORG_ADMIN.value:
+        if m.organization_id == organization_id and m.user_role == EmbrouterUserRoles.ORG_ADMIN.value:
             return
 
     raise HTTPException(
@@ -304,10 +304,10 @@ async def _verify_org_access(
 
 
 _STR_OBJECT_DICT_ADAPTER: Final = TypeAdapter(dict[str, object])
-_BUDGET_SETTABLE_FIELDS: Final = frozenset(LiteLLM_BudgetTable.model_fields.keys()) - {"budget_id"}
+_BUDGET_SETTABLE_FIELDS: Final = frozenset(EmbRouter_BudgetTable.model_fields.keys()) - {"budget_id"}
 _ORG_COLUMN_FIELDS: Final = frozenset({"organization_alias", "models"})
 _ORG_METADATA_FIELDS: Final = tuple(
-    field for field in LiteLLM_ManagementEndpoint_MetadataFields if field not in _BUDGET_SETTABLE_FIELDS
+    field for field in EmbRouter_ManagementEndpoint_MetadataFields if field not in _BUDGET_SETTABLE_FIELDS
 )
 
 
@@ -336,17 +336,17 @@ def handle_nested_budget_structure_in_organization_update_request(
     """
     Transform organization update request to handle UI payload format.
 
-    The UI sends nested budget data in 'litellm_budget_table', but our
+    The UI sends nested budget data in 'embrouter_budget_table', but our
     model expects flat budget fields at the top level.
     """
     transformed_data: Final = raw_data.copy()
 
     # Handle nested budget structure from UI
-    if "litellm_budget_table" in transformed_data:
-        budget_data: Final = transformed_data.pop("litellm_budget_table", {})
+    if "embrouter_budget_table" in transformed_data:
+        budget_data: Final = transformed_data.pop("embrouter_budget_table", {})
         if budget_data:
             # Extract valid budget fields and merge into top level
-            budget_fields: Final = LiteLLM_BudgetTable.model_fields.keys()
+            budget_fields: Final = EmbRouter_BudgetTable.model_fields.keys()
             for key, value in budget_data.items():
                 if key in budget_fields:
                     transformed_data[key] = value
@@ -389,10 +389,10 @@ async def new_organization(
     - budget_duration: *Optional[str]* - Frequency of reseting org budget
     - metadata: *Optional[dict]* - Metadata for organization, store information for organization. Example metadata - {"extra_info": "some info"}
     - blocked: *bool* - Flag indicating if the org is blocked or not - will stop all calls from keys with this org_id.
-    - tags: *Optional[List[str]]* - Tags for [tracking spend](https://litellm.vercel.app/docs/proxy/enterprise#tracking-spend-for-custom-tags) and/or doing [tag-based routing](https://litellm.vercel.app/docs/proxy/tag_routing).
+    - tags: *Optional[List[str]]* - Tags for [tracking spend](https://embrouter.vercel.app/docs/proxy/enterprise#tracking-spend-for-custom-tags) and/or doing [tag-based routing](https://embrouter.vercel.app/docs/proxy/tag_routing).
     - organization_id: *Optional[str]* - The organization id of the team. Default is None. Create via `/organization/new`.
     - model_aliases: Optional[dict] - Model aliases for the team.
-    - object_permission: Optional[LiteLLM_ObjectPermissionBase] - organization-specific object permission. Example - {"vector_stores": ["vector_store_1", "vector_store_2"]}. IF null or {} then no object permission.
+    - object_permission: Optional[EmbRouter_ObjectPermissionBase] - organization-specific object permission. Example - {"vector_stores": ["vector_store_1", "vector_store_2"]}. IF null or {} then no object permission.
     - allowed_models: Optional[List[str]] - List of models the organization is allowed to access. If not set, defaults to the models field.
     - temp_budget_increase: *Optional[float]* - Stored on the org budget row but only enforced for team member budgets today.
     - temp_budget_expiry: *Optional[str]* - Stored on the org budget row but only enforced for team member budgets today.
@@ -431,8 +431,8 @@ async def new_organization(
     ```
     """
 
-    from litellm.proxy.proxy_server import (
-        litellm_proxy_admin_name,
+    from embrouter.proxy.proxy_server import (
+        embrouter_proxy_admin_name,
         llm_router,
         prisma_client,
     )
@@ -443,7 +443,7 @@ async def new_organization(
             detail={"error": CommonProxyErrors.db_not_connected_error.value},
         )
 
-    if user_api_key_dict.user_role is None or user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+    if user_api_key_dict.user_role is None or user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
         raise HTTPException(
             status_code=401,
             detail={"error": f"Only admins can create orgs. Your role is = {user_api_key_dict.user_role}"},
@@ -464,7 +464,7 @@ async def new_organization(
             detail={"error": f"soft_budget must be a non-negative finite number. Received: {data.soft_budget}"},
         )
 
-    user_object_correct_type: LiteLLM_UserTable | None = None
+    user_object_correct_type: EmbRouter_UserTable | None = None
 
     if user_api_key_dict.user_id is not None:
         try:
@@ -472,7 +472,7 @@ async def new_organization(
                 where={"user_id": user_api_key_dict.user_id}
             )
             if user_object is not None:
-                user_object_correct_type = LiteLLM_UserTable.model_validate(user_object.model_dump())
+                user_object_correct_type = EmbRouter_UserTable.model_validate(user_object.model_dump())
         except Exception:
             pass
 
@@ -482,12 +482,12 @@ async def new_organization(
 
         If none provided, create one based on provided values
         """
-        budget_params: Final = LiteLLM_BudgetTable.model_fields.keys()
+        budget_params: Final = EmbRouter_BudgetTable.model_fields.keys()
 
-        # Only include Budget Params when creating an entry in litellm_budgettable
+        # Only include Budget Params when creating an entry in embrouter_budgettable
         _json_data: Final = _STR_OBJECT_DICT_ADAPTER.validate_python(data.json(exclude_none=True))
         _budget_data: Final = {k: v for k, v in _json_data.items() if k in budget_params}
-        budget_row: Final = LiteLLM_BudgetTable.model_validate(_budget_data)
+        budget_row: Final = EmbRouter_BudgetTable.model_validate(_budget_data)
 
         new_budget: Final = _STR_OBJECT_DICT_ADAPTER.validate_python(
             prisma_client.jsonify_object(budget_row.json(exclude_none=True))
@@ -496,8 +496,8 @@ async def new_organization(
         _budget: Final = await _table(BudgetRepository(prisma_client)).create(
             data={
                 **new_budget,
-                "created_by": user_api_key_dict.user_id or litellm_proxy_admin_name,
-                "updated_by": user_api_key_dict.user_id or litellm_proxy_admin_name,
+                "created_by": user_api_key_dict.user_id or embrouter_proxy_admin_name,
+                "updated_by": user_api_key_dict.user_id or embrouter_proxy_admin_name,
             }
         )
 
@@ -528,9 +528,9 @@ async def new_organization(
 
     organization_payload: Final = _STR_OBJECT_DICT_ADAPTER.validate_python(data.json(exclude_none=True))
     organization_payload["object_permission_id"] = object_permission_id
-    organization_payload["created_by"] = user_api_key_dict.user_id or litellm_proxy_admin_name
-    organization_payload["updated_by"] = user_api_key_dict.user_id or litellm_proxy_admin_name
-    organization_row: Final = LiteLLM_OrganizationTable.model_validate(organization_payload)
+    organization_payload["created_by"] = user_api_key_dict.user_id or embrouter_proxy_admin_name
+    organization_payload["updated_by"] = user_api_key_dict.user_id or embrouter_proxy_admin_name
+    organization_row: Final = EmbRouter_OrganizationTable.model_validate(organization_payload)
 
     for field in _ORG_METADATA_FIELDS:
         if getattr(data, field, None) is not None:
@@ -548,7 +548,7 @@ async def new_organization(
         data={
             **new_organization_row,
         },
-        include={"litellm_budget_table": True},
+        include={"embrouter_budget_table": True},
     )
 
     return response
@@ -573,7 +573,7 @@ async def get_organization_daily_activity(
     """
     Get daily activity for specific organizations or all accessible organizations.
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         prisma_client,
     )
 
@@ -594,7 +594,7 @@ async def get_organization_daily_activity(
         memberships: Final = await _table(OrganizationMembershipRepository(prisma_client)).find_many(
             where={"user_id": user_api_key_dict.user_id}
         )
-        admin_org_ids = [m.organization_id for m in memberships if m.user_role == LitellmUserRoles.ORG_ADMIN.value]
+        admin_org_ids = [m.organization_id for m in memberships if m.user_role == EmbrouterUserRoles.ORG_ADMIN.value]
         if org_ids_list is None:
             # Default to orgs where user is org_admin
             org_ids_list = admin_org_ids
@@ -616,7 +616,7 @@ async def get_organization_daily_activity(
     # Query daily activity for organizations
     return await get_daily_activity(
         prisma_client=prisma_client,
-        table_name="litellm_dailyorganizationspend",
+        table_name="embrouter_dailyorganizationspend",
         entity_id_field="organization_id",
         entity_id=org_ids_list,
         entity_metadata_field={o.organization_id: {"organization_alias": o.organization_alias} for o in org_aliases},
@@ -635,7 +635,7 @@ async def _set_object_permission(
     prisma_client: PrismaClient | None,
 ) -> str | None:
     """
-    Creates the LiteLLM_ObjectPermissionTable record for the organization.
+    Creates the EmbRouter_ObjectPermissionTable record for the organization.
     - Handles permissions for vector stores and mcp servers.
 
     Returns the object_permission_id if created, otherwise None.
@@ -661,7 +661,7 @@ async def _set_object_permission(
     "/organization/update",
     tags=["organization management"],
     dependencies=[Depends(user_api_key_auth)],
-    response_model=LiteLLM_OrganizationTableWithMembers,
+    response_model=EmbRouter_OrganizationTableWithMembers,
 )
 async def update_organization(
     request: Request,
@@ -670,7 +670,7 @@ async def update_organization(
     """
     Update an organization
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(
@@ -691,7 +691,7 @@ async def update_organization(
     raw_data_with_flat_budget_fields: Final = handle_nested_budget_structure_in_organization_update_request(raw_data)
 
     # Create validated data model
-    data: Final = LiteLLM_OrganizationTableUpdate(**raw_data_with_flat_budget_fields)
+    data: Final = EmbRouter_OrganizationTableUpdate(**raw_data_with_flat_budget_fields)
 
     # Validate budget values are not negative
     if data.max_budget is not None and (not math.isfinite(data.max_budget) or data.max_budget < 0):
@@ -763,13 +763,13 @@ async def update_organization(
         )
 
     # Remove budget fields from organization update data
-    for field in LiteLLM_BudgetTable.model_fields:
+    for field in EmbRouter_BudgetTable.model_fields:
         updated_organization_row.pop(field, None)
 
     response: Final = await _table(OrganizationRepository(prisma_client)).update(
         where={"organization_id": data.organization_id},
         data=updated_organization_row,
-        include={"members": True, "teams": True, "litellm_budget_table": True},
+        include={"members": True, "teams": True, "embrouter_budget_table": True},
     )
 
     return response
@@ -782,11 +782,11 @@ async def handle_update_object_permission(
     """
     Handle the update of object permission for an organization.
 
-    - Upserts the new object permission into the LiteLLM_ObjectPermissionTable
+    - Upserts the new object permission into the EmbRouter_ObjectPermissionTable
     - Adds object_permission_id to data_json (this gets added in the DB)
     - Pops the object_permission from data_json
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     # Use the common helper to handle the object permission update
     object_permission_id: Final = await handle_update_object_permission_common(
@@ -806,7 +806,7 @@ async def handle_update_object_permission(
     "/v2/organization/{organization_id}",
     tags=["organization management"],
     dependencies=[Depends(user_api_key_auth)],
-    response_model=LiteLLM_OrganizationTableWithMembers,
+    response_model=EmbRouter_OrganizationTableWithMembers,
 )
 async def update_organization_v2(
     organization_id: str,
@@ -823,7 +823,7 @@ async def update_organization_v2(
     Validation failures return 422; the object-permission upsert, budget-row write, and
     org-row write are one transaction.
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(
@@ -861,7 +861,7 @@ async def update_organization_v2(
             )
     validate_budget_duration(data.budget_duration, status_code=422)
     if data.model_max_budget:
-        from litellm.proxy.management_endpoints.key_management_endpoints import (
+        from embrouter.proxy.management_endpoints.key_management_endpoints import (
             validate_model_max_budget,
         )
 
@@ -940,7 +940,7 @@ async def update_organization_v2(
     tx_manager: Final[_TransactionManager] = prisma_client.db.tx()
     async with tx_manager as tx:
         if object_permission_upsert is not None:
-            await tx.litellm_objectpermissiontable.upsert(
+            await tx.embrouter_objectpermissiontable.upsert(
                 where={"object_permission_id": object_permission_upsert.object_permission_id},
                 data={
                     "create": object_permission_upsert.record,
@@ -951,14 +951,14 @@ async def update_organization_v2(
             budget_write_data: Final = _STR_OBJECT_DICT_ADAPTER.validate_python(
                 prisma_client.jsonify_object(dict(build_budget_write_data(budget_updates, user_api_key_dict.user_id)))
             )
-            await tx.litellm_budgettable.update(
+            await tx.embrouter_budgettable.update(
                 where={"budget_id": existing_organization_row.budget_id},
                 data=budget_write_data,
             )
-        response: Final = await tx.litellm_organizationtable.update(
+        response: Final = await tx.embrouter_organizationtable.update(
             where={"organization_id": organization_id},
             data=organization_write_data,
-            include={"members": True, "teams": True, "litellm_budget_table": True},
+            include={"members": True, "teams": True, "embrouter_budget_table": True},
         )
 
     return response
@@ -968,7 +968,7 @@ async def update_organization_v2(
     "/organization/delete",
     tags=["organization management"],
     dependencies=[Depends(user_api_key_auth)],
-    response_model=list[LiteLLM_OrganizationTableWithMembers],
+    response_model=list[EmbRouter_OrganizationTableWithMembers],
 )
 async def delete_organization(
     data: DeleteOrganizationRequest,
@@ -981,7 +981,7 @@ async def delete_organization(
 
     - organization_ids: List[str] - The organization ids to delete.
     """
-    from litellm.proxy.proxy_server import prisma_client, proxy_logging_obj, user_api_key_cache
+    from embrouter.proxy.proxy_server import prisma_client, proxy_logging_obj, user_api_key_cache
 
     if prisma_client is None:
         raise HTTPException(
@@ -989,7 +989,7 @@ async def delete_organization(
             detail={"error": CommonProxyErrors.db_not_connected_error.value},
         )
 
-    if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+    if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
         raise HTTPException(
             status_code=401,
             detail={"error": "Only proxy admins can delete organizations"},
@@ -1012,7 +1012,7 @@ async def delete_organization(
         # delete the organization
         deleted_org = await _table(OrganizationRepository(prisma_client)).delete(
             where={"organization_id": organization_id},
-            include={"members": True, "teams": True, "litellm_budget_table": True},
+            include={"members": True, "teams": True, "embrouter_budget_table": True},
         )
         if deleted_org is None:
             raise HTTPException(
@@ -1050,7 +1050,7 @@ async def _delete_organization_keys(
     "/organization/list",
     tags=["organization management"],
     dependencies=[Depends(user_api_key_auth)],
-    response_model=list[LiteLLM_OrganizationTableWithMembers],
+    response_model=list[EmbRouter_OrganizationTableWithMembers],
 )
 async def list_organization(
     org_id: str | None = fastapi.Query(default=None, description="Filter organizations by exact organization_id match"),
@@ -1081,7 +1081,7 @@ async def list_organization(
         --header 'Authorization: Bearer sk-1234'
     ```
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail={"error": "No db connected"})
@@ -1108,7 +1108,7 @@ async def list_organization(
     if _user_has_admin_view(user_api_key_dict):
         response = await _table(OrganizationRepository(prisma_client)).find_many(
             where=where_conditions if where_conditions else None,
-            include={"litellm_budget_table": True, "members": True, "teams": True},
+            include={"embrouter_budget_table": True, "members": True, "teams": True},
         )
     # if internal user - get orgs they are a member of (with optional filters)
     else:
@@ -1129,7 +1129,7 @@ async def list_organization(
                     response = await _table(OrganizationRepository(prisma_client)).find_many(
                         where=where_conditions,
                         include={
-                            "litellm_budget_table": True,
+                            "embrouter_budget_table": True,
                             "members": True,
                             "teams": True,
                         },
@@ -1140,7 +1140,7 @@ async def list_organization(
                 response = await _table(OrganizationRepository(prisma_client)).find_many(
                     where=where_conditions,
                     include={
-                        "litellm_budget_table": True,
+                        "embrouter_budget_table": True,
                         "members": True,
                         "teams": True,
                     },
@@ -1156,7 +1156,7 @@ async def list_organization(
     "/organization/info",
     tags=["organization management"],
     dependencies=[Depends(user_api_key_auth)],
-    response_model=LiteLLM_OrganizationTableWithMembers,
+    response_model=EmbRouter_OrganizationTableWithMembers,
 )
 async def info_organization(
     organization_id: str,
@@ -1165,7 +1165,7 @@ async def info_organization(
     """
     Get the org specific information
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail={"error": "No db connected"})
@@ -1180,7 +1180,7 @@ async def info_organization(
     response: Final = await _table(OrganizationRepository(prisma_client)).find_unique(
         where={"organization_id": organization_id},
         include={
-            "litellm_budget_table": True,
+            "embrouter_budget_table": True,
             "members": {
                 "include": {
                     "user": True,
@@ -1194,7 +1194,7 @@ async def info_organization(
     if response is None:
         raise HTTPException(status_code=404, detail={"error": "Organization not found"})
 
-    response_pydantic_obj: Final = LiteLLM_OrganizationTableWithMembers.model_validate(response.model_dump())
+    response_pydantic_obj: Final = EmbRouter_OrganizationTableWithMembers.model_validate(response.model_dump())
 
     return response_pydantic_obj
 
@@ -1211,7 +1211,7 @@ async def deprecated_info_organization(
     """
     DEPRECATED: Use GET /organization/info instead
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail={"error": "No db connected"})
@@ -1232,7 +1232,7 @@ async def deprecated_info_organization(
 
     response: Final = await _table(OrganizationRepository(prisma_client)).find_many(
         where={"organization_id": {"in": data.organizations}},
-        include={"litellm_budget_table": True},
+        include={"embrouter_budget_table": True},
     )
 
     return response
@@ -1263,7 +1263,7 @@ async def organization_member_add(
 
     - organization_id: str (required)
     - member: Union[List[Member], Member] (required)
-        - role: Literal[LitellmUserRoles] (required)
+        - role: Literal[EmbrouterUserRoles] (required)
         - user_id: Optional[str]
         - user_email: Optional[str]
 
@@ -1287,11 +1287,11 @@ async def organization_member_add(
     The following is executed in this function:
 
     1. Check if organization exists
-    2. Creates a new Internal User if the user_id or user_email is not found in LiteLLM_UserTable
-    3. Add Internal User to the `LiteLLM_OrganizationMembership` table
+    2. Creates a new Internal User if the user_id or user_email is not found in EmbRouter_UserTable
+    3. Add Internal User to the `EmbRouter_OrganizationMembership` table
     """
     try:
-        from litellm.proxy.proxy_server import prisma_client
+        from embrouter.proxy.proxy_server import prisma_client
 
         if prisma_client is None:
             raise HTTPException(status_code=500, detail={"error": "No db connected"})
@@ -1324,8 +1324,8 @@ async def organization_member_add(
         else:
             members = [data.member]
 
-        updated_users: Final[list[LiteLLM_UserTable]] = []
-        updated_organization_memberships: Final[list[LiteLLM_OrganizationMembershipTable]] = []
+        updated_users: Final[list[EmbRouter_UserTable]] = []
+        updated_organization_memberships: Final[list[EmbRouter_OrganizationMembershipTable]] = []
 
         for member in members:
             (
@@ -1364,15 +1364,15 @@ async def organization_member_add(
         )
 
 
-async def find_member_if_email(user_email: str, prisma_client: PrismaClient) -> LiteLLM_UserTable:
+async def find_member_if_email(user_email: str, prisma_client: PrismaClient) -> EmbRouter_UserTable:
     """
-    Find a member if the user_email is in LiteLLM_UserTable
+    Find a member if the user_email is in EmbRouter_UserTable
     """
 
     not_unique_user_email_error: Final = HTTPException(
         status_code=400,
         detail={
-            "error": f"Unique user not found for user_email={user_email}. Potential duplicate OR non-existent user_email in LiteLLM_UserTable. Use 'user_id' instead."
+            "error": f"Unique user not found for user_email={user_email}. Potential duplicate OR non-existent user_email in EmbRouter_UserTable. Use 'user_id' instead."
         },
     )
     try:
@@ -1383,7 +1383,7 @@ async def find_member_if_email(user_email: str, prisma_client: PrismaClient) -> 
         raise not_unique_user_email_error
     if existing_user_email_row is None:
         raise not_unique_user_email_error
-    existing_user_email_row_pydantic: Final = LiteLLM_UserTable.model_validate(existing_user_email_row.model_dump())
+    existing_user_email_row_pydantic: Final = EmbRouter_UserTable.model_validate(existing_user_email_row.model_dump())
     return existing_user_email_row_pydantic
 
 
@@ -1391,7 +1391,7 @@ async def find_member_if_email(user_email: str, prisma_client: PrismaClient) -> 
     "/organization/member_update",
     tags=["organization management"],
     dependencies=[Depends(user_api_key_auth)],
-    response_model=LiteLLM_OrganizationMembershipTable,
+    response_model=EmbRouter_OrganizationMembershipTable,
 )
 @management_endpoint_wrapper
 async def organization_member_update(
@@ -1402,7 +1402,7 @@ async def organization_member_update(
     Update a member's role in an organization
     """
     try:
-        from litellm.proxy.proxy_server import prisma_client
+        from embrouter.proxy.proxy_server import prisma_client
 
         if prisma_client is None:
             raise HTTPException(
@@ -1467,10 +1467,10 @@ async def organization_member_update(
         # effects on admin UI filtering and scope derivation.
         target_user_row = await _table(UserRepository(prisma_client)).find_unique(where={"user_id": data.user_id})
         if target_user_row is not None and getattr(target_user_row, "user_role", None) in (
-            LitellmUserRoles.PROXY_ADMIN.value,
-            LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
+            EmbrouterUserRoles.PROXY_ADMIN.value,
+            EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
         ):
-            if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN.value:
+            if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN.value:
                 raise HTTPException(
                     status_code=403,
                     detail={
@@ -1521,7 +1521,7 @@ async def organization_member_update(
                     "organization_id": data.organization_id,
                 }
             },
-            include={"litellm_budget_table": True},
+            include={"embrouter_budget_table": True},
         )
 
         if final_organization_membership is None:
@@ -1530,7 +1530,7 @@ async def organization_member_update(
                 detail={"error": f"Member not found in organization={data.organization_id} for user_id={data.user_id}"},
             )
 
-        final_organization_membership_pydantic: Final = LiteLLM_OrganizationMembershipTable.model_validate(
+        final_organization_membership_pydantic: Final = EmbRouter_OrganizationMembershipTable.model_validate(
             final_organization_membership.model_dump(exclude_none=True)
         )
         return final_organization_membership_pydantic
@@ -1552,7 +1552,7 @@ async def organization_member_delete(
     Delete a member from an organization
     """
     try:
-        from litellm.proxy.proxy_server import prisma_client
+        from embrouter.proxy.proxy_server import prisma_client
 
         if prisma_client is None:
             raise HTTPException(
@@ -1592,20 +1592,20 @@ async def add_member_to_organization(
     member: OrgMember,
     organization_id: str,
     prisma_client: PrismaClient,
-) -> tuple[LiteLLM_UserTable, LiteLLM_OrganizationMembershipTable]:
+) -> tuple[EmbRouter_UserTable, EmbRouter_OrganizationMembershipTable]:
     """
     Add a member to an organization
 
-    - Checks if member.user_id or member.user_email is in LiteLLM_UserTable
-    - If not found, create a new user in LiteLLM_UserTable
-    - Add user to organization in LiteLLM_OrganizationMembership
+    - Checks if member.user_id or member.user_email is in EmbRouter_UserTable
+    - If not found, create a new user in EmbRouter_UserTable
+    - Add user to organization in EmbRouter_OrganizationMembership
     """
 
     try:
-        user_object: LiteLLM_UserTable | None = None
+        user_object: EmbRouter_UserTable | None = None
         existing_user_id_row = None
         existing_user_email_row = None
-        ## Check if user exists in LiteLLM_UserTable - user exists - either the user_id or user_email is in LiteLLM_UserTable
+        ## Check if user exists in EmbRouter_UserTable - user exists - either the user_id or user_email is in EmbRouter_UserTable
         if member.user_id is not None:
             existing_user_id_row = await _table(UserRepository(prisma_client)).find_unique(
                 where={"user_id": member.user_id}
@@ -1618,7 +1618,7 @@ async def add_member_to_organization(
                 )
             except Exception as e:
                 raise ValueError(
-                    f"Potential NON-Existent or Duplicate user email in DB: Error finding a unique instance of user_email={member.user_email} in LiteLLM_UserTable.: {e}"
+                    f"Potential NON-Existent or Duplicate user email in DB: Error finding a unique instance of user_email={member.user_email} in EmbRouter_UserTable.: {e}"
                 )
 
         ## If user does not exist, create a new user
@@ -1632,7 +1632,7 @@ async def add_member_to_organization(
 
             _returned_user = await prisma_client.insert_data(data=new_user_defaults, table_name="user")
             if _returned_user is not None:
-                user_object = LiteLLM_UserTable.model_validate(_returned_user.model_dump())
+                user_object = EmbRouter_UserTable.model_validate(_returned_user.model_dump())
         elif existing_user_email_row is not None and (
             len(existing_user_email_row)  # pyright: ignore[reportArgumentType]  # find_unique yields a row, not a list
             > 1
@@ -1642,9 +1642,9 @@ async def add_member_to_organization(
                 detail={"error": "Multiple users with this email found in db. Please use 'user_id' instead."},
             )
         elif existing_user_email_row is not None:
-            user_object = LiteLLM_UserTable.model_validate(existing_user_email_row.model_dump())
+            user_object = EmbRouter_UserTable.model_validate(existing_user_email_row.model_dump())
         elif existing_user_id_row is not None:
-            user_object = LiteLLM_UserTable.model_validate(existing_user_id_row.model_dump())
+            user_object = EmbRouter_UserTable.model_validate(existing_user_id_row.model_dump())
         else:
             raise HTTPException(
                 status_code=404,
@@ -1653,7 +1653,7 @@ async def add_member_to_organization(
 
         if user_object is None:
             raise ValueError(
-                f"User does not exist in LiteLLM_UserTable. user_id={member.user_id} and user_email={member.user_email}"
+                f"User does not exist in EmbRouter_UserTable. user_id={member.user_id} and user_email={member.user_email}"
             )
 
         # Add user to organization
@@ -1664,7 +1664,7 @@ async def add_member_to_organization(
                 "user_role": member.role,
             }
         )
-        organization_membership: Final = LiteLLM_OrganizationMembershipTable.model_validate(
+        organization_membership: Final = EmbRouter_OrganizationMembershipTable.model_validate(
             _organization_membership.model_dump()
         )
         return user_object, organization_membership

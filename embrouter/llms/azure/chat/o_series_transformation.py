@@ -3,10 +3,10 @@ Support for o1 and o3 model families
 
 https://platform.openai.com/docs/guides/reasoning
 
-Translations handled by LiteLLM:
+Translations handled by EmbRouter:
 - modalities: image => drop param (if user opts in to dropping param)
 - role: system ==> translate to role 'user'
-- streaming => faked by LiteLLM
+- streaming => faked by EmbRouter
 - Tools, response_format =>  drop param (if user opts in to dropping param)
 - Logprobs => drop param (if user opts in to dropping param)
 - Temperature => drop param (if user opts in to dropping param)
@@ -14,10 +14,10 @@ Translations handled by LiteLLM:
 
 from typing import Final
 
-import litellm
-from litellm import verbose_logger
-from litellm.types.llms.openai import AllMessageValues
-from litellm.utils import get_model_info, supports_reasoning
+import embrouter
+from embrouter import verbose_logger
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.utils import get_model_info, supports_reasoning
 
 from ...openai.chat.o_series_transformation import OpenAIOSeriesConfig
 from .gpt_transformation import sanitized_tools_update
@@ -28,7 +28,7 @@ class AzureOpenAIO1Config(OpenAIOSeriesConfig):
         """
         Get the supported OpenAI params for the Azure O-Series models
         """
-        all_openai_params: Final = litellm.OpenAIGPTConfig().get_supported_openai_params(model=model)
+        all_openai_params: Final = embrouter.OpenAIGPTConfig().get_supported_openai_params(model=model)
         non_supported_params: Final = [
             "logprobs",
             "top_p",
@@ -51,10 +51,10 @@ class AzureOpenAIO1Config(OpenAIOSeriesConfig):
         o_series_only_param: Final = []
 
         #########################################################
-        # Case 1: If the model is recognized and in litellm model cost map
+        # Case 1: If the model is recognized and in embrouter model cost map
         # then check if it supports reasoning
         #########################################################
-        if model in litellm.model_list_set:
+        if model in embrouter.model_list_set:
             if supports_reasoning(model):
                 o_series_only_param.append("reasoning_effort")
         #########################################################
@@ -105,7 +105,7 @@ class AzureOpenAIO1Config(OpenAIOSeriesConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         model = model.replace("o_series/", "")  # handle o_series/my-random-deployment-name
@@ -113,4 +113,4 @@ class AzureOpenAIO1Config(OpenAIOSeriesConfig):
             **optional_params,
             **sanitized_tools_update(optional_params),
         }
-        return super().transform_request(model, messages, flattened_params, litellm_params, headers)
+        return super().transform_request(model, messages, flattened_params, embrouter_params, headers)

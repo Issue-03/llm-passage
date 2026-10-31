@@ -9,13 +9,13 @@ from urllib.parse import urlencode
 
 import httpx
 
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.base_llm.search.transformation import (
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.base_llm.search.transformation import (
     BaseSearchConfig,
     SearchResponse,
     SearchResult,
 )
-from litellm.secret_managers.main import get_secret_str
+from embrouter.secret_managers.main import get_secret_str
 
 
 class _DuckDuckGoSearchRequestRequired(TypedDict):
@@ -140,13 +140,13 @@ class DuckDuckGoSearchConfig(BaseSearchConfig):
     def transform_search_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         **kwargs,
     ) -> SearchResponse:
         """
-        Transform DuckDuckGo API response to LiteLLM unified SearchResponse format.
+        Transform DuckDuckGo API response to EmbRouter unified SearchResponse format.
 
-        DuckDuckGo → LiteLLM mappings:
+        DuckDuckGo → EmbRouter mappings:
         - RelatedTopics[].Text → SearchResult.title + snippet
         - RelatedTopics[].FirstURL → SearchResult.url
         - RelatedTopics[].Text → SearchResult.snippet

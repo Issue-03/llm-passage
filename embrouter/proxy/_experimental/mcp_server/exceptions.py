@@ -1,4 +1,4 @@
-"""Exceptions raised by the LiteLLM MCP proxy."""
+"""Exceptions raised by the EmbRouter MCP proxy."""
 
 from typing import Final
 

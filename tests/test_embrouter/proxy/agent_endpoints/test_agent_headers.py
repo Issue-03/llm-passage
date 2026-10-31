@@ -27,7 +27,7 @@ def _make_mock_agent(
     mock_agent = MagicMock()
     mock_agent.agent_id = "agent-123"
     mock_agent.agent_card_params = {"url": url, "name": "Test Agent"}
-    mock_agent.litellm_params = {}
+    mock_agent.embrouter_params = {}
     mock_agent.static_headers = static_headers or {}
     mock_agent.extra_headers = extra_headers or []
     return mock_agent
@@ -100,7 +100,7 @@ def _make_a2a_types_module():
 
 async def _invoke(mock_agent, mock_request, mock_asend_message):
     """Run invoke_agent_a2a with standard patches applied."""
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     mock_user_api_key_dict = UserAPIKeyAuth(api_key="sk-test", user_id="u1")
     mock_fastapi_response = MagicMock()
@@ -115,37 +115,37 @@ async def _invoke(mock_agent, mock_request, mock_asend_message):
 
     with (
         patch(
-            "litellm.proxy.agent_endpoints.a2a_endpoints._get_agent",
+            "embrouter.proxy.agent_endpoints.a2a_endpoints._get_agent",
             return_value=mock_agent,
         ),
         patch(
-            "litellm.proxy.agent_endpoints.auth.agent_permission_handler.AgentRequestHandler.is_agent_allowed",
+            "embrouter.proxy.agent_endpoints.auth.agent_permission_handler.AgentRequestHandler.is_agent_allowed",
             new_callable=AsyncMock,
             return_value=True,
         ),
         patch(
-            "litellm.proxy.common_request_processing.add_litellm_data_to_request",
+            "embrouter.proxy.common_request_processing.add_embrouter_data_to_request",
             side_effect=lambda data, **kw: data,
         ),
         patch(
-            "litellm.a2a_protocol.asend_message",
+            "embrouter.a2a_protocol.asend_message",
             new_callable=AsyncMock,
             return_value=mock_response,
         ) as mock_asend,
         patch(
-            "litellm.a2a_protocol.create_a2a_client",
+            "embrouter.a2a_protocol.create_a2a_client",
             new_callable=AsyncMock,
         ),
         patch(
-            "litellm.proxy.proxy_server.general_settings",
+            "embrouter.proxy.proxy_server.general_settings",
             {},
         ),
         patch(
-            "litellm.proxy.proxy_server.proxy_config",
+            "embrouter.proxy.proxy_server.proxy_config",
             MagicMock(),
         ),
         patch(
-            "litellm.proxy.proxy_server.version",
+            "embrouter.proxy.proxy_server.version",
             "1.0.0",
         ),
         patch.dict(
@@ -153,11 +153,11 @@ async def _invoke(mock_agent, mock_request, mock_asend_message):
             {"a2a": MagicMock(), "a2a.types": mock_a2a_types},
         ),
         patch(
-            "litellm.a2a_protocol.main.A2A_SDK_AVAILABLE",
+            "embrouter.a2a_protocol.main.A2A_SDK_AVAILABLE",
             True,
         ),
     ):
-        from litellm.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
+        from embrouter.proxy.agent_endpoints.a2a_endpoints import invoke_agent_a2a
 
         await invoke_agent_a2a(
             agent_id="test-agent",
@@ -231,7 +231,7 @@ async def test_no_headers():
 
     call_kwargs = mock_asend.call_args.kwargs
     headers = call_kwargs.get("agent_extra_headers")
-    assert headers == {"X-LiteLLM-User-Id": "u1"}
+    assert headers == {"X-EmbRouter-User-Id": "u1"}
 
 
 # ---------------------------------------------------------------------------
@@ -303,7 +303,7 @@ async def test_convention_unrelated_prefix_not_forwarded():
     mock_asend = await _invoke(mock_agent, mock_request, None)
 
     headers = mock_asend.call_args.kwargs.get("agent_extra_headers")
-    assert headers == {"X-LiteLLM-User-Id": "u1"}
+    assert headers == {"X-EmbRouter-User-Id": "u1"}
 
 
 # ---------------------------------------------------------------------------
@@ -325,12 +325,12 @@ def _mock_databricks_token_client(access_token="dbx-oauth-token"):
 @pytest.mark.asyncio
 async def test_databricks_oauth_header_injected():
     """A databricks_oauth block mints an outbound Bearer Authorization header."""
-    from litellm.proxy.agent_endpoints import databricks_oauth
+    from embrouter.proxy.agent_endpoints import databricks_oauth
 
     databricks_oauth.databricks_app_oauth_token_cache.flush_cache()
 
     mock_agent = _make_mock_agent()
-    mock_agent.litellm_params = {
+    mock_agent.embrouter_params = {
         "databricks_oauth": {
             "client_id": "cid",
             "client_secret": "secret",
@@ -340,7 +340,7 @@ async def test_databricks_oauth_header_injected():
     mock_request = _make_mock_request()
 
     with patch(
-        "litellm.proxy.agent_endpoints.databricks_oauth.get_async_httpx_client",
+        "embrouter.proxy.agent_endpoints.databricks_oauth.get_async_httpx_client",
         return_value=_mock_databricks_token_client("minted-token"),
     ):
         mock_asend = await _invoke(mock_agent, mock_request, None)
@@ -353,12 +353,12 @@ async def test_databricks_oauth_header_injected():
 @pytest.mark.asyncio
 async def test_databricks_oauth_overrides_static_authorization():
     """The minted OAuth token wins over a statically configured Authorization."""
-    from litellm.proxy.agent_endpoints import databricks_oauth
+    from embrouter.proxy.agent_endpoints import databricks_oauth
 
     databricks_oauth.databricks_app_oauth_token_cache.flush_cache()
 
     mock_agent = _make_mock_agent(static_headers={"Authorization": "Bearer static-pat"})
-    mock_agent.litellm_params = {
+    mock_agent.embrouter_params = {
         "databricks_oauth": {
             "client_id": "cid",
             "client_secret": "secret",
@@ -368,7 +368,7 @@ async def test_databricks_oauth_overrides_static_authorization():
     mock_request = _make_mock_request()
 
     with patch(
-        "litellm.proxy.agent_endpoints.databricks_oauth.get_async_httpx_client",
+        "embrouter.proxy.agent_endpoints.databricks_oauth.get_async_httpx_client",
         return_value=_mock_databricks_token_client("oauth-wins"),
     ):
         mock_asend = await _invoke(mock_agent, mock_request, None)
@@ -382,18 +382,18 @@ async def test_databricks_oauth_overrides_static_authorization():
 async def test_non_databricks_agent_skips_oauth_resolution():
     """Agents without a databricks_oauth block never enter the OAuth path."""
     mock_agent = _make_mock_agent(static_headers={"x-custom": "v"})
-    mock_agent.litellm_params = {"require_trace_id_on_calls_to_agent": False}
+    mock_agent.embrouter_params = {"require_trace_id_on_calls_to_agent": False}
     mock_request = _make_mock_request()
 
     with patch(
-        "litellm.proxy.agent_endpoints.a2a_endpoints.resolve_databricks_app_auth_header",
+        "embrouter.proxy.agent_endpoints.a2a_endpoints.resolve_databricks_app_auth_header",
         new_callable=AsyncMock,
     ) as mock_resolve:
         mock_asend = await _invoke(mock_agent, mock_request, None)
 
     mock_resolve.assert_not_called()
     headers = mock_asend.call_args.kwargs.get("agent_extra_headers")
-    assert headers == {"x-custom": "v", "X-LiteLLM-User-Id": "u1"}
+    assert headers == {"x-custom": "v", "X-EmbRouter-User-Id": "u1"}
     assert "Authorization" not in headers
 
 
@@ -403,21 +403,21 @@ async def test_non_databricks_agent_skips_oauth_resolution():
 
 
 def test_merge_agent_headers_util_dynamic_only():
-    from litellm.proxy.agent_endpoints.utils import merge_agent_headers
+    from embrouter.proxy.agent_endpoints.utils import merge_agent_headers
 
     result = merge_agent_headers(dynamic_headers={"x-key": "val"})
     assert result == {"x-key": "val"}
 
 
 def test_merge_agent_headers_util_static_only():
-    from litellm.proxy.agent_endpoints.utils import merge_agent_headers
+    from embrouter.proxy.agent_endpoints.utils import merge_agent_headers
 
     result = merge_agent_headers(static_headers={"Authorization": "Bearer tok"})
     assert result == {"Authorization": "Bearer tok"}
 
 
 def test_merge_agent_headers_util_static_wins():
-    from litellm.proxy.agent_endpoints.utils import merge_agent_headers
+    from embrouter.proxy.agent_endpoints.utils import merge_agent_headers
 
     result = merge_agent_headers(
         dynamic_headers={"Authorization": "dynamic", "x-extra": "d"},
@@ -427,14 +427,14 @@ def test_merge_agent_headers_util_static_wins():
 
 
 def test_merge_agent_headers_util_none_returns_none():
-    from litellm.proxy.agent_endpoints.utils import merge_agent_headers
+    from embrouter.proxy.agent_endpoints.utils import merge_agent_headers
 
     result = merge_agent_headers()
     assert result is None
 
 
 def test_merge_agent_headers_util_empty_dicts_returns_none():
-    from litellm.proxy.agent_endpoints.utils import merge_agent_headers
+    from embrouter.proxy.agent_endpoints.utils import merge_agent_headers
 
     result = merge_agent_headers(dynamic_headers={}, static_headers={})
     assert result is None
@@ -442,7 +442,7 @@ def test_merge_agent_headers_util_empty_dicts_returns_none():
 
 def test_merge_agent_headers_util_case_insensitive_static_wins():
     """Static ``Authorization`` strips dynamic ``authorization`` (HTTP headers are case-insensitive)."""
-    from litellm.proxy.agent_endpoints.utils import merge_agent_headers
+    from embrouter.proxy.agent_endpoints.utils import merge_agent_headers
 
     result = merge_agent_headers(
         dynamic_headers={"authorization": "Bearer caller-token", "x-extra": "d"},
@@ -453,7 +453,7 @@ def test_merge_agent_headers_util_case_insensitive_static_wins():
 
 def test_merge_agent_headers_util_case_insensitive_no_dynamic_leak():
     """No case-variant of a static header can leak through from dynamic headers."""
-    from litellm.proxy.agent_endpoints.utils import merge_agent_headers
+    from embrouter.proxy.agent_endpoints.utils import merge_agent_headers
 
     result = merge_agent_headers(
         dynamic_headers={"AUTHORIZATION": "Bearer caller", "authorization": "x"},
@@ -477,12 +477,12 @@ async def test_convention_header_blocked_by_case_variant_static():
 
     headers = mock_asend.call_args.kwargs.get("agent_extra_headers")
     assert headers is not None
-    assert headers == {"Authorization": "Bearer admin-token", "X-LiteLLM-User-Id": "u1"}
+    assert headers == {"Authorization": "Bearer admin-token", "X-EmbRouter-User-Id": "u1"}
     assert "authorization" not in headers
 
 
 # ---------------------------------------------------------------------------
-# Completion bridge: configured litellm_params.extra_headers win
+# Completion bridge: configured embrouter_params.extra_headers win
 # case-insensitively over caller-rewritten headers
 # ---------------------------------------------------------------------------
 
@@ -499,8 +499,8 @@ _BRIDGE_MESSAGE_PARAMS = {
 @pytest.mark.asyncio
 async def test_bridge_caller_header_cannot_shadow_configured_header():
     """A caller-rewritten lowercase ``authorization`` must not ride alongside the
-    admin-configured ``Authorization`` from ``litellm_params.extra_headers``."""
-    from litellm.a2a_protocol.litellm_completion_bridge.handler import (
+    admin-configured ``Authorization`` from ``embrouter_params.extra_headers``."""
+    from embrouter.a2a_protocol.embrouter_completion_bridge.handler import (
         A2ACompletionBridgeHandler,
     )
 
@@ -510,13 +510,13 @@ async def test_bridge_caller_header_cannot_shadow_configured_header():
     mock_response.choices[0].message.content = "Hello!"
     mock_response.id = "resp-123"
 
-    with patch("litellm.acompletion", new_callable=AsyncMock) as mock_acompletion:
+    with patch("embrouter.acompletion", new_callable=AsyncMock) as mock_acompletion:
         mock_acompletion.return_value = mock_response
 
         await A2ACompletionBridgeHandler.handle_non_streaming(
             request_id="req-456",
             params=_BRIDGE_MESSAGE_PARAMS,
-            litellm_params={
+            embrouter_params={
                 "custom_llm_provider": "langgraph",
                 "model": "agent",
                 "extra_headers": {"Authorization": "Bearer admin-token"},
@@ -538,7 +538,7 @@ async def test_bridge_caller_header_cannot_shadow_configured_header():
 @pytest.mark.asyncio
 async def test_bridge_streaming_caller_header_cannot_shadow_configured_header():
     """Streaming path applies the same case-insensitive precedence."""
-    from litellm.a2a_protocol.litellm_completion_bridge.handler import (
+    from embrouter.a2a_protocol.embrouter_completion_bridge.handler import (
         A2ACompletionBridgeHandler,
     )
 
@@ -550,13 +550,13 @@ async def test_bridge_streaming_caller_header_cannot_shadow_configured_header():
     async def mock_streaming_response():
         yield mock_chunk
 
-    with patch("litellm.acompletion", new_callable=AsyncMock) as mock_acompletion:
+    with patch("embrouter.acompletion", new_callable=AsyncMock) as mock_acompletion:
         mock_acompletion.return_value = mock_streaming_response()
 
         async for _ in A2ACompletionBridgeHandler.handle_streaming(
             request_id="req-456",
             params=_BRIDGE_MESSAGE_PARAMS,
-            litellm_params={
+            embrouter_params={
                 "custom_llm_provider": "langgraph",
                 "model": "agent",
                 "extra_headers": {"Authorization": "Bearer admin-token"},

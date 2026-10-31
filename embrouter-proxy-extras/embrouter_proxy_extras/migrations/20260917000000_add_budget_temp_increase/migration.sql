@@ -1,5 +1,5 @@
 -- AlterTable
-ALTER TABLE "LiteLLM_BudgetTable" ADD COLUMN IF NOT EXISTS "temp_budget_increase" DOUBLE PRECISION;
+ALTER TABLE "EmbRouter_BudgetTable" ADD COLUMN IF NOT EXISTS "temp_budget_increase" DOUBLE PRECISION;
 
 -- AlterTable
-ALTER TABLE "LiteLLM_BudgetTable" ADD COLUMN IF NOT EXISTS "temp_budget_expiry" TIMESTAMP(3);
+ALTER TABLE "EmbRouter_BudgetTable" ADD COLUMN IF NOT EXISTS "temp_budget_expiry" TIMESTAMP(3);

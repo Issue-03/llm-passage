@@ -13,7 +13,7 @@ export interface InheritedBudgetGate {
 }
 
 type TeamBudgetSource = Pick<Team, "team_id" | "team_alias" | "max_budget" | "budget_duration">;
-type OrganizationBudgetSource = Pick<Organization, "organization_id" | "organization_alias" | "litellm_budget_table">;
+type OrganizationBudgetSource = Pick<Organization, "organization_id" | "organization_alias" | "embrouter_budget_table">;
 
 export interface UserBudgetSource {
   user_id: string;
@@ -35,7 +35,7 @@ const teamGate = (team: TeamBudgetSource | null | undefined): InheritedBudgetGat
 
 const organizationGate = (organization: OrganizationBudgetSource | null | undefined): InheritedBudgetGate | null => {
   const budgetTable: { max_budget?: number | null; budget_duration?: string | null } | null | undefined =
-    organization?.litellm_budget_table;
+    organization?.embrouter_budget_table;
   return organization && budgetTable?.max_budget != null
     ? {
         scope: "Organization",

@@ -1,5 +1,5 @@
 """
-LiteLLM Proxy uses this MCP Client to connnect to other MCP servers.
+EmbRouter Proxy uses this MCP Client to connnect to other MCP servers.
 """
 
 import asyncio
@@ -62,19 +62,19 @@ from mcp.types import CallToolResult as MCPCallToolResult
 from mcp.types import Tool as MCPTool
 from pydantic import AnyUrl, TypeAdapter
 
-from litellm._logging import verbose_logger
-from litellm.constants import (
+from embrouter._logging import verbose_logger
+from embrouter.constants import (
     MCP_CLIENT_TIMEOUT,
     MCP_NPM_CACHE_DIR,
     MCP_TOOL_LISTING_MAX_PAGES,
     MCP_TOOL_LISTING_TIMEOUT,
 )
-from litellm.experimental_mcp_client.tools import list_tools_with_pagination
-from litellm.llms.custom_httpx.http_handler import get_ssl_configuration
-from litellm.proxy._experimental.mcp_server.mcp_debug import capture_upstream_error_response
-from litellm.proxy._experimental.mcp_server.result_conversion import error_text_result
-from litellm.types.llms.custom_http import VerifyTypes
-from litellm.types.mcp import (
+from embrouter.experimental_mcp_client.tools import list_tools_with_pagination
+from embrouter.llms.custom_httpx.http_handler import get_ssl_configuration
+from embrouter.proxy._experimental.mcp_server.mcp_debug import capture_upstream_error_response
+from embrouter.proxy._experimental.mcp_server.result_conversion import error_text_result
+from embrouter.types.llms.custom_http import VerifyTypes
+from embrouter.types.mcp import (
     MCP_LEGACY_VERSIONS,
     MCPAuth,
     MCPAuthType,
@@ -331,7 +331,7 @@ class MCPSigV4Auth(httpx2.Auth):
         import boto3
         from botocore.credentials import Credentials
 
-        session_name: Final = aws_session_name or f"litellm-mcp-{int(time.time())}"
+        session_name: Final = aws_session_name or f"embrouter-mcp-{int(time.time())}"
         sts_kwargs: Final[dict] = {"region_name": aws_region_name}
         if aws_access_key_id and aws_secret_access_key:
             sts_kwargs["aws_access_key_id"] = aws_access_key_id
@@ -483,7 +483,7 @@ class MCPClient:
         # HTTP transport (default)
         headers = self._get_auth_headers()
         httpx_client_factory = self._create_httpx_client_factory()
-        verbose_logger.debug("litellm headers for streamable_http_client: %s", headers)
+        verbose_logger.debug("embrouter headers for streamable_http_client: %s", headers)
         http_client = httpx_client_factory(
             headers=headers,
             timeout=httpx2.Timeout(self.timeout),
@@ -500,7 +500,7 @@ class MCPClient:
 
         If provided_env is set, we use it as-is.
         If provided_env is None, we return a minimal allowlist from the parent environment
-        to avoid leaking sensitive LiteLLM keys (OPENAI_API_KEY, etc.) to sub-processes.
+        to avoid leaking sensitive EmbRouter keys (OPENAI_API_KEY, etc.) to sub-processes.
         """
         if provided_env is not None:
             return provided_env
@@ -550,7 +550,7 @@ class MCPClient:
             InitializeRequest(
                 params=InitializeRequestParams(
                     protocol_version=self.protocol_version,
-                    client_info=Implementation(name="litellm", version=version("litellm")),
+                    client_info=Implementation(name="embrouter", version=version("embrouter")),
                     capabilities=ClientCapabilities(
                         sampling=SamplingCapability() if self._sampling_callback is not None else None,
                         elicitation=ElicitationCapability(
@@ -776,7 +776,7 @@ class MCPClient:
         self, *, transport: httpx2.AsyncBaseTransport | None = None
     ) -> Callable[..., httpx2.AsyncClient]:
         """
-        Create a custom httpx2 client factory that uses LiteLLM's SSL configuration.
+        Create a custom httpx2 client factory that uses EmbRouter's SSL configuration.
         This factory follows the same CA bundle path logic as http_handler.py:
         1. Check ssl_verify parameter (can be SSLContext, bool, or path to CA bundle)
         2. Check SSL_VERIFY environment variable
@@ -790,7 +790,7 @@ class MCPClient:
             timeout: httpx2.Timeout | None = None,
             auth: httpx2.Auth | None = None,
         ) -> httpx2.AsyncClient:
-            """Create an httpx2.AsyncClient with LiteLLM's SSL configuration."""
+            """Create an httpx2.AsyncClient with EmbRouter's SSL configuration."""
             # Get unified SSL configuration using the same logic as http_handler.py
             ssl_config: Final = get_ssl_configuration(self.ssl_verify)
             verbose_logger.debug("MCP client using SSL configuration: %s", type(ssl_config).__name__)

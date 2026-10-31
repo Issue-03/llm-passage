@@ -5,26 +5,26 @@ from typing import TYPE_CHECKING, Final, Literal, TypeAlias
 
 from pydantic import TypeAdapter
 
-from litellm._logging import verbose_proxy_logger
-from litellm.litellm_core_utils.core_helpers import get_or_create_metadata_bucket
-from litellm.proxy.common_utils.callback_utils import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.embrouter_core_utils.core_helpers import get_or_create_metadata_bucket
+from embrouter.proxy.common_utils.callback_utils import (
     add_guardrail_to_applied_guardrails_header,
     add_policy_sources_to_metadata,
     add_policy_to_applied_policies_header,
 )
-from litellm.proxy.common_utils.http_parsing_utils import get_tags_from_request_body
-from litellm.proxy.policy_engine.attachment_registry import get_attachment_registry
-from litellm.proxy.policy_engine.policy_matcher import PolicyMatcher
-from litellm.proxy.policy_engine.policy_registry import get_policy_registry
-from litellm.proxy.policy_engine.policy_resolver import PolicyResolver
-from litellm.responses.utils import ResponsesAPIRequestUtils
-from litellm.router_utils.common_utils import resolve_model_group_alias
-from litellm.types.proxy.policy_engine import PolicyMatchContext
-from litellm.types.proxy.policy_engine.pipeline_types import GuardrailPipeline
+from embrouter.proxy.common_utils.http_parsing_utils import get_tags_from_request_body
+from embrouter.proxy.policy_engine.attachment_registry import get_attachment_registry
+from embrouter.proxy.policy_engine.policy_matcher import PolicyMatcher
+from embrouter.proxy.policy_engine.policy_registry import get_policy_registry
+from embrouter.proxy.policy_engine.policy_resolver import PolicyResolver
+from embrouter.responses.utils import ResponsesAPIRequestUtils
+from embrouter.router_utils.common_utils import resolve_model_group_alias
+from embrouter.types.proxy.policy_engine import PolicyMatchContext
+from embrouter.types.proxy.policy_engine.pipeline_types import GuardrailPipeline
 
 if TYPE_CHECKING:
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.router import Router
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.router import Router
 
 PolicyPipelines: TypeAlias = tuple[tuple[str, GuardrailPipeline], ...]
 

@@ -5,9 +5,9 @@ from __future__ import annotations
 from datetime import timezone
 from typing import Any, Final
 
-from litellm._logging import verbose_logger
-from litellm.integrations.gcs_bucket.gcs_bucket_base import GCSBucketBase
-from litellm.litellm_core_utils.cloud_storage_security import (
+from embrouter._logging import verbose_logger
+from embrouter.integrations.gcs_bucket.gcs_bucket_base import GCSBucketBase
+from embrouter.embrouter_core_utils.cloud_storage_security import (
     encode_gcs_object_name_for_url,
 )
 

@@ -19,7 +19,7 @@ const nextConfig = {
     unoptimized: true,
   },
   basePath: "",
-  assetPrefix: "/litellm-asset-prefix",
+  assetPrefix: "/embrouter-asset-prefix",
   trailingSlash: true,
   turbopack: {
     // Must be absolute; "." is no longer allowed

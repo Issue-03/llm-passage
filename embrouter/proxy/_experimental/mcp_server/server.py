@@ -1,5 +1,5 @@
 """
-LiteLLM MCP Server Routes
+EmbRouter MCP Server Routes
 """
 
 # pyright: reportInvalidTypeForm=false, reportArgumentType=false, reportOptionalCall=false
@@ -24,30 +24,30 @@ from starlette.responses import JSONResponse
 from starlette.routing import Route
 from starlette.types import Message, Receive, Scope, Send
 
-from litellm._logging import verbose_logger
-from litellm.constants import (
+from embrouter._logging import verbose_logger
+from embrouter.constants import (
     MCP_GATEWAY_SESSION_ID_PREFIX_LENGTH,
 )
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import (
+from embrouter.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import (
     MCPRequestHandler,
     _is_mcp_admitted_user_subject,
 )
-from litellm.proxy._experimental.mcp_server.client_allowlist import (
+from embrouter.proxy._experimental.mcp_server.client_allowlist import (
     MCPClientAllowlist,
     check_mcp_client_allowed,
     load_mcp_client_allowlist,
 )
-from litellm.proxy._experimental.mcp_server.discoverable_endpoints import (
+from embrouter.proxy._experimental.mcp_server.discoverable_endpoints import (
     get_request_base_url,
 )
-from litellm.proxy._experimental.mcp_server.exceptions import (
+from embrouter.proxy._experimental.mcp_server.exceptions import (
     MCPUpstreamAuthError,
 )
-from litellm.proxy._experimental.mcp_server.mcp_context import (
+from embrouter.proxy._experimental.mcp_server.mcp_context import (
     _mcp_active_toolset_id,
     _mcp_gateway_initialize_instructions,
     _mcp_gateway_server_name,
@@ -55,30 +55,30 @@ from litellm.proxy._experimental.mcp_server.mcp_context import (
     active_mcp_request_ctx_var,
     get_active_mcp_request_ctx,
 )
-from litellm.proxy._experimental.mcp_server.mcp_debug import (
+from embrouter.proxy._experimental.mcp_server.mcp_debug import (
     MCP_AUTH_DIAGNOSTICS_SCOPE_KEY,
     MCPAuthDiagnostics,
     MCPDebug,
 )
-from litellm.proxy._experimental.mcp_server.oauth_utils import (
+from embrouter.proxy._experimental.mcp_server.oauth_utils import (
     _redact_mcp_resource_url,
     get_passthrough_www_authenticate,
     get_route_relative_request_path,
     well_known_root_suffix,
 )
-from litellm.proxy._experimental.mcp_server.ui_session_utils import is_ui_session_credential
-from litellm.proxy._experimental.mcp_server.utils import (
-    LITELLM_MCP_SERVER_DESCRIPTION,
-    LITELLM_MCP_SERVER_NAME,
-    LITELLM_MCP_SERVER_VERSION,
+from embrouter.proxy._experimental.mcp_server.ui_session_utils import is_ui_session_credential
+from embrouter.proxy._experimental.mcp_server.utils import (
+    EMBROUTER_MCP_SERVER_DESCRIPTION,
+    EMBROUTER_MCP_SERVER_NAME,
+    EMBROUTER_MCP_SERVER_VERSION,
 )
-from litellm.proxy._types import (
+from embrouter.proxy._types import (
     ProxyException,
     SpecialMCPServerNames,
     UserAPIKeyAuth,
 )
-from litellm.proxy.auth.ip_address_utils import IPAddressUtils
-from litellm.types.mcp import (
+from embrouter.proxy.auth.ip_address_utils import IPAddressUtils
+from embrouter.types.mcp import (
     MCPAuth,
     MCPGatewaySession,
     MCPGatewaySessionGroupCount,
@@ -86,7 +86,7 @@ from litellm.types.mcp import (
     MCPGatewaySessionsTerminateResponse,
     MCPSpecVersion,
 )
-from litellm.types.mcp_server.mcp_server_manager import MCPServer
+from embrouter.types.mcp_server.mcp_server_manager import MCPServer
 
 if TYPE_CHECKING:
     from mcp.server.session import ServerSession as _McpServerSession
@@ -106,13 +106,13 @@ _MAX_STATEFUL_SESSIONS_PER_OWNER: Final = 100
 # arbitrarily large body just to make a routing decision.
 _MCP_ROUTING_PEEK_MAX_BYTES: Final = 4096
 # ASGI scope keys carrying OTel request state into a stateful MCP message handler.
-_MCP_TRANSPORT_SPAN_SCOPE_KEY: Final = "litellm_otel_transport_span"
-_MCP_DESTINATIONS_SCOPE_KEY: Final = "litellm_otel_request_destinations"
+_MCP_TRANSPORT_SPAN_SCOPE_KEY: Final = "embrouter_otel_transport_span"
+_MCP_DESTINATIONS_SCOPE_KEY: Final = "embrouter_otel_request_destinations"
 _MCP_PROTOCOL_VERSION_HEADER: Final = b"mcp-protocol-version"
 
 
 def reject_disallowed_mcp_origin(request: StarletteRequest) -> None:
-    from litellm.proxy.proxy_server import origins  # noqa: PLC0415  # proxy imports this module during startup
+    from embrouter.proxy.proxy_server import origins  # noqa: PLC0415  # proxy imports this module during startup
 
     if "*" not in origins and any(origin not in origins for origin in request.headers.getlist("origin")):
         raise HTTPException(status_code=403, detail="Invalid Origin header")
@@ -123,9 +123,9 @@ def unsupported_protocol_version(scope: Scope) -> str | None:
 
     SDK 2's ``StreamableHTTPSessionManager`` routes any version outside
     ``HANDSHAKE_PROTOCOL_VERSIONS`` to the modern single-exchange path, which
-    bypasses litellm's session/auth model, so the ASGI entry rejects it.
+    bypasses embrouter's session/auth model, so the ASGI entry rejects it.
     """
-    from litellm.proxy._experimental.mcp_server.capabilities import configured_versions
+    from embrouter.proxy._experimental.mcp_server.capabilities import configured_versions
 
     headers: Final[Iterable[tuple[bytes, bytes]]] = scope.get("headers") or ()
     values: Final = tuple(
@@ -138,9 +138,9 @@ def unsupported_protocol_version(scope: Scope) -> str | None:
 
 
 # Check if MCP is available
-# "mcp" requires python 3.10 or higher, but several litellm users use python 3.8
+# "mcp" requires python 3.10 or higher, but several embrouter users use python 3.8
 # We're making this conditional import to avoid breaking users who use python 3.8.
-# TODO: Make this a util function for litellm client usage
+# TODO: Make this a util function for embrouter client usage
 MCP_AVAILABLE: bool = True
 try:
     import weakref
@@ -251,7 +251,7 @@ def _mcp_meta_trace_carrier(req_ctx: object) -> dict[str, str] | None:
     every message under the session's first request;
     see ``resolve_mcp_span_context``. The client's W3C Baggage is
     deliberately excluded: it is caller-controlled, and the otel baggage processor
-    stamps allowlisted baggage keys (``litellm.team.id``, ``litellm.metadata.*``,
+    stamps allowlisted baggage keys (``embrouter.team.id``, ``embrouter.metadata.*``,
     ...) onto the span, so honoring remote baggage would let a client spoof a
     span's identity attribution.
     """
@@ -268,7 +268,7 @@ def _otel_set_mcp_trace_carrier(carrier: dict[str, str] | None) -> object:
     ``None`` when otel_v2 is unavailable. Lazily imported so opentelemetry stays an
     optional dependency."""
     try:
-        from litellm.integrations.otel.plumbing.context import (
+        from embrouter.integrations.otel.plumbing.context import (
             set_mcp_message_trace_carrier,
         )
 
@@ -283,7 +283,7 @@ def _otel_reset_mcp_trace_carrier(token: object) -> None:
     if token is None:
         return
     try:
-        from litellm.integrations.otel.plumbing.context import (
+        from embrouter.integrations.otel.plumbing.context import (
             reset_mcp_message_trace_carrier,
         )
 
@@ -313,7 +313,7 @@ def _otel_publish_transport_span_on_scope(scope: Scope) -> None:
     an optional dependency; a no-op when otel_v2 is unavailable or no request span is
     anchored."""
     try:
-        from litellm.integrations.otel.plumbing.context import (
+        from embrouter.integrations.otel.plumbing.context import (
             request_root_span,
         )
 
@@ -344,7 +344,7 @@ def _otel_set_mcp_transport_span(span: object) -> object:
     if span is None:
         return None
     try:
-        from litellm.integrations.otel.plumbing.context import (
+        from embrouter.integrations.otel.plumbing.context import (
             set_mcp_message_transport_span,
         )
 
@@ -358,7 +358,7 @@ def _otel_reset_mcp_transport_span(token: object) -> None:
     if token is None:
         return
     try:
-        from litellm.integrations.otel.plumbing.context import (
+        from embrouter.integrations.otel.plumbing.context import (
             reset_mcp_message_transport_span,
         )
 
@@ -369,7 +369,7 @@ def _otel_reset_mcp_transport_span(token: object) -> None:
 
 def _otel_publish_request_destinations_on_scope(scope: Scope) -> None:
     try:
-        from litellm.integrations.otel.plumbing.context import request_destinations
+        from embrouter.integrations.otel.plumbing.context import request_destinations
 
         scope[_MCP_DESTINATIONS_SCOPE_KEY] = request_destinations()
     except ImportError:
@@ -381,8 +381,8 @@ def _otel_set_mcp_request_destinations(req_ctx: object) -> object:
     if not isinstance(destinations, tuple):
         return None
     try:
-        from litellm.integrations.otel.model.destination import OtelDestination
-        from litellm.integrations.otel.plumbing.context import set_request_destinations
+        from embrouter.integrations.otel.model.destination import OtelDestination
+        from embrouter.integrations.otel.plumbing.context import set_request_destinations
 
         destination_adapter: Final[TypeAdapter[tuple[OtelDestination, ...]]] = TypeAdapter(
             tuple[OtelDestination, ...],
@@ -398,7 +398,7 @@ def _otel_reset_mcp_request_destinations(token: object) -> None:
     if token is None:
         return
     try:
-        from litellm.integrations.otel.plumbing.context import reset_request_destinations
+        from embrouter.integrations.otel.plumbing.context import reset_request_destinations
 
         reset_request_destinations(token)
     except ImportError:
@@ -504,13 +504,13 @@ if MCP_AVAILABLE:
         ReadResourceRequest,
     )
 
-    from litellm.proxy._experimental.mcp_server import operations
-    from litellm.proxy._experimental.mcp_server.contracts import OperationContext
-    from litellm.proxy._experimental.mcp_server.operations import (
+    from embrouter.proxy._experimental.mcp_server import operations
+    from embrouter.proxy._experimental.mcp_server.contracts import OperationContext
+    from embrouter.proxy._experimental.mcp_server.operations import (
         _invalidate_byok_cred_cache,
         _mcp_session_id_from_headers,
     )
-    from litellm.proxy._experimental.mcp_server.result_conversion import wire_compat_for
+    from embrouter.proxy._experimental.mcp_server.result_conversion import wire_compat_for
 
     try:
         from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
@@ -532,11 +532,11 @@ if MCP_AVAILABLE:
         ReadResourceRequestParams,
     )
 
-    from litellm.proxy._experimental.mcp_server.auth.litellm_auth_handler import (
+    from embrouter.proxy._experimental.mcp_server.auth.embrouter_auth_handler import (
         MCPAuthenticatedUser,
     )
-    from litellm.proxy._experimental.mcp_server.capabilities import GatewayVersionPolicy, configured_versions
-    from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+    from embrouter.proxy._experimental.mcp_server.capabilities import GatewayVersionPolicy, configured_versions
+    from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
         MCPServerManager,
         global_mcp_server_manager,
     )
@@ -544,12 +544,12 @@ if MCP_AVAILABLE:
     ######################################################
     ############ MCP Tools List REST API Response Object #
     # Defined here because we don't want to add `mcp` as a
-    # required dependency for `litellm` pip package
+    # required dependency for `embrouter` pip package
     ######################################################
-    from litellm.proxy._experimental.mcp_server.operations import (
+    from embrouter.proxy._experimental.mcp_server.operations import (
         ListMCPToolsRestAPIResponseObject,
     )
-    from litellm.proxy._experimental.mcp_server.sse_transport import SseServerTransport
+    from embrouter.proxy._experimental.mcp_server.sse_transport import SseServerTransport
 
     def _gateway_create_initialization_options(
         self,
@@ -587,8 +587,8 @@ if MCP_AVAILABLE:
     ############ Initialize the MCP Server #################
     ########################################################
     server: Final[Server] = Server(
-        name=LITELLM_MCP_SERVER_NAME,
-        version=LITELLM_MCP_SERVER_VERSION,
+        name=EMBROUTER_MCP_SERVER_NAME,
+        version=EMBROUTER_MCP_SERVER_VERSION,
     )
     server.middleware.append(GatewayVersionPolicy())
     server.create_initialization_options = types.MethodType(_gateway_create_initialization_options, server)
@@ -888,7 +888,7 @@ if MCP_AVAILABLE:
 
         raise MCPError(code=METHOD_NOT_FOUND, message="Operation unavailable on /mcp/proxy")
 
-    from litellm.proxy._experimental.mcp_server.operations import (
+    from embrouter.proxy._experimental.mcp_server.operations import (
         _build_virtual_call_logging_obj,
         _dispatch_virtual_mcp_tool,
     )
@@ -976,7 +976,7 @@ if MCP_AVAILABLE:
     ############ Helper Functions ##########################
     ########################################################
 
-    from litellm.proxy._experimental.mcp_server.operations import (
+    from embrouter.proxy._experimental.mcp_server.operations import (
         _client_has_passthrough_authorization,
         _client_has_per_server_auth_header,
         _get_allowed_mcp_servers,
@@ -1039,7 +1039,7 @@ if MCP_AVAILABLE:
             _mcp_gateway_initialize_instructions.reset(instructions_token)
             _mcp_gateway_server_name.reset(server_name_token)
 
-    from litellm.proxy._experimental.mcp_server.operations import (
+    from embrouter.proxy._experimental.mcp_server.operations import (
         _MCP_CREDENTIAL_REQUEST_FIELDS,
         _aggregate_server_key,
         _check_byok_credential,
@@ -1114,7 +1114,7 @@ if MCP_AVAILABLE:
         return mcp_servers_from_path
 
     def _load_mcp_client_allowlist() -> MCPClientAllowlist | None:
-        from litellm.proxy.proxy_server import general_settings
+        from embrouter.proxy.proxy_server import general_settings
 
         return load_mcp_client_allowlist(general_settings)
 
@@ -1528,8 +1528,8 @@ if MCP_AVAILABLE:
         that does not include toolset_id (i.e. mcp_toolsets is set but empty,
         or set to a list that omits this toolset).  Admin keys always pass.
         """
-        from litellm.proxy._types import LiteLLM_ObjectPermissionTable
-        from litellm.proxy.management_endpoints.common_utils import _user_has_admin_view
+        from embrouter.proxy._types import EmbRouter_ObjectPermissionTable
+        from embrouter.proxy.management_endpoints.common_utils import _user_has_admin_view
 
         # A key scoped to no MCP servers opts out of every MCP path. Enforce it
         # here too, since toolset scoping replaces mcp_servers and would otherwise
@@ -1573,7 +1573,7 @@ if MCP_AVAILABLE:
                 }
             )
         else:
-            updated_op = LiteLLM_ObjectPermissionTable(
+            updated_op = EmbRouter_ObjectPermissionTable(
                 object_permission_id="toolset-scope",
                 mcp_servers=server_ids,
                 mcp_tool_permissions=tool_permissions,
@@ -1620,7 +1620,7 @@ if MCP_AVAILABLE:
                 # The challenge decision is per oauth2 sub-mode, not per header:
                 # gateway-managed modes (M2M and interactive authorization_code)
                 # never receive a client-supplied upstream token, so a bearer in
-                # Authorization is a LiteLLM key (surfaced here as oauth2_headers)
+                # Authorization is a EmbRouter key (surfaced here as oauth2_headers)
                 # and must not suppress the challenge. Only the delegate mode
                 # treats a present bearer as the upstream token. The sub-mode is
                 # resolved the same way egress resolves it, via
@@ -1642,7 +1642,7 @@ if MCP_AVAILABLE:
                     # challenged with the per-server resource_metadata (whose
                     # authorization server is the gateway itself, vaulting via the
                     # authorize interlude); the per-server relay advertised below
-                    # cannot vault without a litellm key on its token request.
+                    # cannot vault without a embrouter key on its token request.
                     if await operations.global_mcp_server_manager.has_user_oauth_token(server, user_api_key_auth):
                         continue
 
@@ -1700,14 +1700,14 @@ if MCP_AVAILABLE:
 
             # token_exchange (OBO): the caller supplied no subject token. Challenge at connect
             # (transport level, where WWW-Authenticate survives) with the RFC 9728 resource_metadata
-            # so the client discovers the IdP, SSOs, and retries with a subject token, which LiteLLM
+            # so the client discovers the IdP, SSOs, and retries with a subject token, which EmbRouter
             # then exchanges. A tool-call-time 401 would be wrapped into a JSON-RPC error and the
             # header lost, so the discovery flow needs this pre-emptive challenge.
             if server and server.auth_type == MCPAuth.oauth2_token_exchange and not oauth2_headers:
-                from litellm.proxy._experimental.mcp_server.outbound_credentials.adapter import (  # noqa: PLC0415  # lazy: adapter pulls MCP subgraph
+                from embrouter.proxy._experimental.mcp_server.outbound_credentials.adapter import (  # noqa: PLC0415  # lazy: adapter pulls MCP subgraph
                     raise_token_exchange_challenge,
                 )
-                from litellm.proxy.middleware.per_request_root_path_middleware import (  # noqa: PLC0415  # lazy: middleware imports proxy utils
+                from embrouter.proxy.middleware.per_request_root_path_middleware import (  # noqa: PLC0415  # lazy: middleware imports proxy utils
                     get_request_root_path,
                 )
 
@@ -1818,17 +1818,17 @@ if MCP_AVAILABLE:
     def _get_forwarded_auth_from_scope(scope: Scope) -> str | None:
         """Return the upstream-bound ``Authorization`` header value, or None.
 
-        Only returns the ``Authorization`` header when ``x-litellm-api-key`` is
+        Only returns the ``Authorization`` header when ``x-embrouter-api-key`` is
         also present. In that case ``Authorization`` is unambiguously the
         upstream token the caller wants forwarded to the MCP server. When
-        ``x-litellm-api-key`` is absent the ``Authorization`` header may itself
-        be the LiteLLM proxy API key (backward-compat path in
+        ``x-embrouter-api-key`` is absent the ``Authorization`` header may itself
+        be the EmbRouter proxy API key (backward-compat path in
         ``MCPRequestHandler.process_mcp_request``), and forwarding it upstream
         would leak the proxy key to a third-party MCP server.
         """
         scope_headers: Final[Sequence[tuple[bytes, bytes]]] = scope.get("headers", [])
-        has_litellm_key_header: Final = any(key.lower() == b"x-litellm-api-key" for key, _ in scope_headers)
-        if not has_litellm_key_header:
+        has_embrouter_key_header: Final = any(key.lower() == b"x-embrouter-api-key" for key, _ in scope_headers)
+        if not has_embrouter_key_header:
             return None
         return _get_authorization_header_from_scope(scope)
 
@@ -1854,13 +1854,13 @@ if MCP_AVAILABLE:
         )
         probe_payload: Final = {
             "jsonrpc": "2.0",
-            "id": "litellm-mcp-auth-probe",
+            "id": "embrouter-mcp-auth-probe",
             "method": "initialize",
             "params": {
                 "protocolVersion": MCPSpecVersion.jun_2025.value,
                 "capabilities": {},
                 "clientInfo": {
-                    "name": "litellm-mcp-auth-probe",
+                    "name": "embrouter-mcp-auth-probe",
                     "version": "1.0.0",
                 },
             },
@@ -1940,7 +1940,7 @@ if MCP_AVAILABLE:
             if probe_status == 401:
                 # Token is missing or expired: keep pass-through clients on the
                 # protected-resource discovery flow so they re-authorize against
-                # the upstream IdP metadata proxied by LiteLLM.
+                # the upstream IdP metadata proxied by EmbRouter.
                 www_authenticate = get_passthrough_www_authenticate(
                     scope=scope,
                     server_name=challenge_server_name,
@@ -2033,7 +2033,7 @@ if MCP_AVAILABLE:
             # server set, not the raw user-supplied names.
             await _check_passthrough_upstream_auth(scope, user_api_key_auth, mcp_servers, _client_ip)
 
-            # Inject masked debug headers when client sends x-litellm-mcp-debug: true
+            # Inject masked debug headers when client sends x-embrouter-mcp-debug: true
             _debug_headers: Final = MCPDebug.maybe_build_debug_headers(
                 raw_headers=raw_headers,
                 scope=dict(scope),
@@ -2324,7 +2324,7 @@ if MCP_AVAILABLE:
                     },
                 )(scope, receive, send)
                 return
-            from litellm.proxy.auth.auth_utils import get_request_route
+            from embrouter.proxy.auth.auth_utils import get_request_route
 
             path: Final = get_request_route(StarletteRequest(scope))
             (
@@ -2455,9 +2455,9 @@ if MCP_AVAILABLE:
                 raise e
 
     app = FastAPI(
-        title=LITELLM_MCP_SERVER_NAME,
-        description=LITELLM_MCP_SERVER_DESCRIPTION,
-        version=LITELLM_MCP_SERVER_VERSION,
+        title=EMBROUTER_MCP_SERVER_NAME,
+        description=EMBROUTER_MCP_SERVER_DESCRIPTION,
+        version=EMBROUTER_MCP_SERVER_VERSION,
         lifespan=lifespan,
     )
 

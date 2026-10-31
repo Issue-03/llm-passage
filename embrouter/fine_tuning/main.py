@@ -17,16 +17,16 @@ from typing import Any, Final, Literal
 
 import httpx
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.llms.azure.fine_tuning.handler import AzureOpenAIFineTuningAPI
-from litellm.llms.openai.fine_tuning.handler import OpenAIFineTuningAPI
-from litellm.llms.vertex_ai.fine_tuning.handler import VertexFineTuningAPI
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.openai import FineTuningJobCreate, Hyperparameters
-from litellm.types.router import *
-from litellm.types.utils import LiteLLMFineTuningJob
-from litellm.utils import client, supports_httpx_timeout
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.llms.azure.fine_tuning.handler import AzureOpenAIFineTuningAPI
+from embrouter.llms.openai.fine_tuning.handler import OpenAIFineTuningAPI
+from embrouter.llms.vertex_ai.fine_tuning.handler import VertexFineTuningAPI
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.openai import FineTuningJobCreate, Hyperparameters
+from embrouter.types.router import *
+from embrouter.types.utils import EmbRouterFineTuningJob
+from embrouter.utils import client, supports_httpx_timeout
 
 ####### ENVIRONMENT VARIABLES ###################
 openai_fine_tuning_apis_instance: Final = OpenAIFineTuningAPI()
@@ -86,7 +86,7 @@ async def acreate_fine_tuning_job(
     extra_headers: dict[str, str] | None = None,
     extra_body: dict[str, str] | None = None,
     **kwargs,
-) -> LiteLLMFineTuningJob:
+) -> EmbRouterFineTuningJob:
     """
     Async: Creates and executes a batch from an uploaded file of request
 
@@ -163,7 +163,7 @@ def create_fine_tuning_job(
     extra_headers: dict[str, str] | None = None,
     extra_body: dict[str, str] | None = None,
     **kwargs,
-) -> LiteLLMFineTuningJob | Coroutine[object, object, LiteLLMFineTuningJob]:
+) -> EmbRouterFineTuningJob | Coroutine[object, object, EmbRouterFineTuningJob]:
     """
     Creates a fine-tuning job which begins the process of creating a new model from a given dataset.
 
@@ -172,7 +172,7 @@ def create_fine_tuning_job(
     """
     try:
         _is_async: Final = kwargs.pop("acreate_fine_tuning_job", False) is True
-        optional_params: Final = GenericLiteLLMParams(**kwargs)
+        optional_params: Final = GenericEmbRouterParams(**kwargs)
 
         # handle hyperparameters
         hyperparameters = hyperparameters or {}  # original hyperparameters
@@ -198,22 +198,22 @@ def create_fine_tuning_job(
             # for deepinfra/perplexity/anyscale/groq we check in get_llm_provider and pass in the api base from there
             api_base = (
                 optional_params.api_base
-                or litellm.api_base
+                or embrouter.api_base
                 or os.getenv("OPENAI_BASE_URL")
                 or os.getenv("OPENAI_API_BASE")
                 or "https://api.openai.com/v1"
             )
             organization: Final = (
                 optional_params.organization
-                or litellm.organization
+                or embrouter.organization
                 or os.getenv("OPENAI_ORGANIZATION", None)
                 or None  # default - https://github.com/openai/openai-python/blob/284c1799070c723c6a553337134148a7ab088dd8/openai/util.py#L105
             )
             # set API KEY
             api_key = (
                 optional_params.api_key
-                or litellm.api_key  # for deepinfra/perplexity/anyscale we check in get_llm_provider and pass in the api key from there
-                or litellm.openai_key
+                or embrouter.api_key  # for deepinfra/perplexity/anyscale we check in get_llm_provider and pass in the api key from there
+                or embrouter.openai_key
                 or os.getenv("OPENAI_API_KEY")
             )
 
@@ -238,18 +238,18 @@ def create_fine_tuning_job(
                 _is_async=_is_async,
                 client=kwargs.get(
                     "client", None
-                ),  # note, when we add this to `GenericLiteLLMParams` it impacts a lot of other tests + linting
+                ),  # note, when we add this to `GenericEmbRouterParams` it impacts a lot of other tests + linting
             )
         # Azure OpenAI
         elif custom_llm_provider == "azure":
-            api_base = optional_params.api_base or litellm.api_base or get_secret_str("AZURE_API_BASE")
+            api_base = optional_params.api_base or embrouter.api_base or get_secret_str("AZURE_API_BASE")
 
-            api_version = optional_params.api_version or litellm.api_version or get_secret_str("AZURE_API_VERSION")
+            api_version = optional_params.api_version or embrouter.api_version or get_secret_str("AZURE_API_VERSION")
 
             api_key = (
                 optional_params.api_key
-                or litellm.api_key
-                or litellm.azure_key
+                or embrouter.api_key
+                or embrouter.azure_key
                 or get_secret_str("AZURE_OPENAI_API_KEY")
                 or get_secret_str("AZURE_API_KEY")
             )
@@ -288,10 +288,10 @@ def create_fine_tuning_job(
         elif custom_llm_provider == "vertex_ai":
             api_base = optional_params.api_base or ""
             vertex_ai_project: Final = (
-                optional_params.vertex_project or litellm.vertex_project or get_secret_str("VERTEXAI_PROJECT")
+                optional_params.vertex_project or embrouter.vertex_project or get_secret_str("VERTEXAI_PROJECT")
             )
             vertex_ai_location: Final = (
-                optional_params.vertex_location or litellm.vertex_location or get_secret_str("VERTEXAI_LOCATION")
+                optional_params.vertex_location or embrouter.vertex_location or get_secret_str("VERTEXAI_LOCATION")
             )
             vertex_credentials: Final = optional_params.vertex_credentials or get_secret_str("VERTEXAI_CREDENTIALS")
             response = vertex_fine_tuning_apis_instance.create_fine_tuning_job(
@@ -314,8 +314,8 @@ def create_fine_tuning_job(
                 original_hyperparameters=hyperparameters,
             )
         else:
-            raise litellm.exceptions.BadRequestError(
-                message=f"LiteLLM doesn't support {custom_llm_provider} for 'create_batch'. Only 'openai' is supported.",
+            raise embrouter.exceptions.BadRequestError(
+                message=f"EmbRouter doesn't support {custom_llm_provider} for 'create_batch'. Only 'openai' is supported.",
                 model="n/a",
                 llm_provider=custom_llm_provider,
                 response=httpx.Response(
@@ -337,7 +337,7 @@ async def acancel_fine_tuning_job(
     extra_headers: dict[str, str] | None = None,
     extra_body: dict[str, str] | None = None,
     **kwargs,
-) -> LiteLLMFineTuningJob:
+) -> EmbRouterFineTuningJob:
     """
     Async: Immediately cancel a fine-tune job.
     """
@@ -375,7 +375,7 @@ def cancel_fine_tuning_job(
     extra_headers: dict[str, str] | None = None,
     extra_body: dict[str, str] | None = None,
     **kwargs,
-) -> LiteLLMFineTuningJob | Coroutine[object, object, LiteLLMFineTuningJob]:
+) -> EmbRouterFineTuningJob | Coroutine[object, object, EmbRouterFineTuningJob]:
     """
     Immediately cancel a fine-tune job.
 
@@ -383,7 +383,7 @@ def cancel_fine_tuning_job(
 
     """
     try:
-        optional_params: Final = GenericLiteLLMParams(**kwargs)
+        optional_params: Final = GenericEmbRouterParams(**kwargs)
         ### TIMEOUT LOGIC ###
         timeout = optional_params.timeout or kwargs.get("request_timeout", 600) or 600
         # set timeout for 10 minutes by default
@@ -407,22 +407,22 @@ def cancel_fine_tuning_job(
             # for deepinfra/perplexity/anyscale/groq we check in get_llm_provider and pass in the api base from there
             api_base = (
                 optional_params.api_base
-                or litellm.api_base
+                or embrouter.api_base
                 or os.getenv("OPENAI_BASE_URL")
                 or os.getenv("OPENAI_API_BASE")
                 or "https://api.openai.com/v1"
             )
             organization: Final = (
                 optional_params.organization
-                or litellm.organization
+                or embrouter.organization
                 or os.getenv("OPENAI_ORGANIZATION", None)
                 or None  # default - https://github.com/openai/openai-python/blob/284c1799070c723c6a553337134148a7ab088dd8/openai/util.py#L105
             )
             # set API KEY
             api_key = (
                 optional_params.api_key
-                or litellm.api_key  # for deepinfra/perplexity/anyscale we check in get_llm_provider and pass in the api key from there
-                or litellm.openai_key
+                or embrouter.api_key  # for deepinfra/perplexity/anyscale we check in get_llm_provider and pass in the api key from there
+                or embrouter.openai_key
                 or os.getenv("OPENAI_API_KEY")
             )
 
@@ -439,14 +439,14 @@ def cancel_fine_tuning_job(
             )
         # Azure OpenAI
         elif custom_llm_provider == "azure":
-            api_base = optional_params.api_base or litellm.api_base or get_secret_str("AZURE_API_BASE")
+            api_base = optional_params.api_base or embrouter.api_base or get_secret_str("AZURE_API_BASE")
 
-            api_version = optional_params.api_version or litellm.api_version or get_secret_str("AZURE_API_VERSION")
+            api_version = optional_params.api_version or embrouter.api_version or get_secret_str("AZURE_API_VERSION")
 
             api_key = (
                 optional_params.api_key
-                or litellm.api_key
-                or litellm.azure_key
+                or embrouter.api_key
+                or embrouter.azure_key
                 or get_secret_str("AZURE_OPENAI_API_KEY")
                 or get_secret_str("AZURE_API_KEY")
             )
@@ -466,8 +466,8 @@ def cancel_fine_tuning_job(
                 organization=optional_params.organization,
             )
         else:
-            raise litellm.exceptions.BadRequestError(
-                message=f"LiteLLM doesn't support {custom_llm_provider} for 'create_batch'. Only 'openai' is supported.",
+            raise embrouter.exceptions.BadRequestError(
+                message=f"EmbRouter doesn't support {custom_llm_provider} for 'create_batch'. Only 'openai' is supported.",
                 model="n/a",
                 llm_provider=custom_llm_provider,
                 response=httpx.Response(
@@ -537,7 +537,7 @@ def list_fine_tuning_jobs(
     - limit: Optional[int] = None, Number of fine-tuning jobs to retrieve. Defaults to 20
     """
     try:
-        optional_params: Final = GenericLiteLLMParams(**kwargs)
+        optional_params: Final = GenericEmbRouterParams(**kwargs)
         ### TIMEOUT LOGIC ###
         timeout = optional_params.timeout or kwargs.get("request_timeout", 600) or 600
         # set timeout for 10 minutes by default
@@ -561,22 +561,22 @@ def list_fine_tuning_jobs(
             # for deepinfra/perplexity/anyscale/groq we check in get_llm_provider and pass in the api base from there
             api_base = (
                 optional_params.api_base
-                or litellm.api_base
+                or embrouter.api_base
                 or os.getenv("OPENAI_BASE_URL")
                 or os.getenv("OPENAI_API_BASE")
                 or "https://api.openai.com/v1"
             )
             organization: Final = (
                 optional_params.organization
-                or litellm.organization
+                or embrouter.organization
                 or os.getenv("OPENAI_ORGANIZATION", None)
                 or None  # default - https://github.com/openai/openai-python/blob/284c1799070c723c6a553337134148a7ab088dd8/openai/util.py#L105
             )
             # set API KEY
             api_key = (
                 optional_params.api_key
-                or litellm.api_key  # for deepinfra/perplexity/anyscale we check in get_llm_provider and pass in the api key from there
-                or litellm.openai_key
+                or embrouter.api_key  # for deepinfra/perplexity/anyscale we check in get_llm_provider and pass in the api key from there
+                or embrouter.openai_key
                 or os.getenv("OPENAI_API_KEY")
             )
 
@@ -594,14 +594,14 @@ def list_fine_tuning_jobs(
             )
         # Azure OpenAI
         elif custom_llm_provider == "azure":
-            api_base = optional_params.api_base or litellm.api_base or get_secret_str("AZURE_API_BASE")
+            api_base = optional_params.api_base or embrouter.api_base or get_secret_str("AZURE_API_BASE")
 
-            api_version = optional_params.api_version or litellm.api_version or get_secret_str("AZURE_API_VERSION")
+            api_version = optional_params.api_version or embrouter.api_version or get_secret_str("AZURE_API_VERSION")
 
             api_key = (
                 optional_params.api_key
-                or litellm.api_key
-                or litellm.azure_key
+                or embrouter.api_key
+                or embrouter.azure_key
                 or get_secret_str("AZURE_OPENAI_API_KEY")
                 or get_secret_str("AZURE_API_KEY")
             )
@@ -622,8 +622,8 @@ def list_fine_tuning_jobs(
                 organization=optional_params.organization,
             )
         else:
-            raise litellm.exceptions.BadRequestError(
-                message=f"LiteLLM doesn't support {custom_llm_provider} for 'create_batch'. Only 'openai' is supported.",
+            raise embrouter.exceptions.BadRequestError(
+                message=f"EmbRouter doesn't support {custom_llm_provider} for 'create_batch'. Only 'openai' is supported.",
                 model="n/a",
                 llm_provider=custom_llm_provider,
                 response=httpx.Response(
@@ -644,7 +644,7 @@ async def aretrieve_fine_tuning_job(
     extra_headers: dict[str, str] | None = None,
     extra_body: dict[str, str] | None = None,
     **kwargs,
-) -> LiteLLMFineTuningJob:
+) -> EmbRouterFineTuningJob:
     """
     Async: Get info about a fine-tuning job.
     """
@@ -682,12 +682,12 @@ def retrieve_fine_tuning_job(
     extra_headers: dict[str, str] | None = None,
     extra_body: dict[str, str] | None = None,
     **kwargs,
-) -> LiteLLMFineTuningJob | Coroutine[object, object, LiteLLMFineTuningJob]:
+) -> EmbRouterFineTuningJob | Coroutine[object, object, EmbRouterFineTuningJob]:
     """
     Get info about a fine-tuning job.
     """
     try:
-        optional_params: Final = GenericLiteLLMParams(**kwargs)
+        optional_params: Final = GenericEmbRouterParams(**kwargs)
         ### TIMEOUT LOGIC ###
         timeout = optional_params.timeout or kwargs.get("request_timeout", 600) or 600
         # set timeout for 10 minutes by default
@@ -710,15 +710,15 @@ def retrieve_fine_tuning_job(
         if custom_llm_provider == "openai":
             api_base = (
                 optional_params.api_base
-                or litellm.api_base
+                or embrouter.api_base
                 or os.getenv("OPENAI_BASE_URL")
                 or os.getenv("OPENAI_API_BASE")
                 or "https://api.openai.com/v1"
             )
             organization: Final = (
-                optional_params.organization or litellm.organization or os.getenv("OPENAI_ORGANIZATION", None) or None
+                optional_params.organization or embrouter.organization or os.getenv("OPENAI_ORGANIZATION", None) or None
             )
-            api_key = optional_params.api_key or litellm.api_key or litellm.openai_key or os.getenv("OPENAI_API_KEY")
+            api_key = optional_params.api_key or embrouter.api_key or embrouter.openai_key or os.getenv("OPENAI_API_KEY")
 
             response = openai_fine_tuning_apis_instance.retrieve_fine_tuning_job(
                 api_base=api_base,
@@ -733,14 +733,14 @@ def retrieve_fine_tuning_job(
             )
         # Azure OpenAI
         elif custom_llm_provider == "azure":
-            api_base = optional_params.api_base or litellm.api_base or get_secret_str("AZURE_API_BASE")
+            api_base = optional_params.api_base or embrouter.api_base or get_secret_str("AZURE_API_BASE")
 
-            api_version = optional_params.api_version or litellm.api_version or get_secret_str("AZURE_API_VERSION")
+            api_version = optional_params.api_version or embrouter.api_version or get_secret_str("AZURE_API_VERSION")
 
             api_key = (
                 optional_params.api_key
-                or litellm.api_key
-                or litellm.azure_key
+                or embrouter.api_key
+                or embrouter.azure_key
                 or get_secret_str("AZURE_OPENAI_API_KEY")
                 or get_secret_str("AZURE_API_KEY")
             )
@@ -760,8 +760,8 @@ def retrieve_fine_tuning_job(
                 organization=optional_params.organization,
             )
         else:
-            raise litellm.exceptions.BadRequestError(
-                message=f"LiteLLM doesn't support {custom_llm_provider} for 'retrieve_fine_tuning_job'. Only 'openai' and 'azure' are supported.",
+            raise embrouter.exceptions.BadRequestError(
+                message=f"EmbRouter doesn't support {custom_llm_provider} for 'retrieve_fine_tuning_job'. Only 'openai' and 'azure' are supported.",
                 model="n/a",
                 llm_provider=custom_llm_provider,
                 response=httpx.Response(

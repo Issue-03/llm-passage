@@ -8,18 +8,18 @@ Docs - https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-tit
 
 from typing import Final
 
-from litellm.types.llms.bedrock import (
+from embrouter.types.llms.bedrock import (
     AmazonTitanMultimodalEmbeddingConfig,
     AmazonTitanMultimodalEmbeddingRequest,
     AmazonTitanMultimodalEmbeddingResponse,
 )
-from litellm.types.utils import (
+from embrouter.types.utils import (
     Embedding,
     EmbeddingResponse,
     PromptTokensDetailsWrapper,
     Usage,
 )
-from litellm.utils import get_base64_str, is_base64_encoded
+from embrouter.utils import get_base64_str, is_base64_encoded
 
 
 class AmazonTitanMultimodalEmbeddingG1Config:

@@ -1,10 +1,10 @@
 """Fire-and-forget push of serialized spend events from an inference worker to the pod-local sidecar.
 
-``LITELLM_COLLECTOR_ENABLED=true`` turns the push on in the gateway; the sidecar process sets
-``LITELLM_JOB_ROLE=collector`` and always runs the pipeline in-process. Events queue in a bounded
+``EMBROUTER_COLLECTOR_ENABLED=true`` turns the push on in the gateway; the sidecar process sets
+``EMBROUTER_JOB_ROLE=collector`` and always runs the pipeline in-process. Events queue in a bounded
 in-memory buffer that a single writer task flushes over a unix socket or loopback TCP connection.
 When the sidecar is unreachable, the buffer is full, or the connection breaks mid-write, each affected
-event follows ``LITELLM_COLLECTOR_ON_UNAVAILABLE``: ``fallback`` runs the existing cost pipeline in
+event follows ``EMBROUTER_COLLECTOR_ON_UNAVAILABLE``: ``fallback`` runs the existing cost pipeline in
 the worker, ``drop`` counts it and moves on. Transitions are logged with the counters, so a sidecar
 outage is visible without scraping anything.
 
@@ -31,11 +31,11 @@ from urllib.parse import urlsplit
 from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from litellm._logging import verbose_proxy_logger
+from embrouter._logging import verbose_proxy_logger
 
-COLLECTOR_ENV_PREFIX: Final = "LITELLM_COLLECTOR_"
+COLLECTOR_ENV_PREFIX: Final = "EMBROUTER_COLLECTOR_"
 COLLECTOR_JOB_ROLE: Final = "collector"
-DEFAULT_COLLECTOR_ADDRESS: Final = "unix:///var/run/litellm/collector.sock"
+DEFAULT_COLLECTOR_ADDRESS: Final = "unix:///var/run/embrouter/collector.sock"
 RECONNECT_BACKOFF_SECONDS: Final = 1.0
 DROP_LOG_EVERY: Final = 1000
 
@@ -44,7 +44,7 @@ PublishOutcome: TypeAlias = Literal["queued", "fallback", "dropped"]
 
 
 class CollectorSettings(BaseSettings):
-    """``LITELLM_COLLECTOR_*`` env vars, shared by the gateway producer and the sidecar consumer."""
+    """``EMBROUTER_COLLECTOR_*`` env vars, shared by the gateway producer and the sidecar consumer."""
 
     model_config = SettingsConfigDict(
         env_prefix=COLLECTOR_ENV_PREFIX, case_sensitive=False, extra="ignore", frozen=True, populate_by_name=True
@@ -56,7 +56,7 @@ class CollectorSettings(BaseSettings):
     on_unavailable: UnavailablePolicy = "fallback"
     drain_timeout_seconds: float = Field(default=10.0, gt=0)
     connect_timeout_seconds: float = Field(default=1.0, gt=0)
-    job_role: str | None = Field(default=None, validation_alias=AliasChoices("LITELLM_JOB_ROLE"))
+    job_role: str | None = Field(default=None, validation_alias=AliasChoices("EMBROUTER_JOB_ROLE"))
 
     @property
     def produces(self) -> bool:

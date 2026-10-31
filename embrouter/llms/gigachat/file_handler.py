@@ -12,13 +12,13 @@ import uuid
 from collections.abc import Mapping
 from typing import Final
 
-from litellm._logging import verbose_logger
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter._logging import verbose_logger
+from embrouter.llms.custom_httpx.http_handler import (
     _get_httpx_client,
     get_async_httpx_client,
 )
-from litellm.llms.gigachat.utils import get_api_base
-from litellm.types.utils import LlmProviders
+from embrouter.llms.gigachat.utils import get_api_base
+from embrouter.types.utils import LlmProviders
 
 from .authenticator import get_access_token, get_access_token_async
 
@@ -89,7 +89,7 @@ def upload_file_sync(
     image_url: str,
     credentials: str | None = None,
     api_base: str | None = None,
-    litellm_params: Mapping[str, object] | None = None,
+    embrouter_params: Mapping[str, object] | None = None,
 ) -> str | None:
     """
     Upload file to GigaChat and return file_id (sync).
@@ -122,7 +122,7 @@ def upload_file_sync(
         filename: Final = f"{uuid.uuid4()}.{ext}"
 
         # Get access token
-        access_token: Final = get_access_token(credentials=credentials, litellm_params=litellm_params)
+        access_token: Final = get_access_token(credentials=credentials, embrouter_params=embrouter_params)
 
         # Upload to GigaChat
         base_url: Final = get_api_base(api_base)
@@ -155,7 +155,7 @@ async def upload_file_async(
     image_url: str,
     credentials: str | None = None,
     api_base: str | None = None,
-    litellm_params: Mapping[str, object] | None = None,
+    embrouter_params: Mapping[str, object] | None = None,
 ) -> str | None:
     """
     Upload file to GigaChat and return file_id (async).
@@ -188,7 +188,7 @@ async def upload_file_async(
         filename: Final = f"{uuid.uuid4()}.{ext}"
 
         # Get access token
-        access_token: Final = await get_access_token_async(credentials=credentials, litellm_params=litellm_params)
+        access_token: Final = await get_access_token_async(credentials=credentials, embrouter_params=embrouter_params)
 
         # Upload to GigaChat
         base_url: Final = get_api_base(api_base)

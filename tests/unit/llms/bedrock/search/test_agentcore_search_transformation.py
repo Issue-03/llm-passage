@@ -2,7 +2,7 @@
 Tests for Amazon Bedrock AgentCore Web Search integration.
 
 Mirror of tests/search_tests/test_agentcore_search.py placed in the
-test_litellm tree so the AgentCoreSearchConfig transformation is exercised by
+test_embrouter tree so the AgentCoreSearchConfig transformation is exercised by
 the sharded CI (coverage collection runs against this tree).
 """
 
@@ -12,8 +12,8 @@ import os
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 
-import litellm
-from litellm.llms.bedrock.search.transformation import (
+import embrouter
+from embrouter.llms.bedrock.search.transformation import (
     AGENTCORE_DEFAULT_MCP_PROTOCOL_VERSION,
     AgentCoreSearchConfig,
 )
@@ -68,7 +68,7 @@ class TestAgentCoreSearch:
 
         with (
             patch(
-                "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+                "embrouter.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
                 new_callable=AsyncMock,
             ) as mock_post,
             patch.object(
@@ -82,7 +82,7 @@ class TestAgentCoreSearch:
         ):
             mock_post.return_value = mock_response
 
-            response = await litellm.asearch(
+            response = await embrouter.asearch(
                 query="latest developments in AI",
                 search_provider="agentcore",
                 max_results=5,
@@ -628,10 +628,10 @@ class TestAgentCoreSearchEdgeCases:
         assert "boom" in str(err)
 
     def test_search_cost_lookup_is_mapped(self, monkeypatch):
-        """Assert against the map in this checkout: the remote cost map litellm loads by
+        """Assert against the map in this checkout: the remote cost map embrouter loads by
         default only carries providers already released."""
-        from litellm.litellm_core_utils.get_model_cost_map import GetModelCostMap
-        from litellm.search.cost_calculator import search_provider_cost_per_query
+        from embrouter.embrouter_core_utils.get_model_cost_map import GetModelCostMap
+        from embrouter.search.cost_calculator import search_provider_cost_per_query
 
-        monkeypatch.setattr(litellm, "model_cost", GetModelCostMap.load_local_model_cost_map())
+        monkeypatch.setattr(embrouter, "model_cost", GetModelCostMap.load_local_model_cost_map())
         assert search_provider_cost_per_query(model="agentcore/search", custom_llm_provider="agentcore") == (0.0, 0.0)

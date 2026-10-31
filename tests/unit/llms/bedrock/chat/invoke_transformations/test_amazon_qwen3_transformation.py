@@ -4,13 +4,13 @@ from unittest.mock import Mock
 
 import pytest
 
-# Ensure the project root is on the import path so `litellm` can be imported when
+# Ensure the project root is on the import path so `embrouter` can be imported when
 # tests are executed from any working directory.
 
-from litellm.llms.bedrock.chat.invoke_transformations.amazon_qwen3_transformation import (
+from embrouter.llms.bedrock.chat.invoke_transformations.amazon_qwen3_transformation import (
     AmazonQwen3Config,
 )
-from litellm.types.utils import ModelResponse
+from embrouter.types.utils import ModelResponse
 
 
 def test_qwen3_get_supported_params():
@@ -90,7 +90,7 @@ def test_qwen3_transform_request():
         model="qwen3/test-model",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -129,7 +129,7 @@ def test_qwen3_transform_response():
         model_response=model_response,
         logging_obj=Mock(),
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         api_key="test-key",
         request_data={},
         encoding=None,
@@ -168,7 +168,7 @@ def test_qwen3_transform_response_without_usage():
         model_response=model_response,
         logging_obj=Mock(),
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         api_key="test-key",
         request_data={},
         encoding=None,
@@ -183,8 +183,8 @@ def test_qwen3_transform_response_without_usage():
 
 def test_qwen3_provider_detection():
     """Test that Qwen3 provider is correctly detected from model names"""
-    from litellm.utils import ProviderConfigManager
-    from litellm.types.utils import LlmProviders
+    from embrouter.utils import ProviderConfigManager
+    from embrouter.types.utils import LlmProviders
 
     # Test with qwen3/ prefix
     config = ProviderConfigManager.get_provider_chat_config(

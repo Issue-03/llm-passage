@@ -75,7 +75,7 @@ const PublicModelHub: React.FC<PublicModelHubProps> = ({ accessToken, isEmbedded
   const [mcpHubData, setMcpHubData] = useState<MCPServerData[] | null>(null);
   const [pageTitle, setPageTitle] = useState<string>("EmbRouter Gateway");
   const [customDocsDescription, setCustomDocsDescription] = useState<string | null>(null);
-  const [litellmVersion, setLitellmVersion] = useState<string>("");
+  const [embrouterVersion, setEmbrouterVersion] = useState<string>("");
   const [usefulLinks, setUsefulLinks] = useState<Record<string, string | { url: string; index: number }>>({});
   const [agentLoading, setAgentLoading] = useState<boolean>(true);
   const [mcpLoading, setMcpLoading] = useState<boolean>(true);
@@ -132,7 +132,7 @@ const PublicModelHub: React.FC<PublicModelHubProps> = ({ accessToken, isEmbedded
         const publicModelHubInfo = await getPublicModelHubInfo();
         setPageTitle(publicModelHubInfo.docs_title);
         setCustomDocsDescription(publicModelHubInfo.custom_docs_description);
-        setLitellmVersion(publicModelHubInfo.litellm_version);
+        setEmbrouterVersion(publicModelHubInfo.embrouter_version);
         setUsefulLinks(publicModelHubInfo.useful_links || {});
       };
 
@@ -328,7 +328,7 @@ const PublicModelHub: React.FC<PublicModelHubProps> = ({ accessToken, isEmbedded
                 <div className="flex items-center space-x-3 text-sm text-muted-foreground">
                   <span className="flex items-center">
                     <span className="w-4 h-4 mr-2">🔧</span>
-                    Built with litellm: v{litellmVersion}
+                    Built with embrouter: v{embrouterVersion}
                   </span>
                 </div>
               </Card>
@@ -1275,7 +1275,7 @@ config = {
         "${selectedMcpServer.server_name}": {
             "url": "${getProxyBaseUrl()}/${selectedMcpServer.server_name}/mcp",
             "headers": {
-                "x-litellm-api-key": "Bearer <your-master-key>"
+                "x-embrouter-api-key": "Bearer <your-master-key>"
             }
         }
     }
@@ -1315,7 +1315,7 @@ config = {
         "${selectedMcpServer.server_name}": {
             "url": "${getProxyBaseUrl()}/${selectedMcpServer.server_name}/mcp",
             "headers": {
-                "x-litellm-api-key": "Bearer <your-master-key>"
+                "x-embrouter-api-key": "Bearer <your-master-key>"
             }
         }
     }

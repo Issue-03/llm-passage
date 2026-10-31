@@ -1,5 +1,5 @@
 """
-Valkey Semantic Cache implementation for LiteLLM
+Valkey Semantic Cache implementation for EmbRouter
 
 Backs semantic caching with Valkey (for example AWS ElastiCache for Valkey)
 running the valkey-search module.
@@ -27,9 +27,9 @@ from redis.commands.search.field import TagField, VectorField
 from redis.commands.search.indexDefinition import IndexDefinition, IndexType
 from redis.commands.search.query import Query
 
-from litellm._logging import print_verbose
-from litellm._uuid import uuid
-from litellm.llms.valkey.common_utils import build_valkey_url, pack_vector
+from embrouter._logging import print_verbose
+from embrouter._uuid import uuid
+from embrouter.llms.valkey.common_utils import build_valkey_url, pack_vector
 
 from ._embedding_router import resolve_embedding_timeout
 from .redis_semantic_cache import RedisSemanticCache
@@ -44,7 +44,7 @@ class _ValkeyCacheHit:
 class ValkeySemanticCache(RedisSemanticCache):
     """Valkey-backed semantic cache for LLM responses."""
 
-    DEFAULT_VALKEY_INDEX_NAME: str = "litellm_semantic_cache_index"
+    DEFAULT_VALKEY_INDEX_NAME: str = "embrouter_semantic_cache_index"
     EMBEDDING_FIELD_NAME: str = "embedding"
     PROMPT_FIELD_NAME: str = "prompt"
     RESPONSE_FIELD_NAME: str = "response"

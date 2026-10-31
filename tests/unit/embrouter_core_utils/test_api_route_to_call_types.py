@@ -8,10 +8,10 @@ Regression coverage for the guardrail route table bugs:
   take call_types[0] to a handler-less type
 """
 
-from litellm.litellm_core_utils.api_route_to_call_types import (
+from embrouter.embrouter_core_utils.api_route_to_call_types import (
     get_call_types_for_route,
 )
-from litellm.types.utils import API_ROUTE_TO_CALL_TYPES, CallTypes
+from embrouter.types.utils import API_ROUTE_TO_CALL_TYPES, CallTypes
 
 
 class TestGenerateContentRouteResolution:
@@ -79,7 +79,7 @@ class TestFirstCallTypeHasTranslationHandler:
         translation handler while a later one has it silently skips guardrail
         scanning, so the table must list a handler-backed call type first.
         """
-        from litellm.llms import load_guardrail_translation_mappings
+        from embrouter.llms import load_guardrail_translation_mappings
 
         mappings = load_guardrail_translation_mappings()
         misordered = {

@@ -343,18 +343,18 @@ describe("provider_info_helpers", () => {
 
     it("should return models matching the provider from modelMap", () => {
       const modelMap = {
-        "gpt-3.5-turbo": { litellm_provider: "openai" },
-        "gpt-4": { litellm_provider: "openai" },
-        "claude-3-opus": { litellm_provider: "anthropic" },
+        "gpt-3.5-turbo": { embrouter_provider: "openai" },
+        "gpt-4": { embrouter_provider: "openai" },
+        "claude-3-opus": { embrouter_provider: "anthropic" },
       };
       const result = getProviderModels(Providers.OpenAI, modelMap);
       expect(result).toEqual(["gpt-3.5-turbo", "gpt-4"]);
     });
 
-    it("should return models whose litellm_provider is a prefix-anchored variant of the provider", () => {
+    it("should return models whose embrouter_provider is a prefix-anchored variant of the provider", () => {
       const modelMap = {
-        "anthropic-text-model": { litellm_provider: "anthropic_text" },
-        "claude-3-opus": { litellm_provider: "anthropic" },
+        "anthropic-text-model": { embrouter_provider: "anthropic_text" },
+        "claude-3-opus": { embrouter_provider: "anthropic" },
       };
       const result = getProviderModels(Providers.Anthropic, modelMap);
       expect(result).toContain("anthropic-text-model");
@@ -363,9 +363,9 @@ describe("provider_info_helpers", () => {
 
     it("should not leak vertex_ai-anthropic_models into the Anthropic provider", () => {
       const modelMap = {
-        "claude-3-opus": { litellm_provider: "anthropic" },
-        "vertex_ai/claude-3-5-sonnet": { litellm_provider: "vertex_ai-anthropic_models" },
-        "vertex_ai/claude-haiku-4-5": { litellm_provider: "vertex_ai-anthropic_models" },
+        "claude-3-opus": { embrouter_provider: "anthropic" },
+        "vertex_ai/claude-3-5-sonnet": { embrouter_provider: "vertex_ai-anthropic_models" },
+        "vertex_ai/claude-haiku-4-5": { embrouter_provider: "vertex_ai-anthropic_models" },
       };
       const result = getProviderModels(Providers.Anthropic, modelMap);
       expect(result).toEqual(["claude-3-opus"]);
@@ -375,8 +375,8 @@ describe("provider_info_helpers", () => {
 
     it("should not leak vertex_ai-openai_models into the OpenAI provider", () => {
       const modelMap = {
-        "gpt-4": { litellm_provider: "openai" },
-        "vertex_ai/openai-something": { litellm_provider: "vertex_ai-openai_models" },
+        "gpt-4": { embrouter_provider: "openai" },
+        "vertex_ai/openai-something": { embrouter_provider: "vertex_ai-openai_models" },
       };
       const result = getProviderModels(Providers.OpenAI, modelMap);
       expect(result).toEqual(["gpt-4"]);
@@ -390,11 +390,11 @@ describe("provider_info_helpers", () => {
     // the production shape here by passing the key directly.
     it("should include all vertex_ai variants when called with 'Vertex_AI' provider key", () => {
       const modelMap = {
-        "vertex_ai/gemini-pro": { litellm_provider: "vertex_ai" },
-        "vertex_ai/claude-3-5-sonnet": { litellm_provider: "vertex_ai-anthropic_models" },
-        "vertex_ai/text-bison": { litellm_provider: "vertex_ai-text-models" },
-        "vertex_ai_beta/something": { litellm_provider: "vertex_ai_beta" },
-        "anthropic-native": { litellm_provider: "anthropic" },
+        "vertex_ai/gemini-pro": { embrouter_provider: "vertex_ai" },
+        "vertex_ai/claude-3-5-sonnet": { embrouter_provider: "vertex_ai-anthropic_models" },
+        "vertex_ai/text-bison": { embrouter_provider: "vertex_ai-text-models" },
+        "vertex_ai_beta/something": { embrouter_provider: "vertex_ai_beta" },
+        "anthropic-native": { embrouter_provider: "anthropic" },
       };
       const result = getProviderModels("Vertex_AI" as Providers, modelMap);
       expect(result).toContain("vertex_ai/gemini-pro");
@@ -406,18 +406,18 @@ describe("provider_info_helpers", () => {
 
     it("should list sail models when called with the 'Sail' provider key", () => {
       const modelMap = {
-        "sail/openai/gpt-oss-120b": { litellm_provider: "sail" },
-        "sagemaker-model": { litellm_provider: "sagemaker" },
+        "sail/openai/gpt-oss-120b": { embrouter_provider: "sail" },
+        "sagemaker-model": { embrouter_provider: "sagemaker" },
       };
       expect(getProviderModels("Sail" as Providers, modelMap)).toEqual(["sail/openai/gpt-oss-120b"]);
     });
 
     it("should include bedrock converse but exclude standalone bedrock_mantle when called with 'Bedrock' provider key", () => {
       const modelMap = {
-        "bedrock-base": { litellm_provider: "bedrock" },
-        "bedrock-converse-model": { litellm_provider: "bedrock_converse" },
-        "bedrock_mantle/openai.gpt-5.4": { litellm_provider: "bedrock_mantle" },
-        "openai-model": { litellm_provider: "openai" },
+        "bedrock-base": { embrouter_provider: "bedrock" },
+        "bedrock-converse-model": { embrouter_provider: "bedrock_converse" },
+        "bedrock_mantle/openai.gpt-5.4": { embrouter_provider: "bedrock_mantle" },
+        "openai-model": { embrouter_provider: "openai" },
       };
       const result = getProviderModels("Bedrock" as Providers, modelMap);
       expect(result).toContain("bedrock-base");
@@ -431,10 +431,10 @@ describe("provider_info_helpers", () => {
       // model field with the Mantle models and exclude the regular Bedrock
       // ones, so onboarding a gpt-oss model is a one-click flow (LIT-3885).
       const modelMap = {
-        "bedrock_mantle/openai.gpt-oss-120b": { litellm_provider: "bedrock_mantle" },
-        "bedrock_mantle/openai.gpt-5.5": { litellm_provider: "bedrock_mantle" },
-        "bedrock-base": { litellm_provider: "bedrock" },
-        "bedrock-converse-model": { litellm_provider: "bedrock_converse" },
+        "bedrock_mantle/openai.gpt-oss-120b": { embrouter_provider: "bedrock_mantle" },
+        "bedrock_mantle/openai.gpt-5.5": { embrouter_provider: "bedrock_mantle" },
+        "bedrock-base": { embrouter_provider: "bedrock" },
+        "bedrock-converse-model": { embrouter_provider: "bedrock_converse" },
       };
       const result = getProviderModels("BedrockMantle" as Providers, modelMap);
       expect(result).toContain("bedrock_mantle/openai.gpt-oss-120b");
@@ -445,9 +445,9 @@ describe("provider_info_helpers", () => {
 
     it("should include fireworks_ai-embedding-models when called with 'FireworksAI' provider key", () => {
       const modelMap = {
-        "fireworks-base": { litellm_provider: "fireworks_ai" },
-        "fireworks-embed": { litellm_provider: "fireworks_ai-embedding-models" },
-        "openai-model": { litellm_provider: "openai" },
+        "fireworks-base": { embrouter_provider: "fireworks_ai" },
+        "fireworks-embed": { embrouter_provider: "fireworks_ai-embedding-models" },
+        "openai-model": { embrouter_provider: "openai" },
       };
       const result = getProviderModels("FireworksAI" as Providers, modelMap);
       expect(result).toContain("fireworks-base");
@@ -457,17 +457,17 @@ describe("provider_info_helpers", () => {
 
     it("should filter out models with null values", () => {
       const modelMap = {
-        "gpt-3.5-turbo": { litellm_provider: "openai" },
+        "gpt-3.5-turbo": { embrouter_provider: "openai" },
         "null-model": null,
-        "gpt-4": { litellm_provider: "openai" },
+        "gpt-4": { embrouter_provider: "openai" },
       };
       const result = getProviderModels(Providers.OpenAI, modelMap);
       expect(result).toEqual(["gpt-3.5-turbo", "gpt-4"]);
     });
 
-    it("should filter out models without litellm_provider property", () => {
+    it("should filter out models without embrouter_provider property", () => {
       const modelMap = {
-        "gpt-3.5-turbo": { litellm_provider: "openai" },
+        "gpt-3.5-turbo": { embrouter_provider: "openai" },
         "no-provider-model": { someOtherProperty: "value" },
       };
       const result = getProviderModels(Providers.OpenAI, modelMap);
@@ -476,9 +476,9 @@ describe("provider_info_helpers", () => {
 
     it("should include both cohere and cohere_chat models for Cohere provider", () => {
       const modelMap = {
-        "cohere-model-1": { litellm_provider: "cohere" },
-        "cohere-model-2": { litellm_provider: "cohere_chat" },
-        "other-model": { litellm_provider: "openai" },
+        "cohere-model-1": { embrouter_provider: "cohere" },
+        "cohere-model-2": { embrouter_provider: "cohere_chat" },
+        "other-model": { embrouter_provider: "openai" },
       };
       const result = getProviderModels(Providers.Cohere, modelMap);
       expect(result).toContain("cohere-model-1");
@@ -489,9 +489,9 @@ describe("provider_info_helpers", () => {
 
     it("should include sagemaker_chat models for SageMaker provider", () => {
       const modelMap = {
-        "sagemaker-model-1": { litellm_provider: "sagemaker_chat" },
-        "sagemaker-model-2": { litellm_provider: "sagemaker" },
-        "other-model": { litellm_provider: "openai" },
+        "sagemaker-model-1": { embrouter_provider: "sagemaker_chat" },
+        "sagemaker-model-2": { embrouter_provider: "sagemaker" },
+        "other-model": { embrouter_provider: "openai" },
       };
       const result = getProviderModels(Providers.SageMaker, modelMap);
       expect(result).toContain("sagemaker-model-1");
@@ -502,7 +502,7 @@ describe("provider_info_helpers", () => {
       const modelMap = {
         "string-model": "not-an-object",
         "number-model": 123,
-        "valid-model": { litellm_provider: "openai" },
+        "valid-model": { embrouter_provider: "openai" },
       };
       const result = getProviderModels(Providers.OpenAI, modelMap);
       expect(result).toEqual(["valid-model"]);
@@ -510,8 +510,8 @@ describe("provider_info_helpers", () => {
 
     it("should return empty array for provider with no matching models", () => {
       const modelMap = {
-        "gpt-3.5-turbo": { litellm_provider: "openai" },
-        "claude-3-opus": { litellm_provider: "anthropic" },
+        "gpt-3.5-turbo": { embrouter_provider: "openai" },
+        "claude-3-opus": { embrouter_provider: "anthropic" },
       };
       const result = getProviderModels(Providers.Bedrock, modelMap);
       expect(result).toEqual([]);
@@ -519,9 +519,9 @@ describe("provider_info_helpers", () => {
 
     it("should handle multiple providers correctly", () => {
       const modelMap = {
-        "gpt-3.5-turbo": { litellm_provider: "openai" },
-        "claude-3-opus": { litellm_provider: "anthropic" },
-        "groq-model": { litellm_provider: "groq" },
+        "gpt-3.5-turbo": { embrouter_provider: "openai" },
+        "claude-3-opus": { embrouter_provider: "anthropic" },
+        "groq-model": { embrouter_provider: "groq" },
       };
       const openaiResult = getProviderModels(Providers.OpenAI, modelMap);
       const anthropicResult = getProviderModels(Providers.Anthropic, modelMap);
@@ -542,11 +542,11 @@ describe("getProviderLogoAndName under a custom server_root_path", () => {
 
   it("returns the bundled logo URL untouched under a sub-path mount", async () => {
     vi.resetModules();
-    vi.doMock("@/lib/serverRootPath", () => ({ serverRootPath: "/litellm" }));
+    vi.doMock("@/lib/serverRootPath", () => ({ serverRootPath: "/embrouter" }));
     const helpers = await import("./provider_info_helpers");
     const { logo } = helpers.getProviderLogoAndName("openai");
     expect(logo).toBe(helpers.providerLogoMap[helpers.Providers.OpenAI]);
-    expect(logo.startsWith("/litellm")).toBe(false);
+    expect(logo.startsWith("/embrouter")).toBe(false);
   });
 
   it("returns the bundled logo URL untouched at the root mount", async () => {

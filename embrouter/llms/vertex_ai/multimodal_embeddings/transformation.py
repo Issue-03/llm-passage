@@ -2,24 +2,24 @@ from typing import Final, cast
 
 from httpx import Headers, Response
 
-from litellm.exceptions import InternalServerError
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.base_llm.embedding.transformation import LiteLLMLoggingObj
-from litellm.types.llms.openai import AllEmbeddingInputValues, AllMessageValues
-from litellm.types.llms.vertex_ai import (
+from embrouter.exceptions import InternalServerError
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.base_llm.embedding.transformation import EmbRouterLoggingObj
+from embrouter.types.llms.openai import AllEmbeddingInputValues, AllMessageValues
+from embrouter.types.llms.vertex_ai import (
     Instance,
     InstanceImage,
     InstanceVideo,
     MultimodalPredictions,
     VertexMultimodalEmbeddingRequest,
 )
-from litellm.types.utils import (
+from embrouter.types.utils import (
     Embedding,
     EmbeddingResponse,
     PromptTokensDetailsWrapper,
     Usage,
 )
-from litellm.utils import _count_characters, is_base64_encoded
+from embrouter.utils import _count_characters, is_base64_encoded
 
 from ...base_llm.embedding.transformation import BaseEmbeddingConfig
 from ..common_utils import VertexAIError
@@ -47,7 +47,7 @@ class VertexAIMultimodalEmbeddingConfig(BaseEmbeddingConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
@@ -199,11 +199,11 @@ class VertexAIMultimodalEmbeddingConfig(BaseEmbeddingConfig):
         model: str,
         raw_response: Response,
         model_response: EmbeddingResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_key: str | None,
         request_data: dict,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> EmbeddingResponse:
         if raw_response.status_code != 200:
             raise Exception(f"Error: {raw_response.status_code} {raw_response.text}")

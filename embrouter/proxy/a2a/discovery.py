@@ -19,10 +19,10 @@ from enum import Enum
 from typing import Any, Final
 from urllib.parse import urlencode
 
-from litellm._logging import verbose_proxy_logger
-from litellm.litellm_core_utils.url_utils import SSRFError, async_safe_get
-from litellm.llms.custom_httpx.http_handler import get_async_httpx_client
-from litellm.types.llms.custom_http import httpxSpecialProvider
+from embrouter._logging import verbose_proxy_logger
+from embrouter.embrouter_core_utils.url_utils import SSRFError, async_safe_get
+from embrouter.llms.custom_httpx.http_handler import get_async_httpx_client
+from embrouter.types.llms.custom_http import httpxSpecialProvider
 
 
 class DiscoveryMode(str, Enum):

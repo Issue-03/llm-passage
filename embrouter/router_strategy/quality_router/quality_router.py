@@ -5,10 +5,10 @@ Routes a request to a model at a target quality tier. The quality tier is
 inferred by re-using the existing ComplexityRouter's classification, then
 mapped through an admin-configured `complexity_to_quality` table. Each
 candidate model declares its own `quality_tier` in
-`model_info.litellm_routing_preferences`.
+`model_info.embrouter_routing_preferences`.
 
 Optional keyword override: deployments may also declare `keywords` in
-`litellm_routing_preferences`. If any declared keyword appears in the user
+`embrouter_routing_preferences`. If any declared keyword appears in the user
 message (case-insensitive substring match), the router short-circuits the
 complexity-classification flow and routes to the matching deployment. When
 multiple deployments match, ties are broken by (highest quality_tier first,
@@ -19,18 +19,18 @@ import math
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, Final, Optional
 
-from litellm._logging import verbose_router_logger
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.router_strategy.complexity_router.complexity_router import (
+from embrouter._logging import verbose_router_logger
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.router_strategy.complexity_router.complexity_router import (
     ComplexityRouter,
 )
-from litellm.types.utils import StandardLoggingRoutingDecision
+from embrouter.types.utils import StandardLoggingRoutingDecision
 
 from .config import QualityRouterConfig, RoutingPreferences
 
 if TYPE_CHECKING:
-    from litellm.router import Router
-    from litellm.types.router import PreRoutingHookResponse
+    from embrouter.router import Router
+    from embrouter.types.router import PreRoutingHookResponse
 else:
     Router = Any
     PreRoutingHookResponse = Any
@@ -45,12 +45,12 @@ class QualityRouter(CustomLogger):
     def __init__(
         self,
         model_name: str,
-        litellm_router_instance: "Router",
+        embrouter_router_instance: "Router",
         default_model: str | None = None,
         quality_router_config: dict[str, Any] | None = None,
     ):
         self.model_name = model_name
-        self.litellm_router_instance = litellm_router_instance
+        self.embrouter_router_instance = embrouter_router_instance
 
         if quality_router_config:
             self.config = QualityRouterConfig(**quality_router_config)
@@ -64,7 +64,7 @@ class QualityRouter(CustomLogger):
         # Internal scorer — re-use the existing rule-based classifier.
         self._scorer = ComplexityRouter(
             model_name=f"{model_name}::scorer",
-            litellm_router_instance=litellm_router_instance,
+            embrouter_router_instance=embrouter_router_instance,
         )
 
         # Per-model indices populated alongside the tier index. `_model_keywords`
@@ -101,24 +101,24 @@ class QualityRouter(CustomLogger):
 
     def _get_routing_preferences(self, deployment: object) -> dict[str, Any] | None:
         """
-        Extract litellm_routing_preferences from a deployment, handling both
+        Extract embrouter_routing_preferences from a deployment, handling both
         dict-shaped and Pydantic-object-shaped deployments.
         """
         # Dict-shaped deployment.
         if isinstance(deployment, dict):
             model_info = deployment.get("model_info") or {}
             if isinstance(model_info, dict):
-                return model_info.get("litellm_routing_preferences")
+                return model_info.get("embrouter_routing_preferences")
             # Pydantic ModelInfo nested in a dict.
-            return getattr(model_info, "litellm_routing_preferences", None)
+            return getattr(model_info, "embrouter_routing_preferences", None)
 
         # Pydantic-object deployment.
         model_info = getattr(deployment, "model_info", None)
         if model_info is None:
             return None
         if isinstance(model_info, dict):
-            return model_info.get("litellm_routing_preferences")
-        return getattr(model_info, "litellm_routing_preferences", None)
+            return model_info.get("embrouter_routing_preferences")
+        return getattr(model_info, "embrouter_routing_preferences", None)
 
     def _get_deployment_input_cost(self, deployment: object) -> float | None:
         """
@@ -156,9 +156,9 @@ class QualityRouter(CustomLogger):
         Build {quality_tier: [model_name, ...]} for every model in
         `available_models`, plus side indices `_model_keywords`,
         `_model_quality`, and `_model_cost`. Raises if any listed model is
-        missing `litellm_routing_preferences`.
+        missing `embrouter_routing_preferences`.
         """
-        model_list: Final = getattr(self.litellm_router_instance, "model_list", None) or []
+        model_list: Final = getattr(self.embrouter_router_instance, "model_list", None) or []
         available: Final = set(self.config.available_models)
 
         # Track which available models we've matched so we can error on missing.
@@ -174,7 +174,7 @@ class QualityRouter(CustomLogger):
             if raw_prefs is None:
                 raise ValueError(
                     f"QualityRouter: model '{name}' is listed in available_models "
-                    f"but has no model_info.litellm_routing_preferences"
+                    f"but has no model_info.embrouter_routing_preferences"
                 )
 
             # Validate via the Pydantic model so we get a clear error for
@@ -192,7 +192,7 @@ class QualityRouter(CustomLogger):
                         **(raw_prefs.model_dump() if hasattr(raw_prefs, "model_dump") else dict(raw_prefs))
                     )
             except Exception as e:
-                raise ValueError(f"QualityRouter: model '{name}' has invalid litellm_routing_preferences: {e}") from e
+                raise ValueError(f"QualityRouter: model '{name}' has invalid embrouter_routing_preferences: {e}") from e
 
             tier_int = int(prefs.quality_tier)
             tier_to_models.setdefault(tier_int, []).append(name)
@@ -310,7 +310,7 @@ class QualityRouter(CustomLogger):
     ) -> None:
         """
         Stash the routing decision in request_kwargs.metadata so the Router can
-        lift it into response headers (`x-litellm-quality-router-*`). The same
+        lift it into response headers (`x-embrouter-quality-router-*`). The same
         dict object flows from here through to `make_call.set_response_headers`.
         """
         if request_kwargs is None:
@@ -328,7 +328,7 @@ class QualityRouter(CustomLogger):
         specific_deployment: bool | None = False,
     ) -> Optional["PreRoutingHookResponse"]:
         """Try keyword override first; fall back to complexity-tier routing."""
-        from litellm.types.router import PreRoutingHookResponse
+        from embrouter.types.router import PreRoutingHookResponse
 
         if messages is None or len(messages) == 0:
             verbose_router_logger.debug("QualityRouter: No messages provided, skipping routing")

@@ -6,12 +6,12 @@ from typing import TYPE_CHECKING, Final
 
 from pydantic import TypeAdapter
 
-from litellm.litellm_core_utils.get_llm_provider_logic import declared_authenticating_provider, get_llm_provider
-from litellm.proxy._types import UserAPIKeyAuth, user_api_key_has_admin_view
+from embrouter.embrouter_core_utils.get_llm_provider_logic import declared_authenticating_provider, get_llm_provider
+from embrouter.proxy._types import UserAPIKeyAuth, user_api_key_has_admin_view
 
 if TYPE_CHECKING:
-    from litellm.router import Router
-    from litellm.types.router import RouterModelGroupAliasItem
+    from embrouter.router import Router
+    from embrouter.types.router import RouterModelGroupAliasItem
 
 _PATTERN_DEPLOYMENTS: Final = TypeAdapter(Mapping[str, tuple[Mapping[str, object], ...]])
 

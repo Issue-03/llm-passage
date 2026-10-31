@@ -9,26 +9,26 @@ from fastapi import HTTPException
 from pydantic import BaseModel, ConfigDict, ValidationError
 from typing_extensions import NotRequired, ReadOnly, TypedDict, Unpack
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.constants import INTERNAL_CALL_ORIGIN_METADATA_KEY
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.litellm_core_utils.llm_judge import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.constants import INTERNAL_CALL_ORIGIN_METADATA_KEY
+from embrouter.integrations.custom_guardrail import CustomGuardrail
+from embrouter.embrouter_core_utils.llm_judge import (
     default_router_provider,
     extract_text_from_content,
     judge_acompletion,
     parse_json_verdict,
 )
-from litellm.litellm_core_utils.prompt_templates.common_utils import get_last_user_message
-from litellm.types.guardrails import GuardrailEventHooks, Mode, SupportedGuardrailIntegrations
-from litellm.types.utils import LLM_AS_A_JUDGE_GUARDRAIL_CALL_ORIGIN, GenericGuardrailAPIInputs, GuardrailStatus
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import get_last_user_message
+from embrouter.types.guardrails import GuardrailEventHooks, Mode, SupportedGuardrailIntegrations
+from embrouter.types.utils import LLM_AS_A_JUDGE_GUARDRAIL_CALL_ORIGIN, GenericGuardrailAPIInputs, GuardrailStatus
 
 if TYPE_CHECKING:
-    from litellm import Router
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.types.guardrails import Guardrail, LitellmParams
-    from litellm.types.llms.openai import AllMessageValues
-    from litellm.types.utils import StandardLoggingEvalInformation
+    from embrouter import Router
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.types.guardrails import Guardrail, EmbrouterParams
+    from embrouter.types.llms.openai import AllMessageValues
+    from embrouter.types.utils import StandardLoggingEvalInformation
 
 JudgeInputType = Literal["request", "response"]
 JudgeEventHook = GuardrailEventHooks | list[GuardrailEventHooks] | Mode
@@ -83,7 +83,7 @@ def _is_logged_judge_call(data: Mapping[str, object], event_type: GuardrailEvent
     if event_type is not GuardrailEventHooks.logging_only:
         return False
     try:
-        params: Final = _LoggedCallParams.model_validate(data.get("litellm_params") or {})
+        params: Final = _LoggedCallParams.model_validate(data.get("embrouter_params") or {})
     except ValidationError:
         return False
     return (params.metadata or {}).get(INTERNAL_CALL_ORIGIN_METADATA_KEY) == LLM_AS_A_JUDGE_GUARDRAIL_CALL_ORIGIN
@@ -96,8 +96,8 @@ _extract_text_from_content: Final = extract_text_from_content
 _ParamT = TypeVar("_ParamT")
 
 
-class _LitellmParamView(TypedDict, Generic[_ParamT]):
-    """Typed read of a single entry in an untyped ``litellm_params`` mapping."""
+class _EmbrouterParamView(TypedDict, Generic[_ParamT]):
+    """Typed read of a single entry in an untyped ``embrouter_params`` mapping."""
 
     value: ReadOnly[_ParamT]
 
@@ -117,18 +117,18 @@ class JudgeMessage(TypedDict):
     content: ReadOnly[NotRequired[object]]
 
 
-def _get_litellm_param(
-    litellm_params: "LitellmParams",
+def _get_embrouter_param(
+    embrouter_params: "EmbrouterParams",
     guardrail: "Guardrail",
     key: str,
     default: _ParamT,
 ) -> _ParamT:
-    val: Final[_ParamT | None] = getattr(litellm_params, key, None)
+    val: Final[_ParamT | None] = getattr(embrouter_params, key, None)
     if val is not None:
         return val
-    raw: Final = guardrail.get("litellm_params")
+    raw: Final = guardrail.get("embrouter_params")
     if isinstance(raw, dict) and key in raw:
-        entry: Final[_LitellmParamView[_ParamT]] = {"value": raw[key]}
+        entry: Final[_EmbrouterParamView[_ParamT]] = {"value": raw[key]}
         return entry["value"]
     if raw is not None and not isinstance(raw, dict):
         attr: Final[_ParamT | None] = getattr(raw, key, None)
@@ -260,7 +260,7 @@ class LLMAsAJudgeGuardrail(CustomGuardrail):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict,
         input_type: Literal["request", "response"],
-        logging_obj: Optional["LiteLLMLoggingObj"] = None,
+        logging_obj: Optional["EmbRouterLoggingObj"] = None,
     ) -> GenericGuardrailAPIInputs:
         text_under_review: Final = _text_under_review(inputs, input_type)
         if not text_under_review:
@@ -346,18 +346,18 @@ class LLMAsAJudgeGuardrail(CustomGuardrail):
 
 
 def initialize_guardrail(
-    litellm_params: "LitellmParams",
+    embrouter_params: "EmbrouterParams",
     guardrail: "Guardrail",
 ) -> LLMAsAJudgeGuardrail:
     guardrail_name: Final = guardrail.get("guardrail_name")
     if not guardrail_name:
         raise ValueError("llm_as_a_judge guardrail requires a guardrail_name")
 
-    judge_model: Final[str] = _get_litellm_param(litellm_params, guardrail, "judge_model", "")
+    judge_model: Final[str] = _get_embrouter_param(embrouter_params, guardrail, "judge_model", "")
     if not judge_model:
-        raise ValueError("llm_as_a_judge guardrail requires judge_model in litellm_params")
+        raise ValueError("llm_as_a_judge guardrail requires judge_model in embrouter_params")
 
-    criteria: Final[Sequence[JudgeCriterion]] = _get_litellm_param(litellm_params, guardrail, "criteria", ()) or ()
+    criteria: Final[Sequence[JudgeCriterion]] = _get_embrouter_param(embrouter_params, guardrail, "criteria", ()) or ()
     if not criteria:
         raise ValueError("llm_as_a_judge guardrail requires at least one criterion")
 
@@ -365,13 +365,13 @@ def initialize_guardrail(
     if abs(weight_total - 100) > 0.5:
         raise ValueError(f"llm_as_a_judge criterion weights must sum to 100 (got {weight_total})")
 
-    on_failure: Final[Literal["block", "log"]] = _get_litellm_param(litellm_params, guardrail, "on_failure", "block")
+    on_failure: Final[Literal["block", "log"]] = _get_embrouter_param(embrouter_params, guardrail, "on_failure", "block")
     if on_failure not in _VALID_ON_FAILURE:
         raise ValueError(f"llm_as_a_judge on_failure must be 'block' or 'log', got '{on_failure}'")
 
-    overall_threshold: Final = float(_get_litellm_param(litellm_params, guardrail, "overall_threshold", 80.0))
+    overall_threshold: Final = float(_get_embrouter_param(embrouter_params, guardrail, "overall_threshold", 80.0))
 
-    mode: Final[JudgeModeParam] = _get_litellm_param(litellm_params, guardrail, "mode", None)
+    mode: Final[JudgeModeParam] = _get_embrouter_param(embrouter_params, guardrail, "mode", None)
 
     instance: Final = LLMAsAJudgeGuardrail(
         guardrail_name=guardrail_name,
@@ -380,9 +380,9 @@ def initialize_guardrail(
         overall_threshold=overall_threshold,
         on_failure=on_failure,
         event_hook=mode,
-        default_on=bool(_get_litellm_param(litellm_params, guardrail, "default_on", False)),
+        default_on=bool(_get_embrouter_param(embrouter_params, guardrail, "default_on", False)),
     )
-    litellm.logging_callback_manager.add_litellm_callback(instance)
+    embrouter.logging_callback_manager.add_embrouter_callback(instance)
     return instance
 
 

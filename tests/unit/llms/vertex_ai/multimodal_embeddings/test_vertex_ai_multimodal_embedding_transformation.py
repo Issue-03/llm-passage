@@ -5,10 +5,10 @@ import httpx
 import pytest
 
 
-from litellm.llms.vertex_ai.multimodal_embeddings.transformation import (
+from embrouter.llms.vertex_ai.multimodal_embeddings.transformation import (
     VertexAIMultimodalEmbeddingConfig,
 )
-from litellm.types.llms.vertex_ai import Instance, InstanceImage, InstanceVideo
+from embrouter.types.llms.vertex_ai import Instance, InstanceImage, InstanceVideo
 
 
 class TestVertexMultimodalEmbedding:

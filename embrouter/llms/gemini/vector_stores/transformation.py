@@ -1,7 +1,7 @@
 """
 Gemini File Search Vector Store Transformation Layer.
 
-Implements the transformation between LiteLLM's unified vector store API
+Implements the transformation between EmbRouter's unified vector store API
 and Google Gemini's File Search API.
 """
 
@@ -11,14 +11,14 @@ from typing import TYPE_CHECKING, Any, Final
 import httpx
 from typing_extensions import ReadOnly, TypedDict
 
-from litellm.llms.base_llm.vector_store.transformation import BaseVectorStoreConfig
-from litellm.llms.gemini.common_utils import (
+from embrouter.llms.base_llm.vector_store.transformation import BaseVectorStoreConfig
+from embrouter.llms.gemini.common_utils import (
     GeminiError,
     GeminiModelInfo,
     get_api_key_from_env,
 )
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.vector_stores import (
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.vector_stores import (
     VECTOR_STORE_OPENAI_PARAMS,
     BaseVectorStoreAuthCredentials,
     VectorStoreCreateOptionalRequestParams,
@@ -32,9 +32,9 @@ from litellm.types.vector_stores import (
 )
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 
 class GeminiRetrievedContext(TypedDict, total=False):
@@ -102,7 +102,7 @@ class GeminiVectorStoreConfig(BaseVectorStoreConfig):
         self.model_info = GeminiModelInfo()
         self._cached_api_key: str | None = None
 
-    def get_auth_credentials(self, litellm_params: dict) -> BaseVectorStoreAuthCredentials:
+    def get_auth_credentials(self, embrouter_params: dict) -> BaseVectorStoreAuthCredentials:
         """Gemini uses x-goog-api-key header for authentication."""
         return {}
 
@@ -122,19 +122,19 @@ class GeminiVectorStoreConfig(BaseVectorStoreConfig):
         """Supported parameters for Gemini File Search."""
         return ["max_num_results", "filters"]
 
-    def validate_environment(self, headers: dict, litellm_params: GenericLiteLLMParams | None) -> dict:
+    def validate_environment(self, headers: dict, embrouter_params: GenericEmbRouterParams | None) -> dict:
         """Validate and set up headers for Gemini API."""
         headers = headers or {}
         headers.setdefault("Content-Type", "application/json")
-        if litellm_params:
-            api_key: Final = litellm_params.get("api_key") or get_api_key_from_env()
+        if embrouter_params:
+            api_key: Final = embrouter_params.get("api_key") or get_api_key_from_env()
             if api_key:
                 self._cached_api_key = api_key
                 headers["x-goog-api-key"] = api_key
 
         return headers
 
-    def get_complete_url(self, api_base: str | None, litellm_params: dict) -> str:
+    def get_complete_url(self, api_base: str | None, embrouter_params: dict) -> str:
         """
         Get the complete base URL for Gemini API.
 
@@ -165,8 +165,8 @@ class GeminiVectorStoreConfig(BaseVectorStoreConfig):
         query: str | list[str],
         vector_store_search_optional_params: VectorStoreSearchOptionalRequestParams,
         api_base: str,
-        litellm_logging_obj: LiteLLMLoggingObj,
-        litellm_params: dict,
+        embrouter_logging_obj: EmbRouterLoggingObj,
+        embrouter_params: dict,
         extra_body: Mapping[str, object] | None = None,
     ) -> tuple[str, dict]:
         """
@@ -178,13 +178,13 @@ class GeminiVectorStoreConfig(BaseVectorStoreConfig):
         if isinstance(query, list):
             query = " ".join(query)
 
-        # Get model from litellm_params or use default
+        # Get model from embrouter_params or use default
         # Note: File Search requires gemini-2.5-flash or later
-        model = litellm_params.get("model") or "gemini-2.5-flash"
+        model = embrouter_params.get("model") or "gemini-2.5-flash"
         if model and model.startswith("gemini/"):
             model = model.replace("gemini/", "")
 
-        api_key: Final = litellm_params.get("api_key") or GeminiModelInfo.get_api_key()
+        api_key: Final = embrouter_params.get("api_key") or GeminiModelInfo.get_api_key()
         if not api_key:
             raise ValueError("GEMINI_API_KEY or GOOGLE_API_KEY is required")
         url: Final = f"{api_base}/models/{model}:generateContent"
@@ -221,13 +221,13 @@ class GeminiVectorStoreConfig(BaseVectorStoreConfig):
             # depending on Gemini's API requirements
             request_body.setdefault("generationConfig", {})["candidateCount"] = 1
 
-        litellm_logging_obj.model_call_details["query"] = query
-        litellm_logging_obj.model_call_details["vector_store_id"] = vector_store_id
+        embrouter_logging_obj.model_call_details["query"] = query
+        embrouter_logging_obj.model_call_details["vector_store_id"] = vector_store_id
 
         return url, request_body
 
     def transform_search_vector_store_response(
-        self, response: httpx.Response, litellm_logging_obj: LiteLLMLoggingObj
+        self, response: httpx.Response, embrouter_logging_obj: EmbRouterLoggingObj
     ) -> VectorStoreSearchResponse:
         """
         Transform Gemini's generateContent response to standard format.
@@ -303,7 +303,7 @@ class GeminiVectorStoreConfig(BaseVectorStoreConfig):
                             )
                         )
 
-            query: Final[str] = litellm_logging_obj.model_call_details.get("query", "")
+            query: Final[str] = embrouter_logging_obj.model_call_details.get("query", "")
 
             return VectorStoreSearchResponse(
                 object="vector_store.search_results.page",

@@ -2,18 +2,18 @@ from typing import TYPE_CHECKING, Any, Final
 
 import httpx
 
-from litellm.types.llms.openai import OpenAIImageGenerationOptionalParams
-from litellm.types.utils import ImageObject, ImageResponse
+from embrouter.types.llms.openai import OpenAIImageGenerationOptionalParams
+from embrouter.types.utils import ImageObject, ImageResponse
 
 from .transformation import FalAIBaseConfig
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 
 class FalAIStableDiffusionConfig(FalAIBaseConfig):
@@ -37,7 +37,7 @@ class FalAIStableDiffusionConfig(FalAIBaseConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         """
@@ -45,7 +45,7 @@ class FalAIStableDiffusionConfig(FalAIBaseConfig):
 
         For Stable Diffusion models, extract the endpoint from the model name.
         """
-        from litellm.secret_managers.main import get_secret_str
+        from embrouter.secret_managers.main import get_secret_str
 
         complete_url: str = api_base or get_secret_str("FAL_AI_API_BASE") or self.DEFAULT_BASE_URL
 
@@ -171,7 +171,7 @@ class FalAIStableDiffusionConfig(FalAIBaseConfig):
         model: str,
         prompt: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         """
@@ -203,16 +203,16 @@ class FalAIStableDiffusionConfig(FalAIBaseConfig):
         model: str,
         raw_response: httpx.Response,
         model_response: ImageResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         request_data: dict,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,
     ) -> ImageResponse:
         """
-        Transform the Stable Diffusion response to litellm ImageResponse format.
+        Transform the Stable Diffusion response to embrouter ImageResponse format.
 
         Expected response format:
         {

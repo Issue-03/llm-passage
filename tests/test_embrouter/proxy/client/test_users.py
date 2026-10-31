@@ -6,7 +6,7 @@ import requests
 
 
 
-from litellm.proxy.client.users import (
+from embrouter.proxy.client.users import (
     NotFoundError,
     UnauthorizedError,
     UsersManagementClient,

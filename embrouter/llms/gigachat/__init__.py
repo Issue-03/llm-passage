@@ -1,5 +1,5 @@
 """
-GigaChat Provider for LiteLLM
+GigaChat Provider for EmbRouter
 
 GigaChat is Sber AI's large language model (Russia's leading LLM).
 Supports:

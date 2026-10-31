@@ -16,35 +16,35 @@ from pydantic import BaseModel, ConfigDict, ValidationError
 from starlette.websockets import WebSocket, WebSocketDisconnect
 from typing_extensions import ReadOnly, TypedDict
 
-from litellm._logging import verbose_proxy_logger
-from litellm.constants import EMPTY_MAPPING
-from litellm.integrations.custom_guardrail import ModifyResponseException
-from litellm.llms.openai.responses.guardrail_translation.handler import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.constants import EMPTY_MAPPING
+from embrouter.integrations.custom_guardrail import ModifyResponseException
+from embrouter.llms.openai.responses.guardrail_translation.handler import (
     OpenAIResponsesHandler,
     build_blocked_response,
 )
-from litellm.proxy._types import *
-from litellm.proxy.auth.user_api_key_auth import (
+from embrouter.proxy._types import *
+from embrouter.proxy.auth.user_api_key_auth import (
     UserAPIKeyAuth,
     user_api_key_auth,
     user_api_key_auth_websocket,
 )
-from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing, create_response
-from litellm.proxy.common_utils.http_parsing_utils import (
+from embrouter.proxy.common_request_processing import ProxyBaseLLMRequestProcessing, create_response
+from embrouter.proxy.common_utils.http_parsing_utils import (
     _read_request_body,
     _safe_set_request_parsed_body,
 )
-from litellm.proxy.route_llm_request import raise_if_required_body_param_missing
-from litellm.types.llms.openai import (
+from embrouter.proxy.route_llm_request import raise_if_required_body_param_missing
+from embrouter.types.llms.openai import (
     REASONING_EFFORT,
     ResponsesAPIOptionalRequestParams,
     ResponsesAPIResponse,
 )
-from litellm.types.responses.main import DeleteResponseResult
-from litellm.types.utils import TokenCountResponse
+from embrouter.types.responses.main import DeleteResponseResult
+from embrouter.types.utils import TokenCountResponse
 
 if TYPE_CHECKING:
-    from litellm.router import Router
+    from embrouter.router import Router
 
 router: Final = APIRouter()
 
@@ -77,7 +77,7 @@ _EMPTY_TOOL_PAYLOAD: Final[Mapping[str, object]] = MappingProxyType({})
 def _convert_tool_payload_value(key: str, value: object, *, to_chat: bool) -> object:
     if key != "format" or not isinstance(value, dict):
         return value
-    from litellm.litellm_core_utils.prompt_templates.common_utils import (
+    from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
         convert_custom_tool_format_to_chat_shape,
         convert_custom_tool_format_to_responses_shape,
     )
@@ -180,7 +180,7 @@ def _resolve_cursor_model_variant(
 
 
 async def _resolve_cursor_model_variant_before_auth(request: Request) -> None:
-    from litellm.proxy.proxy_server import llm_router
+    from embrouter.proxy.proxy_server import llm_router
 
     try:
         raw_body: Final = await _read_request_body(request=request)
@@ -242,7 +242,7 @@ async def responses_api(
     }'
     ```
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         _read_request_body,
         general_settings,
         llm_router,
@@ -265,7 +265,7 @@ async def responses_api(
     data = await _read_request_body(request=request)
 
     # Check if polling via cache should be used for this request
-    from litellm.proxy.response_polling.polling_handler import (
+    from embrouter.proxy.response_polling.polling_handler import (
         should_use_polling_for_request,
     )
 
@@ -280,10 +280,10 @@ async def responses_api(
 
     # If polling is enabled, use polling mode
     if should_use_polling:
-        from litellm.proxy.response_polling.background_streaming import (
+        from embrouter.proxy.response_polling.background_streaming import (
             background_streaming_task,
         )
-        from litellm.proxy.response_polling.polling_handler import (
+        from embrouter.proxy.response_polling.polling_handler import (
             ResponsePollingHandler,
         )
 
@@ -411,7 +411,7 @@ async def responses_api(
                         await managed_files_obj.store_unified_object_id(
                             unified_object_id=response.id,
                             file_object=response,
-                            litellm_parent_otel_span=None,
+                            embrouter_parent_otel_span=None,
                             model_object_id=response.id,
                             file_purpose="response",
                             user_api_key_dict=user_api_key_dict,
@@ -478,7 +478,7 @@ async def cursor_model_list(
     demands a Cursor API key and 401s, so key verification silently fails before any
     chat request is ever sent. Delegates to the standard `/v1/models` handler.
     """
-    from litellm.proxy.proxy_server import model_list
+    from embrouter.proxy.proxy_server import model_list
 
     return await model_list(user_api_key_dict=user_api_key_dict)
 
@@ -523,11 +523,11 @@ async def cursor_chat_completions(
     Responds back in chat completions format.
     ```
     """
-    from litellm.completion_extras.litellm_responses_transformation.handler import (
+    from embrouter.completion_extras.embrouter_responses_transformation.handler import (
         responses_api_bridge,
     )
-    from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
-    from litellm.proxy.proxy_server import (
+    from embrouter.embrouter_core_utils.streaming_handler import CustomStreamWrapper
+    from embrouter.proxy.proxy_server import (
         async_data_generator,
         chat_completion,
         general_settings,
@@ -541,8 +541,8 @@ async def cursor_chat_completions(
         user_temperature,
         version,
     )
-    from litellm.types.llms.openai import ResponsesAPIResponse
-    from litellm.types.utils import ModelResponse
+    from embrouter.types.llms.openai import ResponsesAPIResponse
+    from embrouter.types.utils import ModelResponse
 
     raw_body: Final = await _read_request_body(request=request)
 
@@ -592,7 +592,7 @@ async def cursor_chat_completions(
         """
         # Any async-iterable here is a Responses API event stream needing conversion.
         # Class-identity checks miss router-wrapped streams (e.g.
-        # HiddenParamsAsyncIteratorWrapper around LiteLLMCompletionStreamingIterator),
+        # HiddenParamsAsyncIteratorWrapper around EmbRouterCompletionStreamingIterator),
         # which previously leaked raw Responses events to the client.
         if hasattr(response, "__anext__"):
             # Transform Responses API iterator to chat completion iterator
@@ -603,7 +603,7 @@ async def cursor_chat_completions(
                 json_mode=False,
             )
             # Wrap in CustomStreamWrapper to get the async generator
-            logging_obj: Final = request_data.get("litellm_logging_obj")
+            logging_obj: Final = request_data.get("embrouter_logging_obj")
             streamwrapper: Final = CustomStreamWrapper(
                 completion_stream=completion_stream,
                 model=request_data.get("model", ""),
@@ -647,7 +647,7 @@ async def cursor_chat_completions(
 
         # Transform non-streaming Responses API response to chat completions format
         if isinstance(response, ResponsesAPIResponse):
-            logging_obj: Final = processor.data.get("litellm_logging_obj")
+            logging_obj: Final = processor.data.get("embrouter_logging_obj")
             transformed_response: Final = responses_api_bridge.transformation_handler.transform_response(
                 model=processor.data.get("model", ""),
                 raw_response=response,
@@ -656,7 +656,7 @@ async def cursor_chat_completions(
                 request_data=processor.data,
                 messages=processor.data.get("input", []),
                 optional_params={},
-                litellm_params={},
+                embrouter_params={},
                 encoding=None,
                 api_key=None,
                 json_mode=None,
@@ -702,14 +702,14 @@ async def get_response(
     Get a response by ID.
     
     Supports both:
-    - Polling IDs (litellm_poll_*): Returns cumulative cached content from background responses
+    - Polling IDs (embrouter_poll_*): Returns cumulative cached content from background responses
     - Provider response IDs: Passes through to provider API
     
     Follows the OpenAI Responses API spec: https://platform.openai.com/docs/api-reference/responses/get
     
     ```bash
     # Get polling response
-    curl -X GET http://localhost:4000/v1/responses/litellm_poll_abc123 \
+    curl -X GET http://localhost:4000/v1/responses/embrouter_poll_abc123 \
     -H "Authorization: Bearer sk-1234"
     
     # Get provider response
@@ -717,7 +717,7 @@ async def get_response(
     -H "Authorization: Bearer sk-1234"
     ```
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         _read_request_body,
         general_settings,
         llm_router,
@@ -732,7 +732,7 @@ async def get_response(
         user_temperature,
         version,
     )
-    from litellm.proxy.response_polling.polling_handler import ResponsePollingHandler
+    from embrouter.proxy.response_polling.polling_handler import ResponsePollingHandler
 
     # Check if this is a polling ID
     if ResponsePollingHandler.is_polling_id(response_id):
@@ -818,7 +818,7 @@ async def delete_response(
     Delete a response by ID.
     
     Supports both:
-    - Polling IDs (litellm_poll_*): Deletes from Redis cache
+    - Polling IDs (embrouter_poll_*): Deletes from Redis cache
     - Provider response IDs: Passes through to provider API
     
     Follows the OpenAI Responses API spec: https://platform.openai.com/docs/api-reference/responses/delete
@@ -828,7 +828,7 @@ async def delete_response(
     -H "Authorization: Bearer sk-1234"
     ```
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         _read_request_body,
         general_settings,
         llm_router,
@@ -843,7 +843,7 @@ async def delete_response(
         user_temperature,
         version,
     )
-    from litellm.proxy.response_polling.polling_handler import ResponsePollingHandler
+    from embrouter.proxy.response_polling.polling_handler import ResponsePollingHandler
 
     # Check if this is a polling ID
     if ResponsePollingHandler.is_polling_id(response_id):
@@ -924,7 +924,7 @@ async def get_response_input_items(
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
 ):
     """List input items for a response."""
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         _read_request_body,
         general_settings,
         llm_router,
@@ -1007,7 +1007,7 @@ async def compact_response(
     }'
     ```
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         _read_request_body,
         general_settings,
         llm_router,
@@ -1079,7 +1079,7 @@ class _TokenCounter(Protocol):
 
 
 def _proxy_token_counter() -> _TokenCounter:
-    from litellm.proxy.proxy_server import token_counter
+    from embrouter.proxy.proxy_server import token_counter
 
     return token_counter
 
@@ -1111,12 +1111,12 @@ def _responses_input_as_token_count_messages(
     input_value: str | ResponseInputParam,
     instructions: str | None,
 ) -> tuple[Mapping[str, object], ...]:
-    from litellm.responses.litellm_completion_transformation.transformation import (
-        LiteLLMCompletionResponsesConfig,
+    from embrouter.responses.embrouter_completion_transformation.transformation import (
+        EmbRouterCompletionResponsesConfig,
     )
 
     request_params: Final[ResponsesAPIOptionalRequestParams] = {"instructions": instructions}
-    transformed: Final = LiteLLMCompletionResponsesConfig.transform_responses_api_input_to_messages(
+    transformed: Final = EmbRouterCompletionResponsesConfig.transform_responses_api_input_to_messages(
         input=input_value,
         responses_api_request=request_params,
     )
@@ -1223,14 +1223,14 @@ async def cancel_response(
     Cancel a response by ID.
     
     Supports both:
-    - Polling IDs (litellm_poll_*): Cancels background response and updates status in Redis
+    - Polling IDs (embrouter_poll_*): Cancels background response and updates status in Redis
     - Provider response IDs: Passes through to provider API
     
     Follows the OpenAI Responses API spec: https://platform.openai.com/docs/api-reference/responses/cancel
     
     ```bash
     # Cancel polling response
-    curl -X POST http://localhost:4000/v1/responses/litellm_poll_abc123/cancel \
+    curl -X POST http://localhost:4000/v1/responses/embrouter_poll_abc123/cancel \
     -H "Authorization: Bearer sk-1234"
     
     # Cancel provider response
@@ -1238,7 +1238,7 @@ async def cancel_response(
     -H "Authorization: Bearer sk-1234"
     ```
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         _read_request_body,
         general_settings,
         llm_router,
@@ -1253,7 +1253,7 @@ async def cancel_response(
         user_temperature,
         version,
     )
-    from litellm.proxy.response_polling.polling_handler import ResponsePollingHandler
+    from embrouter.proxy.response_polling.polling_handler import ResponsePollingHandler
 
     # Check if this is a polling ID
     if ResponsePollingHandler.is_polling_id(response_id):
@@ -1434,11 +1434,11 @@ async def _enforce_responses_ws_first_frame_model_auth(
     user_api_key_dict: UserAPIKeyAuth,
     llm_router: "Router | None",
 ) -> None:
-    from litellm.proxy.auth.user_api_key_auth import (
+    from embrouter.proxy.auth.user_api_key_auth import (
         _enforce_key_and_fallback_model_access,
         _run_centralized_common_checks,
     )
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_model_list,
         master_key,
@@ -1490,7 +1490,7 @@ async def responses_websocket_endpoint(
 
     See: https://developers.openai.com/api/docs/guides/websocket-mode/
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         proxy_config,
@@ -1502,7 +1502,7 @@ async def responses_websocket_endpoint(
         user_temperature,
         version,
     )
-    from litellm.proxy.route_llm_request import route_request
+    from embrouter.proxy.route_llm_request import route_request
 
     # Accept the WebSocket handshake. Key was already validated by the Depends
     # above; we can safely accept regardless of whether ?model= was supplied.
@@ -1555,7 +1555,7 @@ async def responses_websocket_endpoint(
             )
         (
             data,
-            litellm_logging_obj,
+            embrouter_logging_obj,
         ) = await base_llm_response_processor.common_processing_pre_call_logic(
             request=request,
             general_settings=general_settings,

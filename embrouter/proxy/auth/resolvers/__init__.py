@@ -1,11 +1,11 @@
-from litellm.proxy.auth.resolvers.exceptions import (
+from embrouter.proxy.auth.resolvers.exceptions import (
     IdentityResolutionError,
     KeyNotFoundError,
     KeyNotInCacheError,
     NoDatabaseConnectionError,
     PrincipalMissingSourceKeyError,
 )
-from litellm.proxy.auth.resolvers.models import (
+from embrouter.proxy.auth.resolvers.models import (
     CredentialRef,
     EndUserIdentity,
     OrganizationIdentity,

@@ -11,7 +11,7 @@ from urllib.parse import urlparse
 import httpx
 from pydantic import JsonValue
 
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
 
 try:
     from cryptography.hazmat.primitives import hashes, serialization
@@ -22,9 +22,9 @@ except ImportError:
     _CRYPTOGRAPHY_AVAILABLE = False
 
 try:
-    from litellm._version import version as _litellm_version
+    from embrouter._version import version as _embrouter_version
 except ImportError:
-    _litellm_version = "0.0.0"
+    _embrouter_version = "0.0.0"
 
 
 # OCI GenAI REST API version — stable since service launch, unlikely to change
@@ -395,7 +395,7 @@ def validate_oci_environment(
     at construction time.
     """
     headers.setdefault("content-type", "application/json")
-    headers.setdefault("user-agent", f"litellm/{_litellm_version}")
+    headers.setdefault("user-agent", f"embrouter/{_embrouter_version}")
     return headers
 
 

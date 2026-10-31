@@ -7,11 +7,11 @@ this is OpenAI compatible - no translation needed / occurs
 from collections.abc import Coroutine
 from typing import Any, Final, Literal, overload
 
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
     handle_messages_with_content_list_to_str_conversion,
 )
-from litellm.llms.openai.chat.gpt_transformation import OpenAIGPTConfig
-from litellm.types.llms.openai import AllMessageValues
+from embrouter.llms.openai.chat.gpt_transformation import OpenAIGPTConfig
+from embrouter.types.llms.openai import AllMessageValues
 
 
 class SambanovaConfig(OpenAIGPTConfig):
@@ -59,7 +59,7 @@ class SambanovaConfig(OpenAIGPTConfig):
         Get the supported OpenAI params for the given model
 
         """
-        from litellm.utils import supports_function_calling
+        from embrouter.utils import supports_function_calling
 
         params: Final = [
             "max_completion_tokens",

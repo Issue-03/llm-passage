@@ -12,22 +12,22 @@ from typing import TYPE_CHECKING, Any, Final, Literal
 import httpx
 from typing_extensions import ReadOnly, TypedDict, Unpack
 
-from litellm._logging import verbose_proxy_logger
-from litellm.exceptions import GuardrailRaisedException
-from litellm.integrations.custom_guardrail import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.exceptions import GuardrailRaisedException
+from embrouter.integrations.custom_guardrail import (
     CustomGuardrail,
     log_guardrail_information,
 )
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.utils import GenericGuardrailAPIInputs
+from embrouter.types.guardrails import GuardrailEventHooks
+from embrouter.types.utils import GenericGuardrailAPIInputs
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
 
 
 BLOCKED_BY_OVALIX_FALLBACK_MESSAGE: Final = "This message was blocked by Ovalix"
@@ -149,7 +149,7 @@ class OvalixGuardrail(CustomGuardrail):
 
     def _get_actor(self, data: dict) -> str:
         """Return a stable actor identifier from request metadata (e.g. user email or id)."""
-        metadata: Final = data.get("metadata") or data.get("litellm_metadata") or {}
+        metadata: Final = data.get("metadata") or data.get("embrouter_metadata") or {}
         if metadata.get("user_api_key_user_email"):
             return metadata["user_api_key_user_email"]
         if metadata.get("user_api_key_user_id"):
@@ -204,7 +204,7 @@ class OvalixGuardrail(CustomGuardrail):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict,
         input_type: Literal["request", "response"],
-        logging_obj: "LiteLLMLoggingObj | None" = None,
+        logging_obj: "EmbRouterLoggingObj | None" = None,
     ) -> GenericGuardrailAPIInputs:
         """
         Apply Ovalix guardrail to the given inputs (request or response text).
@@ -292,7 +292,7 @@ class OvalixGuardrail(CustomGuardrail):
 
     @staticmethod
     def get_config_model() -> type["GuardrailConfigModel"] | None:
-        from litellm.types.proxy.guardrails.guardrail_hooks.ovalix import (
+        from embrouter.types.proxy.guardrails.guardrail_hooks.ovalix import (
             OvalixGuardrailConfigModel,
         )
 

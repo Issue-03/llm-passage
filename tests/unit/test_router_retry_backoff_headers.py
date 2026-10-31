@@ -7,8 +7,8 @@ from unittest.mock import patch
 import httpx
 import pytest
 
-import litellm
-from litellm import Router
+import embrouter
+from embrouter import Router
 
 
 @pytest.mark.asyncio
@@ -20,7 +20,7 @@ async def test_retry_backoff_uses_current_exception_headers():
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-3.5-turbo",
                     "api_key": "sk-test",
                 },
@@ -29,26 +29,26 @@ async def test_retry_backoff_uses_current_exception_headers():
         num_retries=2,
     )
 
-    first_error = litellm.RateLimitError(
+    first_error = embrouter.RateLimitError(
         message="Rate limited on first attempt",
         model="gpt-3.5-turbo",
         llm_provider="openai",
     )
-    first_error.litellm_response_headers = httpx.Headers({"retry-after": "1"})
+    first_error.embrouter_response_headers = httpx.Headers({"retry-after": "1"})
 
-    second_error = litellm.RateLimitError(
+    second_error = embrouter.RateLimitError(
         message="Rate limited on second attempt",
         model="gpt-3.5-turbo",
         llm_provider="openai",
     )
-    second_error.litellm_response_headers = httpx.Headers({"retry-after": "15"})
+    second_error.embrouter_response_headers = httpx.Headers({"retry-after": "15"})
 
-    third_error = litellm.RateLimitError(
+    third_error = embrouter.RateLimitError(
         message="Rate limited on third attempt",
         model="gpt-3.5-turbo",
         llm_provider="openai",
     )
-    third_error.litellm_response_headers = httpx.Headers({"retry-after": "30"})
+    third_error.embrouter_response_headers = httpx.Headers({"retry-after": "30"})
 
     raised_errors = [first_error, second_error, third_error]
     captured_backoff_errors = []
@@ -74,7 +74,7 @@ async def test_retry_backoff_uses_current_exception_headers():
                 "_time_to_sleep_before_retry",
                 side_effect=mock_time_to_sleep_before_retry,
             ):
-                with pytest.raises(litellm.RateLimitError):
+                with pytest.raises(embrouter.RateLimitError):
                     await router.acompletion(
                         model="gpt-3.5-turbo",
                         messages=[{"role": "user", "content": "Hello"}],

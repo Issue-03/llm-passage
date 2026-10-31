@@ -16,7 +16,7 @@
 # CHANGELOG: 2025-01-19 - Migrated from pandas to polars for data transformation (erik.peterson)
 # CHANGELOG: 2025-01-19 - Initial CBF transformation module (erik.peterson)
 
-"""Transform LiteLLM data to CloudZero AnyCost CBF format."""
+"""Transform EmbRouter data to CloudZero AnyCost CBF format."""
 
 from datetime import datetime
 from typing import Final, SupportsFloat, SupportsIndex, SupportsInt
@@ -43,14 +43,14 @@ def _as_float(value: object) -> float:
 
 
 class CBFTransformer:
-    """Transform LiteLLM usage data to CloudZero Billing Format (CBF)."""
+    """Transform EmbRouter usage data to CloudZero Billing Format (CBF)."""
 
     def __init__(self):
         """Initialize transformer with CZRN generator."""
         self.czrn_generator = CZRNGenerator()
 
     def transform(self, data: pl.DataFrame) -> pl.DataFrame:
-        """Transform LiteLLM data to CBF format, dropping records with zero successful_requests or invalid CZRNs."""
+        """Transform EmbRouter data to CBF format, dropping records with zero successful_requests or invalid CZRNs."""
         if data.is_empty():
             return pl.DataFrame()
 
@@ -98,7 +98,7 @@ class CBFTransformer:
         return pl.DataFrame(cbf_data, infer_schema_length=None)
 
     def _create_cbf_record(self, row: dict[str, object]) -> CBFRecord:
-        """Create a single CBF record from LiteLLM daily spend row."""
+        """Create a single CBF record from EmbRouter daily spend row."""
 
         # Parse date (daily spend tables use date strings like '2025-04-19')
         usage_date: Final = self._parse_date(row.get("date"))
@@ -109,7 +109,7 @@ class CBFTransformer:
         total_tokens: Final = prompt_tokens + completion_tokens
 
         # Create CloudZero Resource Name (CZRN) as resource_id
-        resource_id: Final = self.czrn_generator.create_from_litellm_data(row)
+        resource_id: Final = self.czrn_generator.create_from_embrouter_data(row)
 
         # Build dimensions for CloudZero
         model: Final = str(row.get("model", ""))

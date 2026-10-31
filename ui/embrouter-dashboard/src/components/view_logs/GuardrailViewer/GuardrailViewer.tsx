@@ -75,7 +75,7 @@ interface GuardrailViewerProps {
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
-const PROVIDERS_WITH_CUSTOM_RENDERERS = new Set(["presidio", "bedrock", "litellm_content_filter"]);
+const PROVIDERS_WITH_CUSTOM_RENDERERS = new Set(["presidio", "bedrock", "embrouter_content_filter"]);
 
 /**
  * Extracts a plain string from guardrail_mode for display purposes.
@@ -704,7 +704,7 @@ const EvaluationCard = ({ entry }: { entry: GuardrailInformation }) => {
               <BedrockGuardrailDetails response={bedrockResponse} />
             </div>
           )}
-          {guardrailProvider === "litellm_content_filter" && guardrailResponse && (
+          {guardrailProvider === "embrouter_content_filter" && guardrailResponse && (
             <div className="mt-3">
               <ContentFilterDetails response={guardrailResponse} />
             </div>

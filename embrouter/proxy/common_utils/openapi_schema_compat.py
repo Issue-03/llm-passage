@@ -7,7 +7,7 @@ This module provides a compatibility layer to handle these cases gracefully.
 
 from typing import Any, Final
 
-from litellm._logging import verbose_proxy_logger
+from embrouter._logging import verbose_proxy_logger
 
 
 def get_openapi_schema_with_compat(

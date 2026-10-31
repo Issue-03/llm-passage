@@ -6,11 +6,11 @@ from typing import Final
 
 from fastapi import HTTPException
 
-from litellm import verbose_logger
-from litellm._logging import verbose_proxy_logger
-from litellm.caching.caching import DualCache
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.proxy._types import UserAPIKeyAuth
+from embrouter import verbose_logger
+from embrouter._logging import verbose_proxy_logger
+from embrouter.caching.caching import DualCache
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.proxy._types import UserAPIKeyAuth
 
 
 class _PROXY_CacheControlCheck(CustomLogger):
@@ -54,5 +54,5 @@ class _PROXY_CacheControlCheck(CustomLogger):
             raise e
         except Exception as e:
             verbose_logger.exception(
-                "litellm.proxy.hooks.cache_control_check.py::async_pre_call_hook(): Exception occured - %s", e
+                "embrouter.proxy.hooks.cache_control_check.py::async_pre_call_hook(): Exception occured - %s", e
             )

@@ -4,11 +4,11 @@ from typing import TYPE_CHECKING, Any, Final
 
 import httpx
 
-from litellm.exceptions import AuthenticationError
-from litellm.llms.anthropic.chat.transformation import AnthropicConfig
-from litellm.llms.openai.openai import OpenAIConfig
-from litellm.types.llms.openai import AllMessageValues, ChatCompletionToolCallChunk
-from litellm.types.utils import ModelResponse
+from embrouter.exceptions import AuthenticationError
+from embrouter.llms.anthropic.chat.transformation import AnthropicConfig
+from embrouter.llms.openai.openai import OpenAIConfig
+from embrouter.types.llms.openai import AllMessageValues, ChatCompletionToolCallChunk
+from embrouter.types.utils import ModelResponse
 
 from ..authenticator import Authenticator
 from ..common_utils import (
@@ -18,7 +18,7 @@ from ..common_utils import (
 )
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
 
 
 class GithubCopilotConfig(OpenAIConfig):
@@ -62,10 +62,10 @@ class GithubCopilotConfig(OpenAIConfig):
         messages,
         model: str,
     ):
-        import litellm
+        import embrouter
 
         # Check if system-to-assistant conversion is disabled
-        if litellm.disable_copilot_system_to_assistant:
+        if embrouter.disable_copilot_system_to_assistant:
             # GitHub Copilot API now supports system prompts for all models (Claude, GPT, etc.)
             # No conversion needed - just return messages as-is
             return messages
@@ -89,13 +89,13 @@ class GithubCopilotConfig(OpenAIConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
         # Get base headers from parent
         validated_headers = super().validate_environment(
-            headers, model, messages, optional_params, litellm_params, api_key, api_base
+            headers, model, messages, optional_params, embrouter_params, api_key, api_base
         )
 
         # Add Copilot-specific headers (editor-version, user-agent, etc.)
@@ -123,7 +123,7 @@ class GithubCopilotConfig(OpenAIConfig):
         For Claude models that support extended thinking (Claude 4 family and Claude 3-7), includes thinking and reasoning_effort parameters.
         For other models, returns standard OpenAI parameters (which may include reasoning_effort for o-series models).
         """
-        from litellm.utils import supports_reasoning
+        from embrouter.utils import supports_reasoning
 
         # Get base OpenAI parameters
         base_params: Final = super().get_supported_openai_params(model)
@@ -278,11 +278,11 @@ class GithubCopilotConfig(OpenAIConfig):
         model: str,
         raw_response: httpx.Response,
         model_response: "ModelResponse",
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
         request_data: dict,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: object,
         api_key: str | None = None,
         json_mode: bool | None = None,
@@ -298,7 +298,7 @@ class GithubCopilotConfig(OpenAIConfig):
                 request_data=request_data,
                 messages=messages,
                 optional_params=optional_params,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 encoding=encoding,
                 api_key=api_key,
                 json_mode=json_mode,
@@ -320,7 +320,7 @@ class GithubCopilotConfig(OpenAIConfig):
             request_data=request_data,
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             encoding=encoding,
             api_key=api_key,
             json_mode=json_mode,

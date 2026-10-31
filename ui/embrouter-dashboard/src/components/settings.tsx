@@ -284,7 +284,7 @@ const getDynamicParamsForCallback = (
 const buildCallbackPayload = (formValues: Record<string, any>, callbackName: string) => {
   return {
     environment_variables: formValues,
-    litellm_settings: {
+    embrouter_settings: {
       success_callback: [callbackName],
     },
   };
@@ -307,8 +307,8 @@ const Settings: React.FC<SettingsPageProps> = ({ accessToken, userRole, userID, 
     Record<
       string,
       {
-        litellm_callback_name: string;
-        litellm_callback_params: string[];
+        embrouter_callback_name: string;
+        embrouter_callback_params: string[];
         ui_callback_name: string;
       }
     >

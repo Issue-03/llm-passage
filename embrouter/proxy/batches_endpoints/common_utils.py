@@ -1,4 +1,4 @@
-from litellm.proxy._types import ProxyException
+from embrouter.proxy._types import ProxyException
 
 
 def validate_batch_list_limit(limit: int | None) -> None:

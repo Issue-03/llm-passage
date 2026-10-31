@@ -1,36 +1,36 @@
 #!/usr/bin/env python3
 """
-Azure Text Moderation Native Guardrail Integrationfor LiteLLM
+Azure Text Moderation Native Guardrail Integrationfor EmbRouter
 """
 
 from typing import TYPE_CHECKING, Any, ClassVar, Final, Literal, cast
 
 from fastapi import HTTPException
 
-from litellm._logging import verbose_proxy_logger
-from litellm.integrations.custom_guardrail import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.integrations.custom_guardrail import (
     CustomGuardrail,
     log_guardrail_information,
 )
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.utils import CallTypesLiteral, GenericGuardrailAPIInputs, LLMResponseTypes
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.types.guardrails import GuardrailEventHooks
+from embrouter.types.utils import CallTypesLiteral, GenericGuardrailAPIInputs, LLMResponseTypes
 
 from .base import AzureGuardrailBase
 
 if TYPE_CHECKING:
-    from litellm.caching.caching import DualCache
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.types.llms.openai import AllMessageValues
-    from litellm.types.proxy.guardrails.guardrail_hooks.azure.azure_text_moderation import (
+    from embrouter.caching.caching import DualCache
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.types.llms.openai import AllMessageValues
+    from embrouter.types.proxy.guardrails.guardrail_hooks.azure.azure_text_moderation import (
         AzureTextModerationGuardrailResponse,
     )
-    from litellm.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
+    from embrouter.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
 
 
 class AzureContentSafetyTextModerationGuardrail(AzureGuardrailBase, CustomGuardrail):
     """
-    LiteLLM Built-in Guardrail for Azure Content Safety (Text Moderation).
+    EmbRouter Built-in Guardrail for Azure Content Safety (Text Moderation).
 
     This guardrail scans prompts and responses using the Azure Text Moderation API to detect
     malicious content and policy violations based on severity thresholds.
@@ -63,7 +63,7 @@ class AzureContentSafetyTextModerationGuardrail(AzureGuardrailBase, CustomGuardr
         **kwargs,
     ):
         """Initialize Azure Text Moderation guardrail handler."""
-        from litellm.types.proxy.guardrails.guardrail_hooks.azure.azure_text_moderation import (
+        from embrouter.types.proxy.guardrails.guardrail_hooks.azure.azure_text_moderation import (
             AzureTextModerationRequestBodyOptionalParams,
         )
 
@@ -97,7 +97,7 @@ class AzureContentSafetyTextModerationGuardrail(AzureGuardrailBase, CustomGuardr
 
     @staticmethod
     def get_config_model() -> type["GuardrailConfigModel"] | None:
-        from litellm.types.proxy.guardrails.guardrail_hooks.azure.azure_text_moderation import (
+        from embrouter.types.proxy.guardrails.guardrail_hooks.azure.azure_text_moderation import (
             AzureContentSafetyTextModerationConfigModel,
         )
 
@@ -112,7 +112,7 @@ class AzureContentSafetyTextModerationGuardrail(AzureGuardrailBase, CustomGuardr
         chunk is analysed independently; a severity-threshold violation in
         *any* chunk raises an HTTPException immediately.
         """
-        from litellm.types.proxy.guardrails.guardrail_hooks.azure.azure_text_moderation import (
+        from embrouter.types.proxy.guardrails.guardrail_hooks.azure.azure_text_moderation import (
             AzureTextModerationGuardrailRequestBody,
             AzureTextModerationGuardrailResponse,
         )
@@ -156,7 +156,7 @@ class AzureContentSafetyTextModerationGuardrail(AzureGuardrailBase, CustomGuardr
         inputs: GenericGuardrailAPIInputs,
         request_data: dict,
         input_type: Literal["request", "response"],
-        logging_obj: "LiteLLMLoggingObj | None" = None,
+        logging_obj: "EmbRouterLoggingObj | None" = None,
     ) -> GenericGuardrailAPIInputs:
         for text in inputs.get("texts") or ():
             if text:
@@ -253,7 +253,7 @@ class AzureContentSafetyTextModerationGuardrail(AzureGuardrailBase, CustomGuardr
         user_api_key_dict: "UserAPIKeyAuth",
         response: LLMResponseTypes,
     ) -> LLMResponseTypes:
-        from litellm.types.utils import Choices, ModelResponse
+        from embrouter.types.utils import Choices, ModelResponse
 
         if isinstance(response, ModelResponse) and response.choices:
             for choice in response.choices:

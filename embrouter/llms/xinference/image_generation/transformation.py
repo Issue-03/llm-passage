@@ -1,9 +1,9 @@
 from typing import Final
 
-from litellm.llms.base_llm.image_generation.transformation import (
+from embrouter.llms.base_llm.image_generation.transformation import (
     BaseImageGenerationConfig,
 )
-from litellm.types.llms.openai import OpenAIImageGenerationOptionalParams
+from embrouter.types.llms.openai import OpenAIImageGenerationOptionalParams
 
 
 class XInferenceImageGenerationConfig(BaseImageGenerationConfig):

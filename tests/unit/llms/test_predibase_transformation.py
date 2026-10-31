@@ -3,10 +3,10 @@ from unittest.mock import AsyncMock, Mock
 import httpx
 import pytest
 
-from litellm.llms.predibase.chat.handler import PredibaseChatCompletion
-from litellm.llms.predibase.chat.transformation import PredibaseConfig
-from litellm.llms.predibase.common_utils import PredibaseError
-from litellm.utils import Choices, Message, ModelResponse
+from embrouter.llms.predibase.chat.handler import PredibaseChatCompletion
+from embrouter.llms.predibase.chat.transformation import PredibaseConfig
+from embrouter.llms.predibase.common_utils import PredibaseError
+from embrouter.utils import Choices, Message, ModelResponse
 
 
 def _build_model_response() -> ModelResponse:
@@ -27,7 +27,7 @@ def test_predibase_transform_request_non_stream():
         model="predibase-model",
         messages=[{"role": "user", "content": "hello"}],
         optional_params={"temperature": 0.2},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -41,7 +41,7 @@ def test_predibase_transform_request_custom_prompt(monkeypatch):
     config = PredibaseConfig()
 
     monkeypatch.setattr(
-        "litellm.llms.predibase.chat.transformation.custom_prompt",
+        "embrouter.llms.predibase.chat.transformation.custom_prompt",
         lambda **kwargs: "custom-prompt",
     )
 
@@ -49,7 +49,7 @@ def test_predibase_transform_request_custom_prompt(monkeypatch):
         model="predibase-model",
         messages=[{"role": "user", "content": "hello"}],
         optional_params={},
-        litellm_params={
+        embrouter_params={
             "custom_prompt_dict": {
                 "predibase-model": {
                     "roles": {},
@@ -66,21 +66,21 @@ def test_predibase_transform_request_custom_prompt(monkeypatch):
 
 def test_predibase_get_complete_url_stream_and_non_stream():
     config = PredibaseConfig()
-    litellm_params = {"predibase_tenant_id": "tenant-123"}
+    embrouter_params = {"predibase_tenant_id": "tenant-123"}
 
     non_stream_url = config.get_complete_url(
         api_base="https://serving.example.com",
         api_key="test-key",
         model="predibase-model",
         optional_params={"stream": False},
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
     )
     stream_url = config.get_complete_url(
         api_base="https://serving.example.com",
         api_key="test-key",
         model="predibase-model",
         optional_params={"stream": True},
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
     )
 
     assert non_stream_url.endswith("/generate")
@@ -96,7 +96,7 @@ def test_predibase_get_complete_url_missing_tenant_id():
             api_key="test-key",
             model="predibase-model",
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
         )
 
 
@@ -108,7 +108,7 @@ def test_predibase_get_complete_url_with_tenant_id_key():
         api_key="test-key",
         model="predibase-model",
         optional_params={},
-        litellm_params={"tenant_id": "tenant-xyz"},
+        embrouter_params={"tenant_id": "tenant-xyz"},
     )
 
     assert "tenant-xyz" in url
@@ -120,7 +120,7 @@ def test_predibase_transform_response_success_best_of(monkeypatch):
     logging_obj = Mock()
     encoding = Mock()
     encoding.encode.return_value = [1, 2, 3]
-    monkeypatch.setattr("litellm.token_counter", lambda messages: 5)
+    monkeypatch.setattr("embrouter.token_counter", lambda messages: 5)
 
     raw_response = httpx.Response(
         status_code=200,
@@ -149,7 +149,7 @@ def test_predibase_transform_response_success_best_of(monkeypatch):
         request_data={"inputs": "hello", "parameters": {}},
         messages=[{"role": "user", "content": "hello"}],
         optional_params={"best_of": 2},
-        litellm_params={},
+        embrouter_params={},
         encoding=encoding,
         api_key="test-key",
     )
@@ -177,7 +177,7 @@ def test_predibase_transform_response_invalid_json():
             request_data={},
             messages=[{"role": "user", "content": "hello"}],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             encoding=Mock(),
             api_key="test-key",
         )
@@ -199,7 +199,7 @@ def test_predibase_transform_response_error_field():
             request_data={},
             messages=[{"role": "user", "content": "hello"}],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             encoding=Mock(),
             api_key="test-key",
         )
@@ -219,7 +219,7 @@ def test_predibase_transform_response_missing_generated_text():
             request_data={},
             messages=[{"role": "user", "content": "hello"}],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             encoding=Mock(),
             api_key="test-key",
         )
@@ -242,7 +242,7 @@ def test_predibase_transform_response_non_dict_payload():
             request_data={},
             messages=[{"role": "user", "content": "hello"}],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             encoding=Mock(),
             api_key="test-key",
         )
@@ -253,7 +253,7 @@ def test_predibase_transform_response_best_of_with_empty_generated_text(monkeypa
     logging_obj = Mock()
     encoding = Mock()
     encoding.encode.return_value = [1]
-    monkeypatch.setattr("litellm.token_counter", lambda messages: 1)
+    monkeypatch.setattr("embrouter.token_counter", lambda messages: 1)
 
     raw_response = httpx.Response(
         status_code=200,
@@ -281,7 +281,7 @@ def test_predibase_transform_response_best_of_with_empty_generated_text(monkeypa
         request_data={"inputs": "hello", "parameters": {}},
         messages=[{"role": "user", "content": "hello"}],
         optional_params={"best_of": 2},
-        litellm_params={},
+        embrouter_params={},
         encoding=encoding,
         api_key="test-key",
     )
@@ -295,7 +295,7 @@ def test_predibase_transform_response_best_of_from_request_data(monkeypatch):
     logging_obj = Mock()
     encoding = Mock()
     encoding.encode.return_value = [1]
-    monkeypatch.setattr("litellm.token_counter", lambda messages: 1)
+    monkeypatch.setattr("embrouter.token_counter", lambda messages: 1)
 
     raw_response = httpx.Response(
         status_code=200,
@@ -323,7 +323,7 @@ def test_predibase_transform_response_best_of_from_request_data(monkeypatch):
         request_data={"inputs": "hello", "parameters": {"best_of": 2}},
         messages=[{"role": "user", "content": "hello"}],
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         encoding=encoding,
         api_key="test-key",
     )
@@ -337,7 +337,7 @@ def test_predibase_transform_response_best_of_invalid_value_falls_back(monkeypat
     logging_obj = Mock()
     encoding = Mock()
     encoding.encode.return_value = [1]
-    monkeypatch.setattr("litellm.token_counter", lambda messages: 1)
+    monkeypatch.setattr("embrouter.token_counter", lambda messages: 1)
 
     raw_response = httpx.Response(
         status_code=200,
@@ -365,7 +365,7 @@ def test_predibase_transform_response_best_of_invalid_value_falls_back(monkeypat
         request_data={"inputs": "hello", "parameters": {}},
         messages=[{"role": "user", "content": "hello"}],
         optional_params={"best_of": "invalid-int"},
-        litellm_params={},
+        embrouter_params={},
         encoding=encoding,
         api_key="test-key",
     )
@@ -379,7 +379,7 @@ def test_predibase_transform_response_empty_output_sets_completion_tokens_zero(m
     config = PredibaseConfig()
     logging_obj = Mock()
     encoding = Mock()
-    monkeypatch.setattr("litellm.token_counter", lambda messages: 3)
+    monkeypatch.setattr("embrouter.token_counter", lambda messages: 3)
 
     raw_response = httpx.Response(
         status_code=200,
@@ -394,7 +394,7 @@ def test_predibase_transform_response_empty_output_sets_completion_tokens_zero(m
         request_data={"inputs": "hello", "parameters": {}},
         messages=[{"role": "user", "content": "hello"}],
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         encoding=encoding,
         api_key="test-key",
     )
@@ -412,7 +412,7 @@ def test_predibase_get_complete_url_uses_env_base_url(monkeypatch):
         api_key="test-key",
         model="predibase-model",
         optional_params={},
-        litellm_params={"predibase_tenant_id": "tenant-123"},
+        embrouter_params={"predibase_tenant_id": "tenant-123"},
     )
 
     assert url.startswith("https://env.predibase.com/tenant-123/")
@@ -424,7 +424,7 @@ def test_predibase_transform_response_usage_fallbacks(monkeypatch):
     encoding = Mock()
     encoding.encode.side_effect = RuntimeError("encoding failure")
     monkeypatch.setattr(
-        "litellm.token_counter", lambda messages: (_ for _ in ()).throw(RuntimeError())
+        "embrouter.token_counter", lambda messages: (_ for _ in ()).throw(RuntimeError())
     )
 
     raw_response = httpx.Response(
@@ -440,7 +440,7 @@ def test_predibase_transform_response_usage_fallbacks(monkeypatch):
         request_data={"inputs": "hello", "parameters": {}},
         messages=[{"role": "user", "content": "hello"}],
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         encoding=encoding,
         api_key="test-key",
     )
@@ -457,13 +457,13 @@ async def test_predibase_async_completion_uses_default_config_when_none(monkeypa
     async_handler = Mock()
     async_handler.post = AsyncMock(return_value=mock_response)
     monkeypatch.setattr(
-        "litellm.llms.predibase.chat.handler.get_async_httpx_client",
+        "embrouter.llms.predibase.chat.handler.get_async_httpx_client",
         lambda **kwargs: async_handler,
     )
 
     default_config = Mock()
     default_config.transform_response.return_value = _build_model_response()
-    monkeypatch.setattr("litellm.PredibaseConfig", lambda: default_config)
+    monkeypatch.setattr("embrouter.PredibaseConfig", lambda: default_config)
 
     result = await handler.async_completion(
         model="predibase-model",
@@ -478,7 +478,7 @@ async def test_predibase_async_completion_uses_default_config_when_none(monkeypa
         data={"inputs": "hello", "parameters": {}},
         optional_params={},
         timeout=10,
-        litellm_params={},
+        embrouter_params={},
         headers={"Authorization": "Bearer test"},
     )
 
@@ -494,7 +494,7 @@ async def test_predibase_async_completion_uses_passed_config(monkeypatch):
     async_handler = Mock()
     async_handler.post = AsyncMock(return_value=mock_response)
     monkeypatch.setattr(
-        "litellm.llms.predibase.chat.handler.get_async_httpx_client",
+        "embrouter.llms.predibase.chat.handler.get_async_httpx_client",
         lambda **kwargs: async_handler,
     )
 
@@ -514,7 +514,7 @@ async def test_predibase_async_completion_uses_passed_config(monkeypatch):
         data={"inputs": "hello", "parameters": {}},
         optional_params={},
         timeout=10,
-        litellm_params={},
+        embrouter_params={},
         headers={"Authorization": "Bearer test"},
         predibase_config=passed_config,
     )
@@ -544,7 +544,7 @@ def test_predibase_completion_sync_returns_transform_response(monkeypatch):
     monkeypatch.setattr(PredibaseConfig, "transform_request", fake_transform_request)
     monkeypatch.setattr(PredibaseConfig, "transform_response", fake_transform_response)
     monkeypatch.setattr(
-        "litellm.module_level_client.post",
+        "embrouter.module_level_client.post",
         lambda *args, **kwargs: httpx.Response(status_code=200, json={"generated_text": "ok"}),
     )
 
@@ -559,7 +559,7 @@ def test_predibase_completion_sync_returns_transform_response(monkeypatch):
         api_key="test-key",
         logging_obj=Mock(),
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         tenant_id="tenant-123",
         timeout=10,
         acompletion=False,
@@ -602,7 +602,7 @@ def test_predibase_completion_passes_existing_config_to_async_completion(monkeyp
         api_key="test-key",
         logging_obj=Mock(),
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         tenant_id="tenant-123",
         timeout=10,
         acompletion=True,

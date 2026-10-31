@@ -2,7 +2,7 @@ from typing import Final
 
 import pytest
 
-from litellm.router_strategy.complexity_router.tier_predictor import (
+from embrouter.router_strategy.complexity_router.tier_predictor import (
     TierCohortStatistic,
     TierDomainStatistic,
     TierGlobalStatistic,
@@ -11,7 +11,7 @@ from litellm.router_strategy.complexity_router.tier_predictor import (
     resolve_tier_artifact,
     similarity_cohort,
 )
-from litellm.types.router import RequestType
+from embrouter.types.router import RequestType
 
 
 def _artifact(

@@ -4,9 +4,9 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from typing import Any, Final
 
-from litellm.types.utils import OTEL_SPAN_SCOPES, TRUSTED_CALLBACK_VARS_FIELD, StandardCallbackDynamicParams
+from embrouter.types.utils import OTEL_SPAN_SCOPES, TRUSTED_CALLBACK_VARS_FIELD, StandardCallbackDynamicParams
 
-_CLIENT_CALLBACK_METADATA_SLOTS: Final[tuple[str, ...]] = ("litellm_metadata", "metadata")
+_CLIENT_CALLBACK_METADATA_SLOTS: Final[tuple[str, ...]] = ("embrouter_metadata", "metadata")
 _inherited_message_logging_disabled: Final[ContextVar[bool]] = ContextVar(
     "inherited_message_logging_disabled", default=False
 )
@@ -24,11 +24,11 @@ def inherit_message_logging_privacy(disabled: bool) -> Generator[None]:
 def iter_client_callback_metadata_dicts(
     kwargs: dict[str, Any],
 ) -> Iterator[tuple[str, dict[str, Any]]]:
-    litellm_params: Final = kwargs.get("litellm_params")
-    if isinstance(litellm_params, dict):
-        nested: Final = litellm_params.get("metadata")
+    embrouter_params: Final = kwargs.get("embrouter_params")
+    if isinstance(embrouter_params, dict):
+        nested: Final = embrouter_params.get("metadata")
         if isinstance(nested, dict):
-            yield "litellm_params.metadata", nested
+            yield "embrouter_params.metadata", nested
     for key in _CLIENT_CALLBACK_METADATA_SLOTS:
         candidate = kwargs.get(key)
         if isinstance(candidate, dict):
@@ -48,7 +48,7 @@ def _raise_env_reference_error(param: str, *, source: str) -> None:
         "  1. Remove the 'os.environ/' reference from your request body / "
         "metadata.\n"
         "  2. Either (a) configure this callback value in your proxy "
-        "config.yaml under 'litellm_settings' / 'general_settings', or "
+        "config.yaml under 'embrouter_settings' / 'general_settings', or "
         "(b) pass the resolved secret value directly in the request.\n"
         " for server-side "
         "callback configuration."

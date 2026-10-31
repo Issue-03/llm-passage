@@ -16,18 +16,18 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 # Add prometheus_client import for registry cleanup
 from prometheus_client import REGISTRY
 
-import litellm
-from litellm.constants import PROMETHEUS_BUDGET_METRICS_REFRESH_INTERVAL_MINUTES
+import embrouter
+from embrouter.constants import PROMETHEUS_BUDGET_METRICS_REFRESH_INTERVAL_MINUTES
 
 try:
-    from litellm.integrations.prometheus import (
+    from embrouter.integrations.prometheus import (
         PrometheusLogger,
         prometheus_label_factory,
     )
 except Exception:
     PrometheusLogger = None
     prometheus_label_factory = None
-from litellm.types.integrations.prometheus import (
+from embrouter.types.integrations.prometheus import (
     PrometheusMetricLabels,
     PrometheusMetricsConfig,
     UserAPIKeyLabelValues,
@@ -62,7 +62,7 @@ def test_initialize_budget_metrics_cron_job():
 
     # Create and register a PrometheusLogger
     prometheus_logger = PrometheusLogger()
-    litellm.callbacks = [prometheus_logger]
+    embrouter.callbacks = [prometheus_logger]
 
     # Initialize the cron job
     PrometheusLogger.initialize_budget_metrics_cron_job(scheduler)
@@ -91,9 +91,9 @@ def test_end_user_not_tracked_for_all_prometheus_metrics():
     """
     # Reset any previous settings
     original_setting = getattr(
-        litellm, "enable_end_user_cost_tracking_prometheus_only", None
+        embrouter, "enable_end_user_cost_tracking_prometheus_only", None
     )
-    litellm.enable_end_user_cost_tracking_prometheus_only = None  # Default behavior
+    embrouter.enable_end_user_cost_tracking_prometheus_only = None  # Default behavior
 
     try:
         # Test data with end_user present
@@ -107,7 +107,7 @@ def test_end_user_not_tracked_for_all_prometheus_metrics():
             user="test_user",
             requested_model="gpt-5.5",
             model="gpt-5.5",
-            litellm_model_name="gpt-5.5",
+            embrouter_model_name="gpt-5.5",
         )
 
         # Get all defined Prometheus metrics that include end_user in their labels
@@ -146,7 +146,7 @@ def test_end_user_not_tracked_for_all_prometheus_metrics():
             )
 
         # Test that when enable_end_user_cost_tracking_prometheus_only is True, end_user is tracked
-        litellm.enable_end_user_cost_tracking_prometheus_only = True
+        embrouter.enable_end_user_cost_tracking_prometheus_only = True
 
         # Test one metric to verify end_user is now included
         test_metric = metrics_with_end_user[0]
@@ -163,7 +163,7 @@ def test_end_user_not_tracked_for_all_prometheus_metrics():
 
     finally:
         # Restore original setting
-        litellm.enable_end_user_cost_tracking_prometheus_only = original_setting
+        embrouter.enable_end_user_cost_tracking_prometheus_only = original_setting
 
 
 def test_future_metrics_with_end_user_are_filtered():
@@ -173,9 +173,9 @@ def test_future_metrics_with_end_user_are_filtered():
     """
     # Reset setting
     original_setting = getattr(
-        litellm, "enable_end_user_cost_tracking_prometheus_only", None
+        embrouter, "enable_end_user_cost_tracking_prometheus_only", None
     )
-    litellm.enable_end_user_cost_tracking_prometheus_only = None
+    embrouter.enable_end_user_cost_tracking_prometheus_only = None
 
     try:
         # Simulate a new metric that includes end_user
@@ -214,7 +214,7 @@ def test_future_metrics_with_end_user_are_filtered():
 
     finally:
         # Restore original setting
-        litellm.enable_end_user_cost_tracking_prometheus_only = original_setting
+        embrouter.enable_end_user_cost_tracking_prometheus_only = original_setting
 
 
 def test_prometheus_config_parsing():
@@ -227,10 +227,10 @@ def test_prometheus_config_parsing():
         {
             "group": "service_metrics",
             "metrics": [
-                "litellm_deployment_failure_responses",
-                "litellm_deployment_total_requests",
-                "litellm_proxy_failed_requests_metric",
-                "litellm_proxy_total_requests_metric",
+                "embrouter_deployment_failure_responses",
+                "embrouter_deployment_total_requests",
+                "embrouter_proxy_failed_requests_metric",
+                "embrouter_proxy_total_requests_metric",
             ],
             "include_labels": [
                 "requested_model",
@@ -240,7 +240,7 @@ def test_prometheus_config_parsing():
     ]
 
     # Set configuration
-    litellm.prometheus_metrics_config = test_config
+    embrouter.prometheus_metrics_config = test_config
 
     # Create PrometheusLogger instance
     logger = PrometheusLogger()
@@ -255,10 +255,10 @@ def test_prometheus_config_parsing():
     ]
 
     expected_metrics = [
-        "litellm_deployment_failure_responses",
-        "litellm_deployment_total_requests",
-        "litellm_proxy_failed_requests_metric",
-        "litellm_proxy_total_requests_metric",
+        "embrouter_deployment_failure_responses",
+        "embrouter_deployment_total_requests",
+        "embrouter_proxy_failed_requests_metric",
+        "embrouter_proxy_total_requests_metric",
     ]
 
     for metric in expected_metrics:
@@ -275,24 +275,24 @@ def test_get_metric_labels():
     test_config = [
         {
             "group": "service_metrics",
-            "metrics": ["litellm_deployment_failure_responses"],
-            "include_labels": ["litellm_model_name", "api_provider"],
+            "metrics": ["embrouter_deployment_failure_responses"],
+            "include_labels": ["embrouter_model_name", "api_provider"],
         }
     ]
 
-    litellm.prometheus_metrics_config = test_config
+    embrouter.prometheus_metrics_config = test_config
 
     logger = PrometheusLogger()
 
     # Get filtered labels
-    labels = logger.get_labels_for_metric("litellm_deployment_failure_responses")
+    labels = logger.get_labels_for_metric("embrouter_deployment_failure_responses")
 
     # Verify only configured labels are returned
-    assert "litellm_model_name" in labels
+    assert "embrouter_model_name" in labels
     assert "api_provider" in labels
     # These should be filtered out even if they're in the default labels
     assert (
-        len([l for l in labels if l not in ["litellm_model_name", "api_provider"]]) == 0
+        len([l for l in labels if l not in ["embrouter_model_name", "api_provider"]]) == 0
     )
 
 
@@ -302,12 +302,12 @@ def test_no_prometheus_config():
     clear_prometheus_registry()
 
     # Clear any existing config
-    litellm.prometheus_metrics_config = None
+    embrouter.prometheus_metrics_config = None
 
     logger = PrometheusLogger()
 
     # Should return default labels when no config is set
-    labels = logger.get_labels_for_metric("litellm_deployment_failure_responses")
+    labels = logger.get_labels_for_metric("embrouter_deployment_failure_responses")
     # Should return some labels (the default ones)
     assert isinstance(labels, list)
     # Should have more than 0 labels (the default ones)
@@ -319,18 +319,18 @@ def test_prometheus_metrics_config_type():
     # Valid configuration
     valid_config = PrometheusMetricsConfig(
         group="service_metrics",
-        metrics=["litellm_deployment_failure_responses"],
-        include_labels=["litellm_model_name"],
+        metrics=["embrouter_deployment_failure_responses"],
+        include_labels=["embrouter_model_name"],
     )
 
     assert valid_config.group == "service_metrics"
-    assert valid_config.metrics == ["litellm_deployment_failure_responses"]
-    assert valid_config.include_labels == ["litellm_model_name"]
+    assert valid_config.metrics == ["embrouter_deployment_failure_responses"]
+    assert valid_config.include_labels == ["embrouter_model_name"]
 
     # Test with None include_labels (should be allowed)
     config_no_labels = PrometheusMetricsConfig(
         group="service_metrics",
-        metrics=["litellm_deployment_failure_responses"],
+        metrics=["embrouter_deployment_failure_responses"],
         include_labels=None,
     )
 
@@ -348,23 +348,23 @@ def test_basic_functionality():
         {
             "group": "service_metrics",
             "metrics": [
-                "litellm_deployment_failure_responses",
-                "litellm_deployment_total_requests",
+                "embrouter_deployment_failure_responses",
+                "embrouter_deployment_total_requests",
             ],
-            "include_labels": ["litellm_model_name", "api_provider"],
+            "include_labels": ["embrouter_model_name", "api_provider"],
         }
     ]
 
     # Set configuration
-    litellm.prometheus_metrics_config = test_config
+    embrouter.prometheus_metrics_config = test_config
 
     # Test that the configuration is properly set
-    assert litellm.prometheus_metrics_config is not None
-    assert len(litellm.prometheus_metrics_config) == 1
-    assert litellm.prometheus_metrics_config[0]["group"] == "service_metrics"
+    assert embrouter.prometheus_metrics_config is not None
+    assert len(embrouter.prometheus_metrics_config) == 1
+    assert embrouter.prometheus_metrics_config[0]["group"] == "service_metrics"
     assert (
-        "litellm_deployment_failure_responses"
-        in litellm.prometheus_metrics_config[0]["metrics"]
+        "embrouter_deployment_failure_responses"
+        in embrouter.prometheus_metrics_config[0]["metrics"]
     )
 
     print("Basic prometheus configuration test passed!")
@@ -386,13 +386,13 @@ def test_invalid_metric_name_validation():
             "group": "service_metrics",
             "metrics": [
                 "invalid_metric_name_that_does_not_exist",
-                "litellm_deployment_total_requests",  # valid metric
+                "embrouter_deployment_total_requests",  # valid metric
             ],
-            "include_labels": ["litellm_model_name"],
+            "include_labels": ["embrouter_model_name"],
         }
     ]
 
-    litellm.prometheus_metrics_config = test_config
+    embrouter.prometheus_metrics_config = test_config
 
     # Creating PrometheusLogger should raise ValueError due to invalid metric
     with pytest.raises(ValueError, match='Configuration validation failed') as exc_info:
@@ -412,16 +412,16 @@ def test_invalid_labels_validation():
     test_config = [
         {
             "group": "service_metrics",
-            "metrics": ["litellm_deployment_total_requests"],
+            "metrics": ["embrouter_deployment_total_requests"],
             "include_labels": [
-                "litellm_model_name",  # valid label
+                "embrouter_model_name",  # valid label
                 "invalid_label_name",  # invalid label
                 "another_invalid_label",  # another invalid label
             ],
         }
     ]
 
-    litellm.prometheus_metrics_config = test_config
+    embrouter.prometheus_metrics_config = test_config
 
     # Creating PrometheusLogger should raise ValueError due to invalid labels
     with pytest.raises(ValueError, match='Configuration validation failed') as exc_info:
@@ -442,18 +442,18 @@ def test_valid_configuration_passes_validation():
         {
             "group": "service_metrics",
             "metrics": [
-                "litellm_deployment_total_requests",
-                "litellm_deployment_failure_responses",
+                "embrouter_deployment_total_requests",
+                "embrouter_deployment_failure_responses",
             ],
             "include_labels": [
-                "litellm_model_name",
+                "embrouter_model_name",
                 "api_provider",
                 "requested_model",
             ],
         }
     ]
 
-    litellm.prometheus_metrics_config = test_config
+    embrouter.prometheus_metrics_config = test_config
 
     # This should not raise any exceptions
     try:
@@ -461,8 +461,8 @@ def test_valid_configuration_passes_validation():
         # Verify the logger was created successfully
         assert logger is not None
         assert hasattr(logger, "enabled_metrics")
-        assert "litellm_deployment_total_requests" in logger.enabled_metrics
-        assert "litellm_deployment_failure_responses" in logger.enabled_metrics
+        assert "embrouter_deployment_total_requests" in logger.enabled_metrics
+        assert "embrouter_deployment_failure_responses" in logger.enabled_metrics
     except Exception as e:
         pytest.fail(f"Valid configuration should not raise exception: {e}")
 
@@ -480,67 +480,67 @@ def test_valid_configuration_passes_validation():
 @pytest.fixture(autouse=True)
 def reset_prometheus_exclude_settings():
     """Restore the global exclude settings after each test so they don't leak."""
-    prev_metrics = litellm.prometheus_exclude_metrics
-    prev_labels = litellm.prometheus_exclude_labels
-    prev_config = litellm.prometheus_metrics_config
+    prev_metrics = embrouter.prometheus_exclude_metrics
+    prev_labels = embrouter.prometheus_exclude_labels
+    prev_config = embrouter.prometheus_metrics_config
     try:
         yield
     finally:
-        litellm.prometheus_exclude_metrics = prev_metrics
-        litellm.prometheus_exclude_labels = prev_labels
-        litellm.prometheus_metrics_config = prev_config
+        embrouter.prometheus_exclude_metrics = prev_metrics
+        embrouter.prometheus_exclude_labels = prev_labels
+        embrouter.prometheus_metrics_config = prev_config
 
 
 def test_exclude_metrics_disables_only_listed_metrics(reset_prometheus_exclude_settings):
     """A metric named in exclude_metrics becomes a NoOpMetric; others stay real."""
-    from litellm.types.integrations.prometheus import NoOpMetric
+    from embrouter.types.integrations.prometheus import NoOpMetric
 
     clear_prometheus_registry()
-    litellm.prometheus_metrics_config = None
-    litellm.prometheus_exclude_labels = None
-    litellm.prometheus_exclude_metrics = [
-        "litellm_spend_metric",
-        "litellm_input_tokens_metric",
+    embrouter.prometheus_metrics_config = None
+    embrouter.prometheus_exclude_labels = None
+    embrouter.prometheus_exclude_metrics = [
+        "embrouter_spend_metric",
+        "embrouter_input_tokens_metric",
     ]
 
     logger = PrometheusLogger()
 
-    assert isinstance(logger.litellm_spend_metric, NoOpMetric)
-    assert isinstance(logger.litellm_input_tokens_metric, NoOpMetric)
+    assert isinstance(logger.embrouter_spend_metric, NoOpMetric)
+    assert isinstance(logger.embrouter_input_tokens_metric, NoOpMetric)
     # A metric not in the exclude list is still a real prometheus metric
-    assert not isinstance(logger.litellm_output_tokens_metric, NoOpMetric)
+    assert not isinstance(logger.embrouter_output_tokens_metric, NoOpMetric)
 
 
 def test_exclude_metrics_wins_over_include_config(reset_prometheus_exclude_settings):
     """exclude_metrics removes a metric even if an include-based group enabled it."""
-    from litellm.types.integrations.prometheus import NoOpMetric
+    from embrouter.types.integrations.prometheus import NoOpMetric
 
     clear_prometheus_registry()
-    litellm.prometheus_exclude_labels = None
-    litellm.prometheus_metrics_config = [
+    embrouter.prometheus_exclude_labels = None
+    embrouter.prometheus_metrics_config = [
         {
             "group": "tokens",
-            "metrics": ["litellm_input_tokens_metric", "litellm_output_tokens_metric"],
+            "metrics": ["embrouter_input_tokens_metric", "embrouter_output_tokens_metric"],
         }
     ]
-    litellm.prometheus_exclude_metrics = ["litellm_input_tokens_metric"]
+    embrouter.prometheus_exclude_metrics = ["embrouter_input_tokens_metric"]
 
     logger = PrometheusLogger()
 
-    assert isinstance(logger.litellm_input_tokens_metric, NoOpMetric)
-    assert not isinstance(logger.litellm_output_tokens_metric, NoOpMetric)
+    assert isinstance(logger.embrouter_input_tokens_metric, NoOpMetric)
+    assert not isinstance(logger.embrouter_output_tokens_metric, NoOpMetric)
 
 
 def test_exclude_labels_dropped_globally(reset_prometheus_exclude_settings):
     """exclude_labels removes the label from every metric that would emit it."""
     clear_prometheus_registry()
-    litellm.prometheus_metrics_config = None
-    litellm.prometheus_exclude_metrics = None
-    litellm.prometheus_exclude_labels = ["hashed_api_key", "api_key_alias"]
+    embrouter.prometheus_metrics_config = None
+    embrouter.prometheus_exclude_metrics = None
+    embrouter.prometheus_exclude_labels = ["hashed_api_key", "api_key_alias"]
 
     logger = PrometheusLogger()
 
-    for metric_name in ("litellm_spend_metric", "litellm_input_tokens_metric"):
+    for metric_name in ("embrouter_spend_metric", "embrouter_input_tokens_metric"):
         labels = logger.get_labels_for_metric(metric_name)
         assert "hashed_api_key" not in labels
         assert "api_key_alias" not in labels
@@ -551,47 +551,47 @@ def test_exclude_labels_dropped_globally(reset_prometheus_exclude_settings):
 def test_exclude_labels_intersect_with_include_labels(reset_prometheus_exclude_settings):
     """exclude_labels is applied on top of an include-based label filter."""
     clear_prometheus_registry()
-    litellm.prometheus_exclude_metrics = None
-    litellm.prometheus_metrics_config = [
+    embrouter.prometheus_exclude_metrics = None
+    embrouter.prometheus_metrics_config = [
         {
             "group": "spend",
-            "metrics": ["litellm_spend_metric"],
+            "metrics": ["embrouter_spend_metric"],
             "include_labels": ["hashed_api_key", "team", "api_provider"],
         }
     ]
-    litellm.prometheus_exclude_labels = ["hashed_api_key"]
+    embrouter.prometheus_exclude_labels = ["hashed_api_key"]
 
     logger = PrometheusLogger()
 
-    labels = logger.get_labels_for_metric("litellm_spend_metric")
+    labels = logger.get_labels_for_metric("embrouter_spend_metric")
     assert "hashed_api_key" not in labels
     assert set(labels) == {"team", "api_provider"}
 
 
 def test_no_exclude_settings_is_backward_compatible(reset_prometheus_exclude_settings):
     """With no exclude settings, all metrics and default labels are preserved."""
-    from litellm.types.integrations.prometheus import NoOpMetric
+    from embrouter.types.integrations.prometheus import NoOpMetric
 
     clear_prometheus_registry()
-    litellm.prometheus_metrics_config = None
-    litellm.prometheus_exclude_metrics = None
-    litellm.prometheus_exclude_labels = None
+    embrouter.prometheus_metrics_config = None
+    embrouter.prometheus_exclude_metrics = None
+    embrouter.prometheus_exclude_labels = None
 
     logger = PrometheusLogger()
 
     assert logger.exclude_metrics == frozenset()
     assert logger.exclude_labels == frozenset()
-    assert not isinstance(logger.litellm_spend_metric, NoOpMetric)
-    default_labels = PrometheusMetricLabels.get_labels("litellm_spend_metric")
-    assert logger.get_labels_for_metric("litellm_spend_metric") == default_labels
+    assert not isinstance(logger.embrouter_spend_metric, NoOpMetric)
+    default_labels = PrometheusMetricLabels.get_labels("embrouter_spend_metric")
+    assert logger.get_labels_for_metric("embrouter_spend_metric") == default_labels
 
 
 def test_invalid_exclude_metric_name_raises(reset_prometheus_exclude_settings):
     """An unknown metric name in exclude_metrics fails fast at logger init."""
     clear_prometheus_registry()
-    litellm.prometheus_metrics_config = None
-    litellm.prometheus_exclude_labels = None
-    litellm.prometheus_exclude_metrics = ["not_a_real_metric"]
+    embrouter.prometheus_metrics_config = None
+    embrouter.prometheus_exclude_labels = None
+    embrouter.prometheus_exclude_metrics = ["not_a_real_metric"]
 
     with pytest.raises(ValueError, match='Prometheus exclude configuration validation failed') as exc_info:
         PrometheusLogger()
@@ -603,9 +603,9 @@ def test_invalid_exclude_metric_name_raises(reset_prometheus_exclude_settings):
 def test_invalid_exclude_label_name_raises(reset_prometheus_exclude_settings):
     """An unknown label name in exclude_labels fails fast at logger init."""
     clear_prometheus_registry()
-    litellm.prometheus_metrics_config = None
-    litellm.prometheus_exclude_metrics = None
-    litellm.prometheus_exclude_labels = ["not_a_real_label"]
+    embrouter.prometheus_metrics_config = None
+    embrouter.prometheus_exclude_metrics = None
+    embrouter.prometheus_exclude_labels = ["not_a_real_label"]
 
     with pytest.raises(ValueError, match='Prometheus exclude configuration validation failed') as exc_info:
         PrometheusLogger()
@@ -622,9 +622,9 @@ def test_exclude_hardcoded_label_name_is_accepted(reset_prometheus_exclude_setti
     """Labels that only appear in hard-coded metric definitions (not UserAPIKeyLabelNames)
     are valid exclude targets and must not fail validation at logger init."""
     clear_prometheus_registry()
-    litellm.prometheus_metrics_config = None
-    litellm.prometheus_exclude_metrics = None
-    litellm.prometheus_exclude_labels = [hardcoded_label]
+    embrouter.prometheus_metrics_config = None
+    embrouter.prometheus_exclude_metrics = None
+    embrouter.prometheus_exclude_labels = [hardcoded_label]
 
     logger = PrometheusLogger()
 
@@ -635,13 +635,13 @@ def test_exclude_labels_dropped_from_hardcoded_metric(reset_prometheus_exclude_s
     """A metric built with a hard-coded labelnames list drops excluded labels from its
     declared label set instead of silently retaining them."""
     clear_prometheus_registry()
-    litellm.prometheus_metrics_config = None
-    litellm.prometheus_exclude_metrics = None
-    litellm.prometheus_exclude_labels = ["guardrail_name"]
+    embrouter.prometheus_metrics_config = None
+    embrouter.prometheus_exclude_metrics = None
+    embrouter.prometheus_exclude_labels = ["guardrail_name"]
 
     logger = PrometheusLogger()
 
-    labelnames = logger.litellm_guardrail_latency_metric._metric._labelnames
+    labelnames = logger.embrouter_guardrail_latency_metric._metric._labelnames
     assert "guardrail_name" not in labelnames
     assert set(labelnames) == {"status", "error_type", "hook_type"}
 
@@ -652,12 +652,12 @@ def test_hardcoded_metric_emission_omits_excluded_label(reset_prometheus_exclude
     from prometheus_client import generate_latest
 
     clear_prometheus_registry()
-    litellm.prometheus_metrics_config = None
-    litellm.prometheus_exclude_metrics = None
-    litellm.prometheus_exclude_labels = ["guardrail_name"]
+    embrouter.prometheus_metrics_config = None
+    embrouter.prometheus_exclude_metrics = None
+    embrouter.prometheus_exclude_labels = ["guardrail_name"]
 
     logger = PrometheusLogger()
-    logger.litellm_guardrail_latency_metric.labels(
+    logger.embrouter_guardrail_latency_metric.labels(
         guardrail_name="my_guardrail",
         status="success",
         error_type="",
@@ -665,7 +665,7 @@ def test_hardcoded_metric_emission_omits_excluded_label(reset_prometheus_exclude
     ).observe(0.25)
 
     scrape = generate_latest(REGISTRY).decode()
-    assert "litellm_guardrail_latency_seconds_bucket" in scrape
+    assert "embrouter_guardrail_latency_seconds_bucket" in scrape
     assert "my_guardrail" not in scrape
     assert 'guardrail_name="' not in scrape
     assert 'status="success"' in scrape
@@ -675,34 +675,34 @@ def test_exclude_only_hardcoded_label_drops_all_labels(reset_prometheus_exclude_
     """Excluding the sole label of a hard-coded metric leaves it label-less and still emittable
     via both keyword and positional labels() calls."""
     clear_prometheus_registry()
-    litellm.prometheus_metrics_config = None
-    litellm.prometheus_exclude_metrics = None
-    litellm.prometheus_exclude_labels = ["result", "api_provider"]
+    embrouter.prometheus_metrics_config = None
+    embrouter.prometheus_exclude_metrics = None
+    embrouter.prometheus_exclude_labels = ["result", "api_provider"]
 
     logger = PrometheusLogger()
 
-    assert logger.litellm_managed_file_deleted_total._metric._labelnames == ()
-    assert logger.litellm_provider_remaining_budget_metric._metric._labelnames == ()
+    assert logger.embrouter_managed_file_deleted_total._metric._labelnames == ()
+    assert logger.embrouter_provider_remaining_budget_metric._metric._labelnames == ()
 
-    logger.litellm_managed_file_deleted_total.labels(result="blocked").inc()
-    logger.litellm_provider_remaining_budget_metric.labels("anthropic").set(5.0)
+    logger.embrouter_managed_file_deleted_total.labels(result="blocked").inc()
+    logger.embrouter_provider_remaining_budget_metric.labels("anthropic").set(5.0)
 
 
 def test_exclude_labels_does_not_touch_unrelated_metrics(reset_prometheus_exclude_settings):
     """A metric that never declares the excluded label is left as a plain prometheus metric,
     not wrapped, so no behavior changes for it."""
-    from litellm.integrations.prometheus import _ExcludedLabelMetric
+    from embrouter.integrations.prometheus import _ExcludedLabelMetric
 
     clear_prometheus_registry()
-    litellm.prometheus_metrics_config = None
-    litellm.prometheus_exclude_metrics = None
-    litellm.prometheus_exclude_labels = ["guardrail_name"]
+    embrouter.prometheus_metrics_config = None
+    embrouter.prometheus_exclude_metrics = None
+    embrouter.prometheus_exclude_labels = ["guardrail_name"]
 
     logger = PrometheusLogger()
 
-    assert not isinstance(logger.litellm_spend_metric, _ExcludedLabelMetric)
-    assert not isinstance(logger.litellm_provider_remaining_budget_metric, _ExcludedLabelMetric)
-    assert isinstance(logger.litellm_guardrail_latency_metric, _ExcludedLabelMetric)
+    assert not isinstance(logger.embrouter_spend_metric, _ExcludedLabelMetric)
+    assert not isinstance(logger.embrouter_provider_remaining_budget_metric, _ExcludedLabelMetric)
+    assert isinstance(logger.embrouter_guardrail_latency_metric, _ExcludedLabelMetric)
 
 
 # ==============================================================================
@@ -755,18 +755,18 @@ def mock_prometheus_logger():
     for collector in collectors:
         REGISTRY.unregister(collector)
 
-    with patch("litellm.proxy.proxy_server.premium_user", True):
+    with patch("embrouter.proxy.proxy_server.premium_user", True):
         logger = PrometheusLogger()
 
         # Replace metrics with mocks to capture increment calls
-        logger.litellm_proxy_total_requests_metric = MockCounter(
-            "litellm_proxy_total_requests_metric"
+        logger.embrouter_proxy_total_requests_metric = MockCounter(
+            "embrouter_proxy_total_requests_metric"
         )
-        logger.litellm_tokens_metric = MockCounter("litellm_total_tokens")
-        logger.litellm_input_tokens_metric = MockCounter("litellm_input_tokens")
-        logger.litellm_output_tokens_metric = MockCounter("litellm_output_tokens")
-        logger.litellm_spend_metric = MockCounter("litellm_spend_metric")
-        logger.litellm_requests_metric = MockCounter("litellm_requests_metric")
+        logger.embrouter_tokens_metric = MockCounter("embrouter_total_tokens")
+        logger.embrouter_input_tokens_metric = MockCounter("embrouter_input_tokens")
+        logger.embrouter_output_tokens_metric = MockCounter("embrouter_output_tokens")
+        logger.embrouter_spend_metric = MockCounter("embrouter_spend_metric")
+        logger.embrouter_requests_metric = MockCounter("embrouter_requests_metric")
 
         return logger
 
@@ -775,7 +775,7 @@ def mock_prometheus_logger():
 async def test_request_counter_semantic_validation(mock_prometheus_logger):
     """
     CRITICAL TEST: Validates that request counters are incremented by 1, not by token count.
-    This test specifically catches the bug where litellm_proxy_total_requests_metric
+    This test specifically catches the bug where embrouter_proxy_total_requests_metric
     is incorrectly incremented by total_tokens instead of 1.
 
     The metric is now ONLY incremented in async_log_success_event (for both streaming
@@ -784,12 +784,12 @@ async def test_request_counter_semantic_validation(mock_prometheus_logger):
     from datetime import datetime, timedelta
     from unittest.mock import MagicMock
 
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     # Test data with large token count that should NOT affect request counter
     kwargs = {
         "model": "gpt-5-mini",
-        "litellm_params": {"metadata": {}},
+        "embrouter_params": {"metadata": {}},
         "start_time": datetime.now() - timedelta(seconds=1),
         "end_time": datetime.now(),
         "api_call_start_time": datetime.now() - timedelta(seconds=0.5),
@@ -824,7 +824,7 @@ async def test_request_counter_semantic_validation(mock_prometheus_logger):
     )
 
     # CRITICAL ASSERTION: Request counter should be incremented by 1
-    total_requests_metric = mock_prometheus_logger.litellm_proxy_total_requests_metric
+    total_requests_metric = mock_prometheus_logger.embrouter_proxy_total_requests_metric
     assert (
         len(total_requests_metric.inc_calls) == 1
     ), "Request metric should be incremented once in async_log_success_event"
@@ -843,7 +843,7 @@ async def test_request_counter_semantic_validation(mock_prometheus_logger):
     )
 
     # CRITICAL ASSERTION: Request counter should still be 1 (not incremented again)
-    total_requests_metric = mock_prometheus_logger.litellm_proxy_total_requests_metric
+    total_requests_metric = mock_prometheus_logger.embrouter_proxy_total_requests_metric
     assert (
         len(total_requests_metric.inc_calls) == 1
     ), "Request metric should not be incremented again in async_post_call_success_hook"
@@ -856,7 +856,7 @@ async def test_request_counter_semantic_validation(mock_prometheus_logger):
         )
 
     # Verify token counters ARE incremented by token counts (this should work correctly)
-    tokens_metric = mock_prometheus_logger.litellm_tokens_metric
+    tokens_metric = mock_prometheus_logger.embrouter_tokens_metric
     assert (
         999 in tokens_metric.inc_calls
     ), "Token metric should be incremented by total_tokens (999)"
@@ -876,7 +876,7 @@ async def test_multiple_requests_counter_semantics(mock_prometheus_logger):
     for i in range(num_requests):
         kwargs = {
             "model": "gpt-5-mini",
-            "litellm_params": {"metadata": {}},
+            "embrouter_params": {"metadata": {}},
             "start_time": datetime.now() - timedelta(seconds=1),
             "end_time": datetime.now(),
             "api_call_start_time": datetime.now() - timedelta(seconds=0.5),
@@ -911,9 +911,9 @@ async def test_multiple_requests_counter_semantics(mock_prometheus_logger):
 
     # Calculate total increments
     total_request_increments = sum(
-        mock_prometheus_logger.litellm_proxy_total_requests_metric.inc_calls
+        mock_prometheus_logger.embrouter_proxy_total_requests_metric.inc_calls
     )
-    total_token_increments = sum(mock_prometheus_logger.litellm_tokens_metric.inc_calls)
+    total_token_increments = sum(mock_prometheus_logger.embrouter_tokens_metric.inc_calls)
 
     # CRITICAL ASSERTION: Request increments should equal number of requests
     expected_total_tokens = num_requests * tokens_per_request  # 3 * 500 = 1500
@@ -940,7 +940,7 @@ async def test_streaming_request_counter_semantics(mock_prometheus_logger):
 
     kwargs = {
         "model": "gpt-5-mini",
-        "litellm_params": {"metadata": {}},
+        "embrouter_params": {"metadata": {}},
         "start_time": datetime.now() - timedelta(seconds=1),
         "end_time": datetime.now(),
         "api_call_start_time": datetime.now() - timedelta(seconds=0.5),
@@ -976,7 +976,7 @@ async def test_streaming_request_counter_semantics(mock_prometheus_logger):
     # Streaming requests should also be counted as 1 request, not 750
     for (
         inc_value
-    ) in mock_prometheus_logger.litellm_proxy_total_requests_metric.inc_calls:
+    ) in mock_prometheus_logger.embrouter_proxy_total_requests_metric.inc_calls:
         assert (
             inc_value == 1
         ), f"SEMANTIC BUG: Streaming request counter incremented by {inc_value} instead of 1"
@@ -1034,7 +1034,7 @@ async def test_spend_counter_semantics(mock_prometheus_logger):
 
     kwargs = {
         "model": "gpt-5-mini",
-        "litellm_params": {"metadata": {}},
+        "embrouter_params": {"metadata": {}},
         "start_time": datetime.now() - timedelta(seconds=1),
         "end_time": datetime.now(),
         "api_call_start_time": datetime.now() - timedelta(seconds=0.5),
@@ -1068,7 +1068,7 @@ async def test_spend_counter_semantics(mock_prometheus_logger):
     )
 
     # Verify spend counter is incremented by cost amount
-    spend_metric = mock_prometheus_logger.litellm_spend_metric
+    spend_metric = mock_prometheus_logger.embrouter_spend_metric
     assert len(spend_metric.inc_calls) > 0, "Spend metric should be incremented"
     assert (
         0.0015 in spend_metric.inc_calls
@@ -1089,13 +1089,13 @@ def test_callback_failure_metric_increments(prometheus_logger):
     """
     Test that the callback logging failure metric can be incremented.
 
-    This tests the litellm_callback_logging_failures_metric counter.
+    This tests the embrouter_callback_logging_failures_metric counter.
     """
     # Get initial value
     initial_value = 0
     try:
         initial_value = (
-            prometheus_logger.litellm_callback_logging_failures_metric.labels(
+            prometheus_logger.embrouter_callback_logging_failures_metric.labels(
                 callback_name="S3Logger"
             )._value.get()
         )
@@ -1106,7 +1106,7 @@ def test_callback_failure_metric_increments(prometheus_logger):
     prometheus_logger.increment_callback_logging_failure(callback_name="S3Logger")
 
     # Verify it incremented by 1
-    current_value = prometheus_logger.litellm_callback_logging_failures_metric.labels(
+    current_value = prometheus_logger.embrouter_callback_logging_failures_metric.labels(
         callback_name="S3Logger"
     )._value.get()
 
@@ -1117,14 +1117,14 @@ def test_callback_failure_metric_increments(prometheus_logger):
     # Increment again for different callback
     prometheus_logger.increment_callback_logging_failure(callback_name="LangFuseLogger")
 
-    langfuse_value = prometheus_logger.litellm_callback_logging_failures_metric.labels(
+    langfuse_value = prometheus_logger.embrouter_callback_logging_failures_metric.labels(
         callback_name="LangFuseLogger"
     )._value.get()
 
     assert langfuse_value == 1, "LangFuseLogger metric should be 1"
 
     # S3Logger should still be initial + 1
-    s3_value = prometheus_logger.litellm_callback_logging_failures_metric.labels(
+    s3_value = prometheus_logger.embrouter_callback_logging_failures_metric.labels(
         callback_name="S3Logger"
     )._value.get()
     assert s3_value == initial_value + 1, "S3Logger metric should not change"
@@ -1149,7 +1149,7 @@ def test_callback_failure_metric_different_callbacks(prometheus_logger):
         # Get initial value
         initial = 0
         try:
-            initial = prometheus_logger.litellm_callback_logging_failures_metric.labels(
+            initial = prometheus_logger.embrouter_callback_logging_failures_metric.labels(
                 callback_name=callback_name
             )._value.get()
         except Exception:
@@ -1161,7 +1161,7 @@ def test_callback_failure_metric_different_callbacks(prometheus_logger):
         )
 
         # Verify incremented
-        current = prometheus_logger.litellm_callback_logging_failures_metric.labels(
+        current = prometheus_logger.embrouter_callback_logging_failures_metric.labels(
             callback_name=callback_name
         )._value.get()
 
@@ -1178,30 +1178,30 @@ async def test_langfuse_callback_failure_metric(prometheus_logger):
     Test that Langfuse callback failures are properly tracked in Prometheus metrics.
     
     This test verifies that when Langfuse logging fails, the 
-    litellm_callback_logging_failures_metric is incremented with callback_name="langfuse".
+    embrouter_callback_logging_failures_metric is incremented with callback_name="langfuse".
     """
     from unittest.mock import MagicMock
 
-    from litellm.integrations.langfuse.langfuse_prompt_management import (
+    from embrouter.integrations.langfuse.langfuse_prompt_management import (
         LangfusePromptManagement,
     )
 
     # Get initial value
     initial_value = 0
     try:
-        initial_value = prometheus_logger.litellm_callback_logging_failures_metric.labels(
+        initial_value = prometheus_logger.embrouter_callback_logging_failures_metric.labels(
             callback_name="langfuse"
         )._value.get()
     except Exception:
         initial_value = 0
     
     # Create Langfuse logger with mocked initialization
-    with patch("litellm.integrations.langfuse.langfuse_prompt_management.langfuse_client_init"):
+    with patch("embrouter.integrations.langfuse.langfuse_prompt_management.langfuse_client_init"):
         langfuse_logger = LangfusePromptManagement()
     
     # Mock the log_event_on_langfuse to raise an exception
     with patch(
-        "litellm.integrations.langfuse.langfuse_prompt_management.LangFuseHandler.get_langfuse_logger_for_request"
+        "embrouter.integrations.langfuse.langfuse_prompt_management.LangFuseHandler.get_langfuse_logger_for_request"
     ) as mock_get_logger:
         mock_logger = MagicMock()
         mock_logger.log_event_on_langfuse.side_effect = Exception("Langfuse API error")
@@ -1234,23 +1234,23 @@ async def test_langfuse_otel_callback_failure_metric(prometheus_logger):
     Test that Langfuse OTEL callback failures are properly tracked in Prometheus metrics.
     
     This test verifies that when Langfuse OTEL logging fails, the 
-    litellm_callback_logging_failures_metric is incremented with callback_name="langfuse_otel".
+    embrouter_callback_logging_failures_metric is incremented with callback_name="langfuse_otel".
     """
     from unittest.mock import MagicMock
 
-    from litellm.integrations.langfuse.langfuse_otel import LangfuseOtelLogger
+    from embrouter.integrations.langfuse.langfuse_otel import LangfuseOtelLogger
 
     # Get initial value
     initial_value = 0
     try:
-        initial_value = prometheus_logger.litellm_callback_logging_failures_metric.labels(
+        initial_value = prometheus_logger.embrouter_callback_logging_failures_metric.labels(
             callback_name="langfuse_otel"
         )._value.get()
     except Exception:
         initial_value = 0
     
     # Create Langfuse OTEL logger with mocked initialization
-    with patch("litellm.integrations.opentelemetry.OpenTelemetry.__init__", return_value=None):
+    with patch("embrouter.integrations.opentelemetry.OpenTelemetry.__init__", return_value=None):
         langfuse_otel_logger = LangfuseOtelLogger(callback_name="langfuse_otel")
         langfuse_otel_logger.callback_name = "langfuse_otel"
     

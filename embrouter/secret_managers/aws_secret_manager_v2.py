@@ -22,19 +22,19 @@ from typing import TYPE_CHECKING, Final
 
 import httpx
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.litellm_core_utils.aws_partition import get_aws_dns_suffix
-from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM
-from litellm.llms.custom_httpx.http_handler import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.embrouter_core_utils.aws_partition import get_aws_dns_suffix
+from embrouter.llms.bedrock.base_aws_llm import BaseAWSLLM
+from embrouter.llms.custom_httpx.http_handler import (
     _get_httpx_client,
     get_async_httpx_client,
 )
-from litellm.proxy._types import KeyManagementSystem
-from litellm.rust_bridge.secret_manager import resolve_native_provider_reader
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.custom_http import httpxSpecialProvider
-from litellm.types.secret_managers.main import KeyManagementSettings
+from embrouter.proxy._types import KeyManagementSystem
+from embrouter.rust_bridge.secret_manager import resolve_native_provider_reader
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.custom_http import httpxSpecialProvider
+from embrouter.types.secret_managers.main import KeyManagementSettings
 
 from .base_secret_manager import BaseSecretManager
 
@@ -115,8 +115,8 @@ class AWSSecretsManagerV2(BaseAWSLLM, BaseSecretManager):
                 aws_kwargs = {k: v for k, v in aws_kwargs.items() if v is not None}
 
             kms_key_id: Final = key_management_settings.kms_key_id if key_management_settings is not None else None
-            litellm.secret_manager_client = cls(kms_key_id=kms_key_id, **aws_kwargs)
-            litellm._key_management_system = KeyManagementSystem.AWS_SECRET_MANAGER
+            embrouter.secret_manager_client = cls(kms_key_id=kms_key_id, **aws_kwargs)
+            embrouter._key_management_system = KeyManagementSystem.AWS_SECRET_MANAGER
 
         except Exception as e:
             raise e
@@ -281,7 +281,7 @@ class AWSSecretsManagerV2(BaseAWSLLM, BaseSecretManager):
                   {"Environment": "Prod", "Owner": "AI-Platform"} or
                   [{"Key": "Environment", "Value": "Prod"}]
         """
-        from litellm._uuid import uuid
+        from embrouter._uuid import uuid
 
         data: Final[dict[str, object]] = {
             "Name": secret_name,
@@ -518,7 +518,7 @@ class AWSSecretsManagerV2(BaseAWSLLM, BaseSecretManager):
         Returns:
             dict: Response from AWS Secrets Manager containing update details
         """
-        from litellm._uuid import uuid
+        from embrouter._uuid import uuid
 
         data: Final[dict[str, object]] = {
             "SecretId": secret_name,

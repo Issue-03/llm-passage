@@ -21,7 +21,7 @@ const makeOrganization = (overrides: Partial<Organization> = {}): Organization =
   created_by: "someone",
   updated_at: "2023-01-01T00:00:00Z",
   updated_by: "someone",
-  litellm_budget_table: null,
+  embrouter_budget_table: null,
   teams: null,
   users: null,
   members: null,
@@ -174,7 +174,7 @@ describe("OrganizationsTable", () => {
         {...baseProps}
         organizations={[
           makeOrganization({
-            litellm_budget_table: { max_budget: 100, tpm_limit: 1000, rpm_limit: 60 },
+            embrouter_budget_table: { max_budget: 100, tpm_limit: 1000, rpm_limit: 60 },
             members: [{ user_id: "a" }, { user_id: "b" }, { user_id: "c" }],
             models: ["gpt-4o", "claude-sonnet-4", "gemini-2.5-pro", "llama-3", "mistral-large"],
           }),
@@ -194,7 +194,7 @@ describe("OrganizationsTable", () => {
     renderWithProviders(
       <OrganizationsTable
         {...baseProps}
-        organizations={[makeOrganization({ organization_id: "org-empty", litellm_budget_table: {}, models: [] })]}
+        organizations={[makeOrganization({ organization_id: "org-empty", embrouter_budget_table: {}, models: [] })]}
       />,
     );
 
@@ -209,7 +209,7 @@ describe("OrganizationsTable", () => {
     renderWithProviders(
       <OrganizationsTable
         {...baseProps}
-        organizations={[makeOrganization({ litellm_budget_table: { max_budget: null, tpm_limit: 0, rpm_limit: 0 } })]}
+        organizations={[makeOrganization({ embrouter_budget_table: { max_budget: null, tpm_limit: 0, rpm_limit: 0 } })]}
       />,
     );
 

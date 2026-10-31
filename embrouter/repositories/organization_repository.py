@@ -1,13 +1,13 @@
 """
-Organization repository for database operations on LiteLLM_OrganizationTable.
+Organization repository for database operations on EmbRouter_OrganizationTable.
 """
 
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Final, Protocol
 
-from litellm.models.organization import LiteLLM_OrganizationTable
-from litellm.repositories.base_repository import BaseRepository
-from litellm.repositories.prisma_protocols import TableActions
+from embrouter.models.organization import EmbRouter_OrganizationTable
+from embrouter.repositories.base_repository import BaseRepository
+from embrouter.repositories.prisma_protocols import TableActions
 
 if TYPE_CHECKING:
     from prisma import models as prisma_models
@@ -17,7 +17,7 @@ class _OrganizationDb(Protocol):
     """The single Prisma table this repository reaches for on ``prisma_client.db``."""
 
     @property
-    def litellm_organizationtable(self) -> TableActions["prisma_models.LiteLLM_OrganizationTable"]: ...
+    def embrouter_organizationtable(self) -> TableActions["prisma_models.EmbRouter_OrganizationTable"]: ...
 
 
 class _PrismaClientView(Protocol):
@@ -27,24 +27,24 @@ class _PrismaClientView(Protocol):
     def db(self) -> _OrganizationDb: ...
 
 
-class OrganizationRepository(BaseRepository[LiteLLM_OrganizationTable]):
+class OrganizationRepository(BaseRepository[EmbRouter_OrganizationTable]):
     """Repository for organization database operations."""
 
     @property
-    def table(self) -> TableActions["prisma_models.LiteLLM_OrganizationTable"]:
+    def table(self) -> TableActions["prisma_models.EmbRouter_OrganizationTable"]:
         client: Final[_PrismaClientView] = self.prisma_client
-        return client.db.litellm_organizationtable
+        return client.db.embrouter_organizationtable
 
     @property
-    def model_class(self) -> type[LiteLLM_OrganizationTable]:
-        return LiteLLM_OrganizationTable
+    def model_class(self) -> type[EmbRouter_OrganizationTable]:
+        return EmbRouter_OrganizationTable
 
     async def find_by_id(
         self, organization_id: str, id_field: str = "organization_id"
-    ) -> LiteLLM_OrganizationTable | None:
+    ) -> EmbRouter_OrganizationTable | None:
         return await super().find_by_id(organization_id, id_field)
 
-    async def find_by_alias(self, organization_alias: str) -> LiteLLM_OrganizationTable | None:
+    async def find_by_alias(self, organization_alias: str) -> EmbRouter_OrganizationTable | None:
         """Find an organization by alias."""
         organizations: Final = await self.find_many(where={"organization_alias": organization_alias})
         return organizations[0] if organizations else None
@@ -58,7 +58,7 @@ class OrganizationRepository(BaseRepository[LiteLLM_OrganizationTable]):
         metadata: Mapping[str, object] | None = None,
         models: list[str] | None = None,
         object_permission_id: str | None = None,
-    ) -> LiteLLM_OrganizationTable:
+    ) -> EmbRouter_OrganizationTable:
         """Create a new organization."""
         data: Final[dict[str, object]] = {
             "organization_alias": organization_alias,
@@ -86,7 +86,7 @@ class OrganizationRepository(BaseRepository[LiteLLM_OrganizationTable]):
         metadata: Mapping[str, object] | None = None,
         models: list[str] | None = None,
         object_permission_id: str | None = None,
-    ) -> LiteLLM_OrganizationTable | None:
+    ) -> EmbRouter_OrganizationTable | None:
         """Update an organization."""
         data: Final[dict[str, object]] = {"updated_by": updated_by}
         if organization_alias is not None:
@@ -102,10 +102,10 @@ class OrganizationRepository(BaseRepository[LiteLLM_OrganizationTable]):
 
         return await self.update(organization_id, data, id_field="organization_id")
 
-    async def delete_organization(self, organization_id: str) -> LiteLLM_OrganizationTable | None:
+    async def delete_organization(self, organization_id: str) -> EmbRouter_OrganizationTable | None:
         """Delete an organization."""
         return await self.delete(organization_id, id_field="organization_id")
 
-    async def update_spend(self, organization_id: str, spend: float) -> LiteLLM_OrganizationTable | None:
+    async def update_spend(self, organization_id: str, spend: float) -> EmbRouter_OrganizationTable | None:
         """Update organization spend."""
         return await self.update(organization_id, {"spend": spend}, id_field="organization_id")

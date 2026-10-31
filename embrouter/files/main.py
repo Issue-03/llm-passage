@@ -24,37 +24,37 @@ FileCreateProvider = Literal[
     "vertex_ai",
     "bedrock",
     "hosted_vllm",
-    "litellm_proxy",
+    "embrouter_proxy",
     "manus",
     "anthropic",
     "mistral",
     "xai",
 ]
 FileRetrieveProvider = Literal[
-    "openai", "azure", "gemini", "vertex_ai", "hosted_vllm", "litellm_proxy", "manus", "anthropic", "mistral", "xai"
+    "openai", "azure", "gemini", "vertex_ai", "hosted_vllm", "embrouter_proxy", "manus", "anthropic", "mistral", "xai"
 ]
 FileDeleteProvider = Literal[
-    "openai", "azure", "gemini", "bedrock", "litellm_proxy", "manus", "anthropic", "mistral", "xai"
+    "openai", "azure", "gemini", "bedrock", "embrouter_proxy", "manus", "anthropic", "mistral", "xai"
 ]
-FileListProvider = Literal["openai", "azure", "litellm_proxy", "manus", "anthropic", "mistral", "xai"]
-import litellm
-from litellm import get_secret_str
-from litellm.files.streaming import FileContentStreamingResponse
-from litellm.files.types import FileContentProvider, FileContentStreamingResult
-from litellm.litellm_core_utils.get_litellm_params import add_trusted_model_credentials_to_litellm_params
-from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.azure.common_utils import get_azure_credentials
-from litellm.llms.azure.files.handler import AzureOpenAIFilesAPI
-from litellm.llms.bedrock.files.handler import BedrockFilesHandler
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
-from litellm.llms.openai.common_utils import get_openai_credentials
-from litellm.llms.openai.openai import FileDeleted, FileObject, OpenAIFilesAPI
-from litellm.llms.vertex_ai.files.handler import VertexAIFilesHandler
-from litellm.llms.xai.batches.handler import XAIBatchesHandler
-from litellm.llms.xai.batches.transformation import is_xai_batch_results_id
-from litellm.types.llms.openai import (
+FileListProvider = Literal["openai", "azure", "embrouter_proxy", "manus", "anthropic", "mistral", "xai"]
+import embrouter
+from embrouter import get_secret_str
+from embrouter.files.streaming import FileContentStreamingResponse
+from embrouter.files.types import FileContentProvider, FileContentStreamingResult
+from embrouter.embrouter_core_utils.get_embrouter_params import add_trusted_model_credentials_to_embrouter_params
+from embrouter.embrouter_core_utils.get_llm_provider_logic import get_llm_provider
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.azure.common_utils import get_azure_credentials
+from embrouter.llms.azure.files.handler import AzureOpenAIFilesAPI
+from embrouter.llms.bedrock.files.handler import BedrockFilesHandler
+from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from embrouter.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+from embrouter.llms.openai.common_utils import get_openai_credentials
+from embrouter.llms.openai.openai import FileDeleted, FileObject, OpenAIFilesAPI
+from embrouter.llms.vertex_ai.files.handler import VertexAIFilesHandler
+from embrouter.llms.xai.batches.handler import XAIBatchesHandler
+from embrouter.llms.xai.batches.transformation import is_xai_batch_results_id
+from embrouter.types.llms.openai import (
     CreateFileRequest,
     FileContentRequest,
     FileExpiresAfter,
@@ -62,16 +62,16 @@ from litellm.types.llms.openai import (
     HttpxBinaryResponseContent,
     OpenAIFileObject,
 )
-from litellm.types.router import *
-from litellm.types.utils import (
+from embrouter.types.router import *
+from embrouter.types.utils import (
     FILE_CONTENT_STREAMING_PROVIDERS,
     OPENAI_COMPATIBLE_BATCH_AND_FILES_PROVIDERS,
     LlmProviders,
 )
-from litellm.utils import (
+from embrouter.utils import (
     ProviderConfigManager,
     client,
-    get_litellm_params,
+    get_embrouter_params,
     supports_httpx_timeout,
 )
 
@@ -89,17 +89,17 @@ def _should_sdk_support_streaming(
     return custom_llm_provider in FILE_CONTENT_STREAMING_PROVIDERS
 
 
-def _file_content_logging_obj(kwargs: dict[str, object], _is_async: bool) -> LiteLLMLoggingObj:
-    logging_obj: Final = kwargs.get("litellm_logging_obj")
-    if isinstance(logging_obj, LiteLLMLoggingObj):
+def _file_content_logging_obj(kwargs: dict[str, object], _is_async: bool) -> EmbRouterLoggingObj:
+    logging_obj: Final = kwargs.get("embrouter_logging_obj")
+    if isinstance(logging_obj, EmbRouterLoggingObj):
         return logging_obj
-    return LiteLLMLoggingObj(
+    return EmbRouterLoggingObj(
         model="",
         messages=[],
         stream=False,
         call_type="afile_content" if _is_async else "file_content",
         start_time=time.time(),
-        litellm_call_id=str(kwargs.get("litellm_call_id") or uuid_module.uuid4()),
+        embrouter_call_id=str(kwargs.get("embrouter_call_id") or uuid_module.uuid4()),
         function_id=str(kwargs.get("id") or ""),
     )
 
@@ -125,7 +125,7 @@ async def acreate_file(
     """
     Async: Files are used to upload documents that can be used with features like Assistants, Fine-tuning, and Batch API.
 
-    LiteLLM Equivalent of POST: POST https://api.openai.com/v1/files
+    EmbRouter Equivalent of POST: POST https://api.openai.com/v1/files
     """
     try:
         loop: Final = asyncio.get_event_loop()
@@ -170,22 +170,22 @@ def create_file(
     """
     Files are used to upload documents that can be used with features like Assistants, Fine-tuning, and Batch API.
 
-    LiteLLM Equivalent of POST: POST https://api.openai.com/v1/files
+    EmbRouter Equivalent of POST: POST https://api.openai.com/v1/files
 
     Specify either provider_list or custom_llm_provider.
     """
     try:
         _is_async: Final = kwargs.pop("acreate_file", False) is True
-        optional_params: Final = GenericLiteLLMParams(**kwargs)
-        litellm_params_dict: Final = dict(**kwargs)
-        logging_obj: Final = cast(LiteLLMLoggingObj | None, kwargs.get("litellm_logging_obj"))
+        optional_params: Final = GenericEmbRouterParams(**kwargs)
+        embrouter_params_dict: Final = dict(**kwargs)
+        logging_obj: Final = cast(EmbRouterLoggingObj | None, kwargs.get("embrouter_logging_obj"))
         if logging_obj is None:
             raise ValueError("logging_obj is required")
         client: Final = kwargs.get("client")
-        if litellm_params_dict.get("passthrough") is True and (
+        if embrouter_params_dict.get("passthrough") is True and (
             custom_llm_provider != "vertex_ai" or purpose != "batch"
         ):
-            raise litellm.exceptions.BadRequestError(
+            raise embrouter.exceptions.BadRequestError(
                 message=(
                     "`passthrough=True` uploads the file bytes unchanged for a native Vertex AI batch, so it needs "
                     f"custom_llm_provider='vertex_ai' and purpose='batch', got '{custom_llm_provider}' and '{purpose}'."
@@ -238,7 +238,7 @@ def create_file(
         if provider_config is not None:
             response = base_llm_http_handler.create_file(
                 provider_config=provider_config,
-                litellm_params=litellm_params_dict,
+                embrouter_params=embrouter_params_dict,
                 create_file_data=_create_file_request,
                 headers=extra_headers or {},
                 api_base=optional_params.api_base,
@@ -277,11 +277,11 @@ def create_file(
                 timeout=timeout,
                 max_retries=optional_params.max_retries,
                 create_file_data=_create_file_request,
-                litellm_params=litellm_params_dict,
+                embrouter_params=embrouter_params_dict,
             )
         else:
-            raise litellm.exceptions.BadRequestError(
-                message=f"LiteLLM doesn't support {custom_llm_provider} for 'create_file'. Only ['openai', 'azure', 'vertex_ai', 'manus', 'anthropic'] are supported.",
+            raise embrouter.exceptions.BadRequestError(
+                message=f"EmbRouter doesn't support {custom_llm_provider} for 'create_file'. Only ['openai', 'azure', 'vertex_ai', 'manus', 'anthropic'] are supported.",
                 model="n/a",
                 llm_provider=custom_llm_provider,
                 response=httpx.Response(
@@ -306,7 +306,7 @@ async def afile_retrieve(
     """
     Async: Get file contents
 
-    LiteLLM Equivalent of GET https://api.openai.com/v1/files
+    EmbRouter Equivalent of GET https://api.openai.com/v1/files
     """
     try:
         loop: Final = asyncio.get_event_loop()
@@ -347,10 +347,10 @@ def file_retrieve(
     """
     Returns the contents of the specified file.
 
-    LiteLLM Equivalent of POST: POST https://api.openai.com/v1/files
+    EmbRouter Equivalent of POST: POST https://api.openai.com/v1/files
     """
     try:
-        optional_params: Final = GenericLiteLLMParams(**kwargs)
+        optional_params: Final = GenericEmbRouterParams(**kwargs)
         ### TIMEOUT LOGIC ###
         timeout = optional_params.timeout or kwargs.get("request_timeout", 600) or 600
         # set timeout for 10 minutes by default
@@ -406,27 +406,27 @@ def file_retrieve(
                 provider=LlmProviders(custom_llm_provider),
             )
             if provider_config is not None:
-                litellm_params_dict: Final = get_litellm_params(**kwargs)
-                add_trusted_model_credentials_to_litellm_params(
-                    litellm_params_dict=litellm_params_dict,
+                embrouter_params_dict: Final = get_embrouter_params(**kwargs)
+                add_trusted_model_credentials_to_embrouter_params(
+                    embrouter_params_dict=embrouter_params_dict,
                     kwargs=kwargs,
                 )
-                litellm_params_dict["api_key"] = optional_params.api_key
-                litellm_params_dict["api_base"] = optional_params.api_base
+                embrouter_params_dict["api_key"] = optional_params.api_key
+                embrouter_params_dict["api_base"] = optional_params.api_base
 
-                logging_obj = kwargs.get("litellm_logging_obj")
+                logging_obj = kwargs.get("embrouter_logging_obj")
                 if logging_obj is None:
-                    from litellm.litellm_core_utils.litellm_logging import (
-                        Logging as LiteLLMLoggingObj,
+                    from embrouter.embrouter_core_utils.embrouter_logging import (
+                        Logging as EmbRouterLoggingObj,
                     )
 
-                    logging_obj = LiteLLMLoggingObj(
+                    logging_obj = EmbRouterLoggingObj(
                         model="",
                         messages=[],
                         stream=False,
                         call_type="afile_retrieve" if _is_async else "file_retrieve",
                         start_time=time.time(),
-                        litellm_call_id=kwargs.get("litellm_call_id", str(uuid_module.uuid4())),
+                        embrouter_call_id=kwargs.get("embrouter_call_id", str(uuid_module.uuid4())),
                         function_id=str(kwargs.get("id") or ""),
                     )
 
@@ -434,7 +434,7 @@ def file_retrieve(
                 response = base_llm_http_handler.retrieve_file(
                     file_id=file_id,
                     provider_config=provider_config,
-                    litellm_params=litellm_params_dict,
+                    embrouter_params=embrouter_params_dict,
                     headers=extra_headers or {},
                     logging_obj=logging_obj,
                     _is_async=_is_async,
@@ -444,8 +444,8 @@ def file_retrieve(
                     timeout=timeout,
                 )
             else:
-                raise litellm.exceptions.BadRequestError(
-                    message=f"LiteLLM doesn't support {custom_llm_provider} for 'file_retrieve'. Only 'openai', 'azure', 'manus', and 'anthropic' are supported.",
+                raise embrouter.exceptions.BadRequestError(
+                    message=f"EmbRouter doesn't support {custom_llm_provider} for 'file_retrieve'. Only 'openai', 'azure', 'manus', and 'anthropic' are supported.",
                     model="n/a",
                     llm_provider=custom_llm_provider,
                     response=httpx.Response(
@@ -475,7 +475,7 @@ async def afile_delete(
     """
     Async: Delete file
 
-    LiteLLM Equivalent of DELETE https://api.openai.com/v1/files
+    EmbRouter Equivalent of DELETE https://api.openai.com/v1/files
     """
     try:
         loop: Final = asyncio.get_event_loop()
@@ -519,7 +519,7 @@ def file_delete(
     """
     Delete file
 
-    LiteLLM Equivalent of DELETE https://api.openai.com/v1/files
+    EmbRouter Equivalent of DELETE https://api.openai.com/v1/files
     """
     try:
         try:
@@ -527,10 +527,10 @@ def file_delete(
                 _, custom_llm_provider, _, _ = get_llm_provider(model, custom_llm_provider)
         except Exception:
             pass
-        optional_params: Final = GenericLiteLLMParams(**kwargs)
-        litellm_params_dict: Final = get_litellm_params(**kwargs)
-        add_trusted_model_credentials_to_litellm_params(
-            litellm_params_dict=litellm_params_dict,
+        optional_params: Final = GenericEmbRouterParams(**kwargs)
+        embrouter_params_dict: Final = get_embrouter_params(**kwargs)
+        add_trusted_model_credentials_to_embrouter_params(
+            embrouter_params_dict=embrouter_params_dict,
             kwargs=kwargs,
         )
         ### TIMEOUT LOGIC ###
@@ -580,7 +580,7 @@ def file_delete(
                 max_retries=optional_params.max_retries,
                 file_id=file_id,
                 client=client,
-                litellm_params=litellm_params_dict,
+                embrouter_params=embrouter_params_dict,
             )
         else:
             # Try using provider config pattern (for Manus, Bedrock, etc.)
@@ -589,29 +589,29 @@ def file_delete(
                 provider=LlmProviders(custom_llm_provider),
             )
             if provider_config is not None:
-                litellm_params_dict["api_key"] = optional_params.api_key
-                litellm_params_dict["api_base"] = optional_params.api_base
+                embrouter_params_dict["api_key"] = optional_params.api_key
+                embrouter_params_dict["api_base"] = optional_params.api_base
 
-                logging_obj = kwargs.get("litellm_logging_obj")
+                logging_obj = kwargs.get("embrouter_logging_obj")
                 if logging_obj is None:
-                    from litellm.litellm_core_utils.litellm_logging import (
-                        Logging as LiteLLMLoggingObj,
+                    from embrouter.embrouter_core_utils.embrouter_logging import (
+                        Logging as EmbRouterLoggingObj,
                     )
 
-                    logging_obj = LiteLLMLoggingObj(
+                    logging_obj = EmbRouterLoggingObj(
                         model="",
                         messages=[],
                         stream=False,
                         call_type="afile_delete" if _is_async else "file_delete",
                         start_time=time.time(),
-                        litellm_call_id=kwargs.get("litellm_call_id", str(uuid_module.uuid4())),
+                        embrouter_call_id=kwargs.get("embrouter_call_id", str(uuid_module.uuid4())),
                         function_id=str(kwargs.get("id") or ""),
                     )
 
                 response = base_llm_http_handler.delete_file(
                     file_id=file_id,
                     provider_config=provider_config,
-                    litellm_params=litellm_params_dict,
+                    embrouter_params=embrouter_params_dict,
                     headers=extra_headers or {},
                     logging_obj=logging_obj,
                     _is_async=_is_async,
@@ -621,8 +621,8 @@ def file_delete(
                     timeout=timeout,
                 )
             else:
-                raise litellm.exceptions.BadRequestError(
-                    message=f"LiteLLM doesn't support {custom_llm_provider} for 'file_delete'. Only 'openai', 'azure', 'gemini', 'manus', and 'anthropic' are supported.",
+                raise embrouter.exceptions.BadRequestError(
+                    message=f"EmbRouter doesn't support {custom_llm_provider} for 'file_delete'. Only 'openai', 'azure', 'gemini', 'manus', and 'anthropic' are supported.",
                     model="n/a",
                     llm_provider=custom_llm_provider,
                     response=httpx.Response(
@@ -651,7 +651,7 @@ async def afile_list(
     """
     Async: List files
 
-    LiteLLM Equivalent of GET https://api.openai.com/v1/files
+    EmbRouter Equivalent of GET https://api.openai.com/v1/files
     """
     try:
         loop: Final = asyncio.get_event_loop()
@@ -692,10 +692,10 @@ def file_list(
     """
     List files
 
-    LiteLLM Equivalent of GET https://api.openai.com/v1/files
+    EmbRouter Equivalent of GET https://api.openai.com/v1/files
     """
     try:
-        optional_params: Final = GenericLiteLLMParams(**kwargs)
+        optional_params: Final = GenericEmbRouterParams(**kwargs)
         ### TIMEOUT LOGIC ###
         timeout = optional_params.timeout or kwargs.get("request_timeout", 600) or 600
         # set timeout for 10 minutes by default
@@ -720,27 +720,27 @@ def file_list(
             provider=LlmProviders(custom_llm_provider),
         )
         if provider_config is not None:
-            litellm_params_dict: Final = get_litellm_params(**kwargs)
-            add_trusted_model_credentials_to_litellm_params(
-                litellm_params_dict=litellm_params_dict,
+            embrouter_params_dict: Final = get_embrouter_params(**kwargs)
+            add_trusted_model_credentials_to_embrouter_params(
+                embrouter_params_dict=embrouter_params_dict,
                 kwargs=kwargs,
             )
-            litellm_params_dict["api_key"] = optional_params.api_key
-            litellm_params_dict["api_base"] = optional_params.api_base
+            embrouter_params_dict["api_key"] = optional_params.api_key
+            embrouter_params_dict["api_base"] = optional_params.api_base
 
-            logging_obj = kwargs.get("litellm_logging_obj")
+            logging_obj = kwargs.get("embrouter_logging_obj")
             if logging_obj is None:
-                from litellm.litellm_core_utils.litellm_logging import (
-                    Logging as LiteLLMLoggingObj,
+                from embrouter.embrouter_core_utils.embrouter_logging import (
+                    Logging as EmbRouterLoggingObj,
                 )
 
-                logging_obj = LiteLLMLoggingObj(
+                logging_obj = EmbRouterLoggingObj(
                     model="",
                     messages=[],
                     stream=False,
                     call_type="afile_list" if _is_async else "file_list",
                     start_time=time.time(),
-                    litellm_call_id=kwargs.get("litellm_call_id", str(uuid_module.uuid4())),
+                    embrouter_call_id=kwargs.get("embrouter_call_id", str(uuid_module.uuid4())),
                     function_id=str(kwargs.get("id", "")),
                 )
 
@@ -748,7 +748,7 @@ def file_list(
             response = base_llm_http_handler.list_files(
                 purpose=purpose,
                 provider_config=provider_config,
-                litellm_params=litellm_params_dict,
+                embrouter_params=embrouter_params_dict,
                 headers=extra_headers or {},
                 logging_obj=logging_obj,
                 _is_async=_is_async,
@@ -787,8 +787,8 @@ def file_list(
                 purpose=purpose,
             )
         else:
-            raise litellm.exceptions.BadRequestError(
-                message=f"LiteLLM doesn't support {custom_llm_provider} for 'file_list'. Only 'openai', 'azure', 'manus', and 'anthropic' are supported.",
+            raise embrouter.exceptions.BadRequestError(
+                message=f"EmbRouter doesn't support {custom_llm_provider} for 'file_list'. Only 'openai', 'azure', 'manus', and 'anthropic' are supported.",
                 model="n/a",
                 llm_provider=custom_llm_provider,
                 response=httpx.Response(
@@ -815,7 +815,7 @@ async def afile_content(
     """
     Async: Get file contents
 
-    LiteLLM Equivalent of GET https://api.openai.com/v1/files
+    EmbRouter Equivalent of GET https://api.openai.com/v1/files
     """
     try:
         loop: Final = asyncio.get_event_loop()
@@ -868,13 +868,13 @@ def file_content(
     """
     Returns the contents of the specified file.
 
-    LiteLLM Equivalent of POST: POST https://api.openai.com/v1/files
+    EmbRouter Equivalent of POST: POST https://api.openai.com/v1/files
     """
     try:
-        optional_params: Final = GenericLiteLLMParams(**kwargs)
-        litellm_params_dict: Final = get_litellm_params(**kwargs)
-        add_trusted_model_credentials_to_litellm_params(
-            litellm_params_dict=litellm_params_dict,
+        optional_params: Final = GenericEmbRouterParams(**kwargs)
+        embrouter_params_dict: Final = get_embrouter_params(**kwargs)
+        add_trusted_model_credentials_to_embrouter_params(
+            embrouter_params_dict=embrouter_params_dict,
             kwargs=kwargs,
         )
         ### TIMEOUT LOGIC ###
@@ -907,8 +907,8 @@ def file_content(
         )
 
         _is_async: Final = kwargs.pop("afile_content", False) is True
-        litellm_params_dict["api_key"] = optional_params.api_key
-        litellm_params_dict["api_base"] = optional_params.api_base
+        embrouter_params_dict["api_key"] = optional_params.api_key
+        embrouter_params_dict["api_base"] = optional_params.api_base
 
         if stream and _should_sdk_support_streaming(custom_llm_provider):
             return file_content_streaming(
@@ -919,7 +919,7 @@ def file_content(
                 extra_headers=extra_headers,
                 chunk_size=chunk_size,
                 optional_params=optional_params,
-                litellm_params=litellm_params_dict,
+                embrouter_params=embrouter_params_dict,
                 timeout=timeout,
                 logging_obj=_file_content_logging_obj(kwargs, _is_async),
                 _is_async=_is_async,
@@ -944,7 +944,7 @@ def file_content(
             response = base_llm_http_handler.retrieve_file_content(
                 file_content_request=_file_content_request,
                 provider_config=provider_config,
-                litellm_params=litellm_params_dict,
+                embrouter_params=embrouter_params_dict,
                 headers=extra_headers or {},
                 logging_obj=_file_content_logging_obj(kwargs, _is_async),
                 _is_async=_is_async,
@@ -983,15 +983,15 @@ def file_content(
                 max_retries=optional_params.max_retries,
                 file_content_request=_file_content_request,
                 client=client,
-                litellm_params=litellm_params_dict,
+                embrouter_params=embrouter_params_dict,
             )
         elif custom_llm_provider == "vertex_ai":
             api_base: Final = optional_params.api_base or ""
             vertex_ai_project: Final = (
-                optional_params.vertex_project or litellm.vertex_project or get_secret_str("VERTEXAI_PROJECT")
+                optional_params.vertex_project or embrouter.vertex_project or get_secret_str("VERTEXAI_PROJECT")
             )
             vertex_ai_location: Final = (
-                optional_params.vertex_location or litellm.vertex_location or get_secret_str("VERTEXAI_LOCATION")
+                optional_params.vertex_location or embrouter.vertex_location or get_secret_str("VERTEXAI_LOCATION")
             )
             vertex_credentials: Final = optional_params.vertex_credentials or get_secret_str("VERTEXAI_CREDENTIALS")
 
@@ -1004,20 +1004,20 @@ def file_content(
                 vertex_location=vertex_ai_location,
                 timeout=timeout,
                 max_retries=optional_params.max_retries,
-                litellm_params=litellm_params_dict,
+                embrouter_params=embrouter_params_dict,
             )
         elif custom_llm_provider == "bedrock":
             response = bedrock_files_instance.file_content(
                 _is_async=_is_async,
                 file_content_request=_file_content_request,
                 api_base=optional_params.api_base,
-                optional_params=litellm_params_dict,
+                optional_params=embrouter_params_dict,
                 timeout=timeout,
                 max_retries=optional_params.max_retries,
             )
         else:
-            raise litellm.exceptions.BadRequestError(
-                message=f"LiteLLM doesn't support {custom_llm_provider} for 'file_content'. Supported providers are 'openai', 'azure', 'vertex_ai', 'bedrock', 'manus', 'anthropic'.",
+            raise embrouter.exceptions.BadRequestError(
+                message=f"EmbRouter doesn't support {custom_llm_provider} for 'file_content'. Supported providers are 'openai', 'azure', 'vertex_ai', 'bedrock', 'manus', 'anthropic'.",
                 model="n/a",
                 llm_provider=custom_llm_provider,
                 response=httpx.Response(
@@ -1039,10 +1039,10 @@ def file_content_streaming(
     file_content_request: FileContentRequest,
     extra_headers: dict[str, str] | None,
     chunk_size: int,
-    optional_params: GenericLiteLLMParams,
-    litellm_params: dict,
+    optional_params: GenericEmbRouterParams,
+    embrouter_params: dict,
     timeout: float | httpx.Timeout,
-    logging_obj: LiteLLMLoggingObj,
+    logging_obj: EmbRouterLoggingObj,
     _is_async: bool,
     client: OpenAI | AsyncOpenAI | HTTPHandler | AsyncHTTPHandler | None,
 ) -> FileContentStreamingResult | Coroutine[object, object, FileContentStreamingResult]:
@@ -1050,10 +1050,10 @@ def file_content_streaming(
     logging_obj.model_call_details["model"] = model or ""
     logging_obj.model_call_details["custom_llm_provider"] = custom_llm_provider
 
-    logged_litellm_params: Final = logging_obj.model_call_details.get("litellm_params", {}) or {}
+    logged_embrouter_params: Final = logging_obj.model_call_details.get("embrouter_params", {}) or {}
     if optional_params.api_base is not None:
-        logged_litellm_params["api_base"] = optional_params.api_base
-    logging_obj.model_call_details["litellm_params"] = logged_litellm_params
+        logged_embrouter_params["api_base"] = optional_params.api_base
+    logging_obj.model_call_details["embrouter_params"] = logged_embrouter_params
 
     def _wrap_streaming_result(
         response: FileContentStreamingResult,
@@ -1091,7 +1091,7 @@ def file_content_streaming(
         )
     elif custom_llm_provider == LlmProviders.VERTEX_AI.value:
         if not _is_async:
-            raise litellm.exceptions.BadRequestError(
+            raise embrouter.exceptions.BadRequestError(
                 message="Streaming 'file_content' for vertex_ai is only supported through 'afile_content'.",
                 model="n/a",
                 llm_provider=custom_llm_provider,
@@ -1109,7 +1109,7 @@ def file_content_streaming(
         response = base_llm_http_handler.async_retrieve_file_content_streaming(
             file_content_request=file_content_request,
             provider_config=vertex_files_config,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=extra_headers or {},
             logging_obj=logging_obj,
             chunk_size=chunk_size,
@@ -1117,8 +1117,8 @@ def file_content_streaming(
             timeout=timeout,
         )
     else:
-        raise litellm.exceptions.BadRequestError(
-            message=f"LiteLLM doesn't support {custom_llm_provider} for streaming 'file_content'. Supported providers are {sorted(FILE_CONTENT_STREAMING_PROVIDERS)}.",
+        raise embrouter.exceptions.BadRequestError(
+            message=f"EmbRouter doesn't support {custom_llm_provider} for streaming 'file_content'. Supported providers are {sorted(FILE_CONTENT_STREAMING_PROVIDERS)}.",
             model="n/a",
             llm_provider=custom_llm_provider,
             response=httpx.Response(

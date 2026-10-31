@@ -4,29 +4,29 @@ from typing import Final
 
 from httpx import Headers, Response
 
-import litellm
-from litellm.exceptions import UnsupportedParamsError
-from litellm.litellm_core_utils.audio_utils.utils import (
+import embrouter
+from embrouter.exceptions import UnsupportedParamsError
+from embrouter.embrouter_core_utils.audio_utils.utils import (
     normalize_transcription_language_to_bcp47,
     process_audio_file,
 )
-from litellm.llms.base_llm.audio_transcription.transformation import (
+from embrouter.llms.base_llm.audio_transcription.transformation import (
     AudioTranscriptionRequestData,
     BaseAudioTranscriptionConfig,
 )
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.vertex_ai.audio_transcription.transformation import (
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.vertex_ai.audio_transcription.transformation import (
     SUPPORTED_RESPONSE_FORMATS,
     validate_vertex_transcription_location,
     validate_vertex_transcription_project_id,
 )
-from litellm.llms.vertex_ai.common_utils import VertexAIError, get_vertex_base_url
-from litellm.llms.vertex_ai.vertex_llm_base import VertexBase
-from litellm.types.llms.openai import (
+from embrouter.llms.vertex_ai.common_utils import VertexAIError, get_vertex_base_url
+from embrouter.llms.vertex_ai.vertex_llm_base import VertexBase
+from embrouter.types.llms.openai import (
     AllMessageValues,
     OpenAIAudioTranscriptionOptionalParams,
 )
-from litellm.types.llms.vertex_ai_gemini_transcription import (
+from embrouter.types.llms.vertex_ai_gemini_transcription import (
     VertexGeminiTranscriptionAudioConfig,
     VertexGeminiTranscriptionContent,
     VertexGeminiTranscriptionGenerationConfig,
@@ -35,7 +35,7 @@ from litellm.types.llms.vertex_ai_gemini_transcription import (
     VertexGeminiTranscriptionRequest,
     VertexGeminiTranscriptionResponse,
 )
-from litellm.types.utils import (
+from embrouter.types.utils import (
     FileTypes,
     TranscriptionResponse,
     TranscriptionUsageInputTokenDetailsObject,
@@ -71,14 +71,14 @@ class VertexGeminiAudioTranscriptionConfig(BaseAudioTranscriptionConfig, VertexB
         response_format: Final = mapped.get("response_format")
         if response_format is None or response_format in SUPPORTED_RESPONSE_FORMATS:
             return mapped
-        if drop_params or litellm.drop_params:
+        if drop_params or embrouter.drop_params:
             return {k: v for k, v in mapped.items() if k != "response_format"}
         raise UnsupportedParamsError(
             status_code=400,
             message=(
                 f"Vertex AI Gemini transcription does not support response_format={response_format!r}. "
                 f"Supported values: {', '.join(SUPPORTED_RESPONSE_FORMATS)}. "
-                "To drop unsupported openai params from the call, set `litellm.drop_params = True`"
+                "To drop unsupported openai params from the call, set `embrouter.drop_params = True`"
             ),
         )
 
@@ -96,11 +96,11 @@ class VertexGeminiAudioTranscriptionConfig(BaseAudioTranscriptionConfig, VertexB
         model: str,
         messages: Sequence[AllMessageValues],
         optional_params: Mapping[str, object],
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict[str, str]:  # mutable-ok: BaseAudioTranscriptionConfig signature
-        vertex_params: Final = dict(litellm_params)
+        vertex_params: Final = dict(embrouter_params)
         access_token, project_id = self._ensure_access_token(
             credentials=self.safe_get_vertex_ai_credentials(vertex_params),
             project_id=self.safe_get_vertex_ai_project(vertex_params),
@@ -119,10 +119,10 @@ class VertexGeminiAudioTranscriptionConfig(BaseAudioTranscriptionConfig, VertexB
         api_key: str | None,
         model: str,
         optional_params: Mapping[str, object],
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
         stream: bool | None = None,
     ) -> str:
-        vertex_params: Final = dict(litellm_params)
+        vertex_params: Final = dict(embrouter_params)
         location: Final = validate_vertex_transcription_location(
             self.safe_get_vertex_ai_location(vertex_params), default_location=DEFAULT_GEMINI_TRANSCRIBE_LOCATION
         )
@@ -134,8 +134,8 @@ class VertexGeminiAudioTranscriptionConfig(BaseAudioTranscriptionConfig, VertexB
         model_path: Final = f"projects/{project_id}/locations/{location}/publishers/google/models/{bare_model}"
         return f"{base_url}/v1/{model_path}:generateContent"
 
-    def _resolve_project_id_from_credentials(self, litellm_params: Mapping[str, object]) -> str:
-        vertex_params: Final = dict(litellm_params)
+    def _resolve_project_id_from_credentials(self, embrouter_params: Mapping[str, object]) -> str:
+        vertex_params: Final = dict(embrouter_params)
         _, project_id = self._ensure_access_token(
             credentials=self.safe_get_vertex_ai_credentials(vertex_params),
             project_id=None,
@@ -148,7 +148,7 @@ class VertexGeminiAudioTranscriptionConfig(BaseAudioTranscriptionConfig, VertexB
         model: str,
         audio_file: FileTypes,
         optional_params: Mapping[str, object],
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
     ) -> AudioTranscriptionRequestData:
         processed_audio: Final = process_audio_file(audio_file)
         request_body: Final = VertexGeminiTranscriptionRequest(

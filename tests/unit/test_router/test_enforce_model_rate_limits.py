@@ -11,17 +11,17 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-import litellm
-from litellm import Router
-from litellm.caching.dual_cache import DualCache
-from litellm.caching.redis_cache import RedisCircuitBreakerOpenError
-from litellm.router_utils.pre_call_checks.model_rate_limit_check import (
+import embrouter
+from embrouter import Router
+from embrouter.caching.dual_cache import DualCache
+from embrouter.caching.redis_cache import RedisCircuitBreakerOpenError
+from embrouter.router_utils.pre_call_checks.model_rate_limit_check import (
     ModelRateLimitingCheck,
 )
 
 TPM_DEPLOYMENT = {
     "tpm": 1000,
-    "litellm_params": {"model": "gpt-4"},
+    "embrouter_params": {"model": "gpt-4"},
     "model_info": {"id": "replica-test-id"},
     "model_name": "test-model",
 }
@@ -30,7 +30,7 @@ TPM_DEPLOYMENT = {
 def _dual_cache_with_local_tpm(local_tpm: int, redis_cache: MagicMock | None) -> DualCache:
     dual_cache = DualCache(redis_cache=redis_cache)
     check = ModelRateLimitingCheck(dual_cache=dual_cache)
-    now = litellm.utils.get_utc_datetime()
+    now = embrouter.utils.get_utc_datetime()
     for minute in (now, now + timedelta(minutes=1)):
         tpm_key, _ = check._get_cache_keys(TPM_DEPLOYMENT, minute.strftime("%H-%M"))
         dual_cache.set_cache(key=tpm_key, value=local_tpm, local_only=True)
@@ -47,7 +47,7 @@ class TestModelRateLimitingCheck:
         deployment = {
             "tpm": 1000,
             "rpm": 10,
-            "litellm_params": {"model": "gpt-4"},
+            "embrouter_params": {"model": "gpt-4"},
             "model_info": {"id": "test-id"},
         }
 
@@ -55,12 +55,12 @@ class TestModelRateLimitingCheck:
         assert tpm == 1000
         assert rpm == 10
 
-    def test_get_deployment_limits_from_litellm_params(self):
-        """Test extracting limits from litellm_params."""
+    def test_get_deployment_limits_from_embrouter_params(self):
+        """Test extracting limits from embrouter_params."""
         check = ModelRateLimitingCheck(dual_cache=MagicMock())
 
         deployment = {
-            "litellm_params": {"model": "gpt-4", "tpm": 2000, "rpm": 20},
+            "embrouter_params": {"model": "gpt-4", "tpm": 2000, "rpm": 20},
             "model_info": {"id": "test-id"},
         }
 
@@ -73,7 +73,7 @@ class TestModelRateLimitingCheck:
         check = ModelRateLimitingCheck(dual_cache=MagicMock())
 
         deployment = {
-            "litellm_params": {"model": "gpt-4"},
+            "embrouter_params": {"model": "gpt-4"},
             "model_info": {"id": "test-id", "tpm": 3000, "rpm": 30},
         }
 
@@ -86,7 +86,7 @@ class TestModelRateLimitingCheck:
         check = ModelRateLimitingCheck(dual_cache=MagicMock())
 
         deployment = {
-            "litellm_params": {"model": "gpt-4"},
+            "embrouter_params": {"model": "gpt-4"},
             "model_info": {"id": "test-id"},
         }
 
@@ -99,7 +99,7 @@ class TestModelRateLimitingCheck:
         check = ModelRateLimitingCheck(dual_cache=MagicMock())
 
         deployment = {
-            "litellm_params": {"model": "gpt-4"},
+            "embrouter_params": {"model": "gpt-4"},
             "model_info": {"id": "test-id"},
         }
 
@@ -115,12 +115,12 @@ class TestModelRateLimitingCheck:
 
         deployment = {
             "rpm": 10,
-            "litellm_params": {"model": "gpt-4"},
+            "embrouter_params": {"model": "gpt-4"},
             "model_info": {"id": "test-id"},
             "model_name": "test-model",
         }
 
-        with pytest.raises(litellm.RateLimitError) as exc_info:
+        with pytest.raises(embrouter.RateLimitError) as exc_info:
             check.pre_call_check(deployment)
 
         assert "RPM limit=10" in str(exc_info.value)
@@ -135,7 +135,7 @@ class TestModelRateLimitingCheck:
 
         deployment = {
             "rpm": 10,
-            "litellm_params": {"model": "gpt-4"},
+            "embrouter_params": {"model": "gpt-4"},
             "model_info": {"id": "test-id"},
             "model_name": "test-model",
         }
@@ -152,12 +152,12 @@ class TestModelRateLimitingCheck:
 
         deployment = {
             "tpm": 1000,
-            "litellm_params": {"model": "gpt-4"},
+            "embrouter_params": {"model": "gpt-4"},
             "model_info": {"id": "test-id"},
             "model_name": "test-model",
         }
 
-        with pytest.raises(litellm.RateLimitError) as exc_info:
+        with pytest.raises(embrouter.RateLimitError) as exc_info:
             check.pre_call_check(deployment)
 
         assert "TPM limit=1000" in str(exc_info.value)
@@ -168,7 +168,7 @@ class TestModelRateLimitingCheck:
         redis_cache.get_cache.return_value = 1000
         check = ModelRateLimitingCheck(dual_cache=_dual_cache_with_local_tpm(5, redis_cache))
 
-        with pytest.raises(litellm.RateLimitError) as exc_info:
+        with pytest.raises(embrouter.RateLimitError) as exc_info:
             check.pre_call_check(TPM_DEPLOYMENT)
 
         assert "current usage=1000" in str(exc_info.value)
@@ -181,7 +181,7 @@ class TestModelRateLimitingCheck:
         redis_cache.get_cache = redis_get
         check = ModelRateLimitingCheck(dual_cache=_dual_cache_with_local_tpm(1000, redis_cache))
 
-        with pytest.raises(litellm.RateLimitError) as exc_info:
+        with pytest.raises(embrouter.RateLimitError) as exc_info:
             check.pre_call_check(TPM_DEPLOYMENT)
 
         assert "current usage=1000" in str(exc_info.value)
@@ -192,7 +192,7 @@ class TestModelRateLimitingCheck:
         redis_cache.increment_cache.return_value = 2
         check = ModelRateLimitingCheck(dual_cache=_dual_cache_with_local_tpm(5, redis_cache))
 
-        with pytest.raises(litellm.RateLimitError) as exc_info:
+        with pytest.raises(embrouter.RateLimitError) as exc_info:
             check.pre_call_check({**TPM_DEPLOYMENT, "rpm": 1})
 
         assert "RPM limit=1" in str(exc_info.value)
@@ -202,7 +202,7 @@ class TestModelRateLimitingCheck:
         deployment = {**TPM_DEPLOYMENT, "rpm": 1}
 
         assert check.pre_call_check(deployment) == deployment
-        with pytest.raises(litellm.RateLimitError) as exc_info:
+        with pytest.raises(embrouter.RateLimitError) as exc_info:
             check.pre_call_check(deployment)
 
         assert "RPM limit=1" in str(exc_info.value)
@@ -216,7 +216,7 @@ class TestModelRateLimitingCheck:
             "standard_logging_object": {
                 "model_id": "test-id",
                 "total_tokens": 50,
-                "hidden_params": {"litellm_model_name": "gpt-4"},
+                "hidden_params": {"embrouter_model_name": "gpt-4"},
             }
         }
 
@@ -241,7 +241,7 @@ class TestModelRateLimitingCheckAsync:
         check = ModelRateLimitingCheck(dual_cache=mock_cache)
 
         deployment = {
-            "litellm_params": {"model": "gpt-4"},
+            "embrouter_params": {"model": "gpt-4"},
             "model_info": {"id": "test-id"},
         }
 
@@ -259,12 +259,12 @@ class TestModelRateLimitingCheckAsync:
 
         deployment = {
             "rpm": 10,
-            "litellm_params": {"model": "gpt-4"},
+            "embrouter_params": {"model": "gpt-4"},
             "model_info": {"id": "test-id"},
             "model_name": "test-model",
         }
 
-        with pytest.raises(litellm.RateLimitError) as exc_info:
+        with pytest.raises(embrouter.RateLimitError) as exc_info:
             await check.async_pre_call_check(deployment)
 
         assert "RPM limit=10" in str(exc_info.value)
@@ -280,7 +280,7 @@ class TestModelRateLimitingCheckAsync:
 
         deployment = {
             "rpm": 10,
-            "litellm_params": {"model": "gpt-4"},
+            "embrouter_params": {"model": "gpt-4"},
             "model_info": {"id": "test-id"},
             "model_name": "test-model",
         }
@@ -298,12 +298,12 @@ class TestModelRateLimitingCheckAsync:
 
         deployment = {
             "tpm": 1000,
-            "litellm_params": {"model": "gpt-4"},
+            "embrouter_params": {"model": "gpt-4"},
             "model_info": {"id": "test-id"},
             "model_name": "test-model",
         }
 
-        with pytest.raises(litellm.RateLimitError) as exc_info:
+        with pytest.raises(embrouter.RateLimitError) as exc_info:
             await check.async_pre_call_check(deployment)
 
         assert "TPM limit=1000" in str(exc_info.value)
@@ -314,7 +314,7 @@ class TestModelRateLimitingCheckAsync:
         redis_cache.async_get_cache = AsyncMock(return_value=1000)
         check = ModelRateLimitingCheck(dual_cache=_dual_cache_with_local_tpm(5, redis_cache))
 
-        with pytest.raises(litellm.RateLimitError) as exc_info:
+        with pytest.raises(embrouter.RateLimitError) as exc_info:
             await check.async_pre_call_check(TPM_DEPLOYMENT)
 
         assert "current usage=1000" in str(exc_info.value)
@@ -328,7 +328,7 @@ class TestModelRateLimitingCheckAsync:
         redis_cache.async_get_cache = redis_get
         check = ModelRateLimitingCheck(dual_cache=_dual_cache_with_local_tpm(1000, redis_cache))
 
-        with pytest.raises(litellm.RateLimitError) as exc_info:
+        with pytest.raises(embrouter.RateLimitError) as exc_info:
             await check.async_pre_call_check(TPM_DEPLOYMENT)
 
         assert "current usage=1000" in str(exc_info.value)
@@ -342,7 +342,7 @@ class TestModelRateLimitingCheckAsync:
         redis_cache.async_increment = AsyncMock(return_value=2)
         check = ModelRateLimitingCheck(dual_cache=_dual_cache_with_local_tpm(5, redis_cache))
 
-        with pytest.raises(litellm.RateLimitError) as exc_info:
+        with pytest.raises(embrouter.RateLimitError) as exc_info:
             await check.async_pre_call_check({**TPM_DEPLOYMENT, "rpm": 1})
 
         assert "RPM limit=1" in str(exc_info.value)
@@ -353,7 +353,7 @@ class TestModelRateLimitingCheckAsync:
         deployment = {**TPM_DEPLOYMENT, "rpm": 1}
 
         assert await check.async_pre_call_check(deployment) == deployment
-        with pytest.raises(litellm.RateLimitError) as exc_info:
+        with pytest.raises(embrouter.RateLimitError) as exc_info:
             await check.async_pre_call_check(deployment)
 
         assert "RPM limit=1" in str(exc_info.value)
@@ -369,7 +369,7 @@ class TestModelRateLimitingCheckAsync:
             "standard_logging_object": {
                 "model_id": "test-id",
                 "total_tokens": 50,
-                "hidden_params": {"litellm_model_name": "gpt-4"},
+                "hidden_params": {"embrouter_model_name": "gpt-4"},
             }
         }
 
@@ -390,7 +390,7 @@ class TestRouterWithEnforceModelRateLimits:
         model_list = [
             {
                 "model_name": "gpt-4",
-                "litellm_params": {"model": "gpt-4", "api_key": "test"},
+                "embrouter_params": {"model": "gpt-4", "api_key": "test"},
                 "rpm": 10,
             }
         ]
@@ -410,7 +410,7 @@ class TestRouterWithEnforceModelRateLimits:
         model_list = [
             {
                 "model_name": "gpt-4",
-                "litellm_params": {"model": "gpt-4", "api_key": "test"},
+                "embrouter_params": {"model": "gpt-4", "api_key": "test"},
                 "rpm": 10,
             }
         ]
@@ -420,14 +420,14 @@ class TestRouterWithEnforceModelRateLimits:
             optional_pre_call_checks=["enforce_model_rate_limits"],
         )
 
-        # Find the ModelRateLimitingCheck in litellm.callbacks
+        # Find the ModelRateLimitingCheck in embrouter.callbacks
         found = False
-        for callback in litellm.callbacks:
+        for callback in embrouter.callbacks:
             if isinstance(callback, ModelRateLimitingCheck):
                 found = True
                 break
 
-        assert found, "ModelRateLimitingCheck should be in litellm.callbacks"
+        assert found, "ModelRateLimitingCheck should be in embrouter.callbacks"
 
 
 class TestModelRateLimitConcurrency:
@@ -448,7 +448,7 @@ class TestModelRateLimitConcurrency:
 
         deployment = {
             "rpm": 2,
-            "litellm_params": {"model": "gpt-4"},
+            "embrouter_params": {"model": "gpt-4"},
             "model_info": {"id": "concurrent-test-id"},
             "model_name": "test-model",
         }
@@ -462,7 +462,7 @@ class TestModelRateLimitConcurrency:
         )
 
         successes = [r for r in results if not isinstance(r, Exception)]
-        failures = [r for r in results if isinstance(r, litellm.RateLimitError)]
+        failures = [r for r in results if isinstance(r, embrouter.RateLimitError)]
 
         assert len(successes) == 2, f"Expected 2 successes, got {len(successes)}"
         assert len(failures) == 2, f"Expected 2 rate limit errors, got {len(failures)}"

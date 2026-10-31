@@ -17,7 +17,7 @@ const budgetSliceSchema = z.object({
 const metadataRecordSchema = z.record(z.string(), z.unknown());
 
 export const orgToForm = (org: Organization): OrgSettingsFormValues => {
-  const budget = budgetSliceSchema.parse(org.litellm_budget_table ?? {});
+  const budget = budgetSliceSchema.parse(org.embrouter_budget_table ?? {});
   return {
     organization_alias: org.organization_alias ?? "",
     models: org.models ?? [],

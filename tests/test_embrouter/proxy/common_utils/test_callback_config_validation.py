@@ -1,6 +1,6 @@
 import pytest
 
-from litellm.proxy.common_utils.callback_config_validation import (
+from embrouter.proxy.common_utils.callback_config_validation import (
     callback_config_error,
     conflicting_span_scope_error,
     cross_entry_family_error,

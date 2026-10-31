@@ -12,9 +12,9 @@ import pytest
 
 # Add the project root to Python path
 
-import litellm
-from litellm.llms.ragflow.chat.transformation import RAGFlowConfig
-from litellm.types.llms.openai import AllMessageValues
+import embrouter
+from embrouter.llms.ragflow.chat.transformation import RAGFlowConfig
+from embrouter.types.llms.openai import AllMessageValues
 
 
 class TestRAGFlowChatTransformation:
@@ -85,7 +85,7 @@ class TestRAGFlowChatTransformation:
             api_key=None,
             model=model,
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             stream=False,
         )
 
@@ -106,7 +106,7 @@ class TestRAGFlowChatTransformation:
             api_key=None,
             model=model,
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             stream=False,
         )
 
@@ -124,7 +124,7 @@ class TestRAGFlowChatTransformation:
             api_key=None,
             model="ragflow/chat/..%2F..%2Fagents_openai%2Fother/gpt-4o-mini",
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             stream=False,
         )
 
@@ -145,7 +145,7 @@ class TestRAGFlowChatTransformation:
             api_key=None,
             model=model,
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             stream=False,
         )
 
@@ -166,7 +166,7 @@ class TestRAGFlowChatTransformation:
             api_key=None,
             model=model,
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             stream=False,
         )
 
@@ -175,25 +175,25 @@ class TestRAGFlowChatTransformation:
             == "http://localhost:9380/api/v1/agents_openai/my-agent-id/chat/completions"
         )
 
-    def test_get_complete_url_from_litellm_params(self):
-        """Test URL construction with api_base from litellm_params."""
+    def test_get_complete_url_from_embrouter_params(self):
+        """Test URL construction with api_base from embrouter_params."""
         config = RAGFlowConfig()
 
         model = "ragflow/chat/my-chat-id/gpt-4o-mini"
 
-        # Create a simple dict-like object for litellm_params
-        class LiteLLMParams:
+        # Create a simple dict-like object for embrouter_params
+        class EmbRouterParams:
             def __init__(self):
                 self.api_base = "http://ragflow-server:9380"
 
-        litellm_params = LiteLLMParams()
+        embrouter_params = EmbRouterParams()
 
         url = config.get_complete_url(
             api_base=None,
             api_key=None,
             model=model,
             optional_params={},
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             stream=False,
         )
 
@@ -214,7 +214,7 @@ class TestRAGFlowChatTransformation:
                 api_key=None,
                 model=model,
                 optional_params={},
-                litellm_params={},
+                embrouter_params={},
                 stream=False,
             )
 
@@ -230,7 +230,7 @@ class TestRAGFlowChatTransformation:
             api_key=None,
             model=model,
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             stream=False,
         )
 
@@ -253,7 +253,7 @@ class TestRAGFlowChatTransformation:
             model=model,
             messages=messages,
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             api_key=api_key,
             api_base="http://localhost:9380",
         )
@@ -268,19 +268,19 @@ class TestRAGFlowChatTransformation:
         headers = {}
         model = "ragflow/chat/my-chat-id/gpt-4o-mini"
         messages = [{"role": "user", "content": "Hello"}]
-        litellm_params = {}
+        embrouter_params = {}
 
         config.validate_environment(
             headers=headers,
             model=model,
             messages=messages,
             optional_params={},
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             api_key="test-key",
             api_base="http://localhost:9380",
         )
 
-        assert litellm_params["_ragflow_actual_model"] == "gpt-4o-mini"
+        assert embrouter_params["_ragflow_actual_model"] == "gpt-4o-mini"
 
     @patch.dict(os.environ, {"RAGFLOW_API_KEY": "env-api-key"})
     def test_validate_environment_from_environment(self):
@@ -296,42 +296,42 @@ class TestRAGFlowChatTransformation:
             model=model,
             messages=messages,
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             api_key=None,
             api_base="http://localhost:9380",
         )
 
         assert result_headers["Authorization"] == "Bearer env-api-key"
 
-    def test_validate_environment_from_litellm_params(self):
-        """Test that validate_environment gets api_key from litellm_params."""
+    def test_validate_environment_from_embrouter_params(self):
+        """Test that validate_environment gets api_key from embrouter_params."""
         config = RAGFlowConfig()
 
         headers = {}
         model = "ragflow/chat/my-chat-id/gpt-4o-mini"
         messages = [{"role": "user", "content": "Hello"}]
 
-        # Create a simple object for litellm_params with api_key attribute
-        class LiteLLMParams:
+        # Create a simple object for embrouter_params with api_key attribute
+        class EmbRouterParams:
             def __init__(self):
-                self.api_key = "litellm-params-key"
+                self.api_key = "embrouter-params-key"
 
             def __setitem__(self, key, value):
                 setattr(self, key, value)
 
-        litellm_params = LiteLLMParams()
+        embrouter_params = EmbRouterParams()
 
         result_headers = config.validate_environment(
             headers=headers,
             model=model,
             messages=messages,
             optional_params={},
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             api_key=None,
             api_base="http://localhost:9380",
         )
 
-        assert result_headers["Authorization"] == "Bearer litellm-params-key"
+        assert result_headers["Authorization"] == "Bearer embrouter-params-key"
 
     def test_transform_request_uses_actual_model(self):
         """Test that transform_request uses the actual model name."""
@@ -339,14 +339,14 @@ class TestRAGFlowChatTransformation:
 
         model = "ragflow/chat/my-chat-id/gpt-4o-mini"
         messages = [{"role": "user", "content": "Hello"}]
-        litellm_params = {"_ragflow_actual_model": "gpt-4o-mini"}
+        embrouter_params = {"_ragflow_actual_model": "gpt-4o-mini"}
 
         # Test the actual behavior by checking the model in the result
         result = config.transform_request(
             model=model,
             messages=messages,
             optional_params={},
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers={},
         )
 
@@ -360,13 +360,13 @@ class TestRAGFlowChatTransformation:
 
         model = "ragflow/agent/my-agent-id/gpt-4o-mini"
         messages = [{"role": "user", "content": "Hello"}]
-        litellm_params = {}  # Missing _ragflow_actual_model
+        embrouter_params = {}  # Missing _ragflow_actual_model
 
         result = config.transform_request(
             model=model,
             messages=messages,
             optional_params={},
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers={},
         )
 

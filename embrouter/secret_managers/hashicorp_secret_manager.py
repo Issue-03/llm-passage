@@ -6,17 +6,17 @@ from typing import Final, Protocol
 import httpx
 from typing_extensions import ReadOnly, TypedDict
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.caching import InMemoryCache
-from litellm.constants import SECRET_MANAGER_REFRESH_INTERVAL
-from litellm.llms.custom_httpx.http_handler import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.caching import InMemoryCache
+from embrouter.constants import SECRET_MANAGER_REFRESH_INTERVAL
+from embrouter.llms.custom_httpx.http_handler import (
     _get_httpx_client,
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.proxy._types import KeyManagementSystem
-from litellm.rust_bridge.secret_manager import resolve_native_provider_reader, resolve_native_provider_writer
+from embrouter.proxy._types import KeyManagementSystem
+from embrouter.rust_bridge.secret_manager import resolve_native_provider_reader, resolve_native_provider_writer
 
 from .base_secret_manager import BaseSecretManager, raise_if_unsafe_secret_name
 
@@ -93,7 +93,7 @@ def _as_json_object(value: object) -> Mapping[str, object] | None:
 
 class HashicorpSecretManager(BaseSecretManager):
     def __init__(self):
-        from litellm.proxy.proxy_server import CommonProxyErrors, premium_user
+        from embrouter.proxy.proxy_server import CommonProxyErrors, premium_user
 
         # Vault-specific config
         self.vault_addr = os.getenv("HCP_VAULT_ADDR", "http://127.0.0.1:8200")
@@ -124,8 +124,8 @@ class HashicorpSecretManager(BaseSecretManager):
                 f"Hashicorp secret manager is only available for premium users. {CommonProxyErrors.not_premium_user.value}"
             )
 
-        litellm.secret_manager_client = self
-        litellm._key_management_system = KeyManagementSystem.HASHICORP_VAULT
+        embrouter.secret_manager_client = self
+        embrouter._key_management_system = KeyManagementSystem.HASHICORP_VAULT
         _refresh_interval = os.environ.get("HCP_VAULT_REFRESH_INTERVAL", SECRET_MANAGER_REFRESH_INTERVAL)
         _refresh_interval = int(_refresh_interval) if _refresh_interval else SECRET_MANAGER_REFRESH_INTERVAL
         self.cache = InMemoryCache(default_ttl=_refresh_interval)  # store in memory for 1 day
@@ -740,7 +740,7 @@ class HashicorpSecretManager(BaseSecretManager):
             "mount_type":"kv"
         }
 
-        Note: LiteLLM assumes that all secrets are stored as under the key "key"
+        Note: EmbRouter assumes that all secrets are stored as under the key "key"
         """
         if json_resp is None:
             return None

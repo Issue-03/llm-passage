@@ -317,19 +317,19 @@ const AddAgentForm: React.FC<AddAgentFormProps> = ({ visible, onClose, accessTok
     }
 
     const agentData: AgentRequestPayload = buildAgentDataFromForm(values);
-    if (selectedAgentTypeInfo.litellm_params_template) {
-      agentData.litellm_params = {
-        ...agentData.litellm_params,
-        ...selectedAgentTypeInfo.litellm_params_template,
+    if (selectedAgentTypeInfo.embrouter_params_template) {
+      agentData.embrouter_params = {
+        ...agentData.embrouter_params,
+        ...selectedAgentTypeInfo.embrouter_params_template,
       };
     }
     const credentialParams = Object.fromEntries(
       selectedAgentTypeInfo.credential_fields
-        .filter((field) => values[field.key] && field.include_in_litellm_params !== false)
+        .filter((field) => values[field.key] && field.include_in_embrouter_params !== false)
         .map((field) => [field.key, values[field.key]]),
     );
     if (Object.keys(credentialParams).length > 0) {
-      agentData.litellm_params = { ...agentData.litellm_params, ...credentialParams };
+      agentData.embrouter_params = { ...agentData.embrouter_params, ...credentialParams };
     }
     return overlayDiscoveredCardParams(agentData, appliedDiscoveredSelection?.selected_card);
   };
@@ -380,10 +380,10 @@ const AddAgentForm: React.FC<AddAgentFormProps> = ({ visible, onClose, accessTok
         agentData.access_group_ids = values.access_group_ids;
       }
 
-      // Wire trace-id flags and budget controls into agent litellm_params (before create call)
+      // Wire trace-id flags and budget controls into agent embrouter_params (before create call)
       if (requireTraceIdInbound || requireTraceIdOutbound) {
-        agentData.litellm_params = {
-          ...agentData.litellm_params,
+        agentData.embrouter_params = {
+          ...agentData.embrouter_params,
           ...(requireTraceIdInbound ? { require_trace_id_on_calls_to_agent: true } : {}),
           ...(requireTraceIdOutbound ? { require_trace_id_on_calls_by_agent: true } : {}),
           ...(requireTraceIdOutbound && maxIterations ? { max_iterations: maxIterations } : {}),
@@ -393,7 +393,7 @@ const AddAgentForm: React.FC<AddAgentFormProps> = ({ visible, onClose, accessTok
 
       const selectedGuardrails = values.guardrails ?? [];
       if (selectedGuardrails.length > 0) {
-        agentData.litellm_params = { ...agentData.litellm_params, guardrails: selectedGuardrails };
+        agentData.embrouter_params = { ...agentData.embrouter_params, guardrails: selectedGuardrails };
       }
 
       const selectedTeamId = values.team_id || null;
@@ -575,7 +575,7 @@ const AddAgentForm: React.FC<AddAgentFormProps> = ({ visible, onClose, accessTok
           <div className="flex items-center justify-between">
             <div>
               <span className="text-sm font-medium text-foreground">
-                Require x-litellm-trace-id on calls TO this agent
+                Require x-embrouter-trace-id on calls TO this agent
               </span>
               <p className="mt-1 text-xs text-muted-foreground">
                 Only accept this agent being invoked with a trace-id (e.g. when used as a sub-agent).
@@ -587,10 +587,10 @@ const AddAgentForm: React.FC<AddAgentFormProps> = ({ visible, onClose, accessTok
           <div className="flex items-center justify-between">
             <div>
               <span className="text-sm font-medium text-foreground">
-                Require x-litellm-trace-id on calls BY this agent
+                Require x-embrouter-trace-id on calls BY this agent
               </span>
               <p className="mt-1 text-xs text-muted-foreground">
-                Requires LLM/MCP calls made by this agent to include x-litellm-trace-id for session tracking.
+                Requires LLM/MCP calls made by this agent to include x-embrouter-trace-id for session tracking.
               </p>
             </div>
             <Switch
@@ -614,7 +614,7 @@ const AddAgentForm: React.FC<AddAgentFormProps> = ({ visible, onClose, accessTok
         <div className="space-y-4">
           {!requireTraceIdOutbound && (
             <div className="rounded-lg border border-warning/20 bg-warning/10 p-3 text-sm text-warning">
-              Enable &quot;Require x-litellm-trace-id on calls BY this agent&quot; in Tracing to configure budgets and
+              Enable &quot;Require x-embrouter-trace-id on calls BY this agent&quot; in Tracing to configure budgets and
               rate limits.
             </div>
           )}
@@ -668,7 +668,7 @@ const AddAgentForm: React.FC<AddAgentFormProps> = ({ visible, onClose, accessTok
 
           <div className="mt-4 text-sm font-medium text-foreground">Per-Session Rate Limits</div>
           <p className="text-xs text-muted-foreground">
-            Rate limits per session (x-litellm-trace-id). Each session gets its own counters.
+            Rate limits per session (x-embrouter-trace-id). Each session gets its own counters.
           </p>
           <div className="grid grid-cols-2 gap-4">
             {rateLimitField("session_tpm_limit", "Session TPM Limit", "e.g. 10000")}

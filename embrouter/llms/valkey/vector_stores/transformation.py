@@ -14,14 +14,14 @@ from typing import TYPE_CHECKING, Final, NoReturn
 import httpx
 from pydantic import BaseModel, ConfigDict
 
-import litellm
-from litellm.llms.base_llm.vector_store.transformation import (
+import embrouter
+from embrouter.llms.base_llm.vector_store.transformation import (
     BaseDirectVectorStoreConfig,
     VectorStoreEmbeddingExecutor,
 )
-from litellm.llms.valkey.common_utils import build_valkey_url, pack_vector
-from litellm.types.utils import EmbeddingResponse
-from litellm.types.vector_stores import (
+from embrouter.llms.valkey.common_utils import build_valkey_url, pack_vector
+from embrouter.types.utils import EmbeddingResponse
+from embrouter.types.vector_stores import (
     VectorStoreCreateOptionalRequestParams,
     VectorStoreResultContent,
     VectorStoreSearchOptionalRequestParams,
@@ -36,7 +36,7 @@ if TYPE_CHECKING:
     from redis.commands.search.query import Query
     from redis.commands.search.result import Result
 
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
 
 DEFAULT_VALKEY_PORT: Final = 6379
 DEFAULT_SOCKET_CONNECT_TIMEOUT_SECONDS: Final = 5.0
@@ -80,12 +80,12 @@ def _import_query() -> "type[Query]":
 
 
 class _ValkeySearchParams(BaseModel):
-    """Typed view over the vector store's litellm_params; unrelated keys are ignored."""
+    """Typed view over the vector store's embrouter_params; unrelated keys are ignored."""
 
     model_config = ConfigDict(frozen=True, extra="ignore")
 
-    litellm_embedding_model: str | None = None
-    litellm_embedding_config: Mapping[str, object] | None = None
+    embrouter_embedding_model: str | None = None
+    embrouter_embedding_config: Mapping[str, object] | None = None
     valkey_host: str | None = None
     valkey_port: int | None = None
     valkey_password: str | None = None
@@ -102,18 +102,18 @@ class _ValkeySearchParams(BaseModel):
         return self.valkey_embedding_field or DEFAULT_EMBEDDING_FIELD_NAME
 
     def require_embedding_model(self) -> str:
-        if not self.litellm_embedding_model:
+        if not self.embrouter_embedding_model:
             raise ValueError(
-                "litellm_embedding_model is required in litellm_params for the Valkey vector store. "
-                "Example: litellm_params['litellm_embedding_model'] = 'openai/text-embedding-3-small'"
+                "embrouter_embedding_model is required in embrouter_params for the Valkey vector store. "
+                "Example: embrouter_params['embrouter_embedding_model'] = 'openai/text-embedding-3-small'"
             )
-        return self.litellm_embedding_model
+        return self.embrouter_embedding_model
 
     def connection_url(self) -> str:
         if not self.valkey_host:
             raise ValueError(
-                "valkey_host is required in litellm_params for the Valkey vector store. "
-                "Set it on the vector store's litellm_params, e.g. valkey_host: my-valkey.example.com"
+                "valkey_host is required in embrouter_params for the Valkey vector store. "
+                "Set it on the vector store's embrouter_params, e.g. valkey_host: my-valkey.example.com"
             )
         return build_valkey_url(
             host=self.valkey_host,
@@ -134,8 +134,8 @@ class ValkeyVectorStoreConfig(BaseDirectVectorStoreConfig):
         super().__init__()
         self.sync_client = sync_client
         self.async_client = async_client
-        self.embedding_fn = embedding_fn if embedding_fn is not None else litellm.embedding
-        self.aembedding_fn = aembedding_fn if aembedding_fn is not None else litellm.aembedding
+        self.embedding_fn = embedding_fn if embedding_fn is not None else embrouter.embedding
+        self.aembedding_fn = aembedding_fn if aembedding_fn is not None else embrouter.aembedding
 
     @staticmethod
     def _query_text(query: str | Sequence[str]) -> str:
@@ -214,12 +214,12 @@ class ValkeyVectorStoreConfig(BaseDirectVectorStoreConfig):
         vector_store_id: str,
         query: str | Sequence[str],
         vector_store_search_optional_params: VectorStoreSearchOptionalRequestParams,
-        litellm_logging_obj: "LiteLLMLoggingObj",
-        litellm_params: Mapping[str, object],
+        embrouter_logging_obj: "EmbRouterLoggingObj",
+        embrouter_params: Mapping[str, object],
         embedding_executor: VectorStoreEmbeddingExecutor | None = None,
         timeout: float | httpx.Timeout | None = None,
     ) -> VectorStoreSearchResponse:
-        params: Final = _ValkeySearchParams.model_validate(litellm_params)
+        params: Final = _ValkeySearchParams.model_validate(embrouter_params)
         query_text: Final = self._query_text(query)
         knn: Final = self._knn_query(
             vector_store_search_optional_params,
@@ -230,13 +230,13 @@ class ValkeyVectorStoreConfig(BaseDirectVectorStoreConfig):
             embedding_executor.embed(
                 params.require_embedding_model(),
                 query_text,
-                params.litellm_embedding_config or _EMPTY_EMBEDDING_CONFIG,
+                params.embrouter_embedding_config or _EMPTY_EMBEDDING_CONFIG,
             )
             if embedding_executor is not None
             else self.embedding_fn(
                 model=params.require_embedding_model(),
                 input=[query_text],  # mutable-ok: the injected embedding callable requires list input
-                **(params.litellm_embedding_config or _EMPTY_EMBEDDING_CONFIG),
+                **(params.embrouter_embedding_config or _EMPTY_EMBEDDING_CONFIG),
             )
         )
         vec_params: Final = {"vec": pack_vector(embedding_response.data[0]["embedding"])}  # mutable-ok: redis-py API
@@ -262,12 +262,12 @@ class ValkeyVectorStoreConfig(BaseDirectVectorStoreConfig):
         vector_store_id: str,
         query: str | Sequence[str],
         vector_store_search_optional_params: VectorStoreSearchOptionalRequestParams,
-        litellm_logging_obj: "LiteLLMLoggingObj",
-        litellm_params: Mapping[str, object],
+        embrouter_logging_obj: "EmbRouterLoggingObj",
+        embrouter_params: Mapping[str, object],
         embedding_executor: VectorStoreEmbeddingExecutor | None = None,
         timeout: float | httpx.Timeout | None = None,
     ) -> VectorStoreSearchResponse:
-        params: Final = _ValkeySearchParams.model_validate(litellm_params)
+        params: Final = _ValkeySearchParams.model_validate(embrouter_params)
         query_text: Final = self._query_text(query)
         knn: Final = self._knn_query(
             vector_store_search_optional_params,
@@ -278,13 +278,13 @@ class ValkeyVectorStoreConfig(BaseDirectVectorStoreConfig):
             await embedding_executor.aembed(
                 params.require_embedding_model(),
                 query_text,
-                params.litellm_embedding_config or _EMPTY_EMBEDDING_CONFIG,
+                params.embrouter_embedding_config or _EMPTY_EMBEDDING_CONFIG,
             )
             if embedding_executor is not None
             else await self.aembedding_fn(
                 model=params.require_embedding_model(),
                 input=[query_text],  # mutable-ok: the injected embedding callable requires list input
-                **(params.litellm_embedding_config or _EMPTY_EMBEDDING_CONFIG),
+                **(params.embrouter_embedding_config or _EMPTY_EMBEDDING_CONFIG),
             )
         )
         vec_params: Final = {"vec": pack_vector(embedding_response.data[0]["embedding"])}  # mutable-ok: redis-py API

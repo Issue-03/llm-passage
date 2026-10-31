@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from typing_extensions import ReadOnly, TypedDict
 
 
-class LiteLLMCacheType(str, Enum):
+class EmbRouterCacheType(str, Enum):
     LOCAL = "local"
     REDIS = "redis"
     REDIS_SEMANTIC = "redis-semantic"
@@ -119,7 +119,7 @@ class CachePingResponse(BaseModel):
     cache_type: str
     ping_response: bool | None = None
     set_cache_response: str | None = None
-    litellm_cache_params: str | None = None
+    embrouter_cache_params: str | None = None
 
     # intentionally a dict, since we run masker.mask_dict() on HealthCheckCacheParams
     health_check_cache_params: dict | None = None

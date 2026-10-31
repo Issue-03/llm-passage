@@ -3,25 +3,25 @@ from typing import TYPE_CHECKING, Final
 
 from fastapi import HTTPException
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.llms.custom_httpx.http_handler import (
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.integrations.custom_guardrail import CustomGuardrail
+from embrouter.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.proxy.guardrails.guardrail_hooks.javelin import (
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.guardrails import GuardrailEventHooks
+from embrouter.types.proxy.guardrails.guardrail_hooks.javelin import (
     JavelinGuardInput,
     JavelinGuardRequest,
     JavelinGuardResponse,
 )
-from litellm.types.utils import CallTypesLiteral, GuardrailStatus
+from embrouter.types.utils import CallTypesLiteral, GuardrailStatus
 
 if TYPE_CHECKING:
-    from litellm.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
+    from embrouter.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
 
 
 class JavelinGuardrail(CustomGuardrail):
@@ -162,17 +162,17 @@ class JavelinGuardrail(CustomGuardrail):
     async def async_pre_call_hook(
         self,
         user_api_key_dict: UserAPIKeyAuth,
-        cache: litellm.DualCache,
+        cache: embrouter.DualCache,
         data: dict,
         call_type: CallTypesLiteral,
     ) -> Exception | str | dict | None:
         """
         Pre-call hook for the Javelin guardrail.
         """
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             get_last_user_message,
         )
-        from litellm.proxy.common_utils.callback_utils import (
+        from embrouter.proxy.common_utils.callback_utils import (
             add_guardrail_to_applied_guardrails_header,
         )
 
@@ -274,7 +274,7 @@ class JavelinGuardrail(CustomGuardrail):
         """
         Get the config model for the Javelin guardrail.
         """
-        from litellm.types.proxy.guardrails.guardrail_hooks.javelin import (
+        from embrouter.types.proxy.guardrails.guardrail_hooks.javelin import (
             JavelinGuardrailConfigModel,
         )
 

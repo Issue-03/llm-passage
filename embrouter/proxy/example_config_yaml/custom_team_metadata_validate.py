@@ -15,7 +15,7 @@ validation service is unreachable) to fail closed with the generic
 `team_metadata_validation_error_message` (HTTP 503).
 """
 
-from litellm.proxy.management_helpers.team_metadata_validation import (
+from embrouter.proxy.management_helpers.team_metadata_validation import (
     TeamMetadataValidationPayload,
     TeamMetadataValidationResult,
 )

@@ -21,11 +21,11 @@ from opentelemetry.trace.propagation.tracecontext import (
     TraceContextTextMapPropagator,
 )
 
-from litellm._internal_context import in_post_response_phase
-from litellm.integrations.otel.model.semconv import HTTP
+from embrouter._internal_context import in_post_response_phase
+from embrouter.integrations.otel.model.semconv import HTTP
 
 if TYPE_CHECKING:
-    from litellm.integrations.otel.model.destination import OtelDestination
+    from embrouter.integrations.otel.model.destination import OtelDestination
 
 _PROPAGATOR: Final = TraceContextTextMapPropagator()
 _W3C_TRACE_HEADERS: Final = frozenset(("traceparent", "tracestate"))
@@ -45,7 +45,7 @@ _W3C_TRACE_HEADERS: Final = frozenset(("traceparent", "tracestate"))
 # and is inherited by ``asyncio.create_task`` children — i.e. the async logging
 # callbacks that close the span. It is never reset: the contextvar dies with the
 # request task, so there is nothing to leak.
-_request_root_span: Final["ContextVar[Span | None]"] = ContextVar("litellm_otel_request_root_span", default=None)
+_request_root_span: Final["ContextVar[Span | None]"] = ContextVar("embrouter_otel_request_root_span", default=None)
 
 
 def set_request_root_span(span: Span) -> None:
@@ -90,7 +90,7 @@ def request_root_http_route() -> str | None:
 # link. A ``ContextVar`` because, like the root-span anchor, it must
 # ride the request task and be readable by the inline success-logging callback.
 _mcp_message_trace_carrier: Final["ContextVar[Mapping[str, str] | None]"] = ContextVar(
-    "litellm_otel_mcp_message_trace_carrier", default=None
+    "embrouter_otel_mcp_message_trace_carrier", default=None
 )
 
 
@@ -122,7 +122,7 @@ def reset_mcp_message_trace_carrier(token: "Token[Mapping[str, str] | None]") ->
 # request task and hands it over the same way it hands over per-request auth, and
 # the handler publishes it here for the span emitter and the failure hook.
 _mcp_message_transport_span: Final["ContextVar[Span | None]"] = ContextVar(
-    "litellm_otel_mcp_message_transport_span", default=None
+    "embrouter_otel_mcp_message_transport_span", default=None
 )
 
 
@@ -235,7 +235,7 @@ def resolve_service_span_context(
     Work the caller did not wait for starts its own root trace with a span link
     back to the parent instead of stretching the parent's trace: anything logged
     from the post-response phase (success callbacks, the response-cache write,
-    see :func:`litellm._internal_context.post_response_phase`), whether or not
+    see :func:`embrouter._internal_context.post_response_phase`), whether or not
     the server span has closed yet, and anything that finished after its parent
     ended. Baggage stays on the returned context.
     """
@@ -308,8 +308,8 @@ def resolve_mcp_span_context(
 
     Only trace context (``traceparent``/``tracestate``) is extracted, never the
     client's W3C Baggage: ``params._meta`` is caller-controlled, and the otel
-    baggage processor stamps allowlisted baggage keys (``litellm.team.id``,
-    ``litellm.metadata.*``, ...) onto the span as attributes, so honoring remote
+    baggage processor stamps allowlisted baggage keys (``embrouter.team.id``,
+    ``embrouter.metadata.*``, ...) onto the span as attributes, so honoring remote
     baggage would let a client spoof a span's identity attribution. The base context
     for extraction is explicitly empty so an absent or malformed ``traceparent`` can
     never fall through to the ambient (stale session) span.
@@ -395,7 +395,7 @@ def inject_trace_context(headers: Mapping[str, str], parent_span: object = None)
 # on the request task. Stateful MCP handlers set and reset it per message; the
 # request-task value otherwise dies with that task.
 _request_destinations: Final['ContextVar[tuple["OtelDestination", ...]]'] = ContextVar(
-    "litellm_otel_request_destinations", default=()
+    "embrouter_otel_request_destinations", default=()
 )
 
 
@@ -413,9 +413,9 @@ def request_destinations() -> 'tuple["OtelDestination", ...]':
     return _request_destinations.get()
 
 
-#: ``litellm_settings: otel_tenant_destination_mode`` and its env equivalent.
+#: ``embrouter_settings: otel_tenant_destination_mode`` and its env equivalent.
 ADDITIVE_DESTINATION_MODE: Final = "additive"
-OTEL_TENANT_DESTINATION_MODE_ENV: Final = "LITELLM_OTEL_TENANT_DESTINATION_MODE"
+OTEL_TENANT_DESTINATION_MODE_ENV: Final = "EMBROUTER_OTEL_TENANT_DESTINATION_MODE"
 
 
 def tenant_destinations_are_additive() -> bool:
@@ -425,9 +425,9 @@ def tenant_destinations_are_additive() -> bool:
     nowhere else. Operators running one org-wide backend across every team set this
     to ``additive`` so the same trace lands in both places.
     """
-    import litellm
+    import embrouter
 
-    configured: Final = litellm.otel_tenant_destination_mode or os.environ.get(OTEL_TENANT_DESTINATION_MODE_ENV)
+    configured: Final = embrouter.otel_tenant_destination_mode or os.environ.get(OTEL_TENANT_DESTINATION_MODE_ENV)
     return isinstance(configured, str) and configured.strip().lower() == ADDITIVE_DESTINATION_MODE
 
 

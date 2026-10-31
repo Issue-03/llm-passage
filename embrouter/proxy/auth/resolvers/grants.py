@@ -18,26 +18,26 @@ from pydantic import BaseModel, ValidationError
 from pydantic.main import IncEx
 from typing_extensions import assert_never
 
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy._types import (
-    LiteLLM_TeamMembership,
-    LiteLLM_TeamTableCachedObj,
-    LiteLLM_UserTable,
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy._types import (
+    EmbRouter_TeamMembership,
+    EmbRouter_TeamTableCachedObj,
+    EmbRouter_UserTable,
     ProxyErrorTypes,
     ProxyException,
 )
-from litellm.proxy.auth.auth_checks import (
+from embrouter.proxy.auth.auth_checks import (
     TeamNotFoundError,
     get_team_membership,
     get_team_object,
     get_user_object,
 )
-from litellm.types.proxy.auth.auth_checks import UserNotFoundError
+from embrouter.types.proxy.auth.auth_checks import UserNotFoundError
 
 if TYPE_CHECKING:
-    from litellm.proxy._types import Span
-    from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-    from litellm.proxy.utils import PrismaClient, ProxyLogging
+    from embrouter.proxy._types import Span
+    from embrouter.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+    from embrouter.proxy.utils import PrismaClient, ProxyLogging
 
 
 class UserLoader(Protocol):
@@ -52,7 +52,7 @@ class UserLoader(Protocol):
         proxy_logging_obj: ProxyLogging | None,
         sso_user_id: str | None,
         user_email: str | None,
-    ) -> Coroutine[object, object, LiteLLM_UserTable | None]: ...
+    ) -> Coroutine[object, object, EmbRouter_UserTable | None]: ...
 
 
 class TeamLoader(Protocol):
@@ -64,7 +64,7 @@ class TeamLoader(Protocol):
         user_api_key_cache: UserApiKeyCache,
         parent_otel_span: Span | None,
         proxy_logging_obj: ProxyLogging | None,
-    ) -> Coroutine[object, object, LiteLLM_TeamTableCachedObj]: ...
+    ) -> Coroutine[object, object, EmbRouter_TeamTableCachedObj]: ...
 
 
 class MembershipLoader(Protocol):
@@ -77,7 +77,7 @@ class MembershipLoader(Protocol):
         user_api_key_cache: UserApiKeyCache,
         parent_otel_span: Span | None,
         proxy_logging_obj: ProxyLogging | None,
-    ) -> Coroutine[object, object, LiteLLM_TeamMembership | None]: ...
+    ) -> Coroutine[object, object, EmbRouter_TeamMembership | None]: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -96,9 +96,9 @@ class ResolvedGrants:
     """The live rows behind a credential. ``effective_user_id`` is the DB row's id when a fuzzy match found a
     legacy row under a different id (GH #26789), otherwise the id the credential named."""
 
-    user_object: LiteLLM_UserTable | None
-    team_object: LiteLLM_TeamTableCachedObj | None
-    team_membership: LiteLLM_TeamMembership | None
+    user_object: EmbRouter_UserTable | None
+    team_object: EmbRouter_TeamTableCachedObj | None
+    team_membership: EmbRouter_TeamMembership | None
     effective_user_id: str | None
 
 
@@ -134,19 +134,19 @@ _MODELS_COLUMN: Final[Mapping[str, IncEx | bool]] = MappingProxyType({"models": 
 
 
 class _UserModelColumn(BaseModel):
-    """``LiteLLM_UserTable.models`` is a bare ``list``; re-read it with the shape a token's ``models`` takes."""
+    """``EmbRouter_UserTable.models`` is a bare ``list``; re-read it with the shape a token's ``models`` takes."""
 
     models: tuple[str, ...] = ()
 
 
-def user_models(user_object: LiteLLM_UserTable) -> tuple[str, ...]:
+def user_models(user_object: EmbRouter_UserTable) -> tuple[str, ...]:
     try:
         return _UserModelColumn.model_validate(user_object.model_dump(include=_MODELS_COLUMN)).models
     except ValidationError:
         return ()
 
 
-def canonical_user_id(user_id: str | None, user_object: LiteLLM_UserTable | None) -> str | None:
+def canonical_user_id(user_id: str | None, user_object: EmbRouter_UserTable | None) -> str | None:
     if user_object is not None and user_object.user_id:
         return user_object.user_id
     return user_id
@@ -203,7 +203,7 @@ class GrantResolver:
 
     async def resolve_identity(
         self, lookup: UserLookup, team_id: str | None
-    ) -> tuple[LiteLLM_UserTable | None, LiteLLM_TeamMembership | None, str | None]:
+    ) -> tuple[EmbRouter_UserTable | None, EmbRouter_TeamMembership | None, str | None]:
         user_object: Final = await self._user(lookup) if lookup.user_id else None
         effective_user_id: Final = canonical_user_id(lookup.user_id, user_object)
         if effective_user_id != lookup.user_id:
@@ -244,7 +244,7 @@ class GrantResolver:
             return LookupDegraded(error=error)
         return ResolvedGrants(user_object, team_object, membership, effective_user_id)
 
-    async def _user(self, lookup: UserLookup) -> LiteLLM_UserTable | None:
+    async def _user(self, lookup: UserLookup) -> EmbRouter_UserTable | None:
         return await self._load_user(
             user_id=lookup.user_id,
             prisma_client=self._prisma,
@@ -256,7 +256,7 @@ class GrantResolver:
             sso_user_id=lookup.sso_user_id,
         )
 
-    async def _membership(self, user_id: str, team_id: str) -> LiteLLM_TeamMembership | None:
+    async def _membership(self, user_id: str, team_id: str) -> EmbRouter_TeamMembership | None:
         return await self._load_membership(
             user_id=user_id,
             team_id=team_id,

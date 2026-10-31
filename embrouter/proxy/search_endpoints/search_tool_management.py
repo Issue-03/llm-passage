@@ -9,21 +9,21 @@ from typing import Any, Final, TypeAlias
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from litellm._logging import verbose_proxy_logger
-from litellm.constants import UI_SESSION_TOKEN_TEAM_ID
-from litellm.proxy._types import (
-    LiteLLM_TeamTable,
-    LitellmUserRoles,
+from embrouter._logging import verbose_proxy_logger
+from embrouter.constants import UI_SESSION_TOKEN_TEAM_ID
+from embrouter.proxy._types import (
+    EmbRouter_TeamTable,
+    EmbrouterUserRoles,
     UserAPIKeyAuth,
 )
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.search_endpoints.search_tool_registry import SearchToolRegistry
-from litellm.types.search import (
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.search_endpoints.search_tool_registry import SearchToolRegistry
+from embrouter.types.search import (
     ListSearchToolsResponse,
     SearchTool,
     SearchToolInfoResponse,
 )
-from litellm.types.utils import SearchProviders
+from embrouter.types.utils import SearchProviders
 
 #### SEARCH TOOLS ENDPOINTS ####
 
@@ -48,7 +48,7 @@ def _convert_datetime_to_str(value: datetime | str | None) -> str | None:
     return value
 
 
-TeamObjectLookup: TypeAlias = Callable[[str, UserAPIKeyAuth], Awaitable[LiteLLM_TeamTable]]
+TeamObjectLookup: TypeAlias = Callable[[str, UserAPIKeyAuth], Awaitable[EmbRouter_TeamTable]]
 
 
 async def _refresh_router_search_tools() -> None:
@@ -57,7 +57,7 @@ async def _refresh_router_search_tools() -> None:
     Best-effort: the row is already committed, so a refresh failure must not surface as a 500 and
     push the caller into a retry that creates duplicates.
     """
-    from litellm.proxy.proxy_server import proxy_config
+    from embrouter.proxy.proxy_server import proxy_config
 
     try:
         await proxy_config.reload_search_tools_from_db()
@@ -65,9 +65,9 @@ async def _refresh_router_search_tools() -> None:
         verbose_proxy_logger.exception("Search tool router refresh failed after a management write: %s", e)
 
 
-async def _team_object_from_db(team_id: str, user_api_key_dict: UserAPIKeyAuth) -> LiteLLM_TeamTable:
-    from litellm.proxy.auth.auth_checks import get_team_object
-    from litellm.proxy.proxy_server import (
+async def _team_object_from_db(team_id: str, user_api_key_dict: UserAPIKeyAuth) -> EmbRouter_TeamTable:
+    from embrouter.proxy.auth.auth_checks import get_team_object
+    from embrouter.proxy.proxy_server import (
         prisma_client,
         proxy_logging_obj,
         user_api_key_cache,
@@ -87,7 +87,7 @@ def _allowlist_team_id(user_api_key_dict: UserAPIKeyAuth) -> str | None:
     The team whose object_permission allowlist scopes this caller, or None when there is none.
 
     Every Admin UI session key is stamped with UI_SESSION_TOKEN_TEAM_ID, a reserved sentinel that
-    never has a row in LiteLLM_TeamTable (`/team/new` rejects it as a real team id), so looking it
+    never has a row in EmbRouter_TeamTable (`/team/new` rejects it as a real team id), so looking it
     up would raise 404 instead of resolving a team. It carries no allowlist of its own, so the
     caller is scoped by its key-level allowlist alone. Any other team id is looked up for real and
     a failed lookup still surfaces.
@@ -108,15 +108,15 @@ async def _filter_visible_search_tools(
     key/team object_permission allowlists enforced on /search. Admins see all tools.
     """
     if user_api_key_dict.user_role in (
-        LitellmUserRoles.PROXY_ADMIN,
-        LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY,
+        EmbrouterUserRoles.PROXY_ADMIN,
+        EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY,
     ):
         return search_tools
 
-    from litellm.proxy.auth.auth_checks import can_user_view_search_tool
+    from embrouter.proxy.auth.auth_checks import can_user_view_search_tool
 
     allowlist_team_id: Final = _allowlist_team_id(user_api_key_dict)
-    team_object: Final[LiteLLM_TeamTable | None] = (
+    team_object: Final[EmbRouter_TeamTable | None] = (
         await lookup_team_object(allowlist_team_id, user_api_key_dict) if allowlist_team_id else None
     )
 
@@ -155,8 +155,8 @@ async def list_search_tools(
         "search_tools": [
             {
                 "search_tool_id": "123e4567-e89b-12d3-a456-426614174000",
-                "search_tool_name": "litellm-search",
-                "litellm_params": {
+                "search_tool_name": "embrouter-search",
+                "embrouter_params": {
                     "search_provider": "perplexity",
                     "api_key": "sk-***",
                     "api_base": "https://api.perplexity.ai"
@@ -170,7 +170,7 @@ async def list_search_tools(
             },
             {
                 "search_tool_name": "config-search-tool",
-                "litellm_params": {
+                "embrouter_params": {
                     "search_provider": "tavily",
                     "api_key": "tvly-***"
                 },
@@ -180,8 +180,8 @@ async def list_search_tools(
     }
     ```
     """
-    from litellm.litellm_core_utils.litellm_logging import _get_masked_values
-    from litellm.proxy.proxy_server import prisma_client, proxy_config
+    from embrouter.embrouter_core_utils.embrouter_logging import _get_masked_values
+    from embrouter.proxy.proxy_server import prisma_client, proxy_config
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail="Prisma client not initialized")
@@ -206,9 +206,9 @@ async def list_search_tools(
         for config_search_tool in config_search_tools:
             tool_name = config_search_tool.get("search_tool_name")
             if tool_name:
-                litellm_params_dict = dict(config_search_tool.get("litellm_params", {}))
-                masked_litellm_params_dict = _get_masked_values(
-                    litellm_params_dict,
+                embrouter_params_dict = dict(config_search_tool.get("embrouter_params", {}))
+                masked_embrouter_params_dict = _get_masked_values(
+                    embrouter_params_dict,
                     unmasked_length=4,
                     number_of_asterisks=4,
                 )
@@ -218,7 +218,7 @@ async def list_search_tools(
                     SearchToolInfoResponse(
                         search_tool_id=None,
                         search_tool_name=tool_name,
-                        litellm_params=masked_litellm_params_dict,
+                        embrouter_params=masked_embrouter_params_dict,
                         search_tool_info=(dict(config_tool_info) if config_tool_info else None),
                         created_at=None,
                         updated_at=None,
@@ -231,9 +231,9 @@ async def list_search_tools(
         ]
 
         for db_search_tool in search_tools_from_db:
-            litellm_params_dict = dict(db_search_tool.get("litellm_params", {}))
-            masked_litellm_params_dict = _get_masked_values(
-                litellm_params_dict,
+            embrouter_params_dict = dict(db_search_tool.get("embrouter_params", {}))
+            masked_embrouter_params_dict = _get_masked_values(
+                embrouter_params_dict,
                 unmasked_length=4,
                 number_of_asterisks=4,
             )
@@ -242,7 +242,7 @@ async def list_search_tools(
                 SearchToolInfoResponse(
                     search_tool_id=db_search_tool.get("search_tool_id"),
                     search_tool_name=db_search_tool.get("search_tool_name", ""),
-                    litellm_params=masked_litellm_params_dict,
+                    embrouter_params=masked_embrouter_params_dict,
                     search_tool_info=db_search_tool.get("search_tool_info"),
                     created_at=_convert_datetime_to_str(db_search_tool.get("created_at")),
                     updated_at=_convert_datetime_to_str(db_search_tool.get("updated_at")),
@@ -280,8 +280,8 @@ async def create_search_tool(request: CreateSearchToolRequest):
         -H "Content-Type: application/json" \\
         -d '{
             "search_tool": {
-                "search_tool_name": "litellm-search",
-                "litellm_params": {
+                "search_tool_name": "embrouter-search",
+                "embrouter_params": {
                     "search_provider": "perplexity",
                     "api_key": "sk-..."
                 },
@@ -296,8 +296,8 @@ async def create_search_tool(request: CreateSearchToolRequest):
     ```json
     {
         "search_tool_id": "123e4567-e89b-12d3-a456-426614174000",
-        "search_tool_name": "litellm-search",
-        "litellm_params": {
+        "search_tool_name": "embrouter-search",
+        "embrouter_params": {
             "search_provider": "perplexity",
             "api_key": "sk-..."
         },
@@ -309,7 +309,7 @@ async def create_search_tool(request: CreateSearchToolRequest):
     }
     ```
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail="Prisma client not initialized")
@@ -353,7 +353,7 @@ async def update_search_tool(search_tool_id: str, request: UpdateSearchToolReque
         -d '{
             "search_tool": {
                 "search_tool_name": "updated-search",
-                "litellm_params": {
+                "embrouter_params": {
                     "search_provider": "perplexity",
                     "api_key": "sk-new-key"
                 },
@@ -369,7 +369,7 @@ async def update_search_tool(search_tool_id: str, request: UpdateSearchToolReque
     {
         "search_tool_id": "123e4567-e89b-12d3-a456-426614174000",
         "search_tool_name": "updated-search",
-        "litellm_params": {
+        "embrouter_params": {
             "search_provider": "perplexity",
             "api_key": "sk-new-key"
         },
@@ -381,7 +381,7 @@ async def update_search_tool(search_tool_id: str, request: UpdateSearchToolReque
     }
     ```
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail="Prisma client not initialized")
@@ -438,11 +438,11 @@ async def delete_search_tool(search_tool_id: str):
     ```json
     {
         "message": "Search tool 123e4567-e89b-12d3-a456-426614174000 deleted successfully",
-        "search_tool_name": "litellm-search"
+        "search_tool_name": "embrouter-search"
     }
     ```
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail="Prisma client not initialized")
@@ -494,8 +494,8 @@ async def get_search_tool_info(search_tool_id: str):
     ```json
     {
         "search_tool_id": "123e4567-e89b-12d3-a456-426614174000",
-        "search_tool_name": "litellm-search",
-        "litellm_params": {
+        "search_tool_name": "embrouter-search",
+        "embrouter_params": {
             "search_provider": "perplexity",
             "api_key": "sk-***"
         },
@@ -507,8 +507,8 @@ async def get_search_tool_info(search_tool_id: str):
     }
     ```
     """
-    from litellm.litellm_core_utils.litellm_logging import _get_masked_values
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.embrouter_core_utils.embrouter_logging import _get_masked_values
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail="Prisma client not initialized")
@@ -525,9 +525,9 @@ async def get_search_tool_info(search_tool_id: str):
             )
 
         # Mask sensitive data
-        litellm_params_dict: Final = dict(result.get("litellm_params", {}))
-        masked_litellm_params_dict: Final = _get_masked_values(
-            litellm_params_dict,
+        embrouter_params_dict: Final = dict(result.get("embrouter_params", {}))
+        masked_embrouter_params_dict: Final = _get_masked_values(
+            embrouter_params_dict,
             unmasked_length=4,
             number_of_asterisks=4,
         )
@@ -535,7 +535,7 @@ async def get_search_tool_info(search_tool_id: str):
         return SearchToolInfoResponse(
             search_tool_id=result.get("search_tool_id"),
             search_tool_name=result.get("search_tool_name", ""),
-            litellm_params=masked_litellm_params_dict,
+            embrouter_params=masked_embrouter_params_dict,
             search_tool_info=result.get("search_tool_info"),
             created_at=_convert_datetime_to_str(result.get("created_at")),
             updated_at=_convert_datetime_to_str(result.get("updated_at")),
@@ -549,7 +549,7 @@ async def get_search_tool_info(search_tool_id: str):
 
 
 class TestSearchToolConnectionRequest(BaseModel):
-    litellm_params: dict[str, Any]
+    embrouter_params: dict[str, Any]
 
 
 @router.post(
@@ -569,7 +569,7 @@ async def test_search_tool_connection(request: TestSearchToolConnectionRequest):
         -H "Authorization: Bearer <your_api_key>" \\
         -H "Content-Type: application/json" \\
         -d '{
-            "litellm_params": {
+            "embrouter_params": {
                 "search_provider": "perplexity",
                 "api_key": "sk-..."
             }
@@ -596,16 +596,16 @@ async def test_search_tool_connection(request: TestSearchToolConnectionRequest):
     ```
     """
     try:
-        from litellm.search import asearch
+        from embrouter.search import asearch
 
         # Extract params from request
-        litellm_params: Final = request.litellm_params
-        search_provider: Final = litellm_params.get("search_provider")
-        api_key: Final = litellm_params.get("api_key")
-        api_base: Final = litellm_params.get("api_base")
+        embrouter_params: Final = request.embrouter_params
+        search_provider: Final = embrouter_params.get("search_provider")
+        api_key: Final = embrouter_params.get("api_key")
+        api_base: Final = embrouter_params.get("api_base")
 
         if not search_provider:
-            raise HTTPException(status_code=400, detail="search_provider is required in litellm_params")
+            raise HTTPException(status_code=400, detail="search_provider is required in embrouter_params")
 
         verbose_proxy_logger.debug("Testing connection to search provider: %s", search_provider)
 
@@ -677,7 +677,7 @@ async def get_available_search_providers():
     ```
     """
     try:
-        from litellm.utils import ProviderConfigManager
+        from embrouter.utils import ProviderConfigManager
 
         available_providers: Final = []
 

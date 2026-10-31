@@ -20,7 +20,7 @@ import pydantic
 from fastapi_sso.sso.base import DiscoveryDocument
 from fastapi_sso.sso.microsoft import MicrosoftSSO
 
-from litellm._logging import verbose_proxy_logger
+from embrouter._logging import verbose_proxy_logger
 
 
 class CustomMicrosoftSSO(MicrosoftSSO):

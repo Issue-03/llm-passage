@@ -1,4 +1,4 @@
-"""Utility helpers for LiteLLM core request handling and provider support."""
+"""Utility helpers for EmbRouter core request handling and provider support."""
 
 # from __future__ import annotations must be the first non-comment statement
 from __future__ import annotations
@@ -23,7 +23,7 @@ import struct
 import subprocess
 
 # What is this?
-## Generic utils.py file. Problem-specific utils (e.g. 'cost calculation), should all be in `litellm_core_utils/`.
+## Generic utils.py file. Problem-specific utils (e.g. 'cost calculation), should all be in `embrouter_core_utils/`.
 import sys
 import textwrap
 import threading
@@ -47,19 +47,19 @@ from openai.lib import _parsing, _pydantic
 from openai.types.chat.completion_create_params import ResponseFormat
 from pydantic import BaseModel
 
-import litellm
-import litellm.litellm_core_utils
+import embrouter
+import embrouter.embrouter_core_utils
 
 # audio_utils.utils is lazy-loaded - only imported when needed for transcription calls
-import litellm.litellm_core_utils.json_validation_rule
-from litellm._internal_context import is_internal_call
-from litellm._lazy_imports import (
+import embrouter.embrouter_core_utils.json_validation_rule
+from embrouter._internal_context import is_internal_call
+from embrouter._lazy_imports import (
     _get_default_encoding,
     _get_modified_max_tokens,
     _get_token_counter_new,
 )
-from litellm._uuid import uuid
-from litellm.constants import (
+from embrouter._uuid import uuid
+from embrouter.constants import (
     DEFAULT_CHAT_COMPLETION_PARAM_VALUES,
     DEFAULT_EMBEDDING_PARAM_VALUES,
     DEFAULT_MAX_LRU_CACHE_SIZE,
@@ -79,20 +79,20 @@ from litellm.constants import (
     PROVIDERS_THAT_AUTHENTICATE_ON_PROVIDER_INFO,
     TOOL_CHOICE_OBJECT_TOKEN_COUNT,
 )
-from litellm.litellm_core_utils.core_helpers import (
+from embrouter.embrouter_core_utils.core_helpers import (
     bind_budget_reservation_to_callbacks,
     normalize_drop_params,
     unbind_budget_reservation_from_callbacks,
 )
-from litellm.litellm_core_utils.fallback_generalizations import (
+from embrouter.embrouter_core_utils.fallback_generalizations import (
     match_capability_generalizations,
     match_fill_missing_generalizations,
 )
-from litellm.litellm_core_utils.sensitive_data_masker import redact_credentials_in_payload
-from litellm.litellm_core_utils.tokenizer import Encoding, HuggingFace, strip_special_tokens
-from litellm.rust_bridge import tokenizer as tokenizer_dispatch
-from litellm.rust_bridge.catalog import decision
-from litellm.rust_bridge.configuration import Decision
+from embrouter.embrouter_core_utils.sensitive_data_masker import redact_credentials_in_payload
+from embrouter.embrouter_core_utils.tokenizer import Encoding, HuggingFace, strip_special_tokens
+from embrouter.rust_bridge import tokenizer as tokenizer_dispatch
+from embrouter.rust_bridge.catalog import decision
+from embrouter.rust_bridge.configuration import Decision
 
 _CachingHandlerResponse = None
 _LLMCachingHandler = None
@@ -108,7 +108,7 @@ def _get_cached_custom_logger():
     """
     global _CustomLogger
     if _CustomLogger is None:
-        from litellm.integrations.custom_logger import CustomLogger
+        from embrouter.integrations.custom_logger import CustomLogger
 
         _CustomLogger = CustomLogger
     return _CustomLogger
@@ -128,7 +128,7 @@ def _accepts_fallback_depth_kwarg_for_class(cls: type) -> bool:
 
 def _snapshot_exception_for_hook(exception: Exception) -> Exception:
     """
-    A same-class copy of exception that skips __init__ (many litellm exceptions require
+    A same-class copy of exception that skips __init__ (many embrouter exceptions require
     constructor args beyond what .args carries, so copy.copy's pickle-based reconstruction
     fails on them). Handed to failure-hook callbacks instead of the live object so a
     callback setting e.g. exception.status_code cannot change the status code the real
@@ -159,7 +159,7 @@ def _get_cached_custom_guardrail():
     """
     global _CustomGuardrail
     if _CustomGuardrail is None:
-        from litellm.integrations.custom_guardrail import CustomGuardrail
+        from embrouter.integrations.custom_guardrail import CustomGuardrail
 
         _CustomGuardrail = CustomGuardrail
     return _CustomGuardrail
@@ -173,7 +173,7 @@ def _get_cached_caching_handler_response():
     """
     global _CachingHandlerResponse
     if _CachingHandlerResponse is None:
-        from litellm.caching.caching_handler import CachingHandlerResponse
+        from embrouter.caching.caching_handler import CachingHandlerResponse
 
         _CachingHandlerResponse = CachingHandlerResponse
     return _CachingHandlerResponse
@@ -187,7 +187,7 @@ def _get_cached_llm_caching_handler():
     """
     global _LLMCachingHandler
     if _LLMCachingHandler is None:
-        from litellm.caching.caching_handler import LLMCachingHandler
+        from embrouter.caching.caching_handler import LLMCachingHandler
 
         _LLMCachingHandler = LLMCachingHandler
     return _LLMCachingHandler
@@ -206,13 +206,13 @@ def _get_cached_audio_utils():
     """
     global _audio_utils_module
     if _audio_utils_module is None:
-        import litellm.litellm_core_utils.audio_utils.utils
+        import embrouter.embrouter_core_utils.audio_utils.utils
 
-        _audio_utils_module = litellm.litellm_core_utils.audio_utils.utils
+        _audio_utils_module = embrouter.embrouter_core_utils.audio_utils.utils
     return _audio_utils_module
 
 
-from litellm.types.llms.openai import (
+from embrouter.types.llms.openai import (
     AllMessageValues,
     AllPromptValues,
     ChatCompletionAssistantToolCall,
@@ -222,7 +222,7 @@ from litellm.types.llms.openai import (
     OpenAITextCompletionUserMessage,
     OpenAIWebSearchOptions,
 )
-from litellm.types.utils import (
+from embrouter.types.utils import (
     ABOVE_THRESHOLD_COST_KEY_PATTERN,
     OPENAI_RESPONSE_HEADERS,
     CallTypes,
@@ -257,7 +257,7 @@ from litellm.types.utils import (
     TextCompletionResponse,
     TranscriptionResponse,
     Usage,
-    is_litellm_owned_kwarg,
+    is_embrouter_owned_kwarg,
 )
 
 _CALL_TYPE_ENUM_MAP: Final[dict] = {ct.value: ct for ct in CallTypes}
@@ -276,13 +276,13 @@ _BACKFILL_MODES: Final = frozenset({"chat", "responses"})
 try:
     # Python 3.9+
     with (
-        resources.files("litellm.litellm_core_utils.tokenizers")
+        resources.files("embrouter.embrouter_core_utils.tokenizers")
         .joinpath("anthropic_tokenizer.json")
         .open("r", encoding="utf-8") as f
     ):
         json_data = json.load(f)
 except (ImportError, AttributeError, TypeError):
-    with resources.open_text("litellm.litellm_core_utils.tokenizers", "anthropic_tokenizer.json") as f:
+    with resources.open_text("embrouter.embrouter_core_utils.tokenizers", "anthropic_tokenizer.json") as f:
         json_data = json.load(f)
 
 # Convert to str (if necessary)
@@ -293,165 +293,165 @@ from typing import TYPE_CHECKING, Any, Final, Literal, Protocol, cast, runtime_c
 
 from typing_extensions import assert_never
 
-from litellm import utils as litellm_utils
+from embrouter import utils as embrouter_utils
 
 # These are lazy loaded via __getattr__
-from litellm.llms.base_llm.base_utils import (
+from embrouter.llms.base_llm.base_utils import (
     BaseLLMModelInfo,
     type_to_response_format_param,
 )
 
 if TYPE_CHECKING:
     # Heavy types that are only needed for type checking; avoid importing
-    # their modules at runtime during `litellm` import.
-    from litellm.caching.caching_handler import (
+    # their modules at runtime during `embrouter` import.
+    from embrouter.caching.caching_handler import (
         CachingHandlerResponse,
         LLMCachingHandler,
     )
-    from litellm.integrations.custom_logger import CustomLogger
+    from embrouter.integrations.custom_logger import CustomLogger
 
     # Type stubs for lazy-loaded functions and classes
-    from litellm.litellm_core_utils.cached_imports import (
+    from embrouter.embrouter_core_utils.cached_imports import (
         get_coroutine_checker,
-        get_litellm_logging_class,
+        get_embrouter_logging_class,
         get_set_callbacks,
     )
-    from litellm.litellm_core_utils.core_helpers import (
-        get_litellm_metadata_from_kwargs,
+    from embrouter.embrouter_core_utils.core_helpers import (
+        get_embrouter_metadata_from_kwargs,
         map_finish_reason,
         process_response_headers,
     )
-    from litellm.litellm_core_utils.credential_accessor import CredentialAccessor
-    from litellm.litellm_core_utils.dot_notation_indexing import (
+    from embrouter.embrouter_core_utils.credential_accessor import CredentialAccessor
+    from embrouter.embrouter_core_utils.dot_notation_indexing import (
         delete_nested_value,
         is_nested_path,
     )
 
     # Type stubs for lazy-loaded functions to help mypy understand their types
     # These imports allow mypy to understand the types when these are accessed via __getattr__
-    from litellm.litellm_core_utils.exception_mapping_utils import exception_type
-    from litellm.litellm_core_utils.get_litellm_params import (
-        _get_base_model_from_litellm_call_metadata,
-        get_litellm_params,
+    from embrouter.embrouter_core_utils.exception_mapping_utils import exception_type
+    from embrouter.embrouter_core_utils.get_embrouter_params import (
+        _get_base_model_from_embrouter_call_metadata,
+        get_embrouter_params,
     )
-    from litellm.litellm_core_utils.get_llm_provider_logic import (
+    from embrouter.embrouter_core_utils.get_llm_provider_logic import (
         _is_non_openai_azure_model,
         get_llm_provider,
     )
-    from litellm.litellm_core_utils.get_supported_openai_params import (
+    from embrouter.embrouter_core_utils.get_supported_openai_params import (
         get_supported_openai_params,
     )
-    from litellm.litellm_core_utils.llm_request_utils import _ensure_extra_body_is_safe
-    from litellm.litellm_core_utils.llm_response_utils.convert_dict_to_response import (
-        LiteLLMResponseObjectHandler,
+    from embrouter.embrouter_core_utils.llm_request_utils import _ensure_extra_body_is_safe
+    from embrouter.embrouter_core_utils.llm_response_utils.convert_dict_to_response import (
+        EmbRouterResponseObjectHandler,
         _handle_invalid_parallel_tool_calls,
         convert_to_model_response_object,
         convert_to_streaming_response,
         convert_to_streaming_response_async,
     )
-    from litellm.litellm_core_utils.llm_response_utils.get_api_base import get_api_base
-    from litellm.litellm_core_utils.llm_response_utils.get_formatted_prompt import (
+    from embrouter.embrouter_core_utils.llm_response_utils.get_api_base import get_api_base
+    from embrouter.embrouter_core_utils.llm_response_utils.get_formatted_prompt import (
         get_formatted_prompt,
     )
-    from litellm.litellm_core_utils.llm_response_utils.get_headers import (
+    from embrouter.embrouter_core_utils.llm_response_utils.get_headers import (
         get_response_headers,
     )
-    from litellm.litellm_core_utils.llm_response_utils.response_metadata import (
+    from embrouter.embrouter_core_utils.llm_response_utils.response_metadata import (
         ResponseMetadata,
         update_response_metadata,
     )
-    from litellm.litellm_core_utils.prompt_templates.common_utils import (
+    from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
         _parse_content_for_reasoning,
     )
-    from litellm.litellm_core_utils.redact_messages import (
-        LiteLLMLoggingObject,
+    from embrouter.embrouter_core_utils.redact_messages import (
+        EmbRouterLoggingObject,
         redact_message_input_output_from_logging,
     )
-    from litellm.litellm_core_utils.rules import Rules
-    from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
-    from litellm.litellm_core_utils.thread_pool_executor import BoundedLoggingThreadPoolExecutor
-    from litellm.llms.base_llm.anthropic_messages.transformation import (
+    from embrouter.embrouter_core_utils.rules import Rules
+    from embrouter.embrouter_core_utils.streaming_handler import CustomStreamWrapper
+    from embrouter.embrouter_core_utils.thread_pool_executor import BoundedLoggingThreadPoolExecutor
+    from embrouter.llms.base_llm.anthropic_messages.transformation import (
         BaseAnthropicMessagesConfig,
     )
-    from litellm.llms.base_llm.audio_transcription.transformation import (
+    from embrouter.llms.base_llm.audio_transcription.transformation import (
         BaseAudioTranscriptionConfig,
     )
 
     # Type stubs for lazy-loaded config classes and types
-    from litellm.llms.base_llm.batches.transformation import BaseBatchesConfig
-    from litellm.llms.base_llm.containers.transformation import BaseContainerConfig
-    from litellm.llms.base_llm.embedding.transformation import BaseEmbeddingConfig
-    from litellm.llms.base_llm.files.transformation import BaseFilesConfig
-    from litellm.llms.base_llm.google_genai.transformation import (
+    from embrouter.llms.base_llm.batches.transformation import BaseBatchesConfig
+    from embrouter.llms.base_llm.containers.transformation import BaseContainerConfig
+    from embrouter.llms.base_llm.embedding.transformation import BaseEmbeddingConfig
+    from embrouter.llms.base_llm.files.transformation import BaseFilesConfig
+    from embrouter.llms.base_llm.google_genai.transformation import (
         BaseGoogleGenAIGenerateContentConfig,
     )
-    from litellm.llms.base_llm.image_edit.transformation import BaseImageEditConfig
-    from litellm.llms.base_llm.image_generation.transformation import (
+    from embrouter.llms.base_llm.image_edit.transformation import BaseImageEditConfig
+    from embrouter.llms.base_llm.image_generation.transformation import (
         BaseImageGenerationConfig,
     )
-    from litellm.llms.base_llm.image_variations.transformation import (
+    from embrouter.llms.base_llm.image_variations.transformation import (
         BaseImageVariationConfig,
     )
-    from litellm.llms.base_llm.passthrough.transformation import BasePassthroughConfig
-    from litellm.llms.base_llm.realtime.http_transformation import (
+    from embrouter.llms.base_llm.passthrough.transformation import BasePassthroughConfig
+    from embrouter.llms.base_llm.realtime.http_transformation import (
         BaseRealtimeHTTPConfig,
     )
-    from litellm.llms.base_llm.realtime.transformation import BaseRealtimeConfig
-    from litellm.llms.base_llm.rerank.transformation import BaseRerankConfig
-    from litellm.llms.base_llm.sandbox.transformation import BaseSandboxConfig
-    from litellm.llms.base_llm.search.transformation import BaseSearchConfig
-    from litellm.llms.base_llm.text_to_speech.transformation import (
+    from embrouter.llms.base_llm.realtime.transformation import BaseRealtimeConfig
+    from embrouter.llms.base_llm.rerank.transformation import BaseRerankConfig
+    from embrouter.llms.base_llm.sandbox.transformation import BaseSandboxConfig
+    from embrouter.llms.base_llm.search.transformation import BaseSearchConfig
+    from embrouter.llms.base_llm.text_to_speech.transformation import (
         BaseTextToSpeechConfig,
     )
-    from litellm.llms.base_llm.vector_store.transformation import BaseVectorStoreConfig
-    from litellm.llms.base_llm.vector_store_files.transformation import (
+    from embrouter.llms.base_llm.vector_store.transformation import BaseVectorStoreConfig
+    from embrouter.llms.base_llm.vector_store_files.transformation import (
         BaseVectorStoreFilesConfig,
     )
-    from litellm.llms.base_llm.videos.transformation import BaseVideoConfig
-    from litellm.llms.bedrock.common_utils import BedrockModelInfo
-    from litellm.llms.bedrock.embed.amazon_nova_transformation import (
+    from embrouter.llms.base_llm.videos.transformation import BaseVideoConfig
+    from embrouter.llms.bedrock.common_utils import BedrockModelInfo
+    from embrouter.llms.bedrock.embed.amazon_nova_transformation import (
         AmazonNovaEmbeddingConfig,
     )
-    from litellm.llms.bedrock.embed.amazon_titan_g1_transformation import (
+    from embrouter.llms.bedrock.embed.amazon_titan_g1_transformation import (
         AmazonTitanG1Config,
     )
-    from litellm.llms.bedrock.embed.amazon_titan_multimodal_transformation import (
+    from embrouter.llms.bedrock.embed.amazon_titan_multimodal_transformation import (
         AmazonTitanMultimodalEmbeddingG1Config,
     )
-    from litellm.llms.bedrock.embed.amazon_titan_v2_transformation import (
+    from embrouter.llms.bedrock.embed.amazon_titan_v2_transformation import (
         AmazonTitanV2Config,
     )
-    from litellm.llms.bedrock.embed.cohere_transformation import (
+    from embrouter.llms.bedrock.embed.cohere_transformation import (
         BedrockCohereEmbeddingConfig,
     )
-    from litellm.llms.bedrock.embed.twelvelabs_marengo_transformation import (
+    from embrouter.llms.bedrock.embed.twelvelabs_marengo_transformation import (
         TwelveLabsMarengoEmbeddingConfig,
     )
-    from litellm.llms.cohere.common_utils import CohereModelInfo
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-    from litellm.proxy._types import AllowedModelRegion
-    from litellm.router_utils.get_retry_from_policy import (
+    from embrouter.llms.cohere.common_utils import CohereModelInfo
+    from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+    from embrouter.proxy._types import AllowedModelRegion
+    from embrouter.router_utils.get_retry_from_policy import (
         get_num_retries_from_retry_policy,
         reset_retry_policy,
     )
-    from litellm.types.llms.anthropic import (
+    from embrouter.types.llms.anthropic import (
         ANTHROPIC_API_ONLY_HEADERS,
         AnthropicThinkingParam,
     )
-    from litellm.types.llms.openai import (
+    from embrouter.types.llms.openai import (
         ChatCompletionDeltaToolCallChunk,
         ChatCompletionToolCallChunk,
         ChatCompletionToolCallFunctionChunk,
     )
-    from litellm.types.rerank import RerankResponse
-    from litellm.types.router import LiteLLM_Params
+    from embrouter.types.rerank import RerankResponse
+    from embrouter.types.router import EmbRouter_Params
 
-from litellm.llms.base_llm.chat.transformation import BaseConfig
-from litellm.llms.base_llm.completion.transformation import BaseTextCompletionConfig
-from litellm.llms.base_llm.evals.transformation import BaseEvalsAPIConfig
-from litellm.llms.base_llm.responses.transformation import BaseResponsesAPIConfig
-from litellm.llms.base_llm.skills.transformation import BaseSkillsAPIConfig
-from litellm.secret_managers.main import get_secret
+from embrouter.llms.base_llm.chat.transformation import BaseConfig
+from embrouter.llms.base_llm.completion.transformation import BaseTextCompletionConfig
+from embrouter.llms.base_llm.evals.transformation import BaseEvalsAPIConfig
+from embrouter.llms.base_llm.responses.transformation import BaseResponsesAPIConfig
+from embrouter.llms.base_llm.skills.transformation import BaseSkillsAPIConfig
+from embrouter.secret_managers.main import get_secret
 
 from ._logging import _is_debugging_on, verbose_logger
 from .caching.caching import (
@@ -482,7 +482,7 @@ from .exceptions import (
 )
 
 if TYPE_CHECKING:
-    from litellm import MockException
+    from embrouter import MockException
 
 ####### ENVIRONMENT VARIABLES ####################
 # Adjust to your specific application needs / system capabilities.
@@ -518,7 +518,7 @@ last_fetched_at: Final = None
 last_fetched_at_keys: Final = None
 ######## Model Response #########################
 
-# All liteLLM Model responses will be in this format, Follows the OpenAI Format
+# All embRouter Model responses will be in this format, Follows the OpenAI Format
 # {
 #   'choices': [
 #      {
@@ -549,7 +549,7 @@ def print_verbose(
             verbose_logger.info(print_statement)
         elif log_level == "ERROR":
             verbose_logger.error(print_statement)
-        if litellm.set_verbose is True and logger_only is False:
+        if embrouter.set_verbose is True and logger_only is False:
             print(print_statement)  # noqa: T201
     except Exception:
         pass
@@ -558,9 +558,9 @@ def print_verbose(
 def _print_verbose_is_active() -> bool:
     """Whether print_verbose would reach either of its two consumers, so a call site can skip
     building a payload nothing would read. _is_debugging_on() is not the same predicate: it reads
-    litellm._logging.set_verbose, while print_verbose's print reads litellm.set_verbose, and
-    assigning the documented litellm.set_verbose = True rebinds only the latter."""
-    return litellm.set_verbose is True or verbose_logger.isEnabledFor(logging.DEBUG)
+    embrouter._logging.set_verbose, while print_verbose's print reads embrouter.set_verbose, and
+    assigning the documented embrouter.set_verbose = True rebinds only the latter."""
+    return embrouter.set_verbose is True or verbose_logger.isEnabledFor(logging.DEBUG)
 
 
 ####### CLIENT ###################
@@ -569,28 +569,28 @@ def custom_llm_setup():
     """
     Add custom_llm provider to provider list
     """
-    for custom_llm in litellm.custom_provider_map:
-        if custom_llm["provider"] not in litellm.provider_list:
-            litellm.provider_list.append(custom_llm["provider"])
+    for custom_llm in embrouter.custom_provider_map:
+        if custom_llm["provider"] not in embrouter.provider_list:
+            embrouter.provider_list.append(custom_llm["provider"])
 
-        if custom_llm["provider"] not in litellm._custom_providers:
-            litellm._custom_providers.append(custom_llm["provider"])
+        if custom_llm["provider"] not in embrouter._custom_providers:
+            embrouter._custom_providers.append(custom_llm["provider"])
 
 
 def _add_custom_logger_callback_to_specific_event(callback: str, logging_event: Literal["success", "failure"]) -> None:
     """
     Add a custom logger callback to the specific event
     """
-    from litellm import _custom_logger_compatible_callbacks_literal
-    from litellm.litellm_core_utils.litellm_logging import (
+    from embrouter import _custom_logger_compatible_callbacks_literal
+    from embrouter.embrouter_core_utils.embrouter_logging import (
         _init_custom_logger_compatible_class,
     )
 
-    if callback not in litellm._known_custom_logger_compatible_callbacks:
+    if callback not in embrouter._known_custom_logger_compatible_callbacks:
         verbose_logger.debug(
             "Callback %s is not a valid custom logger compatible callback. Known list - %s",
             callback,
-            litellm._known_custom_logger_compatible_callbacks,
+            embrouter._known_custom_logger_compatible_callbacks,
         )
         return
 
@@ -602,49 +602,49 @@ def _add_custom_logger_callback_to_specific_event(callback: str, logging_event: 
 
     if callback_class:
         if logging_event == "success" and _custom_logger_class_exists_in_success_callbacks(callback_class) is False:
-            litellm.logging_callback_manager.add_litellm_success_callback(callback_class)
-            litellm.logging_callback_manager.add_litellm_async_success_callback(callback_class)
-            if callback in litellm.success_callback:
-                litellm.success_callback.remove(callback)  # remove the string from the callback list
-            if callback in litellm._async_success_callback:
-                litellm._async_success_callback.remove(callback)  # remove the string from the callback list
+            embrouter.logging_callback_manager.add_embrouter_success_callback(callback_class)
+            embrouter.logging_callback_manager.add_embrouter_async_success_callback(callback_class)
+            if callback in embrouter.success_callback:
+                embrouter.success_callback.remove(callback)  # remove the string from the callback list
+            if callback in embrouter._async_success_callback:
+                embrouter._async_success_callback.remove(callback)  # remove the string from the callback list
         elif logging_event == "failure" and _custom_logger_class_exists_in_failure_callbacks(callback_class) is False:
-            litellm.logging_callback_manager.add_litellm_failure_callback(callback_class)
-            litellm.logging_callback_manager.add_litellm_async_failure_callback(callback_class)
-            if callback in litellm.failure_callback:
-                litellm.failure_callback.remove(callback)  # remove the string from the callback list
-            if callback in litellm._async_failure_callback:
-                litellm._async_failure_callback.remove(callback)  # remove the string from the callback list
+            embrouter.logging_callback_manager.add_embrouter_failure_callback(callback_class)
+            embrouter.logging_callback_manager.add_embrouter_async_failure_callback(callback_class)
+            if callback in embrouter.failure_callback:
+                embrouter.failure_callback.remove(callback)  # remove the string from the callback list
+            if callback in embrouter._async_failure_callback:
+                embrouter._async_failure_callback.remove(callback)  # remove the string from the callback list
 
 
 def _custom_logger_class_exists_in_success_callbacks(
     callback_class: CustomLogger,
 ) -> bool:
     """
-    Returns True if an instance of the custom logger exists in litellm.success_callback or litellm._async_success_callback
+    Returns True if an instance of the custom logger exists in embrouter.success_callback or embrouter._async_success_callback
 
-    e.g if `LangfusePromptManagement` is passed in, it will return True if an instance of `LangfusePromptManagement` exists in litellm.success_callback or litellm._async_success_callback
+    e.g if `LangfusePromptManagement` is passed in, it will return True if an instance of `LangfusePromptManagement` exists in embrouter.success_callback or embrouter._async_success_callback
 
-    Prevents double adding a custom logger callback to the litellm callbacks
+    Prevents double adding a custom logger callback to the embrouter callbacks
 
     Matches on the exact class; an instance of a subclass does not count as registered
     """
-    return any(type(cb) is type(callback_class) for cb in litellm.success_callback + litellm._async_success_callback)
+    return any(type(cb) is type(callback_class) for cb in embrouter.success_callback + embrouter._async_success_callback)
 
 
 def _custom_logger_class_exists_in_failure_callbacks(
     callback_class: CustomLogger,
 ) -> bool:
     """
-    Returns True if an instance of the custom logger exists in litellm.failure_callback or litellm._async_failure_callback
+    Returns True if an instance of the custom logger exists in embrouter.failure_callback or embrouter._async_failure_callback
 
-    e.g if `LangfusePromptManagement` is passed in, it will return True if an instance of `LangfusePromptManagement` exists in litellm.failure_callback or litellm._async_failure_callback
+    e.g if `LangfusePromptManagement` is passed in, it will return True if an instance of `LangfusePromptManagement` exists in embrouter.failure_callback or embrouter._async_failure_callback
 
-    Prevents double adding a custom logger callback to the litellm callbacks
+    Prevents double adding a custom logger callback to the embrouter callbacks
 
     Matches on the exact class; an instance of a subclass does not count as registered
     """
-    return any(type(cb) is type(callback_class) for cb in litellm.failure_callback + litellm._async_failure_callback)
+    return any(type(cb) is type(callback_class) for cb in embrouter.failure_callback + embrouter._async_failure_callback)
 
 
 def get_request_guardrails(kwargs: dict[str, Any]) -> list[str]:
@@ -666,7 +666,7 @@ def get_applied_guardrails(kwargs: dict[str, object]) -> list[str]:
     request_guardrails: Final = get_request_guardrails(kwargs)
     applied_guardrails: Final = []
     CustomGuardrail: Final = _get_cached_custom_guardrail()
-    for callback in litellm.callbacks:
+    for callback in embrouter.callbacks:
         if callback is not None and isinstance(callback, CustomGuardrail):
             if callback.guardrail_name is not None:
                 if callback.default_on is True or callback.guardrail_name in request_guardrails:
@@ -680,17 +680,17 @@ def load_credentials_from_list(kwargs: dict):
     Updates kwargs with the credentials if credential_name in kwarg
     """
     # Access CredentialAccessor via module to trigger lazy loading if needed
-    credential_accessor: Final[type[CredentialAccessor]] = litellm_utils.CredentialAccessor
+    credential_accessor: Final[type[CredentialAccessor]] = embrouter_utils.CredentialAccessor
 
-    credential_name: Final = kwargs.get("litellm_credential_name")
+    credential_name: Final = kwargs.get("embrouter_credential_name")
     if not credential_name:
         return
     credential: Final = credential_accessor.find_credential(credential_name)
     if credential is None:
         verbose_logger.warning(
-            "litellm_credential_name=%s matched none of the %d loaded credentials; the request runs without it",
+            "embrouter_credential_name=%s matched none of the %d loaded credentials; the request runs without it",
             credential_name,
-            len(litellm.credential_list),
+            len(embrouter.credential_list),
         )
         return
     for key, value in credential.credential_values.items():
@@ -701,7 +701,7 @@ def load_credentials_from_list(kwargs: dict):
 def get_dynamic_callbacks(
     dynamic_callbacks: list[str | Callable | CustomLogger] | None,
 ) -> list:
-    returned_callbacks: Final = litellm.callbacks.copy()
+    returned_callbacks: Final = embrouter.callbacks.copy()
     if dynamic_callbacks:
         returned_callbacks.extend(dynamic_callbacks)
     return returned_callbacks
@@ -806,7 +806,7 @@ def _restore_correlation_context_if_supported(logging_obj: object) -> None:
     """Call logging_obj._restore_correlation_context() if it's actually there.
 
     Some call sites (tests, narrow unit paths) inject a minimal stand-in
-    object as litellm_logging_obj instead of a real Logging instance - this
+    object as embrouter_logging_obj instead of a real Logging instance - this
     method is new plumbing specific to request_correlation_in_logs, not part
     of any pre-existing stand-in's expected interface. `object` (not `Any`)
     is deliberate: the getattr() below is exactly how this stays type-safe
@@ -847,14 +847,14 @@ def _is_streaming_response_for_correlation(result: object) -> bool:
     needs names (supports_response_schema, etc.) this module hasn't finished
     defining yet at that point in its own top-to-bottom execution.
     """
-    from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
+    from embrouter.embrouter_core_utils.streaming_handler import CustomStreamWrapper
 
     return isinstance(result, CustomStreamWrapper)
 
 
 def _is_converted_stream_result(result: object) -> bool:
-    from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
-    from litellm.responses.streaming_iterator import BaseResponsesAPIStreamingIterator
+    from embrouter.embrouter_core_utils.streaming_handler import CustomStreamWrapper
+    from embrouter.responses.streaming_iterator import BaseResponsesAPIStreamingIterator
 
     return isinstance(result, (CustomStreamWrapper, BaseResponsesAPIStreamingIterator))
 
@@ -862,8 +862,8 @@ def _is_converted_stream_result(result: object) -> bool:
 async def _run_success_deployment_hook_on_converted_chat_stream(
     result: object, request_data: dict[str, object], call_type: str
 ) -> None:
-    from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
-    from litellm.llms.base_llm.base_model_iterator import MockResponseIterator
+    from embrouter.embrouter_core_utils.streaming_handler import CustomStreamWrapper
+    from embrouter.llms.base_llm.base_model_iterator import MockResponseIterator
 
     if not isinstance(result, CustomStreamWrapper):
         return
@@ -892,14 +892,14 @@ class _NamedFile(Protocol):
 
 
 class _LoggingClassGetter(Protocol):
-    def __call__(self) -> type[LiteLLMLoggingObject]: ...
+    def __call__(self) -> type[EmbRouterLoggingObject]: ...
 
 
 class _ResponseMetadataUpdater(Protocol):
     def __call__(
         self,
         result: object,
-        logging_obj: LiteLLMLoggingObject,
+        logging_obj: EmbRouterLoggingObject,
         model: str | None,
         kwargs: dict[str, object],
         start_time: datetime.datetime,
@@ -958,13 +958,13 @@ def function_setup(
     *args: Any,  # positional passthrough to the wrapped LLM call (ANN401 ignored, see ruff-strict.toml)
     is_async_call: bool = True,
     **kwargs: Any,  # kwargs-ok: forwarded to Logging()/callbacks, varies per call_type
-) -> tuple[LiteLLMLoggingObject, dict[str, Any]]:
+) -> tuple[EmbRouterLoggingObject, dict[str, Any]]:
     ### NOTICES ###
-    if litellm.set_verbose is True:
+    if embrouter.set_verbose is True:
         verbose_logger.warning(
-            "`litellm.set_verbose` is deprecated. Please set `os.environ['LITELLM_LOG'] = 'DEBUG'` for debug logs."
+            "`embrouter.set_verbose` is deprecated. Please set `os.environ['EMBROUTER_LOG'] = 'DEBUG'` for debug logs."
         )
-    logging_obj: LiteLLMLoggingObject | None = None  # rebind-ok: set to the real object further down on success
+    logging_obj: EmbRouterLoggingObject | None = None  # rebind-ok: set to the real object further down on success
     try:
         global callback_list, add_breadcrumb, user_logger_fn, Logging
 
@@ -978,7 +978,7 @@ def function_setup(
         function_id: Final[str | None] = kwargs["id"] if "id" in kwargs else None
 
         ## LAZY LOAD COROUTINE CHECKER ##
-        get_coroutine_checker_fn: Final = litellm_utils.get_coroutine_checker
+        get_coroutine_checker_fn: Final = embrouter_utils.get_coroutine_checker
         coroutine_checker: Final = get_coroutine_checker_fn()
 
         ## DYNAMIC CALLBACKS ##
@@ -989,74 +989,74 @@ def function_setup(
             for callback in all_callbacks:
                 # check if callback is a string - e.g. "lago", "openmeter"
                 if isinstance(callback, str):
-                    callback = litellm.litellm_core_utils.litellm_logging._init_custom_logger_compatible_class(
+                    callback = embrouter.embrouter_core_utils.embrouter_logging._init_custom_logger_compatible_class(
                         callback,
                         internal_usage_cache=None,
                         llm_router=None,
                     )
                     if callback is None or any(
-                        type(cb) is type(callback) for cb in litellm._async_success_callback
+                        type(cb) is type(callback) for cb in embrouter._async_success_callback
                     ):  # don't double add a callback
                         continue
-                if callback not in litellm.input_callback:
-                    litellm.input_callback.append(callback)
-                if callback not in litellm.success_callback:
-                    litellm.logging_callback_manager.add_litellm_success_callback(callback)
-                if callback not in litellm.failure_callback:
-                    litellm.logging_callback_manager.add_litellm_failure_callback(callback)
-                if callback not in litellm._async_success_callback:
-                    litellm.logging_callback_manager.add_litellm_async_success_callback(callback)
-                if callback not in litellm._async_failure_callback:
-                    litellm.logging_callback_manager.add_litellm_async_failure_callback(callback)
-            print_verbose(f"Initialized litellm callbacks, Async Success Callbacks: {litellm._async_success_callback}")
+                if callback not in embrouter.input_callback:
+                    embrouter.input_callback.append(callback)
+                if callback not in embrouter.success_callback:
+                    embrouter.logging_callback_manager.add_embrouter_success_callback(callback)
+                if callback not in embrouter.failure_callback:
+                    embrouter.logging_callback_manager.add_embrouter_failure_callback(callback)
+                if callback not in embrouter._async_success_callback:
+                    embrouter.logging_callback_manager.add_embrouter_async_success_callback(callback)
+                if callback not in embrouter._async_failure_callback:
+                    embrouter.logging_callback_manager.add_embrouter_async_failure_callback(callback)
+            print_verbose(f"Initialized embrouter callbacks, Async Success Callbacks: {embrouter._async_success_callback}")
 
         if (
-            len(litellm.input_callback) > 0 or len(litellm.success_callback) > 0 or len(litellm.failure_callback) > 0
+            len(embrouter.input_callback) > 0 or len(embrouter.success_callback) > 0 or len(embrouter.failure_callback) > 0
         ) and len(callback_list) == 0:
-            callback_list = list(set(litellm.input_callback + litellm.success_callback + litellm.failure_callback))
-            get_set_callbacks: Final[Callable[[], Callable[..., None]]] = litellm_utils.get_set_callbacks
+            callback_list = list(set(embrouter.input_callback + embrouter.success_callback + embrouter.failure_callback))
+            get_set_callbacks: Final[Callable[[], Callable[..., None]]] = embrouter_utils.get_set_callbacks
             get_set_callbacks()(callback_list=callback_list, function_id=function_id)
         ## ASYNC CALLBACKS - safety net for callbacks added via direct append
-        if len(litellm.input_callback) > 0:
+        if len(embrouter.input_callback) > 0:
             removed_async_items = []
-            for index, callback in enumerate(litellm.input_callback):
+            for index, callback in enumerate(embrouter.input_callback):
                 if coroutine_checker.is_async_callable(callback):
-                    litellm._async_input_callback.append(callback)
+                    embrouter._async_input_callback.append(callback)
                     removed_async_items.append(index)
 
             # Pop the async items from input_callback in reverse order to avoid index issues
             for index in reversed(removed_async_items):
-                litellm.input_callback.pop(index)
-        if len(litellm.success_callback) > 0:
+                embrouter.input_callback.pop(index)
+        if len(embrouter.success_callback) > 0:
             removed_async_items = []
-            for index, callback in enumerate(litellm.success_callback):
+            for index, callback in enumerate(embrouter.success_callback):
                 if coroutine_checker.is_async_callable(callback):
-                    litellm.logging_callback_manager.add_litellm_async_success_callback(callback)
+                    embrouter.logging_callback_manager.add_embrouter_async_success_callback(callback)
                     removed_async_items.append(index)
                 elif callback == "dynamodb" or callback == "openmeter":
                     # dynamo is an async callback, it's used for the proxy and needs to be async
                     # we only support async dynamo db logging for acompletion/aembedding since that's used on proxy
-                    litellm.logging_callback_manager.add_litellm_async_success_callback(callback)
+                    embrouter.logging_callback_manager.add_embrouter_async_success_callback(callback)
                     removed_async_items.append(index)
-                elif callback in litellm._known_custom_logger_compatible_callbacks and isinstance(callback, str):
+                elif callback in embrouter._known_custom_logger_compatible_callbacks and isinstance(callback, str):
                     _add_custom_logger_callback_to_specific_event(callback, "success")
 
             # Pop the async items from success_callback in reverse order to avoid index issues
             for index in reversed(removed_async_items):
-                litellm.success_callback.pop(index)
+                embrouter.success_callback.pop(index)
 
-        if len(litellm.failure_callback) > 0:
+        if len(embrouter.failure_callback) > 0:
             removed_async_items = []
-            for index, callback in enumerate(litellm.failure_callback):
+            for index, callback in enumerate(embrouter.failure_callback):
                 if coroutine_checker.is_async_callable(callback):
-                    litellm.logging_callback_manager.add_litellm_async_failure_callback(callback)
+                    embrouter.logging_callback_manager.add_embrouter_async_failure_callback(callback)
                     removed_async_items.append(index)
-                elif callback in litellm._known_custom_logger_compatible_callbacks and isinstance(callback, str):
+                elif callback in embrouter._known_custom_logger_compatible_callbacks and isinstance(callback, str):
                     _add_custom_logger_callback_to_specific_event(callback, "failure")
 
             # Pop the async items from failure_callback in reverse order to avoid index issues
             for index in reversed(removed_async_items):
-                litellm.failure_callback.pop(index)
+                embrouter.failure_callback.pop(index)
         ### DYNAMIC CALLBACKS ###
         dynamic_success_callbacks: list[str | Callable | CustomLogger] | None = None
         dynamic_async_success_callbacks: list[str | Callable | CustomLogger] | None = None
@@ -1082,19 +1082,19 @@ def function_setup(
 
         if add_breadcrumb:
             try:
-                from litellm.litellm_core_utils.core_helpers import safe_deep_copy
+                from embrouter.embrouter_core_utils.core_helpers import safe_deep_copy
 
                 details_to_log = safe_deep_copy(kwargs)
             except Exception:
                 details_to_log = kwargs
 
-            if litellm.turn_off_message_logging:
+            if embrouter.turn_off_message_logging:
                 # make a copy of the _model_Call_details and log it
                 details_to_log.pop("messages", None)
                 details_to_log.pop("input", None)
                 details_to_log.pop("prompt", None)
             add_breadcrumb(
-                category="litellm.llm_call",
+                category="embrouter.llm_call",
                 message=f"Keyword Args: {details_to_log}",
                 level="info",
             )
@@ -1114,7 +1114,7 @@ def function_setup(
             elif kwargs.get("messages", None):
                 messages = kwargs["messages"]
             ### PRE-CALL RULES ###
-            Rules: Final = litellm_utils.Rules
+            Rules: Final = embrouter_utils.Rules
             if (
                 Rules.has_pre_call_rules()
                 and isinstance(messages, list)
@@ -1139,10 +1139,10 @@ def function_setup(
             # signatures to ensure compatibility.
             if isinstance(messages, list) and len(messages) > 0:
                 try:
-                    from litellm.litellm_core_utils.get_llm_provider_logic import (
+                    from embrouter.embrouter_core_utils.get_llm_provider_logic import (
                         get_llm_provider,
                     )
-                    from litellm.litellm_core_utils.prompt_templates.factory import (
+                    from embrouter.embrouter_core_utils.prompt_templates.factory import (
                         THOUGHT_SIGNATURE_SEPARATOR,
                     )
 
@@ -1225,10 +1225,10 @@ def function_setup(
             or call_type == CallTypes.agenerate_content_stream.value
         ):
             try:
-                from litellm.google_genai.adapters.transformation import (
+                from embrouter.google_genai.adapters.transformation import (
                     GoogleGenAIAdapter,
                 )
-                from litellm.litellm_core_utils.prompt_templates.common_utils import (
+                from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
                     get_last_user_message,
                 )
 
@@ -1259,14 +1259,14 @@ def function_setup(
             call_type=call_type,
         ):
             stream = True
-        get_litellm_logging_class: Final[_LoggingClassGetter] = litellm_utils.get_litellm_logging_class
+        get_embrouter_logging_class: Final[_LoggingClassGetter] = embrouter_utils.get_embrouter_logging_class
         # Victim for object pool
-        logging_obj = get_litellm_logging_class()(  # rebind-ok: 2nd assignment to logging_obj (see initial None above)
+        logging_obj = get_embrouter_logging_class()(  # rebind-ok: 2nd assignment to logging_obj (see initial None above)
             model=model,
             messages=messages,
             stream=stream,
-            litellm_call_id=kwargs["litellm_call_id"],
-            litellm_trace_id=kwargs.get("litellm_trace_id"),
+            embrouter_call_id=kwargs["embrouter_call_id"],
+            embrouter_trace_id=kwargs.get("embrouter_trace_id"),
             function_id=function_id or "",
             call_type=call_type,
             start_time=start_time,
@@ -1280,23 +1280,23 @@ def function_setup(
         )
 
         ## check if metadata is passed in
-        litellm_params: Final[dict[str, object]] = {"api_base": ""}
+        embrouter_params: Final[dict[str, object]] = {"api_base": ""}
         if "metadata" in kwargs:
-            litellm_params["metadata"] = kwargs["metadata"]
-        if "litellm_metadata" in kwargs and isinstance(kwargs["litellm_metadata"], dict):
-            litellm_params["litellm_metadata"] = kwargs["litellm_metadata"]
-            # For endpoints like /v1/messages that use "litellm_metadata" instead
+            embrouter_params["metadata"] = kwargs["metadata"]
+        if "embrouter_metadata" in kwargs and isinstance(kwargs["embrouter_metadata"], dict):
+            embrouter_params["embrouter_metadata"] = kwargs["embrouter_metadata"]
+            # For endpoints like /v1/messages that use "embrouter_metadata" instead
             # of "metadata" (to avoid conflicting with provider API metadata fields),
-            # populate litellm_params["metadata"] so callbacks (e.g. Langfuse) that
-            # read API key info from litellm_params["metadata"] see the fields.
-            if not litellm_params.get("metadata"):
-                litellm_params["metadata"] = kwargs["litellm_metadata"].copy()
+            # populate embrouter_params["metadata"] so callbacks (e.g. Langfuse) that
+            # read API key info from embrouter_params["metadata"] see the fields.
+            if not embrouter_params.get("metadata"):
+                embrouter_params["metadata"] = kwargs["embrouter_metadata"].copy()
 
         logging_obj.update_environment_variables(
             model=model,
             user="",
             optional_params={},
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             stream_options=kwargs.get("stream_options", None),
         )
         return logging_obj, kwargs
@@ -1310,19 +1310,19 @@ def function_setup(
         # that call never actually produced a usable logging object.
         if logging_obj is not None:
             _restore_correlation_context_if_supported(logging_obj)
-        verbose_logger.exception("litellm.utils.py::function_setup() - [Non-Blocking] Error in function_setup")
+        verbose_logger.exception("embrouter.utils.py::function_setup() - [Non-Blocking] Error in function_setup")
         raise e
 
 
 def _dispatch_success_logging(
-    logging_obj: LiteLLMLoggingObject,
+    logging_obj: EmbRouterLoggingObject,
     result: object,
     start_time: datetime.datetime,
     end_time: datetime.datetime,
     is_completion_with_fallbacks: bool,
-    is_litellm_internal_call: bool,
+    is_embrouter_internal_call: bool,
 ) -> None:
-    if not is_litellm_internal_call:
+    if not is_embrouter_internal_call:
         _schedule_async_success_logging(
             logging_obj=logging_obj,
             result=result,
@@ -1339,7 +1339,7 @@ def _dispatch_success_logging(
 
 
 def _schedule_async_success_logging(
-    logging_obj: LiteLLMLoggingObject,
+    logging_obj: EmbRouterLoggingObject,
     result: object,
     start_time: datetime.datetime,
     end_time: datetime.datetime,
@@ -1376,7 +1376,7 @@ def _schedule_async_success_logging(
 
 
 async def _client_async_logging_helper(
-    logging_obj: LiteLLMLoggingObject,
+    logging_obj: EmbRouterLoggingObject,
     result,
     start_time,
     end_time,
@@ -1384,14 +1384,14 @@ async def _client_async_logging_helper(
 ):
     if (
         is_completion_with_fallbacks is False
-    ):  # don't log the parent event litellm.completion_with_fallbacks as a 'log_success_event', this will lead to double logging the same call
+    ):  # don't log the parent event embrouter.completion_with_fallbacks as a 'log_success_event', this will lead to double logging the same call
         print_verbose(
             f"Async Wrapper: Completed Call, calling async_success_handler: {logging_obj.async_success_handler}"
         )
         ################################################
         # Async Logging Worker
         ################################################
-        from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+        from embrouter.embrouter_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
 
         GLOBAL_LOGGING_WORKER.ensure_initialized_and_enqueue(
             async_coroutine=logging_obj.async_success_handler(result=result, start_time=start_time, end_time=end_time)
@@ -1406,12 +1406,12 @@ def _get_wrapper_num_retries(kwargs: dict[str, Any], exception: Exception) -> tu
 
     num_retries = kwargs.get("num_retries", None)
     if num_retries is None:
-        num_retries = litellm.num_retries
+        num_retries = embrouter.num_retries
     if kwargs.get("retry_policy", None):
         get_num_retries_from_retry_policy: Final[Callable[..., int | None]] = (
-            litellm_utils.get_num_retries_from_retry_policy
+            embrouter_utils.get_num_retries_from_retry_policy
         )
-        reset_retry_policy: Final = litellm_utils.reset_retry_policy
+        reset_retry_policy: Final = embrouter_utils.reset_retry_policy
         retry_policy_num_retries: Final[int | None] = get_num_retries_from_retry_policy(
             exception=exception,
             retry_policy=kwargs.get("retry_policy"),
@@ -1435,7 +1435,7 @@ def _get_wrapper_timeout(kwargs: dict[str, object], exception: Exception) -> flo
 
 
 def check_coroutine(value) -> bool:
-    get_coroutine_checker: Final = litellm_utils.get_coroutine_checker
+    get_coroutine_checker: Final = embrouter_utils.get_coroutine_checker
     return get_coroutine_checker().is_async_callable(value)
 
 
@@ -1453,7 +1453,7 @@ async def async_pre_call_deployment_hook(kwargs: dict[str, Any], call_type: str)
     modified_kwargs = kwargs.copy()
 
     CustomLogger: Final = _get_cached_custom_logger()
-    for callback in litellm.callbacks:
+    for callback in embrouter.callbacks:
         if isinstance(callback, CustomLogger):
             result = await callback.async_pre_call_deployment_hook(modified_kwargs, typed_call_type)
             if result is not None:
@@ -1477,7 +1477,7 @@ async def async_post_call_success_deployment_hook(
 
     CustomLogger: Final = _get_cached_custom_logger()
     CustomGuardrail: Final = _get_cached_custom_guardrail()
-    for callback in litellm.callbacks:
+    for callback in embrouter.callbacks:
         if isinstance(callback, CustomLogger):
             try:
                 result = await callback.async_post_call_success_deployment_hook(
@@ -1532,7 +1532,7 @@ async def async_post_call_failure_deployment_hook(
     safe_exception: Final = _snapshot_exception_for_hook(exception)
 
     CustomLogger: Final = _get_cached_custom_logger()
-    for callback in litellm.callbacks:
+    for callback in embrouter.callbacks:
         if isinstance(callback, CustomLogger):
             try:
                 if _accepts_fallback_depth_kwarg_for_class(type(callback)):
@@ -1583,7 +1583,7 @@ def post_call_processing(
                             _enable_json_schema_validation: Final = (
                                 _per_request_validation
                                 if _per_request_validation is not None
-                                else litellm.enable_json_schema_validation
+                                else embrouter.enable_json_schema_validation
                             )
                             if _enable_json_schema_validation is True:
                                 try:
@@ -1608,7 +1608,7 @@ def post_call_processing(
                                                 response_format=optional_params["response_format"]
                                             )
                                         if json_response_format is not None:
-                                            litellm.litellm_core_utils.json_validation_rule.validate_schema(
+                                            embrouter.embrouter_core_utils.json_validation_rule.validate_schema(
                                                 schema=json_response_format["json_schema"]["schema"],
                                                 response=model_response,
                                             )
@@ -1629,7 +1629,7 @@ def post_call_processing(
                                 and optional_params["response_format"]["enforce_validation"] is True
                             ):
                                 # schema given, json response expected, and validation enforced
-                                litellm.litellm_core_utils.json_validation_rule.validate_schema(
+                                embrouter.embrouter_core_utils.json_validation_rule.validate_schema(
                                     schema=optional_params["response_format"]["response_schema"],
                                     response=model_response,
                                 )
@@ -1639,9 +1639,9 @@ def post_call_processing(
 
 
 def client(original_function):
-    from litellm.litellm_core_utils.core_helpers import max_retries_per_request_hit
+    from embrouter.embrouter_core_utils.core_helpers import max_retries_per_request_hit
 
-    Rules: Final = litellm_utils.Rules
+    Rules: Final = embrouter_utils.Rules
     rules_obj: Final = Rules()
 
     @wraps(original_function)
@@ -1651,7 +1651,7 @@ def client(original_function):
         call_type = original_function.__name__
         if _is_async_request(kwargs):
             # [OPTIONAL] CHECK MAX RETRIES / REQUEST
-            if max_retries_per_request_hit(kwargs, litellm.num_retries_per_request):
+            if max_retries_per_request_hit(kwargs, embrouter.num_retries_per_request):
                 raise Exception("Max retries per request hit!")
 
             # MODEL CALL
@@ -1664,21 +1664,21 @@ def client(original_function):
                     chunks = []
                     for idx, chunk in enumerate(result):
                         chunks.append(chunk)
-                    return litellm.stream_chunk_builder(chunks, messages=kwargs.get("messages", None))
+                    return embrouter.stream_chunk_builder(chunks, messages=kwargs.get("messages", None))
                 else:
                     return result
 
             return result
 
-        # Prints Exactly what was passed to litellm function - don't execute any logic here - it should just print
-        print_args_passed_to_litellm(original_function, args, kwargs)
+        # Prints Exactly what was passed to embrouter function - don't execute any logic here - it should just print
+        print_args_passed_to_embrouter(original_function, args, kwargs)
         start_time: Final = datetime.datetime.now()
         result = None
-        logging_obj: LiteLLMLoggingObject | None = kwargs.get("litellm_logging_obj", None)
+        logging_obj: EmbRouterLoggingObject | None = kwargs.get("embrouter_logging_obj", None)
 
-        # only set litellm_call_id if its not in kwargs
-        if "litellm_call_id" not in kwargs:
-            kwargs["litellm_call_id"] = str(uuid.uuid4())
+        # only set embrouter_call_id if its not in kwargs
+        if "embrouter_call_id" not in kwargs:
+            kwargs["embrouter_call_id"] = str(uuid.uuid4())
 
         model: Final[str | None] = args[0] if len(args) > 0 else kwargs.get("model", None)
 
@@ -1693,7 +1693,7 @@ def client(original_function):
 
             ## LOAD CREDENTIALS
             load_credentials_from_list(kwargs)
-            kwargs["litellm_logging_obj"] = logging_obj
+            kwargs["embrouter_logging_obj"] = logging_obj
             LLMCachingHandler: Final = _get_cached_llm_caching_handler()
             _llm_caching_handler: Final[LLMCachingHandler] = LLMCachingHandler(
                 original_function=original_function,
@@ -1703,26 +1703,26 @@ def client(original_function):
             logging_obj._llm_caching_handler = _llm_caching_handler
 
             # [OPTIONAL] CHECK BUDGET
-            if litellm.max_budget:
-                if litellm._current_cost > litellm.max_budget:
+            if embrouter.max_budget:
+                if embrouter._current_cost > embrouter.max_budget:
                     raise BudgetExceededError(
-                        current_cost=litellm._current_cost,
-                        max_budget=litellm.max_budget,
+                        current_cost=embrouter._current_cost,
+                        max_budget=embrouter.max_budget,
                     )
 
             # [OPTIONAL] CHECK MAX RETRIES / REQUEST
-            if max_retries_per_request_hit(kwargs, litellm.num_retries_per_request):
+            if max_retries_per_request_hit(kwargs, embrouter.num_retries_per_request):
                 raise Exception("Max retries per request hit!")
 
             # [OPTIONAL] CHECK CACHE
             print_verbose(
-                f"SYNC kwargs[caching]: {kwargs.get('caching', False)}; litellm.cache: {litellm.cache}; kwargs.get('cache')['no-cache']: {kwargs.get('cache', {}).get('no-cache', False)}"
+                f"SYNC kwargs[caching]: {kwargs.get('caching', False)}; embrouter.cache: {embrouter.cache}; kwargs.get('cache')['no-cache']: {kwargs.get('cache', {}).get('no-cache', False)}"
             )
             # if caching is false or cache["no-cache"]==True, don't run this
             if (
                 (
                     (
-                        (kwargs.get("caching", None) is None and litellm.cache is not None)
+                        (kwargs.get("caching", None) is None and embrouter.cache is not None)
                         or kwargs.get("caching", False) is True
                     )
                     and kwargs.get("cache", {}).get("no-cache", False) is not True
@@ -1755,7 +1755,7 @@ def client(original_function):
             if (
                 kwargs.get("max_tokens", None) is not None
                 and model is not None
-                and litellm.modify_params is True  # user is okay with params being modified
+                and embrouter.modify_params is True  # user is okay with params being modified
                 and (
                     call_type == CallTypes.acompletion.value
                     or call_type == CallTypes.completion.value
@@ -1794,10 +1794,10 @@ def client(original_function):
                     chunks = []
                     for idx, chunk in enumerate(result):
                         chunks.append(chunk)
-                    return litellm.stream_chunk_builder(chunks, messages=kwargs.get("messages", None))
+                    return embrouter.stream_chunk_builder(chunks, messages=kwargs.get("messages", None))
                 else:
                     # RETURN RESULT
-                    update_response_metadata: _ResponseMetadataUpdater = litellm_utils.update_response_metadata
+                    update_response_metadata: _ResponseMetadataUpdater = embrouter_utils.update_response_metadata
                     update_response_metadata(
                         result=result,
                         logging_obj=logging_obj,
@@ -1838,7 +1838,7 @@ def client(original_function):
                 kwargs=kwargs,
             )
 
-            _update_response_metadata: Final[_ResponseMetadataUpdater] = litellm_utils.update_response_metadata
+            _update_response_metadata: Final[_ResponseMetadataUpdater] = embrouter_utils.update_response_metadata
             _update_response_metadata(
                 result=result,
                 logging_obj=logging_obj,
@@ -1866,38 +1866,38 @@ def client(original_function):
         except Exception as e:
             call_type = original_function.__name__
             if call_type == CallTypes.completion.value:
-                num_retries = kwargs.get("num_retries", None) or litellm.num_retries or None
+                num_retries = kwargs.get("num_retries", None) or embrouter.num_retries or None
                 if kwargs.get("retry_policy", None):
                     get_num_retries_from_retry_policy: Callable[..., int | None] = (
-                        litellm_utils.get_num_retries_from_retry_policy
+                        embrouter_utils.get_num_retries_from_retry_policy
                     )
-                    reset_retry_policy = litellm_utils.reset_retry_policy
+                    reset_retry_policy = embrouter_utils.reset_retry_policy
                     num_retries = get_num_retries_from_retry_policy(
                         exception=e,
                         retry_policy=kwargs.get("retry_policy"),
                     )
                     kwargs["retry_policy"] = reset_retry_policy()  # prevent infinite loops
-                litellm.num_retries = None  # set retries to None to prevent infinite loops
+                embrouter.num_retries = None  # set retries to None to prevent infinite loops
                 context_window_fallback_dict: Final = kwargs.get("context_window_fallback_dict", {})
 
-                _is_litellm_router_call = "model_group" in (
+                _is_embrouter_router_call = "model_group" in (
                     kwargs.get("metadata") or {}
-                )  # check if call from litellm.router/proxy
+                )  # check if call from embrouter.router/proxy
                 if (
-                    num_retries and not _is_litellm_router_call
-                ):  # only enter this if call is not from litellm router/proxy. router has it's own logic for retrying
+                    num_retries and not _is_embrouter_router_call
+                ):  # only enter this if call is not from embrouter router/proxy. router has it's own logic for retrying
                     if (
                         isinstance(e, openai.APIError)
                         or isinstance(e, openai.Timeout)
                         or isinstance(e, openai.APIConnectionError)
                     ):
                         kwargs["num_retries"] = num_retries
-                        return litellm.completion_with_retries(*args, **kwargs)
+                        return embrouter.completion_with_retries(*args, **kwargs)
                 elif (
-                    isinstance(e, litellm.exceptions.ContextWindowExceededError)
+                    isinstance(e, embrouter.exceptions.ContextWindowExceededError)
                     and context_window_fallback_dict
                     and model in context_window_fallback_dict
-                    and not _is_litellm_router_call
+                    and not _is_embrouter_router_call
                 ):
                     if len(args) > 0:
                         args[0] = context_window_fallback_dict[model]
@@ -1905,30 +1905,30 @@ def client(original_function):
                         kwargs["model"] = context_window_fallback_dict[model]
                     return original_function(*args, **kwargs)
             elif call_type == CallTypes.responses.value:
-                num_retries = kwargs.get("num_retries", None) or litellm.num_retries or None
+                num_retries = kwargs.get("num_retries", None) or embrouter.num_retries or None
                 if kwargs.get("retry_policy", None):
-                    get_num_retries_from_retry_policy = litellm_utils.get_num_retries_from_retry_policy
-                    reset_retry_policy = litellm_utils.reset_retry_policy
+                    get_num_retries_from_retry_policy = embrouter_utils.get_num_retries_from_retry_policy
+                    reset_retry_policy = embrouter_utils.reset_retry_policy
                     num_retries = get_num_retries_from_retry_policy(
                         exception=e,
                         retry_policy=kwargs.get("retry_policy"),
                     )
                     kwargs["retry_policy"] = reset_retry_policy()  # prevent infinite loops
-                litellm.num_retries = None  # set retries to None to prevent infinite loops
+                embrouter.num_retries = None  # set retries to None to prevent infinite loops
 
-                _is_litellm_router_call = "model_group" in (
+                _is_embrouter_router_call = "model_group" in (
                     kwargs.get("metadata") or {}
-                )  # check if call from litellm.router/proxy
+                )  # check if call from embrouter.router/proxy
                 if (
-                    num_retries and not _is_litellm_router_call
-                ):  # only enter this if call is not from litellm router/proxy. router has it's own logic for retrying
+                    num_retries and not _is_embrouter_router_call
+                ):  # only enter this if call is not from embrouter router/proxy. router has it's own logic for retrying
                     if (
                         isinstance(e, openai.APIError)
                         or isinstance(e, openai.Timeout)
                         or isinstance(e, openai.APIConnectionError)
                     ):
                         kwargs["num_retries"] = num_retries
-                        return litellm.responses_with_retries(*args, **kwargs)
+                        return embrouter.responses_with_retries(*args, **kwargs)
             traceback_exception: Final = traceback.format_exc()
             end_time = datetime.datetime.now()
 
@@ -1941,26 +1941,26 @@ def client(original_function):
 
     @wraps(original_function)
     async def wrapper_async(*args, **kwargs):
-        print_args_passed_to_litellm(original_function, args, kwargs)
+        print_args_passed_to_embrouter(original_function, args, kwargs)
         start_time: Final = datetime.datetime.now()
         result = None
-        _update_response_metadata: Final[_ResponseMetadataUpdater] = litellm_utils.update_response_metadata
-        logging_obj: LiteLLMLoggingObject | None = kwargs.get("litellm_logging_obj", None)
+        _update_response_metadata: Final[_ResponseMetadataUpdater] = embrouter_utils.update_response_metadata
+        logging_obj: EmbRouterLoggingObject | None = kwargs.get("embrouter_logging_obj", None)
         LLMCachingHandler: Final = _get_cached_llm_caching_handler()
         _llm_caching_handler: Final[LLMCachingHandler] = LLMCachingHandler(
             original_function=original_function,
             request_kwargs=kwargs,
             start_time=start_time,
         )
-        # only set litellm_call_id if its not in kwargs
+        # only set embrouter_call_id if its not in kwargs
         call_type = original_function.__name__
-        if "litellm_call_id" not in kwargs:
-            kwargs["litellm_call_id"] = str(uuid.uuid4())
+        if "embrouter_call_id" not in kwargs:
+            kwargs["embrouter_call_id"] = str(uuid.uuid4())
 
         model: Final[str | None] = args[0] if len(args) > 0 else kwargs.get("model", None)
         is_completion_with_fallbacks: Final = kwargs.get("fallbacks") is not None
-        kwargs.pop("_is_litellm_internal_call", None)  # discard if injected
-        _is_litellm_internal_call: Final = is_internal_call.get()
+        kwargs.pop("_is_embrouter_internal_call", None)  # discard if injected
+        _is_embrouter_internal_call: Final = is_internal_call.get()
         _deployment_call_end_time: datetime.datetime | None = None
 
         try:
@@ -1969,10 +1969,10 @@ def client(original_function):
 
             # Type assertion: logging_obj is guaranteed to be non-None after function_setup
             assert logging_obj is not None, "logging_obj should not be None after function_setup"
-            if not _is_litellm_internal_call:
-                bind_budget_reservation_to_callbacks(logging_obj.litellm_params)
+            if not _is_embrouter_internal_call:
+                bind_budget_reservation_to_callbacks(logging_obj.embrouter_params)
 
-            kwargs["litellm_logging_obj"] = logging_obj
+            kwargs["embrouter_logging_obj"] = logging_obj
             modified_kwargs: Final = await async_pre_call_deployment_hook(kwargs, call_type)
             if modified_kwargs is not None:
                 kwargs = modified_kwargs
@@ -1982,22 +1982,22 @@ def client(original_function):
             if _hook_stream is not None and logging_obj.stream != _hook_stream:
                 logging_obj.stream = _hook_stream
 
-            kwargs["litellm_logging_obj"] = logging_obj
+            kwargs["embrouter_logging_obj"] = logging_obj
             ## LOAD CREDENTIALS
             load_credentials_from_list(kwargs)
             logging_obj._llm_caching_handler = _llm_caching_handler
             # [OPTIONAL] CHECK BUDGET
-            if litellm.max_budget:
-                if litellm._current_cost > litellm.max_budget:
+            if embrouter.max_budget:
+                if embrouter._current_cost > embrouter.max_budget:
                     raise BudgetExceededError(
-                        current_cost=litellm._current_cost,
-                        max_budget=litellm.max_budget,
+                        current_cost=embrouter._current_cost,
+                        max_budget=embrouter.max_budget,
                     )
 
             # [OPTIONAL] CHECK CACHE
             if _is_debugging_on():
                 print_verbose(
-                    f"ASYNC kwargs[caching]: {kwargs.get('caching', False)}; litellm.cache: {litellm.cache}; kwargs.get('cache'): {kwargs.get('cache', None)}"
+                    f"ASYNC kwargs[caching]: {kwargs.get('caching', False)}; embrouter.cache: {embrouter.cache}; kwargs.get('cache'): {kwargs.get('cache', None)}"
                 )
             _caching_handler_response: CachingHandlerResponse | None = await _llm_caching_handler._async_get_cache(
                 model=model or "",
@@ -2023,13 +2023,13 @@ def client(original_function):
                     return _caching_handler_response.final_embedding_cached_response
 
             if _llm_caching_handler.preset_cache_key is not None:
-                logging_obj.litellm_params["preset_cache_key"] = _llm_caching_handler.preset_cache_key
+                logging_obj.embrouter_params["preset_cache_key"] = _llm_caching_handler.preset_cache_key
 
             # CHECK MAX TOKENS
             if (
                 kwargs.get("max_tokens", None) is not None
                 and model is not None
-                and litellm.modify_params is True  # user is okay with params being modified
+                and embrouter.modify_params is True  # user is okay with params being modified
                 and (
                     call_type == CallTypes.acompletion.value
                     or call_type == CallTypes.completion.value
@@ -2092,7 +2092,7 @@ def client(original_function):
                     chunks: Final = []
                     for idx, chunk in enumerate(result):
                         chunks.append(chunk)
-                    return litellm.stream_chunk_builder(chunks, messages=kwargs.get("messages", None))
+                    return embrouter.stream_chunk_builder(chunks, messages=kwargs.get("messages", None))
                 else:
                     _update_response_metadata(
                         result=result,
@@ -2145,7 +2145,7 @@ def client(original_function):
                     start_time=start_time,
                     end_time=end_time,
                     is_completion_with_fallbacks=is_completion_with_fallbacks,
-                    is_litellm_internal_call=_is_litellm_internal_call,
+                    is_embrouter_internal_call=_is_embrouter_internal_call,
                 )
                 return _llm_caching_handler._combine_cached_embedding_response_with_api_result(
                     _caching_handler_response=_caching_handler_response,
@@ -2168,7 +2168,7 @@ def client(original_function):
                 start_time=start_time,
                 end_time=end_time,
                 is_completion_with_fallbacks=is_completion_with_fallbacks,
-                is_litellm_internal_call=_is_litellm_internal_call,
+                is_embrouter_internal_call=_is_embrouter_internal_call,
             )
 
             return result
@@ -2177,8 +2177,8 @@ def client(original_function):
             # Reuse the timestamp taken right when the deployment call itself failed, before
             # the failure hook ran, so a slow callback doesn't inflate the reported duration.
             end_time = _deployment_call_end_time if _deployment_call_end_time is not None else datetime.datetime.now()  # noqa: DTZ005  # matches the naive datetimes this whole function already times start_time/end_time with
-            if logging_obj and not _is_litellm_internal_call:
-                unbind_budget_reservation_from_callbacks(logging_obj.litellm_params)
+            if logging_obj and not _is_embrouter_internal_call:
+                unbind_budget_reservation_from_callbacks(logging_obj.embrouter_params)
                 try:
                     logging_obj.failure_handler(
                         e, traceback_exception, start_time, end_time
@@ -2195,31 +2195,31 @@ def client(original_function):
             if call_type == CallTypes.acompletion.value:
                 context_window_fallback_dict: Final = kwargs.get("context_window_fallback_dict", {})
 
-                _is_litellm_router_call = "model_group" in (
+                _is_embrouter_router_call = "model_group" in (
                     kwargs.get("metadata") or {}
-                )  # check if call from litellm.router/proxy
+                )  # check if call from embrouter.router/proxy
 
                 if (
-                    num_retries and not _is_litellm_router_call
-                ):  # only enter this if call is not from litellm router/proxy. router has it's own logic for retrying
+                    num_retries and not _is_embrouter_router_call
+                ):  # only enter this if call is not from embrouter router/proxy. router has it's own logic for retrying
                     try:
-                        litellm.num_retries = None  # set retries to None to prevent infinite loops
+                        embrouter.num_retries = None  # set retries to None to prevent infinite loops
                         kwargs["num_retries"] = num_retries
                         kwargs["original_function"] = original_function
                         if isinstance(e, openai.RateLimitError):  # rate limiting specific error
                             kwargs["retry_strategy"] = "exponential_backoff_retry"
                         elif isinstance(e, openai.APIError):  # generic api error
                             kwargs["retry_strategy"] = "constant_retry"
-                        result = await litellm.acompletion_with_retries(*args, **kwargs)
+                        result = await embrouter.acompletion_with_retries(*args, **kwargs)
                     except Exception:
                         pass
                     else:
                         return result
                 elif (
-                    isinstance(e, litellm.exceptions.ContextWindowExceededError)
+                    isinstance(e, embrouter.exceptions.ContextWindowExceededError)
                     and context_window_fallback_dict
                     and model in context_window_fallback_dict
-                    and not _is_litellm_router_call
+                    and not _is_embrouter_router_call
                 ):
                     if len(args) > 0:
                         args[0] = context_window_fallback_dict[model]
@@ -2228,22 +2228,22 @@ def client(original_function):
                     result = await original_function(*args, **kwargs)
                     return result
             elif call_type == CallTypes.aresponses.value:
-                _is_litellm_router_call = "model_group" in (
+                _is_embrouter_router_call = "model_group" in (
                     kwargs.get("metadata") or {}
-                )  # check if call from litellm.router/proxy
+                )  # check if call from embrouter.router/proxy
 
                 if (
-                    num_retries and not _is_litellm_router_call
-                ):  # only enter this if call is not from litellm router/proxy. router has it's own logic for retrying
+                    num_retries and not _is_embrouter_router_call
+                ):  # only enter this if call is not from embrouter router/proxy. router has it's own logic for retrying
                     try:
-                        litellm.num_retries = None  # set retries to None to prevent infinite loops
+                        embrouter.num_retries = None  # set retries to None to prevent infinite loops
                         kwargs["num_retries"] = num_retries
                         kwargs["original_function"] = original_function
                         if isinstance(e, openai.RateLimitError):  # rate limiting specific error
                             kwargs["retry_strategy"] = "exponential_backoff_retry"
                         elif isinstance(e, openai.APIError):  # generic api error
                             kwargs["retry_strategy"] = "constant_retry"
-                        result = await litellm.aresponses_with_retries(*args, **kwargs)
+                        result = await embrouter.aresponses_with_retries(*args, **kwargs)
                     except Exception:
                         pass
                     else:
@@ -2272,7 +2272,7 @@ def client(original_function):
             if not _is_streaming_response_for_correlation(result):
                 _restore_correlation_context_if_supported(logging_obj)
 
-    get_coroutine_checker: Final = litellm_utils.get_coroutine_checker
+    get_coroutine_checker: Final = embrouter_utils.get_coroutine_checker
     is_coroutine: Final = get_coroutine_checker().is_async_callable(original_function)
 
     # Return the appropriate wrapper based on the original function type
@@ -2289,10 +2289,10 @@ def _is_async_request(
     """
     Returns True if the call type is an internal async request.
 
-    eg. litellm.acompletion, litellm.aimage_generation, litellm.acreate_batch, litellm._arealtime
+    eg. embrouter.acompletion, embrouter.aimage_generation, embrouter.acreate_batch, embrouter._arealtime
 
     Args:
-        kwargs (dict): The kwargs passed to the litellm function
+        kwargs (dict): The kwargs passed to the embrouter function
         is_pass_through (bool): Whether the call is a pass-through call. By default all pass through calls are async.
     """
     if kwargs is None:
@@ -2332,8 +2332,8 @@ def _is_streaming_request(
     """
     Returns True if the call type is a streaming request.
     Returns True if:
-        - if "stream=True" in kwargs  (litellm chat completion, litellm text completion, litellm messages)
-        - if call_type is generate_content_stream or agenerate_content_stream (litellm google genai)
+        - if "stream=True" in kwargs  (embrouter chat completion, embrouter text completion, embrouter messages)
+        - if call_type is generate_content_stream or agenerate_content_stream (embrouter google genai)
     """
     if "stream" in kwargs and kwargs["stream"] is True:
         return True
@@ -2354,8 +2354,8 @@ def _select_tokenizer(model: str, custom_tokenizer: CustomHuggingfaceTokenizer |
 def _huggingface_tokenizer_backend() -> Decision:
     """The backend `tokenizer_dispatch.from_str` / `from_pretrained` will select right now.
 
-    Cached HuggingFace tokenizers are keyed on it, so flipping `LITELLM_RUST` or
-    `litellm.rust(...)` reaches a fresh object instead of the other backend's."""
+    Cached HuggingFace tokenizers are keyed on it, so flipping `EMBROUTER_RUST` or
+    `embrouter.rust(...)` reaches a fresh object instead of the other backend's."""
     return decision(tokenizer_dispatch.HUGGINGFACE_CONTEXT)
 
 
@@ -2368,7 +2368,7 @@ def _select_custom_tokenizer_helper(
 
 
 def _select_tokenizer_helper(model: str) -> SelectTokenizerResponse:
-    if litellm.disable_hf_tokenizer_download is True:
+    if embrouter.disable_hf_tokenizer_download is True:
         return _return_openai_tokenizer(model)
 
     try:
@@ -2376,7 +2376,7 @@ def _select_tokenizer_helper(model: str) -> SelectTokenizerResponse:
         if result is not None:
             return result
     except Exception as e:
-        from litellm.rust_bridge.fork_guard import ForkedAfterNativeRuntimeStarted, ProcessReservedForForking
+        from embrouter.rust_bridge.fork_guard import ForkedAfterNativeRuntimeStarted, ProcessReservedForForking
 
         if isinstance(e, (ForkedAfterNativeRuntimeStarted, ProcessReservedForForking)):
             raise
@@ -2391,7 +2391,7 @@ def _return_openai_tokenizer(model: str) -> SelectTokenizerResponse:
 
 
 def uses_anthropic_tokenizer(model: str) -> bool:
-    return model in litellm.anthropic_models and "claude-3" not in model
+    return model in embrouter.anthropic_models and "claude-3" not in model
 
 
 HuggingFaceTokenizerKind = Literal["cohere", "anthropic", "llama2", "llama3"]
@@ -2399,7 +2399,7 @@ HuggingFaceTokenizerKind = Literal["cohere", "anthropic", "llama2", "llama3"]
 
 def huggingface_tokenizer_kind(model: str) -> HuggingFaceTokenizerKind | None:
     """Which HuggingFace tokenizer `token_counter` selects for a model; `None` means tiktoken."""
-    if model in litellm.cohere_models and "command-r" in model:
+    if model in embrouter.cohere_models and "command-r" in model:
         return "cohere"
     if uses_anthropic_tokenizer(model):
         return "anthropic"
@@ -2469,7 +2469,7 @@ def decode(
 
     Args:
         skip_special_tokens: For HuggingFace tokenizers, keep the historical
-            LiteLLM round-trip behavior by omitting special tokens by default.
+            EmbRouter round-trip behavior by omitting special tokens by default.
             Set to False to inspect decoded BOS/EOS tokens.
     """
     tokenizer_json: Final = custom_tokenizer or _select_tokenizer(model=model)
@@ -2526,7 +2526,7 @@ def token_counter(
     default_token_count: int | None = None,
 ) -> int:
     """
-    The same as `litellm.litellm_core_utils.token_counter`.
+    The same as `embrouter.embrouter_core_utils.token_counter`.
 
     Kept for backwards compatibility.
     """
@@ -2537,7 +2537,7 @@ def token_counter(
     # exposing this flag to allow users to disable
     # it to confirm if this is indeed the issue
     #########################################################
-    if litellm.disable_token_counter is True:
+    if embrouter.disable_token_counter is True:
         return 0
 
     return _get_token_counter_new()(
@@ -2643,7 +2643,7 @@ def supports_native_streaming(model: str, custom_llm_provider: str | None) -> bo
     Exception: If the given model is not found in model_prices_and_context_window.json.
     """
     try:
-        model, custom_llm_provider, _, _ = litellm.get_llm_provider(
+        model, custom_llm_provider, _, _ = embrouter.get_llm_provider(
             model=model, custom_llm_provider=custom_llm_provider
         )
 
@@ -2677,7 +2677,7 @@ def supports_response_schema(model: str, custom_llm_provider: str | None = None)
     """
     ## GET LLM PROVIDER ##
     try:
-        get_llm_provider: Final = litellm_utils.get_llm_provider
+        get_llm_provider: Final = embrouter_utils.get_llm_provider
         model, custom_llm_provider, _, _ = get_llm_provider(model=model, custom_llm_provider=custom_llm_provider)
     except Exception as e:
         verbose_logger.debug(
@@ -2690,11 +2690,11 @@ def supports_response_schema(model: str, custom_llm_provider: str | None = None)
 
     # providers that globally support response schema
     PROVIDERS_GLOBALLY_SUPPORT_RESPONSE_SCHEMA: Final = [
-        litellm.LlmProviders.PREDIBASE,
-        litellm.LlmProviders.FIREWORKS_AI,
-        litellm.LlmProviders.LM_STUDIO,
-        litellm.LlmProviders.NEBIUS,
-        litellm.LlmProviders.DATABRICKS,
+        embrouter.LlmProviders.PREDIBASE,
+        embrouter.LlmProviders.FIREWORKS_AI,
+        embrouter.LlmProviders.LM_STUDIO,
+        embrouter.LlmProviders.NEBIUS,
+        embrouter.LlmProviders.DATABRICKS,
     ]
 
     if custom_llm_provider in PROVIDERS_GLOBALLY_SUPPORT_RESPONSE_SCHEMA:
@@ -2771,7 +2771,7 @@ def _supports_factory(model: str, custom_llm_provider: str | None, key: str) -> 
     Raises:
     Exception: If the given model is not found or there's an error in retrieval.
     """
-    from litellm.litellm_core_utils.get_llm_provider_logic import declared_authenticating_provider
+    from embrouter.embrouter_core_utils.get_llm_provider_logic import declared_authenticating_provider
 
     try:
         declared: Final = declared_authenticating_provider(model, custom_llm_provider)
@@ -2779,7 +2779,7 @@ def _supports_factory(model: str, custom_llm_provider: str | None, key: str) -> 
             model = model.removeprefix(f"{declared}/")
             custom_llm_provider = declared  # rebind-ok: same
         else:
-            model, custom_llm_provider, _, _ = litellm.get_llm_provider(
+            model, custom_llm_provider, _, _ = embrouter.get_llm_provider(
                 model=model, custom_llm_provider=custom_llm_provider
             )
 
@@ -2794,7 +2794,7 @@ def _supports_factory(model: str, custom_llm_provider: str | None, key: str) -> 
             # which may carry the complete metadata.  See #20885.
             bare_model_key: Final = _get_model_cost_key(model)
             if bare_model_key is not None:
-                bare_entry: Final = litellm.model_cost.get(bare_model_key) or {}
+                bare_entry: Final = embrouter.model_cost.get(bare_model_key) or {}
                 if bare_entry.get(key, False) is True:
                     return True
 
@@ -2834,7 +2834,7 @@ def declared_value_factory(model: str, custom_llm_provider: str | None, key: str
     conservative one.
     """
     try:
-        resolved: Final = litellm.get_llm_provider(model=model, custom_llm_provider=custom_llm_provider)
+        resolved: Final = embrouter.get_llm_provider(model=model, custom_llm_provider=custom_llm_provider)
         resolved_model: Final = resolved[0]
         resolved_provider: Final = resolved[1]
         model_info: Final = _get_model_info_helper(model=resolved_model, custom_llm_provider=resolved_provider)
@@ -2842,7 +2842,7 @@ def declared_value_factory(model: str, custom_llm_provider: str | None, key: str
         if isinstance(declared, str):
             return declared
         bare_model_key: Final = _get_model_cost_key(resolved_model)
-        bare_entry: Final = litellm.model_cost.get(bare_model_key) if bare_model_key is not None else None
+        bare_entry: Final = embrouter.model_cost.get(bare_model_key) if bare_model_key is not None else None
         if isinstance(bare_entry, dict):
             bare_declared: Final = bare_entry.get(key)
             if isinstance(bare_declared, str):
@@ -2872,7 +2872,7 @@ def is_explicitly_disabled_factory(model: str, custom_llm_provider: str | None, 
     ``_supports_factory`` so caching, fallback, and normalisation improvements
     apply here automatically.
     """
-    from litellm.litellm_core_utils.get_llm_provider_logic import declared_authenticating_provider
+    from embrouter.embrouter_core_utils.get_llm_provider_logic import declared_authenticating_provider
 
     try:
         declared: Final = declared_authenticating_provider(model, custom_llm_provider)
@@ -2880,7 +2880,7 @@ def is_explicitly_disabled_factory(model: str, custom_llm_provider: str | None, 
             model = model.removeprefix(f"{declared}/")
             custom_llm_provider = declared  # rebind-ok: same
         else:
-            model, custom_llm_provider, _, _ = litellm.get_llm_provider(
+            model, custom_llm_provider, _, _ = embrouter.get_llm_provider(
                 model=model, custom_llm_provider=custom_llm_provider
             )
         model_info: Final = _get_model_info_helper(model=model, custom_llm_provider=custom_llm_provider)
@@ -2890,7 +2890,7 @@ def is_explicitly_disabled_factory(model: str, custom_llm_provider: str | None, 
         if val is None:
             bare_model_key: Final = _get_model_cost_key(model)
             if bare_model_key is not None:
-                bare_entry: Final = litellm.model_cost.get(bare_model_key) or {}
+                bare_entry: Final = embrouter.model_cost.get(bare_model_key) or {}
                 if bare_entry.get(key) is False:
                     return True
         return False
@@ -3054,7 +3054,7 @@ def get_supported_regions(model: str, custom_llm_provider: str | None = None) ->
     custom_llm_provider (Optional[str]): The provider to be checked.
     """
     try:
-        model, custom_llm_provider, _, _ = litellm.get_llm_provider(
+        model, custom_llm_provider, _, _ = embrouter.get_llm_provider(
             model=model, custom_llm_provider=custom_llm_provider
         )
 
@@ -3066,7 +3066,7 @@ def get_supported_regions(model: str, custom_llm_provider: str | None = None) ->
         if model_key is None:
             return None
 
-        model_cost_data: Final = litellm.model_cost.get(model_key, {})
+        model_cost_data: Final = embrouter.model_cost.get(model_key, {})
         supported_regions: Final = model_cost_data.get("supported_regions", None)
         if supported_regions is None:
             return None
@@ -3182,8 +3182,8 @@ def _resolve_builtin_model_cost_entry(key: str, provider: str) -> dict[str, obje
             candidates.append(stripped)
 
     for candidate in candidates:
-        entry = litellm.model_cost.get(candidate)
-        if entry is not None and entry.get("litellm_provider") is not None:
+        entry = embrouter.model_cost.get(candidate)
+        if entry is not None and entry.get("embrouter_provider") is not None:
             return dict(entry)
     return None
 
@@ -3191,7 +3191,7 @@ def _resolve_builtin_model_cost_entry(key: str, provider: str) -> dict[str, obje
 def is_generalized_model_info(model_info: ModelInfo) -> bool:
     """Whether ``model_info`` came from a fallback-generalization capability rule.
 
-    Detected as the resolved key missing ``litellm.model_cost`` while matching a
+    Detected as the resolved key missing ``embrouter.model_cost`` while matching a
     capability rule. A rule-derived entry carries no pricing and only a conservative
     family-baseline context window, so callers holding a second candidate name should
     prefer an exact cost-map entry from that name over this one.
@@ -3199,7 +3199,7 @@ def is_generalized_model_info(model_info: ModelInfo) -> bool:
     key: Final = cast("Mapping[str, object]", model_info).get("key")  # cast-ok: partial dicts may omit "key"
     if not isinstance(key, str):
         return False
-    return key not in litellm.model_cost and match_capability_generalizations(key) is not None
+    return key not in embrouter.model_cost and match_capability_generalizations(key) is not None
 
 
 def _get_builtin_model_info_for_registration(model: str) -> ModelInfo | None:
@@ -3233,7 +3233,7 @@ class _LiveDeploymentReplay:
 def set_live_deployment_replay(replay: Callable[[], None]) -> None:
     """Install the callback that re-asserts live router deployments after a refresh.
 
-    ``litellm.router`` installs this at import time. The seam exists because the
+    ``embrouter.router`` installs this at import time. The seam exists because the
     deployment metadata a refresh has to restore belongs to whichever Router
     objects are alive at that moment, which this module cannot see, and importing
     the router here would be circular.
@@ -3244,7 +3244,7 @@ def set_live_deployment_replay(replay: Callable[[], None]) -> None:
 def reapply_runtime_model_cost_registrations() -> None:
     """Re-apply runtime model metadata on top of a freshly adopted cost map.
 
-    Adopting a new catalog replaces ``litellm.model_cost`` wholesale, which on
+    Adopting a new catalog replaces ``embrouter.model_cost`` wholesale, which on
     its own discards everything registered at runtime: the deployment
     ``model_info`` the Router registers from ``model_list``, and pricing
     overrides passed to ``register_model``. Both are re-applied here so a price
@@ -3266,14 +3266,14 @@ def reapply_runtime_model_cost_registrations() -> None:
 
 
 def cost_map_omits_token_price(*keys: object) -> bool:
-    """Whether the raw ``litellm.model_cost`` entries under ``keys`` exist but none carries a per-token price.
+    """Whether the raw ``embrouter.model_cost`` entries under ``keys`` exist but none carries a per-token price.
 
     ``get_model_info`` substitutes 0 for a missing price, which reads exactly like a declared
     zero. Surfaces that report pricing use this to keep an unpriced deployment at ``None``.
     """
     entries: Final = tuple(
         entry
-        for entry in (litellm.model_cost.get(key) for key in keys if isinstance(key, str))
+        for entry in (embrouter.model_cost.get(key) for key in keys if isinstance(key, str))
         if isinstance(entry, dict)
     )
     return len(entries) > 0 and not any(
@@ -3296,7 +3296,7 @@ def register_model(
             "max_tokens": 8192,
             "input_cost_per_token": 0.00003,
             "output_cost_per_token": 0.00006,
-            "litellm_provider": "openai",
+            "embrouter_provider": "openai",
             "mode": "chat"
         },
     }
@@ -3317,7 +3317,7 @@ def register_model(
         # Convert stringified numbers to appropriate numeric types
         loaded_model_cost = model_cost
     elif isinstance(model_cost, str):
-        loaded_model_cost = litellm.get_model_cost_map(url=model_cost, max_attempts=1)
+        loaded_model_cost = embrouter.get_model_cost_map(url=model_cost, max_attempts=1)
 
     if persist_across_reloads:
         _registrations: Final[Mapping[str, Mapping[str, object]]] = loaded_model_cost
@@ -3328,12 +3328,12 @@ def register_model(
 
     for key, value in loaded_model_cost.items():
         ## get model info ##
-        provider = value.get("litellm_provider", "")
+        provider = value.get("embrouter_provider", "")
         _key_str = str(key)
         if provider in _skip_get_model_info_providers or any(
             _key_str.startswith(f"{p}/") for p in _skip_get_model_info_providers
         ):
-            existing_model = litellm.model_cost.get(key, {})
+            existing_model = embrouter.model_cost.get(key, {})
             model_cost_key = key
         else:
             builtin_model_info = _get_builtin_model_info_for_registration(model=_key_str)
@@ -3363,13 +3363,13 @@ def register_model(
                         "register_model: model=%s has custom pricing but not in built-in cost map and no prefix/region variant matched; cache_creation_input_token_cost and cache_read_input_token_cost will default to 0 for this model (input/output cost tracking is unaffected). To track cache cost, add them to model_info",
                         warning_display_name or key,
                     )
-        # ``get_model_info`` returns ``litellm_provider: None`` when the
+        # ``get_model_info`` returns ``embrouter_provider: None`` when the
         # provider is unknown (e.g. custom deployments registered via
         # ``Router.add_deployment``). Persisting that None into
-        # ``litellm.model_cost`` causes ``_check_provider_match`` to drop
+        # ``embrouter.model_cost`` causes ``_check_provider_match`` to drop
         # custom pricing on subsequent cost lookups.
-        if existing_model.get("litellm_provider") is None:
-            existing_model.pop("litellm_provider", None)
+        if existing_model.get("embrouter_provider") is None:
+            existing_model.pop("embrouter_provider", None)
         # Same pattern for cost fields (#30198): ``_get_model_info_helper``
         # synthesizes ``input_cost_per_token`` / ``output_cost_per_token``
         # = 0 when they are absent from the raw entry. Writing those zeros
@@ -3377,9 +3377,9 @@ def register_model(
         # to "cost keys = 0" (free), which makes
         # ``_is_cost_explicitly_configured`` return True and silently
         # disables budget enforcement on the next re-registration.
-        _raw_entry = litellm.model_cost.get(model_cost_key)
+        _raw_entry = embrouter.model_cost.get(model_cost_key)
         if _raw_entry is None:
-            _raw_entry = litellm.model_cost.get(key)
+            _raw_entry = embrouter.model_cost.get(key)
         if _raw_entry is None:
             _raw_entry = {}
         for _cost_field in ("input_cost_per_token", "output_cost_per_token"):
@@ -3387,62 +3387,62 @@ def register_model(
                 existing_model.pop(_cost_field, None)
         ## override / add new keys to the existing model cost dictionary
         updated_dictionary = _update_dictionary(existing_model, value)
-        litellm.model_cost.setdefault(model_cost_key, {}).update(updated_dictionary)
+        embrouter.model_cost.setdefault(model_cost_key, {}).update(updated_dictionary)
 
         # Invalidate case-insensitive lookup map since model_cost was modified
         _invalidate_model_cost_lowercase_map()
 
-        verbose_logger.debug("added/updated model=%s in litellm.model_cost: %s", model_cost_key, model_cost_key)
+        verbose_logger.debug("added/updated model=%s in embrouter.model_cost: %s", model_cost_key, model_cost_key)
         # add new model names to provider lists
-        if value.get("litellm_provider") == "openai":
-            if key not in litellm.open_ai_chat_completion_models:
-                litellm.open_ai_chat_completion_models.add(key)
-        elif value.get("litellm_provider") == "text-completion-openai":
-            if key not in litellm.open_ai_text_completion_models:
-                litellm.open_ai_text_completion_models.add(key)
-        elif value.get("litellm_provider") == "cohere":
-            if key not in litellm.cohere_models:
-                litellm.cohere_models.add(key)
-        elif value.get("litellm_provider") == "anthropic":
-            if key not in litellm.anthropic_models:
-                litellm.anthropic_models.add(key)
-        elif value.get("litellm_provider") == "openrouter":
+        if value.get("embrouter_provider") == "openai":
+            if key not in embrouter.open_ai_chat_completion_models:
+                embrouter.open_ai_chat_completion_models.add(key)
+        elif value.get("embrouter_provider") == "text-completion-openai":
+            if key not in embrouter.open_ai_text_completion_models:
+                embrouter.open_ai_text_completion_models.add(key)
+        elif value.get("embrouter_provider") == "cohere":
+            if key not in embrouter.cohere_models:
+                embrouter.cohere_models.add(key)
+        elif value.get("embrouter_provider") == "anthropic":
+            if key not in embrouter.anthropic_models:
+                embrouter.anthropic_models.add(key)
+        elif value.get("embrouter_provider") == "openrouter":
             split_string = key.split("/", 1)
-            if split_string[-1] not in litellm.openrouter_models:
-                litellm.openrouter_models.add(split_string[-1])
-        elif value.get("litellm_provider") == "vercel_ai_gateway":
-            if key not in litellm.vercel_ai_gateway_models:
-                litellm.vercel_ai_gateway_models.add(key)
-        elif value.get("litellm_provider") == "edenai":
-            if key not in litellm.edenai_models:
-                litellm.edenai_models.add(key)
-        elif value.get("litellm_provider") == "vertex_ai-text-models":
-            if key not in litellm.vertex_text_models:
-                litellm.vertex_text_models.add(key)
-        elif value.get("litellm_provider") == "vertex_ai-code-text-models":
-            if key not in litellm.vertex_code_text_models:
-                litellm.vertex_code_text_models.add(key)
-        elif value.get("litellm_provider") == "vertex_ai-chat-models":
-            if key not in litellm.vertex_chat_models:
-                litellm.vertex_chat_models.add(key)
-        elif value.get("litellm_provider") == "vertex_ai-code-chat-models":
-            if key not in litellm.vertex_code_chat_models:
-                litellm.vertex_code_chat_models.add(key)
-        elif value.get("litellm_provider") == "ai21":
-            if key not in litellm.ai21_models:
-                litellm.ai21_models.add(key)
-        elif value.get("litellm_provider") == "nlp_cloud":
-            if key not in litellm.nlp_cloud_models:
-                litellm.nlp_cloud_models.add(key)
-        elif value.get("litellm_provider") == "aleph_alpha":
-            if key not in litellm.aleph_alpha_models:
-                litellm.aleph_alpha_models.add(key)
-        elif value.get("litellm_provider") == "bedrock":
-            if key not in litellm.bedrock_models:
-                litellm.bedrock_models.add(key)
-        elif value.get("litellm_provider") == "novita":
-            if key not in litellm.novita_models:
-                litellm.novita_models.add(key)
+            if split_string[-1] not in embrouter.openrouter_models:
+                embrouter.openrouter_models.add(split_string[-1])
+        elif value.get("embrouter_provider") == "vercel_ai_gateway":
+            if key not in embrouter.vercel_ai_gateway_models:
+                embrouter.vercel_ai_gateway_models.add(key)
+        elif value.get("embrouter_provider") == "edenai":
+            if key not in embrouter.edenai_models:
+                embrouter.edenai_models.add(key)
+        elif value.get("embrouter_provider") == "vertex_ai-text-models":
+            if key not in embrouter.vertex_text_models:
+                embrouter.vertex_text_models.add(key)
+        elif value.get("embrouter_provider") == "vertex_ai-code-text-models":
+            if key not in embrouter.vertex_code_text_models:
+                embrouter.vertex_code_text_models.add(key)
+        elif value.get("embrouter_provider") == "vertex_ai-chat-models":
+            if key not in embrouter.vertex_chat_models:
+                embrouter.vertex_chat_models.add(key)
+        elif value.get("embrouter_provider") == "vertex_ai-code-chat-models":
+            if key not in embrouter.vertex_code_chat_models:
+                embrouter.vertex_code_chat_models.add(key)
+        elif value.get("embrouter_provider") == "ai21":
+            if key not in embrouter.ai21_models:
+                embrouter.ai21_models.add(key)
+        elif value.get("embrouter_provider") == "nlp_cloud":
+            if key not in embrouter.nlp_cloud_models:
+                embrouter.nlp_cloud_models.add(key)
+        elif value.get("embrouter_provider") == "aleph_alpha":
+            if key not in embrouter.aleph_alpha_models:
+                embrouter.aleph_alpha_models.add(key)
+        elif value.get("embrouter_provider") == "bedrock":
+            if key not in embrouter.bedrock_models:
+                embrouter.bedrock_models.add(key)
+        elif value.get("embrouter_provider") == "novita":
+            if key not in embrouter.novita_models:
+                embrouter.novita_models.add(key)
     return model_cost
 
 
@@ -3477,7 +3477,7 @@ def get_optional_params_transcription(
     drop_params: bool | None = None,
     **kwargs,
 ):
-    from litellm.constants import OPENAI_TRANSCRIPTION_PARAMS
+    from embrouter.constants import OPENAI_TRANSCRIPTION_PARAMS
 
     # retrieve all parameters passed to the function
     passed_params: Final = locals()
@@ -3507,13 +3507,13 @@ def get_optional_params_transcription(
             keys: Final = list(non_default_params.keys())
             for k in keys:
                 if (
-                    drop_params is True or litellm.drop_params is True
+                    drop_params is True or embrouter.drop_params is True
                 ) and k not in supported_params:  # drop the unsupported non-default values
                     non_default_params.pop(k, None)
                 elif k not in supported_params:
                     raise UnsupportedParamsError(
                         status_code=500,
-                        message=f"Setting user/encoding format is not supported by {custom_llm_provider}. To drop it from the call, set `litellm.drop_params = True`.",
+                        message=f"Setting user/encoding format is not supported by {custom_llm_provider}. To drop it from the call, set `embrouter.drop_params = True`.",
                     )
             return non_default_params
 
@@ -3527,9 +3527,9 @@ def get_optional_params_transcription(
     if custom_llm_provider == "openai" or custom_llm_provider == "azure":
         optional_params = non_default_params
     elif custom_llm_provider == "groq":
-        supported_params = litellm.GroqSTTConfig().get_supported_openai_params_stt()
+        supported_params = embrouter.GroqSTTConfig().get_supported_openai_params_stt()
         _check_valid_arg(supported_params=supported_params)
-        optional_params = litellm.GroqSTTConfig().map_openai_params_stt(
+        optional_params = embrouter.GroqSTTConfig().map_openai_params_stt(
             non_default_params=non_default_params,
             optional_params=optional_params,
             model=model,
@@ -3641,14 +3641,14 @@ def get_optional_params_image_gen(
             keys: Final = list(non_default_params.keys())
             for k in keys:
                 if (
-                    litellm.drop_params is True or drop_params is True
+                    embrouter.drop_params is True or drop_params is True
                 ) and k not in supported_params:  # drop the unsupported non-default values
                     non_default_params.pop(k, None)
                     passed_params.pop(k, None)
                 elif k not in supported_params:
                     raise UnsupportedParamsError(
                         status_code=500,
-                        message=f"Setting `{k}` is not supported by {custom_llm_provider}, {model}. To drop it from the call, set `litellm.drop_params = True`.",
+                        message=f"Setting `{k}` is not supported by {custom_llm_provider}, {model}. To drop it from the call, set `embrouter.drop_params = True`.",
                     )
             return non_default_params
 
@@ -3659,16 +3659,16 @@ def get_optional_params_image_gen(
             non_default_params=non_default_params,
             optional_params=optional_params,
             model=model or "",
-            drop_params=litellm.drop_params is True or drop_params is True,
+            drop_params=embrouter.drop_params is True or drop_params is True,
         )
     elif (
         custom_llm_provider == "openai"
         or custom_llm_provider == "azure"
-        or custom_llm_provider in litellm.openai_compatible_providers
+        or custom_llm_provider in embrouter.openai_compatible_providers
     ):
         optional_params = non_default_params
     elif custom_llm_provider == "bedrock":
-        config_class: Final = litellm.BedrockImageGeneration.get_config_class(model=model)
+        config_class: Final = embrouter.BedrockImageGeneration.get_config_class(model=model)
         supported_params = config_class.get_supported_openai_params(model=model)
         _check_valid_arg(supported_params=supported_params)
         optional_params = config_class.map_openai_params(non_default_params=non_default_params, optional_params={})
@@ -3716,7 +3716,7 @@ def get_optional_params_embeddings(
     **kwargs,
 ):
     # Lazy load get_supported_openai_params
-    get_supported_openai_params: Final[_SupportedOpenAIParamsGetter] = litellm_utils.get_supported_openai_params
+    get_supported_openai_params: Final[_SupportedOpenAIParamsGetter] = embrouter_utils.get_supported_openai_params
 
     # retrieve all parameters passed to the function
     passed_params: Final = locals()
@@ -3739,12 +3739,12 @@ def get_optional_params_embeddings(
             if k not in supported_params:
                 unsupported_params[k] = non_default_params[k]
         if unsupported_params:
-            if litellm.drop_params is True or (drop_params is not None and drop_params is True):
+            if embrouter.drop_params is True or (drop_params is not None and drop_params is True):
                 pass
             else:
                 raise UnsupportedParamsError(
                     status_code=500,
-                    message=f"{custom_llm_provider} does not support parameters: {unsupported_params}, for model={model}. To drop these, set `litellm.drop_params=True` or for proxy:\n\n`litellm_settings:\n drop_params: true`\n",
+                    message=f"{custom_llm_provider} does not support parameters: {unsupported_params}, for model={model}. To drop these, set `embrouter.drop_params=True` or for proxy:\n\n`embrouter_settings:\n drop_params: true`\n",
                 )
 
     non_default_params: Final = PreProcessNonDefaultParams.embedding_pre_process_non_default_params(
@@ -3793,15 +3793,15 @@ def get_optional_params_embeddings(
             and "dimensions" in non_default_params
             and "dimensions" not in (allowed_openai_params or [])
         ):
-            # Honor drop_params (per-call) and litellm.drop_params (global) the same
+            # Honor drop_params (per-call) and embrouter.drop_params (global) the same
             # way `_check_valid_arg` does above. The raised error message itself
             # tells users to set `drop_params=True`, so respect it here.
-            if litellm.drop_params is True or drop_params is True:
+            if embrouter.drop_params is True or drop_params is True:
                 non_default_params.pop("dimensions", None)
             else:
                 raise UnsupportedParamsError(
                     status_code=500,
-                    message="Setting dimensions is not supported for OpenAI `text-embedding-3` and later models. To drop it from the call, set `litellm.drop_params = True`.",
+                    message="Setting dimensions is not supported for OpenAI `text-embedding-3` and later models. To drop it from the call, set `embrouter.drop_params = True`.",
                 )
         optional_params = non_default_params
     elif custom_llm_provider == "triton":
@@ -3811,7 +3811,7 @@ def get_optional_params_embeddings(
             request_type="embeddings",
         )
         _check_valid_arg(supported_params=supported_params)
-        optional_params = litellm.TritonEmbeddingConfig().map_openai_params(
+        optional_params = embrouter.TritonEmbeddingConfig().map_openai_params(
             non_default_params=non_default_params,
             optional_params={},
             model=model,
@@ -3824,7 +3824,7 @@ def get_optional_params_embeddings(
             request_type="embeddings",
         )
         _check_valid_arg(supported_params=supported_params)
-        optional_params = litellm.DatabricksEmbeddingConfig().map_openai_params(
+        optional_params = embrouter.DatabricksEmbeddingConfig().map_openai_params(
             non_default_params=non_default_params, optional_params={}
         )
 
@@ -3835,7 +3835,7 @@ def get_optional_params_embeddings(
             request_type="embeddings",
         )
         _check_valid_arg(supported_params=supported_params)
-        optional_params = litellm.nvidiaNimEmbeddingConfig.map_openai_params(
+        optional_params = embrouter.nvidiaNimEmbeddingConfig.map_openai_params(
             non_default_params=non_default_params, optional_params={}, kwargs=kwargs
         )
     elif custom_llm_provider == "vertex_ai" or custom_llm_provider == "gemini":
@@ -3854,13 +3854,13 @@ def get_optional_params_embeddings(
         (
             optional_params,
             kwargs,
-        ) = litellm.VertexAITextEmbeddingConfig().map_openai_params(
+        ) = embrouter.VertexAITextEmbeddingConfig().map_openai_params(
             non_default_params=non_default_params, optional_params={}, kwargs=kwargs
         )
     elif custom_llm_provider == "lm_studio":
-        supported_params = litellm.LmStudioEmbeddingConfig().get_supported_openai_params()
+        supported_params = embrouter.LmStudioEmbeddingConfig().get_supported_openai_params()
         _check_valid_arg(supported_params=supported_params)
-        optional_params = litellm.LmStudioEmbeddingConfig().map_openai_params(
+        optional_params = embrouter.LmStudioEmbeddingConfig().map_openai_params(
             non_default_params=non_default_params, optional_params={}
         )
     elif custom_llm_provider == "bedrock":
@@ -3873,17 +3873,17 @@ def get_optional_params_embeddings(
                 | BedrockCohereEmbeddingConfig
                 | TwelveLabsMarengoEmbeddingConfig
                 | AmazonNovaEmbeddingConfig
-            ) = litellm.AmazonTitanG1Config()
+            ) = embrouter.AmazonTitanG1Config()
         elif "amazon.titan-embed-image-v1" in model:
-            object = litellm.AmazonTitanMultimodalEmbeddingG1Config()
+            object = embrouter.AmazonTitanMultimodalEmbeddingG1Config()
         elif "amazon.titan-embed-text-v2:0" in model:
-            object = litellm.AmazonTitanV2Config()
+            object = embrouter.AmazonTitanV2Config()
         elif "cohere.embed" in model:
-            object = litellm.BedrockCohereEmbeddingConfig()
+            object = embrouter.BedrockCohereEmbeddingConfig()
         elif "twelvelabs" in model or "marengo" in model:
-            object = litellm.TwelveLabsMarengoEmbeddingConfig(model=model)
+            object = embrouter.TwelveLabsMarengoEmbeddingConfig(model=model)
         elif "nova" in model.lower():
-            object = litellm.AmazonNovaEmbeddingConfig()
+            object = embrouter.AmazonNovaEmbeddingConfig()
         else:  # unmapped model
             supported_params = []
             _check_valid_arg(supported_params=supported_params)
@@ -3900,7 +3900,7 @@ def get_optional_params_embeddings(
             request_type="embeddings",
         )
         _check_valid_arg(supported_params=supported_params)
-        optional_params = litellm.MistralEmbeddingConfig().map_openai_params(
+        optional_params = embrouter.MistralEmbeddingConfig().map_openai_params(
             non_default_params=non_default_params, optional_params={}
         )
     elif custom_llm_provider == "jina_ai":
@@ -3910,7 +3910,7 @@ def get_optional_params_embeddings(
             request_type="embeddings",
         )
         _check_valid_arg(supported_params=supported_params)
-        optional_params = litellm.JinaAIEmbeddingConfig().map_openai_params(
+        optional_params = embrouter.JinaAIEmbeddingConfig().map_openai_params(
             non_default_params=non_default_params,
             optional_params={},
             model=model,
@@ -3923,22 +3923,22 @@ def get_optional_params_embeddings(
             request_type="embeddings",
         )
         _check_valid_arg(supported_params=supported_params)
-        if litellm.VoyageContextualEmbeddingConfig.is_contextualized_embeddings(model):
-            optional_params = litellm.VoyageContextualEmbeddingConfig().map_openai_params(
+        if embrouter.VoyageContextualEmbeddingConfig.is_contextualized_embeddings(model):
+            optional_params = embrouter.VoyageContextualEmbeddingConfig().map_openai_params(
                 non_default_params=non_default_params,
                 optional_params={},
                 model=model,
                 drop_params=drop_params if drop_params is not None else False,
             )
-        elif litellm.VoyageMultimodalEmbeddingConfig.is_multimodal_embeddings(model):
-            optional_params = litellm.VoyageMultimodalEmbeddingConfig().map_openai_params(
+        elif embrouter.VoyageMultimodalEmbeddingConfig.is_multimodal_embeddings(model):
+            optional_params = embrouter.VoyageMultimodalEmbeddingConfig().map_openai_params(
                 non_default_params=non_default_params,
                 optional_params={},
                 model=model,
                 drop_params=drop_params if drop_params is not None else False,
             )
         else:
-            optional_params = litellm.VoyageEmbeddingConfig().map_openai_params(
+            optional_params = embrouter.VoyageEmbeddingConfig().map_openai_params(
                 non_default_params=non_default_params,
                 optional_params={},
                 model=model,
@@ -3953,7 +3953,7 @@ def get_optional_params_embeddings(
             request_type="embeddings",
         )
         _check_valid_arg(supported_params=supported_params)
-        optional_params = litellm.GenAIHubEmbeddingConfig().map_openai_params(
+        optional_params = embrouter.GenAIHubEmbeddingConfig().map_openai_params(
             non_default_params=non_default_params,
             optional_params={},
             model=model,
@@ -3966,7 +3966,7 @@ def get_optional_params_embeddings(
             request_type="embeddings",
         )
         _check_valid_arg(supported_params=supported_params)
-        optional_params = litellm.InfinityEmbeddingConfig().map_openai_params(
+        optional_params = embrouter.InfinityEmbeddingConfig().map_openai_params(
             non_default_params=non_default_params,
             optional_params={},
             model=model,
@@ -3983,7 +3983,7 @@ def get_optional_params_embeddings(
             request_type="embeddings",
         )
         _check_valid_arg(supported_params=supported_params)
-        optional_params = litellm.FireworksAIEmbeddingConfig().map_openai_params(
+        optional_params = embrouter.FireworksAIEmbeddingConfig().map_openai_params(
             non_default_params=non_default_params, optional_params={}, model=model
         )
     elif custom_llm_provider == "sambanova":
@@ -3993,7 +3993,7 @@ def get_optional_params_embeddings(
             request_type="embeddings",
         )
         _check_valid_arg(supported_params=supported_params)
-        optional_params = litellm.SambaNovaEmbeddingConfig().map_openai_params(
+        optional_params = embrouter.SambaNovaEmbeddingConfig().map_openai_params(
             non_default_params=non_default_params,
             optional_params={},
             model=model,
@@ -4006,7 +4006,7 @@ def get_optional_params_embeddings(
             request_type="embeddings",
         )
         _check_valid_arg(supported_params=supported_params)
-        optional_params = litellm.OVHCloudEmbeddingConfig().map_openai_params(
+        optional_params = embrouter.OVHCloudEmbeddingConfig().map_openai_params(
             non_default_params=non_default_params,
             optional_params={},
             model=model,
@@ -4017,29 +4017,29 @@ def get_optional_params_embeddings(
         if "dimensions" in non_default_params:
             optional_params["dimensions"] = non_default_params.pop("dimensions")
         if len(non_default_params.keys()) > 0:
-            if litellm.drop_params is True or drop_params is True:  # drop the unsupported non-default values
+            if embrouter.drop_params is True or drop_params is True:  # drop the unsupported non-default values
                 keys = list(non_default_params.keys())
                 for k in keys:
                     non_default_params.pop(k, None)
             else:
                 raise UnsupportedParamsError(
                     status_code=500,
-                    message=f"Setting {non_default_params} is not supported by {custom_llm_provider}. To drop it from the call, set `litellm.drop_params = True`.",
+                    message=f"Setting {non_default_params} is not supported by {custom_llm_provider}. To drop it from the call, set `embrouter.drop_params = True`.",
                 )
     elif (
         custom_llm_provider != "openai"
         and custom_llm_provider != "azure"
-        and custom_llm_provider not in litellm.openai_compatible_providers
+        and custom_llm_provider not in embrouter.openai_compatible_providers
     ):
         if len(non_default_params.keys()) > 0:
-            if litellm.drop_params is True or drop_params is True:  # drop the unsupported non-default values
+            if embrouter.drop_params is True or drop_params is True:  # drop the unsupported non-default values
                 keys = list(non_default_params.keys())
                 for k in keys:
                     non_default_params.pop(k, None)
             else:
                 raise UnsupportedParamsError(
                     status_code=500,
-                    message=f"Setting {non_default_params} is not supported by {custom_llm_provider}. To drop it from the call, set `litellm.drop_params = True`.",
+                    message=f"Setting {non_default_params} is not supported by {custom_llm_provider}. To drop it from the call, set `embrouter.drop_params = True`.",
                 )
         else:
             optional_params = non_default_params
@@ -4152,10 +4152,10 @@ def _remove_unsupported_params(non_default_params: dict, supported_openai_params
     return non_default_params
 
 
-def filter_out_litellm_params(
+def filter_out_embrouter_params(
     kwargs: Mapping[str, object], excluding: Collection[str] = frozenset()
 ) -> dict[str, object]:
-    return {key: value for key, value in kwargs.items() if key not in excluding and not is_litellm_owned_kwarg(key)}
+    return {key: value for key, value in kwargs.items() if key not in excluding and not is_embrouter_owned_kwarg(key)}
 
 
 def _provider_supports_vertex_params(custom_llm_provider: str) -> bool:
@@ -4181,7 +4181,7 @@ class PreProcessNonDefaultParams:
     ) -> dict:
         for k, v in special_params.items():
             if k == "aws_bedrock_project_id":
-                # sent as a request header (read from litellm_params by the
+                # sent as a request header (read from embrouter_params by the
                 # bedrock-mantle configs), never as a request body field
                 continue
             if (
@@ -4316,26 +4316,26 @@ def pre_process_optional_params(passed_params: dict, non_default_params: dict, c
     """For .completion(), preprocess optional params"""
     optional_params: dict = {}
 
-    common_auth_dict: Final = litellm.common_cloud_provider_auth_params
+    common_auth_dict: Final = embrouter.common_cloud_provider_auth_params
     if custom_llm_provider in common_auth_dict["providers"]:
         """
         Check if params = ["project", "region_name", "token"]
         and correctly translate for = ["azure", "vertex_ai", "watsonx", "aws"]
         """
         if custom_llm_provider == "azure":
-            optional_params = litellm.AzureOpenAIConfig().map_special_auth_params(
+            optional_params = embrouter.AzureOpenAIConfig().map_special_auth_params(
                 non_default_params=passed_params, optional_params=optional_params
             )
         elif custom_llm_provider == "bedrock":
-            optional_params = litellm.AmazonBedrockGlobalConfig().map_special_auth_params(
+            optional_params = embrouter.AmazonBedrockGlobalConfig().map_special_auth_params(
                 non_default_params=passed_params, optional_params=optional_params
             )
         elif custom_llm_provider == "vertex_ai" or custom_llm_provider == "vertex_ai_beta":
-            optional_params = litellm.VertexAIConfig().map_special_auth_params(
+            optional_params = embrouter.VertexAIConfig().map_special_auth_params(
                 non_default_params=passed_params, optional_params=optional_params
             )
         elif custom_llm_provider == "watsonx":
-            optional_params = litellm.IBMWatsonXAIConfig().map_special_auth_params(
+            optional_params = embrouter.IBMWatsonXAIConfig().map_special_auth_params(
                 non_default_params=passed_params, optional_params=optional_params
             )
 
@@ -4366,18 +4366,18 @@ def pre_process_optional_params(passed_params: dict, non_default_params: dict, c
             and custom_llm_provider != "vercel_ai_gateway"
             and custom_llm_provider != "nebius"
             and custom_llm_provider != "wandb"
-            and custom_llm_provider not in litellm.openai_compatible_providers
+            and custom_llm_provider not in embrouter.openai_compatible_providers
         ):
             if custom_llm_provider == "ollama":
                 # ollama actually supports json output
                 optional_params["format"] = "json"
-                litellm.add_function_to_prompt = True  # so that main.py adds the function call to the prompt
+                embrouter.add_function_to_prompt = True  # so that main.py adds the function call to the prompt
                 if "tools" in non_default_params:
                     optional_params["functions_unsupported_model"] = non_default_params.pop("tools")
                     non_default_params.pop("tool_choice", None)  # causes ollama requests to hang
                 elif "functions" in non_default_params:
                     optional_params["functions_unsupported_model"] = non_default_params.pop("functions")
-            elif litellm.add_function_to_prompt:  # if user opts to add it to prompt instead
+            elif embrouter.add_function_to_prompt:  # if user opts to add it to prompt instead
                 optional_params["functions_unsupported_model"] = non_default_params.pop(
                     "tools", non_default_params.pop("functions", None)
                 )
@@ -4470,11 +4470,11 @@ def get_optional_params(
         Check if the params passed to completion() are supported by the provider
 
         Args:
-            supported_params: List[str] - supported params from the litellm config
+            supported_params: List[str] - supported params from the embrouter config
         """
-        verbose_logger.info("\nLiteLLM completion() model= %s; provider = %s", model, custom_llm_provider)
-        verbose_logger.debug("\nLiteLLM: Params passed to completion() %s", passed_params)
-        verbose_logger.debug("\nLiteLLM: Non-Default params passed to completion() %s", non_default_params)
+        verbose_logger.info("\nEmbRouter completion() model= %s; provider = %s", model, custom_llm_provider)
+        verbose_logger.debug("\nEmbRouter: Params passed to completion() %s", passed_params)
+        verbose_logger.debug("\nEmbRouter: Non-Default params passed to completion() %s", non_default_params)
         unsupported_params: Final = {}
         for k in non_default_params:
             if k not in supported_params:
@@ -4485,16 +4485,16 @@ def get_optional_params(
                 unsupported_params[k] = non_default_params[k]
 
         if unsupported_params:
-            if litellm.drop_params is True or (drop_params is not None and drop_params is True):
+            if embrouter.drop_params is True or (drop_params is not None and drop_params is True):
                 for k in unsupported_params:
                     non_default_params.pop(k, None)
             else:
                 raise UnsupportedParamsError(
                     status_code=500,
-                    message=f"{custom_llm_provider} does not support parameters: {list(unsupported_params.keys())}, for model={model}. To drop these, set `litellm.drop_params=True` or for proxy:\n\n`litellm_settings:\n drop_params: true`\n. \n If you want to use these params dynamically send allowed_openai_params={list(unsupported_params.keys())} in your request.",
+                    message=f"{custom_llm_provider} does not support parameters: {list(unsupported_params.keys())}, for model={model}. To drop these, set `embrouter.drop_params=True` or for proxy:\n\n`embrouter_settings:\n drop_params: true`\n. \n If you want to use these params dynamically send allowed_openai_params={list(unsupported_params.keys())} in your request.",
                 )
 
-    get_supported_openai_params: Final[_SupportedOpenAIParamsGetter] = litellm_utils.get_supported_openai_params
+    get_supported_openai_params: Final[_SupportedOpenAIParamsGetter] = embrouter_utils.get_supported_openai_params
     supported_params = get_supported_openai_params(
         model=model, custom_llm_provider=custom_llm_provider, base_model=base_model
     )
@@ -4511,20 +4511,20 @@ def get_optional_params(
     ## raise exception if provider doesn't support passed in param
     if custom_llm_provider == "anthropic":
         ## check if unsupported param passed in
-        optional_params = litellm.AnthropicConfig().map_openai_params(
+        optional_params = embrouter.AnthropicConfig().map_openai_params(
             model=model,
             non_default_params=non_default_params,
             optional_params=optional_params,
             drop_params=bool(drop_params),
         )
     elif custom_llm_provider == "anthropic_text":
-        optional_params = litellm.AnthropicTextConfig().map_openai_params(
+        optional_params = embrouter.AnthropicTextConfig().map_openai_params(
             model=model,
             non_default_params=non_default_params,
             optional_params=optional_params,
             drop_params=bool(drop_params),
         )
-        optional_params = litellm.AnthropicTextConfig().map_openai_params(
+        optional_params = embrouter.AnthropicTextConfig().map_openai_params(
             model=model,
             non_default_params=non_default_params,
             optional_params=optional_params,
@@ -4533,14 +4533,14 @@ def get_optional_params(
 
     elif custom_llm_provider == "cohere_chat" or custom_llm_provider == "cohere":
         # handle cohere params
-        optional_params = litellm.CohereChatConfig().map_openai_params(
+        optional_params = embrouter.CohereChatConfig().map_openai_params(
             non_default_params=non_default_params,
             optional_params=optional_params,
             model=model,
             drop_params=bool(drop_params),
         )
     elif custom_llm_provider == "triton":
-        optional_params = litellm.TritonConfig().map_openai_params(
+        optional_params = embrouter.TritonConfig().map_openai_params(
             non_default_params=non_default_params,
             optional_params=optional_params,
             model=model,
@@ -4548,49 +4548,49 @@ def get_optional_params(
         )
 
     elif custom_llm_provider == "maritalk":
-        optional_params = litellm.MaritalkConfig().map_openai_params(
+        optional_params = embrouter.MaritalkConfig().map_openai_params(
             non_default_params=non_default_params,
             optional_params=optional_params,
             model=model,
             drop_params=bool(drop_params),
         )
     elif custom_llm_provider == "replicate":
-        optional_params = litellm.ReplicateConfig().map_openai_params(
+        optional_params = embrouter.ReplicateConfig().map_openai_params(
             non_default_params=non_default_params,
             optional_params=optional_params,
             model=model,
             drop_params=bool(drop_params),
         )
     elif custom_llm_provider == "predibase":
-        optional_params = litellm.PredibaseConfig().map_openai_params(
+        optional_params = embrouter.PredibaseConfig().map_openai_params(
             non_default_params=non_default_params,
             optional_params=optional_params,
             model=model,
             drop_params=bool(drop_params),
         )
     elif custom_llm_provider == "huggingface":
-        optional_params = litellm.HuggingFaceChatConfig().map_openai_params(
+        optional_params = embrouter.HuggingFaceChatConfig().map_openai_params(
             non_default_params=non_default_params,
             optional_params=optional_params,
             model=model,
             drop_params=bool(drop_params),
         )
     elif custom_llm_provider == "together_ai":
-        optional_params = litellm.TogetherAIChatConfig().map_openai_params(
+        optional_params = embrouter.TogetherAIChatConfig().map_openai_params(
             non_default_params=non_default_params,
             optional_params=optional_params,
             model=model,
             drop_params=bool(drop_params),
         )
     elif custom_llm_provider == "vertex_ai" and (
-        model in litellm.vertex_chat_models
-        or model in litellm.vertex_code_chat_models
-        or model in litellm.vertex_text_models
-        or model in litellm.vertex_code_text_models
-        or model in litellm.vertex_language_models
-        or model in litellm.vertex_vision_models
+        model in embrouter.vertex_chat_models
+        or model in embrouter.vertex_code_chat_models
+        or model in embrouter.vertex_text_models
+        or model in embrouter.vertex_code_text_models
+        or model in embrouter.vertex_language_models
+        or model in embrouter.vertex_vision_models
     ):
-        optional_params = litellm.VertexGeminiConfig().map_openai_params(
+        optional_params = embrouter.VertexGeminiConfig().map_openai_params(
             non_default_params=non_default_params,
             optional_params=optional_params,
             model=model,
@@ -4598,44 +4598,44 @@ def get_optional_params(
         )
 
     elif custom_llm_provider == "gemini":
-        optional_params = litellm.GoogleAIStudioGeminiConfig().map_openai_params(
+        optional_params = embrouter.GoogleAIStudioGeminiConfig().map_openai_params(
             non_default_params=non_default_params,
             optional_params=optional_params,
             model=model,
             drop_params=bool(drop_params),
         )
     elif custom_llm_provider == "vertex_ai_beta" or (custom_llm_provider == "vertex_ai" and "gemini" in model):
-        optional_params = litellm.VertexGeminiConfig().map_openai_params(
+        optional_params = embrouter.VertexGeminiConfig().map_openai_params(
             non_default_params=non_default_params,
             optional_params=optional_params,
             model=model,
             drop_params=bool(drop_params),
         )
-    elif litellm.VertexAIAnthropicConfig.is_supported_model(model=model, custom_llm_provider=custom_llm_provider):
-        optional_params = litellm.VertexAIAnthropicConfig().map_openai_params(
+    elif embrouter.VertexAIAnthropicConfig.is_supported_model(model=model, custom_llm_provider=custom_llm_provider):
+        optional_params = embrouter.VertexAIAnthropicConfig().map_openai_params(
             model=model,
             non_default_params=non_default_params,
             optional_params=optional_params,
             drop_params=bool(drop_params),
         )
     elif custom_llm_provider == "vertex_ai":
-        if model in litellm.vertex_mistral_models:
+        if model in embrouter.vertex_mistral_models:
             if "codestral" in model:
-                optional_params = litellm.CodestralTextCompletionConfig().map_openai_params(
+                optional_params = embrouter.CodestralTextCompletionConfig().map_openai_params(
                     model=model,
                     non_default_params=non_default_params,
                     optional_params=optional_params,
                     drop_params=bool(drop_params),
                 )
             else:
-                optional_params = litellm.VertexAIMistralConfig().map_openai_params(
+                optional_params = embrouter.VertexAIMistralConfig().map_openai_params(
                     model=model,
                     non_default_params=non_default_params,
                     optional_params=optional_params,
                     drop_params=bool(drop_params),
                 )
-        elif model in litellm.vertex_ai_ai21_models:
-            optional_params = litellm.VertexAIAi21Config().map_openai_params(
+        elif model in embrouter.vertex_ai_ai21_models:
+            optional_params = embrouter.VertexAIAi21Config().map_openai_params(
                 non_default_params=non_default_params,
                 optional_params=optional_params,
                 model=model,
@@ -4649,7 +4649,7 @@ def get_optional_params(
                 drop_params=bool(drop_params),
             )
         else:  # use generic openai-like param mapping
-            optional_params = litellm.VertexAILlama3Config().map_openai_params(
+            optional_params = embrouter.VertexAILlama3Config().map_openai_params(
                 non_default_params=non_default_params,
                 optional_params=optional_params,
                 model=model,
@@ -4658,40 +4658,40 @@ def get_optional_params(
 
     elif custom_llm_provider == "sagemaker":
         # temperature, top_p, n, stream, stop, max_tokens, n, presence_penalty default to None
-        optional_params = litellm.SagemakerConfig().map_openai_params(
+        optional_params = embrouter.SagemakerConfig().map_openai_params(
             non_default_params=non_default_params,
             optional_params=optional_params,
             model=model,
             drop_params=bool(drop_params),
         )
     elif custom_llm_provider == "bedrock":
-        bedrock_model_info: Final[type[BedrockModelInfo]] = litellm_utils.BedrockModelInfo
+        bedrock_model_info: Final[type[BedrockModelInfo]] = embrouter_utils.BedrockModelInfo
         bedrock_route: Final = bedrock_model_info.get_bedrock_route(model)
         bedrock_base_model: Final = bedrock_model_info.get_base_model(model)
         if bedrock_route == "converse" or bedrock_route == "converse_like":
-            optional_params = litellm.AmazonConverseConfig().map_openai_params(
+            optional_params = embrouter.AmazonConverseConfig().map_openai_params(
                 model=model,
                 non_default_params=non_default_params,
                 optional_params=optional_params,
                 drop_params=bool(drop_params),
             )
         elif bedrock_route == "openai":
-            optional_params = litellm.AmazonBedrockOpenAIConfig().map_openai_params(
+            optional_params = embrouter.AmazonBedrockOpenAIConfig().map_openai_params(
                 model=model,
                 non_default_params=non_default_params,
                 optional_params=optional_params,
                 drop_params=bool(drop_params),
             )
         elif "anthropic" in bedrock_base_model and bedrock_route == "invoke":
-            if bedrock_base_model in litellm.AmazonAnthropicConfig.get_legacy_anthropic_model_names():
-                optional_params = litellm.AmazonAnthropicConfig().map_openai_params(
+            if bedrock_base_model in embrouter.AmazonAnthropicConfig.get_legacy_anthropic_model_names():
+                optional_params = embrouter.AmazonAnthropicConfig().map_openai_params(
                     non_default_params=non_default_params,
                     optional_params=optional_params,
                     model=model,
                     drop_params=bool(drop_params),
                 )
             else:
-                optional_params = litellm.AmazonAnthropicClaudeConfig().map_openai_params(
+                optional_params = embrouter.AmazonAnthropicClaudeConfig().map_openai_params(
                     non_default_params=non_default_params,
                     optional_params=optional_params,
                     model=model,
@@ -4709,28 +4709,28 @@ def get_optional_params(
                     passed_params=passed_params, optional_params=optional_params
                 )
     elif custom_llm_provider == "cloudflare":
-        optional_params = litellm.CloudflareChatConfig().map_openai_params(
+        optional_params = embrouter.CloudflareChatConfig().map_openai_params(
             model=model,
             non_default_params=non_default_params,
             optional_params=optional_params,
             drop_params=bool(drop_params),
         )
     elif custom_llm_provider == "ollama":
-        optional_params = litellm.OllamaConfig().map_openai_params(
+        optional_params = embrouter.OllamaConfig().map_openai_params(
             non_default_params=non_default_params,
             optional_params=optional_params,
             model=model,
             drop_params=bool(drop_params),
         )
     elif custom_llm_provider == "ollama_chat":
-        optional_params = litellm.OllamaChatConfig().map_openai_params(
+        optional_params = embrouter.OllamaChatConfig().map_openai_params(
             model=model,
             non_default_params=non_default_params,
             optional_params=optional_params,
             drop_params=bool(drop_params),
         )
     elif custom_llm_provider == "nlp_cloud":
-        optional_params = litellm.NLPCloudConfig().map_openai_params(
+        optional_params = embrouter.NLPCloudConfig().map_openai_params(
             non_default_params=non_default_params,
             optional_params=optional_params,
             model=model,
@@ -4738,14 +4738,14 @@ def get_optional_params(
         )
 
     elif custom_llm_provider == "petals":
-        optional_params = litellm.PetalsConfig().map_openai_params(
+        optional_params = embrouter.PetalsConfig().map_openai_params(
             non_default_params=non_default_params,
             optional_params=optional_params,
             model=model,
             drop_params=bool(drop_params),
         )
     elif custom_llm_provider == "deepinfra":
-        optional_params = litellm.DeepInfraConfig().map_openai_params(
+        optional_params = embrouter.DeepInfraConfig().map_openai_params(
             non_default_params=non_default_params,
             optional_params=optional_params,
             model=model,
@@ -4759,14 +4759,14 @@ def get_optional_params(
             drop_params=bool(drop_params),
         )
     elif custom_llm_provider == "mistral" or custom_llm_provider == "codestral":
-        optional_params = litellm.MistralConfig().map_openai_params(
+        optional_params = embrouter.MistralConfig().map_openai_params(
             non_default_params=non_default_params,
             optional_params=optional_params,
             model=model,
             drop_params=bool(drop_params),
         )
     elif custom_llm_provider == "text-completion-codestral":
-        optional_params = litellm.CodestralTextCompletionConfig().map_openai_params(
+        optional_params = embrouter.CodestralTextCompletionConfig().map_openai_params(
             non_default_params=non_default_params,
             optional_params=optional_params,
             model=model,
@@ -4774,7 +4774,7 @@ def get_optional_params(
         )
 
     elif custom_llm_provider == "text-completion-inception":
-        optional_params = litellm.InceptionTextCompletionConfig().map_openai_params(
+        optional_params = embrouter.InceptionTextCompletionConfig().map_openai_params(
             non_default_params=non_default_params,
             optional_params=optional_params,
             model=model,
@@ -4782,111 +4782,111 @@ def get_optional_params(
         )
 
     elif custom_llm_provider == "databricks":
-        optional_params = litellm.DatabricksConfig().map_openai_params(
+        optional_params = embrouter.DatabricksConfig().map_openai_params(
             non_default_params=non_default_params,
             optional_params=optional_params,
             model=model,
             drop_params=bool(drop_params),
         )
     elif custom_llm_provider == "nvidia_nim":
-        optional_params = litellm.NvidiaNimConfig().map_openai_params(
+        optional_params = embrouter.NvidiaNimConfig().map_openai_params(
             model=model,
             non_default_params=non_default_params,
             optional_params=optional_params,
             drop_params=bool(drop_params),
         )
     elif custom_llm_provider == "cerebras":
-        optional_params = litellm.CerebrasConfig().map_openai_params(
+        optional_params = embrouter.CerebrasConfig().map_openai_params(
             non_default_params=non_default_params,
             optional_params=optional_params,
             model=model,
             drop_params=bool(drop_params),
         )
     elif custom_llm_provider == "nadir":
-        optional_params = litellm.NadirConfig().map_openai_params(  # rebind-ok: same optional_params rebinding every sibling provider branch does
+        optional_params = embrouter.NadirConfig().map_openai_params(  # rebind-ok: same optional_params rebinding every sibling provider branch does
             non_default_params=non_default_params,
             optional_params=optional_params,
             model=model,
             drop_params=bool(drop_params),
         )
     elif custom_llm_provider == "xai":
-        optional_params = litellm.XAIChatConfig().map_openai_params(
+        optional_params = embrouter.XAIChatConfig().map_openai_params(
             model=model,
             non_default_params=non_default_params,
             optional_params=optional_params,
         )
     elif custom_llm_provider == "ai21_chat" or custom_llm_provider == "ai21":
-        optional_params = litellm.AI21ChatConfig().map_openai_params(
+        optional_params = embrouter.AI21ChatConfig().map_openai_params(
             non_default_params=non_default_params,
             optional_params=optional_params,
             model=model,
             drop_params=bool(drop_params),
         )
     elif custom_llm_provider == "fireworks_ai":
-        optional_params = litellm.FireworksAIConfig().map_openai_params(
+        optional_params = embrouter.FireworksAIConfig().map_openai_params(
             non_default_params=non_default_params,
             optional_params=optional_params,
             model=model,
             drop_params=bool(drop_params),
         )
     elif custom_llm_provider == "volcengine":
-        optional_params = litellm.VolcEngineConfig().map_openai_params(
+        optional_params = embrouter.VolcEngineConfig().map_openai_params(
             non_default_params=non_default_params,
             optional_params=optional_params,
             model=model,
             drop_params=bool(drop_params),
         )
     elif custom_llm_provider == "hosted_vllm":
-        optional_params = litellm.HostedVLLMChatConfig().map_openai_params(
+        optional_params = embrouter.HostedVLLMChatConfig().map_openai_params(
             non_default_params=non_default_params,
             optional_params=optional_params,
             model=model,
             drop_params=bool(drop_params),
         )
     elif custom_llm_provider == "vllm":
-        optional_params = litellm.VLLMConfig().map_openai_params(
+        optional_params = embrouter.VLLMConfig().map_openai_params(
             non_default_params=non_default_params,
             optional_params=optional_params,
             model=model,
             drop_params=bool(drop_params),
         )
     elif custom_llm_provider == "groq":
-        optional_params = litellm.GroqChatConfig().map_openai_params(
+        optional_params = embrouter.GroqChatConfig().map_openai_params(
             non_default_params=non_default_params,
             optional_params=optional_params,
             model=model,
             drop_params=bool(drop_params),
         )
     elif custom_llm_provider == "bedrock_mantle":
-        optional_params = litellm.BedrockMantleChatConfig().map_openai_params(
+        optional_params = embrouter.BedrockMantleChatConfig().map_openai_params(
             non_default_params=non_default_params,
             optional_params=optional_params,
             model=model,
             drop_params=bool(drop_params),
         )
     elif custom_llm_provider == "deepseek":
-        optional_params = litellm.DeepSeekChatConfig().map_openai_params(
+        optional_params = embrouter.DeepSeekChatConfig().map_openai_params(
             non_default_params=non_default_params,
             optional_params=optional_params,
             model=model,
             drop_params=bool(drop_params),
         )
     elif custom_llm_provider == "tencent":
-        optional_params = litellm.TencentChatConfig().map_openai_params(
+        optional_params = embrouter.TencentChatConfig().map_openai_params(
             non_default_params=non_default_params,
             optional_params=optional_params,
             model=model,
             drop_params=bool(drop_params),
         )
     elif custom_llm_provider == "openrouter":
-        optional_params = litellm.OpenrouterConfig().map_openai_params(
+        optional_params = embrouter.OpenrouterConfig().map_openai_params(
             non_default_params=non_default_params,
             optional_params=optional_params,
             model=model,
             drop_params=bool(drop_params),
         )
     elif custom_llm_provider == "watsonx":
-        optional_params = litellm.IBMWatsonXChatConfig().map_openai_params(
+        optional_params = embrouter.IBMWatsonXChatConfig().map_openai_params(
             non_default_params=non_default_params,
             optional_params=optional_params,
             model=model,
@@ -4894,26 +4894,26 @@ def get_optional_params(
         )
         # WatsonX-text param check
         for param in passed_params:
-            if litellm.IBMWatsonXAIConfig().is_watsonx_text_param(param):
+            if embrouter.IBMWatsonXAIConfig().is_watsonx_text_param(param):
                 raise ValueError(
-                    f"LiteLLM now defaults to Watsonx's `/text/chat` endpoint. Please use the `watsonx_text` provider instead, to call the `/text/generation` endpoint. Param: {param}"
+                    f"EmbRouter now defaults to Watsonx's `/text/chat` endpoint. Please use the `watsonx_text` provider instead, to call the `/text/generation` endpoint. Param: {param}"
                 )
     elif custom_llm_provider == "watsonx_text":
-        optional_params = litellm.IBMWatsonXAIConfig().map_openai_params(
+        optional_params = embrouter.IBMWatsonXAIConfig().map_openai_params(
             non_default_params=non_default_params,
             optional_params=optional_params,
             model=model,
             drop_params=bool(drop_params),
         )
     elif custom_llm_provider == "openai":
-        optional_params = litellm.OpenAIConfig().map_openai_params(
+        optional_params = embrouter.OpenAIConfig().map_openai_params(
             non_default_params=non_default_params,
             optional_params=optional_params,
             model=model,
             drop_params=bool(drop_params),
         )
     elif custom_llm_provider == "nebius":
-        optional_params = litellm.NebiusConfig().map_openai_params(
+        optional_params = embrouter.NebiusConfig().map_openai_params(
             non_default_params=non_default_params,
             optional_params=optional_params,
             model=model,
@@ -4921,15 +4921,15 @@ def get_optional_params(
         )
     elif custom_llm_provider == "azure":
         _azure_detection_model: Final = base_model or model
-        if litellm.AzureOpenAIO1Config().is_o_series_model(model=_azure_detection_model):
-            optional_params = litellm.AzureOpenAIO1Config().map_openai_params(
+        if embrouter.AzureOpenAIO1Config().is_o_series_model(model=_azure_detection_model):
+            optional_params = embrouter.AzureOpenAIO1Config().map_openai_params(
                 non_default_params=non_default_params,
                 optional_params=optional_params,
                 model=_azure_detection_model,
                 drop_params=bool(drop_params),
             )
-        elif litellm.AzureOpenAIGPT5Config.is_model_gpt_5_model(model=_azure_detection_model):
-            optional_params = litellm.AzureOpenAIGPT5Config().map_openai_params(
+        elif embrouter.AzureOpenAIGPT5Config.is_model_gpt_5_model(model=_azure_detection_model):
+            optional_params = embrouter.AzureOpenAIGPT5Config().map_openai_params(
                 non_default_params=non_default_params,
                 optional_params=optional_params,
                 model=_azure_detection_model,
@@ -4937,17 +4937,17 @@ def get_optional_params(
             )
         else:
             verbose_logger.debug(
-                "Azure optional params - api_version: api_version={}, litellm.api_version={}, os.environ['AZURE_API_VERSION']={}".format(
-                    api_version, litellm.api_version, get_secret("AZURE_API_VERSION")
+                "Azure optional params - api_version: api_version={}, embrouter.api_version={}, os.environ['AZURE_API_VERSION']={}".format(
+                    api_version, embrouter.api_version, get_secret("AZURE_API_VERSION")
                 )
             )
             api_version = (
                 api_version
-                or litellm.api_version
+                or embrouter.api_version
                 or get_secret("AZURE_API_VERSION")
-                or litellm.AZURE_DEFAULT_API_VERSION
+                or embrouter.AZURE_DEFAULT_API_VERSION
             )
-            optional_params = litellm.AzureOpenAIConfig().map_openai_params(
+            optional_params = embrouter.AzureOpenAIConfig().map_openai_params(
                 non_default_params=non_default_params,
                 optional_params=optional_params,
                 model=_azure_detection_model,
@@ -4962,7 +4962,7 @@ def get_optional_params(
             drop_params=bool(drop_params),
         )
     else:  # assume passing in params for openai-like api
-        optional_params = litellm.OpenAILikeChatConfig().map_openai_params(
+        optional_params = embrouter.OpenAILikeChatConfig().map_openai_params(
             non_default_params=non_default_params,
             optional_params=optional_params,
             model=model,
@@ -4986,8 +4986,8 @@ def get_optional_params(
 
     # Apply nested drops from additional_drop_params
     if additional_drop_params:
-        is_nested_path: Final[_NestedPathChecker] = litellm_utils.is_nested_path
-        delete_nested_value: Final[_NestedValueDeleter] = litellm_utils.delete_nested_value
+        is_nested_path: Final[_NestedPathChecker] = embrouter_utils.is_nested_path
+        delete_nested_value: Final[_NestedValueDeleter] = embrouter_utils.delete_nested_value
         nested_paths: Final = [p for p in additional_drop_params if is_nested_path(p)]
         for path in nested_paths:
             optional_params = delete_nested_value(optional_params, path)
@@ -5009,7 +5009,7 @@ def add_provider_specific_params_to_optional_params(
     Add provider specific params to optional_params
     """
 
-    if custom_llm_provider in ["openai", "azure", "text-completion-openai"] + litellm.openai_compatible_providers:
+    if custom_llm_provider in ["openai", "azure", "text-completion-openai"] + embrouter.openai_compatible_providers:
         # for openai, azure we should pass the extra/passed params within `extra_body` https://github.com/openai/openai-python/blob/ac33853ba10d13ac149b1fa3ca6dba7d613065c9/src/openai/resources/models.py#L46
         if _should_drop_param(k="extra_body", additional_drop_params=additional_drop_params) is False:
             extra_body: Final = dict(passed_params.pop("extra_body", None) or {})
@@ -5141,10 +5141,10 @@ def _get_deployment_order(deployment: dict | Any) -> int | None:
     """
     Returns the routing order for a deployment.
 
-    Checks litellm_params first (static config), then model_info (dynamic/team
-    models added via API where order lives in model_info, not litellm_params).
+    Checks embrouter_params first (static config), then model_info (dynamic/team
+    models added via API where order lives in model_info, not embrouter_params).
     """
-    order = deployment.get("litellm_params", {}).get("order")
+    order = deployment.get("embrouter_params", {}).get("order")
     if order is None:
         order = deployment.get("model_info", {}).get("order")
     return order
@@ -5194,32 +5194,32 @@ def get_excluded_filtered_deployments(
     return [d for d in healthy_deployments if (d.get("model_info") or {}).get("id") not in excluded_set]
 
 
-def _get_model_region(custom_llm_provider: str, litellm_params: LiteLLM_Params) -> str | None:
+def _get_model_region(custom_llm_provider: str, embrouter_params: EmbRouter_Params) -> str | None:
     """
     Return the region for a model, for a given provider
     """
     if custom_llm_provider == "vertex_ai":
         # check 'vertex_location'
         vertex_ai_location: Final = (
-            litellm_params.vertex_location
-            or litellm.vertex_location
+            embrouter_params.vertex_location
+            or embrouter.vertex_location
             or get_secret("VERTEXAI_LOCATION")
             or get_secret("VERTEX_LOCATION")
         )
         if vertex_ai_location is not None and isinstance(vertex_ai_location, str):
             return vertex_ai_location
     elif custom_llm_provider == "bedrock":
-        aws_region_name: Final = litellm_params.aws_region_name
+        aws_region_name: Final = embrouter_params.aws_region_name
         if aws_region_name is not None:
             return aws_region_name
     elif custom_llm_provider == "watsonx":
-        watsonx_region_name: Final = litellm_params.watsonx_region_name
+        watsonx_region_name: Final = embrouter_params.watsonx_region_name
         if watsonx_region_name is not None:
             return watsonx_region_name
-    return litellm_params.region_name
+    return embrouter_params.region_name
 
 
-def _infer_model_region(litellm_params: LiteLLM_Params) -> AllowedModelRegion | None:
+def _infer_model_region(embrouter_params: EmbRouter_Params) -> AllowedModelRegion | None:
     """
     Infer if a model is in the EU or US region
 
@@ -5227,28 +5227,28 @@ def _infer_model_region(litellm_params: LiteLLM_Params) -> AllowedModelRegion | 
     - str (region) - "eu" or "us"
     - None (if region not found)
     """
-    model, custom_llm_provider, _, _ = litellm.get_llm_provider(
-        model=litellm_params.model, litellm_params=litellm_params
+    model, custom_llm_provider, _, _ = embrouter.get_llm_provider(
+        model=embrouter_params.model, embrouter_params=embrouter_params
     )
 
-    model_region: Final = _get_model_region(custom_llm_provider=custom_llm_provider, litellm_params=litellm_params)
+    model_region: Final = _get_model_region(custom_llm_provider=custom_llm_provider, embrouter_params=embrouter_params)
 
     if model_region is None:
-        verbose_logger.debug("Cannot infer model region for model: %s", litellm_params.model)
+        verbose_logger.debug("Cannot infer model region for model: %s", embrouter_params.model)
         return None
 
     if custom_llm_provider == "azure":
-        eu_regions = litellm.AzureOpenAIConfig().get_eu_regions()
-        us_regions = litellm.AzureOpenAIConfig().get_us_regions()
+        eu_regions = embrouter.AzureOpenAIConfig().get_eu_regions()
+        us_regions = embrouter.AzureOpenAIConfig().get_us_regions()
     elif custom_llm_provider == "vertex_ai":
-        eu_regions = litellm.VertexAIConfig().get_eu_regions()
-        us_regions = litellm.VertexAIConfig().get_us_regions()
+        eu_regions = embrouter.VertexAIConfig().get_eu_regions()
+        us_regions = embrouter.VertexAIConfig().get_us_regions()
     elif custom_llm_provider == "bedrock":
-        eu_regions = litellm.AmazonBedrockGlobalConfig().get_eu_regions()
-        us_regions = litellm.AmazonBedrockGlobalConfig().get_us_regions()
+        eu_regions = embrouter.AmazonBedrockGlobalConfig().get_eu_regions()
+        us_regions = embrouter.AmazonBedrockGlobalConfig().get_us_regions()
     elif custom_llm_provider == "watsonx":
-        eu_regions = litellm.IBMWatsonXAIConfig().get_eu_regions()
-        us_regions = litellm.IBMWatsonXAIConfig().get_us_regions()
+        eu_regions = embrouter.IBMWatsonXAIConfig().get_eu_regions()
+        us_regions = embrouter.IBMWatsonXAIConfig().get_us_regions()
     else:
         eu_regions = []
         us_regions = []
@@ -5262,58 +5262,58 @@ def _infer_model_region(litellm_params: LiteLLM_Params) -> AllowedModelRegion | 
     return None
 
 
-def _is_region_eu(litellm_params: LiteLLM_Params) -> bool:
+def _is_region_eu(embrouter_params: EmbRouter_Params) -> bool:
     """
     Return true/false if a deployment is in the EU
     """
-    if litellm_params.region_name == "eu":
+    if embrouter_params.region_name == "eu":
         return True
 
     ## Else - try and infer from model region
-    model_region: Final = _infer_model_region(litellm_params=litellm_params)
+    model_region: Final = _infer_model_region(embrouter_params=embrouter_params)
     if model_region is not None and model_region == "eu":
         return True
     return False
 
 
-def _is_region_us(litellm_params: LiteLLM_Params) -> bool:
+def _is_region_us(embrouter_params: EmbRouter_Params) -> bool:
     """
     Return true/false if a deployment is in the US
     """
-    if litellm_params.region_name == "us":
+    if embrouter_params.region_name == "us":
         return True
 
     ## Else - try and infer from model region
-    model_region: Final = _infer_model_region(litellm_params=litellm_params)
+    model_region: Final = _infer_model_region(embrouter_params=embrouter_params)
     if model_region is not None and model_region == "us":
         return True
     return False
 
 
-def is_region_allowed(litellm_params: LiteLLM_Params, allowed_model_region: str) -> bool:
+def is_region_allowed(embrouter_params: EmbRouter_Params, allowed_model_region: str) -> bool:
     """
     Return true/false if a deployment is in the EU
     """
-    if litellm_params.region_name == allowed_model_region:
+    if embrouter_params.region_name == allowed_model_region:
         return True
     return False
 
 
-def get_model_region(litellm_params: LiteLLM_Params, mode: str | None) -> str | None:
+def get_model_region(embrouter_params: EmbRouter_Params, mode: str | None) -> str | None:
     """
-    Pass the litellm params for an azure model, and get back the region
+    Pass the embrouter params for an azure model, and get back the region
     """
     if (
-        "azure" in litellm_params.model
-        and isinstance(litellm_params.api_key, str)
-        and isinstance(litellm_params.api_base, str)
+        "azure" in embrouter_params.model
+        and isinstance(embrouter_params.api_key, str)
+        and isinstance(embrouter_params.api_base, str)
     ):
-        _model: Final = litellm_params.model.replace("azure/", "")
-        response: Final[dict] = litellm.AzureChatCompletion().get_headers(
+        _model: Final = embrouter_params.model.replace("azure/", "")
+        response: Final[dict] = embrouter.AzureChatCompletion().get_headers(
             model=_model,
-            api_key=litellm_params.api_key,
-            api_base=litellm_params.api_base,
-            api_version=litellm_params.api_version or litellm.AZURE_DEFAULT_API_VERSION,
+            api_key=embrouter_params.api_key,
+            api_base=embrouter_params.api_base,
+            api_version=embrouter_params.api_version or embrouter.AZURE_DEFAULT_API_VERSION,
             timeout=10,
             mode=mode or "chat",
         )
@@ -5411,7 +5411,7 @@ def get_max_tokens(model: str) -> int | None:
         config_url: Final = f"https://huggingface.co/{model_name}/raw/main/config.json"
         try:
             # Make the HTTP request to get the raw JSON file
-            response: Final = litellm.module_level_client.get(config_url, timeout=HF_CONFIG_FETCH_TIMEOUT_SECONDS)
+            response: Final = embrouter.module_level_client.get(config_url, timeout=HF_CONFIG_FETCH_TIMEOUT_SECONDS)
             response.raise_for_status()  # Raise an exception for bad responses (4xx or 5xx)
 
             # Parse the JSON response
@@ -5426,21 +5426,21 @@ def get_max_tokens(model: str) -> int | None:
             return None
 
     try:
-        if model in litellm.model_cost:
-            if "max_output_tokens" in litellm.model_cost[model]:
-                return litellm.model_cost[model]["max_output_tokens"]
-            elif "max_tokens" in litellm.model_cost[model]:
-                return litellm.model_cost[model]["max_tokens"]
-        get_llm_provider: Final = litellm_utils.get_llm_provider
+        if model in embrouter.model_cost:
+            if "max_output_tokens" in embrouter.model_cost[model]:
+                return embrouter.model_cost[model]["max_output_tokens"]
+            elif "max_tokens" in embrouter.model_cost[model]:
+                return embrouter.model_cost[model]["max_tokens"]
+        get_llm_provider: Final = embrouter_utils.get_llm_provider
         model, custom_llm_provider, _, _ = get_llm_provider(model=model)
         if custom_llm_provider == "huggingface":
             max_tokens: Final = _get_max_position_embeddings(model_name=model)
             return max_tokens
-        if model in litellm.model_cost:  # check if extracted model is in model_list
-            if "max_output_tokens" in litellm.model_cost[model]:
-                return litellm.model_cost[model]["max_output_tokens"]
-            elif "max_tokens" in litellm.model_cost[model]:
-                return litellm.model_cost[model]["max_tokens"]
+        if model in embrouter.model_cost:  # check if extracted model is in model_list
+            if "max_output_tokens" in embrouter.model_cost[model]:
+                return embrouter.model_cost[model]["max_output_tokens"]
+            elif "max_tokens" in embrouter.model_cost[model]:
+                return embrouter.model_cost[model]["max_tokens"]
         else:
             raise Exception()
         return None
@@ -5468,7 +5468,7 @@ def _get_base_bedrock_model(model_name) -> str:
     Handle model names like - "us.meta.llama3-2-11b-instruct-v1:0" -> "meta.llama3-2-11b-instruct-v1"
     AND "meta.llama3-2-11b-instruct-v1:0" -> "meta.llama3-2-11b-instruct-v1"
     """
-    from litellm.llms.bedrock.common_utils import BedrockModelInfo
+    from embrouter.llms.bedrock.common_utils import BedrockModelInfo
 
     return BedrockModelInfo.get_base_model(model_name)
 
@@ -5528,7 +5528,7 @@ def get_model_cost_mutation_generation() -> int:
 def _invalidate_model_cost_lowercase_map() -> None:
     """Invalidate the case-insensitive lookup map for model_cost.
 
-    Call this whenever litellm.model_cost is modified to ensure the map is rebuilt.
+    Call this whenever embrouter.model_cost is modified to ensure the map is rebuilt.
     Also clears related LRU caches that depend on model_cost data.
     """
     global _model_cost_lowercase_map, _model_cost_mutation_generation
@@ -5547,7 +5547,7 @@ def _rebuild_model_cost_lowercase_map() -> dict[str, str]:
         The rebuilt map (guaranteed to be not None).
     """
     global _model_cost_lowercase_map
-    _model_cost_lowercase_map = {k.lower(): k for k in litellm.model_cost}
+    _model_cost_lowercase_map = {k.lower(): k for k in embrouter.model_cost}
     return _model_cost_lowercase_map
 
 
@@ -5565,7 +5565,7 @@ def _handle_stale_map_entry_rebuild(
     global _model_cost_lowercase_map
     _model_cost_lowercase_map = _rebuild_model_cost_lowercase_map()
     matched_key: Final = _model_cost_lowercase_map.get(potential_key_lower)
-    if matched_key is not None and matched_key in litellm.model_cost:
+    if matched_key is not None and matched_key in embrouter.model_cost:
         return matched_key
     return None
 
@@ -5582,7 +5582,7 @@ def _handle_new_key_with_scan(
         The matched key if found, None otherwise.
     """
     global _model_cost_lowercase_map
-    for key in litellm.model_cost:
+    for key in embrouter.model_cost:
         if key.lower() == potential_key_lower:
             _model_cost_lowercase_map = _rebuild_model_cost_lowercase_map()
             return key
@@ -5607,7 +5607,7 @@ def _get_model_cost_key(potential_key: str) -> str | None:
     global _model_cost_lowercase_map
 
     # Exact match (O(1))
-    if potential_key in litellm.model_cost:
+    if potential_key in embrouter.model_cost:
         return potential_key
 
     # Case-insensitive lookup via map (O(1))
@@ -5618,7 +5618,7 @@ def _get_model_cost_key(potential_key: str) -> str | None:
     matched_key = _model_cost_lowercase_map.get(potential_key_lower)
 
     # Verify key exists (O(1) - handles model_cost.pop() case)
-    if matched_key is not None and matched_key in litellm.model_cost:
+    if matched_key is not None and matched_key in embrouter.model_cost:
         return matched_key
 
     # Rebuild map if stale entry detected (O(n) rebuild, but only when stale entry found)
@@ -5631,36 +5631,36 @@ def _get_model_cost_key(potential_key: str) -> str | None:
 
 
 def _get_model_info_from_model_cost(key: str) -> dict:
-    return litellm.model_cost[key]
+    return embrouter.model_cost[key]
 
 
 def _check_provider_match(model_info: dict, custom_llm_provider: str | None) -> bool:
     """
     Check if the model info provider matches the custom provider.
 
-    A missing ``litellm_provider`` key and a ``litellm_provider`` set to
+    A missing ``embrouter_provider`` key and a ``embrouter_provider`` set to
     ``None`` both mean "no specific provider constraint" and are treated
     as a wildcard match. ``register_model`` may persist ``None`` here via
     ``get_model_info`` when a deployment is registered without a provider,
     so normalising the two cases keeps custom pricing applied consistently.
     """
     if custom_llm_provider and (
-        model_info.get("litellm_provider") is not None and model_info["litellm_provider"] != custom_llm_provider
+        model_info.get("embrouter_provider") is not None and model_info["embrouter_provider"] != custom_llm_provider
     ):
         if (
             custom_llm_provider == "vertex_ai"
-            and model_info["litellm_provider"].startswith("vertex_ai")
+            and model_info["embrouter_provider"].startswith("vertex_ai")
             or custom_llm_provider == "fireworks_ai"
-            and model_info["litellm_provider"].startswith("fireworks_ai")
+            and model_info["embrouter_provider"].startswith("fireworks_ai")
             or custom_llm_provider.startswith("bedrock")
-            and model_info["litellm_provider"].startswith("bedrock")
+            and model_info["embrouter_provider"].startswith("bedrock")
         ):
             return True
         elif (
-            custom_llm_provider == "litellm_proxy"
-        ):  # litellm_proxy is a special case, it's not a provider, it's a proxy for the provider
+            custom_llm_provider == "embrouter_proxy"
+        ):  # embrouter_proxy is a special case, it's not a provider, it's a proxy for the provider
             return True
-        elif custom_llm_provider == "azure_ai" and model_info["litellm_provider"] in (
+        elif custom_llm_provider == "azure_ai" and model_info["embrouter_provider"] in (
             "azure",
             "openai",
         ):
@@ -5700,9 +5700,9 @@ def _get_model_info_from_generalization(
 
     Tries the same name candidates as the exact lookups, in the same order, and
     returns ``(matched_name, model_info)`` for the first candidate matched by at
-    least one capability rule, with ``litellm_provider`` backfilled from the
+    least one capability rule, with ``embrouter_provider`` backfilled from the
     provider the caller requested. Rules lose to exact entries: if ANY candidate is
-    an exact ``litellm.model_cost`` key (necessarily provider-mismatched, or the
+    an exact ``embrouter.model_cost`` key (necessarily provider-mismatched, or the
     exact lookups would have returned it), the model is known rather than unmapped,
     and resolving it from rules would hand an unpriced rule-derived entry to
     callers whose fallback ladder (e.g. the cost calculator's model-name variants)
@@ -5725,12 +5725,12 @@ def _get_model_info_from_generalization(
             continue
         if custom_llm_provider is None:
             return candidate, generalized_info
-        return candidate, {**generalized_info, "litellm_provider": custom_llm_provider}
+        return candidate, {**generalized_info, "embrouter_provider": custom_llm_provider}
     return None
 
 
 def _strip_mantle_region_prefix(model: str) -> str:
-    from litellm.llms.bedrock_mantle.common_utils import split_mantle_region_prefix
+    from embrouter.llms.bedrock_mantle.common_utils import split_mantle_region_prefix
 
     return split_mantle_region_prefix(model)[1]
 
@@ -5739,7 +5739,7 @@ def _get_potential_model_names(model: str, custom_llm_provider: str | None) -> P
     if custom_llm_provider is None:
         # Get custom_llm_provider
         try:
-            get_llm_provider: Final = litellm_utils.get_llm_provider
+            get_llm_provider: Final = embrouter_utils.get_llm_provider
             split_model, custom_llm_provider, _, _ = get_llm_provider(model=model)
         except Exception:
             split_model = model
@@ -5763,7 +5763,7 @@ def _get_potential_model_names(model: str, custom_llm_provider: str | None) -> P
         provider_prefixed_model_name = combined_model_name
 
     if custom_llm_provider in ("bedrock", "bedrock_converse"):
-        from litellm.llms.bedrock.common_utils import strip_bedrock_routing_prefix
+        from embrouter.llms.bedrock.common_utils import strip_bedrock_routing_prefix
 
         split_model = strip_bedrock_routing_prefix(split_model)
 
@@ -5802,7 +5802,7 @@ def _get_max_position_embeddings(model_name: str) -> int | None:
 
     try:
         # Make the HTTP request to get the raw JSON file
-        response: Final = litellm.module_level_client.get(config_url, timeout=HF_CONFIG_FETCH_TIMEOUT_SECONDS)
+        response: Final = embrouter.module_level_client.get(config_url, timeout=HF_CONFIG_FETCH_TIMEOUT_SECONDS)
         response.raise_for_status()  # Raise an exception for bad responses (4xx or 5xx)
 
         # Parse the JSON response
@@ -5886,19 +5886,19 @@ def _get_model_info_helper(
     """
     Helper for 'get_model_info'. Separated out to avoid infinite loop caused by returning 'supported_openai_param's
     """
-    from litellm.litellm_core_utils.get_llm_provider_logic import declared_authenticating_provider
+    from embrouter.embrouter_core_utils.get_llm_provider_logic import declared_authenticating_provider
 
     try:
-        azure_llms: Final = {**litellm.azure_llms, **litellm.azure_embedding_models}
+        azure_llms: Final = {**embrouter.azure_llms, **embrouter.azure_embedding_models}
         if model in azure_llms:
             model = azure_llms[model]
         if custom_llm_provider is not None and custom_llm_provider == "vertex_ai_beta":
             custom_llm_provider = "vertex_ai"
         if custom_llm_provider is not None and custom_llm_provider == "vertex_ai":
-            if "meta/" + model in litellm.vertex_llama3_models:
+            if "meta/" + model in embrouter.vertex_llama3_models:
                 model = "meta/" + model
             elif (
-                model + "@latest" in litellm.vertex_mistral_models or model + "@latest" in litellm.vertex_ai_ai21_models
+                model + "@latest" in embrouter.vertex_mistral_models or model + "@latest" in embrouter.vertex_ai_ai21_models
             ):
                 model = model + "@latest"
         ##########################
@@ -5906,7 +5906,7 @@ def _get_model_info_helper(
             model=model, custom_llm_provider=custom_llm_provider or declared_authenticating_provider(model)
         )
 
-        verbose_logger.debug("checking potential_model_names in litellm.model_cost: %s", potential_model_names)
+        verbose_logger.debug("checking potential_model_names in embrouter.model_cost: %s", potential_model_names)
 
         combined_model_name: Final = potential_model_names["combined_model_name"]
         stripped_model_name: Final = potential_model_names["stripped_model_name"]
@@ -5950,7 +5950,7 @@ def _get_model_info_helper(
                 max_output_tokens=None,
                 input_cost_per_token=0,
                 output_cost_per_token=0,
-                litellm_provider="huggingface",
+                embrouter_provider="huggingface",
                 mode="chat",
                 supports_system_messages=None,
                 supports_response_schema=None,
@@ -5966,14 +5966,14 @@ def _get_model_info_helper(
         else:
             """
             Check if: (in order of specificity)
-            1. 'custom_llm_provider/model' in litellm.model_cost. Checks "groq/llama3-8b-8192" if model="llama3-8b-8192" and custom_llm_provider="groq"
-            2. 'model' in litellm.model_cost. Checks "gemini-1.5-pro-002" in  litellm.model_cost if model="gemini-1.5-pro-002" and custom_llm_provider=None
-            3. 'split_model' in litellm.model_cost. Checks "au.anthropic.claude-opus-4-8" in litellm.model_cost if model="bedrock/au.anthropic.claude-opus-4-8"
-            4. 'combined_stripped_model_name' in litellm.model_cost. Checks if 'gemini/gemini-1.5-flash' in model map, if 'gemini/gemini-1.5-flash-001' given.
-            5. 'stripped_model_name' in litellm.model_cost. Checks if 'ft:gpt-3.5-turbo' in model map, if 'ft:gpt-3.5-turbo:my-org:custom_suffix:id' given.
-            6. 'provider_prefixed_model_name' in litellm.model_cost, for providers whose own model ids repeat the
-               litellm provider name. Checks "perplexity/perplexity/glm-5.2" if model="perplexity/glm-5.2" and
-               custom_llm_provider="perplexity", where 1-5 all read the leading "perplexity/" as the litellm prefix
+            1. 'custom_llm_provider/model' in embrouter.model_cost. Checks "groq/llama3-8b-8192" if model="llama3-8b-8192" and custom_llm_provider="groq"
+            2. 'model' in embrouter.model_cost. Checks "gemini-1.5-pro-002" in  embrouter.model_cost if model="gemini-1.5-pro-002" and custom_llm_provider=None
+            3. 'split_model' in embrouter.model_cost. Checks "au.anthropic.claude-opus-4-8" in embrouter.model_cost if model="bedrock/au.anthropic.claude-opus-4-8"
+            4. 'combined_stripped_model_name' in embrouter.model_cost. Checks if 'gemini/gemini-1.5-flash' in model map, if 'gemini/gemini-1.5-flash-001' given.
+            5. 'stripped_model_name' in embrouter.model_cost. Checks if 'ft:gpt-3.5-turbo' in model map, if 'ft:gpt-3.5-turbo:my-org:custom_suffix:id' given.
+            6. 'provider_prefixed_model_name' in embrouter.model_cost, for providers whose own model ids repeat the
+               embrouter provider name. Checks "perplexity/perplexity/glm-5.2" if model="perplexity/glm-5.2" and
+               custom_llm_provider="perplexity", where 1-5 all read the leading "perplexity/" as the embrouter prefix
                and strip it. Tried last so no model that already resolves through 1-5 can change.
             """
 
@@ -6042,7 +6042,7 @@ def _get_model_info_helper(
                         _model_info = None
 
             if _model_info is not None and key is not None and _model_info.get("mode", "chat") in _BACKFILL_MODES:
-                fill_missing: Final = match_fill_missing_generalizations(key, _model_info.get("litellm_provider", ""))
+                fill_missing: Final = match_fill_missing_generalizations(key, _model_info.get("embrouter_provider", ""))
                 if fill_missing is not None:
                     _model_info = {
                         **{k: v for k, v in fill_missing.items() if k not in _model_info},
@@ -6263,7 +6263,7 @@ def _get_model_info_helper(
                 output_vector_size=_model_info.get("output_vector_size", None),
                 citation_cost_per_token=_model_info.get("citation_cost_per_token", None),
                 tiered_pricing=_model_info.get("tiered_pricing", None),
-                litellm_provider=_model_info.get("litellm_provider", custom_llm_provider),
+                embrouter_provider=_model_info.get("embrouter_provider", custom_llm_provider),
                 mode=_model_info.get("mode"),
                 supported_endpoints=_model_info.get("supported_endpoints", None),
                 supports_system_messages=_model_info.get("supports_system_messages", None),
@@ -6335,7 +6335,7 @@ def _build_model_info(
     api_base: str | None = None,
     api_key: str | None = None,
 ) -> ModelInfo:
-    supported_openai_params = litellm.get_supported_openai_params(model=model, custom_llm_provider=custom_llm_provider)
+    supported_openai_params = embrouter.get_supported_openai_params(model=model, custom_llm_provider=custom_llm_provider)
 
     _model_info: Final = _get_model_info_helper(
         model=model,
@@ -6376,11 +6376,11 @@ def get_model_info(
 
     Parameters:
     - model (str): The name of the model.
-    - custom_llm_provider (str | null): the provider used for the model. If provided, used to check if the litellm model info is for that provider.
+    - custom_llm_provider (str | null): the provider used for the model. If provided, used to check if the embrouter model info is for that provider.
 
     Returns:
         dict: A dictionary containing the following information:
-            key: Required[str] # the key in litellm.model_cost which is returned
+            key: Required[str] # the key in embrouter.model_cost which is returned
             max_tokens: Required[Optional[int]]
             max_input_tokens: Required[Optional[int]]
             max_output_tokens: Required[Optional[int]]
@@ -6408,7 +6408,7 @@ def get_model_info(
             output_vector_size: Optional[int]
             output_cost_per_video_per_second: Optional[float]  # only for vertex ai models
             output_cost_per_audio_per_second: Optional[float]  # only for vertex ai models
-            litellm_provider: Required[str]
+            embrouter_provider: Required[str]
             mode: Required[
                 Literal[
                     "completion", "embedding", "image_generation", "chat", "audio_transcription"
@@ -6437,7 +6437,7 @@ def get_model_info(
             "max_tokens": 8192,
             "input_cost_per_token": 0.00003,
             "output_cost_per_token": 0.00006,
-            "litellm_provider": "openai",
+            "embrouter_provider": "openai",
             "mode": "chat",
             "supported_openai_params": ["temperature", "max_tokens", "top_p", "frequency_penalty", "presence_penalty"]
         }
@@ -6491,7 +6491,7 @@ def function_to_dict(input_function) -> dict:
     Returns
     -------
     dictionnary
-        A dictionnary to add to the list passed to `functions` parameter of `litellm.completion`
+        A dictionnary to add to the list passed to `functions` parameter of `embrouter.completion`
     """
     # Get function name and docstring
     try:
@@ -6591,7 +6591,7 @@ def load_test_model(
     messages: Final = [[{"role": "user", "content": test_prompt}] for _ in range(test_calls)]
     start_time: Final = time.time()
     try:
-        litellm.batch_completion(
+        embrouter.batch_completion(
             model=model,
             messages=messages,
             custom_llm_provider=custom_llm_provider,
@@ -6621,13 +6621,13 @@ def get_provider_fields(custom_llm_provider: str) -> list[ProviderField]:
     """Return the fields required for each provider"""
 
     if custom_llm_provider == "databricks":
-        return litellm.DatabricksConfig().get_required_params()
+        return embrouter.DatabricksConfig().get_required_params()
 
     elif custom_llm_provider == "ollama":
-        return litellm.OllamaConfig().get_required_params()
+        return embrouter.OllamaConfig().get_required_params()
 
     elif custom_llm_provider == "azure_ai":
-        return litellm.AzureAIStudioConfig().get_required_params()
+        return embrouter.AzureAIStudioConfig().get_required_params()
 
     else:
         return []
@@ -6686,7 +6686,7 @@ def validate_environment(
         }
     ## EXTRACT LLM PROVIDER - if model name provided
     try:
-        get_llm_provider: Final = litellm_utils.get_llm_provider
+        get_llm_provider: Final = embrouter_utils.get_llm_provider
         _, custom_llm_provider, _, _ = get_llm_provider(model=model)
     except Exception:
         custom_llm_provider = None
@@ -6947,10 +6947,10 @@ def validate_environment(
     else:
         ## openai - chatcompletion + text completion
         if (
-            model in litellm.open_ai_chat_completion_models
-            or model in litellm.open_ai_text_completion_models
-            or model in litellm.open_ai_embedding_models
-            or model in litellm.openai_image_generation_models
+            model in embrouter.open_ai_chat_completion_models
+            or model in embrouter.open_ai_text_completion_models
+            or model in embrouter.open_ai_embedding_models
+            or model in embrouter.openai_image_generation_models
             or model.startswith("gpt-image")
         ):
             if "OPENAI_API_KEY" in os.environ:
@@ -6958,104 +6958,104 @@ def validate_environment(
             else:
                 missing_keys.append("OPENAI_API_KEY")
         ## anthropic
-        elif model in litellm.anthropic_models:
+        elif model in embrouter.anthropic_models:
             if "ANTHROPIC_API_KEY" in os.environ or "ANTHROPIC_AUTH_TOKEN" in os.environ:
                 keys_in_environment = True
             else:
                 missing_keys.append("ANTHROPIC_API_KEY")
         ## cohere
-        elif model in litellm.cohere_models:
+        elif model in embrouter.cohere_models:
             if "COHERE_API_KEY" in os.environ:
                 keys_in_environment = True
             else:
                 missing_keys.append("COHERE_API_KEY")
         ## replicate
-        elif model in litellm.replicate_models:
+        elif model in embrouter.replicate_models:
             if "REPLICATE_API_KEY" in os.environ:
                 keys_in_environment = True
             else:
                 missing_keys.append("REPLICATE_API_KEY")
         ## openrouter
-        elif model in litellm.openrouter_models:
+        elif model in embrouter.openrouter_models:
             if "OPENROUTER_API_KEY" in os.environ:
                 keys_in_environment = True
             else:
                 missing_keys.append("OPENROUTER_API_KEY")
         ## vercel_ai_gateway
-        elif model in litellm.vercel_ai_gateway_models:
+        elif model in embrouter.vercel_ai_gateway_models:
             if "VERCEL_AI_GATEWAY_API_KEY" in os.environ:
                 keys_in_environment = True
             else:
                 missing_keys.append("VERCEL_AI_GATEWAY_API_KEY")
         ## edenai
-        elif model in litellm.edenai_models:
+        elif model in embrouter.edenai_models:
             if "EDENAI_API_KEY" in os.environ:
                 keys_in_environment = True
             else:
                 missing_keys.append("EDENAI_API_KEY")
         ## datarobot
-        elif model in litellm.datarobot_models:
+        elif model in embrouter.datarobot_models:
             if "DATAROBOT_API_TOKEN" in os.environ:
                 keys_in_environment = True
             else:
                 missing_keys.append("DATAROBOT_API_TOKEN")
         ## vertex - text + chat models
         elif (
-            model in litellm.vertex_chat_models
-            or model in litellm.vertex_text_models
-            or model in litellm.models_by_provider["vertex_ai"]
+            model in embrouter.vertex_chat_models
+            or model in embrouter.vertex_text_models
+            or model in embrouter.models_by_provider["vertex_ai"]
         ):
             if "VERTEXAI_PROJECT" in os.environ and "VERTEXAI_LOCATION" in os.environ:
                 keys_in_environment = True
             else:
                 missing_keys.extend(["VERTEXAI_PROJECT", "VERTEXAI_LOCATION"])
         ## huggingface
-        elif model in litellm.huggingface_models:
+        elif model in embrouter.huggingface_models:
             if "HUGGINGFACE_API_KEY" in os.environ:
                 keys_in_environment = True
             else:
                 missing_keys.append("HUGGINGFACE_API_KEY")
         ## ai21
-        elif model in litellm.ai21_models:
+        elif model in embrouter.ai21_models:
             if "AI21_API_KEY" in os.environ:
                 keys_in_environment = True
             else:
                 missing_keys.append("AI21_API_KEY")
         ## together_ai
-        elif model in litellm.together_ai_models:
+        elif model in embrouter.together_ai_models:
             if "TOGETHERAI_API_KEY" in os.environ:
                 keys_in_environment = True
             else:
                 missing_keys.append("TOGETHERAI_API_KEY")
         ## aleph_alpha
-        elif model in litellm.aleph_alpha_models:
+        elif model in embrouter.aleph_alpha_models:
             if "ALEPH_ALPHA_API_KEY" in os.environ:
                 keys_in_environment = True
             else:
                 missing_keys.append("ALEPH_ALPHA_API_KEY")
         ## baseten
-        elif model in litellm.baseten_models:
+        elif model in embrouter.baseten_models:
             if "BASETEN_API_KEY" in os.environ:
                 keys_in_environment = True
             else:
                 missing_keys.append("BASETEN_API_KEY")
         ## nlp_cloud
-        elif model in litellm.nlp_cloud_models:
+        elif model in embrouter.nlp_cloud_models:
             if "NLP_CLOUD_API_KEY" in os.environ:
                 keys_in_environment = True
             else:
                 missing_keys.append("NLP_CLOUD_API_KEY")
-        elif model in litellm.novita_models:
+        elif model in embrouter.novita_models:
             if "NOVITA_API_KEY" in os.environ:
                 keys_in_environment = True
             else:
                 missing_keys.append("NOVITA_API_KEY")
-        elif model in litellm.nebius_models:
+        elif model in embrouter.nebius_models:
             if "NEBIUS_API_KEY" in os.environ:
                 keys_in_environment = True
             else:
                 missing_keys.append("NEBIUS_API_KEY")
-        elif model in litellm.wandb_models:
+        elif model in embrouter.wandb_models:
             if "WANDB_API_KEY" in os.environ:
                 keys_in_environment = True
             else:
@@ -7081,24 +7081,24 @@ def validate_environment(
 
 
 def acreate(*args, **kwargs):  ## Thin client to handle the acreate langchain call
-    return litellm.acompletion(*args, **kwargs)
+    return embrouter.acompletion(*args, **kwargs)
 
 
 def valid_model(model):
     try:
         # for a given model name, check if the user has the right permissions to access the model
-        if model in litellm.open_ai_chat_completion_models or model in litellm.open_ai_text_completion_models:
+        if model in embrouter.open_ai_chat_completion_models or model in embrouter.open_ai_text_completion_models:
             openai.models.retrieve(model)
         else:
             messages: Final = [{"role": "user", "content": "Hello World"}]
-            litellm.completion(model=model, messages=messages)
+            embrouter.completion(model=model, messages=messages)
     except Exception:
         raise BadRequestError(message="", model=model, llm_provider="")
 
 
 def check_valid_key(model: str, api_key: str):
     """
-    Checks if a given API key is valid for a specific model by making a litellm.completion call with max_tokens=10
+    Checks if a given API key is valid for a specific model by making a embrouter.completion call with max_tokens=10
 
     Args:
         model (str): The name of the model to check the API key against.
@@ -7109,7 +7109,7 @@ def check_valid_key(model: str, api_key: str):
     """
     messages: Final = [{"role": "user", "content": "Hey, how's it going?"}]
     try:
-        litellm.completion(model=model, messages=messages, api_key=api_key, max_tokens=10)
+        embrouter.completion(model=model, messages=messages, api_key=api_key, max_tokens=10)
         return True
     except AuthenticationError:
         return False
@@ -7227,8 +7227,8 @@ def register_prompt_template(
         dict: The updated custom prompt dictionary.
     Example usage:
     ```
-    import litellm
-    litellm.register_prompt_template(
+    import embrouter
+    embrouter.register_prompt_template(
             model="llama-2",
         initial_prompt_value="You are a good assistant" # [OPTIONAL]
             roles={
@@ -7252,26 +7252,26 @@ def register_prompt_template(
     complete_model: Final = model
     potential_models: Final = [complete_model]
     try:
-        get_llm_provider: Final = litellm_utils.get_llm_provider
+        get_llm_provider: Final = embrouter_utils.get_llm_provider
         model = get_llm_provider(model=model)[0]
         potential_models.append(model)
     except Exception:
         pass
     if tokenizer_config:
         for m in potential_models:
-            litellm.known_tokenizer_config[m] = {
+            embrouter.known_tokenizer_config[m] = {
                 "tokenizer": tokenizer_config,
                 "status": "success",
             }
     else:
         for m in potential_models:
-            litellm.custom_prompt_dict[m] = {
+            embrouter.custom_prompt_dict[m] = {
                 "roles": roles,
                 "initial_prompt_value": initial_prompt_value,
                 "final_prompt_value": final_prompt_value,
             }
 
-    return litellm.custom_prompt_dict
+    return embrouter.custom_prompt_dict
 
 
 class TextCompletionStreamWrapper:
@@ -7331,7 +7331,7 @@ class TextCompletionStreamWrapper:
         except StopIteration:
             raise StopIteration
         except Exception as e:
-            exception_type: Final = litellm_utils.exception_type
+            exception_type: Final = embrouter_utils.exception_type
             raise exception_type(
                 model=self.model,
                 custom_llm_provider=self.custom_llm_provider or "",
@@ -7372,7 +7372,7 @@ def mock_completion_streaming_obj(
     n: int | None = None,
     prompt_tokens: int | None = None,
 ) -> Iterator[ModelResponseStream]:
-    if isinstance(mock_response, litellm.MockException):
+    if isinstance(mock_response, embrouter.MockException):
         raise mock_response
     if isinstance(mock_response, ModelResponseStream):
         yield mock_response
@@ -7384,9 +7384,9 @@ def mock_completion_streaming_obj(
         else:
             _all_choices = []
             for j in range(n):
-                _streaming_choice = litellm.utils.StreamingChoices(
+                _streaming_choice = embrouter.utils.StreamingChoices(
                     index=j,
-                    delta=litellm.utils.Delta(role="assistant", content=mock_response[i : i + 3]),
+                    delta=embrouter.utils.Delta(role="assistant", content=mock_response[i : i + 3]),
                 )
                 _all_choices.append(_streaming_choice)
             model_response.choices = _all_choices
@@ -7402,7 +7402,7 @@ async def async_mock_completion_streaming_obj(
     n: int | None = None,
     prompt_tokens: int | None = None,
 ) -> AsyncIterator[ModelResponseStream]:
-    if isinstance(mock_response, litellm.MockException):
+    if isinstance(mock_response, embrouter.MockException):
         raise mock_response
     if isinstance(mock_response, ModelResponseStream):
         yield mock_response
@@ -7414,9 +7414,9 @@ async def async_mock_completion_streaming_obj(
         else:
             _all_choices = []
             for j in range(n):
-                _streaming_choice = litellm.utils.StreamingChoices(
+                _streaming_choice = embrouter.utils.StreamingChoices(
                     index=j,
-                    delta=litellm.utils.Delta(role="assistant", content=mock_response[i : i + 3]),
+                    delta=embrouter.utils.Delta(role="assistant", content=mock_response[i : i + 3]),
                 )
                 _all_choices.append(_streaming_choice)
             model_response.choices = _all_choices
@@ -7566,7 +7566,7 @@ def shorten_message_to_fit_limit(message, tokens_needed, model: str | None, rais
     return message
 
 
-# LiteLLM token trimmer
+# EmbRouter token trimmer
 # this code is borrowed from https://github.com/KillianLucas/tokentrim/blob/main/tokentrim/tokentrim.py
 # Credits for this code go to Killian Lucas
 def trim_messages(
@@ -7581,7 +7581,7 @@ def trim_messages(
 
     Args:
         messages: Input messages to be trimmed. Each message is a dictionary with 'role' and 'content'.
-        model: The LiteLLM model being used (determines the token limit).
+        model: The EmbRouter model being used (determines the token limit).
         trim_ratio: Target ratio of tokens to use after trimming. Default is 0.75, meaning it will trim messages so they use about 75% of the model's token limit.
         return_response_tokens: If True, also return the number of tokens left available for the response after trimming.
         max_tokens: Instead of specifying a model or trim_ratio, you can specify this directly.
@@ -7596,14 +7596,14 @@ def trim_messages(
     try:
         if max_tokens is None:
             # Check if model is valid
-            if model in litellm.model_cost:
-                max_tokens_for_model: Final = litellm.model_cost[model].get(
-                    "max_input_tokens", litellm.model_cost[model]["max_tokens"]
+            if model in embrouter.model_cost:
+                max_tokens_for_model: Final = embrouter.model_cost[model].get(
+                    "max_input_tokens", embrouter.model_cost[model]["max_tokens"]
                 )
                 max_tokens = int(max_tokens_for_model * trim_ratio)
             else:
                 # if user did not specify max (input) tokens
-                # or passed an llm litellm does not know
+                # or passed an llm embrouter does not know
                 # do nothing, just return messages
                 return messages
 
@@ -7670,7 +7670,7 @@ def trim_messages(
         return original_messages
 
 
-from litellm.caching.in_memory_cache import InMemoryCache
+from embrouter.caching.in_memory_cache import InMemoryCache
 
 
 class AvailableModelsCache(InMemoryCache):
@@ -7694,12 +7694,12 @@ class AvailableModelsCache(InMemoryCache):
     def _get_cache_key(
         self,
         custom_llm_provider: str | None,
-        litellm_params: LiteLLM_Params | None,
+        embrouter_params: EmbRouter_Params | None,
     ) -> str:
         valid_str = ""
 
-        if litellm_params is not None:
-            valid_str = litellm_params.model_dump_json()
+        if embrouter_params is not None:
+            valid_str = embrouter_params.model_dump_json()
         if custom_llm_provider is not None:
             valid_str = f"{custom_llm_provider}:{valid_str}"
         return hashlib.sha256(valid_str.encode()).hexdigest()
@@ -7707,15 +7707,15 @@ class AvailableModelsCache(InMemoryCache):
     def get_cached_model_info(
         self,
         custom_llm_provider: str | None = None,
-        litellm_params: LiteLLM_Params | None = None,
+        embrouter_params: EmbRouter_Params | None = None,
     ) -> list[str] | None:
         """Get cached model info"""
         # Check if environment has changed
-        if litellm_params is None and self._check_env_changed():
+        if embrouter_params is None and self._check_env_changed():
             self.cache_dict.clear()
             return None
 
-        cache_key: Final = self._get_cache_key(custom_llm_provider, litellm_params)
+        cache_key: Final = self._get_cache_key(custom_llm_provider, embrouter_params)
 
         result: Final = cast(list[str] | None, self.get_cache(cache_key))
 
@@ -7726,11 +7726,11 @@ class AvailableModelsCache(InMemoryCache):
     def set_cached_model_info(
         self,
         custom_llm_provider: str,
-        litellm_params: LiteLLM_Params | None,
+        embrouter_params: EmbRouter_Params | None,
         available_models: list[str],
     ):
         """Set cached model info"""
-        cache_key: Final = self._get_cache_key(custom_llm_provider, litellm_params)
+        cache_key: Final = self._get_cache_key(custom_llm_provider, embrouter_params)
         self.set_cache(cache_key, copy.deepcopy(available_models))
 
 
@@ -7743,15 +7743,15 @@ def _infer_valid_provider_from_env_vars(
 ) -> list[str]:
     valid_providers: Final[list[str]] = []
     environ_keys: Final = os.environ.keys()
-    for provider in litellm.provider_list:
+    for provider in embrouter.provider_list:
         if custom_llm_provider and provider != custom_llm_provider:
             continue
 
-        # edge case litellm has together_ai as a provider, it should be togetherai
+        # edge case embrouter has together_ai as a provider, it should be togetherai
         env_provider_1 = provider.replace("_", "")
         env_provider_2 = provider
 
-        # litellm standardizes expected provider keys to
+        # embrouter standardizes expected provider keys to
         # PROVIDER_API_KEY. Example: OPENAI_API_KEY, COHERE_API_KEY
         expected_provider_key_1 = f"{env_provider_1.upper()}_API_KEY"
         expected_provider_key_2 = f"{env_provider_2.upper()}_API_KEY"
@@ -7765,19 +7765,19 @@ def _infer_valid_provider_from_env_vars(
 def _get_valid_models_from_provider_api(
     provider_config: BaseLLMModelInfo,
     custom_llm_provider: str,
-    litellm_params: LiteLLM_Params | None = None,
+    embrouter_params: EmbRouter_Params | None = None,
 ) -> list[str]:
     try:
-        cached_result: Final = _model_cache.get_cached_model_info(custom_llm_provider, litellm_params)
+        cached_result: Final = _model_cache.get_cached_model_info(custom_llm_provider, embrouter_params)
 
         if cached_result is not None:
             return cached_result
         models: Final = provider_config.get_models(
-            api_key=litellm_params.api_key if litellm_params is not None else None,
-            api_base=litellm_params.api_base if litellm_params is not None else None,
+            api_key=embrouter_params.api_key if embrouter_params is not None else None,
+            api_base=embrouter_params.api_base if embrouter_params is not None else None,
         )
 
-        _model_cache.set_cached_model_info(custom_llm_provider, litellm_params, models)
+        _model_cache.set_cached_model_info(custom_llm_provider, embrouter_params, models)
         return models
     except Exception as e:
         verbose_logger.warning("Error getting valid models: %s", e)
@@ -7787,7 +7787,7 @@ def _get_valid_models_from_provider_api(
 def get_valid_models(
     check_provider_endpoint: bool | None = None,
     custom_llm_provider: str | None = None,
-    litellm_params: LiteLLM_Params | None = None,
+    embrouter_params: EmbRouter_Params | None = None,
     api_key: str | None = None,
     api_base: str | None = None,
 ) -> list[str]:
@@ -7805,19 +7805,19 @@ def get_valid_models(
 
     try:
         ################################
-        # init litellm_params
+        # init embrouter_params
         #################################
-        from litellm.types.router import LiteLLM_Params
+        from embrouter.types.router import EmbRouter_Params
 
-        if litellm_params is None:
-            litellm_params = LiteLLM_Params(model="")
+        if embrouter_params is None:
+            embrouter_params = EmbRouter_Params(model="")
         if api_key is not None:
-            litellm_params.api_key = api_key
+            embrouter_params.api_key = api_key
         if api_base is not None:
-            litellm_params.api_base = api_base
+            embrouter_params.api_base = api_base
         #################################
 
-        check_provider_endpoint = check_provider_endpoint or litellm.check_provider_endpoint
+        check_provider_endpoint = check_provider_endpoint or embrouter.check_provider_endpoint
         # get keys set in .env
 
         valid_providers: list[str] = []
@@ -7845,11 +7845,11 @@ def get_valid_models(
                     _get_valid_models_from_provider_api(
                         provider_config,
                         provider,
-                        litellm_params,
+                        embrouter_params,
                     )
                 )
             else:
-                models_for_provider = copy.deepcopy(litellm.models_by_provider.get(provider, []))
+                models_for_provider = copy.deepcopy(embrouter.models_by_provider.get(provider, []))
                 valid_models.extend(models_for_provider)
 
         return valid_models
@@ -7858,7 +7858,7 @@ def get_valid_models(
         return []  # NON-Blocking
 
 
-def print_args_passed_to_litellm(original_function, args, kwargs):
+def print_args_passed_to_embrouter(original_function, args, kwargs):
     if not _is_debugging_on():
         return
     try:
@@ -7885,16 +7885,16 @@ def print_args_passed_to_litellm(original_function, args, kwargs):
             "\n",
         )  # new line before
         print_verbose(
-            "\033[92mRequest to litellm:\033[0m",
+            "\033[92mRequest to embrouter:\033[0m",
         )
         if args and kwargs:
-            print_verbose(f"\033[92mlitellm.{original_function.__name__}({args_str}, {kwargs_str})\033[0m")
+            print_verbose(f"\033[92membrouter.{original_function.__name__}({args_str}, {kwargs_str})\033[0m")
         elif args:
-            print_verbose(f"\033[92mlitellm.{original_function.__name__}({args_str})\033[0m")
+            print_verbose(f"\033[92membrouter.{original_function.__name__}({args_str})\033[0m")
         elif kwargs:
-            print_verbose(f"\033[92mlitellm.{original_function.__name__}({kwargs_str})\033[0m")
+            print_verbose(f"\033[92membrouter.{original_function.__name__}({kwargs_str})\033[0m")
         else:
-            print_verbose(f"\033[92mlitellm.{original_function.__name__}()\033[0m")
+            print_verbose(f"\033[92membrouter.{original_function.__name__}()\033[0m")
         print_verbose("\n")  # new line after
     except Exception:
         # This should always be non blocking
@@ -7912,26 +7912,26 @@ def get_logging_id(start_time, response_obj):
 def _get_base_model_from_metadata(model_call_details=None):
     if model_call_details is None:
         return None
-    litellm_params: Final = model_call_details.get("litellm_params", {})
-    if litellm_params is not None:
-        _base_model: Final = litellm_params.get("base_model", None)
+    embrouter_params: Final = model_call_details.get("embrouter_params", {})
+    if embrouter_params is not None:
+        _base_model: Final = embrouter_params.get("base_model", None)
         if _base_model is not None:
             return _base_model
-        metadata: Final = litellm_params.get("metadata") or {}
+        metadata: Final = embrouter_params.get("metadata") or {}
 
-        _get_base_model_from_litellm_call_metadata: _BaseModelFromMetadataGetter = getattr(
-            sys.modules[__name__], "_get_base_model_from_litellm_call_metadata"
+        _get_base_model_from_embrouter_call_metadata: _BaseModelFromMetadataGetter = getattr(
+            sys.modules[__name__], "_get_base_model_from_embrouter_call_metadata"
         )
-        base_model_from_metadata: Final = _get_base_model_from_litellm_call_metadata(metadata=metadata)
+        base_model_from_metadata: Final = _get_base_model_from_embrouter_call_metadata(metadata=metadata)
         if base_model_from_metadata is not None:
             return base_model_from_metadata
 
-        # Also check litellm_metadata (used by Responses API and other generic API calls)
-        litellm_metadata: Final = litellm_params.get("litellm_metadata", {})
-        _get_base_model_from_litellm_call_metadata = getattr(
-            sys.modules[__name__], "_get_base_model_from_litellm_call_metadata"
+        # Also check embrouter_metadata (used by Responses API and other generic API calls)
+        embrouter_metadata: Final = embrouter_params.get("embrouter_metadata", {})
+        _get_base_model_from_embrouter_call_metadata = getattr(
+            sys.modules[__name__], "_get_base_model_from_embrouter_call_metadata"
         )
-        return _get_base_model_from_litellm_call_metadata(metadata=litellm_metadata)
+        return _get_base_model_from_embrouter_call_metadata(metadata=embrouter_metadata)
     return None
 
 
@@ -8012,10 +8012,10 @@ def is_cached_message(message: AllMessageValues) -> bool:
 
     Follows the anthropic format {"cache_control": {"type": "ephemeral"}}
 
-    Can be disabled globally by setting litellm.disable_anthropic_gemini_context_caching_transform = True
+    Can be disabled globally by setting embrouter.disable_anthropic_gemini_context_caching_transform = True
     """
     # Check if context caching is disabled globally
-    if litellm.disable_anthropic_gemini_context_caching_transform is True:
+    if embrouter.disable_anthropic_gemini_context_caching_transform is True:
         return False
 
     # Check message-level cache_control (set by cache_control_injection_points hook for string content)
@@ -8167,7 +8167,7 @@ def add_dummy_tool(custom_llm_provider: str) -> list[ChatCompletionToolParam]:
     ]
 
 
-from litellm.types.llms.openai import (
+from embrouter.types.llms.openai import (
     ChatCompletionAudioObject,
     ChatCompletionImageObject,
     ChatCompletionTextObject,
@@ -8358,7 +8358,7 @@ def validate_openai_optional_params(stop: str | list[str] | None = None, **kwarg
     Returns:
         Validated stop parameter (truncated to 4 elements if needed)
     """
-    if stop is not None and isinstance(stop, list) and not litellm.disable_stop_sequence_limit:
+    if stop is not None and isinstance(stop, list) and not embrouter.disable_stop_sequence_limit:
         # Truncate to 4 elements if more are provided as openai only supports up to 4 stop sequences
         if len(stop) > 4:
             stop = stop[:4]
@@ -8369,7 +8369,7 @@ def validate_openai_optional_params(stop: str | list[str] | None = None, **kwarg
 @lru_cache(maxsize=1)
 def _get_bundled_model_cost_map() -> dict[str, Any]:
     try:
-        model_cost_path: Final = resources.files("litellm").joinpath("model_prices_and_context_window_backup.json")
+        model_cost_path: Final = resources.files("embrouter").joinpath("model_prices_and_context_window_backup.json")
         return json.loads(model_cost_path.read_text())
     except Exception:
         return {}
@@ -8381,7 +8381,7 @@ def _get_model_cost_entry_for_provider_config(
 ) -> dict[str, Any]:
     candidate_keys: Final = (model, f"{provider.value}/{model}")
     for model_key in candidate_keys:
-        model_info = litellm.model_cost.get(model_key)
+        model_info = embrouter.model_cost.get(model_key)
         if model_info is not None:
             return model_info
 
@@ -8409,8 +8409,8 @@ class ProviderConfigManager:
         return {
             # Most common providers first for readability
             # Format: (factory_function, needs_model_parameter: bool)
-            LlmProviders.OPENAI: (lambda: litellm.OpenAIGPTConfig(), False),
-            LlmProviders.ANTHROPIC: (lambda: litellm.AnthropicConfig(), False),
+            LlmProviders.OPENAI: (lambda: embrouter.OpenAIGPTConfig(), False),
+            LlmProviders.ANTHROPIC: (lambda: embrouter.AnthropicConfig(), False),
             # AZURE is handled as a special case in get_provider_chat_config()
             # so that base_model can be threaded through for model-type detection.
             LlmProviders.AZURE_AI: (
@@ -8434,132 +8434,132 @@ class ProviderConfigManager:
                 True,
             ),
             # Simple provider mappings (no model parameter needed)
-            LlmProviders.DEEPSEEK: (lambda: litellm.DeepSeekChatConfig(), False),
-            LlmProviders.TENCENT: (lambda: litellm.TencentChatConfig(), False),
-            LlmProviders.GROQ: (lambda: litellm.GroqChatConfig(), False),
+            LlmProviders.DEEPSEEK: (lambda: embrouter.DeepSeekChatConfig(), False),
+            LlmProviders.TENCENT: (lambda: embrouter.TencentChatConfig(), False),
+            LlmProviders.GROQ: (lambda: embrouter.GroqChatConfig(), False),
             LlmProviders.BEDROCK_MANTLE: (
-                lambda: litellm.BedrockMantleChatConfig(),
+                lambda: embrouter.BedrockMantleChatConfig(),
                 False,
             ),
-            LlmProviders.A2A: (lambda: litellm.A2AConfig(), False),
-            LlmProviders.BYTEZ: (lambda: litellm.BytezChatConfig(), False),
-            LlmProviders.DATABRICKS: (lambda: litellm.DatabricksConfig(), False),
-            LlmProviders.XAI: (lambda: litellm.XAIChatConfig(), False),
-            LlmProviders.ZAI: (lambda: litellm.ZAIChatConfig(), False),
-            LlmProviders.LAMBDA_AI: (lambda: litellm.LambdaAIChatConfig(), False),
-            LlmProviders.INCEPTION: (lambda: litellm.InceptionChatConfig(), False),
-            LlmProviders.LLAMA: (lambda: litellm.LlamaAPIConfig(), False),
+            LlmProviders.A2A: (lambda: embrouter.A2AConfig(), False),
+            LlmProviders.BYTEZ: (lambda: embrouter.BytezChatConfig(), False),
+            LlmProviders.DATABRICKS: (lambda: embrouter.DatabricksConfig(), False),
+            LlmProviders.XAI: (lambda: embrouter.XAIChatConfig(), False),
+            LlmProviders.ZAI: (lambda: embrouter.ZAIChatConfig(), False),
+            LlmProviders.LAMBDA_AI: (lambda: embrouter.LambdaAIChatConfig(), False),
+            LlmProviders.INCEPTION: (lambda: embrouter.InceptionChatConfig(), False),
+            LlmProviders.LLAMA: (lambda: embrouter.LlamaAPIConfig(), False),
             LlmProviders.TEXT_COMPLETION_OPENAI: (
-                lambda: litellm.OpenAITextCompletionConfig(),
+                lambda: embrouter.OpenAITextCompletionConfig(),
                 False,
             ),
-            LlmProviders.SNOWFLAKE: (lambda: litellm.SnowflakeConfig(), False),
-            LlmProviders.CLARIFAI: (lambda: litellm.ClarifaiConfig(), False),
-            LlmProviders.ANTHROPIC_TEXT: (lambda: litellm.AnthropicTextConfig(), False),
-            LlmProviders.VERTEX_AI_BETA: (lambda: litellm.VertexGeminiConfig(), False),
-            LlmProviders.CLOUDFLARE: (lambda: litellm.CloudflareChatConfig(), False),
-            LlmProviders.SAGEMAKER_CHAT: (lambda: litellm.SagemakerChatConfig(), False),
-            LlmProviders.SAGEMAKER_NOVA: (lambda: litellm.SagemakerNovaConfig(), False),
-            LlmProviders.SAGEMAKER: (lambda: litellm.SagemakerConfig(), False),
-            LlmProviders.FIREWORKS_AI: (lambda: litellm.FireworksAIConfig(), False),
-            LlmProviders.FRIENDLIAI: (lambda: litellm.FriendliaiChatConfig(), False),
-            LlmProviders.WATSONX: (lambda: litellm.IBMWatsonXChatConfig(), False),
-            LlmProviders.WATSONX_TEXT: (lambda: litellm.IBMWatsonXAIConfig(), False),
-            LlmProviders.EMPOWER: (lambda: litellm.EmpowerChatConfig(), False),
-            LlmProviders.MINIMAX: (lambda: litellm.MinimaxChatConfig(), False),
-            LlmProviders.GITHUB: (lambda: litellm.GithubChatConfig(), False),
-            LlmProviders.COMPACTIFAI: (lambda: litellm.CompactifAIChatConfig(), False),
-            LlmProviders.GITHUB_COPILOT: (lambda: litellm.GithubCopilotConfig(), False),
-            LlmProviders.CHATGPT: (lambda: litellm.ChatGPTConfig(), False),
-            LlmProviders.GIGACHAT: (lambda: litellm.GigaChatConfig(), False),
-            LlmProviders.RAGFLOW: (lambda: litellm.RAGFlowConfig(), False),
-            LlmProviders.CUSTOM: (lambda: litellm.OpenAILikeChatConfig(), False),
-            LlmProviders.CUSTOM_OPENAI: (lambda: litellm.OpenAILikeChatConfig(), False),
-            LlmProviders.OPENAI_LIKE: (lambda: litellm.OpenAILikeChatConfig(), False),
+            LlmProviders.SNOWFLAKE: (lambda: embrouter.SnowflakeConfig(), False),
+            LlmProviders.CLARIFAI: (lambda: embrouter.ClarifaiConfig(), False),
+            LlmProviders.ANTHROPIC_TEXT: (lambda: embrouter.AnthropicTextConfig(), False),
+            LlmProviders.VERTEX_AI_BETA: (lambda: embrouter.VertexGeminiConfig(), False),
+            LlmProviders.CLOUDFLARE: (lambda: embrouter.CloudflareChatConfig(), False),
+            LlmProviders.SAGEMAKER_CHAT: (lambda: embrouter.SagemakerChatConfig(), False),
+            LlmProviders.SAGEMAKER_NOVA: (lambda: embrouter.SagemakerNovaConfig(), False),
+            LlmProviders.SAGEMAKER: (lambda: embrouter.SagemakerConfig(), False),
+            LlmProviders.FIREWORKS_AI: (lambda: embrouter.FireworksAIConfig(), False),
+            LlmProviders.FRIENDLIAI: (lambda: embrouter.FriendliaiChatConfig(), False),
+            LlmProviders.WATSONX: (lambda: embrouter.IBMWatsonXChatConfig(), False),
+            LlmProviders.WATSONX_TEXT: (lambda: embrouter.IBMWatsonXAIConfig(), False),
+            LlmProviders.EMPOWER: (lambda: embrouter.EmpowerChatConfig(), False),
+            LlmProviders.MINIMAX: (lambda: embrouter.MinimaxChatConfig(), False),
+            LlmProviders.GITHUB: (lambda: embrouter.GithubChatConfig(), False),
+            LlmProviders.COMPACTIFAI: (lambda: embrouter.CompactifAIChatConfig(), False),
+            LlmProviders.GITHUB_COPILOT: (lambda: embrouter.GithubCopilotConfig(), False),
+            LlmProviders.CHATGPT: (lambda: embrouter.ChatGPTConfig(), False),
+            LlmProviders.GIGACHAT: (lambda: embrouter.GigaChatConfig(), False),
+            LlmProviders.RAGFLOW: (lambda: embrouter.RAGFlowConfig(), False),
+            LlmProviders.CUSTOM: (lambda: embrouter.OpenAILikeChatConfig(), False),
+            LlmProviders.CUSTOM_OPENAI: (lambda: embrouter.OpenAILikeChatConfig(), False),
+            LlmProviders.OPENAI_LIKE: (lambda: embrouter.OpenAILikeChatConfig(), False),
             LlmProviders.AIOHTTP_OPENAI: (
-                lambda: litellm.AiohttpOpenAIChatConfig(),
+                lambda: embrouter.AiohttpOpenAIChatConfig(),
                 False,
             ),
-            LlmProviders.HOSTED_VLLM: (lambda: litellm.HostedVLLMChatConfig(), False),
-            LlmProviders.LLAMAFILE: (lambda: litellm.LlamafileChatConfig(), False),
-            LlmProviders.LM_STUDIO: (lambda: litellm.LMStudioChatConfig(), False),
-            LlmProviders.GALADRIEL: (lambda: litellm.GaladrielChatConfig(), False),
-            LlmProviders.REPLICATE: (lambda: litellm.ReplicateConfig(), False),
-            LlmProviders.HUGGINGFACE: (lambda: litellm.HuggingFaceChatConfig(), False),
-            LlmProviders.TOGETHER_AI: (lambda: litellm.TogetherAIChatConfig(), False),
-            LlmProviders.OPENROUTER: (lambda: litellm.OpenrouterConfig(), False),
-            LlmProviders.NADIR: (lambda: litellm.NadirConfig(), False),
+            LlmProviders.HOSTED_VLLM: (lambda: embrouter.HostedVLLMChatConfig(), False),
+            LlmProviders.LLAMAFILE: (lambda: embrouter.LlamafileChatConfig(), False),
+            LlmProviders.LM_STUDIO: (lambda: embrouter.LMStudioChatConfig(), False),
+            LlmProviders.GALADRIEL: (lambda: embrouter.GaladrielChatConfig(), False),
+            LlmProviders.REPLICATE: (lambda: embrouter.ReplicateConfig(), False),
+            LlmProviders.HUGGINGFACE: (lambda: embrouter.HuggingFaceChatConfig(), False),
+            LlmProviders.TOGETHER_AI: (lambda: embrouter.TogetherAIChatConfig(), False),
+            LlmProviders.OPENROUTER: (lambda: embrouter.OpenrouterConfig(), False),
+            LlmProviders.NADIR: (lambda: embrouter.NadirConfig(), False),
             LlmProviders.VERCEL_AI_GATEWAY: (
-                lambda: litellm.VercelAIGatewayConfig(),
+                lambda: embrouter.VercelAIGatewayConfig(),
                 False,
             ),
-            LlmProviders.EDENAI: (litellm.EdenAIChatConfig, False),
-            LlmProviders.FAL_AI: (litellm.FalAIChatConfig, False),
-            LlmProviders.COMETAPI: (lambda: litellm.CometAPIConfig(), False),
-            LlmProviders.DATAROBOT: (lambda: litellm.DataRobotConfig(), False),
-            LlmProviders.GEMINI: (lambda: litellm.GoogleAIStudioGeminiConfig(), False),
-            LlmProviders.AI21: (lambda: litellm.AI21ChatConfig(), False),
-            LlmProviders.AI21_CHAT: (lambda: litellm.AI21ChatConfig(), False),
-            LlmProviders.AZURE_TEXT: (lambda: litellm.AzureOpenAITextConfig(), False),
-            LlmProviders.NLP_CLOUD: (lambda: litellm.NLPCloudConfig(), False),
-            LlmProviders.OOBABOOGA: (lambda: litellm.OobaboogaConfig(), False),
-            LlmProviders.OLLAMA_CHAT: (lambda: litellm.OllamaChatConfig(), False),
-            LlmProviders.DEEPINFRA: (lambda: litellm.DeepInfraConfig(), False),
-            LlmProviders.PERPLEXITY: (lambda: litellm.PerplexityChatConfig(), False),
-            LlmProviders.MISTRAL: (lambda: litellm.MistralConfig(), False),
-            LlmProviders.CODESTRAL: (lambda: litellm.MistralConfig(), False),
-            LlmProviders.NVIDIA_NIM: (lambda: litellm.NvidiaNimConfig(), False),
-            LlmProviders.CEREBRAS: (lambda: litellm.CerebrasConfig(), False),
-            LlmProviders.BASETEN: (lambda: litellm.BasetenConfig(), False),
-            LlmProviders.VOLCENGINE: (lambda: litellm.VolcEngineConfig(), False),
+            LlmProviders.EDENAI: (embrouter.EdenAIChatConfig, False),
+            LlmProviders.FAL_AI: (embrouter.FalAIChatConfig, False),
+            LlmProviders.COMETAPI: (lambda: embrouter.CometAPIConfig(), False),
+            LlmProviders.DATAROBOT: (lambda: embrouter.DataRobotConfig(), False),
+            LlmProviders.GEMINI: (lambda: embrouter.GoogleAIStudioGeminiConfig(), False),
+            LlmProviders.AI21: (lambda: embrouter.AI21ChatConfig(), False),
+            LlmProviders.AI21_CHAT: (lambda: embrouter.AI21ChatConfig(), False),
+            LlmProviders.AZURE_TEXT: (lambda: embrouter.AzureOpenAITextConfig(), False),
+            LlmProviders.NLP_CLOUD: (lambda: embrouter.NLPCloudConfig(), False),
+            LlmProviders.OOBABOOGA: (lambda: embrouter.OobaboogaConfig(), False),
+            LlmProviders.OLLAMA_CHAT: (lambda: embrouter.OllamaChatConfig(), False),
+            LlmProviders.DEEPINFRA: (lambda: embrouter.DeepInfraConfig(), False),
+            LlmProviders.PERPLEXITY: (lambda: embrouter.PerplexityChatConfig(), False),
+            LlmProviders.MISTRAL: (lambda: embrouter.MistralConfig(), False),
+            LlmProviders.CODESTRAL: (lambda: embrouter.MistralConfig(), False),
+            LlmProviders.NVIDIA_NIM: (lambda: embrouter.NvidiaNimConfig(), False),
+            LlmProviders.CEREBRAS: (lambda: embrouter.CerebrasConfig(), False),
+            LlmProviders.BASETEN: (lambda: embrouter.BasetenConfig(), False),
+            LlmProviders.VOLCENGINE: (lambda: embrouter.VolcEngineConfig(), False),
             LlmProviders.TEXT_COMPLETION_CODESTRAL: (
-                lambda: litellm.CodestralTextCompletionConfig(),
+                lambda: embrouter.CodestralTextCompletionConfig(),
                 False,
             ),
             LlmProviders.TEXT_COMPLETION_INCEPTION: (
-                lambda: litellm.InceptionTextCompletionConfig(),
+                lambda: embrouter.InceptionTextCompletionConfig(),
                 False,
             ),
-            LlmProviders.SAMBANOVA: (lambda: litellm.SambanovaConfig(), False),
-            LlmProviders.MARITALK: (lambda: litellm.MaritalkConfig(), False),
-            LlmProviders.VLLM: (lambda: litellm.VLLMConfig(), False),
-            LlmProviders.OLLAMA: (lambda: litellm.OllamaConfig(), False),
-            LlmProviders.PREDIBASE: (lambda: litellm.PredibaseConfig(), False),
-            LlmProviders.TRITON: (lambda: litellm.TritonConfig(), False),
-            LlmProviders.PETALS: (lambda: litellm.PetalsConfig(), False),
+            LlmProviders.SAMBANOVA: (lambda: embrouter.SambanovaConfig(), False),
+            LlmProviders.MARITALK: (lambda: embrouter.MaritalkConfig(), False),
+            LlmProviders.VLLM: (lambda: embrouter.VLLMConfig(), False),
+            LlmProviders.OLLAMA: (lambda: embrouter.OllamaConfig(), False),
+            LlmProviders.PREDIBASE: (lambda: embrouter.PredibaseConfig(), False),
+            LlmProviders.TRITON: (lambda: embrouter.TritonConfig(), False),
+            LlmProviders.PETALS: (lambda: embrouter.PetalsConfig(), False),
             LlmProviders.SAP_GENERATIVE_AI_HUB: (
-                lambda: litellm.GenAIHubOrchestrationConfig(),
+                lambda: embrouter.GenAIHubOrchestrationConfig(),
                 False,
             ),
-            LlmProviders.FEATHERLESS_AI: (lambda: litellm.FeatherlessAIConfig(), False),
-            LlmProviders.NOVITA: (lambda: litellm.NovitaConfig(), False),
-            LlmProviders.NEBIUS: (lambda: litellm.NebiusConfig(), False),
-            LlmProviders.WANDB: (lambda: litellm.WandbConfig(), False),
-            LlmProviders.DASHSCOPE: (lambda: litellm.DashScopeChatConfig(), False),
-            LlmProviders.QWENCLOUD: (lambda: litellm.QwenCloudChatConfig(), False),
+            LlmProviders.FEATHERLESS_AI: (lambda: embrouter.FeatherlessAIConfig(), False),
+            LlmProviders.NOVITA: (lambda: embrouter.NovitaConfig(), False),
+            LlmProviders.NEBIUS: (lambda: embrouter.NebiusConfig(), False),
+            LlmProviders.WANDB: (lambda: embrouter.WandbConfig(), False),
+            LlmProviders.DASHSCOPE: (lambda: embrouter.DashScopeChatConfig(), False),
+            LlmProviders.QWENCLOUD: (lambda: embrouter.QwenCloudChatConfig(), False),
             LlmProviders.QWEN_AI_PLATFORM: (
-                lambda: litellm.QwenAIPlatformChatConfig(),
+                lambda: embrouter.QwenAIPlatformChatConfig(),
                 False,
             ),
-            LlmProviders.MODELSCOPE: (lambda: litellm.ModelScopeChatConfig(), False),
-            LlmProviders.MOONSHOT: (lambda: litellm.MoonshotChatConfig(), False),
+            LlmProviders.MODELSCOPE: (lambda: embrouter.ModelScopeChatConfig(), False),
+            LlmProviders.MOONSHOT: (lambda: embrouter.MoonshotChatConfig(), False),
             LlmProviders.DOCKER_MODEL_RUNNER: (
-                lambda: litellm.DockerModelRunnerChatConfig(),
+                lambda: embrouter.DockerModelRunnerChatConfig(),
                 False,
             ),
-            LlmProviders.V0: (lambda: litellm.V0ChatConfig(), False),
-            LlmProviders.MORPH: (lambda: litellm.MorphChatConfig(), False),
-            LlmProviders.LITELLM_PROXY: (
-                lambda: litellm.LiteLLMProxyChatConfig(),
+            LlmProviders.V0: (lambda: embrouter.V0ChatConfig(), False),
+            LlmProviders.MORPH: (lambda: embrouter.MorphChatConfig(), False),
+            LlmProviders.EMBROUTER_PROXY: (
+                lambda: embrouter.EmbRouterProxyChatConfig(),
                 False,
             ),
-            LlmProviders.GRADIENT_AI: (lambda: litellm.GradientAIConfig(), False),
-            LlmProviders.NSCALE: (lambda: litellm.NscaleConfig(), False),
-            LlmProviders.HEROKU: (lambda: litellm.HerokuChatConfig(), False),
-            LlmProviders.OCI: (lambda: litellm.OCIChatConfig(), False),
-            LlmProviders.HYPERBOLIC: (lambda: litellm.HyperbolicChatConfig(), False),
-            LlmProviders.OVHCLOUD: (lambda: litellm.OVHCloudChatConfig(), False),
-            LlmProviders.AMAZON_NOVA: (lambda: litellm.AmazonNovaChatConfig(), False),
+            LlmProviders.GRADIENT_AI: (lambda: embrouter.GradientAIConfig(), False),
+            LlmProviders.NSCALE: (lambda: embrouter.NscaleConfig(), False),
+            LlmProviders.HEROKU: (lambda: embrouter.HerokuChatConfig(), False),
+            LlmProviders.OCI: (lambda: embrouter.OCIChatConfig(), False),
+            LlmProviders.HYPERBOLIC: (lambda: embrouter.HyperbolicChatConfig(), False),
+            LlmProviders.OVHCLOUD: (lambda: embrouter.OVHCloudChatConfig(), False),
+            LlmProviders.AMAZON_NOVA: (lambda: embrouter.AmazonNovaChatConfig(), False),
             LlmProviders.LANGGRAPH: (
                 lambda: ProviderConfigManager._get_langgraph_config(),
                 False,
@@ -8570,7 +8570,7 @@ class ProviderConfigManager:
                 False,
             ),
             LlmProviders.GDC: (
-                lambda: litellm.GDCGeminiConfig(),
+                lambda: embrouter.GDCGeminiConfig(),
                 False,
             ),
         }
@@ -8586,16 +8586,16 @@ class ProviderConfigManager:
         underlying model via ``base_model``.
         """
         detection_model: Final = base_model or model
-        if litellm.AzureOpenAIO1Config().is_o_series_model(model=detection_model):
-            return litellm.AzureOpenAIO1Config()
-        if litellm.AzureOpenAIGPT5Config.is_model_gpt_5_model(model=detection_model):
-            return litellm.AzureOpenAIGPT5Config()
-        return litellm.AzureOpenAIConfig()
+        if embrouter.AzureOpenAIO1Config().is_o_series_model(model=detection_model):
+            return embrouter.AzureOpenAIO1Config()
+        if embrouter.AzureOpenAIGPT5Config.is_model_gpt_5_model(model=detection_model):
+            return embrouter.AzureOpenAIGPT5Config()
+        return embrouter.AzureOpenAIConfig()
 
     @staticmethod
     def _get_azure_ai_config(model: str) -> BaseConfig:
         """Get Azure AI config based on model type."""
-        from litellm.llms.azure_ai.common_utils import AzureFoundryModelInfo
+        from embrouter.llms.azure_ai.common_utils import AzureFoundryModelInfo
 
         return AzureFoundryModelInfo.get_azure_ai_config_for_model(model)
 
@@ -8603,57 +8603,57 @@ class ProviderConfigManager:
     def _get_vertex_ai_config(model: str) -> BaseConfig:
         """Get Vertex AI config based on model type."""
         if "gemini" in model:
-            return litellm.VertexGeminiConfig()
+            return embrouter.VertexGeminiConfig()
         elif "claude" in model:
-            return litellm.VertexAIAnthropicConfig()
+            return embrouter.VertexAIAnthropicConfig()
         elif "gpt-oss" in model:
-            from litellm.llms.vertex_ai.vertex_ai_partner_models.gpt_oss.transformation import (
+            from embrouter.llms.vertex_ai.vertex_ai_partner_models.gpt_oss.transformation import (
                 VertexAIGPTOSSTransformation,
             )
 
             return VertexAIGPTOSSTransformation()
-        elif model in litellm.vertex_mistral_models:
+        elif model in embrouter.vertex_mistral_models:
             if "codestral" in model:
-                return litellm.CodestralTextCompletionConfig()
-            return litellm.VertexAIMistralConfig()
-        elif model in litellm.vertex_ai_ai21_models:
-            return litellm.VertexAIAi21Config()
+                return embrouter.CodestralTextCompletionConfig()
+            return embrouter.VertexAIMistralConfig()
+        elif model in embrouter.vertex_ai_ai21_models:
+            return embrouter.VertexAIAi21Config()
         else:
-            return litellm.VertexAILlama3Config()
+            return embrouter.VertexAILlama3Config()
 
     @staticmethod
     def _get_bedrock_config(model: str) -> BaseConfig:
         """Get Bedrock config based on model."""
-        from litellm.llms.bedrock.common_utils import get_bedrock_chat_config
+        from embrouter.llms.bedrock.common_utils import get_bedrock_chat_config
 
         return get_bedrock_chat_config(model=model)
 
     @staticmethod
     def _get_cohere_config(model: str) -> BaseConfig:
         """Get Cohere config based on route."""
-        CohereModelInfo: Final = litellm_utils.CohereModelInfo
+        CohereModelInfo: Final = embrouter_utils.CohereModelInfo
         route: Final = CohereModelInfo.get_cohere_route(model)
         if route == "v2":
-            return litellm.CohereV2ChatConfig()
-        return litellm.CohereChatConfig()
+            return embrouter.CohereV2ChatConfig()
+        return embrouter.CohereChatConfig()
 
     @staticmethod
     def _get_sail_chat_config() -> BaseConfig:
-        from litellm.llms.sail.chat.transformation import SailChatConfig
+        from embrouter.llms.sail.chat.transformation import SailChatConfig
 
         return SailChatConfig()
 
     @staticmethod
     def _get_langgraph_config() -> BaseConfig:
         """Get LangGraph config."""
-        from litellm.llms.langgraph.chat.transformation import LangGraphConfig
+        from embrouter.llms.langgraph.chat.transformation import LangGraphConfig
 
         return LangGraphConfig()
 
     @staticmethod
     def _get_langflow_config() -> BaseConfig:
         """Get LangFlow config."""
-        from litellm.llms.langflow.chat.transformation import LangFlowConfig
+        from embrouter.llms.langflow.chat.transformation import LangFlowConfig
 
         return LangFlowConfig()
 
@@ -8674,15 +8674,15 @@ class ProviderConfigManager:
         """
         # Handle OpenAI special cases (O-series and GPT-5 models)
         if provider == LlmProviders.OPENAI:
-            from litellm.llms.openai.chat.gpt_transformation import (
+            from embrouter.llms.openai.chat.gpt_transformation import (
                 OpenAIGPTConfig,
                 OpenAIUnknownModelConfig,
             )
 
-            if litellm.openaiOSeriesConfig.is_model_o_series_model(model=model):
-                return litellm.openaiOSeriesConfig
-            if litellm.OpenAIGPT5Config.is_model_gpt_5_model(model=model):
-                return litellm.OpenAIGPT5Config()
+            if embrouter.openaiOSeriesConfig.is_model_o_series_model(model=model):
+                return embrouter.openaiOSeriesConfig
+            if embrouter.OpenAIGPT5Config.is_model_gpt_5_model(model=model):
+                return embrouter.OpenAIGPT5Config()
             if not OpenAIGPTConfig.is_openai_catalog_model(model):
                 return OpenAIUnknownModelConfig()
 
@@ -8704,8 +8704,8 @@ class ProviderConfigManager:
                 return config_factory()
 
         # Fall back to JSON providers (generic OpenAI-compatible)
-        from litellm.llms.openai_like.dynamic_config import create_config_class
-        from litellm.llms.openai_like.json_loader import JSONProviderRegistry
+        from embrouter.llms.openai_like.dynamic_config import create_config_class
+        from embrouter.llms.openai_like.json_loader import JSONProviderRegistry
 
         if JSONProviderRegistry.exists(provider.value):
             provider_config: Final = JSONProviderRegistry.get(provider.value)
@@ -8721,91 +8721,91 @@ class ProviderConfigManager:
         provider: LlmProviders,
     ) -> BaseEmbeddingConfig | None:
         if (
-            litellm.LlmProviders.VOYAGE == provider
-            and litellm.VoyageContextualEmbeddingConfig.is_contextualized_embeddings(model)
+            embrouter.LlmProviders.VOYAGE == provider
+            and embrouter.VoyageContextualEmbeddingConfig.is_contextualized_embeddings(model)
         ):
-            return litellm.VoyageContextualEmbeddingConfig()
+            return embrouter.VoyageContextualEmbeddingConfig()
         elif (
-            litellm.LlmProviders.VOYAGE == provider
-            and litellm.VoyageMultimodalEmbeddingConfig.is_multimodal_embeddings(model)
+            embrouter.LlmProviders.VOYAGE == provider
+            and embrouter.VoyageMultimodalEmbeddingConfig.is_multimodal_embeddings(model)
         ):
-            return litellm.VoyageMultimodalEmbeddingConfig()
-        elif litellm.LlmProviders.VOYAGE == provider:
-            return litellm.VoyageEmbeddingConfig()
-        elif litellm.LlmProviders.TRITON == provider:
-            return litellm.TritonEmbeddingConfig()
-        elif litellm.LlmProviders.WATSONX == provider:
-            return litellm.IBMWatsonXEmbeddingConfig()
-        elif litellm.LlmProviders.SAP_GENERATIVE_AI_HUB == provider:
-            return litellm.GenAIHubEmbeddingConfig()
-        elif litellm.LlmProviders.INFINITY == provider:
-            return litellm.InfinityEmbeddingConfig()
-        elif litellm.LlmProviders.SAMBANOVA == provider:
-            return litellm.SambaNovaEmbeddingConfig()
-        elif litellm.LlmProviders.OCI == provider:
-            from litellm.llms.oci.embed.transformation import OCIEmbedConfig
+            return embrouter.VoyageMultimodalEmbeddingConfig()
+        elif embrouter.LlmProviders.VOYAGE == provider:
+            return embrouter.VoyageEmbeddingConfig()
+        elif embrouter.LlmProviders.TRITON == provider:
+            return embrouter.TritonEmbeddingConfig()
+        elif embrouter.LlmProviders.WATSONX == provider:
+            return embrouter.IBMWatsonXEmbeddingConfig()
+        elif embrouter.LlmProviders.SAP_GENERATIVE_AI_HUB == provider:
+            return embrouter.GenAIHubEmbeddingConfig()
+        elif embrouter.LlmProviders.INFINITY == provider:
+            return embrouter.InfinityEmbeddingConfig()
+        elif embrouter.LlmProviders.SAMBANOVA == provider:
+            return embrouter.SambaNovaEmbeddingConfig()
+        elif embrouter.LlmProviders.OCI == provider:
+            from embrouter.llms.oci.embed.transformation import OCIEmbedConfig
 
             return OCIEmbedConfig()
-        elif litellm.LlmProviders.COHERE == provider or litellm.LlmProviders.COHERE_CHAT == provider:
-            from litellm.llms.cohere.embed.transformation import CohereEmbeddingConfig
+        elif embrouter.LlmProviders.COHERE == provider or embrouter.LlmProviders.COHERE_CHAT == provider:
+            from embrouter.llms.cohere.embed.transformation import CohereEmbeddingConfig
 
             return CohereEmbeddingConfig()
-        elif litellm.LlmProviders.JINA_AI == provider:
-            from litellm.llms.jina_ai.embedding.transformation import (
+        elif embrouter.LlmProviders.JINA_AI == provider:
+            from embrouter.llms.jina_ai.embedding.transformation import (
                 JinaAIEmbeddingConfig,
             )
 
             return JinaAIEmbeddingConfig()
-        elif litellm.LlmProviders.VOLCENGINE == provider:
-            from litellm.llms.volcengine.embedding.transformation import (
+        elif embrouter.LlmProviders.VOLCENGINE == provider:
+            from embrouter.llms.volcengine.embedding.transformation import (
                 VolcEngineEmbeddingConfig,
             )
 
             return VolcEngineEmbeddingConfig()
         elif provider in (
-            litellm.LlmProviders.DASHSCOPE,
-            litellm.LlmProviders.QWENCLOUD,
-            litellm.LlmProviders.QWEN_AI_PLATFORM,
+            embrouter.LlmProviders.DASHSCOPE,
+            embrouter.LlmProviders.QWENCLOUD,
+            embrouter.LlmProviders.QWEN_AI_PLATFORM,
         ):
-            from litellm.llms.dashscope.common_utils import (
+            from embrouter.llms.dashscope.common_utils import (
                 get_dashscope_family_embedding_config,
             )
 
             return get_dashscope_family_embedding_config(provider.value)
-        elif litellm.LlmProviders.OVHCLOUD == provider:
-            return litellm.OVHCloudEmbeddingConfig()
-        elif litellm.LlmProviders.SNOWFLAKE == provider:
-            return litellm.SnowflakeEmbeddingConfig()
-        elif litellm.LlmProviders.COMETAPI == provider:
-            return litellm.CometAPIEmbeddingConfig()
-        elif litellm.LlmProviders.GITHUB_COPILOT == provider:
-            return litellm.GithubCopilotEmbeddingConfig()
-        elif litellm.LlmProviders.OPENROUTER == provider:
-            from litellm.llms.openrouter.embedding.transformation import (
+        elif embrouter.LlmProviders.OVHCLOUD == provider:
+            return embrouter.OVHCloudEmbeddingConfig()
+        elif embrouter.LlmProviders.SNOWFLAKE == provider:
+            return embrouter.SnowflakeEmbeddingConfig()
+        elif embrouter.LlmProviders.COMETAPI == provider:
+            return embrouter.CometAPIEmbeddingConfig()
+        elif embrouter.LlmProviders.GITHUB_COPILOT == provider:
+            return embrouter.GithubCopilotEmbeddingConfig()
+        elif embrouter.LlmProviders.OPENROUTER == provider:
+            from embrouter.llms.openrouter.embedding.transformation import (
                 OpenrouterEmbeddingConfig,
             )
 
             return OpenrouterEmbeddingConfig()
-        elif litellm.LlmProviders.VERCEL_AI_GATEWAY == provider:
-            from litellm.llms.vercel_ai_gateway.embedding.transformation import (
+        elif embrouter.LlmProviders.VERCEL_AI_GATEWAY == provider:
+            from embrouter.llms.vercel_ai_gateway.embedding.transformation import (
                 VercelAIGatewayEmbeddingConfig,
             )
 
             return VercelAIGatewayEmbeddingConfig()
-        elif litellm.LlmProviders.GIGACHAT == provider:
-            return litellm.GigaChatEmbeddingConfig()
-        elif litellm.LlmProviders.HOSTED_VLLM == provider:
-            return litellm.HostedVLLMEmbeddingConfig()
-        elif litellm.LlmProviders.SAGEMAKER == provider:
-            from litellm.llms.sagemaker.embedding.transformation import (
+        elif embrouter.LlmProviders.GIGACHAT == provider:
+            return embrouter.GigaChatEmbeddingConfig()
+        elif embrouter.LlmProviders.HOSTED_VLLM == provider:
+            return embrouter.HostedVLLMEmbeddingConfig()
+        elif embrouter.LlmProviders.SAGEMAKER == provider:
+            from embrouter.llms.sagemaker.embedding.transformation import (
                 SagemakerEmbeddingConfig,
             )
 
             return SagemakerEmbeddingConfig.get_model_config(model)
-        elif litellm.LlmProviders.PERPLEXITY == provider:
-            return litellm.PerplexityEmbeddingConfig()
-        elif litellm.LlmProviders.EDENAI == provider:
-            return litellm.EdenAIEmbeddingConfig()
+        elif embrouter.LlmProviders.PERPLEXITY == provider:
+            return embrouter.PerplexityEmbeddingConfig()
+        elif embrouter.LlmProviders.EDENAI == provider:
+            return embrouter.EdenAIEmbeddingConfig()
         return None
 
     @staticmethod
@@ -8815,48 +8815,48 @@ class ProviderConfigManager:
         api_base: str | None,
         present_version_params: list[str],
     ) -> BaseRerankConfig:
-        if litellm.LlmProviders.COHERE == provider or litellm.LlmProviders.COHERE_CHAT == provider:
+        if embrouter.LlmProviders.COHERE == provider or embrouter.LlmProviders.COHERE_CHAT == provider:
             if should_use_cohere_v1_client(api_base, present_version_params):
-                return litellm.CohereRerankConfig()
+                return embrouter.CohereRerankConfig()
             else:
-                return litellm.CohereRerankV2Config()
-        elif litellm.LlmProviders.AZURE_AI == provider:
-            return litellm.AzureAIRerankConfig()
-        elif litellm.LlmProviders.INFINITY == provider:
-            return litellm.InfinityRerankConfig()
-        elif litellm.LlmProviders.JINA_AI == provider:
-            return litellm.JinaAIRerankConfig()
-        elif litellm.LlmProviders.HOSTED_VLLM == provider:
-            return litellm.HostedVLLMRerankConfig()
-        elif litellm.LlmProviders.HUGGINGFACE == provider:
-            return litellm.HuggingFaceRerankConfig()
-        elif litellm.LlmProviders.DEEPINFRA == provider:
-            return litellm.DeepinfraRerankConfig()
-        elif litellm.LlmProviders.NVIDIA_NIM == provider:
-            from litellm.llms.nvidia_nim.rerank.common_utils import (
+                return embrouter.CohereRerankV2Config()
+        elif embrouter.LlmProviders.AZURE_AI == provider:
+            return embrouter.AzureAIRerankConfig()
+        elif embrouter.LlmProviders.INFINITY == provider:
+            return embrouter.InfinityRerankConfig()
+        elif embrouter.LlmProviders.JINA_AI == provider:
+            return embrouter.JinaAIRerankConfig()
+        elif embrouter.LlmProviders.HOSTED_VLLM == provider:
+            return embrouter.HostedVLLMRerankConfig()
+        elif embrouter.LlmProviders.HUGGINGFACE == provider:
+            return embrouter.HuggingFaceRerankConfig()
+        elif embrouter.LlmProviders.DEEPINFRA == provider:
+            return embrouter.DeepinfraRerankConfig()
+        elif embrouter.LlmProviders.NVIDIA_NIM == provider:
+            from embrouter.llms.nvidia_nim.rerank.common_utils import (
                 get_nvidia_nim_rerank_config,
             )
 
             return get_nvidia_nim_rerank_config(model)
-        elif litellm.LlmProviders.VERTEX_AI == provider:
-            return litellm.VertexAIRerankConfig()
-        elif litellm.LlmProviders.FIREWORKS_AI == provider:
-            return litellm.FireworksAIRerankConfig()
-        elif litellm.LlmProviders.VOYAGE == provider:
-            return litellm.VoyageRerankConfig()
-        elif litellm.LlmProviders.WATSONX == provider:
-            return litellm.IBMWatsonXRerankConfig()
+        elif embrouter.LlmProviders.VERTEX_AI == provider:
+            return embrouter.VertexAIRerankConfig()
+        elif embrouter.LlmProviders.FIREWORKS_AI == provider:
+            return embrouter.FireworksAIRerankConfig()
+        elif embrouter.LlmProviders.VOYAGE == provider:
+            return embrouter.VoyageRerankConfig()
+        elif embrouter.LlmProviders.WATSONX == provider:
+            return embrouter.IBMWatsonXRerankConfig()
         elif provider in (
-            litellm.LlmProviders.DASHSCOPE,
-            litellm.LlmProviders.QWENCLOUD,
-            litellm.LlmProviders.QWEN_AI_PLATFORM,
+            embrouter.LlmProviders.DASHSCOPE,
+            embrouter.LlmProviders.QWENCLOUD,
+            embrouter.LlmProviders.QWEN_AI_PLATFORM,
         ):
-            from litellm.llms.dashscope.common_utils import (
+            from embrouter.llms.dashscope.common_utils import (
                 get_dashscope_family_rerank_config,
             )
 
             return get_dashscope_family_rerank_config(provider.value)
-        return litellm.CohereRerankConfig()
+        return embrouter.CohereRerankConfig()
 
     @staticmethod
     def get_provider_anthropic_messages_config(
@@ -8872,68 +8872,68 @@ class ProviderConfigManager:
         provider: LlmProviders,
     ) -> BaseAnthropicMessagesConfig | None:
         model_lower: Final = model.lower()
-        if litellm.LlmProviders.ANTHROPIC == provider:
-            return litellm.AnthropicMessagesConfig()
+        if embrouter.LlmProviders.ANTHROPIC == provider:
+            return embrouter.AnthropicMessagesConfig()
         # The 'BEDROCK' provider corresponds to Amazon's implementation of Anthropic Claude v3.
         # This mapping ensures that the correct configuration is returned for BEDROCK.
-        elif litellm.LlmProviders.BEDROCK == provider:
-            from litellm.llms.bedrock.common_utils import BedrockModelInfo
+        elif embrouter.LlmProviders.BEDROCK == provider:
+            from embrouter.llms.bedrock.common_utils import BedrockModelInfo
 
             return BedrockModelInfo.get_bedrock_provider_config_for_messages_api(model)
-        elif litellm.LlmProviders.BEDROCK_MANTLE == provider:
+        elif embrouter.LlmProviders.BEDROCK_MANTLE == provider:
             if "claude" in model_lower:
-                from litellm.llms.bedrock_mantle.messages.transformation import (
+                from embrouter.llms.bedrock_mantle.messages.transformation import (
                     BedrockMantleAnthropicMessagesConfig,
                 )
 
                 return BedrockMantleAnthropicMessagesConfig()
-        elif litellm.LlmProviders.VERTEX_AI == provider:
+        elif embrouter.LlmProviders.VERTEX_AI == provider:
             if "claude" in model_lower:
-                from litellm.llms.vertex_ai.vertex_ai_partner_models.anthropic.experimental_pass_through.transformation import (
+                from embrouter.llms.vertex_ai.vertex_ai_partner_models.anthropic.experimental_pass_through.transformation import (
                     VertexAIPartnerModelsAnthropicMessagesConfig,
                 )
 
                 return VertexAIPartnerModelsAnthropicMessagesConfig()
-        elif litellm.LlmProviders.AZURE_AI == provider:
+        elif embrouter.LlmProviders.AZURE_AI == provider:
             if "claude" in model_lower:
-                from litellm.llms.azure_ai.anthropic.messages_transformation import (
+                from embrouter.llms.azure_ai.anthropic.messages_transformation import (
                     AzureAnthropicMessagesConfig,
                 )
 
                 return AzureAnthropicMessagesConfig()
-        elif litellm.LlmProviders.MINIMAX == provider:
-            from litellm.llms.minimax.messages.transformation import (
+        elif embrouter.LlmProviders.MINIMAX == provider:
+            from embrouter.llms.minimax.messages.transformation import (
                 MinimaxMessagesConfig,
             )
 
             return MinimaxMessagesConfig()
-        elif litellm.LlmProviders.DEEPSEEK == provider:
-            from litellm.llms.deepseek.messages.transformation import (
+        elif embrouter.LlmProviders.DEEPSEEK == provider:
+            from embrouter.llms.deepseek.messages.transformation import (
                 DeepSeekAnthropicMessagesConfig,
             )
 
             return DeepSeekAnthropicMessagesConfig()
-        elif litellm.LlmProviders.TENCENT == provider:
-            from litellm.llms.tencent.messages.transformation import (
+        elif embrouter.LlmProviders.TENCENT == provider:
+            from embrouter.llms.tencent.messages.transformation import (
                 TencentAnthropicMessagesConfig,
             )
 
             return TencentAnthropicMessagesConfig()
-        elif litellm.LlmProviders.GITHUB_COPILOT == provider:
+        elif embrouter.LlmProviders.GITHUB_COPILOT == provider:
             if "claude" in model_lower:
-                from litellm.llms.github_copilot.messages.transformation import (
+                from embrouter.llms.github_copilot.messages.transformation import (
                     GithubCopilotAnthropicMessagesConfig,
                 )
 
                 return GithubCopilotAnthropicMessagesConfig()
-        elif litellm.LlmProviders.EDENAI == provider:
-            return litellm.EdenAIAnthropicMessagesConfig()
+        elif embrouter.LlmProviders.EDENAI == provider:
+            return embrouter.EdenAIAnthropicMessagesConfig()
 
-        from litellm.llms.openai_like.json_loader import JSONProviderRegistry
+        from embrouter.llms.openai_like.json_loader import JSONProviderRegistry
 
         json_provider: Final = JSONProviderRegistry.get(provider.value)
         if json_provider is not None and "/v1/messages" in json_provider.supported_endpoints:
-            from litellm.llms.openai_like.messages.transformation import (
+            from embrouter.llms.openai_like.messages.transformation import (
                 JSONProviderAnthropicMessagesConfig,
             )
 
@@ -8950,94 +8950,94 @@ class ProviderConfigManager:
             provider=provider,
         )
         if (
-            litellm.LlmProviders.AZURE == provider
+            embrouter.LlmProviders.AZURE == provider
             and model_cost_entry.get("audio_transcription_config") == "azure_speech"
         ):
-            from litellm.llms.azure.audio_transcription.transformation import (
+            from embrouter.llms.azure.audio_transcription.transformation import (
                 AzureSpeechAudioTranscriptionConfig,
             )
 
             return AzureSpeechAudioTranscriptionConfig()
-        elif litellm.LlmProviders.DEEPGRAM == provider:
-            return litellm.DeepgramAudioTranscriptionConfig()
-        elif litellm.LlmProviders.ELEVENLABS == provider:
-            from litellm.llms.elevenlabs.audio_transcription.transformation import (
+        elif embrouter.LlmProviders.DEEPGRAM == provider:
+            return embrouter.DeepgramAudioTranscriptionConfig()
+        elif embrouter.LlmProviders.ELEVENLABS == provider:
+            from embrouter.llms.elevenlabs.audio_transcription.transformation import (
                 ElevenLabsAudioTranscriptionConfig,
             )
 
             return ElevenLabsAudioTranscriptionConfig()
-        elif litellm.LlmProviders.XAI == provider:
-            from litellm.llms.xai.audio_transcription.transformation import XAIAudioTranscriptionConfig
+        elif embrouter.LlmProviders.XAI == provider:
+            from embrouter.llms.xai.audio_transcription.transformation import XAIAudioTranscriptionConfig
 
             return XAIAudioTranscriptionConfig()
-        elif litellm.LlmProviders.OPENAI == provider:
+        elif embrouter.LlmProviders.OPENAI == provider:
             if "gpt-4o" in model:
-                return litellm.OpenAIGPTAudioTranscriptionConfig()
+                return embrouter.OpenAIGPTAudioTranscriptionConfig()
             else:
-                return litellm.OpenAIWhisperAudioTranscriptionConfig()
-        elif litellm.LlmProviders.HOSTED_VLLM == provider:
-            from litellm.llms.hosted_vllm.transcriptions.transformation import (
+                return embrouter.OpenAIWhisperAudioTranscriptionConfig()
+        elif embrouter.LlmProviders.HOSTED_VLLM == provider:
+            from embrouter.llms.hosted_vllm.transcriptions.transformation import (
                 HostedVLLMAudioTranscriptionConfig,
             )
 
             return HostedVLLMAudioTranscriptionConfig()
-        elif litellm.LlmProviders.WATSONX == provider:
-            from litellm.llms.watsonx.audio_transcription.transformation import (
+        elif embrouter.LlmProviders.WATSONX == provider:
+            from embrouter.llms.watsonx.audio_transcription.transformation import (
                 IBMWatsonXAudioTranscriptionConfig,
             )
 
             return IBMWatsonXAudioTranscriptionConfig()
-        elif litellm.LlmProviders.OVHCLOUD == provider:
-            from litellm.llms.ovhcloud.audio_transcription.transformation import (
+        elif embrouter.LlmProviders.OVHCLOUD == provider:
+            from embrouter.llms.ovhcloud.audio_transcription.transformation import (
                 OVHCloudAudioTranscriptionConfig,
             )
 
             return OVHCloudAudioTranscriptionConfig()
-        elif litellm.LlmProviders.SCALEWAY == provider:
-            from litellm.llms.scaleway.audio_transcription.transformation import (
+        elif embrouter.LlmProviders.SCALEWAY == provider:
+            from embrouter.llms.scaleway.audio_transcription.transformation import (
                 ScalewayAudioTranscriptionConfig,
             )
 
             return ScalewayAudioTranscriptionConfig()
-        elif litellm.LlmProviders.MISTRAL == provider:
-            from litellm.llms.mistral.audio_transcription.transformation import (
+        elif embrouter.LlmProviders.MISTRAL == provider:
+            from embrouter.llms.mistral.audio_transcription.transformation import (
                 MistralAudioTranscriptionConfig,
             )
 
             return MistralAudioTranscriptionConfig()
-        elif litellm.LlmProviders.NVIDIA_RIVA == provider:
-            from litellm.llms.nvidia_riva.audio_transcription.transformation import (
+        elif embrouter.LlmProviders.NVIDIA_RIVA == provider:
+            from embrouter.llms.nvidia_riva.audio_transcription.transformation import (
                 NvidiaRivaAudioTranscriptionConfig,
             )
 
             return NvidiaRivaAudioTranscriptionConfig()
-        elif litellm.LlmProviders.SONIOX == provider:
-            from litellm.llms.soniox.audio_transcription.transformation import (
+        elif embrouter.LlmProviders.SONIOX == provider:
+            from embrouter.llms.soniox.audio_transcription.transformation import (
                 SonioxAudioTranscriptionConfig,
             )
 
             return SonioxAudioTranscriptionConfig()
-        elif litellm.LlmProviders.VERTEX_AI == provider:
+        elif embrouter.LlmProviders.VERTEX_AI == provider:
             bare_vertex_model: Final = model.removeprefix("vertex_ai/")
             if bare_vertex_model.startswith("gemini") and "transcribe" in bare_vertex_model:
-                from litellm.llms.vertex_ai.audio_transcription.gemini_transcribe_transformation import (
+                from embrouter.llms.vertex_ai.audio_transcription.gemini_transcribe_transformation import (
                     VertexGeminiAudioTranscriptionConfig,
                 )
 
                 return VertexGeminiAudioTranscriptionConfig()
-            from litellm.llms.vertex_ai.audio_transcription.transformation import (
+            from embrouter.llms.vertex_ai.audio_transcription.transformation import (
                 VertexAIAudioTranscriptionConfig,
             )
 
             return VertexAIAudioTranscriptionConfig()
-        elif litellm.LlmProviders.GEMINI == provider:
-            from litellm.llms.gemini.audio_transcription.transformation import (
+        elif embrouter.LlmProviders.GEMINI == provider:
+            from embrouter.llms.gemini.audio_transcription.transformation import (
                 GeminiAudioTranscriptionConfig,
             )
 
             return GeminiAudioTranscriptionConfig()
-        elif litellm.LlmProviders.EDENAI == provider:
-            return litellm.EdenAIAudioTranscriptionConfig()
+        elif embrouter.LlmProviders.EDENAI == provider:
+            return embrouter.EdenAIAudioTranscriptionConfig()
         return None
 
     @staticmethod
@@ -9046,10 +9046,10 @@ class ProviderConfigManager:
         model: str | None = None,
         api_base: str | None = None,
     ) -> BaseResponsesAPIConfig | None:
-        from litellm.llms.openai_like.dynamic_config import (
+        from embrouter.llms.openai_like.dynamic_config import (
             create_responses_config_class,
         )
-        from litellm.llms.openai_like.json_loader import JSONProviderRegistry
+        from embrouter.llms.openai_like.json_loader import JSONProviderRegistry
 
         # Resolve provider string for JSON lookup
         provider_str: Final = provider.value if isinstance(provider, LlmProviders) else str(provider)
@@ -9088,9 +9088,9 @@ class ProviderConfigManager:
         if provider is None:
             return None
 
-        if litellm.LlmProviders.OPENAI == provider:
-            return litellm.OpenAIResponsesAPIConfig()
-        elif litellm.LlmProviders.AZURE == provider:
+        if embrouter.LlmProviders.OPENAI == provider:
+            return embrouter.OpenAIResponsesAPIConfig()
+        elif embrouter.LlmProviders.AZURE == provider:
             # Check if it's an O-series model
             # Note: GPT models (gpt-3.5, gpt-4, gpt-5, etc.) support temperature parameter
             # O-series models (o1, o3) do not contain "gpt" and have different parameter restrictions
@@ -9098,60 +9098,60 @@ class ProviderConfigManager:
             is_o_series = model and ("o_series" in model.lower() or (supports_reasoning(model) and not is_gpt_model))
 
             if is_o_series:
-                return litellm.AzureOpenAIOSeriesResponsesAPIConfig()
+                return embrouter.AzureOpenAIOSeriesResponsesAPIConfig()
             else:
-                return litellm.AzureOpenAIResponsesAPIConfig()
-        elif litellm.LlmProviders.AZURE_AI == provider:
-            from litellm.llms.azure_ai.common_utils import (
+                return embrouter.AzureOpenAIResponsesAPIConfig()
+        elif embrouter.LlmProviders.AZURE_AI == provider:
+            from embrouter.llms.azure_ai.common_utils import (
                 azure_ai_supports_native_responses,
             )
 
             if azure_ai_supports_native_responses(model, api_base):
-                return litellm.AzureAIResponsesAPIConfig()
+                return embrouter.AzureAIResponsesAPIConfig()
             return None
-        elif litellm.LlmProviders.XAI == provider:
-            return litellm.XAIResponsesAPIConfig()
-        elif litellm.LlmProviders.SAIL == provider:
-            from litellm.llms.sail.responses.transformation import SailResponsesAPIConfig
+        elif embrouter.LlmProviders.XAI == provider:
+            return embrouter.XAIResponsesAPIConfig()
+        elif embrouter.LlmProviders.SAIL == provider:
+            from embrouter.llms.sail.responses.transformation import SailResponsesAPIConfig
 
             return SailResponsesAPIConfig()
-        elif litellm.LlmProviders.GITHUB_COPILOT == provider:
-            from litellm.llms.github_copilot.responses.transformation import (
+        elif embrouter.LlmProviders.GITHUB_COPILOT == provider:
+            from embrouter.llms.github_copilot.responses.transformation import (
                 github_copilot_supports_responses_api,
             )
 
             if model is None or github_copilot_supports_responses_api(model=model):
-                return litellm.GithubCopilotResponsesAPIConfig()
+                return embrouter.GithubCopilotResponsesAPIConfig()
             return None
-        elif litellm.LlmProviders.CHATGPT == provider:
-            return litellm.ChatGPTResponsesAPIConfig()
-        elif litellm.LlmProviders.LITELLM_PROXY == provider:
-            return litellm.LiteLLMProxyResponsesAPIConfig()
-        elif litellm.LlmProviders.VOLCENGINE == provider:
-            return litellm.VolcEngineResponsesAPIConfig()
-        elif litellm.LlmProviders.MANUS == provider:
-            return litellm.ManusResponsesAPIConfig()
-        elif litellm.LlmProviders.PERPLEXITY == provider:
-            return litellm.PerplexityResponsesConfig()
-        elif litellm.LlmProviders.DATABRICKS == provider:
+        elif embrouter.LlmProviders.CHATGPT == provider:
+            return embrouter.ChatGPTResponsesAPIConfig()
+        elif embrouter.LlmProviders.EMBROUTER_PROXY == provider:
+            return embrouter.EmbRouterProxyResponsesAPIConfig()
+        elif embrouter.LlmProviders.VOLCENGINE == provider:
+            return embrouter.VolcEngineResponsesAPIConfig()
+        elif embrouter.LlmProviders.MANUS == provider:
+            return embrouter.ManusResponsesAPIConfig()
+        elif embrouter.LlmProviders.PERPLEXITY == provider:
+            return embrouter.PerplexityResponsesConfig()
+        elif embrouter.LlmProviders.DATABRICKS == provider:
             # Databricks Responses API is only compatible with OpenAI GPT models
             if model and "gpt" in model.lower():
-                return litellm.DatabricksResponsesAPIConfig()
+                return embrouter.DatabricksResponsesAPIConfig()
             return None
-        elif litellm.LlmProviders.OPENROUTER == provider:
-            return litellm.OpenRouterResponsesAPIConfig()
-        elif litellm.LlmProviders.HOSTED_VLLM == provider:
-            return litellm.HostedVLLMResponsesAPIConfig()
-        elif litellm.LlmProviders.FIREWORKS_AI == provider:
-            return litellm.FireworksAIResponsesAPIConfig()
-        elif litellm.LlmProviders.EDENAI == provider:
-            return litellm.EdenAIResponsesAPIConfig()
-        elif litellm.LlmProviders.BEDROCK == provider:
+        elif embrouter.LlmProviders.OPENROUTER == provider:
+            return embrouter.OpenRouterResponsesAPIConfig()
+        elif embrouter.LlmProviders.HOSTED_VLLM == provider:
+            return embrouter.HostedVLLMResponsesAPIConfig()
+        elif embrouter.LlmProviders.FIREWORKS_AI == provider:
+            return embrouter.FireworksAIResponsesAPIConfig()
+        elif embrouter.LlmProviders.EDENAI == provider:
+            return embrouter.EdenAIResponsesAPIConfig()
+        elif embrouter.LlmProviders.BEDROCK == provider:
             # bedrock-runtime serves the OpenAI models on an OpenAI-compatible surface
             # (/openai/v1/responses) alongside Converse. The adapter decides whether a
             # given model is on it; None keeps the chat-completions bridge.
-            return litellm.BedrockOpenAIResponsesConfig.for_model(model)
-        elif litellm.LlmProviders.BEDROCK_MANTLE == provider:
+            return embrouter.BedrockOpenAIResponsesConfig.for_model(model)
+        elif embrouter.LlmProviders.BEDROCK_MANTLE == provider:
             # Both decisions are data-driven from the model's price-map entry, with
             # no model-name logic. Capability (can it serve Responses?) comes from
             # mantle_supports_responses (supported_endpoints / mode);
@@ -9161,15 +9161,15 @@ class ProviderConfigManager:
             # use_openai_responses_path flag: gpt-5.x and gemma-4-* on
             # /openai/v1/responses, everything else (incl. gpt-oss) on
             # /v1/responses.
-            from litellm.llms.bedrock_mantle.common_utils import (
+            from embrouter.llms.bedrock_mantle.common_utils import (
                 mantle_base_segment,
                 mantle_supports_responses,
             )
 
-            if not model or not mantle_supports_responses(model, litellm.model_cost):
+            if not model or not mantle_supports_responses(model, embrouter.model_cost):
                 return None
-            return litellm.BedrockMantleResponsesAPIConfig(
-                use_openai_path=mantle_base_segment(model, litellm.model_cost) == "openai/v1"
+            return embrouter.BedrockMantleResponsesAPIConfig(
+                use_openai_path=mantle_base_segment(model, embrouter.model_cost) == "openai/v1"
             )
         return None
 
@@ -9186,8 +9186,8 @@ class ProviderConfigManager:
         Returns:
             Provider-specific Skills API config or None
         """
-        if litellm.LlmProviders.ANTHROPIC == provider:
-            return litellm.AnthropicSkillsConfig()
+        if embrouter.LlmProviders.ANTHROPIC == provider:
+            return embrouter.AnthropicSkillsConfig()
         return None
 
     @staticmethod
@@ -9203,8 +9203,8 @@ class ProviderConfigManager:
         Returns:
             Provider-specific Evals API config or None
         """
-        if litellm.LlmProviders.OPENAI == provider:
-            from litellm.llms.openai.evals.transformation import OpenAIEvalsConfig
+        if embrouter.LlmProviders.OPENAI == provider:
+            from embrouter.llms.openai.evals.transformation import OpenAIEvalsConfig
 
             return OpenAIEvalsConfig()
         return None
@@ -9215,12 +9215,12 @@ class ProviderConfigManager:
         provider: LlmProviders,
     ) -> BaseTextCompletionConfig:
         if LlmProviders.FIREWORKS_AI == provider:
-            return litellm.FireworksAITextCompletionConfig()
+            return embrouter.FireworksAITextCompletionConfig()
         elif LlmProviders.TOGETHER_AI == provider:
-            return litellm.TogetherAITextCompletionConfig()
+            return embrouter.TogetherAITextCompletionConfig()
         elif LlmProviders.TEXT_COMPLETION_INCEPTION == provider:
-            return litellm.InceptionTextCompletionConfig()
-        return litellm.OpenAITextCompletionConfig()
+            return embrouter.InceptionTextCompletionConfig()
+        return embrouter.OpenAITextCompletionConfig()
 
     @staticmethod
     def get_provider_model_info(  # noqa: C901  # provider dispatch table, one branch per provider
@@ -9228,46 +9228,46 @@ class ProviderConfigManager:
         provider: LlmProviders,
     ) -> BaseLLMModelInfo | None:
         if LlmProviders.FIREWORKS_AI == provider:
-            return litellm.FireworksAIConfig()
+            return embrouter.FireworksAIConfig()
         elif LlmProviders.OPENAI == provider:
-            return litellm.OpenAIGPTConfig()
+            return embrouter.OpenAIGPTConfig()
         elif LlmProviders.GEMINI == provider:
-            return litellm.GeminiModelInfo()
+            return embrouter.GeminiModelInfo()
         elif LlmProviders.VERTEX_AI == provider:
-            from litellm.llms.vertex_ai.common_utils import VertexAIModelInfo
+            from embrouter.llms.vertex_ai.common_utils import VertexAIModelInfo
 
             return VertexAIModelInfo()
-        elif LlmProviders.LITELLM_PROXY == provider:
-            return litellm.LiteLLMProxyChatConfig()
+        elif LlmProviders.EMBROUTER_PROXY == provider:
+            return embrouter.EmbRouterProxyChatConfig()
         elif LlmProviders.TOPAZ == provider:
-            return litellm.TopazModelInfo()
+            return embrouter.TopazModelInfo()
         elif LlmProviders.ANTHROPIC == provider:
-            return litellm.AnthropicModelInfo()
+            return embrouter.AnthropicModelInfo()
         elif LlmProviders.XAI == provider:
-            return litellm.XAIModelInfo()
+            return embrouter.XAIModelInfo()
         elif LlmProviders.OLLAMA == provider or LlmProviders.OLLAMA_CHAT == provider:
             # Dynamic model listing for Ollama server
-            from litellm.llms.ollama.common_utils import OllamaModelInfo
+            from embrouter.llms.ollama.common_utils import OllamaModelInfo
 
             return OllamaModelInfo()
         elif LlmProviders.VLLM == provider or LlmProviders.HOSTED_VLLM == provider:
-            from litellm.llms.vllm.common_utils import (
+            from embrouter.llms.vllm.common_utils import (
                 VLLMModelInfo,  # experimental approach, to reduce bloat on __init__.py
             )
 
             return VLLMModelInfo()
         elif LlmProviders.LEMONADE == provider:
-            return litellm.LemonadeChatConfig()
+            return embrouter.LemonadeChatConfig()
         elif LlmProviders.CLARIFAI == provider:
-            return litellm.ClarifaiConfig()
+            return embrouter.ClarifaiConfig()
         elif LlmProviders.EDENAI == provider:
-            return litellm.EdenAIChatConfig()
+            return embrouter.EdenAIChatConfig()
         elif LlmProviders.BEDROCK == provider:
-            from litellm.llms.bedrock.common_utils import BedrockModelInfo
+            from embrouter.llms.bedrock.common_utils import BedrockModelInfo
 
             return BedrockModelInfo()
         elif LlmProviders.AZURE_AI == provider:
-            from litellm.llms.azure_ai.common_utils import AzureFoundryModelInfo
+            from embrouter.llms.azure_ai.common_utils import AzureFoundryModelInfo
 
             return AzureFoundryModelInfo(model=model)
         return None
@@ -9278,49 +9278,49 @@ class ProviderConfigManager:
         provider: LlmProviders,
     ) -> BasePassthroughConfig | None:
         if LlmProviders.BEDROCK == provider:
-            from litellm.llms.bedrock.passthrough.transformation import (
+            from embrouter.llms.bedrock.passthrough.transformation import (
                 BedrockPassthroughConfig,
             )
 
             return BedrockPassthroughConfig()
         elif LlmProviders.BEDROCK_MANTLE == provider:
-            from litellm.llms.bedrock_mantle.passthrough.transformation import (
+            from embrouter.llms.bedrock_mantle.passthrough.transformation import (
                 BedrockMantlePassthroughConfig,
             )
 
             return BedrockMantlePassthroughConfig()
         elif LlmProviders.VLLM == provider or LlmProviders.HOSTED_VLLM == provider:
-            from litellm.llms.vllm.passthrough.transformation import (
+            from embrouter.llms.vllm.passthrough.transformation import (
                 VLLMPassthroughConfig,
             )
 
             return VLLMPassthroughConfig()
         elif LlmProviders.AZURE == provider:
-            from litellm.llms.azure.passthrough.transformation import (
+            from embrouter.llms.azure.passthrough.transformation import (
                 AzurePassthroughConfig,
             )
 
             return AzurePassthroughConfig()
         elif LlmProviders.AZURE_AI == provider:
-            from litellm.llms.azure_ai.passthrough.transformation import (
+            from embrouter.llms.azure_ai.passthrough.transformation import (
                 AzureAIPassthroughConfig,
             )
 
             return AzureAIPassthroughConfig()
         elif LlmProviders.GIGACHAT == provider:
-            from litellm.llms.gigachat.passthrough.transformation import (
+            from embrouter.llms.gigachat.passthrough.transformation import (
                 GigaChatPassthroughConfig,
             )
 
             return GigaChatPassthroughConfig()
         elif LlmProviders.WATSONX == provider:
-            from litellm.llms.watsonx.passthrough.transformation import (
+            from embrouter.llms.watsonx.passthrough.transformation import (
                 WatsonxPassthroughConfig,
             )
 
             return WatsonxPassthroughConfig()
         elif LlmProviders.NVIDIA_NIM == provider:
-            from litellm.llms.nvidia_nim.passthrough.transformation import (
+            from embrouter.llms.nvidia_nim.passthrough.transformation import (
                 NvidiaNimPassthroughConfig,
             )
 
@@ -9333,9 +9333,9 @@ class ProviderConfigManager:
         provider: LlmProviders,
     ) -> BaseImageVariationConfig | None:
         if LlmProviders.OPENAI == provider:
-            return litellm.OpenAIImageVariationConfig()
+            return embrouter.OpenAIImageVariationConfig()
         elif LlmProviders.TOPAZ == provider:
-            return litellm.TopazImageVariationConfig()
+            return embrouter.TopazImageVariationConfig()
         return None
 
     @staticmethod
@@ -9344,33 +9344,33 @@ class ProviderConfigManager:
         provider: LlmProviders,
     ) -> BaseFilesConfig | None:
         if LlmProviders.GEMINI == provider:
-            from litellm.llms.gemini.files.transformation import (
+            from embrouter.llms.gemini.files.transformation import (
                 GoogleAIStudioFilesHandler,  # experimental approach, to reduce bloat on __init__.py
             )
 
             return GoogleAIStudioFilesHandler()
         elif LlmProviders.VERTEX_AI == provider:
-            from litellm.llms.vertex_ai.files.transformation import VertexAIFilesConfig
+            from embrouter.llms.vertex_ai.files.transformation import VertexAIFilesConfig
 
             return VertexAIFilesConfig()
         elif LlmProviders.BEDROCK == provider:
-            from litellm.llms.bedrock.files.transformation import BedrockFilesConfig
+            from embrouter.llms.bedrock.files.transformation import BedrockFilesConfig
 
             return BedrockFilesConfig()
         elif LlmProviders.MANUS == provider:
-            from litellm.llms.manus.files.transformation import ManusFilesConfig
+            from embrouter.llms.manus.files.transformation import ManusFilesConfig
 
             return ManusFilesConfig()
         elif LlmProviders.ANTHROPIC == provider:
-            from litellm.llms.anthropic.files.transformation import AnthropicFilesConfig
+            from embrouter.llms.anthropic.files.transformation import AnthropicFilesConfig
 
             return AnthropicFilesConfig()
         elif LlmProviders.MISTRAL == provider:
-            from litellm.llms.mistral.files.transformation import MistralFilesConfig
+            from embrouter.llms.mistral.files.transformation import MistralFilesConfig
 
             return MistralFilesConfig()
         elif LlmProviders.XAI == provider:
-            from litellm.llms.xai.files.transformation import XAIFilesConfig
+            from embrouter.llms.xai.files.transformation import XAIFilesConfig
 
             return XAIFilesConfig()
         return None
@@ -9381,11 +9381,11 @@ class ProviderConfigManager:
         provider: LlmProviders,
     ) -> BaseBatchesConfig | None:
         if LlmProviders.BEDROCK == provider:
-            from litellm.llms.bedrock.batches.transformation import BedrockBatchesConfig
+            from embrouter.llms.bedrock.batches.transformation import BedrockBatchesConfig
 
             return BedrockBatchesConfig()
         elif LlmProviders.MISTRAL == provider:
-            from litellm.llms.mistral.batches.transformation import MistralBatchesConfig
+            from embrouter.llms.mistral.batches.transformation import MistralBatchesConfig
 
             return MistralBatchesConfig()
         return None
@@ -9394,7 +9394,7 @@ class ProviderConfigManager:
     def get_provider_vector_store_config(
         provider: LlmProviders,
     ) -> CustomLogger | None:
-        from litellm.integrations.vector_store_integrations.bedrock_vector_store import (
+        from embrouter.integrations.vector_store_integrations.bedrock_vector_store import (
             BedrockVectorStore,
         )
 
@@ -9410,81 +9410,81 @@ class ProviderConfigManager:
         """
         v2 vector store config, use this for new vector store integrations
         """
-        if litellm.LlmProviders.OPENAI == provider:
-            from litellm.llms.openai.vector_stores.transformation import (
+        if embrouter.LlmProviders.OPENAI == provider:
+            from embrouter.llms.openai.vector_stores.transformation import (
                 OpenAIVectorStoreConfig,
             )
 
             return OpenAIVectorStoreConfig()
-        elif litellm.LlmProviders.AZURE == provider:
-            from litellm.llms.azure.vector_stores.transformation import (
+        elif embrouter.LlmProviders.AZURE == provider:
+            from embrouter.llms.azure.vector_stores.transformation import (
                 AzureOpenAIVectorStoreConfig,
             )
 
             return AzureOpenAIVectorStoreConfig()
-        elif litellm.LlmProviders.VERTEX_AI == provider:
+        elif embrouter.LlmProviders.VERTEX_AI == provider:
             if api_type == "rag_api" or api_type is None:  # default to rag_api
-                from litellm.llms.vertex_ai.vector_stores.rag_api.transformation import (
+                from embrouter.llms.vertex_ai.vector_stores.rag_api.transformation import (
                     VertexVectorStoreConfig,
                 )
 
                 return VertexVectorStoreConfig()
             elif api_type == "search_api":
-                from litellm.llms.vertex_ai.vector_stores.search_api.transformation import (
+                from embrouter.llms.vertex_ai.vector_stores.search_api.transformation import (
                     VertexSearchAPIVectorStoreConfig,
                 )
 
                 return VertexSearchAPIVectorStoreConfig()
-        elif litellm.LlmProviders.BEDROCK == provider:
-            from litellm.llms.bedrock.vector_stores.transformation import (
+        elif embrouter.LlmProviders.BEDROCK == provider:
+            from embrouter.llms.bedrock.vector_stores.transformation import (
                 BedrockVectorStoreConfig,
             )
 
             return BedrockVectorStoreConfig()
-        elif litellm.LlmProviders.PG_VECTOR == provider:
-            from litellm.llms.pg_vector.vector_stores.transformation import (
+        elif embrouter.LlmProviders.PG_VECTOR == provider:
+            from embrouter.llms.pg_vector.vector_stores.transformation import (
                 PGVectorStoreConfig,
             )
 
             return PGVectorStoreConfig()
-        elif litellm.LlmProviders.AZURE_AI == provider:
-            from litellm.llms.azure_ai.vector_stores.transformation import (
+        elif embrouter.LlmProviders.AZURE_AI == provider:
+            from embrouter.llms.azure_ai.vector_stores.transformation import (
                 AzureAIVectorStoreConfig,
             )
 
             return AzureAIVectorStoreConfig()
-        elif litellm.LlmProviders.MILVUS == provider:
-            from litellm.llms.milvus.vector_stores.transformation import (
+        elif embrouter.LlmProviders.MILVUS == provider:
+            from embrouter.llms.milvus.vector_stores.transformation import (
                 MilvusVectorStoreConfig,
             )
 
             return MilvusVectorStoreConfig()
-        elif litellm.LlmProviders.GEMINI == provider:
-            from litellm.llms.gemini.vector_stores.transformation import (
+        elif embrouter.LlmProviders.GEMINI == provider:
+            from embrouter.llms.gemini.vector_stores.transformation import (
                 GeminiVectorStoreConfig,
             )
 
             return GeminiVectorStoreConfig()
-        elif litellm.LlmProviders.RAGFLOW == provider:
-            from litellm.llms.ragflow.vector_stores.transformation import (
+        elif embrouter.LlmProviders.RAGFLOW == provider:
+            from embrouter.llms.ragflow.vector_stores.transformation import (
                 RAGFlowVectorStoreConfig,
             )
 
             return RAGFlowVectorStoreConfig()
-        elif litellm.LlmProviders.S3_VECTORS == provider:
-            from litellm.llms.s3_vectors.vector_stores.transformation import (
+        elif embrouter.LlmProviders.S3_VECTORS == provider:
+            from embrouter.llms.s3_vectors.vector_stores.transformation import (
                 S3VectorsVectorStoreConfig,
             )
 
             return S3VectorsVectorStoreConfig()
-        elif litellm.LlmProviders.VALKEY == provider:
-            from litellm.llms.valkey.vector_stores.transformation import (
+        elif embrouter.LlmProviders.VALKEY == provider:
+            from embrouter.llms.valkey.vector_stores.transformation import (
                 ValkeyVectorStoreConfig,
             )
 
             return ValkeyVectorStoreConfig()
-        elif litellm.LlmProviders.MONGODB == provider:
-            from litellm.llms.mongodb.vector_stores.transformation import (
+        elif embrouter.LlmProviders.MONGODB == provider:
+            from embrouter.llms.mongodb.vector_stores.transformation import (
                 MongoDBVectorStoreConfig,
             )
 
@@ -9495,8 +9495,8 @@ class ProviderConfigManager:
     def get_provider_vector_store_files_config(
         provider: LlmProviders,
     ) -> BaseVectorStoreFilesConfig | None:
-        if litellm.LlmProviders.OPENAI == provider:
-            from litellm.llms.openai.vector_store_files.transformation import (
+        if embrouter.LlmProviders.OPENAI == provider:
+            from embrouter.llms.openai.vector_store_files.transformation import (
                 OpenAIVectorStoreFilesConfig,
             )
 
@@ -9509,91 +9509,91 @@ class ProviderConfigManager:
         provider: LlmProviders,
     ) -> BaseImageGenerationConfig | None:
         if LlmProviders.OPENAI == provider:
-            from litellm.llms.openai.image_generation import (
+            from embrouter.llms.openai.image_generation import (
                 get_openai_image_generation_config,
             )
 
             return get_openai_image_generation_config(model)
         elif LlmProviders.AZURE == provider:
-            from litellm.llms.azure.image_generation import (
+            from embrouter.llms.azure.image_generation import (
                 get_azure_image_generation_config,
             )
 
             return get_azure_image_generation_config(model)
         elif LlmProviders.AZURE_AI == provider:
-            from litellm.llms.azure_ai.image_generation import (
+            from embrouter.llms.azure_ai.image_generation import (
                 get_azure_ai_image_generation_config,
             )
 
             return get_azure_ai_image_generation_config(model)
         elif LlmProviders.XINFERENCE == provider:
-            from litellm.llms.xinference.image_generation import (
+            from embrouter.llms.xinference.image_generation import (
                 get_xinference_image_generation_config,
             )
 
             return get_xinference_image_generation_config(model)
         elif LlmProviders.RECRAFT == provider:
-            from litellm.llms.recraft.image_generation import (
+            from embrouter.llms.recraft.image_generation import (
                 get_recraft_image_generation_config,
             )
 
             return get_recraft_image_generation_config(model)
         elif LlmProviders.AIML == provider:
-            from litellm.llms.aiml.image_generation import (
+            from embrouter.llms.aiml.image_generation import (
                 get_aiml_image_generation_config,
             )
 
             return get_aiml_image_generation_config(model)
         elif LlmProviders.COMETAPI == provider:
-            from litellm.llms.cometapi.image_generation import (
+            from embrouter.llms.cometapi.image_generation import (
                 get_cometapi_image_generation_config,
             )
 
             return get_cometapi_image_generation_config(model)
         elif LlmProviders.GEMINI == provider:
-            from litellm.llms.gemini.image_generation import (
+            from embrouter.llms.gemini.image_generation import (
                 get_gemini_image_generation_config,
             )
 
             return get_gemini_image_generation_config(model)
-        elif LlmProviders.LITELLM_PROXY == provider:
-            from litellm.llms.litellm_proxy.image_generation.transformation import (
-                LiteLLMProxyImageGenerationConfig,
+        elif LlmProviders.EMBROUTER_PROXY == provider:
+            from embrouter.llms.embrouter_proxy.image_generation.transformation import (
+                EmbRouterProxyImageGenerationConfig,
             )
 
-            return LiteLLMProxyImageGenerationConfig()
+            return EmbRouterProxyImageGenerationConfig()
         elif LlmProviders.FAL_AI == provider:
-            from litellm.llms.fal_ai.image_generation import (
+            from embrouter.llms.fal_ai.image_generation import (
                 get_fal_ai_image_generation_config,
             )
 
             return get_fal_ai_image_generation_config(model)
         elif LlmProviders.STABILITY == provider:
-            from litellm.llms.stability.image_generation import (
+            from embrouter.llms.stability.image_generation import (
                 get_stability_image_generation_config,
             )
 
             return get_stability_image_generation_config(model)
         elif LlmProviders.RUNWAYML == provider:
-            from litellm.llms.runwayml.image_generation import (
+            from embrouter.llms.runwayml.image_generation import (
                 get_runwayml_image_generation_config,
             )
 
             return get_runwayml_image_generation_config(model)
         elif LlmProviders.BLACK_FOREST_LABS == provider:
-            from litellm.llms.black_forest_labs.image_generation import (
+            from embrouter.llms.black_forest_labs.image_generation import (
                 get_black_forest_labs_image_generation_config,
             )
 
             return get_black_forest_labs_image_generation_config(model)
         elif LlmProviders.VERTEX_AI == provider:
-            from litellm.llms.vertex_ai.image_generation import (
+            from embrouter.llms.vertex_ai.image_generation import (
                 get_vertex_ai_image_generation_config,
             )
 
             return get_vertex_ai_image_generation_config(model)
         elif LlmProviders.OPENROUTER == provider:
-            from litellm.llms.openrouter.image_generation import (
+            from embrouter.llms.openrouter.image_generation import (
                 get_openrouter_image_generation_config,
             )
 
@@ -9603,19 +9603,19 @@ class ProviderConfigManager:
             LlmProviders.QWENCLOUD,
             LlmProviders.QWEN_AI_PLATFORM,
         ):
-            from litellm.llms.dashscope.common_utils import (
+            from embrouter.llms.dashscope.common_utils import (
                 get_dashscope_family_image_generation_config,
             )
 
             return get_dashscope_family_image_generation_config(provider.value)
         elif LlmProviders.MODELSCOPE == provider:
-            from litellm.llms.modelscope.image_generation import (
+            from embrouter.llms.modelscope.image_generation import (
                 get_modelscope_image_generation_config,
             )
 
             return get_modelscope_image_generation_config(model)
         elif LlmProviders.EDENAI == provider:
-            return litellm.EdenAIImageGenerationConfig()
+            return embrouter.EdenAIImageGenerationConfig()
         return None
 
     @staticmethod
@@ -9624,35 +9624,35 @@ class ProviderConfigManager:
         provider: LlmProviders,
     ) -> BaseVideoConfig | None:
         if LlmProviders.OPENAI == provider:
-            from litellm.llms.openai.videos.transformation import OpenAIVideoConfig
+            from embrouter.llms.openai.videos.transformation import OpenAIVideoConfig
 
             return OpenAIVideoConfig()
         elif LlmProviders.AZURE == provider:
-            from litellm.llms.azure.videos.transformation import AzureVideoConfig
+            from embrouter.llms.azure.videos.transformation import AzureVideoConfig
 
             return AzureVideoConfig()
         elif LlmProviders.GEMINI == provider:
-            from litellm.llms.gemini.videos.transformation import GeminiVideoConfig
+            from embrouter.llms.gemini.videos.transformation import GeminiVideoConfig
 
             return GeminiVideoConfig()
         elif LlmProviders.VERTEX_AI == provider:
-            from litellm.llms.vertex_ai.videos.transformation import VertexAIVideoConfig
+            from embrouter.llms.vertex_ai.videos.transformation import VertexAIVideoConfig
 
             return VertexAIVideoConfig()
         elif LlmProviders.RUNWAYML == provider:
-            from litellm.llms.runwayml.videos.transformation import RunwayMLVideoConfig
+            from embrouter.llms.runwayml.videos.transformation import RunwayMLVideoConfig
 
             return RunwayMLVideoConfig()
         elif LlmProviders.FAL_AI == provider:
-            from litellm.llms.fal_ai.videos.transformation import FalAIVideoConfig
+            from embrouter.llms.fal_ai.videos.transformation import FalAIVideoConfig
 
             return FalAIVideoConfig()
         elif LlmProviders.HOSTED_VLLM == provider:
-            from litellm.llms.hosted_vllm.videos import get_hosted_vllm_video_config
+            from embrouter.llms.hosted_vllm.videos import get_hosted_vllm_video_config
 
             return get_hosted_vllm_video_config(model)
         elif LlmProviders.EDENAI == provider:
-            return litellm.EdenAIVideoConfig()
+            return embrouter.EdenAIVideoConfig()
         return None
 
     @staticmethod
@@ -9660,13 +9660,13 @@ class ProviderConfigManager:
         provider: LlmProviders,
     ) -> BaseContainerConfig | None:
         if LlmProviders.OPENAI == provider:
-            from litellm.llms.openai.containers.transformation import (
+            from embrouter.llms.openai.containers.transformation import (
                 OpenAIContainerConfig,
             )
 
             return OpenAIContainerConfig()
         if provider in (LlmProviders.AZURE, LlmProviders.AZURE_TEXT):
-            from litellm.llms.azure.containers.transformation import (
+            from embrouter.llms.azure.containers.transformation import (
                 AzureContainerConfig,
             )
 
@@ -9679,11 +9679,11 @@ class ProviderConfigManager:
         provider: LlmProviders,
     ) -> BaseRealtimeConfig | None:
         if LlmProviders.GEMINI == provider:
-            from litellm.llms.gemini.realtime.transformation import GeminiRealtimeConfig
+            from embrouter.llms.gemini.realtime.transformation import GeminiRealtimeConfig
 
             return GeminiRealtimeConfig()
         if LlmProviders.META == provider:
-            from litellm.llms.meta.realtime.transformation import MetaRealtimeConfig
+            from embrouter.llms.meta.realtime.transformation import MetaRealtimeConfig
 
             return MetaRealtimeConfig()
         return None
@@ -9699,13 +9699,13 @@ class ProviderConfigManager:
         """
 
         if LlmProviders.OPENAI == provider:
-            from litellm.llms.openai.realtime.http_transformation import (
+            from embrouter.llms.openai.realtime.http_transformation import (
                 OpenAIRealtimeHTTPConfig,
             )
 
             return OpenAIRealtimeHTTPConfig()
         if LlmProviders.AZURE == provider:
-            from litellm.llms.azure.realtime.http_transformation import (
+            from embrouter.llms.azure.realtime.http_transformation import (
                 AzureRealtimeHTTPConfig,
             )
 
@@ -9718,69 +9718,69 @@ class ProviderConfigManager:
         provider: LlmProviders,
     ) -> BaseImageEditConfig | None:
         if LlmProviders.OPENAI == provider:
-            from litellm.llms.openai.image_edit import get_openai_image_edit_config
+            from embrouter.llms.openai.image_edit import get_openai_image_edit_config
 
             return get_openai_image_edit_config(model=model)
         elif LlmProviders.HOSTED_VLLM == provider:
-            from litellm.llms.hosted_vllm.image_edit import get_hosted_vllm_image_edit_config
+            from embrouter.llms.hosted_vllm.image_edit import get_hosted_vllm_image_edit_config
 
             return get_hosted_vllm_image_edit_config(model=model)
         elif LlmProviders.AZURE == provider:
-            from litellm.llms.azure.image_edit.transformation import (
+            from embrouter.llms.azure.image_edit.transformation import (
                 AzureImageEditConfig,
             )
 
             return AzureImageEditConfig()
         elif LlmProviders.RECRAFT == provider:
-            from litellm.llms.recraft.image_edit.transformation import (
+            from embrouter.llms.recraft.image_edit.transformation import (
                 RecraftImageEditConfig,
             )
 
             return RecraftImageEditConfig()
         elif LlmProviders.BLACK_FOREST_LABS == provider:
-            from litellm.llms.black_forest_labs.image_edit.transformation import (
+            from embrouter.llms.black_forest_labs.image_edit.transformation import (
                 BlackForestLabsImageEditConfig,
             )
 
             return BlackForestLabsImageEditConfig()
         elif LlmProviders.FAL_AI == provider:
-            from litellm.llms.fal_ai.image_edit import get_fal_ai_image_edit_config
+            from embrouter.llms.fal_ai.image_edit import get_fal_ai_image_edit_config
 
             return get_fal_ai_image_edit_config(model)
         elif LlmProviders.AZURE_AI == provider:
-            from litellm.llms.azure_ai.image_edit import get_azure_ai_image_edit_config
+            from embrouter.llms.azure_ai.image_edit import get_azure_ai_image_edit_config
 
             return get_azure_ai_image_edit_config(model)
         elif LlmProviders.GEMINI == provider:
-            from litellm.llms.gemini.image_edit import get_gemini_image_edit_config
+            from embrouter.llms.gemini.image_edit import get_gemini_image_edit_config
 
             return get_gemini_image_edit_config(model)
-        elif LlmProviders.LITELLM_PROXY == provider:
-            from litellm.llms.litellm_proxy.image_edit.transformation import (
-                LiteLLMProxyImageEditConfig,
+        elif LlmProviders.EMBROUTER_PROXY == provider:
+            from embrouter.llms.embrouter_proxy.image_edit.transformation import (
+                EmbRouterProxyImageEditConfig,
             )
 
-            return LiteLLMProxyImageEditConfig()
+            return EmbRouterProxyImageEditConfig()
         elif LlmProviders.VERTEX_AI == provider:
-            from litellm.llms.vertex_ai.image_edit import (
+            from embrouter.llms.vertex_ai.image_edit import (
                 get_vertex_ai_image_edit_config,
             )
 
             return get_vertex_ai_image_edit_config(model)
         elif LlmProviders.STABILITY == provider:
-            from litellm.llms.stability.image_edit import (
+            from embrouter.llms.stability.image_edit import (
                 get_stability_image_edit_config,
             )
 
             return get_stability_image_edit_config(model)
         elif LlmProviders.BEDROCK == provider:
-            from litellm.llms.bedrock.image_edit.amazon_nova_canvas_image_edit_transformation import (
+            from embrouter.llms.bedrock.image_edit.amazon_nova_canvas_image_edit_transformation import (
                 get_bedrock_image_edit_config_for_model,
             )
 
             return get_bedrock_image_edit_config_for_model(model)
         elif LlmProviders.OPENROUTER == provider:
-            from litellm.llms.openrouter.image_edit import (
+            from embrouter.llms.openrouter.image_edit import (
                 get_openrouter_image_edit_config,
             )
 
@@ -9794,30 +9794,30 @@ class ProviderConfigManager:
         """
         Get Search configuration for a given provider.
         """
-        from litellm.llms.apiserpent.search.transformation import (
+        from embrouter.llms.apiserpent.search.transformation import (
             APISerpentSearchConfig,
         )
-        from litellm.llms.azure.search.transformation import BingGroundingSearchConfig
-        from litellm.llms.bedrock.search.transformation import AgentCoreSearchConfig
-        from litellm.llms.brave.search.transformation import BraveSearchConfig
-        from litellm.llms.dataforseo.search.transformation import DataForSEOSearchConfig
-        from litellm.llms.duckduckgo.search.transformation import DuckDuckGoSearchConfig
-        from litellm.llms.exa_ai.search.transformation import ExaAISearchConfig
-        from litellm.llms.fastcrw.search.transformation import FastCRWSearchConfig
-        from litellm.llms.firecrawl.search.transformation import FirecrawlSearchConfig
-        from litellm.llms.google_pse.search.transformation import GooglePSESearchConfig
-        from litellm.llms.linkup.search.transformation import LinkupSearchConfig
-        from litellm.llms.nimble.search.transformation import NimbleSearchConfig
-        from litellm.llms.parallel_ai.search.transformation import (
+        from embrouter.llms.azure.search.transformation import BingGroundingSearchConfig
+        from embrouter.llms.bedrock.search.transformation import AgentCoreSearchConfig
+        from embrouter.llms.brave.search.transformation import BraveSearchConfig
+        from embrouter.llms.dataforseo.search.transformation import DataForSEOSearchConfig
+        from embrouter.llms.duckduckgo.search.transformation import DuckDuckGoSearchConfig
+        from embrouter.llms.exa_ai.search.transformation import ExaAISearchConfig
+        from embrouter.llms.fastcrw.search.transformation import FastCRWSearchConfig
+        from embrouter.llms.firecrawl.search.transformation import FirecrawlSearchConfig
+        from embrouter.llms.google_pse.search.transformation import GooglePSESearchConfig
+        from embrouter.llms.linkup.search.transformation import LinkupSearchConfig
+        from embrouter.llms.nimble.search.transformation import NimbleSearchConfig
+        from embrouter.llms.parallel_ai.search.transformation import (
             ParallelAISearchConfig,
         )
-        from litellm.llms.perplexity.search.transformation import PerplexitySearchConfig
-        from litellm.llms.searchapi.search.transformation import SearchAPIConfig
-        from litellm.llms.searxng.search.transformation import SearXNGSearchConfig
-        from litellm.llms.serper.search.transformation import SerperSearchConfig
-        from litellm.llms.tavily.search.transformation import TavilySearchConfig
-        from litellm.llms.tinyfish.search.transformation import TinyfishSearchConfig
-        from litellm.llms.you_com.search.transformation import YouComSearchConfig
+        from embrouter.llms.perplexity.search.transformation import PerplexitySearchConfig
+        from embrouter.llms.searchapi.search.transformation import SearchAPIConfig
+        from embrouter.llms.searxng.search.transformation import SearXNGSearchConfig
+        from embrouter.llms.serper.search.transformation import SerperSearchConfig
+        from embrouter.llms.tavily.search.transformation import TavilySearchConfig
+        from embrouter.llms.tinyfish.search.transformation import TinyfishSearchConfig
+        from embrouter.llms.you_com.search.transformation import YouComSearchConfig
 
         PROVIDER_TO_CONFIG_MAP: Final = {
             SearchProviders.PERPLEXITY: PerplexitySearchConfig,
@@ -9853,8 +9853,8 @@ class ProviderConfigManager:
         """
         Get sandbox (code execution) configuration for a given provider.
         """
-        from litellm.llms.e2b.sandbox.transformation import E2BSandboxConfig
-        from litellm.llms.opensandbox.sandbox.transformation import (
+        from embrouter.llms.e2b.sandbox.transformation import E2BSandboxConfig
+        from embrouter.llms.opensandbox.sandbox.transformation import (
             OpenSandboxSandboxConfig,
         )
 
@@ -9872,37 +9872,37 @@ class ProviderConfigManager:
         """
         Get text-to-speech configuration for a given provider.
         """
-        from litellm.llms.base_llm.text_to_speech.transformation import (
+        from embrouter.llms.base_llm.text_to_speech.transformation import (
             BaseTextToSpeechConfig,
         )
 
-        if litellm.LlmProviders.AZURE == provider:
+        if embrouter.LlmProviders.AZURE == provider:
             # Only return Azure AVA config for Azure Speech Service models (speech/)
             # Azure OpenAI TTS models (azure/azure-tts) should not use this config
             if model.startswith("speech/"):
-                from litellm.llms.azure.text_to_speech.transformation import (
+                from embrouter.llms.azure.text_to_speech.transformation import (
                     AzureAVATextToSpeechConfig,
                 )
 
                 return AzureAVATextToSpeechConfig()
-        elif litellm.LlmProviders.ELEVENLABS == provider:
-            from litellm.llms.elevenlabs.text_to_speech.transformation import (
+        elif embrouter.LlmProviders.ELEVENLABS == provider:
+            from embrouter.llms.elevenlabs.text_to_speech.transformation import (
                 ElevenLabsTextToSpeechConfig,
             )
 
             return ElevenLabsTextToSpeechConfig()
-        elif litellm.LlmProviders.RUNWAYML == provider:
-            from litellm.llms.runwayml.text_to_speech.transformation import (
+        elif embrouter.LlmProviders.RUNWAYML == provider:
+            from embrouter.llms.runwayml.text_to_speech.transformation import (
                 RunwayMLTextToSpeechConfig,
             )
 
             return RunwayMLTextToSpeechConfig()
-        elif litellm.LlmProviders.VERTEX_AI == provider:
+        elif embrouter.LlmProviders.VERTEX_AI == provider:
             if "gemini" in model:
                 # Gemini TTS uses the speech_to_completion bridge, and Google Cloud TTS param
                 # mapping would drop response_format before the bridge sees it (LIT-6501)
                 return None
-            from litellm.llms.vertex_ai.text_to_speech.transformation import (
+            from embrouter.llms.vertex_ai.text_to_speech.transformation import (
                 VertexAILyriaTextToSpeechConfig,
                 VertexAITextToSpeechConfig,
             )
@@ -9910,26 +9910,26 @@ class ProviderConfigManager:
             if VertexAILyriaTextToSpeechConfig.is_lyria_model(model):
                 return VertexAILyriaTextToSpeechConfig()
             return VertexAITextToSpeechConfig()
-        elif litellm.LlmProviders.MINIMAX == provider:
-            from litellm.llms.minimax.text_to_speech.transformation import (
+        elif embrouter.LlmProviders.MINIMAX == provider:
+            from embrouter.llms.minimax.text_to_speech.transformation import (
                 MinimaxTextToSpeechConfig,
             )
 
             return MinimaxTextToSpeechConfig()
-        elif litellm.LlmProviders.MISTRAL == provider:
-            from litellm.llms.mistral.audio_speech.transformation import (
+        elif embrouter.LlmProviders.MISTRAL == provider:
+            from embrouter.llms.mistral.audio_speech.transformation import (
                 MistralTextToSpeechConfig,
             )
 
             return MistralTextToSpeechConfig()
-        elif litellm.LlmProviders.AWS_POLLY == provider:
-            from litellm.llms.aws_polly.text_to_speech.transformation import (
+        elif embrouter.LlmProviders.AWS_POLLY == provider:
+            from embrouter.llms.aws_polly.text_to_speech.transformation import (
                 AWSPollyTextToSpeechConfig,
             )
 
             return AWSPollyTextToSpeechConfig()
-        elif litellm.LlmProviders.EDENAI == provider:
-            return litellm.EdenAITextToSpeechConfig()
+        elif embrouter.LlmProviders.EDENAI == provider:
+            return embrouter.EdenAITextToSpeechConfig()
         return None
 
     @staticmethod
@@ -9937,23 +9937,23 @@ class ProviderConfigManager:
         model: str,
         provider: LlmProviders,
     ) -> BaseGoogleGenAIGenerateContentConfig | None:
-        if litellm.LlmProviders.GEMINI == provider:
-            from litellm.llms.gemini.google_genai.transformation import (
+        if embrouter.LlmProviders.GEMINI == provider:
+            from embrouter.llms.gemini.google_genai.transformation import (
                 GoogleGenAIConfig,
             )
 
             return GoogleGenAIConfig()
-        elif litellm.LlmProviders.VERTEX_AI == provider:
-            from litellm.llms.vertex_ai.google_genai.transformation import (
+        elif embrouter.LlmProviders.VERTEX_AI == provider:
+            from embrouter.llms.vertex_ai.google_genai.transformation import (
                 VertexAIGoogleGenAIConfig,
             )
-            from litellm.llms.vertex_ai.vertex_ai_partner_models.main import (
+            from embrouter.llms.vertex_ai.vertex_ai_partner_models.main import (
                 VertexAIPartnerModels,
             )
 
             #########################################################
             # If Vertex Partner models like Anthropic, Mistral, etc. are used,
-            # return None as we want this to go through the litellm.completion() adapter
+            # return None as we want this to go through the embrouter.completion() adapter
             # and not the Google Gen AI adapter
             #########################################################
             if VertexAIPartnerModels.is_vertex_partner_model(model):
@@ -9968,30 +9968,30 @@ class ProviderConfigManager:
 
 
 def get_end_user_id_for_cost_tracking(
-    litellm_params: dict,
-    service_type: Literal["litellm_logging", "prometheus"] = "litellm_logging",
+    embrouter_params: dict,
+    service_type: Literal["embrouter_logging", "prometheus"] = "embrouter_logging",
 ) -> str | None:
     """
     Used for enforcing `disable_end_user_cost_tracking` param.
 
-    service_type: "litellm_logging" or "prometheus" - used to allow prometheus only disable cost tracking.
+    service_type: "embrouter_logging" or "prometheus" - used to allow prometheus only disable cost tracking.
     """
-    get_litellm_metadata_from_kwargs: Final = litellm_utils.get_litellm_metadata_from_kwargs
-    _metadata: Final = cast(dict, get_litellm_metadata_from_kwargs(dict(litellm_params=litellm_params)))
+    get_embrouter_metadata_from_kwargs: Final = embrouter_utils.get_embrouter_metadata_from_kwargs
+    _metadata: Final = cast(dict, get_embrouter_metadata_from_kwargs(dict(embrouter_params=embrouter_params)))
 
     end_user_id: Final = cast(
         str | None,
-        litellm_params.get("user_api_key_end_user_id") or _metadata.get("user_api_key_end_user_id"),
+        embrouter_params.get("user_api_key_end_user_id") or _metadata.get("user_api_key_end_user_id"),
     )
-    if litellm.disable_end_user_cost_tracking:
+    if embrouter.disable_end_user_cost_tracking:
         return None
 
     #######################################
     # By default we don't track end_user on prometheus since we don't want to increase cardinality
-    # by default litellm.enable_end_user_cost_tracking_prometheus_only is None, so we don't track end_user on prometheus
+    # by default embrouter.enable_end_user_cost_tracking_prometheus_only is None, so we don't track end_user on prometheus
     #######################################
     if service_type == "prometheus":
-        if litellm.enable_end_user_cost_tracking_prometheus_only is not True:
+        if embrouter.enable_end_user_cost_tracking_prometheus_only is not True:
             return None
     return end_user_id
 
@@ -10133,11 +10133,11 @@ def _add_path_to_api_base(api_base: str, ending_path: str) -> str:
 
 
 def get_standard_openai_params(params: Mapping[str, object]) -> dict:
-    return {k: v for k, v in params.items() if k in litellm.OPENAI_CHAT_COMPLETION_PARAMS and v is not None}
+    return {k: v for k, v in params.items() if k in embrouter.OPENAI_CHAT_COMPLETION_PARAMS and v is not None}
 
 
 def get_non_default_completion_params(kwargs: Mapping[str, object]) -> dict[str, object]:
-    return filter_out_litellm_params(kwargs, excluding=litellm.OPENAI_CHAT_COMPLETION_PARAMS)
+    return filter_out_embrouter_params(kwargs, excluding=embrouter.OPENAI_CHAT_COMPLETION_PARAMS)
 
 
 def peek_reasoning_summary_aliases(optional_params: dict) -> object | None:
@@ -10184,9 +10184,9 @@ def strip_reasoning_summary_aliases_from_optional_params(
 
 
 def get_non_default_transcription_params(kwargs: Mapping[str, object]) -> dict[str, object]:
-    from litellm.constants import OPENAI_TRANSCRIPTION_PARAMS
+    from embrouter.constants import OPENAI_TRANSCRIPTION_PARAMS
 
-    return filter_out_litellm_params(kwargs, excluding=OPENAI_TRANSCRIPTION_PARAMS)
+    return filter_out_embrouter_params(kwargs, excluding=OPENAI_TRANSCRIPTION_PARAMS)
 
 
 def add_openai_metadata(
@@ -10245,32 +10245,32 @@ def return_raw_request(endpoint: CallTypes, kwargs: dict) -> RawRequestTypedDict
     """
     Return the json str of the request
 
-    This is currently in BETA, and tested for `/chat/completions` -> `litellm.completion` calls.
+    This is currently in BETA, and tested for `/chat/completions` -> `embrouter.completion` calls.
     """
     from datetime import datetime
 
-    from litellm.litellm_core_utils.litellm_logging import Logging, RawRequestCaptured
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging, RawRequestCaptured
 
-    litellm_logging_obj: Final = Logging(
+    embrouter_logging_obj: Final = Logging(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": "hi"}],
         stream=False,
         call_type="acompletion",
-        litellm_call_id="1234",
+        embrouter_call_id="1234",
         start_time=datetime.now(),
         function_id="1234",
         log_raw_request_response=True,
         raw_request_only=True,
     )
 
-    llm_api_endpoint: Final = getattr(litellm, endpoint.value)
+    llm_api_endpoint: Final = getattr(embrouter, endpoint.value)
 
     received_exception = ""
 
     try:
         llm_api_endpoint(
             **kwargs,
-            litellm_logging_obj=litellm_logging_obj,
+            embrouter_logging_obj=embrouter_logging_obj,
             api_key="my-fake-api-key",
         )
     except RawRequestCaptured:
@@ -10280,7 +10280,7 @@ def return_raw_request(endpoint: CallTypes, kwargs: dict) -> RawRequestTypedDict
     except Exception as e:
         received_exception = str(e)
 
-    raw_request_typed_dict: Final = litellm_logging_obj.model_call_details.get("raw_request_typed_dict")
+    raw_request_typed_dict: Final = embrouter_logging_obj.model_call_details.get("raw_request_typed_dict")
     if raw_request_typed_dict:
         return cast(RawRequestTypedDict, raw_request_typed_dict)
     else:
@@ -10327,7 +10327,7 @@ def should_run_mock_completion(
 def __getattr__(name: str) -> Any:
     """Lazy import handler for utils module with cached registry for improved performance."""
     # Use cached registry from _lazy_imports instead of importing tuples every time
-    from litellm._lazy_imports import _get_lazy_import_registry
+    from embrouter._lazy_imports import _get_lazy_import_registry
 
     registry: Final = _get_lazy_import_registry()
 

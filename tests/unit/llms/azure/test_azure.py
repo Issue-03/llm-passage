@@ -1,4 +1,4 @@
-"""Tests for litellm/llms/azure/azure.py AzureChatCompletion handler behaviour."""
+"""Tests for embrouter/llms/azure/azure.py AzureChatCompletion handler behaviour."""
 
 import asyncio
 import time
@@ -7,9 +7,9 @@ from typing import Final
 import pytest
 from openai import AsyncAzureOpenAI, AzureOpenAI
 
-import litellm
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.azure.azure import AzureChatCompletion
+import embrouter
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.azure.azure import AzureChatCompletion
 
 
 class _FakeRawResponse:
@@ -31,13 +31,13 @@ def test_sync_streaming_stamps_response_headers_on_the_logging_obj() -> None:
     client = AzureOpenAI(api_key="fake", api_version="2024-02-01", azure_endpoint="https://fake.openai.azure.com")
     client.chat.completions.with_raw_response = _FakeRawCompletions()
 
-    logging_obj = LiteLLMLoggingObj(
+    logging_obj = EmbRouterLoggingObj(
         model="azure/gpt-4o-spill-test",
         messages=[{"role": "user", "content": "Hi"}],
         stream=True,
         call_type="completion",
         start_time=time.time(),
-        litellm_call_id="spill-sync-1",
+        embrouter_call_id="spill-sync-1",
         function_id="f",
     )
 
@@ -72,7 +72,7 @@ async def test_acompletion_propagates_cancelled_error() -> None:
     client.chat.completions.with_raw_response = _CancelledRawCompletions()
 
     with pytest.raises(asyncio.CancelledError):
-        await litellm.acompletion(
+        await embrouter.acompletion(
             model="azure/fake-deployment",
             messages=[{"role": "user", "content": "hi"}],
             client=client,

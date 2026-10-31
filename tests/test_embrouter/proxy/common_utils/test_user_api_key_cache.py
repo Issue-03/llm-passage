@@ -4,18 +4,18 @@ from typing import Any
 
 import pytest
 
-from litellm.caching.dual_cache import DualCache
-from litellm.caching.in_memory_cache import InMemoryCache
-from litellm.caching.redis_cache import RedisCache
-from litellm.constants import DEFAULT_MANAGEMENT_OBJECT_IN_MEMORY_CACHE_TTL
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.common_utils.user_api_key_cache import (
+from embrouter.caching.dual_cache import DualCache
+from embrouter.caching.in_memory_cache import InMemoryCache
+from embrouter.caching.redis_cache import RedisCache
+from embrouter.constants import DEFAULT_MANAGEMENT_OBJECT_IN_MEMORY_CACHE_TTL
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.common_utils.user_api_key_cache import (
     UserApiKeyCache,
     end_user_cache_key,
     get_management_object_ttl,
     is_user_key_cache_key,
 )
-from litellm.proxy.proxy_server import UserAPIKeyCacheTTLEnum
+from embrouter.proxy.proxy_server import UserAPIKeyCacheTTLEnum
 
 HASHED_TOKEN = hashlib.sha256(b"sk-lit7563-hot-key").hexdigest()
 
@@ -244,7 +244,7 @@ class TestUserKeyObjectPartition:
     """
     Regression for LIT-7563: user-key objects share one 200-entry ``InMemoryCache`` with
     every other management object, so end-user / team / tag churn evicts hot keys and
-    forces a ``LiteLLM_VerificationToken`` lookup on the next request.
+    forces a ``EmbRouter_VerificationToken`` lookup on the next request.
     """
 
     @pytest.mark.parametrize(

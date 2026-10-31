@@ -12,8 +12,8 @@ so it never compounds across requests.
 import math
 from typing import Final
 
-import litellm
-from litellm.proxy._types import UserAPIKeyAuth
+import embrouter
+from embrouter.proxy._types import UserAPIKeyAuth
 
 
 def budget_throttle_percentage() -> float | None:
@@ -22,7 +22,7 @@ def budget_throttle_percentage() -> float | None:
     misconfigured (in which case an over-budget key is hard-blocked, the safe
     default).
     """
-    pct: Final = litellm.budget_exceeded_throttle_percentage
+    pct: Final = embrouter.budget_exceeded_throttle_percentage
     if not isinstance(pct, (int, float)) or isinstance(pct, bool):
         return None
     if not 0 < pct <= 1:

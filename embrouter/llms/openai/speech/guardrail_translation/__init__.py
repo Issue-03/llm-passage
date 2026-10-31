@@ -2,10 +2,10 @@
 
 from typing import Final
 
-from litellm.llms.openai.speech.guardrail_translation.handler import (
+from embrouter.llms.openai.speech.guardrail_translation.handler import (
     OpenAITextToSpeechHandler,
 )
-from litellm.types.utils import CallTypes
+from embrouter.types.utils import CallTypes
 
 guardrail_translation_mappings: Final = {
     CallTypes.speech: OpenAITextToSpeechHandler,

@@ -1,6 +1,6 @@
 """
 Tests for the proxy OCR endpoint helpers that select the response format
-(`x-req-format: native | litellm`) and return the provider's native payload.
+(`x-req-format: native | embrouter`) and return the provider's native payload.
 """
 
 from unittest.mock import AsyncMock, MagicMock
@@ -9,8 +9,8 @@ import orjson
 import pytest
 from fastapi import HTTPException
 
-from litellm.llms.base_llm.ocr.transformation import OCRPage, OCRResponse
-from litellm.proxy.ocr_endpoints.endpoints import _native_response, _parse_ocr_request
+from embrouter.llms.base_llm.ocr.transformation import OCRPage, OCRResponse
+from embrouter.proxy.ocr_endpoints.endpoints import _native_response, _parse_ocr_request
 
 AZURE_NATIVE_OPERATION = {
     "status": "succeeded",
@@ -55,12 +55,12 @@ async def test_should_prefer_body_req_format_over_header():
         {
             "model": "azure-prebuilt-layout",
             "document": {"type": "document_url", "document_url": "https://x/y.pdf"},
-            "req_format": "litellm",
+            "req_format": "embrouter",
         },
         {"x-req-format": "native"},
     )
 
-    assert (await _parse_ocr_request(request))["req_format"] == "litellm"
+    assert (await _parse_ocr_request(request))["req_format"] == "embrouter"
 
 
 @pytest.mark.asyncio
@@ -96,15 +96,15 @@ async def test_should_reject_unknown_req_format(body_format, headers):
     assert "Invalid `req_format`" in f"{exc_info.value.detail}"
 
 
-def test_should_return_native_payload_with_litellm_response_headers():
+def test_should_return_native_payload_with_embrouter_response_headers():
     fastapi_response = MagicMock()
-    fastapi_response.headers = {"x-litellm-response-cost": "0.0015"}
+    fastapi_response.headers = {"x-embrouter-response-cost": "0.0015"}
 
     native = _native_response(_ocr_response(AZURE_NATIVE_OPERATION), fastapi_response)
 
     assert native is not None
     assert orjson.loads(native.body) == AZURE_NATIVE_OPERATION
-    assert native.headers["x-litellm-response-cost"] == "0.0015"
+    assert native.headers["x-embrouter-response-cost"] == "0.0015"
 
 
 def test_should_return_normalized_response_when_no_native_payload():
@@ -112,7 +112,7 @@ def test_should_return_normalized_response_when_no_native_payload():
 
 
 def test_upload_builds_a_file_document_for_rust_mime_inference():
-    from litellm.proxy.ocr_endpoints.endpoints import (
+    from embrouter.proxy.ocr_endpoints.endpoints import (
         _build_document_from_upload,  # pyright: ignore[reportPrivateUsage]  # tests the upload projection
     )
 
@@ -126,7 +126,7 @@ def test_upload_builds_a_file_document_for_rust_mime_inference():
 
 
 def test_upload_keeps_the_supplied_content_type_over_filename_inference():
-    from litellm.proxy.ocr_endpoints.endpoints import (
+    from embrouter.proxy.ocr_endpoints.endpoints import (
         _build_document_from_upload,  # pyright: ignore[reportPrivateUsage]  # tests the upload projection
     )
 
@@ -137,7 +137,7 @@ def test_upload_keeps_the_supplied_content_type_over_filename_inference():
 
 
 def test_upload_octet_stream_content_type_falls_back_to_filename_inference():
-    from litellm.proxy.ocr_endpoints.endpoints import (
+    from embrouter.proxy.ocr_endpoints.endpoints import (
         _build_document_from_upload,  # pyright: ignore[reportPrivateUsage]  # tests the upload projection
     )
 

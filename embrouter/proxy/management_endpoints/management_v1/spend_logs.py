@@ -5,19 +5,19 @@ from typing import Annotated, Final, Literal
 
 from fastapi import APIRouter, Depends, Query, Request
 
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy._types import CommonProxyErrors, UserAPIKeyAuth
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.list_api.common import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy._types import CommonProxyErrors, UserAPIKeyAuth
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.list_api.common import (
     PROBLEM_TYPE_BASE,
     ManagementProblem,
     build_page_links,
     escape_like,
     reject_unknown_query_params,
 )
-from litellm.proxy.management_endpoints.management_v1.common import MANAGEMENT_V1_PREFIX
-from litellm.proxy.utils import PrismaClient
-from litellm.types.proxy.management_endpoints.management_v1 import (
+from embrouter.proxy.management_endpoints.management_v1.common import MANAGEMENT_V1_PREFIX
+from embrouter.proxy.utils import PrismaClient
+from embrouter.types.proxy.management_endpoints.management_v1 import (
     FacetListResponse,
     PageMeta,
     ProblemDetail,
@@ -25,7 +25,7 @@ from litellm.types.proxy.management_endpoints.management_v1 import (
 
 router: Final = APIRouter(prefix=MANAGEMENT_V1_PREFIX)
 
-# Rows the facet query may read out of LiteLLM_SpendLogs before DISTINCT. Matches
+# Rows the facet query may read out of EmbRouter_SpendLogs before DISTINCT. Matches
 # SPEND_LOGS_PAGINATION_COUNT_CAP, the bound ui_view_spend_logs puts on its count
 # query, so both reads of the same table stop at the same depth.
 SPEND_LOGS_FACET_SCAN_CAP: Final = 10000
@@ -46,7 +46,7 @@ async def _spend_log_scope_clause(
     applies, so a dropdown can never offer a value from a row the caller could
     not open.
     """
-    from litellm.proxy.spend_tracking.spend_management_endpoints import (
+    from embrouter.proxy.spend_tracking.spend_management_endpoints import (
         _get_permitted_team_ids_for_spend_logs,
         _is_admin_view_safe,
     )
@@ -88,7 +88,7 @@ async def _list_spend_log_facet(
     column: Literal["end_user", "user"],
 ) -> FacetListResponse:
     try:
-        from litellm.proxy.proxy_server import prisma_client
+        from embrouter.proxy.proxy_server import prisma_client
 
         if prisma_client is None:
             raise ManagementProblem(
@@ -135,7 +135,7 @@ async def _list_spend_log_facet(
         facet_sql: Final = (
             f"SELECT DISTINCT {column_sql} FROM ("
             f" SELECT {column_sql}"
-            f' FROM "LiteLLM_SpendLogs"'
+            f' FROM "EmbRouter_SpendLogs"'
             f" WHERE {' AND '.join(where_parts)}"
             f' ORDER BY "startTime" DESC, request_id DESC'
             f" LIMIT ${scan_idx}"
@@ -156,7 +156,7 @@ async def _list_spend_log_facet(
         raise
     except Exception as e:
         verbose_proxy_logger.exception(
-            "litellm.proxy.management_endpoints.management_v1.spend_logs._list_spend_log_facet(): Exception occured - %s",
+            "embrouter.proxy.management_endpoints.management_v1.spend_logs._list_spend_log_facet(): Exception occured - %s",
             e,
         )
         raise ManagementProblem(

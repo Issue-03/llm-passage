@@ -22,7 +22,7 @@ from typing import Final
 
 from pydantic import BaseModel, TypeAdapter, ValidationError
 
-from litellm.types.llms.openai import (
+from embrouter.types.llms.openai import (
     ChatCompletionToolParam,
     ChatCompletionToolParamFunctionChunk,
 )

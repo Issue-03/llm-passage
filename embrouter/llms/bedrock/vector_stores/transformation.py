@@ -5,20 +5,20 @@ from urllib.parse import urlparse
 
 import httpx
 
-from litellm._logging import verbose_logger
-from litellm.litellm_core_utils.url_utils import encode_url_path_segment
-from litellm.llms.base_llm.vector_store.transformation import BaseVectorStoreConfig
-from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM
-from litellm.llms.bedrock.common_utils import BedrockError
-from litellm.types.integrations.rag.bedrock_knowledgebase import (
+from embrouter._logging import verbose_logger
+from embrouter.embrouter_core_utils.url_utils import encode_url_path_segment
+from embrouter.llms.base_llm.vector_store.transformation import BaseVectorStoreConfig
+from embrouter.llms.bedrock.base_aws_llm import BaseAWSLLM
+from embrouter.llms.bedrock.common_utils import BedrockError
+from embrouter.types.integrations.rag.bedrock_knowledgebase import (
     BedrockKBContent,
     BedrockKBResponse,
     BedrockKBRetrievalConfiguration,
     BedrockKBRetrievalQuery,
     BedrockKBUserContext,
 )
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.vector_stores import (
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.vector_stores import (
     VECTOR_STORE_OPENAI_PARAMS,
     BaseVectorStoreAuthCredentials,
     VectorStoreIndexEndpoints,
@@ -29,9 +29,9 @@ from litellm.types.vector_stores import (
 )
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 
 class BedrockVectorStoreConfig(BaseVectorStoreConfig, BaseAWSLLM):
@@ -49,7 +49,7 @@ class BedrockVectorStoreConfig(BaseVectorStoreConfig, BaseAWSLLM):
     ) -> BedrockError:
         return BedrockError(status_code=status_code, message=error_message, headers=headers)
 
-    def get_auth_credentials(self, litellm_params: dict) -> BaseVectorStoreAuthCredentials:
+    def get_auth_credentials(self, embrouter_params: dict) -> BaseVectorStoreAuthCredentials:
         return {}
 
     def get_vector_store_endpoints_by_type(self) -> VectorStoreIndexEndpoints:
@@ -183,16 +183,16 @@ class BedrockVectorStoreConfig(BaseVectorStoreConfig, BaseAWSLLM):
 
         return optional_params
 
-    def validate_environment(self, headers: dict, litellm_params: GenericLiteLLMParams | None) -> dict:
+    def validate_environment(self, headers: dict, embrouter_params: GenericEmbRouterParams | None) -> dict:
         headers = headers or {}
         headers.setdefault("Content-Type", "application/json")
         return headers
 
-    def get_complete_url(self, api_base: str | None, litellm_params: dict) -> str:
-        aws_region_name: Final = litellm_params.get("aws_region_name")
+    def get_complete_url(self, api_base: str | None, embrouter_params: dict) -> str:
+        aws_region_name: Final = embrouter_params.get("aws_region_name")
         endpoint_url, _ = self.get_runtime_endpoint(
             api_base=api_base,
-            aws_bedrock_runtime_endpoint=litellm_params.get("aws_bedrock_runtime_endpoint"),
+            aws_bedrock_runtime_endpoint=embrouter_params.get("aws_bedrock_runtime_endpoint"),
             aws_region_name=self.get_aws_region_name_for_non_llm_api_calls(aws_region_name=aws_region_name),
             endpoint_type="agent",
         )
@@ -204,8 +204,8 @@ class BedrockVectorStoreConfig(BaseVectorStoreConfig, BaseAWSLLM):
         query: str | list[str],
         vector_store_search_optional_params: VectorStoreSearchOptionalRequestParams,
         api_base: str,
-        litellm_logging_obj: LiteLLMLoggingObj,
-        litellm_params: dict,
+        embrouter_logging_obj: EmbRouterLoggingObj,
+        embrouter_params: dict,
         extra_body: dict[str, Any] | None = None,
     ) -> tuple[str, dict]:
         if isinstance(query, list):
@@ -244,18 +244,18 @@ class BedrockVectorStoreConfig(BaseVectorStoreConfig, BaseAWSLLM):
             retrieval_config.setdefault("vectorSearchConfiguration", {})["filter"] = filters
         if retrieval_config:
             request_body["retrievalConfiguration"] = cast(BedrockKBRetrievalConfiguration, retrieval_config)
-        user_context: Final = self._user_context(extra_body=extra_body, litellm_params=litellm_params)
+        user_context: Final = self._user_context(extra_body=extra_body, embrouter_params=embrouter_params)
         if user_context is not None:
             request_body["userContext"] = user_context
 
-        litellm_logging_obj.model_call_details["query"] = query
+        embrouter_logging_obj.model_call_details["query"] = query
         return url, request_body
 
     @staticmethod
     def _user_context(
-        extra_body: Mapping[str, object] | None, litellm_params: Mapping[str, object]
+        extra_body: Mapping[str, object] | None, embrouter_params: Mapping[str, object]
     ) -> BedrockKBUserContext | None:
-        sources: Final = tuple(source for source in (extra_body, litellm_params) if isinstance(source, Mapping))
+        sources: Final = tuple(source for source in (extra_body, embrouter_params) if isinstance(source, Mapping))
         found: Final = next(
             (
                 source[key]
@@ -328,7 +328,7 @@ class BedrockVectorStoreConfig(BaseVectorStoreConfig, BaseAWSLLM):
         return dict(metadata)
 
     def transform_search_vector_store_response(
-        self, response: httpx.Response, litellm_logging_obj: LiteLLMLoggingObj
+        self, response: httpx.Response, embrouter_logging_obj: EmbRouterLoggingObj
     ) -> VectorStoreSearchResponse:
         try:
             response_data: Final = BedrockKBResponse(**response.json())
@@ -356,7 +356,7 @@ class BedrockVectorStoreConfig(BaseVectorStoreConfig, BaseAWSLLM):
                 )
             return VectorStoreSearchResponse(
                 object="vector_store.search_results.page",
-                search_query=litellm_logging_obj.model_call_details.get("query", ""),
+                search_query=embrouter_logging_obj.model_call_details.get("query", ""),
                 data=results,
             )
         except Exception as e:

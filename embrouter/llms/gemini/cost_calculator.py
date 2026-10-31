@@ -7,7 +7,7 @@ Handles the context caching for Gemini API.
 from typing import TYPE_CHECKING, Final
 
 if TYPE_CHECKING:
-    from litellm.types.utils import ModelInfo, Usage
+    from embrouter.types.utils import ModelInfo, Usage
 
 
 def cost_per_token(model: str, usage: "Usage", service_tier: str | None = None) -> tuple[float, float]:
@@ -16,7 +16,7 @@ def cost_per_token(model: str, usage: "Usage", service_tier: str | None = None) 
 
     Follows the same logic as Anthropic's cost per token calculation.
     """
-    from litellm.litellm_core_utils.llm_cost_calc.utils import generic_cost_per_token
+    from embrouter.embrouter_core_utils.llm_cost_calc.utils import generic_cost_per_token
 
     return generic_cost_per_token(
         model=model,
@@ -39,10 +39,10 @@ def cost_per_web_search_request(usage: "Usage", model_info: "ModelInfo") -> floa
     ``model_info`` when available, falling back to $0.035 for models not
     yet updated in the pricing JSON.
     """
-    from litellm.litellm_core_utils.llm_cost_calc.utils import (
+    from embrouter.embrouter_core_utils.llm_cost_calc.utils import (
         get_web_search_requests_from_usage,
     )
-    from litellm.types.utils import PromptTokensDetailsWrapper
+    from embrouter.types.utils import PromptTokensDetailsWrapper
 
     _DEFAULT_COST: Final = 35e-3
     search_costs: Final = model_info.get("search_context_cost_per_query") or {}
@@ -75,7 +75,7 @@ GOOGLE_MAPS_GROUNDING_DEFAULT_COST_PER_PROMPT: Final = 25e-3
 
 
 def google_maps_grounding_requests(usage: "Usage | None") -> int | None:
-    from litellm.types.utils import PromptTokensDetailsWrapper
+    from embrouter.types.utils import PromptTokensDetailsWrapper
 
     details: Final = usage.prompt_tokens_details if usage is not None else None
     if not isinstance(details, PromptTokensDetailsWrapper) or not hasattr(details, "google_maps_grounding_requests"):

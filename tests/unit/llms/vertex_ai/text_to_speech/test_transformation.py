@@ -5,13 +5,13 @@ from unittest.mock import MagicMock, Mock, patch
 import httpx
 import pytest
 
-import litellm
-from litellm.llms.vertex_ai.text_to_speech.transformation import (
+import embrouter
+from embrouter.llms.vertex_ai.text_to_speech.transformation import (
     VertexAILyriaTextToSpeechConfig,
     VertexAITextToSpeechConfig,
 )
-from litellm.types.utils import LlmProviders
-from litellm.utils import ProviderConfigManager
+from embrouter.types.utils import LlmProviders
+from embrouter.utils import ProviderConfigManager
 
 
 class TestVertexAITextToSpeechConfig:
@@ -24,7 +24,7 @@ class TestVertexAITextToSpeechConfig:
         url = config.get_complete_url(
             model="vertex_ai/chirp",
             api_base=None,
-            litellm_params={},
+            embrouter_params={},
         )
 
         assert url == "https://texttospeech.googleapis.com/v1/text:synthesize"
@@ -37,7 +37,7 @@ class TestVertexAITextToSpeechConfig:
         url = config.get_complete_url(
             model="vertex_ai/chirp",
             api_base=custom_url,
-            litellm_params={},
+            embrouter_params={},
         )
 
         assert url == custom_url
@@ -52,7 +52,7 @@ class TestVertexAITextToSpeechConfig:
 
         config = VertexAITextToSpeechConfig()
 
-        # Test with voice dict in litellm_params (as set by dispatch)
+        # Test with voice dict in embrouter_params (as set by dispatch)
         result = config.transform_text_to_speech_request(
             model="vertex_ai/chirp",
             input="Hello, this is a test",
@@ -63,7 +63,7 @@ class TestVertexAITextToSpeechConfig:
                     "name": "en-US-Chirp3-HD-Charon",
                 }
             },
-            litellm_params={
+            embrouter_params={
                 "vertex_credentials": None,
                 "vertex_project": "test-project",
                 "vertex_location": "us-central1",
@@ -208,7 +208,7 @@ class TestVertexAILyriaTextToSpeechConfig:
         expected_url,
     ):
         monkeypatch.setitem(
-            litellm.model_cost,
+            embrouter.model_cost,
             f"vertex_ai/{model}",
             {
                 "vertex_ai_audio_api": vertex_ai_audio_api,
@@ -226,7 +226,7 @@ class TestVertexAILyriaTextToSpeechConfig:
             config.get_complete_url(
                 model=model,
                 api_base=None,
-                litellm_params={
+                embrouter_params={
                     "vertex_project": "music-project",
                     "vertex_location": "us-central1",
                 },
@@ -249,7 +249,7 @@ class TestVertexAILyriaTextToSpeechConfig:
         url = config.get_complete_url(
             model="lyria-002",
             api_base=None,
-            litellm_params={
+            embrouter_params={
                 "vertex_project": "music-project",
                 "vertex_location": "europe-west4",
             },
@@ -269,7 +269,7 @@ class TestVertexAILyriaTextToSpeechConfig:
             "%2Fmodels%2Fother-model%3Apredict%3Fignored%3D"
         )
         monkeypatch.setitem(
-            litellm.model_cost,
+            embrouter.model_cost,
             f"vertex_ai/{injected}",
             {
                 "vertex_ai_audio_api": "lyria_predict",
@@ -280,7 +280,7 @@ class TestVertexAILyriaTextToSpeechConfig:
         url: Final = VertexAILyriaTextToSpeechConfig().get_complete_url(
             model=injected,
             api_base="https://us-central1-aiplatform.googleapis.com",
-            litellm_params={
+            embrouter_params={
                 "vertex_project": injected,
                 "vertex_location": injected,
             },
@@ -297,7 +297,7 @@ class TestVertexAILyriaTextToSpeechConfig:
         url = config.get_complete_url(
             model="lyria-3-pro-preview",
             api_base=None,
-            litellm_params={"vertex_project": "music-project"},
+            embrouter_params={"vertex_project": "music-project"},
         )
 
         assert url == ("https://aiplatform.googleapis.com/v1beta1/projects/music-project/locations/global/interactions")
@@ -352,7 +352,7 @@ class TestVertexAILyriaTextToSpeechConfig:
             input="A bright synth track",
             voice="alloy",
             optional_params={"response_format": response_format},
-            litellm_params={"vertex_project": "music-project"},
+            embrouter_params={"vertex_project": "music-project"},
             headers={},
         )
 
@@ -455,7 +455,7 @@ class TestVertexAILyriaTextToSpeechConfig:
     def test_rejects_unsupported_response_format(self, model, response_format):
         config = VertexAILyriaTextToSpeechConfig()
 
-        with pytest.raises(litellm.UnsupportedParamsError):
+        with pytest.raises(embrouter.UnsupportedParamsError):
             config.map_openai_params(
                 model=model,
                 optional_params={"response_format": response_format},
@@ -465,7 +465,7 @@ class TestVertexAILyriaTextToSpeechConfig:
     def test_rejects_unsupported_openai_params(self, param):
         config = VertexAILyriaTextToSpeechConfig()
 
-        with pytest.raises(litellm.UnsupportedParamsError):
+        with pytest.raises(embrouter.UnsupportedParamsError):
             config.map_openai_params(
                 model="lyria-3-pro-preview",
                 optional_params={param: "unsupported"},
@@ -516,7 +516,7 @@ class TestVertexAILyriaTextToSpeechConfig:
             ),
         ],
     )
-    def test_litellm_speech_dispatches_to_lyria_api(
+    def test_embrouter_speech_dispatches_to_lyria_api(
         self,
         model,
         response_format,
@@ -529,17 +529,17 @@ class TestVertexAILyriaTextToSpeechConfig:
         mock_response.headers = {"content-type": "application/json"}
         mock_response.json.return_value = response_json
         with (
-            patch.object(  # test-quality-ok: litellm.speech has no seam for Vertex token minting
+            patch.object(  # test-quality-ok: embrouter.speech has no seam for Vertex token minting
                 VertexAILyriaTextToSpeechConfig,
                 "_ensure_access_token",
                 return_value=("mock-token", "music-project"),
             ),
-            patch(  # test-quality-ok: litellm.speech has no seam for the HTTP handler
-                "litellm.llms.custom_httpx.llm_http_handler.HTTPHandler.post",
+            patch(  # test-quality-ok: embrouter.speech has no seam for the HTTP handler
+                "embrouter.llms.custom_httpx.llm_http_handler.HTTPHandler.post",
                 return_value=mock_response,
             ) as mock_post,
         ):
-            response = litellm.speech(
+            response = embrouter.speech(
                 model=f"vertex_ai/{model}",
                 input="A bright synth track",
                 voice="alloy",
@@ -554,12 +554,12 @@ class TestVertexAILyriaTextToSpeechConfig:
         assert mock_post.call_args.kwargs["json"] == expected_body
 
 
-@patch("litellm.llms.custom_httpx.llm_http_handler.HTTPHandler.post")
+@patch("embrouter.llms.custom_httpx.llm_http_handler.HTTPHandler.post")
 @patch.object(VertexAITextToSpeechConfig, "_ensure_access_token")
 @patch.object(VertexAITextToSpeechConfig, "_get_token_and_url")
-def test_litellm_speech_vertex_ai_chirp(mock_get_token, mock_ensure_token, mock_post):
+def test_embrouter_speech_vertex_ai_chirp(mock_get_token, mock_ensure_token, mock_post):
     """
-    Test that litellm.speech(model="vertex_ai/chirp") sends the correct URL and request body
+    Test that embrouter.speech(model="vertex_ai/chirp") sends the correct URL and request body
     """
     # Mock authentication
     mock_ensure_token.return_value = ("mock-token", "test-project")
@@ -573,7 +573,7 @@ def test_litellm_speech_vertex_ai_chirp(mock_get_token, mock_ensure_token, mock_
     mock_response.json.return_value = {"audioContent": "SGVsbG8gV29ybGQ="}
     mock_post.return_value = mock_response
 
-    litellm.speech(
+    embrouter.speech(
         model="vertex_ai/chirp",
         input="Hello, this is a test",
         voice="en-US-Chirp3-HD-Charon",

@@ -4,22 +4,22 @@ from typing import TYPE_CHECKING, Any, Final, Literal
 import httpx
 from openai.types.responses import ResponseReasoningItem
 
-from litellm._logging import verbose_logger
-from litellm.litellm_core_utils.url_utils import encode_url_path_segment
-from litellm.llms.azure.chat.gpt_5_transformation import AzureOpenAIGPT5Config
-from litellm.llms.azure.common_utils import BaseAzureLLM
-from litellm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
-from litellm.types.llms.openai import *
-from litellm.types.responses.main import *
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import LlmProviders
+from embrouter._logging import verbose_logger
+from embrouter.embrouter_core_utils.url_utils import encode_url_path_segment
+from embrouter.llms.azure.chat.gpt_5_transformation import AzureOpenAIGPT5Config
+from embrouter.llms.azure.common_utils import BaseAzureLLM
+from embrouter.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
+from embrouter.types.llms.openai import *
+from embrouter.types.responses.main import *
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import LlmProviders
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 
 class AzureOpenAIResponsesAPIConfig(OpenAIResponsesAPIConfig):
@@ -45,8 +45,8 @@ class AzureOpenAIResponsesAPIConfig(OpenAIResponsesAPIConfig):
         base_supported_params: Final = super().get_supported_openai_params(model)
         return [param for param in base_supported_params if param not in self.AZURE_UNSUPPORTED_PARAMS]
 
-    def validate_environment(self, headers: dict, model: str, litellm_params: GenericLiteLLMParams | None) -> dict:
-        return BaseAzureLLM._base_validate_azure_environment(headers=headers, litellm_params=litellm_params)
+    def validate_environment(self, headers: dict, model: str, embrouter_params: GenericEmbRouterParams | None) -> dict:
+        return BaseAzureLLM._base_validate_azure_environment(headers=headers, embrouter_params=embrouter_params)
 
     def get_stripped_model_name(self, model: str) -> str:
         return model.replace("responses/", "").replace("o_series/", "").replace("azure_ai/", "")
@@ -117,7 +117,7 @@ class AzureOpenAIResponsesAPIConfig(OpenAIResponsesAPIConfig):
         model: str,
         input: str | ResponseInputParam,
         response_api_optional_request_params: dict,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> dict:
         """No transform applied since inputs are in OpenAI spec already"""
@@ -142,36 +142,36 @@ class AzureOpenAIResponsesAPIConfig(OpenAIResponsesAPIConfig):
             model=stripped_model_name,
             input=input,
             response_api_optional_request_params=response_api_optional_request_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
     def get_complete_url(
         self,
         api_base: str | None,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> str:
         """
         Constructs a complete URL for the API request.
 
         Args:
         - api_base: Base URL, e.g.,
-            "https://litellm8397336933.openai.azure.com"
+            "https://embrouter8397336933.openai.azure.com"
             OR
-            "https://litellm8397336933.openai.azure.com/openai/responses?api-version=2024-05-01-preview"
+            "https://embrouter8397336933.openai.azure.com/openai/responses?api-version=2024-05-01-preview"
         - model: Model name.
         - optional_params: Additional query parameters, including "api_version".
         - stream: If streaming is required (optional).
 
         Returns:
         - A complete URL string, e.g.,
-        "https://litellm8397336933.openai.azure.com/openai/responses?api-version=2024-05-01-preview"
+        "https://embrouter8397336933.openai.azure.com/openai/responses?api-version=2024-05-01-preview"
         """
-        from litellm.constants import AZURE_DEFAULT_RESPONSES_API_VERSION
+        from embrouter.constants import AZURE_DEFAULT_RESPONSES_API_VERSION
 
         return BaseAzureLLM._get_base_azure_url(
             api_base=api_base,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             route="/openai/responses",
             default_api_version=AZURE_DEFAULT_RESPONSES_API_VERSION,
         )
@@ -182,7 +182,7 @@ class AzureOpenAIResponsesAPIConfig(OpenAIResponsesAPIConfig):
     def get_websocket_url(
         self,
         api_base: str | None,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> str:
         """
         Azure Responses WebSocket endpoint is at /openai/v1/responses with no
@@ -241,7 +241,7 @@ class AzureOpenAIResponsesAPIConfig(OpenAIResponsesAPIConfig):
         self,
         response_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict]:
         """
@@ -266,7 +266,7 @@ class AzureOpenAIResponsesAPIConfig(OpenAIResponsesAPIConfig):
         self,
         response_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict]:
         """
@@ -284,7 +284,7 @@ class AzureOpenAIResponsesAPIConfig(OpenAIResponsesAPIConfig):
         self,
         response_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
         after: str | None = None,
         before: str | None = None,
@@ -316,7 +316,7 @@ class AzureOpenAIResponsesAPIConfig(OpenAIResponsesAPIConfig):
         self,
         response_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict]:
         """
@@ -339,7 +339,7 @@ class AzureOpenAIResponsesAPIConfig(OpenAIResponsesAPIConfig):
     def transform_cancel_response_api_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> ResponsesAPIResponse:
         """
         Transform the cancel response API response into a ResponsesAPIResponse
@@ -347,7 +347,7 @@ class AzureOpenAIResponsesAPIConfig(OpenAIResponsesAPIConfig):
         try:
             raw_response_json: Final = raw_response.json()
         except Exception:
-            from litellm.llms.azure.chat.gpt_transformation import AzureOpenAIError
+            from embrouter.llms.azure.chat.gpt_transformation import AzureOpenAIError
 
             raise AzureOpenAIError(message=raw_response.text, status_code=raw_response.status_code)
         return ResponsesAPIResponse.model_validate(raw_response_json)

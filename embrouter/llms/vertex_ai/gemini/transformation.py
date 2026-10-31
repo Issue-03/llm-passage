@@ -14,13 +14,13 @@ from urllib.parse import quote
 import httpx
 from pydantic import BaseModel
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.litellm_core_utils.asyncify import asyncify
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.embrouter_core_utils.asyncify import asyncify
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
     _get_image_mime_type_from_url,
 )
-from litellm.litellm_core_utils.prompt_templates.factory import (
+from embrouter.embrouter_core_utils.prompt_templates.factory import (
     _get_thought_signature_from_tool,
     convert_generic_image_chunk_to_openai_image_obj,
     convert_to_anthropic_image_obj,
@@ -28,15 +28,15 @@ from litellm.litellm_core_utils.prompt_templates.factory import (
     convert_to_gemini_tool_call_result,
     response_schema_prompt,
 )
-from litellm.litellm_core_utils.prompt_templates.image_handling import RemoteMedia, async_inline_remote_media
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-from litellm.llms.vertex_ai.common_utils import pop_vertex_request_labels
-from litellm.types.files import (
+from embrouter.embrouter_core_utils.prompt_templates.image_handling import RemoteMedia, async_inline_remote_media
+from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from embrouter.llms.vertex_ai.common_utils import pop_vertex_request_labels
+from embrouter.types.files import (
     get_file_mime_type_for_file_type,
     get_file_type_from_extension,
     is_gemini_1_5_accepted_file_type,
 )
-from litellm.types.llms.openai import (
+from embrouter.types.llms.openai import (
     AllMessageValues,
     ChatCompletionAssistantMessage,
     ChatCompletionAudioObject,
@@ -45,8 +45,8 @@ from litellm.types.llms.openai import (
     ChatCompletionTextObject,
     ChatCompletionUserMessage,
 )
-from litellm.types.llms.vertex_ai import *
-from litellm.types.llms.vertex_ai import (
+from embrouter.types.llms.vertex_ai import *
+from embrouter.types.llms.vertex_ai import (
     GenerationConfig,
     PartType,
     RequestBody,
@@ -55,7 +55,7 @@ from litellm.types.llms.vertex_ai import (
     ToolConfig,
     Tools,
 )
-from litellm.types.utils import GenericImageParsingChunk, LlmProviders
+from embrouter.types.utils import GenericImageParsingChunk, LlmProviders
 
 from ..common_utils import (
     _check_text_in_content,
@@ -68,7 +68,7 @@ from ..common_utils import (
 # the first time GCS metadata needs to be fetched.
 _GCS_METADATA_VERTEX_BASE: Any | None = None
 # Shared sync client for GCS JSON API metadata reads so proxy/SSL settings
-# from litellm's HTTP stack apply (see Greptile review on PR #27278).
+# from embrouter's HTTP stack apply (see Greptile review on PR #27278).
 _GCS_METADATA_HTTP_HANDLER: HTTPHandler | None = None
 GEMINI_FILES_API_URI_PREFIX: Final = "https://generativelanguage.googleapis.com/v1beta/files/"
 _GEMINI_MIME_TYPE_ALIASES: Final[dict[str, str]] = {
@@ -104,11 +104,11 @@ def _get_gcs_metadata_http_handler() -> HTTPHandler:
 
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 
 def _convert_detail_to_media_resolution_enum(
@@ -358,7 +358,7 @@ def _get_gcs_object_content_type(
             )
             headers["Authorization"] = f"Bearer {access_token}"
         except Exception as e:
-            raise litellm.BadRequestError(
+            raise embrouter.BadRequestError(
                 message=(f"Unable to fetch GCS metadata with provided Vertex credentials/project. Original error: {e}"),
                 model=None,
                 llm_provider="vertex_ai",
@@ -382,7 +382,7 @@ def _get_gcs_object_content_type(
         )
     except httpx.RequestError as e:
         if explicit_vertex_auth_provided:
-            raise litellm.BadRequestError(
+            raise embrouter.BadRequestError(
                 message=(
                     "Unable to reach GCS JSON API for object metadata with provided "
                     f"Vertex credentials. {type(e).__name__}: {e}"
@@ -395,7 +395,7 @@ def _get_gcs_object_content_type(
     if response.is_error:
         if explicit_vertex_auth_provided:
             preview = (response.text or "")[:1024]
-            raise litellm.BadRequestError(
+            raise embrouter.BadRequestError(
                 message=(
                     "Unable to read GCS object metadata with provided Vertex credentials. "
                     f"HTTP {response.status_code}. Response body (truncated): {preview!r}"
@@ -409,7 +409,7 @@ def _get_gcs_object_content_type(
         payload: Final = response.json()
     except ValueError as e:
         if explicit_vertex_auth_provided:
-            raise litellm.BadRequestError(
+            raise embrouter.BadRequestError(
                 message=(
                     "GCS metadata response was not valid JSON when using provided "
                     f"Vertex credentials (HTTP {response.status_code}). Error: {e}"
@@ -421,7 +421,7 @@ def _get_gcs_object_content_type(
 
     if not isinstance(payload, dict):
         if explicit_vertex_auth_provided:
-            raise litellm.BadRequestError(
+            raise embrouter.BadRequestError(
                 message=(
                     "GCS metadata response was not a JSON object when using provided "
                     f"Vertex credentials (HTTP {response.status_code})."
@@ -437,7 +437,7 @@ def _get_gcs_object_content_type(
 
     if explicit_vertex_auth_provided:
         preview = (response.text or "")[:1024]
-        raise litellm.BadRequestError(
+        raise embrouter.BadRequestError(
             message=(
                 "GCS metadata JSON did not include a non-empty contentType field when "
                 f"using provided Vertex credentials (HTTP {response.status_code}). "
@@ -451,22 +451,22 @@ def _get_gcs_object_content_type(
 
 def _normalize_and_validate_gemini_mime_type(mime_type: str, model: str | None) -> str:
     # Import lazily to avoid a module-level cyclic-import alert with
-    # litellm.types.files.
-    from litellm.types.files import get_file_extension_from_mime_type
+    # embrouter.types.files.
+    from embrouter.types.files import get_file_extension_from_mime_type
 
     normalized_mime_type: Final = _apply_gemini_mime_type_aliases(mime_type)
     try:
         file_extension: Final = get_file_extension_from_mime_type(normalized_mime_type)
         file_type: Final = get_file_type_from_extension(file_extension)
     except ValueError:
-        raise litellm.BadRequestError(
+        raise embrouter.BadRequestError(
             message=f"File type not supported by gemini - {normalized_mime_type}",
             model=model,
             llm_provider="vertex_ai",
         )
 
     if not is_gemini_1_5_accepted_file_type(file_type):
-        raise litellm.BadRequestError(
+        raise embrouter.BadRequestError(
             message=f"File type not supported by gemini - {file_type}",
             model=model,
             llm_provider="vertex_ai",
@@ -512,7 +512,7 @@ def _process_gemini_media(
 
                     # Validate the file type is supported by Gemini
                     if not is_gemini_1_5_accepted_file_type(file_type):
-                        raise litellm.BadRequestError(
+                        raise embrouter.BadRequestError(
                             message=f"File type not supported by gemini - {file_type}",
                             model=model,
                             llm_provider="vertex_ai",
@@ -526,7 +526,7 @@ def _process_gemini_media(
                         vertex_credentials=vertex_credentials,
                     )
                     if mime_type is None:
-                        raise litellm.BadRequestError(
+                        raise embrouter.BadRequestError(
                             message=(
                                 f"Unable to determine mime type for gs URI: {image_url}. "
                                 "This gs:// URI has no file extension and GCS metadata "
@@ -541,7 +541,7 @@ def _process_gemini_media(
                 mime_type = format
                 explicit_gcs_format = True
             if mime_type is None:
-                raise litellm.BadRequestError(
+                raise embrouter.BadRequestError(
                     message=f"File type not supported by gemini - {image_url}",
                     model=model,
                     llm_provider="vertex_ai",
@@ -549,7 +549,7 @@ def _process_gemini_media(
             if explicit_gcs_format:
                 # Callers who pass format/mime_type explicitly for gs:// URIs
                 # rely on pass-through to Gemini (pre-PR behavior). Only apply
-                # known MIME aliases; skip litellm's file-type registry.
+                # known MIME aliases; skip embrouter's file-type registry.
                 mime_type = _apply_gemini_mime_type_aliases(mime_type)
             else:
                 mime_type = _normalize_and_validate_gemini_mime_type(
@@ -691,7 +691,7 @@ def _collect_tool_call_thought_signatures(
 def _gemini_convert_messages_with_history(
     messages: list[AllMessageValues],
     model: str | None = None,
-    litellm_params: dict | None = None,
+    embrouter_params: dict | None = None,
     custom_llm_provider: str | None = None,
 ) -> list[ContentType]:
     """
@@ -710,9 +710,9 @@ def _gemini_convert_messages_with_history(
     tool_call_responses = []
     vertex_project = None
     vertex_credentials = None
-    if litellm_params:
-        vertex_project = litellm_params.get("vertex_project") or litellm_params.get("vertex_ai_project")
-        vertex_credentials = litellm_params.get("vertex_credentials") or litellm_params.get("vertex_ai_credentials")
+    if embrouter_params:
+        vertex_project = embrouter_params.get("vertex_project") or embrouter_params.get("vertex_ai_project")
+        vertex_credentials = embrouter_params.get("vertex_credentials") or embrouter_params.get("vertex_ai_credentials")
 
     from .vertex_and_google_ai_studio_gemini import VertexGeminiConfig
 
@@ -739,7 +739,7 @@ def _gemini_convert_messages_with_history(
                             media_resolution_enum: dict[str, str] | None = None
                             raw_image_url = img_element.get("image_url")
                             if raw_image_url is None:
-                                raise litellm.BadRequestError(
+                                raise embrouter.BadRequestError(
                                     message="Invalid message content: element type is 'image_url' but 'image_url' field is missing ",
                                     model=model,
                                     llm_provider="vertex_ai",
@@ -747,7 +747,7 @@ def _gemini_convert_messages_with_history(
                             if isinstance(raw_image_url, dict):
                                 image_url = raw_image_url.get("url")
                                 if image_url is None:
-                                    raise litellm.BadRequestError(
+                                    raise embrouter.BadRequestError(
                                         message="Invalid message content: element type is 'image_url' but 'url' field is missing inside 'image_url' ",
                                         model=model,
                                         llm_provider="vertex_ai",
@@ -802,7 +802,7 @@ def _gemini_convert_messages_with_history(
                             file_element = cast(ChatCompletionFileObject, element)
                             _file_field = file_element.get("file")
                             if _file_field is None:
-                                raise litellm.BadRequestError(
+                                raise embrouter.BadRequestError(
                                     message="Content block has type='file' but is missing the required 'file' field",
                                     model=model,
                                     llm_provider="vertex_ai",
@@ -835,10 +835,10 @@ def _gemini_convert_messages_with_history(
                                     vertex_credentials=vertex_credentials,
                                 )
                                 _parts.append(_part)
-                            except litellm.BadRequestError:
+                            except embrouter.BadRequestError:
                                 raise
                             except Exception as e:
-                                raise litellm.BadRequestError(
+                                raise embrouter.BadRequestError(
                                     message=(
                                         f"Unable to determine mime type for file: "
                                         f"{file_id or 'provided data'}, set this explicitly "
@@ -1064,7 +1064,7 @@ def _gemini_convert_messages_with_history(
                 No contents in messages. Contents are required. See
                 https://cloud.google.com/vertex-ai/docs/reference/rest/v1/projects.locations.publishers.models/generateContent#request-body.
                 If the original request did not comply to OpenAI API requirements it should have failed by now,
-                but LiteLLM does not check for missing messages.
+                but EmbRouter does not check for missing messages.
                 Setting an empty content to prevent an 400 error.
 
                 """)
@@ -1074,8 +1074,8 @@ def _gemini_convert_messages_with_history(
         raise e
 
 
-# Keys that LiteLLM consumes internally and must never be forwarded to the
-_LITELLM_INTERNAL_EXTRA_BODY_KEYS: Final[frozenset] = frozenset({"cache", "tags"})
+# Keys that EmbRouter consumes internally and must never be forwarded to the
+_EMBROUTER_INTERNAL_EXTRA_BODY_KEYS: Final[frozenset] = frozenset({"cache", "tags"})
 
 
 def _pop_and_merge_extra_body(data: RequestBody, optional_params: dict) -> None:
@@ -1084,7 +1084,7 @@ def _pop_and_merge_extra_body(data: RequestBody, optional_params: dict) -> None:
     if extra_body is not None:
         data_dict: Final[dict] = data
         for k, v in extra_body.items():
-            if k in _LITELLM_INTERNAL_EXTRA_BODY_KEYS:
+            if k in _EMBROUTER_INTERNAL_EXTRA_BODY_KEYS:
                 continue
             if k in data_dict and isinstance(data_dict[k], dict) and isinstance(v, dict):
                 data_dict[k].update(v)
@@ -1150,7 +1150,7 @@ def _transform_request_body(
     model: str,
     optional_params: dict,
     custom_llm_provider: Literal["vertex_ai", "vertex_ai_beta", "gemini"],
-    litellm_params: dict,
+    embrouter_params: dict,
     cached_content: str | None,
 ) -> RequestBody:
     """
@@ -1172,24 +1172,24 @@ def _transform_request_body(
             messages.append({"role": "user", "content": user_response_schema_message})
             optional_params.pop("response_schema")
 
-    # Check for any 'litellm_param_*' set during optional param mapping
+    # Check for any 'embrouter_param_*' set during optional param mapping
 
     remove_keys: Final = []
     for k, v in optional_params.items():
-        if k.startswith("litellm_param_"):
-            litellm_params.update({k: v})
+        if k.startswith("embrouter_param_"):
+            embrouter_params.update({k: v})
             remove_keys.append(k)
 
     optional_params = {k: v for k, v in optional_params.items() if k not in remove_keys}
 
     try:
         if custom_llm_provider == "gemini":
-            content = litellm.GoogleAIStudioGeminiConfig()._transform_messages(
-                messages=messages, model=model, litellm_params=litellm_params
+            content = embrouter.GoogleAIStudioGeminiConfig()._transform_messages(
+                messages=messages, model=model, embrouter_params=embrouter_params
             )
         else:
-            content = litellm.VertexGeminiConfig()._transform_messages(
-                messages=messages, model=model, litellm_params=litellm_params
+            content = embrouter.VertexGeminiConfig()._transform_messages(
+                messages=messages, model=model, embrouter_params=embrouter_params
             )
         tools: Final[Tools | None] = optional_params.pop("tools", None)
         tool_choice: Final[ToolConfig | None] = optional_params.pop("tool_choice", None)
@@ -1200,7 +1200,7 @@ def _transform_request_body(
         config_fields: Final = GenerationConfig.__annotations__.keys()
 
         # labels: optional explicit param and/or metadata.requester_metadata (OpenAI metadata)
-        labels: Final = pop_vertex_request_labels(optional_params, litellm_params)
+        labels: Final = pop_vertex_request_labels(optional_params, embrouter_params)
 
         filtered_params = {k: v for k, v in optional_params.items() if _get_equivalent_key(k, set(config_fields))}
 
@@ -1219,7 +1219,7 @@ def _transform_request_body(
         data: Final = RequestBody(contents=content)
         # Vertex rejects system_instruction/tools/toolConfig alongside cachedContent.
         # Treat dropping these fields as a request mutation guarded by modify_params.
-        can_send_cache_incompatible_fields: Final = cached_content is None or litellm.modify_params is False
+        can_send_cache_incompatible_fields: Final = cached_content is None or embrouter.modify_params is False
         if can_send_cache_incompatible_fields:
             if system_instructions is not None:
                 data["system_instruction"] = system_instructions
@@ -1267,9 +1267,9 @@ def sync_transform_request_body(
     timeout: float | httpx.Timeout | None,
     extra_headers: dict | None,
     optional_params: dict,
-    logging_obj: LiteLLMLoggingObj,
+    logging_obj: EmbRouterLoggingObj,
     custom_llm_provider: Literal["vertex_ai", "vertex_ai_beta", "gemini"],
-    litellm_params: dict,
+    embrouter_params: dict,
     vertex_project: str | None,
     vertex_location: str | None,
     vertex_auth_header: str | None,
@@ -1303,7 +1303,7 @@ def sync_transform_request_body(
         messages=messages,
         model=model,
         custom_llm_provider=custom_llm_provider,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         cached_content=cached_content,
         optional_params=optional_params,
     )
@@ -1335,9 +1335,9 @@ async def async_transform_request_body(
     timeout: float | httpx.Timeout | None,
     extra_headers: dict | None,
     optional_params: dict,
-    logging_obj: LiteLLMLoggingObj,
+    logging_obj: EmbRouterLoggingObj,
     custom_llm_provider: Literal["vertex_ai", "vertex_ai_beta", "gemini"],
-    litellm_params: dict,
+    embrouter_params: dict,
     vertex_project: str | None,
     vertex_location: str | None,
     vertex_auth_header: str | None,
@@ -1380,7 +1380,7 @@ async def async_transform_request_body(
             messages=inlined_messages,
             model=model,
             custom_llm_provider=custom_llm_provider,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             cached_content=cached_content,
             optional_params=optional_params,
         )
@@ -1389,7 +1389,7 @@ async def async_transform_request_body(
         messages=inlined_messages,
         model=model,
         custom_llm_provider=custom_llm_provider,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         cached_content=cached_content,
         optional_params=optional_params,
     )

@@ -1,5 +1,5 @@
 """
-Type definitions for the LiteLLM Policy Engine.
+Type definitions for the EmbRouter Policy Engine.
 
 The Policy Engine allows administrators to define policies that combine guardrails
 with scoping rules. Policies can target specific teams, API keys, and models using
@@ -10,13 +10,13 @@ Configuration:
 - `policy_attachments`: Define WHERE policies apply (teams, keys, models)
 """
 
-from litellm.types.proxy.policy_engine.pipeline_types import (
+from embrouter.types.proxy.policy_engine.pipeline_types import (
     GuardrailPipeline,
     PipelineExecutionResult,
     PipelineStep,
     PipelineStepResult,
 )
-from litellm.types.proxy.policy_engine.policy_types import (
+from embrouter.types.proxy.policy_engine.policy_types import (
     Policy,
     PolicyAttachment,
     PolicyCondition,
@@ -24,7 +24,7 @@ from litellm.types.proxy.policy_engine.policy_types import (
     PolicyGuardrails,
     PolicyScope,
 )
-from litellm.types.proxy.policy_engine.resolver_types import (
+from embrouter.types.proxy.policy_engine.resolver_types import (
     AttachmentImpactResponse,
     PipelineTestRequest,
     PolicyAttachmentCreateRequest,
@@ -51,7 +51,7 @@ from litellm.types.proxy.policy_engine.resolver_types import (
     PolicyVersionStatusUpdateRequest,
     ResolvedPolicy,
 )
-from litellm.types.proxy.policy_engine.validation_types import (
+from embrouter.types.proxy.policy_engine.validation_types import (
     PolicyValidateRequest,
     PolicyValidationError,
     PolicyValidationErrorType,

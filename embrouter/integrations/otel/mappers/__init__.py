@@ -9,18 +9,18 @@ Phoenix) keys. Add ``"langfuse"`` and it works for all three backends at once.
 from collections.abc import Callable, Iterable
 from typing import Final
 
-from litellm.integrations.otel.mappers.base import (
+from embrouter.integrations.otel.mappers.base import (
     AttributeMap,
     AttributeMapper,
     AttrValue,
 )
-from litellm.integrations.otel.mappers.genai import GenAIMapper
-from litellm.integrations.otel.mappers.langfuse import LangfuseMapper
-from litellm.integrations.otel.mappers.langtrace import LangtraceMapper
-from litellm.integrations.otel.mappers.legacy import LegacyMapper
-from litellm.integrations.otel.mappers.openinference import OpenInferenceMapper
-from litellm.integrations.otel.mappers.utils import tool_attr_budget
-from litellm.integrations.otel.mappers.weave import WeaveMapper
+from embrouter.integrations.otel.mappers.genai import GenAIMapper
+from embrouter.integrations.otel.mappers.langfuse import LangfuseMapper
+from embrouter.integrations.otel.mappers.langtrace import LangtraceMapper
+from embrouter.integrations.otel.mappers.legacy import LegacyMapper
+from embrouter.integrations.otel.mappers.openinference import OpenInferenceMapper
+from embrouter.integrations.otel.mappers.utils import tool_attr_budget
+from embrouter.integrations.otel.mappers.weave import WeaveMapper
 
 # Registries keyed by ``config.mapper_names`` entries, split by whether the
 # vocabulary spells declared tool definitions out per index. Those share one

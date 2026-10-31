@@ -1,16 +1,16 @@
 """
-LiteLLM RAG (Retrieval Augmented Generation) Module.
+EmbRouter RAG (Retrieval Augmented Generation) Module.
 
 Provides an all-in-one API for document ingestion:
 Upload -> (OCR) -> Chunk -> Embed -> Vector Store
 """
 
-from litellm.rag.main import aingest, aquery, ingest, query
+from embrouter.rag.main import aingest, aquery, ingest, query
 
 __all__ = ["aingest", "aquery", "ingest", "query"]
 
 
-# Expose at litellm.rag level for convenience
+# Expose at embrouter.rag level for convenience
 async def arag_ingest(*args, **kwargs):
     """Alias for aingest."""
     return await aingest(*args, **kwargs)

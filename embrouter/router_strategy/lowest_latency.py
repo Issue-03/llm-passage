@@ -8,13 +8,13 @@ from typing import TYPE_CHECKING, Any, Final
 
 from pydantic import Field
 
-import litellm
-from litellm import ModelResponse, token_counter, verbose_logger
-from litellm.caching.caching import DualCache
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.core_helpers import _get_parent_otel_span_from_kwargs, safe_divide_seconds
-from litellm.router_utils.batch_utils import is_batch_retrieve_call_type
-from litellm.types.utils import LiteLLMPydanticObjectBase
+import embrouter
+from embrouter import ModelResponse, token_counter, verbose_logger
+from embrouter.caching.caching import DualCache
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.embrouter_core_utils.core_helpers import _get_parent_otel_span_from_kwargs, safe_divide_seconds
+from embrouter.router_utils.batch_utils import is_batch_retrieve_call_type
+from embrouter.types.utils import EmbRouterPydanticObjectBase
 
 if TYPE_CHECKING:
     from opentelemetry.trace import Span as _Span
@@ -24,7 +24,7 @@ else:
     Span = Any
 
 
-class RoutingArgs(LiteLLMPydanticObjectBase):
+class RoutingArgs(EmbRouterPydanticObjectBase):
     ttl: float = 1 * 60 * 60  # 1 hour
     lowest_latency_buffer: float = 0
     max_latency_list_size: int = 10
@@ -66,12 +66,12 @@ class LowestLatencyLoggingHandler(CustomLogger):
             Update latency usage on success
             """
             metadata_field: Final = self._select_metadata_field(kwargs)
-            if kwargs["litellm_params"].get(metadata_field) is None:
+            if kwargs["embrouter_params"].get(metadata_field) is None:
                 pass
             else:
-                model_group: Final = kwargs["litellm_params"][metadata_field].get("model_group", None)
+                model_group: Final = kwargs["embrouter_params"][metadata_field].get("model_group", None)
 
-                id = (kwargs["litellm_params"].get("model_info") or {}).get("id", None)
+                id = (kwargs["embrouter_params"].get("model_info") or {}).get("id", None)
                 if model_group is None or id is None:
                     return
                 elif isinstance(id, int):
@@ -178,7 +178,7 @@ class LowestLatencyLoggingHandler(CustomLogger):
                     self.logged_success += 1
         except Exception as e:
             verbose_logger.exception(
-                "litellm.proxy.hooks.prompt_injection_detection.py::async_pre_call_hook(): Exception occured - %s", e
+                "embrouter.proxy.hooks.prompt_injection_detection.py::async_pre_call_hook(): Exception occured - %s", e
             )
 
     async def async_log_failure_event(self, kwargs, response_obj, start_time, end_time):
@@ -190,13 +190,13 @@ class LowestLatencyLoggingHandler(CustomLogger):
         try:
             metadata_field: Final = self._select_metadata_field(kwargs)
             _exception: Final = kwargs.get("exception", None)
-            if isinstance(_exception, litellm.Timeout):
-                if kwargs["litellm_params"].get(metadata_field) is None:
+            if isinstance(_exception, embrouter.Timeout):
+                if kwargs["embrouter_params"].get(metadata_field) is None:
                     pass
                 else:
-                    model_group: Final = kwargs["litellm_params"][metadata_field].get("model_group", None)
+                    model_group: Final = kwargs["embrouter_params"][metadata_field].get("model_group", None)
 
-                    id = (kwargs["litellm_params"].get("model_info") or {}).get("id", None)
+                    id = (kwargs["embrouter_params"].get("model_info") or {}).get("id", None)
                     if model_group is None or id is None:
                         return
                     elif isinstance(id, int):
@@ -237,7 +237,7 @@ class LowestLatencyLoggingHandler(CustomLogger):
                 return
         except Exception as e:
             verbose_logger.exception(
-                "litellm.proxy.hooks.prompt_injection_detection.py::async_pre_call_hook(): Exception occured - %s", e
+                "embrouter.proxy.hooks.prompt_injection_detection.py::async_pre_call_hook(): Exception occured - %s", e
             )
 
     async def async_log_success_event(self, kwargs, response_obj, start_time, end_time):
@@ -248,12 +248,12 @@ class LowestLatencyLoggingHandler(CustomLogger):
             Update latency usage on success
             """
             metadata_field: Final = self._select_metadata_field(kwargs)
-            if kwargs["litellm_params"].get(metadata_field) is None:
+            if kwargs["embrouter_params"].get(metadata_field) is None:
                 pass
             else:
-                model_group: Final = kwargs["litellm_params"][metadata_field].get("model_group", None)
+                model_group: Final = kwargs["embrouter_params"][metadata_field].get("model_group", None)
 
-                id = (kwargs["litellm_params"].get("model_info") or {}).get("id", None)
+                id = (kwargs["embrouter_params"].get("model_info") or {}).get("id", None)
                 if model_group is None or id is None:
                     return
                 elif isinstance(id, int):
@@ -364,7 +364,7 @@ class LowestLatencyLoggingHandler(CustomLogger):
                     self.logged_success += 1
         except Exception as e:
             verbose_logger.exception(
-                "litellm.router_strategy.lowest_latency.py::async_log_success_event(): Exception occured - %s", e
+                "embrouter.router_strategy.lowest_latency.py::async_log_success_event(): Exception occured - %s", e
             )
 
     def _get_available_deployments(
@@ -428,14 +428,14 @@ class LowestLatencyLoggingHandler(CustomLogger):
 
             _deployment_tpm = (
                 _deployment.get("tpm", None)
-                or _deployment.get("litellm_params", {}).get("tpm", None)
+                or _deployment.get("embrouter_params", {}).get("tpm", None)
                 or _deployment.get("model_info", {}).get("tpm", None)
                 or float("inf")
             )
 
             _deployment_rpm = (
                 _deployment.get("rpm", None)
-                or _deployment.get("litellm_params", {}).get("rpm", None)
+                or _deployment.get("embrouter_params", {}).get("rpm", None)
                 or _deployment.get("model_info", {}).get("rpm", None)
                 or float("inf")
             )
@@ -461,7 +461,7 @@ class LowestLatencyLoggingHandler(CustomLogger):
             # -------------- #
             # We use _latency_per_deployment to log to langfuse, slack - this is not used to make a decision on routing
             # this helps a user to debug why the router picked a specfic deployment      #
-            _deployment_api_base = _deployment.get("litellm_params", {}).get("api_base", "")
+            _deployment_api_base = _deployment.get("embrouter_params", {}).get("api_base", "")
             if _deployment_api_base is not None:
                 _latency_per_deployment[_deployment_api_base] = selected_latency
             # -------------- #

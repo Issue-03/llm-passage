@@ -5,8 +5,8 @@ from urllib.parse import parse_qs, urlparse
 
 import pytest
 
-import litellm
-from litellm.llms.deepgram.common_utils import (
+import embrouter
+from embrouter.llms.deepgram.common_utils import (
     deepgram_listen_addon_pricing_models,
     deepgram_listen_audio_seconds,
     deepgram_listen_callback_params,
@@ -220,7 +220,7 @@ def test_deepgram_listen_transcript_joins_final_results_only():
         (NOVA_3_URL, "nova-3"),
         ("wss://api.deepgram.com/v1/listen?encoding=linear16&model=nova-2-medical", "nova-2-medical"),
         ("wss://api.deepgram.com/v1/listen?model=nova-3&model=nova-2", "nova-3"),
-        ("wss://api.deepgram.com/v1/listen?encoding=linear16", litellm.constants.DEEPGRAM_LISTEN_DEFAULT_MODEL),
+        ("wss://api.deepgram.com/v1/listen?encoding=linear16", embrouter.constants.DEEPGRAM_LISTEN_DEFAULT_MODEL),
     ],
 )
 def test_deepgram_listen_model_comes_from_the_upstream_query(upstream_url: str, expected_model: str):
@@ -290,10 +290,10 @@ def test_deepgram_listen_is_priced(
     monkeypatch: pytest.MonkeyPatch, upstream_url: str, extra_rows: tuple[str, ...], expected: bool
 ):
     """The bundled map prices only nova-3 for streaming; nova-2 has a pre-recorded row, which must never count."""
-    monkeypatch.delitem(litellm.model_cost, "deepgram/streaming/nova-2", raising=False)
-    assert "deepgram/nova-2" in litellm.model_cost
+    monkeypatch.delitem(embrouter.model_cost, "deepgram/streaming/nova-2", raising=False)
+    assert "deepgram/nova-2" in embrouter.model_cost
     for row in extra_rows:
-        monkeypatch.setitem(litellm.model_cost, row, dict(litellm.model_cost["deepgram/streaming/nova-3"]))
+        monkeypatch.setitem(embrouter.model_cost, row, dict(embrouter.model_cost["deepgram/streaming/nova-3"]))
 
     assert deepgram_listen_is_priced(upstream_url) is expected
 

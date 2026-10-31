@@ -7,7 +7,7 @@ If the ddtrace package is not installed, the tracer will be a no-op.
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Final
 
-from litellm.secret_managers.main import get_secret_bool
+from embrouter.secret_managers.main import get_secret_bool
 
 if TYPE_CHECKING:
     from ddtrace.trace import Tracer as DD_TRACER

@@ -8,14 +8,14 @@ from typing import Final
 from httpx import Headers, Response
 from pydantic import BaseModel, ConfigDict, TypeAdapter, ValidationError
 
-import litellm
-from litellm.litellm_core_utils.audio_utils.utils import process_audio_file
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.types.llms.openai import (
+import embrouter
+from embrouter.embrouter_core_utils.audio_utils.utils import process_audio_file
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.types.llms.openai import (
     AllMessageValues,
     OpenAIAudioTranscriptionOptionalParams,
 )
-from litellm.types.utils import FileTypes, TranscriptionResponse
+from embrouter.types.utils import FileTypes, TranscriptionResponse
 
 from ...base_llm.audio_transcription.transformation import (
     AudioTranscriptionRequestData,
@@ -61,7 +61,7 @@ def _serialize_form_value(
 class XAIAudioTranscriptionConfig(BaseAudioTranscriptionConfig):
     @property
     def custom_llm_provider(self) -> str:
-        return litellm.LlmProviders.XAI.value
+        return embrouter.LlmProviders.XAI.value
 
     @property
     def has_native_transcription_endpoint(self) -> bool:
@@ -98,7 +98,7 @@ class XAIAudioTranscriptionConfig(BaseAudioTranscriptionConfig):
         model: str,
         audio_file: FileTypes,
         optional_params: Mapping[str, object],
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
     ) -> AudioTranscriptionRequestData:
         processed_audio: Final = process_audio_file(audio_file)
 
@@ -181,7 +181,7 @@ class XAIAudioTranscriptionConfig(BaseAudioTranscriptionConfig):
         api_key: str | None,
         model: str,
         optional_params: Mapping[str, object],
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
         stream: bool | None = None,
     ) -> str:
         base: Final = (XAIModelInfo.get_api_base(api_base) or "").rstrip("/")
@@ -194,7 +194,7 @@ class XAIAudioTranscriptionConfig(BaseAudioTranscriptionConfig):
         model: str,
         messages: Sequence[AllMessageValues],
         optional_params: Mapping[str, object],
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict[str, object]:  # mutable-ok: base class signature returns dict

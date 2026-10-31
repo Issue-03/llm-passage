@@ -1,11 +1,11 @@
-from litellm.litellm_core_utils.cloud_storage_security import (
+from embrouter.embrouter_core_utils.cloud_storage_security import (
     is_managed_cloud_storage_uri,
 )
 
 
 def test_is_managed_cloud_storage_uri_detects_raw_object_uris():
-    assert is_managed_cloud_storage_uri("s3://bucket/litellm-batch-outputs/x.jsonl.out")
-    assert is_managed_cloud_storage_uri("gs://bucket/litellm-vertex-files/x")
+    assert is_managed_cloud_storage_uri("s3://bucket/embrouter-batch-outputs/x.jsonl.out")
+    assert is_managed_cloud_storage_uri("gs://bucket/embrouter-vertex-files/x")
 
 
 def test_is_managed_cloud_storage_uri_ignores_provider_and_unified_ids():

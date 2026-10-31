@@ -6,7 +6,7 @@ from typing import Final
 
 import anyio
 
-from litellm.constants import STREAM_SSE_KEEPALIVE_PING_CHUNK
+from embrouter.constants import STREAM_SSE_KEEPALIVE_PING_CHUNK
 
 ANTHROPIC_PING_SSE_CHUNK: Final = STREAM_SSE_KEEPALIVE_PING_CHUNK
 SSE_COMMENT_PING: Final = ": ping\n\n"
@@ -202,7 +202,7 @@ def resolve_ttft_keepalive_interval(
 
 
 def _keepalive_param(deployment: Mapping[str, object]) -> float | str | None:
-    params: Final = deployment.get("litellm_params")
+    params: Final = deployment.get("embrouter_params")
     if not isinstance(params, Mapping):
         return None
     value: Final = params.get("keepalive_seconds")

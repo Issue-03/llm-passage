@@ -142,7 +142,7 @@ describe("anthropic_messages non-streaming", () => {
     );
 
     expect(vi.mocked(Anthropic).mock.calls[0][0]).toMatchObject({
-      defaultHeaders: { "x-litellm-tags": "team-a", "anthropic-beta": "context-1m-2025-08-07" },
+      defaultHeaders: { "x-embrouter-tags": "team-a", "anthropic-beta": "context-1m-2025-08-07" },
     });
   });
 });

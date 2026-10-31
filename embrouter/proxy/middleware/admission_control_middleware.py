@@ -9,7 +9,7 @@ from pydantic import Field, TypeAdapter, ValidationError
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from litellm._logging import verbose_proxy_logger
+from embrouter._logging import verbose_proxy_logger
 
 _EXEMPT_PATHS: Final[frozenset[str]] = frozenset(
     {
@@ -216,16 +216,16 @@ def create_prometheus_admission_metrics() -> AdmissionControlMetrics | None:
         return AdmissionControlMetrics(
             admitted_gauge=_create_gauge(
                 Gauge,
-                "litellm_admission_admitted_requests",
+                "embrouter_admission_admitted_requests",
                 "Number of requests admitted by this worker",
             ),
             queued_gauge=_create_gauge(
                 Gauge,
-                "litellm_admission_queued_requests",
+                "embrouter_admission_queued_requests",
                 "Number of requests queued by this worker",
             ),
             rejected_counter=Counter(  # mutable-ok: Prometheus requires runtime Counter construction
-                "litellm_admission_rejected_requests_total",
+                "embrouter_admission_rejected_requests_total",
                 "Number of requests rejected by this worker",
                 labelnames=("reason",),
             ),

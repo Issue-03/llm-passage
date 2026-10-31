@@ -2,7 +2,7 @@ from typing import Final
 
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from litellm.caching.redis_batch import request_redis_batch_scope
+from embrouter.caching.redis_batch import request_redis_batch_scope
 
 _REQUEST_SCOPES: Final = frozenset({"http", "websocket"})
 

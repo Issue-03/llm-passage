@@ -15,9 +15,9 @@ from typing import Final, TypedDict
 
 from typing_extensions import ReadOnly
 
-from litellm._logging import verbose_proxy_logger
-from litellm.constants import LITELLM_ASYNCIO_QUEUE_MAXSIZE
-from litellm.proxy.db.db_transaction_queue.base_update_queue import BaseUpdateQueue
+from embrouter._logging import verbose_proxy_logger
+from embrouter.constants import EMBROUTER_ASYNCIO_QUEUE_MAXSIZE
+from embrouter.proxy.db.db_transaction_queue.base_update_queue import BaseUpdateQueue
 
 
 class WindowSpendTransaction(TypedDict):
@@ -28,7 +28,7 @@ class WindowSpendTransaction(TypedDict):
 
     started_at is the earliest request start in the batch. The one-time seed for
     a window that has no row yet uses it to tell this batch's own
-    LiteLLM_SpendLogs rows from everything else, because the spend log writer
+    EmbRouter_SpendLogs rows from everything else, because the spend log writer
     flushes on its own ~2s poll and will usually have persisted this batch's
     rows before the window queue flushes; without that split the seed and the
     increment would each count them.
@@ -71,7 +71,7 @@ def to_wire_payload(transaction: WindowSpendTransaction) -> WindowSpendWirePaylo
 
 
 def to_naive_utc(value: datetime) -> datetime:
-    """LiteLLM_BudgetWindowSpend.window_start is TIMESTAMP(3), which holds naive UTC."""
+    """EmbRouter_BudgetWindowSpend.window_start is TIMESTAMP(3), which holds naive UTC."""
     if value.tzinfo is None:
         return value
     return value.astimezone(timezone.utc).replace(tzinfo=None)
@@ -128,7 +128,7 @@ def _merge_window_spend_transactions(
 class WindowSpendUpdateQueue(BaseUpdateQueue):
     """
     In memory buffer for budget-window spend increments committed to
-    LiteLLM_BudgetWindowSpend.
+    EmbRouter_BudgetWindowSpend.
 
     Add an update with the payload built by build_window_spend_transaction:
         window_spend_update_queue.add_update(
@@ -145,7 +145,7 @@ class WindowSpendUpdateQueue(BaseUpdateQueue):
     def __init__(self) -> None:
         super().__init__()
         self.update_queue: asyncio.Queue[tuple[WindowSpendTransaction, ...]] = asyncio.Queue(
-            maxsize=LITELLM_ASYNCIO_QUEUE_MAXSIZE
+            maxsize=EMBROUTER_ASYNCIO_QUEUE_MAXSIZE
         )
 
     async def add_update(self, update: WindowSpendTransaction) -> None:

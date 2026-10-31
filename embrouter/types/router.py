@@ -1,5 +1,5 @@
 """
-litellm.Router Types - includes RouterConfig, UpdateRouterConfig, ModelInfo etc
+embrouter.Router Types - includes RouterConfig, UpdateRouterConfig, ModelInfo etc
 """
 
 import datetime
@@ -13,23 +13,23 @@ import httpx
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from typing_extensions import Protocol, ReadOnly, Required, TypedDict, runtime_checkable
 
-from litellm._logging import verbose_logger
-from litellm._uuid import uuid
-from litellm.litellm_core_utils.core_helpers import normalize_drop_params
-from litellm.litellm_core_utils.provider_affinity import validate_provider_affinity_header_name
-from litellm.types.router_weights import RouterWeights
+from embrouter._logging import verbose_logger
+from embrouter._uuid import uuid
+from embrouter.embrouter_core_utils.core_helpers import normalize_drop_params
+from embrouter.embrouter_core_utils.provider_affinity import validate_provider_affinity_header_name
+from embrouter.types.router_weights import RouterWeights
 
 if TYPE_CHECKING:
-    from litellm.router import Router
+    from embrouter.router import Router
 
 from .completion import CompletionRequest
 from .embedding import EmbeddingRequest
-from .litellm_params import RoutingStrategyName
+from .embrouter_params import RoutingStrategyName
 from .llms.bedrock import AwsSessionTag
 from .llms.openai import OpenAIFileObject
 from .search import SearchProvider
 from .utils import (
-    CustomPricingLiteLLMParams,
+    CustomPricingEmbRouterParams,
     MirroredPricingParams,
     ModelResponse,
     StandardLoggingRoutingDecision,
@@ -45,7 +45,7 @@ CONFIGURABLE_CLIENTSIDE_AUTH_PARAMS = list[str | ConfigurableClientsideParamsCus
 
 class ModelConfig(BaseModel):
     model_name: str
-    litellm_params: CompletionRequest | EmbeddingRequest
+    embrouter_params: CompletionRequest | EmbeddingRequest
     tpm: int
     rpm: int
 
@@ -98,7 +98,7 @@ class RouterConfig(BaseModel):
     client_ttl: int | None = 3600
     num_retries: int | None = 0
     timeout: float | None = None
-    default_litellm_params: dict[str, str] | None = {}
+    default_embrouter_params: dict[str, str] | None = {}
     set_verbose: bool | None = False
     fallbacks: list | None = []
     allowed_fails: int | None = None
@@ -240,14 +240,14 @@ class ModelInfo(MirroredPricingParams):
     team_public_model_name: str | None = None
     member_auto_router: bool = False
 
-    # admin-toggled pause flag; mirrors LiteLLM_ProxyModelTable.blocked
+    # admin-toggled pause flag; mirrors EmbRouter_ProxyModelTable.blocked
     blocked: bool | None = None
     discoverable: bool | None = None
 
     access_windows: tuple[ModelAccessWindow, ...] | None = None
 
-    # Bounds live on the model rather than litellm.constants: names there reach
-    # litellm/__init__ through several modules' star re-exports, and a Final rebound that
+    # Bounds live on the model rather than embrouter.constants: names there reach
+    # embrouter/__init__ through several modules' star re-exports, and a Final rebound that
     # way trips the basedpyright gate.
     MAX_PTU_COUNT: ClassVar[int] = 1_000_000
     MAX_COST_PER_PTU_PER_HOUR: ClassVar[float] = 1_000_000.0
@@ -319,13 +319,13 @@ class ModelInfo(MirroredPricingParams):
         setattr(self, key, value)
 
 
-class CredentialLiteLLMParams(BaseModel):
+class CredentialEmbRouterParams(BaseModel):
     api_key: str | None = None
     api_base: str | None = None
     api_version: str | None = None
     ## AZURE OAUTH ##
     # Without this field, ``get_deployment_credentials_with_provider``
-    # round-trips ``litellm_params`` through a strict Pydantic dump and
+    # round-trips ``embrouter_params`` through a strict Pydantic dump and
     # silently drops the OAuth token before the files/batch/passthrough
     # callers see it, breaking Azure deployments configured with
     # ``azure_ad_token`` instead of a static ``api_key`` (#30235).
@@ -378,9 +378,9 @@ class CredentialLiteLLMParams(BaseModel):
 _RESERVED_INIT_KEYS: Final = frozenset({"self", "params", "__class__"})
 
 
-class GenericLiteLLMParams(CredentialLiteLLMParams, CustomPricingLiteLLMParams):
+class GenericEmbRouterParams(CredentialEmbRouterParams, CustomPricingEmbRouterParams):
     """
-    LiteLLM Params without 'model' arg (used across completion / assistants api)
+    EmbRouter Params without 'model' arg (used across completion / assistants api)
     """
 
     custom_llm_provider: str | None = None
@@ -394,11 +394,11 @@ class GenericLiteLLMParams(CredentialLiteLLMParams, CustomPricingLiteLLMParams):
     drop_params: bool | str | None = None
     organization: str | None = None  # for openai orgs
     configurable_clientside_auth_params: CONFIGURABLE_CLIENTSIDE_AUTH_PARAMS = None
-    litellm_credential_name: str | None = None
+    embrouter_credential_name: str | None = None
     provider_affinity_header: str | None = None
 
     ## LOGGING PARAMS ##
-    litellm_trace_id: str | None = None
+    embrouter_trace_id: str | None = None
 
     max_file_size_mb: float | None = None
 
@@ -417,7 +417,7 @@ class GenericLiteLLMParams(CredentialLiteLLMParams, CustomPricingLiteLLMParams):
     # that comes with them) for a deployment that never configured them.
     allow_client_keepalive_override: bool | None = False
     use_in_pass_through: bool | None = False
-    use_litellm_proxy: bool | None = False
+    use_embrouter_proxy: bool | None = False
     use_chat_completions_api: bool | None = None
     use_xai_oauth: bool | None = Field(
         default=False,
@@ -519,9 +519,9 @@ class GenericLiteLLMParams(CredentialLiteLLMParams, CustomPricingLiteLLMParams):
         setattr(self, key, value)
 
 
-class LiteLLM_Params(GenericLiteLLMParams):
+class EmbRouter_Params(GenericEmbRouterParams):
     """
-    LiteLLM Params with 'model' requirement - used for completions
+    EmbRouter Params with 'model' requirement - used for completions
     """
 
     model: str
@@ -544,22 +544,22 @@ class LiteLLM_Params(GenericLiteLLMParams):
         setattr(self, key, value)
 
 
-class updateLiteLLMParams(GenericLiteLLMParams):
-    # This class is used to update the LiteLLM_Params
+class updateEmbRouterParams(GenericEmbRouterParams):
+    # This class is used to update the EmbRouter_Params
     # only differece is model is optional
     model: str | None = None
 
 
 class updateDeployment(BaseModel):
     model_name: str | None = None
-    litellm_params: updateLiteLLMParams | None = None
+    embrouter_params: updateEmbRouterParams | None = None
     model_info: ModelInfo | None = None
     blocked: bool | None = None
 
     model_config = ConfigDict(protected_namespaces=())
 
 
-class LiteLLMParamsTypedDict(TypedDict, total=False):
+class EmbRouterParamsTypedDict(TypedDict, total=False):
     model: str
     custom_llm_provider: str | None
     tpm: int | None
@@ -586,7 +586,7 @@ class LiteLLMParamsTypedDict(TypedDict, total=False):
     use_chat_completions_api: bool | None
     ## PASS-THROUGH ENDPOINTS ##
     use_in_pass_through: bool | None
-    litellm_credential_name: str | None
+    embrouter_credential_name: str | None
     ## UNIFIED PROJECT/REGION ##
     region_name: str | None
     ## VERTEX AI ##
@@ -637,7 +637,7 @@ class LiteLLMParamsTypedDict(TypedDict, total=False):
 
 class DeploymentTypedDict(TypedDict, total=False):
     model_name: Required[str]
-    litellm_params: Required[LiteLLMParamsTypedDict]
+    embrouter_params: Required[EmbRouterParamsTypedDict]
     model_info: dict
 
 
@@ -646,7 +646,7 @@ SPECIAL_MODEL_INFO_PARAMS = tuple(MirroredPricingParams.model_fields)
 
 class Deployment(BaseModel):
     model_name: str
-    litellm_params: LiteLLM_Params
+    embrouter_params: EmbRouter_Params
     model_info: ModelInfo
 
     model_config = ConfigDict(extra="allow", protected_namespaces=())
@@ -654,7 +654,7 @@ class Deployment(BaseModel):
     def __init__(
         self,
         model_name: str,
-        litellm_params: LiteLLM_Params,
+        embrouter_params: EmbRouter_Params,
         model_info: ModelInfo | dict | None = None,
         **params,
     ) -> None:
@@ -664,14 +664,14 @@ class Deployment(BaseModel):
             model_info = ModelInfo(**model_info)
 
         for key in SPECIAL_MODEL_INFO_PARAMS:  # ensures custom pricing info is consistently in 'model_info'
-            field = getattr(litellm_params, key, None)
+            field = getattr(embrouter_params, key, None)
             if field is not None:
                 setattr(model_info, key, field)
 
         super().__init__(
             model_info=model_info,
             model_name=model_name,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             **params,
         )
 
@@ -710,7 +710,7 @@ class DeploymentModelListingInfo:
     """What the deployments behind a model name contribute to its OpenAI-compatible listing entry.
 
     ``cost_map_keys`` are the names those deployments' underlying models are known by in
-    ``litellm.model_cost`` (``base_model`` when set, else ``litellm_params.model``), which
+    ``embrouter.model_cost`` (``base_model`` when set, else ``embrouter_params.model``), which
     is what a request actually reaches; the public model name they are listed under is an
     arbitrary alias and often absent from the cost map. Keys are deduplicated in config
     order, so the ordinary group -- several interchangeable deployments of one model --
@@ -819,12 +819,12 @@ class ModelGroupInfo(BaseModel):
 
 class AssistantsTypedDict(TypedDict):
     custom_llm_provider: Literal["azure", "openai"]
-    litellm_params: LiteLLMParamsTypedDict
+    embrouter_params: EmbRouterParamsTypedDict
 
 
-class SearchToolLiteLLMParams(TypedDict, total=False):
+class SearchToolEmbRouterParams(TypedDict, total=False):
     """
-    LiteLLM params for search tools.
+    EmbRouter params for search tools.
     Search tools don't require a 'model' field like regular deployments.
     """
 
@@ -847,8 +847,8 @@ class SearchToolTypedDict(TypedDict, total=False):
 
     Example:
         {
-            "search_tool_name": "litellm-search",
-            "litellm_params": {
+            "search_tool_name": "embrouter-search",
+            "embrouter_params": {
                 "search_provider": "perplexity",
                 "api_key": "os.environ/PERPLEXITYAI_API_KEY"
             }
@@ -856,13 +856,13 @@ class SearchToolTypedDict(TypedDict, total=False):
     """
 
     search_tool_name: Required[str]
-    litellm_params: Required[SearchToolLiteLLMParams]
+    embrouter_params: Required[SearchToolEmbRouterParams]
     search_tool_info: SearchToolInfoTypedDict
 
 
-class GuardrailLiteLLMParams(TypedDict, total=False):
+class GuardrailEmbRouterParams(TypedDict, total=False):
     """
-    LiteLLM params for guardrails.
+    EmbRouter params for guardrails.
     """
 
     guardrail: Required[str]
@@ -878,7 +878,7 @@ class GuardrailTypedDict(TypedDict, total=False):
     """
 
     guardrail_name: Required[str]
-    litellm_params: Required[GuardrailLiteLLMParams]
+    embrouter_params: Required[GuardrailEmbRouterParams]
     callback: Any  # The CustomGuardrail instance
     id: str | None  # Unique identifier for the guardrail deployment
 
@@ -907,7 +907,7 @@ class CustomRoutingStrategyBase:
             request_kwargs (Optional[Dict], optional): Additional request keyword arguments. Defaults to None.
 
         Returns:
-            Returns an element from litellm.router.model_list
+            Returns an element from embrouter.router.model_list
 
         """
 
@@ -930,7 +930,7 @@ class CustomRoutingStrategyBase:
             request_kwargs (Optional[Dict], optional): Additional request keyword arguments. Defaults to None.
 
         Returns:
-            Returns an element from litellm.router.model_list
+            Returns an element from embrouter.router.model_list
 
         """
 
@@ -939,7 +939,7 @@ class RouterGeneralSettings(BaseModel):
     async_only_mode: bool = Field(default=False)  # this will only initialize async clients. Good for memory utils
     pass_through_all_models: bool = Field(
         default=False
-    )  # if passed a model not llm_router model list, pass through the request to litellm.acompletion/embedding
+    )  # if passed a model not llm_router model list, pass through the request to embrouter.acompletion/embedding
 
 
 class RouterRateLimitErrorBasic(ValueError):
@@ -1003,7 +1003,7 @@ class RetryAttemptRecord(TypedDict):
     attempted_retries: ReadOnly[int | None]
 
 
-VALID_LITELLM_ENVIRONMENTS = [
+VALID_EMBROUTER_ENVIRONMENTS = [
     "development",
     "staging",
     "production",
@@ -1071,12 +1071,12 @@ class AutoRouterCapabilityLimit(Protocol):
     def __call__(self) -> int | None: ...
 
 
-class LiteLLM_RouterFileObject(TypedDict, total=False):
+class EmbRouter_RouterFileObject(TypedDict, total=False):
     """
-    Tracking the litellm params hash, used for mapping the file id to the right model
+    Tracking the embrouter params hash, used for mapping the file id to the right model
     """
 
-    litellm_params_sensitive_credential_hash: str
+    embrouter_params_sensitive_credential_hash: str
     file_object: OpenAIFileObject
 
 
@@ -1088,7 +1088,7 @@ class MockRouterTestingParams:
 
     @classmethod
     def from_kwargs(cls, kwargs: dict) -> "MockRouterTestingParams":
-        from litellm.secret_managers.main import str_to_bool
+        from embrouter.secret_managers.main import str_to_bool
 
         def extract_bool_param(name: str) -> bool | None:
             value: Final = kwargs.pop(name, None)
@@ -1118,7 +1118,7 @@ class PreRoutingHookResponse(BaseModel):
     messages: list[dict[str, Any]] | None
     routing_decision: StandardLoggingRoutingDecision | None = None
     session_affinity_ttl_seconds: int | None = None
-    litellm_params: Mapping[str, object] | None = None
+    embrouter_params: Mapping[str, object] | None = None
 
 
 _PreRoutingStrategyT_co = TypeVar("_PreRoutingStrategyT_co", covariant=True)
@@ -1167,7 +1167,7 @@ class RoutingContext(BaseModel):
 
     Each plugin reads and mutates this object; the next plugin sees the previous
     plugin's changes. `candidate_models` narrows as the pipeline runs -- Router
-    only selects a deployment whose `litellm_params.model` survives the pipeline.
+    only selects a deployment whose `embrouter_params.model` survives the pipeline.
 
     `raw_messages` and `structured_messages` mirror the pattern
     `CustomGuardrail.apply_guardrail` uses: the message shape differs by API

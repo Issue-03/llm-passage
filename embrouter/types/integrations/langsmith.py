@@ -11,7 +11,7 @@ class LangsmithInputs(BaseModel):
     messages: list[Any] | None = None
     stream: bool | None = None
     call_type: str | None = None
-    litellm_call_id: str | None = None
+    embrouter_call_id: str | None = None
     completion_start_time: datetime | None = None
     temperature: float | None = None
     max_tokens: int | None = None
@@ -21,7 +21,7 @@ class LangsmithInputs(BaseModel):
     original_response: Any | None = None
     response_cost: float | None = None
 
-    # LiteLLM Virtual Key specific fields
+    # EmbRouter Virtual Key specific fields
     user_api_key: str | None = None
     user_api_key_user_id: str | None = None
     user_api_key_team_alias: str | None = None

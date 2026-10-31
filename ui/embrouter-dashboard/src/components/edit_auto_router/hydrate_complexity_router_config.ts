@@ -39,14 +39,14 @@ const stringList = (input: unknown): string[] | undefined =>
 
 export const hydratePinnedDefaultModel = (
   storedConfigDefaultModel: unknown,
-  litellmParamsDefaultModel: string | null | undefined,
+  embrouterParamsDefaultModel: string | null | undefined,
   activeTiers: ActiveTierSet,
 ): string | undefined => {
   if (typeof storedConfigDefaultModel === "string" && storedConfigDefaultModel.trim()) {
     return storedConfigDefaultModel;
   }
   const tierDerived = resolveComplexityDefaultModel(activeTiers);
-  const externalOverride = litellmParamsDefaultModel?.trim();
+  const externalOverride = embrouterParamsDefaultModel?.trim();
   return externalOverride && externalOverride !== tierDerived ? externalOverride : undefined;
 };
 

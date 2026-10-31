@@ -3,11 +3,11 @@ from typing import Final
 
 import httpx
 
-from litellm.llms.base_llm.ocr.transformation import OCRResponse
-from litellm.rust_bridge import runtime
-from litellm.rust_bridge.catalog import Route, RouteContext
-from litellm.rust_bridge.dispatch import PublicDispatch, call_hook
-from litellm.rust_bridge.ocr.entrypoints import NATIVE_AOCR, NATIVE_OCR, LiteLLMOcrRequest
+from embrouter.llms.base_llm.ocr.transformation import OCRResponse
+from embrouter.rust_bridge import runtime
+from embrouter.rust_bridge.catalog import Route, RouteContext
+from embrouter.rust_bridge.dispatch import PublicDispatch, call_hook
+from embrouter.rust_bridge.ocr.entrypoints import NATIVE_AOCR, NATIVE_OCR, EmbRouterOcrRequest
 
 __all__ = ("aocr", "ocr")
 
@@ -21,8 +21,8 @@ def _bind_request(
     custom_llm_provider: str | None = None,
     extra_headers: dict[str, object] | None = None,
     **kwargs: object,  # kwargs-ok: public OCR accepts provider-specific options
-) -> LiteLLMOcrRequest:
-    return LiteLLMOcrRequest(
+) -> EmbRouterOcrRequest:
+    return EmbRouterOcrRequest(
         model=model,
         document=document,
         api_key=api_key,
@@ -34,14 +34,14 @@ def _bind_request(
     )
 
 
-def _public_request(name: str, args: tuple[object, ...], kwargs: Mapping[str, object]) -> LiteLLMOcrRequest:
+def _public_request(name: str, args: tuple[object, ...], kwargs: Mapping[str, object]) -> EmbRouterOcrRequest:
     try:
         return _bind_request(*args, **kwargs)  # pyright: ignore[reportArgumentType]  # Python binds the public arguments before native validation
     except TypeError as error:
         raise TypeError(str(error).replace("_bind_request()", f"{name}()")) from None
 
 
-def _context(request: LiteLLMOcrRequest) -> RouteContext:
+def _context(request: EmbRouterOcrRequest) -> RouteContext:
     prefix, separator, _ = request.model.partition("/")
     provider: Final = request.custom_llm_provider or (prefix if separator else None)
     return RouteContext(Route.OCR, provider=provider, model=request.model)

@@ -10,8 +10,8 @@ Handles:
 
 from typing import Final
 
-from litellm._logging import verbose_proxy_logger
-from litellm.types.proxy.policy_engine import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.types.proxy.policy_engine import (
     GuardrailPipeline,
     Policy,
     PolicyMatchContext,
@@ -88,7 +88,7 @@ class PolicyResolver:
         Returns:
             ResolvedPolicy with final guardrails list
         """
-        from litellm.proxy.policy_engine.condition_evaluator import ConditionEvaluator
+        from embrouter.proxy.policy_engine.condition_evaluator import ConditionEvaluator
 
         inheritance_chain: Final = PolicyResolver.resolve_inheritance_chain(policy_name=policy_name, policies=policies)
 
@@ -149,8 +149,8 @@ class PolicyResolver:
         Returns:
             List of guardrail names to apply
         """
-        from litellm.proxy.policy_engine.policy_matcher import PolicyMatcher
-        from litellm.proxy.policy_engine.policy_registry import get_policy_registry
+        from embrouter.proxy.policy_engine.policy_matcher import PolicyMatcher
+        from embrouter.proxy.policy_engine.policy_registry import get_policy_registry
 
         if policies is None:
             registry: Final = get_policy_registry()
@@ -210,9 +210,9 @@ class PolicyResolver:
         Returns:
             List of (policy_name, GuardrailPipeline) tuples
         """
-        from litellm.proxy.policy_engine.condition_evaluator import ConditionEvaluator
-        from litellm.proxy.policy_engine.policy_matcher import PolicyMatcher
-        from litellm.proxy.policy_engine.policy_registry import get_policy_registry
+        from embrouter.proxy.policy_engine.condition_evaluator import ConditionEvaluator
+        from embrouter.proxy.policy_engine.policy_matcher import PolicyMatcher
+        from embrouter.proxy.policy_engine.policy_registry import get_policy_registry
 
         if policies is None:
             registry: Final = get_policy_registry()
@@ -276,7 +276,7 @@ class PolicyResolver:
         Returns:
             Dictionary mapping policy names to ResolvedPolicy objects
         """
-        from litellm.proxy.policy_engine.policy_registry import get_policy_registry
+        from embrouter.proxy.policy_engine.policy_registry import get_policy_registry
 
         if policies is None:
             registry: Final = get_policy_registry()

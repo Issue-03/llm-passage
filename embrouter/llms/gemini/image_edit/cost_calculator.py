@@ -4,10 +4,10 @@ Gemini Image Edit Cost Calculator
 
 from typing import Any
 
-from litellm.llms.gemini.image_generation.cost_calculator import (
+from embrouter.llms.gemini.image_generation.cost_calculator import (
     cost_calculator as image_generation_cost_calculator,
 )
-from litellm.types.utils import ModelInfo
+from embrouter.types.utils import ModelInfo
 
 
 def cost_calculator(

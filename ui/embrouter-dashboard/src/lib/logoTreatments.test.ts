@@ -20,11 +20,11 @@ describe("logoTreatmentFor", () => {
   });
 
   it("resolves through a bundler fingerprint in the filename", () => {
-    expect(logoTreatmentFor("/litellm-asset-prefix/_next/static/media/openrouter.1xk7748-_jixf.svg")).toBe("invert");
+    expect(logoTreatmentFor("/embrouter-asset-prefix/_next/static/media/openrouter.1xk7748-_jixf.svg")).toBe("invert");
   });
 
   it("resolves a bundled asset served under a proxy root path", () => {
-    expect(logoTreatmentFor("/litellm/ui/assets/logos/notion.svg")).toBe("invert");
+    expect(logoTreatmentFor("/embrouter/ui/assets/logos/notion.svg")).toBe("invert");
   });
 
   it("ignores a query string and fragment on the asset URL", () => {

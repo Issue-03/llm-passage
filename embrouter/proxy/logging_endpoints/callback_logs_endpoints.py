@@ -1,9 +1,9 @@
 """
 Ingest pre-built logging payloads from external producers and replay them
-through LiteLLM's standard success/failure callback fan-out.
+through EmbRouter's standard success/failure callback fan-out.
 
 This exists for hosts that own a request outside the Python process — e.g. the
-`litellm-rust` gateway proxying realtime websockets. Those hosts can't use the
+`embrouter-rust` gateway proxying realtime websockets. Those hosts can't use the
 in-process logging object, so they POST a finished `StandardLoggingPayload` here
 and Python replays it through the exact same path a normal completion uses:
 `Logging.async_success_handler` / `async_failure_handler`. Every registered
@@ -21,11 +21,11 @@ from typing import Any, Final
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from litellm._logging import verbose_proxy_logger
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLogging
-from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.types.proxy.callback_logs_endpoints import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLogging
+from embrouter.proxy._types import EmbrouterUserRoles, UserAPIKeyAuth
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.types.proxy.callback_logs_endpoints import (
     CallbackLogFailure,
     CallbackLogRecord,
     CallbackLogsRequest,
@@ -40,7 +40,7 @@ rust_control_plane_router: Final = APIRouter(prefix="/v1/rust_control_plane", ta
 
 class CallbackLogsReplayer:
     """
-    Replays finished logging payloads through LiteLLM's callback fan-out.
+    Replays finished logging payloads through EmbRouter's callback fan-out.
 
     Each helper is small and pure so the replay path is easy to read and test:
     rebuild a `Logging` object from the payload, seed `model_call_details` with
@@ -58,21 +58,21 @@ class CallbackLogsReplayer:
         return datetime.now(tz=timezone.utc)
 
     @staticmethod
-    def _build_logging_obj(payload: dict[str, Any]) -> LiteLLMLogging:
+    def _build_logging_obj(payload: dict[str, Any]) -> EmbRouterLogging:
         """
         Reconstruct a `Logging` object from a finished payload and seed
         `model_call_details` with exactly what the success/failure callbacks
         read: the prebuilt `standard_logging_object`, the resolved
-        `response_cost`, and the `litellm_params.metadata` keys used for cost
+        `response_cost`, and the `embrouter_params.metadata` keys used for cost
         attribution. Setting `standard_logging_object` up front makes the handler
         skip rebuilding it.
         """
         model: Final = payload.get("model") or ""
         call_type: Final = payload.get("call_type") or "acompletion"
         start_time: Final = CallbackLogsReplayer._epoch_to_datetime(payload.get("startTime"))
-        call_id: Final = payload.get("litellm_call_id") or payload.get("id") or str(uuid.uuid4())
+        call_id: Final = payload.get("embrouter_call_id") or payload.get("id") or str(uuid.uuid4())
 
-        logging_obj: Final = LiteLLMLogging(
+        logging_obj: Final = EmbRouterLogging(
             model=model,
             messages=payload.get("messages") or [],
             # A replayed payload is always a *terminal*, fully-aggregated event —
@@ -84,13 +84,13 @@ class CallbackLogsReplayer:
             stream=False,
             call_type=call_type,
             start_time=start_time,
-            litellm_call_id=call_id,
+            embrouter_call_id=call_id,
             function_id="",
         )
 
         metadata: Final[dict[str, Any]] = payload.get("metadata") or {}
         user_api_key_hash: Final = metadata.get("user_api_key_hash")
-        litellm_metadata: Final[dict[str, Any]] = {
+        embrouter_metadata: Final[dict[str, Any]] = {
             "user_api_key": user_api_key_hash,
             "user_api_key_hash": user_api_key_hash,
             "user_api_key_alias": metadata.get("user_api_key_alias"),
@@ -108,7 +108,7 @@ class CallbackLogsReplayer:
                 "custom_llm_provider": payload.get("custom_llm_provider"),
                 "response_cost": payload.get("response_cost") or 0.0,
                 "standard_logging_object": payload,
-                "litellm_params": {"metadata": litellm_metadata},
+                "embrouter_params": {"metadata": embrouter_metadata},
                 "cache_hit": payload.get("cache_hit") or False,
             }
         )
@@ -194,7 +194,7 @@ async def ingest_callback_logs(
     Admin-only: the payloads write spend logs and trigger every callback, so this
     is a trusted internal route, not a public surface.
     """
-    if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+    if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
         raise HTTPException(
             status_code=403,
             detail="/v1/rust_control_plane/logs is admin-only (proxy admin key required).",

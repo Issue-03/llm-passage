@@ -8,7 +8,7 @@ import { LicenseInfo } from "@/components/networking";
 import { useLicenseInfo } from "@/app/(dashboard)/hooks/license/useLicenseInfo";
 import { formatExpiryDate, getDaysUntilExpiration, getLicenseExpiryTier } from "@/utils/licenseUtils";
 
-const DISMISS_KEY_PREFIX = "litellm:licenseExpiryBannerDismissed:";
+const DISMISS_KEY_PREFIX = "embrouter:licenseExpiryBannerDismissed:";
 const SALES_EMAIL = "user@example.com";
 
 const salesLink = <a href={`mailto:${SALES_EMAIL}`}>{SALES_EMAIL}</a>;

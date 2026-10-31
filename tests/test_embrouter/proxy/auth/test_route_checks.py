@@ -6,31 +6,31 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi import HTTPException, Request
 
-from litellm.proxy._types import (
-    LiteLLM_OrganizationMembershipTable,
-    LiteLLM_UserTable,
-    LiteLLMRoutes,
-    LitellmUserRoles,
+from embrouter.proxy._types import (
+    EmbRouter_OrganizationMembershipTable,
+    EmbRouter_UserTable,
+    EmbRouterRoutes,
+    EmbrouterUserRoles,
     UserAPIKeyAuth,
 )
-from litellm.proxy.auth.auth_checks_organization import _user_is_org_admin
-from litellm.proxy.auth.route_checks import RouteChecks
+from embrouter.proxy.auth.auth_checks_organization import _user_is_org_admin
+from embrouter.proxy.auth.route_checks import RouteChecks
 
 
 def test_non_admin_config_update_route_rejected():
     """Test that non-admin users are rejected when trying to call /config/update"""
 
     # Create a non-admin user object
-    user_obj = LiteLLM_UserTable(
+    user_obj = EmbRouter_UserTable(
         user_id="test_user",
         user_email="test@example.com",
-        user_role=LitellmUserRoles.INTERNAL_USER.value,  # Non-admin role
+        user_role=EmbrouterUserRoles.INTERNAL_USER.value,  # Non-admin role
     )
 
     # Create a non-admin user API key auth
     valid_token = UserAPIKeyAuth(
         user_id="test_user",
-        user_role=LitellmUserRoles.INTERNAL_USER.value,  # Non-admin role
+        user_role=EmbrouterUserRoles.INTERNAL_USER.value,  # Non-admin role
     )
 
     # Create a mock request
@@ -41,7 +41,7 @@ def test_non_admin_config_update_route_rejected():
     with pytest.raises(Exception, match="Only proxy admin can be used to generate, delete, update") as exc_info:
         RouteChecks.non_proxy_admin_allowed_routes_check(
             user_obj=user_obj,
-            _user_role=LitellmUserRoles.INTERNAL_USER.value,
+            _user_role=EmbrouterUserRoles.INTERNAL_USER.value,
             route="/config/update",
             request=request,
             valid_token=valid_token,
@@ -59,8 +59,8 @@ def test_non_admin_config_update_route_rejected():
 @pytest.mark.parametrize(
     "role",
     [
-        LitellmUserRoles.INTERNAL_USER.value,
-        LitellmUserRoles.INTERNAL_USER_VIEW_ONLY.value,
+        EmbrouterUserRoles.INTERNAL_USER.value,
+        EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY.value,
     ],
 )
 @pytest.mark.parametrize(
@@ -70,7 +70,7 @@ def test_non_admin_config_update_route_rejected():
 def test_compliance_routes_open_to_non_admin_roles(role, route):
     """Compliance routes are stateless validators on caller-supplied log data
     — both non-admin internal_user roles can call them."""
-    user_obj = LiteLLM_UserTable(
+    user_obj = EmbRouter_UserTable(
         user_id="test_user",
         user_email="test@example.com",
         user_role=role,
@@ -92,14 +92,14 @@ def test_compliance_routes_open_to_non_admin_roles(role, route):
 @pytest.mark.parametrize(
     "role",
     [
-        LitellmUserRoles.INTERNAL_USER.value,
-        LitellmUserRoles.INTERNAL_USER_VIEW_ONLY.value,
+        EmbrouterUserRoles.INTERNAL_USER.value,
+        EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY.value,
     ],
 )
 def test_user_banner_read_open_to_non_admin_roles(role):
     """The dashboard banner renders for every authenticated user, so the read
     route must be reachable by non-admin roles."""
-    user_obj = LiteLLM_UserTable(
+    user_obj = EmbRouter_UserTable(
         user_id="test_user",
         user_email="test@example.com",
         user_role=role,
@@ -120,19 +120,19 @@ def test_user_banner_read_open_to_non_admin_roles(role):
 
 def test_user_banner_update_rejected_for_non_admin():
     """Publishing the banner stays admin-only at the route layer."""
-    user_obj = LiteLLM_UserTable(
+    user_obj = EmbRouter_UserTable(
         user_id="test_user",
         user_email="test@example.com",
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
+        user_role=EmbrouterUserRoles.INTERNAL_USER.value,
     )
-    valid_token = UserAPIKeyAuth(user_id="test_user", user_role=LitellmUserRoles.INTERNAL_USER.value)
+    valid_token = UserAPIKeyAuth(user_id="test_user", user_role=EmbrouterUserRoles.INTERNAL_USER.value)
     request = MagicMock(spec=Request)
     request.query_params = {}
 
     with pytest.raises(Exception, match="Only proxy admin can be used to generate, delete, update") as exc_info:
         RouteChecks.non_proxy_admin_allowed_routes_check(
             user_obj=user_obj,
-            _user_role=LitellmUserRoles.INTERNAL_USER.value,
+            _user_role=EmbrouterUserRoles.INTERNAL_USER.value,
             route="/update/user_banner",
             request=request,
             valid_token=valid_token,
@@ -146,16 +146,16 @@ def test_proxy_admin_viewer_config_update_route_rejected():
     """Test that proxy admin viewer users are rejected when trying to call /config/update"""
 
     # Create a proxy admin viewer user object (read-only admin)
-    user_obj = LiteLLM_UserTable(
+    user_obj = EmbRouter_UserTable(
         user_id="viewer_user",
         user_email="viewer@example.com",
-        user_role=LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
     )
 
     # Create a proxy admin viewer user API key auth
     valid_token = UserAPIKeyAuth(
         user_id="viewer_user",
-        user_role=LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
     )
 
     # Create a mock request
@@ -166,7 +166,7 @@ def test_proxy_admin_viewer_config_update_route_rejected():
     with pytest.raises(HTTPException) as exc_info:
         RouteChecks.non_proxy_admin_allowed_routes_check(
             user_obj=user_obj,
-            _user_role=LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
+            _user_role=EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
             route="/config/update",
             request=request,
             valid_token=valid_token,
@@ -212,7 +212,7 @@ def test_proxy_admin_viewer_blocked_management_writes(blocked_route):
     with pytest.raises(HTTPException) as exc_info:
         RouteChecks._check_proxy_admin_viewer_access(
             route=blocked_route,
-            _user_role=LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
+            _user_role=EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
             request_data={},
         )
     assert exc_info.value.status_code == 403
@@ -241,23 +241,23 @@ def test_proxy_admin_viewer_allowed_management_reads(allowed_read_route):
     # Should not raise
     RouteChecks._check_proxy_admin_viewer_access(
         route=allowed_read_route,
-        _user_role=LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
+        _user_role=EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
         request_data={},
     )
 
 
-def test_virtual_key_allowed_routes_with_litellm_routes_member_name_allowed():
-    """Test that virtual key is allowed to call routes when allowed_routes contains LiteLLMRoutes member name"""
+def test_virtual_key_allowed_routes_with_embrouter_routes_member_name_allowed():
+    """Test that virtual key is allowed to call routes when allowed_routes contains EmbRouterRoutes member name"""
 
-    # Create a UserAPIKeyAuth with allowed_routes containing a LiteLLMRoutes member name
+    # Create a UserAPIKeyAuth with allowed_routes containing a EmbRouterRoutes member name
     valid_token = UserAPIKeyAuth(
         user_id="test_user",
-        allowed_routes=["openai_routes"],  # This is a member name in LiteLLMRoutes enum
+        allowed_routes=["openai_routes"],  # This is a member name in EmbRouterRoutes enum
     )
 
     # Test that a route from the openai_routes group is allowed
     result = RouteChecks.is_virtual_key_allowed_to_call_route(
-        route="/chat/completions",  # This is in LiteLLMRoutes.openai_routes.value
+        route="/chat/completions",  # This is in EmbRouterRoutes.openai_routes.value
         valid_token=valid_token,
     )
 
@@ -550,7 +550,7 @@ def test_model_info_not_classified_as_llm_api(route):
     """Membership in `llm_api_routes` must not promote /model/info to an
     `is_llm_api_route()`. That predicate gates DISABLE_LLM_API_ENDPOINTS,
     global/virtual-key budget enforcement, enforce_user_param and the JWT
-    x-litellm-team-id attachment; model metadata is a free read and must stay
+    x-embrouter-team-id attachment; model metadata is a free read and must stay
     outside all of them.
     """
 
@@ -666,19 +666,19 @@ def test_realtime_webrtc_http_routes_classified_as_llm_api(route):
     assert RouteChecks.is_management_route(route=route) is False
 
 
-def test_virtual_key_allowed_routes_with_litellm_routes_member_name_denied():
-    """Test that virtual key is denied when route is not in the allowed LiteLLMRoutes group"""
+def test_virtual_key_allowed_routes_with_embrouter_routes_member_name_denied():
+    """Test that virtual key is denied when route is not in the allowed EmbRouterRoutes group"""
 
-    # Create a UserAPIKeyAuth with allowed_routes containing a LiteLLMRoutes member name
+    # Create a UserAPIKeyAuth with allowed_routes containing a EmbRouterRoutes member name
     valid_token = UserAPIKeyAuth(
         user_id="test_user",
-        allowed_routes=["info_routes"],  # This is a member name in LiteLLMRoutes enum
+        allowed_routes=["info_routes"],  # This is a member name in EmbRouterRoutes enum
     )
 
     # Test that a route NOT in the info_routes group raises an HTTPException
     with pytest.raises(HTTPException) as exc_info:
         RouteChecks.is_virtual_key_allowed_to_call_route(
-            route="/chat/completions",  # This is NOT in LiteLLMRoutes.info_routes.value
+            route="/chat/completions",  # This is NOT in EmbRouterRoutes.info_routes.value
             valid_token=valid_token,
         )
 
@@ -775,16 +775,16 @@ def test_google_routes_with_dynamic_model_names_accessible_to_internal_users():
     """
 
     # Create an internal user object
-    user_obj = LiteLLM_UserTable(
+    user_obj = EmbRouter_UserTable(
         user_id="test_user",
         user_email="test@example.com",
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
+        user_role=EmbrouterUserRoles.INTERNAL_USER.value,
     )
 
     # Create an internal user API key auth
     valid_token = UserAPIKeyAuth(
         user_id="test_user",
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
+        user_role=EmbrouterUserRoles.INTERNAL_USER.value,
     )
 
     # Create a mock request
@@ -795,7 +795,7 @@ def test_google_routes_with_dynamic_model_names_accessible_to_internal_users():
     try:
         RouteChecks.non_proxy_admin_allowed_routes_check(
             user_obj=user_obj,
-            _user_role=LitellmUserRoles.INTERNAL_USER.value,
+            _user_role=EmbrouterUserRoles.INTERNAL_USER.value,
             route="/v1beta/models/google-gemini-2-5-pro-code-reviewer-k8s:generateContent",
             request=request,
             valid_token=valid_token,
@@ -806,10 +806,10 @@ def test_google_routes_with_dynamic_model_names_accessible_to_internal_users():
         pytest.fail(f"Internal user should be able to access Google generateContent route. Got error: {e!s}")
 
 
-def test_virtual_key_allowed_routes_with_multiple_litellm_routes_member_names():
-    """Test that virtual key works with multiple LiteLLMRoutes member names in allowed_routes"""
+def test_virtual_key_allowed_routes_with_multiple_embrouter_routes_member_names():
+    """Test that virtual key works with multiple EmbRouterRoutes member names in allowed_routes"""
 
-    # Create a UserAPIKeyAuth with multiple LiteLLMRoutes member names
+    # Create a UserAPIKeyAuth with multiple EmbRouterRoutes member names
     valid_token = UserAPIKeyAuth(user_id="test_user", allowed_routes=["openai_routes", "info_routes"])
 
     # Test that routes from both groups are allowed
@@ -828,7 +828,7 @@ def test_virtual_key_allowed_routes_with_multiple_litellm_routes_member_names():
 
 
 def test_virtual_key_allowed_routes_with_mixed_member_names_and_explicit_routes():
-    """Test that virtual key works with both LiteLLMRoutes member names and explicit routes"""
+    """Test that virtual key works with both EmbRouterRoutes member names and explicit routes"""
 
     # Create a UserAPIKeyAuth with both member names and explicit routes
     valid_token = UserAPIKeyAuth(
@@ -857,7 +857,7 @@ def test_virtual_key_allowed_routes_with_mixed_member_names_and_explicit_routes(
 def test_virtual_key_allowed_routes_with_no_member_names_only_explicit():
     """Test that virtual key works when allowed_routes contains only explicit routes (no member names)"""
 
-    # Create a UserAPIKeyAuth with only explicit routes (no LiteLLMRoutes member names)
+    # Create a UserAPIKeyAuth with only explicit routes (no EmbRouterRoutes member names)
     valid_token = UserAPIKeyAuth(
         user_id="test_user",
         allowed_routes=["/chat/completions", "/custom/route"],  # Only explicit routes
@@ -913,10 +913,10 @@ _CLAUDE_CODE_GATEWAY_ROUTES: Final = (
 
 @pytest.mark.parametrize("route", _CLAUDE_CODE_GATEWAY_ROUTES)
 @pytest.mark.parametrize(
-    "role", [LitellmUserRoles.INTERNAL_USER.value, LitellmUserRoles.INTERNAL_USER_VIEW_ONLY.value]
+    "role", [EmbrouterUserRoles.INTERNAL_USER.value, EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY.value]
 )
 def test_claude_code_gateway_routes_open_to_signed_in_cli_users(role: str, route: str):
-    user_obj: Final = LiteLLM_UserTable(user_id="test_user", user_email="test@example.com", user_role=role)
+    user_obj: Final = EmbRouter_UserTable(user_id="test_user", user_email="test@example.com", user_role=role)
     valid_token: Final = UserAPIKeyAuth(user_id="test_user", user_role=role)
     request: Final = MagicMock(spec=Request)
     request.query_params = {}
@@ -954,11 +954,11 @@ def test_virtual_key_llm_api_routes_allows_registered_pass_through_endpoints():
 
     with (
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints._registered_pass_through_routes",
+            "embrouter.proxy.pass_through_endpoints.pass_through_endpoints._registered_pass_through_routes",
             mock_registered_routes,
         ),
         patch(
-            "litellm.proxy.utils.get_server_root_path",
+            "embrouter.proxy.utils.get_server_root_path",
             return_value="/",
         ),
     ):
@@ -1020,11 +1020,11 @@ def test_virtual_key_llm_api_routes_allows_non_auth_enforced_pass_through_endpoi
 
     with (
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints._registered_pass_through_routes",
+            "embrouter.proxy.pass_through_endpoints.pass_through_endpoints._registered_pass_through_routes",
             mock_registered_routes,
         ),
         patch(
-            "litellm.proxy.utils.get_server_root_path",
+            "embrouter.proxy.utils.get_server_root_path",
             return_value="/",
         ),
     ):
@@ -1070,11 +1070,11 @@ def test_virtual_key_llm_api_routes_denies_auth_pass_through_without_allowlist()
 
     with (
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints._registered_pass_through_routes",
+            "embrouter.proxy.pass_through_endpoints.pass_through_endpoints._registered_pass_through_routes",
             mock_registered_routes,
         ),
         patch(
-            "litellm.proxy.utils.get_server_root_path",
+            "embrouter.proxy.utils.get_server_root_path",
             return_value="/",
         ),
     ):
@@ -1114,11 +1114,11 @@ def test_virtual_key_llm_api_routes_uses_method_specific_auth_setting():
 
     with (
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints._registered_pass_through_routes",
+            "embrouter.proxy.pass_through_endpoints.pass_through_endpoints._registered_pass_through_routes",
             mock_registered_routes,
         ),
         patch(
-            "litellm.proxy.utils.get_server_root_path",
+            "embrouter.proxy.utils.get_server_root_path",
             return_value="/",
         ),
     ):
@@ -1164,23 +1164,23 @@ def test_non_proxy_admin_denies_auth_pass_through_without_allowlist():
 
     valid_token = UserAPIKeyAuth(
         user_id="test_user",
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
+        user_role=EmbrouterUserRoles.INTERNAL_USER.value,
     )
 
     with (
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints._registered_pass_through_routes",
+            "embrouter.proxy.pass_through_endpoints.pass_through_endpoints._registered_pass_through_routes",
             mock_registered_routes,
         ),
         patch(
-            "litellm.proxy.utils.get_server_root_path",
+            "embrouter.proxy.utils.get_server_root_path",
             return_value="/",
         ),
     ):
         with pytest.raises(HTTPException) as exc_info:
             RouteChecks.non_proxy_admin_allowed_routes_check(
                 user_obj=None,
-                _user_role=LitellmUserRoles.INTERNAL_USER.value,
+                _user_role=EmbrouterUserRoles.INTERNAL_USER.value,
                 route="/my-pass-through",
                 request=MagicMock(spec=Request),
                 valid_token=valid_token,
@@ -1202,23 +1202,23 @@ def test_non_proxy_admin_allows_auth_pass_through_with_team_allowlist():
 
     valid_token = UserAPIKeyAuth(
         user_id="test_user",
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
+        user_role=EmbrouterUserRoles.INTERNAL_USER.value,
         team_metadata={"allowed_passthrough_routes": ["/my-pass-through"]},
     )
 
     with (
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints._registered_pass_through_routes",
+            "embrouter.proxy.pass_through_endpoints.pass_through_endpoints._registered_pass_through_routes",
             mock_registered_routes,
         ),
         patch(
-            "litellm.proxy.utils.get_server_root_path",
+            "embrouter.proxy.utils.get_server_root_path",
             return_value="/",
         ),
     ):
         RouteChecks.non_proxy_admin_allowed_routes_check(
             user_obj=None,
-            _user_role=LitellmUserRoles.INTERNAL_USER.value,
+            _user_role=EmbrouterUserRoles.INTERNAL_USER.value,
             route="/my-pass-through",
             request=MagicMock(spec=Request),
             valid_token=valid_token,
@@ -1258,29 +1258,29 @@ _AUTH_ENFORCED_MODEL_HOST_ROUTES: Final = {
 
 
 def _jwt_handler_with_team_allowed_routes(team_allowed_routes: list[str]):
-    from litellm.proxy._types import LiteLLM_JWTAuth
-    from litellm.proxy.auth.handle_jwt import JWTHandler
+    from embrouter.proxy._types import EmbRouter_JWTAuth
+    from embrouter.proxy.auth.handle_jwt import JWTHandler
 
     jwt_handler: Final = JWTHandler()
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(team_allowed_routes=team_allowed_routes)
+    jwt_handler.embrouter_jwtauth = EmbRouter_JWTAuth(team_allowed_routes=team_allowed_routes)
     return jwt_handler
 
 
 def _check_model_host_route_as(valid_token: UserAPIKeyAuth, team_allowed_routes: list[str]) -> None:
     with (
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints._registered_pass_through_routes",
+            "embrouter.proxy.pass_through_endpoints.pass_through_endpoints._registered_pass_through_routes",
             _AUTH_ENFORCED_MODEL_HOST_ROUTES,
         ),
-        patch("litellm.proxy.utils.get_server_root_path", return_value="/"),
+        patch("embrouter.proxy.utils.get_server_root_path", return_value="/"),
         patch(
-            "litellm.proxy.proxy_server.jwt_handler",
+            "embrouter.proxy.proxy_server.jwt_handler",
             _jwt_handler_with_team_allowed_routes(team_allowed_routes),
         ),
     ):
         RouteChecks.non_proxy_admin_allowed_routes_check(
             user_obj=None,
-            _user_role=LitellmUserRoles.INTERNAL_USER.value,
+            _user_role=EmbrouterUserRoles.INTERNAL_USER.value,
             route="/model-host/v1/extractor/predict",
             request=MagicMock(spec=Request),
             valid_token=valid_token,
@@ -1291,7 +1291,7 @@ def _check_model_host_route_as(valid_token: UserAPIKeyAuth, team_allowed_routes:
 def test_non_proxy_admin_allows_auth_pass_through_for_jwt_team_allowed_routes_wildcard():
     jwt_token: Final = UserAPIKeyAuth(
         user_id="test_user",
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
+        user_role=EmbrouterUserRoles.INTERNAL_USER.value,
         team_id="team-a",
         jwt_claims={"sub": "test_user"},
     )
@@ -1302,7 +1302,7 @@ def test_non_proxy_admin_allows_auth_pass_through_for_jwt_team_allowed_routes_wi
 def test_non_proxy_admin_denies_auth_pass_through_for_jwt_when_only_route_groups_configured():
     jwt_token: Final = UserAPIKeyAuth(
         user_id="test_user",
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
+        user_role=EmbrouterUserRoles.INTERNAL_USER.value,
         team_id="team-a",
         jwt_claims={"sub": "test_user"},
     )
@@ -1330,7 +1330,7 @@ def test_non_proxy_admin_jwt_team_allowed_routes_grant_pass_through_only_to_jwt_
     caller: Final = UserAPIKeyAuth(
         api_key=api_key,
         user_id="test_user",
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
+        user_role=EmbrouterUserRoles.INTERNAL_USER.value,
         team_id=team_id,
         jwt_claims=jwt_claims,
     )
@@ -1358,11 +1358,11 @@ def test_virtual_key_without_llm_api_routes_cannot_access_pass_through():
 
     with (
         patch(
-            "litellm.proxy.pass_through_endpoints.pass_through_endpoints._registered_pass_through_routes",
+            "embrouter.proxy.pass_through_endpoints.pass_through_endpoints._registered_pass_through_routes",
             mock_registered_routes,
         ),
         patch(
-            "litellm.proxy.utils.get_server_root_path",
+            "embrouter.proxy.utils.get_server_root_path",
             return_value="/",
         ),
     ):
@@ -1725,13 +1725,13 @@ def test_rag_routes_accessible_to_internal_user_viewer():
 
     valid_token = UserAPIKeyAuth(
         user_id="test_user",
-        user_role=LitellmUserRoles.INTERNAL_USER_VIEW_ONLY.value,
+        user_role=EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY.value,
     )
 
     for route in ["/rag/ingest", "/v1/rag/ingest", "/rag/query", "/v1/rag/query"]:
         RouteChecks.non_proxy_admin_allowed_routes_check(
             user_obj=None,
-            _user_role=LitellmUserRoles.INTERNAL_USER_VIEW_ONLY.value,
+            _user_role=EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY.value,
             route=route,
             request=MagicMock(spec=Request),
             valid_token=valid_token,
@@ -1764,8 +1764,8 @@ def test_vector_store_routes_are_llm_api_routes(route):
 @pytest.mark.parametrize(
     "user_role",
     [
-        LitellmUserRoles.INTERNAL_USER.value,
-        LitellmUserRoles.INTERNAL_USER_VIEW_ONLY.value,
+        EmbrouterUserRoles.INTERNAL_USER.value,
+        EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY.value,
     ],
 )
 @pytest.mark.parametrize(
@@ -1789,7 +1789,7 @@ def test_vector_store_crud_accessible_to_internal_roles(user_role, method, route
     request.query_params = {}
 
     RouteChecks.non_proxy_admin_allowed_routes_check(
-        user_obj=LiteLLM_UserTable(user_id="test_user", user_role=user_role),
+        user_obj=EmbRouter_UserTable(user_id="test_user", user_role=user_role),
         _user_role=user_role,
         route=route,
         request=request,
@@ -1810,16 +1810,16 @@ def test_videos_route_accessible_to_internal_users():
     """
 
     # Create an internal user object
-    user_obj = LiteLLM_UserTable(
+    user_obj = EmbRouter_UserTable(
         user_id="test_user",
         user_email="test@example.com",
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
+        user_role=EmbrouterUserRoles.INTERNAL_USER.value,
     )
 
     # Create an internal user API key auth
     valid_token = UserAPIKeyAuth(
         user_id="test_user",
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
+        user_role=EmbrouterUserRoles.INTERNAL_USER.value,
     )
 
     # Create a mock request
@@ -1831,7 +1831,7 @@ def test_videos_route_accessible_to_internal_users():
     try:
         RouteChecks.non_proxy_admin_allowed_routes_check(
             user_obj=user_obj,
-            _user_role=LitellmUserRoles.INTERNAL_USER.value,
+            _user_role=EmbrouterUserRoles.INTERNAL_USER.value,
             route="/v1/videos",
             request=request,
             valid_token=valid_token,
@@ -1868,15 +1868,15 @@ def test_videos_route_with_virtual_key_llm_api_routes():
 def test_non_proxy_admin_wildcard_allowed_routes():
     """Test that nonproxy admin users can still use wildcard routes"""
 
-    user_obj = LiteLLM_UserTable(
+    user_obj = EmbRouter_UserTable(
         user_id="test_user",
         user_email="test@example.com",
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
+        user_role=EmbrouterUserRoles.INTERNAL_USER.value,
     )
 
     valid_token = UserAPIKeyAuth(
         user_id="test_user",
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
+        user_role=EmbrouterUserRoles.INTERNAL_USER.value,
         allowed_routes=["/scim/*"],
     )
 
@@ -1885,7 +1885,7 @@ def test_non_proxy_admin_wildcard_allowed_routes():
 
     RouteChecks.non_proxy_admin_allowed_routes_check(
         user_obj=user_obj,
-        _user_role=LitellmUserRoles.INTERNAL_USER.value,
+        _user_role=EmbrouterUserRoles.INTERNAL_USER.value,
         route="/scim/v2/Users",
         request=request,
         valid_token=valid_token,
@@ -1905,16 +1905,16 @@ def test_proxy_admin_viewer_can_access_global_spend_tags():
     """
 
     # Create a proxy admin viewer user object
-    user_obj = LiteLLM_UserTable(
+    user_obj = EmbRouter_UserTable(
         user_id="viewer_user",
         user_email="viewer@example.com",
-        user_role=LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
     )
 
     # Create a proxy admin viewer user API key auth
     valid_token = UserAPIKeyAuth(
         user_id="viewer_user",
-        user_role=LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
     )
 
     # Create a mock request
@@ -1925,7 +1925,7 @@ def test_proxy_admin_viewer_can_access_global_spend_tags():
     try:
         RouteChecks.non_proxy_admin_allowed_routes_check(
             user_obj=user_obj,
-            _user_role=LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
+            _user_role=EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
             route="/global/spend/tags",
             request=request,
             valid_token=valid_token,
@@ -1937,10 +1937,10 @@ def test_proxy_admin_viewer_can_access_global_spend_tags():
 
 
 # Routes returning proxy-wide spend across every team / customer / api_key.
-# Sourced from `LiteLLMRoutes.global_spend_tracking_routes` so any future
+# Sourced from `EmbRouterRoutes.global_spend_tracking_routes` so any future
 # additions to that list are exercised by these tests automatically.
 
-GLOBAL_SPEND_ROUTES = LiteLLMRoutes.global_spend_tracking_routes.value
+GLOBAL_SPEND_ROUTES = EmbRouterRoutes.global_spend_tracking_routes.value
 
 
 @pytest.mark.parametrize("route", GLOBAL_SPEND_ROUTES)
@@ -1949,14 +1949,14 @@ def test_internal_user_blocked_from_global_spend_routes(route):
     Non-admin INTERNAL_USER role must NOT be able to read proxy-wide spend.
     These routes return spend across every team, customer, and api_key.
     """
-    user_obj = LiteLLM_UserTable(
+    user_obj = EmbRouter_UserTable(
         user_id="internal_user",
         user_email="user@example.com",
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
+        user_role=EmbrouterUserRoles.INTERNAL_USER.value,
     )
     valid_token = UserAPIKeyAuth(
         user_id="internal_user",
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
+        user_role=EmbrouterUserRoles.INTERNAL_USER.value,
     )
     request = MagicMock(spec=Request)
     request.query_params = {}
@@ -1964,7 +1964,7 @@ def test_internal_user_blocked_from_global_spend_routes(route):
     with pytest.raises(Exception, match="Only proxy admin can be used to generate, delete, update") as exc_info:
         RouteChecks.non_proxy_admin_allowed_routes_check(
             user_obj=user_obj,
-            _user_role=LitellmUserRoles.INTERNAL_USER.value,
+            _user_role=EmbrouterUserRoles.INTERNAL_USER.value,
             route=route,
             request=request,
             valid_token=valid_token,
@@ -1978,14 +1978,14 @@ def test_internal_user_view_only_blocked_from_global_spend_routes(route):
     """
     INTERNAL_USER_VIEW_ONLY must also be blocked from proxy-wide spend routes.
     """
-    user_obj = LiteLLM_UserTable(
+    user_obj = EmbRouter_UserTable(
         user_id="viewer_user",
         user_email="viewer@example.com",
-        user_role=LitellmUserRoles.INTERNAL_USER_VIEW_ONLY.value,
+        user_role=EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY.value,
     )
     valid_token = UserAPIKeyAuth(
         user_id="viewer_user",
-        user_role=LitellmUserRoles.INTERNAL_USER_VIEW_ONLY.value,
+        user_role=EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY.value,
     )
     request = MagicMock(spec=Request)
     request.query_params = {}
@@ -1993,7 +1993,7 @@ def test_internal_user_view_only_blocked_from_global_spend_routes(route):
     with pytest.raises(Exception, match="Only proxy admin can be used to generate, delete, update") as exc_info:
         RouteChecks.non_proxy_admin_allowed_routes_check(
             user_obj=user_obj,
-            _user_role=LitellmUserRoles.INTERNAL_USER_VIEW_ONLY.value,
+            _user_role=EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY.value,
             route=route,
             request=request,
             valid_token=valid_token,
@@ -2008,21 +2008,21 @@ def test_proxy_admin_viewer_can_access_all_global_spend_routes(route):
     PROXY_ADMIN_VIEW_ONLY ("view all keys, view all spend") must retain access
     to every route in `global_spend_tracking_routes`.
     """
-    user_obj = LiteLLM_UserTable(
+    user_obj = EmbRouter_UserTable(
         user_id="admin_viewer",
         user_email="admin_viewer@example.com",
-        user_role=LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
     )
     valid_token = UserAPIKeyAuth(
         user_id="admin_viewer",
-        user_role=LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
     )
     request = MagicMock(spec=Request)
     request.query_params = {}
 
     RouteChecks.non_proxy_admin_allowed_routes_check(
         user_obj=user_obj,
-        _user_role=LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
+        _user_role=EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
         route=route,
         request=request,
         valid_token=valid_token,
@@ -2037,14 +2037,14 @@ def test_get_spend_routes_permission_keeps_access_for_internal_user(route):
     admin opt-in and must continue to grant access even though the caller's
     role would otherwise be blocked.
     """
-    user_obj = LiteLLM_UserTable(
+    user_obj = EmbRouter_UserTable(
         user_id="internal_user_with_permission",
         user_email="user@example.com",
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
+        user_role=EmbrouterUserRoles.INTERNAL_USER.value,
     )
     valid_token = UserAPIKeyAuth(
         user_id="internal_user_with_permission",
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
+        user_role=EmbrouterUserRoles.INTERNAL_USER.value,
         permissions={"get_spend_routes": True},
     )
     request = MagicMock(spec=Request)
@@ -2052,7 +2052,7 @@ def test_get_spend_routes_permission_keeps_access_for_internal_user(route):
 
     RouteChecks.non_proxy_admin_allowed_routes_check(
         user_obj=user_obj,
-        _user_role=LitellmUserRoles.INTERNAL_USER.value,
+        _user_role=EmbrouterUserRoles.INTERNAL_USER.value,
         route=route,
         request=request,
         valid_token=valid_token,
@@ -2068,15 +2068,15 @@ def test_proxy_admin_viewer_can_access_audit_logs(route):
     Admin viewers should be able to view audit logs since these are read-only.
     """
 
-    user_obj = LiteLLM_UserTable(
+    user_obj = EmbRouter_UserTable(
         user_id="viewer_user",
         user_email="viewer@example.com",
-        user_role=LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
     )
 
     valid_token = UserAPIKeyAuth(
         user_id="viewer_user",
-        user_role=LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
     )
 
     request = MagicMock(spec=Request)
@@ -2085,7 +2085,7 @@ def test_proxy_admin_viewer_can_access_audit_logs(route):
     try:
         RouteChecks.non_proxy_admin_allowed_routes_check(
             user_obj=user_obj,
-            _user_role=LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
+            _user_role=EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
             route=route,
             request=request,
             valid_token=valid_token,
@@ -2104,7 +2104,7 @@ def test_proxy_admin_viewer_can_access_audit_logs(route):
 # layer, even though the underlying handlers already gate on PROXY_ADMIN_VIEW_ONLY.
 #
 # Each route below corresponds to a network call made by the Logs page
-# (ui/litellm-dashboard/src/components/view_logs/) — see the comment on each.
+# (ui/embrouter-dashboard/src/components/view_logs/) — see the comment on each.
 ADMIN_VIEWER_LOGS_PAGE_ROUTES = [
     # Main paginated log list — uiSpendLogsCall in log_filter_logic.tsx & index.tsx
     "/spend/logs/ui",
@@ -2133,14 +2133,14 @@ def test_proxy_admin_viewer_can_access_logs_page_endpoints(route):
     PROXY_ADMIN_VIEW_ONLY must pass route_checks for every endpoint the UI
     Logs page depends on. Without these, the page renders empty / errors.
     """
-    user_obj = LiteLLM_UserTable(
+    user_obj = EmbRouter_UserTable(
         user_id="viewer_user",
         user_email="viewer@example.com",
-        user_role=LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
     )
     valid_token = UserAPIKeyAuth(
         user_id="viewer_user",
-        user_role=LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
     )
     request = MagicMock(spec=Request)
     request.query_params = {}
@@ -2148,7 +2148,7 @@ def test_proxy_admin_viewer_can_access_logs_page_endpoints(route):
     try:
         RouteChecks.non_proxy_admin_allowed_routes_check(
             user_obj=user_obj,
-            _user_role=LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
+            _user_role=EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
             route=route,
             request=request,
             valid_token=valid_token,
@@ -2160,7 +2160,7 @@ def test_proxy_admin_viewer_can_access_logs_page_endpoints(route):
 
 @pytest.mark.parametrize(
     "user_role",
-    [LitellmUserRoles.INTERNAL_USER, LitellmUserRoles.INTERNAL_USER_VIEW_ONLY],
+    [EmbrouterUserRoles.INTERNAL_USER, EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY],
 )
 def test_internal_user_can_access_logs_drawer_detail_route(user_role):
     """
@@ -2170,7 +2170,7 @@ def test_internal_user_can_access_logs_drawer_detail_route(user_role):
     _assert_user_can_view_request_id.
     """
     route = "/spend/logs/ui/abc-request-id"
-    user_obj = LiteLLM_UserTable(
+    user_obj = EmbRouter_UserTable(
         user_id="internal_user",
         user_email="user@example.com",
         user_role=user_role.value,
@@ -2212,9 +2212,9 @@ def test_logs_drawer_detail_route_in_every_route_group(route_group_name):
     partial revert (removing the route from `spend_tracking_routes` while
     leaving `non_proxy_admin_allowed_routes_check` alone) is also caught.
     """
-    from litellm.proxy._types import LiteLLMRoutes
+    from embrouter.proxy._types import EmbRouterRoutes
 
-    allowed_routes = getattr(LiteLLMRoutes, route_group_name).value
+    allowed_routes = getattr(EmbRouterRoutes, route_group_name).value
     assert RouteChecks.check_route_access(
         route="/spend/logs/ui/req-34099", allowed_routes=allowed_routes
     )
@@ -2241,14 +2241,14 @@ def test_internal_user_blocked_from_admin_viewer_logs_routes(route):
     INTERNAL_USER. Plain internal users still see only their own logs and
     must be blocked from proxy-wide spend tracking + customer routes.
     """
-    user_obj = LiteLLM_UserTable(
+    user_obj = EmbRouter_UserTable(
         user_id="internal_user",
         user_email="user@example.com",
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
+        user_role=EmbrouterUserRoles.INTERNAL_USER.value,
     )
     valid_token = UserAPIKeyAuth(
         user_id="internal_user",
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
+        user_role=EmbrouterUserRoles.INTERNAL_USER.value,
     )
     request = MagicMock(spec=Request)
     request.query_params = {}
@@ -2268,7 +2268,7 @@ def test_internal_user_blocked_from_admin_viewer_logs_routes(route):
     with pytest.raises(Exception, match="Only proxy admin can be used to generate, delete, update") as exc_info:
         RouteChecks.non_proxy_admin_allowed_routes_check(
             user_obj=user_obj,
-            _user_role=LitellmUserRoles.INTERNAL_USER.value,
+            _user_role=EmbrouterUserRoles.INTERNAL_USER.value,
             route=route,
             request=request,
             valid_token=valid_token,
@@ -2319,14 +2319,14 @@ def test_proxy_admin_viewer_can_access_settings_read_endpoints(route):
     PROXY_ADMIN_VIEW_ONLY must pass route_checks for the read-only
     settings/observability endpoints exposed in admin-only sidebar groups.
     """
-    user_obj = LiteLLM_UserTable(
+    user_obj = EmbRouter_UserTable(
         user_id="viewer_user",
         user_email="viewer@example.com",
-        user_role=LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
     )
     valid_token = UserAPIKeyAuth(
         user_id="viewer_user",
-        user_role=LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
     )
     request = MagicMock(spec=Request)
     request.query_params = {}
@@ -2334,7 +2334,7 @@ def test_proxy_admin_viewer_can_access_settings_read_endpoints(route):
     try:
         RouteChecks.non_proxy_admin_allowed_routes_check(
             user_obj=user_obj,
-            _user_role=LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
+            _user_role=EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
             route=route,
             request=request,
             valid_token=valid_token,
@@ -2384,14 +2384,14 @@ def test_proxy_admin_viewer_default_allows_any_get(route):
     This is a structural guarantee: the route-check defaults to allow for
     safe HTTP methods so we don't have to maintain an explicit allowlist.
     """
-    user_obj = LiteLLM_UserTable(
+    user_obj = EmbRouter_UserTable(
         user_id="viewer_user",
         user_email="viewer@example.com",
-        user_role=LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
     )
     valid_token = UserAPIKeyAuth(
         user_id="viewer_user",
-        user_role=LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
     )
     request = MagicMock(spec=Request)
     request.method = "GET"
@@ -2402,7 +2402,7 @@ def test_proxy_admin_viewer_default_allows_any_get(route):
     try:
         RouteChecks.non_proxy_admin_allowed_routes_check(
             user_obj=user_obj,
-            _user_role=LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
+            _user_role=EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
             route=route,
             request=request,
             valid_token=valid_token,
@@ -2429,14 +2429,14 @@ def test_proxy_admin_viewer_post_blocked_outside_allowlists(route):
     Default-allow only applies to safe HTTP methods. POST/PUT/PATCH/DELETE
     on a route not in any allow set must still 403.
     """
-    user_obj = LiteLLM_UserTable(
+    user_obj = EmbRouter_UserTable(
         user_id="viewer_user",
         user_email="viewer@example.com",
-        user_role=LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
     )
     valid_token = UserAPIKeyAuth(
         user_id="viewer_user",
-        user_role=LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
     )
     request = MagicMock(spec=Request)
     request.method = "POST"
@@ -2445,7 +2445,7 @@ def test_proxy_admin_viewer_post_blocked_outside_allowlists(route):
     with pytest.raises(HTTPException) as exc_info:
         RouteChecks.non_proxy_admin_allowed_routes_check(
             user_obj=user_obj,
-            _user_role=LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
+            _user_role=EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
             route=route,
             request=request,
             valid_token=valid_token,
@@ -2486,14 +2486,14 @@ def test_proxy_admin_viewer_post_blocked_for_management_route_writes(route):
     `management_routes`, even when the specific route is not in
     `_ADMIN_VIEWER_BLOCKED_WRITE_ROUTES`.
     """
-    user_obj = LiteLLM_UserTable(
+    user_obj = EmbRouter_UserTable(
         user_id="viewer_user",
         user_email="viewer@example.com",
-        user_role=LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
     )
     valid_token = UserAPIKeyAuth(
         user_id="viewer_user",
-        user_role=LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
     )
     request = MagicMock(spec=Request)
     request.method = "POST"
@@ -2502,7 +2502,7 @@ def test_proxy_admin_viewer_post_blocked_for_management_route_writes(route):
     with pytest.raises(HTTPException) as exc_info:
         RouteChecks.non_proxy_admin_allowed_routes_check(
             user_obj=user_obj,
-            _user_role=LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
+            _user_role=EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
             route=route,
             request=request,
             valid_token=valid_token,
@@ -2533,7 +2533,7 @@ class TestModelsRouteExemptFromDisableLLMEndpoints:
             "..",
             "..",
             "enterprise",
-            "litellm_enterprise",
+            "embrouter_enterprise",
             "proxy",
             "auth",
             "route_checks.py",
@@ -2545,7 +2545,7 @@ class TestModelsRouteExemptFromDisableLLMEndpoints:
         spec.loader.exec_module(mod)
         return mod.EnterpriseRouteChecks
 
-    @patch("litellm.proxy.proxy_server.premium_user", True)
+    @patch("embrouter.proxy.proxy_server.premium_user", True)
     def test_should_models_route_allowed_when_llm_api_disabled(self):
         """Test that /models is allowed even when LLM API routes are disabled"""
         EnterpriseRouteChecks = self._get_enterprise_route_checks()
@@ -2561,7 +2561,7 @@ class TestModelsRouteExemptFromDisableLLMEndpoints:
             # /models should NOT raise - it's exempt
             EnterpriseRouteChecks.should_call_route("/models")
 
-    @patch("litellm.proxy.proxy_server.premium_user", True)
+    @patch("embrouter.proxy.proxy_server.premium_user", True)
     def test_should_v1_models_route_allowed_when_llm_api_disabled(self):
         """Test that /v1/models is allowed even when LLM API routes are disabled"""
         EnterpriseRouteChecks = self._get_enterprise_route_checks()
@@ -2577,7 +2577,7 @@ class TestModelsRouteExemptFromDisableLLMEndpoints:
             # /v1/models should NOT raise - it's exempt
             EnterpriseRouteChecks.should_call_route("/v1/models")
 
-    @patch("litellm.proxy.proxy_server.premium_user", True)
+    @patch("embrouter.proxy.proxy_server.premium_user", True)
     def test_should_chat_completions_still_blocked_when_llm_api_disabled(self):
         """Test that non-exempt LLM routes like /v1/chat/completions are still blocked"""
         EnterpriseRouteChecks = self._get_enterprise_route_checks()
@@ -2596,7 +2596,7 @@ class TestModelsRouteExemptFromDisableLLMEndpoints:
             assert exc_info.value.status_code == 403
             assert "LLM API routes are disabled for this instance." in str(exc_info.value.detail)
 
-    @patch("litellm.proxy.proxy_server.premium_user", True)
+    @patch("embrouter.proxy.proxy_server.premium_user", True)
     def test_should_embeddings_still_blocked_when_llm_api_disabled(self):
         """Test that /v1/embeddings is still blocked when LLM API routes are disabled"""
         EnterpriseRouteChecks = self._get_enterprise_route_checks()
@@ -2614,7 +2614,7 @@ class TestModelsRouteExemptFromDisableLLMEndpoints:
 
             assert exc_info.value.status_code == 403
 
-    @patch("litellm.proxy.proxy_server.premium_user", True)
+    @patch("embrouter.proxy.proxy_server.premium_user", True)
     def test_should_models_route_allowed_when_llm_api_not_disabled(self):
         """Test that /models works normally when LLM API routes are not disabled"""
         EnterpriseRouteChecks = self._get_enterprise_route_checks()
@@ -2636,11 +2636,11 @@ def test_route_in_additional_public_routes_wildcard_match():
     """
     Test that route_in_additonal_public_routes supports wildcard patterns.
     """
-    from litellm.proxy.auth.auth_utils import route_in_additonal_public_routes
+    from embrouter.proxy.auth.auth_utils import route_in_additonal_public_routes
 
     with (
-        patch("litellm.proxy.proxy_server.general_settings", {"public_routes": ["/api/*"]}),
-        patch("litellm.proxy.proxy_server.premium_user", True),
+        patch("embrouter.proxy.proxy_server.general_settings", {"public_routes": ["/api/*"]}),
+        patch("embrouter.proxy.proxy_server.premium_user", True),
     ):
         # Wildcard should match subpaths
         assert route_in_additonal_public_routes("/api/users") is True
@@ -2653,14 +2653,14 @@ def test_route_in_additional_public_routes_exact_match():
     """
     Test that route_in_additonal_public_routes supports exact matches.
     """
-    from litellm.proxy.auth.auth_utils import route_in_additonal_public_routes
+    from embrouter.proxy.auth.auth_utils import route_in_additonal_public_routes
 
     with (
         patch(
-            "litellm.proxy.proxy_server.general_settings",
+            "embrouter.proxy.proxy_server.general_settings",
             {"public_routes": ["/health", "/status"]},
         ),
-        patch("litellm.proxy.proxy_server.premium_user", True),
+        patch("embrouter.proxy.proxy_server.premium_user", True),
     ):
         # Exact matches should work
         assert route_in_additonal_public_routes("/health") is True
@@ -2674,14 +2674,14 @@ def test_internal_user_can_access_key_reset_spend_route():
     Regression test: team admins (role=internal_user) should pass the route-level
     check for /key/{hash}/reset_spend. The endpoint itself enforces team admin status.
     """
-    user_obj = LiteLLM_UserTable(
+    user_obj = EmbRouter_UserTable(
         user_id="team-admin-user",
         user_email="teamadmin@example.com",
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
+        user_role=EmbrouterUserRoles.INTERNAL_USER.value,
     )
     valid_token = UserAPIKeyAuth(
         user_id="team-admin-user",
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
+        user_role=EmbrouterUserRoles.INTERNAL_USER.value,
     )
     request = MagicMock(spec=Request)
     request.query_params = {}
@@ -2692,7 +2692,7 @@ def test_internal_user_can_access_key_reset_spend_route():
     # Should not raise — the route-level check must pass for team admins
     RouteChecks.non_proxy_admin_allowed_routes_check(
         user_obj=user_obj,
-        _user_role=LitellmUserRoles.INTERNAL_USER.value,
+        _user_role=EmbrouterUserRoles.INTERNAL_USER.value,
         route=route,
         request=request,
         valid_token=valid_token,
@@ -2706,14 +2706,14 @@ def test_non_admin_non_team_admin_cannot_access_config_update_but_can_attempt_re
     (authorization is deferred to the endpoint), but is still blocked from
     admin-only routes like /config/update.
     """
-    user_obj = LiteLLM_UserTable(
+    user_obj = EmbRouter_UserTable(
         user_id="regular-user",
         user_email="user@example.com",
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
+        user_role=EmbrouterUserRoles.INTERNAL_USER.value,
     )
     valid_token = UserAPIKeyAuth(
         user_id="regular-user",
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
+        user_role=EmbrouterUserRoles.INTERNAL_USER.value,
     )
     request = MagicMock(spec=Request)
     request.query_params = {}
@@ -2723,7 +2723,7 @@ def test_non_admin_non_team_admin_cannot_access_config_update_but_can_attempt_re
     # /key/{hash}/reset_spend passes the route check for internal_user
     RouteChecks.non_proxy_admin_allowed_routes_check(
         user_obj=user_obj,
-        _user_role=LitellmUserRoles.INTERNAL_USER.value,
+        _user_role=EmbrouterUserRoles.INTERNAL_USER.value,
         route=f"/key/{key_hash}/reset_spend",
         request=request,
         valid_token=valid_token,
@@ -2734,7 +2734,7 @@ def test_non_admin_non_team_admin_cannot_access_config_update_but_can_attempt_re
     with pytest.raises(Exception, match="Only proxy admin can be used to generate, delete, update") as exc_info:
         RouteChecks.non_proxy_admin_allowed_routes_check(
             user_obj=user_obj,
-            _user_role=LitellmUserRoles.INTERNAL_USER.value,
+            _user_role=EmbrouterUserRoles.INTERNAL_USER.value,
             route="/config/update",
             request=request,
             valid_token=valid_token,
@@ -2746,8 +2746,8 @@ def test_non_admin_non_team_admin_cannot_access_config_update_but_can_attempt_re
 @pytest.mark.parametrize(
     "user_role",
     [
-        LitellmUserRoles.INTERNAL_USER.value,
-        LitellmUserRoles.INTERNAL_USER_VIEW_ONLY.value,
+        EmbrouterUserRoles.INTERNAL_USER.value,
+        EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY.value,
     ],
 )
 @pytest.mark.parametrize("route", ["/tag/list", "/tag/daily/activity"])
@@ -2756,7 +2756,7 @@ def test_internal_users_can_access_scoped_tag_usage_routes(user_role, route):
     Internal users can read tag usage endpoints because the endpoint handlers
     scope results to the caller's own keys.
     """
-    user_obj = LiteLLM_UserTable(
+    user_obj = EmbRouter_UserTable(
         user_id="test_user",
         user_email="test@example.com",
         user_role=user_role,
@@ -2781,9 +2781,9 @@ def test_internal_users_can_access_scoped_tag_usage_routes(user_role, route):
 @pytest.mark.parametrize(
     "user_role",
     [
-        LitellmUserRoles.INTERNAL_USER.value,
-        LitellmUserRoles.INTERNAL_USER_VIEW_ONLY.value,
-        LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
+        EmbrouterUserRoles.INTERNAL_USER.value,
+        EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY.value,
+        EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
     ],
 )
 def test_available_roles_accessible_to_non_admin_users(user_role):
@@ -2793,7 +2793,7 @@ def test_available_roles_accessible_to_non_admin_users(user_role):
     pass the route check for all non-proxy-admin roles without requiring an
     organization_id in the request body.
     """
-    user_obj = LiteLLM_UserTable(
+    user_obj = EmbRouter_UserTable(
         user_id="test_user",
         user_email="test@example.com",
         user_role=user_role,
@@ -2819,17 +2819,17 @@ def test_available_roles_accessible_to_non_admin_users(user_role):
 # ── _user_is_org_admin tests ──────────────────────────────────────────────────
 
 
-def _make_org_admin_user(org_id: str) -> LiteLLM_UserTable:
-    membership = LiteLLM_OrganizationMembershipTable(
+def _make_org_admin_user(org_id: str) -> EmbRouter_UserTable:
+    membership = EmbRouter_OrganizationMembershipTable(
         user_id="org-admin-user",
         organization_id=org_id,
-        user_role=LitellmUserRoles.ORG_ADMIN.value,
+        user_role=EmbrouterUserRoles.ORG_ADMIN.value,
         created_at=datetime(2024, 1, 1),
         updated_at=datetime(2024, 1, 1),
     )
-    return LiteLLM_UserTable(
+    return EmbRouter_UserTable(
         user_id="org-admin-user",
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
+        user_role=EmbrouterUserRoles.INTERNAL_USER.value,
         organization_memberships=[membership],
     )
 
@@ -2860,16 +2860,16 @@ def test_user_is_org_admin_no_org_fields():
 
 def test_non_org_admin_with_organizations_list():
     """A regular internal user is not an org admin even if they are a member of the org."""
-    membership = LiteLLM_OrganizationMembershipTable(
+    membership = EmbRouter_OrganizationMembershipTable(
         user_id="regular-user",
         organization_id="org-1",
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
+        user_role=EmbrouterUserRoles.INTERNAL_USER.value,
         created_at=datetime(2024, 1, 1),
         updated_at=datetime(2024, 1, 1),
     )
-    user_obj = LiteLLM_UserTable(
+    user_obj = EmbRouter_UserTable(
         user_id="regular-user",
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
+        user_role=EmbrouterUserRoles.INTERNAL_USER.value,
         organization_memberships=[membership],
     )
     assert _user_is_org_admin({"organizations": ["org-1"]}, user_obj) is False
@@ -2884,31 +2884,31 @@ def test_org_admin_cannot_escalate_to_other_org():
 def test_org_admin_of_multiple_orgs_can_operate_on_both():
     """Admin of both org-A and org-B can operate on both."""
     memberships = [
-        LiteLLM_OrganizationMembershipTable(
+        EmbRouter_OrganizationMembershipTable(
             user_id="multi-admin",
             organization_id="org-A",
-            user_role=LitellmUserRoles.ORG_ADMIN.value,
+            user_role=EmbrouterUserRoles.ORG_ADMIN.value,
             created_at=datetime(2024, 1, 1),
             updated_at=datetime(2024, 1, 1),
         ),
-        LiteLLM_OrganizationMembershipTable(
+        EmbRouter_OrganizationMembershipTable(
             user_id="multi-admin",
             organization_id="org-B",
-            user_role=LitellmUserRoles.ORG_ADMIN.value,
+            user_role=EmbrouterUserRoles.ORG_ADMIN.value,
             created_at=datetime(2024, 1, 1),
             updated_at=datetime(2024, 1, 1),
         ),
     ]
-    user_obj = LiteLLM_UserTable(
+    user_obj = EmbRouter_UserTable(
         user_id="multi-admin",
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
+        user_role=EmbrouterUserRoles.INTERNAL_USER.value,
         organization_memberships=memberships,
     )
     assert _user_is_org_admin({"organizations": ["org-A", "org-B"]}, user_obj) is True
 
 
 # ── LIT-4221: /team/update org-context resolution from team_id ────────────────
-from litellm.proxy.auth.auth_checks_organization import (
+from embrouter.proxy.auth.auth_checks_organization import (
     add_team_org_context_to_request_body,
 )
 
@@ -2974,14 +2974,14 @@ def test_team_update_gate_allows_org_admin_with_resolved_org():
     """Post-resolution (organization_id present), an org admin of that org clears
     the gate for /team/update."""
     user_obj = _make_org_admin_user("org-1")
-    valid_token = UserAPIKeyAuth(user_id="org-admin-user", user_role=LitellmUserRoles.INTERNAL_USER.value)
+    valid_token = UserAPIKeyAuth(user_id="org-admin-user", user_role=EmbrouterUserRoles.INTERNAL_USER.value)
     request = MagicMock(spec=Request)
     request.method = "POST"
     request.query_params = {}
 
     RouteChecks.non_proxy_admin_allowed_routes_check(
         user_obj=user_obj,
-        _user_role=LitellmUserRoles.INTERNAL_USER.value,
+        _user_role=EmbrouterUserRoles.INTERNAL_USER.value,
         route="/team/update",
         request=request,
         valid_token=valid_token,
@@ -2994,19 +2994,19 @@ def test_team_update_gate_admits_internal_user_without_org_context():  # test-qu
     caller and update_team resolves proxy, org or team admin itself, then filters team admins
     through the team_admin_editable_team_fields setting. Before that the gate 401'd every
     team admin, which left the handler's team-admin branch unreachable."""
-    user_obj = LiteLLM_UserTable(
+    user_obj = EmbRouter_UserTable(
         user_id="team-admin-user",
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
+        user_role=EmbrouterUserRoles.INTERNAL_USER.value,
         organization_memberships=None,
     )
-    valid_token = UserAPIKeyAuth(user_id="team-admin-user", user_role=LitellmUserRoles.INTERNAL_USER.value)
+    valid_token = UserAPIKeyAuth(user_id="team-admin-user", user_role=EmbrouterUserRoles.INTERNAL_USER.value)
     request = MagicMock(spec=Request)
     request.method = "POST"
     request.query_params = {}
 
     RouteChecks.non_proxy_admin_allowed_routes_check(
         user_obj=user_obj,
-        _user_role=LitellmUserRoles.INTERNAL_USER.value,
+        _user_role=EmbrouterUserRoles.INTERNAL_USER.value,
         route="/team/update",
         request=request,
         valid_token=valid_token,
@@ -3019,14 +3019,14 @@ def test_team_update_gate_defers_cross_org_admin_to_the_handler():  # test-quali
     update_team's _resolve_team_access finds no role on the team and 403s (pinned in
     test_team_endpoints), so there is still no cross-org escalation."""
     user_obj = _make_org_admin_user("org-1")
-    valid_token = UserAPIKeyAuth(user_id="org-admin-user", user_role=LitellmUserRoles.INTERNAL_USER.value)
+    valid_token = UserAPIKeyAuth(user_id="org-admin-user", user_role=EmbrouterUserRoles.INTERNAL_USER.value)
     request = MagicMock(spec=Request)
     request.method = "POST"
     request.query_params = {}
 
     RouteChecks.non_proxy_admin_allowed_routes_check(
         user_obj=user_obj,
-        _user_role=LitellmUserRoles.INTERNAL_USER.value,
+        _user_role=EmbrouterUserRoles.INTERNAL_USER.value,
         route="/team/update",
         request=request,
         valid_token=valid_token,
@@ -3105,11 +3105,11 @@ def test_patch_team_gate_allows_org_admin_with_resolved_org():
     """Post-resolution, an org admin of the team's org clears the coarse gate for
     PATCH /team/{team_id} — parity with /team/update."""
     user_obj = _make_org_admin_user("org-1")
-    valid_token = UserAPIKeyAuth(user_id="org-admin-user", user_role=LitellmUserRoles.INTERNAL_USER.value)
+    valid_token = UserAPIKeyAuth(user_id="org-admin-user", user_role=EmbrouterUserRoles.INTERNAL_USER.value)
 
     RouteChecks.non_proxy_admin_allowed_routes_check(
         user_obj=user_obj,
-        _user_role=LitellmUserRoles.INTERNAL_USER.value,
+        _user_role=EmbrouterUserRoles.INTERNAL_USER.value,
         route="/team/team-1",
         request=_patch_team_request(),
         valid_token=valid_token,
@@ -3121,17 +3121,17 @@ def test_patch_team_gate_rejects_regular_internal_user():
     """A plain internal user (not an org admin) is rejected at the coarse gate for
     PATCH /team/{team_id}, even with the team's org resolved — injection alone is
     not access. Same outcome as /team/update."""
-    user_obj = LiteLLM_UserTable(
+    user_obj = EmbRouter_UserTable(
         user_id="regular-user",
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
+        user_role=EmbrouterUserRoles.INTERNAL_USER.value,
         organization_memberships=None,
     )
-    valid_token = UserAPIKeyAuth(user_id="regular-user", user_role=LitellmUserRoles.INTERNAL_USER.value)
+    valid_token = UserAPIKeyAuth(user_id="regular-user", user_role=EmbrouterUserRoles.INTERNAL_USER.value)
 
     with pytest.raises(Exception, match="Only proxy admin can be used to generate"):
         RouteChecks.non_proxy_admin_allowed_routes_check(
             user_obj=user_obj,
-            _user_role=LitellmUserRoles.INTERNAL_USER.value,
+            _user_role=EmbrouterUserRoles.INTERNAL_USER.value,
             route="/team/team-1",
             request=_patch_team_request(),
             valid_token=valid_token,
@@ -3142,12 +3142,12 @@ def test_patch_team_gate_rejects_regular_internal_user():
 def test_patch_team_gate_rejects_cross_org_admin():
     """An org admin of a DIFFERENT org is rejected even after org resolution."""
     user_obj = _make_org_admin_user("org-1")
-    valid_token = UserAPIKeyAuth(user_id="org-admin-user", user_role=LitellmUserRoles.INTERNAL_USER.value)
+    valid_token = UserAPIKeyAuth(user_id="org-admin-user", user_role=EmbrouterUserRoles.INTERNAL_USER.value)
 
     with pytest.raises(Exception, match="Only proxy admin can be used to generate"):
         RouteChecks.non_proxy_admin_allowed_routes_check(
             user_obj=user_obj,
-            _user_role=LitellmUserRoles.INTERNAL_USER.value,
+            _user_role=EmbrouterUserRoles.INTERNAL_USER.value,
             route="/team/team-1",
             request=_patch_team_request(),
             valid_token=valid_token,
@@ -3158,16 +3158,16 @@ def test_patch_team_gate_rejects_cross_org_admin():
 def test_patch_team_gate_rejects_view_only_admin():
     """A view-only proxy admin cannot PATCH a team (unsafe method), parity with the
     /team/update view-only block."""
-    user_obj = LiteLLM_UserTable(
+    user_obj = EmbRouter_UserTable(
         user_id="viewer",
-        user_role=LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
     )
-    valid_token = UserAPIKeyAuth(user_id="viewer", user_role=LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY.value)
+    valid_token = UserAPIKeyAuth(user_id="viewer", user_role=EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY.value)
 
     with pytest.raises(HTTPException):
         RouteChecks.non_proxy_admin_allowed_routes_check(
             user_obj=user_obj,
-            _user_role=LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
+            _user_role=EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
             route="/team/team-1",
             request=_patch_team_request(),
             valid_token=valid_token,
@@ -3186,8 +3186,8 @@ async def test_initialize_pass_through_registers_wildcard_for_auth_subpath():
     - Dedup: calling init twice does not duplicate entries
     - Cleanup: removing the endpoint cleans up openai_routes
     """
-    from litellm.proxy._types import LiteLLMRoutes
-    from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+    from embrouter.proxy._types import EmbRouterRoutes
+    from embrouter.proxy.pass_through_endpoints.pass_through_endpoints import (
         InitPassThroughEndpointHelpers,
         initialize_pass_through_endpoints,
     )
@@ -3203,27 +3203,27 @@ async def test_initialize_pass_through_registers_wildcard_for_auth_subpath():
         "headers": {"content-type": "application/json"},
     }
 
-    original_routes = LiteLLMRoutes.openai_routes.value[:]
+    original_routes = EmbRouterRoutes.openai_routes.value[:]
     try:
         with (
             patch(
-                "litellm.proxy.proxy_server.app",
+                "embrouter.proxy.proxy_server.app",
                 MagicMock(),
             ),
             patch(
-                "litellm.proxy.proxy_server.premium_user",
+                "embrouter.proxy.proxy_server.premium_user",
                 True,
             ),
             patch(
-                "litellm.proxy.proxy_server.config_passthrough_endpoints",
+                "embrouter.proxy.proxy_server.config_passthrough_endpoints",
                 None,
             ),
         ):
             await initialize_pass_through_endpoints([endpoint_config])
 
             # Both base and wildcard paths should be registered
-            assert base_path in LiteLLMRoutes.openai_routes.value
-            assert wildcard_path in LiteLLMRoutes.openai_routes.value
+            assert base_path in EmbRouterRoutes.openai_routes.value
+            assert wildcard_path in EmbRouterRoutes.openai_routes.value
 
             # Subpath requests should pass the auth route check
             assert RouteChecks.is_llm_api_route(base_path) is True
@@ -3231,8 +3231,8 @@ async def test_initialize_pass_through_registers_wildcard_for_auth_subpath():
 
             # Calling init again should not duplicate entries
             await initialize_pass_through_endpoints([endpoint_config])
-            assert LiteLLMRoutes.openai_routes.value.count(base_path) == 1
-            assert LiteLLMRoutes.openai_routes.value.count(wildcard_path) == 1
+            assert EmbRouterRoutes.openai_routes.value.count(base_path) == 1
+            assert EmbRouterRoutes.openai_routes.value.count(wildcard_path) == 1
 
             # Removing the endpoint should clean up openai_routes
             # remove_endpoint_routes takes endpoint_id (UUID portion of
@@ -3241,10 +3241,10 @@ async def test_initialize_pass_through_registers_wildcard_for_auth_subpath():
             endpoint_ids = {k.split(":")[0] for k in registered}
             for eid in endpoint_ids:
                 InitPassThroughEndpointHelpers.remove_endpoint_routes(eid)
-            assert base_path not in LiteLLMRoutes.openai_routes.value
-            assert wildcard_path not in LiteLLMRoutes.openai_routes.value
+            assert base_path not in EmbRouterRoutes.openai_routes.value
+            assert wildcard_path not in EmbRouterRoutes.openai_routes.value
     finally:
-        LiteLLMRoutes.openai_routes.value[:] = original_routes
+        EmbRouterRoutes.openai_routes.value[:] = original_routes
         # Clean up any routes registered during this test to avoid
         # polluting the module-level _registered_pass_through_routes
         registered = InitPassThroughEndpointHelpers.get_all_registered_pass_through_routes()
@@ -3275,7 +3275,7 @@ def test_provider_name_substring_not_classified_as_llm_route(route):
     The fix uses an exact/prefix match so only routes that actually *start*
     with a passthrough prefix are allowed through.
     """
-    from litellm.proxy.auth.route_checks import RouteChecks
+    from embrouter.proxy.auth.route_checks import RouteChecks
 
     assert RouteChecks.is_llm_api_route(route=route) is False, (
         f"{route!r} should NOT be classified as an LLM API route — provider-name substring match bypass"
@@ -3298,7 +3298,7 @@ def test_provider_name_substring_not_classified_as_llm_route(route):
 )
 def test_legitimate_passthrough_routes_still_classified_as_llm_route(route):
     """Legitimate passthrough routes must still pass is_llm_api_route."""
-    from litellm.proxy.auth.route_checks import RouteChecks
+    from embrouter.proxy.auth.route_checks import RouteChecks
 
     assert RouteChecks.is_llm_api_route(route=route) is True, f"{route!r} should be classified as an LLM API route"
 
@@ -3313,21 +3313,21 @@ def test_legitimate_passthrough_routes_still_classified_as_llm_route(route):
 def test_internal_user_can_read_search_tools(route):
     """Regression for LIT-3150: internal users must be able to view search tools,
     the same way they can view vector stores."""
-    user_obj = LiteLLM_UserTable(
+    user_obj = EmbRouter_UserTable(
         user_id="test_user",
         user_email="user@example.com",
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
+        user_role=EmbrouterUserRoles.INTERNAL_USER.value,
     )
     valid_token = UserAPIKeyAuth(
         user_id="test_user",
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
+        user_role=EmbrouterUserRoles.INTERNAL_USER.value,
     )
     request = MagicMock(spec=Request)
     request.query_params = {}
 
     RouteChecks.non_proxy_admin_allowed_routes_check(
         user_obj=user_obj,
-        _user_role=LitellmUserRoles.INTERNAL_USER.value,
+        _user_role=EmbrouterUserRoles.INTERNAL_USER.value,
         route=route,
         request=request,
         valid_token=valid_token,
@@ -3346,14 +3346,14 @@ def test_internal_user_can_read_search_tools(route):
 def test_internal_user_blocked_from_search_tool_writes(route):
     """Read access must not leak the search-tool management write routes to
     internal users; only proxy admins create/update/delete/test them."""
-    user_obj = LiteLLM_UserTable(
+    user_obj = EmbRouter_UserTable(
         user_id="test_user",
         user_email="user@example.com",
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
+        user_role=EmbrouterUserRoles.INTERNAL_USER.value,
     )
     valid_token = UserAPIKeyAuth(
         user_id="test_user",
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
+        user_role=EmbrouterUserRoles.INTERNAL_USER.value,
     )
     request = MagicMock(spec=Request)
     request.query_params = {}
@@ -3361,7 +3361,7 @@ def test_internal_user_blocked_from_search_tool_writes(route):
     with pytest.raises(Exception, match="Only proxy admin can be used to generate, delete, update") as exc_info:
         RouteChecks.non_proxy_admin_allowed_routes_check(
             user_obj=user_obj,
-            _user_role=LitellmUserRoles.INTERNAL_USER.value,
+            _user_role=EmbrouterUserRoles.INTERNAL_USER.value,
             route=route,
             request=request,
             valid_token=valid_token,
@@ -3375,15 +3375,15 @@ def test_internal_user_blocked_from_search_tool_writes(route):
 @pytest.mark.parametrize(
     "user_role",
     [
-        LitellmUserRoles.INTERNAL_USER.value,
-        LitellmUserRoles.INTERNAL_USER_VIEW_ONLY.value,
+        EmbrouterUserRoles.INTERNAL_USER.value,
+        EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY.value,
     ],
 )
 def test_non_admin_can_open_vector_store_details(user_role):
     """Regression for LIT-7132: the dashboard lists a vector store via /vector_store/list
     (an LLM API route) but opened it via /vector_store/info, which no non-admin allowlist
     granted, so the route gate 401'd before the handler's per-store access check ran."""
-    user_obj = LiteLLM_UserTable(
+    user_obj = EmbRouter_UserTable(
         user_id="test_user",
         user_email="user@example.com",
         user_role=user_role,
@@ -3408,14 +3408,14 @@ def test_non_admin_can_open_vector_store_details(user_role):
     ["/vector_store/new", "/vector_store/update", "/vector_store/delete"],
 )
 def test_internal_user_blocked_from_vector_store_writes(route):
-    user_obj = LiteLLM_UserTable(
+    user_obj = EmbRouter_UserTable(
         user_id="test_user",
         user_email="user@example.com",
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
+        user_role=EmbrouterUserRoles.INTERNAL_USER.value,
     )
     valid_token = UserAPIKeyAuth(
         user_id="test_user",
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
+        user_role=EmbrouterUserRoles.INTERNAL_USER.value,
     )
     request = MagicMock(spec=Request)
     request.query_params = {}
@@ -3423,7 +3423,7 @@ def test_internal_user_blocked_from_vector_store_writes(route):
     with pytest.raises(Exception, match="Only proxy admin can be used to generate, delete, update"):
         RouteChecks.non_proxy_admin_allowed_routes_check(
             user_obj=user_obj,
-            _user_role=LitellmUserRoles.INTERNAL_USER.value,
+            _user_role=EmbrouterUserRoles.INTERNAL_USER.value,
             route=route,
             request=request,
             valid_token=valid_token,
@@ -3434,21 +3434,21 @@ def test_internal_user_blocked_from_vector_store_writes(route):
 def test_proxy_admin_viewer_can_read_another_users_info():
     """Admin Viewer has read parity with Proxy Admin, so the /user/info
     key-ownership gate must not apply to it — the Users page reads every row."""
-    user_obj = LiteLLM_UserTable(
+    user_obj = EmbRouter_UserTable(
         user_id="viewer_user",
         user_email="viewer@example.com",
-        user_role=LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
     )
     valid_token = UserAPIKeyAuth(
         user_id="viewer_user",
-        user_role=LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
     )
     request = MagicMock(spec=Request)
     request.query_params = {"user_id": "some_other_user"}
 
     RouteChecks.non_proxy_admin_allowed_routes_check(
         user_obj=user_obj,
-        _user_role=LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
+        _user_role=EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
         route="/user/info",
         request=request,
         valid_token=valid_token,
@@ -3459,14 +3459,14 @@ def test_proxy_admin_viewer_can_read_another_users_info():
 def test_internal_user_still_blocked_from_another_users_info():
     """The Admin Viewer carve-out above must stay scoped to that role; internal
     users keep hitting the ownership 403."""
-    user_obj = LiteLLM_UserTable(
+    user_obj = EmbRouter_UserTable(
         user_id="internal_user",
         user_email="user@example.com",
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
+        user_role=EmbrouterUserRoles.INTERNAL_USER.value,
     )
     valid_token = UserAPIKeyAuth(
         user_id="internal_user",
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
+        user_role=EmbrouterUserRoles.INTERNAL_USER.value,
     )
     request = MagicMock(spec=Request)
     request.query_params = {"user_id": "some_other_user"}
@@ -3474,7 +3474,7 @@ def test_internal_user_still_blocked_from_another_users_info():
     with pytest.raises(HTTPException) as exc_info:
         RouteChecks.non_proxy_admin_allowed_routes_check(
             user_obj=user_obj,
-            _user_role=LitellmUserRoles.INTERNAL_USER.value,
+            _user_role=EmbrouterUserRoles.INTERNAL_USER.value,
             route="/user/info",
             request=request,
             valid_token=valid_token,
@@ -3495,8 +3495,8 @@ def test_internal_user_still_blocked_from_another_users_info():
 @pytest.mark.parametrize(
     "user_role",
     [
-        LitellmUserRoles.INTERNAL_USER.value,
-        LitellmUserRoles.INTERNAL_USER_VIEW_ONLY.value,
+        EmbrouterUserRoles.INTERNAL_USER.value,
+        EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY.value,
     ],
 )
 def test_user_daily_activity_routes_reachable_by_non_admin(route, user_role):
@@ -3507,7 +3507,7 @@ def test_user_daily_activity_routes_reachable_by_non_admin(route, user_role):
     route to a non-admin, so dropping one from it 401s every internal user's
     main Usage page before the handler ever runs.
     """
-    user_obj = LiteLLM_UserTable(
+    user_obj = EmbRouter_UserTable(
         user_id="test_user",
         user_email="test@example.com",
         user_role=user_role,
@@ -3529,12 +3529,12 @@ def test_user_daily_activity_routes_reachable_by_non_admin(route, user_role):
 @pytest.mark.parametrize(
     "user_role",
     [
-        LitellmUserRoles.INTERNAL_USER.value,
-        LitellmUserRoles.INTERNAL_USER_VIEW_ONLY.value,
+        EmbrouterUserRoles.INTERNAL_USER.value,
+        EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY.value,
     ],
 )
 def test_team_spend_by_user_reachable_by_non_admin(user_role):
-    user_obj = LiteLLM_UserTable(
+    user_obj = EmbRouter_UserTable(
         user_id="test_user",
         user_email="test@example.com",
         user_role=user_role,
@@ -3575,8 +3575,8 @@ def test_user_daily_activity_aggregated_not_covered_by_prefix_match():
 @pytest.mark.parametrize(
     "user_role",
     [
-        LitellmUserRoles.INTERNAL_USER.value,
-        LitellmUserRoles.INTERNAL_USER_VIEW_ONLY.value,
+        EmbrouterUserRoles.INTERNAL_USER.value,
+        EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY.value,
     ],
 )
 def test_organization_daily_activity_reachable_by_non_admin_roles(user_role):
@@ -3588,7 +3588,7 @@ def test_organization_daily_activity_reachable_by_non_admin_roles(user_role):
     granting it, and dropping it 401s every org admin's Organization Usage view
     before the handler ever runs.
     """
-    user_obj = LiteLLM_UserTable(
+    user_obj = EmbRouter_UserTable(
         user_id="test_user",
         user_email="test@example.com",
         user_role=user_role,
@@ -3618,15 +3618,15 @@ def test_organization_daily_activity_not_granted_by_org_admin_request_data_branc
     at all. Both shapes are pinned below because renaming the query param would
     otherwise silently change which gate is doing the work.
     """
-    user_obj = LiteLLM_UserTable(
+    user_obj = EmbRouter_UserTable(
         user_id="test_user",
         user_email="test@example.com",
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
+        user_role=EmbrouterUserRoles.INTERNAL_USER.value,
         organization_memberships=[
-            LiteLLM_OrganizationMembershipTable(
+            EmbRouter_OrganizationMembershipTable(
                 user_id="test_user",
                 organization_id="org-a",
-                user_role=LitellmUserRoles.ORG_ADMIN.value,
+                user_role=EmbrouterUserRoles.ORG_ADMIN.value,
                 created_at=datetime.now(),
                 updated_at=datetime.now(),
             )
@@ -3641,17 +3641,17 @@ def test_organization_daily_activity_not_granted_by_org_admin_request_data_branc
     assert _user_is_org_admin(request_data={"organization_id": "org-a"}, user_object=user_obj)
     assert not RouteChecks.check_route_access(
         route="/organization/daily/activity",
-        allowed_routes=LiteLLMRoutes.org_admin_only_routes.value,
+        allowed_routes=EmbRouterRoutes.org_admin_only_routes.value,
     )
 
 
 @pytest.mark.parametrize(
     "user_role",
     [
-        LitellmUserRoles.INTERNAL_USER.value,
-        LitellmUserRoles.INTERNAL_USER_VIEW_ONLY.value,
-        LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
-        LitellmUserRoles.TEAM.value,
+        EmbrouterUserRoles.INTERNAL_USER.value,
+        EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY.value,
+        EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
+        EmbrouterUserRoles.TEAM.value,
     ],
 )
 @pytest.mark.parametrize(
@@ -3664,7 +3664,7 @@ def test_auto_router_dry_runs_share_model_new_audience(user_role, dry_run_route)
     pre-save call 403s for an operator whose save would have been accepted."""
 
     def outcome(route: str) -> str:
-        user_obj = LiteLLM_UserTable(
+        user_obj = EmbRouter_UserTable(
             user_id="test_user",
             user_email="test@example.com",
             user_role=user_role,
@@ -3690,7 +3690,7 @@ def test_auto_router_dry_runs_share_model_new_audience(user_role, dry_run_route)
 
     assert outcome(dry_run_route) == outcome("/model/new")
     # Anchor so parity cannot be satisfied by both routes 403ing for everyone
-    if user_role == LitellmUserRoles.INTERNAL_USER.value:
+    if user_role == EmbrouterUserRoles.INTERNAL_USER.value:
         assert outcome(dry_run_route) == "allowed"
 
 
@@ -3735,7 +3735,7 @@ def test_agent_inference_routes_stay_llm_api(route):
 def test_agent_routes_union_still_covers_both_halves(route):
     """Keys configured with allowed_routes=["agent_routes"] must keep both halves."""
 
-    assert RouteChecks.check_route_access(route=route, allowed_routes=LiteLLMRoutes.agent_routes.value) is True
+    assert RouteChecks.check_route_access(route=route, allowed_routes=EmbRouterRoutes.agent_routes.value) is True
 
 
 @pytest.mark.parametrize("route", AGENT_MANAGEMENT_ROUTES)
@@ -3763,8 +3763,8 @@ def test_virtual_key_llm_api_routes_allows_agent_registry(route, method):
 @pytest.mark.parametrize(
     "user_role",
     [
-        LitellmUserRoles.INTERNAL_USER.value,
-        LitellmUserRoles.INTERNAL_USER_VIEW_ONLY.value,
+        EmbrouterUserRoles.INTERNAL_USER.value,
+        EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY.value,
         None,
     ],
 )
@@ -3782,7 +3782,7 @@ def test_agent_registry_route_gate_open_to_non_admin_roles(user_role, method, ro
     request.query_params = {}
 
     RouteChecks.non_proxy_admin_allowed_routes_check(
-        user_obj=LiteLLM_UserTable(user_id="test_user", user_role=user_role),
+        user_obj=EmbRouter_UserTable(user_id="test_user", user_role=user_role),
         _user_role=user_role,
         route=route,
         request=request,
@@ -3798,7 +3798,7 @@ def test_proxy_admin_viewer_user_update_password_param_rejected():
     with pytest.raises(HTTPException) as exc_info:
         RouteChecks._check_proxy_admin_viewer_access(
             route="/user/update",
-            _user_role=LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
+            _user_role=EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
             request_data={"password": "hunter2hunter2"},
         )
     assert exc_info.value.status_code == 403
@@ -3811,7 +3811,7 @@ def test_proxy_admin_viewer_user_update_user_email_still_allowed():
 
     allowed = RouteChecks._check_proxy_admin_viewer_access(
         route="/user/update",
-        _user_role=LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
+        _user_role=EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
         request_data={"user_email": "viewer@example.com"},
         request=request,
     )
@@ -3825,7 +3825,7 @@ def test_proxy_admin_viewer_can_change_own_password():
 
     allowed = RouteChecks._check_proxy_admin_viewer_access(
         route="/user/password/change",
-        _user_role=LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
+        _user_role=EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
         request_data={"current_password": "a", "new_password": "b"},
         request=request,
     )
@@ -3836,8 +3836,8 @@ def test_proxy_admin_viewer_can_change_own_password():
 @pytest.mark.parametrize(
     "user_role",
     [
-        LitellmUserRoles.INTERNAL_USER.value,
-        LitellmUserRoles.INTERNAL_USER_VIEW_ONLY.value,
+        EmbrouterUserRoles.INTERNAL_USER.value,
+        EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY.value,
     ],
 )
 def test_non_admin_roles_can_change_own_password(user_role):
@@ -3847,7 +3847,7 @@ def test_non_admin_roles_can_change_own_password(user_role):
     request.query_params = {}
 
     allowed = RouteChecks.non_proxy_admin_allowed_routes_check(
-        user_obj=LiteLLM_UserTable(user_id="test_user", user_role=user_role),
+        user_obj=EmbRouter_UserTable(user_id="test_user", user_role=user_role),
         _user_role=user_role,
         route="/user/password/change",
         request=request,
@@ -3943,7 +3943,7 @@ def _gate(route, role) -> str:
     the denial message otherwise, so a caller asserts the verdict as a value
     instead of on whether an exception escaped.
     """
-    user_obj = LiteLLM_UserTable(
+    user_obj = EmbRouter_UserTable(
         user_id="team_admin_user",
         user_email="team-admin@example.com",
         user_role=role,
@@ -3976,16 +3976,16 @@ def test_team_callback_routes_are_self_managed():
         "/team/{team_id:path}/callback",
         "/team/{team_id:path}/callback/{callback_name}",
     ):
-        assert template in LiteLLMRoutes.self_managed_routes.value
+        assert template in EmbRouterRoutes.self_managed_routes.value
 
 
 @pytest.mark.parametrize("route", TEAM_CALLBACK_ROUTES)
 @pytest.mark.parametrize(
     "role",
     [
-        LitellmUserRoles.INTERNAL_USER.value,
-        LitellmUserRoles.INTERNAL_USER_VIEW_ONLY.value,
-        LitellmUserRoles.ORG_ADMIN.value,
+        EmbrouterUserRoles.INTERNAL_USER.value,
+        EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY.value,
+        EmbrouterUserRoles.ORG_ADMIN.value,
     ],
 )
 def test_team_callback_routes_reach_their_handler_for_non_admins(route, role):
@@ -4089,7 +4089,7 @@ def test_team_disable_logging_stays_proxy_admin_only():
     the gate. It is the one team callback route a team admin cannot reach."""
     verdict = _gate(
         "/team/06bda574-5ca9-43d3-beb8-3b23c2f17112/disable_logging",
-        LitellmUserRoles.INTERNAL_USER.value,
+        EmbrouterUserRoles.INTERNAL_USER.value,
     )
 
     assert "Only proxy admin" in verdict
@@ -4105,7 +4105,7 @@ def test_team_disable_logging_stays_proxy_admin_only():
 )
 def test_neighbouring_team_routes_stay_closed(route):
     """The grant is the callback paths and nothing else on the team namespace."""
-    assert "Only proxy admin" in _gate(route, LitellmUserRoles.INTERNAL_USER.value)
+    assert "Only proxy admin" in _gate(route, EmbrouterUserRoles.INTERNAL_USER.value)
 
 
 @pytest.mark.parametrize(
@@ -4119,10 +4119,10 @@ def test_neighbouring_team_routes_stay_closed(route):
 def test_claude_code_marketplace_routes_open_to_internal_users(route):
     """Per-skill visibility is enforced inside the handler, so the route gate must let non-admins through."""
     assert RouteChecks.is_llm_api_route(route) is True
-    assert _gate(route, LitellmUserRoles.INTERNAL_USER.value) == "allowed"
+    assert _gate(route, EmbrouterUserRoles.INTERNAL_USER.value) == "allowed"
 
 
-@pytest.mark.parametrize("user_role", [None, LitellmUserRoles.INTERNAL_USER.value, LitellmUserRoles.INTERNAL_USER_VIEW_ONLY.value])
+@pytest.mark.parametrize("user_role", [None, EmbrouterUserRoles.INTERNAL_USER.value, EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY.value])
 @pytest.mark.parametrize("allowed_routes", [None, ["llm_api_routes"]])
 def test_auto_router_session_is_reachable_by_any_key_but_benchmarks_stays_admin_only(
     user_role: str | None, allowed_routes: list[str] | None
@@ -4260,13 +4260,13 @@ def test_team_key_without_service_account_marker_still_rejected():
 def test_project_write_routes_reach_endpoint_for_internal_user(route):
     """The route gate lets a non-admin through so /project/new and /project/update can apply the
     team_admin_editable_team_fields projects permission themselves, instead of a blanket 401."""
-    valid_token = UserAPIKeyAuth(user_id="team_admin", user_role=LitellmUserRoles.INTERNAL_USER.value)
+    valid_token = UserAPIKeyAuth(user_id="team_admin", user_role=EmbrouterUserRoles.INTERNAL_USER.value)
     request = MagicMock(spec=Request)
     request.query_params = {}
 
     RouteChecks.non_proxy_admin_allowed_routes_check(
         user_obj=None,
-        _user_role=LitellmUserRoles.INTERNAL_USER.value,
+        _user_role=EmbrouterUserRoles.INTERNAL_USER.value,
         route=route,
         request=request,
         valid_token=valid_token,
@@ -4275,14 +4275,14 @@ def test_project_write_routes_reach_endpoint_for_internal_user(route):
 
 
 def test_project_delete_route_stays_proxy_admin_only():
-    valid_token = UserAPIKeyAuth(user_id="team_admin", user_role=LitellmUserRoles.INTERNAL_USER.value)
+    valid_token = UserAPIKeyAuth(user_id="team_admin", user_role=EmbrouterUserRoles.INTERNAL_USER.value)
     request = MagicMock(spec=Request)
     request.query_params = {}
 
     with pytest.raises(Exception, match="Only proxy admin can be used to generate, delete, update"):
         RouteChecks.non_proxy_admin_allowed_routes_check(
             user_obj=None,
-            _user_role=LitellmUserRoles.INTERNAL_USER.value,
+            _user_role=EmbrouterUserRoles.INTERNAL_USER.value,
             route="/project/delete",
             request=request,
             valid_token=valid_token,
@@ -4294,7 +4294,7 @@ def test_project_delete_route_stays_proxy_admin_only():
 @pytest.mark.parametrize("route_group", ("mcp_routes", "llm_api_routes", "openai_routes"))
 def test_legacy_sse_respects_virtual_key_route_permissions(route: str, route_group: str) -> None:
     token: Final = UserAPIKeyAuth(
-        user_id="sse-caller", user_role=LitellmUserRoles.INTERNAL_USER, allowed_routes=[route_group]
+        user_id="sse-caller", user_role=EmbrouterUserRoles.INTERNAL_USER, allowed_routes=[route_group]
     )
     request: Final = Request({"type": "http", "method": "POST" if "messages" in route else "GET", "path": route})
     if route_group == "openai_routes":
@@ -4304,7 +4304,7 @@ def test_legacy_sse_respects_virtual_key_route_permissions(route: str, route_gro
         return
     RouteChecks.non_proxy_admin_allowed_routes_check(
         user_obj=None,
-        _user_role=LitellmUserRoles.INTERNAL_USER,
+        _user_role=EmbrouterUserRoles.INTERNAL_USER,
         route=route,
         request=request,
         valid_token=token,

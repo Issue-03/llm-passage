@@ -12,7 +12,7 @@ import json
 from types import MappingProxyType
 from typing import Final, Protocol
 
-from litellm.types.realtime import RealtimeErrorDetail, RealtimeErrorEvent
+from embrouter.types.realtime import RealtimeErrorDetail, RealtimeErrorEvent
 
 WEBSOCKET_CLOSE_REASON_MAX_BYTES: Final = 123
 

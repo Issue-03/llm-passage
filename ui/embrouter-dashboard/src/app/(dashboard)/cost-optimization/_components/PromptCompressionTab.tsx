@@ -122,16 +122,16 @@ const PromptCompressionTab: React.FC<PromptCompressionTabProps> = ({ accessToken
                 <li key={guardrail.guardrail_id} className="flex items-center justify-between py-3">
                   <div>
                     <p className="text-sm font-medium text-foreground">{guardrail.guardrail_name}</p>
-                    <p className="text-xs text-muted-foreground">{guardrail.litellm_params?.api_base ?? ""}</p>
+                    <p className="text-xs text-muted-foreground">{guardrail.embrouter_params?.api_base ?? ""}</p>
                   </div>
                   <span
                     className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                      guardrail.litellm_params?.default_on
+                      guardrail.embrouter_params?.default_on
                         ? "bg-success/15 text-success"
                         : "bg-muted text-muted-foreground"
                     }`}
                   >
-                    {guardrail.litellm_params?.default_on ? "Always on" : "Opt-in"}
+                    {guardrail.embrouter_params?.default_on ? "Always on" : "Opt-in"}
                   </span>
                 </li>
               ))}

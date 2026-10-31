@@ -4,14 +4,14 @@ from typing import Dict, Optional
 
 import pytest
 
-from litellm.proxy._types import UserAPIKeyAuth, hash_token
-from litellm.proxy.auth.resolvers.exceptions import (
+from embrouter.proxy._types import UserAPIKeyAuth, hash_token
+from embrouter.proxy.auth.resolvers.exceptions import (
     NoDatabaseConnectionError,
     PrincipalMissingSourceKeyError,
 )
-from litellm.proxy.auth.auth_method import AuthMethod
-from litellm.proxy.auth.resolvers.models import Principal, PrincipalType
-from litellm.proxy.auth.resolvers.store import IdentityStore
+from embrouter.proxy.auth.auth_method import AuthMethod
+from embrouter.proxy.auth.resolvers.models import Principal, PrincipalType
+from embrouter.proxy.auth.resolvers.store import IdentityStore
 
 
 class _FakeCache:

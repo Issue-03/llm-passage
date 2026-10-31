@@ -9,7 +9,7 @@ which fixes the Ollama error "illegal base64 data at input byte 4".
 
 import pytest
 
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
     _extract_base64_data,
     extract_images_from_message,
 )

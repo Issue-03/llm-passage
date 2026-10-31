@@ -18,31 +18,31 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field, TypeAdapter
 
 if TYPE_CHECKING:
-    from prisma.models import LiteLLM_DailyToolSpend as PrismaDailyToolSpendRow
-    from prisma.models import LiteLLM_ObjectPermissionTable as PrismaObjectPermissionRow
-    from prisma.models import LiteLLM_SpendLogs as PrismaSpendLogRow
-    from prisma.models import LiteLLM_SpendLogToolIndex as PrismaSpendLogToolIndexRow
-    from prisma.models import LiteLLM_TeamTable as PrismaTeamRow
-    from prisma.models import LiteLLM_VerificationToken as PrismaVerificationTokenRow
+    from prisma.models import EmbRouter_DailyToolSpend as PrismaDailyToolSpendRow
+    from prisma.models import EmbRouter_ObjectPermissionTable as PrismaObjectPermissionRow
+    from prisma.models import EmbRouter_SpendLogs as PrismaSpendLogRow
+    from prisma.models import EmbRouter_SpendLogToolIndex as PrismaSpendLogToolIndexRow
+    from prisma.models import EmbRouter_TeamTable as PrismaTeamRow
+    from prisma.models import EmbRouter_VerificationToken as PrismaVerificationTokenRow
 
-    from litellm.proxy.utils import PrismaClient
+    from embrouter.proxy.utils import PrismaClient
 
-from litellm._logging import verbose_proxy_logger
-from litellm.constants import TOOL_SPEND_TOP_TOOLS
-from litellm.proxy._types import CommonProxyErrors, LitellmUserRoles, UserAPIKeyAuth
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.repositories.object_permission_repository import ObjectPermissionRepository
-from litellm.repositories.table_repositories import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.constants import TOOL_SPEND_TOP_TOOLS
+from embrouter.proxy._types import CommonProxyErrors, EmbrouterUserRoles, UserAPIKeyAuth
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.repositories.object_permission_repository import ObjectPermissionRepository
+from embrouter.repositories.table_repositories import (
     DailyToolSpendRepository,
     SpendLogsRepository,
     SpendLogToolIndexRepository,
 )
-from litellm.repositories.team_repository import TeamRepository
-from litellm.repositories.verification_token_repository import (
+from embrouter.repositories.team_repository import TeamRepository
+from embrouter.repositories.verification_token_repository import (
     VerificationTokenRepository,
 )
-from litellm.types.tool_management import (
-    LiteLLM_ToolTableRow,
+from embrouter.types.tool_management import (
+    EmbRouter_ToolTableRow,
     ToolDetailResponse,
     ToolInputPolicy,
     ToolListResponse,
@@ -190,8 +190,8 @@ async def list_tools(
     Parameters:
     - input_policy: Optional filter — one of "trusted", "untrusted", "blocked"
     """
-    from litellm.proxy.db.tool_registry_writer import list_tools as db_list_tools
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.db.tool_registry_writer import list_tools as db_list_tools
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail=CommonProxyErrors.db_not_connected_error.value)
@@ -244,7 +244,7 @@ async def get_tool_spend(
     """
     Spend attributed to each tool over a date range, for the Cost Optimization dashboard.
 
-    Reads the ``LiteLLM_DailyToolSpend`` rollup, written at request time from invoked
+    Reads the ``EmbRouter_DailyToolSpend`` rollup, written at request time from invoked
     tools only (MCP tool calls and response tool_calls; declaring a tool without
     invoking it does not count). A request that invoked multiple tools counts its
     full spend toward each of them, so per-tool numbers are attributions and do not
@@ -255,11 +255,11 @@ async def get_tool_spend(
     days x TOOL_SPEND_TOP_TOOLS regardless of the requested range or how many
     distinct tool names exist.
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if user_api_key_dict.user_role not in (
-        LitellmUserRoles.PROXY_ADMIN,
-        LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY,
+        EmbrouterUserRoles.PROXY_ADMIN,
+        EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY,
     ):
         raise HTTPException(
             status_code=403,
@@ -324,9 +324,9 @@ async def get_tool_detail(
     """
     Get a single tool with its policy overrides (for UI detail view).
     """
-    from litellm.proxy.db.tool_registry_writer import get_tool as db_get_tool
-    from litellm.proxy.db.tool_registry_writer import list_overrides_for_tool
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.db.tool_registry_writer import get_tool as db_get_tool
+    from embrouter.proxy.db.tool_registry_writer import list_overrides_for_tool
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail=CommonProxyErrors.db_not_connected_error.value)
@@ -419,7 +419,7 @@ async def get_tool_usage_logs(
     Return paginated spend logs for requests that invoked this tool (from SpendLogToolIndex).
     Declaring a tool in a request body without the model invoking it does not create an entry.
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail=CommonProxyErrors.db_not_connected_error.value)
@@ -495,7 +495,7 @@ async def get_tool_usage_logs(
     "/v1/tool/{tool_name:path}",
     tags=["tool management"],
     dependencies=[Depends(user_api_key_auth)],
-    response_model=LiteLLM_ToolTableRow,
+    response_model=EmbRouter_ToolTableRow,
 )
 async def get_tool(
     tool_name: str,
@@ -504,8 +504,8 @@ async def get_tool(
     """
     Get details for a single tool.
     """
-    from litellm.proxy.db.tool_registry_writer import get_tool as db_get_tool
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.db.tool_registry_writer import get_tool as db_get_tool
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail=CommonProxyErrors.db_not_connected_error.value)
@@ -527,7 +527,7 @@ async def _resolve_key_hash_to_object_permission_id(
     key_hash: str,
 ) -> str | None:
     """Resolve key (hash or raw) to object_permission_id; create permission if key has none."""
-    from litellm.proxy.proxy_server import hash_token
+    from embrouter.proxy.proxy_server import hash_token
 
     hashed: Final = key_hash if "sk-" not in (key_hash or "") else hash_token(key_hash)
     if not hashed:
@@ -602,15 +602,15 @@ async def update_tool_policy(
     - team_id: optional - if set, create/update override for this team only
     - key_hash: optional - if set, create/update override for this key only
     """
-    from litellm.proxy.db.tool_registry_writer import (
+    from embrouter.proxy.db.tool_registry_writer import (
         add_tool_to_object_permission_blocked,
         get_tool_policy_registry,
         remove_tool_from_object_permission_blocked,
     )
-    from litellm.proxy.db.tool_registry_writer import (
+    from embrouter.proxy.db.tool_registry_writer import (
         update_tool_policy as db_update_tool_policy,
     )
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail=CommonProxyErrors.db_not_connected_error.value)
@@ -710,11 +710,11 @@ async def delete_tool_policy_override(
     Remove a policy override for a tool. Specify the override by team_id or key_hash
     (exactly one required).
     """
-    from litellm.proxy.db.tool_registry_writer import (
+    from embrouter.proxy.db.tool_registry_writer import (
         get_tool_policy_registry,
         remove_tool_from_object_permission_blocked,
     )
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail=CommonProxyErrors.db_not_connected_error.value)

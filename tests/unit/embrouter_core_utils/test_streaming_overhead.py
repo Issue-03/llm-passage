@@ -10,13 +10,13 @@ import time
 from typing import List, Optional
 from unittest.mock import MagicMock, patch
 
-import litellm
-from litellm.litellm_core_utils.streaming_handler import (
+import embrouter
+from embrouter.embrouter_core_utils.streaming_handler import (
     CustomStreamWrapper,
     _GCHUNK_FIELDS,
     generic_chunk_has_all_required_fields,
 )
-from litellm.types.utils import (
+from embrouter.types.utils import (
     Delta,
     GenericStreamingChunk as GChunk,
     ModelResponseStream,
@@ -33,7 +33,7 @@ def _make_logging_obj(provider: str = "anthropic") -> MagicMock:
     logging_obj = MagicMock()
     logging_obj.model_call_details = {
         "custom_llm_provider": provider,
-        "litellm_params": {},
+        "embrouter_params": {},
     }
     logging_obj.call_type = "completion"
     logging_obj.stream_options = None
@@ -373,7 +373,7 @@ def test_post_streaming_hooks_cached_after_first_call():
 
     async def _run():
         # Simulate hook resolution with an empty callback list
-        with patch.object(litellm, "callbacks", []):
+        with patch.object(embrouter, "callbacks", []):
             await wrapper._call_post_streaming_deployment_hook(
                 MagicMock(spec=ModelResponseStream)
             )
@@ -381,7 +381,7 @@ def test_post_streaming_hooks_cached_after_first_call():
         assert isinstance(first_list, list)
 
         # Second call must reuse the same list object
-        with patch.object(litellm, "callbacks", []):
+        with patch.object(embrouter, "callbacks", []):
             await wrapper._call_post_streaming_deployment_hook(
                 MagicMock(spec=ModelResponseStream)
             )
@@ -401,7 +401,7 @@ def test_post_streaming_hooks_filters_correctly():
     pass the hasattr() check regardless of whether they override the method.
     The filter therefore keeps any CustomLogger instance and drops anything else.
     """
-    from litellm.integrations.custom_logger import CustomLogger
+    from embrouter.integrations.custom_logger import CustomLogger
 
     class MyLogger(CustomLogger):
         pass
@@ -411,7 +411,7 @@ def test_post_streaming_hooks_filters_correctly():
     wrapper = _make_wrapper([], provider="anthropic")
 
     async def _run():
-        with patch.object(litellm, "callbacks", [MyLogger(), plain_callable]):
+        with patch.object(embrouter, "callbacks", [MyLogger(), plain_callable]):
             await wrapper._call_post_streaming_deployment_hook(
                 MagicMock(spec=ModelResponseStream)
             )

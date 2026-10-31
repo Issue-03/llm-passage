@@ -13,7 +13,7 @@ import json
 from contextlib import suppress
 from typing import Final
 
-from litellm._logging import print_verbose, verbose_logger
+from embrouter._logging import print_verbose, verbose_logger
 
 from .base_cache import BaseCache
 
@@ -41,22 +41,22 @@ class AzureBlobCache(BaseCache):
             self.container_client.create_container()
 
     def set_cache(self, key, value, **kwargs) -> None:
-        print_verbose(f"LiteLLM SET Cache - Azure Blob. Key={key}. Value={value}")
+        print_verbose(f"EmbRouter SET Cache - Azure Blob. Key={key}. Value={value}")
         serialized_value: Final = json.dumps(value)
         try:
             self.container_client.upload_blob(key, serialized_value)
         except Exception as e:
             # NON blocking - notify users Azure Blob is throwing an exception
-            print_verbose(f"LiteLLM set_cache() - Got exception from Azure Blob: {e}")
+            print_verbose(f"EmbRouter set_cache() - Got exception from Azure Blob: {e}")
 
     async def async_set_cache(self, key, value, **kwargs) -> None:
-        print_verbose(f"LiteLLM SET Cache - Azure Blob. Key={key}. Value={value}")
+        print_verbose(f"EmbRouter SET Cache - Azure Blob. Key={key}. Value={value}")
         serialized_value: Final = json.dumps(value)
         try:
             await self.async_container_client.upload_blob(key, serialized_value, overwrite=True)
         except Exception as e:
             # NON blocking - notify users Azure Blob is throwing an exception
-            print_verbose(f"LiteLLM set_cache() - Got exception from Azure Blob: {e}")
+            print_verbose(f"EmbRouter set_cache() - Got exception from Azure Blob: {e}")
 
     def get_cache(self, key, **kwargs):
         from azure.core.exceptions import ResourceNotFoundError

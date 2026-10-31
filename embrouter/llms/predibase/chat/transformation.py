@@ -4,26 +4,26 @@ from typing import TYPE_CHECKING, Any, Final, Literal
 
 from httpx import Headers, Response
 
-import litellm
-from litellm.constants import DEFAULT_MAX_TOKENS
-from litellm.litellm_core_utils.core_helpers import map_finish_reason
-from litellm.litellm_core_utils.prompt_templates.factory import (
+import embrouter
+from embrouter.constants import DEFAULT_MAX_TOKENS
+from embrouter.embrouter_core_utils.core_helpers import map_finish_reason
+from embrouter.embrouter_core_utils.prompt_templates.factory import (
     custom_prompt,
     prompt_factory,
 )
-from litellm.llms.base_llm.chat.transformation import BaseConfig, BaseLLMException
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.utils import Choices, Message, ModelResponse, Usage
+from embrouter.llms.base_llm.chat.transformation import BaseConfig, BaseLLMException
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.utils import Choices, Message, ModelResponse, Usage
 
 from ..common_utils import PredibaseError
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 
 class PredibaseConfig(BaseConfig):
@@ -144,11 +144,11 @@ class PredibaseConfig(BaseConfig):
         model: str,
         raw_response: Response,
         model_response: ModelResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         request_data: dict,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,
@@ -228,7 +228,7 @@ class PredibaseConfig(BaseConfig):
 
         prompt_tokens = 0
         try:
-            prompt_tokens = litellm.token_counter(messages=messages)
+            prompt_tokens = embrouter.token_counter(messages=messages)
         except Exception:
             # Keep usage calculation non-blocking if token counting fails.
             pass
@@ -269,10 +269,10 @@ class PredibaseConfig(BaseConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
-        custom_prompt_dict: Final = litellm_params.get("custom_prompt_dict", {})
+        custom_prompt_dict: Final = embrouter_params.get("custom_prompt_dict", {})
         if model in custom_prompt_dict:
             model_prompt_details: Final = custom_prompt_dict[model]
             prompt = custom_prompt(
@@ -323,10 +323,10 @@ class PredibaseConfig(BaseConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
-        tenant_id: Final = litellm_params.get("predibase_tenant_id") or litellm_params.get("tenant_id")
+        tenant_id: Final = embrouter_params.get("predibase_tenant_id") or embrouter_params.get("tenant_id")
         if tenant_id is None:
             raise ValueError(
                 "Missing Predibase Tenant ID - Required for making the request. Set dynamically (e.g. `completion(..tenant_id=<MY-ID>)`) or in env - `PREDIBASE_TENANT_ID`."
@@ -355,7 +355,7 @@ class PredibaseConfig(BaseConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:

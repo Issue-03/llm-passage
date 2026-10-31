@@ -6,22 +6,22 @@ from typing import TYPE_CHECKING, Any
 import httpx
 from httpx._types import RequestFiles
 
-from litellm.types.images.main import ImageEditOptionalRequestParams
-from litellm.types.responses.main import *
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import FileTypes
+from embrouter.types.images.main import ImageEditOptionalRequestParams
+from embrouter.types.responses.main import *
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import FileTypes
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
-    from litellm.utils import ImageResponse as _ImageResponse
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
+    from embrouter.utils import ImageResponse as _ImageResponse
 
     from ..chat.transformation import BaseLLMException as _BaseLLMException
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
     BaseLLMException = _BaseLLMException
     ImageResponse = _ImageResponse
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
     BaseLLMException = Any
     ImageResponse = Any
 
@@ -68,7 +68,7 @@ class BaseImageEditConfig(ABC):
         headers: dict,
         model: str,
         api_key: str | None = None,
-        litellm_params: dict | None = None,
+        embrouter_params: dict | None = None,
         api_base: str | None = None,
     ) -> dict:
         return {}
@@ -78,7 +78,7 @@ class BaseImageEditConfig(ABC):
         self,
         model: str,
         api_base: str | None,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> str:
         """
         OPTIONAL
@@ -98,7 +98,7 @@ class BaseImageEditConfig(ABC):
         prompt: str | None,
         image: FileTypes | None,
         image_edit_optional_request_params: dict,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[dict, RequestFiles]:
         pass
@@ -109,7 +109,7 @@ class BaseImageEditConfig(ABC):
         prompt: str | None,
         image: FileTypes | None,
         image_edit_optional_request_params: Mapping[str, object],
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: Mapping[str, str],
     ) -> tuple[dict, RequestFiles]:
         return self.transform_image_edit_request(
@@ -117,7 +117,7 @@ class BaseImageEditConfig(ABC):
             prompt=prompt,
             image=image,
             image_edit_optional_request_params=dict(image_edit_optional_request_params),
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=dict(headers),
         )
 
@@ -136,7 +136,7 @@ class BaseImageEditConfig(ABC):
         self,
         model: str,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> ImageResponse:
         pass
 

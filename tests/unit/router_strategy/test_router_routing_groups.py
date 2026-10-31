@@ -16,19 +16,19 @@ from unittest.mock import patch
 import pytest
 from pydantic import ValidationError
 
-import litellm
-from litellm import Router
-from litellm.caching.redis_cache import RedisPipelineIncrementOperation
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.types.router import DeploymentTypedDict, FallbackAccessCheck, RoutingGroup, RoutingStrategy
-from litellm.utils import Rules, function_setup
+import embrouter
+from embrouter import Router
+from embrouter.caching.redis_cache import RedisPipelineIncrementOperation
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.types.router import DeploymentTypedDict, FallbackAccessCheck, RoutingGroup, RoutingStrategy
+from embrouter.utils import Rules, function_setup
 
 
 def _model_list():
     return [
         {
             "model_name": "filtered-model",
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "openai/gpt-4o",
                 "api_key": "sk-test-1",
                 "api_base": "https://example.invalid",
@@ -37,7 +37,7 @@ def _model_list():
         },
         {
             "model_name": "filtered-model",
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "openai/gpt-4o-mini",
                 "api_key": "sk-test-2",
                 "api_base": "https://example.invalid",
@@ -46,7 +46,7 @@ def _model_list():
         },
         {
             "model_name": "other-model",
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "openai/gpt-4o",
                 "api_key": "sk-test-3",
                 "api_base": "https://example.invalid",
@@ -168,7 +168,7 @@ def test_invalid_strategy_in_group_raises():
 def test_unknown_model_in_group_warns_but_does_not_raise(caplog):
     import logging
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Router"):
+    with caplog.at_level(logging.WARNING, logger="EmbRouter Router"):
         router = _build_router(
             routing_groups=[
                 {
@@ -235,7 +235,7 @@ async def test_async_dispatch_uses_group_strategy_for_grouped_model():
             wraps=group_selector.async_get_available_deployments,
         ) as latency_spy,
         patch(
-            "litellm.router.simple_shuffle", wraps=litellm.router.simple_shuffle
+            "embrouter.router.simple_shuffle", wraps=embrouter.router.simple_shuffle
         ) as shuffle_spy,
     ):
         await router.async_get_available_deployment(
@@ -270,7 +270,7 @@ async def test_async_dispatch_falls_back_to_default_for_ungrouped_models():
             wraps=group_selector.async_get_available_deployments,
         ) as latency_spy,
         patch(
-            "litellm.router.simple_shuffle", wraps=litellm.router.simple_shuffle
+            "embrouter.router.simple_shuffle", wraps=embrouter.router.simple_shuffle
         ) as shuffle_spy,
     ):
         await router.async_get_available_deployment(
@@ -330,7 +330,7 @@ async def test_async_dispatch_uses_default_selector_when_constructed_with_enum()
             wraps=default_selector.async_get_available_deployments,
         ) as latency_spy,
         patch(
-            "litellm.router.simple_shuffle", wraps=litellm.router.simple_shuffle
+            "embrouter.router.simple_shuffle", wraps=embrouter.router.simple_shuffle
         ) as shuffle_spy,
     ):
         await router.async_get_available_deployment(
@@ -346,18 +346,18 @@ async def test_async_dispatch_uses_default_selector_when_constructed_with_enum()
 def test_update_settings_does_not_leak_strategy_callbacks(monkeypatch):
     """
     Repeated `update_settings` calls must not accumulate stale selectors in
-    `litellm.callbacks` / `litellm.input_callback`. Each rebuild owns the
+    `embrouter.callbacks` / `embrouter.input_callback`. Each rebuild owns the
     previous generation and is responsible for unregistering it by identity
     so the global lists don't grow without bound.
     """
-    monkeypatch.setattr(litellm, "callbacks", [])
-    monkeypatch.setattr(litellm, "input_callback", [])
+    monkeypatch.setattr(embrouter, "callbacks", [])
+    monkeypatch.setattr(embrouter, "input_callback", [])
 
     router = _build_router(routing_strategy="latency-based-routing")
     initial_default_selector = router.lowestlatency_logger
     assert initial_default_selector is not None
     assert any(
-        c is initial_default_selector for c in litellm.callbacks
+        c is initial_default_selector for c in embrouter.callbacks
     ), "fresh router should register its default selector"
 
     # Flip strategies back and forth — each transition triggers
@@ -367,8 +367,8 @@ def test_update_settings_does_not_leak_strategy_callbacks(monkeypatch):
         router.update_settings(routing_strategy="latency-based-routing")
 
     assert all(
-        c is not initial_default_selector for c in litellm.callbacks
-    ), "old default selector instance leaked into litellm.callbacks"
+        c is not initial_default_selector for c in embrouter.callbacks
+    ), "old default selector instance leaked into embrouter.callbacks"
 
     # The set of router-owned selectors should be bounded — at most one per
     # strategy class. Without the cleanup fix this grows by one per toggle.
@@ -380,7 +380,7 @@ def test_update_settings_does_not_leak_strategy_callbacks(monkeypatch):
         "LowestCostLoggingHandler",
     )
     router_owned = [
-        c for c in litellm.callbacks if type(c).__name__ in router_owned_classes
+        c for c in embrouter.callbacks if type(c).__name__ in router_owned_classes
     ]
     assert len(router_owned) <= len(
         router_owned_classes
@@ -410,8 +410,8 @@ def test_update_settings_does_not_leak_strategy_callbacks(monkeypatch):
         ]
     )
     assert all(
-        c is not group_selector_v1 for c in litellm.callbacks
-    ), "old group selector instance leaked into litellm.callbacks"
+        c is not group_selector_v1 for c in embrouter.callbacks
+    ), "old group selector instance leaked into embrouter.callbacks"
     group_selector_v2 = router._group_selectors["fast"]["latency-based-routing"]
     assert group_selector_v2 is not group_selector_v1
 
@@ -421,8 +421,8 @@ def test_update_settings_unregisters_group_selectors_when_groups_removed(monkeyp
     Setting routing_groups to an empty list (or omitting all groups) must
     unregister every previously-owned group selector.
     """
-    monkeypatch.setattr(litellm, "callbacks", [])
-    monkeypatch.setattr(litellm, "input_callback", [])
+    monkeypatch.setattr(embrouter, "callbacks", [])
+    monkeypatch.setattr(embrouter, "input_callback", [])
 
     router = _build_router(
         routing_groups=[
@@ -434,25 +434,25 @@ def test_update_settings_unregisters_group_selectors_when_groups_removed(monkeyp
         ]
     )
     group_selector = router._group_selectors["fast"]["least-busy"]
-    assert group_selector in litellm.callbacks
-    assert group_selector in litellm.input_callback
+    assert group_selector in embrouter.callbacks
+    assert group_selector in embrouter.input_callback
 
     router.update_settings(routing_groups=[])
 
-    assert all(c is not group_selector for c in litellm.callbacks)
-    assert all(c is not group_selector for c in litellm.input_callback)
+    assert all(c is not group_selector for c in embrouter.callbacks)
+    assert all(c is not group_selector for c in embrouter.input_callback)
     assert router._group_selectors == {}
 
 
 def test_two_least_busy_groups_count_a_request_once(monkeypatch):
     """
-    Least-busy counts a request up from the pre-call hooks on `litellm.input_callback` and
-    back down from the success hooks on `litellm.callbacks`. The success list drops a second
+    Least-busy counts a request up from the pre-call hooks on `embrouter.input_callback` and
+    back down from the success hooks on `embrouter.callbacks`. The success list drops a second
     selector of the same class, so a pre-call list that kept both counted every request twice
     and released it once, and the deployment's in-flight count climbed until it looked pinned.
     """
-    monkeypatch.setattr(litellm, "callbacks", [])
-    monkeypatch.setattr(litellm, "input_callback", [])
+    monkeypatch.setattr(embrouter, "callbacks", [])
+    monkeypatch.setattr(embrouter, "input_callback", [])
 
     router = _build_router(
         routing_strategy="least-busy",
@@ -465,16 +465,16 @@ def test_two_least_busy_groups_count_a_request_once(monkeypatch):
         ],
     )
     kwargs = {
-        "litellm_params": {
+        "embrouter_params": {
             "metadata": {"model_group": "filtered-model"},
             "model_info": {"id": "deploy-1"},
         }
     }
 
-    for callback in litellm.input_callback:
+    for callback in embrouter.input_callback:
         if isinstance(callback, CustomLogger):
             callback.log_pre_api_call(model="filtered-model", messages=[], kwargs=kwargs)
-    for callback in litellm.callbacks:
+    for callback in embrouter.callbacks:
         if isinstance(callback, CustomLogger):
             callback.log_success_event(kwargs, None, None, None)
 
@@ -483,25 +483,25 @@ def test_two_least_busy_groups_count_a_request_once(monkeypatch):
 
 def test_two_routers_in_one_process_each_count_their_own_requests(monkeypatch):
     """
-    Least-busy hangs its counting off litellm's global callback lists, and those lists keep one
+    Least-busy hangs its counting off embrouter's global callback lists, and those lists keep one
     logger per class unless the instances differ in a plain attribute. Two routers in one process
     (a second Router, or a per-request `user_config` one) therefore have to register separately:
     a second router whose selector is dropped counts nothing, reads zero for every deployment,
     and sends every request to whichever one is listed first.
     """
-    monkeypatch.setattr(litellm, "callbacks", [])
-    monkeypatch.setattr(litellm, "input_callback", [])
+    monkeypatch.setattr(embrouter, "callbacks", [])
+    monkeypatch.setattr(embrouter, "input_callback", [])
 
     first = _build_router(routing_strategy="least-busy")
     second = _build_router(routing_strategy="least-busy")
     kwargs = {
-        "litellm_params": {
+        "embrouter_params": {
             "metadata": {"model_group": "filtered-model"},
             "model_info": {"id": "deploy-1"},
         }
     }
 
-    for callback in litellm.input_callback:
+    for callback in embrouter.input_callback:
         if isinstance(callback, CustomLogger):
             callback.log_pre_api_call(model="filtered-model", messages=[], kwargs=kwargs)
 
@@ -511,7 +511,7 @@ def test_two_routers_in_one_process_each_count_their_own_requests(monkeypatch):
         == "deploy-2"
     )
 
-    for callback in litellm.callbacks:
+    for callback in embrouter.callbacks:
         if isinstance(callback, CustomLogger):
             callback.log_success_event(kwargs, None, None, None)
 
@@ -544,8 +544,8 @@ def test_validate_routing_strategy_accepts_valid_and_rejects_invalid():
 
 
 def test_build_strategy_selector_returns_none_for_simple_shuffle(monkeypatch):
-    monkeypatch.setattr(litellm, "callbacks", [])
-    monkeypatch.setattr(litellm, "input_callback", [])
+    monkeypatch.setattr(embrouter, "callbacks", [])
+    monkeypatch.setattr(embrouter, "input_callback", [])
     router = _build_router()
     assert (
         router._build_strategy_selector(
@@ -558,8 +558,8 @@ def test_build_strategy_selector_returns_none_for_simple_shuffle(monkeypatch):
 
 
 def test_build_strategy_selector_constructs_for_known_strategies(monkeypatch):
-    monkeypatch.setattr(litellm, "callbacks", [])
-    monkeypatch.setattr(litellm, "input_callback", [])
+    monkeypatch.setattr(embrouter, "callbacks", [])
+    monkeypatch.setattr(embrouter, "input_callback", [])
     router = _build_router()
     selector = router._build_strategy_selector(
         strategy="latency-based-routing",
@@ -570,19 +570,19 @@ def test_build_strategy_selector_constructs_for_known_strategies(monkeypatch):
 
 
 def test_unregister_router_selectors_removes_by_identity(monkeypatch):
-    monkeypatch.setattr(litellm, "callbacks", [])
-    monkeypatch.setattr(litellm, "input_callback", [])
+    monkeypatch.setattr(embrouter, "callbacks", [])
+    monkeypatch.setattr(embrouter, "input_callback", [])
     router = _build_router()
     selector = router._build_strategy_selector(
         strategy="least-busy",
         routing_strategy_args={},
         register_callbacks=True,
     )
-    assert selector in litellm.callbacks
-    assert selector in litellm.input_callback
+    assert selector in embrouter.callbacks
+    assert selector in embrouter.input_callback
     router._unregister_router_selectors([selector])
-    assert all(c is not selector for c in litellm.callbacks)
-    assert all(c is not selector for c in litellm.input_callback)
+    assert all(c is not selector for c in embrouter.callbacks)
+    assert all(c is not selector for c in embrouter.input_callback)
 
 
 def test_init_routing_groups_with_none_clears_state():
@@ -700,7 +700,7 @@ async def test_async_dispatch_falls_back_to_sync_for_usage_based_routing_v1():
             healthy_deployments=[
                 {
                     "model_name": "filtered-model",
-                    "litellm_params": {"model": "openai/gpt-4o"},
+                    "embrouter_params": {"model": "openai/gpt-4o"},
                     "model_info": {"id": "deploy-1"},
                 }
             ],
@@ -800,12 +800,12 @@ def test_strategy_reinit_unregisters_override_selectors():
     router = _build_router(routing_strategy="least-busy")
     override_selector = router._get_override_strategy_selector("latency-based-routing")
     assert override_selector is not None
-    assert not any(cb is override_selector for cb in litellm.callbacks)
+    assert not any(cb is override_selector for cb in embrouter.callbacks)
 
     router.update_settings(routing_strategy="latency-based-routing")
 
     assert router._override_selectors == {}
-    assert not any(cb is override_selector for cb in litellm.callbacks)
+    assert not any(cb is override_selector for cb in embrouter.callbacks)
     assert router._get_override_strategy_selector("latency-based-routing") is router.lowestlatency_logger
 
 
@@ -818,12 +818,12 @@ def _assert_still_routes_with_original_group(router, selector):
     assert router._model_to_group == {"filtered-model": "g1"}
     assert router._group_selectors["g1"]["latency-based-routing"] is selector
     assert router._get_routing_context("filtered-model", None) == ("latency-based-routing", selector)
-    assert sum(1 for cb in litellm.callbacks if cb is selector) == 1
+    assert sum(1 for cb in embrouter.callbacks if cb is selector) == 1
 
 
 def test_failed_routing_groups_update_keeps_previous_groups(monkeypatch):
-    monkeypatch.setattr(litellm, "callbacks", [])
-    monkeypatch.setattr(litellm, "input_callback", [])
+    monkeypatch.setattr(embrouter, "callbacks", [])
+    monkeypatch.setattr(embrouter, "input_callback", [])
     router = _build_router(routing_groups=_single_latency_group())
     selector = router._group_selectors["g1"]["latency-based-routing"]
 
@@ -836,13 +836,13 @@ def test_failed_routing_groups_update_keeps_previous_groups(monkeypatch):
         )
 
     _assert_still_routes_with_original_group(router, selector)
-    assert sum(1 for cb in litellm.callbacks if type(cb) is not type(selector)) == 0
-    assert litellm.input_callback == []
+    assert sum(1 for cb in embrouter.callbacks if type(cb) is not type(selector)) == 0
+    assert embrouter.input_callback == []
 
 
 def test_failed_routing_groups_update_does_not_poison_later_strategy_changes(monkeypatch):
-    monkeypatch.setattr(litellm, "callbacks", [])
-    monkeypatch.setattr(litellm, "input_callback", [])
+    monkeypatch.setattr(embrouter, "callbacks", [])
+    monkeypatch.setattr(embrouter, "input_callback", [])
     router = _build_router(routing_groups=_single_latency_group())
 
     with pytest.raises(ValueError, match="appears in"):
@@ -881,8 +881,8 @@ def test_overlap_error_names_every_conflicting_model():
 
 
 def test_invalid_group_strategy_keeps_previous_groups(monkeypatch):
-    monkeypatch.setattr(litellm, "callbacks", [])
-    monkeypatch.setattr(litellm, "input_callback", [])
+    monkeypatch.setattr(embrouter, "callbacks", [])
+    monkeypatch.setattr(embrouter, "input_callback", [])
     router = _build_router(routing_groups=_single_latency_group())
     selector = router._group_selectors["g1"]["latency-based-routing"]
 
@@ -897,8 +897,8 @@ def test_invalid_group_strategy_keeps_previous_groups(monkeypatch):
 
 
 def test_unbuildable_group_selector_keeps_previous_groups(monkeypatch):
-    monkeypatch.setattr(litellm, "callbacks", [])
-    monkeypatch.setattr(litellm, "input_callback", [])
+    monkeypatch.setattr(embrouter, "callbacks", [])
+    monkeypatch.setattr(embrouter, "input_callback", [])
     router = _build_router(routing_groups=_single_latency_group())
     selector = router._group_selectors["g1"]["latency-based-routing"]
 
@@ -917,13 +917,13 @@ def test_unbuildable_group_selector_keeps_previous_groups(monkeypatch):
         )
 
     _assert_still_routes_with_original_group(router, selector)
-    assert litellm.callbacks == [selector]
-    assert litellm.input_callback == []
+    assert embrouter.callbacks == [selector]
+    assert embrouter.input_callback == []
 
 
 def test_register_router_selector_wires_only_the_hooks_the_strategy_needs(monkeypatch):
-    monkeypatch.setattr(litellm, "callbacks", [])
-    monkeypatch.setattr(litellm, "input_callback", [])
+    monkeypatch.setattr(embrouter, "callbacks", [])
+    monkeypatch.setattr(embrouter, "input_callback", [])
     router = _build_router()
     least_busy = router._build_strategy_selector(
         strategy="least-busy", routing_strategy_args={}, register_callbacks=False
@@ -932,18 +932,18 @@ def test_register_router_selector_wires_only_the_hooks_the_strategy_needs(monkey
         strategy="latency-based-routing", routing_strategy_args={}, register_callbacks=False
     )
     assert least_busy is not None and latency is not None
-    assert litellm.callbacks == [] and litellm.input_callback == []
+    assert embrouter.callbacks == [] and embrouter.input_callback == []
 
     router._register_router_selector(least_busy)
     router._register_router_selector(latency)
 
-    assert [cb for cb in litellm.callbacks if cb is least_busy or cb is latency] == [least_busy, latency]
-    assert litellm.input_callback == [least_busy]
+    assert [cb for cb in embrouter.callbacks if cb is least_busy or cb is latency] == [least_busy, latency]
+    assert embrouter.input_callback == [least_busy]
 
 
 def test_replace_routing_groups_swaps_state_and_callbacks_in_one_step(monkeypatch):
-    monkeypatch.setattr(litellm, "callbacks", [])
-    monkeypatch.setattr(litellm, "input_callback", [])
+    monkeypatch.setattr(embrouter, "callbacks", [])
+    monkeypatch.setattr(embrouter, "input_callback", [])
     router = _build_router(routing_groups=_single_latency_group())
     old_selector = router._group_selectors["g1"]["latency-based-routing"]
     new_selector = router._build_strategy_selector(
@@ -963,28 +963,28 @@ def test_replace_routing_groups_swaps_state_and_callbacks_in_one_step(monkeypatc
     assert router._group_selectors == {"g2": {"least-busy": new_selector}, "g3": {}}
     assert router._get_routing_context("other-model", None) == ("least-busy", new_selector)
     assert router._get_routing_context("filtered-model", None)[0] == router.routing_strategy
-    assert all(cb is not old_selector for cb in litellm.callbacks)
-    assert sum(1 for cb in litellm.callbacks if cb is new_selector) == 1
-    assert litellm.input_callback == [new_selector]
+    assert all(cb is not old_selector for cb in embrouter.callbacks)
+    assert sum(1 for cb in embrouter.callbacks if cb is new_selector) == 1
+    assert embrouter.input_callback == [new_selector]
 
 
 def test_override_selectors_are_not_registered_process_wide(monkeypatch):
-    monkeypatch.setattr(litellm, "callbacks", [])
-    monkeypatch.setattr(litellm, "input_callback", [])
+    monkeypatch.setattr(embrouter, "callbacks", [])
+    monkeypatch.setattr(embrouter, "input_callback", [])
     router = _build_router(routing_strategy="simple-shuffle")
     v2_selector = router._get_override_strategy_selector("usage-based-routing-v2")
     least_busy_selector = router._get_override_strategy_selector("least-busy")
     assert v2_selector is not None and least_busy_selector is not None
 
-    assert litellm.callbacks == []
-    assert litellm.input_callback == []
+    assert embrouter.callbacks == []
+    assert embrouter.input_callback == []
 
 
 def _rpm_limited_model_list():
     return [
         {
             "model_name": "other-model",
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "openai/gpt-4o",
                 "api_key": "sk-test-3",
                 "api_base": "https://example.invalid",
@@ -1007,7 +1007,7 @@ async def test_usage_based_v2_override_stays_scoped_to_the_request_that_asked_fo
 
     await _mock_completion(router, routing_strategy="usage-based-routing-v2")
     override_selector = router._override_selectors["usage-based-routing-v2"]
-    assert not any(cb is override_selector for cb in litellm.callbacks)
+    assert not any(cb is override_selector for cb in embrouter.callbacks)
 
     with patch.object(
         override_selector, "async_pre_call_check", wraps=override_selector.async_pre_call_check
@@ -1017,7 +1017,7 @@ async def test_usage_based_v2_override_stays_scoped_to_the_request_that_asked_fo
             assert plain.choices[0].message.content == "ok"
         assert not pre_call_spy.called
 
-        with pytest.raises(litellm.RateLimitError):
+        with pytest.raises(embrouter.RateLimitError):
             await _mock_completion(router, routing_strategy="usage-based-routing-v2")
 
 
@@ -1029,7 +1029,7 @@ def test_sync_usage_based_v2_override_stays_scoped_to_the_request_that_asked_for
         model="other-model", messages=messages, mock_response="ok", routing_strategy="usage-based-routing-v2"
     )
     override_selector = router._override_selectors["usage-based-routing-v2"]
-    assert not any(cb is override_selector for cb in litellm.callbacks)
+    assert not any(cb is override_selector for cb in embrouter.callbacks)
 
     for _ in range(2):
         plain = router.completion(model="other-model", messages=messages, mock_response="ok")
@@ -1043,7 +1043,7 @@ def test_sync_usage_based_v2_override_stays_scoped_to_the_request_that_asked_for
 
 @pytest.mark.asyncio
 async def test_override_selector_pre_call_check_only_runs_for_override_selectors(monkeypatch):
-    monkeypatch.setattr(litellm, "callbacks", [])
+    monkeypatch.setattr(embrouter, "callbacks", [])
     deployment = _rpm_limited_model_list()[0]
 
     override_router = Router(model_list=_rpm_limited_model_list(), routing_strategy="simple-shuffle")
@@ -1051,7 +1051,7 @@ async def test_override_selector_pre_call_check_only_runs_for_override_selectors
     await override_router._async_override_selector_pre_call_check(
         "usage-based-routing-v2", override_selector, deployment, None
     )
-    with pytest.raises(litellm.RateLimitError):
+    with pytest.raises(embrouter.RateLimitError):
         override_router._override_selector_pre_call_check("usage-based-routing-v2", override_selector, deployment)
 
     default_router = Router(model_list=_rpm_limited_model_list(), routing_strategy="usage-based-routing-v2")
@@ -1073,7 +1073,7 @@ async def test_usage_based_v2_override_enforces_rpm_when_a_specific_deployment_i
 
     first = await router.acompletion(**kwargs, routing_strategy="usage-based-routing-v2")
     assert first.choices[0].message.content == "ok"
-    with pytest.raises(litellm.RateLimitError):
+    with pytest.raises(embrouter.RateLimitError):
         await router.acompletion(**kwargs, routing_strategy="usage-based-routing-v2")
     assert (await router.acompletion(**kwargs)).choices[0].message.content == "ok"
 
@@ -1084,14 +1084,14 @@ def test_sync_usage_based_v2_override_enforces_rpm_when_a_specific_deployment_is
 
     first = router.completion(**kwargs, routing_strategy="usage-based-routing-v2")
     assert first.choices[0].message.content == "ok"
-    with pytest.raises(litellm.RateLimitError):
+    with pytest.raises(embrouter.RateLimitError):
         router.completion(**kwargs, routing_strategy="usage-based-routing-v2")
     assert router.completion(**kwargs).choices[0].message.content == "ok"
 
 
 def _pass_through_rpm_limited_model_list():
     deployment = _rpm_limited_model_list()[0]
-    return [{**deployment, "litellm_params": {**deployment["litellm_params"], "use_in_pass_through": True}}]
+    return [{**deployment, "embrouter_params": {**deployment["embrouter_params"], "use_in_pass_through": True}}]
 
 
 @pytest.mark.asyncio
@@ -1103,7 +1103,7 @@ async def test_async_early_return_paths_run_the_override_pre_call_check():
         model="other-model", request_kwargs={**override, "_encrypted_content_affinity_pinned": True}
     )
     assert pinned["model_info"]["id"] == "deploy-3"
-    with pytest.raises(litellm.RateLimitError):
+    with pytest.raises(embrouter.RateLimitError):
         await router.async_get_available_deployment_for_pass_through(model="deploy-3", request_kwargs=override)
     plain = await router.async_get_available_deployment_for_pass_through(model="deploy-3", request_kwargs={})
     assert plain["model_info"]["id"] == "deploy-3"
@@ -1115,7 +1115,7 @@ def test_sync_pass_through_specific_deployment_runs_the_override_pre_call_check(
 
     first = router.get_available_deployment_for_pass_through(model="deploy-3", request_kwargs=override)
     assert first["model_info"]["id"] == "deploy-3"
-    with pytest.raises(litellm.RateLimitError):
+    with pytest.raises(embrouter.RateLimitError):
         router.get_available_deployment_for_pass_through(model="deploy-3", request_kwargs=override)
     plain = router.get_available_deployment_for_pass_through(model="deploy-3", request_kwargs={})
     assert plain["model_info"]["id"] == "deploy-3"
@@ -1125,12 +1125,12 @@ def _two_deployment_model_list(**d1_params: object) -> list[dict[str, object]]:
     return [
         {
             "model_name": "grp",
-            "litellm_params": {"model": "openai/gpt-4o", "api_key": "sk-test-1", "mock_response": "ok", **d1_params},
+            "embrouter_params": {"model": "openai/gpt-4o", "api_key": "sk-test-1", "mock_response": "ok", **d1_params},
             "model_info": {"id": "d1"},
         },
         {
             "model_name": "grp",
-            "litellm_params": {"model": "openai/gpt-4o", "api_key": "sk-test-2", "mock_response": "ok"},
+            "embrouter_params": {"model": "openai/gpt-4o", "api_key": "sk-test-2", "mock_response": "ok"},
             "model_info": {"id": "d2"},
         },
     ]
@@ -1142,11 +1142,11 @@ def _proxy_shaped_request(**data: object) -> dict[str, object]:
         "acompletion",
         Rules(),
         datetime.datetime.now(),
-        litellm_call_id=str(uuid.uuid4()),
+        embrouter_call_id=str(uuid.uuid4()),
         messages=[{"role": "user", "content": "hi"}],
         **data,
     )
-    return {**kwargs, "litellm_logging_obj": logging_obj}
+    return {**kwargs, "embrouter_logging_obj": logging_obj}
 
 
 async def _async_override_pick(router: Router, strategy: str) -> str:
@@ -1185,12 +1185,12 @@ def _sync_wait_until(predicate: Callable[[], bool]) -> None:
 
 def _selector_is_not_global(selector: CustomLogger) -> bool:
     global_lists = (
-        litellm.callbacks,
-        litellm.input_callback,
-        litellm.success_callback,
-        litellm.failure_callback,
-        litellm._async_success_callback,
-        litellm._async_failure_callback,
+        embrouter.callbacks,
+        embrouter.input_callback,
+        embrouter.success_callback,
+        embrouter.failure_callback,
+        embrouter._async_success_callback,
+        embrouter._async_failure_callback,
     )
     return not any(cb is selector for cbs in global_lists for cb in cbs)
 
@@ -1229,12 +1229,12 @@ def test_sync_least_busy_override_sees_the_overriding_request_in_flight():
 @pytest.mark.asyncio
 async def test_least_busy_override_releases_the_slot_when_the_overriding_request_fails():
     router = Router(
-        model_list=_two_deployment_model_list(mock_response="litellm.InternalServerError"),
+        model_list=_two_deployment_model_list(mock_response="embrouter.InternalServerError"),
         routing_strategy="simple-shuffle",
         num_retries=0,
     )
 
-    with pytest.raises(litellm.InternalServerError):
+    with pytest.raises(embrouter.InternalServerError):
         await router.acompletion(**_proxy_shaped_request(model="grp", routing_strategy="least-busy"))
 
     await _async_wait_until(lambda: _in_flight(router, "d1") == 0)
@@ -1278,7 +1278,7 @@ def test_override_selector_is_bound_only_to_the_request_that_asked_for_it():
     router.get_available_deployment("grp", request_kwargs=plain)
 
     selector = router._override_selectors["least-busy"]
-    bound = overriding["litellm_logging_obj"]
+    bound = overriding["embrouter_logging_obj"]
     for callbacks in (
         bound.dynamic_input_callbacks,
         bound.dynamic_success_callbacks,
@@ -1287,7 +1287,7 @@ def test_override_selector_is_bound_only_to_the_request_that_asked_for_it():
         bound.dynamic_async_failure_callbacks,
     ):
         assert callbacks == [selector]
-    unbound = plain["litellm_logging_obj"]
+    unbound = plain["embrouter_logging_obj"]
     assert unbound.dynamic_input_callbacks is None and unbound.dynamic_success_callbacks is None
     assert unbound.dynamic_failure_callbacks is None and unbound.dynamic_async_failure_callbacks is None
 
@@ -1298,7 +1298,7 @@ def test_override_matching_the_router_strategy_is_not_bound_twice():
 
     router.get_available_deployment("grp", request_kwargs=request)
 
-    assert request["litellm_logging_obj"].dynamic_input_callbacks is None
+    assert request["embrouter_logging_obj"].dynamic_input_callbacks is None
 
 
 @pytest.mark.asyncio
@@ -1317,21 +1317,21 @@ async def test_override_matching_a_routing_group_strategy_records_each_request_o
     await _async_wait_until(lambda: (router.cache.get_cache("grp_map") or {}).get(deployment_id) is not None)
 
     assert len(router.cache.get_cache("grp_map")[deployment_id]["latency"]) == 1
-    assert request["litellm_logging_obj"].dynamic_success_callbacks is None
+    assert request["embrouter_logging_obj"].dynamic_success_callbacks is None
 
 
 def test_bind_override_selector_to_request_binds_once_and_ignores_requests_without_logging():
     router = Router(model_list=_two_deployment_model_list(), routing_strategy="simple-shuffle")
     selector = router._get_override_strategy_selector("least-busy")
     request = _proxy_shaped_request(model="grp", routing_strategy="least-busy")
-    request["litellm_logging_obj"].dynamic_success_callbacks = ["langfuse"]
+    request["embrouter_logging_obj"].dynamic_success_callbacks = ["langfuse"]
 
     router._bind_override_selector_to_request("least-busy", selector, request)
     router._bind_override_selector_to_request("least-busy", selector, request)
     router._bind_override_selector_to_request("least-busy", selector, None)
     router._bind_override_selector_to_request("least-busy", selector, {"model": "grp"})
 
-    logging_obj = request["litellm_logging_obj"]
+    logging_obj = request["embrouter_logging_obj"]
     assert logging_obj.dynamic_success_callbacks == ["langfuse", selector]
     assert logging_obj.dynamic_input_callbacks == [selector]
     assert logging_obj.dynamic_async_failure_callbacks == [selector]
@@ -1375,7 +1375,7 @@ async def test_group_call_dispatches_via_group_selector():
             "async_get_available_deployments",
             wraps=group_selector.async_get_available_deployments,
         ) as latency_spy,
-        patch("litellm.router.simple_shuffle", wraps=litellm.router.simple_shuffle) as shuffle_spy,
+        patch("embrouter.router.simple_shuffle", wraps=embrouter.router.simple_shuffle) as shuffle_spy,
     ):
         deployment = await router.async_get_available_deployment(model="quality", request_kwargs={})
 
@@ -1387,7 +1387,7 @@ async def test_group_call_dispatches_via_group_selector():
 def test_group_name_colliding_with_model_name_is_shadowed_with_warning(caplog):
     import logging
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Router"):
+    with caplog.at_level(logging.WARNING, logger="EmbRouter Router"):
         router = _build_router(
             routing_groups=[
                 {"group_name": "filtered-model", "models": ["other-model"], "routing_strategy": "latency-based-routing"}
@@ -1404,7 +1404,7 @@ def test_group_name_colliding_with_model_name_is_shadowed_with_warning(caplog):
 def test_group_name_colliding_with_model_group_alias_is_shadowed_with_warning(caplog):
     import logging
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Router"):
+    with caplog.at_level(logging.WARNING, logger="EmbRouter Router"):
         router = Router(
             model_list=_model_list(),
             model_group_alias={"quality": "filtered-model"},
@@ -1422,12 +1422,12 @@ def test_real_model_added_later_shadows_group():
     router = _build_router(routing_groups=_quality_group())
     assert router.get_routing_group("quality") is not None
 
-    from litellm.types.router import Deployment
+    from embrouter.types.router import Deployment
 
     router.add_deployment(
         Deployment(
             model_name="quality",
-            litellm_params={"model": "openai/gpt-4o", "api_key": "sk-test-4", "api_base": "https://example.invalid"},
+            embrouter_params={"model": "openai/gpt-4o", "api_key": "sk-test-4", "api_base": "https://example.invalid"},
             model_info={"id": "deploy-shadow"},
         )
     )
@@ -1447,7 +1447,7 @@ def test_group_with_no_member_deployments_raises_no_healthy():
         model_list=_model_list(),
         routing_groups=[{"group_name": "empty-group", "models": ["ghost-model"], "routing_strategy": "simple-shuffle"}],
     )
-    with pytest.raises(litellm.BadRequestError):
+    with pytest.raises(embrouter.BadRequestError):
         router._common_checks_available_deployment(model="empty-group")
 
 
@@ -1530,7 +1530,7 @@ def test_routing_group_has_alternatives_resolves_aliases():
 
 
 def test_group_rows_cache_invalidated_on_model_list_change():
-    from litellm.types.router import Deployment
+    from embrouter.types.router import Deployment
 
     router = _build_router(routing_groups=_quality_group())
     assert sum(1 for row in router.get_model_list() if row["model_name"] == "quality") == 3
@@ -1538,7 +1538,7 @@ def test_group_rows_cache_invalidated_on_model_list_change():
     router.add_deployment(
         Deployment(
             model_name="filtered-model",
-            litellm_params={"model": "openai/gpt-4o", "api_key": "sk-test-5", "api_base": "https://example.invalid"},
+            embrouter_params={"model": "openai/gpt-4o", "api_key": "sk-test-5", "api_base": "https://example.invalid"},
             model_info={"id": "deploy-4"},
         )
     )
@@ -1556,18 +1556,18 @@ def _pin_choice_to(deployment_id):
 
 
 async def _call_and_get_cooldowns(router, model):
-    from litellm.router_utils.cooldown_handlers import _async_get_cooldown_deployments
+    from embrouter.router_utils.cooldown_handlers import _async_get_cooldown_deployments
 
     with (
-        patch("litellm.router_strategy.simple_shuffle.random.choice", side_effect=_pin_choice_to("deploy-3")),
-        pytest.raises(litellm.RateLimitError),
+        patch("embrouter.router_strategy.simple_shuffle.random.choice", side_effect=_pin_choice_to("deploy-3")),
+        pytest.raises(embrouter.RateLimitError),
     ):
         await router.acompletion(
             model=model,
             messages=[{"role": "user", "content": "hi"}],
-            mock_response="litellm.RateLimitError",
+            mock_response="embrouter.RateLimitError",
         )
-    return await _async_get_cooldown_deployments(litellm_router_instance=router, parent_otel_span=None)
+    return await _async_get_cooldown_deployments(embrouter_router_instance=router, parent_otel_span=None)
 
 
 @pytest.mark.asyncio
@@ -1612,7 +1612,7 @@ def test_group_rows_do_not_inherit_member_access_groups():
         model_list=[
             {
                 "model_name": "gated-member",
-                "litellm_params": {"model": "openai/gpt-4o", "api_key": "sk-test"},
+                "embrouter_params": {"model": "openai/gpt-4o", "api_key": "sk-test"},
                 "model_info": {"id": "gated-1", "access_groups": ["restricted-team"]},
             }
         ],
@@ -1697,8 +1697,8 @@ def _priority_deployments(
     return [
         {
             **deployment,
-            "litellm_params": {
-                **deployment["litellm_params"],
+            "embrouter_params": {
+                **deployment["embrouter_params"],
                 "mock_response": (
                     primary_response if deployment["model_name"] == "filtered-model" else backup_response
                 ),
@@ -1762,7 +1762,7 @@ async def test_priority_group_fails_over_without_retries_and_leaves_direct_calls
     requested_model: str,
 ) -> None:
     router: Final = Router(
-        model_list=_priority_deployments(primary_response="litellm.RateLimitError"),
+        model_list=_priority_deployments(primary_response="embrouter.RateLimitError"),
         routing_groups=[_priority_group()],
         model_group_alias={"priority-alias": "priority-group"},
         num_retries=0,
@@ -1772,7 +1772,7 @@ async def test_priority_group_fails_over_without_retries_and_leaves_direct_calls
         model=requested_model, messages=[{"role": "user", "content": "hi"}]
     )
     assert response.choices[0].message.content == "backup"
-    with pytest.raises(litellm.RateLimitError):
+    with pytest.raises(embrouter.RateLimitError):
         await router.acompletion(model="filtered-model", messages=[{"role": "user", "content": "hi"}])
 
 
@@ -1798,7 +1798,7 @@ async def test_opposite_priority_groups_preserve_deployments_and_legacy_member_p
     assert router._get_routing_context("filtered-model")[0] == "least-busy"
     assert router._get_routing_context("other-model")[0] == "latency-based-routing"
     assert router.get_model_list(model_name="filtered-model") == before
-    assert all(deployment["litellm_params"]["order"] == 10 for deployment in before)
+    assert all(deployment["embrouter_params"]["order"] == 10 for deployment in before)
 
 
 @pytest.mark.parametrize("backup_priority, expected", [(1, "backup"), (2, "primary")])
@@ -1836,12 +1836,12 @@ async def test_priority_group_skips_paused_primary_and_returns_to_it_after_recov
 @pytest.mark.asyncio
 async def test_priority_group_respects_request_fallback_controls(controls: dict[str, object]) -> None:
     router: Final = Router(
-        model_list=_priority_deployments(primary_response="litellm.RateLimitError"),
+        model_list=_priority_deployments(primary_response="embrouter.RateLimitError"),
         routing_groups=[_priority_group()],
         num_retries=0,
         disable_cooldowns=True,
     )
-    with pytest.raises(litellm.RateLimitError):
+    with pytest.raises(embrouter.RateLimitError):
         await router.acompletion(
             model="priority-group", messages=[{"role": "user", "content": "hi"}], **controls
         )
@@ -1928,7 +1928,7 @@ async def test_priority_group_settings_roundtrip_replaces_the_order() -> None:
 def _priority_auto_router_deployment() -> DeploymentTypedDict:
     return {
         "model_name": "smart-router",
-        "litellm_params": {
+        "embrouter_params": {
             "model": "auto_router/complexity_router",
             "complexity_router_config": {
                 "classifier_type": "heuristic",
@@ -1947,7 +1947,7 @@ def _priority_auto_router_deployment() -> DeploymentTypedDict:
 async def test_auto_router_selected_priority_group_fails_over_inside_the_group() -> None:
     router: Final = Router(
         model_list=[
-            *_priority_deployments(primary_response="litellm.RateLimitError"),
+            *_priority_deployments(primary_response="embrouter.RateLimitError"),
             _priority_auto_router_deployment(),
         ],
         routing_groups=[_priority_group()],
@@ -1971,7 +1971,7 @@ async def test_priority_generic_fallback_keeps_routing_controls_out_of_provider_
         model_info: Final = provider_kwargs["model_info"]
         assert isinstance(model_info, dict)
         if model_info["id"] != "deploy-3":
-            raise litellm.RateLimitError(message="primary refused", model=model, llm_provider="openai")
+            raise embrouter.RateLimitError(message="primary refused", model=model, llm_provider="openai")
         return "backup"
 
     router: Final = Router(
@@ -1993,7 +1993,7 @@ async def test_priority_generic_fallback_dict_preserves_served_model_id(provider
         model_info: Final = provider_kwargs["model_info"]
         assert isinstance(model_info, dict)
         if model_info["id"] == "deploy-1":
-            raise litellm.NotFoundError(message="primary missing", model=model, llm_provider="openai")
+            raise embrouter.NotFoundError(message="primary missing", model=model, llm_provider="openai")
         assert model_info["id"] == "deploy-3"
         return {
             "content": "backup",
@@ -2011,19 +2011,19 @@ async def test_priority_generic_fallback_dict_preserves_served_model_id(provider
         model="priority-group",
         original_function=provider,
         messages=[{"role": "user", "content": "hi"}],
-        litellm_metadata=outer_metadata,
+        embrouter_metadata=outer_metadata,
     )
     primary_info: Final = outer_metadata["model_info"]
     assert isinstance(primary_info, dict)
     assert primary_info["id"] == "deploy-1"
     assert response["content"] == "backup"
     assert response["_hidden_params"]["model_id"] == (provider_model_id or "deploy-3")
-    assert response["_hidden_params"]["additional_headers"]["x-litellm-attempted-fallbacks"] == 1
+    assert response["_hidden_params"]["additional_headers"]["x-embrouter-attempted-fallbacks"] == 1
 
 
 @pytest.mark.asyncio
 async def test_priority_group_ignores_cached_backup_affinity() -> None:
-    from litellm.router_utils.prompt_caching_cache import PromptCachingCache
+    from embrouter.router_utils.prompt_caching_cache import PromptCachingCache
 
     router: Final = Router(
         model_list=_priority_deployments(),
@@ -2043,7 +2043,7 @@ async def test_priority_group_ignores_cached_backup_affinity() -> None:
 
 @pytest.mark.asyncio
 async def test_priority_group_preserves_responses_continuity_on_a_backup() -> None:
-    from litellm.responses.utils import ResponsesAPIRequestUtils
+    from embrouter.responses.utils import ResponsesAPIRequestUtils
 
     router: Final = Router(
         model_list=_priority_deployments(),
@@ -2076,7 +2076,7 @@ async def test_auto_priority_advance_preserves_access_scope_and_checks_paid_grou
     budget_checks: Final[list[str]] = []
     router: Final = Router(
         model_list=[
-            *_priority_deployments(primary_response="litellm.RateLimitError"),
+            *_priority_deployments(primary_response="embrouter.RateLimitError"),
             _priority_auto_router_deployment(),
         ],
         routing_groups=[_priority_group()],
@@ -2093,7 +2093,7 @@ async def test_auto_priority_advance_preserves_access_scope_and_checks_paid_grou
         )
         assert response.choices[0].message.content == "backup"
     else:
-        with pytest.raises(litellm.RateLimitError):
+        with pytest.raises(embrouter.RateLimitError):
             await router.acompletion(model="smart-router", messages=[{"role": "user", "content": "hi"}])
     assert access_checks == []
     assert budget_checks == ["priority-group"]
@@ -2105,13 +2105,13 @@ async def test_auto_priority_group_exhaustion_still_checks_external_fallback_acc
     router: Final = Router(
         model_list=[
             *_priority_deployments(
-                primary_response="litellm.RateLimitError", backup_response="litellm.RateLimitError"
+                primary_response="embrouter.RateLimitError", backup_response="embrouter.RateLimitError"
             ),
             _priority_auto_router_deployment(),
             {
                 **_model_list()[2],
                 "model_name": "external",
-                "litellm_params": {**_model_list()[2]["litellm_params"], "mock_response": "external"},
+                "embrouter_params": {**_model_list()[2]["embrouter_params"], "mock_response": "external"},
                 "model_info": {"id": "external-deployment"},
             },
         ],
@@ -2121,13 +2121,13 @@ async def test_auto_priority_group_exhaustion_still_checks_external_fallback_acc
         disable_cooldowns=True,
         fallback_access_check=_recording_fallback_gate(frozenset({"smart-router"}), access_checks),
     )
-    with pytest.raises(litellm.RateLimitError):
+    with pytest.raises(embrouter.RateLimitError):
         await router.acompletion(model="smart-router", messages=[{"role": "user", "content": "hi"}])
     assert access_checks and set(access_checks) == {"external"}
 
 
 @pytest.mark.parametrize("check_kind", ["access", "budget"])
-@pytest.mark.parametrize("metadata_bucket", ["metadata", "litellm_metadata"])
+@pytest.mark.parametrize("metadata_bucket", ["metadata", "embrouter_metadata"])
 @pytest.mark.asyncio
 async def test_caller_cannot_spoof_a_priority_group_to_bypass_fallback_gates(
     check_kind: Literal["access", "budget"], metadata_bucket: str,
@@ -2135,7 +2135,7 @@ async def test_caller_cannot_spoof_a_priority_group_to_bypass_fallback_gates(
     checked: Final[list[str]] = []
     check: Final = _recording_fallback_gate(frozenset({"filtered-model"}), checked)
     router: Final = Router(
-        model_list=_priority_deployments(primary_response="litellm.RateLimitError"),
+        model_list=_priority_deployments(primary_response="embrouter.RateLimitError"),
         routing_groups=[_priority_group()],
         fallbacks=[{"filtered-model": ["priority-group"]}],
         num_retries=0,
@@ -2143,7 +2143,7 @@ async def test_caller_cannot_spoof_a_priority_group_to_bypass_fallback_gates(
         fallback_access_check=check if check_kind == "access" else None,
         fallback_budget_check=check if check_kind == "budget" else None,
     )
-    with pytest.raises(litellm.RateLimitError):
+    with pytest.raises(embrouter.RateLimitError):
         await router.acompletion(
             model="filtered-model",
             messages=[{"role": "user", "content": "hi"}],
@@ -2163,8 +2163,8 @@ def _sync_task_count() -> int:
 
 @pytest.mark.asyncio
 async def test_update_settings_same_routing_strategy_args_does_not_leak_sync_tasks(monkeypatch) -> None:
-    monkeypatch.setattr(litellm, "callbacks", [])
-    monkeypatch.setattr(litellm, "input_callback", [])
+    monkeypatch.setattr(embrouter, "callbacks", [])
+    monkeypatch.setattr(embrouter, "input_callback", [])
     router: Final = Router(
         model_list=_model_list(),
         routing_strategy="usage-based-routing-v2",
@@ -2211,8 +2211,8 @@ class _RecordingRedisCache:
 async def test_update_settings_changed_routing_strategy_args_flushes_replaced_selector_queue(
     monkeypatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "callbacks", [])
-    monkeypatch.setattr(litellm, "input_callback", [])
+    monkeypatch.setattr(embrouter, "callbacks", [])
+    monkeypatch.setattr(embrouter, "input_callback", [])
     router: Final = Router(
         model_list=_model_list(),
         routing_strategy="usage-based-routing-v2",

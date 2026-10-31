@@ -1,14 +1,14 @@
 """
-LiteLLM A2A - Wrapper for invoking A2A protocol agents.
+EmbRouter A2A - Wrapper for invoking A2A protocol agents.
 
 This module provides a thin wrapper around the official `a2a` SDK that:
 - Handles httpx client creation and agent card resolution
-- Adds LiteLLM logging via @client decorator
+- Adds EmbRouter logging via @client decorator
 - Matches the A2A SDK interface (SendMessageRequest, SendMessageResponse, etc.)
 
 Example usage (standalone functions with @client decorator):
     ```python
-    from litellm.a2a_protocol import asend_message
+    from embrouter.a2a_protocol import asend_message
     from a2a.types import SendMessageRequest, MessageSendParams
     from uuid import uuid4
 
@@ -31,28 +31,28 @@ Example usage (standalone functions with @client decorator):
 
 Example usage (class-based):
     ```python
-    from litellm.a2a_protocol import A2AClient
+    from embrouter.a2a_protocol import A2AClient
 
     client = A2AClient(base_url="http://localhost:10001")
     response = await client.send_message(request)
     ```
 """
 
-from litellm.a2a_protocol.client import A2AClient
-from litellm.a2a_protocol.exceptions import (
+from embrouter.a2a_protocol.client import A2AClient
+from embrouter.a2a_protocol.exceptions import (
     A2AAgentCardError,
     A2AConnectionError,
     A2AError,
     A2ALocalhostURLError,
 )
-from litellm.a2a_protocol.main import (
+from embrouter.a2a_protocol.main import (
     aget_agent_card,
     asend_message,
     asend_message_streaming,
     create_a2a_client,
     send_message,
 )
-from litellm.types.agents import LiteLLMSendMessageResponse
+from embrouter.types.agents import EmbRouterSendMessageResponse
 
 __all__ = [
     "A2AAgentCardError",
@@ -60,7 +60,7 @@ __all__ = [
     "A2AConnectionError",
     "A2AError",
     "A2ALocalhostURLError",
-    "LiteLLMSendMessageResponse",
+    "EmbRouterSendMessageResponse",
     "aget_agent_card",
     "asend_message",
     "asend_message_streaming",

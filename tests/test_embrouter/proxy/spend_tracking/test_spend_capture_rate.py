@@ -12,13 +12,13 @@ from psycopg.rows import dict_row
 from pydantic import ValidationError
 from pytest_postgresql import factories
 
-from litellm.constants import (
+from embrouter.constants import (
     SPEND_CAPTURE_RATE_CHECK_JOB_ID,
     SPEND_CAPTURE_RATE_DOCS_URL,
     SPEND_CAPTURE_RATE_MAX_RANGE_DAYS,
 )
-from litellm.llms.openai.organization_costs import OPENAI_ADMIN_KEY_ENV_VAR
-from litellm.proxy.spend_tracking.spend_capture_rate import (
+from embrouter.llms.openai.organization_costs import OPENAI_ADMIN_KEY_ENV_VAR
+from embrouter.proxy.spend_tracking.spend_capture_rate import (
     ProviderBillingCredentialMissing,
     ProviderBillingRequestFailed,
     alert_message,
@@ -27,7 +27,7 @@ from litellm.proxy.spend_tracking.spend_capture_rate import (
     run_scheduled_spend_capture_rate_check,
     run_spend_capture_rate_check,
 )
-from litellm.types.proxy.spend_capture_rate import CaptureRateReport, SpendCaptureRateCheckSettings
+from embrouter.types.proxy.spend_capture_rate import CaptureRateReport, SpendCaptureRateCheckSettings
 
 _ADMIN_KEY: Final = "sk-admin-test"
 
@@ -174,7 +174,7 @@ async def test_check_reads_the_closed_window_before_today_and_publishes_the_rate
     sql, start, end, providers = prisma.db.query_raw.await_args.args
     assert (start, end) == ("2026-09-21", "2026-09-22")
     assert set(providers) == {"openai", "text-completion-openai"}
-    assert '"LiteLLM_DailyUserSpend"' in sql
+    assert '"EmbRouter_DailyUserSpend"' in sql
 
 
 @pytest.mark.asyncio
@@ -381,7 +381,7 @@ _capture_postgresql_proc: Final = factories.postgresql_proc()
 _capture_postgresql: Final = factories.postgresql("_capture_postgresql_proc")
 
 _DAILY_USER_SPEND_DDL: Final = """
-    CREATE TABLE "LiteLLM_DailyUserSpend" (
+    CREATE TABLE "EmbRouter_DailyUserSpend" (
         id TEXT PRIMARY KEY,
         date TEXT NOT NULL,
         custom_llm_provider TEXT,
@@ -424,14 +424,14 @@ async def test_captured_spend_sums_only_the_openai_billed_providers_inside_the_w
     )
     for index, (day, provider, spend) in enumerate(rows):
         conn.execute(
-            'INSERT INTO "LiteLLM_DailyUserSpend" (id, date, custom_llm_provider, spend) VALUES (%s, %s, %s, %s)',
+            'INSERT INTO "EmbRouter_DailyUserSpend" (id, date, custom_llm_provider, spend) VALUES (%s, %s, %s, %s)',
             (f"row-{index}", day, provider, spend),
         )
     conn.commit()
 
     captured = await captured_spend_by_day(
         _PsycopgPrisma(conn),  # pyright: ignore[reportArgumentType]  # duck-typed prisma for the raw query
-        litellm_providers=("openai", "text-completion-openai"),
+        embrouter_providers=("openai", "text-completion-openai"),
         start_date=date(2026, 9, 20),
         end_date=date(2026, 9, 21),
     )

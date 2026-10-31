@@ -1,10 +1,10 @@
 services:
-  litellm:
+  embrouter:
     build:
       context: .
       args:
         target: runtime
-    image: litellm:local
+    image: embrouter:local
     #########################################
     ## Uncomment these lines to start proxy with a config.yaml file ##
     # volumes:
@@ -15,12 +15,12 @@ services:
     ports:
       - "4000:4000" # Map the container port to the host, change the host port if necessary
     environment:
-      DATABASE_URL: "postgresql://llmproxy:dbpassword9090@db:5432/litellm"
+      DATABASE_URL: "postgresql://llmproxy:dbpassword9090@db:5432/embrouter"
       # Optional: route read-only queries (find_*, count, group_by, query_raw/_first)
       # to a separate reader endpoint, e.g. an Aurora reader. Leave unset for
       # single-DB deployments. With IAM_TOKEN_DB_AUTH enabled, the reader URL
       # is auto-refreshed alongside the writer.
-      # DATABASE_URL_READ_REPLICA: "postgresql://llmproxy:dbpassword9090@db-reader:5432/litellm"
+      # DATABASE_URL_READ_REPLICA: "postgresql://llmproxy:dbpassword9090@db-reader:5432/embrouter"
       STORE_MODEL_IN_DB: "True" # allows adding models to proxy via UI
     env_file:
       - .env # Load local .env file
@@ -38,9 +38,9 @@ services:
   db:
     image: postgres:16
     restart: always
-    container_name: litellm_db
+    container_name: embrouter_db
     environment:
-      POSTGRES_DB: litellm
+      POSTGRES_DB: embrouter
       POSTGRES_USER: llmproxy
       POSTGRES_PASSWORD: dbpassword9090
     ports:
@@ -48,11 +48,11 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data # Persists Postgres data across container restarts
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -d litellm -U llmproxy"]
+      test: ["CMD-SHELL", "pg_isready -d embrouter -U llmproxy"]
       interval: 1s
       timeout: 5s
       retries: 10
 
 volumes:
   postgres_data:
-    name: litellm_postgres_data # Named volume for Postgres data persistence
+    name: embrouter_postgres_data # Named volume for Postgres data persistence

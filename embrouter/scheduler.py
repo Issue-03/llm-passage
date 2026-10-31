@@ -4,9 +4,9 @@ from typing import Final
 
 from pydantic import BaseModel
 
-from litellm import print_verbose
-from litellm.caching.caching import DualCache, RedisCache
-from litellm.constants import DEFAULT_IN_MEMORY_TTL, DEFAULT_POLLING_INTERVAL
+from embrouter import print_verbose
+from embrouter.caching.caching import DualCache, RedisCache
+from embrouter.constants import DEFAULT_IN_MEMORY_TTL, DEFAULT_POLLING_INTERVAL
 
 
 class SchedulerCacheKeys(enum.Enum):

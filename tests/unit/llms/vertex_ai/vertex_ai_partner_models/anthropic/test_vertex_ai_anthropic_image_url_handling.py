@@ -3,7 +3,7 @@ Tests for Vertex AI Anthropic image URL handling.
 
 
 Vertex AI Anthropic models don't support URL sources for images.
-LiteLLM should convert image URLs to base64 when using Vertex AI Anthropic.
+EmbRouter should convert image URLs to base64 when using Vertex AI Anthropic.
 """
 
 import json
@@ -13,9 +13,9 @@ from unittest.mock import patch, MagicMock
 import httpx
 import pytest
 
-import litellm
-from litellm._uuid import uuid
-from litellm.litellm_core_utils.prompt_templates.factory import (
+import embrouter
+from embrouter._uuid import uuid
+from embrouter.embrouter_core_utils.prompt_templates.factory import (
     anthropic_messages_pt,
     convert_to_anthropic_tool_result,
     create_anthropic_image_param,
@@ -25,7 +25,7 @@ from litellm.litellm_core_utils.prompt_templates.factory import (
 class TestVertexAIAnthropicImageURLHandling:
     """Test that Vertex AI Anthropic converts image URLs to base64."""
 
-    @patch("litellm.litellm_core_utils.prompt_templates.factory.convert_url_to_base64")
+    @patch("embrouter.embrouter_core_utils.prompt_templates.factory.convert_url_to_base64")
     def test_vertex_ai_anthropic_converts_https_url_to_base64(
         self, mock_convert_url: MagicMock
     ):
@@ -69,7 +69,7 @@ class TestVertexAIAnthropicImageURLHandling:
         assert image_content["type"] == "image"
         assert image_content["source"]["type"] == "base64"
 
-    @patch("litellm.litellm_core_utils.prompt_templates.factory.convert_url_to_base64")
+    @patch("embrouter.embrouter_core_utils.prompt_templates.factory.convert_url_to_base64")
     def test_regular_anthropic_uses_url_type_for_https(
         self, mock_convert_url: MagicMock
     ):
@@ -109,7 +109,7 @@ class TestVertexAIAnthropicImageURLHandling:
         assert image_content["source"]["type"] == "url"
         assert image_content["source"]["url"] == "https://example.com/image.jpg"
 
-    @patch("litellm.litellm_core_utils.prompt_templates.factory.convert_url_to_base64")
+    @patch("embrouter.embrouter_core_utils.prompt_templates.factory.convert_url_to_base64")
     def test_vertex_ai_beta_also_converts_to_base64(self, mock_convert_url: MagicMock):
         """
         Test that vertex_ai_beta provider also converts image URLs to base64.
@@ -147,7 +147,7 @@ class TestVertexAIAnthropicImageURLHandling:
 class TestCreateAnthropicImageParam:
     """Test the create_anthropic_image_param function directly."""
 
-    @patch("litellm.litellm_core_utils.prompt_templates.factory.convert_url_to_base64")
+    @patch("embrouter.embrouter_core_utils.prompt_templates.factory.convert_url_to_base64")
     def test_force_base64_converts_https_url(self, mock_convert_url: MagicMock):
         """
         Test that is_bedrock_invoke=True (used for both Bedrock and Vertex AI)
@@ -164,7 +164,7 @@ class TestCreateAnthropicImageParam:
         mock_convert_url.assert_called_once_with(url="https://example.com/image.jpg")
         assert result["source"]["type"] == "base64"
 
-    @patch("litellm.litellm_core_utils.prompt_templates.factory.convert_url_to_base64")
+    @patch("embrouter.embrouter_core_utils.prompt_templates.factory.convert_url_to_base64")
     def test_no_force_uses_url_type(self, mock_convert_url: MagicMock):
         """
         Test that without force, HTTPS URLs use URL type.
@@ -187,7 +187,7 @@ class TestToolMessageImageURLHandling:
 
     """
 
-    @patch("litellm.litellm_core_utils.prompt_templates.factory.convert_url_to_base64")
+    @patch("embrouter.embrouter_core_utils.prompt_templates.factory.convert_url_to_base64")
     def test_convert_to_anthropic_tool_result_with_force_base64(
         self, mock_convert_url: MagicMock
     ):
@@ -222,7 +222,7 @@ class TestToolMessageImageURLHandling:
         assert content[0]["type"] == "image"
         assert content[0]["source"]["type"] == "base64"
 
-    @patch("litellm.litellm_core_utils.prompt_templates.factory.convert_url_to_base64")
+    @patch("embrouter.embrouter_core_utils.prompt_templates.factory.convert_url_to_base64")
     def test_convert_to_anthropic_tool_result_without_force_base64(
         self, mock_convert_url: MagicMock
     ):
@@ -251,7 +251,7 @@ class TestToolMessageImageURLHandling:
         assert content[0]["type"] == "image"
         assert content[0]["source"]["type"] == "url"
 
-    @patch("litellm.litellm_core_utils.prompt_templates.factory.convert_url_to_base64")
+    @patch("embrouter.embrouter_core_utils.prompt_templates.factory.convert_url_to_base64")
     def test_vertex_ai_tool_message_converts_image_to_base64(
         self, mock_convert_url: MagicMock
     ):
@@ -316,7 +316,7 @@ class TestToolMessageImageURLHandling:
                                 return
         pytest.fail("Could not find image in tool result")
 
-    @patch("litellm.litellm_core_utils.prompt_templates.factory.convert_url_to_base64")
+    @patch("embrouter.embrouter_core_utils.prompt_templates.factory.convert_url_to_base64")
     def test_regular_anthropic_tool_message_uses_url(self, mock_convert_url: MagicMock):
         """
         Test that regular Anthropic API uses URL type for tool result images.
@@ -378,7 +378,7 @@ class TestToolMessageImageURLHandling:
 
 
 async def test_vertex_ai_anthropic_async_completion_inlines_https_images_off_the_event_loop(async_only_image_fetch):
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+    from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler
 
     image_url = f"https://img.example/{uuid.uuid4()}.png"
     captured = {}
@@ -405,13 +405,13 @@ async def test_vertex_ai_anthropic_async_completion_inlines_https_images_off_the
 
     with (
         patch.dict(sys.modules, {"vertexai": vertexai}),
-        patch.object(  # test-quality-ok: litellm.acompletion has no seam for Vertex token minting
-            litellm.main.vertex_partner_models_chat_completion,
+        patch.object(  # test-quality-ok: embrouter.acompletion has no seam for Vertex token minting
+            embrouter.main.vertex_partner_models_chat_completion,
             "_ensure_access_token",
             return_value=("token", "test-project"),
         ),
     ):
-        response = await litellm.acompletion(
+        response = await embrouter.acompletion(
             model="vertex_ai/claude-sonnet-4-6",
             messages=[
                 {

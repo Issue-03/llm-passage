@@ -18,22 +18,22 @@ from openai.types.responses.response_input_param import FunctionCallOutput
 from openai.types.responses.tool_param import Mcp
 from typing_extensions import ReadOnly
 
-import litellm
-from litellm.llms.fireworks_ai.responses.transformation import FireworksAIResponsesAPIConfig
-from litellm.responses.file_search.emulated_handler import should_use_emulated_file_search
-from litellm.types.llms.openai import InputTokensDetails, ResponseAPIUsage, ResponseInputParam, ResponsesAPIResponse
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import LlmProviders
-from litellm.utils import ProviderConfigManager
+import embrouter
+from embrouter.llms.fireworks_ai.responses.transformation import FireworksAIResponsesAPIConfig
+from embrouter.responses.file_search.emulated_handler import should_use_emulated_file_search
+from embrouter.types.llms.openai import InputTokensDetails, ResponseAPIUsage, ResponseInputParam, ResponsesAPIResponse
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import LlmProviders
+from embrouter.utils import ProviderConfigManager
 
 FIREWORKS_RESPONSES_URL: Final = "https://api.fireworks.ai/inference/v1/responses"
-HTTPX_CLIENT_FACTORY: Final = "litellm.llms.custom_httpx.llm_http_handler._get_httpx_client"
+HTTPX_CLIENT_FACTORY: Final = "embrouter.llms.custom_httpx.llm_http_handler._get_httpx_client"
 NO_HEADERS: Final[Mapping[str, str]] = MappingProxyType({})
 NO_PARAMS: Final[Mapping[str, object]] = MappingProxyType({})
 
 
 class _GeneratedSessionMetadata(TypedDict):
-    litellm_session_id_generated: ReadOnly[bool]
+    embrouter_session_id_generated: ReadOnly[bool]
 
 
 def _fireworks_response(model: str) -> Mapping[str, object]:
@@ -116,9 +116,9 @@ def test_responses_call_hits_native_endpoint_with_mcp_tool_untouched() -> None:
         "require_approval": "never",
     }
     with patch(HTTPX_CLIENT_FACTORY, return_value=client):
-        response: Final = litellm.responses(
+        response: Final = embrouter.responses(
             model="fireworks_ai/accounts/fireworks/models/kimi-k3",
-            input="What is litellm?",
+            input="What is embrouter?",
             tools=[mcp_tool],  # mutable-ok: the Responses API takes tools as a JSON list
             api_key="fw-test-key",
         )
@@ -136,7 +136,7 @@ def test_responses_call_hits_native_endpoint_with_mcp_tool_untouched() -> None:
 def test_responses_call_expands_bare_model_name_to_fireworks_resource() -> None:
     client: Final = _mock_http_client(_fireworks_response("accounts/fireworks/models/glm-5p3"))
     with patch(HTTPX_CLIENT_FACTORY, return_value=client):
-        litellm.responses(model="fireworks_ai/glm-5p3", input="hi", api_key="fw-test-key")
+        embrouter.responses(model="fireworks_ai/glm-5p3", input="hi", api_key="fw-test-key")
     _, _, body = _sent_request(client)
     assert body["model"] == "accounts/fireworks/models/glm-5p3"
 
@@ -149,7 +149,7 @@ def test_responses_call_forwards_previous_response_id_and_store() -> None:
         "output": "{}",
     }
     with patch(HTTPX_CLIENT_FACTORY, return_value=client):
-        litellm.responses(
+        embrouter.responses(
             model="fireworks_ai/kimi-k3",
             input=[tool_output],  # mutable-ok: the Responses API takes input items as a JSON list
             previous_response_id="resp_0e946f2d46bf4b49bf8b29ff78083583",
@@ -165,7 +165,7 @@ def test_responses_call_forwards_previous_response_id_and_store() -> None:
 def test_responses_call_folds_developer_items_into_instructions() -> None:
     client: Final = _mock_http_client(_fireworks_response("accounts/fireworks/models/kimi-k3"))
     with patch(HTTPX_CLIENT_FACTORY, return_value=client):
-        litellm.responses(
+        embrouter.responses(
             model="fireworks_ai/accounts/fireworks/models/kimi-k3",
             input=[  # mutable-ok: the Responses API takes input as a JSON list
                 {"role": "user", "content": "Hi there"},
@@ -185,7 +185,7 @@ def test_responses_call_folds_developer_items_into_instructions() -> None:
 def test_responses_call_folds_instructions_and_developer_item_into_instructions_with_reasoning_replayed() -> None:
     client: Final = _mock_http_client(_fireworks_response("accounts/fireworks/models/qwen3p8-2p4t-a95b"))
     with patch(HTTPX_CLIENT_FACTORY, return_value=client):
-        litellm.responses(
+        embrouter.responses(
             model="fireworks_ai/accounts/fireworks/models/qwen3p8-2p4t-a95b",
             instructions="You are a coding agent running in the Codex CLI.",
             input=[  # mutable-ok: the Responses API takes input as a JSON list
@@ -228,7 +228,7 @@ def test_responses_call_folds_instructions_and_developer_item_into_instructions_
 def test_responses_call_folds_instructions_and_developer_item_with_previous_response_id() -> None:
     client: Final = _mock_http_client(_fireworks_response("accounts/fireworks/models/qwen3p8-2p4t-a95b"))
     with patch(HTTPX_CLIENT_FACTORY, return_value=client):
-        litellm.responses(
+        embrouter.responses(
             model="fireworks_ai/accounts/fireworks/models/qwen3p8-2p4t-a95b",
             instructions="You are a terse assistant.",
             input=[  # mutable-ok: the Responses API takes input as a JSON list
@@ -255,7 +255,7 @@ def test_responses_call_keeps_a_closing_developer_item_after_an_assistant_turn_i
         "content": [{"type": "output_text", "text": "Paris.", "annotations": []}],
     }
     with patch(HTTPX_CLIENT_FACTORY, return_value=client):
-        litellm.responses(
+        embrouter.responses(
             model="fireworks_ai/accounts/fireworks/models/qwen3p8-2p4t-a95b",
             instructions="Be terse.",
             input=[  # mutable-ok: the Responses API takes input as a JSON list
@@ -278,7 +278,7 @@ def test_responses_call_keeps_a_closing_developer_item_after_an_assistant_turn_i
 def test_responses_call_keeps_a_mid_conversation_system_item_in_place() -> None:
     client: Final = _mock_http_client(_fireworks_response("accounts/fireworks/models/kimi-k3"))
     with patch(HTTPX_CLIENT_FACTORY, return_value=client):
-        litellm.responses(
+        embrouter.responses(
             model="fireworks_ai/accounts/fireworks/models/kimi-k3",
             input=[  # mutable-ok: the Responses API takes input as a JSON list
                 {"role": "user", "content": "Hi there"},
@@ -306,7 +306,7 @@ def test_responses_call_keeps_a_developer_item_with_non_text_parts_in_place_as_a
         ],
     }
     with patch(HTTPX_CLIENT_FACTORY, return_value=client):
-        litellm.responses(
+        embrouter.responses(
             model="fireworks_ai/accounts/fireworks/models/qwen3p8-2p4t-a95b",
             instructions="Answer with one word.",
             input=[developer_item, {"role": "user", "content": "What is the capital of France?"}],  # mutable-ok: JSON list
@@ -324,7 +324,7 @@ def test_responses_call_keeps_a_developer_item_with_non_text_parts_in_place_as_a
 def test_responses_call_forwards_string_input_and_instructions_unchanged() -> None:
     client: Final = _mock_http_client(_fireworks_response("accounts/fireworks/models/kimi-k3"))
     with patch(HTTPX_CLIENT_FACTORY, return_value=client):
-        litellm.responses(
+        embrouter.responses(
             model="fireworks_ai/accounts/fireworks/models/kimi-k3",
             instructions="Answer with exactly one word.",
             input="What is the capital of France?",
@@ -342,7 +342,7 @@ def test_transform_request_forwards_non_string_instructions_and_input_untouched(
         model="accounts/fireworks/models/kimi-k3",
         input=cast(ResponseInputParam, [developer_item, user_item]),  # mutable-ok: JSON list
         response_api_optional_request_params={"instructions": ["not", "a", "string"]},  # mutable-ok: base takes a dict
-        litellm_params=GenericLiteLLMParams(),
+        embrouter_params=GenericEmbRouterParams(),
         headers={},  # mutable-ok: base takes a dict
     )
     assert request["instructions"] == ["not", "a", "string"]
@@ -371,7 +371,7 @@ def test_responses_call_maps_pydantic_developer_items_and_replays_pydantic_outpu
         ],
     )
     with patch(HTTPX_CLIENT_FACTORY, return_value=client):
-        litellm.responses(
+        embrouter.responses(
             model="fireworks_ai/accounts/fireworks/models/kimi-k3", input=pydantic_input, api_key="fw-test-key"
         )
     _, _, body = _sent_request(client)
@@ -390,7 +390,7 @@ def test_responses_call_maps_pydantic_developer_items_and_replays_pydantic_outpu
     )
 
 
-def test_file_search_tools_take_litellm_emulated_search_not_fireworks() -> None:
+def test_file_search_tools_take_embrouter_emulated_search_not_fireworks() -> None:
     config: Final = FireworksAIResponsesAPIConfig()
     file_search: Final = ({"type": "file_search", "vector_store_ids": ("vs_kb",)},)
     function_tool: Final = ({"type": "function", "name": "get_weather", "parameters": {"type": "object"}},)
@@ -401,7 +401,7 @@ def test_file_search_tools_take_litellm_emulated_search_not_fireworks() -> None:
 def test_responses_call_sends_session_affinity_for_caller_session_id() -> None:
     client: Final = _mock_http_client(_fireworks_response("accounts/fireworks/models/kimi-k3"))
     with patch(HTTPX_CLIENT_FACTORY, return_value=client):
-        litellm.responses(model="fireworks_ai/kimi-k3", input="hi", api_key="fw-test-key", litellm_session_id="sess-42")
+        embrouter.responses(model="fireworks_ai/kimi-k3", input="hi", api_key="fw-test-key", embrouter_session_id="sess-42")
     _, headers, _ = _sent_request(client)
     assert headers["x-session-affinity"] == "sess-42"
 
@@ -414,8 +414,8 @@ def test_responses_call_maps_provider_errors_to_fireworks_ai() -> None:
         request=request,
         response=httpx.Response(401, text='{"error": {"message": "invalid api key"}}', request=request),
     )
-    with patch(HTTPX_CLIENT_FACTORY, return_value=client), pytest.raises(litellm.AuthenticationError) as raised:
-        litellm.responses(model="fireworks_ai/kimi-k3", input="hi", api_key="fw-bad-key")
+    with patch(HTTPX_CLIENT_FACTORY, return_value=client), pytest.raises(embrouter.AuthenticationError) as raised:
+        embrouter.responses(model="fireworks_ai/kimi-k3", input="hi", api_key="fw-bad-key")
     assert raised.value.llm_provider == "fireworks_ai"
     assert raised.value.status_code == 401
     assert "invalid api key" in str(raised.value)
@@ -423,14 +423,14 @@ def test_responses_call_maps_provider_errors_to_fireworks_ai() -> None:
 
 def test_responses_call_skips_session_affinity_for_proxy_generated_session_id() -> None:
     client: Final = _mock_http_client(_fireworks_response("accounts/fireworks/models/kimi-k3"))
-    generated: Final[_GeneratedSessionMetadata] = {"litellm_session_id_generated": True}
+    generated: Final[_GeneratedSessionMetadata] = {"embrouter_session_id_generated": True}
     with patch(HTTPX_CLIENT_FACTORY, return_value=client):
-        litellm.responses(
+        embrouter.responses(
             model="fireworks_ai/kimi-k3",
             input="hi",
             api_key="fw-test-key",
-            litellm_session_id="generated-1",
-            litellm_metadata=generated,
+            embrouter_session_id="generated-1",
+            embrouter_metadata=generated,
         )
     _, headers, _ = _sent_request(client)
     assert "x-session-affinity" not in headers
@@ -446,14 +446,14 @@ def test_responses_call_skips_session_affinity_for_proxy_generated_session_id() 
     ),
 )
 def test_get_complete_url(api_base: str | None, expected: str) -> None:
-    assert FireworksAIResponsesAPIConfig().get_complete_url(api_base=api_base, litellm_params=NO_PARAMS) == expected
+    assert FireworksAIResponsesAPIConfig().get_complete_url(api_base=api_base, embrouter_params=NO_PARAMS) == expected
 
 
 def test_responses_call_reads_fireworks_api_base_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("FIREWORKS_API_BASE", "https://self-hosted.example.com/v1")
     client: Final = _mock_http_client(_fireworks_response("accounts/fireworks/models/kimi-k3"))
     with patch(HTTPX_CLIENT_FACTORY, return_value=client):
-        litellm.responses(model="fireworks_ai/kimi-k3", input="hi", api_key="fw-test-key")
+        embrouter.responses(model="fireworks_ai/kimi-k3", input="hi", api_key="fw-test-key")
     url, _, _ = _sent_request(client)
     assert url == "https://self-hosted.example.com/v1/responses"
 
@@ -464,7 +464,7 @@ def test_responses_call_reads_fireworks_api_base_env(monkeypatch: pytest.MonkeyP
 def test_validate_environment_reads_every_fireworks_key_name(monkeypatch: pytest.MonkeyPatch, env_name: str) -> None:
     monkeypatch.setenv(env_name, "env-key")
     headers: Final = FireworksAIResponsesAPIConfig().validate_environment(
-        headers=NO_HEADERS, model="accounts/fireworks/models/kimi-k3", litellm_params=GenericLiteLLMParams()
+        headers=NO_HEADERS, model="accounts/fireworks/models/kimi-k3", embrouter_params=GenericEmbRouterParams()
     )
     assert headers["Authorization"] == "Bearer env-key"
     assert headers["Content-Type"] == "application/json"
@@ -475,7 +475,7 @@ def test_validate_environment_prefers_explicit_api_key(monkeypatch: pytest.Monke
     headers: Final = FireworksAIResponsesAPIConfig().validate_environment(
         headers=NO_HEADERS,
         model="accounts/fireworks/models/kimi-k3",
-        litellm_params=GenericLiteLLMParams(api_key="explicit"),
+        embrouter_params=GenericEmbRouterParams(api_key="explicit"),
     )
     assert headers["Authorization"] == "Bearer explicit"
 
@@ -483,7 +483,7 @@ def test_validate_environment_prefers_explicit_api_key(monkeypatch: pytest.Monke
 def test_validate_environment_without_any_key_raises() -> None:
     with pytest.raises(ValueError, match="FIREWORKS_API_KEY"):
         FireworksAIResponsesAPIConfig().validate_environment(
-            headers=NO_HEADERS, model="accounts/fireworks/models/kimi-k3", litellm_params=None
+            headers=NO_HEADERS, model="accounts/fireworks/models/kimi-k3", embrouter_params=None
         )
 
 
@@ -495,7 +495,7 @@ def test_delete_responses_maps_fireworks_message_only_body_to_deleted_result() -
     client: Final = MagicMock()
     client.delete.return_value = httpx.Response(200, json={"message": "Response deleted successfully"}, request=request)
     with patch(HTTPX_CLIENT_FACTORY, return_value=client):
-        result: Final = litellm.delete_responses(
+        result: Final = embrouter.delete_responses(
             response_id=response_id, custom_llm_provider="fireworks_ai", api_key="fw-test-key"
         )
     assert client.delete.call_args.kwargs["url"] == str(request.url)
@@ -591,7 +591,7 @@ def test_streaming_responses_call_hits_native_endpoint_and_yields_every_firework
     )
     with patch(HTTPX_CLIENT_FACTORY, return_value=client):
         received: Final = tuple(
-            litellm.responses(
+            embrouter.responses(
                 model="fireworks_ai/kimi-k3",
                 input="Reply with the single word pong.",
                 stream=True,

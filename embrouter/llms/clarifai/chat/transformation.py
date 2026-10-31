@@ -2,23 +2,23 @@ from typing import TYPE_CHECKING, Any, Final
 
 import httpx
 
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.openai.common_utils import OpenAIError
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.openai import (
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.openai.common_utils import OpenAIError
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.openai import (
     AllMessageValues,
 )
-from litellm.types.utils import ModelResponse
+from embrouter.types.utils import ModelResponse
 
 from ...openai.chat.gpt_transformation import OpenAIGPTConfig
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 
 class ClarifaiConfig(OpenAIGPTConfig):
@@ -72,20 +72,20 @@ class ClarifaiConfig(OpenAIGPTConfig):
         dynamic_api_key: Final = api_key or get_secret_str("CLARIFAI_API_KEY") or ""
         return api_base, dynamic_api_key
 
-    def transform_request(self, model, messages, optional_params, litellm_params, headers):
+    def transform_request(self, model, messages, optional_params, embrouter_params, headers):
         model = self.get_base_model(model) or model
-        return super().transform_request(model, messages, optional_params, litellm_params, headers)
+        return super().transform_request(model, messages, optional_params, embrouter_params, headers)
 
     def transform_response(
         self,
         model: str,
         raw_response: httpx.Response,
         model_response: ModelResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         request_data: dict,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,

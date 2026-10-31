@@ -1,4 +1,4 @@
-"""Tests for FocusLiteLLMDatabase query construction."""
+"""Tests for FocusEmbRouterDatabase query construction."""
 
 import hashlib
 from datetime import datetime, timezone
@@ -7,14 +7,14 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from litellm.integrations.focus.database import FocusLiteLLMDatabase
+from embrouter.integrations.focus.database import FocusEmbRouterDatabase
 
 
 def _setup_db(monkeypatch: pytest.MonkeyPatch, query_return):
     """Create a database instance with a stubbed prisma client."""
     query_mock = AsyncMock(return_value=query_return)
     mock_client = SimpleNamespace(db=SimpleNamespace(query_raw=query_mock))
-    db = FocusLiteLLMDatabase()
+    db = FocusEmbRouterDatabase()
     monkeypatch.setattr(db, "_ensure_prisma_client", lambda: mock_client)
     return db, query_mock
 
@@ -87,7 +87,7 @@ async def test_should_join_organization_table(monkeypatch: pytest.MonkeyPatch):
         in query_text
     )
     assert "ot.organization_alias as organization_alias" in query_text
-    assert 'LEFT JOIN "LiteLLM_OrganizationTable" ot' in query_text
+    assert 'LEFT JOIN "EmbRouter_OrganizationTable" ot' in query_text
 
 
 @pytest.mark.asyncio
@@ -102,7 +102,7 @@ async def test_should_build_frame_from_rows_recovered_for_double_hashed_keys(mon
         return [joined_row, dirty_row]
 
     mock_client = SimpleNamespace(db=SimpleNamespace(query_raw=AsyncMock(side_effect=query_raw)))
-    db = FocusLiteLLMDatabase()
+    db = FocusEmbRouterDatabase()
     monkeypatch.setattr(db, "_ensure_prisma_client", lambda: mock_client)
 
     result = await db.get_usage_data()

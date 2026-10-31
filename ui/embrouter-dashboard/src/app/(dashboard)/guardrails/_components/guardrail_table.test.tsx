@@ -14,7 +14,7 @@ const baseProps = {
 const makeGuardrail = (overrides: Partial<Guardrail> = {}): Guardrail => ({
   guardrail_id: "gr-1",
   guardrail_name: "PII Redaction",
-  litellm_params: { guardrail: "presidio", mode: "pre_call", default_on: true },
+  embrouter_params: { guardrail: "presidio", mode: "pre_call", default_on: true },
   guardrail_info: null,
   created_at: "2021-01-01",
   updated_at: "2021-01-02",
@@ -38,7 +38,7 @@ describe("GuardrailTable", () => {
 
   it("falls back to a letter avatar for an unknown provider slug", () => {
     const guardrail = makeGuardrail({
-      litellm_params: { guardrail: "mystery_guard", mode: "pre_call", default_on: false },
+      embrouter_params: { guardrail: "mystery_guard", mode: "pre_call", default_on: false },
     });
     render(<GuardrailTable guardrailsList={[guardrail]} {...baseProps} />);
     expect(screen.getByText("mystery_guard")).toBeInTheDocument();
@@ -48,7 +48,7 @@ describe("GuardrailTable", () => {
 
   it("renders a tag-based mode object instead of crashing the table", () => {
     const guardrail = makeGuardrail({
-      litellm_params: {
+      embrouter_params: {
         guardrail: "bedrock",
         mode: { tags: { "Service-Type: internal-service": "post_call" }, default: ["pre_call", "post_call"] },
         default_on: true,

@@ -21,15 +21,15 @@ from unittest.mock import AsyncMock, MagicMock, PropertyMock
 import pytest
 from fastapi import HTTPException
 
-from litellm.proxy.guardrails.guardrail_hooks.typesafe import (
+from embrouter.proxy.guardrails.guardrail_hooks.typesafe import (
     TypeSafeGuardrail,
     guardrail_class_registry,
     guardrail_initializer_registry,
     initialize_guardrail,
 )
-from litellm.proxy.guardrails.guardrail_hooks.typesafe.typesafe import DROPPED_RESULT_TEXT
-from litellm.types.guardrails import SupportedGuardrailIntegrations
-from litellm.types.utils import GenericGuardrailAPIInputs
+from embrouter.proxy.guardrails.guardrail_hooks.typesafe.typesafe import DROPPED_RESULT_TEXT
+from embrouter.types.guardrails import SupportedGuardrailIntegrations
+from embrouter.types.utils import GenericGuardrailAPIInputs
 
 FAKE_API_BASE = "https://typesafe.example.com"
 FAKE_API_KEY = "ts_test-key"
@@ -259,9 +259,9 @@ async def test_response_input_type_passthrough():
 
 
 def test_initialize_guardrail_applies_optional_params_and_registry_keys():
-    from litellm.types.guardrails import LitellmParams
+    from embrouter.types.guardrails import EmbrouterParams
 
-    litellm_params = LitellmParams(
+    embrouter_params = EmbrouterParams(
         guardrail="typesafe",
         mode="pre_call",
         api_key=FAKE_API_KEY,
@@ -272,7 +272,7 @@ def test_initialize_guardrail_applies_optional_params_and_registry_keys():
             "max_result_chars_in_state": 100,
         },
     )
-    callback = initialize_guardrail(litellm_params, {"guardrail_name": "jev-compaction"})
+    callback = initialize_guardrail(embrouter_params, {"guardrail_name": "jev-compaction"})
     assert isinstance(callback, TypeSafeGuardrail)
     assert callback.relevance_threshold == 0.5
     assert callback.min_chars_to_evaluate == 10
@@ -289,7 +289,7 @@ def test_missing_api_key_raises(monkeypatch):
 
 
 def test_get_config_model_and_ui_name():
-    from litellm.types.proxy.guardrails.guardrail_hooks.typesafe import (
+    from embrouter.types.proxy.guardrails.guardrail_hooks.typesafe import (
         TypeSafeGuardrailConfigModel,
     )
 
@@ -313,7 +313,7 @@ async def test_non_list_and_non_dict_messages_return_identity():
 
 
 def test_odd_tool_call_shapes_yield_no_entries():
-    from litellm.proxy.guardrails.guardrail_hooks.typesafe.typesafe import _tool_call_entries
+    from embrouter.proxy.guardrails.guardrail_hooks.typesafe.typesafe import _tool_call_entries
 
     assert _tool_call_entries({"tool_calls": "not-a-list"}) == ()
     assert _tool_call_entries({"tool_calls": None}) == ()
@@ -389,21 +389,21 @@ async def test_cancelled_jev_call_propagates():
 
 
 def test_optional_params_defaults_and_event_hook_coercion():
-    from litellm.proxy.guardrails.guardrail_hooks.typesafe import _coerce_event_hook, _optional_params
-    from litellm.types.guardrails import GuardrailEventHooks, LitellmParams
+    from embrouter.proxy.guardrails.guardrail_hooks.typesafe import _coerce_event_hook, _optional_params
+    from embrouter.types.guardrails import GuardrailEventHooks, EmbrouterParams
 
     assert _coerce_event_hook("pre_call") is GuardrailEventHooks.pre_call
     assert _coerce_event_hook(["pre_call", "post_call"]) == [
         GuardrailEventHooks.pre_call,
         GuardrailEventHooks.post_call,
     ]
-    litellm_params = LitellmParams(guardrail="typesafe", mode="pre_call", api_key=FAKE_API_KEY)
-    params = _optional_params(litellm_params)
+    embrouter_params = EmbrouterParams(guardrail="typesafe", mode="pre_call", api_key=FAKE_API_KEY)
+    params = _optional_params(embrouter_params)
     assert params.relevance_threshold is None
 
 
 def test_typesafe_initializer_discoverable_via_hook_registries():
-    from litellm.proxy.guardrails.guardrail_registry import get_guardrail_initializer_from_hooks
+    from embrouter.proxy.guardrails.guardrail_registry import get_guardrail_initializer_from_hooks
 
     initializers = get_guardrail_initializer_from_hooks()
     assert initializers["typesafe"] is initialize_guardrail

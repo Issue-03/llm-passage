@@ -8,19 +8,19 @@ from dataclasses import dataclass
 from functools import lru_cache
 from typing import TYPE_CHECKING, Final, Literal
 
-import litellm
+import embrouter
 
 if TYPE_CHECKING:
-    from litellm import Router
-    from litellm.types.llms.openai import AllMessageValues
-    from litellm.types.utils import ModelResponse
+    from embrouter import Router
+    from embrouter.types.llms.openai import AllMessageValues
+    from embrouter.types.utils import ModelResponse
 
 JSON_FENCE_RE: Final = re.compile(r"```(?:json)?\s*(.*?)\s*```", re.DOTALL | re.IGNORECASE)
 
 
 def default_router_provider() -> Router | None:
     try:
-        from litellm.proxy.proxy_server import llm_router
+        from embrouter.proxy.proxy_server import llm_router
     except ImportError:
         return None
 
@@ -60,7 +60,7 @@ def extract_text_from_content(content: object) -> str:
 
 @lru_cache(maxsize=512)
 def _provider_qualified(model: str) -> str | None:
-    """`model` in the one spelling litellm itself resolves it to, or None if it maps to no
+    """`model` in the one spelling embrouter itself resolves it to, or None if it maps to no
     provider.
 
     A deployment may be configured as `openai/gpt-4o` and a judge given as `gpt-4o`; both
@@ -70,7 +70,7 @@ def _provider_qualified(model: str) -> str | None:
     correctly-spelled public model unresolvable.
     """
     try:
-        stripped, provider, _, _ = litellm.get_llm_provider(model=model)
+        stripped, provider, _, _ = embrouter.get_llm_provider(model=model)
     except Exception:  # noqa: BLE001  # an unmapped name has no provider, which is the answer
         return None
     return f"{provider}/{stripped}" if provider and stripped else None
@@ -95,14 +95,14 @@ def judge_target(router: Router | None, model: str, team_id: str | None = None) 
 
     Three outcomes and no others: the router serves it (a deployment, a team-public name,
     an alias, a routing group or a wildcard, exactly the channels `get_model_list`
-    composes); the SDK serves it because litellm recognises the provider; or nothing does,
+    composes); the SDK serves it because embrouter recognises the provider; or nothing does,
     which is the only case a caller may refuse on.
 
     `team_id` is part of the question, not a refinement of it. A team-public name resolves
     only for its own team and a team's own deployment resolves for nobody else, so asking
     without it answers for a caller who does not exist.
     """
-    served: Final = router.resolved_litellm_models(model, team_id=team_id) if router is not None else ()
+    served: Final = router.resolved_embrouter_models(model, team_id=team_id) if router is not None else ()
     if served:
         return JudgeTarget("router", frozenset(_provider_qualified(m) or m for m in served))
     qualified: Final = _provider_qualified(model)
@@ -135,4 +135,4 @@ async def judge_acompletion(
             drop_params=True,
             **params,
         )
-    return await litellm.acompletion(model=judge_model, messages=messages, num_retries=0, drop_params=True, **params)
+    return await embrouter.acompletion(model=judge_model, messages=messages, num_retries=0, drop_params=True, **params)

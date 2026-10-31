@@ -41,17 +41,17 @@ from opentelemetry.trace.propagation.tracecontext import (  # noqa: E402
     TraceContextTextMapPropagator,
 )
 
-import litellm  # noqa: E402
+import embrouter  # noqa: E402
 from tests.unit.integrations.conftest import TlsSink  # noqa: E402
-from litellm.integrations.otel.plumbing import context as ctx_mod  # noqa: E402
-from litellm.integrations.otel.plumbing import providers  # noqa: E402
-from litellm.integrations.otel.model.config import OpenTelemetryV2Config  # noqa: E402
-from litellm.integrations.otel.mappers.genai import GenAIMapper  # noqa: E402
-from litellm.integrations.otel.mappers.legacy import LegacyMapper  # noqa: E402
-from litellm.integrations.otel.plumbing.metrics import (
+from embrouter.integrations.otel.plumbing import context as ctx_mod  # noqa: E402
+from embrouter.integrations.otel.plumbing import providers  # noqa: E402
+from embrouter.integrations.otel.model.config import OpenTelemetryV2Config  # noqa: E402
+from embrouter.integrations.otel.mappers.genai import GenAIMapper  # noqa: E402
+from embrouter.integrations.otel.mappers.legacy import LegacyMapper  # noqa: E402
+from embrouter.integrations.otel.plumbing.metrics import (
     create_genai_metrics,
 )  # noqa: E402
-from litellm.integrations.otel.model.payloads import (  # noqa: E402
+from embrouter.integrations.otel.model.payloads import (  # noqa: E402
     GuardrailSpanData,
     LLMCallSpanData,
     LLMCost,
@@ -63,10 +63,10 @@ from litellm.integrations.otel.model.payloads import (  # noqa: E402
     ServiceSpanData,
     SpanError,
 )
-from litellm.integrations.otel.model.semconv import GenAI, GenAIOperation
-from litellm.integrations.otel.model.spans import (  # noqa: E402
+from embrouter.integrations.otel.model.semconv import GenAI, GenAIOperation
+from embrouter.integrations.otel.model.spans import (  # noqa: E402
     SPAN_REGISTRY,
-    LiteLLMSpanKind,
+    EmbRouterSpanKind,
     SpanRole,
     SpanSpec,
     db_system,
@@ -76,7 +76,7 @@ from litellm.integrations.otel.model.spans import (  # noqa: E402
     span_role_for_service,
     validate_registry,
 )
-from litellm.integrations.otel.model.utils import (  # noqa: E402
+from embrouter.integrations.otel.model.utils import (  # noqa: E402
     as_bool,
     as_float,
     as_int,
@@ -180,13 +180,13 @@ def test_name_builders():
 
 
 def test_validate_registry_detects_role_mismatch():
-    bad = {SpanRole.LLM_CALL: SpanSpec(SpanRole.SERVICE, LiteLLMSpanKind.CLIENT, None)}
+    bad = {SpanRole.LLM_CALL: SpanSpec(SpanRole.SERVICE, EmbRouterSpanKind.CLIENT, None)}
     with pytest.raises(ValueError, match="mismatched role"):
         validate_registry(bad)
 
 
 def test_validate_registry_detects_unknown_parent():
-    bad = {SpanRole.LLM_CALL: SpanSpec(SpanRole.LLM_CALL, LiteLLMSpanKind.CLIENT, parent=SpanRole.PROXY_REQUEST)}
+    bad = {SpanRole.LLM_CALL: SpanSpec(SpanRole.LLM_CALL, EmbRouterSpanKind.CLIENT, parent=SpanRole.PROXY_REQUEST)}
     with pytest.raises(ValueError, match="unknown parent"):
         validate_registry(bad)
 
@@ -302,7 +302,7 @@ def test_genai_mapper_omits_messages_when_content_not_captured():
 
 
 def test_genai_mapper_cost_breakdown():
-    from litellm.integrations.otel.model.semconv import LiteLLM
+    from embrouter.integrations.otel.model.semconv import EmbRouter
 
     data = LLMCallSpanData(
         operation=GenAIOperation.CHAT,
@@ -331,28 +331,28 @@ def test_genai_mapper_cost_breakdown():
         ),
     )
     attrs = GenAIMapper().map(data)
-    assert attrs[f"{LiteLLM.COST_PREFIX}total"] == 0.012
-    assert attrs[f"{LiteLLM.COST_PREFIX}input"] == 0.004
-    assert attrs[f"{LiteLLM.COST_PREFIX}output"] == 0.006
-    assert attrs[f"{LiteLLM.COST_PREFIX}cache_read"] == 0.001
-    assert attrs[f"{LiteLLM.COST_PREFIX}cache_creation"] == 0.0
-    assert attrs[f"{LiteLLM.COST_PREFIX}tool_usage"] == 0.0005
-    assert attrs[f"{LiteLLM.COST_PREFIX}original"] == 0.013
-    assert attrs[f"{LiteLLM.COST_PREFIX}discount_amount"] == 0.001
-    assert attrs[f"{LiteLLM.COST_PREFIX}discount_percent"] == 0.077
-    assert attrs[f"{LiteLLM.COST_PREFIX}margin_total_amount"] == 0.0
+    assert attrs[f"{EmbRouter.COST_PREFIX}total"] == 0.012
+    assert attrs[f"{EmbRouter.COST_PREFIX}input"] == 0.004
+    assert attrs[f"{EmbRouter.COST_PREFIX}output"] == 0.006
+    assert attrs[f"{EmbRouter.COST_PREFIX}cache_read"] == 0.001
+    assert attrs[f"{EmbRouter.COST_PREFIX}cache_creation"] == 0.0
+    assert attrs[f"{EmbRouter.COST_PREFIX}tool_usage"] == 0.0005
+    assert attrs[f"{EmbRouter.COST_PREFIX}original"] == 0.013
+    assert attrs[f"{EmbRouter.COST_PREFIX}discount_amount"] == 0.001
+    assert attrs[f"{EmbRouter.COST_PREFIX}discount_percent"] == 0.077
+    assert attrs[f"{EmbRouter.COST_PREFIX}margin_total_amount"] == 0.0
     # Components the source did not report are omitted, not zero-filled.
-    assert f"{LiteLLM.COST_PREFIX}margin_fixed_amount" not in attrs
-    assert f"{LiteLLM.COST_PREFIX}margin_percent" not in attrs
+    assert f"{EmbRouter.COST_PREFIX}margin_fixed_amount" not in attrs
+    assert f"{EmbRouter.COST_PREFIX}margin_percent" not in attrs
 
 
 def test_genai_mapper_cost_breakdown_absent():
     # No cost_breakdown → only the rolled-up total (from response_cost) emits.
-    from litellm.integrations.otel.model.semconv import LiteLLM
+    from embrouter.integrations.otel.model.semconv import EmbRouter
 
     attrs = GenAIMapper().map(_full_llm_call())
-    assert attrs[f"{LiteLLM.COST_PREFIX}total"] == 0.002
-    assert not any(k.startswith(LiteLLM.COST_PREFIX) and k != f"{LiteLLM.COST_PREFIX}total" for k in attrs)
+    assert attrs[f"{EmbRouter.COST_PREFIX}total"] == 0.002
+    assert not any(k.startswith(EmbRouter.COST_PREFIX) and k != f"{EmbRouter.COST_PREFIX}total" for k in attrs)
 
 
 def test_llm_cost_from_breakdown_maps_costbreakdown_keys():
@@ -390,30 +390,30 @@ def test_llm_cost_from_breakdown_none_is_empty():
 
 
 def test_genai_mapper_guardrail_and_service():
-    from litellm.integrations.otel.model.semconv import LiteLLM
+    from embrouter.integrations.otel.model.semconv import EmbRouter
 
     g = GenAIMapper().map(GuardrailSpanData("presidio", mode="pre"))
-    assert g[LiteLLM.GUARDRAIL_NAME] == "presidio"
-    assert g[LiteLLM.GUARDRAIL_MODE] == "pre"
+    assert g[EmbRouter.GUARDRAIL_NAME] == "presidio"
+    assert g[EmbRouter.GUARDRAIL_MODE] == "pre"
 
     # A datastore service (redis) also gets db.* semconv.
     s = GenAIMapper().map(ServiceSpanData("redis", call_type="set"))
-    assert s[LiteLLM.SERVICE_NAME] == "redis"
-    assert s[LiteLLM.SERVICE_CALL_TYPE] == "set"
+    assert s[EmbRouter.SERVICE_NAME] == "redis"
+    assert s[EmbRouter.SERVICE_CALL_TYPE] == "set"
     assert s["db.system.name"] == "redis"
     assert s["db.operation.name"] == "set"
 
     # An internal service (router) gets no db.* keys.
     internal = GenAIMapper().map(ServiceSpanData("router", call_type="acompletion"))
-    assert internal[LiteLLM.SERVICE_NAME] == "router"
+    assert internal[EmbRouter.SERVICE_NAME] == "router"
     assert "db.system.name" not in internal
 
 
 def test_genai_mapper_guardrail_billing_attrs():
     """Billing counters and USD cost stamped on StandardLoggingGuardrailInformation
     surface on the guardrail span: usage JSON-serialized, cost numeric under the
-    litellm.cost.* namespace."""
-    from litellm.integrations.otel.model.semconv import LiteLLM
+    embrouter.cost.* namespace."""
+    from embrouter.integrations.otel.model.semconv import EmbRouter
 
     entry = {
         "guardrail_name": "azure-shield",
@@ -426,14 +426,14 @@ def test_genai_mapper_guardrail_billing_attrs():
     assert data.usage_json is not None and '"text_records": 12' in data.usage_json
 
     attrs = GenAIMapper().map(data)
-    assert attrs[LiteLLM.GUARDRAIL_COST] == 0.00456
-    assert LiteLLM.GUARDRAIL_COST == "litellm.cost.guardrail"
-    assert attrs[LiteLLM.GUARDRAIL_USAGE] == data.usage_json
+    assert attrs[EmbRouter.GUARDRAIL_COST] == 0.00456
+    assert EmbRouter.GUARDRAIL_COST == "embrouter.cost.guardrail"
+    assert attrs[EmbRouter.GUARDRAIL_USAGE] == data.usage_json
 
     # A guardrail without billing data keeps a sparse span: neither key present.
     unbilled = GenAIMapper().map(GuardrailSpanData("presidio", mode="pre"))
-    assert LiteLLM.GUARDRAIL_COST not in unbilled
-    assert LiteLLM.GUARDRAIL_USAGE not in unbilled
+    assert EmbRouter.GUARDRAIL_COST not in unbilled
+    assert EmbRouter.GUARDRAIL_USAGE not in unbilled
 
 
 def test_legacy_mapper_all_request_params():
@@ -543,7 +543,7 @@ def test_inject_trace_context_replaces_same_trace_headers_with_request_span():
 def test_inject_trace_context_keeps_caller_traceparent_from_another_trace():
     def run():
         tracer = _test_tracer()
-        parent = tracer.start_span("litellm_request")
+        parent = tracer.start_span("embrouter_request")
         with tracer.start_as_current_span("ambient") as ambient:
             ctx_mod.set_request_root_span(ambient)
             headers = {"Traceparent": _CALLER_TRACEPARENT, "Tracestate": "vendor=caller", "x-keep": "1"}
@@ -563,7 +563,7 @@ def test_inject_trace_context_keeps_caller_traceparent_from_another_trace():
 def test_inject_trace_context_replaces_malformed_caller_traceparent():
     def run():
         tracer = _test_tracer()
-        parent = tracer.start_span("litellm_request")
+        parent = tracer.start_span("embrouter_request")
         with tracer.start_as_current_span("ambient"):
             headers = {"traceparent": "not-a-traceparent", "tracestate": "vendor=caller"}
             result = ctx_mod.inject_trace_context(headers, parent_span=parent)
@@ -578,7 +578,7 @@ def test_inject_trace_context_replaces_malformed_caller_traceparent():
 def test_inject_trace_context_prefers_explicit_parent_span_over_root_and_ambient():
     def run():
         tracer = _test_tracer()
-        parent = tracer.start_span("litellm_request")
+        parent = tracer.start_span("embrouter_request")
         with tracer.start_as_current_span("ambient") as ambient:
             ctx_mod.set_request_root_span(ambient)
             result = ctx_mod.inject_trace_context({}, parent_span=parent)
@@ -617,7 +617,7 @@ def test_inject_trace_context_does_not_forward_baggage():
     def run():
         tracer = _test_tracer()
         with tracer.start_as_current_span("ambient"):
-            token = attach(baggage.set_baggage("litellm.team.id", "team"))
+            token = attach(baggage.set_baggage("embrouter.team.id", "team"))
             try:
                 return ctx_mod.inject_trace_context({})
             finally:
@@ -632,19 +632,19 @@ def test_set_request_baggage_empty_returns_context():
 
 
 def test_get_baggage_attributes_roundtrip():
-    ctx = ctx_mod.set_request_baggage({"litellm.team.id": "t1"})
-    assert ctx_mod.get_baggage_attributes(ctx)["litellm.team.id"] == "t1"
+    ctx = ctx_mod.set_request_baggage({"embrouter.team.id": "t1"})
+    assert ctx_mod.get_baggage_attributes(ctx)["embrouter.team.id"] == "t1"
 
 
 # --- providers -------------------------------------------------------------- #
 
 
 def test_to_otel_span_kind_covers_all():
-    assert providers.to_otel_span_kind(LiteLLMSpanKind.SERVER) is SpanKind.SERVER
-    assert providers.to_otel_span_kind(LiteLLMSpanKind.CLIENT) is SpanKind.CLIENT
-    assert providers.to_otel_span_kind(LiteLLMSpanKind.INTERNAL) is SpanKind.INTERNAL
-    assert providers.to_otel_span_kind(LiteLLMSpanKind.PRODUCER) is SpanKind.PRODUCER
-    assert providers.to_otel_span_kind(LiteLLMSpanKind.CONSUMER) is SpanKind.CONSUMER
+    assert providers.to_otel_span_kind(EmbRouterSpanKind.SERVER) is SpanKind.SERVER
+    assert providers.to_otel_span_kind(EmbRouterSpanKind.CLIENT) is SpanKind.CLIENT
+    assert providers.to_otel_span_kind(EmbRouterSpanKind.INTERNAL) is SpanKind.INTERNAL
+    assert providers.to_otel_span_kind(EmbRouterSpanKind.PRODUCER) is SpanKind.PRODUCER
+    assert providers.to_otel_span_kind(EmbRouterSpanKind.CONSUMER) is SpanKind.CONSUMER
 
 
 def test_parse_headers():
@@ -668,7 +668,7 @@ def test_parse_headers_percent_decodes_values():
 def test_parse_headers_keeps_unencoded_values_working():
     """Values that are not percent-encoded keep parsing unchanged.
 
-    Vendors that document a bare space, and litellm's own presets, must survive
+    Vendors that document a bare space, and embrouter's own presets, must survive
     the switch to the spec-compliant parser. Base64 padding also means a value
     can contain ``=``, so only the first one may split the pair.
     """
@@ -977,7 +977,7 @@ def test_build_tracer_provider_processor_selection():
 
 
 def test_baggage_processor_lifecycle_noops():
-    proc = providers.LiteLLMBaggageSpanProcessor(allowed_keys=["litellm.team.id"])
+    proc = providers.EmbRouterBaggageSpanProcessor(allowed_keys=["embrouter.team.id"])
     # no-op lifecycle hooks must not raise
     assert proc.on_end(None) is None  # type: ignore[arg-type]
     assert proc.shutdown() is None
@@ -985,7 +985,7 @@ def test_baggage_processor_lifecycle_noops():
 
 
 def test_emitter_without_call_id_is_not_deduped():
-    from litellm.integrations.otel.emitter import SpanEmitter
+    from embrouter.integrations.otel.emitter import SpanEmitter
 
     cfg = OpenTelemetryV2Config(exporter="in_memory")
     provider, exporter = providers.in_memory_provider(cfg)
@@ -1009,8 +1009,8 @@ def test_emitter_without_call_id_is_not_deduped():
     assert len(exporter.get_finished_spans()) == 2
 
 
-def _emit_error_span(message, error_type="litellm.APIError"):
-    from litellm.integrations.otel.emitter import SpanEmitter
+def _emit_error_span(message, error_type="embrouter.APIError"):
+    from embrouter.integrations.otel.emitter import SpanEmitter
 
     cfg = OpenTelemetryV2Config(exporter="in_memory")
     provider, exporter = providers.in_memory_provider(cfg)
@@ -1035,7 +1035,7 @@ def _emit_error_span(message, error_type="litellm.APIError"):
 
 
 def _exception_event(span):
-    from litellm.integrations.otel.model.semconv import ExceptionEvent
+    from embrouter.integrations.otel.model.semconv import ExceptionEvent
 
     events = [e for e in span.events if e.name == ExceptionEvent.NAME]
     assert len(events) == 1, "expected exactly one exception event"
@@ -1047,30 +1047,30 @@ def test_error_message_recorded_as_full_exception_event_untruncated():
     ``exception.message`` so backends that dynamic-map unknown string span
     attrs to ``keyword`` (e.g. Elasticsearch with a 1024-char ``ignore_above``)
     still see it in full via the semconv-recognized event field."""
-    from litellm.integrations.otel.model.semconv import Error, ExceptionEvent
+    from embrouter.integrations.otel.model.semconv import Error, ExceptionEvent
 
     long_message = "boom: " + "x" * 5000
-    span = _emit_error_span(long_message, error_type="litellm.APIError")
+    span = _emit_error_span(long_message, error_type="embrouter.APIError")
 
     event = _exception_event(span)
     assert event.attributes[ExceptionEvent.MESSAGE] == long_message
     assert len(event.attributes[ExceptionEvent.MESSAGE]) == len(long_message) > 1024
-    assert event.attributes[ExceptionEvent.TYPE] == "litellm.APIError"
+    assert event.attributes[ExceptionEvent.TYPE] == "embrouter.APIError"
 
     # error.type stays a low-cardinality attribute; the exception EVENT field
     # ``exception.message`` never becomes a bare string attribute.
-    assert span.attributes[Error.TYPE] == "litellm.APIError"
+    assert span.attributes[Error.TYPE] == "embrouter.APIError"
     assert ExceptionEvent.MESSAGE not in span.attributes
     assert span.status.description == long_message
 
 
 def test_error_details_stamped_as_span_attributes_for_labels_ingest():
-    """OTel-defined keys and litellm-specific detail keys both ride span
+    """OTel-defined keys and embrouter-specific detail keys both ride span
     attributes so backends that flatten attrs into label indexes (Elastic APM
     ``labels.*``, Datadog span tags) render them. The exception event with the
     full untruncated message stays alongside."""
-    from litellm.integrations.otel.model.semconv import Error, ExceptionEvent, LiteLLMError
-    from litellm.integrations.otel.emitter import SpanEmitter
+    from embrouter.integrations.otel.model.semconv import Error, ExceptionEvent, EmbRouterError
+    from embrouter.integrations.otel.emitter import SpanEmitter
 
     cfg = OpenTelemetryV2Config(exporter="in_memory")
     provider, exporter = providers.in_memory_provider(cfg)
@@ -1085,7 +1085,7 @@ def test_error_details_stamped_as_span_attributes_for_labels_ingest():
         usage=LLMUsage(),
         finish_reasons=(),
         error=SpanError(
-            error_type="litellm.BadRequestError",
+            error_type="embrouter.BadRequestError",
             message="400: violated moderation policy",
             code="400",
             stack_trace="File proxy_server.py line 8570 ...",
@@ -1099,13 +1099,13 @@ def test_error_details_stamped_as_span_attributes_for_labels_ingest():
     (span,) = exporter.get_finished_spans()
 
     # OTel-defined keys (from the ``error.*`` semconv registry).
-    assert span.attributes[Error.TYPE] == "litellm.BadRequestError"
+    assert span.attributes[Error.TYPE] == "embrouter.BadRequestError"
     assert span.attributes[Error.MESSAGE] == "400: violated moderation policy"
-    # LiteLLM-specific detail keys, under the ``litellm.provider.error.*``
+    # EmbRouter-specific detail keys, under the ``embrouter.provider.error.*``
     # vendor namespace, not defined by OTel semconv.
-    assert span.attributes[LiteLLMError.CODE] == "400"
-    assert span.attributes[LiteLLMError.STACK_TRACE] == "File proxy_server.py line 8570 ..."
-    assert span.attributes[LiteLLMError.LLM_PROVIDER] == "openai"
+    assert span.attributes[EmbRouterError.CODE] == "400"
+    assert span.attributes[EmbRouterError.STACK_TRACE] == "File proxy_server.py line 8570 ..."
+    assert span.attributes[EmbRouterError.LLM_PROVIDER] == "openai"
 
     # The exception event carries the same message on the span too.
     event = _exception_event(span)
@@ -1116,31 +1116,31 @@ def test_error_details_omitted_when_span_error_carries_only_message():
     """A guardrail-shape error (message only, no code/traceback/provider) must
     not pollute the span with empty-string detail attributes. Only the keys
     that carry real data land."""
-    from litellm.integrations.otel.model.semconv import Error, LiteLLMError
+    from embrouter.integrations.otel.model.semconv import Error, EmbRouterError
 
     span = _emit_error_span("guardrail rejected", error_type="ContentFilter")
 
     assert span.attributes[Error.TYPE] == "ContentFilter"
     assert span.attributes[Error.MESSAGE] == "guardrail rejected"
-    # LiteLLM-specific detail keys aren't stamped when the SpanError doesn't
+    # EmbRouter-specific detail keys aren't stamped when the SpanError doesn't
     # carry them.
-    assert LiteLLMError.CODE not in span.attributes
-    assert LiteLLMError.STACK_TRACE not in span.attributes
-    assert LiteLLMError.LLM_PROVIDER not in span.attributes
+    assert EmbRouterError.CODE not in span.attributes
+    assert EmbRouterError.STACK_TRACE not in span.attributes
+    assert EmbRouterError.LLM_PROVIDER not in span.attributes
 
 
 def test_error_attribute_keys_are_pinned():
     """``error.type`` and ``error.message`` come from the semconv ``error.*``
-    registry; the litellm-specific detail keys are vendor keys under
-    ``litellm.provider.error.*``. Pins the exact strings so the emitted
+    registry; the embrouter-specific detail keys are vendor keys under
+    ``embrouter.provider.error.*``. Pins the exact strings so the emitted
     vocabulary can't drift silently."""
-    from litellm.integrations.otel.model.semconv import Error, LiteLLMError
+    from embrouter.integrations.otel.model.semconv import Error, EmbRouterError
 
     assert Error.TYPE == "error.type"
     assert Error.MESSAGE == "error.message"
-    assert LiteLLMError.CODE == "litellm.provider.error.code"
-    assert LiteLLMError.STACK_TRACE == "litellm.provider.error.stack_trace"
-    assert LiteLLMError.LLM_PROVIDER == "litellm.provider.error.llm_provider"
+    assert EmbRouterError.CODE == "embrouter.provider.error.code"
+    assert EmbRouterError.STACK_TRACE == "embrouter.provider.error.stack_trace"
+    assert EmbRouterError.LLM_PROVIDER == "embrouter.provider.error.llm_provider"
 
 
 def test_error_message_falls_back_to_error_type_when_message_absent():
@@ -1148,7 +1148,7 @@ def test_error_message_falls_back_to_error_type_when_message_absent():
     the resolved message is the error_type, and it lands on ``error.message``,
     the exception event, and the span-status description in lockstep so a
     single-source-of-truth view isn't inconsistent."""
-    from litellm.integrations.otel.model.semconv import Error, ExceptionEvent
+    from embrouter.integrations.otel.model.semconv import Error, ExceptionEvent
 
     span = _emit_error_span(message=None, error_type="RateLimitError")
 
@@ -1158,8 +1158,8 @@ def test_error_message_falls_back_to_error_type_when_message_absent():
 
 
 def test_success_span_records_no_exception_event():
-    from litellm.integrations.otel.emitter import SpanEmitter
-    from litellm.integrations.otel.model.semconv import ExceptionEvent
+    from embrouter.integrations.otel.emitter import SpanEmitter
+    from embrouter.integrations.otel.model.semconv import ExceptionEvent
 
     cfg = OpenTelemetryV2Config(exporter="in_memory")
     provider, exporter = providers.in_memory_provider(cfg)
@@ -1186,8 +1186,8 @@ def test_success_span_records_no_exception_event():
 def _engine_with_event_recorder():
     from opentelemetry.sdk._logs.export import InMemoryLogExporter
 
-    from litellm.integrations.otel.emitter import SpanEmitter
-    from litellm.integrations.otel.plumbing.events import GenAIEventRecorder
+    from embrouter.integrations.otel.emitter import SpanEmitter
+    from embrouter.integrations.otel.plumbing.events import GenAIEventRecorder
 
     cfg = OpenTelemetryV2Config(exporter="in_memory", enable_events=True)
     provider, span_exporter = providers.in_memory_provider(cfg)
@@ -1222,7 +1222,7 @@ def test_operation_exception_log_event_emitted_on_failed_llm_call():
     the failed span via trace/span ids. The span-side error surface stays intact."""
     from opentelemetry._logs.severity import SeverityNumber
 
-    from litellm.integrations.otel.model.semconv import ExceptionEvent, GenAIEvent
+    from embrouter.integrations.otel.model.semconv import ExceptionEvent, GenAIEvent
 
     engine, span_exporter, log_exporter = _engine_with_event_recorder()
     engine.emit(
@@ -1254,7 +1254,7 @@ def test_operation_exception_log_event_emitted_on_failed_llm_call():
 
 
 def test_operation_exception_log_event_omits_absent_stacktrace():
-    from litellm.integrations.otel.model.semconv import ExceptionEvent
+    from embrouter.integrations.otel.model.semconv import ExceptionEvent
 
     engine, _, log_exporter = _engine_with_event_recorder()
     engine.emit(SpanRole.LLM_CALL, _llm_call_data(SpanError(error_type="APIError", message="boom")))
@@ -1272,8 +1272,8 @@ def test_operation_exception_log_event_always_carries_required_pair():
     from opentelemetry.sdk._logs.export import InMemoryLogExporter
     from opentelemetry.trace import INVALID_SPAN_CONTEXT
 
-    from litellm.integrations.otel.model.semconv import ExceptionEvent
-    from litellm.integrations.otel.plumbing.events import GenAIEventRecorder
+    from embrouter.integrations.otel.model.semconv import ExceptionEvent
+    from embrouter.integrations.otel.plumbing.events import GenAIEventRecorder
 
     cfg = OpenTelemetryV2Config(exporter="in_memory", enable_events=True)
     log_exporter = InMemoryLogExporter()
@@ -1305,9 +1305,9 @@ def test_operation_exception_log_event_records_without_the_events_api():
     from opentelemetry.sdk._logs.export import InMemoryLogExporter
     from opentelemetry.trace import INVALID_SPAN_CONTEXT
 
-    from litellm.integrations.otel.model.semconv import ExceptionEvent, GenAIEvent
+    from embrouter.integrations.otel.model.semconv import ExceptionEvent, GenAIEvent
 
-    plumbing = ("litellm.integrations.otel.plumbing.events", "litellm.integrations.otel.plumbing.providers")
+    plumbing = ("embrouter.integrations.otel.plumbing.events", "embrouter.integrations.otel.plumbing.providers")
     without_events_api = {
         **{name: module for name, module in sys.modules.items() if name not in plumbing},
         "opentelemetry._events": None,
@@ -1367,7 +1367,7 @@ def test_resolve_logger_provider_honors_explicit_noop_optout(monkeypatch):
     from opentelemetry import _logs
     from opentelemetry._logs import NoOpLoggerProvider
 
-    from litellm.integrations.otel.logger import OpenTelemetryV2
+    from embrouter.integrations.otel.logger import OpenTelemetryV2
 
     cfg = OpenTelemetryV2Config(exporter="in_memory", enable_events=True)
     tracer_provider, _ = providers.in_memory_provider(cfg)
@@ -1380,7 +1380,7 @@ def test_resolve_logger_provider_honors_explicit_noop_optout(monkeypatch):
 
 def test_resolve_logger_provider_reuses_operator_sdk_global(monkeypatch):
     """Events ride an operator-configured logs pipeline rather than a second one
-    built by litellm, so they land wherever the operator's other logs land."""
+    built by embrouter, so they land wherever the operator's other logs land."""
     from opentelemetry import _logs
     from opentelemetry.sdk._logs.export import InMemoryLogExporter
 
@@ -1392,7 +1392,7 @@ def test_resolve_logger_provider_reuses_operator_sdk_global(monkeypatch):
 
 
 def test_operation_exception_event_keys_are_pinned():
-    from litellm.integrations.otel.model.semconv import ExceptionEvent, GenAIEvent
+    from embrouter.integrations.otel.model.semconv import ExceptionEvent, GenAIEvent
 
     assert GenAIEvent.OPERATION_EXCEPTION == "gen_ai.client.operation.exception"
     assert ExceptionEvent.STACKTRACE == "exception.stacktrace"
@@ -1424,7 +1424,7 @@ def test_span_role_for_service_classifies_datastores_internal_and_metrics_only()
 
 
 def test_sanitize_event_metadata_drops_objects_dumps_and_secrets():
-    from litellm.integrations.otel.model.payloads import sanitize_event_metadata
+    from embrouter.integrations.otel.model.payloads import sanitize_event_metadata
 
     clean = sanitize_event_metadata(
         {
@@ -1444,7 +1444,7 @@ def test_sanitize_event_metadata_drops_objects_dumps_and_secrets():
 
 
 def test_sanitize_event_metadata_caps_value_length_and_handles_none():
-    from litellm.integrations.otel.model.payloads import sanitize_event_metadata
+    from embrouter.integrations.otel.model.payloads import sanitize_event_metadata
 
     assert sanitize_event_metadata(None) == {}
     big = sanitize_event_metadata({"k": "v" * 5000})
@@ -1453,9 +1453,9 @@ def test_sanitize_event_metadata_caps_value_length_and_handles_none():
 
 def test_genai_mapper_guardrail_cost_in_spend_attr():
     """guardrail_cost_in_spend surfaces on the span so trace consumers can tell a
-    billed guardrail cost (already inside litellm.cost.total) from a report-only
+    billed guardrail cost (already inside embrouter.cost.total) from a report-only
     one; absent means billed and the attribute stays off the span."""
-    from litellm.integrations.otel.model.semconv import LiteLLM
+    from embrouter.integrations.otel.model.semconv import EmbRouter
 
     entry = {
         "guardrail_name": "azure-shield",
@@ -1465,12 +1465,12 @@ def test_genai_mapper_guardrail_cost_in_spend_attr():
         "guardrail_cost_in_spend": False,
     }
     attrs = GenAIMapper().map(GuardrailSpanData.from_logging_entry(entry))
-    assert attrs[LiteLLM.GUARDRAIL_COST_IN_SPEND] is False
-    assert LiteLLM.GUARDRAIL_COST_IN_SPEND == "litellm.guardrail.cost_in_spend"
+    assert attrs[EmbRouter.GUARDRAIL_COST_IN_SPEND] is False
+    assert EmbRouter.GUARDRAIL_COST_IN_SPEND == "embrouter.guardrail.cost_in_spend"
 
     billed = dict(entry)
     del billed["guardrail_cost_in_spend"]
-    assert LiteLLM.GUARDRAIL_COST_IN_SPEND not in GenAIMapper().map(GuardrailSpanData.from_logging_entry(billed))
+    assert EmbRouter.GUARDRAIL_COST_IN_SPEND not in GenAIMapper().map(GuardrailSpanData.from_logging_entry(billed))
 
 
 def _sampled_span_context():
@@ -1496,8 +1496,8 @@ def test_operation_exception_log_event_exports_through_console_exporter():
     from opentelemetry.sdk._logs.export import ConsoleLogExporter, SimpleLogRecordProcessor
     from opentelemetry.sdk.resources import Resource
 
-    from litellm.integrations.otel.model.semconv import ExceptionEvent, GenAIEvent
-    from litellm.integrations.otel.plumbing.events import GenAIEventRecorder
+    from embrouter.integrations.otel.model.semconv import ExceptionEvent, GenAIEvent
+    from embrouter.integrations.otel.plumbing.events import GenAIEventRecorder
 
     out = io.StringIO()
     logger_provider = LoggerProvider(resource=Resource.create({"service.name": "otel-event-test"}))
@@ -1526,8 +1526,8 @@ def test_operation_exception_log_event_encodes_for_otlp():
     from opentelemetry.exporter.otlp.proto.common._log_encoder import encode_logs
     from opentelemetry.sdk._logs.export import InMemoryLogExporter
 
-    from litellm.integrations.otel.model.semconv import GenAIEvent
-    from litellm.integrations.otel.plumbing.events import GenAIEventRecorder
+    from embrouter.integrations.otel.model.semconv import GenAIEvent
+    from embrouter.integrations.otel.plumbing.events import GenAIEventRecorder
 
     log_exporter = InMemoryLogExporter()
     cfg = OpenTelemetryV2Config(exporter="in_memory", enable_events=True)
@@ -1565,7 +1565,7 @@ def _isolate_v2_otlp_tls_env(monkeypatch: pytest.MonkeyPatch) -> None:
     ):
         monkeypatch.delenv(key, raising=False)
     monkeypatch.setenv("OTEL_EXPORTER_OTLP_TIMEOUT", "2")
-    monkeypatch.setattr(litellm, "ssl_verify", True)
+    monkeypatch.setattr(embrouter, "ssl_verify", True)
 
 
 def test_v2_otlp_http_span_export_trusts_ssl_cert_file(monkeypatch: pytest.MonkeyPatch, tls_sink: TlsSink) -> None:

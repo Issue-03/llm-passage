@@ -9,20 +9,20 @@ import time
 
 import pytest
 
-from litellm.integrations.code_interpreter_interception.handler import (
+from embrouter.integrations.code_interpreter_interception.handler import (
     CodeInterpreterInterceptionLogger,
-    LITELLM_CODE_EXECUTION_TOOL_NAME,
+    EMBROUTER_CODE_EXECUTION_TOOL_NAME,
     _INTERCEPTION_ACTIVE_KEY as _ACTIVE_KEY,
     _SANDBOX_KEY,
     _SESSION_SCOPED_KEY,
 )
-from litellm.types.integrations.custom_logger import (
+from embrouter.types.integrations.custom_logger import (
     CHAT_COMPLETION_AGENTIC_SURFACE,
     NON_CODE_INTERPRETER_INTERCEPTION_INTERNAL_PREFIXES,
     is_interception_internal_key,
 )
-from litellm.llms.base_llm.sandbox.transformation import CodeExecutionResult
-from litellm.types.utils import CallTypes
+from embrouter.llms.base_llm.sandbox.transformation import CodeExecutionResult
+from embrouter.types.utils import CallTypes
 
 
 class FakeHandle:
@@ -53,8 +53,8 @@ class FakeSandbox:
 
 
 class FakeLogging:
-    def __init__(self, litellm_call_id="k1"):
-        self.litellm_call_id = litellm_call_id
+    def __init__(self, embrouter_call_id="k1"):
+        self.embrouter_call_id = embrouter_call_id
         self.model_call_details = {}
         self.dynamic_success_callbacks = []
 
@@ -65,7 +65,7 @@ class FakeLogging:
         return None
 
 
-def _function_call_item(call_id="c1", name=LITELLM_CODE_EXECUTION_TOOL_NAME):
+def _function_call_item(call_id="c1", name=EMBROUTER_CODE_EXECUTION_TOOL_NAME):
     return {
         "type": "function_call",
         "call_id": call_id,
@@ -74,7 +74,7 @@ def _function_call_item(call_id="c1", name=LITELLM_CODE_EXECUTION_TOOL_NAME):
     }
 
 
-def _chat_function_call_item(call_id="call_1", name=LITELLM_CODE_EXECUTION_TOOL_NAME):
+def _chat_function_call_item(call_id="call_1", name=EMBROUTER_CODE_EXECUTION_TOOL_NAME):
     return {
         "id": call_id,
         "type": "function",
@@ -120,7 +120,7 @@ async def test_build_plan_runs_code_and_feeds_output_back():
             "tool_calls": [
                 {
                     "call_id": "c1",
-                    "name": LITELLM_CODE_EXECUTION_TOOL_NAME,
+                    "name": EMBROUTER_CODE_EXECUTION_TOOL_NAME,
                     "arguments": '{"code":"print(40 + 2)"}',
                 }
             ]
@@ -130,9 +130,9 @@ async def test_build_plan_runs_code_and_feeds_output_back():
         response=response,
         anthropic_messages_provider_config=None,
         anthropic_messages_optional_request_params={"tools": []},
-        logging_obj=FakeLogging(litellm_call_id="k1"),
+        logging_obj=FakeLogging(embrouter_call_id="k1"),
         stream=False,
-        kwargs={"litellm_call_id": "k1", _SANDBOX_KEY: "sbxkey1"},
+        kwargs={"embrouter_call_id": "k1", _SANDBOX_KEY: "sbxkey1"},
     )
 
     assert sandbox.run_calls, "sandbox.arun_code must be invoked"
@@ -159,7 +159,7 @@ async def test_pre_call_converts_code_interpreter_tool():
     tools = result["tools"]
     assert not any(t.get("type") == "code_interpreter" for t in tools), "code_interpreter tool must be removed"
     names = [t.get("name") or (t.get("function") or {}).get("name") for t in tools]
-    assert LITELLM_CODE_EXECUTION_TOOL_NAME in names
+    assert EMBROUTER_CODE_EXECUTION_TOOL_NAME in names
 
 
 @pytest.mark.asyncio
@@ -176,14 +176,14 @@ async def test_pre_call_converts_code_interpreter_tool_for_chat_completions():
     assert result is not None
     tool = result["tools"][0]
     assert tool["type"] == "function"
-    assert tool["function"]["name"] == LITELLM_CODE_EXECUTION_TOOL_NAME
+    assert tool["function"]["name"] == EMBROUTER_CODE_EXECUTION_TOOL_NAME
     assert tool["function"]["parameters"]["required"] == ["code"]
     assert result["tool_choice"] == {
         "type": "function",
-        "function": {"name": LITELLM_CODE_EXECUTION_TOOL_NAME},
+        "function": {"name": EMBROUTER_CODE_EXECUTION_TOOL_NAME},
     }
-    assert result["litellm_metadata"][_ACTIVE_KEY] is True
-    assert result["litellm_metadata"][_SANDBOX_KEY] == result[_SANDBOX_KEY]
+    assert result["embrouter_metadata"][_ACTIVE_KEY] is True
+    assert result["embrouter_metadata"][_SANDBOX_KEY] == result[_SANDBOX_KEY]
 
 
 @pytest.mark.asyncio
@@ -210,7 +210,7 @@ async def test_pre_call_rewrites_forced_code_interpreter_tool_choice(tool_choice
     assert result is not None
     assert result["tool_choice"] == {
         "type": "function",
-        "name": LITELLM_CODE_EXECUTION_TOOL_NAME,
+        "name": EMBROUTER_CODE_EXECUTION_TOOL_NAME,
     }
 
 
@@ -262,7 +262,7 @@ async def test_should_run_detects_only_matching_function_call():
     logger = CodeInterpreterInterceptionLogger(sandbox_config=FakeSandbox())
 
     active_kwargs = {"_code_interpreter_interception_active": True}
-    match = FakeResponse(output=[_function_call_item(name=LITELLM_CODE_EXECUTION_TOOL_NAME)])
+    match = FakeResponse(output=[_function_call_item(name=EMBROUTER_CODE_EXECUTION_TOOL_NAME)])
     should_run, payload = await logger.async_should_run_agentic_loop(
         response=match,
         model="gpt-5",
@@ -300,7 +300,7 @@ async def test_container_reused_within_request_via_server_sandbox_key():
             "tool_calls": [
                 {
                     "call_id": "c1",
-                    "name": LITELLM_CODE_EXECUTION_TOOL_NAME,
+                    "name": EMBROUTER_CODE_EXECUTION_TOOL_NAME,
                     "arguments": '{"code":"print(40 + 2)"}',
                 }
             ]
@@ -314,13 +314,13 @@ async def test_container_reused_within_request_via_server_sandbox_key():
     )
 
     await logger.async_build_agentic_loop_plan(
-        logging_obj=FakeLogging(litellm_call_id="k1"),
-        kwargs={"litellm_call_id": "k1", _SANDBOX_KEY: "server-nonce-1"},
+        logging_obj=FakeLogging(embrouter_call_id="k1"),
+        kwargs={"embrouter_call_id": "k1", _SANDBOX_KEY: "server-nonce-1"},
         **common,
     )
     await logger.async_build_agentic_loop_plan(
-        logging_obj=FakeLogging(litellm_call_id="k1"),
-        kwargs={"litellm_call_id": "k1", _SANDBOX_KEY: "server-nonce-1"},
+        logging_obj=FakeLogging(embrouter_call_id="k1"),
+        kwargs={"embrouter_call_id": "k1", _SANDBOX_KEY: "server-nonce-1"},
         **common,
     )
 
@@ -329,7 +329,7 @@ async def test_container_reused_within_request_via_server_sandbox_key():
 
 @pytest.mark.asyncio
 async def test_colliding_caller_call_id_does_not_share_sandbox():
-    """Two requests with the same caller-controlled litellm_call_id but distinct
+    """Two requests with the same caller-controlled embrouter_call_id but distinct
     server-minted sandbox keys must NOT share a container; otherwise one user's
     code could read another in-flight request's sandbox state."""
     sandbox = FakeSandbox(stdout="42")
@@ -339,7 +339,7 @@ async def test_colliding_caller_call_id_does_not_share_sandbox():
             "tool_calls": [
                 {
                     "call_id": "c1",
-                    "name": LITELLM_CODE_EXECUTION_TOOL_NAME,
+                    "name": EMBROUTER_CODE_EXECUTION_TOOL_NAME,
                     "arguments": '{"code":"print(1)"}',
                 }
             ]
@@ -353,13 +353,13 @@ async def test_colliding_caller_call_id_does_not_share_sandbox():
     )
 
     await logger.async_build_agentic_loop_plan(
-        logging_obj=FakeLogging(litellm_call_id="shared"),
-        kwargs={"litellm_call_id": "shared", _SANDBOX_KEY: "nonce-A"},
+        logging_obj=FakeLogging(embrouter_call_id="shared"),
+        kwargs={"embrouter_call_id": "shared", _SANDBOX_KEY: "nonce-A"},
         **common,
     )
     await logger.async_build_agentic_loop_plan(
-        logging_obj=FakeLogging(litellm_call_id="shared"),
-        kwargs={"litellm_call_id": "shared", _SANDBOX_KEY: "nonce-B"},
+        logging_obj=FakeLogging(embrouter_call_id="shared"),
+        kwargs={"embrouter_call_id": "shared", _SANDBOX_KEY: "nonce-B"},
         **common,
     )
 
@@ -376,7 +376,7 @@ async def test_pre_call_mints_server_sandbox_key():
     kwargs = {
         "tools": [{"type": "code_interpreter", "container": {"type": "auto"}}],
         "custom_llm_provider": "openai",
-        "litellm_call_id": "caller-supplied",
+        "embrouter_call_id": "caller-supplied",
         _SANDBOX_KEY: "caller-forged",
     }
 
@@ -396,7 +396,7 @@ async def test_build_plan_records_code_interpreter_call_metadata():
             "tool_calls": [
                 {
                     "call_id": "c1",
-                    "name": LITELLM_CODE_EXECUTION_TOOL_NAME,
+                    "name": EMBROUTER_CODE_EXECUTION_TOOL_NAME,
                     "arguments": '{"code":"print(40 + 2)"}',
                 }
             ]
@@ -406,9 +406,9 @@ async def test_build_plan_records_code_interpreter_call_metadata():
         response=FakeResponse(output=[_function_call_item()]),
         anthropic_messages_provider_config=None,
         anthropic_messages_optional_request_params={"tools": []},
-        logging_obj=FakeLogging(litellm_call_id="k1"),
+        logging_obj=FakeLogging(embrouter_call_id="k1"),
         stream=False,
-        kwargs={"litellm_call_id": "k1", _SANDBOX_KEY: "sbxkey1"},
+        kwargs={"embrouter_call_id": "k1", _SANDBOX_KEY: "sbxkey1"},
     )
 
     calls = plan.metadata["code_interpreter_calls"]
@@ -433,7 +433,7 @@ async def test_build_plan_outputs_empty_array_when_no_stdout():
             "tool_calls": [
                 {
                     "call_id": "c1",
-                    "name": LITELLM_CODE_EXECUTION_TOOL_NAME,
+                    "name": EMBROUTER_CODE_EXECUTION_TOOL_NAME,
                     "arguments": '{"code":"pass"}',
                 }
             ]
@@ -443,9 +443,9 @@ async def test_build_plan_outputs_empty_array_when_no_stdout():
         response=FakeResponse(output=[_function_call_item()]),
         anthropic_messages_provider_config=None,
         anthropic_messages_optional_request_params={"tools": []},
-        logging_obj=FakeLogging(litellm_call_id="k1"),
+        logging_obj=FakeLogging(embrouter_call_id="k1"),
         stream=False,
-        kwargs={"litellm_call_id": "k1", _SANDBOX_KEY: "sbxkey1"},
+        kwargs={"embrouter_call_id": "k1", _SANDBOX_KEY: "sbxkey1"},
     )
 
     assert plan.metadata["code_interpreter_calls"][0]["outputs"] == []
@@ -453,7 +453,7 @@ async def test_build_plan_outputs_empty_array_when_no_stdout():
 
 @pytest.mark.asyncio
 async def test_post_hook_injects_code_interpreter_call_matching_openai_shape():
-    from litellm.types.integrations.custom_logger import AgenticLoopPlan
+    from embrouter.types.integrations.custom_logger import AgenticLoopPlan
 
     logger = CodeInterpreterInterceptionLogger(sandbox_config=FakeSandbox())
     ci_item = {
@@ -488,7 +488,7 @@ async def test_post_hook_injects_code_interpreter_call_matching_openai_shape():
 
 @pytest.mark.asyncio
 async def test_post_hook_noop_without_recorded_calls():
-    from litellm.types.integrations.custom_logger import AgenticLoopPlan
+    from embrouter.types.integrations.custom_logger import AgenticLoopPlan
 
     logger = CodeInterpreterInterceptionLogger(sandbox_config=FakeSandbox())
     response = FakeResponse(output=[{"type": "message", "content": []}])
@@ -522,7 +522,7 @@ async def _build_plan(logger, sandbox, call_id="k1", provider="openai"):
             "tool_calls": [
                 {
                     "call_id": "c1",
-                    "name": LITELLM_CODE_EXECUTION_TOOL_NAME,
+                    "name": EMBROUTER_CODE_EXECUTION_TOOL_NAME,
                     "arguments": '{"code":"print(40 + 2)"}',
                 }
             ]
@@ -532,18 +532,18 @@ async def _build_plan(logger, sandbox, call_id="k1", provider="openai"):
         response=FakeResponse(output=[_function_call_item()]),
         anthropic_messages_provider_config=None,
         anthropic_messages_optional_request_params={"tools": []},
-        logging_obj=FakeLogging(litellm_call_id=call_id),
+        logging_obj=FakeLogging(embrouter_call_id=call_id),
         stream=False,
-        kwargs={"litellm_call_id": call_id, _SANDBOX_KEY: "sbxkey1"},
+        kwargs={"embrouter_call_id": call_id, _SANDBOX_KEY: "sbxkey1"},
     )
 
 
 @pytest.mark.asyncio
 async def test_gate_refuses_without_server_active_marker():
-    """A forged litellm_code_execution call must not trigger the loop unless the
+    """A forged embrouter_code_execution call must not trigger the loop unless the
     pre-call hook actually converted a native code_interpreter tool."""
     logger = CodeInterpreterInterceptionLogger(sandbox_config=FakeSandbox())
-    forged = FakeResponse(output=[_function_call_item(name=LITELLM_CODE_EXECUTION_TOOL_NAME)])
+    forged = FakeResponse(output=[_function_call_item(name=EMBROUTER_CODE_EXECUTION_TOOL_NAME)])
 
     should_run, payload = await logger.async_should_run_agentic_loop(
         response=forged,
@@ -563,7 +563,7 @@ async def test_gate_refuses_without_server_active_marker():
 async def test_gate_rechecks_provider_scope():
     """enabled_providers must be re-enforced at the gate, not only in pre-call."""
     logger = CodeInterpreterInterceptionLogger(sandbox_config=FakeSandbox(), enabled_providers=["openai"])
-    response = FakeResponse(output=[_function_call_item(name=LITELLM_CODE_EXECUTION_TOOL_NAME)])
+    response = FakeResponse(output=[_function_call_item(name=EMBROUTER_CODE_EXECUTION_TOOL_NAME)])
 
     should_run, _ = await logger.async_should_run_agentic_loop(
         response=response,
@@ -631,7 +631,7 @@ async def test_chat_completion_build_plan_runs_code_and_appends_tool_message():
             "tool_calls": [
                 {
                     "id": "call_1",
-                    "name": LITELLM_CODE_EXECUTION_TOOL_NAME,
+                    "name": EMBROUTER_CODE_EXECUTION_TOOL_NAME,
                     "arguments": '{"code":"print(40 + 2)"}',
                 }
             ]
@@ -645,11 +645,11 @@ async def test_chat_completion_build_plan_runs_code_and_appends_tool_message():
             "tool_choice": {"type": "code_interpreter", "container": {"type": "auto"}},
             "temperature": 0,
         },
-        logging_obj=FakeLogging(litellm_call_id="k1"),
+        logging_obj=FakeLogging(embrouter_call_id="k1"),
         stream=False,
         kwargs={
             "acompletion": True,
-            "litellm_call_id": "k1",
+            "embrouter_call_id": "k1",
             _ACTIVE_KEY: True,
             _SANDBOX_KEY: "sbxkey1",
             "_code_interpreter_interception_converted_stream": True,
@@ -664,7 +664,7 @@ async def test_chat_completion_build_plan_runs_code_and_appends_tool_message():
         {
             "type": "function",
             "function": {
-                "name": LITELLM_CODE_EXECUTION_TOOL_NAME,
+                "name": EMBROUTER_CODE_EXECUTION_TOOL_NAME,
                 "description": "Execute python code in a sandbox and return stdout.",
                 "parameters": {
                     "type": "object",
@@ -676,7 +676,7 @@ async def test_chat_completion_build_plan_runs_code_and_appends_tool_message():
     ]
     assert patch.optional_params == {"temperature": 0}
     assert patch.kwargs == {
-        "litellm_call_id": "k1",
+        "embrouter_call_id": "k1",
         _ACTIVE_KEY: True,
         _SANDBOX_KEY: "sbxkey1",
         "_code_interpreter_interception_converted_stream": True,
@@ -697,13 +697,13 @@ async def test_chat_completion_build_plan_runs_code_and_appends_tool_message():
 async def test_pre_call_strips_client_forged_marker_on_initial_request():
     """A client cannot pre-set the active marker on the original request: with no
     native code_interpreter tool, any client-supplied interception markers in
-    litellm_metadata are scrubbed and the active flag in kwargs is cleared."""
+    embrouter_metadata are scrubbed and the active flag in kwargs is cleared."""
     logger = CodeInterpreterInterceptionLogger(sandbox_config=FakeSandbox())
     kwargs = {
         "tools": [{"type": "web_search"}],
         "custom_llm_provider": "openai",
         _ACTIVE_KEY: True,
-        "litellm_metadata": {
+        "embrouter_metadata": {
             _ACTIVE_KEY: True,
             _SANDBOX_KEY: "client-forged",
             "safe_user_value": "kept",
@@ -715,21 +715,21 @@ async def test_pre_call_strips_client_forged_marker_on_initial_request():
     assert _ACTIVE_KEY not in kwargs, (
         "no native code_interpreter tool was present, so a client-supplied active marker must be cleared"
     )
-    assert kwargs["litellm_metadata"] == {"safe_user_value": "kept"}
+    assert kwargs["embrouter_metadata"] == {"safe_user_value": "kept"}
 
 
 @pytest.mark.asyncio
 async def test_pre_call_strips_forged_loop_controls_then_mints_own_markers():
     """On an INITIAL request (no server-set _agentic_loop_depth) a client cannot
     smuggle loop-control state: forged _agentic_loop_depth / max_agentic_loops and
-    interception markers in litellm_metadata are stripped before the interceptor
+    interception markers in embrouter_metadata are stripped before the interceptor
     activates, so the only interception markers that survive are the ones the
     server mints for the converted code_interpreter tool."""
     logger = CodeInterpreterInterceptionLogger(sandbox_config=FakeSandbox())
     kwargs = {
         "tools": [{"type": "code_interpreter", "container": {"type": "auto"}}],
         "custom_llm_provider": "openai",
-        "litellm_metadata": {
+        "embrouter_metadata": {
             _ACTIVE_KEY: True,
             _SANDBOX_KEY: "client-forged",
             "_agentic_loop_depth": 99,
@@ -741,7 +741,7 @@ async def test_pre_call_strips_forged_loop_controls_then_mints_own_markers():
     result = await logger.async_pre_call_deployment_hook(kwargs, CallTypes.acompletion)
 
     assert result is not None
-    metadata = result["litellm_metadata"]
+    metadata = result["embrouter_metadata"]
     assert metadata["safe_user_value"] == "kept"
     assert "_agentic_loop_depth" not in metadata, "forged loop depth must be stripped"
     assert "max_agentic_loops" not in metadata, "forged loop cap must be stripped"
@@ -757,7 +757,7 @@ async def test_pre_call_preserves_marker_on_server_followup():
     """On a server-driven followup (depth>0) the marker is trusted and kept."""
     logger = CodeInterpreterInterceptionLogger(sandbox_config=FakeSandbox())
     kwargs = {
-        "tools": [{"type": "function", "name": LITELLM_CODE_EXECUTION_TOOL_NAME}],
+        "tools": [{"type": "function", "name": EMBROUTER_CODE_EXECUTION_TOOL_NAME}],
         "custom_llm_provider": "openai",
         "_agentic_loop_depth": 1,
         _ACTIVE_KEY: True,
@@ -865,10 +865,10 @@ async def test_cleanup_hook_is_idempotent_with_post_hook():
 async def test_responses_plan_cleans_up_sandbox_when_followup_raises():
     """If the agentic rerun fails, _execute_responses_agentic_plan must still
     invoke the cleanup hook so the sandbox is not left running."""
-    import litellm
-    from litellm.integrations.custom_logger import CustomLogger
-    from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
-    from litellm.types.integrations.custom_logger import (
+    import embrouter
+    from embrouter.integrations.custom_logger import CustomLogger
+    from embrouter.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+    from embrouter.types.integrations.custom_logger import (
         AgenticLoopPlan,
         AgenticLoopRequestPatch,
     )
@@ -888,19 +888,19 @@ async def test_responses_plan_cleans_up_sandbox_when_followup_raises():
         metadata={"sandbox_key": "sbxkey1"},
     )
 
-    original = litellm.aresponses
+    original = embrouter.aresponses
 
     async def _boom(*args, **kwargs):
         raise RuntimeError("upstream blew up")
 
-    litellm.aresponses = _boom
+    embrouter.aresponses = _boom
     try:
         with pytest.raises(RuntimeError, match="upstream blew up"):
             await BaseLLMHTTPHandler()._execute_responses_agentic_plan(
                 plan=plan,
                 model="gpt-5",
                 response_api_optional_request_params={},
-                logging_obj=FakeLogging(litellm_call_id="k1"),
+                logging_obj=FakeLogging(embrouter_call_id="k1"),
                 kwargs={},
                 depth=0,
                 max_loops=3,
@@ -909,7 +909,7 @@ async def test_responses_plan_cleans_up_sandbox_when_followup_raises():
                 callback=CleanupCallback(),
             )
     finally:
-        litellm.aresponses = original
+        embrouter.aresponses = original
 
     assert cleanup_calls == [plan], (
         "cleanup hook must run in finally even when the rerun raises, otherwise "
@@ -921,14 +921,14 @@ async def test_responses_plan_cleans_up_sandbox_when_followup_raises():
 async def test_run_code_does_not_re_resolve_registry(monkeypatch):
     """Params resolved once at create time must be reused for running code, so a
     registry clear between create and run cannot turn into a create-then-fail."""
-    import litellm
-    from litellm.sandbox import sandbox_tools
+    import embrouter
+    from embrouter.sandbox import sandbox_tools
 
     sandbox_tools.register_sandbox_tools(
         [
             {
                 "sandbox_tool_name": "e2b_default",
-                "litellm_params": {"sandbox_provider": "e2b", "api_key": "sk-x"},
+                "embrouter_params": {"sandbox_provider": "e2b", "api_key": "sk-x"},
             }
         ]
     )
@@ -944,8 +944,8 @@ async def test_run_code_does_not_re_resolve_registry(monkeypatch):
         run_kwargs.update(kwargs)
         return CodeExecutionResult(stdout="ok")
 
-    monkeypatch.setattr(litellm, "acreate_sandbox", fake_acreate_sandbox)
-    monkeypatch.setattr(litellm, "arun_code", fake_arun_code)
+    monkeypatch.setattr(embrouter, "acreate_sandbox", fake_acreate_sandbox)
+    monkeypatch.setattr(embrouter, "arun_code", fake_arun_code)
 
     logger = CodeInterpreterInterceptionLogger(sandbox_tool_name="e2b_default")
     try:
@@ -1061,7 +1061,7 @@ async def test_delete_container_swallows_errors():
 async def test_prune_expired_cache_deletes_underlying_container():
     """Expired cache entries must have their sandbox deleted, not just dropped,
     otherwise an orphaned sandbox keeps running."""
-    import litellm.integrations.code_interpreter_interception.handler as handler_mod
+    import embrouter.integrations.code_interpreter_interception.handler as handler_mod
 
     sandbox = FakeSandbox()
     logger = CodeInterpreterInterceptionLogger(sandbox_config=sandbox)
@@ -1101,9 +1101,9 @@ def test_from_config_yaml_reads_fields():
     assert logger.sandbox_tool_name == "e2b_default"
 
 
-def test_initialize_from_proxy_config_prefers_litellm_settings():
+def test_initialize_from_proxy_config_prefers_embrouter_settings():
     logger = CodeInterpreterInterceptionLogger.initialize_from_proxy_config(
-        litellm_settings={
+        embrouter_settings={
             "code_interpreter_interception_params": {
                 "enabled_providers": ["openai"],
                 "sandbox_tool_name": "e2b_default",
@@ -1131,9 +1131,9 @@ async def test_build_plan_handles_dict_shaped_response():
         response=dict_response,
         anthropic_messages_provider_config=None,
         anthropic_messages_optional_request_params={"tools": []},
-        logging_obj=FakeLogging(litellm_call_id="k1"),
+        logging_obj=FakeLogging(embrouter_call_id="k1"),
         stream=False,
-        kwargs={"litellm_call_id": "k1", _SANDBOX_KEY: "sbxkey1"},
+        kwargs={"embrouter_call_id": "k1", _SANDBOX_KEY: "sbxkey1"},
     )
 
     assert sandbox.run_calls, "code must run for a dict-shaped response"
@@ -1159,7 +1159,7 @@ async def test_extract_tool_calls_reads_object_attributes():
     class Item:
         def __init__(self):
             self.type = "function_call"
-            self.name = LITELLM_CODE_EXECUTION_TOOL_NAME
+            self.name = EMBROUTER_CODE_EXECUTION_TOOL_NAME
             self.call_id = "c9"
             self.arguments = '{"code":"print(1)"}'
 
@@ -1193,19 +1193,19 @@ async def test_pre_call_uses_session_id_from_metadata_as_sandbox_key():
     assert result is not None
     assert result[_SANDBOX_KEY] == session_id
     assert result[_SESSION_SCOPED_KEY] is True
-    assert result["litellm_metadata"][_SANDBOX_KEY] == session_id
-    assert result["litellm_metadata"][_SESSION_SCOPED_KEY] is True
+    assert result["embrouter_metadata"][_SANDBOX_KEY] == session_id
+    assert result["embrouter_metadata"][_SESSION_SCOPED_KEY] is True
 
 
 @pytest.mark.asyncio
-async def test_pre_call_uses_session_id_from_litellm_metadata():
-    """session_id in litellm_metadata also works as the sticky key."""
+async def test_pre_call_uses_session_id_from_embrouter_metadata():
+    """session_id in embrouter_metadata also works as the sticky key."""
     logger = CodeInterpreterInterceptionLogger(sandbox_config=FakeSandbox())
     session_id = "sess-xyz-789"
     kwargs = {
         "tools": [{"type": "code_interpreter", "container": {"type": "auto"}}],
         "custom_llm_provider": "openai",
-        "litellm_metadata": {"session_id": session_id},
+        "embrouter_metadata": {"session_id": session_id},
     }
 
     result = await logger.async_pre_call_deployment_hook(kwargs, CallTypes.acompletion)
@@ -1244,7 +1244,7 @@ async def test_session_scoped_sandbox_survives_agentic_loop_cleanup():
             "tool_calls": [
                 {
                     "call_id": "c1",
-                    "name": LITELLM_CODE_EXECUTION_TOOL_NAME,
+                    "name": EMBROUTER_CODE_EXECUTION_TOOL_NAME,
                     "arguments": '{"code":"x = 10"}',
                 }
             ]
@@ -1254,10 +1254,10 @@ async def test_session_scoped_sandbox_survives_agentic_loop_cleanup():
         response=FakeResponse(output=[_function_call_item()]),
         anthropic_messages_provider_config=None,
         anthropic_messages_optional_request_params={"tools": []},
-        logging_obj=FakeLogging(litellm_call_id="k1"),
+        logging_obj=FakeLogging(embrouter_call_id="k1"),
         stream=False,
         kwargs={
-            "litellm_call_id": "k1",
+            "embrouter_call_id": "k1",
             _SANDBOX_KEY: session_id,
             _SESSION_SCOPED_KEY: True,
         },
@@ -1292,7 +1292,7 @@ async def test_session_scoped_sandbox_reused_across_sequential_requests():
             "tool_calls": [
                 {
                     "call_id": "c1",
-                    "name": LITELLM_CODE_EXECUTION_TOOL_NAME,
+                    "name": EMBROUTER_CODE_EXECUTION_TOOL_NAME,
                     "arguments": '{"code":"print(1)"}',
                 }
             ]
@@ -1307,8 +1307,8 @@ async def test_session_scoped_sandbox_reused_across_sequential_requests():
     session_kwargs = {_SANDBOX_KEY: session_id, _SESSION_SCOPED_KEY: True}
 
     plan1 = await logger.async_build_agentic_loop_plan(
-        logging_obj=FakeLogging(litellm_call_id="req1"),
-        kwargs={"litellm_call_id": "req1", **session_kwargs},
+        logging_obj=FakeLogging(embrouter_call_id="req1"),
+        kwargs={"embrouter_call_id": "req1", **session_kwargs},
         **common_plan_args,
     )
     await logger.async_post_agentic_loop_response_hook(
@@ -1318,8 +1318,8 @@ async def test_session_scoped_sandbox_reused_across_sequential_requests():
     )
 
     plan2 = await logger.async_build_agentic_loop_plan(
-        logging_obj=FakeLogging(litellm_call_id="req2"),
-        kwargs={"litellm_call_id": "req2", **session_kwargs},
+        logging_obj=FakeLogging(embrouter_call_id="req2"),
+        kwargs={"embrouter_call_id": "req2", **session_kwargs},
         **common_plan_args,
     )
     await logger.async_post_agentic_loop_response_hook(
@@ -1392,7 +1392,7 @@ async def test_per_identity_cap_evicts_lru_session():
     """When a single identity holds the cap limit of session sandboxes and opens a
     new one, the least-recently-used session is evicted so the allocation stays
     bounded.  Without this, rotating session IDs is an unbounded sandbox leak."""
-    from litellm.integrations.code_interpreter_interception.handler import _SESSION_SCOPED_PER_IDENTITY_CAP
+    from embrouter.integrations.code_interpreter_interception.handler import _SESSION_SCOPED_PER_IDENTITY_CAP
 
     sandbox = FakeSandbox(stdout="ok")
     logger = CodeInterpreterInterceptionLogger(sandbox_config=sandbox)

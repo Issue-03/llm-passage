@@ -3,7 +3,7 @@ import { makeOpenAIEmbeddingsRequest } from "./embeddings_api";
 
 vi.mock("@/components/networking", () => ({
   getProxyBaseUrl: vi.fn(() => "https://example.com"),
-  getGlobalLitellmHeaderName: vi.fn(() => "Authorization"),
+  getGlobalEmbrouterHeaderName: vi.fn(() => "Authorization"),
 }));
 
 describe("embeddings_api", () => {
@@ -85,13 +85,13 @@ describe("embeddings_api", () => {
       "abcdef",
       ["team-a"],
       undefined,
-      { "x-litellm-tags": "team-b", "x-request-source": "playground" },
+      { "x-embrouter-tags": "team-b", "x-request-source": "playground" },
     );
 
     expect(mockFetch.mock.calls[0][1]).toMatchObject({
       headers: {
         Authorization: "Bearer abcdef",
-        "x-litellm-tags": "team-b",
+        "x-embrouter-tags": "team-b",
         "x-request-source": "playground",
       },
     });

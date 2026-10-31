@@ -1,6 +1,6 @@
 from unittest.mock import patch
 
-import litellm
+import embrouter
 
 model = "ovhcloud/BGE-M3"
 
@@ -9,7 +9,7 @@ def mock_embedding_response(*args, **kwargs):
     class MockResponse:
         def __init__(self):
             self.data = [{"embedding": [0.1, 0.2, 0.3]}]
-            self.usage = litellm.Usage()
+            self.usage = embrouter.Usage()
             self.model = kwargs.get("model", model)
             self.object = "embedding"
 
@@ -20,15 +20,15 @@ def mock_embedding_response(*args, **kwargs):
 
 
 def test_ovhcloud_embeddings():
-    with patch("litellm.embedding", side_effect=mock_embedding_response) as mock_embed:
-        response = litellm.embedding(
+    with patch("embrouter.embedding", side_effect=mock_embedding_response) as mock_embed:
+        response = embrouter.embedding(
             model,
-            input=["good morning from litellm"],
+            input=["good morning from embrouter"],
         )
 
         mock_embed.assert_called_once_with(
             model,
-            input=["good morning from litellm"],
+            input=["good morning from embrouter"],
         )
 
         assert isinstance(response.data, list)

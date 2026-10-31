@@ -6,16 +6,16 @@ from typing import TYPE_CHECKING, Final
 
 import httpx
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.openai.chat.gpt_transformation import OpenAIGPTConfig
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.openai import AllMessageValues, ChatCompletionAnnotation, ChatCompletionAnnotationURLCitation
-from litellm.types.utils import ModelResponse, PromptTokensDetailsWrapper, Usage
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.openai.chat.gpt_transformation import OpenAIGPTConfig
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.openai import AllMessageValues, ChatCompletionAnnotation, ChatCompletionAnnotationURLCitation
+from embrouter.types.utils import ModelResponse, PromptTokensDetailsWrapper, Usage
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
 
 
 class PerplexityChatConfig(OpenAIGPTConfig):
@@ -52,13 +52,13 @@ class PerplexityChatConfig(OpenAIGPTConfig):
         ]
 
         try:
-            if litellm.supports_reasoning(model=model, custom_llm_provider=self.custom_llm_provider):
+            if embrouter.supports_reasoning(model=model, custom_llm_provider=self.custom_llm_provider):
                 base_openai_params.append("reasoning_effort")
         except Exception as e:
             verbose_logger.debug("Error checking if model supports reasoning: %s", e)
 
         try:
-            if litellm.supports_web_search(model=model, custom_llm_provider=self.custom_llm_provider):
+            if embrouter.supports_web_search(model=model, custom_llm_provider=self.custom_llm_provider):
                 base_openai_params.append("web_search_options")
         except Exception as e:
             verbose_logger.debug("Error checking if model supports web search: %s", e)
@@ -70,11 +70,11 @@ class PerplexityChatConfig(OpenAIGPTConfig):
         model: str,
         raw_response: httpx.Response,
         model_response: ModelResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         request_data: dict,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,
@@ -88,7 +88,7 @@ class PerplexityChatConfig(OpenAIGPTConfig):
             request_data=request_data,
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             encoding=encoding,
             api_key=api_key,
             json_mode=json_mode,
@@ -107,7 +107,7 @@ class PerplexityChatConfig(OpenAIGPTConfig):
     def _enhance_usage_with_perplexity_fields(self, model_response: ModelResponse, raw_response_json: dict) -> None:
         """
         Extract citation tokens and search queries from Perplexity API response
-        and add them to the usage object using standard LiteLLM fields.
+        and add them to the usage object using standard EmbRouter fields.
         """
         if not hasattr(model_response, "usage") or model_response.usage is None:
             # Create a usage object if it doesn't exist (when usage was None)

@@ -1,10 +1,10 @@
 """
-Plugin proxy routes for litellm.
+Plugin proxy routes for embrouter.
 
 Enables external services to register as plugins and be proxied through
-the litellm proxy server.
+the embrouter proxy server.
 
-Config (in litellm config.yaml general_settings):
+Config (in embrouter config.yaml general_settings):
   plugins:
     - name: my-plugin
       url: "http://localhost:3210"
@@ -14,9 +14,9 @@ Config (in litellm config.yaml general_settings):
 Plugin iframe auth:
   The UI calls GET /api/plugins/auth-token to receive a short-lived identity
   claim ({user_id, user_role, plugin, exp}) encrypted with a per-plugin key
-  derived as HMAC-SHA256(LITELLM_SALT_KEY, plugin_name).  The claim carries no
-  litellm bearer token, so a compromised plugin learns only the caller's
-  identity, never their credential.  LITELLM_SALT_KEY itself is never shared
+  derived as HMAC-SHA256(EMBROUTER_SALT_KEY, plugin_name).  The claim carries no
+  embrouter bearer token, so a compromised plugin learns only the caller's
+  identity, never their credential.  EMBROUTER_SALT_KEY itself is never shared
   with plugins — each plugin holds only its own derived key.
 """
 
@@ -32,14 +32,14 @@ from typing import Final
 from cryptography.fernet import Fernet, InvalidToken
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 
-from litellm.llms.custom_httpx.http_handler import get_async_httpx_client
-from litellm.proxy._types import PluginConfig, SpecialHeaders, UserAPIKeyAuth
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.types.llms.custom_http import httpxSpecialProvider
+from embrouter.llms.custom_httpx.http_handler import get_async_httpx_client
+from embrouter.proxy._types import PluginConfig, SpecialHeaders, UserAPIKeyAuth
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.types.llms.custom_http import httpxSpecialProvider
 
 router: Final = APIRouter()
 
-# Hop-by-hop headers (RFC 7230) and the litellm session cookie — never forwarded
+# Hop-by-hop headers (RFC 7230) and the embrouter session cookie — never forwarded
 # to a plugin backend.  Credential headers are added on top per-request from the
 # canonical SpecialHeaders set so the plugin only ever authenticates via its own
 # injected plugin_key.
@@ -57,38 +57,38 @@ _HOP_BY_HOP_STRIP: Final = frozenset(
 
 
 def _configured_key_header_names() -> frozenset[str]:
-    """The lowercased general_settings.litellm_key_header_name, if configured.
+    """The lowercased general_settings.embrouter_key_header_name, if configured.
 
     Read live from the proxy module (not import-time) so a custom key header set
     via config is honoured without a restart.  Returns empty when unset.
     """
     try:
-        from litellm.proxy import proxy_server
+        from embrouter.proxy import proxy_server
     except Exception:
         return frozenset()
     general_settings: Final = getattr(proxy_server, "general_settings", None)
     if not isinstance(general_settings, Mapping):
         return frozenset()
-    name: Final[object] = general_settings.get("litellm_key_header_name")
+    name: Final[object] = general_settings.get("embrouter_key_header_name")
     return frozenset({name.lower()}) if isinstance(name, str) and name else frozenset()
 
 
 def _request_strip_headers() -> frozenset[str]:
     """Headers to drop before forwarding a request to a plugin backend.
 
-    Every header user_api_key_auth accepts as a litellm credential is stripped —
+    Every header user_api_key_auth accepts as a embrouter credential is stripped —
     Authorization, x-api-key, API-Key, x-goog-api-key, Ocp-Apim-Subscription-Key,
-    x-litellm-api-key, and any configured custom key header — so a plugin can
-    never be handed the caller's live litellm key (confused-deputy escalation).
+    x-embrouter-api-key, and any configured custom key header — so a plugin can
+    never be handed the caller's live embrouter key (confused-deputy escalation).
     """
-    return _HOP_BY_HOP_STRIP | SpecialHeaders.litellm_credential_header_names() | _configured_key_header_names()
+    return _HOP_BY_HOP_STRIP | SpecialHeaders.embrouter_credential_header_names() | _configured_key_header_names()
 
 
 # Headers to strip from plugin RESPONSES before returning to the browser.
 # httpx already decompresses and de-chunks the body, so forwarding the wire
 # encoding headers causes clients to attempt double-decompression (garbage) or
 # incorrect length checks.  set-cookie is removed so plugins cannot overwrite
-# litellm session cookies.
+# embrouter session cookies.
 _RESPONSE_STRIP: Final = {
     "content-encoding",
     "transfer-encoding",
@@ -100,7 +100,7 @@ _RESPONSE_STRIP: Final = {
 def _safe_response_headers(raw: "Mapping[str, str]") -> dict[str, str]:
     """Strip wire-encoding/cookie headers and force proxied responses inert.
 
-    Plugin-controlled bytes are served from the litellm dashboard origin, so a
+    Plugin-controlled bytes are served from the embrouter dashboard origin, so a
     compromised plugin could return an HTML/JS document that executes with the
     admin's session against same-origin management APIs.  A sandbox CSP forces
     the response into an opaque origin with scripts disabled, and nosniff stops
@@ -120,18 +120,18 @@ _plugin_registry: Final[dict[str, PluginConfig]] = {}
 
 # ---------------------------------------------------------------------------
 # Key derivation — audience-scoped per plugin so compromising one plugin
-# cannot be used to forge claims for another.  LITELLM_SALT_KEY is NEVER
+# cannot be used to forge claims for another.  EMBROUTER_SALT_KEY is NEVER
 # shared with plugins; each plugin only receives a key derived from
-# HMAC(LITELLM_SALT_KEY, plugin_name) which reveals nothing about the master.
+# HMAC(EMBROUTER_SALT_KEY, plugin_name) which reveals nothing about the master.
 # ---------------------------------------------------------------------------
 def _plugin_fernet(plugin_name: str) -> Fernet:
     """Return a Fernet cipher whose key is scoped to a specific plugin.
 
-    Key material: HMAC-SHA256(LITELLM_SALT_KEY, plugin_name).
+    Key material: HMAC-SHA256(EMBROUTER_SALT_KEY, plugin_name).
     A plugin possessing its own key cannot derive the master salt or
     forge claims intended for a different plugin.
     """
-    salt: Final = os.getenv("LITELLM_SALT_KEY", "").encode()
+    salt: Final = os.getenv("EMBROUTER_SALT_KEY", "").encode()
     derived: Final = _hmac.new(salt, plugin_name.encode(), hashlib.sha256).digest()
     return Fernet(base64.urlsafe_b64encode(derived))
 
@@ -143,7 +143,7 @@ def issue_plugin_session_claim(plugin_name: str, user_id: str | None, user_role:
     """Issue a short-lived, audience-scoped identity claim for the plugin.
 
     The claim contains {user_id, user_role, plugin, exp}.  Crucially it
-    contains NO litellm bearer token — the plugin can only derive the
+    contains NO embrouter bearer token — the plugin can only derive the
     caller's identity, not act as them against the proxy.
     """
     claim: Final = {
@@ -217,23 +217,23 @@ async def list_plugins(
 @router.get("/api/plugins/auth-token", tags=["plugins"])
 async def plugin_auth_token(
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
-    plugin_name: str = "litellm-platform-plugin",
+    plugin_name: str = "embrouter-platform-plugin",
 ) -> dict:
     """Issue a short-lived, audience-scoped plugin session claim.
 
     The claim contains {user_id, user_role, plugin, exp}.  It does NOT
-    contain the caller's litellm bearer token — a compromised plugin can
+    contain the caller's embrouter bearer token — a compromised plugin can
     only learn the caller's identity, not impersonate them against the proxy.
 
-    Encrypted with a key derived from HMAC(LITELLM_SALT_KEY, plugin_name),
+    Encrypted with a key derived from HMAC(EMBROUTER_SALT_KEY, plugin_name),
     so each plugin holds only its own key and cannot forge claims for others.
 
-    Requires LITELLM_SALT_KEY to be set; returns 503 otherwise.
+    Requires EMBROUTER_SALT_KEY to be set; returns 503 otherwise.
     """
-    if not os.getenv("LITELLM_SALT_KEY"):
+    if not os.getenv("EMBROUTER_SALT_KEY"):
         raise HTTPException(
             status_code=503,
-            detail="LITELLM_SALT_KEY is not configured; plugin iframe auth unavailable.",
+            detail="EMBROUTER_SALT_KEY is not configured; plugin iframe auth unavailable.",
         )
     if plugin_name not in _plugin_registry:
         raise HTTPException(status_code=404, detail=f"Plugin '{plugin_name}' is not registered.")
@@ -261,8 +261,8 @@ async def plugin_proxy(
     talk to the plugin service directly via the iframe; this route is for
     administrative and server-to-server access only.
 
-    The caller's litellm credential is stripped and replaced with the
-    plugin's own plugin_key so plugins never receive a live litellm API key.
+    The caller's embrouter credential is stripped and replaced with the
+    plugin's own plugin_key so plugins never receive a live embrouter API key.
     """
     if getattr(user_api_key_dict, "user_role", None) != "proxy_admin":
         return Response(
@@ -299,9 +299,9 @@ async def plugin_proxy(
     user_id: Final = getattr(user_api_key_dict, "user_id", None)
     user_role: Final = getattr(user_api_key_dict, "user_role", None)
     if user_id:
-        forward_headers["x-litellm-user-id"] = str(user_id)
+        forward_headers["x-embrouter-user-id"] = str(user_id)
     if user_role:
-        forward_headers["x-litellm-user-role"] = str(user_role)
+        forward_headers["x-embrouter-user-role"] = str(user_role)
 
     handler: Final = get_async_httpx_client(llm_provider=httpxSpecialProvider.PassThroughEndpoint)
     try:

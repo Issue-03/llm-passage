@@ -19,12 +19,12 @@ from uuid import uuid4
 import pytest
 
 
-from litellm.proxy._types import (
+from embrouter.proxy._types import (
     GenerateKeyResponse,
-    LiteLLM_VerificationToken,
+    EmbRouter_VerificationToken,
 )
-from litellm.proxy.common_utils.key_rotation_manager import KeyRotationManager
-from litellm.proxy.utils import (
+from embrouter.proxy.common_utils.key_rotation_manager import KeyRotationManager
+from embrouter.proxy.utils import (
     PrismaClient,
     _deprecated_key_cache,
     _lookup_deprecated_key,
@@ -172,7 +172,7 @@ class TestKeyRotationErrorResilience:
         mock_prisma = AsyncMock()
         manager = KeyRotationManager(mock_prisma)
 
-        key1 = LiteLLM_VerificationToken(
+        key1 = EmbRouter_VerificationToken(
             token="token-1",
             auto_rotate=True,
             rotation_interval="30s",
@@ -180,7 +180,7 @@ class TestKeyRotationErrorResilience:
             rotation_count=0,
             key_name="key-1",
         )
-        key2 = LiteLLM_VerificationToken(
+        key2 = EmbRouter_VerificationToken(
             token="token-2",
             auto_rotate=True,
             rotation_interval="30s",
@@ -188,7 +188,7 @@ class TestKeyRotationErrorResilience:
             rotation_count=0,
             key_name="key-2",
         )
-        key3 = LiteLLM_VerificationToken(
+        key3 = EmbRouter_VerificationToken(
             token="token-3",
             auto_rotate=True,
             rotation_interval="30s",
@@ -223,7 +223,7 @@ class TestKeyRotationErrorResilience:
         mock_prisma = AsyncMock()
         manager = KeyRotationManager(mock_prisma)
 
-        key = LiteLLM_VerificationToken(
+        key = EmbRouter_VerificationToken(
             token="test-token",
             auto_rotate=True,
             rotation_interval="30s",
@@ -233,7 +233,7 @@ class TestKeyRotationErrorResilience:
         )
 
         with patch(
-            "litellm.proxy.common_utils.key_rotation_manager.regenerate_key_fn",
+            "embrouter.proxy.common_utils.key_rotation_manager.regenerate_key_fn",
             new_callable=AsyncMock,
             side_effect=Exception("regenerate failed: DB timeout"),
         ):
@@ -246,7 +246,7 @@ class TestKeyRotationErrorResilience:
         manager._find_keys_needing_rotation = AsyncMock(return_value=[key])
 
         with patch(
-            "litellm.proxy.common_utils.key_rotation_manager.regenerate_key_fn",
+            "embrouter.proxy.common_utils.key_rotation_manager.regenerate_key_fn",
             new_callable=AsyncMock,
             side_effect=Exception("regenerate failed: DB timeout"),
         ):
@@ -262,7 +262,7 @@ class TestKeyRotationErrorResilience:
         mock_prisma = AsyncMock()
         manager = KeyRotationManager(mock_prisma)
 
-        key = LiteLLM_VerificationToken(
+        key = EmbRouter_VerificationToken(
             token="test-token",
             auto_rotate=True,
             rotation_interval="30s",
@@ -275,12 +275,12 @@ class TestKeyRotationErrorResilience:
         )
 
         with patch(
-            "litellm.proxy.common_utils.key_rotation_manager.regenerate_key_fn",
+            "embrouter.proxy.common_utils.key_rotation_manager.regenerate_key_fn",
             new_callable=AsyncMock,
             return_value=mock_response,
         ):
             with patch(
-                "litellm.proxy.common_utils.key_rotation_manager.KeyManagementEventHooks.async_key_rotated_hook",
+                "embrouter.proxy.common_utils.key_rotation_manager.KeyManagementEventHooks.async_key_rotated_hook",
                 new_callable=AsyncMock,
                 side_effect=Exception("Hook failed: secret manager down"),
             ):
@@ -289,8 +289,8 @@ class TestKeyRotationErrorResilience:
                     await manager._rotate_key(key)
 
         # The DB update should have been called BEFORE the hook
-        mock_prisma.db.litellm_verificationtoken.update.assert_called_once()
-        update_data = mock_prisma.db.litellm_verificationtoken.update.call_args[1][
+        mock_prisma.db.embrouter_verificationtoken.update.assert_called_once()
+        update_data = mock_prisma.db.embrouter_verificationtoken.update.call_args[1][
             "data"
         ]
         assert update_data["rotation_count"] == 1
@@ -341,7 +341,7 @@ class TestKeyRotationFullFlow:
 
         manager = KeyRotationManager(mock_prisma, pod_lock_manager=mock_lock)
 
-        key = LiteLLM_VerificationToken(
+        key = EmbRouter_VerificationToken(
             token="old-token-hash",
             auto_rotate=True,
             rotation_interval="30s",
@@ -358,17 +358,17 @@ class TestKeyRotationFullFlow:
         )
 
         # Mock cleanup
-        mock_prisma.db.litellm_deprecatedverificationtoken.delete_many.return_value = 1
+        mock_prisma.db.embrouter_deprecatedverificationtoken.delete_many.return_value = 1
         # Mock find keys
-        mock_prisma.db.litellm_verificationtoken.find_many.return_value = [key]
+        mock_prisma.db.embrouter_verificationtoken.find_many.return_value = [key]
 
         with patch(
-            "litellm.proxy.common_utils.key_rotation_manager.regenerate_key_fn",
+            "embrouter.proxy.common_utils.key_rotation_manager.regenerate_key_fn",
             new_callable=AsyncMock,
             return_value=mock_response,
         ):
             with patch(
-                "litellm.proxy.common_utils.key_rotation_manager.KeyManagementEventHooks.async_key_rotated_hook",
+                "embrouter.proxy.common_utils.key_rotation_manager.KeyManagementEventHooks.async_key_rotated_hook",
                 new_callable=AsyncMock,
             ):
                 await manager.process_rotations()
@@ -378,14 +378,14 @@ class TestKeyRotationFullFlow:
         mock_lock.acquire_lock.assert_called_once()
 
         # 2. Cleanup ran
-        mock_prisma.db.litellm_deprecatedverificationtoken.delete_many.assert_called_once()
+        mock_prisma.db.embrouter_deprecatedverificationtoken.delete_many.assert_called_once()
 
         # 3. Keys were queried
-        mock_prisma.db.litellm_verificationtoken.find_many.assert_called_once()
+        mock_prisma.db.embrouter_verificationtoken.find_many.assert_called_once()
 
         # 4. DB was updated with new rotation info
-        mock_prisma.db.litellm_verificationtoken.update.assert_called_once()
-        update_args = mock_prisma.db.litellm_verificationtoken.update.call_args[1]
+        mock_prisma.db.embrouter_verificationtoken.update.assert_called_once()
+        update_args = mock_prisma.db.embrouter_verificationtoken.update.call_args[1]
         assert update_args["where"]["token"] == "new-token-hash"
         assert update_args["data"]["rotation_count"] == 3  # was 2, now 3
 
@@ -404,7 +404,7 @@ class TestKeyRotationFullFlow:
         rotation_counts_seen = []
 
         for expected_count in range(3):
-            key = LiteLLM_VerificationToken(
+            key = EmbRouter_VerificationToken(
                 token=f"token-v{expected_count}",
                 auto_rotate=True,
                 rotation_interval="30s",
@@ -418,20 +418,20 @@ class TestKeyRotationFullFlow:
                 user_id="system",
             )
 
-            mock_prisma.db.litellm_verificationtoken.update.reset_mock()
+            mock_prisma.db.embrouter_verificationtoken.update.reset_mock()
 
             with patch(
-                "litellm.proxy.common_utils.key_rotation_manager.regenerate_key_fn",
+                "embrouter.proxy.common_utils.key_rotation_manager.regenerate_key_fn",
                 new_callable=AsyncMock,
                 return_value=mock_response,
             ):
                 with patch(
-                    "litellm.proxy.common_utils.key_rotation_manager.KeyManagementEventHooks.async_key_rotated_hook",
+                    "embrouter.proxy.common_utils.key_rotation_manager.KeyManagementEventHooks.async_key_rotated_hook",
                     new_callable=AsyncMock,
                 ):
                     await manager._rotate_key(key)
 
-            update_data = mock_prisma.db.litellm_verificationtoken.update.call_args[1][
+            update_data = mock_prisma.db.embrouter_verificationtoken.update.call_args[1][
                 "data"
             ]
             rotation_counts_seen.append(update_data["rotation_count"])
@@ -444,8 +444,8 @@ class TestKeyRotationFullFlow:
         When no keys need rotation, process should complete without errors.
         """
         mock_prisma = AsyncMock()
-        mock_prisma.db.litellm_deprecatedverificationtoken.delete_many.return_value = 0
-        mock_prisma.db.litellm_verificationtoken.find_many.return_value = []
+        mock_prisma.db.embrouter_deprecatedverificationtoken.delete_many.return_value = 0
+        mock_prisma.db.embrouter_verificationtoken.find_many.return_value = []
 
         mock_lock = MagicMock()
         mock_lock.redis_cache = MagicMock()
@@ -457,7 +457,7 @@ class TestKeyRotationFullFlow:
         await manager.process_rotations()
 
         # Verify no rotation was attempted
-        mock_prisma.db.litellm_verificationtoken.update.assert_not_called()
+        mock_prisma.db.embrouter_verificationtoken.update.assert_not_called()
         # But lock was still properly released
         mock_lock.release_lock.assert_called_once()
 
@@ -470,7 +470,7 @@ class TestKeyRotationFullFlow:
         mock_prisma = AsyncMock()
         manager = KeyRotationManager(mock_prisma)
 
-        key = LiteLLM_VerificationToken(
+        key = EmbRouter_VerificationToken(
             token="old-token",
             auto_rotate=True,
             rotation_interval="30s",
@@ -486,18 +486,18 @@ class TestKeyRotationFullFlow:
         )
 
         with patch(
-            "litellm.proxy.common_utils.key_rotation_manager.regenerate_key_fn",
+            "embrouter.proxy.common_utils.key_rotation_manager.regenerate_key_fn",
             new_callable=AsyncMock,
             return_value=mock_response,
         ):
             with patch(
-                "litellm.proxy.common_utils.key_rotation_manager.KeyManagementEventHooks.async_key_rotated_hook",
+                "embrouter.proxy.common_utils.key_rotation_manager.KeyManagementEventHooks.async_key_rotated_hook",
                 new_callable=AsyncMock,
             ):
                 await manager._rotate_key(key)
 
         # DB update should NOT have been called (no token_id)
-        mock_prisma.db.litellm_verificationtoken.update.assert_not_called()
+        mock_prisma.db.embrouter_verificationtoken.update.assert_not_called()
 
 
 class TestKeyRotationInitialization:
@@ -558,7 +558,7 @@ class TestKeyRotationInitialization:
         assert "cronjob_id" in release_call.kwargs or len(release_call.args) > 0
 
         # Both should use the same job name
-        from litellm.constants import KEY_ROTATION_JOB_NAME
+        from embrouter.constants import KEY_ROTATION_JOB_NAME
 
         assert acquire_call.kwargs.get("cronjob_id") == KEY_ROTATION_JOB_NAME
         assert release_call.kwargs.get("cronjob_id") == KEY_ROTATION_JOB_NAME
@@ -571,7 +571,7 @@ class TestDeprecatedKeyLookupDbE2E:
     async def test_deprecated_key_grace_period_cache_hit_path(self):
         """
         End-to-end validation against a real Prisma-backed DB:
-        - old key hash resolves through LiteLLM_DeprecatedVerificationToken
+        - old key hash resolves through EmbRouter_DeprecatedVerificationToken
         - repeated lookups hit the in-memory deprecated-key cache
         - no ValueError/401 regression on subsequent requests
         """
@@ -592,14 +592,14 @@ class TestDeprecatedKeyLookupDbE2E:
 
         await prisma_client.connect()
         try:
-            await prisma_client.db.litellm_verificationtoken.create(
+            await prisma_client.db.embrouter_verificationtoken.create(
                 data={
                     "token": active_token_hash,
                     "models": [],
                 }
             )
 
-            await prisma_client.db.litellm_deprecatedverificationtoken.create(
+            await prisma_client.db.embrouter_deprecatedverificationtoken.create(
                 data={
                     "token": old_token_hash,
                     "active_token_id": active_token_hash,
@@ -631,13 +631,13 @@ class TestDeprecatedKeyLookupDbE2E:
         finally:
             # Best-effort cleanup for idempotent reruns.
             try:
-                await prisma_client.db.litellm_deprecatedverificationtoken.delete_many(
+                await prisma_client.db.embrouter_deprecatedverificationtoken.delete_many(
                     where={"token": old_token_hash}
                 )
             except Exception:
                 pass
             try:
-                await prisma_client.db.litellm_verificationtoken.delete_many(
+                await prisma_client.db.embrouter_verificationtoken.delete_many(
                     where={"token": active_token_hash}
                 )
             except Exception:

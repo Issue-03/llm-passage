@@ -7,13 +7,13 @@ Handles Key/Team Based Datadog Logging, following the same pattern as LangFuseHa
 
 from typing import TYPE_CHECKING, Any, Final, TypedDict
 
-from litellm._logging import verbose_logger
-from litellm.litellm_core_utils.litellm_logging import StandardCallbackDynamicParams
+from embrouter._logging import verbose_logger
+from embrouter.embrouter_core_utils.embrouter_logging import StandardCallbackDynamicParams
 
 from .datadog import DataDogLogger
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import DynamicLoggingCache
+    from embrouter.embrouter_core_utils.embrouter_logging import DynamicLoggingCache
 else:
     DynamicLoggingCache = Any
 

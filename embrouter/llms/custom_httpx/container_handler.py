@@ -1,5 +1,5 @@
 """
-Generic container file handler for LiteLLM.
+Generic container file handler for EmbRouter.
 
 This module provides a single generic handler that can process any container file
 endpoint defined in endpoints.json, eliminating the need for individual handler methods.
@@ -13,28 +13,28 @@ from typing import TYPE_CHECKING, Any, Final
 import httpx
 from typing_extensions import NotRequired, ReadOnly, TypedDict
 
-import litellm
-from litellm.litellm_core_utils.url_utils import encode_url_path_segment
-from litellm.llms.custom_httpx.http_handler import (
+import embrouter
+from embrouter.embrouter_core_utils.url_utils import encode_url_path_segment
+from embrouter.llms.custom_httpx.http_handler import (
     AsyncHTTPHandler,
     HTTPHandler,
     _get_httpx_client,
     get_async_httpx_client,
 )
-from litellm.types.containers.main import (
+from embrouter.types.containers.main import (
     ContainerFileListResponse,
     ContainerFileObject,
     DeleteContainerFileResponse,
 )
-from litellm.types.router import GenericLiteLLMParams
+from embrouter.types.router import GenericEmbRouterParams
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.llms.base_llm.containers.transformation import BaseContainerConfig
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.llms.base_llm.containers.transformation import BaseContainerConfig
 
 
 class EndpointConfig(TypedDict):
-    """One endpoint entry of ``litellm/containers/endpoints.json``."""
+    """One endpoint entry of ``embrouter/containers/endpoints.json``."""
 
     name: ReadOnly[str]
     async_name: ReadOnly[str]
@@ -48,7 +48,7 @@ class EndpointConfig(TypedDict):
 
 
 class EndpointsConfig(TypedDict):
-    """The parsed ``litellm/containers/endpoints.json`` document."""
+    """The parsed ``embrouter/containers/endpoints.json`` document."""
 
     endpoints: ReadOnly[Sequence[EndpointConfig]]
 
@@ -168,7 +168,7 @@ def _transform_response(
     returns_binary: bool,
     response_type_name: str,
 ) -> ContainerEndpointResponse:
-    from litellm.llms.base_llm.chat.transformation import BaseLLMException
+    from embrouter.llms.base_llm.chat.transformation import BaseLLMException
 
     if httpx.codes.is_error(response.status_code):
         raise BaseLLMException(
@@ -204,7 +204,7 @@ def _prepare_multipart_file_upload(
     Returns:
         Tuple of (files_dict, headers_without_content_type)
     """
-    from litellm.litellm_core_utils.prompt_templates.common_utils import (
+    from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
         extract_file_data,
     )
 
@@ -225,45 +225,45 @@ def _prepare_multipart_file_upload(
 def _request_headers(
     container_provider_config: "BaseContainerConfig",
     extra_headers: dict[str, object] | None,
-    litellm_params: GenericLiteLLMParams,
+    embrouter_params: GenericEmbRouterParams,
 ) -> dict[str, object]:
     """The provider auth headers for a container request."""
     return container_provider_config.validate_environment(
         headers=extra_headers or {},
-        api_key=litellm_params.get("api_key", None),
+        api_key=embrouter_params.get("api_key", None),
     )
 
 
 def _request_api_base(
     container_provider_config: "BaseContainerConfig",
-    litellm_params: GenericLiteLLMParams,
+    embrouter_params: GenericEmbRouterParams,
 ) -> str:
     """The provider base URL for a container request."""
     return container_provider_config.get_complete_url(
-        api_base=litellm_params.get("api_base", None),
-        litellm_params=dict(litellm_params),
+        api_base=embrouter_params.get("api_base", None),
+        embrouter_params=dict(embrouter_params),
     )
 
 
 def _sync_http_client(
     client: HTTPHandler | AsyncHTTPHandler | None,
-    litellm_params: GenericLiteLLMParams,
+    embrouter_params: GenericEmbRouterParams,
 ) -> HTTPHandler:
     """The sync HTTP client for a container request, reusing the caller's when usable."""
     if client is None or not isinstance(client, HTTPHandler):
-        return _get_httpx_client(params={"ssl_verify": litellm_params.get("ssl_verify", None)})
+        return _get_httpx_client(params={"ssl_verify": embrouter_params.get("ssl_verify", None)})
     return client
 
 
 def _async_http_client(
     client: HTTPHandler | AsyncHTTPHandler | None,
-    litellm_params: GenericLiteLLMParams,
+    embrouter_params: GenericEmbRouterParams,
 ) -> AsyncHTTPHandler:
     """The async HTTP client for a container request, reusing the caller's when usable."""
     if client is None or not isinstance(client, AsyncHTTPHandler):
         return get_async_httpx_client(
-            llm_provider=litellm.LlmProviders.OPENAI,
-            params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+            llm_provider=embrouter.LlmProviders.OPENAI,
+            params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
         )
     return client
 
@@ -280,8 +280,8 @@ class GenericContainerHandler:
         self,
         endpoint_name: str,
         container_provider_config: "BaseContainerConfig",
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: "LiteLLMLoggingObj",
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: "EmbRouterLoggingObj",
         extra_headers: dict[str, object] | None = None,
         extra_query: dict[str, object] | None = None,
         timeout: float | httpx.Timeout = 600,
@@ -295,7 +295,7 @@ class GenericContainerHandler:
         Args:
             endpoint_name: Name of the endpoint (e.g., "list_container_files")
             container_provider_config: Provider-specific configuration
-            litellm_params: LiteLLM parameters including api_key, api_base
+            embrouter_params: EmbRouter parameters including api_key, api_base
             logging_obj: Logging object for request logging
             extra_headers: Additional HTTP headers
             extra_query: Additional query parameters
@@ -308,7 +308,7 @@ class GenericContainerHandler:
             return self._async_handle(
                 endpoint_name=endpoint_name,
                 container_provider_config=container_provider_config,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -320,7 +320,7 @@ class GenericContainerHandler:
         return self._sync_handle(
             endpoint_name=endpoint_name,
             container_provider_config=container_provider_config,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             logging_obj=logging_obj,
             extra_headers=extra_headers,
             extra_query=extra_query,
@@ -333,8 +333,8 @@ class GenericContainerHandler:
         self,
         endpoint_name: str,
         container_provider_config: "BaseContainerConfig",
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: "LiteLLMLoggingObj",
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: "EmbRouterLoggingObj",
         extra_headers: dict[str, object] | None = None,
         extra_query: dict[str, object] | None = None,
         timeout: float | httpx.Timeout = 600,
@@ -347,14 +347,14 @@ class GenericContainerHandler:
             raise ValueError(f"Unknown endpoint: {endpoint_name}")
 
         # Get HTTP client
-        http_client: Final = _sync_http_client(client, litellm_params)
+        http_client: Final = _sync_http_client(client, embrouter_params)
 
         # Build request
-        headers = _request_headers(container_provider_config, extra_headers, litellm_params)
+        headers = _request_headers(container_provider_config, extra_headers, embrouter_params)
         if extra_headers:
             headers.update(extra_headers)
 
-        api_base: Final = _request_api_base(container_provider_config, litellm_params)
+        api_base: Final = _request_api_base(container_provider_config, embrouter_params)
 
         # Build URL with path params
         path_params: Final = {p: kwargs.get(p, "") for p in endpoint_config.get("path_params", [])}
@@ -413,8 +413,8 @@ class GenericContainerHandler:
         self,
         endpoint_name: str,
         container_provider_config: "BaseContainerConfig",
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: "LiteLLMLoggingObj",
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: "EmbRouterLoggingObj",
         extra_headers: dict[str, object] | None = None,
         extra_query: dict[str, object] | None = None,
         timeout: float | httpx.Timeout = 600,
@@ -427,14 +427,14 @@ class GenericContainerHandler:
             raise ValueError(f"Unknown endpoint: {endpoint_name}")
 
         # Get HTTP client
-        http_client: Final = _async_http_client(client, litellm_params)
+        http_client: Final = _async_http_client(client, embrouter_params)
 
         # Build request
-        headers = _request_headers(container_provider_config, extra_headers, litellm_params)
+        headers = _request_headers(container_provider_config, extra_headers, embrouter_params)
         if extra_headers:
             headers.update(extra_headers)
 
-        api_base: Final = _request_api_base(container_provider_config, litellm_params)
+        api_base: Final = _request_api_base(container_provider_config, embrouter_params)
 
         # Build URL with path params
         path_params: Final = {p: kwargs.get(p, "") for p in endpoint_config.get("path_params", [])}

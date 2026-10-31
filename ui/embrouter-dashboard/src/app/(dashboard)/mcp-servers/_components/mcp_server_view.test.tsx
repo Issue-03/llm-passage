@@ -22,7 +22,7 @@ vi.mock("./mcp_server_edit", () => ({
       </button>
     </div>
   ),
-  EDIT_OAUTH_UI_STATE_KEY: "litellm-mcp-oauth-edit-state",
+  EDIT_OAUTH_UI_STATE_KEY: "embrouter-mcp-oauth-edit-state",
 }));
 
 vi.mock("@/components/networking", async (importOriginal) => ({

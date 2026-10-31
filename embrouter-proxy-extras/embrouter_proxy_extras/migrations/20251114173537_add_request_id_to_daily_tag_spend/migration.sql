@@ -1,3 +1,3 @@
 -- AlterTable
-ALTER TABLE "LiteLLM_DailyTagSpend" ADD COLUMN IF NOT EXISTS "request_id" TEXT;
+ALTER TABLE "EmbRouter_DailyTagSpend" ADD COLUMN IF NOT EXISTS "request_id" TEXT;
 

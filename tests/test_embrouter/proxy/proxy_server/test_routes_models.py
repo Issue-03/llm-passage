@@ -13,11 +13,11 @@ from unittest.mock import MagicMock
 
 import pytest
 
-import litellm
-from litellm.proxy import proxy_server
-from litellm.proxy import utils as proxy_utils
-from litellm.proxy.utils import create_model_info_response
-from litellm.types.router import DeploymentModelListingInfo
+import embrouter
+from embrouter.proxy import proxy_server
+from embrouter.proxy import utils as proxy_utils
+from embrouter.proxy.utils import create_model_info_response
+from embrouter.types.router import DeploymentModelListingInfo
 
 from .conftest import normalize  # type: ignore[import-not-found]
 
@@ -36,7 +36,7 @@ def _stub_model_info_response(
 @pytest.fixture
 def patched_models(monkeypatch):
     """Stub router + utility helpers used by the /models routes."""
-    from litellm.proxy import utils as proxy_utils
+    from embrouter.proxy import utils as proxy_utils
 
     router = MagicMock()
     router.get_fully_blocked_model_names = MagicMock(return_value=set())
@@ -44,7 +44,7 @@ def patched_models(monkeypatch):
     router.get_model_access_groups = MagicMock(return_value={})
 
     deployment = MagicMock()
-    deployment.litellm_params.model = "gpt-4"
+    deployment.embrouter_params.model = "gpt-4"
     router.get_deployment_by_model_group_name = MagicMock(return_value=deployment)
     router.get_configured_display_name = MagicMock(return_value=None)
 
@@ -70,7 +70,7 @@ def patched_models(monkeypatch):
     monkeypatch.setattr(proxy_utils, "validate_model_access", lambda **kwargs: None)
 
     monkeypatch.setattr(
-        litellm,
+        embrouter,
         "get_llm_provider",
         lambda model: (model, "openai", None, None),
     )
@@ -132,7 +132,7 @@ def test_anthropic_format_exposes_token_limits(
     """Claude Code sizes requests off the listing, so the Anthropic-native entries
     carry the same token limits the OpenAI listing resolves, with the output budget
     named max_tokens as the Messages API names it."""
-    from litellm.proxy import utils as proxy_utils
+    from embrouter.proxy import utils as proxy_utils
 
     def _create_model_info_response(model_id, provider="openai", **kwargs):
         if model_id != "claude-sonnet":
@@ -226,8 +226,8 @@ def test_anthropic_display_name_resolved_via_internal_team_key(
     """For a team-scoped row the configured display name must be looked up by the
     internal routing key while the entry itself is keyed by the public name, so
     the clean name lands on the id the client actually sees."""
-    from litellm.proxy import utils as proxy_utils
-    from litellm.proxy.auth import model_checks
+    from embrouter.proxy import utils as proxy_utils
+    from embrouter.proxy.auth import model_checks
 
     internal_name = "model_name_team-1_c0ffee"
 
@@ -309,8 +309,8 @@ def test_anthropic_format_returns_public_team_model_name(
     """Regression: the Anthropic-native listing must go through the same team
     name translation as the OpenAI listing, so a caller never sees the internal
     ``model_name_{team_id}_{uuid}`` routing key."""
-    from litellm.proxy import utils as proxy_utils
-    from litellm.proxy.auth import model_checks
+    from embrouter.proxy import utils as proxy_utils
+    from embrouter.proxy.auth import model_checks
 
     internal_name = "model_name_team-1_c0ffee"
 

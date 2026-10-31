@@ -15,23 +15,23 @@ from typing import TYPE_CHECKING, Any, Final
 
 import httpx
 
-from litellm._logging import verbose_logger
-from litellm.llms.base_llm.chat.transformation import BaseConfig, BaseLLMException
-from litellm.llms.gigachat.utils import convert_usage, get_api_base
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.utils import Choices, Message, ModelResponse
+from embrouter._logging import verbose_logger
+from embrouter.llms.base_llm.chat.transformation import BaseConfig, BaseLLMException
+from embrouter.llms.gigachat.utils import convert_usage, get_api_base
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.utils import Choices, Message, ModelResponse
 
 from ..authenticator import get_access_token
 from ..file_handler import upload_file_sync
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 
 _EMPTY_FUNCTION: Final[Mapping[str, object]] = MappingProxyType({})
@@ -102,7 +102,7 @@ class GigaChatConfig(BaseConfig):
         api_key: str | None,
         model: str,
         optional_params: Mapping[str, object],
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
         stream: bool | None = None,
     ) -> str:
         """Get complete API URL for chat completions."""
@@ -115,7 +115,7 @@ class GigaChatConfig(BaseConfig):
         model: str,
         messages: Sequence[AllMessageValues],
         optional_params: Mapping[str, object],
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:  # mutable-ok: base class contract returns dict for httpx
@@ -123,7 +123,7 @@ class GigaChatConfig(BaseConfig):
         Set up headers with OAuth token.
         """
         credentials: Final = api_key or get_secret_str("GIGACHAT_CREDENTIALS") or get_secret_str("GIGACHAT_API_KEY")
-        access_token: Final = get_access_token(credentials=credentials, litellm_params=litellm_params)
+        access_token: Final = get_access_token(credentials=credentials, embrouter_params=embrouter_params)
 
         self._current_credentials = credentials
         self._current_api_base = api_base
@@ -326,7 +326,7 @@ class GigaChatConfig(BaseConfig):
         model: str,
         messages: Sequence[AllMessageValues],
         optional_params: Mapping[str, object],
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
         headers: Mapping[str, object],
     ) -> dict:  # mutable-ok: request payload sent to httpx
         """Transform OpenAI request to GigaChat format."""
@@ -410,11 +410,11 @@ class GigaChatConfig(BaseConfig):
         model: str,
         raw_response: httpx.Response,
         model_response: ModelResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         request_data: dict,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: Tokenizer | None,
         api_key: str | None = None,
         json_mode: bool | None = None,

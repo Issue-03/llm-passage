@@ -18,14 +18,14 @@ from collections.abc import Callable
 from typing import Final
 
 import pytest
-from litellm_enterprise.enterprise_callbacks.secret_detection import (
+from embrouter_enterprise.enterprise_callbacks.secret_detection import (
     _default_detect_secrets_config,
     _ENTERPRISE_SecretDetection,
     _masked_entity_count,
 )
 
-from litellm.caching.caching import DualCache
-from litellm.proxy._types import UserAPIKeyAuth
+from embrouter.caching.caching import DualCache
+from embrouter.proxy._types import UserAPIKeyAuth
 
 AWS_KEY = "AKIAIOSFODNN7EXAMPLE"
 OPENAI_KEY = "sk-test-abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGH"
@@ -247,10 +247,10 @@ def test_scan_message_redacts_every_credential_on_one_line():
         "user_secret_question: what-was-your-first-pet",
         "password_reset_url: example.com/reset-password/flow",
         "private_key_path: keys/prod/server-cert.pem",
-        "litellm.completion(model=model, api_key=openai_api_key)",
+        "embrouter.completion(model=model, api_key=openai_api_key)",
         "params['aws_secret_access_key'] = aws_secret_access_key",
         'api_key = "OPENAI_API_KEY"',
-        "model_list:\n  - litellm_params:\n      api_key: 'PERPLEXITY_API_KEY'",
+        "model_list:\n  - embrouter_params:\n      api_key: 'PERPLEXITY_API_KEY'",
         'config = build(_provider("ve_missing", api_key_env="VE_MISSING_KEY"))',
         "api_key = get_api_key_from_env()",
         "api_key = get_secret_str(MISTRAL_OCR_API_KEY_ENV_VAR)",
@@ -454,8 +454,8 @@ def test_scan_message_keeps_every_value_when_a_config_repeats_a_key():
     guardrail = _guardrail()
     content = (
         "model_list:\n"
-        "  - model_name: gpt-4o\n    litellm_params:\n      api_key: aB3dE6gH9jK2mN5p\n"
-        "  - model_name: claude\n    litellm_params:\n      api_key: Kp7Nq2Wz9Bt4Xr6Vm1Ls\n"
+        "  - model_name: gpt-4o\n    embrouter_params:\n      api_key: aB3dE6gH9jK2mN5p\n"
+        "  - model_name: claude\n    embrouter_params:\n      api_key: Kp7Nq2Wz9Bt4Xr6Vm1Ls\n"
     )
 
     redacted = guardrail.redact_text(content)
@@ -492,7 +492,7 @@ def test_scan_message_keeps_every_value_when_a_config_repeats_a_key():
             "Zx4Kp9Lm2Qr7Ns3Vt",
         ),
         (
-            "model_list:\n  - model_name: gpt-4o\n    litellm_params:\n      api_key: aB3dE6gH9jK2mN5p\n",
+            "model_list:\n  - model_name: gpt-4o\n    embrouter_params:\n      api_key: aB3dE6gH9jK2mN5p\n",
             "aB3dE6gH9jK2mN5p",
         ),
         ("api_key: >\n  aB3dE6gH9jK2mN5p", "aB3dE6gH9jK2mN5p"),
@@ -971,7 +971,7 @@ async def test_pre_call_hook_mixed_prompt_list_still_redacts_and_records():
 
 @pytest.mark.asyncio
 async def test_legacy_nameless_instance_records_nothing():
-    """``litellm_settings.callbacks: ["hide_secrets"]`` builds an arg-less
+    """``embrouter_settings.callbacks: ["hide_secrets"]`` builds an arg-less
     instance with no guardrail_name. It still redacts, but recording a nameless
     entry would flip every spend row's guardrail status with nothing to join on."""
     guardrail = _ENTERPRISE_SecretDetection()

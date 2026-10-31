@@ -1,4 +1,4 @@
-"""Semantic ranking over the LiteLLM-hosted skill registry, shared by GET /v1/skills?query= and the skill_search MCP tool."""
+"""Semantic ranking over the EmbRouter-hosted skill registry, shared by GET /v1/skills?query= and the skill_search MCP tool."""
 
 from __future__ import annotations
 
@@ -8,20 +8,20 @@ from typing import TYPE_CHECKING, Final, TypeAlias
 
 from pydantic import BaseModel, ConfigDict
 
-from litellm.llms.litellm_proxy.skills.constants import MAX_SKILLS_PER_SEARCH
-from litellm.llms.litellm_proxy.skills.handler import LiteLLMSkillsHandler
-from litellm.proxy.common_utils.semantic_text_index import (
+from embrouter.llms.embrouter_proxy.skills.constants import MAX_SKILLS_PER_SEARCH
+from embrouter.llms.embrouter_proxy.skills.handler import EmbRouterSkillsHandler
+from embrouter.proxy.common_utils.semantic_text_index import (
     Embedder,
     EmbeddingFailed,
     SemanticTextIndex,
     router_embedder,
 )
-from litellm.types.utils import LlmProviders
+from embrouter.types.utils import LlmProviders
 
 if TYPE_CHECKING:
-    from litellm.proxy._types import LiteLLM_SkillsTable, UserAPIKeyAuth
-    from litellm.proxy.utils import ProxyLogging
-    from litellm.router import Router
+    from embrouter.proxy._types import EmbRouter_SkillsTable, UserAPIKeyAuth
+    from embrouter.proxy.utils import ProxyLogging
+    from embrouter.router import Router
 
 DEFAULT_SKILL_SEARCH_TOP_K: Final = 5
 MAX_SKILL_SEARCH_TOP_K: Final = 100
@@ -35,7 +35,7 @@ matter how long the stored instructions are."""
 
 @dataclass(frozen=True, slots=True)
 class SkillSearchHit:
-    skill: LiteLLM_SkillsTable
+    skill: EmbRouter_SkillsTable
     score: float
 
 
@@ -72,7 +72,7 @@ class SkillSearchResult(BaseModel):
     score: float
 
 
-def skill_search_text(skill: LiteLLM_SkillsTable) -> str:
+def skill_search_text(skill: EmbRouter_SkillsTable) -> str:
     joined: Final = "\n".join(part for part in (skill.display_title, skill.description, skill.instructions) if part)
     return joined[:MAX_SKILL_SEARCH_TEXT_CHARS]
 
@@ -95,7 +95,7 @@ class SkillSearchIndex:
     async def search(
         self,
         query: str,
-        skills: Sequence[LiteLLM_SkillsTable],
+        skills: Sequence[EmbRouter_SkillsTable],
         top_k: int,
         embed: Embedder,
         embedding_model: str,
@@ -117,7 +117,7 @@ global_skill_search_index: Final = SkillSearchIndex()
 
 async def search_skills(
     query: str,
-    skills: Sequence[LiteLLM_SkillsTable],
+    skills: Sequence[EmbRouter_SkillsTable],
     top_k: int,
     router: Router | None,
     embedding_model: str | None,
@@ -127,7 +127,7 @@ async def search_skills(
 ) -> SkillSearchOutcome:
     if embedding_model is None:
         return SkillSearchNotConfigured(
-            reason="skill search needs litellm_settings.skill_search_embedding_model set to an embedding model from model_list"
+            reason="skill search needs embrouter_settings.skill_search_embedding_model set to an embedding model from model_list"
         )
     if router is None:
         return SkillSearchNotConfigured(reason="skill search needs a model_list so the embedding model can be called")
@@ -145,10 +145,10 @@ async def search_hosted_skills(
     user_api_key_dict: UserAPIKeyAuth,
     proxy_logging_obj: ProxyLogging,
 ) -> HostedSkillSearchOutcome:
-    """GET /v1/skills?query= for the skills LiteLLM hosts itself: only ``litellm_proxy`` has a registry to rank."""
-    if custom_llm_provider != LlmProviders.LITELLM_PROXY.value:
-        return SkillSearchUnsupportedProvider(reason="query is only supported for custom_llm_provider=litellm_proxy")
-    skills: Final = await LiteLLMSkillsHandler.list_skills_for_search(user_api_key_dict=user_api_key_dict)
+    """GET /v1/skills?query= for the skills EmbRouter hosts itself: only ``embrouter_proxy`` has a registry to rank."""
+    if custom_llm_provider != LlmProviders.EMBROUTER_PROXY.value:
+        return SkillSearchUnsupportedProvider(reason="query is only supported for custom_llm_provider=embrouter_proxy")
+    skills: Final = await EmbRouterSkillsHandler.list_skills_for_search(user_api_key_dict=user_api_key_dict)
     return await search_skills(
         query=query,
         skills=skills,

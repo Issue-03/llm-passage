@@ -20,7 +20,7 @@ import type { MCPEvent } from "@/components/chat/types";
 import { getProviderLogoAndName } from "@/components/provider_info_helpers";
 
 const SUGGESTIONS = ["Write", "Learn", "Code", "Brainstorm"];
-const LOCALSTORAGE_MODEL_KEY = "litellm_chat_selected_model";
+const LOCALSTORAGE_MODEL_KEY = "embrouter_chat_selected_model";
 
 function getGreeting(): string {
   const h = new Date().getHours();

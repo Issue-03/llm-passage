@@ -4,10 +4,10 @@ import json
 
 import pytest
 
-from litellm.anthropic_beta_headers_manager import (
+from embrouter.anthropic_beta_headers_manager import (
     update_headers_with_filtered_beta,
 )
-from litellm.llms.vertex_ai.vertex_ai_partner_models.anthropic.transformation import (
+from embrouter.llms.vertex_ai.vertex_ai_partner_models.anthropic.transformation import (
     VertexAIAnthropicConfig,
 )
 
@@ -38,7 +38,7 @@ def test_get_supported_params_thinking():
 def test_vertex_ai_anthropic_web_search_header_in_completion():
     """Test that web search tool adds the required beta header for Vertex AI completion requests"""
 
-    from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+    from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
     # Create the config instance
     model_info = AnthropicModelInfo()
@@ -94,7 +94,7 @@ def test_vertex_ai_anthropic_context_management_compact_beta_header():
         model="claude-opus-4-6",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers=headers,
     )
 
@@ -132,7 +132,7 @@ def test_vertex_ai_anthropic_context_management_mixed_edits():
         model="claude-opus-4-6",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers=headers,
     )
 
@@ -149,7 +149,7 @@ def test_vertex_ai_anthropic_context_management_mixed_edits():
 
 def test_vertex_ai_anthropic_structured_output_header_not_added():
     """Test that structured output beta headers are NOT added for Vertex AI requests"""
-    from litellm.llms.anthropic.chat.transformation import AnthropicConfig
+    from embrouter.llms.anthropic.chat.transformation import AnthropicConfig
 
     config = AnthropicConfig()
 
@@ -277,7 +277,7 @@ def test_vertex_ai_claude_sonnet_4_5_structured_output_fix():
     original_transform = config.__class__.__bases__[0].transform_request
 
     def mock_transform_request(
-        self, model, messages, optional_params, litellm_params, headers
+        self, model, messages, optional_params, embrouter_params, headers
     ):
         # Return test data that includes output_format
         return test_data.copy()
@@ -290,7 +290,7 @@ def test_vertex_ai_claude_sonnet_4_5_structured_output_fix():
             model="claude-3-5-sonnet-20241022",
             messages=messages,
             optional_params=result_params,
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -369,7 +369,7 @@ def test_vertex_ai_anthropic_extra_headers_beta_propagation():
         model="claude-sonnet-4-20250514",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers=headers,
     )
 
@@ -401,7 +401,7 @@ def test_vertex_ai_anthropic_extra_headers_beta_merged_with_auto_betas():
         model="claude-opus-4-6",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -427,7 +427,7 @@ def test_vertex_ai_anthropic_extra_headers_comma_separated_betas():
         model="claude-sonnet-4-20250514",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -451,7 +451,7 @@ def test_vertex_ai_anthropic_no_extra_headers_unchanged():
         model="claude-sonnet-4-20250514",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers=headers,
     )
 
@@ -508,7 +508,7 @@ def test_vertex_ai_anthropic_output_config_effort_only_forwarded():
         model="claude-opus-4-6",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers=headers,
     )
 
@@ -547,7 +547,7 @@ def test_vertex_ai_anthropic_output_config_format_passes_through():
         model="claude-3-5-sonnet-20241022",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -576,7 +576,7 @@ def test_vertex_ai_anthropic_output_config_format_plus_effort_preserved():
         model="claude-opus-4-6",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -596,7 +596,7 @@ def test_vertex_ai_anthropic_output_config_non_dict_dropped():
         model="claude-3-5-sonnet-20241022",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -636,7 +636,7 @@ def test_vertex_ai_anthropic_output_format_and_output_config_effort_preserved():
     original_transform = config.__class__.__bases__[0].transform_request
 
     def mock_transform_request(
-        self, model, messages, optional_params, litellm_params, headers
+        self, model, messages, optional_params, embrouter_params, headers
     ):
         return test_data.copy()
 
@@ -647,7 +647,7 @@ def test_vertex_ai_anthropic_output_format_and_output_config_effort_preserved():
             model="claude-opus-4-6",
             messages=messages,
             optional_params=optional_params,
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -665,7 +665,7 @@ def test_sanitize_vertex_anthropic_output_params_unit():
     """Direct unit coverage for the helper itself (used by both Vertex
     Anthropic transformation paths). Mirrors the integration assertions
     above without going through the full ``transform_request`` stack."""
-    from litellm.llms.vertex_ai.vertex_ai_partner_models.anthropic.output_params_utils import (
+    from embrouter.llms.vertex_ai.vertex_ai_partner_models.anthropic.output_params_utils import (
         sanitize_vertex_anthropic_output_params,
     )
 
@@ -704,7 +704,7 @@ def test_sanitize_strips_effort_for_haiku_45():
     ``effort`` into every Messages payload, so the helper must strip it for
     models that don't advertise output_config support while leaving it intact
     for Opus/Sonnet 4.6+."""
-    from litellm.llms.vertex_ai.vertex_ai_partner_models.anthropic.output_params_utils import (
+    from embrouter.llms.vertex_ai.vertex_ai_partner_models.anthropic.output_params_utils import (
         sanitize_vertex_anthropic_output_params,
     )
 
@@ -797,7 +797,7 @@ def test_chat_unflagged_model_converts_mid_conversation_system_instead_of_hoisti
         model="claude-opus-4-7",
         messages=_mid_conversation_system_conversation(),
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -813,7 +813,7 @@ def test_chat_flagged_model_keeps_mid_conversation_system_role_in_place(local_mo
         model="claude-opus-4-8",
         messages=_mid_conversation_system_conversation(),
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -867,7 +867,7 @@ def test_chat_flagged_model_replays_a_byte_identical_prefix_around_a_mid_convers
     request must be a byte-identical prefix of turn N+1's or the block is dropped."""
     requests = [
         VertexAIAnthropicConfig().transform_request(
-            model="claude-fable-5-1", messages=copy.deepcopy(turn), optional_params={}, litellm_params={}, headers={}
+            model="claude-fable-5-1", messages=copy.deepcopy(turn), optional_params={}, embrouter_params={}, headers={}
         )
         for turn in _preserved_thinking_turns(reminder_after_user)
     ]

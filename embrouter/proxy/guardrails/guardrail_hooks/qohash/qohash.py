@@ -1,21 +1,21 @@
 """
-Qostodian Nexus (by Qohash) — LiteLLM guardrail integration.
+Qostodian Nexus (by Qohash) — EmbRouter guardrail integration.
 """
 
 import os
 from typing import TYPE_CHECKING, Final, Literal, Optional
 
-from litellm.integrations.custom_guardrail import log_guardrail_information
-from litellm.proxy.guardrails.guardrail_hooks.generic_guardrail_api.generic_guardrail_api import (
+from embrouter.integrations.custom_guardrail import log_guardrail_information
+from embrouter.proxy.guardrails.guardrail_hooks.generic_guardrail_api.generic_guardrail_api import (
     GenericGuardrailAPI,
 )
-from litellm.types.proxy.guardrails.guardrail_hooks.qohash import (
+from embrouter.types.proxy.guardrails.guardrail_hooks.qohash import (
     QostodianNexusConfigModel,
 )
-from litellm.types.utils import GenericGuardrailAPIInputs
+from embrouter.types.utils import GenericGuardrailAPIInputs
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
 
 GUARDRAIL_NAME: Final = "qostodian_nexus"
 
@@ -52,15 +52,15 @@ class QostodianNexus(GenericGuardrailAPI):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict,
         input_type: Literal["request", "response"],
-        logging_obj: Optional["LiteLLMLoggingObj"] = None,
+        logging_obj: Optional["EmbRouterLoggingObj"] = None,
     ) -> GenericGuardrailAPIInputs:
         """
         Apply Qostodian Nexus to the given inputs.
 
         NOTE: This override is intentionally a pass-through. It must be present
-        directly in this class's __dict__ so that LiteLLM's unified guardrail
+        directly in this class's __dict__ so that EmbRouter's unified guardrail
         routing check (`"apply_guardrail" in type(callback).__dict__` in
-        litellm/proxy/utils.py) routes calls correctly. Do not remove.
+        embrouter/proxy/utils.py) routes calls correctly. Do not remove.
         """
         return await super().apply_guardrail(
             inputs=inputs,

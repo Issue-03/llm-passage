@@ -10,15 +10,15 @@ import time
 from collections.abc import Sequence
 from typing import Any, Final, cast
 
-from litellm._logging import verbose_proxy_logger
-from litellm._uuid import uuid as uuid_module
-from litellm.llms.base_llm.files.storage_backend import BaseFileStorageBackend
-from litellm.llms.base_llm.files.storage_backend_factory import get_storage_backend
-from litellm.llms.base_llm.files.transformation import BaseFileEndpoints
-from litellm.proxy._types import ProxyException, UserAPIKeyAuth
-from litellm.proxy.utils import PrismaClient, ProxyLogging
-from litellm.types.llms.openai import OpenAIFileObject, OpenAIFilesPurpose
-from litellm.types.utils import ExtractedFileData, SpecialEnums
+from embrouter._logging import verbose_proxy_logger
+from embrouter._uuid import uuid as uuid_module
+from embrouter.llms.base_llm.files.storage_backend import BaseFileStorageBackend
+from embrouter.llms.base_llm.files.storage_backend_factory import get_storage_backend
+from embrouter.llms.base_llm.files.transformation import BaseFileEndpoints
+from embrouter.proxy._types import ProxyException, UserAPIKeyAuth
+from embrouter.proxy.utils import PrismaClient, ProxyLogging
+from embrouter.types.llms.openai import OpenAIFileObject, OpenAIFilesPurpose
+from embrouter.types.utils import ExtractedFileData, SpecialEnums
 
 
 class StorageBackendFileService:
@@ -47,12 +47,12 @@ class StorageBackendFileService:
 
         Args:
             file_data: File data dictionary from extract_file_data()
-            target_storage: Storage backend name (e.g., "azure_storage", "litellm_db")
+            target_storage: Storage backend name (e.g., "azure_storage", "embrouter_db")
             target_model_names: List of model names for managed files
             purpose: File purpose (e.g., "user_data", "batch")
             proxy_logging_obj: Proxy logging object for accessing hooks
             user_api_key_dict: User API key authentication data
-            prisma_client: The proxy's database client, required by the "litellm_db" backend
+            prisma_client: The proxy's database client, required by the "embrouter_db" backend
 
         Returns:
             OpenAIFileObject: Created file object with storage metadata
@@ -198,7 +198,7 @@ class StorageBackendFileService:
         Returns:
             str: Base64-encoded unified file ID
         """
-        unified_file_id_str: Final = SpecialEnums.LITELLM_MANAGED_FILE_COMPLETE_STR.value.format(
+        unified_file_id_str: Final = SpecialEnums.EMBROUTER_MANAGED_FILE_COMPLETE_STR.value.format(
             file_type,
             str(uuid_module.uuid4()),
             ",".join(target_model_names),
@@ -263,7 +263,7 @@ class StorageBackendFileService:
         await managed_files_obj.store_unified_file_id(
             file_id=base64_unified_file_id,
             file_object=file_object,
-            litellm_parent_otel_span=user_api_key_dict.parent_otel_span,
+            embrouter_parent_otel_span=user_api_key_dict.parent_otel_span,
             model_mappings=model_mappings,
             user_api_key_dict=user_api_key_dict,
         )

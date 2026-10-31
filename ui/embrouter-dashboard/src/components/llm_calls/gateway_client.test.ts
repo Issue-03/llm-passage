@@ -15,7 +15,7 @@ it.each(["Authorization", "x-session-key"])(
     );
     const client = createGatewayClient({
       accessToken: "session",
-      defaultHeaders: { "x-litellm-tags": "playground", "x-custom": "custom" },
+      defaultHeaders: { "x-embrouter-tags": "playground", "x-custom": "custom" },
       fetch: fetchImpl,
     });
     await client.models.list();
@@ -23,7 +23,7 @@ it.each(["Authorization", "x-session-key"])(
     expect(url).toBe("https://management.example/root/models");
     const headers = new Headers(init?.headers);
     expect(headers.get(header)).toBe("Bearer session");
-    expect(headers.get("x-litellm-tags")).toBe("playground");
+    expect(headers.get("x-embrouter-tags")).toBe("playground");
     expect(headers.get("x-custom")).toBe("custom");
     if (header !== "Authorization") expect(headers.has("Authorization")).toBe(false);
   },

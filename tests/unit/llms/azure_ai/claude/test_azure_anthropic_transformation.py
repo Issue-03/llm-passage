@@ -9,8 +9,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from litellm.llms.azure_ai.anthropic.transformation import AzureAnthropicConfig
-from litellm.types.router import GenericLiteLLMParams
+from embrouter.llms.azure_ai.anthropic.transformation import AzureAnthropicConfig
+from embrouter.types.router import GenericEmbRouterParams
 
 
 class TestAzureAnthropicConfig:
@@ -19,18 +19,18 @@ class TestAzureAnthropicConfig:
         config = AzureAnthropicConfig()
         assert config.custom_llm_provider == "azure_ai"
 
-    def test_validate_environment_with_dict_litellm_params(self):
-        """Test validate_environment with dict litellm_params"""
+    def test_validate_environment_with_dict_embrouter_params(self):
+        """Test validate_environment with dict embrouter_params"""
         config = AzureAnthropicConfig()
         headers = {}
         model = "claude-sonnet-4-5"
         messages = [{"role": "user", "content": "Hello"}]
         optional_params = {}
-        litellm_params = {"api_key": "test-api-key"}
+        embrouter_params = {"api_key": "test-api-key"}
         api_key = "test-api-key"
 
         with patch(
-            "litellm.llms.azure.common_utils.BaseAzureLLM._base_validate_azure_environment"
+            "embrouter.llms.azure.common_utils.BaseAzureLLM._base_validate_azure_environment"
         ) as mock_validate:
             mock_validate.return_value = {"api-key": "test-api-key"}
             result = config.validate_environment(
@@ -38,28 +38,28 @@ class TestAzureAnthropicConfig:
                 model=model,
                 messages=messages,
                 optional_params=optional_params,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 api_key=api_key,
             )
 
-            # Verify that dict was converted to GenericLiteLLMParams
+            # Verify that dict was converted to GenericEmbRouterParams
             call_args = mock_validate.call_args
-            assert isinstance(call_args[1]["litellm_params"], GenericLiteLLMParams)
-            assert call_args[1]["litellm_params"].api_key == "test-api-key"
+            assert isinstance(call_args[1]["embrouter_params"], GenericEmbRouterParams)
+            assert call_args[1]["embrouter_params"].api_key == "test-api-key"
             assert "anthropic-version" in result
 
-    def test_validate_environment_with_generic_litellm_params(self):
-        """Test validate_environment with GenericLiteLLMParams object"""
+    def test_validate_environment_with_generic_embrouter_params(self):
+        """Test validate_environment with GenericEmbRouterParams object"""
         config = AzureAnthropicConfig()
         headers = {}
         model = "claude-sonnet-4-5"
         messages = [{"role": "user", "content": "Hello"}]
         optional_params = {}
-        litellm_params = GenericLiteLLMParams(api_key="test-api-key")
+        embrouter_params = GenericEmbRouterParams(api_key="test-api-key")
         api_key = "test-api-key"
 
         with patch(
-            "litellm.llms.azure.common_utils.BaseAzureLLM._base_validate_azure_environment"
+            "embrouter.llms.azure.common_utils.BaseAzureLLM._base_validate_azure_environment"
         ) as mock_validate:
             mock_validate.return_value = {"api-key": "test-api-key"}
             result = config.validate_environment(
@@ -67,27 +67,27 @@ class TestAzureAnthropicConfig:
                 model=model,
                 messages=messages,
                 optional_params=optional_params,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 api_key=api_key,
             )
 
-            # Verify that GenericLiteLLMParams was passed through
+            # Verify that GenericEmbRouterParams was passed through
             call_args = mock_validate.call_args
-            assert isinstance(call_args[1]["litellm_params"], GenericLiteLLMParams)
+            assert isinstance(call_args[1]["embrouter_params"], GenericEmbRouterParams)
             assert "anthropic-version" in result
 
-    def test_validate_environment_sets_api_key_in_litellm_params(self):
-        """Test that api_key parameter is set in litellm_params if provided"""
+    def test_validate_environment_sets_api_key_in_embrouter_params(self):
+        """Test that api_key parameter is set in embrouter_params if provided"""
         config = AzureAnthropicConfig()
         headers = {}
         model = "claude-sonnet-4-5"
         messages = [{"role": "user", "content": "Hello"}]
         optional_params = {}
-        litellm_params = {}  # Empty dict, no api_key
+        embrouter_params = {}  # Empty dict, no api_key
         api_key = "provided-api-key"
 
         with patch(
-            "litellm.llms.azure.common_utils.BaseAzureLLM._base_validate_azure_environment"
+            "embrouter.llms.azure.common_utils.BaseAzureLLM._base_validate_azure_environment"
         ) as mock_validate:
             mock_validate.return_value = {"api-key": "provided-api-key"}
             config.validate_environment(
@@ -95,13 +95,13 @@ class TestAzureAnthropicConfig:
                 model=model,
                 messages=messages,
                 optional_params=optional_params,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 api_key=api_key,
             )
 
-            # Verify that api_key was set in litellm_params
+            # Verify that api_key was set in embrouter_params
             call_args = mock_validate.call_args
-            assert call_args[1]["litellm_params"].api_key == "provided-api-key"
+            assert call_args[1]["embrouter_params"].api_key == "provided-api-key"
 
     def test_validate_environment_preserves_api_key_header(self):
         """Test that api-key header is preserved as-is (Azure handles the header internally)"""
@@ -110,10 +110,10 @@ class TestAzureAnthropicConfig:
         model = "claude-sonnet-4-5"
         messages = [{"role": "user", "content": "Hello"}]
         optional_params = {}
-        litellm_params = {"api_key": "test-api-key"}
+        embrouter_params = {"api_key": "test-api-key"}
 
         with patch(
-            "litellm.llms.azure.common_utils.BaseAzureLLM._base_validate_azure_environment"
+            "embrouter.llms.azure.common_utils.BaseAzureLLM._base_validate_azure_environment"
         ) as mock_validate:
             mock_validate.return_value = {"api-key": "test-api-key"}
             with patch.object(config, "get_anthropic_headers", return_value={}):
@@ -122,7 +122,7 @@ class TestAzureAnthropicConfig:
                     model=model,
                     messages=messages,
                     optional_params=optional_params,
-                    litellm_params=litellm_params,
+                    embrouter_params=embrouter_params,
                 )
 
                 # Verify api-key header is preserved as-is
@@ -136,10 +136,10 @@ class TestAzureAnthropicConfig:
         model = "claude-sonnet-4-5"
         messages = [{"role": "user", "content": "Hello"}]
         optional_params = {}
-        litellm_params = {"api_key": "test-api-key"}
+        embrouter_params = {"api_key": "test-api-key"}
 
         with patch(
-            "litellm.llms.azure.common_utils.BaseAzureLLM._base_validate_azure_environment"
+            "embrouter.llms.azure.common_utils.BaseAzureLLM._base_validate_azure_environment"
         ) as mock_validate:
             mock_validate.return_value = {"api-key": "test-api-key"}
             with patch.object(config, "get_anthropic_headers", return_value={}):
@@ -148,7 +148,7 @@ class TestAzureAnthropicConfig:
                     model=model,
                     messages=messages,
                     optional_params=optional_params,
-                    litellm_params=litellm_params,
+                    embrouter_params=embrouter_params,
                 )
 
                 assert result["anthropic-version"] == "2023-06-01"
@@ -160,10 +160,10 @@ class TestAzureAnthropicConfig:
         model = "claude-sonnet-4-5"
         messages = [{"role": "user", "content": "Hello"}]
         optional_params = {}
-        litellm_params = {"api_key": "test-api-key"}
+        embrouter_params = {"api_key": "test-api-key"}
 
         with patch(
-            "litellm.llms.azure.common_utils.BaseAzureLLM._base_validate_azure_environment"
+            "embrouter.llms.azure.common_utils.BaseAzureLLM._base_validate_azure_environment"
         ) as mock_validate:
             mock_validate.return_value = {
                 "api-key": "test-api-key",
@@ -179,7 +179,7 @@ class TestAzureAnthropicConfig:
                     model=model,
                     messages=messages,
                     optional_params=optional_params,
-                    litellm_params=litellm_params,
+                    embrouter_params=embrouter_params,
                 )
 
                 assert result["anthropic-version"] == "2024-01-01"
@@ -198,7 +198,7 @@ class TestAzureAnthropicConfig:
     def test_transform_request_removes_unsupported_params(self):
         """Test that transform_request removes max_retries, stream_options, and extra_body.
 
-        These parameters are LiteLLM-internal and not supported by Azure AI Anthropic endpoint.
+        These parameters are EmbRouter-internal and not supported by Azure AI Anthropic endpoint.
 
         """
         config = AzureAnthropicConfig()
@@ -207,7 +207,7 @@ class TestAzureAnthropicConfig:
         optional_params = {
             "max_tokens": 100,
         }
-        litellm_params = {"api_key": "test-key"}
+        embrouter_params = {"api_key": "test-key"}
         headers = {"api-key": "test-key", "anthropic-version": "2023-06-01"}
 
         with patch.object(
@@ -228,7 +228,7 @@ class TestAzureAnthropicConfig:
                 model="claude-sonnet-4-5",
                 messages=messages,
                 optional_params=optional_params,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 headers=headers,
             )
 
@@ -251,18 +251,18 @@ class TestAzureAnthropicConfig:
             "context_management": {"edits": [{"type": "compact_20260112"}]},
             "max_tokens": 100,
         }
-        litellm_params = {"api_key": "test-key"}
+        embrouter_params = {"api_key": "test-key"}
         headers = {"api-key": "test-key"}
 
         with patch(
-            "litellm.llms.azure.common_utils.BaseAzureLLM._base_validate_azure_environment"
+            "embrouter.llms.azure.common_utils.BaseAzureLLM._base_validate_azure_environment"
         ) as mock_validate:
             mock_validate.return_value = {"api-key": "test-key"}
             result = config.transform_request(
                 model="claude-opus-4-6",
                 messages=messages,
                 optional_params=optional_params,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 headers=headers,
             )
 
@@ -300,14 +300,14 @@ class TestAzureAnthropicConfig:
             "max_tokens": 100,
             "extra_body": {"output_config": {"effort": "low"}},
         }
-        litellm_params = {"api_key": "test-key"}
+        embrouter_params = {"api_key": "test-key"}
         headers = {"api-key": "test-key", "anthropic-version": "2023-06-01"}
 
         result = config.transform_request(
             model="claude-opus-4-6",
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
@@ -316,7 +316,7 @@ class TestAzureAnthropicConfig:
 
     def test_invalid_output_config_effort_raises_via_extra_body(self):
         """Invalid ``effort`` via ``extra_body`` raises BadRequestError."""
-        import litellm
+        import embrouter
 
         config = AzureAnthropicConfig()
 
@@ -325,22 +325,22 @@ class TestAzureAnthropicConfig:
             "max_tokens": 100,
             "extra_body": {"output_config": {"effort": "invalid"}},
         }
-        litellm_params = {"api_key": "test-key"}
+        embrouter_params = {"api_key": "test-key"}
         headers = {"api-key": "test-key", "anthropic-version": "2023-06-01"}
 
-        with pytest.raises(litellm.exceptions.BadRequestError) as exc_info:
+        with pytest.raises(embrouter.exceptions.BadRequestError) as exc_info:
             config.transform_request(
                 model="claude-opus-4-6",
                 messages=messages,
                 optional_params=optional_params,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 headers=headers,
             )
         assert "Invalid effort value" in str(exc_info.value)
 
     def test_unsupported_effort_xhigh_raises_via_extra_body(self):
         """Unsupported ``effort='xhigh'`` via ``extra_body`` raises BadRequestError."""
-        import litellm
+        import embrouter
 
         config = AzureAnthropicConfig()
 
@@ -349,15 +349,15 @@ class TestAzureAnthropicConfig:
             "max_tokens": 100,
             "extra_body": {"output_config": {"effort": "xhigh"}},
         }
-        litellm_params = {"api_key": "test-key"}
+        embrouter_params = {"api_key": "test-key"}
         headers = {"api-key": "test-key", "anthropic-version": "2023-06-01"}
 
-        with pytest.raises(litellm.exceptions.BadRequestError) as exc_info:
+        with pytest.raises(embrouter.exceptions.BadRequestError) as exc_info:
             config.transform_request(
                 model="claude-sonnet-4-6",
                 messages=messages,
                 optional_params=optional_params,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 headers=headers,
             )
         assert "xhigh" in str(exc_info.value)
@@ -372,14 +372,14 @@ class TestAzureAnthropicConfig:
             "output_config": {"effort": "low"},
             "extra_body": {"output_config": {"effort": "high"}},
         }
-        litellm_params = {"api_key": "test-key"}
+        embrouter_params = {"api_key": "test-key"}
         headers = {"api-key": "test-key", "anthropic-version": "2023-06-01"}
 
         result = config.transform_request(
             model="claude-opus-4-6",
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
@@ -401,7 +401,7 @@ class TestAzureAnthropicConfig:
             model="claude-opus-4-8",
             messages=[{"role": "user", "content": "Hello"}],
             optional_params={**mapped, "extra_body": {"output_config": {"effort": "high"}}},
-            litellm_params={"api_key": "test-key"},
+            embrouter_params={"api_key": "test-key"},
             headers={"api-key": "test-key", "anthropic-version": "2023-06-01"},
         )
 
@@ -458,7 +458,7 @@ def test_chat_unflagged_model_converts_mid_conversation_system_instead_of_hoisti
         model="claude-opus-4-7",
         messages=_mid_conversation_system_conversation(),
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -474,7 +474,7 @@ def test_chat_flagged_model_keeps_mid_conversation_system_role_in_place(local_mo
         model="claude-opus-4-8",
         messages=_mid_conversation_system_conversation(),
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 

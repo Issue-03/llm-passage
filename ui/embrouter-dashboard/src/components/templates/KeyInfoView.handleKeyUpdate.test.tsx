@@ -567,7 +567,7 @@ describe("KeyInfoView handleKeyUpdate soft_budget", () => {
         keyId="tok_123"
         onClose={() => {}}
         keyData={
-          { ...baseKeyData, litellm_budget_table: softBudget === null ? null : { soft_budget: softBudget } } as any
+          { ...baseKeyData, embrouter_budget_table: softBudget === null ? null : { soft_budget: softBudget } } as any
         }
         onKeyDataUpdate={() => {}}
         teams={[]}

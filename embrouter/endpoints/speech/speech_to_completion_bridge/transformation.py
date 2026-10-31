@@ -4,12 +4,12 @@ from typing import TYPE_CHECKING, Final, cast
 
 from typing_extensions import NotRequired, ReadOnly, TypedDict
 
-from litellm.constants import OPENAI_CHAT_COMPLETION_PARAMS
+from embrouter.constants import OPENAI_CHAT_COMPLETION_PARAMS
 
 if TYPE_CHECKING:
-    from litellm import Logging as LiteLLMLoggingObj
-    from litellm.types.llms.openai import ChatCompletionUserMessage, HttpxBinaryResponseContent
-    from litellm.types.utils import ModelResponse
+    from embrouter import Logging as EmbRouterLoggingObj
+    from embrouter.types.llms.openai import ChatCompletionUserMessage, HttpxBinaryResponseContent
+    from embrouter.types.utils import ModelResponse
 
 
 def _completion_response_cost(model_response: "ModelResponse") -> float | None:
@@ -39,7 +39,7 @@ class SpeechToCompletionBridgeTransformationHandler:
         response_format: Final = optional_params.get("response_format")
         if not isinstance(response_format, str) or response_format in GEMINI_TTS_SUPPORTED_RESPONSE_FORMATS:
             return
-        from litellm.exceptions import BadRequestError
+        from embrouter.exceptions import BadRequestError
 
         supported: Final = ", ".join(sorted(GEMINI_TTS_SUPPORTED_RESPONSE_FORMATS))
         raise BadRequestError(
@@ -84,9 +84,9 @@ class SpeechToCompletionBridgeTransformationHandler:
         input: str,
         voice: str | dict | None,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
-        litellm_logging_obj: "LiteLLMLoggingObj",
+        embrouter_logging_obj: "EmbRouterLoggingObj",
         custom_llm_provider: str,
     ) -> dict:
         self._validate_response_format(model, custom_llm_provider, optional_params)
@@ -97,9 +97,9 @@ class SpeechToCompletionBridgeTransformationHandler:
             "modalities": ["audio"],
             **self._chat_completion_params(optional_params),
             "audio": self._chat_audio_param(model, voice, optional_params),
-            **litellm_params,
+            **embrouter_params,
             "headers": headers,
-            "litellm_logging_obj": litellm_logging_obj,
+            "embrouter_logging_obj": embrouter_logging_obj,
             "custom_llm_provider": custom_llm_provider,
         }
         return {k: v for k, v in return_kwargs.items() if v is not None}
@@ -160,8 +160,8 @@ class SpeechToCompletionBridgeTransformationHandler:
 
         import httpx
 
-        from litellm.types.llms.openai import HttpxBinaryResponseContent
-        from litellm.types.utils import Choices
+        from embrouter.types.llms.openai import HttpxBinaryResponseContent
+        from embrouter.types.utils import Choices
 
         audio_part: Final = cast(Choices, model_response.choices[0]).message.audio
         if audio_part is None:

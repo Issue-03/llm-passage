@@ -1,3 +1,3 @@
-from litellm.llms.milvus.vector_stores.transformation import MilvusVectorStoreConfig
+from embrouter.llms.milvus.vector_stores.transformation import MilvusVectorStoreConfig
 
 __all__ = ["MilvusVectorStoreConfig"]

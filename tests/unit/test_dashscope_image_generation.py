@@ -10,14 +10,14 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-import litellm
-from litellm.llms.dashscope.image_generation.transformation import (
+import embrouter
+from embrouter.llms.dashscope.image_generation.transformation import (
     DashScopeImageGenerationConfig,
     DEFAULT_API_BASE,
 )
-from litellm.types.utils import ImageResponse
-from litellm.utils import get_llm_provider
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.types.utils import ImageResponse
+from embrouter.utils import get_llm_provider
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
 
 
 # ---------------------------------------------------------------------------
@@ -82,7 +82,7 @@ class TestDashScopeImageGenerationConfig:
             model="qwen-image-2.0",
             messages=[],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             api_key="sk-test-key",
         )
         assert headers["Authorization"] == "Bearer sk-test-key"
@@ -90,7 +90,7 @@ class TestDashScopeImageGenerationConfig:
 
     def test_validate_environment_raises_without_key(self):
         with patch(
-            "litellm.llms.dashscope.image_generation.transformation.get_secret_str",
+            "embrouter.llms.dashscope.image_generation.transformation.get_secret_str",
             return_value=None,
         ):
             with pytest.raises(ValueError, match="DASHSCOPE_API_KEY"):
@@ -99,7 +99,7 @@ class TestDashScopeImageGenerationConfig:
                     model="qwen-image-2.0",
                     messages=[],
                     optional_params={},
-                    litellm_params={},
+                    embrouter_params={},
                     api_key=None,
                 )
 
@@ -108,7 +108,7 @@ class TestDashScopeImageGenerationConfig:
             model="qwen-image-2.0",
             prompt="a puppy on green grass",
             optional_params={"size": "1024*1024"},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
         assert req["model"] == "qwen-image-2.0"
@@ -129,7 +129,7 @@ class TestDashScopeImageGenerationConfig:
                 model=model,
                 drop_params=False,
             ),
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
         assert req["model"] == model
@@ -144,7 +144,7 @@ class TestDashScopeImageGenerationConfig:
             model="qwen-image-2.0-pro",
             prompt="sunset over the ocean",
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
         assert req["parameters"] == {}
@@ -193,7 +193,7 @@ class TestDashScopeImageGenerationConfig:
             logging_obj=MagicMock(),
             request_data={},
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             encoding=None,
         )
         assert result.data is not None
@@ -235,7 +235,7 @@ class TestDashScopeImageGenerationConfig:
             logging_obj=MagicMock(),
             request_data={},
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             encoding=None,
         )
         assert len(result.data) == 2
@@ -276,7 +276,7 @@ class TestDashScopeImageGenerationConfig:
             logging_obj=MagicMock(),
             request_data={},
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             encoding=None,
         )
         assert [image.url for image in result.data] == [
@@ -302,7 +302,7 @@ class TestDashScopeImageGenerationConfig:
                 logging_obj=MagicMock(),
                 request_data={},
                 optional_params={},
-                litellm_params={},
+                embrouter_params={},
                 encoding=None,
             )
 
@@ -323,7 +323,7 @@ class TestDashScopeImageGenerationConfig:
                 logging_obj=MagicMock(),
                 request_data={},
                 optional_params={},
-                litellm_params={},
+                embrouter_params={},
                 encoding=None,
             )
 
@@ -380,7 +380,7 @@ class TestDashScopeImageGenerationConfig:
 
 
 # ---------------------------------------------------------------------------
-# 6. End-to-end flow via litellm.image_generation (HTTP mocked)
+# 6. End-to-end flow via embrouter.image_generation (HTTP mocked)
 # ---------------------------------------------------------------------------
 
 
@@ -392,7 +392,7 @@ class TestDashScopeImageGenerationConfig:
         "dashscope/qwen-image-3.0-pro",
     ],
 )
-def test_litellm_image_generation_dashscope_end_to_end(model: str):
+def test_embrouter_image_generation_dashscope_end_to_end(model: str):
     mock_response_body = {
         "output": {
             "choices": [
@@ -419,7 +419,7 @@ def test_litellm_image_generation_dashscope_end_to_end(model: str):
     }
 
     with patch(
-        "litellm.llms.custom_httpx.llm_http_handler.HTTPHandler.post"
+        "embrouter.llms.custom_httpx.llm_http_handler.HTTPHandler.post"
     ) as mock_post:
         mock_http_response = MagicMock()
         mock_http_response.json.return_value = mock_response_body
@@ -427,7 +427,7 @@ def test_litellm_image_generation_dashscope_end_to_end(model: str):
         mock_http_response.headers = {}
         mock_post.return_value = mock_http_response
 
-        response = litellm.image_generation(
+        response = embrouter.image_generation(
             model=model,
             prompt="a puppy playing on green grass",
             api_key="sk-test-key",

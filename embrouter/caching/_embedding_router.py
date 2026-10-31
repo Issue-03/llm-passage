@@ -3,11 +3,11 @@
 Both the Redis and qdrant semantic caches need the same decision: when the
 configured embedding model is a proxy Router deployment, embeddings must run
 through the Router so per-deployment auth (e.g. Bedrock aws_role_name) is
-applied. Otherwise fall back to a direct litellm embedding call.
+applied. Otherwise fall back to a direct embrouter embedding call.
 
 This module is dependency-injected: callers pass the proxy ``llm_router`` and
 ``llm_model_list`` in, so the decision logic is unit-testable without importing
-``litellm.proxy.proxy_server``.
+``embrouter.proxy.proxy_server``.
 """
 
 from __future__ import annotations
@@ -15,11 +15,11 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any, Final
 
-import litellm
-from litellm.constants import SEMANTIC_CACHE_EMBEDDING_TIMEOUT_SECONDS
+import embrouter
+from embrouter.constants import SEMANTIC_CACHE_EMBEDDING_TIMEOUT_SECONDS
 
 if TYPE_CHECKING:
-    from litellm.router import Router
+    from embrouter.router import Router
 
 
 def resolve_embedding_router(
@@ -72,8 +72,8 @@ def truncate_embedding_input(prompt: str, embedding_model: str, max_input_tokens
     """Keep only the first ``max_input_tokens`` tokens of ``prompt`` for the embedding call."""
     if max_input_tokens is None:
         return prompt
-    tokens: Final[Sequence[int]] = litellm.encode(model=embedding_model, text=prompt)
+    tokens: Final[Sequence[int]] = embrouter.encode(model=embedding_model, text=prompt)
     if len(tokens) <= max_input_tokens:
         return prompt
-    truncated: Final[str] = litellm.decode(model=embedding_model, tokens=tokens[:max_input_tokens])
+    truncated: Final[str] = embrouter.decode(model=embedding_model, tokens=tokens[:max_input_tokens])
     return truncated

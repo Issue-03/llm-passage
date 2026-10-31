@@ -43,7 +43,7 @@ Tier names are defaults you can rename with [`tier_labels`](#renaming-the-tiers)
 ```yaml
 model_list:
   - model_name: smart-router
-    litellm_params:
+    embrouter_params:
       model: auto_router/complexity_router
       complexity_router_config:
         tiers:
@@ -55,7 +55,7 @@ model_list:
 
 Each tier can also use a model entry with request parameter overrides. A tier value may be
 a model string, a single object, or a list mixing strings and objects. Object entries must
-contain a model name and may contain any LiteLLM request parameters. The model name must
+contain a model name and may contain any EmbRouter request parameters. The model name must
 still resolve to a deployment in `model_list`; this configuration does not create one
 
 ```yaml
@@ -63,7 +63,7 @@ still resolve to a deployment in `model_list`; this configuration does not creat
           COMPLEX: opus
           REASONING:
             - model_name: opus
-              litellm_params:
+              embrouter_params:
                 reasoning_effort: xhigh
             - abc
 ```
@@ -75,7 +75,7 @@ Set `cache_aware_routing: true` to consider observed prompt-cache savings after 
 ```yaml
 model_list:
   - model_name: smart-router
-    litellm_params:
+    embrouter_params:
       model: auto_router/complexity_router
       complexity_router_config:
         cache_aware_routing: true
@@ -86,11 +86,11 @@ model_list:
           SIMPLE: haiku
           COMPLEX: sonnet
   - model_name: haiku
-    litellm_params:
+    embrouter_params:
       model: anthropic/claude-haiku-4-5
       api_key: os.environ/ANTHROPIC_API_KEY
   - model_name: sonnet
-    litellm_params:
+    embrouter_params:
       model: anthropic/claude-sonnet-5
       api_key: os.environ/ANTHROPIC_API_KEY
 ```
@@ -118,7 +118,7 @@ route choice to a deterministic threshold policy
 ```yaml
 model_list:
   - model_name: smart-router
-    litellm_params:
+    embrouter_params:
       model: auto_router/complexity_router
       complexity_router_config:
         classifier_type: capability
@@ -226,7 +226,7 @@ success-probability model instead of the hand-written weighted scorer
 ```yaml
 model_list:
   - model_name: smart-router
-    litellm_params:
+    embrouter_params:
       model: auto_router/complexity_router
       complexity_router_config:
         classifier_type: heuristic_v2
@@ -265,7 +265,7 @@ configurations keep the original weighted scorer unchanged
 ```yaml
 model_list:
   - model_name: smart-router
-    litellm_params:
+    embrouter_params:
       model: auto_router/complexity_router
       complexity_router_config:
         tier_labels:
@@ -291,7 +291,7 @@ Spend logs keep `routing_decision.tier` canonical so rows from before and after 
 ```yaml
 model_list:
   - model_name: smart-router
-    litellm_params:
+    embrouter_params:
       model: auto_router/complexity_router
       complexity_router_config:
         # Display names for the tiers (optional, config keys stay canonical)
@@ -394,15 +394,15 @@ The existing heuristic-v1 tuning quota covers custom dimensions, their weights a
 Once configured, use the model name like any other:
 
 ```python
-import litellm
+import embrouter
 
-response = litellm.completion(
+response = embrouter.completion(
     model="smart-router",  # Your complexity_router model name
     messages=[{"role": "user", "content": "What is 2+2?"}]
 )
 # Routes to SIMPLE tier (gpt-4o-mini)
 
-response = litellm.completion(
+response = embrouter.completion(
     model="smart-router",
     messages=[{"role": "user", "content": "Think step by step: analyze the performance implications of implementing a distributed consensus algorithm for our microservices architecture."}]
 )
@@ -463,7 +463,7 @@ automatic counterpart to a user typing an escalation keyword:
 ```yaml
 model_list:
   - model_name: smart-router
-    litellm_params:
+    embrouter_params:
       model: auto_router/complexity_router
       complexity_router_config:
         stall_escalation_enabled: true
@@ -514,7 +514,7 @@ classifier for the ones the scorer could not place cheaply. It takes the same cl
 ```yaml
 model_list:
   - model_name: smart-router
-    litellm_params:
+    embrouter_params:
       model: auto_router/complexity_router
       complexity_router_config:
         classifier_type: heuristic_first
@@ -587,7 +587,7 @@ every tier, the most expensive one included:
 ```yaml
 model_list:
   - model_name: smart-router
-    litellm_params:
+    embrouter_params:
       model: auto_router/complexity_router
       complexity_router_config:
         classifier_type: hybrid
@@ -640,7 +640,7 @@ Agent harnesses inject their own context into the conversation as ordinary messa
 
 By default the router strips complete `<system-reminder>` blocks. For requests with a Codex user agent, it also strips complete `<environment_context>`, `<recommended_plugins>`, `<user_instructions>`, and `<environments_instructions>` blocks, plus repository instructions from the fixed heading prefix `# AGENTS.md instructions for ` through `</INSTRUCTIONS>`, regardless of the repository path. Other clients keep those tags and their contents
 
-The proxy records the incoming user agent in request metadata. SDK callers can supply `metadata.user_agent` (or `litellm_metadata.user_agent` on Responses requests), or configure `reminder_markers` explicitly when their client identity is unavailable
+The proxy records the incoming user agent in request metadata. SDK callers can supply `metadata.user_agent` (or `embrouter_metadata.user_agent` on Responses requests), or configure `reminder_markers` explicitly when their client identity is unavailable
 
 The Codex `Message Type: NEW_TASK` wrapper and its delegated-task payload remain available for classification. Cleanup applies to the current ask and quoted prior turns; the routed request retains its original content
 
@@ -651,7 +651,7 @@ In `classification_mode: user_turn`, complete text-only reminder tails leave the
 ```yaml
 model_list:
   - model_name: smart-router
-    litellm_params:
+    embrouter_params:
       model: auto_router/complexity_router
       complexity_router_config:
         reminder_markers:

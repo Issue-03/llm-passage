@@ -6,9 +6,9 @@ from typing import Final, Literal, Protocol
 
 from fastapi import HTTPException, status
 
-from litellm.proxy._experimental.mcp_server.ui_session_utils import can_access_mcp_server
-from litellm.proxy._types import LiteLLM_MCPServerTable, UserAPIKeyAuth
-from litellm.types.mcp_server.mcp_server_manager import MCPServer
+from embrouter.proxy._experimental.mcp_server.ui_session_utils import can_access_mcp_server
+from embrouter.proxy._types import EmbRouter_MCPServerTable, UserAPIKeyAuth
+from embrouter.types.mcp_server.mcp_server_manager import MCPServer
 
 
 class MCPServerRegistry(Protocol):
@@ -18,7 +18,7 @@ class MCPServerRegistry(Protocol):
 
     def _is_server_accessible_from_ip(self, server: MCPServer, client_ip: str | None) -> bool: ...
 
-    def _build_mcp_server_table(self, server: MCPServer) -> LiteLLM_MCPServerTable: ...
+    def _build_mcp_server_table(self, server: MCPServer) -> EmbRouter_MCPServerTable: ...
 
     async def get_allowed_mcp_servers(self, user_api_key_auth: UserAPIKeyAuth) -> list[str]: ...
 
@@ -28,7 +28,7 @@ ResolutionSource = Literal["temp", "db", "registry"]
 
 @dataclass(frozen=True, slots=True)
 class ResolvedMCPServer:
-    table: LiteLLM_MCPServerTable
+    table: EmbRouter_MCPServerTable
     runtime: MCPServer | None
     source: ResolutionSource
 
@@ -37,7 +37,7 @@ async def resolve_mcp_server(
     server_id: str,
     *,
     manager: MCPServerRegistry,
-    db_lookup: Callable[[str], Awaitable[LiteLLM_MCPServerTable | None]] | None = None,
+    db_lookup: Callable[[str], Awaitable[EmbRouter_MCPServerTable | None]] | None = None,
     temp_lookup: Callable[[str], Awaitable[MCPServer | None]] | None = None,
     id_client_ip: str | None = None,
     name_client_ip: str | None = None,
@@ -53,7 +53,7 @@ async def resolve_mcp_server(
             )
 
     if db_lookup is not None:
-        database_server: Final[LiteLLM_MCPServerTable | None] = await db_lookup(server_id)
+        database_server: Final[EmbRouter_MCPServerTable | None] = await db_lookup(server_id)
         if database_server is not None:
             return ResolvedMCPServer(table=database_server, runtime=None, source="db")
 

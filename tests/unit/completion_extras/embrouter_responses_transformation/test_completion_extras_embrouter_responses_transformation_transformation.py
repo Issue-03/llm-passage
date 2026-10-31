@@ -8,26 +8,26 @@ from unittest.mock import ANY, MagicMock, Mock, patch
 import httpx
 import pytest
 
-import litellm
-from litellm.completion_extras.litellm_responses_transformation.transformation import (
-    LiteLLMResponsesTransformationHandler,
+import embrouter
+from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
+    EmbRouterResponsesTransformationHandler,
 )
-from litellm.types.llms.openai import REASONING_EFFORT
+from embrouter.types.llms.openai import REASONING_EFFORT
 
 if TYPE_CHECKING:
     from openai.types.responses import ResponseOutputItem
     from openai.types.responses.response_reasoning_item import ResponseReasoningItem
 
-    from litellm.types.llms.openai import ResponsesAPIResponse
-    from litellm.types.utils import ModelResponse
+    from embrouter.types.llms.openai import ResponsesAPIResponse
+    from embrouter.types.utils import ModelResponse
 
 
 def test_convert_chat_completion_messages_to_responses_api_image_input():
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
-        LiteLLMResponsesTransformationHandler,
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
+        EmbRouterResponsesTransformationHandler,
     )
 
-    handler = LiteLLMResponsesTransformationHandler()
+    handler = EmbRouterResponsesTransformationHandler()
 
     user_content = "What's in this image?"
     user_image = "https://w7.pngwing.com/pngs/666/274/png-transparent-image-pictures-icon-photo-thumbnail.png"
@@ -73,11 +73,11 @@ def test_convert_chat_completion_messages_to_responses_api_tool_result_with_imag
     Responses API format:
         {"type": "input_image", "image_url": "data:image/png;base64,..."}
     """
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
-        LiteLLMResponsesTransformationHandler,
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
+        EmbRouterResponsesTransformationHandler,
     )
 
-    handler = LiteLLMResponsesTransformationHandler()
+    handler = EmbRouterResponsesTransformationHandler()
 
     test_image_base64 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg=="
 
@@ -163,11 +163,11 @@ def test_convert_chat_completion_messages_to_responses_api_tool_result_with_text
     Responses API format should use input_text, not output_text:
         {"type": "function_call_output", "call_id": "call_abc123", "output": [{"type": "input_text", "text": "15 degrees"}]}
     """
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
-        LiteLLMResponsesTransformationHandler,
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
+        EmbRouterResponsesTransformationHandler,
     )
 
-    handler = LiteLLMResponsesTransformationHandler()
+    handler = EmbRouterResponsesTransformationHandler()
 
     # Chat Completion format with tool result containing text
     messages = [
@@ -230,10 +230,10 @@ def test_convert_chat_completion_messages_to_responses_api_tool_result_with_text
 
 
 def test_openai_responses_chunk_parser_reasoning_summary():
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
         OpenAiResponsesToChatCompletionStreamIterator,
     )
-    from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices
+    from embrouter.types.utils import Delta, ModelResponseStream, StreamingChoices
 
     iterator = OpenAiResponsesToChatCompletionStreamIterator(
         streaming_response=None, sync_stream=True
@@ -264,10 +264,10 @@ def test_openai_responses_chunk_parser_reasoning_summary():
 
 
 def test_chunk_parser_string_output_text_delta_produces_text():
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
         OpenAiResponsesToChatCompletionStreamIterator,
     )
-    from litellm.types.utils import ModelResponseStream
+    from embrouter.types.utils import ModelResponseStream
 
     iterator = OpenAiResponsesToChatCompletionStreamIterator(
         streaming_response=None, sync_stream=True
@@ -286,11 +286,11 @@ def test_chunk_parser_string_output_text_delta_produces_text():
 
 
 def test_chunk_parser_enum_output_text_delta_produces_text():
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
         OpenAiResponsesToChatCompletionStreamIterator,
     )
-    from litellm.types.llms.openai import ResponsesAPIStreamEvents
-    from litellm.types.utils import ModelResponseStream
+    from embrouter.types.llms.openai import ResponsesAPIStreamEvents
+    from embrouter.types.utils import ModelResponseStream
 
     iterator = OpenAiResponsesToChatCompletionStreamIterator(
         streaming_response=None, sync_stream=True
@@ -309,11 +309,11 @@ def test_chunk_parser_enum_output_text_delta_produces_text():
 
 
 def test_chunk_parser_function_call_added_produces_tool_use():
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
         OpenAiResponsesToChatCompletionStreamIterator,
     )
-    from litellm.types.llms.openai import ResponsesAPIStreamEvents
-    from litellm.types.utils import ModelResponseStream
+    from embrouter.types.llms.openai import ResponsesAPIStreamEvents
+    from embrouter.types.utils import ModelResponseStream
 
     iterator = OpenAiResponsesToChatCompletionStreamIterator(
         streaming_response=None, sync_stream=True
@@ -350,18 +350,18 @@ def test_transform_response_with_reasoning_and_output():
         Summary,
     )
 
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
-        LiteLLMResponsesTransformationHandler,
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
+        EmbRouterResponsesTransformationHandler,
     )
-    from litellm.types.llms.openai import (
+    from embrouter.types.llms.openai import (
         InputTokensDetails,
         OutputTokensDetails,
         ResponseAPIUsage,
         ResponsesAPIResponse,
     )
-    from litellm.types.utils import ModelResponse, Usage
+    from embrouter.types.utils import ModelResponse, Usage
 
-    handler = LiteLLMResponsesTransformationHandler()
+    handler = EmbRouterResponsesTransformationHandler()
 
     # Create the reasoning item with summary
     reasoning_summary = Summary(
@@ -475,7 +475,7 @@ and I learn to carry this small calm home."""
     messages = [{"role": "user", "content": "Think of a poem, and then write it."}]
     request_data = {"model": "gpt-5-mini"}
     optional_params = {"reasoning_effort": "low", "extra_body": {}}
-    litellm_params = {"acompletion": False, "api_key": None}
+    embrouter_params = {"acompletion": False, "api_key": None}
     encoding = Mock()
 
     # Call transform_response
@@ -487,7 +487,7 @@ and I learn to carry this small calm home."""
         request_data=request_data,
         messages=messages,
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         encoding=encoding,
         api_key=None,
         json_mode=None,
@@ -516,7 +516,7 @@ and I learn to carry this small calm home."""
 
 
 def _make_empty_responses_api_response(model: str = "gpt-5.4"):
-    from litellm.types.llms.openai import ResponseAPIUsage, ResponsesAPIResponse
+    from embrouter.types.llms.openai import ResponseAPIUsage, ResponsesAPIResponse
 
     return ResponsesAPIResponse(
         id="resp_from_stream",
@@ -560,7 +560,7 @@ def _make_empty_responses_api_response(model: str = "gpt-5.4"):
 
 
 def _make_empty_model_response():
-    from litellm.types.utils import ModelResponse, Usage
+    from embrouter.types.utils import ModelResponse, Usage
 
     return ModelResponse(
         id="chatcmpl-test-recovered",
@@ -574,11 +574,11 @@ def _make_empty_model_response():
 
 
 def test_transform_response_recovers_empty_output_from_raw_sse():
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
-        LiteLLMResponsesTransformationHandler,
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
+        EmbRouterResponsesTransformationHandler,
     )
 
-    handler = LiteLLMResponsesTransformationHandler()
+    handler = EmbRouterResponsesTransformationHandler()
 
     raw_sse = "\n".join(
         [
@@ -602,7 +602,7 @@ def test_transform_response_recovers_empty_output_from_raw_sse():
         request_data={"model": "gpt-5.4"},
         messages=[{"role": "user", "content": "Reply with exactly: ok"}],
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         encoding=Mock(),
     )
 
@@ -611,11 +611,11 @@ def test_transform_response_recovers_empty_output_from_raw_sse():
 
 
 def test_transform_response_recovers_output_item_done_from_raw_sse():
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
-        LiteLLMResponsesTransformationHandler,
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
+        EmbRouterResponsesTransformationHandler,
     )
 
-    handler = LiteLLMResponsesTransformationHandler()
+    handler = EmbRouterResponsesTransformationHandler()
 
     raw_sse = "\n".join(
         [
@@ -639,7 +639,7 @@ def test_transform_response_recovers_output_item_done_from_raw_sse():
         request_data={"model": "gpt-5.4"},
         messages=[{"role": "user", "content": "Reply with exactly: ok"}],
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         encoding=Mock(),
     )
 
@@ -648,11 +648,11 @@ def test_transform_response_recovers_output_item_done_from_raw_sse():
 
 
 def test_transform_response_recovers_output_item_done_from_whitespace_padded_raw_sse():
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
-        LiteLLMResponsesTransformationHandler,
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
+        EmbRouterResponsesTransformationHandler,
     )
 
-    handler = LiteLLMResponsesTransformationHandler()
+    handler = EmbRouterResponsesTransformationHandler()
 
     output_item_event = {
         "type": "response.output_item.done",
@@ -704,7 +704,7 @@ def test_transform_response_recovers_output_item_done_from_whitespace_padded_raw
         request_data={"model": "gpt-5.4"},
         messages=[{"role": "user", "content": "Reply with exactly: ok"}],
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         encoding=Mock(),
     )
 
@@ -713,11 +713,11 @@ def test_transform_response_recovers_output_item_done_from_whitespace_padded_raw
 
 
 def test_transform_response_preserves_output_item_when_text_done_arrives_later():
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
-        LiteLLMResponsesTransformationHandler,
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
+        EmbRouterResponsesTransformationHandler,
     )
 
-    handler = LiteLLMResponsesTransformationHandler()
+    handler = EmbRouterResponsesTransformationHandler()
 
     raw_sse = "\n".join(
         [
@@ -742,7 +742,7 @@ def test_transform_response_preserves_output_item_when_text_done_arrives_later()
         request_data={"model": "gpt-5.4"},
         messages=[{"role": "user", "content": "Reply with exactly: ok"}],
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         encoding=Mock(),
     )
 
@@ -754,8 +754,8 @@ def test_recover_output_items_merges_text_only_items_at_distinct_indices():
     """When OUTPUT_ITEM_DONE covers some indices and OUTPUT_TEXT_DONE covers
     others, both must be preserved instead of treating them as mutually
     exclusive fallbacks."""
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
-        LiteLLMResponsesTransformationHandler,
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
+        EmbRouterResponsesTransformationHandler,
     )
 
     raw_sse = "\n".join(
@@ -768,7 +768,7 @@ def test_recover_output_items_merges_text_only_items_at_distinct_indices():
     )
 
     recovered = (
-        LiteLLMResponsesTransformationHandler._recover_output_items_from_raw_sse(
+        EmbRouterResponsesTransformationHandler._recover_output_items_from_raw_sse(
             raw_sse
         )
     )
@@ -781,11 +781,11 @@ def test_recover_output_items_merges_text_only_items_at_distinct_indices():
 
 
 def test_transform_response_prefers_completed_output_from_raw_sse():
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
-        LiteLLMResponsesTransformationHandler,
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
+        EmbRouterResponsesTransformationHandler,
     )
 
-    handler = LiteLLMResponsesTransformationHandler()
+    handler = EmbRouterResponsesTransformationHandler()
 
     raw_sse = "\n".join(
         [
@@ -809,7 +809,7 @@ def test_transform_response_prefers_completed_output_from_raw_sse():
         request_data={"model": "gpt-5.4"},
         messages=[{"role": "user", "content": "Reply with exactly: ok"}],
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         encoding=Mock(),
     )
 
@@ -818,11 +818,11 @@ def test_transform_response_prefers_completed_output_from_raw_sse():
 
 
 def test_convert_tools_to_responses_format():
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
-        LiteLLMResponsesTransformationHandler,
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
+        EmbRouterResponsesTransformationHandler,
     )
 
-    handler = LiteLLMResponsesTransformationHandler()
+    handler = EmbRouterResponsesTransformationHandler()
 
     tools = [{"type": "function", "function": {"name": "test", "arguments": "test"}}]
 
@@ -832,11 +832,11 @@ def test_convert_tools_to_responses_format():
 
 
 def test_convert_tools_to_responses_format_passes_flat_function_tool_through():
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
-        LiteLLMResponsesTransformationHandler,
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
+        EmbRouterResponsesTransformationHandler,
     )
 
-    handler = LiteLLMResponsesTransformationHandler()
+    handler = EmbRouterResponsesTransformationHandler()
     flat_tool = {
         "type": "function",
         "name": "shell",
@@ -851,11 +851,11 @@ def test_convert_tools_to_responses_format_passes_flat_function_tool_through():
 
 def test_extract_extra_body_params_reasoning_effort_override():
     """Test that reasoning_effort from extra_body overrides top-level reasoning_effort"""
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
-        LiteLLMResponsesTransformationHandler,
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
+        EmbRouterResponsesTransformationHandler,
     )
 
-    handler = LiteLLMResponsesTransformationHandler()
+    handler = EmbRouterResponsesTransformationHandler()
 
     # Test case: reasoning_effort in extra_body (with summary) should override top-level string
     optional_params = {
@@ -892,7 +892,7 @@ def test_transform_request_system_only_message_maps_to_system_input_item():
     system message, carry it as a system-role input item (single copy, correct
     role) rather than leaving input empty or duplicating it into instructions.
     """
-    handler = LiteLLMResponsesTransformationHandler()
+    handler = EmbRouterResponsesTransformationHandler()
     logging_obj = Mock()
     messages = [{"role": "system", "content": "You are a helpful assistant."}]
 
@@ -900,9 +900,9 @@ def test_transform_request_system_only_message_maps_to_system_input_item():
         model="gpt-5.3-codex",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         headers={},
-        litellm_logging_obj=logging_obj,
+        embrouter_logging_obj=logging_obj,
     )
 
     assert result["input"] == [
@@ -927,11 +927,11 @@ def test_transform_request_single_char_keys_not_matched():
     - So "m" in ("metadata") returns True (character in string)
     - This caused single-char keys like "m", "e", "t", etc. to incorrectly match
     """
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
-        LiteLLMResponsesTransformationHandler,
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
+        EmbRouterResponsesTransformationHandler,
     )
 
-    handler = LiteLLMResponsesTransformationHandler()
+    handler = EmbRouterResponsesTransformationHandler()
 
     # Create mock objects
     logging_obj = Mock()
@@ -948,16 +948,16 @@ def test_transform_request_single_char_keys_not_matched():
         "r": "should_not_be_previous_response_id",  # "r" is in "previous_response_id"
     }
 
-    litellm_params = {}
+    embrouter_params = {}
     headers = {}
 
     result = handler.transform_request(
         model="gpt-4",
         messages=messages,
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         headers=headers,
-        litellm_logging_obj=logging_obj,
+        embrouter_logging_obj=logging_obj,
     )
 
     # Verify that single-char keys were NOT mapped to metadata or previous_response_id
@@ -974,9 +974,9 @@ def test_transform_request_single_char_keys_not_matched():
         model="gpt-4",
         messages=messages,
         optional_params=optional_params_correct,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         headers=headers,
-        litellm_logging_obj=logging_obj,
+        embrouter_logging_obj=logging_obj,
     )
 
     # Verify that the correct keys ARE mapped properly
@@ -1001,7 +1001,7 @@ def test_message_done_does_not_emit_is_finished():
     Before fix: message completion emitted is_finished=True, causing tool_calls
     that came after to be dropped.
     """
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
         OpenAiResponsesToChatCompletionStreamIterator,
     )
 
@@ -1029,7 +1029,7 @@ def test_response_completed_emits_is_finished():
     Test that response.completed DOES emit is_finished=True.
     This ensures streaming ends properly after ALL output items are sent.
     """
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
         OpenAiResponsesToChatCompletionStreamIterator,
     )
 
@@ -1060,7 +1060,7 @@ def test_response_completed_with_function_calls_emits_tool_calls_finish_reason()
     the finish_reason should be 'tool_calls' to signal the client that tools need
     to be executed.
     """
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
         OpenAiResponsesToChatCompletionStreamIterator,
     )
 
@@ -1101,7 +1101,7 @@ def test_response_completed_with_message_only_emits_stop_finish_reason():
     """
     Test that response.completed with only message output (no function_call) emits finish_reason='stop'.
     """
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
         OpenAiResponsesToChatCompletionStreamIterator,
     )
 
@@ -1145,7 +1145,7 @@ def test_response_completed_preserves_usage_with_cached_tokens():
     use the Responses API bridge (e.g. gpt-5.2-codex) would drop
     prompt_tokens_details, causing cached_tokens to always be None.
     """
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
         OpenAiResponsesToChatCompletionStreamIterator,
     )
 
@@ -1201,7 +1201,7 @@ def test_function_call_done_emits_is_finished():
     Emitting finish_reason here would prematurely terminate the stream in multi-tool
     scenarios (same fix as #17246 for the message-type branch).
     """
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
         OpenAiResponsesToChatCompletionStreamIterator,
     )
 
@@ -1240,7 +1240,7 @@ def test_text_plus_tool_calls_sequence():
     Expected: is_finished=True should NOT appear until function_call is done,
     not when message is done.
     """
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
         OpenAiResponsesToChatCompletionStreamIterator,
     )
 
@@ -1315,7 +1315,7 @@ def test_text_plus_tool_calls_sequence():
 
 
 def test_developer_message_content_uses_input_text():
-    handler = LiteLLMResponsesTransformationHandler()
+    handler = EmbRouterResponsesTransformationHandler()
 
     input_items, instructions = handler.convert_chat_completion_messages_to_responses_api(
         [{"role": "developer", "content": "Always answer in French."}]
@@ -1340,11 +1340,11 @@ def test_tool_message_output_uses_input_text_not_output_text():
     The incorrect format caused OpenAI to reject with:
         "Invalid value: 'output_text'. Supported values are: 'input_text', 'input_image', and 'input_file'."
     """
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
-        LiteLLMResponsesTransformationHandler,
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
+        EmbRouterResponsesTransformationHandler,
     )
 
-    handler = LiteLLMResponsesTransformationHandler()
+    handler = EmbRouterResponsesTransformationHandler()
 
     messages = [
         {"role": "user", "content": "What's the weather?"},
@@ -1414,18 +1414,18 @@ def test_multiple_tool_calls_in_single_choice():
 
     from openai.types.responses import ResponseFunctionToolCall
 
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
-        LiteLLMResponsesTransformationHandler,
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
+        EmbRouterResponsesTransformationHandler,
     )
-    from litellm.types.llms.openai import (
+    from embrouter.types.llms.openai import (
         InputTokensDetails,
         OutputTokensDetails,
         ResponseAPIUsage,
         ResponsesAPIResponse,
     )
-    from litellm.types.utils import ModelResponse, Usage
+    from embrouter.types.utils import ModelResponse, Usage
 
-    handler = LiteLLMResponsesTransformationHandler()
+    handler = EmbRouterResponsesTransformationHandler()
 
     # Create multiple function tool calls (simulating parallel tool calls)
     tool_call_1 = ResponseFunctionToolCall(
@@ -1507,7 +1507,7 @@ def test_multiple_tool_calls_in_single_choice():
         request_data={"model": "gpt-4o"},
         messages=[{"role": "user", "content": "test"}],
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         encoding=Mock(),
     )
 
@@ -1547,25 +1547,25 @@ def test_map_reasoning_effort_adds_summary_detailed(monkeypatch):
     When flag is enabled (flag=True or env var), summary="detailed" is added.
     """
 
-    import litellm
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
-        LiteLLMResponsesTransformationHandler,
+    import embrouter
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
+        EmbRouterResponsesTransformationHandler,
     )
 
-    handler = LiteLLMResponsesTransformationHandler()
+    handler = EmbRouterResponsesTransformationHandler()
 
     # Test all string effort levels - DEFAULT BEHAVIOR (no summary)
     effort_levels = ["none", "low", "medium", "high", "xhigh", "minimal"]
 
     # Save original flag value
-    original_flag = litellm.reasoning_auto_summary
-    original_env = os.environ.get("LITELLM_REASONING_AUTO_SUMMARY")
+    original_flag = embrouter.reasoning_auto_summary
+    original_env = os.environ.get("EMBROUTER_REASONING_AUTO_SUMMARY")
 
     try:
         # Test 1: Default behavior (flag=False, no env var) - NO summary
-        litellm.reasoning_auto_summary = False
-        if "LITELLM_REASONING_AUTO_SUMMARY" in os.environ:
-            del os.environ["LITELLM_REASONING_AUTO_SUMMARY"]
+        embrouter.reasoning_auto_summary = False
+        if "EMBROUTER_REASONING_AUTO_SUMMARY" in os.environ:
+            del os.environ["EMBROUTER_REASONING_AUTO_SUMMARY"]
 
         for effort in effort_levels:
             result = handler._map_reasoning_effort(effort)
@@ -1581,7 +1581,7 @@ def test_map_reasoning_effort_adds_summary_detailed(monkeypatch):
             )
 
         # Test 2: With flag enabled - summary IS added
-        litellm.reasoning_auto_summary = True
+        embrouter.reasoning_auto_summary = True
 
         for effort in effort_levels:
             result = handler._map_reasoning_effort(effort)
@@ -1597,19 +1597,19 @@ def test_map_reasoning_effort_adds_summary_detailed(monkeypatch):
             )
 
         # Test 3: With env var enabled (flag disabled) - summary IS added
-        litellm.reasoning_auto_summary = False
-        monkeypatch.setenv("LITELLM_REASONING_AUTO_SUMMARY", "true")
+        embrouter.reasoning_auto_summary = False
+        monkeypatch.setenv("EMBROUTER_REASONING_AUTO_SUMMARY", "true")
 
         result = handler._map_reasoning_effort("high")
         assert (
             result["summary"] == "detailed"
         ), "Summary should be 'detailed' when env var is enabled"
-        print("✓ LITELLM_REASONING_AUTO_SUMMARY env var works correctly")
+        print("✓ EMBROUTER_REASONING_AUTO_SUMMARY env var works correctly")
 
         # Test 4: Dict input is passed through as-is (no modification)
-        litellm.reasoning_auto_summary = False
-        if "LITELLM_REASONING_AUTO_SUMMARY" in os.environ:
-            del os.environ["LITELLM_REASONING_AUTO_SUMMARY"]
+        embrouter.reasoning_auto_summary = False
+        if "EMBROUTER_REASONING_AUTO_SUMMARY" in os.environ:
+            del os.environ["EMBROUTER_REASONING_AUTO_SUMMARY"]
 
         dict_input = {"effort": "high", "summary": "custom_summary"}
         result_dict = handler._map_reasoning_effort(dict_input)
@@ -1623,11 +1623,11 @@ def test_map_reasoning_effort_adds_summary_detailed(monkeypatch):
 
     finally:
         # Restore original values
-        litellm.reasoning_auto_summary = original_flag
+        embrouter.reasoning_auto_summary = original_flag
         if original_env is not None:
-            monkeypatch.setenv("LITELLM_REASONING_AUTO_SUMMARY", original_env)
-        elif "LITELLM_REASONING_AUTO_SUMMARY" in os.environ:
-            del os.environ["LITELLM_REASONING_AUTO_SUMMARY"]
+            monkeypatch.setenv("EMBROUTER_REASONING_AUTO_SUMMARY", original_env)
+        elif "EMBROUTER_REASONING_AUTO_SUMMARY" in os.environ:
+            del os.environ["EMBROUTER_REASONING_AUTO_SUMMARY"]
 
 
 def test_transform_response_preserves_annotations():
@@ -1644,18 +1644,18 @@ def test_transform_response_preserves_annotations():
 
     from openai.types.responses import ResponseOutputMessage, ResponseOutputText
 
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
-        LiteLLMResponsesTransformationHandler,
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
+        EmbRouterResponsesTransformationHandler,
     )
-    from litellm.types.llms.openai import (
+    from embrouter.types.llms.openai import (
         InputTokensDetails,
         OutputTokensDetails,
         ResponseAPIUsage,
         ResponsesAPIResponse,
     )
-    from litellm.types.utils import ModelResponse, Usage
+    from embrouter.types.utils import ModelResponse, Usage
 
-    handler = LiteLLMResponsesTransformationHandler()
+    handler = EmbRouterResponsesTransformationHandler()
 
     # Create annotations similar to what OpenAI Responses API returns
     annotations = [
@@ -1754,7 +1754,7 @@ def test_transform_response_preserves_annotations():
     messages = [{"role": "user", "content": "Tell me about AI"}]
     request_data = {"model": "gpt-5.1"}
     optional_params = {}
-    litellm_params = {"acompletion": False, "api_key": None}
+    embrouter_params = {"acompletion": False, "api_key": None}
     encoding = Mock()
 
     # Call transform_response
@@ -1766,7 +1766,7 @@ def test_transform_response_preserves_annotations():
         request_data=request_data,
         messages=messages,
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         encoding=encoding,
         api_key=None,
         json_mode=None,
@@ -1822,12 +1822,12 @@ def test_apply_patch_tool_call_converted_to_chat_completion_tool_call():
     Test that ResponseApplyPatchToolCall items from the Responses API are
     correctly converted to ChatCompletions-style tool calls by the bridge.
 
-    This is a regression test for a bug where litellm.completion() with a
+    This is a regression test for a bug where embrouter.completion() with a
     responses/ model prefix crashed when the model returned an
     apply_patch_call, because _convert_response_output_to_choices did not
     handle ResponseApplyPatchToolCall items. The model DID use the tool,
     but the bridge silently dropped it (or raised an error), while the
-    native litellm.responses() path worked correctly.
+    native embrouter.responses() path worked correctly.
     """
     pytest.importorskip("openai.types.responses.response_apply_patch_tool_call")
 
@@ -1841,18 +1841,18 @@ def test_apply_patch_tool_call_converted_to_chat_completion_tool_call():
         ResponseApplyPatchToolCall,
     )
 
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
-        LiteLLMResponsesTransformationHandler,
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
+        EmbRouterResponsesTransformationHandler,
     )
-    from litellm.types.llms.openai import (
+    from embrouter.types.llms.openai import (
         InputTokensDetails,
         OutputTokensDetails,
         ResponseAPIUsage,
         ResponsesAPIResponse,
     )
-    from litellm.types.utils import ModelResponse, Usage
+    from embrouter.types.utils import ModelResponse, Usage
 
-    handler = LiteLLMResponsesTransformationHandler()
+    handler = EmbRouterResponsesTransformationHandler()
 
     # Build an apply_patch_call item like the model would return
     operation = OperationCreateFile(
@@ -1926,7 +1926,7 @@ def test_apply_patch_tool_call_converted_to_chat_completion_tool_call():
             {"role": "user", "content": "Create hello.py"},
         ],
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         encoding=Mock(),
     )
 
@@ -1975,7 +1975,7 @@ def test_multi_tool_call_stream_no_premature_finish():
       response.output_item.done    (function_call: list_dir)    <- must NOT end stream
       response.completed           (response with 2 function_call outputs)  <- terminal
     """
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
         OpenAiResponsesToChatCompletionStreamIterator,
     )
 
@@ -2127,7 +2127,7 @@ def test_streaming_parallel_tool_calls_have_distinct_indices():
     Regression test for issue #21331 where all tool calls were emitted with
     index=0, making it impossible to distinguish parallel calls.
     """
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
         OpenAiResponsesToChatCompletionStreamIterator,
     )
 
@@ -2237,7 +2237,7 @@ def test_parallel_tool_calls_comprehensive_streaming_integration():
     4. Exactly one finish event, at the final response.completed chunk
     5. Two parallel tool calls have distinct indices (output_index 0 and 1)
     """
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
         OpenAiResponsesToChatCompletionStreamIterator,
     )
 
@@ -2436,12 +2436,12 @@ def test_map_optional_params_preserves_reasoning_summary():
     Regression test for: User reported that summary field was being dropped
     when routing to Responses API. The dict format should be fully preserved.
     """
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
-        LiteLLMResponsesTransformationHandler,
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
+        EmbRouterResponsesTransformationHandler,
     )
-    from litellm.types.llms.openai import ResponsesAPIOptionalRequestParams
+    from embrouter.types.llms.openai import ResponsesAPIOptionalRequestParams
 
-    handler = LiteLLMResponsesTransformationHandler()
+    handler = EmbRouterResponsesTransformationHandler()
 
     optional_params = {
         "stream": False,
@@ -2468,13 +2468,13 @@ def test_map_optional_params_preserves_reasoning_summary():
 @pytest.mark.parametrize("reasoning_effort", ["max", "high"])
 def test_transform_request_bedrock_mantle_tools_keeps_reasoning_effort(monkeypatch, reasoning_effort):
     """Regression for reasoning_effort=max being dropped on the chat -> Responses bridge (issue #38084)."""
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
-        LiteLLMResponsesTransformationHandler,
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
+        EmbRouterResponsesTransformationHandler,
     )
 
-    monkeypatch.setattr(litellm, "reasoning_auto_summary", False)
-    monkeypatch.delenv("LITELLM_REASONING_AUTO_SUMMARY", raising=False)
-    handler: Final = LiteLLMResponsesTransformationHandler()
+    monkeypatch.setattr(embrouter, "reasoning_auto_summary", False)
+    monkeypatch.delenv("EMBROUTER_REASONING_AUTO_SUMMARY", raising=False)
+    handler: Final = EmbRouterResponsesTransformationHandler()
 
     result: Final = handler.transform_request(
         model="openai.gpt-5.6-sol",
@@ -2483,9 +2483,9 @@ def test_transform_request_bedrock_mantle_tools_keeps_reasoning_effort(monkeypat
             "reasoning_effort": reasoning_effort,
             "tools": [{"type": "function", "function": {"name": "get_weather", "parameters": {"type": "object"}}}],
         },
-        litellm_params={"custom_llm_provider": "bedrock_mantle"},
+        embrouter_params={"custom_llm_provider": "bedrock_mantle"},
         headers={},
-        litellm_logging_obj=Mock(),
+        embrouter_logging_obj=Mock(),
     )
 
     assert result["reasoning"] == {"effort": reasoning_effort}
@@ -2498,18 +2498,18 @@ def test_transform_request_bedrock_mantle_tools_keeps_reasoning_effort(monkeypat
 def test_transform_request_never_drops_reasoning_effort(
     monkeypatch: pytest.MonkeyPatch, reasoning_effort: int | list[str] | str | dict[str, object]
 ):
-    monkeypatch.setattr(litellm, "reasoning_auto_summary", False)
-    monkeypatch.delenv("LITELLM_REASONING_AUTO_SUMMARY", raising=False)
-    handler: Final = LiteLLMResponsesTransformationHandler()
+    monkeypatch.setattr(embrouter, "reasoning_auto_summary", False)
+    monkeypatch.delenv("EMBROUTER_REASONING_AUTO_SUMMARY", raising=False)
+    handler: Final = EmbRouterResponsesTransformationHandler()
     expected_effort: Final = reasoning_effort["effort"] if isinstance(reasoning_effort, dict) else reasoning_effort
 
     result: Final = handler.transform_request(
         model="gpt-5.4",
         messages=[{"role": "user", "content": "hi"}],
         optional_params={"reasoning_effort": reasoning_effort},
-        litellm_params={"custom_llm_provider": "openai"},
+        embrouter_params={"custom_llm_provider": "openai"},
         headers={},
-        litellm_logging_obj=Mock(),
+        embrouter_logging_obj=Mock(),
     )
 
     assert result["reasoning"]["effort"] == expected_effort
@@ -2517,12 +2517,12 @@ def test_transform_request_never_drops_reasoning_effort(
 
 def test_map_optional_params_tool_choice_chat_nested_to_responses_api():
     """Chat tool_choice must become Responses ToolChoiceFunction (top-level name)."""
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
-        LiteLLMResponsesTransformationHandler,
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
+        EmbRouterResponsesTransformationHandler,
     )
-    from litellm.types.llms.openai import ResponsesAPIOptionalRequestParams
+    from embrouter.types.llms.openai import ResponsesAPIOptionalRequestParams
 
-    handler = LiteLLMResponsesTransformationHandler()
+    handler = EmbRouterResponsesTransformationHandler()
     responses_api_request = ResponsesAPIOptionalRequestParams()
     handler._map_optional_params_to_responses_api_request(
         {
@@ -2568,11 +2568,11 @@ def test_map_optional_params_tool_choice_chat_nested_to_responses_api():
     ],
 )
 def test_normalize_tool_choice_for_responses_api(tool_choice, expected):
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
-        LiteLLMResponsesTransformationHandler,
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
+        EmbRouterResponsesTransformationHandler,
     )
 
-    handler = LiteLLMResponsesTransformationHandler()
+    handler = EmbRouterResponsesTransformationHandler()
     assert handler._normalize_tool_choice_for_responses_api(tool_choice) == expected
 
 
@@ -2583,11 +2583,11 @@ def test_convert_chat_completion_file_type_to_input_file():
 
 
     """
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
-        LiteLLMResponsesTransformationHandler,
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
+        EmbRouterResponsesTransformationHandler,
     )
 
-    handler = LiteLLMResponsesTransformationHandler()
+    handler = EmbRouterResponsesTransformationHandler()
 
     messages = [
         {
@@ -2634,11 +2634,11 @@ def test_convert_chat_completion_file_type_with_file_id():
     """
     Test that Chat Completion content with type 'file' using file_id is correctly mapped.
     """
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
-        LiteLLMResponsesTransformationHandler,
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
+        EmbRouterResponsesTransformationHandler,
     )
 
-    handler = LiteLLMResponsesTransformationHandler()
+    handler = EmbRouterResponsesTransformationHandler()
 
     messages = [
         {
@@ -2686,18 +2686,18 @@ def test_reasoning_items_non_streaming_round_trip():
         Summary,
     )
 
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
-        LiteLLMResponsesTransformationHandler,
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
+        EmbRouterResponsesTransformationHandler,
     )
-    from litellm.types.llms.openai import (
+    from embrouter.types.llms.openai import (
         InputTokensDetails,
         OutputTokensDetails,
         ResponseAPIUsage,
         ResponsesAPIResponse,
     )
-    from litellm.types.utils import ModelResponse, Usage
+    from embrouter.types.utils import ModelResponse, Usage
 
-    handler = LiteLLMResponsesTransformationHandler()
+    handler = EmbRouterResponsesTransformationHandler()
 
     encrypted = "gAAAAABpw5abc123FAKE=="
     summary_text = "**Thinking about it**\n\nSome reasoning here."
@@ -2784,7 +2784,7 @@ def test_reasoning_items_non_streaming_round_trip():
         request_data={"model": "gpt-5-mini"},
         messages=[{"role": "user", "content": "What is the answer?"}],
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         encoding=Mock(),
     )
 
@@ -2848,7 +2848,7 @@ def test_reasoning_items_streaming_emitted_on_response_completed():
     on the delta of the response.completed chunk, enabling the caller to
     round-trip them in subsequent requests.
     """
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
         OpenAiResponsesToChatCompletionStreamIterator,
     )
 
@@ -2918,7 +2918,7 @@ def test_streaming_function_call_tool_id_for_degenerate_call_id():
     streaming agents don't collapse every tool call to the same id (which makes the
     agent loop). A normal (unique) ``call_id`` must be preserved. Regression for the
     bedrock-mantle gpt-5.5 streaming path."""
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
         OpenAiResponsesToChatCompletionStreamIterator,
     )
 
@@ -2951,7 +2951,7 @@ def test_streaming_chunks_share_one_chat_completion_id():
     so without a stream-scoped id each chunk got a new ``chatcmpl-<uuid>`` and clients
     that validate id consistency (openai-go's ChatCompletionAccumulator) silently
     dropped every chunk after the first. Regression for #32854."""
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
         OpenAiResponsesToChatCompletionStreamIterator,
     )
 
@@ -2995,7 +2995,7 @@ async def test_acompletion_bridge_normalizes_stream_options_on_the_wire(
     """include_usage must be stripped from the /v1/responses body; include_obfuscation must survive as a dict."""
     from unittest.mock import AsyncMock
 
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+    from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler
 
     responses_payload = {
         "id": "resp_bridge_stream_options",
@@ -3038,7 +3038,7 @@ async def test_acompletion_bridge_normalizes_stream_options_on_the_wire(
     with patch.object(AsyncHTTPHandler, "post", new_callable=AsyncMock) as mock_post:
         mock_post.return_value = mock_response
 
-        await litellm.acompletion(
+        await embrouter.acompletion(
             model="openai/responses/gpt-5.5",
             messages=[{"role": "user", "content": "hi"}],
             api_key="fake-api-key",
@@ -3063,7 +3063,7 @@ def test_chunk_parser_custom_tool_call_stream_sequence():
     finish_reason="tool_calls". Before the fix every one of these events fell through
     to an empty-content chunk and the completed event said "stop", so Cursor never saw
     the tool call and agent mode stalled."""
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
         OpenAiResponsesToChatCompletionStreamIterator,
     )
 
@@ -3143,7 +3143,7 @@ def test_chunk_parser_remaps_tool_call_indices_sequentially():
     own sequential indices for the same reason). The iterator must remap each distinct
     output_index to the next sequential slot and route argument deltas to the mapped
     slot."""
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
         OpenAiResponsesToChatCompletionStreamIterator,
     )
 
@@ -3207,8 +3207,8 @@ def test_convert_response_output_custom_tool_call_to_tool_calls_choice():
     dropped, which left Cursor agent mode with an empty assistant message."""
     from openai.types.responses import ResponseCustomToolCall
 
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
-        LiteLLMResponsesTransformationHandler,
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
+        EmbRouterResponsesTransformationHandler,
     )
 
     item = ResponseCustomToolCall(
@@ -3219,7 +3219,7 @@ def test_convert_response_output_custom_tool_call_to_tool_calls_choice():
         input="*** Begin Patch\n*** End Patch",
     )
 
-    choices = LiteLLMResponsesTransformationHandler._convert_response_output_to_choices([item])
+    choices = EmbRouterResponsesTransformationHandler._convert_response_output_to_choices([item])
 
     assert len(choices) == 1
     choice = choices[0]
@@ -3236,11 +3236,11 @@ def test_convert_response_output_accumulates_raw_tool_calls_into_one_choice():
     call (the old raw-dict behavior) hid every call after choices[0] from chat
     clients, which read only the first choice; a multi-tool agent turn through the
     completion bridge lost all but one call."""
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
-        LiteLLMResponsesTransformationHandler,
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
+        EmbRouterResponsesTransformationHandler,
     )
 
-    handler = LiteLLMResponsesTransformationHandler()
+    handler = EmbRouterResponsesTransformationHandler()
     items = [
         {
             "type": "function_call",
@@ -3258,7 +3258,7 @@ def test_convert_response_output_accumulates_raw_tool_calls_into_one_choice():
         },
     ]
 
-    choices = LiteLLMResponsesTransformationHandler._convert_response_output_to_choices(
+    choices = EmbRouterResponsesTransformationHandler._convert_response_output_to_choices(
         items,
         handle_raw_dict_callback=handler._handle_raw_dict_response_item,
     )
@@ -3277,18 +3277,18 @@ def test_convert_response_output_accumulates_raw_tool_calls_into_one_choice():
 
 
 def test_convert_response_output_generic_pydantic_message_item():
-    """litellm's completion bridge (used for non-Responses-native providers behind the
+    """embrouter's completion bridge (used for non-Responses-native providers behind the
     router) emits GenericResponseOutputItem pydantic models rather than openai SDK
     classes. The converter must normalize unrecognized pydantic items through the
     raw-dict handler instead of dropping them; dropping them made transform_response
     raise 'Unknown items in responses API response' on an otherwise-successful
     completion (hit live via /cursor/chat/completions multi-turn tool round trips)."""
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
-        LiteLLMResponsesTransformationHandler,
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
+        EmbRouterResponsesTransformationHandler,
     )
-    from litellm.types.responses.main import GenericResponseOutputItem, OutputText
+    from embrouter.types.responses.main import GenericResponseOutputItem, OutputText
 
-    handler = LiteLLMResponsesTransformationHandler()
+    handler = EmbRouterResponsesTransformationHandler()
     item = GenericResponseOutputItem(
         type="message",
         id="msg_generic1",
@@ -3297,7 +3297,7 @@ def test_convert_response_output_generic_pydantic_message_item():
         content=[OutputText(type="output_text", text="42", annotations=[])],
     )
 
-    choices = LiteLLMResponsesTransformationHandler._convert_response_output_to_choices(
+    choices = EmbRouterResponsesTransformationHandler._convert_response_output_to_choices(
         [item],
         handle_raw_dict_callback=handler._handle_raw_dict_response_item,
     )
@@ -3308,11 +3308,11 @@ def test_convert_response_output_generic_pydantic_message_item():
 
 
 def test_convert_tools_to_responses_format_flattens_nested_custom_tool():
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
-        LiteLLMResponsesTransformationHandler,
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
+        EmbRouterResponsesTransformationHandler,
     )
 
-    handler = LiteLLMResponsesTransformationHandler()
+    handler = EmbRouterResponsesTransformationHandler()
     tools = [
         {
             "type": "custom",
@@ -3332,21 +3332,21 @@ def test_convert_tools_to_responses_format_flattens_nested_custom_tool():
 
 
 def test_convert_tools_to_responses_format_flattens_custom_tool_without_optional_keys():
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
-        LiteLLMResponsesTransformationHandler,
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
+        EmbRouterResponsesTransformationHandler,
     )
 
-    handler = LiteLLMResponsesTransformationHandler()
+    handler = EmbRouterResponsesTransformationHandler()
     converted = handler._convert_tools_to_responses_format([{"type": "custom", "custom": {"name": "Minimal"}}])
     assert converted[0] == {"type": "custom", "name": "Minimal"}
 
 
 def test_convert_tools_to_responses_format_unwraps_nested_grammar_format():
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
-        LiteLLMResponsesTransformationHandler,
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
+        EmbRouterResponsesTransformationHandler,
     )
 
-    handler = LiteLLMResponsesTransformationHandler()
+    handler = EmbRouterResponsesTransformationHandler()
     converted = handler._convert_tools_to_responses_format(
         [
             {
@@ -3369,11 +3369,11 @@ def test_convert_tools_to_responses_format_unwraps_nested_grammar_format():
 
 
 def test_convert_tools_to_responses_format_text_format_passes_through():
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
-        LiteLLMResponsesTransformationHandler,
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
+        EmbRouterResponsesTransformationHandler,
     )
 
-    handler = LiteLLMResponsesTransformationHandler()
+    handler = EmbRouterResponsesTransformationHandler()
     converted = handler._convert_tools_to_responses_format(
         [{"type": "custom", "custom": {"name": "A", "format": {"type": "text"}}}]
     )
@@ -3381,11 +3381,11 @@ def test_convert_tools_to_responses_format_text_format_passes_through():
 
 
 def test_convert_chat_completion_messages_maps_custom_tool_call_history():
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
-        LiteLLMResponsesTransformationHandler,
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
+        EmbRouterResponsesTransformationHandler,
     )
 
-    handler = LiteLLMResponsesTransformationHandler()
+    handler = EmbRouterResponsesTransformationHandler()
     input_items, instructions = handler.convert_chat_completion_messages_to_responses_api(
         [
             {"role": "user", "content": "use ApplyPatch"},
@@ -3426,11 +3426,11 @@ def test_convert_chat_completion_messages_maps_custom_tool_call_history():
 def test_convert_chat_completion_messages_still_rejects_unknown_tool_call_shape():
     import pytest
 
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
-        LiteLLMResponsesTransformationHandler,
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
+        EmbRouterResponsesTransformationHandler,
     )
 
-    handler = LiteLLMResponsesTransformationHandler()
+    handler = EmbRouterResponsesTransformationHandler()
     with pytest.raises(ValueError, match="tool call not supported"):
         handler.convert_chat_completion_messages_to_responses_api(
             [{"role": "assistant", "tool_calls": [{"id": "call_x", "type": "mystery"}]}]
@@ -3438,7 +3438,7 @@ def test_convert_chat_completion_messages_still_rejects_unknown_tool_call_shape(
 
 
 def test_output_item_done_stateless_emits_complete_tool_call():
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
         OpenAiResponsesToChatCompletionStreamIterator,
     )
 
@@ -3467,7 +3467,7 @@ def test_output_item_done_stateless_emits_complete_tool_call():
 
 
 def test_output_item_done_with_stream_map_keeps_empty_delta():
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
         OpenAiResponsesToChatCompletionStreamIterator,
     )
 
@@ -3501,7 +3501,7 @@ async def test_acompletion_bridge_normalizes_tool_choice_on_the_wire(
     """Object-wrapped tool_choice must never reach /v1/responses."""
     from unittest.mock import AsyncMock
 
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+    from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler
 
     responses_payload = {
         "id": "resp_bridge_tool_choice",
@@ -3544,7 +3544,7 @@ async def test_acompletion_bridge_normalizes_tool_choice_on_the_wire(
     with patch.object(AsyncHTTPHandler, "post", new_callable=AsyncMock) as mock_post:
         mock_post.return_value = mock_response
 
-        await litellm.acompletion(
+        await embrouter.acompletion(
             model="openai/responses/gpt-5.5",
             messages=[{"role": "user", "content": "what is the DJIA today"}],
             api_key="fake-api-key",
@@ -3572,7 +3572,7 @@ def _make_incomplete_responses_api_response(
     status: Literal["completed", "incomplete"] = "incomplete",
     empty_incomplete_details: bool = False,
 ) -> "ResponsesAPIResponse":
-    from litellm.types.llms.openai import (
+    from embrouter.types.llms.openai import (
         InputTokensDetails,
         OutputTokensDetails,
         ResponseAPIUsage,
@@ -3642,7 +3642,7 @@ def _make_reasoning_only_output_item() -> "ResponseReasoningItem":
 
 
 def _call_transform_response(
-    handler: LiteLLMResponsesTransformationHandler,
+    handler: EmbRouterResponsesTransformationHandler,
     raw_response: "ResponsesAPIResponse",
 ) -> "ModelResponse":
     logging_obj = Mock()
@@ -3655,13 +3655,13 @@ def _call_transform_response(
         request_data={"model": "gpt-5.6-sol"},
         messages=[{"role": "user", "content": "compute something hard"}],
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         encoding=Mock(),
     )
 
 
 def test_transform_response_incomplete_reasoning_only_returns_empty_length_choice():
-    handler = LiteLLMResponsesTransformationHandler()
+    handler = EmbRouterResponsesTransformationHandler()
     raw_response = _make_incomplete_responses_api_response(
         "max_output_tokens", [_make_reasoning_only_output_item()]
     )
@@ -3682,7 +3682,7 @@ def test_transform_response_incomplete_reasoning_only_returns_empty_length_choic
 
 
 def test_transform_response_incomplete_content_filter_maps_finish_reason():
-    handler = LiteLLMResponsesTransformationHandler()
+    handler = EmbRouterResponsesTransformationHandler()
     raw_response = _make_incomplete_responses_api_response(
         "content_filter", [_make_reasoning_only_output_item()]
     )
@@ -3695,7 +3695,7 @@ def test_transform_response_incomplete_content_filter_maps_finish_reason():
 
 
 def test_transform_response_zero_choices_not_incomplete_still_raises():
-    handler = LiteLLMResponsesTransformationHandler()
+    handler = EmbRouterResponsesTransformationHandler()
     raw_response = _make_empty_responses_api_response()
 
     with pytest.raises(ValueError, match="Unknown items"):
@@ -3705,7 +3705,7 @@ def test_transform_response_zero_choices_not_incomplete_still_raises():
 def test_transform_response_completed_with_reasonless_incomplete_details_keeps_stop():
     from openai.types.responses import ResponseOutputMessage, ResponseOutputText
 
-    handler = LiteLLMResponsesTransformationHandler()
+    handler = EmbRouterResponsesTransformationHandler()
     output_message = ResponseOutputMessage(
         id="msg_complete",
         content=[
@@ -3731,7 +3731,7 @@ def test_transform_response_completed_with_reasonless_incomplete_details_keeps_s
 def test_transform_response_incomplete_partial_text_overrides_finish_reason_to_length():
     from openai.types.responses import ResponseOutputMessage, ResponseOutputText
 
-    handler = LiteLLMResponsesTransformationHandler()
+    handler = EmbRouterResponsesTransformationHandler()
     output_message = ResponseOutputMessage(
         id="msg_partial",
         content=[
@@ -3756,7 +3756,7 @@ def test_transform_response_incomplete_partial_text_overrides_finish_reason_to_l
 
 
 def test_response_incomplete_stream_event_emits_length_and_usage():
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
         OpenAiResponsesToChatCompletionStreamIterator,
     )
 
@@ -3799,7 +3799,7 @@ def test_response_incomplete_stream_event_emits_length_and_usage():
 
 
 def test_response_incomplete_stream_event_content_filter_maps_finish_reason():
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
         OpenAiResponsesToChatCompletionStreamIterator,
     )
 
@@ -3823,7 +3823,7 @@ def test_response_incomplete_stream_event_content_filter_maps_finish_reason():
 
 
 def test_response_incomplete_stream_event_without_details_defaults_to_length():
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
         OpenAiResponsesToChatCompletionStreamIterator,
     )
 
@@ -3847,7 +3847,7 @@ def test_assistant_message_with_tool_calls_keeps_its_content():
     An assistant turn that both answered and called a tool used to lose its whole message:
     the branch handling tool_calls emitted the calls and dropped the text.
     """
-    handler = LiteLLMResponsesTransformationHandler()
+    handler = EmbRouterResponsesTransformationHandler()
     messages = [
         {"role": "user", "content": "What is the weather in Denver?"},
         {
@@ -3880,7 +3880,7 @@ def test_assistant_message_with_tool_calls_keeps_its_content():
 
 def test_assistant_thinking_blocks_become_a_reasoning_input_item():
     """Thinking blocks are how an Anthropic-shaped turn carries reasoning into this bridge."""
-    handler = LiteLLMResponsesTransformationHandler()
+    handler = EmbRouterResponsesTransformationHandler()
     messages = [
         {"role": "user", "content": "What is the weather in Denver?"},
         {
@@ -3903,7 +3903,7 @@ def test_assistant_thinking_blocks_become_a_reasoning_input_item():
 
 def test_thinking_only_assistant_turn_still_sends_its_reasoning():
     """An assistant turn can be pure reasoning, with no visible text and no tool call."""
-    handler = LiteLLMResponsesTransformationHandler()
+    handler = EmbRouterResponsesTransformationHandler()
     messages = [
         {"role": "user", "content": "What is the weather in Denver?"},
         {
@@ -3925,7 +3925,7 @@ def test_thinking_only_assistant_turn_still_sends_its_reasoning():
 
 def test_stored_reasoning_items_win_over_thinking_blocks():
     """A minted reasoning id beats a re-derived one, so the two must not both be sent."""
-    handler = LiteLLMResponsesTransformationHandler()
+    handler = EmbRouterResponsesTransformationHandler()
     messages = [
         {
             "role": "assistant",
@@ -3952,11 +3952,11 @@ def test_stored_reasoning_items_win_over_thinking_blocks():
 
 def test_convert_chat_completion_messages_to_responses_api_tool_result_with_tool_reference():
     """Tool-search tool_reference blocks have no Responses API equivalent: skip them, never stringify them."""
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
-        LiteLLMResponsesTransformationHandler,
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
+        EmbRouterResponsesTransformationHandler,
     )
 
-    handler = LiteLLMResponsesTransformationHandler()
+    handler = EmbRouterResponsesTransformationHandler()
 
     messages = [
         {
@@ -3986,8 +3986,8 @@ def test_convert_chat_completion_messages_to_responses_api_tool_result_with_tool
     assert function_call_output["output"] == [{"type": "input_text", "text": "1 tool found"}]
 
 
-def _litellm_encoded_response_id(upstream_id: str) -> str:
-    from litellm.responses.utils import ResponsesAPIRequestUtils
+def _embrouter_encoded_response_id(upstream_id: str) -> str:
+    from embrouter.responses.utils import ResponsesAPIRequestUtils
 
     return ResponsesAPIRequestUtils._build_responses_api_response_id(
         custom_llm_provider="azure", model_id="deployment-1", response_id=upstream_id
@@ -3997,18 +3997,18 @@ def _litellm_encoded_response_id(upstream_id: str) -> str:
 def test_transform_response_keeps_upstream_id_and_provider_extras():
     from unittest.mock import Mock
 
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
-        LiteLLMResponsesTransformationHandler,
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
+        EmbRouterResponsesTransformationHandler,
     )
-    from litellm.types.llms.openai import ResponsesAPIResponse
-    from litellm.types.utils import ModelResponse, Usage
+    from embrouter.types.llms.openai import ResponsesAPIResponse
+    from embrouter.types.utils import ModelResponse, Usage
 
     content_filters = [
         {"blocked": False, "source_type": "prompt", "content_filter_results": {"hate": {"filtered": False}}}
     ]
     raw_response = ResponsesAPIResponse.model_validate(
         {
-            "id": _litellm_encoded_response_id("resp_azure_123"),
+            "id": _embrouter_encoded_response_id("resp_azure_123"),
             "created_at": 1734366691,
             "object": "response",
             "model": "gpt-5.6",
@@ -4044,7 +4044,7 @@ def test_transform_response_keeps_upstream_id_and_provider_extras():
         usage=Usage(completion_tokens=0, prompt_tokens=0, total_tokens=0),
     )
 
-    result = LiteLLMResponsesTransformationHandler().transform_response(
+    result = EmbRouterResponsesTransformationHandler().transform_response(
         model="gpt-5.6",
         raw_response=raw_response,
         model_response=model_response,
@@ -4052,7 +4052,7 @@ def test_transform_response_keeps_upstream_id_and_provider_extras():
         request_data={"model": "gpt-5.6"},
         messages=[{"role": "user", "content": "What is the weather in Seattle?"}],
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         encoding=Mock(),
     )
     dumped = result.model_dump()
@@ -4074,11 +4074,11 @@ def test_transform_response_keeps_upstream_id_and_provider_extras():
 def test_bridged_response_is_priced_by_the_reported_service_tier():
     from unittest.mock import Mock
 
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
-        LiteLLMResponsesTransformationHandler,
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
+        EmbRouterResponsesTransformationHandler,
     )
-    from litellm.types.llms.openai import ResponsesAPIResponse
-    from litellm.types.utils import ModelResponse
+    from embrouter.types.llms.openai import ResponsesAPIResponse
+    from embrouter.types.utils import ModelResponse
 
     raw_response = ResponsesAPIResponse.model_validate(
         {
@@ -4101,7 +4101,7 @@ def test_bridged_response_is_priced_by_the_reported_service_tier():
         }
     )
 
-    result = LiteLLMResponsesTransformationHandler().transform_response(
+    result = EmbRouterResponsesTransformationHandler().transform_response(
         model="gpt-5.4",
         raw_response=raw_response,
         model_response=ModelResponse(),
@@ -4109,26 +4109,26 @@ def test_bridged_response_is_priced_by_the_reported_service_tier():
         request_data={"model": "gpt-5.4"},
         messages=[{"role": "user", "content": "hi"}],
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         encoding=Mock(),
     )
-    pricing = litellm.model_cost["gpt-5.4"]
+    pricing = embrouter.model_cost["gpt-5.4"]
     flex_cost = 1000 * pricing["input_cost_per_token_flex"] + 100 * pricing["output_cost_per_token_flex"]
     standard_cost = 1000 * pricing["input_cost_per_token"] + 100 * pricing["output_cost_per_token"]
 
-    cost = litellm.completion_cost(completion_response=result, custom_llm_provider="openai")
+    cost = embrouter.completion_cost(completion_response=result, custom_llm_provider="openai")
 
     assert cost == pytest.approx(flex_cost)
     assert cost < standard_cost
 
 
 def test_streaming_chunks_carry_the_upstream_response_id():
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
         OpenAiResponsesToChatCompletionStreamIterator,
     )
 
     iterator = OpenAiResponsesToChatCompletionStreamIterator(streaming_response=None, sync_stream=True)
-    encoded_id = _litellm_encoded_response_id("resp_azure_stream")
+    encoded_id = _embrouter_encoded_response_id("resp_azure_stream")
     events = [
         {"type": "response.created", "response": {"id": encoded_id, "output": []}},
         {"type": "response.output_text.delta", "delta": "Hel"},
@@ -4143,10 +4143,10 @@ def test_streaming_chunks_carry_the_upstream_response_id():
 def test_streaming_final_chunk_carries_provider_metadata():
     from unittest.mock import MagicMock
 
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
         OpenAiResponsesToChatCompletionStreamIterator,
     )
-    from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
+    from embrouter.embrouter_core_utils.streaming_handler import CustomStreamWrapper
 
     iterator = OpenAiResponsesToChatCompletionStreamIterator(streaming_response=None, sync_stream=True)
     content_filters = [{"blocked": False, "source_type": "completion", "content_filter_results": {}}]
@@ -4186,7 +4186,7 @@ def _system_input_item(text: str) -> dict[str, object]:
 
 
 def test_mid_conversation_system_string_stays_in_input_after_a_user_turn():
-    handler: Final = LiteLLMResponsesTransformationHandler()
+    handler: Final = EmbRouterResponsesTransformationHandler()
 
     input_items, instructions = handler.convert_chat_completion_messages_to_responses_api(
         [
@@ -4206,7 +4206,7 @@ def test_mid_conversation_system_string_stays_in_input_after_a_user_turn():
 
 
 def test_leading_system_strings_still_join_instructions_without_a_following_turn():
-    handler: Final = LiteLLMResponsesTransformationHandler()
+    handler: Final = EmbRouterResponsesTransformationHandler()
 
     input_items, instructions = handler.convert_chat_completion_messages_to_responses_api(
         [
@@ -4220,7 +4220,7 @@ def test_leading_system_strings_still_join_instructions_without_a_following_turn
 
 
 def test_mid_conversation_system_reminder_as_string_and_as_text_block_produce_identical_input_items():
-    handler: Final = LiteLLMResponsesTransformationHandler()
+    handler: Final = EmbRouterResponsesTransformationHandler()
     reminder: Final = "<total_tokens>14982391 tokens left</total_tokens>"
 
     as_string, string_instructions = handler.convert_chat_completion_messages_to_responses_api(
@@ -4243,7 +4243,7 @@ def test_mid_conversation_system_reminder_as_string_and_as_text_block_produce_id
 
 
 def test_claude_code_shaped_history_keeps_a_byte_stable_input_prefix_across_requests():
-    handler: Final = LiteLLMResponsesTransformationHandler()
+    handler: Final = EmbRouterResponsesTransformationHandler()
     top_level_system: Final = [{"type": "text", "text": "You are Claude Code.", "cache_control": {"type": "ephemeral"}}]
     first_reminder: Final = "<system-reminder>27k chars of deferred tools</system-reminder>"
     second_reminder: Final = "<total_tokens>14982391 tokens left</total_tokens>"
@@ -4281,17 +4281,17 @@ def test_claude_code_shaped_history_keeps_a_byte_stable_input_prefix_across_requ
         model="gpt-5.6-luna",
         messages=first_request_messages,
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         headers={},
-        litellm_logging_obj=Mock(),
+        embrouter_logging_obj=Mock(),
     )
     second_request: Final = handler.transform_request(
         model="gpt-5.6-luna",
         messages=second_request_messages,
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         headers={},
-        litellm_logging_obj=Mock(),
+        embrouter_logging_obj=Mock(),
     )
 
     assert "instructions" not in first_request
@@ -4306,7 +4306,7 @@ def test_claude_code_shaped_history_keeps_a_byte_stable_input_prefix_across_requ
 
 
 def test_system_string_after_a_developer_message_stays_in_input_in_client_order():
-    handler: Final = LiteLLMResponsesTransformationHandler()
+    handler: Final = EmbRouterResponsesTransformationHandler()
 
     input_items, instructions = handler.convert_chat_completion_messages_to_responses_api(
         [
@@ -4323,12 +4323,12 @@ def test_system_string_after_a_developer_message_stays_in_input_in_client_order(
 
 def test_map_optional_params_verbosity_merges_into_text():
     """Chat verbosity must land on Responses text.verbosity alongside text.format regardless of key order."""
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
-        LiteLLMResponsesTransformationHandler,
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
+        EmbRouterResponsesTransformationHandler,
     )
-    from litellm.types.llms.openai import ResponsesAPIOptionalRequestParams
+    from embrouter.types.llms.openai import ResponsesAPIOptionalRequestParams
 
-    handler: Final = LiteLLMResponsesTransformationHandler()
+    handler: Final = EmbRouterResponsesTransformationHandler()
 
     responses_api_request = ResponsesAPIOptionalRequestParams()
     handler._map_optional_params_to_responses_api_request(
@@ -4355,7 +4355,7 @@ def test_map_optional_params_verbosity_merges_into_text():
 
 
 def test_response_completed_carries_the_served_service_tier():
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
         OpenAiResponsesToChatCompletionStreamIterator,
     )
 
@@ -4372,7 +4372,7 @@ def test_response_completed_carries_the_served_service_tier():
 
 
 def test_every_bridged_chunk_after_response_created_carries_the_served_service_tier():
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
         OpenAiResponsesToChatCompletionStreamIterator,
     )
 

@@ -1,4 +1,4 @@
-# litellm/proxy/vector_stores/vector_store_registry.py
+# embrouter/proxy/vector_stores/vector_store_registry.py
 import json
 from collections.abc import Mapping
 from datetime import datetime, timezone
@@ -10,38 +10,38 @@ from typing import (
     get_args,
 )
 
-from litellm._logging import verbose_logger
-from litellm.litellm_core_utils.core_helpers import remove_items_at_indices
-from litellm.repositories.table_repositories import (
+from embrouter._logging import verbose_logger
+from embrouter.embrouter_core_utils.core_helpers import remove_items_at_indices
+from embrouter.repositories.table_repositories import (
     ManagedVectorStoreIndexRepository,
     ManagedVectorStoresRepository,
 )
-from litellm.types.vector_stores import (
+from embrouter.types.vector_stores import (
     VECTOR_STORE_OPENAI_PARAMS,
-    LiteLLM_ManagedVectorStore,
-    LiteLLM_ManagedVectorStoreIndex,
-    LiteLLM_ManagedVectorStoreListResponse,
-    LiteLLM_VectorStoreConfig,
+    EmbRouter_ManagedVectorStore,
+    EmbRouter_ManagedVectorStoreIndex,
+    EmbRouter_ManagedVectorStoreListResponse,
+    EmbRouter_VectorStoreConfig,
     VectorStoreToolParams,
 )
 
 if TYPE_CHECKING:
-    from litellm.proxy.utils import PrismaClient
+    from embrouter.proxy.utils import PrismaClient
 else:
     PrismaClient = Any
 
 
 class VectorStoreIndexRegistry:
-    def __init__(self, vector_store_indexes: list[LiteLLM_ManagedVectorStoreIndex] = []):
-        self.vector_store_indexes: list[LiteLLM_ManagedVectorStoreIndex] = vector_store_indexes
+    def __init__(self, vector_store_indexes: list[EmbRouter_ManagedVectorStoreIndex] = []):
+        self.vector_store_indexes: list[EmbRouter_ManagedVectorStoreIndex] = vector_store_indexes
 
-    def get_vector_store_indexes(self) -> list[LiteLLM_ManagedVectorStoreIndex]:
+    def get_vector_store_indexes(self) -> list[EmbRouter_ManagedVectorStoreIndex]:
         """
         Returns the vector store indexes
         """
         return self.vector_store_indexes
 
-    def get_vector_store_index_by_name(self, vector_store_index_name: str) -> LiteLLM_ManagedVectorStoreIndex | None:
+    def get_vector_store_index_by_name(self, vector_store_index_name: str) -> EmbRouter_ManagedVectorStoreIndex | None:
         """
         Returns the vector store index by name
         """
@@ -50,13 +50,13 @@ class VectorStoreIndexRegistry:
                 return vector_store_index
         return None
 
-    def upsert_vector_store_index(self, vector_store_index: LiteLLM_ManagedVectorStoreIndex):
+    def upsert_vector_store_index(self, vector_store_index: EmbRouter_ManagedVectorStoreIndex):
         """
         Adds a vector store index to the registry.
 
         If it already exists, it will be updated.
         """
-        for i, _vector_store_index in enumerate[LiteLLM_ManagedVectorStoreIndex](self.vector_store_indexes):
+        for i, _vector_store_index in enumerate[EmbRouter_ManagedVectorStoreIndex](self.vector_store_indexes):
             if _vector_store_index.index_name == vector_store_index.index_name:
                 self.vector_store_indexes[i] = vector_store_index
                 return
@@ -84,26 +84,26 @@ class VectorStoreIndexRegistry:
     @staticmethod
     async def _get_vector_store_indexes_from_db(
         prisma_client: PrismaClient | None,
-    ) -> list[LiteLLM_ManagedVectorStoreIndex]:
+    ) -> list[EmbRouter_ManagedVectorStoreIndex]:
         """
         Get vector stores from the database
         """
-        vector_stores_from_db: Final[list[LiteLLM_ManagedVectorStoreIndex]] = []
+        vector_stores_from_db: Final[list[EmbRouter_ManagedVectorStoreIndex]] = []
         if prisma_client is not None:
             _vector_stores_from_db: Final = await ManagedVectorStoreIndexRepository(prisma_client).table.find_many(
                 order={"created_at": "desc"},
             )
             for vector_store in _vector_stores_from_db:
                 _dict_vector_store = dict(vector_store)
-                _litellm_managed_vector_store = LiteLLM_ManagedVectorStoreIndex(**_dict_vector_store)
-                vector_stores_from_db.append(_litellm_managed_vector_store)
+                _embrouter_managed_vector_store = EmbRouter_ManagedVectorStoreIndex(**_dict_vector_store)
+                vector_stores_from_db.append(_embrouter_managed_vector_store)
         return vector_stores_from_db
 
 
 class VectorStoreRegistry:
-    def __init__(self, vector_stores: list[LiteLLM_ManagedVectorStore] = []):
-        self.vector_stores: list[LiteLLM_ManagedVectorStore] = vector_stores
-        self.vector_store_ids_to_vector_store_map: dict[str, LiteLLM_ManagedVectorStore] = {}
+    def __init__(self, vector_stores: list[EmbRouter_ManagedVectorStore] = []):
+        self.vector_stores: list[EmbRouter_ManagedVectorStore] = vector_stores
+        self.vector_store_ids_to_vector_store_map: dict[str, EmbRouter_ManagedVectorStore] = {}
 
     def _extract_tool_params(self, tool: dict) -> VectorStoreToolParams:
         """
@@ -189,7 +189,7 @@ class VectorStoreRegistry:
 
     def get_vector_store_to_run(
         self, non_default_params: dict, tools: list[dict] | None = None
-    ) -> LiteLLM_ManagedVectorStore | None:
+    ) -> EmbRouter_ManagedVectorStore | None:
         """
         Returns the vector store to run
 
@@ -212,7 +212,7 @@ class VectorStoreRegistry:
                     return vector_store
         return None
 
-    def get_litellm_managed_vector_store_from_registry(self, vector_store_id: str) -> LiteLLM_ManagedVectorStore | None:
+    def get_embrouter_managed_vector_store_from_registry(self, vector_store_id: str) -> EmbRouter_ManagedVectorStore | None:
         """
         Returns the vector store from the registry
         """
@@ -221,15 +221,15 @@ class VectorStoreRegistry:
                 return vector_store
         return None
 
-    async def get_litellm_managed_vector_store_from_registry_or_db(
+    async def get_embrouter_managed_vector_store_from_registry_or_db(
         self, vector_store_id: str, prisma_client: PrismaClient | None = None
-    ) -> LiteLLM_ManagedVectorStore | None:
+    ) -> EmbRouter_ManagedVectorStore | None:
         """
         Returns the vector store from the registry, falling back to database if not found.
         This ensures synchronization across multiple instances.
         """
         # First check in-memory registry
-        vector_store: Final = self.get_litellm_managed_vector_store_from_registry(vector_store_id)
+        vector_store: Final = self.get_embrouter_managed_vector_store_from_registry(vector_store_id)
         if vector_store is not None:
             return vector_store
 
@@ -247,9 +247,9 @@ class VectorStoreRegistry:
 
         return None
 
-    def get_litellm_managed_vector_store_from_registry_by_name(
+    def get_embrouter_managed_vector_store_from_registry_by_name(
         self, vector_store_name: str
-    ) -> LiteLLM_ManagedVectorStore | None:
+    ) -> EmbRouter_ManagedVectorStore | None:
         """
         Returns the vector store from the registry by name
         """
@@ -260,7 +260,7 @@ class VectorStoreRegistry:
 
     def pop_vector_stores_to_run(
         self, non_default_params: dict, tools: list[dict] | None = None
-    ) -> list[LiteLLM_ManagedVectorStore]:
+    ) -> list[EmbRouter_ManagedVectorStore]:
         """
         Pops the vector stores to run with their tool parameters merged.
 
@@ -271,7 +271,7 @@ class VectorStoreRegistry:
             tools: Optional list of tools to extract vector store params from
 
         Returns:
-            List of vector stores with tool parameters merged into litellm_params
+            List of vector stores with tool parameters merged into embrouter_params
         """
         # Pop vector_store_ids from params
         vector_store_ids: Final[list[str]] = non_default_params.pop("vector_store_ids", None) or []
@@ -279,7 +279,7 @@ class VectorStoreRegistry:
         # Extract params from tools and collect IDs
         params_by_id = self.get_and_pop_recognised_vector_store_tools(tools=tools, vector_store_ids=vector_store_ids)
 
-        vector_stores_to_run: Final[list[LiteLLM_ManagedVectorStore]] = []
+        vector_stores_to_run: Final[list[EmbRouter_ManagedVectorStore]] = []
 
         for vector_store_id in vector_store_ids:
             for vector_store in self.vector_stores:
@@ -289,11 +289,11 @@ class VectorStoreRegistry:
 
                     # Merge tool params if they exist
                     if vector_store_id in params_by_id:
-                        existing_params = vector_store_copy.get("litellm_params", {}) or {}
+                        existing_params = vector_store_copy.get("embrouter_params", {}) or {}
                         tool_params_dict = params_by_id[vector_store_id].to_dict()
                         # Tool params take precedence over existing params
                         tool_params_dict.update(existing_params)
-                        vector_store_copy["litellm_params"] = tool_params_dict
+                        vector_store_copy["embrouter_params"] = tool_params_dict
 
                     vector_stores_to_run.append(vector_store_copy)
                     break
@@ -305,7 +305,7 @@ class VectorStoreRegistry:
         non_default_params: dict,
         tools: list[dict] | None = None,
         prisma_client: PrismaClient | None = None,
-    ) -> list[LiteLLM_ManagedVectorStore]:
+    ) -> list[EmbRouter_ManagedVectorStore]:
         """
         Pops the vector stores to run with their tool parameters merged.
         Falls back to database if vector stores are not found in memory.
@@ -319,7 +319,7 @@ class VectorStoreRegistry:
             prisma_client: Optional database client for fallback lookup
 
         Returns:
-            List of vector stores with tool parameters merged into litellm_params
+            List of vector stores with tool parameters merged into embrouter_params
         """
         # Pop vector_store_ids from params
         vector_store_ids: Final[list[str]] = non_default_params.pop("vector_store_ids", None) or []
@@ -327,7 +327,7 @@ class VectorStoreRegistry:
         # Extract params from tools and collect IDs
         params_by_id = self.get_and_pop_recognised_vector_store_tools(tools=tools, vector_store_ids=vector_store_ids)
 
-        vector_stores_to_run: Final[list[LiteLLM_ManagedVectorStore]] = []
+        vector_stores_to_run: Final[list[EmbRouter_ManagedVectorStore]] = []
 
         for vector_store_id in vector_store_ids:
             vector_store = None
@@ -362,7 +362,7 @@ class VectorStoreRegistry:
             # Fall back to database if not found in memory (or was deleted)
             if vector_store is None and prisma_client is not None:
                 try:
-                    vector_store = await self.get_litellm_managed_vector_store_from_registry_or_db(
+                    vector_store = await self.get_embrouter_managed_vector_store_from_registry_or_db(
                         vector_store_id=vector_store_id, prisma_client=prisma_client
                     )
                 except Exception as e:
@@ -374,11 +374,11 @@ class VectorStoreRegistry:
 
                 # Merge tool params if they exist
                 if vector_store_id in params_by_id:
-                    existing_params = vector_store_copy.get("litellm_params", {}) or {}
+                    existing_params = vector_store_copy.get("embrouter_params", {}) or {}
                     tool_params_dict = params_by_id[vector_store_id].to_dict()
                     # Tool params take precedence over existing params
                     tool_params_dict.update(existing_params)
-                    vector_store_copy["litellm_params"] = tool_params_dict
+                    vector_store_copy["embrouter_params"] = tool_params_dict
 
                 vector_stores_to_run.append(vector_store_copy)
 
@@ -398,52 +398,52 @@ class VectorStoreRegistry:
 
     def load_vector_stores_from_config(self, vector_stores_config: list[dict]):
         """
-        Loads vector stores from the litellm proxy config.yaml
+        Loads vector stores from the embrouter proxy config.yaml
         """
         for vector_store_config in vector_stores_config:
             # cast to VectorStoreConfig
-            litellm_vector_store_config = LiteLLM_VectorStoreConfig(**vector_store_config)
-            vector_store_name = litellm_vector_store_config.get("vector_store_name")
-            vector_store_litellm_params: dict[str, Any] = litellm_vector_store_config.get("litellm_params") or {}
+            embrouter_vector_store_config = EmbRouter_VectorStoreConfig(**vector_store_config)
+            vector_store_name = embrouter_vector_store_config.get("vector_store_name")
+            vector_store_embrouter_params: dict[str, Any] = embrouter_vector_store_config.get("embrouter_params") or {}
 
-            vector_store_id = vector_store_litellm_params.get("vector_store_id")
+            vector_store_id = vector_store_embrouter_params.get("vector_store_id")
             if vector_store_id is None:
                 raise ValueError(
                     f"vector_store_id is required for initializing vector store, got vector_store_id={vector_store_id}"
                 )
-            custom_llm_provider = vector_store_litellm_params.get("custom_llm_provider")
+            custom_llm_provider = vector_store_embrouter_params.get("custom_llm_provider")
             if custom_llm_provider is None:
                 raise ValueError(
                     f"custom_llm_provider is required for initializing vector store, got custom_llm_provider={custom_llm_provider}"
                 )
 
-            litellm_managed_vector_store = LiteLLM_ManagedVectorStore(
+            embrouter_managed_vector_store = EmbRouter_ManagedVectorStore(
                 vector_store_id=vector_store_id,
                 custom_llm_provider=custom_llm_provider,
-                litellm_params=vector_store_litellm_params,
+                embrouter_params=vector_store_embrouter_params,
                 vector_store_name=vector_store_name,
-                vector_store_description=vector_store_litellm_params.get("vector_store_description"),
-                vector_store_metadata=vector_store_litellm_params.get("vector_store_metadata"),
+                vector_store_description=vector_store_embrouter_params.get("vector_store_description"),
+                vector_store_metadata=vector_store_embrouter_params.get("vector_store_metadata"),
                 created_at=datetime.now(timezone.utc),
                 updated_at=datetime.now(timezone.utc),
                 is_config=True,
             )
-            self.vector_stores.append(litellm_managed_vector_store)
+            self.vector_stores.append(embrouter_managed_vector_store)
 
         verbose_logger.debug(
             "all loaded vector stores = %s",
             json.dumps(self.vector_stores, indent=4, default=str),
         )
 
-    def list_all_vector_stores(self) -> LiteLLM_ManagedVectorStoreListResponse:
+    def list_all_vector_stores(self) -> EmbRouter_ManagedVectorStoreListResponse:
         """
         List all vector stores in the required format
 
         Returns:
-            LiteLLM_ManagedVectorStoreListResponse: A standardized response with vector store data
+            EmbRouter_ManagedVectorStoreListResponse: A standardized response with vector store data
         """
         # Prepare the response
-        response: Final = LiteLLM_ManagedVectorStoreListResponse(
+        response: Final = EmbRouter_ManagedVectorStoreListResponse(
             object="list",
             data=self.vector_stores,
             total_count=len(self.vector_stores),
@@ -454,10 +454,10 @@ class VectorStoreRegistry:
         return response
 
     def is_config_vector_store(self, vector_store_id: str) -> bool:
-        vector_store: Final = self.get_litellm_managed_vector_store_from_registry(vector_store_id=vector_store_id)
+        vector_store: Final = self.get_embrouter_managed_vector_store_from_registry(vector_store_id=vector_store_id)
         return vector_store is not None and vector_store.get("is_config", False)
 
-    def add_vector_store_to_registry(self, vector_store: LiteLLM_ManagedVectorStore):
+    def add_vector_store_to_registry(self, vector_store: EmbRouter_ManagedVectorStore):
         """
         Add a vector store to the registry
 
@@ -479,7 +479,7 @@ class VectorStoreRegistry:
             if vector_store.get("vector_store_id") != vector_store_id
         ]
 
-    def update_vector_store_in_registry(self, vector_store_id: str, updated_data: LiteLLM_ManagedVectorStore):
+    def update_vector_store_in_registry(self, vector_store_id: str, updated_data: EmbRouter_ManagedVectorStore):
         """Update or add a vector store in the registry. Config-defined stores are left untouched"""
         for i, vector_store in enumerate(self.vector_stores):
             if vector_store.get("vector_store_id") == vector_store_id:
@@ -495,19 +495,19 @@ class VectorStoreRegistry:
     @staticmethod
     async def _get_vector_stores_from_db(
         prisma_client: PrismaClient | None,
-    ) -> list[LiteLLM_ManagedVectorStore]:
+    ) -> list[EmbRouter_ManagedVectorStore]:
         """
         Get vector stores from the database
         """
-        vector_stores_from_db: Final[list[LiteLLM_ManagedVectorStore]] = []
+        vector_stores_from_db: Final[list[EmbRouter_ManagedVectorStore]] = []
         if prisma_client is not None:
             _vector_stores_from_db: Final = await ManagedVectorStoresRepository(prisma_client).table.find_many(
                 order={"created_at": "desc"},
             )
             for vector_store in _vector_stores_from_db:
                 _dict_vector_store = dict(vector_store)
-                _litellm_managed_vector_store = LiteLLM_ManagedVectorStore(**_dict_vector_store)
-                vector_stores_from_db.append(_litellm_managed_vector_store)
+                _embrouter_managed_vector_store = EmbRouter_ManagedVectorStore(**_dict_vector_store)
+                vector_stores_from_db.append(_embrouter_managed_vector_store)
         return vector_stores_from_db
 
     def get_credentials_for_vector_store(self, vector_store_id: str) -> dict[str, object]:
@@ -516,11 +516,11 @@ class VectorStoreRegistry:
 
         Returns a dictionary of unpacked credentials for the vector store to use for the request
         """
-        from litellm.litellm_core_utils.credential_accessor import CredentialAccessor
+        from embrouter.embrouter_core_utils.credential_accessor import CredentialAccessor
 
         for vector_store in self.vector_stores:
             if vector_store.get("vector_store_id") == vector_store_id:
-                credentials = vector_store.get("litellm_credential_name")
+                credentials = vector_store.get("embrouter_credential_name")
                 if credentials:
                     return CredentialAccessor.get_credential_values(credentials)
         return {}

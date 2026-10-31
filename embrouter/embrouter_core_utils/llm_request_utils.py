@@ -1,8 +1,8 @@
 from collections.abc import Mapping
 from typing import Final
 
-import litellm
-from litellm.constants import DEFAULT_MAX_RECURSE_DEPTH
+import embrouter
+from embrouter.constants import DEFAULT_MAX_RECURSE_DEPTH
 
 
 def _form_field_value(value: object) -> str:
@@ -148,15 +148,15 @@ def pick_cheapest_chat_models_from_llm_provider(custom_llm_provider: str, n=1):
     Returns:
         list[str]: A list of the n cheapest chat models.
     """
-    if custom_llm_provider not in litellm.models_by_provider:
+    if custom_llm_provider not in embrouter.models_by_provider:
         return []
 
-    known_models: Final = litellm.models_by_provider.get(custom_llm_provider, [])
+    known_models: Final = embrouter.models_by_provider.get(custom_llm_provider, [])
     model_costs: Final = []
 
     for model in known_models:
         try:
-            model_info = litellm.get_model_info(model=model, custom_llm_provider=custom_llm_provider)
+            model_info = embrouter.get_model_info(model=model, custom_llm_provider=custom_llm_provider)
         except Exception:
             continue
         if model_info.get("mode") != "chat":
@@ -171,15 +171,15 @@ def pick_cheapest_chat_models_from_llm_provider(custom_llm_provider: str, n=1):
     return [model for model, _ in model_costs[:n]]
 
 
-def get_proxy_server_request_headers(litellm_params: dict | None) -> dict:
+def get_proxy_server_request_headers(embrouter_params: dict | None) -> dict:
     """
-    Get the `proxy_server_request` headers from the litellm_params.\
+    Get the `proxy_server_request` headers from the embrouter_params.\
 
-    Use this if you want to access the request headers made to LiteLLM proxy server.
+    Use this if you want to access the request headers made to EmbRouter proxy server.
     """
-    if litellm_params is None:
+    if embrouter_params is None:
         return {}
 
-    proxy_request_headers: Final = (litellm_params.get("proxy_server_request") or {}).get("headers") or {}
+    proxy_request_headers: Final = (embrouter_params.get("proxy_server_request") or {}).get("headers") or {}
 
     return proxy_request_headers

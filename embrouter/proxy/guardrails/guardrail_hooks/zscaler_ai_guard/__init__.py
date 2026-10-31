@@ -1,29 +1,29 @@
 from typing import TYPE_CHECKING, Final
 
-from litellm.types.guardrails import SupportedGuardrailIntegrations
+from embrouter.types.guardrails import SupportedGuardrailIntegrations
 
 from .zscaler_ai_guard import ZscalerAIGuard
 
 if TYPE_CHECKING:
-    from litellm.types.guardrails import Guardrail, LitellmParams
+    from embrouter.types.guardrails import Guardrail, EmbrouterParams
 
 
-def initialize_guardrail(litellm_params: "LitellmParams", guardrail: "Guardrail"):
-    import litellm
+def initialize_guardrail(embrouter_params: "EmbrouterParams", guardrail: "Guardrail"):
+    import embrouter
 
     _zscaler_ai_guard_callback: Final = ZscalerAIGuard(
-        api_base=litellm_params.api_base,
-        api_key=litellm_params.api_key,
-        policy_id=litellm_params.policy_id,
-        send_user_api_key_alias=litellm_params.send_user_api_key_alias,
-        send_user_api_key_user_id=litellm_params.send_user_api_key_user_id,
-        send_user_api_key_team_id=litellm_params.send_user_api_key_team_id,
-        timeout=litellm_params.timeout,
+        api_base=embrouter_params.api_base,
+        api_key=embrouter_params.api_key,
+        policy_id=embrouter_params.policy_id,
+        send_user_api_key_alias=embrouter_params.send_user_api_key_alias,
+        send_user_api_key_user_id=embrouter_params.send_user_api_key_user_id,
+        send_user_api_key_team_id=embrouter_params.send_user_api_key_team_id,
+        timeout=embrouter_params.timeout,
         guardrail_name=guardrail.get("guardrail_name", ""),
-        event_hook=litellm_params.mode,
-        default_on=litellm_params.default_on,
+        event_hook=embrouter_params.mode,
+        default_on=embrouter_params.default_on,
     )
-    litellm.logging_callback_manager.add_litellm_callback(_zscaler_ai_guard_callback)
+    embrouter.logging_callback_manager.add_embrouter_callback(_zscaler_ai_guard_callback)
 
     return _zscaler_ai_guard_callback
 

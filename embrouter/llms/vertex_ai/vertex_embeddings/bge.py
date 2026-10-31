@@ -12,7 +12,7 @@ Model name handling:
 
 from typing import Final
 
-from litellm.types.utils import EmbeddingResponse, Usage
+from embrouter.types.utils import EmbeddingResponse, Usage
 
 from .types import (
     EmbeddingParameters,

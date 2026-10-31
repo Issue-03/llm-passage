@@ -1,37 +1,37 @@
 """
-LiteLLM Interactions API
+EmbRouter Interactions API
 
 This module provides SDK methods for Google's Interactions API.
 
 Usage:
-    import litellm
+    import embrouter
 
     # Create an interaction with a model
-    response = litellm.interactions.create(
+    response = embrouter.interactions.create(
         model="gemini-2.5-flash",
         input="Hello, how are you?"
     )
 
     # Create an interaction with an agent
-    response = litellm.interactions.create(
+    response = embrouter.interactions.create(
         agent="deep-research-pro-preview-12-2025",
         input="Research the current state of cancer research"
     )
 
     # Async version
-    response = await litellm.interactions.acreate(...)
+    response = await embrouter.interactions.acreate(...)
 
     # Get an interaction
-    response = litellm.interactions.get(interaction_id="...")
+    response = embrouter.interactions.get(interaction_id="...")
 
     # Delete an interaction
-    result = litellm.interactions.delete(interaction_id="...")
+    result = embrouter.interactions.delete(interaction_id="...")
 
     # Cancel an interaction
-    result = litellm.interactions.cancel(interaction_id="...")
+    result = embrouter.interactions.cancel(interaction_id="...")
 
     # Create a managed agent on the provider side
-    result = litellm.interactions.agents.create(
+    result = embrouter.interactions.agents.create(
         name="waverunner",
         custom_llm_provider="gemini",
         api_key="...",
@@ -50,11 +50,11 @@ Methods:
 - acancel(): Async cancel interaction
 
 Sub-modules:
-- agents: Provider-side agent creation (litellm.interactions.agents.create)
+- agents: Provider-side agent creation (embrouter.interactions.agents.create)
 """
 
-from litellm.interactions import agents
-from litellm.interactions.main import (
+from embrouter.interactions import agents
+from embrouter.interactions.main import (
     acancel,
     acreate,
     adelete,

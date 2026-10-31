@@ -390,7 +390,7 @@ const MCPNetworkSettings: React.FC<MCPNetworkSettingsProps> = ({ accessToken }) 
         <p className="text-lg font-semibold">Allowed Clients</p>
         <p className="mt-1 text-sm text-muted-foreground">
           Only the MCP client applications listed here can use the gateway. Leave empty to allow every client. A client
-          that authenticates with a JWT is identified by the claim named in litellm_jwtauth.mcp_client_id_jwt_field in
+          that authenticates with a JWT is identified by the claim named in embrouter_jwtauth.mcp_client_id_jwt_field in
           your proxy config (for example azp or client_id), which your identity provider asserts and the client cannot
           change. Any other client is identified by the request header configured below, if you enable one.
         </p>

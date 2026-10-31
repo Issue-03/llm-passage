@@ -2,15 +2,15 @@
 
 from typing import Final
 
-import litellm
-from litellm.types.utils import CredentialItem
+import embrouter
+from embrouter.types.utils import CredentialItem
 
 
 class CredentialAccessor:
     @staticmethod
     def find_credential(credential_name: str) -> CredentialItem | None:
         return next(
-            (credential for credential in litellm.credential_list if credential.credential_name == credential_name),
+            (credential for credential in embrouter.credential_list if credential.credential_name == credential_name),
             None,
         )
 
@@ -25,14 +25,14 @@ class CredentialAccessor:
     def upsert_credentials(credentials: list[CredentialItem]):
         """Add a credential to the list of credentials."""
 
-        credential_names: Final = [cred.credential_name for cred in litellm.credential_list]
+        credential_names: Final = [cred.credential_name for cred in embrouter.credential_list]
 
         for credential in credentials:
             if credential.credential_name in credential_names:
                 # Find and replace the existing credential in the list
-                for i, existing_cred in enumerate(litellm.credential_list):
+                for i, existing_cred in enumerate(embrouter.credential_list):
                     if existing_cred.credential_name == credential.credential_name:
-                        litellm.credential_list[i] = credential
+                        embrouter.credential_list[i] = credential
                         break
             else:
-                litellm.credential_list.append(credential)
+                embrouter.credential_list.append(credential)

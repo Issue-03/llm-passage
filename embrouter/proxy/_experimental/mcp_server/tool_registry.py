@@ -2,9 +2,9 @@ import json
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Final
 
-from litellm._logging import verbose_logger
-from litellm.proxy.types_utils.utils import get_instance_fn
-from litellm.types.mcp_server.tool_registry import MCPTool
+from embrouter._logging import verbose_logger
+from embrouter.proxy.types_utils.utils import get_instance_fn
+from embrouter.types.mcp_server.tool_registry import MCPTool
 
 if TYPE_CHECKING:
     from mcp.types import Tool as MCPToolSDKTool
@@ -74,7 +74,7 @@ class MCPToolRegistry:
 
     def convert_tools_to_mcp_sdk_tool_type(self, tools: list[MCPTool]) -> list["MCPToolSDKTool"]:
         if MCPToolSDKTool is None:
-            raise ImportError("MCP SDK is not installed. Please install it with: pip install 'litellm[proxy]'")
+            raise ImportError("MCP SDK is not installed. Please install it with: pip install 'embrouter[proxy]'")
         return [
             MCPToolSDKTool(
                 name=tool.name,

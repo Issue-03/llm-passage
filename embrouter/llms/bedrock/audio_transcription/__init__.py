@@ -3,17 +3,17 @@ from typing import Final
 
 import httpx
 
-from litellm.litellm_core_utils.audio_utils.utils import process_audio_file
-from litellm.rust_bridge import runtime
-from litellm.rust_bridge.catalog import Route, RouteContext
-from litellm.rust_bridge.timeouts import timeout_to_seconds
-from litellm.rust_bridge.transcription.native import (
+from embrouter.embrouter_core_utils.audio_utils.utils import process_audio_file
+from embrouter.rust_bridge import runtime
+from embrouter.rust_bridge.catalog import Route, RouteContext
+from embrouter.rust_bridge.timeouts import timeout_to_seconds
+from embrouter.rust_bridge.transcription.native import (
     NATIVE_ATRANSCRIPTION,
     NATIVE_TRANSCRIPTION,
     RustAtranscription,
     RustTranscription,
 )
-from litellm.types.utils import FileTypes, TranscriptionResponse
+from embrouter.types.utils import FileTypes, TranscriptionResponse
 
 
 class BedrockAudioTranscriptionRustDispatch:

@@ -17,11 +17,11 @@ Azure would otherwise be priced against whoever else owns that name.
 from collections.abc import Iterable
 from typing import TYPE_CHECKING, Final, NamedTuple
 
-from litellm._logging import verbose_router_logger
-from litellm.types.utils import PromptTokensDetailsWrapper, Usage
+from embrouter._logging import verbose_router_logger
+from embrouter.types.utils import PromptTokensDetailsWrapper, Usage
 
 if TYPE_CHECKING:
-    from litellm.router import Router
+    from embrouter.router import Router
 
 
 _REFERENCE_REQUEST: Final = Usage(
@@ -56,14 +56,14 @@ def canonical_model(model: str, custom_llm_provider: str | None = None) -> str |
     provider runs its OAuth device flow, and for a declared pair the resolver's answer is
     the declaration itself, so asking it buys nothing but the block.
     """
-    import litellm
-    from litellm.litellm_core_utils.get_llm_provider_logic import declared_authenticating_provider
+    import embrouter
+    from embrouter.embrouter_core_utils.get_llm_provider_logic import declared_authenticating_provider
 
     declared: Final = declared_authenticating_provider(model, custom_llm_provider)
     if declared is not None:
         return f"{declared}/{model.removeprefix(f'{declared}/')}"
     try:
-        resolved, provider, _, _ = litellm.get_llm_provider(model=model, custom_llm_provider=custom_llm_provider)
+        resolved, provider, _, _ = embrouter.get_llm_provider(model=model, custom_llm_provider=custom_llm_provider)
     except Exception as e:  # noqa: BLE001  # an unroutable candidate cannot be the baseline
         verbose_router_logger.debug("savings baseline: cannot resolve candidate %s (%s)", model, e)
         return None
@@ -73,7 +73,7 @@ def canonical_model(model: str, custom_llm_provider: str | None = None) -> str |
 def _models_in(router: "Router", group_name: str) -> tuple[Baseline, ...]:
     """The candidates a tier entry actually calls, each with its own pricing key.
 
-    `litellm_params.model` is not always a model: on Azure it is the deployment name,
+    `embrouter_params.model` is not always a model: on Azure it is the deployment name,
     absent from the cost map, and `model_info.base_model` names the real one. Wildcard
     and aliased deployments behave the same, and router.py resolves pricing through
     that same base_model chain. A name matching no deployment is a tier pointing
@@ -86,7 +86,7 @@ def _models_in(router: "Router", group_name: str) -> tuple[Baseline, ...]:
 
     def candidate(index: int) -> Baseline | None:
         deployment: Final = router.model_list[index]
-        params: Final = deployment.get("litellm_params")
+        params: Final = deployment.get("embrouter_params")
         if not isinstance(params, dict):
             return None
         info: Final = deployment.get("model_info")
@@ -111,7 +111,7 @@ def _priced(router: "Router", candidate: Baseline) -> tuple[float, Baseline] | N
     dimension to that engine. A candidate that prices to nothing there cannot stand in
     for what the traffic would have cost.
     """
-    from litellm.litellm_core_utils.llm_cost_calc.utils import generic_cost_per_token
+    from embrouter.embrouter_core_utils.llm_cost_calc.utils import generic_cost_per_token
 
     provider, _, model_name = candidate.model.partition("/")
     try:

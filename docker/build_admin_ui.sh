@@ -8,9 +8,9 @@ echo
 pwd
 
 
-# only run this step for litellm enterprise, we run this if enterprise/enterprise_ui/_enterprise.json exists
+# only run this step for embrouter enterprise, we run this if enterprise/enterprise_ui/_enterprise.json exists
 if [ ! -f "enterprise/enterprise_ui/enterprise_colors.json" ]; then
-    echo "Admin UI - using default LiteLLM UI"
+    echo "Admin UI - using default EmbRouter UI"
     exit 0
 fi
 
@@ -54,13 +54,13 @@ else
 fi || { echo "nvm checksum verification failed"; exit 1; }
 bash "$NVM_SCRIPT"
 source ~/.nvm/nvm.sh
-NODE_VERSION="$(cat ui/litellm-dashboard/.nvmrc)"
+NODE_VERSION="$(cat ui/embrouter-dashboard/.nvmrc)"
 nvm install "v${NODE_VERSION}"
 nvm use "v${NODE_VERSION}"
 
 
-# cd in to /ui/litellm-dashboard
-cd ui/litellm-dashboard
+# cd in to /ui/embrouter-dashboard
+cd ui/embrouter-dashboard
 
 # ensure have access to build_ui.sh
 chmod +x ./build_ui.sh

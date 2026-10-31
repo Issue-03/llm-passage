@@ -17,13 +17,13 @@ from typing import TYPE_CHECKING, Any, Final
 
 import httpx
 
-import litellm
-from litellm import token_counter
-from litellm._logging import verbose_router_logger
-from litellm.caching.dual_cache import DualCache
-from litellm.litellm_core_utils.token_counter import offload_token_count
-from litellm.types.router import RouterCacheEnum, RouterErrors
-from litellm.utils import get_utc_datetime
+import embrouter
+from embrouter import token_counter
+from embrouter._logging import verbose_router_logger
+from embrouter.caching.dual_cache import DualCache
+from embrouter.embrouter_core_utils.token_counter import offload_token_count
+from embrouter.types.router import RouterCacheEnum, RouterErrors
+from embrouter.utils import get_utc_datetime
 
 if TYPE_CHECKING:
     from opentelemetry.trace import Span as _Span
@@ -39,10 +39,10 @@ _io_token_rate_limit_request_kwargs: Final[contextvars.ContextVar[dict[str, obje
     default=None,
 )
 
-ITPM_RESERVED_KEY: Final = "_litellm_itpm_reserved"
-OTPM_RESERVED_KEY: Final = "_litellm_otpm_reserved"
-ITPM_CACHE_KEY: Final = "_litellm_itpm_cache_key"
-OTPM_CACHE_KEY: Final = "_litellm_otpm_cache_key"
+ITPM_RESERVED_KEY: Final = "_embrouter_itpm_reserved"
+OTPM_RESERVED_KEY: Final = "_embrouter_otpm_reserved"
+ITPM_CACHE_KEY: Final = "_embrouter_itpm_cache_key"
+OTPM_CACHE_KEY: Final = "_embrouter_otpm_cache_key"
 
 
 def set_io_token_rate_limit_request_kwargs(kwargs: dict[str, object] | None, store_in_context: bool = True) -> None:
@@ -76,12 +76,12 @@ def get_deployment_io_token_limits(
 ) -> tuple[int | None, int | None]:
     itpm = deployment.get("itpm")
     otpm = deployment.get("otpm")
-    litellm_params: Final = deployment.get("litellm_params") or {}
+    embrouter_params: Final = deployment.get("embrouter_params") or {}
     model_info: Final = deployment.get("model_info") or {}
     if itpm is None:
-        itpm = litellm_params.get("itpm")
+        itpm = embrouter_params.get("itpm")
     if otpm is None:
-        otpm = litellm_params.get("otpm")
+        otpm = embrouter_params.get("otpm")
     if itpm is None:
         itpm = model_info.get("itpm")
     if otpm is None:
@@ -96,7 +96,7 @@ def deployment_has_io_token_limits(deployment: dict) -> bool:
 
 def _get_cache_keys(deployment: dict, current_minute: str) -> tuple[str, str] | None:
     model_id: Final = deployment.get("model_info", {}).get("id")
-    deployment_name: Final = deployment.get("litellm_params", {}).get("model")
+    deployment_name: Final = deployment.get("embrouter_params", {}).get("model")
     # Without both a deployment id and model name the key would collapse to a
     # shared "None:None" bucket across misconfigured deployments, so bail out.
     if model_id is None or deployment_name is None:
@@ -123,10 +123,10 @@ def _estimate_input_tokens(request_kwargs: dict[str, Any] | None, model: str = "
 
 
 def _model_max_output_tokens(model_name: str) -> int | None:
-    # litellm.get_model_info raises a bare Exception for an unrecognized model;
+    # embrouter.get_model_info raises a bare Exception for an unrecognized model;
     # this lookup is a fallback default and must never fail the request.
     with contextlib.suppress(Exception):
-        info: Final = litellm.get_model_info(model=model_name)
+        info: Final = embrouter.get_model_info(model=model_name)
         model_max: Final = info.get("max_output_tokens") or info.get("max_tokens")
         if model_max is not None:
             return max(0, int(model_max))
@@ -145,7 +145,7 @@ def _resolve_max_tokens(request_kwargs: dict[str, Any] | None, deployment: dict)
         if explicit is not None:
             return max(0, int(explicit))
 
-    model_name: Final = (deployment.get("litellm_params") or {}).get("model")
+    model_name: Final = (deployment.get("embrouter_params") or {}).get("model")
     if model_name:
         model_max: Final = _model_max_output_tokens(model_name)
         if model_max is not None:
@@ -250,7 +250,7 @@ def _stash_reservation_in_metadata(
         ITPM_CACHE_KEY: itpm_cache_key,
         OTPM_CACHE_KEY: otpm_cache_key,
     }
-    for channel in ("metadata", "litellm_metadata"):
+    for channel in ("metadata", "embrouter_metadata"):
         existing = request_kwargs.get(channel)
         if isinstance(existing, dict):
             existing.update(reservation)
@@ -277,14 +277,14 @@ def _as_mutable_mapping(value: object) -> MutableMapping[str, object] | None:
 def _reservation_channels(kwargs: Mapping[str, object] | None) -> tuple[object, ...]:
     """
     Places a reservation may live, in priority order: the top-level metadata
-    channels win over litellm_params.metadata (so a top-level stash is never
+    channels win over embrouter_params.metadata (so a top-level stash is never
     shadowed), which win over the standard_logging_object copy.
     """
     if not isinstance(kwargs, dict):
         return ()
-    top_level: Final = (kwargs.get("metadata"), kwargs.get("litellm_metadata"))
-    litellm_params: Final = _as_mutable_mapping(kwargs.get("litellm_params"))
-    from_params: Final = () if litellm_params is None else (litellm_params.get("metadata"),)
+    top_level: Final = (kwargs.get("metadata"), kwargs.get("embrouter_metadata"))
+    embrouter_params: Final = _as_mutable_mapping(kwargs.get("embrouter_params"))
+    from_params: Final = () if embrouter_params is None else (embrouter_params.get("metadata"),)
     standard_logging_object: Final = _as_mutable_mapping(kwargs.get("standard_logging_object"))
     from_logging_object: Final = () if standard_logging_object is None else (standard_logging_object.get("metadata"),)
     return top_level + from_params + from_logging_object
@@ -322,8 +322,8 @@ def _reservation_value(value: int, limit: int | None) -> int:
     return 1
 
 
-def _rate_limit_error(limit_label: str, limit: int, current: float) -> litellm.RateLimitError:
-    return litellm.RateLimitError(
+def _rate_limit_error(limit_label: str, limit: int, current: float) -> embrouter.RateLimitError:
+    return embrouter.RateLimitError(
         message=f"Model rate limit exceeded. {limit_label} limit={limit}, current usage={current}",
         llm_provider="",
         model="",
@@ -403,7 +403,7 @@ def io_token_pre_call_check(
         return deployment
 
     request_kwargs: Final = get_io_token_rate_limit_request_kwargs()
-    _model: Final = (deployment.get("litellm_params") or {}).get("model") or ""
+    _model: Final = (deployment.get("embrouter_params") or {}).get("model") or ""
     estimated_input: Final = _estimate_input_tokens(request_kwargs, model=_model)
     max_tokens: Final = _resolve_max_tokens(request_kwargs, deployment)
 
@@ -466,7 +466,7 @@ async def async_io_token_pre_call_check(
         return deployment
 
     request_kwargs: Final = get_io_token_rate_limit_request_kwargs()
-    _model: Final = (deployment.get("litellm_params") or {}).get("model") or ""
+    _model: Final = (deployment.get("embrouter_params") or {}).get("model") or ""
     estimated_input: Final = await offload_token_count(_estimate_input_tokens)(request_kwargs, model=_model)
     max_tokens: Final = _resolve_max_tokens(request_kwargs, deployment)
 

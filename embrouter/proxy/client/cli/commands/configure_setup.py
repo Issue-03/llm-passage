@@ -14,7 +14,7 @@ from InquirerPy import inquirer
 from InquirerPy.base.control import Choice
 from pydantic import BaseModel, TypeAdapter, ValidationError
 
-from litellm.proxy.common_utils.model_listing_utils import (
+from embrouter.proxy.common_utils.model_listing_utils import (
     CLAUDE_CODE_CLIENT,
     CLAUDE_CODE_PICKER_PATTERN,
     GATEWAY_CLIENT_HEADER,
@@ -76,7 +76,7 @@ class ConnectionSettings(BaseModel):
 
 
 def resolve_credential(ctx: click.Context, api_key: str | None) -> StaticToken:
-    """The long-lived key written into settings.json: --api-key, `lite --api-key` or LITELLM_PROXY_API_KEY.
+    """The long-lived key written into settings.json: --api-key, `lite --api-key` or EMBROUTER_PROXY_API_KEY.
 
     A `lite login` credential is never written: it expires within a day, and keeping it fresh would mean
     Claude Code running `lite` through `apiKeyHelper` on every credential refresh.
@@ -86,7 +86,7 @@ def resolve_credential(ctx: click.Context, api_key: str | None) -> StaticToken:
     if explicit is None:
         raise ClaudeSettingsError(
             "`lite configure` needs a long-lived virtual key: pass --api-key, `lite --api-key`, or set "
-            "LITELLM_PROXY_API_KEY. Your `lite login` credential expires within a day, so it is not written "
+            "EMBROUTER_PROXY_API_KEY. Your `lite login` credential expires within a day, so it is not written "
             "into agent settings."
         )
     if not explicit.strip() or any(ord(char) <= 32 or ord(char) == 127 for char in explicit):
@@ -116,15 +116,15 @@ def _preflight(target: Target) -> None:
 def _listing_error(base_url: str, error: PiSyncError, target: str) -> str:
     """The hint that fits how the listing failed: only an unreachable proxy gets the "is it running" question."""
     if error.kind is ListingFailure.REJECTED:
-        return f"LiteLLM rejected your key (HTTP {error.status}). Pass a valid --api-key."
+        return f"EmbRouter rejected your key (HTTP {error.status}). Pass a valid --api-key."
     if error.kind is ListingFailure.UNREACHABLE:
         return (
-            f"Could not connect. Is the proxy at {base_url} running, and is --base-url (or LITELLM_PROXY_URL) correct?"
+            f"Could not connect. Is the proxy at {base_url} running, and is --base-url (or EMBROUTER_PROXY_URL) correct?"
         )
     if error.kind is ListingFailure.EMPTY:
         name: Final = "Claude Code" if target == _CLAUDE_TARGET else "Codex"
         return f"{error.message} {name} would have nothing to run; give the key access to at least one model."
-    return f"The proxy at {base_url} answered, so check that it is a LiteLLM proxy and is healthy."
+    return f"The proxy at {base_url} answered, so check that it is a EmbRouter proxy and is healthy."
 
 
 def _fetch_models(base_url: str, key: str, target: Target) -> tuple[ListedModel, ...] | PiSyncError:
@@ -229,7 +229,7 @@ def pick_targets(defaults: tuple[Target, ...] = ("claude", "codex"), *, edit: bo
         inquirer.checkbox(
             message="Which agents should be edited? Unselected agents keep their current setup"
             if edit
-            else "Which agents should route through LiteLLM?",
+            else "Which agents should route through EmbRouter?",
             choices=choices,
             validate=_has_targets,
             invalid_message="Pick at least one.",

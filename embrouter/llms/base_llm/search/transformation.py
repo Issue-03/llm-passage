@@ -8,14 +8,14 @@ from urllib.parse import urlsplit
 import httpx
 from pydantic import PrivateAttr
 
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.base import LiteLLMPydanticObjectBase
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.base import EmbRouterPydanticObjectBase
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 
 _PERPLEXITY_UNIFIED_PARAMS: Final[frozenset[str]] = frozenset(
@@ -51,7 +51,7 @@ def _is_trusted_search_api_base(
     return candidate in trusted
 
 
-class SearchResult(LiteLLMPydanticObjectBase):
+class SearchResult(EmbRouterPydanticObjectBase):
     """Single search result."""
 
     title: str
@@ -63,7 +63,7 @@ class SearchResult(LiteLLMPydanticObjectBase):
     model_config = {"extra": "allow"}
 
 
-class SearchResponse(LiteLLMPydanticObjectBase):
+class SearchResponse(EmbRouterPydanticObjectBase):
     """
     Standard Search response format.
     Standardized to Perplexity Search format - other providers should transform to this format.
@@ -267,7 +267,7 @@ class BaseSearchConfig:
     def transform_search_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         **kwargs,
     ) -> SearchResponse:
         """

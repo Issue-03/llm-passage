@@ -7,13 +7,13 @@ class ServiceTraceIDCache:
     def __init__(self) -> None:
         self.cache = InMemoryCache()
 
-    def get_cache(self, litellm_call_id: str, service_name: str) -> str | None:
-        key_name: Final = f"{service_name}:{litellm_call_id}"
+    def get_cache(self, embrouter_call_id: str, service_name: str) -> str | None:
+        key_name: Final = f"{service_name}:{embrouter_call_id}"
         response: Final = self.cache.get_cache(key=key_name)
         return response
 
-    def set_cache(self, litellm_call_id: str, service_name: str, trace_id: str) -> None:
-        key_name: Final = f"{service_name}:{litellm_call_id}"
+    def set_cache(self, embrouter_call_id: str, service_name: str, trace_id: str) -> None:
+        key_name: Final = f"{service_name}:{embrouter_call_id}"
         self.cache.set_cache(key=key_name, value=trace_id)
 
 

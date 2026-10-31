@@ -5,16 +5,16 @@ OpenAI Token Counter implementation using the Responses API /input_tokens endpoi
 import os
 from typing import Any, Final
 
-from litellm._logging import verbose_logger
-from litellm.llms.base_llm.base_utils import BaseTokenCounter
-from litellm.llms.openai.common_utils import OpenAIError
-from litellm.llms.openai.responses.count_tokens.handler import (
+from embrouter._logging import verbose_logger
+from embrouter.llms.base_llm.base_utils import BaseTokenCounter
+from embrouter.llms.openai.common_utils import OpenAIError
+from embrouter.llms.openai.responses.count_tokens.handler import (
     OpenAICountTokensHandler,
 )
-from litellm.llms.openai.responses.count_tokens.transformation import (
+from embrouter.llms.openai.responses.count_tokens.transformation import (
     OpenAICountTokensConfig,
 )
-from litellm.types.utils import LlmProviders, TokenCountResponse
+from embrouter.types.utils import LlmProviders, TokenCountResponse
 
 # Global handler instance - reuse across all token counting requests
 openai_count_tokens_handler: Final = OpenAICountTokensHandler()
@@ -46,10 +46,10 @@ class OpenAITokenCounter(BaseTokenCounter):
             return None
 
         deployment = deployment or {}
-        litellm_params: Final = deployment.get("litellm_params", {})
+        embrouter_params: Final = deployment.get("embrouter_params", {})
 
         # Get OpenAI API key from deployment config or environment
-        api_key = litellm_params.get("api_key")
+        api_key = embrouter_params.get("api_key")
         if not api_key:
             api_key = os.getenv("OPENAI_API_KEY")
 
@@ -57,7 +57,7 @@ class OpenAITokenCounter(BaseTokenCounter):
             verbose_logger.warning("No OpenAI API key found for token counting")
             return None
 
-        api_base: Final = litellm_params.get("api_base")
+        api_base: Final = embrouter_params.get("api_base")
 
         # Convert chat messages to Responses API input format
         input_items, instructions = OpenAICountTokensConfig.messages_to_responses_input(messages)

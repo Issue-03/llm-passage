@@ -352,7 +352,7 @@ describe("returnUrlUtils", () => {
 
     it("should return null for invalid return URLs (different hostname)", () => {
       // Manually set an invalid URL in cookie
-      document.cookie = "litellm_return_url=" + encodeURIComponent("http://evil.com/phishing") + "; path=/";
+      document.cookie = "embrouter_return_url=" + encodeURIComponent("http://evil.com/phishing") + "; path=/";
 
       const returnUrl = consumeReturnUrl();
       expect(returnUrl).toBeNull();

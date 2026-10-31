@@ -6,7 +6,7 @@ from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 
-from litellm_enterprise.enterprise_callbacks.send_emails.endpoints import (
+from embrouter_enterprise.enterprise_callbacks.send_emails.endpoints import (
     _get_email_settings,
     _save_email_settings,
     get_email_event_settings,
@@ -14,7 +14,7 @@ from litellm_enterprise.enterprise_callbacks.send_emails.endpoints import (
     router,
     update_event_settings,
 )
-from litellm_enterprise.types.enterprise_callbacks.send_emails import (
+from embrouter_enterprise.types.enterprise_callbacks.send_emails import (
     DefaultEmailSettings,
     EmailEvent,
     EmailEventSettings,
@@ -49,7 +49,7 @@ def mock_prisma_client():
 
     mock_config.upsert = mock_upsert
 
-    mock_db.litellm_config = mock_config
+    mock_db.embrouter_config = mock_config
     mock_client.db = mock_db
 
     return mock_client
@@ -64,7 +64,7 @@ async def test_get_email_settings_empty_db(mock_prisma_client):
     async def mock_find_unique(*args, **kwargs):
         return None
 
-    mock_prisma_client.db.litellm_config.find_unique = mock_find_unique
+    mock_prisma_client.db.embrouter_config.find_unique = mock_find_unique
 
     # Call the function
     result = await _get_email_settings(mock_prisma_client)
@@ -90,7 +90,7 @@ async def test_get_email_settings_with_existing_settings(mock_prisma_client):
     async def mock_find_unique(*args, **kwargs):
         return mock_entry
 
-    mock_prisma_client.db.litellm_config.find_unique = mock_find_unique
+    mock_prisma_client.db.embrouter_config.find_unique = mock_find_unique
 
     # Call the function
     result = await _get_email_settings(mock_prisma_client)
@@ -108,13 +108,13 @@ async def test_save_email_settings_new_entry(mock_prisma_client):
     async def mock_find_unique(*args, **kwargs):
         return None
 
-    mock_prisma_client.db.litellm_config.find_unique = mock_find_unique
+    mock_prisma_client.db.embrouter_config.find_unique = mock_find_unique
 
     # Setup mock upsert to return None
     async def mock_upsert(*args, **kwargs):
         return None
 
-    mock_prisma_client.db.litellm_config.upsert = mock_upsert
+    mock_prisma_client.db.embrouter_config.upsert = mock_upsert
 
     # Settings to save
     settings = {
@@ -141,9 +141,9 @@ async def test_get_email_event_settings(mock_prisma_client, mock_user_api_key_au
         }
 
     # Setup mocks
-    with mock.patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client):
+    with mock.patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma_client):
         with mock.patch(
-            "litellm_enterprise.enterprise_callbacks.send_emails.endpoints._get_email_settings",
+            "embrouter_enterprise.enterprise_callbacks.send_emails.endpoints._get_email_settings",
             side_effect=mock_get_settings,
         ):
             # Call the endpoint function directly
@@ -180,13 +180,13 @@ async def test_update_event_settings(mock_prisma_client, mock_user_api_key_auth)
         return None
 
     # Setup mocks
-    with mock.patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client):
+    with mock.patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma_client):
         with mock.patch(
-            "litellm_enterprise.enterprise_callbacks.send_emails.endpoints._get_email_settings",
+            "embrouter_enterprise.enterprise_callbacks.send_emails.endpoints._get_email_settings",
             side_effect=mock_get_settings,
         ):
             with mock.patch(
-                "litellm_enterprise.enterprise_callbacks.send_emails.endpoints._save_email_settings",
+                "embrouter_enterprise.enterprise_callbacks.send_emails.endpoints._save_email_settings",
                 side_effect=mock_save_settings,
             ):
                 # Create request with updated settings
@@ -222,9 +222,9 @@ async def test_reset_event_settings(mock_prisma_client, mock_user_api_key_auth):
         return None
 
     # Setup mocks
-    with mock.patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client):
+    with mock.patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma_client):
         with mock.patch(
-            "litellm_enterprise.enterprise_callbacks.send_emails.endpoints._save_email_settings",
+            "embrouter_enterprise.enterprise_callbacks.send_emails.endpoints._save_email_settings",
             side_effect=mock_save_settings,
         ):
             # Call the endpoint function directly
@@ -241,7 +241,7 @@ async def test_reset_event_settings(mock_prisma_client, mock_user_api_key_auth):
 async def test_endpoint_with_no_prisma_client(mock_user_api_key_auth):
     """Test that all endpoints properly handle the case when the database is not connected."""
     # Setup mock to return None for prisma_client
-    with mock.patch("litellm.proxy.proxy_server.prisma_client", None):
+    with mock.patch("embrouter.proxy.proxy_server.prisma_client", None):
         # Test get endpoint
         with pytest.raises(HTTPException) as exc_info:
             await get_email_event_settings(user_api_key_dict=mock_user_api_key_auth)
@@ -272,13 +272,13 @@ def _prisma_recording_upserts(upserts):
         upserts.append(kwargs)
         return None
 
-    client.db.litellm_config.find_unique = find_unique
-    client.db.litellm_config.upsert = upsert
+    client.db.embrouter_config.find_unique = find_unique
+    client.db.embrouter_config.upsert = upsert
     return client
 
 
 def _proxy_config_owning(general_settings):
-    from litellm.proxy.proxy_server import ProxyConfig
+    from embrouter.proxy.proxy_server import ProxyConfig
 
     proxy_config = ProxyConfig()
     proxy_config._load_yaml_settings_stores({"general_settings": general_settings})
@@ -291,7 +291,7 @@ async def test_save_email_settings_refuses_a_config_owned_email_settings():
     client = _prisma_recording_upserts(upserts)
     proxy_config = _proxy_config_owning({"email_settings": {EmailEvent.new_user_invitation.value: True}})
 
-    with mock.patch("litellm.proxy.proxy_server.proxy_config", proxy_config):  # test-quality-ok: the endpoint reads these proxy_server module globals at call time; there is no injection seam
+    with mock.patch("embrouter.proxy.proxy_server.proxy_config", proxy_config):  # test-quality-ok: the endpoint reads these proxy_server module globals at call time; there is no injection seam
         with pytest.raises(HTTPException) as refused:
             await _save_email_settings(client, {EmailEvent.new_user_invitation.value: False})
 
@@ -309,8 +309,8 @@ async def test_update_event_settings_surfaces_the_config_owned_refusal(mock_user
         settings=[EmailEventSettings(event=EmailEvent.virtual_key_created, enabled=True)]
     )
 
-    with mock.patch("litellm.proxy.proxy_server.prisma_client", client):  # test-quality-ok: the endpoint reads these proxy_server module globals at call time; there is no injection seam
-        with mock.patch("litellm.proxy.proxy_server.proxy_config", proxy_config):  # test-quality-ok: the endpoint reads these proxy_server module globals at call time; there is no injection seam
+    with mock.patch("embrouter.proxy.proxy_server.prisma_client", client):  # test-quality-ok: the endpoint reads these proxy_server module globals at call time; there is no injection seam
+        with mock.patch("embrouter.proxy.proxy_server.proxy_config", proxy_config):  # test-quality-ok: the endpoint reads these proxy_server module globals at call time; there is no injection seam
             with pytest.raises(HTTPException) as refused:
                 await update_event_settings(request=request, user_api_key_dict=mock_user_api_key_auth)
 
@@ -325,7 +325,7 @@ async def test_save_email_settings_still_writes_when_the_config_file_is_silent()
     client = _prisma_recording_upserts(upserts)
     proxy_config = _proxy_config_owning({})
 
-    with mock.patch("litellm.proxy.proxy_server.proxy_config", proxy_config):  # test-quality-ok: the endpoint reads these proxy_server module globals at call time; there is no injection seam
+    with mock.patch("embrouter.proxy.proxy_server.proxy_config", proxy_config):  # test-quality-ok: the endpoint reads these proxy_server module globals at call time; there is no injection seam
         await _save_email_settings(client, {EmailEvent.new_user_invitation.value: False})
 
     assert len(upserts) == 1
@@ -339,8 +339,8 @@ async def test_reset_event_settings_surfaces_the_config_owned_refusal(mock_user_
     client = _prisma_recording_upserts(upserts)
     proxy_config = _proxy_config_owning({"email_settings": {EmailEvent.new_user_invitation.value: True}})
 
-    with mock.patch("litellm.proxy.proxy_server.prisma_client", client):  # test-quality-ok: the endpoint reads these proxy_server module globals at call time; there is no injection seam
-        with mock.patch("litellm.proxy.proxy_server.proxy_config", proxy_config):  # test-quality-ok: the endpoint reads these proxy_server module globals at call time; there is no injection seam
+    with mock.patch("embrouter.proxy.proxy_server.prisma_client", client):  # test-quality-ok: the endpoint reads these proxy_server module globals at call time; there is no injection seam
+        with mock.patch("embrouter.proxy.proxy_server.proxy_config", proxy_config):  # test-quality-ok: the endpoint reads these proxy_server module globals at call time; there is no injection seam
             with pytest.raises(HTTPException) as refused:
                 await reset_event_settings(user_api_key_dict=mock_user_api_key_auth)
 

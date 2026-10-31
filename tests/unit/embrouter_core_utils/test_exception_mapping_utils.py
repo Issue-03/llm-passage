@@ -3,24 +3,24 @@ import openai
 import pytest
 from fastapi import HTTPException
 
-import litellm
-from litellm.exceptions import GuardrailRaisedException
-from litellm.litellm_core_utils.exception_mapping_utils import (
+import embrouter
+from embrouter.exceptions import GuardrailRaisedException
+from embrouter.embrouter_core_utils.exception_mapping_utils import (
     ExceptionCheckers,
     _get_body_error_code,
     _get_response_headers,
     exception_type,
-    extract_and_raise_litellm_exception,
+    extract_and_raise_embrouter_exception,
 )
-from litellm.llms.bedrock.common_utils import BedrockError
-from litellm.llms.openai.common_utils import OpenAIError
-from litellm.types.utils import LlmProviders
+from embrouter.llms.bedrock.common_utils import BedrockError
+from embrouter.llms.openai.common_utils import OpenAIError
+from embrouter.types.utils import LlmProviders
 
 
 @pytest.fixture(autouse=True)
 def _bug_report_issue_url(monkeypatch: pytest.MonkeyPatch) -> None:
     """Bug report links are off unless an issue URL is configured; turn them on for these tests."""
-    monkeypatch.setenv("LITELLM_BUG_REPORT_ISSUE_URL", "https://issues.example.com/new")
+    monkeypatch.setenv("EMBROUTER_BUG_REPORT_ISSUE_URL", "https://issues.example.com/new")
 
 
 
@@ -265,7 +265,7 @@ gemini_context_window_test_cases = [
 def test_gemini_context_window_error_mapping(error_message, should_raise_context_window):
     """
     Tests that the exception_type function correctly maps Gemini's
-    context window exceeded errors to litellm.ContextWindowExceededError.
+    context window exceeded errors to embrouter.ContextWindowExceededError.
     """
     model = "gemini/gemini-2.0-flash"
     custom_llm_provider = "gemini"
@@ -274,17 +274,17 @@ def test_gemini_context_window_error_mapping(error_message, should_raise_context
     original_exception = Exception(error_message)
 
     if should_raise_context_window:
-        with pytest.raises(litellm.ContextWindowExceededError) as excinfo:
+        with pytest.raises(embrouter.ContextWindowExceededError) as excinfo:
             exception_type(
                 model=model,
                 original_exception=original_exception,
                 custom_llm_provider=custom_llm_provider,
             )
         # Check if the raised exception is indeed a ContextWindowExceededError
-        assert isinstance(excinfo.value, litellm.ContextWindowExceededError)
+        assert isinstance(excinfo.value, embrouter.ContextWindowExceededError)
     else:
         # For the negative case, we expect it to raise a generic APIConnectionError
-        with pytest.raises(litellm.APIConnectionError):
+        with pytest.raises(embrouter.APIConnectionError):
             exception_type(
                 model=model,
                 original_exception=original_exception,
@@ -293,7 +293,7 @@ def test_gemini_context_window_error_mapping(error_message, should_raise_context
 
 
 def test_lemonade_context_window_error_mapping():
-    """Lemonade's llama.cpp backend should map context overflows to LiteLLM's standard error."""
+    """Lemonade's llama.cpp backend should map context overflows to EmbRouter's standard error."""
 
     model = "lemonade/Qwen3.6-35B-A3B-GGUF"
     error_message = (
@@ -307,7 +307,7 @@ def test_lemonade_context_window_error_mapping():
         headers={},
     )
 
-    with pytest.raises(litellm.ContextWindowExceededError) as excinfo:
+    with pytest.raises(embrouter.ContextWindowExceededError) as excinfo:
         exception_type(
             model=model,
             original_exception=original_exception,
@@ -338,7 +338,7 @@ def test_openai_compatible_400_with_bare_429_in_body_maps_to_bad_request():
         headers={},
     )
 
-    with pytest.raises(litellm.BadRequestError) as excinfo:
+    with pytest.raises(embrouter.BadRequestError) as excinfo:
         exception_type(
             model="deepseek-ai/DeepSeek-V3",
             original_exception=original_exception,
@@ -357,7 +357,7 @@ def test_openai_compatible_429_still_maps_to_rate_limit():
         headers={},
     )
 
-    with pytest.raises(litellm.RateLimitError) as excinfo:
+    with pytest.raises(embrouter.RateLimitError) as excinfo:
         exception_type(
             model="deepseek-ai/DeepSeek-V3",
             original_exception=original_exception,
@@ -383,7 +383,7 @@ def test_anthropic_context_window_error_mapping(error_message):
     fell through to a generic APIConnectionError (500)."""
     original_exception = Exception(error_message)
 
-    with pytest.raises(litellm.ContextWindowExceededError) as excinfo:
+    with pytest.raises(embrouter.ContextWindowExceededError) as excinfo:
         exception_type(
             model="claude-sonnet-4-5",
             original_exception=original_exception,
@@ -411,7 +411,7 @@ vertex_rate_limit_test_cases = [
 def test_vertex_ai_rate_limit_error_mapping(error_message, should_raise_rate_limit):
     """
     Tests that the exception_type function correctly maps Vertex AI's
-    "Resource exhausted" error to a litellm.RateLimitError.
+    "Resource exhausted" error to a embrouter.RateLimitError.
     """
     model = "gemini/gemini-2.5-flash"
     custom_llm_provider = "vertex_ai"
@@ -420,17 +420,17 @@ def test_vertex_ai_rate_limit_error_mapping(error_message, should_raise_rate_lim
     original_exception = Exception(error_message)
 
     if should_raise_rate_limit:
-        with pytest.raises(litellm.RateLimitError) as excinfo:
+        with pytest.raises(embrouter.RateLimitError) as excinfo:
             exception_type(
                 model=model,
                 original_exception=original_exception,
                 custom_llm_provider=custom_llm_provider,
             )
         # Check if the raised exception is indeed a RateLimitError
-        assert isinstance(excinfo.value, litellm.RateLimitError)
+        assert isinstance(excinfo.value, embrouter.RateLimitError)
     else:
         # For the negative case, we expect it to raise a generic APIConnectionError
-        with pytest.raises(litellm.APIConnectionError):
+        with pytest.raises(embrouter.APIConnectionError):
             exception_type(
                 model=model,
                 original_exception=original_exception,
@@ -474,43 +474,43 @@ gemini_body_code_429_test_cases = [
         '{"error":{"message":" This model is currently experiencing high demand.'
         " Spikes in demand are usually temporary. Please try again later."
         ' (request id: x)","type":"upstream_error","param":"","code":429}}',
-        litellm.RateLimitError,
+        embrouter.RateLimitError,
         "HTTP 500 envelope with body code:429 -> RateLimitError",
     ),
     (
         503,
         '{"error":{"message":"upstream unavailable","type":"upstream_error","param":"","code":429}}',
-        litellm.RateLimitError,
+        embrouter.RateLimitError,
         "HTTP 503 envelope with body code:429 -> RateLimitError",
     ),
     (
         502,
         '{"error":{"message":"bad gateway","code":429}}',
-        litellm.RateLimitError,
+        embrouter.RateLimitError,
         "HTTP 502 envelope with body code:429 -> RateLimitError",
     ),
     (
         500,
         '{"error":{"message":"server boom","code":500}}',
-        litellm.InternalServerError,
+        embrouter.InternalServerError,
         "HTTP 500 with body code:500 stays InternalServerError",
     ),
     (
         500,
         "plain text 500 error",
-        litellm.InternalServerError,
+        embrouter.InternalServerError,
         "HTTP 500 with non-JSON body falls through to status_code mapping",
     ),
     (
         400,
         '{"error":{"message":"malformed","code":429}}',
-        litellm.BadRequestError,
+        embrouter.BadRequestError,
         "HTTP 400 with body code:429 must NOT be promoted to RateLimitError",
     ),
     (
         401,
         '{"error":{"message":"bad key","code":429}}',
-        litellm.AuthenticationError,
+        embrouter.AuthenticationError,
         "HTTP 401 with body code:429 must NOT be promoted to RateLimitError",
     ),
 ]
@@ -550,23 +550,23 @@ def test_gemini_upstream_error_body_code_429_maps_to_rate_limit(
     assert isinstance(excinfo.value, expected_exception), description
 
 
-class TestExtractAndRaiseLitellmException:
-    """Tests for extract_and_raise_litellm_exception function"""
+class TestExtractAndRaiseEmbrouterException:
+    """Tests for extract_and_raise_embrouter_exception function"""
 
     def test_extract_and_raise_api_connection_error_without_response(self):
         """
         Test that APIConnectionError can be raised without response parameter.
 
-        This is a regression test for the bug where extract_and_raise_litellm_exception
+        This is a regression test for the bug where extract_and_raise_embrouter_exception
         would fail with TypeError when trying to raise APIConnectionError with a
         response parameter, since APIConnectionError doesn't accept that parameter.
 
 
         """
-        error_str = "litellm.APIConnectionError: GeminiException - some error message"
+        error_str = "embrouter.APIConnectionError: GeminiException - some error message"
 
-        with pytest.raises(litellm.APIConnectionError) as excinfo:
-            extract_and_raise_litellm_exception(
+        with pytest.raises(embrouter.APIConnectionError) as excinfo:
+            extract_and_raise_embrouter_exception(
                 response=None,
                 error_str=error_str,
                 model="gemini/gemini-3-pro-preview",
@@ -581,10 +581,10 @@ class TestExtractAndRaiseLitellmException:
 
         BadRequestError does accept the response parameter, so this should work.
         """
-        error_str = "litellm.BadRequestError: Invalid request format"
+        error_str = "embrouter.BadRequestError: Invalid request format"
 
-        with pytest.raises(litellm.BadRequestError) as excinfo:
-            extract_and_raise_litellm_exception(
+        with pytest.raises(embrouter.BadRequestError) as excinfo:
+            extract_and_raise_embrouter_exception(
                 response=None,
                 error_str=error_str,
                 model="gpt-4",
@@ -597,10 +597,10 @@ class TestExtractAndRaiseLitellmException:
         """
         Test that ContextWindowExceededError can be raised.
         """
-        error_str = "litellm.ContextWindowExceededError: Token limit exceeded"
+        error_str = "embrouter.ContextWindowExceededError: Token limit exceeded"
 
-        with pytest.raises(litellm.ContextWindowExceededError) as excinfo:
-            extract_and_raise_litellm_exception(
+        with pytest.raises(embrouter.ContextWindowExceededError) as excinfo:
+            extract_and_raise_embrouter_exception(
                 response=None,
                 error_str=error_str,
                 model="gpt-4",
@@ -609,14 +609,14 @@ class TestExtractAndRaiseLitellmException:
 
         assert "ContextWindowExceededError" in str(excinfo.value)
 
-    def test_no_exception_raised_for_non_litellm_error(self):
+    def test_no_exception_raised_for_non_embrouter_error(self):
         """
-        Test that no exception is raised for non-litellm error strings.
+        Test that no exception is raised for non-embrouter error strings.
         """
-        error_str = "Some generic error that is not a litellm exception"
+        error_str = "Some generic error that is not a embrouter exception"
 
         # Should not raise any exception
-        result = extract_and_raise_litellm_exception(
+        result = extract_and_raise_embrouter_exception(
             response=None,
             error_str=error_str,
             model="gpt-4",
@@ -643,7 +643,7 @@ def test_replicate_model_error_maps_to_bad_request():
     to APIConnectionError."""
     original_exception = ModelError("the deployed model failed to return a prediction")
 
-    with pytest.raises(litellm.BadRequestError) as excinfo:
+    with pytest.raises(embrouter.BadRequestError) as excinfo:
         exception_type(
             model="replicate/meta/llama-2-70b-chat",
             original_exception=original_exception,
@@ -662,7 +662,7 @@ def test_cohere_connection_error_maps_to_rate_limit():
     original_exception = CohereConnectionError("connection reset by peer")
     original_exception.message = "connection reset by peer"
 
-    with pytest.raises(litellm.RateLimitError) as excinfo:
+    with pytest.raises(embrouter.RateLimitError) as excinfo:
         exception_type(
             model="command-r",
             original_exception=original_exception,
@@ -691,7 +691,7 @@ def test_replicate_422_maps_to_unprocessable_entity():
     surviving branch must still map 422 to UnprocessableEntityError."""
     original_exception = ReplicateError("validation failed for the input", 422)
 
-    with pytest.raises(litellm.UnprocessableEntityError) as excinfo:
+    with pytest.raises(embrouter.UnprocessableEntityError) as excinfo:
         exception_type(
             model="replicate/meta/llama-2-70b-chat",
             original_exception=original_exception,
@@ -706,14 +706,14 @@ def test_upstream_4xx_without_model_maps_to_bad_request():
     ``model=None``; the provider mapping used to be gated on ``if model:``, so an
     upstream 400 like Azure's "Cannot cancel a synchronous response." fell through to
     the generic 500 APIConnectionError instead of surfacing as a 400."""
-    from litellm.llms.base_llm.chat.transformation import BaseLLMException
+    from embrouter.llms.base_llm.chat.transformation import BaseLLMException
 
     original_exception = BaseLLMException(
         status_code=400,
         message='{"error": {"message": "Cannot cancel a synchronous response.", "type": "invalid_request_error"}}',
     )
 
-    with pytest.raises(litellm.BadRequestError) as excinfo:
+    with pytest.raises(embrouter.BadRequestError) as excinfo:
         exception_type(
             model=None,
             original_exception=original_exception,
@@ -725,14 +725,14 @@ def test_upstream_4xx_without_model_maps_to_bad_request():
 
 
 def test_azure_404_with_invalid_request_error_type_maps_to_not_found():
-    from litellm.llms.base_llm.chat.transformation import BaseLLMException
+    from embrouter.llms.base_llm.chat.transformation import BaseLLMException
 
     original_exception = BaseLLMException(
         status_code=404,
         message='{"error": {"message": "Response with id \'resp_abc\' not found.", "type": "invalid_request_error"}}',
     )
 
-    with pytest.raises(litellm.NotFoundError) as excinfo:
+    with pytest.raises(embrouter.NotFoundError) as excinfo:
         exception_type(
             model=None,
             original_exception=original_exception,
@@ -755,59 +755,59 @@ class _UpstreamHTTPError(Exception):
 UPSTREAM_STATUS_CODES = (400, 401, 403, 404, 408, 422, 429, 500, 503)
 
 OPENAI_SHAPED = {
-    400: (litellm.BadRequestError, 400),
-    401: (litellm.AuthenticationError, 401),
-    403: (litellm.APIError, 403),
-    404: (litellm.NotFoundError, 404),
-    408: (litellm.Timeout, 408),
-    422: (litellm.BadRequestError, 422),
-    429: (litellm.RateLimitError, 429),
-    500: (litellm.InternalServerError, 500),
-    503: (litellm.ServiceUnavailableError, 503),
+    400: (embrouter.BadRequestError, 400),
+    401: (embrouter.AuthenticationError, 401),
+    403: (embrouter.APIError, 403),
+    404: (embrouter.NotFoundError, 404),
+    408: (embrouter.Timeout, 408),
+    422: (embrouter.BadRequestError, 422),
+    429: (embrouter.RateLimitError, 429),
+    500: (embrouter.InternalServerError, 500),
+    503: (embrouter.ServiceUnavailableError, 503),
 }
 
-PERMISSION_DENIED = (litellm.PermissionDeniedError, 403)
+PERMISSION_DENIED = (embrouter.PermissionDeniedError, 403)
 
 STATUS_KEYED = {**OPENAI_SHAPED, 403: PERMISSION_DENIED}
 
 DEVIATIONS_FROM_THE_OPENAI_SHAPE = {
     "anthropic": {403: PERMISSION_DENIED},
-    "azure": {500: (litellm.APIError, 500)},
+    "azure": {500: (embrouter.APIError, 500)},
     "bedrock": {
         403: PERMISSION_DENIED,
-        500: (litellm.ServiceUnavailableError, 503),
+        500: (embrouter.ServiceUnavailableError, 503),
     },
     "cloudflare": {403: PERMISSION_DENIED},
     "cohere": {403: PERMISSION_DENIED},
     "databricks": {
         403: PERMISSION_DENIED,
-        422: (litellm.BadRequestError, 400),
+        422: (embrouter.BadRequestError, 400),
     },
     "gemini": {403: PERMISSION_DENIED},
     "huggingface": {
-        404: (litellm.APIError, 404),
-        422: (litellm.APIError, 422),
-        500: (litellm.APIError, 500),
+        404: (embrouter.APIError, 404),
+        422: (embrouter.APIError, 422),
+        500: (embrouter.APIError, 500),
     },
     "nlp_cloud": {
-        403: (litellm.AuthenticationError, 403),
-        404: (litellm.APIError, 404),
-        408: (litellm.APIError, 408),
-        500: (litellm.APIError, 500),
-        503: (litellm.APIError, 503),
+        403: (embrouter.AuthenticationError, 403),
+        404: (embrouter.APIError, 404),
+        408: (embrouter.APIError, 408),
+        500: (embrouter.APIError, 500),
+        503: (embrouter.APIError, 503),
     },
     "ollama": {403: PERMISSION_DENIED},
-    "openrouter": {500: (litellm.APIError, 500)},
+    "openrouter": {500: (embrouter.APIError, 500)},
     "replicate": {
-        403: (litellm.APIError, 500),
-        404: (litellm.APIError, 500),
-        422: (litellm.UnprocessableEntityError, 422),
-        500: (litellm.ServiceUnavailableError, 503),
-        503: (litellm.APIError, 500),
+        403: (embrouter.APIError, 500),
+        404: (embrouter.APIError, 500),
+        422: (embrouter.UnprocessableEntityError, 422),
+        500: (embrouter.ServiceUnavailableError, 503),
+        503: (embrouter.APIError, 500),
     },
     "sagemaker": {
         403: PERMISSION_DENIED,
-        500: (litellm.ServiceUnavailableError, 503),
+        500: (embrouter.ServiceUnavailableError, 503),
     },
     "vertex_ai": {403: PERMISSION_DENIED},
     "vllm": {403: PERMISSION_DENIED},
@@ -850,7 +850,7 @@ PROVIDER_ALIASES_WITH_A_HANDLER = (
     "cohere_chat",
     "custom_openai",
     "lemonade",
-    "litellm_proxy",
+    "embrouter_proxy",
     "ollama_chat",
     "predibase",
     "sagemaker_chat",
@@ -864,7 +864,7 @@ PROVIDERS_WITHOUT_A_HANDLER = tuple(
         frozenset(provider.value for provider in LlmProviders)
         - frozenset(PROVIDERS_WITH_A_HANDLER)
         - frozenset(PROVIDER_ALIASES_WITH_A_HANDLER)
-        - frozenset(litellm.openai_compatible_providers)
+        - frozenset(embrouter.openai_compatible_providers)
     )
 )
 
@@ -881,7 +881,7 @@ def _expected_for(provider: str, status_code: int) -> tuple[type[Exception], int
 
 @pytest.fixture
 def quiet_exception_mapping(monkeypatch):
-    monkeypatch.setattr(litellm, "suppress_debug_info", True)
+    monkeypatch.setattr(embrouter, "suppress_debug_info", True)
 
 
 @pytest.mark.parametrize("status_code", UPSTREAM_STATUS_CODES)
@@ -915,8 +915,8 @@ def test_a_mapped_exception_keeps_the_provider_and_model_it_came_from(provider, 
 
 
 @pytest.mark.parametrize("provider", PROVIDERS_WITH_A_HANDLER)
-def test_an_already_mapped_litellm_exception_passes_through_untouched(provider, quiet_exception_mapping):
-    already_mapped = litellm.RateLimitError(message="already mapped", llm_provider=provider, model="test-model")
+def test_an_already_mapped_embrouter_exception_passes_through_untouched(provider, quiet_exception_mapping):
+    already_mapped = embrouter.RateLimitError(message="already mapped", llm_provider=provider, model="test-model")
 
     returned = exception_type(
         model="test-model",
@@ -946,9 +946,9 @@ def test_a_provider_without_a_handler_maps_by_the_upstream_status(provider, stat
 
 
 def test_a_minimax_bad_key_is_an_authentication_error(quiet_exception_mapping):
-    from litellm.llms.base_llm.chat.transformation import BaseLLMException
+    from embrouter.llms.base_llm.chat.transformation import BaseLLMException
 
-    with pytest.raises(litellm.AuthenticationError) as raised:
+    with pytest.raises(embrouter.AuthenticationError) as raised:
         exception_type(
             model="MiniMax-M2.5",
             original_exception=BaseLLMException(status_code=401, message=MINIMAX_401_BODY),
@@ -957,12 +957,12 @@ def test_a_minimax_bad_key_is_an_authentication_error(quiet_exception_mapping):
 
     assert raised.value.status_code == 401
     assert raised.value.llm_provider == "minimax"
-    assert raised.value.message.startswith("litellm.AuthenticationError: MinimaxException - ")
+    assert raised.value.message.startswith("embrouter.AuthenticationError: MinimaxException - ")
     assert "login fail" in raised.value.message
 
 
 def test_an_exception_without_a_status_is_still_a_connection_error(quiet_exception_mapping):
-    with pytest.raises(litellm.APIConnectionError):
+    with pytest.raises(embrouter.APIConnectionError):
         exception_type(
             model="MiniMax-M2.5",
             original_exception=RuntimeError("socket hung up"),
@@ -971,7 +971,7 @@ def test_an_exception_without_a_status_is_still_a_connection_error(quiet_excepti
 
 
 def test_an_unmapped_exception_with_no_model_or_provider_is_a_connection_error(quiet_exception_mapping):
-    with pytest.raises(litellm.APIConnectionError) as raised:
+    with pytest.raises(embrouter.APIConnectionError) as raised:
         exception_type(
             model=None,
             original_exception=ValueError("boom"),
@@ -982,7 +982,7 @@ def test_an_unmapped_exception_with_no_model_or_provider_is_a_connection_error(q
 
 
 def test_unmapped_sdk_exception_includes_bug_report_link(quiet_exception_mapping):
-    with pytest.raises(litellm.APIConnectionError) as raised:
+    with pytest.raises(embrouter.APIConnectionError) as raised:
         exception_type(
             model="my-model",
             custom_llm_provider="minimax",
@@ -994,9 +994,9 @@ def test_unmapped_sdk_exception_includes_bug_report_link(quiet_exception_mapping
 
 
 def test_unmapped_sdk_exception_bug_report_link_can_be_disabled(quiet_exception_mapping, monkeypatch):
-    monkeypatch.setenv("LITELLM_DISABLE_BUG_REPORT_LINK", "true")
+    monkeypatch.setenv("EMBROUTER_DISABLE_BUG_REPORT_LINK", "true")
 
-    with pytest.raises(litellm.APIConnectionError) as raised:
+    with pytest.raises(embrouter.APIConnectionError) as raised:
         exception_type(
             model="my-model",
             custom_llm_provider="minimax",
@@ -1007,7 +1007,7 @@ def test_unmapped_sdk_exception_bug_report_link_can_be_disabled(quiet_exception_
 
 
 def _raise_and_map(model: str | None, original_exception: Exception, custom_llm_provider: str | None) -> None:
-    """Calls exception_type() from inside the except block, as litellm/main.py does,
+    """Calls exception_type() from inside the except block, as embrouter/main.py does,
     so traceback.format_exc() has a real stack."""
     try:
         raise original_exception
@@ -1022,7 +1022,7 @@ def _raise_and_map(model: str | None, original_exception: Exception, custom_llm_
 def test_an_unmapped_exception_message_keeps_traceback_for_sdk_callers(quiet_exception_mapping):
     """Direct SDK callers debug unmapped provider exceptions with this traceback;
     only the proxy's response boundary strips it."""
-    with pytest.raises(litellm.APIConnectionError) as raised:
+    with pytest.raises(embrouter.APIConnectionError) as raised:
         _raise_and_map(
             model="MiniMax-M2.5",
             original_exception=RuntimeError("socket hung up"),
@@ -1036,7 +1036,7 @@ def test_an_unmapped_exception_message_keeps_traceback_for_sdk_callers(quiet_exc
 def test_an_unmapped_exception_with_no_model_or_provider_message_keeps_traceback(
     quiet_exception_mapping,
 ):
-    with pytest.raises(litellm.APIConnectionError) as raised:
+    with pytest.raises(embrouter.APIConnectionError) as raised:
         _raise_and_map(
             model=None,
             original_exception=ValueError("boom"),
@@ -1096,9 +1096,9 @@ class _UpstreamErrorWithMessage(_UpstreamHTTPError):
 @pytest.mark.parametrize("provider", PROVIDERS_WITH_A_HANDLER)
 def test_a_full_context_window_reaches_the_caller_as_the_router_needs_it(provider, quiet_exception_mapping):
     if provider in PROVIDERS_THAT_RECOGNISE_A_FULL_CONTEXT_WINDOW:
-        expected_class, expected_status = litellm.ContextWindowExceededError, 400
+        expected_class, expected_status = embrouter.ContextWindowExceededError, 400
     else:
-        expected_class, expected_status = litellm.BadRequestError, 400
+        expected_class, expected_status = embrouter.BadRequestError, 400
 
     with pytest.raises(openai.APIError) as raised:
         exception_type(
@@ -1114,9 +1114,9 @@ def test_a_full_context_window_reaches_the_caller_as_the_router_needs_it(provide
 @pytest.mark.parametrize("provider", PROVIDERS_WITH_A_HANDLER)
 def test_a_content_policy_block_reaches_the_caller_as_the_router_needs_it(provider, quiet_exception_mapping):
     if provider in PROVIDERS_THAT_RECOGNISE_A_CONTENT_POLICY_BLOCK:
-        expected_class, expected_status = litellm.ContentPolicyViolationError, 400
+        expected_class, expected_status = embrouter.ContentPolicyViolationError, 400
     else:
-        expected_class, expected_status = litellm.BadRequestError, 400
+        expected_class, expected_status = embrouter.BadRequestError, 400
 
     with pytest.raises(openai.APIError) as raised:
         exception_type(
@@ -1131,7 +1131,7 @@ def test_a_content_policy_block_reaches_the_caller_as_the_router_needs_it(provid
 
 @pytest.mark.parametrize("provider", PROVIDERS_WITH_A_HANDLER)
 def test_a_timed_out_request_is_a_timeout_for_every_provider(provider, quiet_exception_mapping):
-    with pytest.raises(litellm.Timeout) as raised:
+    with pytest.raises(embrouter.Timeout) as raised:
         exception_type(
             model="test-model",
             original_exception=_UpstreamErrorWithMessage(TIMEOUT_MESSAGE, 408),
@@ -1142,7 +1142,7 @@ def test_a_timed_out_request_is_a_timeout_for_every_provider(provider, quiet_exc
 
 
 def test_bedrock_mantle_400_maps_to_bad_request():
-    from litellm.llms.base_llm.chat.transformation import BaseLLMException
+    from embrouter.llms.base_llm.chat.transformation import BaseLLMException
 
     original_exception = BaseLLMException(
         status_code=400,
@@ -1153,7 +1153,7 @@ def test_bedrock_mantle_400_maps_to_bad_request():
         ),
     )
 
-    with pytest.raises(litellm.BadRequestError) as excinfo:
+    with pytest.raises(embrouter.BadRequestError) as excinfo:
         exception_type(
             model="gpt-5.6-terra",
             original_exception=original_exception,
@@ -1162,11 +1162,11 @@ def test_bedrock_mantle_400_maps_to_bad_request():
 
     assert excinfo.value.status_code == 400
     assert "Invalid 'input'" in excinfo.value.message
-    assert type(excinfo.value) is litellm.BadRequestError
+    assert type(excinfo.value) is embrouter.BadRequestError
 
 
 def test_bedrock_mantle_context_overflow_maps_to_context_window_exceeded():
-    from litellm.llms.base_llm.chat.transformation import BaseLLMException
+    from embrouter.llms.base_llm.chat.transformation import BaseLLMException
 
     original_exception = BaseLLMException(
         status_code=400,
@@ -1177,7 +1177,7 @@ def test_bedrock_mantle_context_overflow_maps_to_context_window_exceeded():
         ),
     )
 
-    with pytest.raises(litellm.ContextWindowExceededError) as excinfo:
+    with pytest.raises(embrouter.ContextWindowExceededError) as excinfo:
         exception_type(
             model="openai.gpt-5.6-sol",
             original_exception=original_exception,
@@ -1189,12 +1189,12 @@ def test_bedrock_mantle_context_overflow_maps_to_context_window_exceeded():
 
 
 def test_branchless_provider_transport_error_maps_to_api_connection_error():
-    from litellm.llms.base_llm.chat.transformation import BaseLLMException
+    from embrouter.llms.base_llm.chat.transformation import BaseLLMException
 
     original_exception = BaseLLMException(status_code=500, message="[Errno 111] Connection refused")
     original_exception.status_code_is_synthesized = True
 
-    with pytest.raises(litellm.APIConnectionError):
+    with pytest.raises(embrouter.APIConnectionError):
         exception_type(
             model="test-agent",
             original_exception=original_exception,
@@ -1203,11 +1203,11 @@ def test_branchless_provider_transport_error_maps_to_api_connection_error():
 
 
 def test_branchless_provider_upstream_500_still_maps_to_internal_server_error():
-    from litellm.llms.base_llm.chat.transformation import BaseLLMException
+    from embrouter.llms.base_llm.chat.transformation import BaseLLMException
 
     original_exception = BaseLLMException(status_code=500, message="upstream exploded")
 
-    with pytest.raises(litellm.InternalServerError):
+    with pytest.raises(embrouter.InternalServerError):
         exception_type(
             model="test-agent",
             original_exception=original_exception,
@@ -1216,11 +1216,11 @@ def test_branchless_provider_upstream_500_still_maps_to_internal_server_error():
 
 
 def test_handle_error_marks_only_a_status_code_it_never_received():
-    from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+    from embrouter.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
 
     handler = BaseLLMHTTPHandler()
 
-    with pytest.raises(litellm.llms.base_llm.chat.transformation.BaseLLMException) as transport:
+    with pytest.raises(embrouter.llms.base_llm.chat.transformation.BaseLLMException) as transport:
         raise handler._handle_error(e=httpx.ConnectError("Connection refused"), provider_config=None)
     assert transport.value.status_code == 500
     assert transport.value.status_code_is_synthesized is True
@@ -1231,7 +1231,7 @@ def test_handle_error_marks_only_a_status_code_it_never_received():
         request=request,
         response=httpx.Response(status_code=500, request=request, text="upstream exploded"),
     )
-    with pytest.raises(litellm.llms.base_llm.chat.transformation.BaseLLMException) as received:
+    with pytest.raises(embrouter.llms.base_llm.chat.transformation.BaseLLMException) as received:
         raise handler._handle_error(e=upstream, provider_config=None)
     assert received.value.status_code == 500
     assert received.value.status_code_is_synthesized is False
@@ -1252,7 +1252,7 @@ def test_bedrock_500_preserves_provider_response_headers():
         response=provider_response,
     )
 
-    with pytest.raises(litellm.ServiceUnavailableError) as exc_info:
+    with pytest.raises(embrouter.ServiceUnavailableError) as exc_info:
         exception_type(
             model="anthropic.claude-haiku-4-5-20251001-v1:0",
             original_exception=original_exception,
@@ -1275,19 +1275,19 @@ def test_bedrock_500_preserves_provider_response_headers():
                 '"message":"prompt tokens (1055489) exceed model maximum (1050000) for openai.gpt-5.6-sol",'
                 '"param":null,"type":"invalid_request_error"}}'
             ),
-            litellm.ContextWindowExceededError,
+            embrouter.ContextWindowExceededError,
         ),
         (
             "bedrock",
             400,
             '{"message":"Input is too long for requested model."}',
-            litellm.ContextWindowExceededError,
+            embrouter.ContextWindowExceededError,
         ),
         (
             "bedrock",
             400,
             '{"message":"Could not process image"}',
-            litellm.BadRequestError,
+            embrouter.BadRequestError,
         ),
     ],
 )
@@ -1323,9 +1323,9 @@ def test_bedrock_classified_errors_preserve_provider_response_headers(
 @pytest.mark.parametrize(
     "status_code, expected_exception",
     [
-        (400, litellm.BadRequestError),
-        (503, litellm.ServiceUnavailableError),
-        (500, litellm.InternalServerError),
+        (400, embrouter.BadRequestError),
+        (503, embrouter.ServiceUnavailableError),
+        (500, embrouter.InternalServerError),
     ],
 )
 def test_bedrock_unprocessable_image_keeps_provider_status_code(status_code, expected_exception):
@@ -1382,7 +1382,7 @@ def test_bedrock_timeout_mapping_preserves_provider_headers(status_code, provide
         response=provider_response,
     )
 
-    with pytest.raises(litellm.Timeout) as exc_info:
+    with pytest.raises(embrouter.Timeout) as exc_info:
         exception_type(
             model="anthropic.claude-haiku-4-5-20251001-v1:0",
             original_exception=original_exception,
@@ -1411,7 +1411,7 @@ def test_bedrock_timeout_mapping_keeps_retry_after_readable(status_code):
         response=provider_response,
     )
 
-    with pytest.raises(litellm.Timeout) as exc_info:
+    with pytest.raises(embrouter.Timeout) as exc_info:
         exception_type(
             model="anthropic.claude-haiku-4-5-20251001-v1:0",
             original_exception=original_exception,
@@ -1422,7 +1422,7 @@ def test_bedrock_timeout_mapping_keeps_retry_after_readable(status_code):
 
     exception_headers = _get_response_headers(original_exception=exc_info.value)
     assert exception_headers is not None
-    assert litellm.utils._get_retry_after_from_exception_header(response_headers=exception_headers) == 7
+    assert embrouter.utils._get_retry_after_from_exception_header(response_headers=exception_headers) == 7
 
 
 _GUARDRAIL_BLOCK_ERROR = {
@@ -1453,16 +1453,16 @@ def _openai_handler_error(
     )
 
 
-_PROXY_HEADERS = {"x-litellm-call-id": "call-guardrail", "x-litellm-applied-guardrails": "block-secret-project"}
+_PROXY_HEADERS = {"x-embrouter-call-id": "call-guardrail", "x-embrouter-applied-guardrails": "block-secret-project"}
 
 
 @pytest.mark.parametrize(("error_type", "status_code"), [("None", 400), ("invalid_request_error", 400), ("None", 422)])
-def test_litellm_proxy_guardrail_block_keeps_body_and_headers(error_type: str, status_code: int):
-    with pytest.raises(litellm.BadRequestError) as exc_info:
+def test_embrouter_proxy_guardrail_block_keeps_body_and_headers(error_type: str, status_code: int):
+    with pytest.raises(embrouter.BadRequestError) as exc_info:
         exception_type(
             model="claude-haiku-4-5",
             original_exception=_openai_handler_error(error_type, _PROXY_HEADERS, status_code=status_code),
-            custom_llm_provider="litellm_proxy",
+            custom_llm_provider="embrouter_proxy",
             completion_kwargs={},
             extra_kwargs={},
         )
@@ -1472,15 +1472,15 @@ def test_litellm_proxy_guardrail_block_keeps_body_and_headers(error_type: str, s
     assert dict(exc_info.value.response.headers) == _PROXY_HEADERS
 
 
-@pytest.mark.parametrize("relayed_class", [litellm.BadRequestError, litellm.ContentPolicyViolationError])
-def test_litellm_proxy_relayed_litellm_error_keeps_body_and_headers(relayed_class: type[litellm.BadRequestError]):
-    message = f"litellm.{relayed_class.__name__}: {_GUARDRAIL_BLOCK_ERROR['message']}"
+@pytest.mark.parametrize("relayed_class", [embrouter.BadRequestError, embrouter.ContentPolicyViolationError])
+def test_embrouter_proxy_relayed_embrouter_error_keeps_body_and_headers(relayed_class: type[embrouter.BadRequestError]):
+    message = f"embrouter.{relayed_class.__name__}: {_GUARDRAIL_BLOCK_ERROR['message']}"
 
     with pytest.raises(relayed_class) as exc_info:
         exception_type(
             model="claude-haiku-4-5",
             original_exception=_openai_handler_error("None", _PROXY_HEADERS, message=message),
-            custom_llm_provider="litellm_proxy",
+            custom_llm_provider="embrouter_proxy",
             completion_kwargs={},
             extra_kwargs={},
         )
@@ -1491,7 +1491,7 @@ def test_litellm_proxy_relayed_litellm_error_keeps_body_and_headers(relayed_clas
 
 
 def test_openai_compatible_vendor_400_keeps_body_but_not_headers():
-    with pytest.raises(litellm.BadRequestError) as exc_info:
+    with pytest.raises(embrouter.BadRequestError) as exc_info:
         exception_type(
             model="gpt-5.4-mini",
             original_exception=_openai_handler_error("vendor_specific_error", {"openai-organization": "org-1"}),
@@ -1506,9 +1506,9 @@ def test_openai_compatible_vendor_400_keeps_body_but_not_headers():
 
 @pytest.mark.parametrize(
     ("status_code", "mapped_class", "reported_type"),
-    [(429, litellm.RateLimitError, "throttling_error"), (500, litellm.InternalServerError, "internal_server_error")],
+    [(429, embrouter.RateLimitError, "throttling_error"), (500, embrouter.InternalServerError, "internal_server_error")],
 )
-def test_openai_429_and_500_keep_body_but_report_litellm_type(
+def test_openai_429_and_500_keep_body_but_report_embrouter_type(
     status_code: int, mapped_class: type[openai.APIError], reported_type: str
 ):
     with pytest.raises(mapped_class) as exc_info:
@@ -1531,14 +1531,14 @@ def test_openai_429_and_500_keep_body_but_report_litellm_type(
     assert exc_info.value.type == reported_type
 
 
-def test_litellm_proxy_repeated_response_header_keeps_each_value():
-    repeated = [("x-litellm-call-id", "call-guardrail"), ("set-cookie", "a=1"), ("set-cookie", "b=2")]
+def test_embrouter_proxy_repeated_response_header_keeps_each_value():
+    repeated = [("x-embrouter-call-id", "call-guardrail"), ("set-cookie", "a=1"), ("set-cookie", "b=2")]
 
-    with pytest.raises(litellm.BadRequestError) as exc_info:
+    with pytest.raises(embrouter.BadRequestError) as exc_info:
         exception_type(
             model="claude-haiku-4-5",
             original_exception=_openai_handler_error("None", repeated),
-            custom_llm_provider="litellm_proxy",
+            custom_llm_provider="embrouter_proxy",
             completion_kwargs={},
             extra_kwargs={},
         )
@@ -1570,7 +1570,7 @@ def test_guardrail_block_raised_inside_an_llm_call_is_returned_unmapped(block: E
 def test_guardrail_provider_failure_status_is_still_mapped():
     upstream_failure = HTTPException(status_code=401, detail={"error": "guardrail provider rejected the key"})
 
-    with pytest.raises(litellm.AuthenticationError) as exc_info:
+    with pytest.raises(embrouter.AuthenticationError) as exc_info:
         exception_type(
             model="gpt-5.6",
             original_exception=upstream_failure,

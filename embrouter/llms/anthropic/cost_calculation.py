@@ -7,15 +7,15 @@ from typing import TYPE_CHECKING, Final, Optional
 
 from pydantic import BaseModel, ValidationError
 
-from litellm.litellm_core_utils.llm_cost_calc.utils import (
+from embrouter.embrouter_core_utils.llm_cost_calc.utils import (
     generic_cost_per_token,
     get_provider_specific_geo_multiplier,
     get_web_search_requests_from_usage,
 )
 
 if TYPE_CHECKING:
-    from litellm.types.utils import ModelInfo, Usage
-import litellm
+    from embrouter.types.utils import ModelInfo, Usage
+import embrouter
 
 
 def cost_per_token(
@@ -26,7 +26,7 @@ def cost_per_token(
 
     Input:
         - model: str, the model name without provider prefix
-        - usage: LiteLLM Usage block, containing anthropic caching information
+        - usage: EmbRouter Usage block, containing anthropic caching information
         - service_tier: the service tier the request was served at (e.g. "priority"),
           read from the Anthropic response usage and used to select tier-specific pricing
         - model_info: effective deployment prices, when they override public rates
@@ -47,7 +47,7 @@ def cost_per_token(
         effective_info: Final = (
             model_info
             if model_info is not None
-            else litellm.get_model_info(model=model, custom_llm_provider="anthropic")
+            else embrouter.get_model_info(model=model, custom_llm_provider="anthropic")
         )
         provider_specific_entry: Final = effective_info.get("provider_specific_entry")
 
@@ -106,7 +106,7 @@ def get_cost_for_anthropic_web_search(
     """
     Get the cost of using a web search tool for Anthropic.
     """
-    from litellm.types.utils import SearchContextCostPerQuery
+    from embrouter.types.utils import SearchContextCostPerQuery
 
     ## Check if web search requests are in the usage object
     if model_info is None:

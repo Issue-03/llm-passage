@@ -1,4 +1,4 @@
-from litellm.llms.mistral.chat.transformation import MistralConfig
+from embrouter.llms.mistral.chat.transformation import MistralConfig
 
 
 class VertexAIMistralConfig(MistralConfig):

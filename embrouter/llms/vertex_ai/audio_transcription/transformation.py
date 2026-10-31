@@ -3,31 +3,31 @@ from typing import Final
 
 from httpx import Headers, Response
 
-import litellm
-from litellm.exceptions import UnsupportedParamsError
-from litellm.litellm_core_utils.audio_utils.utils import (
+import embrouter
+from embrouter.exceptions import UnsupportedParamsError
+from embrouter.embrouter_core_utils.audio_utils.utils import (
     normalize_transcription_language_to_bcp47,
     process_audio_file,
 )
-from litellm.llms.base_llm.audio_transcription.transformation import (
+from embrouter.llms.base_llm.audio_transcription.transformation import (
     AudioTranscriptionRequestData,
     BaseAudioTranscriptionConfig,
 )
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.vertex_ai.common_utils import VertexAIError, validate_vertex_location
-from litellm.llms.vertex_ai.vertex_llm_base import VertexBase
-from litellm.types.llms.openai import (
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.vertex_ai.common_utils import VertexAIError, validate_vertex_location
+from embrouter.llms.vertex_ai.vertex_llm_base import VertexBase
+from embrouter.types.llms.openai import (
     AllMessageValues,
     OpenAIAudioTranscriptionOptionalParams,
 )
-from litellm.types.llms.vertex_ai_speech_to_text import (
+from embrouter.types.llms.vertex_ai_speech_to_text import (
     VertexSpeechToTextAutoDecodingConfig,
     VertexSpeechToTextRecognitionConfig,
     VertexSpeechToTextRecognitionFeatures,
     VertexSpeechToTextRecognizeRequest,
     VertexSpeechToTextRecognizeResponse,
 )
-from litellm.types.utils import FileTypes, TranscriptionResponse
+from embrouter.types.utils import FileTypes, TranscriptionResponse
 
 DEFAULT_SPEECH_TO_TEXT_LOCATION: Final = "us"
 AUTO_LANGUAGE_CODE: Final = "auto"
@@ -75,14 +75,14 @@ class VertexAIAudioTranscriptionConfig(BaseAudioTranscriptionConfig, VertexBase)
         response_format: Final = mapped.get("response_format")
         if response_format is None or response_format in SUPPORTED_RESPONSE_FORMATS:
             return mapped
-        if drop_params or litellm.drop_params:
+        if drop_params or embrouter.drop_params:
             return {k: v for k, v in mapped.items() if k != "response_format"}
         raise UnsupportedParamsError(
             status_code=400,
             message=(
                 f"Google Speech-to-Text does not support response_format={response_format!r}. "
                 f"Supported values: {', '.join(SUPPORTED_RESPONSE_FORMATS)}. "
-                "To drop unsupported openai params from the call, set `litellm.drop_params = True`"
+                "To drop unsupported openai params from the call, set `embrouter.drop_params = True`"
             ),
         )
 
@@ -95,13 +95,13 @@ class VertexAIAudioTranscriptionConfig(BaseAudioTranscriptionConfig, VertexBase)
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
         access_token, project_id = self._ensure_access_token(
-            credentials=self.safe_get_vertex_ai_credentials(litellm_params),
-            project_id=self.safe_get_vertex_ai_project(litellm_params),
+            credentials=self.safe_get_vertex_ai_credentials(embrouter_params),
+            project_id=self.safe_get_vertex_ai_project(embrouter_params),
             custom_llm_provider="vertex_ai",
         )
         return {
@@ -117,21 +117,21 @@ class VertexAIAudioTranscriptionConfig(BaseAudioTranscriptionConfig, VertexBase)
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         location: Final = validate_vertex_transcription_location(
-            self.safe_get_vertex_ai_location(litellm_params), default_location=DEFAULT_SPEECH_TO_TEXT_LOCATION
+            self.safe_get_vertex_ai_location(embrouter_params), default_location=DEFAULT_SPEECH_TO_TEXT_LOCATION
         )
         project_id: Final = validate_vertex_transcription_project_id(
-            self.safe_get_vertex_ai_project(litellm_params) or self._resolve_project_id_from_credentials(litellm_params)
+            self.safe_get_vertex_ai_project(embrouter_params) or self._resolve_project_id_from_credentials(embrouter_params)
         )
         base_url: Final = (api_base or f"https://{speech_to_text_host(location)}").rstrip("/")
         return f"{base_url}/v2/projects/{project_id}/locations/{location}/recognizers/_:recognize"
 
-    def _resolve_project_id_from_credentials(self, litellm_params: dict) -> str:
+    def _resolve_project_id_from_credentials(self, embrouter_params: dict) -> str:
         _, project_id = self._ensure_access_token(
-            credentials=self.safe_get_vertex_ai_credentials(litellm_params),
+            credentials=self.safe_get_vertex_ai_credentials(embrouter_params),
             project_id=None,
             custom_llm_provider="vertex_ai",
         )
@@ -142,7 +142,7 @@ class VertexAIAudioTranscriptionConfig(BaseAudioTranscriptionConfig, VertexBase)
         model: str,
         audio_file: FileTypes,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> AudioTranscriptionRequestData:
         processed_audio: Final = process_audio_file(audio_file)
         language: Final = optional_params.get("language")

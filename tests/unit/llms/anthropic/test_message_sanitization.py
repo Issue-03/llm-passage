@@ -11,13 +11,13 @@ import pytest
 import sys
 import os
 
-# Add the parent directory to the path so we can import litellm
+# Add the parent directory to the path so we can import embrouter
 sys.path.insert(
     0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../.."))
 )
 
-import litellm
-from litellm.litellm_core_utils.prompt_templates.factory import (
+import embrouter
+from embrouter.embrouter_core_utils.prompt_templates.factory import (
     sanitize_messages_for_tool_calling,
     anthropic_messages_pt,
 )
@@ -29,13 +29,13 @@ class TestMessageSanitization:
     def setup_method(self):
         """Setup for each test"""
         # Save original modify_params value
-        self.original_modify_params = litellm.modify_params
-        litellm.modify_params = True
+        self.original_modify_params = embrouter.modify_params
+        embrouter.modify_params = True
 
     def teardown_method(self):
         """Cleanup after each test"""
         # Restore original modify_params value
-        litellm.modify_params = self.original_modify_params
+        embrouter.modify_params = self.original_modify_params
 
     def test_case_a_orphaned_tool_call_single(self):
         """
@@ -280,7 +280,7 @@ class TestMessageSanitization:
         """
         Test that sanitization is skipped when modify_params=False
         """
-        litellm.modify_params = False
+        embrouter.modify_params = False
 
         messages = [
             {"role": "user", "content": ""},
@@ -308,7 +308,7 @@ class TestMessageSanitization:
         """
         Test that sanitization is integrated into anthropic_messages_pt
         """
-        litellm.modify_params = True
+        embrouter.modify_params = True
 
         messages = [
             {"role": "user", "content": "What is the weather in Nashik?"},
@@ -343,11 +343,11 @@ class TestMessageSanitization:
         """
         Regression: An empty user message ({"role": "user", "content": ""}) must
         be rewritten to a non-empty placeholder *before* it reaches Anthropic,
-        even when litellm.modify_params is False. Otherwise Anthropic returns:
+        even when embrouter.modify_params is False. Otherwise Anthropic returns:
             "messages: text content blocks must be non-empty"
         Reproduces a real failure from the pr-review agent (pydantic-ai).
         """
-        litellm.modify_params = False
+        embrouter.modify_params = False
 
         messages = [
             {"role": "user", "content": "First message"},
@@ -379,7 +379,7 @@ class TestMessageSanitization:
             {"role": "user", "content": [{"type": "text", "text": ""}]}
         Empty text *blocks* must be rewritten too, regardless of modify_params.
         """
-        litellm.modify_params = False
+        embrouter.modify_params = False
 
         messages = [
             {
@@ -410,7 +410,7 @@ class TestMessageSanitization:
         Sanity check: when nothing is empty, the messages flow through unchanged
         even with modify_params disabled.
         """
-        litellm.modify_params = False
+        embrouter.modify_params = False
 
         messages = [
             {"role": "user", "content": "Hello"},

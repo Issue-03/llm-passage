@@ -9,16 +9,16 @@ import json
 from collections.abc import AsyncIterator, Mapping
 from typing import Any, Final, Protocol
 
-from litellm._logging import verbose_logger
-from litellm.a2a_protocol.litellm_completion_bridge.handler import (
+from embrouter._logging import verbose_logger
+from embrouter.a2a_protocol.embrouter_completion_bridge.handler import (
     A2A_USER_API_KEY_HASH_PARAM,
 )
-from litellm.a2a_protocol.utils import (
+from embrouter.a2a_protocol.utils import (
     get_session_id_from_a2a_params,
     scope_session_to_principal,
 )
-from litellm.exceptions import BadRequestError
-from litellm.llms.bedrock.chat.agentcore.transformation import AmazonAgentCoreConfig
+from embrouter.exceptions import BadRequestError
+from embrouter.llms.bedrock.chat.agentcore.transformation import AmazonAgentCoreConfig
 
 RUNTIME_SESSION_ID_MIN_LENGTH: Final = 33
 RUNTIME_SESSION_ID_MAX_LENGTH: Final = 256
@@ -32,7 +32,7 @@ RUNTIME_SESSION_ID_MAX_LENGTH: Final = 256
 #
 # The runtime headers (session / user id) are derived server-side from the A2A
 # ``message.contextId`` and ``runtimeSessionId`` / ``runtimeUserId`` in the
-# agent's ``litellm_params``;
+# agent's ``embrouter_params``;
 # ``authorization`` is set by the AgentCore signer (JWT or SigV4); ``host`` and
 # the ``x-amz-*`` family are owned by SigV4 itself.
 _RESERVED_EXACT_HEADERS: Final = frozenset(
@@ -86,12 +86,12 @@ def _filter_reserved_headers(
 
 def _request_scoped_runtime_session_id(
     params: Mapping[str, object],
-    litellm_params: Mapping[str, Any],
+    embrouter_params: Mapping[str, Any],
 ) -> str | None:
     context_id: Final = get_session_id_from_a2a_params(params)
     if not isinstance(context_id, str) or not context_id:
         return None
-    return scope_session_to_principal(context_id, litellm_params.get(A2A_USER_API_KEY_HASH_PARAM))
+    return scope_session_to_principal(context_id, embrouter_params.get(A2A_USER_API_KEY_HASH_PARAM))
 
 
 def _validate_runtime_session_id(session_id: str, model: str) -> str:
@@ -121,7 +121,7 @@ class BedrockAgentCoreA2ATransformation:
     def get_url_and_signed_request(
         request_id: str,
         params: Mapping[str, object],
-        litellm_params: dict[str, Any],
+        embrouter_params: dict[str, Any],
         method: str = "message/send",
         stream: bool = False,
         agent_extra_headers: dict[str, str] | None = None,
@@ -132,7 +132,7 @@ class BedrockAgentCoreA2ATransformation:
         Args:
             request_id: A2A JSON-RPC request ID
             params: A2A MessageSendParams
-            litellm_params: Agent's litellm_params (model, api_key, etc.)
+            embrouter_params: Agent's embrouter_params (model, api_key, etc.)
             method: JSON-RPC method name (default: "message/send")
             stream: Whether this is a streaming request
             agent_extra_headers: Per-request headers (from x-a2a-{agent}-* rewrite and
@@ -142,7 +142,7 @@ class BedrockAgentCoreA2ATransformation:
                 ``x-amzn-bedrock-agentcore-runtime-*``, ``x-amz-*``) are filtered out
                 here to prevent a caller-controlled ``x-a2a-{agent}-*`` header from
                 spoofing the AgentCore runtime user id or other SigV4 metadata. Use
-                ``api_key`` / ``runtimeUserId`` / ``runtimeSessionId`` in litellm_params
+                ``api_key`` / ``runtimeUserId`` / ``runtimeSessionId`` in embrouter_params
                 (not ``agent_extra_headers``) to override those values. The runtime
                 session id is taken from ``params["message"]["contextId"]`` (scoped to
                 the calling key) when present, then ``runtimeSessionId``, else generated.
@@ -152,14 +152,14 @@ class BedrockAgentCoreA2ATransformation:
         """
         # Extract model and strip the "bedrock/" prefix
         # "bedrock/agentcore/arn:aws:..." → "agentcore/arn:aws:..."
-        model: Final = litellm_params.get("model", "")
+        model: Final = embrouter_params.get("model", "")
         if model.startswith("bedrock/"):
             agentcore_model = model[len("bedrock/") :]
         else:
             agentcore_model = model
 
-        # Build optional_params from litellm_params (everything except model and custom_llm_provider)
-        optional_params: Final = {k: v for k, v in litellm_params.items() if k not in ("model", "custom_llm_provider")}
+        # Build optional_params from embrouter_params (everything except model and custom_llm_provider)
+        optional_params: Final = {k: v for k, v in embrouter_params.items() if k not in ("model", "custom_llm_provider")}
 
         agentcore_config: Final = AmazonAgentCoreConfig()
 
@@ -169,7 +169,7 @@ class BedrockAgentCoreA2ATransformation:
             api_key=optional_params.get("api_key"),
             model=agentcore_model,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             stream=stream,
         )
 
@@ -185,7 +185,7 @@ class BedrockAgentCoreA2ATransformation:
         # which we skip because it also builds {"prompt": "..."})
         headers: Final[dict] = {}
         session_id: Final = _validate_runtime_session_id(
-            _request_scoped_runtime_session_id(params, litellm_params)
+            _request_scoped_runtime_session_id(params, embrouter_params)
             or agentcore_config._get_runtime_session_id(optional_params),
             model=model,
         )

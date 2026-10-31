@@ -285,7 +285,7 @@
       "langsmith_project": {
         "type": "text",
         "ui_name": "Project Name",
-        "description": "LangSmith project name (default: litellm-completion)",
+        "description": "LangSmith project name (default: embrouter-completion)",
         "required": false
       },
       "langsmith_base_url": {
@@ -439,7 +439,7 @@
       "ZEROBUS_TABLE_NAME": {
         "type": "text",
         "ui_name": "Table",
-        "description": "Fully qualified Unity Catalog table, catalog.schema.table, created with the LiteLLM trace schema",
+        "description": "Fully qualified Unity Catalog table, catalog.schema.table, created with the EmbRouter trace schema",
         "required": true
       }
     },
@@ -521,7 +521,7 @@
         "required": false
       }
     },
-    "description": "SigNoz Logging Integration. Setup: https://signoz.io/docs/litellm-observability/"
+    "description": "SigNoz Logging Integration. Setup: https://signoz.io/docs/embrouter-observability/"
   },
   {
     "id": "sqs",

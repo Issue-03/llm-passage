@@ -18,16 +18,16 @@ from fastapi.responses import StreamingResponse
 from starlette.types import Message
 from typing_extensions import ReadOnly, TypedDict
 
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy.auth.user_api_key_auth import UserAPIKeyAuth
-from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
-from litellm.proxy.response_polling.polling_handler import ResponsePollingHandler
-from litellm.types.llms.openai import ResponsesAPIStatus
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy.auth.user_api_key_auth import UserAPIKeyAuth
+from embrouter.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+from embrouter.proxy.response_polling.polling_handler import ResponsePollingHandler
+from embrouter.types.llms.openai import ResponsesAPIStatus
 
 if TYPE_CHECKING:
-    from litellm.proxy.proxy_server import ProxyConfig
-    from litellm.proxy.utils import ProxyLogging
-    from litellm.router import Router
+    from embrouter.proxy.proxy_server import ProxyConfig
+    from embrouter.proxy.utils import ProxyLogging
+    from embrouter.router import Router
 
 
 _JsonDict: TypeAlias = dict[str, object]

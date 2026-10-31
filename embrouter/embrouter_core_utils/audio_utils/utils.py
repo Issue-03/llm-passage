@@ -1,5 +1,5 @@
 """
-Utils used for litellm.transcription() and litellm.atranscription()
+Utils used for embrouter.transcription() and embrouter.atranscription()
 """
 
 import hashlib
@@ -7,14 +7,14 @@ import os
 from dataclasses import dataclass
 from typing import Final
 
-from litellm.types.files import (
+from embrouter.types.files import (
     AUDIO_FILE_TYPES,
     FILE_EXTENSIONS,
     FILE_MIME_TYPES,
     FileType,
     get_file_mime_type_from_extension,
 )
-from litellm.types.utils import FileTypes
+from embrouter.types.utils import FileTypes
 
 
 @dataclass
@@ -115,7 +115,7 @@ def process_audio_file(audio_file: FileTypes) -> ProcessedAudioFile:
     if file_content is None:
         raise ValueError("Could not extract file content from audio_file")
 
-    # Determine content type using LiteLLM's file type utilities
+    # Determine content type using EmbRouter's file type utilities
     content_type = "audio/wav"  # Default fallback
     if filename:
         try:

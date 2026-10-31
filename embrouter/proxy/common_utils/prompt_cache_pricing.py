@@ -5,14 +5,14 @@ from typing import Final
 
 from pydantic import TypeAdapter
 
-import litellm
-from litellm.cost_calculator import (
+import embrouter
+from embrouter.cost_calculator import (
     _select_model_name_for_cost_calc,  # pyright: ignore[reportPrivateUsage]  # shares completion_cost's deployment tariff selection
     completion_cost,  # pyright: ignore[reportUnknownVariableType]  # legacy optional parameters are untyped
 )
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.types.management_endpoints.prompt_cache_prediction import CacheTokenBuckets
-from litellm.types.utils import CacheCreationTokenDetails, ModelResponse, PromptTokensDetailsWrapper, Usage
+from embrouter.embrouter_core_utils.embrouter_logging import Logging
+from embrouter.types.management_endpoints.prompt_cache_prediction import CacheTokenBuckets
+from embrouter.types.utils import CacheCreationTokenDetails, ModelResponse, PromptTokensDetailsWrapper, Usage
 
 _PRICE_ENTRY: Final = TypeAdapter(Mapping[str, object])
 
@@ -51,8 +51,8 @@ def price_cache_tokens(
         )
         if selected_model is None:
             return None
-        model_info: Final = litellm.get_model_info(model=selected_model, custom_llm_provider="anthropic")
-        registry: Final = _PRICE_ENTRY.validate_python(litellm.model_cost)  # pyright: ignore[reportUnknownMemberType]  # legacy registry is validated at this boundary
+        model_info: Final = embrouter.get_model_info(model=selected_model, custom_llm_provider="anthropic")
+        registry: Final = _PRICE_ENTRY.validate_python(embrouter.model_cost)  # pyright: ignore[reportUnknownMemberType]  # legacy registry is validated at this boundary
         price_entry: Final = registry.get(model_info["key"])
         if price_entry is None:
             return None
@@ -78,7 +78,7 @@ def price_cache_tokens(
             stream=False,
             call_type="completion",
             start_time=datetime.now(timezone.utc),
-            litellm_call_id="prompt-cache-prediction",
+            embrouter_call_id="prompt-cache-prediction",
             function_id="prompt-cache-prediction",
         )
         completion_cost(
@@ -87,7 +87,7 @@ def price_cache_tokens(
             custom_llm_provider="anthropic",
             custom_pricing=True,
             router_model_id=deployment_id,
-            litellm_logging_obj=logging_obj,
+            embrouter_logging_obj=logging_obj,
         )
         breakdown: Final = logging_obj.cost_breakdown
         input_cost: Final = breakdown.get("input_cost") if breakdown is not None else None

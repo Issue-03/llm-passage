@@ -3,7 +3,7 @@ from typing import Final
 
 import pytest
 
-from litellm.proxy.common_utils.registry_read_through import RegistryReadThrough
+from embrouter.proxy.common_utils.registry_read_through import RegistryReadThrough
 
 
 class ResyncSpy:
@@ -132,7 +132,7 @@ class FakeAgentRow:
             "agent_id": self.agent_id,
             "agent_name": self.agent_name,
             "agent_card_params": {"name": self.agent_name, "url": "http://db-agent"},
-            "litellm_params": {},
+            "embrouter_params": {},
             "object_permission": None,
             "spend": self.spend,
         }
@@ -140,7 +140,7 @@ class FakeAgentRow:
 
 @pytest.fixture
 def clean_agent_registry():
-    from litellm.proxy.agent_endpoints.agent_registry import global_agent_registry
+    from embrouter.proxy.agent_endpoints.agent_registry import global_agent_registry
 
     original_agents: Final = list(global_agent_registry.agent_list)
     original_config_agents: Final = getattr(global_agent_registry, "config_agents", ())
@@ -159,12 +159,12 @@ async def test_get_agent_with_read_through_recovers_agent_created_on_sibling_rep
 ):
     from unittest.mock import AsyncMock, MagicMock
 
-    import litellm.proxy.proxy_server as proxy_server
-    from litellm.proxy.common_utils.registry_read_through import get_agent_with_read_through
+    import embrouter.proxy.proxy_server as proxy_server
+    from embrouter.proxy.common_utils.registry_read_through import get_agent_with_read_through
 
     agent_id: Final = "read-through-db-agent-id"
     prisma_client: Final = MagicMock()
-    prisma_client.db.litellm_agentstable.find_unique = AsyncMock(
+    prisma_client.db.embrouter_agentstable.find_unique = AsyncMock(
         return_value=FakeAgentRow(agent_id, "read-through-db-agent")
     )
     monkeypatch.setattr(proxy_server, "prisma_client", prisma_client)
@@ -175,7 +175,7 @@ async def test_get_agent_with_read_through_recovers_agent_created_on_sibling_rep
 
     assert agent is not None
     assert agent.agent_id == agent_id
-    prisma_client.db.litellm_agentstable.find_unique.assert_awaited_once_with(
+    prisma_client.db.embrouter_agentstable.find_unique.assert_awaited_once_with(
         where={"agent_id": agent_id},
         include={"object_permission": True, "identity": True},
     )
@@ -185,12 +185,12 @@ async def test_get_agent_with_read_through_recovers_agent_created_on_sibling_rep
 async def test_get_agent_with_read_through_recovers_agent_by_name(clean_agent_registry, monkeypatch):
     from unittest.mock import AsyncMock, MagicMock
 
-    import litellm.proxy.proxy_server as proxy_server
-    from litellm.proxy.common_utils.registry_read_through import get_agent_with_read_through
+    import embrouter.proxy.proxy_server as proxy_server
+    from embrouter.proxy.common_utils.registry_read_through import get_agent_with_read_through
 
     agent_name: Final = "read-through-db-agent-by-name"
     prisma_client: Final = MagicMock()
-    prisma_client.db.litellm_agentstable.find_unique = AsyncMock(
+    prisma_client.db.embrouter_agentstable.find_unique = AsyncMock(
         side_effect=[None, FakeAgentRow("read-through-name-lookup-id", agent_name)]
     )
     monkeypatch.setattr(proxy_server, "prisma_client", prisma_client)
@@ -200,7 +200,7 @@ async def test_get_agent_with_read_through_recovers_agent_by_name(clean_agent_re
 
     assert agent is not None
     assert agent.agent_name == agent_name
-    prisma_client.db.litellm_agentstable.find_unique.assert_awaited_with(
+    prisma_client.db.embrouter_agentstable.find_unique.assert_awaited_with(
         where={"agent_name": agent_name},
         include={"object_permission": True, "identity": True},
     )
@@ -212,28 +212,28 @@ async def test_get_agent_with_read_through_returns_none_for_unknown_agent(
 ):
     from unittest.mock import AsyncMock, MagicMock
 
-    import litellm.proxy.proxy_server as proxy_server
-    from litellm.proxy.common_utils.registry_read_through import get_agent_with_read_through
+    import embrouter.proxy.proxy_server as proxy_server
+    from embrouter.proxy.common_utils.registry_read_through import get_agent_with_read_through
 
     prisma_client: Final = MagicMock()
-    prisma_client.db.litellm_agentstable.find_unique = AsyncMock(return_value=None)
+    prisma_client.db.embrouter_agentstable.find_unique = AsyncMock(return_value=None)
     monkeypatch.setattr(proxy_server, "prisma_client", prisma_client)
     monkeypatch.setattr(proxy_server, "store_model_in_db", True)
 
     assert await get_agent_with_read_through("agent-nobody-created") is None
-    assert prisma_client.db.litellm_agentstable.find_unique.await_count == 2
+    assert prisma_client.db.embrouter_agentstable.find_unique.await_count == 2
 
 
 @pytest.mark.asyncio
 async def test_resync_agents_already_registered_skips_db(clean_agent_registry, monkeypatch):
     from unittest.mock import AsyncMock, MagicMock
 
-    import litellm.proxy.proxy_server as proxy_server
-    from litellm.proxy.common_utils.registry_read_through import _resync_agents
+    import embrouter.proxy.proxy_server as proxy_server
+    from embrouter.proxy.common_utils.registry_read_through import _resync_agents
 
     agent_id: Final = "read-through-dedup-agent-id"
     prisma_client: Final = MagicMock()
-    prisma_client.db.litellm_agentstable.find_unique = AsyncMock(
+    prisma_client.db.embrouter_agentstable.find_unique = AsyncMock(
         return_value=FakeAgentRow(agent_id, "read-through-dedup-agent")
     )
     monkeypatch.setattr(proxy_server, "prisma_client", prisma_client)
@@ -241,7 +241,7 @@ async def test_resync_agents_already_registered_skips_db(clean_agent_registry, m
 
     assert await _resync_agents(agent_id) is True
     assert await _resync_agents(agent_id) is True
-    assert prisma_client.db.litellm_agentstable.find_unique.await_count == 1
+    assert prisma_client.db.embrouter_agentstable.find_unique.await_count == 1
     assert len(clean_agent_registry.agent_list) == 1
 
 
@@ -255,8 +255,8 @@ class FakeGuardrailRow:
             {
                 "guardrail_id": self.guardrail_id,
                 "guardrail_name": self.guardrail_name,
-                "litellm_params": {
-                    "guardrail": "litellm_content_filter",
+                "embrouter_params": {
+                    "guardrail": "embrouter_content_filter",
                     "mode": "pre_call",
                     "default_on": True,
                     "blocked_words": [{"keyword": "secret", "action": "BLOCK"}],
@@ -271,19 +271,19 @@ class FakeGuardrailRow:
 async def test_get_guardrail_with_read_through_recovers_guardrail_created_on_sibling_replica(monkeypatch):
     from unittest.mock import AsyncMock, MagicMock
 
-    import litellm.proxy.proxy_server as proxy_server
-    from litellm.proxy.common_utils.registry_read_through import (
+    import embrouter.proxy.proxy_server as proxy_server
+    from embrouter.proxy.common_utils.registry_read_through import (
         get_initialized_guardrail_with_read_through,
     )
-    from litellm.proxy.guardrails.guardrail_registry import IN_MEMORY_GUARDRAIL_HANDLER
+    from embrouter.proxy.guardrails.guardrail_registry import IN_MEMORY_GUARDRAIL_HANDLER
 
     guardrail_id: Final = "read-through-db-guardrail-id"
     guardrail_name: Final = "read-through-db-guardrail"
     prisma_client: Final = MagicMock()
-    prisma_client.db.litellm_guardrailstable.find_first = AsyncMock(
+    prisma_client.db.embrouter_guardrailstable.find_first = AsyncMock(
         return_value=FakeGuardrailRow(guardrail_id, guardrail_name)
     )
-    prisma_client.db.litellm_guardrailstable.find_many = AsyncMock(
+    prisma_client.db.embrouter_guardrailstable.find_many = AsyncMock(
         side_effect=AssertionError("full-table guardrail scan on read-through miss")
     )
     monkeypatch.setattr(proxy_server, "prisma_client", prisma_client)
@@ -293,7 +293,7 @@ async def test_get_guardrail_with_read_through_recovers_guardrail_created_on_sib
         guardrail: Final = await get_initialized_guardrail_with_read_through(guardrail_name=guardrail_name)
         assert guardrail is not None
         assert guardrail.guardrail_name == guardrail_name
-        prisma_client.db.litellm_guardrailstable.find_first.assert_awaited_once_with(
+        prisma_client.db.embrouter_guardrailstable.find_first.assert_awaited_once_with(
             where={"guardrail_name": guardrail_name, "status": "active"}
         )
     finally:
@@ -304,13 +304,13 @@ async def test_get_guardrail_with_read_through_recovers_guardrail_created_on_sib
 async def test_get_guardrail_with_read_through_returns_none_for_unknown_guardrail(monkeypatch):
     from unittest.mock import AsyncMock, MagicMock
 
-    import litellm.proxy.proxy_server as proxy_server
-    from litellm.proxy.common_utils.registry_read_through import (
+    import embrouter.proxy.proxy_server as proxy_server
+    from embrouter.proxy.common_utils.registry_read_through import (
         get_initialized_guardrail_with_read_through,
     )
 
     prisma_client: Final = MagicMock()
-    prisma_client.db.litellm_guardrailstable.find_first = AsyncMock(return_value=None)
+    prisma_client.db.embrouter_guardrailstable.find_first = AsyncMock(return_value=None)
     monkeypatch.setattr(proxy_server, "prisma_client", prisma_client)
     monkeypatch.setattr(proxy_server, "store_model_in_db", True)
 
@@ -321,17 +321,17 @@ async def test_get_guardrail_with_read_through_returns_none_for_unknown_guardrai
 async def test_resync_guardrails_never_loads_non_active_rows(monkeypatch):
     from unittest.mock import AsyncMock, MagicMock
 
-    import litellm.proxy.proxy_server as proxy_server
-    from litellm.proxy.common_utils.registry_read_through import _resync_guardrails
+    import embrouter.proxy.proxy_server as proxy_server
+    from embrouter.proxy.common_utils.registry_read_through import _resync_guardrails
 
     pending_name: Final = "pending-review-guardrail"
     prisma_client: Final = MagicMock()
-    prisma_client.db.litellm_guardrailstable.find_first = AsyncMock(return_value=None)
+    prisma_client.db.embrouter_guardrailstable.find_first = AsyncMock(return_value=None)
     monkeypatch.setattr(proxy_server, "prisma_client", prisma_client)
     monkeypatch.setattr(proxy_server, "store_model_in_db", True)
 
     assert await _resync_guardrails(pending_name) is False
-    prisma_client.db.litellm_guardrailstable.find_first.assert_awaited_once_with(
+    prisma_client.db.embrouter_guardrailstable.find_first.assert_awaited_once_with(
         where={"guardrail_name": pending_name, "status": "active"}
     )
 
@@ -340,17 +340,17 @@ async def test_resync_guardrails_never_loads_non_active_rows(monkeypatch):
 async def test_resync_guardrails_syncs_under_guardrail_reconcile_lock(monkeypatch):
     from unittest.mock import AsyncMock, MagicMock
 
-    import litellm.proxy.common_utils.registry_read_through as read_through_module
-    import litellm.proxy.proxy_server as proxy_server
-    from litellm.proxy.common_utils.registry_read_through import _resync_guardrails
-    from litellm.proxy.guardrails.guardrail_registry import (
+    import embrouter.proxy.common_utils.registry_read_through as read_through_module
+    import embrouter.proxy.proxy_server as proxy_server
+    from embrouter.proxy.common_utils.registry_read_through import _resync_guardrails
+    from embrouter.proxy.guardrails.guardrail_registry import (
         GUARDRAIL_RECONCILE_LOCK,
         IN_MEMORY_GUARDRAIL_HANDLER,
     )
 
     guardrail_name: Final = "lock-scope-guardrail"
     prisma_client: Final = MagicMock()
-    prisma_client.db.litellm_guardrailstable.find_first = AsyncMock(
+    prisma_client.db.embrouter_guardrailstable.find_first = AsyncMock(
         return_value=FakeGuardrailRow("lock-scope-guardrail-id", guardrail_name)
     )
     lock_states: list[bool] = []
@@ -372,11 +372,11 @@ async def test_resync_guardrails_syncs_under_guardrail_reconcile_lock(monkeypatc
 async def test_resync_model_deployments_mutates_router_under_model_reconcile_lock(monkeypatch):
     from unittest.mock import AsyncMock, MagicMock
 
-    import litellm.proxy.proxy_server as proxy_server
-    from litellm.proxy.common_utils.registry_read_through import _resync_model_deployments
+    import embrouter.proxy.proxy_server as proxy_server
+    from embrouter.proxy.common_utils.registry_read_through import _resync_model_deployments
 
     prisma_client: Final = MagicMock()
-    prisma_client.db.litellm_proxymodeltable.find_many = AsyncMock(return_value=[MagicMock()])
+    prisma_client.db.embrouter_proxymodeltable.find_many = AsyncMock(return_value=[MagicMock()])
     router: Final = MagicMock()
     router.get_model_list.return_value = []
     lock_states: list[bool] = []
@@ -401,15 +401,15 @@ async def test_resync_model_deployments_loads_db_credentials_before_reconciling_
 ) -> None:
     from unittest.mock import AsyncMock, MagicMock
 
-    import litellm
-    import litellm.proxy.proxy_server as proxy_server
-    from litellm.litellm_core_utils.credential_accessor import CredentialAccessor
-    from litellm.proxy.common_utils.registry_read_through import _resync_model_deployments
-    from litellm.types.utils import CredentialItem
+    import embrouter
+    import embrouter.proxy.proxy_server as proxy_server
+    from embrouter.embrouter_core_utils.credential_accessor import CredentialAccessor
+    from embrouter.proxy.common_utils.registry_read_through import _resync_model_deployments
+    from embrouter.types.utils import CredentialItem
 
     rows: Final = [MagicMock()]
     prisma_client: Final = MagicMock()
-    prisma_client.db.litellm_proxymodeltable.find_many = AsyncMock(return_value=rows)
+    prisma_client.db.embrouter_proxymodeltable.find_many = AsyncMock(return_value=rows)
     router: Final = MagicMock()
     router.get_model_list.return_value = []
     installed: Final = MagicMock()
@@ -428,7 +428,7 @@ async def test_resync_model_deployments_loads_db_credentials_before_reconciling_
     def install_models(db_models: object) -> None:
         installed(db_models=db_models, credential=CredentialAccessor.get_credential_values("openai-cred"))
 
-    monkeypatch.setattr(litellm, "credential_list", [])
+    monkeypatch.setattr(embrouter, "credential_list", [])
     monkeypatch.setattr(proxy_server, "prisma_client", prisma_client)
     monkeypatch.setattr(proxy_server, "store_model_in_db", True)
     monkeypatch.setattr(proxy_server, "llm_router", router)
@@ -444,11 +444,11 @@ async def test_resync_model_deployments_loads_db_credentials_before_reconciling_
 async def test_resync_model_deployments_respects_supported_db_objects(monkeypatch):
     from unittest.mock import AsyncMock, MagicMock
 
-    import litellm.proxy.proxy_server as proxy_server
-    from litellm.proxy.common_utils.registry_read_through import _resync_model_deployments
+    import embrouter.proxy.proxy_server as proxy_server
+    from embrouter.proxy.common_utils.registry_read_through import _resync_model_deployments
 
     prisma_client: Final = MagicMock()
-    prisma_client.db.litellm_proxymodeltable.find_many = AsyncMock(
+    prisma_client.db.embrouter_proxymodeltable.find_many = AsyncMock(
         side_effect=AssertionError("db hit for an object type this replica does not load")
     )
     monkeypatch.setattr(proxy_server, "prisma_client", prisma_client)
@@ -462,11 +462,11 @@ async def test_resync_model_deployments_respects_supported_db_objects(monkeypatc
 async def test_resync_guardrails_respects_supported_db_objects(monkeypatch):
     from unittest.mock import AsyncMock, MagicMock
 
-    import litellm.proxy.proxy_server as proxy_server
-    from litellm.proxy.common_utils.registry_read_through import _resync_guardrails
+    import embrouter.proxy.proxy_server as proxy_server
+    from embrouter.proxy.common_utils.registry_read_through import _resync_guardrails
 
     prisma_client: Final = MagicMock()
-    prisma_client.db.litellm_guardrailstable.find_unique = AsyncMock(
+    prisma_client.db.embrouter_guardrailstable.find_unique = AsyncMock(
         side_effect=AssertionError("db hit for an object type this replica does not load")
     )
     monkeypatch.setattr(proxy_server, "prisma_client", prisma_client)
@@ -480,11 +480,11 @@ async def test_resync_guardrails_respects_supported_db_objects(monkeypatch):
 async def test_resync_agents_respects_supported_db_objects(clean_agent_registry, monkeypatch):
     from unittest.mock import AsyncMock, MagicMock
 
-    import litellm.proxy.proxy_server as proxy_server
-    from litellm.proxy.common_utils.registry_read_through import _resync_agents
+    import embrouter.proxy.proxy_server as proxy_server
+    from embrouter.proxy.common_utils.registry_read_through import _resync_agents
 
     prisma_client: Final = MagicMock()
-    prisma_client.db.litellm_agentstable.find_unique = AsyncMock(
+    prisma_client.db.embrouter_agentstable.find_unique = AsyncMock(
         side_effect=AssertionError("db hit for an object type this replica does not load")
     )
     monkeypatch.setattr(proxy_server, "prisma_client", prisma_client)
@@ -498,14 +498,14 @@ async def test_resync_agents_respects_supported_db_objects(clean_agent_registry,
 async def test_resync_agents_waits_for_agent_reload_and_skips_duplicate_registration(clean_agent_registry, monkeypatch):
     from unittest.mock import AsyncMock, MagicMock
 
-    import litellm.proxy.proxy_server as proxy_server
-    from litellm.proxy.agent_endpoints.agent_registry import AGENT_RECONCILE_LOCK
-    from litellm.proxy.common_utils.registry_read_through import _resync_agents
-    from litellm.types.agents import AgentResponse
+    import embrouter.proxy.proxy_server as proxy_server
+    from embrouter.proxy.agent_endpoints.agent_registry import AGENT_RECONCILE_LOCK
+    from embrouter.proxy.common_utils.registry_read_through import _resync_agents
+    from embrouter.types.agents import AgentResponse
 
     agent_id: Final = "reload-race-agent-id"
     prisma_client: Final = MagicMock()
-    prisma_client.db.litellm_agentstable.find_unique = AsyncMock(
+    prisma_client.db.embrouter_agentstable.find_unique = AsyncMock(
         side_effect=AssertionError("db hit while the agent reload held the reconcile lock")
     )
     monkeypatch.setattr(proxy_server, "prisma_client", prisma_client)
@@ -529,7 +529,7 @@ async def test_agent_read_through_hydrates_identity_binding(lookup, clean_agent_
     from types import SimpleNamespace
     from unittest.mock import AsyncMock, MagicMock
 
-    from litellm.proxy.common_utils.registry_read_through import get_agent_with_read_through
+    from embrouter.proxy.common_utils.registry_read_through import get_agent_with_read_through
 
     binding = {
         "agent_id": "agent-id", "provider": "microsoft_entra", "tenant_id": "tenant", "client_id": "client",
@@ -543,9 +543,9 @@ async def test_agent_read_through_hydrates_identity_binding(lookup, clean_agent_
         return SimpleNamespace(model_dump=lambda: {**row, "identity": binding if include.get("identity") else None})
 
     prisma = MagicMock()
-    prisma.db.litellm_agentstable.find_unique = AsyncMock(side_effect=load_row)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", prisma)
-    monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", True)
+    prisma.db.embrouter_agentstable.find_unique = AsyncMock(side_effect=load_row)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", prisma)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.store_model_in_db", True)
     agent = await get_agent_with_read_through(lookup)
     assert agent is not None
     assert agent.identity is not None

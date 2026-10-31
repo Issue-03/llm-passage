@@ -10,12 +10,12 @@ from typing import Final
 import httpx
 from typing_extensions import NotRequired, ReadOnly, TypedDict
 
-import litellm
-from litellm._uuid import uuid
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.cohere.rerank.transformation import CohereRerankConfig
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.rerank import (
+import embrouter
+from embrouter._uuid import uuid
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.cohere.rerank.transformation import CohereRerankConfig
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.rerank import (
     RerankBilledUnits,
     RerankResponse,
     RerankResponseDocument,
@@ -73,10 +73,10 @@ class InfinityRerankConfig(CohereRerankConfig):
         model: str,
         api_key: str | None = None,
         optional_params: dict | None = None,
-        litellm_params: Mapping[str, object] | None = None,
+        embrouter_params: Mapping[str, object] | None = None,
     ) -> dict:
         if api_key is None:
-            api_key = get_secret_str("INFINITY_API_KEY") or get_secret_str("INFINITY_API_KEY") or litellm.infinity_key
+            api_key = get_secret_str("INFINITY_API_KEY") or get_secret_str("INFINITY_API_KEY") or embrouter.infinity_key
 
         default_headers: Final = {
             "Authorization": f"Bearer {api_key}",
@@ -96,11 +96,11 @@ class InfinityRerankConfig(CohereRerankConfig):
         model: str,
         raw_response: httpx.Response,
         model_response: RerankResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_key: str | None = None,
         request_data: dict = {},
         optional_params: dict = {},
-        litellm_params: dict = {},
+        embrouter_params: dict = {},
     ) -> RerankResponse:
         """
         Transform Infinity rerank response

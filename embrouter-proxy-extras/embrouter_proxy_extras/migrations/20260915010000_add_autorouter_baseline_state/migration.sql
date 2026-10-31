@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS "LiteLLM_AutoRouterBaselineComparison" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_AutoRouterBaselineComparison" (
     "scope" TEXT PRIMARY KEY,
     "api_key" TEXT NOT NULL,
     "session_id" TEXT NOT NULL,
@@ -13,14 +13,14 @@ CREATE TABLE IF NOT EXISTS "LiteLLM_AutoRouterBaselineComparison" (
 );
 
 CREATE INDEX IF NOT EXISTS "idx_autorouter_baseline_scope"
-    ON "LiteLLM_AutoRouterBaselineComparison" ("api_key", "session_id", "router_name");
+    ON "EmbRouter_AutoRouterBaselineComparison" ("api_key", "session_id", "router_name");
 CREATE INDEX IF NOT EXISTS "idx_autorouter_baseline_updated"
-    ON "LiteLLM_AutoRouterBaselineComparison" ("updated_at");
+    ON "EmbRouter_AutoRouterBaselineComparison" ("updated_at");
 CREATE INDEX IF NOT EXISTS "idx_autorouter_baseline_dirty"
-    ON "LiteLLM_AutoRouterBaselineComparison" ("attempted_at", "updated_at", "scope")
+    ON "EmbRouter_AutoRouterBaselineComparison" ("attempted_at", "updated_at", "scope")
     WHERE NOT "retired" AND "revision" <> "published_revision";
 
-CREATE TABLE IF NOT EXISTS "LiteLLM_AutoRouterBaselineObservation" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_AutoRouterBaselineObservation" (
     "request_id" TEXT PRIMARY KEY,
     "scope" TEXT NOT NULL,
     "started_at" DOUBLE PRECISION NOT NULL,
@@ -31,6 +31,6 @@ CREATE TABLE IF NOT EXISTS "LiteLLM_AutoRouterBaselineObservation" (
 );
 
 CREATE INDEX IF NOT EXISTS "idx_autorouter_baseline_event_order"
-    ON "LiteLLM_AutoRouterBaselineObservation" ("scope", "started_at", "request_id");
+    ON "EmbRouter_AutoRouterBaselineObservation" ("scope", "started_at", "request_id");
 CREATE INDEX IF NOT EXISTS "idx_autorouter_baseline_event_revision"
-    ON "LiteLLM_AutoRouterBaselineObservation" ("scope", "revision", "started_at");
+    ON "EmbRouter_AutoRouterBaselineObservation" ("scope", "revision", "started_at");

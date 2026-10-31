@@ -7,10 +7,10 @@ import requests
 
 import responses
 
-from litellm.proxy.client.credentials import CredentialsManagementClient
-from litellm.proxy.client.exceptions import UnauthorizedError
-from litellm.proxy.credential_endpoints.endpoints import CredentialHelperUtils
-from litellm.types.utils import CredentialItem
+from embrouter.proxy.client.credentials import CredentialsManagementClient
+from embrouter.proxy.client.exceptions import UnauthorizedError
+from embrouter.proxy.credential_endpoints.endpoints import CredentialHelperUtils
+from embrouter.types.utils import CredentialItem
 
 
 @pytest.fixture
@@ -265,7 +265,7 @@ def test_get_unauthorized_error(client):
 
 def test_encrypt_credential_values_does_not_mutate_original(monkeypatch):
     """Ensure encrypt_credential_values returns a new encrypted object"""
-    monkeypatch.setenv("LITELLM_SALT_KEY", "test-key")
+    monkeypatch.setenv("EMBROUTER_SALT_KEY", "test-key")
     credential = CredentialItem(
         credential_name="azure1",
         credential_values={"api_key": "sk-123"},

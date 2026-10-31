@@ -11,13 +11,13 @@ import pytest
 from pydantic import TypeAdapter
 from typing_extensions import ReadOnly, TypedDict
 
-import litellm
-from litellm.caching.caching import DualCache
-from litellm.integrations.SlackAlerting.budget_alert_types import get_budget_alert_type
-from litellm.integrations.SlackAlerting.slack_alerting import SlackAlerting
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.proxy._types import CallInfo, Litellm_EntityType
-from litellm.types.integrations.slack_alerting import AlertQueueItem, AlertType, SlackAlertingCacheKeys
+import embrouter
+from embrouter.caching.caching import DualCache
+from embrouter.integrations.SlackAlerting.budget_alert_types import get_budget_alert_type
+from embrouter.integrations.SlackAlerting.slack_alerting import SlackAlerting
+from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from embrouter.proxy._types import CallInfo, Embrouter_EntityType
+from embrouter.types.integrations.slack_alerting import AlertQueueItem, AlertType, SlackAlertingCacheKeys
 
 
 class TestSlackAlerting(unittest.TestCase):
@@ -26,27 +26,27 @@ class TestSlackAlerting(unittest.TestCase):
 
     def test_get_percent_of_max_budget_left(self):
         # Test case 1: When max_budget is None
-        user_info = CallInfo(max_budget=None, spend=50.0, event_group=Litellm_EntityType.KEY)
+        user_info = CallInfo(max_budget=None, spend=50.0, event_group=Embrouter_EntityType.KEY)
         result = self.slack_alerting._get_percent_of_max_budget_left(user_info)
         self.assertEqual(result, 0.0)
 
         # Test case 2: When max_budget is 0
-        user_info = CallInfo(max_budget=0.0, spend=50.0, event_group=Litellm_EntityType.KEY)
+        user_info = CallInfo(max_budget=0.0, spend=50.0, event_group=Embrouter_EntityType.KEY)
         result = self.slack_alerting._get_percent_of_max_budget_left(user_info)
         self.assertEqual(result, 0.0)
 
         # Test case 3: When spend is less than max_budget
-        user_info = CallInfo(max_budget=100.0, spend=75.0, event_group=Litellm_EntityType.KEY)
+        user_info = CallInfo(max_budget=100.0, spend=75.0, event_group=Embrouter_EntityType.KEY)
         result = self.slack_alerting._get_percent_of_max_budget_left(user_info)
         self.assertEqual(result, 0.25)
 
         # Test case 4: When spend equals max_budget
-        user_info = CallInfo(max_budget=100.0, spend=100.0, event_group=Litellm_EntityType.KEY)
+        user_info = CallInfo(max_budget=100.0, spend=100.0, event_group=Embrouter_EntityType.KEY)
         result = self.slack_alerting._get_percent_of_max_budget_left(user_info)
         self.assertEqual(result, 0.0)
 
         # Test case 5: When spend exceeds max_budget
-        user_info = CallInfo(max_budget=100.0, spend=120.0, event_group=Litellm_EntityType.KEY)
+        user_info = CallInfo(max_budget=100.0, spend=120.0, event_group=Embrouter_EntityType.KEY)
         result = self.slack_alerting._get_percent_of_max_budget_left(user_info)
         self.assertEqual(result, -0.2)
 
@@ -56,7 +56,7 @@ class TestSlackAlerting(unittest.TestCase):
             max_budget=100.0,
             user_id="user-1",
             user_email="person@example.com",
-            event_group=Litellm_EntityType.USER,
+            event_group=Embrouter_EntityType.USER,
         )
 
         result = self.slack_alerting._get_user_info_str(user_info)
@@ -74,7 +74,7 @@ class TestSlackAlerting(unittest.TestCase):
             max_budget=100.0,
             spend=120.0,
             soft_budget=None,
-            event_group=Litellm_EntityType.KEY,
+            event_group=Embrouter_EntityType.KEY,
         )
         event, event_message = self.slack_alerting._get_event_and_event_message(
             user_info=user_info, event=event, event_message=event_message
@@ -87,7 +87,7 @@ class TestSlackAlerting(unittest.TestCase):
             max_budget=100.0,
             spend=95.0,
             soft_budget=None,
-            event_group=Litellm_EntityType.KEY,
+            event_group=Embrouter_EntityType.KEY,
         )
         event, event_message = self.slack_alerting._get_event_and_event_message(
             user_info=user_info, event=event, event_message=event_message
@@ -100,7 +100,7 @@ class TestSlackAlerting(unittest.TestCase):
             max_budget=100.0,
             spend=85.0,
             soft_budget=None,
-            event_group=Litellm_EntityType.KEY,
+            event_group=Embrouter_EntityType.KEY,
         )
         event, event_message = self.slack_alerting._get_event_and_event_message(
             user_info=user_info, event=event, event_message=event_message
@@ -118,7 +118,7 @@ class TestSlackAlerting(unittest.TestCase):
             max_budget=None,
             spend=120.0,
             soft_budget=100.0,
-            event_group=Litellm_EntityType.KEY,
+            event_group=Embrouter_EntityType.KEY,
         )
         event, event_message = self.slack_alerting._get_event_and_event_message(
             user_info=user_info, event=event, event_message=event_message
@@ -131,7 +131,7 @@ class TestSlackAlerting(unittest.TestCase):
             max_budget=None,
             spend=90.0,
             soft_budget=100.0,
-            event_group=Litellm_EntityType.KEY,
+            event_group=Embrouter_EntityType.KEY,
         )
         event, event_message = self.slack_alerting._get_event_and_event_message(
             user_info=user_info, event=None, event_message=event_message
@@ -150,7 +150,7 @@ class TestSlackAlerting(unittest.TestCase):
             max_budget=150.0,
             spend=160.0,
             soft_budget=100.0,
-            event_group=Litellm_EntityType.KEY,
+            event_group=Embrouter_EntityType.KEY,
         )
         event, event_message = self.slack_alerting._get_event_and_event_message(
             user_info=user_info, event=event, event_message=event_message
@@ -164,7 +164,7 @@ class TestSlackAlerting(unittest.TestCase):
             max_budget=150.0,
             spend=120.0,
             soft_budget=100.0,
-            event_group=Litellm_EntityType.KEY,
+            event_group=Embrouter_EntityType.KEY,
         )
         event, event_message = self.slack_alerting._get_event_and_event_message(
             user_info=user_info, event=event, event_message=event_message
@@ -183,13 +183,13 @@ class TestSlackAlerting(unittest.TestCase):
         self.slack_alerting.update_values(alerting_args={"slack_alerting": "True"})
         assert self.slack_alerting.periodic_started == True
 
-    @patch("litellm.integrations.SlackAlerting.slack_alerting.datetime")
+    @patch("embrouter.integrations.SlackAlerting.slack_alerting.datetime")
     def test_alert_type_in_formatted_message(self, mock_datetime):
         # Setup mocks
         mock_datetime.now.return_value.strftime.return_value = "12:34:56"
 
         # Import required types
-        from litellm.types.integrations.slack_alerting import AlertType
+        from embrouter.types.integrations.slack_alerting import AlertType
 
         # Create a simple test message to check formatting
         alert_type = AlertType.llm_exceptions
@@ -397,8 +397,8 @@ def _slack_alerting_with_env_resolution() -> SlackAlerting:
 @pytest.mark.parametrize(
     "event_group, expected_prefix",
     [
-        (Litellm_EntityType.TEAM_MEMBER, "Team Member Budget: Budget Crossed"),
-        (Litellm_EntityType.KEY, "Key Budget: Budget Crossed"),
+        (Embrouter_EntityType.TEAM_MEMBER, "Team Member Budget: Budget Crossed"),
+        (Embrouter_EntityType.KEY, "Key Budget: Budget Crossed"),
     ],
 )
 async def test_max_budget_alert_labels_team_member_budget(event_group, expected_prefix):

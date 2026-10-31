@@ -2,14 +2,14 @@ import base64
 import os
 from typing import Final
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.caching.caching import InMemoryCache
-from litellm.constants import SECRET_MANAGER_REFRESH_INTERVAL
-from litellm.integrations.gcs_bucket.gcs_bucket_base import GCSBucketBase
-from litellm.llms.custom_httpx.http_handler import _get_httpx_client
-from litellm.proxy._types import CommonProxyErrors, KeyManagementSystem
-from litellm.rust_bridge.secret_manager import resolve_native_provider_reader
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.caching.caching import InMemoryCache
+from embrouter.constants import SECRET_MANAGER_REFRESH_INTERVAL
+from embrouter.integrations.gcs_bucket.gcs_bucket_base import GCSBucketBase
+from embrouter.llms.custom_httpx.http_handler import _get_httpx_client
+from embrouter.proxy._types import CommonProxyErrors, KeyManagementSystem
+from embrouter.rust_bridge.secret_manager import resolve_native_provider_reader
 
 
 class GoogleSecretManager(GCSBucketBase):
@@ -23,7 +23,7 @@ class GoogleSecretManager(GCSBucketBase):
             refresh_interval (int, optional): The refresh interval in seconds. Defaults to 86400. (24 hours)
             always_read_secret_manager (bool, optional): Whether to always read from the secret manager. Defaults to False. Since we do want to cache values
         """
-        from litellm.proxy.proxy_server import premium_user
+        from embrouter.proxy.proxy_server import premium_user
 
         if premium_user is not True:
             raise ValueError(
@@ -36,8 +36,8 @@ class GoogleSecretManager(GCSBucketBase):
                 "Google Secret Manager requires a project ID, please set 'GOOGLE_SECRET_MANAGER_PROJECT_ID' in your .env"
             )
         self.sync_httpx_client = _get_httpx_client()
-        litellm.secret_manager_client = self
-        litellm._key_management_system = KeyManagementSystem.GOOGLE_SECRET_MANAGER
+        embrouter.secret_manager_client = self
+        embrouter._key_management_system = KeyManagementSystem.GOOGLE_SECRET_MANAGER
         _refresh_interval = os.environ.get("GOOGLE_SECRET_MANAGER_REFRESH_INTERVAL", refresh_interval)
         _refresh_interval = int(_refresh_interval) if _refresh_interval else refresh_interval
         self.cache = InMemoryCache(default_ttl=_refresh_interval)  # store in memory for 1 day

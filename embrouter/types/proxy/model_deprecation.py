@@ -16,9 +16,9 @@ DeprecationStatus = Literal["upcoming", "imminent", "deprecated"]
 
 class ModelDeprecationInfo(BaseModel):
     model_name: str = Field(description="The public name of the model on the proxy (model_group).")
-    litellm_model: str | None = Field(
+    embrouter_model: str | None = Field(
         default=None,
-        description="The underlying litellm model string the deprecation date is sourced from.",
+        description="The underlying embrouter model string the deprecation date is sourced from.",
     )
     deprecation_date: date = Field(description="The date (UTC) when the model becomes deprecated.")
     days_until_deprecation: int = Field(
@@ -29,7 +29,7 @@ class ModelDeprecationInfo(BaseModel):
             "'deprecated' if the date has passed, 'imminent' if it falls within warn_within_days, 'upcoming' otherwise."
         ),
     )
-    litellm_provider: str | None = Field(default=None, description="The provider this model belongs to.")
+    embrouter_provider: str | None = Field(default=None, description="The provider this model belongs to.")
 
 
 class ModelDeprecationResponse(BaseModel):

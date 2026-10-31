@@ -21,15 +21,15 @@ from urllib.parse import urlsplit
 from fastapi import HTTPException
 from typing_extensions import assert_never
 
-from litellm.exceptions import GuardrailRaisedException
-from litellm.integrations.custom_guardrail import is_guardrail_intervention
-from litellm.litellm_core_utils.api_route_to_call_types import get_call_types_for_route
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.types.llms.openai import BatchGuardrailRecord, BatchGuardrailReport
-from litellm.types.utils import CallTypes, CallTypesLiteral
+from embrouter.exceptions import GuardrailRaisedException
+from embrouter.integrations.custom_guardrail import is_guardrail_intervention
+from embrouter.embrouter_core_utils.api_route_to_call_types import get_call_types_for_route
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.types.llms.openai import BatchGuardrailRecord, BatchGuardrailReport
+from embrouter.types.utils import CallTypes, CallTypesLiteral
 
 if TYPE_CHECKING:
-    from litellm.proxy.utils import ProxyLogging
+    from embrouter.proxy.utils import ProxyLogging
 
 EMPTY_MAPPING: Final[Mapping[str, object]] = MappingProxyType({})
 
@@ -45,7 +45,7 @@ _CONTROL_CHARACTERS: Final = re.compile(r"[\x00-\x1f\x7f]")
 _CUSTOM_ID_LOG_LIMIT: Final = 128
 _SUMMARY_LIMIT: Final = 50
 
-_SCAN_METADATA_KEY: Final = "litellm_metadata"
+_SCAN_METADATA_KEY: Final = "embrouter_metadata"
 _SCAN_METADATA_BAGS: Final = (_SCAN_METADATA_KEY, "metadata")
 
 # Set by pre_call_hook when a guardrail rerouted the request to a different model.
@@ -82,8 +82,8 @@ _SCANNABLE_CALL_TYPES: Final = frozenset(
     }
 )
 
-# Mirrors the record classifier in litellm/llms/bedrock/files/transformation.py, so a record
-# litellm already accepts without a url keeps working.
+# Mirrors the record classifier in embrouter/llms/bedrock/files/transformation.py, so a record
+# embrouter already accepts without a url keeps working.
 _BODY_SHAPE_CALL_TYPES: Final = (
     ("messages", CallTypes.acompletion),
     ("prompt", CallTypes.atext_completion),

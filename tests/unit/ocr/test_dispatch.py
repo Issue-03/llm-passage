@@ -4,20 +4,20 @@ from typing import Final, cast  # noqa: TID251  # narrows legacy callable signat
 import httpx
 import pytest
 
-import litellm
-from litellm.llms.base_llm.ocr.transformation import OCRResponse
-from litellm.ocr.dispatch import (
+import embrouter
+from embrouter.llms.base_llm.ocr.transformation import OCRResponse
+from embrouter.ocr.dispatch import (
     _ADISPATCH,  # pyright: ignore[reportPrivateUsage]  # tests configured dispatch
     _DISPATCH,  # pyright: ignore[reportPrivateUsage]  # tests configured dispatch
 )
-from litellm.rust_bridge import catalog, runtime
-from litellm.rust_bridge.bindings import NativeBinding
-from litellm.rust_bridge.catalog import Route, RouteRule, Rules
-from litellm.rust_bridge.configuration import Rollout
-from litellm.rust_bridge.ocr.entrypoints import (
+from embrouter.rust_bridge import catalog, runtime
+from embrouter.rust_bridge.bindings import NativeBinding
+from embrouter.rust_bridge.catalog import Route, RouteRule, Rules
+from embrouter.rust_bridge.configuration import Rollout
+from embrouter.rust_bridge.ocr.entrypoints import (
     NATIVE_AOCR,
     NATIVE_OCR,
-    LiteLLMOcrRequest,
+    EmbRouterOcrRequest,
     NativeAocr,
     NativeOcr,
 )
@@ -55,11 +55,11 @@ def test_native_receives_normalized_positional_request_and_original_call_shape()
         "extra_headers": extra_headers,
         "pages": pages,
     }
-    captured: Final[list[tuple[LiteLLMOcrRequest, tuple[object, ...], Mapping[str, object]]]] = []
+    captured: Final[list[tuple[EmbRouterOcrRequest, tuple[object, ...], Mapping[str, object]]]] = []
     expected: Final = response()
 
     def native(
-        request: LiteLLMOcrRequest,
+        request: EmbRouterOcrRequest,
         args: tuple[object, ...],
         kwargs: Mapping[str, object],
     ) -> OCRResponse:
@@ -102,11 +102,11 @@ def test_native_preserves_keyword_model_and_document_in_original_call_shape() ->
         "document": document,
         "pages": pages,
     }
-    captured: Final[list[tuple[LiteLLMOcrRequest, tuple[object, ...], Mapping[str, object]]]] = []
+    captured: Final[list[tuple[EmbRouterOcrRequest, tuple[object, ...], Mapping[str, object]]]] = []
     expected: Final = response()
 
     def native(
-        request: LiteLLMOcrRequest,
+        request: EmbRouterOcrRequest,
         args: tuple[object, ...],
         kwargs: Mapping[str, object],
     ) -> OCRResponse:
@@ -139,7 +139,7 @@ def test_aocr_marker_cannot_be_served_without_python() -> None:
     kwargs: Final[Mapping[str, object]] = {"aocr": True}
 
     def native(
-        request: LiteLLMOcrRequest,
+        request: EmbRouterOcrRequest,
         args: tuple[object, ...],
         kwargs: Mapping[str, object],
     ) -> OCRResponse:
@@ -174,7 +174,7 @@ def test_non_required_rule_cannot_be_served_without_python() -> None:
     args: Final[tuple[object, ...]] = ("mistral/mistral-ocr-latest", {"type": "file", "file": b"pdf"})
 
     def native(
-        request: LiteLLMOcrRequest,
+        request: EmbRouterOcrRequest,
         args: tuple[object, ...],
         kwargs: Mapping[str, object],
     ) -> OCRResponse:
@@ -210,7 +210,7 @@ def test_ocr_parser_errors_before_native(
     args: tuple[object, ...], kwargs: Mapping[str, object], message: str
 ) -> None:
     def native(
-        request: LiteLLMOcrRequest,
+        request: EmbRouterOcrRequest,
         args: tuple[object, ...],
         kwargs: Mapping[str, object],
     ) -> OCRResponse:
@@ -247,7 +247,7 @@ async def test_aocr_parser_errors_before_native(
     args: tuple[object, ...], kwargs: Mapping[str, object], message: str
 ) -> None:
     async def native(
-        request: LiteLLMOcrRequest,
+        request: EmbRouterOcrRequest,
         args: tuple[object, ...],
         kwargs: Mapping[str, object],
     ) -> OCRResponse:
@@ -269,11 +269,11 @@ def test_public_ocr_routes_through_dispatch(monkeypatch: pytest.MonkeyPatch) -> 
         "type": "document_url",
         "document_url": "https://example.invalid/document.pdf",
     }
-    captured: Final[list[LiteLLMOcrRequest]] = []
+    captured: Final[list[EmbRouterOcrRequest]] = []
     expected: Final = response()
 
     def native(
-        request: LiteLLMOcrRequest,
+        request: EmbRouterOcrRequest,
         args: tuple[object, ...],
         kwargs: Mapping[str, object],
     ) -> OCRResponse:
@@ -282,7 +282,7 @@ def test_public_ocr_routes_through_dispatch(monkeypatch: pytest.MonkeyPatch) -> 
 
     NATIVE_OCR.override(native)
     monkeypatch.setattr(catalog, "RULES", RUST_RULES)
-    public_ocr: Final = cast(Callable[..., OCRResponse], litellm.ocr)
+    public_ocr: Final = cast(Callable[..., OCRResponse], embrouter.ocr)
     try:
         result: Final = public_ocr(model="mistral/mistral-ocr-latest", document=document)
     finally:
@@ -297,11 +297,11 @@ async def test_public_aocr_routes_through_dispatch(monkeypatch: pytest.MonkeyPat
         "type": "document_url",
         "document_url": "https://example.invalid/document.pdf",
     }
-    captured: Final[list[LiteLLMOcrRequest]] = []
+    captured: Final[list[EmbRouterOcrRequest]] = []
     expected: Final = response()
 
     async def native(
-        request: LiteLLMOcrRequest,
+        request: EmbRouterOcrRequest,
         args: tuple[object, ...],
         kwargs: Mapping[str, object],
     ) -> OCRResponse:
@@ -310,7 +310,7 @@ async def test_public_aocr_routes_through_dispatch(monkeypatch: pytest.MonkeyPat
 
     NATIVE_AOCR.override(native)
     monkeypatch.setattr(catalog, "RULES", RUST_RULES)
-    public_aocr: Final = cast(Callable[..., Awaitable[OCRResponse]], litellm.aocr)
+    public_aocr: Final = cast(Callable[..., Awaitable[OCRResponse]], embrouter.aocr)
     try:
         result: Final = await public_aocr(model="mistral/mistral-ocr-latest", document=document)
     finally:

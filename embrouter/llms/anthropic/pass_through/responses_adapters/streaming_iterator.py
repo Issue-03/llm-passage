@@ -8,28 +8,28 @@ from typing import TYPE_CHECKING, Any, Final
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
-from litellm import verbose_logger
-from litellm._logging import redact_internal_details_from_client_message
-from litellm._uuid import uuid
-from litellm.exceptions import MidStreamFallbackError
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+from embrouter import verbose_logger
+from embrouter._logging import redact_internal_details_from_client_message
+from embrouter._uuid import uuid
+from embrouter.exceptions import MidStreamFallbackError
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
     encrypted_reasoning_signature,
 )
-from litellm.llms.anthropic.pass_through.messages.utils import (
+from embrouter.llms.anthropic.pass_through.messages.utils import (
     INCOMPLETE_STREAM_ERROR_MESSAGE,
     refusal_stop_details,
     responses_output_refusal_text,
 )
-from litellm.responses.streaming_iterator import stream_error_status_and_message
-from litellm.types.llms.anthropic_messages.anthropic_response import AnthropicUsage
+from embrouter.responses.streaming_iterator import stream_error_status_and_message
+from embrouter.types.llms.anthropic_messages.anthropic_response import AnthropicUsage
 
 from .transformation import (
     REASONING_SUMMARY_PART_SEPARATOR,
-    LiteLLMAnthropicToResponsesAPIAdapter,
+    EmbRouterAnthropicToResponsesAPIAdapter,
 )
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObject
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObject
 
 
 class _UpstreamFailure(BaseModel):
@@ -86,7 +86,7 @@ def _failure_status_and_message(exception: Exception) -> tuple[int, str]:
 
 
 def _anthropic_error_chunk(status_code: int, message: str) -> dict[str, object]:
-    from litellm.anthropic_interface.exceptions.exception_mapping_utils import (
+    from embrouter.anthropic_interface.exceptions.exception_mapping_utils import (
         AnthropicExceptionMapping,
     )
 
@@ -118,13 +118,13 @@ class AnthropicResponsesStreamWrapper:
         self,
         responses_stream: Any,
         model: str,
-        litellm_logging_obj: "LiteLLMLoggingObject | None" = None,
+        embrouter_logging_obj: "EmbRouterLoggingObject | None" = None,
     ) -> None:
         self.responses_stream = responses_stream
         self.model = model
         self._message_id: str = f"msg_{uuid.uuid4()}"
-        if litellm_logging_obj is not None:
-            litellm_logging_obj.record_streamed_anthropic_message_id(self._message_id)
+        if embrouter_logging_obj is not None:
+            embrouter_logging_obj.record_streamed_anthropic_message_id(self._message_id)
         self._current_block_index: int = -1
         # Map item_id -> content_block_index so we can stop the right block later
         self._item_id_to_block_index: dict[str, int] = {}
@@ -406,7 +406,7 @@ class AnthropicResponsesStreamWrapper:
                 else "end_turn"
             )
             anthropic_usage: Final[AnthropicUsage] = (
-                LiteLLMAnthropicToResponsesAPIAdapter.translate_responses_api_usage_to_anthropic_usage(
+                EmbRouterAnthropicToResponsesAPIAdapter.translate_responses_api_usage_to_anthropic_usage(
                     getattr(response_obj, "usage", None)
                 )
                 if response_obj is not None

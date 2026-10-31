@@ -8,12 +8,12 @@ validate_url() resolves DNS once, validates all IPs, and rewrites the
 URL to connect to the validated IP directly — no TOCTOU gap, no DNS
 rebinding. Redirects are followed manually with validation at each hop.
 
-Admins can opt out via two ``litellm`` globals (wired from proxy config):
+Admins can opt out via two ``embrouter`` globals (wired from proxy config):
 
-- ``litellm.user_url_validation`` (bool, default True): master switch.
+- ``embrouter.user_url_validation`` (bool, default True): master switch.
   When False, ``safe_get``/``async_safe_get`` perform a plain fetch with
   no DNS check, no block list, and no rewrite.
-- ``litellm.user_url_allowed_hosts`` (List[str], default []): per-host
+- ``embrouter.user_url_allowed_hosts`` (List[str], default []): per-host
   allowlist. Entries are ``hostname`` or ``hostname:port`` (IPv6 hosts as
   ``[addr]`` / ``[addr]:port``). Matching hosts skip the blocked-networks
   check but still resolve DNS and still rewrite HTTP to the resolved IP.
@@ -28,7 +28,7 @@ from urllib.parse import quote, urlparse, urlunparse
 import httpx
 from typing_extensions import ReadOnly, TypedDict
 
-import litellm
+import embrouter
 
 _SockAddr = tuple[str, int] | tuple[str, int, int, int] | tuple[int, bytes]
 
@@ -270,7 +270,7 @@ def _is_host_allowlisted(hostname: str, effective_port: int) -> bool:
     literals are written bracketed (``[::1]`` / ``[::1]:8080``). Matching
     is case-insensitive on the hostname.
     """
-    configured: Final[list[str]] = getattr(litellm, "user_url_allowed_hosts", []) or []
+    configured: Final[list[str]] = getattr(embrouter, "user_url_allowed_hosts", []) or []
     if not configured:
         return False
     normalized_host: Final = _normalize_host(hostname)
@@ -336,7 +336,7 @@ def validate_url(url: str) -> tuple[str, str]:
                 raise SSRFError(
                     f"URL targets a blocked address ({resolved_ip}). "
                     "If this is a legitimate internal service, add the host "
-                    "to `user_url_allowed_hosts` in litellm_settings."
+                    "to `user_url_allowed_hosts` in embrouter_settings."
                 )
 
     # For HTTPS with SSL verification enabled, TLS certificate validation
@@ -344,7 +344,7 @@ def validate_url(url: str) -> tuple[str, str]:
     # to a different server because the cert wouldn't match.
     # When SSL verification is disabled, this defense doesn't apply, so
     # we rewrite to the validated IP like HTTP.
-    ssl_verify: Final = getattr(litellm, "ssl_verify", True)
+    ssl_verify: Final = getattr(embrouter, "ssl_verify", True)
     if parsed.scheme == "https" and ssl_verify is not False:
         return url, host_header
 
@@ -426,7 +426,7 @@ def safe_get(client: _UrlFetcher, url: str, **kwargs: Any) -> httpx.Response:
     request. No DNS rebinding (resolve-and-rewrite). No redirect bypass
     (each hop validated). No breaking change for legitimate CDN redirects.
 
-    When ``litellm.user_url_validation`` is False, validation is bypassed
+    When ``embrouter.user_url_validation`` is False, validation is bypassed
     and this function delegates to ``client.get(url, follow_redirects=True)``.
 
     Args:
@@ -437,7 +437,7 @@ def safe_get(client: _UrlFetcher, url: str, **kwargs: Any) -> httpx.Response:
     Returns:
         The final httpx.Response.
     """
-    if not getattr(litellm, "user_url_validation", True):
+    if not getattr(embrouter, "user_url_validation", True):
         kwargs.setdefault("follow_redirects", True)
         unvalidated: Final[_ResponseView] = {"response": client.get(url, **kwargs)}
         return unvalidated["response"]
@@ -463,7 +463,7 @@ def safe_get(client: _UrlFetcher, url: str, **kwargs: Any) -> httpx.Response:
 
 async def async_safe_get(client: _AsyncUrlFetcher, url: str, **kwargs: Any) -> httpx.Response:
     """Async version of safe_get."""
-    if not getattr(litellm, "user_url_validation", True):
+    if not getattr(embrouter, "user_url_validation", True):
         kwargs.setdefault("follow_redirects", True)
         unvalidated: Final[_ResponseView] = {"response": await client.get(url, **kwargs)}
         return unvalidated["response"]

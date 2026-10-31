@@ -14,10 +14,10 @@ from typing import Final
 
 from pydantic import BaseModel, ValidationError
 
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy._types import ProxyException, UserAPIKeyAuth
-from litellm.proxy.auth.auth_checks import can_key_call_resolved_model
-from litellm.router import Router
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy._types import ProxyException, UserAPIKeyAuth
+from embrouter.proxy.auth.auth_checks import can_key_call_resolved_model
+from embrouter.router import Router
 
 
 class _RequestMetadata(BaseModel):
@@ -55,7 +55,7 @@ def _user_api_key_auth_from_request(request_kwargs: Mapping[str, object]) -> Use
     return next(
         (
             token
-            for field in ("metadata", "litellm_metadata")
+            for field in ("metadata", "embrouter_metadata")
             if (token := _token_in_metadata(request_kwargs.get(field))) is not None
         ),
         None,
@@ -63,7 +63,7 @@ def _user_api_key_auth_from_request(request_kwargs: Mapping[str, object]) -> Use
 
 
 def _enforced_by_general_settings() -> bool:
-    from litellm.proxy.proxy_server import general_settings
+    from embrouter.proxy.proxy_server import general_settings
 
     return _FallbackAccessSettings.model_validate(general_settings).enforce_fallback_model_access
 

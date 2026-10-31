@@ -2,15 +2,15 @@ import os
 import sys
 from typing import Final
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy.proxy_server import LiteLLM_TeamTable, UserAPIKeyAuth
-from litellm.types.guardrails import *
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy.proxy_server import EmbRouter_TeamTable, UserAPIKeyAuth
+from embrouter.types.guardrails import *
 
 sys.path.insert(0, os.path.abspath("../.."))  # Adds the parent directory to the system path
 
 
-def can_modify_guardrails(team_obj: LiteLLM_TeamTable | None) -> bool:
+def can_modify_guardrails(team_obj: EmbRouter_TeamTable | None) -> bool:
     if team_obj is None:
         return True
 
@@ -52,7 +52,7 @@ async def should_proceed_based_on_metadata(data: dict, guardrail_name: str) -> b
                         continue
 
                     # lookup the guardrail in guardrail_name_config_map
-                    guardrail_item: GuardrailItem = litellm.guardrail_name_config_map[_guardrail_name]
+                    guardrail_item: GuardrailItem = embrouter.guardrail_name_config_map[_guardrail_name]
 
                     guardrail_callbacks = guardrail_item.callbacks
                     requested_callback_names.extend(guardrail_callbacks)
@@ -95,7 +95,7 @@ async def should_proceed_based_on_api_key(user_api_key_dict: UserAPIKeyAuth, gua
                 continue
 
             # lookup the guardrail in guardrail_name_config_map
-            guardrail_item: GuardrailItem = litellm.guardrail_name_config_map[_guardrail_name]
+            guardrail_item: GuardrailItem = embrouter.guardrail_name_config_map[_guardrail_name]
 
             guardrail_callbacks = guardrail_item.callbacks
             if guardrail_name in guardrail_callbacks:

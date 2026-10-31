@@ -9,14 +9,14 @@ from typing import Final
 
 import httpx
 
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.anthropic.chat.handler import AnthropicChatCompletion
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.anthropic.chat.handler import AnthropicChatCompletion
+from embrouter.llms.custom_httpx.http_handler import (
     AsyncHTTPHandler,
     HTTPHandler,
 )
-from litellm.types.utils import ModelResponse
-from litellm.utils import CustomStreamWrapper
+from embrouter.types.utils import ModelResponse
+from embrouter.utils import CustomStreamWrapper
 
 from .transformation import AzureAnthropicConfig
 
@@ -41,10 +41,10 @@ class AzureAnthropicChatCompletion(AnthropicChatCompletion):
         print_verbose: Callable,
         encoding,
         api_key,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         optional_params: dict,
         timeout: float | httpx.Timeout,
-        litellm_params: dict,
+        embrouter_params: dict,
         acompletion=None,
         logger_fn=None,
         headers={},
@@ -71,14 +71,14 @@ class AzureAnthropicChatCompletion(AnthropicChatCompletion):
             model=model,
             messages=messages,
             optional_params={**optional_params, "is_vertex_request": is_vertex_request},
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
         data: Final = config.transform_request(
             model=model,
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
@@ -114,7 +114,7 @@ class AzureAnthropicChatCompletion(AnthropicChatCompletion):
                     stream=stream,
                     _is_function_call=_is_function_call,
                     json_mode=json_mode,
-                    litellm_params=litellm_params,
+                    embrouter_params=embrouter_params,
                     logger_fn=logger_fn,
                     headers=headers,
                     timeout=timeout,
@@ -136,7 +136,7 @@ class AzureAnthropicChatCompletion(AnthropicChatCompletion):
                     optional_params=optional_params,
                     stream=stream,
                     _is_function_call=_is_function_call,
-                    litellm_params=litellm_params,
+                    embrouter_params=embrouter_params,
                     logger_fn=logger_fn,
                     headers=headers,
                     client=client,
@@ -150,7 +150,7 @@ class AzureAnthropicChatCompletion(AnthropicChatCompletion):
             ):  # if function call - fake the streaming (need complete blocks for output parsing in openai format)
                 data["stream"] = stream
                 # Import the make_sync_call from parent
-                from litellm.llms.anthropic.chat.handler import make_sync_call
+                from embrouter.llms.anthropic.chat.handler import make_sync_call
 
                 completion_stream, response_headers = make_sync_call(
                     client=client,
@@ -163,7 +163,7 @@ class AzureAnthropicChatCompletion(AnthropicChatCompletion):
                     timeout=timeout,
                     json_mode=json_mode,
                 )
-                from litellm.llms.anthropic.common_utils import (
+                from embrouter.llms.anthropic.common_utils import (
                     process_anthropic_headers,
                 )
 
@@ -177,7 +177,7 @@ class AzureAnthropicChatCompletion(AnthropicChatCompletion):
 
             else:
                 if client is None or not isinstance(client, HTTPHandler):
-                    from litellm.llms.custom_httpx.http_handler import _get_httpx_client
+                    from embrouter.llms.custom_httpx.http_handler import _get_httpx_client
 
                     client = _get_httpx_client(params={"timeout": timeout})
                 else:
@@ -191,7 +191,7 @@ class AzureAnthropicChatCompletion(AnthropicChatCompletion):
                         timeout=timeout,
                     )
                 except Exception as e:
-                    from litellm.llms.anthropic.common_utils import AnthropicError
+                    from embrouter.llms.anthropic.common_utils import AnthropicError
 
                     status_code: Final = getattr(e, "status_code", 500)
                     error_headers = getattr(e, "headers", None)
@@ -216,7 +216,7 @@ class AzureAnthropicChatCompletion(AnthropicChatCompletion):
             request_data=data,
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             encoding=encoding,
             json_mode=json_mode,
         )

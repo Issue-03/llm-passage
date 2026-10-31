@@ -9,8 +9,8 @@ from typing import Final
 
 import httpx  # noqa: F401 - used at runtime (AsyncClient, HTTPStatusError)
 
-from litellm._logging import verbose_logger
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter._logging import verbose_logger
+from embrouter.llms.custom_httpx.http_handler import (
     AsyncHTTPHandler,
     get_async_httpx_client,
     httpxSpecialProvider,

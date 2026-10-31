@@ -952,13 +952,13 @@ describe("isAutoRouterDeployment", () => {
     ["null model", null, false],
   ];
 
-  it.each(cases)("returns %s -> %s", (_label, litellmParamsModel, expected) => {
-    expect(isAutoRouterDeployment({ model_name: "some-group", litellm_params: { model: litellmParamsModel } })).toBe(
+  it.each(cases)("returns %s -> %s", (_label, embrouterParamsModel, expected) => {
+    expect(isAutoRouterDeployment({ model_name: "some-group", embrouter_params: { model: embrouterParamsModel } })).toBe(
       expected,
     );
   });
 
-  it("returns false when litellm_params is absent", () => {
+  it("returns false when embrouter_params is absent", () => {
     expect(isAutoRouterDeployment({ model_name: "some-group" })).toBe(false);
   });
 });
@@ -966,10 +966,10 @@ describe("isAutoRouterDeployment", () => {
 describe("selectAutoRouterModelGroups", () => {
   it("keeps only the public model_name of auto-router deployments", () => {
     const deployments: AutoRouterCandidateDeployment[] = [
-      { model_name: "smart-router", litellm_params: { model: "auto_router/complexity_router" } },
-      { model_name: "claude-haiku", litellm_params: { model: "anthropic/claude-haiku-4-5" } },
-      { model_name: "claude-sonnet", litellm_params: { model: "anthropic/claude-sonnet-4-5" } },
-      { model_name: "cheap-router", litellm_params: { model: "auto_router/adaptive_router" } },
+      { model_name: "smart-router", embrouter_params: { model: "auto_router/complexity_router" } },
+      { model_name: "claude-haiku", embrouter_params: { model: "anthropic/claude-haiku-4-5" } },
+      { model_name: "claude-sonnet", embrouter_params: { model: "anthropic/claude-sonnet-4-5" } },
+      { model_name: "cheap-router", embrouter_params: { model: "auto_router/adaptive_router" } },
     ];
 
     expect(selectAutoRouterModelGroups(deployments)).toEqual(new Set(["smart-router", "cheap-router"]));
@@ -977,7 +977,7 @@ describe("selectAutoRouterModelGroups", () => {
 
   it("drops auto-router deployments that have no public model_name", () => {
     expect(
-      selectAutoRouterModelGroups([{ model_name: "", litellm_params: { model: "auto_router/complexity_router" } }]),
+      selectAutoRouterModelGroups([{ model_name: "", embrouter_params: { model: "auto_router/complexity_router" } }]),
     ).toEqual(new Set());
   });
 
@@ -1005,8 +1005,8 @@ describe("selectPlainChatModelGroups", () => {
       { model_name: "embedding-then-chat", model_info: { mode: "chat" } },
       { model_name: "embedding-only", model_info: { mode: "embedding" } },
       { model_name: "speech-only", model_info: { mode: "speech" } },
-      { model_name: "shared-router", litellm_params: { model: "openai/gpt-4o" } },
-      { model_name: "shared-router", litellm_params: { model: "auto_router/complexity_router" } },
+      { model_name: "shared-router", embrouter_params: { model: "openai/gpt-4o" } },
+      { model_name: "shared-router", embrouter_params: { model: "auto_router/complexity_router" } },
       { model_name: "", model_info: { mode: "chat" } },
     ];
 
@@ -1052,8 +1052,8 @@ describe("useAutoRouterModelGroups", () => {
   it("resolves the set of auto-router model groups from the deployment list", async () => {
     (modelInfoCall as any).mockResolvedValue({
       data: [
-        { model_name: "smart-router", litellm_params: { model: "auto_router/complexity_router" } },
-        { model_name: "claude-haiku", litellm_params: { model: "anthropic/claude-haiku-4-5" } },
+        { model_name: "smart-router", embrouter_params: { model: "auto_router/complexity_router" } },
+        { model_name: "claude-haiku", embrouter_params: { model: "anthropic/claude-haiku-4-5" } },
       ],
       total_count: 2,
       current_page: 1,
@@ -1088,7 +1088,7 @@ describe("useAutoRouterModelGroups", () => {
     (modelInfoCall as any).mockImplementation((_t: string, _u: string, _r: string, page: number) => {
       if (page === 1) {
         return Promise.resolve({
-          data: [{ model_name: "claude-haiku", litellm_params: { model: "anthropic/claude-haiku-4-5" } }],
+          data: [{ model_name: "claude-haiku", embrouter_params: { model: "anthropic/claude-haiku-4-5" } }],
           total_count: 3,
           current_page: 1,
           total_pages: 3,
@@ -1097,7 +1097,7 @@ describe("useAutoRouterModelGroups", () => {
       }
       if (page === 2) {
         return Promise.resolve({
-          data: [{ model_name: "claude-sonnet", litellm_params: { model: "anthropic/claude-sonnet-4-5" } }],
+          data: [{ model_name: "claude-sonnet", embrouter_params: { model: "anthropic/claude-sonnet-4-5" } }],
           total_count: 3,
           current_page: 2,
           total_pages: 3,
@@ -1105,7 +1105,7 @@ describe("useAutoRouterModelGroups", () => {
         });
       }
       return Promise.resolve({
-        data: [{ model_name: "late-router", litellm_params: { model: "auto_router/complexity_router" } }],
+        data: [{ model_name: "late-router", embrouter_params: { model: "auto_router/complexity_router" } }],
         total_count: 3,
         current_page: 3,
         total_pages: 3,

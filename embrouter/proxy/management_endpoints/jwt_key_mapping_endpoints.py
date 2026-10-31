@@ -5,20 +5,20 @@ from typing import Final, Protocol
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from litellm.proxy._types import (
+from embrouter.proxy._types import (
     CreateJWTKeyMappingRequest,
     DeleteJWTKeyMappingRequest,
     JWTKeyMappingResponse,
-    LitellmUserRoles,
+    EmbrouterUserRoles,
     UpdateJWTKeyMappingRequest,
     UserAPIKeyAuth,
     hash_token,
 )
-from litellm.proxy.auth.auth_checks import jwt_key_mapping_cache_key
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.common_utils.auth_cache_invalidation_pubsub import evict_and_broadcast
-from litellm.proxy.management_endpoints.common_utils import _user_has_admin_view
-from litellm.repositories.table_repositories import JWTKeyMappingRepository
+from embrouter.proxy.auth.auth_checks import jwt_key_mapping_cache_key
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.common_utils.auth_cache_invalidation_pubsub import evict_and_broadcast
+from embrouter.proxy.management_endpoints.common_utils import _user_has_admin_view
+from embrouter.repositories.table_repositories import JWTKeyMappingRepository
 
 router: Final = APIRouter()
 
@@ -69,7 +69,7 @@ def _token_hash_for_update(data: UpdateJWTKeyMappingRequest) -> str | None:
 
 
 class _JWTKeyMappingRecord(Protocol):
-    """A ``LiteLLM_JWTKeyMapping`` row, viewed through the columns these endpoints read."""
+    """A ``EmbRouter_JWTKeyMapping`` row, viewed through the columns these endpoints read."""
 
     @property
     def id(self) -> str: ...
@@ -148,9 +148,9 @@ async def create_jwt_key_mapping(
     data: CreateJWTKeyMappingRequest,
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
 ):
-    from litellm.proxy.proxy_server import prisma_client, user_api_key_cache
+    from embrouter.proxy.proxy_server import prisma_client, user_api_key_cache
 
-    if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+    if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
         raise HTTPException(status_code=403, detail="Only proxy admins can create JWT key mappings")
 
     if prisma_client is None:
@@ -204,9 +204,9 @@ async def update_jwt_key_mapping(
     data: UpdateJWTKeyMappingRequest,
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
 ):
-    from litellm.proxy.proxy_server import prisma_client, user_api_key_cache
+    from embrouter.proxy.proxy_server import prisma_client, user_api_key_cache
 
-    if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+    if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
         raise HTTPException(status_code=403, detail="Only proxy admins can update JWT key mappings")
 
     if prisma_client is None:
@@ -268,9 +268,9 @@ async def delete_jwt_key_mapping(
     data: DeleteJWTKeyMappingRequest,
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
 ):
-    from litellm.proxy.proxy_server import prisma_client, user_api_key_cache
+    from embrouter.proxy.proxy_server import prisma_client, user_api_key_cache
 
-    if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+    if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
         raise HTTPException(status_code=403, detail="Only proxy admins can delete JWT key mappings")
 
     if prisma_client is None:
@@ -307,7 +307,7 @@ async def list_jwt_key_mappings(
     page: int = Query(1, description="Page number", ge=1),
     size: int = Query(50, description="Page size", ge=1, le=100),
 ):
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     # Admin Viewer follows the read-parity rule.
     if not _user_has_admin_view(user_api_key_dict):
@@ -345,7 +345,7 @@ async def info_jwt_key_mapping(
     id: str,
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
 ):
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     # Admin Viewer follows the read-parity rule.
     if not _user_has_admin_view(user_api_key_dict):

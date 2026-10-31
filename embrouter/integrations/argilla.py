@@ -13,20 +13,20 @@ from typing import Final
 import httpx
 from pydantic import BaseModel
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.integrations.custom_batch_logger import CustomBatchLogger
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.llms.custom_httpx.http_handler import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.integrations.custom_batch_logger import CustomBatchLogger
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.types.integrations.argilla import (
+from embrouter.types.integrations.argilla import (
     SUPPORTED_PAYLOAD_FIELDS,
     ArgillaCredentialsObject,
     ArgillaItem,
 )
-from litellm.types.utils import StandardLoggingPayload
+from embrouter.types.utils import StandardLoggingPayload
 
 
 def is_serializable(value):
@@ -47,10 +47,10 @@ class ArgillaLogger(CustomBatchLogger):
         argilla_base_url: str | None = None,
         **kwargs,
     ):
-        if litellm.argilla_transformation_object is None:
-            raise Exception("'litellm.argilla_transformation_object' is required, to log your payload to Argilla.")
-        self.validate_argilla_transformation_object(litellm.argilla_transformation_object)
-        self.argilla_transformation_object = litellm.argilla_transformation_object
+        if embrouter.argilla_transformation_object is None:
+            raise Exception("'embrouter.argilla_transformation_object' is required, to log your payload to Argilla.")
+        self.validate_argilla_transformation_object(embrouter.argilla_transformation_object)
+        self.argilla_transformation_object = embrouter.argilla_transformation_object
         self.default_credentials = self.get_credentials_from_env(
             argilla_api_key=argilla_api_key,
             argilla_dataset_name=argilla_dataset_name,
@@ -63,7 +63,7 @@ class ArgillaLogger(CustomBatchLogger):
         )
 
         self.async_httpx_client = get_async_httpx_client(llm_provider=httpxSpecialProvider.LoggingCallback)
-        _batch_size: Final = os.getenv("ARGILLA_BATCH_SIZE", None) or litellm.argilla_batch_size
+        _batch_size: Final = os.getenv("ARGILLA_BATCH_SIZE", None) or embrouter.argilla_batch_size
         if _batch_size:
             self.batch_size = int(_batch_size)
         asyncio.create_task(self.periodic_flush())
@@ -94,11 +94,11 @@ class ArgillaLogger(CustomBatchLogger):
         if _credentials_base_url is None:
             raise Exception("Invalid Argilla Base URL given. _credentials_base_url=None.")
 
-        _credentials_dataset_name = argilla_dataset_name or os.getenv("ARGILLA_DATASET_NAME") or "litellm-completion"
+        _credentials_dataset_name = argilla_dataset_name or os.getenv("ARGILLA_DATASET_NAME") or "embrouter-completion"
         if _credentials_dataset_name is None:
             raise Exception("Invalid Argilla Dataset give. Value=None.")
         else:
-            dataset_response: Final = litellm.module_level_client.get(
+            dataset_response: Final = embrouter.module_level_client.get(
                 url=f"{_credentials_base_url}/api/v1/me/datasets?name={_credentials_dataset_name}",
                 headers={"X-Argilla-Api-Key": _credentials_api_key},
             )
@@ -179,7 +179,7 @@ class ArgillaLogger(CustomBatchLogger):
         headers: Final = {"X-Argilla-Api-Key": argilla_api_key}
 
         try:
-            response: Final = litellm.module_level_client.post(
+            response: Final = embrouter.module_level_client.post(
                 url=url,
                 json=self.log_queue,
                 headers=headers,
@@ -245,7 +245,7 @@ class ArgillaLogger(CustomBatchLogger):
             data = self._prepare_log_data(kwargs, response_obj, start_time, end_time)
 
             ## ALLOW CUSTOM LOGGERS TO MODIFY / FILTER DATA BEFORE LOGGING
-            for callback in litellm.callbacks:
+            for callback in embrouter.callbacks:
                 if isinstance(callback, CustomLogger):
                     try:
                         if data is None:

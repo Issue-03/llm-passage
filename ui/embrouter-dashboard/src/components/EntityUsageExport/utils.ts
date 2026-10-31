@@ -18,7 +18,7 @@ const resolveEntityDisplay = (
     entity,
 });
 
-// Mirrors backend SpendMetrics fields (litellm/types/activity_tracking.py).
+// Mirrors backend SpendMetrics fields (embrouter/types/activity_tracking.py).
 // If the backend adds a field, add it here too.
 const METRIC_KEYS = [
   "spend",

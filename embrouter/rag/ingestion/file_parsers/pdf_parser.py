@@ -4,7 +4,7 @@ PDF text extraction utilities.
 Provides text extraction from PDF files using pypdf or PyPDF2.
 """
 
-from litellm._logging import verbose_logger
+from embrouter._logging import verbose_logger
 
 
 def extract_text_from_pdf(file_content: bytes) -> str | None:

@@ -7,77 +7,77 @@ from typing import Final, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from typing_extensions import ReadOnly, Required, TypedDict
 
-from litellm.constants import BEDROCK_APPLY_GUARDRAIL_CHUNK_BUDGET_CHARS
-from litellm.types.proxy.guardrails.guardrail_hooks.agent_365 import (
+from embrouter.constants import BEDROCK_APPLY_GUARDRAIL_CHUNK_BUDGET_CHARS
+from embrouter.types.proxy.guardrails.guardrail_hooks.agent_365 import (
     Agent365GuardrailConfigModel,
 )
-from litellm.types.proxy.guardrails.guardrail_hooks.akto import (
+from embrouter.types.proxy.guardrails.guardrail_hooks.akto import (
     AktoConfigModel,
 )
-from litellm.types.proxy.guardrails.guardrail_hooks.block_code_execution import (
+from embrouter.types.proxy.guardrails.guardrail_hooks.block_code_execution import (
     BlockCodeExecutionGuardrailConfigModel,
 )
-from litellm.types.proxy.guardrails.guardrail_hooks.cisco_ai_defense import (
+from embrouter.types.proxy.guardrails.guardrail_hooks.cisco_ai_defense import (
     CiscoAIDefenseGuardrailConfigModel,
 )
-from litellm.types.proxy.guardrails.guardrail_hooks.compresr import (
+from embrouter.types.proxy.guardrails.guardrail_hooks.compresr import (
     CompresrGuardrailConfigModel,
 )
-from litellm.types.proxy.guardrails.guardrail_hooks.enkryptai import (
+from embrouter.types.proxy.guardrails.guardrail_hooks.enkryptai import (
     EnkryptAIGuardrailConfigs,
 )
-from litellm.types.proxy.guardrails.guardrail_hooks.grayswan import (
+from embrouter.types.proxy.guardrails.guardrail_hooks.grayswan import (
     GraySwanGuardrailConfigModel,
 )
-from litellm.types.proxy.guardrails.guardrail_hooks.headroom import (
+from embrouter.types.proxy.guardrails.guardrail_hooks.headroom import (
     HeadroomGuardrailConfigModel,
 )
-from litellm.types.proxy.guardrails.guardrail_hooks.hiddenlayer import (
+from embrouter.types.proxy.guardrails.guardrail_hooks.hiddenlayer import (
     HiddenlayerGuardrailConfigModel,
 )
-from litellm.types.proxy.guardrails.guardrail_hooks.ibm import (
+from embrouter.types.proxy.guardrails.guardrail_hooks.ibm import (
     IBMGuardrailsBaseConfigModel,
 )
-from litellm.types.proxy.guardrails.guardrail_hooks.litellm_content_filter import (
+from embrouter.types.proxy.guardrails.guardrail_hooks.embrouter_content_filter import (
     ContentFilterCategoryConfig,
 )
-from litellm.types.proxy.guardrails.guardrail_hooks.ovalix import (
+from embrouter.types.proxy.guardrails.guardrail_hooks.ovalix import (
     OvalixGuardrailConfigModel,
 )
-from litellm.types.proxy.guardrails.guardrail_hooks.promptguard import (
+from embrouter.types.proxy.guardrails.guardrail_hooks.promptguard import (
     PromptGuardConfigModel,
 )
-from litellm.types.proxy.guardrails.guardrail_hooks.qohash import (
+from embrouter.types.proxy.guardrails.guardrail_hooks.qohash import (
     QostodianNexusConfigModel,
 )
-from litellm.types.proxy.guardrails.guardrail_hooks.qualifire import (
+from embrouter.types.proxy.guardrails.guardrail_hooks.qualifire import (
     QualifireGuardrailConfigModel,
 )
-from litellm.types.proxy.guardrails.guardrail_hooks.repelloai import (
+from embrouter.types.proxy.guardrails.guardrail_hooks.repelloai import (
     RepelloAIGuardrailConfigModel,
 )
-from litellm.types.proxy.guardrails.guardrail_hooks.singulr import (
+from embrouter.types.proxy.guardrails.guardrail_hooks.singulr import (
     SingulrGuardrailConfigModel,
 )
-from litellm.types.proxy.guardrails.guardrail_hooks.tool_permission import (
+from embrouter.types.proxy.guardrails.guardrail_hooks.tool_permission import (
     ToolPermissionGuardrailConfigModel,
 )
-from litellm.types.proxy.guardrails.guardrail_hooks.typesafe import (
+from embrouter.types.proxy.guardrails.guardrail_hooks.typesafe import (
     TypeSafeGuardrailConfigModel,
 )
-from litellm.types.proxy.guardrails.guardrail_hooks.vigil_guard import (
+from embrouter.types.proxy.guardrails.guardrail_hooks.vigil_guard import (
     VigilGuardGuardrailConfigModel,
 )
-from litellm.types.proxy.guardrails.guardrail_hooks.xecguard import (
+from embrouter.types.proxy.guardrails.guardrail_hooks.xecguard import (
     XecGuardConfigModel,
 )
 
 """
-Pydantic object defining how to set guardrails on litellm proxy
+Pydantic object defining how to set guardrails on embrouter proxy
 
 guardrails:
   - guardrail_name: "bedrock-pre-guard"
-    litellm_params:
+    embrouter_params:
       guardrail: bedrock  # supported values: "akto", "aporia", "bedrock", "lakera", "zscaler_ai_guard"
       mode: "during_call"
       guardrailIdentifier: ff6ujrregl1q
@@ -116,7 +116,7 @@ class SupportedGuardrailIntegrations(Enum):
     JAVELIN = "javelin"
     ENKRYPTAI = "enkryptai"
     IBM_GUARDRAILS = "ibm_guardrails"
-    LITELLM_CONTENT_FILTER = "litellm_content_filter"
+    EMBROUTER_CONTENT_FILTER = "embrouter_content_filter"
     MCP_SECURITY = "mcp_security"
     ONYX = "onyx"
     PROMPTGUARD = "promptguard"
@@ -436,7 +436,7 @@ class GuardrailParamUITypes(str, Enum):
 
 
 class PresidioPresidioConfigModelUserInterface(BaseModel):
-    """Configuration parameters for the Presidio PII masking guardrail on LiteLLM UI"""
+    """Configuration parameters for the Presidio PII masking guardrail on EmbRouter UI"""
 
     presidio_analyzer_api_base: str | None = Field(
         default=None,
@@ -454,7 +454,7 @@ class PresidioPresidioConfigModelUserInterface(BaseModel):
     )
     output_parse_pii: bool | None = Field(
         default=None,
-        description="When True, LiteLLM will replace the masked text with the original text in the response",
+        description="When True, EmbRouter will replace the masked text with the original text in the response",
         # extra param to let the ui know this is a boolean
         json_schema_extra={"ui_type": GuardrailParamUITypes.BOOL},
     )
@@ -781,7 +781,7 @@ class NomaGuardrailConfigModel(BaseModel):
     )
     application_id: str | None = Field(
         default=None,
-        description="Application ID for Noma Security. Defaults to 'litellm' if not provided",
+        description="Application ID for Noma Security. Defaults to 'embrouter' if not provided",
     )
     gateway_name: str | None = Field(
         default=None,
@@ -900,7 +900,7 @@ class ContentFilterConfigModel(BaseModel):
 MCP_SECURITY_ON_VIOLATION: Final = frozenset({"block", "alert"})
 
 
-class BaseLitellmParams(ContentFilterConfigModel):  # works for new and patch update guardrails
+class BaseEmbrouterParams(ContentFilterConfigModel):  # works for new and patch update guardrails
     api_key: str | None = Field(default=None, description="API key for the guardrail service")
     api_base: str | None = Field(default=None, description="Base URL for the guardrail service API")
 
@@ -913,7 +913,7 @@ class BaseLitellmParams(ContentFilterConfigModel):  # works for new and patch up
         default=False,
         description=(
             "When True, the guardrail only scans messages that have not already been scanned "
-            "earlier in the same session (identified by litellm_session_id / session_id). "
+            "earlier in the same session (identified by embrouter_session_id / session_id). "
             "Message content is hashed per session and cached; only the diff (new or edited "
             "messages) is sent to the guardrail provider on follow-up calls. Falls back to a "
             "full scan when the request has no session id or the cache is unavailable. Intended "
@@ -926,8 +926,8 @@ class BaseLitellmParams(ContentFilterConfigModel):  # works for new and patch up
         description=(
             "When True, unified guardrails skip system-role messages when building "
             "evaluation inputs (texts and structured_messages). When False, system "
-            "messages are included even if litellm_settings sets a global skip. When "
-            "None, use the global litellm.skip_system_message_in_guardrail setting. "
+            "messages are included even if embrouter_settings sets a global skip. When "
+            "None, use the global embrouter.skip_system_message_in_guardrail setting. "
             "For Anthropic /v1/messages, the flag applies only to the trusted top-level "
             "system prompt. In-sequence system entries are untrusted client input and remain "
             "in texts and structured_messages."
@@ -939,8 +939,8 @@ class BaseLitellmParams(ContentFilterConfigModel):  # works for new and patch up
         description=(
             "When True, unified guardrails skip tool-role messages when building "
             "evaluation inputs (texts and structured_messages). When False, tool "
-            "messages are included even if litellm_settings sets a global skip. When "
-            "None, use the global litellm.skip_tool_message_in_guardrail setting."
+            "messages are included even if embrouter_settings sets a global skip. When "
+            "None, use the global embrouter.skip_tool_message_in_guardrail setting."
         ),
     )
 
@@ -1159,7 +1159,7 @@ class BaseLitellmParams(ContentFilterConfigModel):  # works for new and patch up
         return v
 
     @model_validator(mode="after")
-    def validate_sensitive_data_routing(self) -> "BaseLitellmParams":
+    def validate_sensitive_data_routing(self) -> "BaseEmbrouterParams":
         if self.on_sensitive_data == "route" and not self.sensitive_data_route_to_model:
             raise ValueError("sensitive_data_route_to_model must be set when on_sensitive_data='route'")
         return self
@@ -1172,7 +1172,7 @@ class Mode(BaseModel):
     default: str | list[str] | None = Field(default=None, description="Default mode when no tags match")
 
 
-class LitellmParams(  # pyright: ignore[reportIncompatibleVariableOverride]  # on_flagged literal diverges across mixins
+class EmbrouterParams(  # pyright: ignore[reportIncompatibleVariableOverride]  # on_flagged literal diverges across mixins
     CiscoAIDefenseGuardrailConfigModel,
     PresidioConfigModel,
     BedrockGuardrailConfigModel,
@@ -1192,7 +1192,7 @@ class LitellmParams(  # pyright: ignore[reportIncompatibleVariableOverride]  # o
     ZscalerAIGuardConfigModel,
     AktoConfigModel,
     JavelinGuardrailConfigModel,
-    BaseLitellmParams,
+    BaseEmbrouterParams,
     EnkryptAIGuardrailConfigs,
     IBMGuardrailsBaseConfigModel,
     OvalixGuardrailConfigModel,
@@ -1222,7 +1222,7 @@ class LitellmParams(  # pyright: ignore[reportIncompatibleVariableOverride]  # o
             raise ValueError(f"timeout must be numeric, got {v!r}") from e
 
     @model_validator(mode="after")
-    def validate_on_violation_for_guardrail(self) -> "LitellmParams":
+    def validate_on_violation_for_guardrail(self) -> "EmbrouterParams":
         if (
             self.on_violation in MCP_SECURITY_ON_VIOLATION
             and self.guardrail != SupportedGuardrailIntegrations.MCP_SECURITY.value
@@ -1255,7 +1255,7 @@ class LitellmParams(  # pyright: ignore[reportIncompatibleVariableOverride]  # o
 class Guardrail(TypedDict, total=False):
     guardrail_id: str | None
     guardrail_name: Required[str]
-    litellm_params: Required[LitellmParams]
+    embrouter_params: Required[EmbrouterParams]
     guardrail_info: dict | None
     policy_template: str | None
     created_at: datetime | None
@@ -1289,7 +1289,7 @@ class GUARDRAIL_DEFINITION_LOCATION(str, Enum):
 class GuardrailInfoResponse(BaseModel):
     guardrail_id: str | None = None
     guardrail_name: str
-    litellm_params: BaseLitellmParams | None = None
+    embrouter_params: BaseEmbrouterParams | None = None
     guardrail_info: dict | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
@@ -1337,5 +1337,5 @@ class ApplyGuardrailResponse(BaseModel):
 
 class PatchGuardrailRequest(BaseModel):
     guardrail_name: str | None = None
-    litellm_params: BaseLitellmParams | None = None
+    embrouter_params: BaseEmbrouterParams | None = None
     guardrail_info: dict[str, object] | None = None

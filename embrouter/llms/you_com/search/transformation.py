@@ -9,13 +9,13 @@ from typing import Final, TypedDict
 
 import httpx
 
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.base_llm.search.transformation import (
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.base_llm.search.transformation import (
     BaseSearchConfig,
     SearchResponse,
     SearchResult,
 )
-from litellm.secret_managers.main import get_secret_str
+from embrouter.secret_managers.main import get_secret_str
 
 
 class _YouComSearchRequestRequired(TypedDict):
@@ -74,7 +74,7 @@ class YouComSearchConfig(BaseSearchConfig):
         headers["Content-Type"] = "application/json"
         # Pin Accept-Encoding to identity: the keyless `api.you.com/v1/agents/search`
         # endpoint advertises gzip content-encoding but returns body bytes the
-        # decoder rejects, which surfaces as httpx.DecodingError through litellm's
+        # decoder rejects, which surfaces as httpx.DecodingError through embrouter's
         # http handler. Identity is harmless on the keyed endpoint.
         headers.setdefault("Accept-Encoding", "identity")
         if api_key:
@@ -156,13 +156,13 @@ class YouComSearchConfig(BaseSearchConfig):
     def transform_search_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         **kwargs,
     ) -> SearchResponse:
         """
-        Transform You.com API response to LiteLLM unified SearchResponse format.
+        Transform You.com API response to EmbRouter unified SearchResponse format.
 
-        You.com → LiteLLM mappings (for both `results.web[]` and `results.news[]`):
+        You.com → EmbRouter mappings (for both `results.web[]` and `results.news[]`):
         - title       → SearchResult.title
         - url         → SearchResult.url
         - snippets[0] → SearchResult.snippet (falls back to `description`)

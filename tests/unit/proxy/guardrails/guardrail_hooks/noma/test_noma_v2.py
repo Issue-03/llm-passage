@@ -4,20 +4,20 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.proxy.guardrails.guardrail_hooks.noma import (
+import embrouter
+from embrouter.proxy.guardrails.guardrail_hooks.noma import (
     NomaV2Guardrail,
     guardrail_initializer_registry,
 )
-from litellm.types.guardrails import LitellmParams
+from embrouter.types.guardrails import EmbrouterParams
 
 _API_BASE = "https://noma.example.test"
 
 
 @pytest.fixture(autouse=True)
 def _fresh_httpx_client(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "in_memory_llm_clients_cache", None)
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(embrouter, "in_memory_llm_clients_cache", None)
     monkeypatch.delenv("NOMA_GATEWAY_NAME", raising=False)
 
 
@@ -32,7 +32,7 @@ def _guardrail(gateway_name: str | None) -> NomaV2Guardrail:
 
 
 async def _scan_body(guardrail: NomaV2Guardrail, respx_mock: respx.MockRouter) -> dict[str, object]:
-    route = respx_mock.post(f"{_API_BASE}/litellm/guardrail").respond(json={"action": "NONE"})
+    route = respx_mock.post(f"{_API_BASE}/embrouter/guardrail").respond(json={"action": "NONE"})
     await guardrail.apply_guardrail(inputs={"texts": ["hello"]}, request_data={"metadata": {}}, input_type="request")
     assert route.call_count == 1
     return json.loads(route.calls.last.request.content)
@@ -43,14 +43,14 @@ async def _scan_body(guardrail: NomaV2Guardrail, respx_mock: respx.MockRouter) -
 async def test_gateway_name_from_guardrail_config_reaches_noma(
     guardrail_type: str, extra_params: dict[str, bool], respx_mock: respx.MockRouter
 ) -> None:
-    litellm_params = LitellmParams(
+    embrouter_params = EmbrouterParams(
         guardrail=guardrail_type,
         mode="pre_call",
         api_base=_API_BASE,
         gateway_name="prod-us-east",
         **extra_params,
     )
-    guardrail = guardrail_initializer_registry[guardrail_type](litellm_params, {"guardrail_name": "noma-guard"})
+    guardrail = guardrail_initializer_registry[guardrail_type](embrouter_params, {"guardrail_name": "noma-guard"})
 
     assert (await _scan_body(guardrail, respx_mock))["gateway_name"] == "prod-us-east"
 
@@ -92,7 +92,7 @@ async def test_positional_args_keep_their_meaning_after_gateway_name_was_added(r
     assert body["monitor_mode"] is False
     assert body["application_id"] == "test-app"
     assert "gateway_name" not in body
-    respx_mock.post(f"{_API_BASE}/litellm/guardrail").respond(status_code=503)
+    respx_mock.post(f"{_API_BASE}/embrouter/guardrail").respond(status_code=503)
     with pytest.raises(httpx.HTTPStatusError):
         await guardrail.apply_guardrail(
             inputs={"texts": ["hello"]}, request_data={"metadata": {}}, input_type="request"

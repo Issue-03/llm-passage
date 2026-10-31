@@ -70,7 +70,7 @@ vi.mock("@/components/networking", async (importOriginal) => {
   return {
     ...actual,
     getUiConfig: vi.fn(() => pendingUiConfig.promise),
-    setGlobalLitellmHeaderName: vi.fn(),
+    setGlobalEmbrouterHeaderName: vi.fn(),
   };
 });
 

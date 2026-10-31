@@ -6,13 +6,13 @@ from typing import Any, Final, TypeAlias, TypeVar, cast
 from pydantic import JsonValue, TypeAdapter, ValidationError
 from typing_extensions import ReadOnly, TypedDict
 
-from litellm import verbose_logger
-from litellm.exceptions import BadRequestError
-from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
-from litellm.litellm_core_utils.get_supported_openai_params import get_supported_openai_params
-from litellm.litellm_core_utils.json_validation_rule import normalize_json_schema_types, normalize_tool_schema
-from litellm.litellm_core_utils.prompt_templates.common_utils import filter_value_from_dict
-from litellm.types.llms.openai import (
+from embrouter import verbose_logger
+from embrouter.exceptions import BadRequestError
+from embrouter.embrouter_core_utils.get_llm_provider_logic import get_llm_provider
+from embrouter.embrouter_core_utils.get_supported_openai_params import get_supported_openai_params
+from embrouter.embrouter_core_utils.json_validation_rule import normalize_json_schema_types, normalize_tool_schema
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import filter_value_from_dict
+from embrouter.types.llms.openai import (
     AllMessageValues,
     ChatCompletionAssistantMessage,
     ChatCompletionAssistantToolCall,
@@ -25,8 +25,8 @@ from litellm.types.llms.openai import (
     ChatCompletionToolParam,
     ChatCompletionUserMessage,
 )
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import (
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import (
     AdapterCompletionStreamWrapper,
     ChatCompletionDeltaCustomToolCall,
     ChatCompletionDeltaToolCall,
@@ -263,7 +263,7 @@ class GoogleGenAIStreamWrapper(AdapterCompletionStreamWrapper):
         """
         Async version of google_genai_sse_wrapper.
         """
-        from litellm.types.utils import ModelResponseStream
+        from embrouter.types.utils import ModelResponseStream
 
         async for chunk in self.completion_stream:
             if isinstance(chunk, dict):
@@ -288,7 +288,7 @@ class GoogleGenAIStreamWrapper(AdapterCompletionStreamWrapper):
 
 
 class GoogleGenAIAdapter:
-    """Adapter for transforming Google GenAI generate_content requests to/from litellm.completion format"""
+    """Adapter for transforming Google GenAI generate_content requests to/from embrouter.completion format"""
 
     _parse_tool_call_args: Callable[[str], Mapping[str, object]] = staticmethod(json.loads)
 
@@ -300,11 +300,11 @@ class GoogleGenAIAdapter:
         model: str,
         contents: _JsonDictList | _JsonDict,
         config: Mapping[str, object] | None = None,
-        litellm_params: GenericLiteLLMParams | None = None,
+        embrouter_params: GenericEmbRouterParams | None = None,
         **kwargs,
     ) -> dict[str, Any]:
         """
-        Transform generate_content request to litellm completion format
+        Transform generate_content request to embrouter completion format
 
         Args:
             model: The model name
@@ -364,7 +364,7 @@ class GoogleGenAIAdapter:
                 completion_request["stop"] = config["stopSequences"]
         response_format: Final = _translate_response_format(config)
         if response_format is not None and _deployment_supports_response_format(
-            model, litellm_params.custom_llm_provider if litellm_params else None
+            model, embrouter_params.custom_llm_provider if embrouter_params else None
         ):
             completion_request["response_format"] = response_format
 
@@ -385,35 +385,35 @@ class GoogleGenAIAdapter:
                 completion_request["tool_choice"] = tool_choice
 
         #########################################################
-        # forward any litellm specific params
+        # forward any embrouter specific params
         #########################################################
         completion_request_dict = dict(completion_request)
-        if litellm_params:
-            completion_request_dict = self._add_generic_litellm_params_to_request(
+        if embrouter_params:
+            completion_request_dict = self._add_generic_embrouter_params_to_request(
                 completion_request_dict=completion_request_dict,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
             )
 
         return completion_request_dict
 
-    def _add_generic_litellm_params_to_request(
+    def _add_generic_embrouter_params_to_request(
         self,
         completion_request_dict: _JsonDict,
-        litellm_params: GenericLiteLLMParams | None = None,
+        embrouter_params: GenericEmbRouterParams | None = None,
     ) -> _JsonDict:
-        """Add generic litellm params to request. e.g add api_base, api_key, api_version, etc.
+        """Add generic embrouter params to request. e.g add api_base, api_key, api_version, etc.
 
         Args:
             completion_request_dict: Dict[str, Any]
-            litellm_params: GenericLiteLLMParams
+            embrouter_params: GenericEmbRouterParams
 
         Returns:
             Dict[str, Any]
         """
-        allowed_fields: Final = GenericLiteLLMParams.model_fields.keys()
-        if litellm_params:
-            litellm_dict: Final[_JsonDict] = litellm_params.model_dump(exclude_none=True)
-            for key, value in litellm_dict.items():
+        allowed_fields: Final = GenericEmbRouterParams.model_fields.keys()
+        if embrouter_params:
+            embrouter_dict: Final[_JsonDict] = embrouter_params.model_dump(exclude_none=True)
+            for key, value in embrouter_dict.items():
                 if key in allowed_fields:
                     completion_request_dict[key] = value
         return completion_request_dict
@@ -589,10 +589,10 @@ class GoogleGenAIAdapter:
         response: ModelResponse,
     ) -> _JsonDict:
         """
-        Transform litellm completion response to Google GenAI generate_content format
+        Transform embrouter completion response to Google GenAI generate_content format
 
         Args:
-            response: ModelResponse from litellm.completion
+            response: ModelResponse from embrouter.completion
 
         Returns:
             Dict in Google GenAI generate_content response format
@@ -644,10 +644,10 @@ class GoogleGenAIAdapter:
         wrapper: GoogleGenAIStreamWrapper,
     ) -> Mapping[str, object] | None:
         """
-        Transform streaming litellm completion chunk to Google GenAI generate_content format
+        Transform streaming embrouter completion chunk to Google GenAI generate_content format
 
         Args:
-            response: Streaming ModelResponse chunk from litellm.completion
+            response: Streaming ModelResponse chunk from embrouter.completion
             wrapper: GoogleGenAIStreamWrapper instance
 
         Returns:

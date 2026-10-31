@@ -7,18 +7,18 @@ import unittest
 
 import pytest
 
-from litellm.google_genai.main import agenerate_content
+from embrouter.google_genai.main import agenerate_content
 
 
 
 
-import litellm
+import embrouter
 
 
 def test_adapter_import():
     """Test that the adapter can be imported successfully"""
-    from litellm.google_genai.adapters.handler import GenerateContentToCompletionHandler
-    from litellm.google_genai.adapters.transformation import GoogleGenAIAdapter
+    from embrouter.google_genai.adapters.handler import GenerateContentToCompletionHandler
+    from embrouter.google_genai.adapters.transformation import GoogleGenAIAdapter
 
     # Should not raise any exceptions
     assert GoogleGenAIAdapter is not None
@@ -27,7 +27,7 @@ def test_adapter_import():
 
 def test_single_content_transformation():
     """Test the transformation from generate_content to completion format with single content"""
-    from litellm.google_genai.adapters.transformation import GoogleGenAIAdapter
+    from embrouter.google_genai.adapters.transformation import GoogleGenAIAdapter
 
     adapter = GoogleGenAIAdapter()
 
@@ -52,7 +52,7 @@ def test_single_content_transformation():
 
 def test_list_contents_transformation():
     """Test transformation with list of contents (conversation history)"""
-    from litellm.google_genai.adapters.transformation import GoogleGenAIAdapter
+    from embrouter.google_genai.adapters.transformation import GoogleGenAIAdapter
 
     adapter = GoogleGenAIAdapter()
 
@@ -88,7 +88,7 @@ def test_list_contents_transformation():
 
 def test_config_parameter_mapping():
     """Test that config parameters are correctly mapped"""
-    from litellm.google_genai.adapters.transformation import GoogleGenAIAdapter
+    from embrouter.google_genai.adapters.transformation import GoogleGenAIAdapter
 
     adapter = GoogleGenAIAdapter()
 
@@ -114,7 +114,7 @@ def test_config_parameter_mapping():
 
 def test_tools_transformation():
     """Test transformation of Google GenAI tools to OpenAI tools format"""
-    from litellm.google_genai.adapters.transformation import GoogleGenAIAdapter
+    from embrouter.google_genai.adapters.transformation import GoogleGenAIAdapter
 
     adapter = GoogleGenAIAdapter()
 
@@ -180,7 +180,7 @@ def test_tools_transformation():
 
 def test_tool_config_transformation():
     """Test transformation of Google GenAI tool_config to OpenAI tool_choice"""
-    from litellm.google_genai.adapters.transformation import GoogleGenAIAdapter
+    from embrouter.google_genai.adapters.transformation import GoogleGenAIAdapter
 
     adapter = GoogleGenAIAdapter()
 
@@ -206,7 +206,7 @@ def test_tool_config_transformation():
 
 def test_function_call_message_transformation():
     """Test transformation of messages with function calls"""
-    from litellm.google_genai.adapters.transformation import GoogleGenAIAdapter
+    from embrouter.google_genai.adapters.transformation import GoogleGenAIAdapter
 
     adapter = GoogleGenAIAdapter()
 
@@ -257,7 +257,7 @@ def test_function_call_message_transformation():
 
 def test_function_response_message_transformation():
     """Test transformation of messages with function responses"""
-    from litellm.google_genai.adapters.transformation import GoogleGenAIAdapter
+    from embrouter.google_genai.adapters.transformation import GoogleGenAIAdapter
 
     adapter = GoogleGenAIAdapter()
 
@@ -308,13 +308,13 @@ def test_function_response_message_transformation():
 
 def test_completion_to_generate_content_with_tool_calls():
     """Test transforming completion response with tool calls back to generate_content format"""
-    from litellm.google_genai.adapters.transformation import GoogleGenAIAdapter
-    from litellm.types.llms.openai import (
+    from embrouter.google_genai.adapters.transformation import GoogleGenAIAdapter
+    from embrouter.types.llms.openai import (
         ChatCompletionAssistantMessage,
         ChatCompletionAssistantToolCall,
         ChatCompletionToolCallFunctionChunk,
     )
-    from litellm.types.utils import Choices, ModelResponse, Usage
+    from embrouter.types.utils import Choices, ModelResponse, Usage
 
     adapter = GoogleGenAIAdapter()
 
@@ -377,11 +377,11 @@ def test_completion_to_generate_content_with_tool_calls():
 
 def test_streaming_tool_calls_transformation():
     """Test streaming transformation with tool calls"""
-    from litellm.google_genai.adapters.transformation import (
+    from embrouter.google_genai.adapters.transformation import (
         GoogleGenAIAdapter,
         GoogleGenAIStreamWrapper,
     )
-    from litellm.types.utils import (
+    from embrouter.types.utils import (
         ChatCompletionDeltaToolCall,
         Delta,
         Function,
@@ -438,11 +438,11 @@ def test_streaming_tool_calls_transformation():
 
 def test_streaming_partial_tool_calls_accumulation():
     """Test accumulation of partial tool call arguments across streaming chunks"""
-    from litellm.google_genai.adapters.transformation import (
+    from embrouter.google_genai.adapters.transformation import (
         GoogleGenAIAdapter,
         GoogleGenAIStreamWrapper,
     )
-    from litellm.types.utils import (
+    from embrouter.types.utils import (
         ChatCompletionDeltaToolCall,
         Delta,
         Function,
@@ -536,7 +536,7 @@ def test_streaming_partial_tool_calls_accumulation():
         function_call["name"] == "read_file"
     ), f"Expected function name 'read_file', got {function_call['name']}"
     assert (
-        function_call["args"]["path"] == "/Users/ishaanjaffer/Github/litellm/README.md"
+        function_call["args"]["path"] == "/Users/ishaanjaffer/Github/embrouter/README.md"
     ), f"Expected complete path, got {function_call['args']}"
 
     # Verify that accumulated_tool_calls is cleaned up after completion
@@ -547,11 +547,11 @@ def test_streaming_partial_tool_calls_accumulation():
 
 def test_streaming_multiple_partial_tool_calls():
     """Test accumulation of multiple partial tool calls simultaneously"""
-    from litellm.google_genai.adapters.transformation import (
+    from embrouter.google_genai.adapters.transformation import (
         GoogleGenAIAdapter,
         GoogleGenAIStreamWrapper,
     )
-    from litellm.types.utils import (
+    from embrouter.types.utils import (
         ChatCompletionDeltaToolCall,
         Delta,
         Function,
@@ -646,7 +646,7 @@ def test_streaming_multiple_partial_tool_calls():
 
 def test_mixed_content_transformation():
     """Test transformation of mixed content (text + function calls)"""
-    from litellm.google_genai.adapters.transformation import GoogleGenAIAdapter
+    from embrouter.google_genai.adapters.transformation import GoogleGenAIAdapter
 
     adapter = GoogleGenAIAdapter()
 
@@ -707,9 +707,9 @@ def test_mixed_content_transformation():
 
 def test_completion_to_generate_content_transformation():
     """Test transforming a completion response back to generate_content format"""
-    from litellm.google_genai.adapters.transformation import GoogleGenAIAdapter
-    from litellm.types.llms.openai import ChatCompletionAssistantMessage
-    from litellm.types.utils import Choices, ModelResponse, Usage
+    from embrouter.google_genai.adapters.transformation import GoogleGenAIAdapter
+    from embrouter.types.llms.openai import ChatCompletionAssistantMessage
+    from embrouter.types.utils import Choices, ModelResponse, Usage
 
     adapter = GoogleGenAIAdapter()
 
@@ -761,7 +761,7 @@ def test_completion_to_generate_content_transformation():
 
 def test_finish_reason_mapping():
     """Test that finish reasons are correctly mapped"""
-    from litellm.google_genai.adapters.transformation import GoogleGenAIAdapter
+    from embrouter.google_genai.adapters.transformation import GoogleGenAIAdapter
 
     adapter = GoogleGenAIAdapter()
 
@@ -782,7 +782,7 @@ def test_finish_reason_mapping():
 
 def test_empty_content_handling():
     """Test handling of empty or missing content"""
-    from litellm.google_genai.adapters.transformation import GoogleGenAIAdapter
+    from embrouter.google_genai.adapters.transformation import GoogleGenAIAdapter
 
     adapter = GoogleGenAIAdapter()
 
@@ -802,7 +802,7 @@ def test_empty_content_handling():
 
 def test_handler_parameter_exclusion():
     """Test that the handler properly excludes Google GenAI-specific parameters"""
-    from litellm.google_genai.adapters.handler import GenerateContentToCompletionHandler
+    from embrouter.google_genai.adapters.handler import GenerateContentToCompletionHandler
 
     # Test parameters that should be excluded
     model = "gpt-3.5-turbo"
@@ -843,29 +843,29 @@ def test_handler_parameter_exclusion():
     ],
 )
 def test_api_base_and_api_key_passthrough(function_name, is_async, is_stream):
-    """Test that api_base and api_key parameters are passed through to litellm.completion/acompletion when using generate_content"""
+    """Test that api_base and api_key parameters are passed through to embrouter.completion/acompletion when using generate_content"""
     import asyncio
     import unittest.mock
 
-    litellm._turn_on_debug()
+    embrouter._turn_on_debug()
 
     # Import the specific function being tested
     if function_name == "generate_content":
-        from litellm.google_genai.main import generate_content as test_function
+        from embrouter.google_genai.main import generate_content as test_function
     elif function_name == "agenerate_content":
-        from litellm.google_genai.main import agenerate_content as test_function
+        from embrouter.google_genai.main import agenerate_content as test_function
     elif function_name == "generate_content_stream":
-        from litellm.google_genai.main import generate_content_stream as test_function
+        from embrouter.google_genai.main import generate_content_stream as test_function
     elif function_name == "agenerate_content_stream":
-        from litellm.google_genai.main import agenerate_content_stream as test_function
+        from embrouter.google_genai.main import agenerate_content_stream as test_function
 
     # Test input parameters
     model = "gpt-3.5-turbo"
     test_api_base = "https://test-api.example.com"
     test_api_key = "test-api-key-123"
 
-    # Mock the appropriate litellm function (completion vs acompletion)
-    mock_target = "litellm.acompletion" if is_async else "litellm.completion"
+    # Mock the appropriate embrouter function (completion vs acompletion)
+    mock_target = "embrouter.acompletion" if is_async else "embrouter.completion"
 
     with unittest.mock.patch(mock_target) as mock_completion:
         # Mock return value
@@ -905,10 +905,10 @@ def test_api_base_and_api_key_passthrough(function_name, is_async, is_stream):
             # Ignore any errors from the mock response processing
             pass
 
-        # Verify that the appropriate litellm function was called
+        # Verify that the appropriate embrouter function was called
         mock_completion.assert_called_once()
 
-        # Get the arguments passed to litellm.completion/acompletion
+        # Get the arguments passed to embrouter.completion/acompletion
         call_args, call_kwargs = mock_completion.call_args
 
         # Verify that api_base and api_key were passed through
@@ -945,7 +945,7 @@ def test_api_base_and_api_key_passthrough(function_name, is_async, is_stream):
 
 def test_shared_schema_normalization_utilities():
     """Test the shared schema normalization utility functions work correctly"""
-    from litellm.litellm_core_utils.json_validation_rule import (
+    from embrouter.embrouter_core_utils.json_validation_rule import (
         normalize_json_schema_types,
         normalize_tool_schema,
     )
@@ -1024,9 +1024,9 @@ async def test_google_generate_content_with_openai():
     """ """
     import unittest.mock
 
-    from litellm.types.llms.openai import ChatCompletionAssistantMessage
-    from litellm.types.router import GenericLiteLLMParams
-    from litellm.types.utils import Choices, ModelResponse, Usage
+    from embrouter.types.llms.openai import ChatCompletionAssistantMessage
+    from embrouter.types.router import GenericEmbRouterParams
+    from embrouter.types.utils import Choices, ModelResponse, Usage
 
     # Create a proper mock response object with expected attributes
     mock_message = ChatCompletionAssistantMessage(
@@ -1048,7 +1048,7 @@ async def test_google_generate_content_with_openai():
 
     # Use AsyncMock for proper async function mocking - patch at the module level where it's imported
     with unittest.mock.patch(
-        "litellm.google_genai.main.litellm.acompletion",
+        "embrouter.google_genai.main.embrouter.acompletion",
         new_callable=unittest.mock.AsyncMock,
     ) as mock_completion:
         # Set the return value directly on the MagicMock
@@ -1063,9 +1063,9 @@ async def test_google_generate_content_with_openai():
             ],
         )
 
-        # Print the request args sent to litellm.completion
+        # Print the request args sent to embrouter.completion
         call_args, call_kwargs = mock_completion.call_args
-        print("Arguments sent to litellm.completion:")
+        print("Arguments sent to embrouter.completion:")
         print(f"Args: {call_args}")
         print(f"Kwargs: {call_kwargs}")
 
@@ -1075,10 +1075,10 @@ async def test_google_generate_content_with_openai():
         # Print the response for verification
         print(f"Response: {response}")
         #########################################################
-        # validate only expected fields were sent to litellm.completion
+        # validate only expected fields were sent to embrouter.completion
         passed_fields = set(call_kwargs.keys())
-        # remove any GenericLiteLLMParams fields
-        passed_fields = passed_fields - set(GenericLiteLLMParams.model_fields.keys())
+        # remove any GenericEmbRouterParams fields
+        passed_fields = passed_fields - set(GenericEmbRouterParams.model_fields.keys())
         # extra_headers is now explicitly passed through for providers that need custom headers
         assert passed_fields == set(
             ["model", "messages", "extra_headers"]
@@ -1093,7 +1093,7 @@ def test_validate_environment_sets_x_goog_api_key():
     This is the mechanism by which Google AI Studio (Gemini) requests get
     authenticated via header instead of a query-string ?key= parameter.
     """
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
 
@@ -1108,7 +1108,7 @@ def test_validate_environment_sets_x_goog_api_key():
         model="gemini-2.5-flash",
         messages=[],
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
     )
 
     assert "x-goog-api-key" in headers, f"x-goog-api-key not in headers: {headers}"
@@ -1123,7 +1123,7 @@ def test_get_gemini_url_excludes_api_key():
     API keys in URLs leak through httpx error tracebacks. The key must be
     sent via the x-goog-api-key header instead.
     """
-    from litellm.llms.vertex_ai.common_utils import _get_gemini_url
+    from embrouter.llms.vertex_ai.common_utils import _get_gemini_url
 
     for mode in ("chat", "embedding", "batch_embedding", "count_tokens"):
         url, _ = _get_gemini_url(
@@ -1141,7 +1141,7 @@ def test_get_gemini_url_excludes_api_key():
 
 def test_inline_data_base64_image_transformation():
     """Test transformation of Gemini inline_data (Base64 images) to OpenAI format"""
-    from litellm.google_genai.adapters.transformation import GoogleGenAIAdapter
+    from embrouter.google_genai.adapters.transformation import GoogleGenAIAdapter
 
     adapter = GoogleGenAIAdapter()
 
@@ -1194,7 +1194,7 @@ def test_inline_data_base64_image_transformation():
 
 def test_inline_data_image_only_transformation():
     """Test transformation of Gemini inline_data with only image (no text)"""
-    from litellm.google_genai.adapters.transformation import GoogleGenAIAdapter
+    from embrouter.google_genai.adapters.transformation import GoogleGenAIAdapter
 
     adapter = GoogleGenAIAdapter()
 
@@ -1237,7 +1237,7 @@ def test_inline_data_image_only_transformation():
 
 def test_inline_data_backward_compatibility_text_only():
     """Test that pure text messages still use simple string format (backward compatibility)"""
-    from litellm.google_genai.adapters.transformation import GoogleGenAIAdapter
+    from embrouter.google_genai.adapters.transformation import GoogleGenAIAdapter
 
     adapter = GoogleGenAIAdapter()
 
@@ -1265,7 +1265,7 @@ def test_inline_data_backward_compatibility_text_only():
 
 def test_tools_transformation_reads_parameters_declaration():
     """The google-genai SDK and REST callers send `parameters` (Gemini Schema types), not `parametersJsonSchema`"""
-    from litellm.google_genai.adapters.transformation import GoogleGenAIAdapter
+    from embrouter.google_genai.adapters.transformation import GoogleGenAIAdapter
 
     adapter = GoogleGenAIAdapter()
     tools = [
@@ -1301,7 +1301,7 @@ def test_tools_transformation_reads_parameters_declaration():
 
 
 def test_tools_transformation_prefers_parameters_json_schema_over_parameters():
-    from litellm.google_genai.adapters.transformation import GoogleGenAIAdapter
+    from embrouter.google_genai.adapters.transformation import GoogleGenAIAdapter
 
     adapter = GoogleGenAIAdapter()
     tools = [
@@ -1357,7 +1357,7 @@ PARK_TIP_JSON_SCHEMA = {
     ],
 )
 def test_response_schema_config_maps_to_json_schema_response_format(mime_type_key, schema_key, schema):
-    from litellm.google_genai.adapters.transformation import GoogleGenAIAdapter
+    from embrouter.google_genai.adapters.transformation import GoogleGenAIAdapter
 
     adapter = GoogleGenAIAdapter()
     config = {mime_type_key: "application/json", schema_key: schema}
@@ -1373,7 +1373,7 @@ def test_response_schema_config_maps_to_json_schema_response_format(mime_type_ke
 
 
 def test_response_schema_drops_gemini_property_ordering_at_every_level():
-    from litellm.google_genai.adapters.transformation import GoogleGenAIAdapter
+    from embrouter.google_genai.adapters.transformation import GoogleGenAIAdapter
 
     sdk_pydantic_schema = {
         "type": "OBJECT",
@@ -1427,7 +1427,7 @@ def test_response_schema_drops_gemini_property_ordering_at_every_level():
 
 
 def test_response_schema_without_mime_type_still_maps_to_json_schema():
-    from litellm.google_genai.adapters.transformation import GoogleGenAIAdapter
+    from embrouter.google_genai.adapters.transformation import GoogleGenAIAdapter
 
     adapter = GoogleGenAIAdapter()
 
@@ -1456,7 +1456,7 @@ def test_response_schema_without_mime_type_still_maps_to_json_schema():
     ],
 )
 def test_output_config_outside_object_schema_leaves_response_format_unset(config):
-    from litellm.google_genai.adapters.transformation import GoogleGenAIAdapter
+    from embrouter.google_genai.adapters.transformation import GoogleGenAIAdapter
 
     adapter = GoogleGenAIAdapter()
 
@@ -1468,8 +1468,8 @@ def test_output_config_outside_object_schema_leaves_response_format_unset(config
 
 
 def test_response_schema_is_not_sent_to_deployment_without_response_format_support():
-    from litellm.google_genai.adapters.transformation import GoogleGenAIAdapter
-    from litellm.types.router import GenericLiteLLMParams
+    from embrouter.google_genai.adapters.transformation import GoogleGenAIAdapter
+    from embrouter.types.router import GenericEmbRouterParams
 
     adapter = GoogleGenAIAdapter()
     config = {"responseMimeType": "application/json", "responseSchema": PARK_TIP_GEMINI_SCHEMA, "temperature": 0.2}
@@ -1478,7 +1478,7 @@ def test_response_schema_is_not_sent_to_deployment_without_response_format_suppo
         model="openai/gpt-4",
         contents={"role": "user", "parts": [{"text": "Summarize EPCOT"}]},
         config=config,
-        litellm_params=GenericLiteLLMParams(custom_llm_provider="openai"),
+        embrouter_params=GenericEmbRouterParams(custom_llm_provider="openai"),
     )
 
     assert "response_format" not in completion_request
@@ -1486,7 +1486,7 @@ def test_response_schema_is_not_sent_to_deployment_without_response_format_suppo
 
 
 def test_response_schema_is_sent_when_provider_cannot_be_resolved():
-    from litellm.google_genai.adapters.transformation import GoogleGenAIAdapter
+    from embrouter.google_genai.adapters.transformation import GoogleGenAIAdapter
 
     adapter = GoogleGenAIAdapter()
 
@@ -1502,7 +1502,7 @@ def test_response_schema_is_sent_when_provider_cannot_be_resolved():
 def test_pydantic_generation_config_is_tolerated():
     from pydantic import BaseModel
 
-    from litellm.google_genai.adapters.transformation import GoogleGenAIAdapter
+    from embrouter.google_genai.adapters.transformation import GoogleGenAIAdapter
 
     class SdkStyleConfig(BaseModel):
         response_mime_type: str = "application/json"
@@ -1519,7 +1519,7 @@ def test_pydantic_generation_config_is_tolerated():
 
 
 def test_null_parameters_json_schema_falls_back_to_parameters():
-    from litellm.google_genai.adapters.transformation import GoogleGenAIAdapter
+    from embrouter.google_genai.adapters.transformation import GoogleGenAIAdapter
 
     adapter = GoogleGenAIAdapter()
     tools = [
@@ -1546,7 +1546,7 @@ def test_null_parameters_json_schema_falls_back_to_parameters():
 
 @pytest.mark.parametrize("parameters", [5, "", "x", [1], True])
 def test_non_object_tool_parameters_are_dropped_instead_of_forwarded(parameters):
-    from litellm.google_genai.adapters.transformation import GoogleGenAIAdapter
+    from embrouter.google_genai.adapters.transformation import GoogleGenAIAdapter
 
     adapter = GoogleGenAIAdapter()
     tools = [{"functionDeclarations": [{"name": "lookup", "description": "Look it up", "parameters": parameters}]}]
@@ -1559,11 +1559,11 @@ def test_non_object_tool_parameters_are_dropped_instead_of_forwarded(parameters)
 
 
 def test_streaming_chunk_has_no_top_level_text():
-    from litellm.google_genai.adapters.transformation import (
+    from embrouter.google_genai.adapters.transformation import (
         GoogleGenAIAdapter,
         GoogleGenAIStreamWrapper,
     )
-    from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices
+    from embrouter.types.utils import Delta, ModelResponseStream, StreamingChoices
 
     adapter = GoogleGenAIAdapter()
     mock_response = ModelResponseStream(

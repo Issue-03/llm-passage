@@ -28,7 +28,7 @@ const labelWithHint = (label: React.ReactNode, hint: string): React.ReactNode =>
 
 interface ModelInfo {
   model_name: string;
-  litellm_params: {
+  embrouter_params: {
     model: string;
   };
   model_info: {

@@ -9,7 +9,7 @@ vi.mock("@/lib/toast", () => ({
 }));
 
 vi.mock("@/components/networking", () => ({
-  getGlobalLitellmHeaderName: () => "Authorization",
+  getGlobalEmbrouterHeaderName: () => "Authorization",
 }));
 
 const jsonResponse = (status: number, body: unknown) =>

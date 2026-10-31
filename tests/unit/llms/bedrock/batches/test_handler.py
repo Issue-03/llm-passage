@@ -18,7 +18,7 @@ import pytest
 from botocore.awsrequest import AWSPreparedRequest, AWSResponse
 
 
-from litellm.llms.bedrock.batches.handler import (  # noqa: E402
+from embrouter.llms.bedrock.batches.handler import (  # noqa: E402
     BedrockBatchesHandler,
     _extract_job_id_from_arn,
     _extract_region_from_bedrock_arn,
@@ -29,7 +29,7 @@ from litellm.llms.bedrock.batches.handler import (  # noqa: E402
 JOB_ID = "abc1234567"
 JOB_ARN = f"arn:aws:bedrock:us-west-2:123456789012:model-invocation-job/{JOB_ID}"
 INPUT_URI = "s3://my-bucket/inputs/qwen3-235b-a22b-2507-batch.jsonl"
-OUTPUT_PREFIX = "s3://my-bucket/litellm-batch-outputs/litellm-bedrock-files-qwen-uuid/"
+OUTPUT_PREFIX = "s3://my-bucket/embrouter-batch-outputs/embrouter-bedrock-files-qwen-uuid/"
 SUBMIT_TIME = datetime(2026, 4, 28, 12, 0, 0, tzinfo=timezone.utc)
 END_TIME = datetime(2026, 4, 28, 12, 30, 0, tzinfo=timezone.utc)
 
@@ -37,7 +37,7 @@ END_TIME = datetime(2026, 4, 28, 12, 30, 0, tzinfo=timezone.utc)
 def _fake_boto3_response(status: str = "Completed", end_time=END_TIME):
     return {
         "jobArn": JOB_ARN,
-        "jobName": "litellm-bedrock-files-qwen-uuid",
+        "jobName": "embrouter-bedrock-files-qwen-uuid",
         "modelId": "bedrock/qwen.qwen3-235b-a22b-2507-v1:0",
         "status": status,
         "submitTime": SUBMIT_TIME,
@@ -56,7 +56,7 @@ def patched_boto3():
     with (
         patch("boto3.client", return_value=fake_client) as boto_client_factory,
         patch(
-            "litellm.llms.bedrock.batches.transformation.BedrockBatchesConfig.get_credentials",
+            "embrouter.llms.bedrock.batches.transformation.BedrockBatchesConfig.get_credentials",
             return_value=MagicMock(access_key="AKIA", secret_key="SECRET", token=None),
         ),
     ):
@@ -474,13 +474,13 @@ def test_cancel_batch_reraises_other_client_errors(patched_boto3):
     fake_client.get_model_invocation_job.assert_not_called()
 
 
-def test_litellm_cancel_batch_dispatches_to_bedrock(patched_boto3):
-    import litellm
+def test_embrouter_cancel_batch_dispatches_to_bedrock(patched_boto3):
+    import embrouter
 
     fake_client, _ = patched_boto3
     fake_client.get_model_invocation_job.return_value = _fake_boto3_response(status="Stopped")
 
-    batch = litellm.cancel_batch(batch_id=JOB_ARN, custom_llm_provider="bedrock")
+    batch = embrouter.cancel_batch(batch_id=JOB_ARN, custom_llm_provider="bedrock")
 
     fake_client.stop_model_invocation_job.assert_called_once_with(jobIdentifier=JOB_ARN)
     assert batch.status == "cancelled"
@@ -494,7 +494,7 @@ class _TagGatedSTSClient:
         self._access_key_id = access_key_id
 
     def get_caller_identity(self):
-        return {"Arn": "arn:aws:iam::111111111111:user/litellm-proxy-pod"}
+        return {"Arn": "arn:aws:iam::111111111111:user/embrouter-proxy-pod"}
 
     def assume_role(self, **params):
         from botocore.exceptions import ClientError
@@ -534,8 +534,8 @@ def test_handle_model_invocation_job_status_builds_the_client_from_the_tagged_se
             batch_id=JOB_ARN,
             aws_access_key_id="AKIABATCHSTATUSCALLER",
             aws_secret_access_key="pod-caller-secret",
-            aws_role_name="arn:aws:iam::999999999999:role/litellm-batch-role",
-            aws_session_name="litellm-batch-session",
+            aws_role_name="arn:aws:iam::999999999999:role/embrouter-batch-role",
+            aws_session_name="embrouter-batch-session",
             aws_session_tags=tags,
         )
 
@@ -545,7 +545,7 @@ def test_handle_model_invocation_job_status_builds_the_client_from_the_tagged_se
 
 def test_cancel_batch_stops_and_polls_the_job_with_the_tagged_session(monkeypatch):
     """Cancelling on a tag-gated role must forward the deployment's session tags to both the stop and status calls."""
-    import litellm
+    import embrouter
 
     monkeypatch.delenv("AWS_WEB_IDENTITY_TOKEN_FILE", raising=False)
     monkeypatch.delenv("AWS_ROLE_ARN", raising=False)
@@ -561,13 +561,13 @@ def test_cancel_batch_stops_and_polls_the_job_with_the_tagged_session(monkeypatc
         return fake_bedrock
 
     with patch("boto3.client", side_effect=boto3_client):
-        batch = litellm.cancel_batch(
+        batch = embrouter.cancel_batch(
             batch_id=JOB_ARN,
             custom_llm_provider="bedrock",
             aws_access_key_id="AKIABATCHCANCELCALLER",
             aws_secret_access_key="pod-caller-secret",
-            aws_role_name="arn:aws:iam::999999999999:role/litellm-batch-role",
-            aws_session_name="litellm-batch-session",
+            aws_role_name="arn:aws:iam::999999999999:role/embrouter-batch-role",
+            aws_session_name="embrouter-batch-session",
             aws_session_tags=tags,
         )
 

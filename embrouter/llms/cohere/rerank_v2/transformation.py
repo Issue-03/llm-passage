@@ -1,7 +1,7 @@
 from typing import Any, Final
 
-from litellm.llms.cohere.rerank.transformation import CohereRerankConfig
-from litellm.types.rerank import OptionalRerankParams, RerankRequest
+from embrouter.llms.cohere.rerank.transformation import CohereRerankConfig
+from embrouter.types.rerank import OptionalRerankParams, RerankRequest
 
 
 class CohereRerankV2Config(CohereRerankConfig):
@@ -72,7 +72,7 @@ class CohereRerankV2Config(CohereRerankConfig):
         model: str,
         optional_rerank_params: dict,
         headers: dict,
-        litellm_params: dict | None = None,
+        embrouter_params: dict | None = None,
     ) -> dict:
         if "query" not in optional_rerank_params:
             raise ValueError("query is required for Cohere rerank")

@@ -6,7 +6,7 @@ This will allow all keys starting with "my-custom-key" to pass through.
 
 from fastapi import Request
 
-from litellm.proxy._types import ProxyException, UserAPIKeyAuth
+from embrouter.proxy._types import ProxyException, UserAPIKeyAuth
 
 
 async def user_api_key_auth(request: Request, api_key: str) -> UserAPIKeyAuth | str:

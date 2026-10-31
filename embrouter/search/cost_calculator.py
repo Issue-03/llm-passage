@@ -8,7 +8,7 @@ from typing import Final
 
 from pydantic import TypeAdapter, ValidationError
 
-from litellm.utils import get_model_info
+from embrouter.utils import get_model_info
 
 PROVIDER_USAGE_ADAPTER: Final[TypeAdapter[tuple[Mapping[str, object], ...]]] = TypeAdapter(
     tuple[Mapping[str, object], ...]
@@ -50,7 +50,7 @@ def search_provider_cost_per_query(
         Tuple of (input_cost, output_cost) where output_cost is always 0.0
     """
     if custom_llm_provider == "parallel_ai":
-        from litellm.llms.parallel_ai.search.cost_calculator import (
+        from embrouter.llms.parallel_ai.search.cost_calculator import (
             PARALLEL_AI_USAGE_PARAM,
             parallel_ai_search_cost,
         )

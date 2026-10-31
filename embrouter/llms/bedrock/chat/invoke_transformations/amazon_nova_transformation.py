@@ -13,22 +13,22 @@ from typing import TYPE_CHECKING, Final, TypeVar
 import httpx
 from pydantic import TypeAdapter, ValidationError
 
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.types.llms.bedrock import (
+from embrouter.embrouter_core_utils.embrouter_logging import Logging
+from embrouter.types.llms.bedrock import (
     BedrockInvokeNovaRequest,
     CachePointBlock,
     ContentBlock,
     MessageBlock,
     SystemContentBlock,
 )
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.utils import ModelResponse
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.utils import ModelResponse
 
 from ..converse_transformation import AmazonConverseConfig
 from .base_invoke_transformation import AmazonInvokeConfig
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
 
 _CachePointCarrier = TypeVar("_CachePointCarrier", SystemContentBlock, ContentBlock)
 _INJECTION_POINTS: Final = TypeAdapter(tuple[Mapping[str, object], ...])
@@ -100,7 +100,7 @@ class AmazonInvokeNovaConfig(AmazonInvokeConfig, AmazonConverseConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict[str, object],
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         _transformed_nova_request: Final = AmazonConverseConfig.transform_request(
@@ -108,7 +108,7 @@ class AmazonInvokeNovaConfig(AmazonInvokeConfig, AmazonConverseConfig):
             model=model,
             messages=messages,
             optional_params=_without_tool_config_injection_points(optional_params),
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
         _bedrock_invoke_nova_request: Final = self._inline_cache_points(
@@ -127,7 +127,7 @@ class AmazonInvokeNovaConfig(AmazonInvokeConfig, AmazonConverseConfig):
         request_data: dict,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,
@@ -141,7 +141,7 @@ class AmazonInvokeNovaConfig(AmazonInvokeConfig, AmazonConverseConfig):
             request_data,
             messages,
             optional_params,
-            litellm_params,
+            embrouter_params,
             encoding,
             api_key,
             json_mode,

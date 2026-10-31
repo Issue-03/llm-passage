@@ -4,9 +4,9 @@ This is useful when the proxy is deployed at a different path than the root of t
 
 ## How to use 
 
-**Action** Route the `/litellm` path to the proxy.
+**Action** Route the `/embrouter` path to the proxy.
 
-**Result** The UI will call `/litellm/.well-known/litellm-ui-config` to get the proxy base url and server root path.
+**Result** The UI will call `/embrouter/.well-known/embrouter-ui-config` to get the proxy base url and server root path.
 
 
 

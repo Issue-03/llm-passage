@@ -2,8 +2,8 @@
 
 from typing import Final
 
-from litellm.integrations.otel.model.config import OpenTelemetryV2Config
-from litellm.integrations.otel.presets.utils import ensure_mappers
+from embrouter.integrations.otel.model.config import OpenTelemetryV2Config
+from embrouter.integrations.otel.presets.utils import ensure_mappers
 
 
 def langtrace_preset(

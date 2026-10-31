@@ -4,17 +4,17 @@ from typing import TYPE_CHECKING, Any, Final
 
 import httpx
 
-from litellm.types.rerank import RerankBilledUnits, RerankResponse
-from litellm.types.utils import ModelInfo
+from embrouter.types.rerank import RerankBilledUnits, RerankResponse
+from embrouter.types.utils import ModelInfo
 
 from ..chat.transformation import BaseLLMException
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 
 class BaseRerankConfig(ABC):
@@ -25,7 +25,7 @@ class BaseRerankConfig(ABC):
         model: str,
         api_key: str | None = None,
         optional_params: dict | None = None,
-        litellm_params: Mapping[str, object] | None = None,
+        embrouter_params: Mapping[str, object] | None = None,
     ) -> dict:
         pass
 
@@ -35,7 +35,7 @@ class BaseRerankConfig(ABC):
         model: str,
         optional_rerank_params: dict,
         headers: dict,
-        litellm_params: dict | None = None,
+        embrouter_params: dict | None = None,
     ) -> dict:
         return {}
 
@@ -45,11 +45,11 @@ class BaseRerankConfig(ABC):
         model: str,
         raw_response: httpx.Response,
         model_response: RerankResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_key: str | None = None,
         request_data: dict = {},
         optional_params: dict = {},
-        litellm_params: dict = {},
+        embrouter_params: dict = {},
     ) -> RerankResponse:
         return model_response
 
@@ -110,7 +110,7 @@ class BaseRerankConfig(ABC):
 
         Input:
             - model: str, the model name without provider prefix
-            - custom_llm_provider: str, the provider used for the model. If provided, used to check if the litellm model info is for that provider.
+            - custom_llm_provider: str, the provider used for the model. If provided, used to check if the embrouter model info is for that provider.
             - num_queries: int, the number of queries to calculate the cost for
             - model_info: ModelInfo, the model info for the given model
 

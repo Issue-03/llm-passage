@@ -18,28 +18,28 @@ from fastapi import HTTPException
 from httpx import Response as HttpxResponse
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 
-from litellm._logging import verbose_proxy_logger
-from litellm.compression.compress import get_protected_indices
-from litellm.integrations.custom_guardrail import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.compression.compress import get_protected_indices
+from embrouter.integrations.custom_guardrail import (
     CustomGuardrail,
     log_guardrail_information,  # pyright: ignore[reportUnknownVariableType]  # decorator is untyped in custom_guardrail
 )
-from litellm.litellm_core_utils.prompt_templates.factory import group_tool_exchanges
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.embrouter_core_utils.prompt_templates.factory import group_tool_exchanges
+from embrouter.llms.custom_httpx.http_handler import (
     AsyncHTTPHandler,
     get_async_httpx_client,  # pyright: ignore[reportUnknownVariableType]  # helper is untyped in http_handler
     httpxSpecialProvider,
 )
-from litellm.proxy.guardrails.guardrail_hooks.content_text import content_to_text
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.guardrails import GuardrailEventHooks, Mode
-from litellm.types.utils import GenericGuardrailAPIInputs
+from embrouter.proxy.guardrails.guardrail_hooks.content_text import content_to_text
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.guardrails import GuardrailEventHooks, Mode
+from embrouter.types.utils import GenericGuardrailAPIInputs
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import (
-        Logging as LiteLLMLoggingObj,
+    from embrouter.embrouter_core_utils.embrouter_logging import (
+        Logging as EmbRouterLoggingObj,
     )
-    from litellm.types.proxy.guardrails.guardrail_hooks.typesafe import (
+    from embrouter.types.proxy.guardrails.guardrail_hooks.typesafe import (
         TypeSafeGuardrailConfigModel,
     )
 
@@ -320,7 +320,7 @@ class TypeSafeGuardrail(CustomGuardrail):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict[str, object],
         input_type: Literal["request", "response"],
-        logging_obj: LiteLLMLoggingObj | None = None,
+        logging_obj: EmbRouterLoggingObj | None = None,
     ) -> GenericGuardrailAPIInputs:
         if input_type != "request":
             return inputs
@@ -409,7 +409,7 @@ class TypeSafeGuardrail(CustomGuardrail):
 
     @staticmethod
     def get_config_model() -> type[TypeSafeGuardrailConfigModel] | None:
-        from litellm.types.proxy.guardrails.guardrail_hooks.typesafe import (
+        from embrouter.types.proxy.guardrails.guardrail_hooks.typesafe import (
             TypeSafeGuardrailConfigModel,
         )
 

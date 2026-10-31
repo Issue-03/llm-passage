@@ -11,16 +11,16 @@ from typing import Final, TypedDict
 import httpx
 from typing_extensions import ReadOnly
 
-import litellm
-from litellm import LlmProviders
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.bedrock.chat.invoke_handler import MockResponseIterator
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-from litellm.llms.databricks.streaming_utils import ModelResponseIterator
-from litellm.llms.openai.chat.gpt_transformation import OpenAIGPTConfig
-from litellm.llms.openai.openai import OpenAIConfig
-from litellm.types.utils import CustomStreamingDecoder, ModelResponse
-from litellm.utils import CustomStreamWrapper, ProviderConfigManager
+import embrouter
+from embrouter import LlmProviders
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.bedrock.chat.invoke_handler import MockResponseIterator
+from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from embrouter.llms.databricks.streaming_utils import ModelResponseIterator
+from embrouter.llms.openai.chat.gpt_transformation import OpenAIGPTConfig
+from embrouter.llms.openai.openai import OpenAIConfig
+from embrouter.types.utils import CustomStreamingDecoder, ModelResponse
+from embrouter.utils import CustomStreamWrapper, ProviderConfigManager
 
 from ..common_utils import OpenAILikeBase, OpenAILikeError
 from .transformation import OpenAILikeChatConfig
@@ -55,7 +55,7 @@ async def make_call(
     fake_stream: bool = False,
 ):
     if client is None:
-        client = litellm.module_level_aclient
+        client = embrouter.module_level_aclient
 
     response: Final = await client.post(api_base, headers=headers, data=data, stream=not fake_stream)
 
@@ -90,7 +90,7 @@ def make_sync_call(
     timeout: float | httpx.Timeout | None = None,
 ):
     if client is None:
-        client = litellm.module_level_client  # Create a new client if none provided
+        client = embrouter.module_level_client  # Create a new client if none provided
 
     response: Final = client.post(api_base, headers=headers, data=data, stream=not fake_stream, timeout=timeout)
 
@@ -131,11 +131,11 @@ class OpenAILikeChatHandler(OpenAILikeBase):
         print_verbose: Callable,
         encoding,
         api_key,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         stream,
         data: dict,
         optional_params=None,
-        litellm_params=None,
+        embrouter_params=None,
         logger_fn=None,
         headers={},
         client: AsyncHTTPHandler | None = None,
@@ -179,7 +179,7 @@ class OpenAILikeChatHandler(OpenAILikeBase):
         data: dict,
         base_model: str | None,
         optional_params: dict,
-        litellm_params=None,
+        embrouter_params=None,
         logger_fn=None,
         headers={},
         timeout: float | httpx.Timeout | None = None,
@@ -189,7 +189,7 @@ class OpenAILikeChatHandler(OpenAILikeBase):
             timeout = httpx.Timeout(timeout=600.0, connect=5.0)
 
         if client is None:
-            client = litellm.module_level_aclient
+            client = embrouter.module_level_aclient
 
         try:
             response: Final = await client.post(api_base, headers=headers, data=json.dumps(data), timeout=timeout)
@@ -233,10 +233,10 @@ class OpenAILikeChatHandler(OpenAILikeBase):
         print_verbose: Callable,
         encoding,
         api_key: str | None,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         optional_params: dict,
         acompletion=None,
-        litellm_params: dict = {},
+        embrouter_params: dict = {},
         logger_fn=None,
         headers: dict | None = None,
         timeout: float | httpx.Timeout | None = None,
@@ -307,7 +307,7 @@ class OpenAILikeChatHandler(OpenAILikeBase):
                     logging_obj=logging_obj,
                     optional_params=optional_params,
                     stream=stream,
-                    litellm_params=litellm_params,
+                    embrouter_params=embrouter_params,
                     logger_fn=logger_fn,
                     headers=headers,
                     client=client,
@@ -330,7 +330,7 @@ class OpenAILikeChatHandler(OpenAILikeBase):
                     logging_obj=logging_obj,
                     optional_params=optional_params,
                     stream=stream,
-                    litellm_params=litellm_params,
+                    embrouter_params=embrouter_params,
                     logger_fn=logger_fn,
                     headers=headers,
                     timeout=timeout,

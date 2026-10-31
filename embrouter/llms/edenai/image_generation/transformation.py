@@ -9,18 +9,18 @@ from typing import TYPE_CHECKING, Final
 
 import httpx
 
-from litellm.litellm_core_utils.core_helpers import set_response_cost_in_hidden_params
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.base_llm.image_generation.transformation import BaseImageGenerationConfig
-from litellm.types.llms.openai import AllMessageValues, OpenAIImageGenerationOptionalParams
-from litellm.types.utils import ImageResponse
-from litellm.utils import convert_to_model_response_object
+from embrouter.embrouter_core_utils.core_helpers import set_response_cost_in_hidden_params
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.base_llm.image_generation.transformation import BaseImageGenerationConfig
+from embrouter.types.llms.openai import AllMessageValues, OpenAIImageGenerationOptionalParams
+from embrouter.types.utils import ImageResponse
+from embrouter.utils import convert_to_model_response_object
 
 from ..common_utils import EdenAIException, endpoint_url, json_headers, pick, reported_cost
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.litellm_core_utils.tokenizer import Encoding
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.embrouter_core_utils.tokenizer import Encoding
 
 _SUPPORTED_PARAMS: Final[tuple[OpenAIImageGenerationOptionalParams, ...]] = (
     "background",
@@ -57,7 +57,7 @@ class EdenAIImageGenerationConfig(BaseImageGenerationConfig):
         api_key: str | None,
         model: str,
         optional_params: dict[str, object],  # mutable-ok: inherited contract
-        litellm_params: dict[str, object],  # mutable-ok: inherited contract
+        embrouter_params: dict[str, object],  # mutable-ok: inherited contract
         stream: bool | None = None,
     ) -> str:
         return endpoint_url(api_base, "images/generations")
@@ -68,7 +68,7 @@ class EdenAIImageGenerationConfig(BaseImageGenerationConfig):
         model: str,
         messages: list[AllMessageValues],  # mutable-ok: inherited contract
         optional_params: dict[str, object],  # mutable-ok: inherited contract
-        litellm_params: dict[str, object],  # mutable-ok: inherited contract
+        embrouter_params: dict[str, object],  # mutable-ok: inherited contract
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict[str, object]:  # mutable-ok: inherited contract
@@ -79,7 +79,7 @@ class EdenAIImageGenerationConfig(BaseImageGenerationConfig):
         model: str,
         prompt: str,
         optional_params: dict[str, object],  # mutable-ok: inherited contract
-        litellm_params: dict[str, object],  # mutable-ok: inherited contract
+        embrouter_params: dict[str, object],  # mutable-ok: inherited contract
         headers: dict[str, object],  # mutable-ok: inherited contract
     ) -> dict[str, object]:  # mutable-ok: inherited contract
         return {"model": model, "prompt": prompt, **optional_params}  # mutable-ok: inherited contract
@@ -89,10 +89,10 @@ class EdenAIImageGenerationConfig(BaseImageGenerationConfig):
         model: str,
         raw_response: httpx.Response,
         model_response: ImageResponse,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
         request_data: dict[str, object],  # mutable-ok: inherited contract
         optional_params: dict[str, object],  # mutable-ok: inherited contract
-        litellm_params: dict[str, object],  # mutable-ok: inherited contract
+        embrouter_params: dict[str, object],  # mutable-ok: inherited contract
         encoding: "Encoding | None",
         api_key: str | None = None,
         json_mode: bool | None = None,

@@ -11,18 +11,18 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from litellm.proxy.utils import PrismaClient
+from embrouter.proxy.utils import PrismaClient
 
 
 def test_normalize_scrubs_volatile_keys() -> None:
-    from tests.test_litellm.proxy.utils.prisma_and_spend.conftest import normalize
+    from tests.test_embrouter.proxy.utils.prisma_and_spend.conftest import normalize
 
     out = normalize({"id": 1, "spend": 2.0, "team_id": "t1"})
     assert out == {"id": "<VOLATILE>", "spend": "<VOLATILE>", "team_id": "t1"}
 
 
 def test_normalize_recurses_into_lists() -> None:
-    from tests.test_litellm.proxy.utils.prisma_and_spend.conftest import normalize
+    from tests.test_embrouter.proxy.utils.prisma_and_spend.conftest import normalize
 
     out = normalize([{"id": "x"}, {"team_id": "t"}])
     assert out == [{"id": "<VOLATILE>"}, {"team_id": "t"}]
@@ -30,12 +30,12 @@ def test_normalize_recurses_into_lists() -> None:
 
 def test_mock_prisma_client_has_common_tables(mock_prisma_client: Any) -> None:
     for table in (
-        "litellm_verificationtoken",
-        "litellm_teamtable",
-        "litellm_usertable",
-        "litellm_spendlogs",
-        "litellm_config",
-        "litellm_healthchecktable",
+        "embrouter_verificationtoken",
+        "embrouter_teamtable",
+        "embrouter_usertable",
+        "embrouter_spendlogs",
+        "embrouter_config",
+        "embrouter_healthchecktable",
     ):
         assert hasattr(mock_prisma_client.db, table)
 

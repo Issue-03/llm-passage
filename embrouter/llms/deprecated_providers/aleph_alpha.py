@@ -6,8 +6,8 @@ from typing import Final
 
 import httpx
 
-import litellm
-from litellm.utils import Choices, Message, ModelResponse, Usage
+import embrouter
+from embrouter.utils import Choices, Message, ModelResponse, Usage
 
 
 class AlephAlphaError(Exception):
@@ -74,7 +74,7 @@ class AlephAlphaConfig:
     - `control_log_additive` (boolean; default value: true): Method of applying control to attention scores.
     """
 
-    maximum_tokens: int | None = litellm.max_tokens  # aleph alpha requires max tokens
+    maximum_tokens: int | None = embrouter.max_tokens  # aleph alpha requires max tokens
     minimum_tokens: int | None = None
     echo: bool | None = None
     temperature: int | None = None
@@ -184,14 +184,14 @@ def completion(
     api_key,
     logging_obj,
     optional_params: dict,
-    litellm_params=None,
+    embrouter_params=None,
     logger_fn=None,
     default_max_tokens_to_sample=None,
 ):
     headers: Final = validate_environment(api_key)
 
     ## Load Config
-    config: Final = litellm.AlephAlphaConfig.get_config()
+    config: Final = embrouter.AlephAlphaConfig.get_config()
     for k, v in config.items():
         if (
             k not in optional_params
@@ -230,7 +230,7 @@ def completion(
         additional_args={"complete_input_dict": data},
     )
     ## COMPLETION CALL
-    response: Final = litellm.module_level_client.post(
+    response: Final = embrouter.module_level_client.post(
         completion_url,
         headers=headers,
         data=json.dumps(data),

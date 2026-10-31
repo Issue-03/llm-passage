@@ -13,17 +13,17 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from litellm.constants import (
+from embrouter.constants import (
     SPEND_LOG_CLEANUP_BATCH_SIZE,
     SPEND_LOG_CLEANUP_REMAINING_COUNT_CAP,
     SPEND_LOG_CLEANUP_RUN_BUDGET_SECONDS,
 )
-from litellm.proxy.db.db_transaction_queue.spend_log_cleanup import (
+from embrouter.proxy.db.db_transaction_queue.spend_log_cleanup import (
     SPEND_LOG_CLEANUP_BOUND_SETTINGS,
     SpendLogCleanup,
     TableCleanupResult,
 )
-from litellm.proxy.db.db_transaction_queue.spend_log_cleanup_metrics import (
+from embrouter.proxy.db.db_transaction_queue.spend_log_cleanup_metrics import (
     SpendLogCleanupMetrics,
 )
 
@@ -155,7 +155,7 @@ def test_spend_log_cleanup_cron_scheduler_integration():
     retention_interval = general_settings_interval.get(
         "maximum_spend_logs_retention_interval", "1d"
     )
-    from litellm.litellm_core_utils.duration_parser import duration_in_seconds
+    from embrouter.embrouter_core_utils.duration_parser import duration_in_seconds
 
     interval_seconds = duration_in_seconds(retention_interval)
 
@@ -242,21 +242,21 @@ async def test_cleanup_old_spend_logs_batch_deletion():
 
     # Check the first call argument
     call_args_sql = mock_db.execute_raw.call_args_list[0][0][0]
-    assert 'DELETE FROM "LiteLLM_SpendLogs"' in call_args_sql
+    assert 'DELETE FROM "EmbRouter_SpendLogs"' in call_args_sql
     # must match on the full composite identity: on a partitioned table
     # request_id alone is not unique, and deleting by it would let a client
-    # reusing x-litellm-call-id take out a fresh row alongside the expired one
+    # reusing x-embrouter-call-id take out a fresh row alongside the expired one
     assert 'WHERE ("request_id", "startTime") IN' in call_args_sql
 
     # After spend logs, the derived tool index rows expire on the same cutoff
     tool_index_sql = mock_db.execute_raw.call_args_list[3][0][0]
-    assert 'DELETE FROM "LiteLLM_SpendLogToolIndex"' in tool_index_sql
+    assert 'DELETE FROM "EmbRouter_SpendLogToolIndex"' in tool_index_sql
 
-    # The LiteLLM_DailyToolSpend rollup must outlive spend-log retention: it is
+    # The EmbRouter_DailyToolSpend rollup must outlive spend-log retention: it is
     # the only copy of tool spend history once its per-request sources expire,
     # so spend-log cleanup must never touch it.
     for call in mock_db.execute_raw.call_args_list:
-        assert "LiteLLM_DailyToolSpend" not in call[0][0]
+        assert "EmbRouter_DailyToolSpend" not in call[0][0]
 
 
 @pytest.mark.asyncio
@@ -312,7 +312,7 @@ async def test_cleanup_drops_partitions_when_enabled_and_partitioned():
     partition_manager.is_partitioned = AsyncMock(return_value=True)
     partition_manager.ensure_partitions = AsyncMock(return_value=["p1"])
     partition_manager.drop_partitions_older_than = AsyncMock(
-        return_value=["LiteLLM_SpendLogs_p20260601"]
+        return_value=["EmbRouter_SpendLogs_p20260601"]
     )
 
     cleaner = SpendLogCleanup(
@@ -330,11 +330,11 @@ async def test_cleanup_drops_partitions_when_enabled_and_partitioned():
     partition_manager.ensure_partitions.assert_awaited_once()
     partition_manager.drop_partitions_older_than.assert_awaited_once()
     delete_sql = mock_prisma_client.db.execute_raw.call_args_list[0][0][0]
-    assert 'DELETE FROM "LiteLLM_SpendLogs"' in delete_sql
+    assert 'DELETE FROM "EmbRouter_SpendLogs"' in delete_sql
     # Partition drops only reclaim spend logs; the tool index must still be
     # cleaned row-wise on the same run
     all_sql = [c[0][0] for c in mock_prisma_client.db.execute_raw.call_args_list]
-    assert any('DELETE FROM "LiteLLM_SpendLogToolIndex"' in s for s in all_sql)
+    assert any('DELETE FROM "EmbRouter_SpendLogToolIndex"' in s for s in all_sql)
 
 
 @pytest.mark.asyncio
@@ -367,7 +367,7 @@ async def test_cleanup_uses_delete_when_partitioning_not_enabled():
     partition_manager.is_partitioned.assert_not_awaited()
     partition_manager.drop_partitions_older_than.assert_not_awaited()
     delete_sql = mock_prisma_client.db.execute_raw.call_args_list[0][0][0]
-    assert 'DELETE FROM "LiteLLM_SpendLogs"' in delete_sql
+    assert 'DELETE FROM "EmbRouter_SpendLogs"' in delete_sql
 
 
 @pytest.mark.asyncio
@@ -401,7 +401,7 @@ async def test_cleanup_uses_delete_when_not_partitioned():
     partition_manager.drop_partitions_older_than.assert_not_awaited()
     assert mock_prisma_client.db.execute_raw.await_count == 3
     delete_sql = mock_prisma_client.db.execute_raw.call_args_list[0][0][0]
-    assert 'DELETE FROM "LiteLLM_SpendLogs"' in delete_sql
+    assert 'DELETE FROM "EmbRouter_SpendLogs"' in delete_sql
 
 
 @pytest.mark.asyncio
@@ -569,7 +569,7 @@ async def test_delete_old_tool_index_rows_deletes_on_composite_key():
 
     assert result.rows_deleted == 5
     delete_sql = mock_db.execute_raw.call_args_list[0][0][0]
-    assert 'DELETE FROM "LiteLLM_SpendLogToolIndex"' in delete_sql
+    assert 'DELETE FROM "EmbRouter_SpendLogToolIndex"' in delete_sql
     assert 'WHERE ("request_id", "tool_name") IN' in delete_sql
     assert '"start_time" <' in delete_sql
     assert mock_db.execute_raw.call_args_list[0][0][1] == cutoff_date
@@ -579,7 +579,7 @@ async def test_delete_old_tool_index_rows_deletes_on_composite_key():
 async def test_delete_old_logs_continues_after_single_batch_failure(monkeypatch):
     """A single batch failure (e.g. DB timeout) must not abort the whole run —
     subsequent batches should still execute and their counts accumulate."""
-    import litellm.proxy.db.db_transaction_queue.spend_log_cleanup as cleanup_module
+    import embrouter.proxy.db.db_transaction_queue.spend_log_cleanup as cleanup_module
 
     # Zero out the failure backoff so the test doesn't take ~0.5s of real sleep.
     monkeypatch.setattr(
@@ -613,7 +613,7 @@ async def test_delete_old_logs_continues_after_single_batch_failure(monkeypatch)
 async def test_delete_old_logs_aborts_after_consecutive_failures(monkeypatch):
     """If batch failures persist for SPEND_LOG_CLEANUP_MAX_CONSECUTIVE_BATCH_FAILURES
     in a row (e.g. DB is down), the loop must abort instead of hot-looping."""
-    import litellm.proxy.db.db_transaction_queue.spend_log_cleanup as cleanup_module
+    import embrouter.proxy.db.db_transaction_queue.spend_log_cleanup as cleanup_module
 
     # Lower the threshold so the test is fast and deterministic.
     monkeypatch.setattr(
@@ -648,7 +648,7 @@ async def test_delete_old_logs_aborts_after_consecutive_failures(monkeypatch):
 async def test_delete_old_logs_resets_consecutive_failures_on_success(monkeypatch):
     """A success between failures must reset the consecutive-failure counter so
     intermittent timeouts don't trip the abort threshold."""
-    import litellm.proxy.db.db_transaction_queue.spend_log_cleanup as cleanup_module
+    import embrouter.proxy.db.db_transaction_queue.spend_log_cleanup as cleanup_module
 
     monkeypatch.setattr(
         cleanup_module, "SPEND_LOG_CLEANUP_MAX_CONSECUTIVE_BATCH_FAILURES", 3
@@ -691,7 +691,7 @@ async def test_delete_old_logs_resets_consecutive_failures_on_success(monkeypatc
 async def test_cleanup_uses_logger_exception_for_full_traceback(monkeypatch):
     """The outer error handler must call logger.exception() (not .error(str(e)))
     so Prisma/DB timeouts surface a full traceback and exception type."""
-    import litellm.proxy.db.db_transaction_queue.spend_log_cleanup as cleanup_module
+    import embrouter.proxy.db.db_transaction_queue.spend_log_cleanup as cleanup_module
 
     mock_logger = MagicMock()
     monkeypatch.setattr(cleanup_module, "verbose_proxy_logger", mock_logger)
@@ -724,7 +724,7 @@ async def test_cleanup_uses_logger_exception_for_full_traceback(monkeypatch):
 async def test_cleanup_releases_lock_after_persistent_batch_failures(monkeypatch):
     """Even when batch deletion aborts due to consecutive failures, the pod lock
     must still be released so the next scheduled run isn't permanently blocked."""
-    import litellm.proxy.db.db_transaction_queue.spend_log_cleanup as cleanup_module
+    import embrouter.proxy.db.db_transaction_queue.spend_log_cleanup as cleanup_module
 
     monkeypatch.setattr(
         cleanup_module, "SPEND_LOG_CLEANUP_MAX_CONSECUTIVE_BATCH_FAILURES", 2
@@ -760,8 +760,8 @@ def test_cleanup_batch_size_env_var(monkeypatch):
     """Ensure batch size is configurable via environment variable"""
     import importlib
 
-    import litellm.constants as constants_module
-    import litellm.proxy.db.db_transaction_queue.spend_log_cleanup as cleanup_module
+    import embrouter.constants as constants_module
+    import embrouter.proxy.db.db_transaction_queue.spend_log_cleanup as cleanup_module
 
     # Set env var and reload modules to pick up new value
     monkeypatch.setenv("SPEND_LOG_CLEANUP_BATCH_SIZE", "25")
@@ -793,10 +793,10 @@ async def test_spend_logs_retention_alone_does_not_touch_the_session_rollup():
     cleaner.pod_lock_manager = None
     await cleaner.cleanup_old_spend_logs(client)
     tables = [call[0][0] for call in client.db.execute_raw.call_args_list]
-    assert any('"LiteLLM_SpendLogs"' in sql for sql in tables)
-    assert not any('"LiteLLM_AutoRouterSession"' in sql for sql in tables)
-    assert not any('"LiteLLM_AutoRouterUserSession"' in sql for sql in tables)
-    assert not any('"LiteLLM_HealthCheckTable"' in sql for sql in tables)
+    assert any('"EmbRouter_SpendLogs"' in sql for sql in tables)
+    assert not any('"EmbRouter_AutoRouterSession"' in sql for sql in tables)
+    assert not any('"EmbRouter_AutoRouterUserSession"' in sql for sql in tables)
+    assert not any('"EmbRouter_HealthCheckTable"' in sql for sql in tables)
 
 
 @pytest.mark.asyncio
@@ -807,8 +807,8 @@ async def test_session_retention_alone_cleans_both_session_rollups():
     await cleaner.cleanup_old_spend_logs(client)
     tables = [call[0][0] for call in client.db.execute_raw.call_args_list]
     assert len(tables) == 2
-    assert '"LiteLLM_AutoRouterSession"' in tables[0]
-    assert '"LiteLLM_AutoRouterUserSession"' in tables[1]
+    assert '"EmbRouter_AutoRouterSession"' in tables[0]
+    assert '"EmbRouter_AutoRouterUserSession"' in tables[1]
 
 
 @pytest.mark.asyncio
@@ -819,7 +819,7 @@ async def test_health_check_retention_alone_cleans_only_the_health_check_table()
     await cleaner.cleanup_old_spend_logs(client)
     tables = [call[0][0] for call in client.db.execute_raw.call_args_list]
     assert len(tables) == 1
-    assert '"LiteLLM_HealthCheckTable"' in tables[0]
+    assert '"EmbRouter_HealthCheckTable"' in tables[0]
     assert '"health_check_id"' in tables[0]
     assert '"checked_at"' in tables[0]
     cutoff_date = client.db.execute_raw.call_args[0][1]
@@ -835,7 +835,7 @@ async def test_daily_tag_spend_retention_alone_prunes_only_that_table_by_calenda
     await cleaner.cleanup_old_spend_logs(client)
     tables = [call[0][0] for call in client.db.execute_raw.call_args_list]
     assert len(tables) == 1
-    assert '"LiteLLM_DailyTagSpend"' in tables[0]
+    assert '"EmbRouter_DailyTagSpend"' in tables[0]
     cutoff_day = client.db.execute_raw.call_args[0][1]
     assert cutoff_day == (datetime.now(timezone.utc) - timedelta(days=90)).date().isoformat()
 
@@ -847,7 +847,7 @@ async def test_spend_logs_retention_alone_keeps_daily_tag_spend_forever():
     cleaner.pod_lock_manager = None
     await cleaner.cleanup_old_spend_logs(client)
     tables = [call[0][0] for call in client.db.execute_raw.call_args_list]
-    assert not any('"LiteLLM_DailyTagSpend"' in sql for sql in tables)
+    assert not any('"EmbRouter_DailyTagSpend"' in sql for sql in tables)
 
 
 @pytest.mark.asyncio
@@ -864,21 +864,21 @@ async def test_each_retention_key_cuts_off_at_its_own_horizon():
     await cleaner.cleanup_old_spend_logs(client)
     cutoffs = {
         (
-            "LiteLLM_AutoRouterSession"
-            if '"LiteLLM_AutoRouterSession"' in call[0][0]
-            else "LiteLLM_AutoRouterUserSession"
-            if '"LiteLLM_AutoRouterUserSession"' in call[0][0]
-            else "LiteLLM_HealthCheckTable"
-            if '"LiteLLM_HealthCheckTable"' in call[0][0]
+            "EmbRouter_AutoRouterSession"
+            if '"EmbRouter_AutoRouterSession"' in call[0][0]
+            else "EmbRouter_AutoRouterUserSession"
+            if '"EmbRouter_AutoRouterUserSession"' in call[0][0]
+            else "EmbRouter_HealthCheckTable"
+            if '"EmbRouter_HealthCheckTable"' in call[0][0]
             else "logs"
         ): call[0][1]
         for call in client.db.execute_raw.call_args_list
     }
     now = datetime.now(timezone.utc)
     assert (now - cutoffs["logs"]).days == 7
-    assert (now - cutoffs["LiteLLM_AutoRouterSession"]).days == 365
-    assert cutoffs["LiteLLM_AutoRouterUserSession"] == cutoffs["LiteLLM_AutoRouterSession"]
-    assert (now - cutoffs["LiteLLM_HealthCheckTable"]).days == 30
+    assert (now - cutoffs["EmbRouter_AutoRouterSession"]).days == 365
+    assert cutoffs["EmbRouter_AutoRouterUserSession"] == cutoffs["EmbRouter_AutoRouterSession"]
+    assert (now - cutoffs["EmbRouter_HealthCheckTable"]).days == 30
 
 
 @pytest.mark.asyncio
@@ -960,7 +960,7 @@ async def test_run_budget_is_shared_across_tables_not_granted_per_table():
     # three tables are eligible; a per-table budget would push this past 3s
     assert elapsed < 2.5, f"budget was granted per table, not per run: {elapsed}s"
     tables_touched = {call[0][0].split('"')[1] for call in mock_db.execute_raw.call_args_list}
-    assert "LiteLLM_SpendLogs" in tables_touched
+    assert "EmbRouter_SpendLogs" in tables_touched
 
 
 @pytest.mark.asyncio
@@ -985,8 +985,8 @@ async def test_cleanup_groups_share_budget_so_health_checks_still_get_a_delete()
     await cleaner.cleanup_old_spend_logs(mock_prisma_client)
 
     tables_touched = {call[0][0].split('"')[1] for call in mock_db.execute_raw.call_args_list}
-    assert "LiteLLM_SpendLogs" in tables_touched
-    assert "LiteLLM_HealthCheckTable" in tables_touched
+    assert "EmbRouter_SpendLogs" in tables_touched
+    assert "EmbRouter_HealthCheckTable" in tables_touched
 
 
 @pytest.mark.asyncio
@@ -1241,7 +1241,7 @@ async def test_the_outstanding_rows_probe_carries_a_statement_timeout():
     remaining = await cleaner._count_remaining(
         mock_prisma_client,
         datetime.now(timezone.utc) - timedelta(days=7),
-        "LiteLLM_SpendLogs",
+        "EmbRouter_SpendLogs",
         "startTime",
         _far_deadline(),
     )
@@ -1307,7 +1307,7 @@ async def test_no_statement_is_issued_once_the_budget_is_spent():
     result = await cleaner._finish_table(
         client,
         datetime.now(timezone.utc) - timedelta(days=7),
-        "LiteLLM_SpendLogs",
+        "EmbRouter_SpendLogs",
         "startTime",
         123,
         "budget_exhausted",
@@ -1401,7 +1401,7 @@ async def test_partition_maintenance_still_runs_while_the_run_has_budget():
     partition_manager = MagicMock()
     partition_manager.is_partitioned = AsyncMock(return_value=True)
     partition_manager.ensure_partitions = AsyncMock()
-    partition_manager.drop_partitions_older_than = AsyncMock(return_value=["LiteLLM_SpendLogs_p20260601"])
+    partition_manager.drop_partitions_older_than = AsyncMock(return_value=["EmbRouter_SpendLogs_p20260601"])
 
     cleaner = SpendLogCleanup(
         general_settings={
@@ -1456,16 +1456,16 @@ _OTHER_OUTCOMES: Final = ("completed", "budget_exhausted", "batch_cap_reached", 
 
 
 def _runs_recorded(outcome: str) -> float:
-    """The real ``litellm_spend_log_cleanup_runs_total`` sample for one outcome, 0 when unset"""
+    """The real ``embrouter_spend_log_cleanup_runs_total`` sample for one outcome, 0 when unset"""
     from prometheus_client import REGISTRY
 
-    return REGISTRY.get_sample_value("litellm_spend_log_cleanup_runs_total", {"outcome": outcome}) or 0.0
+    return REGISTRY.get_sample_value("embrouter_spend_log_cleanup_runs_total", {"outcome": outcome}) or 0.0
 
 
 @pytest.mark.asyncio
 async def test_a_cancelled_run_records_aborted_and_logs_its_progress_before_re_raising(monkeypatch):
     """A run cut short by shutdown must leave its outcome and how far it got behind"""
-    import litellm.proxy.db.db_transaction_queue.spend_log_cleanup as cleanup_module
+    import embrouter.proxy.db.db_transaction_queue.spend_log_cleanup as cleanup_module
 
     mock_logger = MagicMock()
     monkeypatch.setattr(cleanup_module, "verbose_proxy_logger", mock_logger)
@@ -1513,7 +1513,7 @@ async def test_a_cancelled_run_records_aborted_and_logs_its_progress_before_re_r
 @pytest.mark.asyncio
 async def test_progress_reported_for_a_cancelled_run_is_that_run_only(monkeypatch):
     """The scheduler holds one cleaner for the life of the process, so progress must not carry over"""
-    import litellm.proxy.db.db_transaction_queue.spend_log_cleanup as cleanup_module
+    import embrouter.proxy.db.db_transaction_queue.spend_log_cleanup as cleanup_module
 
     mock_logger = MagicMock()
     monkeypatch.setattr(cleanup_module, "verbose_proxy_logger", mock_logger)
@@ -1537,7 +1537,7 @@ async def test_progress_reported_for_a_cancelled_run_is_that_run_only(monkeypatc
 @pytest.mark.asyncio
 async def test_progress_reported_by_an_overlapping_run_is_its_own(monkeypatch):
     """With APSCHEDULER_MAX_INSTANCES above one, two runs share the cleaner but not their progress"""
-    import litellm.proxy.db.db_transaction_queue.spend_log_cleanup as cleanup_module
+    import embrouter.proxy.db.db_transaction_queue.spend_log_cleanup as cleanup_module
 
     mock_logger = MagicMock()
     monkeypatch.setattr(cleanup_module, "verbose_proxy_logger", mock_logger)
@@ -1579,7 +1579,7 @@ async def test_spend_logs_backlog_cannot_starve_tool_index_cleanup():
     """
     Both spend-log tables share one run budget. Before the fix the spend-log
     loop ran against the whole deadline, so a backlog that outlasted the budget
-    meant LiteLLM_SpendLogToolIndex never received a single delete batch, run
+    meant EmbRouter_SpendLogToolIndex never received a single delete batch, run
     after run. The index table must still get its own share of the budget.
     """
     mock_prisma_client = MagicMock()
@@ -1602,8 +1602,8 @@ async def test_spend_logs_backlog_cannot_starve_tool_index_cleanup():
     elapsed = time.monotonic() - started_at
 
     tables = [call[0][0].split('"')[1] for call in mock_db.execute_raw.call_args_list]
-    assert tables.count("LiteLLM_SpendLogs") > 0
-    assert tables.count("LiteLLM_SpendLogToolIndex") > 0, "tool index cleanup was starved by the spend-log backlog"
+    assert tables.count("EmbRouter_SpendLogs") > 0
+    assert tables.count("EmbRouter_SpendLogToolIndex") > 0, "tool index cleanup was starved by the spend-log backlog"
     assert elapsed < 2.5, f"splitting the budget must not extend the run: {elapsed}s"
 
 
@@ -1628,7 +1628,7 @@ async def test_run_that_leaves_backlog_logs_a_warning_summary_naming_each_table(
     )
     cleaner.pod_lock_manager = None
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.WARNING, logger="EmbRouter Proxy"):
         await cleaner.cleanup_old_spend_logs(mock_prisma_client)
 
     summaries = [record for record in caplog.records if "Spend log cleanup run finished" in record.getMessage()]
@@ -1637,8 +1637,8 @@ async def test_run_that_leaves_backlog_logs_a_warning_summary_naming_each_table(
     assert summary.levelno == logging.WARNING
     message = summary.getMessage()
     assert "outcome=batch_cap_reached" in message
-    assert "LiteLLM_SpendLogs: deleted=2000 stop_reason=batch_cap_reached" in message
-    assert "LiteLLM_SpendLogToolIndex: deleted=2000 stop_reason=batch_cap_reached" in message
+    assert "EmbRouter_SpendLogs: deleted=2000 stop_reason=batch_cap_reached" in message
+    assert "EmbRouter_SpendLogToolIndex: deleted=2000 stop_reason=batch_cap_reached" in message
 
 
 @pytest.mark.asyncio
@@ -1653,7 +1653,7 @@ async def test_run_that_drains_every_table_logs_the_summary_at_info_not_warning(
     cleaner = SpendLogCleanup(general_settings={"maximum_spend_logs_retention_period": "7d"})
     cleaner.pod_lock_manager = None
 
-    with caplog.at_level(logging.INFO, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.INFO, logger="EmbRouter Proxy"):
         await cleaner.cleanup_old_spend_logs(mock_prisma_client)
 
     summaries = [record for record in caplog.records if "Spend log cleanup run finished" in record.getMessage()]

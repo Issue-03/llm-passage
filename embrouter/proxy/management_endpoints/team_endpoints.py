@@ -37,31 +37,31 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from pydantic import BaseModel, JsonValue, TypeAdapter, ValidationError
 from typing_extensions import ReadOnly, TypedDict, assert_never
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm._uuid import uuid
-from litellm.integrations.prometheus import PrometheusLogger
-from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
-from litellm.proxy._types import (
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter._uuid import uuid
+from embrouter.integrations.prometheus import PrometheusLogger
+from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps
+from embrouter.proxy._types import (
     UI_TEAM_ID,
     BlockTeamRequest,
     BudgetNewRequest,
     CommonProxyErrors,
     DeleteTeamRequest,
-    LiteLLM_AuditLogs,
-    LiteLLM_DeletedTeamTable,
-    Litellm_EntityType,
-    LiteLLM_ManagementEndpoint_MetadataFields,
-    LiteLLM_ManagementEndpoint_MetadataFields_Premium,
-    LiteLLM_ModelTable,
-    LiteLLM_OrganizationTable,
-    LiteLLM_OrganizationTableWithMembers,
-    LiteLLM_TeamMembership,
-    LiteLLM_TeamTable,
-    LiteLLM_TeamTableCachedObj,
-    LiteLLM_UserTable,
-    LitellmTableNames,
-    LitellmUserRoles,
+    EmbRouter_AuditLogs,
+    EmbRouter_DeletedTeamTable,
+    Embrouter_EntityType,
+    EmbRouter_ManagementEndpoint_MetadataFields,
+    EmbRouter_ManagementEndpoint_MetadataFields_Premium,
+    EmbRouter_ModelTable,
+    EmbRouter_OrganizationTable,
+    EmbRouter_OrganizationTableWithMembers,
+    EmbRouter_TeamMembership,
+    EmbRouter_TeamTable,
+    EmbRouter_TeamTableCachedObj,
+    EmbRouter_UserTable,
+    EmbrouterTableNames,
+    EmbrouterUserRoles,
     Member,
     NewTeamRequest,
     OrgMember,
@@ -95,7 +95,7 @@ from litellm.proxy._types import (
     UpdateTeamRequest,
     UserAPIKeyAuth,
 )
-from litellm.proxy.auth.auth_checks import (
+from embrouter.proxy.auth.auth_checks import (
     OrganizationNotFoundError,
     _cache_team_object,
     allowed_route_check_inside_route,
@@ -109,24 +109,24 @@ from litellm.proxy.auth.auth_checks import (
     get_user_object,
     invalidate_team_member_spend_state,
 )
-from litellm.proxy.auth.auth_utils import (
+from embrouter.proxy.auth.auth_utils import (
     enforce_batch_enqueued_token_limit_is_admin_only,
     enforce_output_token_estimates_are_admin_only,
 )
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.common_utils.auth_cache_invalidation_pubsub import evict_and_broadcast
-from litellm.proxy.common_utils.callback_utils import encrypt_callback_vars
-from litellm.proxy.common_utils.json_merge_patch import apply_json_merge_patch
-from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-from litellm.proxy.hooks.key_management_event_hooks import KeyManagementEventHooks
-from litellm.proxy.hooks.model_max_budget_limiter import (
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.common_utils.auth_cache_invalidation_pubsub import evict_and_broadcast
+from embrouter.proxy.common_utils.callback_utils import encrypt_callback_vars
+from embrouter.proxy.common_utils.json_merge_patch import apply_json_merge_patch
+from embrouter.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+from embrouter.proxy.hooks.key_management_event_hooks import KeyManagementEventHooks
+from embrouter.proxy.hooks.model_max_budget_limiter import (
     build_model_max_budget_usage,
     resolve_model_budget,
 )
-from litellm.proxy.management_endpoints.common_daily_activity import (
+from embrouter.proxy.management_endpoints.common_daily_activity import (
     get_daily_activity_aggregated,
 )
-from litellm.proxy.management_endpoints.common_utils import (
+from embrouter.proxy.management_endpoints.common_utils import (
     _check_disable_global_guardrails_caller_permission,
     _check_passthrough_routes_caller_permission,
     _is_user_org_admin_for_team,
@@ -140,65 +140,65 @@ from litellm.proxy.management_endpoints.common_utils import (
     validate_budget_duration,
     validate_team_model_max_budget,
 )
-from litellm.proxy.management_endpoints.organization_endpoints import (
+from embrouter.proxy.management_endpoints.organization_endpoints import (
     add_member_to_organization,
 )
-from litellm.proxy.management_endpoints.router_weights import validate_router_settings_weights
-from litellm.proxy.management_endpoints.tag_management_endpoints import (
+from embrouter.proxy.management_endpoints.router_weights import validate_router_settings_weights
+from embrouter.proxy.management_endpoints.tag_management_endpoints import (
     get_daily_activity,
 )
-from litellm.proxy.management_endpoints.team_admin_field_permissions import (
+from embrouter.proxy.management_endpoints.team_admin_field_permissions import (
     SUPPORTED_TEAM_ADMIN_EDITABLE_TEAM_FIELDS,
     resolve_team_admin_editable_fields,
     team_admin_edit_verdict,
     team_admin_request_or_raise,
 )
-from litellm.proxy.management_helpers.access_group_team_sync import (
+from embrouter.proxy.management_helpers.access_group_team_sync import (
     TEAM_ADVISORY_LOCK_SQL,
     AccessGroupSyncTx,
     invalidate_access_group_caches,
     reconcile_team_access_group_membership,
     sync_team_access_group_membership,
 )
-from litellm.proxy.management_helpers.object_permission_utils import (
+from embrouter.proxy.management_helpers.object_permission_utils import (
     _set_object_permission,
     enforce_all_proxy_mcp_servers_grant_is_admin_only,
     handle_update_object_permission_common,
 )
-from litellm.proxy.management_helpers.team_member_permission_checks import (
+from embrouter.proxy.management_helpers.team_member_permission_checks import (
     TeamMemberPermissionChecks,
 )
-from litellm.proxy.management_helpers.team_metadata_validation import (
+from embrouter.proxy.management_helpers.team_metadata_validation import (
     TEAM_METADATA_SCHEMA_REGISTRY,
     validate_team_metadata_if_configured,
 )
-from litellm.proxy.management_helpers.utils import (
+from embrouter.proxy.management_helpers.utils import (
     MemberWriteTx,
     add_new_member,
     management_endpoint_wrapper,
 )
-from litellm.proxy.utils import PrismaClient, ProxyLogging, handle_exception_on_proxy
-from litellm.repositories.budget_repository import BudgetRepository
-from litellm.repositories.organization_repository import OrganizationRepository
-from litellm.repositories.prisma_protocols import TableActions
-from litellm.repositories.table_repositories import (
+from embrouter.proxy.utils import PrismaClient, ProxyLogging, handle_exception_on_proxy
+from embrouter.repositories.budget_repository import BudgetRepository
+from embrouter.repositories.organization_repository import OrganizationRepository
+from embrouter.repositories.prisma_protocols import TableActions
+from embrouter.repositories.table_repositories import (
     AccessGroupRepository,
     DeletedTeamRepository,
     ModelTableRepository,
     OrganizationMembershipRepository,
     TeamMembershipRepository,
 )
-from litellm.repositories.team_repository import TeamRepository
-from litellm.repositories.user_repository import UserRepository
-from litellm.repositories.verification_token_repository import (
+from embrouter.repositories.team_repository import TeamRepository
+from embrouter.repositories.user_repository import UserRepository
+from embrouter.repositories.verification_token_repository import (
     VerificationTokenRepository,
 )
-from litellm.router import Router
-from litellm.types.proxy.auth.auth_checks import UserNotFoundError
-from litellm.types.proxy.management_endpoints.common_daily_activity import (
+from embrouter.router import Router
+from embrouter.types.proxy.auth.auth_checks import UserNotFoundError
+from embrouter.types.proxy.management_endpoints.common_daily_activity import (
     SpendAnalyticsPaginatedResponse,
 )
-from litellm.types.proxy.management_endpoints.team_endpoints import (
+from embrouter.types.proxy.management_endpoints.team_endpoints import (
     BulkTeamMemberAddRequest,
     BulkTeamMemberAddResponse,
     BulkUpdateTeamMemberPermissionsRequest,
@@ -214,7 +214,7 @@ from litellm.types.proxy.management_endpoints.team_endpoints import (
     TeamUserSpendRow,
     UpdateTeamMemberPermissionsRequest,
 )
-from litellm.types.utils import BudgetConfig
+from embrouter.types.utils import BudgetConfig
 
 if TYPE_CHECKING:
     from prisma import Prisma
@@ -359,7 +359,7 @@ class _TeamIdAndBudgetWhere(_TeamIdWhere):
 
 class _TeamCreateTx(AccessGroupSyncTx, Protocol):
     @property
-    def litellm_teamtable(self) -> "TableActions[prisma_models.LiteLLM_TeamTable]": ...
+    def embrouter_teamtable(self) -> "TableActions[prisma_models.EmbRouter_TeamTable]": ...
 
 
 class _MemberDeleteTx(Protocol):
@@ -371,74 +371,74 @@ class _MemberDeleteTx(Protocol):
     of them hold the rest of the pool."""
 
     @property
-    def litellm_usertable(self) -> "TableActions[prisma_models.LiteLLM_UserTable]": ...
+    def embrouter_usertable(self) -> "TableActions[prisma_models.EmbRouter_UserTable]": ...
 
     @property
-    def litellm_verificationtoken(self) -> "TableActions[prisma_models.LiteLLM_VerificationToken]": ...
+    def embrouter_verificationtoken(self) -> "TableActions[prisma_models.EmbRouter_VerificationToken]": ...
 
 
 class _TeamDeleteTx(AccessGroupSyncTx, Protocol):
     async def execute_raw(self, query: str, *args: object) -> int: ...
 
     @property
-    def litellm_teamtable(self) -> "TableActions[prisma_models.LiteLLM_TeamTable]": ...
+    def embrouter_teamtable(self) -> "TableActions[prisma_models.EmbRouter_TeamTable]": ...
 
     @property
-    def litellm_teammembership(self) -> "TableActions[prisma_models.LiteLLM_TeamMembership]": ...
+    def embrouter_teammembership(self) -> "TableActions[prisma_models.EmbRouter_TeamMembership]": ...
 
 
 _STRIP_DELETED_TEAM_FROM_USERS_SQL: Final = """
-UPDATE "LiteLLM_UserTable" SET teams = array_remove(teams, $1) WHERE $1 = ANY(teams)
+UPDATE "EmbRouter_UserTable" SET teams = array_remove(teams, $1) WHERE $1 = ANY(teams)
 """
 
-_INCLUDE_MODEL_TABLE: Final = MappingProxyType({"litellm_model_table": True})
+_INCLUDE_MODEL_TABLE: Final = MappingProxyType({"embrouter_model_table": True})
 
 
-def _team_db(prisma_client: PrismaClient | None) -> "TableActions[prisma_models.LiteLLM_TeamTable]":
+def _team_db(prisma_client: PrismaClient | None) -> "TableActions[prisma_models.EmbRouter_TeamTable]":
     return TeamRepository(prisma_client).table
 
 
-def _team_tx_db(tx: "Prisma") -> "TableActions[prisma_models.LiteLLM_TeamTable]":
+def _team_tx_db(tx: "Prisma") -> "TableActions[prisma_models.EmbRouter_TeamTable]":
     return cast(  # cast-ok: generated actions type Json columns as str; TableActions widens inputs to Mapping
-        "TableActions[prisma_models.LiteLLM_TeamTable]", tx.litellm_teamtable
+        "TableActions[prisma_models.EmbRouter_TeamTable]", tx.embrouter_teamtable
     )
 
 
-def _team_membership_db(prisma_client: PrismaClient | None) -> "TableActions[prisma_models.LiteLLM_TeamMembership]":
+def _team_membership_db(prisma_client: PrismaClient | None) -> "TableActions[prisma_models.EmbRouter_TeamMembership]":
     return TeamMembershipRepository(prisma_client).table
 
 
-def _user_db(prisma_client: PrismaClient | None) -> "TableActions[prisma_models.LiteLLM_UserTable]":
+def _user_db(prisma_client: PrismaClient | None) -> "TableActions[prisma_models.EmbRouter_UserTable]":
     return UserRepository(prisma_client).table
 
 
-def _model_db(prisma_client: PrismaClient | None) -> "TableActions[prisma_models.LiteLLM_ModelTable]":
+def _model_db(prisma_client: PrismaClient | None) -> "TableActions[prisma_models.EmbRouter_ModelTable]":
     return ModelTableRepository(prisma_client).table
 
 
-def _org_db(prisma_client: PrismaClient | None) -> "TableActions[prisma_models.LiteLLM_OrganizationTable]":
+def _org_db(prisma_client: PrismaClient | None) -> "TableActions[prisma_models.EmbRouter_OrganizationTable]":
     return OrganizationRepository(prisma_client).table
 
 
 def _org_membership_db(
     prisma_client: PrismaClient | None,
-) -> "TableActions[prisma_models.LiteLLM_OrganizationMembership]":
+) -> "TableActions[prisma_models.EmbRouter_OrganizationMembership]":
     return OrganizationMembershipRepository(prisma_client).table
 
 
-def _budget_db(prisma_client: PrismaClient | None) -> "TableActions[prisma_models.LiteLLM_BudgetTable]":
+def _budget_db(prisma_client: PrismaClient | None) -> "TableActions[prisma_models.EmbRouter_BudgetTable]":
     return BudgetRepository(prisma_client).table
 
 
-def _deleted_team_db(prisma_client: PrismaClient | None) -> "TableActions[prisma_models.LiteLLM_DeletedTeamTable]":
+def _deleted_team_db(prisma_client: PrismaClient | None) -> "TableActions[prisma_models.EmbRouter_DeletedTeamTable]":
     return DeletedTeamRepository(prisma_client).table
 
 
-def _access_group_db(prisma_client: PrismaClient | None) -> "TableActions[prisma_models.LiteLLM_AccessGroupTable]":
+def _access_group_db(prisma_client: PrismaClient | None) -> "TableActions[prisma_models.EmbRouter_AccessGroupTable]":
     return AccessGroupRepository(prisma_client).table
 
 
-def _tokens_db(prisma_client: PrismaClient | None) -> "TableActions[prisma_models.LiteLLM_VerificationToken]":
+def _tokens_db(prisma_client: PrismaClient | None) -> "TableActions[prisma_models.EmbRouter_VerificationToken]":
     return VerificationTokenRepository(prisma_client).table
 
 
@@ -459,20 +459,20 @@ async def _refresh_cached_team(
     """
     Refresh the in-memory cached team object after a DB write.
 
-    Every endpoint that mutates `litellm_teamtable` must call this so the
-    cached `LiteLLM_TeamTableCachedObj` used by `common_checks` stays in
+    Every endpoint that mutates `embrouter_teamtable` must call this so the
+    cached `EmbRouter_TeamTableCachedObj` used by `common_checks` stays in
     sync. Without this, subsequent auth checks read a stale team and can
     403 on permissions the DB has already granted (or, symmetrically,
     keep granting permissions the DB has already revoked).
 
     `team_row` is the Prisma row returned by `update`/`find_unique` on
-    `litellm_teamtable`. It is converted to `LiteLLM_TeamTableCachedObj`
+    `embrouter_teamtable`. It is converted to `EmbRouter_TeamTableCachedObj`
     via `model_dump()` to match the cache shape `_cache_team_object`
     expects.
     """
     await _cache_team_object(
         team_id=team_row.team_id,
-        team_table=LiteLLM_TeamTableCachedObj.model_validate(team_row.model_dump()),
+        team_table=EmbRouter_TeamTableCachedObj.model_validate(team_row.model_dump()),
         user_api_key_cache=user_api_key_cache,
         proxy_logging_obj=proxy_logging_obj,
     )
@@ -489,14 +489,14 @@ def _raise_team_access_denied() -> NoReturn:
 
 
 async def _resolve_team_access(
-    team_obj: LiteLLM_TeamTable,
+    team_obj: EmbRouter_TeamTable,
     user_api_key_dict: UserAPIKeyAuth,
 ) -> TeamAccessRole | None:
     """Strongest role the caller holds over ``team_obj``, or None when they hold none.
 
     Org admin outranks team admin so a caller holding both keeps unrestricted edits.
     """
-    if user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN:
+    if user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN:
         return "proxy_admin"
 
     if await _is_user_org_admin_for_team(user_api_key_dict=user_api_key_dict, team_obj=team_obj):
@@ -509,7 +509,7 @@ async def _resolve_team_access(
 
 
 async def _verify_team_access(
-    team_obj: LiteLLM_TeamTable,
+    team_obj: EmbRouter_TeamTable,
     user_api_key_dict: UserAPIKeyAuth,
 ) -> None:
     """Raise 403 unless the caller is a proxy admin, an org admin for the team's org, or a team admin."""
@@ -521,7 +521,7 @@ _GENERAL_SETTINGS: Final = TypeAdapter(dict[str, object])
 
 
 def _general_settings() -> Mapping[str, object]:
-    from litellm.proxy.proxy_server import general_settings
+    from embrouter.proxy.proxy_server import general_settings
 
     return _GENERAL_SETTINGS.validate_python(general_settings)
 
@@ -592,8 +592,8 @@ class TeamMemberBudgetHandler:
         The team's own reset period is only inherited when the caller left the
         member duration out, so an explicit null means "never resets".
         """
-        from litellm.proxy._types import BudgetNewRequest
-        from litellm.proxy.management_endpoints.budget_management_endpoints import (
+        from embrouter.proxy._types import BudgetNewRequest
+        from embrouter.proxy.management_endpoints.budget_management_endpoints import (
             new_budget,
         )
 
@@ -652,8 +652,8 @@ class TeamMemberBudgetHandler:
         A field the caller explicitly sent as null is written as null, so a
         team can keep a member budget while dropping its reset period.
         """
-        from litellm.proxy._types import BudgetNewRequest
-        from litellm.proxy.management_endpoints.budget_management_endpoints import (
+        from embrouter.proxy._types import BudgetNewRequest
+        from embrouter.proxy.management_endpoints.budget_management_endpoints import (
             update_budget,
         )
 
@@ -723,8 +723,8 @@ class TeamMemberBudgetHandler:
         explicitly_set_fields: set,
     ) -> dict:
         """Clear explicitly-nulled fields on the team member budget row."""
-        from litellm.proxy._types import BudgetNewRequest
-        from litellm.proxy.management_endpoints.budget_management_endpoints import (
+        from embrouter.proxy._types import BudgetNewRequest
+        from embrouter.proxy.management_endpoints.budget_management_endpoints import (
             update_budget,
         )
 
@@ -821,12 +821,12 @@ class TeamMemberBudgetHandler:
 
 def _get_default_team_param(field: str) -> object:
     """
-    Returns a default value for the given field from litellm.default_team_params config.
+    Returns a default value for the given field from embrouter.default_team_params config.
     Returns None if no default is configured.
 
     For list fields containing enums (e.g. team_member_permissions), converts enum values to strings.
     """
-    default_params: Final = litellm.default_team_params
+    default_params: Final = embrouter.default_team_params
     if default_params is None:
         return None
     if isinstance(default_params, dict):
@@ -842,16 +842,16 @@ def _get_default_team_param(field: str) -> object:
 
 
 def _is_available_team(team_id: str, user_api_key_dict: UserAPIKeyAuth) -> bool:
-    if litellm.default_internal_user_params is None:
+    if embrouter.default_internal_user_params is None:
         return False
-    if "available_teams" in litellm.default_internal_user_params:
-        return team_id in litellm.default_internal_user_params["available_teams"]
+    if "available_teams" in embrouter.default_internal_user_params:
+        return team_id in embrouter.default_internal_user_params["available_teams"]
     return False
 
 
 async def get_all_team_memberships(
     prisma_client: PrismaClient, team_ids: list[str], user_id: str | None = None
-) -> list[LiteLLM_TeamMembership]:
+) -> list[EmbRouter_TeamMembership]:
     """Get all team memberships for a given user"""
     ## GET ALL MEMBERSHIPS ##
     where_obj: Final[dict[str, dict[str, list[str]]]] = {"team_id": {"in": team_ids}}
@@ -864,18 +864,18 @@ async def get_all_team_memberships(
 
     team_memberships: Final = await _team_membership_db(prisma_client).find_many(
         where=where_obj,
-        include={"litellm_budget_table": True},
+        include={"embrouter_budget_table": True},
     )
 
-    returned_tm: Final[list[LiteLLM_TeamMembership]] = []
+    returned_tm: Final[list[EmbRouter_TeamMembership]] = []
     for tm in team_memberships:
-        returned_tm.append(LiteLLM_TeamMembership.model_validate(tm.model_dump()))
+        returned_tm.append(EmbRouter_TeamMembership.model_validate(tm.model_dump()))
 
     return returned_tm
 
 
 def _check_team_model_specific_limits(
-    teams: list[LiteLLM_TeamTable],
+    teams: list[EmbRouter_TeamTable],
     data: NewTeamRequest | UpdateTeamRequest,
     entity_rpm_limit: int | None,
     entity_tpm_limit: int | None,
@@ -946,7 +946,7 @@ def _check_team_model_specific_limits(
 
 
 def _check_team_rpm_tpm_limits(
-    teams: list[LiteLLM_TeamTable],
+    teams: list[EmbRouter_TeamTable],
     data: NewTeamRequest | UpdateTeamRequest,
     entity_rpm_limit: int | None,
     entity_tpm_limit: int | None,
@@ -984,8 +984,8 @@ def _check_team_rpm_tpm_limits(
 
 
 def check_org_team_model_specific_limits(
-    teams: list[LiteLLM_TeamTable],
-    org_table: LiteLLM_OrganizationTable,
+    teams: list[EmbRouter_TeamTable],
+    org_table: EmbRouter_OrganizationTable,
     data: NewTeamRequest | UpdateTeamRequest,
 ) -> None:
     """
@@ -998,9 +998,9 @@ def check_org_team_model_specific_limits(
     entity_model_rpm_limit_dict = {}
     entity_model_tpm_limit_dict = {}
 
-    if org_table.litellm_budget_table is not None:
-        entity_rpm_limit = org_table.litellm_budget_table.rpm_limit
-        entity_tpm_limit = org_table.litellm_budget_table.tpm_limit
+    if org_table.embrouter_budget_table is not None:
+        entity_rpm_limit = org_table.embrouter_budget_table.rpm_limit
+        entity_tpm_limit = org_table.embrouter_budget_table.tpm_limit
 
     if org_table.metadata:
         entity_model_rpm_limit_dict = org_table.metadata.get("model_rpm_limit", {})
@@ -1018,8 +1018,8 @@ def check_org_team_model_specific_limits(
 
 
 def check_org_team_rpm_tpm_limits(
-    teams: list[LiteLLM_TeamTable],
-    org_table: LiteLLM_OrganizationTable,
+    teams: list[EmbRouter_TeamTable],
+    org_table: EmbRouter_OrganizationTable,
     data: NewTeamRequest | UpdateTeamRequest,
 ) -> None:
     """
@@ -1029,9 +1029,9 @@ def check_org_team_rpm_tpm_limits(
     entity_rpm_limit = None
     entity_tpm_limit = None
 
-    if org_table.litellm_budget_table is not None:
-        entity_rpm_limit = org_table.litellm_budget_table.rpm_limit
-        entity_tpm_limit = org_table.litellm_budget_table.tpm_limit
+    if org_table.embrouter_budget_table is not None:
+        entity_rpm_limit = org_table.embrouter_budget_table.rpm_limit
+        entity_tpm_limit = org_table.embrouter_budget_table.tpm_limit
 
     _check_team_rpm_tpm_limits(
         teams=teams,
@@ -1043,7 +1043,7 @@ def check_org_team_rpm_tpm_limits(
 
 
 async def _check_org_team_limits(
-    org_table: LiteLLM_OrganizationTable,
+    org_table: EmbRouter_OrganizationTable,
     data: NewTeamRequest | UpdateTeamRequest,
     prisma_client: PrismaClient,
 ) -> None:
@@ -1057,14 +1057,14 @@ async def _check_org_team_limits(
     # Validate team budget against organization's max_budget
     if (
         data.max_budget is not None
-        and org_table.litellm_budget_table is not None
-        and org_table.litellm_budget_table.max_budget is not None
-        and data.max_budget > org_table.litellm_budget_table.max_budget
+        and org_table.embrouter_budget_table is not None
+        and org_table.embrouter_budget_table.max_budget is not None
+        and data.max_budget > org_table.embrouter_budget_table.max_budget
     ):
         raise HTTPException(
             status_code=400,
             detail={
-                "error": f"Team max_budget ({data.max_budget}) exceeds organization's max_budget ({org_table.litellm_budget_table.max_budget}). Organization: {org_table.organization_id}"
+                "error": f"Team max_budget ({data.max_budget}) exceeds organization's max_budget ({org_table.embrouter_budget_table.max_budget}). Organization: {org_table.organization_id}"
             },
         )
 
@@ -1086,27 +1086,27 @@ async def _check_org_team_limits(
     # Validate team TPM/RPM against organization's TPM/RPM limits (direct comparison)
     if (
         data.tpm_limit is not None
-        and org_table.litellm_budget_table is not None
-        and org_table.litellm_budget_table.tpm_limit is not None
-        and data.tpm_limit > org_table.litellm_budget_table.tpm_limit
+        and org_table.embrouter_budget_table is not None
+        and org_table.embrouter_budget_table.tpm_limit is not None
+        and data.tpm_limit > org_table.embrouter_budget_table.tpm_limit
     ):
         raise HTTPException(
             status_code=400,
             detail={
-                "error": f"Team tpm_limit ({data.tpm_limit}) exceeds organization's tpm_limit ({org_table.litellm_budget_table.tpm_limit}). Organization: {org_table.organization_id}"
+                "error": f"Team tpm_limit ({data.tpm_limit}) exceeds organization's tpm_limit ({org_table.embrouter_budget_table.tpm_limit}). Organization: {org_table.organization_id}"
             },
         )
 
     if (
         data.rpm_limit is not None
-        and org_table.litellm_budget_table is not None
-        and org_table.litellm_budget_table.rpm_limit is not None
-        and data.rpm_limit > org_table.litellm_budget_table.rpm_limit
+        and org_table.embrouter_budget_table is not None
+        and org_table.embrouter_budget_table.rpm_limit is not None
+        and data.rpm_limit > org_table.embrouter_budget_table.rpm_limit
     ):
         raise HTTPException(
             status_code=400,
             detail={
-                "error": f"Team rpm_limit ({data.rpm_limit}) exceeds organization's rpm_limit ({org_table.litellm_budget_table.rpm_limit}). Organization: {org_table.organization_id}"
+                "error": f"Team rpm_limit ({data.rpm_limit}) exceeds organization's rpm_limit ({org_table.embrouter_budget_table.rpm_limit}). Organization: {org_table.organization_id}"
             },
         )
 
@@ -1128,10 +1128,10 @@ async def _check_org_team_limits(
         where={"organization_id": org_table.organization_id},
     )
 
-    # Convert teams to LiteLLM_TeamTable objects
-    team_objs: Final[list[LiteLLM_TeamTable]] = []
+    # Convert teams to EmbRouter_TeamTable objects
+    team_objs: Final[list[EmbRouter_TeamTable]] = []
     for team in teams:
-        team_objs.append(LiteLLM_TeamTable.model_validate(team.model_dump()))
+        team_objs.append(EmbRouter_TeamTable.model_validate(team.model_dump()))
 
     check_org_team_model_specific_limits(
         teams=team_objs,
@@ -1242,7 +1242,7 @@ def _check_team_budget_update_authority(
     caller's budget write gets a guard; without it, a concurrent budget cut could
     be overwritten with a higher value.
     """
-    if user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN:
+    if user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN:
         return None
 
     budget_explicitly_set: Final = "max_budget" in (getattr(data, "model_fields_set", None) or set())
@@ -1270,7 +1270,7 @@ def _check_team_budget_update_authority(
 
 _TEAM_UPDATE_INCLUDE: Final = MappingProxyType(
     {
-        "litellm_model_table": True,
+        "embrouter_model_table": True,
         # `object_permission` is included so `_refresh_cached_team`
         # doesn't write a cached team with the relation nulled out.
         # See team_model_add for the full rationale.
@@ -1284,7 +1284,7 @@ async def _write_team_update(
     team_id: str,
     team_update_data: Mapping[str, object],
     max_budget_guard: _MaxBudgetGuard | None,
-) -> "prisma_models.LiteLLM_TeamTable | None":
+) -> "prisma_models.EmbRouter_TeamTable | None":
     by_id: Final[_TeamIdWhere] = {"team_id": team_id}
     if max_budget_guard is None:
         return await _team_db(prisma_client).update(where=by_id, data=team_update_data, include=_TEAM_UPDATE_INCLUDE)
@@ -1311,7 +1311,7 @@ def _check_team_model_budget_update_authority(
     existing_model_max_budget: Mapping[str, object] | None,
 ) -> None:
     """Like `_check_team_budget_update_authority`: only a proxy admin may raise, re-window or drop a per-model cap."""
-    if user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN:
+    if user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN:
         return
     if "model_max_budget" not in data.model_fields_set or not existing_model_max_budget:
         return
@@ -1360,7 +1360,7 @@ def _should_auto_add_team_creator(
 ) -> bool:
     if user_api_key_dict.user_id is None:
         return False
-    if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+    if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
         return True
     return general_settings.get("disable_auto_add_proxy_admin_to_teams") is not True
 
@@ -1370,16 +1370,16 @@ def _should_auto_add_team_creator(
     "/team/new",
     tags=["team management"],
     dependencies=[Depends(user_api_key_auth)],
-    response_model=LiteLLM_TeamTable,
+    response_model=EmbRouter_TeamTable,
 )
 @management_endpoint_wrapper
 async def new_team(
     data: NewTeamRequest,
     http_request: Request,
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
-    litellm_changed_by: str | None = Header(
+    embrouter_changed_by: str | None = Header(
         None,
-        description="The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability",
+        description="The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability",
     ),
 ):
     """
@@ -1410,7 +1410,7 @@ async def new_team(
     - models: Optional[list] - A list of models associated with the team - all keys for this team_id will have at most, these models. If empty, assumes all models are allowed.
     - blocked: bool - Flag indicating if the team is blocked or not - will stop all calls from keys with this team_id.
     - members: Optional[List] - Control team members via `/team/member/add` and `/team/member/delete`.
-    - tags: Optional[List[str]] - Tags for [tracking spend](https://litellm.vercel.app/docs/proxy/enterprise#tracking-spend-for-custom-tags) and/or doing [tag-based routing](https://litellm.vercel.app/docs/proxy/tag_routing).
+    - tags: Optional[List[str]] - Tags for [tracking spend](https://embrouter.vercel.app/docs/proxy/enterprise#tracking-spend-for-custom-tags) and/or doing [tag-based routing](https://embrouter.vercel.app/docs/proxy/tag_routing).
     - prompts: Optional[List[str]] - List of prompts that the team is allowed to use.
     - organization_id: Optional[str] - The organization id of the team. Default is None. Create via `/organization/new`.
     - model_aliases: Optional[dict] - Model aliases for the team.
@@ -1418,7 +1418,7 @@ async def new_team(
     - guardrails: Optional[List[str]] - Guardrails for the team.
     - policies: Optional[List[str]] - Policies for the team.
     - disable_global_guardrails: Optional[bool] - Whether to disable global guardrails for the team. Proxy admin only.
-    - object_permission: Optional[LiteLLM_ObjectPermissionBase] - team-specific object permission. Example - {"vector_stores": ["vector_store_1", "vector_store_2"], "agents": ["agent_1", "agent_2"], "agent_access_groups": ["dev_group"]}. IF null or {} then no object permission.
+    - object_permission: Optional[EmbRouter_ObjectPermissionBase] - team-specific object permission. Example - {"vector_stores": ["vector_store_1", "vector_store_2"], "agents": ["agent_1", "agent_2"], "agent_access_groups": ["dev_group"]}. IF null or {} then no object permission.
     - team_member_budget: Optional[float] - The maximum budget allocated to an individual team member.
     - team_member_budget_duration: Optional[str] - The duration of the budget for the team member
     - team_member_rpm_limit: Optional[int] - The RPM (Requests Per Minute) limit for individual team members.
@@ -1466,15 +1466,15 @@ async def new_team(
     ```
     """
     try:
-        from litellm.proxy.management_helpers.audit_logs import (
+        from embrouter.proxy.management_helpers.audit_logs import (
             get_audit_log_changed_by,
             is_audit_logging_enabled,
         )
-        from litellm.proxy.proxy_server import (
+        from embrouter.proxy.proxy_server import (
             _license_check,
             create_audit_log_for_update,
             general_settings,
-            litellm_proxy_admin_name,
+            embrouter_proxy_admin_name,
             llm_router,
             premium_user,
             prisma_client,
@@ -1548,7 +1548,7 @@ async def new_team(
                 raise HTTPException(
                     status_code=400,
                     detail={
-                        "error": f"team_id '{UI_TEAM_ID}' is reserved for LiteLLM UI dashboard sessions and cannot be used for a real team. Please use a different team id."
+                        "error": f"team_id '{UI_TEAM_ID}' is reserved for EmbRouter UI dashboard sessions and cannot be used for a real team. Please use a different team id."
                     },
                 )
             # Check if team_id exists already
@@ -1566,7 +1566,7 @@ async def new_team(
             if isinstance(default_organization_id, str):
                 data.organization_id = default_organization_id
 
-        # Apply defaults from litellm.default_team_params to null fields.
+        # Apply defaults from embrouter.default_team_params to null fields.
         # budget_duration alone distinguishes explicit null (a deliberate
         # never-resetting budget, which the default must not override) from omitted.
         for field in (
@@ -1587,11 +1587,11 @@ async def new_team(
         # if still not set after checking default_team_params.
         if data.max_budget is None:
             if (
-                isinstance(litellm.default_team_settings, list)
-                and len(litellm.default_team_settings) > 0
-                and isinstance(litellm.default_team_settings[0], dict)
+                isinstance(embrouter.default_team_settings, list)
+                and len(embrouter.default_team_settings) > 0
+                and isinstance(embrouter.default_team_settings[0], dict)
             ):
-                default_budget: Final = litellm.default_team_settings[0].get("max_budget")
+                default_budget: Final = embrouter.default_team_settings[0].get("max_budget")
                 if default_budget is not None:
                     data.max_budget = default_budget
 
@@ -1619,7 +1619,7 @@ async def new_team(
             )
 
         if (
-            user_api_key_dict.user_role is None or user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN
+            user_api_key_dict.user_role is None or user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN
         ):  # don't restrict proxy admin
             # Only validate user budget/models/tpm/rpm for standalone teams (not org-scoped)
             # For org-scoped teams, validation is done by _check_org_team_limits()
@@ -1668,12 +1668,12 @@ async def new_team(
         ## ADD TO MODEL TABLE
         _model_id = None
         if data.model_aliases is not None and isinstance(data.model_aliases, dict):
-            litellm_modeltable: Final = LiteLLM_ModelTable(
+            embrouter_modeltable: Final = EmbRouter_ModelTable(
                 model_aliases=json.dumps(data.model_aliases),
-                created_by=user_api_key_dict.user_id or litellm_proxy_admin_name,
-                updated_by=user_api_key_dict.user_id or litellm_proxy_admin_name,
+                created_by=user_api_key_dict.user_id or embrouter_proxy_admin_name,
+                updated_by=user_api_key_dict.user_id or embrouter_proxy_admin_name,
             )
-            model_dict: Final = await _model_db(prisma_client).create({**litellm_modeltable.json(exclude_none=True)})
+            model_dict: Final = await _model_db(prisma_client).create({**embrouter_modeltable.json(exclude_none=True)})
 
             _model_id = model_dict.id
 
@@ -1683,7 +1683,7 @@ async def new_team(
         await enforce_all_proxy_mcp_servers_grant_is_admin_only(
             requested_mcp_servers=(data.object_permission.mcp_servers if data.object_permission is not None else None),
             existing_object_permission_id=None,
-            is_proxy_admin=user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN,
+            is_proxy_admin=user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN,
             prisma_client=prisma_client,
         )
         data_json = await _set_object_permission(
@@ -1709,13 +1709,13 @@ async def new_team(
             )
 
         ## ADD TO TEAM TABLE
-        complete_team_data: Final = LiteLLM_TeamTable(
+        complete_team_data: Final = EmbRouter_TeamTable(
             **data_json,
             model_id=_model_id,
         )
 
         # Set Management Endpoint Metadata Fields
-        for field in LiteLLM_ManagementEndpoint_MetadataFields_Premium:
+        for field in EmbRouter_ManagementEndpoint_MetadataFields_Premium:
             if getattr(data, field, None) is not None:
                 _set_object_metadata_field(
                     object_data=complete_team_data,
@@ -1723,7 +1723,7 @@ async def new_team(
                     value=getattr(data, field),
                 )
 
-        for field in LiteLLM_ManagementEndpoint_MetadataFields:
+        for field in EmbRouter_ManagementEndpoint_MetadataFields:
             if getattr(data, field, None) is not None:
                 _set_object_metadata_field(
                     object_data=complete_team_data,
@@ -1733,7 +1733,7 @@ async def new_team(
 
         # If budget_duration is set, set `budget_reset_at`
         if complete_team_data.budget_duration is not None:
-            from litellm.proxy.common_utils.timezone_utils import get_budget_reset_time
+            from embrouter.proxy.common_utils.timezone_utils import get_budget_reset_time
 
             complete_team_data.budget_reset_at = get_budget_reset_time(
                 budget_duration=complete_team_data.budget_duration,
@@ -1741,7 +1741,7 @@ async def new_team(
 
         # If budget_limits is set, initialize reset_at for each window
         if complete_team_data.budget_limits:
-            from litellm.proxy.common_utils.timezone_utils import get_budget_reset_time
+            from embrouter.proxy.common_utils.timezone_utils import get_budget_reset_time
 
             initialized_windows: Final = []
             for window in complete_team_data.budget_limits:
@@ -1773,7 +1773,7 @@ async def new_team(
 
         tx: _TeamCreateTx
         async with prisma_client.db.tx() as tx:
-            team_row: Final[prisma_models.LiteLLM_TeamTable] = await tx.litellm_teamtable.create(
+            team_row: Final[prisma_models.EmbRouter_TeamTable] = await tx.embrouter_teamtable.create(
                 data=team_creation_data,
                 include=_INCLUDE_MODEL_TABLE,
             )
@@ -1791,7 +1791,7 @@ async def new_team(
             complete_team_data=team_row,
             prisma_client=prisma_client,
             user_api_key_dict=user_api_key_dict,
-            litellm_proxy_admin_name=litellm_proxy_admin_name,
+            embrouter_proxy_admin_name=embrouter_proxy_admin_name,
         )
 
         if is_audit_logging_enabled():
@@ -1804,16 +1804,16 @@ async def new_team(
 
             asyncio.create_task(
                 create_audit_log_for_update(
-                    request_data=LiteLLM_AuditLogs(
+                    request_data=EmbRouter_AuditLogs(
                         id=str(uuid.uuid4()),
                         updated_at=datetime.now(timezone.utc),
                         changed_by=get_audit_log_changed_by(
-                            litellm_changed_by=litellm_changed_by,
+                            embrouter_changed_by=embrouter_changed_by,
                             user_api_key_dict=user_api_key_dict,
-                            litellm_proxy_admin_name=litellm_proxy_admin_name,
+                            embrouter_proxy_admin_name=embrouter_proxy_admin_name,
                         ),
                         changed_by_api_key=user_api_key_dict.api_key,
-                        table_name=LitellmTableNames.TEAM_TABLE_NAME,
+                        table_name=EmbrouterTableNames.TEAM_TABLE_NAME,
                         object_id=data.team_id,
                         action="created",
                         updated_values=_updated_values,
@@ -1834,9 +1834,9 @@ async def _create_team_update_audit_log(
     existing_team_row: _AuditableTeamRow,
     updated_kv: dict,
     team_id: str,
-    litellm_changed_by: str | None,
+    embrouter_changed_by: str | None,
     user_api_key_dict: UserAPIKeyAuth,
-    litellm_proxy_admin_name: str,
+    embrouter_proxy_admin_name: str,
 ) -> None:
     """
     Create an audit log entry for team update operations.
@@ -1845,11 +1845,11 @@ async def _create_team_update_audit_log(
         existing_team_row: The team row before the update
         updated_kv: Dictionary of updated key-value pairs
         team_id: The ID of the team being updated
-        litellm_changed_by: Optional header indicating who made the change
+        embrouter_changed_by: Optional header indicating who made the change
         user_api_key_dict: User API key authentication details
-        litellm_proxy_admin_name: Name of the proxy admin
+        embrouter_proxy_admin_name: Name of the proxy admin
     """
-    from litellm.proxy.management_helpers.audit_logs import (
+    from embrouter.proxy.management_helpers.audit_logs import (
         create_audit_log_for_update,
         get_audit_log_changed_by,
     )
@@ -1860,16 +1860,16 @@ async def _create_team_update_audit_log(
 
     asyncio.create_task(
         create_audit_log_for_update(
-            request_data=LiteLLM_AuditLogs(
+            request_data=EmbRouter_AuditLogs(
                 id=str(uuid.uuid4()),
                 updated_at=datetime.now(timezone.utc),
                 changed_by=get_audit_log_changed_by(
-                    litellm_changed_by=litellm_changed_by,
+                    embrouter_changed_by=embrouter_changed_by,
                     user_api_key_dict=user_api_key_dict,
-                    litellm_proxy_admin_name=litellm_proxy_admin_name,
+                    embrouter_proxy_admin_name=embrouter_proxy_admin_name,
                 ),
                 changed_by_api_key=user_api_key_dict.api_key,
-                table_name=LitellmTableNames.TEAM_TABLE_NAME,
+                table_name=EmbrouterTableNames.TEAM_TABLE_NAME,
                 object_id=team_id,
                 action="updated",
                 updated_values=_after_value,
@@ -1884,7 +1884,7 @@ async def _update_model_table(
     model_id: int | None,
     prisma_client: PrismaClient,
     user_api_key_dict: UserAPIKeyAuth,
-    litellm_proxy_admin_name: str,
+    embrouter_proxy_admin_name: str,
 ) -> int | None:
     """
     Upsert model table and return the model id
@@ -1892,19 +1892,19 @@ async def _update_model_table(
     ## UPSERT MODEL TABLE
     _model_id = model_id
     if data.model_aliases is not None and isinstance(data.model_aliases, dict):
-        litellm_modeltable: Final = LiteLLM_ModelTable(
+        embrouter_modeltable: Final = EmbRouter_ModelTable(
             model_aliases=json.dumps(data.model_aliases),
-            created_by=user_api_key_dict.user_id or litellm_proxy_admin_name,
-            updated_by=user_api_key_dict.user_id or litellm_proxy_admin_name,
+            created_by=user_api_key_dict.user_id or embrouter_proxy_admin_name,
+            updated_by=user_api_key_dict.user_id or embrouter_proxy_admin_name,
         )
         if model_id is None:
-            model_dict = await _model_db(prisma_client).create(data={**litellm_modeltable.json(exclude_none=True)})
+            model_dict = await _model_db(prisma_client).create(data={**embrouter_modeltable.json(exclude_none=True)})
         else:
             model_dict = await _model_db(prisma_client).upsert(
                 where={"id": model_id},
                 data={
-                    "update": {**litellm_modeltable.json(exclude_none=True)},
-                    "create": {**litellm_modeltable.json(exclude_none=True)},
+                    "update": {**embrouter_modeltable.json(exclude_none=True)},
+                    "create": {**embrouter_modeltable.json(exclude_none=True)},
                 },
             )
 
@@ -1914,8 +1914,8 @@ async def _update_model_table(
 
 
 async def _auto_add_team_members_to_organization(
-    team: LiteLLM_TeamTable,
-    organization: LiteLLM_OrganizationTableWithMembers,
+    team: EmbRouter_TeamTable,
+    organization: EmbRouter_OrganizationTableWithMembers,
     prisma_client: PrismaClient,
 ) -> None:
     """
@@ -1939,7 +1939,7 @@ async def _auto_add_team_members_to_organization(
             await add_member_to_organization(
                 member=OrgMember(
                     user_id=member.user_id,
-                    role=LitellmUserRoles.INTERNAL_USER,
+                    role=EmbrouterUserRoles.INTERNAL_USER,
                 ),
                 organization_id=organization.organization_id,
                 prisma_client=prisma_client,
@@ -1958,7 +1958,7 @@ async def fetch_and_validate_organization(
     llm_router: Router | None,
     prisma_client: PrismaClient,
     user_api_key_dict: UserAPIKeyAuth | None = None,
-) -> "prisma_models.LiteLLM_OrganizationTable":
+) -> "prisma_models.EmbRouter_OrganizationTable":
     """
     Fetch and validate an organization for team update operations.
 
@@ -1979,7 +1979,7 @@ async def fetch_and_validate_organization(
 
     organization_row: Final = await _org_db(prisma_client).find_unique(
         where={"organization_id": organization_id},
-        include={"litellm_budget_table": True, "members": True, "teams": True},
+        include={"embrouter_budget_table": True, "members": True, "teams": True},
     )
 
     if organization_row is None:
@@ -1988,10 +1988,10 @@ async def fetch_and_validate_organization(
             detail={"error": f"Organization not found, passed organization_id={organization_id}"},
         )
 
-    is_proxy_admin = user_api_key_dict is not None and user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN
-    organization: Final = LiteLLM_OrganizationTableWithMembers.model_validate(organization_row.model_dump())
+    is_proxy_admin = user_api_key_dict is not None and user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN
+    organization: Final = EmbRouter_OrganizationTableWithMembers.model_validate(organization_row.model_dump())
     validate_team_org_change(
-        team=LiteLLM_TeamTable.model_validate(existing_team_row.model_dump()),
+        team=EmbRouter_TeamTable.model_validate(existing_team_row.model_dump()),
         organization=organization,
         llm_router=llm_router,
         is_proxy_admin=is_proxy_admin,
@@ -1999,7 +1999,7 @@ async def fetch_and_validate_organization(
 
     if is_proxy_admin:
         await _auto_add_team_members_to_organization(
-            team=LiteLLM_TeamTable.model_validate(existing_team_row.model_dump()),
+            team=EmbRouter_TeamTable.model_validate(existing_team_row.model_dump()),
             organization=organization,
             prisma_client=prisma_client,
         )
@@ -2008,8 +2008,8 @@ async def fetch_and_validate_organization(
 
 
 def validate_team_org_change(
-    team: LiteLLM_TeamTable,
-    organization: LiteLLM_OrganizationTableWithMembers,
+    team: EmbRouter_TeamTable,
+    organization: EmbRouter_OrganizationTableWithMembers,
     llm_router: Router,
     is_proxy_admin: bool = False,
 ) -> bool:
@@ -2054,14 +2054,14 @@ def validate_team_org_change(
     # Check if the team's budget is less than the org's max_budget
     if (
         team.max_budget is not None
-        and organization.litellm_budget_table is not None
-        and organization.litellm_budget_table.max_budget is not None
-        and team.max_budget > organization.litellm_budget_table.max_budget
+        and organization.embrouter_budget_table is not None
+        and organization.embrouter_budget_table.max_budget is not None
+        and team.max_budget > organization.embrouter_budget_table.max_budget
     ):
         raise HTTPException(
             status_code=403,
             detail={
-                "error": f"Cannot move team to organization. Team has max_budget {team.max_budget} that is greater than the organization's max_budget {organization.litellm_budget_table.max_budget}."
+                "error": f"Cannot move team to organization. Team has max_budget {team.max_budget} that is greater than the organization's max_budget {organization.embrouter_budget_table.max_budget}."
             },
         )
 
@@ -2085,26 +2085,26 @@ def validate_team_org_change(
     # Check if the team's tpm/rpm limit is less than the org's tpm/rpm limit
     if (
         team.tpm_limit
-        and organization.litellm_budget_table
-        and organization.litellm_budget_table.tpm_limit
-        and team.tpm_limit > organization.litellm_budget_table.tpm_limit
+        and organization.embrouter_budget_table
+        and organization.embrouter_budget_table.tpm_limit
+        and team.tpm_limit > organization.embrouter_budget_table.tpm_limit
     ):
         raise HTTPException(
             status_code=403,
             detail={
-                "error": f"Cannot move team to organization. Team has tpm_limit {team.tpm_limit} that is greater than the organization's tpm_limit {organization.litellm_budget_table.tpm_limit}."
+                "error": f"Cannot move team to organization. Team has tpm_limit {team.tpm_limit} that is greater than the organization's tpm_limit {organization.embrouter_budget_table.tpm_limit}."
             },
         )
     if (
         team.rpm_limit
-        and organization.litellm_budget_table
-        and organization.litellm_budget_table.rpm_limit
-        and team.rpm_limit > organization.litellm_budget_table.rpm_limit
+        and organization.embrouter_budget_table
+        and organization.embrouter_budget_table.rpm_limit
+        and team.rpm_limit > organization.embrouter_budget_table.rpm_limit
     ):
         raise HTTPException(
             status_code=403,
             detail={
-                "error": f"Cannot move team to organization. Team has rpm_limit {team.rpm_limit} that is greater than the organization's rpm_limit {organization.litellm_budget_table.rpm_limit}."
+                "error": f"Cannot move team to organization. Team has rpm_limit {team.rpm_limit} that is greater than the organization's rpm_limit {organization.embrouter_budget_table.rpm_limit}."
             },
         )
     return True
@@ -2127,7 +2127,7 @@ async def _evict_created_membership_caches(
     """Evict the ``get_team_membership`` negative-cache sentinel for members whose row was just created.
 
     A session-token request caches ``NO_TEAM_MEMBERSHIP_SENTINEL`` for a member with no
-    ``LiteLLM_TeamMembership`` row. When a create path (``/team/member_add`` or the ``/team/update``
+    ``EmbRouter_TeamMembership`` row. When a create path (``/team/member_add`` or the ``/team/update``
     budget backfill) later writes that row with a per-member budget, the stale sentinel keeps the
     member's budget unenforced until the membership cache TTL expires, so it must be evicted here.
     """
@@ -2149,9 +2149,9 @@ async def update_team(
     data: UpdateTeamRequest,
     http_request: Request,
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
-    litellm_changed_by: str | None = Header(
+    embrouter_changed_by: str | None = Header(
         None,
-        description="The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability",
+        description="The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability",
     ),
 ):
     """
@@ -2173,14 +2173,14 @@ async def update_team(
     - models: Optional[list] - A list of models associated with the team - all keys for this team_id will have at most, these models. If empty, assumes all models are allowed.
     - prompts: Optional[List[str]] - List of prompts that the team is allowed to use.
     - blocked: bool - Flag indicating if the team is blocked or not - will stop all calls from keys with this team_id.
-    - tags: Optional[List[str]] - Tags for [tracking spend](https://litellm.vercel.app/docs/proxy/enterprise#tracking-spend-for-custom-tags) and/or doing [tag-based routing](https://litellm.vercel.app/docs/proxy/tag_routing).
+    - tags: Optional[List[str]] - Tags for [tracking spend](https://embrouter.vercel.app/docs/proxy/enterprise#tracking-spend-for-custom-tags) and/or doing [tag-based routing](https://embrouter.vercel.app/docs/proxy/tag_routing).
     - organization_id: Optional[str] - The organization id of the team. Default is None. Create via `/organization/new`.
     - model_aliases: Optional[dict] - Model aliases for the team.
     - model_max_budget: Optional[dict] - Per-model max budget every key on the team inherits unless the key sets its own for that model. Example: {"gpt-4o": {"max_budget": 10, "budget_duration": "1d"}}
     - guardrails: Optional[List[str]] - Guardrails for the team.
     - policies: Optional[List[str]] - Policies for the team.
     - disable_global_guardrails: Optional[bool] - Whether to disable global guardrails for the team. Proxy admin only.
-    - object_permission: Optional[LiteLLM_ObjectPermissionBase] - team-specific object permission. Example - {"vector_stores": ["vector_store_1", "vector_store_2"], "agents": ["agent_1", "agent_2"], "agent_access_groups": ["dev_group"]}. IF null or {} then no object permission.
+    - object_permission: Optional[EmbRouter_ObjectPermissionBase] - team-specific object permission. Example - {"vector_stores": ["vector_store_1", "vector_store_2"], "agents": ["agent_1", "agent_2"], "agent_access_groups": ["dev_group"]}. IF null or {} then no object permission.
     - team_member_budget: Optional[float] - The maximum budget allocated to an individual team member.
     - team_member_budget_duration: Optional[str] - The duration of the budget for the team member
     - team_member_rpm_limit: Optional[int] - The RPM (Requests Per Minute) limit for individual team members.
@@ -2224,9 +2224,9 @@ async def update_team(
     ```
     """
     try:
-        from litellm.proxy.management_helpers.audit_logs import is_audit_logging_enabled
-        from litellm.proxy.proxy_server import (
-            litellm_proxy_admin_name,
+        from embrouter.proxy.management_helpers.audit_logs import is_audit_logging_enabled
+        from embrouter.proxy.proxy_server import (
+            embrouter_proxy_admin_name,
             llm_router,
             premium_user,
             prisma_client,
@@ -2276,14 +2276,14 @@ async def update_team(
         if existing_team_row is None:
             # Non-proxy-admins get the same 403 as an access denial so /team/update
             # cannot be used to probe which team ids exist
-            if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+            if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
                 _raise_team_access_denied()
             raise HTTPException(
                 status_code=404,
                 detail={"error": f"Team not found, passed team_id={data.team_id}"},
             )
 
-        existing_team: Final = LiteLLM_TeamTable.model_validate(existing_team_row.model_dump())
+        existing_team: Final = EmbRouter_TeamTable.model_validate(existing_team_row.model_dump())
         access_role: Final = await _resolve_team_access(team_obj=existing_team, user_api_key_dict=user_api_key_dict)
         if access_role is None:
             _raise_team_access_denied()
@@ -2361,7 +2361,7 @@ async def update_team(
             current_org_id: Final = getattr(existing_team_row, "organization_id", None)
             if (
                 data.organization_id != current_org_id
-                and user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN.value
+                and user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN.value
             ):
                 # Is the caller org_admin of the destination org?
                 caller_memberships: Final = (
@@ -2369,7 +2369,7 @@ async def update_team(
                         where={
                             "user_id": user_api_key_dict.user_id,
                             "organization_id": data.organization_id,
-                            "user_role": LitellmUserRoles.ORG_ADMIN.value,
+                            "user_role": EmbrouterUserRoles.ORG_ADMIN.value,
                         }
                     )
                     if user_api_key_dict.user_id
@@ -2478,8 +2478,8 @@ async def update_team(
         _writes_metadata_backed_field: Final = any(
             field in updated_kv
             for field in (
-                *LiteLLM_ManagementEndpoint_MetadataFields,
-                *LiteLLM_ManagementEndpoint_MetadataFields_Premium,
+                *EmbRouter_ManagementEndpoint_MetadataFields,
+                *EmbRouter_ManagementEndpoint_MetadataFields_Premium,
             )
         )
         if isinstance(existing_team_row.metadata, dict):
@@ -2541,7 +2541,7 @@ async def update_team(
             await enforce_all_proxy_mcp_servers_grant_is_admin_only(
                 requested_mcp_servers=data.object_permission.mcp_servers,
                 existing_object_permission_id=existing_team_row.object_permission_id,
-                is_proxy_admin=user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN,
+                is_proxy_admin=user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN,
                 prisma_client=prisma_client,
             )
             updated_kv = await handle_update_object_permission(
@@ -2562,7 +2562,7 @@ async def update_team(
                 model_id=existing_team_row.model_id,
                 prisma_client=prisma_client,
                 user_api_key_dict=user_api_key_dict,
-                litellm_proxy_admin_name=litellm_proxy_admin_name,
+                embrouter_proxy_admin_name=embrouter_proxy_admin_name,
             )
             if _model_id is not None:
                 updated_kv["model_id"] = _model_id
@@ -2594,9 +2594,9 @@ async def update_team(
                 existing_team_row=existing_team_row,
                 updated_kv=updated_kv,
                 team_id=data.team_id,
-                litellm_changed_by=litellm_changed_by,
+                embrouter_changed_by=embrouter_changed_by,
                 user_api_key_dict=user_api_key_dict,
-                litellm_proxy_admin_name=litellm_proxy_admin_name,
+                embrouter_proxy_admin_name=embrouter_proxy_admin_name,
             )
 
         return {"team_id": team_row.team_id, "data": team_row}
@@ -2608,17 +2608,17 @@ async def update_team(
     "/team/{team_id}",
     tags=["team management"],
     dependencies=[Depends(user_api_key_auth)],
-    response_model=LiteLLM_TeamTable,
+    response_model=EmbRouter_TeamTable,
 )
 async def patch_team(
     team_id: str,
     data: PatchTeamRequest,
     http_request: Request,
     user_api_key_dict: Annotated[UserAPIKeyAuth, Depends(user_api_key_auth)],
-    litellm_changed_by: Annotated[
+    embrouter_changed_by: Annotated[
         str | None,
         Header(
-            description="The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability",
+            description="The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability",
         ),
     ] = None,
 ):
@@ -2641,7 +2641,7 @@ async def patch_team(
     }'
     ```
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     try:
         if prisma_client is None:
@@ -2674,7 +2674,7 @@ async def patch_team(
             data=update_request,
             http_request=http_request,
             user_api_key_dict=user_api_key_dict,
-            litellm_changed_by=litellm_changed_by,
+            embrouter_changed_by=embrouter_changed_by,
         )
         return result["data"]
     except Exception as e:  # noqa: BLE001  # normalize every failure to the proxy exception contract
@@ -2684,7 +2684,7 @@ async def patch_team(
 def _set_budget_reset_at(data: UpdateTeamRequest, updated_kv: dict) -> None:
     """Set budget_reset_at in updated_kv if budget_duration is provided."""
     if data.budget_duration is not None:
-        from litellm.proxy.common_utils.timezone_utils import get_budget_reset_time
+        from embrouter.proxy.common_utils.timezone_utils import get_budget_reset_time
 
         reset_at: Final = get_budget_reset_time(budget_duration=data.budget_duration)
         updated_kv["budget_reset_at"] = reset_at
@@ -2692,7 +2692,7 @@ def _set_budget_reset_at(data: UpdateTeamRequest, updated_kv: dict) -> None:
         updated_kv["budget_reset_at"] = None
 
     if data.budget_limits is not None and len(data.budget_limits) > 0:
-        from litellm.proxy.common_utils.timezone_utils import get_budget_reset_time
+        from embrouter.proxy.common_utils.timezone_utils import get_budget_reset_time
 
         initialized_windows: Final = []
         for window in data.budget_limits:
@@ -2706,10 +2706,10 @@ async def handle_update_object_permission(data_json: dict, existing_team_row: _O
     """
     Handle the update of object permission for a team.
 
-    - IF there's no object_permission_id, then create a new entry in LiteLLM_ObjectPermissionTable
-    - IF there's an object_permission_id, then update the entry in LiteLLM_ObjectPermissionTable
+    - IF there's no object_permission_id, then create a new entry in EmbRouter_ObjectPermissionTable
+    - IF there's an object_permission_id, then update the entry in EmbRouter_ObjectPermissionTable
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     # Use the common helper to handle the object permission update
     object_permission_id: Final = await handle_update_object_permission_common(
@@ -2767,7 +2767,7 @@ def team_call_validation_checks(
 
 def team_member_add_duplication_check(
     data: TeamMemberAddRequest,
-    existing_team_row: LiteLLM_TeamTable,
+    existing_team_row: EmbRouter_TeamTable,
 ):
     """
     Check if a member already exists in the team.
@@ -2821,7 +2821,7 @@ def team_member_add_duplication_check(
 
 async def _validate_team_member_add_permissions(
     user_api_key_dict: UserAPIKeyAuth,
-    complete_team_data: LiteLLM_TeamTable,
+    complete_team_data: EmbRouter_TeamTable,
     data: TeamMemberAddRequest,
 ) -> None:
     """Validate if user has permission to add members to the team.
@@ -2833,7 +2833,7 @@ async def _validate_team_member_add_permissions(
     the request matches the caller's own ``user_id`` and is being
     added with ``role="user"``.
     """
-    if getattr(user_api_key_dict, "user_role", None) == LitellmUserRoles.PROXY_ADMIN.value:
+    if getattr(user_api_key_dict, "user_role", None) == EmbrouterUserRoles.PROXY_ADMIN.value:
         return
     if _is_user_team_admin(user_api_key_dict=user_api_key_dict, team_obj=complete_team_data):
         return
@@ -2901,19 +2901,19 @@ async def _validate_team_member_add_permissions(
 
 async def _process_team_members(
     data: TeamMemberAddRequest,
-    complete_team_data: LiteLLM_TeamTable,
+    complete_team_data: EmbRouter_TeamTable,
     prisma_client: PrismaClient,
     user_api_key_dict: UserAPIKeyAuth,
-    litellm_proxy_admin_name: str,
+    embrouter_proxy_admin_name: str,
     tx: MemberWriteTx | None = None,
-) -> tuple[list[LiteLLM_UserTable], list[LiteLLM_TeamMembership]]:
+) -> tuple[list[EmbRouter_UserTable], list[EmbRouter_TeamMembership]]:
     """Process and add new team members.
 
     ``tx`` is the caller's open transaction, when it has one, so the member writes run on the
     connection it already holds instead of checking out a second one.
     """
-    updated_users: Final[list[LiteLLM_UserTable]] = []
-    updated_team_memberships: Final[list[LiteLLM_TeamMembership]] = []
+    updated_users: Final[list[EmbRouter_UserTable]] = []
+    updated_team_memberships: Final[list[EmbRouter_TeamMembership]] = []
 
     default_team_budget_id: Final = (
         complete_team_data.metadata.get("team_member_budget_id") if complete_team_data.metadata is not None else None
@@ -2937,7 +2937,7 @@ async def _process_team_members(
                 max_budget_in_team=data.max_budget_in_team,
                 prisma_client=prisma_client,
                 user_api_key_dict=user_api_key_dict,
-                litellm_proxy_admin_name=litellm_proxy_admin_name,
+                embrouter_proxy_admin_name=embrouter_proxy_admin_name,
                 team_id=data.team_id,
                 default_team_budget_id=default_team_budget_id,
                 allowed_models=member_allowed_models,
@@ -2956,7 +2956,7 @@ async def _process_team_members(
     return updated_users, updated_team_memberships
 
 
-def _resolve_member_identity(member: Member, updated_users: Sequence[LiteLLM_UserTable]) -> Member:
+def _resolve_member_identity(member: Member, updated_users: Sequence[EmbRouter_UserTable]) -> Member:
     """Return ``member`` with whichever of ``user_id`` / ``user_email`` the caller left out filled in.
 
     The roster entry is a snapshot, so whatever is missing here is missing for good.
@@ -2988,7 +2988,7 @@ def _resolve_member_identity(member: Member, updated_users: Sequence[LiteLLM_Use
     )
 
 
-def _member_already_in_team(member: Member, complete_team_data: LiteLLM_TeamTable) -> bool:
+def _member_already_in_team(member: Member, complete_team_data: EmbRouter_TeamTable) -> bool:
     return any(
         (member.user_id is not None and existing_member.user_id == member.user_id)
         or (member.user_email is not None and existing_member.user_email == member.user_email)
@@ -2998,8 +2998,8 @@ def _member_already_in_team(member: Member, complete_team_data: LiteLLM_TeamTabl
 
 async def _update_team_members_list(
     data: TeamMemberAddRequest,
-    complete_team_data: LiteLLM_TeamTable,
-    updated_users: list[LiteLLM_UserTable],
+    complete_team_data: EmbRouter_TeamTable,
+    updated_users: list[EmbRouter_UserTable],
 ) -> None:
     """Update the team's members_with_roles list."""
     requested_members: Final[Sequence[Member]] = (
@@ -3017,11 +3017,11 @@ async def _update_team_members_list(
 
 async def _add_team_members_to_team(
     data: TeamMemberAddRequest,
-    complete_team_data: LiteLLM_TeamTable,
+    complete_team_data: EmbRouter_TeamTable,
     prisma_client: PrismaClient,
     user_api_key_dict: UserAPIKeyAuth,
-    litellm_proxy_admin_name: str,
-) -> tuple["prisma_models.LiteLLM_TeamTable", list[LiteLLM_UserTable], list[LiteLLM_TeamMembership]]:
+    embrouter_proxy_admin_name: str,
+) -> tuple["prisma_models.EmbRouter_TeamTable", list[EmbRouter_UserTable], list[EmbRouter_TeamMembership]]:
     """Add team members to the team, under the team's advisory lock.
 
     The lock (``TEAM_ADVISORY_LOCK_SQL``, keyed on the team id) is taken first, and the
@@ -3050,7 +3050,7 @@ async def _add_team_members_to_team(
             complete_team_data=complete_team_data,
             prisma_client=prisma_client,
             user_api_key_dict=user_api_key_dict,
-            litellm_proxy_admin_name=litellm_proxy_admin_name,
+            embrouter_proxy_admin_name=embrouter_proxy_admin_name,
             tx=tx,
         )
 
@@ -3103,7 +3103,7 @@ async def _update_team_member_role(
     return before, after
 
 
-def _emit_team_members_metric(team: LiteLLM_TeamTable) -> None:
+def _emit_team_members_metric(team: EmbRouter_TeamTable) -> None:
     """Update the Prometheus team members gauge after a membership change.
 
     No-ops when the Prometheus callback is not registered, and never lets a
@@ -3175,8 +3175,8 @@ def _validate_member_user_id_provisioning(
     invite new ones by user_email, where the user_id is allocated server-side.
     """
     if user_api_key_dict.user_role in (
-        LitellmUserRoles.PROXY_ADMIN,
-        LitellmUserRoles.PROXY_ADMIN.value,
+        EmbrouterUserRoles.PROXY_ADMIN,
+        EmbrouterUserRoles.PROXY_ADMIN.value,
     ):
         return
 
@@ -3220,9 +3220,9 @@ def _schedule_team_membership_audit_log(
     before_members: Sequence[Member],
     after_members: Sequence[Member],
     user_api_key_dict: UserAPIKeyAuth,
-    litellm_proxy_admin_name: str,
+    embrouter_proxy_admin_name: str,
 ) -> None:
-    from litellm.proxy.management_helpers.audit_logs import (
+    from embrouter.proxy.management_helpers.audit_logs import (
         create_object_audit_log,
         is_audit_logging_enabled,
     )
@@ -3234,10 +3234,10 @@ def _schedule_team_membership_audit_log(
         create_object_audit_log(
             object_id=team_id,
             action="updated",
-            litellm_changed_by=None,
+            embrouter_changed_by=None,
             user_api_key_dict=user_api_key_dict,
-            litellm_proxy_admin_name=litellm_proxy_admin_name,
-            table_name=LitellmTableNames.TEAM_TABLE_NAME,
+            embrouter_proxy_admin_name=embrouter_proxy_admin_name,
+            table_name=EmbrouterTableNames.TEAM_TABLE_NAME,
             before_value=_members_audit_value(team_alias, before_members),
             after_value=_members_audit_value(team_alias, after_members),
         )
@@ -3247,15 +3247,15 @@ def _schedule_team_membership_audit_log(
 def _schedule_team_member_add_audit_logs(
     team_id: str,
     team_alias: str | None,
-    updated_users: Sequence[LiteLLM_UserTable],
+    updated_users: Sequence[EmbRouter_UserTable],
     existing_user_ids: frozenset[str],
     before_members: Sequence[Member],
     after_members: Sequence[Member],
     user_api_key_dict: UserAPIKeyAuth,
-    litellm_proxy_admin_name: str,
+    embrouter_proxy_admin_name: str,
 ) -> None:
     """Record the membership change, and any user row it created, in the audit log."""
-    from litellm.proxy.management_helpers.audit_logs import (
+    from embrouter.proxy.management_helpers.audit_logs import (
         create_object_audit_log,
         is_audit_logging_enabled,
     )
@@ -3270,10 +3270,10 @@ def _schedule_team_member_add_audit_logs(
             create_object_audit_log(
                 object_id=user.user_id,
                 action="created",
-                litellm_changed_by=None,
+                embrouter_changed_by=None,
                 user_api_key_dict=user_api_key_dict,
-                litellm_proxy_admin_name=litellm_proxy_admin_name,
-                table_name=LitellmTableNames.USER_TABLE_NAME,
+                embrouter_proxy_admin_name=embrouter_proxy_admin_name,
+                table_name=EmbrouterTableNames.USER_TABLE_NAME,
                 before_value=None,
                 after_value=safe_dumps(user.model_dump(exclude_none=True)),
             )
@@ -3285,7 +3285,7 @@ def _schedule_team_member_add_audit_logs(
         before_members=before_members,
         after_members=after_members,
         user_api_key_dict=user_api_key_dict,
-        litellm_proxy_admin_name=litellm_proxy_admin_name,
+        embrouter_proxy_admin_name=embrouter_proxy_admin_name,
     )
 
 
@@ -3419,9 +3419,9 @@ async def team_member_add(
 
     ```
     """
-    from litellm.proxy.common_utils.auth_cache_invalidation_pubsub import evict_and_broadcast
-    from litellm.proxy.proxy_server import (
-        litellm_proxy_admin_name,
+    from embrouter.proxy.common_utils.auth_cache_invalidation_pubsub import evict_and_broadcast
+    from embrouter.proxy.proxy_server import (
+        embrouter_proxy_admin_name,
         premium_user,
         prisma_client,
         proxy_logging_obj,
@@ -3456,7 +3456,7 @@ async def team_member_add(
             detail={"error": f"Team not found for team_id={getattr(data, 'team_id', None)}"},
         )
 
-    complete_team_data: Final = LiteLLM_TeamTable.model_validate(existing_team_row.model_dump())
+    complete_team_data: Final = EmbRouter_TeamTable.model_validate(existing_team_row.model_dump())
 
     team_member_add_duplication_check(
         data=data,
@@ -3511,7 +3511,7 @@ async def team_member_add(
         complete_team_data=complete_team_data,
         prisma_client=prisma_client,
         user_api_key_dict=user_api_key_dict,
-        litellm_proxy_admin_name=litellm_proxy_admin_name,
+        embrouter_proxy_admin_name=embrouter_proxy_admin_name,
     )
 
     await evict_and_broadcast(
@@ -3534,7 +3534,7 @@ async def team_member_add(
         before_members=members_before_add,
         after_members=tuple(complete_team_data.members_with_roles),
         user_api_key_dict=user_api_key_dict,
-        litellm_proxy_admin_name=litellm_proxy_admin_name,
+        embrouter_proxy_admin_name=embrouter_proxy_admin_name,
     )
 
     return TeamAddMemberResponse.model_validate(
@@ -3553,7 +3553,7 @@ def _is_member_addressed_by(member: Member, data: TeamMemberDeleteRequest) -> bo
 
 
 def _cleanup_members_with_roles(
-    existing_team_row: LiteLLM_TeamTable,
+    existing_team_row: EmbRouter_TeamTable,
     data: TeamMemberDeleteRequest,
 ) -> tuple[tuple[Member, ...], list[Member]]:
     """Split a team's members_with_roles into the entries the request addresses and the ones that stay.
@@ -3598,7 +3598,7 @@ async def team_member_delete(
     }'
     ```
     """
-    from litellm.proxy.proxy_server import litellm_proxy_admin_name
+    from embrouter.proxy.proxy_server import embrouter_proxy_admin_name
 
     existing_team_row, before_members, after_members = await _team_member_delete(
         data=data, user_api_key_dict=user_api_key_dict
@@ -3610,7 +3610,7 @@ async def team_member_delete(
         before_members=before_members,
         after_members=after_members,
         user_api_key_dict=user_api_key_dict,
-        litellm_proxy_admin_name=litellm_proxy_admin_name,
+        embrouter_proxy_admin_name=embrouter_proxy_admin_name,
     )
 
     return existing_team_row
@@ -3619,8 +3619,8 @@ async def team_member_delete(
 async def _team_member_delete(
     data: TeamMemberDeleteRequest,
     user_api_key_dict: UserAPIKeyAuth,
-) -> tuple[LiteLLM_TeamTable, tuple[Member, ...], tuple[Member, ...]]:
-    from litellm.proxy.proxy_server import (
+) -> tuple[EmbRouter_TeamTable, tuple[Member, ...], tuple[Member, ...]]:
+    from embrouter.proxy.proxy_server import (
         prisma_client,
         proxy_logging_obj,
         user_api_key_cache,
@@ -3645,12 +3645,12 @@ async def _team_member_delete(
             status_code=400,
             detail={"error": f"Team id={data.team_id} does not exist in db"},
         )
-    existing_team_row: Final = LiteLLM_TeamTable.model_validate(_existing_team_row.model_dump())
+    existing_team_row: Final = EmbRouter_TeamTable.model_validate(_existing_team_row.model_dump())
 
     ## CHECK IF USER IS PROXY ADMIN OR TEAM ADMIN OR ORG ADMIN
 
     if (
-        user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN.value
+        user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN.value
         and not _is_user_team_admin(user_api_key_dict=user_api_key_dict, team_obj=existing_team_row)
         and not await _is_user_org_admin_for_team(user_api_key_dict=user_api_key_dict, team_obj=existing_team_row)
     ):
@@ -3683,7 +3683,7 @@ async def _team_member_delete(
             )
 
         removed_team_members, new_team_members = _cleanup_members_with_roles(
-            existing_team_row=LiteLLM_TeamTable(team_id=data.team_id, members_with_roles=fresh_members),
+            existing_team_row=EmbRouter_TeamTable(team_id=data.team_id, members_with_roles=fresh_members),
             data=data,
         )
 
@@ -3701,7 +3701,7 @@ async def _team_member_delete(
             {"user_id": {"in": sorted(addressed_user_ids)}} if addressed_user_ids else {"user_email": data.user_email}
         )
         member_tx: Final[_MemberDeleteTx] = tx
-        existing_user_rows: Final = await member_tx.litellm_usertable.find_many(where=key_val)
+        existing_user_rows: Final = await member_tx.embrouter_usertable.find_many(where=key_val)
 
         # A user row can outlive its roster entry, and until the team is off user.teams the user
         # still sees it and still fails key creation against it, so removal has to clear it too
@@ -3719,7 +3719,7 @@ async def _team_member_delete(
         ## DELETE KEYS CREATED BY USER FOR THIS TEAM
         # Fetch keys before deletion so their audit records can be persisted alongside the delete.
         # An empty user_ids_to_delete still resolves cleanly: prisma's "in": [] matches no rows.
-        keys_to_delete: Final = await member_tx.litellm_verificationtoken.find_many(
+        keys_to_delete: Final = await member_tx.embrouter_verificationtoken.find_many(
             where={
                 "user_id": {"in": sorted(user_ids_to_delete)},
                 "team_id": data.team_id,
@@ -3737,17 +3737,17 @@ async def _team_member_delete(
             )
 
         for existing_user in stale_user_rows:
-            await tx.litellm_usertable.update(
+            await tx.embrouter_usertable.update(
                 where={"user_id": existing_user.user_id},
                 data={"teams": {"set": [team for team in existing_user.teams if team != data.team_id]}},
             )
 
         for _uid in sorted(user_ids_to_delete):
-            await tx.litellm_teammembership.delete_many(where={"team_id": data.team_id, "user_id": _uid})
+            await tx.embrouter_teammembership.delete_many(where={"team_id": data.team_id, "user_id": _uid})
 
         if user_ids_to_delete:
             if keys_to_delete:
-                from litellm.proxy.management_endpoints.key_management_endpoints import (
+                from embrouter.proxy.management_endpoints.key_management_endpoints import (
                     _persist_deleted_verification_tokens,
                 )
 
@@ -3755,11 +3755,11 @@ async def _team_member_delete(
                     keys=keys_to_delete,
                     prisma_client=prisma_client,
                     user_api_key_dict=user_api_key_dict,
-                    litellm_changed_by=None,
+                    embrouter_changed_by=None,
                     tx=tx,
                 )
 
-            await tx.litellm_verificationtoken.delete_many(
+            await tx.embrouter_verificationtoken.delete_many(
                 where={
                     "user_id": {"in": sorted(user_ids_to_delete)},
                     "team_id": data.team_id,
@@ -3770,7 +3770,7 @@ async def _team_member_delete(
         KeyManagementEventHooks.create_key_deleted_audit_logs(
             keys_being_deleted=keys_to_delete,
             user_api_key_dict=user_api_key_dict,
-            litellm_changed_by=None,
+            embrouter_changed_by=None,
         )
 
     await delete_cache_team_object(
@@ -3815,8 +3815,8 @@ async def team_member_update(
 
     Update team member budgets and team member role
     """
-    from litellm.proxy.proxy_server import (
-        litellm_proxy_admin_name,
+    from embrouter.proxy.proxy_server import (
+        embrouter_proxy_admin_name,
         premium_user,
         prisma_client,
         user_api_key_cache,
@@ -3832,7 +3832,7 @@ async def team_member_update(
         # exactly the same text your proxy throws for add:
         raise HTTPException(
             status_code=400,
-            detail="Assigning team admins is a premium feature. You must be a LiteLLM Enterprise user to use this feature. If you have a license please set `LITELLM_LICENSE` in your env.",
+            detail="Assigning team admins is a premium feature. You must be a EmbRouter Enterprise user to use this feature. If you have a license please set `EMBROUTER_LICENSE` in your env.",
         )
     if data.user_id is None and data.user_email is None:
         raise HTTPException(
@@ -3849,12 +3849,12 @@ async def team_member_update(
             status_code=400,
             detail={"error": f"Team id={data.team_id} does not exist in db"},
         )
-    existing_team_row: Final = LiteLLM_TeamTable.model_validate(_existing_team_row.model_dump())
+    existing_team_row: Final = EmbRouter_TeamTable.model_validate(_existing_team_row.model_dump())
 
     ## CHECK IF USER IS PROXY ADMIN OR TEAM ADMIN OR ORG ADMIN
 
     if (
-        user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN.value
+        user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN.value
         and not _is_user_team_admin(user_api_key_dict=user_api_key_dict, team_obj=existing_team_row)
         and not await _is_user_org_admin_for_team(user_api_key_dict=user_api_key_dict, team_obj=existing_team_row)
     ):
@@ -3947,7 +3947,7 @@ async def team_member_update(
             before_members=members_before_role_update,
             after_members=team_members,
             user_api_key_dict=user_api_key_dict,
-            litellm_proxy_admin_name=litellm_proxy_admin_name,
+            embrouter_proxy_admin_name=embrouter_proxy_admin_name,
         )
 
     return TeamMemberUpdateResponse(
@@ -3968,12 +3968,12 @@ def _check_not_resetting_own_spend(user_id: str, user_api_key_dict: UserAPIKeyAu
     """
     _verify_team_access authorizes a team admin (or org admin) over their own
     team, with no check that the target user_id differs from the caller. Left
-    unchecked, that admin could target their own LiteLLM_TeamMembership row and
+    unchecked, that admin could target their own EmbRouter_TeamMembership row and
     repeatedly reset it to 0 right before it crosses their per-member cap,
     consuming the shared team budget without the configured limit ever binding.
     Only a proxy admin may reset an admin's own spend.
     """
-    if user_id == user_api_key_dict.user_id and user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+    if user_id == user_api_key_dict.user_id and user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
         _raise_reset_spend_error(status.HTTP_403_FORBIDDEN, "Cannot reset your own spend. Ask a proxy admin.")
 
 
@@ -3984,7 +3984,7 @@ def _raise_reset_spend_error(status_code: int, message: str) -> NoReturn:
 
 def _validate_team_member_reset_spend_value(
     reset_to: object,
-    membership: LiteLLM_TeamMembership,
+    membership: EmbRouter_TeamMembership,
 ) -> float:
     if not isinstance(reset_to, (int, float)):
         _raise_reset_spend_error(status.HTTP_400_BAD_REQUEST, "reset_to must be a float")
@@ -4000,7 +4000,7 @@ def _validate_team_member_reset_spend_value(
             f"reset_to ({reset_to_float}) must be <= current spend ({current_spend})",
         )
 
-    max_budget: Final = membership.litellm_budget_table.max_budget if membership.litellm_budget_table else None
+    max_budget: Final = membership.embrouter_budget_table.max_budget if membership.embrouter_budget_table else None
     if max_budget is not None and reset_to_float > max_budget:
         _raise_reset_spend_error(
             status.HTTP_400_BAD_REQUEST,
@@ -4026,13 +4026,13 @@ async def reset_team_member_spend_fn(
     Reset a team member's tracked spend against their per-member budget.
 
     A member's spend is tracked separately from both their own personal
-    budget and the team's own budget (LiteLLM_TeamMembership.spend), so
+    budget and the team's own budget (EmbRouter_TeamMembership.spend), so
     neither /user/update nor /team/update can clear it: this is the only
     endpoint that does. The cross-pod spend counter and cached membership
     reads are invalidated so the reset takes effect on the member's next
     request rather than waiting on the membership cache's TTL.
     """
-    from litellm.proxy.proxy_server import prisma_client, proxy_logging_obj, user_api_key_cache
+    from embrouter.proxy.proxy_server import prisma_client, proxy_logging_obj, user_api_key_cache
 
     if prisma_client is None:
         _raise_reset_spend_error(status.HTTP_500_INTERNAL_SERVER_ERROR, "DB not connected. prisma_client is None")
@@ -4053,11 +4053,11 @@ async def reset_team_member_spend_fn(
     }
     _membership_row: Final = await _team_membership_db(prisma_client).find_unique(
         where=membership_where,
-        include={"litellm_budget_table": True},  # mutable-ok: prisma client requires a plain dict include= argument
+        include={"embrouter_budget_table": True},  # mutable-ok: prisma client requires a plain dict include= argument
     )
     if _membership_row is None:
         _raise_reset_spend_error(status.HTTP_404_NOT_FOUND, f"User {user_id} is not a member of team {team_id}.")
-    membership: Final = LiteLLM_TeamMembership.model_validate(_membership_row.model_dump())
+    membership: Final = EmbRouter_TeamMembership.model_validate(_membership_row.model_dump())
 
     current_spend: Final = membership.spend or 0.0
     reset_to: Final = _validate_team_member_reset_spend_value(data.reset_to, membership)
@@ -4079,7 +4079,7 @@ async def reset_team_member_spend_fn(
         "user_id": user_id,
         "spend": reset_to,
         "previous_spend": current_spend,
-        "max_budget": membership.litellm_budget_table.max_budget if membership.litellm_budget_table else None,
+        "max_budget": membership.embrouter_budget_table.max_budget if membership.embrouter_budget_table else None,
     }
 
 
@@ -4087,13 +4087,13 @@ class _TeamMetadataView(BaseModel):
     metadata: Mapping[str, object] | None = None
 
 
-def _team_default_budget_id(team: LiteLLM_TeamTable) -> str | None:
+def _team_default_budget_id(team: EmbRouter_TeamTable) -> str | None:
     view: Final = _TeamMetadataView.model_validate(team, from_attributes=True)
     raw: Final = view.metadata.get("team_member_budget_id") if view.metadata is not None else None
     return raw if isinstance(raw, str) else None
 
 
-async def _existing_team_default_budget_id(team: LiteLLM_TeamTable, prisma_client: PrismaClient) -> str | None:
+async def _existing_team_default_budget_id(team: EmbRouter_TeamTable, prisma_client: PrismaClient) -> str | None:
     budget_id: Final = _team_default_budget_id(team)
     if budget_id is None:
         return None
@@ -4127,7 +4127,7 @@ async def reset_team_member_budget_fn(
     Drops the member's own budget row link so team-wide changes made through /team/update
     reach them again. Leaves the member with no budget when the team has no default. Spend is untouched.
     """
-    from litellm.proxy.proxy_server import prisma_client, proxy_logging_obj, user_api_key_cache
+    from embrouter.proxy.proxy_server import prisma_client, proxy_logging_obj, user_api_key_cache
 
     if prisma_client is None:
         _raise_reset_spend_error(status.HTTP_500_INTERNAL_SERVER_ERROR, "DB not connected. prisma_client is None")
@@ -4157,7 +4157,7 @@ async def reset_team_member_budget_fn(
     )
     await _team_membership_db(prisma_client).update(
         where=membership_where,
-        data={"litellm_budget_table": budget_link},  # mutable-ok: prisma client requires a plain dict data= argument
+        data={"embrouter_budget_table": budget_link},  # mutable-ok: prisma client requires a plain dict data= argument
     )
     await invalidate_team_member_spend_state(
         user_id=user_id,
@@ -4263,8 +4263,8 @@ async def bulk_team_member_add(
     }'
     ```
     """
-    from litellm.proxy._types import CommonProxyErrors
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy._types import CommonProxyErrors
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(
@@ -4277,7 +4277,7 @@ async def bulk_team_member_add(
         # regardless of org. Any team admin could use it to capture every
         # user across every org into a team they control. Restrict to
         # PROXY_ADMIN.
-        if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN.value:
+        if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN.value:
             raise HTTPException(
                 status_code=403,
                 detail={
@@ -4365,9 +4365,9 @@ async def delete_team(
     data: DeleteTeamRequest,
     http_request: Request,
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
-    litellm_changed_by: str | None = Header(
+    embrouter_changed_by: str | None = Header(
         None,
-        description="The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability",
+        description="The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability",
     ),
 ):
     """
@@ -4385,13 +4385,13 @@ async def delete_team(
     }'
     ```
     """
-    from litellm.proxy.management_helpers.audit_logs import (
+    from embrouter.proxy.management_helpers.audit_logs import (
         get_audit_log_changed_by,
         is_audit_logging_enabled,
     )
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         create_audit_log_for_update,
-        litellm_proxy_admin_name,
+        embrouter_proxy_admin_name,
         prisma_client,
         proxy_logging_obj,
         user_api_key_cache,
@@ -4404,7 +4404,7 @@ async def delete_team(
         raise HTTPException(status_code=400, detail={"error": "No team id passed in"})
 
     # check that all teams passed exist
-    team_rows: Final[list[LiteLLM_TeamTable]] = []
+    team_rows: Final[list[EmbRouter_TeamTable]] = []
     for team_id in data.team_ids:
         try:
             team_row_base: BaseModel | None = await _team_db(prisma_client).find_unique(where={"team_id": team_id})
@@ -4415,7 +4415,7 @@ async def delete_team(
                 status_code=404,
                 detail={"error": f"Team not found, passed team_id={team_id}"},
             )
-        team_row_pydantic = LiteLLM_TeamTable.model_validate(team_row_base.model_dump())
+        team_row_pydantic = EmbRouter_TeamTable.model_validate(team_row_base.model_dump())
 
         # Verify caller has access to manage this team
         await _verify_team_access(
@@ -4429,14 +4429,14 @@ async def delete_team(
         teams=team_rows,
         prisma_client=prisma_client,
         user_api_key_dict=user_api_key_dict,
-        litellm_changed_by=litellm_changed_by,
+        embrouter_changed_by=embrouter_changed_by,
     )
 
     # we do this after the first for loop, since first for loop is for validation. we only want this inserted after validation passes
     if is_audit_logging_enabled():
         # make an audit log for each team deleted
         for team_id in data.team_ids:
-            team_row: LiteLLM_TeamTable | None = await prisma_client.get_data(
+            team_row: EmbRouter_TeamTable | None = await prisma_client.get_data(
                 team_id=team_id, table_name="team", query_type="find_unique"
             )
 
@@ -4447,16 +4447,16 @@ async def delete_team(
 
             asyncio.create_task(
                 create_audit_log_for_update(
-                    request_data=LiteLLM_AuditLogs(
+                    request_data=EmbRouter_AuditLogs(
                         id=str(uuid.uuid4()),
                         updated_at=datetime.now(timezone.utc),
                         changed_by=get_audit_log_changed_by(
-                            litellm_changed_by=litellm_changed_by,
+                            embrouter_changed_by=embrouter_changed_by,
                             user_api_key_dict=user_api_key_dict,
-                            litellm_proxy_admin_name=litellm_proxy_admin_name,
+                            embrouter_proxy_admin_name=embrouter_proxy_admin_name,
                         ),
                         changed_by_api_key=user_api_key_dict.api_key,
-                        table_name=LitellmTableNames.TEAM_TABLE_NAME,
+                        table_name=EmbrouterTableNames.TEAM_TABLE_NAME,
                         object_id=team_id,
                         action="deleted",
                         updated_values="{}",
@@ -4469,7 +4469,7 @@ async def delete_team(
 
     ## DELETE ASSOCIATED KEYS
     # Fetch keys before deletion to persist them
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from embrouter.proxy.management_endpoints.key_management_endpoints import (
         _persist_deleted_verification_tokens,
     )
 
@@ -4484,7 +4484,7 @@ async def delete_team(
             keys=keys_to_delete,
             prisma_client=prisma_client,
             user_api_key_dict=user_api_key_dict,
-            litellm_changed_by=litellm_changed_by,
+            embrouter_changed_by=embrouter_changed_by,
         )
 
     await prisma_client.delete_data(team_id_list=data.team_ids, table_name="key")
@@ -4493,7 +4493,7 @@ async def delete_team(
         KeyManagementEventHooks.create_key_deleted_audit_logs(
             keys_being_deleted=keys_to_delete,
             user_api_key_dict=user_api_key_dict,
-            litellm_changed_by=litellm_changed_by,
+            embrouter_changed_by=embrouter_changed_by,
         )
 
     await _invalidate_deleted_key_cache(
@@ -4506,10 +4506,10 @@ async def delete_team(
     ## DELETE ASSOCIATED BYOK MODELS
     # Runs before the team rows are deleted so a mid-flight failure never leaves
     # the team gone with its models orphaned.
-    from litellm.proxy.management_endpoints.model_management_endpoints import (
+    from embrouter.proxy.management_endpoints.model_management_endpoints import (
         delete_team_models,
     )
-    from litellm.proxy.proxy_server import llm_router
+    from embrouter.proxy.proxy_server import llm_router
 
     await delete_team_models(
         team_ids=data.team_ids,
@@ -4550,7 +4550,7 @@ async def delete_team(
     async with prisma_client.tx() as tx:
         for team_id in sorted(data.team_ids):
             await tx.query_raw(TEAM_ADVISORY_LOCK_SQL, team_id)
-        await tx.litellm_teamtable.delete_many(where=delete_filter)
+        await tx.embrouter_teamtable.delete_many(where=delete_filter)
         await _sweep_deleted_team_references_tx(team_ids=data.team_ids, tx=tx)
 
     deleted_teams: Final[_DeletedTeamsResult] = {"deleted_teams": data.team_ids}
@@ -4601,11 +4601,11 @@ async def _sweep_deleted_team_references_tx(team_ids: Sequence[str], tx: _TeamDe
         _ = await tx.execute_raw(_STRIP_DELETED_TEAM_FROM_USERS_SQL, team_id)
 
     membership_filter: Final[_TeamIdInFilter] = {"team_id": {"in": tuple(team_ids)}}
-    _ = await tx.litellm_teammembership.delete_many(where=membership_filter)
+    _ = await tx.embrouter_teammembership.delete_many(where=membership_filter)
 
 
 async def _invalidate_deleted_key_cache(
-    keys: "Sequence[prisma_models.LiteLLM_VerificationToken]",
+    keys: "Sequence[prisma_models.EmbRouter_VerificationToken]",
     user_api_key_cache: UserApiKeyCache,
     proxy_logging_obj: ProxyLogging,
 ) -> None:
@@ -4624,7 +4624,7 @@ async def _invalidate_deleted_key_cache(
 
 
 async def _invalidate_deleted_team_cache(
-    teams: Sequence[LiteLLM_TeamTable],
+    teams: Sequence[EmbRouter_TeamTable],
     user_api_key_cache: UserApiKeyCache,
     proxy_logging_obj: ProxyLogging,
 ) -> None:
@@ -4642,9 +4642,9 @@ async def _invalidate_deleted_team_cache(
 
 
 def _transform_teams_to_deleted_records(
-    teams: list[LiteLLM_TeamTable],
+    teams: list[EmbRouter_TeamTable],
     user_api_key_dict: UserAPIKeyAuth,
-    litellm_changed_by: str | None = None,
+    embrouter_changed_by: str | None = None,
 ) -> list[dict[str, object]]:
     """Transform teams into deleted team records ready for persistence."""
     if not teams:
@@ -4654,13 +4654,13 @@ def _transform_teams_to_deleted_records(
     records: Final = []
     for team in teams:
         team_payload = team.model_dump()
-        deleted_record = LiteLLM_DeletedTeamTable.model_validate(
+        deleted_record = EmbRouter_DeletedTeamTable.model_validate(
             {
                 **team_payload,
                 "deleted_at": deleted_at,
                 "deleted_by": user_api_key_dict.user_id,
                 "deleted_by_api_key": user_api_key_dict.api_key,
-                "litellm_changed_by": litellm_changed_by,
+                "embrouter_changed_by": embrouter_changed_by,
             }
         )
         record = deleted_record.model_dump()
@@ -4676,11 +4676,11 @@ def _transform_teams_to_deleted_records(
                 record[json_field] = json.dumps(record[json_field])
 
         for rel_key in (
-            "litellm_model_table",
+            "embrouter_model_table",
             "object_permission",
             "id",
-            "budget_limits",  # not in LiteLLM_DeletedTeamTable schema
-            "default_team_member_models",  # not in LiteLLM_DeletedTeamTable schema
+            "budget_limits",  # not in EmbRouter_DeletedTeamTable schema
+            "default_team_member_models",  # not in EmbRouter_DeletedTeamTable schema
         ):
             record.pop(rel_key, None)
 
@@ -4700,16 +4700,16 @@ async def _save_deleted_team_records(
 
 
 async def _persist_deleted_team_records(
-    teams: list[LiteLLM_TeamTable],
+    teams: list[EmbRouter_TeamTable],
     prisma_client: PrismaClient,
     user_api_key_dict: UserAPIKeyAuth,
-    litellm_changed_by: str | None = None,
+    embrouter_changed_by: str | None = None,
 ) -> None:
     """Persist deleted team records by transforming and saving them."""
     records: Final = _transform_teams_to_deleted_records(
         teams=teams,
         user_api_key_dict=user_api_key_dict,
-        litellm_changed_by=litellm_changed_by,
+        embrouter_changed_by=embrouter_changed_by,
     )
     await _save_deleted_team_records(
         records=records,
@@ -4717,10 +4717,10 @@ async def _persist_deleted_team_records(
     )
 
 
-async def validate_membership(user_api_key_dict: UserAPIKeyAuth, team_table: LiteLLM_TeamTable):
+async def validate_membership(user_api_key_dict: UserAPIKeyAuth, team_table: EmbRouter_TeamTable):
     if (
-        user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN.value
-        or user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY.value
+        user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN.value
+        or user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY.value
     ):
         return
 
@@ -4778,9 +4778,9 @@ async def _hydrate_member_user_details(
     prisma_client: PrismaClient,
     members: Sequence[Member],
 ) -> tuple[TeamInfoMember, ...]:
-    """Attach ``user_alias`` and fill in a missing ``user_email`` from ``LiteLLM_UserTable`` in one query."""
+    """Attach ``user_alias`` and fill in a missing ``user_email`` from ``EmbRouter_UserTable`` in one query."""
     user_ids: Final = frozenset(m.user_id for m in members if m.user_id is not None)
-    user_rows: Final[Sequence[prisma_models.LiteLLM_UserTable]] = (
+    user_rows: Final[Sequence[prisma_models.EmbRouter_UserTable]] = (
         await _user_db(prisma_client).find_many(
             where={  # mutable-ok: Prisma query filters are dict-shaped
                 "user_id": {  # mutable-ok: Prisma query filters are dict-shaped
@@ -4810,12 +4810,12 @@ class _OrganizationModelsRow(BaseModel):
 
 
 class _TeamRowWithOrganization(BaseModel):
-    litellm_organization_table: _OrganizationModelsRow | None = None
+    embrouter_organization_table: _OrganizationModelsRow | None = None
 
 
 def _parent_organization_models(team_row: BaseModel) -> list[str] | None:
     """Return the parent org's model allow-list, or None when the team has no org."""
-    organization: Final = _TeamRowWithOrganization.model_validate(team_row.model_dump()).litellm_organization_table
+    organization: Final = _TeamRowWithOrganization.model_validate(team_row.model_dump()).embrouter_organization_table
     return organization.models if organization is not None else None
 
 
@@ -4870,8 +4870,8 @@ async def team_info(
     --header 'Authorization: Bearer your_api_key_here'
     ```
     """
-    from litellm.proxy._types import TeamInfoResponseObjectTeamTable
-    from litellm.proxy.proxy_server import model_max_budget_limiter, prisma_client
+    from embrouter.proxy._types import TeamInfoResponseObjectTeamTable
+    from embrouter.proxy.proxy_server import model_max_budget_limiter, prisma_client
 
     try:
         if prisma_client is None:
@@ -4891,9 +4891,9 @@ async def team_info(
             team_info: BaseModel | None = await _team_db(prisma_client).find_unique(
                 where={"team_id": team_id},
                 include={
-                    "litellm_model_table": True,
+                    "embrouter_model_table": True,
                     "object_permission": True,
-                    "litellm_organization_table": True,
+                    "embrouter_organization_table": True,
                 },
             )
             if team_info is None:
@@ -4903,7 +4903,7 @@ async def team_info(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail={"message": f"Team not found, passed team id: {team_id}."},
             )
-        team_table: Final = LiteLLM_TeamTable.model_validate(team_info.model_dump())
+        team_table: Final = EmbRouter_TeamTable.model_validate(team_info.model_dump())
         await validate_membership(user_api_key_dict=user_api_key_dict, team_table=team_table)
         access_role: Final = await _resolve_team_access(team_obj=team_table, user_api_key_dict=user_api_key_dict)
         organization_models: Final[list[str] | None] = (
@@ -4972,7 +4972,7 @@ async def team_info(
                 "members_with_roles": hydrated_members,
                 "organization_models": organization_models,
                 "model_max_budget_usage": await build_model_max_budget_usage(
-                    entity_type=Litellm_EntityType.TEAM,
+                    entity_type=Embrouter_EntityType.TEAM,
                     entity_id=team_id,
                     model_max_budget=resolved_team_info.model_max_budget,
                     cache=model_max_budget_limiter.dual_cache,
@@ -5001,7 +5001,7 @@ async def team_info(
 
     except Exception as e:
         verbose_proxy_logger.error(
-            "litellm.proxy.management_endpoints.team_endpoints.py::team_info - Exception occurred - %s\n%s",
+            "embrouter.proxy.management_endpoints.team_endpoints.py::team_info - Exception occurred - %s\n%s",
             e,
             traceback.format_exc(),
         )
@@ -5049,7 +5049,7 @@ async def team_member_me(
     --header 'Authorization: Bearer your_api_key_here'
     ```
     """
-    from litellm.proxy.proxy_server import prisma_client, user_api_key_cache
+    from embrouter.proxy.proxy_server import prisma_client, user_api_key_cache
 
     if prisma_client is None:
         raise HTTPException(
@@ -5120,7 +5120,7 @@ async def team_member_me(
             spend=0.0,
             total_spend=0.0,
             budget_id=None,
-            litellm_budget_table=None,
+            embrouter_budget_table=None,
         )
 
     return TeamMemberInfoResponse(
@@ -5132,7 +5132,7 @@ async def team_member_me(
         spend=membership.spend,
         total_spend=membership.total_spend,
         budget_id=membership.budget_id,
-        litellm_budget_table=membership.litellm_budget_table,
+        embrouter_budget_table=membership.embrouter_budget_table,
     )
 
 
@@ -5165,7 +5165,7 @@ async def block_team(
 
 
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise Exception("No DB Connected.")
@@ -5179,7 +5179,7 @@ async def block_team(
 
     # Verify caller has access to manage this team
     await _verify_team_access(
-        team_obj=LiteLLM_TeamTable.model_validate(existing_team.model_dump()),
+        team_obj=EmbRouter_TeamTable.model_validate(existing_team.model_dump()),
         user_api_key_dict=user_api_key_dict,
     )
 
@@ -5214,7 +5214,7 @@ async def unblock_team(
     }'
     ```
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise Exception("No DB Connected.")
@@ -5228,7 +5228,7 @@ async def unblock_team(
 
     # Verify caller has access to manage this team
     await _verify_team_access(
-        team_obj=LiteLLM_TeamTable.model_validate(existing_team.model_dump()),
+        team_obj=EmbRouter_TeamTable.model_validate(existing_team.model_dump()),
         user_api_key_dict=user_api_key_dict,
     )
 
@@ -5262,9 +5262,9 @@ async def get_team_metadata_schema():
 async def list_available_teams(
     http_request: Request,
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
-    response_model=list[LiteLLM_TeamTable],
+    response_model=list[EmbRouter_TeamTable],
 ):
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(
@@ -5275,8 +5275,8 @@ async def list_available_teams(
     available_teams = cast(
         list[str] | None,
         (
-            litellm.default_internal_user_params.get("available_teams")
-            if litellm.default_internal_user_params is not None
+            embrouter.default_internal_user_params.get("available_teams")
+            if embrouter.default_internal_user_params is not None
             else None
         ),
     )
@@ -5290,13 +5290,13 @@ async def list_available_teams(
             status_code=404,
             detail={"error": "User not found"},
         )
-    user_info_correct_type: Final = LiteLLM_UserTable.model_validate(user_info.model_dump())
+    user_info_correct_type: Final = EmbRouter_UserTable.model_validate(user_info.model_dump())
 
     available_teams = [team for team in available_teams if team not in user_info_correct_type.teams]
 
     available_teams_db: Final = await _team_db(prisma_client).find_many(where={"team_id": {"in": available_teams}})
 
-    available_teams_correct_type = [LiteLLM_TeamTable.model_validate(team.model_dump()) for team in available_teams_db]
+    available_teams_correct_type = [EmbRouter_TeamTable.model_validate(team.model_dump()) for team in available_teams_db]
 
     return available_teams_correct_type
 
@@ -5330,7 +5330,7 @@ async def _get_org_admin_org_ids(
     org_ids: Final = [
         m.organization_id
         for m in (caller_user.organization_memberships or [])
-        if m.user_role == LitellmUserRoles.ORG_ADMIN.value and m.organization_id is not None
+        if m.user_role == EmbrouterUserRoles.ORG_ADMIN.value and m.organization_id is not None
     ]
     return org_ids if org_ids else None
 
@@ -5398,7 +5398,7 @@ async def _build_team_list_where_conditions(
     if organization_id:
         where_conditions["organization_id"] = organization_id
     elif org_admin_org_ids is not None and own_team_ids:
-        org_or_membership_scope: Final[prisma_types.LiteLLM_TeamTableWhereInput] = {
+        org_or_membership_scope: Final[prisma_types.EmbRouter_TeamTableWhereInput] = {
             "OR": [{"organization_id": {"in": org_admin_org_ids}}, {"team_id": {"in": list(own_team_ids)}}]
         }
         where_conditions["AND"] = [org_or_membership_scope]
@@ -5451,12 +5451,12 @@ async def _build_team_list_where_conditions(
 
 async def _batch_resolve_access_group_resources(
     all_access_group_ids: list[str],
-) -> "dict[str, prisma_models.LiteLLM_AccessGroupTable]":
+) -> "dict[str, prisma_models.EmbRouter_AccessGroupTable]":
     """
     Batch-fetch access groups in a single DB query and return them keyed by
     access_group_id. Missing/invalid groups are silently omitted.
     """
-    from litellm.proxy.proxy_server import prisma_client as _prisma_client
+    from embrouter.proxy.proxy_server import prisma_client as _prisma_client
 
     if not all_access_group_ids or _prisma_client is None:
         return {}
@@ -5472,9 +5472,9 @@ def _convert_teams_to_response_models(
     teams: Sequence,
     use_deleted_table: bool,
     keys_count_by_team: dict[str, int] | None = None,
-) -> list[TeamListItem | LiteLLM_TeamTable | LiteLLM_DeletedTeamTable]:
+) -> list[TeamListItem | EmbRouter_TeamTable | EmbRouter_DeletedTeamTable]:
     """Convert raw Prisma team rows to response models."""
-    team_list: Final[list[TeamListItem | LiteLLM_TeamTable | LiteLLM_DeletedTeamTable]] = []
+    team_list: Final[list[TeamListItem | EmbRouter_TeamTable | EmbRouter_DeletedTeamTable]] = []
     counts: Final = keys_count_by_team or {}
     for team in teams:
         try:
@@ -5483,7 +5483,7 @@ def _convert_teams_to_response_models(
             team_dict = team.dict()
 
         if use_deleted_table:
-            team_list.append(LiteLLM_DeletedTeamTable.model_validate(team_dict))
+            team_list.append(EmbRouter_DeletedTeamTable.model_validate(team_dict))
         else:
             members_with_roles = team_dict.get("members_with_roles")
             if not isinstance(members_with_roles, list):
@@ -5507,7 +5507,7 @@ async def _get_keys_count_by_team(
 ) -> dict[str, int]:
     """Aggregate virtual-key counts per team for the given page of teams.
 
-    Runs a single GROUP BY against LiteLLM_VerificationToken. The IN clause is
+    Runs a single GROUP BY against EmbRouter_VerificationToken. The IN clause is
     bounded by page_size and uses the existing @@index([team_id]), so this is
     one DB round-trip per page. Returns an empty map when the page has no teams.
     """
@@ -5663,7 +5663,7 @@ async def list_team_v2(
         status: Optional[str]
             Filter by status. Currently supports "deleted" to query deleted teams.
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         prisma_client,
         proxy_logging_obj,
         user_api_key_cache,
@@ -5732,7 +5732,7 @@ async def list_team_v2(
 
     # Get teams with pagination
     if use_deleted_table:
-        # LiteLLM_DeletedTeamTable has no litellm_model_table relation, unlike below
+        # EmbRouter_DeletedTeamTable has no embrouter_model_table relation, unlike below
         teams = await _deleted_team_db(prisma_client).find_many(
             where=where_conditions,
             skip=skip,
@@ -5828,7 +5828,7 @@ async def _authorize_and_filter_teams(
                 allowed_org_ids = [
                     m.organization_id
                     for m in (caller_user.organization_memberships or [])
-                    if m.user_role == LitellmUserRoles.ORG_ADMIN.value and m.organization_id is not None
+                    if m.user_role == EmbrouterUserRoles.ORG_ADMIN.value and m.organization_id is not None
                 ]
                 if not allowed_org_ids:
                     allowed_org_ids = None
@@ -5844,7 +5844,7 @@ async def _authorize_and_filter_teams(
     if allowed_org_ids is not None and not is_own_query:
         org_teams: Final = await _raw_team_db(TeamRepository(prisma_client)).find_many(
             where={"organization_id": {"in": allowed_org_ids}},
-            include={"litellm_model_table": True},
+            include={"embrouter_model_table": True},
         )
         if not user_id:
             return list(org_teams)
@@ -5854,7 +5854,7 @@ async def _authorize_and_filter_teams(
             if team.members_with_roles and any(m.get("user_id") == user_id for m in team.members_with_roles)
         ]
 
-    response: Final = await _raw_team_db(TeamRepository(prisma_client)).find_many(include={"litellm_model_table": True})
+    response: Final = await _raw_team_db(TeamRepository(prisma_client)).find_many(include={"embrouter_model_table": True})
     if not user_id:
         # Proxy admin: all teams
         return list(response)
@@ -5885,7 +5885,7 @@ async def list_team(
     - user_id: str - Optional. If passed will only return teams that the user_id is a member of.
     - organization_id: str - Optional. If passed will only return teams that belong to the organization_id. Pass 'default_organization' to get all teams without organization_id.
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         prisma_client,
         proxy_logging_obj,
         user_api_key_cache,
@@ -5910,7 +5910,7 @@ async def list_team(
 
     returned_responses: list[TeamListResponseObject] = []
     for team in filtered_response:
-        _team_memberships: list[LiteLLM_TeamMembership] = []
+        _team_memberships: list[EmbRouter_TeamMembership] = []
         for tm in returned_tm:
             if tm.team_id == team.team_id:
                 _team_memberships.append(tm)
@@ -5948,7 +5948,7 @@ async def get_paginated_teams(
     prisma_client: PrismaClient,
     page_size: int = 10,
     page: int = 1,
-) -> tuple[list[LiteLLM_TeamTable], int]:
+) -> tuple[list[EmbRouter_TeamTable], int]:
     """
     Get paginated list of teams from team table
 
@@ -5958,7 +5958,7 @@ async def get_paginated_teams(
         page: int - Page number (1-based)
 
     Returns:
-        Tuple[List[LiteLLM_TeamTable], int] - (list of teams, total count)
+        Tuple[List[EmbRouter_TeamTable], int] - (list of teams, total count)
     """
     try:
         # Calculate skip for pagination
@@ -5984,7 +5984,7 @@ async def get_paginated_teams(
     dependencies=[Depends(user_api_key_auth)],
     include_in_schema=False,
     responses={
-        200: {"model": list[LiteLLM_TeamTable]},
+        200: {"model": list[EmbRouter_TeamTable]},
     },
 )
 async def ui_view_teams(
@@ -6005,9 +6005,9 @@ async def ui_view_teams(
         user_api_key_dict (UserAPIKeyAuth): User authentication information
 
     Returns:
-        List[LiteLLM_SpendLogs]: Paginated list of matching user records
+        List[EmbRouter_SpendLogs]: Paginated list of matching user records
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail={"error": "No db connected"})
@@ -6048,7 +6048,7 @@ async def ui_view_teams(
         raise HTTPException(status_code=500, detail=f"Error searching teams: {e}")
 
 
-def add_new_models_to_team(team_obj: LiteLLM_TeamTable, new_models: list[str]) -> list[str]:
+def add_new_models_to_team(team_obj: EmbRouter_TeamTable, new_models: list[str]) -> list[str]:
     """
     Add new models to a team's allowed model list.
     """
@@ -6090,7 +6090,7 @@ async def team_model_add(
     }'
     ```
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         prisma_client,
         proxy_logging_obj,
         user_api_key_cache,
@@ -6108,11 +6108,11 @@ async def team_model_add(
             detail={"error": f"Team not found, passed team_id={data.team_id}"},
         )
 
-    team_obj: Final = LiteLLM_TeamTable.model_validate(team_row.model_dump())
+    team_obj: Final = EmbRouter_TeamTable.model_validate(team_row.model_dump())
 
     # Authorization check - only proxy admin, team admin, or org admin can add models
     if (
-        user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN.value
+        user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN.value
         and not _is_user_team_admin(user_api_key_dict=user_api_key_dict, team_obj=team_obj)
         and not await _is_user_org_admin_for_team(user_api_key_dict=user_api_key_dict, team_obj=team_obj)
     ):
@@ -6135,14 +6135,14 @@ async def append_team_models(
     prisma_client: PrismaClient,
     user_api_key_cache: UserApiKeyCache,
     proxy_logging_obj: ProxyLogging,
-) -> "prisma_models.LiteLLM_TeamTable":
+) -> "prisma_models.EmbRouter_TeamTable":
     # Atomic array append with dedup at the database level so concurrent
     # BYOK model creates don't overwrite each other's team.models entries.
     # When the team currently has models=[] (unrestricted access), the
     # CASE expression inserts the 'all-proxy-models' sentinel first.
     models_to_add: Final = list(data.models)
     await prisma_client.db.execute_raw(
-        'UPDATE "LiteLLM_TeamTable" '
+        'UPDATE "EmbRouter_TeamTable" '
         "SET models = ("
         "  SELECT ARRAY(SELECT DISTINCT unnest("
         "    CASE WHEN cardinality(COALESCE(models, ARRAY[]::text[])) = 0 "
@@ -6164,7 +6164,7 @@ async def append_team_models(
     updated_team: Final = await _team_db(prisma_client).update(
         where={"team_id": data.team_id},
         data={"updated_at": datetime.now(timezone.utc)},
-        include={"litellm_model_table": True, "object_permission": True},
+        include={"embrouter_model_table": True, "object_permission": True},
     )
     if updated_team is None:
         raise HTTPException(
@@ -6210,7 +6210,7 @@ async def team_model_delete(
     }'
     ```
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         prisma_client,
         proxy_logging_obj,
         user_api_key_cache,
@@ -6228,11 +6228,11 @@ async def team_model_delete(
             detail={"error": f"Team not found, passed team_id={data.team_id}"},
         )
 
-    team_obj: Final = LiteLLM_TeamTable.model_validate(team_row.model_dump())
+    team_obj: Final = EmbRouter_TeamTable.model_validate(team_row.model_dump())
 
     # Authorization check - only proxy admin, team admin, or org admin can remove models
     if (
-        user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN.value
+        user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN.value
         and not _is_user_team_admin(user_api_key_dict=user_api_key_dict, team_obj=team_obj)
         and not await _is_user_org_admin_for_team(user_api_key_dict=user_api_key_dict, team_obj=team_obj)
     ):
@@ -6251,7 +6251,7 @@ async def team_model_delete(
     updated_team: Final = await _team_db(prisma_client).update(
         where={"team_id": data.team_id},
         data={"models": updated_models},
-        include={"litellm_model_table": True, "object_permission": True},
+        include={"embrouter_model_table": True, "object_permission": True},
     )
     if updated_team is None:
         raise HTTPException(
@@ -6281,7 +6281,7 @@ async def team_member_permissions(
     """
     Get the team member permissions for a team
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         prisma_client,
         proxy_logging_obj,
         user_api_key_cache,
@@ -6301,7 +6301,7 @@ async def team_member_permissions(
         check_db_only=True,
     )
 
-    complete_team_data: Final = LiteLLM_TeamTable.model_validate(existing_team_row.model_dump())
+    complete_team_data: Final = EmbRouter_TeamTable.model_validate(existing_team_row.model_dump())
 
     # Admin Viewer follows the read-parity rule: see team permissions like
     # a Proxy Admin would. Team / org admins keep their existing scope.
@@ -6344,11 +6344,11 @@ async def update_team_member_permissions(
     data: UpdateTeamMemberPermissionsRequest,
     http_request: Request,
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
-) -> LiteLLM_TeamTable:
+) -> EmbRouter_TeamTable:
     """
     Update the team member permissions for a team
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         prisma_client,
         proxy_logging_obj,
         user_api_key_cache,
@@ -6368,13 +6368,13 @@ async def update_team_member_permissions(
         check_db_only=True,
     )
 
-    complete_team_data: Final = LiteLLM_TeamTable.model_validate(existing_team_row.model_dump())
+    complete_team_data: Final = EmbRouter_TeamTable.model_validate(existing_team_row.model_dump())
 
     # Available-team self-join must NOT grant write access to team-wide
     # permission policies; only proxy/team/org admins can update them.
     if (
         hasattr(user_api_key_dict, "user_role")
-        and user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN.value
+        and user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN.value
         and not _is_user_team_admin(user_api_key_dict=user_api_key_dict, team_obj=complete_team_data)
         and not await _is_user_org_admin_for_team(user_api_key_dict=user_api_key_dict, team_obj=complete_team_data)
     ):
@@ -6420,12 +6420,12 @@ async def bulk_update_team_member_permissions(
     the provided permissions are merged with the team's existing
     permissions (duplicates are skipped).
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail={"error": "No db connected"})
 
-    if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN.value:
+    if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN.value:
         raise HTTPException(
             status_code=403,
             detail={"error": "Only proxy admins can bulk-update team permissions"},
@@ -6464,7 +6464,7 @@ async def bulk_update_team_member_permissions(
 
 
 async def _compute_and_batch_updates(
-    prisma_client, teams: "Sequence[prisma_models.LiteLLM_TeamTable]", permissions_to_add: set
+    prisma_client, teams: "Sequence[prisma_models.EmbRouter_TeamTable]", permissions_to_add: set
 ) -> int:
     """Compute merged permissions and batch-write updates. Returns count of teams updated."""
     updates: Final = []
@@ -6478,7 +6478,7 @@ async def _compute_and_batch_updates(
     if updates:
         batcher: Final = prisma_client.db.batch_()
         for team_id, merged_perms in updates:
-            batcher.litellm_teamtable.update(
+            batcher.embrouter_teamtable.update(
                 where={"team_id": team_id},
                 data={"team_member_permissions": merged_perms},
             )
@@ -6614,7 +6614,7 @@ async def _resolve_team_daily_activity_scope(
     if not _user_has_admin_view(user_api_key_dict) and team_ids_list and team_aliases:
         has_full_team_view = True
         for team_alias in team_aliases:
-            team_obj = LiteLLM_TeamTable.model_validate(team_alias.model_dump())
+            team_obj = EmbRouter_TeamTable.model_validate(team_alias.model_dump())
             is_admin = _is_user_team_admin(user_api_key_dict=user_api_key_dict, team_obj=team_obj)
             has_perm = _team_member_has_permission(
                 user_api_key_dict=user_api_key_dict,
@@ -6678,7 +6678,7 @@ async def get_team_daily_activity(
     Returns:
         SpendAnalyticsPaginatedResponse: Paginated response containing daily activity data.
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         prisma_client,
         proxy_logging_obj,
         user_api_key_cache,
@@ -6699,7 +6699,7 @@ async def get_team_daily_activity(
 
     return await get_daily_activity(
         prisma_client=prisma_client,
-        table_name="litellm_dailyteamspend",
+        table_name="embrouter_dailyteamspend",
         entity_id_field="team_id",
         entity_id=scope.team_ids,
         entity_metadata_field=scope.team_alias_metadata,
@@ -6766,7 +6766,7 @@ async def get_team_daily_activity_aggregated(
     Returns:
         SpendAnalyticsPaginatedResponse: Response containing all daily activity data for the range.
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         prisma_client,
         proxy_logging_obj,
         user_api_key_cache,
@@ -6791,7 +6791,7 @@ async def get_team_daily_activity_aggregated(
 
     return await get_daily_activity_aggregated(
         prisma_client=prisma_client,
-        table_name="litellm_dailyteamspend",
+        table_name="embrouter_dailyteamspend",
         entity_id_field="team_id",
         entity_id=scope.team_ids,
         entity_metadata_field=scope.team_alias_metadata,
@@ -6821,8 +6821,8 @@ def _team_user_spend_sql(*, team_count: int, restrict_to_user: bool) -> str:
             COUNT(*)::bigint AS api_requests,
             COUNT(*) FILTER (WHERE sl.status IS DISTINCT FROM 'failure')::bigint AS successful_requests,
             COUNT(*) FILTER (WHERE sl.status = 'failure')::bigint AS failed_requests
-        FROM "LiteLLM_SpendLogs" sl
-        LEFT JOIN "LiteLLM_UserTable" u ON u.user_id = sl."user"
+        FROM "EmbRouter_SpendLogs" sl
+        LEFT JOIN "EmbRouter_UserTable" u ON u.user_id = sl."user"
         WHERE sl."startTime" >= $1::timestamp
             AND sl."startTime" < $2::timestamp + INTERVAL '1 day'
             AND sl.team_id IN ({team_placeholders}){user_clause}
@@ -6863,7 +6863,7 @@ async def get_team_spend_by_user(
     `/team/daily/activity` permission see every user of the requested teams;
     other members only see their own row.
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         prisma_client,
         proxy_logging_obj,
         user_api_key_cache,

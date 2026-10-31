@@ -5,19 +5,19 @@ Dynamic configuration class generator for JSON-based providers.
 from collections.abc import Coroutine
 from typing import TYPE_CHECKING, Any, Final, Literal, overload
 
-from litellm._logging import verbose_logger
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+from embrouter._logging import verbose_logger
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
     handle_messages_with_content_list_to_str_conversion,
 )
-from litellm.llms.openai.chat.gpt_transformation import OpenAIGPTConfig
-from litellm.llms.openai_like.chat.transformation import OpenAILikeChatConfig
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.openai import AllMessageValues
+from embrouter.llms.openai.chat.gpt_transformation import OpenAIGPTConfig
+from embrouter.llms.openai_like.chat.transformation import OpenAILikeChatConfig
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.openai import AllMessageValues
 
 from .json_loader import SimpleProviderConfig
 
 if TYPE_CHECKING:
-    from litellm.llms.openai_like.responses.transformation import OpenAILikeResponsesConfig
+    from embrouter.llms.openai_like.responses.transformation import OpenAILikeResponsesConfig
 
 
 def create_config_class(provider: SimpleProviderConfig):
@@ -77,7 +77,7 @@ def create_config_class(provider: SimpleProviderConfig):
             api_key: str | None,
             model: str,
             optional_params: dict,
-            litellm_params: dict,
+            embrouter_params: dict,
             stream: bool | None = None,
         ) -> str:
             """Build complete URL for the API endpoint"""
@@ -95,7 +95,7 @@ def create_config_class(provider: SimpleProviderConfig):
         def get_supported_openai_params(self, model: str) -> list:
             """Get supported OpenAI params, excluding tool-related params for models
             that don't support function calling."""
-            from litellm.utils import supports_function_calling, supports_reasoning
+            from embrouter.utils import supports_function_calling, supports_reasoning
 
             supported_params: Final = super().get_supported_openai_params(model=model)
 
@@ -185,11 +185,11 @@ def create_responses_config_class(provider: SimpleProviderConfig) -> "type[OpenA
     if provider.slug in _responses_config_cache:
         return _responses_config_cache[provider.slug]
 
-    from litellm.llms.openai_like.responses.transformation import (
+    from embrouter.llms.openai_like.responses.transformation import (
         OpenAILikeResponsesConfig,
     )
-    from litellm.types.llms.openai import ResponseInputParam
-    from litellm.types.router import GenericLiteLLMParams
+    from embrouter.types.llms.openai import ResponseInputParam
+    from embrouter.types.router import GenericEmbRouterParams
 
     class JSONProviderResponsesConfig(OpenAILikeResponsesConfig):
         @property
@@ -200,10 +200,10 @@ def create_responses_config_class(provider: SimpleProviderConfig) -> "type[OpenA
             self,
             headers: dict,
             model: str,
-            litellm_params: GenericLiteLLMParams | None,
+            embrouter_params: GenericEmbRouterParams | None,
         ) -> dict:
-            litellm_params = litellm_params or GenericLiteLLMParams()
-            api_key: Final = litellm_params.api_key or get_secret_str(provider.api_key_env)
+            embrouter_params = embrouter_params or GenericEmbRouterParams()
+            api_key: Final = embrouter_params.api_key or get_secret_str(provider.api_key_env)
             if api_key:
                 headers["Authorization"] = f"Bearer {api_key}"
             return headers
@@ -211,7 +211,7 @@ def create_responses_config_class(provider: SimpleProviderConfig) -> "type[OpenA
         def get_complete_url(
             self,
             api_base: str | None,
-            litellm_params: dict,
+            embrouter_params: dict,
         ) -> str:
             if not api_base:
                 if provider.api_base_env:
@@ -230,7 +230,7 @@ def create_responses_config_class(provider: SimpleProviderConfig) -> "type[OpenA
             model: str,
             input: str | ResponseInputParam,
             response_api_optional_request_params: dict,
-            litellm_params: GenericLiteLLMParams,
+            embrouter_params: GenericEmbRouterParams,
             headers: dict,
         ) -> dict:
             if provider.special_handling.get("force_store_false"):
@@ -239,7 +239,7 @@ def create_responses_config_class(provider: SimpleProviderConfig) -> "type[OpenA
                 model=model,
                 input=input,
                 response_api_optional_request_params=response_api_optional_request_params,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 headers=headers,
             )
 

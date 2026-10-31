@@ -128,9 +128,9 @@ Override these methods to customize behavior:
 ### Transcribe and Redact PII
 
 ```python
-import litellm
+import embrouter
 
-response = litellm.transcription(
+response = embrouter.transcription(
     model="whisper-1",
     file=open("interview.mp3", "rb"),
     guardrails=["mask_pii"],
@@ -143,11 +143,11 @@ print(response.text)
 ### Async Transcription with Guardrails
 
 ```python
-import litellm
+import embrouter
 import asyncio
 
 async def transcribe_with_guardrails():
-    response = await litellm.atranscription(
+    response = await embrouter.atranscription(
         model="whisper-1",
         file=open("audio.mp3", "rb"),
         guardrails=["content_filter"],

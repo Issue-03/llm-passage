@@ -4,21 +4,21 @@ from typing import Any, Final
 
 import httpx
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.constants import XAI_API_BASE
-from litellm.exceptions import AuthenticationError
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.constants import XAI_API_BASE
+from embrouter.exceptions import AuthenticationError
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
     filter_value_from_dict,
     strip_name_from_messages,
 )
-from litellm.llms.xai.common_utils import XAIModelInfo, xai_reported_cost_in_usd
-from litellm.llms.xai.cost_calculator import (
+from embrouter.llms.xai.common_utils import XAIModelInfo, xai_reported_cost_in_usd
+from embrouter.llms.xai.cost_calculator import (
     apply_server_side_tool_usage_details_to_usage,
 )
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.utils import (
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.utils import (
     Choices,
     ModelResponse,
     ModelResponseStream,
@@ -56,18 +56,18 @@ class XAIChatConfig(OpenAIGPTConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
-        from litellm.llms.xai.oauth import (
+        from embrouter.llms.xai.oauth import (
             XAIOAuthAuthenticator,
             XAIOAuthError,
             should_use_xai_oauth,
         )
 
         dynamic_api_key: Final = XAIModelInfo.get_api_key(api_key)
-        if should_use_xai_oauth(litellm_params) and not dynamic_api_key:
+        if should_use_xai_oauth(embrouter_params) and not dynamic_api_key:
             try:
                 headers["Authorization"] = f"Bearer {XAIOAuthAuthenticator().get_access_token()}"
             except XAIOAuthError as exc:
@@ -85,7 +85,7 @@ class XAIChatConfig(OpenAIGPTConfig):
             model=model,
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             api_key=dynamic_api_key,
             api_base=api_base,
         )
@@ -96,13 +96,13 @@ class XAIChatConfig(OpenAIGPTConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
-        from litellm.llms.xai.oauth import XAIOAuthAuthenticator, should_use_xai_oauth
+        from embrouter.llms.xai.oauth import XAIOAuthAuthenticator, should_use_xai_oauth
 
         dynamic_api_key: Final = XAIModelInfo.get_api_key(api_key)
-        if should_use_xai_oauth(litellm_params) and not dynamic_api_key:
+        if should_use_xai_oauth(embrouter_params) and not dynamic_api_key:
             api_base = XAIOAuthAuthenticator().get_api_base()
 
         return super().get_complete_url(
@@ -110,7 +110,7 @@ class XAIChatConfig(OpenAIGPTConfig):
             api_key=dynamic_api_key,
             model=model,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             stream=stream,
         )
 
@@ -152,7 +152,7 @@ class XAIChatConfig(OpenAIGPTConfig):
         # reasoning check
         #########################################################
         try:
-            if litellm.supports_reasoning(model=model, custom_llm_provider=self.custom_llm_provider):
+            if embrouter.supports_reasoning(model=model, custom_llm_provider=self.custom_llm_provider):
                 base_openai_params.append("reasoning_effort")
         except Exception as e:
             verbose_logger.debug("Error checking if model supports reasoning: %s", e)
@@ -217,7 +217,7 @@ class XAIChatConfig(OpenAIGPTConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         """Handle"""
@@ -231,7 +231,7 @@ class XAIChatConfig(OpenAIGPTConfig):
             key: value for key, value in optional_params.items() if key != "web_search_options"
         }
         return super().transform_request(
-            model, strip_name_from_messages(messages), chat_params, litellm_params, headers
+            model, strip_name_from_messages(messages), chat_params, embrouter_params, headers
         )
 
     @staticmethod
@@ -254,7 +254,7 @@ class XAIChatConfig(OpenAIGPTConfig):
         request_data: dict,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding,
         api_key: str | None = None,
         json_mode: bool | None = None,
@@ -277,7 +277,7 @@ class XAIChatConfig(OpenAIGPTConfig):
             request_data=request_data,
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             encoding=encoding,
             api_key=api_key,
             json_mode=json_mode,

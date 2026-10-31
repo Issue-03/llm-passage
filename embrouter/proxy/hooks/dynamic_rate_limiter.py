@@ -8,21 +8,21 @@ from collections.abc import Callable
 from datetime import datetime
 from typing import Final
 
-import litellm
-from litellm import ModelResponse, Router
-from litellm._logging import verbose_proxy_logger
-from litellm.caching.caching import DualCache
-from litellm.exceptions import RateLimitType
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
-from litellm.proxy.hooks.rate_limiter_utils import (
+import embrouter
+from embrouter import ModelResponse, Router
+from embrouter._logging import verbose_proxy_logger
+from embrouter.caching.caching import DualCache
+from embrouter.exceptions import RateLimitType
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
+from embrouter.proxy.hooks.rate_limiter_utils import (
     convert_priority_to_percent,
     resolve_llm_provider_for_rate_limit,
 )
-from litellm.types.router import ModelGroupInfo
-from litellm.types.utils import CallTypesLiteral
-from litellm.utils import get_utc_datetime
+from embrouter.types.router import ModelGroupInfo
+from embrouter.types.utils import CallTypesLiteral
+from embrouter.utils import get_utc_datetime
 
 
 class DynamicRateLimiterCache:
@@ -69,7 +69,7 @@ class DynamicRateLimiterCache:
             await self.cache.async_set_cache_sadd(key=key_name, value=value, ttl=self.ttl)
         except Exception as e:
             verbose_proxy_logger.exception(
-                "litellm.proxy.hooks.dynamic_rate_limiter.py::async_set_cache_sadd(): Exception occured - %s", e
+                "embrouter.proxy.hooks.dynamic_rate_limiter.py::async_set_cache_sadd(): Exception occured - %s", e
             )
             raise e
 
@@ -105,19 +105,19 @@ class _PROXY_DynamicRateLimitHandler(CustomLogger):
             model_group_info: Final[ModelGroupInfo | None] = self.llm_router.get_model_group_info(model_group=model)
 
             weight: float = 1
-            if litellm.priority_reservation is None or priority not in litellm.priority_reservation:
+            if embrouter.priority_reservation is None or priority not in embrouter.priority_reservation:
                 verbose_proxy_logger.error(
-                    "Priority Reservation not set. priority=%s, but litellm.priority_reservation is %s.",
+                    "Priority Reservation not set. priority=%s, but embrouter.priority_reservation is %s.",
                     priority,
-                    litellm.priority_reservation,
+                    embrouter.priority_reservation,
                 )
-            elif priority is not None and litellm.priority_reservation is not None:
-                if os.getenv("LITELLM_LICENSE", None) is None:
+            elif priority is not None and embrouter.priority_reservation is not None:
+                if os.getenv("EMBROUTER_LICENSE", None) is None:
                     verbose_proxy_logger.error(
-                        "PREMIUM FEATURE: Reserving tpm/rpm by priority is a premium feature. Please add a 'LITELLM_LICENSE' to your .env to enable this."
+                        "PREMIUM FEATURE: Reserving tpm/rpm by priority is a premium feature. Please add a 'EMBROUTER_LICENSE' to your .env to enable this."
                     )
                 else:
-                    value: Final = litellm.priority_reservation[priority]
+                    value: Final = embrouter.priority_reservation[priority]
                     weight = convert_priority_to_percent(value, model_group_info)
 
             active_projects: Final = await self.internal_usage_cache.async_get_cache(model=model)
@@ -175,7 +175,7 @@ class _PROXY_DynamicRateLimitHandler(CustomLogger):
             )
         except Exception as e:
             verbose_proxy_logger.exception(
-                "litellm.proxy.hooks.dynamic_rate_limiter.py::check_available_usage: Exception occurred - %s", e
+                "embrouter.proxy.hooks.dynamic_rate_limiter.py::check_available_usage: Exception occurred - %s", e
             )
             return None, None, None, None, None
 
@@ -187,7 +187,7 @@ class _PROXY_DynamicRateLimitHandler(CustomLogger):
         call_type: CallTypesLiteral,
     ) -> (
         Exception | str | dict | None
-    ):  # raise exception if invalid, return a str for the user to receive - if rejected, or return a modified dictionary for passing into litellm
+    ):  # raise exception if invalid, return a str for the user to receive - if rejected, or return a modified dictionary for passing into embrouter
         """
         - For a model group
         - Check if tpm/rpm available
@@ -250,9 +250,9 @@ class _PROXY_DynamicRateLimitHandler(CustomLogger):
                     active_projects,
                 ) = await self.check_available_usage(model=model_info["model_name"], priority=key_priority)
                 response._hidden_params["additional_headers"] = {  # Add additional response headers - easier debugging
-                    "x-litellm-model_group": model_info["model_name"],
-                    "x-ratelimit-remaining-litellm-project-tokens": available_tpm,
-                    "x-ratelimit-remaining-litellm-project-requests": available_rpm,
+                    "x-embrouter-model_group": model_info["model_name"],
+                    "x-ratelimit-remaining-embrouter-project-tokens": available_tpm,
+                    "x-ratelimit-remaining-embrouter-project-requests": available_rpm,
                     "x-ratelimit-remaining-model-tokens": model_tpm,
                     "x-ratelimit-remaining-model-requests": model_rpm,
                     "x-ratelimit-current-active-projects": active_projects,
@@ -266,6 +266,6 @@ class _PROXY_DynamicRateLimitHandler(CustomLogger):
             )
         except Exception as e:
             verbose_proxy_logger.exception(
-                "litellm.proxy.hooks.dynamic_rate_limiter.py::async_post_call_success_hook(): Exception occured - %s", e
+                "embrouter.proxy.hooks.dynamic_rate_limiter.py::async_post_call_success_hook(): Exception occured - %s", e
             )
             return response

@@ -5,7 +5,7 @@ from typing import Final, Union
 
 class httpxSpecialProvider(str, Enum):
     """
-    Httpx Clients can be created for these litellm internal providers
+    Httpx Clients can be created for these embrouter internal providers
 
     Example:
     - langsmith logging would need a custom async httpx client

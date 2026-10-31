@@ -7,7 +7,7 @@ Verifies that the CountTokens API uses the correct authentication headers.
 
 
 
-from litellm.llms.azure_ai.anthropic.count_tokens.transformation import (
+from embrouter.llms.azure_ai.anthropic.count_tokens.transformation import (
     AzureAIAnthropicCountTokensConfig,
 )
 
@@ -53,21 +53,21 @@ class TestAzureAIAnthropicCountTokensConfig:
         assert headers["x-api-key"] == api_key
         assert headers["api-key"] == api_key
 
-    def test_get_required_headers_with_litellm_params(self):
+    def test_get_required_headers_with_embrouter_params(self):
         """
-        Test that get_required_headers works with litellm_params.
+        Test that get_required_headers works with embrouter_params.
         """
         config = AzureAIAnthropicCountTokensConfig()
         api_key = "test-key"
-        litellm_params = {"api_key": "param-key", "custom_field": "value"}
+        embrouter_params = {"api_key": "param-key", "custom_field": "value"}
 
         headers = config.get_required_headers(
-            api_key=api_key, litellm_params=litellm_params
+            api_key=api_key, embrouter_params=embrouter_params
         )
 
         # x-api-key should use the direct api_key parameter
         assert headers["x-api-key"] == api_key
-        # Azure api-key should come from litellm_params
+        # Azure api-key should come from embrouter_params
         assert headers["api-key"] == "param-key"
 
     def test_get_count_tokens_endpoint_with_base_url(self):

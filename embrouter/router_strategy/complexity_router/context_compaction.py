@@ -13,24 +13,24 @@ from typing import TYPE_CHECKING, Final, Literal, NoReturn, Protocol, TypeAlias
 
 from pydantic import TypeAdapter
 
-from litellm.litellm_core_utils.initialize_dynamic_callback_params import (
+from embrouter.embrouter_core_utils.initialize_dynamic_callback_params import (
     inherit_message_logging_privacy,
     initialize_standard_callback_dynamic_params,
 )
-from litellm.litellm_core_utils.internal_call_metadata import parent_session_kwargs, sanitized_forwardable_call_metadata
-from litellm.litellm_core_utils.redact_messages import (
+from embrouter.embrouter_core_utils.internal_call_metadata import parent_session_kwargs, sanitized_forwardable_call_metadata
+from embrouter.embrouter_core_utils.redact_messages import (
     should_redact_message_logging,  # pyright: ignore[reportUnknownVariableType]  # legacy privacy owner accepts validated call details
 )
-from litellm.llms.compaction import (
+from embrouter.llms.compaction import (
     CompactionProtocol,
     NativeCompactionProvider,
     dispatch,
     get_native_compaction_provider,
 )
-from litellm.router_strategy.complexity_router.config import ContextCompactionConfig
+from embrouter.router_strategy.complexity_router.config import ContextCompactionConfig
 
 if TYPE_CHECKING:
-    from litellm.router import Router
+    from embrouter.router import Router
 
 Surface: TypeAlias = Literal["chat", "messages", "responses"]
 _SURFACES: Final[Mapping[str, Surface]] = MappingProxyType(
@@ -124,7 +124,7 @@ async def arm_compaction(
 
 
 async def _has_compactor(router: Router, state: CompactionState, payload: Mapping[str, object]) -> bool:
-    from litellm.exceptions import ContextWindowExceededError
+    from embrouter.exceptions import ContextWindowExceededError
 
     if state.surface is None or state.config is None:
         return False
@@ -165,13 +165,13 @@ def compaction_pending(kwargs: Mapping[str, object] | None) -> bool:
 
 
 def _reject(model: str, reason: str) -> NoReturn:
-    from litellm.exceptions import BadRequestError
+    from embrouter.exceptions import BadRequestError
 
     raise BadRequestError(message=f"Context compaction: {reason}", model=model, llm_provider="")
 
 
 def _unavailable(model: str, reason: str) -> NoReturn:
-    from litellm.exceptions import ContextWindowExceededError
+    from embrouter.exceptions import ContextWindowExceededError
 
     raise ContextWindowExceededError(message=f"Context compaction: {reason}", model=model, llm_provider="")
 
@@ -275,10 +275,10 @@ async def _compactor_model(
             (candidate, provider)
             for candidate in candidates
             if (deployments := tuple(router.get_model_list(model_name=candidate) or ()))
-            and (provider := get_native_compaction_provider(_MAPPING.validate_python(deployments[0]["litellm_params"])))
+            and (provider := get_native_compaction_provider(_MAPPING.validate_python(deployments[0]["embrouter_params"])))
             is not None
             and all(
-                provider.supports_native_compaction(params := _MAPPING.validate_python(deployment["litellm_params"]))
+                provider.supports_native_compaction(params := _MAPPING.validate_python(deployment["embrouter_params"]))
                 and provider.compatible_defaults(params)
                 and (budget := _budget(router, deployment, payload, 0.9)).available is not None
                 and needed <= budget.available
@@ -302,13 +302,13 @@ def _native_prefix(payload: Mapping[str, object], surface: Surface) -> Mapping[s
         return payload
     from openai.types.responses.response_create_params import ResponseInputParam
 
-    from litellm.responses.litellm_completion_transformation.transformation import LiteLLMCompletionResponsesConfig
+    from embrouter.responses.embrouter_completion_transformation.transformation import EmbRouterCompletionResponsesConfig
 
-    messages: Final = LiteLLMCompletionResponsesConfig.transform_responses_api_input_to_messages(
+    messages: Final = EmbRouterCompletionResponsesConfig.transform_responses_api_input_to_messages(
         input=TypeAdapter(ResponseInputParam).validate_python(payload["input"]),
         responses_api_request=_DICT.validate_python(payload),
     )
-    tools, _ = LiteLLMCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
+    tools, _ = EmbRouterCompletionResponsesConfig.transform_responses_api_tools_to_chat_completion_tools(
         _OBJECTS.validate_python(payload.get("tools") or ())
     )
     return MappingProxyType({**payload, "messages": _ITEMS.validate_python(messages), "tools": tools})
@@ -360,7 +360,7 @@ def _compactor_input(
 async def compact_to_fit(
     router: Router, deployment: Mapping[str, object], payload: Mapping[str, object], surface: Surface | None
 ) -> Mapping[str, object]:
-    from litellm.exceptions import ContextWindowExceededError
+    from embrouter.exceptions import ContextWindowExceededError
 
     try:
         return await _compact_to_fit(router, deployment, payload, surface)
@@ -453,7 +453,7 @@ async def _compact_to_fit(
         _unavailable(model, "Retained instructions, tools and the latest turn leave no room for a summary")
     older: Final = _compactor_input(payload, surface, instructions, prefix, config.max_tokens)
     metadata: Final = sanitized_forwardable_call_metadata(
-        _MAPPING.validate_python(payload.get("litellm_metadata") or payload.get("metadata") or _EMPTY),
+        _MAPPING.validate_python(payload.get("embrouter_metadata") or payload.get("metadata") or _EMPTY),
         "autorouter_compaction",
     )
     protocol: Final[CompactionProtocol] = "messages" if surface == "messages" else "chat"
@@ -464,7 +464,7 @@ async def _compact_to_fit(
             "num_retries": 0,
             "disable_fallbacks": True,
             "timeout": config.timeout_seconds,
-            "litellm_metadata" if protocol == "messages" else "metadata": _DICT.validate_python(
+            "embrouter_metadata" if protocol == "messages" else "metadata": _DICT.validate_python(
                 MappingProxyType(
                     {
                         key: value
@@ -488,7 +488,7 @@ async def _compact_to_fit(
             _DICT.validate_python(
                 MappingProxyType(
                     {
-                        "litellm_params": payload,
+                        "embrouter_params": payload,
                         "standard_callback_dynamic_params": initialize_standard_callback_dynamic_params(
                             _DICT.validate_python(payload)
                         ),

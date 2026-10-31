@@ -8,18 +8,18 @@ from typing import Final
 
 import httpx
 
-from litellm.litellm_core_utils.audio_utils.utils import process_audio_file
-from litellm.llms.base_llm.audio_transcription.transformation import (
+from embrouter.embrouter_core_utils.audio_utils.utils import process_audio_file
+from embrouter.llms.base_llm.audio_transcription.transformation import (
     AudioTranscriptionRequestData,
     BaseAudioTranscriptionConfig,
 )
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.openai import (
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.openai import (
     AllMessageValues,
     OpenAIAudioTranscriptionOptionalParams,
 )
-from litellm.types.utils import FileTypes, TranscriptionResponse
+from embrouter.types.utils import FileTypes, TranscriptionResponse
 
 
 class MistralAudioTranscriptionException(BaseLLMException):
@@ -54,7 +54,7 @@ class MistralAudioTranscriptionConfig(BaseAudioTranscriptionConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         api_base = "https://api.mistral.ai/v1" if api_base is None else api_base.rstrip("/")
@@ -73,7 +73,7 @@ class MistralAudioTranscriptionConfig(BaseAudioTranscriptionConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
@@ -92,7 +92,7 @@ class MistralAudioTranscriptionConfig(BaseAudioTranscriptionConfig):
         model: str,
         audio_file: FileTypes,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> AudioTranscriptionRequestData:
         processed_audio: Final = process_audio_file(audio_file)
 

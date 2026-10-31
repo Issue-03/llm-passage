@@ -6,10 +6,10 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from fastapi import HTTPException
 
-from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-from litellm.proxy.container_endpoints import ownership
-from litellm.responses.utils import ResponsesAPIRequestUtils
-from litellm.types.containers.main import ContainerListResponse, ContainerObject
+from embrouter.proxy._types import EmbrouterUserRoles, UserAPIKeyAuth
+from embrouter.proxy.container_endpoints import ownership
+from embrouter.responses.utils import ResponsesAPIRequestUtils
+from embrouter.types.containers.main import ContainerListResponse, ContainerObject
 
 
 @pytest.fixture(autouse=True)
@@ -43,7 +43,7 @@ async def test_should_record_container_owner_with_original_provider_id(monkeypat
     table = AsyncMock()
     table.find_unique.return_value = None
     prisma_client = SimpleNamespace(
-        db=SimpleNamespace(litellm_managedobjecttable=table)
+        db=SimpleNamespace(embrouter_managedobjecttable=table)
     )
     monkeypatch.setattr(
         ownership,
@@ -74,7 +74,7 @@ async def test_should_not_mutate_dict_container_response_when_recording_owner(
     table = AsyncMock()
     table.find_unique.return_value = None
     prisma_client = SimpleNamespace(
-        db=SimpleNamespace(litellm_managedobjecttable=table)
+        db=SimpleNamespace(embrouter_managedobjecttable=table)
     )
     monkeypatch.setattr(
         ownership,
@@ -102,7 +102,7 @@ async def test_should_record_team_owner_for_keys_without_user_id(monkeypatch):
     table = AsyncMock()
     table.find_unique.return_value = None
     prisma_client = SimpleNamespace(
-        db=SimpleNamespace(litellm_managedobjecttable=table)
+        db=SimpleNamespace(embrouter_managedobjecttable=table)
     )
     monkeypatch.setattr(
         ownership,
@@ -127,7 +127,7 @@ async def test_should_record_token_owner_for_keys_without_user_team_or_org(monke
     table = AsyncMock()
     table.find_unique.return_value = None
     prisma_client = SimpleNamespace(
-        db=SimpleNamespace(litellm_managedobjecttable=table)
+        db=SimpleNamespace(embrouter_managedobjecttable=table)
     )
     monkeypatch.setattr(
         ownership,
@@ -175,7 +175,7 @@ async def test_should_reject_record_for_identityless_proxy_auth(monkeypatch):
 async def test_should_skip_owner_record_when_provider_response_has_no_id(monkeypatch):
     table = AsyncMock()
     prisma_client = SimpleNamespace(
-        db=SimpleNamespace(litellm_managedobjecttable=table)
+        db=SimpleNamespace(embrouter_managedobjecttable=table)
     )
     monkeypatch.setattr(
         ownership,
@@ -222,7 +222,7 @@ async def test_should_not_reassign_existing_container_to_different_owner(monkeyp
         created_by="user-2",
     )
     prisma_client = SimpleNamespace(
-        db=SimpleNamespace(litellm_managedobjecttable=table)
+        db=SimpleNamespace(embrouter_managedobjecttable=table)
     )
     monkeypatch.setattr(
         ownership,
@@ -248,7 +248,7 @@ def _owned_containers_in_db(monkeypatch, *model_object_ids: str) -> AsyncMock:
     monkeypatch.setattr(
         ownership,
         "_get_prisma_client",
-        AsyncMock(return_value=SimpleNamespace(db=SimpleNamespace(litellm_managedobjecttable=table))),
+        AsyncMock(return_value=SimpleNamespace(db=SimpleNamespace(embrouter_managedobjecttable=table))),
     )
     return table
 
@@ -398,8 +398,8 @@ async def test_should_build_dict_pages_without_mutating_the_upstream_page(monkey
 async def test_should_validate_owner_and_forward_decoded_id_for_multipart_upload(
     monkeypatch,
 ):
-    from litellm.proxy.common_utils import http_parsing_utils
-    from litellm.proxy.container_endpoints import handler_factory
+    from embrouter.proxy.common_utils import http_parsing_utils
+    from embrouter.proxy.container_endpoints import handler_factory
 
     proxy_server_stub = SimpleNamespace(
         general_settings={},
@@ -414,7 +414,7 @@ async def test_should_validate_owner_and_forward_decoded_id_for_multipart_upload
         user_temperature=None,
         version="test",
     )
-    monkeypatch.setitem(sys.modules, "litellm.proxy.proxy_server", proxy_server_stub)
+    monkeypatch.setitem(sys.modules, "embrouter.proxy.proxy_server", proxy_server_stub)
 
     captured = {}
 
@@ -473,7 +473,7 @@ async def test_should_validate_owner_and_forward_decoded_id_for_multipart_upload
 
 @pytest.mark.asyncio
 async def test_should_forward_decoded_container_id_for_proxy_retrieve(monkeypatch):
-    from litellm.proxy.container_endpoints import endpoints
+    from embrouter.proxy.container_endpoints import endpoints
 
     proxy_server_stub = SimpleNamespace(
         general_settings={},
@@ -488,7 +488,7 @@ async def test_should_forward_decoded_container_id_for_proxy_retrieve(monkeypatc
         user_temperature=None,
         version="test",
     )
-    monkeypatch.setitem(sys.modules, "litellm.proxy.proxy_server", proxy_server_stub)
+    monkeypatch.setitem(sys.modules, "embrouter.proxy.proxy_server", proxy_server_stub)
 
     captured = {}
 
@@ -528,7 +528,7 @@ async def test_should_forward_decoded_container_id_for_proxy_retrieve(monkeypatc
 
 @pytest.mark.asyncio
 async def test_should_record_container_owner_inside_create_endpoint(monkeypatch):
-    from litellm.proxy.container_endpoints import endpoints
+    from embrouter.proxy.container_endpoints import endpoints
 
     proxy_server_stub = SimpleNamespace(
         general_settings={},
@@ -543,7 +543,7 @@ async def test_should_record_container_owner_inside_create_endpoint(monkeypatch)
         user_temperature=None,
         version="test",
     )
-    monkeypatch.setitem(sys.modules, "litellm.proxy.proxy_server", proxy_server_stub)
+    monkeypatch.setitem(sys.modules, "embrouter.proxy.proxy_server", proxy_server_stub)
 
     response = _container("cntr_provider")
 
@@ -584,7 +584,7 @@ async def test_should_record_container_owner_inside_create_endpoint(monkeypatch)
 async def test_should_not_route_owner_record_errors_through_llm_error_handler(
     monkeypatch,
 ):
-    from litellm.proxy.container_endpoints import endpoints
+    from embrouter.proxy.container_endpoints import endpoints
 
     proxy_server_stub = SimpleNamespace(
         general_settings={},
@@ -599,7 +599,7 @@ async def test_should_not_route_owner_record_errors_through_llm_error_handler(
         user_temperature=None,
         version="test",
     )
-    monkeypatch.setitem(sys.modules, "litellm.proxy.proxy_server", proxy_server_stub)
+    monkeypatch.setitem(sys.modules, "embrouter.proxy.proxy_server", proxy_server_stub)
 
     class FakeProcessor:
         def __init__(self, data):
@@ -642,7 +642,7 @@ async def test_should_return_response_when_owner_recording_raises_unexpected(
     response (not a 500) so they aren't billed for an unusable resource — an
     operator reconciles via logs.
     """
-    from litellm.proxy.container_endpoints import endpoints
+    from embrouter.proxy.container_endpoints import endpoints
 
     proxy_server_stub = SimpleNamespace(
         general_settings={},
@@ -657,7 +657,7 @@ async def test_should_return_response_when_owner_recording_raises_unexpected(
         user_temperature=None,
         version="test",
     )
-    monkeypatch.setitem(sys.modules, "litellm.proxy.proxy_server", proxy_server_stub)
+    monkeypatch.setitem(sys.modules, "embrouter.proxy.proxy_server", proxy_server_stub)
 
     created = _container("cntr_provider")
 
@@ -694,7 +694,7 @@ async def test_should_return_response_when_owner_recording_raises_unexpected(
 
 @pytest.mark.asyncio
 async def test_should_list_owned_containers_inside_list_endpoint(monkeypatch):
-    from litellm.proxy.container_endpoints import endpoints
+    from embrouter.proxy.container_endpoints import endpoints
 
     proxy_server_stub = SimpleNamespace(
         general_settings={},
@@ -709,7 +709,7 @@ async def test_should_list_owned_containers_inside_list_endpoint(monkeypatch):
         user_temperature=None,
         version="test",
     )
-    monkeypatch.setitem(sys.modules, "litellm.proxy.proxy_server", proxy_server_stub)
+    monkeypatch.setitem(sys.modules, "embrouter.proxy.proxy_server", proxy_server_stub)
 
     upstream_page = _page("cntr_provider", has_more=False)
     processor_cls = MagicMock(
@@ -746,7 +746,7 @@ async def test_should_list_owned_containers_inside_list_endpoint(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_should_forward_decoded_container_id_for_proxy_delete(monkeypatch):
-    from litellm.proxy.container_endpoints import endpoints
+    from embrouter.proxy.container_endpoints import endpoints
 
     proxy_server_stub = SimpleNamespace(
         general_settings={},
@@ -761,7 +761,7 @@ async def test_should_forward_decoded_container_id_for_proxy_delete(monkeypatch)
         user_temperature=None,
         version="test",
     )
-    monkeypatch.setitem(sys.modules, "litellm.proxy.proxy_server", proxy_server_stub)
+    monkeypatch.setitem(sys.modules, "embrouter.proxy.proxy_server", proxy_server_stub)
 
     captured = {}
 
@@ -816,7 +816,7 @@ async def test_get_container_owner_uses_cache_after_first_db_hit(monkeypatch):
     )
     table.find_first.return_value = fake_row
     prisma_client = SimpleNamespace(
-        db=SimpleNamespace(litellm_managedobjecttable=table)
+        db=SimpleNamespace(embrouter_managedobjecttable=table)
     )
     monkeypatch.setattr(
         ownership,
@@ -841,7 +841,7 @@ async def test_get_container_owner_caches_negative_lookups(monkeypatch):
     table = AsyncMock()
     table.find_first.return_value = None
     prisma_client = SimpleNamespace(
-        db=SimpleNamespace(litellm_managedobjecttable=table)
+        db=SimpleNamespace(embrouter_managedobjecttable=table)
     )
     monkeypatch.setattr(
         ownership,
@@ -863,7 +863,7 @@ async def test_allowed_container_ids_uses_cache_after_first_db_hit(monkeypatch):
         SimpleNamespace(model_object_id="container:openai:cntr_a"),
     ]
     prisma_client = SimpleNamespace(
-        db=SimpleNamespace(litellm_managedobjecttable=table)
+        db=SimpleNamespace(embrouter_managedobjecttable=table)
     )
     monkeypatch.setattr(
         ownership,
@@ -895,7 +895,7 @@ async def test_record_container_owner_invalidates_caller_list_cache(monkeypatch)
         SimpleNamespace(model_object_id="container:openai:cntr_old"),
     ]
     prisma_client = SimpleNamespace(
-        db=SimpleNamespace(litellm_managedobjecttable=table)
+        db=SimpleNamespace(embrouter_managedobjecttable=table)
     )
     monkeypatch.setattr(
         ownership,
@@ -935,7 +935,7 @@ async def test_admin_with_identity_records_container_ownership(monkeypatch):
     table = AsyncMock()
     table.find_unique.return_value = None
     prisma_client = SimpleNamespace(
-        db=SimpleNamespace(litellm_managedobjecttable=table)
+        db=SimpleNamespace(embrouter_managedobjecttable=table)
     )
     monkeypatch.setattr(
         ownership,
@@ -944,7 +944,7 @@ async def test_admin_with_identity_records_container_ownership(monkeypatch):
     )
     admin_auth = UserAPIKeyAuth(
         user_id="proxy-admin",
-        user_role=LitellmUserRoles.PROXY_ADMIN.value,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN.value,
     )
 
     await ownership.record_container_owner(
@@ -965,7 +965,7 @@ async def test_should_record_containers_from_responses_output_for_service_accoun
     table = AsyncMock()
     table.find_unique.return_value = None
     prisma_client = SimpleNamespace(
-        db=SimpleNamespace(litellm_managedobjecttable=table)
+        db=SimpleNamespace(embrouter_managedobjecttable=table)
     )
     monkeypatch.setattr(
         ownership,
@@ -1020,7 +1020,7 @@ async def test_service_account_can_access_container_after_responses_tracking(
     table = AsyncMock()
     table.find_unique.return_value = None
     prisma_client = SimpleNamespace(
-        db=SimpleNamespace(litellm_managedobjecttable=table)
+        db=SimpleNamespace(embrouter_managedobjecttable=table)
     )
     monkeypatch.setattr(
         ownership,
@@ -1063,7 +1063,7 @@ async def test_should_record_container_ownership_after_streaming_responses_finis
     created during the stream stay unregistered and follow-up file API
     calls 403.
     """
-    from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+    from embrouter.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
 
     encoded_container_id = (
         "cntr_bGl0ZWxsbTpjdXN0b21fbGxtX3Byb3ZpZGVyOmF6dXJlO21vZGVsX2lkOmR"
@@ -1090,7 +1090,7 @@ async def test_should_record_container_ownership_after_streaming_responses_finis
     table = AsyncMock()
     table.find_unique.return_value = None
     prisma_client = SimpleNamespace(
-        db=SimpleNamespace(litellm_managedobjecttable=table)
+        db=SimpleNamespace(embrouter_managedobjecttable=table)
     )
     monkeypatch.setattr(
         ownership,
@@ -1123,7 +1123,7 @@ async def test_streaming_ownership_wrap_no_op_when_stream_did_not_complete(
     """If the stream errored before ``response.completed``,
     ``completed_response`` is ``None`` — we must skip the ownership
     write rather than crash the response generator."""
-    from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+    from embrouter.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
 
     stream_response = SimpleNamespace(completed_response=None)
 

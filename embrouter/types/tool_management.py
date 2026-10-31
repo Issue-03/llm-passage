@@ -13,7 +13,7 @@ ToolInputPolicy = Literal["trusted", "untrusted", "blocked"]
 ToolOutputPolicy = Literal["trusted", "untrusted"]
 
 
-class LiteLLM_ToolTableRow(BaseModel):
+class EmbRouter_ToolTableRow(BaseModel):
     tool_id: str
     tool_name: str
     origin: str | None = None
@@ -33,7 +33,7 @@ class LiteLLM_ToolTableRow(BaseModel):
 
 
 class ToolListResponse(BaseModel):
-    tools: list[LiteLLM_ToolTableRow]
+    tools: list[EmbRouter_ToolTableRow]
     total: int
 
 
@@ -78,7 +78,7 @@ class ToolPolicyOptionsResponse(BaseModel):
 
 
 class ToolDetailResponse(BaseModel):
-    tool: LiteLLM_ToolTableRow
+    tool: EmbRouter_ToolTableRow
     overrides: list[ToolPolicyOverrideRow] = Field(default_factory=list)
 
 

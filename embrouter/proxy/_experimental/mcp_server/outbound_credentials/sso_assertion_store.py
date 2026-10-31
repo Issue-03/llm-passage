@@ -25,14 +25,14 @@ from typing import TYPE_CHECKING, Final, Protocol
 import jwt
 from pydantic import BaseModel, ConfigDict, SecretStr, TypeAdapter, ValidationError
 
-from litellm._logging import verbose_proxy_logger
-from litellm.caching.in_memory_cache import InMemoryCache
-from litellm.constants import MCP_OAUTH2_TOKEN_CACHE_MAX_SIZE, MCP_SSO_ASSERTION_CACHE_TTL_SECONDS
+from embrouter._logging import verbose_proxy_logger
+from embrouter.caching.in_memory_cache import InMemoryCache
+from embrouter.constants import MCP_OAUTH2_TOKEN_CACHE_MAX_SIZE, MCP_SSO_ASSERTION_CACHE_TTL_SECONDS
 
 if TYPE_CHECKING:
-    from prisma.models import LiteLLM_SSOIdentityAssertion
+    from prisma.models import EmbRouter_SSOIdentityAssertion
 
-    from litellm.proxy.utils import PrismaClient
+    from embrouter.proxy.utils import PrismaClient
 
 _ASSERTION_DECRYPT_LOG_KEY: Final = "sso_identity_assertion"
 _STR_ADAPTER: Final[TypeAdapter[str]] = TypeAdapter(str)
@@ -40,11 +40,11 @@ _MAYBE_STR_ADAPTER: Final[TypeAdapter[str | None]] = TypeAdapter(str | None)
 
 
 class _SSOAssertionTable(Protocol):
-    """The ``LiteLLM_SSOIdentityAssertion`` table operations this store calls."""
+    """The ``EmbRouter_SSOIdentityAssertion`` table operations this store calls."""
 
-    async def find_unique(self, *, where: Mapping[str, str]) -> LiteLLM_SSOIdentityAssertion | None: ...
+    async def find_unique(self, *, where: Mapping[str, str]) -> EmbRouter_SSOIdentityAssertion | None: ...
 
-    async def find_many(self) -> Sequence[LiteLLM_SSOIdentityAssertion]: ...
+    async def find_many(self) -> Sequence[EmbRouter_SSOIdentityAssertion]: ...
 
     async def upsert(self, *, where: Mapping[str, str], data: Mapping[str, Mapping[str, str]]) -> object: ...
 
@@ -52,19 +52,19 @@ class _SSOAssertionTable(Protocol):
 
 
 class _MCPServerTable(Protocol):
-    """The ``LiteLLM_MCPServerTable`` lookup the retention gate calls."""
+    """The ``EmbRouter_MCPServerTable`` lookup the retention gate calls."""
 
     async def find_first(self, *, where: Mapping[str, str]) -> object | None: ...
 
 
 def _assertion_table(prisma_client: PrismaClient) -> _SSOAssertionTable:
     """The SSO assertion table, typed so the untyped prisma client surface stops here."""
-    return prisma_client.db.litellm_ssoidentityassertion
+    return prisma_client.db.embrouter_ssoidentityassertion
 
 
 def _mcp_server_table(prisma_client: PrismaClient) -> _MCPServerTable:
     """The MCP server table, typed so the untyped prisma client surface stops here."""
-    return prisma_client.db.litellm_mcpservertable
+    return prisma_client.db.embrouter_mcpservertable
 
 
 class SSOIdentityAssertion(BaseModel):
@@ -183,11 +183,11 @@ async def ema_assertion_retention_enabled() -> bool:
     snapshot of the DB state that can be stale both ways (a server added on another pod would
     silently drop the write, one removed on another pod would keep retaining bearer material),
     and a gate guarding a shared-DB write must judge against that storage's authority."""
-    from litellm.proxy._experimental.mcp_server.mcp_server_manager import (  # noqa: PLC0415  # avoids import cycle
+    from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (  # noqa: PLC0415  # avoids import cycle
         global_mcp_server_manager,
     )
-    from litellm.proxy.proxy_server import prisma_client  # noqa: PLC0415  # runtime global
-    from litellm.types.mcp import MCPAuth  # noqa: PLC0415  # runtime global
+    from embrouter.proxy.proxy_server import prisma_client  # noqa: PLC0415  # runtime global
+    from embrouter.types.mcp import MCPAuth  # noqa: PLC0415  # runtime global
 
     config_servers: Final = global_mcp_server_manager.config_mcp_servers.values()
     if any(server.auth_type == MCPAuth.oauth2_id_jag for server in config_servers):
@@ -201,8 +201,8 @@ async def ema_assertion_retention_enabled() -> bool:
 async def persist_sso_identity_assertion(
     user_id: str, assertion: SSOIdentityAssertion, cache: SSOAssertionCache = _ASSERTION_CACHE
 ) -> None:
-    from litellm.proxy.common_utils.encrypt_decrypt_utils import encrypt_value_helper  # noqa: PLC0415  # runtime global
-    from litellm.proxy.proxy_server import prisma_client  # noqa: PLC0415  # runtime global
+    from embrouter.proxy.common_utils.encrypt_decrypt_utils import encrypt_value_helper  # noqa: PLC0415  # runtime global
+    from embrouter.proxy.proxy_server import prisma_client  # noqa: PLC0415  # runtime global
 
     if prisma_client is None:
         return
@@ -224,8 +224,8 @@ async def persist_sso_identity_assertion(
 
 
 async def _read_assertion_from_db(user_id: str) -> SSOIdentityAssertion | None:
-    from litellm.proxy.common_utils.encrypt_decrypt_utils import decrypt_value_helper  # noqa: PLC0415  # runtime global
-    from litellm.proxy.proxy_server import prisma_client  # noqa: PLC0415  # runtime global
+    from embrouter.proxy.common_utils.encrypt_decrypt_utils import decrypt_value_helper  # noqa: PLC0415  # runtime global
+    from embrouter.proxy.proxy_server import prisma_client  # noqa: PLC0415  # runtime global
 
     if prisma_client is None:
         return None
@@ -319,9 +319,9 @@ async def rotate_sso_identity_assertions_master_key(prisma_client: PrismaClient,
     mirroring the sibling per-user credential tables; an unreadable row is skipped so one
     corrupt row does not abort the rotation. Rows are decrypted one at a time inside the loop
     so the whole table's plaintext is never held in memory at once."""
-    from prisma.models import LiteLLM_SSOIdentityAssertion as AssertionRow  # noqa: PLC0415  # generated at runtime
+    from prisma.models import EmbRouter_SSOIdentityAssertion as AssertionRow  # noqa: PLC0415  # generated at runtime
 
-    from litellm.proxy.common_utils.encrypt_decrypt_utils import (  # noqa: PLC0415  # runtime global
+    from embrouter.proxy.common_utils.encrypt_decrypt_utils import (  # noqa: PLC0415  # runtime global
         decrypt_value_helper,
         encrypt_value_helper,
     )

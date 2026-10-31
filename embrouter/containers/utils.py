@@ -1,23 +1,23 @@
 from typing import Any, Final, TypeVar
 
-from litellm.llms.base_llm.containers.transformation import BaseContainerConfig
-from litellm.responses.utils import ResponsesAPIRequestUtils
-from litellm.types.containers.main import (
+from embrouter.llms.base_llm.containers.transformation import BaseContainerConfig
+from embrouter.responses.utils import ResponsesAPIRequestUtils
+from embrouter.types.containers.main import (
     ContainerCreateOptionalRequestParams,
     ContainerListOptionalRequestParams,
 )
-from litellm.types.router import GenericLiteLLMParams
+from embrouter.types.router import GenericEmbRouterParams
 
 
 def decode_managed_container_id_for_request(
     container_id: str,
     custom_llm_provider: str,
-    litellm_params: GenericLiteLLMParams,
-) -> tuple[str, str, GenericLiteLLMParams]:
-    """Decode a LiteLLM-managed container ID for upstream API calls.
+    embrouter_params: GenericEmbRouterParams,
+) -> tuple[str, str, GenericEmbRouterParams]:
+    """Decode a EmbRouter-managed container ID for upstream API calls.
 
     Returns:
-        (original_container_id, resolved_provider, updated_litellm_params)
+        (original_container_id, resolved_provider, updated_embrouter_params)
     """
     decoded: Final = ResponsesAPIRequestUtils._decode_container_id(container_id)
     original_container_id: Final = decoded.get("response_id", container_id)
@@ -27,10 +27,10 @@ def decode_managed_container_id_for_request(
         custom_llm_provider = decoded_provider
 
     decoded_model_id: Final = decoded.get("model_id")
-    if decoded_model_id and not litellm_params.get("model_id"):
-        litellm_params["model_id"] = decoded_model_id
+    if decoded_model_id and not embrouter_params.get("model_id"):
+        embrouter_params["model_id"] = decoded_model_id
 
-    return original_container_id, custom_llm_provider, litellm_params
+    return original_container_id, custom_llm_provider, embrouter_params
 
 
 T = TypeVar("T")
@@ -98,7 +98,7 @@ class ContainerRequestUtils:
     def encode_container_id_in_response(
         response_obj: T,
         custom_llm_provider: str | None,
-        litellm_metadata: dict[str, Any] | None = None,
+        embrouter_metadata: dict[str, Any] | None = None,
         extra_body: dict[str, Any] | None = None,
     ) -> T:
         """
@@ -108,7 +108,7 @@ class ContainerRequestUtils:
         routing metadata so follow-up calls can route to the correct provider.
 
         Encodes when:
-        1. litellm_metadata contains model_info.id (indicating router/proxy usage), OR
+        1. embrouter_metadata contains model_info.id (indicating router/proxy usage), OR
         2. extra_body contains target_model_names (indicating model-specific routing)
 
         Direct SDK calls with explicit custom_llm_provider and no routing hints return raw IDs.
@@ -116,15 +116,15 @@ class ContainerRequestUtils:
         Args:
             response_obj: Response object with an `id` attribute (ContainerObject, DeleteContainerResult, etc.)
             custom_llm_provider: Provider name (e.g., "azure", "openai")
-            litellm_metadata: Optional litellm_metadata dict that may contain model_info.id
+            embrouter_metadata: Optional embrouter_metadata dict that may contain model_info.id
             extra_body: Optional extra_body dict that may contain target_model_names
 
         Returns:
             The same response object with encoded container_id (if routing metadata present)
         """
-        # Extract model_id from litellm_metadata
-        litellm_metadata = litellm_metadata or {}
-        model_info: Final[dict[str, Any]] = litellm_metadata.get("model_info", {}) or {}
+        # Extract model_id from embrouter_metadata
+        embrouter_metadata = embrouter_metadata or {}
+        model_info: Final[dict[str, Any]] = embrouter_metadata.get("model_info", {}) or {}
         model_id = model_info.get("id")
 
         # Check if we should encode based on routing metadata

@@ -3,12 +3,12 @@ from typing import TYPE_CHECKING, Any, Union
 
 import httpx
 
-import litellm
+import embrouter
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
-    from litellm.types.utils import ModelResponse, TextCompletionResponse
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.embrouter_core_utils.streaming_handler import CustomStreamWrapper
+    from embrouter.types.utils import ModelResponse, TextCompletionResponse
 
 
 class BaseLLM:
@@ -20,7 +20,7 @@ class BaseLLM:
         response: httpx.Response,
         model_response: "ModelResponse",
         stream: bool,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
         optional_params: dict,
         api_key: str,
         data: dict | str,
@@ -39,7 +39,7 @@ class BaseLLM:
         response: httpx.Response,
         model_response: "TextCompletionResponse",
         stream: bool,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
         optional_params: dict,
         api_key: str,
         data: dict | str,
@@ -53,16 +53,16 @@ class BaseLLM:
         return model_response
 
     def create_client_session(self):
-        if litellm.client_session:
-            _client_session = litellm.client_session
+        if embrouter.client_session:
+            _client_session = embrouter.client_session
         else:
             _client_session = httpx.Client()
 
         return _client_session
 
     def create_aclient_session(self):
-        if litellm.aclient_session:
-            _aclient_session = litellm.aclient_session
+        if embrouter.aclient_session:
+            _aclient_session = embrouter.aclient_session
         else:
             _aclient_session = httpx.AsyncClient()
 

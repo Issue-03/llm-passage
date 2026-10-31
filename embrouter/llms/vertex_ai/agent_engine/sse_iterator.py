@@ -6,9 +6,9 @@ Handles Server-Sent Events (SSE) streaming responses from Vertex AI Reasoning En
 
 from typing import Any, Final
 
-from litellm.llms.base_llm.base_model_iterator import BaseModelResponseIterator
-from litellm.types.llms.openai import ChatCompletionUsageBlock
-from litellm.types.utils import (
+from embrouter.llms.base_llm.base_model_iterator import BaseModelResponseIterator
+from embrouter.types.llms.openai import ChatCompletionUsageBlock
+from embrouter.types.utils import (
     Delta,
     GenericStreamingChunk,
     ModelResponseStream,

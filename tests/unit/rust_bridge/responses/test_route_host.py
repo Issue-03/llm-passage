@@ -4,10 +4,10 @@ from typing import Final
 import pytest
 from pydantic import ValidationError
 
-import litellm
-from litellm.rust_bridge.responses.route_host import arguments, connection_defaults, response
-from litellm.rust_bridge.responses.entrypoints import LiteLLMResponsesRequest
-from litellm.types.llms.openai import ResponsesAPIResponse
+import embrouter
+from embrouter.rust_bridge.responses.route_host import arguments, connection_defaults, response
+from embrouter.rust_bridge.responses.entrypoints import EmbRouterResponsesRequest
+from embrouter.types.llms.openai import ResponsesAPIResponse
 
 
 def test_response_validates_into_the_public_responses_model() -> None:
@@ -43,8 +43,8 @@ def test_response_rejects_a_payload_missing_required_fields() -> None:
 
 
 def test_arguments_are_the_public_kwargs_view() -> None:
-    kwargs: Final = MappingProxyType({"litellm_metadata": {"user_id": "u"}})
-    request: Final = LiteLLMResponsesRequest(
+    kwargs: Final = MappingProxyType({"embrouter_metadata": {"user_id": "u"}})
+    request: Final = EmbRouterResponsesRequest(
         model="gpt-4o",
         input="hi",
         stream=None,
@@ -70,7 +70,7 @@ def test_arguments_are_the_public_kwargs_view() -> None:
 def test_connection_defaults_preserve_openai_precedence(
     monkeypatch: pytest.MonkeyPatch, global_key: str | None, provider_key: str | None, expected: str | None
 ) -> None:
-    monkeypatch.setattr(litellm, "api_key", global_key)
-    monkeypatch.setattr(litellm, "openai_key", provider_key)
-    monkeypatch.setattr(litellm, "api_base", "https://configured.invalid/v1")
-    assert connection_defaults("openai") == (expected, litellm.api_base)
+    monkeypatch.setattr(embrouter, "api_key", global_key)
+    monkeypatch.setattr(embrouter, "openai_key", provider_key)
+    monkeypatch.setattr(embrouter, "api_base", "https://configured.invalid/v1")
+    assert connection_defaults("openai") == (expected, embrouter.api_base)

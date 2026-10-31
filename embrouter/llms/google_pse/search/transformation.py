@@ -8,13 +8,13 @@ from typing import Final, Literal, TypedDict
 
 import httpx
 
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.base_llm.search.transformation import (
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.base_llm.search.transformation import (
     BaseSearchConfig,
     SearchResponse,
     SearchResult,
 )
-from litellm.secret_managers.main import get_secret_str
+from embrouter.secret_managers.main import get_secret_str
 
 
 class _GooglePSESearchRequestRequired(TypedDict):
@@ -220,13 +220,13 @@ class GooglePSESearchConfig(BaseSearchConfig):
     def transform_search_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         **kwargs,
     ) -> SearchResponse:
         """
-        Transform Google PSE API response to LiteLLM unified SearchResponse format.
+        Transform Google PSE API response to EmbRouter unified SearchResponse format.
 
-        Google PSE → LiteLLM mappings:
+        Google PSE → EmbRouter mappings:
         - items[].title → SearchResult.title
         - items[].link → SearchResult.url
         - items[].snippet → SearchResult.snippet

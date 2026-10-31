@@ -5,12 +5,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from litellm.integrations.azure_storage.azure_storage import (
+from embrouter.integrations.azure_storage.azure_storage import (
     AzureBlobStorageLogger,
     _cached_credential_chain_token_provider,
 )
-from litellm.types.secret_managers.get_azure_ad_token_provider import AzureCredentialType
-from litellm.types.utils import StandardLoggingPayload
+from embrouter.types.secret_managers.get_azure_ad_token_provider import AzureCredentialType
+from embrouter.types.utils import StandardLoggingPayload
 
 
 @pytest.fixture
@@ -58,8 +58,8 @@ async def test_async_upload_payload_to_azure_blob_storage(mock_env_vars):
     a payload to Azure Blob Storage using the 3-step process (create, append, flush).
     """
     with (
-        patch("litellm.integrations.azure_storage.azure_storage.get_async_httpx_client") as mock_get_client,
-        patch("litellm.integrations.azure_storage.azure_storage.get_azure_ad_token_from_entra_id") as mock_get_token,
+        patch("embrouter.integrations.azure_storage.azure_storage.get_async_httpx_client") as mock_get_client,
+        patch("embrouter.integrations.azure_storage.azure_storage.get_azure_ad_token_from_entra_id") as mock_get_token,
     ):
         # Create mock HTTP client
         mock_http_client = AsyncMock()
@@ -127,7 +127,7 @@ async def test_async_upload_payload_uses_configured_endpoint_suffix(mock_gov_env
     AZURE_STORAGE_ENDPOINT_SUFFIX must reach the Entra-ID REST upload path so a
     sovereign-cloud account is addressed instead of the commercial dfs host.
     """
-    with patch("litellm.integrations.azure_storage.azure_storage.get_async_httpx_client") as mock_get_client:
+    with patch("embrouter.integrations.azure_storage.azure_storage.get_async_httpx_client") as mock_get_client:
         mock_http_client = AsyncMock()
         mock_response = MagicMock()
         mock_http_client.put.return_value = mock_response
@@ -172,7 +172,7 @@ async def test_upload_authenticates_through_the_credential_chain_under_workload_
 ):
     build_provider = MagicMock(return_value=lambda: "workload-identity-token")
     with patch(  # test-quality-ok: REST client is created inside the method; assert emitted request headers
-        "litellm.integrations.azure_storage.azure_storage.get_async_httpx_client"
+        "embrouter.integrations.azure_storage.azure_storage.get_async_httpx_client"
     ) as mock_get_client:
         mock_http_client = AsyncMock()
         mock_http_client.put.return_value = MagicMock()
@@ -195,7 +195,7 @@ def test_default_chain_provider_is_storage_scoped_and_built_once_per_process():
     _cached_credential_chain_token_provider.cache_clear()
     with (
         patch(  # test-quality-ok: assert the default factory's fixed scope and credential type without constructing Azure SDK credentials
-            "litellm.integrations.azure_storage.azure_storage.get_azure_ad_token_provider",
+            "embrouter.integrations.azure_storage.azure_storage.get_azure_ad_token_provider",
             return_value=lambda: "chain-token",
         ) as mock_builder
     ):
@@ -288,7 +288,7 @@ async def test_client_secret_auth_still_uses_the_storage_scoped_service_principa
     build_provider = MagicMock()
     with (
         patch(  # test-quality-ok: assert the storage scope passed to the shared token factory without making an external auth call
-            "litellm.integrations.azure_storage.azure_storage.get_azure_ad_token_from_entra_id",
+            "embrouter.integrations.azure_storage.azure_storage.get_azure_ad_token_from_entra_id",
             return_value=lambda: "client-secret-token",
         ) as mock_entra_id
     ):

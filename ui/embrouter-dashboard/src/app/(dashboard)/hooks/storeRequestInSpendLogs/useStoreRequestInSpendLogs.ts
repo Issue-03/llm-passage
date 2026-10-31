@@ -1,5 +1,5 @@
 import { useMutation, UseMutationResult, useQueryClient } from "@tanstack/react-query";
-import { getProxyBaseUrl, getGlobalLitellmHeaderName } from "@/components/networking";
+import { getProxyBaseUrl, getGlobalEmbrouterHeaderName } from "@/components/networking";
 import useAuthorized from "../useAuthorized";
 import { proxyConfigKeys } from "../proxyConfig/useProxyConfig";
 
@@ -28,7 +28,7 @@ const performStoreRequestInSpendLogs = async (
   const response = await fetch(url, {
     method: "POST",
     headers: {
-      [getGlobalLitellmHeaderName()]: `Bearer ${accessToken}`,
+      [getGlobalEmbrouterHeaderName()]: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({

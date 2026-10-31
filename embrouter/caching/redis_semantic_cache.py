@@ -1,5 +1,5 @@
 """
-Redis Semantic Cache implementation for LiteLLM
+Redis Semantic Cache implementation for EmbRouter
 
 The RedisSemanticCache provides semantic caching functionality using Redis as a backend.
 This cache stores responses based on the semantic similarity of prompts rather than
@@ -16,14 +16,14 @@ import os
 from collections.abc import Callable, Mapping
 from typing import TYPE_CHECKING, Any, Final, cast
 
-import litellm
-from litellm._logging import print_verbose, verbose_logger
-from litellm.constants import SEMANTIC_CACHE_EMBEDDING_TIMEOUT_SECONDS
-from litellm.litellm_core_utils.asyncify import asyncify
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+import embrouter
+from embrouter._logging import print_verbose, verbose_logger
+from embrouter.constants import SEMANTIC_CACHE_EMBEDDING_TIMEOUT_SECONDS
+from embrouter.embrouter_core_utils.asyncify import asyncify
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
     get_str_from_messages,
 )
-from litellm.types.utils import EmbeddingResponse
+from embrouter.types.utils import EmbeddingResponse
 
 from ._embedding_router import (
     build_router_embedding_metadata,
@@ -35,7 +35,7 @@ from ._embedding_router import (
 from .base_cache import BaseCache
 
 if TYPE_CHECKING:
-    from litellm.router import Router
+    from embrouter.router import Router
 
 
 class RedisSemanticCache(BaseCache):
@@ -47,8 +47,8 @@ class RedisSemanticCache(BaseCache):
     but carry similar meaning.
     """
 
-    DEFAULT_REDIS_INDEX_NAME: str = "litellm_semantic_cache_index"
-    CACHE_KEY_FIELD_NAME: str = "litellm_cache_key"
+    DEFAULT_REDIS_INDEX_NAME: str = "embrouter_semantic_cache_index"
+    CACHE_KEY_FIELD_NAME: str = "embrouter_cache_key"
     embedding_max_input_tokens: int | None = None
     embedding_timeout: float = SEMANTIC_CACHE_EMBEDDING_TIMEOUT_SECONDS
 
@@ -234,7 +234,7 @@ class RedisSemanticCache(BaseCache):
         return Tag(self.CACHE_KEY_FIELD_NAME) == str(key)
 
     def _cache_hit_matches_key(self, cache_hit: Mapping[str, object], key: str) -> bool:
-        # Pre-isolation entries with no ``litellm_cache_key`` field cannot be
+        # Pre-isolation entries with no ``embrouter_cache_key`` field cannot be
         # safely reassigned to a caller's scope and are treated as misses.
         cached_key = cache_hit.get(self.CACHE_KEY_FIELD_NAME)
         if isinstance(cached_key, bytes):
@@ -342,7 +342,7 @@ class RedisSemanticCache(BaseCache):
         mirroring ``_get_async_embedding``; otherwise embeds directly.
         """
         try:
-            from litellm.proxy.proxy_server import llm_model_list, llm_router
+            from embrouter.proxy.proxy_server import llm_model_list, llm_router
         except ImportError:
             llm_model_list = None
             llm_router = None
@@ -364,7 +364,7 @@ class RedisSemanticCache(BaseCache):
         else:
             embedding_response = cast(
                 EmbeddingResponse,
-                litellm.embedding(
+                embrouter.embedding(
                     model=self.embedding_model,
                     input=embedding_input,
                     cache={"no-store": True, "no-cache": True},
@@ -460,7 +460,7 @@ class RedisSemanticCache(BaseCache):
                 return None
 
             # Check the cache for semantically similar prompts in this exact
-            # LiteLLM cache-key scope.
+            # EmbRouter cache-key scope.
             prompt_embedding: Final = self._get_embedding(prompt, metadata=kwargs.get("metadata"))
             check_kwargs: Final[Mapping[str, object]] = {
                 "prompt": prompt,
@@ -517,7 +517,7 @@ class RedisSemanticCache(BaseCache):
             List[float]: The embedding vector
         """
         try:
-            from litellm.proxy.proxy_server import llm_model_list, llm_router
+            from embrouter.proxy.proxy_server import llm_model_list, llm_router
         except ImportError:
             llm_model_list = None
             llm_router = None
@@ -534,7 +534,7 @@ class RedisSemanticCache(BaseCache):
                 num_retries=0,
             )
             if router is not None
-            else litellm.aembedding(
+            else embrouter.aembedding(
                 model=self.embedding_model,
                 input=embedding_input,
                 cache={"no-store": True, "no-cache": True},
@@ -613,7 +613,7 @@ class RedisSemanticCache(BaseCache):
             prompt_embedding: Final = await self._get_async_embedding(prompt, metadata=kwargs.get("metadata"))
 
             # Check the cache for semantically similar prompts in this exact
-            # LiteLLM cache-key scope.
+            # EmbRouter cache-key scope.
             check_kwargs: Final[Mapping[str, object]] = {
                 "prompt": prompt,
                 "vector": prompt_embedding,

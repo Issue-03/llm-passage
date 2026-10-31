@@ -1,10 +1,10 @@
 from collections.abc import AsyncIterator, Coroutine, Mapping
 from typing import Final, cast
 
-import litellm
-from litellm.types.google_genai.adapters import GenerateContentCompletionKwargs
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import ModelResponse
+import embrouter
+from embrouter.types.google_genai.adapters import GenerateContentCompletionKwargs
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import ModelResponse
 
 from .transformation import GoogleGenAIAdapter
 
@@ -21,17 +21,17 @@ class GenerateContentToCompletionHandler:
         contents: list[dict[str, object]] | dict[str, object],
         config: dict[str, object] | None = None,
         stream: bool = False,
-        litellm_params: GenericLiteLLMParams | None = None,
+        embrouter_params: GenericEmbRouterParams | None = None,
         extra_kwargs: Mapping[str, object] | None = None,
     ) -> GenerateContentCompletionKwargs:
-        """Prepare kwargs for litellm.completion/acompletion"""
+        """Prepare kwargs for embrouter.completion/acompletion"""
 
         # Transform generate_content request to completion format
         completion_request: Final = GOOGLE_GENAI_ADAPTER.translate_generate_content_to_completion(
             model=model,
             contents=contents,
             config=config,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             **(extra_kwargs or {}),
         )
 
@@ -57,7 +57,7 @@ class GenerateContentToCompletionHandler:
     async def async_generate_content_handler(
         model: str,
         contents: list[dict[str, object]] | dict[str, object],
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         config: dict[str, object] | None = None,
         stream: bool = False,
         **kwargs: object,
@@ -69,12 +69,12 @@ class GenerateContentToCompletionHandler:
             contents=contents,
             config=config,
             stream=stream,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             extra_kwargs=kwargs,
         )
 
         try:
-            completion_response: Final = await litellm.acompletion(**completion_kwargs)
+            completion_response: Final = await embrouter.acompletion(**completion_kwargs)
 
             if stream:
                 # Check if completion_response is actually a stream or a ModelResponse
@@ -101,13 +101,13 @@ class GenerateContentToCompletionHandler:
                 return generate_content_response
 
         except Exception as e:
-            raise ValueError(f"Error calling litellm.acompletion for generate_content: {e}")
+            raise ValueError(f"Error calling embrouter.acompletion for generate_content: {e}")
 
     @staticmethod
     def generate_content_handler(
         model: str,
         contents: list[dict[str, object]] | dict[str, object],
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         config: dict[str, object] | None = None,
         stream: bool = False,
         _is_async: bool = False,
@@ -121,7 +121,7 @@ class GenerateContentToCompletionHandler:
                 contents=contents,
                 config=config,
                 stream=stream,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 **kwargs,
             )
 
@@ -130,12 +130,12 @@ class GenerateContentToCompletionHandler:
             contents=contents,
             config=config,
             stream=stream,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             extra_kwargs=kwargs,
         )
 
         try:
-            completion_response: Final = litellm.completion(**completion_kwargs)
+            completion_response: Final = embrouter.completion(**completion_kwargs)
 
             if stream:
                 # Check if completion_response is actually a stream or a ModelResponse
@@ -162,4 +162,4 @@ class GenerateContentToCompletionHandler:
                 return generate_content_response
 
         except Exception as e:
-            raise ValueError(f"Error calling litellm.completion for generate_content: {e}")
+            raise ValueError(f"Error calling embrouter.completion for generate_content: {e}")

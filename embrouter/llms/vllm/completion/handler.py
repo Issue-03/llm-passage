@@ -4,11 +4,11 @@ from typing import Final
 
 import httpx
 
-from litellm.litellm_core_utils.prompt_templates.factory import (
+from embrouter.embrouter_core_utils.prompt_templates.factory import (
     custom_prompt,
     prompt_factory,
 )
-from litellm.utils import ModelResponse, Usage
+from embrouter.utils import ModelResponse, Usage
 
 llm = None
 
@@ -44,7 +44,7 @@ def completion(
     logging_obj,
     optional_params: dict,
     custom_prompt_dict={},
-    litellm_params=None,
+    embrouter_params=None,
     logger_fn=None,
 ):
     global llm
@@ -110,9 +110,9 @@ def completion(
 def batch_completions(model: str, messages: list, optional_params=None, custom_prompt_dict={}):
     """
     Example usage:
-    import litellm
+    import embrouter
     import os
-    from litellm import batch_completion
+    from embrouter import batch_completion
 
 
     responses = batch_completion(

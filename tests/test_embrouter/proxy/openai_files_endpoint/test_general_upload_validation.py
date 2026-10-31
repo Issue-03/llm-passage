@@ -3,8 +3,8 @@ from pathlib import Path
 
 import pytest
 
-from litellm.proxy._types import ProxyException
-from litellm.proxy.openai_files_endpoints.general_upload_validation import (
+from embrouter.proxy._types import ProxyException
+from embrouter.proxy.openai_files_endpoints.general_upload_validation import (
     MB,
     UploadedFileBlockedExtension,
     UploadedFileExtensionNotAllowed,

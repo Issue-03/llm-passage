@@ -19,11 +19,11 @@ from mcp.types import Tool as MCPTool
 from pydantic import BaseModel, ConfigDict
 from typing_extensions import assert_never
 
-from litellm.proxy._experimental.mcp_server.exceptions import (
+from embrouter.proxy._experimental.mcp_server.exceptions import (
     MCPServerListError,
     MCPUpstreamAuthError,
 )
-from litellm.proxy._experimental.mcp_server.faults.traversal import iter_exception_tree
+from embrouter.proxy._experimental.mcp_server.faults.traversal import iter_exception_tree
 
 ListFaultCategory: TypeAlias = Literal[
     "auth_required",
@@ -54,8 +54,8 @@ class ServerListFault(BaseModel):
 
 ServerOutcome: TypeAlias = ServerListOk | ServerListFault
 
-SERVER_OUTCOMES_META_KEY: Final = "litellm.ai/server_outcomes"
-"""The tools/list result ``_meta`` key carrying per-server outcomes. Prefixed with the litellm.ai
+SERVER_OUTCOMES_META_KEY: Final = "embrouter.ai/server_outcomes"
+"""The tools/list result ``_meta`` key carrying per-server outcomes. Prefixed with the embrouter.ai
 domain per the MCP spec's ``_meta`` key format so it cannot collide with spec-reserved names."""
 
 

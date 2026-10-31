@@ -12,7 +12,7 @@ from datetime import datetime, time, timedelta, timezone, tzinfo
 from typing import Final
 from zoneinfo import ZoneInfo
 
-from litellm._logging import verbose_logger
+from embrouter._logging import verbose_logger
 
 _BUDGET_DURATION_WORD_ALIASES: Final[dict[str, str]] = {
     "hourly": "1h",

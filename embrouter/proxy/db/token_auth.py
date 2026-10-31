@@ -20,7 +20,7 @@ from typing import Final, TypeAlias
 from pydantic import BaseModel
 from typing_extensions import assert_never
 
-from litellm._logging import verbose_proxy_logger
+from embrouter._logging import verbose_proxy_logger
 
 IAM_TOKEN_DB_AUTH_ENV_VAR: Final = "IAM_TOKEN_DB_AUTH"
 AZURE_POSTGRESQL_AUTH_ENV_VAR: Final = "AZURE_POSTGRESQL_AUTH"
@@ -177,7 +177,7 @@ def mint_database_token(auth: DatabaseTokenAuth, endpoint: IAMEndpoint) -> str:
     """Mint a fresh database password for ``endpoint``, already percent-encoded."""
     match auth:
         case RdsIamTokenAuth():
-            from litellm.proxy.auth.rds_iam_token import generate_iam_auth_token
+            from embrouter.proxy.auth.rds_iam_token import generate_iam_auth_token
 
             return generate_iam_auth_token(db_host=endpoint.host, db_port=endpoint.port, db_user=endpoint.user)
         case AzureEntraTokenAuth():
@@ -244,7 +244,7 @@ def build_azure_entra_token_provider() -> Callable[[], str]:
     strategy, and every uncached call would build another Azure credential with its own
     HTTP transport and its own token cache that nothing ever closes.
     """
-    from litellm.secret_managers.get_azure_ad_token_provider import (
+    from embrouter.secret_managers.get_azure_ad_token_provider import (
         get_azure_ad_token_provider,
     )
 

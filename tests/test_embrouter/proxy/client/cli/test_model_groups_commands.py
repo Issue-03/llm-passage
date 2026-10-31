@@ -6,7 +6,7 @@ from unittest.mock import patch
 import pytest
 from click.testing import CliRunner
 
-from litellm.proxy.client.cli import cli
+from embrouter.proxy.client.cli import cli
 
 SAMPLE_MODEL_GROUPS: List[Dict[str, Any]] = [
     {
@@ -26,7 +26,7 @@ SAMPLE_MODEL_GROUPS: List[Dict[str, Any]] = [
 
 @pytest.fixture
 def mock_client():
-    with patch("litellm.proxy.client.cli.commands.model_groups.Client") as MockClient:
+    with patch("embrouter.proxy.client.cli.commands.model_groups.Client") as MockClient:
         yield MockClient
 
 
@@ -40,8 +40,8 @@ def mock_env():
     with patch.dict(
         os.environ,
         {
-            "LITELLM_PROXY_URL": "http://localhost:4000",
-            "LITELLM_PROXY_API_KEY": "sk-test",
+            "EMBROUTER_PROXY_URL": "http://localhost:4000",
+            "EMBROUTER_PROXY_API_KEY": "sk-test",
         },
     ):
         yield

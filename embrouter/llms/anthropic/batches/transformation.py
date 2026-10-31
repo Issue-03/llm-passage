@@ -7,17 +7,17 @@ import httpx
 from httpx import Headers, Response
 from typing_extensions import ReadOnly, TypedDict
 
-from litellm.litellm_core_utils.url_utils import encode_url_path_segment
-from litellm.llms.base_llm.batches.transformation import BaseBatchesConfig
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.types.llms.openai import AllMessageValues, CreateBatchRequest
-from litellm.types.utils import LiteLLMBatch, LlmProviders, ModelResponse
+from embrouter.embrouter_core_utils.url_utils import encode_url_path_segment
+from embrouter.llms.base_llm.batches.transformation import BaseBatchesConfig
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.types.llms.openai import AllMessageValues, CreateBatchRequest
+from embrouter.types.utils import EmbRouterBatch, LlmProviders, ModelResponse
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
 
-    LoggingClass = LiteLLMLoggingObj
+    LoggingClass = EmbRouterLoggingObj
 else:
     LoggingClass = Any
 
@@ -64,13 +64,13 @@ class AnthropicBatchesConfig(BaseBatchesConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
         """Validate and prepare environment-specific headers and parameters."""
-        if api_base is None and isinstance(litellm_params, dict):
-            api_base = litellm_params.get("api_base")
+        if api_base is None and isinstance(embrouter_params, dict):
+            api_base = embrouter_params.get("api_base")
         auth_header: Final = self.anthropic_model_info.get_auth_header(api_key, api_base)
         if auth_header is None:
             raise ValueError(
@@ -94,7 +94,7 @@ class AnthropicBatchesConfig(BaseBatchesConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         data: CreateBatchRequest,
     ) -> str:
         """Get the complete URL for batch creation request."""
@@ -108,7 +108,7 @@ class AnthropicBatchesConfig(BaseBatchesConfig):
         model: str,
         create_batch_data: CreateBatchRequest,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> bytes | str | dict[str, object]:
         """
         Transform the batch creation request to Anthropic format.
@@ -122,10 +122,10 @@ class AnthropicBatchesConfig(BaseBatchesConfig):
         model: str | None,
         raw_response: httpx.Response,
         logging_obj: LoggingClass,
-        litellm_params: dict,
-    ) -> LiteLLMBatch:
+        embrouter_params: dict,
+    ) -> EmbRouterBatch:
         """
-        Transform Anthropic MessageBatch creation response to LiteLLM format.
+        Transform Anthropic MessageBatch creation response to EmbRouter format.
 
         Not currently implemented - placeholder to satisfy abstract base class.
         """
@@ -136,7 +136,7 @@ class AnthropicBatchesConfig(BaseBatchesConfig):
         api_base: str | None,
         batch_id: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> str:
         """
         Get the complete URL for batch retrieval request.
@@ -145,7 +145,7 @@ class AnthropicBatchesConfig(BaseBatchesConfig):
             api_base: Base API URL (optional, will use default if not provided)
             batch_id: Batch ID to retrieve
             optional_params: Optional parameters
-            litellm_params: LiteLLM parameters
+            embrouter_params: EmbRouter parameters
 
         Returns:
             Complete URL for Anthropic batch retrieval: {api_base}/v1/messages/batches/{batch_id}
@@ -158,7 +158,7 @@ class AnthropicBatchesConfig(BaseBatchesConfig):
         self,
         batch_id: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> bytes | str | dict[str, object]:
         """
         Transform batch retrieval request for Anthropic.
@@ -174,9 +174,9 @@ class AnthropicBatchesConfig(BaseBatchesConfig):
         model: str | None,
         raw_response: httpx.Response,
         logging_obj: LoggingClass,
-        litellm_params: dict,
-    ) -> LiteLLMBatch:
-        """Transform Anthropic MessageBatch retrieval response to LiteLLM format."""
+        embrouter_params: dict,
+    ) -> EmbRouterBatch:
+        """Transform Anthropic MessageBatch retrieval response to EmbRouter format."""
         try:
             response_data: Final[AnthropicMessageBatch] = raw_response.json()
         except Exception as e:
@@ -244,7 +244,7 @@ class AnthropicBatchesConfig(BaseBatchesConfig):
             failed=request_counts_data.get("errored", 0),
         )
 
-        return LiteLLMBatch(
+        return EmbRouterBatch(
             id=batch_id,
             object="batch",
             endpoint="/v1/messages",
@@ -288,13 +288,13 @@ class AnthropicBatchesConfig(BaseBatchesConfig):
         request_data: dict,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,
     ) -> ModelResponse:
-        from litellm.cost_calculator import BaseTokenUsageProcessor
-        from litellm.types.utils import Usage
+        from embrouter.cost_calculator import BaseTokenUsageProcessor
+        from embrouter.types.utils import Usage
 
         response_text: Final = raw_response.text.strip()
         all_usage: Final[list[Usage]] = []

@@ -7,10 +7,10 @@ from typing import Annotated, Final, TypeAlias
 import httpx
 from pydantic import BaseModel, BeforeValidator, ConfigDict
 
-from litellm._logging import verbose_logger
-from litellm.caching.in_memory_cache import InMemoryCache
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.utils import _add_path_to_api_base  # pyright: ignore[reportPrivateUsage]  # shared provider URL helper
+from embrouter._logging import verbose_logger
+from embrouter.caching.in_memory_cache import InMemoryCache
+from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from embrouter.utils import _add_path_to_api_base  # pyright: ignore[reportPrivateUsage]  # shared provider URL helper
 
 MODEL_INFO_REFRESH_SECONDS: Final = 300
 MODEL_INFO_REFRESH_CONCURRENCY: Final = 8

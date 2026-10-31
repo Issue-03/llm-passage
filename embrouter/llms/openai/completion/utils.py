@@ -1,9 +1,9 @@
 from typing import Final, cast
 
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
     convert_content_list_to_str,
 )
-from litellm.types.llms.openai import (
+from embrouter.types.llms.openai import (
     AllMessageValues,
     AllPromptValues,
     OpenAITextCompletionUserMessage,

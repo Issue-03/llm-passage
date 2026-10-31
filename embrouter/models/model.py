@@ -1,8 +1,8 @@
 """
 Proxy model table model.
 
-Canonical definition for ``litellm_proxymodeltable``. Re-exported from
-``litellm.proxy._types`` for backwards compatibility.
+Canonical definition for ``embrouter_proxymodeltable``. Re-exported from
+``embrouter.proxy._types`` for backwards compatibility.
 """
 
 import json
@@ -10,13 +10,13 @@ from datetime import datetime
 
 from pydantic import ConfigDict, model_validator
 
-from litellm.types.llms.base import LiteLLMPydanticObjectBase
+from embrouter.types.llms.base import EmbRouterPydanticObjectBase
 
 
-class LiteLLM_ProxyModelTable(LiteLLMPydanticObjectBase):
+class EmbRouter_ProxyModelTable(EmbRouterPydanticObjectBase):
     model_id: str
     model_name: str
-    litellm_params: dict
+    embrouter_params: dict
     model_info: dict | None = None
     blocked: bool = False
     created_at: datetime | None = None
@@ -31,9 +31,9 @@ class LiteLLM_ProxyModelTable(LiteLLMPydanticObjectBase):
     def check_potential_json_str(cls, values):
         if not isinstance(values, dict):
             return values
-        if isinstance(values.get("litellm_params"), str):
+        if isinstance(values.get("embrouter_params"), str):
             try:
-                values["litellm_params"] = json.loads(values["litellm_params"])
+                values["embrouter_params"] = json.loads(values["embrouter_params"])
             except json.JSONDecodeError:
                 pass
         if isinstance(values.get("model_info"), str):

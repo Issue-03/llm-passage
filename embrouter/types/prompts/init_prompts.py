@@ -22,7 +22,7 @@ class PromptInfo(BaseModel):
     model_config = ConfigDict(extra="allow", protected_namespaces=())
 
 
-class PromptLiteLLMParams(BaseModel):
+class PromptEmbRouterParams(BaseModel):
     prompt_id: str | None = None
     prompt_integration: str
 
@@ -44,7 +44,7 @@ class PromptLiteLLMParams(BaseModel):
 
 class PromptSpec(BaseModel):
     prompt_id: str
-    litellm_params: PromptLiteLLMParams
+    embrouter_params: PromptEmbRouterParams
     prompt_info: PromptInfo
     created_at: datetime | None = None
     updated_at: datetime | None = None
@@ -62,7 +62,7 @@ class PromptSpec(BaseModel):
 
 
 class PromptTemplateBase(BaseModel):
-    litellm_prompt_id: str
+    embrouter_prompt_id: str
     content: str
     metadata: dict[str, Any] | None = None
 

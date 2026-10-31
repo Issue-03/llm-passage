@@ -9,7 +9,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from litellm.llms.openai.transcriptions.whisper_transformation import (
+from embrouter.llms.openai.transcriptions.whisper_transformation import (
     OpenAIWhisperAudioTranscriptionConfig,
 )
 
@@ -23,7 +23,7 @@ class TestWhisperTransformRequestResponseFormat:
             model="whisper-1",
             audio_file=audio_file,
             optional_params=optional_params,
-            litellm_params={},
+            embrouter_params={},
         )
         return result.data
 

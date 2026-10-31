@@ -12,7 +12,7 @@ from typing import Final
 
 import httpx
 
-from litellm.integrations.mock_client_factory import (
+from embrouter.integrations.mock_client_factory import (
     MockClientConfig,
     create_mock_client_factory,
 )

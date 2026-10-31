@@ -1,14 +1,14 @@
-"""Generic prompt management integration for LiteLLM."""
+"""Generic prompt management integration for EmbRouter."""
 
 from typing import TYPE_CHECKING, Final
 
 if TYPE_CHECKING:
-    from litellm.integrations.custom_prompt_management import CustomPromptManagement
-    from litellm.types.prompts.init_prompts import PromptLiteLLMParams, PromptSpec
+    from embrouter.integrations.custom_prompt_management import CustomPromptManagement
+    from embrouter.types.prompts.init_prompts import PromptEmbRouterParams, PromptSpec
 
     from .generic_prompt_manager import GenericPromptManager
 
-from litellm.types.prompts.init_prompts import SupportedPromptIntegrations
+from embrouter.types.prompts.init_prompts import SupportedPromptIntegrations
 
 from .generic_prompt_manager import GenericPromptManager
 
@@ -26,23 +26,23 @@ def set_global_generic_prompt_config(config: dict) -> None:
                 - api_key: Optional API key for authentication
                 - timeout: Request timeout in seconds (default: 30)
     """
-    import litellm
+    import embrouter
 
-    litellm.global_generic_prompt_config = config
+    embrouter.global_generic_prompt_config = config
 
 
-def prompt_initializer(litellm_params: "PromptLiteLLMParams", prompt_spec: "PromptSpec") -> "CustomPromptManagement":
+def prompt_initializer(embrouter_params: "PromptEmbRouterParams", prompt_spec: "PromptSpec") -> "CustomPromptManagement":
     """
     Initialize a prompt from a generic prompt management API.
     """
-    prompt_id: Final = getattr(litellm_params, "prompt_id", None)
+    prompt_id: Final = getattr(embrouter_params, "prompt_id", None)
 
-    api_base: Final = litellm_params.api_base
-    api_key: Final = litellm_params.api_key
+    api_base: Final = embrouter_params.api_base
+    api_key: Final = embrouter_params.api_key
     if not api_base:
         raise ValueError("api_base is required in generic_prompt_config")
 
-    provider_specific_query_params: Final = litellm_params.provider_specific_query_params
+    provider_specific_query_params: Final = embrouter_params.provider_specific_query_params
 
     try:
         generic_prompt_manager: Final = GenericPromptManager(
@@ -50,7 +50,7 @@ def prompt_initializer(litellm_params: "PromptLiteLLMParams", prompt_spec: "Prom
             api_key=api_key,
             prompt_id=prompt_id,
             additional_provider_specific_query_params=provider_specific_query_params,
-            **litellm_params.model_dump(
+            **embrouter_params.model_dump(
                 exclude_none=True,
                 exclude={
                     "prompt_id",

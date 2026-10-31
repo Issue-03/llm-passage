@@ -48,7 +48,7 @@ const baseParams: BuildComplexityRouterConfigParams = {
   semanticMatchingEnabled: false,
   embeddingModel: undefined,
   matchThreshold: 0.5,
-  escalationKeywords: ["LITELLM ESCALATE"],
+  escalationKeywords: ["EMBROUTER ESCALATE"],
   adaptive: false,
   adaptiveWeights: { quality: 0.3, cost: 0.7 },
   tierDistancePenalty: 0.5,
@@ -182,7 +182,7 @@ describe("buildComplexityRouterConfig", () => {
       expect(config.adaptive).toBe(!forecast);
       expect(config.enable_context_window_escalation).toBe(true);
       expect(config.context_window_escalation_buffer).toBe(0.9);
-      expect(config.escalation_keywords).toEqual(forecast ? [] : ["LITELLM ESCALATE"]);
+      expect(config.escalation_keywords).toEqual(forecast ? [] : ["EMBROUTER ESCALATE"]);
       for (const key of ["adaptive_weights", "adaptive_eligible", "tier_distance_penalty"]) {
         expect(Object.hasOwn(config, key)).toBe(!forecast);
       }
@@ -202,8 +202,8 @@ describe("buildComplexityRouterConfig", () => {
       tierModelParams: { COMPLEX: { primary: params }, REASONING: { secondary: { speed: "fast" } } },
     });
     expect(config.tier_model_configs).toEqual({
-      COMPLEX: [{ model_name: "primary", litellm_params: params }],
-      REASONING: [{ model_name: "secondary", litellm_params: { speed: "fast" } }],
+      COMPLEX: [{ model_name: "primary", embrouter_params: params }],
+      REASONING: [{ model_name: "secondary", embrouter_params: { speed: "fast" } }],
     });
   });
 
@@ -217,7 +217,7 @@ describe("buildComplexityRouterConfig", () => {
       deployment_affinity: true,
       modality_routing: false,
       modality_pin_override: false,
-      escalation_keywords: ["LITELLM ESCALATE"],
+      escalation_keywords: ["EMBROUTER ESCALATE"],
     };
     expect(config).toEqual(expected);
   });
@@ -245,9 +245,9 @@ describe("buildComplexityRouterConfig", () => {
   it("trims escalation keywords and drops blank entries", () => {
     const config = buildComplexityRouterConfig({
       ...baseParams,
-      escalationKeywords: [" LITELLM ESCALATE ", "", "  ", "MAKE IT BETTER"],
+      escalationKeywords: [" EMBROUTER ESCALATE ", "", "  ", "MAKE IT BETTER"],
     });
-    expect(config.escalation_keywords).toEqual(["LITELLM ESCALATE", "MAKE IT BETTER"]);
+    expect(config.escalation_keywords).toEqual(["EMBROUTER ESCALATE", "MAKE IT BETTER"]);
   });
 
   it("emits an empty escalation_keywords list so clearing the field disables escalation", () => {
@@ -998,7 +998,7 @@ describe("buildComplexityRouterConfig tier model params", () => {
     });
     expect(config.tiers).toEqual(tiers);
     expect(config.tier_model_configs).toEqual({
-      COMPLEX: [{ model_name: "claude-sonnet-4", litellm_params: { reasoning_effort: "high" } }],
+      COMPLEX: [{ model_name: "claude-sonnet-4", embrouter_params: { reasoning_effort: "high" } }],
     });
   });
 });
@@ -1290,7 +1290,7 @@ describe("buildComplexityRouterConfig with an edited tier set", () => {
   )("drops %s's %s key, which an edited tier set never uses", (_name, key) => {
     const loaded: Partial<BuildComplexityRouterConfigParams> = {
       tierLabels: { SIMPLE: "Cheap" },
-      escalationKeywords: ["LITELLM ESCALATE"],
+      escalationKeywords: ["EMBROUTER ESCALATE"],
       adaptive: true,
       classifierFallback: "heuristic",
       tierBoundaries: { simple_medium: 0.1, medium_complex: 0.25, complex_reasoning: 0.5 },
@@ -1339,7 +1339,7 @@ describe("buildComplexityRouterConfig with an edited tier set", () => {
   it("keys per-model params by tier name on the wire while the editor keys them by row id", () => {
     const payload = build({ tierModelParams: { sec: { "o1-preview": { reasoning_effort: "high" } } } });
     expect(payload.tier_model_configs).toEqual({
-      SECURITY_REVIEW: [{ model_name: "o1-preview", litellm_params: { reasoning_effort: "high" } }],
+      SECURITY_REVIEW: [{ model_name: "o1-preview", embrouter_params: { reasoning_effort: "high" } }],
     });
   });
 

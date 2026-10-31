@@ -7,10 +7,10 @@ from typing import Final
 import httpx
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.llms.custom_httpx.http_handler import (
     get_async_httpx_client,  # pyright: ignore[reportUnknownVariableType]  # shared cache retains its legacy parameter mapping
 )
-from litellm.types.llms.custom_http import httpxSpecialProvider
+from embrouter.types.llms.custom_http import httpxSpecialProvider
 
 
 @dataclass(frozen=True, slots=True)

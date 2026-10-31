@@ -9,8 +9,8 @@ class CodeInterpreterInterceptionConfig(TypedDict, total=False):
     """
     Configuration parameters for CodeInterpreterInterceptionLogger.
 
-    Used in proxy_config.yaml under litellm_settings:
-        litellm_settings:
+    Used in proxy_config.yaml under embrouter_settings:
+        embrouter_settings:
           code_interpreter_interception_params:
             enabled: true
             enabled_providers: ["openai"]

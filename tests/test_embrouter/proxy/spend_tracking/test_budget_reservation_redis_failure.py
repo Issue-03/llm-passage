@@ -17,8 +17,8 @@ estimate in place as if it were reconciled.
 
 import pytest
 
-from litellm.caching import DualCache
-from litellm.proxy import proxy_server
+from embrouter.caching import DualCache
+from embrouter.proxy import proxy_server
 
 
 class _FlakyRedisCache:

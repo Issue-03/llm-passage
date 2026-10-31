@@ -18,9 +18,9 @@ _mock_newrelic.agent = _mock_newrelic_agent
 sys.modules["newrelic"] = _mock_newrelic
 sys.modules["newrelic.agent"] = _mock_newrelic_agent
 
-import litellm
-import litellm.integrations.newrelic.newrelic as nr_module
-from litellm.integrations.newrelic.newrelic import NewRelicLogger
+import embrouter
+import embrouter.integrations.newrelic.newrelic as nr_module
+from embrouter.integrations.newrelic.newrelic import NewRelicLogger
 
 
 def _rendered_log_message(call):
@@ -30,7 +30,7 @@ def _rendered_log_message(call):
 
 
 # The module may have been imported before sys.modules was patched (e.g. via
-# litellm's own startup imports), leaving _newrelic_agent=None. Point it at
+# embrouter's own startup imports), leaving _newrelic_agent=None. Point it at
 # the mock agent so all tests see a non-None agent.
 nr_module._newrelic_agent = _mock_newrelic_agent
 
@@ -58,7 +58,7 @@ def make_kwargs(
     optional_params=None,
     traceparent=None,
 ) -> dict:
-    """Build a minimal kwargs dict representative of a litellm callback invocation."""
+    """Build a minimal kwargs dict representative of a embrouter callback invocation."""
     headers = {}
     if traceparent:
         headers["traceparent"] = traceparent
@@ -67,7 +67,7 @@ def make_kwargs(
         "model": model,
         "messages": messages or [{"role": "user", "content": "Hello"}],
         "optional_params": optional_params or {},
-        "litellm_params": {
+        "embrouter_params": {
             "custom_llm_provider": provider,
             "metadata": {"headers": headers},
         },
@@ -200,25 +200,25 @@ class TestNewRelicLoggerInit:
 
     def test_constructor_kwargs_take_priority_over_global_params(self):
         """Constructor turn_off_message_logging=True must not be overwritten by
-        litellm.newrelic_params which defaults turn_off_message_logging to False."""
-        from litellm.types.integrations.newrelic import NewRelicInitParams
+        embrouter.newrelic_params which defaults turn_off_message_logging to False."""
+        from embrouter.types.integrations.newrelic import NewRelicInitParams
 
         with patch("newrelic.agent.register_application"):
             with patch.dict(os.environ, NR_ENV):
                 with patch(
-                    "litellm.newrelic_params",
+                    "embrouter.newrelic_params",
                     NewRelicInitParams(turn_off_message_logging=False),
                 ):
                     logger = NewRelicLogger(turn_off_message_logging=True)
         assert logger.record_content is False
 
     def test_newrelic_params_plain_dict_branch(self):
-        """litellm.newrelic_params can be a plain dict; it should be validated
+        """embrouter.newrelic_params can be a plain dict; it should be validated
         through NewRelicInitParams and its values applied to the logger."""
         with patch("newrelic.agent.register_application"):
             with patch.dict(os.environ, NR_ENV):
                 with patch(
-                    "litellm.newrelic_params",
+                    "embrouter.newrelic_params",
                     {"turn_off_message_logging": True},
                 ):
                     logger = NewRelicLogger()
@@ -315,7 +315,7 @@ class TestGetTraceContext:
         # Callers passing headers directly may not normalise case; per W3C spec
         # header names are case-insensitive, so "Traceparent" must work too.
         kwargs = make_kwargs()
-        kwargs["litellm_params"]["metadata"]["headers"] = {
+        kwargs["embrouter_params"]["metadata"]["headers"] = {
             "Traceparent": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-00"
         }
         trace_id = self.logger._get_trace_context(kwargs)
@@ -327,7 +327,7 @@ class TestGetTraceContext:
         trace_id; this method's contract is to always return a valid string.
         """
         # Non-dict headers value forces .items() to raise inside the try
-        kwargs = {"litellm_params": {"metadata": {"headers": "not-a-dict"}}}
+        kwargs = {"embrouter_params": {"metadata": {"headers": "not-a-dict"}}}
         trace_id = self.logger._get_trace_context(kwargs)
         assert trace_id is not None
         assert len(trace_id) == 32  # 32-char lowercase hex fallback
@@ -396,13 +396,13 @@ class TestExtractAllMessagesContentDisabled:
             assert "content" not in msg
 
 
-class TestExtractAllMessagesRespectsLitellmRedaction:
+class TestExtractAllMessagesRespectsEmbrouterRedaction:
     """Regression tests for the async-streaming redaction bypass.
 
     NR-specific switches alone are insufficient: when
-    ``litellm.turn_off_message_logging=True`` (or the per-request equivalents),
+    ``embrouter.turn_off_message_logging=True`` (or the per-request equivalents),
     async streaming callbacks receive an unredacted
-    ``async_complete_streaming_response``. Without consulting LiteLLM's
+    ``async_complete_streaming_response``. Without consulting EmbRouter's
     redaction decision the integration would still write generated content
     into NR events.
     """
@@ -425,7 +425,7 @@ class TestExtractAllMessagesRespectsLitellmRedaction:
         assert any(m.get("is_response") for m in messages)
 
     def test_global_turn_off_message_logging_blocks_content(self, monkeypatch):
-        monkeypatch.setattr(litellm, "turn_off_message_logging", True)
+        monkeypatch.setattr(embrouter, "turn_off_message_logging", True)
         logger = make_logger()
         assert logger.record_content is True
 
@@ -447,8 +447,8 @@ class TestExtractAllMessagesRespectsLitellmRedaction:
         assert logger.record_content is True
 
         kwargs = make_kwargs(messages=[{"role": "user", "content": "user prompt"}])
-        kwargs["litellm_params"]["metadata"]["headers"] = {
-            "x-litellm-enable-message-redaction": True,
+        kwargs["embrouter_params"]["metadata"]["headers"] = {
+            "x-embrouter-enable-message-redaction": True,
         }
         self._assert_no_content(logger, kwargs)
 
@@ -456,7 +456,7 @@ class TestExtractAllMessagesRespectsLitellmRedaction:
         """The dynamic param has higher priority than the global flag (see
         should_redact_message_logging). When a caller explicitly opts back into
         message logging per-request, NR must record content again."""
-        monkeypatch.setattr(litellm, "turn_off_message_logging", True)
+        monkeypatch.setattr(embrouter, "turn_off_message_logging", True)
         logger = make_logger()
 
         kwargs = make_kwargs(messages=[{"role": "user", "content": "ok to log"}])
@@ -558,7 +558,7 @@ def make_streaming_response(
 class TestStreamingResponse:
     """Verify graceful handling of streaming-assembled responses.
 
-    When LiteLLM assembles a streaming response, some providers produce a
+    When EmbRouter assembles a streaming response, some providers produce a
     final choice dict with a 'delta' key instead of 'message'. The integration
     must extract content from either key without raising.
     """
@@ -654,21 +654,21 @@ class TestExplicitNoneValues:
         self.logger = make_logger()
 
     # _get_trace_context — chained dict lookups
-    def test_trace_context_litellm_params_none(self):
+    def test_trace_context_embrouter_params_none(self):
         kwargs = make_kwargs()
-        kwargs["litellm_params"] = None
+        kwargs["embrouter_params"] = None
         trace_id = self.logger._get_trace_context(kwargs)
         assert trace_id is not None  # falls back to UUID
 
     def test_trace_context_metadata_none(self):
         kwargs = make_kwargs()
-        kwargs["litellm_params"] = {"metadata": None}
+        kwargs["embrouter_params"] = {"metadata": None}
         trace_id = self.logger._get_trace_context(kwargs)
         assert trace_id is not None
 
     def test_trace_context_headers_none(self):
         kwargs = make_kwargs()
-        kwargs["litellm_params"] = {"metadata": {"headers": None}}
+        kwargs["embrouter_params"] = {"metadata": {"headers": None}}
         trace_id = self.logger._get_trace_context(kwargs)
         assert trace_id is not None
 
@@ -849,7 +849,7 @@ class TestProcessSuccess:
         assert summary_data["response.usage.total_tokens"] == 15
         assert summary_data["request.temperature"] == 0.5
         assert summary_data["request.max_tokens"] == 100
-        assert summary_data["ingest_source"] == "litellm"
+        assert summary_data["ingest_source"] == "embrouter"
         assert summary_data["trace_id"] == "aabbccddeeff00112233445566778899"
 
         # Verify message event id format: "{llm_response_id}-{sequence}"
@@ -888,7 +888,7 @@ class TestRecordErrorMetric:
             with patch("newrelic.agent.application", return_value=mock_app):
                 self.logger._record_error_metric()
 
-        mock_app.record_custom_metric.assert_called_once_with("LLM/LiteLLM/Error", 1)
+        mock_app.record_custom_metric.assert_called_once_with("LLM/EmbRouter/Error", 1)
 
     def test_skips_when_app_disabled(self):
         mock_app = MagicMock()
@@ -937,11 +937,11 @@ class TestEmitSupportabilityMetric:
         mock_app.enabled = True
         with patch("newrelic.agent.application", return_value=mock_app):
             with patch.object(
-                self.logger, "_get_litellm_version", return_value="1.80.0"
+                self.logger, "_get_embrouter_version", return_value="1.80.0"
             ):
                 self.logger._emit_supportability_metric()
         mock_app.record_custom_metric.assert_called_once_with(
-            "Supportability/Python/ML/LiteLLM/1.80.0", 1
+            "Supportability/Python/ML/EmbRouter/1.80.0", 1
         )
 
     def test_updates_last_emission_time(self):
@@ -950,7 +950,7 @@ class TestEmitSupportabilityMetric:
         fake_now = 9_999_999.0
         with patch("newrelic.agent.application", return_value=mock_app):
             with patch(
-                "litellm.integrations.newrelic.newrelic.time.time",
+                "embrouter.integrations.newrelic.newrelic.time.time",
                 return_value=fake_now,
             ):
                 self.logger._emit_supportability_metric()
@@ -993,7 +993,7 @@ class TestCheckAndEmitPeriodicMetric:
         """_last_metric_emission_time starts at 0.0; any real time satisfies 27-hour window."""
         with patch.object(self.logger, "_emit_supportability_metric") as mock_emit:
             with patch(
-                "litellm.integrations.newrelic.newrelic.time.time",
+                "embrouter.integrations.newrelic.newrelic.time.time",
                 return_value=100_000.0,
             ):
                 self.logger._check_and_emit_periodic_metric()
@@ -1004,7 +1004,7 @@ class TestCheckAndEmitPeriodicMetric:
         NewRelicLogger._last_metric_emission_time = recent
         with patch.object(self.logger, "_emit_supportability_metric") as mock_emit:
             with patch(
-                "litellm.integrations.newrelic.newrelic.time.time",
+                "embrouter.integrations.newrelic.newrelic.time.time",
                 return_value=recent + 3600,  # 1 hour later
             ):
                 self.logger._check_and_emit_periodic_metric()
@@ -1015,7 +1015,7 @@ class TestCheckAndEmitPeriodicMetric:
         NewRelicLogger._last_metric_emission_time = old
         with patch.object(self.logger, "_emit_supportability_metric") as mock_emit:
             with patch(
-                "litellm.integrations.newrelic.newrelic.time.time",
+                "embrouter.integrations.newrelic.newrelic.time.time",
                 return_value=old + 97201,  # 27 hours + 1 second
             ):
                 self.logger._check_and_emit_periodic_metric()
@@ -1026,7 +1026,7 @@ class TestCheckAndEmitPeriodicMetric:
         NewRelicLogger._last_metric_emission_time = old
         with patch.object(self.logger, "_emit_supportability_metric") as mock_emit:
             with patch(
-                "litellm.integrations.newrelic.newrelic.time.time",
+                "embrouter.integrations.newrelic.newrelic.time.time",
                 return_value=old + 97200,
             ):
                 self.logger._check_and_emit_periodic_metric()
@@ -1034,17 +1034,17 @@ class TestCheckAndEmitPeriodicMetric:
 
 
 # ---------------------------------------------------------------------------
-# _get_litellm_version
+# _get_embrouter_version
 # ---------------------------------------------------------------------------
 
 
-class TestGetLitellmVersion:
+class TestGetEmbrouterVersion:
     def setup_method(self):
         self.logger = make_logger()
 
     def test_returns_unknown_on_exception(self):
         with patch("importlib.metadata.version", side_effect=Exception("no package")):
-            result = self.logger._get_litellm_version()
+            result = self.logger._get_embrouter_version()
         assert result == "unknown"
 
 
@@ -1212,10 +1212,10 @@ class TestAsyncHealthCheck:
 
         mock_app.record_custom_event.assert_called_once()
         event_type, event_data = mock_app.record_custom_event.call_args[0]
-        assert event_type == "LiteLLMConnectionTest"
+        assert event_type == "EmbRouterConnectionTest"
         assert event_data["is_test_event"] is True
         assert event_data["app_name"] == logger.app_name
-        assert event_data["source"] == "litellm-proxy"
+        assert event_data["source"] == "embrouter-proxy"
         assert isinstance(event_data["timestamp"], float)
 
     @pytest.mark.asyncio
@@ -1260,9 +1260,9 @@ class TestExtractCompletionId:
     def setup_method(self):
         self.logger = make_logger()
 
-    def test_uses_litellm_call_id_when_response_has_no_id(self):
+    def test_uses_embrouter_call_id_when_response_has_no_id(self):
         result = self.logger._extract_completion_id(
-            kwargs={"litellm_call_id": "call-abc-123"},
+            kwargs={"embrouter_call_id": "call-abc-123"},
             response_obj={},
         )
         assert result == "call-abc-123"
@@ -1289,7 +1289,7 @@ class TestStandardLoggingPayloadPreference:
         self.logger = make_logger()
 
     def test_trace_context_uses_slo_trace_id_when_no_traceparent(self):
-        kwargs = {"litellm_params": {"metadata": {"headers": {}}}}
+        kwargs = {"embrouter_params": {"metadata": {"headers": {}}}}
         trace_id = self.logger._get_trace_context(
             kwargs, standard_logging_object=make_slo()
         )
@@ -1297,7 +1297,7 @@ class TestStandardLoggingPayloadPreference:
 
     def test_vendor_from_slo(self):
         # kwargs carries a different provider; SLO must win.
-        kwargs = {"litellm_params": {"custom_llm_provider": "kwargs-provider"}}
+        kwargs = {"embrouter_params": {"custom_llm_provider": "kwargs-provider"}}
         assert (
             self.logger._get_vendor(kwargs, standard_logging_object=make_slo())
             == "slo-provider"

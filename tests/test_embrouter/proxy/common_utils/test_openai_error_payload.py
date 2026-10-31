@@ -3,13 +3,13 @@ import json
 import pytest
 from fastapi import HTTPException
 
-from litellm.proxy._types import ProxyErrorTypes, ProxyException
-from litellm.proxy.common_utils.openai_error_payload import (
+from embrouter.proxy._types import ProxyErrorTypes, ProxyException
+from embrouter.proxy.common_utils.openai_error_payload import (
     error_status_code,
-    litellm_call_id_headers,
+    embrouter_call_id_headers,
     openai_error_param,
     openai_error_type,
-    with_litellm_call_id,
+    with_embrouter_call_id,
 )
 
 
@@ -148,7 +148,7 @@ def test_a_status_carried_by_an_exception_drives_the_type_it_reports():
 
 
 def test_an_upstream_5xx_body_does_not_relabel_the_internal_server_error():
-    from litellm.exceptions import InternalServerError
+    from embrouter.exceptions import InternalServerError
 
     carried = InternalServerError(
         message="Controlled provider failure",
@@ -162,12 +162,12 @@ def test_an_upstream_5xx_body_does_not_relabel_the_internal_server_error():
 
 
 def test_a_stringified_none_type_or_param_is_treated_as_absent():
-    from litellm.exceptions import BadRequestError
+    from embrouter.exceptions import BadRequestError
 
     carried = BadRequestError(
         message="Content blocked",
         model="claude-haiku-4-5",
-        llm_provider="litellm_proxy",
+        llm_provider="embrouter_proxy",
         body={"message": "Content blocked", "type": "None", "param": "None", "code": "400"},
     )
 
@@ -177,17 +177,17 @@ def test_a_stringified_none_type_or_param_is_treated_as_absent():
 
 
 def test_a_failed_request_answers_with_the_call_id_it_was_logged_under():
-    assert litellm_call_id_headers("call-7836") == {"x-litellm-call-id": "call-7836"}
-    assert litellm_call_id_headers(None) is None
+    assert embrouter_call_id_headers("call-7836") == {"x-embrouter-call-id": "call-7836"}
+    assert embrouter_call_id_headers(None) is None
 
 
 def test_an_already_shaped_proxy_error_answers_with_the_call_id_it_was_logged_under():
     raised_without_id = ProxyException(message="budget exceeded", type="budget_exceeded", param="key", code=402)
 
-    carried = with_litellm_call_id(raised_without_id, "call-7836")
+    carried = with_embrouter_call_id(raised_without_id, "call-7836")
 
     assert carried is raised_without_id
-    assert carried.headers == {"x-litellm-call-id": "call-7836"}
+    assert carried.headers == {"x-embrouter-call-id": "call-7836"}
     assert (carried.message, carried.type, carried.param, carried.code) == (
         "budget exceeded",
         "budget_exceeded",
@@ -198,8 +198,8 @@ def test_an_already_shaped_proxy_error_answers_with_the_call_id_it_was_logged_un
 
 def test_a_proxy_error_keeps_the_call_id_it_was_raised_with():
     raised_with_id = ProxyException(
-        message="nope", type="None", param=None, code=400, headers={"x-litellm-call-id": "first"}
+        message="nope", type="None", param=None, code=400, headers={"x-embrouter-call-id": "first"}
     )
 
-    assert with_litellm_call_id(raised_with_id, "second").headers == {"x-litellm-call-id": "first"}
-    assert with_litellm_call_id(ProxyException(message="nope", type="None", param=None, code=400), None).headers == {}
+    assert with_embrouter_call_id(raised_with_id, "second").headers == {"x-embrouter-call-id": "first"}
+    assert with_embrouter_call_id(ProxyException(message="nope", type="None", param=None, code=400), None).headers == {}

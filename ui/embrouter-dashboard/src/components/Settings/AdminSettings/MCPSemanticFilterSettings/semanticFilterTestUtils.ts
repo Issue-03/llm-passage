@@ -84,7 +84,7 @@ export const getCurlCommand = (testModel: string | null, testQuery: string) =>
     "tools": [
         {
             "type": "mcp",
-            "server_url": "litellm_proxy",
+            "server_url": "embrouter_proxy",
             "require_approval": "never"
         }
     ],

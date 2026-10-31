@@ -1,9 +1,9 @@
 """
-TypedDict mirror of ``LiteLLM_ObjectPermissionBase`` for in-memory dict
+TypedDict mirror of ``EmbRouter_ObjectPermissionBase`` for in-memory dict
 payloads passed through validators that mutate before persistence (e.g.
 MCP server identifier normalization in object_permission_utils).
 
-Lives in ``litellm/types/`` so SDK-side modules (``litellm.types.agents``)
+Lives in ``embrouter/types/`` so SDK-side modules (``embrouter.types.agents``)
 can adopt the type without violating the SDK-must-not-import-from-proxy
 layering rule.
 """

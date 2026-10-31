@@ -4,7 +4,7 @@ A preset is a callable that reads an integration's env vars and returns an
 ``OpenTelemetryV2Config`` describing the exporter destination, the mapper
 vocabularies to apply, and any resource attributes. ``PRESET_BY_CALLBACK``
 maps a callback name (``"arize"``, ``"langfuse_otel"``, ...) to its preset so
-the factory in ``litellm_logging`` can resolve a name and build a single
+the factory in ``embrouter_logging`` can resolve a name and build a single
 ``OpenTelemetryV2`` instance from the result.
 """
 
@@ -12,31 +12,31 @@ from collections.abc import Callable, Mapping
 from types import MappingProxyType
 from typing import Final
 
-from litellm.integrations.otel.presets.agentops import agentops_preset
-from litellm.integrations.otel.presets.arize import arize_dynamic_headers, arize_preset
-from litellm.integrations.otel.presets.base import Preset
-from litellm.integrations.otel.presets.langfuse import (
+from embrouter.integrations.otel.presets.agentops import agentops_preset
+from embrouter.integrations.otel.presets.arize import arize_dynamic_headers, arize_preset
+from embrouter.integrations.otel.presets.base import Preset
+from embrouter.integrations.otel.presets.langfuse import (
     langfuse_dynamic_headers,
     langfuse_preset,
 )
-from litellm.integrations.otel.presets.langtrace import langtrace_preset
-from litellm.integrations.otel.presets.levo import levo_preset
-from litellm.integrations.otel.presets.newrelic import (
+from embrouter.integrations.otel.presets.langtrace import langtrace_preset
+from embrouter.integrations.otel.presets.levo import levo_preset
+from embrouter.integrations.otel.presets.newrelic import (
     newrelic_dynamic_endpoint,
     newrelic_dynamic_headers,
     newrelic_preset,
 )
-from litellm.integrations.otel.presets.phoenix import (
+from embrouter.integrations.otel.presets.phoenix import (
     phoenix_preset,
     phoenix_project_headers,
 )
-from litellm.integrations.otel.presets.signoz import (
+from embrouter.integrations.otel.presets.signoz import (
     signoz_dynamic_endpoint,
     signoz_dynamic_headers,
     signoz_preset,
 )
-from litellm.integrations.otel.presets.weave import weave_dynamic_headers, weave_preset
-from litellm.types.utils import StandardCallbackDynamicParams
+from embrouter.integrations.otel.presets.weave import weave_dynamic_headers, weave_preset
+from embrouter.types.utils import StandardCallbackDynamicParams
 
 #: Callback name → preset. The ``Preset`` annotation makes mypy verify every
 #: registered value matches the preset interface.

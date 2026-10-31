@@ -8,12 +8,12 @@ from typing import Final
 
 import httpx
 
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.base_llm.embedding.transformation import BaseEmbeddingConfig
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.openai import AllEmbeddingInputValues, AllMessageValues
-from litellm.types.utils import EmbeddingResponse, Usage
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.base_llm.embedding.transformation import BaseEmbeddingConfig
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.openai import AllEmbeddingInputValues, AllMessageValues
+from embrouter.types.utils import EmbeddingResponse, Usage
 
 
 class VoyageError(BaseLLMException):
@@ -51,7 +51,7 @@ class VoyageContextualEmbeddingConfig(BaseEmbeddingConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         if api_base:
@@ -87,7 +87,7 @@ class VoyageContextualEmbeddingConfig(BaseEmbeddingConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
@@ -137,11 +137,11 @@ class VoyageContextualEmbeddingConfig(BaseEmbeddingConfig):
         model: str,
         raw_response: httpx.Response,
         model_response: EmbeddingResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_key: str | None = None,
         request_data: dict = {},
         optional_params: dict = {},
-        litellm_params: dict = {},
+        embrouter_params: dict = {},
     ) -> EmbeddingResponse:
         try:
             raw_response_json: Final = raw_response.json()

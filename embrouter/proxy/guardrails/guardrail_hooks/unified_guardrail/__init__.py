@@ -1,9 +1,9 @@
 from typing import Final
 
-from litellm.llms.openai.chat.guardrail_translation.handler import (
+from embrouter.llms.openai.chat.guardrail_translation.handler import (
     OpenAIChatCompletionsHandler,
 )
-from litellm.types.utils import CallTypes
+from embrouter.types.utils import CallTypes
 
 endpoint_translation_mappings: Final = {
     CallTypes.completion: OpenAIChatCompletionsHandler,

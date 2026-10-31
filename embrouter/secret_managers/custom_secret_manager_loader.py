@@ -8,10 +8,10 @@ import importlib.util
 import os
 from typing import Final
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.integrations.custom_secret_manager import CustomSecretManager
-from litellm.types.secret_managers.main import KeyManagementSystem
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.integrations.custom_secret_manager import CustomSecretManager
+from embrouter.types.secret_managers.main import KeyManagementSystem
 
 
 def load_custom_secret_manager(config_file_path: str | None = None) -> None:
@@ -33,13 +33,13 @@ def load_custom_secret_manager(config_file_path: str | None = None) -> None:
         raise ValueError("CustomSecretManagerException - config_file_path is required to load custom secret manager")
 
     # Get the custom_secret_manager class path from settings
-    if litellm._key_management_settings is None:
+    if embrouter._key_management_settings is None:
         raise ValueError(
             "CustomSecretManagerException - key_management_settings is required with custom_secret_manager field"
         )
 
     custom_secret_manager_path: Final[str | None] = getattr(
-        litellm._key_management_settings, "custom_secret_manager", None
+        embrouter._key_management_settings, "custom_secret_manager", None
     )
 
     if not custom_secret_manager_path:
@@ -76,10 +76,10 @@ def load_custom_secret_manager(config_file_path: str | None = None) -> None:
     _secret_manager_instance: Final = _secret_manager_class()
 
     # Set it as the secret manager client
-    litellm.secret_manager_client = _secret_manager_instance
+    embrouter.secret_manager_client = _secret_manager_instance
 
     # Set the key management system to CUSTOM so get_secret knows to use it
-    litellm._key_management_system = KeyManagementSystem.CUSTOM
+    embrouter._key_management_system = KeyManagementSystem.CUSTOM
 
     verbose_proxy_logger.info(
         "Successfully initialized custom secret manager: %s",

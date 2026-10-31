@@ -25,44 +25,44 @@ from fastapi import (
 from pydantic import TypeAdapter
 from typing_extensions import ReadOnly
 
-import litellm
-from litellm import CreateFileRequest, get_secret_str
-from litellm._logging import verbose_proxy_logger
-from litellm.litellm_core_utils.cloud_storage_security import (
+import embrouter
+from embrouter import CreateFileRequest, get_secret_str
+from embrouter._logging import verbose_proxy_logger
+from embrouter.embrouter_core_utils.cloud_storage_security import (
     is_managed_cloud_storage_uri,
 )
-from litellm.litellm_core_utils.core_helpers import get_or_create_metadata_bucket
-from litellm.llms.base_llm.files.litellm_db_storage_backend import LITELLM_DB_STORAGE_BACKEND_NAME
-from litellm.llms.base_llm.files.transformation import BaseFileEndpoints
-from litellm.llms.base_llm.managed_resources.isolation import build_list_page
-from litellm.proxy._types import *
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.batches_endpoints.litellm_executed_batches import (
-    litellm_executed_provider_of,
-    resolve_litellm_executed_provider,
+from embrouter.embrouter_core_utils.core_helpers import get_or_create_metadata_bucket
+from embrouter.llms.base_llm.files.embrouter_db_storage_backend import EMBROUTER_DB_STORAGE_BACKEND_NAME
+from embrouter.llms.base_llm.files.transformation import BaseFileEndpoints
+from embrouter.llms.base_llm.managed_resources.isolation import build_list_page
+from embrouter.proxy._types import *
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.batches_endpoints.embrouter_executed_batches import (
+    embrouter_executed_provider_of,
+    resolve_embrouter_executed_provider,
 )
-from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
-from litellm.proxy.common_utils.http_parsing_utils import (
+from embrouter.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+from embrouter.proxy.common_utils.http_parsing_utils import (
     _read_request_body,
     extract_nested_form_metadata,
 )
-from litellm.proxy.common_utils.openai_endpoint_utils import (
+from embrouter.proxy.common_utils.openai_endpoint_utils import (
     get_custom_llm_provider_from_request_body,
     get_custom_llm_provider_from_request_headers,
     get_custom_llm_provider_from_request_query,
 )
-from litellm.proxy.common_utils.openai_error_payload import (
+from embrouter.proxy.common_utils.openai_error_payload import (
     error_status_code,
     openai_error_param,
     openai_error_type,
 )
-from litellm.proxy.openai_files_endpoints.batch_file_validation import (
+from embrouter.proxy.openai_files_endpoints.batch_file_validation import (
     BATCH_LINE_SHAPE,
     PASSTHROUGH_BATCH_LINE_SHAPE,
     check_batch_file_upload,
     raise_batch_file_validation_failure,
 )
-from litellm.proxy.openai_files_endpoints.batch_guardrails import (
+from embrouter.proxy.openai_files_endpoints.batch_guardrails import (
     EMPTY_MAPPING,
     BatchScanResult,
     raise_nothing_to_submit,
@@ -70,7 +70,7 @@ from litellm.proxy.openai_files_endpoints.batch_guardrails import (
     rewrite_batch_input_file,
     scan_batch_input_file,
 )
-from litellm.proxy.openai_files_endpoints.common_utils import (
+from embrouter.proxy.openai_files_endpoints.common_utils import (
     _is_base64_encoded_unified_file_id,
     add_internal_model_credentials,
     apply_team_provider_credentials,
@@ -84,7 +84,7 @@ from litellm.proxy.openai_files_endpoints.common_utils import (
     validate_managed_files_requirement,
     validate_managed_id_requirement,
 )
-from litellm.proxy.openai_files_endpoints.general_upload_validation import (
+from embrouter.proxy.openai_files_endpoints.general_upload_validation import (
     MB,
     check_allowed_extension,
     check_blocked_extension,
@@ -94,10 +94,10 @@ from litellm.proxy.openai_files_endpoints.general_upload_validation import (
     coerce_optional_str_list_setting,
     raise_upload_validation_failure,
 )
-from litellm.proxy.utils import PrismaClient, ProxyLogging, is_known_model
-from litellm.repositories.table_repositories import ManagedFileRepository
-from litellm.router import Router
-from litellm.types.llms.openai import (
+from embrouter.proxy.utils import PrismaClient, ProxyLogging, is_known_model
+from embrouter.repositories.table_repositories import ManagedFileRepository
+from embrouter.router import Router
+from embrouter.types.llms.openai import (
     CREATE_FILE_REQUESTS_PURPOSE,
     FileExpiresAfter,
     FileListPage,
@@ -108,12 +108,12 @@ from litellm.types.llms.openai import (
 router: Final = APIRouter()
 
 
-def _names_a_litellm_executed_provider(llm_router: Router, candidate: str, team_id: str | None) -> bool:
+def _names_a_embrouter_executed_provider(llm_router: Router, candidate: str, team_id: str | None) -> bool:
     credentials: Final = llm_router.get_deployment_credentials_with_provider(model_id=candidate, team_id=team_id)
-    return credentials is not None and litellm_executed_provider_of(credentials) is not None
+    return credentials is not None and embrouter_executed_provider_of(credentials) is not None
 
 
-async def _litellm_executed_batch_input_model(
+async def _embrouter_executed_batch_input_model(
     llm_router: Router | None,
     purpose: OpenAIFilesPurpose,
     model: str | None,
@@ -129,13 +129,13 @@ async def _litellm_executed_batch_input_model(
         *(
             authorize_model_for_key(model_id=candidate, llm_router=llm_router, user_api_key_dict=user_api_key_dict)
             for candidate in candidates
-            if _names_a_litellm_executed_provider(llm_router, candidate, team_id)
+            if _names_a_embrouter_executed_provider(llm_router, candidate, team_id)
         )
     )
     if explicit_storage is not None:
         return None
     providers: Final = await asyncio.gather(
-        *(resolve_litellm_executed_provider(llm_router, candidate, team_id) for candidate in candidates)
+        *(resolve_embrouter_executed_provider(llm_router, candidate, team_id) for candidate in candidates)
     )
     executed: Final = tuple(
         candidate for candidate, provider in zip(candidates, providers, strict=True) if provider is not None
@@ -145,7 +145,7 @@ async def _litellm_executed_batch_input_model(
     if purpose != "batch":
         raise ProxyException(
             message=(
-                f"The server behind {', '.join(executed)} has no Files API, so LiteLLM keeps only batch input "
+                f"The server behind {', '.join(executed)} has no Files API, so EmbRouter keeps only batch input "
                 f"files for it and runs the batch itself: upload with purpose=batch; got purpose={purpose}"
             ),
             type="invalid_request_error",
@@ -156,7 +156,7 @@ async def _litellm_executed_batch_input_model(
         return executed[0]
     raise ProxyException(
         message=(
-            f"LiteLLM runs batches for {', '.join(executed)} itself and keeps their input files, so a batch "
+            f"EmbRouter runs batches for {', '.join(executed)} itself and keeps their input files, so a batch "
             f"input file can target only that one model; got target_model_names={', '.join(candidates)}"
         ),
         type="invalid_request_error",
@@ -403,10 +403,10 @@ async def route_create_file(
     """
 
     explicit_storage: Final = target_storage if target_storage and target_storage != "default" else None
-    if explicit_storage == LITELLM_DB_STORAGE_BACKEND_NAME:
+    if explicit_storage == EMBROUTER_DB_STORAGE_BACKEND_NAME:
         raise ProxyException(
             message=(
-                f"target_storage={LITELLM_DB_STORAGE_BACKEND_NAME} is not a storage a caller can pick: LiteLLM "
+                f"target_storage={EMBROUTER_DB_STORAGE_BACKEND_NAME} is not a storage a caller can pick: EmbRouter "
                 "chooses it on its own for the batch input files of a model whose batches it runs itself, so "
                 "upload with purpose=batch and name that model instead of target_storage"
             ),
@@ -414,18 +414,18 @@ async def route_create_file(
             param="target_storage",
             code=400,
         )
-    executed_model: Final = await _litellm_executed_batch_input_model(
+    executed_model: Final = await _embrouter_executed_batch_input_model(
         llm_router, purpose, model, target_model_names_list, user_api_key_dict, explicit_storage
     )
-    storage: Final = explicit_storage or (LITELLM_DB_STORAGE_BACKEND_NAME if executed_model is not None else None)
+    storage: Final = explicit_storage or (EMBROUTER_DB_STORAGE_BACKEND_NAME if executed_model is not None else None)
     if storage is not None:
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             extract_file_data,
         )
-        from litellm.proxy.openai_files_endpoints.storage_backend_service import (
+        from embrouter.proxy.openai_files_endpoints.storage_backend_service import (
             StorageBackendFileService,
         )
-        from litellm.proxy.proxy_server import prisma_client
+        from embrouter.proxy.proxy_server import prisma_client
 
         return await StorageBackendFileService.upload_file_to_storage_backend(
             file_data=extract_file_data(cast(Any, _create_file_request.get("file"))),
@@ -454,7 +454,7 @@ async def route_create_file(
         )
 
         # Create the file with model credentials
-        response = await litellm.acreate_file(
+        response = await embrouter.acreate_file(
             **_create_file_request,
             custom_llm_provider=credentials["custom_llm_provider"],
         )
@@ -498,11 +498,11 @@ async def route_create_file(
             llm_router=llm_router,
             create_file_request=_create_file_request,
             target_model_names_list=target_model_names_list,
-            litellm_parent_otel_span=user_api_key_dict.parent_otel_span,
+            embrouter_parent_otel_span=user_api_key_dict.parent_otel_span,
             user_api_key_dict=user_api_key_dict,
         )
     # EXISTING: Deprecated loadbalancing approach (for backwards compatibility when not using managed files)
-    elif litellm.enable_loadbalancing_on_batch_endpoints is True and is_router_model and router_model is not None:
+    elif embrouter.enable_loadbalancing_on_batch_endpoints is True and is_router_model and router_model is not None:
         response = await _deprecated_loadbalanced_create_file(
             llm_router=llm_router,
             router_model=router_model,
@@ -521,8 +521,8 @@ async def route_create_file(
             # add llm_provider_config to data
             _create_file_request.update(llm_provider_config)
         _create_file_request.pop("custom_llm_provider", None)
-        # for now use custom_llm_provider=="openai" -> this will change as LiteLLM adds more providers for acreate_batch
-        response = await litellm.acreate_file(**_create_file_request, custom_llm_provider=custom_llm_provider)
+        # for now use custom_llm_provider=="openai" -> this will change as EmbRouter adds more providers for acreate_batch
+        response = await embrouter.acreate_file(**_create_file_request, custom_llm_provider=custom_llm_provider)
 
     return response
 
@@ -551,7 +551,7 @@ async def create_file(
     provider: str | None = None,
     custom_llm_provider: str = Form(default="openai"),
     file: UploadFile = File(...),
-    litellm_metadata: str | None = Form(default=None),
+    embrouter_metadata: str | None = Form(default=None),
     passthrough: bool = Form(default=False),
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
 ):
@@ -571,8 +571,8 @@ async def create_file(
         -F expires_after[seconds]=2592000
     ```
     """
-    from litellm.proxy.proxy_server import (
-        add_litellm_data_to_request,
+    from embrouter.proxy.proxy_server import (
+        add_embrouter_data_to_request,
         general_settings,
         llm_router,
         proxy_config,
@@ -682,15 +682,15 @@ async def create_file(
         expires_after: FileExpiresAfter | None = None
         form_data_raw: Final = await request.form()
         form_data_dict: Final[Mapping[str, object]] = dict(form_data_raw)
-        extracted_litellm_metadata: Final[Mapping[str, object] | None] = extract_nested_form_metadata(
-            form_data=form_data_dict, prefix="litellm_metadata["
+        extracted_embrouter_metadata: Final[Mapping[str, object] | None] = extract_nested_form_metadata(
+            form_data=form_data_dict, prefix="embrouter_metadata["
         )
         expires_after_anchor: Final = form_data_raw.get("expires_after[anchor]")
         expires_after_seconds_str: Final = form_data_raw.get("expires_after[seconds]")
 
-        # Add litellm_metadata to data if provided (from form field)
-        if extracted_litellm_metadata is not None:
-            data["litellm_metadata"] = extracted_litellm_metadata
+        # Add embrouter_metadata to data if provided (from form field)
+        if extracted_embrouter_metadata is not None:
+            data["embrouter_metadata"] = extracted_embrouter_metadata
 
         if expires_after_anchor is not None or expires_after_seconds_str is not None:
             if expires_after_anchor is None or expires_after_seconds_str is None:
@@ -749,7 +749,7 @@ async def create_file(
             )
 
         # Include original request and headers in the data
-        data = await add_litellm_data_to_request(
+        data = await add_embrouter_data_to_request(
             data=data,
             request=request,
             general_settings=general_settings,
@@ -774,8 +774,8 @@ async def create_file(
         data.pop("purpose", None)
         data.pop("file", None)
 
-        # /v1/files stores its proxy metadata under litellm_metadata, not metadata
-        request_metadata: Final = data.get("metadata") or data.get("litellm_metadata") or EMPTY_MAPPING
+        # /v1/files stores its proxy metadata under embrouter_metadata, not metadata
+        request_metadata: Final = data.get("metadata") or data.get("embrouter_metadata") or EMPTY_MAPPING
         scan_result: Final = await _scan_batch_upload(
             file_source=file_source,
             purpose=purpose,
@@ -811,7 +811,7 @@ async def create_file(
         ## check if model is a loadbalanced model
         router_model: str | None = None
         is_router_model = False
-        if litellm.enable_loadbalancing_on_batch_endpoints is True:
+        if embrouter.enable_loadbalancing_on_batch_endpoints is True:
             json_obj: Final = get_first_json_object(upload_source)
             if json_obj:
                 router_model = get_model_from_json_obj(json_object=json_obj)
@@ -870,7 +870,7 @@ async def create_file(
             )
         ### ALERTING ###
         asyncio.create_task(
-            proxy_logging_obj.update_request_status(litellm_call_id=data.get("litellm_call_id", ""), status="success")
+            proxy_logging_obj.update_request_status(embrouter_call_id=data.get("embrouter_call_id", ""), status="success")
         )
 
         ## POST CALL HOOKS ###
@@ -881,7 +881,7 @@ async def create_file(
             response = _response
 
         if scan_result is not None and scan_result.changes:
-            response.litellm_batch_guardrail = scan_result.report()
+            response.embrouter_batch_guardrail = scan_result.report()
 
         ### RESPONSE HEADERS ###
         hidden_params: Final = getattr(response, "_hidden_params", {}) or {}
@@ -904,7 +904,7 @@ async def create_file(
         await proxy_logging_obj.post_call_failure_hook(
             user_api_key_dict=user_api_key_dict, original_exception=e, request_data=data
         )
-        verbose_proxy_logger.exception("litellm.proxy.proxy_server.create_file(): Exception occured - %s", e)
+        verbose_proxy_logger.exception("embrouter.proxy.proxy_server.create_file(): Exception occured - %s", e)
         if isinstance(e, ProxyException):
             raise e
         if isinstance(e, HTTPException):
@@ -962,7 +962,7 @@ async def get_file_content(
 
     ```
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         proxy_config,
@@ -983,7 +983,7 @@ async def get_file_content(
         base_llm_response_processor: Final = ProxyBaseLLMRequestProcessing(data=data)
         (
             data,
-            litellm_logging_obj,
+            embrouter_logging_obj,
         ) = await base_llm_response_processor.common_processing_pre_call_logic(
             request=request,
             general_settings=general_settings,
@@ -1002,7 +1002,7 @@ async def get_file_content(
             or "openai"
         )
 
-        ## check if file_id is a litellm managed file
+        ## check if file_id is a embrouter managed file
         is_base64_unified_file_id: Final = _is_base64_encoded_unified_file_id(file_id)
         if is_base64_unified_file_id:
             managed_files_obj: Final = proxy_logging_obj.get_proxy_hook("managed_files")
@@ -1036,7 +1036,7 @@ async def get_file_content(
                 )
                 if db_file and db_file.storage_backend and db_file.storage_url:
                     # File is stored in a storage backend, download it
-                    from litellm.llms.base_llm.files.storage_backend_factory import (
+                    from embrouter.llms.base_llm.files.storage_backend_factory import (
                         get_storage_backend,
                     )
 
@@ -1078,7 +1078,7 @@ async def get_file_content(
                 response = await managed_files_obj.afile_content(
                     **{
                         "file_id": file_id,
-                        "litellm_parent_otel_span": user_api_key_dict.parent_otel_span,
+                        "embrouter_parent_otel_span": user_api_key_dict.parent_otel_span,
                         "llm_router": llm_router,
                         **data,
                     }
@@ -1091,7 +1091,7 @@ async def get_file_content(
             if is_managed_cloud_storage_uri(file_id):
                 raise HTTPException(
                     status_code=400,
-                    detail="Raw cloud storage file ids cannot be retrieved directly. Use the LiteLLM managed file id returned when the file was created.",
+                    detail="Raw cloud storage file ids cannot be retrieved directly. Use the EmbRouter managed file id returned when the file was created.",
                 )
             # Check for model-based credential routing
             (
@@ -1116,7 +1116,7 @@ async def get_file_content(
                     custom_llm_provider=custom_llm_provider,
                 )
 
-            from litellm.proxy.openai_files_endpoints.file_content_streaming_handler import (
+            from embrouter.proxy.openai_files_endpoints.file_content_streaming_handler import (
                 FileContentStreamingHandler,
             )
 
@@ -1160,7 +1160,7 @@ async def get_file_content(
                     file_id=original_file_id,  # Use decoded file ID if from encoded ID
                     include_internal_credentials=True,
                 )
-                response = await litellm.afile_content(
+                response = await embrouter.afile_content(
                     custom_llm_provider=credentials["custom_llm_provider"],
                     **data,
                 )
@@ -1171,7 +1171,7 @@ async def get_file_content(
                 )
             else:
                 # Fallback to default behavior (uses env variables or provider-based routing)
-                response = await litellm.afile_content(
+                response = await embrouter.afile_content(
                     **{
                         "custom_llm_provider": custom_llm_provider,
                         "file_id": file_id,
@@ -1181,7 +1181,7 @@ async def get_file_content(
 
         ### ALERTING ###
         asyncio.create_task(
-            proxy_logging_obj.update_request_status(litellm_call_id=data.get("litellm_call_id", ""), status="success")
+            proxy_logging_obj.update_request_status(embrouter_call_id=data.get("embrouter_call_id", ""), status="success")
         )
 
         ### RESPONSE HEADERS ###
@@ -1214,7 +1214,7 @@ async def get_file_content(
         await proxy_logging_obj.post_call_failure_hook(
             user_api_key_dict=user_api_key_dict, original_exception=e, request_data=data
         )
-        verbose_proxy_logger.exception("litellm.proxy.proxy_server.retrieve_file_content(): Exception occured - %s", e)
+        verbose_proxy_logger.exception("embrouter.proxy.proxy_server.retrieve_file_content(): Exception occured - %s", e)
         verbose_proxy_logger.debug(traceback.format_exc())
         if isinstance(e, HTTPException):
             raise ProxyException(
@@ -1268,7 +1268,7 @@ async def get_file(
 
     ```
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         proxy_config,
         proxy_logging_obj,
@@ -1296,7 +1296,7 @@ async def get_file(
         base_llm_response_processor: Final = ProxyBaseLLMRequestProcessing(data=data)
         (
             data,
-            litellm_logging_obj,
+            embrouter_logging_obj,
         ) = await base_llm_response_processor.common_processing_pre_call_logic(
             request=request,
             general_settings=general_settings,
@@ -1308,7 +1308,7 @@ async def get_file(
         )
 
         ## Check for model-based credential routing
-        from litellm.proxy.proxy_server import llm_router
+        from embrouter.proxy.proxy_server import llm_router
 
         (
             should_route,
@@ -1333,7 +1333,7 @@ async def get_file(
                 include_internal_credentials=True,
             )
 
-            response = await litellm.afile_retrieve(
+            response = await embrouter.afile_retrieve(
                 custom_llm_provider=credentials["custom_llm_provider"],
                 **data,
             )
@@ -1347,7 +1347,7 @@ async def get_file(
                 + (f", original_id: {original_file_id}" if original_file_id else "")
             )
 
-        ## EXISTING: check if file_id is a litellm managed file
+        ## EXISTING: check if file_id is a embrouter managed file
         elif _is_base64_encoded_unified_file_id(file_id):
             managed_files_obj: Final = proxy_logging_obj.get_proxy_hook("managed_files")
             if managed_files_obj is None:
@@ -1366,7 +1366,7 @@ async def get_file(
                 )
             response = await managed_files_obj.afile_retrieve(
                 file_id=file_id,
-                litellm_parent_otel_span=user_api_key_dict.parent_otel_span,
+                embrouter_parent_otel_span=user_api_key_dict.parent_otel_span,
                 llm_router=llm_router,
             )
         else:
@@ -1379,7 +1379,7 @@ async def get_file(
                 user_api_key_dict=user_api_key_dict,
                 custom_llm_provider=custom_llm_provider,
             )
-            response = await litellm.afile_retrieve(
+            response = await embrouter.afile_retrieve(
                 custom_llm_provider=custom_llm_provider,
                 file_id=file_id,
                 **data,
@@ -1387,7 +1387,7 @@ async def get_file(
 
         ### ALERTING ###
         asyncio.create_task(
-            proxy_logging_obj.update_request_status(litellm_call_id=data.get("litellm_call_id", ""), status="success")
+            proxy_logging_obj.update_request_status(embrouter_call_id=data.get("embrouter_call_id", ""), status="success")
         )
 
         ### RESPONSE HEADERS ###
@@ -1412,7 +1412,7 @@ async def get_file(
         await proxy_logging_obj.post_call_failure_hook(
             user_api_key_dict=user_api_key_dict, original_exception=e, request_data=data
         )
-        verbose_proxy_logger.error("litellm.proxy.proxy_server.retrieve_file(): Exception occured - %s", e)
+        verbose_proxy_logger.error("embrouter.proxy.proxy_server.retrieve_file(): Exception occured - %s", e)
         verbose_proxy_logger.debug(traceback.format_exc())
         if isinstance(e, HTTPException):
             raise ProxyException(
@@ -1467,8 +1467,8 @@ async def delete_file(
 
     ```
     """
-    from litellm.proxy.proxy_server import (
-        add_litellm_data_to_request,
+    from embrouter.proxy.proxy_server import (
+        add_embrouter_data_to_request,
         general_settings,
         llm_router,
         proxy_config,
@@ -1484,10 +1484,10 @@ async def delete_file(
             user_api_key_dict=user_api_key_dict,
             managed_files_obj=proxy_logging_obj.get_proxy_hook("managed_files"),
         )
-        if is_managed_cloud_storage_uri(file_id) and user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+        if is_managed_cloud_storage_uri(file_id) and user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
             raise HTTPException(
                 status_code=403,
-                detail="Raw cloud storage file ids can only be deleted by a proxy admin key. Use the LiteLLM managed file id returned when the file was created.",
+                detail="Raw cloud storage file ids can only be deleted by a proxy admin key. Use the EmbRouter managed file id returned when the file was created.",
             )
 
         custom_llm_provider: Final = (
@@ -1502,7 +1502,7 @@ async def delete_file(
         base_llm_response_processor: Final = ProxyBaseLLMRequestProcessing(data=data)
         (
             data,
-            litellm_logging_obj,
+            embrouter_logging_obj,
         ) = await base_llm_response_processor.common_processing_pre_call_logic(
             request=request,
             general_settings=general_settings,
@@ -1514,7 +1514,7 @@ async def delete_file(
         )
 
         # Include original request and headers in the data
-        data = await add_litellm_data_to_request(
+        data = await add_embrouter_data_to_request(
             data=data,
             request=request,
             general_settings=general_settings,
@@ -1547,7 +1547,7 @@ async def delete_file(
                 include_internal_credentials=True,
             )
 
-            response = await litellm.afile_delete(
+            response = await embrouter.afile_delete(
                 custom_llm_provider=credentials["custom_llm_provider"],
                 **data,
             )
@@ -1557,7 +1557,7 @@ async def delete_file(
                 + (f", original_id: {original_file_id}" if original_file_id else "")
             )
 
-        ## EXISTING: check if file_id is a litellm managed file
+        ## EXISTING: check if file_id is a embrouter managed file
         elif _is_base64_encoded_unified_file_id(file_id):
             managed_files_obj: Final = proxy_logging_obj.get_proxy_hook("managed_files")
             if managed_files_obj is None:
@@ -1586,7 +1586,7 @@ async def delete_file(
             data_without_file_id: Final = {k: v for k, v in data.items() if k != "file_id"}
             response = await managed_files_obj.afile_delete(
                 file_id=file_id,
-                litellm_parent_otel_span=user_api_key_dict.parent_otel_span,
+                embrouter_parent_otel_span=user_api_key_dict.parent_otel_span,
                 llm_router=llm_router,
                 **data_without_file_id,
             )
@@ -1598,7 +1598,7 @@ async def delete_file(
                 user_api_key_dict=user_api_key_dict,
                 custom_llm_provider=custom_llm_provider,
             )
-            response = await litellm.afile_delete(
+            response = await embrouter.afile_delete(
                 custom_llm_provider=custom_llm_provider,
                 file_id=file_id,
                 **data,
@@ -1606,7 +1606,7 @@ async def delete_file(
 
         ### ALERTING ###
         asyncio.create_task(
-            proxy_logging_obj.update_request_status(litellm_call_id=data.get("litellm_call_id", ""), status="success")
+            proxy_logging_obj.update_request_status(embrouter_call_id=data.get("embrouter_call_id", ""), status="success")
         )
 
         ### RESPONSE HEADERS ###
@@ -1631,7 +1631,7 @@ async def delete_file(
         await proxy_logging_obj.post_call_failure_hook(
             user_api_key_dict=user_api_key_dict, original_exception=e, request_data=data
         )
-        verbose_proxy_logger.exception("litellm.proxy.proxy_server.delete_file(): Exception occured - %s", e)
+        verbose_proxy_logger.exception("embrouter.proxy.proxy_server.delete_file(): Exception occured - %s", e)
         if isinstance(e, HTTPException):
             raise ProxyException(
                 message=getattr(e, "message", str(e.detail)),
@@ -1693,7 +1693,7 @@ async def list_files(
 
     ```
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         proxy_config,
@@ -1709,7 +1709,7 @@ async def list_files(
         base_llm_response_processor: Final = ProxyBaseLLMRequestProcessing(data=data)
         (
             data,
-            litellm_logging_obj,
+            embrouter_logging_obj,
         ) = await base_llm_response_processor.common_processing_pre_call_logic(
             request=request,
             general_settings=general_settings,
@@ -1735,7 +1735,7 @@ async def list_files(
         if should_route and credentials is not None:
             # Use model-based routing with credentials from config
             prepare_data_with_credentials(data=data, credentials=credentials, include_internal_credentials=True)
-            response = await litellm.afile_list(
+            response = await embrouter.afile_list(
                 custom_llm_provider=credentials["custom_llm_provider"],
                 purpose=purpose,
                 **data,
@@ -1762,7 +1762,7 @@ async def list_files(
                 operation_context="file list",
             )
             prepare_data_with_credentials(data=data, credentials=credentials, include_internal_credentials=True)
-            response = await litellm.afile_list(
+            response = await embrouter.afile_list(
                 custom_llm_provider=credentials["custom_llm_provider"],
                 purpose=purpose,
                 **data,
@@ -1778,7 +1778,7 @@ async def list_files(
             if custom_llm_provider is None and isinstance(managed_files_obj, BaseFileEndpoints):
                 response = await managed_files_obj.afile_list(
                     purpose=purpose,
-                    litellm_parent_otel_span=user_api_key_dict.parent_otel_span,
+                    embrouter_parent_otel_span=user_api_key_dict.parent_otel_span,
                     user_api_key_dict=user_api_key_dict,
                     limit=limit,
                     after=after,
@@ -1792,7 +1792,7 @@ async def list_files(
                     custom_llm_provider=resolved_custom_llm_provider,
                 )
 
-                response = await litellm.afile_list(
+                response = await embrouter.afile_list(
                     custom_llm_provider=resolved_custom_llm_provider,
                     purpose=purpose,
                     **data,
@@ -1814,7 +1814,7 @@ async def list_files(
 
         ### ALERTING ###
         asyncio.create_task(
-            proxy_logging_obj.update_request_status(litellm_call_id=data.get("litellm_call_id", ""), status="success")
+            proxy_logging_obj.update_request_status(embrouter_call_id=data.get("embrouter_call_id", ""), status="success")
         )
 
         ### RESPONSE HEADERS ###
@@ -1839,7 +1839,7 @@ async def list_files(
         await proxy_logging_obj.post_call_failure_hook(
             user_api_key_dict=user_api_key_dict, original_exception=e, request_data=data
         )
-        verbose_proxy_logger.error("litellm.proxy.proxy_server.list_files(): Exception occured - %s", e)
+        verbose_proxy_logger.error("embrouter.proxy.proxy_server.list_files(): Exception occured - %s", e)
         verbose_proxy_logger.debug(traceback.format_exc())
         if isinstance(e, ProxyException):
             raise

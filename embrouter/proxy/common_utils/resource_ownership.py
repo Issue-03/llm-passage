@@ -1,6 +1,6 @@
 from typing import Final
 
-from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
+from embrouter.proxy._types import EmbrouterUserRoles, UserAPIKeyAuth
 
 
 def is_proxy_admin(user_api_key_dict: UserAPIKeyAuth | None) -> bool:
@@ -8,8 +8,8 @@ def is_proxy_admin(user_api_key_dict: UserAPIKeyAuth | None) -> bool:
         return False
 
     return (
-        user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN
-        or user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN.value
+        user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN
+        or user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN.value
     )
 
 

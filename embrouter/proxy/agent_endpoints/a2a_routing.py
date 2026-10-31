@@ -9,9 +9,9 @@ from typing import Any, Final
 
 from fastapi import HTTPException
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy._types import EmbrouterUserRoles, UserAPIKeyAuth
 
 
 async def route_a2a_agent_request(
@@ -20,18 +20,18 @@ async def route_a2a_agent_request(
     user_api_key_dict: UserAPIKeyAuth | None = None,
 ) -> Any | None:
     """
-    Route A2A agent requests directly to litellm with injected API base.
+    Route A2A agent requests directly to embrouter with injected API base.
 
     Returns None if not an A2A request (allows normal routing to continue).
     """
     # Import here to avoid circular imports
-    from litellm.proxy.agent_endpoints.auth.agent_permission_handler import (
+    from embrouter.proxy.agent_endpoints.auth.agent_permission_handler import (
         AgentRequestHandler,
     )
-    from litellm.proxy.common_utils.registry_read_through import (
+    from embrouter.proxy.common_utils.registry_read_through import (
         get_agent_with_read_through,
     )
-    from litellm.proxy.route_llm_request import (
+    from embrouter.proxy.route_llm_request import (
         ROUTE_ENDPOINT_MAPPING,
         ProxyModelNotFoundError,
     )
@@ -54,8 +54,8 @@ async def route_a2a_agent_request(
 
     # Verify the caller is permitted to use this agent (admins bypass the check)
     is_admin: Final = user_api_key_dict is not None and (
-        user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN
-        or user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN.value
+        user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN
+        or user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN.value
     )
     if not is_admin or agent.identity_managed:
         is_allowed: Final = await AgentRequestHandler.is_agent_allowed(
@@ -74,8 +74,8 @@ async def route_a2a_agent_request(
         route_name = ROUTE_ENDPOINT_MAPPING.get(route_type, route_type)
         raise ProxyModelNotFoundError(route=route_name, model_name=model_name, retryable_with_model_read_through=False)
 
-    # Inject API base and route to litellm
+    # Inject API base and route to embrouter
     data["api_base"] = agent.agent_card_params["url"]
     verbose_proxy_logger.debug("[A2A] Routing %s to %s", model_name, data["api_base"])
 
-    return getattr(litellm, f"{route_type}")(**data)
+    return getattr(embrouter, f"{route_type}")(**data)

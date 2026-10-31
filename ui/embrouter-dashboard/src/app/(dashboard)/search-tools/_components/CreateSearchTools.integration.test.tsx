@@ -46,7 +46,7 @@ describe("CreateSearchTools submit payload", () => {
     vi.mocked(networking.createSearchTool).mockResolvedValue({ search_tool_id: "st-1" });
   });
 
-  it("sends every filled field under litellm_params and search_tool_info", async () => {
+  it("sends every filled field under embrouter_params and search_tool_info", async () => {
     const user = userEvent.setup();
     renderModal();
     await screen.findByLabelText(/Search Tool Name/);
@@ -62,14 +62,14 @@ describe("CreateSearchTools submit payload", () => {
     expect(token).toBe("test-token");
     expect(payload).toStrictEqual({
       search_tool_name: "my-search",
-      litellm_params: {
+      embrouter_params: {
         search_provider: "perplexity",
         api_key: "sk-secret",
       },
       search_tool_info: { description: "finds things" },
     });
     expect(JSON.stringify(payload)).toBe(
-      '{"search_tool_name":"my-search","litellm_params":{"search_provider":"perplexity","api_key":"sk-secret"},"search_tool_info":{"description":"finds things"}}',
+      '{"search_tool_name":"my-search","embrouter_params":{"search_provider":"perplexity","api_key":"sk-secret"},"search_tool_info":{"description":"finds things"}}',
     );
   });
 
@@ -85,7 +85,7 @@ describe("CreateSearchTools submit payload", () => {
     await waitFor(() => expect(networking.createSearchTool).toHaveBeenCalledTimes(1));
     const payload = vi.mocked(networking.createSearchTool).mock.calls[0][1];
     expect(JSON.stringify(payload)).toBe(
-      '{"search_tool_name":"minimal","litellm_params":{"search_provider":"tavily"}}',
+      '{"search_tool_name":"minimal","embrouter_params":{"search_provider":"tavily"}}',
     );
   });
 
@@ -157,7 +157,7 @@ describe("CreateSearchTools submit payload", () => {
     await waitFor(() =>
       expect(networking.createSearchTool).toHaveBeenCalledWith("test-token", {
         search_tool_name: "synthetic-search",
-        litellm_params: { search_provider: "tavily" },
+        embrouter_params: { search_provider: "tavily" },
       }),
     );
   });

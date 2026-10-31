@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Palo Alto Networks Prisma AI Runtime Security (AIRS) Guardrail Integration for LiteLLM
+Palo Alto Networks Prisma AI Runtime Security (AIRS) Guardrail Integration for EmbRouter
 
 Provides real-time threat detection, DLP, URL filtering, content masking, and policy enforcement for AI applications.
 """
@@ -19,32 +19,32 @@ import httpx
 from fastapi import HTTPException
 from pydantic import BaseModel, ConfigDict, TypeAdapter, ValidationError, field_validator
 
-from litellm._logging import verbose_proxy_logger
-from litellm._uuid import uuid
-from litellm.caching import DualCache
-from litellm.integrations.custom_guardrail import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter._uuid import uuid
+from embrouter.caching import DualCache
+from embrouter.integrations.custom_guardrail import (
     CustomGuardrail,
     log_guardrail_information,
 )
-from litellm.llms.base_llm.guardrail_translation.utils import (
+from embrouter.llms.base_llm.guardrail_translation.utils import (
     effective_scan_only_tool_results_for_guardrail,
     effective_skip_system_message_for_guardrail,
     role_out_of_guardrail_scope,
 )
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.llms.custom_httpx.http_handler import (
     AsyncHTTPHandler,
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.llms.openai.responses.guardrail_translation.handler import scannable_instructions
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.common_utils.callback_utils import (
+from embrouter.llms.openai.responses.guardrail_translation.handler import scannable_instructions
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.common_utils.callback_utils import (
     add_guardrail_scan_id,
     add_guardrail_to_applied_guardrails_header,
 )
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.utils import (
+from embrouter.types.guardrails import GuardrailEventHooks
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.utils import (
     CallTypes,
     CallTypesLiteral,
     ChatCompletionDeltaCustomToolCall,
@@ -128,13 +128,13 @@ _RESPONSES_INPUT: Final[TypeAdapter[_ResponsesInput]] = TypeAdapter(_ResponsesIn
 
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
 
 
 class PanwPrismaAirsHandler(CustomGuardrail):
     """
-    LiteLLM Built-in Guardrail for Palo Alto Networks Prisma AI Runtime Security (AIRS).
+    EmbRouter Built-in Guardrail for Palo Alto Networks Prisma AI Runtime Security (AIRS).
 
     Scans prompts and responses using PANW Prisma AIRS API to detect malicious content,
     injection attempts, and policy violations. Supports content masking and fail-closed error handling.
@@ -144,7 +144,7 @@ class PanwPrismaAirsHandler(CustomGuardrail):
         api_key: PANW Prisma AIRS API key
         api_base: PANW Prisma AIRS API endpoint (default: https://service.api.aisecurity.paloaltonetworks.com)
         profile_name: PANW security profile name (optional if API key has linked profile)
-        app_name: Application name for tracking in Prisma AIRS analytics (default: "LiteLLM")
+        app_name: Application name for tracking in Prisma AIRS analytics (default: "EmbRouter")
         mask_request_content: Apply masking to prompts (default: False)
         mask_response_content: Apply masking to responses (default: False)
         mask_on_block: Backwards compatible flag that enables both request and response masking
@@ -202,11 +202,11 @@ class PanwPrismaAirsHandler(CustomGuardrail):
         )
         self.profile_name = profile_name
 
-        # Handle app_name: Default to "LiteLLM", or prefix user's app_name with "LiteLLM-"
+        # Handle app_name: Default to "EmbRouter", or prefix user's app_name with "EmbRouter-"
         if app_name:
-            self.app_name = f"LiteLLM-{app_name}"
+            self.app_name = f"EmbRouter-{app_name}"
         else:
-            self.app_name = "LiteLLM"
+            self.app_name = "EmbRouter"
 
         # Validate required configuration
         if not self.api_key:
@@ -361,31 +361,31 @@ class PanwPrismaAirsHandler(CustomGuardrail):
                 }
 
         # Build Prisma AIRS API metadata
-        # Handle app_name: LiteLLM by default, or LiteLLM-{user_app_name} if user provides one
+        # Handle app_name: EmbRouter by default, or EmbRouter-{user_app_name} if user provides one
         user_app_name: Final = metadata.get("app_name") if metadata else None
         if user_app_name:
-            app_name_value = f"LiteLLM-{user_app_name}"
+            app_name_value = f"EmbRouter-{user_app_name}"
         else:
-            app_name_value = self.app_name  # Defaults to "LiteLLM"
+            app_name_value = self.app_name  # Defaults to "EmbRouter"
 
         panw_metadata: Final[dict[str, object]] = {
             "app_user": (
-                (metadata.get("app_user") or metadata.get("user") or "litellm_user") if metadata else "litellm_user"
+                (metadata.get("app_user") or metadata.get("user") or "embrouter_user") if metadata else "embrouter_user"
             ),
             "ai_model": metadata.get("model", "unknown") if metadata else "unknown",
             "app_name": app_name_value,
-            "source": "litellm_builtin_guardrail",
+            "source": "embrouter_builtin_guardrail",
         }
 
-        # Include user_ip if available (from LiteLLM metadata or request)
+        # Include user_ip if available (from EmbRouter metadata or request)
         if metadata and metadata.get("user_ip"):
             panw_metadata["user_ip"] = metadata["user_ip"]
         elif metadata and metadata.get("requester_ip_address"):
             panw_metadata["user_ip"] = metadata["requester_ip_address"]
 
-        # Forward litellm_trace_id in AIRS metadata for session correlation
-        if metadata and metadata.get("litellm_trace_id"):
-            panw_metadata["litellm_trace_id"] = metadata["litellm_trace_id"]
+        # Forward embrouter_trace_id in AIRS metadata for session correlation
+        if metadata and metadata.get("embrouter_trace_id"):
+            panw_metadata["embrouter_trace_id"] = metadata["embrouter_trace_id"]
 
         # Build contents: tool_event takes priority, else prompt/response text
         contents: Sequence[Mapping[str, object]]
@@ -398,7 +398,7 @@ class PanwPrismaAirsHandler(CustomGuardrail):
             "metadata": panw_metadata,
             "contents": contents,
         }
-        # Use per-request litellm_call_id as AIRS tr_id; keep litellm_trace_id in metadata.
+        # Use per-request embrouter_call_id as AIRS tr_id; keep embrouter_trace_id in metadata.
         if call_id:
             payload["tr_id"] = call_id
 
@@ -435,7 +435,7 @@ class PanwPrismaAirsHandler(CustomGuardrail):
         }
 
         try:
-            # Use LiteLLM's async HTTP client
+            # Use EmbRouter's async HTTP client
             async_client: Final = self.http_client or get_async_httpx_client(
                 llm_provider=httpxSpecialProvider.GuardrailCallback
             )
@@ -559,7 +559,7 @@ class PanwPrismaAirsHandler(CustomGuardrail):
         if request_data.get("server_name"):
             return request_data["server_name"]
         try:
-            from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+            from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
                 global_mcp_server_manager,
             )
 
@@ -845,7 +845,7 @@ class PanwPrismaAirsHandler(CustomGuardrail):
         - profile_name: AI security profile name (PANW API field)
         - profile_id: AI security profile ID (PANW API field, takes precedence)
         - user_ip: User IP address for tracking
-        - app_name: Application identifier (will be prefixed with "LiteLLM-")
+        - app_name: Application identifier (will be prefixed with "EmbRouter-")
 
         Note: If neither profile_name nor profile_id is provided, PANW API will use
         the profile linked to the API key (configured in Strata Cloud Manager).
@@ -854,7 +854,7 @@ class PanwPrismaAirsHandler(CustomGuardrail):
         user_metadata: Final = data.get("metadata", {}) or {}
         requester_meta: Final = user_metadata.get("requester_metadata", {}) or {}
         metadata: Final[dict[str, object]] = {
-            "user": data.get("user") or "litellm_user",
+            "user": data.get("user") or "embrouter_user",
             "model": data.get("model") or "unknown",
         }
 
@@ -864,21 +864,21 @@ class PanwPrismaAirsHandler(CustomGuardrail):
             if val:
                 metadata[key] = val
 
-        # Include litellm_trace_id for session tracking.
+        # Include embrouter_trace_id for session tracking.
         # Sources (checked in priority order):
-        #   1. data["litellm_trace_id"]             — top-level body field
-        #   2. metadata["litellm_trace_id"]         — user passes in request metadata
-        #   3. metadata["trace_id"]                 — x-litellm-trace-id header
-        #      (litellm_pre_call_utils stores it as "trace_id", not "litellm_trace_id")
-        #   4. requester_metadata["litellm_trace_id"] — deep copy for /v1/messages routes
+        #   1. data["embrouter_trace_id"]             — top-level body field
+        #   2. metadata["embrouter_trace_id"]         — user passes in request metadata
+        #   3. metadata["trace_id"]                 — x-embrouter-trace-id header
+        #      (embrouter_pre_call_utils stores it as "trace_id", not "embrouter_trace_id")
+        #   4. requester_metadata["embrouter_trace_id"] — deep copy for /v1/messages routes
         trace_id: Final = (
-            data.get("litellm_trace_id")
-            or user_metadata.get("litellm_trace_id")
+            data.get("embrouter_trace_id")
+            or user_metadata.get("embrouter_trace_id")
             or user_metadata.get("trace_id")
-            or requester_meta.get("litellm_trace_id")
+            or requester_meta.get("embrouter_trace_id")
         )
         if trace_id:
-            metadata["litellm_trace_id"] = trace_id
+            metadata["embrouter_trace_id"] = trace_id
 
         return metadata
 
@@ -955,7 +955,7 @@ class PanwPrismaAirsHandler(CustomGuardrail):
             content=text,
             is_response=True,
             metadata=metadata,
-            call_id=request_data.get("litellm_call_id"),
+            call_id=request_data.get("embrouter_call_id"),
         )
         if scan_result.get("_is_transient") or scan_result.get("_always_block"):
             self._handle_api_error_with_logging(
@@ -1005,24 +1005,24 @@ class PanwPrismaAirsHandler(CustomGuardrail):
         Returns:
             True if already scanned (should skip), False if needs scanning
         """
-        call_id = data.get("litellm_call_id")
+        call_id = data.get("embrouter_call_id")
         if not call_id:
             call_id = str(uuid.uuid4())
-            data["litellm_call_id"] = call_id
+            data["embrouter_call_id"] = call_id
             verbose_proxy_logger.warning(
-                "PANW Prisma AIRS: litellm_call_id missing from request data, synthesized %s for %s scan deduplication",
+                "PANW Prisma AIRS: embrouter_call_id missing from request data, synthesized %s for %s scan deduplication",
                 call_id,
                 scan_type,
             )
 
         scan_key: Final = f"_panw_{scan_type}_scanned_{call_id}"
-        litellm_metadata: Final = data.setdefault("litellm_metadata", {})
+        embrouter_metadata: Final = data.setdefault("embrouter_metadata", {})
 
-        if litellm_metadata.get(scan_key):
+        if embrouter_metadata.get(scan_key):
             verbose_proxy_logger.debug("PANW Prisma AIRS: Skipping duplicate %s-call scan", scan_type)
             return True  # Already scanned
 
-        litellm_metadata[scan_key] = True
+        embrouter_metadata[scan_key] = True
         return False  # Needs scanning
 
     def _extract_prompt_from_request(self, data: dict) -> str:
@@ -1099,7 +1099,7 @@ class PanwPrismaAirsHandler(CustomGuardrail):
                 content=prompt_text,
                 is_response=False,
                 metadata=metadata,
-                call_id=data.get("litellm_call_id"),
+                call_id=data.get("embrouter_call_id"),
             )
 
             if scan_result.get("_is_transient") or scan_result.get("_always_block"):
@@ -1219,7 +1219,7 @@ class PanwPrismaAirsHandler(CustomGuardrail):
                 content=response_text,
                 is_response=True,
                 metadata=metadata,
-                call_id=data.get("litellm_call_id"),
+                call_id=data.get("embrouter_call_id"),
             )
 
             if scan_result.get("_is_transient") or scan_result.get("_always_block"):
@@ -1319,7 +1319,7 @@ class PanwPrismaAirsHandler(CustomGuardrail):
             content=response_text,
             is_response=True,
             metadata=metadata,
-            call_id=request_data.get("litellm_call_id"),
+            call_id=request_data.get("embrouter_call_id"),
         )
 
         # Early return for transient/always-block results — let the
@@ -1364,8 +1364,8 @@ class PanwPrismaAirsHandler(CustomGuardrail):
         """
         Process streaming response chunks and scan the assembled response.
         """
-        from litellm.llms.base_llm.base_model_iterator import MockResponseIterator
-        from litellm.main import stream_chunk_builder
+        from embrouter.llms.base_llm.base_model_iterator import MockResponseIterator
+        from embrouter.main import stream_chunk_builder
 
         # Check if guardrail should run for this request
 
@@ -1587,7 +1587,7 @@ class PanwPrismaAirsHandler(CustomGuardrail):
     @staticmethod
     def _is_anthropic_request(
         request_data: Mapping[str, object],
-        logging_obj: Optional["LiteLLMLoggingObj"] = None,
+        logging_obj: Optional["EmbRouterLoggingObj"] = None,
     ) -> bool:
         """Detect if the current request is an Anthropic /v1/messages call."""
         if logging_obj:
@@ -1612,7 +1612,7 @@ class PanwPrismaAirsHandler(CustomGuardrail):
     def _use_latest_user_only(
         self,
         request_data: Mapping[str, object],
-        logging_obj: Optional["LiteLLMLoggingObj"] = None,
+        logging_obj: Optional["EmbRouterLoggingObj"] = None,
     ) -> bool:
         """Resolve whether to scan only the latest user/developer message.
 
@@ -1777,7 +1777,7 @@ class PanwPrismaAirsHandler(CustomGuardrail):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict[str, object],
         input_type: Literal["request", "response"],
-        logging_obj: Optional["LiteLLMLoggingObj"] = None,
+        logging_obj: Optional["EmbRouterLoggingObj"] = None,
     ) -> GenericGuardrailAPIInputs:
         """
         Unified guardrail method for the apply_guardrail framework.
@@ -1788,12 +1788,12 @@ class PanwPrismaAirsHandler(CustomGuardrail):
         texts: Final = inputs.get("texts", [])
         is_response: Final = input_type == "response"
 
-        # Resolve litellm_call_id: request_data first, then logging_obj fallback.
+        # Resolve embrouter_call_id: request_data first, then logging_obj fallback.
         # Post-call path reconstructs request_data as {"response": ...} without
-        # litellm_call_id, but logging_obj.litellm_call_id is available.
-        call_id = request_data.get("litellm_call_id")
+        # embrouter_call_id, but logging_obj.embrouter_call_id is available.
+        call_id = request_data.get("embrouter_call_id")
         if not call_id and logging_obj:
-            call_id = getattr(logging_obj, "litellm_call_id", None)
+            call_id = getattr(logging_obj, "embrouter_call_id", None)
         if not call_id:
             # Use MCP name fallback: mcp_tool_name (canonical) or name (/mcp-rest path)
             _mcp_tool = str(request_data.get("mcp_tool_name") or self._mcp_name_fallback(request_data) or "").strip()
@@ -1804,7 +1804,7 @@ class PanwPrismaAirsHandler(CustomGuardrail):
                 if not slug:
                     slug = "mcp-tool"
                 call_id = f"{slug}-{uuid.uuid4()}"
-                request_data["litellm_call_id"] = call_id
+                request_data["embrouter_call_id"] = call_id
                 verbose_proxy_logger.debug(
                     "PANW Prisma AIRS: synthesized MCP tr_id=%s for tool=%s",
                     call_id,
@@ -1814,17 +1814,17 @@ class PanwPrismaAirsHandler(CustomGuardrail):
                 # Direct /apply_guardrail endpoint — empty request_data, no
                 # logging_obj. Existing behavior: synthesize UUID.
                 call_id = str(uuid.uuid4())
-                request_data["litellm_call_id"] = call_id
+                request_data["embrouter_call_id"] = call_id
                 verbose_proxy_logger.warning(
-                    "PANW Prisma AIRS: litellm_call_id missing from empty "
+                    "PANW Prisma AIRS: embrouter_call_id missing from empty "
                     "request_data, synthesized %s (direct /apply_guardrail?)",
                     call_id,
                 )
             else:
                 call_id = str(uuid.uuid4())
-                request_data["litellm_call_id"] = call_id
+                request_data["embrouter_call_id"] = call_id
                 verbose_proxy_logger.warning(
-                    "PANW Prisma AIRS: litellm_call_id missing, synthesized %s (input_type=%s)",
+                    "PANW Prisma AIRS: embrouter_call_id missing, synthesized %s (input_type=%s)",
                     call_id,
                     input_type,
                 )
@@ -1839,7 +1839,7 @@ class PanwPrismaAirsHandler(CustomGuardrail):
         # Enrich request_data with metadata from logging_obj (post-call metadata loss).
         # Merge: logging_obj provides the base, request_data keys win on conflict.
         if logging_obj:
-            _lp: Final = (getattr(logging_obj, "model_call_details", {}) or {}).get("litellm_params", {}) or {}
+            _lp: Final = (getattr(logging_obj, "model_call_details", {}) or {}).get("embrouter_params", {}) or {}
             _orig_meta: Final = _lp.get("metadata") or {}
             if _orig_meta:
                 existing_meta = request_data.get("metadata")
@@ -2009,7 +2009,7 @@ class PanwPrismaAirsHandler(CustomGuardrail):
 
     @staticmethod
     def get_config_model() -> type["GuardrailConfigModel"] | None:
-        from litellm.types.proxy.guardrails.guardrail_hooks.panw_prisma_airs import (
+        from embrouter.types.proxy.guardrails.guardrail_hooks.panw_prisma_airs import (
             PanwPrismaAirsGuardrailConfigModel,
         )
 

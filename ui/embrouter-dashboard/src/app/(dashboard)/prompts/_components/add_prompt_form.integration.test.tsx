@@ -67,7 +67,7 @@ describe("AddPromptForm", () => {
     await waitFor(() => {
       expect(mockCreate).toHaveBeenCalledWith("sk-test", {
         prompt_id: "my_prompt_id",
-        litellm_params: {
+        embrouter_params: {
           prompt_integration: "dotprompt",
           prompt_id: "converted_prompt_id",
           prompt_data: CONVERTED_JSON,

@@ -10,7 +10,7 @@ import httpx2
 import pytest
 from pydantic import SecretStr
 
-from litellm.proxy._experimental.mcp_server.outbound_credentials.client_credentials import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.client_credentials import (
     ClientCredentialsBearerAuth,
     ClientCredentialsTokenSource,
     TokenEndpointDenied,
@@ -18,8 +18,8 @@ from litellm.proxy._experimental.mcp_server.outbound_credentials.client_credenti
     TokenEndpointSuccess,
     TokenEndpointUnreachable,
 )
-from litellm.proxy._experimental.mcp_server.outbound_credentials.result import Error, Ok
-from litellm.proxy._experimental.mcp_server.outbound_credentials.types import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.result import Error, Ok
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.types import (
     ClientCredentialsConfig,
 )
 
@@ -486,8 +486,8 @@ async def test_bearer_auth_advertises_the_header_it_will_occupy():
 async def test_token_exchange_failure_diagnostics(mode, monkeypatch, caplog):
     import asyncio
     import logging
-    from litellm.llms.custom_httpx import http_handler
-    from litellm.proxy._experimental.mcp_server.outbound_credentials.client_credentials import post_client_credentials_grant
+    from embrouter.llms.custom_httpx import http_handler
+    from embrouter.proxy._experimental.mcp_server.outbound_credentials.client_credentials import post_client_credentials_grant
 
     class Poster:
         async def post(self, url, headers, data):
@@ -505,7 +505,7 @@ async def test_token_exchange_failure_diagnostics(mode, monkeypatch, caplog):
             return response
 
     monkeypatch.setattr(http_handler, "get_async_httpx_client", lambda **kwargs: Poster())
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    with caplog.at_level(logging.WARNING, logger="EmbRouter"):
         if mode == "cancel":
             with pytest.raises(asyncio.CancelledError):
                 await post_client_credentials_grant("https://idp/token", {}, {})

@@ -1,4 +1,4 @@
-# This file runs a health check for the LLM, used on litellm/proxy
+# This file runs a health check for the LLM, used on embrouter/proxy
 
 import asyncio
 import logging
@@ -13,20 +13,20 @@ from typing import TYPE_CHECKING, Final, TypeVar
 
 from pydantic import TypeAdapter, ValidationError
 
-import litellm
+import embrouter
 
 if TYPE_CHECKING:
-    from litellm.router import Router
+    from embrouter.router import Router
 
 logger: Final = logging.getLogger(__name__)
 _DeploymentT: Final = TypeVar("_DeploymentT", bound=Mapping[str, object])
-from litellm.constants import (
+from embrouter.constants import (
     BACKGROUND_HEALTH_CHECK_MAX_TOKENS,
     BACKGROUND_HEALTH_CHECK_MAX_TOKENS_REASONING,
     DEFAULT_HEALTH_CHECK_PROMPT,
     HEALTH_CHECK_TIMEOUT_SECONDS,
 )
-from litellm.router_utils.auto_router_model_naming import (
+from embrouter.router_utils.auto_router_model_naming import (
     StrategyRouterDependency,
     classify_strategy_router_model,
     strategy_router_dependencies,
@@ -72,7 +72,7 @@ HEALTH_DISPLAY_PARAMS: Final = (
 _MAX_TOKEN_SUPPORT_MODES: Final[frozenset[str]] = frozenset({"chat", "completion", "responses"})
 
 
-def _resolve_health_check_mode(model_info: Mapping[str, object], litellm_params: Mapping[str, object]) -> str | None:
+def _resolve_health_check_mode(model_info: Mapping[str, object], embrouter_params: Mapping[str, object]) -> str | None:
     """
     Effective mode for a deployment's health-check probe.
 
@@ -85,11 +85,11 @@ def _resolve_health_check_mode(model_info: Mapping[str, object], litellm_params:
     explicit_mode: Final = model_info.get("mode")
     if isinstance(explicit_mode, str):
         return explicit_mode
-    model: Final = litellm_params.get("model")
+    model: Final = embrouter_params.get("model")
     if not isinstance(model, str):
         return None
     try:
-        return litellm.get_model_info(model=model).get("mode")
+        return embrouter.get_model_info(model=model).get("mode")
     except Exception:
         return None
 
@@ -228,7 +228,7 @@ async def run_with_timeout(task, timeout):
     except asyncio.TimeoutError:
         # `asyncio.wait_for()` already cancels only the awaited task on timeout.
         # Do not cancel unrelated sibling health check tasks.
-        timeout_exception: Final = litellm.Timeout(
+        timeout_exception: Final = embrouter.Timeout(
             message="Health check timeout exceeded",
             model="",
             llm_provider="",
@@ -254,7 +254,7 @@ def _health_check_eligible(
 
 
 def _deployment_model(deployment: Mapping[str, object]) -> str | None:
-    params: Final = deployment.get("litellm_params")
+    params: Final = deployment.get("embrouter_params")
     return params.get("model") if isinstance(params, Mapping) else None
 
 
@@ -296,7 +296,7 @@ def _deployments_routed_by_name(
 def deployments_targeted_by_name(
     model_list: Sequence[Mapping[str, object]], model: str, team_id: str | None
 ) -> tuple[Mapping[str, object], ...]:
-    """``model`` targets deployments the way a request for it routes, else by ``litellm_params.model``."""
+    """``model`` targets deployments the way a request for it routes, else by ``embrouter_params.model``."""
     return _deployments_routed_by_name(model_list, model, team_id) or tuple(
         x for x in model_list if _deployment_model(x) == model
     )
@@ -314,14 +314,14 @@ def _narrow_to_target(
     return deployments_targeted_by_name(model_list, model, team_id)
 
 
-def _is_strategy_router_deployment(litellm_params: Mapping[str, object]) -> bool:
+def _is_strategy_router_deployment(embrouter_params: Mapping[str, object]) -> bool:
     """True for strategy-router deployments."""
-    model: Final[object] = litellm_params.get("model", "")
+    model: Final[object] = embrouter_params.get("model", "")
     return isinstance(model, str) and classify_strategy_router_model(model) is not None
 
 
 def _is_marker(deployment: Mapping[str, object]) -> bool:
-    params: Final = deployment.get("litellm_params")
+    params: Final = deployment.get("embrouter_params")
     return isinstance(params, Mapping) and _is_strategy_router_deployment(params)
 
 
@@ -370,7 +370,7 @@ def _strategy_router_dependency_error(
     unhealthy_ids: frozenset[str],
 ) -> str | None:
     """The first dependency fault that makes this router unable to serve, if any."""
-    params: Final = deployment.get("litellm_params")
+    params: Final = deployment.get("embrouter_params")
     if not isinstance(params, Mapping):
         return None
     return next(
@@ -418,7 +418,7 @@ def _dependency_deployments_to_probe(
         names = frozenset(
             dependency.model_name
             for deployment in frontier
-            if isinstance(params := deployment.get("litellm_params"), Mapping)
+            if isinstance(params := deployment.get("embrouter_params"), Mapping)
             for dependency in strategy_router_dependencies(params)
             if dependency.role != "evaluation"
         )
@@ -516,25 +516,25 @@ def _finalize_strategy_router_endpoints(
 
 
 async def _run_model_health_check(model: dict):
-    litellm_params = model["litellm_params"]
+    embrouter_params = model["embrouter_params"]
     model_info: Final = model.get("model_info", {})
 
-    if _is_strategy_router_deployment(litellm_params):
+    if _is_strategy_router_deployment(embrouter_params):
         return {}
 
     mode: Final = _resolve_health_check_mode(
         model_info,
-        litellm_params,  # any-ok: untyped router config dict
+        embrouter_params,  # any-ok: untyped router config dict
     )
-    litellm_params = _update_litellm_params_for_health_check(model_info, litellm_params)
+    embrouter_params = _update_embrouter_params_for_health_check(model_info, embrouter_params)
     timeout: Final = model_info.get("health_check_timeout") or HEALTH_CHECK_TIMEOUT_SECONDS
 
     return await run_with_timeout(
-        litellm.ahealth_check(
-            litellm_params,
+        embrouter.ahealth_check(
+            embrouter_params,
             mode=mode,
             prompt=DEFAULT_HEALTH_CHECK_PROMPT,
-            input=["test from litellm"],
+            input=["test from embrouter"],
         ),
         timeout,
     )
@@ -628,16 +628,16 @@ async def _perform_health_check(
     exceptions_by_model_id: Final[dict] = {}
 
     for is_healthy, model in zip(results, model_list):
-        litellm_params = model["litellm_params"]
+        embrouter_params = model["embrouter_params"]
         _model_id = (model.get("model_info") or {}).get("id")
 
         if isinstance(is_healthy, dict) and "error" not in is_healthy:
-            cleaned = _clean_endpoint_data({**litellm_params, **is_healthy}, details)
+            cleaned = _clean_endpoint_data({**embrouter_params, **is_healthy}, details)
             if _model_id:
                 cleaned["model_id"] = _model_id
             healthy_endpoints.append(cleaned)
         elif isinstance(is_healthy, dict):
-            cleaned = _clean_endpoint_data({**litellm_params, **is_healthy}, details)
+            cleaned = _clean_endpoint_data({**embrouter_params, **is_healthy}, details)
             if _model_id:
                 cleaned["model_id"] = _model_id
                 if "exception" in is_healthy:
@@ -648,7 +648,7 @@ async def _perform_health_check(
                     cleaned["exception_status"] = getattr(exc, "status_code", 500)
             unhealthy_endpoints.append(cleaned)
         else:
-            cleaned = _clean_endpoint_data(litellm_params, details)
+            cleaned = _clean_endpoint_data(embrouter_params, details)
             if _model_id:
                 cleaned["model_id"] = _model_id
                 if isinstance(is_healthy, Exception):
@@ -697,27 +697,27 @@ def build_deployment_health_states(
     return states
 
 
-def _deployment_model_string_for_health_check(litellm_params: dict) -> str:
-    """Deployment model from litellm_params (before Bedrock rewrite).
+def _deployment_model_string_for_health_check(embrouter_params: dict) -> str:
+    """Deployment model from embrouter_params (before Bedrock rewrite).
 
     Used for reasoning vs non-reasoning max_tokens and wildcard detection only.
     Does not use ``health_check_model``; that override applies later to the request.
     """
-    return litellm_params.get("model") or ""
+    return embrouter_params.get("model") or ""
 
 
-def _health_check_deployment_is_wildcard(litellm_params: dict) -> bool:
-    return "*" in _deployment_model_string_for_health_check(litellm_params)
+def _health_check_deployment_is_wildcard(embrouter_params: dict) -> bool:
+    return "*" in _deployment_model_string_for_health_check(embrouter_params)
 
 
-def _resolve_health_check_max_tokens(model_info: dict, litellm_params: dict) -> int | None:
+def _resolve_health_check_max_tokens(model_info: dict, embrouter_params: dict) -> int | None:
     """
     Pick max_tokens for the health check request.
 
     Priority:
     1. model_info.health_check_max_tokens (explicit override)
     2. For non-wildcard routes: health_check_max_tokens_reasoning / _non_reasoning
-       from model_info based on litellm.supports_reasoning(litellm_params["model"])
+       from model_info based on embrouter.supports_reasoning(embrouter_params["model"])
     3. For non-wildcard reasoning routes: BACKGROUND_HEALTH_CHECK_MAX_TOKENS_REASONING
        from env (if set)
     4. BACKGROUND_HEALTH_CHECK_MAX_TOKENS (global, any route including wildcards)
@@ -728,12 +728,12 @@ def _resolve_health_check_max_tokens(model_info: dict, litellm_params: dict) -> 
     if explicit is not None:
         return int(explicit)
 
-    is_wildcard: Final = _health_check_deployment_is_wildcard(litellm_params)
-    deployment_model: Final = _deployment_model_string_for_health_check(litellm_params)
+    is_wildcard: Final = _health_check_deployment_is_wildcard(embrouter_params)
+    deployment_model: Final = _deployment_model_string_for_health_check(embrouter_params)
 
     if not is_wildcard:
         try:
-            is_reasoning = litellm.supports_reasoning(deployment_model)
+            is_reasoning = embrouter.supports_reasoning(deployment_model)
         except Exception:
             is_reasoning = False
         tokens_reasoning: Final = model_info.get("health_check_max_tokens_reasoning", None)
@@ -755,12 +755,12 @@ def _resolve_health_check_max_tokens(model_info: dict, litellm_params: dict) -> 
     return None
 
 
-def _update_litellm_params_for_health_check(model_info: dict, litellm_params: dict) -> dict:
+def _update_embrouter_params_for_health_check(model_info: dict, embrouter_params: dict) -> dict:
     """
-    Update the litellm params for health check.
+    Update the embrouter params for health check.
 
     - merges `model_info.health_check_params` into the probe request, so a deployment whose provider
-      requires a payload field litellm does not synthesize (e.g. `mediaSource` for Bedrock TwelveLabs
+      requires a payload field embrouter does not synthesize (e.g. `mediaSource` for Bedrock TwelveLabs
       Pegasus) can supply it. The dedicated knobs below are applied afterwards and win on conflict.
     - gets a short `messages` param for health check
     - adds a bounded `max_tokens` when the deployment is a chat-style mode
@@ -770,42 +770,42 @@ def _update_litellm_params_for_health_check(model_info: dict, litellm_params: di
       reject unknown fields with 400 "Unknown parameter: 'max_tokens'".
     - updates the `model` param with the `health_check_model` if it exists
     - updates the `voice` param with the `health_check_voice` for `audio_speech` mode if it exists
-    - for Bedrock models with region routing (bedrock/region/model), strips the litellm routing prefix but preserves the model ID, and pins `custom_llm_provider` to `bedrock` (only when the deployment hasn't already set one, so an explicit `bedrock_converse` survives) so the bare model id still resolves to the provider (e.g. cross-region ids like `us.cohere.embed-v4:0`)
+    - for Bedrock models with region routing (bedrock/region/model), strips the embrouter routing prefix but preserves the model ID, and pins `custom_llm_provider` to `bedrock` (only when the deployment hasn't already set one, so an explicit `bedrock_converse` survives) so the bare model id still resolves to the provider (e.g. cross-region ids like `us.cohere.embed-v4:0`)
     """
     mode: Final = _resolve_health_check_mode(
         model_info,
-        litellm_params,  # any-ok: untyped router config dict
+        embrouter_params,  # any-ok: untyped router config dict
     )
     _health_check_params: Final = model_info.get("health_check_params", None)
     if isinstance(_health_check_params, dict):
-        litellm_params.update(_health_check_params)
+        embrouter_params.update(_health_check_params)
     elif _health_check_params is not None:
         logger.warning(
             "health_check_params for model %s is a %s, expected a dict. Ignoring it.",
-            litellm_params.get("model"),
+            embrouter_params.get("model"),
             type(_health_check_params).__name__,
         )
 
-    litellm_params["messages"] = _get_random_llm_message()
+    embrouter_params["messages"] = _get_random_llm_message()
     if _should_inject_health_check_max_tokens(
         model_info,
         mode,  # any-ok: untyped router config dict
     ):
-        _resolved_max_tokens: Final = _resolve_health_check_max_tokens(model_info, litellm_params)
+        _resolved_max_tokens: Final = _resolve_health_check_max_tokens(model_info, embrouter_params)
         if _resolved_max_tokens is not None:
-            litellm_params["max_tokens"] = _resolved_max_tokens
+            embrouter_params["max_tokens"] = _resolved_max_tokens
 
     # Per-model reasoning effort for health checks only (e.g. reasoning_effort=none).
     if mode in _HEALTH_CHECK_MODES_SUPPORTING_REASONING_EFFORT:
         _hc_reasoning_effort: Final = model_info.get("health_check_reasoning_effort", None)
         if _hc_reasoning_effort is not None:
-            litellm_params["reasoning_effort"] = _hc_reasoning_effort
+            embrouter_params["reasoning_effort"] = _hc_reasoning_effort
 
     _health_check_model: Final = model_info.get("health_check_model", None)
     if _health_check_model is not None:
-        litellm_params["model"] = _health_check_model
+        embrouter_params["model"] = _health_check_model
     if mode == "audio_speech":
-        litellm_params["voice"] = model_info.get("health_check_voice", "alloy")
+        embrouter_params["voice"] = model_info.get("health_check_voice", "alloy")
 
     # Handle Bedrock region routing format: bedrock/region/model
     # This is needed because health checks bypass get_llm_provider() for the model param
@@ -816,10 +816,10 @@ def _update_litellm_params_for_health_check(model_info: dict, litellm_params: di
     # Issue: Stripping these breaks AWS requirement for inference profile IDs
     #
     # Must also preserve route prefixes (converse/, invoke/) and handlers (llama/, deepseek_r1/, etc.)
-    if litellm_params["model"].startswith("bedrock/"):
-        from litellm.llms.bedrock.common_utils import BedrockModelInfo
+    if embrouter_params["model"].startswith("bedrock/"):
+        from embrouter.llms.bedrock.common_utils import BedrockModelInfo
 
-        model = litellm_params["model"]
+        model = embrouter_params["model"]
         # Strip only the bedrock/ prefix (preserve routes like converse/, invoke/)
         model = model.removeprefix("bedrock/")  # len("bedrock/") = 8
 
@@ -839,13 +839,13 @@ def _update_litellm_params_for_health_check(model_info: dict, litellm_params: di
                 filtered_parts.append(part)
 
         model = "/".join(filtered_parts)
-        litellm_params["model"] = model
-        if not litellm_params.get("custom_llm_provider"):  # any-ok: untyped router dict
-            litellm_params["custom_llm_provider"] = (  # any-ok: untyped router dict
+        embrouter_params["model"] = model
+        if not embrouter_params.get("custom_llm_provider"):  # any-ok: untyped router dict
+            embrouter_params["custom_llm_provider"] = (  # any-ok: untyped router dict
                 "bedrock"
             )
 
-    return litellm_params
+    return embrouter_params
 
 
 async def perform_health_check(
@@ -868,7 +868,7 @@ async def perform_health_check(
     When model (name) is provided, the deployments a request for that name from the
     caller (``team_id``) would route to are checked: the caller's team copies published
     under that name, else the deployments named that way, else a public name that only
-    another team's deployment carries, else the deployments whose ``litellm_params.model``
+    another team's deployment carries, else the deployments whose ``embrouter_params.model``
     is that string.
 
     When ``health_check_skip_disabled_background_models`` is True (via
@@ -887,7 +887,7 @@ async def perform_health_check(
 
     if not model_list:
         if cli_model:
-            model_list = [{"model_name": cli_model, "litellm_params": {"model": cli_model}}]
+            model_list = [{"model_name": cli_model, "embrouter_params": {"model": cli_model}}]
         else:
             if instrumentation_enabled:
                 logger.debug(

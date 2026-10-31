@@ -11,10 +11,10 @@ Docs - https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-tit
 
 from typing import Final
 
-from litellm.types.llms.azure_ai import ImageEmbeddingInput, ImageEmbeddingRequest
-from litellm.types.llms.openai import EmbeddingCreateParams
-from litellm.types.utils import EmbeddingResponse, Usage
-from litellm.utils import is_base64_encoded
+from embrouter.types.llms.azure_ai import ImageEmbeddingInput, ImageEmbeddingRequest
+from embrouter.types.llms.openai import EmbeddingCreateParams
+from embrouter.types.utils import EmbeddingResponse, Usage
+from embrouter.utils import is_base64_encoded
 
 
 class AzureAICohereConfig:

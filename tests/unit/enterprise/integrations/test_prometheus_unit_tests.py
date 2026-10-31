@@ -4,7 +4,7 @@ import pytest_asyncio
 from prometheus_client import REGISTRY
 
 try:
-    from litellm.integrations.prometheus import PrometheusLogger
+    from embrouter.integrations.prometheus import PrometheusLogger
 except Exception:
     PrometheusLogger = None
 
@@ -18,13 +18,13 @@ from unittest.mock import MagicMock
 
 import pytest
 
-import litellm
-from litellm import Router
-from litellm.caching.caching import DualCache
-from litellm.router_strategy.budget_limiter import RouterBudgetLimiting
-from litellm.router_utils.cooldown_callbacks import router_cooldown_event_callback
-from litellm.types.router import ModelInfo
-from litellm.types.utils import BudgetConfig, GenericBudgetConfigType
+import embrouter
+from embrouter import Router
+from embrouter.caching.caching import DualCache
+from embrouter.router_strategy.budget_limiter import RouterBudgetLimiting
+from embrouter.router_utils.cooldown_callbacks import router_cooldown_event_callback
+from embrouter.types.router import ModelInfo
+from embrouter.types.utils import BudgetConfig, GenericBudgetConfigType
 
 
 def compare_metrics(func):
@@ -55,7 +55,7 @@ def prometheus_logger():
     for collector in collectors:
         REGISTRY.unregister(collector)
 
-    with patch("litellm.proxy.proxy_server.premium_user", True):
+    with patch("embrouter.proxy.proxy_server.premium_user", True):
         logger = PrometheusLogger()
 
         # Add the missing async_logging_hook method
@@ -68,11 +68,11 @@ def prometheus_logger():
 
 @pytest.mark.asyncio
 async def test_async_prometheus_success_logging_with_callbacks(prometheus_logger):
-    litellm.callbacks = [prometheus_logger]
+    embrouter.callbacks = [prometheus_logger]
 
     @compare_metrics
     async def op():
-        await litellm.acompletion(
+        await embrouter.acompletion(
             model="claude-haiku-4-5-20251001",
             messages=[{"role": "user", "content": "what llm are u"}],
             max_tokens=10,
@@ -82,12 +82,12 @@ async def test_async_prometheus_success_logging_with_callbacks(prometheus_logger
 
     diff = await op()
     await asyncio.sleep(2)
-    assert diff["litellm_requests_metric_total"] == 1.0
+    assert diff["embrouter_requests_metric_total"] == 1.0
 
 
 @pytest.mark.asyncio
 async def test_async_prometheus_budget_logging_with_callbacks(prometheus_logger):
-    litellm.callbacks = [prometheus_logger]
+    embrouter.callbacks = [prometheus_logger]
 
     @compare_metrics
     async def op():
@@ -95,11 +95,11 @@ async def test_async_prometheus_budget_logging_with_callbacks(prometheus_logger)
             "openai": BudgetConfig(time_period="1d", budget_limit=50),
         }
 
-        router = litellm.Router(
+        router = embrouter.Router(
             model_list=[
                 {
                     "model_name": "gpt-5-mini",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "openai/gpt-5-mini",
                         "api_key": "mock-key",
                     },
@@ -122,8 +122,8 @@ async def test_async_prometheus_budget_logging_with_callbacks(prometheus_logger)
 
     diff = await op()
 
-    # TODO: Should implement `litellm_provider_remaining_budget_metric` in prometheus.py
-    assert diff.get("litellm_provider_remaining_budget_metric", 50.0) == 50.0
+    # TODO: Should implement `embrouter_provider_remaining_budget_metric` in prometheus.py
+    assert diff.get("embrouter_provider_remaining_budget_metric", 50.0) == 50.0
 
 
 @pytest.mark.asyncio
@@ -134,7 +134,7 @@ async def test_prometheus_metric_tracking():
     try:
         from unittest.mock import MagicMock
 
-        from litellm.integrations.prometheus import PrometheusLogger
+        from embrouter.integrations.prometheus import PrometheusLogger
     except Exception:
         PrometheusLogger = None
     if PrometheusLogger is None:
@@ -151,7 +151,7 @@ async def test_prometheus_metric_tracking():
         },
     )
 
-    litellm._async_success_callback = [mock_prometheus]
+    embrouter._async_success_callback = [mock_prometheus]
 
     provider_budget_config: GenericBudgetConfigType = {
         "openai": BudgetConfig(budget_duration="1d", max_budget=0.000000000001),
@@ -162,7 +162,7 @@ async def test_prometheus_metric_tracking():
         model_list=[
             {
                 "model_name": "gpt-5-mini",  # openai model name
-                "litellm_params": {  # params for litellm completion/embedding call
+                "embrouter_params": {  # params for embrouter completion/embedding call
                     "model": "azure/gpt-4.1-mini",
                     "api_key": "sk-azure-unit-test",
                     "api_version": "2025-01-01-preview",
@@ -172,7 +172,7 @@ async def test_prometheus_metric_tracking():
             },
             {
                 "model_name": "gpt-5-mini",  # openai model name
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-5-mini",
                 },
                 "model_info": {"id": "openai-model-id"},
@@ -205,25 +205,25 @@ class CustomPrometheusLogger(PrometheusLogger):
 
     def set_deployment_complete_outage(
         self,
-        litellm_model_name: str,
+        embrouter_model_name: str,
         model_id: str,
         api_base: str,
         api_provider: str,
     ):
         self.deployment_complete_outages.append(
-            [litellm_model_name, model_id, api_base, api_provider]
+            [embrouter_model_name, model_id, api_base, api_provider]
         )
 
     def increment_deployment_cooled_down(
         self,
-        litellm_model_name: str,
+        embrouter_model_name: str,
         model_id: str,
         api_base: str,
         api_provider: str,
         exception_status: str,
     ):
         self.deployment_cooled_downs.append(
-            [litellm_model_name, model_id, api_base, api_provider, exception_status]
+            [embrouter_model_name, model_id, api_base, api_provider, exception_status]
         )
 
 
@@ -244,7 +244,7 @@ async def test_router_cooldown_event_callback():
     # Mock Router instance
     mock_router = MagicMock()
     mock_deployment = {
-        "litellm_params": {"model": "gpt-5-mini"},
+        "embrouter_params": {"model": "gpt-5-mini"},
         "model_name": "gpt-5-mini",
         "model_info": ModelInfo(id="test-model-id"),
     }
@@ -252,10 +252,10 @@ async def test_router_cooldown_event_callback():
 
     # Create a real PrometheusLogger instance
     prometheus_logger = CustomPrometheusLogger()
-    litellm.callbacks = [prometheus_logger]
+    embrouter.callbacks = [prometheus_logger]
 
     await router_cooldown_event_callback(
-        litellm_router_instance=mock_router,
+        embrouter_router_instance=mock_router,
         deployment_id="test-deployment",
         exception_status="429",
         cooldown_time=60.0,
@@ -304,14 +304,14 @@ async def test_router_cooldown_event_callback_no_prometheus():
     # Mock Router instance
     mock_router = MagicMock()
     mock_deployment = {
-        "litellm_params": {"model": "gpt-5-mini"},
+        "embrouter_params": {"model": "gpt-5-mini"},
         "model_name": "gpt-5-mini",
         "model_info": ModelInfo(id="test-model-id"),
     }
     mock_router.get_deployment.return_value = mock_deployment
 
     await router_cooldown_event_callback(
-        litellm_router_instance=mock_router,
+        embrouter_router_instance=mock_router,
         deployment_id="test-deployment",
         exception_status="429",
         cooldown_time=60.0,

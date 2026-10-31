@@ -6,10 +6,10 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.llms.bedrock.audio_transcription import BedrockAudioTranscriptionRustDispatch
-from litellm.rust_bridge import bindings, configuration
-from litellm.rust_bridge.transcription.native import NATIVE_ATRANSCRIPTION, NATIVE_TRANSCRIPTION
+import embrouter
+from embrouter.llms.bedrock.audio_transcription import BedrockAudioTranscriptionRustDispatch
+from embrouter.rust_bridge import bindings, configuration
+from embrouter.rust_bridge.transcription.native import NATIVE_ATRANSCRIPTION, NATIVE_TRANSCRIPTION
 
 MODEL: Final = "bedrock/mistral.voxtral-mini-3b-2507"
 AUDIO_FILE: Final = ("audio.wav", b"audio", "audio/wav")
@@ -27,7 +27,7 @@ class RustUpstreamError(Exception):
 def isolated_bridge(monkeypatch: pytest.MonkeyPatch) -> Generator[None]:
     native: Final = SimpleNamespace(RustBridgeDeclined=RustBridgeDeclined, RustUpstreamError=RustUpstreamError)
     monkeypatch.setattr(bindings, "get_native_bridge", lambda: native)
-    monkeypatch.delenv("LITELLM_RUST", raising=False)
+    monkeypatch.delenv("EMBROUTER_RUST", raising=False)
     configuration.reset_rust_configuration()
     yield
     NATIVE_TRANSCRIPTION.reset()
@@ -79,7 +79,7 @@ class AsyncBridge:
         return {"text": "async rust"}
 
 
-def dispatch_sync() -> litellm.TranscriptionResponse:
+def dispatch_sync() -> embrouter.TranscriptionResponse:
     return BedrockAudioTranscriptionRustDispatch().audio_transcriptions(
         model=MODEL,
         audio_file=AUDIO_FILE,
@@ -112,9 +112,9 @@ def test_dispatch_marshals_audio_into_rust_call() -> None:
 @pytest.mark.parametrize("disable", ("process", "environment"))
 def test_bedrock_transcription_ignores_optional_rust_switches(disable: str, monkeypatch: pytest.MonkeyPatch) -> None:
     if disable == "process":
-        litellm.rust(False)
+        embrouter.rust(False)
     else:
-        monkeypatch.setenv("LITELLM_RUST", "0")
+        monkeypatch.setenv("EMBROUTER_RUST", "0")
     bridge: Final = SyncBridge()
     NATIVE_TRANSCRIPTION.override(bridge)
 
@@ -139,7 +139,7 @@ def test_admission_decline_raises_for_required_route() -> None:
 def test_upstream_error_maps_to_api_error() -> None:
     NATIVE_TRANSCRIPTION.override(SyncBridge(RustUpstreamError(503, "bedrock down")))
 
-    with pytest.raises(litellm.APIError, match="bedrock down") as raised:
+    with pytest.raises(embrouter.APIError, match="bedrock down") as raised:
         dispatch_sync()
     assert raised.value.status_code == 503
 
@@ -148,9 +148,9 @@ def test_bedrock_transcription_dispatches_to_rust_from_sdk_entrypoint() -> None:
     bridge: Final = SyncBridge()
     NATIVE_TRANSCRIPTION.override(bridge)
 
-    response: Final = litellm.transcription(model=MODEL, file=AUDIO_FILE)
+    response: Final = embrouter.transcription(model=MODEL, file=AUDIO_FILE)
 
-    assert isinstance(response, litellm.TranscriptionResponse)
+    assert isinstance(response, embrouter.TranscriptionResponse)
     assert response.text == "rust"
     assert bridge.calls[0]["model"] == MODEL.removeprefix("bedrock/")
 
@@ -160,7 +160,7 @@ async def test_bedrock_atranscription_dispatches_to_rust_from_sdk_entrypoint() -
     bridge: Final = AsyncBridge()
     NATIVE_ATRANSCRIPTION.override(bridge)
 
-    response: Final = await litellm.atranscription(model=MODEL, file=AUDIO_FILE)
+    response: Final = await embrouter.atranscription(model=MODEL, file=AUDIO_FILE)
 
     assert response.text == "async rust"
     assert bridge.calls == (MODEL.removeprefix("bedrock/"),)

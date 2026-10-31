@@ -13,7 +13,7 @@ import guardrailsAiLogo from "../../../../../public/assets/logos/guardrails_ai.j
 import javelinLogo from "../../../../../public/assets/logos/javelin.png";
 import lakeraAiLogo from "../../../../../public/assets/logos/lakeraai.jpeg";
 import lassoLogo from "../../../../../public/assets/logos/lasso.png";
-import litellmLogo from "../../../../../public/assets/logos/litellm_logo.jpg";
+import embrouterLogo from "../../../../../public/assets/logos/embrouter_logo.jpg";
 import microsoftAzureLogo from "../../../../../public/assets/logos/microsoft_azure.svg";
 import nomaSecurityLogo from "../../../../../public/assets/logos/noma_security.png";
 import openaiSmallLogo from "../../../../../public/assets/logos/openai_small.svg";
@@ -46,7 +46,7 @@ export const populateGuardrailProviders = (providerParamsResponse: Record<string
   providers.PresidioPII = "Presidio PII";
   providers.Bedrock = "Bedrock Guardrail";
   providers.Lakera = "Lakera";
-  providers.LlmAsAJudge = "LiteLLM LLM as a Judge";
+  providers.LlmAsAJudge = "EmbRouter LLM as a Judge";
 
   // Add dynamic providers from API response
   Object.entries(providerParamsResponse).forEach(([key, value]) => {
@@ -76,7 +76,7 @@ export const guardrail_provider_map: Record<string, string> = {
   PresidioPII: "presidio",
   Bedrock: "bedrock",
   Lakera: "lakera_v2",
-  LitellmContentFilter: "litellm_content_filter",
+  EmbrouterContentFilter: "embrouter_content_filter",
   ToolPermission: "tool_permission",
   BlockCodeExecution: "block_code_execution",
   Promptguard: "promptguard",
@@ -169,7 +169,7 @@ export const shouldRenderContentFilterConfigSettings = (provider: string | null)
   // Check both dynamic and legacy providers
   const currentProviders = getGuardrailProviders();
   const providerEnum = currentProviders[provider as keyof typeof currentProviders];
-  return providerEnum === "LiteLLM Content Filter";
+  return providerEnum === "EmbRouter Content Filter";
 };
 
 export const shouldRenderLLMJudgeFields = (provider: string | null) => {
@@ -201,9 +201,9 @@ export const guardrailLogoMap = {
   "Prompt Security": promptSecurityLogo.src,
   PromptGuard: promptguardLogo.src,
   XecGuard: xecguardLogo.src,
-  "LiteLLM Content Filter": litellmLogo.src,
-  "LiteLLM LLM as a Judge": litellmLogo.src,
-  "Hide Secrets": litellmLogo.src,
+  "EmbRouter Content Filter": embrouterLogo.src,
+  "EmbRouter LLM as a Judge": embrouterLogo.src,
+  "Hide Secrets": embrouterLogo.src,
   Akto: aktoLogo.src,
   "DeepKeep AI Firewall": deepkeepLogo.src,
   "Qostodian Nexus": qohashLogo.src,
@@ -241,7 +241,7 @@ export const getGuardrailLogoAndName = (guardrailValue: string): { logo: string;
   return { logo, displayName: displayName || guardrailValue };
 };
 
-/** Tri-state UI value for `litellm_params.skip_system_message_in_guardrail` (inherit = use global). */
+/** Tri-state UI value for `embrouter_params.skip_system_message_in_guardrail` (inherit = use global). */
 export type SkipSystemMessageChoice = "inherit" | "yes" | "no";
 
 export function skipSystemMessageToChoice(v: boolean | null | undefined): SkipSystemMessageChoice {
@@ -257,7 +257,7 @@ export function choiceToSkipSystemForCreate(choice: SkipSystemMessageChoice | un
   return undefined;
 }
 
-/** Tri-state UI value for `litellm_params.skip_tool_message_in_guardrail` (inherit = use global). */
+/** Tri-state UI value for `embrouter_params.skip_tool_message_in_guardrail` (inherit = use global). */
 export type SkipToolMessageChoice = "inherit" | "yes" | "no";
 
 export function skipToolMessageToChoice(v: boolean | null | undefined): SkipToolMessageChoice {

@@ -1,4 +1,4 @@
-import { getProxyBaseUrl, getGlobalLitellmHeaderName } from "@/components/networking";
+import { getProxyBaseUrl, getGlobalEmbrouterHeaderName } from "@/components/networking";
 import { useMutation } from "@tanstack/react-query";
 
 interface CreateParams {
@@ -18,7 +18,7 @@ const performCloudZeroCreate = async (accessToken: string, params: CreateParams)
   const response = await fetch(url, {
     method: "POST",
     headers: {
-      [getGlobalLitellmHeaderName()]: `Bearer ${accessToken}`,
+      [getGlobalEmbrouterHeaderName()]: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({

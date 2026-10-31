@@ -11,16 +11,16 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-from litellm.constants import ANTHROPIC_SKILLS_API_BETA_VERSION
-from litellm.llms.anthropic.skills.transformation import AnthropicSkillsConfig
-from litellm.types.llms.anthropic_skills import (
+from embrouter.constants import ANTHROPIC_SKILLS_API_BETA_VERSION
+from embrouter.llms.anthropic.skills.transformation import AnthropicSkillsConfig
+from embrouter.types.llms.anthropic_skills import (
     CreateSkillRequest,
     DeleteSkillResponse,
     ListSkillsParams,
     ListSkillsResponse,
     Skill,
 )
-from litellm.types.router import GenericLiteLLMParams
+from embrouter.types.router import GenericEmbRouterParams
 
 
 FAKE_API_KEY = "sk-ant-test-key-1234"
@@ -81,7 +81,7 @@ class TestAnthropicSkillsConfigURLConstruction:
 
     def test_url_falls_back_to_anthropic_default(self):
         with patch(
-            "litellm.llms.anthropic.common_utils.AnthropicModelInfo.get_api_base",
+            "embrouter.llms.anthropic.common_utils.AnthropicModelInfo.get_api_base",
             return_value="https://api.anthropic.com",
         ):
             url = self.config.get_complete_url(
@@ -103,47 +103,47 @@ class TestAnthropicSkillsConfigHeaderValidation:
     def setup_method(self):
         self.config = AnthropicSkillsConfig()
 
-    def _make_litellm_params(self, api_key=FAKE_API_KEY):
-        return GenericLiteLLMParams(api_key=api_key)
+    def _make_embrouter_params(self, api_key=FAKE_API_KEY):
+        return GenericEmbRouterParams(api_key=api_key)
 
     def test_sets_api_key_header(self):
         with patch(
-            "litellm.llms.anthropic.common_utils.AnthropicModelInfo.get_api_key",
+            "embrouter.llms.anthropic.common_utils.AnthropicModelInfo.get_api_key",
             return_value=FAKE_API_KEY,
         ):
             headers = self.config.validate_environment(
-                headers={}, litellm_params=self._make_litellm_params()
+                headers={}, embrouter_params=self._make_embrouter_params()
             )
         assert headers["x-api-key"] == FAKE_API_KEY
 
     def test_sets_anthropic_version_header(self):
         with patch(
-            "litellm.llms.anthropic.common_utils.AnthropicModelInfo.get_api_key",
+            "embrouter.llms.anthropic.common_utils.AnthropicModelInfo.get_api_key",
             return_value=FAKE_API_KEY,
         ):
             headers = self.config.validate_environment(
-                headers={}, litellm_params=self._make_litellm_params()
+                headers={}, embrouter_params=self._make_embrouter_params()
             )
         assert headers["anthropic-version"] == "2023-06-01"
 
     def test_sets_skills_beta_header(self):
         with patch(
-            "litellm.llms.anthropic.common_utils.AnthropicModelInfo.get_api_key",
+            "embrouter.llms.anthropic.common_utils.AnthropicModelInfo.get_api_key",
             return_value=FAKE_API_KEY,
         ):
             headers = self.config.validate_environment(
-                headers={}, litellm_params=self._make_litellm_params()
+                headers={}, embrouter_params=self._make_embrouter_params()
             )
         assert headers["anthropic-beta"] == ANTHROPIC_SKILLS_API_BETA_VERSION
 
     def test_merges_existing_beta_header_string(self):
         with patch(
-            "litellm.llms.anthropic.common_utils.AnthropicModelInfo.get_api_key",
+            "embrouter.llms.anthropic.common_utils.AnthropicModelInfo.get_api_key",
             return_value=FAKE_API_KEY,
         ):
             headers = self.config.validate_environment(
                 headers={"anthropic-beta": "other-beta-2024-01-01"},
-                litellm_params=self._make_litellm_params(),
+                embrouter_params=self._make_embrouter_params(),
             )
         assert isinstance(headers["anthropic-beta"], list)
         assert "other-beta-2024-01-01" in headers["anthropic-beta"]
@@ -151,24 +151,24 @@ class TestAnthropicSkillsConfigHeaderValidation:
 
     def test_merges_existing_beta_header_list(self):
         with patch(
-            "litellm.llms.anthropic.common_utils.AnthropicModelInfo.get_api_key",
+            "embrouter.llms.anthropic.common_utils.AnthropicModelInfo.get_api_key",
             return_value=FAKE_API_KEY,
         ):
             headers = self.config.validate_environment(
                 headers={"anthropic-beta": ["other-beta-2024-01-01"]},
-                litellm_params=self._make_litellm_params(),
+                embrouter_params=self._make_embrouter_params(),
             )
         assert ANTHROPIC_SKILLS_API_BETA_VERSION in headers["anthropic-beta"]
         assert "other-beta-2024-01-01" in headers["anthropic-beta"]
 
     def test_does_not_duplicate_beta_header(self):
         with patch(
-            "litellm.llms.anthropic.common_utils.AnthropicModelInfo.get_api_key",
+            "embrouter.llms.anthropic.common_utils.AnthropicModelInfo.get_api_key",
             return_value=FAKE_API_KEY,
         ):
             headers = self.config.validate_environment(
                 headers={"anthropic-beta": ANTHROPIC_SKILLS_API_BETA_VERSION},
-                litellm_params=self._make_litellm_params(),
+                embrouter_params=self._make_embrouter_params(),
             )
         beta = headers["anthropic-beta"]
         if isinstance(beta, list):
@@ -178,25 +178,25 @@ class TestAnthropicSkillsConfigHeaderValidation:
 
     def test_raises_without_api_key(self):
         with patch(
-            "litellm.llms.anthropic.common_utils.AnthropicModelInfo.get_api_key",
+            "embrouter.llms.anthropic.common_utils.AnthropicModelInfo.get_api_key",
             return_value=None,
         ):
             with pytest.raises(ValueError, match="ANTHROPIC_API_KEY"):
                 self.config.validate_environment(
-                    headers={}, litellm_params=self._make_litellm_params(api_key=None)
+                    headers={}, embrouter_params=self._make_embrouter_params(api_key=None)
                 )
 
 
 class TestAnthropicSkillsConfigCreateRequestTransformation:
     def setup_method(self):
         self.config = AnthropicSkillsConfig()
-        self.litellm_params = GenericLiteLLMParams(api_key=FAKE_API_KEY)
+        self.embrouter_params = GenericEmbRouterParams(api_key=FAKE_API_KEY)
 
     def test_display_title_included(self):
         create_request: CreateSkillRequest = {"display_title": "My Skill"}
         body = self.config.transform_create_skill_request(
             create_request=create_request,
-            litellm_params=self.litellm_params,
+            embrouter_params=self.embrouter_params,
             headers={},
         )
         assert body["display_title"] == "My Skill"
@@ -205,7 +205,7 @@ class TestAnthropicSkillsConfigCreateRequestTransformation:
         create_request: CreateSkillRequest = {"display_title": None, "files": None}
         body = self.config.transform_create_skill_request(
             create_request=create_request,
-            litellm_params=self.litellm_params,
+            embrouter_params=self.embrouter_params,
             headers={},
         )
         assert "display_title" not in body
@@ -215,7 +215,7 @@ class TestAnthropicSkillsConfigCreateRequestTransformation:
         create_request: CreateSkillRequest = {}
         body = self.config.transform_create_skill_request(
             create_request=create_request,
-            litellm_params=self.litellm_params,
+            embrouter_params=self.embrouter_params,
             headers={},
         )
         assert body == {}
@@ -224,17 +224,17 @@ class TestAnthropicSkillsConfigCreateRequestTransformation:
 class TestAnthropicSkillsConfigListRequestTransformation:
     def setup_method(self):
         self.config = AnthropicSkillsConfig()
-        self.litellm_params = GenericLiteLLMParams(api_key=FAKE_API_KEY)
+        self.embrouter_params = GenericEmbRouterParams(api_key=FAKE_API_KEY)
 
     def test_limit_included_in_query_params(self):
         list_params: ListSkillsParams = {"limit": 25}
         with patch(
-            "litellm.llms.anthropic.common_utils.AnthropicModelInfo.get_api_base",
+            "embrouter.llms.anthropic.common_utils.AnthropicModelInfo.get_api_base",
             return_value=FAKE_API_BASE,
         ):
             url, query_params = self.config.transform_list_skills_request(
                 list_params=list_params,
-                litellm_params=self.litellm_params,
+                embrouter_params=self.embrouter_params,
                 headers={},
             )
         assert query_params["limit"] == 25
@@ -243,12 +243,12 @@ class TestAnthropicSkillsConfigListRequestTransformation:
     def test_source_filter_included(self):
         list_params: ListSkillsParams = {"source": "custom"}
         with patch(
-            "litellm.llms.anthropic.common_utils.AnthropicModelInfo.get_api_base",
+            "embrouter.llms.anthropic.common_utils.AnthropicModelInfo.get_api_base",
             return_value=FAKE_API_BASE,
         ):
             _, query_params = self.config.transform_list_skills_request(
                 list_params=list_params,
-                litellm_params=self.litellm_params,
+                embrouter_params=self.embrouter_params,
                 headers={},
             )
         assert query_params["source"] == "custom"
@@ -256,12 +256,12 @@ class TestAnthropicSkillsConfigListRequestTransformation:
     def test_empty_params_produce_empty_query(self):
         list_params: ListSkillsParams = {}
         with patch(
-            "litellm.llms.anthropic.common_utils.AnthropicModelInfo.get_api_base",
+            "embrouter.llms.anthropic.common_utils.AnthropicModelInfo.get_api_base",
             return_value=FAKE_API_BASE,
         ):
             _, query_params = self.config.transform_list_skills_request(
                 list_params=list_params,
-                litellm_params=self.litellm_params,
+                embrouter_params=self.embrouter_params,
                 headers={},
             )
         assert query_params == {}

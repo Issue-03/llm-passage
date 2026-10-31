@@ -12,14 +12,14 @@ import httpx
 from pydantic import BaseModel, ConfigDict
 from typing_extensions import ReadOnly
 
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.base_llm.search.transformation import (
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.base_llm.search.transformation import (
     BaseSearchConfig,
     SearchResponse,
     SearchResult,
 )
-from litellm.llms.parallel_ai.search.cost_calculator import PARALLEL_AI_USAGE_PARAM
-from litellm.secret_managers.main import get_secret_str
+from embrouter.llms.parallel_ai.search.cost_calculator import PARALLEL_AI_USAGE_PARAM
+from embrouter.secret_managers.main import get_secret_str
 
 
 class _ParallelAIV1SearchResult(BaseModel):
@@ -173,7 +173,7 @@ class ParallelAISearchConfig(BaseSearchConfig):
         if mode is None and processor is not None:
             mode = LEGACY_PROCESSOR_TO_MODE.get(processor, processor)
         # the v1 API defaults to 'advanced' when mode is omitted; default to 'basic'
-        # instead to keep v1beta's default tier (processor 'base') and litellm's
+        # instead to keep v1beta's default tier (processor 'base') and embrouter's
         # cost map entry for `parallel_ai/search` accurate
         request_data["mode"] = mode or "basic"
 
@@ -228,13 +228,13 @@ class ParallelAISearchConfig(BaseSearchConfig):
     def transform_search_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         **kwargs,
     ) -> SearchResponse:
         """
-        Transform Parallel AI v1 API response to LiteLLM unified SearchResponse format.
+        Transform Parallel AI v1 API response to EmbRouter unified SearchResponse format.
 
-        Parallel AI -> LiteLLM mappings:
+        Parallel AI -> EmbRouter mappings:
         - results[].title -> SearchResult.title
         - results[].url -> SearchResult.url
         - results[].excerpts (array) -> SearchResult.snippet (joined string); the raw
@@ -242,7 +242,7 @@ class ParallelAISearchConfig(BaseSearchConfig):
         - results[].publish_date -> SearchResult.date
         - search_id / session_id / warnings are preserved as extra fields on the
           response; usage is preserved as `parallel_usage` (the `usage` name is
-          reserved for LiteLLM's token-usage object)
+          reserved for EmbRouter's token-usage object)
         """
         parsed: Final = _ParallelAIV1SearchResponse.model_validate(raw_response.json())
 

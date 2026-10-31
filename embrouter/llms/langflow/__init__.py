@@ -1,1 +1,1 @@
-"""LangFlow LLM provider for LiteLLM."""
+"""LangFlow LLM provider for EmbRouter."""

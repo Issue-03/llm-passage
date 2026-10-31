@@ -5,7 +5,7 @@ export const PTU_COST_ATTRIBUTION_SETTING_KEY = "enable_ptu_cost_attribution";
 /**
  * Whether the proxy opted into PTU flat-cost attribution.
  *
- * Derived on the proxy from LITELLM_ENABLE_PTU_COST_ATTRIBUTION and returned read-only on
+ * Derived on the proxy from EMBROUTER_ENABLE_PTU_COST_ATTRIBUTION and returned read-only on
  * /get/ui_settings, so it is not editable from the UI. Anything other than an explicit
  * true (including a settings fetch that has not resolved) counts as off.
  *

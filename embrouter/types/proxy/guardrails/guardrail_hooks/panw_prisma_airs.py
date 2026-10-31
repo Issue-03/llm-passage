@@ -22,7 +22,7 @@ class PanwPrismaAirsGuardrailConfigModel(GuardrailConfigModel):
 
     app_name: str | None = Field(
         default=None,
-        description="Application name for tracking this LiteLLM instance in Prisma AIRS analytics and dashboards. Defaults to 'LiteLLM' if not specified.",
+        description="Application name for tracking this EmbRouter instance in Prisma AIRS analytics and dashboards. Defaults to 'EmbRouter' if not specified.",
     )
 
     mask_on_block: bool = Field(

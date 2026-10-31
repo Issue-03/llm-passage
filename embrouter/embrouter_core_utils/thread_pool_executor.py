@@ -5,8 +5,8 @@ from collections.abc import Callable
 from concurrent.futures import Future, ThreadPoolExecutor
 from typing import Final, ParamSpec, TypeVar
 
-from litellm._logging import verbose_logger
-from litellm.constants import (
+from embrouter._logging import verbose_logger
+from embrouter.constants import (
     LOGGING_EXECUTOR_DROPPED_TASK_LOG_INTERVAL_SECONDS,
     LOGGING_EXECUTOR_MAX_PENDING_TASKS,
     LOGGING_EXECUTOR_MAX_THREADS,
@@ -35,7 +35,7 @@ class BoundedLoggingThreadPoolExecutor(ThreadPoolExecutor):
         drop_log_interval_seconds: float = LOGGING_EXECUTOR_DROPPED_TASK_LOG_INTERVAL_SECONDS,
         logger: logging.Logger = verbose_logger,
     ) -> None:
-        super().__init__(max_workers=max_workers, thread_name_prefix="litellm-logging")
+        super().__init__(max_workers=max_workers, thread_name_prefix="embrouter-logging")
         self._max_pending_tasks: Final = max_pending_tasks
         self._drop_log_interval_seconds: Final = drop_log_interval_seconds
         self._logger: Final = logger
@@ -69,7 +69,7 @@ class BoundedLoggingThreadPoolExecutor(ThreadPoolExecutor):
             self._last_drop_log_time = now
 
         self._logger.warning(
-            "litellm logging executor backlog is full (max_pending_tasks=%s); dropped %s logging task(s) "
+            "embrouter logging executor backlog is full (max_pending_tasks=%s); dropped %s logging task(s) "
             "since the last warning. Set LOGGING_EXECUTOR_MAX_PENDING_TASKS to raise the cap.",
             self._max_pending_tasks,
             dropped_count,

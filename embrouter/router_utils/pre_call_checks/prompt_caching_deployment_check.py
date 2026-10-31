@@ -7,18 +7,18 @@ Route to previously cached model id, if valid
 from collections.abc import Callable
 from typing import Final, cast
 
-from litellm import verbose_logger
-from litellm.caching.dual_cache import DualCache
-from litellm.constants import DEFAULT_MINIMUM_PROMPT_CACHE_TOKEN_COUNT
-from litellm.integrations.anthropic_cache_control_hook import (
+from embrouter import verbose_logger
+from embrouter.caching.dual_cache import DualCache
+from embrouter.constants import DEFAULT_MINIMUM_PROMPT_CACHE_TOKEN_COUNT
+from embrouter.integrations.anthropic_cache_control_hook import (
     AllToolParamValues,
     AnthropicCacheControlHook,
 )
-from litellm.integrations.custom_logger import CustomLogger, Span
-from litellm.litellm_core_utils.token_counter import offload_token_count
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.utils import CallTypes, StandardLoggingPayload
-from litellm.utils import get_prompt_cache_min_tokens, is_prompt_caching_valid_prompt
+from embrouter.integrations.custom_logger import CustomLogger, Span
+from embrouter.embrouter_core_utils.token_counter import offload_token_count
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.utils import CallTypes, StandardLoggingPayload
+from embrouter.utils import get_prompt_cache_min_tokens, is_prompt_caching_valid_prompt
 
 from ..prompt_caching_cache import PromptCachingCache
 
@@ -40,9 +40,9 @@ def _get_min_token_count_for_deployments(healthy_deployments: list[dict]) -> int
     """
     return min(
         (
-            get_prompt_cache_min_tokens(model=deployment["litellm_params"]["model"])
+            get_prompt_cache_min_tokens(model=deployment["embrouter_params"]["model"])
             for deployment in healthy_deployments
-            if deployment.get("litellm_params", {}).get("model")
+            if deployment.get("embrouter_params", {}).get("model")
         ),
         default=DEFAULT_MINIMUM_PROMPT_CACHE_TOKEN_COUNT,
     )
@@ -77,14 +77,14 @@ class PromptCachingDeploymentCheck(CustomLogger):
             )
 
             ## AUTO PROMPT CACHING - the breakpoints this request will carry are injected inside
-            ## `litellm.acompletion`, after a deployment has been picked, so the affinity key has to
+            ## `embrouter.acompletion`, after a deployment has been picked, so the affinity key has to
             ## be derived from the messages as they will be sent, not as they arrive here.
             affinity_messages: Final = AnthropicCacheControlHook.messages_with_default_injections(
                 messages=cast(list[AllMessageValues], messages),
                 models=(
-                    deployment["litellm_params"]["model"]
+                    deployment["embrouter_params"]["model"]
                     for deployment in healthy_deployments
-                    if isinstance(deployment.get("litellm_params"), dict) and deployment["litellm_params"].get("model")
+                    if isinstance(deployment.get("embrouter_params"), dict) and deployment["embrouter_params"].get("model")
                 ),
                 tools=(
                     cast(  # cast-ok: request_kwargs is untyped; the stand-down scan duck-types every tool it reads
@@ -125,7 +125,7 @@ class PromptCachingDeploymentCheck(CustomLogger):
             and call_type != CallTypes.anthropic_messages.value
         ):  # only use prompt caching for completion calls
             verbose_logger.debug(
-                "litellm.router_utils.pre_call_checks.prompt_caching_deployment_check: skipping adding model id to prompt caching cache, CALL TYPE IS NOT COMPLETION or ANTHROPIC MESSAGE"
+                "embrouter.router_utils.pre_call_checks.prompt_caching_deployment_check: skipping adding model id to prompt caching cache, CALL TYPE IS NOT COMPLETION or ANTHROPIC MESSAGE"
             )
             return
 
@@ -135,12 +135,12 @@ class PromptCachingDeploymentCheck(CustomLogger):
 
         if messages is None or not isinstance(messages, list):
             verbose_logger.debug(
-                "litellm.router_utils.pre_call_checks.prompt_caching_deployment_check: skipping adding model id to prompt caching cache, MESSAGES IS NOT A LIST"
+                "embrouter.router_utils.pre_call_checks.prompt_caching_deployment_check: skipping adding model id to prompt caching cache, MESSAGES IS NOT A LIST"
             )
             return
         if model_id is None:
             verbose_logger.debug(
-                "litellm.router_utils.pre_call_checks.prompt_caching_deployment_check: skipping adding model id to prompt caching cache, MODEL ID IS NONE"
+                "embrouter.router_utils.pre_call_checks.prompt_caching_deployment_check: skipping adding model id to prompt caching cache, MODEL ID IS NONE"
             )
             return
 

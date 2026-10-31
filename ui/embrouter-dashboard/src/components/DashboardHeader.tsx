@@ -37,8 +37,8 @@ export function DashboardHeader({ showViewSwitcher = false }: DashboardHeaderPro
   const handleWorkerSwitch = (workerId: string) => {
     clearTokenCookies();
     clearStoredReturnUrl();
-    localStorage.removeItem("litellm_selected_worker_id");
-    localStorage.removeItem("litellm_worker_url");
+    localStorage.removeItem("embrouter_selected_worker_id");
+    localStorage.removeItem("embrouter_worker_url");
     window.location.href = `${getLoginUrl()}?worker=${encodeURIComponent(workerId)}`;
   };
 

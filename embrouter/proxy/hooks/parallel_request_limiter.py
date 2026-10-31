@@ -6,27 +6,27 @@ from typing import TYPE_CHECKING, Any, Final, Literal, NoReturn
 from pydantic import BaseModel
 from typing_extensions import TypedDict
 
-import litellm
-from litellm import DualCache, EmbeddingResponse, ModelResponse, TextCompletionResponse
-from litellm._logging import verbose_proxy_logger
-from litellm.exceptions import RateLimitType
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.core_helpers import _get_parent_otel_span_from_kwargs
-from litellm.proxy._types import CommonProxyErrors, CurrentItemRateLimit, UserAPIKeyAuth
-from litellm.proxy.auth.auth_utils import (
+import embrouter
+from embrouter import DualCache, EmbeddingResponse, ModelResponse, TextCompletionResponse
+from embrouter._logging import verbose_proxy_logger
+from embrouter.exceptions import RateLimitType
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.embrouter_core_utils.core_helpers import _get_parent_otel_span_from_kwargs
+from embrouter.proxy._types import CommonProxyErrors, CurrentItemRateLimit, UserAPIKeyAuth
+from embrouter.proxy.auth.auth_utils import (
     get_key_model_rpm_limit,
     get_key_model_tpm_limit,
 )
-from litellm.proxy.auth.budget_throttle import throttled_limit
-from litellm.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
-from litellm.proxy.hooks.rate_limiter_utils import resolve_llm_provider_for_rate_limit
-from litellm.proxy.litellm_pre_call_utils import LiteLLMProxyRequestSetup
-from litellm.types.utils import Usage
+from embrouter.proxy.auth.budget_throttle import throttled_limit
+from embrouter.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
+from embrouter.proxy.hooks.rate_limiter_utils import resolve_llm_provider_for_rate_limit
+from embrouter.proxy.embrouter_pre_call_utils import EmbRouterProxyRequestSetup
+from embrouter.types.utils import Usage
 
 if TYPE_CHECKING:
     from opentelemetry.trace import Span as _Span
 
-    from litellm.proxy.utils import InternalUsageCache as _InternalUsageCache
+    from embrouter.proxy.utils import InternalUsageCache as _InternalUsageCache
 
     Span = _Span
     InternalUsageCache = _InternalUsageCache
@@ -59,7 +59,7 @@ class _PROXY_MaxParallelRequestsHandler(CustomLogger):
     def print_verbose(self, print_statement):
         try:
             verbose_proxy_logger.debug(print_statement)
-            if litellm.set_verbose:
+            if embrouter.set_verbose:
                 print(print_statement)  # noqa: T201
         except Exception:
             pass
@@ -130,7 +130,7 @@ class _PROXY_MaxParallelRequestsHandler(CustomLogger):
             requested_model: Final = data.get("model") if data else None
             resolved_model, llm_provider = resolve_llm_provider_for_rate_limit(requested_model)
             raise ProxyRateLimitError(
-                detail=f"LiteLLM Rate Limit Handler for rate limit type = {rate_limit_type}. {CommonProxyErrors.max_parallel_request_limit_reached.value}. current rpm: {current['current_rpm']}, rpm limit: {rpm_limit}, current tpm: {current['current_tpm']}, tpm limit: {tpm_limit}, current max_parallel_requests: {current['current_requests']}, max_parallel_requests: {max_parallel_requests}",
+                detail=f"EmbRouter Rate Limit Handler for rate limit type = {rate_limit_type}. {CommonProxyErrors.max_parallel_request_limit_reached.value}. current rpm: {current['current_rpm']}, rpm limit: {rpm_limit}, current tpm: {current['current_tpm']}, tpm limit: {tpm_limit}, current max_parallel_requests: {current['current_requests']}, max_parallel_requests: {max_parallel_requests}",
                 headers={"retry-after": str(self.time_to_next_minute())},
                 rate_limit_type=triggered_type,
                 model=resolved_model,
@@ -140,7 +140,7 @@ class _PROXY_MaxParallelRequestsHandler(CustomLogger):
         await self.internal_usage_cache.async_batch_set_cache(
             cache_list=values_to_update_in_cache,
             ttl=60,
-            litellm_parent_otel_span=user_api_key_dict.parent_otel_span,
+            embrouter_parent_otel_span=user_api_key_dict.parent_otel_span,
             local_only=True,
         )
         return new_val
@@ -164,12 +164,12 @@ class _PROXY_MaxParallelRequestsHandler(CustomLogger):
         requested_model: str | None = None,
     ) -> NoReturn:
         """
-        Raise a 429 with a retry-after header for litellm-proxy parallel-request limits.
+        Raise a 429 with a retry-after header for embrouter-proxy parallel-request limits.
 
         Always raises :class:`ProxyRateLimitError` — never returns. Annotated
         ``NoReturn`` so type-checkers know callers after this invocation are
         unreachable. The raised exception is both a
-        :class:`litellm.RateLimitError` (so callers can catch by category) and a
+        :class:`embrouter.RateLimitError` (so callers can catch by category) and a
         :class:`fastapi.HTTPException` (so the FastAPI dispatcher serializes it
         correctly with status 429 and the supplied headers).
 
@@ -182,7 +182,7 @@ class _PROXY_MaxParallelRequestsHandler(CustomLogger):
         ``requested_model`` is resolved via :func:`get_llm_provider` so the
         raised exception carries ``llm_provider`` (and a stripped ``model``)
         for downstream loggers (Prometheus failure metric, observability
-        callbacks). Falls back to ``llm_provider="litellm_proxy"`` when the
+        callbacks). Falls back to ``llm_provider="embrouter_proxy"`` when the
         model is missing or unparseable — see
         :func:`resolve_llm_provider_for_rate_limit`.
         """
@@ -251,7 +251,7 @@ class _PROXY_MaxParallelRequestsHandler(CustomLogger):
         call_type: str,
     ):
         self.print_verbose("Inside Max Parallel Request Pre-Call Hook")
-        api_key: Final = LiteLLMProxyRequestSetup.get_logged_api_key(user_api_key_dict)
+        api_key: Final = EmbRouterProxyRequestSetup.get_logged_api_key(user_api_key_dict)
         max_parallel_requests = user_api_key_dict.max_parallel_requests
         if max_parallel_requests is None:
             max_parallel_requests = sys.maxsize
@@ -281,7 +281,7 @@ class _PROXY_MaxParallelRequestsHandler(CustomLogger):
             current_global_requests = await self.internal_usage_cache.async_get_cache(
                 key=_key,
                 local_only=True,
-                litellm_parent_otel_span=user_api_key_dict.parent_otel_span,
+                embrouter_parent_otel_span=user_api_key_dict.parent_otel_span,
             )
             # check if below limit
             if current_global_requests is None:
@@ -298,7 +298,7 @@ class _PROXY_MaxParallelRequestsHandler(CustomLogger):
                     key=_key,
                     value=1,
                     local_only=True,
-                    litellm_parent_otel_span=user_api_key_dict.parent_otel_span,
+                    embrouter_parent_otel_span=user_api_key_dict.parent_otel_span,
                 )
         _model = data.get("model", None)
 
@@ -390,8 +390,8 @@ class _PROXY_MaxParallelRequestsHandler(CustomLogger):
                     _remaining_requests = rpm_limit_for_model - new_val["current_rpm"]
 
             _remaining_limits_data: Final = {
-                f"litellm-key-remaining-tokens-{_model}": _remaining_tokens,
-                f"litellm-key-remaining-requests-{_model}": _remaining_requests,
+                f"embrouter-key-remaining-tokens-{_model}": _remaining_tokens,
+                f"embrouter-key-remaining-requests-{_model}": _remaining_requests,
             }
 
             if "metadata" not in data:
@@ -485,32 +485,32 @@ class _PROXY_MaxParallelRequestsHandler(CustomLogger):
             self.internal_usage_cache.async_batch_set_cache(
                 cache_list=values_to_update_in_cache,
                 ttl=60,
-                litellm_parent_otel_span=user_api_key_dict.parent_otel_span,
+                embrouter_parent_otel_span=user_api_key_dict.parent_otel_span,
             )  # don't block execution for cache updates
         )
 
     async def async_log_success_event(self, kwargs, response_obj: object, start_time, end_time):
-        from litellm.proxy.common_utils.callback_utils import (
-            get_model_group_from_litellm_kwargs,
+        from embrouter.proxy.common_utils.callback_utils import (
+            get_model_group_from_embrouter_kwargs,
         )
 
-        litellm_parent_otel_span: Final[Span | None] = _get_parent_otel_span_from_kwargs(kwargs=kwargs)
+        embrouter_parent_otel_span: Final[Span | None] = _get_parent_otel_span_from_kwargs(kwargs=kwargs)
         try:
             self.print_verbose("INSIDE parallel request limiter ASYNC SUCCESS LOGGING")
 
-            global_max_parallel_requests: Final = kwargs["litellm_params"]["metadata"].get(
+            global_max_parallel_requests: Final = kwargs["embrouter_params"]["metadata"].get(
                 "global_max_parallel_requests", None
             )
-            user_api_key: Final = kwargs["litellm_params"]["metadata"]["user_api_key"]
-            user_api_key_user_id: Final = kwargs["litellm_params"]["metadata"].get("user_api_key_user_id", None)
-            user_api_key_team_id: Final = kwargs["litellm_params"]["metadata"].get("user_api_key_team_id", None)
-            user_api_key_model_max_budget: Final = kwargs["litellm_params"]["metadata"].get(
+            user_api_key: Final = kwargs["embrouter_params"]["metadata"]["user_api_key"]
+            user_api_key_user_id: Final = kwargs["embrouter_params"]["metadata"].get("user_api_key_user_id", None)
+            user_api_key_team_id: Final = kwargs["embrouter_params"]["metadata"].get("user_api_key_team_id", None)
+            user_api_key_model_max_budget: Final = kwargs["embrouter_params"]["metadata"].get(
                 "user_api_key_model_max_budget", None
             )
             user_api_key_end_user_id: Final = kwargs.get("user")
 
-            user_api_key_metadata: Final = kwargs["litellm_params"]["metadata"].get("user_api_key_metadata", {}) or {}
-            user_api_key_team_metadata = kwargs["litellm_params"]["metadata"].get("user_api_key_team_metadata", None)
+            user_api_key_metadata: Final = kwargs["embrouter_params"]["metadata"].get("user_api_key_metadata", {}) or {}
+            user_api_key_team_metadata = kwargs["embrouter_params"]["metadata"].get("user_api_key_team_metadata", None)
             user_api_key_dict: Final = UserAPIKeyAuth(
                 api_key=user_api_key,
                 metadata=user_api_key_metadata,
@@ -530,7 +530,7 @@ class _PROXY_MaxParallelRequestsHandler(CustomLogger):
                     key=_key,
                     value=-1,
                     local_only=True,
-                    litellm_parent_otel_span=litellm_parent_otel_span,
+                    embrouter_parent_otel_span=embrouter_parent_otel_span,
                 )
 
             current_date: Final = datetime.now().strftime("%Y-%m-%d")
@@ -551,7 +551,7 @@ class _PROXY_MaxParallelRequestsHandler(CustomLogger):
 
                 current: dict[str, int] = await self.internal_usage_cache.async_get_cache(
                     key=request_count_api_key,
-                    litellm_parent_otel_span=litellm_parent_otel_span,
+                    embrouter_parent_otel_span=embrouter_parent_otel_span,
                 ) or {
                     "current_requests": 1,
                     "current_tpm": 0,
@@ -570,7 +570,7 @@ class _PROXY_MaxParallelRequestsHandler(CustomLogger):
             # ------------
             # Update usage - model group + API Key
             # ------------
-            model_group: Final = get_model_group_from_litellm_kwargs(kwargs)
+            model_group: Final = get_model_group_from_embrouter_kwargs(kwargs)
             _success_tpm_limit: Final = (
                 get_key_model_tpm_limit(user_api_key_dict, model_name=model_group) if model_group is not None else None
             )
@@ -592,7 +592,7 @@ class _PROXY_MaxParallelRequestsHandler(CustomLogger):
 
                 current = await self.internal_usage_cache.async_get_cache(
                     key=request_count_api_key,
-                    litellm_parent_otel_span=litellm_parent_otel_span,
+                    embrouter_parent_otel_span=embrouter_parent_otel_span,
                 ) or {
                     "current_requests": 1,
                     "current_tpm": 0,
@@ -618,7 +618,7 @@ class _PROXY_MaxParallelRequestsHandler(CustomLogger):
 
                 current = await self.internal_usage_cache.async_get_cache(
                     key=request_count_api_key,
-                    litellm_parent_otel_span=litellm_parent_otel_span,
+                    embrouter_parent_otel_span=embrouter_parent_otel_span,
                 ) or {
                     "current_requests": 1,
                     "current_tpm": total_tokens,
@@ -644,7 +644,7 @@ class _PROXY_MaxParallelRequestsHandler(CustomLogger):
 
                 current = await self.internal_usage_cache.async_get_cache(
                     key=request_count_api_key,
-                    litellm_parent_otel_span=litellm_parent_otel_span,
+                    embrouter_parent_otel_span=embrouter_parent_otel_span,
                 ) or {
                     "current_requests": 1,
                     "current_tpm": total_tokens,
@@ -670,7 +670,7 @@ class _PROXY_MaxParallelRequestsHandler(CustomLogger):
 
                 current = await self.internal_usage_cache.async_get_cache(
                     key=request_count_api_key,
-                    litellm_parent_otel_span=litellm_parent_otel_span,
+                    embrouter_parent_otel_span=embrouter_parent_otel_span,
                 ) or {
                     "current_requests": 1,
                     "current_tpm": total_tokens,
@@ -689,7 +689,7 @@ class _PROXY_MaxParallelRequestsHandler(CustomLogger):
             await self.internal_usage_cache.async_batch_set_cache(
                 cache_list=values_to_update_in_cache,
                 ttl=60,
-                litellm_parent_otel_span=litellm_parent_otel_span,
+                embrouter_parent_otel_span=embrouter_parent_otel_span,
             )
         except Exception as e:
             self.print_verbose(e)
@@ -697,8 +697,8 @@ class _PROXY_MaxParallelRequestsHandler(CustomLogger):
     async def async_log_failure_event(self, kwargs, response_obj, start_time, end_time):
         try:
             self.print_verbose("Inside Max Parallel Request Failure Hook")
-            litellm_parent_otel_span: Final[Span | None] = _get_parent_otel_span_from_kwargs(kwargs=kwargs)
-            _metadata: Final = kwargs["litellm_params"].get("metadata", {}) or {}
+            embrouter_parent_otel_span: Final[Span | None] = _get_parent_otel_span_from_kwargs(kwargs=kwargs)
+            _metadata: Final = kwargs["embrouter_params"].get("metadata", {}) or {}
             global_max_parallel_requests: Final = _metadata.get("global_max_parallel_requests", None)
             user_api_key: Final = _metadata.get("user_api_key", None)
             self.print_verbose(f"user_api_key: [set={user_api_key is not None}]")
@@ -720,7 +720,7 @@ class _PROXY_MaxParallelRequestsHandler(CustomLogger):
                         await self.internal_usage_cache.async_get_cache(
                             key=_key,
                             local_only=True,
-                            litellm_parent_otel_span=litellm_parent_otel_span,
+                            embrouter_parent_otel_span=embrouter_parent_otel_span,
                         )
                     )
                     # decrement
@@ -728,7 +728,7 @@ class _PROXY_MaxParallelRequestsHandler(CustomLogger):
                         key=_key,
                         value=-1,
                         local_only=True,
-                        litellm_parent_otel_span=litellm_parent_otel_span,
+                        embrouter_parent_otel_span=embrouter_parent_otel_span,
                     )
 
                 current_date: Final = datetime.now().strftime("%Y-%m-%d")
@@ -743,7 +743,7 @@ class _PROXY_MaxParallelRequestsHandler(CustomLogger):
                 # ------------
                 current: Final = await self.internal_usage_cache.async_get_cache(
                     key=request_count_api_key,
-                    litellm_parent_otel_span=litellm_parent_otel_span,
+                    embrouter_parent_otel_span=embrouter_parent_otel_span,
                 ) or {
                     "current_requests": 1,
                     "current_tpm": 0,
@@ -761,7 +761,7 @@ class _PROXY_MaxParallelRequestsHandler(CustomLogger):
                     request_count_api_key,
                     new_val,
                     ttl=60,
-                    litellm_parent_otel_span=litellm_parent_otel_span,
+                    embrouter_parent_otel_span=embrouter_parent_otel_span,
                 )  # save in cache for up to 1 min.
         except Exception as e:
             verbose_proxy_logger.exception("Inside Parallel Request Limiter: An exception occurred - %s", e)
@@ -774,13 +774,13 @@ class _PROXY_MaxParallelRequestsHandler(CustomLogger):
         """
         Helper to get the 'Internal User Object'
 
-        It uses the `get_user_object` function from `litellm.proxy.auth.auth_checks`
+        It uses the `get_user_object` function from `embrouter.proxy.auth.auth_checks`
 
         We need this because the UserApiKeyAuth object does not contain the rpm/tpm limits for a User AND there could be a perf impact by additionally reading the UserTable.
         """
-        from litellm._logging import verbose_proxy_logger
-        from litellm.proxy.auth.auth_checks import get_user_object
-        from litellm.proxy.proxy_server import prisma_client
+        from embrouter._logging import verbose_proxy_logger
+        from embrouter.proxy.auth.auth_checks import get_user_object
+        from embrouter.proxy.proxy_server import prisma_client
 
         try:
             _user_id_rate_limits: Final = await get_user_object(
@@ -804,7 +804,7 @@ class _PROXY_MaxParallelRequestsHandler(CustomLogger):
         """
         Retrieve the key's remaining rate limits.
         """
-        api_key: Final = LiteLLMProxyRequestSetup.get_logged_api_key(user_api_key_dict)
+        api_key: Final = EmbRouterProxyRequestSetup.get_logged_api_key(user_api_key_dict)
         current_date: Final = datetime.now().strftime("%Y-%m-%d")
         current_hour: Final = datetime.now().strftime("%H")
         current_minute: Final = datetime.now().strftime("%M")
@@ -812,7 +812,7 @@ class _PROXY_MaxParallelRequestsHandler(CustomLogger):
         request_count_api_key: Final = f"{api_key}::{precise_minute}::request_count"
         current: Final[CurrentItemRateLimit | None] = await self.internal_usage_cache.async_get_cache(
             key=request_count_api_key,
-            litellm_parent_otel_span=user_api_key_dict.parent_otel_span,
+            embrouter_parent_otel_span=user_api_key_dict.parent_otel_span,
         )
 
         key_remaining_rpm_limit: int | None = None

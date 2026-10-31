@@ -2,13 +2,13 @@ import json
 from collections.abc import Callable
 from typing import Final
 
-import litellm
-from litellm.llms.custom_httpx.http_handler import (
+import embrouter
+from embrouter.llms.custom_httpx.http_handler import (
     AsyncHTTPHandler,
     HTTPHandler,
     _get_httpx_client,
 )
-from litellm.utils import ModelResponse
+from embrouter.utils import ModelResponse
 
 from .transformation import NLPCloudConfig
 
@@ -25,7 +25,7 @@ def completion(
     api_key,
     logging_obj,
     optional_params: dict,
-    litellm_params: dict,
+    embrouter_params: dict,
     logger_fn=None,
     default_max_tokens_to_sample=None,
     client: HTTPHandler | AsyncHTTPHandler | None = None,
@@ -37,11 +37,11 @@ def completion(
         model=model,
         messages=messages,
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
     )
 
     ## Load Config
-    config: Final = litellm.NLPCloudConfig.get_config()
+    config: Final = embrouter.NLPCloudConfig.get_config()
     for k, v in config.items():
         if (
             k not in optional_params
@@ -57,7 +57,7 @@ def completion(
         model=model,
         messages=messages,
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         headers=headers,
     )
 
@@ -93,7 +93,7 @@ def completion(
             request_data=data,
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             encoding=encoding,
         )
 

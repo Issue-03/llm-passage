@@ -13,22 +13,22 @@ from typing import Any, Final, TypeAlias, TypedDict, cast, overload
 
 from jinja2.sandbox import ImmutableSandboxedEnvironment
 
-import litellm
-import litellm.types
-import litellm.types.llms
-from litellm import verbose_logger
-from litellm._uuid import uuid
-from litellm.constants import REDACTED_BY_LITELLM
-from litellm.litellm_core_utils.prompt_templates.mid_conversation_system import anthropic_system_messages
-from litellm.litellm_core_utils.url_utils import async_safe_get, safe_get
-from litellm.llms.custom_httpx.http_handler import HTTPHandler, get_async_httpx_client
-from litellm.types.files import get_file_extension_from_mime_type
-from litellm.types.llms.anthropic import *
-from litellm.types.llms.bedrock import CachePointBlock
-from litellm.types.llms.bedrock import MessageBlock as BedrockMessageBlock
-from litellm.types.llms.custom_http import httpxSpecialProvider
-from litellm.types.llms.ollama import OllamaVisionModelObject
-from litellm.types.llms.openai import (
+import embrouter
+import embrouter.types
+import embrouter.types.llms
+from embrouter import verbose_logger
+from embrouter._uuid import uuid
+from embrouter.constants import REDACTED_BY_EMBROUTER
+from embrouter.embrouter_core_utils.prompt_templates.mid_conversation_system import anthropic_system_messages
+from embrouter.embrouter_core_utils.url_utils import async_safe_get, safe_get
+from embrouter.llms.custom_httpx.http_handler import HTTPHandler, get_async_httpx_client
+from embrouter.types.files import get_file_extension_from_mime_type
+from embrouter.types.llms.anthropic import *
+from embrouter.types.llms.bedrock import CachePointBlock
+from embrouter.types.llms.bedrock import MessageBlock as BedrockMessageBlock
+from embrouter.types.llms.custom_http import httpxSpecialProvider
+from embrouter.types.llms.ollama import OllamaVisionModelObject
+from embrouter.types.llms.openai import (
     AllMessageValues,
     ChatCompletionAssistantMessage,
     ChatCompletionAssistantToolCall,
@@ -43,10 +43,10 @@ from litellm.types.llms.openai import (
     ChatCompletionUserMessage,
     OpenAIMessageContentListBlock,
 )
-from litellm.types.llms.vertex_ai import FunctionCall as VertexFunctionCall
-from litellm.types.llms.vertex_ai import FunctionResponse as VertexFunctionResponse
-from litellm.types.llms.vertex_ai import PartType as VertexPartType
-from litellm.types.utils import GenericImageParsingChunk
+from embrouter.types.llms.vertex_ai import FunctionCall as VertexFunctionCall
+from embrouter.types.llms.vertex_ai import FunctionResponse as VertexFunctionResponse
+from embrouter.types.llms.vertex_ai import PartType as VertexPartType
+from embrouter.types.utils import GenericImageParsingChunk
 
 from .common_utils import (
     convert_content_list_to_str,
@@ -77,7 +77,7 @@ THOUGHT_SIGNATURE_SEPARATOR: Final = "__thought__"
 DEFAULT_USER_CONTINUE_MESSAGE: Final = {
     "role": "user",
     "content": "Please continue.",
-}  # similar to autogen. Only used if `litellm.modify_params=True`.
+}  # similar to autogen. Only used if `embrouter.modify_params=True`.
 
 DEFAULT_USER_CONTINUE_MESSAGE_TYPED: Final = ChatCompletionUserMessage(
     role="user",
@@ -93,7 +93,7 @@ DEFAULT_ASSISTANT_CONTINUE_MESSAGE: Final = ChatCompletionAssistantMessage(
             "text": "Please continue.",
         }
     ],
-)  # similar to autogen. Only used if `litellm.modify_params=True`.
+)  # similar to autogen. Only used if `embrouter.modify_params=True`.
 
 
 def map_system_message_pt(messages: list) -> list:
@@ -276,7 +276,7 @@ def ollama_pt(
             prompt += f"### Assistant:\n{assistant_content_str}\n\n"
 
         if msg_i == init_msg_i:  # prevent infinite loops
-            raise litellm.BadRequestError(
+            raise embrouter.BadRequestError(
                 message=BAD_MESSAGE_ERROR_STR + f"passed in {messages[msg_i]}",
                 model=model,
                 llm_provider="ollama",
@@ -457,7 +457,7 @@ async def _afetch_and_extract_template(
 
     Returns: (chat_template, bos_token, eos_token)
     """
-    from litellm.litellm_core_utils.prompt_templates.huggingface_template_handler import (
+    from embrouter.embrouter_core_utils.prompt_templates.huggingface_template_handler import (
         _extract_token_value,
     )
 
@@ -466,11 +466,11 @@ async def _afetch_and_extract_template(
 
     if chat_template is None:
         # Fetch or retrieve cached tokenizer config
-        if model in litellm.known_tokenizer_config:
-            tokenizer_config = litellm.known_tokenizer_config[model]
+        if model in embrouter.known_tokenizer_config:
+            tokenizer_config = embrouter.known_tokenizer_config[model]
         else:
             tokenizer_config = await get_config_fn(hf_model_name=model)
-            litellm.known_tokenizer_config.update({model: tokenizer_config})
+            embrouter.known_tokenizer_config.update({model: tokenizer_config})
 
         # Try to get chat template from tokenizer_config.json first
         if (
@@ -511,7 +511,7 @@ def _fetch_and_extract_template(
 
     Returns: (chat_template, bos_token, eos_token)
     """
-    from litellm.litellm_core_utils.prompt_templates.huggingface_template_handler import (
+    from embrouter.embrouter_core_utils.prompt_templates.huggingface_template_handler import (
         _extract_token_value,
     )
 
@@ -520,11 +520,11 @@ def _fetch_and_extract_template(
 
     if chat_template is None:
         # Fetch or retrieve cached tokenizer config
-        if model in litellm.known_tokenizer_config:
-            tokenizer_config = litellm.known_tokenizer_config[model]
+        if model in embrouter.known_tokenizer_config:
+            tokenizer_config = embrouter.known_tokenizer_config[model]
         else:
             tokenizer_config = get_config_fn(hf_model_name=model)
-            litellm.known_tokenizer_config.update({model: tokenizer_config})
+            embrouter.known_tokenizer_config.update({model: tokenizer_config})
 
         # Try to get chat template from tokenizer_config.json first
         if (
@@ -559,7 +559,7 @@ def _fetch_and_extract_template(
 
 async def ahf_chat_template(model: str, messages: list, chat_template: str | None = None):
     """HuggingFace chat template (async version)"""
-    from litellm.litellm_core_utils.prompt_templates.huggingface_template_handler import (
+    from embrouter.embrouter_core_utils.prompt_templates.huggingface_template_handler import (
         _aget_chat_template_file,
         _aget_tokenizer_config,
         strftime_now,
@@ -586,7 +586,7 @@ async def ahf_chat_template(model: str, messages: list, chat_template: str | Non
 
 def hf_chat_template(model: str, messages: list, chat_template: str | None = None):
     """HuggingFace chat template (sync version)"""
-    from litellm.litellm_core_utils.prompt_templates.huggingface_template_handler import (
+    from embrouter.embrouter_core_utils.prompt_templates.huggingface_template_handler import (
         _get_chat_template_file,
         _get_tokenizer_config,
         strftime_now,
@@ -817,7 +817,7 @@ def convert_to_anthropic_image_obj(openai_image_url: str, format: str | None) ->
             media_type=media_type,
             data=base64_data,
         )
-    except litellm.ImageFetchError:
+    except embrouter.ImageFetchError:
         raise
     except Exception as e:
         raise Exception(
@@ -959,9 +959,9 @@ def convert_to_anthropic_tool_invoke_xml(tool_calls: list) -> str:
 def anthropic_messages_pt_xml(messages: list):
     """
     format messages for anthropic
-    1. Anthropic supports roles like "user" and "assistant", (here litellm translates system-> assistant)
+    1. Anthropic supports roles like "user" and "assistant", (here embrouter translates system-> assistant)
     2. The first message always needs to be of role "user"
-    3. Each message must alternate between "user" and "assistant" (this is not addressed as now by litellm)
+    3. Each message must alternate between "user" and "assistant" (this is not addressed as now by embrouter)
     4. final assistant content cannot end with trailing whitespace (anthropic raises an error otherwise)
     5. System messages are a separate param to the Messages API (used for tool calling)
     6. Ensure we only accept role, content. (message.name is not supported)
@@ -1041,11 +1041,11 @@ def anthropic_messages_pt_xml(messages: list):
             new_messages.append({"role": "assistant", "content": assistant_content})
 
     if not new_messages or new_messages[0]["role"] != "user":
-        if litellm.modify_params:
+        if embrouter.modify_params:
             new_messages.insert(0, {"role": "user", "content": [{"type": "text", "text": "."}]})
         else:
             raise Exception(
-                "Invalid first message. Should always start with 'role'='user' for Anthropic. System prompt is sent separately for Anthropic. set 'litellm.modify_params = True' or 'litellm_settings:modify_params = True' on proxy, to insert a placeholder user message - '.' as the first message, "
+                "Invalid first message. Should always start with 'role'='user' for Anthropic. System prompt is sent separately for Anthropic. set 'embrouter.modify_params = True' or 'embrouter_settings:modify_params = True' on proxy, to insert a placeholder user message - '.' as the first message, "
             )
 
     if new_messages[-1]["role"] == "assistant":
@@ -1285,7 +1285,7 @@ def convert_to_gemini_tool_call_invoke(
         tool_calls: Final = message.get("tool_calls", None)
         function_call: Final = message.get("function_call", None)
 
-        from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+        from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
             VertexGeminiConfig,
         )
 
@@ -1376,7 +1376,7 @@ def convert_to_gemini_tool_call_result(
         ]
     }
     """
-    from litellm.types.llms.vertex_ai import BlobType
+    from embrouter.types.llms.vertex_ai import BlobType
 
     content_str: str = ""
     inline_data_list: Final[list[BlobType]] = []
@@ -1919,7 +1919,7 @@ def anthropic_process_openai_file_message(
     file_message: Final = cast(ChatCompletionFileObject, message)
     file_sub: Final = file_message.get("file")
     if file_sub is None:
-        raise litellm.BadRequestError(
+        raise embrouter.BadRequestError(
             message="Content block has type='file' but is missing the required 'file' field",
             model=None,
             llm_provider="anthropic",
@@ -2259,7 +2259,7 @@ def sanitize_messages_for_tool_calling(
     This function operates on OpenAI format messages before they are converted to
     provider-specific formats.
     """
-    if not litellm.modify_params:
+    if not embrouter.modify_params:
         return messages
 
     sanitized_messages: list[AllMessageValues] = []
@@ -2353,7 +2353,7 @@ def anthropic_messages_pt(
        Models flagged ``supports_mid_conversation_system`` also accept "system" inside
        messages after a user turn; the caller decides placement, this keeps such messages.
     2. The first message always needs to be of role "user"
-    3. Each message must alternate between "user" and "assistant" (this is not addressed as now by litellm)
+    3. Each message must alternate between "user" and "assistant" (this is not addressed as now by embrouter)
     4. final assistant content cannot end with trailing whitespace (anthropic raises an error otherwise)
     5. System messages are a separate param to the Messages API
     6. Ensure we only accept role, content. (message.name is not supported)
@@ -2366,7 +2366,7 @@ def anthropic_messages_pt(
     # OpenAI/other providers silently tolerate `{"role": "user", "content": ""}`,
     # so callers (and upstream agent frameworks like pydantic-ai) routinely
     # send empty user/assistant turns. We always rewrite these to a placeholder
-    # for Anthropic-shaped requests, independent of `litellm.modify_params`,
+    # for Anthropic-shaped requests, independent of `embrouter.modify_params`,
     # because there is no way to "pass through" an empty text block — the
     # request will always 400 otherwise. The richer tool-call sanitization
     # (Cases A/B/D in `sanitize_messages_for_tool_calling`) remains gated on
@@ -2379,9 +2379,9 @@ def anthropic_messages_pt(
     new_messages: Final[_AnthropicMessageList] = []  # mutable-ok: accumulator behind the mutable return contract
 
     if len(messages) == 0:
-        if not litellm.modify_params:
-            raise litellm.BadRequestError(
-                message=f"Anthropic requires at least one non-system message. Either provide one, or set `litellm.modify_params = True` // `litellm_settings::modify_params: True` to add the dummy user message - {DEFAULT_USER_CONTINUE_MESSAGE_TYPED}.",
+        if not embrouter.modify_params:
+            raise embrouter.BadRequestError(
+                message=f"Anthropic requires at least one non-system message. Either provide one, or set `embrouter.modify_params = True` // `embrouter_settings::modify_params: True` to add the dummy user message - {DEFAULT_USER_CONTINUE_MESSAGE_TYPED}.",
                 model=model,
                 llm_provider=llm_provider,
             )
@@ -2773,7 +2773,7 @@ def anthropic_messages_pt(
             msg_i += 1
 
         if msg_i == init_msg_i:  # prevent infinite loops
-            raise litellm.BadRequestError(
+            raise embrouter.BadRequestError(
                 message=BAD_MESSAGE_ERROR_STR + f"passed in {messages[msg_i]}",
                 model=model,
                 llm_provider=llm_provider,
@@ -2864,7 +2864,7 @@ def get_system_prompt(messages):
     return system_prompt, messages
 
 
-from litellm.types.llms.cohere import (
+from embrouter.types.llms.cohere import (
     CallObject,
     ChatHistory,
     ChatHistoryChatBot,
@@ -3127,7 +3127,7 @@ def cohere_messages_pt_v2(
             new_messages.append(ChatHistoryToolResult(role="TOOL", tool_results=tool_results))
 
         if msg_i == init_msg_i:  # prevent infinite loops
-            raise litellm.BadRequestError(
+            raise embrouter.BadRequestError(
                 message=BAD_MESSAGE_ERROR_STR + f"passed in {messages[msg_i]}",
                 model=model,
                 llm_provider=llm_provider,
@@ -3348,23 +3348,23 @@ from email.message import Message
 
 import httpx
 
-from litellm.types.llms.bedrock import (
+from embrouter.types.llms.bedrock import (
     BedrockConverseReasoningContentBlock,
     BedrockConverseReasoningTextBlock,
     BedrockToolSpec,
     SearchResultBlock,
 )
-from litellm.types.llms.bedrock import ContentBlock as BedrockContentBlock
-from litellm.types.llms.bedrock import DocumentBlock as BedrockDocumentBlock
-from litellm.types.llms.bedrock import ImageBlock as BedrockImageBlock
-from litellm.types.llms.bedrock import SourceBlock as BedrockSourceBlock
-from litellm.types.llms.bedrock import ToolBlock as BedrockToolBlock
-from litellm.types.llms.bedrock import ToolResultBlock as BedrockToolResultBlock
-from litellm.types.llms.bedrock import (
+from embrouter.types.llms.bedrock import ContentBlock as BedrockContentBlock
+from embrouter.types.llms.bedrock import DocumentBlock as BedrockDocumentBlock
+from embrouter.types.llms.bedrock import ImageBlock as BedrockImageBlock
+from embrouter.types.llms.bedrock import SourceBlock as BedrockSourceBlock
+from embrouter.types.llms.bedrock import ToolBlock as BedrockToolBlock
+from embrouter.types.llms.bedrock import ToolResultBlock as BedrockToolResultBlock
+from embrouter.types.llms.bedrock import (
     ToolResultContentBlock as BedrockToolResultContentBlock,
 )
-from litellm.types.llms.bedrock import ToolUseBlock as BedrockToolUseBlock
-from litellm.types.llms.bedrock import VideoBlock as BedrockVideoBlock
+from embrouter.types.llms.bedrock import ToolUseBlock as BedrockToolUseBlock
+from embrouter.types.llms.bedrock import VideoBlock as BedrockVideoBlock
 
 
 def _parse_content_type(content_type: str) -> str:
@@ -3454,9 +3454,9 @@ class BedrockImageProcessor:
     def _validate_format(mime_type: str, image_format: str) -> str:
         """Validate image format and mime type for both images and documents."""
 
-        supported_image_formats: Final = litellm.AmazonConverseConfig().get_supported_image_types()
-        supported_doc_formats: Final = litellm.AmazonConverseConfig().get_supported_document_types()
-        supported_video_formats: Final = litellm.AmazonConverseConfig().get_supported_video_types()
+        supported_image_formats: Final = embrouter.AmazonConverseConfig().get_supported_image_types()
+        supported_doc_formats: Final = embrouter.AmazonConverseConfig().get_supported_document_types()
+        supported_video_formats: Final = embrouter.AmazonConverseConfig().get_supported_video_types()
 
         document_types: Final = ["application", "text"]
         is_document: Final = any(mime_type.startswith(doc_type) for doc_type in document_types)
@@ -3503,7 +3503,7 @@ class BedrockImageProcessor:
 
         # Fallback to types/files.py if mimetypes doesn't return valid extensions
         #################
-        # litellm runs on docker containers and `mimetypes` depends on the installed mimetypes of the OS
+        # embrouter runs on docker containers and `mimetypes` depends on the installed mimetypes of the OS
         # we fallback to well known mime types in types/files.py if mimetypes doesn't return valid extensions
         if not valid_extensions:
             try:
@@ -3531,7 +3531,7 @@ class BedrockImageProcessor:
         document_types: Final = ["application", "text"]
         is_document: Final = any(mime_type.startswith(doc_type) for doc_type in document_types)
 
-        supported_video_formats: Final = litellm.AmazonConverseConfig().get_supported_video_types()
+        supported_video_formats: Final = embrouter.AmazonConverseConfig().get_supported_video_types()
         is_video: Final = any(image_format.startswith(video_type) for video_type in supported_video_formats)
 
         HASH_SAMPLE_BYTES: Final = 64 * 1024  # hash up to 64 KB of data
@@ -3650,7 +3650,7 @@ def _convert_to_bedrock_tool_call_invoke(
     - extract name 
     - extract id
     """
-    from litellm.litellm_core_utils.prompt_templates.common_utils import (
+    from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
         split_concatenated_json_objects,
     )
 
@@ -3690,7 +3690,7 @@ def _convert_to_bedrock_tool_call_invoke(
                             # cache_control applies to the whole original
                             # tool call; attach after the last split block.
                             if tool.get("cache_control", None) is not None:
-                                _cache_point_block = litellm.AmazonConverseConfig().get_cache_point_block(
+                                _cache_point_block = embrouter.AmazonConverseConfig().get_cache_point_block(
                                     {"cache_control": tool["cache_control"]},
                                     block_type="content_block",
                                     model=model,
@@ -3709,7 +3709,7 @@ def _convert_to_bedrock_tool_call_invoke(
 
                 # Check for cache_control and add a separate cachePoint block
                 if tool.get("cache_control", None) is not None:
-                    cache_point_block = litellm.AmazonConverseConfig().get_cache_point_block(
+                    cache_point_block = embrouter.AmazonConverseConfig().get_cache_point_block(
                         {"cache_control": tool["cache_control"]},
                         block_type="content_block",
                         model=model,
@@ -3719,7 +3719,7 @@ def _convert_to_bedrock_tool_call_invoke(
         return _parts_list
     except Exception as e:
         tool_call_ids: Final = tuple(tool.get("id") for tool in tool_calls if isinstance(tool, dict))
-        raise litellm.BadRequestError(
+        raise embrouter.BadRequestError(
             message=f"Unable to convert openai tool calls with ids={tool_call_ids} to bedrock tool calls. "
             f"Received error={e}",
             model=model or "",
@@ -3773,7 +3773,7 @@ def _append_bedrock_tool_result_file_block(
     file_data: Final = file_obj.get("file_data")
     file_id: Final = file_obj.get("file_id")
     if file_data is None and file_id is None:
-        raise litellm.BadRequestError(
+        raise embrouter.BadRequestError(
             message=f"file_data and file_id cannot both be None. Got={content}",
             model="",
             llm_provider="bedrock",
@@ -4070,7 +4070,7 @@ def _insert_assistant_continue_message(
                     content=[BedrockContentBlock(text=text)],
                 )
             )
-    elif litellm.modify_params:
+    elif embrouter.modify_params:
         text = convert_content_list_to_str(cast(ChatCompletionAssistantMessage, DEFAULT_ASSISTANT_CONTINUE_MESSAGE))
         messages.append(
             BedrockMessageBlock(
@@ -4096,7 +4096,7 @@ def get_user_message_block_or_continue_message(
     content_block: Final = message.get("content", None)
 
     # Handle None case
-    if content_block is None or (user_continue_message is None and litellm.modify_params is False):
+    if content_block is None or (user_continue_message is None and embrouter.modify_params is False):
         return skip_empty_text_blocks(message=message)
 
     # Handle string case
@@ -4274,7 +4274,7 @@ def get_assistant_message_block_or_continue_message(
     content_block: Final = message.get("content", None)
 
     # Handle Base case
-    if content_block is None or (assistant_continue_message is None and litellm.modify_params is False):
+    if content_block is None or (assistant_continue_message is None and embrouter.modify_params is False):
         return skip_empty_text_blocks(message=message)
 
     # Handle string case
@@ -4318,10 +4318,10 @@ class BedrockConverseMessagesProcessor:
         if len(messages) == 0:
             if user_continue_message is not None:
                 messages.append(user_continue_message)
-            elif litellm.modify_params:
+            elif embrouter.modify_params:
                 messages.append(DEFAULT_USER_CONTINUE_MESSAGE)
             else:
-                raise litellm.BadRequestError(
+                raise embrouter.BadRequestError(
                     message=BAD_MESSAGE_ERROR_STR + "bedrock requires at least one non-system message",
                     model=model,
                     llm_provider=llm_provider,
@@ -4332,7 +4332,7 @@ class BedrockConverseMessagesProcessor:
             if not messages[0].get("prefix"):
                 if user_continue_message is not None:
                     messages.insert(0, user_continue_message)
-                elif litellm.modify_params:
+                elif embrouter.modify_params:
                     messages.insert(0, DEFAULT_USER_CONTINUE_MESSAGE)
 
         # if final message is assistant message
@@ -4340,7 +4340,7 @@ class BedrockConverseMessagesProcessor:
             if not messages[-1].get("prefix"):
                 if user_continue_message is not None:
                     messages.append(user_continue_message)
-                elif litellm.modify_params:
+                elif embrouter.modify_params:
                     messages.append(DEFAULT_USER_CONTINUE_MESSAGE)
         return messages
 
@@ -4404,7 +4404,7 @@ class BedrockConverseMessagesProcessor:
                             elif element["type"] == "document":
                                 _part = BedrockConverseMessagesProcessor._process_document_message(element)
                                 _parts.append(_part)
-                            _cache_point_block = litellm.AmazonConverseConfig().get_cache_point_block(
+                            _cache_point_block = embrouter.AmazonConverseConfig().get_cache_point_block(
                                 message_block=cast(OpenAIMessageContentListBlock, element),
                                 block_type="content_block",
                                 model=model,
@@ -4414,7 +4414,7 @@ class BedrockConverseMessagesProcessor:
                     user_content.extend(_parts)
                 elif message_block["content"] and isinstance(message_block["content"], str):
                     _part = BedrockContentBlock(text=messages[msg_i]["content"])
-                    _cache_point_block = litellm.AmazonConverseConfig().get_cache_point_block(
+                    _cache_point_block = embrouter.AmazonConverseConfig().get_cache_point_block(
                         message_block, block_type="content_block", model=model
                     )
                     user_content.append(_part)
@@ -4424,7 +4424,7 @@ class BedrockConverseMessagesProcessor:
                 msg_i += 1
             if user_content:
                 if len(contents) > 0 and contents[-1]["role"] == "user":
-                    if assistant_continue_message is not None or litellm.modify_params is True:
+                    if assistant_continue_message is not None or embrouter.modify_params is True:
                         # if last message was a 'user' message, then add a dummy assistant message (bedrock requires alternating roles)
                         contents = _insert_assistant_continue_message(
                             messages=contents,
@@ -4461,7 +4461,7 @@ class BedrockConverseMessagesProcessor:
 
                 # Add a separate cachePoint block if cache_control is present
                 if tool_msg_cache_control is not None:
-                    cache_point_block = litellm.AmazonConverseConfig().get_cache_point_block(
+                    cache_point_block = embrouter.AmazonConverseConfig().get_cache_point_block(
                         {"cache_control": tool_msg_cache_control},
                         block_type="content_block",
                         model=model,
@@ -4475,7 +4475,7 @@ class BedrockConverseMessagesProcessor:
             if tool_content:
                 # if last message was a 'user' message, then add a blank assistant message (bedrock requires alternating roles)
                 if len(contents) > 0 and contents[-1]["role"] == "user":
-                    if assistant_continue_message is not None or litellm.modify_params is True:
+                    if assistant_continue_message is not None or embrouter.modify_params is True:
                         # if last message was a 'user' message, then add a dummy assistant message (bedrock requires alternating roles)
                         contents = _insert_assistant_continue_message(
                             messages=contents,
@@ -4540,7 +4540,7 @@ class BedrockConverseMessagesProcessor:
                                 assistants_part = await BedrockImageProcessor.process_image_async(image_url=image_url)
                                 assistants_parts.append(assistants_part)
                                 # Add cache point block for assistant content elements
-                        _cache_point_block = litellm.AmazonConverseConfig().get_cache_point_block(
+                        _cache_point_block = embrouter.AmazonConverseConfig().get_cache_point_block(
                             message_block=cast(OpenAIMessageContentListBlock, element),
                             block_type="content_block",
                             model=model,
@@ -4554,7 +4554,7 @@ class BedrockConverseMessagesProcessor:
                         assistant_content.append(BedrockContentBlock(text=_assistant_content))
                     # If content is empty/whitespace, skip it (don't add a placeholder)
                     # Add cache point block for assistant string content
-                    _cache_point_block = litellm.AmazonConverseConfig().get_cache_point_block(
+                    _cache_point_block = embrouter.AmazonConverseConfig().get_cache_point_block(
                         assistant_message_block, block_type="content_block", model=model
                     )
                     if _cache_point_block is not None:
@@ -4573,7 +4573,7 @@ class BedrockConverseMessagesProcessor:
                 contents.append(BedrockMessageBlock(role="assistant", content=assistant_content))
 
             if msg_i == init_msg_i:  # prevent infinite loops
-                raise litellm.BadRequestError(
+                raise embrouter.BadRequestError(
                     message=BAD_MESSAGE_ERROR_STR + f"passed in {messages[msg_i]}",
                     model=model,
                     llm_provider=llm_provider,
@@ -4605,7 +4605,7 @@ class BedrockConverseMessagesProcessor:
     def _process_file_message(message: ChatCompletionFileObject) -> BedrockContentBlock:
         file_message: Final = message.get("file")
         if file_message is None:
-            raise litellm.BadRequestError(
+            raise embrouter.BadRequestError(
                 message="Content block has type='file' but is missing the required 'file' field",
                 model=None,
                 llm_provider="bedrock",
@@ -4614,7 +4614,7 @@ class BedrockConverseMessagesProcessor:
         file_id: Final = file_message.get("file_id")
 
         if file_data is None and file_id is None:
-            raise litellm.BadRequestError(
+            raise embrouter.BadRequestError(
                 message=f"file_data and file_id cannot both be None. Got={message}",
                 model="",
                 llm_provider="bedrock",
@@ -4628,7 +4628,7 @@ class BedrockConverseMessagesProcessor:
     ) -> BedrockContentBlock:
         file_message: Final = message.get("file")
         if file_message is None:
-            raise litellm.BadRequestError(
+            raise embrouter.BadRequestError(
                 message="Content block has type='file' but is missing the required 'file' field",
                 model=None,
                 llm_provider="bedrock",
@@ -4637,7 +4637,7 @@ class BedrockConverseMessagesProcessor:
         file_id: Final = file_message.get("file_id")
         format: Final = file_message.get("format")
         if file_data is None and file_id is None:
-            raise litellm.BadRequestError(
+            raise embrouter.BadRequestError(
                 message=f"file_data and file_id cannot both be None. Got={message}",
                 model="",
                 llm_provider="bedrock",
@@ -4777,7 +4777,7 @@ def _bedrock_converse_messages_pt(
                         elif element["type"] == "document":
                             _part = BedrockConverseMessagesProcessor._process_document_message(element)
                             _parts.append(_part)
-                        _cache_point_block = litellm.AmazonConverseConfig().get_cache_point_block(
+                        _cache_point_block = embrouter.AmazonConverseConfig().get_cache_point_block(
                             message_block=cast(OpenAIMessageContentListBlock, element),
                             block_type="content_block",
                             model=model,
@@ -4787,7 +4787,7 @@ def _bedrock_converse_messages_pt(
                 user_content.extend(_parts)
             elif message_block["content"] and isinstance(message_block["content"], str):
                 _part = BedrockContentBlock(text=messages[msg_i]["content"])
-                _cache_point_block = litellm.AmazonConverseConfig().get_cache_point_block(
+                _cache_point_block = embrouter.AmazonConverseConfig().get_cache_point_block(
                     message_block, block_type="content_block", model=model
                 )
                 user_content.append(_part)
@@ -4797,7 +4797,7 @@ def _bedrock_converse_messages_pt(
             msg_i += 1
         if user_content:
             if len(contents) > 0 and contents[-1]["role"] == "user":
-                if assistant_continue_message is not None or litellm.modify_params is True:
+                if assistant_continue_message is not None or embrouter.modify_params is True:
                     # if last message was a 'user' message, then add a dummy assistant message (bedrock requires alternating roles)
                     contents = _insert_assistant_continue_message(
                         messages=contents,
@@ -4836,7 +4836,7 @@ def _bedrock_converse_messages_pt(
 
             # Add a separate cachePoint block if cache_control is present
             if tool_msg_cache_control is not None:
-                cache_point_block = litellm.AmazonConverseConfig().get_cache_point_block(
+                cache_point_block = embrouter.AmazonConverseConfig().get_cache_point_block(
                     {"cache_control": tool_msg_cache_control},
                     block_type="content_block",
                     model=model,
@@ -4850,7 +4850,7 @@ def _bedrock_converse_messages_pt(
         if tool_content:
             # if last message was a 'user' message, then add a blank assistant message (bedrock requires alternating roles)
             if len(contents) > 0 and contents[-1]["role"] == "user":
-                if assistant_continue_message is not None or litellm.modify_params is True:
+                if assistant_continue_message is not None or embrouter.modify_params is True:
                     # if last message was a 'user' message, then add a dummy assistant message (bedrock requires alternating roles)
                     contents = _insert_assistant_continue_message(
                         messages=contents,
@@ -4918,7 +4918,7 @@ def _bedrock_converse_messages_pt(
                             assistants_part = BedrockImageProcessor.process_image_sync(image_url=image_url)
                             assistants_parts.append(assistants_part)
                         # Add cache point block for assistant content elements
-                        _cache_point_block = litellm.AmazonConverseConfig().get_cache_point_block(
+                        _cache_point_block = embrouter.AmazonConverseConfig().get_cache_point_block(
                             message_block=cast(OpenAIMessageContentListBlock, element),
                             block_type="content_block",
                             model=model,
@@ -4931,7 +4931,7 @@ def _bedrock_converse_messages_pt(
                 if _assistant_content.strip():
                     assistant_content.append(BedrockContentBlock(text=_assistant_content))
                 # Add cache point block for assistant string content
-                _cache_point_block = litellm.AmazonConverseConfig().get_cache_point_block(
+                _cache_point_block = embrouter.AmazonConverseConfig().get_cache_point_block(
                     assistant_message_block, block_type="content_block", model=model
                 )
                 if _cache_point_block is not None:
@@ -4949,7 +4949,7 @@ def _bedrock_converse_messages_pt(
             contents.append(BedrockMessageBlock(role="assistant", content=assistant_content))
 
         if msg_i == init_msg_i:  # prevent infinite loops
-            raise litellm.BadRequestError(
+            raise embrouter.BadRequestError(
                 message=BAD_MESSAGE_ERROR_STR + f"passed in {messages[msg_i]}",
                 model=model,
                 llm_provider=llm_provider,
@@ -4980,13 +4980,13 @@ def make_valid_bedrock_tool_name(input_tool_name: str) -> str:
     if input_tool_name != valid_string:
         # passed tool name was formatted to become valid
         # store it internally so we can use for the response
-        litellm.bedrock_tool_name_mappings.set_cache(key=valid_string, value=input_tool_name)
+        embrouter.bedrock_tool_name_mappings.set_cache(key=valid_string, value=input_tool_name)
 
     return valid_string
 
 
 def add_cache_point_tool_block(tool: dict, model: str | None = None) -> BedrockToolBlock | None:
-    from litellm.llms.bedrock.common_utils import (
+    from embrouter.llms.bedrock.common_utils import (
         bedrock_model_accepts_cache_points,
         is_claude_4_5_on_bedrock,
     )
@@ -5077,8 +5077,8 @@ def _bedrock_tools_pt(tools: list, model: str | None = None) -> list[BedrockTool
         }
     ]
     """
-    from litellm.litellm_core_utils.prompt_templates.common_utils import unpack_defs
-    from litellm.llms.bedrock.common_utils import (
+    from embrouter.embrouter_core_utils.prompt_templates.common_utils import unpack_defs
+    from embrouter.llms.bedrock.common_utils import (
         bedrock_converse_supports_strict_tools,
         normalize_json_schema_custom_types_to_object,
     )
@@ -5115,7 +5115,7 @@ def _bedrock_tools_pt(tools: list, model: str | None = None) -> list[BedrockTool
             _tool_description = tool.get("function", {}).get("description", None)
 
         if not (raw_name and str(raw_name).strip()):
-            raw_name = f"litellm_unnamed_tool_{tool_idx}"
+            raw_name = f"embrouter_unnamed_tool_{tool_idx}"
 
         # Bedrock tool names must satisfy pattern: [a-zA-Z][a-zA-Z0-9_-]*
         name = make_valid_bedrock_tool_name(input_tool_name=raw_name)
@@ -5183,12 +5183,12 @@ def response_schema_prompt(model: str, response_schema: dict) -> str:
     """
     custom_prompt_details: dict | None = None
     response_schema_as_message: Final = [{"role": "user", "content": f"{response_schema}"}]
-    if f"{model}/response_schema_prompt" in litellm.custom_prompt_dict:
-        custom_prompt_details = litellm.custom_prompt_dict[
+    if f"{model}/response_schema_prompt" in embrouter.custom_prompt_dict:
+        custom_prompt_details = embrouter.custom_prompt_dict[
             f"{model}/response_schema_prompt"
         ]  # allow user to define custom response schema prompt by model
-    elif "response_schema_prompt" in litellm.custom_prompt_dict:
-        custom_prompt_details = litellm.custom_prompt_dict["response_schema_prompt"]
+    elif "response_schema_prompt" in embrouter.custom_prompt_dict:
+        custom_prompt_details = embrouter.custom_prompt_dict["response_schema_prompt"]
 
     if custom_prompt_details is not None:
         return custom_prompt(
@@ -5268,7 +5268,7 @@ def prompt_factory(
     if custom_llm_provider == "ollama":
         return ollama_pt(model=model, messages=messages)
     elif custom_llm_provider == "anthropic":
-        if litellm.AnthropicTextConfig._is_anthropic_text_model(model):
+        if embrouter.AnthropicTextConfig._is_anthropic_text_model(model):
             return anthropic_pt(messages=messages)
         return anthropic_messages_pt(messages=messages, model=model, llm_provider=custom_llm_provider)
     elif custom_llm_provider == "anthropic_xml":
@@ -5276,14 +5276,14 @@ def prompt_factory(
     elif custom_llm_provider == "gemini":
         if (
             model == "gemini-pro-vision"
-            or litellm.supports_vision(model=model)
-            or litellm.supports_vision(model=custom_llm_provider + "/" + model)
+            or embrouter.supports_vision(model=model)
+            or embrouter.supports_vision(model=custom_llm_provider + "/" + model)
         ):
             return _gemini_vision_convert_messages(messages=messages)
         else:
             return gemini_text_image_pt(messages=messages)
     elif custom_llm_provider == "mistral":
-        return litellm.MistralConfig()._transform_messages(messages=messages, model=model)
+        return embrouter.MistralConfig()._transform_messages(messages=messages, model=model)
     elif custom_llm_provider == "bedrock":
         if "amazon.titan-text" in model:
             return amazon_titan_pt(messages=messages)
@@ -5313,7 +5313,7 @@ def prompt_factory(
     elif custom_llm_provider == "azure_text":
         return azure_text_pt(messages=messages)
     elif custom_llm_provider == "watsonx":
-        from litellm.llms.watsonx.chat.transformation import IBMWatsonXChatConfig
+        from embrouter.llms.watsonx.chat.transformation import IBMWatsonXChatConfig
 
         return IBMWatsonXChatConfig.apply_prompt_template(model=model, messages=messages)
 
@@ -5424,7 +5424,7 @@ def _parse_tool_call_arguments(raw: object, tool_name: str | None, context: str)
         return (raw,)
     if not isinstance(raw, str):
         return ({},)
-    normalized_raw: Final = "{}" if raw == REDACTED_BY_LITELLM else raw
+    normalized_raw: Final = "{}" if raw == REDACTED_BY_EMBROUTER else raw
     try:
         parsed: Final = parse_tool_call_arguments(normalized_raw, tool_name=tool_name, context=context)
     except ValueError as e:
@@ -5634,17 +5634,17 @@ def resolve_structured_messages(
     if messages:
         return messages
 
-    from litellm.litellm_core_utils.api_route_to_call_types import (
+    from embrouter.embrouter_core_utils.api_route_to_call_types import (
         get_call_types_for_route,
     )
-    from litellm.llms import load_guardrail_translation_mappings
-    from litellm.types.utils import CallTypes
+    from embrouter.llms import load_guardrail_translation_mappings
+    from embrouter.types.utils import CallTypes
 
     mappings: Final = load_guardrail_translation_mappings()
     call_type: CallTypes | None = None
 
     # 1. Try route-based inference from proxy metadata
-    route: Final = request_kwargs.get("litellm_metadata", {}).get("user_api_key_request_route")
+    route: Final = request_kwargs.get("embrouter_metadata", {}).get("user_api_key_request_route")
     if route:
         call_types_list: Final = get_call_types_for_route(route)
         if call_types_list:

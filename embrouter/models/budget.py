@@ -1,8 +1,8 @@
 """
 Budget table model.
 
-Canonical definition for ``litellm_budgettable``. Re-exported from
-``litellm.proxy._types`` for backwards compatibility.
+Canonical definition for ``embrouter_budgettable``. Re-exported from
+``embrouter.proxy._types`` for backwards compatibility.
 """
 
 from datetime import datetime, timezone
@@ -10,15 +10,15 @@ from typing import Final
 
 from pydantic import ConfigDict
 
-from litellm.types.llms.base import LiteLLMPydanticObjectBase
+from embrouter.types.llms.base import EmbRouterPydanticObjectBase
 
 
-class LiteLLM_BudgetTable(LiteLLMPydanticObjectBase):
-    """Represents user-controllable params for a LiteLLM_BudgetTable record.
+class EmbRouter_BudgetTable(EmbRouterPydanticObjectBase):
+    """Represents user-controllable params for a EmbRouter_BudgetTable record.
 
     Budget-write paths use `model_fields.keys()` on this class as an allowlist
     for user input. Keep server-managed fields (e.g. `budget_reset_at`) on
-    `LiteLLM_BudgetTableFull` so they aren't user-settable.
+    `EmbRouter_BudgetTableFull` so they aren't user-settable.
     """
 
     budget_id: str | None = None
@@ -52,14 +52,14 @@ class LiteLLM_BudgetTable(LiteLLMPydanticObjectBase):
         return self.max_budget + self.active_temp_budget_increase(now)
 
 
-class LiteLLM_BudgetTableFull(LiteLLM_BudgetTable):
-    """LiteLLM_BudgetTable + server-managed fields returned on API responses."""
+class EmbRouter_BudgetTableFull(EmbRouter_BudgetTable):
+    """EmbRouter_BudgetTable + server-managed fields returned on API responses."""
 
     budget_reset_at: datetime | None = None
     created_at: datetime
 
 
-class LiteLLM_TeamMemberTable(LiteLLM_BudgetTable):
+class EmbRouter_TeamMemberTable(EmbRouter_BudgetTable):
     """
     Used to track spend of a user_id within a team_id
     """

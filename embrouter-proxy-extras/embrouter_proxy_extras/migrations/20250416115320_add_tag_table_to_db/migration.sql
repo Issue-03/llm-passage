@@ -1,9 +1,9 @@
 -- AlterTable
-ALTER TABLE "LiteLLM_DailyTeamSpend" ADD COLUMN IF NOT EXISTS "cache_creation_input_tokens" INTEGER NOT NULL DEFAULT 0,
+ALTER TABLE "EmbRouter_DailyTeamSpend" ADD COLUMN IF NOT EXISTS "cache_creation_input_tokens" INTEGER NOT NULL DEFAULT 0,
 ADD COLUMN IF NOT EXISTS "cache_read_input_tokens" INTEGER NOT NULL DEFAULT 0;
 
 -- CreateTable
-CREATE TABLE IF NOT EXISTS "LiteLLM_DailyTagSpend" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_DailyTagSpend" (
     "id" TEXT NOT NULL,
     "tag" TEXT NOT NULL,
     "date" TEXT NOT NULL,
@@ -22,24 +22,24 @@ CREATE TABLE IF NOT EXISTS "LiteLLM_DailyTagSpend" (
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
 
-    CONSTRAINT "LiteLLM_DailyTagSpend_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "EmbRouter_DailyTagSpend_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX IF NOT EXISTS "LiteLLM_DailyTagSpend_tag_key" ON "LiteLLM_DailyTagSpend"("tag");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_DailyTagSpend_tag_key" ON "EmbRouter_DailyTagSpend"("tag");
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "LiteLLM_DailyTagSpend_date_idx" ON "LiteLLM_DailyTagSpend"("date");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyTagSpend_date_idx" ON "EmbRouter_DailyTagSpend"("date");
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "LiteLLM_DailyTagSpend_tag_idx" ON "LiteLLM_DailyTagSpend"("tag");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyTagSpend_tag_idx" ON "EmbRouter_DailyTagSpend"("tag");
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "LiteLLM_DailyTagSpend_api_key_idx" ON "LiteLLM_DailyTagSpend"("api_key");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyTagSpend_api_key_idx" ON "EmbRouter_DailyTagSpend"("api_key");
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "LiteLLM_DailyTagSpend_model_idx" ON "LiteLLM_DailyTagSpend"("model");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyTagSpend_model_idx" ON "EmbRouter_DailyTagSpend"("model");
 
 -- CreateIndex
-CREATE UNIQUE INDEX IF NOT EXISTS "LiteLLM_DailyTagSpend_tag_date_api_key_model_custom_llm_pro_key" ON "LiteLLM_DailyTagSpend"("tag", "date", "api_key", "model", "custom_llm_provider");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_DailyTagSpend_tag_date_api_key_model_custom_llm_pro_key" ON "EmbRouter_DailyTagSpend"("tag", "date", "api_key", "model", "custom_llm_provider");
 

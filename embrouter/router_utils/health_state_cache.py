@@ -10,9 +10,9 @@ from typing import TYPE_CHECKING, Any, Final
 
 from typing_extensions import TypedDict
 
-from litellm import verbose_logger
-from litellm.caching.caching import DualCache
-from litellm.caching.redis_cache import RedisCircuitBreakerOpenError
+from embrouter import verbose_logger
+from embrouter.caching.caching import DualCache
+from embrouter.caching.redis_cache import RedisCircuitBreakerOpenError
 
 if TYPE_CHECKING:
     from opentelemetry.trace import Span as _Span
@@ -47,7 +47,7 @@ class DeploymentHealthCache:
     are treated as healthy (unknown).
     """
 
-    CACHE_KEY = "litellm:health_check:deployment_health_state"
+    CACHE_KEY = "embrouter:health_check:deployment_health_state"
 
     def __init__(self, cache: DualCache, staleness_threshold: float):
         self.cache = cache

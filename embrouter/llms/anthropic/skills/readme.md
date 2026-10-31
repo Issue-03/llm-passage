@@ -1,6 +1,6 @@
 # Anthropic Skills API Integration
 
-This module provides comprehensive support for the Anthropic Skills API through LiteLLM.
+This module provides comprehensive support for the Anthropic Skills API through EmbRouter.
 
 ## Features
 
@@ -25,12 +25,12 @@ os.environ["ANTHROPIC_API_KEY"] = "your-api-key-here"
 #### Create a Skill
 
 ```python
-import litellm
+import embrouter
 
 # Create a skill with files
 # Note: All files must be in the same top-level directory
 # and must include a SKILL.md file at the root
-skill = litellm.create_skill(
+skill = embrouter.create_skill(
     files=[
         # List of file objects to upload
         # Must include SKILL.md
@@ -41,7 +41,7 @@ skill = litellm.create_skill(
 print(f"Created skill: {skill.id}")
 
 # Asynchronous version
-skill = await litellm.acreate_skill(
+skill = await embrouter.acreate_skill(
     files=[...],  # Your files here
     display_title="Python Code Generator",
     custom_llm_provider="anthropic"
@@ -52,7 +52,7 @@ skill = await litellm.acreate_skill(
 
 ```python
 # List all skills
-skills = litellm.list_skills(
+skills = embrouter.list_skills(
     custom_llm_provider="anthropic"
 )
 
@@ -60,7 +60,7 @@ for skill in skills.data:
     print(f"{skill.display_title}: {skill.id}")
 
 # With pagination and filtering
-skills = litellm.list_skills(
+skills = embrouter.list_skills(
     limit=20,
     source="custom",  # Filter by 'custom' or 'anthropic'
     custom_llm_provider="anthropic"
@@ -68,7 +68,7 @@ skills = litellm.list_skills(
 
 # Get next page if available
 if skills.has_more:
-    next_page = litellm.list_skills(
+    next_page = embrouter.list_skills(
         page=skills.next_page,
         custom_llm_provider="anthropic"
     )
@@ -77,7 +77,7 @@ if skills.has_more:
 #### Get a Skill
 
 ```python
-skill = litellm.get_skill(
+skill = embrouter.get_skill(
     skill_id="skill_abc123",
     custom_llm_provider="anthropic"
 )
@@ -91,7 +91,7 @@ print(f"Source: {skill.source}")
 #### Delete a Skill
 
 ```python
-result = litellm.delete_skill(
+result = embrouter.delete_skill(
     skill_id="skill_abc123",
     custom_llm_provider="anthropic"
 )
@@ -198,26 +198,26 @@ Response from deleting a skill.
 
 ## Architecture
 
-The Skills API implementation follows LiteLLM's standard patterns:
+The Skills API implementation follows EmbRouter's standard patterns:
 
-1. **Type Definitions** (`litellm/types/llms/anthropic_skills.py`)
+1. **Type Definitions** (`embrouter/types/llms/anthropic_skills.py`)
    - Pydantic models for request/response types
    - TypedDict definitions for request parameters
 
-2. **Base Configuration** (`litellm/llms/base_llm/skills/transformation.py`)
+2. **Base Configuration** (`embrouter/llms/base_llm/skills/transformation.py`)
    - Abstract base class `BaseSkillsAPIConfig`
    - Defines transformation interface for provider-specific implementations
 
-3. **Provider Implementation** (`litellm/llms/anthropic/skills/transformation.py`)
+3. **Provider Implementation** (`embrouter/llms/anthropic/skills/transformation.py`)
    - `AnthropicSkillsConfig` - Anthropic-specific transformations
    - Handles API authentication, URL construction, and response mapping
 
-4. **Main Handler** (`litellm/skills/main.py`)
+4. **Main Handler** (`embrouter/skills/main.py`)
    - Public API functions (sync and async)
    - Request validation and routing
    - Error handling
 
-5. **HTTP Handlers** (`litellm/llms/custom_httpx/llm_http_handler.py`)
+5. **HTTP Handlers** (`embrouter/llms/custom_httpx/llm_http_handler.py`)
    - Low-level HTTP request/response handling
    - Connection pooling and retry logic
 
@@ -226,7 +226,7 @@ The Skills API implementation follows LiteLLM's standard patterns:
 The Skills API is in beta. The beta header (`skills-2025-10-02`) is automatically added by the Anthropic provider configuration. You can customize it if needed:
 
 ```python
-skill = litellm.create_skill(
+skill = embrouter.create_skill(
     display_title="My Skill",
     extra_headers={
         "anthropic-beta": "skills-2025-10-02"  # Or any other beta version
@@ -235,25 +235,25 @@ skill = litellm.create_skill(
 )
 ```
 
-The default beta version is configured in `litellm.constants.ANTHROPIC_SKILLS_API_BETA_VERSION`.
+The default beta version is configured in `embrouter.constants.ANTHROPIC_SKILLS_API_BETA_VERSION`.
 
 ## Error Handling
 
-All Skills API functions follow LiteLLM's standard error handling:
+All Skills API functions follow EmbRouter's standard error handling:
 
 ```python
-import litellm
+import embrouter
 
 try:
-    skill = litellm.create_skill(
+    skill = embrouter.create_skill(
         display_title="My Skill",
         custom_llm_provider="anthropic"
     )
-except litellm.exceptions.AuthenticationError as e:
+except embrouter.exceptions.AuthenticationError as e:
     print(f"Authentication failed: {e}")
-except litellm.exceptions.RateLimitError as e:
+except embrouter.exceptions.RateLimitError as e:
     print(f"Rate limit exceeded: {e}")
-except litellm.exceptions.APIError as e:
+except embrouter.exceptions.APIError as e:
     print(f"API error: {e}")
 ```
 
@@ -269,7 +269,7 @@ To add support for Skills API to a new provider:
 ## Related Documentation
 
 - [Anthropic Skills API Documentation](https://platform.claude.com/docs/en/api/beta/skills/create)
-- [LiteLLM Responses API](../../../responses/)
+- [EmbRouter Responses API](../../../responses/)
 - [Provider Configuration System](../../base_llm/)
 
 ## Support

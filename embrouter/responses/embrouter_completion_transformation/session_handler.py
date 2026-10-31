@@ -2,22 +2,22 @@ import asyncio
 import json
 from typing import TYPE_CHECKING, Any, Final, cast
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.constants import REDACTED_BY_LITELLM, REDACTED_TOOL_CALL_ARGUMENTS_PLACEHOLDER
-from litellm.proxy._types import SpendLogsMetadata, SpendLogsPayload
-from litellm.proxy.spend_tracking.cold_storage_handler import ColdStorageHandler
-from litellm.responses.utils import ResponsesAPIRequestUtils
-from litellm.types.llms.openai import (
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.constants import REDACTED_BY_EMBROUTER, REDACTED_TOOL_CALL_ARGUMENTS_PLACEHOLDER
+from embrouter.proxy._types import SpendLogsMetadata, SpendLogsPayload
+from embrouter.proxy.spend_tracking.cold_storage_handler import ColdStorageHandler
+from embrouter.responses.utils import ResponsesAPIRequestUtils
+from embrouter.types.llms.openai import (
     AllMessageValues,
     ChatCompletionResponseMessage,
     GenericChatCompletionMessage,
     ResponseInputParam,
 )
-from litellm.types.utils import ChatCompletionMessageToolCall, Message, ModelResponse
+from embrouter.types.utils import ChatCompletionMessageToolCall, Message, ModelResponse
 
 if TYPE_CHECKING:
-    from litellm.responses.litellm_completion_transformation.transformation import (
+    from embrouter.responses.embrouter_completion_transformation.transformation import (
         ChatCompletionSession,
     )
 else:
@@ -34,10 +34,10 @@ def _normalize_redacted_tool_call_arguments(message: Message) -> None:
     """Redaction stores the bare sentinel (invalid JSON) in tool-call arguments;
     normalize replayed history to "{}" so provider converters can parse it."""
     for tool_call in message.tool_calls or []:
-        if (function := getattr(tool_call, "function", None)) is not None and function.arguments == REDACTED_BY_LITELLM:
+        if (function := getattr(tool_call, "function", None)) is not None and function.arguments == REDACTED_BY_EMBROUTER:
             function.arguments = REDACTED_TOOL_CALL_ARGUMENTS_PLACEHOLDER
     function_call: Final = message.function_call
-    if function_call is not None and function_call.arguments == REDACTED_BY_LITELLM:
+    if function_call is not None and function_call.arguments == REDACTED_BY_EMBROUTER:
         function_call.arguments = REDACTED_TOOL_CALL_ARGUMENTS_PLACEHOLDER
 
 
@@ -49,7 +49,7 @@ class ResponsesSessionHandler:
         """
         Return the chat completion message history for a previous response id
         """
-        from litellm.responses.litellm_completion_transformation.transformation import (
+        from embrouter.responses.embrouter_completion_transformation.transformation import (
             ChatCompletionSession,
         )
 
@@ -59,9 +59,9 @@ class ResponsesSessionHandler:
         ] = await ResponsesSessionHandler.get_all_spend_logs_for_previous_response_id(previous_response_id)
         verbose_proxy_logger.debug("found %s spend logs for this response id", len(all_spend_logs))
 
-        litellm_session_id: str | None = None
+        embrouter_session_id: str | None = None
         if len(all_spend_logs) > 0:
-            litellm_session_id = all_spend_logs[0].get("session_id")
+            embrouter_session_id = all_spend_logs[0].get("session_id")
 
         chat_completion_message_history: list[
             AllMessageValues
@@ -84,7 +84,7 @@ class ResponsesSessionHandler:
         )
         return ChatCompletionSession(
             messages=chat_completion_message_history,
-            litellm_session_id=litellm_session_id,
+            embrouter_session_id=embrouter_session_id,
         )
 
     @staticmethod
@@ -101,8 +101,8 @@ class ResponsesSessionHandler:
         """
         Extend the chat completion message history with the spend log payload
         """
-        from litellm.responses.litellm_completion_transformation.transformation import (
-            LiteLLMCompletionResponsesConfig,
+        from embrouter.responses.embrouter_completion_transformation.transformation import (
+            EmbRouterCompletionResponsesConfig,
         )
 
         proxy_server_request_dict: Final = await ResponsesSessionHandler.get_proxy_server_request_from_spend_log(
@@ -126,7 +126,7 @@ class ResponsesSessionHandler:
                 )
 
         if response_input_param:
-            chat_completion_messages = LiteLLMCompletionResponsesConfig.transform_responses_api_input_to_messages(
+            chat_completion_messages = EmbRouterCompletionResponsesConfig.transform_responses_api_input_to_messages(
                 input=response_input_param,
                 responses_api_request=proxy_server_request_dict or {},
                 replay_reasoning=True,
@@ -139,7 +139,7 @@ class ResponsesSessionHandler:
         elif _messages:
             # ensure all messages are /chat/completions/messages
             # certain requests can be stored as Responses API format - this ensures they are transformed to /chat/completions/messages
-            chat_completion_messages = LiteLLMCompletionResponsesConfig.transform_responses_api_input_to_messages(
+            chat_completion_messages = EmbRouterCompletionResponsesConfig.transform_responses_api_input_to_messages(
                 input=_messages,
                 responses_api_request=proxy_server_request_dict or {},
                 replay_reasoning=True,
@@ -246,19 +246,19 @@ class ResponsesSessionHandler:
     ) -> bool:
         """
         Only check cold storage when both are true
-        1. `LITELLM_TRUNCATED_PAYLOAD_FIELD` is in the proxy server request dict
-        2. `litellm.cold_storage_custom_logger` is not None
+        1. `EMBROUTER_TRUNCATED_PAYLOAD_FIELD` is in the proxy server request dict
+        2. `embrouter.cold_storage_custom_logger` is not None
         """
-        from litellm.constants import LITELLM_TRUNCATED_PAYLOAD_FIELD
+        from embrouter.constants import EMBROUTER_TRUNCATED_PAYLOAD_FIELD
 
-        configured_cold_storage_custom_logger: Final = litellm.cold_storage_custom_logger
+        configured_cold_storage_custom_logger: Final = embrouter.cold_storage_custom_logger
         if configured_cold_storage_custom_logger is None:
             return False
         if proxy_server_request_dict is None:
             return True
         if len(proxy_server_request_dict) == 0:
             return True
-        if LITELLM_TRUNCATED_PAYLOAD_FIELD in str(proxy_server_request_dict):
+        if EMBROUTER_TRUNCATED_PAYLOAD_FIELD in str(proxy_server_request_dict):
             return True
         return False
 
@@ -279,11 +279,11 @@ class ResponsesSessionHandler:
         drops the whole conversation instead of erroring. Deployments that write no spend
         logs at all have nothing to wait for, so they keep the single original query.
         """
-        from litellm.constants import (
+        from embrouter.constants import (
             RESPONSES_SESSION_LOOKUP_MAX_ATTEMPTS,
             RESPONSES_SESSION_LOOKUP_RETRY_INTERVAL,
         )
-        from litellm.proxy.proxy_server import disable_spend_logs, prisma_client
+        from embrouter.proxy.proxy_server import disable_spend_logs, prisma_client
 
         verbose_proxy_logger.debug("decoding response id=%s", previous_response_id)
 
@@ -295,11 +295,11 @@ class ResponsesSessionHandler:
         query: Final = """
             WITH matching_session AS (
                 SELECT session_id
-                FROM "LiteLLM_SpendLogs"
+                FROM "EmbRouter_SpendLogs"
                 WHERE request_id = $1
             )
             SELECT *
-            FROM "LiteLLM_SpendLogs"
+            FROM "EmbRouter_SpendLogs"
             WHERE session_id IN (SELECT session_id FROM matching_session)
             ORDER BY "endTime" ASC;
         """

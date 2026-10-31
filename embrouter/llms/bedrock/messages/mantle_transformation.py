@@ -14,26 +14,26 @@ from typing import TYPE_CHECKING, Any, Final
 import httpx
 from pydantic import TypeAdapter
 
-from litellm.llms.anthropic.pass_through.messages.transformation import (
+from embrouter.llms.anthropic.pass_through.messages.transformation import (
     DEFAULT_ANTHROPIC_API_VERSION,
     AnthropicMessagesConfig,
 )
-from litellm.llms.bedrock.common_utils import build_mantle_messages_url
-from litellm.llms.bedrock.messages.invoke_transformations.anthropic_claude3_transformation import (
+from embrouter.llms.bedrock.common_utils import build_mantle_messages_url
+from embrouter.llms.bedrock.messages.invoke_transformations.anthropic_claude3_transformation import (
     AmazonAnthropicClaudeMessagesConfig,
 )
-from litellm.types.llms.anthropic_messages.anthropic_response import (
+from embrouter.types.llms.anthropic_messages.anthropic_response import (
     AnthropicMessagesResponse,
     AnthropicUsage,
 )
-from litellm.types.router import GenericLiteLLMParams
+from embrouter.types.router import GenericEmbRouterParams
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 _BODY_FIELDS_MANTLE_READS_FROM_HEADERS: Final = frozenset({"anthropic_version", "anthropic_beta"})
 _ANTHROPIC_BETAS: Final = TypeAdapter(tuple[str, ...])
@@ -69,7 +69,7 @@ class AmazonMantleMessagesConfig(AmazonAnthropicClaudeMessagesConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         region: Final = self._get_aws_region_name(optional_params=optional_params, model=model)
@@ -85,7 +85,7 @@ class AmazonMantleMessagesConfig(AmazonAnthropicClaudeMessagesConfig):
         model: str,
         messages: list[Any],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> tuple[dict, str | None]:
@@ -94,11 +94,11 @@ class AmazonMantleMessagesConfig(AmazonAnthropicClaudeMessagesConfig):
             model=model,
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             api_key=api_key,
             api_base=api_base,
         )
-        project_id: Final = litellm_params.get("aws_bedrock_project_id")
+        project_id: Final = embrouter_params.get("aws_bedrock_project_id")
         has_version: Final = any(name.lower() == "anthropic-version" for name in merged_headers)
         mantle_headers: Final = MappingProxyType(
             {
@@ -120,7 +120,7 @@ class AmazonMantleMessagesConfig(AmazonAnthropicClaudeMessagesConfig):
         model: str,
         messages: list[dict],
         anthropic_messages_optional_request_params: dict,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> dict:
         model_id: Final = model.replace("mantle/", "", 1)
@@ -129,7 +129,7 @@ class AmazonMantleMessagesConfig(AmazonAnthropicClaudeMessagesConfig):
                 model=model_id,
                 messages=messages,
                 anthropic_messages_optional_request_params=anthropic_messages_optional_request_params,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 headers=headers,
             ),
         )
@@ -150,7 +150,7 @@ class AmazonMantleMessagesConfig(AmazonAnthropicClaudeMessagesConfig):
         self,
         model: str,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> AnthropicMessagesResponse:
         response: Final = super().transform_anthropic_messages_response(
             model=model,
@@ -170,12 +170,12 @@ class AmazonMantleMessagesConfig(AmazonAnthropicClaudeMessagesConfig):
         model: str,
         httpx_response: httpx.Response,
         request_body: dict,
-        litellm_logging_obj: LiteLLMLoggingObj,
+        embrouter_logging_obj: EmbRouterLoggingObj,
     ) -> AsyncIterator:
         return AnthropicMessagesConfig.get_async_streaming_response_iterator(
             self,
             model=model,
             httpx_response=httpx_response,
             request_body=request_body,
-            litellm_logging_obj=litellm_logging_obj,
+            embrouter_logging_obj=embrouter_logging_obj,
         )

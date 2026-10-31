@@ -8,10 +8,10 @@ from urllib.parse import parse_qs, unquote_plus, urlparse
 import httpx
 import pytest
 
-import litellm
-from litellm._version import version
-from litellm.exceptions import APIConnectionError, BadRequestError, InternalServerError
-from litellm.litellm_core_utils.bug_report import (
+import embrouter
+from embrouter._version import version
+from embrouter.exceptions import APIConnectionError, BadRequestError, InternalServerError
+from embrouter.embrouter_core_utils.bug_report import (
     DISABLE_ENV_VAR,
     MAX_FRAMES,
     MAX_URL_LENGTH,
@@ -24,7 +24,7 @@ from litellm.litellm_core_utils.bug_report import (
     should_report_bug,
     strip_bug_report_notice,
 )
-from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
+from embrouter.embrouter_core_utils.get_llm_provider_logic import get_llm_provider
 
 ISSUE_URL_BASE = "https://issues.example.com/new"
 
@@ -32,17 +32,17 @@ ISSUE_URL_BASE = "https://issues.example.com/new"
 @pytest.fixture(autouse=True)
 def _bug_report_issue_url(monkeypatch: pytest.MonkeyPatch) -> None:
     """Bug report links are off unless an issue URL is configured; turn them on for these tests."""
-    monkeypatch.setenv("LITELLM_BUG_REPORT_ISSUE_URL", "https://issues.example.com/new")
+    monkeypatch.setenv("EMBROUTER_BUG_REPORT_ISSUE_URL", "https://issues.example.com/new")
 
 
-def test_build_bug_report_keeps_only_litellm_frames():
+def test_build_bug_report_keeps_only_embrouter_frames():
     with pytest.raises(BadRequestError) as raised:
         get_llm_provider(cast(str, None))
     report = build_bug_report(raised.value, surface="sdk")
 
-    assert report.litellm_frames
-    assert all(frame.startswith("litellm/") for frame in report.litellm_frames)
-    assert all("test_bug_report.py" not in frame for frame in report.litellm_frames)
+    assert report.embrouter_frames
+    assert all(frame.startswith("embrouter/") for frame in report.embrouter_frames)
+    assert all("test_bug_report.py" not in frame for frame in report.embrouter_frames)
 
 
 def test_issue_url_never_contains_the_exception_message():
@@ -54,10 +54,10 @@ def test_issue_url_never_contains_the_exception_message():
 
     assert url.startswith(ISSUE_URL_BASE)
     assert secret not in url and "123-45-6789" not in url and "social" not in url
-    assert query["title"] == ["[Bug]: RuntimeError in litellm"]
+    assert query["title"] == ["[Bug]: RuntimeError in embrouter"]
     assert query["version"] == [version]
     assert query["template"] == ["bug_report.yml"]
-    assert query["domain"] == ["Python SDK: the litellm package itself"]
+    assert query["domain"] == ["Python SDK: the embrouter package itself"]
     assert query["deployment"] == ["pip / Python SDK"]
     assert "Exception: `RuntimeError`" in query["description"][0]
     assert "Python:" in query["description"][0]
@@ -102,7 +102,7 @@ def test_frames_are_capped_and_url_is_bounded():
     exec(
         compile(
             "def recurse(depth):\n    if depth == 0:\n        raise RuntimeError('deep')\n    recurse(depth - 1)\n",
-            str(Path(litellm.__file__).with_name("fake_deep_module.py")),
+            str(Path(embrouter.__file__).with_name("fake_deep_module.py")),
             "exec",
         ),
         namespace,
@@ -113,8 +113,8 @@ def test_frames_are_capped_and_url_is_bounded():
         recurse(200)
     report = build_bug_report(raised.value, surface="proxy")
 
-    assert len(report.litellm_frames) == MAX_FRAMES
-    assert all(frame.startswith("litellm/fake_deep_module.py:") for frame in report.litellm_frames)
+    assert len(report.embrouter_frames) == MAX_FRAMES
+    assert all(frame.startswith("embrouter/fake_deep_module.py:") for frame in report.embrouter_frames)
     assert len(bug_report_issue_url(report)) <= MAX_URL_LENGTH
 
 
@@ -123,7 +123,7 @@ def test_issue_url_builds_without_a_traceback():
     assert exc.__traceback__ is None
     report = build_bug_report(exc, surface="proxy")
 
-    assert report.litellm_frames == ()
+    assert report.embrouter_frames == ()
     assert bug_report_issue_url(report).startswith(ISSUE_URL_BASE)
 
 
@@ -183,12 +183,12 @@ def test_issue_description_renders_stream_and_config_block():
         RuntimeError("boom"),
         surface="proxy",
         stream=True,
-        config_lines=("router_settings.routing_strategy = least-busy", "litellm_settings.drop_params = true"),
+        config_lines=("router_settings.routing_strategy = least-busy", "embrouter_settings.drop_params = true"),
     )
     description = parse_qs(urlparse(bug_report_issue_url(report)).query)["description"][0]
 
     assert "Stream: true\n" in description
-    assert "```\nrouter_settings.routing_strategy = least-busy\nlitellm_settings.drop_params = true\n```" in description
+    assert "```\nrouter_settings.routing_strategy = least-busy\nembrouter_settings.drop_params = true\n```" in description
 
 
 @pytest.mark.parametrize("stream", [None, "true", 1])
@@ -207,7 +207,7 @@ def test_oversized_config_is_trimmed_from_the_end_before_any_frame():
     description = parse_qs(urlparse(url := bug_report_issue_url(report)).query)["description"][0]
 
     assert len(url) <= MAX_URL_LENGTH
-    assert all(frame in description for frame in report.litellm_frames)
+    assert all(frame in description for frame in report.embrouter_frames)
     assert "general_settings.flag_0000 = true" in description
     assert "general_settings.flag_0399 = true" not in description
 
@@ -216,20 +216,20 @@ def test_issue_url_carries_exactly_the_environment_report_fields():
     report = build_bug_report(
         RuntimeError("boom"),
         surface="proxy",
-        config_lines=("litellm_settings.drop_params = true",),
+        config_lines=("embrouter_settings.drop_params = true",),
     )
     environment = report.environment
     query = parse_qs(urlparse(bug_report_issue_url(report)).query)
     description = query["description"][0]
 
     assert environment == build_environment_report(
-        surface="proxy", config_lines=("litellm_settings.drop_params = true",)
+        surface="proxy", config_lines=("embrouter_settings.drop_params = true",)
     )
-    assert query["version"] == [environment.litellm_version]
+    assert query["version"] == [environment.embrouter_version]
     assert f"Surface: {environment.surface}\n" in description
-    assert f"LiteLLM: {environment.litellm_version}\n" in description
+    assert f"EmbRouter: {environment.embrouter_version}\n" in description
     assert f"Python: {environment.python_version}\n" in description
-    assert "\nlitellm_settings.drop_params = true\n" in description
+    assert "\nembrouter_settings.drop_params = true\n" in description
     assert query.get("deployment") == (None if environment.deployment is None else [environment.deployment])
 
 

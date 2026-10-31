@@ -8,22 +8,22 @@ from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, Final, Generic, Protocol, TypeVar, cast, runtime_checkable
 
-from litellm import verbose_logger
-from litellm.llms.base_llm.managed_resources.isolation import (
+from embrouter import verbose_logger
+from embrouter.llms.base_llm.managed_resources.isolation import (
     build_list_page,
     build_owner_filter,
     can_access_resource,
     resolve_resource_owner_id,
 )
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.types.utils import SpecialEnums
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.types.utils import SpecialEnums
 
 if TYPE_CHECKING:
     from opentelemetry.trace import Span as _Span
 
-    from litellm.proxy.utils import InternalUsageCache as _InternalUsageCache
-    from litellm.proxy.utils import PrismaClient as _PrismaClient
-    from litellm.router import Router as _Router
+    from embrouter.proxy.utils import InternalUsageCache as _InternalUsageCache
+    from embrouter.proxy.utils import PrismaClient as _PrismaClient
+    from embrouter.router import Router as _Router
 
     Span = _Span | Any
     InternalUsageCache = _InternalUsageCache
@@ -109,7 +109,7 @@ class BaseManagedResource(ABC, Generic[ResourceObjectType]):
     def table_name(self) -> str:
         """
         Return the database table name for this resource type.
-        Example: 'litellm_managedfiletable', 'litellm_managedvectorstoretable'
+        Example: 'embrouter_managedfiletable', 'embrouter_managedvectorstoretable'
         """
 
     @abstractmethod
@@ -123,7 +123,7 @@ class BaseManagedResource(ABC, Generic[ResourceObjectType]):
 
         This should return a string that will be base64 encoded.
         Example for files:
-            "litellm_proxy:application/json;unified_id,{uuid};target_model_names,{models};..."
+            "embrouter_proxy:application/json;unified_id,{uuid};target_model_names,{models};..."
 
         Args:
             resource_object: The resource object returned from the provider
@@ -139,16 +139,16 @@ class BaseManagedResource(ABC, Generic[ResourceObjectType]):
         llm_router: Router,
         model: str,
         request_data: dict[str, Any],
-        litellm_parent_otel_span: Span,
+        embrouter_parent_otel_span: Span,
     ) -> ResourceObjectType:
         """
         Create a resource for a specific model.
 
         Args:
-            llm_router: LiteLLM router instance
+            llm_router: EmbRouter router instance
             model: Model name to create resource for
             request_data: Request data for resource creation
-            litellm_parent_otel_span: OpenTelemetry span for tracing
+            embrouter_parent_otel_span: OpenTelemetry span for tracing
 
         Returns:
             Resource object from the provider
@@ -162,7 +162,7 @@ class BaseManagedResource(ABC, Generic[ResourceObjectType]):
         self,
         unified_resource_id: str,
         resource_object: ResourceObjectType | None,
-        litellm_parent_otel_span: Span | None,
+        embrouter_parent_otel_span: Span | None,
         model_mappings: dict[str, str],
         user_api_key_dict: UserAPIKeyAuth,
         additional_db_fields: Mapping[str, object] | None = None,
@@ -173,12 +173,12 @@ class BaseManagedResource(ABC, Generic[ResourceObjectType]):
         Args:
             unified_resource_id: The unified resource ID (base64 encoded)
             resource_object: The resource object to store (can be None)
-            litellm_parent_otel_span: OpenTelemetry span for tracing
+            embrouter_parent_otel_span: OpenTelemetry span for tracing
             model_mappings: Dictionary mapping model_id -> provider_resource_id
             user_api_key_dict: User API key authentication details
             additional_db_fields: Additional fields to store in database
         """
-        verbose_logger.info("Storing LiteLLM Managed %s with id=%s in cache", self.resource_type, unified_resource_id)
+        verbose_logger.info("Storing EmbRouter Managed %s with id=%s in cache", self.resource_type, unified_resource_id)
 
         # Prepare cache data
         cache_data: Final[dict[str, object]] = {
@@ -200,7 +200,7 @@ class BaseManagedResource(ABC, Generic[ResourceObjectType]):
             await self.internal_usage_cache.async_set_cache(
                 key=unified_resource_id,
                 value=cache_data,
-                litellm_parent_otel_span=litellm_parent_otel_span,
+                embrouter_parent_otel_span=embrouter_parent_otel_span,
             )
 
         # Prepare database data
@@ -237,20 +237,20 @@ class BaseManagedResource(ABC, Generic[ResourceObjectType]):
         result: Final = await table.create(data=db_data)
 
         verbose_logger.debug(
-            "LiteLLM Managed %s with id=%s stored in db: %s", self.resource_type, unified_resource_id, result
+            "EmbRouter Managed %s with id=%s stored in db: %s", self.resource_type, unified_resource_id, result
         )
 
     async def get_unified_resource_id(
         self,
         unified_resource_id: str,
-        litellm_parent_otel_span: Span | None = None,
+        embrouter_parent_otel_span: Span | None = None,
     ) -> dict[str, Any] | None:
         """
         Retrieve unified resource by ID from cache or database.
 
         Args:
             unified_resource_id: The unified resource ID to retrieve
-            litellm_parent_otel_span: OpenTelemetry span for tracing
+            embrouter_parent_otel_span: OpenTelemetry span for tracing
 
         Returns:
             Dictionary containing resource data or None if not found
@@ -260,7 +260,7 @@ class BaseManagedResource(ABC, Generic[ResourceObjectType]):
             dict | None,
             await self.internal_usage_cache.async_get_cache(
                 key=unified_resource_id,
-                litellm_parent_otel_span=litellm_parent_otel_span,
+                embrouter_parent_otel_span=embrouter_parent_otel_span,
             ),
         )
 
@@ -279,14 +279,14 @@ class BaseManagedResource(ABC, Generic[ResourceObjectType]):
     async def delete_unified_resource_id(
         self,
         unified_resource_id: str,
-        litellm_parent_otel_span: Span | None = None,
+        embrouter_parent_otel_span: Span | None = None,
     ) -> ResourceObjectType | None:
         """
         Delete unified resource from cache and database.
 
         Args:
             unified_resource_id: The unified resource ID to delete
-            litellm_parent_otel_span: OpenTelemetry span for tracing
+            embrouter_parent_otel_span: OpenTelemetry span for tracing
 
         Returns:
             The deleted resource object or None if not found
@@ -296,13 +296,13 @@ class BaseManagedResource(ABC, Generic[ResourceObjectType]):
         initial_value: Final = await table.find_first(where={"unified_resource_id": unified_resource_id})
 
         if initial_value is None:
-            raise Exception(f"LiteLLM Managed {self.resource_type} with id={unified_resource_id} not found")
+            raise Exception(f"EmbRouter Managed {self.resource_type} with id={unified_resource_id} not found")
 
         # Delete from cache
         await self.internal_usage_cache.async_set_cache(
             key=unified_resource_id,
             value=None,
-            litellm_parent_otel_span=litellm_parent_otel_span,
+            embrouter_parent_otel_span=embrouter_parent_otel_span,
         )
 
         # Delete from database
@@ -314,7 +314,7 @@ class BaseManagedResource(ABC, Generic[ResourceObjectType]):
         self,
         unified_resource_id: str,
         user_api_key_dict: UserAPIKeyAuth,
-        litellm_parent_otel_span: Span | None = None,
+        embrouter_parent_otel_span: Span | None = None,
     ) -> bool:
         """
         Check if user has access to the unified resource ID.
@@ -325,13 +325,13 @@ class BaseManagedResource(ABC, Generic[ResourceObjectType]):
         Args:
             unified_resource_id: The unified resource ID to check
             user_api_key_dict: User API key authentication details
-            litellm_parent_otel_span: OpenTelemetry span for tracing
+            embrouter_parent_otel_span: OpenTelemetry span for tracing
 
         Returns:
             True if user has access, False otherwise
         """
         # Use cached method instead of direct DB query
-        resource: Final = await self.get_unified_resource_id(unified_resource_id, litellm_parent_otel_span)
+        resource: Final = await self.get_unified_resource_id(unified_resource_id, embrouter_parent_otel_span)
 
         if resource:
             return can_access_resource(
@@ -349,14 +349,14 @@ class BaseManagedResource(ABC, Generic[ResourceObjectType]):
     async def get_model_resource_id_mapping(
         self,
         resource_ids: list[str],
-        litellm_parent_otel_span: Span,
+        embrouter_parent_otel_span: Span,
     ) -> dict[str, dict[str, str]]:
         """
         Get model-specific resource IDs for a list of unified resource IDs.
 
         Args:
             resource_ids: List of unified resource IDs
-            litellm_parent_otel_span: OpenTelemetry span for tracing
+            embrouter_parent_otel_span: OpenTelemetry span for tracing
 
         Returns:
             Dictionary mapping unified_resource_id -> model_id -> provider_resource_id
@@ -373,7 +373,7 @@ class BaseManagedResource(ABC, Generic[ResourceObjectType]):
 
         for resource_id in resource_ids:
             # Get unified resource from cache/db
-            unified_resource_object = await self.get_unified_resource_id(resource_id, litellm_parent_otel_span)
+            unified_resource_object = await self.get_unified_resource_id(resource_id, embrouter_parent_otel_span)
 
             if unified_resource_object:
                 model_mappings = unified_resource_object.get("model_mappings", {})
@@ -395,16 +395,16 @@ class BaseManagedResource(ABC, Generic[ResourceObjectType]):
         llm_router: Router,
         request_data: dict[str, Any],
         target_model_names_list: list[str],
-        litellm_parent_otel_span: Span,
+        embrouter_parent_otel_span: Span,
     ) -> list[ResourceObjectType]:
         """
         Create a resource for each model in the target list.
 
         Args:
-            llm_router: LiteLLM router instance
+            llm_router: EmbRouter router instance
             request_data: Request data for resource creation
             target_model_names_list: List of target model names
-            litellm_parent_otel_span: OpenTelemetry span for tracing
+            embrouter_parent_otel_span: OpenTelemetry span for tracing
 
         Returns:
             List of resource objects created for each model
@@ -418,7 +418,7 @@ class BaseManagedResource(ABC, Generic[ResourceObjectType]):
                 llm_router=llm_router,
                 model=model,
                 request_data=request_data,
-                litellm_parent_otel_span=litellm_parent_otel_span,
+                embrouter_parent_otel_span=embrouter_parent_otel_span,
             )
             responses.append(individual_response)
         return responses
@@ -534,7 +534,7 @@ class BaseManagedResource(ABC, Generic[ResourceObjectType]):
         Get the prefix for unified IDs for this resource type.
 
         Returns:
-            Prefix string (e.g., "litellm_proxy:")
+            Prefix string (e.g., "embrouter_proxy:")
         """
         return SpecialEnums.LITELM_MANAGED_FILE_ID_PREFIX.value
 

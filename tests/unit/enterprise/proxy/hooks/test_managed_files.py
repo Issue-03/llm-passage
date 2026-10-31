@@ -5,11 +5,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import HTTPException
-from litellm_enterprise.proxy.hooks.managed_files import _PROXY_LiteLLMManagedFiles
+from embrouter_enterprise.proxy.hooks.managed_files import _PROXY_EmbRouterManagedFiles
 
-from litellm.caching import DualCache
-from litellm.proxy._types import CallTypes
-from litellm.proxy.openai_files_endpoints.common_utils import (
+from embrouter.caching import DualCache
+from embrouter.proxy._types import CallTypes
+from embrouter.proxy.openai_files_endpoints.common_utils import (
     BATCH_CREATE_HIDDEN_PARAM,
     _is_base64_encoded_unified_file_id,
     encode_file_id_with_model,
@@ -17,7 +17,7 @@ from litellm.proxy.openai_files_endpoints.common_utils import (
 
 
 def test_get_file_ids_from_messages():
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         DualCache(), prisma_client=MagicMock()
     )
     messages = [
@@ -41,7 +41,7 @@ def test_get_file_ids_from_messages():
 
 
 def test_get_file_ids_from_messages_skips_bedrock_content_blocks_without_type():
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         DualCache(), prisma_client=MagicMock()
     )
     messages = [
@@ -75,13 +75,13 @@ def test_get_file_ids_from_messages_skips_bedrock_content_blocks_without_type():
 
 @pytest.mark.asyncio
 async def test_async_pre_call_hook_batch_retrieve():
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     prisma_client = AsyncMock()
     return_value = MagicMock()
     return_value.created_by = "123"
-    prisma_client.db.litellm_managedobjecttable.find_first.return_value = return_value
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    prisma_client.db.embrouter_managedobjecttable.find_first.return_value = return_value
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         DualCache(), prisma_client=prisma_client
     )
     data = {
@@ -104,10 +104,10 @@ async def test_list_user_batches_limit_zero_returns_empty_page_without_db_query(
     """OpenAI parity for GET /v1/batches?limit=0: an empty page, never the
     default page of 20 (issue #37149). `min(limit or 20, 100)` treated 0 as
     unset before this regression guard existed."""
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     prisma_client = MagicMock()
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(DualCache(), prisma_client=prisma_client)
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(DualCache(), prisma_client=prisma_client)
 
     page = await proxy_managed_files.list_user_batches(
         user_api_key_dict=UserAPIKeyAuth(user_id="123"),
@@ -115,18 +115,18 @@ async def test_list_user_batches_limit_zero_returns_empty_page_without_db_query(
     )
 
     assert page == {"object": "list", "data": [], "first_id": None, "last_id": None, "has_more": False}
-    prisma_client.db.litellm_managedobjecttable.find_many.assert_not_called()
+    prisma_client.db.embrouter_managedobjecttable.find_many.assert_not_called()
 
 
 @pytest.mark.asyncio
-async def test_async_pre_call_deployment_hook_resolves_model_id_from_litellm_metadata():
+async def test_async_pre_call_deployment_hook_resolves_model_id_from_embrouter_metadata():
     """
     For batch operations the router stores model_info under
-    kwargs["litellm_metadata"]["model_info"] (not top-level kwargs["model_info"]).
+    kwargs["embrouter_metadata"]["model_info"] (not top-level kwargs["model_info"]).
     async_pre_call_deployment_hook must check both locations so the managed
     file ID is resolved to the provider-specific file ID.
     """
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         DualCache(), prisma_client=MagicMock()
     )
 
@@ -134,13 +134,13 @@ async def test_async_pre_call_deployment_hook_resolves_model_id_from_litellm_met
     model_id = "deployment-xyz"
     provider_file_id = "gs://bucket/path/to/file.jsonl"
 
-    # model_info is nested under litellm_metadata (batch path)
+    # model_info is nested under embrouter_metadata (batch path)
     kwargs = {
         "input_file_id": managed_file_id,
         "model_file_id_mapping": {
             managed_file_id: {model_id: provider_file_id},
         },
-        "litellm_metadata": {
+        "embrouter_metadata": {
             "model_info": {"id": model_id},
         },
     }
@@ -158,9 +158,9 @@ async def test_async_pre_call_deployment_hook_resolves_model_id_from_litellm_met
 async def test_async_pre_call_deployment_hook_prefers_top_level_model_info():
     """
     When model_info exists at top-level kwargs, async_pre_call_deployment_hook
-    should use it without falling back to litellm_metadata.
+    should use it without falling back to embrouter_metadata.
     """
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         DualCache(), prisma_client=MagicMock()
     )
 
@@ -179,7 +179,7 @@ async def test_async_pre_call_deployment_hook_prefers_top_level_model_info():
             },
         },
         "model_info": {"id": top_level_model_id},
-        "litellm_metadata": {
+        "embrouter_metadata": {
             "model_info": {"id": nested_model_id},
         },
     }
@@ -190,16 +190,16 @@ async def test_async_pre_call_deployment_hook_prefers_top_level_model_info():
 
     assert (
         result["input_file_id"] == top_level_provider_file
-    ), "Should prefer top-level model_info over litellm_metadata"
+    ), "Should prefer top-level model_info over embrouter_metadata"
 
 
 @pytest.mark.asyncio
 async def test_async_pre_call_deployment_hook_no_model_info_leaves_file_id_unchanged():
     """
-    When model_info is absent from both top-level and litellm_metadata,
+    When model_info is absent from both top-level and embrouter_metadata,
     the managed file ID should remain unchanged.
     """
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         DualCache(), prisma_client=MagicMock()
     )
 
@@ -222,7 +222,7 @@ async def test_async_pre_call_deployment_hook_no_model_info_leaves_file_id_uncha
 
 
 # def test_list_managed_files():
-#     proxy_managed_files = _PROXY_LiteLLMManagedFiles(DualCache())
+#     proxy_managed_files = _PROXY_EmbRouterManagedFiles(DualCache())
 
 #     # Create some test files
 #     file1 = proxy_managed_files.create_file(
@@ -245,7 +245,7 @@ async def test_async_pre_call_deployment_hook_no_model_info_leaves_file_id_uncha
 #     assert all(f.purpose == "assistants" for f in files)
 
 # def test_retrieve_managed_file():
-#     proxy_managed_files = _PROXY_LiteLLMManagedFiles(DualCache())
+#     proxy_managed_files = _PROXY_EmbRouterManagedFiles(DualCache())
 
 #     # Create a test file
 #     test_content = b"test content for retrieve"
@@ -265,7 +265,7 @@ async def test_async_pre_call_deployment_hook_no_model_info_leaves_file_id_uncha
 #     assert retrieved_file.status == "uploaded"
 
 # def test_delete_managed_file():
-#     proxy_managed_files = _PROXY_LiteLLMManagedFiles(DualCache())
+#     proxy_managed_files = _PROXY_EmbRouterManagedFiles(DualCache())
 
 #     # Create a test file
 #     created_file = proxy_managed_files.create_file(
@@ -289,21 +289,21 @@ async def test_async_pre_call_deployment_hook_no_model_info_leaves_file_id_uncha
 #     assert created_file.id not in [f.id for f in files]
 
 # def test_retrieve_nonexistent_file():
-#     proxy_managed_files = _PROXY_LiteLLMManagedFiles(DualCache())
+#     proxy_managed_files = _PROXY_EmbRouterManagedFiles(DualCache())
 
 #     # Try to retrieve a non-existent file
 #     with pytest.raises(Exception):
 #         proxy_managed_files.retrieve_file("nonexistent-file-id")
 
 # def test_delete_nonexistent_file():
-#     proxy_managed_files = _PROXY_LiteLLMManagedFiles(DualCache())
+#     proxy_managed_files = _PROXY_EmbRouterManagedFiles(DualCache())
 
 #     # Try to delete a non-existent file
 #     with pytest.raises(Exception):
 #         proxy_managed_files.delete_file("nonexistent-file-id")
 
 # def test_list_files_with_purpose_filter():
-#     proxy_managed_files = _PROXY_LiteLLMManagedFiles(DualCache())
+#     proxy_managed_files = _PROXY_EmbRouterManagedFiles(DualCache())
 
 #     # Create files with different purposes
 #     file1 = proxy_managed_files.create_file(
@@ -328,10 +328,10 @@ async def test_async_pre_call_deployment_hook_no_model_info_leaves_file_id_uncha
 
 @pytest.mark.asyncio
 async def test_async_post_call_success_hook_for_unified_finetuning_job():
-    from litellm.types.utils import LiteLLMFineTuningJob
+    from embrouter.types.utils import EmbRouterFineTuningJob
 
     unified_file_id = "bGl0ZWxsbV9wcm94eTphcHBsaWNhdGlvbi9vY3RldC1zdHJlYW07dW5pZmllZF9pZCxiZTQ0ZDVlYi1mNDU3LTRiNzktOWM4My01N2QxMTMxYWM0YzY7dGFyZ2V0X21vZGVsX25hbWVzLGdwdC00LjEtb3BlbmFpO2xsbV9vdXRwdXRfZmlsZV9pZCxmaWxlLURKMnQ0OWZlQ2NTQk5vNG9oekZ6NGc7bGxtX291dHB1dF9maWxlX21vZGVsX2lkLGRiNjY5ODcwNzdkZTdmYzZjNzAzY2Y1MDczMGU2MmNkOWQ3YTU1N2NlNjVmMDUzNTFkYTM4YTA3ZjBlZDEyNzQ"
-    provider_ft_job = LiteLLMFineTuningJob(
+    provider_ft_job = EmbRouterFineTuningJob(
         object="fine_tuning.job",
         id="ftjob-0kEBV5b4sPrFcMnuzmYSzU1G",
         model="gpt-3.5-turbo-0613",
@@ -351,7 +351,7 @@ async def test_async_post_call_success_hook_for_unified_finetuning_job():
         "unified_file_id": unified_file_id,
         "model_id": "gpt-3.5-turbo-0613",
     }
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         DualCache(), prisma_client=AsyncMock()
     )
     data = {
@@ -364,19 +364,19 @@ async def test_async_post_call_success_hook_for_unified_finetuning_job():
         response=provider_ft_job,
     )
 
-    assert isinstance(response, LiteLLMFineTuningJob)
+    assert isinstance(response, EmbRouterFineTuningJob)
     assert _is_base64_encoded_unified_file_id(response.id)
 
 
 @pytest.mark.asyncio
 async def test_async_pre_call_hook_for_unified_finetuning_job():
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     prisma_client = AsyncMock()
     return_value = MagicMock()
     return_value.created_by = "123"
-    prisma_client.db.litellm_managedobjecttable.find_first.return_value = return_value
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    prisma_client.db.embrouter_managedobjecttable.find_first.return_value = return_value
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         DualCache(), prisma_client=prisma_client
     )
     data = {
@@ -402,13 +402,13 @@ async def test_can_user_call_unified_file_id(call_type):
     """
     Test that on file retrieve, delete, and content we check if the user has access to the file
     """
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     prisma_client = AsyncMock()
     return_value = MagicMock()
     return_value.created_by = "123"
-    prisma_client.db.litellm_managedfiletable.find_first.return_value = return_value
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    prisma_client.db.embrouter_managedfiletable.find_first.return_value = return_value
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         MagicMock(), prisma_client=prisma_client
     )
     unified_file_id = "bGl0ZWxsbV9wcm94eTphcHBsaWNhdGlvbi9vY3RldC1zdHJlYW07dW5pZmllZF9pZCxmMTNlNDAzZS01YWM3LTRhZjktOGQzNS0wNDgwZDMxOTgyYTg7dGFyZ2V0X21vZGVsX25hbWVzLGdwdC00by1taW5pLW9wZW5haTtsbG1fb3V0cHV0X2ZpbGVfaWQsZmlsZS1Ib3UxZDFXc3c1SDNKcjFMYllpZDJiO2xsbV9vdXRwdXRfZmlsZV9tb2RlbF9pZCxmODBiNWU2NzQ1NzdkNjkyMjM4YmVhNTIxZDdiMGI5ZGYyY2FmMTEwMTU2YmU5YzBjM2NjMmNkNTBjOTM1ZDI0"
@@ -429,32 +429,32 @@ async def test_router_acreate_batch_only_selects_from_file_id_mapping(monkeypatc
     """
     Test that router.acreate_batch only selects model_id from the file_id_mapping
     """
-    import litellm
+    import embrouter
 
     prisma_client = AsyncMock()
     return_value = MagicMock()
     return_value.created_by = "123"
-    prisma_client.db.litellm_managedobjecttable.find_first.return_value = return_value
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    prisma_client.db.embrouter_managedobjecttable.find_first.return_value = return_value
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         DualCache(), prisma_client=prisma_client
     )
 
     monkeypatch.setattr(
-        litellm,
+        embrouter,
         "callbacks",
         [proxy_managed_files],
     )
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-5-mini",
-                "litellm_params": {"model": "gpt-5-mini"},
+                "embrouter_params": {"model": "gpt-5-mini"},
                 "model_info": {"id": "1234"},
             },
             {
                 "model_name": "gpt-5-mini",
-                "litellm_params": {"model": "gpt-5-mini"},
+                "embrouter_params": {"model": "gpt-5-mini"},
                 "model_info": {"id": "5678"},
             },
         ],
@@ -465,7 +465,7 @@ async def test_router_acreate_batch_only_selects_from_file_id_mapping(monkeypatc
     model_file_id_mapping = {file_id: {"5678": "file-LLCUFB52uTMa9hNYjtew9V"}}
 
     with patch.object(
-        litellm, "acreate_batch", return_value=AsyncMock()
+        embrouter, "acreate_batch", return_value=AsyncMock()
     ) as mock_acreate_batch:
         for _ in range(1000):
             await router.acreate_batch(
@@ -487,9 +487,9 @@ async def test_output_file_id_for_batch_retrieve():
 
     from openai.types.batch import BatchRequestCounts
 
-    from litellm.types.utils import LiteLLMBatch
+    from embrouter.types.utils import EmbRouterBatch
 
-    batch = LiteLLMBatch(
+    batch = EmbRouterBatch(
         id="bGl0ZWxsbV9wcm94eTttb2RlbF9pZDoxMjM0NTY3OTtsbG1fYmF0Y2hfaWQ6YmF0Y2hfNjg1YzVlNWQ2Mzk4ODE5MGI4NWJkYjIxNDdiYTEzMWQ",
         completion_window="24h",
         created_at=1750883933,
@@ -514,15 +514,15 @@ async def test_output_file_id_for_batch_retrieve():
     )
 
     batch._hidden_params = {
-        "litellm_call_id": "dcd789e0-c0ad-4244-9564-4e611448d650",
+        "embrouter_call_id": "dcd789e0-c0ad-4244-9564-4e611448d650",
         "api_base": "https://api.openai.com",
         "model_id": "12345679",
         "response_cost": 0.0,
         "additional_headers": {},
-        "litellm_model_name": "gpt-5.5",
-        "unified_batch_id": "litellm_proxy;model_id:12345679;llm_batch_id:batch_685c5e5d63988190b85bdb2147ba131d",
+        "embrouter_model_name": "gpt-5.5",
+        "unified_batch_id": "embrouter_proxy;model_id:12345679;llm_batch_id:batch_685c5e5d63988190b85bdb2147ba131d",
     }
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         DualCache(), prisma_client=AsyncMock()
     )
 
@@ -532,7 +532,7 @@ async def test_output_file_id_for_batch_retrieve():
         response=batch,
     )
 
-    assert not cast(LiteLLMBatch, response).output_file_id.startswith("file-")
+    assert not cast(EmbRouterBatch, response).output_file_id.startswith("file-")
 
 
 @pytest.mark.asyncio
@@ -544,11 +544,11 @@ async def test_output_file_id_preserves_target_model_names_when_model_name_missi
     """
     from openai.types.batch import BatchRequestCounts
 
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.types.llms.openai import OpenAIFileObject
-    from litellm.types.utils import LiteLLMBatch
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.types.llms.openai import OpenAIFileObject
+    from embrouter.types.utils import EmbRouterBatch
 
-    batch = LiteLLMBatch(
+    batch = EmbRouterBatch(
         id="batch_123",
         completion_window="24h",
         created_at=1750883933,
@@ -563,7 +563,7 @@ async def test_output_file_id_preserves_target_model_names_when_model_name_missi
 
     # Build a valid managed input id string and base64 encode it.
     managed_input_file_payload = (
-        "litellm_proxy:application/octet-stream;"
+        "embrouter_proxy:application/octet-stream;"
         "unified_id,test-uuid;"
         "target_model_names,gemini-2.5-pro;"
         "llm_output_file_id,file-input-1;"
@@ -577,12 +577,12 @@ async def test_output_file_id_preserves_target_model_names_when_model_name_missi
 
     batch._hidden_params = {
         "model_id": "model-id-1",
-        "unified_batch_id": "litellm_proxy;model_id:model-id-1;llm_batch_id:batch_123",
+        "unified_batch_id": "embrouter_proxy;model_id:model-id-1;llm_batch_id:batch_123",
         "unified_file_id": managed_input_file_id,
         # Intentionally omit model_name to mimic Vertex issue.
     }
 
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         DualCache(), prisma_client=AsyncMock()
     )
 
@@ -595,7 +595,7 @@ async def test_output_file_id_preserves_target_model_names_when_model_name_missi
         purpose="batch_output",
     )
 
-    with patch("litellm.afile_retrieve", new_callable=AsyncMock) as mock_retrieve:
+    with patch("embrouter.afile_retrieve", new_callable=AsyncMock) as mock_retrieve:
         mock_retrieve.return_value = provider_output_file
         response = await proxy_managed_files.async_post_call_success_hook(
             data={},
@@ -604,7 +604,7 @@ async def test_output_file_id_preserves_target_model_names_when_model_name_missi
         )
 
     decoded_output_file_id = _is_base64_encoded_unified_file_id(
-        cast(LiteLLMBatch, response).output_file_id
+        cast(EmbRouterBatch, response).output_file_id
     )
     assert decoded_output_file_id
     assert "target_model_names,gemini-2.5-pro" in cast(str, decoded_output_file_id)
@@ -619,11 +619,11 @@ async def test_error_file_id_for_failed_batch():
 
     from openai.types.batch import BatchRequestCounts
 
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.types.llms.openai import OpenAIFileObject
-    from litellm.types.utils import LiteLLMBatch
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.types.llms.openai import OpenAIFileObject
+    from embrouter.types.utils import EmbRouterBatch
 
-    batch = LiteLLMBatch(
+    batch = EmbRouterBatch(
         id="bGl0ZWxsbV9wcm94eTttb2RlbF9pZDoxMjM0NTY3OTtsbG1fYmF0Y2hfaWQ6YmF0Y2hfYWJjMTIz",
         completion_window="24h",
         created_at=1714508499,
@@ -648,17 +648,17 @@ async def test_error_file_id_for_failed_batch():
     )
 
     batch._hidden_params = {
-        "litellm_call_id": "test-call-id",
+        "embrouter_call_id": "test-call-id",
         "api_base": "https://api.openai.com",
         "model_id": "test-model-id",
         "model_name": "gpt-5.5",
         "response_cost": 0.0,
         "additional_headers": {},
-        "litellm_model_name": "gpt-5.5",
-        "unified_batch_id": "litellm_proxy;model_id:test-model-id;llm_batch_id:batch_abc123",
+        "embrouter_model_name": "gpt-5.5",
+        "unified_batch_id": "embrouter_proxy;model_id:test-model-id;llm_batch_id:batch_abc123",
     }
 
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         DualCache(), prisma_client=AsyncMock()
     )
 
@@ -674,7 +674,7 @@ async def test_error_file_id_for_failed_batch():
     )
 
     # Mock the afile_retrieve to simulate retrieving error file metadata
-    with patch("litellm.afile_retrieve", new_callable=AsyncMock) as mock_retrieve:
+    with patch("embrouter.afile_retrieve", new_callable=AsyncMock) as mock_retrieve:
         mock_retrieve.return_value = error_file_object
 
         user_api_key_dict = UserAPIKeyAuth(
@@ -688,11 +688,11 @@ async def test_error_file_id_for_failed_batch():
         )
 
     # Verify that error_file_id was transformed to a managed file ID
-    assert cast(LiteLLMBatch, response).error_file_id is not None
-    assert not cast(LiteLLMBatch, response).error_file_id.startswith("error-")
+    assert cast(EmbRouterBatch, response).error_file_id is not None
+    assert not cast(EmbRouterBatch, response).error_file_id.startswith("error-")
     # Verify it's a base64 encoded managed file ID
     assert _is_base64_encoded_unified_file_id(
-        cast(LiteLLMBatch, response).error_file_id
+        cast(EmbRouterBatch, response).error_file_id
     )
 
 
@@ -702,13 +702,13 @@ async def test_async_post_call_success_hook_twice_assert_no_unique_violation():
 
     from openai.types.batch import BatchRequestCounts
 
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.types.utils import LiteLLMBatch
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.types.utils import EmbRouterBatch
 
     # Use AsyncMock instead of real database connection
     prisma_client = AsyncMock()
 
-    batch = LiteLLMBatch(
+    batch = EmbRouterBatch(
         id="bGl0ZWxsbV9wcm94eTttb2RlbF9pZDoxMjM0NTY3OTtsbG1fYmF0Y2hfaWQ6YmF0Y2hfNjg1YzVlNWQ2Mzk4ODE5MGI4NWJkYjIxNDdiYTEzMWQ",
         completion_window="24h",
         created_at=1750883933,
@@ -724,11 +724,11 @@ async def test_async_post_call_success_hook_twice_assert_no_unique_violation():
     batch._hidden_params = {
         "model_id": "12345679",
         "response_cost": 0.0,
-        "litellm_model_name": "gpt-5.5",
-        "unified_batch_id": "litellm_proxy;model_id:12345679;llm_batch_id:batch_685c5e5d63988190b85bdb2147ba131d",
+        "embrouter_model_name": "gpt-5.5",
+        "unified_batch_id": "embrouter_proxy;model_id:12345679;llm_batch_id:batch_685c5e5d63988190b85bdb2147ba131d",
     }
 
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         DualCache(), prisma_client=prisma_client
     )
 
@@ -753,7 +753,7 @@ async def test_async_post_call_success_hook_twice_assert_no_unique_violation():
             for task in tasks:
                 assert task.exception() is None, f"Error: {task.exception()}"
 
-            assert isinstance(response, LiteLLMBatch)
+            assert isinstance(response, EmbRouterBatch)
             assert _is_base64_encoded_unified_file_id(response.id)
 
     # second retrieve batch
@@ -782,12 +782,12 @@ def test_update_responses_input_with_unified_file_id():
     Test that update_responses_input_with_model_file_ids correctly decodes
     unified file IDs and extracts llm_output_file_id from responses API input.
     """
-    from litellm.litellm_core_utils.prompt_templates.common_utils import (
+    from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
         update_responses_input_with_model_file_ids,
     )
 
     # Create a base64-encoded unified file ID
-    # This decodes to: litellm_proxy:application/pdf;unified_id,6c0b5890-8914-48e0-b8f4-0ae5ed3c14a5;target_model_names,gpt-4o;llm_output_file_id,file-ECBPW7ML9g7XHdwGgUPZaM;llm_output_file_model_id,e26453f9e76e7993680d0068d98c1f4cc205bbad0967a33c664893568ca743c2
+    # This decodes to: embrouter_proxy:application/pdf;unified_id,6c0b5890-8914-48e0-b8f4-0ae5ed3c14a5;target_model_names,gpt-4o;llm_output_file_id,file-ECBPW7ML9g7XHdwGgUPZaM;llm_output_file_model_id,e26453f9e76e7993680d0068d98c1f4cc205bbad0967a33c664893568ca743c2
     unified_file_id = "bGl0ZWxsbV9wcm94eTphcHBsaWNhdGlvbi9wZGY7dW5pZmllZF9pZCw2YzBiNTg5MC04OTE0LTQ4ZTAtYjhmNC0wYWU1ZWQzYzE0YTU7dGFyZ2V0X21vZGVsX25hbWVzLGdwdC00bztsbG1fb3V0cHV0X2ZpbGVfaWQsZmlsZS1FQ0JQVzdNTDlnN1hIZHdHZ1VQWmFNO2xsbV9vdXRwdXRfZmlsZV9tb2RlbF9pZCxlMjY0NTNmOWU3NmU3OTkzNjgwZDAwNjhkOThjMWY0Y2MyMDViYmFkMDk2N2EzM2M2NjQ4OTM1NjhjYTc0M2My"
 
     # Test input with unified file ID in content array
@@ -825,7 +825,7 @@ def test_update_responses_input_with_regular_file_id():
     Test that update_responses_input_with_model_file_ids keeps regular
     OpenAI file IDs unchanged.
     """
-    from litellm.litellm_core_utils.prompt_templates.common_utils import (
+    from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
         update_responses_input_with_model_file_ids,
     )
 
@@ -861,7 +861,7 @@ def test_update_responses_input_with_string_input():
     """
     Test that update_responses_input_with_model_file_ids returns string input unchanged.
     """
-    from litellm.litellm_core_utils.prompt_templates.common_utils import (
+    from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
         update_responses_input_with_model_file_ids,
     )
 
@@ -878,7 +878,7 @@ def test_update_responses_input_with_multiple_file_ids():
     Test that update_responses_input_with_model_file_ids handles multiple file IDs
     (both unified and regular) in the same input.
     """
-    from litellm.litellm_core_utils.prompt_templates.common_utils import (
+    from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
         update_responses_input_with_model_file_ids,
     )
 
@@ -922,12 +922,12 @@ def test_update_responses_input_with_model_file_id_mapping():
     Test that update_responses_input_with_model_file_ids correctly uses
     model_file_id_mapping to map managed file IDs to provider-specific file IDs.
     """
-    from litellm.litellm_core_utils.prompt_templates.common_utils import (
+    from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
         update_responses_input_with_model_file_ids,
     )
 
     # Managed file ID (unified)
-    managed_file_id = "litellm_proxy_file_123"
+    managed_file_id = "embrouter_proxy_file_123"
 
     # Model file ID mapping
     model_file_id_mapping = {
@@ -982,13 +982,13 @@ def test_update_responses_tools_with_model_file_id_mapping():
     tools.container.file_ids were not being replaced with provider-specific
     file IDs, causing "string too long" errors from OpenAI.
     """
-    from litellm.litellm_core_utils.prompt_templates.common_utils import (
+    from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
         update_responses_tools_with_model_file_ids,
     )
 
     # Managed file IDs
-    managed_file_id_1 = "litellm_proxy_file_123"
-    managed_file_id_2 = "litellm_proxy_file_456"
+    managed_file_id_1 = "embrouter_proxy_file_123"
+    managed_file_id_2 = "embrouter_proxy_file_456"
 
     # Model file ID mapping
     model_file_id_mapping = {
@@ -1030,7 +1030,7 @@ def test_update_responses_tools_without_mapping():
     Test that update_responses_tools_with_model_file_ids keeps file IDs
     unchanged when no mapping is provided.
     """
-    from litellm.litellm_core_utils.prompt_templates.common_utils import (
+    from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
         update_responses_tools_with_model_file_ids,
     )
 
@@ -1062,11 +1062,11 @@ def test_update_responses_tools_with_mixed_file_ids():
     Test that update_responses_tools_with_model_file_ids correctly handles
     a mix of managed and regular file IDs.
     """
-    from litellm.litellm_core_utils.prompt_templates.common_utils import (
+    from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
         update_responses_tools_with_model_file_ids,
     )
 
-    managed_file_id = "litellm_proxy_file_123"
+    managed_file_id = "embrouter_proxy_file_123"
     regular_file_id = "file-abc123"
 
     model_file_id_mapping = {
@@ -1104,7 +1104,7 @@ def test_get_file_ids_from_responses_tools():
     Test that get_file_ids_from_responses_tools correctly extracts
     file IDs from the tools parameter.
     """
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         DualCache(), prisma_client=MagicMock()
     )
 
@@ -1127,7 +1127,7 @@ def test_get_file_ids_from_responses_tools_multiple_tools():
     """
     Test that get_file_ids_from_responses_tools handles multiple tools.
     """
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         DualCache(), prisma_client=MagicMock()
     )
 
@@ -1161,7 +1161,7 @@ def test_get_file_ids_from_responses_tools_empty():
     """
     Test that get_file_ids_from_responses_tools handles empty or None tools.
     """
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         DualCache(), prisma_client=MagicMock()
     )
 
@@ -1184,7 +1184,7 @@ async def test_check_file_ids_access_with_unified_file_ids():
     """
     Test that check_file_ids_access validates user access to managed file IDs.
     """
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     # Create a unified file ID
     unified_file_id = "bGl0ZWxsbV9wcm94eTphcHBsaWNhdGlvbi9wZGY7dW5pZmllZF9pZCw2YzBiNTg5MC04OTE0LTQ4ZTAtYjhmNC0wYWU1ZWQzYzE0YTU7dGFyZ2V0X21vZGVsX25hbWVzLGdwdC00bztsbG1fb3V0cHV0X2ZpbGVfaWQsZmlsZS1FQ0JQVzdNTDlnN1hIZHdHZ1VQWmFNO2xsbV9vdXRwdXRfZmlsZV9tb2RlbF9pZCxlMjY0NTNmOWU3NmU3OTkzNjgwZDAwNjhkOThjMWY0Y2MyMDViYmFkMDk2N2EzM2M2NjQ4OTM1NjhjYTc0M2My"
@@ -1194,7 +1194,7 @@ async def test_check_file_ids_access_with_unified_file_ids():
     prisma_client = AsyncMock()
     internal_usage_cache = MagicMock()
 
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         internal_usage_cache=internal_usage_cache,
         prisma_client=prisma_client,
     )
@@ -1224,14 +1224,14 @@ async def test_check_file_ids_access_denied():
     """
     Test that check_file_ids_access raises HTTPException when user doesn't have access.
     """
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     unified_file_id = "bGl0ZWxsbV9wcm94eTphcHBsaWNhdGlvbi9wZGY7dW5pZmllZF9pZCw2YzBiNTg5MC04OTE0LTQ4ZTAtYjhmNC0wYWU1ZWQzYzE0YTU7dGFyZ2V0X21vZGVsX25hbWVzLGdwdC00bztsbG1fb3V0cHV0X2ZpbGVfaWQsZmlsZS1FQ0JQVzdNTDlnN1hIZHdHZ1VQWmFNO2xsbV9vdXRwdXRfZmlsZV9tb2RlbF9pZCxlMjY0NTNmOWU3NmU3OTkzNjgwZDAwNjhkOThjMWY0Y2MyMDViYmFkMDk2N2EzM2M2NjQ4OTM1NjhjYTc0M2My"
 
     prisma_client = AsyncMock()
     internal_usage_cache = MagicMock()
 
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         internal_usage_cache=internal_usage_cache,
         prisma_client=prisma_client,
     )
@@ -1260,7 +1260,7 @@ async def test_check_file_ids_access_with_regular_files_only():
     """
     Test that check_file_ids_access doesn't check access for regular (non-unified) file IDs.
     """
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     regular_file_id_1 = "file-abc123"
     regular_file_id_2 = "file-xyz789"
@@ -1268,7 +1268,7 @@ async def test_check_file_ids_access_with_regular_files_only():
     prisma_client = AsyncMock()
     internal_usage_cache = MagicMock()
 
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         internal_usage_cache=internal_usage_cache,
         prisma_client=prisma_client,
     )
@@ -1296,17 +1296,17 @@ async def test_completion_with_file_access_check():
     """
     Test that completion call type checks file access before processing.
     """
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     unified_file_id = "bGl0ZWxsbV9wcm94eTphcHBsaWNhdGlvbi9wZGY7dW5pZmllZF9pZCw2YzBiNTg5MC04OTE0LTQ4ZTAtYjhmNC0wYWU1ZWQzYzE0YTU7dGFyZ2V0X21vZGVsX25hbWVzLGdwdC00bztsbG1fb3V0cHV0X2ZpbGVfaWQsZmlsZS1FQ0JQVzdNTDlnN1hIZHdHZ1VQWmFNO2xsbV9vdXRwdXRfZmlsZV9tb2RlbF9pZCxlMjY0NTNmOWU3NmU3OTkzNjgwZDAwNjhkOThjMWY0Y2MyMDViYmFkMDk2N2EzM2M2NjQ4OTM1NjhjYTc0M2My"
 
     prisma_client = AsyncMock()
-    prisma_client.db.litellm_managedfiletable.find_first = AsyncMock(return_value=None)
+    prisma_client.db.embrouter_managedfiletable.find_first = AsyncMock(return_value=None)
 
     internal_usage_cache = MagicMock()
     internal_usage_cache.async_get_cache = AsyncMock(return_value=None)
 
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         internal_usage_cache=internal_usage_cache,
         prisma_client=prisma_client,
     )
@@ -1355,18 +1355,18 @@ async def test_responses_with_file_access_check():
     """
     Test that responses API checks file access for files in both input and tools.
     """
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     unified_file_id_1 = "bGl0ZWxsbV9wcm94eTphcHBsaWNhdGlvbi9wZGY7dW5pZmllZF9pZCw2YzBiNTg5MC04OTE0LTQ4ZTAtYjhmNC0wYWU1ZWQzYzE0YTU7dGFyZ2V0X21vZGVsX25hbWVzLGdwdC00bztsbG1fb3V0cHV0X2ZpbGVfaWQsZmlsZS1FQ0JQVzdNTDlnN1hIZHdHZ1VQWmFNO2xsbV9vdXRwdXRfZmlsZV9tb2RlbF9pZCxlMjY0NTNmOWU3NmU3OTkzNjgwZDAwNjhkOThjMWY0Y2MyMDViYmFkMDk2N2EzM2M2NjQ4OTM1NjhjYTc0M2My"
     unified_file_id_2 = "bGl0ZWxsbV9wcm94eTphcHBsaWNhdGlvbi9qc29uO3VuaWZpZWRfaWQsNzc3Nzc3Nzc7dGFyZ2V0X21vZGVsX25hbWVzLGdwdC00bztsbG1fb3V0cHV0X2ZpbGVfaWQsZmlsZS1YWVo7bGxtX291dHB1dF9maWxlX21vZGVsX2lkLG1vZGVsXzEyMw"
 
     prisma_client = AsyncMock()
-    prisma_client.db.litellm_managedfiletable.find_first = AsyncMock(return_value=None)
+    prisma_client.db.embrouter_managedfiletable.find_first = AsyncMock(return_value=None)
 
     internal_usage_cache = MagicMock()
     internal_usage_cache.async_get_cache = AsyncMock(return_value=None)
 
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         internal_usage_cache=internal_usage_cache,
         prisma_client=prisma_client,
     )
@@ -1422,16 +1422,16 @@ async def test_store_unified_file_id_with_none_file_object():
     Test that store_unified_file_id works when file_object is None
     (e.g., for batch output files that are stored before file metadata is available).
     """
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     prisma_client = AsyncMock()
-    prisma_client.db.litellm_managedfiletable.upsert = AsyncMock(
+    prisma_client.db.embrouter_managedfiletable.upsert = AsyncMock(
         return_value=MagicMock()
     )
     internal_usage_cache = MagicMock()
     internal_usage_cache.async_set_cache = AsyncMock()
 
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         internal_usage_cache=internal_usage_cache,
         prisma_client=prisma_client,
     )
@@ -1440,14 +1440,14 @@ async def test_store_unified_file_id_with_none_file_object():
     await proxy_managed_files.store_unified_file_id(
         file_id="test-unified-file-id",
         file_object=None,
-        litellm_parent_otel_span=None,
+        embrouter_parent_otel_span=None,
         model_mappings={"model-123": "file-provider-xyz"},
         user_api_key_dict=UserAPIKeyAuth(user_id="test-user"),
     )
 
     # Verify DB upsert was called idempotently with expected create data (without file_object)
-    prisma_client.db.litellm_managedfiletable.upsert.assert_called_once()
-    call_args = prisma_client.db.litellm_managedfiletable.upsert.call_args
+    prisma_client.db.embrouter_managedfiletable.upsert.assert_called_once()
+    call_args = prisma_client.db.embrouter_managedfiletable.upsert.call_args
     assert call_args.kwargs["where"] == {"unified_file_id": "test-unified-file-id"}
     create_data = call_args.kwargs["data"]["create"]
     assert create_data["unified_file_id"] == "test-unified-file-id"
@@ -1456,17 +1456,17 @@ async def test_store_unified_file_id_with_none_file_object():
 
 @pytest.mark.asyncio
 async def test_store_unified_file_id_updates_file_metadata_on_existing_row():
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.types.llms.openai import OpenAIFileObject
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.types.llms.openai import OpenAIFileObject
 
     prisma_client = AsyncMock()
-    prisma_client.db.litellm_managedfiletable.upsert = AsyncMock(
+    prisma_client.db.embrouter_managedfiletable.upsert = AsyncMock(
         return_value=MagicMock()
     )
     internal_usage_cache = MagicMock()
     internal_usage_cache.async_set_cache = AsyncMock()
 
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         internal_usage_cache=internal_usage_cache,
         prisma_client=prisma_client,
     )
@@ -1475,7 +1475,7 @@ async def test_store_unified_file_id_updates_file_metadata_on_existing_row():
     await proxy_managed_files.store_unified_file_id(
         file_id="test-unified-file-id",
         file_object=None,
-        litellm_parent_otel_span=None,
+        embrouter_parent_otel_span=None,
         model_mappings={"model-123": "file-provider-xyz"},
         user_api_key_dict=user_api_key_dict,
     )
@@ -1497,15 +1497,15 @@ async def test_store_unified_file_id_updates_file_metadata_on_existing_row():
     await proxy_managed_files.store_unified_file_id(
         file_id="test-unified-file-id",
         file_object=file_object,
-        litellm_parent_otel_span=None,
+        embrouter_parent_otel_span=None,
         model_mappings={"model-123": "file-provider-xyz"},
         user_api_key_dict=user_api_key_dict,
     )
 
-    first_update = prisma_client.db.litellm_managedfiletable.upsert.await_args_list[
+    first_update = prisma_client.db.embrouter_managedfiletable.upsert.await_args_list[
         0
     ].kwargs["data"]["update"]
-    second_update = prisma_client.db.litellm_managedfiletable.upsert.await_args_list[
+    second_update = prisma_client.db.embrouter_managedfiletable.upsert.await_args_list[
         1
     ].kwargs["data"]["update"]
     assert "file_object" not in first_update
@@ -1520,17 +1520,17 @@ async def test_afile_delete_returns_provider_response_when_stored_file_object_no
     Test that afile_delete returns the provider's delete response when the
     stored file_object is None (e.g., for batch output files).
     """
-    from litellm.types.llms.openai import OpenAIFileObject
+    from embrouter.types.llms.openai import OpenAIFileObject
 
     unified_file_id = "bGl0ZWxsbV9wcm94eTphcHBsaWNhdGlvbi9qc29uO3VuaWZpZWRfaWQsdGVzdC1pZDt0YXJnZXRfbW9kZWxfbmFtZXMsZ3B0LTRvO2xsbV9vdXRwdXRfZmlsZV9pZCxmaWxlLXByb3ZpZGVyLXh5ejtsbG1fb3V0cHV0X2ZpbGVfbW9kZWxfaWQsbW9kZWwtMTIz"
 
     prisma_client = AsyncMock()
     db_record = MagicMock()
     db_record.model_mappings = '{"model-123": "file-provider-xyz"}'
-    prisma_client.db.litellm_managedfiletable.find_first = AsyncMock(
+    prisma_client.db.embrouter_managedfiletable.find_first = AsyncMock(
         return_value=db_record
     )
-    prisma_client.db.litellm_managedfiletable.delete = AsyncMock()
+    prisma_client.db.embrouter_managedfiletable.delete = AsyncMock()
 
     internal_usage_cache = MagicMock()
     internal_usage_cache.async_get_cache = AsyncMock(
@@ -1545,7 +1545,7 @@ async def test_afile_delete_returns_provider_response_when_stored_file_object_no
     )
     internal_usage_cache.async_set_cache = AsyncMock()
 
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         internal_usage_cache=internal_usage_cache,
         prisma_client=prisma_client,
     )
@@ -1568,7 +1568,7 @@ async def test_afile_delete_returns_provider_response_when_stored_file_object_no
 
     result = await proxy_managed_files.afile_delete(
         file_id=unified_file_id,
-        litellm_parent_otel_span=None,
+        embrouter_parent_otel_span=None,
         llm_router=mock_router,
     )
 
@@ -1583,12 +1583,12 @@ async def test_afile_retrieve_fetches_from_provider_when_file_object_none():
     Test that afile_retrieve fetches from the provider when the stored
     file_object is None (e.g., for batch output files).
     """
-    from litellm.types.llms.openai import OpenAIFileObject
+    from embrouter.types.llms.openai import OpenAIFileObject
 
     prisma_client = AsyncMock()
     internal_usage_cache = MagicMock()
 
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         internal_usage_cache=internal_usage_cache,
         prisma_client=prisma_client,
     )
@@ -1617,13 +1617,13 @@ async def test_afile_retrieve_fetches_from_provider_when_file_object_none():
         }
     )
 
-    with patch("litellm.afile_retrieve", new_callable=AsyncMock) as mock_afile_retrieve:
+    with patch("embrouter.afile_retrieve", new_callable=AsyncMock) as mock_afile_retrieve:
         mock_afile_retrieve.return_value = provider_file_response
 
         unified_file_id = "test-unified-file-id"
         result = await proxy_managed_files.afile_retrieve(
             file_id=unified_file_id,
-            litellm_parent_otel_span=None,
+            embrouter_parent_otel_span=None,
             llm_router=mock_router,
         )
 
@@ -1642,7 +1642,7 @@ async def test_afile_retrieve_raises_error_when_no_router_and_file_object_none()
     prisma_client = AsyncMock()
     internal_usage_cache = MagicMock()
 
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         internal_usage_cache=internal_usage_cache,
         prisma_client=prisma_client,
     )
@@ -1655,10 +1655,10 @@ async def test_afile_retrieve_raises_error_when_no_router_and_file_object_none()
 
     unified_file_id = "test-unified-file-id"
 
-    with pytest.raises(Exception, match='LiteLLM Managed File object with id=test-unified-file-id') as exc_info:
+    with pytest.raises(Exception, match='EmbRouter Managed File object with id=test-unified-file-id') as exc_info:
         await proxy_managed_files.afile_retrieve(
             file_id=unified_file_id,
-            litellm_parent_otel_span=None,
+            embrouter_parent_otel_span=None,
             llm_router=None,
         )
 
@@ -1671,12 +1671,12 @@ async def test_afile_retrieve_returns_stored_file_object_when_exists():
     Test that afile_retrieve returns the stored file_object directly when it exists
     (the normal case for user-uploaded files).
     """
-    from litellm.types.llms.openai import OpenAIFileObject
+    from embrouter.types.llms.openai import OpenAIFileObject
 
     prisma_client = AsyncMock()
     internal_usage_cache = MagicMock()
 
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         internal_usage_cache=internal_usage_cache,
         prisma_client=prisma_client,
     )
@@ -1696,7 +1696,7 @@ async def test_afile_retrieve_returns_stored_file_object_when_exists():
 
     result = await proxy_managed_files.afile_retrieve(
         file_id="test-unified-file-id",
-        litellm_parent_otel_span=None,
+        embrouter_parent_otel_span=None,
         llm_router=None,
     )
 
@@ -1713,7 +1713,7 @@ async def test_afile_retrieve_raises_error_for_non_managed_file():
     prisma_client = AsyncMock()
     internal_usage_cache = MagicMock()
 
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         internal_usage_cache=internal_usage_cache,
         prisma_client=prisma_client,
     )
@@ -1721,10 +1721,10 @@ async def test_afile_retrieve_raises_error_for_non_managed_file():
     # Mock get_unified_file_id to return None (file not found)
     proxy_managed_files.get_unified_file_id = AsyncMock(return_value=None)
 
-    with pytest.raises(Exception, match='LiteLLM Managed File object with id=non-existent-file-id') as exc_info:
+    with pytest.raises(Exception, match='EmbRouter Managed File object with id=non-existent-file-id') as exc_info:
         await proxy_managed_files.afile_retrieve(
             file_id="non-existent-file-id",
-            litellm_parent_otel_span=None,
+            embrouter_parent_otel_span=None,
         )
 
     assert "not found" in str(exc_info.value)
@@ -1734,7 +1734,7 @@ async def test_afile_retrieve_raises_error_for_non_managed_file():
 async def test_list_batches_from_managed_objects_table():
     from openai.types.batch import BatchRequestCounts
 
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     prisma_client = AsyncMock()
 
@@ -1768,12 +1768,12 @@ async def test_list_batches_from_managed_objects_table():
         }
     )
 
-    prisma_client.db.litellm_managedobjecttable.find_many.return_value = [
+    prisma_client.db.embrouter_managedobjecttable.find_many.return_value = [
         batch_record_1,
         batch_record_2,
     ]
 
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         DualCache(), prisma_client=prisma_client
     )
 
@@ -1790,7 +1790,7 @@ async def test_list_batches_from_managed_objects_table():
     assert result["last_id"] == "unified-batch-id-2"
 
     # Should filter by user_id (created_by)
-    prisma_client.db.litellm_managedobjecttable.find_many.assert_called_once_with(
+    prisma_client.db.embrouter_managedobjecttable.find_many.assert_called_once_with(
         where={"file_purpose": "batch", "created_by": "test-user"},
         take=11,
         order=[{"created_at": "desc"}, {"unified_object_id": "desc"}],
@@ -1799,12 +1799,12 @@ async def test_list_batches_from_managed_objects_table():
 
 @pytest.mark.asyncio
 async def test_list_batches_from_managed_objects_table_empty_list():
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     prisma_client = AsyncMock()
-    prisma_client.db.litellm_managedobjecttable.find_many.return_value = []
+    prisma_client.db.embrouter_managedobjecttable.find_many.return_value = []
 
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         DualCache(), prisma_client=prisma_client
     )
 
@@ -1820,7 +1820,7 @@ async def test_list_batches_from_managed_objects_table_empty_list():
 
     # Verify where clause includes created_by filter
     # Default take is 20 when no limit is provided
-    prisma_client.db.litellm_managedobjecttable.find_many.assert_called_once_with(
+    prisma_client.db.embrouter_managedobjecttable.find_many.assert_called_once_with(
         where={"file_purpose": "batch", "created_by": "test-user"},
         take=21,
         order=[{"created_at": "desc"}, {"unified_object_id": "desc"}],
@@ -1830,7 +1830,7 @@ async def test_list_batches_from_managed_objects_table_empty_list():
 def _create_unified_batch_id(model_id: str, batch_id: str) -> str:
     import base64
 
-    unified_str = f"litellm_proxy;model_id:{model_id};llm_batch_id:{batch_id}"
+    unified_str = f"embrouter_proxy;model_id:{model_id};llm_batch_id:{batch_id}"
     return base64.urlsafe_b64encode(unified_str.encode()).decode().rstrip("=")
 
 
@@ -1871,18 +1871,18 @@ async def test_list_batches_registers_and_returns_unified_output_file_ids():
     poller for a cancelled batch) must be listed with unified managed IDs, and the
     output/error files must be registered in the managed file table so GET
     /files/{id}/content can route them."""
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     unified_batch_uid = _create_unified_batch_id("model-123", "batch-456")
     raw_input_file_id = "file-list-in-1"
     raw_output_file_id = "file-list-out-1"
     raw_error_file_id = "file-list-err-1"
     unified_input_file_id = base64.urlsafe_b64encode(
-        b"litellm_proxy:application/octet-stream;unified_id,in-1;target_model_names,gpt-5-batch"
+        b"embrouter_proxy:application/octet-stream;unified_id,in-1;target_model_names,gpt-5-batch"
     ).decode()
 
     prisma_client = AsyncMock()
-    prisma_client.db.litellm_managedobjecttable.find_many.return_value = [
+    prisma_client.db.embrouter_managedobjecttable.find_many.return_value = [
         _terminal_batch_record(
             unified_batch_uid, raw_input_file_id, raw_output_file_id, raw_error_file_id
         )
@@ -1892,12 +1892,12 @@ async def test_list_batches_registers_and_returns_unified_output_file_ids():
     input_file_row.unified_file_id = unified_input_file_id
     input_file_row.flat_model_file_ids = [raw_input_file_id]
 
-    prisma_client.db.litellm_managedfiletable.find_many = AsyncMock(
+    prisma_client.db.embrouter_managedfiletable.find_many = AsyncMock(
         return_value=[input_file_row]
     )
-    prisma_client.db.litellm_managedfiletable.find_first = AsyncMock(return_value=None)
+    prisma_client.db.embrouter_managedfiletable.find_first = AsyncMock(return_value=None)
 
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         DualCache(), prisma_client=prisma_client
     )
 
@@ -1910,7 +1910,7 @@ async def test_list_batches_registers_and_returns_unified_output_file_ids():
     assert listed.id == unified_batch_uid
     assert listed.input_file_id == unified_input_file_id
 
-    bulk_lookup = prisma_client.db.litellm_managedfiletable.find_many.await_args
+    bulk_lookup = prisma_client.db.embrouter_managedfiletable.find_many.await_args
     assert set(bulk_lookup.kwargs["where"]["flat_model_file_ids"]["hasSome"]) == {
         raw_input_file_id,
         raw_output_file_id,
@@ -1918,7 +1918,7 @@ async def test_list_batches_registers_and_returns_unified_output_file_ids():
     }
 
     decoded_output = _decode_unified_id(listed.output_file_id)
-    assert decoded_output.startswith("litellm_proxy")
+    assert decoded_output.startswith("embrouter_proxy")
     assert f"llm_output_file_id,{raw_output_file_id}" in decoded_output
     assert "llm_output_file_model_id,model-123" in decoded_output
     assert "target_model_names,gpt-5-batch" in decoded_output
@@ -1926,7 +1926,7 @@ async def test_list_batches_registers_and_returns_unified_output_file_ids():
     decoded_error = _decode_unified_id(listed.error_file_id)
     assert f"llm_output_file_id,{raw_error_file_id}" in decoded_error
 
-    upsert_calls = prisma_client.db.litellm_managedfiletable.upsert.await_args_list
+    upsert_calls = prisma_client.db.embrouter_managedfiletable.upsert.await_args_list
     stored_raw_ids = {
         c.kwargs["data"]["create"]["flat_model_file_ids"][0] for c in upsert_calls
     }
@@ -1941,15 +1941,15 @@ async def test_list_batches_resolves_existing_managed_rows_without_minting():
     """When the raw provider file IDs already have managed file rows, listing must
     swap in the existing unified IDs via one bulk lookup for the whole page, with
     no per-row queries and no duplicate upserts."""
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     unified_input_file_id = base64.urlsafe_b64encode(
-        b"litellm_proxy:application/octet-stream;unified_id,in-9;target_model_names,gpt-5-batch"
+        b"embrouter_proxy:application/octet-stream;unified_id,in-9;target_model_names,gpt-5-batch"
     ).decode()
     raw_output_file_ids = ["file-list-out-existing-1", "file-list-out-existing-2"]
     existing_unified_output_ids = [
         base64.urlsafe_b64encode(
-            f"litellm_proxy:application/json;unified_id,u-{i};llm_output_file_id,{raw_id}".encode()
+            f"embrouter_proxy:application/json;unified_id,u-{i};llm_output_file_id,{raw_id}".encode()
         ).decode()
         for i, raw_id in enumerate(raw_output_file_ids)
     ]
@@ -1965,19 +1965,19 @@ async def test_list_batches_resolves_existing_managed_rows_without_minting():
     ]
 
     prisma_client = AsyncMock()
-    prisma_client.db.litellm_managedobjecttable.find_many.return_value = records
+    prisma_client.db.embrouter_managedobjecttable.find_many.return_value = records
 
     existing_rows = [
         MagicMock(unified_file_id=unified_id, flat_model_file_ids=[raw_id])
         for raw_id, unified_id in zip(raw_output_file_ids, existing_unified_output_ids)
     ]
 
-    prisma_client.db.litellm_managedfiletable.find_many = AsyncMock(
+    prisma_client.db.embrouter_managedfiletable.find_many = AsyncMock(
         return_value=existing_rows
     )
-    prisma_client.db.litellm_managedfiletable.find_first = AsyncMock()
+    prisma_client.db.embrouter_managedfiletable.find_first = AsyncMock()
 
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         DualCache(), prisma_client=prisma_client
     )
 
@@ -1987,9 +1987,9 @@ async def test_list_batches_resolves_existing_managed_rows_without_minting():
     )
 
     assert [b.output_file_id for b in result["data"]] == existing_unified_output_ids
-    prisma_client.db.litellm_managedfiletable.find_many.assert_awaited_once()
-    prisma_client.db.litellm_managedfiletable.find_first.assert_not_awaited()
-    prisma_client.db.litellm_managedfiletable.upsert.assert_not_awaited()
+    prisma_client.db.embrouter_managedfiletable.find_many.assert_awaited_once()
+    prisma_client.db.embrouter_managedfiletable.find_first.assert_not_awaited()
+    prisma_client.db.embrouter_managedfiletable.upsert.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -1997,12 +1997,12 @@ async def test_list_batches_caps_page_size_at_100():
     """The list page size must be capped at 100 rows (matching OpenAI's limit)
     even when the caller asks for more, so one request cannot fan out into an
     unbounded scan."""
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     prisma_client = AsyncMock()
-    prisma_client.db.litellm_managedobjecttable.find_many.return_value = []
+    prisma_client.db.embrouter_managedobjecttable.find_many.return_value = []
 
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         DualCache(), prisma_client=prisma_client
     )
 
@@ -2012,7 +2012,7 @@ async def test_list_batches_caps_page_size_at_100():
     )
 
     assert (
-        prisma_client.db.litellm_managedobjecttable.find_many.await_args.kwargs["take"]
+        prisma_client.db.embrouter_managedobjecttable.find_many.await_args.kwargs["take"]
         == 101
     )
     assert result["data"] == []
@@ -2020,11 +2020,11 @@ async def test_list_batches_caps_page_size_at_100():
 
 @pytest.mark.asyncio
 async def test_list_batches_from_managed_objects_table_provider_filter_raises_exception():
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     prisma_client = AsyncMock()
 
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         DualCache(), prisma_client=prisma_client
     )
 
@@ -2041,16 +2041,16 @@ async def test_list_batches_from_managed_objects_table_provider_filter_raises_ex
     )
 
     # Verify find_many was NOT called since exception is raised before database query
-    prisma_client.db.litellm_managedobjecttable.find_many.assert_not_called()
+    prisma_client.db.embrouter_managedobjecttable.find_many.assert_not_called()
 
 
 @pytest.mark.asyncio
 async def test_list_batches_from_managed_objects_table_target_model_name_filter_raises_exception():
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     prisma_client = AsyncMock()
 
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         DualCache(), prisma_client=prisma_client
     )
 
@@ -2067,12 +2067,12 @@ async def test_list_batches_from_managed_objects_table_target_model_name_filter_
     )
 
     # Verify find_many was NOT called since exception is raised before database query
-    prisma_client.db.litellm_managedobjecttable.find_many.assert_not_called()
+    prisma_client.db.embrouter_managedobjecttable.find_many.assert_not_called()
 
 
 @pytest.mark.asyncio
 async def test_list_batches_from_managed_objects_table_filters_by_created_by():
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     prisma_client = AsyncMock()
 
@@ -2108,12 +2108,12 @@ async def test_list_batches_from_managed_objects_table_filters_by_created_by():
         }
     )
 
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         DualCache(), prisma_client=prisma_client
     )
 
     # Query with user1's API key - should only return user1's batch
-    prisma_client.db.litellm_managedobjecttable.find_many.return_value = [batch_user1]
+    prisma_client.db.embrouter_managedobjecttable.find_many.return_value = [batch_user1]
     result_user1 = await proxy_managed_files.list_user_batches(
         user_api_key_dict=UserAPIKeyAuth(user_id="user1"),
         limit=10,
@@ -2121,14 +2121,14 @@ async def test_list_batches_from_managed_objects_table_filters_by_created_by():
 
     assert len(result_user1["data"]) == 1
     assert result_user1["data"][0].id == "unified-batch-user1"
-    prisma_client.db.litellm_managedobjecttable.find_many.assert_called_with(
+    prisma_client.db.embrouter_managedobjecttable.find_many.assert_called_with(
         where={"file_purpose": "batch", "created_by": "user1"},
         take=11,
         order=[{"created_at": "desc"}, {"unified_object_id": "desc"}],
     )
 
     # Query with user2's API key - should only return user2's batch
-    prisma_client.db.litellm_managedobjecttable.find_many.return_value = [batch_user2]
+    prisma_client.db.embrouter_managedobjecttable.find_many.return_value = [batch_user2]
     result_user2 = await proxy_managed_files.list_user_batches(
         user_api_key_dict=UserAPIKeyAuth(user_id="user2"),
         limit=10,
@@ -2136,7 +2136,7 @@ async def test_list_batches_from_managed_objects_table_filters_by_created_by():
 
     assert len(result_user2["data"]) == 1
     assert result_user2["data"][0].id == "unified-batch-user2"
-    prisma_client.db.litellm_managedobjecttable.find_many.assert_called_with(
+    prisma_client.db.embrouter_managedobjecttable.find_many.assert_called_with(
         where={"file_purpose": "batch", "created_by": "user2"},
         take=11,
         order=[{"created_at": "desc"}, {"unified_object_id": "desc"}],
@@ -2152,13 +2152,13 @@ async def test_list_batches_pagination_uses_unified_object_id_cursor():
     Prisma cursor on the unique ``unified_object_id`` column, not a
     ``where id > after`` filter against the random-uuid primary key.
     """
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     prisma_client = AsyncMock()
-    prisma_client.db.litellm_managedobjecttable.find_first.return_value = MagicMock()
-    prisma_client.db.litellm_managedobjecttable.find_many.return_value = []
+    prisma_client.db.embrouter_managedobjecttable.find_first.return_value = MagicMock()
+    prisma_client.db.embrouter_managedobjecttable.find_many.return_value = []
 
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         DualCache(), prisma_client=prisma_client
     )
 
@@ -2168,7 +2168,7 @@ async def test_list_batches_pagination_uses_unified_object_id_cursor():
         after="unified-batch-id-7",
     )
 
-    prisma_client.db.litellm_managedobjecttable.find_many.assert_called_once_with(
+    prisma_client.db.embrouter_managedobjecttable.find_many.assert_called_once_with(
         where={"file_purpose": "batch", "created_by": "test-user"},
         take=6,
         order=[{"created_at": "desc"}, {"unified_object_id": "desc"}],
@@ -2176,7 +2176,7 @@ async def test_list_batches_pagination_uses_unified_object_id_cursor():
         skip=1,
     )
 
-    _, call_kwargs = prisma_client.db.litellm_managedobjecttable.find_many.call_args
+    _, call_kwargs = prisma_client.db.embrouter_managedobjecttable.find_many.call_args
     assert "id" not in call_kwargs["where"]
 
 
@@ -2192,10 +2192,10 @@ async def test_list_batches_pagination_walks_all_pages_without_loops_or_gaps():
     """
     import uuid as _uuid
 
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     def _unified_id(i: int) -> str:
-        raw = f"litellm_proxy;model_id:gpt-4o-batch;llm_batch_id:batch_{i:03d}"
+        raw = f"embrouter_proxy;model_id:gpt-4o-batch;llm_batch_id:batch_{i:03d}"
         return base64.urlsafe_b64encode(raw.encode()).decode().rstrip("=")
 
     total = 10
@@ -2248,14 +2248,14 @@ async def test_list_batches_pagination_walks_all_pages_without_loops_or_gaps():
         )
 
     prisma_client = AsyncMock()
-    prisma_client.db.litellm_managedobjecttable.find_many = AsyncMock(
+    prisma_client.db.embrouter_managedobjecttable.find_many = AsyncMock(
         side_effect=fake_find_many
     )
-    prisma_client.db.litellm_managedobjecttable.find_first = AsyncMock(
+    prisma_client.db.embrouter_managedobjecttable.find_first = AsyncMock(
         side_effect=fake_find_first
     )
 
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         DualCache(), prisma_client=prisma_client
     )
     user = UserAPIKeyAuth(user_id="test-user")
@@ -2293,10 +2293,10 @@ async def test_list_batches_pagination_stable_when_created_at_ties():
     import itertools
     import uuid as _uuid
 
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     def _unified_id(i: int) -> str:
-        raw = f"litellm_proxy;model_id:gpt-4o-batch;llm_batch_id:batch_{i:03d}"
+        raw = f"embrouter_proxy;model_id:gpt-4o-batch;llm_batch_id:batch_{i:03d}"
         return base64.urlsafe_b64encode(raw.encode()).decode().rstrip("=")
 
     total = 6
@@ -2369,14 +2369,14 @@ async def test_list_batches_pagination_stable_when_created_at_ties():
         )
 
     prisma_client = AsyncMock()
-    prisma_client.db.litellm_managedobjecttable.find_many = AsyncMock(
+    prisma_client.db.embrouter_managedobjecttable.find_many = AsyncMock(
         side_effect=fake_find_many
     )
-    prisma_client.db.litellm_managedobjecttable.find_first = AsyncMock(
+    prisma_client.db.embrouter_managedobjecttable.find_first = AsyncMock(
         side_effect=fake_find_first
     )
 
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         DualCache(), prisma_client=prisma_client
     )
     user = UserAPIKeyAuth(user_id="test-user")
@@ -2402,7 +2402,7 @@ async def test_list_batches_pagination_stable_when_created_at_ties():
 def _managed_batch_row(index, file_object=None):
     row = MagicMock()
     row.id = f"pk-{index:03d}"
-    raw = f"litellm_proxy;model_id:gpt-4o-batch;llm_batch_id:batch_{index:03d}"
+    raw = f"embrouter_proxy;model_id:gpt-4o-batch;llm_batch_id:batch_{index:03d}"
     row.unified_object_id = base64.urlsafe_b64encode(raw.encode()).decode().rstrip("=")
     row.created_at = 1_000_000 + index
     row.file_object = (
@@ -2447,10 +2447,10 @@ def _fake_managed_object_table(rows):
         )
 
     prisma_client = AsyncMock()
-    prisma_client.db.litellm_managedobjecttable.find_many = AsyncMock(
+    prisma_client.db.embrouter_managedobjecttable.find_many = AsyncMock(
         side_effect=find_many
     )
-    prisma_client.db.litellm_managedobjecttable.find_first = AsyncMock(
+    prisma_client.db.embrouter_managedobjecttable.find_first = AsyncMock(
         side_effect=find_first
     )
     return prisma_client
@@ -2483,15 +2483,15 @@ async def test_list_batches_rejects_unknown_after_cursor():
     """
     from fastapi import HTTPException
 
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     prisma_client = AsyncMock()
-    prisma_client.db.litellm_managedobjecttable.find_first = AsyncMock(
+    prisma_client.db.embrouter_managedobjecttable.find_first = AsyncMock(
         return_value=None
     )
-    prisma_client.db.litellm_managedobjecttable.find_many = AsyncMock(return_value=[])
+    prisma_client.db.embrouter_managedobjecttable.find_many = AsyncMock(return_value=[])
 
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         DualCache(), prisma_client=prisma_client
     )
 
@@ -2504,8 +2504,8 @@ async def test_list_batches_rejects_unknown_after_cursor():
 
     assert exc_info.value.status_code == 400
     assert "does-not-exist-xyz" in str(exc_info.value.detail)
-    prisma_client.db.litellm_managedobjecttable.find_many.assert_not_called()
-    prisma_client.db.litellm_managedobjecttable.find_first.assert_called_once_with(
+    prisma_client.db.embrouter_managedobjecttable.find_many.assert_not_called()
+    prisma_client.db.embrouter_managedobjecttable.find_first.assert_called_once_with(
         where={
             "file_purpose": "batch",
             "created_by": "test-user",
@@ -2521,12 +2521,12 @@ async def test_list_batches_treats_empty_after_as_no_cursor():
     Only a cursor the client actually sent is validated, so an SDK that always
     emits the query parameter does not get a 400 on its first page.
     """
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     rows = [_managed_batch_row(i) for i in range(2)]
     prisma_client = _fake_managed_object_table(rows)
 
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         DualCache(), prisma_client=prisma_client
     )
 
@@ -2538,8 +2538,8 @@ async def test_list_batches_treats_empty_after_as_no_cursor():
         rows[1].unified_object_id,
         rows[0].unified_object_id,
     ]
-    prisma_client.db.litellm_managedobjecttable.find_first.assert_not_called()
-    _, call_kwargs = prisma_client.db.litellm_managedobjecttable.find_many.call_args
+    prisma_client.db.embrouter_managedobjecttable.find_first.assert_not_called()
+    _, call_kwargs = prisma_client.db.embrouter_managedobjecttable.find_many.call_args
     assert "cursor" not in call_kwargs
 
 
@@ -2553,7 +2553,7 @@ async def test_list_batches_rejects_after_cursor_owned_by_another_user():
     """
     from fastapi import HTTPException
 
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     other_users_batch = _managed_batch_row(0)
 
@@ -2563,12 +2563,12 @@ async def test_list_batches_rejects_after_cursor_owned_by_another_user():
         return other_users_batch
 
     prisma_client = AsyncMock()
-    prisma_client.db.litellm_managedobjecttable.find_first = AsyncMock(
+    prisma_client.db.embrouter_managedobjecttable.find_first = AsyncMock(
         side_effect=find_first
     )
-    prisma_client.db.litellm_managedobjecttable.find_many = AsyncMock(return_value=[])
+    prisma_client.db.embrouter_managedobjecttable.find_many = AsyncMock(return_value=[])
 
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         DualCache(), prisma_client=prisma_client
     )
 
@@ -2580,7 +2580,7 @@ async def test_list_batches_rejects_after_cursor_owned_by_another_user():
         )
 
     assert exc_info.value.status_code == 400
-    prisma_client.db.litellm_managedobjecttable.find_many.assert_not_called()
+    prisma_client.db.embrouter_managedobjecttable.find_many.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -2591,12 +2591,12 @@ async def test_list_batches_has_more_false_on_exactly_full_final_page():
     ``has_more`` off page fullness makes every client fetch one extra empty
     page before it can stop.
     """
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     rows = [_managed_batch_row(i) for i in range(4)]
     prisma_client = _fake_managed_object_table(rows)
 
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         DualCache(), prisma_client=prisma_client
     )
 
@@ -2607,7 +2607,7 @@ async def test_list_batches_has_more_false_on_exactly_full_final_page():
     seen = [batch.id for page in pages for batch in page["data"]]
     assert seen == [r.unified_object_id for r in reversed(rows)]
     assert [page["has_more"] for page in pages] == [True, False]
-    assert prisma_client.db.litellm_managedobjecttable.find_many.call_count == 2
+    assert prisma_client.db.embrouter_managedobjecttable.find_many.call_count == 2
 
 
 @pytest.mark.asyncio
@@ -2618,13 +2618,13 @@ async def test_list_batches_unparseable_row_does_not_truncate_pagination():
     the number of returned batches reports "no more results" while older
     batches are still unread, silently hiding them from the caller.
     """
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     rows = [_managed_batch_row(i) for i in range(4)]
     rows[2].file_object = "{ not valid json"
     prisma_client = _fake_managed_object_table(rows)
 
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         DualCache(), prisma_client=prisma_client
     )
 
@@ -2646,14 +2646,14 @@ async def test_list_batches_fills_a_page_past_a_full_page_of_unparseable_rows():
     ``last_id: None``, ``has_more: True``, and a client following ``last_id``
     could not move past them.
     """
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     rows = [_managed_batch_row(i) for i in range(5)]
     for corrupt_row in rows[2:4]:
         corrupt_row.file_object = "{ not valid json"
     prisma_client = _fake_managed_object_table(rows)
 
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         DualCache(), prisma_client=prisma_client
     )
 
@@ -2676,7 +2676,7 @@ _DEEP_BATCH_SCAN_QUERY_BUDGET = 10
 @pytest.mark.asyncio
 async def test_list_batches_bounds_the_queries_a_deep_unparseable_run_costs():
     """A tiny limit behind thousands of corrupt rows must not turn one request into thousands of queries."""
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     rows = [_managed_batch_row(0)] + [
         _managed_batch_row(index, file_object="{ not valid json")
@@ -2684,7 +2684,7 @@ async def test_list_batches_bounds_the_queries_a_deep_unparseable_run_costs():
     ]
     prisma_client = _fake_managed_object_table(rows)
 
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         DualCache(), prisma_client=prisma_client
     )
 
@@ -2695,7 +2695,7 @@ async def test_list_batches_bounds_the_queries_a_deep_unparseable_run_costs():
     assert [batch.id for batch in page["data"]] == [rows[0].unified_object_id]
     assert page["has_more"] is False
     assert (
-        prisma_client.db.litellm_managedobjecttable.find_many.call_count
+        prisma_client.db.embrouter_managedobjecttable.find_many.call_count
         <= _DEEP_BATCH_SCAN_QUERY_BUDGET
     )
 
@@ -2703,12 +2703,12 @@ async def test_list_batches_bounds_the_queries_a_deep_unparseable_run_costs():
 @pytest.mark.asyncio
 async def test_list_batches_reads_one_chunk_when_the_first_one_fills_the_page():
     """The widened chunk must stay off the common path, where the newest rows already fill the page."""
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     rows = [_managed_batch_row(index) for index in range(_DEEP_BATCH_SCAN_ROW_COUNT)]
     prisma_client = _fake_managed_object_table(rows)
 
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         DualCache(), prisma_client=prisma_client
     )
 
@@ -2721,12 +2721,12 @@ async def test_list_batches_reads_one_chunk_when_the_first_one_fills_the_page():
         rows[-2].unified_object_id,
     ]
     assert page["has_more"] is True
-    assert prisma_client.db.litellm_managedobjecttable.find_many.call_count == 1
+    assert prisma_client.db.embrouter_managedobjecttable.find_many.call_count == 1
 
 
 @pytest.mark.asyncio
 async def test_return_unified_file_id_includes_expires_at():
-    from litellm.types.llms.openai import OpenAIFileObject
+    from embrouter.types.llms.openai import OpenAIFileObject
 
     # Create a mock file object with expires_at set
     file_object = OpenAIFileObject(
@@ -2748,11 +2748,11 @@ async def test_return_unified_file_id_includes_expires_at():
 
     internal_usage_cache = MagicMock()
 
-    result = await _PROXY_LiteLLMManagedFiles.return_unified_file_id(
+    result = await _PROXY_EmbRouterManagedFiles.return_unified_file_id(
         file_objects=[file_object],
         create_file_request=create_file_request,
         internal_usage_cache=internal_usage_cache,
-        litellm_parent_otel_span=None,
+        embrouter_parent_otel_span=None,
         target_model_names_list=["gpt-5.5"],
     )
 
@@ -2779,16 +2779,16 @@ async def test_user_b_cannot_retrieve_user_a_batch():
 
     This verifies batch isolation between users at the database/hook level.
     """
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     prisma_client = AsyncMock()
 
     # Mock database to return User A as the creator
     batch_record = MagicMock()
     batch_record.created_by = "user_a_id"
-    prisma_client.db.litellm_managedobjecttable.find_first.return_value = batch_record
+    prisma_client.db.embrouter_managedobjecttable.find_first.return_value = batch_record
 
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         DualCache(), prisma_client=prisma_client
     )
 
@@ -2816,16 +2816,16 @@ async def test_user_b_cannot_cancel_user_a_batch():
     """
     Test that User B cannot cancel a batch created by User A.
     """
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     prisma_client = AsyncMock()
 
     # Mock database to return User A as the creator
     batch_record = MagicMock()
     batch_record.created_by = "user_a_id"
-    prisma_client.db.litellm_managedobjecttable.find_first.return_value = batch_record
+    prisma_client.db.embrouter_managedobjecttable.find_first.return_value = batch_record
 
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         DualCache(), prisma_client=prisma_client
     )
 
@@ -2856,16 +2856,16 @@ async def test_user_a_can_retrieve_own_batch():
     This is a positive test case to ensure permission checks don't block
     legitimate access.
     """
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     prisma_client = AsyncMock()
 
     # Mock database to return User A as the creator
     batch_record = MagicMock()
     batch_record.created_by = "user_a_id"
-    prisma_client.db.litellm_managedobjecttable.find_first.return_value = batch_record
+    prisma_client.db.embrouter_managedobjecttable.find_first.return_value = batch_record
 
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         DualCache(), prisma_client=prisma_client
     )
 
@@ -2894,16 +2894,16 @@ async def test_user_b_cannot_retrieve_user_a_file():
     """
     Test that User B cannot retrieve a file created by User A.
     """
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     prisma_client = AsyncMock()
 
     # Mock database to return User A as the creator
     file_record = MagicMock()
     file_record.created_by = "user_a_id"
-    prisma_client.db.litellm_managedfiletable.find_first.return_value = file_record
+    prisma_client.db.embrouter_managedfiletable.find_first.return_value = file_record
 
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         MagicMock(), prisma_client=prisma_client
     )
 
@@ -2931,16 +2931,16 @@ async def test_user_b_cannot_download_user_a_file_content():
     """
     Test that User B cannot download file content for User A's file.
     """
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     prisma_client = AsyncMock()
 
     # Mock database to return User A as the creator
     file_record = MagicMock()
     file_record.created_by = "user_a_id"
-    prisma_client.db.litellm_managedfiletable.find_first.return_value = file_record
+    prisma_client.db.embrouter_managedfiletable.find_first.return_value = file_record
 
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         MagicMock(), prisma_client=prisma_client
     )
 
@@ -2968,16 +2968,16 @@ async def test_user_b_cannot_delete_user_a_file():
     """
     Test that User B cannot delete a file created by User A.
     """
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     prisma_client = AsyncMock()
 
     # Mock database to return User A as the creator
     file_record = MagicMock()
     file_record.created_by = "user_a_id"
-    prisma_client.db.litellm_managedfiletable.find_first.return_value = file_record
+    prisma_client.db.embrouter_managedfiletable.find_first.return_value = file_record
 
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         MagicMock(), prisma_client=prisma_client
     )
 
@@ -3007,7 +3007,7 @@ async def test_user_a_can_retrieve_own_file():
 
     Positive test case to ensure permission checks work correctly for the owner.
     """
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     prisma_client = AsyncMock()
 
@@ -3025,9 +3025,9 @@ async def test_user_a_can_retrieve_own_file():
             "purpose": "batch",
         }
     )
-    prisma_client.db.litellm_managedfiletable.find_first.return_value = file_record
+    prisma_client.db.embrouter_managedfiletable.find_first.return_value = file_record
 
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         MagicMock(), prisma_client=prisma_client
     )
 
@@ -3057,7 +3057,7 @@ async def test_list_batches_only_returns_user_own_batches():
 
     This ensures users cannot see other users' batches in list operations.
     """
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     prisma_client = AsyncMock()
 
@@ -3078,9 +3078,9 @@ async def test_list_batches_only_returns_user_own_batches():
     )
 
     # Mock database to only return User A's batches
-    prisma_client.db.litellm_managedobjecttable.find_many.return_value = [batch_user_a]
+    prisma_client.db.embrouter_managedobjecttable.find_many.return_value = [batch_user_a]
 
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         DualCache(), prisma_client=prisma_client
     )
 
@@ -3095,7 +3095,7 @@ async def test_list_batches_only_returns_user_own_batches():
     assert result["data"][0].id == "batch-user-a"
 
     # Verify the database query filtered by user_id
-    prisma_client.db.litellm_managedobjecttable.find_many.assert_called_once_with(
+    prisma_client.db.embrouter_managedobjecttable.find_many.assert_called_once_with(
         where={"file_purpose": "batch", "created_by": "user_a_id"},
         take=11,
         order=[{"created_at": "desc"}, {"unified_object_id": "desc"}],
@@ -3110,16 +3110,16 @@ async def test_same_user_different_keys_can_access_batch():
     This verifies that permission checks are based on user_id, not API key,
     allowing users to have multiple keys that can all access their resources.
     """
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     prisma_client = AsyncMock()
 
     # Mock database to return the user_id as creator
     batch_record = MagicMock()
     batch_record.created_by = "user_a_id"
-    prisma_client.db.litellm_managedobjecttable.find_first.return_value = batch_record
+    prisma_client.db.embrouter_managedobjecttable.find_first.return_value = batch_record
 
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         DualCache(), prisma_client=prisma_client
     )
 
@@ -3172,9 +3172,9 @@ def _owned_record(created_by, team_id):
 
 
 def _batch_response(batch_id, output_file_id=None, is_create=False):
-    from litellm.types.utils import LiteLLMBatch
+    from embrouter.types.utils import EmbRouterBatch
 
-    batch = LiteLLMBatch(
+    batch = EmbRouterBatch(
         id=batch_id,
         completion_window="24h",
         created_at=1700000000,
@@ -3201,17 +3201,17 @@ async def test_team_b_cannot_access_team_a_provider_format_batch(
     Cross-team retrieve/cancel of a model-encoded or raw provider batch id
     must 403 when an ownership row exists for another team.
 
-    Regression test: before this check only unified (litellm_proxy-prefixed)
+    Regression test: before this check only unified (embrouter_proxy-prefixed)
     batch ids were enforced, so any key could read any model-encoded or raw
     provider batch.
     """
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     prisma_client = AsyncMock()
-    prisma_client.db.litellm_managedobjecttable.find_first.return_value = (
+    prisma_client.db.embrouter_managedobjecttable.find_first.return_value = (
         _owned_record(created_by="user_a", team_id="team_a")
     )
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         DualCache(), prisma_client=prisma_client
     )
 
@@ -3226,7 +3226,7 @@ async def test_team_b_cannot_access_team_a_provider_format_batch(
         )
 
     assert exc_info.value.status_code == 403
-    prisma_client.db.litellm_managedobjecttable.find_first.assert_awaited_once_with(
+    prisma_client.db.embrouter_managedobjecttable.find_first.assert_awaited_once_with(
         where={"OR": [{"unified_object_id": batch_id}, {"model_object_id": batch_id}]}
     )
 
@@ -3246,13 +3246,13 @@ async def test_authorized_callers_can_access_provider_format_batch(caller_kwargs
     model-encoded batch owned by team_a. Data must pass through unmodified so
     the endpoint's own routing still applies.
     """
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     prisma_client = AsyncMock()
-    prisma_client.db.litellm_managedobjecttable.find_first.return_value = (
+    prisma_client.db.embrouter_managedobjecttable.find_first.return_value = (
         _owned_record(created_by="user_a", team_id="team_a")
     )
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         DualCache(), prisma_client=prisma_client
     )
 
@@ -3275,11 +3275,11 @@ async def test_provider_format_batch_without_ownership_row_stays_accessible():
     A provider-format batch id with no ownership row (created before ownership
     tracking, or directly on the provider account) must stay retrievable.
     """
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     prisma_client = AsyncMock()
-    prisma_client.db.litellm_managedobjecttable.find_first.return_value = None
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    prisma_client.db.embrouter_managedobjecttable.find_first.return_value = None
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         DualCache(), prisma_client=prisma_client
     )
 
@@ -3301,13 +3301,13 @@ async def test_fine_tuning_provider_format_id_not_enforced():
     Provider-format fine-tuning job ids are deliberately out of scope for
     ownership enforcement; only unified fine-tuning ids are checked.
     """
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     prisma_client = AsyncMock()
-    prisma_client.db.litellm_managedobjecttable.find_first.return_value = (
+    prisma_client.db.embrouter_managedobjecttable.find_first.return_value = (
         _owned_record(created_by="user_a", team_id="team_a")
     )
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         DualCache(), prisma_client=prisma_client
     )
 
@@ -3321,7 +3321,7 @@ async def test_fine_tuning_provider_format_id_not_enforced():
     )
 
     assert result["fine_tuning_job_id"] == "ftjob-abc123"
-    prisma_client.db.litellm_managedobjecttable.find_first.assert_not_awaited()
+    prisma_client.db.embrouter_managedobjecttable.find_first.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -3338,13 +3338,13 @@ async def test_team_b_cannot_access_team_a_provider_format_file(
     Cross-team content/retrieve/delete of a model-encoded or raw provider
     file id must 403 when an ownership row exists for another team.
     """
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     prisma_client = AsyncMock()
-    prisma_client.db.litellm_managedfiletable.find_first.return_value = (
+    prisma_client.db.embrouter_managedfiletable.find_first.return_value = (
         _owned_record(created_by="user_a", team_id="team_a")
     )
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         MagicMock(), prisma_client=prisma_client
     )
 
@@ -3359,20 +3359,20 @@ async def test_team_b_cannot_access_team_a_provider_format_file(
         )
 
     assert exc_info.value.status_code == 403
-    prisma_client.db.litellm_managedfiletable.find_first.assert_awaited_once_with(
+    prisma_client.db.embrouter_managedfiletable.find_first.assert_awaited_once_with(
         where={"OR": [{"unified_file_id": file_id}, {"flat_model_file_ids": {"has": file_id}}]}
     )
 
 
 @pytest.mark.asyncio
 async def test_same_team_can_access_provider_format_file():
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     prisma_client = AsyncMock()
-    prisma_client.db.litellm_managedfiletable.find_first.return_value = (
+    prisma_client.db.embrouter_managedfiletable.find_first.return_value = (
         _owned_record(created_by="user_a", team_id="team_a")
     )
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         MagicMock(), prisma_client=prisma_client
     )
 
@@ -3390,11 +3390,11 @@ async def test_same_team_can_access_provider_format_file():
 
 @pytest.mark.asyncio
 async def test_provider_format_file_without_ownership_row_stays_accessible():
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     prisma_client = AsyncMock()
-    prisma_client.db.litellm_managedfiletable.find_first.return_value = None
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    prisma_client.db.embrouter_managedfiletable.find_first.return_value = None
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         MagicMock(), prisma_client=prisma_client
     )
 
@@ -3413,10 +3413,10 @@ async def test_provider_format_file_without_ownership_row_stays_accessible():
 @pytest.mark.asyncio
 @pytest.mark.parametrize("batch_id", [MODEL_ENCODED_BATCH_ID, RAW_PROVIDER_BATCH_ID])
 async def test_post_call_batch_create_stores_ownership_row(batch_id):
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     prisma_client = AsyncMock()
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         MagicMock(async_set_cache=AsyncMock()), prisma_client=prisma_client
     )
 
@@ -3432,12 +3432,12 @@ async def test_post_call_batch_create_stores_ownership_row(batch_id):
         response=_batch_response(batch_id, is_create=True),
     )
 
-    upsert_call = prisma_client.db.litellm_managedobjecttable.upsert.await_args
+    upsert_call = prisma_client.db.embrouter_managedobjecttable.upsert.await_args
     assert upsert_call.kwargs["where"] == {"unified_object_id": batch_id}
     create_data = upsert_call.kwargs["data"]["create"]
     assert create_data["created_by"] == "user_a"
     assert create_data["team_id"] == "team_a"
-    prisma_client.db.litellm_managedobjecttable.update_many.assert_not_awaited()
+    prisma_client.db.embrouter_managedobjecttable.update_many.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -3447,11 +3447,11 @@ async def test_post_call_batch_sync_does_not_claim_ownership():
     otherwise the first foreign key to touch a legacy batch would become its
     owner and lock out the real creator once enforcement is on.
     """
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     prisma_client = AsyncMock()
-    prisma_client.db.litellm_managedobjecttable.update_many.return_value = 0
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    prisma_client.db.embrouter_managedobjecttable.update_many.return_value = 0
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         MagicMock(async_set_cache=AsyncMock()), prisma_client=prisma_client
     )
 
@@ -3463,20 +3463,20 @@ async def test_post_call_batch_sync_does_not_claim_ownership():
         response=_batch_response(MODEL_ENCODED_BATCH_ID),
     )
 
-    prisma_client.db.litellm_managedobjecttable.upsert.assert_not_awaited()
-    prisma_client.db.litellm_managedobjecttable.update_many.assert_awaited_once()
+    prisma_client.db.embrouter_managedobjecttable.upsert.assert_not_awaited()
+    prisma_client.db.embrouter_managedobjecttable.update_many.assert_awaited_once()
 
 
 @pytest.mark.asyncio
 async def test_post_call_batch_sync_updates_existing_row():
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     prisma_client = AsyncMock()
-    prisma_client.db.litellm_managedobjecttable.update_many.return_value = 1
-    prisma_client.db.litellm_managedobjecttable.find_first.return_value = (
+    prisma_client.db.embrouter_managedobjecttable.update_many.return_value = 1
+    prisma_client.db.embrouter_managedobjecttable.find_first.return_value = (
         _owned_record(created_by="user_a", team_id="team_a")
     )
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         MagicMock(async_set_cache=AsyncMock()), prisma_client=prisma_client
     )
 
@@ -3488,12 +3488,12 @@ async def test_post_call_batch_sync_updates_existing_row():
         response=_batch_response(MODEL_ENCODED_BATCH_ID),
     )
 
-    update_call = prisma_client.db.litellm_managedobjecttable.update_many.await_args
+    update_call = prisma_client.db.embrouter_managedobjecttable.update_many.await_args
     assert update_call.kwargs["where"] == {
         "unified_object_id": MODEL_ENCODED_BATCH_ID
     }
     assert update_call.kwargs["data"]["status"] == "completed"
-    prisma_client.db.litellm_managedobjecttable.upsert.assert_not_awaited()
+    prisma_client.db.embrouter_managedobjecttable.upsert.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -3503,14 +3503,14 @@ async def test_post_call_batch_sync_stores_output_file_ownership_from_batch_row(
     ownership row for that file must be written with the BATCH row's
     created_by/team_id, not the caller's identity.
     """
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     prisma_client = AsyncMock()
-    prisma_client.db.litellm_managedobjecttable.update_many.return_value = 1
-    prisma_client.db.litellm_managedobjecttable.find_first.return_value = (
+    prisma_client.db.embrouter_managedobjecttable.update_many.return_value = 1
+    prisma_client.db.embrouter_managedobjecttable.find_first.return_value = (
         _owned_record(created_by="user_a", team_id="team_a")
     )
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         MagicMock(async_set_cache=AsyncMock()), prisma_client=prisma_client
     )
 
@@ -3526,7 +3526,7 @@ async def test_post_call_batch_sync_stores_output_file_ownership_from_batch_row(
         ),
     )
 
-    file_upsert = prisma_client.db.litellm_managedfiletable.upsert.await_args
+    file_upsert = prisma_client.db.embrouter_managedfiletable.upsert.await_args
     assert file_upsert.kwargs["where"] == {
         "unified_file_id": MODEL_ENCODED_OUTPUT_FILE_ID
     }
@@ -3538,10 +3538,10 @@ async def test_post_call_batch_sync_stores_output_file_ownership_from_batch_row(
 
 @pytest.mark.asyncio
 async def test_post_call_batch_create_does_not_store_output_file_ownership():
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     prisma_client = AsyncMock()
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         MagicMock(async_set_cache=AsyncMock()), prisma_client=prisma_client
     )
 
@@ -3561,7 +3561,7 @@ async def test_post_call_batch_create_does_not_store_output_file_ownership():
         ),
     )
 
-    prisma_client.db.litellm_managedfiletable.upsert.assert_not_awaited()
+    prisma_client.db.embrouter_managedfiletable.upsert.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -3570,7 +3570,7 @@ async def test_file_list_cursors_are_scoped_to_the_caller():
     from openai.pagination import AsyncCursorPage
     from openai.types import FileObject
 
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     owner_file = FileObject(
         id="file-owner-1",
@@ -3590,8 +3590,8 @@ async def test_file_list_cursors_are_scoped_to_the_caller():
     )
 
     prisma_client = AsyncMock()
-    prisma_client.db.litellm_managedfiletable.find_many.return_value = []
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    prisma_client.db.embrouter_managedfiletable.find_many.return_value = []
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         DualCache(), prisma_client=prisma_client
     )
 
@@ -3614,7 +3614,7 @@ async def test_file_list_cursors_follow_the_owner_scoped_page():
     from openai.pagination import AsyncCursorPage
     from openai.types import FileObject
 
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     def _raw_file(file_id: str) -> FileObject:
         return FileObject(
@@ -3636,7 +3636,7 @@ async def test_file_list_cursors_follow_the_owner_scoped_page():
     )
 
     managed_row = MagicMock()
-    managed_row.unified_file_id = "litellm_proxy:mine"
+    managed_row.unified_file_id = "embrouter_proxy:mine"
     managed_row.file_object = {
         "id": "file-mine",
         "bytes": 100,
@@ -3647,8 +3647,8 @@ async def test_file_list_cursors_follow_the_owner_scoped_page():
         "status": "processed",
     }
     prisma_client = AsyncMock()
-    prisma_client.db.litellm_managedfiletable.find_many.return_value = [managed_row]
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    prisma_client.db.embrouter_managedfiletable.find_many.return_value = [managed_row]
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         DualCache(), prisma_client=prisma_client
     )
 
@@ -3660,17 +3660,17 @@ async def test_file_list_cursors_follow_the_owner_scoped_page():
         response=upstream_page,
     )
 
-    assert [file_object.id for file_object in response.data] == ["litellm_proxy:mine"]
-    assert response.first_id == "litellm_proxy:mine"
-    assert response.last_id == "litellm_proxy:mine"
+    assert [file_object.id for file_object in response.data] == ["embrouter_proxy:mine"]
+    assert response.first_id == "embrouter_proxy:mine"
+    assert response.last_id == "embrouter_proxy:mine"
     assert response.has_more is False
 
 
 @pytest.mark.asyncio
 async def test_list_user_batches_provider_filter_rejected_with_400():
-    from litellm.proxy._types import ProxyException, UserAPIKeyAuth
+    from embrouter.proxy._types import ProxyException, UserAPIKeyAuth
 
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         DualCache(), prisma_client=MagicMock()
     )
 
@@ -3688,9 +3688,9 @@ async def test_list_user_batches_provider_filter_rejected_with_400():
 
 @pytest.mark.asyncio
 async def test_list_user_batches_target_model_names_filter_rejected_with_400():
-    from litellm.proxy._types import ProxyException, UserAPIKeyAuth
+    from embrouter.proxy._types import ProxyException, UserAPIKeyAuth
 
-    proxy_managed_files = _PROXY_LiteLLMManagedFiles(
+    proxy_managed_files = _PROXY_EmbRouterManagedFiles(
         DualCache(), prisma_client=MagicMock()
     )
 

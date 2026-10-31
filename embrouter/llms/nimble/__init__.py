@@ -1,3 +1,3 @@
-from litellm.llms.nimble.search.transformation import NimbleSearchConfig
+from embrouter.llms.nimble.search.transformation import NimbleSearchConfig
 
 __all__ = ("NimbleSearchConfig",)

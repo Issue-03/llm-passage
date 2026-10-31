@@ -11,32 +11,32 @@ from typing import Any, Final
 
 import httpx
 
-import litellm
-from litellm.constants import request_timeout
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.base_llm.skills.transformation import BaseSkillsAPIConfig
-from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
-from litellm.types.llms.anthropic_skills import (
+import embrouter
+from embrouter.constants import request_timeout
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.base_llm.skills.transformation import BaseSkillsAPIConfig
+from embrouter.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+from embrouter.types.llms.anthropic_skills import (
     CreateSkillRequest,
     DeleteSkillResponse,
     ListSkillsParams,
     ListSkillsResponse,
     Skill,
 )
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import LlmProviders
-from litellm.utils import ProviderConfigManager, client
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import LlmProviders
+from embrouter.utils import ProviderConfigManager, client
 
 # Initialize HTTP handler
 base_llm_http_handler = BaseLLMHTTPHandler()
 DEFAULT_ANTHROPIC_API_BASE: Final = "https://api.anthropic.com/v1"
 
-# Initialize LiteLLM skills handler (lazy - only used when custom_llm_provider="litellm")
-_litellm_skills_handler = None
+# Initialize EmbRouter skills handler (lazy - only used when custom_llm_provider="embrouter")
+_embrouter_skills_handler = None
 
 
 def _get_user_api_key_auth_from_kwargs(kwargs: Mapping[str, object]) -> Any | None:
-    for metadata_key in ("metadata", "litellm_metadata"):
+    for metadata_key in ("metadata", "embrouter_metadata"):
         metadata = kwargs.get(metadata_key)
         if isinstance(metadata, dict) and metadata.get("user_api_key_auth") is not None:
             return metadata["user_api_key_auth"]
@@ -56,16 +56,16 @@ def _get_skill_request_metadata(
     return None
 
 
-def _get_litellm_skills_handler():
-    """Lazy initialization of LiteLLM skills handler to avoid import overhead."""
-    global _litellm_skills_handler
-    if _litellm_skills_handler is None:
-        from litellm.llms.litellm_proxy.skills.transformation import (
-            LiteLLMSkillsTransformationHandler,
+def _get_embrouter_skills_handler():
+    """Lazy initialization of EmbRouter skills handler to avoid import overhead."""
+    global _embrouter_skills_handler
+    if _embrouter_skills_handler is None:
+        from embrouter.llms.embrouter_proxy.skills.transformation import (
+            EmbRouterSkillsTransformationHandler,
         )
 
-        _litellm_skills_handler = LiteLLMSkillsTransformationHandler()
-    return _litellm_skills_handler
+        _embrouter_skills_handler = EmbRouterSkillsTransformationHandler()
+    return _embrouter_skills_handler
 
 
 @client
@@ -122,7 +122,7 @@ async def acreate_skill(
             response = init_response
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -160,12 +160,12 @@ def create_skill(
     """
     local_vars: Final = locals()
     try:
-        litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.get("litellm_logging_obj")
-        litellm_call_id: Final[str | None] = kwargs.get("litellm_call_id", None)
+        embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.get("embrouter_logging_obj")
+        embrouter_call_id: Final[str | None] = kwargs.get("embrouter_call_id", None)
         _is_async: Final = kwargs.pop("acreate_skill", False) is True
 
-        # Get LiteLLM parameters
-        litellm_params: Final = GenericLiteLLMParams(**kwargs)
+        # Get EmbRouter parameters
+        embrouter_params: Final = GenericEmbRouterParams(**kwargs)
 
         # Determine provider
         if custom_llm_provider is None:
@@ -182,11 +182,11 @@ def create_skill(
         if extra_body:
             create_request.update(extra_body)
 
-        # Route to LiteLLM DB if custom_llm_provider="litellm_proxy". description/instructions
+        # Route to EmbRouter DB if custom_llm_provider="embrouter_proxy". description/instructions
         # arrive as top-level kwargs from the REST form endpoint, or nested in extra_body from
         # the SDK convention used by other providers' create_request above.
-        if custom_llm_provider == LlmProviders.LITELLM_PROXY.value:
-            return _get_litellm_skills_handler().create_skill_handler(
+        if custom_llm_provider == LlmProviders.EMBROUTER_PROXY.value:
+            return _get_embrouter_skills_handler().create_skill_handler(
                 display_title=display_title,
                 description=kwargs.get("description") or (extra_body.get("description") if extra_body else None),
                 instructions=kwargs.get("instructions") or (extra_body.get("instructions") if extra_body else None),
@@ -195,13 +195,13 @@ def create_skill(
                 user_id=kwargs.get("user_id"),
                 user_api_key_dict=_get_user_api_key_auth_from_kwargs(kwargs),
                 _is_async=_is_async,
-                logging_obj=litellm_logging_obj,
-                litellm_call_id=litellm_call_id,
+                logging_obj=embrouter_logging_obj,
+                embrouter_call_id=embrouter_call_id,
             )
 
         # Get provider config for external providers (Anthropic, etc.)
         skills_api_provider_config: BaseSkillsAPIConfig | None = ProviderConfigManager.get_provider_skills_api_config(
-            provider=litellm.LlmProviders(custom_llm_provider),
+            provider=embrouter.LlmProviders(custom_llm_provider),
         )
 
         if skills_api_provider_config is None:
@@ -209,28 +209,28 @@ def create_skill(
 
         # Validate environment and get headers
         headers = extra_headers or {}
-        headers = skills_api_provider_config.validate_environment(headers=headers, litellm_params=litellm_params)
+        headers = skills_api_provider_config.validate_environment(headers=headers, embrouter_params=embrouter_params)
 
         # Transform request
         request_body: Final = skills_api_provider_config.transform_create_skill_request(
             create_request=create_request,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
         # Get API base and URL
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
-        api_base: Final = AnthropicModelInfo.get_api_base(litellm_params.api_base)
+        api_base: Final = AnthropicModelInfo.get_api_base(embrouter_params.api_base)
         url: Final = skills_api_provider_config.get_complete_url(api_base=api_base, endpoint="skills")
 
         # Pre-call logging
-        litellm_logging_obj.update_from_kwargs(
+        embrouter_logging_obj.update_from_kwargs(
             kwargs=kwargs,
             model=None,
             optional_params=request_body,
-            litellm_params={
-                "litellm_call_id": litellm_call_id,
+            embrouter_params={
+                "embrouter_call_id": embrouter_call_id,
             },
             custom_llm_provider=custom_llm_provider,
         )
@@ -241,8 +241,8 @@ def create_skill(
             request_body=request_body,
             skills_api_provider_config=skills_api_provider_config,
             custom_llm_provider=custom_llm_provider,
-            litellm_params=litellm_params,
-            logging_obj=litellm_logging_obj,
+            embrouter_params=embrouter_params,
+            logging_obj=embrouter_logging_obj,
             extra_headers=headers,
             timeout=timeout or request_timeout,
             _is_async=_is_async,
@@ -252,7 +252,7 @@ def create_skill(
 
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -315,7 +315,7 @@ async def alist_skills(
             response = init_response
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -353,31 +353,31 @@ def list_skills(
     """
     local_vars: Final = locals()
     try:
-        litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.get("litellm_logging_obj")
-        litellm_call_id: Final[str | None] = kwargs.get("litellm_call_id", None)
+        embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.get("embrouter_logging_obj")
+        embrouter_call_id: Final[str | None] = kwargs.get("embrouter_call_id", None)
         _is_async: Final = kwargs.pop("alist_skills", False) is True
 
-        # Get LiteLLM parameters
-        litellm_params: Final = GenericLiteLLMParams(**kwargs)
+        # Get EmbRouter parameters
+        embrouter_params: Final = GenericEmbRouterParams(**kwargs)
 
         # Determine provider
         if custom_llm_provider is None:
             custom_llm_provider = "anthropic"
 
-        # Route to LiteLLM DB if custom_llm_provider="litellm_proxy"
-        if custom_llm_provider == LlmProviders.LITELLM_PROXY.value:
-            return _get_litellm_skills_handler().list_skills_handler(
+        # Route to EmbRouter DB if custom_llm_provider="embrouter_proxy"
+        if custom_llm_provider == LlmProviders.EMBROUTER_PROXY.value:
+            return _get_embrouter_skills_handler().list_skills_handler(
                 limit=limit or 20,
                 offset=0,
                 user_api_key_dict=_get_user_api_key_auth_from_kwargs(kwargs),
                 _is_async=_is_async,
-                logging_obj=litellm_logging_obj,
-                litellm_call_id=litellm_call_id,
+                logging_obj=embrouter_logging_obj,
+                embrouter_call_id=embrouter_call_id,
             )
 
         # Get provider config for external providers (Anthropic, etc.)
         skills_api_provider_config: BaseSkillsAPIConfig | None = ProviderConfigManager.get_provider_skills_api_config(
-            provider=litellm.LlmProviders(custom_llm_provider),
+            provider=embrouter.LlmProviders(custom_llm_provider),
         )
 
         if skills_api_provider_config is None:
@@ -398,22 +398,22 @@ def list_skills(
 
         # Validate environment and get headers
         headers = extra_headers or {}
-        headers = skills_api_provider_config.validate_environment(headers=headers, litellm_params=litellm_params)
+        headers = skills_api_provider_config.validate_environment(headers=headers, embrouter_params=embrouter_params)
 
         # Transform request
         url, query_params = skills_api_provider_config.transform_list_skills_request(
             list_params=list_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
         # Pre-call logging
-        litellm_logging_obj.update_from_kwargs(
+        embrouter_logging_obj.update_from_kwargs(
             kwargs=kwargs,
             model=None,
             optional_params=query_params,
-            litellm_params={
-                "litellm_call_id": litellm_call_id,
+            embrouter_params={
+                "embrouter_call_id": embrouter_call_id,
             },
             custom_llm_provider=custom_llm_provider,
         )
@@ -424,8 +424,8 @@ def list_skills(
             query_params=query_params,
             skills_api_provider_config=skills_api_provider_config,
             custom_llm_provider=custom_llm_provider,
-            litellm_params=litellm_params,
-            logging_obj=litellm_logging_obj,
+            embrouter_params=embrouter_params,
+            logging_obj=embrouter_logging_obj,
             extra_headers=headers,
             timeout=timeout or request_timeout,
             _is_async=_is_async,
@@ -435,7 +435,7 @@ def list_skills(
 
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -492,7 +492,7 @@ async def aget_skill(
             response = init_response
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -526,30 +526,30 @@ def get_skill(
     """
     local_vars: Final = locals()
     try:
-        litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.get("litellm_logging_obj")
-        litellm_call_id: Final[str | None] = kwargs.get("litellm_call_id", None)
+        embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.get("embrouter_logging_obj")
+        embrouter_call_id: Final[str | None] = kwargs.get("embrouter_call_id", None)
         _is_async: Final = kwargs.pop("aget_skill", False) is True
 
-        # Get LiteLLM parameters
-        litellm_params: Final = GenericLiteLLMParams(**kwargs)
+        # Get EmbRouter parameters
+        embrouter_params: Final = GenericEmbRouterParams(**kwargs)
 
         # Determine provider
         if custom_llm_provider is None:
             custom_llm_provider = "anthropic"
 
-        # Route to LiteLLM DB if custom_llm_provider="litellm_proxy"
-        if custom_llm_provider == LlmProviders.LITELLM_PROXY.value:
-            return _get_litellm_skills_handler().get_skill_handler(
+        # Route to EmbRouter DB if custom_llm_provider="embrouter_proxy"
+        if custom_llm_provider == LlmProviders.EMBROUTER_PROXY.value:
+            return _get_embrouter_skills_handler().get_skill_handler(
                 skill_id=skill_id,
                 user_api_key_dict=_get_user_api_key_auth_from_kwargs(kwargs),
                 _is_async=_is_async,
-                logging_obj=litellm_logging_obj,
-                litellm_call_id=litellm_call_id,
+                logging_obj=embrouter_logging_obj,
+                embrouter_call_id=embrouter_call_id,
             )
 
         # Get provider config for external providers (Anthropic, etc.)
         skills_api_provider_config: BaseSkillsAPIConfig | None = ProviderConfigManager.get_provider_skills_api_config(
-            provider=litellm.LlmProviders(custom_llm_provider),
+            provider=embrouter.LlmProviders(custom_llm_provider),
         )
 
         if skills_api_provider_config is None:
@@ -557,28 +557,28 @@ def get_skill(
 
         # Validate environment and get headers
         headers = extra_headers or {}
-        headers = skills_api_provider_config.validate_environment(headers=headers, litellm_params=litellm_params)
+        headers = skills_api_provider_config.validate_environment(headers=headers, embrouter_params=embrouter_params)
 
         # Get API base
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
-        api_base: Final = AnthropicModelInfo.get_api_base(litellm_params.api_base)
+        api_base: Final = AnthropicModelInfo.get_api_base(embrouter_params.api_base)
 
         # Transform request
         url, headers = skills_api_provider_config.transform_get_skill_request(
             skill_id=skill_id,
             api_base=api_base or DEFAULT_ANTHROPIC_API_BASE,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
         # Pre-call logging
-        litellm_logging_obj.update_from_kwargs(
+        embrouter_logging_obj.update_from_kwargs(
             kwargs=kwargs,
             model=None,
             optional_params={"skill_id": skill_id},
-            litellm_params={
-                "litellm_call_id": litellm_call_id,
+            embrouter_params={
+                "embrouter_call_id": embrouter_call_id,
             },
             custom_llm_provider=custom_llm_provider,
         )
@@ -588,8 +588,8 @@ def get_skill(
             url=url,
             skills_api_provider_config=skills_api_provider_config,
             custom_llm_provider=custom_llm_provider,
-            litellm_params=litellm_params,
-            logging_obj=litellm_logging_obj,
+            embrouter_params=embrouter_params,
+            logging_obj=embrouter_logging_obj,
             extra_headers=headers,
             timeout=timeout or request_timeout,
             _is_async=_is_async,
@@ -599,7 +599,7 @@ def get_skill(
 
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -656,7 +656,7 @@ async def adelete_skill(
             response = init_response
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -690,30 +690,30 @@ def delete_skill(
     """
     local_vars: Final = locals()
     try:
-        litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.get("litellm_logging_obj")
-        litellm_call_id: Final[str | None] = kwargs.get("litellm_call_id", None)
+        embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.get("embrouter_logging_obj")
+        embrouter_call_id: Final[str | None] = kwargs.get("embrouter_call_id", None)
         _is_async: Final = kwargs.pop("adelete_skill", False) is True
 
-        # Get LiteLLM parameters
-        litellm_params: Final = GenericLiteLLMParams(**kwargs)
+        # Get EmbRouter parameters
+        embrouter_params: Final = GenericEmbRouterParams(**kwargs)
 
         # Determine provider
         if custom_llm_provider is None:
             custom_llm_provider = "anthropic"
 
-        # Route to LiteLLM DB if custom_llm_provider="litellm_proxy"
-        if custom_llm_provider == LlmProviders.LITELLM_PROXY.value:
-            return _get_litellm_skills_handler().delete_skill_handler(
+        # Route to EmbRouter DB if custom_llm_provider="embrouter_proxy"
+        if custom_llm_provider == LlmProviders.EMBROUTER_PROXY.value:
+            return _get_embrouter_skills_handler().delete_skill_handler(
                 skill_id=skill_id,
                 user_api_key_dict=_get_user_api_key_auth_from_kwargs(kwargs),
                 _is_async=_is_async,
-                logging_obj=litellm_logging_obj,
-                litellm_call_id=litellm_call_id,
+                logging_obj=embrouter_logging_obj,
+                embrouter_call_id=embrouter_call_id,
             )
 
         # Get provider config for external providers (Anthropic, etc.)
         skills_api_provider_config: BaseSkillsAPIConfig | None = ProviderConfigManager.get_provider_skills_api_config(
-            provider=litellm.LlmProviders(custom_llm_provider),
+            provider=embrouter.LlmProviders(custom_llm_provider),
         )
 
         if skills_api_provider_config is None:
@@ -721,28 +721,28 @@ def delete_skill(
 
         # Validate environment and get headers
         headers = extra_headers or {}
-        headers = skills_api_provider_config.validate_environment(headers=headers, litellm_params=litellm_params)
+        headers = skills_api_provider_config.validate_environment(headers=headers, embrouter_params=embrouter_params)
 
         # Get API base
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
-        api_base: Final = AnthropicModelInfo.get_api_base(litellm_params.api_base)
+        api_base: Final = AnthropicModelInfo.get_api_base(embrouter_params.api_base)
 
         # Transform request
         url, headers = skills_api_provider_config.transform_delete_skill_request(
             skill_id=skill_id,
             api_base=api_base or DEFAULT_ANTHROPIC_API_BASE,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
         # Pre-call logging
-        litellm_logging_obj.update_from_kwargs(
+        embrouter_logging_obj.update_from_kwargs(
             kwargs=kwargs,
             model=None,
             optional_params={"skill_id": skill_id},
-            litellm_params={
-                "litellm_call_id": litellm_call_id,
+            embrouter_params={
+                "embrouter_call_id": embrouter_call_id,
             },
             custom_llm_provider=custom_llm_provider,
         )
@@ -752,8 +752,8 @@ def delete_skill(
             url=url,
             skills_api_provider_config=skills_api_provider_config,
             custom_llm_provider=custom_llm_provider,
-            litellm_params=litellm_params,
-            logging_obj=litellm_logging_obj,
+            embrouter_params=embrouter_params,
+            logging_obj=embrouter_logging_obj,
             extra_headers=headers,
             timeout=timeout or request_timeout,
             _is_async=_is_async,
@@ -763,7 +763,7 @@ def delete_skill(
 
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,

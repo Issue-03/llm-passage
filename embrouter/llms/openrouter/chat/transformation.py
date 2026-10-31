@@ -12,19 +12,19 @@ from typing import TYPE_CHECKING, Any, Final, cast
 
 import httpx
 
-import litellm
-from litellm.llms.base_llm.base_model_iterator import BaseModelResponseIterator
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.types.llms.openai import AllMessageValues, ChatCompletionToolParam
-from litellm.types.llms.openrouter import OpenRouterErrorMessage
-from litellm.types.utils import ModelResponse, ModelResponseStream
+import embrouter
+from embrouter.llms.base_llm.base_model_iterator import BaseModelResponseIterator
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.types.llms.openai import AllMessageValues, ChatCompletionToolParam
+from embrouter.types.llms.openrouter import OpenRouterErrorMessage
+from embrouter.types.utils import ModelResponse, ModelResponseStream
 
 from ...openai.chat.gpt_transformation import OpenAIGPTConfig
 from ..common_utils import OpenRouterException
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
 
 
 class CacheControlSupportedModels(str, Enum):
@@ -44,7 +44,7 @@ class OpenrouterConfig(OpenAIGPTConfig):
         """
         supported_params: Final = super().get_supported_openai_params(model=model)
         try:
-            if litellm.supports_reasoning(model=model, custom_llm_provider="openrouter") or litellm.supports_reasoning(
+            if embrouter.supports_reasoning(model=model, custom_llm_provider="openrouter") or embrouter.supports_reasoning(
                 model=model
             ):
                 supported_params.append("reasoning_effort")
@@ -148,7 +148,7 @@ class OpenrouterConfig(OpenAIGPTConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         """
@@ -161,7 +161,7 @@ class OpenrouterConfig(OpenAIGPTConfig):
             messages = self._move_cache_control_to_content(messages)
 
         extra_body: Final = optional_params.pop("extra_body", {})
-        response: Final = super().transform_request(model, messages, optional_params, litellm_params, headers)
+        response: Final = super().transform_request(model, messages, optional_params, embrouter_params, headers)
         response.update(extra_body)
 
         # ALWAYS add usage parameter to get cost data from OpenRouter
@@ -176,11 +176,11 @@ class OpenrouterConfig(OpenAIGPTConfig):
         model: str,
         raw_response: httpx.Response,
         model_response: ModelResponse,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
         request_data: dict,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,
@@ -202,7 +202,7 @@ class OpenrouterConfig(OpenAIGPTConfig):
             request_data=request_data,
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             encoding=encoding,
             api_key=api_key,
             json_mode=json_mode,
@@ -220,7 +220,7 @@ class OpenrouterConfig(OpenAIGPTConfig):
                         model_response._hidden_params = {}
                     if "additional_headers" not in model_response._hidden_params:
                         model_response._hidden_params["additional_headers"] = {}
-                    model_response._hidden_params["additional_headers"]["llm_provider-x-litellm-response-cost"] = float(
+                    model_response._hidden_params["additional_headers"]["llm_provider-x-embrouter-response-cost"] = float(
                         response_cost
                     )
         except Exception:

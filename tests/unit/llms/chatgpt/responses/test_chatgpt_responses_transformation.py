@@ -1,7 +1,7 @@
 """
 Tests for ChatGPT subscription Responses API transformation
 
-Source: litellm/llms/chatgpt/responses/transformation.py
+Source: embrouter/llms/chatgpt/responses/transformation.py
 """
 
 import json
@@ -11,22 +11,22 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-import litellm
-from litellm.llms.chatgpt.responses.transformation import ChatGPTResponsesAPIConfig
-from litellm.llms.openai.common_utils import OpenAIError
-from litellm.main import responses_api_bridge_check
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import LlmProviders
-from litellm.utils import ProviderConfigManager
+import embrouter
+from embrouter.llms.chatgpt.responses.transformation import ChatGPTResponsesAPIConfig
+from embrouter.llms.openai.common_utils import OpenAIError
+from embrouter.main import responses_api_bridge_check
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import LlmProviders
+from embrouter.utils import ProviderConfigManager
 
 
 @pytest.fixture
 def local_model_cost_map(monkeypatch: pytest.MonkeyPatch) -> Generator[None, None, None]:
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
-    litellm.get_model_info.cache_clear()
+    monkeypatch.setenv("EMBROUTER_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setattr(embrouter, "model_cost", embrouter.get_model_cost_map(url=""))
+    embrouter.get_model_info.cache_clear()
     yield
-    litellm.get_model_info.cache_clear()
+    embrouter.get_model_info.cache_clear()
 
 
 class TestChatGPTResponsesAPITransformation:
@@ -81,7 +81,7 @@ class TestChatGPTResponsesAPITransformation:
         assert model_info["mode"] == "responses"
         assert resolved_model == model_name
 
-    @patch("litellm.llms.chatgpt.responses.transformation.Authenticator")
+    @patch("embrouter.llms.chatgpt.responses.transformation.Authenticator")
     def test_chatgpt_responses_endpoint_url(self, mock_authenticator_class):
         mock_auth_instance = MagicMock()
         mock_auth_instance.get_api_base.return_value = "https://chatgpt.example.com"
@@ -89,20 +89,20 @@ class TestChatGPTResponsesAPITransformation:
 
         config = ChatGPTResponsesAPIConfig()
 
-        url = config.get_complete_url(api_base=None, litellm_params={})
+        url = config.get_complete_url(api_base=None, embrouter_params={})
         assert url == "https://chatgpt.example.com/responses"
 
         custom_url = config.get_complete_url(
-            api_base="https://custom.chatgpt.com", litellm_params={}
+            api_base="https://custom.chatgpt.com", embrouter_params={}
         )
         assert custom_url == "https://custom.chatgpt.com/responses"
 
         url_with_slash = config.get_complete_url(
-            api_base="https://chatgpt.example.com/", litellm_params={}
+            api_base="https://chatgpt.example.com/", embrouter_params={}
         )
         assert url_with_slash == "https://chatgpt.example.com/responses"
 
-    @patch("litellm.llms.chatgpt.responses.transformation.Authenticator")
+    @patch("embrouter.llms.chatgpt.responses.transformation.Authenticator")
     def test_validate_environment_headers(self, mock_authenticator_class):
         mock_auth_instance = MagicMock()
         mock_auth_instance.get_access_token.return_value = "access-123"
@@ -110,11 +110,11 @@ class TestChatGPTResponsesAPITransformation:
         mock_authenticator_class.return_value = mock_auth_instance
 
         config = ChatGPTResponsesAPIConfig()
-        litellm_params = GenericLiteLLMParams(litellm_session_id="session-123")
+        embrouter_params = GenericEmbRouterParams(embrouter_session_id="session-123")
         headers = config.validate_environment(
             headers={"originator": "custom-origin"},
             model="gpt-5.2",
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
         assert headers["Authorization"] == "Bearer access-123"
@@ -137,7 +137,7 @@ class TestChatGPTResponsesAPITransformation:
             model=model_name,
             input="hi",
             response_api_optional_request_params={},
-            litellm_params=GenericLiteLLMParams(),
+            embrouter_params=GenericEmbRouterParams(),
             headers={},
         )
 
@@ -175,7 +175,7 @@ class TestChatGPTResponsesAPITransformation:
                 "tools": [{"type": "function", "function": {"name": "hello"}}],
                 "tool_choice": {"type": "function", "function": {"name": "hello"}},
             },
-            litellm_params=GenericLiteLLMParams(),
+            embrouter_params=GenericEmbRouterParams(),
             headers={},
         )
 

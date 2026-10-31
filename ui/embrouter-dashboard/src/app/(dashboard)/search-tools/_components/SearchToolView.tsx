@@ -78,7 +78,7 @@ export const SearchToolView: React.FC<SearchToolViewProps> = ({
           <CardContent>
             <p className="text-sm text-muted-foreground">Provider</p>
             <p className="mt-2 text-lg font-semibold text-foreground">
-              {getProviderDisplayName(searchTool.litellm_params.search_provider)}
+              {getProviderDisplayName(searchTool.embrouter_params.search_provider)}
             </p>
           </CardContent>
         </Card>
@@ -86,7 +86,7 @@ export const SearchToolView: React.FC<SearchToolViewProps> = ({
         <Card>
           <CardContent>
             <p className="text-sm text-muted-foreground">API Key</p>
-            <p className="mt-2 text-foreground">{searchTool.litellm_params.api_key ? "****" : "Not set"}</p>
+            <p className="mt-2 text-foreground">{searchTool.embrouter_params.api_key ? "****" : "Not set"}</p>
           </CardContent>
         </Card>
 

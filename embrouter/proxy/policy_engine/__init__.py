@@ -1,5 +1,5 @@
 """
-LiteLLM Policy Engine
+EmbRouter Policy Engine
 
 The Policy Engine allows administrators to define policies that combine guardrails
 with scoping rules. Policies can target specific teams, API keys, and models using
@@ -33,18 +33,18 @@ policy_attachments:
 ```
 """
 
-from litellm.proxy.policy_engine.attachment_registry import (
+from embrouter.proxy.policy_engine.attachment_registry import (
     AttachmentRegistry,
     get_attachment_registry,
 )
-from litellm.proxy.policy_engine.condition_evaluator import ConditionEvaluator
-from litellm.proxy.policy_engine.policy_matcher import PolicyMatcher
-from litellm.proxy.policy_engine.policy_registry import (
+from embrouter.proxy.policy_engine.condition_evaluator import ConditionEvaluator
+from embrouter.proxy.policy_engine.policy_matcher import PolicyMatcher
+from embrouter.proxy.policy_engine.policy_registry import (
     PolicyRegistry,
     get_policy_registry,
 )
-from litellm.proxy.policy_engine.policy_resolver import PolicyResolver
-from litellm.proxy.policy_engine.policy_validator import PolicyValidator
+from embrouter.proxy.policy_engine.policy_resolver import PolicyResolver
+from embrouter.proxy.policy_engine.policy_validator import PolicyValidator
 
 __all__ = [
     "AttachmentRegistry",

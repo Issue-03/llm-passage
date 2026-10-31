@@ -6,34 +6,34 @@ from typing import TYPE_CHECKING, Any, Final, cast
 
 import httpx
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.constants import ANTHROPIC_BATCHES_ROUTE
-from litellm.litellm_core_utils.core_helpers import map_finish_reason
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.litellm_core_utils.litellm_logging import use_custom_pricing_for_model
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.constants import ANTHROPIC_BATCHES_ROUTE
+from embrouter.embrouter_core_utils.core_helpers import map_finish_reason
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.embrouter_core_utils.embrouter_logging import use_custom_pricing_for_model
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
     get_content_from_model_response,
 )
-from litellm.llms.anthropic import get_anthropic_config
-from litellm.llms.anthropic.chat.handler import (
+from embrouter.llms.anthropic import get_anthropic_config
+from embrouter.llms.anthropic.chat.handler import (
     ModelResponseIterator as AnthropicModelResponseIterator,
 )
-from litellm.llms.anthropic.chat.transformation import AnthropicConfig
-from litellm.proxy._types import PassThroughEndpointLoggingTypedDict
-from litellm.proxy.auth.auth_utils import get_end_user_id_from_request_body
-from litellm.proxy.pass_through_endpoints.llm_provider_handlers.batch_attribution import (
+from embrouter.llms.anthropic.chat.transformation import AnthropicConfig
+from embrouter.proxy._types import PassThroughEndpointLoggingTypedDict
+from embrouter.proxy.auth.auth_utils import get_end_user_id_from_request_body
+from embrouter.proxy.pass_through_endpoints.llm_provider_handlers.batch_attribution import (
     is_collection_route,
     log_batch_registration_result,
     optional_str,
     request_tags_from_metadata,
 )
-from litellm.types.passthrough_endpoints.pass_through_endpoints import (
+from embrouter.types.passthrough_endpoints.pass_through_endpoints import (
     PassthroughStandardLoggingPayload,
 )
-from litellm.types.utils import (
+from embrouter.types.utils import (
     Choices,
-    LiteLLMBatch,
+    EmbRouterBatch,
     Message,
     ModelResponse,
     TextCompletionResponse,
@@ -41,7 +41,7 @@ from litellm.types.utils import (
 )
 
 if TYPE_CHECKING:
-    from litellm.types.passthrough_endpoints.pass_through_endpoints import EndpointType
+    from embrouter.types.passthrough_endpoints.pass_through_endpoints import EndpointType
 
     from ..success_handler import PassThroughEndpointLogging
 else:
@@ -54,7 +54,7 @@ class AnthropicPassthroughLoggingHandler:
     def anthropic_passthrough_handler(
         httpx_response: httpx.Response,
         response_body: dict,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         url_route: str,
         result: str,
         start_time: datetime,
@@ -87,22 +87,22 @@ class AnthropicPassthroughLoggingHandler:
             request_body or kwargs.get("request_body")
         )
         anthropic_config: Final = get_anthropic_config(url_route)
-        litellm_model_response: Final[ModelResponse] = anthropic_config().transform_response(
+        embrouter_model_response: Final[ModelResponse] = anthropic_config().transform_response(
             raw_response=httpx_response,
-            model_response=litellm.ModelResponse(),
+            model_response=embrouter.ModelResponse(),
             model=model,
             messages=[],
             logging_obj=logging_obj,
             optional_params={"speed": speed} if speed else {},
             api_key="",
             request_data={},
-            encoding=litellm.encoding,
+            encoding=embrouter.encoding,
             json_mode=False,
-            litellm_params={},
+            embrouter_params={},
         )
 
         kwargs = AnthropicPassthroughLoggingHandler._create_anthropic_response_logging_payload(
-            litellm_model_response=litellm_model_response,
+            embrouter_model_response=embrouter_model_response,
             model=model,
             kwargs=kwargs,
             start_time=start_time,
@@ -112,7 +112,7 @@ class AnthropicPassthroughLoggingHandler:
         )
 
         return {
-            "result": litellm_model_response,
+            "result": embrouter_model_response,
             "kwargs": kwargs,
         }
 
@@ -137,21 +137,21 @@ class AnthropicPassthroughLoggingHandler:
         return None
 
     @staticmethod
-    def _resolve_costing_model(model: str, logging_obj: LiteLLMLoggingObj) -> str:
+    def _resolve_costing_model(model: str, logging_obj: EmbRouterLoggingObj) -> str:
         if model and model != "unknown":
             return model
-        litellm_params: Final = (getattr(logging_obj, "model_call_details", {}) or {}).get("litellm_params", {}) or {}
-        deployment_model: Final = litellm_params.get("model")
+        embrouter_params: Final = (getattr(logging_obj, "model_call_details", {}) or {}).get("embrouter_params", {}) or {}
+        deployment_model: Final = embrouter_params.get("model")
         if deployment_model and deployment_model != "unknown":
             return deployment_model
-        model_group: Final = (litellm_params.get("metadata", {}) or {}).get("model_group")
+        model_group: Final = (embrouter_params.get("metadata", {}) or {}).get("model_group")
         if model_group:
             return model_group.removeprefix("passthrough/")
         return model
 
     @staticmethod
     def _resolve_logged_model(
-        litellm_logging_obj: LiteLLMLoggingObj,
+        embrouter_logging_obj: EmbRouterLoggingObj,
         request_body: Mapping[str, object],
         all_chunks: Sequence[str | bytes],
     ) -> str:
@@ -159,7 +159,7 @@ class AnthropicPassthroughLoggingHandler:
         logged_model: Final = (
             request_model
             if isinstance(request_model, str) and request_model
-            else str(litellm_logging_obj.model_call_details.get("model") or "")
+            else str(embrouter_logging_obj.model_call_details.get("model") or "")
         )
         if logged_model and logged_model != "unknown":
             return logged_model
@@ -180,14 +180,14 @@ class AnthropicPassthroughLoggingHandler:
     @staticmethod
     def _assemble_streaming_response(
         all_chunks: Sequence[str | bytes],
-        litellm_logging_obj: LiteLLMLoggingObj,
+        embrouter_logging_obj: EmbRouterLoggingObj,
         model: str,
         speed: str | None,
     ) -> ModelResponse | TextCompletionResponse | None:
         try:
             assembled: Final = AnthropicPassthroughLoggingHandler._build_complete_streaming_response(
                 all_chunks=all_chunks,
-                litellm_logging_obj=litellm_logging_obj,
+                embrouter_logging_obj=embrouter_logging_obj,
                 model=model,
                 speed=speed,
             )
@@ -205,14 +205,14 @@ class AnthropicPassthroughLoggingHandler:
 
     @staticmethod
     def _build_streaming_response_for_logging(
-        litellm_logging_obj: LiteLLMLoggingObj,
+        embrouter_logging_obj: EmbRouterLoggingObj,
         request_body: Mapping[str, object],
         all_chunks: Sequence[str | bytes],
         model: str,
     ) -> ModelResponse | TextCompletionResponse | None:
         response: Final = AnthropicPassthroughLoggingHandler._assemble_streaming_response(
             all_chunks=all_chunks,
-            litellm_logging_obj=litellm_logging_obj,
+            embrouter_logging_obj=embrouter_logging_obj,
             model=model,
             speed=AnthropicPassthroughLoggingHandler._cost_relevant_speed(request_body),
         )
@@ -228,35 +228,35 @@ class AnthropicPassthroughLoggingHandler:
 
     @staticmethod
     def record_partial_usage_for_failure(
-        litellm_logging_obj: LiteLLMLoggingObj,
+        embrouter_logging_obj: EmbRouterLoggingObj,
         request_body: Mapping[str, object],
         all_chunks: Sequence[str | bytes],
     ) -> None:
         if not all_chunks:
             return
         model: Final = AnthropicPassthroughLoggingHandler._resolve_logged_model(
-            litellm_logging_obj, request_body, all_chunks
+            embrouter_logging_obj, request_body, all_chunks
         )
         partial_response: Final = AnthropicPassthroughLoggingHandler._build_streaming_response_for_logging(
-            litellm_logging_obj=litellm_logging_obj, request_body=request_body, all_chunks=all_chunks, model=model
+            embrouter_logging_obj=embrouter_logging_obj, request_body=request_body, all_chunks=all_chunks, model=model
         )
         usage: Final = cast(Usage | None, getattr(partial_response, "usage", None))
         if partial_response is None or usage is None:
             return
-        litellm_logging_obj.record_partial_usage_for_failure(
+        embrouter_logging_obj.record_partial_usage_for_failure(
             usage=usage,
             response_cost=AnthropicPassthroughLoggingHandler._cost_partial_stream_or_zero(
-                partial_response=partial_response, model=model, logging_obj=litellm_logging_obj
+                partial_response=partial_response, model=model, logging_obj=embrouter_logging_obj
             ),
         )
 
     @staticmethod
     def _cost_partial_stream_or_zero(
-        partial_response: ModelResponse | TextCompletionResponse, model: str, logging_obj: LiteLLMLoggingObj
+        partial_response: ModelResponse | TextCompletionResponse, model: str, logging_obj: EmbRouterLoggingObj
     ) -> float:
         try:
             return AnthropicPassthroughLoggingHandler._compute_response_cost(
-                litellm_model_response=partial_response,
+                embrouter_model_response=partial_response,
                 model=AnthropicPassthroughLoggingHandler._resolve_costing_model(model, logging_obj),
                 logging_obj=logging_obj,
             )
@@ -270,9 +270,9 @@ class AnthropicPassthroughLoggingHandler:
 
     @staticmethod
     def _compute_response_cost(
-        litellm_model_response: ModelResponse | TextCompletionResponse,
+        embrouter_model_response: ModelResponse | TextCompletionResponse,
         model: str,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> float:
         if logging_obj.model_call_details.get("cache_hit") is True:
             return 0.0
@@ -282,12 +282,12 @@ class AnthropicPassthroughLoggingHandler:
             if custom_llm_provider and not model.startswith(f"{custom_llm_provider}/")
             else model
         )
-        return litellm.completion_cost(
-            completion_response=litellm_model_response,
+        return embrouter.completion_cost(
+            completion_response=embrouter_model_response,
             model=model_for_cost,
             custom_llm_provider=custom_llm_provider,
             custom_pricing=use_custom_pricing_for_model(
-                litellm_params=(logging_obj.litellm_params if hasattr(logging_obj, "litellm_params") else None)
+                embrouter_params=(logging_obj.embrouter_params if hasattr(logging_obj, "embrouter_params") else None)
             ),
             router_model_id=logging_obj.get_router_model_id(),
         )
@@ -384,7 +384,7 @@ class AnthropicPassthroughLoggingHandler:
         if not output_text:
             return None
         try:
-            recovered_output_tokens = litellm.token_counter(model=model, text=output_text, count_response_tokens=True)
+            recovered_output_tokens = embrouter.token_counter(model=model, text=output_text, count_response_tokens=True)
         except Exception:
             verbose_proxy_logger.warning(
                 "Could not re-tokenize interrupted stream output; keeping placeholder completion token count."
@@ -409,12 +409,12 @@ class AnthropicPassthroughLoggingHandler:
 
     @staticmethod
     def _create_anthropic_response_logging_payload(
-        litellm_model_response: ModelResponse | TextCompletionResponse,
+        embrouter_model_response: ModelResponse | TextCompletionResponse,
         model: str,
         kwargs: dict,
         start_time: datetime,
         end_time: datetime,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         response_id: str | None = None,
     ):
         """
@@ -426,11 +426,11 @@ class AnthropicPassthroughLoggingHandler:
         # perform_redaction scrubs this field only when stream is True, so setting
         # it on a non-streaming response would bypass message redaction.
         if logging_obj.model_call_details.get("stream") is True:
-            logging_obj.model_call_details["complete_streaming_response"] = litellm_model_response
+            logging_obj.model_call_details["complete_streaming_response"] = embrouter_model_response
         try:
             model = AnthropicPassthroughLoggingHandler._resolve_costing_model(model, logging_obj)
             response_cost: Final = AnthropicPassthroughLoggingHandler._compute_response_cost(
-                litellm_model_response=litellm_model_response, model=model, logging_obj=logging_obj
+                embrouter_model_response=embrouter_model_response, model=model, logging_obj=logging_obj
             )
 
             kwargs["response_cost"] = response_cost
@@ -446,8 +446,8 @@ class AnthropicPassthroughLoggingHandler:
                     passthrough_logging_payload=passthrough_logging_payload,
                 )
                 if user:
-                    kwargs.setdefault("litellm_params", {})
-                    kwargs["litellm_params"].update({"proxy_server_request": {"body": {"user": user}}})
+                    kwargs.setdefault("embrouter_params", {})
+                    kwargs["embrouter_params"].update({"proxy_server_request": {"body": {"user": user}}})
 
             # pretty print standard logging object
             verbose_proxy_logger.debug(
@@ -455,11 +455,11 @@ class AnthropicPassthroughLoggingHandler:
                 json.dumps(kwargs, indent=4, default=str),
             )
 
-            litellm_model_response.id = response_id or logging_obj.litellm_call_id
-            litellm_model_response.model = model
+            embrouter_model_response.id = response_id or logging_obj.embrouter_call_id
+            embrouter_model_response.model = model
             logging_obj.model_call_details["model"] = model
             if not logging_obj.model_call_details.get("custom_llm_provider"):
-                logging_obj.model_call_details["custom_llm_provider"] = litellm.LlmProviders.ANTHROPIC.value
+                logging_obj.model_call_details["custom_llm_provider"] = embrouter.LlmProviders.ANTHROPIC.value
             return kwargs
         except Exception as e:
             verbose_proxy_logger.exception("Error creating Anthropic response logging payload: %s", e)
@@ -467,7 +467,7 @@ class AnthropicPassthroughLoggingHandler:
 
     @staticmethod
     def _handle_logging_anthropic_collected_chunks(
-        litellm_logging_obj: LiteLLMLoggingObj,
+        embrouter_logging_obj: EmbRouterLoggingObj,
         passthrough_success_handler_obj: PassThroughEndpointLogging,
         url_route: str,
         request_body: dict,
@@ -477,18 +477,18 @@ class AnthropicPassthroughLoggingHandler:
         end_time: datetime,
     ) -> PassThroughEndpointLoggingTypedDict:
         """
-        Takes raw chunks from Anthropic passthrough endpoint and logs them in litellm callbacks
+        Takes raw chunks from Anthropic passthrough endpoint and logs them in embrouter callbacks
 
         - Builds complete response from chunks
         - Creates standard logging object
-        - Logs in litellm callbacks
+        - Logs in embrouter callbacks
         """
 
         model: Final = AnthropicPassthroughLoggingHandler._resolve_logged_model(
-            litellm_logging_obj, request_body, all_chunks
+            embrouter_logging_obj, request_body, all_chunks
         )
         complete_streaming_response: Final = AnthropicPassthroughLoggingHandler._build_streaming_response_for_logging(
-            litellm_logging_obj=litellm_logging_obj, request_body=request_body, all_chunks=all_chunks, model=model
+            embrouter_logging_obj=embrouter_logging_obj, request_body=request_body, all_chunks=all_chunks, model=model
         )
         if complete_streaming_response is None:
             verbose_proxy_logger.error(
@@ -499,12 +499,12 @@ class AnthropicPassthroughLoggingHandler:
                 "kwargs": {},
             }
         kwargs: Final = AnthropicPassthroughLoggingHandler._create_anthropic_response_logging_payload(
-            litellm_model_response=complete_streaming_response,
+            embrouter_model_response=complete_streaming_response,
             model=model,
             kwargs={},
             start_time=start_time,
             end_time=end_time,
-            logging_obj=litellm_logging_obj,
+            logging_obj=embrouter_logging_obj,
             response_id=AnthropicPassthroughLoggingHandler._extract_response_id_from_anthropic_chunks(all_chunks),
         )
 
@@ -540,7 +540,7 @@ class AnthropicPassthroughLoggingHandler:
     @staticmethod
     def _build_complete_streaming_response(
         all_chunks: Sequence[str | bytes],
-        litellm_logging_obj: LiteLLMLoggingObj,
+        embrouter_logging_obj: EmbRouterLoggingObj,
         model: str,
         speed: str | None = None,
     ) -> ModelResponse | TextCompletionResponse | None:
@@ -565,13 +565,13 @@ class AnthropicPassthroughLoggingHandler:
         if collapsed is not None:
             return AnthropicPassthroughLoggingHandler._build_complete_streaming_response_legacy(
                 all_chunks=collapsed,
-                litellm_logging_obj=litellm_logging_obj,
+                embrouter_logging_obj=embrouter_logging_obj,
                 model=model,
                 speed=speed,
             )
         return AnthropicPassthroughLoggingHandler._build_complete_streaming_response_legacy(
             all_chunks=all_chunks,
-            litellm_logging_obj=litellm_logging_obj,
+            embrouter_logging_obj=embrouter_logging_obj,
             model=model,
             speed=speed,
         )
@@ -699,7 +699,7 @@ class AnthropicPassthroughLoggingHandler:
     @staticmethod
     def _build_complete_streaming_response_legacy(
         all_chunks: Sequence[str | bytes],
-        litellm_logging_obj: LiteLLMLoggingObj,
+        embrouter_logging_obj: EmbRouterLoggingObj,
         model: str,
         speed: str | None = None,
     ) -> ModelResponse | TextCompletionResponse | None:
@@ -710,8 +710,8 @@ class AnthropicPassthroughLoggingHandler:
 
         - Splits multi-event chunks into individual SSE events
         - Converts str chunks to generic chunks
-        - Converts generic chunks to litellm chunks (OpenAI format)
-        - Builds complete response from litellm chunks
+        - Converts generic chunks to embrouter chunks (OpenAI format)
+        - Builds complete response from embrouter chunks
         """
         verbose_proxy_logger.debug("Building complete streaming response from %d chunks", len(all_chunks))
         anthropic_model_response_iterator: Final = AnthropicModelResponseIterator(
@@ -751,9 +751,9 @@ class AnthropicPassthroughLoggingHandler:
                     )
                     continue
 
-        complete_streaming_response: Final = litellm.stream_chunk_builder(
+        complete_streaming_response: Final = embrouter.stream_chunk_builder(
             chunks=all_openai_chunks,
-            logging_obj=litellm_logging_obj,
+            logging_obj=embrouter_logging_obj,
         )
         verbose_proxy_logger.debug("Complete streaming response built: %s", complete_streaming_response)
         return complete_streaming_response
@@ -896,7 +896,7 @@ class AnthropicPassthroughLoggingHandler:
     @staticmethod
     def batch_creation_handler(
         httpx_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         url_route: str,
         result: str,
         start_time: datetime,
@@ -911,26 +911,26 @@ class AnthropicPassthroughLoggingHandler:
         """
         import base64
 
-        from litellm._uuid import uuid
-        from litellm.llms.anthropic.batches.transformation import AnthropicBatchesConfig
-        from litellm.types.utils import Choices, SpecialEnums
+        from embrouter._uuid import uuid
+        from embrouter.llms.anthropic.batches.transformation import AnthropicBatchesConfig
+        from embrouter.types.utils import Choices, SpecialEnums
 
         try:
             _json_response: Final = httpx_response.json()
 
             # Only handle successful batch job creation (POST requests with 201 status)
             if httpx_response.status_code == 200 and "id" in _json_response:
-                # Transform Anthropic response to LiteLLM batch format
+                # Transform Anthropic response to EmbRouter batch format
                 anthropic_batches_config: Final = AnthropicBatchesConfig()
-                litellm_batch_response: Final = anthropic_batches_config.transform_retrieve_batch_response(
+                embrouter_batch_response: Final = anthropic_batches_config.transform_retrieve_batch_response(
                     model=None,
                     raw_response=httpx_response,
                     logging_obj=logging_obj,
-                    litellm_params={},
+                    embrouter_params={},
                 )
                 # Set status to "validating" for newly created batches so polling mechanism picks them up
                 # The polling mechanism only looks for status="validating" jobs
-                litellm_batch_response.status = "validating"
+                embrouter_batch_response.status = "validating"
 
                 # Extract batch ID from the response
                 batch_id: Final = _json_response.get("id", "")
@@ -955,7 +955,7 @@ class AnthropicPassthroughLoggingHandler:
                                         model_name = extracted_model
 
                 # Create unified object ID for tracking
-                # Format: base64(litellm_proxy;model_id:{};llm_batch_id:{})
+                # Format: base64(embrouter_proxy;model_id:{};llm_batch_id:{})
                 # For Anthropic passthrough, prefix model with "anthropic/" so router can determine provider
                 actual_model_id = AnthropicPassthroughLoggingHandler.get_actual_model_id_from_router(model_name)
 
@@ -963,7 +963,7 @@ class AnthropicPassthroughLoggingHandler:
                 if actual_model_id == model_name and not actual_model_id.startswith("anthropic/"):
                     actual_model_id = f"anthropic/{model_name}"
 
-                unified_id_string: Final = SpecialEnums.LITELLM_MANAGED_BATCH_COMPLETE_STR.value.format(
+                unified_id_string: Final = SpecialEnums.EMBROUTER_MANAGED_BATCH_COMPLETE_STR.value.format(
                     actual_model_id, batch_id
                 )
                 unified_object_id: Final = base64.urlsafe_b64encode(unified_id_string.encode()).decode().rstrip("=")
@@ -973,21 +973,21 @@ class AnthropicPassthroughLoggingHandler:
                 if is_collection_route(url_route, ANTHROPIC_BATCHES_ROUTE):
                     AnthropicPassthroughLoggingHandler._store_batch_managed_object(
                         unified_object_id=unified_object_id,
-                        batch_object=litellm_batch_response,
+                        batch_object=embrouter_batch_response,
                         model_object_id=batch_id,
                         logging_obj=logging_obj,
                         **kwargs,
                     )
 
                 # Create a batch job response for logging
-                litellm_model_response = ModelResponse()
-                litellm_model_response.id = str(uuid.uuid4())
-                litellm_model_response.model = model_name
-                litellm_model_response.object = "batch"
-                litellm_model_response.created = int(start_time.timestamp())
+                embrouter_model_response = ModelResponse()
+                embrouter_model_response.id = str(uuid.uuid4())
+                embrouter_model_response.model = model_name
+                embrouter_model_response.object = "batch"
+                embrouter_model_response.created = int(start_time.timestamp())
 
                 # Add batch-specific metadata to indicate this is a pending batch job
-                litellm_model_response.choices = [
+                embrouter_model_response.choices = [
                     Choices(
                         finish_reason="stop",
                         index=0,
@@ -1019,19 +1019,19 @@ class AnthropicPassthroughLoggingHandler:
                 logging_obj.model_call_details["batch_id"] = batch_id
 
                 return {
-                    "result": litellm_model_response,
+                    "result": embrouter_model_response,
                     "kwargs": kwargs,
                 }
             else:
                 # Handle non-successful responses
-                litellm_model_response = ModelResponse()
-                litellm_model_response.id = str(uuid.uuid4())
-                litellm_model_response.model = "anthropic_batch"
-                litellm_model_response.object = "batch"
-                litellm_model_response.created = int(start_time.timestamp())
+                embrouter_model_response = ModelResponse()
+                embrouter_model_response.id = str(uuid.uuid4())
+                embrouter_model_response.model = "anthropic_batch"
+                embrouter_model_response.object = "batch"
+                embrouter_model_response.created = int(start_time.timestamp())
 
                 # Add error-specific metadata
-                litellm_model_response.choices = [
+                embrouter_model_response.choices = [
                     Choices(
                         finish_reason="stop",
                         index=0,
@@ -1053,21 +1053,21 @@ class AnthropicPassthroughLoggingHandler:
                 kwargs["batch_job_state"] = "failed"
 
                 return {
-                    "result": litellm_model_response,
+                    "result": embrouter_model_response,
                     "kwargs": kwargs,
                 }
 
         except Exception as e:
             verbose_proxy_logger.error("Error in batch_creation_handler: %s", e)
             # Return basic response on error
-            litellm_model_response = ModelResponse()
-            litellm_model_response.id = str(uuid.uuid4())
-            litellm_model_response.model = "anthropic_batch"
-            litellm_model_response.object = "batch"
-            litellm_model_response.created = int(start_time.timestamp())
+            embrouter_model_response = ModelResponse()
+            embrouter_model_response.id = str(uuid.uuid4())
+            embrouter_model_response.model = "anthropic_batch"
+            embrouter_model_response.object = "batch"
+            embrouter_model_response.created = int(start_time.timestamp())
 
             # Add error-specific metadata
-            litellm_model_response.choices = [
+            embrouter_model_response.choices = [
                 Choices(
                     finish_reason="stop",
                     index=0,
@@ -1089,16 +1089,16 @@ class AnthropicPassthroughLoggingHandler:
             kwargs["batch_job_state"] = "failed"
 
             return {
-                "result": litellm_model_response,
+                "result": embrouter_model_response,
                 "kwargs": kwargs,
             }
 
     @staticmethod
     def _store_batch_managed_object(
         unified_object_id: str,
-        batch_object: LiteLLMBatch,
+        batch_object: EmbRouterBatch,
         model_object_id: str,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         **kwargs,
     ) -> None:
         """
@@ -1112,21 +1112,21 @@ class AnthropicPassthroughLoggingHandler:
         try:
             # Get the managed files hook from the logging object
             # This is a bit of a hack, but we need access to the proxy logging system
-            from litellm.proxy.proxy_server import proxy_logging_obj
+            from embrouter.proxy.proxy_server import proxy_logging_obj
 
             managed_files_hook: Final = proxy_logging_obj.get_proxy_hook("managed_files")
             if managed_files_hook is not None and hasattr(managed_files_hook, "store_unified_object_id"):
                 # Create a mock user API key dict for the managed object storage
-                from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
+                from embrouter.proxy._types import EmbrouterUserRoles, UserAPIKeyAuth
 
-                _request_metadata: Final = (kwargs.get("litellm_params", {}) or {}).get("metadata", {}) or {}
+                _request_metadata: Final = (kwargs.get("embrouter_params", {}) or {}).get("metadata", {}) or {}
 
                 user_api_key_dict: Final = UserAPIKeyAuth(
                     user_id=_request_metadata.get("user_api_key_user_id", "default-user"),
                     api_key=optional_str(_request_metadata.get("user_api_key")),
                     team_id=_request_metadata.get("user_api_key_team_id"),
                     team_alias=None,
-                    user_role=LitellmUserRoles.CUSTOMER,  # Use proper enum value
+                    user_role=EmbrouterUserRoles.CUSTOMER,  # Use proper enum value
                     user_email=None,
                     max_budget=None,
                     spend=0.0,  # Set to 0.0 instead of None
@@ -1149,7 +1149,7 @@ class AnthropicPassthroughLoggingHandler:
                     managed_files_hook.store_unified_object_id(
                         unified_object_id=unified_object_id,
                         file_object=batch_object,
-                        litellm_parent_otel_span=None,
+                        embrouter_parent_otel_span=None,
                         model_object_id=model_object_id,
                         file_purpose="batch",
                         user_api_key_dict=user_api_key_dict,
@@ -1172,7 +1172,7 @@ class AnthropicPassthroughLoggingHandler:
 
     @staticmethod
     def get_actual_model_id_from_router(model_name: str) -> str:
-        from litellm.proxy.proxy_server import llm_router
+        from embrouter.proxy.proxy_server import llm_router
 
         if llm_router is not None:
             # Try to find the model in the router by the model name

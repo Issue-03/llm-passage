@@ -6,9 +6,9 @@ from fastapi import HTTPException
 from prisma.engine.errors import BinaryNotFoundError
 from prisma.errors import DataError
 
-from litellm.caching.caching import DualCache
-from litellm.proxy._experimental.mcp_server.gateway_dcr_flow import SubjectIdentity, SubjectTokenRefusal
-from litellm.proxy._experimental.mcp_server.idp_token_exchange import (
+from embrouter.caching.caching import DualCache
+from embrouter.proxy._experimental.mcp_server.gateway_dcr_flow import SubjectIdentity, SubjectTokenRefusal
+from embrouter.proxy._experimental.mcp_server.idp_token_exchange import (
     REJECTED_SUBJECT_TOKEN,
     SUBJECT_TOKEN_CHECK_FAULTED,
     SUBJECT_TOKEN_CHECK_UNAVAILABLE,
@@ -16,11 +16,11 @@ from litellm.proxy._experimental.mcp_server.idp_token_exchange import (
     identity_from_subject_token,
     token_exchange_available,
 )
-from litellm.proxy._types import JWTIssuerConfig, LiteLLM_JWTAuth, ProxyException
-from litellm.proxy.auth.handle_jwt import JWKSUnreachableError, JWTHandler, jwks_unavailable_exception
+from embrouter.proxy._types import JWTIssuerConfig, EmbRouter_JWTAuth, ProxyException
+from embrouter.proxy.auth.handle_jwt import JWKSUnreachableError, JWTHandler, jwks_unavailable_exception
 
 IDP_JWT = "eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJ1MSJ9.idp-signature"
-REQUEST_HEADERS = {"x-litellm-team-id": "team-b", "user-agent": "lite/0.1"}
+REQUEST_HEADERS = {"x-embrouter-team-id": "team-b", "user-agent": "lite/0.1"}
 EVERY_GATE_HOLDS = {
     "jwt_auth_enabled": True,
     "has_database": True,
@@ -95,7 +95,7 @@ async def test_a_jwt_that_resolves_no_team_names_a_teamless_identity():
         ({"has_database": False}, IDP_JWT, "unsupported_grant_type", "no database"),
         ({"licensed": False}, IDP_JWT, "unsupported_grant_type", "enterprise"),
         ({"maps_jwts_to_virtual_keys": True}, IDP_JWT, "unsupported_grant_type", "virtual keys"),
-        ({}, "sk-litellm-virtual-key", "invalid_request", "not a JWT"),
+        ({}, "sk-embrouter-virtual-key", "invalid_request", "not a JWT"),
     ],
 )
 async def test_the_gates_user_api_key_auth_applies_refuse_before_any_verification(
@@ -126,36 +126,36 @@ def test_the_grant_is_available_exactly_when_every_gate_holds(unmet):
 
 
 MAPPED_ISSUER = JWTIssuerConfig(
-    issuer="https://idp.example.test", audience="litellm-gateway", virtual_key_claim_field="client_id"
+    issuer="https://idp.example.test", audience="embrouter-gateway", virtual_key_claim_field="client_id"
 )
 
 
-def _running_jwt_handler(litellm_jwtauth):
+def _running_jwt_handler(embrouter_jwtauth):
     handler = JWTHandler()
-    if litellm_jwtauth is not None:
-        handler.update_environment(prisma_client=None, user_api_key_cache=DualCache(), litellm_jwtauth=litellm_jwtauth)
+    if embrouter_jwtauth is not None:
+        handler.update_environment(prisma_client=None, user_api_key_cache=DualCache(), embrouter_jwtauth=embrouter_jwtauth)
     return handler
 
 
 @pytest.mark.parametrize(
-    "general_settings, prisma_client, premium_user, litellm_jwtauth, expected",
+    "general_settings, prisma_client, premium_user, embrouter_jwtauth, expected",
     [
-        ({"enable_jwt_auth": True}, object(), True, LiteLLM_JWTAuth(), True),
+        ({"enable_jwt_auth": True}, object(), True, EmbRouter_JWTAuth(), True),
         ({"enable_jwt_auth": True}, object(), True, None, True),
-        ({}, object(), True, LiteLLM_JWTAuth(), False),
-        ({"enable_jwt_auth": True}, None, True, LiteLLM_JWTAuth(), False),
-        ({"enable_jwt_auth": True}, object(), False, LiteLLM_JWTAuth(), False),
-        ({"enable_jwt_auth": True}, object(), True, LiteLLM_JWTAuth(virtual_key_claim_field="client_id"), False),
-        ({"enable_jwt_auth": True}, object(), True, LiteLLM_JWTAuth(issuers=[MAPPED_ISSUER]), False),
+        ({}, object(), True, EmbRouter_JWTAuth(), False),
+        ({"enable_jwt_auth": True}, None, True, EmbRouter_JWTAuth(), False),
+        ({"enable_jwt_auth": True}, object(), False, EmbRouter_JWTAuth(), False),
+        ({"enable_jwt_auth": True}, object(), True, EmbRouter_JWTAuth(virtual_key_claim_field="client_id"), False),
+        ({"enable_jwt_auth": True}, object(), True, EmbRouter_JWTAuth(issuers=[MAPPED_ISSUER]), False),
     ],
 )
 def test_availability_is_read_from_the_running_proxy(
-    monkeypatch, general_settings, prisma_client, premium_user, litellm_jwtauth, expected
+    monkeypatch, general_settings, prisma_client, premium_user, embrouter_jwtauth, expected
 ):
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", general_settings)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", prisma_client)
-    monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", premium_user)
-    monkeypatch.setattr("litellm.proxy.proxy_server.jwt_handler", _running_jwt_handler(litellm_jwtauth))
+    monkeypatch.setattr("embrouter.proxy.proxy_server.general_settings", general_settings)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", prisma_client)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.premium_user", premium_user)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.jwt_handler", _running_jwt_handler(embrouter_jwtauth))
     assert token_exchange_available() is expected
 
 
@@ -174,7 +174,7 @@ def test_availability_is_read_from_the_running_proxy(
 async def test_a_jwt_the_proxy_rejects_is_refused_with_the_reason_kept_in_the_log(raised, reason, caplog):
     """The endpoint is public, so the response never quotes JWT auth's wording (it can name
     the JWKS URL or relay the IdP's reply); the operator reads the reason in the proxy log."""
-    caplog.set_level(logging.WARNING, logger="LiteLLM Proxy")
+    caplog.set_level(logging.WARNING, logger="EmbRouter Proxy")
     refusal = await _identity(_Authorizer(raises=raised))
     assert refusal == SubjectTokenRefusal(error="invalid_request", description=REJECTED_SUBJECT_TOKEN)
     assert reason in caplog.text
@@ -211,7 +211,7 @@ def _user_lookup_wrapping_a_database_outage():
     ],
 )
 async def test_an_idp_or_gateway_outage_is_reported_as_retryable_not_as_a_bad_token(raised, reason, caplog):
-    caplog.set_level(logging.ERROR, logger="LiteLLM Proxy")
+    caplog.set_level(logging.ERROR, logger="EmbRouter Proxy")
     refusal = await _identity(_Authorizer(raises=raised))
     assert refusal == SubjectTokenRefusal(error="temporarily_unavailable", description=SUBJECT_TOKEN_CHECK_UNAVAILABLE)
     assert reason in caplog.text
@@ -231,7 +231,7 @@ def _user_lookup_wrapping_a_fault_retrying_cannot_clear():
 async def test_a_database_fault_retrying_cannot_clear_is_not_reported_as_a_transient_outage(caplog):
     """The status stays 503 (the only OAuth error a client reads as the server's fault, and what
     the mint path answers to the same fault) but the wording must not tell the client to wait."""
-    caplog.set_level(logging.ERROR, logger="LiteLLM Proxy")
+    caplog.set_level(logging.ERROR, logger="EmbRouter Proxy")
     refusal = await _identity(_Authorizer(raises=_user_lookup_wrapping_a_fault_retrying_cannot_clear()))
     assert refusal == SubjectTokenRefusal(error="temporarily_unavailable", description=SUBJECT_TOKEN_CHECK_FAULTED)
     assert "retrying will not help" in refusal.description

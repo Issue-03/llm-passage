@@ -4,11 +4,11 @@ from collections.abc import Mapping
 from types import MappingProxyType
 from typing import Final
 
-from litellm.models.organization import LiteLLM_OrganizationTable
-from litellm.models.team import LiteLLM_TeamTable
-from litellm.models.user import LiteLLM_UserTable
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.types.proxy.carried_budget_state import (
+from embrouter.models.organization import EmbRouter_OrganizationTable
+from embrouter.models.team import EmbRouter_TeamTable
+from embrouter.models.user import EmbRouter_UserTable
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.types.proxy.carried_budget_state import (
     OrgBudgetSnapshot,
     TeamBudgetSnapshot,
     UserBudgetSnapshot,
@@ -17,8 +17,8 @@ from litellm.types.proxy.carried_budget_state import (
 
 def carry_team_and_user_budget_state(
     valid_token: UserAPIKeyAuth,
-    team_object: LiteLLM_TeamTable | None,
-    user_object: LiteLLM_UserTable | None,
+    team_object: EmbRouter_TeamTable | None,
+    user_object: EmbRouter_UserTable | None,
 ) -> None:
     if team_object is not None:
         valid_token.team_budget_snapshot = TeamBudgetSnapshot(  # rebind-ok: the request credential is pinned in place
@@ -34,8 +34,8 @@ def carry_team_and_user_budget_state(
         )
 
 
-def carry_organization_budget_state(valid_token: UserAPIKeyAuth, org_table: LiteLLM_OrganizationTable) -> None:
-    budget_table: Final = org_table.litellm_budget_table
+def carry_organization_budget_state(valid_token: UserAPIKeyAuth, org_table: EmbRouter_OrganizationTable) -> None:
+    budget_table: Final = org_table.embrouter_budget_table
     valid_token.organization_alias = org_table.organization_alias
     valid_token.org_budget_snapshot = OrgBudgetSnapshot(  # rebind-ok: same object the caller keeps using
         spend=org_table.spend,

@@ -118,7 +118,7 @@ export const getSearchToolTableColumns = ({
     size: 160,
     enableSorting: false,
     cell: ({ row }) => {
-      const provider = row.original.litellm_params.search_provider;
+      const provider = row.original.embrouter_params.search_provider;
       const providerInfo = availableProviders.find((candidate) => candidate.provider_name === provider);
       return <span className="text-sm">{providerInfo?.ui_friendly_name || provider}</span>;
     },

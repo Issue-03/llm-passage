@@ -2,7 +2,7 @@ import re
 from collections.abc import Mapping
 from typing import Final
 
-from litellm.constants import SESSION_ID_GENERATED_METADATA_KEY
+from embrouter.constants import SESSION_ID_GENERATED_METADATA_KEY
 
 _HTTP_HEADER_NAME_PATTERN: Final = re.compile(r"^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$")
 _FORBIDDEN_AFFINITY_HEADERS: Final = frozenset(
@@ -44,8 +44,8 @@ def _get_value(value: object, key: str) -> object | None:
     return getattr(value, key, None)
 
 
-def _get_provider_affinity_header_name(litellm_params: object | None) -> str | None:
-    header: Final = _get_value(litellm_params, "provider_affinity_header") if litellm_params is not None else None
+def _get_provider_affinity_header_name(embrouter_params: object | None) -> str | None:
+    header: Final = _get_value(embrouter_params, "provider_affinity_header") if embrouter_params is not None else None
     if header is None:
         return None
     if not isinstance(header, str):
@@ -53,25 +53,25 @@ def _get_provider_affinity_header_name(litellm_params: object | None) -> str | N
     return validate_provider_affinity_header_name(header)
 
 
-def get_stable_session_id(litellm_params: object | None) -> str | None:
-    if litellm_params is None:
+def get_stable_session_id(embrouter_params: object | None) -> str | None:
+    if embrouter_params is None:
         return None
 
-    direct_session_id: Final = _get_value(litellm_params, "session_id")
+    direct_session_id: Final = _get_value(embrouter_params, "session_id")
     if direct_session_id:
         return str(direct_session_id)
 
     metadata_values: Final[tuple[object, ...]] = tuple(
-        value for key in ("metadata", "litellm_metadata") if (value := _get_value(litellm_params, key)) is not None
+        value for key in ("metadata", "embrouter_metadata") if (value := _get_value(embrouter_params, key)) is not None
     )
     has_generated_session_id: Final = any(
         isinstance(metadata, Mapping) and metadata.get(SESSION_ID_GENERATED_METADATA_KEY)
         for metadata in metadata_values
     )
 
-    litellm_session_id: Final = _get_value(litellm_params, "litellm_session_id")
-    if litellm_session_id and not has_generated_session_id:
-        return str(litellm_session_id)
+    embrouter_session_id: Final = _get_value(embrouter_params, "embrouter_session_id")
+    if embrouter_session_id and not has_generated_session_id:
+        return str(embrouter_session_id)
 
     for metadata in metadata_values:
         if (
@@ -84,13 +84,13 @@ def get_stable_session_id(litellm_params: object | None) -> str | None:
 
 
 def add_provider_affinity_header(
-    headers: Mapping[str, object], litellm_params: object | None
+    headers: Mapping[str, object], embrouter_params: object | None
 ) -> dict[str, object]:  # mutable-ok: downstream handlers add auth and signing headers
-    header_name: Final = _get_provider_affinity_header_name(litellm_params)
+    header_name: Final = _get_provider_affinity_header_name(embrouter_params)
     if header_name is None or any(key.lower() == header_name.lower() for key in headers):
         return dict(headers)  # mutable-ok: downstream handlers add auth and signing headers
 
-    session_id: Final = get_stable_session_id(litellm_params)
+    session_id: Final = get_stable_session_id(embrouter_params)
     if session_id is None:
         return dict(headers)  # mutable-ok: downstream handlers add auth and signing headers
     if any(character in session_id for character in ("\r", "\n", "\0")):

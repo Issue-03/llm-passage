@@ -1,5 +1,5 @@
 -- CreateTable
-CREATE TABLE IF NOT EXISTS "LiteLLM_MemoryTable" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_MemoryTable" (
     "memory_id" TEXT NOT NULL,
     "key" TEXT NOT NULL,
     "value" TEXT NOT NULL,
@@ -11,15 +11,15 @@ CREATE TABLE IF NOT EXISTS "LiteLLM_MemoryTable" (
     "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_by" TEXT,
 
-    CONSTRAINT "LiteLLM_MemoryTable_pkey" PRIMARY KEY ("memory_id")
+    CONSTRAINT "EmbRouter_MemoryTable_pkey" PRIMARY KEY ("memory_id")
 );
 
 -- CreateIndex (key is globally unique — one row per key, period)
-CREATE UNIQUE INDEX IF NOT EXISTS "LiteLLM_MemoryTable_key_key"
-    ON "LiteLLM_MemoryTable"("key");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_MemoryTable_key_key"
+    ON "EmbRouter_MemoryTable"("key");
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "LiteLLM_MemoryTable_user_id_idx" ON "LiteLLM_MemoryTable"("user_id");
+CREATE INDEX IF NOT EXISTS "EmbRouter_MemoryTable_user_id_idx" ON "EmbRouter_MemoryTable"("user_id");
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "LiteLLM_MemoryTable_team_id_idx" ON "LiteLLM_MemoryTable"("team_id");
+CREATE INDEX IF NOT EXISTS "EmbRouter_MemoryTable_team_id_idx" ON "EmbRouter_MemoryTable"("team_id");

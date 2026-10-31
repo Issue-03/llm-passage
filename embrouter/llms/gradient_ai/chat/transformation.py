@@ -1,7 +1,7 @@
 from typing import Final, Literal
 
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.openai import (
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.openai import (
     AllMessageValues,
 )
 
@@ -81,7 +81,7 @@ class GradientAIConfig(OpenAILikeChatConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ):
@@ -100,7 +100,7 @@ class GradientAIConfig(OpenAILikeChatConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         gradient_ai_endpoint: Final = get_secret_str("GRADIENT_AI_AGENT_ENDPOINT")
@@ -139,7 +139,7 @@ class GradientAIConfig(OpenAILikeChatConfig):
             if param in supported_openai_params:
                 optional_params[param] = value
             elif not drop_params:
-                from litellm.utils import UnsupportedParamsError
+                from embrouter.utils import UnsupportedParamsError
 
                 raise UnsupportedParamsError(
                     status_code=400,

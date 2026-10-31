@@ -51,7 +51,7 @@ describe("MCPAppsPanel logos", () => {
   });
 
   it("resolves backend logo_url values in the server grid", async () => {
-    setServerRootPath("/litellm");
+    setServerRootPath("/embrouter");
     vi.mocked(fetchMCPServers).mockResolvedValue(servers);
     vi.mocked(listMCPTools).mockResolvedValue({ tools: [] });
 
@@ -59,7 +59,7 @@ describe("MCPAppsPanel logos", () => {
 
     expect(await screen.findByText("external_logo")).toBeInTheDocument();
     expect(screen.getByAltText("external_logo logo")).toHaveAttribute("src", "https://cdn.example.com/ext.png");
-    expect(screen.getByAltText("local_logo logo")).toHaveAttribute("src", "/litellm/ui/assets/logos/github.svg");
+    expect(screen.getByAltText("local_logo logo")).toHaveAttribute("src", "/embrouter/ui/assets/logos/github.svg");
   });
 
   it("renders a colored letter avatar for servers without logo_url", async () => {
@@ -74,7 +74,7 @@ describe("MCPAppsPanel logos", () => {
   });
 
   it("resolves the logo_url in the detail header", async () => {
-    setServerRootPath("/litellm");
+    setServerRootPath("/embrouter");
     vi.mocked(fetchMCPServers).mockResolvedValue(servers);
     vi.mocked(listMCPTools).mockResolvedValue({ tools: [] });
 
@@ -83,7 +83,7 @@ describe("MCPAppsPanel logos", () => {
     fireEvent.click(await screen.findByText("local_logo"));
 
     expect(await screen.findByRole("heading", { name: "local_logo" })).toBeInTheDocument();
-    expect(screen.getByAltText("local_logo logo")).toHaveAttribute("src", "/litellm/ui/assets/logos/github.svg");
+    expect(screen.getByAltText("local_logo logo")).toHaveAttribute("src", "/embrouter/ui/assets/logos/github.svg");
   });
 });
 

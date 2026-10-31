@@ -7,9 +7,9 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-import litellm
-from litellm.proxy._types import NewUserRequest, NewUserResponse, UserAPIKeyAuth
-from litellm.proxy.hooks.user_management_event_hooks import UserManagementEventHooks
+import embrouter
+from embrouter.proxy._types import NewUserRequest, NewUserResponse, UserAPIKeyAuth
+from embrouter.proxy.hooks.user_management_event_hooks import UserManagementEventHooks
 
 
 class FakeUserTable:
@@ -25,19 +25,19 @@ class FakeUserTable:
 
 class FakePrismaClient:
     def __init__(self, rows: List[Dict[str, Any]]):
-        self.db = SimpleNamespace(litellm_usertable=FakeUserTable(rows))
+        self.db = SimpleNamespace(embrouter_usertable=FakeUserTable(rows))
 
 
 async def _run_created_hook(prisma_client: FakePrismaClient, audit_log: AsyncMock) -> None:
     proxy_server = SimpleNamespace(
         prisma_client=prisma_client,
-        litellm_proxy_admin_name="admin-user",
+        embrouter_proxy_admin_name="admin-user",
     )
     with (
-        patch.dict(sys.modules, {"litellm.proxy.proxy_server": proxy_server}),
-        patch.object(litellm, "store_audit_logs", True),
+        patch.dict(sys.modules, {"embrouter.proxy.proxy_server": proxy_server}),
+        patch.object(embrouter, "store_audit_logs", True),
         patch(
-            "litellm.proxy.hooks.user_management_event_hooks.create_audit_log_for_update",
+            "embrouter.proxy.hooks.user_management_event_hooks.create_audit_log_for_update",
             audit_log,
         ),
         patch.object(

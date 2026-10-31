@@ -5,12 +5,12 @@ from typing import Final, TypeAlias
 
 from pydantic import BaseModel, TypeAdapter, ValidationError
 
-from litellm._logging import verbose_logger
-from litellm.responses.litellm_completion_transformation.custom_tools import custom_tool_grammar_suffix
-from litellm.responses.litellm_completion_transformation.transformation import (
+from embrouter._logging import verbose_logger
+from embrouter.responses.embrouter_completion_transformation.custom_tools import custom_tool_grammar_suffix
+from embrouter.responses.embrouter_completion_transformation.transformation import (
     NAMESPACE_DESCRIPTION_SEPARATOR,
     NAMESPACE_MEMBER_TYPES_WITH_CHAT_TOOLS,
-    LiteLLMCompletionResponsesConfig,
+    EmbRouterCompletionResponsesConfig,
 )
 
 Tool: TypeAlias = Mapping[str, object]
@@ -157,7 +157,7 @@ def _merged_original(
     if not guardrailed_group:
         return ()
     return tuple(
-        LiteLLMCompletionResponsesConfig.transform_chat_completion_tool_params_to_responses_api_tools(guardrailed_group)
+        EmbRouterCompletionResponsesConfig.transform_chat_completion_tool_params_to_responses_api_tools(guardrailed_group)
     )
 
 
@@ -179,7 +179,7 @@ def merge_guardrailed_tools(
         for original, group, group_keys in zip(original_tools, flattened_groups, group_key_slices)
     )
     owned_keys: Final = frozenset(flattened_keys)
-    appended: Final = LiteLLMCompletionResponsesConfig.transform_chat_completion_tool_params_to_responses_api_tools(
+    appended: Final = EmbRouterCompletionResponsesConfig.transform_chat_completion_tool_params_to_responses_api_tools(
         tuple(tool for key, tool in zip(guardrailed_keys, guardrailed) if key not in owned_keys)
     )
     return tuple(chain(merged_originals, appended))

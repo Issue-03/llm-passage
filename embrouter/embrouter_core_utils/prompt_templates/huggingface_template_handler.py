@@ -4,11 +4,11 @@ from typing import Any, Final, Literal
 
 from typing_extensions import NotRequired, ReadOnly, TypedDict
 
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.llms.custom_httpx.http_handler import (
     _get_httpx_client,
     get_async_httpx_client,
 )
-from litellm.types.llms.custom_http import httpxSpecialProvider
+from embrouter.types.llms.custom_http import httpxSpecialProvider
 
 
 class _TokenizerConfigResult(TypedDict):

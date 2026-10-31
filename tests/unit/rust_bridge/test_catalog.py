@@ -5,8 +5,8 @@ from typing import Final
 
 import pytest
 
-from litellm.rust_bridge import catalog, configuration
-from litellm.rust_bridge.catalog import (
+from embrouter.rust_bridge import catalog, configuration
+from embrouter.rust_bridge.catalog import (
     Context,
     LoggerContext,
     Route,
@@ -16,13 +16,13 @@ from litellm.rust_bridge.catalog import (
     SecretManagerContext,
     SecretManagerRule,
 )
-from litellm.rust_bridge.configuration import Decision, Rollout
-from litellm.types.secret_managers.main import KeyManagementSystem
+from embrouter.rust_bridge.configuration import Decision, Rollout
+from embrouter.types.secret_managers.main import KeyManagementSystem
 
 
 @pytest.fixture(autouse=True)
 def isolated_configuration(monkeypatch: pytest.MonkeyPatch) -> Generator[None]:
-    monkeypatch.delenv("LITELLM_RUST", raising=False)
+    monkeypatch.delenv("EMBROUTER_RUST", raising=False)
     configuration.reset_rust_configuration()
     yield
     configuration.reset_rust_configuration()
@@ -41,7 +41,7 @@ def test_shipped_decisions(
 ) -> None:
     configuration.rust(process)
     if environment is not None:
-        monkeypatch.setenv("LITELLM_RUST", environment)
+        monkeypatch.setenv("EMBROUTER_RUST", environment)
     context: Final = RouteContext(route, provider=provider, model="test-model")
 
     if route is Route.OCR or (route is Route.TRANSCRIPTION and provider == "bedrock"):
@@ -59,7 +59,7 @@ def test_shipped_decisions(
 @pytest.mark.parametrize("route", tuple(Route))
 def test_missing_rule_stays_on_python_even_when_rust_is_enabled(monkeypatch: pytest.MonkeyPatch, route: Route) -> None:
     configuration.rust(True)
-    monkeypatch.setenv("LITELLM_RUST", "1")
+    monkeypatch.setenv("EMBROUTER_RUST", "1")
 
     assert catalog.rollout(RouteContext(route), rules=()) is Rollout.PYTHON_ONLY
     assert catalog.decision(RouteContext(route), rules=()) is Decision.PYTHON
@@ -76,7 +76,7 @@ def test_backend_rollouts_stay_on_python_when_global_rust_is_enabled(
     monkeypatch: pytest.MonkeyPatch, context: Context
 ) -> None:
     configuration.rust(True)
-    monkeypatch.setenv("LITELLM_RUST", "1")
+    monkeypatch.setenv("EMBROUTER_RUST", "1")
 
     assert catalog.rollout(context) is Rollout.PYTHON_ONLY
     assert catalog.decision(context) is Decision.PYTHON
@@ -122,7 +122,7 @@ def test_ocr_has_no_python_path_to_opt_out_to(
 ) -> None:
     configuration.rust(process)
     if environment is not None:
-        monkeypatch.setenv("LITELLM_RUST", environment)
+        monkeypatch.setenv("EMBROUTER_RUST", environment)
 
     assert catalog.decision(RouteContext(Route.OCR, model="m")) is Decision.RUST_REQUIRED
     assert catalog.decision(RouteContext(Route.OCR, provider="aws_textract", model="m")) is Decision.RUST_REQUIRED
@@ -173,7 +173,7 @@ def test_all_domains_share_rollout_switches_and_first_match(
 ) -> None:
     configuration.rust(process)
     if environment is not None:
-        monkeypatch.setenv("LITELLM_RUST", environment)
+        monkeypatch.setenv("EMBROUTER_RUST", environment)
     rules: Final[Rules] = (
         RouteRule(Route.OCR, rollout),
         SecretManagerRule(rollout),

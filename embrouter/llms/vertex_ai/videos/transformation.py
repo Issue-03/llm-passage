@@ -15,33 +15,33 @@ import httpx
 from httpx._types import FileContent, RequestFiles
 from typing_extensions import ReadOnly
 
-import litellm
-from litellm.constants import DEFAULT_GOOGLE_VIDEO_DURATION_SECONDS
-from litellm.images.utils import ImageEditRequestUtils
-from litellm.llms.base_llm.videos.transformation import BaseVideoConfig
-from litellm.llms.vertex_ai.common_utils import (
+import embrouter
+from embrouter.constants import DEFAULT_GOOGLE_VIDEO_DURATION_SECONDS
+from embrouter.images.utils import ImageEditRequestUtils
+from embrouter.llms.base_llm.videos.transformation import BaseVideoConfig
+from embrouter.llms.vertex_ai.common_utils import (
     _convert_vertex_datetime_to_openai_datetime,
     get_vertex_base_url,
 )
-from litellm.llms.vertex_ai.vertex_llm_base import VertexBase
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.videos.main import VideoCreateOptionalRequestParams, VideoObject
-from litellm.types.videos.utils import (
+from embrouter.llms.vertex_ai.vertex_llm_base import VertexBase
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.videos.main import VideoCreateOptionalRequestParams, VideoObject
+from embrouter.types.videos.utils import (
     encode_video_id_with_provider,
     extract_original_video_id,
 )
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
-    from litellm.llms.base_llm.chat.transformation import (
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
+    from embrouter.llms.base_llm.chat.transformation import (
         BaseLLMException as _BaseLLMException,
     )
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+    from embrouter.llms.custom_httpx.http_handler import HTTPHandler
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
     BaseLLMException = _BaseLLMException
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
     BaseLLMException = Any
 
 
@@ -258,7 +258,7 @@ class VertexAIVideoConfig(BaseVideoConfig, VertexBase):
     @staticmethod
     def _supports_resolution_inference(model: str) -> bool:
         model_key: Final = model if model.startswith("vertex_ai/") else f"vertex_ai/{model}"
-        model_info: Final = litellm.model_cost.get(model_key)
+        model_info: Final = embrouter.model_cost.get(model_key)
         return model_info is not None and model_info.get("output_cost_per_second_1080p") is not None
 
     def validate_environment(
@@ -266,7 +266,7 @@ class VertexAIVideoConfig(BaseVideoConfig, VertexBase):
         headers: dict,
         model: str,
         api_key: str | None = None,
-        litellm_params: GenericLiteLLMParams | dict | None = None,
+        embrouter_params: GenericEmbRouterParams | dict | None = None,
     ) -> dict:
         """
         Validate environment and return headers for Vertex AI OCR.
@@ -274,14 +274,14 @@ class VertexAIVideoConfig(BaseVideoConfig, VertexBase):
         Vertex AI uses Bearer token authentication with access token from credentials.
         """
         # Extract Vertex AI parameters using safe helpers from VertexBase
-        # Use safe_get_* methods that don't mutate litellm_params dict
-        # Ensure litellm_params is a dict for type checking
+        # Use safe_get_* methods that don't mutate embrouter_params dict
+        # Ensure embrouter_params is a dict for type checking
         params_dict: Final[dict[str, object]] = (
-            cast(dict[str, object], litellm_params) if litellm_params is not None else {}
+            cast(dict[str, object], embrouter_params) if embrouter_params is not None else {}
         )
 
-        vertex_project: Final = VertexBase.safe_get_vertex_ai_project(litellm_params=params_dict)
-        vertex_credentials: Final = VertexBase.safe_get_vertex_ai_credentials(litellm_params=params_dict)
+        vertex_project: Final = VertexBase.safe_get_vertex_ai_project(embrouter_params=params_dict)
+        vertex_credentials: Final = VertexBase.safe_get_vertex_ai_credentials(embrouter_params=params_dict)
 
         # Get access token from Vertex credentials
         access_token, project_id = self.get_access_token(
@@ -301,7 +301,7 @@ class VertexAIVideoConfig(BaseVideoConfig, VertexBase):
         self,
         model: str,
         api_base: str | None,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> str:
         """
         Get the complete URL for Veo video generation.
@@ -309,8 +309,8 @@ class VertexAIVideoConfig(BaseVideoConfig, VertexBase):
         Returns URL for :predictLongRunning endpoint:
         https://LOCATION-aiplatform.googleapis.com/v1/projects/PROJECT/locations/LOCATION/publishers/google/models/MODEL:predictLongRunning
         """
-        vertex_project: Final = VertexBase.safe_get_vertex_ai_project(litellm_params)
-        vertex_location = VertexBase.safe_get_vertex_ai_location(litellm_params)
+        vertex_project: Final = VertexBase.safe_get_vertex_ai_project(embrouter_params)
+        vertex_location = VertexBase.safe_get_vertex_ai_location(embrouter_params)
 
         if not vertex_project:
             raise ValueError(
@@ -342,7 +342,7 @@ class VertexAIVideoConfig(BaseVideoConfig, VertexBase):
         prompt: str,
         api_base: str,
         video_create_optional_request_params: dict,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[dict, RequestFiles, str]:
         """
@@ -423,7 +423,7 @@ class VertexAIVideoConfig(BaseVideoConfig, VertexBase):
         self,
         model: str,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         custom_llm_provider: str | None = None,
         request_data: dict | None = None,
     ) -> VideoObject:
@@ -460,7 +460,7 @@ class VertexAIVideoConfig(BaseVideoConfig, VertexBase):
         self,
         video_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict]:
         """
@@ -490,7 +490,7 @@ class VertexAIVideoConfig(BaseVideoConfig, VertexBase):
     def transform_video_status_retrieve_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         custom_llm_provider: str | None = None,
         client: "HTTPHandler | None" = None,
     ) -> VideoObject:
@@ -564,7 +564,7 @@ class VertexAIVideoConfig(BaseVideoConfig, VertexBase):
         self,
         video_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
         variant: str | None = None,
     ) -> tuple[str, dict]:
@@ -579,12 +579,12 @@ class VertexAIVideoConfig(BaseVideoConfig, VertexBase):
         Since we need to make an HTTP call here, we'll use the same fetchPredictOperation
         approach as status retrieval.
         """
-        return self.transform_video_status_retrieve_request(video_id, api_base, litellm_params, headers)
+        return self.transform_video_status_retrieve_request(video_id, api_base, embrouter_params, headers)
 
     def transform_video_content_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> bytes:
         """
         Transform the Veo video content download response.
@@ -624,7 +624,7 @@ class VertexAIVideoConfig(BaseVideoConfig, VertexBase):
         video_id: str,
         prompt: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
         extra_body: dict[str, object] | None = None,
     ) -> tuple[str, dict]:
@@ -638,7 +638,7 @@ class VertexAIVideoConfig(BaseVideoConfig, VertexBase):
     def transform_video_remix_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         custom_llm_provider: str | None = None,
     ) -> VideoObject:
         """Video remix is not supported."""
@@ -647,7 +647,7 @@ class VertexAIVideoConfig(BaseVideoConfig, VertexBase):
     def transform_video_list_request(
         self,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
         after: str | None = None,
         limit: int | None = None,
@@ -665,7 +665,7 @@ class VertexAIVideoConfig(BaseVideoConfig, VertexBase):
     def transform_video_list_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         custom_llm_provider: str | None = None,
     ) -> dict[str, str]:
         """Video list is not supported."""
@@ -675,7 +675,7 @@ class VertexAIVideoConfig(BaseVideoConfig, VertexBase):
         self,
         video_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict]:
         """
@@ -688,18 +688,18 @@ class VertexAIVideoConfig(BaseVideoConfig, VertexBase):
     def transform_video_delete_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> VideoObject:
         """Video delete is not supported."""
         raise NotImplementedError("Video delete is not supported by Vertex AI Veo.")
 
-    def transform_video_create_character_request(self, name, video: object, api_base, litellm_params, headers):
+    def transform_video_create_character_request(self, name, video: object, api_base, embrouter_params, headers):
         raise NotImplementedError("video create character is not supported for Vertex AI")
 
     def transform_video_create_character_response(self, raw_response, logging_obj):
         raise NotImplementedError("video create character is not supported for Vertex AI")
 
-    def transform_video_get_character_request(self, character_id, api_base, litellm_params, headers):
+    def transform_video_get_character_request(self, character_id, api_base, embrouter_params, headers):
         raise NotImplementedError("video get character is not supported for Vertex AI")
 
     def transform_video_get_character_response(self, raw_response, logging_obj):
@@ -709,14 +709,14 @@ class VertexAIVideoConfig(BaseVideoConfig, VertexBase):
         self,
         video_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict]:
         """Return the fetchPredictOperation URL and body needed to retrieve the source video."""
         return self.transform_video_status_retrieve_request(
             video_id=video_id,
             api_base=api_base,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
@@ -725,7 +725,7 @@ class VertexAIVideoConfig(BaseVideoConfig, VertexBase):
         prompt: str,
         video_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
         video_file: FileContent | None = None,
         extra_body: dict[str, object] | None = None,
@@ -783,7 +783,7 @@ class VertexAIVideoConfig(BaseVideoConfig, VertexBase):
     def transform_video_edit_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         custom_llm_provider: str | None = None,
         request_data: dict | None = None,
     ) -> VideoObject:
@@ -824,7 +824,7 @@ class VertexAIVideoConfig(BaseVideoConfig, VertexBase):
         video_id,
         seconds,
         api_base,
-        litellm_params,
+        embrouter_params,
         headers,
         extra_body=None,
     ):
@@ -834,7 +834,7 @@ class VertexAIVideoConfig(BaseVideoConfig, VertexBase):
         raise NotImplementedError("video extension is not supported for Vertex AI")
 
     def get_error_class(self, error_message: str, status_code: int, headers: dict | httpx.Headers) -> BaseLLMException:
-        from litellm.llms.vertex_ai.common_utils import VertexAIError
+        from embrouter.llms.vertex_ai.common_utils import VertexAIError
 
         return VertexAIError(
             status_code=status_code,

@@ -1,6 +1,6 @@
 from typing import Final
 
-from litellm.secret_managers.main import get_secret_str
+from embrouter.secret_managers.main import get_secret_str
 
 from .chat.transformation import DashScopeChatConfig
 from .common_utils import resolve_dashscope_family_rerank_api_base

@@ -1,10 +1,10 @@
-# Example LiteLLM Proxy configuration for IBM Guardrails Detector
+# Example EmbRouter Proxy configuration for IBM Guardrails Detector
 # Based on IBM's FMS Guardrails: https://github.com/foundation-model-stack/fms-guardrails-orchestr8
 
 # Example 1: Using IBM Detector Server directly
 guardrails:
   - guardrail_name: "ibm-jailbreak-detector"
-    litellm_params:
+    embrouter_params:
       guardrail: ibm_guardrails
       mode: pre_call  # or post_call, during_call
       default_on: true
@@ -20,7 +20,7 @@ guardrails:
 
 # Example 2: Using IBM FMS Guardrails Orchestrator
   - guardrail_name: "ibm-orchestrator-detector"
-    litellm_params:
+    embrouter_params:
       guardrail: ibm_guardrails
       mode: post_call
       default_on: false
@@ -37,7 +37,7 @@ guardrails:
 
 # Example 3: Pre-call guardrail with custom threshold
   - guardrail_name: "ibm-pii-detector"
-    litellm_params:
+    embrouter_params:
       guardrail: ibm_guardrails
       mode: pre_call
       default_on: true
@@ -49,12 +49,12 @@ guardrails:
         score_threshold: 0.5  # Lower threshold for PII detection
         block_on_detection: true
 
-# Usage with LiteLLM Proxy:
+# Usage with EmbRouter Proxy:
 # 1. Set environment variable:
 #    export IBM_GUARDRAILS_AUTH_TOKEN="your-auth-token"
 #
 # 2. Start the proxy:
-#    litellm --config example_config.yaml
+#    embrouter --config example_config.yaml
 #
 # 3. Make requests:
 #    The guardrail will automatically run based on the 'mode' setting

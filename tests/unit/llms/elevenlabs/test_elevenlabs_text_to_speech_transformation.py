@@ -5,8 +5,8 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.llms.elevenlabs.text_to_speech.transformation import (
+import embrouter
+from embrouter.llms.elevenlabs.text_to_speech.transformation import (
     ElevenLabsTextToSpeechConfig,
 )
 
@@ -17,7 +17,7 @@ def test_should_encode_elevenlabs_voice_id_path_segment():
     url = config.get_complete_url(
         model="elevenlabs/tts",
         api_base="https://api.elevenlabs.io",
-        litellm_params={
+        embrouter_params={
             config.ELEVENLABS_VOICE_ID_KEY: "voice/../../models?x=1#frag",
         },
     )
@@ -32,7 +32,7 @@ def test_should_reject_dot_segment_elevenlabs_voice_id():
         config.get_complete_url(
             model="elevenlabs/tts",
             api_base="https://api.elevenlabs.io",
-            litellm_params={config.ELEVENLABS_VOICE_ID_KEY: ".."},
+            embrouter_params={config.ELEVENLABS_VOICE_ID_KEY: ".."},
         )
 
 
@@ -42,16 +42,16 @@ def test_speech_keeps_an_internal_prefixed_kwarg_out_of_the_elevenlabs_request(r
         return_value=httpx.Response(status_code=200, content=b"audio", headers={"content-type": "audio/mpeg"})
     )
 
-    litellm.speech(
+    embrouter.speech(
         model="elevenlabs/eleven_multilingual_v2",
         input="hi",
         voice="21m00Tcm4TlvDq8ikWAM",
         api_base=api_base,
         api_key="fake_elevenlabs_api_key",
-        _litellm_undeclared_sentinel="internal",
+        _embrouter_undeclared_sentinel="internal",
     )
 
     assert mock_route.called
     sent: Final = json.loads(respx_mock.calls[0].request.content)
-    assert "_litellm_undeclared_sentinel" not in sent, sent
+    assert "_embrouter_undeclared_sentinel" not in sent, sent
     assert sent["text"] == "hi"

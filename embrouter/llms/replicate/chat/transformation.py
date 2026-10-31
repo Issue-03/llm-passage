@@ -2,27 +2,27 @@ from typing import TYPE_CHECKING, Any, Final
 
 import httpx
 
-import litellm
-from litellm.constants import REPLICATE_MODEL_NAME_WITH_ID_LENGTH
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+import embrouter
+from embrouter.constants import REPLICATE_MODEL_NAME_WITH_ID_LENGTH
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
     convert_content_list_to_str,
 )
-from litellm.litellm_core_utils.prompt_templates.factory import (
+from embrouter.embrouter_core_utils.prompt_templates.factory import (
     custom_prompt,
     prompt_factory,
 )
-from litellm.llms.base_llm.chat.transformation import BaseConfig, BaseLLMException
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.utils import ModelResponse, Usage
-from litellm.utils import token_counter
+from embrouter.llms.base_llm.chat.transformation import BaseConfig, BaseLLMException
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.utils import ModelResponse, Usage
+from embrouter.utils import token_counter
 
 from ..common_utils import ReplicateError
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
 
-    LoggingClass = LiteLLMLoggingObj
+    LoggingClass = EmbRouterLoggingObj
 else:
     LoggingClass = Any
 
@@ -140,7 +140,7 @@ class ReplicateConfig(BaseConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         version_id = self.model_to_version_id(model)
@@ -159,11 +159,11 @@ class ReplicateConfig(BaseConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         ## Load Config
-        config: Final = litellm.ReplicateConfig.get_config()
+        config: Final = embrouter.ReplicateConfig.get_config()
         for k, v in config.items():
             if (
                 k not in optional_params
@@ -183,9 +183,9 @@ class ReplicateConfig(BaseConfig):
                     system_prompt = convert_content_list_to_str(first_sys_message)
                     break
 
-        if model in litellm.custom_prompt_dict:
+        if model in embrouter.custom_prompt_dict:
             # check if the model has a registered custom prompt
-            model_prompt_details: Final = litellm.custom_prompt_dict[model]
+            model_prompt_details: Final = embrouter.custom_prompt_dict[model]
             prompt = custom_prompt(
                 role_dict=model_prompt_details.get("roles", {}),
                 initial_prompt_value=model_prompt_details.get("initial_prompt_value", ""),
@@ -200,7 +200,7 @@ class ReplicateConfig(BaseConfig):
         if prompt is None or not isinstance(prompt, str):
             raise ReplicateError(
                 status_code=400,
-                message=f"LiteLLM Error - prompt is not a string - {prompt}",
+                message=f"EmbRouter Error - prompt is not a string - {prompt}",
                 headers={},
             )
 
@@ -235,7 +235,7 @@ class ReplicateConfig(BaseConfig):
         request_data: dict,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,
@@ -250,7 +250,7 @@ class ReplicateConfig(BaseConfig):
         if raw_response_json.get("status") != "succeeded":
             raise ReplicateError(
                 status_code=422,
-                message=f"LiteLLM Error - prediction not succeeded - {raw_response_json}",
+                message=f"EmbRouter Error - prediction not succeeded - {raw_response_json}",
                 headers=raw_response.headers,
             )
         outputs: Final = raw_response_json.get("output", [])
@@ -291,7 +291,7 @@ class ReplicateConfig(BaseConfig):
         if prediction_url is None:
             raise ReplicateError(
                 status_code=400,
-                message=f"LiteLLM Error - prediction url is None - {response_json}",
+                message=f"EmbRouter Error - prediction url is None - {response_json}",
                 headers=response.headers,
             )
         return prediction_url
@@ -302,7 +302,7 @@ class ReplicateConfig(BaseConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:

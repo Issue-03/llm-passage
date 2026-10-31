@@ -5,13 +5,13 @@ from typing import Final
 import httpx
 from typing_extensions import NotRequired, ReadOnly, TypedDict
 
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.llms.custom_httpx.http_handler import (
     AsyncHTTPHandler,
     HTTPHandler,
     get_async_httpx_client,
 )
-from litellm.types.llms.openai import CreateBatchRequest, HttpxBinaryResponseContent
-from litellm.types.utils import LiteLLMBatch, LlmProviders
+from embrouter.types.llms.openai import CreateBatchRequest, HttpxBinaryResponseContent
+from embrouter.types.utils import EmbRouterBatch, LlmProviders
 
 from .transformation import (
     XAI_RESULTS_PAGE_SIZE,
@@ -24,7 +24,7 @@ from .transformation import (
     raise_for_xai_status,
     results_to_openai_jsonl,
     to_create_batch_body,
-    to_litellm_batch,
+    to_embrouter_batch,
     to_openai_batch_list,
     xai_batches_url,
 )
@@ -79,20 +79,20 @@ class XAIBatchesHandler:
         api_base: str | None,
         api_key: str | None,
         timeout: float | httpx.Timeout,
-    ) -> LiteLLMBatch | Coroutine[None, None, LiteLLMBatch]:
+    ) -> EmbRouterBatch | Coroutine[None, None, EmbRouterBatch]:
         url: Final = xai_batches_url(api_base)
         headers: Final = get_xai_auth_headers(api_key=api_key)
         body: Final = dict(to_create_batch_body(create_batch_data))  # mutable-ok: httpx json body
         endpoint: Final = create_batch_data.get("endpoint") or "/v1/chat/completions"
         if _is_async:
 
-            async def _acreate() -> LiteLLMBatch:
+            async def _acreate() -> EmbRouterBatch:
                 response: Final = await self._async(timeout).post(url, json=body, headers=headers, timeout=timeout)
-                return to_litellm_batch(XAIBatch.model_validate(raise_for_xai_status(response).json()), endpoint)
+                return to_embrouter_batch(XAIBatch.model_validate(raise_for_xai_status(response).json()), endpoint)
 
             return _acreate()
         response: Final = self._sync(timeout).post(url, json=body, headers=headers, timeout=timeout)
-        return to_litellm_batch(XAIBatch.model_validate(raise_for_xai_status(response).json()), endpoint)
+        return to_embrouter_batch(XAIBatch.model_validate(raise_for_xai_status(response).json()), endpoint)
 
     def retrieve_batch(
         self,
@@ -101,18 +101,18 @@ class XAIBatchesHandler:
         api_base: str | None,
         api_key: str | None,
         timeout: float | httpx.Timeout,
-    ) -> LiteLLMBatch | Coroutine[None, None, LiteLLMBatch]:
+    ) -> EmbRouterBatch | Coroutine[None, None, EmbRouterBatch]:
         url: Final = xai_batches_url(api_base, batch_id)
         headers: Final = get_xai_auth_headers(api_key=api_key)
         if _is_async:
 
-            async def _aretrieve() -> LiteLLMBatch:
+            async def _aretrieve() -> EmbRouterBatch:
                 response: Final = await self._async(timeout).get(url, headers=headers, timeout=timeout)
-                return to_litellm_batch(XAIBatch.model_validate(raise_for_xai_status(response).json()))
+                return to_embrouter_batch(XAIBatch.model_validate(raise_for_xai_status(response).json()))
 
             return _aretrieve()
         response: Final = self._sync(timeout).get(url, headers=headers, timeout=timeout)
-        return to_litellm_batch(XAIBatch.model_validate(raise_for_xai_status(response).json()))
+        return to_embrouter_batch(XAIBatch.model_validate(raise_for_xai_status(response).json()))
 
     def cancel_batch(
         self,
@@ -121,18 +121,18 @@ class XAIBatchesHandler:
         api_base: str | None,
         api_key: str | None,
         timeout: float | httpx.Timeout,
-    ) -> LiteLLMBatch | Coroutine[None, None, LiteLLMBatch]:
+    ) -> EmbRouterBatch | Coroutine[None, None, EmbRouterBatch]:
         url: Final = xai_batches_url(api_base, batch_id, suffix=":cancel")
         headers: Final = get_xai_auth_headers(api_key=api_key)
         if _is_async:
 
-            async def _acancel() -> LiteLLMBatch:
+            async def _acancel() -> EmbRouterBatch:
                 response: Final = await self._async(timeout).post(url, headers=headers, timeout=timeout)
-                return to_litellm_batch(XAIBatch.model_validate(raise_for_xai_status(response).json()))
+                return to_embrouter_batch(XAIBatch.model_validate(raise_for_xai_status(response).json()))
 
             return _acancel()
         response: Final = self._sync(timeout).post(url, headers=headers, timeout=timeout)
-        return to_litellm_batch(XAIBatch.model_validate(raise_for_xai_status(response).json()))
+        return to_embrouter_batch(XAIBatch.model_validate(raise_for_xai_status(response).json()))
 
     def list_batches(
         self,

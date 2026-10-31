@@ -5,26 +5,26 @@ from collections.abc import Mapping
 from datetime import datetime
 from typing import Any, Final, cast
 
-from litellm._logging import verbose_logger
-from litellm.integrations.custom_batch_logger import CustomBatchLogger
-from litellm.integrations.datadog.datadog_handler import (
+from embrouter._logging import verbose_logger
+from embrouter.integrations.custom_batch_logger import CustomBatchLogger
+from embrouter.integrations.datadog.datadog_handler import (
     get_datadog_env,
     get_datadog_hostname,
     get_datadog_pod_name,
     get_datadog_service,
     normalize_datadog_tag_value,
 )
-from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps
+from embrouter.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.types.integrations.datadog_cost_management import (
+from embrouter.types.integrations.datadog_cost_management import (
     DatadogFOCUSCostEntry,
 )
-from litellm.types.utils import StandardLoggingPayload
+from embrouter.types.utils import StandardLoggingPayload
 
-# Reserved tag keys whose values come from trusted sources (infra env, LiteLLM
+# Reserved tag keys whose values come from trusted sources (infra env, EmbRouter
 # core payload fields, or proxy-controlled auth metadata). User-supplied
 # request_tags / metadata cannot overwrite these, even when the key is
 # allowlisted via cost_tag_keys, because that would let an authenticated caller

@@ -7,31 +7,31 @@ import httpx
 from fastapi import HTTPException
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
 
 import json
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.caching import DualCache
-from litellm.constants import DEFAULT_MAX_RECURSE_DEPTH
-from litellm.integrations.custom_guardrail import (
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.caching import DualCache
+from embrouter.constants import DEFAULT_MAX_RECURSE_DEPTH
+from embrouter.integrations.custom_guardrail import (
     CustomGuardrail,
     log_guardrail_information,
 )
-from litellm.litellm_core_utils.core_helpers import (
+from embrouter.embrouter_core_utils.core_helpers import (
     get_metadata_variable_name_from_kwargs,
     get_or_create_metadata_bucket,
 )
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.llms.custom_httpx.http_handler import (
     AsyncHTTPHandler,
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.llms.vertex_ai.vertex_llm_base import VertexBase
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.guardrails.anthropic_sse import (
+from embrouter.llms.vertex_ai.vertex_llm_base import VertexBase
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.guardrails.anthropic_sse import (
     anthropic_sse_chunks_from_response,
     anthropic_sse_error_frames,
     assemble_anthropic_sse_stream,
@@ -39,19 +39,19 @@ from litellm.proxy.guardrails.anthropic_sse import (
     is_raw_sse_stream,
     is_sse_error_stream,
 )
-from litellm.proxy.guardrails.guardrail_hooks.model_armor.file_scanning import (
+from embrouter.proxy.guardrails.guardrail_hooks.model_armor.file_scanning import (
     MODEL_ARMOR_MAX_FILE_SIZE_BYTES,
     plan_file_scans,
 )
-from litellm.types.guardrails import GuardrailEventHooks, LitellmParams
-from litellm.types.llms.openai import (
+from embrouter.types.guardrails import GuardrailEventHooks, EmbrouterParams
+from embrouter.types.llms.openai import (
     AllMessageValues,
     ChatCompletionToolCallChunk,
     ResponsesAPIResponse,
     ResponsesAPIStreamEvents,
 )
-from litellm.types.llms.vertex_ai import VERTEX_CREDENTIALS_TYPES
-from litellm.types.utils import (
+from embrouter.types.llms.vertex_ai import VERTEX_CREDENTIALS_TYPES
+from embrouter.types.utils import (
     CallTypes,
     CallTypesLiteral,
     Choices,
@@ -117,7 +117,7 @@ def _redact_scanned_content(payload: RedactablePayload, depth: int = 0) -> Redac
 
 class ModelArmorGuardrail(CustomGuardrail, VertexBase):
     """
-    Google Cloud Model Armor Guardrail integration for LiteLLM.
+    Google Cloud Model Armor Guardrail integration for EmbRouter.
 
     Supports:
     - Pre-call sanitization (sanitizeUserPrompt)
@@ -205,12 +205,12 @@ class ModelArmorGuardrail(CustomGuardrail, VertexBase):
 
         Returns empty string for non-text responses (TTS, images, etc.) to skip guardrail processing.
         """
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             get_content_from_model_response,
         )
 
         # Handle ModelResponse objects
-        if isinstance(response, litellm.ModelResponse):
+        if isinstance(response, embrouter.ModelResponse):
             return get_content_from_model_response(response)
 
         # For non-ModelResponse types (e.g., TTS, images), return empty string
@@ -237,8 +237,8 @@ class ModelArmorGuardrail(CustomGuardrail, VertexBase):
         if self.optional_params.get("fail_on_error", True):
             raise e from None
 
-    def update_in_memory_litellm_params(self, litellm_params: LitellmParams) -> None:
-        super().update_in_memory_litellm_params(litellm_params)
+    def update_in_memory_embrouter_params(self, embrouter_params: EmbrouterParams) -> None:
+        super().update_in_memory_embrouter_params(embrouter_params)
         self.sanitize_error_detail = self.sanitize_error_detail is not False
 
     def _log_request_debug(
@@ -558,7 +558,7 @@ class ModelArmorGuardrail(CustomGuardrail, VertexBase):
         inline bytes, and inline content whose base64 will not decode) pass through instead of
         blocking, while fail_on_error still governs real Model Armor API errors.
         """
-        from litellm.proxy.common_utils.callback_utils import (
+        from embrouter.proxy.common_utils.callback_utils import (
             add_guardrail_to_applied_guardrails_header,
         )
 
@@ -653,7 +653,7 @@ class ModelArmorGuardrail(CustomGuardrail, VertexBase):
         """Pre-call hook to sanitize user prompts."""
         verbose_proxy_logger.debug("Inside Model Armor Pre-Call Hook")
 
-        from litellm.proxy.common_utils.callback_utils import (
+        from embrouter.proxy.common_utils.callback_utils import (
             add_guardrail_to_applied_guardrails_header,
         )
 
@@ -669,7 +669,7 @@ class ModelArmorGuardrail(CustomGuardrail, VertexBase):
             return data
 
         # Extract content from messages using helper from common_utils
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             get_last_user_message,
         )
 
@@ -724,7 +724,7 @@ class ModelArmorGuardrail(CustomGuardrail, VertexBase):
                 sanitized_content: Final = self._get_sanitized_content(armor_response)
                 if sanitized_content and sanitized_content != content:
                     # Use the helper to set the last user message with sanitized content
-                    from litellm.litellm_core_utils.prompt_templates.common_utils import (
+                    from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
                         set_last_user_message,
                     )
 
@@ -752,7 +752,7 @@ class ModelArmorGuardrail(CustomGuardrail, VertexBase):
         """During-call hook to sanitize user prompts in parallel with LLM call."""
         verbose_proxy_logger.debug("Inside Model Armor Moderation Hook")
 
-        from litellm.proxy.common_utils.callback_utils import (
+        from embrouter.proxy.common_utils.callback_utils import (
             add_guardrail_to_applied_guardrails_header,
         )
 
@@ -768,7 +768,7 @@ class ModelArmorGuardrail(CustomGuardrail, VertexBase):
             return data
 
         # Extract content from messages
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             get_last_user_message,
         )
 
@@ -815,7 +815,7 @@ class ModelArmorGuardrail(CustomGuardrail, VertexBase):
             if self.mask_request_content:
                 sanitized_content: Final = self._get_sanitized_content(armor_response)
                 if sanitized_content and sanitized_content != content:
-                    from litellm.litellm_core_utils.prompt_templates.common_utils import (
+                    from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
                         set_last_user_message,
                     )
 
@@ -840,7 +840,7 @@ class ModelArmorGuardrail(CustomGuardrail, VertexBase):
         response,
     ):
         """Post-call hook to sanitize model responses."""
-        from litellm.proxy.common_utils.callback_utils import (
+        from embrouter.proxy.common_utils.callback_utils import (
             add_guardrail_response_to_standard_logging_object,
             add_guardrail_to_applied_guardrails_header,
         )
@@ -884,7 +884,7 @@ class ModelArmorGuardrail(CustomGuardrail, VertexBase):
                     start_time=data.get("start_time"),
                 )
                 add_guardrail_response_to_standard_logging_object(
-                    litellm_logging_obj=data.get("litellm_logging_obj"),
+                    embrouter_logging_obj=data.get("embrouter_logging_obj"),
                     guardrail_response=standard_logging_guardrail_information,
                 )
 
@@ -904,7 +904,7 @@ class ModelArmorGuardrail(CustomGuardrail, VertexBase):
                 sanitized_content: Final = self._get_sanitized_content(armor_response)
                 if sanitized_content and sanitized_content != content:
                     # Update response content
-                    if isinstance(response, litellm.ModelResponse):
+                    if isinstance(response, embrouter.ModelResponse):
                         for choice in response.choices:
                             if isinstance(choice, Choices):
                                 if choice.message.content:
@@ -972,7 +972,7 @@ class ModelArmorGuardrail(CustomGuardrail, VertexBase):
         Tool calls are folded in because ``get_content_from_model_response`` folds them into what
         the chat surface scans, and a Responses turn can carry its whole payload in them.
         """
-        from litellm.llms.openai.responses.guardrail_translation.handler import (
+        from embrouter.llms.openai.responses.guardrail_translation.handler import (
             OpenAIResponsesHandler,
         )
 
@@ -1050,7 +1050,7 @@ class ModelArmorGuardrail(CustomGuardrail, VertexBase):
         all_chunks: list[object],  # mutable-ok: stream_chunk_builder only accepts a mutable list
     ) -> ModelResponse | TextCompletionResponse | None:
         """Assemble chat-completion chunks, returning ``None`` when they cannot be assembled."""
-        from litellm.main import stream_chunk_builder
+        from embrouter.main import stream_chunk_builder
 
         try:
             return stream_chunk_builder(chunks=all_chunks)
@@ -1083,7 +1083,7 @@ class ModelArmorGuardrail(CustomGuardrail, VertexBase):
     @staticmethod
     def _build_responses_error_items(exc: HTTPException) -> Sequence[object] | None:
         """Responses API error events for a failure discovered after the stream started."""
-        from litellm.llms.openai.responses.guardrail_translation.handler import (
+        from embrouter.llms.openai.responses.guardrail_translation.handler import (
             OpenAIResponsesHandler,
         )
 
@@ -1108,8 +1108,8 @@ class ModelArmorGuardrail(CustomGuardrail, VertexBase):
     ) -> AsyncGenerator[ModelResponseStream, None]:
         """Process streaming response chunks."""
 
-        from litellm.llms.base_llm.base_model_iterator import MockResponseIterator
-        from litellm.proxy.common_utils.callback_utils import (
+        from embrouter.llms.base_llm.base_model_iterator import MockResponseIterator
+        from embrouter.proxy.common_utils.callback_utils import (
             add_guardrail_to_applied_guardrails_header,
         )
 
@@ -1241,7 +1241,7 @@ class ModelArmorGuardrail(CustomGuardrail, VertexBase):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict,
         input_type: Literal["request", "response"],
-        logging_obj: "LiteLLMLoggingObj | None" = None,
+        logging_obj: "EmbRouterLoggingObj | None" = None,
     ) -> GenericGuardrailAPIInputs:
         content: Final = "\n".join(text for text in inputs.get("texts") or () if text)
         if not content:
@@ -1294,7 +1294,7 @@ class ModelArmorGuardrail(CustomGuardrail, VertexBase):
         """
         Get the config model for the Model Armor guardrail.
         """
-        from litellm.types.proxy.guardrails.guardrail_hooks.model_armor import (
+        from embrouter.types.proxy.guardrails.guardrail_hooks.model_armor import (
             ModelArmorGuardrailConfigModel,
         )
 

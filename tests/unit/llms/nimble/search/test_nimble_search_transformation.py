@@ -3,7 +3,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from litellm.llms.nimble.search.transformation import NimbleSearchConfig
+from embrouter.llms.nimble.search.transformation import NimbleSearchConfig
 
 
 def _config() -> NimbleSearchConfig:
@@ -38,7 +38,7 @@ def test_validate_environment_with_explicit_key():
     headers = _config().validate_environment({}, api_key="explicit-key")
     assert headers["Authorization"] == "Bearer explicit-key"
     assert headers["Content-Type"] == "application/json"
-    assert headers["X-Client-Source"] == "litellm"
+    assert headers["X-Client-Source"] == "embrouter"
 
 
 def test_validate_environment_reads_env_key(monkeypatch: pytest.MonkeyPatch):
@@ -208,7 +208,7 @@ def test_transform_search_response_zero_hits():
     ],
 )
 def test_transform_search_response_malformed_body_raises_instead_of_reporting_empty(body: str):
-    """A body LiteLLM cannot parse must not be reported as a successful zero-result search."""
+    """A body EmbRouter cannot parse must not be reported as a successful zero-result search."""
     with pytest.raises(Exception, match="Nimble Search"):
         _config().transform_search_response(_resp(body, status_code=502), logging_obj=Mock())
 

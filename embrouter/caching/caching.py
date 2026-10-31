@@ -21,12 +21,12 @@ from typing import TYPE_CHECKING, Any, Final
 
 from pydantic import BaseModel
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.constants import CACHED_STREAMING_CHUNK_DELAY
-from litellm.litellm_core_utils.model_param_helper import ModelParamHelper
-from litellm.types.caching import *
-from litellm.types.utils import EmbeddingResponse, is_litellm_owned_kwarg
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.constants import CACHED_STREAMING_CHUNK_DELAY
+from embrouter.embrouter_core_utils.model_param_helper import ModelParamHelper
+from embrouter.types.caching import *
+from embrouter.types.utils import EmbeddingResponse, is_embrouter_owned_kwarg
 
 from .azure_blob_cache import AzureBlobCache
 from .base_cache import BaseCache
@@ -42,7 +42,7 @@ from .redis_semantic_cache import RedisSemanticCache
 from .s3_cache import S3Cache
 
 if TYPE_CHECKING:
-    from litellm.rust_bridge.response_cache import NativeCacheRequest, ResponseCacheRuntime
+    from embrouter.rust_bridge.response_cache import NativeCacheRequest, ResponseCacheRuntime
 
 
 def _native_response(result: object) -> object:
@@ -64,7 +64,7 @@ def _native_response(result: object) -> object:
 def print_verbose(print_statement):
     try:
         verbose_logger.debug(print_statement)
-        if litellm.set_verbose:
+        if embrouter.set_verbose:
             print(print_statement)  # noqa: T201
     except Exception:
         pass
@@ -84,13 +84,13 @@ class CacheMode(str, Enum):
     default_off = "default_off"
 
 
-#### LiteLLM.Completion / Embedding Cache ####
+#### EmbRouter.Completion / Embedding Cache ####
 class Cache:
     _native_cache: "ResponseCacheRuntime | None" = None
 
     def __init__(
         self,
-        type: LiteLLMCacheType | None = LiteLLMCacheType.LOCAL,
+        type: EmbRouterCacheType | None = EmbRouterCacheType.LOCAL,
         mode: CacheMode
         | None = CacheMode.default_on,  # when default_on cache is always on, when default_off cache is opt in
         host: str | None = None,
@@ -193,14 +193,14 @@ class Cache:
             ValueError: If an invalid cache type is provided.
 
         Returns:
-            None. Cache is set as a litellm param
+            None. Cache is set as a embrouter param
         """
         if _backend is not None:
             self.cache: BaseCache = _backend
-        elif type == LiteLLMCacheType.REDIS:
+        elif type == EmbRouterCacheType.REDIS:
             # Check REDIS_CLUSTER_NODES env var if no explicit startup nodes
             if not redis_startup_nodes:
-                _env_cluster_nodes: Final = litellm.get_secret("REDIS_CLUSTER_NODES")
+                _env_cluster_nodes: Final = embrouter.get_secret("REDIS_CLUSTER_NODES")
                 if _env_cluster_nodes is not None and isinstance(_env_cluster_nodes, str):
                     redis_startup_nodes = json.loads(_env_cluster_nodes)
 
@@ -228,7 +228,7 @@ class Cache:
                     redis_flush_size=redis_flush_size,
                     **kwargs,
                 )
-        elif type == LiteLLMCacheType.REDIS_SEMANTIC:
+        elif type == EmbRouterCacheType.REDIS_SEMANTIC:
             self.cache = RedisSemanticCache(
                 host=host,
                 port=port,
@@ -240,7 +240,7 @@ class Cache:
                 embedding_timeout=semantic_cache_embedding_timeout,
                 **kwargs,
             )
-        elif type == LiteLLMCacheType.VALKEY_SEMANTIC:
+        elif type == EmbRouterCacheType.VALKEY_SEMANTIC:
             # Imported here, not at module top, so the optional redis dependency
             # is only required when this backend is actually selected.
             from .valkey_semantic_cache import ValkeySemanticCache
@@ -257,7 +257,7 @@ class Cache:
                 embedding_timeout=semantic_cache_embedding_timeout,
                 **kwargs,
             )
-        elif type == LiteLLMCacheType.QDRANT_SEMANTIC:
+        elif type == EmbRouterCacheType.QDRANT_SEMANTIC:
             self.cache = QdrantSemanticCache(
                 qdrant_api_base=qdrant_api_base,
                 qdrant_api_key=qdrant_api_key,
@@ -269,9 +269,9 @@ class Cache:
                 embedding_max_input_tokens=semantic_cache_embedding_max_input_tokens,
                 embedding_timeout=semantic_cache_embedding_timeout,
             )
-        elif type == LiteLLMCacheType.LOCAL:
+        elif type == EmbRouterCacheType.LOCAL:
             self.cache = InMemoryCache()
-        elif type == LiteLLMCacheType.S3:
+        elif type == EmbRouterCacheType.S3:
             self.cache = S3Cache(
                 s3_bucket_name=s3_bucket_name,
                 s3_region_name=s3_region_name,
@@ -286,25 +286,25 @@ class Cache:
                 s3_path=s3_path,
                 **kwargs,
             )
-        elif type == LiteLLMCacheType.GCS:
+        elif type == EmbRouterCacheType.GCS:
             self.cache = GCSCache(
                 bucket_name=gcs_bucket_name,
                 path_service_account=gcs_path_service_account,
                 gcs_path=gcs_path,
             )
-        elif type == LiteLLMCacheType.AZURE_BLOB:
+        elif type == EmbRouterCacheType.AZURE_BLOB:
             self.cache = AzureBlobCache(
                 account_url=azure_account_url,
                 container=azure_blob_container,
             )
-        elif type == LiteLLMCacheType.DISK:
+        elif type == EmbRouterCacheType.DISK:
             self.cache = DiskCache(disk_cache_dir=disk_cache_dir)
-        if "cache" not in litellm.input_callback:
-            litellm.input_callback.append("cache")
-        if "cache" not in litellm.success_callback:
-            litellm.logging_callback_manager.add_litellm_success_callback("cache")
-        if "cache" not in litellm._async_success_callback:
-            litellm.logging_callback_manager.add_litellm_async_success_callback("cache")
+        if "cache" not in embrouter.input_callback:
+            embrouter.input_callback.append("cache")
+        if "cache" not in embrouter.success_callback:
+            embrouter.logging_callback_manager.add_embrouter_success_callback("cache")
+        if "cache" not in embrouter._async_success_callback:
+            embrouter.logging_callback_manager.add_embrouter_async_success_callback("cache")
         self.supported_call_types = (
             supported_call_types  # default to ["completion", "acompletion", "embedding", "aembedding"]
         )
@@ -315,13 +315,13 @@ class Cache:
         self.mode: CacheMode = mode or CacheMode.default_on
         self.semantic_cache_scope: str = SemanticCacheScope(semantic_cache_scope).value
 
-        if self.type == LiteLLMCacheType.LOCAL and default_in_memory_ttl is not None:
+        if self.type == EmbRouterCacheType.LOCAL and default_in_memory_ttl is not None:
             self.ttl = default_in_memory_ttl
 
         if (
-            self.type == LiteLLMCacheType.REDIS
-            or self.type == LiteLLMCacheType.REDIS_SEMANTIC
-            or self.type == LiteLLMCacheType.VALKEY_SEMANTIC
+            self.type == EmbRouterCacheType.REDIS
+            or self.type == EmbRouterCacheType.REDIS_SEMANTIC
+            or self.type == EmbRouterCacheType.VALKEY_SEMANTIC
         ) and default_in_redis_ttl is not None:
             self.ttl = default_in_redis_ttl
 
@@ -345,9 +345,9 @@ class Cache:
 
     def _is_semantic_cache(self) -> bool:
         return self.type in (
-            LiteLLMCacheType.REDIS_SEMANTIC,
-            LiteLLMCacheType.QDRANT_SEMANTIC,
-            LiteLLMCacheType.VALKEY_SEMANTIC,
+            EmbRouterCacheType.REDIS_SEMANTIC,
+            EmbRouterCacheType.QDRANT_SEMANTIC,
+            EmbRouterCacheType.VALKEY_SEMANTIC,
         )
 
     def _semantic_cache_scope_fields(self) -> tuple[str, ...]:
@@ -356,9 +356,9 @@ class Cache:
         return self._SEMANTIC_CACHE_TENANT_SCOPE_FIELDS
 
     def _get_semantic_cache_tenant_scope(self, kwargs: dict) -> str:
-        litellm_params: Final[dict] = kwargs.get("litellm_params") or {}
+        embrouter_params: Final[dict] = kwargs.get("embrouter_params") or {}
         metadata_sources: Final[tuple[dict, ...]] = tuple(
-            source.get(key) or {} for source in (kwargs, litellm_params) for key in ("metadata", "litellm_metadata")
+            source.get(key) or {} for source in (kwargs, embrouter_params) for key in ("metadata", "embrouter_metadata")
         )
         scope_values: Final = (
             (field, next((source[field] for source in metadata_sources if source.get(field) is not None), None))
@@ -371,7 +371,7 @@ class Cache:
         Get the cache key for the given arguments.
 
         Args:
-            **kwargs: kwargs to litellm.completion() or embedding()
+            **kwargs: kwargs to embrouter.completion() or embedding()
 
         Returns:
             str: The cache key generated from the arguments, or None if no cache key could be generated.
@@ -394,8 +394,8 @@ class Cache:
                 param_value: str | None = self._get_param_value(param, kwargs)
                 if param_value is not None:
                     cache_key += f"{param}: {param_value}"
-            elif not is_litellm_owned_kwarg(param):
-                if litellm.enable_caching_on_provider_specific_optional_params is True:  # feature flagged for now
+            elif not is_embrouter_owned_kwarg(param):
+                if embrouter.enable_caching_on_provider_specific_optional_params is True:  # feature flagged for now
                     if kwargs[param] is None:
                         continue  # ignore None params
                     param_value = kwargs[param]
@@ -436,13 +436,13 @@ class Cache:
         Handles getting the value for the 'model' param from kwargs
 
         1. If caching groups are set, then return the caching group as the model
-        2. Else if a model_group is set, then return the model_group as the model. This is used for all requests sent through the litellm.Router()
+        2. Else if a model_group is set, then return the model_group as the model. This is used for all requests sent through the embrouter.Router()
         3. Else use the `model` passed in kwargs
         """
         metadata: Final[dict] = kwargs.get("metadata", {}) or {}
-        litellm_params: Final[dict] = kwargs.get("litellm_params", {}) or {}
-        metadata_in_litellm_params: Final[dict] = litellm_params.get("metadata", {}) or {}
-        model_group: Final[str | None] = metadata.get("model_group") or metadata_in_litellm_params.get("model_group")
+        embrouter_params: Final[dict] = kwargs.get("embrouter_params", {}) or {}
+        metadata_in_embrouter_params: Final[dict] = embrouter_params.get("metadata", {}) or {}
+        model_group: Final[str | None] = metadata.get("model_group") or metadata_in_embrouter_params.get("model_group")
         caching_group: Final = self._get_caching_group(metadata, model_group)
         return caching_group or model_group or kwargs["model"]
 
@@ -460,17 +460,17 @@ class Cache:
         """
         file: Final = kwargs.get("file")
         metadata: Final = kwargs.get("metadata", {})
-        litellm_params: Final = kwargs.get("litellm_params", {})
+        embrouter_params: Final = kwargs.get("embrouter_params", {})
         return (
             metadata.get("file_checksum")
             or getattr(file, "name", None)
             or metadata.get("file_name")
-            or litellm_params.get("file_name")
+            or embrouter_params.get("file_name")
         )
 
     def _get_preset_cache_key_from_kwargs(self, **kwargs) -> str | None:
         """
-        Get the preset cache key from kwargs["litellm_params"]
+        Get the preset cache key from kwargs["embrouter_params"]
 
         We use _get_preset_cache_keys for two reasons
 
@@ -478,8 +478,8 @@ class Cache:
         2. avoid doing duplicate / repeated work
         """
         if kwargs:
-            if "litellm_params" in kwargs:
-                return kwargs["litellm_params"].get("preset_cache_key", None)
+            if "embrouter_params" in kwargs:
+                return kwargs["embrouter_params"].get("preset_cache_key", None)
         return None
 
     def _set_preset_cache_key_in_kwargs(self, preset_cache_key: str, **kwargs) -> None:
@@ -488,11 +488,11 @@ class Cache:
 
         This is used to avoid doing duplicate / repeated work
 
-        Placed in kwargs["litellm_params"]
+        Placed in kwargs["embrouter_params"]
         """
         if kwargs:
-            if "litellm_params" in kwargs:
-                kwargs["litellm_params"]["preset_cache_key"] = preset_cache_key
+            if "embrouter_params" in kwargs:
+                kwargs["embrouter_params"]["preset_cache_key"] = preset_cache_key
 
     @staticmethod
     def _get_hashed_cache_key(cache_key: str) -> str:
@@ -617,8 +617,8 @@ class Cache:
         Retrieves the cached result for the given arguments.
 
         Args:
-            *args: args to litellm.completion() or embedding()
-            **kwargs: kwargs to litellm.completion() or embedding()
+            *args: args to embrouter.completion() or embedding()
+            **kwargs: kwargs to embrouter.completion() or embedding()
 
         Returns:
             The cached result if it exists, otherwise None.
@@ -727,8 +727,8 @@ class Cache:
         Adds a result to the cache.
 
         Args:
-            *args: args to litellm.completion() or embedding()
-            **kwargs: kwargs to litellm.completion() or embedding()
+            *args: args to embrouter.completion() or embedding()
+            **kwargs: kwargs to embrouter.completion() or embedding()
 
         Returns:
             None
@@ -747,7 +747,7 @@ class Cache:
             self._log_add_cache_failure(e)
 
     def _log_add_cache_failure(self, exc: Exception) -> None:
-        message: Final = "LiteLLM Cache: exception in add_cache"
+        message: Final = "EmbRouter Cache: exception in add_cache"
         if isinstance(self.cache, RedisCache):
             log_redis_failure(verbose_logger, logging.ERROR, message, exc)
             return
@@ -958,7 +958,7 @@ class Cache:
             input_count: Final = len(kwargs["input"]) if isinstance(kwargs["input"], list) else 1
             if len(result.data) != input_count:
                 verbose_logger.debug(
-                    "LiteLLM Cache: skipping embedding cache write, %d inputs but %d embeddings in the response",
+                    "EmbRouter Cache: skipping embedding cache write, %d inputs but %d embeddings in the response",
                     input_count,
                     len(result.data),
                 )
@@ -1059,7 +1059,7 @@ class Cache:
 
 
 def enable_cache(
-    type: LiteLLMCacheType | None = LiteLLMCacheType.LOCAL,
+    type: EmbRouterCacheType | None = EmbRouterCacheType.LOCAL,
     host: str | None = None,
     port: str | None = None,
     password: str | None = None,
@@ -1084,16 +1084,16 @@ def enable_cache(
     Raises:
         None
     """
-    print_verbose("LiteLLM: Enabling Cache")
-    if "cache" not in litellm.input_callback:
-        litellm.input_callback.append("cache")
-    if "cache" not in litellm.success_callback:
-        litellm.logging_callback_manager.add_litellm_success_callback("cache")
-    if "cache" not in litellm._async_success_callback:
-        litellm.logging_callback_manager.add_litellm_async_success_callback("cache")
+    print_verbose("EmbRouter: Enabling Cache")
+    if "cache" not in embrouter.input_callback:
+        embrouter.input_callback.append("cache")
+    if "cache" not in embrouter.success_callback:
+        embrouter.logging_callback_manager.add_embrouter_success_callback("cache")
+    if "cache" not in embrouter._async_success_callback:
+        embrouter.logging_callback_manager.add_embrouter_async_success_callback("cache")
 
-    if litellm.cache is None:
-        litellm.cache = Cache(
+    if embrouter.cache is None:
+        embrouter.cache = Cache(
             type=type,
             host=host,
             port=port,
@@ -1101,12 +1101,12 @@ def enable_cache(
             supported_call_types=supported_call_types,
             **kwargs,
         )
-    print_verbose(f"LiteLLM: Cache enabled, litellm.cache={litellm.cache}")
-    print_verbose(f"LiteLLM Cache: {vars(litellm.cache)}")
+    print_verbose(f"EmbRouter: Cache enabled, embrouter.cache={embrouter.cache}")
+    print_verbose(f"EmbRouter Cache: {vars(embrouter.cache)}")
 
 
 def update_cache(
-    type: LiteLLMCacheType | None = LiteLLMCacheType.LOCAL,
+    type: EmbRouterCacheType | None = EmbRouterCacheType.LOCAL,
     host: str | None = None,
     port: str | None = None,
     password: str | None = None,
@@ -1114,7 +1114,7 @@ def update_cache(
     **kwargs,
 ):
     """
-    Update the cache for LiteLLM.
+    Update the cache for EmbRouter.
 
     Args:
         type (Optional[Literal["local", "redis", "s3", "disk"]]): The type of cache. Defaults to "local".
@@ -1129,8 +1129,8 @@ def update_cache(
         None
 
     """
-    print_verbose("LiteLLM: Updating Cache")
-    litellm.cache = Cache(
+    print_verbose("EmbRouter: Updating Cache")
+    embrouter.cache = Cache(
         type=type,
         host=host,
         port=port,
@@ -1138,15 +1138,15 @@ def update_cache(
         supported_call_types=supported_call_types,
         **kwargs,
     )
-    print_verbose(f"LiteLLM: Cache Updated, litellm.cache={litellm.cache}")
-    print_verbose(f"LiteLLM Cache: {vars(litellm.cache)}")
+    print_verbose(f"EmbRouter: Cache Updated, embrouter.cache={embrouter.cache}")
+    print_verbose(f"EmbRouter Cache: {vars(embrouter.cache)}")
 
 
 def disable_cache():
     """
-    Disable the cache used by LiteLLM.
+    Disable the cache used by EmbRouter.
 
-    This function disables the cache used by the LiteLLM module. It removes the cache-related callbacks from the input_callback, success_callback, and _async_success_callback lists. It also sets the litellm.cache attribute to None.
+    This function disables the cache used by the EmbRouter module. It removes the cache-related callbacks from the input_callback, success_callback, and _async_success_callback lists. It also sets the embrouter.cache attribute to None.
 
     Parameters:
     None
@@ -1156,11 +1156,11 @@ def disable_cache():
     """
     from contextlib import suppress
 
-    print_verbose("LiteLLM: Disabling Cache")
+    print_verbose("EmbRouter: Disabling Cache")
     with suppress(ValueError):
-        litellm.input_callback.remove("cache")
-        litellm.success_callback.remove("cache")
-        litellm._async_success_callback.remove("cache")
+        embrouter.input_callback.remove("cache")
+        embrouter.success_callback.remove("cache")
+        embrouter._async_success_callback.remove("cache")
 
-    litellm.cache = None
-    print_verbose(f"LiteLLM: Cache disabled, litellm.cache={litellm.cache}")
+    embrouter.cache = None
+    print_verbose(f"EmbRouter: Cache disabled, embrouter.cache={embrouter.cache}")

@@ -5,7 +5,7 @@ from typing import Final
 
 import httpx
 
-from litellm.constants import (
+from embrouter.constants import (
     OPEN_SANDBOX_API_BASE_ENV_VAR,
     OPEN_SANDBOX_API_KEY_ENV_VAR,
     OPEN_SANDBOX_DEFAULT_CPU_LIMIT,
@@ -18,18 +18,18 @@ from litellm.constants import (
     OPEN_SANDBOX_POLL_INTERVAL,
     OPEN_SANDBOX_READY_TIMEOUT,
 )
-from litellm.llms.base_llm.sandbox.transformation import (
+from embrouter.llms.base_llm.sandbox.transformation import (
     SANDBOX_MAX_OUTPUT_BYTES,
     BaseSandboxConfig,
     CodeExecutionResult,
     ContainerHandle,
 )
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.llms.custom_httpx.http_handler import (
     AsyncHTTPHandler,
     get_async_httpx_client,
 )
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.custom_http import httpxSpecialProvider
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.custom_http import httpxSpecialProvider
 
 DEFAULT_SANDBOX_TIMEOUT: Final = OPEN_SANDBOX_DEFAULT_TIMEOUT
 DEFAULT_READY_TIMEOUT: Final = OPEN_SANDBOX_READY_TIMEOUT

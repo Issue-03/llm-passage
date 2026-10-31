@@ -12,13 +12,13 @@ import time
 import httpx
 import pytest
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils import thread_pool_executor as thread_pool_executor_module
-from litellm.responses import streaming_iterator as responses_streaming_iterator_module
-from litellm.litellm_core_utils.litellm_logging import Logging as LitellmLogging
-from litellm.responses.streaming_iterator import ResponsesAPIStreamingIterator
-from litellm.types.llms.openai import ResponsesAPIResponse
+import embrouter
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.embrouter_core_utils import thread_pool_executor as thread_pool_executor_module
+from embrouter.responses import streaming_iterator as responses_streaming_iterator_module
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbrouterLogging
+from embrouter.responses.streaming_iterator import ResponsesAPIStreamingIterator
+from embrouter.types.llms.openai import ResponsesAPIResponse
 
 
 class RecordingCustomLogger(CustomLogger):
@@ -55,19 +55,19 @@ class RecordingExecutor:
 @pytest.fixture(autouse=True)
 def _isolate_callbacks():
     saved = (
-        litellm.callbacks,
-        litellm.success_callback,
-        litellm._async_success_callback,
-        litellm.failure_callback,
-        litellm._async_failure_callback,
+        embrouter.callbacks,
+        embrouter.success_callback,
+        embrouter._async_success_callback,
+        embrouter.failure_callback,
+        embrouter._async_failure_callback,
     )
     yield
     (
-        litellm.callbacks,
-        litellm.success_callback,
-        litellm._async_success_callback,
-        litellm.failure_callback,
-        litellm._async_failure_callback,
+        embrouter.callbacks,
+        embrouter.success_callback,
+        embrouter._async_success_callback,
+        embrouter.failure_callback,
+        embrouter._async_failure_callback,
     ) = saved
 
 
@@ -79,21 +79,21 @@ def recording_executor(monkeypatch):
     return recording
 
 
-def _make_logging_obj() -> LitellmLogging:
-    logging_obj = LitellmLogging(
+def _make_logging_obj() -> EmbrouterLogging:
+    logging_obj = EmbrouterLogging(
         model="gpt-5.4-nano",
         messages=[{"role": "user", "content": "hi"}],
         stream=True,
         call_type="aresponses",
         start_time=time.time(),
-        litellm_call_id="lit-4210-test",
+        embrouter_call_id="lit-4210-test",
         function_id="lit-4210-test",
     )
-    logging_obj.model_call_details["litellm_params"] = {"aresponses": True}
+    logging_obj.model_call_details["embrouter_params"] = {"aresponses": True}
     return logging_obj
 
 
-def _make_iterator(logging_obj: LitellmLogging) -> ResponsesAPIStreamingIterator:
+def _make_iterator(logging_obj: EmbrouterLogging) -> ResponsesAPIStreamingIterator:
     iterator = ResponsesAPIStreamingIterator(
         response=httpx.Response(200),
         model="gpt-5.4-nano",
@@ -122,8 +122,8 @@ def _make_iterator(logging_obj: LitellmLogging) -> ResponsesAPIStreamingIterator
 @pytest.mark.asyncio
 async def test_custom_logger_only_never_submits_sync_success_handler(recording_executor):
     recorder = RecordingCustomLogger()
-    litellm.success_callback = [recorder]
-    litellm._async_success_callback = [recorder]
+    embrouter.success_callback = [recorder]
+    embrouter._async_success_callback = [recorder]
 
     logging_obj = _make_logging_obj()
     iterator = _make_iterator(logging_obj)
@@ -143,8 +143,8 @@ async def test_sync_callbacks_run_only_after_async_handler_completes(recording_e
     def sync_callback(kwargs, response_obj, start_time, end_time):
         sync_events.append(time.monotonic())
 
-    litellm.success_callback = [recorder, sync_callback]
-    litellm._async_success_callback = [recorder]
+    embrouter.success_callback = [recorder, sync_callback]
+    embrouter._async_success_callback = [recorder]
 
     logging_obj = _make_logging_obj()
     iterator = _make_iterator(logging_obj)

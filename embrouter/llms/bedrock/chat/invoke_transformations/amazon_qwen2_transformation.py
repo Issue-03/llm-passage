@@ -11,17 +11,17 @@ from typing import TYPE_CHECKING, Final
 
 import httpx
 
-from litellm.llms.bedrock.chat.invoke_transformations.amazon_qwen3_transformation import (
+from embrouter.llms.bedrock.chat.invoke_transformations.amazon_qwen3_transformation import (
     AmazonQwen3Config,
 )
-from litellm.llms.bedrock.chat.invoke_transformations.base_invoke_transformation import (
-    LiteLLMLoggingObj,
+from embrouter.llms.bedrock.chat.invoke_transformations.base_invoke_transformation import (
+    EmbRouterLoggingObj,
 )
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.utils import ModelResponse, Usage
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.utils import ModelResponse, Usage
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
 
 
 class AmazonQwen2Config(AmazonQwen3Config):
@@ -39,11 +39,11 @@ class AmazonQwen2Config(AmazonQwen3Config):
         model: str,
         raw_response: httpx.Response,
         model_response: ModelResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         request_data: dict,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,

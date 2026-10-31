@@ -2,10 +2,10 @@ import os
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Final, cast
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.constants import CLOUDZERO_EXPORT_INTERVAL_MINUTES
-from litellm.integrations.custom_logger import CustomLogger
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.constants import CLOUDZERO_EXPORT_INTERVAL_MINUTES
+from embrouter.integrations.custom_logger import CustomLogger
 
 if TYPE_CHECKING:
     from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -15,7 +15,7 @@ else:
 
 class CloudZeroLogger(CustomLogger):
     """
-    CloudZero Logger for exporting LiteLLM usage data to CloudZero AnyCost API.
+    CloudZero Logger for exporting EmbRouter usage data to CloudZero AnyCost API.
 
     Environment Variables:
         CLOUDZERO_API_KEY: CloudZero API key for authentication
@@ -51,10 +51,10 @@ class CloudZeroLogger(CustomLogger):
             - Ensures only one pod exports the data at a time.
         - If redis cache is not available, we export the data directly.
         """
-        from litellm.constants import (
+        from embrouter.constants import (
             CLOUDZERO_EXPORT_USAGE_DATA_JOB_NAME,
         )
-        from litellm.proxy.proxy_server import proxy_logging_obj
+        from embrouter.proxy.proxy_server import proxy_logging_obj
 
         pod_lock_manager: Final = proxy_logging_obj.db_spend_update_writer.pod_lock_manager
 
@@ -78,7 +78,7 @@ class CloudZeroLogger(CustomLogger):
         """
         from datetime import timedelta, timezone
 
-        from litellm.constants import CLOUDZERO_MAX_FETCHED_DATA_RECORDS
+        from embrouter.constants import CLOUDZERO_MAX_FETCHED_DATA_RECORDS
 
         current_time_utc: Final = datetime.now(timezone.utc)
         # Mitigates the possibility of missing spend if an hour is skipped due to a restart in an ephemeral environment
@@ -108,9 +108,9 @@ class CloudZeroLogger(CustomLogger):
             limit: Optional limit on number of records to export
             operation: CloudZero operation type ("replace_hourly" or "sum")
         """
-        from litellm.integrations.cloudzero.cz_stream_api import CloudZeroStreamer
-        from litellm.integrations.cloudzero.database import LiteLLMDatabase
-        from litellm.integrations.cloudzero.transform import CBFTransformer
+        from embrouter.integrations.cloudzero.cz_stream_api import CloudZeroStreamer
+        from embrouter.integrations.cloudzero.database import EmbRouterDatabase
+        from embrouter.integrations.cloudzero.transform import CBFTransformer
 
         try:
             verbose_logger.debug("CloudZero Logger: Starting usage data export")
@@ -122,7 +122,7 @@ class CloudZeroLogger(CustomLogger):
                 )
 
             # Initialize database connection and load data
-            database: Final = LiteLLMDatabase()
+            database: Final = EmbRouterDatabase()
             verbose_logger.debug("CloudZero Logger: Loading usage data from database")
             data = await database.get_usage_data(limit=limit, start_time_utc=start_time_utc, end_time_utc=end_time_utc)
 
@@ -166,14 +166,14 @@ class CloudZeroLogger(CustomLogger):
         Returns:
             dict: Contains usage_data, cbf_data, and summary statistics
         """
-        from litellm.integrations.cloudzero.database import LiteLLMDatabase
-        from litellm.integrations.cloudzero.transform import CBFTransformer
+        from embrouter.integrations.cloudzero.database import EmbRouterDatabase
+        from embrouter.integrations.cloudzero.transform import CBFTransformer
 
         try:
             verbose_logger.debug("CloudZero Logger: Starting dry run export")
 
             # Initialize database connection and load data
-            database: Final = LiteLLMDatabase()
+            database: Final = EmbRouterDatabase()
             verbose_logger.debug("CloudZero Logger: Loading usage data for dry run")
             data: Final = await database.get_usage_data(limit=limit)
 
@@ -343,10 +343,10 @@ class CloudZeroLogger(CustomLogger):
 
         Starts the background job that exports the usage data to CloudZero every hour.
         """
-        from litellm.constants import CLOUDZERO_EXPORT_INTERVAL_MINUTES
-        from litellm.integrations.custom_logger import CustomLogger
+        from embrouter.constants import CLOUDZERO_EXPORT_INTERVAL_MINUTES
+        from embrouter.integrations.custom_logger import CustomLogger
 
-        prometheus_loggers: Final[list[CustomLogger]] = litellm.logging_callback_manager.get_custom_loggers_for_type(
+        prometheus_loggers: Final[list[CustomLogger]] = embrouter.logging_callback_manager.get_custom_loggers_for_type(
             callback_type=CloudZeroLogger
         )
         # we need to get the initialized prometheus logger instance(s) and call logger.initialize_remaining_budget_metrics() on them

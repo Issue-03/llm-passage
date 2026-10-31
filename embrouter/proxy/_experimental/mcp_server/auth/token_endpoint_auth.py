@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from typing import Final
 from urllib.parse import quote_plus
 
-from litellm.types.mcp_server.mcp_server_manager import MCPTokenEndpointAuthMethod
+from embrouter.types.mcp_server.mcp_server_manager import MCPTokenEndpointAuthMethod
 
 
 @dataclass(frozen=True, slots=True)

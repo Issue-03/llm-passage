@@ -1,6 +1,6 @@
 from typing_extensions import TypedDict
 
-from litellm.llms.custom_llm import CustomLLM
+from embrouter.llms.custom_llm import CustomLLM
 
 
 class CustomLLMItem(TypedDict):

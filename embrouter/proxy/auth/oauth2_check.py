@@ -4,12 +4,12 @@ from typing import Final, cast
 
 import httpx
 
-from litellm._logging import verbose_proxy_logger
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.proxy._types import CommonProxyErrors, LitellmUserRoles, UserAPIKeyAuth
+from embrouter.proxy._types import CommonProxyErrors, EmbrouterUserRoles, UserAPIKeyAuth
 
 
 class Oauth2Handler:
@@ -126,7 +126,7 @@ class Oauth2Handler:
         Raises:
             ValueError: If the token is invalid, the request fails, or the token info endpoint is not set.
         """
-        from litellm.proxy.proxy_server import premium_user
+        from embrouter.proxy.proxy_server import premium_user
 
         if premium_user is not True:
             raise ValueError(
@@ -203,7 +203,7 @@ class Oauth2Handler:
                 api_key=token,
                 team_id=user_team_id,
                 user_id=user_id,
-                user_role=cast(LitellmUserRoles, user_role),
+                user_role=cast(EmbrouterUserRoles, user_role),
             )
         except httpx.HTTPStatusError as e:
             # This will catch any 4xx or 5xx errors

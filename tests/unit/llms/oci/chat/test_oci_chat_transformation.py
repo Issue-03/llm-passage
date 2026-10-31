@@ -3,13 +3,13 @@ import httpx
 import pytest
 import json
 
-import litellm
+import embrouter
 
 # Adds the parent directory to the system path
 
-from litellm import ModelResponse
-from litellm.constants import DEFAULT_OCI_CHAT_MAX_TOKENS
-from litellm.llms.oci.chat.transformation import (
+from embrouter import ModelResponse
+from embrouter.constants import DEFAULT_OCI_CHAT_MAX_TOKENS
+from embrouter.llms.oci.chat.transformation import (
     OCIChatConfig,
     OCIRequestWrapper,
     version,
@@ -78,11 +78,11 @@ class TestOCIChatConfig:
             model=TEST_MODEL,
             messages=TEST_MESSAGES,  # type: ignore
             optional_params=supplied_params,
-            litellm_params={},
+            embrouter_params={},
         )
 
         assert result["content-type"] == "application/json"
-        assert result["user-agent"] == f"litellm/{version}"
+        assert result["user-agent"] == f"embrouter/{version}"
 
     def test_missing_oci_auth_parameters(self, supplied_params):
         params = supplied_params.copy()  # safely copy, no reassignment
@@ -102,7 +102,7 @@ class TestOCIChatConfig:
                     messages=TEST_MESSAGES,  # type: ignore
                     optional_params=modified_params,
                     api_base="https://api.oci.example.com",
-                    litellm_params={},
+                    embrouter_params={},
                 )
             assert ("Missing required parameters:") in str(excinfo.value)
 
@@ -116,7 +116,7 @@ class TestOCIChatConfig:
             model=TEST_MODEL_NAME,
             messages=TEST_MESSAGES,  # type: ignore
             optional_params=optional_params,
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -169,7 +169,7 @@ class TestOCIChatConfig:
             model=TEST_MODEL_NAME,
             messages=TEST_MESSAGES,  # type: ignore
             optional_params=optional_params,
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
         assert "tools" in transformed_request["chatRequest"]
@@ -199,7 +199,7 @@ class TestOCIChatConfig:
             model=TEST_MODEL_NAME,
             messages=TEST_MESSAGES,  # type: ignore
             optional_params=optional_params,
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -223,7 +223,7 @@ class TestOCIChatConfig:
             model=TEST_MODEL_NAME,
             messages=TEST_MESSAGES,  # type: ignore
             optional_params=optional_params,
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -248,7 +248,7 @@ class TestOCIChatConfig:
             model=TEST_MODEL_NAME,
             messages=TEST_MESSAGES,  # type: ignore
             optional_params=optional_params,
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -274,7 +274,7 @@ class TestOCIChatConfig:
                 model=TEST_MODEL_NAME,
                 messages=TEST_MESSAGES,  # type: ignore
                 optional_params=optional_params,
-                litellm_params={},
+                embrouter_params={},
                 headers={},
             )
 
@@ -302,7 +302,7 @@ class TestOCIChatConfig:
             model=cohere_model,
             messages=messages,  # type: ignore
             optional_params=optional_params,
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -341,7 +341,7 @@ class TestOCIChatConfig:
             model=TEST_MODEL_NAME,
             messages=TEST_MESSAGES,  # type: ignore
             optional_params=optional_params,
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
         rf = transformed_request["chatRequest"]["responseFormat"]
@@ -360,7 +360,7 @@ class TestOCIChatConfig:
             model=TEST_MODEL_NAME,
             messages=TEST_MESSAGES,  # type: ignore
             optional_params=optional_params,
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
         rf = transformed_request["chatRequest"]["responseFormat"]
@@ -379,7 +379,7 @@ class TestOCIChatConfig:
             model=TEST_MODEL_NAME,
             messages=TEST_MESSAGES,  # type: ignore
             optional_params=optional_params,
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
         rf = transformed_request["chatRequest"]["responseFormat"]
@@ -414,7 +414,7 @@ class TestOCIChatConfig:
             model=TEST_MODEL_NAME,  # xai.grok-4 -> GENERIC
             messages=TEST_MESSAGES,  # type: ignore
             optional_params=optional_params,
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
         rf = transformed_request["chatRequest"]["responseFormat"]
@@ -439,7 +439,7 @@ class TestOCIChatConfig:
             model=TEST_MODEL_NAME,
             messages=TEST_MESSAGES,  # type: ignore
             optional_params=optional_params,
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
         rf = transformed_request["chatRequest"]["responseFormat"]
@@ -470,7 +470,7 @@ class TestOCIChatConfig:
             model="cohere.command-latest",
             messages=TEST_MESSAGES,  # type: ignore
             optional_params=optional_params,
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
         rf = transformed_request["chatRequest"]["responseFormat"]
@@ -489,7 +489,7 @@ class TestOCIChatConfig:
             model="cohere.command-latest",
             messages=TEST_MESSAGES,  # type: ignore
             optional_params=optional_params,
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
         rf = transformed_request["chatRequest"]["responseFormat"]
@@ -498,7 +498,7 @@ class TestOCIChatConfig:
     def test_transform_request_json_schema_without_body_raises_generic(self):
         """A GENERIC json_schema with no ``json_schema`` body must raise an early
         400, not silently emit {"type": "JSON_SCHEMA"} (which OCI rejects)."""
-        from litellm.llms.oci.common_utils import OCIError
+        from embrouter.llms.oci.common_utils import OCIError
 
         config = OCIChatConfig()
         optional_params = {
@@ -510,7 +510,7 @@ class TestOCIChatConfig:
                 model=TEST_MODEL_NAME,  # GENERIC
                 messages=TEST_MESSAGES,  # type: ignore
                 optional_params=optional_params,
-                litellm_params={},
+                embrouter_params={},
                 headers={},
             )
         assert exc_info.value.status_code == 400
@@ -563,7 +563,7 @@ class TestOCIChatConfig:
             request_data={},
             messages=[],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             encoding={},
         )
 
@@ -628,19 +628,19 @@ class TestOCIChatConfig:
             request_data={},
             messages=[],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             encoding={},
         )
 
         assert isinstance(result, ModelResponse)
         assert len(result.choices) == 1
-        assert isinstance(result.choices[0], litellm.Choices)
+        assert isinstance(result.choices[0], embrouter.Choices)
         assert result.choices[0].message
         assert result.choices[0].message.content == "I am doing well, thank you!"
         assert result.choices[0].finish_reason == "stop"
         assert result.model == TEST_MODEL_NAME
         assert hasattr(result, "usage")
-        assert isinstance(result.usage, litellm.Usage)  # type: ignore
+        assert isinstance(result.usage, embrouter.Usage)  # type: ignore
         assert result.usage.prompt_tokens == 10  # type: ignore
         assert result.usage.completion_tokens == 20  # type: ignore
         assert result.usage.total_tokens == 30  # type: ignore
@@ -700,7 +700,7 @@ class TestOCIChatConfig:
         }
         response = httpx.Response(status_code=200, json=mock_oci_response)
         model_response = ModelResponse(
-            choices=[litellm.Choices(index=0, message=litellm.Message())]
+            choices=[embrouter.Choices(index=0, message=embrouter.Message())]
         )
 
         result = config.transform_response(
@@ -711,7 +711,7 @@ class TestOCIChatConfig:
             request_data={},
             messages=[],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             encoding={},
         )
 
@@ -720,19 +720,19 @@ class TestOCIChatConfig:
         assert len(result.choices) == 1
 
         choice = result.choices[0]
-        assert isinstance(choice, litellm.Choices)
+        assert isinstance(choice, embrouter.Choices)
         assert choice.finish_reason == "stop"
 
         # Message and tool_calls assertions
         message = choice.message
-        assert isinstance(message, litellm.Message)
+        assert isinstance(message, embrouter.Message)
         assert hasattr(message, "tool_calls")
         assert isinstance(message.tool_calls, list)
         assert len(message.tool_calls) == 1
 
         # Specific tool_call assertions
         tool_call = message.tool_calls[0]
-        assert isinstance(tool_call, litellm.utils.ChatCompletionMessageToolCall)
+        assert isinstance(tool_call, embrouter.utils.ChatCompletionMessageToolCall)
         assert tool_call.id == "call_abc123"
         assert tool_call.type == "function"
         assert tool_call.function["name"] == "get_weather"
@@ -741,7 +741,7 @@ class TestOCIChatConfig:
         # Usage assertions
         assert hasattr(result, "usage")
         usage = result.usage  # type: ignore
-        assert isinstance(usage, litellm.Usage)  # type: ignore
+        assert isinstance(usage, embrouter.Usage)  # type: ignore
         assert usage.prompt_tokens == 10  # type: ignore
         assert usage.completion_tokens == 20  # type: ignore
         assert usage.total_tokens == 30  # type: ignore
@@ -767,11 +767,11 @@ class TestOCISignerSupport:
             model=TEST_MODEL,
             messages=TEST_MESSAGES,  # type: ignore
             optional_params=optional_params,
-            litellm_params={},
+            embrouter_params={},
         )
 
         assert result["content-type"] == "application/json"
-        assert result["user-agent"] == f"litellm/{version}"
+        assert result["user-agent"] == f"embrouter/{version}"
 
     def test_validate_environment_with_oci_signer_no_compartment_id_in_validate(self):
         """Test that oci_compartment_id is not required in validate_environment when using signer."""
@@ -790,7 +790,7 @@ class TestOCISignerSupport:
             model=TEST_MODEL,
             messages=TEST_MESSAGES,  # type: ignore
             optional_params=optional_params,
-            litellm_params={},
+            embrouter_params={},
         )
 
         assert result["content-type"] == "application/json"
@@ -866,7 +866,7 @@ class TestOCISignerSupport:
             "oci_signer": FailingSigner(),
         }
 
-        from litellm.llms.oci.common_utils import OCIError
+        from embrouter.llms.oci.common_utils import OCIError
 
         with pytest.raises(OCIError) as excinfo:
             config.sign_request(
@@ -931,9 +931,9 @@ class TestOCIProviderEmbeddingConfig:
     """
 
     def test_returns_oci_embed_config(self):
-        from litellm.llms.oci.embed.transformation import OCIEmbedConfig
-        from litellm.utils import ProviderConfigManager
-        from litellm.types.utils import LlmProviders
+        from embrouter.llms.oci.embed.transformation import OCIEmbedConfig
+        from embrouter.utils import ProviderConfigManager
+        from embrouter.types.utils import LlmProviders
 
         config = ProviderConfigManager.get_provider_embedding_config(
             model="cohere.embed-english-v3.0",
@@ -1023,7 +1023,7 @@ class TestOCIDefaultMaxTokens:
             model=model,
             messages=[{"role": "user", "content": "hi"}],
             optional_params={**BASE_OCI_PARAMS, **optional_params},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
         return body["chatRequest"]
@@ -1059,7 +1059,7 @@ class TestOCIReasoningEffort:
     def _build_chat_request(self, model: str, optional_params: dict) -> dict:
         """Drive optional params through map → _get_optional_params and read
         the resulting chatRequest body via transform_request."""
-        from litellm.llms.oci.chat.transformation import OCIChatConfig
+        from embrouter.llms.oci.chat.transformation import OCIChatConfig
 
         config = OCIChatConfig()
         mapped = config.map_openai_params(
@@ -1072,7 +1072,7 @@ class TestOCIReasoningEffort:
             model=model,
             messages=[{"role": "user", "content": "hi"}],
             optional_params={**BASE_OCI_PARAMS, **mapped},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
         return body["chatRequest"]
@@ -1100,7 +1100,7 @@ class TestOCIReasoningEffort:
 
     def test_reasoning_effort_unsupported_on_cohere_dropped(self):
         """drop_params=True → silently drop reasoning_effort for Cohere."""
-        from litellm.llms.oci.chat.transformation import OCIChatConfig
+        from embrouter.llms.oci.chat.transformation import OCIChatConfig
 
         config = OCIChatConfig()
         result = config.map_openai_params(
@@ -1114,8 +1114,8 @@ class TestOCIReasoningEffort:
 
     def test_reasoning_effort_unsupported_on_cohere_raises(self):
         """drop_params=False → raise rather than ship a payload Cohere will reject."""
-        from litellm.llms.oci.chat.transformation import OCIChatConfig
-        from litellm.llms.oci.common_utils import OCIError
+        from embrouter.llms.oci.chat.transformation import OCIChatConfig
+        from embrouter.llms.oci.common_utils import OCIError
 
         config = OCIChatConfig()
         with pytest.raises(OCIError):
@@ -1129,7 +1129,7 @@ class TestOCIReasoningEffort:
     def test_reasoning_tokens_extracted_from_usage(self):
         """OCI's completionTokensDetails.reasoningTokens flows into
         Usage.completion_tokens_details.reasoning_tokens."""
-        from litellm.llms.oci.chat.generic import handle_generic_response
+        from embrouter.llms.oci.chat.generic import handle_generic_response
 
         created_time = (
             datetime.datetime.now(datetime.timezone.utc)
@@ -1173,7 +1173,7 @@ class TestOCIReasoningEffort:
 
     def test_reasoning_tokens_absent_when_no_details(self):
         """When OCI omits completionTokensDetails, Usage has no reasoning_tokens."""
-        from litellm.llms.oci.chat.generic import handle_generic_response
+        from embrouter.llms.oci.chat.generic import handle_generic_response
 
         created_time = (
             datetime.datetime.now(datetime.timezone.utc)
@@ -1247,7 +1247,7 @@ class TestOCIStreamingSignedBody:
         mock_logging = MagicMock()
 
         config.get_sync_custom_stream_wrapper(
-            litellm_params={},
+            embrouter_params={},
             api_base="https://example.com",
             headers={},
             data={"key": "value"},
@@ -1287,7 +1287,7 @@ class TestOCIStreamingSignedBody:
         payload = {"key": "value"}
 
         config.get_sync_custom_stream_wrapper(
-            litellm_params={},
+            embrouter_params={},
             api_base="https://example.com",
             headers={},
             data=payload,
@@ -1322,7 +1322,7 @@ class TestOCIChatConfigErrorPaths:
                     "oci_signer": MagicMock(),
                     "oci_compartment_id": TEST_COMPARTMENT_ID,
                 },
-                litellm_params={},
+                embrouter_params={},
             )
 
     def test_transform_request_missing_compartment_id_raises(self):
@@ -1332,7 +1332,7 @@ class TestOCIChatConfigErrorPaths:
                 model=TEST_MODEL_NAME,
                 messages=TEST_MESSAGES,  # type: ignore
                 optional_params={},
-                litellm_params={},
+                embrouter_params={},
                 headers={},
             )
 
@@ -1343,7 +1343,7 @@ class TestOCIChatConfigErrorPaths:
                 model="cohere.command-latest",
                 messages=[{"role": "system", "content": "You are helpful."}],  # type: ignore
                 optional_params={"oci_compartment_id": TEST_COMPARTMENT_ID},
-                litellm_params={},
+                embrouter_params={},
                 headers={},
             )
 
@@ -1362,7 +1362,7 @@ class TestOCIChatConfigErrorPaths:
                 request_data={},
                 messages=[],
                 optional_params={},
-                litellm_params={},
+                embrouter_params={},
                 encoding={},
             )
 
@@ -1388,9 +1388,9 @@ class TestOCIChatConfigErrorPaths:
 
     @pytest.mark.parametrize("model", ["cohere.command-latest", "xai.grok-4"])
     def test_map_openai_params_max_retries_dropped_without_drop_params(self, model):
-        """max_retries is a litellm control param, not a generation param. It
+        """max_retries is a embrouter control param, not a generation param. It
         must be dropped silently (no raise) even when drop_params is False, so
-        the litellm proxy (which injects max_retries on every request) does not
+        the embrouter proxy (which injects max_retries on every request) does not
         500 every OCI call.
         """
         config = OCIChatConfig()
@@ -1467,7 +1467,7 @@ class TestOCIChatConfigErrorPaths:
                     }
                 ],
             },
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
         assert result["chatRequest"]["toolChoice"] == {"type": "AUTO"}
@@ -1475,7 +1475,7 @@ class TestOCIChatConfigErrorPaths:
 
 import pytest
 from unittest.mock import MagicMock
-from litellm.llms.oci.common_utils import OCIError, sign_with_manual_credentials
+from embrouter.llms.oci.common_utils import OCIError, sign_with_manual_credentials
 
 
 
@@ -1547,7 +1547,7 @@ class TestOCIValidateEnvironment:
                 model="oci/xai.grok-3",
                 messages=[{"role": "user", "content": "Hello"}],
                 optional_params={},  # No credentials provided
-                litellm_params={},
+                embrouter_params={},
                 api_key=None,
                 api_base=None,
             )
@@ -1571,7 +1571,7 @@ class TestOCIValidateEnvironment:
                 "oci_compartment_id": "ocid1.compartment.oc1..test",
                 "oci_key": "-----BEGIN RSA PRIVATE KEY-----\ntest\n-----END RSA PRIVATE KEY-----",
             },
-            litellm_params={},
+            embrouter_params={},
             api_key=None,
             api_base=None,
         )
@@ -1591,7 +1591,7 @@ class TestOCIGetCompleteUrl:
             api_key=None,
             model="oci/xai.grok-3",
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             stream=False,
         )
 
@@ -1606,7 +1606,7 @@ class TestOCIGetCompleteUrl:
             api_key=None,
             model="oci/xai.grok-3",
             optional_params={"oci_region": "eu-frankfurt-1"},
-            litellm_params={},
+            embrouter_params={},
             stream=False,
         )
 
@@ -1624,7 +1624,7 @@ class TestOCIImageUrlTransformation:
 
     def test_image_url_as_string(self):
         """Test that image_url as a plain string works."""
-        from litellm.llms.oci.chat.transformation import (
+        from embrouter.llms.oci.chat.transformation import (
             adapt_messages_to_generic_oci_standard,
         )
 
@@ -1648,7 +1648,7 @@ class TestOCIImageUrlTransformation:
 
     def test_image_url_as_openai_object(self):
         """Test that image_url as OpenAI-style object {"url": "..."} works."""
-        from litellm.llms.oci.chat.transformation import (
+        from embrouter.llms.oci.chat.transformation import (
             adapt_messages_to_generic_oci_standard,
         )
 
@@ -1679,7 +1679,7 @@ class TestOCIImageUrlTransformation:
 
         OCI expects imageUrl to be an object with a 'url' property, not a plain string.
         """
-        from litellm.llms.oci.chat.transformation import (
+        from embrouter.llms.oci.chat.transformation import (
             adapt_messages_to_generic_oci_standard,
         )
 
@@ -1710,7 +1710,7 @@ class TestOCIImageUrlTransformation:
 
     def test_image_url_invalid_type_raises_error(self):
         """Test that invalid image_url type raises an error."""
-        from litellm.llms.oci.chat.transformation import (
+        from embrouter.llms.oci.chat.transformation import (
             adapt_messages_to_generic_oci_standard,
         )
 
@@ -1731,7 +1731,7 @@ class TestOCIImageUrlTransformation:
 
     def test_image_url_object_missing_url_raises_error(self):
         """Test that object without 'url' property raises an error."""
-        from litellm.llms.oci.chat.transformation import (
+        from embrouter.llms.oci.chat.transformation import (
             adapt_messages_to_generic_oci_standard,
         )
 
@@ -1757,7 +1757,7 @@ class TestOCIImageUrlTransformation:
 import itertools
 from unittest.mock import patch
 
-from litellm.llms.oci.chat.transformation import OCIStreamWrapper, _iter_sse_events
+from embrouter.llms.oci.chat.transformation import OCIStreamWrapper, _iter_sse_events
 
 _STREAM_GENERIC_MODEL = "xai.grok-4"
 _STREAM_COHERE_MODEL = "cohere.command-latest"
@@ -1777,7 +1777,7 @@ _COHERE_TERMINAL_EVENT = (
 
 def _make_stream_wrapper(model: str) -> OCIStreamWrapper:
     logging_obj = MagicMock()
-    logging_obj.model_call_details = {"custom_llm_provider": "oci", "litellm_params": {}}
+    logging_obj.model_call_details = {"custom_llm_provider": "oci", "embrouter_params": {}}
     return OCIStreamWrapper(
         completion_stream=iter([]),
         model=model,
@@ -1881,14 +1881,14 @@ class TestOCIStreamWrapperDoneSentinel:
         assert len({chunk.id for chunk in emitted}) == 1
 
     def test_unparseable_payload_still_raises_oci_error(self):
-        from litellm.llms.oci.common_utils import OCIError
+        from embrouter.llms.oci.common_utils import OCIError
 
         wrapper = _make_stream_wrapper(_STREAM_GENERIC_MODEL)
         with pytest.raises(OCIError, match="Chunk cannot be parsed as JSON"):
             wrapper.chunk_creator("data: not-json-at-all")
 
     def test_done_lookalike_payload_still_raises_oci_error(self):
-        from litellm.llms.oci.common_utils import OCIError
+        from embrouter.llms.oci.common_utils import OCIError
 
         wrapper = _make_stream_wrapper(_STREAM_GENERIC_MODEL)
         with pytest.raises(OCIError, match="Chunk cannot be parsed as JSON"):
@@ -1906,7 +1906,7 @@ _GENERIC_TOOL_TERMINAL_EVENT = (
 
 def _drain_stream(model: str, events: list[str]) -> list:
     logging_obj = MagicMock()
-    logging_obj.model_call_details = {"custom_llm_provider": "oci", "litellm_params": {}}
+    logging_obj.model_call_details = {"custom_llm_provider": "oci", "embrouter_params": {}}
     wrapper = OCIStreamWrapper(
         completion_stream=iter(events),
         model=model,

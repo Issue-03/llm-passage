@@ -2,7 +2,7 @@
 xAI Batch API reference: https://docs.x.ai/developers/advanced-api-usage/batch-api
 
 xAI batches carry request counters, not a status, and no output file: results are paged from
-``GET /v1/batches/{id}/results``, so LiteLLM hands back the batch id as ``output_file_id``.
+``GET /v1/batches/{id}/results``, so EmbRouter hands back the batch id as ``output_file_id``.
 """
 
 import json
@@ -18,13 +18,13 @@ from openai.types.batch_error import BatchError
 from pydantic import BaseModel, ConfigDict
 from typing_extensions import NotRequired, ReadOnly, TypedDict
 
-from litellm.constants import XAI_API_BASE
-from litellm.litellm_core_utils.url_utils import encode_url_path_segment
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.xai.common_utils import XAIModelInfo
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.openai import CreateBatchRequest
-from litellm.types.utils import LiteLLMBatch
+from embrouter.constants import XAI_API_BASE
+from embrouter.embrouter_core_utils.url_utils import encode_url_path_segment
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.xai.common_utils import XAIModelInfo
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.openai import CreateBatchRequest
+from embrouter.types.utils import EmbRouterBatch
 
 OpenAIBatchStatus: TypeAlias = Literal[
     "validating", "failed", "in_progress", "finalizing", "completed", "expired", "cancelling", "cancelled"
@@ -32,7 +32,7 @@ OpenAIBatchStatus: TypeAlias = Literal[
 
 XAI_BATCH_ID_PREFIX: Final = "batch_"
 XAI_RESULTS_PAGE_SIZE: Final = 1000
-DEFAULT_BATCH_NAME: Final = "litellm-batch"
+DEFAULT_BATCH_NAME: Final = "embrouter-batch"
 DEFAULT_BATCH_ENDPOINT: Final = "/v1/chat/completions"
 _EMPTY_HEADERS: Final[Mapping[str, str]] = MappingProxyType({})
 
@@ -68,7 +68,7 @@ def get_xai_auth_headers(
     resolved_key: Final = XAIModelInfo.get_api_key(api_key)
     if resolved_key is None:
         raise xai_batches_error(
-            "Missing xAI API Key. Pass api_key, set litellm.xai_key or XAI_API_KEY", 401, _EMPTY_HEADERS
+            "Missing xAI API Key. Pass api_key, set embrouter.xai_key or XAI_API_KEY", 401, _EMPTY_HEADERS
         )
     return dict(headers, Authorization=f"Bearer {resolved_key}")  # mutable-ok: BaseConfig contract returns dict
 
@@ -171,7 +171,7 @@ def xai_batch_status(batch: XAIBatch) -> OpenAIBatchStatus:
     return "completed"
 
 
-def to_litellm_batch(batch: XAIBatch, endpoint: str = DEFAULT_BATCH_ENDPOINT) -> LiteLLMBatch:
+def to_embrouter_batch(batch: XAIBatch, endpoint: str = DEFAULT_BATCH_ENDPOINT) -> EmbRouterBatch:
     status: Final = xai_batch_status(batch)
     created_at: Final = _to_unix_timestamp(batch.create_time)
     cancelled_at: Final = _to_unix_timestamp(batch.cancel_time)
@@ -180,7 +180,7 @@ def to_litellm_batch(batch: XAIBatch, endpoint: str = DEFAULT_BATCH_ENDPOINT) ->
         if batch.cancel_by_xai_message
         else None
     )
-    return LiteLLMBatch(
+    return EmbRouterBatch(
         id=batch.batch_id,
         object="batch",
         endpoint=endpoint,
@@ -198,7 +198,7 @@ def to_litellm_batch(batch: XAIBatch, endpoint: str = DEFAULT_BATCH_ENDPOINT) ->
             completed=batch.state.num_success,
             failed=batch.state.num_error + batch.state.num_cancelled,
         ),
-        metadata={"name": batch.name} if batch.name else None,  # mutable-ok: LiteLLMBatch.metadata is a dict
+        metadata={"name": batch.name} if batch.name else None,  # mutable-ok: EmbRouterBatch.metadata is a dict
     )
 
 
@@ -206,7 +206,7 @@ class OpenAIBatchListResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     object: Literal["list"] = "list"
-    data: tuple[LiteLLMBatch, ...]
+    data: tuple[EmbRouterBatch, ...]
     first_id: str | None
     last_id: str | None
     has_more: bool
@@ -214,7 +214,7 @@ class OpenAIBatchListResponse(BaseModel):
 
 
 def to_openai_batch_list(page: XAIBatchList) -> OpenAIBatchListResponse:
-    data: Final = tuple(to_litellm_batch(b) for b in page.batches)
+    data: Final = tuple(to_embrouter_batch(b) for b in page.batches)
     return OpenAIBatchListResponse(
         data=data,
         first_id=data[0].id if data else None,

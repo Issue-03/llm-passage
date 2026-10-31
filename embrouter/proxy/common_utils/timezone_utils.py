@@ -2,14 +2,14 @@ from datetime import datetime, time, timezone
 
 from pydantic import BaseModel, ConfigDict
 
-import litellm
-from litellm.litellm_core_utils.duration_parser import get_next_standardized_reset_time
+import embrouter
+from embrouter.embrouter_core_utils.duration_parser import get_next_standardized_reset_time
 
 
 class BudgetResetSettings(BaseModel):
     """Immutable, validated settings that govern when budgets reset.
 
-    Parsed once from `litellm_settings` and injected into consumers (the reset
+    Parsed once from `embrouter_settings` and injected into consumers (the reset
     job, management endpoints) so reset times never depend on reaching into
     module-level globals at call time.
     """
@@ -43,21 +43,21 @@ def parse_budget_reset_time(raw: object) -> time:
 
 def get_budget_reset_timezone() -> str:
     """
-    Get the budget reset timezone from litellm_settings.
+    Get the budget reset timezone from embrouter_settings.
     Falls back to UTC if not specified.
 
-    litellm_settings values are set as attributes on the litellm module
-    by proxy_server.py at startup (via setattr(litellm, key, value)).
+    embrouter_settings values are set as attributes on the embrouter module
+    by proxy_server.py at startup (via setattr(embrouter, key, value)).
     """
-    return getattr(litellm, "timezone", None) or "UTC"
+    return getattr(embrouter, "timezone", None) or "UTC"
 
 
 def get_budget_reset_settings() -> BudgetResetSettings:
-    """Build validated reset settings from litellm_settings. Raises on a malformed
+    """Build validated reset settings from embrouter_settings. Raises on a malformed
     `budget_reset_time`, which lets the proxy fail fast at startup."""
     return BudgetResetSettings(
         timezone=get_budget_reset_timezone(),
-        reset_time_of_day=parse_budget_reset_time(getattr(litellm, "budget_reset_time", None)),
+        reset_time_of_day=parse_budget_reset_time(getattr(embrouter, "budget_reset_time", None)),
     )
 
 
@@ -81,7 +81,7 @@ def get_budget_reset_time(budget_duration: str) -> datetime:
 
 
 def _is_persistable_budget_duration(budget_duration: str) -> bool:
-    from litellm.litellm_core_utils.duration_parser import duration_in_seconds
+    from embrouter.embrouter_core_utils.duration_parser import duration_in_seconds
 
     try:
         if duration_in_seconds(budget_duration) <= 0:

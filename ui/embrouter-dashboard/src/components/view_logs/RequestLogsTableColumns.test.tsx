@@ -274,7 +274,7 @@ describe("batch rows", () => {
   });
 
   it("leaves ordinary request ids untouched", () => {
-    renderRows([logEntry({ request_id: "chatcmpl-42", litellm_call_id: "chatcmpl-42" })]);
+    renderRows([logEntry({ request_id: "chatcmpl-42", embrouter_call_id: "chatcmpl-42" })]);
 
     expect(screen.getByText("chatcmpl-42")).toBeInTheDocument();
     expect(screen.queryByText("batch cost")).not.toBeInTheDocument();
@@ -282,23 +282,23 @@ describe("batch rows", () => {
 });
 
 describe("Request ID column", () => {
-  it("shows only the request id in the cell and the x-litellm-call-id in its tooltip when they differ", async () => {
+  it("shows only the request id in the cell and the x-embrouter-call-id in its tooltip when they differ", async () => {
     const user = userEvent.setup();
-    renderRows([logEntry({ request_id: "chatcmpl-9", litellm_call_id: "call-uuid-9" })]);
+    renderRows([logEntry({ request_id: "chatcmpl-9", embrouter_call_id: "call-uuid-9" })]);
 
     expect(screen.getByText("chatcmpl-9")).toBeInTheDocument();
     expect(screen.queryByText("call-uuid-9")).not.toBeInTheDocument();
 
     await user.hover(screen.getByText("chatcmpl-9"));
-    expect(await screen.findByText("x-litellm-call-id: call-uuid-9")).toBeInTheDocument();
+    expect(await screen.findByText("x-embrouter-call-id: call-uuid-9")).toBeInTheDocument();
   });
 
-  it("copies the x-litellm-call-id from the tooltip without opening the row", async () => {
+  it("copies the x-embrouter-call-id from the tooltip without opening the row", async () => {
     const user = userEvent.setup();
     const onRowClick = vi.fn();
     render(
       <DataTable
-        data={[logEntry({ request_id: "chatcmpl-9", litellm_call_id: "call-uuid-9" })]}
+        data={[logEntry({ request_id: "chatcmpl-9", embrouter_call_id: "call-uuid-9" })]}
         columns={getRequestLogsTableColumns(noopDeps)}
         getRowId={(row) => row.request_id}
         size="compact"
@@ -307,7 +307,7 @@ describe("Request ID column", () => {
     );
 
     await user.hover(screen.getByText("chatcmpl-9"));
-    fireEvent.click(await screen.findByRole("button", { name: "Copy x-litellm-call-id" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Copy x-embrouter-call-id" }));
 
     expect(copyToClipboardMock).toHaveBeenCalledWith("call-uuid-9");
     expect(onRowClick).not.toHaveBeenCalled();
@@ -315,20 +315,20 @@ describe("Request ID column", () => {
 
   it("keeps the plain id tooltip when request id and call id are the same", async () => {
     const user = userEvent.setup();
-    renderRows([logEntry({ request_id: "same-id-7", litellm_call_id: "same-id-7" })]);
+    renderRows([logEntry({ request_id: "same-id-7", embrouter_call_id: "same-id-7" })]);
 
     await user.hover(screen.getByText("same-id-7"));
     await waitFor(() => expect(screen.getAllByText("same-id-7")).toHaveLength(2));
-    expect(screen.queryByText(/x-litellm-call-id/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/x-embrouter-call-id/)).not.toBeInTheDocument();
   });
 
   it("keeps the plain id tooltip when the row carries no call id", async () => {
     const user = userEvent.setup();
-    renderRows([logEntry({ request_id: "chatcmpl-no-call", litellm_call_id: null })]);
+    renderRows([logEntry({ request_id: "chatcmpl-no-call", embrouter_call_id: null })]);
 
     await user.hover(screen.getByText("chatcmpl-no-call"));
     await waitFor(() => expect(screen.getAllByText("chatcmpl-no-call")).toHaveLength(2));
-    expect(screen.queryByText(/x-litellm-call-id/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/x-embrouter-call-id/)).not.toBeInTheDocument();
   });
 });
 

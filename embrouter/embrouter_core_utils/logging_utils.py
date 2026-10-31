@@ -7,13 +7,13 @@ from collections.abc import Iterator, Mapping, Sequence
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Final
 
-from litellm._logging import format_base64_size, verbose_logger
-from litellm.constants import (
+from embrouter._logging import format_base64_size, verbose_logger
+from embrouter.constants import (
     BASE64_TRUNCATION_OFFLOAD_THRESHOLD_CHARS,
     MAX_BASE64_LENGTH_FOR_LOGGING,
 )
-from litellm.litellm_core_utils.core_helpers import get_litellm_metadata_from_kwargs
-from litellm.types.utils import (
+from embrouter.embrouter_core_utils.core_helpers import get_embrouter_metadata_from_kwargs
+from embrouter.types.utils import (
     ModelResponse,
     ModelResponseStream,
     TextCompletionResponse,
@@ -22,20 +22,20 @@ from litellm.types.utils import (
 if TYPE_CHECKING:
     from opentelemetry.trace import Span as _Span
 
-    from litellm import ModelResponse as _ModelResponse
-    from litellm.litellm_core_utils.litellm_logging import (
-        Logging as LiteLLMLoggingObject,
+    from embrouter import ModelResponse as _ModelResponse
+    from embrouter.embrouter_core_utils.embrouter_logging import (
+        Logging as EmbRouterLoggingObject,
     )
 
-    LiteLLMModelResponse = _ModelResponse
+    EmbRouterModelResponse = _ModelResponse
     Span = _Span | Any
 else:
-    LiteLLMModelResponse = Any
-    LiteLLMLoggingObject = Any
+    EmbRouterModelResponse = Any
+    EmbRouterLoggingObject = Any
     Span = Any
 
 
-import litellm
+import embrouter
 
 """
 Helper utils used for logging callbacks
@@ -138,7 +138,7 @@ _StringTree = str | Sequence["_StringTree"] | Mapping[str, "_StringTree"] | None
 
 
 def _iter_string_leaves(value: _StringTree) -> Iterator[str]:
-    stack: Final[list[_StringTree]] = [value]  # mutable-ok: explicit stack, recursive functions are banned in litellm/
+    stack: Final[list[_StringTree]] = [value]  # mutable-ok: explicit stack, recursive functions are banned in embrouter/
     while stack:
         match stack.pop():
             case str() as text:
@@ -175,20 +175,20 @@ def _get_service_logger():
     """Get or create the global ServiceLogging instance"""
     global _service_logger
     if _service_logger is None:
-        from litellm._service_logger import ServiceLogging
+        from embrouter._service_logger import ServiceLogging
 
         _service_logger = ServiceLogging()
     return _service_logger
 
 
 def _get_parent_otel_span_from_logging_obj(
-    logging_obj: LiteLLMLoggingObject | None = None,
+    logging_obj: EmbRouterLoggingObject | None = None,
 ) -> Span | None:
     """
     Extract the parent OTEL span from the logging object using existing helper.
 
     Args:
-        logging_obj: The LiteLLM logging object containing model call details
+        logging_obj: The EmbRouter logging object containing model call details
 
     Returns:
         The parent OTEL span if found, None otherwise
@@ -198,7 +198,7 @@ def _get_parent_otel_span_from_logging_obj(
             return None
 
         # Reuse existing function by passing model_call_details as kwargs
-        from litellm.litellm_core_utils.core_helpers import (
+        from embrouter.embrouter_core_utils.core_helpers import (
             _get_parent_otel_span_from_kwargs,
         )
 
@@ -209,17 +209,17 @@ def _get_parent_otel_span_from_logging_obj(
         return None
 
 
-def convert_litellm_response_object_to_str(
+def convert_embrouter_response_object_to_str(
     response_obj: object,
 ) -> str | None:
     """
-    Get the string of the response object from LiteLLM
+    Get the string of the response object from EmbRouter
 
     """
-    if isinstance(response_obj, litellm.ModelResponse):
+    if isinstance(response_obj, embrouter.ModelResponse):
         response_str = ""
         for choice in response_obj.choices:
-            if isinstance(choice, litellm.Choices):
+            if isinstance(choice, embrouter.Choices):
                 if choice.message.content and isinstance(choice.message.content, str):
                     response_str += choice.message.content
         return response_str
@@ -262,7 +262,7 @@ def _assemble_complete_response_from_streaming_chunks(
     if result.choices[0].finish_reason is not None:  # if it's the last chunk
         streaming_chunks.append(result)
         try:
-            complete_streaming_response = litellm.stream_chunk_builder(
+            complete_streaming_response = embrouter.stream_chunk_builder(
                 chunks=streaming_chunks,
                 messages=request_kwargs.get("messages", None),
                 start_time=start_time,
@@ -280,7 +280,7 @@ def _assemble_complete_response_from_streaming_chunks(
 
 
 def _set_duration_in_model_call_details(
-    logging_obj: Any,  # we're not guaranteed this will be `LiteLLMLoggingObject`
+    logging_obj: Any,  # we're not guaranteed this will be `EmbRouterLoggingObject`
     start_time: datetime,
     end_time: datetime,
 ):
@@ -289,7 +289,7 @@ def _set_duration_in_model_call_details(
         duration_ms: Final = (end_time - start_time).total_seconds() * 1000
         if logging_obj and hasattr(logging_obj, "model_call_details"):
             logging_obj.model_call_details["llm_api_duration_ms"] = duration_ms
-            metadata: Final[dict[str, object]] = get_litellm_metadata_from_kwargs(logging_obj.model_call_details)
+            metadata: Final[dict[str, object]] = get_embrouter_metadata_from_kwargs(logging_obj.model_call_details)
             recorded: Final = metadata.get("llm_api_timing_windows")
             earlier: Final[tuple[tuple[float, float], ...]] = tuple(
                 (float(window[0]), float(window[1]))
@@ -353,7 +353,7 @@ def track_llm_api_timing():
 
                 # Log timing using ServiceLogging (like Redis cache)
                 try:
-                    from litellm.types.services import ServiceTypes
+                    from embrouter.types.services import ServiceTypes
 
                     service_logger: Final = _get_service_logger()
 
@@ -363,7 +363,7 @@ def track_llm_api_timing():
                     # Create async task for service logging (similar to Redis cache pattern)
                     asyncio.create_task(
                         service_logger.async_service_success_hook(
-                            service=ServiceTypes.LITELLM,
+                            service=ServiceTypes.EMBROUTER,
                             duration=duration,
                             call_type=call_type,
                             start_time=start_time_float,
@@ -400,7 +400,7 @@ def track_llm_api_timing():
 
                 # Log timing using ServiceLogging (like Redis cache)
                 try:
-                    from litellm.types.services import ServiceTypes
+                    from embrouter.types.services import ServiceTypes
 
                     service_logger: Final = _get_service_logger()
 
@@ -409,7 +409,7 @@ def track_llm_api_timing():
 
                     # Use sync service logging for sync functions
                     service_logger.service_success_hook(
-                        service=ServiceTypes.LITELLM,
+                        service=ServiceTypes.EMBROUTER,
                         duration=duration,
                         call_type=call_type,
                         start_time=start_time_float,

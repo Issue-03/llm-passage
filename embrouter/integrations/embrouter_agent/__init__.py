@@ -1,5 +1,5 @@
-"""LiteLLM Agent integration - model name resolver for litellm_agent/ prefix."""
+"""EmbRouter Agent integration - model name resolver for embrouter_agent/ prefix."""
 
-from .litellm_agent_model_resolver import LiteLLMAgentModelResolver
+from .embrouter_agent_model_resolver import EmbRouterAgentModelResolver
 
-__all__ = ["LiteLLMAgentModelResolver"]
+__all__ = ["EmbRouterAgentModelResolver"]

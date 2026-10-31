@@ -22,10 +22,10 @@ from typing import (
     cast,  # noqa: TID251  # prisma types the condition/pipeline Json columns as str, but reads return decoded values
 )
 
-from litellm._logging import verbose_proxy_logger
-from litellm.repositories.prisma_protocols import TableActions
-from litellm.repositories.table_repositories import PolicyRepository
-from litellm.types.proxy.policy_engine import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.repositories.prisma_protocols import TableActions
+from embrouter.repositories.table_repositories import PolicyRepository
+from embrouter.types.proxy.policy_engine import (
     GuardrailPipeline,
     PipelineStep,
     Policy,
@@ -39,7 +39,7 @@ from litellm.types.proxy.policy_engine import (
 )
 
 if TYPE_CHECKING:
-    from litellm.proxy.utils import PrismaClient
+    from embrouter.proxy.utils import PrismaClient
 
 # Prefix for policy version IDs in request body. Use policy_<uuid> to execute a specific version.
 POLICY_VERSION_ID_PREFIX: Final = "policy_"
@@ -137,7 +137,7 @@ def _policy_version_source_table(prisma_client: "PrismaClient") -> "TableActions
 
 
 def _row_to_policy_db_response(row: _PolicyRow) -> PolicyDBResponse:
-    """Build PolicyDBResponse from a Prisma LiteLLM_PolicyTable row."""
+    """Build PolicyDBResponse from a Prisma EmbRouter_PolicyTable row."""
     return PolicyDBResponse(
         policy_id=row.policy_id,
         policy_name=row.policy_name,
@@ -722,7 +722,7 @@ class PolicyRegistry:
         Returns:
             List of resolved guardrail names
         """
-        from litellm.proxy.policy_engine.policy_resolver import PolicyResolver
+        from embrouter.proxy.policy_engine.policy_resolver import PolicyResolver
 
         try:
             # Load only production versions so inheritance resolves against production

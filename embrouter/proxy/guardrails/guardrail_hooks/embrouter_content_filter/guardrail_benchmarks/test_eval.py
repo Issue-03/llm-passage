@@ -9,7 +9,7 @@ Structure:
   results/                     — eval results saved here (JSON)
 
 Run all evals:
-  pytest litellm/proxy/guardrails/guardrail_hooks/litellm_content_filter/guardrail_benchmarks/test_eval.py -v -s
+  pytest embrouter/proxy/guardrails/guardrail_hooks/embrouter_content_filter/guardrail_benchmarks/test_eval.py -v -s
 
 Run a specific eval:
   pytest ... -k "InvestmentContentFilter"
@@ -242,7 +242,7 @@ class _ContentFilterChecker:
 
 def _content_filter(category: str):
     """Instantiate ContentFilterGuardrail with a given category."""
-    from litellm.proxy.guardrails.guardrail_hooks.litellm_content_filter.content_filter import (
+    from embrouter.proxy.guardrails.guardrail_hooks.embrouter_content_filter.content_filter import (
         ContentFilterGuardrail,
     )
 
@@ -512,18 +512,18 @@ Respond with EXACTLY one word: BLOCK or ALLOW. Nothing else."""
 
 
 class _LlmJudgeChecker:
-    """Uses an LLM via litellm.completion() to classify messages."""
+    """Uses an LLM via embrouter.completion() to classify messages."""
 
     def __init__(self, model: str):
         self.model = model
 
     def check(self, text: str) -> str:
-        import litellm
+        import embrouter
 
         if not text or not text.strip():
             return text
 
-        response: Final = litellm.completion(
+        response: Final = embrouter.completion(
             model=self.model,
             messages=[
                 {"role": "system", "content": LLM_JUDGE_SYSTEM_PROMPT},
@@ -548,7 +548,7 @@ class _LlmJudgeChecker:
 
 
 def _llm_judge(model: str = "gpt-4o-mini"):
-    """LLM-as-judge using litellm.completion(). Requires API key env var."""
+    """LLM-as-judge using embrouter.completion(). Requires API key env var."""
     return _LlmJudgeChecker(model=model)
 
 

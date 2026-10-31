@@ -26,10 +26,10 @@ def test_basedpyright_counts_per_rule_from_json_not_warnings():
     payload = json.dumps(
         {
             "generalDiagnostics": [
-                _bpr(f"{ROOT}/litellm/utils.py", "error", "reportUnknownVariableType"),
-                _bpr(f"{ROOT}/litellm/utils.py", "error", "reportUnknownVariableType"),
-                _bpr(f"{ROOT}/litellm/main.py", "error", "reportArgumentType"),
-                _bpr(f"{ROOT}/litellm/main.py", "warning", "reportUnusedImport"),
+                _bpr(f"{ROOT}/embrouter/utils.py", "error", "reportUnknownVariableType"),
+                _bpr(f"{ROOT}/embrouter/utils.py", "error", "reportUnknownVariableType"),
+                _bpr(f"{ROOT}/embrouter/main.py", "error", "reportArgumentType"),
+                _bpr(f"{ROOT}/embrouter/main.py", "warning", "reportUnusedImport"),
             ]
         }
     )
@@ -41,7 +41,7 @@ def test_basedpyright_counts_per_rule_from_json_not_warnings():
 
 def test_basedpyright_error_without_a_rule_is_bucketed():
     payload = json.dumps(
-        {"generalDiagnostics": [_bpr(f"{ROOT}/litellm/x.py", "error", None)]}
+        {"generalDiagnostics": [_bpr(f"{ROOT}/embrouter/x.py", "error", None)]}
     )
     assert gate.count_basedpyright(payload) == {gate.UNCODED: 1}
 
@@ -65,7 +65,7 @@ def test_symlinked_root_keeps_diagnostics_in_tree(tmp_path):
     payload = json.dumps(
         {
             "generalDiagnostics": [
-                _bpr(link / "litellm" / "x.py", "error", "reportArgumentType")
+                _bpr(link / "embrouter" / "x.py", "error", "reportArgumentType")
             ]
         }
     )
@@ -533,16 +533,16 @@ def test_base_counts_cached_treats_empty_fetched_counts_as_a_miss(tmp_path):
 
 
 def test_origin_slug_parsing_supports_ssh_and_https_github_forms():
-    assert gate.parse_origin_slug("git@github.com:BerriAI/litellm.git") == "BerriAI/litellm"
-    assert gate.parse_origin_slug("git@github.com:BerriAI/litellm") == "BerriAI/litellm"
-    assert gate.parse_origin_slug("https://github.com/BerriAI/litellm.git") == "BerriAI/litellm"
-    assert gate.parse_origin_slug("https://github.com/BerriAI/litellm") == "BerriAI/litellm"
-    assert gate.parse_origin_slug("https://github.com/BerriAI/litellm/") == "BerriAI/litellm"
+    assert gate.parse_origin_slug("git@github.com:BerriAI/embrouter.git") == "BerriAI/embrouter"
+    assert gate.parse_origin_slug("git@github.com:BerriAI/embrouter") == "BerriAI/embrouter"
+    assert gate.parse_origin_slug("https://github.com/BerriAI/embrouter.git") == "BerriAI/embrouter"
+    assert gate.parse_origin_slug("https://github.com/BerriAI/embrouter") == "BerriAI/embrouter"
+    assert gate.parse_origin_slug("https://github.com/BerriAI/embrouter/") == "BerriAI/embrouter"
 
 
 def test_origin_slug_parsing_rejects_non_github_urls():
-    assert gate.parse_origin_slug("https://gitlab.com/BerriAI/litellm.git") is None
-    assert gate.parse_origin_slug("git@bitbucket.org:BerriAI/litellm.git") is None
+    assert gate.parse_origin_slug("https://gitlab.com/BerriAI/embrouter.git") is None
+    assert gate.parse_origin_slug("git@bitbucket.org:BerriAI/embrouter.git") is None
     assert gate.parse_origin_slug("not a url") is None
     assert gate.parse_origin_slug("") is None
 

@@ -10,16 +10,16 @@ from typing import Final, Literal, Protocol, TypeAlias, cast
 import httpx
 import pytest
 
-import litellm
-from litellm.integrations.custom_secret_manager import CustomSecretManager
-from litellm.llms.base_llm.ocr.transformation import OCRResponse
-from litellm.rust_bridge import settings
-from litellm.rust_bridge.ocr.entrypoints import NATIVE_AOCR, NATIVE_OCR, LiteLLMOcrRequest
-from litellm.types.secret_managers.main import KeyManagementSettings, KeyManagementSystem
-from tests.test_litellm_rust.support.recording_server import RecordingServer, ResponseSpec, recording_service
-from tests.test_litellm_rust.support.requests import OCR_DOCUMENT, OCR_MODEL, OCR_RESPONSE
+import embrouter
+from embrouter.integrations.custom_secret_manager import CustomSecretManager
+from embrouter.llms.base_llm.ocr.transformation import OCRResponse
+from embrouter.rust_bridge import settings
+from embrouter.rust_bridge.ocr.entrypoints import NATIVE_AOCR, NATIVE_OCR, EmbRouterOcrRequest
+from embrouter.types.secret_managers.main import KeyManagementSettings, KeyManagementSystem
+from tests.test_embrouter_rust.support.recording_server import RecordingServer, ResponseSpec, recording_service
+from tests.test_embrouter_rust.support.requests import OCR_DOCUMENT, OCR_MODEL, OCR_RESPONSE
 
-native: Final = pytest.importorskip("litellm.rust_bridge._native")
+native: Final = pytest.importorskip("embrouter.rust_bridge._native")
 
 AccessMode: TypeAlias = Literal["read_only", "write_only", "read_and_write"]
 
@@ -59,8 +59,8 @@ class _VaultSecrets(CustomSecretManager):
         return tuple(params for name, params in self.reads if name == "MISTRAL_API_KEY")
 
 
-def _native_request(api_base: str) -> LiteLLMOcrRequest:
-    return LiteLLMOcrRequest(
+def _native_request(api_base: str) -> EmbRouterOcrRequest:
+    return EmbRouterOcrRequest(
         model=OCR_MODEL,
         document=OCR_DOCUMENT,
         api_key=None,
@@ -122,9 +122,9 @@ def _configure(
         monkeypatch.delenv("MISTRAL_API_KEY", raising=False)
     else:
         monkeypatch.setenv("MISTRAL_API_KEY", environment_key)
-    monkeypatch.setattr(litellm, "secret_manager_client", manager)
-    monkeypatch.setattr(litellm, "_key_management_system", KeyManagementSystem.CUSTOM)
-    monkeypatch.setattr(litellm, "_key_management_settings", key_management)
+    monkeypatch.setattr(embrouter, "secret_manager_client", manager)
+    monkeypatch.setattr(embrouter, "_key_management_system", KeyManagementSystem.CUSTOM)
+    monkeypatch.setattr(embrouter, "_key_management_settings", key_management)
     configured: Final = settings.secret_manager
     monkeypatch.setattr(settings, "secret_manager", lambda: replace(configured(), native=native_secret_manager))
 
@@ -192,7 +192,7 @@ async def test_custom_secret_manager_exceptions_without_environment_key_raise_mi
     )
 
     with _mistral_service(expected_requests=0) as server:
-        with pytest.raises(litellm.APIConnectionError, match="Missing Mistral API Key"):
+        with pytest.raises(embrouter.APIConnectionError, match="Missing Mistral API Key"):
             await ocr(server.base_url)
 
 
@@ -244,8 +244,8 @@ class _PythonManagerReads:
 async def test_python_only_builtin_manager_is_read_through_python_not_its_native_backend(
     monkeypatch: pytest.MonkeyPatch, rust_ocr: Ocr
 ) -> None:
-    from litellm.secret_managers import main as secret_manager_main
-    from litellm.secret_managers.aws_secret_manager_v2 import AWSSecretsManagerV2
+    from embrouter.secret_managers import main as secret_manager_main
+    from embrouter.secret_managers.aws_secret_manager_v2 import AWSSecretsManagerV2
 
     python_reads: Final = _PythonManagerReads()
     monkeypatch.setattr(secret_manager_main, "get_secret_from_manager", python_reads)
@@ -253,9 +253,9 @@ async def test_python_only_builtin_manager_is_read_through_python_not_its_native
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "native-secret")
     monkeypatch.delenv("MISTRAL_API_KEY", raising=False)
     manager: Final = AWSSecretsManagerV2(aws_region_name="us-east-1")
-    monkeypatch.setattr(litellm, "secret_manager_client", manager)
-    monkeypatch.setattr(litellm, "_key_management_system", KeyManagementSystem.AWS_SECRET_MANAGER)
-    monkeypatch.setattr(litellm, "_key_management_settings", KeyManagementSettings(hosted_keys=["MISTRAL_API_KEY"]))
+    monkeypatch.setattr(embrouter, "secret_manager_client", manager)
+    monkeypatch.setattr(embrouter, "_key_management_system", KeyManagementSystem.AWS_SECRET_MANAGER)
+    monkeypatch.setattr(embrouter, "_key_management_settings", KeyManagementSettings(hosted_keys=["MISTRAL_API_KEY"]))
     monkeypatch.setattr(settings, "secret_manager", lambda: settings.SecretManager(readable=True, native=False))
 
     with _mistral_service() as provider:
@@ -263,15 +263,15 @@ async def test_python_only_builtin_manager_is_read_through_python_not_its_native
 
     assert provider.requests[0].headers["authorization"] == "Bearer python-key"
     assert (manager, "aws_secret_manager", "MISTRAL_API_KEY") in python_reads.reads
-    assert getattr(manager, "_litellm_native_secret_manager", None) is None
+    assert getattr(manager, "_embrouter_native_secret_manager", None) is None
 
 
 async def test_no_secret_client_leaves_dormant_binding_settings_unread(
     monkeypatch: pytest.MonkeyPatch, rust_ocr: Ocr
 ) -> None:
     monkeypatch.setenv("MISTRAL_API_KEY", "environment-key")
-    monkeypatch.setattr(litellm, "secret_manager_client", None)
-    monkeypatch.setattr(litellm, "_key_management_settings", object())
+    monkeypatch.setattr(embrouter, "secret_manager_client", None)
+    monkeypatch.setattr(embrouter, "_key_management_settings", object())
 
     with _mistral_service() as server:
         await rust_ocr(server.base_url)
@@ -334,16 +334,16 @@ def _configure_client(
     environment_key: str = "environment-key",
 ) -> None:
     monkeypatch.setenv("MISTRAL_API_KEY", environment_key)
-    monkeypatch.setattr(litellm, "secret_manager_client", client)
-    monkeypatch.setattr(litellm, "_key_management_system", system)
-    monkeypatch.setattr(litellm, "_key_management_settings", key_management)
+    monkeypatch.setattr(embrouter, "secret_manager_client", client)
+    monkeypatch.setattr(embrouter, "_key_management_system", system)
+    monkeypatch.setattr(embrouter, "_key_management_settings", key_management)
     configured: Final = settings.secret_manager
     monkeypatch.setattr(settings, "secret_manager", lambda: replace(configured(), native=True))
 
 
 async def _assert_missing_key(ocr: Ocr) -> None:
     with _mistral_service(expected_requests=0) as server:
-        with pytest.raises(litellm.APIConnectionError, match="Missing Mistral API Key"):
+        with pytest.raises(embrouter.APIConnectionError, match="Missing Mistral API Key"):
             await ocr(server.base_url)
 
 
@@ -352,7 +352,7 @@ async def test_boolean_environment_keys_count_as_missing(
     monkeypatch: pytest.MonkeyPatch, ocr: Ocr, environment_key: str
 ) -> None:
     monkeypatch.setenv("MISTRAL_API_KEY", environment_key)
-    monkeypatch.setattr(litellm, "secret_manager_client", None)
+    monkeypatch.setattr(embrouter, "secret_manager_client", None)
 
     await _assert_missing_key(ocr)
 
@@ -432,9 +432,9 @@ async def test_custom_system_with_a_foreign_client_falls_back_to_the_environment
 async def test_native_backend_supplies_ocr_credentials_without_a_python_reader(
     monkeypatch: pytest.MonkeyPatch, rust_ocr: Ocr
 ) -> None:
-    from litellm.secret_managers import main as secret_manager_main
-    from litellm.secret_managers import secret_manager_handler
-    from litellm.secret_managers.aws_secret_manager_v2 import AWSSecretsManagerV2
+    from embrouter.secret_managers import main as secret_manager_main
+    from embrouter.secret_managers import secret_manager_handler
+    from embrouter.secret_managers.aws_secret_manager_v2 import AWSSecretsManagerV2
 
     def reject_python_read(
         client: object,
@@ -454,9 +454,9 @@ async def test_native_backend_supplies_ocr_credentials_without_a_python_reader(
         monkeypatch.setenv("AWS_BEDROCK_RUNTIME_ENDPOINT", secrets.base_url)
         monkeypatch.delenv("MISTRAL_API_KEY", raising=False)
         manager: Final = AWSSecretsManagerV2(aws_region_name="us-east-1")
-        monkeypatch.setattr(litellm, "secret_manager_client", manager)
-        monkeypatch.setattr(litellm, "_key_management_system", KeyManagementSystem.AWS_SECRET_MANAGER)
-        monkeypatch.setattr(litellm, "_key_management_settings", KeyManagementSettings(hosted_keys=["MISTRAL_API_KEY"]))
+        monkeypatch.setattr(embrouter, "secret_manager_client", manager)
+        monkeypatch.setattr(embrouter, "_key_management_system", KeyManagementSystem.AWS_SECRET_MANAGER)
+        monkeypatch.setattr(embrouter, "_key_management_settings", KeyManagementSettings(hosted_keys=["MISTRAL_API_KEY"]))
         monkeypatch.setattr(settings, "secret_manager", lambda: settings.SecretManager(readable=True, native=True))
         await rust_ocr(provider.base_url)
         await rust_ocr(provider.base_url)
@@ -464,4 +464,4 @@ async def test_native_backend_supplies_ocr_credentials_without_a_python_reader(
         assert len(secrets.requests) == 2, [(request.path, request.body) for request in secrets.requests]
         assert all(request.headers["authorization"] == "Bearer native-key" for request in provider.requests)
         assert all("Credential=native-access/" in request.headers["authorization"] for request in secrets.requests)
-        assert native._SecretManagerRuntime.from_client(manager) is getattr(manager, "_litellm_native_secret_manager")
+        assert native._SecretManagerRuntime.from_client(manager) is getattr(manager, "_embrouter_native_secret_manager")

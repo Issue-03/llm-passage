@@ -7,7 +7,7 @@ Key differences:
 
 from typing import TYPE_CHECKING, Any, Final
 
-from litellm.caching.redis_cache import RedisCache
+from embrouter.caching.redis_cache import RedisCache
 
 if TYPE_CHECKING:
     from opentelemetry.trace import Span as _Span
@@ -85,7 +85,7 @@ class RedisClusterCache(RedisCache):
                     "message": "Redis Cluster ping returned False",
                 }
         except Exception as e:
-            from litellm._logging import verbose_logger
+            from embrouter._logging import verbose_logger
 
             verbose_logger.error("Redis Cluster connection test failed: %s", e)
             return {

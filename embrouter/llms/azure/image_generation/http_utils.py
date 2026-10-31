@@ -9,7 +9,7 @@ def azure_deployment_image_generation_json_body(api_base: str, data: dict, deplo
 
     For ``.../openai/deployments/{deployment}/images/generations``, routing uses the
     deployment in the URL only; sending ``model`` in the body (especially the deployment
-    name) breaks some models (e.g. gpt-image-2). See LiteLLM #26316.
+    name) breaks some models (e.g. gpt-image-2). See EmbRouter #26316.
 
     For the v1 surface (``.../openai/v1/images/...``), Azure routes by the deployment
     name in the body ``model`` field, so the deployment name must replace any base

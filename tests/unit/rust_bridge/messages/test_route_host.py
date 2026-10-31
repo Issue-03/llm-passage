@@ -1,12 +1,12 @@
 from types import MappingProxyType
 from typing import Final
 
-from litellm.rust_bridge.messages.route_host import arguments, response
-from litellm.rust_bridge.messages.entrypoints import LiteLLMMessagesRequest
+from embrouter.rust_bridge.messages.route_host import arguments, response
+from embrouter.rust_bridge.messages.entrypoints import EmbRouterMessagesRequest
 from dataclasses import astuple
 import pytest
-import litellm
-from litellm.rust_bridge.messages import route_host
+import embrouter
+from embrouter.rust_bridge.messages import route_host
 
 
 def test_response_is_a_detached_public_messages_dict() -> None:
@@ -31,8 +31,8 @@ def test_response_is_a_detached_public_messages_dict() -> None:
 
 
 def test_arguments_are_the_public_kwargs_view() -> None:
-    kwargs: Final = MappingProxyType({"litellm_metadata": {"user_id": "u"}})
-    request: Final = LiteLLMMessagesRequest(
+    kwargs: Final = MappingProxyType({"embrouter_metadata": {"user_id": "u"}})
+    request: Final = EmbRouterMessagesRequest(
         model="claude-sonnet-4-5",
         messages=[{"role": "user", "content": "hi"}],
         max_tokens=16,
@@ -51,10 +51,10 @@ pytestmark = pytest.mark.usefixtures("local_model_cost_map")
 
 def _flag_model(monkeypatch: pytest.MonkeyPatch, name: str, **flags: bool) -> None:
     monkeypatch.setitem(
-        litellm.model_cost,
+        embrouter.model_cost,
         name,
         {
-            "litellm_provider": "anthropic",
+            "embrouter_provider": "anthropic",
             "mode": "chat",
             "input_cost_per_token": 0,
             "output_cost_per_token": 0,
@@ -106,7 +106,7 @@ def test_unmapped_model_keeps_sampling_params_and_no_reasoning_features() -> Non
 def test_drop_params_merges_the_global_flag_with_the_request(
     monkeypatch: pytest.MonkeyPatch, global_flag: bool, kwargs: dict[str, object], expected: bool
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", global_flag)
+    monkeypatch.setattr(embrouter, "drop_params", global_flag)
 
     assert route_host.shaping("anthropic/not-a-real-model", None, kwargs)["drop_params"] is expected
 
@@ -128,9 +128,9 @@ def test_additional_drop_params_keep_only_string_paths(configured: object, expec
 def test_native_request_rejections_map_to_the_public_400() -> None:
     from types import MappingProxyType
 
-    from litellm.rust_bridge.messages.entrypoints import LiteLLMMessagesRequest
+    from embrouter.rust_bridge.messages.entrypoints import EmbRouterMessagesRequest
 
-    request: Final = LiteLLMMessagesRequest(
+    request: Final = EmbRouterMessagesRequest(
         model="anthropic/claude-sonnet-5",
         messages=(),
         max_tokens=8,
@@ -145,11 +145,11 @@ def test_native_request_rejections_map_to_the_public_400() -> None:
 
     mapped: Final = route_host.map_failure(rejected, request, "anthropic")
 
-    assert isinstance(mapped, litellm.BadRequestError)
+    assert isinstance(mapped, embrouter.BadRequestError)
     assert mapped.status_code == 400
     assert "does not support top_k=5" in mapped.message
     assert mapped.model == "claude-sonnet-5"
-    assert not isinstance(route_host.map_failure(ValueError("plain"), request, "anthropic"), litellm.BadRequestError)
+    assert not isinstance(route_host.map_failure(ValueError("plain"), request, "anthropic"), embrouter.BadRequestError)
 
 
 def test_stream_hidden_params_projects_upstream_headers_the_way_the_python_handler_does() -> None:

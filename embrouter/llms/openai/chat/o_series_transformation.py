@@ -3,10 +3,10 @@ Support for o1/o3 model family
 
 https://platform.openai.com/docs/guides/reasoning
 
-Translations handled by LiteLLM:
+Translations handled by EmbRouter:
 - modalities: image => drop param (if user opts in to dropping param)
 - role: system ==> translate to role 'user'
-- streaming => faked by LiteLLM
+- streaming => faked by EmbRouter
 - Tools, response_format =>  drop param (if user opts in to dropping param)
 - Logprobs => drop param (if user opts in to dropping param)
 """
@@ -14,11 +14,11 @@ Translations handled by LiteLLM:
 from collections.abc import Coroutine
 from typing import Any, Final, Literal, cast, overload
 
-import litellm
-from litellm import verbose_logger
-from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
-from litellm.types.llms.openai import AllMessageValues, ChatCompletionUserMessage
-from litellm.utils import (
+import embrouter
+from embrouter import verbose_logger
+from embrouter.embrouter_core_utils.get_llm_provider_logic import get_llm_provider
+from embrouter.types.llms.openai import AllMessageValues, ChatCompletionUserMessage
+from embrouter.utils import (
     supports_function_calling,
     supports_parallel_function_calling,
     supports_response_schema,
@@ -104,11 +104,11 @@ class OpenAIOSeriesConfig(OpenAIGPTConfig):
                     optional_params["temperature"] = temperature_value
                 else:
                     ## UNSUPPORTED TOOL CHOICE VALUE
-                    if litellm.drop_params is True or drop_params is True:
+                    if embrouter.drop_params is True or drop_params is True:
                         pass
                     else:
-                        raise litellm.utils.UnsupportedParamsError(
-                            message=f"O-series models don't support temperature={temperature_value}. Only temperature=1 is supported. To drop unsupported openai params from the call, set `litellm.drop_params = True`",
+                        raise embrouter.utils.UnsupportedParamsError(
+                            message=f"O-series models don't support temperature={temperature_value}. Only temperature=1 is supported. To drop unsupported openai params from the call, set `embrouter.drop_params = True`",
                             status_code=400,
                         )
 
@@ -120,7 +120,7 @@ class OpenAIOSeriesConfig(OpenAIGPTConfig):
             len(model) > 1
             and model[0] == "o"
             and model[1].isdigit()
-            and model in litellm.open_ai_chat_completion_models
+            and model in embrouter.open_ai_chat_completion_models
         )
 
     @overload

@@ -10,11 +10,11 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-import litellm
-from litellm import ModelResponse
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.guardrails.guardrail_hooks.enkryptai import EnkryptAIGuardrails
-from litellm.types.utils import Choices, Message
+import embrouter
+from embrouter import ModelResponse
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.guardrails.guardrail_hooks.enkryptai import EnkryptAIGuardrails
+from embrouter.types.utils import Choices, Message
 
 
 @pytest.fixture
@@ -68,7 +68,7 @@ def mock_request_data():
             {"role": "system", "content": "You are a helpful assistant"},
             {"role": "user", "content": "Hello, how are you?"},
         ],
-        "litellm_call_id": "test-call-id",
+        "embrouter_call_id": "test-call-id",
         "metadata": {"requester_ip_address": "192.168.1.1"},
     }
 

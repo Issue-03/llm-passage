@@ -6,16 +6,16 @@ from itertools import chain
 from types import MappingProxyType
 from typing import Final, cast
 
-from litellm._logging import verbose_logger
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.agentic_followup_kwargs import build_agentic_followup_kwargs
-from litellm.litellm_core_utils.agentic_loop_settings import (
+from embrouter._logging import verbose_logger
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.embrouter_core_utils.agentic_followup_kwargs import build_agentic_followup_kwargs
+from embrouter.embrouter_core_utils.agentic_loop_settings import (
     DEFAULT_MAX_AGENTIC_LOOPS,
     validated_max_agentic_loops,
 )
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObject
-from litellm.llms.base_llm.base_model_iterator import MockResponseIterator
-from litellm.types.integrations.custom_logger import (
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObject
+from embrouter.llms.base_llm.base_model_iterator import MockResponseIterator
+from embrouter.types.integrations.custom_logger import (
     CHAT_COMPLETION_AGENTIC_SURFACE,
     HEADROOM_CONVERTED_STREAM_KEY,
     NON_CODE_INTERPRETER_INTERCEPTION_INTERNAL_PREFIXES,
@@ -23,13 +23,13 @@ from litellm.types.integrations.custom_logger import (
     AgenticLoopRequestPatch,
     is_interception_internal_key,
 )
-from litellm.types.utils import ModelResponse
-from litellm.utils import CustomStreamWrapper
+from embrouter.types.utils import ModelResponse
+from embrouter.utils import CustomStreamWrapper
 
 _FOLLOWUP_INTERNAL_PARAMS: Final = frozenset(
     (
         "acompletion",
-        "litellm_logging_obj",
+        "embrouter_logging_obj",
         "custom_llm_provider",
         "model_alias_map",
         "stream_response",
@@ -70,7 +70,7 @@ def _coerce_int(value: object, default: int) -> int:
 def _agentic_loop_settings(kwargs: dict[str, object]) -> tuple[int, int, list[str]]:
     depth: Final = _coerce_int(kwargs.get("_agentic_loop_depth"), 0)
     configured: Final = validated_max_agentic_loops(
-        kwargs.get("max_agentic_loops"), field="litellm_params.max_agentic_loops"
+        kwargs.get("max_agentic_loops"), field="embrouter_params.max_agentic_loops"
     )
     max_loops: Final = DEFAULT_MAX_AGENTIC_LOOPS if configured is None else configured
     raw_fingerprints: Final = kwargs.get("_agentic_loop_fingerprints")
@@ -109,7 +109,7 @@ def _wrap_response_as_fake_stream(
 ) -> object:
     if isinstance(response, CustomStreamWrapper):
         return response
-    if not isinstance(response, ModelResponse) or not isinstance(logging_obj, LiteLLMLoggingObject):
+    if not isinstance(response, ModelResponse) or not isinstance(logging_obj, EmbRouterLoggingObject):
         return response
 
     return CustomStreamWrapper(
@@ -121,11 +121,11 @@ def _wrap_response_as_fake_stream(
 
 
 def _with_agentic_loop_metadata(kwargs_for_followup: Mapping[str, object]) -> Mapping[str, object]:
-    metadata: Final = kwargs_for_followup.get("litellm_metadata")
+    metadata: Final = kwargs_for_followup.get("embrouter_metadata")
     return MappingProxyType(
         {
             **kwargs_for_followup,
-            "litellm_metadata": dict(  # mutable-ok: the follow-up call's logging and proxy hooks write into litellm_metadata in place
+            "embrouter_metadata": dict(  # mutable-ok: the follow-up call's logging and proxy hooks write into embrouter_metadata in place
                 chain(
                     metadata.items() if isinstance(metadata, dict) else (),
                     (
@@ -164,7 +164,7 @@ async def _execute_chat_completion_agentic_plan(
     fingerprints: list[str],
     fingerprint: str,
 ) -> object:
-    import litellm
+    import embrouter
 
     patch: Final = plan.request_patch or AgenticLoopRequestPatch()
     if patch.messages is None:
@@ -193,7 +193,7 @@ async def _execute_chat_completion_agentic_plan(
     )
 
     try:
-        response_followup = await litellm.acompletion(
+        response_followup = await embrouter.acompletion(
             model=full_model_name,
             messages=patch.messages,
             **optional_params_for_followup,
@@ -205,9 +205,9 @@ async def _execute_chat_completion_agentic_plan(
                     response=response_followup, plan=plan, kwargs=kwargs
                 )
             except Exception as e:
-                _call_id = getattr(logging_obj, "litellm_call_id", "unknown")
+                _call_id = getattr(logging_obj, "embrouter_call_id", "unknown")
                 verbose_logger.exception(
-                    "LiteLLM.AgenticHookError: Exception in "
+                    "EmbRouter.AgenticHookError: Exception in "
                     "async_post_agentic_loop_response_hook [call_id=%s model=%s]: %s",
                     _call_id,
                     model,
@@ -225,9 +225,9 @@ async def _execute_chat_completion_agentic_plan(
         try:
             await callback.async_agentic_loop_cleanup_hook(plan=plan, kwargs=kwargs)
         except Exception as e:
-            _call_id = getattr(logging_obj, "litellm_call_id", "unknown")
+            _call_id = getattr(logging_obj, "embrouter_call_id", "unknown")
             verbose_logger.exception(
-                "LiteLLM.AgenticHookError: Exception in async_agentic_loop_cleanup_hook [call_id=%s model=%s]: %s",
+                "EmbRouter.AgenticHookError: Exception in async_agentic_loop_cleanup_hook [call_id=%s model=%s]: %s",
                 _call_id,
                 model,
                 str(e),
@@ -245,9 +245,9 @@ async def maybe_run_chat_completion_agentic_loop(
     custom_llm_provider: str,
     stream: bool,
 ) -> ModelResponse | CustomStreamWrapper | None:
-    import litellm
+    import embrouter
 
-    callbacks: Final = litellm.callbacks + (getattr(logging_obj, "dynamic_success_callbacks", None) or [])
+    callbacks: Final = embrouter.callbacks + (getattr(logging_obj, "dynamic_success_callbacks", None) or [])
     depth, max_loops, fingerprints = _agentic_loop_settings(kwargs)
     tools: Final = optional_params.get("tools", [])
 
@@ -275,7 +275,7 @@ async def maybe_run_chat_completion_agentic_loop(
             )
         except Exception as e:
             verbose_logger.exception(
-                "LiteLLM.AgenticHookError: Exception in chat completion agentic gate: %s",
+                "EmbRouter.AgenticHookError: Exception in chat completion agentic gate: %s",
                 str(e),
             )
             continue
@@ -339,7 +339,7 @@ async def maybe_run_chat_completion_agentic_loop(
             )
         except Exception as e:
             verbose_logger.exception(
-                "LiteLLM.AgenticHookError: Exception in chat completion agentic hooks: %s",
+                "EmbRouter.AgenticHookError: Exception in chat completion agentic hooks: %s",
                 str(e),
             )
 

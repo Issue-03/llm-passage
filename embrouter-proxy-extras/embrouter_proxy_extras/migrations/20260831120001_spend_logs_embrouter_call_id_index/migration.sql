@@ -9,4 +9,4 @@
 --   migrations; add a new migration instead.
 -- - Requires PostgreSQL that supports CONCURRENTLY with IF NOT EXISTS (use a new migration
 --   without IF NOT EXISTS if you must support older versions).
-CREATE INDEX CONCURRENTLY IF NOT EXISTS "LiteLLM_SpendLogs_litellm_call_id_idx" ON "LiteLLM_SpendLogs"("litellm_call_id");
+CREATE INDEX CONCURRENTLY IF NOT EXISTS "EmbRouter_SpendLogs_embrouter_call_id_idx" ON "EmbRouter_SpendLogs"("embrouter_call_id");

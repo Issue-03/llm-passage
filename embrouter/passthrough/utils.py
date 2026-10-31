@@ -4,9 +4,9 @@ from urllib.parse import parse_qs
 
 import httpx
 
-from litellm._logging import verbose_logger
-from litellm.constants import PASS_THROUGH_HEADER_PREFIX
-from litellm.litellm_core_utils.aws_partition import contains_aws_arn
+from embrouter._logging import verbose_logger
+from embrouter.constants import PASS_THROUGH_HEADER_PREFIX
+from embrouter.embrouter_core_utils.aws_partition import contains_aws_arn
 
 # Headers that must not be overwritten via the x-pass- forwarding mechanism.
 # Includes standard credential/auth headers and protocol-level headers that

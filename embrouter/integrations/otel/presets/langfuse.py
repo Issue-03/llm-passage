@@ -2,19 +2,19 @@
 
 from typing import Final
 
-from litellm.integrations.langfuse.langfuse_otel import (
+from embrouter.integrations.langfuse.langfuse_otel import (
     LangfuseOtelLogger as _V1Langfuse,
 )
-from litellm.integrations.otel.model.config import (
+from embrouter.integrations.otel.model.config import (
     ExporterOwner,
     ExporterSpec,
     OpenTelemetryV2Config,
 )
-from litellm.integrations.otel.presets.utils import (
+from embrouter.integrations.otel.presets.utils import (
     credential_gated_exporters,
     ensure_mappers,
 )
-from litellm.types.utils import StandardCallbackDynamicParams
+from embrouter.types.utils import StandardCallbackDynamicParams
 
 
 def langfuse_preset(

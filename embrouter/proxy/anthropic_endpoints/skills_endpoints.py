@@ -9,8 +9,8 @@ import orjson
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from typing_extensions import ReadOnly, TypedDict, assert_never
 
-import litellm
-from litellm.llms.litellm_proxy.skills.skill_search import (
+import embrouter
+from embrouter.llms.embrouter_proxy.skills.skill_search import (
     DEFAULT_SKILL_SEARCH_TOP_K,
     SkillSearchEmbeddingFailed,
     SkillSearchHits,
@@ -19,14 +19,14 @@ from litellm.llms.litellm_proxy.skills.skill_search import (
     global_skill_search_index,
     search_hosted_skills,
 )
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
-from litellm.proxy.common_utils.http_parsing_utils import (
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+from embrouter.proxy.common_utils.http_parsing_utils import (
     convert_upload_files_to_file_data,
     get_form_data,
 )
-from litellm.types.llms.anthropic_skills import (
+from embrouter.types.llms.anthropic_skills import (
     DeleteSkillResponse,
     ListSkillsResponse,
     Skill,
@@ -48,22 +48,22 @@ def _skill_search_error(status_code: int, error: str, message: str) -> HTTPExcep
 async def _search_skills(
     custom_llm_provider: str | None, query: str, top_k: int, user_api_key_dict: UserAPIKeyAuth
 ) -> ListSkillsResponse:
-    from litellm.llms.litellm_proxy.skills.transformation import (
-        LiteLLMSkillsTransformationHandler,
+    from embrouter.llms.embrouter_proxy.skills.transformation import (
+        EmbRouterSkillsTransformationHandler,
     )
-    from litellm.proxy.proxy_server import llm_router, proxy_logging_obj
+    from embrouter.proxy.proxy_server import llm_router, proxy_logging_obj
 
     outcome: Final = await search_hosted_skills(
         custom_llm_provider=custom_llm_provider,
         query=query,
         top_k=top_k,
         router=llm_router,
-        embedding_model=litellm.skill_search_embedding_model,
+        embedding_model=embrouter.skill_search_embedding_model,
         index=global_skill_search_index,
         user_api_key_dict=user_api_key_dict,
         proxy_logging_obj=proxy_logging_obj,
     )
-    to_response: Final = LiteLLMSkillsTransformationHandler().db_skill_to_response
+    to_response: Final = EmbRouterSkillsTransformationHandler().db_skill_to_response
     match outcome:
         case SkillSearchHits(hits):
             skills: Final = [  # mutable-ok: ListSkillsResponse.data requires list[Skill]; never mutated after
@@ -98,7 +98,7 @@ async def create_skill(
     Requires `?beta=true` query parameter.
     
     Model-based routing (for multi-account support):
-    - Pass model via header: `x-litellm-model: claude-account-1`
+    - Pass model via header: `x-embrouter-model: claude-account-1`
     - Pass model via query: `?model=claude-account-1`
     - Pass model via form field: `model=claude-account-1`
     
@@ -115,14 +115,14 @@ async def create_skill(
     curl -X POST "http://localhost:4000/v1/skills?beta=true" \
       -H "Content-Type: multipart/form-data" \
       -H "Authorization: Bearer your-key" \
-      -H "x-litellm-model: claude-account-1" \
+      -H "x-embrouter-model: claude-account-1" \
       -F "display_title=My Skill" \
       -F "files[]=@skill.zip"
     ```
     
     Returns: Skill object with id, display_title, etc.
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         proxy_config,
@@ -141,7 +141,7 @@ async def create_skill(
     data: Final = await convert_upload_files_to_file_data(form_data)
 
     # Extract model for routing (header > query > body)
-    model: Final = data.get("model") or request.query_params.get("model") or request.headers.get("x-litellm-model")
+    model: Final = data.get("model") or request.query_params.get("model") or request.headers.get("x-embrouter-model")
     if model:
         data["model"] = model
 
@@ -197,8 +197,8 @@ async def list_skills(
             min_length=1,
             description="Describe what you need in natural language to rank the skills you can access by "
             "semantic similarity over their title and description. Each result carries a search_score. "
-            "Only supported for custom_llm_provider=litellm_proxy. Requires "
-            "litellm_settings.skill_search_embedding_model.",
+            "Only supported for custom_llm_provider=embrouter_proxy. Requires "
+            "embrouter_settings.skill_search_embedding_model.",
         ),
     ] = None,
     top_k: Annotated[
@@ -213,7 +213,7 @@ async def list_skills(
     Requires `?beta=true` query parameter.
 
     Model-based routing (for multi-account support):
-    - Pass model via header: `x-litellm-model: claude-account-1`
+    - Pass model via header: `x-embrouter-model: claude-account-1`
     - Pass model via query: `?model=claude-account-1`
     - Pass model via body: `{"model": "claude-account-1"}`
 
@@ -226,13 +226,13 @@ async def list_skills(
     # With model-based routing
     curl "http://localhost:4000/v1/skills?beta=true&limit=10" \
       -H "Authorization: Bearer your-key" \
-      -H "x-litellm-model: claude-account-1"
+      -H "x-embrouter-model: claude-account-1"
     ```
 
-    Pass `?custom_llm_provider=litellm_proxy&query=<task>` to rank the LiteLLM-hosted skills you can
+    Pass `?custom_llm_provider=embrouter_proxy&query=<task>` to rank the EmbRouter-hosted skills you can
     access by semantic similarity instead of paging through the whole registry:
     ```bash
-    curl "http://localhost:4000/v1/skills?custom_llm_provider=litellm_proxy&query=summarize+a+pdf&top_k=5" \
+    curl "http://localhost:4000/v1/skills?custom_llm_provider=embrouter_proxy&query=summarize+a+pdf&top_k=5" \
       -H "Authorization: Bearer your-key"
     ```
 
@@ -243,7 +243,7 @@ async def list_skills(
             custom_llm_provider=custom_llm_provider, query=query, top_k=top_k, user_api_key_dict=user_api_key_dict
         )
 
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         proxy_config,
@@ -270,7 +270,7 @@ async def list_skills(
         data["before_id"] = before_id
 
     # Extract model for routing (header > query > body)
-    model: Final = data.get("model") or request.query_params.get("model") or request.headers.get("x-litellm-model")
+    model: Final = data.get("model") or request.query_params.get("model") or request.headers.get("x-embrouter-model")
     if model:
         data["model"] = model
 
@@ -327,7 +327,7 @@ async def get_skill(
     Requires `?beta=true` query parameter.
     
     Model-based routing (for multi-account support):
-    - Pass model via header: `x-litellm-model: claude-account-1`
+    - Pass model via header: `x-embrouter-model: claude-account-1`
     - Pass model via query: `?model=claude-account-1`
     - Pass model via body: `{"model": "claude-account-1"}`
     
@@ -340,12 +340,12 @@ async def get_skill(
     # With model-based routing
     curl "http://localhost:4000/v1/skills/skill_123?beta=true" \
       -H "Authorization: Bearer your-key" \
-      -H "x-litellm-model: claude-account-1"
+      -H "x-embrouter-model: claude-account-1"
     ```
     
     Returns: Skill object
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         proxy_config,
@@ -367,7 +367,7 @@ async def get_skill(
     data["skill_id"] = skill_id
 
     # Extract model for routing (header > query > body)
-    model: Final = data.get("model") or request.query_params.get("model") or request.headers.get("x-litellm-model")
+    model: Final = data.get("model") or request.query_params.get("model") or request.headers.get("x-embrouter-model")
     if model:
         data["model"] = model
 
@@ -426,7 +426,7 @@ async def delete_skill(
     Note: Anthropic does not allow deleting skills with existing versions.
     
     Model-based routing (for multi-account support):
-    - Pass model via header: `x-litellm-model: claude-account-1`
+    - Pass model via header: `x-embrouter-model: claude-account-1`
     - Pass model via query: `?model=claude-account-1`
     - Pass model via body: `{"model": "claude-account-1"}`
     
@@ -439,12 +439,12 @@ async def delete_skill(
     # With model-based routing
     curl -X DELETE "http://localhost:4000/v1/skills/skill_123?beta=true" \
       -H "Authorization: Bearer your-key" \
-      -H "x-litellm-model: claude-account-1"
+      -H "x-embrouter-model: claude-account-1"
     ```
     
     Returns: DeleteSkillResponse with type="skill_deleted"
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         proxy_config,
@@ -466,7 +466,7 @@ async def delete_skill(
     data["skill_id"] = skill_id
 
     # Extract model for routing (header > query > body)
-    model: Final = data.get("model") or request.query_params.get("model") or request.headers.get("x-litellm-model")
+    model: Final = data.get("model") or request.query_params.get("model") or request.headers.get("x-embrouter-model")
     if model:
         data["model"] = model
 

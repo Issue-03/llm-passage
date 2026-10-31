@@ -1,8 +1,8 @@
 from collections.abc import Mapping
 from typing import Final
 
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.utils import PromptTokensDetailsWrapper, Usage
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.utils import PromptTokensDetailsWrapper, Usage
 
 GIGACHAT_BASE_URL: Final = "https://gigachat.devices.sberbank.ru/api/v1"
 

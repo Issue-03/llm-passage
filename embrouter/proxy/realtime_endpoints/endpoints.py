@@ -8,21 +8,21 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi import status as http_status
 
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy._types import ProxyException, UserAPIKeyAuth
-from litellm.proxy.auth.auth_checks import can_key_call_resolved_model
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.common_utils.encrypt_decrypt_utils import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy._types import ProxyException, UserAPIKeyAuth
+from embrouter.proxy.auth.auth_checks import can_key_call_resolved_model
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.common_utils.encrypt_decrypt_utils import (
     decrypt_value_helper,
     encrypt_value_helper,
 )
-from litellm.proxy.common_utils.http_parsing_utils import _read_request_body
-from litellm.proxy.common_utils.openai_error_payload import (
+from embrouter.proxy.common_utils.http_parsing_utils import _read_request_body
+from embrouter.proxy.common_utils.openai_error_payload import (
     error_status_code,
     openai_error_param,
     openai_error_type,
 )
-from litellm.types.realtime import (
+from embrouter.types.realtime import (
     RealtimeClientSecretRequest,
     RealtimeClientSecretResponse,
     RealtimeTranscriptionSessionRequest,
@@ -30,7 +30,7 @@ from litellm.types.realtime import (
 )
 
 if TYPE_CHECKING:
-    from litellm.router import Router
+    from embrouter.router import Router
 
 router: Final = APIRouter()
 
@@ -233,8 +233,8 @@ async def create_realtime_client_secret(
     fastapi_response: Response,
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
 ) -> RealtimeClientSecretResponse:
-    from litellm.proxy.proxy_server import (
-        add_litellm_data_to_request,
+    from embrouter.proxy.proxy_server import (
+        add_embrouter_data_to_request,
         general_settings,
         llm_model_list,
         llm_router,
@@ -269,7 +269,7 @@ async def create_realtime_client_secret(
         if req.expires_after:
             data["expires_after"] = req.expires_after.model_dump(exclude_none=True)
 
-        data = await add_litellm_data_to_request(
+        data = await add_embrouter_data_to_request(
             data=data,
             request=request,
             general_settings=general_settings,
@@ -301,7 +301,7 @@ async def create_realtime_client_secret(
             request_data=data,
         )
         verbose_proxy_logger.error(
-            "litellm.proxy.realtime_endpoints.webrtc.create_realtime_client_secret(): Exception - %s",
+            "embrouter.proxy.realtime_endpoints.webrtc.create_realtime_client_secret(): Exception - %s",
             str(e),
         )
         if isinstance(e, ProxyException):
@@ -375,8 +375,8 @@ async def proxy_realtime_calls(
     request: Request,
     fastapi_response: Response,
 ) -> Response:
-    from litellm.proxy.proxy_server import (
-        add_litellm_data_to_request,
+    from embrouter.proxy.proxy_server import (
+        add_embrouter_data_to_request,
         general_settings,
         llm_router,
         proxy_config,
@@ -462,7 +462,7 @@ async def proxy_realtime_calls(
             "session": session_config,
         }
 
-        data = await add_litellm_data_to_request(
+        data = await add_embrouter_data_to_request(
             data=data,
             request=request,
             general_settings=general_settings,
@@ -494,7 +494,7 @@ async def proxy_realtime_calls(
             request_data=data,
         )
         verbose_proxy_logger.error(
-            "litellm.proxy.realtime_endpoints.webrtc.proxy_realtime_calls(): Exception - %s",
+            "embrouter.proxy.realtime_endpoints.webrtc.proxy_realtime_calls(): Exception - %s",
             str(e),
         )
         if isinstance(e, HTTPException):
@@ -545,8 +545,8 @@ async def create_realtime_transcription_session(
     Mirrors the client_secrets route but targets the transcription_sessions
     endpoint and encrypts the ephemeral key returned under `client_secret.value`.
     """
-    from litellm.proxy.proxy_server import (
-        add_litellm_data_to_request,
+    from embrouter.proxy.proxy_server import (
+        add_embrouter_data_to_request,
         general_settings,
         llm_model_list,
         llm_router,
@@ -573,7 +573,7 @@ async def create_realtime_transcription_session(
         transcription_session: Final = {k: v for k, v in body.items() if k != "model"}
         data = {"model": model, "transcription_session": transcription_session}
 
-        data = await add_litellm_data_to_request(
+        data = await add_embrouter_data_to_request(
             data=data,
             request=request,
             general_settings=general_settings,
@@ -605,7 +605,7 @@ async def create_realtime_transcription_session(
             request_data=data,
         )
         verbose_proxy_logger.error(
-            "litellm.proxy.realtime_endpoints.create_realtime_transcription_session(): Exception - %s",
+            "embrouter.proxy.realtime_endpoints.create_realtime_transcription_session(): Exception - %s",
             str(e),
         )
         if isinstance(e, ProxyException):

@@ -5,10 +5,10 @@ from typing import TYPE_CHECKING, Final
 
 from pydantic import TypeAdapter, ValidationError
 
-from litellm.litellm_core_utils.core_helpers import get_metadata_variable_name_from_kwargs
+from embrouter.embrouter_core_utils.core_helpers import get_metadata_variable_name_from_kwargs
 
 if TYPE_CHECKING:
-    from litellm.router import Router
+    from embrouter.router import Router
 
 _MAPPING_ADAPTER: Final = TypeAdapter(Mapping[str, object])
 
@@ -34,8 +34,8 @@ async def authorize_member_auto_router_inference(
 
     from fastapi import HTTPException
 
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-    from litellm.proxy.auth.auth_checks import (
+    from embrouter.proxy._types import EmbrouterUserRoles, UserAPIKeyAuth
+    from embrouter.proxy.auth.auth_checks import (
         OrganizationNotFoundError,
         TeamNotFoundError,
         get_org_object,
@@ -43,7 +43,7 @@ async def authorize_member_auto_router_inference(
         get_team_membership,
         get_team_object,
     )
-    from litellm.proxy.management_helpers.auto_router_permissions import (
+    from embrouter.proxy.management_helpers.auto_router_permissions import (
         MemberAutoRouterDependencyObjects,
         authorize_member_auto_router_dependencies,
         validate_member_auto_router_config,
@@ -54,10 +54,10 @@ async def authorize_member_auto_router_inference(
     team_id: Final = model_info.get("team_id")
     if not isinstance(actor, UserAPIKeyAuth) or not isinstance(team_id, str) or not team_id:
         raise HTTPException(status_code=403, detail="Member auto-routers require authenticated team access")
-    if actor.team_id != team_id and actor.user_role != LitellmUserRoles.PROXY_ADMIN:
+    if actor.team_id != team_id and actor.user_role != EmbrouterUserRoles.PROXY_ADMIN:
         raise HTTPException(status_code=403, detail="This auto-router belongs to a different team")
 
-    from litellm.proxy.proxy_server import prisma_client, proxy_logging_obj, user_api_key_cache
+    from embrouter.proxy.proxy_server import prisma_client, proxy_logging_obj, user_api_key_cache
 
     if prisma_client is None:
         raise HTTPException(status_code=503, detail="Cannot verify auto-router model access without a database")
@@ -72,14 +72,14 @@ async def authorize_member_auto_router_inference(
     except TeamNotFoundError as error:
         raise HTTPException(status_code=403, detail="The auto-router team no longer exists") from error
     if (
-        actor.user_role != LitellmUserRoles.PROXY_ADMIN
+        actor.user_role != EmbrouterUserRoles.PROXY_ADMIN
         and actor.user_id is not None
         and (not actor.user_id or not any(member.user_id == actor.user_id for member in team.members_with_roles))
     ):
         raise HTTPException(status_code=403, detail="You are no longer a member of this auto-router's team")
     if team.blocked:
         raise HTTPException(status_code=403, detail="This auto router's team is blocked.")
-    params: Final = _mapping(deployment.get("litellm_params"))
+    params: Final = _mapping(deployment.get("embrouter_params"))
     if params is None:
         raise HTTPException(status_code=403, detail="The member auto-router configuration is invalid")
     raw_config: Final = _mapping(params.get("complexity_router_config"))

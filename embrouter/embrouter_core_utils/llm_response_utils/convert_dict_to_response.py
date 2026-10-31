@@ -6,19 +6,19 @@ import traceback
 from collections.abc import Mapping, Sequence
 from typing import Final, Literal, cast
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.constants import RESPONSE_FORMAT_TOOL_NAME
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.constants import RESPONSE_FORMAT_TOOL_NAME
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
     _extract_reasoning_content,
 )
-from litellm.types.llms.databricks import DatabricksTool
-from litellm.types.llms.openai import (
+from embrouter.types.llms.databricks import DatabricksTool
+from embrouter.types.llms.openai import (
     ChatCompletionThinkingBlock,
     ImageURLListItem,
     OpenAIModerationResponse,
 )
-from litellm.types.utils import (
+from embrouter.types.utils import (
     ChatCompletionDeltaToolCall,
     ChatCompletionMessageCustomToolCall,
     ChatCompletionMessageToolCall,
@@ -44,7 +44,7 @@ from litellm.types.utils import (
     Usage,
     chat_completion_tool_call_from_dict,
 )
-from litellm.types.utils import Logprobs as TextCompletionLogprobs
+from embrouter.types.utils import Logprobs as TextCompletionLogprobs
 
 from .get_headers import get_response_headers
 
@@ -76,7 +76,7 @@ def _safe_convert_created_field(created_value) -> int:
     Safely convert a 'created' field value to an integer.
 
     Some providers (like SambaNova) return the 'created' field as a float
-    (Unix timestamp with fractional seconds), but LiteLLM expects an integer.
+    (Unix timestamp with fractional seconds), but EmbRouter expects an integer.
 
     Args:
         created_value: The value from response_object["created"]
@@ -110,7 +110,7 @@ def convert_tool_call_to_json_mode(
         # to support 'json_schema' logic on older models
         json_mode_content_str: Final[str | None] = tool_calls[0]["function"].get("arguments")
         if json_mode_content_str is not None:
-            message: Final = litellm.Message(content=json_mode_content_str)
+            message: Final = embrouter.Message(content=json_mode_content_str)
             finish_reason: Final = "stop"
             return message, finish_reason
     return None, None
@@ -154,9 +154,9 @@ def _clear_later_replay_slice_metadata(choice: StreamingChoices) -> None:
 def _invalid_choices_message(response_object: Mapping[str, object]) -> str:
     raw_keys: Final = list(response_object.keys())
     if "choices" not in response_object:
-        return f"LiteLLM: provider returned a response with no 'choices'. Raw keys: {raw_keys}"
+        return f"EmbRouter: provider returned a response with no 'choices'. Raw keys: {raw_keys}"
     return (
-        f"LiteLLM: provider returned 'choices' that is not a list ({type(response_object['choices']).__name__}). "
+        f"EmbRouter: provider returned 'choices' that is not a list ({type(response_object['choices']).__name__}). "
         f"Raw keys: {raw_keys}"
     )
 
@@ -190,7 +190,7 @@ async def convert_to_streaming_response_async(
     choice_list: Final[list[StreamingChoices]] = []
 
     if not isinstance(response_object.get("choices"), list):
-        from litellm.exceptions import APIError
+        from embrouter.exceptions import APIError
 
         raise APIError(
             status_code=500,
@@ -296,7 +296,7 @@ def convert_to_streaming_response(
     choice_list: Final[list[StreamingChoices]] = []
 
     if not isinstance(response_object.get("choices"), list):
-        from litellm.exceptions import APIError
+        from embrouter.exceptions import APIError
 
         raise APIError(
             status_code=500,
@@ -414,7 +414,7 @@ def _handle_invalid_parallel_tool_calls(
         return tool_calls
 
 
-class LiteLLMResponseObjectHandler:
+class EmbRouterResponseObjectHandler:
     @staticmethod
     def convert_to_image_response(
         response_object: dict,
@@ -489,7 +489,7 @@ class LiteLLMResponseObjectHandler:
             text_response = convert_chat_to_text_completion(chat_response)
         """
         transformed_logprobs: Final = (
-            LiteLLMResponseObjectHandler._convert_provider_response_logprobs_to_text_completion_logprobs(
+            EmbRouterResponseObjectHandler._convert_provider_response_logprobs_to_text_completion_logprobs(
                 response=response,
                 custom_llm_provider=custom_llm_provider,
             )
@@ -628,7 +628,7 @@ def convert_to_model_response_object(
             choice_list: Final[list[Choices]] = []
 
             if not isinstance(response_object.get("choices"), list):
-                from litellm.exceptions import APIError
+                from embrouter.exceptions import APIError
 
                 raise APIError(
                     status_code=500,
@@ -659,7 +659,7 @@ def convert_to_model_response_object(
                     # to support 'json_schema' logic on older models
                     json_mode_content_str: str | None = tool_calls[0]["function"].get("arguments")
                     if json_mode_content_str is not None:
-                        message = litellm.Message(content=json_mode_content_str)
+                        message = embrouter.Message(content=json_mode_content_str)
                         finish_reason = "stop"
                 if message is None:
                     # Preserve provider_specific_fields if already present
@@ -715,7 +715,7 @@ def convert_to_model_response_object(
             model_response_object.choices = choice_list
 
             if "usage" in response_object and response_object["usage"] is not None:
-                usage_object: Final = litellm.Usage(**response_object["usage"])
+                usage_object: Final = embrouter.Usage(**response_object["usage"])
                 setattr(model_response_object, "usage", usage_object)
             if "created" in response_object:
                 model_response_object.created = _safe_convert_created_field(response_object["created"])
@@ -792,7 +792,7 @@ def convert_to_model_response_object(
             if response_object is None:
                 raise Exception("Error in response object format")
 
-            return LiteLLMResponseObjectHandler.convert_to_image_response(
+            return EmbRouterResponseObjectHandler.convert_to_image_response(
                 response_object=response_object,
                 model_response_object=model_response_object,
                 hidden_params=hidden_params,
@@ -861,7 +861,7 @@ def convert_to_model_response_object(
 
             return model_response_object
     except Exception as e:
-        from litellm.exceptions import APIError
+        from embrouter.exceptions import APIError
 
         if isinstance(e, APIError):
             raise

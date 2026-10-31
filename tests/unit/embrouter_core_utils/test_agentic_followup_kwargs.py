@@ -1,7 +1,7 @@
 from collections.abc import Mapping
 from typing import Final
 
-from litellm.litellm_core_utils.agentic_followup_kwargs import build_agentic_followup_kwargs
+from embrouter.embrouter_core_utils.agentic_followup_kwargs import build_agentic_followup_kwargs
 
 
 def _build(

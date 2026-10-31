@@ -7,10 +7,10 @@ from typing import cast
 
 from httpx._config import Timeout
 
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.utils import CustomStreamingDecoder
-from litellm.utils import ModelResponse
+from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.utils import CustomStreamingDecoder
+from embrouter.utils import ModelResponse
 
 from ...groq.chat.transformation import GroqChatConfig
 from ...openai_like.chat.handler import OpenAILikeChatHandler
@@ -35,7 +35,7 @@ class GroqChatCompletion(OpenAILikeChatHandler):
         logging_obj,
         optional_params: dict,
         acompletion=None,
-        litellm_params=None,
+        embrouter_params=None,
         logger_fn=None,
         headers: dict | None = None,
         timeout: float | Timeout | None = None,
@@ -64,7 +64,7 @@ class GroqChatCompletion(OpenAILikeChatHandler):
             logging_obj=logging_obj,
             optional_params=optional_params,
             acompletion=acompletion,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             logger_fn=logger_fn,
             headers=headers,
             timeout=timeout,

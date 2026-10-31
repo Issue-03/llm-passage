@@ -1,6 +1,6 @@
 # Workflow Run Tracking
 
-Generic durable state tracking for agents and automated workflows built on the LiteLLM proxy.
+Generic durable state tracking for agents and automated workflows built on the EmbRouter proxy.
 
 ## The Problem
 
@@ -18,7 +18,7 @@ WorkflowMessage  conversation inbox/outbox (full content, not truncated)
 
 ## API
 
-All endpoints require a valid LiteLLM API key (`Authorization: Bearer sk-...`).
+All endpoints require a valid EmbRouter API key (`Authorization: Bearer sk-...`).
 
 ### Runs
 
@@ -86,10 +86,10 @@ Set `status = completed` explicitly via PATCH when the workflow finishes.
 
 ## Linking to Spend Logs
 
-`WorkflowRun.session_id` is generated automatically (UUID). Pass it as the `x-litellm-session-id` header when making completions through the proxy:
+`WorkflowRun.session_id` is generated automatically (UUID). Pass it as the `x-embrouter-session-id` header when making completions through the proxy:
 
 ```python
-headers = {"x-litellm-session-id": run.session_id}
+headers = {"x-embrouter-session-id": run.session_id}
 ```
 
 All spend log entries for this run are then tagged automatically. Query cost per run:

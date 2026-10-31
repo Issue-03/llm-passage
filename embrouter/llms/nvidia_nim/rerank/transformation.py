@@ -4,13 +4,13 @@ from typing import Any, Final, Literal
 import httpx
 from typing_extensions import Required, TypedDict
 
-import litellm
-from litellm._uuid import uuid
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.base_llm.rerank.transformation import BaseRerankConfig
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.rerank import (
+import embrouter
+from embrouter._uuid import uuid
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.base_llm.rerank.transformation import BaseRerankConfig
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.rerank import (
     RerankBilledUnits,
     RerankResponse,
     RerankResponseMeta,
@@ -153,13 +153,13 @@ class NvidiaNimRerankConfig(BaseRerankConfig):
         model: str,
         api_key: str | None = None,
         optional_params: dict | None = None,
-        litellm_params: Mapping[str, object] | None = None,
+        embrouter_params: Mapping[str, object] | None = None,
     ) -> dict:
         """
         Validate that the Nvidia NIM API key is present.
         """
         if api_key is None:
-            api_key = get_secret_str("NVIDIA_NIM_API_KEY") or litellm.api_key
+            api_key = get_secret_str("NVIDIA_NIM_API_KEY") or embrouter.api_key
 
         if api_key is None:
             raise ValueError("Nvidia NIM API key is required. Please set 'NVIDIA_NIM_API_KEY' in your environment")
@@ -182,7 +182,7 @@ class NvidiaNimRerankConfig(BaseRerankConfig):
         model: str,
         optional_rerank_params: dict,
         headers: dict,
-        litellm_params: dict | None = None,
+        embrouter_params: dict | None = None,
     ) -> dict:
         """
         Transform request to Nvidia NIM format.
@@ -262,14 +262,14 @@ class NvidiaNimRerankConfig(BaseRerankConfig):
         model: str,
         raw_response: httpx.Response,
         model_response: RerankResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_key: str | None = None,
         request_data: dict = {},
         optional_params: dict = {},
-        litellm_params: dict = {},
+        embrouter_params: dict = {},
     ) -> RerankResponse:
         """
-        Transform Nvidia NIM rerank response to LiteLLM format.
+        Transform Nvidia NIM rerank response to EmbRouter format.
 
         Nvidia NIM returns (NvidiaNimRerankResponse):
         {
@@ -281,7 +281,7 @@ class NvidiaNimRerankConfig(BaseRerankConfig):
             ]
         }
 
-        LiteLLM expects (RerankResponse):
+        EmbRouter expects (RerankResponse):
         {
             "results": [
                 {
@@ -304,7 +304,7 @@ class NvidiaNimRerankConfig(BaseRerankConfig):
         # Parse as NvidiaNimRerankResponse
         nvidia_response: Final[NvidiaNimRerankResponse] = raw_response_json
 
-        # Transform Nvidia NIM response to LiteLLM format
+        # Transform Nvidia NIM response to EmbRouter format
         results: Final[list[RerankResponseResult]] = []
         rankings: Final = nvidia_response.get("rankings", [])
 

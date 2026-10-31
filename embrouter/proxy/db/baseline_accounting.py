@@ -12,30 +12,30 @@ from typing import TYPE_CHECKING, Final, Literal, Protocol, cast
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 from typing_extensions import Self
 
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy.db.autorouter_session_rollup import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy.db.autorouter_session_rollup import (
     AutoRouterTurnTransaction,
     write_autorouter_turn,
 )
-from litellm.proxy.db.create_views import SupportsRawQueries
-from litellm.proxy.db.daily_spend_bulk_upsert import (
+from embrouter.proxy.db.create_views import SupportsRawQueries
+from embrouter.proxy.db.daily_spend_bulk_upsert import (
     DAILY_SPEND_TABLES,
     DailySpendEntity,
     SpendRow,
     build_bulk_upsert,
     merge_by_conflict_key,
 )
-from litellm.proxy.db.routing_prisma_wrapper import writer_wrapper
-from litellm.proxy.spend_tracking.baseline_accounting import (
+from embrouter.proxy.db.routing_prisma_wrapper import writer_wrapper
+from embrouter.proxy.spend_tracking.baseline_accounting import (
     BaselineEstimate,
     BaselineHistory,
     BaselineObservation,
     advance_baseline_history,
 )
-from litellm.proxy.spend_tracking.savings import BaselineCosts, BaselineCostSnapshot, price_baseline_comparison
+from embrouter.proxy.spend_tracking.savings import BaselineCosts, BaselineCostSnapshot, price_baseline_comparison
 
 if TYPE_CHECKING:
-    from litellm.proxy.utils import PrismaClient
+    from embrouter.proxy.utils import PrismaClient
 
 
 class DailyBaselineTarget(BaseModel):
@@ -198,31 +198,31 @@ _PAGE_TIMESTAMPS: Final = 128
 _TRANSACTION_TIMEOUT: Final = timedelta(seconds=10)
 
 _CREATE_COMPARISON: Final = """
-INSERT INTO "LiteLLM_AutoRouterBaselineComparison"
+INSERT INTO "EmbRouter_AutoRouterBaselineComparison"
     (scope, api_key, session_id, router_name, initial_equivalent)
 VALUES ($1, $2, $3, $4, NOT EXISTS (
-    SELECT 1 FROM "LiteLLM_AutoRouterSession"
+    SELECT 1 FROM "EmbRouter_AutoRouterSession"
     WHERE api_key = $2 AND session_id = $3 AND router_name = $4
 )) ON CONFLICT (scope) DO NOTHING
 """
 _LOCK_COMPARISON: Final = """
 SELECT revision, published_revision, initial_equivalent, retired, history
-FROM "LiteLLM_AutoRouterBaselineComparison" WHERE scope = $1 FOR UPDATE
+FROM "EmbRouter_AutoRouterBaselineComparison" WHERE scope = $1 FOR UPDATE
 """
 _INSERT_RECORD: Final = """
-INSERT INTO "LiteLLM_AutoRouterBaselineObservation"
+INSERT INTO "EmbRouter_AutoRouterBaselineObservation"
     (request_id, scope, started_at, revision, data)
 VALUES ($1, $2, $3::float8, $4::bigint, $5)
 ON CONFLICT (request_id) DO NOTHING
 """
 _MARK_CONFLICT: Final = """
-UPDATE "LiteLLM_AutoRouterBaselineObservation"
+UPDATE "EmbRouter_AutoRouterBaselineObservation"
 SET conflicted = TRUE, revision = $4::bigint
 WHERE request_id = $1 AND scope = $2 AND data <> $3 AND NOT conflicted
 """
 _READ_PAGE: Final = """
 WITH times AS (
-    SELECT DISTINCT started_at FROM "LiteLLM_AutoRouterBaselineObservation"
+    SELECT DISTINCT started_at FROM "EmbRouter_AutoRouterBaselineObservation"
     WHERE scope = $1 AND revision > $2::bigint
       AND ($3::float8 IS NULL OR started_at > $3::float8)
       AND ($5::float8 IS NULL OR (
@@ -231,7 +231,7 @@ WITH times AS (
     ORDER BY started_at LIMIT $4::int
 )
 SELECT data, publication, conflicted, started_at
-FROM "LiteLLM_AutoRouterBaselineObservation"
+FROM "EmbRouter_AutoRouterBaselineObservation"
 WHERE scope = $1 AND revision > $2::bigint
   AND started_at IN (SELECT started_at FROM times)
   AND ($5::float8 IS NULL OR publication::jsonb->>'status' = 'estimated')
@@ -242,7 +242,7 @@ WITH changes AS (
     SELECT request_id, publication::jsonb AS publication
     FROM jsonb_to_recordset($1::jsonb) AS x(request_id text, publication jsonb)
 )
-UPDATE "LiteLLM_SpendLogs" AS logs
+UPDATE "EmbRouter_SpendLogs" AS logs
 SET metadata = (COALESCE(logs.metadata::jsonb, '{}'::jsonb) - 'autorouter_baseline_observation') || jsonb_build_object(
     'autorouter_savings_estimate', changes.publication,
     'autorouter_savings', CASE WHEN changes.publication->>'status' = 'estimated' THEN
@@ -252,7 +252,7 @@ SET metadata = (COALESCE(logs.metadata::jsonb, '{}'::jsonb) - 'autorouter_baseli
 FROM changes WHERE logs.request_id = changes.request_id
 """
 _UPDATE_PUBLICATIONS: Final = """
-UPDATE "LiteLLM_AutoRouterBaselineObservation" AS observations
+UPDATE "EmbRouter_AutoRouterBaselineObservation" AS observations
 SET publication = x.publication::text
 FROM jsonb_to_recordset($1::jsonb) AS x(request_id text, publication jsonb)
 WHERE observations.request_id = x.request_id
@@ -260,7 +260,7 @@ WHERE observations.request_id = x.request_id
 
 
 def _session_correction_sql(*, user_scoped: bool) -> str:
-    table_name: Final = "LiteLLM_AutoRouterUserSession" if user_scoped else "LiteLLM_AutoRouterSession"
+    table_name: Final = "EmbRouter_AutoRouterUserSession" if user_scoped else "EmbRouter_AutoRouterSession"
     identity_columns: Final = ("user_id, " if user_scoped else "") + "api_key, session_id, router_name"
     user_filter: Final = "WHERE user_id <> ''" if user_scoped else ""
     user_match: Final = "session.user_id = totals.user_id AND " if user_scoped else ""
@@ -433,7 +433,7 @@ class BaselineAccountingStore:
                     _RECORDS.validate_python(
                         tuple(
                             await db.query_raw(
-                                'SELECT data, publication, conflicted, started_at FROM "LiteLLM_AutoRouterBaselineObservation" '
+                                'SELECT data, publication, conflicted, started_at FROM "EmbRouter_AutoRouterBaselineObservation" '
                                 "WHERE request_id=$1 AND scope=$2",
                                 record.observation.request_id,
                                 record.scope,
@@ -473,7 +473,7 @@ class BaselineAccountingStore:
                         db, record.scope, canonical[0].started_at if canonical else record.observation.started_at
                     )
                     await db.execute_raw(
-                        'UPDATE "LiteLLM_AutoRouterBaselineComparison" SET revision = $2::bigint, '
+                        'UPDATE "EmbRouter_AutoRouterBaselineComparison" SET revision = $2::bigint, '
                         "updated_at = CURRENT_TIMESTAMP, attempted_at = NULL WHERE scope = $1",
                         record.scope,
                         revision,
@@ -519,18 +519,18 @@ class BaselineAccountingStore:
             await db.execute_raw(f"SET LOCAL statement_timeout = {max(1, timeout_ms)}")
             await db.execute_raw(f"SET LOCAL lock_timeout = {max(1, timeout_ms)}")
             await db.execute_raw(
-                'WITH expired AS (SELECT scope FROM "LiteLLM_AutoRouterBaselineComparison" '
+                'WITH expired AS (SELECT scope FROM "EmbRouter_AutoRouterBaselineComparison" '
                 "WHERE NOT retired AND updated_at < $1::timestamptz ORDER BY updated_at "
                 "LIMIT $2::int FOR UPDATE SKIP LOCKED) "
-                'UPDATE "LiteLLM_AutoRouterBaselineComparison" AS comparison '
+                'UPDATE "EmbRouter_AutoRouterBaselineComparison" AS comparison '
                 "SET retired=TRUE, history=NULL FROM expired WHERE comparison.scope=expired.scope",
                 cutoff,
                 batch_size,
             )
             await db.execute_raw(
-                'DELETE FROM "LiteLLM_AutoRouterBaselineObservation" WHERE request_id IN ('
-                'SELECT event.request_id FROM "LiteLLM_AutoRouterBaselineObservation" AS event '
-                'JOIN "LiteLLM_AutoRouterBaselineComparison" AS comparison USING (scope) '
+                'DELETE FROM "EmbRouter_AutoRouterBaselineObservation" WHERE request_id IN ('
+                'SELECT event.request_id FROM "EmbRouter_AutoRouterBaselineObservation" AS event '
+                'JOIN "EmbRouter_AutoRouterBaselineComparison" AS comparison USING (scope) '
                 "WHERE comparison.retired AND comparison.updated_at < $1::timestamptz "
                 "LIMIT $2::int)",
                 cutoff,
@@ -546,8 +546,8 @@ class BaselineAccountingStore:
                 if not rows or rows[0].retired or rows[0].revision == rows[0].published_revision:
                     return "unchanged"
                 missing_log: Final = await db.query_raw(
-                    'SELECT 1 FROM "LiteLLM_AutoRouterBaselineObservation" AS observation '
-                    'WHERE scope=$1 AND publication IS NULL AND NOT EXISTS (SELECT 1 FROM "LiteLLM_SpendLogs" AS log '
+                    'SELECT 1 FROM "EmbRouter_AutoRouterBaselineObservation" AS observation '
+                    'WHERE scope=$1 AND publication IS NULL AND NOT EXISTS (SELECT 1 FROM "EmbRouter_SpendLogs" AS log '
                     "WHERE log.request_id=observation.request_id) LIMIT 1",
                     scope,
                 )
@@ -560,7 +560,7 @@ class BaselineAccountingStore:
                     else BaselineHistory(equivalent=state.initial_equivalent)
                 )
                 changed: Final = await db.query_raw(
-                    'SELECT 1 FROM "LiteLLM_AutoRouterBaselineObservation" '
+                    'SELECT 1 FROM "EmbRouter_AutoRouterBaselineObservation" '
                     "WHERE scope = $1 AND revision > $2::bigint AND started_at <= $3::float8 LIMIT 1",
                     scope,
                     state.published_revision,
@@ -575,7 +575,7 @@ class BaselineAccountingStore:
                     )
                     await _publish(db, updates)
                 await db.execute_raw(
-                    'UPDATE "LiteLLM_AutoRouterBaselineComparison" '
+                    'UPDATE "EmbRouter_AutoRouterBaselineComparison" '
                     "SET published_revision = revision, history = $2 WHERE scope = $1",
                     scope,
                     _HISTORY.dump_json(history).decode(),
@@ -593,12 +593,12 @@ class _Scope(BaseModel):
 _SCOPES: Final = TypeAdapter(tuple[_Scope, ...])
 _CLAIM_DIRTY: Final = """
 WITH candidates AS (
-    SELECT scope FROM "LiteLLM_AutoRouterBaselineComparison"
+    SELECT scope FROM "EmbRouter_AutoRouterBaselineComparison"
     WHERE NOT retired AND revision <> published_revision
       AND (attempted_at IS NULL OR attempted_at < CURRENT_TIMESTAMP - INTERVAL '30 seconds')
     ORDER BY attempted_at NULLS FIRST, updated_at, scope LIMIT 32 FOR UPDATE SKIP LOCKED
 )
-UPDATE "LiteLLM_AutoRouterBaselineComparison" AS comparison
+UPDATE "EmbRouter_AutoRouterBaselineComparison" AS comparison
 SET attempted_at = CURRENT_TIMESTAMP FROM candidates
 WHERE comparison.scope = candidates.scope RETURNING comparison.scope
 """
@@ -618,7 +618,7 @@ async def _flush_records(
 
 
 async def flush_baseline_accounting(client: PrismaClient) -> None:
-    from litellm.proxy.utils import request_spend_log_flush
+    from embrouter.proxy.utils import request_spend_log_flush
 
     store: Final = BaselineAccountingStore.for_client(client)
     async with client.baseline_accounting_lock:

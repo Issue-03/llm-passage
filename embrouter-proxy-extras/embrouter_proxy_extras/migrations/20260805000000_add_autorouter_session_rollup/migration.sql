@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS "LiteLLM_AutoRouterSession" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_AutoRouterSession" (
     "api_key" TEXT NOT NULL,
     "session_id" TEXT NOT NULL,
     "router_name" TEXT NOT NULL,
@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS "LiteLLM_AutoRouterSession" (
     "spend" DOUBLE PRECISION NOT NULL DEFAULT 0,
     "saved_spend" DOUBLE PRECISION NOT NULL DEFAULT 0,
 
-    CONSTRAINT "LiteLLM_AutoRouterSession_pkey" PRIMARY KEY ("api_key", "session_id", "router_name")
+    CONSTRAINT "EmbRouter_AutoRouterSession_pkey" PRIMARY KEY ("api_key", "session_id", "router_name")
 );
 
-CREATE INDEX IF NOT EXISTS "idx_autorouter_session_last_turn" ON "LiteLLM_AutoRouterSession"("last_turn_at");
+CREATE INDEX IF NOT EXISTS "idx_autorouter_session_last_turn" ON "EmbRouter_AutoRouterSession"("last_turn_at");

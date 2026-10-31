@@ -31,7 +31,7 @@ const tag: Tag = {
   model_info: { "model-1": "GPT-4", "model-2": "Claude-3" },
   created_at: "2024-01-01T00:00:00Z",
   updated_at: "2024-01-02T00:00:00Z",
-  litellm_budget_table: { max_budget: 10, budget_duration: "7d", tpm_limit: 1000, rpm_limit: 60 },
+  embrouter_budget_table: { max_budget: 10, budget_duration: "7d", tpm_limit: 1000, rpm_limit: 60 },
 };
 
 const renderEditor = async () => {

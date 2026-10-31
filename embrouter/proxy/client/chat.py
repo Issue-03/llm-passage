@@ -13,7 +13,7 @@ class ChatClient:
         Initialize the ChatClient.
 
         Args:
-            base_url (str): The base URL of the LiteLLM proxy server (e.g., "http://localhost:8000")
+            base_url (str): The base URL of the EmbRouter proxy server (e.g., "http://localhost:8000")
             api_key (Optional[str]): API key for authentication. If provided, it will be sent as a Bearer token.
             timeout (int): Request timeout in seconds (default: 600, the OpenAI SDK default, since a completion
                 can legitimately take minutes)

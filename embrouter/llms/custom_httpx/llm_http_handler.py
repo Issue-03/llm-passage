@@ -27,86 +27,86 @@ from httpx._types import FileContent
 from openai.types.file_deleted import FileDeleted
 from typing_extensions import ReadOnly
 
-import litellm
-import litellm.litellm_core_utils
-import litellm.types
-import litellm.types.utils
-from litellm._logging import _redact_string, verbose_logger
-from litellm.anthropic_beta_headers_manager import update_headers_with_filtered_beta
-from litellm.constants import MAX_FILE_LIST_LIMIT, REALTIME_WEBSOCKET_MAX_MESSAGE_SIZE_BYTES
-from litellm.files.types import FileContentStreamingResult
-from litellm.litellm_core_utils.agentic_followup_kwargs import build_agentic_followup_kwargs
-from litellm.litellm_core_utils.agentic_loop_settings import (
+import embrouter
+import embrouter.embrouter_core_utils
+import embrouter.types
+import embrouter.types.utils
+from embrouter._logging import _redact_string, verbose_logger
+from embrouter.anthropic_beta_headers_manager import update_headers_with_filtered_beta
+from embrouter.constants import MAX_FILE_LIST_LIMIT, REALTIME_WEBSOCKET_MAX_MESSAGE_SIZE_BYTES
+from embrouter.files.types import FileContentStreamingResult
+from embrouter.embrouter_core_utils.agentic_followup_kwargs import build_agentic_followup_kwargs
+from embrouter.embrouter_core_utils.agentic_loop_settings import (
     DEFAULT_MAX_AGENTIC_LOOPS,
     validated_max_agentic_loops,
 )
-from litellm.litellm_core_utils.asyncify import run_async_function
-from litellm.litellm_core_utils.audio_utils.subtitle_utils import (
+from embrouter.embrouter_core_utils.asyncify import run_async_function
+from embrouter.embrouter_core_utils.audio_utils.subtitle_utils import (
     SUBTITLE_RESPONSE_FORMATS,
     synthesize_subtitle_document,
 )
-from litellm.litellm_core_utils.core_helpers import set_provider_response_headers_in_hidden_params
-from litellm.litellm_core_utils.get_litellm_params import AWS_CREDENTIAL_KWARGS_KEYS
-from litellm.litellm_core_utils.llm_request_utils import serialize_multipart_form_fields
-from litellm.litellm_core_utils.realtime_errors import (
+from embrouter.embrouter_core_utils.core_helpers import set_provider_response_headers_in_hidden_params
+from embrouter.embrouter_core_utils.get_embrouter_params import AWS_CREDENTIAL_KWARGS_KEYS
+from embrouter.embrouter_core_utils.llm_request_utils import serialize_multipart_form_fields
+from embrouter.embrouter_core_utils.realtime_errors import (
     close_after_upstream_handshake_refusal,
     realtime_error_event,
     websocket_close_reason,
 )
-from litellm.litellm_core_utils.realtime_streaming import RealTimeStreaming
-from litellm.litellm_core_utils.url_utils import encode_url_path_segment
-from litellm.llms.base_llm.anthropic_messages.transformation import (
+from embrouter.embrouter_core_utils.realtime_streaming import RealTimeStreaming
+from embrouter.embrouter_core_utils.url_utils import encode_url_path_segment
+from embrouter.llms.base_llm.anthropic_messages.transformation import (
     BaseAnthropicMessagesConfig,
 )
-from litellm.llms.base_llm.audio_transcription.transformation import (
+from embrouter.llms.base_llm.audio_transcription.transformation import (
     BaseAudioTranscriptionConfig,
 )
-from litellm.llms.base_llm.base_model_iterator import (
+from embrouter.llms.base_llm.base_model_iterator import (
     BaseModelResponseIterator,
     MockResponseIterator,
 )
-from litellm.llms.base_llm.batches.transformation import BaseBatchesConfig
-from litellm.llms.base_llm.chat.transformation import BaseConfig, BaseLLMException
-from litellm.llms.base_llm.containers.transformation import BaseContainerConfig
-from litellm.llms.base_llm.embedding.transformation import BaseEmbeddingConfig
-from litellm.llms.base_llm.evals.transformation import BaseEvalsAPIConfig
-from litellm.llms.base_llm.files.transformation import (
+from embrouter.llms.base_llm.batches.transformation import BaseBatchesConfig
+from embrouter.llms.base_llm.chat.transformation import BaseConfig, BaseLLMException
+from embrouter.llms.base_llm.containers.transformation import BaseContainerConfig
+from embrouter.llms.base_llm.embedding.transformation import BaseEmbeddingConfig
+from embrouter.llms.base_llm.evals.transformation import BaseEvalsAPIConfig
+from embrouter.llms.base_llm.files.transformation import (
     BaseFilesConfig,
     BaseFileUploadStream,
 )
-from litellm.llms.base_llm.google_genai.transformation import (
+from embrouter.llms.base_llm.google_genai.transformation import (
     BaseGoogleGenAIGenerateContentConfig,
 )
-from litellm.llms.base_llm.image_edit.transformation import BaseImageEditConfig
-from litellm.llms.base_llm.image_generation.transformation import (
+from embrouter.llms.base_llm.image_edit.transformation import BaseImageEditConfig
+from embrouter.llms.base_llm.image_generation.transformation import (
     BaseImageGenerationConfig,
 )
-from litellm.llms.base_llm.realtime.http_transformation import BaseRealtimeHTTPConfig
-from litellm.llms.base_llm.realtime.transformation import BaseRealtimeConfig
-from litellm.llms.base_llm.rerank.transformation import BaseRerankConfig
-from litellm.llms.base_llm.responses.transformation import BaseResponsesAPIConfig
-from litellm.llms.base_llm.search.transformation import BaseSearchConfig, SearchResponse
-from litellm.llms.base_llm.skills.transformation import BaseSkillsAPIConfig
-from litellm.llms.base_llm.text_to_speech.transformation import BaseTextToSpeechConfig
-from litellm.llms.base_llm.vector_store.transformation import (
+from embrouter.llms.base_llm.realtime.http_transformation import BaseRealtimeHTTPConfig
+from embrouter.llms.base_llm.realtime.transformation import BaseRealtimeConfig
+from embrouter.llms.base_llm.rerank.transformation import BaseRerankConfig
+from embrouter.llms.base_llm.responses.transformation import BaseResponsesAPIConfig
+from embrouter.llms.base_llm.search.transformation import BaseSearchConfig, SearchResponse
+from embrouter.llms.base_llm.skills.transformation import BaseSkillsAPIConfig
+from embrouter.llms.base_llm.text_to_speech.transformation import BaseTextToSpeechConfig
+from embrouter.llms.base_llm.vector_store.transformation import (
     BaseDirectVectorStoreConfig,
     BaseQueryEmbeddingVectorStoreConfig,
     BaseVectorStoreConfig,
     VectorStoreEmbeddingExecutor,
 )
-from litellm.llms.base_llm.vector_store_files.transformation import (
+from embrouter.llms.base_llm.vector_store_files.transformation import (
     BaseVectorStoreFilesConfig,
 )
-from litellm.llms.base_llm.videos.transformation import BaseVideoConfig
-from litellm.llms.bedrock.base_aws_llm import SignsRequestsWithAWS, run_aws_signing, sign_request_off_loop_if_aws
-from litellm.llms.custom_httpx.container_handler import raise_for_error_status
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.llms.base_llm.videos.transformation import BaseVideoConfig
+from embrouter.llms.bedrock.base_aws_llm import SignsRequestsWithAWS, run_aws_signing, sign_request_off_loop_if_aws
+from embrouter.llms.custom_httpx.container_handler import raise_for_error_status
+from embrouter.llms.custom_httpx.http_handler import (
     AsyncHTTPHandler,
     HTTPHandler,
     _get_httpx_client,
     get_async_httpx_client,
 )
-from litellm.responses.streaming_iterator import (
+from embrouter.responses.streaming_iterator import (
     BaseResponsesAPIStreamingIterator,
     MockResponsesAPIStreamingIterator,
     ProjectQuotaCallback,
@@ -114,14 +114,14 @@ from litellm.responses.streaming_iterator import (
     ResponsesWebSocketStreaming,
     SyncResponsesAPIStreamingIterator,
 )
-from litellm.types.containers.main import (
+from embrouter.types.containers.main import (
     ContainerFileListResponse,
     ContainerListResponse,
     ContainerObject,
     DeleteContainerResult,
 )
-from litellm.types.files import StreamingMediaUploadConfig, TwoStepFileUploadConfig
-from litellm.types.integrations.custom_logger import (
+from embrouter.types.files import StreamingMediaUploadConfig, TwoStepFileUploadConfig
+from embrouter.types.integrations.custom_logger import (
     NON_CODE_INTERPRETER_INTERCEPTION_INTERNAL_PREFIXES,
     AgenticLoopPlan,
     AgenticLoopRequestPatch,
@@ -129,15 +129,15 @@ from litellm.types.integrations.custom_logger import (
     converted_stream_requested,
     is_interception_internal_key,
 )
-from litellm.types.llms.anthropic_messages.anthropic_response import (
+from embrouter.types.llms.anthropic_messages.anthropic_response import (
     AnthropicMessagesResponse,
 )
-from litellm.types.llms.anthropic_skills import (
+from embrouter.types.llms.anthropic_skills import (
     DeleteSkillResponse,
     ListSkillsResponse,
     Skill,
 )
-from litellm.types.llms.openai import (
+from embrouter.types.llms.openai import (
     AllMessageValues,
     CreateBatchRequest,
     CreateFileRequest,
@@ -148,19 +148,19 @@ from litellm.types.llms.openai import (
     ResponsesAPIOptionalRequestParams,
     ResponsesAPIResponse,
 )
-from litellm.types.realtime import RealtimeQueryParams
-from litellm.types.rerank import RerankResponse
-from litellm.types.responses.main import DeleteResponseResult
-from litellm.types.responses.streaming_websocket import ResponsesWebSocketRequestDefaults
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import (
+from embrouter.types.realtime import RealtimeQueryParams
+from embrouter.types.rerank import RerankResponse
+from embrouter.types.responses.main import DeleteResponseResult
+from embrouter.types.responses.streaming_websocket import ResponsesWebSocketRequestDefaults
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import (
     CallTypes,
     EmbeddingResponse,
     FileTypes,
-    LiteLLMBatch,
+    EmbRouterBatch,
     TranscriptionResponse,
 )
-from litellm.types.vector_store_files import (
+from embrouter.types.vector_store_files import (
     VectorStoreFileContentResponse,
     VectorStoreFileCreateRequest,
     VectorStoreFileDeleteResponse,
@@ -169,14 +169,14 @@ from litellm.types.vector_store_files import (
     VectorStoreFileObject,
     VectorStoreFileUpdateRequest,
 )
-from litellm.types.vector_stores import (
+from embrouter.types.vector_stores import (
     VectorStoreCreateOptionalRequestParams,
     VectorStoreCreateResponse,
     VectorStoreSearchOptionalRequestParams,
     VectorStoreSearchResponse,
 )
-from litellm.types.videos.main import VideoObject
-from litellm.utils import (
+from embrouter.types.videos.main import VideoObject
+from embrouter.utils import (
     CustomStreamWrapper,
     ImageResponse,
     ModelResponse,
@@ -188,8 +188,8 @@ from litellm.utils import (
 def _rust_responses_websocket_enabled(
     custom_llm_provider: str | None,
 ) -> bool:
-    from litellm.rust_bridge.catalog import Route, RouteContext, decision
-    from litellm.rust_bridge.configuration import Decision
+    from embrouter.rust_bridge.catalog import Route, RouteContext, decision
+    from embrouter.rust_bridge.configuration import Decision
 
     context: Final = RouteContext(Route.RESPONSES, provider=custom_llm_provider)
     return decision(context) is not Decision.PYTHON
@@ -201,17 +201,17 @@ if TYPE_CHECKING:
     from aiohttp import ClientSession
     from websockets.asyncio.client import ClientConnection
 
-    from litellm.google_genai.streaming_iterator import AsyncGoogleGenAIGenerateContentStreamingIterator
-    from litellm.integrations.custom_logger import CustomLogger
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
-    from litellm.llms.anthropic.pass_through.messages.fake_stream_iterator import (
+    from embrouter.google_genai.streaming_iterator import AsyncGoogleGenAIGenerateContentStreamingIterator
+    from embrouter.integrations.custom_logger import CustomLogger
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.llms.anthropic.pass_through.messages.fake_stream_iterator import (
         FakeAnthropicMessagesStreamIterator,
     )
-    from litellm.llms.base_llm.passthrough.transformation import BasePassthroughConfig
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.types.google_genai.main import GenerateContentResponse
-    from litellm.types.llms.openai_evals import (
+    from embrouter.llms.base_llm.passthrough.transformation import BasePassthroughConfig
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.types.google_genai.main import GenerateContentResponse
+    from embrouter.types.llms.openai_evals import (
         CancelEvalResponse,
         CancelRunResponse,
         DeleteEvalResponse,
@@ -222,9 +222,9 @@ if TYPE_CHECKING:
         RunDeleteResponse,
     )
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 
 class _RealtimeClientWebSocket(Protocol):
@@ -291,14 +291,14 @@ def _signed_body_kwargs(*, signed_body: bytes | None, data: dict[str, object]) -
 def _google_genai_streaming_hidden_params(
     *,
     api_base: str,
-    litellm_params: GenericLiteLLMParams,
-    logging_obj: LiteLLMLoggingObj,
+    embrouter_params: GenericEmbRouterParams,
+    logging_obj: EmbRouterLoggingObj,
     response_headers: httpx.Headers,
 ) -> dict[str, object]:
     """Pre-stream metadata for proxy response headers (mirrors CustomStreamWrapper._hidden_params)."""
-    from litellm.litellm_core_utils.core_helpers import process_response_headers
+    from embrouter.embrouter_core_utils.core_helpers import process_response_headers
 
-    _model_info: Final[Mapping[str, object]] = dict(getattr(litellm_params, "model_info", None) or {})
+    _model_info: Final[Mapping[str, object]] = dict(getattr(embrouter_params, "model_info", None) or {})
     _raw_id: Final = _model_info.get("id") or logging_obj.get_router_model_id() or ""
     _model_id: Final = _raw_id if isinstance(_raw_id, str) else str(_raw_id)
     return {
@@ -315,14 +315,14 @@ def _responses_api_optional_request_param_names() -> frozenset[str]:
     return frozenset(get_type_hints(ResponsesAPIOptionalRequestParams).keys())
 
 
-def _custom_logger_callbacks(logging_obj: LiteLLMLoggingObj) -> list["CustomLogger"]:
-    from litellm.integrations.custom_logger import CustomLogger
-    from litellm.litellm_core_utils.litellm_logging import (
+def _custom_logger_callbacks(logging_obj: EmbRouterLoggingObj) -> list["CustomLogger"]:
+    from embrouter.integrations.custom_logger import CustomLogger
+    from embrouter.embrouter_core_utils.embrouter_logging import (
         get_custom_logger_compatible_class,
     )
 
     dynamic_success_callbacks: Final = getattr(logging_obj, "dynamic_success_callbacks", None)
-    callbacks: Final = list(litellm.callbacks)
+    callbacks: Final = list(embrouter.callbacks)
     if isinstance(dynamic_success_callbacks, (list, tuple)):
         callbacks.extend(dynamic_success_callbacks)
 
@@ -338,8 +338,8 @@ def _custom_logger_callbacks(logging_obj: LiteLLMLoggingObj) -> list["CustomLogg
     return custom_loggers
 
 
-def _has_pre_call_deployment_hook(logging_obj: LiteLLMLoggingObj) -> bool:
-    from litellm.integrations.custom_logger import CustomLogger
+def _has_pre_call_deployment_hook(logging_obj: EmbRouterLoggingObj) -> bool:
+    from embrouter.integrations.custom_logger import CustomLogger
 
     base_func: Final = CustomLogger.async_pre_call_deployment_hook
     for cb in _custom_logger_callbacks(logging_obj):
@@ -359,7 +359,7 @@ def _mask_presigned_request_headers(transformed_request: bytes | str | dict) -> 
     if not isinstance(request_headers, dict):
         return transformed_request
 
-    from litellm.litellm_core_utils.litellm_logging import (
+    from embrouter.embrouter_core_utils.embrouter_logging import (
         _get_masked_values,  # pyright: ignore[reportPrivateUsage]  # the shared header-masking helper has no public name
     )
 
@@ -370,13 +370,13 @@ def _mask_presigned_request_headers(transformed_request: bytes | str | dict) -> 
 
 
 def _aws_signing_overrides(
-    optional_params: Mapping[str, object], litellm_params: Mapping[str, object]
+    optional_params: Mapping[str, object], embrouter_params: Mapping[str, object]
 ) -> Mapping[str, object]:
     return MappingProxyType(
         {
-            key: litellm_params[key]
+            key: embrouter_params[key]
             for key in AWS_CREDENTIAL_KWARGS_KEYS
-            if optional_params.get(key) is None and litellm_params.get(key) is not None
+            if optional_params.get(key) is None and embrouter_params.get(key) is not None
         }
     )
 
@@ -420,14 +420,14 @@ def _collect_ws_project_quota_callbacks() -> tuple[ProjectQuotaCallback, ...]:
     enforcement, so the Responses WebSocket loop can charge every
     ``response.create`` frame, not just the connection's first one.
 
-    Uses duck-typing on ``litellm.callbacks`` (rather than importing the
+    Uses duck-typing on ``embrouter.callbacks`` (rather than importing the
     proxy hook directly) to avoid a layering violation (SDK importing from
     the proxy layer).
     """
-    import litellm as _litellm
+    import embrouter as _embrouter
 
     callbacks: Final = cast(  # cast-ok: callback registry is inspected before protocol use
-        Sequence[object], _litellm.callbacks
+        Sequence[object], _embrouter.callbacks
     )
     return tuple(
         cast(ProjectQuotaCallback, callback)  # cast-ok: required callback method is callable
@@ -445,8 +445,8 @@ class BaseLLMHTTPHandler:
         headers: dict,
         data: dict,
         timeout: float | httpx.Timeout,
-        litellm_params: dict,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: dict,
+        logging_obj: EmbRouterLoggingObj,
         stream: bool = False,
         signed_json_body: bytes | None = None,
     ) -> httpx.Response:
@@ -467,7 +467,7 @@ class BaseLLMHTTPHandler:
             except httpx.HTTPStatusError as e:
                 hit_max_retry = i + 1 == max_retry_on_unprocessable_entity_error
                 should_retry = provider_config.should_retry_llm_api_inside_llm_translation_on_http_error(
-                    e=e, litellm_params=litellm_params
+                    e=e, embrouter_params=embrouter_params
                 )
                 if should_retry and not hit_max_retry:
                     data = provider_config.transform_request_on_unprocessable_entity_error(e=e, request_data=data)
@@ -495,8 +495,8 @@ class BaseLLMHTTPHandler:
         headers: dict,
         data: dict,
         timeout: float | httpx.Timeout,
-        litellm_params: dict,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: dict,
+        logging_obj: EmbRouterLoggingObj,
         stream: bool = False,
         signed_json_body: bytes | None = None,
     ) -> httpx.Response:
@@ -517,7 +517,7 @@ class BaseLLMHTTPHandler:
             except httpx.HTTPStatusError as e:
                 hit_max_retry = i + 1 == max_retry_on_unprocessable_entity_error
                 should_retry = provider_config.should_retry_llm_api_inside_llm_translation_on_http_error(
-                    e=e, litellm_params=litellm_params
+                    e=e, embrouter_params=embrouter_params
                 )
                 if should_retry and not hit_max_retry:
                     data = provider_config.transform_request_on_unprocessable_entity_error(e=e, request_data=data)
@@ -547,10 +547,10 @@ class BaseLLMHTTPHandler:
         timeout: float | httpx.Timeout,
         model: str,
         model_response: ModelResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         messages: list,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         client: AsyncHTTPHandler | None = None,
@@ -563,8 +563,8 @@ class BaseLLMHTTPHandler:
                 "Creating HTTP client with shared_session: %s", id(shared_session) if shared_session else None
             )
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders(custom_llm_provider),
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders(custom_llm_provider),
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
                 shared_session=shared_session,
             )
         else:
@@ -577,7 +577,7 @@ class BaseLLMHTTPHandler:
             headers=headers,
             data=data,
             timeout=timeout,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             stream=False,
             logging_obj=logging_obj,
             signed_json_body=signed_json_body,
@@ -591,7 +591,7 @@ class BaseLLMHTTPHandler:
             request_data=data,
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             encoding=encoding,
             json_mode=json_mode,
         )
@@ -605,7 +605,7 @@ class BaseLLMHTTPHandler:
             logging_obj=logging_obj,
             stream=False,
             custom_llm_provider=custom_llm_provider,
-            kwargs=litellm_params,
+            kwargs=embrouter_params,
         )
 
         return final_response if final_response is not None else initial_response
@@ -618,10 +618,10 @@ class BaseLLMHTTPHandler:
         custom_llm_provider: str,
         model_response: ModelResponse,
         encoding: "Tokenizer | None",
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         optional_params: dict,
         timeout: float | httpx.Timeout,
-        litellm_params: dict,
+        embrouter_params: dict,
         acompletion: bool,
         stream: bool | None = False,
         fake_stream: bool = False,
@@ -635,7 +635,7 @@ class BaseLLMHTTPHandler:
         extra_body: Final[Mapping[str, object] | None] = optional_params.pop("extra_body", None)
 
         provider_config = provider_config or ProviderConfigManager.get_provider_chat_config(
-            model=model, provider=litellm.LlmProviders(custom_llm_provider)
+            model=model, provider=embrouter.LlmProviders(custom_llm_provider)
         )
         if provider_config is None:
             raise ValueError(f"Provider config not found for model: {model} and provider: {custom_llm_provider}")
@@ -656,7 +656,7 @@ class BaseLLMHTTPHandler:
                 messages=messages,
                 optional_params=optional_params,
                 api_base=api_base,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
             ),
         )
 
@@ -666,7 +666,7 @@ class BaseLLMHTTPHandler:
             model=model,
             optional_params=optional_params,
             stream=stream,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
         def sign_and_log(
@@ -676,7 +676,7 @@ class BaseLLMHTTPHandler:
                 {
                     **transformed,
                     **provider_config.transform_extra_body(
-                        extra_body=extra_body, request=transformed, model=model, litellm_params=litellm_params
+                        extra_body=extra_body, request=transformed, model=model, embrouter_params=embrouter_params
                     ),
                 }
                 if extra_body is not None
@@ -688,7 +688,7 @@ class BaseLLMHTTPHandler:
                     headers=request_headers,
                     optional_params={
                         **optional_params,
-                        **_aws_signing_overrides(optional_params, litellm_params),
+                        **_aws_signing_overrides(optional_params, embrouter_params),
                     },
                     request_data=data,
                     api_base=api_base,
@@ -707,7 +707,7 @@ class BaseLLMHTTPHandler:
                     "headers": signed[0],
                 },
             )
-            if litellm_params.get("_websearch_interception_converted_stream", False):
+            if embrouter_params.get("_websearch_interception_converted_stream", False):
                 logging_obj.model_call_details["websearch_interception_converted_stream"] = True
             return data, signed[0], signed[1]
 
@@ -734,7 +734,7 @@ class BaseLLMHTTPHandler:
                     ),
                     fake_stream=fake_stream,
                     client=async_client,
-                    litellm_params=litellm_params,
+                    embrouter_params=embrouter_params,
                     json_mode=json_mode,
                     optional_params=optional_params,
                     signed_json_body=signed_json_body,
@@ -752,7 +752,7 @@ class BaseLLMHTTPHandler:
                 api_key=api_key,
                 messages=messages,
                 optional_params=optional_params,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 encoding=encoding,
                 client=async_client,
                 json_mode=json_mode,
@@ -769,7 +769,7 @@ class BaseLLMHTTPHandler:
                         model=model,
                         messages=messages,
                         optional_params=optional_params,
-                        litellm_params=litellm_params,
+                        embrouter_params=embrouter_params,
                         headers=request_headers,
                     ),
                 )
@@ -787,7 +787,7 @@ class BaseLLMHTTPHandler:
                 model=model,
                 messages=messages,
                 optional_params=optional_params,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 headers=request_headers,
             )
         )
@@ -813,7 +813,7 @@ class BaseLLMHTTPHandler:
                     messages=messages,
                     client=client,
                     json_mode=json_mode,
-                    litellm_params=litellm_params,
+                    embrouter_params=embrouter_params,
                 )
             completion_stream, headers = self.make_sync_call(
                 provider_config=provider_config,
@@ -828,7 +828,7 @@ class BaseLLMHTTPHandler:
                 timeout=timeout,
                 fake_stream=fake_stream,
                 client=(client if client is not None and isinstance(client, HTTPHandler) else None),
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 json_mode=json_mode,
                 optional_params=optional_params,
             )
@@ -842,7 +842,7 @@ class BaseLLMHTTPHandler:
 
         if client is None or not isinstance(client, HTTPHandler):
             sync_httpx_client = _get_httpx_client(
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
             )
         else:
             sync_httpx_client = client
@@ -855,7 +855,7 @@ class BaseLLMHTTPHandler:
             data=data,
             signed_json_body=signed_json_body,
             timeout=timeout,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             logging_obj=logging_obj,
         )
         return provider_config.transform_response(
@@ -867,7 +867,7 @@ class BaseLLMHTTPHandler:
             request_data=data,
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             encoding=encoding,
             json_mode=json_mode,
         )
@@ -884,7 +884,7 @@ class BaseLLMHTTPHandler:
         messages: list,
         logging_obj,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         timeout: float | httpx.Timeout,
         fake_stream: bool = False,
         client: HTTPHandler | None = None,
@@ -893,7 +893,7 @@ class BaseLLMHTTPHandler:
         if client is None or not isinstance(client, HTTPHandler):
             sync_httpx_client = _get_httpx_client(
                 {
-                    "ssl_verify": litellm_params.get("ssl_verify", None),
+                    "ssl_verify": embrouter_params.get("ssl_verify", None),
                 }
             )
         else:
@@ -910,7 +910,7 @@ class BaseLLMHTTPHandler:
             data=data,
             signed_json_body=signed_json_body,
             timeout=timeout,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             stream=stream,
             logging_obj=logging_obj,
         )
@@ -919,12 +919,12 @@ class BaseLLMHTTPHandler:
             model_response: Final[ModelResponse] = provider_config.transform_response(
                 model=model,
                 raw_response=response,
-                model_response=litellm.ModelResponse(),
+                model_response=embrouter.ModelResponse(),
                 logging_obj=logging_obj,
                 request_data=original_data,
                 messages=messages,
                 optional_params=optional_params,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 encoding=None,
                 json_mode=json_mode,
             )
@@ -956,9 +956,9 @@ class BaseLLMHTTPHandler:
         headers: dict,
         provider_config: BaseConfig,
         timeout: float | httpx.Timeout,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         data: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         optional_params: dict,
         fake_stream: bool = False,
         client: AsyncHTTPHandler | None = None,
@@ -977,7 +977,7 @@ class BaseLLMHTTPHandler:
                 client=client,
                 json_mode=json_mode,
                 signed_json_body=signed_json_body,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
             )
 
         completion_stream, _response_headers = await self.make_async_call_stream_helper(
@@ -992,7 +992,7 @@ class BaseLLMHTTPHandler:
             timeout=timeout,
             fake_stream=fake_stream,
             client=client,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             optional_params=optional_params,
             json_mode=json_mode,
             signed_json_body=signed_json_body,
@@ -1015,9 +1015,9 @@ class BaseLLMHTTPHandler:
         headers: dict,
         data: dict,
         messages: list,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         timeout: float | httpx.Timeout,
-        litellm_params: dict,
+        embrouter_params: dict,
         optional_params: dict,
         fake_stream: bool = False,
         client: AsyncHTTPHandler | None = None,
@@ -1031,8 +1031,8 @@ class BaseLLMHTTPHandler:
         """
         if client is None:
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders(custom_llm_provider),
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders(custom_llm_provider),
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
             )
         else:
             async_httpx_client = client
@@ -1048,7 +1048,7 @@ class BaseLLMHTTPHandler:
             data=data,
             signed_json_body=signed_json_body,
             timeout=timeout,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             stream=stream,
             logging_obj=logging_obj,
         )
@@ -1057,12 +1057,12 @@ class BaseLLMHTTPHandler:
             model_response: Final[ModelResponse] = provider_config.transform_response(
                 model=model,
                 raw_response=response,
-                model_response=litellm.ModelResponse(),
+                model_response=embrouter.ModelResponse(),
                 logging_obj=logging_obj,
                 request_data=data,
                 messages=messages,
                 optional_params=optional_params,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 encoding=None,
                 json_mode=json_mode,
             )
@@ -1109,10 +1109,10 @@ class BaseLLMHTTPHandler:
         input: list,
         timeout: float,
         custom_llm_provider: str,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_base: str | None,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         model_response: EmbeddingResponse,
         api_key: str | None = None,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
@@ -1120,7 +1120,7 @@ class BaseLLMHTTPHandler:
         headers: dict[str, Any] | None = None,
     ) -> EmbeddingResponse:
         provider_config: Final = ProviderConfigManager.get_provider_embedding_config(
-            model=model, provider=litellm.LlmProviders(custom_llm_provider)
+            model=model, provider=embrouter.LlmProviders(custom_llm_provider)
         )
         if provider_config is None:
             raise ValueError(f"Provider {custom_llm_provider} does not support embedding")
@@ -1132,7 +1132,7 @@ class BaseLLMHTTPHandler:
             model=model,
             messages=[],
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
         api_base = provider_config.get_complete_url(
@@ -1140,7 +1140,7 @@ class BaseLLMHTTPHandler:
             api_key=api_key,
             model=model,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
         data: Final = provider_config.transform_embedding_request(
@@ -1189,12 +1189,12 @@ class BaseLLMHTTPHandler:
                 timeout=timeout,
                 client=client,
                 optional_params=optional_params,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 signed_body=signed_body,
             )
 
         if client is None or not isinstance(client, HTTPHandler):
-            sync_httpx_client = _get_httpx_client(params={"ssl_verify": litellm_params.get("ssl_verify", None)})
+            sync_httpx_client = _get_httpx_client(params={"ssl_verify": embrouter_params.get("ssl_verify", None)})
         else:
             sync_httpx_client = client
 
@@ -1227,7 +1227,7 @@ class BaseLLMHTTPHandler:
             api_key=api_key,
             request_data=data,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
     async def aembedding(
@@ -1239,9 +1239,9 @@ class BaseLLMHTTPHandler:
         custom_llm_provider: str,
         provider_config: BaseEmbeddingConfig,
         model_response: EmbeddingResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         timeout: float | httpx.Timeout | None = None,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
@@ -1249,8 +1249,8 @@ class BaseLLMHTTPHandler:
     ) -> EmbeddingResponse:
         if client is None or not isinstance(client, AsyncHTTPHandler):
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders(custom_llm_provider),
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders(custom_llm_provider),
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
             )
         else:
             async_httpx_client = client
@@ -1281,14 +1281,14 @@ class BaseLLMHTTPHandler:
             api_key=api_key,
             request_data=request_data,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
     def rerank(
         self,
         model: str,
         custom_llm_provider: str,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         provider_config: BaseRerankConfig,
         optional_rerank_params: dict,
         timeout: float | httpx.Timeout | None,
@@ -1298,7 +1298,7 @@ class BaseLLMHTTPHandler:
         api_key: str | None = None,
         api_base: str | None = None,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
-        litellm_params: dict[str, Any] | None = None,
+        embrouter_params: dict[str, Any] | None = None,
     ) -> RerankResponse:
         # get config from model, custom llm provider
         headers = provider_config.validate_environment(
@@ -1306,7 +1306,7 @@ class BaseLLMHTTPHandler:
             headers=headers or {},
             model=model,
             optional_params=optional_rerank_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
         api_base = provider_config.get_complete_url(
@@ -1319,7 +1319,7 @@ class BaseLLMHTTPHandler:
             model=model,
             optional_rerank_params=optional_rerank_params,
             headers=headers,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
         ## LOGGING
@@ -1381,7 +1381,7 @@ class BaseLLMHTTPHandler:
         request_data: dict,
         custom_llm_provider: str,
         provider_config: BaseRerankConfig,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         model_response: RerankResponse,
         api_base: str,
         headers: dict,
@@ -1390,7 +1390,7 @@ class BaseLLMHTTPHandler:
         client: HTTPHandler | AsyncHTTPHandler | None = None,
     ) -> RerankResponse:
         if client is None or not isinstance(client, AsyncHTTPHandler):
-            async_httpx_client = get_async_httpx_client(llm_provider=litellm.LlmProviders(custom_llm_provider))
+            async_httpx_client = get_async_httpx_client(llm_provider=embrouter.LlmProviders(custom_llm_provider))
         else:
             async_httpx_client = client
         try:
@@ -1418,8 +1418,8 @@ class BaseLLMHTTPHandler:
         model: str,
         audio_file: FileTypes,
         optional_params: dict,
-        litellm_params: dict,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: dict,
+        logging_obj: EmbRouterLoggingObj,
         api_key: str | None,
         api_base: str | None,
         headers: dict[str, object] | None,
@@ -1430,7 +1430,7 @@ class BaseLLMHTTPHandler:
         Returns: (headers, complete_url, data, files)
         """
         # Handle the response based on type
-        from litellm.llms.base_llm.audio_transcription.transformation import (
+        from embrouter.llms.base_llm.audio_transcription.transformation import (
             AudioTranscriptionRequestData,
         )
 
@@ -1440,7 +1440,7 @@ class BaseLLMHTTPHandler:
             model=model,
             messages=[],
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
         complete_url: Final = provider_config.get_complete_url(
@@ -1448,7 +1448,7 @@ class BaseLLMHTTPHandler:
             api_key=api_key,
             model=model,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
         # Transform the request to get data
@@ -1456,7 +1456,7 @@ class BaseLLMHTTPHandler:
             model=model,
             audio_file=audio_file,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
         # All providers now return AudioTranscriptionRequestData
@@ -1487,7 +1487,7 @@ class BaseLLMHTTPHandler:
         model: str,
         response: httpx.Response,
         model_response: TranscriptionResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         optional_params: dict,
         api_key: str | None,
     ) -> TranscriptionResponse:
@@ -1516,11 +1516,11 @@ class BaseLLMHTTPHandler:
         model: str,
         audio_file: FileTypes,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         model_response: TranscriptionResponse,
         timeout: float,
         max_retries: int,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_key: str | None,
         api_base: str | None,
         custom_llm_provider: str,
@@ -1538,7 +1538,7 @@ class BaseLLMHTTPHandler:
                 model=model,
                 audio_file=audio_file,
                 optional_params=optional_params,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 model_response=model_response,
                 timeout=timeout,
                 max_retries=max_retries,
@@ -1562,7 +1562,7 @@ class BaseLLMHTTPHandler:
             model=model,
             audio_file=audio_file,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             logging_obj=logging_obj,
             api_key=api_key,
             api_base=api_base,
@@ -1602,11 +1602,11 @@ class BaseLLMHTTPHandler:
         model: str,
         audio_file: FileTypes,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         model_response: TranscriptionResponse,
         timeout: float,
         max_retries: int,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_key: str | None,
         api_base: str | None,
         custom_llm_provider: str,
@@ -1628,7 +1628,7 @@ class BaseLLMHTTPHandler:
             model=model,
             audio_file=audio_file,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             logging_obj=logging_obj,
             api_key=api_key,
             api_base=api_base,
@@ -1638,8 +1638,8 @@ class BaseLLMHTTPHandler:
 
         if client is None or not isinstance(client, AsyncHTTPHandler):
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders(custom_llm_provider),
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders(custom_llm_provider),
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
                 shared_session=shared_session,
             )
         else:
@@ -1674,7 +1674,7 @@ class BaseLLMHTTPHandler:
         query: str | list[str],
         optional_params: dict,
         timeout: float | httpx.Timeout,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_key: str | None,
         api_base: str | None,
         custom_llm_provider: str,
@@ -1783,7 +1783,7 @@ class BaseLLMHTTPHandler:
         query: str | list[str],
         optional_params: dict,
         timeout: float | httpx.Timeout,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_key: str | None,
         api_base: str | None,
         custom_llm_provider: str,
@@ -1844,7 +1844,7 @@ class BaseLLMHTTPHandler:
 
         if client is None or not isinstance(client, AsyncHTTPHandler):
             # For search providers, use special Search provider type
-            from litellm.types.llms.custom_http import httpxSpecialProvider
+            from embrouter.types.llms.custom_http import httpxSpecialProvider
 
             async_httpx_client = get_async_httpx_client(llm_provider=httpxSpecialProvider.Search)
         else:
@@ -1892,16 +1892,16 @@ class BaseLLMHTTPHandler:
         signed_json_body: str | bytes | None,
         request_body: dict,
         stream: bool,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         provider_config: BaseAnthropicMessagesConfig,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         api_key: str | None,
         model: str,
         timeout: float | httpx.Timeout | None = None,
     ) -> httpx.Response:
         max_attempts: Final = max(provider_config.max_retry_on_anthropic_messages_http_error, 1)
-        litellm_params_dict: Final = dict(litellm_params)
-        optional_params_dict: Final = dict(litellm_params)
+        embrouter_params_dict: Final = dict(embrouter_params)
+        optional_params_dict: Final = dict(embrouter_params)
         for attempt_idx in range(max_attempts):
             try:
                 response = await async_httpx_client.post(
@@ -1917,7 +1917,7 @@ class BaseLLMHTTPHandler:
             except httpx.HTTPStatusError as e:
                 hit_max_attempt = attempt_idx + 1 == max_attempts
                 should_retry = provider_config.should_retry_anthropic_messages_on_http_error(
-                    e=e, litellm_params=litellm_params_dict
+                    e=e, embrouter_params=embrouter_params_dict
                 )
                 if should_retry and not hit_max_attempt:
                     if logging_obj.baseline_cache_context is not None:
@@ -1951,19 +1951,19 @@ class BaseLLMHTTPHandler:
 
     @staticmethod
     def _resolve_anthropic_messages_timeout(
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         stream: bool,
         custom_llm_provider: str,
     ) -> float | httpx.Timeout | None:
-        from litellm.litellm_core_utils.completion_timeout import CompletionTimeout
-        from litellm.litellm_core_utils.request_timeout_resolver import (
+        from embrouter.embrouter_core_utils.completion_timeout import CompletionTimeout
+        from embrouter.embrouter_core_utils.request_timeout_resolver import (
             get_configured_request_timeout,
         )
-        from litellm.utils import supports_httpx_timeout
+        from embrouter.utils import supports_httpx_timeout
 
-        stream_timeout: Final = litellm_params.get("stream_timeout") if stream else None
-        model_timeout: Final = stream_timeout if stream_timeout is not None else litellm_params.get("timeout")
-        request_timeout: Final = litellm_params.get("request_timeout")
+        stream_timeout: Final = embrouter_params.get("stream_timeout") if stream else None
+        model_timeout: Final = stream_timeout if stream_timeout is not None else embrouter_params.get("timeout")
+        request_timeout: Final = embrouter_params.get("request_timeout")
         global_timeout: Final = get_configured_request_timeout()
         if model_timeout is None and request_timeout is None and global_timeout is None:
             return None
@@ -1982,8 +1982,8 @@ class BaseLLMHTTPHandler:
         anthropic_messages_provider_config: BaseAnthropicMessagesConfig,
         anthropic_messages_optional_request_params: dict,
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         client: AsyncHTTPHandler | None = None,
         extra_headers: dict[str, object] | None = None,
         api_key: str | None = None,
@@ -1991,12 +1991,12 @@ class BaseLLMHTTPHandler:
         stream: bool | None = False,
         kwargs: dict[str, Any] | None = None,
     ) -> AnthropicMessagesResponse | AsyncIterator:
-        from litellm.litellm_core_utils.get_provider_specific_headers import (
+        from embrouter.embrouter_core_utils.get_provider_specific_headers import (
             ProviderSpecificHeaderUtils,
         )
 
         if client is None or not isinstance(client, AsyncHTTPHandler):
-            async_httpx_client = get_async_httpx_client(llm_provider=litellm.LlmProviders.ANTHROPIC)
+            async_httpx_client = get_async_httpx_client(llm_provider=embrouter.LlmProviders.ANTHROPIC)
         else:
             async_httpx_client = client
 
@@ -2004,7 +2004,7 @@ class BaseLLMHTTPHandler:
         kwargs = kwargs or {}
         kwargs_for_agentic: Final = self._agentic_hook_kwargs(kwargs=kwargs, api_key=api_key, api_base=api_base)
         provider_specific_header: Final = cast(
-            litellm.types.utils.ProviderSpecificHeader | Sequence[litellm.types.utils.ProviderSpecificHeader] | None,
+            embrouter.types.utils.ProviderSpecificHeader | Sequence[embrouter.types.utils.ProviderSpecificHeader] | None,
             kwargs.get("provider_specific_header", None),
         )
         provider_specific_headers: Final = ProviderSpecificHeaderUtils.get_provider_specific_headers(
@@ -2030,7 +2030,7 @@ class BaseLLMHTTPHandler:
             model=model,
             messages=messages,
             optional_params=anthropic_messages_optional_request_params,
-            litellm_params=dict(litellm_params),
+            embrouter_params=dict(embrouter_params),
             api_key=api_key,
             api_base=api_base,
         )
@@ -2038,9 +2038,9 @@ class BaseLLMHTTPHandler:
         if anthropic_messages_provider_config.should_filter_anthropic_beta_headers():
             headers = update_headers_with_filtered_beta(headers=headers, provider=custom_llm_provider)
 
-        from litellm.llms.vertex_ai.vertex_llm_base import VertexBase
+        from embrouter.llms.vertex_ai.vertex_llm_base import VertexBase
 
-        explicit_vertex_location: Final = VertexBase.explicit_vertex_ai_location(MappingProxyType(dict(litellm_params)))
+        explicit_vertex_location: Final = VertexBase.explicit_vertex_ai_location(MappingProxyType(dict(embrouter_params)))
         vertex_location_params: Final = (
             MappingProxyType({"vertex_location": explicit_vertex_location})
             if explicit_vertex_location
@@ -2050,7 +2050,7 @@ class BaseLLMHTTPHandler:
             kwargs=kwargs,
             model=model,
             optional_params=dict(anthropic_messages_optional_request_params),
-            litellm_params={
+            embrouter_params={
                 "preset_cache_key": None,
                 "stream_response": {},
                 "model_info": kwargs.get("model_info"),
@@ -2060,9 +2060,9 @@ class BaseLLMHTTPHandler:
             custom_llm_provider=custom_llm_provider,
         )
 
-        additional_drop_params: Final[list[str]] = litellm_params.get("additional_drop_params") or []
+        additional_drop_params: Final[list[str]] = embrouter_params.get("additional_drop_params") or []
         if additional_drop_params:
-            from litellm.litellm_core_utils.dot_notation_indexing import delete_nested_value
+            from embrouter.embrouter_core_utils.dot_notation_indexing import delete_nested_value
 
             for path in additional_drop_params:
                 anthropic_messages_optional_request_params = delete_nested_value(
@@ -2074,7 +2074,7 @@ class BaseLLMHTTPHandler:
             model=model,
             messages=messages,
             anthropic_messages_optional_request_params=anthropic_messages_optional_request_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
         logging_obj.stream = stream
@@ -2086,9 +2086,9 @@ class BaseLLMHTTPHandler:
             api_key=api_key,
             model=model,
             optional_params=dict(
-                litellm_params
+                embrouter_params
             ),  # this uses the invoke config, which expects aws_* params in optional_params
-            litellm_params=dict(litellm_params),
+            embrouter_params=dict(embrouter_params),
             stream=stream,
         )
 
@@ -2096,7 +2096,7 @@ class BaseLLMHTTPHandler:
             anthropic_messages_provider_config,
             anthropic_messages_provider_config.sign_request,
             headers=headers,
-            optional_params=dict(litellm_params),  # dynamic aws_* params are passed under litellm_params
+            optional_params=dict(embrouter_params),  # dynamic aws_* params are passed under embrouter_params
             request_data=request_body,
             api_base=request_url,
             api_key=api_key,
@@ -2134,11 +2134,11 @@ class BaseLLMHTTPHandler:
             stream=stream or False,
             logging_obj=logging_obj,
             provider_config=anthropic_messages_provider_config,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             api_key=api_key,
             model=model,
             timeout=self._resolve_anthropic_messages_timeout(
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 stream=stream or False,
                 custom_llm_provider=custom_llm_provider,
             ),
@@ -2149,7 +2149,7 @@ class BaseLLMHTTPHandler:
 
         initial_response: AsyncIterator | AnthropicMessagesResponse
         if stream:
-            from litellm.llms.anthropic.pass_through.messages.streaming_iterator import (
+            from embrouter.llms.anthropic.pass_through.messages.streaming_iterator import (
                 AnthropicMessagesStreamingResponse,
                 anthropic_messages_stream_hidden_params,
             )
@@ -2158,7 +2158,7 @@ class BaseLLMHTTPHandler:
                 model=model,
                 httpx_response=response,
                 request_body=request_body,
-                litellm_logging_obj=logging_obj,
+                embrouter_logging_obj=logging_obj,
             )
             stream_hidden_params: Final = anthropic_messages_stream_hidden_params(response.headers)
 
@@ -2173,7 +2173,7 @@ class BaseLLMHTTPHandler:
                     hidden_params=stream_hidden_params,
                 )
 
-            from litellm.llms.anthropic.pass_through.messages.agentic_streaming_iterator import (
+            from embrouter.llms.anthropic.pass_through.messages.agentic_streaming_iterator import (
                 AgenticAnthropicStreamingIterator,
             )
 
@@ -2224,7 +2224,7 @@ class BaseLLMHTTPHandler:
         messages: list[dict],
         anthropic_messages_provider_config: BaseAnthropicMessagesConfig,
         anthropic_messages_optional_request_params: dict,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         custom_llm_provider: str,
         kwargs: dict[str, object],
     ) -> AnthropicMessagesResponse | AsyncIterator:
@@ -2254,8 +2254,8 @@ class BaseLLMHTTPHandler:
         anthropic_messages_optional_request_params: dict,
         custom_llm_provider: str,
         _is_async: bool,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
         api_key: str | None = None,
         api_base: str | None = None,
@@ -2274,7 +2274,7 @@ class BaseLLMHTTPHandler:
                 anthropic_messages_optional_request_params=anthropic_messages_optional_request_params,
                 client=client if isinstance(client, AsyncHTTPHandler) else None,
                 custom_llm_provider=custom_llm_provider,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 api_key=api_key,
                 api_base=api_base,
@@ -2290,14 +2290,14 @@ class BaseLLMHTTPHandler:
         input: str | ResponseInputParam,
         custom_llm_provider: str,
         response_api_optional_request_params: dict[str, object],
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
     ) -> tuple[
         str,
         str | ResponseInputParam,
         str,
         dict[str, object],
-        GenericLiteLLMParams,
+        GenericEmbRouterParams,
     ]:
         if not _has_pre_call_deployment_hook(logging_obj):
             return (
@@ -2305,13 +2305,13 @@ class BaseLLMHTTPHandler:
                 input,
                 custom_llm_provider,
                 response_api_optional_request_params,
-                litellm_params,
+                embrouter_params,
             )
 
         modified_kwargs: Final = run_async_function(
             async_pre_call_deployment_hook,
             {
-                **dict(litellm_params),
+                **dict(embrouter_params),
                 **response_api_optional_request_params,
                 "model": model,
                 "input": input,
@@ -2325,7 +2325,7 @@ class BaseLLMHTTPHandler:
                 input,
                 custom_llm_provider,
                 response_api_optional_request_params,
-                litellm_params,
+                embrouter_params,
             )
 
         optional_param_names: Final = _responses_api_optional_request_param_names()
@@ -2333,9 +2333,9 @@ class BaseLLMHTTPHandler:
             **response_api_optional_request_params,
             **{key: value for key, value in modified_kwargs.items() if key in optional_param_names},
         }
-        updated_litellm_params: Final = GenericLiteLLMParams(
+        updated_embrouter_params: Final = GenericEmbRouterParams(
             **{
-                **dict(litellm_params),
+                **dict(embrouter_params),
                 **{
                     key: value
                     for key, value in modified_kwargs.items()
@@ -2355,7 +2355,7 @@ class BaseLLMHTTPHandler:
                 else custom_llm_provider
             ),
             updated_response_params,
-            updated_litellm_params,
+            updated_embrouter_params,
         )
 
     def response_api_handler(
@@ -2365,15 +2365,15 @@ class BaseLLMHTTPHandler:
         responses_api_provider_config: BaseResponsesAPIConfig,
         response_api_optional_request_params: dict[str, Any],
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, object] | None = None,
         extra_body: Mapping[str, object] | None = None,
         timeout: float | httpx.Timeout | None = None,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
         _is_async: bool = False,
         fake_stream: bool = False,
-        litellm_metadata: dict[str, object] | None = None,
+        embrouter_metadata: dict[str, object] | None = None,
         shared_session: Optional["ClientSession"] = None,
     ) -> (
         ResponsesAPIResponse
@@ -2397,14 +2397,14 @@ class BaseLLMHTTPHandler:
                 responses_api_provider_config=responses_api_provider_config,
                 response_api_optional_request_params=response_api_optional_request_params,
                 custom_llm_provider=custom_llm_provider,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 extra_headers=extra_headers,
                 extra_body=extra_body,
                 timeout=timeout,
                 client=client if isinstance(client, AsyncHTTPHandler) else None,
                 fake_stream=fake_stream,
-                litellm_metadata=litellm_metadata,
+                embrouter_metadata=embrouter_metadata,
                 shared_session=shared_session,
             )
 
@@ -2413,25 +2413,25 @@ class BaseLLMHTTPHandler:
             input,
             custom_llm_provider,
             response_api_optional_request_params,
-            litellm_params,
+            embrouter_params,
         ) = self._run_sync_responses_pre_call_deployment_hook(
             model=model,
             input=input,
             custom_llm_provider=custom_llm_provider,
             response_api_optional_request_params=response_api_optional_request_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             logging_obj=logging_obj,
         )
 
         if client is None or not isinstance(client, HTTPHandler):
-            sync_httpx_client = _get_httpx_client(params={"ssl_verify": litellm_params.get("ssl_verify", None)})
+            sync_httpx_client = _get_httpx_client(params={"ssl_verify": embrouter_params.get("ssl_verify", None)})
         else:
             sync_httpx_client = client
 
         headers = responses_api_provider_config.validate_environment(
             headers=response_api_optional_request_params.get("extra_headers", {}) or {},
             model=model,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
         if extra_headers:
@@ -2441,15 +2441,15 @@ class BaseLLMHTTPHandler:
         stream = response_api_optional_request_params.get("stream", False)
 
         api_base: Final = responses_api_provider_config.get_complete_url(
-            api_base=litellm_params.api_base,
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.api_base,
+            embrouter_params=dict(embrouter_params),
         )
 
         data = responses_api_provider_config.transform_responses_api_request(
             model=model,
             input=input,
             response_api_optional_request_params=response_api_optional_request_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
         data = BaseResponsesAPIConfig.normalize_responses_api_request_dict(data)
@@ -2457,14 +2457,14 @@ class BaseLLMHTTPHandler:
         if extra_body:
             data.update(
                 responses_api_provider_config.transform_extra_body(
-                    extra_body=extra_body, request=data, model=model, litellm_params=litellm_params
+                    extra_body=extra_body, request=data, model=model, embrouter_params=embrouter_params
                 )
             )
         stream = bool(stream or data.get("stream"))
 
         # Preserve the OpenAI-style request context (not sent to the provider) for streaming
         # hooks/metadata; the streaming iterator now consumes this to run deployment hooks
-        # with the same info as chat, including litellm_params.
+        # with the same info as chat, including embrouter_params.
         request_context: Final[dict[str, object]] = {"input": input}
         try:
             request_context.update(response_api_optional_request_params)
@@ -2472,7 +2472,7 @@ class BaseLLMHTTPHandler:
             pass
         # Needed by streaming callbacks/metadata helpers to reconstruct api_base/model_id
         # but never included in the outbound provider payload.
-        request_context["litellm_params"] = dict(litellm_params)
+        request_context["embrouter_params"] = dict(embrouter_params)
 
         is_stream_request: Final = bool(stream)
         if is_stream_request and fake_stream is True:
@@ -2487,10 +2487,10 @@ class BaseLLMHTTPHandler:
         # that inherit the default sign_request.
         headers, signed_body = responses_api_provider_config.sign_request(
             headers=headers,
-            optional_params=dict(litellm_params),
+            optional_params=dict(embrouter_params),
             request_data=data,
             api_base=api_base,
-            api_key=litellm_params.api_key,
+            api_key=embrouter_params.api_key,
             model=model,
             stream=stream,
             fake_stream=fake_stream,
@@ -2523,7 +2523,7 @@ class BaseLLMHTTPHandler:
                         model=model,
                         logging_obj=logging_obj,
                         responses_api_provider_config=responses_api_provider_config,
-                        litellm_metadata=litellm_metadata,
+                        embrouter_metadata=embrouter_metadata,
                         custom_llm_provider=custom_llm_provider,
                         request_data=request_context,
                         call_type=CallTypes.responses.value,
@@ -2534,7 +2534,7 @@ class BaseLLMHTTPHandler:
                     model=model,
                     logging_obj=logging_obj,
                     responses_api_provider_config=responses_api_provider_config,
-                    litellm_metadata=litellm_metadata,
+                    embrouter_metadata=embrouter_metadata,
                     custom_llm_provider=custom_llm_provider,
                     request_data=request_context,
                     call_type=CallTypes.responses.value,
@@ -2559,7 +2559,7 @@ class BaseLLMHTTPHandler:
         )
 
         if self._has_agentic_completion_hook(logging_obj):
-            agentic_kwargs: Final = dict(litellm_params)  # mutable-ok: agentic hooks mutate kwargs in place
+            agentic_kwargs: Final = dict(embrouter_params)  # mutable-ok: agentic hooks mutate kwargs in place
             final_response: Final = run_async_function(
                 self._call_agentic_completion_hooks,
                 response=initial_response,
@@ -2593,14 +2593,14 @@ class BaseLLMHTTPHandler:
         responses_api_provider_config: BaseResponsesAPIConfig,
         response_api_optional_request_params: dict,
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, object] | None = None,
         extra_body: Mapping[str, object] | None = None,
         timeout: float | httpx.Timeout | None = None,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
         fake_stream: bool = False,
-        litellm_metadata: dict[str, object] | None = None,
+        embrouter_metadata: dict[str, object] | None = None,
         shared_session: Optional["ClientSession"] = None,
     ) -> ResponsesAPIResponse | BaseResponsesAPIStreamingIterator:
         """
@@ -2614,7 +2614,7 @@ class BaseLLMHTTPHandler:
             )
             async_httpx_client = get_async_httpx_client(
                 llm_provider=custom_llm_provider,
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
                 shared_session=shared_session,
             )
         else:
@@ -2623,7 +2623,7 @@ class BaseLLMHTTPHandler:
         headers = responses_api_provider_config.validate_environment(
             headers=response_api_optional_request_params.get("extra_headers", {}) or {},
             model=model,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
         if extra_headers:
@@ -2633,15 +2633,15 @@ class BaseLLMHTTPHandler:
         stream = response_api_optional_request_params.get("stream", False)
 
         api_base: Final = responses_api_provider_config.get_complete_url(
-            api_base=litellm_params.api_base,
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.api_base,
+            embrouter_params=dict(embrouter_params),
         )
 
         data = await responses_api_provider_config.async_transform_responses_api_request(
             model=model,
             input=input,
             response_api_optional_request_params=response_api_optional_request_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
         data = BaseResponsesAPIConfig.normalize_responses_api_request_dict(data)
@@ -2649,14 +2649,14 @@ class BaseLLMHTTPHandler:
         if extra_body:
             data.update(
                 responses_api_provider_config.transform_extra_body(
-                    extra_body=extra_body, request=data, model=model, litellm_params=litellm_params
+                    extra_body=extra_body, request=data, model=model, embrouter_params=embrouter_params
                 )
             )
         stream = bool(stream or data.get("stream"))
 
         # Preserve the OpenAI-style request context (not sent to the provider) for streaming
         # hooks/metadata; the streaming iterator now consumes this to run deployment hooks
-        # with the same info as chat, including litellm_params.
+        # with the same info as chat, including embrouter_params.
         request_context: Final[dict[str, object]] = {"input": input}
         try:
             request_context.update(response_api_optional_request_params)
@@ -2664,7 +2664,7 @@ class BaseLLMHTTPHandler:
             pass
         # Needed by streaming callbacks/metadata helpers to reconstruct api_base/model_id
         # but never included in the outbound provider payload.
-        request_context["litellm_params"] = dict(litellm_params)
+        request_context["embrouter_params"] = dict(embrouter_params)
 
         is_stream_request: Final = bool(stream)
         if is_stream_request and fake_stream is True:
@@ -2678,10 +2678,10 @@ class BaseLLMHTTPHandler:
             responses_api_provider_config,
             responses_api_provider_config.sign_request,
             headers=headers,
-            optional_params=dict(litellm_params),
+            optional_params=dict(embrouter_params),
             request_data=data,
             api_base=api_base,
-            api_key=litellm_params.api_key,
+            api_key=embrouter_params.api_key,
             model=model,
             stream=stream,
             fake_stream=fake_stream,
@@ -2716,7 +2716,7 @@ class BaseLLMHTTPHandler:
                         model=model,
                         logging_obj=logging_obj,
                         responses_api_provider_config=responses_api_provider_config,
-                        litellm_metadata=litellm_metadata,
+                        embrouter_metadata=embrouter_metadata,
                         custom_llm_provider=custom_llm_provider,
                         request_data=request_context,
                         call_type=CallTypes.responses.value,
@@ -2728,7 +2728,7 @@ class BaseLLMHTTPHandler:
                     model=model,
                     logging_obj=logging_obj,
                     responses_api_provider_config=responses_api_provider_config,
-                    litellm_metadata=litellm_metadata,
+                    embrouter_metadata=embrouter_metadata,
                     custom_llm_provider=custom_llm_provider,
                     request_data=request_context,
                     call_type=CallTypes.responses.value,
@@ -2754,7 +2754,7 @@ class BaseLLMHTTPHandler:
             logging_obj=logging_obj,
         )
 
-        agentic_kwargs: Final = dict(litellm_params)  # mutable-ok: agentic hooks mutate kwargs in place
+        agentic_kwargs: Final = dict(embrouter_params)  # mutable-ok: agentic hooks mutate kwargs in place
         final_response: Final = await self._call_agentic_completion_hooks(
             response=initial_response,
             model=model,
@@ -2783,8 +2783,8 @@ class BaseLLMHTTPHandler:
         self,
         response_id: str,
         responses_api_provider_config: BaseResponsesAPIConfig,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         custom_llm_provider: str | None,
         extra_headers: dict[str, object] | None = None,
         extra_body: dict[str, object] | None = None,
@@ -2803,29 +2803,29 @@ class BaseLLMHTTPHandler:
                 id(shared_session) if shared_session else None,
             )
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders(custom_llm_provider),
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders(custom_llm_provider),
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
                 shared_session=shared_session,
             )
         else:
             async_httpx_client = client
 
         headers: Final = responses_api_provider_config.validate_environment(
-            headers=extra_headers or {}, model="None", litellm_params=litellm_params
+            headers=extra_headers or {}, model="None", embrouter_params=embrouter_params
         )
 
         if extra_headers:
             headers.update(extra_headers)
 
         api_base: Final = responses_api_provider_config.get_complete_url(
-            api_base=litellm_params.api_base,
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.api_base,
+            embrouter_params=dict(embrouter_params),
         )
 
         url, data = responses_api_provider_config.transform_delete_response_api_request(
             response_id=response_id,
             api_base=api_base,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
@@ -2868,8 +2868,8 @@ class BaseLLMHTTPHandler:
         self,
         response_id: str,
         responses_api_provider_config: BaseResponsesAPIConfig,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         custom_llm_provider: str | None,
         extra_headers: dict[str, object] | None = None,
         extra_body: dict[str, object] | None = None,
@@ -2886,7 +2886,7 @@ class BaseLLMHTTPHandler:
             return self.async_delete_response_api_handler(
                 response_id=response_id,
                 responses_api_provider_config=responses_api_provider_config,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 custom_llm_provider=custom_llm_provider,
                 extra_headers=extra_headers,
@@ -2896,26 +2896,26 @@ class BaseLLMHTTPHandler:
                 shared_session=shared_session,
             )
         if client is None or not isinstance(client, HTTPHandler):
-            sync_httpx_client = _get_httpx_client(params={"ssl_verify": litellm_params.get("ssl_verify", None)})
+            sync_httpx_client = _get_httpx_client(params={"ssl_verify": embrouter_params.get("ssl_verify", None)})
         else:
             sync_httpx_client = client
 
         headers: Final = responses_api_provider_config.validate_environment(
-            headers=extra_headers or {}, model="None", litellm_params=litellm_params
+            headers=extra_headers or {}, model="None", embrouter_params=embrouter_params
         )
 
         if extra_headers:
             headers.update(extra_headers)
 
         api_base: Final = responses_api_provider_config.get_complete_url(
-            api_base=litellm_params.api_base,
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.api_base,
+            embrouter_params=dict(embrouter_params),
         )
 
         url, data = responses_api_provider_config.transform_delete_response_api_request(
             response_id=response_id,
             api_base=api_base,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
@@ -2958,8 +2958,8 @@ class BaseLLMHTTPHandler:
         self,
         response_id: str,
         responses_api_provider_config: BaseResponsesAPIConfig,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         custom_llm_provider: str | None = None,
         extra_headers: dict[str, object] | None = None,
         extra_body: dict[str, object] | None = None,
@@ -2976,7 +2976,7 @@ class BaseLLMHTTPHandler:
             return self.async_get_responses(
                 response_id=response_id,
                 responses_api_provider_config=responses_api_provider_config,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 custom_llm_provider=custom_llm_provider,
                 extra_headers=extra_headers,
@@ -2987,26 +2987,26 @@ class BaseLLMHTTPHandler:
             )
 
         if client is None or not isinstance(client, HTTPHandler):
-            sync_httpx_client = _get_httpx_client(params={"ssl_verify": litellm_params.get("ssl_verify", None)})
+            sync_httpx_client = _get_httpx_client(params={"ssl_verify": embrouter_params.get("ssl_verify", None)})
         else:
             sync_httpx_client = client
 
         headers: Final = responses_api_provider_config.validate_environment(
-            headers=extra_headers or {}, model="None", litellm_params=litellm_params
+            headers=extra_headers or {}, model="None", embrouter_params=embrouter_params
         )
 
         if extra_headers:
             headers.update(extra_headers)
 
         api_base: Final = responses_api_provider_config.get_complete_url(
-            api_base=litellm_params.api_base,
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.api_base,
+            embrouter_params=dict(embrouter_params),
         )
 
         url, data = responses_api_provider_config.transform_get_response_api_request(
             response_id=response_id,
             api_base=api_base,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
@@ -3039,8 +3039,8 @@ class BaseLLMHTTPHandler:
         self,
         response_id: str,
         responses_api_provider_config: BaseResponsesAPIConfig,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         custom_llm_provider: str | None = None,
         extra_headers: dict[str, object] | None = None,
         extra_body: dict[str, object] | None = None,
@@ -3057,29 +3057,29 @@ class BaseLLMHTTPHandler:
                 id(shared_session) if shared_session else None,
             )
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders(custom_llm_provider),
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders(custom_llm_provider),
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
                 shared_session=shared_session,
             )
         else:
             async_httpx_client = client
 
         headers: Final = responses_api_provider_config.validate_environment(
-            headers=extra_headers or {}, model="None", litellm_params=litellm_params
+            headers=extra_headers or {}, model="None", embrouter_params=embrouter_params
         )
 
         if extra_headers:
             headers.update(extra_headers)
 
         api_base: Final = responses_api_provider_config.get_complete_url(
-            api_base=litellm_params.api_base,
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.api_base,
+            embrouter_params=dict(embrouter_params),
         )
 
         url, data = responses_api_provider_config.transform_get_response_api_request(
             response_id=response_id,
             api_base=api_base,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
@@ -3116,8 +3116,8 @@ class BaseLLMHTTPHandler:
         self,
         response_id: str,
         responses_api_provider_config: BaseResponsesAPIConfig,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         custom_llm_provider: str | None = None,
         after: str | None = None,
         before: str | None = None,
@@ -3134,7 +3134,7 @@ class BaseLLMHTTPHandler:
             return self.async_list_responses_input_items(
                 response_id=response_id,
                 responses_api_provider_config=responses_api_provider_config,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 custom_llm_provider=custom_llm_provider,
                 after=after,
@@ -3149,26 +3149,26 @@ class BaseLLMHTTPHandler:
             )
 
         if client is None or not isinstance(client, HTTPHandler):
-            sync_httpx_client = _get_httpx_client(params={"ssl_verify": litellm_params.get("ssl_verify", None)})
+            sync_httpx_client = _get_httpx_client(params={"ssl_verify": embrouter_params.get("ssl_verify", None)})
         else:
             sync_httpx_client = client
 
         headers: Final = responses_api_provider_config.validate_environment(
-            headers=extra_headers or {}, model="None", litellm_params=litellm_params
+            headers=extra_headers or {}, model="None", embrouter_params=embrouter_params
         )
 
         if extra_headers:
             headers.update(extra_headers)
 
         api_base: Final = responses_api_provider_config.get_complete_url(
-            api_base=litellm_params.api_base,
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.api_base,
+            embrouter_params=dict(embrouter_params),
         )
 
         url, params = responses_api_provider_config.transform_list_input_items_request(
             response_id=response_id,
             api_base=api_base,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
             after=after,
             before=before,
@@ -3202,8 +3202,8 @@ class BaseLLMHTTPHandler:
         self,
         response_id: str,
         responses_api_provider_config: BaseResponsesAPIConfig,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         custom_llm_provider: str | None = None,
         after: str | None = None,
         before: str | None = None,
@@ -3221,29 +3221,29 @@ class BaseLLMHTTPHandler:
                 id(shared_session) if shared_session else None,
             )
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders(custom_llm_provider),
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders(custom_llm_provider),
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
                 shared_session=shared_session,
             )
         else:
             async_httpx_client = client
 
         headers: Final = responses_api_provider_config.validate_environment(
-            headers=extra_headers or {}, model="None", litellm_params=litellm_params
+            headers=extra_headers or {}, model="None", embrouter_params=embrouter_params
         )
 
         if extra_headers:
             headers.update(extra_headers)
 
         api_base: Final = responses_api_provider_config.get_complete_url(
-            api_base=litellm_params.api_base,
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.api_base,
+            embrouter_params=dict(embrouter_params),
         )
 
         url, params = responses_api_provider_config.transform_list_input_items_request(
             response_id=response_id,
             api_base=api_base,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
             after=after,
             before=before,
@@ -3309,12 +3309,12 @@ class BaseLLMHTTPHandler:
     def create_file(
         self,
         create_file_data: CreateFileRequest,
-        litellm_params: dict,
+        embrouter_params: dict,
         provider_config: BaseFilesConfig,
         headers: dict,
         api_base: str | None,
         api_key: str | None,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         _is_async: bool = False,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
         timeout: float | httpx.Timeout | None = None,
@@ -3329,7 +3329,7 @@ class BaseLLMHTTPHandler:
             model="",
             messages=[],
             optional_params={},
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
         api_base = provider_config.get_complete_file_url(
@@ -3337,7 +3337,7 @@ class BaseLLMHTTPHandler:
             api_key=api_key,
             model="",
             optional_params={},
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             data=create_file_data,
         )
         if api_base is None:
@@ -3347,14 +3347,14 @@ class BaseLLMHTTPHandler:
         transformed_request = provider_config.transform_create_file_request(
             model="",
             create_file_data=create_file_data,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             optional_params={},
         )
 
         if _is_async:
             return self.async_create_file(
                 transformed_request=transformed_request,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 provider_config=provider_config,
                 headers=headers,
                 api_base=api_base,
@@ -3407,7 +3407,7 @@ class BaseLLMHTTPHandler:
 
                 # Store initial response for transformation
                 if initial_response_data:
-                    litellm_params["initial_file_response"] = initial_response_data
+                    embrouter_params["initial_file_response"] = initial_response_data
             except Exception as e:
                 raise self._handle_error(
                     e=e,
@@ -3476,28 +3476,28 @@ class BaseLLMHTTPHandler:
         else:
             raise ValueError(f"Unsupported transformed_request type: {type(transformed_request)}")
 
-        # Store the upload URL in litellm_params for the transformation method
+        # Store the upload URL in embrouter_params for the transformation method
         # Honour the URL already set by transform_create_file_request (e.g. Bedrock pre-signed S3 uploads),
         # fall back to api_base for providers that do not set it.
-        litellm_params_with_url: Final = dict(litellm_params)
-        if "upload_url" not in litellm_params:
-            litellm_params_with_url["upload_url"] = api_base
+        embrouter_params_with_url: Final = dict(embrouter_params)
+        if "upload_url" not in embrouter_params:
+            embrouter_params_with_url["upload_url"] = api_base
 
         return provider_config.transform_create_file_response(
             model=None,
             raw_response=upload_response,
             logging_obj=logging_obj,
-            litellm_params=litellm_params_with_url,
+            embrouter_params=embrouter_params_with_url,
         )
 
     async def async_create_file(
         self,
         transformed_request: Union[bytes, str, dict, "TwoStepFileUploadConfig"],
-        litellm_params: dict,
+        embrouter_params: dict,
         provider_config: BaseFilesConfig,
         headers: dict,
         api_base: str,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
         timeout: float | httpx.Timeout | None = None,
     ):
@@ -3568,7 +3568,7 @@ class BaseLLMHTTPHandler:
 
                 # Store initial response for transformation
                 if initial_response_data:
-                    litellm_params["initial_file_response"] = initial_response_data
+                    embrouter_params["initial_file_response"] = initial_response_data
             except Exception as e:
                 verbose_logger.exception("Error creating file: %s", e)
                 raise self._handle_error(
@@ -3639,7 +3639,7 @@ class BaseLLMHTTPHandler:
             model=None,
             raw_response=upload_response,
             logging_obj=logging_obj,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
     # The fine-grained transform stream (one piece per JSONL row) is regrouped
@@ -3722,17 +3722,17 @@ class BaseLLMHTTPHandler:
     def create_batch(
         self,
         create_batch_data: "CreateBatchRequest",
-        litellm_params: dict,
+        embrouter_params: dict,
         provider_config: "BaseBatchesConfig",
         headers: dict,
         api_base: str | None,
         api_key: str | None,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
         _is_async: bool = False,
         client: Union["HTTPHandler", "AsyncHTTPHandler"] | None = None,
         timeout: float | httpx.Timeout | None = None,
         model: str | None = None,
-    ) -> Union["LiteLLMBatch", Coroutine[object, object, "LiteLLMBatch"]]:
+    ) -> Union["EmbRouterBatch", Coroutine[object, object, "EmbRouterBatch"]]:
         """
         Creates a batch using provider-specific batch creation process
         """
@@ -3746,7 +3746,7 @@ class BaseLLMHTTPHandler:
             model=model,
             messages=[],
             optional_params={},
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
         api_base = provider_config.get_complete_batch_url(
@@ -3754,7 +3754,7 @@ class BaseLLMHTTPHandler:
             api_key=api_key,
             model=model,
             optional_params={},
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             data=create_batch_data,
         )
         if api_base is None:
@@ -3764,14 +3764,14 @@ class BaseLLMHTTPHandler:
         transformed_request: Final = provider_config.transform_create_batch_request(
             model=model,
             create_batch_data=create_batch_data,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             optional_params={},
         )
 
         if _is_async:
             return self.async_create_batch(
                 transformed_request=transformed_request,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 provider_config=provider_config,
                 headers=headers,
                 api_base=api_base,
@@ -3819,8 +3819,8 @@ class BaseLLMHTTPHandler:
             )
 
         # Store original request for response transformation
-        litellm_params_with_request: Final = {
-            **litellm_params,
+        embrouter_params_with_request: Final = {
+            **embrouter_params,
             "original_batch_request": create_batch_data,
         }
 
@@ -3828,37 +3828,37 @@ class BaseLLMHTTPHandler:
             model=model,
             raw_response=batch_response,
             logging_obj=logging_obj,
-            litellm_params=litellm_params_with_request,
+            embrouter_params=embrouter_params_with_request,
         )
 
     def retrieve_batch(
         self,
         batch_id: str,
-        litellm_params: dict,
+        embrouter_params: dict,
         provider_config: "BaseBatchesConfig",
         headers: dict,
         api_base: str | None,
         api_key: str | None,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
         _is_async: bool = False,
         client: Union["HTTPHandler", "AsyncHTTPHandler"] | None = None,
         timeout: float | httpx.Timeout | None = None,
         model: str | None = None,
-    ) -> Union["LiteLLMBatch", Coroutine[object, object, "LiteLLMBatch"]]:
+    ) -> Union["EmbRouterBatch", Coroutine[object, object, "EmbRouterBatch"]]:
         """
         Retrieve a batch using provider-specific configuration.
         """
         # Transform the request using provider config
         transformed_request: Final = provider_config.transform_retrieve_batch_request(
             batch_id=batch_id,
-            optional_params=litellm_params,
-            litellm_params=litellm_params,
+            optional_params=embrouter_params,
+            embrouter_params=embrouter_params,
         )
 
         if _is_async:
             return self.async_retrieve_batch(
                 transformed_request=transformed_request,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 provider_config=provider_config,
                 headers=headers,
                 api_base=api_base,
@@ -3914,17 +3914,17 @@ class BaseLLMHTTPHandler:
             model=model,
             raw_response=batch_response,
             logging_obj=logging_obj,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
     async def async_create_batch(
         self,
         transformed_request: bytes | str | dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         provider_config: "BaseBatchesConfig",
         headers: dict,
         api_base: str,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
         client: Union["HTTPHandler", "AsyncHTTPHandler"] | None = None,
         timeout: float | httpx.Timeout | None = None,
         create_batch_data: Optional["CreateBatchRequest"] = None,
@@ -3984,8 +3984,8 @@ class BaseLLMHTTPHandler:
             )
 
         # Store original request for response transformation (for async version)
-        litellm_params_with_request: Final = {
-            **litellm_params,
+        embrouter_params_with_request: Final = {
+            **embrouter_params,
             "original_batch_request": create_batch_data or {},
         }
 
@@ -3993,17 +3993,17 @@ class BaseLLMHTTPHandler:
             model=model,
             raw_response=batch_response,
             logging_obj=logging_obj,
-            litellm_params=litellm_params_with_request,
+            embrouter_params=embrouter_params_with_request,
         )
 
     async def async_retrieve_batch(
         self,
         transformed_request: bytes | str | dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         provider_config: "BaseBatchesConfig",
         headers: dict,
         api_base: str | None,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
         client: Union["HTTPHandler", "AsyncHTTPHandler"] | None = None,
         timeout: float | httpx.Timeout | None = None,
         batch_id: str | None = None,
@@ -4071,15 +4071,15 @@ class BaseLLMHTTPHandler:
             model=model,
             raw_response=batch_response,
             logging_obj=logging_obj,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
     def cancel_response_api_handler(
         self,
         response_id: str,
         responses_api_provider_config: BaseResponsesAPIConfig,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         custom_llm_provider: str | None,
         extra_headers: dict[str, object] | None = None,
         extra_body: dict[str, object] | None = None,
@@ -4096,7 +4096,7 @@ class BaseLLMHTTPHandler:
             return self.async_cancel_response_api_handler(
                 response_id=response_id,
                 responses_api_provider_config=responses_api_provider_config,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 custom_llm_provider=custom_llm_provider,
                 extra_headers=extra_headers,
@@ -4106,26 +4106,26 @@ class BaseLLMHTTPHandler:
                 shared_session=shared_session,
             )
         if client is None or not isinstance(client, HTTPHandler):
-            sync_httpx_client = _get_httpx_client(params={"ssl_verify": litellm_params.get("ssl_verify", None)})
+            sync_httpx_client = _get_httpx_client(params={"ssl_verify": embrouter_params.get("ssl_verify", None)})
         else:
             sync_httpx_client = client
 
         headers: Final = responses_api_provider_config.validate_environment(
-            headers=extra_headers or {}, model="None", litellm_params=litellm_params
+            headers=extra_headers or {}, model="None", embrouter_params=embrouter_params
         )
 
         if extra_headers:
             headers.update(extra_headers)
 
         api_base: Final = responses_api_provider_config.get_complete_url(
-            api_base=litellm_params.api_base,
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.api_base,
+            embrouter_params=dict(embrouter_params),
         )
 
         url, data = responses_api_provider_config.transform_cancel_response_api_request(
             response_id=response_id,
             api_base=api_base,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
@@ -4158,8 +4158,8 @@ class BaseLLMHTTPHandler:
         self,
         response_id: str,
         responses_api_provider_config: BaseResponsesAPIConfig,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         custom_llm_provider: str | None,
         extra_headers: dict[str, object] | None = None,
         extra_body: dict[str, object] | None = None,
@@ -4178,29 +4178,29 @@ class BaseLLMHTTPHandler:
                 id(shared_session) if shared_session else None,
             )
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders(custom_llm_provider),
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders(custom_llm_provider),
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
                 shared_session=shared_session,
             )
         else:
             async_httpx_client = client
 
         headers: Final = responses_api_provider_config.validate_environment(
-            headers=extra_headers or {}, model="None", litellm_params=litellm_params
+            headers=extra_headers or {}, model="None", embrouter_params=embrouter_params
         )
 
         if extra_headers:
             headers.update(extra_headers)
 
         api_base: Final = responses_api_provider_config.get_complete_url(
-            api_base=litellm_params.api_base,
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.api_base,
+            embrouter_params=dict(embrouter_params),
         )
 
         url, data = responses_api_provider_config.transform_cancel_response_api_request(
             response_id=response_id,
             api_base=api_base,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
@@ -4235,8 +4235,8 @@ class BaseLLMHTTPHandler:
         input: Union[str, "ResponseInputParam"],
         responses_api_provider_config: BaseResponsesAPIConfig,
         response_api_optional_request_params: dict,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         custom_llm_provider: str | None,
         extra_headers: dict[str, object] | None = None,
         extra_body: dict[str, object] | None = None,
@@ -4254,7 +4254,7 @@ class BaseLLMHTTPHandler:
                 input=input,
                 responses_api_provider_config=responses_api_provider_config,
                 response_api_optional_request_params=response_api_optional_request_params,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 custom_llm_provider=custom_llm_provider,
                 extra_headers=extra_headers,
@@ -4264,20 +4264,20 @@ class BaseLLMHTTPHandler:
                 shared_session=shared_session,
             )
         if client is None or not isinstance(client, HTTPHandler):
-            sync_httpx_client = _get_httpx_client(params={"ssl_verify": litellm_params.get("ssl_verify", None)})
+            sync_httpx_client = _get_httpx_client(params={"ssl_verify": embrouter_params.get("ssl_verify", None)})
         else:
             sync_httpx_client = client
 
         headers = responses_api_provider_config.validate_environment(
-            headers=extra_headers or {}, model=model, litellm_params=litellm_params
+            headers=extra_headers or {}, model=model, embrouter_params=embrouter_params
         )
 
         if extra_headers:
             headers.update(extra_headers)
 
         api_base: Final = responses_api_provider_config.get_complete_url(
-            api_base=litellm_params.api_base,
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.api_base,
+            embrouter_params=dict(embrouter_params),
         )
 
         (
@@ -4288,17 +4288,17 @@ class BaseLLMHTTPHandler:
             input=input,
             response_api_optional_request_params=response_api_optional_request_params,
             api_base=api_base,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
         data = BaseResponsesAPIConfig.normalize_responses_api_request_dict(data)
 
         headers, signed_body = responses_api_provider_config.sign_request(
             headers=headers,
-            optional_params=dict(litellm_params),
+            optional_params=dict(embrouter_params),
             request_data=data,
             api_base=url,
-            api_key=litellm_params.api_key,
+            api_key=embrouter_params.api_key,
             model=model,
         )
         body_kwargs: Final = _signed_body_kwargs(signed_body=signed_body, data=data)
@@ -4334,8 +4334,8 @@ class BaseLLMHTTPHandler:
         input: Union[str, "ResponseInputParam"],
         responses_api_provider_config: BaseResponsesAPIConfig,
         response_api_optional_request_params: dict,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         custom_llm_provider: str | None,
         extra_headers: dict[str, object] | None = None,
         extra_body: dict[str, object] | None = None,
@@ -4353,23 +4353,23 @@ class BaseLLMHTTPHandler:
                 id(shared_session) if shared_session else None,
             )
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders(custom_llm_provider),
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders(custom_llm_provider),
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
                 shared_session=shared_session,
             )
         else:
             async_httpx_client = client
 
         headers = responses_api_provider_config.validate_environment(
-            headers=extra_headers or {}, model=model, litellm_params=litellm_params
+            headers=extra_headers or {}, model=model, embrouter_params=embrouter_params
         )
 
         if extra_headers:
             headers.update(extra_headers)
 
         api_base: Final = responses_api_provider_config.get_complete_url(
-            api_base=litellm_params.api_base,
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.api_base,
+            embrouter_params=dict(embrouter_params),
         )
 
         (
@@ -4380,7 +4380,7 @@ class BaseLLMHTTPHandler:
             input=input,
             response_api_optional_request_params=response_api_optional_request_params,
             api_base=api_base,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
         data = BaseResponsesAPIConfig.normalize_responses_api_request_dict(data)
@@ -4389,10 +4389,10 @@ class BaseLLMHTTPHandler:
             responses_api_provider_config,
             responses_api_provider_config.sign_request,
             headers=headers,
-            optional_params=dict(litellm_params),
+            optional_params=dict(embrouter_params),
             request_data=data,
             api_base=url,
-            api_key=litellm_params.api_key,
+            api_key=embrouter_params.api_key,
             model=model,
         )
         body_kwargs: Final = _signed_body_kwargs(signed_body=signed_body, data=data)
@@ -4426,9 +4426,9 @@ class BaseLLMHTTPHandler:
         self,
         file_id: str,
         provider_config: BaseFilesConfig,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         _is_async: bool = False,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
         timeout: float | httpx.Timeout | None = None,
@@ -4440,7 +4440,7 @@ class BaseLLMHTTPHandler:
             return self.async_retrieve_file(
                 file_id=file_id,
                 provider_config=provider_config,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 headers=headers,
                 logging_obj=logging_obj,
                 client=client,
@@ -4456,17 +4456,17 @@ class BaseLLMHTTPHandler:
         url, params = provider_config.transform_retrieve_file_request(
             file_id=file_id,
             optional_params={},
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
         # Validate environment and get headers
         headers = provider_config.validate_environment(
-            api_key=litellm_params.get("api_key"),
+            api_key=embrouter_params.get("api_key"),
             headers=headers,
             model="",
             messages=[],
             optional_params={},
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
         logging_obj.pre_call(
@@ -4487,16 +4487,16 @@ class BaseLLMHTTPHandler:
         return provider_config.transform_retrieve_file_response(
             raw_response=response,
             logging_obj=logging_obj,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
     async def async_retrieve_file(
         self,
         file_id: str,
         provider_config: BaseFilesConfig,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
         timeout: float | httpx.Timeout | None = None,
     ) -> OpenAIFileObject:
@@ -4512,17 +4512,17 @@ class BaseLLMHTTPHandler:
         url, params = provider_config.transform_retrieve_file_request(
             file_id=file_id,
             optional_params={},
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
         # Validate environment and get headers
         headers = provider_config.validate_environment(
-            api_key=litellm_params.get("api_key"),
+            api_key=embrouter_params.get("api_key"),
             headers=headers,
             model="",
             messages=[],
             optional_params={},
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
         logging_obj.pre_call(
@@ -4543,16 +4543,16 @@ class BaseLLMHTTPHandler:
         return provider_config.transform_retrieve_file_response(
             raw_response=response,
             logging_obj=logging_obj,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
     def delete_file(
         self,
         file_id: str,
         provider_config: BaseFilesConfig,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         _is_async: bool = False,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
         timeout: float | httpx.Timeout | None = None,
@@ -4564,7 +4564,7 @@ class BaseLLMHTTPHandler:
             return self.async_delete_file(
                 file_id=file_id,
                 provider_config=provider_config,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 headers=headers,
                 logging_obj=logging_obj,
                 client=client,
@@ -4580,17 +4580,17 @@ class BaseLLMHTTPHandler:
         url, params = provider_config.transform_delete_file_request(
             file_id=file_id,
             optional_params={},
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
         # Validate environment and get headers
         headers = provider_config.validate_environment(
-            api_key=litellm_params.get("api_key"),
+            api_key=embrouter_params.get("api_key"),
             headers=headers,
             model="",
             messages=[],
             optional_params={},
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
         logging_obj.pre_call(
@@ -4611,16 +4611,16 @@ class BaseLLMHTTPHandler:
         return provider_config.transform_delete_file_response(
             raw_response=response,
             logging_obj=logging_obj,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
     async def async_delete_file(
         self,
         file_id: str,
         provider_config: BaseFilesConfig,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
         timeout: float | httpx.Timeout | None = None,
     ) -> "FileDeleted":
@@ -4636,17 +4636,17 @@ class BaseLLMHTTPHandler:
         url, params = provider_config.transform_delete_file_request(
             file_id=file_id,
             optional_params={},
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
         # Validate environment and get headers
         headers = provider_config.validate_environment(
-            api_key=litellm_params.get("api_key"),
+            api_key=embrouter_params.get("api_key"),
             headers=headers,
             model="",
             messages=[],
             optional_params={},
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
         logging_obj.pre_call(
@@ -4667,16 +4667,16 @@ class BaseLLMHTTPHandler:
         return provider_config.transform_delete_file_response(
             raw_response=response,
             logging_obj=logging_obj,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
     def list_files(
         self,
         purpose: str | None,
         provider_config: BaseFilesConfig,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         _is_async: bool = False,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
         timeout: float | httpx.Timeout | None = None,
@@ -4688,7 +4688,7 @@ class BaseLLMHTTPHandler:
             return self.async_list_files(
                 purpose=purpose,
                 provider_config=provider_config,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 headers=headers,
                 logging_obj=logging_obj,
                 client=client,
@@ -4704,17 +4704,17 @@ class BaseLLMHTTPHandler:
         url, params = provider_config.transform_list_files_request(
             purpose=purpose,
             optional_params={},
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
         # Validate environment and get headers
         headers = provider_config.validate_environment(
-            api_key=litellm_params.get("api_key"),
+            api_key=embrouter_params.get("api_key"),
             headers=headers,
             model="",
             messages=[],
             optional_params={},
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
         logging_obj.pre_call(
@@ -4733,7 +4733,7 @@ class BaseLLMHTTPHandler:
             raise self._handle_error(e=e, provider_config=provider_config)
 
         files_per_page: Final = self._files_per_listing_page(
-            response, provider_config, logging_obj, litellm_params, headers, sync_httpx_client, timeout
+            response, provider_config, logging_obj, embrouter_params, headers, sync_httpx_client, timeout
         )
         return [  # mutable-ok: the files contract returns the listing as a list
             listed_file for page_files in files_per_page for listed_file in page_files
@@ -4743,9 +4743,9 @@ class BaseLLMHTTPHandler:
         self,
         purpose: str | None,
         provider_config: BaseFilesConfig,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
         timeout: float | httpx.Timeout | None = None,
     ) -> list[OpenAIFileObject]:
@@ -4761,17 +4761,17 @@ class BaseLLMHTTPHandler:
         url, params = provider_config.transform_list_files_request(
             purpose=purpose,
             optional_params={},
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
         # Validate environment and get headers
         headers = provider_config.validate_environment(
-            api_key=litellm_params.get("api_key"),
+            api_key=embrouter_params.get("api_key"),
             headers=headers,
             model="",
             messages=[],
             optional_params={},
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
         logging_obj.pre_call(
@@ -4790,7 +4790,7 @@ class BaseLLMHTTPHandler:
             raise self._handle_error(e=e, provider_config=provider_config)
 
         files_per_page: Final = self._files_per_async_listing_page(
-            response, provider_config, logging_obj, litellm_params, headers, async_httpx_client, timeout
+            response, provider_config, logging_obj, embrouter_params, headers, async_httpx_client, timeout
         )
         return [  # mutable-ok: the files contract returns the listing as a list
             listed_file async for page_files in files_per_page for listed_file in page_files
@@ -4800,8 +4800,8 @@ class BaseLLMHTTPHandler:
         self,
         first_page: httpx.Response,
         provider_config: BaseFilesConfig,
-        logging_obj: LiteLLMLoggingObj,
-        litellm_params: dict,  # mutable-ok: handed to the files contract, which types it as a dict
+        logging_obj: EmbRouterLoggingObj,
+        embrouter_params: dict,  # mutable-ok: handed to the files contract, which types it as a dict
         headers: dict,  # mutable-ok: handed to validate_environment, which types it as a dict
         client: HTTPHandler,
         timeout: float | httpx.Timeout | None,
@@ -4810,15 +4810,15 @@ class BaseLLMHTTPHandler:
         listed_count = 0  # rebind-ok: grows per page so the listing stops at MAX_FILE_LIST_LIMIT, OpenAI's ceiling
         while True:
             page_files = provider_config.transform_list_files_response(
-                raw_response=latest_page, logging_obj=logging_obj, litellm_params=litellm_params
+                raw_response=latest_page, logging_obj=logging_obj, embrouter_params=embrouter_params
             )
             yield page_files[: MAX_FILE_LIST_LIMIT - listed_count]
             listed_count += len(page_files)
-            next_request = self._next_listing_request(latest_page, provider_config, litellm_params, listed_count)
+            next_request = self._next_listing_request(latest_page, provider_config, embrouter_params, listed_count)
             if next_request is None:
                 return
             url, params = next_request
-            next_headers = self._next_listing_page_headers(provider_config, headers, litellm_params)
+            next_headers = self._next_listing_page_headers(provider_config, headers, embrouter_params)
             try:
                 latest_page = client.get(url=url, headers=next_headers, params=params, timeout=timeout)
             except Exception as e:  # noqa: BLE001  # _handle_error maps every failure kind, like the first page's fetch
@@ -4828,8 +4828,8 @@ class BaseLLMHTTPHandler:
         self,
         first_page: httpx.Response,
         provider_config: BaseFilesConfig,
-        logging_obj: LiteLLMLoggingObj,
-        litellm_params: dict,  # mutable-ok: handed to the files contract, which types it as a dict
+        logging_obj: EmbRouterLoggingObj,
+        embrouter_params: dict,  # mutable-ok: handed to the files contract, which types it as a dict
         headers: dict,  # mutable-ok: handed to validate_environment, which types it as a dict
         client: AsyncHTTPHandler,
         timeout: float | httpx.Timeout | None,
@@ -4838,15 +4838,15 @@ class BaseLLMHTTPHandler:
         listed_count = 0  # rebind-ok: grows per page so the listing stops at MAX_FILE_LIST_LIMIT, OpenAI's ceiling
         while True:
             page_files = provider_config.transform_list_files_response(
-                raw_response=latest_page, logging_obj=logging_obj, litellm_params=litellm_params
+                raw_response=latest_page, logging_obj=logging_obj, embrouter_params=embrouter_params
             )
             yield page_files[: MAX_FILE_LIST_LIMIT - listed_count]
             listed_count += len(page_files)
-            next_request = self._next_listing_request(latest_page, provider_config, litellm_params, listed_count)
+            next_request = self._next_listing_request(latest_page, provider_config, embrouter_params, listed_count)
             if next_request is None:
                 return
             url, params = next_request
-            next_headers = self._next_listing_page_headers(provider_config, headers, litellm_params)
+            next_headers = self._next_listing_page_headers(provider_config, headers, embrouter_params)
             try:
                 latest_page = await client.get(url=url, headers=next_headers, params=params, timeout=timeout)
             except Exception as e:  # noqa: BLE001  # _handle_error maps every failure kind, like the first page's fetch
@@ -4856,37 +4856,37 @@ class BaseLLMHTTPHandler:
         self,
         provider_config: BaseFilesConfig,
         headers: dict,  # mutable-ok: handed to validate_environment, which types it as a dict
-        litellm_params: dict,  # mutable-ok: handed to the files contract, which types it as a dict
+        embrouter_params: dict,  # mutable-ok: handed to the files contract, which types it as a dict
     ) -> dict:  # mutable-ok: validate_environment returns the header dict the files contract types
         return provider_config.validate_environment(
-            api_key=litellm_params.get("api_key"),
+            api_key=embrouter_params.get("api_key"),
             headers=headers,
             model="",
             messages=[],
             optional_params={},
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
     def _next_listing_request(
         self,
         latest_page: httpx.Response,
         provider_config: BaseFilesConfig,
-        litellm_params: dict,  # mutable-ok: handed to the files contract, which types it as a dict
+        embrouter_params: dict,  # mutable-ok: handed to the files contract, which types it as a dict
         listed_count: int,
     ) -> tuple[str, dict[str, str]] | None:  # mutable-ok: the base files contract returns the query as a dict
         if listed_count >= MAX_FILE_LIST_LIMIT:
             return None
         return provider_config.transform_list_files_next_request(
-            raw_response=latest_page, optional_params={}, litellm_params=litellm_params
+            raw_response=latest_page, optional_params={}, embrouter_params=embrouter_params
         )
 
     def retrieve_file_content(
         self,
         file_content_request: "FileContentRequest",
         provider_config: BaseFilesConfig,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         _is_async: bool = False,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
         timeout: float | httpx.Timeout | None = None,
@@ -4898,7 +4898,7 @@ class BaseLLMHTTPHandler:
             return self.async_retrieve_file_content(
                 file_content_request=file_content_request,
                 provider_config=provider_config,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 headers=headers,
                 logging_obj=logging_obj,
                 client=client,
@@ -4913,7 +4913,7 @@ class BaseLLMHTTPHandler:
         prepared: Final = self._prepare_file_content_request(
             file_content_request=file_content_request,
             provider_config=provider_config,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
             logging_obj=logging_obj,
         )
@@ -4933,16 +4933,16 @@ class BaseLLMHTTPHandler:
         return provider_config.transform_file_content_response(
             raw_response=response,
             logging_obj=logging_obj,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
     async def async_retrieve_file_content(
         self,
         file_content_request: "FileContentRequest",
         provider_config: BaseFilesConfig,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
         timeout: float | httpx.Timeout | None = None,
     ) -> "HttpxBinaryResponseContent":
@@ -4957,7 +4957,7 @@ class BaseLLMHTTPHandler:
         prepared: Final = self._prepare_file_content_request(
             file_content_request=file_content_request,
             provider_config=provider_config,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
             logging_obj=logging_obj,
         )
@@ -4979,16 +4979,16 @@ class BaseLLMHTTPHandler:
         return provider_config.transform_file_content_response(
             raw_response=response,
             logging_obj=logging_obj,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
     async def async_retrieve_file_content_streaming(
         self,
         file_content_request: "FileContentRequest",
         provider_config: BaseFilesConfig,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         chunk_size: int,
         client: AsyncHTTPHandler | None = None,
         timeout: float | httpx.Timeout | None = None,
@@ -5003,7 +5003,7 @@ class BaseLLMHTTPHandler:
         prepared: Final = self._prepare_file_content_request(
             file_content_request=file_content_request,
             provider_config=provider_config,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
             logging_obj=logging_obj,
         )
@@ -5034,29 +5034,29 @@ class BaseLLMHTTPHandler:
             headers=_decoded_body_headers(response),
             request_url=str(response.request.url),
             logging_obj=logging_obj,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
     @staticmethod
     def _prepare_file_content_request(
         file_content_request: "FileContentRequest",
         provider_config: BaseFilesConfig,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> "_PreparedFileContentRequest":
         url, params = provider_config.transform_file_content_request(
             file_content_request=file_content_request,
             optional_params={},
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
         request_headers: Final = provider_config.validate_environment(
-            api_key=litellm_params.get("api_key"),
+            api_key=embrouter_params.get("api_key"),
             headers=headers,
             model="",
             messages=[],
             optional_params={},
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
         logging_obj.pre_call(
             input="",
@@ -5088,7 +5088,7 @@ class BaseLLMHTTPHandler:
     def _get_agentic_loop_settings(kwargs: dict) -> tuple[int, int, list[str]]:
         depth: Final = int(kwargs.get("_agentic_loop_depth", 0) or 0)
         configured: Final = validated_max_agentic_loops(
-            kwargs.get("max_agentic_loops"), field="litellm_params.max_agentic_loops"
+            kwargs.get("max_agentic_loops"), field="embrouter_params.max_agentic_loops"
         )
         max_loops: Final = DEFAULT_MAX_AGENTIC_LOOPS if configured is None else configured
         fingerprints: Final = list(kwargs.get("_agentic_loop_fingerprints", []) or [])
@@ -5104,7 +5104,7 @@ class BaseLLMHTTPHandler:
         return {**kwargs, **{key: value for key, value in deployment_params.items() if value}}
 
     @staticmethod
-    def _has_agentic_completion_hook(logging_obj: LiteLLMLoggingObj) -> bool:
+    def _has_agentic_completion_hook(logging_obj: EmbRouterLoggingObj) -> bool:
         """
         True if any registered callback actually overrides
         ``async_should_run_agentic_loop`` (the gate every agentic hook goes
@@ -5118,13 +5118,13 @@ class BaseLLMHTTPHandler:
         override inherited through any intermediate class is still detected --
         a false negative here would silently disable agentic features.
 
-        String entries in ``litellm.callbacks`` (e.g. ``"datadog"``) are
+        String entries in ``embrouter.callbacks`` (e.g. ``"datadog"``) are
         resolved to their ``CustomLogger`` instance via
         ``get_custom_logger_compatible_class`` -- same pattern as
         ``ProxyLogging._callback_capabilities`` -- so a string-registered
         agentic callback is detected too.
         """
-        from litellm.integrations.custom_logger import CustomLogger
+        from embrouter.integrations.custom_logger import CustomLogger
 
         base_func: Final = CustomLogger.async_should_run_agentic_loop
         for cb in _custom_logger_callbacks(logging_obj):
@@ -5134,11 +5134,11 @@ class BaseLLMHTTPHandler:
         return False
 
     @staticmethod
-    def _server_fulfilled_tools_in_request(logging_obj: LiteLLMLoggingObj, tools: object) -> frozenset[str]:
+    def _server_fulfilled_tools_in_request(logging_obj: EmbRouterLoggingObj, tools: object) -> frozenset[str]:
         """The request's tools that a registered callback fulfills server-side (e.g. ``headroom_retrieve``)."""
         if not isinstance(tools, list) or not tools:
             return frozenset()
-        from litellm.litellm_core_utils.prompt_templates.factory import has_tool_with_name
+        from embrouter.embrouter_core_utils.prompt_templates.factory import has_tool_with_name
 
         return frozenset(
             name
@@ -5240,7 +5240,7 @@ class BaseLLMHTTPHandler:
         """
         Turn the response into a terminal turn after a safety rail refused the rerun.
 
-        The refused tool calls target tools LiteLLM injected on the client's
+        The refused tool calls target tools EmbRouter injected on the client's
         behalf, so a client that never declared them cannot send back a matching
         ``tool_result``. Their blocks are dropped and a ``tool_use`` stop reason
         is closed out as ``end_turn``, which is what a provider-native web search
@@ -5276,7 +5276,7 @@ class BaseLLMHTTPHandler:
         model: str,
         messages: list[dict],
         anthropic_messages_optional_request_params: dict,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
         kwargs: dict,
         depth: int,
         max_loops: int,
@@ -5285,7 +5285,7 @@ class BaseLLMHTTPHandler:
         stream: bool = False,
         callback: Optional["CustomLogger"] = None,
     ) -> AnthropicMessagesResponse | AsyncIterator[object]:
-        from litellm.anthropic_interface import messages as anthropic_messages
+        from embrouter.anthropic_interface import messages as anthropic_messages
 
         patch: Final = plan.request_patch or AgenticLoopRequestPatch()
         if patch.messages is None:
@@ -5309,7 +5309,7 @@ class BaseLLMHTTPHandler:
         if max_tokens is None:
             max_tokens = cast(int, kwargs.get("max_tokens", 1024))
 
-        internal_keys: Final = {"litellm_logging_obj"}
+        internal_keys: Final = {"embrouter_logging_obj"}
         kwargs_for_followup: Final = {
             k: v
             for k, v in kwargs.items()
@@ -5340,9 +5340,9 @@ class BaseLLMHTTPHandler:
                     response=response, plan=plan, kwargs=kwargs
                 )
             except Exception as e:
-                _call_id: Final = getattr(logging_obj, "litellm_call_id", "unknown")
+                _call_id: Final = getattr(logging_obj, "embrouter_call_id", "unknown")
                 verbose_logger.exception(
-                    "LiteLLM.AgenticHookError: Exception in "
+                    "EmbRouter.AgenticHookError: Exception in "
                     "async_post_agentic_loop_response_hook [call_id=%s model=%s]: %s",
                     _call_id,
                     model,
@@ -5356,7 +5356,7 @@ class BaseLLMHTTPHandler:
         plan: AgenticLoopPlan,
         model: str,
         response_api_optional_request_params: dict,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
         kwargs: dict,
         depth: int,
         max_loops: int,
@@ -5378,7 +5378,7 @@ class BaseLLMHTTPHandler:
             if k != "stream" and k != "_code_interpreter_interception_converted_stream"
         }
 
-        internal_keys: Final = {"litellm_logging_obj"}
+        internal_keys: Final = {"embrouter_logging_obj"}
         kwargs_for_followup: Final = build_agentic_followup_kwargs(
             request_kwargs=MappingProxyType(
                 {
@@ -5398,7 +5398,7 @@ class BaseLLMHTTPHandler:
         )
 
         try:
-            response: ResponsesAPIResponse | BaseResponsesAPIStreamingIterator = await litellm.aresponses(
+            response: ResponsesAPIResponse | BaseResponsesAPIStreamingIterator = await embrouter.aresponses(
                 model=patch.model or model,
                 input=patch.messages,  # pyright: ignore[reportArgumentType]  # pre-existing mismatch surfaced by the Router import; patch messages are valid response input at runtime
                 **optional_params,
@@ -5411,9 +5411,9 @@ class BaseLLMHTTPHandler:
                         response=response, plan=plan, kwargs=kwargs
                     )
                 except Exception as e:
-                    _call_id: Final = getattr(logging_obj, "litellm_call_id", "unknown")
+                    _call_id: Final = getattr(logging_obj, "embrouter_call_id", "unknown")
                     verbose_logger.exception(
-                        "LiteLLM.AgenticHookError: Exception in "
+                        "EmbRouter.AgenticHookError: Exception in "
                         "async_post_agentic_loop_response_hook [call_id=%s model=%s]: %s",
                         _call_id,
                         model,
@@ -5436,15 +5436,15 @@ class BaseLLMHTTPHandler:
         callback: "CustomLogger",
         plan: AgenticLoopPlan,
         kwargs: dict,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
         model: str,
     ) -> None:
         try:
             await callback.async_agentic_loop_cleanup_hook(plan=plan, kwargs=kwargs)
         except Exception as e:
-            _call_id: Final = getattr(logging_obj, "litellm_call_id", "unknown")
+            _call_id: Final = getattr(logging_obj, "embrouter_call_id", "unknown")
             verbose_logger.exception(
-                "LiteLLM.AgenticHookError: Exception in async_agentic_loop_cleanup_hook [call_id=%s model=%s]: %s",
+                "EmbRouter.AgenticHookError: Exception in async_agentic_loop_cleanup_hook [call_id=%s model=%s]: %s",
                 _call_id,
                 model,
                 str(e),
@@ -5455,7 +5455,7 @@ class BaseLLMHTTPHandler:
         result: ResponsesAPIResponse,
         model: str,
         responses_api_provider_config: BaseResponsesAPIConfig,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
         custom_llm_provider: str,
     ) -> MockResponsesAPIStreamingIterator:
         """
@@ -5466,7 +5466,7 @@ class BaseLLMHTTPHandler:
         """
         import httpx
 
-        from litellm.responses.streaming_iterator import (
+        from embrouter.responses.streaming_iterator import (
             MockResponsesAPIStreamingIterator,
         )
 
@@ -5509,7 +5509,7 @@ class BaseLLMHTTPHandler:
         internal_params: Final = {
             "_websearch_interception",
             "acompletion",
-            "litellm_logging_obj",
+            "embrouter_logging_obj",
             "custom_llm_provider",
             "model_alias_map",
             "stream_response",
@@ -5533,7 +5533,7 @@ class BaseLLMHTTPHandler:
             fingerprint=fingerprint,
         )
 
-        return await litellm.acompletion(
+        return await embrouter.acompletion(
             model=full_model_name,
             messages=patch.messages,
             **optional_params_for_followup,
@@ -5543,7 +5543,7 @@ class BaseLLMHTTPHandler:
     def _maybe_wrap_in_fake_stream(
         self,
         response: _ResponseT,
-        logging_obj: Optional["LiteLLMLoggingObj"],
+        logging_obj: Optional["EmbRouterLoggingObj"],
         api_surface: str,
     ) -> Union[_ResponseT, "FakeAnthropicMessagesStreamIterator"]:
         """
@@ -5565,11 +5565,11 @@ class BaseLLMHTTPHandler:
         if websearch_converted_stream and isinstance(response, dict):
             from typing import cast
 
-            from litellm._logging import verbose_logger
-            from litellm.llms.anthropic.pass_through.messages.fake_stream_iterator import (
+            from embrouter._logging import verbose_logger
+            from embrouter.llms.anthropic.pass_through.messages.fake_stream_iterator import (
                 FakeAnthropicMessagesStreamIterator,
             )
-            from litellm.types.llms.anthropic_messages.anthropic_response import (
+            from embrouter.types.llms.anthropic_messages.anthropic_response import (
                 AnthropicMessagesResponse,
             )
 
@@ -5586,7 +5586,7 @@ class BaseLLMHTTPHandler:
         messages: list[dict],
         anthropic_messages_provider_config: "BaseAnthropicMessagesConfig",
         anthropic_messages_optional_request_params: dict,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
         stream: bool,
         custom_llm_provider: str,
         kwargs: dict,
@@ -5600,10 +5600,10 @@ class BaseLLMHTTPHandler:
 
         Returns the response from agentic loop, or None if no hook runs.
         """
-        from litellm._logging import verbose_logger
-        from litellm.integrations.custom_logger import CustomLogger
+        from embrouter._logging import verbose_logger
+        from embrouter.integrations.custom_logger import CustomLogger
 
-        callbacks: Final = litellm.callbacks + (logging_obj.dynamic_success_callbacks or [])
+        callbacks: Final = embrouter.callbacks + (logging_obj.dynamic_success_callbacks or [])
         tools: Final = anthropic_messages_optional_request_params.get("tools", [])
         depth, max_loops, fingerprints = self._get_agentic_loop_settings(kwargs=kwargs)
 
@@ -5633,8 +5633,8 @@ class BaseLLMHTTPHandler:
                 )
             except Exception as e:
                 verbose_logger.exception(
-                    "LiteLLM.AgenticHookError: Exception in async_should_run_agentic_loop [call_id=%s model=%s]: %s",
-                    logging_obj.litellm_call_id,
+                    "EmbRouter.AgenticHookError: Exception in async_should_run_agentic_loop [call_id=%s model=%s]: %s",
+                    logging_obj.embrouter_call_id,
                     model,
                     str(e),
                 )
@@ -5657,8 +5657,8 @@ class BaseLLMHTTPHandler:
                 if not self._can_replace_turn_with_terminal_response(stream, api_surface):
                     raise
                 verbose_logger.warning(
-                    "LiteLLM.AgenticLoopRefused: ending turn [call_id=%s model=%s]: %s",
-                    logging_obj.litellm_call_id,
+                    "EmbRouter.AgenticLoopRefused: ending turn [call_id=%s model=%s]: %s",
+                    logging_obj.embrouter_call_id,
                     model,
                     str(e),
                 )
@@ -5753,9 +5753,9 @@ class BaseLLMHTTPHandler:
                     api_surface,
                 )
             except Exception as e:
-                _call_id = getattr(logging_obj, "litellm_call_id", "unknown")
+                _call_id = getattr(logging_obj, "embrouter_call_id", "unknown")
                 verbose_logger.exception(
-                    "LiteLLM.AgenticHookError: Exception in agentic completion hooks [call_id=%s model=%s]: %s",
+                    "EmbRouter.AgenticHookError: Exception in agentic completion hooks [call_id=%s model=%s]: %s",
                     _call_id,
                     model,
                     str(e),
@@ -5778,7 +5778,7 @@ class BaseLLMHTTPHandler:
         model: str,
         messages: list[dict],
         optional_params: dict,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
         stream: bool,
         custom_llm_provider: str,
         kwargs: dict,
@@ -5791,10 +5791,10 @@ class BaseLLMHTTPHandler:
 
         Returns the response from agentic loop, or None if no hook runs.
         """
-        from litellm._logging import verbose_logger
-        from litellm.integrations.custom_logger import CustomLogger
+        from embrouter._logging import verbose_logger
+        from embrouter.integrations.custom_logger import CustomLogger
 
-        callbacks: Final = litellm.callbacks + (logging_obj.dynamic_success_callbacks or [])
+        callbacks: Final = embrouter.callbacks + (logging_obj.dynamic_success_callbacks or [])
         tools: Final = optional_params.get("tools", [])
         depth, max_loops, fingerprints = self._get_agentic_loop_settings(kwargs=kwargs)
 
@@ -5821,7 +5821,7 @@ class BaseLLMHTTPHandler:
                 )
             except Exception as e:
                 verbose_logger.exception(
-                    "LiteLLM.AgenticHookError: Exception in async_should_run_chat_completion_agentic_loop: %s",
+                    "EmbRouter.AgenticHookError: Exception in async_should_run_chat_completion_agentic_loop: %s",
                     str(e),
                 )
                 continue
@@ -5894,7 +5894,7 @@ class BaseLLMHTTPHandler:
                     fingerprint=fingerprint,
                 )
             except Exception as e:
-                verbose_logger.exception("LiteLLM.AgenticHookError: Exception in chat completion agentic hooks: %s", e)
+                verbose_logger.exception("EmbRouter.AgenticHookError: Exception in chat completion agentic hooks: %s", e)
 
         # Check if we need to convert response to fake stream for chat completions
         # This happens when:
@@ -5908,8 +5908,8 @@ class BaseLLMHTTPHandler:
         )
 
         if websearch_converted_stream:
-            from litellm._logging import verbose_logger
-            from litellm.llms.base_llm.base_model_iterator import (
+            from embrouter._logging import verbose_logger
+            from embrouter.llms.base_llm.base_model_iterator import (
                 convert_model_response_to_streaming,
             )
 
@@ -6056,7 +6056,7 @@ class BaseLLMHTTPHandler:
         self,
         model: str,
         websocket: _RealtimeClientWebSocket,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         provider_config: BaseRealtimeConfig,
         headers: dict,
         api_base: str | None = None,
@@ -6064,7 +6064,7 @@ class BaseLLMHTTPHandler:
         client: object | None = None,
         timeout: float | None = None,
         user_api_key_dict: object | None = None,
-        litellm_metadata: dict[str, object] | None = None,
+        embrouter_metadata: dict[str, object] | None = None,
         query_params: RealtimeQueryParams | None = None,
     ):
         import websockets
@@ -6091,8 +6091,8 @@ class BaseLLMHTTPHandler:
             )
             async with backend_ws:
                 _request_data: Final[dict[str, object]] = {}
-                if litellm_metadata:
-                    _request_data["litellm_metadata"] = litellm_metadata
+                if embrouter_metadata:
+                    _request_data["embrouter_metadata"] = embrouter_metadata
                 realtime_streaming: Final = RealTimeStreaming(
                     websocket,
                     backend_ws,
@@ -6127,7 +6127,7 @@ class BaseLLMHTTPHandler:
                 if not provider_config.requires_session_configuration():
                     synthetic_session: Final = provider_config.transform_session_created_event(
                         model=model,
-                        logging_session_id=logging_obj.litellm_trace_id,
+                        logging_session_id=logging_obj.embrouter_trace_id,
                         session_configuration_request=None,
                     )
                     if synthetic_session is not None:
@@ -6174,7 +6174,7 @@ class BaseLLMHTTPHandler:
         api_base: str,
         api_key: str,
         request_data: dict[str, object],
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         timeout: float | httpx.Timeout,
         provider_config: BaseRealtimeHTTPConfig | None = None,
         model: str | None = None,
@@ -6207,7 +6207,7 @@ class BaseLLMHTTPHandler:
         api_base: str,
         api_key: str,
         request_data: dict[str, object],
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         timeout: float | httpx.Timeout,
         provider_config: BaseRealtimeHTTPConfig | None = None,
         model: str | None = None,
@@ -6236,7 +6236,7 @@ class BaseLLMHTTPHandler:
         api_base: str,
         api_key: str,
         request_data: dict[str, object],
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         timeout: float | httpx.Timeout,
         provider_config: BaseRealtimeHTTPConfig | None = None,
         model: str | None = None,
@@ -6253,7 +6253,7 @@ class BaseLLMHTTPHandler:
         """
         if client is None or not isinstance(client, AsyncHTTPHandler):
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders.OPENAI,
+                llm_provider=embrouter.LlmProviders.OPENAI,
             )
         else:
             async_httpx_client = client
@@ -6308,7 +6308,7 @@ class BaseLLMHTTPHandler:
         api_base: str,
         openai_ephemeral_key: str,
         sdp_body: bytes,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         timeout: float | httpx.Timeout,
         provider_config: BaseRealtimeHTTPConfig | None = None,
         model: str | None = None,
@@ -6329,7 +6329,7 @@ class BaseLLMHTTPHandler:
         """
         if client is None or not isinstance(client, AsyncHTTPHandler):
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders.OPENAI,
+                llm_provider=embrouter.LlmProviders.OPENAI,
             )
         else:
             async_httpx_client = client
@@ -6389,13 +6389,13 @@ class BaseLLMHTTPHandler:
         self,
         model: str,
         websocket: _ResponsesClientWebSocket,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         responses_api_provider_config: BaseResponsesAPIConfig | None,
         api_base: str | None = None,
         api_key: str | None = None,
         timeout: float | None = None,
         user_api_key_dict: "UserAPIKeyAuth | None" = None,
-        litellm_metadata: dict[str, object] | None = None,
+        embrouter_metadata: dict[str, object] | None = None,
         custom_llm_provider: str | None = None,
         first_message: str | None = None,
         request_defaults: ResponsesWebSocketRequestDefaults | None = None,
@@ -6415,7 +6415,7 @@ class BaseLLMHTTPHandler:
         _ws_quota_callbacks: Final = _collect_ws_project_quota_callbacks()
 
         if responses_api_provider_config is None or not responses_api_provider_config.supports_native_websocket():
-            from litellm.responses.streaming_iterator import (
+            from embrouter.responses.streaming_iterator import (
                 ManagedResponsesWebSocketHandler,
             )
 
@@ -6424,7 +6424,7 @@ class BaseLLMHTTPHandler:
                 model=model,
                 logging_obj=logging_obj,
                 user_api_key_dict=user_api_key_dict,
-                litellm_metadata=litellm_metadata,
+                embrouter_metadata=embrouter_metadata,
                 api_key=api_key,
                 api_base=api_base,
                 timeout=timeout,
@@ -6439,7 +6439,7 @@ class BaseLLMHTTPHandler:
         import websockets
         from websockets.asyncio.client import ClientConnection
 
-        litellm_params: Final = GenericLiteLLMParams.model_validate(
+        embrouter_params: Final = GenericEmbRouterParams.model_validate(
             {
                 "api_base": api_base,
                 "api_key": api_key,
@@ -6449,14 +6449,14 @@ class BaseLLMHTTPHandler:
         headers: Final = responses_api_provider_config.validate_environment(
             headers={},
             model=model,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
         if api_key:
             headers["Authorization"] = f"Bearer {api_key}"
 
         ws_url = responses_api_provider_config.get_websocket_url(
             api_base=api_base,
-            litellm_params=dict(litellm_params),
+            embrouter_params=dict(embrouter_params),
         )
         # Some providers (e.g. OpenAI) require ?model= in the WebSocket URL.
         # Providers that send the model in the request body (e.g. Azure) set
@@ -6488,7 +6488,7 @@ class BaseLLMHTTPHandler:
             @asynccontextmanager
             async def _backend_connection():
                 if _rust_responses_websocket_enabled(custom_llm_provider):
-                    from litellm.rust_bridge.responses import websocket as rust_responses_websocket
+                    from embrouter.rust_bridge.responses import websocket as rust_responses_websocket
 
                     rust_backend: Final = await rust_responses_websocket.connect(
                         url=ws_url,
@@ -6509,20 +6509,20 @@ class BaseLLMHTTPHandler:
 
             async with _backend_connection() as backend_ws:
                 _request_data: Final[dict[str, object]] = {}
-                if litellm_metadata:
-                    _request_data["litellm_metadata"] = litellm_metadata
+                if embrouter_metadata:
+                    _request_data["embrouter_metadata"] = embrouter_metadata
 
                 _ws_guardrail_callbacks: list = []
                 _ws_output_guardrail_callbacks: list = []
                 try:
-                    import litellm as _litellm
+                    import embrouter as _embrouter
 
                     # Use duck-typing so any guardrail that exposes the PII
                     # masking interface works, not just _OPTIONAL_PresidioPIIMasking.
                     # This avoids a layering violation (SDK importing from proxy).
                     _ws_guardrail_callbacks = [
                         cb
-                        for cb in _litellm.callbacks
+                        for cb in _embrouter.callbacks
                         if callable(getattr(cb, "check_pii", None))
                         and callable(getattr(cb, "get_presidio_settings_from_request_data", None))
                         and callable(getattr(cb, "_unmask_pii_text", None))
@@ -6530,7 +6530,7 @@ class BaseLLMHTTPHandler:
                     ]
                     _ws_output_guardrail_callbacks = [
                         cb
-                        for cb in _litellm.callbacks
+                        for cb in _embrouter.callbacks
                         if callable(getattr(cb, "check_pii", None))
                         and callable(getattr(cb, "get_presidio_settings_from_request_data", None))
                         and getattr(cb, "apply_to_output", False)
@@ -6580,15 +6580,15 @@ class BaseLLMHTTPHandler:
         image_edit_provider_config: BaseImageEditConfig,
         image_edit_optional_request_params: dict,
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         timeout: float | httpx.Timeout,
         extra_headers: dict[str, object] | None = None,
         extra_body: dict[str, object] | None = None,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
         _is_async: bool = False,
         fake_stream: bool = False,
-        litellm_metadata: dict[str, object] | None = None,
+        embrouter_metadata: dict[str, object] | None = None,
     ) -> ImageResponse | Coroutine[object, object, ImageResponse]:
         """
 
@@ -6604,27 +6604,27 @@ class BaseLLMHTTPHandler:
                 image_edit_provider_config=image_edit_provider_config,
                 image_edit_optional_request_params=image_edit_optional_request_params,
                 custom_llm_provider=custom_llm_provider,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 extra_headers=extra_headers,
                 extra_body=extra_body,
                 timeout=timeout,
                 client=client if isinstance(client, AsyncHTTPHandler) else None,
                 fake_stream=fake_stream,
-                litellm_metadata=litellm_metadata,
+                embrouter_metadata=embrouter_metadata,
             )
 
         if client is None or not isinstance(client, HTTPHandler):
-            sync_httpx_client = _get_httpx_client(params={"ssl_verify": litellm_params.get("ssl_verify", None)})
+            sync_httpx_client = _get_httpx_client(params={"ssl_verify": embrouter_params.get("ssl_verify", None)})
         else:
             sync_httpx_client = client
 
         headers: Final = image_edit_provider_config.validate_environment(
-            api_key=litellm_params.api_key,
+            api_key=embrouter_params.api_key,
             headers=image_edit_optional_request_params.get("extra_headers", {}) or {},
             model=model,
-            litellm_params=dict(litellm_params),
-            api_base=litellm_params.api_base,
+            embrouter_params=dict(embrouter_params),
+            api_base=embrouter_params.api_base,
         )
 
         if extra_headers:
@@ -6632,8 +6632,8 @@ class BaseLLMHTTPHandler:
 
         api_base: Final = image_edit_provider_config.get_complete_url(
             model=model,
-            api_base=litellm_params.api_base,
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.api_base,
+            embrouter_params=dict(embrouter_params),
         )
 
         data, files = image_edit_provider_config.transform_image_edit_request(
@@ -6641,7 +6641,7 @@ class BaseLLMHTTPHandler:
             image=image,
             prompt=prompt,
             image_edit_optional_request_params=image_edit_optional_request_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
         data = image_edit_provider_config.finalize_image_edit_request_data(data, api_base)
@@ -6699,14 +6699,14 @@ class BaseLLMHTTPHandler:
         image_edit_provider_config: BaseImageEditConfig,
         image_edit_optional_request_params: dict,
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         timeout: float | httpx.Timeout,
         extra_headers: dict[str, object] | None = None,
         extra_body: dict[str, object] | None = None,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
         fake_stream: bool = False,
-        litellm_metadata: dict[str, object] | None = None,
+        embrouter_metadata: dict[str, object] | None = None,
     ) -> ImageResponse:
         """
         Async version of the image edit handler.
@@ -6714,18 +6714,18 @@ class BaseLLMHTTPHandler:
         """
         if client is None or not isinstance(client, AsyncHTTPHandler):
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders(custom_llm_provider),
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders(custom_llm_provider),
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
             )
         else:
             async_httpx_client = client
 
         headers: Final = image_edit_provider_config.validate_environment(
-            api_key=litellm_params.api_key,
+            api_key=embrouter_params.api_key,
             headers=image_edit_optional_request_params.get("extra_headers", {}) or {},
             model=model,
-            litellm_params=dict(litellm_params),
-            api_base=litellm_params.api_base,
+            embrouter_params=dict(embrouter_params),
+            api_base=embrouter_params.api_base,
         )
 
         if extra_headers:
@@ -6733,8 +6733,8 @@ class BaseLLMHTTPHandler:
 
         api_base: Final = image_edit_provider_config.get_complete_url(
             model=model,
-            api_base=litellm_params.api_base,
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.api_base,
+            embrouter_params=dict(embrouter_params),
         )
 
         data, files = await image_edit_provider_config.async_transform_image_edit_request(
@@ -6742,7 +6742,7 @@ class BaseLLMHTTPHandler:
             image=image,
             prompt=prompt,
             image_edit_optional_request_params=image_edit_optional_request_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
         data = image_edit_provider_config.finalize_image_edit_request_data(data, api_base)
@@ -6799,15 +6799,15 @@ class BaseLLMHTTPHandler:
         image_generation_provider_config: BaseImageGenerationConfig,
         image_generation_optional_request_params: dict,
         custom_llm_provider: str,
-        litellm_params: dict,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: dict,
+        logging_obj: EmbRouterLoggingObj,
         timeout: float | httpx.Timeout,
         extra_headers: dict[str, object] | None = None,
         extra_body: dict[str, object] | None = None,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
         _is_async: bool = False,
         fake_stream: bool = False,
-        litellm_metadata: dict[str, object] | None = None,
+        embrouter_metadata: dict[str, object] | None = None,
         api_key: str | None = None,
     ) -> ImageResponse | Coroutine[object, object, ImageResponse]:
         """
@@ -6822,19 +6822,19 @@ class BaseLLMHTTPHandler:
                 image_generation_provider_config=image_generation_provider_config,
                 image_generation_optional_request_params=image_generation_optional_request_params,
                 custom_llm_provider=custom_llm_provider,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 extra_headers=extra_headers,
                 extra_body=extra_body,
                 timeout=timeout,
                 client=client if isinstance(client, AsyncHTTPHandler) else None,
                 fake_stream=fake_stream,
-                litellm_metadata=litellm_metadata,
+                embrouter_metadata=embrouter_metadata,
                 api_key=api_key,
             )
 
         if client is None or not isinstance(client, HTTPHandler):
-            sync_httpx_client = _get_httpx_client(params={"ssl_verify": litellm_params.get("ssl_verify", None)})
+            sync_httpx_client = _get_httpx_client(params={"ssl_verify": embrouter_params.get("ssl_verify", None)})
         else:
             sync_httpx_client = client
 
@@ -6844,7 +6844,7 @@ class BaseLLMHTTPHandler:
             model=model,
             messages=[],
             optional_params=image_generation_optional_request_params,
-            litellm_params=dict(litellm_params),
+            embrouter_params=dict(embrouter_params),
         )
 
         if extra_headers:
@@ -6852,17 +6852,17 @@ class BaseLLMHTTPHandler:
 
         api_base: Final = image_generation_provider_config.get_complete_url(
             model=model,
-            api_base=litellm_params.get("api_base", None),
-            api_key=litellm_params.get("api_key", None),
+            api_base=embrouter_params.get("api_base", None),
+            api_key=embrouter_params.get("api_key", None),
             optional_params=image_generation_optional_request_params,
-            litellm_params=dict(litellm_params),
+            embrouter_params=dict(embrouter_params),
         )
 
         data: Final = image_generation_provider_config.transform_image_generation_request(
             model=model,
             prompt=prompt,
             optional_params=image_generation_optional_request_params,
-            litellm_params=dict(litellm_params),
+            embrouter_params=dict(embrouter_params),
             headers=headers,
         )
 
@@ -6906,11 +6906,11 @@ class BaseLLMHTTPHandler:
         model_response: Final[ImageResponse] = image_generation_provider_config.transform_image_generation_response(
             model=model,
             raw_response=response,
-            model_response=litellm.ImageResponse(),
+            model_response=embrouter.ImageResponse(),
             logging_obj=logging_obj,
             request_data=data,
             optional_params=image_generation_optional_request_params,
-            litellm_params=dict(litellm_params),
+            embrouter_params=dict(embrouter_params),
             encoding=None,
         )
         set_provider_response_headers_in_hidden_params(model_response, response.headers)
@@ -6924,14 +6924,14 @@ class BaseLLMHTTPHandler:
         image_generation_provider_config: BaseImageGenerationConfig,
         image_generation_optional_request_params: dict,
         custom_llm_provider: str,
-        litellm_params: dict,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: dict,
+        logging_obj: EmbRouterLoggingObj,
         timeout: float | httpx.Timeout,
         extra_headers: dict[str, object] | None = None,
         extra_body: dict[str, object] | None = None,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
         fake_stream: bool = False,
-        litellm_metadata: dict[str, object] | None = None,
+        embrouter_metadata: dict[str, object] | None = None,
         api_key: str | None = None,
     ) -> ImageResponse:
         """
@@ -6940,8 +6940,8 @@ class BaseLLMHTTPHandler:
         """
         if client is None or not isinstance(client, AsyncHTTPHandler):
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders(custom_llm_provider),
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders(custom_llm_provider),
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
             )
         else:
             async_httpx_client = client
@@ -6952,7 +6952,7 @@ class BaseLLMHTTPHandler:
             model=model,
             messages=[],
             optional_params=image_generation_optional_request_params,
-            litellm_params=dict(litellm_params),
+            embrouter_params=dict(embrouter_params),
         )
 
         if extra_headers:
@@ -6960,17 +6960,17 @@ class BaseLLMHTTPHandler:
 
         api_base: Final = image_generation_provider_config.get_complete_url(
             model=model,
-            api_base=litellm_params.get("api_base", None),
-            api_key=litellm_params.get("api_key", None),
+            api_base=embrouter_params.get("api_base", None),
+            api_key=embrouter_params.get("api_key", None),
             optional_params=image_generation_optional_request_params,
-            litellm_params=dict(litellm_params),
+            embrouter_params=dict(embrouter_params),
         )
 
         data: Final = image_generation_provider_config.transform_image_generation_request(
             model=model,
             prompt=prompt,
             optional_params=image_generation_optional_request_params,
-            litellm_params=dict(litellm_params),
+            embrouter_params=dict(embrouter_params),
             headers=headers,
         )
 
@@ -7014,11 +7014,11 @@ class BaseLLMHTTPHandler:
         model_response: Final[ImageResponse] = image_generation_provider_config.transform_image_generation_response(
             model=model,
             raw_response=response,
-            model_response=litellm.ImageResponse(),
+            model_response=embrouter.ImageResponse(),
             logging_obj=logging_obj,
             request_data=data,
             optional_params=image_generation_optional_request_params,
-            litellm_params=dict(litellm_params),
+            embrouter_params=dict(embrouter_params),
             encoding=None,
         )
         set_provider_response_headers_in_hidden_params(model_response, response.headers)
@@ -7033,15 +7033,15 @@ class BaseLLMHTTPHandler:
         video_generation_provider_config: BaseVideoConfig,
         video_generation_optional_request_params: dict,
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         timeout: float | httpx.Timeout,
         extra_headers: dict[str, object] | None = None,
         extra_body: dict[str, object] | None = None,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
         _is_async: bool = False,
         fake_stream: bool = False,
-        litellm_metadata: dict[str, object] | None = None,
+        embrouter_metadata: dict[str, object] | None = None,
         api_key: str | None = None,
     ) -> VideoObject | Coroutine[object, object, VideoObject]:
         """
@@ -7056,27 +7056,27 @@ class BaseLLMHTTPHandler:
                 video_generation_provider_config=video_generation_provider_config,
                 video_generation_optional_request_params=video_generation_optional_request_params,
                 custom_llm_provider=custom_llm_provider,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 extra_headers=extra_headers,
                 extra_body=extra_body,
                 timeout=timeout,
                 client=client if isinstance(client, AsyncHTTPHandler) else None,
                 fake_stream=fake_stream,
-                litellm_metadata=litellm_metadata,
+                embrouter_metadata=embrouter_metadata,
                 api_key=api_key,
             )
 
         if client is None or not isinstance(client, HTTPHandler):
-            sync_httpx_client = _get_httpx_client(params={"ssl_verify": litellm_params.get("ssl_verify", None)})
+            sync_httpx_client = _get_httpx_client(params={"ssl_verify": embrouter_params.get("ssl_verify", None)})
         else:
             sync_httpx_client = client
 
         headers: Final = video_generation_provider_config.validate_environment(
-            api_key=api_key or litellm_params.get("api_key", None),
+            api_key=api_key or embrouter_params.get("api_key", None),
             headers=video_generation_optional_request_params.get("extra_headers", {}) or {},
             model=model,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
         if extra_headers:
@@ -7084,8 +7084,8 @@ class BaseLLMHTTPHandler:
 
         api_base = video_generation_provider_config.get_complete_url(
             model=model,
-            api_base=litellm_params.get("api_base", None),
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.get("api_base", None),
+            embrouter_params=dict(embrouter_params),
         )
 
         (
@@ -7096,7 +7096,7 @@ class BaseLLMHTTPHandler:
             model=model,
             prompt=prompt,
             video_create_optional_request_params=video_generation_optional_request_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
             api_base=api_base,
         )
@@ -7157,14 +7157,14 @@ class BaseLLMHTTPHandler:
         video_generation_provider_config: "BaseVideoConfig",
         video_generation_optional_request_params: dict,
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         timeout: float | httpx.Timeout,
         extra_headers: dict[str, object] | None = None,
         extra_body: dict[str, object] | None = None,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
         fake_stream: bool = False,
-        litellm_metadata: dict[str, object] | None = None,
+        embrouter_metadata: dict[str, object] | None = None,
         api_key: str | None = None,
     ) -> VideoObject:
         """
@@ -7173,17 +7173,17 @@ class BaseLLMHTTPHandler:
         """
         if client is None or not isinstance(client, AsyncHTTPHandler):
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders(custom_llm_provider),
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders(custom_llm_provider),
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
             )
         else:
             async_httpx_client = client
 
         headers: Final = video_generation_provider_config.validate_environment(
-            api_key=api_key or litellm_params.get("api_key", None),
+            api_key=api_key or embrouter_params.get("api_key", None),
             headers=video_generation_optional_request_params.get("extra_headers", {}) or {},
             model=model,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
         if extra_headers:
@@ -7191,8 +7191,8 @@ class BaseLLMHTTPHandler:
 
         api_base = video_generation_provider_config.get_complete_url(
             model=model,
-            api_base=litellm_params.get("api_base", None),
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.get("api_base", None),
+            embrouter_params=dict(embrouter_params),
         )
 
         (
@@ -7204,7 +7204,7 @@ class BaseLLMHTTPHandler:
             prompt=prompt,
             api_base=api_base,
             video_create_optional_request_params=video_generation_optional_request_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
@@ -7263,8 +7263,8 @@ class BaseLLMHTTPHandler:
         video_id: str,
         video_content_provider_config: BaseVideoConfig,
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         timeout: float | httpx.Timeout,
         extra_headers: dict[str, object] | None = None,
         api_key: str | None = None,
@@ -7280,7 +7280,7 @@ class BaseLLMHTTPHandler:
                 video_id=video_id,
                 video_content_provider_config=video_content_provider_config,
                 custom_llm_provider=custom_llm_provider,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 timeout=timeout,
                 extra_headers=extra_headers,
@@ -7290,7 +7290,7 @@ class BaseLLMHTTPHandler:
             )
 
         if client is None or not isinstance(client, HTTPHandler):
-            sync_httpx_client = _get_httpx_client(params={"ssl_verify": litellm_params.get("ssl_verify", None)})
+            sync_httpx_client = _get_httpx_client(params={"ssl_verify": embrouter_params.get("ssl_verify", None)})
         else:
             sync_httpx_client = client
 
@@ -7298,7 +7298,7 @@ class BaseLLMHTTPHandler:
             headers=extra_headers or {},
             model="",
             api_key=api_key,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
         if extra_headers:
@@ -7306,15 +7306,15 @@ class BaseLLMHTTPHandler:
 
         api_base: Final = video_content_provider_config.get_complete_url(
             model="",
-            api_base=litellm_params.get("api_base", None),
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.get("api_base", None),
+            embrouter_params=dict(embrouter_params),
         )
 
         # Transform the request using the provider config
         url, data = video_content_provider_config.transform_video_content_request(
             video_id=video_id,
             api_base=api_base,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
             variant=variant,
         )
@@ -7353,8 +7353,8 @@ class BaseLLMHTTPHandler:
         video_id: str,
         video_content_provider_config: BaseVideoConfig,
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         timeout: float | httpx.Timeout,
         extra_headers: dict[str, object] | None = None,
         api_key: str | None = None,
@@ -7366,8 +7366,8 @@ class BaseLLMHTTPHandler:
         """
         if client is None or not isinstance(client, AsyncHTTPHandler):
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders(custom_llm_provider),
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders(custom_llm_provider),
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
             )
         else:
             async_httpx_client = client
@@ -7376,7 +7376,7 @@ class BaseLLMHTTPHandler:
             headers=extra_headers or {},
             model="",
             api_key=api_key,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
         if extra_headers:
@@ -7384,15 +7384,15 @@ class BaseLLMHTTPHandler:
 
         api_base: Final = video_content_provider_config.get_complete_url(
             model="",
-            api_base=litellm_params.get("api_base", None),
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.get("api_base", None),
+            embrouter_params=dict(embrouter_params),
         )
 
         # Transform the request using the provider config
         url, data = video_content_provider_config.transform_video_content_request(
             video_id=video_id,
             api_base=api_base,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
             variant=variant,
         )
@@ -7432,7 +7432,7 @@ class BaseLLMHTTPHandler:
         prompt: str,
         video_remix_provider_config: BaseVideoConfig,
         custom_llm_provider: str,
-        litellm_params,
+        embrouter_params,
         logging_obj,
         extra_headers: dict[str, object] | None = None,
         extra_body: dict[str, object] | None = None,
@@ -7452,7 +7452,7 @@ class BaseLLMHTTPHandler:
                 prompt=prompt,
                 video_remix_provider_config=video_remix_provider_config,
                 custom_llm_provider=custom_llm_provider,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 extra_headers=extra_headers,
                 extra_body=extra_body,
@@ -7463,15 +7463,15 @@ class BaseLLMHTTPHandler:
 
         # For sync calls, use sync HTTP client directly (like video_generation does)
         if client is None or not isinstance(client, HTTPHandler):
-            sync_httpx_client = _get_httpx_client(params={"ssl_verify": litellm_params.get("ssl_verify", None)})
+            sync_httpx_client = _get_httpx_client(params={"ssl_verify": embrouter_params.get("ssl_verify", None)})
         else:
             sync_httpx_client = client
 
         headers: Final = video_remix_provider_config.validate_environment(
-            api_key=api_key or litellm_params.get("api_key", None),
+            api_key=api_key or embrouter_params.get("api_key", None),
             headers=extra_headers or {},
             model="",
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
         if extra_headers:
@@ -7479,8 +7479,8 @@ class BaseLLMHTTPHandler:
 
         api_base: Final = video_remix_provider_config.get_complete_url(
             model="",
-            api_base=litellm_params.get("api_base", None),
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.get("api_base", None),
+            embrouter_params=dict(embrouter_params),
         )
 
         # Transform the request using the provider config
@@ -7488,7 +7488,7 @@ class BaseLLMHTTPHandler:
             video_id=video_id,
             prompt=prompt,
             api_base=api_base,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
             extra_body=extra_body,
         )
@@ -7531,7 +7531,7 @@ class BaseLLMHTTPHandler:
         prompt: str,
         video_remix_provider_config: BaseVideoConfig,
         custom_llm_provider: str,
-        litellm_params,
+        embrouter_params,
         logging_obj,
         extra_headers: dict[str, object] | None = None,
         extra_body: dict[str, object] | None = None,
@@ -7544,17 +7544,17 @@ class BaseLLMHTTPHandler:
         """
         if client is None or not isinstance(client, AsyncHTTPHandler):
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders(custom_llm_provider),
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders(custom_llm_provider),
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
             )
         else:
             async_httpx_client = client
 
         headers: Final = video_remix_provider_config.validate_environment(
-            api_key=api_key or litellm_params.get("api_key", None),
+            api_key=api_key or embrouter_params.get("api_key", None),
             headers=extra_headers or {},
             model="",
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
         if extra_headers:
@@ -7562,8 +7562,8 @@ class BaseLLMHTTPHandler:
 
         api_base: Final = video_remix_provider_config.get_complete_url(
             model="",
-            api_base=litellm_params.get("api_base", None),
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.get("api_base", None),
+            embrouter_params=dict(embrouter_params),
         )
 
         # Transform the request using the provider config
@@ -7571,7 +7571,7 @@ class BaseLLMHTTPHandler:
             video_id=video_id,
             prompt=prompt,
             api_base=api_base,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
             extra_body=extra_body,
         )
@@ -7614,7 +7614,7 @@ class BaseLLMHTTPHandler:
         video: FileTypes,
         video_provider_config: BaseVideoConfig,
         custom_llm_provider: str,
-        litellm_params,
+        embrouter_params,
         logging_obj,
         extra_headers: dict[str, object] | None = None,
         timeout: float | None = None,
@@ -7628,7 +7628,7 @@ class BaseLLMHTTPHandler:
                 video=video,
                 video_provider_config=video_provider_config,
                 custom_llm_provider=custom_llm_provider,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 extra_headers=extra_headers,
                 timeout=timeout,
@@ -7637,23 +7637,23 @@ class BaseLLMHTTPHandler:
             )
 
         if client is None or not isinstance(client, HTTPHandler):
-            sync_httpx_client = _get_httpx_client(params={"ssl_verify": litellm_params.get("ssl_verify", None)})
+            sync_httpx_client = _get_httpx_client(params={"ssl_verify": embrouter_params.get("ssl_verify", None)})
         else:
             sync_httpx_client = client
 
         headers: Final = video_provider_config.validate_environment(
-            api_key=api_key or litellm_params.get("api_key", None),
+            api_key=api_key or embrouter_params.get("api_key", None),
             headers=extra_headers or {},
             model="",
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
         if extra_headers:
             headers.update(extra_headers)
 
         api_base: Final = video_provider_config.get_complete_url(
             model="",
-            api_base=litellm_params.get("api_base", None),
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.get("api_base", None),
+            embrouter_params=dict(embrouter_params),
         )
 
         (
@@ -7663,7 +7663,7 @@ class BaseLLMHTTPHandler:
             name=name,
             video=video,
             api_base=api_base,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
@@ -7698,7 +7698,7 @@ class BaseLLMHTTPHandler:
         video: FileTypes,
         video_provider_config: BaseVideoConfig,
         custom_llm_provider: str,
-        litellm_params,
+        embrouter_params,
         logging_obj,
         extra_headers: dict[str, object] | None = None,
         timeout: float | None = None,
@@ -7707,25 +7707,25 @@ class BaseLLMHTTPHandler:
     ):
         if client is None or not isinstance(client, AsyncHTTPHandler):
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders(custom_llm_provider),
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders(custom_llm_provider),
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
             )
         else:
             async_httpx_client = client
 
         headers: Final = video_provider_config.validate_environment(
-            api_key=api_key or litellm_params.get("api_key", None),
+            api_key=api_key or embrouter_params.get("api_key", None),
             headers=extra_headers or {},
             model="",
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
         if extra_headers:
             headers.update(extra_headers)
 
         api_base: Final = video_provider_config.get_complete_url(
             model="",
-            api_base=litellm_params.get("api_base", None),
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.get("api_base", None),
+            embrouter_params=dict(embrouter_params),
         )
 
         (
@@ -7735,7 +7735,7 @@ class BaseLLMHTTPHandler:
             name=name,
             video=video,
             api_base=api_base,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
@@ -7769,7 +7769,7 @@ class BaseLLMHTTPHandler:
         character_id: str,
         video_provider_config: BaseVideoConfig,
         custom_llm_provider: str,
-        litellm_params,
+        embrouter_params,
         logging_obj,
         extra_headers: dict[str, object] | None = None,
         timeout: float | None = None,
@@ -7782,7 +7782,7 @@ class BaseLLMHTTPHandler:
                 character_id=character_id,
                 video_provider_config=video_provider_config,
                 custom_llm_provider=custom_llm_provider,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 extra_headers=extra_headers,
                 timeout=timeout,
@@ -7791,29 +7791,29 @@ class BaseLLMHTTPHandler:
             )
 
         if client is None or not isinstance(client, HTTPHandler):
-            sync_httpx_client = _get_httpx_client(params={"ssl_verify": litellm_params.get("ssl_verify", None)})
+            sync_httpx_client = _get_httpx_client(params={"ssl_verify": embrouter_params.get("ssl_verify", None)})
         else:
             sync_httpx_client = client
 
         headers: Final = video_provider_config.validate_environment(
-            api_key=api_key or litellm_params.get("api_key", None),
+            api_key=api_key or embrouter_params.get("api_key", None),
             headers=extra_headers or {},
             model="",
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
         if extra_headers:
             headers.update(extra_headers)
 
         api_base: Final = video_provider_config.get_complete_url(
             model="",
-            api_base=litellm_params.get("api_base", None),
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.get("api_base", None),
+            embrouter_params=dict(embrouter_params),
         )
 
         url, params = video_provider_config.transform_video_get_character_request(
             character_id=character_id,
             api_base=api_base,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
@@ -7838,7 +7838,7 @@ class BaseLLMHTTPHandler:
         character_id: str,
         video_provider_config: BaseVideoConfig,
         custom_llm_provider: str,
-        litellm_params,
+        embrouter_params,
         logging_obj,
         extra_headers: dict[str, object] | None = None,
         timeout: float | None = None,
@@ -7847,31 +7847,31 @@ class BaseLLMHTTPHandler:
     ):
         if client is None or not isinstance(client, AsyncHTTPHandler):
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders(custom_llm_provider),
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders(custom_llm_provider),
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
             )
         else:
             async_httpx_client = client
 
         headers: Final = video_provider_config.validate_environment(
-            api_key=api_key or litellm_params.get("api_key", None),
+            api_key=api_key or embrouter_params.get("api_key", None),
             headers=extra_headers or {},
             model="",
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
         if extra_headers:
             headers.update(extra_headers)
 
         api_base: Final = video_provider_config.get_complete_url(
             model="",
-            api_base=litellm_params.get("api_base", None),
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.get("api_base", None),
+            embrouter_params=dict(embrouter_params),
         )
 
         url, params = video_provider_config.transform_video_get_character_request(
             character_id=character_id,
             api_base=api_base,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
@@ -7897,7 +7897,7 @@ class BaseLLMHTTPHandler:
         video_id: str,
         video_provider_config: BaseVideoConfig,
         custom_llm_provider: str,
-        litellm_params,
+        embrouter_params,
         logging_obj,
         video_file: FileContent | None = None,
         extra_headers: dict[str, object] | None = None,
@@ -7914,7 +7914,7 @@ class BaseLLMHTTPHandler:
                 video_file=video_file,
                 video_provider_config=video_provider_config,
                 custom_llm_provider=custom_llm_provider,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 extra_headers=extra_headers,
                 extra_body=extra_body,
@@ -7924,30 +7924,30 @@ class BaseLLMHTTPHandler:
             )
 
         if client is None or not isinstance(client, HTTPHandler):
-            sync_httpx_client = _get_httpx_client(params={"ssl_verify": litellm_params.get("ssl_verify", None)})
+            sync_httpx_client = _get_httpx_client(params={"ssl_verify": embrouter_params.get("ssl_verify", None)})
         else:
             sync_httpx_client = client
 
         headers: Final = video_provider_config.validate_environment(
-            api_key=api_key or litellm_params.get("api_key", None),
+            api_key=api_key or embrouter_params.get("api_key", None),
             headers=extra_headers or {},
             model="",
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
         if extra_headers:
             headers.update(extra_headers)
 
         api_base: Final = video_provider_config.get_complete_url(
             model="",
-            api_base=litellm_params.get("api_base", None),
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.get("api_base", None),
+            embrouter_params=dict(embrouter_params),
         )
 
         prefetched_source_data = None
         prefetch_params: Final = video_provider_config.get_video_edit_prefetch_params(
             video_id=video_id,
             api_base=api_base,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
         if prefetch_params is not None:
@@ -7970,7 +7970,7 @@ class BaseLLMHTTPHandler:
                 video_id=video_id,
                 video_file=video_file,
                 api_base=api_base,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 headers=headers,
                 extra_body=extra_body,
                 prefetched_source_data=prefetched_source_data,
@@ -8008,7 +8008,7 @@ class BaseLLMHTTPHandler:
         video_id: str,
         video_provider_config: BaseVideoConfig,
         custom_llm_provider: str,
-        litellm_params,
+        embrouter_params,
         logging_obj,
         video_file: FileContent | None = None,
         extra_headers: dict[str, object] | None = None,
@@ -8019,32 +8019,32 @@ class BaseLLMHTTPHandler:
     ):
         if client is None or not isinstance(client, AsyncHTTPHandler):
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders(custom_llm_provider),
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders(custom_llm_provider),
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
             )
         else:
             async_httpx_client = client
 
         headers: Final = video_provider_config.validate_environment(
-            api_key=api_key or litellm_params.get("api_key", None),
+            api_key=api_key or embrouter_params.get("api_key", None),
             headers=extra_headers or {},
             model="",
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
         if extra_headers:
             headers.update(extra_headers)
 
         api_base: Final = video_provider_config.get_complete_url(
             model="",
-            api_base=litellm_params.get("api_base", None),
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.get("api_base", None),
+            embrouter_params=dict(embrouter_params),
         )
 
         prefetched_source_data = None
         prefetch_params: Final = video_provider_config.get_video_edit_prefetch_params(
             video_id=video_id,
             api_base=api_base,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
         if prefetch_params is not None:
@@ -8067,7 +8067,7 @@ class BaseLLMHTTPHandler:
                 video_id=video_id,
                 video_file=video_file,
                 api_base=api_base,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 headers=headers,
                 extra_body=extra_body,
                 prefetched_source_data=prefetched_source_data,
@@ -8106,7 +8106,7 @@ class BaseLLMHTTPHandler:
         seconds: str,
         video_provider_config: BaseVideoConfig,
         custom_llm_provider: str,
-        litellm_params,
+        embrouter_params,
         logging_obj,
         extra_headers: dict[str, object] | None = None,
         extra_body: dict[str, object] | None = None,
@@ -8122,7 +8122,7 @@ class BaseLLMHTTPHandler:
                 seconds=seconds,
                 video_provider_config=video_provider_config,
                 custom_llm_provider=custom_llm_provider,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 extra_headers=extra_headers,
                 extra_body=extra_body,
@@ -8132,23 +8132,23 @@ class BaseLLMHTTPHandler:
             )
 
         if client is None or not isinstance(client, HTTPHandler):
-            sync_httpx_client = _get_httpx_client(params={"ssl_verify": litellm_params.get("ssl_verify", None)})
+            sync_httpx_client = _get_httpx_client(params={"ssl_verify": embrouter_params.get("ssl_verify", None)})
         else:
             sync_httpx_client = client
 
         headers: Final = video_provider_config.validate_environment(
-            api_key=api_key or litellm_params.get("api_key", None),
+            api_key=api_key or embrouter_params.get("api_key", None),
             headers=extra_headers or {},
             model="",
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
         if extra_headers:
             headers.update(extra_headers)
 
         api_base: Final = video_provider_config.get_complete_url(
             model="",
-            api_base=litellm_params.get("api_base", None),
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.get("api_base", None),
+            embrouter_params=dict(embrouter_params),
         )
 
         url, data = video_provider_config.transform_video_extension_request(
@@ -8156,7 +8156,7 @@ class BaseLLMHTTPHandler:
             video_id=video_id,
             seconds=seconds,
             api_base=api_base,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
             extra_body=extra_body,
         )
@@ -8195,7 +8195,7 @@ class BaseLLMHTTPHandler:
         seconds: str,
         video_provider_config: BaseVideoConfig,
         custom_llm_provider: str,
-        litellm_params,
+        embrouter_params,
         logging_obj,
         extra_headers: dict[str, object] | None = None,
         extra_body: dict[str, object] | None = None,
@@ -8205,25 +8205,25 @@ class BaseLLMHTTPHandler:
     ):
         if client is None or not isinstance(client, AsyncHTTPHandler):
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders(custom_llm_provider),
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders(custom_llm_provider),
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
             )
         else:
             async_httpx_client = client
 
         headers: Final = video_provider_config.validate_environment(
-            api_key=api_key or litellm_params.get("api_key", None),
+            api_key=api_key or embrouter_params.get("api_key", None),
             headers=extra_headers or {},
             model="",
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
         if extra_headers:
             headers.update(extra_headers)
 
         api_base: Final = video_provider_config.get_complete_url(
             model="",
-            api_base=litellm_params.get("api_base", None),
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.get("api_base", None),
+            embrouter_params=dict(embrouter_params),
         )
 
         url, data = video_provider_config.transform_video_extension_request(
@@ -8231,7 +8231,7 @@ class BaseLLMHTTPHandler:
             video_id=video_id,
             seconds=seconds,
             api_base=api_base,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
             extra_body=extra_body,
         )
@@ -8270,7 +8270,7 @@ class BaseLLMHTTPHandler:
         order: str | None,
         video_list_provider_config,
         custom_llm_provider: str,
-        litellm_params,
+        embrouter_params,
         logging_obj,
         extra_headers: dict[str, object] | None = None,
         extra_query: dict[str, object] | None = None,
@@ -8289,7 +8289,7 @@ class BaseLLMHTTPHandler:
                 order=order,
                 video_list_provider_config=video_list_provider_config,
                 custom_llm_provider=custom_llm_provider,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -8308,7 +8308,7 @@ class BaseLLMHTTPHandler:
                     order=order,
                     video_list_provider_config=video_list_provider_config,
                     custom_llm_provider=custom_llm_provider,
-                    litellm_params=litellm_params,
+                    embrouter_params=embrouter_params,
                     logging_obj=logging_obj,
                     extra_headers=extra_headers,
                     extra_query=extra_query,
@@ -8324,7 +8324,7 @@ class BaseLLMHTTPHandler:
         order: str | None,
         video_list_provider_config: BaseVideoConfig,
         custom_llm_provider: str,
-        litellm_params,
+        embrouter_params,
         logging_obj,
         extra_headers: dict[str, object] | None = None,
         extra_query: dict[str, object] | None = None,
@@ -8337,8 +8337,8 @@ class BaseLLMHTTPHandler:
         """
         if client is None or not isinstance(client, AsyncHTTPHandler):
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders(custom_llm_provider),
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders(custom_llm_provider),
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
             )
         else:
             async_httpx_client = client
@@ -8347,7 +8347,7 @@ class BaseLLMHTTPHandler:
             api_key=api_key,
             headers=extra_headers or {},
             model="",
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
         if extra_headers:
@@ -8355,14 +8355,14 @@ class BaseLLMHTTPHandler:
 
         api_base: Final = video_list_provider_config.get_complete_url(
             model="",
-            api_base=litellm_params.get("api_base", None),
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.get("api_base", None),
+            embrouter_params=dict(embrouter_params),
         )
 
         # Transform the request using the provider config
         url, params = video_list_provider_config.transform_video_list_request(
             api_base=api_base,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
             after=after,
             limit=limit,
@@ -8405,7 +8405,7 @@ class BaseLLMHTTPHandler:
         video_id: str,
         video_delete_provider_config: BaseVideoConfig,
         custom_llm_provider: str,
-        litellm_params,
+        embrouter_params,
         logging_obj,
         extra_headers: dict[str, object] | None = None,
         timeout: float | None = None,
@@ -8417,8 +8417,8 @@ class BaseLLMHTTPHandler:
         """
         if client is None or not isinstance(client, AsyncHTTPHandler):
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders(custom_llm_provider),
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders(custom_llm_provider),
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
             )
         else:
             async_httpx_client = client
@@ -8427,7 +8427,7 @@ class BaseLLMHTTPHandler:
             api_key=api_key,
             headers=extra_headers or {},
             model="",
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
         if extra_headers:
@@ -8435,15 +8435,15 @@ class BaseLLMHTTPHandler:
 
         api_base: Final = video_delete_provider_config.get_complete_url(
             model="",
-            api_base=litellm_params.get("api_base", None),
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.get("api_base", None),
+            embrouter_params=dict(embrouter_params),
         )
 
         # Transform the request using the provider config
         url, data = video_delete_provider_config.transform_video_delete_request(
             video_id=video_id,
             api_base=api_base,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
@@ -8481,7 +8481,7 @@ class BaseLLMHTTPHandler:
         video_id: str,
         video_status_provider_config: BaseVideoConfig,
         custom_llm_provider: str,
-        litellm_params,
+        embrouter_params,
         logging_obj,
         extra_headers: dict[str, object] | None = None,
         extra_body: dict[str, object] | None = None,
@@ -8500,7 +8500,7 @@ class BaseLLMHTTPHandler:
                 video_id=video_id,
                 video_status_provider_config=video_status_provider_config,
                 custom_llm_provider=custom_llm_provider,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 extra_headers=extra_headers,
                 extra_body=extra_body,
@@ -8511,7 +8511,7 @@ class BaseLLMHTTPHandler:
 
         # For sync calls, use sync HTTP client directly (like video_generation does)
         if client is None or not isinstance(client, HTTPHandler):
-            sync_httpx_client = _get_httpx_client(params={"ssl_verify": litellm_params.get("ssl_verify", None)})
+            sync_httpx_client = _get_httpx_client(params={"ssl_verify": embrouter_params.get("ssl_verify", None)})
         else:
             sync_httpx_client = client
 
@@ -8519,7 +8519,7 @@ class BaseLLMHTTPHandler:
             api_key=api_key,
             headers=extra_headers or {},
             model="",
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
         if extra_headers:
@@ -8527,8 +8527,8 @@ class BaseLLMHTTPHandler:
 
         api_base: Final = video_status_provider_config.get_complete_url(
             model="",
-            api_base=litellm_params.get("api_base", None),
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.get("api_base", None),
+            embrouter_params=dict(embrouter_params),
         )
 
         # Transform the request using the provider config
@@ -8538,7 +8538,7 @@ class BaseLLMHTTPHandler:
         ) = video_status_provider_config.transform_video_status_retrieve_request(
             video_id=video_id,
             api_base=api_base,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
@@ -8587,7 +8587,7 @@ class BaseLLMHTTPHandler:
         video_id: str,
         video_status_provider_config: BaseVideoConfig,
         custom_llm_provider: str,
-        litellm_params,
+        embrouter_params,
         logging_obj,
         extra_headers: dict[str, object] | None = None,
         extra_body: dict[str, object] | None = None,
@@ -8600,8 +8600,8 @@ class BaseLLMHTTPHandler:
         """
         if client is None or not isinstance(client, AsyncHTTPHandler):
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders(custom_llm_provider),
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders(custom_llm_provider),
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
             )
         else:
             async_httpx_client = client
@@ -8610,7 +8610,7 @@ class BaseLLMHTTPHandler:
             api_key=api_key,
             headers=extra_headers or {},
             model="",
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
         if extra_headers:
@@ -8618,8 +8618,8 @@ class BaseLLMHTTPHandler:
 
         api_base: Final = video_status_provider_config.get_complete_url(
             model="",
-            api_base=litellm_params.get("api_base", None),
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.get("api_base", None),
+            embrouter_params=dict(embrouter_params),
         )
 
         # Transform the request using the provider config
@@ -8629,7 +8629,7 @@ class BaseLLMHTTPHandler:
         ) = video_status_provider_config.transform_video_status_retrieve_request(
             video_id=video_id,
             api_base=api_base,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
@@ -8678,8 +8678,8 @@ class BaseLLMHTTPHandler:
         name: str,
         container_create_request_params: dict,
         container_provider_config: "BaseContainerConfig",
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: "LiteLLMLoggingObj",
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: "EmbRouterLoggingObj",
         extra_headers: dict[str, object] | None = None,
         timeout: float | httpx.Timeout = 600,
         _is_async: bool = False,
@@ -8691,7 +8691,7 @@ class BaseLLMHTTPHandler:
                 name=name,
                 container_create_request_params=container_create_request_params,
                 container_provider_config=container_provider_config,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 extra_headers=extra_headers,
                 timeout=timeout,
@@ -8700,14 +8700,14 @@ class BaseLLMHTTPHandler:
 
         # For sync calls, use sync HTTP client
         if client is None or not isinstance(client, HTTPHandler):
-            sync_httpx_client = _get_httpx_client(params={"ssl_verify": litellm_params.get("ssl_verify", None)})
+            sync_httpx_client = _get_httpx_client(params={"ssl_verify": embrouter_params.get("ssl_verify", None)})
         else:
             sync_httpx_client = client
 
         # Validate environment and get headers
         headers: Final = container_provider_config.validate_environment(
             headers=extra_headers or {},
-            api_key=litellm_params.get("api_key", None),
+            api_key=embrouter_params.get("api_key", None),
         )
 
         # Add Content-Type header for JSON requests
@@ -8718,15 +8718,15 @@ class BaseLLMHTTPHandler:
 
         # Get the complete URL for the request
         api_base: Final = container_provider_config.get_complete_url(
-            api_base=litellm_params.get("api_base", None),
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.get("api_base", None),
+            embrouter_params=dict(embrouter_params),
         )
 
         # Transform the request using the provider config
         data: Final = container_provider_config.transform_container_create_request(
             name=name,
             container_create_optional_request_params=container_create_request_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
@@ -8767,8 +8767,8 @@ class BaseLLMHTTPHandler:
         name: str,
         container_create_request_params: dict,
         container_provider_config: "BaseContainerConfig",
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: "LiteLLMLoggingObj",
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: "EmbRouterLoggingObj",
         extra_headers: dict[str, object] | None = None,
         timeout: float | httpx.Timeout = 600,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
@@ -8776,8 +8776,8 @@ class BaseLLMHTTPHandler:
         # For async calls, use async HTTP client
         if client is None or not isinstance(client, AsyncHTTPHandler):
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders.OPENAI,
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders.OPENAI,
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
             )
         else:
             async_httpx_client = client
@@ -8785,7 +8785,7 @@ class BaseLLMHTTPHandler:
         # Validate environment and get headers
         headers: Final = container_provider_config.validate_environment(
             headers=extra_headers or {},
-            api_key=litellm_params.get("api_key", None),
+            api_key=embrouter_params.get("api_key", None),
         )
 
         # Add Content-Type header for JSON requests
@@ -8796,15 +8796,15 @@ class BaseLLMHTTPHandler:
 
         # Get the complete URL for the request
         api_base: Final = container_provider_config.get_complete_url(
-            api_base=litellm_params.get("api_base", None),
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.get("api_base", None),
+            embrouter_params=dict(embrouter_params),
         )
 
         # Transform the request using the provider config
         data: Final = container_provider_config.transform_container_create_request(
             name=name,
             container_create_optional_request_params=container_create_request_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
@@ -8843,8 +8843,8 @@ class BaseLLMHTTPHandler:
     def container_list_handler(
         self,
         container_provider_config: "BaseContainerConfig",
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: "LiteLLMLoggingObj",
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: "EmbRouterLoggingObj",
         after: str | None = None,
         limit: int | None = None,
         order: str | None = None,
@@ -8858,7 +8858,7 @@ class BaseLLMHTTPHandler:
             # Return the async coroutine if called with _is_async=True
             return self.async_container_list_handler(
                 container_provider_config=container_provider_config,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 after=after,
                 limit=limit,
@@ -8871,14 +8871,14 @@ class BaseLLMHTTPHandler:
 
         # For sync calls, use sync HTTP client
         if client is None or not isinstance(client, HTTPHandler):
-            sync_httpx_client = _get_httpx_client(params={"ssl_verify": litellm_params.get("ssl_verify", None)})
+            sync_httpx_client = _get_httpx_client(params={"ssl_verify": embrouter_params.get("ssl_verify", None)})
         else:
             sync_httpx_client = client
 
         # Validate environment and get headers
         headers: Final = container_provider_config.validate_environment(
             headers=extra_headers or {},
-            api_key=litellm_params.get("api_key", None),
+            api_key=embrouter_params.get("api_key", None),
         )
 
         if extra_headers:
@@ -8886,14 +8886,14 @@ class BaseLLMHTTPHandler:
 
         # Get the complete URL for the request
         api_base: Final = container_provider_config.get_complete_url(
-            api_base=litellm_params.get("api_base", None),
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.get("api_base", None),
+            embrouter_params=dict(embrouter_params),
         )
 
         # Transform the request using the provider config
         url, params = container_provider_config.transform_container_list_request(
             api_base=api_base,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
             after=after,
             limit=limit,
@@ -8935,8 +8935,8 @@ class BaseLLMHTTPHandler:
     async def async_container_list_handler(
         self,
         container_provider_config: "BaseContainerConfig",
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: "LiteLLMLoggingObj",
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: "EmbRouterLoggingObj",
         after: str | None = None,
         limit: int | None = None,
         order: str | None = None,
@@ -8948,8 +8948,8 @@ class BaseLLMHTTPHandler:
         # For async calls, use async HTTP client
         if client is None or not isinstance(client, AsyncHTTPHandler):
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders.OPENAI,
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders.OPENAI,
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
             )
         else:
             async_httpx_client = client
@@ -8957,7 +8957,7 @@ class BaseLLMHTTPHandler:
         # Validate environment and get headers
         headers: Final = container_provider_config.validate_environment(
             headers=extra_headers or {},
-            api_key=litellm_params.get("api_key", None),
+            api_key=embrouter_params.get("api_key", None),
         )
 
         if extra_headers:
@@ -8965,14 +8965,14 @@ class BaseLLMHTTPHandler:
 
         # Get the complete URL for the request
         api_base: Final = container_provider_config.get_complete_url(
-            api_base=litellm_params.get("api_base", None),
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.get("api_base", None),
+            embrouter_params=dict(embrouter_params),
         )
 
         # Transform the request using the provider config
         url, params = container_provider_config.transform_container_list_request(
             api_base=api_base,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
             after=after,
             limit=limit,
@@ -9015,8 +9015,8 @@ class BaseLLMHTTPHandler:
         self,
         container_id: str,
         container_provider_config: "BaseContainerConfig",
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: "LiteLLMLoggingObj",
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: "EmbRouterLoggingObj",
         extra_headers: dict[str, object] | None = None,
         extra_query: dict[str, object] | None = None,
         timeout: float | httpx.Timeout = 600,
@@ -9028,7 +9028,7 @@ class BaseLLMHTTPHandler:
             return self.async_container_retrieve_handler(
                 container_id=container_id,
                 container_provider_config=container_provider_config,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -9038,14 +9038,14 @@ class BaseLLMHTTPHandler:
 
         # For sync calls, use sync HTTP client
         if client is None or not isinstance(client, HTTPHandler):
-            sync_httpx_client = _get_httpx_client(params={"ssl_verify": litellm_params.get("ssl_verify", None)})
+            sync_httpx_client = _get_httpx_client(params={"ssl_verify": embrouter_params.get("ssl_verify", None)})
         else:
             sync_httpx_client = client
 
         # Validate environment and get headers
         headers: Final = container_provider_config.validate_environment(
             headers=extra_headers or {},
-            api_key=litellm_params.get("api_key", None),
+            api_key=embrouter_params.get("api_key", None),
         )
 
         if extra_headers:
@@ -9053,15 +9053,15 @@ class BaseLLMHTTPHandler:
 
         # Get the complete URL for the request
         api_base: Final = container_provider_config.get_complete_url(
-            api_base=litellm_params.get("api_base", None),
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.get("api_base", None),
+            embrouter_params=dict(embrouter_params),
         )
 
         # Transform the request using the provider config
         url, params = container_provider_config.transform_container_retrieve_request(
             container_id=container_id,
             api_base=api_base,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
@@ -9105,8 +9105,8 @@ class BaseLLMHTTPHandler:
         self,
         container_id: str,
         container_provider_config: "BaseContainerConfig",
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: "LiteLLMLoggingObj",
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: "EmbRouterLoggingObj",
         extra_headers: dict[str, object] | None = None,
         extra_query: dict[str, object] | None = None,
         timeout: float | httpx.Timeout = 600,
@@ -9115,8 +9115,8 @@ class BaseLLMHTTPHandler:
         # For async calls, use async HTTP client
         if client is None or not isinstance(client, AsyncHTTPHandler):
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders.OPENAI,
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders.OPENAI,
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
             )
         else:
             async_httpx_client = client
@@ -9124,7 +9124,7 @@ class BaseLLMHTTPHandler:
         # Validate environment and get headers
         headers: Final = container_provider_config.validate_environment(
             headers=extra_headers or {},
-            api_key=litellm_params.get("api_key", None),
+            api_key=embrouter_params.get("api_key", None),
         )
 
         if extra_headers:
@@ -9132,15 +9132,15 @@ class BaseLLMHTTPHandler:
 
         # Get the complete URL for the request
         api_base: Final = container_provider_config.get_complete_url(
-            api_base=litellm_params.get("api_base", None),
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.get("api_base", None),
+            embrouter_params=dict(embrouter_params),
         )
 
         # Transform the request using the provider config
         url, params = container_provider_config.transform_container_retrieve_request(
             container_id=container_id,
             api_base=api_base,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
@@ -9184,8 +9184,8 @@ class BaseLLMHTTPHandler:
         self,
         container_id: str,
         container_provider_config: "BaseContainerConfig",
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: "LiteLLMLoggingObj",
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: "EmbRouterLoggingObj",
         extra_headers: dict[str, object] | None = None,
         extra_query: dict[str, object] | None = None,
         timeout: float | httpx.Timeout = 600,
@@ -9197,7 +9197,7 @@ class BaseLLMHTTPHandler:
             return self.async_container_delete_handler(
                 container_id=container_id,
                 container_provider_config=container_provider_config,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -9207,14 +9207,14 @@ class BaseLLMHTTPHandler:
 
         # For sync calls, use sync HTTP client
         if client is None or not isinstance(client, HTTPHandler):
-            sync_httpx_client = _get_httpx_client(params={"ssl_verify": litellm_params.get("ssl_verify", None)})
+            sync_httpx_client = _get_httpx_client(params={"ssl_verify": embrouter_params.get("ssl_verify", None)})
         else:
             sync_httpx_client = client
 
         # Validate environment and get headers
         headers: Final = container_provider_config.validate_environment(
             headers=extra_headers or {},
-            api_key=litellm_params.get("api_key", None),
+            api_key=embrouter_params.get("api_key", None),
         )
 
         if extra_headers:
@@ -9222,15 +9222,15 @@ class BaseLLMHTTPHandler:
 
         # Get the complete URL for the request
         api_base: Final = container_provider_config.get_complete_url(
-            api_base=litellm_params.get("api_base", None),
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.get("api_base", None),
+            embrouter_params=dict(embrouter_params),
         )
 
         # Transform the request using the provider config
         url, params = container_provider_config.transform_container_delete_request(
             container_id=container_id,
             api_base=api_base,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
@@ -9274,8 +9274,8 @@ class BaseLLMHTTPHandler:
         self,
         container_id: str,
         container_provider_config: "BaseContainerConfig",
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: "LiteLLMLoggingObj",
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: "EmbRouterLoggingObj",
         extra_headers: dict[str, object] | None = None,
         extra_query: dict[str, object] | None = None,
         timeout: float | httpx.Timeout = 600,
@@ -9284,8 +9284,8 @@ class BaseLLMHTTPHandler:
         # For async calls, use async HTTP client
         if client is None or not isinstance(client, AsyncHTTPHandler):
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders.OPENAI,
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders.OPENAI,
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
             )
         else:
             async_httpx_client = client
@@ -9293,7 +9293,7 @@ class BaseLLMHTTPHandler:
         # Validate environment and get headers
         headers: Final = container_provider_config.validate_environment(
             headers=extra_headers or {},
-            api_key=litellm_params.get("api_key", None),
+            api_key=embrouter_params.get("api_key", None),
         )
 
         if extra_headers:
@@ -9301,15 +9301,15 @@ class BaseLLMHTTPHandler:
 
         # Get the complete URL for the request
         api_base: Final = container_provider_config.get_complete_url(
-            api_base=litellm_params.get("api_base", None),
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.get("api_base", None),
+            embrouter_params=dict(embrouter_params),
         )
 
         # Transform the request using the provider config
         url, params = container_provider_config.transform_container_delete_request(
             container_id=container_id,
             api_base=api_base,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
@@ -9353,8 +9353,8 @@ class BaseLLMHTTPHandler:
         self,
         container_id: str,
         container_provider_config: "BaseContainerConfig",
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: "LiteLLMLoggingObj",
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: "EmbRouterLoggingObj",
         after: str | None = None,
         limit: int | None = None,
         order: str | None = None,
@@ -9368,7 +9368,7 @@ class BaseLLMHTTPHandler:
             return self.async_container_file_list_handler(
                 container_id=container_id,
                 container_provider_config=container_provider_config,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 after=after,
                 limit=limit,
@@ -9381,14 +9381,14 @@ class BaseLLMHTTPHandler:
 
         # For sync calls, use sync HTTP client
         if client is None or not isinstance(client, HTTPHandler):
-            sync_httpx_client = _get_httpx_client(params={"ssl_verify": litellm_params.get("ssl_verify", None)})
+            sync_httpx_client = _get_httpx_client(params={"ssl_verify": embrouter_params.get("ssl_verify", None)})
         else:
             sync_httpx_client = client
 
         # Validate environment and get headers
         headers: Final = container_provider_config.validate_environment(
             headers=extra_headers or {},
-            api_key=litellm_params.get("api_key", None),
+            api_key=embrouter_params.get("api_key", None),
         )
 
         if extra_headers:
@@ -9396,15 +9396,15 @@ class BaseLLMHTTPHandler:
 
         # Get the complete URL for container files
         api_base: Final = container_provider_config.get_complete_url(
-            api_base=litellm_params.get("api_base", None),
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.get("api_base", None),
+            embrouter_params=dict(embrouter_params),
         )
 
         # Transform the request using the provider config
         url, params = container_provider_config.transform_container_file_list_request(
             container_id=container_id,
             api_base=api_base,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
             after=after,
             limit=limit,
@@ -9447,8 +9447,8 @@ class BaseLLMHTTPHandler:
         self,
         container_id: str,
         container_provider_config: "BaseContainerConfig",
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: "LiteLLMLoggingObj",
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: "EmbRouterLoggingObj",
         after: str | None = None,
         limit: int | None = None,
         order: str | None = None,
@@ -9460,8 +9460,8 @@ class BaseLLMHTTPHandler:
         # For async calls, use async HTTP client
         if client is None or not isinstance(client, AsyncHTTPHandler):
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders.OPENAI,
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders.OPENAI,
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
             )
         else:
             async_httpx_client = client
@@ -9469,7 +9469,7 @@ class BaseLLMHTTPHandler:
         # Validate environment and get headers
         headers: Final = container_provider_config.validate_environment(
             headers=extra_headers or {},
-            api_key=litellm_params.get("api_key", None),
+            api_key=embrouter_params.get("api_key", None),
         )
 
         if extra_headers:
@@ -9477,15 +9477,15 @@ class BaseLLMHTTPHandler:
 
         # Get the complete URL for container files
         api_base: Final = container_provider_config.get_complete_url(
-            api_base=litellm_params.get("api_base", None),
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.get("api_base", None),
+            embrouter_params=dict(embrouter_params),
         )
 
         # Transform the request using the provider config
         url, params = container_provider_config.transform_container_file_list_request(
             container_id=container_id,
             api_base=api_base,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
             after=after,
             limit=limit,
@@ -9529,8 +9529,8 @@ class BaseLLMHTTPHandler:
         container_id: str,
         file_id: str,
         container_provider_config: "BaseContainerConfig",
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: "LiteLLMLoggingObj",
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: "EmbRouterLoggingObj",
         extra_headers: dict[str, object] | None = None,
         timeout: float | httpx.Timeout = 600,
         _is_async: bool = False,
@@ -9541,7 +9541,7 @@ class BaseLLMHTTPHandler:
                 container_id=container_id,
                 file_id=file_id,
                 container_provider_config=container_provider_config,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 extra_headers=extra_headers,
                 timeout=timeout,
@@ -9550,14 +9550,14 @@ class BaseLLMHTTPHandler:
 
         # For sync calls, use sync HTTP client
         if client is None or not isinstance(client, HTTPHandler):
-            sync_httpx_client = _get_httpx_client(params={"ssl_verify": litellm_params.get("ssl_verify", None)})
+            sync_httpx_client = _get_httpx_client(params={"ssl_verify": embrouter_params.get("ssl_verify", None)})
         else:
             sync_httpx_client = client
 
         # Validate environment and get headers
         headers: Final = container_provider_config.validate_environment(
             headers=extra_headers or {},
-            api_key=litellm_params.get("api_key", None),
+            api_key=embrouter_params.get("api_key", None),
         )
 
         if extra_headers:
@@ -9565,8 +9565,8 @@ class BaseLLMHTTPHandler:
 
         # Get the complete URL for container files
         api_base: Final = container_provider_config.get_complete_url(
-            api_base=litellm_params.get("api_base", None),
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.get("api_base", None),
+            embrouter_params=dict(embrouter_params),
         )
 
         # Transform the request using the provider config
@@ -9577,7 +9577,7 @@ class BaseLLMHTTPHandler:
             container_id=container_id,
             file_id=file_id,
             api_base=api_base,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
@@ -9617,8 +9617,8 @@ class BaseLLMHTTPHandler:
         container_id: str,
         file_id: str,
         container_provider_config: "BaseContainerConfig",
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: "LiteLLMLoggingObj",
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: "EmbRouterLoggingObj",
         extra_headers: dict[str, object] | None = None,
         timeout: float | httpx.Timeout = 600,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
@@ -9626,8 +9626,8 @@ class BaseLLMHTTPHandler:
         # For async calls, use async HTTP client
         if client is None or not isinstance(client, AsyncHTTPHandler):
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders.OPENAI,
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders.OPENAI,
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
             )
         else:
             async_httpx_client = client
@@ -9635,7 +9635,7 @@ class BaseLLMHTTPHandler:
         # Validate environment and get headers
         headers: Final = container_provider_config.validate_environment(
             headers=extra_headers or {},
-            api_key=litellm_params.get("api_key", None),
+            api_key=embrouter_params.get("api_key", None),
         )
 
         if extra_headers:
@@ -9643,8 +9643,8 @@ class BaseLLMHTTPHandler:
 
         # Get the complete URL for container files
         api_base: Final = container_provider_config.get_complete_url(
-            api_base=litellm_params.get("api_base", None),
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.get("api_base", None),
+            embrouter_params=dict(embrouter_params),
         )
 
         # Transform the request using the provider config
@@ -9655,7 +9655,7 @@ class BaseLLMHTTPHandler:
             container_id=container_id,
             file_id=file_id,
             api_base=api_base,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
@@ -9693,7 +9693,7 @@ class BaseLLMHTTPHandler:
     ###### VECTOR STORE HANDLER ######
     @staticmethod
     def _pre_call_direct_vector_store_search(
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         custom_llm_provider: str,
         vector_store_id: str,
         query: str | Sequence[str],
@@ -9719,8 +9719,8 @@ class BaseLLMHTTPHandler:
         vector_store_search_optional_params: VectorStoreSearchOptionalRequestParams,
         vector_store_provider_config: BaseVectorStoreConfig,
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         embedding_executor: VectorStoreEmbeddingExecutor | None = None,
         extra_headers: dict[str, object] | None = None,
         extra_body: dict[str, object] | None = None,
@@ -9739,30 +9739,30 @@ class BaseLLMHTTPHandler:
                 vector_store_id=vector_store_id,
                 query=query,
                 vector_store_search_optional_params=vector_store_search_optional_params,
-                litellm_logging_obj=logging_obj,
-                litellm_params=dict(litellm_params),  # mutable-ok: snapshot GenericLiteLLMParams into the Mapping shape
+                embrouter_logging_obj=logging_obj,
+                embrouter_params=dict(embrouter_params),  # mutable-ok: snapshot GenericEmbRouterParams into the Mapping shape
                 embedding_executor=embedding_executor,
                 timeout=timeout,
             )
 
         if client is None or not isinstance(client, AsyncHTTPHandler):
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders(custom_llm_provider),
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders(custom_llm_provider),
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
             )
         else:
             async_httpx_client = client
 
         headers = vector_store_provider_config.validate_environment(
-            headers=extra_headers or {}, litellm_params=litellm_params
+            headers=extra_headers or {}, embrouter_params=embrouter_params
         )
 
         if extra_headers:
             headers.update(extra_headers)
 
         api_base: Final = vector_store_provider_config.get_complete_url(
-            api_base=litellm_params.api_base,
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.api_base,
+            embrouter_params=dict(embrouter_params),
         )
 
         if isinstance(vector_store_provider_config, BaseQueryEmbeddingVectorStoreConfig):
@@ -9774,8 +9774,8 @@ class BaseLLMHTTPHandler:
                 query=query,
                 vector_store_search_optional_params=vector_store_search_optional_params,
                 api_base=api_base,
-                litellm_logging_obj=logging_obj,
-                litellm_params=MappingProxyType(dict(litellm_params, timeout=timeout)),
+                embrouter_logging_obj=logging_obj,
+                embrouter_params=MappingProxyType(dict(embrouter_params, timeout=timeout)),
                 extra_body=extra_body,
                 embedding_executor=embedding_executor,
             )
@@ -9788,11 +9788,11 @@ class BaseLLMHTTPHandler:
                 query=query,
                 vector_store_search_optional_params=vector_store_search_optional_params,
                 api_base=api_base,
-                litellm_logging_obj=logging_obj,
-                litellm_params=dict(litellm_params),
+                embrouter_logging_obj=logging_obj,
+                embrouter_params=dict(embrouter_params),
                 extra_body=extra_body,
             )
-        all_optional_params: Final[dict[str, object]] = dict(litellm_params)
+        all_optional_params: Final[dict[str, object]] = dict(embrouter_params)
         all_optional_params.update(vector_store_search_optional_params or {})
         headers, signed_json_body = await sign_request_off_loop_if_aws(
             vector_store_provider_config,
@@ -9833,7 +9833,7 @@ class BaseLLMHTTPHandler:
 
         return vector_store_provider_config.transform_search_vector_store_response(
             response=response,
-            litellm_logging_obj=logging_obj,
+            embrouter_logging_obj=logging_obj,
         )
 
     def vector_store_search_handler(
@@ -9843,8 +9843,8 @@ class BaseLLMHTTPHandler:
         vector_store_search_optional_params: VectorStoreSearchOptionalRequestParams,
         vector_store_provider_config: BaseVectorStoreConfig,
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         embedding_executor: VectorStoreEmbeddingExecutor | None = None,
         extra_headers: dict[str, object] | None = None,
         extra_body: dict[str, object] | None = None,
@@ -9858,7 +9858,7 @@ class BaseLLMHTTPHandler:
                 query=query,
                 vector_store_search_optional_params=vector_store_search_optional_params,
                 vector_store_provider_config=vector_store_provider_config,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 custom_llm_provider=custom_llm_provider,
                 embedding_executor=embedding_executor,
@@ -9879,27 +9879,27 @@ class BaseLLMHTTPHandler:
                 vector_store_id=vector_store_id,
                 query=query,
                 vector_store_search_optional_params=vector_store_search_optional_params,
-                litellm_logging_obj=logging_obj,
-                litellm_params=dict(litellm_params),  # mutable-ok: snapshot GenericLiteLLMParams into the Mapping shape
+                embrouter_logging_obj=logging_obj,
+                embrouter_params=dict(embrouter_params),  # mutable-ok: snapshot GenericEmbRouterParams into the Mapping shape
                 embedding_executor=embedding_executor,
                 timeout=timeout,
             )
 
         if client is None or not isinstance(client, HTTPHandler):
-            sync_httpx_client = _get_httpx_client(params={"ssl_verify": litellm_params.get("ssl_verify", None)})
+            sync_httpx_client = _get_httpx_client(params={"ssl_verify": embrouter_params.get("ssl_verify", None)})
         else:
             sync_httpx_client = client
 
         headers = vector_store_provider_config.validate_environment(
-            headers=extra_headers or {}, litellm_params=litellm_params
+            headers=extra_headers or {}, embrouter_params=embrouter_params
         )
 
         if extra_headers:
             headers.update(extra_headers)
 
         api_base: Final = vector_store_provider_config.get_complete_url(
-            api_base=litellm_params.api_base,
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.api_base,
+            embrouter_params=dict(embrouter_params),
         )
 
         if isinstance(vector_store_provider_config, BaseQueryEmbeddingVectorStoreConfig):
@@ -9911,8 +9911,8 @@ class BaseLLMHTTPHandler:
                 query=query,
                 vector_store_search_optional_params=vector_store_search_optional_params,
                 api_base=api_base,
-                litellm_logging_obj=logging_obj,
-                litellm_params=MappingProxyType(dict(litellm_params, timeout=timeout)),
+                embrouter_logging_obj=logging_obj,
+                embrouter_params=MappingProxyType(dict(embrouter_params, timeout=timeout)),
                 extra_body=extra_body,
                 embedding_executor=embedding_executor,
             )
@@ -9925,12 +9925,12 @@ class BaseLLMHTTPHandler:
                 query=query,
                 vector_store_search_optional_params=vector_store_search_optional_params,
                 api_base=api_base,
-                litellm_logging_obj=logging_obj,
-                litellm_params=dict(litellm_params),
+                embrouter_logging_obj=logging_obj,
+                embrouter_params=dict(embrouter_params),
                 extra_body=extra_body,
             )
 
-        all_optional_params: Final[dict[str, object]] = dict(litellm_params)
+        all_optional_params: Final[dict[str, object]] = dict(embrouter_params)
         all_optional_params.update(vector_store_search_optional_params or {})
 
         headers, signed_json_body = vector_store_provider_config.sign_request(
@@ -9970,7 +9970,7 @@ class BaseLLMHTTPHandler:
 
         return vector_store_provider_config.transform_search_vector_store_response(
             response=response,
-            litellm_logging_obj=logging_obj,
+            embrouter_logging_obj=logging_obj,
         )
 
     async def async_vector_store_create_handler(
@@ -9978,8 +9978,8 @@ class BaseLLMHTTPHandler:
         vector_store_create_optional_params: VectorStoreCreateOptionalRequestParams,
         vector_store_provider_config: BaseVectorStoreConfig,
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, object] | None = None,
         extra_body: dict[str, object] | None = None,
         timeout: float | httpx.Timeout | None = None,
@@ -9988,8 +9988,8 @@ class BaseLLMHTTPHandler:
     ) -> VectorStoreCreateResponse:
         if client is None or not isinstance(client, AsyncHTTPHandler):
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders(custom_llm_provider),
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders(custom_llm_provider),
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
             )
         else:
             async_httpx_client = client
@@ -9997,15 +9997,15 @@ class BaseLLMHTTPHandler:
         vector_store_provider_config.validate_create_vector_store()
 
         headers: Final = vector_store_provider_config.validate_environment(
-            headers=extra_headers or {}, litellm_params=litellm_params
+            headers=extra_headers or {}, embrouter_params=embrouter_params
         )
 
         if extra_headers:
             headers.update(extra_headers)
 
         api_base: Final = vector_store_provider_config.get_complete_url(
-            api_base=litellm_params.api_base,
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.api_base,
+            embrouter_params=dict(embrouter_params),
         )
 
         (
@@ -10040,8 +10040,8 @@ class BaseLLMHTTPHandler:
         vector_store_create_optional_params: VectorStoreCreateOptionalRequestParams,
         vector_store_provider_config: BaseVectorStoreConfig,
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, object] | None = None,
         extra_body: dict[str, object] | None = None,
         timeout: float | httpx.Timeout | None = None,
@@ -10052,7 +10052,7 @@ class BaseLLMHTTPHandler:
             return self.async_vector_store_create_handler(
                 vector_store_create_optional_params=vector_store_create_optional_params,
                 vector_store_provider_config=vector_store_provider_config,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 custom_llm_provider=custom_llm_provider,
                 extra_headers=extra_headers,
@@ -10062,22 +10062,22 @@ class BaseLLMHTTPHandler:
             )
 
         if client is None or not isinstance(client, HTTPHandler):
-            sync_httpx_client = _get_httpx_client(params={"ssl_verify": litellm_params.get("ssl_verify", None)})
+            sync_httpx_client = _get_httpx_client(params={"ssl_verify": embrouter_params.get("ssl_verify", None)})
         else:
             sync_httpx_client = client
 
         vector_store_provider_config.validate_create_vector_store()
 
         headers: Final = vector_store_provider_config.validate_environment(
-            headers=extra_headers or {}, litellm_params=litellm_params
+            headers=extra_headers or {}, embrouter_params=embrouter_params
         )
 
         if extra_headers:
             headers.update(extra_headers)
 
         api_base: Final = vector_store_provider_config.get_complete_url(
-            api_base=litellm_params.api_base,
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.api_base,
+            embrouter_params=dict(embrouter_params),
         )
 
         (
@@ -10112,8 +10112,8 @@ class BaseLLMHTTPHandler:
         vector_store_id: str,
         vector_store_provider_config: BaseVectorStoreConfig,
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, object] | None = None,
         extra_body: dict[str, object] | None = None,
         timeout: float | httpx.Timeout | None = None,
@@ -10121,22 +10121,22 @@ class BaseLLMHTTPHandler:
     ) -> VectorStoreCreateResponse:
         if client is None or not isinstance(client, AsyncHTTPHandler):
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders(custom_llm_provider),
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders(custom_llm_provider),
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
             )
         else:
             async_httpx_client = client
 
         headers: Final = vector_store_provider_config.validate_environment(
-            headers=extra_headers or {}, litellm_params=litellm_params
+            headers=extra_headers or {}, embrouter_params=embrouter_params
         )
 
         if extra_headers:
             headers.update(extra_headers)
 
         api_base: Final = vector_store_provider_config.get_complete_url(
-            api_base=litellm_params.api_base,
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.api_base,
+            embrouter_params=dict(embrouter_params),
         )
 
         encoded_vector_store_id: Final = encode_url_path_segment(vector_store_id, field_name="vector_store_id")
@@ -10165,8 +10165,8 @@ class BaseLLMHTTPHandler:
         vector_store_id: str,
         vector_store_provider_config: BaseVectorStoreConfig,
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, object] | None = None,
         extra_body: dict[str, object] | None = None,
         timeout: float | httpx.Timeout | None = None,
@@ -10177,7 +10177,7 @@ class BaseLLMHTTPHandler:
             return self.async_vector_store_retrieve_handler(
                 vector_store_id=vector_store_id,
                 vector_store_provider_config=vector_store_provider_config,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 custom_llm_provider=custom_llm_provider,
                 extra_headers=extra_headers,
@@ -10187,20 +10187,20 @@ class BaseLLMHTTPHandler:
             )
 
         if client is None or not isinstance(client, HTTPHandler):
-            sync_httpx_client = _get_httpx_client(params={"ssl_verify": litellm_params.get("ssl_verify", None)})
+            sync_httpx_client = _get_httpx_client(params={"ssl_verify": embrouter_params.get("ssl_verify", None)})
         else:
             sync_httpx_client = client
 
         headers: Final = vector_store_provider_config.validate_environment(
-            headers=extra_headers or {}, litellm_params=litellm_params
+            headers=extra_headers or {}, embrouter_params=embrouter_params
         )
 
         if extra_headers:
             headers.update(extra_headers)
 
         api_base: Final = vector_store_provider_config.get_complete_url(
-            api_base=litellm_params.api_base,
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.api_base,
+            embrouter_params=dict(embrouter_params),
         )
 
         encoded_vector_store_id: Final = encode_url_path_segment(vector_store_id, field_name="vector_store_id")
@@ -10232,8 +10232,8 @@ class BaseLLMHTTPHandler:
         order: str | None,
         vector_store_provider_config: BaseVectorStoreConfig,
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, object] | None = None,
         extra_body: dict[str, object] | None = None,
         timeout: float | httpx.Timeout | None = None,
@@ -10241,22 +10241,22 @@ class BaseLLMHTTPHandler:
     ):
         if client is None or not isinstance(client, AsyncHTTPHandler):
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders(custom_llm_provider),
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders(custom_llm_provider),
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
             )
         else:
             async_httpx_client = client
 
         headers: Final = vector_store_provider_config.validate_environment(
-            headers=extra_headers or {}, litellm_params=litellm_params
+            headers=extra_headers or {}, embrouter_params=embrouter_params
         )
 
         if extra_headers:
             headers.update(extra_headers)
 
         api_base: Final = vector_store_provider_config.get_complete_url(
-            api_base=litellm_params.api_base,
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.api_base,
+            embrouter_params=dict(embrouter_params),
         )
 
         url: Final = api_base
@@ -10296,8 +10296,8 @@ class BaseLLMHTTPHandler:
         order: str | None,
         vector_store_provider_config: BaseVectorStoreConfig,
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, object] | None = None,
         extra_body: dict[str, object] | None = None,
         timeout: float | httpx.Timeout | None = None,
@@ -10311,7 +10311,7 @@ class BaseLLMHTTPHandler:
                 limit=limit,
                 order=order,
                 vector_store_provider_config=vector_store_provider_config,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 custom_llm_provider=custom_llm_provider,
                 extra_headers=extra_headers,
@@ -10321,20 +10321,20 @@ class BaseLLMHTTPHandler:
             )
 
         if client is None or not isinstance(client, HTTPHandler):
-            sync_httpx_client = _get_httpx_client(params={"ssl_verify": litellm_params.get("ssl_verify", None)})
+            sync_httpx_client = _get_httpx_client(params={"ssl_verify": embrouter_params.get("ssl_verify", None)})
         else:
             sync_httpx_client = client
 
         headers: Final = vector_store_provider_config.validate_environment(
-            headers=extra_headers or {}, litellm_params=litellm_params
+            headers=extra_headers or {}, embrouter_params=embrouter_params
         )
 
         if extra_headers:
             headers.update(extra_headers)
 
         api_base: Final = vector_store_provider_config.get_complete_url(
-            api_base=litellm_params.api_base,
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.api_base,
+            embrouter_params=dict(embrouter_params),
         )
 
         url: Final = api_base
@@ -10372,8 +10372,8 @@ class BaseLLMHTTPHandler:
         vector_store_update_optional_params: VectorStoreCreateOptionalRequestParams,
         vector_store_provider_config: BaseVectorStoreConfig,
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, object] | None = None,
         extra_body: dict[str, object] | None = None,
         timeout: float | httpx.Timeout | None = None,
@@ -10381,22 +10381,22 @@ class BaseLLMHTTPHandler:
     ) -> VectorStoreCreateResponse:
         if client is None or not isinstance(client, AsyncHTTPHandler):
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders(custom_llm_provider),
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders(custom_llm_provider),
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
             )
         else:
             async_httpx_client = client
 
         headers: Final = vector_store_provider_config.validate_environment(
-            headers=extra_headers or {}, litellm_params=litellm_params
+            headers=extra_headers or {}, embrouter_params=embrouter_params
         )
 
         if extra_headers:
             headers.update(extra_headers)
 
         api_base: Final = vector_store_provider_config.get_complete_url(
-            api_base=litellm_params.api_base,
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.api_base,
+            embrouter_params=dict(embrouter_params),
         )
 
         encoded_vector_store_id: Final = encode_url_path_segment(vector_store_id, field_name="vector_store_id")
@@ -10407,7 +10407,7 @@ class BaseLLMHTTPHandler:
 
         # Clean metadata to only include string values (OpenAI requirement)
         if metadata is not None:
-            from litellm.utils import add_openai_metadata
+            from embrouter.utils import add_openai_metadata
 
             request_body["metadata"] = add_openai_metadata(metadata)
 
@@ -10439,8 +10439,8 @@ class BaseLLMHTTPHandler:
         vector_store_update_optional_params: VectorStoreCreateOptionalRequestParams,
         vector_store_provider_config: BaseVectorStoreConfig,
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, object] | None = None,
         extra_body: dict[str, object] | None = None,
         timeout: float | httpx.Timeout | None = None,
@@ -10452,7 +10452,7 @@ class BaseLLMHTTPHandler:
                 vector_store_id=vector_store_id,
                 vector_store_update_optional_params=vector_store_update_optional_params,
                 vector_store_provider_config=vector_store_provider_config,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 custom_llm_provider=custom_llm_provider,
                 extra_headers=extra_headers,
@@ -10462,20 +10462,20 @@ class BaseLLMHTTPHandler:
             )
 
         if client is None or not isinstance(client, HTTPHandler):
-            sync_httpx_client = _get_httpx_client(params={"ssl_verify": litellm_params.get("ssl_verify", None)})
+            sync_httpx_client = _get_httpx_client(params={"ssl_verify": embrouter_params.get("ssl_verify", None)})
         else:
             sync_httpx_client = client
 
         headers: Final = vector_store_provider_config.validate_environment(
-            headers=extra_headers or {}, litellm_params=litellm_params
+            headers=extra_headers or {}, embrouter_params=embrouter_params
         )
 
         if extra_headers:
             headers.update(extra_headers)
 
         api_base: Final = vector_store_provider_config.get_complete_url(
-            api_base=litellm_params.api_base,
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.api_base,
+            embrouter_params=dict(embrouter_params),
         )
 
         encoded_vector_store_id: Final = encode_url_path_segment(vector_store_id, field_name="vector_store_id")
@@ -10486,7 +10486,7 @@ class BaseLLMHTTPHandler:
 
         # Clean metadata to only include string values (OpenAI requirement)
         if metadata is not None:
-            from litellm.utils import add_openai_metadata
+            from embrouter.utils import add_openai_metadata
 
             request_body["metadata"] = add_openai_metadata(metadata)
 
@@ -10517,8 +10517,8 @@ class BaseLLMHTTPHandler:
         vector_store_id: str,
         vector_store_provider_config: BaseVectorStoreConfig,
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, object] | None = None,
         extra_body: dict[str, object] | None = None,
         timeout: float | httpx.Timeout | None = None,
@@ -10526,22 +10526,22 @@ class BaseLLMHTTPHandler:
     ):
         if client is None or not isinstance(client, AsyncHTTPHandler):
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders(custom_llm_provider),
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders(custom_llm_provider),
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
             )
         else:
             async_httpx_client = client
 
         headers: Final = vector_store_provider_config.validate_environment(
-            headers=extra_headers or {}, litellm_params=litellm_params
+            headers=extra_headers or {}, embrouter_params=embrouter_params
         )
 
         if extra_headers:
             headers.update(extra_headers)
 
         api_base: Final = vector_store_provider_config.get_complete_url(
-            api_base=litellm_params.api_base,
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.api_base,
+            embrouter_params=dict(embrouter_params),
         )
 
         encoded_vector_store_id: Final = encode_url_path_segment(vector_store_id, field_name="vector_store_id")
@@ -10568,8 +10568,8 @@ class BaseLLMHTTPHandler:
         vector_store_id: str,
         vector_store_provider_config: BaseVectorStoreConfig,
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, object] | None = None,
         extra_body: dict[str, object] | None = None,
         timeout: float | httpx.Timeout | None = None,
@@ -10580,7 +10580,7 @@ class BaseLLMHTTPHandler:
             return self.async_vector_store_delete_handler(
                 vector_store_id=vector_store_id,
                 vector_store_provider_config=vector_store_provider_config,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 custom_llm_provider=custom_llm_provider,
                 extra_headers=extra_headers,
@@ -10590,20 +10590,20 @@ class BaseLLMHTTPHandler:
             )
 
         if client is None or not isinstance(client, HTTPHandler):
-            sync_httpx_client = _get_httpx_client(params={"ssl_verify": litellm_params.get("ssl_verify", None)})
+            sync_httpx_client = _get_httpx_client(params={"ssl_verify": embrouter_params.get("ssl_verify", None)})
         else:
             sync_httpx_client = client
 
         headers: Final = vector_store_provider_config.validate_environment(
-            headers=extra_headers or {}, litellm_params=litellm_params
+            headers=extra_headers or {}, embrouter_params=embrouter_params
         )
 
         if extra_headers:
             headers.update(extra_headers)
 
         api_base: Final = vector_store_provider_config.get_complete_url(
-            api_base=litellm_params.api_base,
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.api_base,
+            embrouter_params=dict(embrouter_params),
         )
 
         encoded_vector_store_id: Final = encode_url_path_segment(vector_store_id, field_name="vector_store_id")
@@ -10635,8 +10635,8 @@ class BaseLLMHTTPHandler:
         create_request: VectorStoreFileCreateRequest,
         vector_store_files_provider_config: BaseVectorStoreFilesConfig,
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, str] | None = None,
         extra_body: dict[str, object] | None = None,
         timeout: float | httpx.Timeout | None = None,
@@ -10644,23 +10644,23 @@ class BaseLLMHTTPHandler:
     ) -> VectorStoreFileObject:
         if client is None or not isinstance(client, AsyncHTTPHandler):
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders(custom_llm_provider),
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders(custom_llm_provider),
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
             )
         else:
             async_httpx_client = client
 
         headers: Final = vector_store_files_provider_config.validate_environment(
-            headers=extra_headers or {}, litellm_params=litellm_params
+            headers=extra_headers or {}, embrouter_params=embrouter_params
         )
 
         if extra_headers:
             headers.update(extra_headers)
 
         api_base: Final = vector_store_files_provider_config.get_complete_url(
-            api_base=litellm_params.api_base,
+            api_base=embrouter_params.api_base,
             vector_store_id=vector_store_id,
-            litellm_params=dict(litellm_params),
+            embrouter_params=dict(embrouter_params),
         )
 
         request_dict: Final = dict(create_request)
@@ -10700,8 +10700,8 @@ class BaseLLMHTTPHandler:
         create_request: VectorStoreFileCreateRequest,
         vector_store_files_provider_config: BaseVectorStoreFilesConfig,
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, str] | None = None,
         extra_body: dict[str, object] | None = None,
         timeout: float | httpx.Timeout | None = None,
@@ -10714,7 +10714,7 @@ class BaseLLMHTTPHandler:
                 create_request=create_request,
                 vector_store_files_provider_config=vector_store_files_provider_config,
                 custom_llm_provider=custom_llm_provider,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 extra_headers=extra_headers,
                 extra_body=extra_body,
@@ -10723,21 +10723,21 @@ class BaseLLMHTTPHandler:
             )
 
         if client is None or not isinstance(client, HTTPHandler):
-            sync_httpx_client = _get_httpx_client(params={"ssl_verify": litellm_params.get("ssl_verify", None)})
+            sync_httpx_client = _get_httpx_client(params={"ssl_verify": embrouter_params.get("ssl_verify", None)})
         else:
             sync_httpx_client = client
 
         headers: Final = vector_store_files_provider_config.validate_environment(
-            headers=extra_headers or {}, litellm_params=litellm_params
+            headers=extra_headers or {}, embrouter_params=embrouter_params
         )
 
         if extra_headers:
             headers.update(extra_headers)
 
         api_base: Final = vector_store_files_provider_config.get_complete_url(
-            api_base=litellm_params.api_base,
+            api_base=embrouter_params.api_base,
             vector_store_id=vector_store_id,
-            litellm_params=dict(litellm_params),
+            embrouter_params=dict(embrouter_params),
         )
 
         request_dict: Final = dict(create_request)
@@ -10777,8 +10777,8 @@ class BaseLLMHTTPHandler:
         query_params: VectorStoreFileListQueryParams,
         vector_store_files_provider_config: BaseVectorStoreFilesConfig,
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, str] | None = None,
         extra_query: dict[str, object] | None = None,
         timeout: float | httpx.Timeout | None = None,
@@ -10786,22 +10786,22 @@ class BaseLLMHTTPHandler:
     ) -> VectorStoreFileListResponse:
         if client is None or not isinstance(client, AsyncHTTPHandler):
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders(custom_llm_provider),
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders(custom_llm_provider),
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
             )
         else:
             async_httpx_client = client
 
         headers: Final = vector_store_files_provider_config.validate_environment(
-            headers=extra_headers or {}, litellm_params=litellm_params
+            headers=extra_headers or {}, embrouter_params=embrouter_params
         )
         if extra_headers:
             headers.update(extra_headers)
 
         api_base: Final = vector_store_files_provider_config.get_complete_url(
-            api_base=litellm_params.api_base,
+            api_base=embrouter_params.api_base,
             vector_store_id=vector_store_id,
-            litellm_params=dict(litellm_params),
+            embrouter_params=dict(embrouter_params),
         )
 
         params_dict: Final = dict(query_params)
@@ -10841,8 +10841,8 @@ class BaseLLMHTTPHandler:
         query_params: VectorStoreFileListQueryParams,
         vector_store_files_provider_config: BaseVectorStoreFilesConfig,
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, str] | None = None,
         extra_query: dict[str, object] | None = None,
         timeout: float | httpx.Timeout | None = None,
@@ -10855,7 +10855,7 @@ class BaseLLMHTTPHandler:
                 query_params=query_params,
                 vector_store_files_provider_config=vector_store_files_provider_config,
                 custom_llm_provider=custom_llm_provider,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -10864,20 +10864,20 @@ class BaseLLMHTTPHandler:
             )
 
         if client is None or not isinstance(client, HTTPHandler):
-            sync_httpx_client = _get_httpx_client(params={"ssl_verify": litellm_params.get("ssl_verify", None)})
+            sync_httpx_client = _get_httpx_client(params={"ssl_verify": embrouter_params.get("ssl_verify", None)})
         else:
             sync_httpx_client = client
 
         headers: Final = vector_store_files_provider_config.validate_environment(
-            headers=extra_headers or {}, litellm_params=litellm_params
+            headers=extra_headers or {}, embrouter_params=embrouter_params
         )
         if extra_headers:
             headers.update(extra_headers)
 
         api_base: Final = vector_store_files_provider_config.get_complete_url(
-            api_base=litellm_params.api_base,
+            api_base=embrouter_params.api_base,
             vector_store_id=vector_store_id,
-            litellm_params=dict(litellm_params),
+            embrouter_params=dict(embrouter_params),
         )
 
         params_dict: Final = dict(query_params)
@@ -10917,30 +10917,30 @@ class BaseLLMHTTPHandler:
         file_id: str,
         vector_store_files_provider_config: BaseVectorStoreFilesConfig,
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, str] | None = None,
         timeout: float | httpx.Timeout | None = None,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
     ) -> VectorStoreFileObject:
         if client is None or not isinstance(client, AsyncHTTPHandler):
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders(custom_llm_provider),
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders(custom_llm_provider),
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
             )
         else:
             async_httpx_client = client
 
         headers: Final = vector_store_files_provider_config.validate_environment(
-            headers=extra_headers or {}, litellm_params=litellm_params
+            headers=extra_headers or {}, embrouter_params=embrouter_params
         )
         if extra_headers:
             headers.update(extra_headers)
 
         api_base: Final = vector_store_files_provider_config.get_complete_url(
-            api_base=litellm_params.api_base,
+            api_base=embrouter_params.api_base,
             vector_store_id=vector_store_id,
-            litellm_params=dict(litellm_params),
+            embrouter_params=dict(embrouter_params),
         )
 
         (
@@ -10976,8 +10976,8 @@ class BaseLLMHTTPHandler:
         file_id: str,
         vector_store_files_provider_config: BaseVectorStoreFilesConfig,
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, str] | None = None,
         timeout: float | httpx.Timeout | None = None,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
@@ -10989,7 +10989,7 @@ class BaseLLMHTTPHandler:
                 file_id=file_id,
                 vector_store_files_provider_config=vector_store_files_provider_config,
                 custom_llm_provider=custom_llm_provider,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 extra_headers=extra_headers,
                 timeout=timeout,
@@ -10997,20 +10997,20 @@ class BaseLLMHTTPHandler:
             )
 
         if client is None or not isinstance(client, HTTPHandler):
-            sync_httpx_client = _get_httpx_client(params={"ssl_verify": litellm_params.get("ssl_verify", None)})
+            sync_httpx_client = _get_httpx_client(params={"ssl_verify": embrouter_params.get("ssl_verify", None)})
         else:
             sync_httpx_client = client
 
         headers: Final = vector_store_files_provider_config.validate_environment(
-            headers=extra_headers or {}, litellm_params=litellm_params
+            headers=extra_headers or {}, embrouter_params=embrouter_params
         )
         if extra_headers:
             headers.update(extra_headers)
 
         api_base: Final = vector_store_files_provider_config.get_complete_url(
-            api_base=litellm_params.api_base,
+            api_base=embrouter_params.api_base,
             vector_store_id=vector_store_id,
-            litellm_params=dict(litellm_params),
+            embrouter_params=dict(embrouter_params),
         )
 
         (
@@ -11046,30 +11046,30 @@ class BaseLLMHTTPHandler:
         file_id: str,
         vector_store_files_provider_config: BaseVectorStoreFilesConfig,
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, str] | None = None,
         timeout: float | httpx.Timeout | None = None,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
     ) -> VectorStoreFileContentResponse:
         if client is None or not isinstance(client, AsyncHTTPHandler):
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders(custom_llm_provider),
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders(custom_llm_provider),
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
             )
         else:
             async_httpx_client = client
 
         headers: Final = vector_store_files_provider_config.validate_environment(
-            headers=extra_headers or {}, litellm_params=litellm_params
+            headers=extra_headers or {}, embrouter_params=embrouter_params
         )
         if extra_headers:
             headers.update(extra_headers)
 
         api_base: Final = vector_store_files_provider_config.get_complete_url(
-            api_base=litellm_params.api_base,
+            api_base=embrouter_params.api_base,
             vector_store_id=vector_store_id,
-            litellm_params=dict(litellm_params),
+            embrouter_params=dict(embrouter_params),
         )
 
         (
@@ -11107,8 +11107,8 @@ class BaseLLMHTTPHandler:
         file_id: str,
         vector_store_files_provider_config: BaseVectorStoreFilesConfig,
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, str] | None = None,
         timeout: float | httpx.Timeout | None = None,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
@@ -11120,7 +11120,7 @@ class BaseLLMHTTPHandler:
                 file_id=file_id,
                 vector_store_files_provider_config=vector_store_files_provider_config,
                 custom_llm_provider=custom_llm_provider,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 extra_headers=extra_headers,
                 timeout=timeout,
@@ -11128,20 +11128,20 @@ class BaseLLMHTTPHandler:
             )
 
         if client is None or not isinstance(client, HTTPHandler):
-            sync_httpx_client = _get_httpx_client(params={"ssl_verify": litellm_params.get("ssl_verify", None)})
+            sync_httpx_client = _get_httpx_client(params={"ssl_verify": embrouter_params.get("ssl_verify", None)})
         else:
             sync_httpx_client = client
 
         headers: Final = vector_store_files_provider_config.validate_environment(
-            headers=extra_headers or {}, litellm_params=litellm_params
+            headers=extra_headers or {}, embrouter_params=embrouter_params
         )
         if extra_headers:
             headers.update(extra_headers)
 
         api_base: Final = vector_store_files_provider_config.get_complete_url(
-            api_base=litellm_params.api_base,
+            api_base=embrouter_params.api_base,
             vector_store_id=vector_store_id,
-            litellm_params=dict(litellm_params),
+            embrouter_params=dict(embrouter_params),
         )
 
         (
@@ -11180,8 +11180,8 @@ class BaseLLMHTTPHandler:
         update_request: VectorStoreFileUpdateRequest,
         vector_store_files_provider_config: BaseVectorStoreFilesConfig,
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, str] | None = None,
         extra_body: dict[str, object] | None = None,
         timeout: float | httpx.Timeout | None = None,
@@ -11189,22 +11189,22 @@ class BaseLLMHTTPHandler:
     ) -> VectorStoreFileObject:
         if client is None or not isinstance(client, AsyncHTTPHandler):
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders(custom_llm_provider),
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders(custom_llm_provider),
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
             )
         else:
             async_httpx_client = client
 
         headers: Final = vector_store_files_provider_config.validate_environment(
-            headers=extra_headers or {}, litellm_params=litellm_params
+            headers=extra_headers or {}, embrouter_params=embrouter_params
         )
         if extra_headers:
             headers.update(extra_headers)
 
         api_base: Final = vector_store_files_provider_config.get_complete_url(
-            api_base=litellm_params.api_base,
+            api_base=embrouter_params.api_base,
             vector_store_id=vector_store_id,
-            litellm_params=dict(litellm_params),
+            embrouter_params=dict(embrouter_params),
         )
 
         request_dict: Final = dict(update_request)
@@ -11246,8 +11246,8 @@ class BaseLLMHTTPHandler:
         update_request: VectorStoreFileUpdateRequest,
         vector_store_files_provider_config: BaseVectorStoreFilesConfig,
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, str] | None = None,
         extra_body: dict[str, object] | None = None,
         timeout: float | httpx.Timeout | None = None,
@@ -11261,7 +11261,7 @@ class BaseLLMHTTPHandler:
                 update_request=update_request,
                 vector_store_files_provider_config=vector_store_files_provider_config,
                 custom_llm_provider=custom_llm_provider,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 extra_headers=extra_headers,
                 extra_body=extra_body,
@@ -11270,20 +11270,20 @@ class BaseLLMHTTPHandler:
             )
 
         if client is None or not isinstance(client, HTTPHandler):
-            sync_httpx_client = _get_httpx_client(params={"ssl_verify": litellm_params.get("ssl_verify", None)})
+            sync_httpx_client = _get_httpx_client(params={"ssl_verify": embrouter_params.get("ssl_verify", None)})
         else:
             sync_httpx_client = client
 
         headers: Final = vector_store_files_provider_config.validate_environment(
-            headers=extra_headers or {}, litellm_params=litellm_params
+            headers=extra_headers or {}, embrouter_params=embrouter_params
         )
         if extra_headers:
             headers.update(extra_headers)
 
         api_base: Final = vector_store_files_provider_config.get_complete_url(
-            api_base=litellm_params.api_base,
+            api_base=embrouter_params.api_base,
             vector_store_id=vector_store_id,
-            litellm_params=dict(litellm_params),
+            embrouter_params=dict(embrouter_params),
         )
 
         request_dict: Final = dict(update_request)
@@ -11324,30 +11324,30 @@ class BaseLLMHTTPHandler:
         file_id: str,
         vector_store_files_provider_config: BaseVectorStoreFilesConfig,
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, str] | None = None,
         timeout: float | httpx.Timeout | None = None,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
     ) -> VectorStoreFileDeleteResponse:
         if client is None or not isinstance(client, AsyncHTTPHandler):
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders(custom_llm_provider),
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders(custom_llm_provider),
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
             )
         else:
             async_httpx_client = client
 
         headers: Final = vector_store_files_provider_config.validate_environment(
-            headers=extra_headers or {}, litellm_params=litellm_params
+            headers=extra_headers or {}, embrouter_params=embrouter_params
         )
         if extra_headers:
             headers.update(extra_headers)
 
         api_base: Final = vector_store_files_provider_config.get_complete_url(
-            api_base=litellm_params.api_base,
+            api_base=embrouter_params.api_base,
             vector_store_id=vector_store_id,
-            litellm_params=dict(litellm_params),
+            embrouter_params=dict(embrouter_params),
         )
 
         (
@@ -11383,8 +11383,8 @@ class BaseLLMHTTPHandler:
         file_id: str,
         vector_store_files_provider_config: BaseVectorStoreFilesConfig,
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, str] | None = None,
         timeout: float | httpx.Timeout | None = None,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
@@ -11396,7 +11396,7 @@ class BaseLLMHTTPHandler:
                 file_id=file_id,
                 vector_store_files_provider_config=vector_store_files_provider_config,
                 custom_llm_provider=custom_llm_provider,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 extra_headers=extra_headers,
                 timeout=timeout,
@@ -11404,20 +11404,20 @@ class BaseLLMHTTPHandler:
             )
 
         if client is None or not isinstance(client, HTTPHandler):
-            sync_httpx_client = _get_httpx_client(params={"ssl_verify": litellm_params.get("ssl_verify", None)})
+            sync_httpx_client = _get_httpx_client(params={"ssl_verify": embrouter_params.get("ssl_verify", None)})
         else:
             sync_httpx_client = client
 
         headers: Final = vector_store_files_provider_config.validate_environment(
-            headers=extra_headers or {}, litellm_params=litellm_params
+            headers=extra_headers or {}, embrouter_params=embrouter_params
         )
         if extra_headers:
             headers.update(extra_headers)
 
         api_base: Final = vector_store_files_provider_config.get_complete_url(
-            api_base=litellm_params.api_base,
+            api_base=embrouter_params.api_base,
             vector_store_id=vector_store_id,
-            litellm_params=dict(litellm_params),
+            embrouter_params=dict(embrouter_params),
         )
 
         (
@@ -11457,22 +11457,22 @@ class BaseLLMHTTPHandler:
         generate_content_config_dict: dict,
         tools: Any,
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, object] | None = None,
         extra_body: dict[str, object] | None = None,
         timeout: float | httpx.Timeout | None = None,
         _is_async: bool = False,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
         stream: bool = False,
-        litellm_metadata: dict[str, object] | None = None,
+        embrouter_metadata: dict[str, object] | None = None,
         system_instruction: object | None = None,
     ) -> Any:
         """
         Handles Google GenAI generate content requests.
         When _is_async=True, returns a coroutine instead of making the call directly.
         """
-        from litellm.google_genai.streaming_iterator import (
+        from embrouter.google_genai.streaming_iterator import (
             GoogleGenAIGenerateContentStreamingIterator,
         )
 
@@ -11484,19 +11484,19 @@ class BaseLLMHTTPHandler:
                 generate_content_config_dict=generate_content_config_dict,
                 tools=tools,
                 custom_llm_provider=custom_llm_provider,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 extra_headers=extra_headers,
                 extra_body=extra_body,
                 timeout=timeout,
                 client=client if isinstance(client, AsyncHTTPHandler) else None,
                 stream=stream,
-                litellm_metadata=litellm_metadata,
+                embrouter_metadata=embrouter_metadata,
                 system_instruction=system_instruction,
             )
 
         if client is None or not isinstance(client, HTTPHandler):
-            sync_httpx_client = _get_httpx_client(params={"ssl_verify": litellm_params.get("ssl_verify", None)})
+            sync_httpx_client = _get_httpx_client(params={"ssl_verify": embrouter_params.get("ssl_verify", None)})
         else:
             sync_httpx_client = client
 
@@ -11505,9 +11505,9 @@ class BaseLLMHTTPHandler:
             headers,
             api_base,
         ) = generate_content_provider_config.sync_get_auth_token_and_url(
-            api_base=litellm_params.api_base,
+            api_base=embrouter_params.api_base,
             model=model,
-            litellm_params=dict(litellm_params),
+            embrouter_params=dict(embrouter_params),
             stream=stream,
         )
 
@@ -11552,12 +11552,12 @@ class BaseLLMHTTPHandler:
                     model=model,
                     logging_obj=logging_obj,
                     generate_content_provider_config=generate_content_provider_config,
-                    litellm_metadata=litellm_metadata or {},
+                    embrouter_metadata=embrouter_metadata or {},
                     custom_llm_provider=custom_llm_provider,
                     request_body=data,
                     hidden_params=_google_genai_streaming_hidden_params(
                         api_base=api_base,
-                        litellm_params=litellm_params,
+                        embrouter_params=embrouter_params,
                         logging_obj=logging_obj,
                         response_headers=response.headers,
                     ),
@@ -11589,28 +11589,28 @@ class BaseLLMHTTPHandler:
         generate_content_config_dict: dict,
         tools: Any,
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, object] | None = None,
         extra_body: dict[str, object] | None = None,
         timeout: float | httpx.Timeout | None = None,
         client: AsyncHTTPHandler | None = None,
         stream: bool = False,
-        litellm_metadata: dict[str, object] | None = None,
+        embrouter_metadata: dict[str, object] | None = None,
         system_instruction: object | None = None,
     ) -> "AsyncGoogleGenAIGenerateContentStreamingIterator | GenerateContentResponse":
         """
         Async version of the generate content handler.
         Uses async HTTP client to make requests.
         """
-        from litellm.google_genai.streaming_iterator import (
+        from embrouter.google_genai.streaming_iterator import (
             AsyncGoogleGenAIGenerateContentStreamingIterator,
         )
 
         if client is None or not isinstance(client, AsyncHTTPHandler):
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders(custom_llm_provider),
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders(custom_llm_provider),
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
             )
         else:
             async_httpx_client = client
@@ -11621,9 +11621,9 @@ class BaseLLMHTTPHandler:
             api_base,
         ) = await generate_content_provider_config.get_auth_token_and_url(
             model=model,
-            litellm_params=dict(litellm_params),
+            embrouter_params=dict(embrouter_params),
             stream=stream,
-            api_base=litellm_params.api_base,
+            api_base=embrouter_params.api_base,
         )
 
         if extra_headers:
@@ -11667,12 +11667,12 @@ class BaseLLMHTTPHandler:
                     model=model,
                     logging_obj=logging_obj,
                     generate_content_provider_config=generate_content_provider_config,
-                    litellm_metadata=litellm_metadata or {},
+                    embrouter_metadata=embrouter_metadata or {},
                     custom_llm_provider=custom_llm_provider,
                     request_body=data,
                     hidden_params=_google_genai_streaming_hidden_params(
                         api_base=api_base,
-                        litellm_params=litellm_params,
+                        embrouter_params=embrouter_params,
                         logging_obj=logging_obj,
                         response_headers=response.headers,
                     ),
@@ -11707,8 +11707,8 @@ class BaseLLMHTTPHandler:
         text_to_speech_provider_config: BaseTextToSpeechConfig,
         text_to_speech_optional_params: dict,
         custom_llm_provider: str,
-        litellm_params: dict,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: dict,
+        logging_obj: EmbRouterLoggingObj,
         timeout: float | httpx.Timeout,
         extra_headers: dict[str, object] | None = None,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
@@ -11729,7 +11729,7 @@ class BaseLLMHTTPHandler:
                 text_to_speech_provider_config=text_to_speech_provider_config,
                 text_to_speech_optional_params=text_to_speech_optional_params,
                 custom_llm_provider=custom_llm_provider,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 extra_headers=extra_headers,
                 timeout=timeout,
@@ -11737,15 +11737,15 @@ class BaseLLMHTTPHandler:
             )
 
         if client is None or not isinstance(client, HTTPHandler):
-            sync_httpx_client = _get_httpx_client(params={"ssl_verify": litellm_params.get("ssl_verify", None)})
+            sync_httpx_client = _get_httpx_client(params={"ssl_verify": embrouter_params.get("ssl_verify", None)})
         else:
             sync_httpx_client = client
 
         headers: Final = text_to_speech_provider_config.validate_environment(
-            api_key=litellm_params.get("api_key"),
+            api_key=embrouter_params.get("api_key"),
             headers=extra_headers or {},
             model=model,
-            api_base=litellm_params.get("api_base"),
+            api_base=embrouter_params.get("api_base"),
         )
 
         if extra_headers:
@@ -11753,8 +11753,8 @@ class BaseLLMHTTPHandler:
 
         api_base: Final = text_to_speech_provider_config.get_complete_url(
             model=model,
-            api_base=litellm_params.get("api_base"),
-            litellm_params=litellm_params,
+            api_base=embrouter_params.get("api_base"),
+            embrouter_params=embrouter_params,
         )
 
         request_data: Final = text_to_speech_provider_config.transform_text_to_speech_request(
@@ -11762,7 +11762,7 @@ class BaseLLMHTTPHandler:
             input=input,
             voice=voice,
             optional_params=text_to_speech_optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
@@ -11824,8 +11824,8 @@ class BaseLLMHTTPHandler:
         text_to_speech_provider_config: BaseTextToSpeechConfig,
         text_to_speech_optional_params: dict,
         custom_llm_provider: str,
-        litellm_params: dict,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: dict,
+        logging_obj: EmbRouterLoggingObj,
         timeout: float | httpx.Timeout,
         extra_headers: dict[str, object] | None = None,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
@@ -11836,17 +11836,17 @@ class BaseLLMHTTPHandler:
         """
         if client is None or not isinstance(client, AsyncHTTPHandler):
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders(custom_llm_provider),
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders(custom_llm_provider),
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
             )
         else:
             async_httpx_client = client
 
         headers: Final = text_to_speech_provider_config.validate_environment(
-            api_key=litellm_params.get("api_key"),
+            api_key=embrouter_params.get("api_key"),
             headers=extra_headers or {},
             model=model,
-            api_base=litellm_params.get("api_base"),
+            api_base=embrouter_params.get("api_base"),
         )
 
         if extra_headers:
@@ -11854,8 +11854,8 @@ class BaseLLMHTTPHandler:
 
         api_base: Final = text_to_speech_provider_config.get_complete_url(
             model=model,
-            api_base=litellm_params.get("api_base"),
-            litellm_params=litellm_params,
+            api_base=embrouter_params.get("api_base"),
+            embrouter_params=embrouter_params,
         )
 
         request_data: Final = text_to_speech_provider_config.transform_text_to_speech_request(
@@ -11863,7 +11863,7 @@ class BaseLLMHTTPHandler:
             input=input,
             voice=voice,
             optional_params=text_to_speech_optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
@@ -11958,8 +11958,8 @@ class BaseLLMHTTPHandler:
         request_body: dict,
         skills_api_provider_config: "BaseSkillsAPIConfig",
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, object] | None = None,
         timeout: float | httpx.Timeout | None = None,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
@@ -11973,7 +11973,7 @@ class BaseLLMHTTPHandler:
                 request_body=request_body,
                 skills_api_provider_config=skills_api_provider_config,
                 custom_llm_provider=custom_llm_provider,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 extra_headers=extra_headers,
                 timeout=timeout,
@@ -11982,7 +11982,7 @@ class BaseLLMHTTPHandler:
             )
 
         if client is None or not isinstance(client, HTTPHandler):
-            sync_httpx_client = _get_httpx_client(params={"ssl_verify": litellm_params.get("ssl_verify", None)})
+            sync_httpx_client = _get_httpx_client(params={"ssl_verify": embrouter_params.get("ssl_verify", None)})
         else:
             sync_httpx_client = client
 
@@ -12024,8 +12024,8 @@ class BaseLLMHTTPHandler:
         request_body: dict,
         skills_api_provider_config: "BaseSkillsAPIConfig",
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, object] | None = None,
         timeout: float | httpx.Timeout | None = None,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
@@ -12034,8 +12034,8 @@ class BaseLLMHTTPHandler:
         """Async create a skill"""
         if client is None or not isinstance(client, AsyncHTTPHandler):
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders(custom_llm_provider),
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders(custom_llm_provider),
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
             )
         else:
             async_httpx_client = client
@@ -12080,8 +12080,8 @@ class BaseLLMHTTPHandler:
         query_params: dict,
         skills_api_provider_config: "BaseSkillsAPIConfig",
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, object] | None = None,
         timeout: float | httpx.Timeout | None = None,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
@@ -12095,7 +12095,7 @@ class BaseLLMHTTPHandler:
                 query_params=query_params,
                 skills_api_provider_config=skills_api_provider_config,
                 custom_llm_provider=custom_llm_provider,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 extra_headers=extra_headers,
                 timeout=timeout,
@@ -12104,7 +12104,7 @@ class BaseLLMHTTPHandler:
             )
 
         if client is None or not isinstance(client, HTTPHandler):
-            sync_httpx_client = _get_httpx_client(params={"ssl_verify": litellm_params.get("ssl_verify", None)})
+            sync_httpx_client = _get_httpx_client(params={"ssl_verify": embrouter_params.get("ssl_verify", None)})
         else:
             sync_httpx_client = client
 
@@ -12139,8 +12139,8 @@ class BaseLLMHTTPHandler:
         query_params: dict,
         skills_api_provider_config: "BaseSkillsAPIConfig",
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, object] | None = None,
         timeout: float | httpx.Timeout | None = None,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
@@ -12149,8 +12149,8 @@ class BaseLLMHTTPHandler:
         """Async list skills"""
         if client is None or not isinstance(client, AsyncHTTPHandler):
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders(custom_llm_provider),
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders(custom_llm_provider),
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
             )
         else:
             async_httpx_client = client
@@ -12185,8 +12185,8 @@ class BaseLLMHTTPHandler:
         url: str,
         skills_api_provider_config: "BaseSkillsAPIConfig",
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, object] | None = None,
         timeout: float | httpx.Timeout | None = None,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
@@ -12199,7 +12199,7 @@ class BaseLLMHTTPHandler:
                 url=url,
                 skills_api_provider_config=skills_api_provider_config,
                 custom_llm_provider=custom_llm_provider,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 extra_headers=extra_headers,
                 timeout=timeout,
@@ -12208,7 +12208,7 @@ class BaseLLMHTTPHandler:
             )
 
         if client is None or not isinstance(client, HTTPHandler):
-            sync_httpx_client = _get_httpx_client(params={"ssl_verify": litellm_params.get("ssl_verify", None)})
+            sync_httpx_client = _get_httpx_client(params={"ssl_verify": embrouter_params.get("ssl_verify", None)})
         else:
             sync_httpx_client = client
 
@@ -12241,8 +12241,8 @@ class BaseLLMHTTPHandler:
         url: str,
         skills_api_provider_config: "BaseSkillsAPIConfig",
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, object] | None = None,
         timeout: float | httpx.Timeout | None = None,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
@@ -12251,8 +12251,8 @@ class BaseLLMHTTPHandler:
         """Async get a skill"""
         if client is None or not isinstance(client, AsyncHTTPHandler):
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders(custom_llm_provider),
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders(custom_llm_provider),
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
             )
         else:
             async_httpx_client = client
@@ -12286,8 +12286,8 @@ class BaseLLMHTTPHandler:
         url: str,
         skills_api_provider_config: "BaseSkillsAPIConfig",
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, object] | None = None,
         timeout: float | httpx.Timeout | None = None,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
@@ -12300,7 +12300,7 @@ class BaseLLMHTTPHandler:
                 url=url,
                 skills_api_provider_config=skills_api_provider_config,
                 custom_llm_provider=custom_llm_provider,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 extra_headers=extra_headers,
                 timeout=timeout,
@@ -12309,7 +12309,7 @@ class BaseLLMHTTPHandler:
             )
 
         if client is None or not isinstance(client, HTTPHandler):
-            sync_httpx_client = _get_httpx_client(params={"ssl_verify": litellm_params.get("ssl_verify", None)})
+            sync_httpx_client = _get_httpx_client(params={"ssl_verify": embrouter_params.get("ssl_verify", None)})
         else:
             sync_httpx_client = client
 
@@ -12342,8 +12342,8 @@ class BaseLLMHTTPHandler:
         url: str,
         skills_api_provider_config: "BaseSkillsAPIConfig",
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, object] | None = None,
         timeout: float | httpx.Timeout | None = None,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
@@ -12352,8 +12352,8 @@ class BaseLLMHTTPHandler:
         """Async delete a skill"""
         if client is None or not isinstance(client, AsyncHTTPHandler):
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders(custom_llm_provider),
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders(custom_llm_provider),
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
             )
         else:
             async_httpx_client = client
@@ -12392,8 +12392,8 @@ class BaseLLMHTTPHandler:
         request_body: dict,
         evals_api_provider_config: "BaseEvalsAPIConfig",
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, object] | None = None,
         timeout: float | httpx.Timeout | None = None,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
@@ -12407,7 +12407,7 @@ class BaseLLMHTTPHandler:
                 request_body=request_body,
                 evals_api_provider_config=evals_api_provider_config,
                 custom_llm_provider=custom_llm_provider,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 extra_headers=extra_headers,
                 timeout=timeout,
@@ -12416,7 +12416,7 @@ class BaseLLMHTTPHandler:
             )
 
         if client is None or not isinstance(client, HTTPHandler):
-            sync_httpx_client = _get_httpx_client(params={"ssl_verify": litellm_params.get("ssl_verify", None)})
+            sync_httpx_client = _get_httpx_client(params={"ssl_verify": embrouter_params.get("ssl_verify", None)})
         else:
             sync_httpx_client = client
 
@@ -12451,8 +12451,8 @@ class BaseLLMHTTPHandler:
         request_body: dict,
         evals_api_provider_config: "BaseEvalsAPIConfig",
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, object] | None = None,
         timeout: float | httpx.Timeout | None = None,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
@@ -12461,8 +12461,8 @@ class BaseLLMHTTPHandler:
         """Async create an eval"""
         if client is None or not isinstance(client, AsyncHTTPHandler):
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders(custom_llm_provider),
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders(custom_llm_provider),
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
             )
         else:
             async_httpx_client = client
@@ -12498,8 +12498,8 @@ class BaseLLMHTTPHandler:
         query_params: dict,
         evals_api_provider_config: "BaseEvalsAPIConfig",
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, object] | None = None,
         timeout: float | httpx.Timeout | None = None,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
@@ -12513,7 +12513,7 @@ class BaseLLMHTTPHandler:
                 query_params=query_params,
                 evals_api_provider_config=evals_api_provider_config,
                 custom_llm_provider=custom_llm_provider,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 extra_headers=extra_headers,
                 timeout=timeout,
@@ -12522,7 +12522,7 @@ class BaseLLMHTTPHandler:
             )
 
         if client is None or not isinstance(client, HTTPHandler):
-            sync_httpx_client = _get_httpx_client(params={"ssl_verify": litellm_params.get("ssl_verify", None)})
+            sync_httpx_client = _get_httpx_client(params={"ssl_verify": embrouter_params.get("ssl_verify", None)})
         else:
             sync_httpx_client = client
 
@@ -12557,8 +12557,8 @@ class BaseLLMHTTPHandler:
         query_params: dict,
         evals_api_provider_config: "BaseEvalsAPIConfig",
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, object] | None = None,
         timeout: float | httpx.Timeout | None = None,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
@@ -12567,8 +12567,8 @@ class BaseLLMHTTPHandler:
         """Async list evals"""
         if client is None or not isinstance(client, AsyncHTTPHandler):
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders(custom_llm_provider),
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders(custom_llm_provider),
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
             )
         else:
             async_httpx_client = client
@@ -12603,8 +12603,8 @@ class BaseLLMHTTPHandler:
         url: str,
         evals_api_provider_config: "BaseEvalsAPIConfig",
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, object] | None = None,
         timeout: float | httpx.Timeout | None = None,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
@@ -12617,7 +12617,7 @@ class BaseLLMHTTPHandler:
                 url=url,
                 evals_api_provider_config=evals_api_provider_config,
                 custom_llm_provider=custom_llm_provider,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 extra_headers=extra_headers,
                 timeout=timeout,
@@ -12626,7 +12626,7 @@ class BaseLLMHTTPHandler:
             )
 
         if client is None or not isinstance(client, HTTPHandler):
-            sync_httpx_client = _get_httpx_client(params={"ssl_verify": litellm_params.get("ssl_verify", None)})
+            sync_httpx_client = _get_httpx_client(params={"ssl_verify": embrouter_params.get("ssl_verify", None)})
         else:
             sync_httpx_client = client
 
@@ -12659,8 +12659,8 @@ class BaseLLMHTTPHandler:
         url: str,
         evals_api_provider_config: "BaseEvalsAPIConfig",
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, object] | None = None,
         timeout: float | httpx.Timeout | None = None,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
@@ -12669,8 +12669,8 @@ class BaseLLMHTTPHandler:
         """Async get an eval"""
         if client is None or not isinstance(client, AsyncHTTPHandler):
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders(custom_llm_provider),
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders(custom_llm_provider),
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
             )
         else:
             async_httpx_client = client
@@ -12705,8 +12705,8 @@ class BaseLLMHTTPHandler:
         request_body: dict,
         evals_api_provider_config: "BaseEvalsAPIConfig",
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, object] | None = None,
         timeout: float | httpx.Timeout | None = None,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
@@ -12720,7 +12720,7 @@ class BaseLLMHTTPHandler:
                 request_body=request_body,
                 evals_api_provider_config=evals_api_provider_config,
                 custom_llm_provider=custom_llm_provider,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 extra_headers=extra_headers,
                 timeout=timeout,
@@ -12729,7 +12729,7 @@ class BaseLLMHTTPHandler:
             )
 
         if client is None or not isinstance(client, HTTPHandler):
-            sync_httpx_client = _get_httpx_client(params={"ssl_verify": litellm_params.get("ssl_verify", None)})
+            sync_httpx_client = _get_httpx_client(params={"ssl_verify": embrouter_params.get("ssl_verify", None)})
         else:
             sync_httpx_client = client
 
@@ -12764,8 +12764,8 @@ class BaseLLMHTTPHandler:
         request_body: dict,
         evals_api_provider_config: "BaseEvalsAPIConfig",
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, object] | None = None,
         timeout: float | httpx.Timeout | None = None,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
@@ -12774,8 +12774,8 @@ class BaseLLMHTTPHandler:
         """Async update an eval"""
         if client is None or not isinstance(client, AsyncHTTPHandler):
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders(custom_llm_provider),
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders(custom_llm_provider),
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
             )
         else:
             async_httpx_client = client
@@ -12810,8 +12810,8 @@ class BaseLLMHTTPHandler:
         url: str,
         evals_api_provider_config: "BaseEvalsAPIConfig",
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, object] | None = None,
         timeout: float | httpx.Timeout | None = None,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
@@ -12824,7 +12824,7 @@ class BaseLLMHTTPHandler:
                 url=url,
                 evals_api_provider_config=evals_api_provider_config,
                 custom_llm_provider=custom_llm_provider,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 extra_headers=extra_headers,
                 timeout=timeout,
@@ -12833,7 +12833,7 @@ class BaseLLMHTTPHandler:
             )
 
         if client is None or not isinstance(client, HTTPHandler):
-            sync_httpx_client = _get_httpx_client(params={"ssl_verify": litellm_params.get("ssl_verify", None)})
+            sync_httpx_client = _get_httpx_client(params={"ssl_verify": embrouter_params.get("ssl_verify", None)})
         else:
             sync_httpx_client = client
 
@@ -12866,8 +12866,8 @@ class BaseLLMHTTPHandler:
         url: str,
         evals_api_provider_config: "BaseEvalsAPIConfig",
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, object] | None = None,
         timeout: float | httpx.Timeout | None = None,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
@@ -12876,8 +12876,8 @@ class BaseLLMHTTPHandler:
         """Async delete an eval"""
         if client is None or not isinstance(client, AsyncHTTPHandler):
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders(custom_llm_provider),
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders(custom_llm_provider),
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
             )
         else:
             async_httpx_client = client
@@ -12911,8 +12911,8 @@ class BaseLLMHTTPHandler:
         url: str,
         evals_api_provider_config: "BaseEvalsAPIConfig",
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, object] | None = None,
         timeout: float | httpx.Timeout | None = None,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
@@ -12925,7 +12925,7 @@ class BaseLLMHTTPHandler:
                 url=url,
                 evals_api_provider_config=evals_api_provider_config,
                 custom_llm_provider=custom_llm_provider,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 extra_headers=extra_headers,
                 timeout=timeout,
@@ -12934,7 +12934,7 @@ class BaseLLMHTTPHandler:
             )
 
         if client is None or not isinstance(client, HTTPHandler):
-            sync_httpx_client = _get_httpx_client(params={"ssl_verify": litellm_params.get("ssl_verify", None)})
+            sync_httpx_client = _get_httpx_client(params={"ssl_verify": embrouter_params.get("ssl_verify", None)})
         else:
             sync_httpx_client = client
 
@@ -12967,8 +12967,8 @@ class BaseLLMHTTPHandler:
         url: str,
         evals_api_provider_config: "BaseEvalsAPIConfig",
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, object] | None = None,
         timeout: float | httpx.Timeout | None = None,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
@@ -12977,8 +12977,8 @@ class BaseLLMHTTPHandler:
         """Async cancel an eval"""
         if client is None or not isinstance(client, AsyncHTTPHandler):
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders(custom_llm_provider),
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders(custom_llm_provider),
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
             )
         else:
             async_httpx_client = client
@@ -13017,8 +13017,8 @@ class BaseLLMHTTPHandler:
         request_body: dict,
         evals_api_provider_config: "BaseEvalsAPIConfig",
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, object] | None = None,
         timeout: float | httpx.Timeout | None = None,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
@@ -13032,7 +13032,7 @@ class BaseLLMHTTPHandler:
                 request_body=request_body,
                 evals_api_provider_config=evals_api_provider_config,
                 custom_llm_provider=custom_llm_provider,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 extra_headers=extra_headers,
                 timeout=timeout,
@@ -13041,7 +13041,7 @@ class BaseLLMHTTPHandler:
             )
 
         if client is None or not isinstance(client, HTTPHandler):
-            sync_httpx_client = _get_httpx_client(params={"ssl_verify": litellm_params.get("ssl_verify", None)})
+            sync_httpx_client = _get_httpx_client(params={"ssl_verify": embrouter_params.get("ssl_verify", None)})
         else:
             sync_httpx_client = client
 
@@ -13076,8 +13076,8 @@ class BaseLLMHTTPHandler:
         request_body: dict,
         evals_api_provider_config: "BaseEvalsAPIConfig",
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, object] | None = None,
         timeout: float | httpx.Timeout | None = None,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
@@ -13086,8 +13086,8 @@ class BaseLLMHTTPHandler:
         """Async create a run"""
         if client is None or not isinstance(client, AsyncHTTPHandler):
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders(custom_llm_provider),
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders(custom_llm_provider),
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
             )
         else:
             async_httpx_client = client
@@ -13123,8 +13123,8 @@ class BaseLLMHTTPHandler:
         query_params: dict,
         evals_api_provider_config: "BaseEvalsAPIConfig",
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, object] | None = None,
         timeout: float | httpx.Timeout | None = None,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
@@ -13138,7 +13138,7 @@ class BaseLLMHTTPHandler:
                 query_params=query_params,
                 evals_api_provider_config=evals_api_provider_config,
                 custom_llm_provider=custom_llm_provider,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 extra_headers=extra_headers,
                 timeout=timeout,
@@ -13147,7 +13147,7 @@ class BaseLLMHTTPHandler:
             )
 
         if client is None or not isinstance(client, HTTPHandler):
-            sync_httpx_client = _get_httpx_client(params={"ssl_verify": litellm_params.get("ssl_verify", None)})
+            sync_httpx_client = _get_httpx_client(params={"ssl_verify": embrouter_params.get("ssl_verify", None)})
         else:
             sync_httpx_client = client
 
@@ -13182,8 +13182,8 @@ class BaseLLMHTTPHandler:
         query_params: dict,
         evals_api_provider_config: "BaseEvalsAPIConfig",
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, object] | None = None,
         timeout: float | httpx.Timeout | None = None,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
@@ -13192,8 +13192,8 @@ class BaseLLMHTTPHandler:
         """Async list runs"""
         if client is None or not isinstance(client, AsyncHTTPHandler):
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders(custom_llm_provider),
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders(custom_llm_provider),
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
             )
         else:
             async_httpx_client = client
@@ -13228,8 +13228,8 @@ class BaseLLMHTTPHandler:
         url: str,
         evals_api_provider_config: "BaseEvalsAPIConfig",
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, object] | None = None,
         timeout: float | httpx.Timeout | None = None,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
@@ -13242,7 +13242,7 @@ class BaseLLMHTTPHandler:
                 url=url,
                 evals_api_provider_config=evals_api_provider_config,
                 custom_llm_provider=custom_llm_provider,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 extra_headers=extra_headers,
                 timeout=timeout,
@@ -13251,7 +13251,7 @@ class BaseLLMHTTPHandler:
             )
 
         if client is None or not isinstance(client, HTTPHandler):
-            sync_httpx_client = _get_httpx_client(params={"ssl_verify": litellm_params.get("ssl_verify", None)})
+            sync_httpx_client = _get_httpx_client(params={"ssl_verify": embrouter_params.get("ssl_verify", None)})
         else:
             sync_httpx_client = client
 
@@ -13284,8 +13284,8 @@ class BaseLLMHTTPHandler:
         url: str,
         evals_api_provider_config: "BaseEvalsAPIConfig",
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, object] | None = None,
         timeout: float | httpx.Timeout | None = None,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
@@ -13294,8 +13294,8 @@ class BaseLLMHTTPHandler:
         """Async get a run"""
         if client is None or not isinstance(client, AsyncHTTPHandler):
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders(custom_llm_provider),
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders(custom_llm_provider),
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
             )
         else:
             async_httpx_client = client
@@ -13329,8 +13329,8 @@ class BaseLLMHTTPHandler:
         url: str,
         evals_api_provider_config: "BaseEvalsAPIConfig",
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, object] | None = None,
         timeout: float | httpx.Timeout | None = None,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
@@ -13343,7 +13343,7 @@ class BaseLLMHTTPHandler:
                 url=url,
                 evals_api_provider_config=evals_api_provider_config,
                 custom_llm_provider=custom_llm_provider,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 extra_headers=extra_headers,
                 timeout=timeout,
@@ -13352,7 +13352,7 @@ class BaseLLMHTTPHandler:
             )
 
         if client is None or not isinstance(client, HTTPHandler):
-            sync_httpx_client = _get_httpx_client(params={"ssl_verify": litellm_params.get("ssl_verify", None)})
+            sync_httpx_client = _get_httpx_client(params={"ssl_verify": embrouter_params.get("ssl_verify", None)})
         else:
             sync_httpx_client = client
 
@@ -13385,8 +13385,8 @@ class BaseLLMHTTPHandler:
         url: str,
         evals_api_provider_config: "BaseEvalsAPIConfig",
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, object] | None = None,
         timeout: float | httpx.Timeout | None = None,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
@@ -13395,8 +13395,8 @@ class BaseLLMHTTPHandler:
         """Async cancel a run"""
         if client is None or not isinstance(client, AsyncHTTPHandler):
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders(custom_llm_provider),
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders(custom_llm_provider),
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
             )
         else:
             async_httpx_client = client
@@ -13430,8 +13430,8 @@ class BaseLLMHTTPHandler:
         url: str,
         evals_api_provider_config: "BaseEvalsAPIConfig",
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, object] | None = None,
         timeout: float | httpx.Timeout | None = None,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
@@ -13444,7 +13444,7 @@ class BaseLLMHTTPHandler:
                 url=url,
                 evals_api_provider_config=evals_api_provider_config,
                 custom_llm_provider=custom_llm_provider,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 extra_headers=extra_headers,
                 timeout=timeout,
@@ -13453,7 +13453,7 @@ class BaseLLMHTTPHandler:
             )
 
         if client is None or not isinstance(client, HTTPHandler):
-            sync_httpx_client = _get_httpx_client(params={"ssl_verify": litellm_params.get("ssl_verify", None)})
+            sync_httpx_client = _get_httpx_client(params={"ssl_verify": embrouter_params.get("ssl_verify", None)})
         else:
             sync_httpx_client = client
 
@@ -13486,8 +13486,8 @@ class BaseLLMHTTPHandler:
         url: str,
         evals_api_provider_config: "BaseEvalsAPIConfig",
         custom_llm_provider: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, object] | None = None,
         timeout: float | httpx.Timeout | None = None,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
@@ -13496,8 +13496,8 @@ class BaseLLMHTTPHandler:
         """Async delete a run"""
         if client is None or not isinstance(client, AsyncHTTPHandler):
             async_httpx_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders(custom_llm_provider),
-                params={"ssl_verify": litellm_params.get("ssl_verify", None)},
+                llm_provider=embrouter.LlmProviders(custom_llm_provider),
+                params={"ssl_verify": embrouter_params.get("ssl_verify", None)},
             )
         else:
             async_httpx_client = client

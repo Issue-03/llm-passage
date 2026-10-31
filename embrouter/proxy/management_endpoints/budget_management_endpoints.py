@@ -19,15 +19,15 @@ from typing import Final
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from litellm.proxy._types import *
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.common_utils.timezone_utils import get_budget_reset_time
-from litellm.proxy.management_endpoints.common_utils import (
+from embrouter.proxy._types import *
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.common_utils.timezone_utils import get_budget_reset_time
+from embrouter.proxy.management_endpoints.common_utils import (
     _user_has_admin_view,
     validate_budget_duration,
 )
-from litellm.proxy.utils import jsonify_object
-from litellm.repositories.budget_repository import BudgetRepository
+from embrouter.proxy.utils import jsonify_object
+from embrouter.repositories.budget_repository import BudgetRepository
 
 router: Final = APIRouter()
 
@@ -58,7 +58,7 @@ async def new_budget(
     """
     from prisma.errors import UniqueViolationError
 
-    from litellm.proxy.proxy_server import litellm_proxy_admin_name, prisma_client
+    from embrouter.proxy.proxy_server import embrouter_proxy_admin_name, prisma_client
 
     if prisma_client is None:
         raise HTTPException(
@@ -82,7 +82,7 @@ async def new_budget(
 
     # Validate model_max_budget if present
     if budget_obj.model_max_budget is not None and len(budget_obj.model_max_budget) > 0:
-        from litellm.proxy.management_endpoints.key_management_endpoints import (
+        from embrouter.proxy.management_endpoints.key_management_endpoints import (
             validate_model_max_budget,
         )
 
@@ -101,8 +101,8 @@ async def new_budget(
         response: Final = await BudgetRepository(prisma_client).table.create(
             data={
                 **budget_obj_jsonified,
-                "created_by": user_api_key_dict.user_id or litellm_proxy_admin_name,
-                "updated_by": user_api_key_dict.user_id or litellm_proxy_admin_name,
+                "created_by": user_api_key_dict.user_id or embrouter_proxy_admin_name,
+                "updated_by": user_api_key_dict.user_id or embrouter_proxy_admin_name,
             }
         )
     except Exception as e:
@@ -140,7 +140,7 @@ async def update_budget(
     - model_max_budget: Optional[dict] - Specify max budget for a given model. Example: {"openai/gpt-4o-mini": {"max_budget": 100.0, "budget_duration": "1d", "tpm_limit": 100000, "rpm_limit": 100000}}
     - budget_reset_at: Optional[datetime] - Update the Datetime when the budget was last reset.
     """
-    from litellm.proxy.proxy_server import litellm_proxy_admin_name, prisma_client
+    from embrouter.proxy.proxy_server import embrouter_proxy_admin_name, prisma_client
 
     if prisma_client is None:
         raise HTTPException(
@@ -166,7 +166,7 @@ async def update_budget(
 
     # Validate model_max_budget if present in update
     if budget_obj.model_max_budget is not None and len(budget_obj.model_max_budget) > 0:
-        from litellm.proxy.management_endpoints.key_management_endpoints import (
+        from embrouter.proxy.management_endpoints.key_management_endpoints import (
             validate_model_max_budget,
         )
 
@@ -190,7 +190,7 @@ async def update_budget(
         {
             **budget_obj.model_dump(exclude_unset=True),
             **recomputed_reset_at,
-            "updated_by": user_api_key_dict.user_id or litellm_proxy_admin_name,
+            "updated_by": user_api_key_dict.user_id or embrouter_proxy_admin_name,
         }
     )
 
@@ -214,7 +214,7 @@ async def info_budget(data: BudgetRequest):
     Parameters:
     - budgets: List[str] - The list of budget ids to get information for
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail={"error": "No db connected"})
@@ -248,7 +248,7 @@ async def budget_settings(
     Query Parameters:
     - budget_id: str - The budget id to get information for
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(
@@ -309,7 +309,7 @@ async def list_budget(
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
 ):
     """List all the created budgets in proxy db. Used on Admin UI."""
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(
@@ -343,7 +343,7 @@ async def delete_budget(
     Parameters:
     - id: str - The budget id to delete
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(
@@ -351,7 +351,7 @@ async def delete_budget(
             detail={"error": CommonProxyErrors.db_not_connected_error.value},
         )
 
-    if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+    if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
         raise HTTPException(
             status_code=400,
             detail={"error": f"{CommonProxyErrors.not_allowed_access.value}, your role={user_api_key_dict.user_role}"},

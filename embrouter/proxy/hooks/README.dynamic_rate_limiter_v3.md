@@ -83,7 +83,7 @@ The v3 dynamic rate limiter implements saturation-aware rate limiting with prior
 Set priority weights in your proxy configuration:
 
 ```python
-litellm.priority_reservation = {
+embrouter.priority_reservation = {
     "premium": 0.75,    # 75% of capacity
     "standard": 0.25    # 25% of capacity
 }
@@ -94,7 +94,7 @@ litellm.priority_reservation = {
 Configure saturation-aware behavior:
 
 ```python
-litellm.priority_reservation_settings = PriorityReservationSettings(
+embrouter.priority_reservation_settings = PriorityReservationSettings(
     default_priority=0.5,           # Default weight for users without explicit priority
     saturation_threshold=0.80,      # 80% - threshold for strict mode enforcement
     tracking_multiplier=10          # 10x - multiplier for non-blocking tracking in strict mode

@@ -1,6 +1,6 @@
 # Arize Phoenix Prompt Management Integration
 
-This integration enables using prompt versions from Arize Phoenix with LiteLLM's completion function.
+This integration enables using prompt versions from Arize Phoenix with EmbRouter's completion function.
 
 ## Features
 
@@ -16,7 +16,7 @@ This integration enables using prompt versions from Arize Phoenix with LiteLLM's
 Configure Arize Phoenix access in your application:
 
 ```python
-import litellm
+import embrouter
 
 # Configure Arize Phoenix access
 # api_base should include your workspace, e.g., "https://app.phoenix.arize.com/s/your-workspace/v1"
@@ -29,10 +29,10 @@ api_base = "https://app.phoenix.arize.com/s/krrishdholakia/v1"
 ### Basic Usage
 
 ```python
-import litellm
+import embrouter
 
 # Use with completion
-response = litellm.completion(
+response = embrouter.completion(
     model="arize/gpt-4o",
     prompt_id="UHJvbXB0VmVyc2lvbjox",  # Your prompt version ID
     prompt_variables={"question": "What is artificial intelligence?"},
@@ -48,7 +48,7 @@ print(response.choices[0].message.content)
 You can also combine prompt templates with additional messages:
 
 ```python
-response = litellm.completion(
+response = embrouter.completion(
     model="arize/gpt-4o",
     prompt_id="UHJvbXB0VmVyc2lvbjox",
     prompt_variables={"question": "Explain quantum computing"},
@@ -65,7 +65,7 @@ response = litellm.completion(
 You can also use the prompt manager directly:
 
 ```python
-from litellm.integrations.arize.arize_phoenix_prompt_manager import ArizePhoenixPromptManager
+from embrouter.integrations.arize.arize_phoenix_prompt_manager import ArizePhoenixPromptManager
 
 # Initialize the manager
 manager = ArizePhoenixPromptManager(
@@ -172,7 +172,7 @@ The integration provides detailed error messages:
 Example:
 ```python
 try:
-    response = litellm.completion(
+    response = embrouter.completion(
         model="arize/gpt-4o",
         prompt_id="invalid-id",
         arize_config=arize_config,
@@ -205,6 +205,6 @@ curl -L -X GET 'https://app.phoenix.arize.com/s/krrishdholakia/v1/prompt_version
 ## Support
 
 For issues or questions:
-- LiteLLM
+- EmbRouter
 - Arize Phoenix Docs: https://docs.arize.com/phoenix
 

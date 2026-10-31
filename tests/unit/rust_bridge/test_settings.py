@@ -3,19 +3,19 @@ from typing import Final
 import httpx
 import pytest
 
-import litellm
-from litellm.integrations.custom_secret_manager import CustomSecretManager
-from litellm.llms.custom_httpx.http_handler import default_user_agent
-from litellm.rust_bridge import catalog, settings
-from litellm.rust_bridge.catalog import SecretManagerRule
-from litellm.rust_bridge.configuration import Rollout
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.secret_managers.main import KeyManagementSettings, KeyManagementSystem
+import embrouter
+from embrouter.integrations.custom_secret_manager import CustomSecretManager
+from embrouter.llms.custom_httpx.http_handler import default_user_agent
+from embrouter.rust_bridge import catalog, settings
+from embrouter.rust_bridge.catalog import SecretManagerRule
+from embrouter.rust_bridge.configuration import Rollout
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.secret_managers.main import KeyManagementSettings, KeyManagementSystem
 
 
-def test_url_policy_reads_the_litellm_globals(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "user_url_validation", False)
-    monkeypatch.setattr(litellm, "user_url_allowed_hosts", ["docs.internal:8443"])
+def test_url_policy_reads_the_embrouter_globals(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(embrouter, "user_url_validation", False)
+    monkeypatch.setattr(embrouter, "user_url_allowed_hosts", ["docs.internal:8443"])
 
     assert settings.url_policy() == settings.UrlPolicy(
         user_url_validation=False,
@@ -23,16 +23,16 @@ def test_url_policy_reads_the_litellm_globals(monkeypatch: pytest.MonkeyPatch) -
     )
 
 
-def test_http_settings_reads_the_litellm_globals(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "ssl_verify", "/etc/ssl/corp.pem")
-    monkeypatch.setattr(litellm, "ssl_certificate", "/etc/ssl/client.pem")
-    monkeypatch.setattr(litellm, "ssl_security_level", "DEFAULT@SECLEVEL=1")
-    monkeypatch.setattr(litellm, "ssl_ecdh_curve", "X25519")
-    monkeypatch.setattr(litellm, "force_ipv4", True)
-    monkeypatch.setattr(litellm, "http2", True)
-    monkeypatch.setattr(litellm, "aiohttp_trust_env", True)
-    monkeypatch.setattr(litellm, "disable_aiohttp_trust_env", True)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+def test_http_settings_reads_the_embrouter_globals(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(embrouter, "ssl_verify", "/etc/ssl/corp.pem")
+    monkeypatch.setattr(embrouter, "ssl_certificate", "/etc/ssl/client.pem")
+    monkeypatch.setattr(embrouter, "ssl_security_level", "DEFAULT@SECLEVEL=1")
+    monkeypatch.setattr(embrouter, "ssl_ecdh_curve", "X25519")
+    monkeypatch.setattr(embrouter, "force_ipv4", True)
+    monkeypatch.setattr(embrouter, "http2", True)
+    monkeypatch.setattr(embrouter, "aiohttp_trust_env", True)
+    monkeypatch.setattr(embrouter, "disable_aiohttp_trust_env", True)
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
 
     assert settings.http_settings() == settings.HttpSettings(
         ssl_verify="/etc/ssl/corp.pem",
@@ -49,9 +49,9 @@ def test_http_settings_reads_the_litellm_globals(monkeypatch: pytest.MonkeyPatch
 
 
 def test_http_settings_ignores_environment_overrides(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("LITELLM_USER_AGENT", "operator/1")
+    monkeypatch.setenv("EMBROUTER_USER_AGENT", "operator/1")
     monkeypatch.setenv("SSL_VERIFY", "false")
-    monkeypatch.setattr(litellm, "ssl_verify", True)
+    monkeypatch.setattr(embrouter, "ssl_verify", True)
 
     result: Final = settings.http_settings()
 
@@ -90,13 +90,13 @@ _RUST_FOR_CUSTOM: Final = (
     ("access_mode", "readable"),
     [("read_only", True), ("read_and_write", True), ("write_only", False)],
 )
-def test_secret_manager_is_readable_only_when_litellm_would_read_secrets_from_it(
+def test_secret_manager_is_readable_only_when_embrouter_would_read_secrets_from_it(
     monkeypatch: pytest.MonkeyPatch, access_mode: str, readable: bool
 ) -> None:
     monkeypatch.setenv("MISTRAL_API_KEY", "env-key")
-    monkeypatch.setattr(litellm, "secret_manager_client", _VaultSecrets({"MISTRAL_API_KEY": "vault-key"}))
-    monkeypatch.setattr(litellm, "_key_management_system", KeyManagementSystem.CUSTOM)
-    monkeypatch.setattr(litellm, "_key_management_settings", KeyManagementSettings(access_mode=access_mode))
+    monkeypatch.setattr(embrouter, "secret_manager_client", _VaultSecrets({"MISTRAL_API_KEY": "vault-key"}))
+    monkeypatch.setattr(embrouter, "_key_management_system", KeyManagementSystem.CUSTOM)
+    monkeypatch.setattr(embrouter, "_key_management_settings", KeyManagementSettings(access_mode=access_mode))
 
     assert settings.secret_manager(rules=()) == settings.SecretManager(readable=readable, native=False)
     assert (get_secret_str("MISTRAL_API_KEY") == "vault-key") is readable
@@ -125,9 +125,9 @@ def test_secret_manager_is_native_only_when_the_rules_select_rust_for_its_system
     rules: catalog.Rules,
     native: bool,
 ) -> None:
-    monkeypatch.setattr(litellm, "secret_manager_client", _VaultSecrets({}))
-    monkeypatch.setattr(litellm, "_key_management_system", system)
-    monkeypatch.setattr(litellm, "_key_management_settings", KeyManagementSettings(access_mode=access_mode))
+    monkeypatch.setattr(embrouter, "secret_manager_client", _VaultSecrets({}))
+    monkeypatch.setattr(embrouter, "_key_management_system", system)
+    monkeypatch.setattr(embrouter, "_key_management_settings", KeyManagementSettings(access_mode=access_mode))
 
     assert settings.secret_manager(rules=rules) == settings.SecretManager(
         readable=access_mode != "write_only", native=native
@@ -135,7 +135,7 @@ def test_secret_manager_is_native_only_when_the_rules_select_rust_for_its_system
 
 
 def test_secret_manager_is_not_readable_without_a_client(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "secret_manager_client", None)
+    monkeypatch.setattr(embrouter, "secret_manager_client", None)
 
     assert settings.secret_manager(rules=_RUST_FOR_CUSTOM) == settings.SecretManager(readable=False, native=False)
 
@@ -148,9 +148,9 @@ def test_secret_manager_projects_custom_settings(monkeypatch: pytest.MonkeyPatch
         aws_region_name="us-east-1",
     )
     client: Final = _VaultSecrets({"MISTRAL_API_KEY": "vault-key"})
-    monkeypatch.setattr(litellm, "secret_manager_client", client)
-    monkeypatch.setattr(litellm, "_key_management_system", KeyManagementSystem.CUSTOM)
-    monkeypatch.setattr(litellm, "_key_management_settings", manager_settings)
+    monkeypatch.setattr(embrouter, "secret_manager_client", client)
+    monkeypatch.setattr(embrouter, "_key_management_system", KeyManagementSystem.CUSTOM)
+    monkeypatch.setattr(embrouter, "_key_management_settings", manager_settings)
 
     assert settings.secret_manager_binding() == settings.SecretManagerBinding(
         system="custom",
@@ -175,14 +175,14 @@ def test_secret_manager_projects_custom_settings(monkeypatch: pytest.MonkeyPatch
 
 
 def test_secret_manager_without_a_client_has_no_system(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "secret_manager_client", None)
+    monkeypatch.setattr(embrouter, "secret_manager_client", None)
 
     assert settings.secret_manager_binding().system is None
 
 
 def test_secret_manager_uses_key_management_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "secret_manager_client", None)
-    monkeypatch.setattr(litellm, "_key_management_settings", None)
+    monkeypatch.setattr(embrouter, "secret_manager_client", None)
+    monkeypatch.setattr(embrouter, "_key_management_settings", None)
 
     defaults: Final = KeyManagementSettings()
     result: Final = settings.secret_manager_binding()
@@ -209,10 +209,10 @@ def test_secret_manager_uses_key_management_defaults(monkeypatch: pytest.MonkeyP
     )
 
 
-def test_provider_defaults_read_the_litellm_globals(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "vertex_project", "configured-project")
-    monkeypatch.setattr(litellm, "vertex_location", "europe-west4")
-    monkeypatch.setattr(litellm, "enable_azure_ad_token_refresh", True)
+def test_provider_defaults_read_the_embrouter_globals(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(embrouter, "vertex_project", "configured-project")
+    monkeypatch.setattr(embrouter, "vertex_location", "europe-west4")
+    monkeypatch.setattr(embrouter, "enable_azure_ad_token_refresh", True)
 
     assert settings.provider_defaults() == settings.ProviderDefaults(
         vertex_project="configured-project",

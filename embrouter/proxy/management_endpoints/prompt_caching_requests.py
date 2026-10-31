@@ -6,19 +6,19 @@ from typing import TYPE_CHECKING, Annotated, Final
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Json, TypeAdapter
 
-from litellm.proxy._types import CommonProxyErrors, UserAPIKeyAuth, user_api_key_has_admin_view
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.spend_tracking.savings import (
+from embrouter.proxy._types import CommonProxyErrors, UserAPIKeyAuth, user_api_key_has_admin_view
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.spend_tracking.savings import (
     extract_cache_creation_tokens,
     extract_cache_read_tokens,
     marks_gateway_injection,
     prompt_caching_savings_for_request,
 )
-from litellm.proxy.spend_tracking.spend_tracking_utils import (
+from embrouter.proxy.spend_tracking.spend_tracking_utils import (
     _query_raw_rows,  # pyright: ignore[reportPrivateUsage]  # existing typed spend-query adapter; rows validated below
 )
-from litellm.types.integrations.anthropic_cache_control_hook import GATEWAY_INJECTED_CACHE_METADATA_KEY
-from litellm.types.management_endpoints.prompt_caching_requests import (
+from embrouter.types.integrations.anthropic_cache_control_hook import GATEWAY_INJECTED_CACHE_METADATA_KEY
+from embrouter.types.management_endpoints.prompt_caching_requests import (
     PromptCachingRequest,
     PromptCachingRequestCursor,
     PromptCachingRequestFilter,
@@ -26,7 +26,7 @@ from litellm.types.management_endpoints.prompt_caching_requests import (
 )
 
 if TYPE_CHECKING:
-    from litellm.router import Router
+    from embrouter.router import Router
 
 router: Final = APIRouter()
 
@@ -74,7 +74,7 @@ def prompt_caching_requests_sql(filter: PromptCachingRequestFilter) -> str:
                     THEN metadata->'cost_breakdown' END AS cost_breakdown,
                CASE WHEN jsonb_typeof(metadata->'{GATEWAY_INJECTED_CACHE_METADATA_KEY}') = 'string'
                     THEN metadata->>'{GATEWAY_INJECTED_CACHE_METADATA_KEY}' END AS gateway_marker
-        FROM "LiteLLM_SpendLogs"
+        FROM "EmbRouter_SpendLogs"
         WHERE "startTime" >= ($1::text::timestamptz AT TIME ZONE 'UTC')
           AND "startTime" <= ($2::text::timestamptz AT TIME ZONE 'UTC')
           AND COALESCE(LOWER(cache_hit), 'false') != 'true'
@@ -139,7 +139,7 @@ async def get_prompt_caching_requests(
     cursor_start_time: datetime | None = None,
     cursor_request_id: Annotated[str | None, Query(min_length=1)] = None,
 ) -> PromptCachingRequestsResponse:
-    from litellm.proxy.proxy_server import llm_router, prisma_client
+    from embrouter.proxy.proxy_server import llm_router, prisma_client
 
     if not user_api_key_has_admin_view(user_api_key_dict):
         raise HTTPException(status_code=403, detail="Only proxy admin roles can view prompt caching requests")

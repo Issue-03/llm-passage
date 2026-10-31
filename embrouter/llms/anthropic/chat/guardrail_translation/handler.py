@@ -23,18 +23,18 @@ from typing import TYPE_CHECKING, Any, Final, Protocol, cast, overload, runtime_
 from pydantic import TypeAdapter, ValidationError
 from typing_extensions import ReadOnly, TypedDict, assert_never
 
-from litellm._logging import verbose_proxy_logger
-from litellm.llms.anthropic.chat.transformation import AnthropicConfig
-from litellm.llms.anthropic.pass_through.adapters.transformation import (
-    LiteLLMAnthropicMessagesAdapter,
+from embrouter._logging import verbose_proxy_logger
+from embrouter.llms.anthropic.chat.transformation import AnthropicConfig
+from embrouter.llms.anthropic.pass_through.adapters.transformation import (
+    EmbRouterAnthropicMessagesAdapter,
     is_provider_native_tool_dict,
 )
-from litellm.llms.base_llm.guardrail_translation.base_translation import (
+from embrouter.llms.base_llm.guardrail_translation.base_translation import (
     BaseTranslation,
     StreamingScanKey,
     StreamTransformSink,
 )
-from litellm.llms.base_llm.guardrail_translation.utils import (
+from embrouter.llms.base_llm.guardrail_translation.utils import (
     anthropic_tool_name,
     anthropic_tool_names,
     effective_scan_only_tool_results_for_guardrail,
@@ -47,20 +47,20 @@ from litellm.llms.base_llm.guardrail_translation.utils import (
     stream_item_fingerprint,
     unappliable_request_rewrite,
 )
-from litellm.proxy.pass_through_endpoints.llm_provider_handlers.anthropic_passthrough_logging_handler import (
+from embrouter.proxy.pass_through_endpoints.llm_provider_handlers.anthropic_passthrough_logging_handler import (
     AnthropicPassthroughLoggingHandler,
 )
-from litellm.types.llms.anthropic import (
+from embrouter.types.llms.anthropic import (
     AllAnthropicToolsValues,
     AnthropicMessagesRequest,
 )
-from litellm.types.llms.openai import (
+from embrouter.types.llms.openai import (
     AllMessageValues,
     ChatCompletionRequest,
     ChatCompletionToolCallChunk,
     ChatCompletionToolParam,
 )
-from litellm.types.utils import (
+from embrouter.types.utils import (
     ChatCompletionMessageToolCall,
     Choices,
     GenericGuardrailAPIInputs,
@@ -70,13 +70,13 @@ from litellm.types.utils import (
 if TYPE_CHECKING:
     from fastapi import HTTPException
 
-    from litellm.integrations.custom_guardrail import (
+    from embrouter.integrations.custom_guardrail import (
         CustomGuardrail,
         ModifyResponseException,
     )
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.types.llms.anthropic_messages.anthropic_response import (
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.types.llms.anthropic_messages.anthropic_response import (
         AnthropicMessagesResponse,
     )
 
@@ -301,7 +301,7 @@ class AnthropicMessagesHandler(BaseTranslation):
 
     def __init__(self):
         super().__init__()
-        self.adapter = LiteLLMAnthropicMessagesAdapter()
+        self.adapter = EmbRouterAnthropicMessagesAdapter()
 
     def post_call_hook_response(self, response: object) -> object:
         if not isinstance(response, ModelResponse):
@@ -354,10 +354,10 @@ class AnthropicMessagesHandler(BaseTranslation):
         exc: "HTTPException",
         responses_so_far: Sequence[Any] | None = None,
     ) -> Sequence[Any] | None:
-        from litellm.proxy.common_request_processing import (
+        from embrouter.proxy.common_request_processing import (
             serialize_http_exception_detail,
         )
-        from litellm.proxy.guardrails.anthropic_sse import anthropic_sse_error_frames
+        from embrouter.proxy.guardrails.anthropic_sse import anthropic_sse_error_frames
 
         message, _ = serialize_http_exception_detail(exc.detail)
         return tuple(anthropic_sse_error_frames(message))
@@ -365,13 +365,13 @@ class AnthropicMessagesHandler(BaseTranslation):
     def _standalone_block_chunks(self, exc: "ModifyResponseException") -> list[bytes]:
         import uuid
 
-        from litellm.llms.anthropic.pass_through.messages.fake_stream_iterator import (
+        from embrouter.llms.anthropic.pass_through.messages.fake_stream_iterator import (
             FakeAnthropicMessagesStreamIterator,
         )
-        from litellm.llms.base_llm.guardrail_translation.utils import (
+        from embrouter.llms.base_llm.guardrail_translation.utils import (
             blocked_response_usage,
         )
-        from litellm.types.utils import AnthropicMessagesResponse
+        from embrouter.types.utils import AnthropicMessagesResponse
 
         block_response: Final = AnthropicMessagesResponse(
             id=f"msg_{uuid.uuid4()}",
@@ -391,7 +391,7 @@ class AnthropicMessagesHandler(BaseTranslation):
         append the block message as a new text block, then end the message --
         without a second message_start."""
 
-        from litellm.llms.base_llm.guardrail_translation.utils import (
+        from embrouter.llms.base_llm.guardrail_translation.utils import (
             blocked_response_usage,
         )
 
@@ -498,7 +498,7 @@ class AnthropicMessagesHandler(BaseTranslation):
         (
             chat_completion_compatible_request,
             _tool_name_mapping,
-        ) = LiteLLMAnthropicMessagesAdapter().translate_anthropic_to_openai(
+        ) = EmbRouterAnthropicMessagesAdapter().translate_anthropic_to_openai(
             anthropic_message_request=cast(AnthropicMessagesRequest, data.copy()),
             preserve_midturn_system=True,
         )
@@ -524,7 +524,7 @@ class AnthropicMessagesHandler(BaseTranslation):
         self,
         data: dict,
         guardrail_to_apply: "CustomGuardrail",
-        litellm_logging_obj: "LiteLLMLoggingObj | None" = None,
+        embrouter_logging_obj: "EmbRouterLoggingObj | None" = None,
     ) -> Mapping[str, object]:
         """
         Process input messages by applying guardrails to text content.
@@ -620,7 +620,7 @@ class AnthropicMessagesHandler(BaseTranslation):
                 inputs=inputs,
                 request_data=data,
                 input_type="request",
-                logging_obj=litellm_logging_obj,
+                logging_obj=embrouter_logging_obj,
             )
 
             guardrailed_texts: Final = guardrailed_inputs.get("texts", [])
@@ -798,7 +798,7 @@ class AnthropicMessagesHandler(BaseTranslation):
         structured_messages: Sequence[Mapping[str, object]],
     ) -> list:
         """Hold a system row until the tool exchange around it completes so the call/result pair converts together."""
-        from litellm.litellm_core_utils.prompt_templates.factory import group_tool_exchanges
+        from embrouter.embrouter_core_utils.prompt_templates.factory import group_tool_exchanges
 
         non_system_positions: Final[list[int]] = [
             index
@@ -833,7 +833,7 @@ class AnthropicMessagesHandler(BaseTranslation):
         preserve_system_messages: bool = False,
     ) -> None:
         """Write a guardrail's structured-message rewrite back without losing corrections."""
-        from litellm.litellm_core_utils.prompt_templates.factory import (
+        from embrouter.embrouter_core_utils.prompt_templates.factory import (
             anthropic_messages_pt,
             group_tool_exchanges,
         )
@@ -1127,7 +1127,7 @@ class AnthropicMessagesHandler(BaseTranslation):
         self,
         response: "AnthropicMessagesResponse",
         guardrail_to_apply: "CustomGuardrail",
-        litellm_logging_obj: "LiteLLMLoggingObj | None" = None,
+        embrouter_logging_obj: "EmbRouterLoggingObj | None" = None,
         user_api_key_dict: "UserAPIKeyAuth | None" = None,
         request_data: dict | None = None,
     ) -> "AnthropicMessagesResponse":
@@ -1137,7 +1137,7 @@ class AnthropicMessagesHandler(BaseTranslation):
         Args:
             response: Anthropic MessagesResponse object
             guardrail_to_apply: The guardrail instance to apply
-            litellm_logging_obj: Optional logging object
+            embrouter_logging_obj: Optional logging object
             user_api_key_dict: User API key metadata to pass to guardrails
 
         Returns:
@@ -1188,7 +1188,7 @@ class AnthropicMessagesHandler(BaseTranslation):
                 inputs=inputs,
                 request_data=request_data,
                 input_type="response",
-                logging_obj=litellm_logging_obj,
+                logging_obj=embrouter_logging_obj,
             )
 
             guardrailed_texts: Final = guardrailed_inputs.get("texts", [])
@@ -1208,7 +1208,7 @@ class AnthropicMessagesHandler(BaseTranslation):
         self,
         responses_so_far: list[Any],
         guardrail_to_apply: "CustomGuardrail",
-        litellm_logging_obj: "LiteLLMLoggingObj | None" = None,
+        embrouter_logging_obj: "EmbRouterLoggingObj | None" = None,
         user_api_key_dict: "UserAPIKeyAuth | None" = None,
         request_data: dict | None = None,
         stream_transform_sink: StreamTransformSink | None = None,
@@ -1222,14 +1222,14 @@ class AnthropicMessagesHandler(BaseTranslation):
         written back across the buffered chunks (full rewritten text in the first ``text_delta``, the rest blanked),
         whether or not the stream ever reported a ``stop_reason``.
         """
-        from litellm.integrations.custom_guardrail import ModifyResponseException
+        from embrouter.integrations.custom_guardrail import ModifyResponseException
 
         has_ended: Final = self._check_streaming_has_ended(responses_so_far)
         if has_ended:
             # build the model response from the responses_so_far
             built_response: Final = AnthropicPassthroughLoggingHandler._build_complete_streaming_response(
                 all_chunks=responses_so_far,
-                litellm_logging_obj=cast("LiteLLMLoggingObj", litellm_logging_obj),
+                embrouter_logging_obj=cast("EmbRouterLoggingObj", embrouter_logging_obj),
                 model="",
             )
 
@@ -1260,7 +1260,7 @@ class AnthropicMessagesHandler(BaseTranslation):
                         inputs=guardrail_inputs,
                         request_data=prepared_request_data,
                         input_type="response",
-                        logging_obj=litellm_logging_obj,
+                        logging_obj=embrouter_logging_obj,
                     )
                 except ModifyResponseException as e:
                     if e.original_response is None:
@@ -1310,7 +1310,7 @@ class AnthropicMessagesHandler(BaseTranslation):
                 inputs={"texts": [string_so_far]},
                 request_data=prepared_request_data,
                 input_type="response",
-                logging_obj=litellm_logging_obj,
+                logging_obj=embrouter_logging_obj,
             )
         except ModifyResponseException as e:
             if e.original_response is None:
@@ -1339,10 +1339,10 @@ class AnthropicMessagesHandler(BaseTranslation):
             if key not in request_data:
                 request_data[key] = response
 
-        if "litellm_metadata" not in request_data:
+        if "embrouter_metadata" not in request_data:
             user_metadata: Final = self.transform_user_api_key_dict_to_metadata(user_api_key_dict)
             if user_metadata:
-                request_data["litellm_metadata"] = user_metadata
+                request_data["embrouter_metadata"] = user_metadata
         return request_data
 
     @staticmethod
@@ -1439,7 +1439,7 @@ class AnthropicMessagesHandler(BaseTranslation):
             )
 
         if not any(is_text_delta(event) for item in responses_so_far for event in cls._iter_sse_events(item)):
-            from litellm.proxy.policy_engine.pipeline_executor import UndeliverableStreamRewrite
+            from embrouter.proxy.policy_engine.pipeline_executor import UndeliverableStreamRewrite
 
             raise UndeliverableStreamRewrite(
                 guardrail_name, "the buffered stream carries no text_delta event to land the text rewrite on"
@@ -1482,7 +1482,7 @@ class AnthropicMessagesHandler(BaseTranslation):
             and isinstance(index := event.get("index"), int)
         )
         if len(block_indices) != len(post_guardrail_tool_calls):
-            from litellm.proxy.policy_engine.pipeline_executor import UndeliverableStreamRewrite
+            from embrouter.proxy.policy_engine.pipeline_executor import UndeliverableStreamRewrite
 
             raise UndeliverableStreamRewrite(
                 guardrail_name,

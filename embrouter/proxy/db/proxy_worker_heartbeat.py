@@ -18,35 +18,35 @@ from typing import TYPE_CHECKING, Final
 from pydantic import TypeAdapter
 from typing_extensions import ReadOnly, TypedDict
 
-from litellm._logging import verbose_proxy_logger
-from litellm._uuid import uuid
-from litellm.proxy.db.routing_prisma_wrapper import RoutingPrismaWrapper
+from embrouter._logging import verbose_proxy_logger
+from embrouter._uuid import uuid
+from embrouter.proxy.db.routing_prisma_wrapper import RoutingPrismaWrapper
 
 if TYPE_CHECKING:
-    from litellm.proxy.utils import PrismaClient
+    from embrouter.proxy.utils import PrismaClient
 
 PROXY_WORKER_HEARTBEAT_INTERVAL_SECONDS: Final = 60
 PROXY_WORKER_LIVENESS_WINDOW_SECONDS: Final = 3 * PROXY_WORKER_HEARTBEAT_INTERVAL_SECONDS
 STALE_ROW_RETENTION_SECONDS: Final = 3600
 
 BEAT_SQL: Final = """
-INSERT INTO "LiteLLM_ProxyWorkerHeartbeat" (worker_id, hostname, last_heartbeat_at)
+INSERT INTO "EmbRouter_ProxyWorkerHeartbeat" (worker_id, hostname, last_heartbeat_at)
 VALUES ($1, $2, NOW())
 ON CONFLICT (worker_id) DO UPDATE SET last_heartbeat_at = NOW()
 """
 
 PRUNE_SQL: Final = """
-DELETE FROM "LiteLLM_ProxyWorkerHeartbeat"
+DELETE FROM "EmbRouter_ProxyWorkerHeartbeat"
 WHERE last_heartbeat_at < NOW() - make_interval(secs => $1)
 """
 
 COUNT_SQL: Final = """
-SELECT COUNT(*)::int AS live_workers FROM "LiteLLM_ProxyWorkerHeartbeat"
+SELECT COUNT(*)::int AS live_workers FROM "EmbRouter_ProxyWorkerHeartbeat"
 WHERE last_heartbeat_at > NOW() - make_interval(secs => $1)
 """
 
 DEREGISTER_SQL: Final = """
-DELETE FROM "LiteLLM_ProxyWorkerHeartbeat" WHERE worker_id = $1
+DELETE FROM "EmbRouter_ProxyWorkerHeartbeat" WHERE worker_id = $1
 """
 
 

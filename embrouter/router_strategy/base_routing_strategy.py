@@ -7,10 +7,10 @@ import logging
 from abc import ABC
 from typing import Final
 
-from litellm._logging import verbose_router_logger
-from litellm.caching.caching import DualCache
-from litellm.caching.redis_cache import RedisPipelineIncrementOperation, log_redis_failure
-from litellm.constants import DEFAULT_REDIS_SYNC_INTERVAL
+from embrouter._logging import verbose_router_logger
+from embrouter.caching.caching import DualCache
+from embrouter.caching.redis_cache import RedisPipelineIncrementOperation, log_redis_failure
+from embrouter.constants import DEFAULT_REDIS_SYNC_INTERVAL
 
 
 class BaseRoutingStrategy(ABC):
@@ -82,7 +82,7 @@ class BaseRoutingStrategy(ABC):
         Runs once the budget start time exists in Redis Cache (on the 2nd and subsequent requests to the same provider)
 
         - Increments the spend in memory cache (so spend instantly updated in memory)
-        - Queues the increment operation to Redis Pipeline (using batched pipeline to optimize performance. Using Redis for multi instance environment of LiteLLM)
+        - Queues the increment operation to Redis Pipeline (using batched pipeline to optimize performance. Using Redis for multi instance environment of EmbRouter)
         """
         result: Final = await self.dual_cache.in_memory_cache.async_increment(
             key=key,

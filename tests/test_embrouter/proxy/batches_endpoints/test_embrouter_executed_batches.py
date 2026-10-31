@@ -9,36 +9,36 @@ from unittest.mock import AsyncMock, MagicMock
 
 import httpx
 import pytest
-from litellm_enterprise.proxy.hooks.managed_files import _PROXY_LiteLLMManagedFiles
+from embrouter_enterprise.proxy.hooks.managed_files import _PROXY_EmbRouterManagedFiles
 from openai.types.batch_request_counts import BatchRequestCounts
 
-from litellm.models.managed_files import LiteLLM_ManagedFileTable
-from litellm.proxy._types import ProxyException, UserAPIKeyAuth
-from litellm.proxy.batches_endpoints import litellm_executed_batches
-from litellm.proxy.batches_endpoints.litellm_executed_batches import (
+from embrouter.models.managed_files import EmbRouter_ManagedFileTable
+from embrouter.proxy._types import ProxyException, UserAPIKeyAuth
+from embrouter.proxy.batches_endpoints import embrouter_executed_batches
+from embrouter.proxy.batches_endpoints.embrouter_executed_batches import (
     BatchEndpoint,
     BatchInputLine,
     BatchStatus,
     InvalidBatchInput,
-    LiteLLMExecutedBatchRunner,
+    EmbRouterExecutedBatchRunner,
     _resolve_transition,
     executed_batch_runner_lost,
-    litellm_executed_provider_for,
-    litellm_executed_provider_of,
+    embrouter_executed_provider_for,
+    embrouter_executed_provider_of,
     parse_batch_input,
-    resolve_litellm_executed_provider,
+    resolve_embrouter_executed_provider,
     upstream_lacks_files_api,
 )
-from litellm.proxy.openai_files_endpoints.common_utils import (
+from embrouter.proxy.openai_files_endpoints.common_utils import (
     _is_base64_encoded_unified_file_id,
     get_batch_id_from_unified_batch_id,
-    is_litellm_executed_batch,
+    is_embrouter_executed_batch,
 )
-from litellm.proxy.utils import PrismaClient, ProxyLogging
-from litellm.repositories.managed_batch_repository import ManagedBatchRepository
-from litellm.router import Router
-from litellm.types.llms.openai import LiteLLMBatchCreateRequest, OpenAIFileObject, OpenAIFilesPurpose
-from litellm.types.utils import EmbeddingResponse, LiteLLMBatch, ModelResponse, SpecialEnums
+from embrouter.proxy.utils import PrismaClient, ProxyLogging
+from embrouter.repositories.managed_batch_repository import ManagedBatchRepository
+from embrouter.router import Router
+from embrouter.types.llms.openai import EmbRouterBatchCreateRequest, OpenAIFileObject, OpenAIFilesPurpose
+from embrouter.types.utils import EmbeddingResponse, EmbRouterBatch, ModelResponse, SpecialEnums
 
 BATCH_MODEL: Final = "batch-model"
 DEPLOYMENT_ID: Final = "deployment-id-1"
@@ -82,8 +82,8 @@ def chat_response(content: str) -> ModelResponse:
     )
 
 
-def managed_input_file(storage_backend: str | None = STORAGE_BACKEND) -> LiteLLM_ManagedFileTable:
-    return LiteLLM_ManagedFileTable(
+def managed_input_file(storage_backend: str | None = STORAGE_BACKEND) -> EmbRouter_ManagedFileTable:
+    return EmbRouter_ManagedFileTable(
         unified_file_id=INPUT_FILE_ID,
         model_mappings={},
         flat_model_file_ids=[],
@@ -92,9 +92,9 @@ def managed_input_file(storage_backend: str | None = STORAGE_BACKEND) -> LiteLLM
     )
 
 
-def batch_request(endpoint: str) -> LiteLLMBatchCreateRequest:
+def batch_request(endpoint: str) -> EmbRouterBatchCreateRequest:
     return cast(
-        "LiteLLMBatchCreateRequest",
+        "EmbRouterBatchCreateRequest",
         {"endpoint": endpoint, "input_file_id": INPUT_FILE_ID, "completion_window": "24h"},
     )
 
@@ -109,8 +109,8 @@ class StoredObject:
     status: str
     updated_at: datetime
 
-    def batch(self) -> LiteLLMBatch:
-        return LiteLLMBatch.model_validate_json(self.file_object)
+    def batch(self) -> EmbRouterBatch:
+        return EmbRouterBatch.model_validate_json(self.file_object)
 
 
 @dataclass(frozen=True, slots=True)
@@ -131,28 +131,28 @@ class StatusWrite:
 
 
 STATUS_WRITE_COLUMNS: Final = frozenset({"file_object", "status", "updated_by"})
-STALE: Final = timedelta(seconds=litellm_executed_batches._STALE_AFTER_SECONDS + 20)
+STALE: Final = timedelta(seconds=embrouter_executed_batches._STALE_AFTER_SECONDS + 20)
 
 
 class FakeManagedBatchStore:
-    def __init__(self, files: Mapping[str, LiteLLM_ManagedFileTable]) -> None:
+    def __init__(self, files: Mapping[str, EmbRouter_ManagedFileTable]) -> None:
         self.files = files
         self.objects: dict[str, StoredObject] = {}
         self.calls: list[StoreCall] = []
 
     def get_unified_batch_id(self, batch_id: str, model_id: str) -> str:
-        return SpecialEnums.LITELLM_MANAGED_BATCH_COMPLETE_STR.value.format(model_id, batch_id)
+        return SpecialEnums.EMBROUTER_MANAGED_BATCH_COMPLETE_STR.value.format(model_id, batch_id)
 
     async def get_unified_file_id(
-        self, file_id: str, litellm_parent_otel_span: object | None = None
-    ) -> LiteLLM_ManagedFileTable | None:
+        self, file_id: str, embrouter_parent_otel_span: object | None = None
+    ) -> EmbRouter_ManagedFileTable | None:
         return self.files.get(file_id)
 
     async def store_unified_object_id(
         self,
         unified_object_id: str,
-        file_object: LiteLLMBatch,
-        litellm_parent_otel_span: object | None,
+        file_object: EmbRouterBatch,
+        embrouter_parent_otel_span: object | None,
         model_object_id: str,
         file_purpose: Literal["batch", "fine-tune", "response"],
         user_api_key_dict: UserAPIKeyAuth,
@@ -172,16 +172,16 @@ class FakeManagedBatchStore:
         )
         self.write(file_object)
 
-    def write(self, batch: LiteLLMBatch, age: timedelta = timedelta(0)) -> None:
+    def write(self, batch: EmbRouterBatch, age: timedelta = timedelta(0)) -> None:
         self.objects[batch.id] = StoredObject(
             file_object=batch.model_dump_json(), status=batch.status, updated_at=datetime.now(timezone.utc) - age
         )
 
-    def batch(self, unified_batch_id: str) -> LiteLLMBatch:
+    def batch(self, unified_batch_id: str) -> EmbRouterBatch:
         return self.objects[unified_batch_id].batch()
 
 
-REAL_HOOK: Final = _PROXY_LiteLLMManagedFiles(internal_usage_cache=MagicMock(), prisma_client=MagicMock())
+REAL_HOOK: Final = _PROXY_EmbRouterManagedFiles(internal_usage_cache=MagicMock(), prisma_client=MagicMock())
 
 
 class RealIdManagedBatchStore(FakeManagedBatchStore):
@@ -229,7 +229,7 @@ class FakeManagedObjectTable:
 
 class FakeDb:
     def __init__(self, objects: dict[str, StoredObject]) -> None:
-        self.litellm_managedobjecttable = FakeManagedObjectTable(objects)
+        self.embrouter_managedobjecttable = FakeManagedObjectTable(objects)
 
 
 class FakePrismaClient:
@@ -336,7 +336,7 @@ class FakeResultFileUploader:
 
 @dataclass(frozen=True, slots=True)
 class Harness:
-    runner: LiteLLMExecutedBatchRunner
+    runner: EmbRouterExecutedBatchRunner
     store: FakeManagedBatchStore
     router: FakeRouter
     uploads: FakeResultFileUploader
@@ -345,7 +345,7 @@ class Harness:
     prisma: FakePrismaClient
     user: UserAPIKeyAuth
 
-    async def create(self, endpoint: str = CHAT_ENDPOINT) -> LiteLLMBatch:
+    async def create(self, endpoint: str = CHAT_ENDPOINT) -> EmbRouterBatch:
         return await self.runner.create(
             create_request=batch_request(endpoint),
             unified_input_file_id=INPUT_FILE_ID,
@@ -355,14 +355,14 @@ class Harness:
             request_tags=["tag-a"],
         )
 
-    async def create_and_finish(self, endpoint: str = CHAT_ENDPOINT) -> tuple[LiteLLMBatch, LiteLLMBatch]:
+    async def create_and_finish(self, endpoint: str = CHAT_ENDPOINT) -> tuple[EmbRouterBatch, EmbRouterBatch]:
         created = await self.create(endpoint)
-        await asyncio.gather(*list(litellm_executed_batches._RUNNING_BATCHES))
+        await asyncio.gather(*list(embrouter_executed_batches._RUNNING_BATCHES))
         return created, self.store.batch(created.id)
 
     @property
     def table(self) -> FakeManagedObjectTable:
-        return self.prisma.db.litellm_managedobjecttable
+        return self.prisma.db.embrouter_managedobjecttable
 
     def written_statuses(self) -> list[str]:
         return [write.status for write in self.table.writes]
@@ -371,10 +371,10 @@ class Harness:
 def make_runner(
     content: bytes = TWO_CHAT_ROWS,
     concurrency: int = 4,
-    files: Mapping[str, LiteLLM_ManagedFileTable] | None = None,
+    files: Mapping[str, EmbRouter_ManagedFileTable] | None = None,
     upload_error: Exception | None = None,
     storage_error: ValueError | None = None,
-    store_factory: Callable[[Mapping[str, LiteLLM_ManagedFileTable]], FakeManagedBatchStore] = FakeManagedBatchStore,
+    store_factory: Callable[[Mapping[str, EmbRouter_ManagedFileTable]], FakeManagedBatchStore] = FakeManagedBatchStore,
     general_settings: Mapping[str, object] = MappingProxyType({}),
     heartbeat_seconds: float = 30.0,
     completion_window_seconds: float = 24 * 60 * 60,
@@ -389,7 +389,7 @@ def make_runner(
     user = user or UserAPIKeyAuth(
         api_key="sk-batch-key", user_id="user-1", team_id="team-1", key_alias="alias-1", user_email="user@example.com"
     )
-    runner = LiteLLMExecutedBatchRunner(
+    runner = EmbRouterExecutedBatchRunner(
         llm_router=cast("Router", router),
         prisma_client=cast("PrismaClient", prisma),
         managed_files=store,
@@ -407,9 +407,9 @@ def make_runner(
 
 def seeded_batch(
     store: FakeManagedBatchStore, status: Literal["in_progress", "completed"], age: timedelta = timedelta(0)
-) -> LiteLLMBatch:
-    batch = LiteLLMBatch(
-        id=store.get_unified_batch_id(batch_id="litellm_batch_seed", model_id=DEPLOYMENT_ID),
+) -> EmbRouterBatch:
+    batch = EmbRouterBatch(
+        id=store.get_unified_batch_id(batch_id="embrouter_batch_seed", model_id=DEPLOYMENT_ID),
         object="batch",
         endpoint=CHAT_ENDPOINT,
         input_file_id=INPUT_FILE_ID,
@@ -513,8 +513,8 @@ def test_executed_batch_runner_lost_only_for_a_stale_non_terminal_batch(
     ],
     ids=["explicit hosted_vllm", "model prefix", "explicit openai", "openai model"],
 )
-def test_litellm_executed_provider_of(credentials: Mapping[str, object], expected: str | None) -> None:
-    assert litellm_executed_provider_of(credentials) == expected
+def test_embrouter_executed_provider_of(credentials: Mapping[str, object], expected: str | None) -> None:
+    assert embrouter_executed_provider_of(credentials) == expected
 
 
 VLLM_CREDENTIALS: Final[Mapping[str, object]] = {
@@ -586,11 +586,11 @@ async def test_upstream_lacks_files_api_asks_the_files_route_under_the_api_base(
 @pytest.mark.parametrize(
     ("lacks_files_api", "expected"), [(True, "hosted_vllm"), (False, None)], ids=["bare", "router"]
 )
-async def test_litellm_executed_provider_for_leaves_a_server_with_its_own_files_api_alone(
+async def test_embrouter_executed_provider_for_leaves_a_server_with_its_own_files_api_alone(
     lacks_files_api: bool, expected: str | None
 ) -> None:
     probe = FakeFilesApiProbe(lacks_files_api, [])
-    assert await litellm_executed_provider_for(VLLM_CREDENTIALS, probe) == expected
+    assert await embrouter_executed_provider_for(VLLM_CREDENTIALS, probe) == expected
     assert probe.upstreams == [("http://vllm.test/v1/", "vllm-key")]
 
 
@@ -599,24 +599,24 @@ async def test_litellm_executed_provider_for_leaves_a_server_with_its_own_files_
     [{"custom_llm_provider": "openai", "model": "gpt-4o", "api_base": "http://openai.test/v1"}, {"model": 7}],
     ids=["provider runs its own batches", "no model to resolve an api_base from"],
 )
-async def test_litellm_executed_provider_for_never_probes_what_it_would_not_run(
+async def test_embrouter_executed_provider_for_never_probes_what_it_would_not_run(
     credentials: Mapping[str, object],
 ) -> None:
     probe = FakeFilesApiProbe(True, [])
-    assert await litellm_executed_provider_for(credentials, probe) is None
+    assert await embrouter_executed_provider_for(credentials, probe) is None
     assert probe.upstreams == []
 
 
 @pytest.mark.parametrize(
     ("credentials", "expected"), [(None, None), (VLLM_CREDENTIALS, "hosted_vllm")], ids=["unknown", "vllm"]
 )
-async def test_resolve_litellm_executed_provider_asks_the_router_for_the_team_scoped_deployment(
+async def test_resolve_embrouter_executed_provider_asks_the_router_for_the_team_scoped_deployment(
     credentials: Mapping[str, object] | None, expected: str | None
 ) -> None:
     router = MagicMock(spec=Router)
     router.get_deployment_credentials_with_provider.return_value = credentials
     assert (
-        await resolve_litellm_executed_provider(router, BATCH_MODEL, "team-1", FakeFilesApiProbe(True, [])) == expected
+        await resolve_embrouter_executed_provider(router, BATCH_MODEL, "team-1", FakeFilesApiProbe(True, [])) == expected
     )
     router.get_deployment_credentials_with_provider.assert_called_once_with(model_id=BATCH_MODEL, team_id="team-1")
 
@@ -626,8 +626,8 @@ async def test_create_stores_a_validating_batch_and_completes_it_in_the_backgrou
     created, finished = await harness.create_and_finish()
 
     assert created.status == "validating"
-    assert is_litellm_executed_batch(created.id)
-    assert created.id.startswith(f"litellm_proxy;model_id:{DEPLOYMENT_ID};llm_batch_id:litellm_batch_")
+    assert is_embrouter_executed_batch(created.id)
+    assert created.id.startswith(f"embrouter_proxy;model_id:{DEPLOYMENT_ID};llm_batch_id:embrouter_batch_")
     assert (created.model, created.input_file_id) == (BATCH_MODEL, INPUT_FILE_ID)
     assert created.request_counts == BatchRequestCounts(completed=0, failed=0, total=2)
     first_write = harness.store.calls[0]
@@ -692,7 +692,7 @@ async def test_create_uploads_one_output_line_per_row_with_the_router_response()
     assert len(harness.uploads.calls) == 1
     upload = harness.uploads.calls[0]
     assert (upload.target_storage, upload.purpose, upload.target_model_names) == (
-        "litellm_db",
+        "embrouter_db",
         "batch_output",
         (BATCH_MODEL,),
     )
@@ -759,8 +759,8 @@ async def test_create_rejects_an_unsupported_endpoint() -> None:
     [{}, {INPUT_FILE_ID: managed_input_file(storage_backend=None)}],
     ids=["unknown file", "no stored content"],
 )
-async def test_create_rejects_an_input_file_litellm_does_not_hold(
-    files: Mapping[str, LiteLLM_ManagedFileTable],
+async def test_create_rejects_an_input_file_embrouter_does_not_hold(
+    files: Mapping[str, EmbRouter_ManagedFileTable],
 ) -> None:
     harness = make_runner(files=files)
     with pytest.raises(ProxyException) as raised:
@@ -851,7 +851,7 @@ async def test_fail_abandoned_marks_a_stale_batch_failed_with_the_runner_lost_er
     assert failed.failed_at is not None
     assert failed.errors is not None
     assert [(error.message, error.code) for error in failed.errors.data or []] == [
-        (litellm_executed_batches._RUNNER_LOST_MESSAGE, "runner_lost")
+        (embrouter_executed_batches._RUNNER_LOST_MESSAGE, "runner_lost")
     ]
     assert harness.store.batch(batch.id).status == "failed"
     assert harness.store.calls == []
@@ -916,7 +916,7 @@ async def test_run_honours_a_cancel_written_between_its_read_and_its_finalizing_
 async def test_running_batch_stops_and_writes_nothing_once_a_retriever_marked_it_failed(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm_executed_batches, "_CANCEL_POLL_SECONDS", 0.0)
+    monkeypatch.setattr(embrouter_executed_batches, "_CANCEL_POLL_SECONDS", 0.0)
     rows = jsonl(chat_row("row-1", "hi 1"), chat_row("row-2", "hi 2"), chat_row("row-3", "hi 3"))
     harness = make_runner(content=rows, concurrency=1)
 
@@ -1015,7 +1015,7 @@ async def test_cancel_racing_a_completion_is_400_and_leaves_the_batch_completed(
 async def test_running_batch_skips_the_remaining_rows_after_an_operator_cancel(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm_executed_batches, "_CANCEL_POLL_SECONDS", 0.0)
+    monkeypatch.setattr(embrouter_executed_batches, "_CANCEL_POLL_SECONDS", 0.0)
     rows = jsonl(chat_row("row-1", "hi 1"), chat_row("row-2", "hi 2"), chat_row("row-3", "hi 3"))
     harness = make_runner(content=rows, concurrency=1)
     reply = chat_response("hi 1")
@@ -1131,7 +1131,7 @@ async def test_run_completes_under_the_real_hooks_base64_batch_id() -> None:
 
     assert _is_base64_encoded_unified_file_id(created.id)
     assert finished.status == "completed"
-    assert [call.model_object_id.startswith("litellm_batch_") for call in harness.store.calls] == [True]
+    assert [call.model_object_id.startswith("embrouter_batch_") for call in harness.store.calls] == [True]
     assert [write.unified_object_id for write in harness.table.writes] == [created.id] * 3
 
 

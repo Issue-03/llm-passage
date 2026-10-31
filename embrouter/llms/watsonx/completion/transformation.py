@@ -5,11 +5,11 @@ from typing import TYPE_CHECKING, Any, Final
 
 import httpx
 
-from litellm.llms.base_llm.base_model_iterator import BaseModelResponseIterator
-from litellm.types.llms.openai import AllMessageValues, ChatCompletionUsageBlock
-from litellm.types.llms.watsonx import WatsonXAIEndpoint
-from litellm.types.utils import GenericStreamingChunk, ModelResponse, Usage
-from litellm.utils import map_finish_reason
+from embrouter.llms.base_llm.base_model_iterator import BaseModelResponseIterator
+from embrouter.types.llms.openai import AllMessageValues, ChatCompletionUsageBlock
+from embrouter.types.llms.watsonx import WatsonXAIEndpoint
+from embrouter.types.utils import GenericStreamingChunk, ModelResponse, Usage
+from embrouter.utils import map_finish_reason
 
 from ...base_llm.chat.transformation import BaseConfig
 from ..common_utils import (
@@ -21,12 +21,12 @@ from ..common_utils import (
 )
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 
 class IBMWatsonXAIConfig(IBMWatsonXMixin, BaseConfig):
@@ -69,7 +69,7 @@ class IBMWatsonXAIConfig(IBMWatsonXMixin, BaseConfig):
 
     decoding_method: str | None = "sample"
     temperature: float | None = None
-    max_new_tokens: int | None = None  # litellm.max_tokens
+    max_new_tokens: int | None = None  # embrouter.max_tokens
     min_new_tokens: int | None = None
     length_penalty: dict | None = None  # e.g {"decay_factor": 2.5, "start_index": 5}
     stop_sequences: list[str] | None = None  # e.g ["}", ")", "."]
@@ -245,7 +245,7 @@ class IBMWatsonXAIConfig(IBMWatsonXMixin, BaseConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         provider: Final = model.split("/")[0]
@@ -259,7 +259,7 @@ class IBMWatsonXAIConfig(IBMWatsonXMixin, BaseConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         """Sync version of transform_request"""
@@ -274,11 +274,11 @@ class IBMWatsonXAIConfig(IBMWatsonXMixin, BaseConfig):
         model: str,
         raw_response: httpx.Response,
         model_response: ModelResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         request_data: dict,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,
@@ -327,7 +327,7 @@ class IBMWatsonXAIConfig(IBMWatsonXMixin, BaseConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         url = self._get_base_url(api_base=api_base)

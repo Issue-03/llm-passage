@@ -3,12 +3,12 @@ from typing import TYPE_CHECKING, Any, Final
 
 from typing_extensions import TypedDict
 
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.prompts.init_prompts import PromptSpec
-from litellm.types.utils import StandardCallbackDynamicParams
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.prompts.init_prompts import PromptSpec
+from embrouter.types.utils import StandardCallbackDynamicParams
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
 
 
 class PromptManagementClient(TypedDict):
@@ -24,7 +24,7 @@ def resolve_prompt_manager_ignore_flags(
     ignore_prompt_manager_model: bool | None,
     ignore_prompt_manager_optional_params: bool | None,
 ) -> tuple[bool, bool]:
-    spec_params: Final = prompt_spec.litellm_params if prompt_spec is not None else None
+    spec_params: Final = prompt_spec.embrouter_params if prompt_spec is not None else None
     return (
         bool(ignore_prompt_manager_model) or bool(spec_params is not None and spec_params.ignore_prompt_manager_model),
         bool(ignore_prompt_manager_optional_params)
@@ -217,7 +217,7 @@ class PromptManagementBase(ABC):
         prompt_id: str | None,
         prompt_variables: dict | None,
         dynamic_callback_params: StandardCallbackDynamicParams,
-        litellm_logging_obj: "LiteLLMLoggingObj",
+        embrouter_logging_obj: "EmbRouterLoggingObj",
         prompt_spec: PromptSpec | None = None,
         tools: list[dict] | None = None,
         prompt_label: str | None = None,

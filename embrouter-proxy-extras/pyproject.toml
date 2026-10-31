@@ -1,7 +1,7 @@
 [project]
-name = "litellm-proxy-extras"
+name = "embrouter-proxy-extras"
 version = "0.4.103"
-description = "Additional files for the LiteLLM Proxy. Reduces the size of the main litellm package."
+description = "Additional files for the EmbRouter Proxy. Reduces the size of the main embrouter package."
 readme = "README.md"
 requires-python = ">=3.9"
 license = "MIT"
@@ -24,5 +24,5 @@ module-root = ""
 version = "0.4.103"
 version_files = [
     "pyproject.toml:^version",
-    "../pyproject.toml:litellm-proxy-extras==",
+    "../pyproject.toml:embrouter-proxy-extras==",
 ]

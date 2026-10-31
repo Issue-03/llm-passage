@@ -8,14 +8,14 @@ from collections.abc import Callable, Mapping, Sequence
 from itertools import chain
 from typing import Final, TypeVar
 
-from litellm.types.router_weights import validate_router_weights
+from embrouter.types.router_weights import validate_router_weights
 
 _DeploymentT = TypeVar("_DeploymentT", bound=Mapping[str, object])
-_ROUTER_LOGGER: Final = logging.getLogger("LiteLLM Router")
+_ROUTER_LOGGER: Final = logging.getLogger("EmbRouter Router")
 
 
 def _metric_weight(deployment: Mapping[str, object], metric: str) -> float:
-    params: Final = deployment.get("litellm_params")
+    params: Final = deployment.get("embrouter_params")
     value: Final = params.get(metric) if isinstance(params, Mapping) else None
     if value is None:
         return 0.0

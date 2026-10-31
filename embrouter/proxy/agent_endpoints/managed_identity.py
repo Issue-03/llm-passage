@@ -7,8 +7,8 @@ from fastapi import HTTPException
 from pydantic import TypeAdapter, ValidationError
 from typing_extensions import ReadOnly
 
-from litellm.types.agents import AgentResponse
-from litellm.types.proxy.agent_identity import (
+from embrouter.types.agents import AgentResponse
+from embrouter.types.proxy.agent_identity import (
     AgentExecutionMode,
     AgentIdentityBinding,
     AgentIdentityFailure,

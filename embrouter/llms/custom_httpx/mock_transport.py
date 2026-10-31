@@ -1,7 +1,7 @@
 """
 Mock httpx transport that returns valid OpenAI ChatCompletion responses.
 
-Activated via `litellm_settings: { network_mock: true }`.
+Activated via `embrouter_settings: { network_mock: true }`.
 Intercepts at the httpx transport layer — the lowest point before bytes hit the wire —
 so the full proxy -> router -> OpenAI SDK -> httpx path is exercised.
 """

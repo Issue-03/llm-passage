@@ -6,7 +6,7 @@ import { useStoreModelInDB } from "./useStoreModelInDB";
 
 vi.mock("@/components/networking", () => ({
   getProxyBaseUrl: vi.fn(() => ""),
-  getGlobalLitellmHeaderName: vi.fn(() => "Authorization"),
+  getGlobalEmbrouterHeaderName: vi.fn(() => "Authorization"),
 }));
 
 describe("useStoreModelInDB", () => {

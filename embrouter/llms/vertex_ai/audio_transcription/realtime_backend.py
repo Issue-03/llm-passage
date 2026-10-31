@@ -11,9 +11,9 @@ from typing_extensions import Self, assert_never
 from websockets.exceptions import ConnectionClosedError, ConnectionClosedOK
 from websockets.frames import Close
 
-from litellm import verbose_logger
-from litellm.llms.vertex_ai.audio_transcription.realtime_transformation import SpeechStreamingTarget
-from litellm.types.llms.vertex_ai_speech_to_text import (
+from embrouter import verbose_logger
+from embrouter.llms.vertex_ai.audio_transcription.realtime_transformation import SpeechStreamingTarget
+from embrouter.types.llms.vertex_ai_speech_to_text import (
     VertexSpeechStreamingCommand,
     VertexSpeechStreamingCommandUnion,
     VertexSpeechStreamingConfigure,
@@ -34,7 +34,7 @@ if TYPE_CHECKING:
     )
 
 SPEECH_SDK_INSTALL_HINT: Final = (
-    "google-cloud-speech is not installed. Install with `pip install 'litellm[stt-vertex-chirp]'`."
+    "google-cloud-speech is not installed. Install with `pip install 'embrouter[stt-vertex-chirp]'`."
 )
 STREAM_FAILURE_CLOSE_CODE: Final = 1011
 STREAM_ROTATION_SECONDS: Final = 240.0

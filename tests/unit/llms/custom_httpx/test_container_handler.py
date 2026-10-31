@@ -3,12 +3,12 @@ from unittest.mock import MagicMock
 import httpx
 import pytest
 
-import litellm
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.custom_httpx.container_handler import generic_container_handler
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-from litellm.types.router import GenericLiteLLMParams
-from litellm.utils import ProviderConfigManager
+import embrouter
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.custom_httpx.container_handler import generic_container_handler
+from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.utils import ProviderConfigManager
 
 FILE_NOT_FOUND_BODY = {
     "error": {
@@ -36,9 +36,9 @@ def _handle(endpoint_name: str, client, **overrides):
     return generic_container_handler.handle(
         endpoint_name=endpoint_name,
         container_provider_config=ProviderConfigManager.get_provider_container_config(
-            provider=litellm.LlmProviders.OPENAI
+            provider=embrouter.LlmProviders.OPENAI
         ),
-        litellm_params=GenericLiteLLMParams(api_key="sk-test"),
+        embrouter_params=GenericEmbRouterParams(api_key="sk-test"),
         logging_obj=MagicMock(),
         client=client,
         container_id="cntr_real",

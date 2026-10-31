@@ -3,14 +3,14 @@ import json
 import pytest
 from pydantic import ValidationError
 
-from litellm.proxy._types import (
+from embrouter.proxy._types import (
     ROLES_WITHIN_ORG,
     ChangePasswordRequest,
     GenerateKeyRequest,
     KeyRequest,
-    LiteLLM_AuditLogs,
-    LiteLLM_TeamMembership,
-    LitellmUserRoles,
+    EmbRouter_AuditLogs,
+    EmbRouter_TeamMembership,
+    EmbrouterUserRoles,
     NewUserRequest,
     OrganizationMemberUpdateRequest,
     ResetSpendRequest,
@@ -81,10 +81,10 @@ def test_an_absent_api_key_leaves_the_token_unset():
 
 
 AUDIENCE_CASES = (
-    ("https://litellm.example.com", False, True),
+    ("https://embrouter.example.com", False, True),
     (None, True, True),
     (None, False, False),
-    ("https://litellm.example.com", True, False),
+    ("https://embrouter.example.com", True, False),
 )
 
 
@@ -92,7 +92,7 @@ AUDIENCE_CASES = (
 def test_a_jwt_issuer_must_name_an_audience_or_opt_out_of_one_but_never_both(
     audience, disable_audience_validation, is_accepted
 ):
-    from litellm.proxy._types import JWTIssuerConfig
+    from embrouter.proxy._types import JWTIssuerConfig
 
     fields = {
         "issuer": "https://idp.example.com",
@@ -185,7 +185,7 @@ def test_an_organization_member_may_hold_a_role_that_exists_within_an_organizati
     assert request.role == role
 
 
-ROLES_OUTSIDE_ORG = tuple(role for role in LitellmUserRoles if role not in ROLES_WITHIN_ORG)
+ROLES_OUTSIDE_ORG = tuple(role for role in EmbrouterUserRoles if role not in ROLES_WITHIN_ORG)
 
 
 @pytest.mark.parametrize("role", ROLES_OUTSIDE_ORG)
@@ -221,17 +221,17 @@ def test_a_user_update_must_say_which_user_it_updates(fields, is_accepted):
         UpdateUserRequest(**fields)
 
 
-def _audit_log(**overrides) -> LiteLLM_AuditLogs:
+def _audit_log(**overrides) -> EmbRouter_AuditLogs:
     fields = {
         "id": "audit-1",
         "updated_at": "2026-01-01T00:00:00",
         "changed_by": "user-1",
         "action": "updated",
-        "table_name": "LiteLLM_VerificationToken",
+        "table_name": "EmbRouter_VerificationToken",
         "object_id": "key-1",
         **overrides,
     }
-    return LiteLLM_AuditLogs(**fields)
+    return EmbRouter_AuditLogs(**fields)
 
 
 SECRET = "sk-verysecretvalue1234567890"
@@ -274,8 +274,8 @@ def test_team_membership_budget_table_optional_no_crash():
         "team_id": "test-team",
         "budget_id": None,
     }
-    result = LiteLLM_TeamMembership.model_validate(data)
-    assert result.litellm_budget_table is None
+    result = EmbRouter_TeamMembership.model_validate(data)
+    assert result.embrouter_budget_table is None
 
 
 def test_team_membership_budget_table_present_still_works():
@@ -283,28 +283,28 @@ def test_team_membership_budget_table_present_still_works():
         "user_id": "test-user",
         "team_id": "test-team",
         "budget_id": "some-budget-id",
-        "litellm_budget_table": None,
+        "embrouter_budget_table": None,
     }
-    result = LiteLLM_TeamMembership.model_validate(data)
-    assert result.litellm_budget_table is None
+    result = EmbRouter_TeamMembership.model_validate(data)
+    assert result.embrouter_budget_table is None
 
 
 def test_a_jwt_issuer_can_override_the_virtual_key_claim_field_while_other_issuers_keep_the_global_one():
-    from litellm.proxy._types import LiteLLM_JWTAuth, UnregisteredJWTClientBehavior
+    from embrouter.proxy._types import EmbRouter_JWTAuth, UnregisteredJWTClientBehavior
 
-    jwt_auth = LiteLLM_JWTAuth(
+    jwt_auth = EmbRouter_JWTAuth(
         virtual_key_claim_field="client_id",
         issuers=[
             {
                 "issuer": "https://team-idp.example.com",
                 "jwks_url": "https://team-idp.example.com/keys",
-                "audience": "litellm",
+                "audience": "embrouter",
                 "team_id_jwt_field": "sub",
             },
             {
                 "issuer": "https://service-idp.example.com",
                 "jwks_url": "https://service-idp.example.com/keys",
-                "audience": "litellm",
+                "audience": "embrouter",
                 "virtual_key_claim_field": "sub",
                 "unregistered_jwt_client_behavior": "reject",
             },
@@ -330,15 +330,15 @@ def test_a_jwt_issuer_can_override_the_virtual_key_claim_field_while_other_issue
 def test_virtual_key_mapping_counts_as_configured_when_any_issuer_sets_the_claim_field(
     global_field, issuer_field, is_configured
 ):
-    from litellm.proxy._types import LiteLLM_JWTAuth
+    from embrouter.proxy._types import EmbRouter_JWTAuth
 
-    jwt_auth = LiteLLM_JWTAuth(
+    jwt_auth = EmbRouter_JWTAuth(
         virtual_key_claim_field=global_field,
         issuers=[
             {
                 "issuer": "https://idp.example.com",
                 "jwks_url": "https://idp.example.com/keys",
-                "audience": "litellm",
+                "audience": "embrouter",
                 "virtual_key_claim_field": issuer_field,
             }
         ],
@@ -389,7 +389,7 @@ def test_change_password_request_passwords_hidden_from_repr():
 def test_mcp_advertised_versions_reject_unavailable_revisions(versions):
     from pydantic import ValidationError
 
-    from litellm.proxy._types import ConfigGeneralSettings
+    from embrouter.proxy._types import ConfigGeneralSettings
 
     with pytest.raises(ValidationError):
         ConfigGeneralSettings(mcp_advertised_versions=versions)
@@ -397,7 +397,7 @@ def test_mcp_advertised_versions_reject_unavailable_revisions(versions):
 
 @pytest.mark.parametrize("revision", ["2026-07-28", "unknown", None])
 def test_mcp_metadata_rejects_unavailable_upstream_protocol(revision):
-    from litellm.proxy._types import NewMCPServerRequest, UpdateMCPServerRequest
+    from embrouter.proxy._types import NewMCPServerRequest, UpdateMCPServerRequest
 
     payload = {"server_id": "test", "transport": "http", "url": "https://example.com/mcp", "mcp_info": {"protocol_version": revision}}
     for model in (NewMCPServerRequest, UpdateMCPServerRequest):

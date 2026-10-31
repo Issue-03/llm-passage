@@ -3,8 +3,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi import HTTPException, Request, Response
 
-import litellm
-from litellm.proxy._types import LiteLLM_ManagedVectorStoresTable, UserAPIKeyAuth
+import embrouter
+from embrouter.proxy._types import EmbRouter_ManagedVectorStoresTable, UserAPIKeyAuth
 
 
 def _mock_request() -> MagicMock:
@@ -18,7 +18,7 @@ def _mock_request() -> MagicMock:
 
 @pytest.mark.asyncio
 async def test_vector_store_search_forces_path_id_over_body_id():
-    from litellm.proxy.vector_store_endpoints.endpoints import vector_store_search
+    from embrouter.proxy.vector_store_endpoints.endpoints import vector_store_search
 
     captured_data = {}
 
@@ -29,7 +29,7 @@ async def test_vector_store_search_forces_path_id_over_body_id():
     request = _mock_request()
     with (
         patch(
-            "litellm.proxy.proxy_server._read_request_body",
+            "embrouter.proxy.proxy_server._read_request_body",
             new=AsyncMock(
                 return_value={
                     "vector_store_id": "vs_body_victim",
@@ -37,10 +37,10 @@ async def test_vector_store_search_forces_path_id_over_body_id():
                 }
             ),
         ),
-        patch.object(litellm, "vector_store_registry", None),
-        patch("litellm.proxy.proxy_server.prisma_client", None),
+        patch.object(embrouter, "vector_store_registry", None),
+        patch("embrouter.proxy.proxy_server.prisma_client", None),
         patch(
-            "litellm.proxy.vector_store_endpoints.endpoints.ProxyBaseLLMRequestProcessing.base_process_llm_request",
+            "embrouter.proxy.vector_store_endpoints.endpoints.ProxyBaseLLMRequestProcessing.base_process_llm_request",
             new=fake_base_process,
         ),
     ):
@@ -57,7 +57,7 @@ async def test_vector_store_search_forces_path_id_over_body_id():
 
 @pytest.mark.asyncio
 async def test_vector_store_file_create_forces_path_id_over_body_id():
-    from litellm.proxy.vector_store_files_endpoints.endpoints import (
+    from embrouter.proxy.vector_store_files_endpoints.endpoints import (
         vector_store_file_create,
     )
 
@@ -68,7 +68,7 @@ async def test_vector_store_file_create_forces_path_id_over_body_id():
         return {"ok": True}
 
     mock_registry = MagicMock()
-    mock_registry.get_litellm_managed_vector_store_from_registry.return_value = {
+    mock_registry.get_embrouter_managed_vector_store_from_registry.return_value = {
         "vector_store_id": "vs_path_allowed",
         "custom_llm_provider": "openai",
         "team_id": "team-a",
@@ -77,7 +77,7 @@ async def test_vector_store_file_create_forces_path_id_over_body_id():
     request = _mock_request()
     with (
         patch(
-            "litellm.proxy.proxy_server._read_request_body",
+            "embrouter.proxy.proxy_server._read_request_body",
             new=AsyncMock(
                 return_value={
                     "vector_store_id": "vs_body_victim",
@@ -85,9 +85,9 @@ async def test_vector_store_file_create_forces_path_id_over_body_id():
                 }
             ),
         ),
-        patch.object(litellm, "vector_store_registry", mock_registry),
+        patch.object(embrouter, "vector_store_registry", mock_registry),
         patch(
-            "litellm.proxy.vector_store_files_endpoints.endpoints.ProxyBaseLLMRequestProcessing.base_process_llm_request",
+            "embrouter.proxy.vector_store_files_endpoints.endpoints.ProxyBaseLLMRequestProcessing.base_process_llm_request",
             new=fake_base_process,
         ),
     ):
@@ -101,7 +101,7 @@ async def test_vector_store_file_create_forces_path_id_over_body_id():
     assert response == {"ok": True}
     assert captured_data["vector_store_id"] == "vs_path_allowed"
     assert captured_data["custom_llm_provider"] == "openai"
-    mock_registry.get_litellm_managed_vector_store_from_registry.assert_called_once_with(
+    mock_registry.get_embrouter_managed_vector_store_from_registry.assert_called_once_with(
         vector_store_id="vs_path_allowed"
     )
 
@@ -110,7 +110,7 @@ async def test_vector_store_file_create_forces_path_id_over_body_id():
 async def test_vector_store_file_list_resolves_managed_vector_store_before_team_fallback():
     import base64
 
-    from litellm.proxy.vector_store_files_endpoints.endpoints import (
+    from embrouter.proxy.vector_store_files_endpoints.endpoints import (
         vector_store_file_list,
     )
 
@@ -121,7 +121,7 @@ async def test_vector_store_file_list_resolves_managed_vector_store_before_team_
         return {"ok": True}
 
     raw_vector_store_id = (
-        "litellm_proxy:vector_store;"
+        "embrouter_proxy:vector_store;"
         "unified_id,managed-vs;"
         "target_model_names,managed-deployment;"
         "provider_resource_id,vs_provider_native;"
@@ -150,12 +150,12 @@ async def test_vector_store_file_list_resolves_managed_vector_store_before_team_
 
     with (
         patch(
-            "litellm.proxy.vector_store_files_endpoints.endpoints.assert_user_can_access_vector_store_id",
+            "embrouter.proxy.vector_store_files_endpoints.endpoints.assert_user_can_access_vector_store_id",
             new=AsyncMock(return_value=None),
         ),
-        patch("litellm.proxy.proxy_server.llm_router", llm_router),
+        patch("embrouter.proxy.proxy_server.llm_router", llm_router),
         patch(
-            "litellm.proxy.vector_store_files_endpoints.endpoints.ProxyBaseLLMRequestProcessing.base_process_llm_request",
+            "embrouter.proxy.vector_store_files_endpoints.endpoints.ProxyBaseLLMRequestProcessing.base_process_llm_request",
             new=fake_base_process,
         ),
     ):
@@ -177,12 +177,12 @@ async def test_vector_store_file_list_resolves_managed_vector_store_before_team_
 
 @pytest.mark.asyncio
 async def test_vector_store_file_create_denies_other_team_path_store():
-    from litellm.proxy.vector_store_files_endpoints.endpoints import (
+    from embrouter.proxy.vector_store_files_endpoints.endpoints import (
         vector_store_file_create,
     )
 
     mock_registry = MagicMock()
-    mock_registry.get_litellm_managed_vector_store_from_registry.return_value = {
+    mock_registry.get_embrouter_managed_vector_store_from_registry.return_value = {
         "vector_store_id": "vs_other_team",
         "custom_llm_provider": "openai",
         "team_id": "team-b",
@@ -191,12 +191,12 @@ async def test_vector_store_file_create_denies_other_team_path_store():
     request = _mock_request()
     with (
         patch(
-            "litellm.proxy.proxy_server._read_request_body",
+            "embrouter.proxy.proxy_server._read_request_body",
             new=AsyncMock(return_value={"file_id": "file_123"}),
         ),
-        patch.object(litellm, "vector_store_registry", mock_registry),
+        patch.object(embrouter, "vector_store_registry", mock_registry),
         patch(
-            "litellm.proxy.vector_store_files_endpoints.endpoints.ProxyBaseLLMRequestProcessing.base_process_llm_request",
+            "embrouter.proxy.vector_store_files_endpoints.endpoints.ProxyBaseLLMRequestProcessing.base_process_llm_request",
             new=AsyncMock(),
         ) as mock_base_process,
     ):
@@ -214,10 +214,10 @@ async def test_vector_store_file_create_denies_other_team_path_store():
 
 @pytest.mark.asyncio
 async def test_rag_query_denies_nested_other_team_vector_store():
-    from litellm.proxy.rag_endpoints.endpoints import rag_query
+    from embrouter.proxy.rag_endpoints.endpoints import rag_query
 
     mock_registry = MagicMock()
-    mock_registry.get_litellm_managed_vector_store_from_registry.return_value = {
+    mock_registry.get_embrouter_managed_vector_store_from_registry.return_value = {
         "vector_store_id": "vs_other_team",
         "custom_llm_provider": "openai",
         "team_id": "team-b",
@@ -226,7 +226,7 @@ async def test_rag_query_denies_nested_other_team_vector_store():
     request = _mock_request()
     with (
         patch(
-            "litellm.proxy.rag_endpoints.endpoints._read_request_body",
+            "embrouter.proxy.rag_endpoints.endpoints._read_request_body",
             new=AsyncMock(
                 return_value={
                     "model": "gpt-4o-mini",
@@ -235,9 +235,9 @@ async def test_rag_query_denies_nested_other_team_vector_store():
                 }
             ),
         ),
-        patch.object(litellm, "vector_store_registry", mock_registry),
+        patch.object(embrouter, "vector_store_registry", mock_registry),
         patch(
-            "litellm.proxy.rag_endpoints.endpoints.litellm.aquery",
+            "embrouter.proxy.rag_endpoints.endpoints.embrouter.aquery",
             new=AsyncMock(),
         ) as mock_aquery,
     ):
@@ -254,10 +254,10 @@ async def test_rag_query_denies_nested_other_team_vector_store():
 
 @pytest.mark.asyncio
 async def test_rag_ingest_denies_nested_other_team_vector_store():
-    from litellm.proxy.rag_endpoints.endpoints import rag_ingest
+    from embrouter.proxy.rag_endpoints.endpoints import rag_ingest
 
     mock_registry = MagicMock()
-    mock_registry.get_litellm_managed_vector_store_from_registry.return_value = {
+    mock_registry.get_embrouter_managed_vector_store_from_registry.return_value = {
         "vector_store_id": "vs_other_team",
         "custom_llm_provider": "openai",
         "team_id": "team-b",
@@ -266,7 +266,7 @@ async def test_rag_ingest_denies_nested_other_team_vector_store():
     request = _mock_request()
     with (
         patch(
-            "litellm.proxy.rag_endpoints.endpoints.parse_rag_ingest_request",
+            "embrouter.proxy.rag_endpoints.endpoints.parse_rag_ingest_request",
             new=AsyncMock(
                 return_value=(
                     {
@@ -281,9 +281,9 @@ async def test_rag_ingest_denies_nested_other_team_vector_store():
                 )
             ),
         ),
-        patch.object(litellm, "vector_store_registry", mock_registry),
+        patch.object(embrouter, "vector_store_registry", mock_registry),
         patch(
-            "litellm.proxy.rag_endpoints.endpoints.litellm.aingest",
+            "embrouter.proxy.rag_endpoints.endpoints.embrouter.aingest",
             new=AsyncMock(),
         ) as mock_aingest,
     ):
@@ -299,8 +299,8 @@ async def test_rag_ingest_denies_nested_other_team_vector_store():
 
 
 def test_rag_payload_scan_rejects_excessive_nesting():
-    from litellm.constants import DEFAULT_MAX_RECURSE_DEPTH
-    from litellm.proxy.rag_endpoints.endpoints import (
+    from embrouter.constants import DEFAULT_MAX_RECURSE_DEPTH
+    from embrouter.proxy.rag_endpoints.endpoints import (
         _collect_vector_store_ids_from_payload,
     )
 
@@ -318,8 +318,8 @@ def test_rag_payload_scan_rejects_excessive_nesting():
 
 
 def test_rag_payload_scan_accepts_vector_store_id_at_depth_limit():
-    from litellm.constants import DEFAULT_MAX_RECURSE_DEPTH
-    from litellm.proxy.rag_endpoints.endpoints import (
+    from embrouter.constants import DEFAULT_MAX_RECURSE_DEPTH
+    from embrouter.proxy.rag_endpoints.endpoints import (
         _collect_vector_store_ids_from_payload,
     )
 
@@ -334,8 +334,8 @@ def test_rag_payload_scan_accepts_vector_store_id_at_depth_limit():
 
 
 def test_rag_payload_scan_ignores_primitive_list_beyond_depth_limit():
-    from litellm.constants import DEFAULT_MAX_RECURSE_DEPTH
-    from litellm.proxy.rag_endpoints.endpoints import (
+    from embrouter.constants import DEFAULT_MAX_RECURSE_DEPTH
+    from embrouter.proxy.rag_endpoints.endpoints import (
         _collect_vector_store_ids_from_payload,
     )
 
@@ -351,18 +351,18 @@ def test_rag_payload_scan_ignores_primitive_list_beyond_depth_limit():
 
 @pytest.mark.asyncio
 async def test_responses_file_search_denies_other_team_vector_store():
-    from litellm.proxy.common_request_processing import (
+    from embrouter.proxy.common_request_processing import (
         _authorize_response_file_search_vector_stores,
     )
 
     mock_registry = MagicMock()
-    mock_registry.get_litellm_managed_vector_store_from_registry.return_value = {
+    mock_registry.get_embrouter_managed_vector_store_from_registry.return_value = {
         "vector_store_id": "vs_other_team",
         "custom_llm_provider": "openai",
         "team_id": "team-b",
     }
 
-    with patch.object(litellm, "vector_store_registry", mock_registry):
+    with patch.object(embrouter, "vector_store_registry", mock_registry):
         with pytest.raises(HTTPException) as exc_info:
             await _authorize_response_file_search_vector_stores(
                 data={
@@ -381,7 +381,7 @@ async def test_responses_file_search_denies_other_team_vector_store():
 
 @pytest.mark.asyncio
 async def test_vertex_discovery_denies_other_team_vector_store_credentials():
-    from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+    from embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
         _base_vertex_proxy_route,
     )
 
@@ -394,7 +394,7 @@ async def test_vertex_discovery_denies_other_team_vector_store_credentials():
     }
 
     with patch(
-        "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.user_api_key_auth",
+        "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.user_api_key_auth",
         new=AsyncMock(return_value=UserAPIKeyAuth(team_id="team-a")),
     ):
         with pytest.raises(HTTPException) as exc_info:
@@ -411,15 +411,15 @@ async def test_vertex_discovery_denies_other_team_vector_store_credentials():
 
 @pytest.mark.asyncio
 async def test_get_managed_vector_store_uses_shared_cache_helper_for_db_fallback():
-    from litellm.proxy.vector_store_endpoints.utils import (
-        get_litellm_managed_vector_store,
+    from embrouter.proxy.vector_store_endpoints.utils import (
+        get_embrouter_managed_vector_store,
     )
 
     mock_registry = MagicMock()
-    mock_registry.get_litellm_managed_vector_store_from_registry.return_value = None
+    mock_registry.get_embrouter_managed_vector_store_from_registry.return_value = None
     cache_helper = AsyncMock(
         return_value=[
-            LiteLLM_ManagedVectorStoresTable(
+            EmbRouter_ManagedVectorStoresTable(
                 vector_store_id="vs_cached",
                 custom_llm_provider="openai",
                 vector_store_name=None,
@@ -427,8 +427,8 @@ async def test_get_managed_vector_store_uses_shared_cache_helper_for_db_fallback
                 vector_store_metadata=None,
                 created_at=None,
                 updated_at=None,
-                litellm_credential_name=None,
-                litellm_params={"api_base": "https://example.com"},
+                embrouter_credential_name=None,
+                embrouter_params={"api_base": "https://example.com"},
                 team_id="team-a",
                 user_id=None,
             )
@@ -436,16 +436,16 @@ async def test_get_managed_vector_store_uses_shared_cache_helper_for_db_fallback
     )
 
     with (
-        patch.object(litellm, "vector_store_registry", mock_registry),
-        patch("litellm.proxy.proxy_server.prisma_client", MagicMock()),
-        patch("litellm.proxy.proxy_server.user_api_key_cache", MagicMock()),
-        patch("litellm.proxy.proxy_server.proxy_logging_obj", MagicMock()),
+        patch.object(embrouter, "vector_store_registry", mock_registry),
+        patch("embrouter.proxy.proxy_server.prisma_client", MagicMock()),
+        patch("embrouter.proxy.proxy_server.user_api_key_cache", MagicMock()),
+        patch("embrouter.proxy.proxy_server.proxy_logging_obj", MagicMock()),
         patch(
-            "litellm.proxy.auth.auth_checks.get_managed_vector_store_rows_by_uuids",
+            "embrouter.proxy.auth.auth_checks.get_managed_vector_store_rows_by_uuids",
             new=cache_helper,
         ),
     ):
-        vector_store = await get_litellm_managed_vector_store(
+        vector_store = await get_embrouter_managed_vector_store(
             vector_store_id="vs_cached"
         )
 
@@ -457,25 +457,25 @@ async def test_get_managed_vector_store_uses_shared_cache_helper_for_db_fallback
 
 @pytest.mark.asyncio
 async def test_get_managed_vector_store_fails_closed_on_lookup_error():
-    from litellm.proxy.vector_store_endpoints.utils import (
-        get_litellm_managed_vector_store,
+    from embrouter.proxy.vector_store_endpoints.utils import (
+        get_embrouter_managed_vector_store,
     )
 
     mock_registry = MagicMock()
-    mock_registry.get_litellm_managed_vector_store_from_registry.side_effect = (
+    mock_registry.get_embrouter_managed_vector_store_from_registry.side_effect = (
         RuntimeError("registry unavailable")
     )
 
-    with patch.object(litellm, "vector_store_registry", mock_registry):
+    with patch.object(embrouter, "vector_store_registry", mock_registry):
         with pytest.raises(HTTPException) as exc_info:
-            await get_litellm_managed_vector_store(vector_store_id="vs_registry_only")
+            await get_embrouter_managed_vector_store(vector_store_id="vs_registry_only")
 
     assert exc_info.value.status_code == 500
 
 
 @pytest.mark.asyncio
 async def test_vertex_discovery_allows_unregistered_provider_native_datastore_id():
-    from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+    from embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
         vertex_discovery_proxy_route,
     )
 
@@ -484,11 +484,11 @@ async def test_vertex_discovery_allows_unregistered_provider_native_datastore_id
 
     with (
         patch(
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_litellm_managed_vector_store",
+            "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_embrouter_managed_vector_store",
             new=AsyncMock(return_value=None),
         ) as mock_lookup,
         patch(
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints._base_vertex_proxy_route",
+            "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints._base_vertex_proxy_route",
             new=AsyncMock(return_value={"ok": True}),
         ) as mock_base_route,
     ):
@@ -505,7 +505,7 @@ async def test_vertex_discovery_allows_unregistered_provider_native_datastore_id
 
 @pytest.mark.asyncio
 async def test_milvus_passthrough_denies_other_team_vector_store_index():
-    from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+    from embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
         milvus_proxy_route,
     )
 
@@ -513,36 +513,36 @@ async def test_milvus_passthrough_denies_other_team_vector_store_index():
     request.url.path = "/milvus/v2/vectordb/entities/search"
 
     index_object = MagicMock()
-    index_object.litellm_params.vector_store_name = "tenant-b-store"
-    index_object.litellm_params.vector_store_index = "tenant_b_collection"
+    index_object.embrouter_params.vector_store_name = "tenant-b-store"
+    index_object.embrouter_params.vector_store_index = "tenant_b_collection"
 
     mock_index_registry = MagicMock()
     mock_index_registry.is_vector_store_index.return_value = True
     mock_index_registry.get_vector_store_index_by_name.return_value = index_object
 
     mock_vector_registry = MagicMock()
-    mock_vector_registry.get_litellm_managed_vector_store_from_registry_by_name.return_value = {
+    mock_vector_registry.get_embrouter_managed_vector_store_from_registry_by_name.return_value = {
         "vector_store_id": "vs_other_team",
         "custom_llm_provider": "milvus",
         "team_id": "team-b",
-        "litellm_params": {"api_base": "https://milvus.example.com"},
+        "embrouter_params": {"api_base": "https://milvus.example.com"},
     }
 
     with (
         patch(
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_vector_stores_config",
+            "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_vector_stores_config",
             return_value=MagicMock(),
         ),
         patch(
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_request_body",
+            "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_request_body",
             new=AsyncMock(return_value={"collectionName": "managed_index"}),
         ),
         patch(
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_allowed_to_call_vector_store_endpoint",
+            "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_allowed_to_call_vector_store_endpoint",
             return_value=True,
         ),
-        patch.object(litellm, "vector_store_index_registry", mock_index_registry),
-        patch.object(litellm, "vector_store_registry", mock_vector_registry),
+        patch.object(embrouter, "vector_store_index_registry", mock_index_registry),
+        patch.object(embrouter, "vector_store_registry", mock_vector_registry),
     ):
         with pytest.raises(HTTPException) as exc_info:
             await milvus_proxy_route(
@@ -557,7 +557,7 @@ async def test_milvus_passthrough_denies_other_team_vector_store_index():
 
 @pytest.mark.asyncio
 async def test_azure_passthrough_denies_other_team_vector_store_index():
-    from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+    from embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
         azure_proxy_route,
     )
 
@@ -565,7 +565,7 @@ async def test_azure_passthrough_denies_other_team_vector_store_index():
     request.url.path = "/azure/indexes/managed_index/docs/search"
 
     index_object = MagicMock()
-    index_object.litellm_params.vector_store_name = "tenant-b-store"
+    index_object.embrouter_params.vector_store_name = "tenant-b-store"
 
     mock_index_registry = MagicMock()
     mock_index_registry.is_vector_store_index.side_effect = (
@@ -574,29 +574,29 @@ async def test_azure_passthrough_denies_other_team_vector_store_index():
     mock_index_registry.get_vector_store_index_by_name.return_value = index_object
 
     mock_vector_registry = MagicMock()
-    mock_vector_registry.get_litellm_managed_vector_store_from_registry_by_name.return_value = {
+    mock_vector_registry.get_embrouter_managed_vector_store_from_registry_by_name.return_value = {
         "vector_store_id": "vs_other_team",
         "custom_llm_provider": "azure_ai",
         "team_id": "team-b",
-        "litellm_params": {"api_base": "https://azure.example.com"},
+        "embrouter_params": {"api_base": "https://azure.example.com"},
     }
 
     with (
-        patch("litellm.proxy.proxy_server.llm_router", MagicMock()),
+        patch("embrouter.proxy.proxy_server.llm_router", MagicMock()),
         patch(
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_passthrough_request_using_router_model",
+            "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_passthrough_request_using_router_model",
             return_value=False,
         ),
         patch(
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_vector_stores_config",
+            "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_vector_stores_config",
             return_value=MagicMock(),
         ),
         patch(
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_allowed_to_call_vector_store_endpoint",
+            "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_allowed_to_call_vector_store_endpoint",
             return_value=True,
         ),
-        patch.object(litellm, "vector_store_index_registry", mock_index_registry),
-        patch.object(litellm, "vector_store_registry", mock_vector_registry),
+        patch.object(embrouter, "vector_store_index_registry", mock_index_registry),
+        patch.object(embrouter, "vector_store_registry", mock_vector_registry),
     ):
         with pytest.raises(HTTPException) as exc_info:
             await azure_proxy_route(

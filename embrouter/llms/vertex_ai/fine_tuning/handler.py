@@ -6,14 +6,14 @@ from typing import Final, Literal
 
 import httpx
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.llms.custom_httpx.http_handler import HTTPHandler, get_async_httpx_client
-from litellm.llms.vertex_ai.common_utils import get_vertex_base_url
-from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import VertexLLM
-from litellm.types.fine_tuning import OpenAIFineTuningHyperparameters
-from litellm.types.llms.openai import FineTuningJobCreate
-from litellm.types.llms.vertex_ai import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.llms.custom_httpx.http_handler import HTTPHandler, get_async_httpx_client
+from embrouter.llms.vertex_ai.common_utils import get_vertex_base_url
+from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import VertexLLM
+from embrouter.types.fine_tuning import OpenAIFineTuningHyperparameters
+from embrouter.types.llms.openai import FineTuningJobCreate
+from embrouter.types.llms.vertex_ai import (
     VERTEX_CREDENTIALS_TYPES,
     FineTuneHyperparameters,
     FineTuneJobCreate,
@@ -21,7 +21,7 @@ from litellm.types.llms.vertex_ai import (
     ResponseSupervisedTuningSpec,
     ResponseTuningJob,
 )
-from litellm.types.utils import LiteLLMFineTuningJob
+from embrouter.types.utils import EmbRouterFineTuningJob
 
 
 class VertexFineTuningAPI(VertexLLM):
@@ -32,7 +32,7 @@ class VertexFineTuningAPI(VertexLLM):
     def __init__(self) -> None:
         super().__init__()
         self.async_handler = get_async_httpx_client(
-            llm_provider=litellm.LlmProviders.VERTEX_AI,
+            llm_provider=embrouter.LlmProviders.VERTEX_AI,
             params={"timeout": 600.0},
         )
 
@@ -105,7 +105,7 @@ class VertexFineTuningAPI(VertexLLM):
 
         return _vertex_hyperparameters
 
-    def convert_vertex_response_to_open_ai_response(self, response: ResponseTuningJob) -> LiteLLMFineTuningJob:
+    def convert_vertex_response_to_open_ai_response(self, response: ResponseTuningJob) -> EmbRouterFineTuningJob:
         status: Literal["validating_files", "queued", "running", "succeeded", "failed", "cancelled"] = "queued"
         if response["state"] == "JOB_STATE_PENDING":
             status = "queued"
@@ -122,7 +122,7 @@ class VertexFineTuningAPI(VertexLLM):
 
         _supervisedTuningSpec: Final[ResponseSupervisedTuningSpec] = response.get("supervisedTuningSpec", None) or {}
         training_uri: Final[str] = _supervisedTuningSpec.get("trainingDatasetUri", "") or ""
-        return LiteLLMFineTuningJob(
+        return EmbRouterFineTuningJob(
             id=response.get("name", "") or "",
             created_at=created_at,
             fine_tuned_model=response.get("tunedModelDisplayName", ""),
@@ -207,7 +207,7 @@ class VertexFineTuningAPI(VertexLLM):
         timeout: float | httpx.Timeout,
         kwargs: dict | None = None,
         original_hyperparameters: dict | None = {},
-    ) -> LiteLLMFineTuningJob | Coroutine[object, object, LiteLLMFineTuningJob]:
+    ) -> EmbRouterFineTuningJob | Coroutine[object, object, EmbRouterFineTuningJob]:
         verbose_logger.debug("creating fine tuning job, args= %s", create_fine_tuning_job_data)
         _auth_header, vertex_project = self._ensure_access_token(
             credentials=vertex_credentials,

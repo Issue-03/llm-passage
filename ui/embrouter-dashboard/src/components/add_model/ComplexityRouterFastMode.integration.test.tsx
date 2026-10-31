@@ -71,12 +71,12 @@ it.each([false, true])("edits and round-trips independent model settings with cu
   const saved = buildUpdatedComplexityRouterConfig({}, enabled);
   expect(saved.tier_model_configs).toEqual({
     [custom ? label : tier]: [
-      { model_name: "primary", litellm_params: { reasoning_effort: "high", max_tokens: 1024, speed: "fast" } },
-      { model_name: "secondary", litellm_params: { speed: "fast" } },
-      { model_name: "blocked", litellm_params: { speed: "fast" } },
+      { model_name: "primary", embrouter_params: { reasoning_effort: "high", max_tokens: 1024, speed: "fast" } },
+      { model_name: "secondary", embrouter_params: { speed: "fast" } },
+      { model_name: "blocked", embrouter_params: { speed: "fast" } },
     ],
     [custom ? "Deliberate" : otherTier]: [
-      { model_name: "primary", litellm_params: { speed: "fast", reasoning_effort: "low" } },
+      { model_name: "primary", embrouter_params: { speed: "fast", reasoning_effort: "low" } },
     ],
   });
   const reopened = hydrateComplexityRouterConfig(saved, undefined);
@@ -159,7 +159,7 @@ it.each(["capability", "llm_v2"] as const)("preserves Fast mode controls for %s 
   });
   const saved = buildUpdatedComplexityRouterConfig({}, enabled);
   expect(saved.tier_model_configs).toEqual({
-    SIMPLE: [{ model_name: "primary", litellm_params: { reasoning_effort: "high", max_tokens: 1024, speed: "fast" } }],
+    SIMPLE: [{ model_name: "primary", embrouter_params: { reasoning_effort: "high", max_tokens: 1024, speed: "fast" } }],
   });
   view.rerender(editor(hydrateComplexityRouterConfig(saved, undefined)));
   expect(fast()).toBeChecked();
@@ -195,7 +195,7 @@ describe("Fast mode metadata", () => {
       expect(cleared.tier_model_params?.SIMPLE.primary).toEqual({ max_tokens: 512 });
       const saved = buildUpdatedComplexityRouterConfig({}, cleared);
       expect(saved.tier_model_configs).toEqual({
-        SIMPLE: [{ model_name: "primary", litellm_params: { max_tokens: 512 } }],
+        SIMPLE: [{ model_name: "primary", embrouter_params: { max_tokens: 512 } }],
       });
       view.rerender(editor(hydrateComplexityRouterConfig(saved, undefined), []));
       expect(screen.queryByRole("switch", { name: /^Fast mode for primary/ })).not.toBeInTheDocument();
@@ -211,7 +211,7 @@ it.each(["MEDIUM", "REASONING"])("clears a legacy Capability pool while reconcil
     classifier_type: "capability" as const,
     plan_mode_min_tier: floor,
     tiers: { SIMPLE: ["primary"], MEDIUM: ["secondary"], COMPLEX: [], REASONING: ["blocked"] },
-    tier_model_configs: { MEDIUM: [{ model_name: "secondary", litellm_params: { speed: "fast" } }] },
+    tier_model_configs: { MEDIUM: [{ model_name: "secondary", embrouter_params: { speed: "fast" } }] },
   };
   const value = hydrateComplexityRouterConfig(stored, undefined);
   const onChange = vi.fn<(value: ComplexityRouterConfigValue) => void>();

@@ -1,13 +1,13 @@
 from typing import Final, Literal
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.caching.caching import DualCache
-from litellm.integrations.custom_guardrail import (
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.caching.caching import DualCache
+from embrouter.integrations.custom_guardrail import (
     CustomGuardrail,
     log_guardrail_information,
 )
-from litellm.proxy._types import UserAPIKeyAuth
+from embrouter.proxy._types import UserAPIKeyAuth
 
 
 class myCustomGuardrail(CustomGuardrail):
@@ -45,14 +45,14 @@ class myCustomGuardrail(CustomGuardrail):
         Use this if you want to MODIFY the input
         """
 
-        # In this guardrail, if a user inputs `litellm` we will mask it and then send it to the LLM
+        # In this guardrail, if a user inputs `embrouter` we will mask it and then send it to the LLM
         _messages: Final = data.get("messages")
         if _messages:
             for message in _messages:
                 _content = message.get("content")
                 if isinstance(_content, str):
-                    if "litellm" in _content.lower():
-                        _content = _content.replace("litellm", "********")
+                    if "embrouter" in _content.lower():
+                        _content = _content.replace("embrouter", "********")
                         message["content"] = _content
 
         verbose_proxy_logger.debug("async_pre_call_hook: Message after masking %s", _messages)
@@ -83,14 +83,14 @@ class myCustomGuardrail(CustomGuardrail):
         """
 
         # this works the same as async_pre_call_hook, but just runs in parallel as the LLM API Call
-        # In this guardrail, if a user inputs `litellm` we will mask it.
+        # In this guardrail, if a user inputs `embrouter` we will mask it.
         _messages: Final = data.get("messages")
         if _messages:
             for message in _messages:
                 _content = message.get("content")
                 if isinstance(_content, str):
-                    if "litellm" in _content.lower():
-                        raise ValueError("Guardrail failed words - `litellm` detected")
+                    if "embrouter" in _content.lower():
+                        raise ValueError("Guardrail failed words - `embrouter` detected")
 
     @log_guardrail_information
     async def async_post_call_success_hook(
@@ -107,9 +107,9 @@ class myCustomGuardrail(CustomGuardrail):
         If a response contains the word "coffee" -> we will raise an exception
         """
         verbose_proxy_logger.debug("async_pre_call_hook response: %s", response)
-        if isinstance(response, litellm.ModelResponse):
+        if isinstance(response, embrouter.ModelResponse):
             for choice in response.choices:
-                if isinstance(choice, litellm.Choices):
+                if isinstance(choice, embrouter.Choices):
                     verbose_proxy_logger.debug("async_pre_call_hook choice: %s", choice)
                     if (
                         choice.message.content

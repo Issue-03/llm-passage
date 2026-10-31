@@ -1,7 +1,7 @@
 from typing import Final
 
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.openai import AllMessageValues, ChatCompletionToolParam
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.openai import AllMessageValues, ChatCompletionToolParam
 
 from ...openai.chat.gpt_transformation import OpenAIGPTConfig
 
@@ -45,10 +45,10 @@ class ZAIChatConfig(OpenAIGPTConfig):
             "tool_choice",
         ]
 
-        import litellm
+        import embrouter
 
         try:
-            if litellm.supports_reasoning(model=model, custom_llm_provider=self.custom_llm_provider):
+            if embrouter.supports_reasoning(model=model, custom_llm_provider=self.custom_llm_provider):
                 base_params.append("thinking")
         except Exception:
             pass

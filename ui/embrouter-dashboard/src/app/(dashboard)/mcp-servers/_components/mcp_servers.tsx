@@ -95,7 +95,7 @@ export const compareServers = (a: MCPServer, b: MCPServer, sort: SortKey): numbe
   }
 };
 
-const EDIT_OAUTH_UI_STATE_KEY = "litellm-mcp-oauth-edit-state";
+const EDIT_OAUTH_UI_STATE_KEY = "embrouter-mcp-oauth-edit-state";
 
 // Server id stashed by the Tools tab before an OBO OAuth redirect, read once at
 // mount so the redirect returns straight to that server's Tools tab.

@@ -5,12 +5,12 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-import litellm
-from litellm.constants import SESSION_ID_GENERATED_METADATA_KEY
-from litellm.llms.custom_httpx.http_handler import HTTPHandler
-from litellm.llms.fireworks_ai.chat.transformation import FireworksAIConfig
-from litellm.llms.fireworks_ai.common_utils import get_fireworks_session_id
-from litellm.types.utils import (
+import embrouter
+from embrouter.constants import SESSION_ID_GENERATED_METADATA_KEY
+from embrouter.llms.custom_httpx.http_handler import HTTPHandler
+from embrouter.llms.fireworks_ai.chat.transformation import FireworksAIConfig
+from embrouter.llms.fireworks_ai.common_utils import get_fireworks_session_id
+from embrouter.types.utils import (
     ChatCompletionMessageToolCall,
     Function,
     Message,
@@ -18,7 +18,7 @@ from litellm.types.utils import (
 )
 
 
-def test_validate_environment_sets_session_affinity_from_litellm_session_id():
+def test_validate_environment_sets_session_affinity_from_embrouter_session_id():
     config = FireworksAIConfig()
 
     headers = config.validate_environment(
@@ -26,7 +26,7 @@ def test_validate_environment_sets_session_affinity_from_litellm_session_id():
         model="accounts/fireworks/models/test-model",
         messages=[],
         optional_params={},
-        litellm_params={"litellm_session_id": "session-123"},
+        embrouter_params={"embrouter_session_id": "session-123"},
         api_key="test-key",
     )
 
@@ -41,7 +41,7 @@ def test_validate_environment_sets_session_affinity_from_metadata_session_id():
         model="accounts/fireworks/models/test-model",
         messages=[],
         optional_params={},
-        litellm_params={"metadata": {"session_id": "metadata-session-123"}},
+        embrouter_params={"metadata": {"session_id": "metadata-session-123"}},
         api_key="test-key",
     )
 
@@ -56,7 +56,7 @@ def test_validate_environment_sets_session_affinity_from_session_id():
         model="accounts/fireworks/models/test-model",
         messages=[],
         optional_params={},
-        litellm_params={"session_id": "session-id-123"},
+        embrouter_params={"session_id": "session-id-123"},
         api_key="test-key",
     )
 
@@ -66,7 +66,7 @@ def test_validate_environment_sets_session_affinity_from_session_id():
 def test_validate_environment_ignores_trace_id_for_session_affinity():
     """A trace id must not become the session id.
 
-    litellm_trace_id defaults to a fresh uuid4 per request, so pinning
+    embrouter_trace_id defaults to a fresh uuid4 per request, so pinning
     x-session-affinity to it sent every request to a different Fireworks node and
     prompt caching never hit (cached_tokens stayed 0 across identical prompts).
     """
@@ -77,7 +77,7 @@ def test_validate_environment_ignores_trace_id_for_session_affinity():
         model="accounts/fireworks/models/test-model",
         messages=[],
         optional_params={},
-        litellm_params={"litellm_trace_id": "trace-id-123"},
+        embrouter_params={"embrouter_trace_id": "trace-id-123"},
         api_key="test-key",
     )
 
@@ -92,9 +92,9 @@ def test_validate_environment_prefers_session_id_over_trace_id():
         model="accounts/fireworks/models/test-model",
         messages=[],
         optional_params={},
-        litellm_params={
-            "litellm_session_id": "session-123",
-            "litellm_trace_id": "trace-id-123",
+        embrouter_params={
+            "embrouter_session_id": "session-123",
+            "embrouter_trace_id": "trace-id-123",
         },
         api_key="test-key",
     )
@@ -110,7 +110,7 @@ def test_validate_environment_does_not_set_session_affinity_without_session_id()
         model="accounts/fireworks/models/test-model",
         messages=[],
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         api_key="test-key",
     )
 
@@ -125,7 +125,7 @@ def test_validate_environment_preserves_explicit_session_affinity_header():
         model="accounts/fireworks/models/test-model",
         messages=[],
         optional_params={},
-        litellm_params={"litellm_session_id": "session-123"},
+        embrouter_params={"embrouter_session_id": "session-123"},
         api_key="test-key",
     )
 
@@ -140,7 +140,7 @@ def test_validate_environment_sets_json_content_type():
         model="accounts/fireworks/models/test-model",
         messages=[],
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         api_key="test-key",
     )
 
@@ -155,7 +155,7 @@ def test_validate_environment_preserves_explicit_content_type():
         model="accounts/fireworks/models/test-model",
         messages=[],
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         api_key="test-key",
     )
 
@@ -171,7 +171,7 @@ def test_validate_environment_sets_json_content_type_with_session_affinity():
         model="accounts/fireworks/models/test-model",
         messages=[],
         optional_params={},
-        litellm_params={"litellm_session_id": "session-123"},
+        embrouter_params={"embrouter_session_id": "session-123"},
         api_key="test-key",
     )
 
@@ -189,7 +189,7 @@ def test_validate_environment_resolves_api_key_from_env_and_sets_content_type(mo
         model="accounts/fireworks/models/test-model",
         messages=[],
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
     )
 
     assert headers["Authorization"] == "Bearer fw-env-key"
@@ -212,14 +212,14 @@ def test_validate_environment_raises_without_api_key(monkeypatch):
             model="accounts/fireworks/models/test-model",
             messages=[],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
         )
 
 
-def test_get_fireworks_session_id_prefers_litellm_session_id_over_trace_id():
+def test_get_fireworks_session_id_prefers_embrouter_session_id_over_trace_id():
     assert (
         get_fireworks_session_id(
-            {"litellm_session_id": "session-123", "litellm_trace_id": "trace-123"}
+            {"embrouter_session_id": "session-123", "embrouter_trace_id": "trace-123"}
         )
         == "session-123"
     )
@@ -231,8 +231,8 @@ def test_get_fireworks_session_id_ignores_proxy_generated_session_id():
     assert (
         get_fireworks_session_id(
             {
-                "litellm_session_id": "generated-1",
-                "litellm_trace_id": "generated-1",
+                "embrouter_session_id": "generated-1",
+                "embrouter_trace_id": "generated-1",
                 "metadata": {"session_id": "generated-1", SESSION_ID_GENERATED_METADATA_KEY: True},
             }
         )
@@ -346,7 +346,7 @@ def test_get_supported_openai_params_parallel_tool_calls_without_tool_choice(
     config = FireworksAIConfig()
     model = "fireworks_ai/test-tools-without-tool-choice"
     monkeypatch.setitem(
-        litellm.model_cost,
+        embrouter.model_cost,
         model,
         {
             "supports_function_calling": True,
@@ -365,7 +365,7 @@ def test_get_provider_info_omits_false_supports_reasoning(monkeypatch):
     """Test that Fireworks only overrides supports_reasoning for supported models."""
     config = FireworksAIConfig()
     model = "fireworks_ai/test-reasoning-false"
-    monkeypatch.setitem(litellm.model_cost, model, {"supports_reasoning": False})
+    monkeypatch.setitem(embrouter.model_cost, model, {"supports_reasoning": False})
 
     info = config.get_provider_info(model)
 
@@ -407,10 +407,10 @@ def test_get_models_url_no_double_v1(api_base, expected_url_prefix):
 
     with (
         patch(
-            "litellm.module_level_client.get", return_value=mock_response
+            "embrouter.module_level_client.get", return_value=mock_response
         ) as mock_get,
         patch(
-            "litellm.llms.fireworks_ai.chat.transformation.get_secret_str",
+            "embrouter.llms.fireworks_ai.chat.transformation.get_secret_str",
             side_effect=lambda key: {
                 "FIREWORKS_API_KEY": "test-key",
                 "FIREWORKS_API_BASE": api_base,
@@ -455,7 +455,7 @@ def test_transform_messages_helper_removes_provider_specific_fields():
     ]
     # Call helper
     out = config._transform_messages_helper(
-        messages, model="fireworks/test", litellm_params={}
+        messages, model="fireworks/test", embrouter_params={}
     )
     for msg in out:
         assert "provider_specific_fields" not in msg
@@ -484,7 +484,7 @@ def test_transform_messages_helper_strips_thinking_blocks_but_keeps_reasoning_co
         },
     ]
     out = config._transform_messages_helper(
-        messages, model="accounts/fireworks/models/glm-5p1", litellm_params={}
+        messages, model="accounts/fireworks/models/glm-5p1", embrouter_params={}
     )
     assert "thinking_blocks" not in out[1]
     assert out[1]["reasoning_content"] == "internal"
@@ -721,7 +721,7 @@ def test_transform_request_routes_short_form_router_to_routers_path():
         model="glm-5p1-fast",
         messages=[{"role": "user", "content": "Hi"}],
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
     assert result["model"] == "accounts/fireworks/routers/glm-5p1-fast"
@@ -735,7 +735,7 @@ def test_transform_request_routes_short_form_model_to_models_path():
         model="glm-5p2",
         messages=[{"role": "user", "content": "Hi"}],
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
     assert result["model"] == "accounts/fireworks/models/glm-5p2"
@@ -778,7 +778,7 @@ def _run_transform_response(response_body: dict) -> ModelResponse:
         request_data={},
         messages=[{"role": "user", "content": "Hi"}],
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         encoding=None,
         api_key="test-key",
     )
@@ -841,7 +841,7 @@ def test_native_openai_params_flow_end_to_end_with_drop_params_false():
         "service_tier": "auto",
         "prediction": {"type": "content", "content": "x"},
     }
-    optional_params = litellm.get_optional_params(
+    optional_params = embrouter.get_optional_params(
         model="accounts/fireworks/models/llama-v3-70b-instruct",
         custom_llm_provider="fireworks_ai",
         drop_params=False,
@@ -872,7 +872,7 @@ def test_stream_options_include_usage_auto_injected():
         model="accounts/fireworks/models/glm-5p1",
         messages=[{"role": "user", "content": "Hi"}],
         optional_params={"stream": True},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
     assert result["stream_options"] == {"include_usage": True}
@@ -884,7 +884,7 @@ def test_stream_options_not_injected_when_not_streaming():
         model="accounts/fireworks/models/glm-5p1",
         messages=[{"role": "user", "content": "Hi"}],
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
     assert "stream_options" not in result
@@ -896,7 +896,7 @@ def test_stream_options_preserves_user_override():
         model="accounts/fireworks/models/glm-5p1",
         messages=[{"role": "user", "content": "Hi"}],
         optional_params={"stream": True, "stream_options": {"include_usage": False}},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
     assert result["stream_options"]["include_usage"] is False
@@ -926,7 +926,7 @@ def test_thinking_param_passthrough():
 def test_thinking_and_reasoning_effort_conflict_rejected():
     config = FireworksAIConfig()
     with pytest.raises(
-        litellm.BadRequestError,
+        embrouter.BadRequestError,
         match="does not support specifying both `thinking` and `reasoning_effort`",
     ):
         config.map_openai_params(
@@ -959,11 +959,11 @@ def test_transform_messages_helper_rejects_file_blocks():
     ]
 
     with pytest.raises(
-        litellm.BadRequestError,
+        embrouter.BadRequestError,
         match="Fireworks AI chat completions does not support file content blocks",
     ):
         config._transform_messages_helper(
-            messages, model="accounts/fireworks/models/kimi-k2p6", litellm_params={}
+            messages, model="accounts/fireworks/models/kimi-k2p6", embrouter_params={}
         )
 
 
@@ -984,9 +984,9 @@ def test_transform_messages_helper_rejects_non_vision_image_inputs():
         }
     ]
 
-    with pytest.raises(litellm.BadRequestError, match="does not support image inputs"):
+    with pytest.raises(embrouter.BadRequestError, match="does not support image inputs"):
         config._transform_messages_helper(
-            messages, model="accounts/fireworks/models/glm-5p2", litellm_params={}
+            messages, model="accounts/fireworks/models/glm-5p2", embrouter_params={}
         )
 
 
@@ -1008,7 +1008,7 @@ def test_transform_messages_helper_allows_vision_image_inputs():
     ]
 
     out = config._transform_messages_helper(
-        messages, model="accounts/fireworks/models/llama-v3p2-11b-vision-instruct", litellm_params={}
+        messages, model="accounts/fireworks/models/llama-v3p2-11b-vision-instruct", embrouter_params={}
     )
     assert out == messages
 
@@ -1043,7 +1043,7 @@ def test_image_inputs_not_rejected_for_fuzzy_non_vision_match():
         }
     ]
     out = config._transform_messages_helper(
-        messages, model=custom_model, litellm_params={}
+        messages, model=custom_model, embrouter_params={}
     )
     assert out == messages
 
@@ -1058,7 +1058,7 @@ def test_transform_messages_helper_skips_non_dict_content():
     ]
 
     out = config._transform_messages_helper(
-        messages, model="accounts/fireworks/models/glm-5p2", litellm_params={}
+        messages, model="accounts/fireworks/models/glm-5p2", embrouter_params={}
     )
     assert out == messages
 
@@ -1073,7 +1073,7 @@ def test_transform_messages_helper_no_transform_inline():
         }
     ]
     out = config._transform_messages_helper(
-        messages, model="accounts/fireworks/models/llama-v3p2-11b-vision-instruct", litellm_params={}
+        messages, model="accounts/fireworks/models/llama-v3p2-11b-vision-instruct", embrouter_params={}
     )
     block = out[0]["content"][0]
     assert block["image_url"] == url
@@ -1085,7 +1085,7 @@ def test_get_provider_info_vision_from_model_cost(monkeypatch):
 
     vision_model = "fireworks_ai/test-vision-from-cost"
     monkeypatch.setitem(
-        litellm.model_cost,
+        embrouter.model_cost,
         vision_model,
         {"supports_vision": True, "supports_pdf_input": True},
     )
@@ -1094,7 +1094,7 @@ def test_get_provider_info_vision_from_model_cost(monkeypatch):
     assert info["supports_pdf_input"] is True
 
     no_vision_model = "fireworks_ai/test-no-vision-from-cost"
-    monkeypatch.setitem(litellm.model_cost, no_vision_model, {})
+    monkeypatch.setitem(embrouter.model_cost, no_vision_model, {})
     info_no_vision = config.get_provider_info(no_vision_model)
     assert info_no_vision.get("supports_vision") is not True
     assert "supports_pdf_input" not in info_no_vision
@@ -1233,14 +1233,14 @@ def test_streaming_surfaces_fireworks_response_fields():
     """
     The Fireworks-specific response fields captured into _hidden_params for
     non-streaming calls must also reach streamed responses. They ride the
-    streamed chunks' provider_specific_fields (litellm rebuilds each streamed
+    streamed chunks' provider_specific_fields (embrouter rebuilds each streamed
     chunk, so per-chunk _hidden_params does not survive): per-choice
     token_ids/raw_output on the content chunk, response-level
     perf_metrics/prompt_token_ids on the final usage chunk. Driving the real
-    litellm.completion(stream=True) path also covers the get_model_response_iterator
+    embrouter.completion(stream=True) path also covers the get_model_response_iterator
     wiring; dropping the Fireworks iterator would leave these fields unset.
     """
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+    from embrouter.llms.custom_httpx.http_handler import HTTPHandler
 
     model = "accounts/fireworks/models/llama-v3p1-8b-instruct"
     raw_output = {"completion": "Hi"}
@@ -1289,7 +1289,7 @@ def test_streaming_surfaces_fireworks_response_fields():
 
     client = HTTPHandler()
     with patch.object(client, "post", return_value=raw_response):
-        stream = litellm.completion(
+        stream = embrouter.completion(
             model=f"fireworks_ai/{model}",
             messages=[{"role": "user", "content": "hi"}],
             stream=True,
@@ -1316,7 +1316,7 @@ def test_transform_request_routes_router_slug():
         model="routers/glm-latest",
         messages=[{"role": "user", "content": "hi"}],
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -1330,7 +1330,7 @@ def test_transform_request_bare_slug_stays_model():
         model="glm-4p6",
         messages=[{"role": "user", "content": "hi"}],
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -1345,7 +1345,7 @@ def test_transform_request_direct_route_passthrough():
         model=model,
         messages=[{"role": "user", "content": "hi"}],
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -1650,7 +1650,7 @@ def test_map_extra_body_params_no_extra_body():
 
 
 def test_nim_vllm_extras_translated_end_to_end_in_request_body():
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+    from embrouter.llms.custom_httpx.http_handler import HTTPHandler
 
     model = "accounts/fireworks/models/glm-5p1"
     body = {
@@ -1675,7 +1675,7 @@ def test_nim_vllm_extras_translated_end_to_end_in_request_body():
 
     client = MagicMock(spec=HTTPHandler)
     client.post.return_value = raw_response
-    litellm.completion(
+    embrouter.completion(
         model=f"fireworks_ai/{model}",
         messages=[{"role": "user", "content": "hi"}],
         api_key="fw-test-key",
@@ -1700,7 +1700,7 @@ def test_nim_vllm_extras_translated_end_to_end_in_request_body():
 
 
 def test_streaming_preserves_selected_model_for_private_accounting():
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+    from embrouter.llms.custom_httpx.http_handler import HTTPHandler
 
     requested_route = (
         "accounts/fireworks/routers/firerouter/"
@@ -1748,7 +1748,7 @@ def test_streaming_preserves_selected_model_for_private_accounting():
 
     client = HTTPHandler()
     with patch.object(client, "post", return_value=raw_response):
-        stream = litellm.completion(
+        stream = embrouter.completion(
             model=f"fireworks_ai/{requested_route}",
             messages=[{"role": "user", "content": "hi"}],
             stream=True,
@@ -1763,16 +1763,16 @@ def test_streaming_preserves_selected_model_for_private_accounting():
         chunk._hidden_params.get("provider_response_model") for chunk in chunks
     } == {selected_model}
 
-    assembled = litellm.stream_chunk_builder(chunks=chunks)
+    assembled = embrouter.stream_chunk_builder(chunks=chunks)
     assert assembled is not None
     assert assembled.model == requested_route
     assert assembled._hidden_params["provider_response_model"] == selected_model
-    selected_model_info = litellm.model_cost[f"fireworks_ai/{selected_model}"]
+    selected_model_info = embrouter.model_cost[f"fireworks_ai/{selected_model}"]
     expected_cost = (
         5 * selected_model_info["input_cost_per_token"]
         + selected_model_info["output_cost_per_token"]
     )
-    assert litellm.completion_cost(
+    assert embrouter.completion_cost(
         completion_response=assembled,
         custom_llm_provider="fireworks_ai",
     ) == pytest.approx(expected_cost)
@@ -1798,7 +1798,7 @@ _LISTED_ROUTERS = ("auto", "auto-instant", "firerouter")
 def test_listed_router_short_name_resolves_to_its_catalog_row_and_accepts_tool_choice_and_reasoning(
     router: str,
 ) -> None:
-    info = litellm.get_model_info(model=f"fireworks_ai/{router}")
+    info = embrouter.get_model_info(model=f"fireworks_ai/{router}")
     params = FireworksAIConfig().get_supported_openai_params(router)
 
     assert info["key"] == f"fireworks_ai/accounts/fireworks/routers/{router}"
@@ -1853,14 +1853,14 @@ def test_listed_router_request_is_sent_to_the_router_resource_and_billed_at_the_
         }
     )
 
-    response: Final = litellm.completion(
+    response: Final = embrouter.completion(
         model=f"fireworks_ai/{router}",
         messages=[{"role": "user", "content": "ping"}],
         api_key="fw-test-key",
         client=HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(handler))),
     )
 
-    served_info: Final = litellm.model_cost[f"fireworks_ai/{served_model}"]
+    served_info: Final = embrouter.model_cost[f"fireworks_ai/{served_model}"]
     expected_cost: Final = 23 * served_info["input_cost_per_token"] + 41 * served_info["output_cost_per_token"]
     assert handler.request_body is not None
     assert handler.request_body["model"] == f"accounts/fireworks/routers/{router}"

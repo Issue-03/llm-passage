@@ -36,11 +36,11 @@ from opentelemetry.trace import Link, NonRecordingSpan, Span, SpanContext, SpanK
 from opentelemetry.util.types import Attributes, AttributeValue
 from pydantic import BaseModel, ConfigDict
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.integrations.langfuse.langfuse import PROMPT_CACHE_TTL_ENV, parse_langfuse_debug, whole_number
-from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
-from litellm.llms.custom_httpx.http_handler import HTTPHandler, _get_httpx_client
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.integrations.langfuse.langfuse import PROMPT_CACHE_TTL_ENV, parse_langfuse_debug, whole_number
+from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps
+from embrouter.llms.custom_httpx.http_handler import HTTPHandler, _get_httpx_client
 
 __all__ = (
     "AuthCheckFailure",
@@ -287,7 +287,7 @@ def observation_attributes(
 
 @dataclass(frozen=True, slots=True)
 class LangfuseObservation:
-    """A Langfuse observation as the OTel span litellm exports for it."""
+    """A Langfuse observation as the OTel span embrouter exports for it."""
 
     span: Span
     public: bool | None
@@ -304,8 +304,8 @@ class LangfuseObservation:
         self.span.end(end_time=to_unix_nanos(end_time))
 
 
-_requested_trace_id: Final[ContextVar[int | None]] = ContextVar("litellm_langfuse_requested_trace_id", default=None)
-_requested_span_id: Final[ContextVar[int | None]] = ContextVar("litellm_langfuse_requested_span_id", default=None)
+_requested_trace_id: Final[ContextVar[int | None]] = ContextVar("embrouter_langfuse_requested_trace_id", default=None)
+_requested_span_id: Final[ContextVar[int | None]] = ContextVar("embrouter_langfuse_requested_span_id", default=None)
 
 
 class _RequestedIdGenerator(RandomIdGenerator):
@@ -431,7 +431,7 @@ def start_child_span(
 class TraceIdHashSampler(Sampler):
     """Sample on a SHA-256 of the trace id rather than its low 64 bits.
 
-    litellm trace ids are UUIDs, whose variant bits pin the top of that low word, so
+    embrouter trace ids are UUIDs, whose variant bits pin the top of that low word, so
     ``TraceIdRatioBased`` drops every trace at rates up to 0.5 and skews above it.
     """
 
@@ -654,9 +654,9 @@ def _retryable_status(status: int) -> bool:
 
 @dataclass(frozen=True, slots=True)
 class LangfuseSpanExporter(SpanExporter):
-    """OTLP/HTTP protobuf export through litellm's own HTTP handler.
+    """OTLP/HTTP protobuf export through embrouter's own HTTP handler.
 
-    The handler carries litellm's TLS material (``ssl_verify``, CA bundle, client certificate) exactly
+    The handler carries embrouter's TLS material (``ssl_verify``, CA bundle, client certificate) exactly
     as v2's injected httpx client did. A connect or read failure and a retryable status are re-sent after
     each delay, matching the v2 ingestion consumer; ``BatchSpanProcessor`` would otherwise drop the whole
     batch on the first exception. A 413 splits the batch in halves until each body fits or a single span
@@ -754,7 +754,7 @@ class LangfuseSpanExporter(SpanExporter):
                 _SERVER_FLOOR_HINT if status == 404 else "",
             )
             return "rejected"
-        except (httpx.TransportError, litellm.Timeout) as error:
+        except (httpx.TransportError, embrouter.Timeout) as error:
             verbose_logger.warning("Langfuse export to %s raised %s", self.endpoint, error)
             return "retry"
         _langfuse_logger.debug("Exported %d bytes of spans to %s", len(body), self.endpoint)
@@ -810,7 +810,7 @@ def _build_span_exporter(*, public_key: str, secret_key: str, base_url: str) -> 
 
 
 def _resource(*, environment: str | None, release: str | None) -> Resource:
-    """Only litellm's own attributes: ``Resource.create`` would merge the host's ``OTEL_RESOURCE_ATTRIBUTES``."""
+    """Only embrouter's own attributes: ``Resource.create`` would merge the host's ``OTEL_RESOURCE_ATTRIBUTES``."""
     return Resource(
         _present(
             (
@@ -843,9 +843,9 @@ class _ExportLedger(SpanExporter):
 
 @dataclass(frozen=True, slots=True)
 class LangfuseTracing:
-    """litellm's own export channel to one Langfuse project: a provider, its tracer and the exporter behind them.
+    """embrouter's own export channel to one Langfuse project: a provider, its tracer and the exporter behind them.
 
-    The channel is litellm's rather than the SDK's so that the process-global OTel provider stays
+    The channel is embrouter's rather than the SDK's so that the process-global OTel provider stays
     untouched, historical timestamps and caller ids are honoured, and no SDK internals are needed.
     """
 
@@ -1011,7 +1011,7 @@ def build_langfuse_tracing(
     flush_interval_millis: int,
     flush_at: int = _DEFAULT_FLUSH_AT,
 ) -> LangfuseTracing:
-    """Wire the provider from litellm's own settings so a host's ``OTEL_*`` variables do not steer it.
+    """Wire the provider from embrouter's own settings so a host's ``OTEL_*`` variables do not steer it.
 
     An unset sampler or span limit falls back to ``OTEL_TRACES_SAMPLER`` and
     ``OTEL_SPAN_ATTRIBUTE_COUNT_LIMIT`` style variables, which are meant for the
@@ -1091,11 +1091,11 @@ def _is_server_error(error: ApiError) -> bool:
 
 
 class LangfuseApiClient:
-    """litellm's handle on one Langfuse project over its REST API: prompts, ``auth_check`` and the project id.
+    """embrouter's handle on one Langfuse project over its REST API: prompts, ``auth_check`` and the project id.
 
     The SDK's ``Langfuse`` client is deliberately not constructed. It keeps one tracing bundle per
     public key and hands it to every ``Langfuse()`` a host application builds for the same key, so
-    litellm's exporter, host and masking would leak into that application. Observations travel
+    embrouter's exporter, host and masking would leak into that application. Observations travel
     over ``LangfuseTracing``; nothing here exports spans.
 
     Prompts are cached for ``LANGFUSE_PROMPT_CACHE_DEFAULT_TTL_SECONDS`` (60 by default) as the SDK

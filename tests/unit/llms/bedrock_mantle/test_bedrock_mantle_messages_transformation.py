@@ -16,23 +16,23 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.caching.llm_caching_handler import LLMClientCache
-from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM
-from litellm.llms.bedrock_mantle.messages.transformation import (
+import embrouter
+from embrouter.caching.llm_caching_handler import LLMClientCache
+from embrouter.llms.bedrock.base_aws_llm import BaseAWSLLM
+from embrouter.llms.bedrock_mantle.messages.transformation import (
     BedrockMantleAnthropicMessagesConfig,
     build_mantle_native_messages_url,
 )
-from litellm.types.router import GenericLiteLLMParams
-from litellm.utils import ProviderConfigManager
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.utils import ProviderConfigManager
 
 MESSAGES_PATH = "/anthropic/v1/messages"
 
 
 @pytest.fixture(autouse=True)
 def _httpx_transport_with_fresh_clients(monkeypatch):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "in_memory_llm_clients_cache", LLMClientCache())
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(embrouter, "in_memory_llm_clients_cache", LLMClientCache())
 
 
 @pytest.fixture(autouse=True)
@@ -105,7 +105,7 @@ def _sent_body(route: respx.Route) -> dict:
 class TestDispatch:
     def test_claude_models_get_the_native_messages_config(self):
         config = ProviderConfigManager.get_provider_anthropic_messages_config(
-            model="anthropic.claude-sonnet-5", provider=litellm.LlmProviders.BEDROCK_MANTLE
+            model="anthropic.claude-sonnet-5", provider=embrouter.LlmProviders.BEDROCK_MANTLE
         )
         assert isinstance(config, BedrockMantleAnthropicMessagesConfig)
         assert config.custom_llm_provider == "bedrock_mantle"
@@ -114,7 +114,7 @@ class TestDispatch:
     def test_non_claude_models_keep_the_bridge(self, model):
         assert (
             ProviderConfigManager.get_provider_anthropic_messages_config(
-                model=model, provider=litellm.LlmProviders.BEDROCK_MANTLE
+                model=model, provider=embrouter.LlmProviders.BEDROCK_MANTLE
             )
             is None
         )
@@ -160,27 +160,27 @@ class TestURL:
             == f"https://bedrock-mantle.ap-northeast-1.api.aws{MESSAGES_PATH}"
         )
 
-    def test_config_get_complete_url_reads_litellm_params(self):
+    def test_config_get_complete_url_reads_embrouter_params(self):
         config = BedrockMantleAnthropicMessagesConfig()
         url = config.get_complete_url(
             api_base="https://bedrock-mantle.us-east-1.api.aws/v1",
             api_key=None,
             model="anthropic.claude-sonnet-5",
             optional_params={},
-            litellm_params={"aws_region_name": "us-west-2"},
+            embrouter_params={"aws_region_name": "us-west-2"},
         )
         assert url == f"https://bedrock-mantle.us-west-2.api.aws{MESSAGES_PATH}"
 
 
 class TestEnvironment:
-    def _validate(self, headers: dict, litellm_params: dict) -> dict:
+    def _validate(self, headers: dict, embrouter_params: dict) -> dict:
         config = BedrockMantleAnthropicMessagesConfig()
         merged, _ = config.validate_anthropic_messages_environment(
             headers=headers,
             model="anthropic.claude-sonnet-5",
             messages=[],
             optional_params={},
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
         return merged
 
@@ -203,7 +203,7 @@ class TestRequestBody:
             model="anthropic.claude-sonnet-5",
             messages=[{"role": "user", "content": "ping"}],
             anthropic_messages_optional_request_params={"max_tokens": 8, "stream": True},
-            litellm_params=GenericLiteLLMParams(),
+            embrouter_params=GenericEmbRouterParams(),
             headers={},
         )
         assert body["model"] == "anthropic.claude-sonnet-5"
@@ -217,7 +217,7 @@ class TestRequestBody:
             model="anthropic.claude-sonnet-5",
             messages=[{"role": "user", "content": "ping"}],
             anthropic_messages_optional_request_params={"max_tokens": 8},
-            litellm_params=GenericLiteLLMParams(),
+            embrouter_params=GenericEmbRouterParams(),
             headers={},
         )
         assert "stream" not in body
@@ -275,7 +275,7 @@ class TestWireRequest:
     async def test_claude_request_hits_the_native_messages_endpoint(self):
         route = _mantle_messages_route("us-east-1").mock(return_value=_anthropic_response())
 
-        response = await litellm.anthropic_messages(
+        response = await embrouter.anthropic_messages(
             model="bedrock_mantle/anthropic.claude-sonnet-5",
             messages=[{"role": "user", "content": "ping"}],
             max_tokens=8,
@@ -300,7 +300,7 @@ class TestWireRequest:
     async def test_region_prefix_selects_the_host_and_is_not_sent_as_model(self):
         route = _mantle_messages_route("us-east-2").mock(return_value=_anthropic_response())
 
-        await litellm.anthropic_messages(
+        await embrouter.anthropic_messages(
             model="bedrock_mantle/us-east-2/anthropic.claude-haiku-4-5",
             messages=[{"role": "user", "content": "ping"}],
             max_tokens=8,
@@ -315,7 +315,7 @@ class TestWireRequest:
     async def test_streaming_sends_stream_and_passes_the_sse_through(self):
         route = _mantle_messages_route("us-east-1").mock(return_value=_sse_response())
 
-        response = await litellm.anthropic_messages(
+        response = await embrouter.anthropic_messages(
             model="bedrock_mantle/anthropic.claude-sonnet-5",
             messages=[{"role": "user", "content": "ping"}],
             max_tokens=8,
@@ -337,7 +337,7 @@ class TestWireRequest:
     async def test_sigv4_request_signs_against_the_messages_url(self):
         route = _mantle_messages_route("us-east-1").mock(return_value=_anthropic_response())
 
-        await litellm.anthropic_messages(
+        await embrouter.anthropic_messages(
             model="bedrock_mantle/anthropic.claude-sonnet-5",
             messages=[{"role": "user", "content": "ping"}],
             max_tokens=8,
@@ -360,7 +360,7 @@ def _sent_betas(route: respx.Route) -> list[str]:
 class TestBetaHeadersOnTheWire:
     async def _send(self, **request_params) -> respx.Route:
         route = _mantle_messages_route("us-east-1").mock(return_value=_anthropic_response())
-        await litellm.anthropic_messages(
+        await embrouter.anthropic_messages(
             model="bedrock_mantle/anthropic.claude-sonnet-5",
             messages=[{"role": "user", "content": "ping"}],
             max_tokens=8,
@@ -388,7 +388,7 @@ class TestBetaHeadersOnTheWire:
     @pytest.mark.asyncio
     @respx.mock
     async def test_betas_a_proxy_client_sends_reach_mantle_filtered(self):
-        from litellm.proxy.litellm_pre_call_utils import add_provider_specific_headers_to_request
+        from embrouter.proxy.embrouter_pre_call_utils import add_provider_specific_headers_to_request
 
         proxy_request_data: dict = {}
         add_provider_specific_headers_to_request(

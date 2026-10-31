@@ -3,31 +3,31 @@ from typing import TYPE_CHECKING, Final, Optional
 from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import ORJSONResponse
 
-import litellm
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
-from litellm.proxy.common_utils.openai_endpoint_utils import (
+import embrouter
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+from embrouter.proxy.common_utils.openai_endpoint_utils import (
     get_custom_llm_provider_from_request_body,
     get_custom_llm_provider_from_request_headers,
     get_custom_llm_provider_from_request_query,
 )
-from litellm.proxy.openai_files_endpoints.common_utils import (
+from embrouter.proxy.openai_files_endpoints.common_utils import (
     authorize_model_for_key,
     get_credentials_for_model,
     handle_model_based_routing,
     prepare_data_with_credentials,
 )
-from litellm.proxy.rag_endpoints.upload_security import safe_download_headers
-from litellm.proxy.vector_store_endpoints.utils import (
+from embrouter.proxy.rag_endpoints.upload_security import safe_download_headers
+from embrouter.proxy.vector_store_endpoints.utils import (
     assert_user_can_access_vector_store_id,
     is_allowed_to_call_vector_store_files_endpoint,
 )
-from litellm.types.utils import LlmProviders
-from litellm.types.vector_stores import LiteLLM_ManagedVectorStore
+from embrouter.types.utils import LlmProviders
+from embrouter.types.vector_stores import EmbRouter_ManagedVectorStore
 
 if TYPE_CHECKING:
-    from litellm.router import Router
+    from embrouter.router import Router
 
 router: Final = APIRouter()
 
@@ -44,8 +44,8 @@ async def _update_request_data_with_managed_file_id(
     Update request data with model routing information from managed file ID.
 
     This function handles two types of file IDs:
-    1. Simple encoded file IDs (format: litellm:{file_id};model,{model})
-    2. Unified managed file IDs (format: litellm_proxy:{mime};unified_id,{uuid};...;llm_output_file_id,{file_id};...)
+    1. Simple encoded file IDs (format: embrouter:{file_id};model,{model})
+    2. Unified managed file IDs (format: embrouter_proxy:{mime};unified_id,{uuid};...;llm_output_file_id,{file_id};...)
 
     For unified managed file IDs, it:
     - Decodes the unified ID to extract the actual provider file ID (llm_output_file_id)
@@ -56,7 +56,7 @@ async def _update_request_data_with_managed_file_id(
         data: Request data to update
         file_id: File ID (can be managed/encoded or regular)
         request: FastAPI request object
-        llm_router: LiteLLM router for credential lookup (required for managed files)
+        llm_router: EmbRouter router for credential lookup (required for managed files)
 
     Returns:
         Tuple of (updated request data, original_managed_file_id)
@@ -64,12 +64,12 @@ async def _update_request_data_with_managed_file_id(
     """
     import re
 
-    from litellm import verbose_logger
-    from litellm.llms.base_llm.managed_resources.utils import (
+    from embrouter import verbose_logger
+    from embrouter.llms.base_llm.managed_resources.utils import (
         is_base64_encoded_unified_id,
         parse_unified_id,
     )
-    from litellm.proxy.openai_files_endpoints.common_utils import (
+    from embrouter.proxy.openai_files_endpoints.common_utils import (
         validate_managed_id_requirement,
     )
 
@@ -94,7 +94,7 @@ async def _update_request_data_with_managed_file_id(
             target_model_names: Final = parsed_id.get("target_model_names", [])
 
             # Extract the actual provider file ID from llm_output_file_id field
-            # Format: litellm_proxy:...;llm_output_file_id,{actual_file_id};...
+            # Format: embrouter_proxy:...;llm_output_file_id,{actual_file_id};...
             llm_output_file_id = None
             try:
                 match: Final = re.search(r"llm_output_file_id,([^;]+)", decoded_id)
@@ -139,7 +139,7 @@ async def _update_request_data_with_managed_file_id(
 
         return data, file_id if decoded_id else None
 
-    # Fall back to simple encoded file ID handling (format: litellm:{file_id};model,{model})
+    # Fall back to simple encoded file ID handling (format: embrouter:{file_id};model,{model})
     (
         should_route,
         model_used,
@@ -224,7 +224,7 @@ async def _update_request_data_with_model_routing_hint(
     if data.get("api_key") is not None or data.get("api_base") is not None:
         return data
 
-    user_controlled_model_hint: Final = request.query_params.get("model") or request.headers.get("x-litellm-model")
+    user_controlled_model_hint: Final = request.query_params.get("model") or request.headers.get("x-embrouter-model")
     model_hint: Final = data.get("model") or user_controlled_model_hint
     should_authorize_model_hint: Final = isinstance(model_hint, str) and model_hint == user_controlled_model_hint
 
@@ -313,11 +313,11 @@ async def _update_request_data_with_model_routing_hint(
     return data
 
 
-def _update_request_data_with_litellm_managed_vector_store_registry(
+def _update_request_data_with_embrouter_managed_vector_store_registry(
     data: dict,
     vector_store_id: str,
     llm_router: Optional["Router"] = None,
-    managed_vector_store: LiteLLM_ManagedVectorStore | None = None,
+    managed_vector_store: EmbRouter_ManagedVectorStore | None = None,
     should_lookup_registry: bool = True,
 ) -> dict:
     """
@@ -336,13 +336,13 @@ def _update_request_data_with_litellm_managed_vector_store_registry(
     Args:
         data: Request data to update
         vector_store_id: Vector store ID (can be unified or legacy)
-        llm_router: LiteLLM router for credential lookup (required for managed vector stores)
+        llm_router: EmbRouter router for credential lookup (required for managed vector stores)
 
     Returns:
         Updated request data with model routing information
     """
-    from litellm import verbose_logger
-    from litellm.llms.base_llm.managed_resources.utils import (
+    from embrouter import verbose_logger
+    from embrouter.llms.base_llm.managed_resources.utils import (
         is_base64_encoded_unified_id,
         parse_unified_id,
     )
@@ -391,19 +391,19 @@ def _update_request_data_with_litellm_managed_vector_store_registry(
 
     # Legacy path: Check vector store registry for non-managed vector stores.
     vector_store_to_run = managed_vector_store
-    if vector_store_to_run is None and should_lookup_registry and litellm.vector_store_registry is not None:
-        vector_store_to_run = litellm.vector_store_registry.get_litellm_managed_vector_store_from_registry(
+    if vector_store_to_run is None and should_lookup_registry and embrouter.vector_store_registry is not None:
+        vector_store_to_run = embrouter.vector_store_registry.get_embrouter_managed_vector_store_from_registry(
             vector_store_id=vector_store_id
         )
 
     if vector_store_to_run is not None:
         if "custom_llm_provider" in vector_store_to_run:
             data["custom_llm_provider"] = vector_store_to_run.get("custom_llm_provider")
-        if "litellm_credential_name" in vector_store_to_run:
-            data["litellm_credential_name"] = vector_store_to_run.get("litellm_credential_name")
-        if "litellm_params" in vector_store_to_run:
-            litellm_params: Final = vector_store_to_run.get("litellm_params", {}) or {}
-            data.update(litellm_params)
+        if "embrouter_credential_name" in vector_store_to_run:
+            data["embrouter_credential_name"] = vector_store_to_run.get("embrouter_credential_name")
+        if "embrouter_params" in vector_store_to_run:
+            embrouter_params: Final = vector_store_to_run.get("embrouter_params", {}) or {}
+            data.update(embrouter_params)
 
     return data
 
@@ -470,7 +470,7 @@ async def vector_store_file_create(
     fastapi_response: Response,
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
 ):
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         _read_request_body,
         general_settings,
         llm_router,
@@ -505,7 +505,7 @@ async def vector_store_file_create(
         )
 
     # Then handle managed vector store IDs
-    data = _update_request_data_with_litellm_managed_vector_store_registry(
+    data = _update_request_data_with_embrouter_managed_vector_store_registry(
         data=data,
         vector_store_id=vector_store_id,
         llm_router=llm_router,
@@ -577,7 +577,7 @@ async def vector_store_file_list(
     fastapi_response: Response,
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
 ):
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         proxy_config,
@@ -600,7 +600,7 @@ async def vector_store_file_list(
         user_api_key_dict=user_api_key_dict,
     )
 
-    data = _update_request_data_with_litellm_managed_vector_store_registry(
+    data = _update_request_data_with_embrouter_managed_vector_store_registry(
         data=data,
         vector_store_id=vector_store_id,
         llm_router=llm_router,
@@ -674,7 +674,7 @@ async def vector_store_file_retrieve(
     fastapi_response: Response,
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
 ):
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         proxy_config,
@@ -708,7 +708,7 @@ async def vector_store_file_retrieve(
     )
 
     # Then handle managed vector store IDs
-    data = _update_request_data_with_litellm_managed_vector_store_registry(
+    data = _update_request_data_with_embrouter_managed_vector_store_registry(
         data=data,
         vector_store_id=vector_store_id,
         llm_router=llm_router,
@@ -781,7 +781,7 @@ async def vector_store_file_content(
     fastapi_response: Response,
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
 ):
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         proxy_config,
@@ -815,7 +815,7 @@ async def vector_store_file_content(
     )
 
     # Then handle managed vector store IDs
-    data = _update_request_data_with_litellm_managed_vector_store_registry(
+    data = _update_request_data_with_embrouter_managed_vector_store_registry(
         data=data,
         vector_store_id=vector_store_id,
         llm_router=llm_router,
@@ -891,7 +891,7 @@ async def vector_store_file_update(
     fastapi_response: Response,
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
 ):
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         _read_request_body,
         general_settings,
         llm_router,
@@ -925,7 +925,7 @@ async def vector_store_file_update(
     )
 
     # Then handle managed vector store IDs
-    data = _update_request_data_with_litellm_managed_vector_store_registry(
+    data = _update_request_data_with_embrouter_managed_vector_store_registry(
         data=data,
         vector_store_id=vector_store_id,
         llm_router=llm_router,
@@ -998,7 +998,7 @@ async def vector_store_file_delete(
     fastapi_response: Response,
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
 ):
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         proxy_config,
@@ -1032,7 +1032,7 @@ async def vector_store_file_delete(
     )
 
     # Then handle managed vector store IDs
-    data = _update_request_data_with_litellm_managed_vector_store_registry(
+    data = _update_request_data_with_embrouter_managed_vector_store_registry(
         data=data,
         vector_store_id=vector_store_id,
         llm_router=llm_router,

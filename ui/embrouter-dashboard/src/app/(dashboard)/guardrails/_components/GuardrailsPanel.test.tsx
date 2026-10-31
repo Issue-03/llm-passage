@@ -108,7 +108,7 @@ describe("GuardrailsPanel", () => {
         {
           guardrail_id: "test-guardrail-1",
           guardrail_name: "Test Guardrail",
-          litellm_params: {
+          embrouter_params: {
             guardrail: "test-provider",
             mode: "async",
             default_on: true,

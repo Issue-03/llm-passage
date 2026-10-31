@@ -1,7 +1,7 @@
 import enum
 from typing import Literal
 
-from litellm.types.llms.base import LiteLLMPydanticObjectBase
+from embrouter.types.llms.base import EmbRouterPydanticObjectBase
 
 
 class KeyManagementSystem(enum.Enum):
@@ -16,13 +16,13 @@ class KeyManagementSystem(enum.Enum):
     CUSTOM = "custom"
 
 
-class KeyManagementSettings(LiteLLMPydanticObjectBase):
+class KeyManagementSettings(EmbRouterPydanticObjectBase):
     hosted_keys: list | None = None
     store_virtual_keys: bool | None = False
     """
-    If True, virtual keys created by litellm will be stored in the secret manager
+    If True, virtual keys created by embrouter will be stored in the secret manager
     """
-    prefix_for_stored_virtual_keys: str = "litellm/"
+    prefix_for_stored_virtual_keys: str = "embrouter/"
     """
     If set, this prefix will be used for stored virtual keys in the secret manager
     """

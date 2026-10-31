@@ -47,7 +47,7 @@ const span = (overrides: SpanOverrides): Span => ({
   model: null,
   input_tokens: 0,
   output_tokens: 0,
-  litellm_request_id: null,
+  embrouter_request_id: null,
   ...overrides,
 });
 
@@ -241,8 +241,8 @@ describe("errorSource", () => {
       return span(failed);
     };
     expect(errorSource(failure("t", "tool", "boom"))).toBe("tool");
-    expect(errorSource(failure("l", "llm", "429 Rate limit exceeded"))).toBe("litellm");
-    expect(errorSource(failure("g", "llm", "Blocked by guardrail"))).toBe("litellm");
+    expect(errorSource(failure("l", "llm", "429 Rate limit exceeded"))).toBe("embrouter");
+    expect(errorSource(failure("g", "llm", "Blocked by guardrail"))).toBe("embrouter");
     expect(errorSource(failure("m", "llm", "context length exceeded"))).toBe("model");
   });
 

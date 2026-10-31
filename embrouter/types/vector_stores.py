@@ -15,15 +15,15 @@ class SupportedVectorStoreIntegrations(str, Enum):
     RAGFLOW = "ragflow"
 
 
-class LiteLLM_VectorStoreConfig(TypedDict, total=False):
-    """Parameters for initializing a vector store on Litellm proxy config.yaml"""
+class EmbRouter_VectorStoreConfig(TypedDict, total=False):
+    """Parameters for initializing a vector store on Embrouter proxy config.yaml"""
 
     vector_store_name: str
-    litellm_params: dict[str, Any] | None
+    embrouter_params: dict[str, Any] | None
 
 
-class LiteLLM_ManagedVectorStore(TypedDict, total=False):
-    """LiteLLM managed vector store object - this is is the object stored in the database"""
+class EmbRouter_ManagedVectorStore(TypedDict, total=False):
+    """EmbRouter managed vector store object - this is is the object stored in the database"""
 
     vector_store_id: str
     custom_llm_provider: str
@@ -35,10 +35,10 @@ class LiteLLM_ManagedVectorStore(TypedDict, total=False):
     updated_at: datetime | None
 
     # credential fields
-    litellm_credential_name: str | None
+    embrouter_credential_name: str | None
 
-    # litellm_params
-    litellm_params: dict[str, Any] | None
+    # embrouter_params
+    embrouter_params: dict[str, Any] | None
 
     # access control fields
     team_id: str | None
@@ -47,11 +47,11 @@ class LiteLLM_ManagedVectorStore(TypedDict, total=False):
     is_config: ReadOnly[bool]
 
 
-class LiteLLM_ManagedVectorStoreListResponse(TypedDict, total=False):
+class EmbRouter_ManagedVectorStoreListResponse(TypedDict, total=False):
     """Response format for listing vector stores"""
 
     object: Literal["list"]  # Always "list"
-    data: list[LiteLLM_ManagedVectorStore]
+    data: list[EmbRouter_ManagedVectorStore]
     total_count: int | None
     current_page: int | None
     total_pages: int | None
@@ -262,14 +262,14 @@ class VectorStoreCreateResponse(TypedDict, total=False):
     metadata: dict[str, str] | None  # Metadata associated with the vector store
 
 
-class IndexCreateLiteLLMParams(BaseModel):
+class IndexCreateEmbRouterParams(BaseModel):
     vector_store_index: str
     vector_store_name: str
 
 
 class IndexCreateRequest(BaseModel):
     index_name: str
-    litellm_params: IndexCreateLiteLLMParams
+    embrouter_params: IndexCreateEmbRouterParams
     index_info: dict[str, object] | None = None
 
 
@@ -278,12 +278,12 @@ class BaseVectorStoreAuthCredentials(TypedDict, total=False):
     query_params: dict
 
 
-class LiteLLM_ManagedVectorStoreIndex(BaseModel):
-    """LiteLLM managed vector store index object - this is is the object stored in the database"""
+class EmbRouter_ManagedVectorStoreIndex(BaseModel):
+    """EmbRouter managed vector store index object - this is is the object stored in the database"""
 
     id: str
     index_name: str
-    litellm_params: IndexCreateLiteLLMParams
+    embrouter_params: IndexCreateEmbRouterParams
     index_info: dict[str, object] | None = None
     created_at: datetime | None = None
     created_by: str | None = None
@@ -293,7 +293,7 @@ class LiteLLM_ManagedVectorStoreIndex(BaseModel):
 
 class IndexListResponse(BaseModel):
     object: Literal["list"] = "list"
-    data: tuple[LiteLLM_ManagedVectorStoreIndex, ...]
+    data: tuple[EmbRouter_ManagedVectorStoreIndex, ...]
 
 
 class VectorStoreIndexType(str, Enum):

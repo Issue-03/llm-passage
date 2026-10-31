@@ -1,5 +1,5 @@
 """
-Unified Guardrail, leveraging LiteLLM's /applyGuardrail endpoint
+Unified Guardrail, leveraging EmbRouter's /applyGuardrail endpoint
 
 1. Implements a way to call /applyGuardrail endpoint for `/chat/completions` + `/v1/messages` requests on async_pre_call_hook
 2. Implements a way to call /applyGuardrail endpoint for `/chat/completions` + `/v1/messages` requests on async_post_call_success_hook
@@ -13,16 +13,16 @@ from typing import TYPE_CHECKING, Any, Final, Protocol
 
 from fastapi import HTTPException
 
-from litellm._logging import verbose_proxy_logger
-from litellm.caching.caching import DualCache
-from litellm.cost_calculator import _infer_call_type
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.api_route_to_call_types import get_call_types_for_route
-from litellm.llms import get_guardrail_translation_mapping, load_guardrail_translation_mappings
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.utils import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.caching.caching import DualCache
+from embrouter.cost_calculator import _infer_call_type
+from embrouter.integrations.custom_guardrail import CustomGuardrail
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.embrouter_core_utils.api_route_to_call_types import get_call_types_for_route
+from embrouter.llms import get_guardrail_translation_mapping, load_guardrail_translation_mappings
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.types.guardrails import GuardrailEventHooks
+from embrouter.types.utils import (
     MCP_GUARDRAIL_CALL_TYPES,
     CallTypes,
     CallTypesLiteral,
@@ -33,9 +33,9 @@ from litellm.types.utils import (
 
 if TYPE_CHECKING:
     # Imported lazily at runtime (inside the streaming hook) to avoid a
-    # module-level cyclic import with litellm.integrations.custom_guardrail.
-    from litellm.integrations.custom_guardrail import ModifyResponseException
-    from litellm.llms.base_llm.guardrail_translation.base_translation import (
+    # module-level cyclic import with embrouter.integrations.custom_guardrail.
+    from embrouter.integrations.custom_guardrail import ModifyResponseException
+    from embrouter.llms.base_llm.guardrail_translation.base_translation import (
         BaseTranslation,
         StreamingScanKey,
     )
@@ -156,16 +156,16 @@ def _a2a_jsonrpc_error_chunk(exc: HTTPException, request_id: str | None) -> Mapp
     }
 
 
-def _ensure_litellm_metadata(data: dict, user_api_key_dict: UserAPIKeyAuth) -> None:
-    """Populate data['litellm_metadata'] from user_api_key_dict if absent."""
-    if "litellm_metadata" not in data:
-        from litellm.llms.base_llm.guardrail_translation.base_translation import (
+def _ensure_embrouter_metadata(data: dict, user_api_key_dict: UserAPIKeyAuth) -> None:
+    """Populate data['embrouter_metadata'] from user_api_key_dict if absent."""
+    if "embrouter_metadata" not in data:
+        from embrouter.llms.base_llm.guardrail_translation.base_translation import (
             BaseTranslation,
         )
 
         user_metadata: Final = BaseTranslation.transform_user_api_key_dict_to_metadata(user_api_key_dict)
         if user_metadata:
-            data["litellm_metadata"] = user_metadata
+            data["embrouter_metadata"] = user_metadata
 
 
 class UnifiedLLMGuardrails(CustomLogger):
@@ -196,7 +196,7 @@ class UnifiedLLMGuardrails(CustomLogger):
         Use this if you want to MODIFY the input
         """
 
-        from litellm.proxy.common_utils.callback_utils import (
+        from embrouter.proxy.common_utils.callback_utils import (
             add_guardrail_to_applied_guardrails_header,
         )
 
@@ -227,12 +227,12 @@ class UnifiedLLMGuardrails(CustomLogger):
 
         endpoint_translation: Final = _as_endpoint_translation(mappings[CallTypes(call_type)]())
 
-        _ensure_litellm_metadata(data, user_api_key_dict)
+        _ensure_embrouter_metadata(data, user_api_key_dict)
 
         data = await endpoint_translation.process_input_messages(
             data=data,
             guardrail_to_apply=guardrail_to_apply,
-            litellm_logging_obj=data.get("litellm_logging_obj"),
+            embrouter_logging_obj=data.get("embrouter_logging_obj"),
         )
 
         if not guardrail_to_apply.records_own_guardrail_information:
@@ -273,12 +273,12 @@ class UnifiedLLMGuardrails(CustomLogger):
 
         endpoint_translation: Final = _as_endpoint_translation(mappings[CallTypes(call_type)]())
 
-        _ensure_litellm_metadata(data, user_api_key_dict)
+        _ensure_embrouter_metadata(data, user_api_key_dict)
 
         return await endpoint_translation.process_input_messages(
             data=data,
             guardrail_to_apply=guardrail_to_apply,
-            litellm_logging_obj=data.get("litellm_logging_obj"),
+            embrouter_logging_obj=data.get("embrouter_logging_obj"),
         )
 
     async def async_post_call_success_hook(
@@ -295,12 +295,12 @@ class UnifiedLLMGuardrails(CustomLogger):
         Uses Enkrypt AI guardrails to check the response for policy violations, PII, and injection attacks
         """
         # Local import avoids a module-level cyclic import with
-        # litellm.integrations.custom_guardrail.
-        from litellm.integrations.custom_guardrail import ModifyResponseException
-        from litellm.proxy.common_utils.callback_utils import (
+        # embrouter.integrations.custom_guardrail.
+        from embrouter.integrations.custom_guardrail import ModifyResponseException
+        from embrouter.proxy.common_utils.callback_utils import (
             add_guardrail_to_applied_guardrails_header,
         )
-        from litellm.types.guardrails import GuardrailEventHooks
+        from embrouter.types.guardrails import GuardrailEventHooks
 
         guardrail_to_apply: Final[CustomGuardrail] = data.pop("guardrail_to_apply", None)
 
@@ -321,9 +321,9 @@ class UnifiedLLMGuardrails(CustomLogger):
             call_type = _infer_call_type(call_type=None, completion_response=response)
 
         if call_type is None:
-            litellm_logging_obj: Final = data.get("litellm_logging_obj")
+            embrouter_logging_obj: Final = data.get("embrouter_logging_obj")
             logging_call_type: Final = (
-                getattr(litellm_logging_obj, "call_type", None) if litellm_logging_obj is not None else None
+                getattr(embrouter_logging_obj, "call_type", None) if embrouter_logging_obj is not None else None
             )
             if logging_call_type in (
                 CallTypes.pass_through.value,
@@ -360,7 +360,7 @@ class UnifiedLLMGuardrails(CustomLogger):
             response = await endpoint_translation.process_output_response(
                 response=response,
                 guardrail_to_apply=guardrail_to_apply,
-                litellm_logging_obj=data.get("litellm_logging_obj"),
+                embrouter_logging_obj=data.get("embrouter_logging_obj"),
                 user_api_key_dict=user_api_key_dict,
                 request_data=data,
             )
@@ -416,7 +416,7 @@ class UnifiedLLMGuardrails(CustomLogger):
         the OpenAI chat completions handler only). Returning None makes the caller
         fall back to block_only.
         """
-        from litellm.llms.openai.chat.guardrail_translation.handler import (
+        from embrouter.llms.openai.chat.guardrail_translation.handler import (
             OpenAIChatCompletionsHandler,
         )
 
@@ -607,8 +607,8 @@ class UnifiedLLMGuardrails(CustomLogger):
         Raises ``_StreamTerminated`` (after emitting the terminal block message or
         in-stream error) when the guardrail blocks or an underflow occurs.
         """
-        from litellm.integrations.custom_guardrail import ModifyResponseException
-        from litellm.llms.base_llm.guardrail_translation.base_translation import (
+        from embrouter.integrations.custom_guardrail import ModifyResponseException
+        from embrouter.llms.base_llm.guardrail_translation.base_translation import (
             StreamTransformSink,
         )
 
@@ -617,7 +617,7 @@ class UnifiedLLMGuardrails(CustomLogger):
             await endpoint_translation.process_output_streaming_response(
                 responses_so_far=responses_so_far,
                 guardrail_to_apply=guardrail_to_apply,
-                litellm_logging_obj=request_data.get("litellm_logging_obj"),
+                embrouter_logging_obj=request_data.get("embrouter_logging_obj"),
                 user_api_key_dict=user_api_key_dict,
                 request_data=request_data,
                 stream_transform_sink=sink,
@@ -838,13 +838,13 @@ class UnifiedLLMGuardrails(CustomLogger):
         stream via the shared block handler; a GenericGuardrailAPI block raises and
         propagates, matching block_only.
         """
-        from litellm.integrations.custom_guardrail import ModifyResponseException
+        from embrouter.integrations.custom_guardrail import ModifyResponseException
 
         try:
             await endpoint_translation.process_output_streaming_response(
                 responses_so_far=responses_so_far,
                 guardrail_to_apply=guardrail_to_apply,
-                litellm_logging_obj=request_data.get("litellm_logging_obj"),
+                embrouter_logging_obj=request_data.get("embrouter_logging_obj"),
                 user_api_key_dict=user_api_key_dict,
                 request_data=request_data,
                 stream_transform_sink=None,
@@ -990,8 +990,8 @@ class UnifiedLLMGuardrails(CustomLogger):
         """
 
         # Local import avoids a module-level cyclic import with
-        # litellm.integrations.custom_guardrail.
-        from litellm.integrations.custom_guardrail import ModifyResponseException
+        # embrouter.integrations.custom_guardrail.
+        from embrouter.integrations.custom_guardrail import ModifyResponseException
 
         if guardrail_to_apply is None:
             guardrail_to_apply = request_data.pop("guardrail_to_apply", None)
@@ -1178,7 +1178,7 @@ class UnifiedLLMGuardrails(CustomLogger):
                     await endpoint_translation.process_output_streaming_response(
                         responses_so_far=responses_so_far,
                         guardrail_to_apply=guardrail_to_apply,
-                        litellm_logging_obj=request_data.get("litellm_logging_obj"),
+                        embrouter_logging_obj=request_data.get("embrouter_logging_obj"),
                         user_api_key_dict=user_api_key_dict,
                         request_data=request_data,
                     )
@@ -1270,7 +1270,7 @@ class UnifiedLLMGuardrails(CustomLogger):
                 await endpoint_translation.process_output_streaming_response(
                     responses_so_far=responses_so_far,
                     guardrail_to_apply=guardrail_to_apply,
-                    litellm_logging_obj=request_data.get("litellm_logging_obj"),
+                    embrouter_logging_obj=request_data.get("embrouter_logging_obj"),
                     user_api_key_dict=user_api_key_dict,
                     request_data=request_data,
                 )

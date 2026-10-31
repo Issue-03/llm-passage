@@ -8,11 +8,11 @@ Tests the CometAPIChatConfig class methods using mocks
 import pytest
 
 
-from litellm.llms.cometapi.chat.transformation import (
+from embrouter.llms.cometapi.chat.transformation import (
     CometAPIChatCompletionStreamingHandler,
     CometAPIConfig,
 )
-from litellm.llms.cometapi.common_utils import CometAPIException
+from embrouter.llms.cometapi.common_utils import CometAPIException
 
 
 class TestCometAPIChatCompletionStreamingHandler:
@@ -91,7 +91,7 @@ class TestCometAPIConfig:
             model="cometapi/gpt-3.5-turbo",
             messages=[{"role": "user", "content": "Hello, world!"}],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -108,7 +108,7 @@ class TestCometAPIConfig:
             model="cometapi/gpt-4",
             messages=[{"role": "user", "content": "Hello, world!"}],
             optional_params={"extra_body": {"custom_param": "custom_value"}},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -132,7 +132,7 @@ class TestCometAPIConfig:
                 }
             ],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 

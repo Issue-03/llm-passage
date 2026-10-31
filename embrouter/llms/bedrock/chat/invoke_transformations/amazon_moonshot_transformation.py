@@ -12,22 +12,22 @@ from typing import TYPE_CHECKING, Any, Final
 
 import httpx
 
-from litellm.llms.bedrock.chat.invoke_transformations.base_invoke_transformation import (
+from embrouter.llms.bedrock.chat.invoke_transformations.base_invoke_transformation import (
     AmazonInvokeConfig,
 )
-from litellm.llms.bedrock.common_utils import BedrockError
-from litellm.llms.moonshot.chat.transformation import MoonshotChatConfig
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.utils import Choices
+from embrouter.llms.bedrock.common_utils import BedrockError
+from embrouter.llms.moonshot.chat.transformation import MoonshotChatConfig
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.utils import Choices
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
-    from litellm.types.utils import ModelResponse
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.types.utils import ModelResponse
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 
 class AmazonMoonshotConfig(AmazonInvokeConfig, MoonshotChatConfig):
@@ -62,7 +62,7 @@ class AmazonMoonshotConfig(AmazonInvokeConfig, MoonshotChatConfig):
 
     def _get_model_id(self, model: str) -> str:
         """
-        Extract the actual model ID from the LiteLLM model name.
+        Extract the actual model ID from the EmbRouter model name.
 
         Removes routing prefixes like:
         - bedrock/invoke/moonshot.kimi-k2-thinking -> moonshot.kimi-k2-thinking
@@ -136,7 +136,7 @@ class AmazonMoonshotConfig(AmazonInvokeConfig, MoonshotChatConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         """
@@ -157,7 +157,7 @@ class AmazonMoonshotConfig(AmazonInvokeConfig, MoonshotChatConfig):
             model=clean_model_id,
             messages=messages,
             optional_params=inference_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
@@ -192,11 +192,11 @@ class AmazonMoonshotConfig(AmazonInvokeConfig, MoonshotChatConfig):
         model: str,
         raw_response: httpx.Response,
         model_response: "ModelResponse",
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         request_data: dict,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,
@@ -220,7 +220,7 @@ class AmazonMoonshotConfig(AmazonInvokeConfig, MoonshotChatConfig):
             request_data=request_data,
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             encoding=encoding,
             api_key=api_key,
             json_mode=json_mode,

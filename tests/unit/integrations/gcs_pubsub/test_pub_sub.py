@@ -8,19 +8,19 @@ from unittest.mock import ANY, MagicMock, Mock, patch
 import httpx
 import pytest
 
-import litellm
+import embrouter
 
 
 @pytest.mark.asyncio
 async def test_construct_request_headers_project_id_from_env(monkeypatch):
     """Test that construct_request_headers uses GCS_PUBSUB_PROJECT_ID environment variable."""
-    from litellm.integrations.gcs_pubsub.pub_sub import GcsPubSubLogger
+    from embrouter.integrations.gcs_pubsub.pub_sub import GcsPubSubLogger
 
     # Set up test environment variable
     test_project_id = "test-project-123"
     monkeypatch.setenv("GCS_PUBSUB_PROJECT_ID", test_project_id)
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.premium_user",
+        "embrouter.proxy.proxy_server.premium_user",
         True,
     )
 
@@ -35,12 +35,12 @@ async def test_construct_request_headers_project_id_from_env(monkeypatch):
         mock_token = "mock-token"
 
         with patch(
-            "litellm.vertex_chat_completion._ensure_access_token_async"
+            "embrouter.vertex_chat_completion._ensure_access_token_async"
         ) as mock_ensure_token:
             mock_ensure_token.return_value = (mock_auth_header, test_project_id)
 
             with patch(
-                "litellm.vertex_chat_completion._get_token_and_url"
+                "embrouter.vertex_chat_completion._get_token_and_url"
             ) as mock_get_token:
                 mock_get_token.return_value = (mock_token, "mock-url")
 

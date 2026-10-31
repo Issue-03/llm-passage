@@ -6,14 +6,14 @@ from pydantic import BaseModel
 
 if TYPE_CHECKING:
     from aiohttp import ClientSession
-from litellm.litellm_core_utils.audio_utils.utils import get_audio_file_name
-from litellm.litellm_core_utils.core_helpers import set_provider_response_headers_in_hidden_params
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.base_llm.audio_transcription.transformation import (
+from embrouter.embrouter_core_utils.audio_utils.utils import get_audio_file_name
+from embrouter.embrouter_core_utils.core_helpers import set_provider_response_headers_in_hidden_params
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.base_llm.audio_transcription.transformation import (
     BaseAudioTranscriptionConfig,
 )
-from litellm.types.utils import FileTypes
-from litellm.utils import (
+from embrouter.types.utils import FileTypes
+from embrouter.utils import (
     TranscriptionResponse,
     convert_to_model_response_object,
     extract_duration_from_srt_or_vtt,
@@ -58,11 +58,11 @@ class OpenAIAudioTranscription(OpenAIChatCompletion):
         model: str,
         audio_file: FileTypes,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         model_response: TranscriptionResponse,
         timeout: float,
         max_retries: int,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_key: str | None,
         api_base: str | None,
         client=None,
@@ -78,7 +78,7 @@ class OpenAIAudioTranscription(OpenAIChatCompletion):
                 model=model,
                 audio_file=audio_file,
                 optional_params=optional_params,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
             )
 
             data = cast(dict, transformed_data.data)
@@ -153,7 +153,7 @@ class OpenAIAudioTranscription(OpenAIChatCompletion):
         data: dict,
         model_response: TranscriptionResponse,
         timeout: float,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_key: str | None = None,
         api_base: str | None = None,
         client=None,

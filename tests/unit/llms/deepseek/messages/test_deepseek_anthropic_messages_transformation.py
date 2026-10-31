@@ -1,18 +1,18 @@
-import litellm
-from litellm.llms.anthropic.pass_through.messages.transformation import (
+import embrouter
+from embrouter.llms.anthropic.pass_through.messages.transformation import (
     AnthropicMessagesConfig,
 )
-from litellm.llms.deepseek.messages.transformation import (
+from embrouter.llms.deepseek.messages.transformation import (
     DeepSeekAnthropicMessagesConfig,
 )
-from litellm.types.router import GenericLiteLLMParams
-from litellm.utils import ProviderConfigManager
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.utils import ProviderConfigManager
 
 
 def test_deepseek_provider_uses_anthropic_messages_config():
     config = ProviderConfigManager.get_provider_anthropic_messages_config(
         model="deepseek-v4-pro",
-        provider=litellm.LlmProviders.DEEPSEEK,
+        provider=embrouter.LlmProviders.DEEPSEEK,
     )
 
     assert isinstance(config, DeepSeekAnthropicMessagesConfig)
@@ -29,7 +29,7 @@ def test_deepseek_anthropic_messages_config_defaults():
 def test_anthropic_provider_keeps_default_config_for_deepseek_named_model():
     config = ProviderConfigManager.get_provider_anthropic_messages_config(
         model="deepseek-v4-pro",
-        provider=litellm.LlmProviders.ANTHROPIC,
+        provider=embrouter.LlmProviders.ANTHROPIC,
     )
 
     assert isinstance(config, AnthropicMessagesConfig)
@@ -45,7 +45,7 @@ def test_deepseek_anthropic_messages_url_defaults_to_anthropic_endpoint():
             api_key=None,
             model="deepseek-v4-pro",
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
         )
         == "https://api.deepseek.com/anthropic/v1/messages"
     )
@@ -55,7 +55,7 @@ def test_deepseek_anthropic_messages_url_defaults_to_anthropic_endpoint():
             api_key=None,
             model="deepseek-v4-pro",
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
         )
         == "https://api.deepseek.com/anthropic/v1/messages"
     )
@@ -65,7 +65,7 @@ def test_deepseek_anthropic_messages_url_defaults_to_anthropic_endpoint():
             api_key=None,
             model="deepseek-v4-pro",
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
         )
         == "https://api.deepseek.com/anthropic/v1/messages"
     )
@@ -75,7 +75,7 @@ def test_deepseek_anthropic_messages_url_defaults_to_anthropic_endpoint():
             api_key=None,
             model="deepseek-v4-pro",
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
         )
         == "https://api.deepseek.com/anthropic/v1/messages"
     )
@@ -85,7 +85,7 @@ def test_deepseek_anthropic_messages_url_defaults_to_anthropic_endpoint():
             api_key=None,
             model="deepseek-v4-pro",
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
         )
         == "https://api.deepseek.com/anthropic/v1/messages"
     )
@@ -95,7 +95,7 @@ def test_deepseek_anthropic_messages_url_defaults_to_anthropic_endpoint():
             api_key=None,
             model="deepseek-v4-pro",
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
         )
         == "https://api.deepseek.com/anthropic/v1/messages"
     )
@@ -109,7 +109,7 @@ def test_deepseek_anthropic_messages_headers_use_deepseek_key():
         model="deepseek-v4-pro",
         messages=[],
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         api_key="sk-deepseek",
         api_base="https://example.test/anthropic",
     )
@@ -175,7 +175,7 @@ def test_deepseek_anthropic_messages_preserves_thinking_and_sanitizes_custom_too
                 },
             ],
         },
-        litellm_params=GenericLiteLLMParams(),
+        embrouter_params=GenericEmbRouterParams(),
         headers={},
     )
 

@@ -5,24 +5,24 @@ from typing import TYPE_CHECKING, Any, Final, Literal, Protocol, Union, get_args
 import httpx
 from pydantic import fields as pyd_fields
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.litellm_core_utils.core_helpers import process_response_headers
-from litellm.litellm_core_utils.llm_response_utils.convert_dict_to_response import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.embrouter_core_utils.core_helpers import process_response_headers
+from embrouter.embrouter_core_utils.llm_response_utils.convert_dict_to_response import (
     _safe_convert_created_field,
 )
-from litellm.litellm_core_utils.url_utils import encode_url_path_segment
-from litellm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.openai import (
+from embrouter.embrouter_core_utils.url_utils import encode_url_path_segment
+from embrouter.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.openai import (
     ResponseInputParam,
     ResponsesAPIOptionalRequestParams,
     ResponsesAPIResponse,
     ResponsesAPIStreamingResponse,
 )
-from litellm.types.responses.main import DeleteResponseResult
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import LlmProviders
+from embrouter.types.responses.main import DeleteResponseResult
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import LlmProviders
 
 from ..common_utils import (
     VolcEngineError,
@@ -31,11 +31,11 @@ from ..common_utils import (
 )
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 
 class _EventModelClass(Protocol):
@@ -64,7 +64,7 @@ class VolcEngineResponsesAPIConfig(OpenAIResponsesAPIConfig):
         "caching",
         "expire_at",
         "context_management",
-        # LiteLLM-internal metadata (not sent to provider)
+        # EmbRouter-internal metadata (not sent to provider)
         "metadata",
         # Request plumbing helpers
         "extra_headers",
@@ -95,18 +95,18 @@ class VolcEngineResponsesAPIConfig(OpenAIResponsesAPIConfig):
             headers=typed_headers,
         )
 
-    def validate_environment(self, headers: dict, model: str, litellm_params: GenericLiteLLMParams | None) -> dict:
+    def validate_environment(self, headers: dict, model: str, embrouter_params: GenericEmbRouterParams | None) -> dict:
         """
         Build auth headers for Volcengine Responses API.
         """
-        if litellm_params is None:
-            litellm_params = GenericLiteLLMParams()
-        elif isinstance(litellm_params, dict):
-            litellm_params = GenericLiteLLMParams.model_validate(litellm_params)
+        if embrouter_params is None:
+            embrouter_params = GenericEmbRouterParams()
+        elif isinstance(embrouter_params, dict):
+            embrouter_params = GenericEmbRouterParams.model_validate(embrouter_params)
 
         api_key: Final = (
-            litellm_params.api_key
-            or litellm.api_key
+            embrouter_params.api_key
+            or embrouter.api_key
             or get_secret_str("ARK_API_KEY")
             or get_secret_str("VOLCENGINE_API_KEY")
         )
@@ -119,14 +119,14 @@ class VolcEngineResponsesAPIConfig(OpenAIResponsesAPIConfig):
     def get_complete_url(
         self,
         api_base: str | None,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> str:
         """
         Construct Volcengine Responses API endpoint.
         """
         base_url = (
             api_base
-            or litellm.api_base
+            or embrouter.api_base
             or get_secret_str("VOLCENGINE_API_BASE")
             or get_secret_str("ARK_API_BASE")
             or get_volcengine_base_url()
@@ -156,7 +156,7 @@ class VolcEngineResponsesAPIConfig(OpenAIResponsesAPIConfig):
             if key in self._SUPPORTED_OPTIONAL_PARAMS
         }
 
-        # LiteLLM metadata is internal-only; don't send to provider
+        # EmbRouter metadata is internal-only; don't send to provider
         params.pop("metadata", None)
 
         # Volcengine docs do not list parallel_tool_calls; drop it to avoid backend errors.
@@ -171,7 +171,7 @@ class VolcEngineResponsesAPIConfig(OpenAIResponsesAPIConfig):
         model: str,
         input: str | ResponseInputParam,
         response_api_optional_request_params: dict,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> dict:
         """
@@ -199,7 +199,7 @@ class VolcEngineResponsesAPIConfig(OpenAIResponsesAPIConfig):
             model=model,
             input=input,
             response_api_optional_request_params=sanitized_optional,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
@@ -207,7 +207,7 @@ class VolcEngineResponsesAPIConfig(OpenAIResponsesAPIConfig):
         self,
         model: str,
         parsed_chunk: Mapping[str, object],
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> ResponsesAPIStreamingResponse:
         """
         Volcengine may omit required fields; auto-fill them using event model defaults.
@@ -236,7 +236,7 @@ class VolcEngineResponsesAPIConfig(OpenAIResponsesAPIConfig):
         self,
         model: str,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> ResponsesAPIResponse:
         try:
             logging_obj.post_call(
@@ -270,7 +270,7 @@ class VolcEngineResponsesAPIConfig(OpenAIResponsesAPIConfig):
         self,
         response_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict]:
         encoded_response_id: Final = encode_url_path_segment(response_id, field_name="response_id")
@@ -281,7 +281,7 @@ class VolcEngineResponsesAPIConfig(OpenAIResponsesAPIConfig):
     def transform_delete_response_api_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> DeleteResponseResult:
         try:
             raw_response_json: Final = self._parsed_response_body(raw_response)
@@ -303,7 +303,7 @@ class VolcEngineResponsesAPIConfig(OpenAIResponsesAPIConfig):
         self,
         response_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict]:
         encoded_response_id: Final = encode_url_path_segment(response_id, field_name="response_id")
@@ -314,7 +314,7 @@ class VolcEngineResponsesAPIConfig(OpenAIResponsesAPIConfig):
     def transform_get_response_api_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> ResponsesAPIResponse:
         try:
             raw_response_json: Final = self._parsed_response_body(raw_response)
@@ -336,7 +336,7 @@ class VolcEngineResponsesAPIConfig(OpenAIResponsesAPIConfig):
         self,
         response_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
         after: str | None = None,
         before: str | None = None,
@@ -362,7 +362,7 @@ class VolcEngineResponsesAPIConfig(OpenAIResponsesAPIConfig):
     def transform_list_input_items_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> dict:
         try:
             return self._parsed_response_body(raw_response)
@@ -376,7 +376,7 @@ class VolcEngineResponsesAPIConfig(OpenAIResponsesAPIConfig):
         self,
         response_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict]:
         encoded_response_id: Final = encode_url_path_segment(response_id, field_name="response_id")
@@ -387,7 +387,7 @@ class VolcEngineResponsesAPIConfig(OpenAIResponsesAPIConfig):
     def transform_cancel_response_api_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> ResponsesAPIResponse:
         try:
             raw_response_json: Final = self._parsed_response_body(raw_response)

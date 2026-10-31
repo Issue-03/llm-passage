@@ -10,7 +10,7 @@ from urllib.parse import urlparse
 import click
 from pydantic import TypeAdapter
 
-from litellm.litellm_core_utils.private_json import ensure_private_dir, write_private_json
+from embrouter.embrouter_core_utils.private_json import ensure_private_dir, write_private_json
 
 HIDDEN_COMMANDS_KEY: Final = "hidden_commands"
 
@@ -20,7 +20,7 @@ _config_adapter: Final[TypeAdapter[Mapping[str, str]]] = TypeAdapter(Mapping[str
 def get_config_file_path() -> str:
     """Get the path to the persistent CLI config file"""
     home_dir: Final = Path.home()
-    config_dir: Final = home_dir / ".litellm"
+    config_dir: Final = home_dir / ".embrouter"
     return str(config_dir / "config.json")
 
 
@@ -100,7 +100,7 @@ ALLOWED_CONFIG_KEYS: Final[tuple[str, ...]] = tuple(_NORMALIZERS)
 
 @click.group(name="config")
 def config_commands() -> None:
-    """Manage persistent CLI configuration (~/.litellm/config.json)"""
+    """Manage persistent CLI configuration (~/.embrouter/config.json)"""
 
 
 @config_commands.command(name="set")

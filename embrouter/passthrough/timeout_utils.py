@@ -5,7 +5,7 @@ from typing import Final
 
 from pydantic import TypeAdapter
 
-from litellm.litellm_core_utils.request_timeout_resolver import get_configured_request_timeout
+from embrouter.embrouter_core_utils.request_timeout_resolver import get_configured_request_timeout
 
 DEFAULT_PASS_THROUGH_REQUEST_TIMEOUT_SECONDS: Final = 600.0
 
@@ -28,7 +28,7 @@ def resolve_pass_through_request_timeout(
         return float(endpoint_timeout)
 
     try:
-        proxy_server: Final = sys.modules.get("litellm.proxy.proxy_server")
+        proxy_server: Final = sys.modules.get("embrouter.proxy.proxy_server")
         if proxy_server is not None:
             global_timeout: Final = getattr(proxy_server, "general_settings", {}).get("pass_through_request_timeout")
             if global_timeout is not None:
@@ -41,7 +41,7 @@ def resolve_pass_through_request_timeout(
 
 def resolve_llm_passthrough_timeout(
     kwargs: Mapping[str, object] | None = None,
-    litellm_params: Mapping[str, object] | None = None,
+    embrouter_params: Mapping[str, object] | None = None,
     router_timeout: float | str | None = None,
     router_stream_timeout: float | str | None = None,
 ) -> float:
@@ -49,20 +49,20 @@ def resolve_llm_passthrough_timeout(
     Resolve upstream httpx timeout for SDK native passthrough (e.g. Bedrock /converse,
     Anthropic /v1/messages).
 
-    Non-streaming precedence: kwargs timeout/request_timeout -> litellm_params
-    timeout/request_timeout -> router_timeout -> litellm.request_timeout (litellm_settings.request_timeout,
+    Non-streaming precedence: kwargs timeout/request_timeout -> embrouter_params
+    timeout/request_timeout -> router_timeout -> embrouter.request_timeout (embrouter_settings.request_timeout,
     when explicitly set) -> general_settings.pass_through_request_timeout -> 600s default.
 
     Streaming (``kwargs["stream"]`` truthy) resolves ``stream_timeout`` at every level before
     any generic timeout, matching ``Router._get_stream_timeout`` on the completion route:
-    kwargs stream_timeout -> litellm_params stream_timeout -> router_stream_timeout, then the
+    kwargs stream_timeout -> embrouter_params stream_timeout -> router_stream_timeout, then the
     non-streaming chain above.
 
     Only the first set value is validated as seconds, so a value in a lower-precedence
     field never fails the call.
     """
     request: Final = kwargs if kwargs is not None else _NO_PARAMS
-    deployment: Final = litellm_params if litellm_params is not None else _NO_PARAMS
+    deployment: Final = embrouter_params if embrouter_params is not None else _NO_PARAMS
     stream_candidates: Final = (
         (request.get("stream_timeout"), deployment.get("stream_timeout"), router_stream_timeout)
         if request.get("stream")

@@ -3,15 +3,15 @@ from unittest.mock import patch
 
 import pytest
 
-import litellm
-from litellm.llms.litellm_proxy.chat.transformation import LiteLLMProxyChatConfig
+import embrouter
+from embrouter.llms.embrouter_proxy.chat.transformation import EmbRouterProxyChatConfig
 
 
-def test_litellm_proxy_chat_transformation():
+def test_embrouter_proxy_chat_transformation():
     """
-    Assert messages are not transformed when calling litellm proxy
+    Assert messages are not transformed when calling embrouter proxy
     """
-    config = LiteLLMProxyChatConfig()
+    config = EmbRouterProxyChatConfig()
     file_content = [
         {"type": "text", "text": "What is this document about?"},
         {
@@ -27,15 +27,15 @@ def test_litellm_proxy_chat_transformation():
         model="model",
         messages=messages,
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     ) == {"model": "model", "messages": messages}
 
 
-def test_litellm_gateway_from_sdk_with_user_param():
-    from litellm.llms.litellm_proxy.chat.transformation import LiteLLMProxyChatConfig
+def test_embrouter_gateway_from_sdk_with_user_param():
+    from embrouter.llms.embrouter_proxy.chat.transformation import EmbRouterProxyChatConfig
 
-    supported_params = LiteLLMProxyChatConfig().get_supported_openai_params(
+    supported_params = EmbRouterProxyChatConfig().get_supported_openai_params(
         "openai/gpt-4o"
     )
     print(f"supported_params: {supported_params}")

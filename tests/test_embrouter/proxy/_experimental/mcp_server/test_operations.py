@@ -4,23 +4,23 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from mcp.types import GetPromptRequest, GetPromptRequestParams, GetPromptResult
 
-from litellm.proxy._experimental.mcp_server.operations import GatewayOperations, prepare_context
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.types.mcp import MCPAuth, MCPTransport
-from litellm.types.mcp_server.mcp_server_manager import MCPServer
+from embrouter.proxy._experimental.mcp_server.operations import GatewayOperations, prepare_context
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.types.mcp import MCPAuth, MCPTransport
+from embrouter.types.mcp_server.mcp_server_manager import MCPServer
 
 
 @pytest.mark.asyncio
 async def test_oauth_prefetch_failure_does_not_log_caller_or_exception_text(caplog):
-    from litellm.proxy._experimental.mcp_server.operations import _prefetch_oauth_creds_for_user
+    from embrouter.proxy._experimental.mcp_server.operations import _prefetch_oauth_creds_for_user
 
     user_id = "caller\nFORGED-USER-LINE"
     fetch = AsyncMock(side_effect=RuntimeError("database\nFORGED-ERROR-LINE"))
     database = object()
     with (
-        patch("litellm.proxy.utils.get_prisma_client_or_throw", return_value=database),
-        patch("litellm.proxy._experimental.mcp_server.db.list_user_oauth_credentials", fetch),
-        caplog.at_level("WARNING", logger="LiteLLM"),
+        patch("embrouter.proxy.utils.get_prisma_client_or_throw", return_value=database),
+        patch("embrouter.proxy._experimental.mcp_server.db.list_user_oauth_credentials", fetch),
+        caplog.at_level("WARNING", logger="EmbRouter"),
     ):
         result = await _prefetch_oauth_creds_for_user(UserAPIKeyAuth(user_id=user_id))
     assert result == {}
@@ -36,7 +36,7 @@ async def test_oauth_prefetch_failure_does_not_log_caller_or_exception_text(capl
 async def test_dispatch_uses_explicit_context_when_ambient_caller_differs():
     from mcp.server.auth.middleware.auth_context import auth_context_var
 
-    from litellm.proxy._experimental.mcp_server.server import set_auth_context
+    from embrouter.proxy._experimental.mcp_server.server import set_auth_context
 
     context = prepare_context(
         UserAPIKeyAuth(user_id="alpha"),
@@ -48,7 +48,7 @@ async def test_dispatch_uses_explicit_context_when_ambient_caller_differs():
     handler = AsyncMock(return_value=GetPromptResult(messages=[]))
     try:
         set_auth_context(UserAPIKeyAuth(user_id="bravo"), raw_headers={"x-caller": "bravo"})
-        with patch("litellm.proxy._experimental.mcp_server.operations.mcp_get_prompt", handler):
+        with patch("embrouter.proxy._experimental.mcp_server.operations.mcp_get_prompt", handler):
             result = await GatewayOperations().execute(
                 GetPromptRequest(params=GetPromptRequestParams(name="alpha-prompt")), context
             )
@@ -66,8 +66,8 @@ async def test_dispatch_uses_explicit_context_when_ambient_caller_differs():
 async def test_legacy_adapter_cleans_context_after_cancelled_operation():
     from types import SimpleNamespace
 
-    from litellm.proxy._experimental.mcp_server import server
-    from litellm.proxy._experimental.mcp_server.mcp_context import active_mcp_request_ctx_var
+    from embrouter.proxy._experimental.mcp_server import server
+    from embrouter.proxy._experimental.mcp_server.mcp_context import active_mcp_request_ctx_var
 
     previous_session = server.active_mcp_session_var.get()
     previous_request = active_mcp_request_ctx_var.get()
@@ -81,7 +81,7 @@ async def test_legacy_adapter_cleans_context_after_cancelled_operation():
             raise asyncio.CancelledError
 
     with patch(
-        "litellm.proxy._experimental.mcp_server.server.get_or_extract_auth_context", AsyncMock(return_value=auth)
+        "embrouter.proxy._experimental.mcp_server.server.get_or_extract_auth_context", AsyncMock(return_value=auth)
     ):
         with pytest.raises(asyncio.CancelledError):
             await cancelled_operation()
@@ -93,8 +93,8 @@ async def test_legacy_adapter_cleans_context_after_cancelled_operation():
 async def test_legacy_adapter_cleans_context_when_trace_setup_fails():
     from types import SimpleNamespace
 
-    from litellm.proxy._experimental.mcp_server import server
-    from litellm.proxy._experimental.mcp_server.mcp_context import active_mcp_request_ctx_var
+    from embrouter.proxy._experimental.mcp_server import server
+    from embrouter.proxy._experimental.mcp_server.mcp_context import active_mcp_request_ctx_var
 
     previous_session = server.active_mcp_session_var.get()
     previous_request = active_mcp_request_ctx_var.get()
@@ -115,9 +115,9 @@ async def test_legacy_adapter_cleans_context_when_trace_setup_fails():
 async def test_prompt_sampling_receives_explicit_operation_caller_headers_and_ip():
     from unittest.mock import MagicMock
 
-    from litellm.proxy._experimental.mcp_server import operations
-    from litellm.types.mcp import MCPTransport
-    from litellm.types.mcp_server.mcp_server_manager import MCPServer
+    from embrouter.proxy._experimental.mcp_server import operations
+    from embrouter.types.mcp import MCPTransport
+    from embrouter.types.mcp_server.mcp_server_manager import MCPServer
 
     upstream = MCPServer(
         server_id="explicit-prompt",
@@ -136,8 +136,8 @@ async def test_prompt_sampling_receives_explicit_operation_caller_headers_and_ip
     sampling = AsyncMock()
     with (
         patch.object(operations, "_get_allowed_mcp_servers", AsyncMock(return_value=[upstream])),
-        patch("litellm.proxy._experimental.mcp_server.mcp_server_manager.MCPClient", return_value=client) as factory,
-        patch("litellm.proxy._experimental.mcp_server.sampling_handler.handle_sampling_create_message", sampling),
+        patch("embrouter.proxy._experimental.mcp_server.mcp_server_manager.MCPClient", return_value=client) as factory,
+        patch("embrouter.proxy._experimental.mcp_server.sampling_handler.handle_sampling_create_message", sampling),
     ):
         result = await GatewayOperations().execute(
             GetPromptRequest(params=GetPromptRequestParams(name="explicit_prompt-prompt")), context
@@ -210,9 +210,9 @@ async def test_native_catalog_operations_preserve_context_results_and_failure_po
     from mcp.server.context import ServerRequestContext
     from mcp.types import PaginatedRequestParams
 
-    from litellm.proxy._experimental.mcp_server import operations, server
-    from litellm.types.mcp import MCPTransport
-    from litellm.types.mcp_server.mcp_server_manager import MCPServer
+    from embrouter.proxy._experimental.mcp_server import operations, server
+    from embrouter.types.mcp import MCPTransport
+    from embrouter.types.mcp_server.mcp_server_manager import MCPServer
 
     operation, handler_name, manager_method, payload, collection = _catalog_case(method)
     caller = UserAPIKeyAuth(user_id="catalog-caller")
@@ -267,7 +267,7 @@ async def test_explicit_proxy_context_rejects_catalog_operations_before_upstream
     from mcp.shared.exceptions import MCPError
     from mcp.types import METHOD_NOT_FOUND
 
-    from litellm.proxy._experimental.mcp_server import operations
+    from embrouter.proxy._experimental.mcp_server import operations
 
     operation, _, manager_method, _, _ = _catalog_case(method)
     upstream = AsyncMock()
@@ -284,9 +284,9 @@ async def test_explicit_proxy_context_rejects_catalog_operations_before_upstream
 async def test_tool_operation_preserves_failure_messages_and_request_trace(failure):
     from mcp.types import CallToolRequest, CallToolRequestParams
 
-    from litellm.exceptions import BlockedPiiEntityError, GuardrailRaisedException
-    from litellm.proxy._experimental.mcp_server import operations
-    from litellm.proxy._experimental.mcp_server.utils import MCPMissingUserEnvVarsError
+    from embrouter.exceptions import BlockedPiiEntityError, GuardrailRaisedException
+    from embrouter.proxy._experimental.mcp_server import operations
+    from embrouter.proxy._experimental.mcp_server.utils import MCPMissingUserEnvVarsError
 
     failures = {
         "missing_env": (
@@ -305,7 +305,7 @@ async def test_tool_operation_preserves_failure_messages_and_request_trace(failu
     error, expected = failures[failure]
     dispatch = AsyncMock(side_effect=error)
     context = prepare_context(
-        raw_headers={"x-litellm-trace-id": "operation-trace", "authorization": "private-test-header"}
+        raw_headers={"x-embrouter-trace-id": "operation-trace", "authorization": "private-test-header"}
     )
     with patch.object(operations, "call_mcp_tool", dispatch):
         result = await GatewayOperations().execute(
@@ -315,8 +315,8 @@ async def test_tool_operation_preserves_failure_messages_and_request_trace(failu
     assert expected in result.content[0].text
     assert "private-test-header" not in result.content[0].text
     dispatch.assert_awaited_once()
-    assert dispatch.await_args.kwargs["litellm_trace_id"] == "operation-trace"
-    assert dispatch.await_args.kwargs["litellm_session_id"] == "operation-trace"
+    assert dispatch.await_args.kwargs["embrouter_trace_id"] == "operation-trace"
+    assert dispatch.await_args.kwargs["embrouter_session_id"] == "operation-trace"
 
 
 @pytest.mark.asyncio
@@ -329,7 +329,7 @@ async def test_tool_operation_preserves_failure_messages_and_request_trace(failu
     ],
 )
 async def test_catalog_operation_preserves_empty_result_for_malformed_upstream_items(method, helper):
-    from litellm.proxy._experimental.mcp_server import operations
+    from embrouter.proxy._experimental.mcp_server import operations
 
     operation, _, _, _, collection = _catalog_case(method)
     with patch.object(operations, helper, AsyncMock(return_value=[{"unexpected": "item"}])):
@@ -342,7 +342,7 @@ async def test_catalog_operation_preserves_empty_result_for_malformed_upstream_i
 async def test_tool_listing_returns_empty_result_without_dispatch_for_unavailable_catalog(catalog_unavailable):
     from mcp.types import ListToolsRequest
 
-    from litellm.proxy._experimental.mcp_server import operations
+    from embrouter.proxy._experimental.mcp_server import operations
 
     allowed = AsyncMock(
         return_value=[], side_effect=RuntimeError("catalog unavailable") if catalog_unavailable else None
@@ -362,7 +362,7 @@ async def test_tool_listing_returns_empty_result_without_dispatch_for_unavailabl
 async def test_explicit_proxy_context_lists_builtin_tools_and_blocks_direct_tool_dispatch():
     from mcp.types import CallToolRequest, CallToolRequestParams, ListToolsRequest
 
-    from litellm.proxy._experimental.mcp_server import operations
+    from embrouter.proxy._experimental.mcp_server import operations
 
     context = prepare_context(mcp_proxy_mode=True)
     allowed = AsyncMock()
@@ -404,7 +404,7 @@ class TestChallengeMissingTokenExchangeSubject:
         raw_headers: dict[str, str] | None = None,
         requested_server: MCPServer | None = None,
     ) -> None:
-        from litellm.proxy._experimental.mcp_server.operations import _challenge_missing_token_exchange_subject
+        from embrouter.proxy._experimental.mcp_server.operations import _challenge_missing_token_exchange_subject
 
         return _challenge_missing_token_exchange_subject(
             server=server,
@@ -424,7 +424,7 @@ class TestChallengeMissingTokenExchangeSubject:
                 server,
                 [server],
                 user=UserAPIKeyAuth(api_key="sk-admission"),
-                raw_headers={"x-litellm-api-key": "sk-admission"},
+                raw_headers={"x-embrouter-api-key": "sk-admission"},
             )
         assert exc_info.value.status_code == 401
         challenge = (exc_info.value.headers or {}).get("WWW-Authenticate", "")
@@ -436,7 +436,7 @@ class TestChallengeMissingTokenExchangeSubject:
         ["Bearer sk-admission", "Bearer sk-some-other-virtual-key"],
         ids=["repeated-admission-key", "another-virtual-key"],
     )
-    def test_litellm_key_in_authorization_is_not_a_subject(self, authorization: str):
+    def test_embrouter_key_in_authorization_is_not_a_subject(self, authorization: str):
         from fastapi import HTTPException
 
         server = _server("te-vk", MCPAuth.oauth2_token_exchange)
@@ -446,7 +446,7 @@ class TestChallengeMissingTokenExchangeSubject:
                 [server],
                 user=UserAPIKeyAuth(api_key="sk-admission"),
                 oauth2_headers={"Authorization": authorization},
-                raw_headers={"x-litellm-api-key": "sk-admission", "authorization": authorization},
+                raw_headers={"x-embrouter-api-key": "sk-admission", "authorization": authorization},
             )
         assert exc_info.value.status_code == 401
 
@@ -459,7 +459,7 @@ class TestChallengeMissingTokenExchangeSubject:
                 [server],
                 user=UserAPIKeyAuth(api_key="sk-admission"),
                 oauth2_headers={"Authorization": "Bearer idp-subject"},
-                raw_headers={"x-litellm-api-key": "sk-admission", "authorization": "Bearer idp-subject"},
+                raw_headers={"x-embrouter-api-key": "sk-admission", "authorization": "Bearer idp-subject"},
             )
             is None
         )
@@ -500,7 +500,7 @@ async def test_execute_mcp_tool_challenges_missing_subject_before_cold_listing()
 
     from fastapi import HTTPException
 
-    from litellm.proxy._experimental.mcp_server import operations
+    from embrouter.proxy._experimental.mcp_server import operations
 
     server = _server("te-exec", MCPAuth.oauth2_token_exchange)
     listing = AsyncMock()
@@ -516,7 +516,7 @@ async def test_execute_mcp_tool_challenges_missing_subject_before_cold_listing()
             allowed_mcp_servers=[server],
             start_time=datetime.now(timezone.utc),
             user_api_key_auth=UserAPIKeyAuth(api_key="sk-admission"),
-            raw_headers={"x-litellm-api-key": "sk-admission"},
+            raw_headers={"x-embrouter-api-key": "sk-admission"},
             requested_server_id=server.server_id,
         )
     assert exc_info.value.status_code == 401
@@ -530,9 +530,9 @@ async def test_local_tool_json_array_is_converted_once_for_the_caller_revision(c
     text block; converting at the caller's revision keeps the upstream body exactly once."""
     from unittest.mock import MagicMock
 
-    from litellm.proxy._experimental.mcp_server import operations
-    from litellm.proxy._experimental.mcp_server.tool_outcome import WireCompat, parse_http_body
-    from litellm.proxy._experimental.mcp_server.tool_registry import global_mcp_tool_registry
+    from embrouter.proxy._experimental.mcp_server import operations
+    from embrouter.proxy._experimental.mcp_server.tool_outcome import WireCompat, parse_http_body
+    from embrouter.proxy._experimental.mcp_server.tool_registry import global_mcp_tool_registry
 
     body = '["a","b"]'
     tool = MagicMock()
@@ -550,7 +550,7 @@ async def test_discovery_preserves_caller_scope_and_proxy_restrictions():
 
     listed = AsyncMock(return_value=ListToolsResult(tools=[Tool(name="allowed", input_schema={"type": "object"})]))
     context = prepare_context(UserAPIKeyAuth(user_id="scoped"), mcp_servers=["only-this"], mcp_proxy_mode=True, protocol_version="2025-06-18")
-    with patch("litellm.proxy._experimental.mcp_server.operations._execute_handle_list_tools", listed):
+    with patch("embrouter.proxy._experimental.mcp_server.operations._execute_handle_list_tools", listed):
         result = await GatewayOperations().execute(DiscoverRequest(), context)
     assert result.capabilities.tools is not None
     assert result.capabilities.resources is None
@@ -566,7 +566,7 @@ async def test_discovery_denial_cannot_advertise_tools():
     from fastapi import HTTPException
 
     denied = AsyncMock(side_effect=HTTPException(status_code=403, detail="Forbidden"))
-    with patch("litellm.proxy._experimental.mcp_server.operations._execute_handle_list_tools", denied):
+    with patch("embrouter.proxy._experimental.mcp_server.operations._execute_handle_list_tools", denied):
         with pytest.raises(HTTPException) as error:
             await GatewayOperations().execute(DiscoverRequest(), prepare_context(UserAPIKeyAuth(user_id="denied")))
     assert error.value.status_code == 403
@@ -579,7 +579,7 @@ async def test_discovery_lists_each_capability_with_the_same_caller(available):
         DiscoverRequest, ListToolsResult, ListPromptsResult, ListResourcesResult,
         ListResourceTemplatesResult, Prompt, Resource, ResourceTemplate,
     )
-    from litellm.proxy._experimental.mcp_server import operations
+    from embrouter.proxy._experimental.mcp_server import operations
 
     context = prepare_context(UserAPIKeyAuth(user_id="scoped"), mcp_servers=["authorized"])
     tools = AsyncMock(return_value=ListToolsResult(tools=[]))
@@ -604,7 +604,7 @@ async def test_discovery_lists_each_capability_with_the_same_caller(available):
 @pytest.mark.parametrize("outcome", ["success", "failure", "cancel"])
 async def test_discovery_concurrent_listings_drain_on_failure_and_cancellation(outcome):
     from mcp.types import DiscoverRequest, ListToolsResult, ListPromptsResult, ListResourcesResult, ListResourceTemplatesResult
-    from litellm.proxy._experimental.mcp_server import operations
+    from embrouter.proxy._experimental.mcp_server import operations
 
     ready = [asyncio.Event() for _ in range(4)]
     closed = [asyncio.Event() for _ in range(4)]
@@ -655,7 +655,7 @@ async def test_discovery_concurrent_listings_drain_on_failure_and_cancellation(o
 @pytest.mark.parametrize("log_enabled", [False, True])
 async def test_tools_listing_preserves_explicit_spend_log_policy(log_enabled):
     from mcp.types import PaginatedRequestParams
-    from litellm.proxy._experimental.mcp_server import operations
+    from embrouter.proxy._experimental.mcp_server import operations
 
     listing = AsyncMock(return_value=operations.AggregateToolListing(tools=[], outcomes={}))
     with patch.object(operations, "_list_mcp_tools", listing):

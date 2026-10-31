@@ -88,8 +88,8 @@ export async function makeOpenAIChatCompletionRequest(
         // All MCP Servers selected
         tools.push({
           type: "mcp",
-          server_label: "litellm",
-          server_url: "litellm_proxy/mcp",
+          server_label: "embrouter",
+          server_url: "embrouter_proxy/mcp",
           require_approval: "never",
         });
       } else {
@@ -102,7 +102,7 @@ export async function makeOpenAIChatCompletionRequest(
             tools.push({
               type: "mcp",
               server_label: toolsetName,
-              server_url: `litellm_proxy/mcp/${encodeURIComponent(toolsetName)}`,
+              server_url: `embrouter_proxy/mcp/${encodeURIComponent(toolsetName)}`,
               require_approval: "never",
             });
           } else {
@@ -112,8 +112,8 @@ export async function makeOpenAIChatCompletionRequest(
 
             tools.push({
               type: "mcp",
-              server_label: "litellm",
-              server_url: `litellm_proxy/mcp/${serverName}`,
+              server_label: "embrouter",
+              server_url: `embrouter_proxy/mcp/${serverName}`,
               require_approval: "never",
               ...(allowedTools.length > 0 ? { allowed_tools: allowedTools } : {}),
             });
@@ -124,7 +124,7 @@ export async function makeOpenAIChatCompletionRequest(
 
     const requestBody = {
       model: selectedModel,
-      litellm_trace_id: traceId,
+      embrouter_trace_id: traceId,
       messages: chatHistory as ChatCompletionMessageParam[],
       ...(vector_store_ids ? { vector_store_ids } : {}),
       ...(guardrails ? { guardrails } : {}),
@@ -144,7 +144,7 @@ export async function makeOpenAIChatCompletionRequest(
           const nonStreamingResponse = await client.chat.completions
             .create({ ...requestBody, stream: false }, { signal })
             .withResponse();
-          servedFromResponseCache = nonStreamingResponse.response.headers.get("x-litellm-cache-key") !== null;
+          servedFromResponseCache = nonStreamingResponse.response.headers.get("x-embrouter-cache-key") !== null;
           return [completionAsSingleChunk(nonStreamingResponse.data)];
         })();
 

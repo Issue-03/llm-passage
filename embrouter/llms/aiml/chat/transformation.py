@@ -1,7 +1,7 @@
 from typing import Final
 
-from litellm.llms.openai.chat.gpt_transformation import OpenAIGPTConfig
-from litellm.secret_managers.main import get_secret_str
+from embrouter.llms.openai.chat.gpt_transformation import OpenAIGPTConfig
+from embrouter.secret_managers.main import get_secret_str
 
 
 class AIMLChatConfig(OpenAIGPTConfig):

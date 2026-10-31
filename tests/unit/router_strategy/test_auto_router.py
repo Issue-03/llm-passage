@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 
-from litellm.router_strategy.auto_router.auto_router import AutoRouter
+from embrouter.router_strategy.auto_router.auto_router import AutoRouter
 
 pytestmark_skip_beta = pytest.mark.skip(
     reason="Skipping auto router tests - beta feature"
@@ -154,7 +154,7 @@ class TestExtractTextFromMessages:
 
 @pytest.fixture
 def mock_router_instance():
-    """Create a mock LiteLLM Router instance."""
+    """Create a mock EmbRouter Router instance."""
     router = MagicMock()
     router.acompletion = AsyncMock()
     return router
@@ -199,7 +199,7 @@ class TestAutoRouter:
             auto_router_config_path=router_config_path,
             default_model=default_model,
             embedding_model=embedding_model,
-            litellm_router_instance=mock_router_instance,
+            embrouter_router_instance=mock_router_instance,
         )
 
         # Assert
@@ -207,13 +207,13 @@ class TestAutoRouter:
         assert auto_router.auto_sync_value == AutoRouter.DEFAULT_AUTO_SYNC_VALUE
         assert auto_router.default_model == default_model
         assert auto_router.embedding_model == embedding_model
-        assert auto_router.litellm_router_instance == mock_router_instance
+        assert auto_router.embrouter_router_instance == mock_router_instance
         assert auto_router.routelayer is None
         mock_semantic_router_class.from_json.assert_called_once_with(router_config_path)
 
     @pytest.mark.asyncio
     @patch("semantic_router.routers.SemanticRouter")
-    @patch("litellm.router_strategy.auto_router.litellm_encoder.LiteLLMRouterEncoder")
+    @patch("embrouter.router_strategy.auto_router.embrouter_encoder.EmbRouterRouterEncoder")
     async def test_async_pre_routing_hook_with_route_choice(
         self,
         mock_encoder_class,
@@ -236,7 +236,7 @@ class TestAutoRouter:
             auto_router_config_path="test/path/router.json",
             default_model="gpt-4o-mini",
             embedding_model="text-embedding-model",
-            litellm_router_instance=mock_router_instance,
+            embrouter_router_instance=mock_router_instance,
         )
 
         messages = [{"role": "user", "content": "test message"}]
@@ -254,7 +254,7 @@ class TestAutoRouter:
 
     @pytest.mark.asyncio
     @patch("semantic_router.routers.SemanticRouter")
-    @patch("litellm.router_strategy.auto_router.litellm_encoder.LiteLLMRouterEncoder")
+    @patch("embrouter.router_strategy.auto_router.embrouter_encoder.EmbRouterRouterEncoder")
     async def test_async_pre_routing_hook_with_list_route_choice(
         self,
         mock_encoder_class,
@@ -277,7 +277,7 @@ class TestAutoRouter:
             auto_router_config_path="test/path/router.json",
             default_model="gpt-4o-mini",
             embedding_model="text-embedding-model",
-            litellm_router_instance=mock_router_instance,
+            embrouter_router_instance=mock_router_instance,
         )
 
         messages = [{"role": "user", "content": "test message"}]
@@ -302,7 +302,7 @@ class TestAutoRouter:
                 auto_router_config_path="test/path/router.json",
                 default_model="gpt-4o-mini",
                 embedding_model="text-embedding-model",
-                litellm_router_instance=mock_router_instance,
+                embrouter_router_instance=mock_router_instance,
             )
 
         # Act
@@ -346,15 +346,15 @@ class FixedRouteLayer:
 
 
 def _embedding_response(input: List[str]) -> Any:
-    import litellm
+    import embrouter
 
-    return litellm.EmbeddingResponse(
+    return embrouter.EmbeddingResponse(
         data=[{"embedding": [0.1, 0.2], "index": i, "object": "embedding"} for i in range(len(input))]
     )
 
 
 class StubEmbeddingRouter:
-    """Stands in for the LiteLLM Router, recording the text and kwargs each query embedding was made with."""
+    """Stands in for the EmbRouter Router, recording the text and kwargs each query embedding was made with."""
 
     def __init__(self) -> None:
         self.seen_text: str | None = None
@@ -374,17 +374,17 @@ class FailingEmbeddingRouter(StubEmbeddingRouter):
 
     async def aembedding(self, input: List[str], model: str, **kwargs: Any) -> Any:
         raise ValueError(
-            "litellm.InternalServerError: input is too large to process. increase the physical batch size"
+            "embrouter.InternalServerError: input is too large to process. increase the physical batch size"
         )
 
 
-def _auto_router(routelayer: Any, litellm_router_instance: Any = None, **kwargs: Any) -> AutoRouter:
+def _auto_router(routelayer: Any, embrouter_router_instance: Any = None, **kwargs: Any) -> AutoRouter:
     auto_router: Final = AutoRouter(
         model_name="my-auto-router",
         auto_router_config=ROUTER_CONFIG,
         default_model="fallback-model",
         embedding_model="text-embedding-3-small",
-        litellm_router_instance=litellm_router_instance or StubEmbeddingRouter(),
+        embrouter_router_instance=embrouter_router_instance or StubEmbeddingRouter(),
         **kwargs,
     )
     auto_router.routelayer = routelayer
@@ -396,7 +396,7 @@ class TestAutoRouterAlwaysResolvesARoutableModel:
 
     @pytest.mark.asyncio
     async def test_should_fall_back_to_default_model_when_the_embedding_call_fails(self):
-        auto_router: Final = _auto_router(FixedRouteLayer(None), litellm_router_instance=FailingEmbeddingRouter())
+        auto_router: Final = _auto_router(FixedRouteLayer(None), embrouter_router_instance=FailingEmbeddingRouter())
 
         result: Final = await auto_router.async_pre_routing_hook(
             model="my-auto-router",
@@ -456,7 +456,7 @@ class TestAutoRouterAlwaysResolvesARoutableModel:
         from semantic_router.schema import RouteChoice
 
         router: Final = StubEmbeddingRouter()
-        auto_router: Final = _auto_router(FixedRouteLayer(RouteChoice(name="code-model")), litellm_router_instance=router)
+        auto_router: Final = _auto_router(FixedRouteLayer(RouteChoice(name="code-model")), embrouter_router_instance=router)
 
         result: Final = await auto_router.async_pre_routing_hook(
             model="my-auto-router",
@@ -473,13 +473,13 @@ class TestAutoRouterEmbeddingInputCap:
     """The cap configured on the deployment is what the encoder enforces."""
 
     def test_should_default_the_cap_to_the_shared_constant(self):
-        from litellm.constants import DEFAULT_AUTO_ROUTER_MAX_INPUT_CHARS
+        from embrouter.constants import DEFAULT_AUTO_ROUTER_MAX_INPUT_CHARS
 
         assert _auto_router(FixedRouteLayer(None)).max_input_chars == DEFAULT_AUTO_ROUTER_MAX_INPUT_CHARS
 
     @pytest.mark.asyncio
     async def test_should_build_its_encoder_with_the_configured_cap(self):
-        auto_router: Final = _auto_router(None, litellm_router_instance=StubEmbeddingRouter(), max_input_chars=777)
+        auto_router: Final = _auto_router(None, embrouter_router_instance=StubEmbeddingRouter(), max_input_chars=777)
 
         await auto_router.async_pre_routing_hook(
             model="my-auto-router",
@@ -499,13 +499,13 @@ class TestAutoRouterRoutesResponsesApiInput:
         from semantic_router.schema import RouteChoice
 
         router: Final = StubEmbeddingRouter()
-        auto_router: Final = _auto_router(FixedRouteLayer(RouteChoice(name="code-model")), litellm_router_instance=router)
+        auto_router: Final = _auto_router(FixedRouteLayer(RouteChoice(name="code-model")), embrouter_router_instance=router)
 
         result: Final = await auto_router.async_pre_routing_hook(
             model="my-auto-router",
             request_kwargs={
                 "input": "fix this stack trace",
-                "litellm_metadata": {"user_api_key_request_route": "/v1/responses"},
+                "embrouter_metadata": {"user_api_key_request_route": "/v1/responses"},
             },
             messages=None,
         )
@@ -520,7 +520,7 @@ class TestAutoRouterRoutesResponsesApiInput:
         from semantic_router.schema import RouteChoice
 
         router: Final = StubEmbeddingRouter()
-        auto_router: Final = _auto_router(FixedRouteLayer(RouteChoice(name="code-model")), litellm_router_instance=router)
+        auto_router: Final = _auto_router(FixedRouteLayer(RouteChoice(name="code-model")), embrouter_router_instance=router)
 
         result: Final = await auto_router.async_pre_routing_hook(
             model="my-auto-router",
@@ -533,7 +533,7 @@ class TestAutoRouterRoutesResponsesApiInput:
                         "content": [{"type": "input_text", "text": "fix this stack trace"}],
                     }
                 ],
-                "litellm_metadata": {"user_api_key_request_route": "/v1/responses"},
+                "embrouter_metadata": {"user_api_key_request_route": "/v1/responses"},
             },
             messages=None,
         )
@@ -546,11 +546,11 @@ class TestAutoRouterRoutesResponsesApiInput:
     @pytest.mark.asyncio
     async def test_should_skip_routing_when_neither_messages_nor_input_is_present(self):
         router: Final = StubEmbeddingRouter()
-        auto_router: Final = _auto_router(FixedRouteLayer(None), litellm_router_instance=router)
+        auto_router: Final = _auto_router(FixedRouteLayer(None), embrouter_router_instance=router)
 
         result: Final = await auto_router.async_pre_routing_hook(
             model="my-auto-router",
-            request_kwargs={"litellm_metadata": {"user_api_key_request_route": "/v1/responses"}},
+            request_kwargs={"embrouter_metadata": {"user_api_key_request_route": "/v1/responses"}},
             messages=None,
         )
 
@@ -560,11 +560,11 @@ class TestAutoRouterRoutesResponsesApiInput:
     @pytest.mark.asyncio
     async def test_should_keep_routing_an_empty_messages_list_to_the_default_model(self):
         router: Final = StubEmbeddingRouter()
-        auto_router: Final = _auto_router(FixedRouteLayer(None), litellm_router_instance=router)
+        auto_router: Final = _auto_router(FixedRouteLayer(None), embrouter_router_instance=router)
 
         result: Final = await auto_router.async_pre_routing_hook(
             model="my-auto-router",
-            request_kwargs={"messages": [], "litellm_metadata": {"user_api_key_request_route": "/v1/chat/completions"}},
+            request_kwargs={"messages": [], "embrouter_metadata": {"user_api_key_request_route": "/v1/chat/completions"}},
             messages=[],
         )
 
@@ -578,17 +578,17 @@ class TestAutoRouterAttributesItsEmbeddingSpend:
 
     @pytest.mark.asyncio
     async def test_should_forward_the_callers_identity_to_the_query_embedding_minus_its_budget_reservation(self):
-        from litellm.constants import INTERNAL_CALL_ORIGIN_METADATA_KEY
+        from embrouter.constants import INTERNAL_CALL_ORIGIN_METADATA_KEY
 
         router: Final = StubEmbeddingRouter()
-        auto_router: Final = _auto_router(None, litellm_router_instance=router)
+        auto_router: Final = _auto_router(None, embrouter_router_instance=router)
         request_kwargs: Final = {
             "metadata": {
                 "user_api_key": "hashed-key",
                 "user_api_key_team_id": "team-1",
                 "user_api_key_budget_reservation": {"reservation_id": "r-1"},
             },
-            "litellm_session_id": "session-1",
+            "embrouter_session_id": "session-1",
         }
 
         result: Final = await auto_router.async_pre_routing_hook(
@@ -605,7 +605,7 @@ class TestAutoRouterAttributesItsEmbeddingSpend:
         assert forwarded["user_api_key_team_id"] == "team-1"
         assert forwarded[INTERNAL_CALL_ORIGIN_METADATA_KEY] == "autorouter_classifier"
         assert "user_api_key_budget_reservation" not in forwarded
-        assert router.aembedding_kwargs["litellm_session_id"] == "session-1"
+        assert router.aembedding_kwargs["embrouter_session_id"] == "session-1"
         assert router.aembedding_kwargs["proxy_server_request"] == {
             "body": {"model": "text-embedding-3-small", "input": ["fix this stack trace"]}
         }
@@ -634,7 +634,7 @@ class TestAutoRouterColdStartDoesNotBlockTheEventLoop:
         import threading
 
         embedding_router: Final = ThreadTrackingEmbeddingRouter()
-        auto_router: Final = _auto_router(None, litellm_router_instance=embedding_router)
+        auto_router: Final = _auto_router(None, embrouter_router_instance=embedding_router)
         event_loop_thread: Final = threading.get_ident()
 
         result: Final = await auto_router.async_pre_routing_hook(
@@ -651,7 +651,7 @@ class TestAutoRouterColdStartDoesNotBlockTheEventLoop:
     @pytest.mark.asyncio
     async def test_should_build_the_routelayer_exactly_once_under_concurrent_cold_start_requests(self):
         embedding_router: Final = ThreadTrackingEmbeddingRouter()
-        auto_router: Final = _auto_router(None, litellm_router_instance=embedding_router)
+        auto_router: Final = _auto_router(None, embrouter_router_instance=embedding_router)
 
         results: Final = await asyncio.gather(
             *(
@@ -684,7 +684,7 @@ class TestAutoRouterColdStartDoesNotBlockTheEventLoop:
                 return super().embedding(input, model, **kwargs)
 
         embedding_router: Final = BlockingEmbeddingRouter()
-        auto_router: Final = _auto_router(None, litellm_router_instance=embedding_router)
+        auto_router: Final = _auto_router(None, embrouter_router_instance=embedding_router)
 
         first_call: Final = asyncio.ensure_future(
             auto_router.async_pre_routing_hook(
@@ -736,7 +736,7 @@ class TestAutoRouterColdStartDoesNotBlockTheEventLoop:
                 return super().embedding(input, model, **kwargs)
 
         embedding_router: Final = FailsOnFirstAttemptEmbeddingRouter()
-        auto_router: Final = _auto_router(None, litellm_router_instance=embedding_router)
+        auto_router: Final = _auto_router(None, embrouter_router_instance=embedding_router)
 
         first_call: Final = asyncio.ensure_future(
             auto_router.async_pre_routing_hook(

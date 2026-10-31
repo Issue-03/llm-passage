@@ -7,11 +7,11 @@ from unittest.mock import AsyncMock, MagicMock
 import httpx
 import pytest
 
-import litellm
-from litellm.llms.bedrock.chat import BedrockConverseLLM
-from litellm.llms.bedrock.chat.converse_handler import make_sync_call
-from litellm.llms.bedrock.common_utils import _get_all_bedrock_regions
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+import embrouter
+from embrouter.llms.bedrock.chat import BedrockConverseLLM
+from embrouter.llms.bedrock.chat.converse_handler import make_sync_call
+from embrouter.llms.bedrock.common_utils import _get_all_bedrock_regions
+from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
 from tests._support.stream_chunk_size import DEFAULT_CHUNKING_REQUESTS, ROUTER_CHUNK_SIZE_CASES, keys_at_every_depth
 
 
@@ -149,7 +149,7 @@ def _stream_completion_with_spied_iter_bytes(model: str, stream_chunk_size: int 
     client: Final = HTTPHandler()
     client.post = MagicMock(return_value=mock_response)
 
-    litellm.completion(
+    embrouter.completion(
         model=model,
         messages=[{"role": "user", "content": "hi"}],
         stream=True,
@@ -222,7 +222,7 @@ def test_converse_completion_forwards_bedrock_response_headers():
     client = HTTPHandler()
     client.post = MagicMock(return_value=mock_response)
 
-    response = litellm.completion(
+    response = embrouter.completion(
         model="bedrock/converse/anthropic.claude-haiku-4-5-20251001-v1:0",
         messages=[{"role": "user", "content": "hi"}],
         client=client,
@@ -242,7 +242,7 @@ def test_converse_streaming_forwards_bedrock_response_headers():
     client = HTTPHandler()
     client.post = MagicMock(return_value=mock_response)
 
-    response = litellm.completion(
+    response = embrouter.completion(
         model="bedrock/converse/anthropic.claude-haiku-4-5-20251001-v1:0",
         messages=[{"role": "user", "content": "hi"}],
         stream=True,
@@ -265,7 +265,7 @@ async def test_async_converse_completion_forwards_bedrock_response_headers():
     client = AsyncHTTPHandler()
     client.post = AsyncMock(return_value=mock_response)
 
-    response = await litellm.acompletion(
+    response = await embrouter.acompletion(
         model="bedrock/converse/anthropic.claude-haiku-4-5-20251001-v1:0",
         messages=[{"role": "user", "content": "hi"}],
         client=client,
@@ -290,7 +290,7 @@ async def test_async_converse_streaming_forwards_bedrock_response_headers():
     client = AsyncHTTPHandler()
     client.post = AsyncMock(return_value=mock_response)
 
-    response = await litellm.acompletion(
+    response = await embrouter.acompletion(
         model="bedrock/converse/anthropic.claude-haiku-4-5-20251001-v1:0",
         messages=[{"role": "user", "content": "hi"}],
         stream=True,
@@ -323,7 +323,7 @@ def _stream_converse_completion_with_spied_client(**request: object) -> tuple[Ma
     client: Final = HTTPHandler()
     client.post = MagicMock(return_value=mock_response)
 
-    litellm.completion(
+    embrouter.completion(
         model="bedrock/converse/anthropic.claude-haiku-4-5-20251001-v1:0",
         messages=[{"role": "user", "content": "hi"}],
         stream=True,
@@ -365,7 +365,7 @@ async def _astream_converse_completion_with_spied_client(**request: object) -> t
     client: Final = AsyncHTTPHandler()
     client.post = AsyncMock(return_value=mock_response)
 
-    await litellm.acompletion(
+    await embrouter.acompletion(
         model="bedrock/converse/anthropic.claude-haiku-4-5-20251001-v1:0",
         messages=[{"role": "user", "content": "hi"}],
         stream=True,
@@ -416,8 +416,8 @@ def test_router_deployment_stream_chunk_size_reaches_iter_bytes(
     mock_response.iter_bytes = MagicMock(return_value=iter([]))
     client: Final = HTTPHandler()
     client.post = MagicMock(return_value=mock_response)
-    router: Final = litellm.Router(
-        model_list=[{"model_name": "converse-chunked", "litellm_params": {**CONVERSE_DEPLOYMENT, **deployment_extras}}]
+    router: Final = embrouter.Router(
+        model_list=[{"model_name": "converse-chunked", "embrouter_params": {**CONVERSE_DEPLOYMENT, **deployment_extras}}]
     )
 
     router.completion(
@@ -437,8 +437,8 @@ def test_converse_rejects_non_int_stream_chunk_size_before_calling_bedrock(strea
     send: Final = MagicMock(return_value=httpx.Response(200))
     client: Final = HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(send)))
 
-    with pytest.raises(litellm.BadRequestError):
-        litellm.completion(
+    with pytest.raises(embrouter.BadRequestError):
+        embrouter.completion(
             model="bedrock/converse/anthropic.claude-haiku-4-5-20251001-v1:0",
             messages=[{"role": "user", "content": "hi"}],
             stream=stream,
@@ -475,8 +475,8 @@ def test_converse_completion_error_forwards_bedrock_response_headers():
         )
     )
 
-    with pytest.raises(litellm.ServiceUnavailableError) as exc_info:
-        litellm.completion(
+    with pytest.raises(embrouter.ServiceUnavailableError) as exc_info:
+        embrouter.completion(
             model="bedrock/converse/anthropic.claude-haiku-4-5-20251001-v1:0",
             messages=[{"role": "user", "content": "hi"}],
             client=client,
@@ -500,8 +500,8 @@ async def test_async_converse_completion_error_forwards_bedrock_response_headers
         )
     )
 
-    with pytest.raises(litellm.ServiceUnavailableError) as exc_info:
-        await litellm.acompletion(
+    with pytest.raises(embrouter.ServiceUnavailableError) as exc_info:
+        await embrouter.acompletion(
             model="bedrock/converse/anthropic.claude-haiku-4-5-20251001-v1:0",
             messages=[{"role": "user", "content": "hi"}],
             client=client,

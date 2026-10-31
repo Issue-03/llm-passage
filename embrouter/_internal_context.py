@@ -1,5 +1,5 @@
 """
-Internal request context for LiteLLM.
+Internal request context for EmbRouter.
 
 Provides a ContextVar-based mechanism for internal signals that must not
 be settable from user input. Context variables are scoped to the current

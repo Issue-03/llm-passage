@@ -4,13 +4,13 @@ This integration enables sending LLM observability data to Levo AI using OpenTel
 
 ## Overview
 
-The Levo integration extends LiteLLM's OpenTelemetry support to automatically send traces to Levo's collector endpoint with proper authentication and routing headers.
+The Levo integration extends EmbRouter's OpenTelemetry support to automatically send traces to Levo's collector endpoint with proper authentication and routing headers.
 
 ## Features
 
 - **Automatic OTLP Export**: Sends OpenTelemetry traces to Levo collector
 - **Levo-Specific Headers**: Automatically includes `x-levo-organization-id` and `x-levo-workspace-id` for routing
-- **Simple Configuration**: Just use `callbacks: ["levo"]` in your LiteLLM config
+- **Simple Configuration**: Just use `callbacks: ["levo"]` in your EmbRouter config
 - **Environment-Based Setup**: Configure via environment variables
 
 ## Quick Start
@@ -21,12 +21,12 @@ The Levo integration extends LiteLLM's OpenTelemetry support to automatically se
 uv add opentelemetry-api opentelemetry-sdk opentelemetry-exporter-otlp-proto-http opentelemetry-exporter-otlp-proto-grpc
 ```
 
-### 2. Configure LiteLLM
+### 2. Configure EmbRouter
 
-Add to your `litellm_config.yaml`:
+Add to your `embrouter_config.yaml`:
 
 ```yaml
-litellm_settings:
+embrouter_settings:
   callbacks: ["levo"]
 ```
 
@@ -39,10 +39,10 @@ export LEVOAI_WORKSPACE_ID="<your-workspace-id>"
 export LEVOAI_COLLECTOR_URL="<your-levo-collector-url>"
 ```
 
-### 4. Start LiteLLM
+### 4. Start EmbRouter
 
 ```bash
-litellm --config config.yaml
+embrouter --config config.yaml
 ```
 
 All LLM requests will now automatically be sent to Levo!
@@ -68,7 +68,7 @@ All LLM requests will now automatically be sent to Levo!
 
 ## How It Works
 
-1. **LevoLogger** extends LiteLLM's `OpenTelemetry` class
+1. **LevoLogger** extends EmbRouter's `OpenTelemetry` class
 2. **Configuration** is read from environment variables via `get_levo_config()`
 3. **OTLP Headers** are automatically set:
    - `Authorization: Bearer {LEVOAI_API_KEY}`
@@ -79,7 +79,7 @@ All LLM requests will now automatically be sent to Levo!
 ## Code Structure
 
 ```
-litellm/integrations/levo/
+embrouter/integrations/levo/
 ├── __init__.py          # Exports LevoLogger
 ├── levo.py             # LevoLogger implementation
 └── README.md           # This file
@@ -104,12 +104,12 @@ The integration validates all required environment variables at initialization:
 - Missing `LEVOAI_WORKSPACE_ID`: Raises `ValueError` with clear message
 - Missing `LEVOAI_COLLECTOR_URL`: Raises `ValueError` with clear message
 
-## Integration with LiteLLM
+## Integration with EmbRouter
 
 The Levo callback is registered in:
-- `litellm/litellm_core_utils/custom_logger_registry.py`: Maps `"levo"` to `LevoLogger`
-- `litellm/litellm_core_utils/litellm_logging.py`: Instantiates `LevoLogger` when `callbacks: ["levo"]` is used
-- `litellm/__init__.py`: Added to `_custom_logger_compatible_callbacks_literal`
+- `embrouter/embrouter_core_utils/custom_logger_registry.py`: Maps `"levo"` to `LevoLogger`
+- `embrouter/embrouter_core_utils/embrouter_logging.py`: Instantiates `LevoLogger` when `callbacks: ["levo"]` is used
+- `embrouter/__init__.py`: Added to `_custom_logger_compatible_callbacks_literal`
 
 ## Documentation
 
@@ -119,5 +119,5 @@ For detailed documentation, see:
 ## Support
 
 For issues or questions:
-- LiteLLM
+- EmbRouter
 - Levo Support: support@levo.ai

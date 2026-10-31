@@ -1,12 +1,12 @@
 from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Any, Final, cast
 
-from litellm._logging import verbose_logger
-from litellm._uuid import uuid
-from litellm.responses.mcp.request_context import MCPRequestContext
-from litellm.responses.streaming_iterator import BaseResponsesAPIStreamingIterator
-from litellm.types.llms.openai import (
-    BaseLiteLLMOpenAIResponseObject,
+from embrouter._logging import verbose_logger
+from embrouter._uuid import uuid
+from embrouter.responses.mcp.request_context import MCPRequestContext
+from embrouter.responses.streaming_iterator import BaseResponsesAPIStreamingIterator
+from embrouter.types.llms.openai import (
+    BaseEmbRouterOpenAIResponseObject,
     ErrorEvent,
     ErrorEventError,
     MCPCallArgumentsDeltaEvent,
@@ -27,8 +27,8 @@ if TYPE_CHECKING:
 
     from mcp.types import Tool as MCPTool
 
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.responses.mcp.litellm_proxy_mcp_handler import MCPToolResult
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.responses.mcp.embrouter_proxy_mcp_handler import MCPToolResult
 else:
     MCPTool = Any
 
@@ -59,7 +59,7 @@ def _set_event_field(event: ResponsesAPIStreamingResponse, name: str, value: obj
 
 
 async def create_mcp_list_tools_events(
-    mcp_tools_with_litellm_proxy: Sequence[Mapping[str, object]],
+    mcp_tools_with_embrouter_proxy: Sequence[Mapping[str, object]],
     user_api_key_auth: "UserAPIKeyAuth | None",
     base_item_id: str,
     pre_processed_mcp_tools: list[MCPTool],
@@ -72,11 +72,11 @@ async def create_mcp_list_tools_events(
         # Extract MCP server names
         _mcp_servers: Final = [
             server_url.split("/")[-1]
-            for tool in mcp_tools_with_litellm_proxy
+            for tool in mcp_tools_with_embrouter_proxy
             if isinstance(tool, dict)
             and "server_url" in tool
             and isinstance(server_url := tool.get("server_url"), str)
-            and server_url.startswith("litellm_proxy/mcp/")
+            and server_url.startswith("embrouter_proxy/mcp/")
         ]
 
         # Emit list tools in progress event
@@ -101,12 +101,12 @@ async def create_mcp_list_tools_events(
         events.append(completed_event)
 
         # Add output_item.done event with the actual tools list (matching OpenAI format)
-        from litellm.types.llms.openai import OutputItemDoneEvent
+        from embrouter.types.llms.openai import OutputItemDoneEvent
 
         # Extract server label from the first MCP tool config
         server_label = ""
-        if mcp_tools_with_litellm_proxy:
-            first_tool: Final = mcp_tools_with_litellm_proxy[0]
+        if mcp_tools_with_embrouter_proxy:
+            first_tool: Final = mcp_tools_with_embrouter_proxy[0]
             if isinstance(first_tool, dict):
                 server_label_value: Final = first_tool.get("server_label", "")
                 server_label = str(server_label_value) if server_label_value is not None else ""
@@ -129,7 +129,7 @@ async def create_mcp_list_tools_events(
         output_item_done_event = OutputItemDoneEvent(
             type=ResponsesAPIStreamEvents.OUTPUT_ITEM_DONE,
             output_index=0,
-            item=BaseLiteLLMOpenAIResponseObject(
+            item=BaseEmbRouterOpenAIResponseObject(
                 **{
                     "id": base_item_id,
                     "type": "mcp_list_tools",
@@ -158,12 +158,12 @@ async def create_mcp_list_tools_events(
         events.append(failed_event)
 
         # Still emit output_item.done event even on failure (with empty tools list)
-        from litellm.types.llms.openai import OutputItemDoneEvent
+        from embrouter.types.llms.openai import OutputItemDoneEvent
 
         output_item_done_event = OutputItemDoneEvent(
             type=ResponsesAPIStreamEvents.OUTPUT_ITEM_DONE,
             output_index=0,
-            item=BaseLiteLLMOpenAIResponseObject(
+            item=BaseEmbRouterOpenAIResponseObject(
                 **{
                     "id": base_item_id,
                     "type": "mcp_list_tools",
@@ -230,12 +230,12 @@ def create_mcp_call_events(
         events.append(completed_event)
 
         # Add output_item.done event with the tool call result
-        from litellm.types.llms.openai import OutputItemDoneEvent
+        from embrouter.types.llms.openai import OutputItemDoneEvent
 
         output_item_done_event: Final = OutputItemDoneEvent(
             type=ResponsesAPIStreamEvents.OUTPUT_ITEM_DONE,
             output_index=output_index,
-            item=BaseLiteLLMOpenAIResponseObject(
+            item=BaseEmbRouterOpenAIResponseObject(
                 **{
                     "id": item_id,
                     "type": "mcp_call",
@@ -244,7 +244,7 @@ def create_mcp_call_events(
                     "error": None,
                     "name": tool_name,
                     "output": result,
-                    "server_label": "litellm",
+                    "server_label": "embrouter",
                 }
             ),
         )
@@ -278,12 +278,12 @@ class MCPEnhancedStreamingIterator(BaseResponsesAPIStreamingIterator):
         base_iterator: "BaseResponsesAPIStreamingIterator | ResponsesAPIResponse | None",  # created internally when None
         mcp_events: list[ResponsesAPIStreamingResponse],
         tool_server_map: dict[str, str],
-        mcp_tools_with_litellm_proxy: Sequence[Mapping[str, object]] | None = None,
+        mcp_tools_with_embrouter_proxy: Sequence[Mapping[str, object]] | None = None,
         user_api_key_auth: "UserAPIKeyAuth | None" = None,
         original_request_params: dict[str, Any] | None = None,
     ):
         # MCP setup
-        self.mcp_tools_with_litellm_proxy = mcp_tools_with_litellm_proxy or []
+        self.mcp_tools_with_embrouter_proxy = mcp_tools_with_embrouter_proxy or []
         self.user_api_key_auth = user_api_key_auth
         self.original_request_params = original_request_params or {}
         self.should_auto_execute = self._should_auto_execute_tools()
@@ -324,10 +324,10 @@ class MCPEnhancedStreamingIterator(BaseResponsesAPIStreamingIterator):
 
         # Set up model metadata (will be updated when we get the real iterator)
         self.model = self.original_request_params.get("model", "unknown")
-        self.litellm_metadata = {}
+        self.embrouter_metadata = {}
         self.custom_llm_provider = self.original_request_params.get("custom_llm_provider", None)
-        self.litellm_call_id = self.original_request_params.get("litellm_call_id")
-        self.litellm_trace_id = self.original_request_params.get("litellm_trace_id")
+        self.embrouter_call_id = self.original_request_params.get("embrouter_call_id")
+        self.embrouter_trace_id = self.original_request_params.get("embrouter_trace_id")
 
         self._extract_mcp_headers_from_params()
 
@@ -356,7 +356,7 @@ class MCPEnhancedStreamingIterator(BaseResponsesAPIStreamingIterator):
 
         from starlette.datastructures import Headers
 
-        from litellm.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import (
+        from embrouter.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import (
             MCPRequestHandler,
         )
 
@@ -410,11 +410,11 @@ class MCPEnhancedStreamingIterator(BaseResponsesAPIStreamingIterator):
 
     def _should_auto_execute_tools(self) -> bool:
         """Check if tools should be auto-executed"""
-        from litellm.responses.mcp.litellm_proxy_mcp_handler import (
-            LiteLLM_Proxy_MCP_Handler,
+        from embrouter.responses.mcp.embrouter_proxy_mcp_handler import (
+            EmbRouter_Proxy_MCP_Handler,
         )
 
-        return LiteLLM_Proxy_MCP_Handler._should_auto_execute_tools(self.mcp_tools_with_litellm_proxy)
+        return EmbRouter_Proxy_MCP_Handler._should_auto_execute_tools(self.mcp_tools_with_embrouter_proxy)
 
     def _make_stream_error_event(self) -> ResponsesAPIStreamingResponse:
         err: Final = self._stream_error
@@ -578,7 +578,7 @@ class MCPEnhancedStreamingIterator(BaseResponsesAPIStreamingIterator):
 
     def _is_response_completed(self, chunk: ResponsesAPIStreamingResponse) -> bool:
         """Check if this chunk indicates the response is completed"""
-        from litellm.types.llms.openai import ResponsesAPIStreamEvents
+        from embrouter.types.llms.openai import ResponsesAPIStreamEvents
 
         chunk_type: Final[object] = getattr(chunk, "type", None)
         return chunk_type == ResponsesAPIStreamEvents.RESPONSE_COMPLETED
@@ -690,7 +690,7 @@ class MCPEnhancedStreamingIterator(BaseResponsesAPIStreamingIterator):
         """Create the initial response iterator by making the first LLM call"""
         try:
             # Import the core aresponses function that doesn't have MCP logic
-            from litellm.responses.main import aresponses  # noqa: TID251  # core call without MCP logic
+            from embrouter.responses.main import aresponses  # noqa: TID251  # core call without MCP logic
 
             # Make the initial response API call - but avoid the MCP wrapper
             params: Final[dict[str, object]] = self.original_request_params.copy()
@@ -710,7 +710,7 @@ class MCPEnhancedStreamingIterator(BaseResponsesAPIStreamingIterator):
                 self.base_iterator = response
                 # Copy metadata from the real iterator
                 self.model = getattr(response, "model", self.model)
-                self.litellm_metadata = getattr(response, "litellm_metadata", {})
+                self.embrouter_metadata = getattr(response, "embrouter_metadata", {})
                 self.custom_llm_provider = getattr(response, "custom_llm_provider", self.custom_llm_provider)
                 verbose_logger.debug("Created base iterator: %s", type(self.base_iterator))
             else:
@@ -734,21 +734,21 @@ class MCPEnhancedStreamingIterator(BaseResponsesAPIStreamingIterator):
         """Generate tool execution events and execute tools"""
         if not self.collected_response:
             return
-        from litellm.responses.mcp.litellm_proxy_mcp_handler import (
-            LiteLLM_Proxy_MCP_Handler,
+        from embrouter.responses.mcp.embrouter_proxy_mcp_handler import (
+            EmbRouter_Proxy_MCP_Handler,
         )
 
         try:
             # Extract tool calls from the response
             if self.collected_response is not None:
-                tool_calls = LiteLLM_Proxy_MCP_Handler._extract_tool_calls_from_response(self.collected_response)
+                tool_calls = EmbRouter_Proxy_MCP_Handler._extract_tool_calls_from_response(self.collected_response)
             else:
                 tool_calls = []
             if not tool_calls:
                 return
             self.tool_call_round += 1
 
-            from litellm.types.llms.openai import OutputItemAddedEvent
+            from embrouter.types.llms.openai import OutputItemAddedEvent
 
             next_output_index = self._output_index_offset + self._round_output_width(  # rebind-ok: advances per item
                 self.collected_response
@@ -759,7 +759,7 @@ class MCPEnhancedStreamingIterator(BaseResponsesAPIStreamingIterator):
                     tool_name,
                     tool_arguments,
                     tool_call_id,
-                ) = LiteLLM_Proxy_MCP_Handler._extract_tool_call_details(tool_call)
+                ) = EmbRouter_Proxy_MCP_Handler._extract_tool_call_details(tool_call)
                 if tool_name and tool_call_id:
                     item_id = f"mcp_{uuid.uuid4().hex[:8]}"
                     output_index = next_output_index
@@ -777,7 +777,7 @@ class MCPEnhancedStreamingIterator(BaseResponsesAPIStreamingIterator):
                                     "status": "in_progress",
                                     "arguments": tool_arguments or "{}",
                                     "name": tool_name,
-                                    "server_label": "litellm",
+                                    "server_label": "embrouter",
                                 },
                             }
                         )
@@ -796,7 +796,7 @@ class MCPEnhancedStreamingIterator(BaseResponsesAPIStreamingIterator):
                     self.tool_execution_events.extend(call_events[:-1])
 
             # Execute the tools
-            tool_results: Final = await LiteLLM_Proxy_MCP_Handler._execute_tool_calls(
+            tool_results: Final = await EmbRouter_Proxy_MCP_Handler._execute_tool_calls(
                 tool_server_map=self.tool_server_map,
                 tool_calls=tool_calls,
                 user_api_key_auth=self.user_api_key_auth,
@@ -804,9 +804,9 @@ class MCPEnhancedStreamingIterator(BaseResponsesAPIStreamingIterator):
                 mcp_server_auth_headers=self.mcp_server_auth_headers,
                 oauth2_headers=self.oauth2_headers,
                 raw_headers=self.raw_headers,
-                litellm_call_id=self.litellm_call_id,
-                litellm_trace_id=self.litellm_trace_id,
-                request_tags=LiteLLM_Proxy_MCP_Handler._get_parent_request_tags(self.original_request_params),
+                embrouter_call_id=self.embrouter_call_id,
+                embrouter_trace_id=self.embrouter_trace_id,
+                request_tags=EmbRouter_Proxy_MCP_Handler._get_parent_request_tags(self.original_request_params),
                 guardrail_context=MCPRequestContext.resolve_guardrail_context(self.original_request_params),
             )
 
@@ -823,7 +823,7 @@ class MCPEnhancedStreamingIterator(BaseResponsesAPIStreamingIterator):
                         name,
                         args,
                         call_id,
-                    ) = LiteLLM_Proxy_MCP_Handler._extract_tool_call_details(tool_call)
+                    ) = EmbRouter_Proxy_MCP_Handler._extract_tool_call_details(tool_call)
                     if call_id == tool_call_id:
                         tool_name = name or "unknown"
                         tool_arguments = args or "{}"
@@ -846,9 +846,9 @@ class MCPEnhancedStreamingIterator(BaseResponsesAPIStreamingIterator):
                 self.tool_execution_events.append(completed_event)
 
                 # Create output_item.done event with the tool call result
-                from litellm.types.llms.openai import OutputItemDoneEvent
+                from embrouter.types.llms.openai import OutputItemDoneEvent
 
-                mcp_call_item = BaseLiteLLMOpenAIResponseObject(
+                mcp_call_item = BaseEmbRouterOpenAIResponseObject(
                     **{  # mutable-ok: consumed once by the model constructor
                         "id": item_id,
                         "type": "mcp_call",
@@ -858,7 +858,7 @@ class MCPEnhancedStreamingIterator(BaseResponsesAPIStreamingIterator):
                         "error": None,
                         "name": tool_name,
                         "output": result_text,
-                        "server_label": "litellm",  # or extract from tool config
+                        "server_label": "embrouter",  # or extract from tool config
                     }
                 )
                 output_item_done_event = OutputItemDoneEvent(
@@ -891,19 +891,19 @@ class MCPEnhancedStreamingIterator(BaseResponsesAPIStreamingIterator):
             self.base_iterator = None
             return
 
-        from litellm.responses.main import aresponses  # noqa: TID251  # follow-up call without MCP logic
-        from litellm.responses.mcp.litellm_proxy_mcp_handler import (
-            LiteLLM_Proxy_MCP_Handler,
+        from embrouter.responses.main import aresponses  # noqa: TID251  # follow-up call without MCP logic
+        from embrouter.responses.mcp.embrouter_proxy_mcp_handler import (
+            EmbRouter_Proxy_MCP_Handler,
         )
 
         try:
             # Create follow-up input
             if self.collected_response is not None:
-                persistence_disabled: Final = LiteLLM_Proxy_MCP_Handler._is_persistence_disabled(
+                persistence_disabled: Final = EmbRouter_Proxy_MCP_Handler._is_persistence_disabled(
                     self.original_request_params
                 )
 
-                follow_up_input: Final = LiteLLM_Proxy_MCP_Handler._create_follow_up_input(
+                follow_up_input: Final = EmbRouter_Proxy_MCP_Handler._create_follow_up_input(
                     response=self.collected_response,
                     tool_results=self.tool_results,
                     original_input=self.original_request_params.get("input"),

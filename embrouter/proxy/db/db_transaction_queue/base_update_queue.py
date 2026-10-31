@@ -4,14 +4,14 @@ Base class for in memory buffer for database transactions
 
 import asyncio
 
-from litellm._logging import verbose_proxy_logger
-from litellm._service_logger import ServiceLogging
+from embrouter._logging import verbose_proxy_logger
+from embrouter._service_logger import ServiceLogging
 
 service_logger_obj = ServiceLogging()  # used for tracking metrics for In memory buffer, redis buffer, pod lock manager
 from typing import Final
 
-from litellm.constants import (
-    LITELLM_ASYNCIO_QUEUE_MAXSIZE,
+from embrouter.constants import (
+    EMBROUTER_ASYNCIO_QUEUE_MAXSIZE,
     MAX_IN_MEMORY_QUEUE_FLUSH_COUNT,
     MAX_SIZE_IN_MEMORY_QUEUE,
 )
@@ -21,16 +21,16 @@ class BaseUpdateQueue:
     """Base class for in memory buffer for database transactions"""
 
     def __init__(self):
-        self.update_queue = asyncio.Queue(maxsize=LITELLM_ASYNCIO_QUEUE_MAXSIZE)
+        self.update_queue = asyncio.Queue(maxsize=EMBROUTER_ASYNCIO_QUEUE_MAXSIZE)
         self.MAX_SIZE_IN_MEMORY_QUEUE = MAX_SIZE_IN_MEMORY_QUEUE
-        if MAX_SIZE_IN_MEMORY_QUEUE >= LITELLM_ASYNCIO_QUEUE_MAXSIZE:
+        if MAX_SIZE_IN_MEMORY_QUEUE >= EMBROUTER_ASYNCIO_QUEUE_MAXSIZE:
             verbose_proxy_logger.warning(
-                "Misconfigured queue thresholds: MAX_SIZE_IN_MEMORY_QUEUE (%d) >= LITELLM_ASYNCIO_QUEUE_MAXSIZE (%d). "
+                "Misconfigured queue thresholds: MAX_SIZE_IN_MEMORY_QUEUE (%d) >= EMBROUTER_ASYNCIO_QUEUE_MAXSIZE (%d). "
                 "The spend aggregation check will never trigger because the asyncio.Queue blocks at %d items. "
-                "Set MAX_SIZE_IN_MEMORY_QUEUE to a value less than LITELLM_ASYNCIO_QUEUE_MAXSIZE (recommended: 80%% of it).",
+                "Set MAX_SIZE_IN_MEMORY_QUEUE to a value less than EMBROUTER_ASYNCIO_QUEUE_MAXSIZE (recommended: 80%% of it).",
                 MAX_SIZE_IN_MEMORY_QUEUE,
-                LITELLM_ASYNCIO_QUEUE_MAXSIZE,
-                LITELLM_ASYNCIO_QUEUE_MAXSIZE,
+                EMBROUTER_ASYNCIO_QUEUE_MAXSIZE,
+                EMBROUTER_ASYNCIO_QUEUE_MAXSIZE,
             )
 
     async def add_update(self, update):

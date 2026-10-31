@@ -6,8 +6,8 @@ from types import SimpleNamespace
 import httpx
 import pytest
 
-import litellm
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+import embrouter
+from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler
 
 
 ONE_PIXEL_PNG = base64.b64decode(
@@ -17,8 +17,8 @@ ONE_PIXEL_PNG = base64.b64decode(
 
 @pytest.fixture
 def async_only_image_fetch(monkeypatch):
-    from litellm.litellm_core_utils.prompt_templates import factory, image_handling
-    from litellm.llms.gemini.chat import transformation as gemini_chat_transformation
+    from embrouter.embrouter_core_utils.prompt_templates import factory, image_handling
+    from embrouter.llms.gemini.chat import transformation as gemini_chat_transformation
 
     fetch = SimpleNamespace(
         fetched=[],
@@ -27,7 +27,7 @@ def async_only_image_fetch(monkeypatch):
     )
 
     def forbid_sync_fetch(client, url, **kwargs):
-        raise litellm.ImageFetchError(f"sync image fetch ran on the event loop: {url}")
+        raise embrouter.ImageFetchError(f"sync image fetch ran on the event loop: {url}")
 
     async def serve_png(client, url, **kwargs):
         fetch.fetched.append(url)
@@ -40,7 +40,7 @@ def async_only_image_fetch(monkeypatch):
 
     def forbid_sync_convert(url, *args, **kwargs):
         if url.startswith(("http://", "https://")):
-            raise litellm.ImageFetchError(f"sync convert_url_to_base64 ran on the request path: {url}")
+            raise embrouter.ImageFetchError(f"sync convert_url_to_base64 ran on the request path: {url}")
         return url
 
     monkeypatch.setattr(image_handling, "safe_get", forbid_sync_fetch)
@@ -72,7 +72,7 @@ async def test_bedrock_mantle_claude_async_completion_inlines_remote_images_off_
     client = AsyncHTTPHandler()
     client.client = httpx.AsyncClient(transport=httpx.MockTransport(handle))
 
-    response = await litellm.acompletion(
+    response = await embrouter.acompletion(
         model="bedrock/mantle/us.anthropic.claude-sonnet-5",
         messages=[
             {
@@ -117,7 +117,7 @@ async def test_bedrock_mantle_claude_async_completion_inlines_document_url_sourc
     client = AsyncHTTPHandler()
     client.client = httpx.AsyncClient(transport=httpx.MockTransport(handle))
 
-    response = await litellm.acompletion(
+    response = await embrouter.acompletion(
         model="bedrock/mantle/us.anthropic.claude-sonnet-5",
         messages=[
             {

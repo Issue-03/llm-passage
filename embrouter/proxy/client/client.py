@@ -1,4 +1,4 @@
-from litellm.litellm_core_utils.cli_token_utils import get_litellm_gateway_api_key
+from embrouter.embrouter_core_utils.cli_token_utils import get_embrouter_gateway_api_key
 
 from .chat import ChatClient
 from .credentials import CredentialsManagementClient
@@ -10,7 +10,7 @@ from .teams import TeamsManagementClient
 
 
 class Client:
-    """Main client for interacting with the LiteLLM proxy API."""
+    """Main client for interacting with the EmbRouter proxy API."""
 
     def __init__(
         self,
@@ -19,17 +19,17 @@ class Client:
         timeout: int = 30,
     ):
         """
-        Initialize the LiteLLM proxy client.
+        Initialize the EmbRouter proxy client.
 
         Args:
-            base_url (str): The base URL of the LiteLLM proxy server (e.g., "http://localhost:4000")
+            base_url (str): The base URL of the EmbRouter proxy server (e.g., "http://localhost:4000")
             api_key (Optional[str]): API key for authentication. If provided, it will be sent as a Bearer token.
             timeout: Request timeout in seconds for management calls (default: 30). Chat completions keep
                 ChatClient's own 600 second default, since a completion can legitimately take minutes
         """
         self._base_url = base_url.rstrip("/")
         # Only use the stored CLI key when it was issued for this server.
-        self._api_key = api_key or get_litellm_gateway_api_key(expected_base_url=self._base_url)
+        self._api_key = api_key or get_embrouter_gateway_api_key(expected_base_url=self._base_url)
 
         # Initialize resource clients
 

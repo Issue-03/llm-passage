@@ -1,9 +1,9 @@
 """
 Tests for the Responses API streaming bridge in
-litellm/responses/litellm_completion_transformation/streaming_iterator.py.
+embrouter/responses/embrouter_completion_transformation/streaming_iterator.py.
 
 Ensures that when the underlying chat-completions stream includes tool_calls deltas,
-LiteLLM emits Responses API streaming events (output_item.added + function_call_arguments.*).
+EmbRouter emits Responses API streaming events (output_item.added + function_call_arguments.*).
 
 Also ensures that tool calls that only appear in the final built response still get emitted
 before response.completed, and that every event of a bridged stream carries the response id
@@ -16,16 +16,16 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from litellm.responses.litellm_completion_transformation.streaming_iterator import (
-    LiteLLMCompletionStreamingIterator,
+from embrouter.responses.embrouter_completion_transformation.streaming_iterator import (
+    EmbRouterCompletionStreamingIterator,
 )
-from litellm.responses.utils import ResponsesAPIRequestUtils
-from litellm.types.llms.openai import (
-    BaseLiteLLMOpenAIResponseObject,
+from embrouter.responses.utils import ResponsesAPIRequestUtils
+from embrouter.types.llms.openai import (
+    BaseEmbRouterOpenAIResponseObject,
     ResponsesAPIStreamEvents,
 )
-from litellm.types.responses.main import build_web_search_call
-from litellm.types.utils import (
+from embrouter.types.responses.main import build_web_search_call
+from embrouter.types.utils import (
     Delta,
     ModelResponse,
     ModelResponseStream,
@@ -77,14 +77,14 @@ class _FakeStreamWrapper:
         return self._chunks.pop(0)
 
 
-def _build_iterator(chunks) -> LiteLLMCompletionStreamingIterator:
-    return LiteLLMCompletionStreamingIterator(
+def _build_iterator(chunks) -> EmbRouterCompletionStreamingIterator:
+    return EmbRouterCompletionStreamingIterator(
         model="claude-haiku-4-5",
-        litellm_custom_stream_wrapper=_FakeStreamWrapper(chunks),
+        embrouter_custom_stream_wrapper=_FakeStreamWrapper(chunks),
         request_input="What is the weather in San Francisco?",
         responses_api_request={},
         custom_llm_provider="anthropic",
-        litellm_metadata={},
+        embrouter_metadata={},
     )
 
 
@@ -97,9 +97,9 @@ def _response_ids(events) -> list[str]:
 
 
 def test_tool_call_delta_is_emitted_as_responses_events():
-    iterator = LiteLLMCompletionStreamingIterator(
+    iterator = EmbRouterCompletionStreamingIterator(
         model="test-model",
-        litellm_custom_stream_wrapper=AsyncMock(),
+        embrouter_custom_stream_wrapper=AsyncMock(),
         request_input="Test input",
         responses_api_request={},
     )
@@ -275,9 +275,9 @@ async def test_web_search_stream_preserves_hosted_and_client_calls(sync_mode, to
         if tool_type == "function"
         else [{"type": tool_type}]
     )
-    iterator: Final = LiteLLMCompletionStreamingIterator(
+    iterator: Final = EmbRouterCompletionStreamingIterator(
         model="claude-fable-5-1",
-        litellm_custom_stream_wrapper=_FakeStreamWrapper(chunks),
+        embrouter_custom_stream_wrapper=_FakeStreamWrapper(chunks),
         request_input="search",
         responses_api_request={"tools": request_tools},
         custom_llm_provider="anthropic",
@@ -353,15 +353,15 @@ async def test_web_search_stream_preserves_hosted_and_client_calls(sync_mode, to
 
 
 def test_tool_calls_present_only_in_final_response_are_emitted_before_completed():
-    iterator = LiteLLMCompletionStreamingIterator(
+    iterator = EmbRouterCompletionStreamingIterator(
         model="test-model",
-        litellm_custom_stream_wrapper=AsyncMock(),
+        embrouter_custom_stream_wrapper=AsyncMock(),
         request_input="Test input",
         responses_api_request={},
     )
 
     # Construct a final ModelResponse with tool_calls on the message.
-    # We bypass the stream builder and directly set iterator.litellm_model_response.
+    # We bypass the stream builder and directly set iterator.embrouter_model_response.
     response = ModelResponse(
         id="resp-1",
         created=123,
@@ -386,7 +386,7 @@ def test_tool_calls_present_only_in_final_response_are_emitted_before_completed(
             }
         ],
     )
-    iterator.litellm_model_response = response
+    iterator.embrouter_model_response = response
 
     # First common_done_event_logic call should yield tool events, not response.completed.
     evt1 = iterator.common_done_event_logic(sync_mode=True)
@@ -428,9 +428,9 @@ def test_tool_call_arguments_are_chunked_to_match_openai_behavior():
     This is especially important for providers like Bedrock that send complete
     arguments at once, which need to be split to match OpenAI's token-by-token streaming.
     """
-    iterator = LiteLLMCompletionStreamingIterator(
+    iterator = EmbRouterCompletionStreamingIterator(
         model="test-model",
-        litellm_custom_stream_wrapper=AsyncMock(),
+        embrouter_custom_stream_wrapper=AsyncMock(),
         request_input="Test input",
         responses_api_request={},
     )
@@ -520,9 +520,9 @@ def test_tool_call_arguments_are_chunked_to_match_openai_behavior():
 
 
 def test_tool_call_delta_without_id_uses_index_mapping():
-    iterator = LiteLLMCompletionStreamingIterator(
+    iterator = EmbRouterCompletionStreamingIterator(
         model="test-model",
-        litellm_custom_stream_wrapper=AsyncMock(),
+        embrouter_custom_stream_wrapper=AsyncMock(),
         request_input="Test input",
         responses_api_request={},
     )
@@ -568,9 +568,9 @@ def test_tool_call_delta_without_id_uses_index_mapping():
 
 
 def test_parallel_tool_calls_without_ids_use_index_mapping():
-    iterator = LiteLLMCompletionStreamingIterator(
+    iterator = EmbRouterCompletionStreamingIterator(
         model="test-model",
-        litellm_custom_stream_wrapper=AsyncMock(),
+        embrouter_custom_stream_wrapper=AsyncMock(),
         request_input="Test input",
         responses_api_request={},
     )
@@ -624,9 +624,9 @@ def test_parallel_tool_calls_without_ids_use_index_mapping():
 
 
 def test_reused_index_with_new_call_id_marks_fallback_ambiguous():
-    iterator = LiteLLMCompletionStreamingIterator(
+    iterator = EmbRouterCompletionStreamingIterator(
         model="test-model",
-        litellm_custom_stream_wrapper=AsyncMock(),
+        embrouter_custom_stream_wrapper=AsyncMock(),
         request_input="Test input",
         responses_api_request={},
     )
@@ -805,9 +805,9 @@ def test_object_tool_call_arguments_stream_as_valid_json():
     parsing function_call_arguments reject with errors like
     "Expecting ',' delimiter".
     """
-    iterator = LiteLLMCompletionStreamingIterator(
+    iterator = EmbRouterCompletionStreamingIterator(
         model="test-model",
-        litellm_custom_stream_wrapper=AsyncMock(),
+        embrouter_custom_stream_wrapper=AsyncMock(),
         request_input="Test input",
         responses_api_request={},
     )
@@ -832,9 +832,9 @@ def test_object_tool_call_arguments_stream_as_valid_json():
 
 
 def test_streamed_anthropic_tool_call_events_correlate_on_normalized_item_id():
-    iterator = LiteLLMCompletionStreamingIterator(
+    iterator = EmbRouterCompletionStreamingIterator(
         model="test-model",
-        litellm_custom_stream_wrapper=AsyncMock(),
+        embrouter_custom_stream_wrapper=AsyncMock(),
         request_input="Test input",
         responses_api_request={},
     )
@@ -863,7 +863,7 @@ def test_streamed_anthropic_tool_call_events_correlate_on_normalized_item_id():
             }
         ],
     )
-    iterator.litellm_model_response = response
+    iterator.embrouter_model_response = response
 
     events = []
     while True:
@@ -914,16 +914,16 @@ def _tool_call_chunk(finish_reason: str | None = None) -> ModelResponseStream:
 
 
 def test_streamed_named_tool_choice_is_echoed_in_responses_api_shape() -> None:
-    iterator: Final = LiteLLMCompletionStreamingIterator(
+    iterator: Final = EmbRouterCompletionStreamingIterator(
         model="claude-haiku-4-5",
-        litellm_custom_stream_wrapper=_FakeStreamWrapper([_tool_call_chunk(finish_reason="tool_calls")]),
+        embrouter_custom_stream_wrapper=_FakeStreamWrapper([_tool_call_chunk(finish_reason="tool_calls")]),
         request_input="Run the command pwd.",
         responses_api_request={
             "tools": [{"type": "function", "name": "run_command", "parameters": {"type": "object"}}],
             "tool_choice": {"type": "function", "name": "run_command"},
         },
         custom_llm_provider="anthropic",
-        litellm_metadata={},
+        embrouter_metadata={},
     )
 
     events: Final = list(iterator)
@@ -943,16 +943,16 @@ def test_streamed_named_tool_choice_is_echoed_in_responses_api_shape() -> None:
 
 
 def test_streamed_unrecognized_tool_choice_is_echoed_as_auto() -> None:
-    iterator: Final = LiteLLMCompletionStreamingIterator(
+    iterator: Final = EmbRouterCompletionStreamingIterator(
         model="claude-haiku-4-5",
-        litellm_custom_stream_wrapper=_FakeStreamWrapper([_tool_call_chunk(finish_reason="tool_calls")]),
+        embrouter_custom_stream_wrapper=_FakeStreamWrapper([_tool_call_chunk(finish_reason="tool_calls")]),
         request_input="Run the command pwd.",
         responses_api_request={
             "tools": [{"type": "function", "name": "run_command", "parameters": {"type": "object"}}],
             "tool_choice": "any",
         },
         custom_llm_provider="anthropic",
-        litellm_metadata={},
+        embrouter_metadata={},
     )
 
     response_events: Final = [
@@ -998,14 +998,14 @@ def _signature_only_thinking_chunk(signature: str) -> ModelResponseStream:
 
 
 async def _collect_events(
-    iterator: LiteLLMCompletionStreamingIterator, sync_mode: bool
-) -> list[BaseLiteLLMOpenAIResponseObject]:
+    iterator: EmbRouterCompletionStreamingIterator, sync_mode: bool
+) -> list[BaseEmbRouterOpenAIResponseObject]:
     if sync_mode:
         return list(iterator)
     return [event async for event in iterator]
 
 
-def _is_message_item(event: BaseLiteLLMOpenAIResponseObject) -> bool:
+def _is_message_item(event: BaseEmbRouterOpenAIResponseObject) -> bool:
     return getattr(getattr(event, "item", None), "type", None) == "message"
 
 

@@ -1,5 +1,5 @@
 """
-Provider-dispatch contract tests for litellm/batches/main.py
+Provider-dispatch contract tests for embrouter/batches/main.py
 
 main.py is the SDK layer beneath the proxy batch endpoints: each of
 create/retrieve/list/cancel_batch is a switch on `custom_llm_provider` (and, for
@@ -32,8 +32,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 
-import litellm
-import litellm.batches.main as bm
+import embrouter
+import embrouter.batches.main as bm
 
 
 # --------------------------------------------------------------------------- #
@@ -179,7 +179,7 @@ def test_create__provider_config_routes_to_base_http_handler(seams):
 
 
 def test_create__unsupported_provider_raises_badrequest(seams):
-    with pytest.raises(litellm.exceptions.BadRequestError):
+    with pytest.raises(embrouter.exceptions.BadRequestError):
         bm.create_batch(**CREATE_KW, custom_llm_provider="cohere")  # type: ignore[arg-type]
 
     for m in _all_seam_methods(seams, "create_batch"):
@@ -282,7 +282,7 @@ def test_retrieve__bedrock_model_invocation_job_arn(seams):
 
 
 def test_retrieve__unsupported_provider_raises_badrequest(seams):
-    with pytest.raises(litellm.exceptions.BadRequestError):
+    with pytest.raises(embrouter.exceptions.BadRequestError):
         bm.retrieve_batch(batch_id="batch-1", custom_llm_provider="cohere")  # type: ignore[arg-type]
 
     for m in _all_seam_methods(seams, "retrieve_batch"):
@@ -329,7 +329,7 @@ def test_list__vertex_ai_dispatch(seams):
 
 def test_list__unsupported_provider_raises_badrequest(seams):
     # anthropic supports retrieve but NOT list - good negative case.
-    with pytest.raises(litellm.exceptions.BadRequestError):
+    with pytest.raises(embrouter.exceptions.BadRequestError):
         bm.list_batches(custom_llm_provider="anthropic")  # type: ignore[arg-type]
 
     for m in _all_seam_methods(seams, "list_batches"):
@@ -371,7 +371,7 @@ def test_cancel__vertex_ai_dispatch(seams):
 
 
 def test_cancel__unsupported_provider_raises_badrequest(seams):
-    with pytest.raises(litellm.exceptions.BadRequestError):
+    with pytest.raises(embrouter.exceptions.BadRequestError):
         bm.cancel_batch(batch_id="batch-1", custom_llm_provider="cohere")
 
     for m in _all_seam_methods(seams, "cancel_batch"):
@@ -442,8 +442,8 @@ async def test_acancel_batch_delegates_to_cancel_batch():
 
 # =========================================================================== #
 # Credential passthrough - when the caller supplies credentials in kwargs, they
-# must reach the provider handler. Explicit kwargs win over litellm.* globals and
-# env vars (they are first in each `optional_params.x or litellm.x or env` chain),
+# must reach the provider handler. Explicit kwargs win over embrouter.* globals and
+# env vars (they are first in each `optional_params.x or embrouter.x or env` chain),
 # so these assertions are deterministic regardless of the test environment.
 #
 # The credential-resolution blocks are copy-pasted per provider in EACH of
@@ -694,9 +694,9 @@ def test_cancel__vertex_credentials_passthrough(seams):
 
 
 def _params(**kw):
-    from litellm.types.router import GenericLiteLLMParams
+    from embrouter.types.router import GenericEmbRouterParams
 
-    return GenericLiteLLMParams(**kw)
+    return GenericEmbRouterParams(**kw)
 
 
 def test_resolve_timeout__explicit_numeric():
@@ -720,9 +720,9 @@ def test_resolve_timeout__httpx_timeout_returns_float_read():
     assert resolved == 99.0
 
 
-def test_retrieve__forwards_trusted_model_credentials_into_litellm_params(seams):
+def test_retrieve__forwards_trusted_model_credentials_into_embrouter_params(seams):
     """The batch's cost is computed by reading its output file after the retrieve, and
-    Bedrock resolves that bucket only from this immutable snapshot. get_litellm_params has
+    Bedrock resolves that bucket only from this immutable snapshot. get_embrouter_params has
     a fixed signature that drops it, so without re-adding it here the snapshot never
     reaches the logging object and cost accounting fails on a bucket that is configured."""
     snapshot = MappingProxyType({"s3_bucket_name": "configured-bucket"})
@@ -731,12 +731,12 @@ def test_retrieve__forwards_trusted_model_credentials_into_litellm_params(seams)
     bm.retrieve_batch(
         batch_id="batch-1",
         custom_llm_provider="openai",
-        litellm_logging_obj=logging_obj,
-        _litellm_internal_model_credentials=snapshot,
+        embrouter_logging_obj=logging_obj,
+        _embrouter_internal_model_credentials=snapshot,
     )
 
-    litellm_params = logging_obj.update_from_kwargs.call_args.kwargs["litellm_params"]
-    assert litellm_params["_litellm_internal_model_credentials"] is snapshot
+    embrouter_params = logging_obj.update_from_kwargs.call_args.kwargs["embrouter_params"]
+    assert embrouter_params["_embrouter_internal_model_credentials"] is snapshot
 
 
 def test_retrieve__omits_trusted_model_credentials_when_not_supplied(seams):
@@ -744,10 +744,10 @@ def test_retrieve__omits_trusted_model_credentials_when_not_supplied(seams):
     configured bucket of nothing."""
     logging_obj = MagicMock()
 
-    bm.retrieve_batch(batch_id="batch-1", custom_llm_provider="openai", litellm_logging_obj=logging_obj)
+    bm.retrieve_batch(batch_id="batch-1", custom_llm_provider="openai", embrouter_logging_obj=logging_obj)
 
-    litellm_params = logging_obj.update_from_kwargs.call_args.kwargs["litellm_params"]
-    assert "_litellm_internal_model_credentials" not in litellm_params
+    embrouter_params = logging_obj.update_from_kwargs.call_args.kwargs["embrouter_params"]
+    assert "_embrouter_internal_model_credentials" not in embrouter_params
 
 
 # =========================================================================== #
@@ -773,7 +773,7 @@ def test_create__mistral_ocr_routes_to_base_http_handler_with_mistral_config(sea
 
 
 def test_create__mistral_without_model_raises_badrequest(seams):
-    with pytest.raises(litellm.exceptions.BadRequestError):
+    with pytest.raises(embrouter.exceptions.BadRequestError):
         bm.create_batch(**CREATE_KW, custom_llm_provider="mistral")
 
     for m in _all_seam_methods(seams, "create_batch"):

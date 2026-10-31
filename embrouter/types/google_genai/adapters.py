@@ -1,6 +1,6 @@
 from typing_extensions import TypedDict
 
-from litellm.types.llms.openai import (
+from embrouter.types.llms.openai import (
     AllMessageValues,
     ChatCompletionToolChoiceStringValues,
     ChatCompletionToolParam,

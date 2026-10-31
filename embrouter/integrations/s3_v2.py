@@ -21,16 +21,16 @@ from uuid import uuid4
 
 import httpx
 
-import litellm
-from litellm._logging import print_verbose, verbose_logger
-from litellm.constants import (
+import embrouter
+from embrouter._logging import print_verbose, verbose_logger
+from embrouter.constants import (
     DEFAULT_S3_BATCH_SIZE,
     DEFAULT_S3_FLUSH_INTERVAL_SECONDS,
     DEFAULT_S3_MAX_ADAPTIVE_CONCURRENCY,
     DEFAULT_S3_MAX_CONCURRENT_UPLOADS,
 )
-from litellm.integrations.adaptive_concurrency import AdaptiveConcurrencyLimiter, PutSample
-from litellm.integrations.s3 import (
+from embrouter.integrations.adaptive_concurrency import AdaptiveConcurrencyLimiter, PutSample
+from embrouter.integrations.s3 import (
     get_s3_object_download_filename,
     get_s3_object_key,
     prompts_only_payload,
@@ -44,17 +44,17 @@ from litellm.integrations.s3 import (
     resolve_s3_max_retry_age_seconds,
     resolve_sse_params,
 )
-from litellm.litellm_core_utils.aws_partition import get_aws_dns_suffix
-from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
-from litellm.litellm_core_utils.sensitive_data_masker import SensitiveDataMasker
-from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM, run_aws_signing
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.embrouter_core_utils.aws_partition import get_aws_dns_suffix
+from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps
+from embrouter.embrouter_core_utils.sensitive_data_masker import SensitiveDataMasker
+from embrouter.llms.bedrock.base_aws_llm import BaseAWSLLM, run_aws_signing
+from embrouter.llms.custom_httpx.http_handler import (
     _get_httpx_client,
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.types.integrations.s3_v2 import s3BatchLoggingElement
-from litellm.types.utils import StandardAuditLogPayload, StandardLoggingPayload
+from embrouter.types.integrations.s3_v2 import s3BatchLoggingElement
+from embrouter.types.utils import StandardAuditLogPayload, StandardLoggingPayload
 
 from .custom_batch_logger import CustomBatchLogger
 
@@ -166,7 +166,7 @@ class S3Logger(CustomBatchLogger, BaseAWSLLM):
             else:
                 verbose_logger.debug(
                     "in init s3 logger - s3_callback_params %s",
-                    _masker.mask_dict(dict(litellm.s3_callback_params or {})),
+                    _masker.mask_dict(dict(embrouter.s3_callback_params or {})),
                 )
 
             # Initialize S3 params first to get the correct s3_verify value
@@ -283,13 +283,13 @@ class S3Logger(CustomBatchLogger, BaseAWSLLM):
         """
         Initialize the s3 params for this logging callback. Reads from
         `params_source` if given (e.g. `s3_audit_callback_params` for the
-        audit-log instance), otherwise falls back to `litellm.s3_callback_params`.
+        audit-log instance), otherwise falls back to `embrouter.s3_callback_params`.
         Resolves `os.environ/X` markers into a local dict; never mutates the source.
         """
         if params_source is None:
-            params_source = litellm.s3_callback_params or {}
+            params_source = embrouter.s3_callback_params or {}
         params: Final[dict] = {
-            key: (litellm.get_secret(value) if isinstance(value, str) and value.startswith("os.environ/") else value)
+            key: (embrouter.get_secret(value) if isinstance(value, str) and value.startswith("os.environ/") else value)
             for key, value in params_source.items()
         }
 
@@ -543,7 +543,7 @@ class S3Logger(CustomBatchLogger, BaseAWSLLM):
         batch_logging_element: s3BatchLoggingElement,
     ) -> bool:
         try:
-            from litellm.litellm_core_utils.asyncify import asyncify
+            from embrouter.embrouter_core_utils.asyncify import asyncify
 
             asyncified_get_credentials: Final = asyncify(self.get_credentials)
 
@@ -690,7 +690,7 @@ class S3Logger(CustomBatchLogger, BaseAWSLLM):
     def _batch_file_mode_active(self) -> bool:
         if not self.s3_batch_file_upload:
             return False
-        if litellm.cold_storage_custom_logger == "s3_v2":
+        if embrouter.cold_storage_custom_logger == "s3_v2":
             verbose_logger.warning(
                 "s3 logging: s3_batch_file_upload is ignored because s3_v2 is the cold storage logger; "
                 "per-request objects are required for spend log lookups"
@@ -796,7 +796,7 @@ class S3Logger(CustomBatchLogger, BaseAWSLLM):
         if prefix_path:
             prefix_path += "/"
 
-        s3_file_name: Final = litellm.utils.get_logging_id(start_time, standard_logging_payload) or ""
+        s3_file_name: Final = embrouter.utils.get_logging_id(start_time, standard_logging_payload) or ""
         verbose_logger.debug(
             "Creating s3 file with prefix_components=%s,prefix_path=%s and %s",
             prefix_components,
@@ -896,7 +896,7 @@ class S3Logger(CustomBatchLogger, BaseAWSLLM):
             raise ImportError("Missing boto3 to call S3. Run 'pip install boto3'.")
 
         try:
-            from litellm.litellm_core_utils.asyncify import asyncify
+            from embrouter.embrouter_core_utils.asyncify import asyncify
 
             # Get AWS credentials
             asyncified_get_credentials: Final = asyncify(self.get_credentials)

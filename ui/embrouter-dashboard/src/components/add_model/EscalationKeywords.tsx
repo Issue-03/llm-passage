@@ -3,7 +3,7 @@ import { SimpleTooltip } from "@/components/ui/tooltip";
 import { MultiSelect } from "@/components/shared/MultiSelect";
 import React from "react";
 
-export const DEFAULT_ESCALATION_KEYWORDS = ["LITELLM ESCALATE"];
+export const DEFAULT_ESCALATION_KEYWORDS = ["EMBROUTER ESCALATE"];
 
 interface EscalationKeywordsProps {
   keywords: string[];
@@ -21,14 +21,14 @@ const EscalationKeywords: React.FC<EscalationKeywordsProps> = ({ keywords, onCha
       </div>
       <span className="mb-2 block text-xs text-muted-foreground">
         Optional: when a user message contains one of these phrases, the request is bumped one tier higher than it would
-        otherwise route to. Matching is case-sensitive, so &quot;LITELLM ESCALATE&quot; only fires on the exact, shouted
+        otherwise route to. Matching is case-sensitive, so &quot;EMBROUTER ESCALATE&quot; only fires on the exact, shouted
         form. Leave empty to disable.
       </span>
       <MultiSelect
         options={keywords.map((keyword) => ({ label: keyword, value: keyword }))}
         value={keywords}
         onValueChange={onChange}
-        placeholder="e.g., LITELLM ESCALATE"
+        placeholder="e.g., EMBROUTER ESCALATE"
         emptyText="Type to add a phrase"
         allowCustomValues
         className="w-full"

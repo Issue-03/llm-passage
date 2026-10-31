@@ -29,7 +29,7 @@ const providerParams = {
     },
   },
   llm_as_a_judge: {
-    ui_friendly_name: "LiteLLM LLM as a Judge",
+    ui_friendly_name: "EmbRouter LLM as a Judge",
   },
 };
 
@@ -78,7 +78,7 @@ describe("AddGuardrailForm create payload characterization", () => {
     await waitFor(() => expect(networking.createGuardrailCall).toHaveBeenCalledTimes(1));
     expect(payload()).toEqual({
       guardrail_name: "my-bedrock",
-      litellm_params: {
+      embrouter_params: {
         guardrail: "bedrock",
         mode: "pre_call",
         default_on: false,
@@ -102,7 +102,7 @@ describe("AddGuardrailForm create payload characterization", () => {
     await user.click(await screen.findByRole("button", { name: "Create Guardrail" }));
 
     await waitFor(() => expect(networking.createGuardrailCall).toHaveBeenCalledTimes(1));
-    expect(payload()).toMatchObject({ litellm_params: { mode: ["pre_call", "post_call"] } });
+    expect(payload()).toMatchObject({ embrouter_params: { mode: ["pre_call", "post_call"] } });
   });
 
   it("blocks Next when the user deselects every mode", async () => {
@@ -121,7 +121,7 @@ describe("AddGuardrailForm create payload characterization", () => {
     expect(screen.queryByRole("button", { name: "Create Guardrail" })).not.toBeInTheDocument();
   });
 
-  it("copies a value typed in the optional params step up to the top level of litellm_params", async () => {
+  it("copies a value typed in the optional params step up to the top level of embrouter_params", async () => {
     const user = userEvent.setup({ delay: null });
     renderForm();
 
@@ -135,7 +135,7 @@ describe("AddGuardrailForm create payload characterization", () => {
 
     await waitFor(() => expect(networking.createGuardrailCall).toHaveBeenCalledTimes(1));
     expect(payload()).toMatchObject({
-      litellm_params: { guardrailIdentifier: "gr-123", severity_threshold: 4 },
+      embrouter_params: { guardrailIdentifier: "gr-123", severity_threshold: 4 },
     });
   });
 
@@ -150,7 +150,7 @@ describe("AddGuardrailForm create payload characterization", () => {
     await user.click(await screen.findByRole("button", { name: "Create Guardrail" }));
 
     await waitFor(() => expect(networking.createGuardrailCall).toHaveBeenCalledTimes(1));
-    expect(payload()).not.toHaveProperty("litellm_params.api_key");
+    expect(payload()).not.toHaveProperty("embrouter_params.api_key");
   });
 
   it("blocks Next and sends nothing when the required guardrail name is missing", async () => {
@@ -177,7 +177,7 @@ describe("AddGuardrailForm create payload characterization", () => {
     await waitFor(() => expect(networking.createGuardrailCall).toHaveBeenCalledTimes(1));
     expect(payload()).toEqual({
       guardrail_name: "my-bedrock",
-      litellm_params: { guardrail: "bedrock", mode: "pre_call", default_on: false },
+      embrouter_params: { guardrail: "bedrock", mode: "pre_call", default_on: false },
       guardrail_info: {},
     });
   });
@@ -200,7 +200,7 @@ describe("AddGuardrailForm create payload characterization", () => {
     renderForm();
 
     await user.type(await screen.findByLabelText("Guardrail Name"), "judge-1");
-    await pickProvider(user, "LiteLLM LLM as a Judge");
+    await pickProvider(user, "EmbRouter LLM as a Judge");
     await user.click(screen.getByRole("button", { name: "Next" }));
 
     await user.type(await screen.findByPlaceholderText("Criterion name (e.g. Policy accuracy)"), "Accuracy");
@@ -212,7 +212,7 @@ describe("AddGuardrailForm create payload characterization", () => {
     await waitFor(() => expect(networking.createGuardrailCall).toHaveBeenCalledTimes(1));
     expect(payload()).toEqual({
       guardrail_name: "judge-1",
-      litellm_params: {
+      embrouter_params: {
         guardrail: "llm_as_a_judge",
         mode: "post_call",
         default_on: false,
@@ -230,7 +230,7 @@ describe("AddGuardrailForm create payload characterization", () => {
     renderForm();
 
     await user.type(await screen.findByLabelText("Guardrail Name"), "judge-2");
-    await pickProvider(user, "LiteLLM LLM as a Judge");
+    await pickProvider(user, "EmbRouter LLM as a Judge");
     await user.click(screen.getByRole("button", { name: "Next" }));
 
     await user.type(await screen.findByPlaceholderText("Criterion name (e.g. Policy accuracy)"), "Accuracy");
@@ -266,7 +266,7 @@ describe("AddGuardrailForm create payload characterization", () => {
 
     await waitFor(() => expect(networking.createGuardrailCall).toHaveBeenCalledTimes(1));
     expect(payload()).toMatchObject({
-      litellm_params: {
+      embrouter_params: {
         default_on: true,
         skip_system_message_in_guardrail: true,
         skip_tool_message_in_guardrail: false,

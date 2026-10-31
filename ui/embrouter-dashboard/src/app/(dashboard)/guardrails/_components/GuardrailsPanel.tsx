@@ -127,8 +127,8 @@ const GuardrailsPanel: React.FC<GuardrailsPanelProps> = ({ accessToken, userRole
   };
 
   const providerDisplayName =
-    guardrailToDelete && guardrailToDelete.litellm_params
-      ? getGuardrailLogoAndName(guardrailToDelete.litellm_params.guardrail).displayName
+    guardrailToDelete && guardrailToDelete.embrouter_params
+      ? getGuardrailLogoAndName(guardrailToDelete.embrouter_params.guardrail).displayName
       : undefined;
 
   return (
@@ -219,10 +219,10 @@ const GuardrailsPanel: React.FC<GuardrailsPanelProps> = ({ accessToken, userRole
                   { label: "Name", value: guardrailToDelete?.guardrail_name },
                   { label: "ID", value: guardrailToDelete?.guardrail_id, code: true },
                   { label: "Provider", value: providerDisplayName },
-                  { label: "Mode", value: formatGuardrailMode(guardrailToDelete?.litellm_params.mode) },
+                  { label: "Mode", value: formatGuardrailMode(guardrailToDelete?.embrouter_params.mode) },
                   {
                     label: "Default On",
-                    value: guardrailToDelete?.litellm_params.default_on ? "Yes" : "No",
+                    value: guardrailToDelete?.embrouter_params.default_on ? "Yes" : "No",
                   },
                 ]}
                 onCancel={handleDeleteCancel}

@@ -1,12 +1,12 @@
 """
-Constants for LiteLLM Skills
+Constants for EmbRouter Skills
 
 Centralized constants for skills processing, code execution, and sandbox configuration.
 """
 
 from typing import Final
 
-LITELLM_SKILL_ID_PREFIX: Final[str] = "litellm_skill_"
+EMBROUTER_SKILL_ID_PREFIX: Final[str] = "embrouter_skill_"
 """Prefix for DB-backed skill IDs. The model-facing tool name is the skill ID
 with hyphens/spaces replaced by underscores, which leaves this prefix intact."""
 

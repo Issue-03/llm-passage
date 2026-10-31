@@ -11,14 +11,14 @@ from typing import TYPE_CHECKING, Any, Final
 
 import yaml
 
-from litellm._logging import verbose_logger
-from litellm.constants import DEFAULT_SEMANTIC_GUARD_SIMILARITY_THRESHOLD
+from embrouter._logging import verbose_logger
+from embrouter.constants import DEFAULT_SEMANTIC_GUARD_SIMILARITY_THRESHOLD
 
 if TYPE_CHECKING:
     from semantic_router.routers import SemanticRouter
     from semantic_router.routers.base import Route
 
-    from litellm.router import Router
+    from embrouter.router import Router
 
 
 ROUTE_TEMPLATES_DIR: Final = os.path.join(os.path.dirname(__file__), "route_templates")
@@ -120,19 +120,19 @@ class SemanticGuardRouteLoader:
     def build_semantic_router(
         cls,
         routes: list["Route"],
-        litellm_router: "Router",
+        embrouter_router: "Router",
         embedding_model: str,
         global_threshold: float,
     ) -> "SemanticRouter":
-        """Build the SemanticRouter with LiteLLMRouterEncoder."""
+        """Build the SemanticRouter with EmbRouterRouterEncoder."""
         from semantic_router.routers import SemanticRouter
 
-        from litellm.router_strategy.auto_router.litellm_encoder import (
-            LiteLLMRouterEncoder,
+        from embrouter.router_strategy.auto_router.embrouter_encoder import (
+            EmbRouterRouterEncoder,
         )
 
-        encoder: Final = LiteLLMRouterEncoder(
-            litellm_router_instance=litellm_router,
+        encoder: Final = EmbRouterRouterEncoder(
+            embrouter_router_instance=embrouter_router,
             model_name=embedding_model,
             score_threshold=global_threshold,
         )

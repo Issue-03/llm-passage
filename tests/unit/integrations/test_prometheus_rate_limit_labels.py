@@ -3,13 +3,13 @@ Tests for the Prometheus rate-limit labels added on top of PR #27687.
 
 Covers two follow-up gaps to the unified rate-limit error work:
 
-1. ``litellm_proxy_failed_requests_metric`` now carries
+1. ``embrouter_proxy_failed_requests_metric`` now carries
    ``rate_limit_category`` and ``rate_limit_type`` labels populated from
-   :class:`litellm.RateLimitError` (vendor + ``ProxyRateLimitError``
+   :class:`embrouter.RateLimitError` (vendor + ``ProxyRateLimitError``
    subclass). Closes the Prometheus side of LIT-2718.
 2. ``_get_exception_class_name`` keeps emitting the literal string
    ``"HTTPException"`` for ``ProxyRateLimitError`` so existing dashboards
-   that key off ``exception_class="HTTPException"`` for litellm-internal
+   that key off ``exception_class="HTTPException"`` for embrouter-internal
    429s don't silently break when the new class lands.
 """
 
@@ -18,15 +18,15 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from litellm.exceptions import (
+from embrouter.exceptions import (
     RateLimitError,
     RateLimitErrorCategory,
     RateLimitType,
 )
-from litellm.integrations.prometheus import PrometheusLogger
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
-from litellm.types.integrations.prometheus import (
+from embrouter.integrations.prometheus import PrometheusLogger
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
+from embrouter.types.integrations.prometheus import (
     PrometheusMetricLabels,
     UserAPIKeyLabelNames,
     UserAPIKeyLabelValues,
@@ -44,13 +44,13 @@ def test_should_register_rate_limit_label_names_on_enum():
 
 
 def test_should_include_rate_limit_labels_on_failed_requests_metric():
-    import litellm
+    import embrouter
 
-    original = litellm.prometheus_emit_rate_limit_labels
+    original = embrouter.prometheus_emit_rate_limit_labels
     try:
-        litellm.prometheus_emit_rate_limit_labels = True
+        embrouter.prometheus_emit_rate_limit_labels = True
         labels = PrometheusMetricLabels.get_labels(
-            "litellm_proxy_failed_requests_metric"
+            "embrouter_proxy_failed_requests_metric"
         )
         assert "rate_limit_category" in labels
         assert "rate_limit_type" in labels
@@ -58,17 +58,17 @@ def test_should_include_rate_limit_labels_on_failed_requests_metric():
         assert "exception_class" in labels
         assert "exception_status" in labels
     finally:
-        litellm.prometheus_emit_rate_limit_labels = original
+        embrouter.prometheus_emit_rate_limit_labels = original
 
 
 def test_should_omit_rate_limit_labels_by_default_for_back_compat():
     """Default-off preserves the metric's historical label set so existing
-    dashboards / recording rules keyed on `litellm_proxy_failed_requests_metric`
+    dashboards / recording rules keyed on `embrouter_proxy_failed_requests_metric`
     keep matching after upgrade."""
-    import litellm
+    import embrouter
 
-    assert litellm.prometheus_emit_rate_limit_labels is False
-    labels = PrometheusMetricLabels.get_labels("litellm_proxy_failed_requests_metric")
+    assert embrouter.prometheus_emit_rate_limit_labels is False
+    labels = PrometheusMetricLabels.get_labels("embrouter_proxy_failed_requests_metric")
     assert "rate_limit_category" not in labels
     assert "rate_limit_type" not in labels
     # Pre-PR labels must still be present.
@@ -78,10 +78,10 @@ def test_should_omit_rate_limit_labels_by_default_for_back_compat():
 
 def test_should_accept_rate_limit_fields_on_user_api_key_label_values():
     enum_values = UserAPIKeyLabelValues(
-        rate_limit_category="litellm_rate_limit",
+        rate_limit_category="embrouter_rate_limit",
         rate_limit_type="requests",
     )
-    assert enum_values.rate_limit_category == "litellm_rate_limit"
+    assert enum_values.rate_limit_category == "embrouter_rate_limit"
     assert enum_values.rate_limit_type == "requests"
 
 
@@ -97,14 +97,14 @@ def test_should_extract_vendor_category_for_vanilla_rate_limit_error():
     assert rate_limit_type is None
 
 
-def test_should_extract_litellm_category_and_type_for_proxy_rate_limit_error():
+def test_should_extract_embrouter_category_and_type_for_proxy_rate_limit_error():
     err = ProxyRateLimitError(
         detail={"error": "tpm exceeded"},
-        category=RateLimitErrorCategory.LITELLM_RATE_LIMIT,
+        category=RateLimitErrorCategory.EMBROUTER_RATE_LIMIT,
         rate_limit_type=RateLimitType.TOKENS,
     )
     category, rate_limit_type = PrometheusLogger._extract_rate_limit_labels(err)
-    assert category == "litellm_rate_limit"
+    assert category == "embrouter_rate_limit"
     assert rate_limit_type == "tokens"
 
 
@@ -121,15 +121,15 @@ def test_should_return_none_for_none_exception():
 
 def test_should_extract_budget_dimension_for_budget_exceeded_error():
     # Virtual-key / team / org / end-user budget caps raise
-    # `litellm.BudgetExceededError` (a bare Exception subclass), which sets
+    # `embrouter.BudgetExceededError` (a bare Exception subclass), which sets
     # the same `.category` / `.rate_limit_type` attributes as the unified
     # RateLimitError path so Prometheus can split budget 429s from other
     # 429s without the customer parsing free-text error messages.
-    import litellm
+    import embrouter
 
-    err = litellm.BudgetExceededError(current_cost=0.5, max_budget=0.1)
+    err = embrouter.BudgetExceededError(current_cost=0.5, max_budget=0.1)
     category, rate_limit_type = PrometheusLogger._extract_rate_limit_labels(err)
-    assert category == "litellm_rate_limit"
+    assert category == "embrouter_rate_limit"
     assert rate_limit_type == "budget"
 
 
@@ -137,39 +137,39 @@ def test_should_extract_budget_dimension_for_budget_exceeded_error():
     "category_enum,rate_limit_enum,expected_category,expected_type",
     [
         (
-            RateLimitErrorCategory.LITELLM_RATE_LIMIT,
+            RateLimitErrorCategory.EMBROUTER_RATE_LIMIT,
             RateLimitType.REQUESTS,
-            "litellm_rate_limit",
+            "embrouter_rate_limit",
             "requests",
         ),
         (
-            RateLimitErrorCategory.LITELLM_RATE_LIMIT,
+            RateLimitErrorCategory.EMBROUTER_RATE_LIMIT,
             RateLimitType.TOKENS,
-            "litellm_rate_limit",
+            "embrouter_rate_limit",
             "tokens",
         ),
         (
-            RateLimitErrorCategory.LITELLM_RATE_LIMIT,
+            RateLimitErrorCategory.EMBROUTER_RATE_LIMIT,
             RateLimitType.CONCURRENT_REQUESTS,
-            "litellm_rate_limit",
+            "embrouter_rate_limit",
             "concurrent_requests",
         ),
         (
-            RateLimitErrorCategory.LITELLM_RATE_LIMIT,
+            RateLimitErrorCategory.EMBROUTER_RATE_LIMIT,
             RateLimitType.BUDGET,
-            "litellm_rate_limit",
+            "embrouter_rate_limit",
             "budget",
         ),
         (
-            RateLimitErrorCategory.LITELLM_RATE_LIMIT,
+            RateLimitErrorCategory.EMBROUTER_RATE_LIMIT,
             RateLimitType.MAX_ITERATIONS,
-            "litellm_rate_limit",
+            "embrouter_rate_limit",
             "max_iterations",
         ),
         (
-            RateLimitErrorCategory.LITELLM_BATCH_RATE_LIMIT,
+            RateLimitErrorCategory.EMBROUTER_BATCH_RATE_LIMIT,
             RateLimitType.REQUESTS,
-            "litellm_batch_rate_limit",
+            "embrouter_batch_rate_limit",
             "requests",
         ),
     ],
@@ -195,7 +195,7 @@ def test_should_emit_legacy_http_exception_label_for_proxy_rate_limit_error():
     ``ProxyRateLimitError`` multi-inherits from ``HTTPException`` +
     ``RateLimitError``. The ``exception_class`` label MUST keep emitting
     "HTTPException" for back-compat with existing dashboards (see Slack
-    thread + PR #27687 review). Distinguishing vendor vs. litellm 429s
+    thread + PR #27687 review). Distinguishing vendor vs. embrouter 429s
     is now the job of the new ``rate_limit_category`` label.
     """
     err = ProxyRateLimitError(detail={"error": "boom"})
@@ -228,25 +228,25 @@ async def test_should_populate_rate_limit_labels_for_proxy_rate_limit_error_on_f
     ``exception_class="HTTPException"`` for back-compat.
     """
     with patch(
-        "litellm.integrations.prometheus.PrometheusLogger.__init__", return_value=None
+        "embrouter.integrations.prometheus.PrometheusLogger.__init__", return_value=None
     ):
         logger = PrometheusLogger()
-        logger.litellm_proxy_failed_requests_metric = MagicMock()
-        logger.litellm_proxy_total_requests_metric = MagicMock()
+        logger.embrouter_proxy_failed_requests_metric = MagicMock()
+        logger.embrouter_proxy_total_requests_metric = MagicMock()
         logger.get_labels_for_metric = MagicMock(
             return_value=PrometheusMetricLabels.get_labels(
-                "litellm_proxy_failed_requests_metric"
+                "embrouter_proxy_failed_requests_metric"
             )
         )
 
     err = ProxyRateLimitError(
         detail={"error": "rpm exceeded"},
-        category=RateLimitErrorCategory.LITELLM_RATE_LIMIT,
+        category=RateLimitErrorCategory.EMBROUTER_RATE_LIMIT,
         rate_limit_type=RateLimitType.REQUESTS,
     )
 
     with patch(
-        "litellm.integrations.prometheus.prometheus_label_factory"
+        "embrouter.integrations.prometheus.prometheus_label_factory"
     ) as mock_label_factory:
         mock_label_factory.return_value = {}
         await logger.async_post_call_failure_hook(
@@ -257,7 +257,7 @@ async def test_should_populate_rate_limit_labels_for_proxy_rate_limit_error_on_f
 
     enum_values = mock_label_factory.call_args_list[0].kwargs["enum_values"]
     assert isinstance(enum_values, UserAPIKeyLabelValues)
-    assert enum_values.rate_limit_category == "litellm_rate_limit"
+    assert enum_values.rate_limit_category == "embrouter_rate_limit"
     assert enum_values.rate_limit_type == "requests"
     # Back-compat: exception_class on a ProxyRateLimitError stays "HTTPException".
     assert enum_values.exception_class == "HTTPException"
@@ -267,21 +267,21 @@ async def test_should_populate_rate_limit_labels_for_proxy_rate_limit_error_on_f
 @pytest.mark.asyncio
 async def test_should_populate_rate_limit_labels_for_vendor_rate_limit_error_on_failure_hook():
     with patch(
-        "litellm.integrations.prometheus.PrometheusLogger.__init__", return_value=None
+        "embrouter.integrations.prometheus.PrometheusLogger.__init__", return_value=None
     ):
         logger = PrometheusLogger()
-        logger.litellm_proxy_failed_requests_metric = MagicMock()
-        logger.litellm_proxy_total_requests_metric = MagicMock()
+        logger.embrouter_proxy_failed_requests_metric = MagicMock()
+        logger.embrouter_proxy_total_requests_metric = MagicMock()
         logger.get_labels_for_metric = MagicMock(
             return_value=PrometheusMetricLabels.get_labels(
-                "litellm_proxy_failed_requests_metric"
+                "embrouter_proxy_failed_requests_metric"
             )
         )
 
     err = RateLimitError(message="upstream 429", llm_provider="openai", model="gpt-4o")
 
     with patch(
-        "litellm.integrations.prometheus.prometheus_label_factory"
+        "embrouter.integrations.prometheus.prometheus_label_factory"
     ) as mock_label_factory:
         mock_label_factory.return_value = {}
         await logger.async_post_call_failure_hook(
@@ -302,19 +302,19 @@ async def test_should_populate_rate_limit_labels_for_vendor_rate_limit_error_on_
 @pytest.mark.asyncio
 async def test_should_leave_rate_limit_labels_blank_for_non_rate_limit_failure():
     with patch(
-        "litellm.integrations.prometheus.PrometheusLogger.__init__", return_value=None
+        "embrouter.integrations.prometheus.PrometheusLogger.__init__", return_value=None
     ):
         logger = PrometheusLogger()
-        logger.litellm_proxy_failed_requests_metric = MagicMock()
-        logger.litellm_proxy_total_requests_metric = MagicMock()
+        logger.embrouter_proxy_failed_requests_metric = MagicMock()
+        logger.embrouter_proxy_total_requests_metric = MagicMock()
         logger.get_labels_for_metric = MagicMock(
             return_value=PrometheusMetricLabels.get_labels(
-                "litellm_proxy_failed_requests_metric"
+                "embrouter_proxy_failed_requests_metric"
             )
         )
 
     with patch(
-        "litellm.integrations.prometheus.prometheus_label_factory"
+        "embrouter.integrations.prometheus.prometheus_label_factory"
     ) as mock_label_factory:
         mock_label_factory.return_value = {}
         await logger.async_post_call_failure_hook(
@@ -331,18 +331,18 @@ async def test_should_leave_rate_limit_labels_blank_for_non_rate_limit_failure()
 
 def _logger_with_mock_virtual_key_gauges() -> PrometheusLogger:
     with patch(
-        "litellm.integrations.prometheus.PrometheusLogger.__init__", return_value=None
+        "embrouter.integrations.prometheus.PrometheusLogger.__init__", return_value=None
     ):
         logger = PrometheusLogger()
-    logger.litellm_remaining_api_key_requests_for_model = MagicMock()
-    logger.litellm_remaining_api_key_tokens_for_model = MagicMock()
+    logger.embrouter_remaining_api_key_requests_for_model = MagicMock()
+    logger.embrouter_remaining_api_key_tokens_for_model = MagicMock()
     logger.get_labels_for_metric = MagicMock(return_value=[])
     return logger
 
 
 def _kwargs_with_v3_rate_limit_headers(additional_headers: dict) -> dict:
     return {
-        "litellm_params": {"metadata": {"model_group": "gpt-4o-mini"}},
+        "embrouter_params": {"metadata": {"model_group": "gpt-4o-mini"}},
         "standard_logging_object": {
             "metadata": {},
             "hidden_params": {"additional_headers": additional_headers},
@@ -355,7 +355,7 @@ def _set_virtual_key_metrics(logger: PrometheusLogger, kwargs: dict) -> None:
         user_api_key="test-hash",
         user_api_key_alias="test-alias",
         kwargs=kwargs,
-        metadata=kwargs["litellm_params"]["metadata"],
+        metadata=kwargs["embrouter_params"]["metadata"],
         model_id="model-123",
     )
 
@@ -366,7 +366,7 @@ def test_should_read_v3_remaining_headers_when_metadata_keys_absent():
     per-(key, model) values into
     ``standard_logging_object.hidden_params.additional_headers`` as
     ``x-ratelimit-model_per_key-remaining-{requests,tokens}`` and never sets
-    the legacy ``litellm-key-remaining-*`` metadata keys, so the gauges were
+    the legacy ``embrouter-key-remaining-*`` metadata keys, so the gauges were
     pinned to ``sys.maxsize``.
     """
     logger = _logger_with_mock_virtual_key_gauges()
@@ -381,10 +381,10 @@ def test_should_read_v3_remaining_headers_when_metadata_keys_absent():
 
     _set_virtual_key_metrics(logger, kwargs)
 
-    logger.litellm_remaining_api_key_requests_for_model.labels.return_value.set.assert_called_once_with(
+    logger.embrouter_remaining_api_key_requests_for_model.labels.return_value.set.assert_called_once_with(
         42
     )
-    logger.litellm_remaining_api_key_tokens_for_model.labels.return_value.set.assert_called_once_with(
+    logger.embrouter_remaining_api_key_tokens_for_model.labels.return_value.set.assert_called_once_with(
         900
     )
 
@@ -397,19 +397,19 @@ def test_should_prefer_legacy_metadata_keys_over_v3_headers():
             "x-ratelimit-model_per_key-remaining-tokens": 900,
         }
     )
-    kwargs["litellm_params"]["metadata"].update(
+    kwargs["embrouter_params"]["metadata"].update(
         {
-            "litellm-key-remaining-requests-gpt-4o-mini": 3,
-            "litellm-key-remaining-tokens-gpt-4o-mini": 200,
+            "embrouter-key-remaining-requests-gpt-4o-mini": 3,
+            "embrouter-key-remaining-tokens-gpt-4o-mini": 200,
         }
     )
 
     _set_virtual_key_metrics(logger, kwargs)
 
-    logger.litellm_remaining_api_key_requests_for_model.labels.return_value.set.assert_called_once_with(
+    logger.embrouter_remaining_api_key_requests_for_model.labels.return_value.set.assert_called_once_with(
         3
     )
-    logger.litellm_remaining_api_key_tokens_for_model.labels.return_value.set.assert_called_once_with(
+    logger.embrouter_remaining_api_key_tokens_for_model.labels.return_value.set.assert_called_once_with(
         200
     )
 
@@ -425,10 +425,10 @@ def test_should_treat_zero_v3_remaining_as_zero():
 
     _set_virtual_key_metrics(logger, kwargs)
 
-    logger.litellm_remaining_api_key_requests_for_model.labels.return_value.set.assert_called_once_with(
+    logger.embrouter_remaining_api_key_requests_for_model.labels.return_value.set.assert_called_once_with(
         0
     )
-    logger.litellm_remaining_api_key_tokens_for_model.labels.return_value.set.assert_called_once_with(
+    logger.embrouter_remaining_api_key_tokens_for_model.labels.return_value.set.assert_called_once_with(
         0
     )
 
@@ -438,16 +438,16 @@ def test_should_keep_maxsize_sentinel_when_no_rate_limit_source_present():
 
     logger = _logger_with_mock_virtual_key_gauges()
     kwargs = {
-        "litellm_params": {"metadata": {"model_group": "gpt-4o-mini"}},
+        "embrouter_params": {"metadata": {"model_group": "gpt-4o-mini"}},
         "standard_logging_object": {"metadata": {}, "hidden_params": {}},
     }
 
     _set_virtual_key_metrics(logger, kwargs)
 
-    logger.litellm_remaining_api_key_requests_for_model.labels.return_value.set.assert_called_once_with(
+    logger.embrouter_remaining_api_key_requests_for_model.labels.return_value.set.assert_called_once_with(
         sys.maxsize
     )
-    logger.litellm_remaining_api_key_tokens_for_model.labels.return_value.set.assert_called_once_with(
+    logger.embrouter_remaining_api_key_tokens_for_model.labels.return_value.set.assert_called_once_with(
         sys.maxsize
     )
 
@@ -466,19 +466,19 @@ def test_should_ignore_non_int_v3_header_values(bad_value):
 
     _set_virtual_key_metrics(logger, kwargs)
 
-    logger.litellm_remaining_api_key_requests_for_model.labels.return_value.set.assert_called_once_with(
+    logger.embrouter_remaining_api_key_requests_for_model.labels.return_value.set.assert_called_once_with(
         sys.maxsize
     )
-    logger.litellm_remaining_api_key_tokens_for_model.labels.return_value.set.assert_called_once_with(
+    logger.embrouter_remaining_api_key_tokens_for_model.labels.return_value.set.assert_called_once_with(
         sys.maxsize
     )
 
 
 KEY_AND_TEAM_RATE_LIMIT_METRICS = (
-    "litellm_api_key_rate_limit_allowed_metric",
-    "litellm_api_key_rate_limit_used_metric",
-    "litellm_team_rate_limit_allowed_metric",
-    "litellm_team_rate_limit_used_metric",
+    "embrouter_api_key_rate_limit_allowed_metric",
+    "embrouter_api_key_rate_limit_used_metric",
+    "embrouter_team_rate_limit_allowed_metric",
+    "embrouter_team_rate_limit_used_metric",
 )
 
 
@@ -506,7 +506,7 @@ def _collected_samples(metric_name: str) -> dict[tuple[tuple[str, str], ...], fl
 def _success_kwargs_with_rate_limit_headers(additional_headers: Mapping[str, object] | None) -> dict[str, object]:
     return {
         "model": "claude-haiku-4-5",
-        "litellm_params": {"metadata": {}},
+        "embrouter_params": {"metadata": {}},
         "standard_logging_object": {
             "id": "t",
             "call_type": "completion",
@@ -543,7 +543,7 @@ def _success_kwargs_with_rate_limit_headers(additional_headers: Mapping[str, obj
                 "usage_object": None,
             },
             "hidden_params": {
-                "litellm_overhead_time_ms": None,
+                "embrouter_overhead_time_ms": None,
                 "additional_headers": additional_headers,
             },
         },
@@ -607,19 +607,19 @@ async def test_should_emit_key_and_team_rate_limit_allowed_and_used_from_v3_head
             ("team_alias", "team-alias"),
         )
 
-        assert _collected_samples("litellm_api_key_rate_limit_allowed_metric") == {
+        assert _collected_samples("embrouter_api_key_rate_limit_allowed_metric") == {
             key_requests: 10,
             key_tokens: 20000,
         }
-        assert _collected_samples("litellm_api_key_rate_limit_used_metric") == {
+        assert _collected_samples("embrouter_api_key_rate_limit_used_metric") == {
             key_requests: 3,
             key_tokens: 53,
         }
-        assert _collected_samples("litellm_team_rate_limit_allowed_metric") == {
+        assert _collected_samples("embrouter_team_rate_limit_allowed_metric") == {
             team_requests: 50,
             team_tokens: 40000,
         }
-        assert _collected_samples("litellm_team_rate_limit_used_metric") == {
+        assert _collected_samples("embrouter_team_rate_limit_used_metric") == {
             team_requests: 3,
             team_tokens: 40,
         }
@@ -648,10 +648,10 @@ async def test_should_emit_only_the_dimensions_the_limiter_enforced():
             ("hashed_api_key", "key-hash"),
             ("rate_limit_type", "requests"),
         )
-        assert _collected_samples("litellm_api_key_rate_limit_allowed_metric") == {key_requests: 10}
-        assert _collected_samples("litellm_api_key_rate_limit_used_metric") == {key_requests: 0}
-        assert _collected_samples("litellm_team_rate_limit_allowed_metric") == {}
-        assert _collected_samples("litellm_team_rate_limit_used_metric") == {}
+        assert _collected_samples("embrouter_api_key_rate_limit_allowed_metric") == {key_requests: 10}
+        assert _collected_samples("embrouter_api_key_rate_limit_used_metric") == {key_requests: 0}
+        assert _collected_samples("embrouter_team_rate_limit_allowed_metric") == {}
+        assert _collected_samples("embrouter_team_rate_limit_used_metric") == {}
     finally:
         _clear_prometheus_registry()
 
@@ -693,10 +693,10 @@ async def test_should_drop_key_and_team_series_once_the_limiter_stops_reporting_
             ("team", "team-id"),
             ("team_alias", "team-alias"),
         )
-        assert _collected_samples("litellm_api_key_rate_limit_allowed_metric") == {}
-        assert _collected_samples("litellm_api_key_rate_limit_used_metric") == {}
-        assert _collected_samples("litellm_team_rate_limit_allowed_metric") == {team_requests: 50}
-        assert _collected_samples("litellm_team_rate_limit_used_metric") == {team_requests: 4}
+        assert _collected_samples("embrouter_api_key_rate_limit_allowed_metric") == {}
+        assert _collected_samples("embrouter_api_key_rate_limit_used_metric") == {}
+        assert _collected_samples("embrouter_team_rate_limit_allowed_metric") == {team_requests: 50}
+        assert _collected_samples("embrouter_team_rate_limit_used_metric") == {team_requests: 4}
     finally:
         _clear_prometheus_registry()
 

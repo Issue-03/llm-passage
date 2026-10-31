@@ -24,11 +24,11 @@ from uuid import uuid4
 
 from pydantic import JsonValue, TypeAdapter, ValidationError
 
-from litellm._logging import verbose_logger
-from litellm.types.utils import ModelResponse
+from embrouter._logging import verbose_logger
+from embrouter.types.utils import ModelResponse
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
+    from embrouter.embrouter_core_utils.streaming_handler import CustomStreamWrapper
 
 _STR_KEY_MAPPING_ADAPTER: Final = TypeAdapter(Mapping[str, object])
 
@@ -106,7 +106,7 @@ class A2ACompletionBridgeTransformation:
         """
         Attach A2A metadata to completion kwargs for provider bridges (e.g. LangGraph).
 
-        Uses ``extra_body`` so we do not collide with LiteLLM's spend-log ``metadata`` kwarg.
+        Uses ``extra_body`` so we do not collide with EmbRouter's spend-log ``metadata`` kwarg.
         """
         forward_metadata: Final = A2ACompletionBridgeTransformation.get_forward_metadata(
             a2a_message=a2a_message,
@@ -174,10 +174,10 @@ class A2ACompletionBridgeTransformation:
         request_id: str | None = None,
     ) -> dict[str, object]:
         """
-        Transform a LiteLLM ModelResponse to A2A SendMessageResponse format.
+        Transform a EmbRouter ModelResponse to A2A SendMessageResponse format.
 
         Args:
-            response: LiteLLM ModelResponse object
+            response: EmbRouter ModelResponse object
             request_id: Original A2A request ID
 
         Returns:

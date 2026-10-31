@@ -11,15 +11,15 @@ from typing import TYPE_CHECKING, Final, Optional
 
 from fastapi import HTTPException
 
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.common_utils.callback_utils import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.common_utils.callback_utils import (
     add_guardrail_to_applied_guardrails_header,
 )
-from litellm.types.guardrails import GuardrailEventHooks
+from embrouter.types.guardrails import GuardrailEventHooks
 
 if TYPE_CHECKING:
-    from litellm.types.mcp import MCPPostCallResponseObject
+    from embrouter.types.mcp import MCPPostCallResponseObject
 
     from .cisco_ai_defense import _ScanContext
 
@@ -110,7 +110,7 @@ class _CiscoAIDefenseMcpMixin:
         request_data: Final[dict[str, object]] = {}
         for key in (
             "name",
-            "litellm_call_id",
+            "embrouter_call_id",
             "id",
             "user",
             "mcp_tool_name",
@@ -120,7 +120,7 @@ class _CiscoAIDefenseMcpMixin:
             "mcp_server_name",
             "server_name",
             "metadata",
-            "litellm_metadata",
+            "embrouter_metadata",
             "mcp_tool_call_metadata",
             "guardrails",
         ):
@@ -182,8 +182,8 @@ class _CiscoAIDefenseMcpMixin:
 
         from mcp.types import TextContent
 
-        from litellm.types.llms.base import HiddenParams
-        from litellm.types.mcp import MCPPostCallResponseObject
+        from embrouter.types.llms.base import HiddenParams
+        from embrouter.types.mcp import MCPPostCallResponseObject
 
         if isinstance(detail, dict):
             payload = detail
@@ -375,7 +375,7 @@ class _CiscoAIDefenseMcpMixin:
         if data.get("jsonrpc") == "2.0":
             return {
                 "jsonrpc": "2.0",
-                "id": (data.get("id") or data.get("litellm_call_id") or "litellm-mcp"),
+                "id": (data.get("id") or data.get("embrouter_call_id") or "embrouter-mcp"),
                 "method": data.get("method") or "tools/call",
                 "params": data.get("params") or {},
             }
@@ -390,7 +390,7 @@ class _CiscoAIDefenseMcpMixin:
 
         return {
             "jsonrpc": "2.0",
-            "id": data.get("litellm_call_id") or "litellm-mcp",
+            "id": data.get("embrouter_call_id") or "embrouter-mcp",
             "method": "tools/call",
             "params": {
                 "name": tool_name,
@@ -413,10 +413,10 @@ class _CiscoAIDefenseMcpMixin:
 
         payload: Final = dict(request_payload)
         response_id: Final = normalized.get("id")
-        if response_id not in (None, "litellm-mcp"):
+        if response_id not in (None, "embrouter-mcp"):
             payload["id"] = response_id
-        elif payload.get("id") in (None, "litellm-mcp"):
-            request_id: Final = request_data.get("litellm_call_id") or request_data.get("id")
+        elif payload.get("id") in (None, "embrouter-mcp"):
+            request_id: Final = request_data.get("embrouter_call_id") or request_data.get("id")
             if request_id:
                 payload["id"] = request_id
 
@@ -430,7 +430,7 @@ class _CiscoAIDefenseMcpMixin:
     def _hydrate_mcp_tool_context(request_data: dict[str, object]) -> None:
         metadata = request_data.get("mcp_tool_call_metadata")
         if metadata is None:
-            nested: Final = request_data.get("metadata") or request_data.get("litellm_metadata")
+            nested: Final = request_data.get("metadata") or request_data.get("embrouter_metadata")
             if isinstance(nested, dict):
                 metadata = nested.get("mcp_tool_call_metadata")
         if not isinstance(metadata, dict):
@@ -464,14 +464,14 @@ class _CiscoAIDefenseMcpMixin:
             if isinstance(response.get("result"), dict):
                 return {
                     "jsonrpc": "2.0",
-                    "id": response.get("id") or "litellm-mcp",
+                    "id": response.get("id") or "embrouter-mcp",
                     "result": response["result"],
                 }
             content = response.get("content")
             if isinstance(content, list):
                 return {
                     "jsonrpc": "2.0",
-                    "id": response.get("id") or "litellm-mcp",
+                    "id": response.get("id") or "embrouter-mcp",
                     "result": _CiscoAIDefenseMcpMixin._build_mcp_result(content=content, source=response),
                 }
         if isinstance(response, list):
@@ -483,7 +483,7 @@ class _CiscoAIDefenseMcpMixin:
                 if isinstance(inner_content, list):
                     return {
                         "jsonrpc": "2.0",
-                        "id": "litellm-mcp",
+                        "id": "embrouter-mcp",
                         "result": _CiscoAIDefenseMcpMixin._build_mcp_result(
                             content=inner_content, source=response_fields
                         ),
@@ -492,7 +492,7 @@ class _CiscoAIDefenseMcpMixin:
                     return None
             return {
                 "jsonrpc": "2.0",
-                "id": "litellm-mcp",
+                "id": "embrouter-mcp",
                 "result": _CiscoAIDefenseMcpMixin._build_mcp_result(content=response),
             }
         model_dump: Final = getattr(response, "model_dump", None)
@@ -507,7 +507,7 @@ class _CiscoAIDefenseMcpMixin:
         if isinstance(content, list):
             return {
                 "jsonrpc": "2.0",
-                "id": "litellm-mcp",
+                "id": "embrouter-mcp",
                 "result": _CiscoAIDefenseMcpMixin._build_mcp_result(content=content, source=response),
             }
         return None

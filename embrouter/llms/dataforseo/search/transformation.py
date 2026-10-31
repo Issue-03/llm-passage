@@ -8,14 +8,14 @@ from typing import Final, Literal
 
 import httpx
 
-from litellm.constants import DEFAULT_DATAFORSEO_LOCATION_CODE
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.base_llm.search.transformation import (
+from embrouter.constants import DEFAULT_DATAFORSEO_LOCATION_CODE
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.base_llm.search.transformation import (
     BaseSearchConfig,
     SearchResponse,
     SearchResult,
 )
-from litellm.secret_managers.main import get_secret_str
+from embrouter.secret_managers.main import get_secret_str
 
 
 class DataForSEOSearchConfig(BaseSearchConfig):
@@ -169,13 +169,13 @@ class DataForSEOSearchConfig(BaseSearchConfig):
     def transform_search_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         **kwargs,
     ) -> SearchResponse:
         """
-        Transform DataForSEO SERP API response to LiteLLM unified SearchResponse format.
+        Transform DataForSEO SERP API response to EmbRouter unified SearchResponse format.
 
-        DataForSEO → LiteLLM mappings:
+        DataForSEO → EmbRouter mappings:
         - tasks[0].result[*].items[*].title → SearchResult.title
         - tasks[0].result[*].items[*].url → SearchResult.url
         - tasks[0].result[*].items[*].description → SearchResult.snippet

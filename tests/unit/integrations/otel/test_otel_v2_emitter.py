@@ -13,23 +13,23 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanE
 from opentelemetry.trace import INVALID_SPAN, SpanKind  # noqa: E402
 from opentelemetry.trace.status import StatusCode  # noqa: E402
 
-from litellm.integrations.otel import (  # noqa: E402
+from embrouter.integrations.otel import (  # noqa: E402
     GenAI,
-    LiteLLM,
+    EmbRouter,
     OpenTelemetryV2Config,
 )
-from litellm.integrations.otel.plumbing import context as ctx_mod  # noqa: E402
-from litellm.integrations.otel.plumbing import providers  # noqa: E402
-from litellm.integrations.otel.emitter import SpanEmitter, span_attribute_limit  # noqa: E402
-from litellm.integrations.otel.emitter import stamp_error  # noqa: E402
-from litellm.integrations.otel.mappers.utils import MAX_TOOL_DEFINITION_ATTRS_PER_SPAN  # noqa: E402
-from litellm.integrations.otel.model.payloads import (  # noqa: E402
+from embrouter.integrations.otel.plumbing import context as ctx_mod  # noqa: E402
+from embrouter.integrations.otel.plumbing import providers  # noqa: E402
+from embrouter.integrations.otel.emitter import SpanEmitter, span_attribute_limit  # noqa: E402
+from embrouter.integrations.otel.emitter import stamp_error  # noqa: E402
+from embrouter.integrations.otel.mappers.utils import MAX_TOOL_DEFINITION_ATTRS_PER_SPAN  # noqa: E402
+from embrouter.integrations.otel.model.payloads import (  # noqa: E402
     GuardrailSpanData,
     LLMCallSpanData,
     ServiceSpanData,
     SpanError,
 )
-from litellm.integrations.otel.model.spans import SPAN_REGISTRY, SpanRole  # noqa: E402
+from embrouter.integrations.otel.model.spans import SPAN_REGISTRY, SpanRole  # noqa: E402
 
 
 def _payload(**overrides):
@@ -50,7 +50,7 @@ def _payload(**overrides):
         "metadata": {"team_id": "t1", "team_alias": "team one"},
         "api_base": "https://api.openai.com:443/v1",
         "status": "success",
-        "litellm_call_id": "call_1",
+        "embrouter_call_id": "call_1",
         "response_cost": 0.002,
         "hidden_params": {},
     }
@@ -61,7 +61,7 @@ def _payload(**overrides):
 def _engine(legacy_compat=True):
     cfg = OpenTelemetryV2Config(exporter="in_memory", legacy_compat=legacy_compat)
     provider, exporter = providers.in_memory_provider(cfg)
-    tracer = providers.get_tracer(provider, "litellm-test")
+    tracer = providers.get_tracer(provider, "embrouter-test")
     return SpanEmitter(tracer, cfg), exporter
 
 
@@ -81,24 +81,24 @@ def test_llm_call_span_cost_breakdown():
     (span,) = exporter.get_finished_spans()
     a = span.attributes
     # The rolled-up total stays sourced from response_cost.
-    assert a[f"{LiteLLM.COST_PREFIX}total"] == 0.002
+    assert a[f"{EmbRouter.COST_PREFIX}total"] == 0.002
     # Per-component breakdown now rides the span.
-    assert a[f"{LiteLLM.COST_PREFIX}input"] == 0.004
-    assert a[f"{LiteLLM.COST_PREFIX}output"] == 0.006
-    assert a[f"{LiteLLM.COST_PREFIX}cache_read"] == 0.001
+    assert a[f"{EmbRouter.COST_PREFIX}input"] == 0.004
+    assert a[f"{EmbRouter.COST_PREFIX}output"] == 0.006
+    assert a[f"{EmbRouter.COST_PREFIX}cache_read"] == 0.001
     # Unreported components are omitted, not zero-filled.
-    assert f"{LiteLLM.COST_PREFIX}margin_total_amount" not in a
+    assert f"{EmbRouter.COST_PREFIX}margin_total_amount" not in a
 
 
-def test_tracer_scope_carries_litellm_version():
-    from litellm._version import version as litellm_version
+def test_tracer_scope_carries_embrouter_version():
+    from embrouter._version import version as embrouter_version
 
     cfg = OpenTelemetryV2Config(exporter="in_memory")
     provider, exporter = providers.in_memory_provider(cfg)
-    tracer = providers.get_tracer(provider, "litellm-test")
+    tracer = providers.get_tracer(provider, "embrouter-test")
     tracer.start_span("probe").end()
     (span,) = exporter.get_finished_spans()
-    assert span.instrumentation_scope.version == litellm_version
+    assert span.instrumentation_scope.version == embrouter_version
 
 
 def test_llm_call_span_golden():
@@ -119,8 +119,8 @@ def test_llm_call_span_golden():
     assert a[GenAI.RESPONSE_FINISH_REASONS] == ("stop",)
     assert a[GenAI.REQUEST_TEMPERATURE] == 0.7
     assert a["server.address"] == "api.openai.com"
-    assert a[LiteLLM.CALL_ID] == "call_1"
-    assert a["litellm.cost.total"] == 0.002
+    assert a[EmbRouter.CALL_ID] == "call_1"
+    assert a["embrouter.cost.total"] == 0.002
     # Success leaves status UNSET (semconv default), not forced OK.
     assert span.status.status_code is StatusCode.UNSET
 
@@ -168,9 +168,9 @@ def test_stamp_error_writes_full_attribute_set_and_event():
     assert result == ("ProxyException", "boom")
     assert s.attributes["error.type"] == "ProxyException"
     assert s.attributes["error.message"] == "boom"
-    assert s.attributes["litellm.provider.error.code"] == "401"
-    assert s.attributes["litellm.provider.error.stack_trace"] == "tb"
-    assert s.attributes["litellm.provider.error.llm_provider"] == "anthropic"
+    assert s.attributes["embrouter.provider.error.code"] == "401"
+    assert s.attributes["embrouter.provider.error.stack_trace"] == "tb"
+    assert s.attributes["embrouter.provider.error.llm_provider"] == "anthropic"
     assert s.status.status_code is StatusCode.ERROR
     assert [e.name for e in s.events] == ["exception"]
 
@@ -182,7 +182,7 @@ def test_stamp_error_opt_outs_skip_status_and_event():
     span.end()
     (s,) = exporter.get_finished_spans()
     assert s.attributes["error.type"] == "ProxyException"
-    assert s.attributes["litellm.provider.error.code"] == "401"
+    assert s.attributes["embrouter.provider.error.code"] == "401"
     assert s.status.status_code is StatusCode.UNSET
     assert s.events == ()
 
@@ -238,20 +238,20 @@ def test_dedup_cache_is_bounded(monkeypatch):
     """The dedup cache only needs to coalesce one request's sync+async fire, so
     it is a bounded LRU — every unique call_id must not accumulate forever on a
     long-running proxy."""
-    from litellm.integrations.otel import emitter as emitter_mod
+    from embrouter.integrations.otel import emitter as emitter_mod
 
     monkeypatch.setattr(emitter_mod, "_DEDUP_CACHE_MAX", 3)
     engine, _ = _engine()
     for i in range(10):
         engine.emit(
             SpanRole.LLM_CALL,
-            LLMCallSpanData.from_standard_logging_payload(_payload(litellm_call_id=f"call_{i}")),
+            LLMCallSpanData.from_standard_logging_payload(_payload(embrouter_call_id=f"call_{i}")),
         )
     assert len(engine._emitted) <= 3
 
 
 def test_service_error_span():
-    from litellm.integrations.otel.model.payloads import SpanError
+    from embrouter.integrations.otel.model.payloads import SpanError
 
     engine, exporter = _engine()
     engine.emit(
@@ -261,7 +261,7 @@ def test_service_error_span():
     (span,) = exporter.get_finished_spans()
     assert span.status.status_code is StatusCode.ERROR
     assert span.attributes["error.type"] == "DBError"
-    assert span.attributes[LiteLLM.SERVICE_NAME] == "postgres"
+    assert span.attributes[EmbRouter.SERVICE_NAME] == "postgres"
 
 
 def test_guardrail_block_span_is_error_and_carries_verdict():
@@ -280,10 +280,10 @@ def test_guardrail_block_span_is_error_and_carries_verdict():
     (span,) = exporter.get_finished_spans()
     assert span.status.status_code is StatusCode.ERROR  # intervention → ERROR
     a = span.attributes
-    assert a[LiteLLM.GUARDRAIL_STATUS] == "guardrail_intervened"
-    assert a[LiteLLM.GUARDRAIL_PROVIDER] == "openai"
-    assert "violence" in a[LiteLLM.GUARDRAIL_RESPONSE]  # the verdict rides the span
-    assert a[LiteLLM.GUARDRAIL_MASKED_ENTITY_COUNT] == 2
+    assert a[EmbRouter.GUARDRAIL_STATUS] == "guardrail_intervened"
+    assert a[EmbRouter.GUARDRAIL_PROVIDER] == "openai"
+    assert "violence" in a[EmbRouter.GUARDRAIL_RESPONSE]  # the verdict rides the span
+    assert a[EmbRouter.GUARDRAIL_MASKED_ENTITY_COUNT] == 2
 
 
 def test_guardrail_success_span_is_unset():
@@ -336,11 +336,11 @@ def test_many_tools_do_not_evict_core_attributes():
     assert a[GenAI.USAGE_INPUT_TOKENS] == 10
     assert a[GenAI.USAGE_OUTPUT_TOKENS] == 5
     assert a[GenAI.RESPONSE_FINISH_REASONS] == ("stop",)
-    assert a[f"{LiteLLM.COST_PREFIX}total"] == 0.002
+    assert a[f"{EmbRouter.COST_PREFIX}total"] == 0.002
     assert a["gen_ai.usage.prompt_tokens"] == 10
 
     assert span.dropped_attributes == 0
-    assert a[LiteLLM.TOOLS_DECLARED] == 127
+    assert a[EmbRouter.TOOLS_DECLARED] == 127
     assert a["gen_ai.tool.0.name"] == "tool_0"
     assert "gen_ai.tool.126.name" not in a
     assert "llm.request.functions.126.name" not in a
@@ -354,7 +354,7 @@ def test_tool_definitions_kept_in_full_below_the_cap():
     (span,) = exporter.get_finished_spans()
     a = span.attributes
 
-    assert a[LiteLLM.TOOLS_DECLARED] == 3
+    assert a[EmbRouter.TOOLS_DECLARED] == 3
     for idx in range(3):
         assert a[f"gen_ai.tool.{idx}.name"] == f"tool_{idx}"
         assert a[f"gen_ai.tool.{idx}.description"] == f"description for tool {idx}"
@@ -370,7 +370,7 @@ def _tool_span(mapper_names, tool_count):
         mapper_names=list(mapper_names),
     )
     provider, exporter = providers.in_memory_provider(cfg)
-    engine = SpanEmitter(providers.get_tracer(provider, "litellm-test"), cfg)
+    engine = SpanEmitter(providers.get_tracer(provider, "embrouter-test"), cfg)
     engine.emit(
         SpanRole.LLM_CALL,
         LLMCallSpanData.from_standard_logging_payload(_tools_payload(tool_count)),
@@ -409,8 +409,8 @@ def test_tool_definitions_stay_within_one_span_wide_budget(mapper_names):
     assert a[GenAI.PROVIDER_NAME] == "openai"
     assert a[GenAI.USAGE_INPUT_TOKENS] == 10
     assert a[GenAI.USAGE_OUTPUT_TOKENS] == 5
-    assert a[f"{LiteLLM.COST_PREFIX}total"] == 0.002
-    assert a[LiteLLM.TOOLS_DECLARED] == 127
+    assert a[f"{EmbRouter.COST_PREFIX}total"] == 0.002
+    assert a[EmbRouter.TOOLS_DECLARED] == 127
 
     emitted = _tool_definition_keys(a)
     assert emitted, "some tool detail should survive in every composition"
@@ -454,7 +454,7 @@ def _conversation_span(mapper_names, payload, legacy_compat=False, span_limits=N
     provider, exporter = (
         providers.in_memory_provider(cfg) if span_limits is None else _provider_with_limits(span_limits)
     )
-    engine = SpanEmitter(providers.get_tracer(provider, "litellm-test"), cfg)
+    engine = SpanEmitter(providers.get_tracer(provider, "embrouter-test"), cfg)
     engine.emit(
         SpanRole.LLM_CALL,
         LLMCallSpanData.from_standard_logging_payload(payload, capture_content=True),
@@ -482,7 +482,7 @@ def _assert_core_intact(span):
     assert a[GenAI.USAGE_INPUT_TOKENS] == 10
     assert a[GenAI.USAGE_OUTPUT_TOKENS] == 5
     assert set(a[GenAI.RESPONSE_FINISH_REASONS]) == {"stop"}
-    assert a[f"{LiteLLM.COST_PREFIX}total"] == 0.002
+    assert a[f"{EmbRouter.COST_PREFIX}total"] == 0.002
 
 
 @pytest.mark.parametrize("turns", [60, 200])
@@ -608,10 +608,10 @@ def test_error_and_pre_stamped_attributes_keep_their_room_on_a_long_conversation
     """Attributes already on the span and the error set stamped after mapping both count against the budget."""
     cfg = OpenTelemetryV2Config(exporter="in_memory", mapper_names=["genai", "openinference"])
     provider, exporter = providers.in_memory_provider(cfg)
-    engine = SpanEmitter(providers.get_tracer(provider, "litellm-test"), cfg)
+    engine = SpanEmitter(providers.get_tracer(provider, "embrouter-test"), cfg)
     span = engine.start_span(SpanRole.LLM_CALL, "chat")
     for idx in range(10):
-        span.set_attribute(f"litellm.metadata.baggage_{idx}", f"value {idx}")
+        span.set_attribute(f"embrouter.metadata.baggage_{idx}", f"value {idx}")
     payload = _conversation_payload(
         60,
         status="failure",
@@ -632,9 +632,9 @@ def test_error_and_pre_stamped_attributes_keep_their_room_on_a_long_conversation
     assert s.dropped_attributes == 0
     assert SpanLimits().max_span_attributes - 1 <= len(a) <= SpanLimits().max_span_attributes
     assert a[GenAI.REQUEST_MODEL] == "gpt-4o"
-    assert a["litellm.metadata.baggage_0"] == "value 0"
+    assert a["embrouter.metadata.baggage_0"] == "value 0"
     assert a["error.type"] == "RateLimitError"
-    assert a["litellm.provider.error.stack_trace"] == "tb"
+    assert a["embrouter.provider.error.stack_trace"] == "tb"
     assert a["llm.input_messages.0.message.content"] == "turn 0"
     assert a["llm.input_messages.59.message.content"] == "turn 59"
 
@@ -674,8 +674,8 @@ def test_indexed_messages_follow_the_span_limits_of_a_per_request_tracer_overrid
     )
     bound_provider, _ = _provider_with_limits(SpanLimits(max_span_attributes=1000))
     routed_provider, routed_exporter = _provider_with_limits(SpanLimits(max_span_attributes=40))
-    engine = SpanEmitter(providers.get_tracer(bound_provider, "litellm-test"), cfg)
-    routed_tracer = providers.get_tracer(routed_provider, "litellm-routed")
+    engine = SpanEmitter(providers.get_tracer(bound_provider, "embrouter-test"), cfg)
+    routed_tracer = providers.get_tracer(routed_provider, "embrouter-routed")
     data = LLMCallSpanData.from_standard_logging_payload(_conversation_payload(60), capture_content=True)
     if opened_at_boundary:
         opened = engine.start_span(SpanRole.LLM_CALL, "chat", tracer=routed_tracer)
@@ -730,8 +730,8 @@ def test_fully_populated_span_with_every_vocabulary_stays_within_the_attribute_l
 
     assert span.dropped_attributes == 0
     assert a[GenAI.REQUEST_MODEL] == "gpt-4o"
-    assert a[f"{LiteLLM.COST_PREFIX}total"] == 0.002
-    assert a[LiteLLM.TOOLS_DECLARED] == 127
+    assert a[f"{EmbRouter.COST_PREFIX}total"] == 0.002
+    assert a[EmbRouter.TOOLS_DECLARED] == 127
     assert a["llm.input_messages.0.message.content"] == "turn 0"
     assert a["llm.input_messages.199.message.content"] == "turn 199"
     assert a["llm.output_messages.0.message.content"] == "reply 0"

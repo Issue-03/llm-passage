@@ -66,8 +66,8 @@ export async function makeAnthropicMessagesRequest(
       messages: messages.map((m) => ({ role: m.role, content: m.content })),
       stream: streamingEnabled,
       max_tokens: 1024,
-      // @ts-ignore - litellm specific parameter
-      litellm_trace_id: traceId,
+      // @ts-ignore - embrouter specific parameter
+      embrouter_trace_id: traceId,
     };
 
     const tools = buildMcpToolBlocks({
@@ -95,7 +95,7 @@ export async function makeAnthropicMessagesRequest(
     }
 
     // Use the streaming helper method for cleaner async iteration
-    // @ts-ignore - The SDK types might not include all litellm-specific parameters
+    // @ts-ignore - The SDK types might not include all embrouter-specific parameters
     const stream = client.messages.stream(requestBody, { signal });
 
     for await (const messageStreamEvent of stream) {

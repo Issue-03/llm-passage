@@ -7,14 +7,14 @@ from typing import TYPE_CHECKING, Final
 import httpx
 from pydantic import TypeAdapter, ValidationError
 
-from litellm._logging import verbose_logger
-from litellm.llms.azure_ai.common_utils import (
+from embrouter._logging import verbose_logger
+from embrouter.llms.azure_ai.common_utils import (
     AzureFoundryModelInfo,
     api_key_header_for_base,
     get_azure_ai_auth_headers,
 )
-from litellm.llms.base_llm.ocr.transformation import OCRResponse
-from litellm.llms.base_llm.passthrough.transformation import (
+from embrouter.llms.base_llm.ocr.transformation import OCRResponse
+from embrouter.llms.base_llm.passthrough.transformation import (
     BasePassthroughConfig,
     RelayShape,
     logged_relay_shape,
@@ -22,24 +22,24 @@ from litellm.llms.base_llm.passthrough.transformation import (
     relayed_body,
     strip_leading_model_segment,
 )
-from litellm.rust_bridge.ocr.entrypoints import NATIVE_OCR_PASSTHROUGH_RESPONSE, NativeOcrPassthroughResponse
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.rerank import RerankResponse
-from litellm.types.utils import CallTypes, ImageResponse, StandardPassThroughResponseObject
+from embrouter.rust_bridge.ocr.entrypoints import NATIVE_OCR_PASSTHROUGH_RESPONSE, NativeOcrPassthroughResponse
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.rerank import RerankResponse
+from embrouter.types.utils import CallTypes, ImageResponse, StandardPassThroughResponseObject
 
 if TYPE_CHECKING:
     from httpx import URL, Response
 
-    from litellm.litellm_core_utils.litellm_logging import Logging
-    from litellm.llms.base_llm.passthrough.transformation import LoggedRelayResponse
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging
+    from embrouter.llms.base_llm.passthrough.transformation import LoggedRelayResponse
 
 
 EMPTY_QUERY: Final[Mapping[str, object]] = MappingProxyType({})
 
 
-def api_version_from(litellm_params: Mapping[str, object]) -> str | None:
+def api_version_from(embrouter_params: Mapping[str, object]) -> str | None:
     try:
-        return TypeAdapter(str | None).validate_python(litellm_params.get("api_version"))
+        return TypeAdapter(str | None).validate_python(embrouter_params.get("api_version"))
     except ValidationError:
         return None
 
@@ -106,16 +106,16 @@ class AzureAIPassthroughConfig(AzureFoundryModelInfo, BasePassthroughConfig):
         model: str,
         endpoint: str,
         request_query_params: Mapping[str, object] | None,
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
     ) -> tuple[URL, str]:
         base_target_url: Final = self.get_api_base(api_base)
         if base_target_url is None:
             raise ValueError("Azure AI api base not found: set `api_base` on the deployment or AZURE_AI_API_BASE")
 
-        native_endpoint: Final = strip_leading_model_segment(endpoint, (model, model_group_from(litellm_params)))
+        native_endpoint: Final = strip_leading_model_segment(endpoint, (model, model_group_from(embrouter_params)))
         root: Final = without_repeated_native_prefix(foundry_root(base_target_url), native_endpoint)
         query_params: Final = relay_query_params(
-            request_query_params, api_version_from(litellm_params), base_target_url
+            request_query_params, api_version_from(embrouter_params), base_target_url
         )
         return (self.format_url(native_endpoint, root, query_params), root)
 
@@ -125,13 +125,13 @@ class AzureAIPassthroughConfig(AzureFoundryModelInfo, BasePassthroughConfig):
         model: str,
         messages: Sequence[AllMessageValues],
         optional_params: Mapping[str, object],
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict[str, str]:  # mutable-ok: base class contract returns dict for httpx
         auth_headers: Final = get_azure_ai_auth_headers(
             api_key=api_key,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             api_key_header=api_key_header_for_base(api_base),
         )
         return {**headers, **auth_headers}  # mutable-ok: base class contract returns dict for httpx
@@ -145,7 +145,7 @@ class AzureAIPassthroughConfig(AzureFoundryModelInfo, BasePassthroughConfig):
         logging_obj: Logging,
         endpoint: str,
     ) -> LoggedRelayResponse | OCRResponse | StandardPassThroughResponseObject | None:
-        from litellm.llms.azure.passthrough.transformation import AzurePassthroughConfig
+        from embrouter.llms.azure.passthrough.transformation import AzurePassthroughConfig
 
         chat_result: Final = AzurePassthroughConfig().logging_non_streaming_response(  # pyright: ignore[reportUnknownMemberType]  # the Azure config still types request_data as a bare dict
             model=model,
@@ -173,7 +173,7 @@ class AzureAIPassthroughConfig(AzureFoundryModelInfo, BasePassthroughConfig):
         )
         if passthrough_ocr is None or httpx_response.status_code != 200:
             return None
-        known_prefixes: Final = (model, model_group_from(logging_obj.litellm_params))
+        known_prefixes: Final = (model, model_group_from(logging_obj.embrouter_params))
         native_endpoint: Final = strip_leading_model_segment(endpoint, known_prefixes)
         try:
             result: Final = passthrough_ocr(model, native_endpoint, httpx_response.content)
@@ -191,16 +191,16 @@ class AzureAIPassthroughConfig(AzureFoundryModelInfo, BasePassthroughConfig):
     def handle_logging_collected_chunks(
         self,
         all_chunks: Sequence[str],
-        litellm_logging_obj: Logging,
+        embrouter_logging_obj: Logging,
         model: str,
         custom_llm_provider: str,
         endpoint: str,
     ) -> LoggedRelayResponse | None:
-        from litellm.llms.azure.passthrough.transformation import AzurePassthroughConfig
+        from embrouter.llms.azure.passthrough.transformation import AzurePassthroughConfig
 
         return AzurePassthroughConfig().handle_logging_collected_chunks(
             all_chunks=all_chunks,
-            litellm_logging_obj=litellm_logging_obj,
+            embrouter_logging_obj=embrouter_logging_obj,
             model=model,
             custom_llm_provider=custom_llm_provider,
             endpoint=endpoint,

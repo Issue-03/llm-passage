@@ -1,17 +1,17 @@
 import httpx
 import pytest
 
-import litellm
-from litellm.llms.base_llm.audio_transcription.transformation import (
+import embrouter
+from embrouter.llms.base_llm.audio_transcription.transformation import (
     AudioTranscriptionRequestData,
 )
-from litellm.llms.custom_httpx.http_handler import HTTPHandler
-from litellm.llms.xai.audio_transcription.transformation import (
+from embrouter.llms.custom_httpx.http_handler import HTTPHandler
+from embrouter.llms.xai.audio_transcription.transformation import (
     XAIAudioTranscriptionConfig,
     XAIAudioTranscriptionError,
 )
-from litellm.types.utils import LlmProviders
-from litellm.utils import ProviderConfigManager
+from embrouter.types.utils import LlmProviders
+from embrouter.utils import ProviderConfigManager
 
 CONFIG = XAIAudioTranscriptionConfig()
 
@@ -25,9 +25,9 @@ def test_transform_request_serializes_provider_params():
         optional_params={
             "language": "en",
             "diarize": True,
-            "keyterm": ["LiteLLM", "Grok"],
+            "keyterm": ["EmbRouter", "Grok"],
         },
-        litellm_params={},
+        embrouter_params={},
     )
 
     assert isinstance(result, AudioTranscriptionRequestData)
@@ -35,7 +35,7 @@ def test_transform_request_serializes_provider_params():
     assert data["model"] == "grok-voice-transcribe-2.0"
     assert data["language"] == "en"
     assert data["diarize"] == "true"
-    assert data["keyterm"] == ["LiteLLM", "Grok"]
+    assert data["keyterm"] == ["EmbRouter", "Grok"]
     filename, content, content_type = result.files["file"]
     assert content == WAV_BYTES
     assert isinstance(filename, str)
@@ -50,7 +50,7 @@ def test_transform_request_flattens_extra_body():
             "language": "en",
             "extra_body": {"diarize": False, "channels": 2},
         },
-        litellm_params={},
+        embrouter_params={},
     )
     assert result.data["diarize"] == "false"
     assert result.data["channels"] == "2"
@@ -72,7 +72,7 @@ def test_get_complete_url(api_base, expected):
         api_key=None,
         model="grok-voice-transcribe-2.0",
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
     )
     assert url == expected
 
@@ -83,7 +83,7 @@ def test_validate_environment_sets_bearer_header():
         model="grok-voice-transcribe-2.0",
         messages=[],
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         api_key="sk-test",
     )
     assert headers["Authorization"] == "Bearer sk-test"
@@ -92,14 +92,14 @@ def test_validate_environment_sets_bearer_header():
 
 def test_validate_environment_requires_key(monkeypatch):
     monkeypatch.delenv("XAI_API_KEY", raising=False)
-    monkeypatch.setattr(litellm, "xai_key", None)
+    monkeypatch.setattr(embrouter, "xai_key", None)
     with pytest.raises(ValueError, match="xAI API key is required"):
         CONFIG.validate_environment(
             headers={},
             model="grok-voice-transcribe-2.0",
             messages=[],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             api_key=None,
         )
 
@@ -148,7 +148,7 @@ def test_transform_response_raises_on_error_status():
 
 def test_transcription_routes_to_xai_stt(monkeypatch):
     monkeypatch.delenv("XAI_API_KEY", raising=False)
-    monkeypatch.setattr(litellm, "xai_key", None)
+    monkeypatch.setattr(embrouter, "xai_key", None)
     captured: dict = {}
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -160,12 +160,12 @@ def test_transcription_routes_to_xai_stt(monkeypatch):
         )
 
     http_handler = HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(handler)))
-    response = litellm.transcription(
+    response = embrouter.transcription(
         model="xai/grok-voice-transcribe-2.0",
         file=("sample.wav", WAV_BYTES, "audio/wav"),
         api_key="sk-test",
         diarize=True,
-        keyterm=["LiteLLM"],
+        keyterm=["EmbRouter"],
         client=http_handler,
     )
 
@@ -175,7 +175,7 @@ def test_transcription_routes_to_xai_stt(monkeypatch):
     body = request.content.decode("utf-8", errors="replace")
     assert 'name="model"' in body and "grok-voice-transcribe-2.0" in body
     assert 'name="diarize"' in body and "true" in body
-    assert 'name="keyterm"' in body and "LiteLLM" in body
+    assert 'name="keyterm"' in body and "EmbRouter" in body
     assert 'name="file"' in body
     assert response.text == "transcribed text"
 

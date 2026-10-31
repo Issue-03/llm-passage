@@ -4,7 +4,7 @@ from collections.abc import Callable, Sequence
 from functools import lru_cache
 from typing import Final, Protocol, TypeVar, cast
 
-from litellm.rust_bridge.bindings import NativeBinding
+from embrouter.rust_bridge.bindings import NativeBinding
 
 ResultT: Final = TypeVar("ResultT")
 
@@ -43,9 +43,9 @@ def _construct(factory: NativeDiagnosticFactory, minimum_custom_key_length: int)
 
 
 def run(native: Callable[[NativeDiagnosticProcessor], ResultT], python: Callable[[], ResultT]) -> ResultT:
-    from litellm.constants import MINIMUM_CUSTOM_KEY_LENGTH
-    from litellm.rust_bridge.catalog import LoggerContext, decision
-    from litellm.rust_bridge.configuration import Decision
+    from embrouter.constants import MINIMUM_CUSTOM_KEY_LENGTH
+    from embrouter.rust_bridge.catalog import LoggerContext, decision
+    from embrouter.rust_bridge.configuration import Decision
 
     selected: Final = decision(LoggerContext())
     if selected is Decision.PYTHON:

@@ -8,32 +8,32 @@ from typing import (
 
 from typing_extensions import TypedDict
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.litellm_core_utils.asyncify import run_async_function
-from litellm.llms.anthropic.pass_through.adapters.transformation import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.embrouter_core_utils.asyncify import run_async_function
+from embrouter.llms.anthropic.pass_through.adapters.transformation import (
     AnthropicAdapter,
 )
-from litellm.llms.anthropic.pass_through.context_management import (
+from embrouter.llms.anthropic.pass_through.context_management import (
     AnthropicContextManagementError,
     PolyfillResult,
     apply_context_management,
 )
-from litellm.llms.anthropic.pass_through.utils import (
+from embrouter.llms.anthropic.pass_through.utils import (
     is_reasoning_auto_summary_enabled,
-    litellm_logging_obj_from_kwargs,
+    embrouter_logging_obj_from_kwargs,
     local_model_name,
 )
-from litellm.types.llms.anthropic_messages.anthropic_response import (
+from embrouter.types.llms.anthropic_messages.anthropic_response import (
     AnthropicMessagesResponse,
 )
-from litellm.types.llms.openai import OpenAIWebSearchOptions
-from litellm.types.utils import ModelResponse
-from litellm.utils import get_model_info
+from embrouter.types.llms.openai import OpenAIWebSearchOptions
+from embrouter.types.utils import ModelResponse
+from embrouter.utils import get_model_info
 
 if TYPE_CHECKING:
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.router import Router
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.router import Router
 
 # Anthropic-only keys already mapped by the translator; strip on extra_kwargs re-merge.
 ANTHROPIC_ONLY_REQUEST_KEYS: Final[frozenset[str]] = frozenset({"output_config", "safeguards"})
@@ -62,31 +62,31 @@ def _messages_have_compaction_block(messages: _AnthropicMessages) -> bool:
 
 def _proxy_router_fallback() -> "Router | None":
     try:
-        from litellm.proxy.proxy_server import llm_router as _proxy_router
+        from embrouter.proxy.proxy_server import llm_router as _proxy_router
     except Exception:
         return None
     return _proxy_router
 
 
-def _extract_proxy_litellm_metadata(
+def _extract_proxy_embrouter_metadata(
     kwargs: Mapping[str, object],
 ) -> "tuple[dict[str, object], UserAPIKeyAuth | None] | tuple[None, None]":
-    """Return ``(kwargs["litellm_metadata"], its user_api_key_auth)`` when it's a dict; ``(None, None)`` otherwise.
+    """Return ``(kwargs["embrouter_metadata"], its user_api_key_auth)`` when it's a dict; ``(None, None)`` otherwise.
 
     The proxy attaches its auth/spend-attribution fields (``user_api_key``,
-    ``user_api_key_team_id``, ``litellm_call_id``, the full ``UserAPIKeyAuth``
-    object under ``user_api_key_auth``, ...) to ``data["litellm_metadata"]``
+    ``user_api_key_team_id``, ``embrouter_call_id``, the full ``UserAPIKeyAuth``
+    object under ``user_api_key_auth``, ...) to ``data["embrouter_metadata"]``
     for ``/v1/messages`` (see
-    ``LiteLLMProxyRequestSetup.add_user_api_key_auth_to_request_metadata`` and
-    ``LITELLM_METADATA_ROUTES``). The Anthropic-shape ``metadata`` arg only
+    ``EmbRouterProxyRequestSetup.add_user_api_key_auth_to_request_metadata`` and
+    ``EMBROUTER_METADATA_ROUTES``). The Anthropic-shape ``metadata`` arg only
     carries ``user_id`` and must not be conflated. Returns ``None`` for SDK
     callers that bypass the proxy entirely.
     """
-    litellm_metadata: Final = kwargs.get("litellm_metadata")
-    if not isinstance(litellm_metadata, dict):
+    embrouter_metadata: Final = kwargs.get("embrouter_metadata")
+    if not isinstance(embrouter_metadata, dict):
         return None, None
-    user_api_key_auth: Final[UserAPIKeyAuth | None] = litellm_metadata.get("user_api_key_auth")
-    return litellm_metadata, user_api_key_auth
+    user_api_key_auth: Final[UserAPIKeyAuth | None] = embrouter_metadata.get("user_api_key_auth")
+    return embrouter_metadata, user_api_key_auth
 
 
 async def _prepare_context_managed_request(
@@ -96,13 +96,13 @@ async def _prepare_context_managed_request(
     tools: list[dict[str, object]] | None,
     system: _AnthropicSystem,
     context_management_spec: _ContextManagementSpec,
-    litellm_metadata: dict[str, object] | None,
+    embrouter_metadata: dict[str, object] | None,
     additional_drop_params: list[str] | None,
     llm_router: "Router | None",
     user_api_key_auth: "UserAPIKeyAuth | None" = None,
 ) -> PolyfillResult | None:
     """Apply client compaction history, then optional context_management polyfill."""
-    from litellm.llms.anthropic.pass_through.context_management.editors.compact import (
+    from embrouter.llms.anthropic.pass_through.context_management.editors.compact import (
         apply_client_compaction_block_history,
     )
 
@@ -135,7 +135,7 @@ async def _prepare_context_managed_request(
         tools=tools,
         system=working_system,
         context_management_spec=context_management_spec,
-        litellm_metadata=litellm_metadata,
+        embrouter_metadata=embrouter_metadata,
         additional_drop_params=additional_drop_params,
         llm_router=llm_router,
         user_api_key_auth=user_api_key_auth,
@@ -179,7 +179,7 @@ def _polyfill_will_run(
     if edits is None:
         return False
 
-    from litellm.llms.anthropic.pass_through.context_management.constants import (
+    from embrouter.llms.anthropic.pass_through.context_management.constants import (
         COMPACT_EDIT_TYPE,
     )
 
@@ -205,7 +205,7 @@ def _spec_has_non_compact_edits(
     if edits is None:
         return False
 
-    from litellm.llms.anthropic.pass_through.context_management.constants import (
+    from embrouter.llms.anthropic.pass_through.context_management.constants import (
         COMPACT_EDIT_TYPE,
     )
 
@@ -216,7 +216,7 @@ def _context_management_explicitly_dropped(additional_drop_params: list[str] | N
     """True when the caller opted out of context_management via ``additional_drop_params``.
 
     ``drop_params`` deliberately does NOT gate the polyfill: ``context_management``
-    is a LiteLLM-supported param (native on Anthropic, polyfilled elsewhere), and
+    is a EmbRouter-supported param (native on Anthropic, polyfilled elsewhere), and
     ``drop_params`` only exists to drop genuinely unsupported params.
     """
     if not isinstance(additional_drop_params, list):
@@ -240,7 +240,7 @@ def _normalize_spec_edits(
     if _context_management_explicitly_dropped(additional_drop_params):
         return None
 
-    from litellm.llms.anthropic.pass_through.context_management.dispatcher import (
+    from embrouter.llms.anthropic.pass_through.context_management.dispatcher import (
         _normalize_spec,
     )
 
@@ -257,7 +257,7 @@ async def _run_polyfill_if_enabled(
     tools: list[dict[str, object]] | None,
     system: _AnthropicSystem,
     context_management_spec: _ContextManagementSpec,
-    litellm_metadata: dict[str, object] | None,
+    embrouter_metadata: dict[str, object] | None,
     additional_drop_params: list[str] | None,
     llm_router: "Router | None",
     user_api_key_auth: "UserAPIKeyAuth | None" = None,
@@ -284,7 +284,7 @@ async def _run_polyfill_if_enabled(
             tools=tools,
             system=system,
             context_management_spec=context_management_spec,
-            litellm_metadata=litellm_metadata,
+            embrouter_metadata=embrouter_metadata,
             llm_router=llm_router,
             user_api_key_auth=user_api_key_auth,
         )
@@ -318,7 +318,7 @@ ANTHROPIC_ADAPTER: Final = AnthropicAdapter()
 ########################################################
 
 
-class LiteLLMMessagesToCompletionTransformationHandler:
+class EmbRouterMessagesToCompletionTransformationHandler:
     @staticmethod
     def _route_openai_thinking_to_responses_api_if_needed(
         completion_kwargs: _CompletionKwargs,
@@ -326,8 +326,8 @@ class LiteLLMMessagesToCompletionTransformationHandler:
         thinking: Mapping[str, object] | None,
     ) -> None:
         """
-        When users call `litellm.anthropic.messages.*` with a non-Anthropic model and
-        `thinking={"type": "enabled", ...}`, LiteLLM converts this into OpenAI
+        When users call `embrouter.anthropic.messages.*` with a non-Anthropic model and
+        `thinking={"type": "enabled", ...}`, EmbRouter converts this into OpenAI
         `reasoning_effort`.
 
         For OpenAI models, Chat Completions typically does not return reasoning text
@@ -339,7 +339,7 @@ class LiteLLMMessagesToCompletionTransformationHandler:
         custom_llm_provider = completion_kwargs.get("custom_llm_provider")
         if custom_llm_provider is None:
             try:
-                _, inferred_provider, _, _ = litellm.utils.get_llm_provider(
+                _, inferred_provider, _, _ = embrouter.utils.get_llm_provider(
                     model=cast(str, completion_kwargs.get("model"))
                 )
                 custom_llm_provider = inferred_provider
@@ -401,7 +401,7 @@ class LiteLLMMessagesToCompletionTransformationHandler:
         api_base: Final = completion_kwargs.get("api_base")
         api_key: Final = completion_kwargs.get("api_key")
         try:
-            local_model, resolved_provider, _, resolved_api_base = litellm.utils.get_llm_provider(
+            local_model, resolved_provider, _, resolved_api_base = embrouter.utils.get_llm_provider(
                 model=model,
                 custom_llm_provider=custom_llm_provider if isinstance(custom_llm_provider, str) else None,
                 api_base=api_base if isinstance(api_base, str) else None,
@@ -409,9 +409,9 @@ class LiteLLMMessagesToCompletionTransformationHandler:
             )
         except Exception:
             return None
-        if resolved_provider == "litellm_proxy":
+        if resolved_provider == "embrouter_proxy":
             return None
-        from litellm.main import responses_api_bridge_check
+        from embrouter.main import responses_api_bridge_check
 
         web_search_options: Final = completion_kwargs.get("web_search_options")
         tools: Final = completion_kwargs.get("tools")
@@ -437,7 +437,7 @@ class LiteLLMMessagesToCompletionTransformationHandler:
         Handles both string ("max") and dict ({"effort": "max", "summary": ...})
         formats. Uses model registry to check supports_xhigh/supports_minimal.
         """
-        from litellm.llms.anthropic.pass_through.utils import (
+        from embrouter.llms.anthropic.pass_through.utils import (
             normalize_reasoning_effort_value,
         )
 
@@ -482,15 +482,15 @@ class LiteLLMMessagesToCompletionTransformationHandler:
         output_format: dict[str, object] | None = None,
         extra_kwargs: Mapping[str, object] | None = None,
     ) -> tuple[_CompletionKwargs, dict[str, str]]:
-        """Prepare kwargs for litellm.completion/acompletion.
+        """Prepare kwargs for embrouter.completion/acompletion.
 
         Returns:
             Tuple of (completion_kwargs, tool_name_mapping)
             - tool_name_mapping maps truncated tool names back to original names
               for tools that exceeded OpenAI's 64-char limit
         """
-        from litellm.litellm_core_utils.litellm_logging import (
-            Logging as LiteLLMLoggingObject,
+        from embrouter.embrouter_core_utils.embrouter_logging import (
+            Logging as EmbRouterLoggingObject,
         )
 
         request_data: Final[dict[str, object]] = {
@@ -568,8 +568,8 @@ class LiteLLMMessagesToCompletionTransformationHandler:
         # NOTE: extra_kwargs was already coerced from None to {} at the top of
         # this method (line ~220). It is guaranteed to be a dict here.
         for key, value in extra_kwargs.items():
-            if key == "litellm_logging_obj" and value is not None and isinstance(value, LiteLLMLoggingObject):
-                from litellm.types.utils import CallTypes
+            if key == "embrouter_logging_obj" and value is not None and isinstance(value, EmbRouterLoggingObject):
+                from embrouter.types.utils import CallTypes
 
                 setattr(value, "call_type", CallTypes.anthropic_messages.value)
                 setattr(value, "stream_options", completion_kwargs.get("stream_options"))
@@ -584,14 +584,14 @@ class LiteLLMMessagesToCompletionTransformationHandler:
         # (e.g. "max" → "xhigh"/"high", "minimal" → "low" if unsupported)
         # Must run BEFORE _route_openai_thinking, which prepends "responses/"
         # to the model name and would break get_model_info() lookups.
-        LiteLLMMessagesToCompletionTransformationHandler._normalize_reasoning_effort(completion_kwargs)
+        EmbRouterMessagesToCompletionTransformationHandler._normalize_reasoning_effort(completion_kwargs)
 
-        LiteLLMMessagesToCompletionTransformationHandler._route_openai_thinking_to_responses_api_if_needed(
+        EmbRouterMessagesToCompletionTransformationHandler._route_openai_thinking_to_responses_api_if_needed(
             completion_kwargs,
             thinking=thinking,
         )
 
-        plain_effort: Final = LiteLLMMessagesToCompletionTransformationHandler._plain_effort_for_chat_target(
+        plain_effort: Final = EmbRouterMessagesToCompletionTransformationHandler._plain_effort_for_chat_target(
             completion_kwargs,
             thinking=thinking,
         )
@@ -621,12 +621,12 @@ class LiteLLMMessagesToCompletionTransformationHandler:
         """Handle non-Anthropic models asynchronously using the adapter"""
         context_management: Final = kwargs.pop("context_management", None)
         additional_drop_params: Final[list[str] | None] = kwargs.get("additional_drop_params", None)
-        requested_router: Final[Router | None] = kwargs.pop("litellm_router", None)
-        litellm_router: Final[Router | None] = (
+        requested_router: Final[Router | None] = kwargs.pop("embrouter_router", None)
+        embrouter_router: Final[Router | None] = (
             requested_router if requested_router is not None else _proxy_router_fallback()
         )
 
-        proxy_litellm_metadata, user_api_key_auth = _extract_proxy_litellm_metadata(kwargs)
+        proxy_embrouter_metadata, user_api_key_auth = _extract_proxy_embrouter_metadata(kwargs)
 
         polyfill_result: Final = await _prepare_context_managed_request(
             model=model,
@@ -634,9 +634,9 @@ class LiteLLMMessagesToCompletionTransformationHandler:
             tools=tools,
             system=system,
             context_management_spec=context_management,
-            litellm_metadata=proxy_litellm_metadata,
+            embrouter_metadata=proxy_embrouter_metadata,
             additional_drop_params=additional_drop_params,
-            llm_router=litellm_router,
+            llm_router=embrouter_router,
             user_api_key_auth=user_api_key_auth,
         )
 
@@ -646,7 +646,7 @@ class LiteLLMMessagesToCompletionTransformationHandler:
         (
             completion_kwargs,
             tool_name_mapping,
-        ) = LiteLLMMessagesToCompletionTransformationHandler._prepare_completion_kwargs(
+        ) = EmbRouterMessagesToCompletionTransformationHandler._prepare_completion_kwargs(
             max_tokens=max_tokens,
             messages=effective_messages,
             model=model,
@@ -664,7 +664,7 @@ class LiteLLMMessagesToCompletionTransformationHandler:
             extra_kwargs=kwargs,
         )
 
-        completion_response: Final = await litellm.acompletion(**completion_kwargs)
+        completion_response: Final = await embrouter.acompletion(**completion_kwargs)
 
         if stream:
             transformed_stream: Final = ANTHROPIC_ADAPTER.translate_completion_output_params_streaming(
@@ -673,7 +673,7 @@ class LiteLLMMessagesToCompletionTransformationHandler:
                 tool_name_mapping=tool_name_mapping,
                 polyfill_result=polyfill_result,
                 is_async=True,
-                litellm_logging_obj=litellm_logging_obj_from_kwargs(kwargs),
+                embrouter_logging_obj=embrouter_logging_obj_from_kwargs(kwargs),
             )
             if transformed_stream is not None:
                 return transformed_stream
@@ -714,7 +714,7 @@ class LiteLLMMessagesToCompletionTransformationHandler:
     ):
         """Handle non-Anthropic models using the adapter."""
         if _is_async is True:
-            return LiteLLMMessagesToCompletionTransformationHandler.async_anthropic_messages_handler(
+            return EmbRouterMessagesToCompletionTransformationHandler.async_anthropic_messages_handler(
                 max_tokens=max_tokens,
                 messages=messages,
                 model=model,
@@ -733,7 +733,7 @@ class LiteLLMMessagesToCompletionTransformationHandler:
             )
 
         # Run the context_management polyfill on the sync path too so that
-        # ``litellm.messages.create()`` callers don't silently lose edits like
+        # ``embrouter.messages.create()`` callers don't silently lose edits like
         # ``clear_tool_uses_20250919``. The dispatcher is async (so the
         # ``compact_20260112`` editor can ``await`` the summarization model);
         # bridge to it via ``run_async_function``.
@@ -746,22 +746,22 @@ class LiteLLMMessagesToCompletionTransformationHandler:
         # Reusing them from the new thread's loop violates httpx's single-loop
         # invariant and can raise ``RuntimeError: Event loop is closed`` or
         # produce stalled connections. The summary editor falls back to
-        # ``litellm.acompletion`` (which creates a fresh client per call) when
+        # ``embrouter.acompletion`` (which creates a fresh client per call) when
         # ``llm_router`` is ``None``, which is safe to call from the bridged
         # loop. The async ``async_anthropic_messages_handler`` path is
         # unaffected because it ``await``s within the original event loop.
-        litellm_router: Final[Router | None] = kwargs.pop("litellm_router", None)
+        embrouter_router: Final[Router | None] = kwargs.pop("embrouter_router", None)
 
         # Skip the async bridge entirely when there is nothing for either the
         # polyfill or the client-history slice-only fallback to do. The vast
-        # majority of sync ``litellm.messages.create()`` requests carry no
+        # majority of sync ``embrouter.messages.create()`` requests carry no
         # ``context_management`` spec and no client-sent ``compaction`` block,
         # and bridging through a worker-thread event loop just to discover
         # there is no work is pure overhead.
         if context_management is None and not _messages_have_compaction_block(messages):
             polyfill_result: PolyfillResult | None = None
         else:
-            proxy_litellm_metadata, user_api_key_auth = _extract_proxy_litellm_metadata(kwargs)
+            proxy_embrouter_metadata, user_api_key_auth = _extract_proxy_embrouter_metadata(kwargs)
             polyfill_result = run_async_function(
                 _prepare_context_managed_request,
                 model=model,
@@ -769,9 +769,9 @@ class LiteLLMMessagesToCompletionTransformationHandler:
                 tools=tools,
                 system=system,
                 context_management_spec=context_management,
-                litellm_metadata=proxy_litellm_metadata,
+                embrouter_metadata=proxy_embrouter_metadata,
                 additional_drop_params=additional_drop_params,
-                llm_router=litellm_router,
+                llm_router=embrouter_router,
                 user_api_key_auth=user_api_key_auth,
             )
 
@@ -781,7 +781,7 @@ class LiteLLMMessagesToCompletionTransformationHandler:
         (
             completion_kwargs,
             tool_name_mapping,
-        ) = LiteLLMMessagesToCompletionTransformationHandler._prepare_completion_kwargs(
+        ) = EmbRouterMessagesToCompletionTransformationHandler._prepare_completion_kwargs(
             max_tokens=max_tokens,
             messages=effective_messages,
             model=model,
@@ -799,7 +799,7 @@ class LiteLLMMessagesToCompletionTransformationHandler:
             extra_kwargs=kwargs,
         )
 
-        completion_response: Final = litellm.completion(**completion_kwargs)
+        completion_response: Final = embrouter.completion(**completion_kwargs)
 
         if stream:
             transformed_stream: Final = ANTHROPIC_ADAPTER.translate_completion_output_params_streaming(
@@ -808,7 +808,7 @@ class LiteLLMMessagesToCompletionTransformationHandler:
                 tool_name_mapping=tool_name_mapping,
                 polyfill_result=polyfill_result,
                 is_async=False,
-                litellm_logging_obj=litellm_logging_obj_from_kwargs(kwargs),
+                embrouter_logging_obj=embrouter_logging_obj_from_kwargs(kwargs),
             )
             if transformed_stream is not None:
                 return transformed_stream

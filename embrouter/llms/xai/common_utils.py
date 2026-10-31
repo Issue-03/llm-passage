@@ -2,11 +2,11 @@ from typing import Final
 
 import httpx
 
-import litellm
-from litellm.llms.base_llm.base_utils import BaseLLMModelInfo
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.utils import ProviderSpecificModelInfo
+import embrouter
+from embrouter.llms.base_llm.base_utils import BaseLLMModelInfo
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.utils import ProviderSpecificModelInfo
 
 USD_TICKS_PER_DOLLAR: Final = 10_000_000_000
 
@@ -38,7 +38,7 @@ class XAIModelInfo(BaseLLMModelInfo):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
@@ -64,15 +64,15 @@ class XAIModelInfo(BaseLLMModelInfo):
         Resolve xAI API keys while preserving endpoint-specific legacy order.
 
         Chat uses xai_key before XAI_API_KEY without adding a generic
-        litellm.api_key fallback. Responses and realtime historically
-        preferred litellm.api_key over XAI_API_KEY, so those paths opt into
+        embrouter.api_key fallback. Responses and realtime historically
+        preferred embrouter.api_key over XAI_API_KEY, so those paths opt into
         the legacy order with legacy_generic_before_env=True. In both modes,
-        the provider-specific litellm.xai_key takes precedence over fallbacks.
+        the provider-specific embrouter.xai_key takes precedence over fallbacks.
         """
         if legacy_generic_before_env:
-            return api_key or litellm.xai_key or litellm.api_key or get_secret_str("XAI_API_KEY")
+            return api_key or embrouter.xai_key or embrouter.api_key or get_secret_str("XAI_API_KEY")
 
-        return api_key or litellm.xai_key or get_secret_str("XAI_API_KEY")
+        return api_key or embrouter.xai_key or get_secret_str("XAI_API_KEY")
 
     @staticmethod
     def get_base_model(model: str) -> str | None:
@@ -83,9 +83,9 @@ class XAIModelInfo(BaseLLMModelInfo):
         api_key = self.get_api_key(api_key)
         if api_base is None or api_key is None:
             raise ValueError(
-                "XAI API base or key is not set. Set XAI_API_BASE and provide an xAI API key via api_key, litellm.xai_key, or XAI_API_KEY."
+                "XAI API base or key is not set. Set XAI_API_BASE and provide an xAI API key via api_key, embrouter.xai_key, or XAI_API_KEY."
             )
-        response: Final = litellm.module_level_client.get(
+        response: Final = embrouter.module_level_client.get(
             url=f"{api_base}/v1/models",
             headers={"Authorization": f"Bearer {api_key}"},
         )
@@ -99,9 +99,9 @@ class XAIModelInfo(BaseLLMModelInfo):
 
         models: Final = response.json()["data"]
 
-        litellm_model_names: Final = []
+        embrouter_model_names: Final = []
         for model in models:
             stripped_model_name = model["id"]
-            litellm_model_name = "xai/" + stripped_model_name
-            litellm_model_names.append(litellm_model_name)
-        return litellm_model_names
+            embrouter_model_name = "xai/" + stripped_model_name
+            embrouter_model_names.append(embrouter_model_name)
+        return embrouter_model_names

@@ -7,8 +7,8 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
-from litellm.llms.openai_like.embedding.handler import OpenAILikeEmbeddingHandler
-from litellm.types.utils import EmbeddingResponse
+from embrouter.llms.openai_like.embedding.handler import OpenAILikeEmbeddingHandler
+from embrouter.types.utils import EmbeddingResponse
 
 
 class TestOpenAILikeEmbeddingHandler:

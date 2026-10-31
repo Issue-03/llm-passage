@@ -17,16 +17,16 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Final
 
-from litellm._logging import verbose_router_logger
-from litellm.caching.dual_cache import DualCache
-from litellm.caching.redis_batch import BatchResult, active_request_redis_batches
-from litellm.router_strategy.lowest_tpm_rpm_v2 import LowestTPMLoggingHandler_v2, PrefetchedUsage
-from litellm.router_utils.cooldown_cache import CooldownCache
+from embrouter._logging import verbose_router_logger
+from embrouter.caching.dual_cache import DualCache
+from embrouter.caching.redis_batch import BatchResult, active_request_redis_batches
+from embrouter.router_strategy.lowest_tpm_rpm_v2 import LowestTPMLoggingHandler_v2, PrefetchedUsage
+from embrouter.router_utils.cooldown_cache import CooldownCache
 
 if TYPE_CHECKING:
     from opentelemetry.trace import Span
 
-    from litellm.router import Router
+    from embrouter.router import Router
 
 
 _PREFETCH_SLOT: Final = "routing_read"
@@ -83,22 +83,22 @@ class RoutingPrefetch:
 
     @staticmethod
     def arm(
-        litellm_router_instance: "Router",
+        embrouter_router_instance: "Router",
         usage_selector: LowestTPMLoggingHandler_v2 | None,
         deployments: list,
     ) -> None:
         request: Final = active_request_redis_batches()
-        redis_cache: Final = litellm_router_instance.cache.redis_cache
+        redis_cache: Final = embrouter_router_instance.cache.redis_cache
         if request is None or redis_cache is None or _PREFETCH_SLOT in request.prefetched:
             return
         cooldown_keys: Final = tuple(
-            CooldownCache.get_cooldown_cache_key(model_id) for model_id in litellm_router_instance.get_model_ids()
+            CooldownCache.get_cooldown_cache_key(model_id) for model_id in embrouter_router_instance.get_model_ids()
         )
         usage_keys: Final = (
             () if usage_selector is None else tuple(itertools.chain(*usage_selector.usage_counter_keys(deployments)))
         )
         keys: Final = (*cooldown_keys, *usage_keys)
-        cooldown_store: Final = litellm_router_instance.cooldown_cache.cooldown_store
+        cooldown_store: Final = embrouter_router_instance.cooldown_cache.cooldown_store
         cooldown_due, cooldown_previous = cooldown_store.reserve_redis_batch_reads(cooldown_keys)
         usage_cache: Final = None if usage_selector is None else usage_selector.router_cache
         usage_reservation: Final = None if usage_cache is None else usage_cache.reserve_redis_batch_reads(usage_keys)
@@ -174,7 +174,7 @@ class RoutingReadBatch:
 
     async def async_get_cooldown_deployments(
         self,
-        litellm_router_instance: "Router",
+        embrouter_router_instance: "Router",
         healthy_deployments: list,
         parent_otel_span: "Span | None",
     ) -> list[str]:
@@ -182,14 +182,14 @@ class RoutingReadBatch:
         `_async_get_cooldown_deployments`, with the strategy's tpm/rpm counters for
         `healthy_deployments` fetched in the same MGET and kept as `prefetched_usage`.
         """
-        model_ids: Final = litellm_router_instance.get_model_ids()
+        model_ids: Final = embrouter_router_instance.get_model_ids()
         cooldown_keys: Final = [CooldownCache.get_cooldown_cache_key(model_id) for model_id in model_ids]
         selector: Final = self.usage_selector
         usage_keys: Final = (
             () if selector is None else tuple(itertools.chain(*selector.usage_counter_keys(healthy_deployments)))
         )
         reads: Final = (
-            (litellm_router_instance.cooldown_cache.cooldown_store, cooldown_keys),
+            (embrouter_router_instance.cooldown_cache.cooldown_store, cooldown_keys),
             *(
                 ()
                 if selector is None
@@ -207,7 +207,7 @@ class RoutingReadBatch:
                 values=None if usage_values is None else MappingProxyType(dict(zip(usage_keys, usage_values))),
             )
 
-        cooldown_models: Final = litellm_router_instance.cooldown_cache.active_cooldowns_from_results(
+        cooldown_models: Final = embrouter_router_instance.cooldown_cache.active_cooldowns_from_results(
             model_ids, cooldown_results
         )
         verbose_router_logger.debug("retrieve cooldown models: %s", cooldown_models)

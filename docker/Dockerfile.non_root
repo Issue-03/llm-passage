@@ -1,8 +1,8 @@
 # syntax=docker/dockerfile:1.7
 
 # Base images
-ARG LITELLM_BUILD_IMAGE=cgr.dev/chainguard/wolfi-base@sha256:1d95114038f76513a9ace6fca107d5582b08c65981f81f61cb56bf7fd2ef216d
-ARG LITELLM_RUNTIME_IMAGE=cgr.dev/chainguard/wolfi-base@sha256:1d95114038f76513a9ace6fca107d5582b08c65981f81f61cb56bf7fd2ef216d
+ARG EMBROUTER_BUILD_IMAGE=cgr.dev/chainguard/wolfi-base@sha256:1d95114038f76513a9ace6fca107d5582b08c65981f81f61cb56bf7fd2ef216d
+ARG EMBROUTER_RUNTIME_IMAGE=cgr.dev/chainguard/wolfi-base@sha256:1d95114038f76513a9ace6fca107d5582b08c65981f81f61cb56bf7fd2ef216d
 ARG PROXY_EXTRAS_SOURCE=published
 ARG UV_IMAGE=ghcr.io/astral-sh/uv:0.11.7@sha256:240fb85ab0f263ef12f492d8476aa3a2e4e1e333f7d67fbdd923d00a506a516a
 # Pinned by digest like the other base images; bump explicitly on Node upgrades.
@@ -13,7 +13,7 @@ ARG PGBOUNCER_SHA256=924ad35113fd0a71c8e2dbe85b5d03445532e2b7b37a9f8a48983beea23
 
 FROM $UV_IMAGE AS uvbin
 
-FROM $LITELLM_BUILD_IMAGE AS pgbouncer-builder
+FROM $EMBROUTER_BUILD_IMAGE AS pgbouncer-builder
 ARG PGBOUNCER_VERSION
 ARG PGBOUNCER_SHA256
 USER root
@@ -37,13 +37,13 @@ ENV NEXT_TELEMETRY_DISABLED=1 \
 
 WORKDIR /ui
 
-COPY ui/litellm-dashboard/package.json ui/litellm-dashboard/package-lock.json ./
+COPY ui/embrouter-dashboard/package.json ui/embrouter-dashboard/package-lock.json ./
 RUN --mount=type=cache,target=/root/.npm npm ci --prefer-offline
 
-COPY ui/litellm-dashboard/ ./
+COPY ui/embrouter-dashboard/ ./
 RUN npm run build
 
-FROM $LITELLM_BUILD_IMAGE AS builder
+FROM $EMBROUTER_BUILD_IMAGE AS builder
 ARG PROXY_EXTRAS_SOURCE
 WORKDIR /app
 USER root
@@ -70,16 +70,16 @@ ENV UV_PROJECT_ENVIRONMENT=/app/.venv \
     UV_LINK_MODE=copy \
     UV_PYTHON_DOWNLOADS=0 \
     PATH="/app/.venv/bin:${PATH}" \
-    LITELLM_NON_ROOT=true \
+    EMBROUTER_NON_ROOT=true \
     XDG_CACHE_HOME=/app/.cache
 
 # Copy dependency metadata first for layer caching
 COPY pyproject.toml uv.lock ./
 COPY enterprise/pyproject.toml enterprise/
-COPY litellm-proxy-extras/pyproject.toml litellm-proxy-extras/
+COPY embrouter-proxy-extras/pyproject.toml embrouter-proxy-extras/
 
 # Install third-party dependencies (cached unless pyproject.toml/uv.lock change)
-RUN --mount=type=cache,target=/app/.cache/uv,id=litellm-uv-cache \
+RUN --mount=type=cache,target=/app/.cache/uv,id=embrouter-uv-cache \
     uv sync --frozen --no-install-project --no-install-workspace --no-default-groups --no-editable \
     --extra proxy \
     --extra proxy-runtime \
@@ -95,18 +95,18 @@ COPY . .
 # Replace the committed UI bundle with the one built from this exact source.
 # Clearing first drops the committed bundle's content-hashed chunks that COPY
 # would otherwise leave behind alongside the fresh ones.
-RUN rm -rf litellm/proxy/_experimental/out
-COPY --from=ui-builder /ui/out/. litellm/proxy/_experimental/out/
+RUN rm -rf embrouter/proxy/_experimental/out
+COPY --from=ui-builder /ui/out/. embrouter/proxy/_experimental/out/
 
 # Set non-root flag for build time consistency
-ENV LITELLM_NON_ROOT=true
+ENV EMBROUTER_NON_ROOT=true
 
-RUN mkdir -p /var/lib/litellm/ui /var/lib/litellm/assets && \
-    cp -r /app/litellm/proxy/_experimental/out/. /var/lib/litellm/ui/ && \
-    cp /app/litellm/proxy/logo.jpg /var/lib/litellm/assets/logo.jpg && \
-    touch /var/lib/litellm/ui/.litellm_ui_ready
+RUN mkdir -p /var/lib/embrouter/ui /var/lib/embrouter/assets && \
+    cp -r /app/embrouter/proxy/_experimental/out/. /var/lib/embrouter/ui/ && \
+    cp /app/embrouter/proxy/logo.jpg /var/lib/embrouter/assets/logo.jpg && \
+    touch /var/lib/embrouter/ui/.embrouter_ui_ready
 
-RUN --mount=type=cache,target=/app/.cache/uv,id=litellm-uv-cache \
+RUN --mount=type=cache,target=/app/.cache/uv,id=embrouter-uv-cache \
     if [ "$PROXY_EXTRAS_SOURCE" = "published" ]; then \
       uv sync --frozen --no-default-groups --no-editable \
         --extra proxy \
@@ -116,7 +116,7 @@ RUN --mount=type=cache,target=/app/.cache/uv,id=litellm-uv-cache \
         --extra saml \
         --extra bedrock-realtime \
         --python python3.13 \
-        --no-sources-package litellm-proxy-extras; \
+        --no-sources-package embrouter-proxy-extras; \
     else \
       uv sync --frozen --no-default-groups --no-editable \
         --extra proxy \
@@ -135,7 +135,7 @@ RUN HOME=/opt/prisma XDG_CACHE_HOME=/opt/prisma/.cache PRISMA_BINARY_CACHE_DIR=/
 RUN sed -i 's/\r$//' docker/entrypoint.sh && chmod +x docker/entrypoint.sh && \
     sed -i 's/\r$//' docker/prod_entrypoint.sh && chmod +x docker/prod_entrypoint.sh
 
-FROM $LITELLM_RUNTIME_IMAGE AS runtime
+FROM $EMBROUTER_RUNTIME_IMAGE AS runtime
 ARG PROXY_EXTRAS_SOURCE
 WORKDIR /app
 USER root
@@ -151,16 +151,16 @@ COPY --from=pgbouncer-builder /usr/local/bin/pgbouncer /usr/local/bin/pgbouncer
 # Copy only what runtime needs. The application is installed inside the venv;
 # the rest of the builder's /app is source and build metadata that must not
 # ship (manifest-scanning tools attribute everything in it to this image).
-# entrypoint.sh invokes litellm/proxy/prisma_migration.py by source path.
+# entrypoint.sh invokes embrouter/proxy/prisma_migration.py by source path.
 COPY --from=builder /app/.venv /app/.venv
 COPY --from=builder /app/docker /app/docker
 COPY --from=builder /app/schema.prisma /app/schema.prisma
-COPY --from=builder /app/litellm/proxy/prisma_migration.py /app/litellm/proxy/prisma_migration.py
+COPY --from=builder /app/embrouter/proxy/prisma_migration.py /app/embrouter/proxy/prisma_migration.py
 # enterprise/ is imported by source path at runtime (proxy_cli puts the
-# working directory on sys.path; litellm/proxy/hooks resolves
+# working directory on sys.path; embrouter/proxy/hooks resolves
 # enterprise.enterprise_hooks from it)
 COPY --from=builder /app/enterprise /app/enterprise
-COPY --from=builder /app/litellm-proxy-extras /app/litellm-proxy-extras
+COPY --from=builder /app/embrouter-proxy-extras /app/embrouter-proxy-extras
 # Prisma CLI + engines are baked under /opt/prisma, a fixed path every runtime
 # uid can read and that no cache volume mount shadows (unlike /app/.cache or
 # $HOME/.cache under readOnlyRootFilesystem + emptyDir or arbitrary-uid setups).
@@ -170,8 +170,8 @@ COPY --from=builder /app/litellm-proxy-extras /app/litellm-proxy-extras
 # prisma stopped baking, and falls back to a download that fails offline or as a
 # non-writable uid (#33650, #24554).
 COPY --from=builder /opt/prisma /opt/prisma
-COPY --from=builder /var/lib/litellm/ui /var/lib/litellm/ui
-COPY --from=builder /var/lib/litellm/assets /var/lib/litellm/assets
+COPY --from=builder /var/lib/embrouter/ui /var/lib/embrouter/ui
+COPY --from=builder /var/lib/embrouter/assets /var/lib/embrouter/assets
 
 # XDG_CACHE_HOME is intentionally left unset so it falls back to $HOME/.cache
 # (/app/.cache, writable by the runtime uid). The prisma bake at the read-only
@@ -183,26 +183,26 @@ ENV PATH="/app/.venv/bin:${PATH}" \
     PRISMA_CLI_PATH=/opt/prisma/binaries/node_modules/.bin/prisma \
     PRISMA_CLI_QUERY_ENGINE_TYPE=binary \
     HOME=/app \
-    LITELLM_NON_ROOT=true \
+    EMBROUTER_NON_ROOT=true \
     PRISMA_SKIP_POSTINSTALL_GENERATE=1 \
     PRISMA_HIDE_UPDATE_MESSAGE=1 \
     PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING=1 \
     PRISMA_OFFLINE_MODE=true
 
-RUN mkdir -p /nonexistent /app/.cache /var/lib/litellm/assets /var/lib/litellm/ui && \
-    chown -R nobody:nogroup /app /var/lib/litellm/ui /var/lib/litellm/assets /nonexistent && \
+RUN mkdir -p /nonexistent /app/.cache /var/lib/embrouter/assets /var/lib/embrouter/ui && \
+    chown -R nobody:nogroup /app /var/lib/embrouter/ui /var/lib/embrouter/assets /nonexistent && \
     PRISMA_PATH=$(python -c "import os, prisma; print(os.path.dirname(prisma.__file__))") && \
     chown -R nobody:nogroup "$PRISMA_PATH" && \
-    LITELLM_PKG_MIGRATIONS_PATH="$(python -c 'import os, litellm_proxy_extras; print(os.path.dirname(litellm_proxy_extras.__file__))' 2>/dev/null || echo '')/migrations" && \
-    [ -n "$LITELLM_PKG_MIGRATIONS_PATH" ] && chown -R nobody:nogroup "$LITELLM_PKG_MIGRATIONS_PATH" || true && \
-    LITELLM_PROXY_EXTRAS_PATH=$(python -c "import os, litellm_proxy_extras; print(os.path.dirname(litellm_proxy_extras.__file__))" 2>/dev/null || echo "") && \
-    chgrp -R 0 "$PRISMA_PATH" /var/lib/litellm/ui /var/lib/litellm/assets && \
-    [ -n "$LITELLM_PROXY_EXTRAS_PATH" ] && chgrp -R 0 "$LITELLM_PROXY_EXTRAS_PATH" || true && \
-    chmod -R g=u "$PRISMA_PATH" /var/lib/litellm/ui /var/lib/litellm/assets && \
-    [ -n "$LITELLM_PROXY_EXTRAS_PATH" ] && chmod -R g=u "$LITELLM_PROXY_EXTRAS_PATH" || true && \
-    chmod -R g+w "$PRISMA_PATH" /var/lib/litellm/ui /var/lib/litellm/assets && \
-    [ -n "$LITELLM_PROXY_EXTRAS_PATH" ] && chmod -R g+w "$LITELLM_PROXY_EXTRAS_PATH" || true && \
-    chmod -R g+rX "$PRISMA_PATH" /var/lib/litellm/ui /var/lib/litellm/assets && \
+    EMBROUTER_PKG_MIGRATIONS_PATH="$(python -c 'import os, embrouter_proxy_extras; print(os.path.dirname(embrouter_proxy_extras.__file__))' 2>/dev/null || echo '')/migrations" && \
+    [ -n "$EMBROUTER_PKG_MIGRATIONS_PATH" ] && chown -R nobody:nogroup "$EMBROUTER_PKG_MIGRATIONS_PATH" || true && \
+    EMBROUTER_PROXY_EXTRAS_PATH=$(python -c "import os, embrouter_proxy_extras; print(os.path.dirname(embrouter_proxy_extras.__file__))" 2>/dev/null || echo "") && \
+    chgrp -R 0 "$PRISMA_PATH" /var/lib/embrouter/ui /var/lib/embrouter/assets && \
+    [ -n "$EMBROUTER_PROXY_EXTRAS_PATH" ] && chgrp -R 0 "$EMBROUTER_PROXY_EXTRAS_PATH" || true && \
+    chmod -R g=u "$PRISMA_PATH" /var/lib/embrouter/ui /var/lib/embrouter/assets && \
+    [ -n "$EMBROUTER_PROXY_EXTRAS_PATH" ] && chmod -R g=u "$EMBROUTER_PROXY_EXTRAS_PATH" || true && \
+    chmod -R g+w "$PRISMA_PATH" /var/lib/embrouter/ui /var/lib/embrouter/assets && \
+    [ -n "$EMBROUTER_PROXY_EXTRAS_PATH" ] && chmod -R g+w "$EMBROUTER_PROXY_EXTRAS_PATH" || true && \
+    chmod -R g+rX "$PRISMA_PATH" /var/lib/embrouter/ui /var/lib/embrouter/assets && \
     chmod -R a+rX /opt/prisma && \
     test -x /opt/prisma/binaries/node_modules/.bin/prisma && \
     test -f /opt/prisma/binaries/node_modules/prisma/build/index.js && \

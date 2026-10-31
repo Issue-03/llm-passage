@@ -1,20 +1,20 @@
 # What is this?
-## If litellm license in env, checks if it's valid
+## If embrouter license in env, checks if it's valid
 import base64
 import json
 import os
 from datetime import datetime
 from typing import TYPE_CHECKING, Final
 
-from litellm._logging import verbose_proxy_logger
+from embrouter._logging import verbose_proxy_logger
 
 if TYPE_CHECKING:
-    from litellm.proxy._types import EnterpriseLicenseData
+    from embrouter.proxy._types import EnterpriseLicenseData
 
 
 AUTO_ROUTER_LICENSE_FEATURE: Final = "auto_router"
 LICENSE_ALL_FEATURES: Final = "*"
-AUTO_ROUTER_LICENSE_REMEDY: Final = "A LiteLLM license with the 'auto_router' feature lifts the limit."
+AUTO_ROUTER_LICENSE_REMEDY: Final = "A EmbRouter license with the 'auto_router' feature lifts the limit."
 
 
 class LicenseCheck:
@@ -24,7 +24,7 @@ class LicenseCheck:
     """
 
     def __init__(self) -> None:
-        self.license_str = os.getenv("LITELLM_LICENSE", None)
+        self.license_str = os.getenv("EMBROUTER_LICENSE", None)
         verbose_proxy_logger.debug("License Str value - %s", self.license_str)
         self._premium_check_logged = False
         self.public_key = None
@@ -51,27 +51,27 @@ class LicenseCheck:
     def _verify(self, license_str: str) -> bool:
         """Online license verification is removed: EmbRouter never calls an outside license server.
         Only licenses signed for the bundled public key (verify_license_without_api_request) count."""
-        verbose_proxy_logger.debug("litellm_license.py::_verify - online license check disabled")
+        verbose_proxy_logger.debug("embrouter_license.py::_verify - online license check disabled")
         return False
 
     def is_premium(self) -> bool:
         """
         1. verify_license_without_api_request: checks if license was generate using private / public key pair
-        2. _verify: checks if license is valid calling litellm API. This is the old way we were generating/validating license
+        2. _verify: checks if license is valid calling embrouter API. This is the old way we were generating/validating license
         """
         try:
             if not self._premium_check_logged:
                 verbose_proxy_logger.debug(
-                    "litellm.proxy.auth.litellm_license.py::is_premium() - ENTERING 'IS_PREMIUM' - LiteLLM License=%s",
+                    "embrouter.proxy.auth.embrouter_license.py::is_premium() - ENTERING 'IS_PREMIUM' - EmbRouter License=%s",
                     self.license_str,
                 )
 
             if self.license_str is None:
-                self.license_str = os.getenv("LITELLM_LICENSE", None)
+                self.license_str = os.getenv("EMBROUTER_LICENSE", None)
 
             if not self._premium_check_logged:
                 verbose_proxy_logger.debug(
-                    "litellm.proxy.auth.litellm_license.py::is_premium() - Updated 'self.license_str' - %s",
+                    "embrouter.proxy.auth.embrouter_license.py::is_premium() - Updated 'self.license_str' - %s",
                     self.license_str,
                 )
                 self._premium_check_logged = True
@@ -134,7 +134,7 @@ class LicenseCheck:
             from cryptography.hazmat.primitives import hashes
             from cryptography.hazmat.primitives.asymmetric import padding
 
-            from litellm.proxy._types import EnterpriseLicenseData
+            from embrouter.proxy._types import EnterpriseLicenseData
 
             # Decode the license key - add padding if needed for base64
             # Base64 strings need to be a multiple of 4 characters
@@ -175,7 +175,7 @@ class LicenseCheck:
         except Exception as e:
             self.airgapped_license_data = None
             verbose_proxy_logger.debug(
-                "litellm.proxy.auth.litellm_license.py::verify_license_without_api_request - Unable to verify License locally. - %s",
+                "embrouter.proxy.auth.embrouter_license.py::verify_license_without_api_request - Unable to verify License locally. - %s",
                 e,
             )
             return False

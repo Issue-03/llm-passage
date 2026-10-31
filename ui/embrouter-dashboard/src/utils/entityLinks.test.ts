@@ -22,7 +22,7 @@ describe("teamDetailHref", () => {
   });
 
   it("returns no href for the Admin UI session team, which has no team page", () => {
-    expect(teamDetailHref("litellm-dashboard")).toBeUndefined();
+    expect(teamDetailHref("embrouter-dashboard")).toBeUndefined();
   });
 });
 

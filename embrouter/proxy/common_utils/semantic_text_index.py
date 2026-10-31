@@ -13,12 +13,12 @@ from fastapi import HTTPException
 from openai import OpenAIError
 from pydantic import BaseModel, ConfigDict
 
-from litellm.exceptions import BudgetExceededError
+from embrouter.exceptions import BudgetExceededError
 
 if TYPE_CHECKING:
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.utils import ProxyLogging
-    from litellm.router import Router
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy.utils import ProxyLogging
+    from embrouter.router import Router
 
 Vector: TypeAlias = tuple[float, ...]
 
@@ -64,11 +64,11 @@ def cosine_similarity(left: Vector, right: Vector) -> float:
 
 
 def embedding_spend_metadata(user_api_key_dict: UserAPIKeyAuth) -> dict[str, object]:  # mutable-ok: router mutates it
-    from litellm.proxy.litellm_pre_call_utils import LiteLLMProxyRequestSetup
+    from embrouter.proxy.embrouter_pre_call_utils import EmbRouterProxyRequestSetup
 
     return {  # mutable-ok: the router mutates the metadata dict it is handed
-        **LiteLLMProxyRequestSetup.get_sanitized_user_information_from_key(user_api_key_dict),
-        "user_api_key": LiteLLMProxyRequestSetup.get_logged_api_key(user_api_key_dict),
+        **EmbRouterProxyRequestSetup.get_sanitized_user_information_from_key(user_api_key_dict),
+        "user_api_key": EmbRouterProxyRequestSetup.get_logged_api_key(user_api_key_dict),
     }
 
 

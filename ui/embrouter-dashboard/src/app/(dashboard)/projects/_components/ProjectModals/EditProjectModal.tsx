@@ -61,7 +61,7 @@ export const toFormValues = (project: ProjectResponse): ProjectFormValues => {
     team_id: project.team_id ?? null,
     description: project.description ?? "",
     models: project.models ?? [],
-    max_budget: project.litellm_budget_table?.max_budget ?? undefined,
+    max_budget: project.embrouter_budget_table?.max_budget ?? undefined,
     isBlocked: project.blocked,
     guardrails: guardrails.length > 0 ? guardrails : undefined,
     modelLimits: modelLimits.length > 0 ? modelLimits : undefined,
@@ -86,7 +86,7 @@ function EditProjectForm({ project, onClose, onSuccess }: Omit<EditProjectModalP
       : { ...values, guardrails: undefined, modelLimits: undefined, metadata: undefined };
 
     const params: ProjectUpdateParams = {
-      ...buildProjectUpdateParams(submitted, project.litellm_budget_table?.max_budget),
+      ...buildProjectUpdateParams(submitted, project.embrouter_budget_table?.max_budget),
       team_id: submitted.team_id,
     };
 

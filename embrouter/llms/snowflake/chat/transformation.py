@@ -17,18 +17,18 @@ from typing import TYPE_CHECKING, Any, Final, Protocol, TypedDict
 import httpx
 from typing_extensions import ReadOnly
 
-from litellm.litellm_core_utils.prompt_templates.factory import (
+from embrouter.embrouter_core_utils.prompt_templates.factory import (
     anthropic_process_openai_file_message,
     convert_to_anthropic_tool_result,
     create_anthropic_image_param,
     select_anthropic_content_block_type_for_file,
 )
-from litellm.litellm_core_utils.prompt_templates.image_handling import async_inline_remote_media
-from litellm.llms.anthropic.chat.handler import ModelResponseIterator as AnthropicStreamParser
-from litellm.llms.anthropic.chat.transformation import AnthropicConfig
-from litellm.llms.anthropic.common_utils import normalize_cache_control_in_anthropic_payload
-from litellm.types.llms.openai import AllMessageValues, ChatCompletionToolCallChunk, ChatCompletionToolMessage
-from litellm.types.utils import (
+from embrouter.embrouter_core_utils.prompt_templates.image_handling import async_inline_remote_media
+from embrouter.llms.anthropic.chat.handler import ModelResponseIterator as AnthropicStreamParser
+from embrouter.llms.anthropic.chat.transformation import AnthropicConfig
+from embrouter.llms.anthropic.common_utils import normalize_cache_control_in_anthropic_payload
+from embrouter.types.llms.openai import AllMessageValues, ChatCompletionToolCallChunk, ChatCompletionToolMessage
+from embrouter.types.utils import (
     Choices,
     GenericStreamingChunk,
     Message,
@@ -41,11 +41,11 @@ from ...openai_like.chat.transformation import OpenAIGPTConfig
 from ..utils import SnowflakeBaseConfig
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 ANTHROPIC_VERSION: Final = "2023-06-01"
 
@@ -232,7 +232,7 @@ class SnowflakeConfig(SnowflakeBaseConfig, OpenAIGPTConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         api_base = self._get_api_base(api_base, optional_params)
@@ -246,7 +246,7 @@ class SnowflakeConfig(SnowflakeBaseConfig, OpenAIGPTConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
@@ -255,7 +255,7 @@ class SnowflakeConfig(SnowflakeBaseConfig, OpenAIGPTConfig):
             model=model,
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             api_key=api_key,
             api_base=api_base,
         )
@@ -402,7 +402,7 @@ class SnowflakeConfig(SnowflakeBaseConfig, OpenAIGPTConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         stream: Final[bool] = optional_params.pop("stream", False) or False
@@ -421,11 +421,11 @@ class SnowflakeConfig(SnowflakeBaseConfig, OpenAIGPTConfig):
         model: str,
         messages: list[AllMessageValues],  # mutable-ok: BaseConfig signature
         optional_params: dict[str, object],  # mutable-ok: BaseConfig signature
-        litellm_params: dict[str, object],  # mutable-ok: BaseConfig signature
+        embrouter_params: dict[str, object],  # mutable-ok: BaseConfig signature
         headers: dict[str, object],  # mutable-ok: BaseConfig signature
     ) -> dict[str, object]:  # mutable-ok: BaseConfig signature
         inlined_messages: Final = await async_inline_remote_media(messages) if _is_claude_model(model) else messages
-        return self.transform_request(model, inlined_messages, optional_params, litellm_params, headers)
+        return self.transform_request(model, inlined_messages, optional_params, embrouter_params, headers)
 
     def _transform_request_openai(
         self,
@@ -524,11 +524,11 @@ class SnowflakeConfig(SnowflakeBaseConfig, OpenAIGPTConfig):
         model: str,
         raw_response: httpx.Response,
         model_response: ModelResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         request_data: dict,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: object,
         api_key: str | None = None,
         json_mode: bool | None = None,
@@ -544,7 +544,7 @@ class SnowflakeConfig(SnowflakeBaseConfig, OpenAIGPTConfig):
         model: str,
         raw_response: httpx.Response,
         model_response: ModelResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         request_data: dict,
         messages: list[AllMessageValues],
     ) -> ModelResponse:
@@ -571,7 +571,7 @@ class SnowflakeConfig(SnowflakeBaseConfig, OpenAIGPTConfig):
         model: str,
         raw_response: httpx.Response,
         model_response: ModelResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         request_data: dict,
         messages: list[AllMessageValues],
     ) -> ModelResponse:

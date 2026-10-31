@@ -6,12 +6,12 @@ import { Button } from "@/components/ui/button";
 import { UiLoadingSpinner } from "@/components/ui/ui-loading-spinner";
 
 interface SearchConnectionTestProps {
-  litellmParams: Record<string, any>;
+  embrouterParams: Record<string, any>;
   accessToken: string;
   onTestComplete?: () => void;
 }
 
-const SearchConnectionTest: React.FC<SearchConnectionTestProps> = ({ litellmParams, accessToken, onTestComplete }) => {
+const SearchConnectionTest: React.FC<SearchConnectionTestProps> = ({ embrouterParams, accessToken, onTestComplete }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [testResult, setTestResult] = useState<{
     status: "success" | "error";
@@ -26,7 +26,7 @@ const SearchConnectionTest: React.FC<SearchConnectionTestProps> = ({ litellmPara
     const runTest = async () => {
       setIsLoading(true);
       try {
-        const result = await testSearchToolConnection(accessToken, litellmParams);
+        const result = await testSearchToolConnection(accessToken, embrouterParams);
         setTestResult(result);
         if (result.status === "success") {
           toast.success("Connection test successful!");
@@ -46,14 +46,14 @@ const SearchConnectionTest: React.FC<SearchConnectionTestProps> = ({ litellmPara
     };
 
     runTest();
-  }, [accessToken, litellmParams, onTestComplete]);
+  }, [accessToken, embrouterParams, onTestComplete]);
 
   const getCleanErrorMessage = (errorMsg: string) => {
     if (!errorMsg) return "Unknown error";
 
     const mainError = errorMsg.split("stack trace:")[0].trim();
 
-    const cleanedError = mainError.replace(/^litellm\.(.*?)Error:\s*/, "");
+    const cleanedError = mainError.replace(/^embrouter\.(.*?)Error:\s*/, "");
 
     const finalError = cleanedError.replace(/^AuthenticationError:\s*/, "");
 
@@ -83,7 +83,7 @@ const SearchConnectionTest: React.FC<SearchConnectionTestProps> = ({ litellmPara
         <div className="flex flex-col items-center justify-center px-5 py-8">
           <UiLoadingSpinner className="mb-4 size-8 text-primary" />
           <p className="text-base text-foreground">
-            Testing connection to {litellmParams.search_provider || "search provider"}...
+            Testing connection to {embrouterParams.search_provider || "search provider"}...
           </p>
         </div>
       </div>
@@ -101,7 +101,7 @@ const SearchConnectionTest: React.FC<SearchConnectionTestProps> = ({ litellmPara
           <CheckCircle2 className="size-6 text-success" />
           <div className="ml-3">
             <p className="text-lg font-medium text-success">
-              Connection to {litellmParams.search_provider} successful!
+              Connection to {embrouterParams.search_provider} successful!
             </p>
             {testResult.test_query && (
               <p className="mt-2 text-sm text-muted-foreground">
@@ -118,7 +118,7 @@ const SearchConnectionTest: React.FC<SearchConnectionTestProps> = ({ litellmPara
           <div className="mb-5 flex items-center">
             <AlertTriangle className="mr-3 size-6 text-destructive" />
             <p className="text-lg font-medium text-destructive">
-              Connection to {litellmParams.search_provider || "search provider"} failed
+              Connection to {embrouterParams.search_provider || "search provider"} failed
             </p>
           </div>
 

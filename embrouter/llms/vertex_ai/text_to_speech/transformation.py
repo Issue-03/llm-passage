@@ -12,35 +12,35 @@ from typing import TYPE_CHECKING, Any, Final, TypeAlias, Union
 
 import httpx
 
-import litellm
-from litellm.exceptions import UnsupportedParamsError
-from litellm.litellm_core_utils.audio_utils.utils import (
+import embrouter
+from embrouter.exceptions import UnsupportedParamsError
+from embrouter.embrouter_core_utils.audio_utils.utils import (
     DEFAULT_SPEECH_MEDIA_TYPE,
     speech_media_type_from_audio_bytes,
 )
-from litellm.litellm_core_utils.url_utils import encode_url_path_segment
-from litellm.llms.base_llm.text_to_speech.transformation import (
+from embrouter.embrouter_core_utils.url_utils import encode_url_path_segment
+from embrouter.llms.base_llm.text_to_speech.transformation import (
     BaseTextToSpeechConfig,
     TextToSpeechRequestData,
 )
-from litellm.llms.vertex_ai.common_utils import (
+from embrouter.llms.vertex_ai.common_utils import (
     VertexAILyriaModelInfo,
     get_vertex_ai_lyria_model_info,
 )
-from litellm.llms.vertex_ai.vertex_llm_base import VertexBase
-from litellm.types.llms.vertex_ai import VERTEX_CREDENTIALS_TYPES
-from litellm.types.llms.vertex_ai_text_to_speech import (
+from embrouter.llms.vertex_ai.vertex_llm_base import VertexBase
+from embrouter.types.llms.vertex_ai import VERTEX_CREDENTIALS_TYPES
+from embrouter.types.llms.vertex_ai_text_to_speech import (
     VertexTextToSpeechAudioConfig,
     VertexTextToSpeechInput,
     VertexTextToSpeechVoice,
 )
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
-    from litellm.types.llms.openai import HttpxBinaryResponseContent
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+    from embrouter.types.llms.openai import HttpxBinaryResponseContent
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
     HttpxBinaryResponseContent = Any
 
 _LyriaVoice: TypeAlias = str | dict | None
@@ -143,8 +143,8 @@ class VertexAITextToSpeechConfig(BaseTextToSpeechConfig, VertexBase):
         input: str,
         voice: str | dict | None,
         optional_params: dict[str, object],
-        litellm_params_dict: dict[str, object],
-        logging_obj: "LiteLLMLoggingObj",
+        embrouter_params_dict: dict[str, object],
+        logging_obj: "EmbRouterLoggingObj",
         timeout: float | httpx.Timeout,
         extra_headers: dict[str, object] | None,
         base_llm_http_handler: "BaseLLMHTTPHandler",
@@ -166,9 +166,9 @@ class VertexAITextToSpeechConfig(BaseTextToSpeechConfig, VertexBase):
             base_llm_http_handler: The BaseLLMHTTPHandler instance from main.py
         """
         # Resolve Vertex AI credentials using VertexBase helpers
-        vertex_credentials: Final = self.safe_get_vertex_ai_credentials(litellm_params_dict)
-        vertex_project: Final = self.safe_get_vertex_ai_project(litellm_params_dict)
-        vertex_location: Final = self.safe_get_vertex_ai_location(litellm_params_dict)
+        vertex_credentials: Final = self.safe_get_vertex_ai_credentials(embrouter_params_dict)
+        vertex_project: Final = self.safe_get_vertex_ai_project(embrouter_params_dict)
+        vertex_location: Final = self.safe_get_vertex_ai_location(embrouter_params_dict)
 
         # Convert voice to string if it's a dict (extract name)
         # Actual voice mapping happens in map_openai_params
@@ -179,8 +179,8 @@ class VertexAITextToSpeechConfig(BaseTextToSpeechConfig, VertexBase):
             # Extract voice name from dict if needed
             voice_str = voice.get("name") if voice else None
 
-        # Store credentials in litellm_params for use in transform methods
-        litellm_params_dict.update(
+        # Store credentials in embrouter_params for use in transform methods
+        embrouter_params_dict.update(
             {
                 "vertex_credentials": vertex_credentials,
                 "vertex_project": vertex_project,
@@ -197,7 +197,7 @@ class VertexAITextToSpeechConfig(BaseTextToSpeechConfig, VertexBase):
             text_to_speech_provider_config=self,
             text_to_speech_optional_params=optional_params,
             custom_llm_provider="vertex_ai",
-            litellm_params=litellm_params_dict,
+            embrouter_params=embrouter_params_dict,
             logging_obj=logging_obj,
             timeout=timeout,
             extra_headers=extra_headers,
@@ -299,7 +299,7 @@ class VertexAITextToSpeechConfig(BaseTextToSpeechConfig, VertexBase):
         self,
         model: str,
         api_base: str | None,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> str:
         """
         Get the complete URL for Vertex AI TTS request
@@ -336,7 +336,7 @@ class VertexAITextToSpeechConfig(BaseTextToSpeechConfig, VertexBase):
             elif "ssml" not in input_data:
                 raise ValueError("SSML input is required when use_ssml is True.")
         else:
-            # LiteLLM will auto-detect if text is in ssml format
+            # EmbRouter will auto-detect if text is in ssml format
             # check if "text" is an ssml - in this case we should pass it as ssml instead of text
             if input_data:
                 _text: Final = input_data.get("text", None) or ""
@@ -356,7 +356,7 @@ class VertexAITextToSpeechConfig(BaseTextToSpeechConfig, VertexBase):
         input: str,
         voice: str | None,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> TextToSpeechRequestData:
         """
@@ -370,9 +370,9 @@ class VertexAITextToSpeechConfig(BaseTextToSpeechConfig, VertexBase):
         Returns:
             TextToSpeechRequestData: Contains dict_body and headers
         """
-        # Get Vertex AI credentials from litellm_params
-        vertex_credentials: Final[VERTEX_CREDENTIALS_TYPES | None] = litellm_params.get("vertex_credentials")
-        vertex_project: str | None = litellm_params.get("vertex_project")
+        # Get Vertex AI credentials from embrouter_params
+        vertex_credentials: Final[VERTEX_CREDENTIALS_TYPES | None] = embrouter_params.get("vertex_credentials")
+        vertex_project: str | None = embrouter_params.get("vertex_project")
 
         ####### Authenticate with Vertex AI ########
         _auth_header, vertex_project = self._ensure_access_token(
@@ -387,10 +387,10 @@ class VertexAITextToSpeechConfig(BaseTextToSpeechConfig, VertexBase):
             gemini_api_key=None,
             vertex_credentials=vertex_credentials,
             vertex_project=vertex_project,
-            vertex_location=litellm_params.get("vertex_location"),
+            vertex_location=embrouter_params.get("vertex_location"),
             stream=False,
             custom_llm_provider="vertex_ai_beta",
-            api_base=litellm_params.get("api_base"),
+            api_base=embrouter_params.get("api_base"),
         )
 
         # Set authentication headers
@@ -403,9 +403,9 @@ class VertexAITextToSpeechConfig(BaseTextToSpeechConfig, VertexBase):
 
         # Build voice configuration
         # Check for voice dict stored in:
-        # 1. litellm_params by dispatch method
+        # 1. embrouter_params by dispatch method
         # 2. optional_params by map_openai_params
-        voice_dict: Final = litellm_params.get("vertex_voice_dict") or optional_params.get("vertex_voice_dict")
+        voice_dict: Final = embrouter_params.get("vertex_voice_dict") or optional_params.get("vertex_voice_dict")
         if voice_dict is not None and isinstance(voice_dict, dict):
             vertex_voice = VertexTextToSpeechVoice(**voice_dict)
         elif voice is not None and isinstance(voice, str):
@@ -454,7 +454,7 @@ class VertexAITextToSpeechConfig(BaseTextToSpeechConfig, VertexBase):
         self,
         model: str,
         raw_response: httpx.Response,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
     ) -> "HttpxBinaryResponseContent":
         """
         Transform Vertex AI TTS response to standard format
@@ -462,7 +462,7 @@ class VertexAITextToSpeechConfig(BaseTextToSpeechConfig, VertexBase):
         Vertex AI returns JSON with base64-encoded audio content.
         We decode it and return as HttpxBinaryResponseContent.
         """
-        from litellm.types.llms.openai import HttpxBinaryResponseContent
+        from embrouter.types.llms.openai import HttpxBinaryResponseContent
 
         # Parse JSON response
         _json_response: Final = raw_response.json()
@@ -520,7 +520,7 @@ class VertexAILyriaTextToSpeechConfig(VertexAITextToSpeechConfig):
             param for param in ("speed", "instructions") if mapped_params.get(param) is not None
         )
         if unsupported_params:
-            if drop_params or litellm.drop_params:
+            if drop_params or embrouter.drop_params:
                 for param in unsupported_params:
                     mapped_params.pop(param, None)
             else:
@@ -529,13 +529,13 @@ class VertexAILyriaTextToSpeechConfig(VertexAITextToSpeechConfig):
                     message=(
                         f"Vertex AI {base_model} does not support the OpenAI parameters: "
                         f"{', '.join(unsupported_params)}. To drop unsupported openai params "
-                        "from the call, set `litellm.drop_params = True`"
+                        "from the call, set `embrouter.drop_params = True`"
                     ),
                 )
         response_format: Final = mapped_params.get("response_format")
         supported_formats: Final = frozenset(model_info["supported_audio_formats"])
         if response_format is not None and response_format not in supported_formats:
-            if drop_params or litellm.drop_params:
+            if drop_params or embrouter.drop_params:
                 mapped_params.pop("response_format", None)
             else:
                 raise UnsupportedParamsError(
@@ -543,7 +543,7 @@ class VertexAILyriaTextToSpeechConfig(VertexAITextToSpeechConfig):
                     message=(
                         f"Vertex AI {base_model} does not support response_format={response_format!r}. "
                         f"Supported values: {', '.join(sorted(supported_formats))}. "
-                        "To drop unsupported openai params from the call, set `litellm.drop_params = True`"
+                        "To drop unsupported openai params from the call, set `embrouter.drop_params = True`"
                     ),
                 )
         return voice if isinstance(voice, str) else None, mapped_params
@@ -552,14 +552,14 @@ class VertexAILyriaTextToSpeechConfig(VertexAITextToSpeechConfig):
         self,
         model: str,
         api_base: str | None,
-        litellm_params: dict,  # mutable-ok: inherited provider interface accepts concrete LiteLLM parameters
+        embrouter_params: dict,  # mutable-ok: inherited provider interface accepts concrete EmbRouter parameters
     ) -> str:
         base_model: Final = model.removeprefix("vertex_ai/")
         model_info: Final = self._get_model_info(model=model)
-        configured_project: Final = self.safe_get_vertex_ai_project(litellm_params)
+        configured_project: Final = self.safe_get_vertex_ai_project(embrouter_params)
         project: Final = (
             self._ensure_access_token(
-                credentials=self.safe_get_vertex_ai_credentials(litellm_params),
+                credentials=self.safe_get_vertex_ai_credentials(embrouter_params),
                 project_id=None,
                 custom_llm_provider="vertex_ai",
             )[1]
@@ -567,7 +567,7 @@ class VertexAILyriaTextToSpeechConfig(VertexAITextToSpeechConfig):
             else configured_project
         )
         if model_info["vertex_ai_audio_api"] == "lyria_interactions":
-            from litellm.llms.vertex_ai.interactions.transformation import (
+            from embrouter.llms.vertex_ai.interactions.transformation import (
                 VertexAIInteractionsConfig,
             )
 
@@ -580,13 +580,13 @@ class VertexAILyriaTextToSpeechConfig(VertexAITextToSpeechConfig):
             return VertexAIInteractionsConfig(mint_access_token=mint_access_token).get_complete_url(
                 api_base=api_base,
                 model=base_model,
-                litellm_params={  # mutable-ok: interactions dispatch expects a concrete parameter dictionary
-                    **litellm_params,
+                embrouter_params={  # mutable-ok: interactions dispatch expects a concrete parameter dictionary
+                    **embrouter_params,
                     "vertex_project": project,
                     "vertex_location": "global",
                 },
             )
-        location: Final = self.safe_get_vertex_ai_location(litellm_params) or self.get_default_vertex_location()
+        location: Final = self.safe_get_vertex_ai_location(embrouter_params) or self.get_default_vertex_location()
         base_url: Final = self.get_api_base(api_base=api_base, vertex_location=location).rstrip("/")
         encoded_project: Final = encode_url_path_segment(project, field_name="project")
         encoded_location: Final = encode_url_path_segment(location, field_name="location")
@@ -602,12 +602,12 @@ class VertexAILyriaTextToSpeechConfig(VertexAITextToSpeechConfig):
         input: str,
         voice: str | None,
         optional_params: dict,  # mutable-ok: inherited provider interface accepts concrete mapped parameters
-        litellm_params: dict,  # mutable-ok: inherited provider interface accepts concrete LiteLLM parameters
+        embrouter_params: dict,  # mutable-ok: inherited provider interface accepts concrete EmbRouter parameters
         headers: dict,  # mutable-ok: inherited provider interface accepts and updates concrete HTTP headers
     ) -> TextToSpeechRequestData:
         access_token, project = self._ensure_access_token(
-            credentials=self.safe_get_vertex_ai_credentials(litellm_params),
-            project_id=self.safe_get_vertex_ai_project(litellm_params),
+            credentials=self.safe_get_vertex_ai_credentials(embrouter_params),
+            project_id=self.safe_get_vertex_ai_project(embrouter_params),
             custom_llm_provider="vertex_ai",
         )
         headers.update(
@@ -650,9 +650,9 @@ class VertexAILyriaTextToSpeechConfig(VertexAITextToSpeechConfig):
         self,
         model: str,
         raw_response: httpx.Response,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
     ) -> "HttpxBinaryResponseContent":
-        from litellm.types.llms.openai import HttpxBinaryResponseContent
+        from embrouter.types.llms.openai import HttpxBinaryResponseContent
 
         response_json: Final = raw_response.json()
         base_model: Final = model.removeprefix("vertex_ai/")

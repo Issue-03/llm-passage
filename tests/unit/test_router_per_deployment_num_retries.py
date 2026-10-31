@@ -1,6 +1,6 @@
 """
-Unit tests for per-deployment num_retries in litellm_params
-GitHub Issue: #18968 - Per-deployment max_retries/num_retries in litellm_params is not used in retry logic
+Unit tests for per-deployment num_retries in embrouter_params
+GitHub Issue: #18968 - Per-deployment max_retries/num_retries in embrouter_params is not used in retry logic
 """
 
 import httpx
@@ -8,25 +8,25 @@ import pytest
 import pytest_asyncio
 from unittest.mock import patch
 
-import litellm
-from litellm import Router
-from litellm.types.router import RetryPolicy
-from litellm.integrations.custom_logger import CustomLogger
+import embrouter
+from embrouter import Router
+from embrouter.types.router import RetryPolicy
+from embrouter.integrations.custom_logger import CustomLogger
 
 
 class TestPerDeploymentNumRetries:
-    """Test that per-deployment num_retries in litellm_params is correctly used."""
+    """Test that per-deployment num_retries in embrouter_params is correctly used."""
 
     def test_set_deployment_num_retries_on_exception(self):
         """
         Test that _set_deployment_num_retries_on_exception sets num_retries
-        on the exception from the deployment's litellm_params.
+        on the exception from the deployment's embrouter_params.
         """
         router = Router(
             model_list=[
                 {
                     "model_name": "test-model",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "openai/gpt-4",
                         "api_key": "test-key",
                         "num_retries": 5,  # Per-deployment setting
@@ -60,7 +60,7 @@ class TestPerDeploymentNumRetries:
             model_list=[
                 {
                     "model_name": "test-model",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "openai/gpt-4",
                         "api_key": "test-key",
                         "num_retries": 5,
@@ -93,7 +93,7 @@ class TestPerDeploymentNumRetries:
             model_list=[
                 {
                     "model_name": "test-model",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "openai/gpt-4",
                         "api_key": "test-key",
                         # No num_retries set
@@ -124,7 +124,7 @@ class TestPerDeploymentNumRetries:
             model_list=[
                 {
                     "model_name": "test-model",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "openai/gpt-4",
                         "api_key": "test-key",
                         "num_retries": 5,
@@ -144,13 +144,13 @@ class TestPerDeploymentNumRetries:
         A request that carries no num_retries must stay that way through
         _update_kwargs_before_fallbacks. Filling in the router default here is what made a
         request indistinguishable from "no request value", which let a deployment's
-        litellm_params.num_retries outrank the header/body value.
+        embrouter_params.num_retries outrank the header/body value.
         """
         router = Router(
             model_list=[
                 {
                     "model_name": "test-model",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "openai/gpt-4",
                         "api_key": "test-key",
                     },
@@ -173,7 +173,7 @@ class TestPerDeploymentNumRetries:
             model_list=[
                 {
                     "model_name": "test-model",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "openai/gpt-4",
                         "api_key": "test-key",
                         "num_retries": "6",  # String value (as from env var)
@@ -219,7 +219,7 @@ class TestNumRetriesNoneGuard:
             model_list=[
                 {
                     "model_name": "mock-model",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "gpt-4o-mini",
                         "mock_response": "ok",
                     },
@@ -273,12 +273,12 @@ class TestNumRetriesNoneGuard:
         router.num_retries = None  # simulate update_settings(num_retries=None)
 
         async def failing_fn(*args, **kwargs):
-            raise litellm.RateLimitError(
+            raise embrouter.RateLimitError(
                 message="boom", model="mock-model", llm_provider="openai"
             )
 
         with patch("asyncio.sleep", return_value=None):
-            with pytest.raises(litellm.RateLimitError):
+            with pytest.raises(embrouter.RateLimitError):
                 await router.async_function_with_retries(
                     original_function=failing_fn,
                     model="mock-model",
@@ -298,12 +298,12 @@ class TestNumRetriesNoneGuard:
 
         async def failing_fn(*args, **kwargs):
             calls["n"] += 1
-            raise litellm.InternalServerError(
+            raise embrouter.InternalServerError(
                 message="boom", model="mock-model", llm_provider="openai"
             )
 
         with patch("asyncio.sleep", return_value=None):
-            with pytest.raises(litellm.InternalServerError):
+            with pytest.raises(embrouter.InternalServerError):
                 await router.async_function_with_retries(
                     original_function=failing_fn,
                     model="mock-model",
@@ -321,12 +321,12 @@ class TestNoProviderRetryAmplification:
     A routed request must reach the upstream provider exactly ``1 + <router retries>``
     times. The Router is the sole retry owner for routed calls, so the provider SDK
     must never retry on top of it. Otherwise a per-deployment ``num_retries`` set in
-    ``litellm_params`` is applied twice - once by the Router loop and once as the
+    ``embrouter_params`` is applied twice - once by the Router loop and once as the
     provider client's ``max_retries`` - turning one request into ``(1 + num_retries) ** 2``
     upstream requests.
 
     These tests count actual upstream HTTP requests through the full Router completion
-    path by injecting a counting transport via ``litellm.aclient_session`` (the
+    path by injecting a counting transport via ``embrouter.aclient_session`` (the
     documented seam the OpenAI client builder reads), so both Router-level and any
     provider-SDK-level retries are observed.
     """
@@ -345,29 +345,29 @@ class TestNoProviderRetryAmplification:
                 json={"error": {"message": "boom", "type": "server_error"}},
             )
 
-        litellm.aclient_session = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        embrouter.aclient_session = httpx.AsyncClient(transport=httpx.MockTransport(handler))
         return counter
 
     @pytest_asyncio.fixture(autouse=True)
     async def _isolate_clients(self):
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        embrouter.in_memory_llm_clients_cache.flush_cache()
         yield
-        session = litellm.aclient_session
-        litellm.aclient_session = None
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        session = embrouter.aclient_session
+        embrouter.aclient_session = None
+        embrouter.in_memory_llm_clients_cache.flush_cache()
         if session is not None:
             await session.aclose()
 
     @staticmethod
-    def _router(api_base: str, litellm_params: dict, **router_kwargs) -> Router:
+    def _router(api_base: str, embrouter_params: dict, **router_kwargs) -> Router:
         params = {"model": "openai/gpt-4o-mini", "api_base": api_base, "api_key": "sk-fake"}
-        params.update(litellm_params)
-        return Router(model_list=[{"model_name": "mock", "litellm_params": params}], **router_kwargs)
+        params.update(embrouter_params)
+        return Router(model_list=[{"model_name": "mock", "embrouter_params": params}], **router_kwargs)
 
     async def _call_and_count(self, router: Router, **call_kwargs) -> int:
         counter = self._install_counting_upstream()
         with patch("asyncio.sleep", return_value=None):
-            with pytest.raises(litellm.InternalServerError):
+            with pytest.raises(embrouter.InternalServerError):
                 await router.acompletion(
                     model="mock", messages=[{"role": "user", "content": "hi"}], **call_kwargs
                 )
@@ -386,7 +386,7 @@ class TestNoProviderRetryAmplification:
             f"https://amp-{num_retries}.local/v1", {"num_retries": num_retries}, num_retries=1
         )
         with patch("asyncio.sleep", return_value=None):
-            with pytest.raises(litellm.InternalServerError):
+            with pytest.raises(embrouter.InternalServerError):
                 await router.acompletion(model="mock", messages=[{"role": "user", "content": "hi"}])
         assert counter["n"] == num_retries + 1
 
@@ -439,17 +439,17 @@ class TestNoProviderRetryAmplification:
     @pytest.mark.asyncio
     async def test_direct_completion_still_forwards_num_retries_to_provider(self):
         """
-        For a NON-routed direct ``litellm.acompletion`` call, ``num_retries`` remains an
+        For a NON-routed direct ``embrouter.acompletion`` call, ``num_retries`` remains an
         alias for the provider client's ``max_retries`` (the instructor use case). The
-        provider SDK therefore retries in addition to litellm's own retry wrapper, so the
+        provider SDK therefore retries in addition to embrouter's own retry wrapper, so the
         upstream count exceeds ``num_retries + 1`` - proving the routed-call fix did not
         change direct-call behaviour.
         """
         counter = self._install_counting_upstream()
         num_retries = 2
         with patch("asyncio.sleep", return_value=None):
-            with pytest.raises(litellm.InternalServerError):
-                await litellm.acompletion(
+            with pytest.raises(embrouter.InternalServerError):
+                await embrouter.acompletion(
                     model="openai/gpt-4o-mini",
                     api_base="https://direct.local/v1",
                     api_key="sk-fake",
@@ -471,24 +471,24 @@ class _AttemptCounter(CustomLogger):
 
 class TestRequestNumRetriesBeatsGlobal:
     """
-    A per-request num_retries (request body or the x-litellm-num-retries header, both of
+    A per-request num_retries (request body or the x-embrouter-num-retries header, both of
     which arrive as the num_retries kwarg) must take precedence over the global
-    litellm.num_retries (litellm_settings.num_retries on the proxy) during retry handling.
+    embrouter.num_retries (embrouter_settings.num_retries on the proxy) during retry handling.
 
-    The regression: the @client wrapper stamped the global litellm.num_retries onto the
+    The regression: the @client wrapper stamped the global embrouter.num_retries onto the
     raised exception, and async_function_with_retries then adopted that stamped value,
     overwriting the request-level num_retries it had already resolved. This exercises the
-    real retry loop end to end (the failing call flows through the wrapped litellm.acompletion),
+    real retry loop end to end (the failing call flows through the wrapped embrouter.acompletion),
     which the kwargs-merge-only test above does not.
     """
 
     @pytest.fixture(autouse=True)
-    def _restore_litellm_globals(self):
-        prev_num_retries = litellm.num_retries
-        prev_callbacks = litellm.callbacks
+    def _restore_embrouter_globals(self):
+        prev_num_retries = embrouter.num_retries
+        prev_callbacks = embrouter.callbacks
         yield
-        litellm.num_retries = prev_num_retries
-        litellm.callbacks = prev_callbacks
+        embrouter.num_retries = prev_num_retries
+        embrouter.callbacks = prev_callbacks
 
     @staticmethod
     def _router(global_num_retries):
@@ -496,10 +496,10 @@ class TestRequestNumRetriesBeatsGlobal:
             model_list=[
                 {
                     "model_name": "mock",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "openai/mock",
                         "api_key": "sk-fake",
-                        "mock_response": "litellm.InternalServerError",
+                        "mock_response": "embrouter.InternalServerError",
                     },
                 }
             ],
@@ -508,14 +508,14 @@ class TestRequestNumRetriesBeatsGlobal:
 
     async def _count_attempts(self, *, global_num_retries, request_num_retries):
         counter = _AttemptCounter()
-        litellm.callbacks = [counter]
-        litellm.num_retries = global_num_retries
+        embrouter.callbacks = [counter]
+        embrouter.num_retries = global_num_retries
         router = self._router(global_num_retries)
         kwargs = {"model": "mock", "messages": [{"role": "user", "content": "hi"}]}
         if request_num_retries is not None:
             kwargs["num_retries"] = request_num_retries
         with patch("asyncio.sleep", return_value=None):
-            with pytest.raises(litellm.InternalServerError):
+            with pytest.raises(embrouter.InternalServerError):
                 await router.acompletion(**kwargs)
         return counter.attempts
 
@@ -538,7 +538,7 @@ class TestRequestNumRetriesBeatsGlobal:
             model_list=[
                 {
                     "model_name": "mock",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "openai/mock-timeout",
                         "api_key": "sk-fake",
                         "mock_timeout": True,
@@ -551,7 +551,7 @@ class TestRequestNumRetriesBeatsGlobal:
         )
 
         with patch("asyncio.sleep", return_value=None):
-            with pytest.raises(litellm.Timeout):
+            with pytest.raises(embrouter.Timeout):
                 await router.acompletion(
                     model="mock",
                     messages=[{"role": "user", "content": "hi"}],
@@ -571,20 +571,20 @@ class TestRequestNumRetriesBeatsGlobal:
     async def test_deployment_num_retries_reaches_wrapper_when_no_request_value(self):
         """
         With no request value and the router default at 0, a deployment's
-        litellm_params.num_retries reaches the wrapped call, is carried on the raised
+        embrouter_params.num_retries reaches the wrapped call, is carried on the raised
         exception, and is applied: deployment 2 -> 1 initial + 2 retries = 3 (not 1).
         """
         counter = _AttemptCounter()
-        litellm.callbacks = [counter]
-        litellm.num_retries = None
+        embrouter.callbacks = [counter]
+        embrouter.num_retries = None
         router = Router(
             model_list=[
                 {
                     "model_name": "mock",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "openai/mock",
                         "api_key": "sk-fake",
-                        "mock_response": "litellm.InternalServerError",
+                        "mock_response": "embrouter.InternalServerError",
                         "num_retries": 2,
                     },
                 }
@@ -592,7 +592,7 @@ class TestRequestNumRetriesBeatsGlobal:
             num_retries=0,
         )
         with patch("asyncio.sleep", return_value=None):
-            with pytest.raises(litellm.InternalServerError):
+            with pytest.raises(embrouter.InternalServerError):
                 await router.acompletion(
                     model="mock", messages=[{"role": "user", "content": "hi"}]
                 )
@@ -603,35 +603,35 @@ class TestRequestNumRetriesBeatsDeployment:
     """
     Documented precedence for num_retries on the proxy:
 
-        x-litellm-num-retries header > request body > model_list litellm_params > litellm_settings
+        x-embrouter-num-retries header > request body > model_list embrouter_params > embrouter_settings
 
     The header and the body both arrive at the router as the num_retries kwarg (the proxy
     overwrites the body value with the header one), so "request level" covers both.
 
-    The regression: a failing deployment stamps its own litellm_params.num_retries onto the
+    The regression: a failing deployment stamps its own embrouter_params.num_retries onto the
     raised exception, and async_function_with_retries adopted that value unconditionally, so a
     deployment setting outranked the header and the body instead of sitting below them.
     """
 
     @pytest.fixture(autouse=True)
-    def _restore_litellm_globals(self):
-        prev_num_retries = litellm.num_retries
-        prev_callbacks = litellm.callbacks
+    def _restore_embrouter_globals(self):
+        prev_num_retries = embrouter.num_retries
+        prev_callbacks = embrouter.callbacks
         yield
-        litellm.num_retries = prev_num_retries
-        litellm.callbacks = prev_callbacks
+        embrouter.num_retries = prev_num_retries
+        embrouter.callbacks = prev_callbacks
 
     @staticmethod
     def _router(*, global_num_retries, deployment_num_retries):
-        litellm_params = {
+        embrouter_params = {
             "model": "openai/mock",
             "api_key": "sk-fake",
-            "mock_response": "litellm.InternalServerError",
+            "mock_response": "embrouter.InternalServerError",
         }
         if deployment_num_retries is not None:
-            litellm_params["num_retries"] = deployment_num_retries
+            embrouter_params["num_retries"] = deployment_num_retries
         return Router(
-            model_list=[{"model_name": "mock", "litellm_params": litellm_params}],
+            model_list=[{"model_name": "mock", "embrouter_params": embrouter_params}],
             num_retries=global_num_retries,
         )
 
@@ -644,8 +644,8 @@ class TestRequestNumRetriesBeatsDeployment:
         mock_testing_rate_limit_error=False,
     ):
         counter = _AttemptCounter()
-        litellm.callbacks = [counter]
-        litellm.num_retries = global_num_retries
+        embrouter.callbacks = [counter]
+        embrouter.num_retries = global_num_retries
         router = self._router(
             global_num_retries=global_num_retries,
             deployment_num_retries=deployment_num_retries,
@@ -656,7 +656,7 @@ class TestRequestNumRetriesBeatsDeployment:
         if mock_testing_rate_limit_error:
             kwargs["mock_testing_rate_limit_error"] = True
         with patch("asyncio.sleep", return_value=None):
-            with pytest.raises((litellm.InternalServerError, litellm.RateLimitError)):
+            with pytest.raises((embrouter.InternalServerError, embrouter.RateLimitError)):
                 await router.acompletion(**kwargs)
         return counter.attempts
 
@@ -679,7 +679,7 @@ class TestRequestNumRetriesBeatsDeployment:
     @pytest.mark.asyncio
     async def test_deployment_num_retries_still_beats_global_when_request_omits_it(self):
         """
-        The deployment value keeps its place directly above litellm_settings: global=1 and
+        The deployment value keeps its place directly above embrouter_settings: global=1 and
         deployment=2 with no request value -> 1 initial attempt + 2 retries.
         """
         attempts = await self._count_attempts(
@@ -715,7 +715,7 @@ class TestRequestNumRetriesBeatsDeployment:
 class TestDeploymentNumRetriesOnNonCompletionEntryPoints:
     """
     aimage_generation and its siblings (adapter completion, file create, batch create, batch cancel)
-    run through the same retry loop as acompletion, so a deployment's litellm_params.num_retries must
+    run through the same retry loop as acompletion, so a deployment's embrouter_params.num_retries must
     apply there too whenever the request carries none.
 
     These entry points used to pre-fill num_retries with the router default before handing kwargs to
@@ -729,13 +729,13 @@ class TestDeploymentNumRetriesOnNonCompletionEntryPoints:
 
     @pytest.fixture(autouse=True)
     def _isolate(self):
-        prev = litellm.num_retries
-        litellm.num_retries = None
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        prev = embrouter.num_retries
+        embrouter.num_retries = None
+        embrouter.in_memory_llm_clients_cache.flush_cache()
         yield
-        litellm.num_retries = prev
-        litellm.aclient_session = None
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        embrouter.num_retries = prev
+        embrouter.aclient_session = None
+        embrouter.in_memory_llm_clients_cache.flush_cache()
 
     async def _upstream_count(self, label, deployment_num_retries=None, **call_kwargs):
         counter = {"n": 0}
@@ -744,21 +744,21 @@ class TestDeploymentNumRetriesOnNonCompletionEntryPoints:
             counter["n"] += 1
             return httpx.Response(500, headers={"retry-after": "0"}, json={"error": {"message": "boom"}})
 
-        litellm.aclient_session = httpx.AsyncClient(transport=httpx.MockTransport(handler))
-        litellm.in_memory_llm_clients_cache.flush_cache()
-        litellm_params = {
+        embrouter.aclient_session = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+        embrouter.in_memory_llm_clients_cache.flush_cache()
+        embrouter_params = {
             "model": "openai/dall-e-3",
             "api_key": "sk-fake",
             "api_base": f"https://imgretry-{label}.local/v1",
         }
         if deployment_num_retries is not None:
-            litellm_params["num_retries"] = deployment_num_retries
+            embrouter_params["num_retries"] = deployment_num_retries
         router = Router(
-            model_list=[{"model_name": "img", "litellm_params": litellm_params}],
+            model_list=[{"model_name": "img", "embrouter_params": embrouter_params}],
             num_retries=0,
         )
         with patch("asyncio.sleep", return_value=None):
-            with pytest.raises(litellm.InternalServerError):
+            with pytest.raises(embrouter.InternalServerError):
                 await router.aimage_generation(model="img", prompt="a cat", **call_kwargs)
         return counter["n"]
 

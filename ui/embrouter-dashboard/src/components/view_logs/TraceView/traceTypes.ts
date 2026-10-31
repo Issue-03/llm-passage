@@ -1,5 +1,5 @@
 /**
- * Agent tracing types. Mirrors `litellm/tracing/types.py` exactly.
+ * Agent tracing types. Mirrors `embrouter/tracing/types.py` exactly.
  *
  * A trace is one agent run made of spans (agent / llm / tool / chain / framework).
  */
@@ -24,7 +24,7 @@ export interface Span {
   model: string | null;
   input_tokens: number;
   output_tokens: number;
-  litellm_request_id: string | null;
+  embrouter_request_id: string | null;
 }
 
 /** One distinct agent in a trace. 200 invocations of `researcher` = one node. */

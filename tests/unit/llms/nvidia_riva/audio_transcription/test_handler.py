@@ -17,12 +17,12 @@ import pytest
 import soundfile as sf
 
 
-from litellm.llms.nvidia_riva.audio_transcription import handler as handler_mod
-from litellm.llms.nvidia_riva.audio_transcription.handler import (
+from embrouter.llms.nvidia_riva.audio_transcription import handler as handler_mod
+from embrouter.llms.nvidia_riva.audio_transcription.handler import (
     NvidiaRivaAudioTranscription,
 )
-from litellm.llms.nvidia_riva.common_utils import NvidiaRivaException
-from litellm.types.utils import TranscriptionResponse
+from embrouter.llms.nvidia_riva.common_utils import NvidiaRivaException
+from embrouter.types.utils import TranscriptionResponse
 
 
 def _make_wav_bytes(seconds: float = 1.0, sample_rate: int = 16000) -> bytes:
@@ -180,7 +180,7 @@ def test_sync_path_aggregates_only_final_results(mock_riva, logging_obj):
             "response_format": "verbose_json",
             "timestamp_granularities": ["word"],
         },
-        litellm_params={},
+        embrouter_params={},
         model_response=TranscriptionResponse(),
         timeout=60,
         logging_obj=logging_obj,
@@ -222,7 +222,7 @@ def test_auth_nvcf_defaults_use_ssl_and_attaches_function_id(mock_riva, logging_
             "nvcf_function_id": "abc-123",
             "language_code": "en-US",
         },
-        litellm_params={},
+        embrouter_params={},
         model_response=TranscriptionResponse(),
         timeout=60,
         logging_obj=logging_obj,
@@ -250,7 +250,7 @@ def test_auth_self_hosted_defaults_no_ssl_and_no_function_id(mock_riva, logging_
         model="m",
         audio_file=_make_wav_bytes(),
         optional_params={"language_code": "en-US"},
-        litellm_params={},
+        embrouter_params={},
         model_response=TranscriptionResponse(),
         timeout=60,
         logging_obj=logging_obj,
@@ -284,7 +284,7 @@ def test_explicit_use_ssl_override_wins(mock_riva, logging_obj):
         model="m",
         audio_file=_make_wav_bytes(),
         optional_params={"use_ssl": True, "language_code": "en-US"},
-        litellm_params={},
+        embrouter_params={},
         model_response=TranscriptionResponse(),
         timeout=60,
         logging_obj=logging_obj,
@@ -302,7 +302,7 @@ def test_missing_api_base_raises_clear_error(mock_riva, logging_obj):
             model="m",
             audio_file=_make_wav_bytes(),
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             model_response=TranscriptionResponse(),
             timeout=60,
             logging_obj=logging_obj,
@@ -328,7 +328,7 @@ def test_async_path_uses_to_thread(mock_riva, logging_obj):
             model="m",
             audio_file=_make_wav_bytes(),
             optional_params={"language_code": "en-US"},
-            litellm_params={},
+            embrouter_params={},
             model_response=TranscriptionResponse(),
             timeout=60,
             logging_obj=logging_obj,
@@ -372,7 +372,7 @@ def test_timeout_is_forwarded_to_streaming_generator_when_supported(
         model="m",
         audio_file=_make_wav_bytes(),
         optional_params={"language_code": "en-US"},
-        litellm_params={},
+        embrouter_params={},
         model_response=TranscriptionResponse(),
         timeout=12.5,
         logging_obj=logging_obj,
@@ -404,7 +404,7 @@ def test_grpc_error_is_wrapped_as_nvidia_riva_exception(mock_riva, logging_obj):
             model="m",
             audio_file=_make_wav_bytes(),
             optional_params={"language_code": "en-US"},
-            litellm_params={},
+            embrouter_params={},
             model_response=TranscriptionResponse(),
             timeout=60,
             logging_obj=logging_obj,

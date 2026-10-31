@@ -14,7 +14,7 @@ warnings.filterwarnings("ignore", message=".*`ReadOnly` qualifier.*")
 import threading
 import os
 
-# Load .env before any other litellm imports so env vars (e.g. LITELLM_UI_SESSION_DURATION) are available
+# Load .env before any other embrouter imports so env vars (e.g. EMBROUTER_UI_SESSION_DURATION) are available
 import dotenv as _dotenv
 
 
@@ -23,10 +23,10 @@ def _dev_env_hot_reload_enabled() -> bool:
     worker is a fresh process that inherits the reloader's environment, so an
     edited ``.env`` value stays masked by the stale inherited one unless we
     let the file win; overriding makes the edit take effect on reload."""
-    return os.getenv("LITELLM_DEV_ENV_HOT_RELOAD") == "True"
+    return os.getenv("EMBROUTER_DEV_ENV_HOT_RELOAD") == "True"
 
 
-if os.getenv("LITELLM_MODE", "DEV") == "DEV":
+if os.getenv("EMBROUTER_MODE", "DEV") == "DEV":
     _dotenv.load_dotenv(override=_dev_env_hot_reload_enabled())
 
 from collections.abc import Mapping, Sequence
@@ -46,12 +46,12 @@ from typing import (
     Union,
 )
 from collections.abc import Mapping
-from litellm.types.integrations.datadog import DatadogInitParams
-from litellm.types.integrations.newrelic import NewRelicInitParams
-from litellm.litellm_core_utils.core_helpers import drop_params_env_flag
-from litellm.types.integrations.pointfive import PointFiveInitParams
-from litellm.types.integrations.zerobus import ZerobusInitParams
-from litellm._logging import (
+from embrouter.types.integrations.datadog import DatadogInitParams
+from embrouter.types.integrations.newrelic import NewRelicInitParams
+from embrouter.embrouter_core_utils.core_helpers import drop_params_env_flag
+from embrouter.types.integrations.pointfive import PointFiveInitParams
+from embrouter.types.integrations.zerobus import ZerobusInitParams
+from embrouter._logging import (
     set_verbose,
     _turn_on_debug,
     verbose_logger,
@@ -60,14 +60,14 @@ from litellm._logging import (
     log_level,
 )
 import re
-from litellm.constants import (
+from embrouter.constants import (
     DEFAULT_BATCH_SIZE,
     DEFAULT_FLUSH_INTERVAL_SECONDS,
     ROUTER_MAX_FALLBACKS,
     DEFAULT_MAX_RETRIES,
     DEFAULT_REPLICATE_POLLING_RETRIES,
     DEFAULT_REPLICATE_POLLING_DELAY_SECONDS,
-    LITELLM_CHAT_PROVIDERS,
+    EMBROUTER_CHAT_PROVIDERS,
     HUMANLOOP_PROMPT_CACHE_TTL_SECONDS,
     OPENAI_CHAT_COMPLETION_PARAMS,
     OPENAI_CHAT_COMPLETION_PARAMS as _openai_completion_params,  # backwards compatibility
@@ -103,7 +103,7 @@ import httpx
 
 # register_async_client_cleanup is lazy-loaded and called on first access
 
-litellm_mode = os.getenv("LITELLM_MODE", "DEV")  # "PRODUCTION", "DEV"
+embrouter_mode = os.getenv("EMBROUTER_MODE", "DEV")  # "PRODUCTION", "DEV"
 
 
 ####################################################
@@ -123,7 +123,7 @@ _custom_logger_compatible_callbacks_literal = Literal[
     "openmeter",
     "logfire",
     "literalai",
-    "litellm_agent",
+    "embrouter_agent",
     "dynamic_rate_limiter",
     "dynamic_rate_limiter_v3",
     "langsmith",
@@ -220,7 +220,7 @@ redact_user_api_key_info: Optional[bool] = False
 # them to clients via ProxyException.message. Set to False if you do NOT
 # want the proxy's internal model_name / fallback wiring visible to clients.
 # Deprecation: planned to flip to False (redact by default) in a future
-# major release; opt in early with `litellm.expose_router_debug_in_errors
+# major release; opt in early with `embrouter.expose_router_debug_in_errors
 # = False`.
 expose_router_debug_in_errors: bool = True
 filter_invalid_headers: Optional[bool] = False
@@ -246,30 +246,30 @@ token: Optional[str] = (
 )
 max_tokens: int = DEFAULT_MAX_TOKENS  # OpenAI Defaults
 drop_params = drop_params_env_flag(os.environ, verbose_logger)
-modify_params = bool(os.getenv("LITELLM_MODIFY_PARAMS", False))
+modify_params = bool(os.getenv("EMBROUTER_MODIFY_PARAMS", False))
 bedrock_neutralize_orphaned_tool_blocks: bool = True
 use_chat_completions_url_for_anthropic_messages: bool = bool(
-    os.getenv("LITELLM_USE_CHAT_COMPLETIONS_URL_FOR_ANTHROPIC_MESSAGES", False)
+    os.getenv("EMBROUTER_USE_CHAT_COMPLETIONS_URL_FOR_ANTHROPIC_MESSAGES", False)
 )  # When True, routes OpenAI /v1/messages requests to chat/completions instead of the Responses API
 # When True, strip the OpenAI-flavored `usage.total_tokens` field that
-# LiteLLM injects into non-streaming /v1/messages responses, bringing the
+# EmbRouter injects into non-streaming /v1/messages responses, bringing the
 # wire response into line with the Anthropic spec (matches the streaming
 # SSE path, which already omits total_tokens). Default False to preserve
-# backward compatibility for clients that read the LiteLLM-shaped
+# backward compatibility for clients that read the EmbRouter-shaped
 # `usage.total_tokens` today. Planned to flip to True in a future major
 # release; opt in early via Python:
-#   `litellm.strip_anthropic_total_tokens = True`
-# Or via `litellm_settings.strip_anthropic_total_tokens: true` in
+#   `embrouter.strip_anthropic_total_tokens = True`
+# Or via `embrouter_settings.strip_anthropic_total_tokens: true` in
 # config.yaml.
 strip_anthropic_total_tokens: bool = False
 anthropic_sse_ping_interval_seconds: float = 15.0
 sse_keepalive_ping_interval_seconds: float | None = None
 route_all_chat_openai_to_responses: bool = (
-    os.getenv("LITELLM_ROUTE_ALL_CHAT_OPENAI_TO_RESPONSES", "false").lower() == "true"
+    os.getenv("EMBROUTER_ROUTE_ALL_CHAT_OPENAI_TO_RESPONSES", "false").lower() == "true"
 )  # When True, routes all OpenAI /chat/completions requests through the Responses API bridge
 # When True, Gemini/Vertex Live setup is deferred until client `session.update`.
 # Default False preserves historical behavior (auto-send setup on connect).
-gemini_live_defer_setup: bool = os.getenv("LITELLM_GEMINI_LIVE_DEFER_SETUP", "false").lower() == "true"
+gemini_live_defer_setup: bool = os.getenv("EMBROUTER_GEMINI_LIVE_DEFER_SETUP", "false").lower() == "true"
 retry = True
 ### AUTH ###
 api_key: Optional[str] = None
@@ -321,7 +321,7 @@ common_cloud_provider_auth_params: dict = {
     "params": ["project", "region_name", "token"],
     "providers": ["vertex_ai", "bedrock", "watsonx", "azure", "vertex_ai_beta"],
 }
-use_litellm_proxy: bool = False  # when True, requests will be sent to the specified litellm proxy endpoint
+use_embrouter_proxy: bool = False  # when True, requests will be sent to the specified embrouter proxy endpoint
 use_client: bool = False
 ssl_verify: Union[str, bool] = True
 ssl_security_level: Optional[str] = None
@@ -338,8 +338,8 @@ disable_token_counter: bool = False
 disable_add_transform_inline_image_block: bool = False
 disable_add_user_agent_to_request_tags: bool = False
 disable_anthropic_gemini_context_caching_transform: bool = False
-enable_anthropic_prompt_caching: bool = os.getenv("LITELLM_ENABLE_ANTHROPIC_PROMPT_CACHING", "false").lower() == "true"
-_anthropic_prompt_caching_ttl_env: Optional[str] = os.getenv("LITELLM_ANTHROPIC_PROMPT_CACHING_TTL")
+enable_anthropic_prompt_caching: bool = os.getenv("EMBROUTER_ENABLE_ANTHROPIC_PROMPT_CACHING", "false").lower() == "true"
+_anthropic_prompt_caching_ttl_env: Optional[str] = os.getenv("EMBROUTER_ANTHROPIC_PROMPT_CACHING_TTL")
 anthropic_prompt_caching_ttl: Optional[Literal["5m", "1h"]] = (
     "1h" if _anthropic_prompt_caching_ttl_env == "1h" else "5m" if _anthropic_prompt_caching_ttl_env == "5m" else None
 )
@@ -349,7 +349,7 @@ extra_spend_tag_headers: Optional[List[str]] = None
 in_memory_llm_clients_cache: "LLMClientCache"
 safe_memory_mode: bool = False
 enable_azure_ad_token_refresh: Optional[bool] = False
-# Proxy Authentication - auto-obtain/refresh OAuth2/JWT tokens for LiteLLM Proxy
+# Proxy Authentication - auto-obtain/refresh OAuth2/JWT tokens for EmbRouter Proxy
 proxy_auth: Optional[Any] = None
 ### DEFAULT AZURE API VERSION ###
 AZURE_DEFAULT_API_VERSION = "2025-02-01-preview"  # this is updated to the latest
@@ -372,7 +372,7 @@ guardrail_name_config_map: Dict[str, GuardrailItem] = {}
 include_cost_in_streaming_usage: bool = False
 reasoning_auto_summary: bool = False
 ### PROMPTS ####
-from litellm.types.prompts.init_prompts import PromptSpec
+from embrouter.types.prompts.init_prompts import PromptSpec
 
 prompt_name_config_map: Dict[str, PromptSpec] = {}
 
@@ -409,7 +409,7 @@ budget_exceeded_status_code: int = 422  # set to 429 to restore the pre-422 budg
 budget_duration: Optional[str] = (
     None  # proxy only - resets budget after fixed duration. You can set duration as seconds ("30s"), minutes ("30m"), hours ("30h"), days ("30d").
 )
-default_soft_budget: float = DEFAULT_SOFT_BUDGET  # by default all litellm proxy keys have a soft budget of 50.0
+default_soft_budget: float = DEFAULT_SOFT_BUDGET  # by default all embrouter proxy keys have a soft budget of 50.0
 budget_exceeded_throttle_percentage: Optional[float] = None
 forward_traceparent_to_llm_provider: bool = False
 
@@ -421,21 +421,21 @@ add_function_to_prompt: bool = (
 )
 client_session: Optional[httpx.Client] = None
 aclient_session: Optional[httpx.AsyncClient] = None
-model_fallbacks: Optional[List] = None  # Deprecated for 'litellm.fallbacks'
+model_fallbacks: Optional[List] = None  # Deprecated for 'embrouter.fallbacks'
 model_cost_map_url: str = os.getenv(
-    "LITELLM_MODEL_COST_MAP_URL",
+    "EMBROUTER_MODEL_COST_MAP_URL",
     "",
 )
 blog_posts_url: str = os.getenv(
-    "LITELLM_BLOG_POSTS_URL",
+    "EMBROUTER_BLOG_POSTS_URL",
     "",
 )
 anthropic_beta_headers_url: str = os.getenv(
-    "LITELLM_ANTHROPIC_BETA_HEADERS_URL",
+    "EMBROUTER_ANTHROPIC_BETA_HEADERS_URL",
     "",
 )
 autorouter_presets_url: str = os.getenv(
-    "LITELLM_AUTOROUTER_PRESETS_URL",
+    "EMBROUTER_AUTOROUTER_PRESETS_URL",
     "",
 )
 suppress_debug_info: bool = False
@@ -451,7 +451,7 @@ aws_sqs_callback_params: Optional[Dict] = None
 generic_logger_headers: Optional[Dict] = None
 default_key_generate_params: Optional[Dict] = None
 default_key_max_budget_alert_emails: Optional[Dict[str, list]] = None
-upperbound_key_generate_params: Optional[LiteLLM_UpperboundKeyGenerateParams] = None
+upperbound_key_generate_params: Optional[EmbRouter_UpperboundKeyGenerateParams] = None
 key_generation_settings: Optional["StandardKeyGenerationConfig"] = None
 default_internal_user_params: Optional[Dict] = None
 default_team_params: Optional[Union[DefaultTeamSSOParams, Dict]] = None
@@ -468,7 +468,7 @@ tag_budget_config: Optional[Dict[str, "BudgetConfig"]] = None
 max_end_user_budget: Optional[float] = None
 max_end_user_budget_id: Optional[str] = None
 # When True, end-user IDs extracted from requests are validated against
-# LiteLLM_EndUserTable / LiteLLM_UserTable. Values that do not resolve to a
+# EmbRouter_EndUserTable / EmbRouter_UserTable. Values that do not resolve to a
 # known row are dropped before reaching spend logs. Defaults to False for
 # backwards compatibility — arbitrary client-supplied identifiers still
 # pass through unchanged.
@@ -490,10 +490,10 @@ prometheus_deployment_and_latency_caller_identity: Literal[
     "both",
 ] = "api_key_alias"
 # Opt-in: emit `rate_limit_category` and `rate_limit_type` labels on
-# `litellm_proxy_failed_requests_metric`. Off by default to preserve the
+# `embrouter_proxy_failed_requests_metric`. Off by default to preserve the
 # pre-unification label set so existing dashboards / recording rules keyed on
 # that metric keep matching after upgrade. Enable when downstream consumers
-# are ready to split 429s by source (vendor vs. litellm) and dimension
+# are ready to split 429s by source (vendor vs. embrouter) and dimension
 # (RPM/TPM/concurrent/budget).
 prometheus_emit_rate_limit_labels: bool = False
 prometheus_user_budget_label_include_email_alias: bool = False
@@ -527,7 +527,7 @@ use_aiohttp_transport: bool = True  # Older variable, aiohttp is now the default
 aiohttp_trust_env: bool = False  # set to true to use HTTP_ Proxy settings
 disable_aiohttp_transport: bool = False  # Set this to true to use httpx instead
 disable_aiohttp_trust_env: bool = False  # When False, aiohttp will respect HTTP(S)_PROXY env vars
-force_ipv4: bool = False  # when True, litellm will force ipv4 for all LLM requests. Some users have seen httpx ConnectionError when using ipv6.
+force_ipv4: bool = False  # when True, embrouter will force ipv4 for all LLM requests. Some users have seen httpx ConnectionError when using ipv6.
 http2: bool = False
 network_mock: bool = False  # When True, use mock transport — no real network calls
 
@@ -557,7 +557,7 @@ _key_management_system: Optional["KeyManagementSystem"] = None
 #### PII MASKING ####
 output_parse_pii: bool = False
 #############################################
-from litellm.litellm_core_utils.get_model_cost_map import get_model_cost_map, mark_litellm_import_complete
+from embrouter.embrouter_core_utils.get_model_cost_map import get_model_cost_map, mark_embrouter_import_complete
 
 model_cost = get_model_cost_map(url=model_cost_map_url)
 cost_discount_config: Dict[str, float] = {}  # Provider-specific cost discounts {"vertex_ai": 0.05} = 5% discount
@@ -751,262 +751,262 @@ def is_openai_finetune_model(key: str) -> bool:
 
 def _populate_provider_model_sets(model_cost_map: Dict) -> None:
     for key, value in model_cost_map.items():
-        if value.get("litellm_provider") == "openai" and not is_openai_finetune_model(key):
+        if value.get("embrouter_provider") == "openai" and not is_openai_finetune_model(key):
             open_ai_chat_completion_models.add(key)
-        elif value.get("litellm_provider") == "text-completion-openai":
+        elif value.get("embrouter_provider") == "text-completion-openai":
             open_ai_text_completion_models.add(key)
-        elif value.get("litellm_provider") == "azure_text":
+        elif value.get("embrouter_provider") == "azure_text":
             azure_text_models.add(key)
-        elif value.get("litellm_provider") == "cohere":
+        elif value.get("embrouter_provider") == "cohere":
             cohere_models.add(key)
-        elif value.get("litellm_provider") == "cohere_chat":
+        elif value.get("embrouter_provider") == "cohere_chat":
             cohere_chat_models.add(key)
-        elif value.get("litellm_provider") == "mistral":
+        elif value.get("embrouter_provider") == "mistral":
             mistral_chat_models.add(key)
-        elif value.get("litellm_provider") == "anthropic":
+        elif value.get("embrouter_provider") == "anthropic":
             anthropic_models.add(key)
-        elif value.get("litellm_provider") == "empower":
+        elif value.get("embrouter_provider") == "empower":
             empower_models.add(key)
-        elif value.get("litellm_provider") == "openrouter":
+        elif value.get("embrouter_provider") == "openrouter":
             openrouter_models.add(key)
-        elif value.get("litellm_provider") == "vercel_ai_gateway":
+        elif value.get("embrouter_provider") == "vercel_ai_gateway":
             vercel_ai_gateway_models.add(key)
-        elif value.get("litellm_provider") == "edenai":
+        elif value.get("embrouter_provider") == "edenai":
             edenai_models.add(key)
-        elif value.get("litellm_provider") == "datarobot":
+        elif value.get("embrouter_provider") == "datarobot":
             datarobot_models.add(key)
-        elif value.get("litellm_provider") == "vertex_ai-text-models":
+        elif value.get("embrouter_provider") == "vertex_ai-text-models":
             vertex_text_models.add(key)
-        elif value.get("litellm_provider") == "vertex_ai-code-text-models":
+        elif value.get("embrouter_provider") == "vertex_ai-code-text-models":
             vertex_code_text_models.add(key)
-        elif value.get("litellm_provider") == "vertex_ai-language-models":
+        elif value.get("embrouter_provider") == "vertex_ai-language-models":
             vertex_language_models.add(key)
-        elif value.get("litellm_provider") == "vertex_ai-vision-models":
+        elif value.get("embrouter_provider") == "vertex_ai-vision-models":
             vertex_vision_models.add(key)
-        elif value.get("litellm_provider") == "vertex_ai-chat-models":
+        elif value.get("embrouter_provider") == "vertex_ai-chat-models":
             vertex_chat_models.add(key)
-        elif value.get("litellm_provider") == "vertex_ai-code-chat-models":
+        elif value.get("embrouter_provider") == "vertex_ai-code-chat-models":
             vertex_code_chat_models.add(key)
-        elif value.get("litellm_provider") == "vertex_ai-embedding-models":
+        elif value.get("embrouter_provider") == "vertex_ai-embedding-models":
             vertex_embedding_models.add(key)
-        elif value.get("litellm_provider") == "vertex_ai-anthropic_models":
+        elif value.get("embrouter_provider") == "vertex_ai-anthropic_models":
             key = key.replace("vertex_ai/", "")
             vertex_anthropic_models.add(key)
-        elif value.get("litellm_provider") == "vertex_ai-llama_models":
+        elif value.get("embrouter_provider") == "vertex_ai-llama_models":
             key = key.replace("vertex_ai/", "")
             vertex_llama3_models.add(key)
-        elif value.get("litellm_provider") == "vertex_ai-deepseek_models":
+        elif value.get("embrouter_provider") == "vertex_ai-deepseek_models":
             key = key.replace("vertex_ai/", "")
             vertex_deepseek_models.add(key)
-        elif value.get("litellm_provider") == "vertex_ai-mistral_models":
+        elif value.get("embrouter_provider") == "vertex_ai-mistral_models":
             key = key.replace("vertex_ai/", "")
             vertex_mistral_models.add(key)
-        elif value.get("litellm_provider") == "vertex_ai-ai21_models":
+        elif value.get("embrouter_provider") == "vertex_ai-ai21_models":
             key = key.replace("vertex_ai/", "")
             vertex_ai_ai21_models.add(key)
-        elif value.get("litellm_provider") == "vertex_ai-image-models":
+        elif value.get("embrouter_provider") == "vertex_ai-image-models":
             key = key.replace("vertex_ai/", "")
             vertex_ai_image_models.add(key)
-        elif value.get("litellm_provider") == "vertex_ai-video-models":
+        elif value.get("embrouter_provider") == "vertex_ai-video-models":
             key = key.replace("vertex_ai/", "")
             vertex_ai_video_models.add(key)
-        elif value.get("litellm_provider") == "vertex_ai-openai_models":
+        elif value.get("embrouter_provider") == "vertex_ai-openai_models":
             key = key.replace("vertex_ai/", "")
             vertex_openai_models.add(key)
-        elif value.get("litellm_provider") == "vertex_ai-minimax_models":
+        elif value.get("embrouter_provider") == "vertex_ai-minimax_models":
             key = key.replace("vertex_ai/", "")
             vertex_minimax_models.add(key)
-        elif value.get("litellm_provider") == "vertex_ai-moonshot_models":
+        elif value.get("embrouter_provider") == "vertex_ai-moonshot_models":
             key = key.replace("vertex_ai/", "")
             vertex_moonshot_models.add(key)
-        elif value.get("litellm_provider") == "vertex_ai-zai_models":
+        elif value.get("embrouter_provider") == "vertex_ai-zai_models":
             key = key.replace("vertex_ai/", "")
             vertex_zai_models.add(key)
-        elif value.get("litellm_provider") == "ai21":
+        elif value.get("embrouter_provider") == "ai21":
             if value.get("mode") == "chat":
                 ai21_chat_models.add(key)
             else:
                 ai21_models.add(key)
-        elif value.get("litellm_provider") == "nlp_cloud":
+        elif value.get("embrouter_provider") == "nlp_cloud":
             nlp_cloud_models.add(key)
-        elif value.get("litellm_provider") == "aleph_alpha":
+        elif value.get("embrouter_provider") == "aleph_alpha":
             aleph_alpha_models.add(key)
-        elif value.get("litellm_provider") == "bedrock" and value.get("mode") == "guardrail":
+        elif value.get("embrouter_provider") == "bedrock" and value.get("mode") == "guardrail":
             pass
-        elif value.get("litellm_provider") == "bedrock" and not is_bedrock_pricing_only_model(key):
+        elif value.get("embrouter_provider") == "bedrock" and not is_bedrock_pricing_only_model(key):
             bedrock_models.add(key)
-        elif value.get("litellm_provider") == "bedrock_converse":
+        elif value.get("embrouter_provider") == "bedrock_converse":
             bedrock_converse_models.add(key)
-        elif value.get("litellm_provider") == "deepinfra":
+        elif value.get("embrouter_provider") == "deepinfra":
             deepinfra_models.add(key)
-        elif value.get("litellm_provider") == "perplexity":
+        elif value.get("embrouter_provider") == "perplexity":
             perplexity_models.add(key)
-        elif value.get("litellm_provider") == "watsonx":
+        elif value.get("embrouter_provider") == "watsonx":
             watsonx_models.add(key)
-        elif value.get("litellm_provider") == "gemini":
+        elif value.get("embrouter_provider") == "gemini":
             gemini_models.add(key)
-        elif value.get("litellm_provider") == "fireworks_ai":
+        elif value.get("embrouter_provider") == "fireworks_ai":
             # ignore the 'up-to', '-to-' model names -> not real models. just for cost tracking based on model params.
             if "-to-" not in key and "fireworks-ai-default" not in key:
                 fireworks_ai_models.add(key)
-        elif value.get("litellm_provider") == "fireworks_ai-embedding-models":
+        elif value.get("embrouter_provider") == "fireworks_ai-embedding-models":
             # ignore the 'up-to', '-to-' model names -> not real models. just for cost tracking based on model params.
             if "-to-" not in key:
                 fireworks_ai_embedding_models.add(key)
-        elif value.get("litellm_provider") == "text-completion-codestral":
+        elif value.get("embrouter_provider") == "text-completion-codestral":
             text_completion_codestral_models.add(key)
-        elif value.get("litellm_provider") == "text-completion-inception":
+        elif value.get("embrouter_provider") == "text-completion-inception":
             text_completion_inception_models.add(key)
-        elif value.get("litellm_provider") == "xai":
+        elif value.get("embrouter_provider") == "xai":
             xai_models.add(key)
-        elif value.get("litellm_provider") == "zai":
+        elif value.get("embrouter_provider") == "zai":
             zai_models.add(key)
-        elif value.get("litellm_provider") == "fal_ai":
+        elif value.get("embrouter_provider") == "fal_ai":
             fal_ai_models.add(key)
-        elif value.get("litellm_provider") == "deepseek":
+        elif value.get("embrouter_provider") == "deepseek":
             deepseek_models.add(key)
-        elif value.get("litellm_provider") == "tencent":
+        elif value.get("embrouter_provider") == "tencent":
             tencent_models.add(key)
-        elif value.get("litellm_provider") == "runwayml":
+        elif value.get("embrouter_provider") == "runwayml":
             runwayml_models.add(key)
-        elif value.get("litellm_provider") == "meta_llama":
+        elif value.get("embrouter_provider") == "meta_llama":
             llama_models.add(key)
-        elif value.get("litellm_provider") == "nscale":
+        elif value.get("embrouter_provider") == "nscale":
             nscale_models.add(key)
-        elif value.get("litellm_provider") == "azure_ai":
+        elif value.get("embrouter_provider") == "azure_ai":
             azure_ai_models.add(key)
-        elif value.get("litellm_provider") == "voyage":
+        elif value.get("embrouter_provider") == "voyage":
             voyage_models.add(key)
-        elif value.get("litellm_provider") == "infinity":
+        elif value.get("embrouter_provider") == "infinity":
             infinity_models.add(key)
-        elif value.get("litellm_provider") == "databricks":
+        elif value.get("embrouter_provider") == "databricks":
             databricks_models.add(key)
-        elif value.get("litellm_provider") == "cloudflare":
+        elif value.get("embrouter_provider") == "cloudflare":
             cloudflare_models.add(key)
-        elif value.get("litellm_provider") == "codestral":
+        elif value.get("embrouter_provider") == "codestral":
             codestral_models.add(key)
-        elif value.get("litellm_provider") == "friendliai":
+        elif value.get("embrouter_provider") == "friendliai":
             friendliai_models.add(key)
-        elif value.get("litellm_provider") == "palm":
+        elif value.get("embrouter_provider") == "palm":
             palm_models.add(key)
-        elif value.get("litellm_provider") == "groq":
+        elif value.get("embrouter_provider") == "groq":
             groq_models.add(key)
-        elif value.get("litellm_provider") == "azure":
+        elif value.get("embrouter_provider") == "azure":
             azure_models.add(key)
-        elif value.get("litellm_provider") == "azure_anthropic":
+        elif value.get("embrouter_provider") == "azure_anthropic":
             azure_anthropic_models.add(key)
-        elif value.get("litellm_provider") == "anyscale":
+        elif value.get("embrouter_provider") == "anyscale":
             anyscale_models.add(key)
-        elif value.get("litellm_provider") == "cerebras":
+        elif value.get("embrouter_provider") == "cerebras":
             cerebras_models.add(key)
-        elif value.get("litellm_provider") == "nadir":
+        elif value.get("embrouter_provider") == "nadir":
             nadir_models.add(key)
-        elif value.get("litellm_provider") == "galadriel":
+        elif value.get("embrouter_provider") == "galadriel":
             galadriel_models.add(key)
-        elif value.get("litellm_provider") == "nvidia_nim":
+        elif value.get("embrouter_provider") == "nvidia_nim":
             nvidia_nim_models.add(key)
-        elif value.get("litellm_provider") == "nvidia_riva":
+        elif value.get("embrouter_provider") == "nvidia_riva":
             nvidia_riva_models.add(key)
-        elif value.get("litellm_provider") == "soniox":
+        elif value.get("embrouter_provider") == "soniox":
             soniox_models.add(key)
-        elif value.get("litellm_provider") == "sambanova":
+        elif value.get("embrouter_provider") == "sambanova":
             sambanova_models.add(key)
-        elif value.get("litellm_provider") == "sambanova-embedding-models":
+        elif value.get("embrouter_provider") == "sambanova-embedding-models":
             sambanova_embedding_models.add(key)
-        elif value.get("litellm_provider") == "novita":
+        elif value.get("embrouter_provider") == "novita":
             novita_models.add(key)
-        elif value.get("litellm_provider") == "nebius-chat-models":
+        elif value.get("embrouter_provider") == "nebius-chat-models":
             nebius_models.add(key)
-        elif value.get("litellm_provider") == "nebius-embedding-models":
+        elif value.get("embrouter_provider") == "nebius-embedding-models":
             nebius_embedding_models.add(key)
-        elif value.get("litellm_provider") == "aiml":
+        elif value.get("embrouter_provider") == "aiml":
             aiml_models.add(key)
-        elif value.get("litellm_provider") == "assemblyai":
+        elif value.get("embrouter_provider") == "assemblyai":
             assemblyai_models.add(key)
-        elif value.get("litellm_provider") == "jina_ai":
+        elif value.get("embrouter_provider") == "jina_ai":
             jina_ai_models.add(key)
-        elif value.get("litellm_provider") == "snowflake":
+        elif value.get("embrouter_provider") == "snowflake":
             snowflake_models.add(key)
-        elif value.get("litellm_provider") == "gradient_ai":
+        elif value.get("embrouter_provider") == "gradient_ai":
             gradient_ai_models.add(key)
-        elif value.get("litellm_provider") == "featherless_ai":
+        elif value.get("embrouter_provider") == "featherless_ai":
             featherless_ai_models.add(key)
-        elif value.get("litellm_provider") == "deepgram":
+        elif value.get("embrouter_provider") == "deepgram":
             deepgram_models.add(key)
-        elif value.get("litellm_provider") == "elevenlabs":
+        elif value.get("embrouter_provider") == "elevenlabs":
             elevenlabs_models.add(key)
-        elif value.get("litellm_provider") == "heroku":
+        elif value.get("embrouter_provider") == "heroku":
             heroku_models.add(key)
-        elif value.get("litellm_provider") == "dashscope":
+        elif value.get("embrouter_provider") == "dashscope":
             dashscope_models.add(key)
-        elif value.get("litellm_provider") == "qwencloud":
+        elif value.get("embrouter_provider") == "qwencloud":
             qwencloud_models.add(key)
-        elif value.get("litellm_provider") == "qwen_ai_platform":
+        elif value.get("embrouter_provider") == "qwen_ai_platform":
             qwen_ai_platform_models.add(key)
-        elif value.get("litellm_provider") == "modelscope":
+        elif value.get("embrouter_provider") == "modelscope":
             modelscope_models.add(key)
-        elif value.get("litellm_provider") == "moonshot":
+        elif value.get("embrouter_provider") == "moonshot":
             moonshot_models.add(key)
-        elif value.get("litellm_provider") == "publicai":
+        elif value.get("embrouter_provider") == "publicai":
             publicai_models.add(key)
-        elif value.get("litellm_provider") == "darkbloom":
+        elif value.get("embrouter_provider") == "darkbloom":
             darkbloom_models.add(key)
-        elif value.get("litellm_provider") == "v0":
+        elif value.get("embrouter_provider") == "v0":
             v0_models.add(key)
-        elif value.get("litellm_provider") == "morph":
+        elif value.get("embrouter_provider") == "morph":
             morph_models.add(key)
-        elif value.get("litellm_provider") == "lambda_ai":
+        elif value.get("embrouter_provider") == "lambda_ai":
             lambda_ai_models.add(key)
-        elif value.get("litellm_provider") == "inception":
+        elif value.get("embrouter_provider") == "inception":
             inception_models.add(key)
-        elif value.get("litellm_provider") == "hyperbolic":
+        elif value.get("embrouter_provider") == "hyperbolic":
             hyperbolic_models.add(key)
-        elif value.get("litellm_provider") == "black_forest_labs":
+        elif value.get("embrouter_provider") == "black_forest_labs":
             black_forest_labs_models.add(key)
-        elif value.get("litellm_provider") == "recraft":
+        elif value.get("embrouter_provider") == "recraft":
             recraft_models.add(key)
-        elif value.get("litellm_provider") == "cometapi":
+        elif value.get("embrouter_provider") == "cometapi":
             cometapi_models.add(key)
-        elif value.get("litellm_provider") == "oci":
+        elif value.get("embrouter_provider") == "oci":
             oci_models.add(key)
-        elif value.get("litellm_provider") == "volcengine":
+        elif value.get("embrouter_provider") == "volcengine":
             volcengine_models.add(key)
-        elif value.get("litellm_provider") == "wandb":
+        elif value.get("embrouter_provider") == "wandb":
             wandb_models.add(key)
-        elif value.get("litellm_provider") == "ovhcloud":
+        elif value.get("embrouter_provider") == "ovhcloud":
             ovhcloud_models.add(key)
-        elif value.get("litellm_provider") == "ovhcloud-embedding-models":
+        elif value.get("embrouter_provider") == "ovhcloud-embedding-models":
             ovhcloud_embedding_models.add(key)
-        elif value.get("litellm_provider") == "lemonade":
+        elif value.get("embrouter_provider") == "lemonade":
             lemonade_models.add(key)
-        elif value.get("litellm_provider") == "docker_model_runner":
+        elif value.get("embrouter_provider") == "docker_model_runner":
             docker_model_runner_models.add(key)
-        elif value.get("litellm_provider") == "amazon_nova":
+        elif value.get("embrouter_provider") == "amazon_nova":
             amazon_nova_models.add(key)
-        elif value.get("litellm_provider") == "stability":
+        elif value.get("embrouter_provider") == "stability":
             stability_models.add(key)
-        elif value.get("litellm_provider") == "github_copilot":
+        elif value.get("embrouter_provider") == "github_copilot":
             github_copilot_models.add(key)
-        elif value.get("litellm_provider") == "chatgpt":
+        elif value.get("embrouter_provider") == "chatgpt":
             chatgpt_models.add(key)
-        elif value.get("litellm_provider") == "minimax":
+        elif value.get("embrouter_provider") == "minimax":
             minimax_models.add(key)
-        elif value.get("litellm_provider") == "aws_polly":
+        elif value.get("embrouter_provider") == "aws_polly":
             aws_polly_models.add(key)
-        elif value.get("litellm_provider") == "transcribe":
+        elif value.get("embrouter_provider") == "transcribe":
             transcribe_models.add(key)
-        elif value.get("litellm_provider") == "gigachat":
+        elif value.get("embrouter_provider") == "gigachat":
             gigachat_models.add(key)
-        elif value.get("litellm_provider") == "llamagate":
+        elif value.get("embrouter_provider") == "llamagate":
             llamagate_models.add(key)
-        elif value.get("litellm_provider") == "reducto":
+        elif value.get("embrouter_provider") == "reducto":
             reducto_models.add(key)
-        elif value.get("litellm_provider") == "bedrock_mantle":
+        elif value.get("embrouter_provider") == "bedrock_mantle":
             bedrock_mantle_models.add(key)
 
 
 def add_known_models(model_cost_map: Optional[Dict] = None):
-    """Fold `model_cost_map` (defaults to `litellm.model_cost`) into the per-provider model sets,
+    """Fold `model_cost_map` (defaults to `embrouter.model_cost`) into the per-provider model sets,
     then refresh `models_by_provider` from those sets so the additions reach wildcard expansion.
     The refresh updates the dict in place, so references captured before a reload stay live.
     """
@@ -1303,7 +1303,7 @@ openai_video_generation_models = ["sora-2"]
 
 # Import KeyManagementSettings here (before utils import) because _key_management_settings
 # is accessed during import time in secret_managers/main.py (via dd_tracing -> datadog -> _service_logger -> utils)
-from litellm.types.secret_managers.main import KeyManagementSettings
+from embrouter.types.secret_managers.main import KeyManagementSettings
 
 _key_management_settings: KeyManagementSettings = KeyManagementSettings()
 
@@ -1339,12 +1339,12 @@ from .llms.topaz.common_utils import TopazModelInfo
 # OpenAIGPTConfig, OpenAIGPT5Config, etc. are lazy loaded - instances will be created on first access
 from .llms.xai.common_utils import XAIModelInfo
 
-# PublicAI now uses JSON-based configuration (see litellm/llms/openai_like/providers.json)
+# PublicAI now uses JSON-based configuration (see embrouter/llms/openai_like/providers.json)
 # All remaining configs are now lazy loaded - see _lazy_imports_registry.py
 
 # Import LlmProviders here (before main import) because it's imported during import time
 # in multiple places including openai.py (via main import)
-from litellm.types.utils import LlmProviders
+from embrouter.types.utils import LlmProviders
 
 ## Lazy loading this is not straightforward, will leave it here for now.
 from .main import *
@@ -1384,7 +1384,7 @@ from .evals.main import (
     acancel_run,
 )
 from .integrations import *
-from .llms.custom_httpx.async_client_cleanup import close_litellm_async_clients
+from .llms.custom_httpx.async_client_cleanup import close_embrouter_async_clients
 from .exceptions import (
     AuthenticationError,
     InvalidRequestError,
@@ -1410,7 +1410,7 @@ from .exceptions import (
     UnprocessableEntityError,
     InternalServerError,
     JSONSchemaValidationError,
-    LITELLM_EXCEPTION_TYPES,
+    EMBROUTER_EXCEPTION_TYPES,
     MockException,
     ModelNotMappedError as ModelNotMappedError,
 )
@@ -1440,8 +1440,8 @@ from .responses.main import (
     mock_responses_api_response,
 )
 
-# Interactions API is available as litellm.interactions module
-# Usage: litellm.interactions.create(), litellm.interactions.get(), etc.
+# Interactions API is available as embrouter.interactions module
+# Usage: embrouter.interactions.create(), embrouter.interactions.get(), etc.
 from . import interactions
 from .interactions.agents.main import (
     acreate as acreate_agent,
@@ -1500,7 +1500,7 @@ from .scheduler import *
 
 ### ADAPTERS ###
 from .types.adapter import AdapterItem
-import litellm.anthropic_interface as anthropic
+import embrouter.anthropic_interface as anthropic
 
 adapters: List[AdapterItem] = []
 
@@ -1529,7 +1529,7 @@ disable_hf_tokenizer_download: Optional[bool] = (
 global_disable_no_log_param: bool = False
 
 ### CLI UTILITIES ###
-from litellm.litellm_core_utils.cli_token_utils import get_litellm_gateway_api_key
+from embrouter.embrouter_core_utils.cli_token_utils import get_embrouter_gateway_api_key
 
 ### PASSTHROUGH ###
 from .passthrough import allm_passthrough_route, llm_passthrough_route
@@ -1558,10 +1558,10 @@ def set_global_gitlab_config(config: Dict[str, Any]) -> None:
 # Lazy loading system for heavy modules to reduce initial import time and memory usage
 
 if TYPE_CHECKING:
-    from litellm.types.utils import ModelInfo as _ModelInfoType
-    from litellm.types.utils import PriorityReservationSettings
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-    from litellm.caching.caching import Cache
+    from embrouter.types.utils import ModelInfo as _ModelInfoType
+    from embrouter.types.utils import PriorityReservationSettings
+    from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+    from embrouter.caching.caching import Cache
 
     # Type stubs for lazy-loaded configs to help mypy
     from .llms.bedrock.chat.converse_transformation import (
@@ -1822,7 +1822,7 @@ if TYPE_CHECKING:
     from .llms.topaz.image_variations.transformation import (
         TopazImageVariationConfig as TopazImageVariationConfig,
     )
-    from litellm.llms.openai.completion.transformation import (
+    from embrouter.llms.openai.completion.transformation import (
         OpenAITextCompletionConfig as OpenAITextCompletionConfig,
     )
     from .llms.groq.chat.transformation import GroqChatConfig as GroqChatConfig
@@ -1864,8 +1864,8 @@ if TYPE_CHECKING:
     from .llms.xai.responses.transformation import (
         XAIResponsesAPIConfig as XAIResponsesAPIConfig,
     )
-    from .llms.litellm_proxy.responses.transformation import (
-        LiteLLMProxyResponsesAPIConfig as LiteLLMProxyResponsesAPIConfig,
+    from .llms.embrouter_proxy.responses.transformation import (
+        EmbRouterProxyResponsesAPIConfig as EmbRouterProxyResponsesAPIConfig,
     )
     from .llms.volcengine.responses.transformation import (
         VolcEngineResponsesAPIConfig as VolcEngineResponsesAPIConfig,
@@ -1961,8 +1961,8 @@ if TYPE_CHECKING:
     from .llms.watsonx.completion.transformation import (
         IBMWatsonXAIConfig as _IBMWatsonXAIConfig,
     )
-    from .llms.litellm_proxy.chat.transformation import (
-        LiteLLMProxyChatConfig as _LiteLLMProxyChatConfig,
+    from .llms.embrouter_proxy.chat.transformation import (
+        EmbRouterProxyChatConfig as _EmbRouterProxyChatConfig,
     )
     from .llms.deepinfra.chat.transformation import DeepInfraConfig as _DeepInfraConfig
     from .llms.llamafile.chat.transformation import (
@@ -1992,7 +1992,7 @@ if TYPE_CHECKING:
     NscaleConfig: Type[_NscaleConfig]
     IBMWatsonXChatConfig: Type[_IBMWatsonXChatConfig]
     IBMWatsonXAIConfig: Type[_IBMWatsonXAIConfig]
-    LiteLLMProxyChatConfig: Type[_LiteLLMProxyChatConfig]
+    EmbRouterProxyChatConfig: Type[_EmbRouterProxyChatConfig]
     DeepInfraConfig: Type[_DeepInfraConfig]
     LlamafileChatConfig: Type[_LlamafileChatConfig]
     LMStudioChatConfig: Type[_LMStudioChatConfig]
@@ -2185,18 +2185,18 @@ if TYPE_CHECKING:
     from .llms.amazon_nova.chat.transformation import (
         AmazonNovaChatConfig as AmazonNovaChatConfig,
     )
-    from litellm.caching.llm_caching_handler import LLMClientCache
-    from litellm.types.llms.bedrock import COHERE_EMBEDDING_INPUT_TYPES
-    from litellm.types.utils import (
+    from embrouter.caching.llm_caching_handler import LLMClientCache
+    from embrouter.types.llms.bedrock import COHERE_EMBEDDING_INPUT_TYPES
+    from embrouter.types.utils import (
         BudgetConfig,
         CredentialItem,
         PriorityReservationDict,
         StandardKeyGenerationConfig,
     )
-    from litellm.types.guardrails import GuardrailItem
-    from litellm.types.proxy.management_endpoints.ui_sso import (
+    from embrouter.types.guardrails import GuardrailItem
+    from embrouter.types.proxy.management_endpoints.ui_sso import (
         DefaultTeamSSOParams,
-        LiteLLM_UpperboundKeyGenerateParams,
+        EmbRouter_UpperboundKeyGenerateParams,
     )
 
     # Cost calculator functions
@@ -2244,34 +2244,34 @@ if TYPE_CHECKING:
     module_level_client: HTTPHandler
 
     # Bedrock tool name mappings instance (lazy-loaded)
-    from litellm.caching.caching import InMemoryCache
+    from embrouter.caching.caching import InMemoryCache
 
     bedrock_tool_name_mappings: InMemoryCache
 
     # Azure exception class (lazy-loaded)
-    from litellm.llms.azure.common_utils import AzureOpenAIError
+    from embrouter.llms.azure.common_utils import AzureOpenAIError
 
     # Secret manager types (lazy-loaded)
-    from litellm.types.secret_managers.main import (
+    from embrouter.types.secret_managers.main import (
         KeyManagementSystem,
         KeyManagementSettings,  # Not lazy-loaded - needed for _key_management_settings initialization
     )
 
     # Custom logger class (lazy-loaded)
-    from litellm.integrations.custom_logger import CustomLogger
+    from embrouter.integrations.custom_logger import CustomLogger
 
     # Datadog LLM observability params (lazy-loaded)
-    from litellm.types.integrations.datadog_llm_obs import DatadogLLMObsInitParams
+    from embrouter.types.integrations.datadog_llm_obs import DatadogLLMObsInitParams
 
     # Logging callback manager class and instance (lazy-loaded)
-    from litellm.litellm_core_utils.logging_callback_manager import (
+    from embrouter.embrouter_core_utils.logging_callback_manager import (
         LoggingCallbackManager,
     )
 
     logging_callback_manager: LoggingCallbackManager
 
     # provider_list is lazy-loaded
-    from litellm.types.utils import LlmProviders
+    from embrouter.types.utils import LlmProviders
 
     provider_list: List[Union[LlmProviders, str]]
 
@@ -2282,10 +2282,10 @@ if TYPE_CHECKING:
 _async_client_cleanup_registered = False
 
 # Eager loading for backwards compatibility with VCR and other HTTP recording tools
-# When LITELLM_DISABLE_LAZY_LOADING is set, lazy-loaded attributes are loaded at import time
+# When EMBROUTER_DISABLE_LAZY_LOADING is set, lazy-loaded attributes are loaded at import time
 # For now, this only affects encoding (tiktoken) as it was the only reported issue
 # This ensures encoding is initialized before VCR starts recording HTTP requests
-if os.getenv("LITELLM_DISABLE_LAZY_LOADING", "").lower() in ("1", "true", "yes", "on"):
+if os.getenv("EMBROUTER_DISABLE_LAZY_LOADING", "").lower() in ("1", "true", "yes", "on"):
     # Load encoding at import time (pre-#18070 behavior)
     # This ensures encoding is initialized before VCR starts recording
     from .main import encoding
@@ -2296,7 +2296,7 @@ def __getattr__(name: str) -> Any:
     global _async_client_cleanup_registered
     # Register async client cleanup on first access (only once)
     if not _async_client_cleanup_registered:
-        from litellm.llms.custom_httpx.async_client_cleanup import (
+        from embrouter.llms.custom_httpx.async_client_cleanup import (
             register_async_client_cleanup,
         )
 
@@ -2315,9 +2315,9 @@ def __getattr__(name: str) -> Any:
 
     # Lazy load encoding from main.py to avoid heavy tiktoken import
     if name == "encoding":
-        from ._lazy_imports import get_litellm_globals
+        from ._lazy_imports import get_embrouter_globals
 
-        _globals = get_litellm_globals()
+        _globals = get_embrouter_globals()
         # Check if already cached
         if "encoding" not in _globals:
             from .main import encoding as _encoding
@@ -2327,9 +2327,9 @@ def __getattr__(name: str) -> Any:
 
     # Lazy load bedrock_tool_name_mappings instance
     if name == "bedrock_tool_name_mappings":
-        from ._lazy_imports import get_litellm_globals
+        from ._lazy_imports import get_embrouter_globals
 
-        _globals = get_litellm_globals()
+        _globals = get_embrouter_globals()
         # Check if already cached
         if "bedrock_tool_name_mappings" not in _globals:
             from .llms.bedrock.chat.invoke_handler import (
@@ -2341,9 +2341,9 @@ def __getattr__(name: str) -> Any:
 
     # Lazy load AzureOpenAIError exception class
     if name == "AzureOpenAIError":
-        from ._lazy_imports import get_litellm_globals
+        from ._lazy_imports import get_embrouter_globals
 
-        _globals = get_litellm_globals()
+        _globals = get_embrouter_globals()
         # Check if already cached
         if "AzureOpenAIError" not in _globals:
             from .llms.azure.common_utils import AzureOpenAIError as _AzureOpenAIError
@@ -2353,9 +2353,9 @@ def __getattr__(name: str) -> Any:
 
     # Lazy load openaiOSeriesConfig instance
     if name == "openaiOSeriesConfig":
-        from ._lazy_imports import get_litellm_globals
+        from ._lazy_imports import get_embrouter_globals
 
-        _globals = get_litellm_globals()
+        _globals = get_embrouter_globals()
         if "openaiOSeriesConfig" not in _globals:
             # Import the config class and instantiate it
             config_class = __getattr__("OpenAIOSeriesConfig")
@@ -2371,9 +2371,9 @@ def __getattr__(name: str) -> Any:
         "nvidiaNimEmbeddingConfig": "NvidiaNimEmbeddingConfig",
     }
     if name in _config_instances:
-        from ._lazy_imports import get_litellm_globals
+        from ._lazy_imports import get_embrouter_globals
 
-        _globals = get_litellm_globals()
+        _globals = get_embrouter_globals()
         if name not in _globals:
             # Import the config class and instantiate it
             config_class = __getattr__(_config_instances[name])
@@ -2386,22 +2386,22 @@ def __getattr__(name: str) -> Any:
 
     # Lazy load provider_list
     if name == "provider_list":
-        from ._lazy_imports import get_litellm_globals
+        from ._lazy_imports import get_embrouter_globals
 
-        _globals = get_litellm_globals()
+        _globals = get_embrouter_globals()
         # Check if already cached
         if "provider_list" not in _globals:
             # LlmProviders is eagerly imported above, so we can import it directly
-            from litellm.types.utils import LlmProviders
+            from embrouter.types.utils import LlmProviders
 
             _globals["provider_list"] = list(LlmProviders)
         return _globals["provider_list"]
 
     # Lazy load priority_reservation_settings instance
     if name == "priority_reservation_settings":
-        from ._lazy_imports import get_litellm_globals
+        from ._lazy_imports import get_embrouter_globals
 
-        _globals = get_litellm_globals()
+        _globals = get_embrouter_globals()
         # Check if already cached
         if "priority_reservation_settings" not in _globals:
             # Import the class and instantiate it
@@ -2411,9 +2411,9 @@ def __getattr__(name: str) -> Any:
 
     # Lazy load logging_callback_manager instance
     if name == "logging_callback_manager":
-        from ._lazy_imports import get_litellm_globals
+        from ._lazy_imports import get_embrouter_globals
 
-        _globals = get_litellm_globals()
+        _globals = get_embrouter_globals()
         # Check if already cached
         if "logging_callback_manager" not in _globals:
             # Import the class and instantiate it
@@ -2423,15 +2423,15 @@ def __getattr__(name: str) -> Any:
 
     # Lazy load _service_logger module
     if name == "_service_logger":
-        from ._lazy_imports import get_litellm_globals
+        from ._lazy_imports import get_embrouter_globals
 
-        _globals = get_litellm_globals()
+        _globals = get_embrouter_globals()
         # Check if already cached
         if "_service_logger" not in _globals:
             # Import the module lazily
-            import litellm._service_logger
+            import embrouter._service_logger
 
-            _globals["_service_logger"] = litellm._service_logger
+            _globals["_service_logger"] = embrouter._service_logger
         return _globals["_service_logger"]
 
     # Lazy load evals module functions
@@ -2459,7 +2459,7 @@ def __getattr__(name: str) -> Any:
         "cancel_run",
         "delete_run",
     ]:
-        from litellm.evals.main import (
+        from embrouter.evals.main import (
             acreate_eval,
             alist_evals,
             aget_eval,
@@ -2489,6 +2489,6 @@ def __getattr__(name: str) -> Any:
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
-# ALL_LITELLM_RESPONSE_TYPES is lazy-loaded via __getattr__ to avoid loading utils at import time
+# ALL_EMBROUTER_RESPONSE_TYPES is lazy-loaded via __getattr__ to avoid loading utils at import time
 
-mark_litellm_import_complete()
+mark_embrouter_import_complete()

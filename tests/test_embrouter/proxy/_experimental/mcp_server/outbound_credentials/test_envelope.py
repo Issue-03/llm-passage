@@ -1,6 +1,6 @@
 """Spec tests for the sealed-envelope module (oauth_delegate DCR bridge).
 
-The envelope is the single client-held bearer carrying both a litellm identity and the
+The envelope is the single client-held bearer carrying both a embrouter identity and the
 encrypted upstream grant, with zero server-side storage. These tests pin the security
 contract: an envelope opens only under the exact keys that minted it, tampering with any
 signed byte is detected, expiry is enforced against the injected clock and provider
@@ -19,7 +19,7 @@ import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
 from pydantic import SecretStr, ValidationError
 
-from litellm.proxy._experimental.mcp_server.outbound_credentials.envelope import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.envelope import (
     ENVELOPE_ISSUER,
     ENVELOPE_PREFIX,
     MAX_ENVELOPE_BYTES,
@@ -50,7 +50,7 @@ from litellm.proxy._experimental.mcp_server.outbound_credentials.envelope import
     open_refresh_envelope,
     user_identity,
 )
-from litellm.proxy.common_utils.encrypt_decrypt_utils import decrypt_value, encrypt_value
+from embrouter.proxy.common_utils.encrypt_decrypt_utils import decrypt_value, encrypt_value
 
 _NOW = datetime(2026, 7, 9, 12, 0, 0, tzinfo=timezone.utc)
 _SIGNING_KEY = "unit-test-signing-key-0123456789abcdef0123456789abcdef"
@@ -370,7 +370,7 @@ def test_hostile_iat_nbf_types_are_malformed_payload_not_a_raise(override):
     assert isinstance(result, MalformedPayload)
 
 
-@pytest.mark.parametrize("hostile_iss", [["litellm-mcp-bridge"], 5, {"iss": "x"}])
+@pytest.mark.parametrize("hostile_iss", [["embrouter-mcp-bridge"], 5, {"iss": "x"}])
 def test_non_string_issuer_claim_is_malformed_payload_not_a_raise(hostile_iss):
     claims = _unverified_claims(_sealed_token(_full_grant()))
     forged = _hand_crafted_hs256({**claims, "iss": hostile_iss})
@@ -480,7 +480,7 @@ def test_open_size_guard_measures_bytes_not_characters():
     _decode_claims to fail loudly proves the guard short-circuits before decode."""
     from unittest.mock import patch
 
-    from litellm.proxy._experimental.mcp_server.outbound_credentials import envelope
+    from embrouter.proxy._experimental.mcp_server.outbound_credentials import envelope
 
     multibyte_body = "é" * 7000  # 7000 chars, 14000 UTF-8 bytes
     candidate = ENVELOPE_PREFIX + multibyte_body
@@ -500,7 +500,7 @@ def test_open_size_guard_rejects_oversize_character_count_before_decode():
     character precheck makes this O(1) since UTF-8 byte length is never below character length."""
     from unittest.mock import patch
 
-    from litellm.proxy._experimental.mcp_server.outbound_credentials import envelope
+    from embrouter.proxy._experimental.mcp_server.outbound_credentials import envelope
 
     candidate = ENVELOPE_PREFIX + ("a" * (MAX_ENVELOPE_BYTES + 1))
     assert len(candidate) > MAX_ENVELOPE_BYTES

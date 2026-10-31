@@ -4,13 +4,13 @@ from typing import Final
 
 from openai import AsyncOpenAI, OpenAI
 
-import litellm
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
-from litellm.llms.base import BaseLLM
-from litellm.types.llms.openai import AllMessageValues, OpenAITextCompletionUserMessage
-from litellm.types.utils import LlmProviders, ModelResponse, TextCompletionResponse
-from litellm.utils import ProviderConfigManager
+import embrouter
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.embrouter_core_utils.streaming_handler import CustomStreamWrapper
+from embrouter.llms.base import BaseLLM
+from embrouter.types.llms.openai import AllMessageValues, OpenAITextCompletionUserMessage
+from embrouter.types.utils import LlmProviders, ModelResponse, TextCompletionResponse
+from embrouter.utils import ProviderConfigManager
 
 from ..common_utils import BaseOpenAILLM, OpenAIError
 from .transformation import OpenAITextCompletionConfig
@@ -38,12 +38,12 @@ class OpenAITextCompletion(BaseLLM):
         messages: list[AllMessageValues] | list[OpenAITextCompletionUserMessage],
         timeout: float,
         custom_llm_provider: str,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         optional_params: dict,
         print_verbose: Callable | None = None,
         api_base: str | None = None,
         acompletion: bool = False,
-        litellm_params=None,
+        embrouter_params=None,
         logger_fn=None,
         client=None,
         organization: str | None = None,
@@ -129,7 +129,7 @@ class OpenAITextCompletion(BaseLLM):
                     openai_client = OpenAI(
                         api_key=api_key,
                         base_url=api_base,
-                        http_client=litellm.client_session,
+                        http_client=embrouter.client_session,
                         timeout=timeout,
                         max_retries=max_retries,
                         organization=organization,
@@ -217,7 +217,7 @@ class OpenAITextCompletion(BaseLLM):
 
     def streaming(
         self,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_key: str,
         data: dict,
         headers: dict,
@@ -233,7 +233,7 @@ class OpenAITextCompletion(BaseLLM):
             openai_client = OpenAI(
                 api_key=api_key,
                 base_url=api_base,
-                http_client=litellm.client_session,
+                http_client=embrouter.client_session,
                 timeout=timeout,
                 max_retries=max_retries,
                 organization=organization,
@@ -274,7 +274,7 @@ class OpenAITextCompletion(BaseLLM):
 
     async def async_streaming(
         self,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_key: str,
         data: dict,
         headers: dict,
@@ -290,7 +290,7 @@ class OpenAITextCompletion(BaseLLM):
             openai_client = AsyncOpenAI(
                 api_key=api_key,
                 base_url=api_base,
-                http_client=litellm.aclient_session,
+                http_client=embrouter.aclient_session,
                 timeout=timeout,
                 max_retries=max_retries,
                 organization=organization,

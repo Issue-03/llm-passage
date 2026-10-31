@@ -83,7 +83,7 @@ export interface MarketplaceOwner {
 }
 
 export interface MarketplaceResponse {
-  name: string; // Marketplace name (e.g., "litellm")
+  name: string; // Marketplace name (e.g., "embrouter")
   owner: MarketplaceOwner;
   plugins: MarketplacePluginEntry[];
 }

@@ -65,7 +65,7 @@ const createMockTeamData = (overrides: Partial<TeamData> = {}): TeamData => ({
     max_parallel_requests: null,
     budget_reset_at: null,
     model_id: null,
-    litellm_model_table: null,
+    embrouter_model_table: null,
     created_at: "2024-01-01T00:00:00Z",
     team_member_budget_table: null,
   },
@@ -78,7 +78,7 @@ const createMockTeamData = (overrides: Partial<TeamData> = {}): TeamData => ({
       budget_source: "custom",
       spend: 100.5,
       total_spend: 1538.2608,
-      litellm_budget_table: {
+      embrouter_budget_table: {
         budget_id: "budget1",
         soft_budget: null,
         max_budget: 1000,
@@ -386,7 +386,7 @@ describe("TeamMembersComponent", () => {
         index === 0
           ? {
               ...membership,
-              litellm_budget_table: { ...membership.litellm_budget_table, max_budget: 0, tpm_limit: 0, rpm_limit: 0 },
+              embrouter_budget_table: { ...membership.embrouter_budget_table, max_budget: 0, tpm_limit: 0, rpm_limit: 0 },
             }
           : membership,
       ),
@@ -417,7 +417,7 @@ describe("TeamMembersComponent", () => {
 
   it("seeds the edit payload with the stored temporary budget increase and expiry, keeping a 0 increase as 0", () => {
     const budget = {
-      ...createMockTeamData().team_memberships[0].litellm_budget_table,
+      ...createMockTeamData().team_memberships[0].embrouter_budget_table,
       temp_budget_increase: 0,
       temp_budget_expiry: "2030-01-02T03:04:00Z",
     };
@@ -644,7 +644,7 @@ describe("TeamMembersComponent", () => {
             budget_source: "team_default",
             spend: 0,
             total_spend: null,
-            litellm_budget_table: {
+            embrouter_budget_table: {
               budget_id: "team-default-budget",
               soft_budget: null,
               max_budget: 25,
@@ -701,7 +701,7 @@ describe("TeamMembersComponent", () => {
               budget_source: "custom",
               spend: 0,
               total_spend: 0,
-              litellm_budget_table: {
+              embrouter_budget_table: {
                 budget_id: "budget3",
                 soft_budget: null,
                 max_budget: null,

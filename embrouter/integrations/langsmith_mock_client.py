@@ -10,7 +10,7 @@ Usage:
 
 from typing import Final
 
-from litellm.integrations.mock_client_factory import (
+from embrouter.integrations.mock_client_factory import (
     MockClientConfig,
     create_mock_client_factory,
 )

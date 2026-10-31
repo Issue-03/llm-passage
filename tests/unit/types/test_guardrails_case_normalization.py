@@ -1,5 +1,5 @@
 """
-Test case normalization in LitellmParams for all guardrail types
+Test case normalization in EmbrouterParams for all guardrail types
 """
 
 from typing import Literal
@@ -7,15 +7,15 @@ from typing import Literal
 import pytest
 from pydantic import ValidationError
 
-from litellm.types.guardrails import BaseLitellmParams, LitellmParams
+from embrouter.types.guardrails import BaseEmbrouterParams, EmbrouterParams
 
 
-class TestLitellmParamsCaseNormalization:
-    """Test that LitellmParams normalizes case for all guardrail types"""
+class TestEmbrouterParamsCaseNormalization:
+    """Test that EmbrouterParams normalizes case for all guardrail types"""
 
     def test_presidio_guardrail_with_capitalized_default_action(self):
         """Test Presidio guardrail with capitalized default_action"""
-        params = LitellmParams(
+        params = EmbrouterParams(
             guardrail="presidio",
             mode="post_call",
             default_action="Deny",  # Capitalized
@@ -24,7 +24,7 @@ class TestLitellmParamsCaseNormalization:
 
     def test_azure_guardrail_with_capitalized_default_action(self):
         """Test Azure guardrail with capitalized default_action"""
-        params = LitellmParams(
+        params = EmbrouterParams(
             guardrail="azure/text_moderations",
             mode="pre_call",
             default_action="Allow",  # Capitalized
@@ -33,7 +33,7 @@ class TestLitellmParamsCaseNormalization:
 
     def test_tool_permission_with_capitalized_fields(self):
         """Test tool_permission with capitalized fields"""
-        params = LitellmParams(
+        params = EmbrouterParams(
             guardrail="tool_permission",
             mode="post_call",
             default_action="DENY",  # Uppercase
@@ -44,7 +44,7 @@ class TestLitellmParamsCaseNormalization:
 
     def test_lakera_with_capitalized_default_action(self):
         """Test Lakera guardrail with capitalized default_action"""
-        params = LitellmParams(
+        params = EmbrouterParams(
             guardrail="lakera_v2",
             mode="pre_call",
             default_action="Deny",  # Capitalized
@@ -53,7 +53,7 @@ class TestLitellmParamsCaseNormalization:
 
     def test_bedrock_with_capitalized_default_action(self):
         """Test Bedrock guardrail with capitalized default_action"""
-        params = LitellmParams(
+        params = EmbrouterParams(
             guardrail="bedrock",
             mode="pre_call",
             default_action="Allow",  # Capitalized
@@ -71,7 +71,7 @@ class TestLitellmParamsCaseNormalization:
         ]
 
         for guardrail_type, default_action_input in test_cases:
-            params = LitellmParams(
+            params = EmbrouterParams(
                 guardrail=guardrail_type,
                 mode="pre_call",
                 default_action=default_action_input,
@@ -86,7 +86,7 @@ class TestLitellmParamsCaseNormalization:
         test_cases = ["block", "Block", "BLOCK", "rewrite", "Rewrite", "REWRITE"]
 
         for action in test_cases:
-            params = LitellmParams(
+            params = EmbrouterParams(
                 guardrail="tool_permission",
                 mode="post_call",
                 on_disallowed_action=action,
@@ -100,7 +100,7 @@ class TestOnViolationAcceptedValues:
 
     @pytest.mark.parametrize("action", ["block", "alert"])
     def test_mcp_security_policy_template_on_violation_is_accepted(self, action: Literal["block", "alert"]):
-        params = LitellmParams(
+        params = EmbrouterParams(
             guardrail="mcp_security",
             mode="pre_call",
             default_on=True,
@@ -110,24 +110,24 @@ class TestOnViolationAcceptedValues:
 
     @pytest.mark.parametrize("action", ["warn", "end_session"])
     def test_realtime_on_violation_still_accepted(self, action: Literal["warn", "end_session"]):
-        params = LitellmParams(guardrail="presidio", mode="pre_call", on_violation=action)
+        params = EmbrouterParams(guardrail="presidio", mode="pre_call", on_violation=action)
         assert params.on_violation == action
 
     @pytest.mark.parametrize("action", ["block", "alert"])
     def test_mcp_only_on_violation_is_rejected_for_other_guardrails(self, action: Literal["block", "alert"]):
         with pytest.raises(ValidationError, match="only supported by guardrail='mcp_security'"):
-            LitellmParams(guardrail="presidio", mode="pre_call", on_violation=action)
+            EmbrouterParams(guardrail="presidio", mode="pre_call", on_violation=action)
 
     def test_unknown_on_violation_is_rejected(self):
         with pytest.raises(ValidationError):
-            LitellmParams(guardrail="mcp_security", mode="pre_call", on_violation="ignore")
+            EmbrouterParams(guardrail="mcp_security", mode="pre_call", on_violation="ignore")
 
 
 class TestSensitiveDataRoutingValidation:
     """on_sensitive_data='route' requires a target model to be set"""
 
     def test_route_with_target_model_is_valid(self):
-        params = LitellmParams(
+        params = EmbrouterParams(
             guardrail="presidio",
             mode="pre_call",
             on_sensitive_data="route",
@@ -138,7 +138,7 @@ class TestSensitiveDataRoutingValidation:
 
     def test_route_without_target_model_raises(self):
         with pytest.raises(ValidationError, match="sensitive_data_route_to_model"):
-            LitellmParams(
+            EmbrouterParams(
                 guardrail="presidio",
                 mode="pre_call",
                 on_sensitive_data="route",
@@ -146,10 +146,10 @@ class TestSensitiveDataRoutingValidation:
 
     def test_base_params_route_without_target_model_raises(self):
         with pytest.raises(ValidationError, match="sensitive_data_route_to_model"):
-            BaseLitellmParams(on_sensitive_data="route")
+            BaseEmbrouterParams(on_sensitive_data="route")
 
     def test_base_params_normalize_on_sensitive_data_case(self):
-        params = BaseLitellmParams(
+        params = BaseEmbrouterParams(
             on_sensitive_data="Route",
             sensitive_data_route_to_model="on-prem-model",
         )
@@ -157,10 +157,10 @@ class TestSensitiveDataRoutingValidation:
 
     def test_base_params_capitalized_route_without_target_model_raises(self):
         with pytest.raises(ValidationError, match="sensitive_data_route_to_model"):
-            BaseLitellmParams(on_sensitive_data="ROUTE")
+            BaseEmbrouterParams(on_sensitive_data="ROUTE")
 
     def test_block_without_target_model_is_valid(self):
-        params = LitellmParams(
+        params = EmbrouterParams(
             guardrail="presidio",
             mode="pre_call",
             on_sensitive_data="block",
@@ -169,7 +169,7 @@ class TestSensitiveDataRoutingValidation:
         assert params.sensitive_data_route_to_model is None
 
     def test_on_sensitive_data_is_case_normalized(self):
-        params = LitellmParams(
+        params = EmbrouterParams(
             guardrail="presidio",
             mode="pre_call",
             on_sensitive_data="Route",
@@ -178,7 +178,7 @@ class TestSensitiveDataRoutingValidation:
         assert params.on_sensitive_data == "route"
 
     def test_on_sensitive_data_uppercase_block_normalized(self):
-        params = LitellmParams(
+        params = EmbrouterParams(
             guardrail="presidio",
             mode="pre_call",
             on_sensitive_data="BLOCK",

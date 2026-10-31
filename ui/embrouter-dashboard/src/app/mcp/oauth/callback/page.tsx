@@ -7,10 +7,10 @@ import { getSecureItem, setSecureItem } from "@/utils/secureStorage";
 // Written to sessionStorage so the admin hook (useMcpOAuthFlow), the user hook
 // (useUserMcpOAuthFlow), and the tools re-auth hook (useToolsOAuthFlow) can each
 // pick up the result.  Each hook reads its own namespace to avoid cross-flow collisions.
-const ADMIN_RESULT_KEY = "litellm-mcp-oauth-result";
-const USER_RESULT_KEY = "litellm-user-mcp-oauth-result";
-const TOOLS_RESULT_KEY = "litellm-tools-mcp-oauth-result";
-const RETURN_URL_STORAGE_KEY = "litellm-mcp-oauth-return-url";
+const ADMIN_RESULT_KEY = "embrouter-mcp-oauth-result";
+const USER_RESULT_KEY = "embrouter-user-mcp-oauth-result";
+const TOOLS_RESULT_KEY = "embrouter-tools-mcp-oauth-result";
+const RETURN_URL_STORAGE_KEY = "embrouter-mcp-oauth-return-url";
 
 const resolveDefaultRedirect = () => {
   if (typeof window === "undefined") {
@@ -35,7 +35,7 @@ const McpOAuthCallbackContent = () => {
       return null;
     }
     return {
-      type: "litellm-mcp-oauth",
+      type: "embrouter-mcp-oauth",
       code: searchParams.get("code"),
       state: searchParams.get("state"),
       // Forward OAuth provider error params so the hook can surface the real

@@ -3,9 +3,9 @@ GATEWAY REQUEST COUNTS (SGR)
 
 GET /gateway/daily/activity - successful/failed gateway requests by date and route
 
-Source of truth is LiteLLM_DailyGatewayRequests, written at the ASGI edge by
+Source of truth is EmbRouter_DailyGatewayRequests, written at the ASGI edge by
 BillableRequestMetricsMiddleware. This counts what the proxy answered, so it is
-independent of whether a request reached litellm's logging callbacks.
+independent of whether a request reached embrouter's logging callbacks.
 
 The table carries no key/user/team dimension, so these totals are deployment-wide
 and the endpoint is restricted to proxy admin roles.
@@ -18,10 +18,10 @@ from typing import Annotated, Final
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, TypeAdapter
 
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy._types import CommonProxyErrors, LitellmUserRoles, UserAPIKeyAuth
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.types.proxy.gateway_requests import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy._types import CommonProxyErrors, EmbrouterUserRoles, UserAPIKeyAuth
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.types.proxy.gateway_requests import (
     GatewayRequestActivityResponse,
     GatewayRequestBreakdownEntry,
     GatewayRequestDailyEntry,
@@ -38,7 +38,7 @@ _AGGREGATE_SQL: Final = """
         route,
         SUM(successful_requests)::bigint AS successful_requests,
         SUM(failed_requests)::bigint AS failed_requests
-    FROM "LiteLLM_DailyGatewayRequests"
+    FROM "EmbRouter_DailyGatewayRequests"
     WHERE date >= $1 AND date <= $2
     GROUP BY date, category, route
 """
@@ -107,11 +107,11 @@ async def get_gateway_daily_activity(
     Deployment-wide: the underlying table has no per-key or per-user dimension,
     so this is admin-only.
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if user_api_key_dict.user_role not in (
-        LitellmUserRoles.PROXY_ADMIN,
-        LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY,
+        EmbrouterUserRoles.PROXY_ADMIN,
+        EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY,
     ):
         raise HTTPException(
             status_code=403,

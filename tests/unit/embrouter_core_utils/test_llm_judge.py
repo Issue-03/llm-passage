@@ -5,8 +5,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-import litellm
-from litellm.litellm_core_utils.llm_judge import (
+import embrouter
+from embrouter.embrouter_core_utils.llm_judge import (
     extract_text_from_content,
     judge_acompletion,
     judge_target,
@@ -47,7 +47,7 @@ def test_extract_text_from_content(content, expected):
     assert extract_text_from_content(content) == expected
 
 
-def _router(alias: tuple[str, ...] = (), deployments: bool = False) -> litellm.Router:
+def _router(alias: tuple[str, ...] = (), deployments: bool = False) -> embrouter.Router:
     """A real Router, so name resolution is the product's own.
 
     Only the network call is faked: a resolution fake has to be kept in step with every
@@ -55,9 +55,9 @@ def _router(alias: tuple[str, ...] = (), deployments: bool = False) -> litellm.R
     `get_model_list` while the code under test asked a different method, so every arm-choice
     assertion passed on a truthy Mock.
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
-            {"model_name": name, "litellm_params": {"model": "openai/gpt-4o", "api_key": "fake"}}
+            {"model_name": name, "embrouter_params": {"model": "openai/gpt-4o", "api_key": "fake"}}
             for name in (("gpt-4o",) if deployments else ()) + (("alias-target",) if alias else ())
         ],
         model_group_alias=dict.fromkeys(alias, "alias-target"),
@@ -91,10 +91,10 @@ async def test_judge_acompletion_prefers_router_and_disables_retries():
 
 @pytest.mark.asyncio
 async def test_judge_acompletion_falls_back_to_sdk_for_unconfigured_model(monkeypatch: pytest.MonkeyPatch):
-    import litellm as litellm_module
+    import embrouter as embrouter_module
 
     sdk = AsyncMock(return_value={"choices": [{"message": {"content": "sdk answer"}}]})
-    monkeypatch.setattr(litellm_module, "acompletion", sdk)
+    monkeypatch.setattr(embrouter_module, "acompletion", sdk)
     router = _router()
 
     response = await judge_acompletion(router, "anthropic/claude-sonnet-5", [{"role": "user", "content": "hi"}])
@@ -123,11 +123,11 @@ def test_judge_target_identifies_a_name_by_what_would_serve_it(model: str, expec
     The last case is the fallback: nothing on the proxy serves it, so the SDK gets the name
     verbatim and the name is the identity.
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "named-deployment",
-                "litellm_params": {"model": "anthropic/claude-sonnet-5", "api_key": "fake"},
+                "embrouter_params": {"model": "anthropic/claude-sonnet-5", "api_key": "fake"},
             }
         ],
         model_group_alias={"alias-for-it": "named-deployment"},
@@ -145,8 +145,8 @@ def test_judge_target_gives_one_identity_to_a_bare_public_name_and_a_prefixed_de
     """`gpt-4o` and a deployment serving `openai/gpt-4o` are one model, so a judge named the
     first must collide with a tier named the second. Comparing the spellings finds nothing
     and the job runs with the judge grading itself."""
-    router = litellm.Router(
-        model_list=[{"model_name": "fast-tier", "litellm_params": {"model": "openai/gpt-4o", "api_key": "fake"}}]
+    router = embrouter.Router(
+        model_list=[{"model_name": "fast-tier", "embrouter_params": {"model": "openai/gpt-4o", "api_key": "fake"}}]
     )
 
     assert judge_target(router, "gpt-4o").models == judge_target(router, "fast-tier").models

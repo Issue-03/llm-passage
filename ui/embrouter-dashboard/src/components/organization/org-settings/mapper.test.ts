@@ -16,7 +16,7 @@ const org: Organization = {
   created_by: "admin",
   updated_at: "2026-01-01T00:00:00Z",
   updated_by: "admin",
-  litellm_budget_table: { max_budget: 100.5, budget_duration: "30d", tpm_limit: 1000, rpm_limit: 50 },
+  embrouter_budget_table: { max_budget: 100.5, budget_duration: "30d", tpm_limit: 1000, rpm_limit: 50 },
   teams: null,
   users: null,
   members: null,
@@ -48,7 +48,7 @@ describe("orgToForm", () => {
     const bare: Organization = {
       ...org,
       metadata: {},
-      litellm_budget_table: { max_budget: null, budget_duration: null, tpm_limit: null, rpm_limit: null },
+      embrouter_budget_table: { max_budget: null, budget_duration: null, tpm_limit: null, rpm_limit: null },
       object_permission: undefined,
     };
 

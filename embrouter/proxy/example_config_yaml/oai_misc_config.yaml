@@ -1,29 +1,29 @@
 model_list:
   - model_name: gpt-5-mini-end-user-test
-    litellm_params:
+    embrouter_params:
       model: gpt-5-mini
       region_name: "eu"
     model_info:
       id: "1"
   - model_name: "*"
-    litellm_params:
+    embrouter_params:
       model: openai/*
       api_key: os.environ/OPENAI_API_KEY
   # provider specific wildcard routing
   - model_name: "anthropic/*"
-    litellm_params:
+    embrouter_params:
       model: "anthropic/*"
       api_key: os.environ/ANTHROPIC_API_KEY
   - model_name: "groq/*"
-    litellm_params:
+    embrouter_params:
       model: "groq/*"
       api_key: os.environ/GROQ_API_KEY
   - model_name: bedrock/batch-us.anthropic.claude-haiku-4-5-20251001-v1:0
-    litellm_params:
+    embrouter_params:
       model: bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0
       #########################################################
       ########## batch specific params ########################
-      s3_bucket_name: litellm-proxy
+      s3_bucket_name: embrouter-proxy
       s3_region_name: us-west-2
       s3_access_key_id: os.environ/AWS_ACCESS_KEY_ID
       s3_secret_access_key: os.environ/AWS_SECRET_ACCESS_KEY
@@ -31,7 +31,7 @@ model_list:
     model_info: 
       mode: batch
 
-litellm_settings:
+embrouter_settings:
   # set_verbose: True  # Uncomment this if you want to see verbose logs; not recommended in production
   drop_params: True
   # max_budget: 100 
@@ -71,4 +71,4 @@ files_settings:
     api_key: os.environ/OPENAI_API_KEY
 
 general_settings: 
-  master_key: os.environ/LITELLM_MASTER_KEY # [OPTIONAL] Use to enforce auth on proxy.
+  master_key: os.environ/EMBROUTER_MASTER_KEY # [OPTIONAL] Use to enforce auth on proxy.

@@ -12,14 +12,14 @@ const versions = [
     prompt_id: "welcome.v2",
     version: 2,
     created_at: "2024-01-15T10:30:00Z",
-    litellm_params: {},
+    embrouter_params: {},
     prompt_info: { prompt_type: "db" },
   },
   {
     prompt_id: "welcome.v1",
     version: 1,
     created_at: "2024-01-10T09:00:00Z",
-    litellm_params: {},
+    embrouter_params: {},
     prompt_info: { prompt_type: "config" },
   },
 ] satisfies PromptSpec[];
@@ -71,13 +71,13 @@ describe("VersionHistorySidePanel", () => {
   });
 
   it.each([
-    ["dot suffix", "welcome.v7", { prompt_id: "welcome.v7", litellm_params: {}, prompt_info: { prompt_type: "db" } }],
+    ["dot suffix", "welcome.v7", { prompt_id: "welcome.v7", embrouter_params: {}, prompt_info: { prompt_type: "db" } }],
     [
       "underscore suffix",
       "welcome_v8",
-      { prompt_id: "welcome_v8", litellm_params: {}, prompt_info: { prompt_type: "db" } },
+      { prompt_id: "welcome_v8", embrouter_params: {}, prompt_info: { prompt_type: "db" } },
     ],
-    ["no suffix", "welcome", { prompt_id: "welcome", litellm_params: {}, prompt_info: { prompt_type: "db" } }],
+    ["no suffix", "welcome", { prompt_id: "welcome", embrouter_params: {}, prompt_info: { prompt_type: "db" } }],
   ])("should derive a version number from a %s", async (_case, promptId, prompt) => {
     vi.mocked(getPromptVersions).mockResolvedValue({ prompts: [prompt] });
 
@@ -120,7 +120,7 @@ describe("VersionHistorySidePanel", () => {
 
   it("should show a placeholder when a creation date is unavailable", async () => {
     vi.mocked(getPromptVersions).mockResolvedValue({
-      prompts: [{ prompt_id: "welcome.v1", version: 1, litellm_params: {}, prompt_info: { prompt_type: "db" } }],
+      prompts: [{ prompt_id: "welcome.v1", version: 1, embrouter_params: {}, prompt_info: { prompt_type: "db" } }],
     });
 
     renderWithProviders(<VersionHistorySidePanel {...props} />);

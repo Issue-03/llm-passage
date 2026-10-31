@@ -7,7 +7,7 @@ export const proxySettingsKeys = createQueryKeys("proxySettings");
 export interface ProxySettings {
   PROXY_BASE_URL: string;
   PROXY_LOGOUT_URL: string;
-  LITELLM_UI_API_DOC_BASE_URL?: string | null;
+  EMBROUTER_UI_API_DOC_BASE_URL?: string | null;
   DISABLE_EXPENSIVE_DB_QUERIES?: boolean;
   NUM_SPEND_LOGS_ROWS?: number;
 }
@@ -15,7 +15,7 @@ export interface ProxySettings {
 const EMPTY_PROXY_SETTINGS: ProxySettings = {
   PROXY_BASE_URL: "",
   PROXY_LOGOUT_URL: "",
-  LITELLM_UI_API_DOC_BASE_URL: null,
+  EMBROUTER_UI_API_DOC_BASE_URL: null,
 };
 
 export function useProxySettingsQuery(accessToken: string | null) {

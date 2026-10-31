@@ -1,7 +1,7 @@
-from litellm.llms.bedrock.chat.invoke_transformations.amazon_mistral_transformation import (
+from embrouter.llms.bedrock.chat.invoke_transformations.amazon_mistral_transformation import (
     AmazonMistralConfig,
 )
-from litellm.types.utils import ModelResponse
+from embrouter.types.utils import ModelResponse
 
 
 def test_mistral_get_outputText():

@@ -3,17 +3,17 @@ from collections.abc import AsyncIterator, Awaitable, Callable, Coroutine, Itera
 from types import MappingProxyType
 from typing import Final, TypeAlias, cast  # noqa: TID251  # native binding selects a sync result or an async awaitable
 
-from litellm.exceptions import BadRequestError
-from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
-from litellm.llms.anthropic.pass_through.messages import handler as main
-from litellm.rust_bridge.catalog import Route, RouteContext
-from litellm.rust_bridge.dispatch import PublicDispatch, call_hook
-from litellm.rust_bridge.messages.entrypoints import (
+from embrouter.exceptions import BadRequestError
+from embrouter.embrouter_core_utils.get_llm_provider_logic import get_llm_provider
+from embrouter.llms.anthropic.pass_through.messages import handler as main
+from embrouter.rust_bridge.catalog import Route, RouteContext
+from embrouter.rust_bridge.dispatch import PublicDispatch, call_hook
+from embrouter.rust_bridge.messages.entrypoints import (
     NATIVE_AMESSAGES,
     NATIVE_MESSAGES,
-    LiteLLMMessagesRequest,
+    EmbRouterMessagesRequest,
 )
-from litellm.rust_bridge.public_call import (
+from embrouter.rust_bridge.public_call import (
     bind,
     optional_bool,
     optional_mapping,
@@ -21,7 +21,7 @@ from litellm.rust_bridge.public_call import (
     optional_str,
     signature,
 )
-from litellm.types.llms.anthropic_messages.anthropic_response import AnthropicMessagesResponse
+from embrouter.types.llms.anthropic_messages.anthropic_response import AnthropicMessagesResponse
 
 __all__ = ("anthropic_messages", "anthropic_messages_handler")
 
@@ -52,7 +52,7 @@ _AMESSAGES: Final = signature(_PYTHON_AMESSAGES)
 
 def _public_request(
     legacy: inspect.Signature, args: tuple[object, ...], kwargs: Mapping[str, object]
-) -> LiteLLMMessagesRequest | None:
+) -> EmbRouterMessagesRequest | None:
     fields: Final = bind(legacy, args, kwargs)
     if fields is None:
         return None
@@ -61,7 +61,7 @@ def _public_request(
     max_tokens: Final = fields.get("max_tokens")
     if not isinstance(model, str) or messages is None or not isinstance(max_tokens, int):
         return None
-    return LiteLLMMessagesRequest(
+    return EmbRouterMessagesRequest(
         model=model,
         messages=messages,
         max_tokens=max_tokens,
@@ -73,14 +73,14 @@ def _public_request(
     )
 
 
-def _resolved_provider(request: LiteLLMMessagesRequest) -> str | None:
+def _resolved_provider(request: EmbRouterMessagesRequest) -> str | None:
     try:
         return get_llm_provider(request.model, request.custom_llm_provider)[1]
     except BadRequestError:
         return request.custom_llm_provider
 
 
-def _context(request: LiteLLMMessagesRequest) -> RouteContext:
+def _context(request: EmbRouterMessagesRequest) -> RouteContext:
     return RouteContext(
         Route.MESSAGES,
         provider=_resolved_provider(request),

@@ -4,20 +4,20 @@ import { buildSearchToolPayload } from "./searchToolPayload";
 const minimal = { search_tool_name: "tool", search_provider: "perplexity" };
 
 describe("buildSearchToolPayload", () => {
-  it("nests the provider under litellm_params", () => {
-    expect(buildSearchToolPayload(minimal).litellm_params.search_provider).toBe("perplexity");
+  it("nests the provider under embrouter_params", () => {
+    expect(buildSearchToolPayload(minimal).embrouter_params.search_provider).toBe("perplexity");
   });
 
   it("leaves every optional param undefined so it never reaches the wire body", () => {
     expect(JSON.stringify(buildSearchToolPayload(minimal))).toBe(
-      '{"search_tool_name":"tool","litellm_params":{"search_provider":"perplexity"}}',
+      '{"search_tool_name":"tool","embrouter_params":{"search_provider":"perplexity"}}',
     );
   });
 
   it("builds only the params a form actually collects", () => {
     expect(buildSearchToolPayload(minimal)).toStrictEqual({
       search_tool_name: "tool",
-      litellm_params: {
+      embrouter_params: {
         search_provider: "perplexity",
         api_key: undefined,
       },
@@ -26,11 +26,11 @@ describe("buildSearchToolPayload", () => {
   });
 
   it("passes an api key through untouched", () => {
-    expect(buildSearchToolPayload({ ...minimal, api_key: "sk-secret" }).litellm_params.api_key).toBe("sk-secret");
+    expect(buildSearchToolPayload({ ...minimal, api_key: "sk-secret" }).embrouter_params.api_key).toBe("sk-secret");
   });
 
   it("keeps an explicitly emptied api key as an empty string, so the backend clears it", () => {
-    expect(buildSearchToolPayload({ ...minimal, api_key: "" }).litellm_params.api_key).toBe("");
+    expect(buildSearchToolPayload({ ...minimal, api_key: "" }).embrouter_params.api_key).toBe("");
   });
 
   it("wraps a description in search_tool_info", () => {
@@ -47,7 +47,7 @@ describe("buildSearchToolPayload", () => {
     expect(
       JSON.stringify(buildSearchToolPayload({ ...minimal, api_key: "sk-secret", description: "finds things" })),
     ).toBe(
-      '{"search_tool_name":"tool","litellm_params":{"search_provider":"perplexity","api_key":"sk-secret"},"search_tool_info":{"description":"finds things"}}',
+      '{"search_tool_name":"tool","embrouter_params":{"search_provider":"perplexity","api_key":"sk-secret"},"search_tool_info":{"description":"finds things"}}',
     );
   });
 });

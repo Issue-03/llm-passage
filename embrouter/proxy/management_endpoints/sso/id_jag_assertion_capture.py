@@ -15,7 +15,7 @@ from enum import Enum
 
 from typing_extensions import assert_never
 
-from litellm.proxy.management_endpoints.sso.saml_sso import SAMLAuthHandler
+from embrouter.proxy.management_endpoints.sso.saml_sso import SAMLAuthHandler
 
 _GENERIC_OIDC_REMEDY = (
     "Point SSO at the generic OIDC provider (GENERIC_CLIENT_ID), the one login path whose token "

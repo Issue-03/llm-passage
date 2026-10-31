@@ -5,13 +5,13 @@ from typing import Any
 
 import pytest
 
-from litellm.proxy.db.budget_window_spend_writer import (
+from embrouter.proxy.db.budget_window_spend_writer import (
     WindowSeedTotals,
     commit_window_spend_updates,
     roll_window_spend_row,
     spend_logs_seed_totals,
 )
-from litellm.proxy.db.db_transaction_queue.window_spend_update_queue import (
+from embrouter.proxy.db.db_transaction_queue.window_spend_update_queue import (
     build_window_spend_transaction,
 )
 
@@ -71,7 +71,7 @@ class _FakePrismaClient:
 
 
 class _RecordingAggregate:
-    """Stands in for the LiteLLM_SpendLogs seed aggregate. before_batch
+    """Stands in for the EmbRouter_SpendLogs seed aggregate. before_batch
     defaults to the full total, the state where none of this batch's own log
     rows have been persisted yet."""
 
@@ -102,7 +102,7 @@ class _RecordingAggregate:
 
 
 class _SpendLogsFake:
-    """Sums the LiteLLM_SpendLogs rows (request_id, spend, startTime) it holds,
+    """Sums the EmbRouter_SpendLogs rows (request_id, spend, startTime) it holds,
     splitting them at the batch start exactly as the real aggregate's
     SUM(...) FILTER (WHERE startTime < bound) does."""
 
@@ -184,7 +184,7 @@ async def test_missing_row_is_seeded_from_spend_logs_once():
 
 @pytest.mark.asyncio
 async def test_existing_row_is_never_reseeded():
-    """The seed is a full LiteLLM_SpendLogs scan; running it for a row that is
+    """The seed is a full EmbRouter_SpendLogs scan; running it for a row that is
     already maintained would both cost a scan and double count."""
     db = _FakeDB(existing_rows=[_existing("key", "k1", "30d")])
     aggregate = _RecordingAggregate(total=5.0)
@@ -254,10 +254,10 @@ async def test_upsert_sql_adds_for_a_current_window_and_replaces_for_a_newer_one
     ((query, _),) = db.batcher.calls
     normalized = " ".join(query.split())
     assert (
-        'spend = CASE WHEN "LiteLLM_BudgetWindowSpend".window_start >= EXCLUDED.window_start '
-        'THEN "LiteLLM_BudgetWindowSpend".spend + $6 ELSE EXCLUDED.spend END' in normalized
+        'spend = CASE WHEN "EmbRouter_BudgetWindowSpend".window_start >= EXCLUDED.window_start '
+        'THEN "EmbRouter_BudgetWindowSpend".spend + $6 ELSE EXCLUDED.spend END' in normalized
     )
-    assert 'window_start = GREATEST("LiteLLM_BudgetWindowSpend".window_start, EXCLUDED.window_start)' in normalized
+    assert 'window_start = GREATEST("EmbRouter_BudgetWindowSpend".window_start, EXCLUDED.window_start)' in normalized
     assert "ON CONFLICT (entity_type, entity_id, window_duration) DO UPDATE SET" in normalized
 
 
@@ -344,7 +344,7 @@ async def test_all_upserts_are_committed_in_one_transaction():
 
 @pytest.mark.asyncio
 async def test_unknown_entity_type_contributes_no_seed():
-    """Only key and team windows have a LiteLLM_SpendLogs column to aggregate;
+    """Only key and team windows have a EmbRouter_SpendLogs column to aggregate;
     anything else starts from its increment alone."""
     db = _FakeDB(existing_rows=[])
 
@@ -533,7 +533,7 @@ async def test_seed_aggregate_sql_splits_the_window_at_the_batch_start(entity_ty
     normalized = " ".join(query.split())
     assert expected_column in normalized
     assert "FILTER (WHERE \"startTime\" < ($3::timestamptz AT TIME ZONE 'UTC'))" in normalized
-    assert 'FROM "LiteLLM_SpendLogs"' in normalized
+    assert 'FROM "EmbRouter_SpendLogs"' in normalized
     # startTime is TIMESTAMP(3): the bound is floored to the second so the
     # batch's own earliest row cannot round under it.
     assert params == ("e1", WINDOW_A, datetime(2026, 8, 10, 12, 0, 0))

@@ -1,8 +1,8 @@
 from typing import Any, Final
 
-from litellm.exceptions import AuthenticationError
-from litellm.llms.openai.openai import OpenAIConfig
-from litellm.types.llms.openai import AllMessageValues
+from embrouter.exceptions import AuthenticationError
+from embrouter.llms.openai.openai import OpenAIConfig
+from embrouter.types.llms.openai import AllMessageValues
 
 from ..authenticator import Authenticator
 from ..common_utils import (
@@ -50,16 +50,16 @@ class ChatGPTConfig(OpenAIConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
         validated_headers: Final = super().validate_environment(
-            headers, model, messages, optional_params, litellm_params, api_key, api_base
+            headers, model, messages, optional_params, embrouter_params, api_key, api_base
         )
 
         account_id: Final = self.authenticator.get_account_id()
-        session_id: Final = ensure_chatgpt_session_id(litellm_params)
+        session_id: Final = ensure_chatgpt_session_id(embrouter_params)
         default_headers: Final = get_chatgpt_default_headers(api_key or "", account_id, session_id)
         return {**default_headers, **validated_headers}
 

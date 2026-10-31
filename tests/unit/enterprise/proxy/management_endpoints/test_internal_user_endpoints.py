@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
-from litellm_enterprise.proxy.management_endpoints.internal_user_endpoints import router
+from embrouter_enterprise.proxy.management_endpoints.internal_user_endpoints import router
 
 
 @pytest.fixture
@@ -19,7 +19,7 @@ def client():
 def mock_user_api_key_auth():
     """Mock the user_api_key_auth dependency"""
     with patch(
-        "litellm_enterprise.proxy.management_endpoints.internal_user_endpoints.user_api_key_auth"
+        "embrouter_enterprise.proxy.management_endpoints.internal_user_endpoints.user_api_key_auth"
     ) as mock_auth:
         mock_auth.return_value = {"user_id": "test_user", "api_key": "test_key"}
         yield mock_auth
@@ -42,19 +42,19 @@ class TestAvailableEnterpriseUsers:
     ):
         """Test when max_users is set and user count is within limit"""
         with (
-            patch("litellm.proxy.proxy_server.prisma_client") as mock_prisma,
+            patch("embrouter.proxy.proxy_server.prisma_client") as mock_prisma,
             patch(
-                "litellm.proxy.proxy_server.premium_user",
+                "embrouter.proxy.proxy_server.premium_user",
                 True,
             ),
             patch(
-                "litellm.proxy.proxy_server.premium_user_data",
+                "embrouter.proxy.proxy_server.premium_user_data",
                 {"max_users": 10},
             ),
         ):
             # Mock database count
-            mock_prisma.db.litellm_usertable.count = _user_count(5)
-            mock_prisma.db.litellm_teamtable.count = AsyncMock(return_value=2)
+            mock_prisma.db.embrouter_usertable.count = _user_count(5)
+            mock_prisma.db.embrouter_teamtable.count = AsyncMock(return_value=2)
 
             # Override the dependency
             client.app.dependency_overrides[mock_user_api_key_auth] = lambda: {
@@ -82,15 +82,15 @@ class TestAvailableEnterpriseUsers:
         """SCIM-deactivated users must not consume a seat: with 5 rows of which
         2 are deactivated, the displayed usage is 3 and a seat is freed."""
         with (
-            patch("litellm.proxy.proxy_server.prisma_client") as mock_prisma,
-            patch("litellm.proxy.proxy_server.premium_user", True),
+            patch("embrouter.proxy.proxy_server.prisma_client") as mock_prisma,
+            patch("embrouter.proxy.proxy_server.premium_user", True),
             patch(
-                "litellm.proxy.proxy_server.premium_user_data",
+                "embrouter.proxy.proxy_server.premium_user_data",
                 {"max_users": 10},
             ),
         ):
-            mock_prisma.db.litellm_usertable.count = _user_count(5, deactivated=2)
-            mock_prisma.db.litellm_teamtable.count = AsyncMock(return_value=2)
+            mock_prisma.db.embrouter_usertable.count = _user_count(5, deactivated=2)
+            mock_prisma.db.embrouter_teamtable.count = AsyncMock(return_value=2)
 
             client.app.dependency_overrides[mock_user_api_key_auth] = lambda: {
                 "user_id": "test_user"
@@ -111,19 +111,19 @@ class TestAvailableEnterpriseUsers:
     ):
         """Test when max_users is not set (premium_user_data is None or doesn't contain max_users)"""
         with (
-            patch("litellm.proxy.proxy_server.prisma_client") as mock_prisma,
+            patch("embrouter.proxy.proxy_server.prisma_client") as mock_prisma,
             patch(
-                "litellm.proxy.proxy_server.premium_user",
+                "embrouter.proxy.proxy_server.premium_user",
                 True,
             ),
             patch(
-                "litellm.proxy.proxy_server.premium_user_data",
+                "embrouter.proxy.proxy_server.premium_user_data",
                 None,
             ),
         ):
             # Mock database count
-            mock_prisma.db.litellm_usertable.count = _user_count(3)
-            mock_prisma.db.litellm_teamtable.count = AsyncMock(return_value=1)
+            mock_prisma.db.embrouter_usertable.count = _user_count(3)
+            mock_prisma.db.embrouter_teamtable.count = AsyncMock(return_value=1)
 
             # Override the dependency
             client.app.dependency_overrides[mock_user_api_key_auth] = lambda: {
@@ -148,19 +148,19 @@ class TestAvailableEnterpriseUsers:
     ):
         """Test the current bug where total_users_remaining can be negative"""
         with (
-            patch("litellm.proxy.proxy_server.prisma_client") as mock_prisma,
+            patch("embrouter.proxy.proxy_server.prisma_client") as mock_prisma,
             patch(
-                "litellm.proxy.proxy_server.premium_user",
+                "embrouter.proxy.proxy_server.premium_user",
                 True,
             ),
             patch(
-                "litellm.proxy.proxy_server.premium_user_data",
+                "embrouter.proxy.proxy_server.premium_user_data",
                 {"key": "value"},
             ),
         ):
             # Mock database count higher than max_users to trigger the bug
-            mock_prisma.db.litellm_usertable.count = _user_count(8)
-            mock_prisma.db.litellm_teamtable.count = AsyncMock(return_value=3)
+            mock_prisma.db.embrouter_usertable.count = _user_count(8)
+            mock_prisma.db.embrouter_teamtable.count = AsyncMock(return_value=3)
 
             # Override the dependency
             client.app.dependency_overrides[mock_user_api_key_auth] = lambda: {
@@ -190,15 +190,15 @@ class TestAvailableEnterpriseUsers:
         self, client, mock_user_api_key_auth
     ):
         """Test when prisma_client is None (no database connection)"""
-        from litellm.proxy._types import CommonProxyErrors
+        from embrouter.proxy._types import CommonProxyErrors
 
         with (
             patch(
-                "litellm.proxy.proxy_server.prisma_client",
+                "embrouter.proxy.proxy_server.prisma_client",
                 None,
             ),
             patch(
-                "litellm.proxy.proxy_server.premium_user",
+                "embrouter.proxy.proxy_server.premium_user",
                 True,
             ),
         ):

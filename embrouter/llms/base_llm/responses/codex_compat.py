@@ -24,7 +24,7 @@ from typing import Final
 
 from typing_extensions import ReadOnly, TypedDict
 
-from litellm.types.llms.openai import ResponseInputParam
+from embrouter.types.llms.openai import ResponseInputParam
 
 AGENT_MESSAGE_INPUT_ITEM_TYPE: Final = "agent_message"
 CONTEXT_COMPACTION_INPUT_ITEM_TYPE: Final = "context_compaction"

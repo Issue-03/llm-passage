@@ -12,8 +12,8 @@ from functools import partial
 from types import MappingProxyType
 from typing import Any, Final, Protocol
 
-from litellm._logging import verbose_router_logger
-from litellm.types.router import SearchToolLiteLLMParams, SearchToolTypedDict
+from embrouter._logging import verbose_router_logger
+from embrouter.types.router import SearchToolEmbRouterParams, SearchToolTypedDict
 
 
 class _SearchToolsRouter(Protocol):
@@ -24,7 +24,7 @@ class _SearchToolsRouter(Protocol):
 
 class SearchAPIRouter:
     """
-    Static utility class for routing search API calls through the LiteLLM router.
+    Static utility class for routing search API calls through the EmbRouter router.
 
     Provides methods for search tool selection, load balancing, and fallback handling.
     """
@@ -32,22 +32,22 @@ class SearchAPIRouter:
     @staticmethod
     def _resolve_search_provider_credentials(
         *,
-        tool_litellm_params: SearchToolLiteLLMParams,
+        tool_embrouter_params: SearchToolEmbRouterParams,
     ) -> tuple[str | None, str | None]:
         """
         Resolve search provider credentials from tool configuration ONLY.
 
-        Credentials are stored only in search_tool.litellm_params, never in team/key metadata.
+        Credentials are stored only in search_tool.embrouter_params, never in team/key metadata.
         This ensures secrets are not exposed in team/key API responses.
 
         Args:
-            tool_litellm_params: Search tool litellm_params with credentials
+            tool_embrouter_params: Search tool embrouter_params with credentials
 
         Returns:
             Tuple of (api_key, api_base) from tool configuration
         """
-        resolved_api_key: Final[str | None] = tool_litellm_params.get("api_key")
-        resolved_api_base: Final[str | None] = tool_litellm_params.get("api_base")
+        resolved_api_key: Final[str | None] = tool_embrouter_params.get("api_key")
+        resolved_api_base: Final[str | None] = tool_embrouter_params.get("api_base")
 
         return resolved_api_key, resolved_api_base
 
@@ -72,7 +72,7 @@ class SearchAPIRouter:
                 router_search_tool: SearchToolTypedDict = {
                     "search_tool_id": tool.get("search_tool_id"),
                     "search_tool_name": tool.get("search_tool_name"),
-                    "litellm_params": tool.get("litellm_params", {}),
+                    "embrouter_params": tool.get("embrouter_params", {}),
                     "search_tool_info": tool.get("search_tool_info"),
                 }
                 router_search_tools.append(router_search_tool)
@@ -125,7 +125,7 @@ class SearchAPIRouter:
 
         Args:
             router_instance: The Router instance
-            original_function: The original litellm.asearch function
+            original_function: The original embrouter.asearch function
             **kwargs: Search parameters including search_tool_name, query, etc.
 
         Returns:
@@ -150,7 +150,7 @@ class SearchAPIRouter:
             router_instance._update_kwargs_before_fallbacks(
                 model=search_tool_name,
                 kwargs=kwargs,
-                metadata_variable_name="litellm_metadata",
+                metadata_variable_name="embrouter_metadata",
             )
 
             available_search_tool_names: Final = [tool.get("search_tool_name") for tool in router_instance.search_tools]
@@ -166,11 +166,11 @@ class SearchAPIRouter:
             return response
 
         except Exception as e:
-            from litellm.router_utils.handle_error import send_llm_exception_alert
+            from embrouter.router_utils.handle_error import send_llm_exception_alert
 
             asyncio.create_task(
                 send_llm_exception_alert(
-                    litellm_router_instance=router_instance,
+                    embrouter_router_instance=router_instance,
                     request_kwargs=kwargs,
                     error_traceback_str=traceback.format_exc(),
                     original_exception=e,
@@ -192,7 +192,7 @@ class SearchAPIRouter:
         Args:
             router_instance: The Router instance
             model: The search tool name (passed as model for compatibility)
-            original_generic_function: The original litellm.asearch function
+            original_generic_function: The original embrouter.asearch function
             **kwargs: Search parameters
 
         Returns:
@@ -211,20 +211,20 @@ class SearchAPIRouter:
             # For search tools, we use simple random choice since they don't have TPM/RPM constraints
             selected_tool: Final = random.choice(matching_tools)
 
-            # Extract search provider and other params from litellm_params
-            litellm_params: Final = selected_tool.get("litellm_params", {})
-            search_provider: Final = litellm_params.get("search_provider")
+            # Extract search provider and other params from embrouter_params
+            embrouter_params: Final = selected_tool.get("embrouter_params", {})
+            search_provider: Final = embrouter_params.get("search_provider")
             if not search_provider:
-                raise ValueError(f"search_provider not found in litellm_params for search tool '{search_tool_name}'")
+                raise ValueError(f"search_provider not found in embrouter_params for search tool '{search_tool_name}'")
 
             api_key, api_base = SearchAPIRouter._resolve_search_provider_credentials(
-                tool_litellm_params=litellm_params,
+                tool_embrouter_params=embrouter_params,
             )
             protected_params: Final = frozenset(("search_provider", "api_key", "api_base"))
             search_params: Final = MappingProxyType(
                 {
                     key: value
-                    for params in (litellm_params, kwargs)
+                    for params in (embrouter_params, kwargs)
                     for key, value in params.items()
                     if key not in protected_params and value is not None
                 }

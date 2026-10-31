@@ -19,33 +19,33 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, TypeAdapter
 
 if TYPE_CHECKING:
-    from prisma.models import LiteLLM_BudgetTable as PrismaBudgetRow
-    from prisma.models import LiteLLM_EndUserTable as PrismaEndUserRow
+    from prisma.models import EmbRouter_BudgetTable as PrismaBudgetRow
+    from prisma.models import EmbRouter_EndUserTable as PrismaEndUserRow
 
-    from litellm.proxy.utils import PrismaClient
+    from embrouter.proxy.utils import PrismaClient
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.litellm_core_utils.duration_parser import duration_in_seconds
-from litellm.proxy._types import *
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.common_utils.user_api_key_cache import (
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.embrouter_core_utils.duration_parser import duration_in_seconds
+from embrouter.proxy._types import *
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.common_utils.user_api_key_cache import (
     end_user_cache_key,
     end_user_restricted_registry_cache_key,
 )
-from litellm.proxy.management_endpoints.common_daily_activity import get_daily_activity
-from litellm.proxy.management_endpoints.common_utils import validate_budget_duration
-from litellm.proxy.management_helpers.object_permission_utils import (
+from embrouter.proxy.management_endpoints.common_daily_activity import get_daily_activity
+from embrouter.proxy.management_endpoints.common_utils import validate_budget_duration
+from embrouter.proxy.management_helpers.object_permission_utils import (
     _set_object_permission,
     handle_update_object_permission_common,
 )
-from litellm.proxy.utils import handle_exception_on_proxy
-from litellm.repositories.budget_repository import BudgetRepository
-from litellm.repositories.table_repositories import EndUserRepository
-from litellm.types.proxy.management_endpoints.common_daily_activity import (
+from embrouter.proxy.utils import handle_exception_on_proxy
+from embrouter.repositories.budget_repository import BudgetRepository
+from embrouter.repositories.table_repositories import EndUserRepository
+from embrouter.types.proxy.management_endpoints.common_daily_activity import (
     SpendAnalyticsPaginatedResponse,
 )
-from litellm.types.proxy.management_endpoints.customer_endpoints import (
+from embrouter.types.proxy.management_endpoints.customer_endpoints import (
     BlockUsersResponse,
     CustomerResponse,
     DeleteCustomersResponse,
@@ -109,10 +109,10 @@ async def _evict_end_user_cache_keys(cache_keys: Sequence[str]) -> None:
     customer keeps being served unrestricted until the TTL expires: auth reads end users
     cache-first, and the cached restricted-id registry decides whether the row is read at all.
     """
-    from litellm.proxy.common_utils.auth_cache_invalidation_pubsub import (
+    from embrouter.proxy.common_utils.auth_cache_invalidation_pubsub import (
         evict_and_broadcast,
     )
-    from litellm.proxy.proxy_server import user_api_key_cache
+    from embrouter.proxy.proxy_server import user_api_key_cache
 
     await evict_and_broadcast(cache_keys=cache_keys, user_api_key_cache=user_api_key_cache)
 
@@ -161,7 +161,7 @@ async def block_user(data: BlockUsers):
         }'
         ```
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     try:
         records: Final = []
@@ -227,24 +227,24 @@ async def unblock_user(data: BlockUsers):
         )
 
     if (
-        not any(isinstance(x, _ENTERPRISE_BlockedUserList) for x in litellm.callbacks)
-        or litellm.blocked_user_list is None
+        not any(isinstance(x, _ENTERPRISE_BlockedUserList) for x in embrouter.callbacks)
+        or embrouter.blocked_user_list is None
     ):
         raise HTTPException(
             status_code=400,
             detail={"error": "Blocked user check was never set. This call has no effect."},
         )
 
-    if isinstance(litellm.blocked_user_list, list):
+    if isinstance(embrouter.blocked_user_list, list):
         for id in data.user_ids:
-            litellm.blocked_user_list.remove(id)
+            embrouter.blocked_user_list.remove(id)
     else:
         raise HTTPException(
             status_code=500,
             detail={"error": "`blocked_user_list` must be set as a list. Filepaths can't be updated."},
         )
 
-    return {"blocked_users": litellm.blocked_user_list}
+    return {"blocked_users": embrouter.blocked_user_list}
 
 
 def new_budget_request(data: NewCustomerRequest) -> BudgetNewRequest | None:
@@ -275,7 +275,7 @@ def new_budget_request(data: NewCustomerRequest) -> BudgetNewRequest | None:
 
 async def _handle_customer_object_permission_update(
     non_default_values: dict[str, object],
-    end_user_table_data_typed: LiteLLM_EndUserTable | None,
+    end_user_table_data_typed: EmbRouter_EndUserTable | None,
     update_end_user_table_data: dict[str, object],
     prisma_client: "PrismaClient",
 ) -> None:
@@ -341,7 +341,7 @@ async def new_end_user(
     - soft_budget: Optional[float] - [Not Implemented Yet] Get alerts when customer crosses given budget, doesn't block requests.
     - spend: Optional[float] - Specify initial spend for a given customer.
     - budget_reset_at: Optional[str] - Specify the date and time when the budget should be reset.
-    - object_permission: Optional[LiteLLM_ObjectPermissionBase] - Customer-specific object permissions to control access to resources.
+    - object_permission: Optional[EmbRouter_ObjectPermissionBase] - Customer-specific object permissions to control access to resources.
         Supported fields:
         * mcp_servers: List[str] - List of allowed MCP server IDs
         * mcp_access_groups: List[str] - List of MCP access group names
@@ -397,8 +397,8 @@ async def new_end_user(
     - end-user object
     - currently allowed models 
     """
-    from litellm.proxy.proxy_server import (
-        litellm_proxy_admin_name,
+    from embrouter.proxy.proxy_server import (
+        embrouter_proxy_admin_name,
         llm_router,
         prisma_client,
     )
@@ -433,8 +433,8 @@ async def new_end_user(
                 budget_record: Final = await _typed_table(BudgetRepository(prisma_client)).create(
                     data={
                         **_new_budget.model_dump(exclude_unset=True),
-                        "created_by": user_api_key_dict.user_id or litellm_proxy_admin_name,
-                        "updated_by": user_api_key_dict.user_id or litellm_proxy_admin_name,
+                        "created_by": user_api_key_dict.user_id or embrouter_proxy_admin_name,
+                        "updated_by": user_api_key_dict.user_id or embrouter_proxy_admin_name,
                     }
                 )
             except Exception as e:
@@ -470,7 +470,7 @@ async def new_end_user(
         ## WRITE TO DB ##
         end_user_record: Final = await _typed_table(EndUserRepository(prisma_client)).create(
             data=new_end_user_obj,
-            include={"litellm_budget_table": True, "object_permission": True},
+            include={"embrouter_budget_table": True, "object_permission": True},
         )
 
         await _evict_end_user_cache_keys(_end_user_cache_keys((data.user_id,)))
@@ -478,7 +478,7 @@ async def new_end_user(
         return _to_customer_response(end_user_record)
     except Exception as e:
         verbose_proxy_logger.exception(
-            "litellm.proxy.management_endpoints.customer_endpoints.new_end_user(): Exception occured - %s", e
+            "embrouter.proxy.management_endpoints.customer_endpoints.new_end_user(): Exception occured - %s", e
         )
         if "Unique constraint failed on the fields: (`user_id`)" in str(e):
             raise ProxyException(
@@ -513,12 +513,12 @@ async def end_user_info(
 
     Example curl:
     ```
-    curl -X GET 'http://localhost:4000/customer/info?end_user_id=test-litellm-user-4' \
+    curl -X GET 'http://localhost:4000/customer/info?end_user_id=test-embrouter-user-4' \
         -H 'Authorization: Bearer sk-1234'
     ```
     """
     try:
-        from litellm.proxy.proxy_server import prisma_client
+        from embrouter.proxy.proxy_server import prisma_client
 
         if prisma_client is None:
             raise HTTPException(
@@ -528,7 +528,7 @@ async def end_user_info(
 
         user_info: Final = await _typed_table(EndUserRepository(prisma_client)).find_first(
             where={"user_id": end_user_id},
-            include={"litellm_budget_table": True, "object_permission": True},
+            include={"embrouter_budget_table": True, "object_permission": True},
         )
 
         if user_info is None:
@@ -543,7 +543,7 @@ async def end_user_info(
 
     except Exception as e:
         verbose_proxy_logger.exception(
-            "litellm.proxy.management_endpoints.customer_endpoints.end_user_info(): Exception occured - %s", e
+            "embrouter.proxy.management_endpoints.customer_endpoints.end_user_info(): Exception occured - %s", e
         )
         raise handle_exception_on_proxy(e)
 
@@ -579,7 +579,7 @@ async def update_end_user(
     - default_model: Optional[str] = (
         None  # if no equivalent model in allowed region - default all requests to this model
     )
-    - object_permission: Optional[LiteLLM_ObjectPermissionBase] - Customer-specific object permissions to control access to resources.
+    - object_permission: Optional[EmbRouter_ObjectPermissionBase] - Customer-specific object permissions to control access to resources.
         Supported fields:
         * mcp_servers: List[str] - List of allowed MCP server IDs
         * mcp_access_groups: List[str] - List of MCP access group names
@@ -596,7 +596,7 @@ async def update_end_user(
     --header 'Authorization: Bearer sk-1234' \
     --header 'Content-Type: application/json' \
     --data '{
-        "user_id": "test-litellm-user-4",
+        "user_id": "test-embrouter-user-4",
         "budget_id": "paid_tier"
     }'
 
@@ -616,7 +616,7 @@ async def update_end_user(
     ```
     """
 
-    from litellm.proxy.proxy_server import litellm_proxy_admin_name, prisma_client
+    from embrouter.proxy.proxy_server import embrouter_proxy_admin_name, prisma_client
 
     try:
         data_json: Final = _STR_OBJECT_DICT.validate_python(data.json())
@@ -632,7 +632,7 @@ async def update_end_user(
 
         ## Get end user table data ##
         end_user_table_data: Final = await _typed_table(EndUserRepository(prisma_client)).find_first(
-            where={"user_id": data.user_id}, include={"litellm_budget_table": True}
+            where={"user_id": data.user_id}, include={"embrouter_budget_table": True}
         )
 
         if end_user_table_data is None:
@@ -643,10 +643,10 @@ async def update_end_user(
                 param="user_id",
             )
 
-        end_user_table_data_typed: Final = LiteLLM_EndUserTable.model_validate(end_user_table_data.model_dump())
+        end_user_table_data_typed: Final = EmbRouter_EndUserTable.model_validate(end_user_table_data.model_dump())
 
         ## Get budget table data ##
-        end_user_budget_table: Final = end_user_table_data_typed.litellm_budget_table
+        end_user_budget_table: Final = end_user_table_data_typed.embrouter_budget_table
 
         ## Get all params for budget table ##
         budget_table_data: Final = dict[str, object]()
@@ -655,10 +655,10 @@ async def update_end_user(
             # budget_id is for linking to existing budget, not for creating new budget
             if k == "budget_id":
                 update_end_user_table_data[k] = v
-            elif k in LiteLLM_BudgetTable.model_fields:
+            elif k in EmbRouter_BudgetTable.model_fields:
                 budget_table_data[k] = v
 
-            elif k in LiteLLM_EndUserTable.model_fields:
+            elif k in EmbRouter_EndUserTable.model_fields:
                 update_end_user_table_data[k] = v
 
         ## Handle object permission updates (MCP servers, vector stores, etc.)
@@ -676,8 +676,8 @@ async def update_end_user(
                 budget_table_data_record = await _typed_table(BudgetRepository(prisma_client)).create(
                     data={
                         **budget_table_data,
-                        "created_by": user_api_key_dict.user_id or litellm_proxy_admin_name,
-                        "updated_by": user_api_key_dict.user_id or litellm_proxy_admin_name,
+                        "created_by": user_api_key_dict.user_id or embrouter_proxy_admin_name,
+                        "updated_by": user_api_key_dict.user_id or embrouter_proxy_admin_name,
                     },
                     include={"end_users": True},
                 )
@@ -708,7 +708,7 @@ async def update_end_user(
             response: Final = await _typed_table(EndUserRepository(prisma_client)).update(
                 where={"user_id": data.user_id},
                 data=update_end_user_table_data,
-                include={"litellm_budget_table": True, "object_permission": True},
+                include={"embrouter_budget_table": True, "object_permission": True},
             )
             if response is None:
                 raise ValueError(f"Failed updating customer data. User ID does not exist passed user_id={data.user_id}")
@@ -723,7 +723,7 @@ async def update_end_user(
         # update based on remaining passed in values
 
     except Exception as e:
-        verbose_proxy_logger.exception("litellm.proxy.proxy_server.update_end_user(): Exception occured - %s", e)
+        verbose_proxy_logger.exception("embrouter.proxy.proxy_server.update_end_user(): Exception occured - %s", e)
         raise handle_exception_on_proxy(e)
 
 
@@ -761,7 +761,7 @@ async def delete_end_user(
     See below for all params 
     ```
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     try:
         if prisma_client is None:
@@ -801,7 +801,7 @@ async def delete_end_user(
 
         # update based on remaining passed in values
     except Exception as e:
-        verbose_proxy_logger.error("litellm.proxy.proxy_server.delete_end_user(): Exception occured - %s", e)
+        verbose_proxy_logger.error("embrouter.proxy.proxy_server.delete_end_user(): Exception occured - %s", e)
         raise handle_exception_on_proxy(e)
 
 
@@ -832,11 +832,11 @@ async def list_end_user(
 
     """
     try:
-        from litellm.proxy.proxy_server import prisma_client
+        from embrouter.proxy.proxy_server import prisma_client
 
         if (
-            user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN
-            and user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY
+            user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN
+            and user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY
         ):
             raise HTTPException(
                 status_code=401,
@@ -850,14 +850,14 @@ async def list_end_user(
             )
 
         response: Final = await _typed_table(EndUserRepository(prisma_client)).find_many(
-            include={"litellm_budget_table": True, "object_permission": True}
+            include={"embrouter_budget_table": True, "object_permission": True}
         )
 
         return [_to_customer_response(item) for item in response]
 
     except Exception as e:
         verbose_proxy_logger.exception(
-            "litellm.proxy.management_endpoints.customer_endpoints.list_end_user(): Exception occured - %s", e
+            "embrouter.proxy.management_endpoints.customer_endpoints.list_end_user(): Exception occured - %s", e
         )
         raise handle_exception_on_proxy(e)
 
@@ -889,15 +889,15 @@ async def get_customer_daily_activity(
     Get daily activity for specific organizations or all accessible organizations.
     """
     if (
-        user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN
-        and user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY
+        user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN
+        and user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY
     ):
         raise HTTPException(
             status_code=401,
             detail={"error": f"Admin-only endpoint. Your user role={user_api_key_dict.user_role}"},
         )
 
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(
@@ -920,7 +920,7 @@ async def get_customer_daily_activity(
     # Query daily activity for organizations
     return await get_daily_activity(
         prisma_client=prisma_client,
-        table_name="litellm_dailyenduserspend",
+        table_name="embrouter_dailyenduserspend",
         entity_id_field="end_user_id",
         entity_id=end_user_ids_list,
         entity_metadata_field={e.user_id: {"alias": e.alias} for e in end_user_aliases},

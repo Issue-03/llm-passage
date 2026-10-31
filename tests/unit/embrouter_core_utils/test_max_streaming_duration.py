@@ -1,5 +1,5 @@
 """
-Tests for LITELLM_MAX_STREAMING_DURATION_SECONDS — the global cap on streaming response wall-clock time.
+Tests for EMBROUTER_MAX_STREAMING_DURATION_SECONDS — the global cap on streaming response wall-clock time.
 
 Covers:
   - CustomStreamWrapper (chat/completions) sync + async
@@ -13,8 +13,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 
-import litellm
-from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
+import embrouter
+from embrouter.embrouter_core_utils.streaming_handler import CustomStreamWrapper
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -40,29 +40,29 @@ class TestCustomStreamWrapperMaxDuration:
     def test_should_not_raise_when_duration_is_none(self):
         """No limit configured → never raises."""
         wrapper = _make_custom_stream_wrapper()
-        with patch("litellm.constants.LITELLM_MAX_STREAMING_DURATION_SECONDS", None):
+        with patch("embrouter.constants.EMBROUTER_MAX_STREAMING_DURATION_SECONDS", None):
             wrapper._check_max_streaming_duration()  # should not raise
 
     def test_should_not_raise_when_under_limit(self):
         """Stream is under the limit → no error."""
         wrapper = _make_custom_stream_wrapper()
-        with patch("litellm.constants.LITELLM_MAX_STREAMING_DURATION_SECONDS", 60.0):
+        with patch("embrouter.constants.EMBROUTER_MAX_STREAMING_DURATION_SECONDS", 60.0):
             wrapper._check_max_streaming_duration()  # should not raise
 
     def test_should_raise_timeout_when_exceeded(self):
-        """Stream exceeded the limit → litellm.Timeout."""
+        """Stream exceeded the limit → embrouter.Timeout."""
         wrapper = _make_custom_stream_wrapper()
         wrapper._stream_created_time = time.time() - 20  # simulate 20s elapsed
-        with patch("litellm.constants.LITELLM_MAX_STREAMING_DURATION_SECONDS", 10.0):
-            with pytest.raises(litellm.Timeout, match="max streaming duration"):
+        with patch("embrouter.constants.EMBROUTER_MAX_STREAMING_DURATION_SECONDS", 10.0):
+            with pytest.raises(embrouter.Timeout, match="max streaming duration"):
                 wrapper._check_max_streaming_duration()
 
     def test_should_raise_on_sync_next_when_exceeded(self):
         """__next__ should check the limit before iterating."""
         wrapper = _make_custom_stream_wrapper()
         wrapper._stream_created_time = time.time() - 20
-        with patch("litellm.constants.LITELLM_MAX_STREAMING_DURATION_SECONDS", 10.0):
-            with pytest.raises(litellm.Timeout):
+        with patch("embrouter.constants.EMBROUTER_MAX_STREAMING_DURATION_SECONDS", 10.0):
+            with pytest.raises(embrouter.Timeout):
                 wrapper.__next__()
 
     @pytest.mark.asyncio
@@ -74,8 +74,8 @@ class TestCustomStreamWrapperMaxDuration:
         wrapper = _make_custom_stream_wrapper()
         wrapper.logging_obj.dispatch_failure_handlers = AsyncMock()
         wrapper._stream_created_time = time.time() - 20
-        with patch("litellm.constants.LITELLM_MAX_STREAMING_DURATION_SECONDS", 10.0):
-            with pytest.raises(litellm.Timeout):
+        with patch("embrouter.constants.EMBROUTER_MAX_STREAMING_DURATION_SECONDS", 10.0):
+            with pytest.raises(embrouter.Timeout):
                 await wrapper.__anext__()
 
 
@@ -87,14 +87,14 @@ class TestCustomStreamWrapperMaxDuration:
 class TestResponsesStreamingIteratorMaxDuration:
     def _make_base_iterator(self):
         """Build a minimal BaseResponsesAPIStreamingIterator for testing."""
-        from litellm.responses.streaming_iterator import (
+        from embrouter.responses.streaming_iterator import (
             BaseResponsesAPIStreamingIterator,
         )
 
         mock_response = MagicMock()
         mock_response.headers = {}
         mock_logging_obj = MagicMock()
-        mock_logging_obj.model_call_details = {"litellm_params": {}}
+        mock_logging_obj.model_call_details = {"embrouter_params": {}}
         mock_logging_obj.start_time = time.time()
 
         mock_provider_config = MagicMock()
@@ -109,7 +109,7 @@ class TestResponsesStreamingIteratorMaxDuration:
     def test_should_not_raise_when_duration_is_none(self):
         it = self._make_base_iterator()
         with patch.object(
-            import_module("litellm.responses.streaming_iterator"), "LITELLM_MAX_STREAMING_DURATION_SECONDS",
+            import_module("embrouter.responses.streaming_iterator"), "EMBROUTER_MAX_STREAMING_DURATION_SECONDS",
             None,
         ):
             it._check_max_streaming_duration()
@@ -117,7 +117,7 @@ class TestResponsesStreamingIteratorMaxDuration:
     def test_should_not_raise_when_under_limit(self):
         it = self._make_base_iterator()
         with patch.object(
-            import_module("litellm.responses.streaming_iterator"), "LITELLM_MAX_STREAMING_DURATION_SECONDS",
+            import_module("embrouter.responses.streaming_iterator"), "EMBROUTER_MAX_STREAMING_DURATION_SECONDS",
             60.0,
         ):
             it._check_max_streaming_duration()
@@ -126,8 +126,8 @@ class TestResponsesStreamingIteratorMaxDuration:
         it = self._make_base_iterator()
         it._stream_created_time = time.time() - 20
         with patch.object(
-            import_module("litellm.responses.streaming_iterator"), "LITELLM_MAX_STREAMING_DURATION_SECONDS",
+            import_module("embrouter.responses.streaming_iterator"), "EMBROUTER_MAX_STREAMING_DURATION_SECONDS",
             10.0,
         ):
-            with pytest.raises(litellm.Timeout, match="max streaming duration"):
+            with pytest.raises(embrouter.Timeout, match="max streaming duration"):
                 it._check_max_streaming_duration()

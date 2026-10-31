@@ -8,13 +8,13 @@ from typing import Final
 
 import httpx
 
-import litellm
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.custom_httpx.http_handler import (
+import embrouter
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.custom_httpx.http_handler import (
     AsyncHTTPHandler,
     get_async_httpx_client,
 )
-from litellm.utils import CustomStreamWrapper, ModelResponse
+from embrouter.utils import CustomStreamWrapper, ModelResponse
 
 from ..common_utils import PredibaseError
 
@@ -60,28 +60,28 @@ class PredibaseChatCompletion:
         print_verbose: Callable,
         encoding,
         api_key: str,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         tenant_id: str,
         timeout: float | httpx.Timeout,
         acompletion=None,
         logger_fn=None,
         headers: dict = {},
     ) -> ModelResponse | CustomStreamWrapper:
-        predibase_config: Final = litellm.PredibaseConfig()
+        predibase_config: Final = embrouter.PredibaseConfig()
         headers = predibase_config.validate_environment(
             api_key=api_key,
             headers=headers,
             messages=messages,
             optional_params=optional_params,
             model=model,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
         request_optional_params: Final = {**optional_params}
         stream: Final = request_optional_params.get("stream", False)
-        request_litellm_params: Final = {
-            **litellm_params,
+        request_embrouter_params: Final = {
+            **embrouter_params,
             "custom_prompt_dict": custom_prompt_dict,
             "predibase_tenant_id": tenant_id,
         }
@@ -90,14 +90,14 @@ class PredibaseChatCompletion:
             api_key=api_key,
             model=model,
             optional_params=request_optional_params,
-            litellm_params=request_litellm_params,
+            embrouter_params=request_embrouter_params,
             stream=stream,
         )
         data: Final = predibase_config.transform_request(
             model=model,
             messages=messages,
             optional_params=request_optional_params,
-            litellm_params=request_litellm_params,
+            embrouter_params=request_embrouter_params,
             headers=headers,
         )
 
@@ -127,7 +127,7 @@ class PredibaseChatCompletion:
                     api_key=api_key,
                     logging_obj=logging_obj,
                     optional_params=request_optional_params,
-                    litellm_params=request_litellm_params,
+                    embrouter_params=request_embrouter_params,
                     logger_fn=logger_fn,
                     headers=headers,
                     timeout=timeout,
@@ -146,7 +146,7 @@ class PredibaseChatCompletion:
                     logging_obj=logging_obj,
                     optional_params=request_optional_params,
                     stream=False,
-                    litellm_params=request_litellm_params,
+                    embrouter_params=request_embrouter_params,
                     logger_fn=logger_fn,
                     headers=headers,
                     timeout=timeout,
@@ -155,7 +155,7 @@ class PredibaseChatCompletion:
 
         ### SYNC STREAMING
         if stream is True:
-            response = litellm.module_level_client.post(
+            response = embrouter.module_level_client.post(
                 completion_url,
                 headers=headers,
                 data=json.dumps(data),
@@ -171,7 +171,7 @@ class PredibaseChatCompletion:
             return _response
         ### SYNC COMPLETION
         else:
-            response = litellm.module_level_client.post(
+            response = embrouter.module_level_client.post(
                 url=completion_url,
                 headers=headers,
                 data=json.dumps(data),
@@ -186,7 +186,7 @@ class PredibaseChatCompletion:
             api_key=api_key,
             request_data=data,
             messages=messages,
-            litellm_params=request_litellm_params,
+            embrouter_params=request_embrouter_params,
             encoding=encoding,
         )
 
@@ -204,15 +204,15 @@ class PredibaseChatCompletion:
         data: dict,
         optional_params: dict,
         timeout: float | httpx.Timeout,
-        litellm_params=None,
+        embrouter_params=None,
         logger_fn=None,
         headers={},
         predibase_config=None,
     ) -> ModelResponse:
         if predibase_config is None:
-            predibase_config = litellm.PredibaseConfig()
+            predibase_config = embrouter.PredibaseConfig()
         async_handler: Final = get_async_httpx_client(
-            llm_provider=litellm.LlmProviders.PREDIBASE,
+            llm_provider=embrouter.LlmProviders.PREDIBASE,
             params={"timeout": timeout},
         )
         try:
@@ -223,7 +223,7 @@ class PredibaseChatCompletion:
                 message=f"HTTPStatusError - received status_code={e.response.status_code}, error_message={e.response.text}",
             )
         except Exception as e:
-            for exception in litellm.LITELLM_EXCEPTION_TYPES:
+            for exception in embrouter.EMBROUTER_EXCEPTION_TYPES:
                 if isinstance(e, exception):
                     raise e
             raise PredibaseError(
@@ -238,7 +238,7 @@ class PredibaseChatCompletion:
             request_data=data,
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params or {},
+            embrouter_params=embrouter_params or {},
             encoding=encoding,
         )
 
@@ -251,11 +251,11 @@ class PredibaseChatCompletion:
         print_verbose: Callable,
         encoding,
         api_key,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         data: dict,
         timeout: float | httpx.Timeout,
         optional_params=None,
-        litellm_params=None,
+        embrouter_params=None,
         logger_fn=None,
         headers={},
     ) -> CustomStreamWrapper:

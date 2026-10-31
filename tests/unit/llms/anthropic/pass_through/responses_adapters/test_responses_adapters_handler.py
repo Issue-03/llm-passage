@@ -9,9 +9,9 @@ import respx
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../../..")))
 
-import litellm
-from litellm.llms.anthropic.pass_through.responses_adapters.handler import (
-    LiteLLMMessagesToResponsesAPIHandler,
+import embrouter
+from embrouter.llms.anthropic.pass_through.responses_adapters.handler import (
+    EmbRouterMessagesToResponsesAPIHandler,
     _build_responses_kwargs,
 )
 
@@ -130,8 +130,8 @@ async def test_streaming_message_start_reports_the_provider_local_model(requeste
         return
         yield
 
-    with patch.object(litellm, "aresponses", AsyncMock(return_value=empty_stream())):
-        sse = await LiteLLMMessagesToResponsesAPIHandler.async_anthropic_messages_handler(
+    with patch.object(embrouter, "aresponses", AsyncMock(return_value=empty_stream())):
+        sse = await EmbRouterMessagesToResponsesAPIHandler.async_anthropic_messages_handler(
             max_tokens=1024,
             messages=MESSAGES,
             model=requested_model,
@@ -152,11 +152,11 @@ async def test_streaming_hands_the_logging_object_the_message_id_the_caller_is_s
     The bridge mints the ``msg_`` id itself, and it is the only request id a streaming
     /v1/messages caller ever sees, so the spend row has to be keyed on that same value.
     """
-    from litellm.litellm_core_utils.litellm_logging import Logging
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging
 
     monkeypatch.setenv("OPENAI_API_KEY", "sk-lit6825-test")
     monkeypatch.setenv("DISABLE_AIOHTTP_TRANSPORT", "True")
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    embrouter.in_memory_llm_clients_cache.flush_cache()
     respx_mock.post("https://api.openai.com/v1/responses").respond(
         status_code=200,
         headers={"Content-Type": "text/event-stream"},
@@ -169,17 +169,17 @@ async def test_streaming_hands_the_logging_object_the_message_id_the_caller_is_s
         stream=True,
         call_type="anthropic_messages",
         start_time=datetime.datetime.now(datetime.timezone.utc),
-        litellm_call_id="6825beef-0000-4000-8000-000000000003",
+        embrouter_call_id="6825beef-0000-4000-8000-000000000003",
         function_id="1234",
     )
 
-    sse = await LiteLLMMessagesToResponsesAPIHandler.async_anthropic_messages_handler(
+    sse = await EmbRouterMessagesToResponsesAPIHandler.async_anthropic_messages_handler(
         max_tokens=1024,
         messages=MESSAGES,
         model="openai/gpt-5.6-luna",
         stream=True,
         custom_llm_provider="openai",
-        litellm_logging_obj=logging_obj,
+        embrouter_logging_obj=logging_obj,
     )
     events = [json.loads(chunk.decode().split("data: ", 1)[1]) async for chunk in sse]
 

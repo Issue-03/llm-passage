@@ -31,7 +31,7 @@ const mockProject: ProjectResponse = {
   created_by: "user-1",
   updated_at: "2024-01-02T00:00:00Z",
   updated_by: "user-1",
-  litellm_budget_table: null,
+  embrouter_budget_table: null,
 };
 
 describe("EditProjectModal", () => {

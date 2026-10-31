@@ -6,7 +6,7 @@ export interface ApiBaseInputs {
    */
   explicitBase?: string | null;
   /**
-   * The proxy's mount path when it sits under a sub-path (e.g. "/litellm"
+   * The proxy's mount path when it sits under a sub-path (e.g. "/embrouter"
    * behind a reverse proxy). "/" or empty means mounted at the root.
    */
   serverRootPath?: string | null;

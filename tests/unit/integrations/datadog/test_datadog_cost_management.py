@@ -4,10 +4,10 @@ from unittest.mock import AsyncMock
 import pytest
 from httpx import Request, Response
 
-from litellm.integrations.datadog.datadog_cost_management import (
+from embrouter.integrations.datadog.datadog_cost_management import (
     DatadogCostManagementLogger,
 )
-from litellm.types.utils import StandardLoggingPayload
+from embrouter.types.utils import StandardLoggingPayload
 
 
 @pytest.fixture

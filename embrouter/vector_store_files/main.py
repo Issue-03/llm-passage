@@ -1,4 +1,4 @@
-"""LiteLLM SDK functions for managing vector store files."""
+"""EmbRouter SDK functions for managing vector store files."""
 
 import asyncio
 import contextvars
@@ -8,13 +8,13 @@ from typing import Any, Final
 
 import httpx
 
-import litellm
-from litellm.constants import request_timeout
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import LlmProviders
-from litellm.types.vector_store_files import (
+import embrouter
+from embrouter.constants import request_timeout
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import LlmProviders
+from embrouter.types.vector_store_files import (
     VectorStoreFileContentResponse,
     VectorStoreFileCreateRequest,
     VectorStoreFileDeleteResponse,
@@ -23,8 +23,8 @@ from litellm.types.vector_store_files import (
     VectorStoreFileObject,
     VectorStoreFileUpdateRequest,
 )
-from litellm.utils import ProviderConfigManager, client
-from litellm.vector_store_files.utils import VectorStoreFileRequestUtils
+from embrouter.utils import ProviderConfigManager, client
+from embrouter.vector_store_files.utils import VectorStoreFileRequestUtils
 
 base_llm_http_handler = BaseLLMHTTPHandler()
 
@@ -41,10 +41,10 @@ def _prepare_registry_credentials(
     vector_store_id: str,
     kwargs: dict[str, object],
 ) -> None:
-    if litellm.vector_store_registry is None:
+    if embrouter.vector_store_registry is None:
         return
     try:
-        registry_credentials: Final = litellm.vector_store_registry.get_credentials_for_vector_store(vector_store_id)
+        registry_credentials: Final = embrouter.vector_store_registry.get_credentials_for_vector_store(vector_store_id)
         if registry_credentials:
             kwargs.update(registry_credentials)
     except Exception:
@@ -94,7 +94,7 @@ async def acreate(
             response = init_response
         return response
     except Exception as e:  # noqa: BLE001
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -119,15 +119,15 @@ def create(
 ) -> VectorStoreFileObject | Coroutine[object, object, VectorStoreFileObject]:
     local_vars: Final = locals()
     try:
-        litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.get("litellm_logging_obj")
-        litellm_call_id: Final[str | None] = kwargs.get("litellm_call_id")
+        embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.get("embrouter_logging_obj")
+        embrouter_call_id: Final[str | None] = kwargs.get("embrouter_call_id")
         _is_async: Final = kwargs.pop("acreate", False) is True
 
         custom_llm_provider = _ensure_provider(custom_llm_provider)
 
         _prepare_registry_credentials(vector_store_id=vector_store_id, kwargs=kwargs)
 
-        litellm_params: Final = GenericLiteLLMParams(vector_store_id=vector_store_id, **kwargs)
+        embrouter_params: Final = GenericEmbRouterParams(vector_store_id=vector_store_id, **kwargs)
 
         provider_config: Final = ProviderConfigManager.get_provider_vector_store_files_config(
             provider=LlmProviders(custom_llm_provider)
@@ -139,17 +139,17 @@ def create(
         create_request: VectorStoreFileCreateRequest = VectorStoreFileRequestUtils.get_create_request_params(local_vars)
         create_request["file_id"] = file_id
 
-        litellm_logging_obj.update_from_kwargs(
+        embrouter_logging_obj.update_from_kwargs(
             kwargs=kwargs,
             model=None,
             optional_params={
                 "vector_store_id": vector_store_id,
                 **create_request,
             },
-            litellm_params={
+            embrouter_params={
                 "vector_store_id": vector_store_id,
-                "litellm_call_id": litellm_call_id,
-                **litellm_params.model_dump(exclude_none=True),
+                "embrouter_call_id": embrouter_call_id,
+                **embrouter_params.model_dump(exclude_none=True),
             },
             custom_llm_provider=custom_llm_provider,
         )
@@ -159,8 +159,8 @@ def create(
             create_request=create_request,
             vector_store_files_provider_config=provider_config,
             custom_llm_provider=custom_llm_provider,
-            litellm_params=litellm_params,
-            logging_obj=litellm_logging_obj,
+            embrouter_params=embrouter_params,
+            logging_obj=embrouter_logging_obj,
             extra_headers=extra_headers,
             extra_body=extra_body,
             timeout=timeout or request_timeout,
@@ -169,7 +169,7 @@ def create(
         )
         return response
     except Exception as e:  # noqa: BLE001
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -222,7 +222,7 @@ async def alist(
             response = init_response
         return response
     except Exception as e:  # noqa: BLE001
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -248,15 +248,15 @@ def list(
 ) -> VectorStoreFileListResponse | Coroutine[object, object, VectorStoreFileListResponse]:
     local_vars: Final = locals()
     try:
-        litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.get("litellm_logging_obj")
-        litellm_call_id: Final[str | None] = kwargs.get("litellm_call_id")
+        embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.get("embrouter_logging_obj")
+        embrouter_call_id: Final[str | None] = kwargs.get("embrouter_call_id")
         _is_async: Final = kwargs.pop("alist", False) is True
 
         custom_llm_provider = _ensure_provider(custom_llm_provider)
 
         _prepare_registry_credentials(vector_store_id=vector_store_id, kwargs=kwargs)
 
-        litellm_params: Final = GenericLiteLLMParams(vector_store_id=vector_store_id, **kwargs)
+        embrouter_params: Final = GenericEmbRouterParams(vector_store_id=vector_store_id, **kwargs)
 
         provider_config: Final = ProviderConfigManager.get_provider_vector_store_files_config(
             provider=LlmProviders(custom_llm_provider)
@@ -267,14 +267,14 @@ def list(
         local_vars.update(kwargs)
         list_query: VectorStoreFileListQueryParams = VectorStoreFileRequestUtils.get_list_query_params(local_vars)
 
-        litellm_logging_obj.update_from_kwargs(
+        embrouter_logging_obj.update_from_kwargs(
             kwargs=kwargs,
             model=None,
             optional_params={"vector_store_id": vector_store_id, **list_query},
-            litellm_params={
+            embrouter_params={
                 "vector_store_id": vector_store_id,
-                "litellm_call_id": litellm_call_id,
-                **litellm_params.model_dump(exclude_none=True),
+                "embrouter_call_id": embrouter_call_id,
+                **embrouter_params.model_dump(exclude_none=True),
             },
             custom_llm_provider=custom_llm_provider,
         )
@@ -284,8 +284,8 @@ def list(
             query_params=list_query,
             vector_store_files_provider_config=provider_config,
             custom_llm_provider=custom_llm_provider,
-            litellm_params=litellm_params,
-            logging_obj=litellm_logging_obj,
+            embrouter_params=embrouter_params,
+            logging_obj=embrouter_logging_obj,
             extra_headers=extra_headers,
             extra_query=extra_query,
             timeout=timeout or request_timeout,
@@ -294,7 +294,7 @@ def list(
         )
         return response
     except Exception as e:  # noqa: BLE001
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -337,7 +337,7 @@ async def aretrieve(
             response = init_response
         return response
     except Exception as e:  # noqa: BLE001
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -358,15 +358,15 @@ def retrieve(
 ) -> VectorStoreFileObject | Coroutine[object, object, VectorStoreFileObject]:
     local_vars: Final = locals()
     try:
-        litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.get("litellm_logging_obj")
-        litellm_call_id: Final[str | None] = kwargs.get("litellm_call_id")
+        embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.get("embrouter_logging_obj")
+        embrouter_call_id: Final[str | None] = kwargs.get("embrouter_call_id")
         _is_async: Final = kwargs.pop("aretrieve", False) is True
 
         custom_llm_provider = _ensure_provider(custom_llm_provider)
 
         _prepare_registry_credentials(vector_store_id=vector_store_id, kwargs=kwargs)
 
-        litellm_params: Final = GenericLiteLLMParams(vector_store_id=vector_store_id, **kwargs)
+        embrouter_params: Final = GenericEmbRouterParams(vector_store_id=vector_store_id, **kwargs)
 
         provider_config: Final = ProviderConfigManager.get_provider_vector_store_files_config(
             provider=LlmProviders(custom_llm_provider)
@@ -374,17 +374,17 @@ def retrieve(
         if provider_config is None:
             raise ValueError(f"Vector store file retrieve is not supported for {custom_llm_provider}")
 
-        litellm_logging_obj.update_from_kwargs(
+        embrouter_logging_obj.update_from_kwargs(
             kwargs=kwargs,
             model=None,
             optional_params={
                 "vector_store_id": vector_store_id,
                 "file_id": file_id,
             },
-            litellm_params={
+            embrouter_params={
                 "vector_store_id": vector_store_id,
-                "litellm_call_id": litellm_call_id,
-                **litellm_params.model_dump(exclude_none=True),
+                "embrouter_call_id": embrouter_call_id,
+                **embrouter_params.model_dump(exclude_none=True),
             },
             custom_llm_provider=custom_llm_provider,
         )
@@ -394,8 +394,8 @@ def retrieve(
             file_id=file_id,
             vector_store_files_provider_config=provider_config,
             custom_llm_provider=custom_llm_provider,
-            litellm_params=litellm_params,
-            logging_obj=litellm_logging_obj,
+            embrouter_params=embrouter_params,
+            logging_obj=embrouter_logging_obj,
             extra_headers=extra_headers,
             timeout=timeout or request_timeout,
             client=kwargs.get("client"),
@@ -403,7 +403,7 @@ def retrieve(
         )
         return response
     except Exception as e:  # noqa: BLE001
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -445,7 +445,7 @@ async def aretrieve_content(
             response = init_response
         return response
     except Exception as e:  # noqa: BLE001
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -466,15 +466,15 @@ def retrieve_content(
 ) -> VectorStoreFileContentResponse | Coroutine[object, object, VectorStoreFileContentResponse]:
     local_vars: Final = locals()
     try:
-        litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.get("litellm_logging_obj")
-        litellm_call_id: Final[str | None] = kwargs.get("litellm_call_id")
+        embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.get("embrouter_logging_obj")
+        embrouter_call_id: Final[str | None] = kwargs.get("embrouter_call_id")
         _is_async: Final = kwargs.pop("aretrieve_content", False) is True
 
         custom_llm_provider = _ensure_provider(custom_llm_provider)
 
         _prepare_registry_credentials(vector_store_id=vector_store_id, kwargs=kwargs)
 
-        litellm_params: Final = GenericLiteLLMParams(vector_store_id=vector_store_id, **kwargs)
+        embrouter_params: Final = GenericEmbRouterParams(vector_store_id=vector_store_id, **kwargs)
 
         provider_config: Final = ProviderConfigManager.get_provider_vector_store_files_config(
             provider=LlmProviders(custom_llm_provider)
@@ -482,17 +482,17 @@ def retrieve_content(
         if provider_config is None:
             raise ValueError(f"Vector store file content retrieve is not supported for {custom_llm_provider}")
 
-        litellm_logging_obj.update_from_kwargs(
+        embrouter_logging_obj.update_from_kwargs(
             kwargs=kwargs,
             model=None,
             optional_params={
                 "vector_store_id": vector_store_id,
                 "file_id": file_id,
             },
-            litellm_params={
+            embrouter_params={
                 "vector_store_id": vector_store_id,
-                "litellm_call_id": litellm_call_id,
-                **litellm_params.model_dump(exclude_none=True),
+                "embrouter_call_id": embrouter_call_id,
+                **embrouter_params.model_dump(exclude_none=True),
             },
             custom_llm_provider=custom_llm_provider,
         )
@@ -502,8 +502,8 @@ def retrieve_content(
             file_id=file_id,
             vector_store_files_provider_config=provider_config,
             custom_llm_provider=custom_llm_provider,
-            litellm_params=litellm_params,
-            logging_obj=litellm_logging_obj,
+            embrouter_params=embrouter_params,
+            logging_obj=embrouter_logging_obj,
             extra_headers=extra_headers,
             timeout=timeout or request_timeout,
             client=kwargs.get("client"),
@@ -511,7 +511,7 @@ def retrieve_content(
         )
         return response
     except Exception as e:  # noqa: BLE001
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -557,7 +557,7 @@ async def aupdate(
             response = init_response
         return response
     except Exception as e:  # noqa: BLE001
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -580,15 +580,15 @@ def update(
 ) -> VectorStoreFileObject | Coroutine[object, object, VectorStoreFileObject]:
     local_vars: Final = locals()
     try:
-        litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.get("litellm_logging_obj")
-        litellm_call_id: Final[str | None] = kwargs.get("litellm_call_id")
+        embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.get("embrouter_logging_obj")
+        embrouter_call_id: Final[str | None] = kwargs.get("embrouter_call_id")
         _is_async: Final = kwargs.pop("aupdate", False) is True
 
         custom_llm_provider = _ensure_provider(custom_llm_provider)
 
         _prepare_registry_credentials(vector_store_id=vector_store_id, kwargs=kwargs)
 
-        litellm_params: Final = GenericLiteLLMParams(vector_store_id=vector_store_id, **kwargs)
+        embrouter_params: Final = GenericEmbRouterParams(vector_store_id=vector_store_id, **kwargs)
 
         provider_config: Final = ProviderConfigManager.get_provider_vector_store_files_config(
             provider=LlmProviders(custom_llm_provider)
@@ -600,7 +600,7 @@ def update(
         update_request: VectorStoreFileUpdateRequest = VectorStoreFileRequestUtils.get_update_request_params(local_vars)
         update_request["attributes"] = attributes
 
-        litellm_logging_obj.update_from_kwargs(
+        embrouter_logging_obj.update_from_kwargs(
             kwargs=kwargs,
             model=None,
             optional_params={
@@ -608,10 +608,10 @@ def update(
                 "file_id": file_id,
                 **update_request,
             },
-            litellm_params={
+            embrouter_params={
                 "vector_store_id": vector_store_id,
-                "litellm_call_id": litellm_call_id,
-                **litellm_params.model_dump(exclude_none=True),
+                "embrouter_call_id": embrouter_call_id,
+                **embrouter_params.model_dump(exclude_none=True),
             },
             custom_llm_provider=custom_llm_provider,
         )
@@ -622,8 +622,8 @@ def update(
             update_request=update_request,
             vector_store_files_provider_config=provider_config,
             custom_llm_provider=custom_llm_provider,
-            litellm_params=litellm_params,
-            logging_obj=litellm_logging_obj,
+            embrouter_params=embrouter_params,
+            logging_obj=embrouter_logging_obj,
             extra_headers=extra_headers,
             extra_body=extra_body,
             timeout=timeout or request_timeout,
@@ -632,7 +632,7 @@ def update(
         )
         return response
     except Exception as e:  # noqa: BLE001
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -674,7 +674,7 @@ async def adelete(
             response = init_response
         return response
     except Exception as e:  # noqa: BLE001
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -695,15 +695,15 @@ def delete(
 ) -> VectorStoreFileDeleteResponse | Coroutine[object, object, VectorStoreFileDeleteResponse]:
     local_vars: Final = locals()
     try:
-        litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.get("litellm_logging_obj")
-        litellm_call_id: Final[str | None] = kwargs.get("litellm_call_id")
+        embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.get("embrouter_logging_obj")
+        embrouter_call_id: Final[str | None] = kwargs.get("embrouter_call_id")
         _is_async: Final = kwargs.pop("adelete", False) is True
 
         custom_llm_provider = _ensure_provider(custom_llm_provider)
 
         _prepare_registry_credentials(vector_store_id=vector_store_id, kwargs=kwargs)
 
-        litellm_params: Final = GenericLiteLLMParams(vector_store_id=vector_store_id, **kwargs)
+        embrouter_params: Final = GenericEmbRouterParams(vector_store_id=vector_store_id, **kwargs)
 
         provider_config: Final = ProviderConfigManager.get_provider_vector_store_files_config(
             provider=LlmProviders(custom_llm_provider)
@@ -711,17 +711,17 @@ def delete(
         if provider_config is None:
             raise ValueError(f"Vector store file delete is not supported for {custom_llm_provider}")
 
-        litellm_logging_obj.update_from_kwargs(
+        embrouter_logging_obj.update_from_kwargs(
             kwargs=kwargs,
             model=None,
             optional_params={
                 "vector_store_id": vector_store_id,
                 "file_id": file_id,
             },
-            litellm_params={
+            embrouter_params={
                 "vector_store_id": vector_store_id,
-                "litellm_call_id": litellm_call_id,
-                **litellm_params.model_dump(exclude_none=True),
+                "embrouter_call_id": embrouter_call_id,
+                **embrouter_params.model_dump(exclude_none=True),
             },
             custom_llm_provider=custom_llm_provider,
         )
@@ -731,8 +731,8 @@ def delete(
             file_id=file_id,
             vector_store_files_provider_config=provider_config,
             custom_llm_provider=custom_llm_provider,
-            litellm_params=litellm_params,
-            logging_obj=litellm_logging_obj,
+            embrouter_params=embrouter_params,
+            logging_obj=embrouter_logging_obj,
             extra_headers=extra_headers,
             timeout=timeout or request_timeout,
             client=kwargs.get("client"),
@@ -740,7 +740,7 @@ def delete(
         )
         return response
     except Exception as e:  # noqa: BLE001
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,

@@ -13,22 +13,22 @@ import re
 import traceback
 from typing import Final
 
-import litellm
-from litellm._logging import print_verbose, verbose_logger
-from litellm.constants import (
+import embrouter
+from embrouter._logging import print_verbose, verbose_logger
+from embrouter.constants import (
     DEFAULT_SQS_BATCH_SIZE,
     DEFAULT_SQS_FLUSH_INTERVAL_SECONDS,
     SQS_API_VERSION,
     SQS_SEND_MESSAGE_ACTION,
 )
-from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
-from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM, run_aws_signing
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps
+from embrouter.llms.bedrock.base_aws_llm import BaseAWSLLM, run_aws_signing
+from embrouter.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.types.integrations.base_health_check import IntegrationHealthCheckStatus
-from litellm.types.utils import StandardLoggingPayload
+from embrouter.types.integrations.base_health_check import IntegrationHealthCheckStatus
+from embrouter.types.utils import StandardLoggingPayload
 
 from .custom_batch_logger import CustomBatchLogger
 
@@ -69,7 +69,7 @@ class SQSLogger(CustomBatchLogger, BaseAWSLLM):
         **kwargs,
     ) -> None:
         try:
-            verbose_logger.debug("in init sqs logger - sqs_callback_params %s", litellm.aws_sqs_callback_params)
+            verbose_logger.debug("in init sqs logger - sqs_callback_params %s", embrouter.aws_sqs_callback_params)
 
             self.async_httpx_client = get_async_httpx_client(
                 llm_provider=httpxSpecialProvider.LoggingCallback,
@@ -139,66 +139,66 @@ class SQSLogger(CustomBatchLogger, BaseAWSLLM):
         sqs_app_encryption_aad: str | None = None,
         sqs_config=None,
     ) -> None:
-        litellm.aws_sqs_callback_params = litellm.aws_sqs_callback_params or {}
+        embrouter.aws_sqs_callback_params = embrouter.aws_sqs_callback_params or {}
 
         # read in .env variables - example os.environ/AWS_BUCKET_NAME
-        for key, value in litellm.aws_sqs_callback_params.items():
+        for key, value in embrouter.aws_sqs_callback_params.items():
             if isinstance(value, str) and value.startswith("os.environ/"):
-                litellm.aws_sqs_callback_params[key] = litellm.get_secret(value)
+                embrouter.aws_sqs_callback_params[key] = embrouter.get_secret(value)
 
-        self.sqs_queue_url = litellm.aws_sqs_callback_params.get("sqs_queue_url") or sqs_queue_url
-        self.sqs_region_name = litellm.aws_sqs_callback_params.get("sqs_region_name") or sqs_region_name
-        self.sqs_api_version = litellm.aws_sqs_callback_params.get("sqs_api_version") or sqs_api_version
-        self.sqs_use_ssl = litellm.aws_sqs_callback_params.get("sqs_use_ssl", True) or sqs_use_ssl
-        self.sqs_verify = litellm.aws_sqs_callback_params.get("sqs_verify") or sqs_verify
-        self.sqs_endpoint_url = litellm.aws_sqs_callback_params.get("sqs_endpoint_url") or sqs_endpoint_url
+        self.sqs_queue_url = embrouter.aws_sqs_callback_params.get("sqs_queue_url") or sqs_queue_url
+        self.sqs_region_name = embrouter.aws_sqs_callback_params.get("sqs_region_name") or sqs_region_name
+        self.sqs_api_version = embrouter.aws_sqs_callback_params.get("sqs_api_version") or sqs_api_version
+        self.sqs_use_ssl = embrouter.aws_sqs_callback_params.get("sqs_use_ssl", True) or sqs_use_ssl
+        self.sqs_verify = embrouter.aws_sqs_callback_params.get("sqs_verify") or sqs_verify
+        self.sqs_endpoint_url = embrouter.aws_sqs_callback_params.get("sqs_endpoint_url") or sqs_endpoint_url
         self.sqs_aws_access_key_id = (
-            litellm.aws_sqs_callback_params.get("sqs_aws_access_key_id") or sqs_aws_access_key_id
+            embrouter.aws_sqs_callback_params.get("sqs_aws_access_key_id") or sqs_aws_access_key_id
         )
 
         self.sqs_aws_secret_access_key = (
-            litellm.aws_sqs_callback_params.get("sqs_aws_secret_access_key") or sqs_aws_secret_access_key
+            embrouter.aws_sqs_callback_params.get("sqs_aws_secret_access_key") or sqs_aws_secret_access_key
         )
 
         self.sqs_aws_session_token = (
-            litellm.aws_sqs_callback_params.get("sqs_aws_session_token") or sqs_aws_session_token
+            embrouter.aws_sqs_callback_params.get("sqs_aws_session_token") or sqs_aws_session_token
         )
 
-        self.sqs_aws_session_name = litellm.aws_sqs_callback_params.get("sqs_aws_session_name") or sqs_aws_session_name
+        self.sqs_aws_session_name = embrouter.aws_sqs_callback_params.get("sqs_aws_session_name") or sqs_aws_session_name
 
-        self.sqs_aws_profile_name = litellm.aws_sqs_callback_params.get("sqs_aws_profile_name") or sqs_aws_profile_name
+        self.sqs_aws_profile_name = embrouter.aws_sqs_callback_params.get("sqs_aws_profile_name") or sqs_aws_profile_name
 
-        self.sqs_aws_role_name = litellm.aws_sqs_callback_params.get("sqs_aws_role_name") or sqs_aws_role_name
+        self.sqs_aws_role_name = embrouter.aws_sqs_callback_params.get("sqs_aws_role_name") or sqs_aws_role_name
 
         self.sqs_aws_web_identity_token = (
-            litellm.aws_sqs_callback_params.get("sqs_aws_web_identity_token") or sqs_aws_web_identity_token
+            embrouter.aws_sqs_callback_params.get("sqs_aws_web_identity_token") or sqs_aws_web_identity_token
         )
 
-        self.sqs_aws_sts_endpoint = litellm.aws_sqs_callback_params.get("sqs_aws_sts_endpoint") or sqs_aws_sts_endpoint
+        self.sqs_aws_sts_endpoint = embrouter.aws_sqs_callback_params.get("sqs_aws_sts_endpoint") or sqs_aws_sts_endpoint
         self.sqs_strip_base64_files = (
-            litellm.aws_sqs_callback_params.get("sqs_strip_base64_files", False) or sqs_strip_base64_files
+            embrouter.aws_sqs_callback_params.get("sqs_strip_base64_files", False) or sqs_strip_base64_files
         )
 
         self.sqs_aws_use_application_level_encryption = (
-            litellm.aws_sqs_callback_params.get("sqs_aws_use_application_level_encryption", False)
+            embrouter.aws_sqs_callback_params.get("sqs_aws_use_application_level_encryption", False)
             or sqs_aws_use_application_level_encryption
         )
         self.sqs_app_encryption_key_b64 = (
-            litellm.aws_sqs_callback_params.get("sqs_app_encryption_key_b64") or sqs_app_encryption_key_b64
+            embrouter.aws_sqs_callback_params.get("sqs_app_encryption_key_b64") or sqs_app_encryption_key_b64
         )
         self.sqs_app_encryption_aad = (
-            litellm.aws_sqs_callback_params.get("sqs_app_encryption_aad") or sqs_app_encryption_aad
+            embrouter.aws_sqs_callback_params.get("sqs_app_encryption_aad") or sqs_app_encryption_aad
         )
         self.app_crypto: AppCrypto | None = None
         if self.sqs_aws_use_application_level_encryption:
-            from litellm.litellm_core_utils.app_crypto import AppCrypto
+            from embrouter.embrouter_core_utils.app_crypto import AppCrypto
 
             if not self.sqs_app_encryption_key_b64:
                 raise ValueError("sqs_app_encryption_key_b64 is required when encryption is enabled.")
             key = base64.b64decode(self.sqs_app_encryption_key_b64)
             self.app_crypto = AppCrypto(key)
             verbose_logger.debug("SQSLogger: Application-level encryption enabled.")
-        self.sqs_config = litellm.aws_sqs_callback_params.get("sqs_config") or sqs_config
+        self.sqs_config = embrouter.aws_sqs_callback_params.get("sqs_config") or sqs_config
 
     async def async_log_success_event(self, kwargs, response_obj, start_time, end_time) -> None:
         try:
@@ -252,7 +252,7 @@ class SQSLogger(CustomBatchLogger, BaseAWSLLM):
             from botocore.auth import SigV4Auth
             from botocore.awsrequest import AWSRequest
 
-            from litellm.litellm_core_utils.asyncify import asyncify
+            from embrouter.embrouter_core_utils.asyncify import asyncify
 
             asyncified_get_credentials: Final = asyncify(self.get_credentials)
             credentials: Final = await asyncified_get_credentials(
@@ -313,7 +313,7 @@ class SQSLogger(CustomBatchLogger, BaseAWSLLM):
         Health check for SQS by sending a small test message to the configured queue.
         """
         try:
-            from litellm.litellm_core_utils.litellm_logging import (
+            from embrouter.embrouter_core_utils.embrouter_logging import (
                 create_dummy_standard_logging_payload,
             )
 

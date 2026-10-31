@@ -11,10 +11,10 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-import litellm
-from litellm import Router
-from litellm.caching.redis_cache import RedisCache
-from litellm.router_strategy.lowest_tpm_rpm_v2 import LowestTPMLoggingHandler_v2
+import embrouter
+from embrouter import Router
+from embrouter.caching.redis_cache import RedisCache
+from embrouter.router_strategy.lowest_tpm_rpm_v2 import LowestTPMLoggingHandler_v2
 
 _MODEL_GROUP = "claude"
 _MESSAGES = [{"role": "user", "content": "ping"}]
@@ -23,7 +23,7 @@ _MESSAGES = [{"role": "user", "content": "ping"}]
 def _deployment(deployment_id: str) -> dict:
     return {
         "model_name": _MODEL_GROUP,
-        "litellm_params": {"model": "anthropic/claude-x", "api_key": "test", "mock_response": "pong"},
+        "embrouter_params": {"model": "anthropic/claude-x", "api_key": "test", "mock_response": "pong"},
         "model_info": {"id": deployment_id},
     }
 
@@ -195,9 +195,9 @@ async def test_a_failed_batched_read_degrades_like_the_two_failed_reads_did():
     routed = _router(redis, "usage-based-routing-v2")
     alone = _router(redis, "usage-based-routing-v2")
 
-    with pytest.raises(litellm.RateLimitError, match="No deployments available") as routed_error:
+    with pytest.raises(embrouter.RateLimitError, match="No deployments available") as routed_error:
         await routed.async_get_available_deployment(model=_MODEL_GROUP, request_kwargs={}, messages=_MESSAGES)
-    with pytest.raises(litellm.RateLimitError, match="No deployments available") as alone_error:
+    with pytest.raises(embrouter.RateLimitError, match="No deployments available") as alone_error:
         await alone.lowesttpm_logger_v2.async_get_available_deployments(
             model_group=_MODEL_GROUP, healthy_deployments=alone.model_list, messages=_MESSAGES
         )

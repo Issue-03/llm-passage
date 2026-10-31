@@ -21,8 +21,8 @@ from typing import Annotated, Final, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 
-from litellm._logging import verbose_proxy_logger
-from litellm.types.llms.openai import AllMessageValues
+from embrouter._logging import verbose_proxy_logger
+from embrouter.types.llms.openai import AllMessageValues
 
 MODEL_ARMOR_MAX_FILE_SIZE_BYTES: Final = 4 * 1024 * 1024
 

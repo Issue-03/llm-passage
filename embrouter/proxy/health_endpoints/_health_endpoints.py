@@ -14,65 +14,65 @@ import fastapi
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from typing_extensions import ReadOnly
 
-import litellm
-from litellm._logging import verbose_logger, verbose_proxy_logger
-from litellm.constants import HEALTH_CHECK_TIMEOUT_SECONDS, PROXY_DB_LOOKUP_STALL_WINDOW_SECONDS
-from litellm.integrations.SlackAlerting.ms_teams import (
+import embrouter
+from embrouter._logging import verbose_logger, verbose_proxy_logger
+from embrouter.constants import HEALTH_CHECK_TIMEOUT_SECONDS, PROXY_DB_LOOKUP_STALL_WINDOW_SECONDS
+from embrouter.integrations.SlackAlerting.ms_teams import (
     MS_TEAMS_ALERT_HEADERS,
     build_ms_teams_payload,
     get_ms_teams_webhook_url,
 )
-from litellm.litellm_core_utils.custom_logger_registry import CustomLoggerRegistry
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.proxy._types import (
+from embrouter.embrouter_core_utils.custom_logger_registry import CustomLoggerRegistry
+from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from embrouter.proxy._types import (
     AlertType,
     CallInfo,
     EnterpriseLicenseData,
-    Litellm_EntityType,
-    LitellmUserRoles,
+    Embrouter_EntityType,
+    EmbrouterUserRoles,
     ProxyErrorTypes,
     ProxyException,
     SpecialModelNames,
     UserAPIKeyAuth,
     WebhookEvent,
 )
-from litellm.proxy.auth.auth_checks import (
+from embrouter.proxy.auth.auth_checks import (
     _resolve_key_models_for_auth_check,  # pyright: ignore[reportPrivateUsage]  # the auth layer's sentinel resolution, reused so /health scopes exactly like a request
 )
-from litellm.proxy.auth.auth_utils import (
+from embrouter.proxy.auth.auth_utils import (
     _BANNED_REQUEST_BODY_PARAMS,  # pyright: ignore[reportPrivateUsage]  # one canonical list, shared with the request-body check
 )
-from litellm.proxy.auth.model_checks import get_key_models
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.db.db_lookup_gate import db_lookup_stall_tracker
-from litellm.proxy.db.exception_handler import PrismaDBExceptionHandler
-from litellm.proxy.db.health_check_latest import (
+from embrouter.proxy.auth.model_checks import get_key_models
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.db.db_lookup_gate import db_lookup_stall_tracker
+from embrouter.proxy.db.exception_handler import PrismaDBExceptionHandler
+from embrouter.proxy.db.health_check_latest import (
     LatestHealthCheckRow,
     query_latest_health_checks,
 )
-from litellm.proxy.db.proxy_worker_heartbeat import count_live_proxy_workers
-from litellm.proxy.health_check import (
+from embrouter.proxy.db.proxy_worker_heartbeat import count_live_proxy_workers
+from embrouter.proxy.health_check import (
     ADMIN_ONLY_HEALTH_DISPLAY_PARAMS,
     _clean_endpoint_data,
-    _update_litellm_params_for_health_check,
+    _update_embrouter_params_for_health_check,
     deployments_targeted_by_name,
     health_check_filter_kwargs_from_general_settings,
     perform_health_check,
     run_with_timeout,
 )
-from litellm.proxy.middleware.admission_control_middleware import (
+from embrouter.proxy.middleware.admission_control_middleware import (
     get_admission_control_stats,
 )
-from litellm.proxy.middleware.in_flight_requests_middleware import (
+from embrouter.proxy.middleware.in_flight_requests_middleware import (
     get_in_flight_requests,
 )
-from litellm.proxy.shutdown.graceful_shutdown_manager import GracefulShutdownManager
-from litellm.router import Router
-from litellm.router_utils.clientside_credential_handler import (
+from embrouter.proxy.shutdown.graceful_shutdown_manager import GracefulShutdownManager
+from embrouter.router import Router
+from embrouter.router_utils.clientside_credential_handler import (
     _ADMIN_CONFIG_FIELDS_TO_CLEAR_ON_BASE_OVERRIDE,  # pyright: ignore[reportPrivateUsage]  # one canonical list, shared with the router path
     clientside_credential_keys,
 )
-from litellm.secret_managers.main import get_secret_bool
+from embrouter.secret_managers.main import get_secret_bool
 
 #### Health ENDPOINTS ####
 
@@ -121,7 +121,7 @@ _CONFIG_CONNECTION_FIELDS: Final[frozenset[str]] = frozenset(
     (
         *_ADMIN_CONFIG_FIELDS_TO_CLEAR_ON_BASE_OVERRIDE,
         *clientside_credential_keys,
-        "litellm_credential_name",
+        "embrouter_credential_name",
     )
 )
 
@@ -141,8 +141,8 @@ def _request_inherits_config_credentials(
     it must not cost the request the credentials it would otherwise be probed
     with.
     """
-    requested_credential: Final = request_params.get("litellm_credential_name")
-    if requested_credential and requested_credential != config_params.get("litellm_credential_name"):
+    requested_credential: Final = request_params.get("embrouter_credential_name")
+    if requested_credential and requested_credential != config_params.get("embrouter_credential_name"):
         return False
     if allow_client_side_credentials:
         return True
@@ -163,7 +163,7 @@ def _config_base_for_health_check(
     configuration, which is what lets a request name a configured model and test
     it as configured.
 
-    ``litellm_credential_name`` is dropped alongside the literal credential
+    ``embrouter_credential_name`` is dropped alongside the literal credential
     fields: it names a stored credential that ``load_credentials_from_list``
     resolves into the same secrets further down the call, so leaving it in place
     would reintroduce them by reference.
@@ -256,7 +256,7 @@ async def test_endpoint(request: Request):
     """
     # ping the proxy server to check if its healthy
     # Inline import — auth_utils participates in a proxy import cycle.
-    from litellm.proxy.auth.auth_utils import get_request_route  # noqa: PLC0415
+    from embrouter.proxy.auth.auth_utils import get_request_route  # noqa: PLC0415
 
     return {"route": get_request_route(request)}
 
@@ -280,7 +280,7 @@ async def health_services_endpoint(
     ```
     """
     try:
-        from litellm.proxy.proxy_server import (
+        from embrouter.proxy.proxy_server import (
             general_settings,
             prisma_client,
             proxy_logging_obj,
@@ -319,10 +319,10 @@ async def health_services_endpoint(
             )
 
         service_in_success_callbacks = False
-        if service in litellm.success_callback:
+        if service in embrouter.success_callback:
             service_in_success_callbacks = True
         else:
-            for cb in litellm.success_callback:
+            for cb in embrouter.success_callback:
                 if getattr(cb, "callback_name", None) == service:
                     service_in_success_callbacks = True
                     break
@@ -337,10 +337,10 @@ async def health_services_endpoint(
             or service == "generic_api"
             or (service_in_success_callbacks and service not in ("langfuse", "pointfive"))
         ):
-            _ = await litellm.acompletion(
-                model="openai/litellm-mock-response-model",
+            _ = await embrouter.acompletion(
+                model="openai/embrouter-mock-response-model",
                 messages=[{"role": "user", "content": "Hey, how's it going?"}],
-                user="litellm:/health/services",
+                user="embrouter:/health/services",
                 mock_response="This is a mock response",
             )
             return {
@@ -348,7 +348,7 @@ async def health_services_endpoint(
                 "message": f"Mock LLM request made - check {service}.",
             }
         elif service == "datadog":
-            from litellm.integrations.datadog.datadog import DataDogLogger
+            from embrouter.integrations.datadog.datadog import DataDogLogger
 
             datadog_logger: Final = DataDogLogger()
             response = await datadog_logger.async_health_check()
@@ -357,10 +357,10 @@ async def health_services_endpoint(
                 "message": (response["error_message"] if response["status"] == "unhealthy" else "Datadog is healthy"),
             }
         elif service == "datadog_metrics":
-            from litellm.integrations.datadog.datadog_metrics import (
+            from embrouter.integrations.datadog.datadog_metrics import (
                 DatadogMetricsLogger,
             )
-            from litellm.litellm_core_utils.litellm_logging import (
+            from embrouter.embrouter_core_utils.embrouter_logging import (
                 get_custom_logger_compatible_class,
             )
 
@@ -376,7 +376,7 @@ async def health_services_endpoint(
                 ),
             }
         elif service == "arize":
-            from litellm.integrations.arize.arize import ArizeLogger
+            from embrouter.integrations.arize.arize import ArizeLogger
 
             arize_logger: Final = ArizeLogger()
             response = await arize_logger.async_health_check()
@@ -385,7 +385,7 @@ async def health_services_endpoint(
                 "message": (response["error_message"] if response["status"] == "unhealthy" else "Arize is healthy"),
             }
         elif service == "galileo":
-            from litellm.integrations.galileo import GalileoObserve
+            from embrouter.integrations.galileo import GalileoObserve
 
             galileo_logger: Final = GalileoObserve()
             response = await galileo_logger.async_health_check()
@@ -394,16 +394,16 @@ async def health_services_endpoint(
                 "message": (response["error_message"] if response["status"] == "unhealthy" else "Galileo is healthy"),
             }
         elif service == "langfuse":
-            from litellm.integrations.langfuse.langfuse import LangFuseLogger
+            from embrouter.integrations.langfuse.langfuse import LangFuseLogger
 
             langfuse_logger: Final = LangFuseLogger()
             auth_failure: Final = langfuse_logger.api_client.auth_check()
             if auth_failure is not None:
                 raise ValueError(f"langfuse auth_check failed: {auth_failure.reason}")
-            _ = litellm.completion(
-                model="openai/litellm-mock-response-model",
+            _ = embrouter.completion(
+                model="openai/embrouter-mock-response-model",
                 messages=[{"role": "user", "content": "Hey, how's it going?"}],
-                user="litellm:/health/services",
+                user="embrouter:/health/services",
                 mock_response="This is a mock response",
             )
             return {
@@ -416,7 +416,7 @@ async def health_services_endpoint(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail={"error": "Only proxy admins can trigger the New Relic test event."},
                 )
-            from litellm.integrations.newrelic.newrelic import NewRelicLogger
+            from embrouter.integrations.newrelic.newrelic import NewRelicLogger
 
             newrelic_logger: Final = NewRelicLogger()
             response = await newrelic_logger.async_health_check()
@@ -435,7 +435,7 @@ async def health_services_endpoint(
                     "error": "Only proxy admins can trigger the PointFive liveness ping."
                 }
                 raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=non_admin_detail)
-            from litellm.integrations.pointfive import PointFiveLogger
+            from embrouter.integrations.pointfive import PointFiveLogger
 
             try:
                 pointfive_logger: Final = PointFiveLogger(start_periodic_flush=False)
@@ -463,14 +463,14 @@ async def health_services_endpoint(
                 user_id=user_api_key_dict.user_id,
                 key_alias=user_api_key_dict.key_alias,
                 team_id=user_api_key_dict.team_id,
-                event_group=Litellm_EntityType.KEY,
+                event_group=Embrouter_EntityType.KEY,
             )
             await proxy_logging_obj.budget_alerts(
                 type="user_budget",
                 user_info=user_info,
             )
         elif service == "sqs":
-            from litellm.integrations.sqs import SQSLogger
+            from embrouter.integrations.sqs import SQSLogger
 
             sqs_logger: Final = SQSLogger()
             response = await sqs_logger.async_health_check()
@@ -481,7 +481,7 @@ async def health_services_endpoint(
 
         if service == "slack" or service == "slack_budget_alerts":
             if "slack" in general_settings.get("alerting", []):
-                # test_message = f"""\n🚨 `ProjectedLimitExceededError` 💸\n\n`Key Alias:` litellm-ui-test-alert \n`Expected Day of Error`: 28th March \n`Current Spend`: $100.00 \n`Projected Spend at end of month`: $1000.00 \n`Soft Limit`: $700"""
+                # test_message = f"""\n🚨 `ProjectedLimitExceededError` 💸\n\n`Key Alias:` embrouter-ui-test-alert \n`Expected Day of Error`: 28th March \n`Current Spend`: $100.00 \n`Projected Spend at end of month`: $1000.00 \n`Soft Limit`: $700"""
                 # check if user has opted into unique_alert_webhooks
                 if proxy_logging_obj.slack_alerting_instance.alert_to_webhook_url is not None:
                     for alert_type in proxy_logging_obj.slack_alerting_instance.alert_to_webhook_url:
@@ -571,7 +571,7 @@ async def health_services_endpoint(
         if service == "email":
             webhook_event: Final = WebhookEvent(
                 event="key_created",
-                event_group=Litellm_EntityType.KEY,
+                event_group=Embrouter_EntityType.KEY,
                 event_message="Test Email Alert",
                 token=user_api_key_dict.token or "",
                 key_alias="Email Test key (This is only a test alert key. DO NOT USE THIS IN PRODUCTION.)",
@@ -593,7 +593,7 @@ async def health_services_endpoint(
             }
 
     except Exception as e:
-        verbose_proxy_logger.error("litellm.proxy.proxy_server.health_services_endpoint(): Exception occured - %s", e)
+        verbose_proxy_logger.error("embrouter.proxy.proxy_server.health_services_endpoint(): Exception occured - %s", e)
         verbose_proxy_logger.debug(traceback.format_exc())
         if isinstance(e, HTTPException):
             raise ProxyException(
@@ -632,7 +632,7 @@ def _convert_health_check_to_dict(check) -> dict:
 
 def _check_prisma_client():
     """Helper to check if prisma_client is available and raise appropriate error"""
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(
@@ -693,8 +693,8 @@ def _build_model_param_to_info_mapping(model_list: list) -> dict:
         model_info = model.get("model_info", {})
         model_name = model.get("model_name")
         model_id = model_info.get("id")
-        litellm_params = model.get("litellm_params", {})
-        model_param = litellm_params.get("model")
+        embrouter_params = model.get("embrouter_params", {})
+        model_param = embrouter_params.get("model")
 
         if model_param and model_name:
             if model_param not in model_param_to_info:
@@ -908,12 +908,12 @@ async def _save_background_health_checks_to_db(
 
 _PROXY_ADMIN_ROLES: Final = frozenset(
     {
-        LitellmUserRoles.PROXY_ADMIN.value,
+        EmbrouterUserRoles.PROXY_ADMIN.value,
         # View-only admins are operators (oncall, support); they need the
         # routing fields (api_base, api_version) to diagnose health and tell
         # which provider region a check is hitting. They cannot mutate config
         # so granting them the read-only view is safe.
-        LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
+        EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
     }
 )
 
@@ -922,7 +922,7 @@ def _is_proxy_admin(user_api_key_dict: UserAPIKeyAuth) -> bool:
     """
     Return True if the caller has a proxy-admin role (full or view-only).
 
-    user_role on UserAPIKeyAuth can be either a LitellmUserRoles enum or its
+    user_role on UserAPIKeyAuth can be either a EmbrouterUserRoles enum or its
     string value depending on how the auth path constructed the object, so we
     compare against the raw value rather than the enum identity.
     """
@@ -997,7 +997,7 @@ def _resolve_targeted_model_ids(
     narrowing in ``perform_health_check()``: ``model_id`` wins when given and
     matches ``model_info.id`` only; ``model`` targets the deployments a request
     for that name from the caller would route to, else those whose
-    ``litellm_params.model`` provider string is that value (``deployments_targeted_by_name``).
+    ``embrouter_params.model`` provider string is that value (``deployments_targeted_by_name``).
 
     Callers pass an already-scoped list, so a ``model_id`` outside the
     caller's scope resolves to an empty set and never to the unvalidated id.
@@ -1149,7 +1149,7 @@ async def health_endpoint(
     """
     import time
 
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         health_check_concurrency,
         health_check_details,
@@ -1183,14 +1183,14 @@ async def health_endpoint(
             response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
         if is_admin:
             return result
-        response.headers["Litellm-Health-Field-Notice"] = (
+        response.headers["Embrouter-Health-Field-Notice"] = (
             f"{', '.join(ADMIN_ONLY_HEALTH_DISPLAY_PARAMS)} are admin-only on this endpoint"
         )
         return _strip_admin_only_fields_from_health_result(result)
 
     try:
         if llm_model_list is None:
-            # if no router set, check if user set a model using litellm --model ollama/llama2
+            # if no router set, check if user set a model using embrouter --model ollama/llama2
             if user_model is not None:
                 cli_result: Final = await _perform_health_check_and_save(
                     model_list=[],
@@ -1289,7 +1289,7 @@ async def health_endpoint(
             )
             return _post_process(router_result)
     except Exception as e:
-        verbose_proxy_logger.error("litellm.proxy.proxy_server.py::health_endpoint(): Exception occured - %s", e)
+        verbose_proxy_logger.error("embrouter.proxy.proxy_server.py::health_endpoint(): Exception occured - %s", e)
         verbose_proxy_logger.debug(traceback.format_exc())
         raise e
 
@@ -1375,7 +1375,7 @@ async def shared_health_check_status_endpoint(
 
     Returns information about Redis connectivity, lock status, and cache status.
     """
-    from litellm.proxy.proxy_server import redis_usage_cache, use_shared_health_check
+    from embrouter.proxy.proxy_server import redis_usage_cache, use_shared_health_check
 
     if not use_shared_health_check:
         return {
@@ -1391,7 +1391,7 @@ async def shared_health_check_status_endpoint(
         }
 
     try:
-        from litellm.proxy.health_check_utils.shared_health_check_manager import (
+        from embrouter.proxy.health_check_utils.shared_health_check_manager import (
             SharedHealthCheckManager,
         )
 
@@ -1410,7 +1410,7 @@ async def shared_health_check_status_endpoint(
 
 
 def _read_license_data() -> dict[str, Any] | None:
-    from litellm.proxy.proxy_server import _license_check, premium_user_data
+    from embrouter.proxy.proxy_server import _license_check, premium_user_data
 
     license_data: EnterpriseLicenseData | None = premium_user_data or _license_check.airgapped_license_data
 
@@ -1451,8 +1451,8 @@ def _read_allowed_features(license_data: dict[str, Any]) -> list:
 async def health_license_endpoint(
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
 ):
-    """Return metadata about the configured LiteLLM license without exposing the key."""
-    from litellm.proxy.proxy_server import _license_check, premium_user
+    """Return metadata about the configured EmbRouter license without exposing the key."""
+    from embrouter.proxy.proxy_server import _license_check, premium_user
 
     license_data: Final = _read_license_data()
     has_license: Final = bool(getattr(_license_check, "license_str", None))
@@ -1512,7 +1512,7 @@ async def _db_health_readiness_check() -> DBHealthCache:
 
 
 async def _db_health_readiness_check_unbounded() -> DBHealthCache:
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     global db_health_cache
 
@@ -1565,7 +1565,7 @@ async def _db_health_readiness_check_unbounded() -> DBHealthCache:
 )
 async def active_callbacks():
     """
-    Returns a list of litellm level settings
+    Returns a list of embrouter level settings
 
     This is useful for debugging and ensuring the proxy server is configured correctly.
 
@@ -1573,42 +1573,42 @@ async def active_callbacks():
     ```
     {
         "alerting": _alerting,
-        "litellm.callbacks": litellm_callbacks,
-        "litellm.input_callback": litellm_input_callbacks,
-        "litellm.failure_callback": litellm_failure_callbacks,
-        "litellm.success_callback": litellm_success_callbacks,
-        "litellm._async_success_callback": litellm_async_success_callbacks,
-        "litellm._async_failure_callback": litellm_async_failure_callbacks,
-        "litellm._async_input_callback": litellm_async_input_callbacks,
-        "all_litellm_callbacks": all_litellm_callbacks,
-        "num_callbacks": len(all_litellm_callbacks),
+        "embrouter.callbacks": embrouter_callbacks,
+        "embrouter.input_callback": embrouter_input_callbacks,
+        "embrouter.failure_callback": embrouter_failure_callbacks,
+        "embrouter.success_callback": embrouter_success_callbacks,
+        "embrouter._async_success_callback": embrouter_async_success_callbacks,
+        "embrouter._async_failure_callback": embrouter_async_failure_callbacks,
+        "embrouter._async_input_callback": embrouter_async_input_callbacks,
+        "all_embrouter_callbacks": all_embrouter_callbacks,
+        "num_callbacks": len(all_embrouter_callbacks),
         "num_alerting": _num_alerting,
-        "litellm.request_timeout": litellm.request_timeout,
+        "embrouter.request_timeout": embrouter.request_timeout,
     }
     ```
     """
 
-    from litellm.proxy.proxy_server import general_settings, proxy_logging_obj
+    from embrouter.proxy.proxy_server import general_settings, proxy_logging_obj
 
     _alerting: Final = str(general_settings.get("alerting"))
     # get success callbacks
 
-    litellm_callbacks: Final = [str(x) for x in litellm.callbacks]
-    litellm_input_callbacks: Final = [str(x) for x in litellm.input_callback]
-    litellm_failure_callbacks: Final = [str(x) for x in litellm.failure_callback]
-    litellm_success_callbacks: Final = [str(x) for x in litellm.success_callback]
-    litellm_async_success_callbacks: Final = [str(x) for x in litellm._async_success_callback]
-    litellm_async_failure_callbacks: Final = [str(x) for x in litellm._async_failure_callback]
-    litellm_async_input_callbacks: Final = [str(x) for x in litellm._async_input_callback]
+    embrouter_callbacks: Final = [str(x) for x in embrouter.callbacks]
+    embrouter_input_callbacks: Final = [str(x) for x in embrouter.input_callback]
+    embrouter_failure_callbacks: Final = [str(x) for x in embrouter.failure_callback]
+    embrouter_success_callbacks: Final = [str(x) for x in embrouter.success_callback]
+    embrouter_async_success_callbacks: Final = [str(x) for x in embrouter._async_success_callback]
+    embrouter_async_failure_callbacks: Final = [str(x) for x in embrouter._async_failure_callback]
+    embrouter_async_input_callbacks: Final = [str(x) for x in embrouter._async_input_callback]
 
-    all_litellm_callbacks: Final = (
-        litellm_callbacks
-        + litellm_input_callbacks
-        + litellm_failure_callbacks
-        + litellm_success_callbacks
-        + litellm_async_success_callbacks
-        + litellm_async_failure_callbacks
-        + litellm_async_input_callbacks
+    all_embrouter_callbacks: Final = (
+        embrouter_callbacks
+        + embrouter_input_callbacks
+        + embrouter_failure_callbacks
+        + embrouter_success_callbacks
+        + embrouter_async_success_callbacks
+        + embrouter_async_failure_callbacks
+        + embrouter_async_input_callbacks
     )
 
     alerting: Final = proxy_logging_obj.alerting
@@ -1618,17 +1618,17 @@ async def active_callbacks():
 
     return {
         "alerting": _alerting,
-        "litellm.callbacks": litellm_callbacks,
-        "litellm.input_callback": litellm_input_callbacks,
-        "litellm.failure_callback": litellm_failure_callbacks,
-        "litellm.success_callback": litellm_success_callbacks,
-        "litellm._async_success_callback": litellm_async_success_callbacks,
-        "litellm._async_failure_callback": litellm_async_failure_callbacks,
-        "litellm._async_input_callback": litellm_async_input_callbacks,
-        "all_litellm_callbacks": all_litellm_callbacks,
-        "num_callbacks": len(all_litellm_callbacks),
+        "embrouter.callbacks": embrouter_callbacks,
+        "embrouter.input_callback": embrouter_input_callbacks,
+        "embrouter.failure_callback": embrouter_failure_callbacks,
+        "embrouter.success_callback": embrouter_success_callbacks,
+        "embrouter._async_success_callback": embrouter_async_success_callbacks,
+        "embrouter._async_failure_callback": embrouter_async_failure_callbacks,
+        "embrouter._async_input_callback": embrouter_async_input_callbacks,
+        "all_embrouter_callbacks": all_embrouter_callbacks,
+        "num_callbacks": len(all_embrouter_callbacks),
         "num_alerting": _num_alerting,
-        "litellm.request_timeout": litellm.request_timeout,
+        "embrouter.request_timeout": embrouter.request_timeout,
     }
 
 
@@ -1645,7 +1645,7 @@ def callback_name(callback):
             return str(callback)
 
 
-DISABLE_NO_REDIS_WARNING_ENV_VAR: Final = "LITELLM_DISABLE_NO_REDIS_WARNING"
+DISABLE_NO_REDIS_WARNING_ENV_VAR: Final = "EMBROUTER_DISABLE_NO_REDIS_WARNING"
 
 
 async def _show_no_redis_warning() -> bool:
@@ -1661,9 +1661,9 @@ async def _show_no_redis_warning() -> bool:
     routing on its own. A deployment whose worker-heartbeat census proves it
     is exactly one worker needs no cross-worker coordination, so it never
     warns; when the census is unavailable or shows more than one worker, the
-    warning stands unless LITELLM_DISABLE_NO_REDIS_WARNING=true silences it.
+    warning stands unless EMBROUTER_DISABLE_NO_REDIS_WARNING=true silences it.
     """
-    from litellm.proxy.proxy_server import llm_router, prisma_client, redis_usage_cache
+    from embrouter.proxy.proxy_server import llm_router, prisma_client, redis_usage_cache
 
     if redis_usage_cache is not None:
         return False
@@ -1677,8 +1677,8 @@ async def _show_no_redis_warning() -> bool:
 
 
 def _show_env_credential_login_warning() -> bool:
-    from litellm.proxy.auth.login_utils import is_env_credential_login_enabled
-    from litellm.proxy.proxy_server import general_settings
+    from embrouter.proxy.auth.login_utils import is_env_credential_login_enabled
+    from embrouter.proxy.proxy_server import general_settings
 
     return is_env_credential_login_enabled(general_settings)
 
@@ -1689,7 +1689,7 @@ async def _get_health_readiness_details(
     """
     Detailed health payload for authenticated diagnostics.
     """
-    from litellm.proxy.proxy_server import prisma_client, version
+    from embrouter.proxy.proxy_server import prisma_client, version
 
     try:
         # get success callback
@@ -1698,24 +1698,24 @@ async def _get_health_readiness_details(
         try:
             # this was returning a JSON of the values in some of the callbacks
             # all we need is the callback name, hence we do str(callback)
-            success_callback_names = [callback_name(x) for x in litellm.success_callback]
+            success_callback_names = [callback_name(x) for x in embrouter.success_callback]
         except AttributeError:
-            # don't let this block the /health/readiness response, if we can't convert to str -> return litellm.success_callback
-            success_callback_names = litellm.success_callback
+            # don't let this block the /health/readiness response, if we can't convert to str -> return embrouter.success_callback
+            success_callback_names = embrouter.success_callback
 
         # check Cache
         cache_type: Any = None
-        if litellm.cache is not None:
-            from litellm.caching.caching import RedisSemanticCache
+        if embrouter.cache is not None:
+            from embrouter.caching.caching import RedisSemanticCache
 
-            cache_type = litellm.cache.type
+            cache_type = embrouter.cache.type
 
-            if isinstance(litellm.cache.cache, RedisSemanticCache):
+            if isinstance(embrouter.cache.cache, RedisSemanticCache):
                 # ping the cache
                 # TODO: @ishaan-jaff - we should probably not ping the cache on every /health/readiness check
                 index_info: Any
                 try:
-                    index_info = await litellm.cache.cache._index_info()
+                    index_info = await embrouter.cache.cache._index_info()
                 except Exception as e:
                     index_info = "index does not exist - error: " + str(e)
                 cache_type = {"type": cache_type, "index_info": index_info}
@@ -1746,7 +1746,7 @@ async def _get_health_readiness_details(
                 "status": "healthy",
                 "db": db_status,
                 "cache": cache_type,
-                "litellm_version": version,
+                "embrouter_version": version,
                 "success_callbacks": success_callback_names,
                 "use_aiohttp_transport": AsyncHTTPHandler._should_use_aiohttp_transport(),
                 "log_level": log_level_name,
@@ -1759,7 +1759,7 @@ async def _get_health_readiness_details(
                 "status": "healthy",
                 "db": "Not connected",
                 "cache": cache_type,
-                "litellm_version": version,
+                "embrouter_version": version,
                 "success_callbacks": success_callback_names,
                 "use_aiohttp_transport": AsyncHTTPHandler._should_use_aiohttp_transport(),
                 "log_level": log_level_name,
@@ -1772,13 +1772,13 @@ async def _get_health_readiness_details(
 
 
 def _allow_public_health_readiness_details() -> bool:
-    from litellm.proxy.proxy_server import general_settings
+    from embrouter.proxy.proxy_server import general_settings
 
     return general_settings.get("allow_public_health_readiness_details") is True
 
 
 def _drain_endpoint_enabled() -> bool:
-    from litellm.proxy.proxy_server import general_settings
+    from embrouter.proxy.proxy_server import general_settings
 
     return general_settings.get("enable_drain_endpoint") is True
 
@@ -1791,7 +1791,7 @@ def _drain_endpoint_token() -> str | None:
     general_settings so the kubelet preStop hook can supply it via
     ``valueFrom.secretKeyRef`` without a config reload.
     """
-    from litellm.proxy.proxy_server import general_settings
+    from embrouter.proxy.proxy_server import general_settings
 
     token: Final = general_settings.get("drain_endpoint_token")
     if isinstance(token, str) and token:
@@ -1838,7 +1838,7 @@ async def _resolve_public_readiness_db(response: Response) -> str:
     503 when a configured DB is unreachable or stalled. Mirrors the legacy values:
     "Not connected" (no DB configured), "connected", "disconnected", plus "stalled".
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         return "Not connected"
@@ -1895,7 +1895,7 @@ async def health_backlog():
 
     Use this to measure per-pod queue depth. A high value means the worker is
     processing many concurrent requests — requests arriving now will have to wait
-    for the event loop to get to them, adding latency before LiteLLM even starts
+    for the event loop to get to them, adding latency before EmbRouter even starts
     its own timer.
     """
     stats: Final = get_admission_control_stats()
@@ -1957,7 +1957,7 @@ async def health_drain(request: Request):
 
 
 @router.get(
-    "/health/liveliness",  # Historical LiteLLM name; doesn't match k8s terminology but kept for backwards compatibility
+    "/health/liveliness",  # Historical EmbRouter name; doesn't match k8s terminology but kept for backwards compatibility
     tags=["health"],
 )
 @router.get(
@@ -2039,9 +2039,9 @@ async def test_model_connection(
         None,
         description="The mode to test the model with. If not provided, auto-detected from model capabilities.",
     ),
-    litellm_params: dict = fastapi.Body(
+    embrouter_params: dict = fastapi.Body(
         None,
-        description="Parameters for litellm.completion, litellm.embedding for the health check",
+        description="Parameters for embrouter.completion, embrouter.embedding for the health check",
     ),
     model_info: dict = fastapi.Body(
         None,
@@ -2062,7 +2062,7 @@ async def test_model_connection(
       -H 'Authorization: Bearer sk-1234' \\
       -H 'Content-Type: application/json' \\
       -d '{
-        "litellm_params": {
+        "embrouter_params": {
             "model": "gpt-4o"
         },
         "mode": "chat"
@@ -2075,7 +2075,7 @@ async def test_model_connection(
       -H 'Authorization: Bearer sk-1234' \\
       -H 'Content-Type: application/json' \\
       -d '{
-        "litellm_params": {
+        "embrouter_params": {
             "model": "azure/gpt-4o",
             "api_key": "os.environ/AZURE_OPENAI_API_KEY",
             "api_base": "os.environ/AZURE_OPENAI_ENDPOINT",
@@ -2088,7 +2088,7 @@ async def test_model_connection(
     Note: 
     - If the model is configured in proxy_config.yaml, credentials (api_key, api_base, etc.) 
       will be automatically loaded from the config (with resolved environment variables).
-    - A request naming a stored credential (`litellm_credential_name`) that the configuration
+    - A request naming a stored credential (`embrouter_credential_name`) that the configuration
       does not name is probed with that credential instead, and inherits no credentials
       from the configuration its model string happened to match.
     - You can override specific params by including them in the request.
@@ -2098,17 +2098,17 @@ async def test_model_connection(
     Returns:
         dict: A dictionary containing the health check result with either success information or error details.
     """
-    from litellm.proxy._types import CommonProxyErrors
-    from litellm.proxy.management_endpoints.model_management_endpoints import (
+    from embrouter.proxy._types import CommonProxyErrors
+    from embrouter.proxy.management_endpoints.model_management_endpoints import (
         ModelManagementAuthChecks,
     )
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         premium_user,
         prisma_client,
     )
-    from litellm.types.router import Deployment, LiteLLM_Params
+    from embrouter.types.router import Deployment, EmbRouter_Params
 
     try:
         if prisma_client is None:
@@ -2117,19 +2117,19 @@ async def test_model_connection(
                 detail={"error": CommonProxyErrors.db_not_connected_error.value},
             )
 
-        # Get model name from litellm_params
-        request_litellm_params: Final = litellm_params or {}
+        # Get model name from embrouter_params
+        request_embrouter_params: Final = embrouter_params or {}
         # Reject request-supplied os.environ/ references. Config values are
         # already resolved before reaching this endpoint; any remaining
         # reference must have come from the request body.
-        _reject_os_environ_references(request_litellm_params)
+        _reject_os_environ_references(request_embrouter_params)
         if model_info:
             _reject_os_environ_references(model_info)
-        model_name: Final = request_litellm_params.get("model")
+        model_name: Final = request_embrouter_params.get("model")
 
         # Look up model configuration from router if model name is provided
-        # This gets the litellm_params from proxy config (with resolved env vars)
-        config_litellm_params: dict = {}
+        # This gets the embrouter_params from proxy config (with resolved env vars)
+        config_embrouter_params: dict = {}
         loaded_model_info: dict | None = None
         if llm_router is not None:
             # Prefer disambiguation by deployment id (`model_info.id`) when
@@ -2148,7 +2148,7 @@ async def test_model_connection(
                     deployment_by_id = llm_router.get_deployment(model_id=request_model_id)
 
                 if deployment_by_id is not None:
-                    config_litellm_params = deployment_by_id.litellm_params.model_dump(exclude_none=True)
+                    config_embrouter_params = deployment_by_id.embrouter_params.model_dump(exclude_none=True)
                     loaded_model_info = deployment_by_id.model_info.model_dump(exclude_none=True)
                 elif model_name:
                     # Fall back to model_name lookup for callers (e.g. the
@@ -2156,21 +2156,21 @@ async def test_model_connection(
                     # First try to find by proxy model_name (e.g., "gpt-4o")
                     deployments = llm_router.get_model_list(model_name=model_name)
 
-                    # If not found, try to find by litellm model name
+                    # If not found, try to find by embrouter model name
                     # (e.g., "azure/gpt-4o")
                     if not deployments or len(deployments) == 0:
                         all_deployments: Final = llm_router.get_model_list(model_name=None)
                         if all_deployments:
                             for deployment in all_deployments:
-                                if deployment.get("litellm_params", {}).get("model") == model_name:
+                                if deployment.get("embrouter_params", {}).get("model") == model_name:
                                     deployments = [deployment]
                                     break
 
                     if deployments and len(deployments) > 0:
-                        # Use the first deployment's litellm_params as base
+                        # Use the first deployment's embrouter_params as base
                         # config. These already have resolved environment
                         # variables from proxy config.
-                        config_litellm_params = dict(deployments[0].get("litellm_params", {}))
+                        config_embrouter_params = dict(deployments[0].get("embrouter_params", {}))
                         loaded_model_info = dict(deployments[0].get("model_info") or {})
             except Exception as e:
                 verbose_proxy_logger.debug(
@@ -2178,46 +2178,46 @@ async def test_model_connection(
                 )
 
         # Merge: config params (from proxy config) as base, request params override
-        litellm_params = {
+        embrouter_params = {
             **_config_base_for_health_check(
-                config_litellm_params,
-                request_litellm_params,
+                config_embrouter_params,
+                request_embrouter_params,
                 allow_client_side_credentials=general_settings.get("allow_client_side_credentials") is True,
             ),
-            **request_litellm_params,
+            **request_embrouter_params,
         }
 
         resolved_model_info: Final = loaded_model_info if loaded_model_info is not None else model_info
-        litellm_params = _update_litellm_params_for_health_check(
+        embrouter_params = _update_embrouter_params_for_health_check(
             model_info=resolved_model_info or {},
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
         ## Auth check, on the final probe params so health_check_params cannot retarget it afterwards
         await ModelManagementAuthChecks.can_user_make_model_call(
             model_params=Deployment(
                 model_name="test_model",
-                litellm_params=LiteLLM_Params(**litellm_params),
+                embrouter_params=EmbRouter_Params(**embrouter_params),
                 model_info=resolved_model_info,
             ),
             user_api_key_dict=user_api_key_dict,
             prisma_client=prisma_client,
             premium_user=premium_user,
         )
-        mode = mode or litellm_params.pop("mode", None)
+        mode = mode or embrouter_params.pop("mode", None)
 
         result: Final = await run_with_timeout(
-            litellm.ahealth_check(
-                model_params=litellm_params,
+            embrouter.ahealth_check(
+                model_params=embrouter_params,
                 mode=mode,
-                prompt="test from litellm",
-                input=["test from litellm"],
+                prompt="test from embrouter",
+                input=["test from embrouter"],
             ),
             HEALTH_CHECK_TIMEOUT_SECONDS,
         )
 
         # Clean the result for display
-        cleaned_result: Final = _clean_endpoint_data({**litellm_params, **result}, details=True)
+        cleaned_result: Final = _clean_endpoint_data({**embrouter_params, **result}, details=True)
 
         return {
             "status": "error" if "error" in result else "success",
@@ -2227,7 +2227,7 @@ async def test_model_connection(
     except HTTPException as e:
         raise e
     except Exception as e:
-        verbose_proxy_logger.debug("litellm.proxy.health_endpoints.test_model_connection(): Exception occurred - %s", e)
+        verbose_proxy_logger.debug("embrouter.proxy.health_endpoints.test_model_connection(): Exception occurred - %s", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={"error": f"Failed to test connection: {e}"},

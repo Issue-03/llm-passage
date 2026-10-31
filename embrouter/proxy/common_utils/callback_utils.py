@@ -8,10 +8,10 @@ from typing import TYPE_CHECKING, Any, Final, Literal, NoReturn, Optional, TypeA
 
 from typing_extensions import ReadOnly, TypedDict, assert_never
 
-import litellm
-from litellm import get_secret
-from litellm._logging import verbose_proxy_logger
-from litellm.constants import (
+import embrouter
+from embrouter import get_secret
+from embrouter._logging import verbose_proxy_logger
+from embrouter.constants import (
     CLIENT_OUTPUT_CEILING_METADATA_KEY,
     CONSUMED_REQUEST_TAGS_METADATA_KEY,
     MAX_GUARDRAIL_SCAN_METADATA_HEADER_LENGTH,
@@ -19,20 +19,20 @@ from litellm.constants import (
     ROUTING_REQUEST_TAGS_METADATA_KEY,
     SESSION_DEPLOYMENT_AFFINITY_TTL_METADATA_KEY,
 )
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.core_helpers import (
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.embrouter_core_utils.core_helpers import (
     get_metadata_variable_name_from_kwargs,
     get_or_create_metadata_bucket,
 )
-from litellm.litellm_core_utils.sensitive_data_masker import SensitiveDataMasker
-from litellm.proxy._types import CommonProxyErrors, LiteLLMPromptInjectionParams
-from litellm.proxy.common_utils.encrypt_decrypt_utils import (
+from embrouter.embrouter_core_utils.sensitive_data_masker import SensitiveDataMasker
+from embrouter.proxy._types import CommonProxyErrors, EmbRouterPromptInjectionParams
+from embrouter.proxy.common_utils.encrypt_decrypt_utils import (
     decrypt_value_helper,
     encrypt_value_helper,
 )
-from litellm.proxy.types_utils.utils import get_instance_fn
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.utils import (
+from embrouter.proxy.types_utils.utils import get_instance_fn
+from embrouter.types.guardrails import GuardrailEventHooks
+from embrouter.types.utils import (
     StandardLoggingGuardrailInformation,
     StandardLoggingPayload,
 )
@@ -43,8 +43,8 @@ _CALLBACK_VAR_MASKER: Final = SensitiveDataMasker()
 _EXTRA_SENSITIVE_CALLBACK_KEYS: Final = {"gcs_path_service_account"}
 # Sentinel prefix on encrypted callback_var values. Lets us detect
 # already-encrypted input cheaply (no decrypt-attempt round trip) and
-# avoid double-encrypting if `LITELLM_SALT_KEY` is rotated between writes.
-CALLBACK_VAR_ENCRYPTED_PREFIX: Final = "litellm_enc::"
+# avoid double-encrypting if `EMBROUTER_SALT_KEY` is rotated between writes.
+CALLBACK_VAR_ENCRYPTED_PREFIX: Final = "embrouter_enc::"
 _CALLBACK_VAR_ENCRYPTED_PREFIX: Final = CALLBACK_VAR_ENCRYPTED_PREFIX
 # Metadata slots that hold operator-configured callback and secret-manager setup
 # (and therefore integration credentials). Resolved from UserAPIKeyAuth during
@@ -68,7 +68,7 @@ class GuardrailScanMetadata(TypedDict):
 
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLogging
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLogging
 
 
 @dataclass(frozen=True, slots=True)
@@ -90,7 +90,7 @@ _CallbackLoadError: TypeAlias = _CallbackResolvedToClass | _CallbackNotDispatcha
 
 def _classify_loaded_callback(entry: str, loaded: object) -> CustomLogger | Callable[..., object] | _CallbackLoadError:
     """
-    Decide whether what a ``litellm_settings.callbacks`` dotted path resolved to can be dispatched.
+    Decide whether what a ``embrouter_settings.callbacks`` dotted path resolved to can be dispatched.
 
     A dotted path only ever runs as a ``CustomLogger`` instance or as a callback function. Anything
     else (most commonly a class instead of an instance) used to load without complaint and then be
@@ -109,7 +109,7 @@ def _raise_callback_load_error(error: _CallbackLoadError) -> NoReturn:
         case _CallbackResolvedToClass():
             module_path: Final = error.entry.rsplit(".", 1)[0] if "." in error.entry else error.entry
             raise ValueError(
-                f"litellm_settings.callbacks entry '{error.entry}' resolved to the class "
+                f"embrouter_settings.callbacks entry '{error.entry}' resolved to the class "
                 f"{error.loaded.__module__}.{error.loaded.__qualname__}, which is neither a "
                 "CustomLogger instance nor a callable, so the proxy would never run it."
                 f" Point it at an instance instead, e.g. add `proxy_handler_instance = {error.loaded.__name__}()` to "
@@ -117,7 +117,7 @@ def _raise_callback_load_error(error: _CallbackLoadError) -> NoReturn:
             )
         case _CallbackNotDispatchable():
             raise ValueError(
-                f"litellm_settings.callbacks entry '{error.entry}' resolved to "
+                f"embrouter_settings.callbacks entry '{error.entry}' resolved to "
                 f"{type(error.loaded).__name__} {error.loaded!r}, which is neither a "
                 "CustomLogger instance nor a callable, so the proxy would never run it."
             )
@@ -135,40 +135,40 @@ def initialize_callbacks_on_proxy(
     value: Any,
     premium_user: bool,
     config_file_path: str,
-    litellm_settings: dict,
+    embrouter_settings: dict,
     callback_specific_params: dict | None = None,
 ):
     if not isinstance(callback_specific_params, dict):
         callback_specific_params = {}
-    from litellm.integrations.custom_logger import CustomLogger
-    from litellm.litellm_core_utils.logging_callback_manager import (
+    from embrouter.integrations.custom_logger import CustomLogger
+    from embrouter.embrouter_core_utils.logging_callback_manager import (
         LoggingCallbackManager,
     )
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     verbose_proxy_logger.debug("%sinitializing callbacks=%s on proxy%s", blue_color_code, value, reset_color_code)
     if isinstance(value, list):
         imported_list: Final[list[Any]] = []
         for callback in value:  # ["presidio", <my-custom-callback>]
             if isinstance(callback, str) and callback == "compression_interception":
-                from litellm.integrations.compression_interception.handler import (
+                from embrouter.integrations.compression_interception.handler import (
                     CompressionInterceptionLogger,
                 )
 
                 compression_interception_obj = CompressionInterceptionLogger.initialize_from_proxy_config(
-                    litellm_settings=litellm_settings,
+                    embrouter_settings=embrouter_settings,
                     callback_specific_params=callback_specific_params,
                 )
                 imported_list.append(compression_interception_obj)
                 continue
 
             if isinstance(callback, str) and callback == "code_interpreter_interception":
-                from litellm.integrations.code_interpreter_interception.handler import (
+                from embrouter.integrations.code_interpreter_interception.handler import (
                     CodeInterpreterInterceptionLogger,
                 )
 
                 code_interpreter_interception_obj = CodeInterpreterInterceptionLogger.initialize_from_proxy_config(
-                    litellm_settings=litellm_settings,
+                    embrouter_settings=embrouter_settings,
                     callback_specific_params=callback_specific_params,
                 )
                 imported_list.append(code_interpreter_interception_obj)
@@ -177,14 +177,14 @@ def initialize_callbacks_on_proxy(
             # check if callback is a custom logger compatible callback
             if isinstance(callback, str):
                 callback = LoggingCallbackManager._add_custom_callback_generic_api_str(callback)
-            if isinstance(callback, str) and callback in litellm._known_custom_logger_compatible_callbacks:
+            if isinstance(callback, str) and callback in embrouter._known_custom_logger_compatible_callbacks:
                 imported_list.append(callback)
             elif isinstance(callback, str) and callback == "presidio":
-                from litellm.proxy.guardrails.guardrail_hooks.presidio import (
+                from embrouter.proxy.guardrails.guardrail_hooks.presidio import (
                     _OPTIONAL_PresidioPIIMasking,
                 )
 
-                presidio_logging_only: bool | None = litellm_settings.get("presidio_logging_only", None)
+                presidio_logging_only: bool | None = embrouter_settings.get("presidio_logging_only", None)
                 if presidio_logging_only is not None:
                     presidio_logging_only = bool(presidio_logging_only)  # validate boolean given
 
@@ -200,7 +200,7 @@ def initialize_callbacks_on_proxy(
                 imported_list.append(pii_masking_object)
             elif isinstance(callback, str) and callback == "llamaguard_moderations":
                 try:
-                    from litellm_enterprise.enterprise_callbacks.llama_guard import (
+                    from embrouter_enterprise.enterprise_callbacks.llama_guard import (
                         _ENTERPRISE_LlamaGuard,
                     )
                 except ImportError:
@@ -215,7 +215,7 @@ def initialize_callbacks_on_proxy(
                 imported_list.append(llama_guard_object)
             elif isinstance(callback, str) and callback == "hide_secrets":
                 try:
-                    from litellm_enterprise.enterprise_callbacks.secret_detection import (
+                    from embrouter_enterprise.enterprise_callbacks.secret_detection import (
                         _ENTERPRISE_SecretDetection,
                     )
                 except ImportError:
@@ -245,7 +245,7 @@ def initialize_callbacks_on_proxy(
                 openai_moderations_object = _ENTERPRISE_OpenAI_Moderation()
                 imported_list.append(openai_moderations_object)
             elif isinstance(callback, str) and callback == "lakera_prompt_injection":
-                from litellm.proxy.guardrails.guardrail_hooks.lakera_ai import (
+                from embrouter.proxy.guardrails.guardrail_hooks.lakera_ai import (
                     lakeraAI_Moderation,
                 )
 
@@ -257,7 +257,7 @@ def initialize_callbacks_on_proxy(
                 lakera_moderations_object = lakeraAI_Moderation(**init_params)
                 imported_list.append(lakera_moderations_object)
             elif isinstance(callback, str) and callback == "aporia_prompt_injection":
-                from litellm.proxy.guardrails.guardrail_hooks.aporia_ai.aporia_ai import (
+                from embrouter.proxy.guardrails.guardrail_hooks.aporia_ai.aporia_ai import (
                     AporiaGuardrail,
                 )
 
@@ -281,7 +281,7 @@ def initialize_callbacks_on_proxy(
                 imported_list.append(google_text_moderation_obj)
             elif isinstance(callback, str) and callback == "llmguard_moderations":
                 try:
-                    from litellm_enterprise.enterprise_callbacks.llm_guard import (
+                    from embrouter_enterprise.enterprise_callbacks.llm_guard import (
                         _ENTERPRISE_LLMGuard,
                     )
                 except ImportError:
@@ -323,32 +323,32 @@ def initialize_callbacks_on_proxy(
                 banned_keywords_obj = _ENTERPRISE_BannedKeywords()
                 imported_list.append(banned_keywords_obj)
             elif isinstance(callback, str) and callback == "detect_prompt_injection":
-                from litellm.proxy.hooks.prompt_injection_detection import (
+                from embrouter.proxy.hooks.prompt_injection_detection import (
                     _OPTIONAL_PromptInjectionDetection,
                 )
 
                 prompt_injection_params = None
-                if "prompt_injection_params" in litellm_settings:
-                    prompt_injection_params_in_config = litellm_settings["prompt_injection_params"]
-                    prompt_injection_params = LiteLLMPromptInjectionParams(**prompt_injection_params_in_config)
+                if "prompt_injection_params" in embrouter_settings:
+                    prompt_injection_params_in_config = embrouter_settings["prompt_injection_params"]
+                    prompt_injection_params = EmbRouterPromptInjectionParams(**prompt_injection_params_in_config)
 
                 prompt_injection_detection_obj = _OPTIONAL_PromptInjectionDetection(
                     prompt_injection_params=prompt_injection_params,
                 )
                 imported_list.append(prompt_injection_detection_obj)
             elif isinstance(callback, str) and callback == "batch_redis_requests":
-                from litellm.proxy.hooks.batch_redis_get import (
+                from embrouter.proxy.hooks.batch_redis_get import (
                     _PROXY_BatchRedisRequests,
                 )
 
                 batch_redis_obj = _PROXY_BatchRedisRequests()
                 imported_list.append(batch_redis_obj)
             elif isinstance(callback, str) and callback == "azure_content_safety":
-                from litellm.proxy.hooks.azure_content_safety import (
+                from embrouter.proxy.hooks.azure_content_safety import (
                     _PROXY_AzureContentSafety,
                 )
 
-                azure_content_safety_params = litellm_settings["azure_content_safety_params"]
+                azure_content_safety_params = embrouter_settings["azure_content_safety_params"]
                 for k, v in azure_content_safety_params.items():
                     if v is not None and isinstance(v, str) and v.startswith("os.environ/"):
                         azure_content_safety_params[k] = get_secret(v)
@@ -358,17 +358,17 @@ def initialize_callbacks_on_proxy(
                 )
                 imported_list.append(azure_content_safety_obj)
             elif isinstance(callback, str) and callback == "websearch_interception":
-                from litellm.integrations.websearch_interception.handler import (
+                from embrouter.integrations.websearch_interception.handler import (
                     WebSearchInterceptionLogger,
                 )
 
                 websearch_interception_obj = WebSearchInterceptionLogger.initialize_from_proxy_config(
-                    litellm_settings=litellm_settings,
+                    embrouter_settings=embrouter_settings,
                     callback_specific_params=callback_specific_params,
                 )
                 imported_list.append(websearch_interception_obj)
             elif isinstance(callback, str) and callback == "datadog_cost_management":
-                from litellm.integrations.datadog.datadog_cost_management import (
+                from embrouter.integrations.datadog.datadog_cost_management import (
                     DatadogCostManagementLogger,
                 )
 
@@ -394,17 +394,17 @@ def initialize_callbacks_on_proxy(
                         ),
                     )
                 )
-        if isinstance(litellm.callbacks, list):
-            litellm.callbacks.extend(imported_list)
+        if isinstance(embrouter.callbacks, list):
+            embrouter.callbacks.extend(imported_list)
         else:
-            litellm.callbacks = imported_list
+            embrouter.callbacks = imported_list
 
         if "prometheus" in value:
-            from litellm.integrations.prometheus import PrometheusLogger
+            from embrouter.integrations.prometheus import PrometheusLogger
 
             PrometheusLogger._mount_metrics_endpoint()
     else:
-        litellm.callbacks = [
+        embrouter.callbacks = [
             _loaded_callback_or_raise(
                 entry=value,
                 loaded=get_instance_fn(
@@ -413,12 +413,12 @@ def initialize_callbacks_on_proxy(
                 ),
             )
         ]
-    verbose_proxy_logger.debug("%s Initialized Callbacks - %s %s", blue_color_code, litellm.callbacks, reset_color_code)
+    verbose_proxy_logger.debug("%s Initialized Callbacks - %s %s", blue_color_code, embrouter.callbacks, reset_color_code)
 
 
-def get_model_group_from_litellm_kwargs(kwargs: dict) -> str | None:
-    _litellm_params: Final = kwargs.get("litellm_params", None) or {}
-    _metadata: Final = _litellm_params.get(get_metadata_variable_name_from_kwargs(kwargs)) or {}
+def get_model_group_from_embrouter_kwargs(kwargs: dict) -> str | None:
+    _embrouter_params: Final = kwargs.get("embrouter_params", None) or {}
+    _metadata: Final = _embrouter_params.get(get_metadata_variable_name_from_kwargs(kwargs)) or {}
     _model_group: Final = _metadata.get("model_group", None)
     if _model_group is not None:
         return _model_group
@@ -437,7 +437,7 @@ def get_model_group_from_request_data(data: dict) -> str | None:
 
 def get_remaining_tokens_and_requests_from_request_data(data: dict) -> dict[str, str]:
     """
-    Helper function to return x-litellm-key-remaining-tokens-{model_group} and x-litellm-key-remaining-requests-{model_group}
+    Helper function to return x-embrouter-key-remaining-tokens-{model_group} and x-embrouter-key-remaining-requests-{model_group}
 
     Returns {} when api_key + model rpm/tpm limit is not set
 
@@ -450,16 +450,16 @@ def get_remaining_tokens_and_requests_from_request_data(data: dict) -> dict[str,
     h11_model_group_name: Final = model_group.replace("/", "-").replace(":", "-") if model_group else None
 
     # Remaining Requests
-    remaining_requests_variable_name: Final = f"litellm-key-remaining-requests-{model_group}"
+    remaining_requests_variable_name: Final = f"embrouter-key-remaining-requests-{model_group}"
     remaining_requests: Final = _metadata.get(remaining_requests_variable_name, None)
     if remaining_requests:
-        headers[f"x-litellm-key-remaining-requests-{h11_model_group_name}"] = remaining_requests
+        headers[f"x-embrouter-key-remaining-requests-{h11_model_group_name}"] = remaining_requests
 
     # Remaining Tokens
-    remaining_tokens_variable_name: Final = f"litellm-key-remaining-tokens-{model_group}"
+    remaining_tokens_variable_name: Final = f"embrouter-key-remaining-tokens-{model_group}"
     remaining_tokens: Final = _metadata.get(remaining_tokens_variable_name, None)
     if remaining_tokens:
-        headers[f"x-litellm-key-remaining-tokens-{h11_model_group_name}"] = remaining_tokens
+        headers[f"x-embrouter-key-remaining-tokens-{h11_model_group_name}"] = remaining_tokens
 
     return headers
 
@@ -477,20 +477,20 @@ def _serialize_scan_metadata_header(entries: Iterable[object], *, max_length: in
 def get_logging_caching_headers(request_data: dict) -> dict | None:
     _metadata: Final[dict] = {}
     metadata_bucket: Final = request_data.get("metadata")
-    litellm_metadata_bucket: Final = request_data.get("litellm_metadata")
+    embrouter_metadata_bucket: Final = request_data.get("embrouter_metadata")
     if isinstance(metadata_bucket, dict):
         _metadata.update(metadata_bucket)
-    if isinstance(litellm_metadata_bucket, dict):
-        # Batch/file routes store proxy tracking in litellm_metadata while
+    if isinstance(embrouter_metadata_bucket, dict):
+        # Batch/file routes store proxy tracking in embrouter_metadata while
         # user-facing metadata stays in metadata; merge both for headers.
-        _metadata.update(litellm_metadata_bucket)
+        _metadata.update(embrouter_metadata_bucket)
     headers: Final = {}
     if "applied_guardrails" in _metadata:
-        headers["x-litellm-applied-guardrails"] = ",".join(_metadata["applied_guardrails"])
+        headers["x-embrouter-applied-guardrails"] = ",".join(_metadata["applied_guardrails"])
 
     scan_ids: Final = _metadata.get(GUARDRAIL_SCAN_IDS_METADATA_KEY)
     if scan_ids:
-        headers["x-litellm-guardrail-scan-id"] = ",".join(scan_ids)
+        headers["x-embrouter-guardrail-scan-id"] = ",".join(scan_ids)
 
     scan_metadata: Final = _metadata.get(GUARDRAIL_SCAN_METADATA_METADATA_KEY)
     scan_metadata_header: Final = (
@@ -499,19 +499,19 @@ def get_logging_caching_headers(request_data: dict) -> dict | None:
         else None
     )
     if scan_metadata_header:
-        headers["x-litellm-guardrail-scan-metadata"] = scan_metadata_header
+        headers["x-embrouter-guardrail-scan-metadata"] = scan_metadata_header
 
     if "applied_policies" in _metadata:
-        headers["x-litellm-applied-policies"] = ",".join(_metadata["applied_policies"])
+        headers["x-embrouter-applied-policies"] = ",".join(_metadata["applied_policies"])
 
     if "policy_sources" in _metadata:
         sources: Final = _metadata["policy_sources"]
         if isinstance(sources, dict) and sources:
             # Use ';' as delimiter — matched_via reasons may contain commas
-            headers["x-litellm-policy-sources"] = "; ".join(f"{name}={reason}" for name, reason in sources.items())
+            headers["x-embrouter-policy-sources"] = "; ".join(f"{name}={reason}" for name, reason in sources.items())
 
     if "semantic-similarity" in _metadata:
-        headers["x-litellm-semantic-similarity"] = str(_metadata["semantic-similarity"])
+        headers["x-embrouter-semantic-similarity"] = str(_metadata["semantic-similarity"])
 
     is_trusted_pillar_metadata: Final = _metadata.get(TRUSTED_PILLAR_RESPONSE_HEADERS_METADATA_KEY) is True
     pillar_headers: Final = _metadata.get("pillar_response_headers")
@@ -529,7 +529,7 @@ def get_logging_caching_headers(request_data: dict) -> dict | None:
     return headers
 
 
-LITELLM_PROXY_INTERNAL_METADATA_KEYS: Final = frozenset(
+EMBROUTER_PROXY_INTERNAL_METADATA_KEYS: Final = frozenset(
     {
         "applied_policies",
         "applied_guardrails",
@@ -568,14 +568,14 @@ def sanitize_openai_provider_metadata(
     """
     Keep only provider-safe OpenAI metadata entries (string keys -> string values).
 
-    Strips LiteLLM proxy-internal tracking fields that must not be forwarded to
+    Strips EmbRouter proxy-internal tracking fields that must not be forwarded to
     OpenAI batch/file APIs.
     """
     if metadata is None:
         return None
     sanitized: Final[dict[str, str]] = {}
     for key, value in metadata.items():
-        if key in LITELLM_PROXY_INTERNAL_METADATA_KEYS:
+        if key in EMBROUTER_PROXY_INTERNAL_METADATA_KEYS:
             continue
         if isinstance(value, str):
             sanitized[key] = value
@@ -611,8 +611,8 @@ def add_guardrail_scan_id(
     Record a provider scan id, keyed to the guardrail execution that produced it, so it can be surfaced to the caller.
 
     Guardrails only return scan details to the client when they block, so allowed requests carry no
-    audit trail. Ids recorded here become the x-litellm-guardrail-scan-id response header, and the
-    (guardrail, stage, provider, scan_id) entries become the x-litellm-guardrail-scan-metadata header.
+    audit trail. Ids recorded here become the x-embrouter-guardrail-scan-id response header, and the
+    (guardrail, stage, provider, scan_id) entries become the x-embrouter-guardrail-scan-metadata header.
     """
     if not scan_id:
         return
@@ -653,7 +653,7 @@ def add_policy_to_applied_policies_header(request_data: dict, policy_name: str |
 
 def add_policy_sources_to_metadata(request_data: dict, policy_sources: dict[str, str]):
     """
-    Store policy match reasons in metadata for x-litellm-policy-sources header.
+    Store policy match reasons in metadata for x-embrouter-policy-sources header.
 
     Args:
         request_data: The request data dict
@@ -670,12 +670,12 @@ def add_policy_sources_to_metadata(request_data: dict, policy_sources: dict[str,
 
 
 def add_guardrail_response_to_standard_logging_object(
-    litellm_logging_obj: Optional["LiteLLMLogging"],
+    embrouter_logging_obj: Optional["EmbRouterLogging"],
     guardrail_response: StandardLoggingGuardrailInformation,
 ):
-    if litellm_logging_obj is None:
+    if embrouter_logging_obj is None:
         return
-    standard_logging_object: Final[StandardLoggingPayload | None] = litellm_logging_obj.model_call_details.get(
+    standard_logging_object: Final[StandardLoggingPayload | None] = embrouter_logging_obj.model_call_details.get(
         "standard_logging_object"
     )
     if standard_logging_object is None:
@@ -777,7 +777,7 @@ def _encrypt_if_plaintext(key: str, value: object) -> object:
         return _CALLBACK_VAR_ENCRYPTED_PREFIX + encrypt_value_helper(value)
     except Exception:
         # No salt key / master key configured — leave the value as-is rather
-        # than crash the write. Dev environments without LITELLM_SALT_KEY hit
+        # than crash the write. Dev environments without EMBROUTER_SALT_KEY hit
         # this path; production always has a master key so encryption proceeds.
         return value
 

@@ -11,21 +11,21 @@ from httpx import Response
 from pydantic import BaseModel
 from typing_extensions import ReadOnly, TypedDict
 
-import litellm
-import litellm._logging
-from litellm import verbose_logger
-from litellm.constants import (
+import embrouter
+import embrouter._logging
+from embrouter import verbose_logger
+from embrouter.constants import (
     DEFAULT_MAX_LRU_CACHE_SIZE,
     DEFAULT_REPLICATE_GPU_PRICE_PER_SECOND,
 )
-from litellm.litellm_core_utils.llm_cost_calc.tool_call_cost_tracking import (
+from embrouter.embrouter_core_utils.llm_cost_calc.tool_call_cost_tracking import (
     StandardBuiltInToolCostTracking,
 )
-from litellm.litellm_core_utils.llm_cost_calc.usage_object_transformation import (
+from embrouter.embrouter_core_utils.llm_cost_calc.usage_object_transformation import (
     InteractionsUsageObjectTransformation,
     TranscriptionUsageObjectTransformation,
 )
-from litellm.litellm_core_utils.llm_cost_calc.utils import (
+from embrouter.embrouter_core_utils.llm_cost_calc.utils import (
     _SERVICE_TIER_TO_COST_KEY_SUFFIX,
     BilledTokenRates,
     CostCalculatorUtils,
@@ -40,67 +40,67 @@ from litellm.litellm_core_utils.llm_cost_calc.utils import (
     parse_prompt_tokens_details,
     select_cost_metric_for_model,
 )
-from litellm.llms.anthropic.cost_calculation import (
+from embrouter.llms.anthropic.cost_calculation import (
     cost_per_token as anthropic_cost_per_token,
 )
-from litellm.llms.azure.cost_calculation import (
+from embrouter.llms.azure.cost_calculation import (
     cost_per_token as azure_openai_cost_per_token,
 )
-from litellm.llms.azure_ai.cost_calculator import (
+from embrouter.llms.azure_ai.cost_calculator import (
     cost_per_token as azure_ai_cost_per_token,
 )
-from litellm.llms.azure_ai.cost_calculator import (
+from embrouter.llms.azure_ai.cost_calculator import (
     is_azure_model_router as azure_ai_is_model_router_name,
 )
-from litellm.llms.base_llm.search.transformation import SearchResponse
-from litellm.llms.bedrock.cost_calculation import (
+from embrouter.llms.base_llm.search.transformation import SearchResponse
+from embrouter.llms.bedrock.cost_calculation import (
     cost_per_token as bedrock_cost_per_token,
 )
-from litellm.llms.databricks.cost_calculator import (
+from embrouter.llms.databricks.cost_calculator import (
     cost_per_token as databricks_cost_per_token,
 )
-from litellm.llms.deepseek.cost_calculator import (
+from embrouter.llms.deepseek.cost_calculator import (
     cost_per_token as deepseek_cost_per_token,
 )
-from litellm.llms.fireworks_ai.cost_calculator import (
+from embrouter.llms.fireworks_ai.cost_calculator import (
     cost_per_token as fireworks_ai_cost_per_token,
 )
-from litellm.llms.gemini.cost_calculator import cost_per_token as gemini_cost_per_token
-from litellm.llms.lemonade.cost_calculator import (
+from embrouter.llms.gemini.cost_calculator import cost_per_token as gemini_cost_per_token
+from embrouter.llms.lemonade.cost_calculator import (
     cost_per_token as lemonade_cost_per_token,
 )
-from litellm.llms.openai.cost_calculation import (
+from embrouter.llms.openai.cost_calculation import (
     _video_output_cost_per_second,
 )
-from litellm.llms.openai.cost_calculation import (
+from embrouter.llms.openai.cost_calculation import (
     cost_per_second as openai_cost_per_second,
 )
-from litellm.llms.openai.cost_calculation import (
+from embrouter.llms.openai.cost_calculation import (
     cost_per_token as openai_cost_per_token,
 )
-from litellm.llms.perplexity.cost_calculator import (
+from embrouter.llms.perplexity.cost_calculator import (
     cost_per_token as perplexity_cost_per_token,
 )
-from litellm.llms.tencent.cost_calculator import (
+from embrouter.llms.tencent.cost_calculator import (
     cost_per_token as tencent_cost_per_token,
 )
-from litellm.llms.together_ai.cost_calculator import (
+from embrouter.llms.together_ai.cost_calculator import (
     get_model_params_and_category,
     has_together_registry_pricing,
 )
-from litellm.llms.vertex_ai.common_utils import get_vertex_ai_lyria_generation_cost
-from litellm.llms.vertex_ai.cost_calculator import (
+from embrouter.llms.vertex_ai.common_utils import get_vertex_ai_lyria_generation_cost
+from embrouter.llms.vertex_ai.cost_calculator import (
     cost_per_character as google_cost_per_character,
 )
-from litellm.llms.vertex_ai.cost_calculator import (
+from embrouter.llms.vertex_ai.cost_calculator import (
     cost_per_token as google_cost_per_token,
 )
-from litellm.llms.vertex_ai.cost_calculator import cost_router as google_cost_router
-from litellm.llms.xai.cost_calculator import cost_per_token as xai_cost_per_token
-from litellm.responses.utils import ResponseAPILoggingUtils
-from litellm.types.agents import LiteLLMSendMessageResponse
-from litellm.types.llms.base import CachedTokensDetails
-from litellm.types.llms.openai import (
+from embrouter.llms.vertex_ai.cost_calculator import cost_router as google_cost_router
+from embrouter.llms.xai.cost_calculator import cost_per_token as xai_cost_per_token
+from embrouter.responses.utils import ResponseAPILoggingUtils
+from embrouter.types.agents import EmbRouterSendMessageResponse
+from embrouter.types.llms.base import CachedTokensDetails
+from embrouter.types.llms.openai import (
     HttpxBinaryResponseContent,
     ImageGenerationRequestQuality,
     OpenAIModerationResponse,
@@ -110,10 +110,10 @@ from litellm.types.llms.openai import (
     ResponseAPIUsage,
     ResponsesAPIResponse,
 )
-from litellm.types.rerank import RerankBilledUnits, RerankResponse
-from litellm.types.utils import (
+from embrouter.types.rerank import RerankBilledUnits, RerankResponse
+from embrouter.types.utils import (
     CallTypesLiteral,
-    LiteLLMRealtimeStreamLoggingObject,
+    EmbRouterRealtimeStreamLoggingObject,
     LlmProviders,
     LlmProvidersSet,
     ModelInfo,
@@ -126,7 +126,7 @@ from litellm.types.utils import (
     Usage,
     VectorStoreSearchResponse,
 )
-from litellm.utils import (
+from embrouter.utils import (
     CallTypes,
     CostPerToken,
     EmbeddingResponse,
@@ -141,12 +141,12 @@ from litellm.utils import (
 )
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import (
-        Logging as LitellmLoggingObject,
+    from embrouter.embrouter_core_utils.embrouter_logging import (
+        Logging as EmbrouterLoggingObject,
     )
-    from litellm.llms.base_llm.ocr.transformation import OCRUsageInfo
+    from embrouter.llms.base_llm.ocr.transformation import OCRUsageInfo
 else:
-    LitellmLoggingObject = Any
+    EmbrouterLoggingObject = Any
 
 # Pre-resolved CallTypes enum values for fast membership checks
 _A2A_CALL_TYPES: Final = frozenset(
@@ -278,7 +278,7 @@ def _get_additional_costs(
     try:
         config_class = None
         if custom_llm_provider == "azure_ai":
-            from litellm.llms.azure_ai.common_utils import AzureFoundryModelInfo
+            from embrouter.llms.azure_ai.common_utils import AzureFoundryModelInfo
 
             config_class = AzureFoundryModelInfo.get_azure_ai_config_for_model(model)
         # Add more providers here as needed
@@ -501,7 +501,7 @@ def cost_per_token(
     if response_cost is not None:
         return response_cost[0], response_cost[1]
 
-    model_cost_ref: Final = litellm.model_cost
+    model_cost_ref: Final = embrouter.model_cost
     # Only callers that explicitly pass `custom_llm_provider` get the
     # dedup/prefix-join treatment. When provider is omitted, preserve legacy
     # behavior: `model_with_provider` stays equal to the raw `model` string
@@ -538,7 +538,7 @@ def cost_per_token(
             if model_with_provider_and_region in model_cost_ref:  # use region based pricing, if it's available
                 model_with_provider = model_with_provider_and_region
     else:
-        _, custom_llm_provider, _, _ = litellm.get_llm_provider(model=model)
+        _, custom_llm_provider, _, _ = embrouter.get_llm_provider(model=model)
 
     assert custom_llm_provider is not None  # caller-supplied or get_llm_provider
 
@@ -549,7 +549,7 @@ def cost_per_token(
     else:
         model_without_prefix = model
     """
-    Code block that formats model to lookup in litellm.model_cost
+    Code block that formats model to lookup in embrouter.model_cost
     Option1. model = "bedrock/ap-northeast-1/anthropic.claude-instant-v1". This is the most accurate since it is region based. Should always be option 1
     Option2. model = "openai/gpt-4"       - model = provider/model
     Option3. model = "anthropic.claude-3" - model = model
@@ -572,7 +572,7 @@ def cost_per_token(
         )
         if lyria_generation_cost is not None:
             return 0.0, lyria_generation_cost
-        speech_model_info = litellm.get_model_info(model=model_without_prefix, custom_llm_provider=custom_llm_provider)
+        speech_model_info = embrouter.get_model_info(model=model_without_prefix, custom_llm_provider=custom_llm_provider)
         cost_metric: Final = select_cost_metric_for_model(speech_model_info)
         prompt_cost: float = 0.0
         completion_cost: float = 0.0
@@ -653,7 +653,7 @@ def cost_per_token(
         )
     elif call_type == "search" or call_type == "asearch":
         # Search providers use per-query pricing
-        from litellm.search import search_provider_cost_per_query
+        from embrouter.search import search_provider_cost_per_query
 
         return search_provider_cost_per_query(
             model=model,
@@ -728,7 +728,7 @@ def cost_per_token(
     elif custom_llm_provider == "lemonade":
         return lemonade_cost_per_token(model=model, usage=usage_block)
     elif custom_llm_provider in ("dashscope", "qwencloud", "qwen_ai_platform"):
-        from litellm.llms.dashscope.cost_calculator import (
+        from embrouter.llms.dashscope.cost_calculator import (
             cost_per_token as dashscope_cost_per_token,
         )
 
@@ -757,7 +757,7 @@ def cost_per_token(
 
 def get_replicate_completion_pricing(completion_response: dict, total_time=0.0):
     # see https://replicate.com/pricing
-    # for all litellm currently supported LLMs, almost all requests go to a100_80gb
+    # for all embrouter currently supported LLMs, almost all requests go to a100_80gb
     a100_80gb_price_per_second_public: Final = (
         DEFAULT_REPLICATE_GPU_PRICE_PER_SECOND  # assume all calls sent to A100 80GB for now
     )
@@ -782,10 +782,10 @@ def _get_provider_for_cost_calc(
     if model is None:
         return None
     try:
-        _, custom_llm_provider, _, _ = litellm.get_llm_provider(model=model)
+        _, custom_llm_provider, _, _ = embrouter.get_llm_provider(model=model)
     except Exception as e:
         verbose_logger.debug(
-            "litellm.cost_calculator.py::_get_provider_for_cost_calc() - Error inferring custom_llm_provider - %s", e
+            "embrouter.cost_calculator.py::_get_provider_for_cost_calc() - Error inferring custom_llm_provider - %s", e
         )
         return None
 
@@ -847,8 +847,8 @@ def _select_model_name_for_cost_calc(
     )
 
     if custom_pricing is True:
-        if router_model_id is not None and router_model_id in litellm.model_cost:
-            entry: Final = litellm.model_cost[router_model_id]
+        if router_model_id is not None and router_model_id in embrouter.model_cost:
+            entry: Final = embrouter.model_cost[router_model_id]
             if _cost_map_entry_prices_anything(entry):
                 return_model = router_model_id
             else:
@@ -887,14 +887,14 @@ def _strip_unregistered_leading_segments(model: str, region_name: str | None) ->
     registered cost key ("vertex_ai/claude-opus-5"), keeping the model unchanged when it already
     resolves downstream (custom-priced router ids) or no stripped candidate is registered (#38069)."""
     segments: Final = model.split("/")
-    if "/".join(segments[1:]) in litellm.model_cost:
+    if "/".join(segments[1:]) in embrouter.model_cost:
         return model
     head_len: Final = 2 if region_name is not None and len(segments) > 2 and segments[1] == region_name else 1
     head: Final = "/".join(segments[:head_len])
     tail: Final = segments[head_len:]
     strippable: Final = next((index for index, segment in enumerate(tail) if segment in LlmProvidersSet), len(tail))
     candidates: Final = (f"{head}/{'/'.join(tail[start:])}" for start in range(min(strippable, len(tail) - 1) + 1))
-    return next((candidate for candidate in candidates if candidate in litellm.model_cost), model)
+    return next((candidate for candidate in candidates if candidate in embrouter.model_cost), model)
 
 
 @lru_cache(maxsize=DEFAULT_MAX_LRU_CACHE_SIZE)
@@ -939,7 +939,7 @@ _GEMINI_TRAFFIC_TYPE_TO_SERVICE_TIER: Final[dict] = {
 
 def _map_traffic_type_to_service_tier(traffic_type: str | None) -> str | None:
     """
-    Map a Gemini usageMetadata.trafficType value to a LiteLLM service_tier string.
+    Map a Gemini usageMetadata.trafficType value to a EmbRouter service_tier string.
 
     This allows the same `_priority` / `_flex` cost-key suffix logic used for
     OpenAI/Azure to work for Gemini and Vertex AI models.
@@ -1027,8 +1027,8 @@ def get_usage_object(
         return None
     if isinstance(usage_obj, Usage):
         return usage_obj
-    elif isinstance(usage_obj, dict) and litellm.AnthropicConfig.is_anthropic_usage_object(usage_obj):
-        return litellm.AnthropicConfig().calculate_usage(usage_object=usage_obj, reasoning_content=None)
+    elif isinstance(usage_obj, dict) and embrouter.AnthropicConfig.is_anthropic_usage_object(usage_obj):
+        return embrouter.AnthropicConfig().calculate_usage(usage_object=usage_obj, reasoning_content=None)
     elif (
         usage_obj is not None
         and (isinstance(usage_obj, dict) or isinstance(usage_obj, ResponseAPIUsage))
@@ -1056,7 +1056,7 @@ def get_usage_object(
 def _is_known_usage_objects(usage_obj):
     """Returns True if the usage obj is a known Usage type"""
     return (
-        isinstance(usage_obj, litellm.Usage)
+        isinstance(usage_obj, embrouter.Usage)
         or isinstance(usage_obj, ResponseAPIUsage)
         or TranscriptionUsageObjectTransformation.is_transcription_usage_object(usage_obj)
     )
@@ -1083,7 +1083,7 @@ def _infer_call_type(call_type: CallTypesLiteral | None, completion_response: ob
         return "image_generation"
     elif isinstance(completion_response, TextCompletionResponse):
         return "text_completion"
-    elif isinstance(completion_response, LiteLLMSendMessageResponse):
+    elif isinstance(completion_response, EmbRouterSendMessageResponse):
         return "send_message"
 
     return call_type
@@ -1107,8 +1107,8 @@ def _apply_cost_discount(
     discount_percent = 0.0
     discount_amount = 0.0
 
-    if custom_llm_provider and custom_llm_provider in litellm.cost_discount_config:
-        discount_percent = litellm.cost_discount_config[custom_llm_provider]
+    if custom_llm_provider and custom_llm_provider in embrouter.cost_discount_config:
+        discount_percent = embrouter.cost_discount_config[custom_llm_provider]
         discount_amount = original_cost * discount_percent
         final_cost: Final = original_cost - discount_amount
 
@@ -1144,12 +1144,12 @@ def _apply_cost_margin(
 
     # Get margin config - check provider-specific first, then global
     margin_config = None
-    if custom_llm_provider and custom_llm_provider in litellm.cost_margin_config:
-        margin_config = litellm.cost_margin_config[custom_llm_provider]
+    if custom_llm_provider and custom_llm_provider in embrouter.cost_margin_config:
+        margin_config = embrouter.cost_margin_config[custom_llm_provider]
         if verbose_logger.isEnabledFor(logging.DEBUG):
             verbose_logger.debug("Found provider-specific margin config for %s: %s", custom_llm_provider, margin_config)
-    elif "global" in litellm.cost_margin_config:
-        margin_config = litellm.cost_margin_config["global"]
+    elif "global" in embrouter.cost_margin_config:
+        margin_config = embrouter.cost_margin_config["global"]
         if verbose_logger.isEnabledFor(logging.DEBUG):
             verbose_logger.debug("Using global margin config: %s", margin_config)
     else:
@@ -1157,7 +1157,7 @@ def _apply_cost_margin(
             verbose_logger.debug(
                 "No margin config found. Provider: %s, Available configs: %s",
                 custom_llm_provider,
-                list(litellm.cost_margin_config.keys()),
+                list(embrouter.cost_margin_config.keys()),
             )
 
     if margin_config is not None:
@@ -1190,7 +1190,7 @@ def _apply_cost_margin(
 
 
 def _store_cost_breakdown_in_logging_obj(
-    litellm_logging_obj: LitellmLoggingObject | None,
+    embrouter_logging_obj: EmbrouterLoggingObject | None,
     prompt_tokens_cost_usd_dollar: float,
     completion_tokens_cost_usd_dollar: float,
     cost_for_built_in_tools_cost_usd_dollar: float,
@@ -1214,7 +1214,7 @@ def _store_cost_breakdown_in_logging_obj(
     Helper function to store cost breakdown in the logging object.
 
     Args:
-        litellm_logging_obj: The logging object to store breakdown in
+        embrouter_logging_obj: The logging object to store breakdown in
         prompt_tokens_cost_usd_dollar: Cost of input tokens
         completion_tokens_cost_usd_dollar: Cost of completion tokens (includes reasoning if applicable)
         cost_for_built_in_tools_cost_usd_dollar: Cost of built-in tools
@@ -1230,12 +1230,12 @@ def _store_cost_breakdown_in_logging_obj(
         data_residency: Region uplift the costs above were priced on, already resolved
         vertex_location: Vertex AI location the costs above were priced on, already resolved
     """
-    if litellm_logging_obj is None:
+    if embrouter_logging_obj is None:
         return
 
     try:
         # Store the cost breakdown
-        litellm_logging_obj.set_cost_breakdown(
+        embrouter_logging_obj.set_cost_breakdown(
             input_cost=prompt_tokens_cost_usd_dollar,
             output_cost=completion_tokens_cost_usd_dollar,
             total_cost=total_cost_usd_dollar,
@@ -1268,15 +1268,15 @@ def _without_provider_stated_cost(usage: Usage | None) -> Usage | None:
 
 
 def _split_responses_ws_logging_object_by_service_tier(
-    completion_response: LiteLLMRealtimeStreamLoggingObject,
-) -> tuple[LiteLLMRealtimeStreamLoggingObject, ...] | None:
+    completion_response: EmbRouterRealtimeStreamLoggingObject,
+) -> tuple[EmbRouterRealtimeStreamLoggingObject, ...] | None:
     partition: Final = ResponsesWebSocketTokenUsageProcessor.partition_results_by_service_tier(
         cast(Sequence[Mapping[str, object]], completion_response.results)
     )
     if len(partition) <= 1:
         return None
     return tuple(
-        LiteLLMRealtimeStreamLoggingObject(
+        EmbRouterRealtimeStreamLoggingObject(
             results=cast(OpenAIRealtimeStreamList, list(group)),
             usage=ResponsesWebSocketTokenUsageProcessor.collect_and_combine_usage_from_responses_ws_results(group),
             service_tier=tier,
@@ -1287,7 +1287,7 @@ def _split_responses_ws_logging_object_by_service_tier(
 
 def _response_time_ms_for_cost(
     completion_response: object,
-    litellm_logging_obj: LitellmLoggingObject | None,
+    embrouter_logging_obj: EmbrouterLoggingObject | None,
     total_time: float | None,
 ) -> float:
     stamped: Final = getattr(completion_response, "_response_ms", None)
@@ -1295,8 +1295,8 @@ def _response_time_ms_for_cost(
         return float(stamped)
     if total_time:
         return total_time
-    if litellm_logging_obj is not None:
-        return litellm_logging_obj.get_response_ms()
+    if embrouter_logging_obj is not None:
+        return embrouter_logging_obj.get_response_ms()
     return 0.0
 
 
@@ -1322,9 +1322,9 @@ def completion_cost(
     custom_pricing: bool | None = None,
     base_model: str | None = None,
     standard_built_in_tools_params: StandardBuiltInToolsParams | None = None,
-    litellm_model_name: str | None = None,
+    embrouter_model_name: str | None = None,
     router_model_id: str | None = None,
-    litellm_logging_obj: LitellmLoggingObject | None = None,
+    embrouter_logging_obj: EmbrouterLoggingObject | None = None,
     ### SERVICE TIER ###
     service_tier: str | None = None,  # for OpenAI service tier pricing
     ### DATA RESIDENCY ###
@@ -1333,10 +1333,10 @@ def completion_cost(
     vertex_location: str | None = None,  # for Vertex AI regional-endpoint uplift (e.g. "us-east5", "global")
 ) -> float:
     """
-    Calculate the cost of a given completion call fot GPT-3.5-turbo, llama2, any litellm supported llm.
+    Calculate the cost of a given completion call fot GPT-3.5-turbo, llama2, any embrouter supported llm.
 
     Parameters:
-        completion_response (litellm.ModelResponses): [Required] The response received from a LiteLLM completion request.
+        completion_response (embrouter.ModelResponses): [Required] The response received from a EmbRouter completion request.
 
         [OPTIONAL PARAMS]
         model (str): Optional. The name of the language model used in the completion calls
@@ -1350,7 +1350,7 @@ def completion_cost(
         float: The cost in USD dollars for the completion based on the provided parameters.
 
     Exceptions:
-        Raises exception if model not in the litellm model cost map. Register model, via custom pricing or
+        Raises exception if model not in the embrouter model cost map. Register model, via custom pricing or
 
 
     Note:
@@ -1364,7 +1364,7 @@ def completion_cost(
         call_type = _infer_call_type(call_type, completion_response) or "completion"
 
         if call_type == CallTypes.aresponses_websocket.value and isinstance(
-            completion_response, LiteLLMRealtimeStreamLoggingObject
+            completion_response, EmbRouterRealtimeStreamLoggingObject
         ):
             ws_tier_parts: Final = _split_responses_ws_logging_object_by_service_tier(completion_response)
             if ws_tier_parts is not None:
@@ -1388,9 +1388,9 @@ def completion_cost(
                         custom_pricing=custom_pricing,
                         base_model=base_model,
                         standard_built_in_tools_params=standard_built_in_tools_params,
-                        litellm_model_name=litellm_model_name,
+                        embrouter_model_name=embrouter_model_name,
                         router_model_id=router_model_id,
-                        litellm_logging_obj=litellm_logging_obj,
+                        embrouter_logging_obj=embrouter_logging_obj,
                         service_tier=service_tier,
                         data_residency=data_residency,
                         vertex_location=vertex_location,
@@ -1464,7 +1464,7 @@ def completion_cost(
                         setattr(
                             completion_response,
                             "usage",
-                            litellm.Usage(**_usage_for_dump.model_dump()),
+                            embrouter.Usage(**_usage_for_dump.model_dump()),
                         )
                     if usage_obj is None:
                         _usage = {}
@@ -1473,9 +1473,9 @@ def completion_cost(
                     else:
                         _usage = usage_obj
 
-                    if litellm.AnthropicConfig.is_anthropic_usage_object(_usage):
+                    if embrouter.AnthropicConfig.is_anthropic_usage_object(_usage):
                         _usage = (
-                            litellm.AnthropicConfig()
+                            embrouter.AnthropicConfig()
                             .calculate_usage(usage_object=_usage, reasoning_content=None)
                             .model_dump()
                         )
@@ -1530,9 +1530,9 @@ def completion_cost(
 
                 # Handle A2A calls before model check - A2A doesn't require a model
                 if call_type in _A2A_CALL_TYPES:
-                    from litellm.a2a_protocol.cost_calculator import A2ACostCalculator
+                    from embrouter.a2a_protocol.cost_calculator import A2ACostCalculator
 
-                    return A2ACostCalculator.calculate_a2a_cost(litellm_logging_obj=litellm_logging_obj)
+                    return A2ACostCalculator.calculate_a2a_cost(embrouter_logging_obj=embrouter_logging_obj)
 
                 if model is None:
                     raise ValueError(
@@ -1540,12 +1540,12 @@ def completion_cost(
                     )
                 if custom_llm_provider is None:
                     try:
-                        model, custom_llm_provider, _, _ = litellm.get_llm_provider(
+                        model, custom_llm_provider, _, _ = embrouter.get_llm_provider(
                             model=model
                         )  # strip the llm provider from the model name -> for image gen cost calculation
                     except Exception as e:
                         verbose_logger.debug(
-                            "litellm.cost_calculator.py::completion_cost() - Error inferring custom_llm_provider - %s",
+                            "embrouter.cost_calculator.py::completion_cost() - Error inferring custom_llm_provider - %s",
                             e,
                         )
                 if CostCalculatorUtils._call_type_has_image_response(call_type) and isinstance(
@@ -1561,12 +1561,12 @@ def completion_cost(
                         size=size,
                         optional_params=optional_params,
                         call_type=call_type,
-                        model_info=_deployment_model_info(litellm_logging_obj, custom_pricing, router_model_id),
+                        model_info=_deployment_model_info(embrouter_logging_obj, custom_pricing, router_model_id),
                     )
                 elif call_type in _VIDEO_CALL_TYPES:
                     ### VIDEO GENERATION COST CALCULATION ###
                     _video_model_info: ModelInfo | None = _deployment_model_info(
-                        litellm_logging_obj, custom_pricing, router_model_id
+                        embrouter_logging_obj, custom_pricing, router_model_id
                     )
 
                     usage_obj = getattr(completion_response, "usage", None)
@@ -1594,7 +1594,7 @@ def completion_cost(
 
                         if duration_seconds is not None:
                             # Calculate cost based on video duration using video-specific cost calculation
-                            from litellm.llms.openai.cost_calculation import (
+                            from embrouter.llms.openai.cost_calculation import (
                                 video_generation_cost,
                             )
 
@@ -1617,7 +1617,7 @@ def completion_cost(
                         video_resolution=video_resolution,
                     )
                 elif call_type in _SPEECH_CALL_TYPES:
-                    prompt_characters = litellm.utils._count_characters(text=prompt)
+                    prompt_characters = embrouter.utils._count_characters(text=prompt)
                 elif call_type in _TRANSCRIPTION_CALL_TYPES:
                     # Check _hidden_params first (duration stored there to
                     # avoid polluting the response body), then fall back to
@@ -1644,7 +1644,7 @@ def completion_cost(
                         search_units = billed_units.get("search_units") or 1  # cohere charges per request by default.
                         completion_tokens = search_units
                 elif call_type in _SEARCH_CALL_TYPES:
-                    from litellm.search import search_provider_cost_per_query
+                    from embrouter.search import search_provider_cost_per_query
 
                     # Extract number_of_queries from optional_params or default to 1
                     number_of_queries = 1
@@ -1698,7 +1698,7 @@ def completion_cost(
 
                     # Store cost breakdown in logging object if available
                     _store_cost_breakdown_in_logging_obj(
-                        litellm_logging_obj=litellm_logging_obj,
+                        embrouter_logging_obj=embrouter_logging_obj,
                         prompt_tokens_cost_usd_dollar=prompt_cost,
                         completion_tokens_cost_usd_dollar=completion_cost_result,
                         cost_for_built_in_tools_cost_usd_dollar=0.0,
@@ -1715,7 +1715,7 @@ def completion_cost(
 
                     return _final_cost
                 elif call_type == _AREALTIME_CALL_TYPE and isinstance(
-                    completion_response, LiteLLMRealtimeStreamLoggingObject
+                    completion_response, EmbRouterRealtimeStreamLoggingObject
                 ):
                     if cost_per_token_usage_object is None or custom_llm_provider is None:
                         raise ValueError(
@@ -1725,32 +1725,32 @@ def completion_cost(
                         results=completion_response.results,
                         combined_usage_object=cost_per_token_usage_object,
                         custom_llm_provider=custom_llm_provider,
-                        litellm_model_name=model,
+                        embrouter_model_name=model,
                         data_residency=data_residency,
-                        litellm_logging_obj=litellm_logging_obj,
+                        embrouter_logging_obj=embrouter_logging_obj,
                         custom_pricing_model=selected_model if custom_pricing else None,
                         base_pricing_model=(selected_model if base_model is not None and not custom_pricing else None),
                     )
                 elif call_type == _MCP_CALL_TYPE:
-                    from litellm.proxy._experimental.mcp_server.cost_calculator import (
+                    from embrouter.proxy._experimental.mcp_server.cost_calculator import (
                         MCPCostCalculator,
                     )
 
-                    return MCPCostCalculator.calculate_mcp_tool_call_cost(litellm_logging_obj=litellm_logging_obj)
+                    return MCPCostCalculator.calculate_mcp_tool_call_cost(embrouter_logging_obj=embrouter_logging_obj)
                 response_time_ms = _response_time_ms_for_cost(
                     completion_response=completion_response,
-                    litellm_logging_obj=litellm_logging_obj,
+                    embrouter_logging_obj=embrouter_logging_obj,
                     total_time=total_time,
                 )
                 # Calculate cost based on prompt_tokens, completion_tokens
                 if (
                     "togethercomputer" in model or "together_ai" in model or custom_llm_provider == "together_ai"
-                ) and not has_together_registry_pricing(model, litellm.model_cost):
+                ) and not has_together_registry_pricing(model, embrouter.model_cost):
                     model = get_model_params_and_category(model, call_type=CallTypes(call_type))
 
                 # replicate llms are calculate based on time for request running
                 # see https://replicate.com/pricing
-                elif (model in litellm.replicate_models or "replicate" in model) and model not in litellm.model_cost:
+                elif (model in embrouter.replicate_models or "replicate" in model) and model not in embrouter.model_cost:
                     # for unmapped replicate model, default to replicate's time tracking logic
                     return get_replicate_completion_pricing(completion_response, response_time_ms)
 
@@ -1762,19 +1762,19 @@ def completion_cost(
                 if custom_llm_provider is not None and custom_llm_provider == "vertex_ai":
                     # Calculate the prompt characters + response characters
                     if len(messages) > 0:
-                        prompt_string = litellm.utils.get_formatted_prompt(
+                        prompt_string = embrouter.utils.get_formatted_prompt(
                             data={"messages": messages}, call_type="completion"
                         )
 
-                        prompt_characters = litellm.utils._count_characters(text=prompt_string)
+                        prompt_characters = embrouter.utils._count_characters(text=prompt_string)
                     if completion_response is not None and isinstance(completion_response, ModelResponse):
-                        completion_string = litellm.utils.get_response_string(response_obj=completion_response)
-                        completion_characters = litellm.utils._count_characters(text=completion_string)
+                        completion_string = embrouter.utils.get_response_string(response_obj=completion_response)
+                        completion_characters = embrouter.utils._count_characters(text=completion_string)
 
                 # Get the original request model for router detection
                 request_model_for_cost = None
-                if litellm_logging_obj is not None:
-                    request_model_for_cost = litellm_logging_obj.model
+                if embrouter_logging_obj is not None:
+                    request_model_for_cost = embrouter_logging_obj.model
 
                 (
                     prompt_tokens_cost_usd_dollar,
@@ -1800,7 +1800,7 @@ def completion_cost(
                     data_residency=data_residency,
                     vertex_location=vertex_location,
                     response=completion_response,
-                    custom_model_info=_ocr_model_info(litellm_logging_obj, custom_pricing, router_model_id),
+                    custom_model_info=_ocr_model_info(embrouter_logging_obj, custom_pricing, router_model_id),
                 )
 
                 # Get additional costs from provider (e.g., routing fees, infrastructure costs)
@@ -1808,7 +1808,7 @@ def completion_cost(
                     model_for_additional_costs = request_model_for_cost
                     if completion_response is not None:
                         hidden_params = getattr(completion_response, "_hidden_params", None) or {}
-                        hidden_model = hidden_params.get("model") or hidden_params.get("litellm_model_name")
+                        hidden_model = hidden_params.get("model") or hidden_params.get("embrouter_model_name")
                         if (
                             hidden_model
                             and (
@@ -1842,7 +1842,7 @@ def completion_cost(
                     _final_cost += sum(additional_costs.values())
 
                 original_cost = _final_cost
-                if litellm.cost_discount_config:
+                if embrouter.cost_discount_config:
                     (
                         _final_cost,
                         discount_percent,
@@ -1856,7 +1856,7 @@ def completion_cost(
                     discount_amount = 0.0
 
                 # Apply margin from module-level config if configured
-                if litellm.cost_margin_config:
+                if embrouter.cost_margin_config:
                     (
                         _final_cost,
                         margin_percent,
@@ -1872,7 +1872,7 @@ def completion_cost(
                     margin_total_amount = 0.0
 
                 # Store cost breakdown in logging object if available
-                if litellm_logging_obj is not None:
+                if embrouter_logging_obj is not None:
                     _reasoning_cost: float | None = None
                     _cache_read_cost: float | None = None
                     _cache_creation_cost: float | None = None
@@ -1895,7 +1895,7 @@ def completion_cost(
                         _cache_creation_cost = _token_type_breakdown.cache_creation_cost
                         _billed_token_rates = _token_type_breakdown.rates
                     _store_cost_breakdown_in_logging_obj(
-                        litellm_logging_obj=litellm_logging_obj,
+                        embrouter_logging_obj=embrouter_logging_obj,
                         prompt_tokens_cost_usd_dollar=prompt_tokens_cost_usd_dollar,
                         completion_tokens_cost_usd_dollar=completion_tokens_cost_usd_dollar,
                         cost_for_built_in_tools_cost_usd_dollar=cost_for_built_in_tools,
@@ -1919,7 +1919,7 @@ def completion_cost(
                 return _final_cost
             except Exception as e:
                 verbose_logger.debug(
-                    "litellm.cost_calculator.py::completion_cost() - Error calculating cost for model=%s - %s", model, e
+                    "embrouter.cost_calculator.py::completion_cost() - Error calculating cost for model=%s - %s", model, e
                 )
                 if idx == len(potential_model_names) - 1:
                     raise e
@@ -1937,11 +1937,11 @@ def get_response_cost_from_hidden_params(
         _hidden_params_dict = hidden_params
 
     additional_headers: Final = _hidden_params_dict.get("additional_headers", {})
-    if additional_headers and "llm_provider-x-litellm-response-cost" in additional_headers:
-        response_cost: Final = additional_headers["llm_provider-x-litellm-response-cost"]
+    if additional_headers and "llm_provider-x-embrouter-response-cost" in additional_headers:
+        response_cost: Final = additional_headers["llm_provider-x-embrouter-response-cost"]
         if response_cost is None:
             return None
-        return float(additional_headers["llm_provider-x-litellm-response-cost"])
+        return float(additional_headers["llm_provider-x-embrouter-response-cost"])
     return None
 
 
@@ -1954,7 +1954,7 @@ def response_cost_calculator(
     | HttpxBinaryResponseContent
     | RerankResponse
     | ResponsesAPIResponse
-    | LiteLLMRealtimeStreamLoggingObject
+    | EmbRouterRealtimeStreamLoggingObject
     | OpenAIModerationResponse
     | Response
     | SearchResponse,
@@ -1986,9 +1986,9 @@ def response_cost_calculator(
     custom_pricing: bool | None = None,
     prompt: str = "",
     standard_built_in_tools_params: StandardBuiltInToolsParams | None = None,
-    litellm_model_name: str | None = None,
+    embrouter_model_name: str | None = None,
     router_model_id: str | None = None,
-    litellm_logging_obj: LitellmLoggingObject | None = None,
+    embrouter_logging_obj: EmbrouterLoggingObject | None = None,
     ### SERVICE TIER ###
     service_tier: str | None = None,  # for OpenAI service tier pricing
     ### DATA RESIDENCY ###
@@ -2022,9 +2022,9 @@ def response_cost_calculator(
                 base_model=base_model,
                 prompt=prompt,
                 standard_built_in_tools_params=standard_built_in_tools_params,
-                litellm_model_name=litellm_model_name,
+                embrouter_model_name=embrouter_model_name,
                 router_model_id=router_model_id,
-                litellm_logging_obj=litellm_logging_obj,
+                embrouter_logging_obj=embrouter_logging_obj,
                 service_tier=service_tier,
                 data_residency=data_residency,
                 vertex_location=vertex_location,
@@ -2036,7 +2036,7 @@ def response_cost_calculator(
 
 
 def _deployment_model_info(
-    litellm_logging_obj: LitellmLoggingObject | None,
+    embrouter_logging_obj: EmbrouterLoggingObject | None,
     custom_pricing: bool | None,
     router_model_id: str | None,
 ) -> ModelInfo | None:
@@ -2045,33 +2045,33 @@ def _deployment_model_info(
     registered_deployment_info: Final = _raw_cost_map_entry(router_model_id) if router_model_id is not None else None
     if registered_deployment_info is not None:
         return cast(ModelInfo, registered_deployment_info)  # cast-ok: router registers deployment prices under its id
-    if litellm_logging_obj is None:
+    if embrouter_logging_obj is None:
         return None
-    litellm_params: Final = litellm_logging_obj.litellm_params
-    if not litellm_params:
+    embrouter_params: Final = embrouter_logging_obj.embrouter_params
+    if not embrouter_params:
         return None
     return next(
         (
             model_info
-            for metadata_key in ("metadata", "litellm_metadata")
-            if (metadata := litellm_params.get(metadata_key)) and (model_info := metadata.get("model_info")) is not None
+            for metadata_key in ("metadata", "embrouter_metadata")
+            if (metadata := embrouter_params.get(metadata_key)) and (model_info := metadata.get("model_info")) is not None
         ),
         None,
     )
 
 
 def _ocr_model_info(
-    litellm_logging_obj: LitellmLoggingObject | None,
+    embrouter_logging_obj: EmbrouterLoggingObject | None,
     custom_pricing: bool | None,
     router_model_id: str | None,
 ) -> OCRPricing | None:
-    deployment_info: Final = _deployment_model_info(litellm_logging_obj, custom_pricing, router_model_id)
-    litellm_params: Final = (
-        litellm_logging_obj.litellm_params if custom_pricing and litellm_logging_obj is not None else None
+    deployment_info: Final = _deployment_model_info(embrouter_logging_obj, custom_pricing, router_model_id)
+    embrouter_params: Final = (
+        embrouter_logging_obj.embrouter_params if custom_pricing and embrouter_logging_obj is not None else None
     )
-    if litellm_params is None:
+    if embrouter_params is None:
         return deployment_info
-    return _layered_ocr_pricing(litellm_params, deployment_info)
+    return _layered_ocr_pricing(embrouter_params, deployment_info)
 
 
 def _first_ocr_price(field: OCRPricingField, *sources: Mapping[str, object] | None) -> float | None:
@@ -2091,13 +2091,13 @@ def _layered_ocr_pricing(*sources: Mapping[str, object] | None) -> OCRPricing:
 
 def _cost_map_model_info(model: str, custom_llm_provider: str | None) -> ModelInfo | None:
     try:
-        return litellm.get_model_info(model=model, custom_llm_provider=custom_llm_provider)
+        return embrouter.get_model_info(model=model, custom_llm_provider=custom_llm_provider)
     except Exception:
         return None
 
 
 def _raw_cost_map_entry(key: str) -> Mapping[str, object] | None:
-    raw_entry: Final = litellm.model_cost.get(key)
+    raw_entry: Final = embrouter.model_cost.get(key)
     return raw_entry if isinstance(raw_entry, Mapping) else None
 
 
@@ -2109,9 +2109,9 @@ def pricing_entry_for_cost_calc(
     base_model: str | None,
     router_model_id: str | None,
     region_name: str | None,
-    litellm_logging_obj: LitellmLoggingObject | None,
+    embrouter_logging_obj: EmbrouterLoggingObject | None,
 ) -> tuple[str, Mapping[str, object]] | None:
-    deployment_entry: Final = _deployment_model_info(litellm_logging_obj, custom_pricing, router_model_id)
+    deployment_entry: Final = _deployment_model_info(embrouter_logging_obj, custom_pricing, router_model_id)
     deployment_key: Final = router_model_id or model
     if deployment_entry is not None and deployment_key is not None:
         return deployment_key, deployment_entry
@@ -2153,7 +2153,7 @@ def ocr_cost(
 
         (Parent function requires a tuple, so we return a tuple. Cost is only in the first element.)
     """
-    from litellm.llms.base_llm.ocr.transformation import OCRResponse
+    from embrouter.llms.base_llm.ocr.transformation import OCRResponse
 
     #########################################################
     # validate it's an OCR response
@@ -2286,7 +2286,7 @@ def _single_log_line(value: str | None) -> str:
 
 def _lookup_model_info_or_none(model: str, custom_llm_provider: str | None) -> ModelInfo | None:
     try:
-        return litellm.get_model_info(model=model, custom_llm_provider=custom_llm_provider)
+        return embrouter.get_model_info(model=model, custom_llm_provider=custom_llm_provider)
     except Exception:  # noqa: BLE001  # get_model_info raises bare Exception for unmapped models; caller logs and bills 0.0
         return None
 
@@ -2311,7 +2311,7 @@ def vector_store_search_cost(
         custom_llm_provider = "openai"
 
     if model is not None and "/" in model:
-        api_type, custom_llm_provider, _, _ = litellm.get_llm_provider(
+        api_type, custom_llm_provider, _, _ = embrouter.get_llm_provider(
             model=model,
         )
 
@@ -2338,7 +2338,7 @@ def rerank_cost(
     Returns
     - float or None: cost of response OR none if error.
     """
-    _, custom_llm_provider, _, _ = litellm.get_llm_provider(model=model, custom_llm_provider=custom_llm_provider)
+    _, custom_llm_provider, _, _ = embrouter.get_llm_provider(model=model, custom_llm_provider=custom_llm_provider)
 
     try:
         config: Final = ProviderConfigManager.get_provider_rerank_config(
@@ -2349,7 +2349,7 @@ def rerank_cost(
         )
 
         try:
-            model_info: ModelInfo | None = litellm.get_model_info(model=model, custom_llm_provider=custom_llm_provider)
+            model_info: ModelInfo | None = embrouter.get_model_info(model=model, custom_llm_provider=custom_llm_provider)
         except Exception:
             model_info = None
 
@@ -2432,12 +2432,12 @@ def default_image_cost_calculator(
         model_name_without_custom_llm_provider,
     )
     matched_model: Final = next(
-        (_model for _model in models_to_check if _model is not None and _model in litellm.model_cost), None
+        (_model for _model in models_to_check if _model is not None and _model in embrouter.model_cost), None
     )
     if matched_model is None and model_info is None:
         raise Exception(f"Model not found in cost map. Tried checking {models_to_check}")
 
-    shared_cost_info: Final = litellm.model_cost[matched_model] if matched_model is not None else None
+    shared_cost_info: Final = embrouter.model_cost[matched_model] if matched_model is not None else None
     price_tables: Final = tuple(table for table in (model_info, shared_cost_info) if table is not None)
     image_count: Final = n if n is not None else 1
     unit_counts: Final = (
@@ -2475,7 +2475,7 @@ def default_video_cost_calculator(
         custom_llm_provider (Optional[str]): Custom LLM provider
         model_info (Optional[ModelInfo]): Deployment-level model info containing
             custom video pricing. When provided, used before falling back to
-            the global litellm.model_cost lookup.
+            the global embrouter.model_cost lookup.
         video_resolution (Optional[str]): From usage (e.g. ``720p``, ``1080p``) for tiered per-second pricing.
 
     Returns:
@@ -2508,15 +2508,15 @@ def default_video_cost_calculator(
             model_name_without_custom_llm_provider,
         ]
         for _model in models_to_check:
-            if _model is not None and _model in litellm.model_cost:
-                cost_info = litellm.model_cost[_model]
+            if _model is not None and _model in embrouter.model_cost:
+                cost_info = embrouter.model_cost[_model]
                 break
 
         # If still not found, try with custom_llm_provider prefix
         if cost_info is None and custom_llm_provider:
             prefixed_model: Final = f"{custom_llm_provider}/{model}"
-            if prefixed_model in litellm.model_cost:
-                cost_info = litellm.model_cost[prefixed_model]
+            if prefixed_model in embrouter.model_cost:
+                cost_info = embrouter.model_cost[prefixed_model]
 
     if cost_info is None:
         raise Exception(f"Model not found in cost map for model={model}")
@@ -2564,11 +2564,11 @@ def batch_cost_calculator(
     Args:
         model_info: Optional deployment-level model info containing custom
             batch pricing (e.g. input_cost_per_token_batches). When provided,
-            skips the global litellm.get_model_info() lookup so that
+            skips the global embrouter.get_model_info() lookup so that
             deployment-specific pricing is used.
     """
 
-    _, custom_llm_provider, _, _ = litellm.get_llm_provider(model=model, custom_llm_provider=custom_llm_provider)
+    _, custom_llm_provider, _, _ = embrouter.get_llm_provider(model=model, custom_llm_provider=custom_llm_provider)
 
     verbose_logger.debug(
         "Calculating batch cost per token. model=%s, custom_llm_provider=%s",
@@ -2578,7 +2578,7 @@ def batch_cost_calculator(
 
     if model_info is None:
         try:
-            model_info = litellm.get_model_info(model=model, custom_llm_provider=custom_llm_provider)
+            model_info = embrouter.get_model_info(model=model, custom_llm_provider=custom_llm_provider)
         except Exception:
             model_info = None
     elif not any(
@@ -2594,7 +2594,7 @@ def batch_cost_calculator(
         # but carries no pricing fields. Fall back to the global pricing table so
         # that standard model pricing is used instead of silently returning $0.
         try:
-            global_info: Final = litellm.get_model_info(model=model, custom_llm_provider=custom_llm_provider)
+            global_info: Final = embrouter.get_model_info(model=model, custom_llm_provider=custom_llm_provider)
             if global_info:
                 model_info = global_info
         except Exception:
@@ -2730,7 +2730,7 @@ class BaseTokenUsageProcessor:
         """
         Combine multiple Usage objects into a single Usage object, checking model keys for nested values.
         """
-        from litellm.types.utils import (
+        from embrouter.types.utils import (
             CompletionTokensDetailsWrapper,
             Usage,
         )
@@ -2812,8 +2812,8 @@ class RealtimeAPITokenUsageProcessor(BaseTokenUsageProcessor):
     @staticmethod
     def create_logging_realtime_object(
         usage: Usage, results: OpenAIRealtimeStreamList
-    ) -> LiteLLMRealtimeStreamLoggingObject:
-        return LiteLLMRealtimeStreamLoggingObject(
+    ) -> EmbRouterRealtimeStreamLoggingObject:
+        return EmbRouterRealtimeStreamLoggingObject(
             usage=usage,
             results=results,
         )
@@ -2909,9 +2909,9 @@ def _cost_map_entry_declares_pricing(model_name: str, custom_llm_provider: str) 
     """
     resolved: Final = _get_model_info_or_none(model_name, custom_llm_provider)
     entries: Final = (
-        litellm.model_cost.get(resolved.get("key")) if resolved is not None else None,
-        litellm.model_cost.get(model_name),
-        litellm.model_cost.get(f"{custom_llm_provider}/{model_name}"),
+        embrouter.model_cost.get(resolved.get("key")) if resolved is not None else None,
+        embrouter.model_cost.get(model_name),
+        embrouter.model_cost.get(f"{custom_llm_provider}/{model_name}"),
     )
     return any(entry is not None and _cost_map_entry_prices_anything(entry) for entry in entries)
 
@@ -2950,9 +2950,9 @@ def handle_realtime_stream_cost_calculation(
     results: OpenAIRealtimeStreamList,
     combined_usage_object: Usage,
     custom_llm_provider: str,
-    litellm_model_name: str,
+    embrouter_model_name: str,
     data_residency: str | None = None,
-    litellm_logging_obj: LitellmLoggingObject | None = None,
+    embrouter_logging_obj: EmbrouterLoggingObject | None = None,
     custom_pricing_model: str | None = None,
     base_pricing_model: str | None = None,
 ) -> float:
@@ -2975,7 +2975,7 @@ def handle_realtime_stream_cost_calculation(
             received_model = cast(OpenAIRealtimeStreamSessionEvents, result)["session"].get("model", None)
             potential_model_names.append(received_model)
 
-    potential_model_names.append(litellm_model_name)
+    potential_model_names.append(embrouter_model_name)
     input_cost_per_token, output_cost_per_token = _first_priced_realtime_token_costs(
         potential_model_names=potential_model_names,
         combined_usage_object=combined_usage_object,
@@ -2986,7 +2986,7 @@ def handle_realtime_stream_cost_calculation(
         handle_realtime_transcription_cost_calculation(
             results=results,
             custom_llm_provider=custom_llm_provider,
-            litellm_model_name=litellm_model_name,
+            embrouter_model_name=embrouter_model_name,
             custom_pricing_model=custom_pricing_model,
         )
         if any(r.get("type") == _TRANSCRIPTION_COMPLETED_EVENT_TYPE for r in results)
@@ -2995,7 +2995,7 @@ def handle_realtime_stream_cost_calculation(
     total_cost: Final = input_cost_per_token + output_cost_per_token + transcription_cost
 
     _store_cost_breakdown_in_logging_obj(
-        litellm_logging_obj=litellm_logging_obj,
+        embrouter_logging_obj=embrouter_logging_obj,
         prompt_tokens_cost_usd_dollar=input_cost_per_token,
         completion_tokens_cost_usd_dollar=output_cost_per_token,
         cost_for_built_in_tools_cost_usd_dollar=0.0,
@@ -3010,7 +3010,7 @@ def handle_realtime_stream_cost_calculation(
 def handle_realtime_transcription_cost_calculation(
     results: OpenAIRealtimeStreamList,
     custom_llm_provider: str,
-    litellm_model_name: str,
+    embrouter_model_name: str,
     custom_pricing_model: str | None = None,
 ) -> float:
     """
@@ -3028,7 +3028,7 @@ def handle_realtime_transcription_cost_calculation(
     if not completed_events:
         return 0.0
 
-    model_name: Final = _get_transcription_model_name_from_results(results) or litellm_model_name
+    model_name: Final = _get_transcription_model_name_from_results(results) or embrouter_model_name
     model_info: Final = _get_model_info_or_none(model_name, custom_llm_provider)
     override_info: Final = (
         _get_model_info_or_none(custom_pricing_model, custom_llm_provider) if custom_pricing_model is not None else None
@@ -3064,17 +3064,17 @@ def _get_transcription_model_name_from_results(
 
 def _get_model_info_or_none(model: str, custom_llm_provider: str) -> ModelInfo | None:
     try:
-        return litellm.get_model_info(model=model, custom_llm_provider=custom_llm_provider)
+        return embrouter.get_model_info(model=model, custom_llm_provider=custom_llm_provider)
     except Exception:
         return None
 
 
 def _declared_transcription_rate(info: ModelInfo | None, keys: tuple[str, ...]) -> float | None:
-    """First of ``keys`` this entry prices, read off the raw ``litellm.model_cost`` entry
+    """First of ``keys`` this entry prices, read off the raw ``embrouter.model_cost`` entry
     because ``get_model_info`` synthesizes zero token rates for entries that omit them."""
     if info is None:
         return None
-    declared: Final = litellm.model_cost.get(info.get("key"))
+    declared: Final = embrouter.model_cost.get(info.get("key"))
     if declared is None:
         return None
     return next(

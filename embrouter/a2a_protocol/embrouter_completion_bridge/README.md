@@ -1,19 +1,19 @@
-# A2A to LiteLLM Completion Bridge
+# A2A to EmbRouter Completion Bridge
 
-Routes A2A protocol requests through `litellm.acompletion`, enabling any LiteLLM-supported provider to be invoked via A2A.
+Routes A2A protocol requests through `embrouter.acompletion`, enabling any EmbRouter-supported provider to be invoked via A2A.
 
 ## Flow
 
 ```
-A2A Request → Transform → litellm.acompletion → Transform → A2A Response
+A2A Request → Transform → embrouter.acompletion → Transform → A2A Response
 ```
 
 ## SDK Usage
 
-Use the existing `asend_message` and `asend_message_streaming` functions with `litellm_params`:
+Use the existing `asend_message` and `asend_message_streaming` functions with `embrouter_params`:
 
 ```python
-from litellm.a2a_protocol import asend_message, asend_message_streaming
+from embrouter.a2a_protocol import asend_message, asend_message_streaming
 from a2a.types import SendMessageRequest, SendStreamingMessageRequest, MessageSendParams
 from uuid import uuid4
 
@@ -27,7 +27,7 @@ request = SendMessageRequest(
 response = await asend_message(
     request=request,
     api_base="http://localhost:2024",
-    litellm_params={"custom_llm_provider": "langgraph", "model": "agent"},
+    embrouter_params={"custom_llm_provider": "langgraph", "model": "agent"},
 )
 
 # Streaming
@@ -40,14 +40,14 @@ stream_request = SendStreamingMessageRequest(
 async for chunk in asend_message_streaming(
     request=stream_request,
     api_base="http://localhost:2024",
-    litellm_params={"custom_llm_provider": "langgraph", "model": "agent"},
+    embrouter_params={"custom_llm_provider": "langgraph", "model": "agent"},
 ):
     print(chunk)
 ```
 
 ## Proxy Usage
 
-Configure an agent with `custom_llm_provider` in `litellm_params`:
+Configure an agent with `custom_llm_provider` in `embrouter_params`:
 
 ```yaml
 agents:
@@ -55,16 +55,16 @@ agents:
     agent_card_params:
       name: "LangGraph Agent"
       url: "http://localhost:2024"  # Used as api_base
-    litellm_params:
+    embrouter_params:
       custom_llm_provider: langgraph
       model: agent
 ```
 
 When an A2A request hits `/a2a/{agent_id}/message/send`, the bridge:
 
-1. Detects `custom_llm_provider` in agent's `litellm_params`
+1. Detects `custom_llm_provider` in agent's `embrouter_params`
 2. Transforms A2A message → OpenAI messages
-3. Calls `litellm.acompletion(model="langgraph/agent", api_base="http://localhost:2024")`
+3. Calls `embrouter.acompletion(model="langgraph/agent", api_base="http://localhost:2024")`
 4. Transforms response → A2A format
 
 The proxy then normalizes the client-facing response to the agent's pinned `protocolVersion` (`0.3` or `1.0`). No extra provider config is required for completion-bridge agents — pin `protocolVersion` only if your client expects a specific wire format.

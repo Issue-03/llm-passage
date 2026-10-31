@@ -1,28 +1,28 @@
 from typing import TYPE_CHECKING, Final
 
-from litellm._logging import verbose_proxy_logger
-from litellm.types.guardrails import SupportedGuardrailIntegrations
+from embrouter._logging import verbose_proxy_logger
+from embrouter.types.guardrails import SupportedGuardrailIntegrations
 
 from .agent_365 import Agent365Guardrail
 
 if TYPE_CHECKING:
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-    from litellm.types.guardrails import Guardrail, LitellmParams
+    from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler
+    from embrouter.types.guardrails import Guardrail, EmbrouterParams
 
 
 def initialize_guardrail(
-    litellm_params: "LitellmParams",
+    embrouter_params: "EmbrouterParams",
     guardrail: "Guardrail",
     *,
     async_handler: "AsyncHTTPHandler | None" = None,
 ) -> Agent365Guardrail:
-    import litellm
-    from litellm.secret_managers.main import get_secret_str
+    import embrouter
+    from embrouter.secret_managers.main import get_secret_str
 
-    tenant_id: Final = litellm_params.tenant_id or get_secret_str("AGENT365_TENANT_ID")
-    client_id: Final = litellm_params.client_id or get_secret_str("AGENT365_CLIENT_ID")
+    tenant_id: Final = embrouter_params.tenant_id or get_secret_str("AGENT365_TENANT_ID")
+    client_id: Final = embrouter_params.client_id or get_secret_str("AGENT365_CLIENT_ID")
     client_secret: Final = (
-        litellm_params.client_secret or litellm_params.api_key or get_secret_str("AGENT365_CLIENT_SECRET")
+        embrouter_params.client_secret or embrouter_params.api_key or get_secret_str("AGENT365_CLIENT_SECRET")
     )
 
     if not tenant_id:
@@ -38,11 +38,11 @@ def initialize_guardrail(
     if not guardrail_name:
         raise ValueError("Microsoft Agent 365: guardrail_name is required")
 
-    extras: Final = litellm_params.model_extra or {}
+    extras: Final = embrouter_params.model_extra or {}
     ignored_overrides: Final = tuple(
         key
         for key, value in (
-            ("api_base", litellm_params.api_base),
+            ("api_base", embrouter_params.api_base),
             ("resource_app_id", extras.get("resource_app_id")),
             ("agent_id", extras.get("agent_id")),
         )
@@ -61,13 +61,13 @@ def initialize_guardrail(
         tenant_id=tenant_id,
         client_id=client_id,
         client_secret=client_secret,
-        request_timeout=litellm_params.timeout if litellm_params.timeout is not None else 10.0,
-        unreachable_fallback=litellm_params.unreachable_fallback,
+        request_timeout=embrouter_params.timeout if embrouter_params.timeout is not None else 10.0,
+        unreachable_fallback=embrouter_params.unreachable_fallback,
         async_handler=async_handler,
-        event_hook=litellm_params.mode,
-        default_on=litellm_params.default_on,
+        event_hook=embrouter_params.mode,
+        default_on=embrouter_params.default_on,
     )
-    litellm.logging_callback_manager.add_litellm_callback(agent_365_guardrail)
+    embrouter.logging_callback_manager.add_embrouter_callback(agent_365_guardrail)
     return agent_365_guardrail
 
 

@@ -1,7 +1,7 @@
 """
 WebSearch Tool Transformation
 
-Transforms between Anthropic/OpenAI tool_use format and LiteLLM search format.
+Transforms between Anthropic/OpenAI tool_use format and EmbRouter search format.
 """
 
 import json
@@ -10,11 +10,11 @@ from typing import Any, Final
 
 from typing_extensions import assert_never
 
-from litellm._logging import verbose_logger
-from litellm.constants import LITELLM_WEB_SEARCH_TOOL_NAME
-from litellm.exceptions import BadRequestError, RateLimitError
-from litellm.llms.base_llm.search.transformation import SearchResponse
-from litellm.types.integrations.websearch_interception import (
+from embrouter._logging import verbose_logger
+from embrouter.constants import EMBROUTER_WEB_SEARCH_TOOL_NAME
+from embrouter.exceptions import BadRequestError, RateLimitError
+from embrouter.llms.base_llm.search.transformation import SearchResponse
+from embrouter.types.integrations.websearch_interception import (
     SearchFailed,
     SearchOutcome,
     SearchSucceeded,
@@ -27,9 +27,9 @@ class WebSearchTransformation:
     Transformation class for WebSearch tool interception.
 
     Handles transformation between:
-    - Anthropic tool_use format → LiteLLM search requests
-    - OpenAI tool_calls format → LiteLLM search requests
-    - LiteLLM SearchResponse → Anthropic/OpenAI tool_result format
+    - Anthropic tool_use format → EmbRouter search requests
+    - OpenAI tool_calls format → EmbRouter search requests
+    - EmbRouter SearchResponse → Anthropic/OpenAI tool_result format
     """
 
     @staticmethod
@@ -78,10 +78,10 @@ class WebSearchTransformation:
     def _detect_from_responses_response(
         response: object,
     ) -> tuple[bool, list[dict]]:
-        """Parse a Responses API response for ``litellm_web_search`` function calls.
+        """Parse a Responses API response for ``embrouter_web_search`` function calls.
 
         After pre-request conversion the native web search tool is replaced by a
-        ``litellm_web_search`` function tool, so the model emits ``function_call``
+        ``embrouter_web_search`` function tool, so the model emits ``function_call``
         items in ``response.output`` instead of a native ``web_search_call``.
         """
         if isinstance(response, dict):
@@ -105,7 +105,7 @@ class WebSearchTransformation:
                 call_id = getattr(item, "call_id", None)
                 arguments = getattr(item, "arguments", "")
 
-            if item_type != "function_call" or item_name != LITELLM_WEB_SEARCH_TOOL_NAME:
+            if item_type != "function_call" or item_name != EMBROUTER_WEB_SEARCH_TOOL_NAME:
                 continue
 
             if isinstance(arguments, str):
@@ -172,12 +172,12 @@ class WebSearchTransformation:
 
             # Detect tool_use blocks that came from interception. After
             # pre-request conversion the model always sees
-            # ``litellm_web_search``; the bare ``web_search`` entry handles
+            # ``embrouter_web_search``; the bare ``web_search`` entry handles
             # callers that bypass our pre-request hooks (e.g. direct
-            # litellm.acompletion). "WebSearch" is intentionally omitted —
+            # embrouter.acompletion). "WebSearch" is intentionally omitted —
             # see is_web_search_tool for the Cowork rationale.
             if block_type == "tool_use" and block_name in (
-                LITELLM_WEB_SEARCH_TOOL_NAME,
+                EMBROUTER_WEB_SEARCH_TOOL_NAME,
                 "web_search",
             ):
                 # Convert to dict for easier handling
@@ -256,7 +256,7 @@ class WebSearchTransformation:
             # rationale (clients ship their own client-side ``WebSearch`` and
             # we must not hijack it).
             if tool_type == "function" and function_name in (
-                LITELLM_WEB_SEARCH_TOOL_NAME,
+                EMBROUTER_WEB_SEARCH_TOOL_NAME,
                 "web_search",
             ):
                 # Parse arguments (might be JSON string)
@@ -295,7 +295,7 @@ class WebSearchTransformation:
         thinking_blocks: list[dict] | None = None,
     ) -> tuple[dict, dict | list[dict]]:
         """
-        Transform LiteLLM search results to Anthropic/OpenAI tool_result format.
+        Transform EmbRouter search results to Anthropic/OpenAI tool_result format.
 
         Builds the assistant and user/tool messages needed for the agentic loop
         follow-up request.
@@ -439,7 +439,7 @@ class WebSearchTransformation:
                 turn. Must match exactly so the client can pair the result
                 with its tool_use block.
             search_response: Structured ``SearchResponse`` from
-                ``litellm.asearch()``. If None or empty, the block is still
+                ``embrouter.asearch()``. If None or empty, the block is still
                 emitted with an empty result list (signals "search ran, no
                 results" rather than "search did not run").
         """
@@ -533,7 +533,7 @@ class WebSearchTransformation:
         Format SearchResponse as text for tool_result content.
 
         Args:
-            result: SearchResponse from litellm.asearch()
+            result: SearchResponse from embrouter.asearch()
 
         Returns:
             Formatted text with Title, URL, Snippet for each result

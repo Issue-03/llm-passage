@@ -12,10 +12,10 @@ are denied so an empty user_id can never select an unscoped query.
 
 from typing import Any, Final
 
-from litellm.proxy._types import (
+from embrouter.proxy._types import (
     UserAPIKeyAuth,
 )
-from litellm.proxy._types import (
+from embrouter.proxy._types import (
     user_api_key_has_admin_view as _user_has_admin_view,
 )
 

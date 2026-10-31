@@ -1,10 +1,10 @@
-from litellm.integrations.opik.opik_payload_builder.extractors import (
+from embrouter.integrations.opik.opik_payload_builder.extractors import (
     extract_opik_metadata,
 )
 
 
 def test_extract_opik_metadata_fills_missing_keys_from_auth_metadata():
-    litellm_metadata = {"opik": {"project_name": "my-proj"}}
+    embrouter_metadata = {"opik": {"project_name": "my-proj"}}
     standard_logging_metadata = {
         "user_api_key_auth_metadata": {
             "opik": {
@@ -15,7 +15,7 @@ def test_extract_opik_metadata_fills_missing_keys_from_auth_metadata():
     }
 
     result = extract_opik_metadata(
-        litellm_metadata=litellm_metadata,
+        embrouter_metadata=embrouter_metadata,
         standard_logging_metadata=standard_logging_metadata,
     )
 
@@ -26,7 +26,7 @@ def test_extract_opik_metadata_fills_missing_keys_from_auth_metadata():
 
 
 def test_extract_opik_metadata_request_metadata_overrides_auth_metadata():
-    litellm_metadata = {
+    embrouter_metadata = {
         "opik": {
             "workspace": "request-workspace",
             "thread_id": "request-thread",
@@ -43,7 +43,7 @@ def test_extract_opik_metadata_request_metadata_overrides_auth_metadata():
     }
 
     result = extract_opik_metadata(
-        litellm_metadata=litellm_metadata,
+        embrouter_metadata=embrouter_metadata,
         standard_logging_metadata=standard_logging_metadata,
     )
 
@@ -55,7 +55,7 @@ def test_extract_opik_metadata_request_metadata_overrides_auth_metadata():
 
 
 def test_extract_opik_metadata_requester_metadata_overrides_all_other_sources():
-    litellm_metadata = {"opik": {"project_name": "request-project"}}
+    embrouter_metadata = {"opik": {"project_name": "request-project"}}
     standard_logging_metadata = {
         "user_api_key_auth_metadata": {
             "opik": {
@@ -73,7 +73,7 @@ def test_extract_opik_metadata_requester_metadata_overrides_all_other_sources():
     }
 
     result = extract_opik_metadata(
-        litellm_metadata=litellm_metadata,
+        embrouter_metadata=embrouter_metadata,
         standard_logging_metadata=standard_logging_metadata,
     )
 

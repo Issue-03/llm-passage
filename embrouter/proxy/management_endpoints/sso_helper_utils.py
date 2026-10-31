@@ -1,4 +1,4 @@
-from litellm.proxy._types import LitellmUserRoles
+from embrouter.proxy._types import EmbrouterUserRoles
 
 
 def check_is_admin_only_access(ui_access_mode: str | dict) -> bool:
@@ -17,6 +17,6 @@ def has_admin_ui_access(user_role: str) -> bool:
         bool: True if user is 'proxy_admin' or 'proxy_admin_view_only', False otherwise.
     """
 
-    if user_role != LitellmUserRoles.PROXY_ADMIN.value and user_role != LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY.value:
+    if user_role != EmbrouterUserRoles.PROXY_ADMIN.value and user_role != EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY.value:
         return False
     return True

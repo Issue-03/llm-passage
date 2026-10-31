@@ -11,12 +11,12 @@ from typing import Final
 
 import httpx
 
-import litellm
-from litellm.constants import request_timeout
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.base_llm.evals.transformation import BaseEvalsAPIConfig
-from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
-from litellm.types.llms.openai_evals import (
+import embrouter
+from embrouter.constants import request_timeout
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.base_llm.evals.transformation import BaseEvalsAPIConfig
+from embrouter.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+from embrouter.types.llms.openai_evals import (
     CancelEvalResponse,
     CancelRunResponse,
     CreateEvalRequest,
@@ -33,8 +33,8 @@ from litellm.types.llms.openai_evals import (
     RunDeleteResponse,
     UpdateEvalRequest,
 )
-from litellm.types.router import GenericLiteLLMParams
-from litellm.utils import ProviderConfigManager, client
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.utils import ProviderConfigManager, client
 
 # Initialize HTTP handler
 base_llm_http_handler = BaseLLMHTTPHandler()
@@ -101,7 +101,7 @@ async def acreate_eval(
             response = init_response
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -143,12 +143,12 @@ def create_eval(
     """
     local_vars: Final = locals()
     try:
-        litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.get("litellm_logging_obj")
-        litellm_call_id: Final[str | None] = kwargs.get("litellm_call_id", None)
+        embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.get("embrouter_logging_obj")
+        embrouter_call_id: Final[str | None] = kwargs.get("embrouter_call_id", None)
         _is_async: Final = kwargs.pop("acreate_eval", False) is True
 
-        # Get LiteLLM parameters
-        litellm_params: Final = GenericLiteLLMParams(**kwargs)
+        # Get EmbRouter parameters
+        embrouter_params: Final = GenericEmbRouterParams(**kwargs)
 
         # Determine provider
         if custom_llm_provider is None:
@@ -156,7 +156,7 @@ def create_eval(
 
         # Get provider config
         evals_api_provider_config: BaseEvalsAPIConfig | None = ProviderConfigManager.get_provider_evals_api_config(
-            provider=litellm.LlmProviders(custom_llm_provider),
+            provider=embrouter.LlmProviders(custom_llm_provider),
         )
 
         if evals_api_provider_config is None:
@@ -176,26 +176,26 @@ def create_eval(
 
         # Validate environment and get headers
         headers = extra_headers or {}
-        headers = evals_api_provider_config.validate_environment(headers=headers, litellm_params=litellm_params)
+        headers = evals_api_provider_config.validate_environment(headers=headers, embrouter_params=embrouter_params)
 
         # Transform request
         request_body: Final = evals_api_provider_config.transform_create_eval_request(
             create_request=create_request,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
         # Get API base and URL
-        api_base: Final = litellm_params.api_base or DEFAULT_OPENAI_API_BASE
+        api_base: Final = embrouter_params.api_base or DEFAULT_OPENAI_API_BASE
         url: Final = evals_api_provider_config.get_complete_url(api_base=api_base, endpoint="evals")
 
         # Pre-call logging
-        litellm_logging_obj.update_from_kwargs(
+        embrouter_logging_obj.update_from_kwargs(
             kwargs=kwargs,
             model=None,
             optional_params=request_body,
-            litellm_params={
-                "litellm_call_id": litellm_call_id,
+            embrouter_params={
+                "embrouter_call_id": embrouter_call_id,
             },
             custom_llm_provider=custom_llm_provider,
         )
@@ -206,8 +206,8 @@ def create_eval(
             request_body=request_body,
             evals_api_provider_config=evals_api_provider_config,
             custom_llm_provider=custom_llm_provider,
-            litellm_params=litellm_params,
-            logging_obj=litellm_logging_obj,
+            embrouter_params=embrouter_params,
+            logging_obj=embrouter_logging_obj,
             extra_headers=headers,
             timeout=timeout or request_timeout,
             _is_async=_is_async,
@@ -217,7 +217,7 @@ def create_eval(
 
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -286,7 +286,7 @@ async def alist_evals(
             response = init_response
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -328,12 +328,12 @@ def list_evals(
     """
     local_vars: Final = locals()
     try:
-        litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.get("litellm_logging_obj")
-        litellm_call_id: Final[str | None] = kwargs.get("litellm_call_id", None)
+        embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.get("embrouter_logging_obj")
+        embrouter_call_id: Final[str | None] = kwargs.get("embrouter_call_id", None)
         _is_async: Final = kwargs.pop("alist_evals", False) is True
 
-        # Get LiteLLM parameters
-        litellm_params: Final = GenericLiteLLMParams(**kwargs)
+        # Get EmbRouter parameters
+        embrouter_params: Final = GenericEmbRouterParams(**kwargs)
 
         # Determine provider
         if custom_llm_provider is None:
@@ -341,7 +341,7 @@ def list_evals(
 
         # Get provider config
         evals_api_provider_config: BaseEvalsAPIConfig | None = ProviderConfigManager.get_provider_evals_api_config(
-            provider=litellm.LlmProviders(custom_llm_provider),
+            provider=embrouter.LlmProviders(custom_llm_provider),
         )
 
         if evals_api_provider_config is None:
@@ -366,22 +366,22 @@ def list_evals(
 
         # Validate environment and get headers
         headers = extra_headers or {}
-        headers = evals_api_provider_config.validate_environment(headers=headers, litellm_params=litellm_params)
+        headers = evals_api_provider_config.validate_environment(headers=headers, embrouter_params=embrouter_params)
 
         # Transform request
         url, query_params = evals_api_provider_config.transform_list_evals_request(
             list_params=list_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
         # Pre-call logging
-        litellm_logging_obj.update_from_kwargs(
+        embrouter_logging_obj.update_from_kwargs(
             kwargs=kwargs,
             model=None,
             optional_params=query_params,
-            litellm_params={
-                "litellm_call_id": litellm_call_id,
+            embrouter_params={
+                "embrouter_call_id": embrouter_call_id,
             },
             custom_llm_provider=custom_llm_provider,
         )
@@ -392,8 +392,8 @@ def list_evals(
             query_params=query_params,
             evals_api_provider_config=evals_api_provider_config,
             custom_llm_provider=custom_llm_provider,
-            litellm_params=litellm_params,
-            logging_obj=litellm_logging_obj,
+            embrouter_params=embrouter_params,
+            logging_obj=embrouter_logging_obj,
             extra_headers=headers,
             timeout=timeout or request_timeout,
             _is_async=_is_async,
@@ -403,7 +403,7 @@ def list_evals(
 
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -460,7 +460,7 @@ async def aget_eval(
             response = init_response
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -494,12 +494,12 @@ def get_eval(
     """
     local_vars: Final = locals()
     try:
-        litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.get("litellm_logging_obj")
-        litellm_call_id: Final[str | None] = kwargs.get("litellm_call_id", None)
+        embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.get("embrouter_logging_obj")
+        embrouter_call_id: Final[str | None] = kwargs.get("embrouter_call_id", None)
         _is_async: Final = kwargs.pop("aget_eval", False) is True
 
-        # Get LiteLLM parameters
-        litellm_params: Final = GenericLiteLLMParams(**kwargs)
+        # Get EmbRouter parameters
+        embrouter_params: Final = GenericEmbRouterParams(**kwargs)
 
         # Determine provider
         if custom_llm_provider is None:
@@ -507,7 +507,7 @@ def get_eval(
 
         # Get provider config
         evals_api_provider_config: BaseEvalsAPIConfig | None = ProviderConfigManager.get_provider_evals_api_config(
-            provider=litellm.LlmProviders(custom_llm_provider),
+            provider=embrouter.LlmProviders(custom_llm_provider),
         )
 
         if evals_api_provider_config is None:
@@ -515,24 +515,24 @@ def get_eval(
 
         # Validate environment and get headers
         headers = extra_headers or {}
-        headers = evals_api_provider_config.validate_environment(headers=headers, litellm_params=litellm_params)
+        headers = evals_api_provider_config.validate_environment(headers=headers, embrouter_params=embrouter_params)
 
         # Transform request
-        api_base: Final = litellm_params.api_base or DEFAULT_OPENAI_API_BASE
+        api_base: Final = embrouter_params.api_base or DEFAULT_OPENAI_API_BASE
         url, headers = evals_api_provider_config.transform_get_eval_request(
             eval_id=eval_id,
             api_base=api_base,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
         # Pre-call logging
-        litellm_logging_obj.update_from_kwargs(
+        embrouter_logging_obj.update_from_kwargs(
             kwargs=kwargs,
             model=None,
             optional_params={"eval_id": eval_id},
-            litellm_params={
-                "litellm_call_id": litellm_call_id,
+            embrouter_params={
+                "embrouter_call_id": embrouter_call_id,
             },
             custom_llm_provider=custom_llm_provider,
         )
@@ -542,8 +542,8 @@ def get_eval(
             url=url,
             evals_api_provider_config=evals_api_provider_config,
             custom_llm_provider=custom_llm_provider,
-            litellm_params=litellm_params,
-            logging_obj=litellm_logging_obj,
+            embrouter_params=embrouter_params,
+            logging_obj=embrouter_logging_obj,
             extra_headers=headers,
             timeout=timeout or request_timeout,
             _is_async=_is_async,
@@ -553,7 +553,7 @@ def get_eval(
 
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -619,7 +619,7 @@ async def aupdate_eval(
             response = init_response
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -659,12 +659,12 @@ def update_eval(
     """
     local_vars: Final = locals()
     try:
-        litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.get("litellm_logging_obj")
-        litellm_call_id: Final[str | None] = kwargs.get("litellm_call_id", None)
+        embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.get("embrouter_logging_obj")
+        embrouter_call_id: Final[str | None] = kwargs.get("embrouter_call_id", None)
         _is_async: Final = kwargs.pop("aupdate_eval", False) is True
 
-        # Get LiteLLM parameters
-        litellm_params: Final = GenericLiteLLMParams(**kwargs)
+        # Get EmbRouter parameters
+        embrouter_params: Final = GenericEmbRouterParams(**kwargs)
 
         # Determine provider
         if custom_llm_provider is None:
@@ -672,7 +672,7 @@ def update_eval(
 
         # Get provider config
         evals_api_provider_config: BaseEvalsAPIConfig | None = ProviderConfigManager.get_provider_evals_api_config(
-            provider=litellm.LlmProviders(custom_llm_provider),
+            provider=embrouter.LlmProviders(custom_llm_provider),
         )
 
         if evals_api_provider_config is None:
@@ -683,9 +683,9 @@ def update_eval(
         if name is not None:
             update_request["name"] = name
 
-        # Filter metadata to exclude internal LiteLLM fields
+        # Filter metadata to exclude internal EmbRouter fields
         if metadata is not None:
-            # List of internal LiteLLM metadata keys that should NOT be sent to OpenAI
+            # List of internal EmbRouter metadata keys that should NOT be sent to OpenAI
             internal_keys: Final = {
                 "headers",
                 "requester_metadata",
@@ -705,7 +705,7 @@ def update_eval(
                 "user_api_key",
                 "user_api_end_user_max_budget",
                 "user_api_key_auth",
-                "litellm_api_version",
+                "embrouter_api_version",
                 "global_max_parallel_requests",
                 "user_api_key_team_max_budget",
                 "user_api_key_team_spend",
@@ -714,7 +714,7 @@ def update_eval(
                 "user_api_key_user_max_budget",
                 "user_api_key_metadata",
                 "endpoint",
-                "litellm_parent_otel_span",
+                "embrouter_parent_otel_span",
                 "requester_ip_address",
                 "user_agent",
             }
@@ -729,10 +729,10 @@ def update_eval(
 
         # Validate environment and get headers
         headers = extra_headers or {}
-        headers = evals_api_provider_config.validate_environment(headers=headers, litellm_params=litellm_params)
+        headers = evals_api_provider_config.validate_environment(headers=headers, embrouter_params=embrouter_params)
 
         # Transform request
-        api_base: Final = litellm_params.api_base or DEFAULT_OPENAI_API_BASE
+        api_base: Final = embrouter_params.api_base or DEFAULT_OPENAI_API_BASE
         (
             url,
             headers,
@@ -741,17 +741,17 @@ def update_eval(
             eval_id=eval_id,
             update_request=update_request,
             api_base=api_base,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
         # Pre-call logging
-        litellm_logging_obj.update_from_kwargs(
+        embrouter_logging_obj.update_from_kwargs(
             kwargs=kwargs,
             model=None,
             optional_params=request_body,
-            litellm_params={
-                "litellm_call_id": litellm_call_id,
+            embrouter_params={
+                "embrouter_call_id": embrouter_call_id,
             },
             custom_llm_provider=custom_llm_provider,
         )
@@ -762,8 +762,8 @@ def update_eval(
             request_body=request_body,
             evals_api_provider_config=evals_api_provider_config,
             custom_llm_provider=custom_llm_provider,
-            litellm_params=litellm_params,
-            logging_obj=litellm_logging_obj,
+            embrouter_params=embrouter_params,
+            logging_obj=embrouter_logging_obj,
             extra_headers=headers,
             timeout=timeout or request_timeout,
             _is_async=_is_async,
@@ -773,7 +773,7 @@ def update_eval(
 
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -830,7 +830,7 @@ async def adelete_eval(
             response = init_response
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -864,12 +864,12 @@ def delete_eval(
     """
     local_vars: Final = locals()
     try:
-        litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.get("litellm_logging_obj")
-        litellm_call_id: Final[str | None] = kwargs.get("litellm_call_id", None)
+        embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.get("embrouter_logging_obj")
+        embrouter_call_id: Final[str | None] = kwargs.get("embrouter_call_id", None)
         _is_async: Final = kwargs.pop("adelete_eval", False) is True
 
-        # Get LiteLLM parameters
-        litellm_params: Final = GenericLiteLLMParams(**kwargs)
+        # Get EmbRouter parameters
+        embrouter_params: Final = GenericEmbRouterParams(**kwargs)
 
         # Determine provider
         if custom_llm_provider is None:
@@ -877,7 +877,7 @@ def delete_eval(
 
         # Get provider config
         evals_api_provider_config: BaseEvalsAPIConfig | None = ProviderConfigManager.get_provider_evals_api_config(
-            provider=litellm.LlmProviders(custom_llm_provider),
+            provider=embrouter.LlmProviders(custom_llm_provider),
         )
 
         if evals_api_provider_config is None:
@@ -885,24 +885,24 @@ def delete_eval(
 
         # Validate environment and get headers
         headers = extra_headers or {}
-        headers = evals_api_provider_config.validate_environment(headers=headers, litellm_params=litellm_params)
+        headers = evals_api_provider_config.validate_environment(headers=headers, embrouter_params=embrouter_params)
 
         # Transform request
-        api_base: Final = litellm_params.api_base or DEFAULT_OPENAI_API_BASE
+        api_base: Final = embrouter_params.api_base or DEFAULT_OPENAI_API_BASE
         url, headers = evals_api_provider_config.transform_delete_eval_request(
             eval_id=eval_id,
             api_base=api_base,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
         # Pre-call logging
-        litellm_logging_obj.update_from_kwargs(
+        embrouter_logging_obj.update_from_kwargs(
             kwargs=kwargs,
             model=None,
             optional_params={"eval_id": eval_id},
-            litellm_params={
-                "litellm_call_id": litellm_call_id,
+            embrouter_params={
+                "embrouter_call_id": embrouter_call_id,
             },
             custom_llm_provider=custom_llm_provider,
         )
@@ -912,8 +912,8 @@ def delete_eval(
             url=url,
             evals_api_provider_config=evals_api_provider_config,
             custom_llm_provider=custom_llm_provider,
-            litellm_params=litellm_params,
-            logging_obj=litellm_logging_obj,
+            embrouter_params=embrouter_params,
+            logging_obj=embrouter_logging_obj,
             extra_headers=headers,
             timeout=timeout or request_timeout,
             _is_async=_is_async,
@@ -923,7 +923,7 @@ def delete_eval(
 
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -980,7 +980,7 @@ async def acancel_eval(
             response = init_response
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -1014,12 +1014,12 @@ def cancel_eval(
     """
     local_vars: Final = locals()
     try:
-        litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.get("litellm_logging_obj")
-        litellm_call_id: Final[str | None] = kwargs.get("litellm_call_id", None)
+        embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.get("embrouter_logging_obj")
+        embrouter_call_id: Final[str | None] = kwargs.get("embrouter_call_id", None)
         _is_async: Final = kwargs.pop("acancel_eval", False) is True
 
-        # Get LiteLLM parameters
-        litellm_params: Final = GenericLiteLLMParams(**kwargs)
+        # Get EmbRouter parameters
+        embrouter_params: Final = GenericEmbRouterParams(**kwargs)
 
         # Determine provider
         if custom_llm_provider is None:
@@ -1027,7 +1027,7 @@ def cancel_eval(
 
         # Get provider config
         evals_api_provider_config: BaseEvalsAPIConfig | None = ProviderConfigManager.get_provider_evals_api_config(
-            provider=litellm.LlmProviders(custom_llm_provider),
+            provider=embrouter.LlmProviders(custom_llm_provider),
         )
 
         if evals_api_provider_config is None:
@@ -1035,10 +1035,10 @@ def cancel_eval(
 
         # Validate environment and get headers
         headers = extra_headers or {}
-        headers = evals_api_provider_config.validate_environment(headers=headers, litellm_params=litellm_params)
+        headers = evals_api_provider_config.validate_environment(headers=headers, embrouter_params=embrouter_params)
 
         # Transform request
-        api_base: Final = litellm_params.api_base or DEFAULT_OPENAI_API_BASE
+        api_base: Final = embrouter_params.api_base or DEFAULT_OPENAI_API_BASE
         (
             url,
             headers,
@@ -1046,17 +1046,17 @@ def cancel_eval(
         ) = evals_api_provider_config.transform_cancel_eval_request(
             eval_id=eval_id,
             api_base=api_base,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
         # Pre-call logging
-        litellm_logging_obj.update_from_kwargs(
+        embrouter_logging_obj.update_from_kwargs(
             kwargs=kwargs,
             model=None,
             optional_params={"eval_id": eval_id},
-            litellm_params={
-                "litellm_call_id": litellm_call_id,
+            embrouter_params={
+                "embrouter_call_id": embrouter_call_id,
             },
             custom_llm_provider=custom_llm_provider,
         )
@@ -1066,8 +1066,8 @@ def cancel_eval(
             url=url,
             evals_api_provider_config=evals_api_provider_config,
             custom_llm_provider=custom_llm_provider,
-            litellm_params=litellm_params,
-            logging_obj=litellm_logging_obj,
+            embrouter_params=embrouter_params,
+            logging_obj=embrouter_logging_obj,
             extra_headers=headers,
             timeout=timeout or request_timeout,
             _is_async=_is_async,
@@ -1077,7 +1077,7 @@ def cancel_eval(
 
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -1151,7 +1151,7 @@ async def acreate_run(
             response = init_response
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -1193,12 +1193,12 @@ def create_run(
     """
     local_vars: Final = locals()
     try:
-        litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.get("litellm_logging_obj")
-        litellm_call_id: Final[str | None] = kwargs.get("litellm_call_id", None)
+        embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.get("embrouter_logging_obj")
+        embrouter_call_id: Final[str | None] = kwargs.get("embrouter_call_id", None)
         _is_async: Final = kwargs.pop("acreate_run", False) is True
 
-        # Get LiteLLM parameters
-        litellm_params: Final = GenericLiteLLMParams(**kwargs)
+        # Get EmbRouter parameters
+        embrouter_params: Final = GenericEmbRouterParams(**kwargs)
 
         # Determine provider
         if custom_llm_provider is None:
@@ -1206,7 +1206,7 @@ def create_run(
 
         # Get provider config
         evals_api_provider_config: BaseEvalsAPIConfig | None = ProviderConfigManager.get_provider_evals_api_config(
-            provider=litellm.LlmProviders(custom_llm_provider),
+            provider=embrouter.LlmProviders(custom_llm_provider),
         )
 
         if evals_api_provider_config is None:
@@ -1227,24 +1227,24 @@ def create_run(
 
         # Validate environment and get headers
         headers = extra_headers or {}
-        headers = evals_api_provider_config.validate_environment(headers=headers, litellm_params=litellm_params)
+        headers = evals_api_provider_config.validate_environment(headers=headers, embrouter_params=embrouter_params)
 
         # Transform request
-        api_base: Final = litellm_params.api_base or DEFAULT_OPENAI_API_BASE
+        api_base: Final = embrouter_params.api_base or DEFAULT_OPENAI_API_BASE
         url, request_body = evals_api_provider_config.transform_create_run_request(
             eval_id=eval_id,
             create_request=create_request,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
         # Pre-call logging
-        litellm_logging_obj.update_from_kwargs(
+        embrouter_logging_obj.update_from_kwargs(
             kwargs=kwargs,
             model=None,
             optional_params=request_body,
-            litellm_params={
-                "litellm_call_id": litellm_call_id,
+            embrouter_params={
+                "embrouter_call_id": embrouter_call_id,
             },
             custom_llm_provider=custom_llm_provider,
         )
@@ -1255,8 +1255,8 @@ def create_run(
             request_body=request_body,
             evals_api_provider_config=evals_api_provider_config,
             custom_llm_provider=custom_llm_provider,
-            litellm_params=litellm_params,
-            logging_obj=litellm_logging_obj,
+            embrouter_params=embrouter_params,
+            logging_obj=embrouter_logging_obj,
             extra_headers=headers,
             timeout=timeout or httpx.Timeout(timeout=600.0, connect=5.0),
             _is_async=_is_async,
@@ -1266,7 +1266,7 @@ def create_run(
 
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -1335,7 +1335,7 @@ async def alist_runs(
             response = init_response
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -1377,12 +1377,12 @@ def list_runs(
     """
     local_vars: Final = locals()
     try:
-        litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.get("litellm_logging_obj")
-        litellm_call_id: Final[str | None] = kwargs.get("litellm_call_id", None)
+        embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.get("embrouter_logging_obj")
+        embrouter_call_id: Final[str | None] = kwargs.get("embrouter_call_id", None)
         _is_async: Final = kwargs.pop("alist_runs", False) is True
 
-        # Get LiteLLM parameters
-        litellm_params: Final = GenericLiteLLMParams(**kwargs)
+        # Get EmbRouter parameters
+        embrouter_params: Final = GenericEmbRouterParams(**kwargs)
 
         # Determine provider
         if custom_llm_provider is None:
@@ -1390,7 +1390,7 @@ def list_runs(
 
         # Get provider config
         evals_api_provider_config: BaseEvalsAPIConfig | None = ProviderConfigManager.get_provider_evals_api_config(
-            provider=litellm.LlmProviders(custom_llm_provider),
+            provider=embrouter.LlmProviders(custom_llm_provider),
         )
 
         if evals_api_provider_config is None:
@@ -1413,23 +1413,23 @@ def list_runs(
 
         # Validate environment and get headers
         headers = extra_headers or {}
-        headers = evals_api_provider_config.validate_environment(headers=headers, litellm_params=litellm_params)
+        headers = evals_api_provider_config.validate_environment(headers=headers, embrouter_params=embrouter_params)
 
         # Transform request
         url, query_params = evals_api_provider_config.transform_list_runs_request(
             eval_id=eval_id,
             list_params=list_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
         # Pre-call logging
-        litellm_logging_obj.update_from_kwargs(
+        embrouter_logging_obj.update_from_kwargs(
             kwargs=kwargs,
             model=None,
             optional_params={"eval_id": eval_id, **query_params},
-            litellm_params={
-                "litellm_call_id": litellm_call_id,
+            embrouter_params={
+                "embrouter_call_id": embrouter_call_id,
             },
             custom_llm_provider=custom_llm_provider,
         )
@@ -1440,8 +1440,8 @@ def list_runs(
             query_params=query_params,
             evals_api_provider_config=evals_api_provider_config,
             custom_llm_provider=custom_llm_provider,
-            litellm_params=litellm_params,
-            logging_obj=litellm_logging_obj,
+            embrouter_params=embrouter_params,
+            logging_obj=embrouter_logging_obj,
             extra_headers=headers,
             timeout=timeout or request_timeout,
             _is_async=_is_async,
@@ -1451,7 +1451,7 @@ def list_runs(
 
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -1511,7 +1511,7 @@ async def aget_run(
             response = init_response
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -1547,12 +1547,12 @@ def get_run(
     """
     local_vars: Final = locals()
     try:
-        litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.get("litellm_logging_obj")
-        litellm_call_id: Final[str | None] = kwargs.get("litellm_call_id", None)
+        embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.get("embrouter_logging_obj")
+        embrouter_call_id: Final[str | None] = kwargs.get("embrouter_call_id", None)
         _is_async: Final = kwargs.pop("aget_run", False) is True
 
-        # Get LiteLLM parameters
-        litellm_params: Final = GenericLiteLLMParams(**kwargs)
+        # Get EmbRouter parameters
+        embrouter_params: Final = GenericEmbRouterParams(**kwargs)
 
         # Determine provider
         if custom_llm_provider is None:
@@ -1560,7 +1560,7 @@ def get_run(
 
         # Get provider config
         evals_api_provider_config: BaseEvalsAPIConfig | None = ProviderConfigManager.get_provider_evals_api_config(
-            provider=litellm.LlmProviders(custom_llm_provider),
+            provider=embrouter.LlmProviders(custom_llm_provider),
         )
 
         if evals_api_provider_config is None:
@@ -1568,25 +1568,25 @@ def get_run(
 
         # Validate environment and get headers
         headers = extra_headers or {}
-        headers = evals_api_provider_config.validate_environment(headers=headers, litellm_params=litellm_params)
+        headers = evals_api_provider_config.validate_environment(headers=headers, embrouter_params=embrouter_params)
 
         # Transform request
-        api_base: Final = litellm_params.api_base or DEFAULT_OPENAI_API_BASE
+        api_base: Final = embrouter_params.api_base or DEFAULT_OPENAI_API_BASE
         url, headers = evals_api_provider_config.transform_get_run_request(
             eval_id=eval_id,
             run_id=run_id,
             api_base=api_base,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
         # Pre-call logging
-        litellm_logging_obj.update_from_kwargs(
+        embrouter_logging_obj.update_from_kwargs(
             kwargs=kwargs,
             model=None,
             optional_params={"eval_id": eval_id, "run_id": run_id},
-            litellm_params={
-                "litellm_call_id": litellm_call_id,
+            embrouter_params={
+                "embrouter_call_id": embrouter_call_id,
             },
             custom_llm_provider=custom_llm_provider,
         )
@@ -1596,8 +1596,8 @@ def get_run(
             url=url,
             evals_api_provider_config=evals_api_provider_config,
             custom_llm_provider=custom_llm_provider,
-            litellm_params=litellm_params,
-            logging_obj=litellm_logging_obj,
+            embrouter_params=embrouter_params,
+            logging_obj=embrouter_logging_obj,
             extra_headers=headers,
             timeout=timeout or request_timeout,
             _is_async=_is_async,
@@ -1607,7 +1607,7 @@ def get_run(
 
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -1667,7 +1667,7 @@ async def acancel_run(
             response = init_response
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -1703,12 +1703,12 @@ def cancel_run(
     """
     local_vars: Final = locals()
     try:
-        litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.get("litellm_logging_obj")
-        litellm_call_id: Final[str | None] = kwargs.get("litellm_call_id", None)
+        embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.get("embrouter_logging_obj")
+        embrouter_call_id: Final[str | None] = kwargs.get("embrouter_call_id", None)
         _is_async: Final = kwargs.pop("acancel_run", False) is True
 
-        # Get LiteLLM parameters
-        litellm_params: Final = GenericLiteLLMParams(**kwargs)
+        # Get EmbRouter parameters
+        embrouter_params: Final = GenericEmbRouterParams(**kwargs)
 
         # Determine provider
         if custom_llm_provider is None:
@@ -1716,7 +1716,7 @@ def cancel_run(
 
         # Get provider config
         evals_api_provider_config: BaseEvalsAPIConfig | None = ProviderConfigManager.get_provider_evals_api_config(
-            provider=litellm.LlmProviders(custom_llm_provider),
+            provider=embrouter.LlmProviders(custom_llm_provider),
         )
 
         if evals_api_provider_config is None:
@@ -1724,10 +1724,10 @@ def cancel_run(
 
         # Validate environment and get headers
         headers = extra_headers or {}
-        headers = evals_api_provider_config.validate_environment(headers=headers, litellm_params=litellm_params)
+        headers = evals_api_provider_config.validate_environment(headers=headers, embrouter_params=embrouter_params)
 
         # Transform request
-        api_base: Final = litellm_params.api_base or DEFAULT_OPENAI_API_BASE
+        api_base: Final = embrouter_params.api_base or DEFAULT_OPENAI_API_BASE
         (
             url,
             headers,
@@ -1736,17 +1736,17 @@ def cancel_run(
             eval_id=eval_id,
             run_id=run_id,
             api_base=api_base,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
         # Pre-call logging
-        litellm_logging_obj.update_from_kwargs(
+        embrouter_logging_obj.update_from_kwargs(
             kwargs=kwargs,
             model=None,
             optional_params={"eval_id": eval_id, "run_id": run_id},
-            litellm_params={
-                "litellm_call_id": litellm_call_id,
+            embrouter_params={
+                "embrouter_call_id": embrouter_call_id,
             },
             custom_llm_provider=custom_llm_provider,
         )
@@ -1756,8 +1756,8 @@ def cancel_run(
             url=url,
             evals_api_provider_config=evals_api_provider_config,
             custom_llm_provider=custom_llm_provider,
-            litellm_params=litellm_params,
-            logging_obj=litellm_logging_obj,
+            embrouter_params=embrouter_params,
+            logging_obj=embrouter_logging_obj,
             extra_headers=headers,
             timeout=timeout or request_timeout,
             _is_async=_is_async,
@@ -1767,7 +1767,7 @@ def cancel_run(
 
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -1832,7 +1832,7 @@ async def adelete_run(
             response = init_response
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -1868,12 +1868,12 @@ def delete_run(
     """
     local_vars: Final = locals()
     try:
-        litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.get("litellm_logging_obj")
-        litellm_call_id: Final[str | None] = kwargs.get("litellm_call_id", None)
+        embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.get("embrouter_logging_obj")
+        embrouter_call_id: Final[str | None] = kwargs.get("embrouter_call_id", None)
         _is_async: Final = kwargs.pop("adelete_run", False) is True
 
-        # Get LiteLLM parameters
-        litellm_params: Final = GenericLiteLLMParams(**kwargs)
+        # Get EmbRouter parameters
+        embrouter_params: Final = GenericEmbRouterParams(**kwargs)
 
         # Determine provider
         if custom_llm_provider is None:
@@ -1881,7 +1881,7 @@ def delete_run(
 
         # Get provider config
         evals_api_provider_config: BaseEvalsAPIConfig | None = ProviderConfigManager.get_provider_evals_api_config(
-            provider=litellm.LlmProviders(custom_llm_provider),
+            provider=embrouter.LlmProviders(custom_llm_provider),
         )
 
         if evals_api_provider_config is None:
@@ -1889,10 +1889,10 @@ def delete_run(
 
         # Validate environment and get headers
         headers = extra_headers or {}
-        headers = evals_api_provider_config.validate_environment(headers=headers, litellm_params=litellm_params)
+        headers = evals_api_provider_config.validate_environment(headers=headers, embrouter_params=embrouter_params)
 
         # Transform request
-        api_base: Final = litellm_params.api_base or DEFAULT_OPENAI_API_BASE
+        api_base: Final = embrouter_params.api_base or DEFAULT_OPENAI_API_BASE
         (
             url,
             headers,
@@ -1901,17 +1901,17 @@ def delete_run(
             eval_id=eval_id,
             run_id=run_id,
             api_base=api_base,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
         # Pre-call logging
-        litellm_logging_obj.update_from_kwargs(
+        embrouter_logging_obj.update_from_kwargs(
             kwargs=kwargs,
             model=None,
             optional_params={"eval_id": eval_id, "run_id": run_id},
-            litellm_params={
-                "litellm_call_id": litellm_call_id,
+            embrouter_params={
+                "embrouter_call_id": embrouter_call_id,
             },
             custom_llm_provider=custom_llm_provider,
         )
@@ -1921,8 +1921,8 @@ def delete_run(
             url=url,
             evals_api_provider_config=evals_api_provider_config,
             custom_llm_provider=custom_llm_provider,
-            litellm_params=litellm_params,
-            logging_obj=litellm_logging_obj,
+            embrouter_params=embrouter_params,
+            logging_obj=embrouter_logging_obj,
             extra_headers=headers,
             timeout=timeout or request_timeout,
             _is_async=_is_async,
@@ -1932,7 +1932,7 @@ def delete_run(
 
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,

@@ -182,7 +182,7 @@ const createMockTeamData = (overrides = {}) => ({
     max_parallel_requests: null,
     budget_reset_at: null,
     model_id: null,
-    litellm_model_table: null,
+    embrouter_model_table: null,
     created_at: "2024-01-01T00:00:00Z",
     team_member_budget_table: null,
     guardrails: [],

@@ -12,7 +12,7 @@ from typing import Final
 
 from typing_extensions import ReadOnly, TypedDict
 
-from litellm.types.integrations.slack_alerting import AlertType
+from embrouter.types.integrations.slack_alerting import AlertType
 
 MS_TEAMS_WEBHOOK_URL_ENV: Final = "MS_TEAMS_WEBHOOK_URL"
 

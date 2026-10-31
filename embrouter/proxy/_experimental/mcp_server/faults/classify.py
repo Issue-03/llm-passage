@@ -11,8 +11,8 @@ from typing import Final
 
 import httpx
 
-from litellm._logging import verbose_logger
-from litellm.proxy._experimental.mcp_server.faults.types import (
+from embrouter._logging import verbose_logger
+from embrouter.proxy._experimental.mcp_server.faults.types import (
     GATEWAY_CAPABILITY_CODES,
     GATEWAY_CREDENTIAL_CODES,
     MAX_WIRE_FIELD_CHARS,

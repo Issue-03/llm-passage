@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING, Final
 
-from litellm.llms.base_llm.passthrough.transformation import BasePassthroughConfig
+from embrouter.llms.base_llm.passthrough.transformation import BasePassthroughConfig
 
 from ..common_utils import VLLMModelInfo
 
@@ -19,7 +19,7 @@ class VLLMPassthroughConfig(VLLMModelInfo, BasePassthroughConfig):
         model: str,
         endpoint: str,
         request_query_params: dict | None,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> tuple["URL", str]:
         base_target_url: Final = self.get_api_base(api_base)
 

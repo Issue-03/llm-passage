@@ -3,31 +3,31 @@ from typing import Final
 import httpx
 import pytest
 
-import litellm
-from litellm import CustomLLM
-from litellm.litellm_core_utils import get_llm_provider_logic
-from litellm.litellm_core_utils.get_llm_provider_logic import (
+import embrouter
+from embrouter import CustomLLM
+from embrouter.embrouter_core_utils import get_llm_provider_logic
+from embrouter.embrouter_core_utils.get_llm_provider_logic import (
     get_llm_provider,
     inferred_provider,
     is_registered_custom_provider,
 )
-from litellm.llms.custom_httpx.http_handler import HTTPHandler
+from embrouter.llms.custom_httpx.http_handler import HTTPHandler
 
 CUSTOM_PROVIDER: Final = "test-onprem-llm"
 
 
 @pytest.fixture
 def registered_custom_provider(monkeypatch: pytest.MonkeyPatch) -> str:
-    monkeypatch.setattr(litellm, "custom_provider_map", [{"provider": CUSTOM_PROVIDER, "custom_handler": CustomLLM()}])
-    monkeypatch.setattr(litellm, "provider_list", list(litellm.provider_list))
-    monkeypatch.setattr(litellm, "_custom_providers", list(litellm._custom_providers))
+    monkeypatch.setattr(embrouter, "custom_provider_map", [{"provider": CUSTOM_PROVIDER, "custom_handler": CustomLLM()}])
+    monkeypatch.setattr(embrouter, "provider_list", list(embrouter.provider_list))
+    monkeypatch.setattr(embrouter, "_custom_providers", list(embrouter._custom_providers))
     return CUSTOM_PROVIDER
 
 
 def test_get_llm_provider_resolves_custom_provider_map_prefix_before_first_completion(
     registered_custom_provider: str,
 ) -> None:
-    assert registered_custom_provider not in litellm.provider_list
+    assert registered_custom_provider not in embrouter.provider_list
 
     model, provider, dynamic_api_key, api_base = get_llm_provider(model=f"{registered_custom_provider}/my-model")
 
@@ -47,7 +47,7 @@ def test_get_llm_provider_strips_prefix_when_custom_provider_passed_explicitly(
 
 
 def test_get_llm_provider_still_rejects_unregistered_prefix(registered_custom_provider: str) -> None:
-    with pytest.raises(litellm.BadRequestError, match="LLM Provider NOT provided"):
+    with pytest.raises(embrouter.BadRequestError, match="LLM Provider NOT provided"):
         get_llm_provider(model="not-registered-llm/my-model")
 
 
@@ -69,7 +69,7 @@ def test_get_llm_provider_leaves_fal_ai_api_base_unset_for_global_fallback() -> 
 
 
 def test_image_generation_fal_ai_egresses_to_global_api_base(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "api_base", "http://gateway.local/fal")
+    monkeypatch.setattr(embrouter, "api_base", "http://gateway.local/fal")
     monkeypatch.setenv("FAL_AI_API_KEY", "test")
     seen: Final[list[httpx.URL]] = []
 
@@ -78,7 +78,7 @@ def test_image_generation_fal_ai_egresses_to_global_api_base(monkeypatch: pytest
         return httpx.Response(200, json={"images": [{"url": "https://fal.media/a.png"}]})
 
     client: Final = HTTPHandler(client=httpx.Client(transport=httpx.MockTransport(handler)))
-    litellm.image_generation(model="fal_ai/fal-ai/flux/schnell", prompt="a red kite", client=client)
+    embrouter.image_generation(model="fal_ai/fal-ai/flux/schnell", prompt="a red kite", client=client)
     assert str(seen[0]).startswith("http://gateway.local/fal")
 
 

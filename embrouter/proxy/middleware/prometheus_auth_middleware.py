@@ -10,9 +10,9 @@ from fastapi import Request
 from starlette.routing import get_route_path
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-import litellm
-from litellm.proxy._types import SpecialHeaders
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+import embrouter
+from embrouter.proxy._types import SpecialHeaders
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
 
 # Cache the header name at module level to avoid repeated enum attribute access
 _AUTHORIZATION_HEADER: Final = SpecialHeaders.openai_authorization.value  # "Authorization"
@@ -33,7 +33,7 @@ class PrometheusAuthMiddleware:
     To allow unauthenticated metrics in proxy_config.yaml:
 
     ```yaml
-    litellm_settings:
+    embrouter_settings:
         require_auth_for_metrics_endpoint: false
     ```
     """
@@ -48,7 +48,7 @@ class PrometheusAuthMiddleware:
             return
 
         # Run auth by default; allow legacy public metrics only when explicitly disabled.
-        if litellm.require_auth_for_metrics_endpoint is not False:
+        if embrouter.require_auth_for_metrics_endpoint is not False:
             # user_api_key_auth reads the request body, which consumes ASGI `receive`.
             # Buffer those messages and replay them for the inner app; otherwise a
             # successful auth would forward an exhausted receive and /metrics hangs.
@@ -71,7 +71,7 @@ class PrometheusAuthMiddleware:
                         SpecialHeaders.google_ai_studio_authorization.value
                     ),
                     azure_apim_header=request.headers.get(SpecialHeaders.azure_apim_authorization.value) or "",
-                    custom_litellm_key_header=request.headers.get(SpecialHeaders.custom_litellm_api_key.value),
+                    custom_embrouter_key_header=request.headers.get(SpecialHeaders.custom_embrouter_api_key.value),
                 )
             except Exception as e:
                 # Send 401 response directly via ASGI protocol
@@ -79,7 +79,7 @@ class PrometheusAuthMiddleware:
                 body: Final = json.dumps(
                     f"Unauthorized access to metrics endpoint: {error_message} "
                     f"To allow unauthenticated access, set "
-                    f"`litellm_settings.require_auth_for_metrics_endpoint: false` "
+                    f"`embrouter_settings.require_auth_for_metrics_endpoint: false` "
                     f"in your proxy_config.yaml."
                 ).encode("utf-8")
                 await send(

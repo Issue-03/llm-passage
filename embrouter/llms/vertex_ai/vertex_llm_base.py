@@ -12,12 +12,12 @@ from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, Final, Literal, Protocol
 from urllib.parse import urlparse
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.litellm_core_utils.asyncify import asyncify
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.vertex_ai import VERTEX_CREDENTIALS_TYPES, VertexPartnerProvider
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.embrouter_core_utils.asyncify import asyncify
+from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.vertex_ai import VERTEX_CREDENTIALS_TYPES, VertexPartnerProvider
 
 from .common_utils import (
     _get_gemini_url,
@@ -37,7 +37,7 @@ def _graft_default_vertex_path(api_base: str, default_url: str) -> str:
 
 
 GOOGLE_IMPORT_ERROR_MESSAGE: Final = (
-    "Google Cloud SDK not found. Install it with: pip install 'litellm[google]' or pip install google-cloud-aiplatform"
+    "Google Cloud SDK not found. Install it with: pip install 'embrouter[google]' or pip install google-cloud-aiplatform"
 )
 
 if TYPE_CHECKING:
@@ -95,12 +95,12 @@ class VertexBase:
 
     @staticmethod
     def get_vertex_region(vertex_region: str | None, model: str) -> str:
-        import litellm
+        import embrouter
 
         # Try to get supported_regions directly from model_cost
         # Check both with and without vertex_ai/ prefix
         model_key: Final = f"vertex_ai/{model}" if not model.startswith("vertex_ai/") else model
-        model_info: Final = litellm.model_cost.get(model_key, {})
+        model_info: Final = embrouter.model_cost.get(model_key, {})
         supported_regions: Final = model_info.get("supported_regions")
 
         if supported_regions and len(supported_regions) > 0:
@@ -129,7 +129,7 @@ class VertexBase:
             if isinstance(credentials, str):
                 _is_path: Final = os.path.exists(
                     credentials
-                )  # credentials is from server config (litellm_params), not user input
+                )  # credentials is from server config (embrouter_params), not user input
                 verbose_logger.debug(
                     "Vertex: Loading vertex credentials, is_file_path=%s, current dir %s",
                     _is_path,
@@ -162,7 +162,7 @@ class VertexBase:
                 )
                 if isinstance(environment_id, str) and "aws" in environment_id:
                     # Check if explicit AWS params are in the JSON (bypasses metadata)
-                    from litellm.llms.vertex_ai.vertex_ai_aws_wif import (
+                    from embrouter.llms.vertex_ai.vertex_ai_aws_wif import (
                         VertexAIAwsWifAuth,
                     )
 
@@ -1147,70 +1147,70 @@ class VertexBase:
         return headers
 
     @staticmethod
-    def get_vertex_ai_project(litellm_params: dict) -> str | None:
+    def get_vertex_ai_project(embrouter_params: dict) -> str | None:
         return (
-            litellm_params.pop("vertex_project", None)
-            or litellm_params.pop("vertex_ai_project", None)
-            or litellm.vertex_project
+            embrouter_params.pop("vertex_project", None)
+            or embrouter_params.pop("vertex_ai_project", None)
+            or embrouter.vertex_project
             or get_secret_str("VERTEXAI_PROJECT")
         )
 
     @staticmethod
-    def get_vertex_ai_credentials(litellm_params: dict) -> str | None:
+    def get_vertex_ai_credentials(embrouter_params: dict) -> str | None:
         return (
-            litellm_params.pop("vertex_credentials", None)
-            or litellm_params.pop("vertex_ai_credentials", None)
+            embrouter_params.pop("vertex_credentials", None)
+            or embrouter_params.pop("vertex_ai_credentials", None)
             or get_secret_str("VERTEXAI_CREDENTIALS")
         )
 
     @staticmethod
-    def get_vertex_ai_location(litellm_params: dict) -> str | None:
+    def get_vertex_ai_location(embrouter_params: dict) -> str | None:
         return (
-            litellm_params.pop("vertex_location", None)
-            or litellm_params.pop("vertex_ai_location", None)
-            or litellm.vertex_location
+            embrouter_params.pop("vertex_location", None)
+            or embrouter_params.pop("vertex_ai_location", None)
+            or embrouter.vertex_location
             or get_secret_str("VERTEXAI_LOCATION")
             or get_secret_str("VERTEX_LOCATION")
         )
 
     @staticmethod
-    def safe_get_vertex_ai_project(litellm_params: dict) -> str | None:
+    def safe_get_vertex_ai_project(embrouter_params: dict) -> str | None:
         """
-        Safely get Vertex AI project without mutating the litellm_params dict.
+        Safely get Vertex AI project without mutating the embrouter_params dict.
 
         Unlike get_vertex_ai_project(), this does NOT pop values from the dict,
-        making it safe to call multiple times with the same litellm_params.
+        making it safe to call multiple times with the same embrouter_params.
 
         Args:
-            litellm_params: Dictionary containing Vertex AI parameters
+            embrouter_params: Dictionary containing Vertex AI parameters
 
         Returns:
             Vertex AI project ID or None
         """
         return (
-            litellm_params.get("vertex_project")
-            or litellm_params.get("vertex_ai_project")
-            or litellm.vertex_project
+            embrouter_params.get("vertex_project")
+            or embrouter_params.get("vertex_ai_project")
+            or embrouter.vertex_project
             or get_secret_str("VERTEXAI_PROJECT")
         )
 
     @staticmethod
-    def safe_get_vertex_ai_credentials(litellm_params: dict) -> str | None:
+    def safe_get_vertex_ai_credentials(embrouter_params: dict) -> str | None:
         """
-        Safely get Vertex AI credentials without mutating the litellm_params dict.
+        Safely get Vertex AI credentials without mutating the embrouter_params dict.
 
         Unlike get_vertex_ai_credentials(), this does NOT pop values from the dict,
-        making it safe to call multiple times with the same litellm_params.
+        making it safe to call multiple times with the same embrouter_params.
 
         Args:
-            litellm_params: Dictionary containing Vertex AI parameters
+            embrouter_params: Dictionary containing Vertex AI parameters
 
         Returns:
             Vertex AI credentials or None
         """
         return (
-            litellm_params.get("vertex_credentials")
-            or litellm_params.get("vertex_ai_credentials")
+            embrouter_params.get("vertex_credentials")
+            or embrouter_params.get("vertex_ai_credentials")
             or get_secret_str("VERTEXAI_CREDENTIALS")
         )
 
@@ -1226,22 +1226,22 @@ class VertexBase:
         return None
 
     @staticmethod
-    def safe_get_vertex_ai_location(litellm_params: Mapping[str, object]) -> str | None:
+    def safe_get_vertex_ai_location(embrouter_params: Mapping[str, object]) -> str | None:
         """
-        Safely get Vertex AI location without mutating the litellm_params dict.
+        Safely get Vertex AI location without mutating the embrouter_params dict.
 
         Unlike get_vertex_ai_location(), this does NOT pop values from the dict,
-        making it safe to call multiple times with the same litellm_params.
+        making it safe to call multiple times with the same embrouter_params.
 
         Args:
-            litellm_params: Dictionary containing Vertex AI parameters
+            embrouter_params: Dictionary containing Vertex AI parameters
 
         Returns:
             Vertex AI location/region or None
         """
         return (
-            VertexBase.explicit_vertex_ai_location(litellm_params)
-            or litellm.vertex_location
+            VertexBase.explicit_vertex_ai_location(embrouter_params)
+            or embrouter.vertex_location
             or get_secret_str("VERTEXAI_LOCATION")
             or get_secret_str("VERTEX_LOCATION")
         )

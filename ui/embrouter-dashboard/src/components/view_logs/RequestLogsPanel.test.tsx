@@ -576,8 +576,8 @@ describe("RequestLogsPanel", () => {
       expect(byIdCall.params?.group_by_session).toBeUndefined();
     });
 
-    it("opens the drawer when ?log_id= is the log's litellm_call_id rather than its request_id", async () => {
-      respondWith([logEntry({ request_id: "chatcmpl-provider", litellm_call_id: "call-1" })]);
+    it("opens the drawer when ?log_id= is the log's embrouter_call_id rather than its request_id", async () => {
+      respondWith([logEntry({ request_id: "chatcmpl-provider", embrouter_call_id: "call-1" })]);
       renderPanel("?log_id=call-1");
 
       await waitFor(() => {
@@ -586,11 +586,11 @@ describe("RequestLogsPanel", () => {
       expect(drawer()).toHaveAttribute("data-log-id", "chatcmpl-provider");
     });
 
-    it("fetches by litellm_call_id and opens the drawer when that log is not in the loaded page", async () => {
+    it("fetches by embrouter_call_id and opens the drawer when that log is not in the loaded page", async () => {
       vi.mocked(uiSpendLogsCall).mockImplementation(async ({ params }) =>
         params?.request_id === "call-old"
           ? {
-              data: [logEntry({ request_id: "chatcmpl-old", litellm_call_id: "call-old" })],
+              data: [logEntry({ request_id: "chatcmpl-old", embrouter_call_id: "call-old" })],
               total: 1,
               page: 1,
               page_size: 1,
@@ -606,10 +606,10 @@ describe("RequestLogsPanel", () => {
       expect(drawer()).toHaveAttribute("data-log-id", "chatcmpl-old");
     });
 
-    it("opens the exact request_id row when another log in the page carries that id as its litellm_call_id", async () => {
+    it("opens the exact request_id row when another log in the page carries that id as its embrouter_call_id", async () => {
       respondWith([
-        logEntry({ request_id: "chatcmpl-other", litellm_call_id: "victim-req" }),
-        logEntry({ request_id: "victim-req", litellm_call_id: "victim-call" }),
+        logEntry({ request_id: "chatcmpl-other", embrouter_call_id: "victim-req" }),
+        logEntry({ request_id: "victim-req", embrouter_call_id: "victim-call" }),
       ]);
       renderPanel("?log_id=victim-req");
 

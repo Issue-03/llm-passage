@@ -4,7 +4,7 @@ from typing import Final, Literal
 from . import *
 from .autorouter_baseline_cache import AutoRouterBaselineCache
 from .cache_control_check import _PROXY_CacheControlCheck
-from .litellm_skills import SkillsInjectionHook
+from .embrouter_skills import SkillsInjectionHook
 from .max_budget_per_session_limiter import _PROXY_MaxBudgetPerSessionHandler
 from .max_iterations_limiter import _PROXY_MaxIterationsHandler
 from .parallel_request_limiter import _PROXY_MaxParallelRequestsHandler
@@ -21,7 +21,7 @@ PROXY_HOOKS: Final = {
     "parallel_request_limiter": _PROXY_MaxParallelRequestsHandler_v3,
     "cache_control_check": _PROXY_CacheControlCheck,
     "responses_id_security": ResponsesIDSecurity,
-    "litellm_skills": SkillsInjectionHook,
+    "embrouter_skills": SkillsInjectionHook,
     "max_iterations_limiter": _PROXY_MaxIterationsHandler,
     "max_budget_per_session_limiter": _PROXY_MaxBudgetPerSessionHandler,
     "sensitive_data_routing": _PROXY_SensitiveDataRoutingHandler,

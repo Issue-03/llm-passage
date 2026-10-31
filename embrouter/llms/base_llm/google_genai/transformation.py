@@ -5,8 +5,8 @@ from typing import TYPE_CHECKING, Any
 import httpx
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.types.google_genai.main import (
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.types.google_genai.main import (
         GenerateContentConfigDict,
         GenerateContentContentListUnionDict,
         GenerateContentResponse,
@@ -16,10 +16,10 @@ else:
     GenerateContentConfigDict = Any
     GenerateContentContentListUnionDict = Any
     GenerateContentResponse = Any
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
     ToolConfigDict = Any
 
-from litellm.types.router import GenericLiteLLMParams
+from embrouter.types.router import GenericEmbRouterParams
 
 
 class BaseGoogleGenAIGenerateContentConfig(ABC):
@@ -97,7 +97,7 @@ class BaseGoogleGenAIGenerateContentConfig(ABC):
         api_key: str | None,
         headers: dict | None,
         model: str,
-        litellm_params: GenericLiteLLMParams | dict | None,
+        embrouter_params: GenericEmbRouterParams | dict | None,
     ) -> dict:
         """
         Validate the environment and return headers for the request.
@@ -106,7 +106,7 @@ class BaseGoogleGenAIGenerateContentConfig(ABC):
             api_key: API key
             headers: Existing headers
             model: The model name
-            litellm_params: LiteLLM parameters
+            embrouter_params: EmbRouter parameters
 
         Returns:
             Updated headers
@@ -117,7 +117,7 @@ class BaseGoogleGenAIGenerateContentConfig(ABC):
         self,
         api_base: str | None,
         model: str,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool,
     ) -> tuple[dict, str]:
         """
@@ -126,7 +126,7 @@ class BaseGoogleGenAIGenerateContentConfig(ABC):
         Args:
             api_base: Base API URL
             model: The model name
-            litellm_params: LiteLLM parameters
+            embrouter_params: EmbRouter parameters
             stream: Whether this is a streaming call
 
         Returns:
@@ -138,7 +138,7 @@ class BaseGoogleGenAIGenerateContentConfig(ABC):
         self,
         api_base: str | None,
         model: str,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool,
     ) -> tuple[dict, str]:
         """
@@ -147,7 +147,7 @@ class BaseGoogleGenAIGenerateContentConfig(ABC):
         Args:
             api_base: Base API URL
             model: The model name
-            litellm_params: LiteLLM parameters
+            embrouter_params: EmbRouter parameters
 
         Returns:
             Tuple of headers and API base
@@ -182,7 +182,7 @@ class BaseGoogleGenAIGenerateContentConfig(ABC):
         self,
         model: str,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> GenerateContentResponse:
         """
         Transform the raw response from the generate content API.
@@ -207,7 +207,7 @@ class BaseGoogleGenAIGenerateContentConfig(ABC):
         Returns:
             Exception instance
         """
-        from litellm.llms.base_llm.chat.transformation import BaseLLMException
+        from embrouter.llms.base_llm.chat.transformation import BaseLLMException
 
         return BaseLLMException(
             status_code=status_code,

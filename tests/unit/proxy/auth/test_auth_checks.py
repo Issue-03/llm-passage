@@ -7,27 +7,27 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-import pytest, litellm
+import pytest, embrouter
 import httpx
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.auth.auth_checks import get_end_user_object
-from litellm.caching.caching import DualCache
-from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-from litellm.proxy._types import (
-    LiteLLM_EndUserTable,
-    LiteLLM_BudgetTable,
-    LiteLLM_UserTable,
-    LiteLLM_TeamTable,
-    Litellm_EntityType,
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.auth.auth_checks import get_end_user_object
+from embrouter.caching.caching import DualCache
+from embrouter.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+from embrouter.proxy._types import (
+    EmbRouter_EndUserTable,
+    EmbRouter_BudgetTable,
+    EmbRouter_UserTable,
+    EmbRouter_TeamTable,
+    Embrouter_EntityType,
 )
-from litellm.proxy.utils import PrismaClient
-from litellm.proxy.auth.auth_checks import (
+from embrouter.proxy.utils import PrismaClient
+from embrouter.proxy.auth.auth_checks import (
     can_team_access_model,
     _virtual_key_soft_budget_check,
     _team_soft_budget_check,
 )
-from litellm.proxy.utils import ProxyLogging
-from litellm.proxy.utils import CallInfo
+from embrouter.proxy.utils import ProxyLogging
+from embrouter.proxy.utils import CallInfo
 
 
 @pytest.mark.parametrize("customer_spend, customer_budget", [(0, 10), (10, 0)])
@@ -42,11 +42,11 @@ async def test_get_end_user_object(customer_spend, customer_budget):
     from cache. Budget enforcement is tested separately in test_check_end_user_budget().
     """
     end_user_id = "my-test-customer"
-    _budget = LiteLLM_BudgetTable(max_budget=customer_budget)
-    end_user_obj = LiteLLM_EndUserTable(
+    _budget = EmbRouter_BudgetTable(max_budget=customer_budget)
+    end_user_obj = EmbRouter_EndUserTable(
         user_id=end_user_id,
         spend=customer_spend,
-        litellm_budget_table=_budget,
+        embrouter_budget_table=_budget,
         blocked=False,
     )
     # UserApiKeyCache applies model_type on get/set; plain DualCache returns raw dicts
@@ -56,7 +56,7 @@ async def test_get_end_user_object(customer_spend, customer_budget):
     await _cache.async_set_cache(
         key=_key,
         value=end_user_obj,
-        model_type=LiteLLM_EndUserTable,
+        model_type=EmbRouter_EndUserTable,
     )
     # get_end_user_object only fetches data - it no longer enforces budget
     # Budget enforcement happens in common_checks() via _check_end_user_budget()
@@ -81,13 +81,13 @@ async def test_check_end_user_budget(customer_spend, customer_budget):
     Note: Budget enforcement for end users happens in common_checks() via 
     _check_end_user_budget(), not in get_end_user_object().
     """
-    from litellm.proxy.auth.auth_checks import _check_end_user_budget
+    from embrouter.proxy.auth.auth_checks import _check_end_user_budget
     
-    _budget = LiteLLM_BudgetTable(max_budget=customer_budget)
-    end_user_obj = LiteLLM_EndUserTable(
+    _budget = EmbRouter_BudgetTable(max_budget=customer_budget)
+    end_user_obj = EmbRouter_EndUserTable(
         user_id="my-test-customer",
         spend=customer_spend,
-        litellm_budget_table=_budget,
+        embrouter_budget_table=_budget,
         blocked=False,
     )
     
@@ -100,7 +100,7 @@ async def test_check_end_user_budget(customer_spend, customer_budget):
         )
         return
 
-    with pytest.raises(litellm.BudgetExceededError) as exc_info:
+    with pytest.raises(embrouter.BudgetExceededError) as exc_info:
         await _check_end_user_budget(
             end_user_obj=end_user_obj,
             route="/v1/chat/completions",
@@ -122,13 +122,13 @@ async def test_can_key_call_model(model, expect_to_work):
     """
     If wildcard model + specific model is used, choose the specific model settings
     """
-    from litellm.proxy.auth.auth_checks import can_key_call_model
+    from embrouter.proxy.auth.auth_checks import can_key_call_model
     from fastapi import HTTPException
 
     llm_model_list = [
         {
             "model_name": "openai/*",
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "openai/*",
                 "api_key": "test-api-key",
             },
@@ -140,7 +140,7 @@ async def test_can_key_call_model(model, expect_to_work):
         },
         {
             "model_name": "openai/gpt-4o",
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "openai/gpt-4o",
                 "api_key": "test-api-key",
             },
@@ -151,7 +151,7 @@ async def test_can_key_call_model(model, expect_to_work):
             },
         },
     ]
-    router = litellm.Router(model_list=llm_model_list)
+    router = embrouter.Router(model_list=llm_model_list)
     args = {
         "model": model,
         "llm_model_list": llm_model_list,
@@ -175,13 +175,13 @@ async def test_can_key_call_model(model, expect_to_work):
 )
 @pytest.mark.asyncio
 async def test_can_team_call_model(model, expect_to_work):
-    from litellm.proxy.auth.auth_checks import model_in_access_group
+    from embrouter.proxy.auth.auth_checks import model_in_access_group
     from fastapi import HTTPException
 
     llm_model_list = [
         {
             "model_name": "openai/*",
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "openai/*",
                 "api_key": "test-api-key",
             },
@@ -193,7 +193,7 @@ async def test_can_team_call_model(model, expect_to_work):
         },
         {
             "model_name": "openai/gpt-4o",
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "openai/gpt-4o",
                 "api_key": "test-api-key",
             },
@@ -204,7 +204,7 @@ async def test_can_team_call_model(model, expect_to_work):
             },
         },
     ]
-    router = litellm.Router(model_list=llm_model_list)
+    router = embrouter.Router(model_list=llm_model_list)
 
     args = {
         "model": model,
@@ -232,13 +232,13 @@ async def test_can_team_call_model(model, expect_to_work):
 )
 @pytest.mark.asyncio
 async def test_can_key_call_model_wildcard_access(key_models, model, expect_to_work):
-    from litellm.proxy._types import ProxyException
-    from litellm.proxy.auth.auth_checks import can_key_call_model
+    from embrouter.proxy._types import ProxyException
+    from embrouter.proxy.auth.auth_checks import can_key_call_model
 
     llm_model_list = [
         {
             "model_name": "openai/*",
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "openai/*",
                 "api_key": "test-api-key",
             },
@@ -249,7 +249,7 @@ async def test_can_key_call_model_wildcard_access(key_models, model, expect_to_w
         },
         {
             "model_name": "bedrock/*",
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "bedrock/*",
                 "api_key": "test-api-key",
             },
@@ -260,7 +260,7 @@ async def test_can_key_call_model_wildcard_access(key_models, model, expect_to_w
         },
         {
             "model_name": "openai/gpt-4o",
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "openai/gpt-4o",
                 "api_key": "test-api-key",
             },
@@ -270,7 +270,7 @@ async def test_can_key_call_model_wildcard_access(key_models, model, expect_to_w
             },
         },
     ]
-    router = litellm.Router(model_list=llm_model_list)
+    router = embrouter.Router(model_list=llm_model_list)
 
     user_api_key_object = UserAPIKeyAuth(
         models=key_models,
@@ -307,55 +307,55 @@ async def test_can_key_call_model_wildcard_access(key_models, model, expect_to_w
 async def test_wildcard_access_after_cost_map_reload(key_models, model, expect_to_work):
     """
     Regression test: after a cost-map hot-reload, calling
-    add_known_models(model_cost_map=new_map) must update litellm.anthropic_models
+    add_known_models(model_cost_map=new_map) must update embrouter.anthropic_models
     so that the anthropic/* wildcard correctly grants (or denies) access to
     newly-added models.
 
     Root cause: both reload paths in proxy_server.py only updated
-    litellm.model_cost but never re-ran add_known_models(), so the provider sets
+    embrouter.model_cost but never re-ran add_known_models(), so the provider sets
     stayed stale and wildcard matching failed for new models.
 
-    Fix: each reload now calls litellm.add_known_models(model_cost_map=new_map)
+    Fix: each reload now calls embrouter.add_known_models(model_cost_map=new_map)
     with the fetched map passed explicitly to avoid any reference ambiguity.
     """
-    from litellm.proxy._types import ProxyException
-    from litellm.proxy.auth.auth_checks import can_key_call_model
+    from embrouter.proxy._types import ProxyException
+    from embrouter.proxy.auth.auth_checks import can_key_call_model
 
     # Build a new cost map that includes the brand-new model — exactly what
     # proxy_server.py receives from get_model_cost_map() during a reload.
-    new_cost_map = dict(litellm.model_cost)
+    new_cost_map = dict(embrouter.model_cost)
     new_cost_map[model] = {
-        "litellm_provider": "anthropic",
+        "embrouter_provider": "anthropic",
         "max_tokens": 8192,
         "input_cost_per_token": 0.000003,
         "output_cost_per_token": 0.000015,
     }
 
-    original_model_cost = litellm.model_cost
-    litellm.model_cost = new_cost_map
+    original_model_cost = embrouter.model_cost
+    embrouter.model_cost = new_cost_map
 
     # Confirm the model is NOT yet in the provider set before reload propagation.
-    assert model not in litellm.anthropic_models
+    assert model not in embrouter.anthropic_models
 
     # Simulate what proxy_server.py now does after every reload.
-    litellm.add_known_models(model_cost_map=new_cost_map)
+    embrouter.add_known_models(model_cost_map=new_cost_map)
 
     # After add_known_models(), the model must be in the set.
-    assert model in litellm.anthropic_models
+    assert model in embrouter.anthropic_models
 
     llm_model_list = [
         {
             "model_name": "anthropic/*",
-            "litellm_params": {"model": "anthropic/*", "api_key": "test-api-key"},
+            "embrouter_params": {"model": "anthropic/*", "api_key": "test-api-key"},
             "model_info": {"id": "test-id-anthropic-wildcard", "db_model": False},
         },
         {
             "model_name": "openai/*",
-            "litellm_params": {"model": "openai/*", "api_key": "test-api-key"},
+            "embrouter_params": {"model": "openai/*", "api_key": "test-api-key"},
             "model_info": {"id": "test-id-openai-wildcard", "db_model": False},
         },
     ]
-    router = litellm.Router(model_list=llm_model_list)
+    router = embrouter.Router(model_list=llm_model_list)
     user_api_key_object = UserAPIKeyAuth(models=key_models)
 
     try:
@@ -375,8 +375,8 @@ async def test_wildcard_access_after_cost_map_reload(key_models, model, expect_t
                     llm_router=router,
                 )
     finally:
-        litellm.model_cost = original_model_cost
-        litellm.anthropic_models.discard(model)
+        embrouter.model_cost = original_model_cost
+        embrouter.anthropic_models.discard(model)
 
 
 @pytest.mark.asyncio
@@ -388,48 +388,48 @@ async def test_add_known_models_explicit_map_updates_provider_sets():
     wildcard access checks (anthropic/*, openai/*, …) work immediately.
 
     This covers the proxy_server.py fix where both reload paths now call
-    litellm.add_known_models(model_cost_map=new_model_cost_map) instead of
+    embrouter.add_known_models(model_cost_map=new_model_cost_map) instead of
     relying on the module-level model_cost being up to date.
     """
     fake_new_model = "claude-brand-new-explicit-map-test"
 
     # Baseline: the model must not be in the sets before we do anything.
-    assert fake_new_model not in litellm.anthropic_models
+    assert fake_new_model not in embrouter.anthropic_models
 
-    new_cost_map = dict(litellm.model_cost)
+    new_cost_map = dict(embrouter.model_cost)
     new_cost_map[fake_new_model] = {
-        "litellm_provider": "anthropic",
+        "embrouter_provider": "anthropic",
         "max_tokens": 8192,
         "input_cost_per_token": 0.000003,
         "output_cost_per_token": 0.000015,
     }
 
     # Simulate what proxy_server.py does on reload.
-    original_model_cost = litellm.model_cost
-    litellm.model_cost = new_cost_map
-    litellm.add_known_models(model_cost_map=new_cost_map)
+    original_model_cost = embrouter.model_cost
+    embrouter.model_cost = new_cost_map
+    embrouter.add_known_models(model_cost_map=new_cost_map)
 
     try:
-        assert fake_new_model in litellm.anthropic_models, (
+        assert fake_new_model in embrouter.anthropic_models, (
             "add_known_models(model_cost_map=...) did not add the new model to "
-            "litellm.anthropic_models — wildcard access checks would fail."
+            "embrouter.anthropic_models — wildcard access checks would fail."
         )
     finally:
         # Clean up: restore original state.
-        litellm.model_cost = original_model_cost
-        litellm.anthropic_models.discard(fake_new_model)
+        embrouter.model_cost = original_model_cost
+        embrouter.anthropic_models.discard(fake_new_model)
 
 
 @pytest.mark.asyncio
 async def test_is_valid_fallback_model():
-    from litellm.proxy.auth.auth_checks import is_valid_fallback_model
-    from litellm import Router
+    from embrouter.proxy.auth.auth_checks import is_valid_fallback_model
+    from embrouter import Router
 
     router = Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {"model": "openai/gpt-3.5-turbo"},
+                "embrouter_params": {"model": "openai/gpt-3.5-turbo"},
             }
         ]
     )
@@ -466,7 +466,7 @@ async def test_virtual_key_max_budget_check(
     1. Triggers budget alert for all cases
     2. Raises BudgetExceededError when spend >= max_budget
     """
-    from litellm.proxy.auth.auth_checks import _virtual_key_max_budget_check
+    from embrouter.proxy.auth.auth_checks import _virtual_key_max_budget_check
 
     # Setup test data
     valid_token = UserAPIKeyAuth(
@@ -477,7 +477,7 @@ async def test_virtual_key_max_budget_check(
         key_alias="test-key",
     )
 
-    user_obj = LiteLLM_UserTable(
+    user_obj = EmbRouter_UserTable(
         user_id="test-user",
         user_email="test@email.com",
         max_budget=None,
@@ -497,7 +497,7 @@ async def test_virtual_key_max_budget_check(
     proxy_logging_obj.budget_alerts = mock_budget_alert
 
     if expect_budget_error:
-        with pytest.raises(litellm.BudgetExceededError) as exc_info:
+        with pytest.raises(embrouter.BudgetExceededError) as exc_info:
             await _virtual_key_max_budget_check(
                 valid_token=valid_token,
                 proxy_logging_obj=proxy_logging_obj,
@@ -564,7 +564,7 @@ async def test_can_team_access_model(model, team_models, expect_to_work):
     7. None model list
     """
     try:
-        team_object = LiteLLM_TeamTable(
+        team_object = EmbRouter_TeamTable(
             team_id="test-team",
             models=team_models,
         )
@@ -717,7 +717,7 @@ async def test_team_soft_budget_check(
         key_alias="test-key",
     )
 
-    team_object = LiteLLM_TeamTable(
+    team_object = EmbRouter_TeamTable(
         team_id="test-team",
         spend=spend,
         soft_budget=soft_budget,
@@ -744,7 +744,7 @@ async def test_team_soft_budget_check(
         assert captured_call_info.team_id == "test-team"
         assert captured_call_info.spend == spend
         assert captured_call_info.soft_budget == soft_budget
-        assert captured_call_info.event_group == Litellm_EntityType.TEAM
+        assert captured_call_info.event_group == Embrouter_EntityType.TEAM
         # Verify alert_emails if expected
         if expected_alert_emails is not None:
             assert captured_call_info.alert_emails == expected_alert_emails
@@ -757,19 +757,19 @@ async def test_team_soft_budget_check(
 
 @pytest.mark.asyncio
 async def test_can_user_call_model():
-    from litellm.proxy.auth.auth_checks import can_user_call_model
-    from litellm.proxy._types import ProxyException
-    from litellm import Router
+    from embrouter.proxy.auth.auth_checks import can_user_call_model
+    from embrouter.proxy._types import ProxyException
+    from embrouter import Router
 
     router = Router(
         model_list=[
             {
                 "model_name": "anthropic-claude",
-                "litellm_params": {"model": "anthropic/anthropic-claude"},
+                "embrouter_params": {"model": "anthropic/anthropic-claude"},
             },
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {"model": "gpt-3.5-turbo", "api_key": "test-api-key"},
+                "embrouter_params": {"model": "gpt-3.5-turbo", "api_key": "test-api-key"},
             },
         ]
     )
@@ -777,7 +777,7 @@ async def test_can_user_call_model():
     args = {
         "model": "anthropic-claude",
         "llm_router": router,
-        "user_object": LiteLLM_UserTable(
+        "user_object": EmbRouter_UserTable(
             user_id="testuser21@mycompany.com",
             max_budget=None,
             spend=0.0042295,
@@ -797,14 +797,14 @@ async def test_can_user_call_model():
 
 @pytest.mark.asyncio
 async def test_can_user_call_model_with_no_default_models():
-    from litellm.proxy.auth.auth_checks import can_user_call_model
-    from litellm.proxy._types import ProxyException, SpecialModelNames
+    from embrouter.proxy.auth.auth_checks import can_user_call_model
+    from embrouter.proxy._types import ProxyException, SpecialModelNames
     from unittest.mock import MagicMock
 
     args = {
         "model": "anthropic-claude",
         "llm_router": MagicMock(),
-        "user_object": LiteLLM_UserTable(
+        "user_object": EmbRouter_UserTable(
             user_id="testuser21@mycompany.com",
             max_budget=None,
             spend=0.0042295,
@@ -821,16 +821,16 @@ async def test_can_user_call_model_with_no_default_models():
 
 @pytest.mark.asyncio
 async def test_get_fuzzy_user_object():
-    from litellm.proxy.auth.auth_checks import _get_fuzzy_user_object
+    from embrouter.proxy.auth.auth_checks import _get_fuzzy_user_object
     from unittest.mock import AsyncMock, MagicMock
 
     # Setup mock Prisma client
     mock_prisma = MagicMock()
     mock_prisma.db = MagicMock()
-    mock_prisma.db.litellm_usertable = MagicMock()
+    mock_prisma.db.embrouter_usertable = MagicMock()
 
     # Mock user data
-    test_user = LiteLLM_UserTable(
+    test_user = EmbRouter_UserTable(
         user_id="test_123",
         sso_user_id="sso_123",
         user_email="test@example.com",
@@ -839,19 +839,19 @@ async def test_get_fuzzy_user_object():
     )
 
     # Test 1: Find user by SSO ID
-    mock_prisma.db.litellm_usertable.find_unique = AsyncMock(return_value=test_user)
+    mock_prisma.db.embrouter_usertable.find_unique = AsyncMock(return_value=test_user)
     result = await _get_fuzzy_user_object(
         prisma_client=mock_prisma, sso_user_id="sso_123", user_email="test@example.com"
     )
     assert result == test_user
-    mock_prisma.db.litellm_usertable.find_unique.assert_called_with(
+    mock_prisma.db.embrouter_usertable.find_unique.assert_called_with(
         where={"sso_user_id": "sso_123"}, include={"organization_memberships": True}
     )
 
     # Test 2: SSO ID not found, find by email
-    mock_prisma.db.litellm_usertable.find_unique = AsyncMock(return_value=None)
-    mock_prisma.db.litellm_usertable.find_first = AsyncMock(return_value=test_user)
-    mock_prisma.db.litellm_usertable.update = AsyncMock()
+    mock_prisma.db.embrouter_usertable.find_unique = AsyncMock(return_value=None)
+    mock_prisma.db.embrouter_usertable.find_first = AsyncMock(return_value=test_user)
+    mock_prisma.db.embrouter_usertable.update = AsyncMock()
 
     result = await _get_fuzzy_user_object(
         prisma_client=mock_prisma,
@@ -859,20 +859,20 @@ async def test_get_fuzzy_user_object():
         user_email="test@example.com",
     )
     assert result == test_user
-    mock_prisma.db.litellm_usertable.find_first.assert_called_with(
+    mock_prisma.db.embrouter_usertable.find_first.assert_called_with(
         where={"user_email": {"equals": "test@example.com", "mode": "insensitive"}},
         include={"organization_memberships": True},
     )
 
     # Test 3: Verify background SSO update task when user found by email
     await asyncio.sleep(0.1)  # Allow time for background task
-    mock_prisma.db.litellm_usertable.update.assert_called_with(
+    mock_prisma.db.embrouter_usertable.update.assert_called_with(
         where={"user_id": "test_123"}, data={"sso_user_id": "new_sso_456"}
     )
 
     # Test 4: User not found by either method
-    mock_prisma.db.litellm_usertable.find_unique = AsyncMock(return_value=None)
-    mock_prisma.db.litellm_usertable.find_first = AsyncMock(return_value=None)
+    mock_prisma.db.embrouter_usertable.find_unique = AsyncMock(return_value=None)
+    mock_prisma.db.embrouter_usertable.find_first = AsyncMock(return_value=None)
 
     result = await _get_fuzzy_user_object(
         prisma_client=mock_prisma,
@@ -882,23 +882,23 @@ async def test_get_fuzzy_user_object():
     assert result is None
 
     # Test 5: Only email provided (no SSO ID)
-    mock_prisma.db.litellm_usertable.find_first = AsyncMock(return_value=test_user)
+    mock_prisma.db.embrouter_usertable.find_first = AsyncMock(return_value=test_user)
     result = await _get_fuzzy_user_object(
         prisma_client=mock_prisma, user_email="test@example.com"
     )
     assert result == test_user
-    mock_prisma.db.litellm_usertable.find_first.assert_called_with(
+    mock_prisma.db.embrouter_usertable.find_first.assert_called_with(
         where={"user_email": {"equals": "test@example.com", "mode": "insensitive"}},
         include={"organization_memberships": True},
     )
 
     # Test 6: Only SSO ID provided (no email)
-    mock_prisma.db.litellm_usertable.find_unique = AsyncMock(return_value=test_user)
+    mock_prisma.db.embrouter_usertable.find_unique = AsyncMock(return_value=test_user)
     result = await _get_fuzzy_user_object(
         prisma_client=mock_prisma, sso_user_id="sso_123"
     )
     assert result == test_user
-    mock_prisma.db.litellm_usertable.find_unique.assert_called_with(
+    mock_prisma.db.embrouter_usertable.find_unique.assert_called_with(
         where={"sso_user_id": "sso_123"}, include={"organization_memberships": True}
     )
 
@@ -915,18 +915,18 @@ async def test_can_key_call_model_with_aliases(model, alias_map, expect_to_work)
     """
     Test if can_key_call_model correctly handles model aliases in the token
     """
-    from litellm.proxy.auth.auth_checks import can_key_call_model
+    from embrouter.proxy.auth.auth_checks import can_key_call_model
 
     llm_model_list = [
         {
             "model_name": "gpt-4-team1",
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "gpt-4",
                 "api_key": "test-api-key",
             },
         }
     ]
-    router = litellm.Router(model_list=llm_model_list)
+    router = embrouter.Router(model_list=llm_model_list)
 
     user_api_key_object = UserAPIKeyAuth(
         models=[
@@ -960,12 +960,12 @@ async def test_can_key_call_model_with_aliases(model, alias_map, expect_to_work)
 @pytest.mark.asyncio
 async def test_cache_access_object():
     """Test _cache_access_object stores access group in cache with correct key."""
-    from litellm.proxy.auth.auth_checks import _cache_access_object
-    from litellm.proxy._types import LiteLLM_AccessGroupTable
+    from embrouter.proxy.auth.auth_checks import _cache_access_object
+    from embrouter.proxy._types import EmbRouter_AccessGroupTable
 
     cache = DualCache()
     ag_id = "ag-test-123"
-    ag_table = LiteLLM_AccessGroupTable(
+    ag_table = EmbRouter_AccessGroupTable(
         access_group_id=ag_id,
         access_group_name="test-group",
         access_model_names=["gpt-4"],
@@ -988,12 +988,12 @@ async def test_cache_access_object():
 @pytest.mark.asyncio
 async def test_delete_cache_access_object():
     """Test _delete_cache_access_object removes access group from in-memory cache."""
-    from litellm.proxy.auth.auth_checks import _delete_cache_access_object
-    from litellm.proxy._types import LiteLLM_AccessGroupTable
+    from embrouter.proxy.auth.auth_checks import _delete_cache_access_object
+    from embrouter.proxy._types import EmbRouter_AccessGroupTable
 
     cache = DualCache()
     ag_id = "ag-delete-test"
-    ag_table = LiteLLM_AccessGroupTable(
+    ag_table = EmbRouter_AccessGroupTable(
         access_group_id=ag_id,
         access_group_name="to-delete",
     )
@@ -1035,13 +1035,13 @@ async def test_get_resources_from_access_groups(
     """Test _get_resources_from_access_groups returns correct resource list from access groups."""
     from unittest.mock import AsyncMock, MagicMock, patch
 
-    from litellm.proxy._types import LiteLLM_AccessGroupTable
-    from litellm.proxy.auth.auth_checks import (
+    from embrouter.proxy._types import EmbRouter_AccessGroupTable
+    from embrouter.proxy.auth.auth_checks import (
         _get_agent_ids_from_access_groups,
         _get_models_from_access_groups,
     )
 
-    ag_table = LiteLLM_AccessGroupTable(
+    ag_table = EmbRouter_AccessGroupTable(
         access_group_id=access_group_data["access_group_id"],
         access_group_name="test",
         access_model_names=access_group_data.get("access_model_names", []),
@@ -1049,7 +1049,7 @@ async def test_get_resources_from_access_groups(
     )
 
     with patch(
-        "litellm.proxy.auth.auth_checks.get_access_object",
+        "embrouter.proxy.auth.auth_checks.get_access_object",
         new_callable=AsyncMock,
         return_value=ag_table,
     ):
@@ -1071,7 +1071,7 @@ async def test_get_resources_from_access_groups(
 @pytest.mark.asyncio
 async def test_get_models_from_access_groups_empty_ids():
     """Test _get_models_from_access_groups returns empty list when access_group_ids is empty."""
-    from litellm.proxy.auth.auth_checks import _get_models_from_access_groups
+    from embrouter.proxy.auth.auth_checks import _get_models_from_access_groups
 
     result = await _get_models_from_access_groups(access_group_ids=[])
     assert result == []
@@ -1087,16 +1087,16 @@ async def test_can_team_access_model_via_access_group_ids():
     """Test can_team_access_model allows access when team has access_group_ids granting model access."""
     from unittest.mock import AsyncMock, patch
 
-    from litellm.proxy.auth.auth_checks import can_team_access_model
+    from embrouter.proxy.auth.auth_checks import can_team_access_model
 
-    team_object = LiteLLM_TeamTable(
+    team_object = EmbRouter_TeamTable(
         team_id="test-team",
         models=[],
         access_group_ids=["ag-with-gpt4"],
     )
 
     with patch(
-        "litellm.proxy.auth.auth_checks._get_models_from_access_groups",
+        "embrouter.proxy.auth.auth_checks._get_models_from_access_groups",
         new_callable=AsyncMock,
         return_value=["gpt-4"],
     ):
@@ -1114,17 +1114,17 @@ async def test_can_team_access_model_access_group_ids_denied():
     """Test can_team_access_model denies when neither team models nor access_group_ids grant access."""
     from unittest.mock import AsyncMock, patch
 
-    from litellm.proxy.auth.auth_checks import can_team_access_model
-    from litellm.proxy._types import ProxyException
+    from embrouter.proxy.auth.auth_checks import can_team_access_model
+    from embrouter.proxy._types import ProxyException
 
-    team_object = LiteLLM_TeamTable(
+    team_object = EmbRouter_TeamTable(
         team_id="test-team",
         models=["gpt-3.5-turbo"],
         access_group_ids=["ag-other"],
     )
 
     with patch(
-        "litellm.proxy.auth.auth_checks._get_models_from_access_groups",
+        "embrouter.proxy.auth.auth_checks._get_models_from_access_groups",
         new_callable=AsyncMock,
         return_value=["claude-3"],
     ):
@@ -1147,24 +1147,24 @@ async def test_can_key_call_model_via_access_group_ids():
     """Test can_key_call_model allows access when key has access_group_ids granting model access."""
     from unittest.mock import AsyncMock, patch
 
-    from litellm.proxy.auth.auth_checks import can_key_call_model
+    from embrouter.proxy.auth.auth_checks import can_key_call_model
 
     user_api_key_object = UserAPIKeyAuth(
         token="test-token",
         models=[],
         access_group_ids=["ag-with-gpt4"],
     )
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {"model": "openai/gpt-4", "api_key": "test"},
+                "embrouter_params": {"model": "openai/gpt-4", "api_key": "test"},
             }
         ]
     )
 
     with patch(
-        "litellm.proxy.auth.auth_checks._get_models_from_access_groups",
+        "embrouter.proxy.auth.auth_checks._get_models_from_access_groups",
         new_callable=AsyncMock,
         return_value=["gpt-4"],
     ):
@@ -1188,9 +1188,9 @@ def _patch_proxy_server_globals():
     from unittest.mock import MagicMock, patch
 
     return [
-        patch("litellm.proxy.proxy_server.prisma_client", MagicMock()),
-        patch("litellm.proxy.proxy_server.user_api_key_cache", MagicMock()),
-        patch("litellm.proxy.proxy_server.proxy_logging_obj", MagicMock()),
+        patch("embrouter.proxy.proxy_server.prisma_client", MagicMock()),
+        patch("embrouter.proxy.proxy_server.user_api_key_cache", MagicMock()),
+        patch("embrouter.proxy.proxy_server.proxy_logging_obj", MagicMock()),
     ]
 
 
@@ -1200,9 +1200,9 @@ def _fake_access_group(
     assigned_team_ids=None,
     assigned_key_ids=None,
 ):
-    from litellm.proxy._types import LiteLLM_AccessGroupTable
+    from embrouter.proxy._types import EmbRouter_AccessGroupTable
 
-    return LiteLLM_AccessGroupTable(
+    return EmbRouter_AccessGroupTable(
         access_group_id=access_group_id,
         access_group_name=access_group_id,
         access_model_names=access_model_names or [],
@@ -1221,7 +1221,7 @@ async def test_key_access_group_grants_model_when_team_authorized():
     """
     from unittest.mock import AsyncMock, patch
 
-    from litellm.proxy.auth.auth_checks import _key_access_group_grants_model
+    from embrouter.proxy.auth.auth_checks import _key_access_group_grants_model
 
     valid_token = UserAPIKeyAuth(
         token="test-token",
@@ -1229,7 +1229,7 @@ async def test_key_access_group_grants_model_when_team_authorized():
         access_group_ids=["premium-group"],
         team_id="team-a",
     )
-    team_object = LiteLLM_TeamTable(
+    team_object = EmbRouter_TeamTable(
         team_id="team-a",
         models=["mock-success"],
         access_group_ids=[],  # deliberately not synced — the access group itself authorizes
@@ -1243,7 +1243,7 @@ async def test_key_access_group_grants_model_when_team_authorized():
 
     patches = _patch_proxy_server_globals() + [
         patch(
-            "litellm.proxy.auth.auth_checks.get_access_object",
+            "embrouter.proxy.auth.auth_checks.get_access_object",
             new_callable=AsyncMock,
             return_value=fake_ag,
         ),
@@ -1274,7 +1274,7 @@ async def test_key_access_group_grants_model_when_key_directly_authorized():
     """
     from unittest.mock import AsyncMock, patch
 
-    from litellm.proxy.auth.auth_checks import _key_access_group_grants_model
+    from embrouter.proxy.auth.auth_checks import _key_access_group_grants_model
 
     valid_token = UserAPIKeyAuth(
         token="test-token-hashed",
@@ -1282,7 +1282,7 @@ async def test_key_access_group_grants_model_when_key_directly_authorized():
         access_group_ids=["per-key-group"],
         team_id="team-a",
     )
-    team_object = LiteLLM_TeamTable(
+    team_object = EmbRouter_TeamTable(
         team_id="team-a",
         models=["mock-success"],
         access_group_ids=[],
@@ -1297,7 +1297,7 @@ async def test_key_access_group_grants_model_when_key_directly_authorized():
 
     patches = _patch_proxy_server_globals() + [
         patch(
-            "litellm.proxy.auth.auth_checks.get_access_object",
+            "embrouter.proxy.auth.auth_checks.get_access_object",
             new_callable=AsyncMock,
             return_value=fake_ag,
         ),
@@ -1322,7 +1322,7 @@ async def test_key_access_group_grants_model_when_key_directly_authorized():
 @pytest.mark.asyncio
 async def test_key_access_group_grants_model_when_key_has_no_groups():
     """Key with no access_group_ids → False (early return, no DB read)."""
-    from litellm.proxy.auth.auth_checks import _key_access_group_grants_model
+    from embrouter.proxy.auth.auth_checks import _key_access_group_grants_model
 
     valid_token = UserAPIKeyAuth(
         token="test-token",
@@ -1330,7 +1330,7 @@ async def test_key_access_group_grants_model_when_key_has_no_groups():
         access_group_ids=[],
         team_id="team-a",
     )
-    team_object = LiteLLM_TeamTable(
+    team_object = EmbRouter_TeamTable(
         team_id="team-a",
         models=["mock-success"],
         access_group_ids=["any-group"],
@@ -1351,7 +1351,7 @@ async def test_key_access_group_grants_model_when_group_does_not_cover_model():
     """Group authorizes the team but does not grant the requested model → False."""
     from unittest.mock import AsyncMock, patch
 
-    from litellm.proxy.auth.auth_checks import _key_access_group_grants_model
+    from embrouter.proxy.auth.auth_checks import _key_access_group_grants_model
 
     valid_token = UserAPIKeyAuth(
         token="test-token",
@@ -1359,7 +1359,7 @@ async def test_key_access_group_grants_model_when_group_does_not_cover_model():
         access_group_ids=["basic-group"],
         team_id="team-a",
     )
-    team_object = LiteLLM_TeamTable(
+    team_object = EmbRouter_TeamTable(
         team_id="team-a",
         models=["mock-success"],
         access_group_ids=[],
@@ -1373,7 +1373,7 @@ async def test_key_access_group_grants_model_when_group_does_not_cover_model():
 
     patches = _patch_proxy_server_globals() + [
         patch(
-            "litellm.proxy.auth.auth_checks.get_access_object",
+            "embrouter.proxy.auth.auth_checks.get_access_object",
             new_callable=AsyncMock,
             return_value=fake_ag,
         ),
@@ -1405,7 +1405,7 @@ async def test_key_access_group_grants_model_when_group_authorizes_neither():
     """
     from unittest.mock import AsyncMock, patch
 
-    from litellm.proxy.auth.auth_checks import _key_access_group_grants_model
+    from embrouter.proxy.auth.auth_checks import _key_access_group_grants_model
 
     valid_token = UserAPIKeyAuth(
         token="team-a-token",
@@ -1413,7 +1413,7 @@ async def test_key_access_group_grants_model_when_group_authorizes_neither():
         access_group_ids=["team-b-premium"],
         team_id="team-a",
     )
-    team_object = LiteLLM_TeamTable(
+    team_object = EmbRouter_TeamTable(
         team_id="team-a",
         models=["mock-success"],
         access_group_ids=[],
@@ -1428,7 +1428,7 @@ async def test_key_access_group_grants_model_when_group_authorizes_neither():
 
     patches = _patch_proxy_server_globals() + [
         patch(
-            "litellm.proxy.auth.auth_checks.get_access_object",
+            "embrouter.proxy.auth.auth_checks.get_access_object",
             new_callable=AsyncMock,
             return_value=fake_ag,
         ),
@@ -1455,7 +1455,7 @@ async def test_key_access_group_grants_model_when_get_access_object_raises():
     """Group lookup failure (404, network, etc.) is treated as no authorization."""
     from unittest.mock import AsyncMock, patch
 
-    from litellm.proxy.auth.auth_checks import _key_access_group_grants_model
+    from embrouter.proxy.auth.auth_checks import _key_access_group_grants_model
 
     valid_token = UserAPIKeyAuth(
         token="test-token",
@@ -1463,7 +1463,7 @@ async def test_key_access_group_grants_model_when_get_access_object_raises():
         access_group_ids=["missing-group"],
         team_id="team-a",
     )
-    team_object = LiteLLM_TeamTable(
+    team_object = EmbRouter_TeamTable(
         team_id="team-a",
         models=["mock-success"],
         access_group_ids=[],
@@ -1471,7 +1471,7 @@ async def test_key_access_group_grants_model_when_get_access_object_raises():
 
     patches = _patch_proxy_server_globals() + [
         patch(
-            "litellm.proxy.auth.auth_checks.get_access_object",
+            "embrouter.proxy.auth.auth_checks.get_access_object",
             new_callable=AsyncMock,
             side_effect=Exception("not found"),
         ),

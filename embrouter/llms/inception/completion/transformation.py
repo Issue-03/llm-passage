@@ -10,7 +10,7 @@ Inception's FIM endpoint is OpenAI text-completion compatible: it takes a
 
 from typing import Final
 
-from litellm.llms.openai.completion.transformation import OpenAITextCompletionConfig
+from embrouter.llms.openai.completion.transformation import OpenAITextCompletionConfig
 
 
 class InceptionTextCompletionConfig(OpenAITextCompletionConfig):

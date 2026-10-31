@@ -4,7 +4,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from litellm.llms.azure.search.transformation import BingGroundingSearchConfig
+from embrouter.llms.azure.search.transformation import BingGroundingSearchConfig
 
 REAL_FIXTURE = json.loads((Path(__file__).parent / "foundry_responses_web_search_fixture.json").read_text())
 
@@ -223,18 +223,18 @@ def test_transform_search_response_real_fixture_dedupes_and_preserves_order():
 
     assert resp.object == "search"
     assert [r.url for r in resp.results] == [
-        "https://github.com/BerriAI/litellm/releases",
-        "https://releasealert.dev/github/BerriAI/litellm",
-        "https://api.github.com/repos/BerriAI/litellm/releases/latest",
+        "https://github.com/BerriAI/embrouter/releases",
+        "https://releasealert.dev/github/BerriAI/embrouter",
+        "https://api.github.com/repos/BerriAI/embrouter/releases/latest",
     ]
-    assert resp.results[0].title == "Releases · BerriAI/litellm - GitHub"
-    assert resp.results[1].title == "BerriAI/litellm on GitHub | Release Alert"
+    assert resp.results[0].title == "Releases · BerriAI/embrouter - GitHub"
+    assert resp.results[1].title == "BerriAI/embrouter on GitHub | Release Alert"
 
 
 def test_transform_search_response_real_fixture_snippets_are_the_cited_claims():
     resp = _config().transform_search_response(_resp(REAL_FIXTURE), logging_obj=Mock())
 
-    assert resp.results[0].snippet.startswith("- On the GitHub **Releases** page for BerriAI/litellm")
+    assert resp.results[0].snippet.startswith("- On the GitHub **Releases** page for BerriAI/embrouter")
     assert resp.results[1].snippet.startswith("- An external release")
     assert resp.results[2].snippet.startswith("- The GitHub API (via `releases/latest`)")
     for result in resp.results:
@@ -324,7 +324,7 @@ def test_transform_search_response_incomplete_with_partial_results_returns_them(
 def test_transform_search_response_web_search_mode_zeroes_per_query_cost():
     payload = _message_response("claim", [_citation("https://example.com", "Example", 0, 5)])
     resp = _config().transform_search_response(_resp(payload), logging_obj=Mock())
-    assert resp._hidden_params["additional_headers"]["llm_provider-x-litellm-response-cost"] == 0.0
+    assert resp._hidden_params["additional_headers"]["llm_provider-x-embrouter-response-cost"] == 0.0
 
 
 def test_transform_search_response_connection_mode_leaves_price_to_cost_map(monkeypatch: pytest.MonkeyPatch):

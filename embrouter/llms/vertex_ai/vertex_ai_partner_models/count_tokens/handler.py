@@ -8,9 +8,9 @@ their respective publisher-specific count-tokens endpoints.
 
 from typing import Any, Final
 
-from litellm.llms.custom_httpx.http_handler import get_async_httpx_client
-from litellm.llms.vertex_ai.common_utils import get_vertex_base_url
-from litellm.llms.vertex_ai.vertex_llm_base import VertexBase
+from embrouter.llms.custom_httpx.http_handler import get_async_httpx_client
+from embrouter.llms.vertex_ai.common_utils import get_vertex_base_url
+from embrouter.llms.vertex_ai.vertex_llm_base import VertexBase
 
 
 class VertexAIPartnerModelsTokenCounter(VertexBase):
@@ -96,7 +96,7 @@ class VertexAIPartnerModelsTokenCounter(VertexBase):
         self,
         model: str,
         request_data: dict[str, Any],
-        litellm_params: dict[str, Any],
+        embrouter_params: dict[str, Any],
     ) -> dict[str, Any]:
         """
         Handle token counting request for a Vertex AI partner model.
@@ -104,7 +104,7 @@ class VertexAIPartnerModelsTokenCounter(VertexBase):
         Args:
             model: The model name
             request_data: Request payload (Anthropic Messages API format)
-            litellm_params: LiteLLM parameters containing credentials, project, location
+            embrouter_params: EmbRouter parameters containing credentials, project, location
 
         Returns:
             Dict containing token count information
@@ -126,12 +126,12 @@ class VertexAIPartnerModelsTokenCounter(VertexBase):
             raise ValueError("messages required for token counting")
 
         # Extract Vertex AI credentials and settings
-        vertex_credentials: Final = self.get_vertex_ai_credentials(litellm_params)
-        vertex_project: Final = self.get_vertex_ai_project(litellm_params)
+        vertex_credentials: Final = self.get_vertex_ai_credentials(embrouter_params)
+        vertex_project: Final = self.get_vertex_ai_project(embrouter_params)
 
         # Check for count_tokens specific location override
-        vertex_count_tokens_location: Final = litellm_params.get("vertex_count_tokens_location")
-        vertex_location_raw: Final = self.get_vertex_ai_location(litellm_params)
+        vertex_count_tokens_location: Final = embrouter_params.get("vertex_count_tokens_location")
+        vertex_location_raw: Final = self.get_vertex_ai_location(embrouter_params)
 
         # Determine final location with precedence:
         # 1. vertex_count_tokens_location (if provided)
@@ -160,14 +160,14 @@ class VertexAIPartnerModelsTokenCounter(VertexBase):
             model=model,
             project_id=project_id,
             vertex_location=vertex_location,
-            api_base=litellm_params.get("api_base"),
+            api_base=embrouter_params.get("api_base"),
         )
 
         # Prepare headers
         headers: Final = {"Authorization": f"Bearer {access_token}"}
 
         # Get async HTTP client
-        from litellm import LlmProviders
+        from embrouter import LlmProviders
 
         async_client: Final = get_async_httpx_client(llm_provider=LlmProviders.VERTEX_AI)
 

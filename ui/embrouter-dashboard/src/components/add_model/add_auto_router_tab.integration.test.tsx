@@ -674,7 +674,7 @@ describe("AddAutoRouterTab", () => {
     expect(modelCreateCall).toHaveBeenLastCalledWith("token", {
       model_name: "my-router",
       model_info: { team_id: "team-1" },
-      litellm_params: {
+      embrouter_params: {
         model: "auto_router/complexity_router",
         complexity_router_config: expect.objectContaining({ tiers: ANTHROPIC_TIERS }),
         complexity_router_default_model: expect.any(String),
@@ -1577,7 +1577,7 @@ describe("AddAutoRouterTab", () => {
 
       await waitFor(() => expect(handleAddAutoRouterSubmit).toHaveBeenCalled());
       const submitted = vi.mocked(handleAddAutoRouterSubmit).mock.calls.at(-1)?.[0];
-      // The pin rides on litellm_params for the backend and is recorded in the config so the edit
+      // The pin rides on embrouter_params for the backend and is recorded in the config so the edit
       // modal can read it back as a pin rather than guessing from the tiers.
       expect(submitted).toMatchObject({
         auto_router_default_model: PINNED_MODEL,
@@ -1652,7 +1652,7 @@ describe("AddAutoRouterTab", () => {
     const renamedDeploymentsFor = (presetKey: string) =>
       [...getRequiredModelsInPreset(getPresetByKey(presetKey)!)].map((model, index) => ({
         model_name: `renamed-${presetKey}-${index}`,
-        litellm_params: { model: `someprovider/${model}` },
+        embrouter_params: { model: `someprovider/${model}` },
       }));
 
     const groupsFor = (deployments: { model_name: string }[]): ModelGroup[] =>
@@ -1677,14 +1677,14 @@ describe("AddAutoRouterTab", () => {
       const user = userEvent.setup();
       const nativeDeployments = renamedDeploymentsFor("anthropic_family").map((deployment) => ({
         ...deployment,
-        litellm_params: { model: deployment.litellm_params.model.replace("someprovider/", "anthropic/") },
+        embrouter_params: { model: deployment.embrouter_params.model.replace("someprovider/", "anthropic/") },
       }));
       const nativeGroupFor = (model: string): string =>
-        nativeDeployments.find((deployment) => deployment.litellm_params.model === `anthropic/${model}`)!.model_name;
+        nativeDeployments.find((deployment) => deployment.embrouter_params.model === `anthropic/${model}`)!.model_name;
       const cloudDeployments = nativeDeployments.map((deployment) => ({
         model_name: `a-cloud-${deployment.model_name}`,
-        litellm_params: {
-          model: `bedrock/us.anthropic.${deployment.litellm_params.model.split("/")[1]}-v1:0`,
+        embrouter_params: {
+          model: `bedrock/us.anthropic.${deployment.embrouter_params.model.split("/")[1]}-v1:0`,
         },
       }));
       const deployments = [...cloudDeployments, ...nativeDeployments];
@@ -1746,7 +1746,7 @@ describe("AddAutoRouterTab", () => {
       ["a wildcard group", "openai/*"],
       ["a plain group over a wildcard underlying model", "openai-wild"],
     ])("never lets %s satisfy a preset when the hub lists no expansions", async (_label, modelName) => {
-      const wildcard = [{ model_name: modelName, litellm_params: { model: "openai/*" } }];
+      const wildcard = [{ model_name: modelName, embrouter_params: { model: "openai/*" } }];
       mockFetchAvailableModels.mockResolvedValue(groupsFor(wildcard));
       mockFetchAllModelDeployments.mockResolvedValue(wildcard);
 
@@ -1761,7 +1761,7 @@ describe("AddAutoRouterTab", () => {
   });
 
   describe("wildcard-matched presets", () => {
-    const WILDCARD_DEPLOYMENTS = [{ model_name: "someprovider/*", litellm_params: { model: "someprovider/*" } }];
+    const WILDCARD_DEPLOYMENTS = [{ model_name: "someprovider/*", embrouter_params: { model: "someprovider/*" } }];
 
     const expandedGroupFor = (model: string): string => `someprovider/${model}`;
 

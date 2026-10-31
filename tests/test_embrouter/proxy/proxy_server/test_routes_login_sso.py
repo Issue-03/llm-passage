@@ -26,7 +26,7 @@ def _install_login_mocks(monkeypatch, raise_on_auth: bool = False) -> None:
     Both /login, /v2/login and /v3/login do a *local* (in-function) import of
     these helpers, so we patch the module they live in.
     """
-    from litellm.proxy import proxy_server as ps
+    from embrouter.proxy import proxy_server as ps
 
     async def _fake_auth(username, password, master_key, prisma_client, throttle=None, general_settings=None):
         if raise_on_auth:
@@ -47,8 +47,8 @@ def _install_login_mocks(monkeypatch, raise_on_auth: bool = False) -> None:
             "key": "sk-fake-ui-key",
         }
 
-    monkeypatch.setattr("litellm.proxy.auth.login_utils.authenticate_user", _fake_auth)
-    monkeypatch.setattr("litellm.proxy.auth.login_utils.create_ui_token_object", _fake_token_object)
+    monkeypatch.setattr("embrouter.proxy.auth.login_utils.authenticate_user", _fake_auth)
+    monkeypatch.setattr("embrouter.proxy.auth.login_utils.create_ui_token_object", _fake_token_object)
     monkeypatch.setattr(ps, "master_key", "sk-test-master")
     monkeypatch.setattr(ps, "general_settings", {})
     monkeypatch.setattr(ps, "premium_user", False)
@@ -97,7 +97,7 @@ def test_fallback_login_shows_credentials_hint_by_default(client, monkeypatch):
     """Control: without the flag, /fallback/login still renders the hint."""
     monkeypatch.delenv("UI_USERNAME", raising=False)
     monkeypatch.delenv("UI_PASSWORD", raising=False)
-    monkeypatch.delenv("LITELLM_HIDE_DEFAULT_CREDENTIALS_HINT", raising=False)
+    monkeypatch.delenv("EMBROUTER_HIDE_DEFAULT_CREDENTIALS_HINT", raising=False)
     response = client.get("/fallback/login")
     assert response.status_code == 200
     assert "Default Credentials" in response.text
@@ -106,7 +106,7 @@ def test_fallback_login_shows_credentials_hint_by_default(client, monkeypatch):
 
 def test_fallback_login_hides_credentials_hint_when_ui_password_set(client, monkeypatch):
     monkeypatch.setenv("UI_PASSWORD", "s3cret-pass")
-    monkeypatch.delenv("LITELLM_HIDE_DEFAULT_CREDENTIALS_HINT", raising=False)
+    monkeypatch.delenv("EMBROUTER_HIDE_DEFAULT_CREDENTIALS_HINT", raising=False)
     response = client.get("/fallback/login")
     assert response.status_code == 200
     assert "Default Credentials" not in response.text
@@ -115,9 +115,9 @@ def test_fallback_login_hides_credentials_hint_when_ui_password_set(client, monk
 
 
 def test_fallback_login_hides_credentials_hint_via_env_flag(client, monkeypatch):
-    """Pin: LITELLM_HIDE_DEFAULT_CREDENTIALS_HINT removes the hint on /fallback/login."""
+    """Pin: EMBROUTER_HIDE_DEFAULT_CREDENTIALS_HINT removes the hint on /fallback/login."""
     monkeypatch.delenv("UI_USERNAME", raising=False)
-    monkeypatch.setenv("LITELLM_HIDE_DEFAULT_CREDENTIALS_HINT", "true")
+    monkeypatch.setenv("EMBROUTER_HIDE_DEFAULT_CREDENTIALS_HINT", "true")
     response = client.get("/fallback/login")
     assert response.status_code == 200
     assert "Default Credentials" not in response.text
@@ -236,7 +236,7 @@ def test_v3_login_without_control_plane_url_404(client, monkeypatch):
     """Pin: /v3/login is gated on general_settings['control_plane_url'] — 404 when absent."""
     _install_login_mocks(monkeypatch)
     # _install_login_mocks sets general_settings to {} — re-affirm
-    from litellm.proxy import proxy_server as ps
+    from embrouter.proxy import proxy_server as ps
 
     monkeypatch.setattr(ps, "general_settings", {})
 
@@ -261,7 +261,7 @@ def test_v3_login_without_control_plane_url_404(client, monkeypatch):
 
 def test_v3_login_success_returns_code(client, monkeypatch):
     """Pin: /v3/login with control_plane_url returns {code, expires_in}."""
-    from litellm.proxy import proxy_server as ps
+    from embrouter.proxy import proxy_server as ps
 
     _install_login_mocks(monkeypatch)
     monkeypatch.setattr(ps, "general_settings", {"control_plane_url": "https://cp.example.invalid"})
@@ -296,7 +296,7 @@ def test_v3_login_success_returns_code(client, monkeypatch):
 
 def test_v3_login_authenticate_failure_500(client, monkeypatch):
     """Error path: with control_plane_url set, authenticate_user raises -> 500."""
-    from litellm.proxy import proxy_server as ps
+    from embrouter.proxy import proxy_server as ps
 
     _install_login_mocks(monkeypatch, raise_on_auth=True)
     monkeypatch.setattr(ps, "general_settings", {"control_plane_url": "https://cp.example.invalid"})
@@ -318,7 +318,7 @@ def test_v3_login_authenticate_failure_500(client, monkeypatch):
 
 def test_v3_login_exchange_without_control_plane_url_404(client, monkeypatch):
     """Pin: /v3/login/exchange gated on control_plane_url — 404 when absent."""
-    from litellm.proxy import proxy_server as ps
+    from embrouter.proxy import proxy_server as ps
 
     monkeypatch.setattr(ps, "general_settings", {})
 
@@ -331,7 +331,7 @@ def test_v3_login_exchange_without_control_plane_url_404(client, monkeypatch):
 
 def test_v3_login_exchange_missing_code_400(client, monkeypatch):
     """Error path: missing 'code' in body -> 400 with 'Missing' message."""
-    from litellm.proxy import proxy_server as ps
+    from embrouter.proxy import proxy_server as ps
 
     monkeypatch.setattr(ps, "general_settings", {"control_plane_url": "https://cp.example.invalid"})
 
@@ -344,7 +344,7 @@ def test_v3_login_exchange_missing_code_400(client, monkeypatch):
 
 def test_v3_login_exchange_invalid_code_401(client, monkeypatch):
     """Error path: code that isn't in cache -> 401 'Invalid or expired'."""
-    from litellm.proxy import proxy_server as ps
+    from embrouter.proxy import proxy_server as ps
 
     monkeypatch.setattr(ps, "general_settings", {"control_plane_url": "https://cp.example.invalid"})
     monkeypatch.setattr(ps, "redis_usage_cache", None)
@@ -362,14 +362,14 @@ def test_v3_login_exchange_invalid_code_401(client, monkeypatch):
 
 def test_v3_login_exchange_success_returns_token_and_redirect(client, monkeypatch):
     """Pin: valid code -> JSON {token, redirect_url} + token cookie + cache deleted (single-use)."""
-    from litellm.proxy import proxy_server as ps
+    from embrouter.proxy import proxy_server as ps
 
     monkeypatch.setattr(ps, "general_settings", {"control_plane_url": "https://cp.example.invalid"})
     monkeypatch.setattr(ps, "redis_usage_cache", None)
 
     cached_payload = {
         "token": "jwt-token-xyz",
-        "redirect_url": "https://litellm.example.invalid/ui?login=success",
+        "redirect_url": "https://embrouter.example.invalid/ui?login=success",
     }
     fake_cache = MagicMock()
     fake_cache.async_get_cache = AsyncMock(return_value=cached_payload)
@@ -392,21 +392,21 @@ def test_v3_login_exchange_success_returns_token_and_redirect(client, monkeypatc
     }
     assert shape == {
         "token": "jwt-token-xyz",
-        "redirect_url": "https://litellm.example.invalid/ui?login=success",
+        "redirect_url": "https://embrouter.example.invalid/ui?login=success",
         "token_cookie_set": True,
         "cache_deleted_once": True,
     }
 
 
 def test_login_form_honors_same_origin_return_to_cookie(client, monkeypatch):
-    """The aggregate DCR connect flow preserves a same-origin return_to in the litellm_cp_return_to
+    """The aggregate DCR connect flow preserves a same-origin return_to in the embrouter_cp_return_to
     cookie; /login must RESUME there after password sign-in instead of dead-ending at the dashboard."""
     _install_login_mocks(monkeypatch)
     return_to = "/mcp/authorize?client_id=llm_dcrc_abc&response_type=code"
     response = client.post(
         "/login",
         data={"username": "admin", "password": "password"},
-        cookies={"litellm_cp_return_to": return_to},
+        cookies={"embrouter_cp_return_to": return_to},
         follow_redirects=False,
     )
     assert response.status_code == 303
@@ -418,14 +418,14 @@ def test_login_form_honors_control_plane_return_to_cookie(client, monkeypatch):
     """/login resumes through the SAME resumer the SSO callback uses, so it honors BOTH shapes
     _persist_return_to_cookie is willing to store. Honoring only the relative one silently dropped
     a control-plane return_to and landed the user on the dashboard."""
-    import litellm.proxy.proxy_server as ps
+    import embrouter.proxy.proxy_server as ps
 
     _install_login_mocks(monkeypatch)
     monkeypatch.setitem(ps.general_settings, "control_plane_url", "https://cp.example.com")
     response = client.post(
         "/login",
         data={"username": "admin", "password": "password"},
-        cookies={"litellm_cp_return_to": "https://cp.example.com/console"},
+        cookies={"embrouter_cp_return_to": "https://cp.example.com/console"},
         follow_redirects=False,
     )
     location = response.headers.get("location", "")
@@ -440,14 +440,14 @@ def test_login_form_survives_stale_control_plane_return_to(client, monkeypatch):
     """A stale one-shot cookie must NEVER fail a completed sign-in. The resumer rejects a return_to
     that no longer matches control_plane_url (a config change between the cookie's write and this
     read); the user has already authenticated, so land on the dashboard instead of erroring."""
-    import litellm.proxy.proxy_server as ps
+    import embrouter.proxy.proxy_server as ps
 
     _install_login_mocks(monkeypatch)
     monkeypatch.setitem(ps.general_settings, "control_plane_url", "https://new-cp.example.com")
     response = client.post(
         "/login",
         data={"username": "admin", "password": "password"},
-        cookies={"litellm_cp_return_to": "https://old-cp.example.com/console"},
+        cookies={"embrouter_cp_return_to": "https://old-cp.example.com/console"},
         follow_redirects=False,
     )
     assert response.status_code == 303, "login must not break on a stale return_to cookie"
@@ -463,7 +463,7 @@ def test_login_form_ignores_open_redirect_return_to(client, monkeypatch):
     response = client.post(
         "/login",
         data={"username": "admin", "password": "password"},
-        cookies={"litellm_cp_return_to": "https://evil.example.com/steal"},
+        cookies={"embrouter_cp_return_to": "https://evil.example.com/steal"},
         follow_redirects=False,
     )
     assert response.status_code == 303
@@ -482,7 +482,7 @@ def _install_real_auth(monkeypatch, **settings):
 
     prisma_client stays None, so every guess falls through to the credential rejection.
     """
-    from litellm.proxy import proxy_server as ps
+    from embrouter.proxy import proxy_server as ps
 
     monkeypatch.setenv("UI_USERNAME", "admin")
     monkeypatch.setenv("UI_PASSWORD", "right-password")
@@ -504,7 +504,7 @@ def _db_user(monkeypatch, email: str):
     """A database user with a stored hash, faked so the route reaches the known-user branch without Postgres."""
     from unittest.mock import AsyncMock, MagicMock
 
-    from litellm.proxy import proxy_server as ps
+    from embrouter.proxy import proxy_server as ps
 
     user = MagicMock()
     user.user_id = "u-1"
@@ -516,13 +516,13 @@ def _db_user(monkeypatch, email: str):
     repo = MagicMock()
     repo.return_value.table.find_first = AsyncMock(return_value=user)
     monkeypatch.setattr(ps, "prisma_client", MagicMock())
-    monkeypatch.setattr("litellm.proxy.auth.login_utils.UserRepository", repo)
-    monkeypatch.setattr("litellm.proxy.auth.login_utils._rehash_password_if_needed", AsyncMock())
+    monkeypatch.setattr("embrouter.proxy.auth.login_utils.UserRepository", repo)
+    monkeypatch.setattr("embrouter.proxy.auth.login_utils._rehash_password_if_needed", AsyncMock())
     monkeypatch.setattr(
-        "litellm.proxy.auth.login_utils.verify_password", lambda given, stored: given == "right-db-password"
+        "embrouter.proxy.auth.login_utils.verify_password", lambda given, stored: given == "right-db-password"
     )
     monkeypatch.setattr(
-        "litellm.proxy.auth.login_utils.generate_key_helper_fn", AsyncMock(return_value={"token": "sk-ui"})
+        "embrouter.proxy.auth.login_utils.generate_key_helper_fn", AsyncMock(return_value={"token": "sk-ui"})
     )
     monkeypatch.setenv("DATABASE_URL", "postgresql://stub")
 
@@ -643,10 +643,10 @@ def test_the_configured_admin_password_is_refused_while_blocked(client, monkeypa
 
     with (
         patch(  # test-quality-ok: the admin sign-in upserts the admin row; faked so no DB is needed
-            "litellm.proxy.auth.login_utils.user_update", new=AsyncMock()
+            "embrouter.proxy.auth.login_utils.user_update", new=AsyncMock()
         ),
         patch(  # test-quality-ok: success mints a UI key and persists the user; faked so no DB is needed
-            "litellm.proxy.auth.login_utils.generate_key_helper_fn", new=AsyncMock(return_value={"token": "sk-ui"})
+            "embrouter.proxy.auth.login_utils.generate_key_helper_fn", new=AsyncMock(return_value={"token": "sk-ui"})
         ),
     ):
         assert _json_login(client, "/v2/login", password="right-password") == 429

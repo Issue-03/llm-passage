@@ -6,8 +6,8 @@ from urllib.parse import urlsplit
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, StrictInt, field_validator
 from typing_extensions import ReadOnly, Required, TypedDict
 
-from litellm.types.llms.base import LiteLLMPydanticObjectBase
-from litellm.types.proxy.agent_identity import (
+from embrouter.types.llms.base import EmbRouterPydanticObjectBase
+from embrouter.types.proxy.agent_identity import (
     AgentExecutionMode,
     AgentIdentityBinding,
 )
@@ -173,7 +173,7 @@ class AugmentedAgentCard(AgentCard):
     is_public: bool
 
 
-# Object permission shape for agent MCP tool access (mirrors LiteLLM_ObjectPermissionBase)
+# Object permission shape for agent MCP tool access (mirrors EmbRouter_ObjectPermissionBase)
 class AgentObjectPermission(TypedDict, total=False):
     mcp_servers: list[str] | None
     mcp_access_groups: list[str] | None
@@ -215,7 +215,7 @@ AgentKillSwitchMethod: TypeAlias = Literal["POST", "PUT", "PATCH", "DELETE", "GE
 
 
 class AgentKillSwitchConfig(BaseModel):
-    """Webhook an admin fires to shut an agent down out of band. LiteLLM only
+    """Webhook an admin fires to shut an agent down out of band. EmbRouter only
     makes the call; whatever the endpoint does with it is the agent's business."""
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -254,7 +254,7 @@ class AgentKillSwitchResult(BaseModel):
 class AgentConfig(TypedDict, total=False):
     agent_name: Required[str]
     agent_card_params: Required[AgentCard]
-    litellm_params: dict[str, object]  # allow for any future litellm params
+    embrouter_params: dict[str, object]  # allow for any future embrouter params
     object_permission: AgentObjectPermission
     tpm_limit: int | None
     rpm_limit: int | None
@@ -269,7 +269,7 @@ class AgentConfig(TypedDict, total=False):
 class PatchAgentRequest(TypedDict, total=False):
     agent_name: str
     agent_card_params: AgentCard
-    litellm_params: dict[str, object]
+    embrouter_params: dict[str, object]
     object_permission: AgentObjectPermission
     tpm_limit: int | None
     rpm_limit: int | None
@@ -281,8 +281,8 @@ class PatchAgentRequest(TypedDict, total=False):
     kill_switch: ReadOnly[AgentKillSwitchConfig | None]
 
 
-AGENT_CALLER_USER_ID_HEADER: Final = "x-litellm-user-id"
-AGENT_CALLER_TEAM_ID_HEADER: Final = "x-litellm-team-id"
+AGENT_CALLER_USER_ID_HEADER: Final = "x-embrouter-user-id"
+AGENT_CALLER_TEAM_ID_HEADER: Final = "x-embrouter-team-id"
 
 
 class AgentCaller(BaseModel):
@@ -312,7 +312,7 @@ class AgentResponse(BaseModel):
     jwt_auth_configured: bool = False
     agent_id: str
     agent_name: str
-    litellm_params: dict[str, object] | None = None
+    embrouter_params: dict[str, object] | None = None
     agent_card_params: dict[str, Any]
     object_permission: dict[str, object] | None = None
     spend: float | None = None
@@ -336,7 +336,7 @@ class ListAgentsResponse(BaseModel):
     agents: list[AgentResponse]
 
 
-class AgentCreateResponse(LiteLLMPydanticObjectBase):
+class AgentCreateResponse(EmbRouterPydanticObjectBase):
     """
     Response from a provider-side agent creation or get call (e.g. Gemini v1beta/agents).
 
@@ -354,7 +354,7 @@ class AgentCreateResponse(LiteLLMPydanticObjectBase):
     _hidden_params: dict[str, object] = PrivateAttr(default_factory=dict)
 
 
-class AgentDeleteResult(LiteLLMPydanticObjectBase):
+class AgentDeleteResult(EmbRouterPydanticObjectBase):
     """Result of a provider-side agent deletion (e.g. Gemini DELETE /v1beta/agents/{name}).
 
     Gemini returns an empty body ``{}`` on success; we synthesise ``name`` and
@@ -368,7 +368,7 @@ class AgentDeleteResult(LiteLLMPydanticObjectBase):
     _hidden_params: dict[str, object] = PrivateAttr(default_factory=dict)
 
 
-class AgentListResponse(LiteLLMPydanticObjectBase):
+class AgentListResponse(EmbRouterPydanticObjectBase):
     """Response from listing agents on the provider side (e.g. Gemini GET /v1beta/agents).
 
     Gemini returns ``{"agents": [{"id": "..."}, ...]}``; each item is kept as
@@ -382,7 +382,7 @@ class AgentListResponse(LiteLLMPydanticObjectBase):
     _hidden_params: dict[str, object] = PrivateAttr(default_factory=dict)
 
 
-class AgentVersionsResponse(LiteLLMPydanticObjectBase):
+class AgentVersionsResponse(EmbRouterPydanticObjectBase):
     """Response from listing versions of an agent (e.g. Gemini GET /v1beta/agents/{name}/versions).
 
     Gemini returns ``{"agentVersions": [...]}``; each version has a ``name``
@@ -414,7 +414,7 @@ def _normalize_a2a_jsonrpc_response(
     Ensure JSON-RPC responses include ``id`` when the caller supplied one.
 
     The a2a SDK may omit ``id`` on error payloads even when the upstream agent
-    returned it. Backfill from the outbound request id so LiteLLM can surface the
+    returned it. Backfill from the outbound request id so EmbRouter can surface the
     agent error instead of failing Pydantic validation.
 
     JSON-RPC 2.0 requires the response id to equal the request id, so a string or
@@ -436,11 +436,11 @@ def _normalize_a2a_jsonrpc_response(
     return normalized
 
 
-class LiteLLMSendMessageResponse(LiteLLMPydanticObjectBase):
+class EmbRouterSendMessageResponse(EmbRouterPydanticObjectBase):
     """
-    LiteLLM wrapper for A2A SendMessageResponse.
+    EmbRouter wrapper for A2A SendMessageResponse.
 
-    Wraps the a2a SDK's SendMessageResponse with LiteLLM's _hidden_params
+    Wraps the a2a SDK's SendMessageResponse with EmbRouter's _hidden_params
     for cost tracking and logging integration.
     """
 
@@ -450,12 +450,12 @@ class LiteLLMSendMessageResponse(LiteLLMPydanticObjectBase):
     result: dict[str, object] | None = None
     error: dict[str, object] | None = None
 
-    # LiteLLM usage tracking
+    # EmbRouter usage tracking
     usage: dict[str, object] | None = None
 
     model_config = {"extra": "allow"}
 
-    # LiteLLM private attributes for logging/cost tracking
+    # EmbRouter private attributes for logging/cost tracking
     _hidden_params: dict[str, object] = PrivateAttr(default_factory=dict)
 
     @classmethod
@@ -463,16 +463,16 @@ class LiteLLMSendMessageResponse(LiteLLMPydanticObjectBase):
         cls,
         response: "SendMessageResponse",
         request_id: object | None = None,
-    ) -> "LiteLLMSendMessageResponse":
+    ) -> "EmbRouterSendMessageResponse":
         """
-        Create a LiteLLMSendMessageResponse from an a2a SDK SendMessageResponse.
+        Create a EmbRouterSendMessageResponse from an a2a SDK SendMessageResponse.
 
         Args:
             response: The a2a SDK SendMessageResponse
             request_id: JSON-RPC request id to backfill when the SDK omits it on errors
 
         Returns:
-            LiteLLMSendMessageResponse with _hidden_params support
+            EmbRouterSendMessageResponse with _hidden_params support
         """
         response_dict: Final = _normalize_a2a_jsonrpc_response(
             response.model_dump(mode="json", exclude_none=True), request_id=request_id
@@ -484,15 +484,15 @@ class LiteLLMSendMessageResponse(LiteLLMPydanticObjectBase):
         cls,
         response_dict: Mapping[str, object],
         request_id: object | None = None,
-    ) -> "LiteLLMSendMessageResponse":
+    ) -> "EmbRouterSendMessageResponse":
         """
-        Create a LiteLLMSendMessageResponse from a dict.
+        Create a EmbRouterSendMessageResponse from a dict.
 
         Args:
             response_dict: Dict with A2A response structure
             request_id: JSON-RPC request id to backfill when missing on error payloads
 
         Returns:
-            LiteLLMSendMessageResponse with _hidden_params support
+            EmbRouterSendMessageResponse with _hidden_params support
         """
         return cls.model_validate(_normalize_a2a_jsonrpc_response(response_dict, request_id=request_id))

@@ -1,7 +1,7 @@
 import pytest
 
-import litellm
-from litellm.router_utils.reasoning_effort_capability import (
+import embrouter
+from embrouter.router_utils.reasoning_effort_capability import (
     deployment_is_catalog_mapped,
     intersect_supported_reasoning_efforts,
     nearest_declared_reasoning_effort,
@@ -111,7 +111,7 @@ class TestBareModelNameFallback:
         """azure/gpt-5-mini carries no effort flag while gpt-5-mini carries three, and the request
         path resolves capability flags through that same twin (#20885). Reading only the prefixed
         entry would answer unknown for a model the map fully describes."""
-        from litellm.utils import _get_model_info_helper
+        from embrouter.utils import _get_model_info_helper
 
         model_info = dict(_get_model_info_helper(model="gpt-5-mini", custom_llm_provider="azure"))
 
@@ -126,7 +126,7 @@ class TestBareModelNameFallback:
         resolved = resolve_supported_reasoning_efforts(
             {
                 "supports_reasoning": True,
-                "litellm_provider": "azure",
+                "embrouter_provider": "azure",
                 "key": "azure/gpt-5-mini",
                 "supports_xhigh_reasoning_effort": True,
             },
@@ -140,7 +140,7 @@ class TestNoneLevelPolarity:
         resolved = resolve_supported_reasoning_efforts(
             {
                 "supports_reasoning": True,
-                "litellm_provider": "openai",
+                "embrouter_provider": "openai",
                 "key": "openai/some-reasoner",
                 "supports_max_reasoning_effort": True,
             },
@@ -154,7 +154,7 @@ class TestNoneLevelPolarity:
         resolved = resolve_supported_reasoning_efforts(
             {
                 "supports_reasoning": True,
-                "litellm_provider": "azure",
+                "embrouter_provider": "azure",
                 "key": "azure/o3",
                 "supports_max_reasoning_effort": True,
             },
@@ -166,7 +166,7 @@ class TestNoneLevelPolarity:
         resolved = resolve_supported_reasoning_efforts(
             {
                 "supports_reasoning": True,
-                "litellm_provider": "azure",
+                "embrouter_provider": "azure",
                 "key": "azure/gpt-5-turbo",
                 "supports_minimal_reasoning_effort": True,
             },
@@ -178,7 +178,7 @@ class TestNoneLevelPolarity:
         resolved = resolve_supported_reasoning_efforts(
             {
                 "supports_reasoning": True,
-                "litellm_provider": "azure",
+                "embrouter_provider": "azure",
                 "key": "azure/gpt-5-turbo",
                 "supports_none_reasoning_effort": True,
             },
@@ -193,8 +193,8 @@ class TestNoneLevelPolarity:
     def test_azure_advertisement_matches_the_azure_request_gate(self, model_key):
         """AzureOpenAIGPT5Config raises UnsupportedParamsError on reasoning_effort='none' for models
         it does not flag, so advertising the level there would offer routing a 400."""
-        from litellm.llms.azure.chat.gpt_5_transformation import AzureOpenAIGPT5Config
-        from litellm.utils import _get_model_info_helper
+        from embrouter.llms.azure.chat.gpt_5_transformation import AzureOpenAIGPT5Config
+        from embrouter.utils import _get_model_info_helper
 
         model_info = dict(_get_model_info_helper(model=model_key.split("/", 1)[1], custom_llm_provider="azure"))
         resolved = resolve_supported_reasoning_efforts(model_info, deployment_is_mapped=True)
@@ -296,14 +296,14 @@ class TestDeclaredEffortList:
 
     def test_a_declaration_is_read_through_the_bare_twin(self, monkeypatch):
         monkeypatch.setitem(
-            litellm.model_cost,
+            embrouter.model_cost,
             "some-declared-reasoner",
             {"supports_reasoning": True, "reasoning_effort_levels": ["low", "max"]},
         )
         resolved = resolve_supported_reasoning_efforts(
             {
                 "supports_reasoning": True,
-                "litellm_provider": "openai",
+                "embrouter_provider": "openai",
                 "key": "openai/some-declared-reasoner",
             },
             deployment_is_mapped=True,
@@ -331,14 +331,14 @@ class TestKimiK3AdvertisesItsDocumentedLevels:
         """platform.kimi.ai documents exactly low, high and max, and these providers forward the
         level unchanged. Undeclared, each entry resolves to unknown and the dashboard falls back to
         a capability-blind list that omits max."""
-        entry = dict(litellm.model_cost[model_key], key=model_key)
+        entry = dict(embrouter.model_cost[model_key], key=model_key)
 
         assert resolve_supported_reasoning_efforts(entry, deployment_is_mapped=True) == ("low", "high", "max")
 
     def test_the_perplexity_entry_advertises_the_wider_set_it_maps_down(self, local_model_cost_map):
         """Perplexity's Agent API takes a six-value enum and maps it down internally, so this
         deployment is legitimately wider than a passthrough. One blanket list could not say both."""
-        entry = dict(litellm.model_cost[KIMI_K3_PERPLEXITY_KEY], key=KIMI_K3_PERPLEXITY_KEY)
+        entry = dict(embrouter.model_cost[KIMI_K3_PERPLEXITY_KEY], key=KIMI_K3_PERPLEXITY_KEY)
 
         assert resolve_supported_reasoning_efforts(entry, deployment_is_mapped=True) == (
             "minimal",
@@ -353,7 +353,7 @@ class TestKimiK3AdvertisesItsDocumentedLevels:
     def test_the_declaration_survives_model_info_hydration(self, local_model_cost_map, model, provider):
         """The hydration line is the load-bearing seam: without it the key the map carries never
         reaches the resolver and reads as absent everywhere downstream."""
-        from litellm.utils import _get_model_info_helper
+        from embrouter.utils import _get_model_info_helper
 
         model_info = dict(_get_model_info_helper(model=model, custom_llm_provider=provider))
 
@@ -364,7 +364,7 @@ class TestKimiK3AdvertisesItsDocumentedLevels:
         """kimi used to contribute unknown, which never narrows, so the group advertised whatever
         its other deployments agreed on."""
         kimi = resolve_supported_reasoning_efforts(
-            dict(litellm.model_cost["fireworks_ai/kimi-k3"], key="fireworks_ai/kimi-k3"),
+            dict(embrouter.model_cost["fireworks_ai/kimi-k3"], key="fireworks_ai/kimi-k3"),
             deployment_is_mapped=True,
         )
 
@@ -378,7 +378,7 @@ class TestGpt6AstraAdvertisesItsDocumentedLevels:
     def test_the_entry_advertises_low_through_max_without_none(self, local_model_cost_map):
         """OpenAI documents low, medium, high, xhigh and max for gpt-6-astra. Unlike gpt-5.6-sol it
         does not take none, so a group must not offer none and must offer max."""
-        from litellm.utils import _get_model_info_helper
+        from embrouter.utils import _get_model_info_helper
 
         model_info = dict(_get_model_info_helper(model="gpt-6-astra", custom_llm_provider="openai"))
 
@@ -405,7 +405,7 @@ class TestGpt6AstraAdvertisesItsDocumentedLevels:
         on both Azure routes: none returns 200 with zero reasoning tokens and unlocks temperature,
         which OpenAI's API rejects, while max returns 400 unsupported_value naming none through
         xhigh as the levels it does take."""
-        from litellm.utils import _get_model_info_helper
+        from embrouter.utils import _get_model_info_helper
 
         model_info = dict(_get_model_info_helper(model=model, custom_llm_provider=custom_llm_provider))
 
@@ -423,7 +423,7 @@ class TestGpt6SolAndLunaAdvertiseNoneThroughMax:
     def test_the_entry_advertises_none_through_max(self, local_model_cost_map, model):
         """OpenAI documents none, low, medium (default), high, xhigh and max for both. Unlike
         gpt-6-astra they take none."""
-        from litellm.utils import _get_model_info_helper
+        from embrouter.utils import _get_model_info_helper
 
         model_info = dict(_get_model_info_helper(model=model, custom_llm_provider="openai"))
 
@@ -477,7 +477,7 @@ class TestAzureGpt6SolAndLunaAdvertiseTheOpenAiLevels:
     ):
         """The Foundry deployments of sol and luna take the same effort set OpenAI documents for
         the direct API, so the resolved levels must match the OpenAI-direct entry."""
-        from litellm.utils import _get_model_info_helper
+        from embrouter.utils import _get_model_info_helper
 
         azure_info = dict(_get_model_info_helper(model=model, custom_llm_provider=custom_llm_provider))
         openai_info = dict(_get_model_info_helper(model=model.rsplit("/", 1)[1], custom_llm_provider="openai"))

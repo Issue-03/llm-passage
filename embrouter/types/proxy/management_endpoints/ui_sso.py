@@ -3,11 +3,11 @@ from typing import Literal
 from pydantic import Field
 from typing_extensions import TypedDict
 
-from litellm.proxy._types import KeyManagementRoutes, LitellmUserRoles
-from litellm.types.utils import LiteLLMPydanticObjectBase
+from embrouter.proxy._types import KeyManagementRoutes, EmbrouterUserRoles
+from embrouter.types.utils import EmbRouterPydanticObjectBase
 
 
-class LiteLLM_UpperboundKeyGenerateParams(LiteLLMPydanticObjectBase):
+class EmbRouter_UpperboundKeyGenerateParams(EmbRouterPydanticObjectBase):
     """
     Set default upperbound to max budget a key called via `/key/generate` can be.
 
@@ -54,7 +54,7 @@ class MicrosoftServicePrincipalTeam(TypedDict, total=False):
     principalId: str | None
 
 
-class AccessControl_UI_AccessMode(LiteLLMPydanticObjectBase):
+class AccessControl_UI_AccessMode(EmbRouterPydanticObjectBase):
     """Model for Controlling UI Access Mode via SSO Groups"""
 
     type: Literal["restricted_sso_group"]
@@ -62,9 +62,9 @@ class AccessControl_UI_AccessMode(LiteLLMPydanticObjectBase):
     sso_group_jwt_field: str
 
 
-class RoleMappings(LiteLLMPydanticObjectBase):
+class RoleMappings(EmbRouterPydanticObjectBase):
     """
-    Configuration for mapping SSO groups to LiteLLM roles.
+    Configuration for mapping SSO groups to EmbRouter roles.
 
     The system will look at the group_claim field in the SSO token to determine
     which role to assign the user based on the roles mapping.
@@ -74,17 +74,17 @@ class RoleMappings(LiteLLMPydanticObjectBase):
     group_claim: str = Field(
         description="The field name in the SSO token that contains the groups array (e.g., 'groups', 'roles')"
     )
-    default_role: LitellmUserRoles | None = Field(
+    default_role: EmbrouterUserRoles | None = Field(
         default=None,
-        description="Default role to assign if user's groups don't match any role mappings. Must be a valid LitellmUserRoles value (e.g., 'proxy_admin', 'internal_user', 'proxy_admin_viewer')",
+        description="Default role to assign if user's groups don't match any role mappings. Must be a valid EmbrouterUserRoles value (e.g., 'proxy_admin', 'internal_user', 'proxy_admin_viewer')",
     )
-    roles: dict[LitellmUserRoles, list[str]] = Field(
+    roles: dict[EmbrouterUserRoles, list[str]] = Field(
         default_factory=dict,
-        description="Mapping of LiteLLM role names to arrays of SSO group names. Example: {'proxy_admin': ['group-1', 'group-2'], 'proxy_admin_viewer': ['group-3']}",
+        description="Mapping of EmbRouter role names to arrays of SSO group names. Example: {'proxy_admin': ['group-1', 'group-2'], 'proxy_admin_viewer': ['group-3']}",
     )
 
 
-class TeamMappings(LiteLLMPydanticObjectBase):
+class TeamMappings(EmbRouterPydanticObjectBase):
     """
     Configuration for mapping SSO JWT fields to team IDs.
 
@@ -98,7 +98,7 @@ class TeamMappings(LiteLLMPydanticObjectBase):
     )
 
 
-class SSOConfig(LiteLLMPydanticObjectBase):
+class SSOConfig(EmbRouterPydanticObjectBase):
     """
     Configuration for SSO environment variables and settings
     """
@@ -190,7 +190,7 @@ class SSOConfig(LiteLLMPydanticObjectBase):
     # Role Mappings
     role_mappings: RoleMappings | None = Field(
         default=None,
-        description="Configuration for mapping SSO groups to LiteLLM roles based on group claims in the SSO token",
+        description="Configuration for mapping SSO groups to EmbRouter roles based on group claims in the SSO token",
     )
 
     # Team Mappings
@@ -200,10 +200,10 @@ class SSOConfig(LiteLLMPydanticObjectBase):
     )
 
 
-class DefaultTeamSSOParams(LiteLLMPydanticObjectBase):
+class DefaultTeamSSOParams(EmbRouterPydanticObjectBase):
     """
     Default parameters applied to every /team/new call for fields not explicitly provided in the request.
-    `models` is the exception: it only applies to teams automatically created by LiteLLM via SSO Groups.
+    `models` is the exception: it only applies to teams automatically created by EmbRouter via SSO Groups.
     """
 
     models: list[str] = Field(

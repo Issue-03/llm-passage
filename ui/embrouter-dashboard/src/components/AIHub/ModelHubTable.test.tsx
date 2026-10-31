@@ -260,12 +260,12 @@ describe("ModelHubTable", () => {
         {
           agent_id: "a1",
           agent_card_params: { name: "Billing Router", description: "routes billing questions" },
-          litellm_params: { is_public: false },
+          embrouter_params: { is_public: false },
         },
         {
           agent_id: "a2",
           agent_card_params: { name: "Support Bot", description: "handles support tickets" },
-          litellm_params: { is_public: false },
+          embrouter_params: { is_public: false },
         },
       ]);
       const agentCount = (expected: string) =>

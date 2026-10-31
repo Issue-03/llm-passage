@@ -89,7 +89,7 @@ describe("AgentTracesSection", () => {
     expect(card).toHaveTextContent("store: clickhouse");
     expect(card).toHaveTextContent("OTEL_EXPORTER_OTLP_ENDPOINT=");
     expect(card).not.toHaveTextContent(/langsmith/i);
-    expect(card).toHaveTextContent('OTEL_EXPORTER_OTLP_HEADERS="Authorization=Bearer $LITELLM_API_KEY"');
+    expect(card).toHaveTextContent('OTEL_EXPORTER_OTLP_HEADERS="Authorization=Bearer $EMBROUTER_API_KEY"');
     expect(card).toHaveTextContent("Let Claude Code or Codex set it up");
   });
 

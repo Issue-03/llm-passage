@@ -16,19 +16,19 @@ import json
 from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Any, Final
 
-from litellm._logging import verbose_router_logger
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.router_strategy.adaptive_router.adaptive_router import AdaptiveRouter
-from litellm.router_strategy.adaptive_router.classifier import classify_prompt
-from litellm.router_strategy.adaptive_router.config import (
+from embrouter._logging import verbose_router_logger
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.router_strategy.adaptive_router.adaptive_router import AdaptiveRouter
+from embrouter.router_strategy.adaptive_router.classifier import classify_prompt
+from embrouter.router_strategy.adaptive_router.config import (
     ADAPTIVE_ROUTER_CHOSEN_MODEL_KEY,
     ADAPTIVE_ROUTER_RESPONSE_HEADER,
     SIGNAL_GATE_MIN_MESSAGES,
 )
-from litellm.router_strategy.adaptive_router.signals import Turn
+from embrouter.router_strategy.adaptive_router.signals import Turn
 
 if TYPE_CHECKING:
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
 # Identity fields hashed into a derived session key so the same conversation
 # from the same caller produces a stable key, while different keys/teams/users
@@ -45,8 +45,8 @@ def _resolve_session_key(kwargs: dict[str, Any]) -> str | None:
     """Pick a stable per-conversation key for owner-cache attribution.
 
     Order:
-      1. Honor a client-supplied session id (`litellm_session_id` on either
-         `litellm_params` or `litellm_params.metadata`, or `session_id` on
+      1. Honor a client-supplied session id (`embrouter_session_id` on either
+         `embrouter_params` or `embrouter_params.metadata`, or `session_id` on
          metadata) — backward compat for callers already wired up.
       2. Otherwise derive a sha256 over (identity fields, first
          SIGNAL_GATE_MIN_MESSAGES messages) so the key is stable across turns
@@ -55,13 +55,13 @@ def _resolve_session_key(kwargs: dict[str, Any]) -> str | None:
 
     Returns None if the conversation is shorter than SIGNAL_GATE_MIN_MESSAGES.
     """
-    litellm_params: Final = kwargs.get("litellm_params") or {}
-    sid = litellm_params.get("litellm_session_id")
+    embrouter_params: Final = kwargs.get("embrouter_params") or {}
+    sid = embrouter_params.get("embrouter_session_id")
     if sid:
         return str(sid)
-    metadata: Final = litellm_params.get("metadata") or {}
+    metadata: Final = embrouter_params.get("metadata") or {}
     if isinstance(metadata, dict):
-        sid = metadata.get("session_id") or metadata.get("litellm_session_id")
+        sid = metadata.get("session_id") or metadata.get("embrouter_session_id")
         if sid:
             return str(sid)
 
@@ -171,7 +171,7 @@ def _assistant_content_and_tool_calls(response_obj: Any) -> tuple:
 
 
 class AdaptiveRouterPostCallHook(CustomLogger):
-    """One hook instance per AdaptiveRouter. Registered into litellm.callbacks."""
+    """One hook instance per AdaptiveRouter. Registered into embrouter.callbacks."""
 
     def __init__(self, adaptive_router: AdaptiveRouter) -> None:
         self.adaptive_router = adaptive_router
@@ -182,10 +182,10 @@ class AdaptiveRouterPostCallHook(CustomLogger):
         user_api_key_dict: UserAPIKeyAuth,
         response: object,
         request_headers: dict[str, str] | None = None,
-        litellm_call_info: dict[str, object] | None = None,
+        embrouter_call_info: dict[str, object] | None = None,
     ) -> dict[str, str] | None:
         """
-        Surface the chosen logical model as the `x-litellm-adaptive-router-model`
+        Surface the chosen logical model as the `x-embrouter-adaptive-router-model`
         response header for both streaming and non-streaming responses.
 
         `async_post_call_success_hook` fires after the stream is fully consumed,
@@ -227,8 +227,8 @@ class AdaptiveRouterPostCallHook(CustomLogger):
             # post-call time is the physical upstream model
             # (e.g. "anthropic/claude-opus-4-7"), so it cannot be used directly.
             # The pre-routing hook stashes the logical pick under this key.
-            litellm_params: Final = kwargs.get("litellm_params") or {}
-            metadata: Final = litellm_params.get("metadata") or {}
+            embrouter_params: Final = kwargs.get("embrouter_params") or {}
+            metadata: Final = embrouter_params.get("metadata") or {}
             current_model = metadata.get(ADAPTIVE_ROUTER_CHOSEN_MODEL_KEY) if isinstance(metadata, dict) else None
             if not current_model:
                 return

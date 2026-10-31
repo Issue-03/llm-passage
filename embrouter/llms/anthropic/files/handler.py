@@ -6,20 +6,20 @@ from typing import Final
 
 import httpx
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm._uuid import uuid
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.litellm_core_utils.url_utils import encode_url_path_segment
-from litellm.llms.custom_httpx.http_handler import get_async_httpx_client
-from litellm.types.llms.openai import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter._uuid import uuid
+from embrouter.embrouter_core_utils.embrouter_logging import Logging
+from embrouter.embrouter_core_utils.url_utils import encode_url_path_segment
+from embrouter.llms.custom_httpx.http_handler import get_async_httpx_client
+from embrouter.types.llms.openai import (
     FileContentRequest,
     HttpxBinaryResponseContent,
     OpenAIBatchResult,
     OpenAIChatCompletionResponse,
     OpenAIErrorBody,
 )
-from litellm.types.utils import CallTypes, LlmProviders, ModelResponse
+from embrouter.types.utils import CallTypes, LlmProviders, ModelResponse
 
 from ..chat.transformation import AnthropicConfig
 from ..common_utils import ANTHROPIC_ERROR_STATUS_CODE_MAP, AnthropicModelInfo
@@ -283,10 +283,10 @@ class AnthropicFilesHandler:
             model_response: Final = ModelResponse()
             # Initialize with required fields - will be populated by transform_parsed_response
             model_response.choices = [
-                litellm.Choices(
+                embrouter.Choices(
                     finish_reason="stop",
                     index=0,
-                    message=litellm.Message(content="", role="assistant"),
+                    message=embrouter.Message(content="", role="assistant"),
                 )
             ]
 
@@ -297,9 +297,9 @@ class AnthropicFilesHandler:
                 stream=False,
                 call_type=CallTypes.aretrieve_batch,
                 start_time=time.time(),
-                litellm_call_id="batch_" + str(uuid.uuid4()),
+                embrouter_call_id="batch_" + str(uuid.uuid4()),
                 function_id="batch_processing",
-                litellm_trace_id=str(uuid.uuid4()),
+                embrouter_trace_id=str(uuid.uuid4()),
                 kwargs={"optional_params": {}},
             )
             logging_obj.optional_params = {}

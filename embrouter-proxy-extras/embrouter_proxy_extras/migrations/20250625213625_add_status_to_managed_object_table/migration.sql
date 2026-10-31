@@ -1,3 +1,3 @@
 -- AlterTable
-ALTER TABLE "LiteLLM_ManagedObjectTable" ADD COLUMN IF NOT EXISTS "status" TEXT;
+ALTER TABLE "EmbRouter_ManagedObjectTable" ADD COLUMN IF NOT EXISTS "status" TEXT;
 

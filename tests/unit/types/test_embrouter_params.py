@@ -11,50 +11,50 @@ from aiohttp import ClientSession
 from openai import AsyncAzureOpenAI, AsyncOpenAI, AzureOpenAI, OpenAI
 from pydantic import BaseModel, ConfigDict, TypeAdapter, ValidationError
 
-import litellm
-from litellm.caching.caching import Cache
-from litellm.litellm_core_utils.get_litellm_params import (
-    get_litellm_params,  # pyright: ignore[reportUnknownVariableType]  # untyped legacy carrier
+import embrouter
+from embrouter.caching.caching import Cache
+from embrouter.embrouter_core_utils.get_embrouter_params import (
+    get_embrouter_params,  # pyright: ignore[reportUnknownVariableType]  # untyped legacy carrier
 )
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-from litellm.router_strategy.complexity_router.context_compaction import CompactionState
-from litellm.router_utils.fallback_event_handlers import AttemptedFallbackTargets
-from litellm.types import litellm_params
-from litellm.types import utils as types_utils
-from litellm.types.caching import DynamicCacheControl
-from litellm.types.litellm_params import (
+from embrouter.embrouter_core_utils.embrouter_logging import Logging
+from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from embrouter.router_strategy.complexity_router.context_compaction import CompactionState
+from embrouter.router_utils.fallback_event_handlers import AttemptedFallbackTargets
+from embrouter.types import embrouter_params
+from embrouter.types import utils as types_utils
+from embrouter.types.caching import DynamicCacheControl
+from embrouter.types.embrouter_params import (
     ADDRESSED_RESPONSE_ID_FIELD,
-    LITELLM_OWNED_ROOTS,
+    EMBROUTER_OWNED_ROOTS,
     TRUSTED_CALLBACK_VARS_FIELD,
     CachingOptions,
     owned_wire_names,
     wire,
     wire_names,
 )
-from litellm.types.llms.openai import ChatCompletionAssistantMessage, ChatCompletionUserMessage
-from litellm.types.proxy.litellm_pre_call_utils import SecretFields
-from litellm.types.router import (
+from embrouter.types.llms.openai import ChatCompletionAssistantMessage, ChatCompletionUserMessage
+from embrouter.types.proxy.embrouter_pre_call_utils import SecretFields
+from embrouter.types.router import (
     ConfigurableClientsideParamsCustomAuth,
-    CredentialLiteLLMParams,
+    CredentialEmbRouterParams,
     DeploymentTypedDict,
     RetryPolicy,
     RouterConfig,
     UpdateRouterConfig,
 )
-from litellm.types.router_weights import RouterWeights
-from litellm.types.utils import (
-    CustomPricingLiteLLMParams,
+from embrouter.types.router_weights import RouterWeights
+from embrouter.types.utils import (
+    CustomPricingEmbRouterParams,
     ModelResponse,
     ModelResponseStream,
     ProviderSpecificHeader,
     StandardCallbackDynamicParams,
-    agentic_loop_internal_litellm_params,
-    all_litellm_params,
-    bedrock_batch_litellm_params,
+    agentic_loop_internal_embrouter_params,
+    all_embrouter_params,
+    bedrock_batch_embrouter_params,
 )
-from litellm.utils import (
-    filter_out_litellm_params,  # pyright: ignore[reportUnknownVariableType]  # untyped legacy classifier
+from embrouter.utils import (
+    filter_out_embrouter_params,  # pyright: ignore[reportUnknownVariableType]  # untyped legacy classifier
     get_non_default_completion_params,  # pyright: ignore[reportUnknownVariableType]  # untyped legacy classifier
     get_non_default_transcription_params,  # pyright: ignore[reportUnknownVariableType]  # untyped legacy classifier
 )
@@ -82,7 +82,7 @@ CONNECTION_NAMES: Final = (
     "azure_password",
     "azure_scope",
     "azure_ad_token_provider",
-    "litellm_credential_name",
+    "embrouter_credential_name",
     "configurable_clientside_auth_params",
     "use_xai_oauth",
     "aws_batch_role_arn",
@@ -100,7 +100,7 @@ CONNECTION_NAMES: Final = (
 OPTION_NAMES: Final = (
     "custom_llm_provider",
     "azure",
-    "use_litellm_proxy",
+    "use_embrouter_proxy",
     "use_chat_completions_api",
     "use_in_pass_through",
     "allowed_openai_params",
@@ -153,11 +153,11 @@ OPTION_NAMES: Final = (
     "budget_duration",
     "id",
     "metadata",
-    "litellm_metadata",
+    "embrouter_metadata",
     "tags",
-    "litellm_trace_id",
-    "litellm_session_id",
-    "litellm_request_debug",
+    "embrouter_trace_id",
+    "embrouter_session_id",
+    "embrouter_request_debug",
     "logger_fn",
     "verbose",
     "no-log",
@@ -169,7 +169,7 @@ OPTION_NAMES: Final = (
     "prompt_version",
     "prompt_environment",
     "prompt_label",
-    "litellm_system_prompt",
+    "embrouter_system_prompt",
     "custom_prompt_dict",
     "roles",
     "final_prompt_value",
@@ -205,11 +205,11 @@ AGENTIC_LOOP_STATE_NAMES: Final = (
 )
 
 INTERNAL_STATE_NAMES: Final = (
-    "litellm_call_id",
+    "embrouter_call_id",
     "completion_call_id",
     "model_alias_map",
     "data_residency",
-    "litellm_logging_obj",
+    "embrouter_logging_obj",
     "preset_cache_key",
     "cache_key",
     "stream_response",
@@ -221,9 +221,9 @@ INTERNAL_STATE_NAMES: Final = (
     "attempted_targets",
     "proxy_server_request",
     "secret_fields",
-    "litellm_trusted_callback_vars",
-    "_litellm_addressed_response_id",
-    "_litellm_strip_stream_usage",
+    "embrouter_trusted_callback_vars",
+    "_embrouter_addressed_response_id",
+    "_embrouter_strip_stream_usage",
     "client_side_timeout",
     "model_file_id_mapping",
     "acompletion",
@@ -252,7 +252,7 @@ ARTIFACT_NAMES: Final = ("self", "use_client", "model_config", "rust")
 
 CALLBACK_VAR_NAMES: Final = tuple(StandardCallbackDynamicParams.__annotations__)
 
-PRICING_NAMES: Final = tuple(CustomPricingLiteLLMParams.model_fields)
+PRICING_NAMES: Final = tuple(CustomPricingEmbRouterParams.model_fields)
 
 OWNED_NAMES: Final = (
     *CONNECTION_NAMES,
@@ -269,7 +269,7 @@ CLASSIFIERS: Final[Mapping[str, Classifier]] = MappingProxyType(
     {  # pyright: ignore[reportUnknownArgumentType]  # untyped legacy classifiers
         "completion": get_non_default_completion_params,
         "transcription": get_non_default_transcription_params,
-        "filter_out": filter_out_litellm_params,
+        "filter_out": filter_out_embrouter_params,
     }
 )
 
@@ -294,9 +294,9 @@ def test_a_name_no_object_declares_reaches_the_provider() -> None:
 
 @pytest.mark.parametrize("classifier_name", CLASSIFIERS)
 def test_an_undeclared_internal_prefixed_name_is_kept_out_of_provider_params(classifier_name: str) -> None:
-    undeclared: Final = "_litellm_never_declared_anywhere"
-    lookalike: Final = "provider_litellm_knob"
-    assert undeclared not in all_litellm_params
+    undeclared: Final = "_embrouter_never_declared_anywhere"
+    lookalike: Final = "provider_embrouter_knob"
+    assert undeclared not in all_embrouter_params
 
     result: Final = CLASSIFIERS[classifier_name](
         MappingProxyType({undeclared: object(), PROVIDER_KNOB: 1, lookalike: 2})
@@ -317,7 +317,7 @@ def test_caching_groups_is_a_flat_sequence_of_model_groups_that_share_one_cache_
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     for callback_list in ("input_callback", "success_callback", "_async_success_callback"):
-        monkeypatch.setattr(litellm, callback_list, [])  # mutable-ok: Cache() appends "cache" to these lists
+        monkeypatch.setattr(embrouter, callback_list, [])  # mutable-ok: Cache() appends "cache" to these lists
     options: Final = CachingOptions(caching_groups=(("gpt-4", "gpt-4o"), ("claude-3",)))
     cache: Final = Cache()
 
@@ -326,13 +326,13 @@ def test_caching_groups_is_a_flat_sequence_of_model_groups_that_share_one_cache_
     assert (keys[0] == keys[1], keys[0] == keys[2]) == (True, False)
 
 
-def test_all_litellm_params_is_exactly_the_owned_inventory() -> None:
-    assert frozenset(all_litellm_params) == frozenset(OWNED_NAMES)
+def test_all_embrouter_params_is_exactly_the_owned_inventory() -> None:
+    assert frozenset(all_embrouter_params) == frozenset(OWNED_NAMES)
     assert frozenset(ARTIFACT_NAMES).isdisjoint(DECLARED_NAMES)
 
 
 def test_every_owned_name_has_exactly_one_owner() -> None:
-    duplicated: Final = tuple(name for name in dict.fromkeys(all_litellm_params) if all_litellm_params.count(name) > 1)
+    duplicated: Final = tuple(name for name in dict.fromkeys(all_embrouter_params) if all_embrouter_params.count(name) > 1)
 
     assert duplicated == ()
 
@@ -342,12 +342,12 @@ def test_every_owned_name_has_exactly_one_owner() -> None:
     (
         pytest.param(
             types_utils.TRUSTED_CALLBACK_VARS_FIELD,
-            litellm_params.TRUSTED_CALLBACK_VARS_FIELD,
+            embrouter_params.TRUSTED_CALLBACK_VARS_FIELD,
             id="TRUSTED_CALLBACK_VARS_FIELD",
         ),
         pytest.param(
             types_utils.ADDRESSED_RESPONSE_ID_FIELD,
-            litellm_params.ADDRESSED_RESPONSE_ID_FIELD,
+            embrouter_params.ADDRESSED_RESPONSE_ID_FIELD,
             id="ADDRESSED_RESPONSE_ID_FIELD",
         ),
     ),
@@ -394,7 +394,7 @@ def test_owned_wire_names_refuse_a_root_that_declares_a_kwarg_outside_a_leaf() -
 
 
 def test_agentic_loop_names_concatenate_as_a_list() -> None:
-    extended: Final = agentic_loop_internal_litellm_params + ["caller_added"]  # mutable-ok: list contract under test
+    extended: Final = agentic_loop_internal_embrouter_params + ["caller_added"]  # mutable-ok: list contract under test
 
     assert (type(extended), len(extended), frozenset(extended)) == (
         list,
@@ -404,27 +404,27 @@ def test_agentic_loop_names_concatenate_as_a_list() -> None:
 
 
 def test_bedrock_batch_names_concatenate_as_a_tuple() -> None:
-    extended: Final = bedrock_batch_litellm_params + ("caller_added",)
+    extended: Final = bedrock_batch_embrouter_params + ("caller_added",)
 
     assert extended == (*BEDROCK_BATCH_NAMES, "caller_added")
 
 
 def test_proxy_stamped_fields_keep_their_wire_names() -> None:
     assert (TRUSTED_CALLBACK_VARS_FIELD, ADDRESSED_RESPONSE_ID_FIELD) == (
-        "litellm_trusted_callback_vars",
-        "_litellm_addressed_response_id",
+        "embrouter_trusted_callback_vars",
+        "_embrouter_addressed_response_id",
     )
 
 
-def test_all_litellm_params_concatenates_with_a_list_like_the_completion_entrypoint_does() -> None:
-    extended: Final = ["aembedding", "extra_headers"] + all_litellm_params  # mutable-ok: list contract under test
+def test_all_embrouter_params_concatenates_with_a_list_like_the_completion_entrypoint_does() -> None:
+    extended: Final = ["aembedding", "extra_headers"] + all_embrouter_params  # mutable-ok: list contract under test
 
     assert (type(extended), frozenset(extended)) == (list, frozenset(("aembedding", "extra_headers", *OWNED_NAMES)))
 
 
 CARRIED_AND_FORWARDED: Final = frozenset(("drop_params", "hugging_face", "no_log", "replicate", "together_ai"))
 
-CARRIER_SIGNATURE: Final = inspect.signature(get_litellm_params)  # pyright: ignore[reportUnknownArgumentType]  # legacy
+CARRIER_SIGNATURE: Final = inspect.signature(get_embrouter_params)  # pyright: ignore[reportUnknownArgumentType]  # legacy
 
 CARRIED_PARAMS: Final = tuple(
     name for name in CARRIER_SIGNATURE.parameters if name != "kwargs" and name not in CARRIED_AND_FORWARDED
@@ -432,7 +432,7 @@ CARRIED_PARAMS: Final = tuple(
 
 
 @pytest.mark.parametrize("name", CARRIED_PARAMS)
-def test_every_param_get_litellm_params_carries_is_kept_out_of_provider_params(name: str) -> None:
+def test_every_param_get_embrouter_params_carries_is_kept_out_of_provider_params(name: str) -> None:
     provider_value: Final = object()
 
     result: Final = CLASSIFIERS["completion"](MappingProxyType({name: object(), PROVIDER_KNOB: provider_value}))
@@ -442,12 +442,12 @@ def test_every_param_get_litellm_params_carries_is_kept_out_of_provider_params(n
 
 TYPED_CONFIG_MODELS: Final[Mapping[str, tuple[type[BaseModel], ...]]] = MappingProxyType(
     {
-        "credentials": (CredentialLiteLLMParams,),
+        "credentials": (CredentialEmbRouterParams,),
         "router": (RouterConfig, UpdateRouterConfig),
     }
 )
 
-DECLARED_NAMES: Final = frozenset(name for root in LITELLM_OWNED_ROOTS for name in owned_wire_names(root))
+DECLARED_NAMES: Final = frozenset(name for root in EMBROUTER_OWNED_ROOTS for name in owned_wire_names(root))
 
 ProviderClient: TypeAlias = (
     OpenAI
@@ -488,67 +488,67 @@ TYPE_HINT_NAMESPACE: Final[Mapping[str, object]] = {
 }
 
 LEAF_SAMPLES: Final[Mapping[type, Mapping[str, object]]] = {
-    litellm_params.ProviderConnection: {"api_key": "k", "request_timeout": 1.5},
-    litellm_params.BedrockBatchConnection: {"aws_batch_role_arn": "arn", "bedrock_tags": ({"k": "v"},)},
-    litellm_params.DispatchOptions: {"custom_llm_provider": "openai"},
-    litellm_params.RoutingOptions: {
+    embrouter_params.ProviderConnection: {"api_key": "k", "request_timeout": 1.5},
+    embrouter_params.BedrockBatchConnection: {"aws_batch_role_arn": "arn", "bedrock_tags": ({"k": "v"},)},
+    embrouter_params.DispatchOptions: {"custom_llm_provider": "openai"},
+    embrouter_params.RoutingOptions: {
         "fallbacks": [{"model": "gpt-4o", "api_key": "k", "temperature": 0}],
         "num_retries": 2,
         "retry_strategy": "constant_retry",
         "routing_strategy": "simple-shuffle",
     },
-    litellm_params.DeploymentOptions: {"model_info": {"region": "us"}, "rpm": 2},
-    litellm_params.SpecializedRouterOptions: {"adaptive_router_default_model": "gpt-4o"},
-    litellm_params.CachingOptions: {"ttl": 30.0, "caching_groups": (("gpt-4o", "gpt-4o-mini"),)},
-    litellm_params.CostOptions: {"max_budget": 10.0},
-    litellm_params.ObservabilityOptions: {"metadata": {"request": "test"}, "no_log": True},
-    litellm_params.AgenticLoopOptions: {"max_agentic_loops": 2},
-    litellm_params.GuardrailOptions: {"guardrails": ("default",)},
-    litellm_params.PromptOptions: {"prompt_id": "prompt", "prompt_variables": {"name": "value"}},
-    litellm_params.ResponseOptions: {"keepalive_seconds": 1.5},
-    litellm_params.ControlOptions: {"stream_chunk_size": 64},
-    litellm_params.MockOptions: {"mock_timeout": True},
-    litellm_params.CallState: {
+    embrouter_params.DeploymentOptions: {"model_info": {"region": "us"}, "rpm": 2},
+    embrouter_params.SpecializedRouterOptions: {"adaptive_router_default_model": "gpt-4o"},
+    embrouter_params.CachingOptions: {"ttl": 30.0, "caching_groups": (("gpt-4o", "gpt-4o-mini"),)},
+    embrouter_params.CostOptions: {"max_budget": 10.0},
+    embrouter_params.ObservabilityOptions: {"metadata": {"request": "test"}, "no_log": True},
+    embrouter_params.AgenticLoopOptions: {"max_agentic_loops": 2},
+    embrouter_params.GuardrailOptions: {"guardrails": ("default",)},
+    embrouter_params.PromptOptions: {"prompt_id": "prompt", "prompt_variables": {"name": "value"}},
+    embrouter_params.ResponseOptions: {"keepalive_seconds": 1.5},
+    embrouter_params.ControlOptions: {"stream_chunk_size": 64},
+    embrouter_params.MockOptions: {"mock_timeout": True},
+    embrouter_params.CallState: {
         "completion_call_id": "call",
         "model_alias_map": {"alias": "gpt-4o"},
         "data_residency": "us",
     },
-    litellm_params.AgenticLoopState: {"api_surface": "chat_completions", "depth": 1},
-    litellm_params.RouterState: {"fallback_depth": 1},
-    litellm_params.ProxyRequestState: {
+    embrouter_params.AgenticLoopState: {"api_surface": "chat_completions", "depth": 1},
+    embrouter_params.RouterState: {"fallback_depth": 1},
+    embrouter_params.ProxyRequestState: {
         "proxy_server_request": {"path": "/chat/completions"},
         "trusted_callback_vars": {"dd_api_key": "k"},
     },
-    litellm_params.EntrypointState: {"acompletion": True},
+    embrouter_params.EntrypointState: {"acompletion": True},
 }
 
 LEAF_BAD_SAMPLES: Final[Mapping[type, Mapping[str, object]]] = {
-    litellm_params.ProviderConnection: {"api_key": 1},
-    litellm_params.BedrockBatchConnection: {"aws_batch_role_arn": 1},
-    litellm_params.DispatchOptions: {"custom_llm_provider": 1},
-    litellm_params.RoutingOptions: {"num_retries": "2"},
-    litellm_params.DeploymentOptions: {"rpm": "2"},
-    litellm_params.SpecializedRouterOptions: {"auto_router_max_input_chars": "2"},
-    litellm_params.CachingOptions: {"ttl": "30"},
-    litellm_params.CostOptions: {"max_budget": "10"},
-    litellm_params.ObservabilityOptions: {"verbose": "true"},
-    litellm_params.AgenticLoopOptions: {"max_agentic_loops": "2"},
-    litellm_params.GuardrailOptions: {"guardrails": (1,)},
-    litellm_params.PromptOptions: {"prompt_id": 1},
-    litellm_params.ResponseOptions: {"keepalive_seconds": "1.5"},
-    litellm_params.ControlOptions: {"stream_chunk_size": "sixty-four"},
-    litellm_params.MockOptions: {"mock_timeout": "true"},
-    litellm_params.CallState: {"completion_call_id": 1},
-    litellm_params.AgenticLoopState: {"depth": "1"},
-    litellm_params.RouterState: {"fallback_depth": "1"},
-    litellm_params.ProxyRequestState: {"proxy_server_request": "request"},
-    litellm_params.EntrypointState: {"acompletion": "true"},
+    embrouter_params.ProviderConnection: {"api_key": 1},
+    embrouter_params.BedrockBatchConnection: {"aws_batch_role_arn": 1},
+    embrouter_params.DispatchOptions: {"custom_llm_provider": 1},
+    embrouter_params.RoutingOptions: {"num_retries": "2"},
+    embrouter_params.DeploymentOptions: {"rpm": "2"},
+    embrouter_params.SpecializedRouterOptions: {"auto_router_max_input_chars": "2"},
+    embrouter_params.CachingOptions: {"ttl": "30"},
+    embrouter_params.CostOptions: {"max_budget": "10"},
+    embrouter_params.ObservabilityOptions: {"verbose": "true"},
+    embrouter_params.AgenticLoopOptions: {"max_agentic_loops": "2"},
+    embrouter_params.GuardrailOptions: {"guardrails": (1,)},
+    embrouter_params.PromptOptions: {"prompt_id": 1},
+    embrouter_params.ResponseOptions: {"keepalive_seconds": "1.5"},
+    embrouter_params.ControlOptions: {"stream_chunk_size": "sixty-four"},
+    embrouter_params.MockOptions: {"mock_timeout": "true"},
+    embrouter_params.CallState: {"completion_call_id": 1},
+    embrouter_params.AgenticLoopState: {"depth": "1"},
+    embrouter_params.RouterState: {"fallback_depth": "1"},
+    embrouter_params.ProxyRequestState: {"proxy_server_request": "request"},
+    embrouter_params.EntrypointState: {"acompletion": "true"},
 }
 
 INVALID_LITERAL_SAMPLES: Final[tuple[tuple[type, Mapping[str, object]], ...]] = (
-    (litellm_params.RoutingOptions, {"retry_strategy": "linear"}),
-    (litellm_params.RoutingOptions, {"routing_strategy": "random"}),
-    (litellm_params.AgenticLoopState, {"api_surface": "batches"}),
+    (embrouter_params.RoutingOptions, {"retry_strategy": "linear"}),
+    (embrouter_params.RoutingOptions, {"routing_strategy": "random"}),
+    (embrouter_params.AgenticLoopState, {"api_surface": "batches"}),
 )
 
 
@@ -611,9 +611,9 @@ def test_owned_leaf_literals_reject_unknown_values(leaf: type, sample: Mapping[s
     ],
 )
 def test_routing_options_accept_every_strategy_the_router_accepts(strategy: str) -> None:
-    instance: Final = _leaf_instance(litellm_params.RoutingOptions, {"routing_strategy": strategy})
+    instance: Final = _leaf_instance(embrouter_params.RoutingOptions, {"routing_strategy": strategy})
 
-    assert _strict_leaf_validation(litellm_params.RoutingOptions, instance) is instance
+    assert _strict_leaf_validation(embrouter_params.RoutingOptions, instance) is instance
 
 
 NAMES_SHARED_WITH_TYPED_MODELS: Final[Mapping[str, tuple[str, ...]]] = MappingProxyType(

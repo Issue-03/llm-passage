@@ -1,13 +1,13 @@
 """
-Budget repository for database operations on LiteLLM_BudgetTable.
+Budget repository for database operations on EmbRouter_BudgetTable.
 """
 
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Final, Protocol
 
-from litellm.models.budget import LiteLLM_BudgetTable
-from litellm.repositories.base_repository import BaseRepository
-from litellm.repositories.prisma_protocols import TableActions
+from embrouter.models.budget import EmbRouter_BudgetTable
+from embrouter.repositories.base_repository import BaseRepository
+from embrouter.repositories.prisma_protocols import TableActions
 
 if TYPE_CHECKING:
     from prisma import models as prisma_models
@@ -17,7 +17,7 @@ class _BudgetDb(Protocol):
     """The single Prisma table this repository reaches for on ``prisma_client.db``."""
 
     @property
-    def litellm_budgettable(self) -> TableActions["prisma_models.LiteLLM_BudgetTable"]: ...
+    def embrouter_budgettable(self) -> TableActions["prisma_models.EmbRouter_BudgetTable"]: ...
 
 
 class _PrismaClientView(Protocol):
@@ -27,19 +27,19 @@ class _PrismaClientView(Protocol):
     def db(self) -> _BudgetDb: ...
 
 
-class BudgetRepository(BaseRepository[LiteLLM_BudgetTable]):
+class BudgetRepository(BaseRepository[EmbRouter_BudgetTable]):
     """Repository for budget database operations."""
 
     @property
-    def table(self) -> TableActions["prisma_models.LiteLLM_BudgetTable"]:
+    def table(self) -> TableActions["prisma_models.EmbRouter_BudgetTable"]:
         client: Final[_PrismaClientView] = self.prisma_client
-        return client.db.litellm_budgettable
+        return client.db.embrouter_budgettable
 
     @property
-    def model_class(self) -> type[LiteLLM_BudgetTable]:
-        return LiteLLM_BudgetTable
+    def model_class(self) -> type[EmbRouter_BudgetTable]:
+        return EmbRouter_BudgetTable
 
-    async def find_by_id(self, budget_id: str, id_field: str = "budget_id") -> LiteLLM_BudgetTable | None:
+    async def find_by_id(self, budget_id: str, id_field: str = "budget_id") -> EmbRouter_BudgetTable | None:
         return await super().find_by_id(budget_id, id_field)
 
     async def create_budget(
@@ -53,7 +53,7 @@ class BudgetRepository(BaseRepository[LiteLLM_BudgetTable]):
         model_max_budget: Mapping[str, object] | None = None,
         budget_duration: str | None = None,
         allowed_models: list[str] | None = None,
-    ) -> LiteLLM_BudgetTable:
+    ) -> EmbRouter_BudgetTable:
         """Create a new budget record."""
         data: Final[dict[str, object]] = {
             "created_by": created_by,
@@ -90,7 +90,7 @@ class BudgetRepository(BaseRepository[LiteLLM_BudgetTable]):
         model_max_budget: Mapping[str, object] | None = None,
         budget_duration: str | None = None,
         allowed_models: list[str] | None = None,
-    ) -> LiteLLM_BudgetTable | None:
+    ) -> EmbRouter_BudgetTable | None:
         """Update an existing budget record."""
         data: Final[dict[str, object]] = {"updated_by": updated_by}
         if max_budget is not None:
@@ -112,6 +112,6 @@ class BudgetRepository(BaseRepository[LiteLLM_BudgetTable]):
 
         return await self.update(budget_id, data, id_field="budget_id")
 
-    async def delete_budget(self, budget_id: str) -> LiteLLM_BudgetTable | None:
+    async def delete_budget(self, budget_id: str) -> EmbRouter_BudgetTable | None:
         """Delete a budget record."""
         return await self.delete(budget_id, id_field="budget_id")

@@ -8,11 +8,11 @@ from typing import Final
 import polars as pl
 
 
-class FocusLiteLLMDatabase:
-    """Retrieves LiteLLM usage data for Focus export workflows."""
+class FocusEmbRouterDatabase:
+    """Retrieves EmbRouter usage data for Focus export workflows."""
 
     def _ensure_prisma_client(self):
-        from litellm.proxy.proxy_server import prisma_client
+        from embrouter.proxy.proxy_server import prisma_client
 
         if prisma_client is None:
             raise RuntimeError(
@@ -83,11 +83,11 @@ class FocusLiteLLMDatabase:
             ut.user_email as user_email,
             COALESCE(vt.organization_id, tt.organization_id) as organization_id,
             ot.organization_alias as organization_alias
-        FROM "LiteLLM_DailyUserSpend" dus
-        LEFT JOIN "LiteLLM_VerificationToken" vt ON dus.api_key = vt.token
-        LEFT JOIN "LiteLLM_TeamTable" tt ON vt.team_id = tt.team_id
-        LEFT JOIN "LiteLLM_UserTable" ut ON dus.user_id = ut.user_id
-        LEFT JOIN "LiteLLM_OrganizationTable" ot
+        FROM "EmbRouter_DailyUserSpend" dus
+        LEFT JOIN "EmbRouter_VerificationToken" vt ON dus.api_key = vt.token
+        LEFT JOIN "EmbRouter_TeamTable" tt ON vt.team_id = tt.team_id
+        LEFT JOIN "EmbRouter_UserTable" ut ON dus.user_id = ut.user_id
+        LEFT JOIN "EmbRouter_OrganizationTable" ot
             ON ot.organization_id = COALESCE(vt.organization_id, tt.organization_id)
         {where_clause}
         ORDER BY dus.date DESC, dus.created_at DESC
@@ -96,7 +96,7 @@ class FocusLiteLLMDatabase:
 
         try:
             db_response: Final = await client.db.query_raw(query, *query_params)
-            from litellm.proxy.spend_tracking.key_metadata_recovery import (
+            from embrouter.proxy.spend_tracking.key_metadata_recovery import (
                 fill_missing_api_key_aliases,
             )
 
@@ -119,11 +119,11 @@ class FocusLiteLLMDatabase:
         info_query: Final = """
         SELECT column_name, data_type, is_nullable
         FROM information_schema.columns
-        WHERE table_name = 'LiteLLM_DailyUserSpend'
+        WHERE table_name = 'EmbRouter_DailyUserSpend'
         ORDER BY ordinal_position;
         """
         try:
             columns_response: Final = await client.db.query_raw(info_query)
-            return {"columns": columns_response, "table_name": "LiteLLM_DailyUserSpend"}
+            return {"columns": columns_response, "table_name": "EmbRouter_DailyUserSpend"}
         except Exception as exc:
             raise RuntimeError(f"Error getting table info: {exc}") from exc

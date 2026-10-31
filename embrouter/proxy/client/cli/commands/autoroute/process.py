@@ -18,7 +18,7 @@ from pydantic import TypeAdapter, ValidationError
 
 from ..up import UpError, secure_create
 
-AUTOROUTE_DIR: Final = Path.home() / ".litellm" / "autorouter"
+AUTOROUTE_DIR: Final = Path.home() / ".embrouter" / "autorouter"
 CONFIG_PATH: Final = AUTOROUTE_DIR / "config.yaml"
 LOG_PATH: Final = AUTOROUTE_DIR / "proxy.log"
 PID_RECORD_PATH: Final = AUTOROUTE_DIR / "proxy.pid.json"
@@ -45,9 +45,9 @@ _PROXY_RUNTIME_MODULES: tuple[str, ...] = ("fastapi", "uvicorn", "backoff", "orj
 def missing_proxy_runtime_modules() -> tuple[str, ...]:
     """Proxy-server modules that ``lite autoroute start`` needs but the thin CLI install lacks.
 
-    ``launch_proxy`` runs the full ``litellm.proxy.proxy_cli`` server, whose dependencies live in
+    ``launch_proxy`` runs the full ``embrouter.proxy.proxy_cli`` server, whose dependencies live in
     the ``proxy`` extra, not the ``cli`` extra that installs the ``lite`` command. On a thin
-    ``litellm[cli]`` install the subprocess dies with a bare ``ModuleNotFoundError``; detecting the
+    ``embrouter[cli]`` install the subprocess dies with a bare ``ModuleNotFoundError``; detecting the
     gap here lets ``start`` fail with an actionable message instead.
     """
     return tuple(name for name in _PROXY_RUNTIME_MODULES if importlib.util.find_spec(name) is None)
@@ -73,7 +73,7 @@ def launch_proxy(config_path: Path, port: int, log_path: Path) -> "subprocess.Po
             [
                 sys.executable,
                 "-m",
-                "litellm.proxy.proxy_cli",
+                "embrouter.proxy.proxy_cli",
                 "--config",
                 str(config_path),
                 "--port",

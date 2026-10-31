@@ -3,12 +3,12 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from litellm.google_genai.streaming_iterator import (
+from embrouter.google_genai.streaming_iterator import (
     AsyncGoogleGenAIGenerateContentStreamingIterator,
     GoogleGenAIGenerateContentStreamingIterator,
 )
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.types.passthrough_endpoints.pass_through_endpoints import EndpointType
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.types.passthrough_endpoints.pass_through_endpoints import EndpointType
 
 
 @pytest.mark.parametrize(
@@ -31,9 +31,9 @@ def test_streaming_logging_targets_the_provider_that_served_the_request(
     iterator = iterator_cls(
         response=MagicMock(),
         model="gemini-3.1-flash-image",
-        logging_obj=MagicMock(spec=LiteLLMLoggingObj),
+        logging_obj=MagicMock(spec=EmbRouterLoggingObj),
         generate_content_provider_config=MagicMock(),
-        litellm_metadata={},
+        embrouter_metadata={},
         custom_llm_provider=custom_llm_provider,
     )
 
@@ -73,9 +73,9 @@ async def test_async_streaming_iterator_yields_complete_sse_events():
     iterator = AsyncGoogleGenAIGenerateContentStreamingIterator(
         response=mock_response,
         model="gemini-3.1-flash-image-preview",
-        logging_obj=MagicMock(spec=LiteLLMLoggingObj),
+        logging_obj=MagicMock(spec=EmbRouterLoggingObj),
         generate_content_provider_config=MagicMock(),
-        litellm_metadata={},
+        embrouter_metadata={},
         custom_llm_provider="gemini",
     )
 
@@ -95,9 +95,9 @@ def test_sync_streaming_iterator_yields_complete_sse_events():
     iterator = GoogleGenAIGenerateContentStreamingIterator(
         response=mock_response,
         model="gemini-3.1-flash-image-preview",
-        logging_obj=MagicMock(spec=LiteLLMLoggingObj),
+        logging_obj=MagicMock(spec=EmbRouterLoggingObj),
         generate_content_provider_config=MagicMock(),
-        litellm_metadata={},
+        embrouter_metadata={},
         custom_llm_provider="gemini",
     )
 
@@ -123,9 +123,9 @@ async def test_async_streaming_iterator_preserves_multi_field_sse_event():
     iterator = AsyncGoogleGenAIGenerateContentStreamingIterator(
         response=mock_response,
         model="gemini-test",
-        logging_obj=MagicMock(spec=LiteLLMLoggingObj),
+        logging_obj=MagicMock(spec=EmbRouterLoggingObj),
         generate_content_provider_config=MagicMock(),
-        litellm_metadata={},
+        embrouter_metadata={},
         custom_llm_provider="gemini",
     )
 
@@ -146,9 +146,9 @@ async def test_async_streaming_iterator_forwards_sse_comment_events():
     iterator = AsyncGoogleGenAIGenerateContentStreamingIterator(
         response=mock_response,
         model="gemini-test",
-        logging_obj=MagicMock(spec=LiteLLMLoggingObj),
+        logging_obj=MagicMock(spec=EmbRouterLoggingObj),
         generate_content_provider_config=MagicMock(),
-        litellm_metadata={},
+        embrouter_metadata={},
         custom_llm_provider="gemini",
     )
 

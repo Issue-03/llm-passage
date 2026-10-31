@@ -3,11 +3,11 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 
-from litellm.exceptions import AuthenticationError
-from litellm.llms.github_copilot.embedding.transformation import (
+from embrouter.exceptions import AuthenticationError
+from embrouter.llms.github_copilot.embedding.transformation import (
     GithubCopilotEmbeddingConfig,
 )
-from litellm.llms.github_copilot.common_utils import GetAPIKeyError
+from embrouter.llms.github_copilot.common_utils import GetAPIKeyError
 
 
 def test_github_copilot_embedding_config_validate_environment():
@@ -28,7 +28,7 @@ def test_github_copilot_embedding_config_validate_environment():
         model=model,
         messages=[],
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         api_key=None,
     )
 
@@ -49,7 +49,7 @@ def test_github_copilot_embedding_config_validate_environment():
             model=model,
             messages=[],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             api_key=None,
         )
 
@@ -68,7 +68,7 @@ def test_github_copilot_embedding_config_get_complete_url():
         api_key=None,
         model="github_copilot/text-embedding-3-small",
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
     )
     assert url == "https://api.githubcopilot.com/embeddings"
 
@@ -81,7 +81,7 @@ def test_github_copilot_embedding_config_get_complete_url():
         api_key=None,
         model="github_copilot/text-embedding-3-small",
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
     )
     assert url == "https://api.enterprise.githubcopilot.com/embeddings"
 
@@ -92,7 +92,7 @@ def test_github_copilot_embedding_config_get_complete_url():
         api_key=None,
         model="github_copilot/text-embedding-3-small",
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
     )
     assert url == "https://custom.api.com/embeddings"
 
@@ -168,7 +168,7 @@ def test_github_copilot_embedding_config_transform_request_param_filtering():
 def test_github_copilot_embedding_config_transform_response():
     """Test the GitHub Copilot embedding response transformation."""
     config = GithubCopilotEmbeddingConfig()
-    from litellm.types.utils import EmbeddingResponse
+    from embrouter.types.utils import EmbeddingResponse
 
     # Mock response
     mock_response = MagicMock()
@@ -191,7 +191,7 @@ def test_github_copilot_embedding_config_transform_response():
         api_key="test-key",
         request_data={},
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
     )
 
     # Verify logging

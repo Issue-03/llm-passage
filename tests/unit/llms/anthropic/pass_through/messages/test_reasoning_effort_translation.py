@@ -2,16 +2,16 @@
 
 import pytest
 
-from litellm.constants import (
+from embrouter.constants import (
     DEFAULT_REASONING_EFFORT_HIGH_THINKING_BUDGET,
     DEFAULT_REASONING_EFFORT_MEDIUM_THINKING_BUDGET,
     DEFAULT_REASONING_EFFORT_XHIGH_THINKING_BUDGET,
 )
-from litellm.llms.anthropic.common_utils import AnthropicError
-from litellm.llms.anthropic.pass_through.messages.transformation import (
+from embrouter.llms.anthropic.common_utils import AnthropicError
+from embrouter.llms.anthropic.pass_through.messages.transformation import (
     AnthropicMessagesConfig,
 )
-from litellm.llms.bedrock.messages.invoke_transformations.anthropic_claude3_transformation import (
+from embrouter.llms.bedrock.messages.invoke_transformations.anthropic_claude3_transformation import (
     AmazonAnthropicClaudeMessagesConfig,
 )
 
@@ -37,7 +37,7 @@ def test_reasoning_effort_maps_to_output_config_for_adaptive_model(
         model="claude-opus-4-7",
         messages=[{"role": "user", "content": "Hello"}],
         anthropic_messages_optional_request_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -59,7 +59,7 @@ def test_reasoning_effort_none_clears_thinking_and_output_config():
         model="claude-opus-4-7",
         messages=[{"role": "user", "content": "Hello"}],
         anthropic_messages_optional_request_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -76,7 +76,7 @@ def test_reasoning_effort_on_non_adaptive_model_uses_thinking_budget():
         model="claude-opus-4-5",
         messages=[{"role": "user", "content": "Hello"}],
         anthropic_messages_optional_request_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -99,7 +99,7 @@ def test_invalid_reasoning_effort_raises_400(bad_effort):
             model="claude-opus-4-7",
             messages=[{"role": "user", "content": "Hello"}],
             anthropic_messages_optional_request_params=optional_params,
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -122,7 +122,7 @@ def test_reasoning_effort_unsupported_tier_raises_400_messages(model, bad_effort
             model=model,
             messages=[{"role": "user", "content": "Hello"}],
             anthropic_messages_optional_request_params=optional_params,
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -154,7 +154,7 @@ def test_bedrock_invoke_messages_clamps_effort_to_ceiling(
         model=model,
         messages=[{"role": "user", "content": "Hello"}],
         anthropic_messages_optional_request_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -172,7 +172,7 @@ def test_bedrock_invoke_messages_rejects_xhigh_without_ceiling(local_model_cost_
             model="invoke/us.anthropic.claude-sonnet-4-6",
             messages=[{"role": "user", "content": "Hello"}],
             anthropic_messages_optional_request_params=optional_params,
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -197,7 +197,7 @@ def test_reasoning_effort_max_accepted_on_sonnet_46_messages(
         model=model,
         messages=[{"role": "user", "content": "Hello"}],
         anthropic_messages_optional_request_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -217,7 +217,7 @@ def test_explicit_output_config_wins_over_reasoning_effort():
         model="claude-opus-4-7",
         messages=[{"role": "user", "content": "Hello"}],
         anthropic_messages_optional_request_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -237,7 +237,7 @@ def test_explicit_thinking_wins_over_reasoning_effort():
         model="claude-opus-4-5",
         messages=[{"role": "user", "content": "Hello"}],
         anthropic_messages_optional_request_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -282,7 +282,7 @@ def test_legacy_thinking_budget_preserved_verbatim_on_46(local_model_cost_map, m
         model=model,
         messages=[{"role": "user", "content": "Hello"}],
         anthropic_messages_optional_request_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -302,7 +302,7 @@ def test_legacy_thinking_high_budget_keeps_xhigh_when_supported():
         model="claude-opus-4-7",
         messages=[{"role": "user", "content": "Hello"}],
         anthropic_messages_optional_request_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -336,7 +336,7 @@ def test_legacy_thinking_translates_to_adaptive_for_opus_48(
         model=model,
         messages=[{"role": "user", "content": "ping"}],
         anthropic_messages_optional_request_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -369,7 +369,7 @@ def test_legacy_thinking_translates_to_adaptive_for_5_and_future_models(
         model=model,
         messages=[{"role": "user", "content": "Hello"}],
         anthropic_messages_optional_request_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -402,7 +402,7 @@ def test_legacy_thinking_budget_buckets_on_opus_48(
         model="claude-opus-4-8",
         messages=[{"role": "user", "content": "Hello"}],
         anthropic_messages_optional_request_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -421,7 +421,7 @@ def test_legacy_thinking_does_not_override_explicit_output_config(local_model_co
         model="claude-opus-4-8",
         messages=[{"role": "user", "content": "Hello"}],
         anthropic_messages_optional_request_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -443,7 +443,7 @@ def test_legacy_thinking_with_explicit_output_config_untouched_on_46(
         model="claude-sonnet-4-6",
         messages=[{"role": "user", "content": "Hello"}],
         anthropic_messages_optional_request_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -462,7 +462,7 @@ def test_legacy_thinking_left_untouched_on_non_adaptive_model():
         model="claude-opus-4-5",
         messages=[{"role": "user", "content": "Hello"}],
         anthropic_messages_optional_request_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -490,7 +490,7 @@ def test_disabled_thinking_omitted_for_always_on_models_messages(
         model=model,
         messages=[{"role": "user", "content": "Hello"}],
         anthropic_messages_optional_request_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 

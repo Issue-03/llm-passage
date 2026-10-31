@@ -47,7 +47,7 @@ const detail = {
     output_policy: "trusted",
     origin: "mcp",
     call_count: 42,
-    user_agent: "litellm-python/1.0",
+    user_agent: "embrouter-python/1.0",
     created_at: "2026-03-04T10:00:00Z",
   },
   overrides: [],
@@ -82,7 +82,7 @@ describe("ToolDetail", () => {
     expect(await screen.findByText("search_docs")).toBeInTheDocument();
     expect(screen.getByText("mcp")).toBeInTheDocument();
     expect(screen.getByText("42 calls")).toBeInTheDocument();
-    expect(screen.getByText("litellm-python/1.0")).toBeInTheDocument();
+    expect(screen.getByText("embrouter-python/1.0")).toBeInTheDocument();
   });
 
   it("renders both policy panels with the tool's current policies", async () => {

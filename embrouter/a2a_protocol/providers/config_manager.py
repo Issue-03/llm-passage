@@ -4,14 +4,14 @@ A2A Provider Config Manager.
 Manages provider-specific configurations for A2A protocol.
 """
 
-from litellm.a2a_protocol.providers.base import BaseA2AProviderConfig
+from embrouter.a2a_protocol.providers.base import BaseA2AProviderConfig
 
 
 class A2AProviderConfigManager:
     """
     Manager for A2A provider configurations.
 
-    Similar to ProviderConfigManager in litellm.utils but specifically for A2A providers.
+    Similar to ProviderConfigManager in embrouter.utils but specifically for A2A providers.
     """
 
     @staticmethod
@@ -33,26 +33,26 @@ class A2AProviderConfigManager:
             return None
 
         if custom_llm_provider == "pydantic_ai_agents":
-            from litellm.a2a_protocol.providers.pydantic_ai_agents.config import (
+            from embrouter.a2a_protocol.providers.pydantic_ai_agents.config import (
                 PydanticAIProviderConfig,
             )
 
             return PydanticAIProviderConfig()
 
         if custom_llm_provider == "bedrock" and model and "agentcore" in model:
-            from litellm.a2a_protocol.providers.bedrock_agentcore.config import (
+            from embrouter.a2a_protocol.providers.bedrock_agentcore.config import (
                 BedrockAgentCoreA2AConfig,
             )
 
             return BedrockAgentCoreA2AConfig()
 
         if custom_llm_provider == "langflow":
-            from litellm.a2a_protocol.providers.langflow.config import LangFlowA2AConfig
+            from embrouter.a2a_protocol.providers.langflow.config import LangFlowA2AConfig
 
             return LangFlowA2AConfig()
 
         if custom_llm_provider == "watsonx_orchestrate":
-            from litellm.a2a_protocol.providers.watsonx_orchestrate.config import (
+            from embrouter.a2a_protocol.providers.watsonx_orchestrate.config import (
                 WatsonxOrchestrateA2AConfig,
             )
 

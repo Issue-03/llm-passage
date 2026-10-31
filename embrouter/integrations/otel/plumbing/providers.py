@@ -37,44 +37,44 @@ from opentelemetry.trace import Span, SpanContext, SpanKind, Status, Tracer
 from opentelemetry.util.re import parse_env_headers
 from opentelemetry.util.types import Attributes, AttributeValue
 
-from litellm._logging import verbose_logger
-from litellm._version import version as litellm_version
-from litellm.integrations.otel.mappers.langfuse import LANGFUSE_TRACE_NAME
-from litellm.integrations.otel.model.config import ExporterOwner, ExporterSpec, OpenTelemetryV2Config
-from litellm.integrations.otel.model.semconv import (
+from embrouter._logging import verbose_logger
+from embrouter._version import version as embrouter_version
+from embrouter.integrations.otel.mappers.langfuse import LANGFUSE_TRACE_NAME
+from embrouter.integrations.otel.model.config import ExporterOwner, ExporterSpec, OpenTelemetryV2Config
+from embrouter.integrations.otel.model.semconv import (
     DB,
     MCP,
     Error,
     ExceptionEvent,
     GenAI,
-    LiteLLM,
-    LiteLLMError,
+    EmbRouter,
+    EmbRouterError,
     Server,
 )
-from litellm.integrations.otel.model.spans import LiteLLMSpanKind
-from litellm.integrations.otel.plumbing.context import (
+from embrouter.integrations.otel.model.spans import EmbRouterSpanKind
+from embrouter.integrations.otel.plumbing.context import (
     request_destinations,
     suppressed_backends,
 )
-from litellm.integrations.otel.plumbing.otlp_tls import resolve_otlp_http_tls
+from embrouter.integrations.otel.plumbing.otlp_tls import resolve_otlp_http_tls
 
 if TYPE_CHECKING:
     from opentelemetry.metrics import Meter
     from opentelemetry.sdk.metrics.export import MetricReader
 
-    from litellm.integrations.otel.model.destination import OtelDestination
-    from litellm.types.utils import OtelSpanScope
+    from embrouter.integrations.otel.model.destination import OtelDestination
+    from embrouter.types.utils import OtelSpanScope
 
-_SPAN_KIND_BY_ROLE_KIND: Final[dict[LiteLLMSpanKind, SpanKind]] = {
-    LiteLLMSpanKind.SERVER: SpanKind.SERVER,
-    LiteLLMSpanKind.CLIENT: SpanKind.CLIENT,
-    LiteLLMSpanKind.INTERNAL: SpanKind.INTERNAL,
-    LiteLLMSpanKind.PRODUCER: SpanKind.PRODUCER,
-    LiteLLMSpanKind.CONSUMER: SpanKind.CONSUMER,
+_SPAN_KIND_BY_ROLE_KIND: Final[dict[EmbRouterSpanKind, SpanKind]] = {
+    EmbRouterSpanKind.SERVER: SpanKind.SERVER,
+    EmbRouterSpanKind.CLIENT: SpanKind.CLIENT,
+    EmbRouterSpanKind.INTERNAL: SpanKind.INTERNAL,
+    EmbRouterSpanKind.PRODUCER: SpanKind.PRODUCER,
+    EmbRouterSpanKind.CONSUMER: SpanKind.CONSUMER,
 }
 
 
-def to_otel_span_kind(kind: LiteLLMSpanKind) -> SpanKind:
+def to_otel_span_kind(kind: EmbRouterSpanKind) -> SpanKind:
     return _SPAN_KIND_BY_ROLE_KIND[kind]
 
 
@@ -92,13 +92,13 @@ def register_exporter_factory(kind: str, factory: Callable[[ExporterSpec], SpanE
     _EXPORTER_FACTORIES[kind.lower()] = factory
 
 
-class LiteLLMBaggageSpanProcessor(SpanProcessor):
+class EmbRouterBaggageSpanProcessor(SpanProcessor):
     """Stamps an allowlisted set of Baggage entries onto every span at start."""
 
     def __init__(
         self,
         allowed_keys: Iterable[str],
-        allowed_prefixes: tuple[str, ...] = (LiteLLM.METADATA_PREFIX,),
+        allowed_prefixes: tuple[str, ...] = (EmbRouter.METADATA_PREFIX,),
     ) -> None:
         self._allowed_keys = frozenset(allowed_keys)
         self._allowed_prefixes = tuple(allowed_prefixes)
@@ -150,7 +150,7 @@ def parse_headers(raw: str | None) -> dict[str, str]:
     ``Authorization=Basic%20<token>`` (Grafana Cloud does, because a bare space
     is not representable there) has to reach the exporter as ``Basic <token>``,
     not with a literal ``%20`` that the backend rejects as malformed. The SDK's
-    own parser is used so litellm decodes exactly what the OTLP exporters do
+    own parser is used so embrouter decodes exactly what the OTLP exporters do
     when they read the env var themselves; ``liberal`` keeps values that are not
     percent-encoded (``Authorization=Bearer <token>``) working unchanged.
     """
@@ -190,7 +190,7 @@ def _exporter_from_spec(spec: ExporterSpec) -> SpanExporter:
     if kind in _IN_MEMORY_KINDS:
         return InMemorySpanExporter()
     if kind in _OTLP_HTTP_JSON_KINDS:
-        from litellm.integrations.otel.plumbing.otlp_json import OTLPJsonSpanExporter
+        from embrouter.integrations.otel.plumbing.otlp_json import OTLPJsonSpanExporter
 
         tls: Final = resolve_otlp_http_tls("TRACES")
         return OTLPJsonSpanExporter(
@@ -286,7 +286,7 @@ class _DrainPool:
         self._backlog = 0  # guarded by ``_lock``: submitted processors whose close has not returned
         self._pending: Final[queue.Queue[SpanProcessor | None]] = pending if pending is not None else queue.Queue()
         self._threads: Final = tuple(
-            threading.Thread(target=self._drain_until_closed, daemon=True, name="litellm-otel-destination-drain")
+            threading.Thread(target=self._drain_until_closed, daemon=True, name="embrouter-otel-destination-drain")
             for _ in range(workers)
         )
         for worker in self._threads:
@@ -314,7 +314,7 @@ class _DrainPool:
             target=_shutdown_quietly,
             args=(processor,),
             daemon=True,
-            name="litellm-otel-destination-drain-straggler",
+            name="embrouter-otel-destination-drain-straggler",
         ).start()
 
     def saturated(self) -> bool:
@@ -369,7 +369,7 @@ _DATASTORE_ENDPOINT_KEYS: Final = frozenset({Server.ADDRESS, Server.PORT, DB.NAM
 # A span carrying one of these describes the tenant's own call (the model call, the
 # MCP call, the guardrail), so its error text is theirs to see. Every other span is
 # the proxy's own work, whose error text names the operator's infrastructure.
-_TENANT_OWNED_KEYS: Final = frozenset({GenAI.OPERATION_NAME, MCP.METHOD_NAME, LiteLLM.GUARDRAIL_NAME})
+_TENANT_OWNED_KEYS: Final = frozenset({GenAI.OPERATION_NAME, MCP.METHOD_NAME, EmbRouter.GUARDRAIL_NAME})
 _PROXY_ERROR_TEXT_KEYS: Final = frozenset({Error.MESSAGE, Error.MESSAGE_LEGACY})
 # A guardrail that never answered carries the exception it raised as its response,
 # which names the operator's guardrail endpoint. The second spelling is the legacy
@@ -380,7 +380,7 @@ _GUARDRAIL_UNREACHABLE_STATUSES: Final = frozenset({"guardrail_failed_to_respond
 # side carries the caller's bearer token verbatim.
 _CAPTURED_HEADER_PREFIXES: Final = ("http.request.header.", "http.response.header.")
 # The instrumentor stamps the request URL on the server span with its query string,
-# under the old convention and the new one, and litellm accepts a virtual key as a
+# under the old convention and the new one, and embrouter accepts a virtual key as a
 # ``?key=`` query parameter.
 _URL_KEYS: Final = frozenset({"http.url", "http.target", "url.full"})
 _URL_QUERY_KEY: Final = "url.query"
@@ -463,15 +463,15 @@ def _scoped(span: ReadableSpan, scope: "OtelSpanScope") -> ReadableSpan:
 
 
 def _guardrail_unreachable(attributes: Mapping[str, AttributeValue]) -> bool:
-    return attributes.get(LiteLLM.GUARDRAIL_STATUS) in _GUARDRAIL_UNREACHABLE_STATUSES
+    return attributes.get(EmbRouter.GUARDRAIL_STATUS) in _GUARDRAIL_UNREACHABLE_STATUSES
 
 
 def _tenant_visible(key: str, database: bool, owned: bool, unreachable_guardrail: bool) -> bool:
-    if key.startswith(_CAPTURED_HEADER_PREFIXES) or key in (LiteLLMError.STACK_TRACE, _URL_QUERY_KEY):
+    if key.startswith(_CAPTURED_HEADER_PREFIXES) or key in (EmbRouterError.STACK_TRACE, _URL_QUERY_KEY):
         return False
     if database and key in _DATASTORE_ENDPOINT_KEYS:
         return False
-    if unreachable_guardrail and key == LiteLLM.GUARDRAIL_RESPONSE:
+    if unreachable_guardrail and key == EmbRouter.GUARDRAIL_RESPONSE:
         return False
     return owned or key not in _PROXY_ERROR_TEXT_KEYS
 
@@ -934,7 +934,7 @@ def build_metric_reader(config: OpenTelemetryV2Config) -> "MetricReader":
         except ImportError as exc:
             raise ImportError(
                 "OpenTelemetry OTLP gRPC metric exporter is not available. Install "
-                "`opentelemetry-exporter-otlp` and `grpcio` (or `litellm[grpc]`)."
+                "`opentelemetry-exporter-otlp` and `grpcio` (or `embrouter[grpc]`)."
             ) from exc
 
         exporter = GRPCMetricExporter(
@@ -997,7 +997,7 @@ def build_log_exporter(config: OpenTelemetryV2Config) -> LogExporter:
         except ImportError as exc:
             raise ImportError(
                 "OpenTelemetry OTLP gRPC log exporter is not available. Install "
-                "`opentelemetry-exporter-otlp` and `grpcio` (or `litellm[grpc]`)."
+                "`opentelemetry-exporter-otlp` and `grpcio` (or `embrouter[grpc]`)."
             ) from exc
 
         return GRPCLogExporter(endpoint=config.endpoint, headers=parse_headers(config.headers))
@@ -1052,8 +1052,8 @@ def resolve_logger_provider(
     return provider
 
 
-def get_event_logger(provider: SDKLoggerProvider, name: str = "litellm") -> Logger:
-    return provider.get_logger(name, litellm_version)
+def get_event_logger(provider: SDKLoggerProvider, name: str = "embrouter") -> Logger:
+    return provider.get_logger(name, embrouter_version)
 
 
 def build_meter_provider(
@@ -1097,8 +1097,8 @@ def resolve_meter_provider(
     return provider
 
 
-def get_meter(provider: MeterProvider, name: str = "litellm") -> "Meter":
-    return provider.get_meter(name, litellm_version)
+def get_meter(provider: MeterProvider, name: str = "embrouter") -> "Meter":
+    return provider.get_meter(name, embrouter_version)
 
 
 def build_resource(config: OpenTelemetryV2Config) -> Resource:
@@ -1136,7 +1136,7 @@ def build_tracer_provider(
     """
     provider: Final = TracerProvider(resource=build_resource(config))
     if baggage_processor is None:
-        baggage_processor = LiteLLMBaggageSpanProcessor(allowed_keys=config.baggage_promoted_keys)
+        baggage_processor = EmbRouterBaggageSpanProcessor(allowed_keys=config.baggage_promoted_keys)
     provider.add_span_processor(baggage_processor)
 
     if exporter is not None:
@@ -1271,11 +1271,11 @@ def _attached_processors(provider: trace.TracerProvider) -> "tuple[SpanProcessor
     return tuple(getattr(multi, "_span_processors", ()))
 
 
-def get_tracer(provider: TracerProvider, name: str = "litellm") -> Tracer:
-    # Stamp the instrumentation scope with the LiteLLM package version so every
+def get_tracer(provider: TracerProvider, name: str = "embrouter") -> Tracer:
+    # Stamp the instrumentation scope with the EmbRouter package version so every
     # emitted span carries a deterministic ``scope.version`` (the standard OTel
     # location for the emitting library's version) for downstream consumers.
-    return provider.get_tracer(name, litellm_version)
+    return provider.get_tracer(name, embrouter_version)
 
 
 def in_memory_provider(

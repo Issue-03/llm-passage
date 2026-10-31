@@ -1,5 +1,5 @@
 """
-Custom A2A Card Resolver for LiteLLM.
+Custom A2A Card Resolver for EmbRouter.
 
 Extends the A2A SDK's card resolver to support multiple well-known paths.
 """
@@ -8,9 +8,9 @@ from collections.abc import Mapping
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Final, Protocol, runtime_checkable
 
-from litellm._logging import verbose_logger
-from litellm.a2a_protocol.exceptions import A2AAgentCardDiscoveryError
-from litellm.constants import LOCALHOST_URL_PATTERNS
+from embrouter._logging import verbose_logger
+from embrouter.a2a_protocol.exceptions import A2AAgentCardDiscoveryError
+from embrouter.constants import LOCALHOST_URL_PATTERNS
 
 if TYPE_CHECKING:
     from a2a.types import AgentCard
@@ -158,7 +158,7 @@ def fix_agent_card_url(agent_card: "AgentCard", base_url: str) -> "AgentCard":
     return agent_card
 
 
-class LiteLLMA2ACardResolver(_A2ACardResolver):
+class EmbRouterA2ACardResolver(_A2ACardResolver):
     """
     Custom A2A card resolver that supports multiple well-known paths.
 

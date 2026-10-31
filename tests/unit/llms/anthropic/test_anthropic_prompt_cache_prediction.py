@@ -9,12 +9,12 @@ import pytest
 import respx
 from pydantic import JsonValue
 
-import litellm
-from litellm.caching.dual_cache import DualCache
-from litellm.caching.llm_caching_handler import LLMClientCache
-from litellm.llms.anthropic.count_tokens import handler as count_handler
-from litellm.llms.anthropic.pass_through.messages.transformation import DEFAULT_ANTHROPIC_API_VERSION
-from litellm.llms.anthropic.prompt_cache_prediction import (
+import embrouter
+from embrouter.caching.dual_cache import DualCache
+from embrouter.caching.llm_caching_handler import LLMClientCache
+from embrouter.llms.anthropic.count_tokens import handler as count_handler
+from embrouter.llms.anthropic.pass_through.messages.transformation import DEFAULT_ANTHROPIC_API_VERSION
+from embrouter.llms.anthropic.prompt_cache_prediction import (
     CountedPromptCachePlan,
     NativePredictionTarget,
     PromptCachePlan,
@@ -29,14 +29,14 @@ from litellm.llms.anthropic.prompt_cache_prediction import (
     resolve_prediction_target,
     supported_prediction_headers,
 )
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.models.credentials import CredentialItem
-from litellm.proxy import proxy_server
-from litellm.proxy.hooks.prompt_cache_prediction import PromptCacheObserver, lookup
-from litellm.proxy.management_endpoints.prompt_cache_prediction import predict_arm
-from litellm.proxy.utils import InternalUsageCache
-from litellm.types.router import Deployment, LiteLLM_Params, ModelInfo
-from litellm.types.utils import CacheCreationTokenDetails, ModelResponse, PromptTokensDetailsWrapper, Usage
+from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from embrouter.models.credentials import CredentialItem
+from embrouter.proxy import proxy_server
+from embrouter.proxy.hooks.prompt_cache_prediction import PromptCacheObserver, lookup
+from embrouter.proxy.management_endpoints.prompt_cache_prediction import predict_arm
+from embrouter.proxy.utils import InternalUsageCache
+from embrouter.types.router import Deployment, EmbRouter_Params, ModelInfo
+from embrouter.types.utils import CacheCreationTokenDetails, ModelResponse, PromptTokensDetailsWrapper, Usage
 
 _MODEL: Final = "claude-sonnet-5"
 _KEY: Final = "test-provider-key"
@@ -143,23 +143,23 @@ async def test_environment_credential_matches_native_count_and_observed_scope(
     source: str, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("LIT7658_PROVIDER_KEY", _KEY)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "in_memory_llm_clients_cache", LLMClientCache())
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(embrouter, "in_memory_llm_clients_cache", LLMClientCache())
     params: Final = {
         "model": f"anthropic/{_MODEL}", "api_key": "os.environ/LIT7658_PROVIDER_KEY",
         "api_base": "https://api.anthropic.com",
     }
-    router: Final = litellm.Router(model_list=[{
-        "model_name": "test-native", "litellm_params": dict(params), "model_info": {"id": _DEPLOYMENT},
+    router: Final = embrouter.Router(model_list=[{
+        "model_name": "test-native", "embrouter_params": dict(params), "model_info": {"id": _DEPLOYMENT},
     }] if source == "static" else [], num_retries=0)
     if source == "database":
         monkeypatch.setattr(proxy_server, "llm_router", router)
         assert proxy_server.ProxyConfig()._add_deployment([SimpleNamespace(
-            model_id=_DEPLOYMENT, model_name="test-native", model_info={}, litellm_params=dict(params),
+            model_id=_DEPLOYMENT, model_name="test-native", model_info={}, embrouter_params=dict(params),
         )]) == 1
     deployment: Final = router.get_deployment(_DEPLOYMENT)
     assert deployment is not None
-    target: Final = resolve_prediction_target(deployment.litellm_params)
+    target: Final = resolve_prediction_target(deployment.embrouter_params)
     assert isinstance(target, NativePredictionTarget)
     body: Final = _body()
     with respx.mock() as upstream:
@@ -192,13 +192,13 @@ async def test_environment_credential_matches_native_count_and_observed_scope(
 async def test_named_credential_is_explicitly_unsupported_before_count(
     inline_key: str | None, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "credential_list", [CredentialItem(
+    monkeypatch.setattr(embrouter, "credential_list", [CredentialItem(
         credential_name="test-named", credential_info={}, credential_values={"api_key": "test-named-provider-key"},
     )])
     deployment: Final = Deployment(
         model_name="test-native",
-        litellm_params=LiteLLM_Params(
-            model=f"anthropic/{_MODEL}", api_key=inline_key, litellm_credential_name="test-named",
+        embrouter_params=EmbRouter_Params(
+            model=f"anthropic/{_MODEL}", api_key=inline_key, embrouter_credential_name="test-named",
         ),
         model_info=ModelInfo(id=_DEPLOYMENT),
     )
@@ -360,8 +360,8 @@ async def test_cache_plan_count_conserves_total_and_rejects_unknown(
     model: str | None, counts: tuple[int | None, int | None, int], reason: str | None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setitem(litellm.model_cost, "declared-cache-model", {
-        "litellm_provider": "anthropic", "mode": "chat", "supports_thinking_cache_preservation": True,
+    monkeypatch.setitem(embrouter.model_cost, "declared-cache-model", {
+        "embrouter_provider": "anthropic", "mode": "chat", "supports_thinking_cache_preservation": True,
     })
     plan: Final = _cache_plan(_prompt(
         {"type": "thinking", "thinking": "Retained thought", "signature": "signature"}
@@ -391,9 +391,9 @@ async def test_cache_plan_count_conserves_total_and_rejects_unknown(
 async def test_native_count_preserves_settings_and_requires_every_prefix(
     section: str, rejects_prefix: bool, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "in_memory_llm_clients_cache", LLMClientCache())
-    params: Final = LiteLLM_Params(
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(embrouter, "in_memory_llm_clients_cache", LLMClientCache())
+    params: Final = EmbRouter_Params(
         model=f"anthropic/{_MODEL}", api_key=_KEY,
         api_base="https://gateway.example/v1/messages",
     )

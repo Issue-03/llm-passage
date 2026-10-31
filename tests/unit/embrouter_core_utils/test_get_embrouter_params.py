@@ -1,5 +1,5 @@
 """
-Tests for get_litellm_params and related helpers.
+Tests for get_embrouter_params and related helpers.
 
 Ensures backward compatibility after sparse kwargs extraction optimization.
 """
@@ -9,16 +9,16 @@ from typing import Final
 import pytest
 from pydantic import ValidationError
 
-from litellm.constants import CONTROL_OPTIONS_KEY
-from litellm.litellm_core_utils.get_litellm_params import (
+from embrouter.constants import CONTROL_OPTIONS_KEY
+from embrouter.embrouter_core_utils.get_embrouter_params import (
     _OPTIONAL_KWARGS_KEYS,
     InvalidControlOption,
-    _get_base_model_from_litellm_call_metadata,
-    get_litellm_params,
+    _get_base_model_from_embrouter_call_metadata,
+    get_embrouter_params,
     parse_control_options,
     stored_control_options,
 )
-from litellm.types.litellm_params import ControlOptions
+from embrouter.types.embrouter_params import ControlOptions
 
 NAMED_PRICE_PARAMS: Final = frozenset(
     {
@@ -31,57 +31,57 @@ NAMED_PRICE_PARAMS: Final = frozenset(
 )
 
 
-class TestGetBaseModelFromLitellmCallMetadata:
+class TestGetBaseModelFromEmbrouterCallMetadata:
     def test_none_metadata_returns_none(self):
-        assert _get_base_model_from_litellm_call_metadata(None) is None
+        assert _get_base_model_from_embrouter_call_metadata(None) is None
 
     def test_empty_metadata_returns_none(self):
-        assert _get_base_model_from_litellm_call_metadata({}) is None
+        assert _get_base_model_from_embrouter_call_metadata({}) is None
 
     def test_missing_model_info_returns_none(self):
-        assert _get_base_model_from_litellm_call_metadata({"foo": "bar"}) is None
+        assert _get_base_model_from_embrouter_call_metadata({"foo": "bar"}) is None
 
     def test_model_info_none_returns_none(self):
-        assert _get_base_model_from_litellm_call_metadata({"model_info": None}) is None
+        assert _get_base_model_from_embrouter_call_metadata({"model_info": None}) is None
 
     def test_model_info_empty_dict_returns_none(self):
-        assert _get_base_model_from_litellm_call_metadata({"model_info": {}}) is None
+        assert _get_base_model_from_embrouter_call_metadata({"model_info": {}}) is None
 
     def test_returns_base_model(self):
-        result = _get_base_model_from_litellm_call_metadata(
+        result = _get_base_model_from_embrouter_call_metadata(
             {"model_info": {"base_model": "gpt-4"}}
         )
         assert result == "gpt-4"
 
 
-class TestGetLitellmParamsKwargsExtraction:
+class TestGetEmbrouterParamsKwargsExtraction:
     """Verify that optional kwargs are correctly extracted via sparse extraction."""
 
     def test_no_kwargs_omits_optional_keys(self):
         """When no kwargs passed, optional keys are absent; the named price params are present as None."""
-        result = get_litellm_params(api_key="test-key")
+        result = get_embrouter_params(api_key="test-key")
         for key in _OPTIONAL_KWARGS_KEYS - NAMED_PRICE_PARAMS:
             assert key not in result
         for key in NAMED_PRICE_PARAMS:
             assert result[key] is None
 
     def test_custom_pricing_kwargs_are_extracted(self) -> None:
-        from litellm.litellm_core_utils.litellm_logging import use_custom_pricing_for_model
-        from litellm.types.router import CustomPricingLiteLLMParams
+        from embrouter.embrouter_core_utils.embrouter_logging import use_custom_pricing_for_model
+        from embrouter.types.router import CustomPricingEmbRouterParams
 
-        assert set(CustomPricingLiteLLMParams.model_fields) <= _OPTIONAL_KWARGS_KEYS
+        assert set(CustomPricingEmbRouterParams.model_fields) <= _OPTIONAL_KWARGS_KEYS
 
-        result = get_litellm_params(output_cost_per_image=0.08, input_cost_per_audio_token=1e-6)
+        result = get_embrouter_params(output_cost_per_image=0.08, input_cost_per_audio_token=1e-6)
         assert result["output_cost_per_image"] == 0.08
         assert result["input_cost_per_audio_token"] == 1e-6
         assert use_custom_pricing_for_model(result) is True
 
-        result_without_prices = get_litellm_params()
+        result_without_prices = get_embrouter_params()
         assert "output_cost_per_image" not in result_without_prices
         assert use_custom_pricing_for_model(result_without_prices) is False
 
     def test_present_kwargs_are_extracted(self):
-        result = get_litellm_params(
+        result = get_embrouter_params(
             aws_region_name="us-east-1",
             timeout=30,
             rpm=100,
@@ -91,44 +91,44 @@ class TestGetLitellmParamsKwargsExtraction:
         assert result["rpm"] == 100
 
     def test_s3_endpoint_kwargs_are_extracted_when_provided(self):
-        result = get_litellm_params(
+        result = get_embrouter_params(
             s3_endpoint_url="https://bucket.vpce-abc.s3.us-east-1.vpce.amazonaws.com",
             s3_region_name="us-east-1",
         )
         assert result["s3_endpoint_url"] == "https://bucket.vpce-abc.s3.us-east-1.vpce.amazonaws.com"
         assert result["s3_region_name"] == "us-east-1"
 
-        result_without_s3_kwargs = get_litellm_params()
+        result_without_s3_kwargs = get_embrouter_params()
         assert "s3_endpoint_url" not in result_without_s3_kwargs
         assert "s3_region_name" not in result_without_s3_kwargs
 
     def test_a_caller_supplied_control_options_key_is_not_carried(self) -> None:
-        assert CONTROL_OPTIONS_KEY not in get_litellm_params(**{CONTROL_OPTIONS_KEY: {"stream_chunk_size": 64}})
+        assert CONTROL_OPTIONS_KEY not in get_embrouter_params(**{CONTROL_OPTIONS_KEY: {"stream_chunk_size": 64}})
 
     def test_s3_credential_kwargs_are_forwarded_for_s3_signing(self):
-        result = get_litellm_params(s3_access_key_id="s3-key", s3_secret_access_key="s3-secret")
+        result = get_embrouter_params(s3_access_key_id="s3-key", s3_secret_access_key="s3-secret")
         assert result["s3_access_key_id"] == "s3-key"
         assert result["s3_secret_access_key"] == "s3-secret"
 
-        result_without_s3_kwargs = get_litellm_params()
+        result_without_s3_kwargs = get_embrouter_params()
         assert "s3_access_key_id" not in result_without_s3_kwargs
         assert "s3_secret_access_key" not in result_without_s3_kwargs
 
     def test_subset_of_kwargs_only_includes_provided(self):
         """Only provided kwargs appear, others remain absent."""
-        result = get_litellm_params(azure_ad_token="token123")
+        result = get_embrouter_params(azure_ad_token="token123")
         assert result["azure_ad_token"] == "token123"
         assert "aws_region_name" not in result
         assert "timeout" not in result
 
     def test_unknown_kwargs_are_ignored(self):
-        result = get_litellm_params(some_random_kwarg="value")
+        result = get_embrouter_params(some_random_kwarg="value")
         assert "some_random_kwarg" not in result
 
     def test_all_optional_kwargs_extractable(self):
         """Every key in _OPTIONAL_KWARGS_KEYS can be extracted."""
         kwargs = {key: f"val_{key}" for key in _OPTIONAL_KWARGS_KEYS}
-        result = get_litellm_params(**kwargs)
+        result = get_embrouter_params(**kwargs)
         for key in _OPTIONAL_KWARGS_KEYS:
             assert result[key] == f"val_{key}"
 
@@ -192,7 +192,7 @@ def test_control_options_enforce_their_rule_at_construction(raw: object) -> None
 
 
 @pytest.mark.parametrize(
-    "litellm_params,expected",
+    "embrouter_params,expected",
     [
         ({CONTROL_OPTIONS_KEY: ControlOptions(stream_chunk_size=64)}, ControlOptions(stream_chunk_size=64)),
         ({}, ControlOptions()),
@@ -201,37 +201,37 @@ def test_control_options_enforce_their_rule_at_construction(raw: object) -> None
     ],
 )
 def test_stored_control_options_reads_only_the_validated_options(
-    litellm_params: dict[str, object], expected: ControlOptions
+    embrouter_params: dict[str, object], expected: ControlOptions
 ) -> None:
-    assert stored_control_options(litellm_params) == expected
+    assert stored_control_options(embrouter_params) == expected
 
 
-class TestGetLitellmParamsBaseModel:
+class TestGetEmbrouterParamsBaseModel:
     """Verify base_model resolution precedence."""
 
     def test_explicit_base_model_takes_precedence(self):
-        result = get_litellm_params(
+        result = get_embrouter_params(
             base_model="explicit",
             metadata={"model_info": {"base_model": "from-metadata"}},
         )
         assert result["base_model"] == "explicit"
 
     def test_falls_back_to_metadata(self):
-        result = get_litellm_params(
+        result = get_embrouter_params(
             metadata={"model_info": {"base_model": "from-metadata"}}
         )
         assert result["base_model"] == "from-metadata"
 
     def test_none_when_no_source(self):
-        result = get_litellm_params()
+        result = get_embrouter_params()
         assert result["base_model"] is None
 
 
-class TestGetLitellmParamsExplicitFields:
+class TestGetEmbrouterParamsExplicitFields:
     """Verify explicit parameters are always present in the result."""
 
     def test_explicit_params_always_present(self):
-        result = get_litellm_params()
+        result = get_embrouter_params()
         # Spot-check a few explicit keys that should always be in the dict
         expected_keys = [
             "acompletion",
@@ -251,109 +251,109 @@ class TestGetLitellmParamsExplicitFields:
 
     def test_no_log_from_kwargs(self):
         """no-log can come via **kwargs as well as the explicit param."""
-        result = get_litellm_params(**{"no-log": True})
+        result = get_embrouter_params(**{"no-log": True})
         assert result["no-log"] is True
 
     def test_no_log_from_explicit_param(self):
-        result = get_litellm_params(no_log=True)
+        result = get_embrouter_params(no_log=True)
         assert result["no-log"] is True
 
 
-class TestGetLitellmParamsDataResidency:
+class TestGetEmbrouterParamsDataResidency:
     """Verify that data_residency is inferred from OpenAI regional api_base."""
 
     def test_eu_host_resolves_to_eu(self):
-        result = get_litellm_params(
+        result = get_embrouter_params(
             custom_llm_provider="openai",
             api_base="https://eu.api.openai.com/v1",
         )
         assert result["data_residency"] == "eu"
 
     def test_us_host_resolves_to_us(self):
-        result = get_litellm_params(
+        result = get_embrouter_params(
             custom_llm_provider="openai",
             api_base="https://us.api.openai.com/v1",
         )
         assert result["data_residency"] == "us"
 
     def test_global_host_resolves_to_none(self):
-        result = get_litellm_params(
+        result = get_embrouter_params(
             custom_llm_provider="openai",
             api_base="https://api.openai.com/v1",
         )
         assert result["data_residency"] is None
 
     def test_no_api_base_is_none(self):
-        result = get_litellm_params(custom_llm_provider="openai")
+        result = get_embrouter_params(custom_llm_provider="openai")
         assert result["data_residency"] is None
 
     def test_non_openai_provider_does_not_resolve(self):
         """Regional OpenAI host doesn't apply to other providers."""
-        result = get_litellm_params(
+        result = get_embrouter_params(
             custom_llm_provider="anthropic",
             api_base="https://eu.api.openai.com/v1",
         )
         assert result["data_residency"] is None
 
 
-class TestMetadataFallsBackToLitellmMetadata:
-    def test_metadata_falls_back_to_litellm_metadata_when_absent(self):
-        result = get_litellm_params(litellm_metadata={"trace_id": "trace-1"})
+class TestMetadataFallsBackToEmbrouterMetadata:
+    def test_metadata_falls_back_to_embrouter_metadata_when_absent(self):
+        result = get_embrouter_params(embrouter_metadata={"trace_id": "trace-1"})
         assert result["metadata"] == {"trace_id": "trace-1"}
-        assert result["litellm_metadata"] == {"trace_id": "trace-1"}
+        assert result["embrouter_metadata"] == {"trace_id": "trace-1"}
 
-    def test_empty_metadata_falls_back_to_litellm_metadata(self):
-        result = get_litellm_params(metadata={}, litellm_metadata={"trace_id": "trace-1"})
+    def test_empty_metadata_falls_back_to_embrouter_metadata(self):
+        result = get_embrouter_params(metadata={}, embrouter_metadata={"trace_id": "trace-1"})
         assert result["metadata"] == {"trace_id": "trace-1"}
 
     def test_metadata_wins_when_both_present(self):
-        result = get_litellm_params(
+        result = get_embrouter_params(
             metadata={"trace_id": "from-metadata"},
-            litellm_metadata={"trace_id": "from-litellm-metadata"},
+            embrouter_metadata={"trace_id": "from-embrouter-metadata"},
         )
         assert result["metadata"] == {"trace_id": "from-metadata"}
 
     @pytest.mark.parametrize("bad_value", ["not-json-a-string", 12345, ["a"], True])
-    def test_non_dict_litellm_metadata_is_ignored(self, bad_value):
-        result = get_litellm_params(litellm_metadata=bad_value)
+    def test_non_dict_embrouter_metadata_is_ignored(self, bad_value):
+        result = get_embrouter_params(embrouter_metadata=bad_value)
         assert result["metadata"] is None
 
-    def test_metadata_stays_none_without_litellm_metadata(self):
-        result = get_litellm_params(api_key="test-key")
+    def test_metadata_stays_none_without_embrouter_metadata(self):
+        result = get_embrouter_params(api_key="test-key")
         assert result["metadata"] is None
 
-    def test_session_and_trace_id_derived_from_litellm_metadata(self):
-        result = get_litellm_params(
-            litellm_metadata={"trace_id": "trace-1", "session_id": "session-1"},
+    def test_session_and_trace_id_derived_from_embrouter_metadata(self):
+        result = get_embrouter_params(
+            embrouter_metadata={"trace_id": "trace-1", "session_id": "session-1"},
         )
-        assert result["litellm_session_id"] == "session-1"
-        assert result["litellm_trace_id"] == "trace-1"
+        assert result["embrouter_session_id"] == "session-1"
+        assert result["embrouter_trace_id"] == "trace-1"
 
     def test_explicit_session_and_trace_id_are_not_overridden(self):
-        result = get_litellm_params(
-            litellm_session_id="explicit-session",
-            litellm_trace_id="explicit-trace",
-            litellm_metadata={"trace_id": "trace-1", "session_id": "session-1"},
+        result = get_embrouter_params(
+            embrouter_session_id="explicit-session",
+            embrouter_trace_id="explicit-trace",
+            embrouter_metadata={"trace_id": "trace-1", "session_id": "session-1"},
         )
-        assert result["litellm_session_id"] == "explicit-session"
-        assert result["litellm_trace_id"] == "explicit-trace"
+        assert result["embrouter_session_id"] == "explicit-session"
+        assert result["embrouter_trace_id"] == "explicit-trace"
 
-    def test_litellm_metadata_fallback_is_copied_not_aliased(self):
-        litellm_metadata = {"trace_id": "trace-1"}
+    def test_embrouter_metadata_fallback_is_copied_not_aliased(self):
+        embrouter_metadata = {"trace_id": "trace-1"}
 
-        result = get_litellm_params(litellm_metadata=litellm_metadata)
+        result = get_embrouter_params(embrouter_metadata=embrouter_metadata)
 
-        assert result["metadata"] == litellm_metadata
-        assert result["metadata"] is not litellm_metadata
+        assert result["metadata"] == embrouter_metadata
+        assert result["metadata"] is not embrouter_metadata
         result["metadata"].pop("trace_id")
-        assert litellm_metadata == {"trace_id": "trace-1"}
+        assert embrouter_metadata == {"trace_id": "trace-1"}
 
 
 @pytest.mark.parametrize(
     "value, expected",
     [("true", True), ("false", False), (" TRUE ", True), (True, True), (None, None), ("os.environ/DROP_PARAMS", None)],
 )
-def test_drop_params_strings_reach_litellm_params_as_flags(
+def test_drop_params_strings_reach_embrouter_params_as_flags(
     value: str | bool | None, expected: bool | None
 ) -> None:
-    assert get_litellm_params(drop_params=value)["drop_params"] is expected
+    assert get_embrouter_params(drop_params=value)["drop_params"] is expected

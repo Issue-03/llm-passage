@@ -5,12 +5,12 @@ from typing import Final
 from pydantic import JsonValue, TypeAdapter
 from typing_extensions import assert_never
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm._uuid import uuid
-from litellm.litellm_core_utils.audio_utils.utils import normalize_transcription_language_to_bcp47
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.base_llm.realtime.transcription_protocol import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter._uuid import uuid
+from embrouter.embrouter_core_utils.audio_utils.utils import normalize_transcription_language_to_bcp47
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.base_llm.realtime.transcription_protocol import (
     RealtimeTranscriptionProtocolError,
     TranscriptionAudioFormat,
     TranscriptionSessionUpdate,
@@ -24,20 +24,20 @@ from litellm.llms.base_llm.realtime.transcription_protocol import (
     transcription_session,
     transcription_session_created_event,
 )
-from litellm.llms.base_llm.realtime.transformation import BaseRealtimeConfig, RealtimeBackend
-from litellm.llms.vertex_ai.audio_transcription.transformation import (
+from embrouter.llms.base_llm.realtime.transformation import BaseRealtimeConfig, RealtimeBackend
+from embrouter.llms.vertex_ai.audio_transcription.transformation import (
     AUTO_LANGUAGE_CODE,
     DEFAULT_SPEECH_TO_TEXT_LOCATION,
     speech_to_text_host,
     validate_vertex_transcription_location,
     validate_vertex_transcription_project_id,
 )
-from litellm.types.llms.openai import (
+from embrouter.types.llms.openai import (
     OpenAIRealtimeEvents,
     OpenAIRealtimeTranscriptionSession,
     OpenAIRealtimeTranscriptionSessionCreated,
 )
-from litellm.types.llms.vertex_ai_speech_to_text import (
+from embrouter.types.llms.vertex_ai_speech_to_text import (
     VertexSpeechStreamingConfigure,
     VertexSpeechStreamingConfigured,
     VertexSpeechStreamingDiscardTurn,
@@ -48,7 +48,7 @@ from litellm.types.llms.vertex_ai_speech_to_text import (
     VertexSpeechStreamingTurnDiscarded,
     VertexSpeechStreamingTurnFinished,
 )
-from litellm.types.realtime import (
+from embrouter.types.realtime import (
     RealtimeInputAudioTranscriptionUsage,
     RealtimeResponseTransformInput,
     RealtimeResponseTypedDict,
@@ -102,7 +102,7 @@ class ChirpSessionConfig:
 
 def is_vertex_speech_to_text_model(model: str) -> bool:
     try:
-        info: Final = litellm.get_model_info(
+        info: Final = embrouter.get_model_info(
             model=normalize_speech_to_text_model(model), custom_llm_provider="vertex_ai"
         )
     except Exception:  # noqa: BLE001  # get_model_info raises for unmapped models, which are not Speech-to-Text models
@@ -318,7 +318,7 @@ class ChirpEventTransformer:
 
 
 def _default_backend_factory(target: SpeechStreamingTarget) -> RealtimeBackend:
-    from litellm.llms.vertex_ai.audio_transcription.realtime_backend import SpeechStreamingBackend
+    from embrouter.llms.vertex_ai.audio_transcription.realtime_backend import SpeechStreamingBackend
 
     return SpeechStreamingBackend(target)
 
@@ -402,7 +402,7 @@ class VertexChirpRealtimeConfig(BaseRealtimeConfig):
         self,
         message: str | bytes,
         model: str,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         realtime_response_transform_input: RealtimeResponseTransformInput,
     ) -> RealtimeResponseTypedDict:
         frame: Final = _STREAMING_EVENT_ADAPTER.validate_json(message)

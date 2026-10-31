@@ -8,9 +8,9 @@ from typing import Final, TypedDict
 
 from typing_extensions import ReadOnly
 
-import litellm
-from litellm.secret_managers.main import get_secret_str
-from litellm.utils import supports_reasoning
+import embrouter
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.utils import supports_reasoning
 
 from ...openai.chat.gpt_transformation import OpenAIGPTConfig
 
@@ -108,7 +108,7 @@ class TencentChatConfig(OpenAIGPTConfig):
     def _is_adaptive_thinking_model(model: str) -> bool:
         """Read `supports_adaptive_thinking` from the model map under tencent."""
         try:
-            model_info: Final[Mapping[str, object]] = litellm.get_model_info(model=model, custom_llm_provider="tencent")
+            model_info: Final[Mapping[str, object]] = embrouter.get_model_info(model=model, custom_llm_provider="tencent")
         except Exception:  # noqa: BLE001  # get_model_info raises a bare Exception for unmapped models
             return False
         return model_info.get("supports_adaptive_thinking") is True
@@ -126,7 +126,7 @@ class TencentChatConfig(OpenAIGPTConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         if not api_base:

@@ -1,4 +1,4 @@
-"""Akto guardrail integration for LiteLLM proxy.
+"""Akto guardrail integration for EmbRouter proxy.
 
 Uses a two-config-entry pattern:
   - akto-validate (pre_call): Checks request against Akto guardrails, blocks if flagged.
@@ -17,20 +17,20 @@ import httpx
 from fastapi import HTTPException
 from typing_extensions import NotRequired, ReadOnly, TypedDict, Unpack
 
-from litellm._logging import verbose_proxy_logger
-from litellm.integrations.custom_guardrail import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.integrations.custom_guardrail import (
     CustomGuardrail,
     log_guardrail_information,
 )
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.types.guardrails import GuardrailEventHooks, Mode
-from litellm.types.utils import GenericGuardrailAPIInputs
+from embrouter.types.guardrails import GuardrailEventHooks, Mode
+from embrouter.types.utils import GenericGuardrailAPIInputs
 
 if TYPE_CHECKING:
-    from litellm.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
+    from embrouter.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
 
 
 class _CustomGuardrailKwargs(TypedDict):
@@ -55,12 +55,12 @@ class _CustomGuardrailKwargs(TypedDict):
 
 
 HTTP_PROXY_PATH: Final = "/api/http-proxy"
-AKTO_CONNECTOR_NAME: Final = "litellm"
+AKTO_CONNECTOR_NAME: Final = "embrouter"
 DEFAULT_GUARDRAIL_TIMEOUT: Final = 5
 
 
 class AktoGuardrail(CustomGuardrail):
-    """LiteLLM guardrail hook that validates and ingests LLM traffic via the Akto API."""
+    """EmbRouter guardrail hook that validates and ingests LLM traffic via the Akto API."""
 
     # Maps event_hook to the input_type it should handle; mismatches are no-ops
     HOOK_TO_INPUT = {"pre_call": "request", "post_call": "response"}
@@ -68,7 +68,7 @@ class AktoGuardrail(CustomGuardrail):
     @staticmethod
     def get_config_model() -> type["GuardrailConfigModel"]:
         """Return the Pydantic config model for YAML-based initialization."""
-        from litellm.types.proxy.guardrails.guardrail_hooks.akto import (
+        from embrouter.types.proxy.guardrails.guardrail_hooks.akto import (
             AktoConfigModel,
         )
 
@@ -108,11 +108,11 @@ class AktoGuardrail(CustomGuardrail):
 
         self.akto_base_url = (akto_base_url or os.environ.get("AKTO_GUARDRAIL_API_BASE", "")).rstrip("/")
         if not self.akto_base_url:
-            raise ValueError("akto_base_url is required. Set AKTO_GUARDRAIL_API_BASE or pass it in litellm_params.")
+            raise ValueError("akto_base_url is required. Set AKTO_GUARDRAIL_API_BASE or pass it in embrouter_params.")
 
         self.akto_api_key = akto_api_key or os.environ.get("AKTO_API_KEY", "")
         if not self.akto_api_key:
-            raise ValueError("akto_api_key is required. Set AKTO_API_KEY or pass it in litellm_params.")
+            raise ValueError("akto_api_key is required. Set AKTO_API_KEY or pass it in embrouter_params.")
 
         self.unreachable_fallback: Literal["fail_closed", "fail_open"] = unreachable_fallback
         self.guardrail_timeout = guardrail_timeout or DEFAULT_GUARDRAIL_TIMEOUT
@@ -133,10 +133,10 @@ class AktoGuardrail(CustomGuardrail):
 
     @staticmethod
     def resolve_metadata_value(request_data: dict | None, key: str) -> str | None:
-        """Look up a metadata value from litellm_metadata or metadata dicts."""
+        """Look up a metadata value from embrouter_metadata or metadata dicts."""
         if request_data is None:
             return None
-        for dict_key in ("litellm_metadata", "metadata"):
+        for dict_key in ("embrouter_metadata", "metadata"):
             container = request_data.get(dict_key) or {}
             if isinstance(container, dict) and container:
                 value = container.get(key)
@@ -408,7 +408,7 @@ class AktoGuardrail(CustomGuardrail):
         input_type: Literal["request", "response"],
         logging_obj=None,
     ) -> GenericGuardrailAPIInputs:
-        """Main entry point called by LiteLLM's guardrail framework.
+        """Main entry point called by EmbRouter's guardrail framework.
 
         Pre_call (input_type="request"):
           - Awaits guardrail check. If blocked, fires off ingest with 403 marker and raises.

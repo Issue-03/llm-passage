@@ -5,18 +5,18 @@ from typing import Final
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import ORJSONResponse
 
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy._types import *
-from litellm.proxy.auth.user_api_key_auth import UserAPIKeyAuth, user_api_key_auth
-from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
-from litellm.proxy.common_utils.http_parsing_utils import _read_request_body
-from litellm.proxy.common_utils.openai_endpoint_utils import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy._types import *
+from embrouter.proxy.auth.user_api_key_auth import UserAPIKeyAuth, user_api_key_auth
+from embrouter.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+from embrouter.proxy.common_utils.http_parsing_utils import _read_request_body
+from embrouter.proxy.common_utils.openai_endpoint_utils import (
     get_custom_llm_provider_from_request_body,
     get_custom_llm_provider_from_request_headers,
     get_custom_llm_provider_from_request_query,
 )
-from litellm.proxy.common_utils.resource_ownership import is_proxy_admin
-from litellm.proxy.container_endpoints.ownership import (
+from embrouter.proxy.common_utils.resource_ownership import is_proxy_admin
+from embrouter.proxy.container_endpoints.ownership import (
     assert_user_can_access_container,
     get_container_forwarding_params,
     list_owned_containers,
@@ -74,7 +74,7 @@ async def create_container(
         }'
     ```
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         proxy_config,
@@ -196,7 +196,7 @@ async def list_containers(
         -H "Authorization: Bearer sk-1234"
     ```
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         proxy_config,
@@ -300,7 +300,7 @@ async def retrieve_container(
         -H "custom-llm-provider: azure"
     ```
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         proxy_config,
@@ -406,7 +406,7 @@ async def delete_container(
         -H "custom-llm-provider: azure"
     ```
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         proxy_config,
@@ -476,7 +476,7 @@ async def delete_container(
 
 
 # Register JSON-configured container file endpoints
-from litellm.proxy.container_endpoints.handler_factory import (
+from embrouter.proxy.container_endpoints.handler_factory import (
     register_container_file_endpoints,
 )
 

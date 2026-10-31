@@ -11,11 +11,11 @@ from functools import lru_cache
 from types import MappingProxyType
 from typing import Final
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.integrations.otel.model.destination import OtelDestination
-from litellm.litellm_core_utils.url_utils import is_url_destination_allowed_by_host
-from litellm.types.utils import OtelSpanScope, StandardCallbackDynamicParams
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.integrations.otel.model.destination import OtelDestination
+from embrouter.embrouter_core_utils.url_utils import is_url_destination_allowed_by_host
+from embrouter.types.utils import OtelSpanScope, StandardCallbackDynamicParams
 
 #: An endpoint plus the OTLP transport to reach it with, or ``None`` when the backend
 #: names no destination. The transport is ``None`` where the backend has only one.
@@ -27,7 +27,7 @@ def _warn_host_not_allowlisted(host: str) -> None:
     """Cached so one misconfigured team logs once rather than once per request."""
     verbose_logger.warning(
         "OTel V2: not exporting to key/team Langfuse host '%s'. Add it to "
-        "litellm_settings.provider_url_destination_allowed_hosts to permit it",
+        "embrouter_settings.provider_url_destination_allowed_hosts to permit it",
         host,
     )
 
@@ -41,7 +41,7 @@ def _langfuse_destination(params: StandardCallbackDynamicParams) -> "_Destinatio
     credentials. The operator's own ``LANGFUSE_HOST`` is not checked, since an internal
     collector there is a deployment choice.
     """
-    from litellm.integrations.langfuse.langfuse_otel import (
+    from embrouter.integrations.langfuse.langfuse_otel import (
         LANGFUSE_CLOUD_US_ENDPOINT,
         LangfuseOtelLogger,
     )
@@ -54,27 +54,27 @@ def _langfuse_destination(params: StandardCallbackDynamicParams) -> "_Destinatio
     endpoint: Final = f"{normalized.rstrip('/')}/api/public/otel"
     if tenant_host is None:
         return (endpoint, None)
-    if not is_url_destination_allowed_by_host(endpoint, litellm.provider_url_destination_allowed_hosts):
+    if not is_url_destination_allowed_by_host(endpoint, embrouter.provider_url_destination_allowed_hosts):
         _warn_host_not_allowlisted(host)
         return None
     return (endpoint, None)
 
 
 def _arize_destination(params: StandardCallbackDynamicParams) -> "_Destination | None":
-    from litellm.integrations.arize.arize import ArizeLogger
+    from embrouter.integrations.arize.arize import ArizeLogger
 
     config: Final = ArizeLogger.get_arize_config()
     return (config.endpoint, config.protocol)
 
 
 def _weave_destination(params: StandardCallbackDynamicParams) -> "_Destination | None":
-    from litellm.integrations.weave.weave_otel import weave_otel_endpoint
+    from embrouter.integrations.weave.weave_otel import weave_otel_endpoint
 
     return (weave_otel_endpoint(os.environ.get("WANDB_HOST")), None)
 
 
 def _newrelic_destination(params: StandardCallbackDynamicParams) -> "_Destination | None":
-    from litellm.integrations.otel.presets.newrelic import newrelic_dynamic_endpoint
+    from embrouter.integrations.otel.presets.newrelic import newrelic_dynamic_endpoint
 
     endpoint: Final = newrelic_dynamic_endpoint(params)
     return (endpoint, None) if endpoint else None
@@ -119,7 +119,7 @@ def _span_scope(callback_name: str, params: StandardCallbackDynamicParams) -> Ot
 
 def destination_capable_backends() -> frozenset[str]:
     """Backends a key or team can point at its own account."""
-    from litellm.integrations.otel.presets import DYNAMIC_HEADERS_BY_CALLBACK
+    from embrouter.integrations.otel.presets import DYNAMIC_HEADERS_BY_CALLBACK
 
     return frozenset(_DESTINATION_BY_CALLBACK) & frozenset(DYNAMIC_HEADERS_BY_CALLBACK)
 
@@ -136,7 +136,7 @@ def destination_for(
     team's ``otel_service_name``, which the per-request tracer route applies when the
     backend is not overridden and the destination has to apply once it is.
     """
-    from litellm.integrations.otel.presets import DYNAMIC_HEADERS_BY_CALLBACK
+    from embrouter.integrations.otel.presets import DYNAMIC_HEADERS_BY_CALLBACK
 
     header_builder: Final = DYNAMIC_HEADERS_BY_CALLBACK.get(callback_name)
     destination_builder: Final = _DESTINATION_BY_CALLBACK.get(callback_name)

@@ -45,7 +45,7 @@ def _langfuse_environment_error(callback_vars: Mapping[str, str]) -> str | None:
     value: Final = callback_vars.get("langfuse_environment")
     if value is None:
         return None
-    from litellm.litellm_core_utils.initialize_dynamic_callback_params import (
+    from embrouter.embrouter_core_utils.initialize_dynamic_callback_params import (
         validate_langfuse_environment_value,
     )
 
@@ -64,7 +64,7 @@ def _langfuse_span_scope_error(callback_name: str | None, callback_vars: Mapping
         return (
             f"{_LANGFUSE_SPAN_SCOPE_VAR} applies to the {_LANGFUSE_OTEL_CALLBACK} callback only, not {callback_name!r}"
         )
-    from litellm.litellm_core_utils.initialize_dynamic_callback_params import (
+    from embrouter.embrouter_core_utils.initialize_dynamic_callback_params import (
         validate_langfuse_span_scope_value,
     )
 
@@ -247,11 +247,11 @@ def _newrelic_config_error(callback_vars: Mapping[str, str]) -> str | None:
     if not any(key.startswith(_NEWRELIC_VAR_PREFIX) for key in callback_vars):
         return None
 
-    from litellm.integrations.otel.model.config import is_otel_v2_enabled
-    from litellm.integrations.otel.presets.newrelic import NEWRELIC_OTLP_ENDPOINT_BY_REGION
+    from embrouter.integrations.otel.model.config import is_otel_v2_enabled
+    from embrouter.integrations.otel.presets.newrelic import NEWRELIC_OTLP_ENDPOINT_BY_REGION
 
     if not is_otel_v2_enabled():
-        return "Per-team New Relic routing requires the proxy to run with LITELLM_OTEL_V2=true."
+        return "Per-team New Relic routing requires the proxy to run with EMBROUTER_OTEL_V2=true."
 
     region: Final = callback_vars.get("newrelic_region")
     if region is not None and region.lower() not in NEWRELIC_OTLP_ENDPOINT_BY_REGION:

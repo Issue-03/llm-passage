@@ -12,24 +12,24 @@ from typing import Any, Final, Literal, TypeVar
 import httpx
 from pydantic import BaseModel, ConfigDict, StrictBool, TypeAdapter, ValidationError
 
-import litellm
-from litellm.constants import (
+import embrouter
+from embrouter.constants import (
     DEFAULT_MODEL_CREATED_AT_TIME,
     DEFAULT_REASONING_EFFORT_HIGH_THINKING_BUDGET,
     DEFAULT_REASONING_EFFORT_MEDIUM_THINKING_BUDGET,
     DEFAULT_REASONING_EFFORT_XHIGH_THINKING_BUDGET,
 )
-from litellm.exceptions import UnsupportedParamsError
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+from embrouter.exceptions import UnsupportedParamsError
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
     get_file_ids_from_messages,
     is_encrypted_reasoning_block,
 )
-from litellm.litellm_core_utils.prompt_templates.factory import (
+from embrouter.embrouter_core_utils.prompt_templates.factory import (
     THOUGHT_SIGNATURE_SEPARATOR,
 )
-from litellm.llms.base_llm.base_utils import BaseLLMModelInfo, BaseTokenCounter
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.types.llms.anthropic import (
+from embrouter.llms.base_llm.base_utils import BaseLLMModelInfo, BaseTokenCounter
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.types.llms.anthropic import (
     ANTHROPIC_HOSTED_TOOLS,
     ANTHROPIC_MID_CONVERSATION_OUTPUT_CONFIG_BETA_HEADER,
     ANTHROPIC_OAUTH_BETA_HEADER,
@@ -38,8 +38,8 @@ from litellm.types.llms.anthropic import (
     AnthropicMcpServerTool,
     AnthropicMessagesToolChoice,
 )
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.proxy.model_listing import ModelInfoResponse
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.proxy.model_listing import ModelInfoResponse
 
 _MessageT = TypeVar("_MessageT")
 
@@ -102,8 +102,8 @@ def requires_native_compaction_beta(
 
 
 def supports_anthropic_cache_control(model: str, custom_llm_provider: str | None) -> bool:
-    from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
-    from litellm.utils import supports_prompt_caching
+    from embrouter.embrouter_core_utils.get_llm_provider_logic import get_llm_provider
+    from embrouter.utils import supports_prompt_caching
 
     try:
         provider: Final = custom_llm_provider if custom_llm_provider is not None else get_llm_provider(model=model)[1]
@@ -486,12 +486,12 @@ class AnthropicModelInfo(BaseLLMModelInfo):
         clean client-side 400."""
         if AnthropicModelInfo._supports_sampling_params(model) or (param == "temperature" and value == 1):
             optional_params[output_key] = value
-        elif not (litellm.drop_params or drop_params):
+        elif not (embrouter.drop_params or drop_params):
             supported_hint: Final = "Only temperature=1 is supported. " if param == "temperature" else ""
-            raise litellm.utils.UnsupportedParamsError(
+            raise embrouter.utils.UnsupportedParamsError(
                 message=(
                     f"{model} does not support {param}={value}. {supported_hint}"
-                    "To drop unsupported params, set `litellm.drop_params = True`."
+                    "To drop unsupported params, set `embrouter.drop_params = True`."
                 ),
                 status_code=400,
             )
@@ -508,16 +508,16 @@ class AnthropicModelInfo(BaseLLMModelInfo):
         raises a clean client-side 400 for such models without ``drop_params``."""
         if not AnthropicModelInfo.forced_tool_use_unsupported(model):
             return False
-        if not (litellm.drop_params or drop_params):
-            raise litellm.utils.UnsupportedParamsError(
+        if not (embrouter.drop_params or drop_params):
+            raise embrouter.utils.UnsupportedParamsError(
                 message=(
                     f"{model} does not support forced tool use (tool_choice='required' or a named tool). "
                     "Use tool_choice='auto' and tell the model in the prompt when to call the tool, or set "
-                    "`litellm.drop_params = True` to downgrade to 'auto' automatically."
+                    "`embrouter.drop_params = True` to downgrade to 'auto' automatically."
                 ),
                 status_code=400,
             )
-        litellm.verbose_logger.warning(DROP_FORCED_TOOL_CHOICE_WARNING, model)
+        embrouter.verbose_logger.warning(DROP_FORCED_TOOL_CHOICE_WARNING, model)
         return True
 
     @staticmethod
@@ -561,7 +561,7 @@ class AnthropicModelInfo(BaseLLMModelInfo):
         )
         deprefixed: Final = tuple(model[len(p) :] for p in prefixes if model.startswith(p))
         try:
-            from litellm.llms.bedrock.common_utils import BedrockModelInfo
+            from embrouter.llms.bedrock.common_utils import BedrockModelInfo
 
             base = BedrockModelInfo.get_base_model(model)
         except Exception:
@@ -586,11 +586,11 @@ class AnthropicModelInfo(BaseLLMModelInfo):
     def _get_model_capability(model: str, key: str) -> bool | None:
         """Read boolean capability ``key`` from the model map, or None when
         no entry declares it."""
-        from litellm.utils import _get_bundled_model_cost_map
+        from embrouter.utils import _get_bundled_model_cost_map
 
         try:
             candidates: Final = AnthropicModelInfo._model_map_lookup_candidates(model)
-            for model_cost in (litellm.model_cost, _get_bundled_model_cost_map()):
+            for model_cost in (embrouter.model_cost, _get_bundled_model_cost_map()):
                 for cand in candidates:
                     value = model_cost.get(cand, {}).get(key)
                     if isinstance(value, bool):
@@ -606,7 +606,7 @@ class AnthropicModelInfo(BaseLLMModelInfo):
         Unlike ``_get_model_capability``, does not walk stripped provider aliases.
         Use when a feature is tied to a specific host (e.g. Anthropic API fast mode).
         """
-        value: Final = litellm.model_cost.get(model, {}).get(key)
+        value: Final = embrouter.model_cost.get(model, {}).get(key)
         return value if isinstance(value, bool) else None
 
     @staticmethod
@@ -625,10 +625,10 @@ class AnthropicModelInfo(BaseLLMModelInfo):
         model does not resolve under that provider or the resolved entry has no
         opinion on ``key``.
         """
-        from litellm.utils import _get_model_info_helper
+        from embrouter.utils import _get_model_info_helper
 
         try:
-            resolved_model, resolved_provider, _, _ = litellm.get_llm_provider(
+            resolved_model, resolved_provider, _, _ = embrouter.get_llm_provider(
                 model=model, custom_llm_provider=custom_llm_provider
             )
             value: Final = _get_model_info_helper(model=resolved_model, custom_llm_provider=resolved_provider).get(key)
@@ -645,7 +645,7 @@ class AnthropicModelInfo(BaseLLMModelInfo):
         Otherwise ``_supports_factory``'s provider-level fallbacks and the raw
         model-map walk remain as backstops for alias forms the lookup misses.
         """
-        from litellm.utils import _supports_factory
+        from embrouter.utils import _supports_factory
 
         resolved: Final = AnthropicModelInfo._get_provider_resolved_capability(model, key, custom_llm_provider)
         if resolved is not None:
@@ -706,7 +706,7 @@ class AnthropicModelInfo(BaseLLMModelInfo):
             return
         if not AnthropicModelInfo._is_always_on_thinking_model(model, custom_llm_provider):
             return
-        litellm.verbose_logger.warning(
+        embrouter.verbose_logger.warning(
             DROP_DISABLED_THINKING_WARNING,
             model,
         )
@@ -866,7 +866,7 @@ class AnthropicModelInfo(BaseLLMModelInfo):
         Returns:
             List of beta header strings
         """
-        from litellm.types.llms.anthropic import ANTHROPIC_EFFORT_BETA_HEADER
+        from embrouter.types.llms.anthropic import ANTHROPIC_EFFORT_BETA_HEADER
 
         betas: Final = []
 
@@ -944,13 +944,13 @@ class AnthropicModelInfo(BaseLLMModelInfo):
             betas.add("mcp-client-2025-04-04")
         # Tool search, programmatic tool calling, and input_examples all use the same beta header
         if tool_search_used or programmatic_tool_calling_used or input_examples_used:
-            from litellm.types.llms.anthropic import ANTHROPIC_TOOL_SEARCH_BETA_HEADER
+            from embrouter.types.llms.anthropic import ANTHROPIC_TOOL_SEARCH_BETA_HEADER
 
             betas.add(ANTHROPIC_TOOL_SEARCH_BETA_HEADER)
 
         # Effort parameter uses a separate beta header
         if effort_used:
-            from litellm.types.llms.anthropic import ANTHROPIC_EFFORT_BETA_HEADER
+            from embrouter.types.llms.anthropic import ANTHROPIC_EFFORT_BETA_HEADER
 
             betas.add(ANTHROPIC_EFFORT_BETA_HEADER)
 
@@ -987,7 +987,7 @@ class AnthropicModelInfo(BaseLLMModelInfo):
         if is_vertex_request is True:
             # Vertex AI requires web search beta header for web search to work
             if web_search_tool_used:
-                from litellm.types.llms.anthropic import ANTHROPIC_BETA_HEADER_VALUES
+                from embrouter.types.llms.anthropic import ANTHROPIC_BETA_HEADER_VALUES
 
                 headers["anthropic-beta"] = ANTHROPIC_BETA_HEADER_VALUES.WEB_SEARCH_2025_03_05.value
         elif len(betas) > 0:
@@ -1001,14 +1001,14 @@ class AnthropicModelInfo(BaseLLMModelInfo):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
-        if api_base is None and isinstance(litellm_params, dict):
-            api_base = litellm_params.get("api_base")
+        if api_base is None and isinstance(embrouter_params, dict):
+            api_base = embrouter_params.get("api_base")
         use_bearer_for_custom_base: Final[bool] = bool(
-            isinstance(litellm_params, dict) and litellm_params.get("use_bearer_for_custom_base", False)
+            isinstance(embrouter_params, dict) and embrouter_params.get("use_bearer_for_custom_base", False)
         )
         # Check for Anthropic OAuth token in headers
         headers, api_key = optionally_handle_anthropic_oauth(headers=headers, api_key=api_key)
@@ -1018,7 +1018,7 @@ class AnthropicModelInfo(BaseLLMModelInfo):
         if api_key is None:
             auth_token = AnthropicModelInfo.get_auth_token()
         if api_key is None and auth_token is None:
-            raise litellm.AuthenticationError(
+            raise embrouter.AuthenticationError(
                 message="Missing Anthropic API Key - A call is being made to anthropic but no key is set either in the environment variables or via params. Please set `ANTHROPIC_API_KEY` or `ANTHROPIC_AUTH_TOKEN` in your environment vars",
                 llm_provider="anthropic",
                 model=model,
@@ -1069,7 +1069,7 @@ class AnthropicModelInfo(BaseLLMModelInfo):
 
     @staticmethod
     def get_api_base(api_base: str | None = None) -> str | None:
-        from litellm.secret_managers.main import get_secret_str
+        from embrouter.secret_managers.main import get_secret_str
 
         return (
             api_base
@@ -1080,7 +1080,7 @@ class AnthropicModelInfo(BaseLLMModelInfo):
 
     @staticmethod
     def get_api_key(api_key: str | None = None) -> str | None:
-        from litellm.secret_managers.main import get_secret_str
+        from embrouter.secret_managers.main import get_secret_str
 
         return api_key or get_secret_str("ANTHROPIC_API_KEY")
 
@@ -1091,7 +1091,7 @@ class AnthropicModelInfo(BaseLLMModelInfo):
         Unlike api_key (which uses X-Api-Key header), auth_token uses
         Authorization: Bearer header, matching the official Anthropic SDK behavior.
         """
-        from litellm.secret_managers.main import get_secret_str
+        from embrouter.secret_managers.main import get_secret_str
 
         return auth_token or get_secret_str("ANTHROPIC_AUTH_TOKEN")
 
@@ -1130,7 +1130,7 @@ class AnthropicModelInfo(BaseLLMModelInfo):
             )
         headers: Final = {"anthropic-version": "2023-06-01"}
         headers.update(auth_header)
-        response: Final = litellm.module_level_client.get(
+        response: Final = embrouter.module_level_client.get(
             url=f"{api_base}/v1/models",
             headers=headers,
         )
@@ -1144,8 +1144,8 @@ class AnthropicModelInfo(BaseLLMModelInfo):
 
         models: Final[Sequence[Mapping[str, str]]] = response.json()["data"]
 
-        litellm_model_names: Final = ["anthropic/" + model["id"] for model in models]
-        return litellm_model_names
+        embrouter_model_names: Final = ["anthropic/" + model["id"] for model in models]
+        return embrouter_model_names
 
     def get_token_counter(self) -> BaseTokenCounter | None:
         """
@@ -1154,7 +1154,7 @@ class AnthropicModelInfo(BaseLLMModelInfo):
         Returns:
             AnthropicTokenCounter instance for this provider.
         """
-        from litellm.llms.anthropic.count_tokens.token_counter import (
+        from embrouter.llms.anthropic.count_tokens.token_counter import (
             AnthropicTokenCounter,
         )
 
@@ -1617,7 +1617,7 @@ def flatten_unencrypted_web_search_results_in_anthropic_messages(
     same title / url / snippet evidence.
 
     ``encrypted_content`` is an opaque blob only Anthropic's own search backend can
-    mint, so blocks synthesized by LiteLLM (websearch interception against a search
+    mint, so blocks synthesized by EmbRouter (websearch interception against a search
     provider) are rejected with ``Invalid encrypted_content in search_result block``
     when a native client loops them back as history. Flattening them keeps the
     evidence in the conversation instead of 400ing the follow-up turn, and leaves

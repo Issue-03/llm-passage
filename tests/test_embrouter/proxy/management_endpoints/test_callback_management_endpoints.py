@@ -11,16 +11,16 @@ from typing import cast
 
 from fastapi import FastAPI
 
-import litellm
-from litellm.integrations.datadog.datadog import DataDogLogger
-from litellm.integrations.langfuse.langfuse import LangFuseLogger
-from litellm.proxy.management_endpoints.callback_management_endpoints import router
-from litellm.proxy.proxy_server import app
+import embrouter
+from embrouter.integrations.datadog.datadog import DataDogLogger
+from embrouter.integrations.langfuse.langfuse import LangFuseLogger
+from embrouter.proxy.management_endpoints.callback_management_endpoints import router
+from embrouter.proxy.proxy_server import app
 
 
 @pytest.fixture(autouse=True, scope="session")
 def clear_existing_callbacks():
-    litellm.logging_callback_manager._reset_all_callbacks()
+    embrouter.logging_callback_manager._reset_all_callbacks()
 
 
 class TestCallbackManagementEndpoints:
@@ -30,20 +30,20 @@ class TestCallbackManagementEndpoints:
     def setup_and_teardown(self):
         """Setup and teardown for each test"""
         # Reset callbacks before each test
-        litellm.success_callback = []
-        litellm.failure_callback = []
-        litellm._async_success_callback = []
-        litellm._async_failure_callback = []
-        litellm.callbacks = []
+        embrouter.success_callback = []
+        embrouter.failure_callback = []
+        embrouter._async_success_callback = []
+        embrouter._async_failure_callback = []
+        embrouter.callbacks = []
 
         yield
 
         # Clean up after each test
-        litellm.success_callback = []
-        litellm.failure_callback = []
-        litellm._async_success_callback = []
-        litellm._async_failure_callback = []
-        litellm.callbacks = []
+        embrouter.success_callback = []
+        embrouter.failure_callback = []
+        embrouter._async_success_callback = []
+        embrouter._async_failure_callback = []
+        embrouter.callbacks = []
 
     def test_alist_callbacks_no_active_callbacks(self):
         """Test /callbacks/list endpoint with no active callbacks"""
@@ -82,8 +82,8 @@ class TestCallbackManagementEndpoints:
         client = TestClient(app)
 
         # Add string representation to callback lists (this is how the system typically works)
-        litellm.success_callback.append("langfuse")
-        litellm._async_success_callback.append("langfuse")
+        embrouter.success_callback.append("langfuse")
+        embrouter._async_success_callback.append("langfuse")
 
         # Make request to list callbacks endpoint
         response = client.get(
@@ -112,9 +112,9 @@ class TestCallbackManagementEndpoints:
 
         # Test with datadog callbacks added directly (without initializing the logger to avoid async issues)
         # Add string representations to different callback types to test comprehensive categorization
-        litellm.success_callback.append("datadog")
-        litellm.failure_callback.append("datadog")
-        litellm.callbacks.append("datadog")
+        embrouter.success_callback.append("datadog")
+        embrouter.failure_callback.append("datadog")
+        embrouter.callbacks.append("datadog")
 
         # Make request to list callbacks endpoint
         response = client.get(
@@ -149,9 +149,9 @@ class TestCallbackManagementEndpoints:
         client = TestClient(app)
 
         # Setup mixed callbacks
-        litellm.success_callback.append("langfuse")
-        litellm.failure_callback.append("datadog")
-        litellm.callbacks.append("prometheus")
+        embrouter.success_callback.append("langfuse")
+        embrouter.failure_callback.append("datadog")
+        embrouter.callbacks.append("prometheus")
 
         # Make request to list callbacks endpoint
         response = client.get(
@@ -281,7 +281,7 @@ class TestNewRelicCallbackConfig:
 
 class TestLangfuseOtelCallbackConfig:
     def test_span_scope_is_a_select_over_exactly_the_scopes_the_validator_accepts(self):
-        from litellm.types.utils import OTEL_SPAN_SCOPES
+        from embrouter.types.utils import OTEL_SPAN_SCOPES
 
         client = TestClient(app)
         response = client.get("/callbacks/configs", headers={"Authorization": "Bearer sk-1234"})
@@ -295,32 +295,32 @@ class TestLangfuseOtelCallbackConfig:
 
 class TestNewRelicTeamCallbackValidation:
     def _data(self, callback_vars):
-        from litellm.proxy._types import AddTeamCallback
+        from embrouter.proxy._types import AddTeamCallback
 
         return AddTeamCallback(callback_name="newrelic", callback_type="success", callback_vars=callback_vars)
 
     def test_rejects_when_otel_v2_off(self, monkeypatch):
         from fastapi import HTTPException
 
-        from litellm.integrations.otel.model.config import is_otel_v2_enabled
-        from litellm.proxy.management_endpoints.team_callback_endpoints import _validate_team_callback
+        from embrouter.integrations.otel.model.config import is_otel_v2_enabled
+        from embrouter.proxy.management_endpoints.team_callback_endpoints import _validate_team_callback
 
-        monkeypatch.delenv("LITELLM_OTEL_V2", raising=False)
+        monkeypatch.delenv("EMBROUTER_OTEL_V2", raising=False)
         is_otel_v2_enabled.cache_clear()
         try:
             with pytest.raises(HTTPException) as exc:
                 _validate_team_callback(self._data({"newrelic_api_key": "k"}))
-            assert "LITELLM_OTEL_V2" in str(exc.value.detail)
+            assert "EMBROUTER_OTEL_V2" in str(exc.value.detail)
         finally:
             is_otel_v2_enabled.cache_clear()
 
     def test_rejects_unknown_region_and_region_without_key(self, monkeypatch):
         from fastapi import HTTPException
 
-        from litellm.integrations.otel.model.config import is_otel_v2_enabled
-        from litellm.proxy.management_endpoints.team_callback_endpoints import _validate_team_callback
+        from embrouter.integrations.otel.model.config import is_otel_v2_enabled
+        from embrouter.proxy.management_endpoints.team_callback_endpoints import _validate_team_callback
 
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+        monkeypatch.setenv("EMBROUTER_OTEL_V2", "true")
         is_otel_v2_enabled.cache_clear()
         try:
             with pytest.raises(HTTPException) as exc:
@@ -339,11 +339,11 @@ class TestNewRelicTeamCallbackValidation:
             is_otel_v2_enabled.cache_clear()
 
     def test_ignores_other_callbacks_and_bare_newrelic(self, monkeypatch):
-        from litellm.integrations.otel.model.config import is_otel_v2_enabled
-        from litellm.proxy._types import AddTeamCallback
-        from litellm.proxy.management_endpoints.team_callback_endpoints import _validate_team_callback
+        from embrouter.integrations.otel.model.config import is_otel_v2_enabled
+        from embrouter.proxy._types import AddTeamCallback
+        from embrouter.proxy.management_endpoints.team_callback_endpoints import _validate_team_callback
 
-        monkeypatch.delenv("LITELLM_OTEL_V2", raising=False)
+        monkeypatch.delenv("EMBROUTER_OTEL_V2", raising=False)
         is_otel_v2_enabled.cache_clear()
         try:
             assert _validate_team_callback(self._data({})) is None
@@ -370,19 +370,19 @@ class TestNewRelicKeyLoggingValidation:
     def test_rejects_same_configs_as_team_endpoint(self, monkeypatch):
         from fastapi import HTTPException
 
-        from litellm.integrations.otel.model.config import is_otel_v2_enabled
-        from litellm.proxy.management_endpoints.key_management_endpoints import (
+        from embrouter.integrations.otel.model.config import is_otel_v2_enabled
+        from embrouter.proxy.management_endpoints.key_management_endpoints import (
             raise_on_invalid_key_logging_config,
         )
 
-        monkeypatch.delenv("LITELLM_OTEL_V2", raising=False)
+        monkeypatch.delenv("EMBROUTER_OTEL_V2", raising=False)
         is_otel_v2_enabled.cache_clear()
         try:
             with pytest.raises(HTTPException) as exc:
                 raise_on_invalid_key_logging_config(self._metadata({"newrelic_api_key": "k"}))
-            assert "LITELLM_OTEL_V2" in str(exc.value.detail)
+            assert "EMBROUTER_OTEL_V2" in str(exc.value.detail)
 
-            monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+            monkeypatch.setenv("EMBROUTER_OTEL_V2", "true")
             is_otel_v2_enabled.cache_clear()
             with pytest.raises(HTTPException) as exc:
                 raise_on_invalid_key_logging_config(
@@ -397,12 +397,12 @@ class TestNewRelicKeyLoggingValidation:
             is_otel_v2_enabled.cache_clear()
 
     def test_ignores_metadata_without_newrelic_logging(self, monkeypatch):
-        from litellm.integrations.otel.model.config import is_otel_v2_enabled
-        from litellm.proxy.management_endpoints.key_management_endpoints import (
+        from embrouter.integrations.otel.model.config import is_otel_v2_enabled
+        from embrouter.proxy.management_endpoints.key_management_endpoints import (
             raise_on_invalid_key_logging_config,
         )
 
-        monkeypatch.delenv("LITELLM_OTEL_V2", raising=False)
+        monkeypatch.delenv("EMBROUTER_OTEL_V2", raising=False)
         is_otel_v2_enabled.cache_clear()
         try:
             assert raise_on_invalid_key_logging_config(None) is None

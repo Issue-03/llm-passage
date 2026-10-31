@@ -2,7 +2,7 @@
 Anthropic Messages, and Responses API surfaces, each normalized to chat shape), duplicates
 each through every shadow arm in one detached task (each candidate auto-router for a
 forward job, the fixed baseline model for a reverse one), blind-judges real vs each arm,
-and appends one ``LiteLLM_ShadowEvalAttempt`` row per arm (verdict or error) as the
+and appends one ``EmbRouter_ShadowEvalAttempt`` row per arm (verdict or error) as the
 feature's only hot-path write. A multi-router job's arms therefore score the identical
 sampled requests against the identical real responses, which is what makes their win
 rates comparable head-to-head.
@@ -24,30 +24,30 @@ from typing import TYPE_CHECKING, Final, Literal
 
 from pydantic import BaseModel, ConfigDict, TypeAdapter, ValidationError, field_validator, model_validator
 
-from litellm._logging import verbose_logger
-from litellm.caching.in_memory_cache import InMemoryCache
-from litellm.constants import INTERNAL_CALL_ORIGIN_METADATA_KEY
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.integrations.websearch_interception.tools import is_web_search_tool_responses
-from litellm.litellm_core_utils.core_helpers import get_litellm_metadata_from_kwargs, independent_snapshot
-from litellm.litellm_core_utils.internal_call_metadata import sanitized_forwardable_call_metadata
-from litellm.litellm_core_utils.llm_judge import (
+from embrouter._logging import verbose_logger
+from embrouter.caching.in_memory_cache import InMemoryCache
+from embrouter.constants import INTERNAL_CALL_ORIGIN_METADATA_KEY
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.integrations.websearch_interception.tools import is_web_search_tool_responses
+from embrouter.embrouter_core_utils.core_helpers import get_embrouter_metadata_from_kwargs, independent_snapshot
+from embrouter.embrouter_core_utils.internal_call_metadata import sanitized_forwardable_call_metadata
+from embrouter.embrouter_core_utils.llm_judge import (
     default_router_provider,
     extract_text_from_content,
     judge_acompletion,
     parse_json_verdict,
 )
-from litellm.litellm_core_utils.redact_messages import should_redact_message_logging
-from litellm.llms.base_llm.base_utils import type_to_response_format_param
-from litellm.router_utils.common_utils import resolve_model_group_alias
-from litellm.types.management_endpoints.auto_router_endpoints import ShadowEvalDirection
-from litellm.types.utils import SHADOW_EVAL_JUDGE_CALL_ORIGIN, SHADOW_EVAL_ROUTER_CALL_ORIGIN
+from embrouter.embrouter_core_utils.redact_messages import should_redact_message_logging
+from embrouter.llms.base_llm.base_utils import type_to_response_format_param
+from embrouter.router_utils.common_utils import resolve_model_group_alias
+from embrouter.types.management_endpoints.auto_router_endpoints import ShadowEvalDirection
+from embrouter.types.utils import SHADOW_EVAL_JUDGE_CALL_ORIGIN, SHADOW_EVAL_ROUTER_CALL_ORIGIN
 
 if TYPE_CHECKING:
-    from litellm.proxy.db.shadow_eval_funnel import ShadowEvalFunnelStage
-    from litellm.proxy.utils import PrismaClient
-    from litellm.router import Router
-    from litellm.types.utils import StandardLoggingPayload
+    from embrouter.proxy.db.shadow_eval_funnel import ShadowEvalFunnelStage
+    from embrouter.proxy.utils import PrismaClient
+    from embrouter.router import Router
+    from embrouter.types.utils import StandardLoggingPayload
 
 # A job starting, stopping, or hitting a budget propagates to sampling within one TTL;
 # the spend gate re-checks the cross-pod counter at pipeline entry, so it overshoots
@@ -84,8 +84,8 @@ def _chat_messages(kwargs: Mapping[str, object]) -> tuple[Mapping[str, object], 
 
 
 def _proxy_wire_body(kwargs: Mapping[str, object]) -> Mapping[str, object]:
-    litellm_params: Final = kwargs.get("litellm_params")
-    request: Final = litellm_params.get("proxy_server_request") if isinstance(litellm_params, Mapping) else None
+    embrouter_params: Final = kwargs.get("embrouter_params")
+    request: Final = embrouter_params.get("proxy_server_request") if isinstance(embrouter_params, Mapping) else None
     body: Final = request.get("body") if isinstance(request, Mapping) else None
     return body if isinstance(body, Mapping) else _EMPTY_METADATA
 
@@ -111,11 +111,11 @@ def _chat_request_from_anthropic_messages(
     because the logged optional_params switch dialect per provider path (the bridge's
     inner completion rewrites them to chat shape mid-flight); the adapter translates
     them alongside the messages, and sampling params copy through untranslated."""
-    from litellm.llms.anthropic.pass_through.adapters.transformation import (
-        LiteLLMAnthropicMessagesAdapter,
+    from embrouter.llms.anthropic.pass_through.adapters.transformation import (
+        EmbRouterAnthropicMessagesAdapter,
     )
 
-    adapter: Final = LiteLLMAnthropicMessagesAdapter()
+    adapter: Final = EmbRouterAnthropicMessagesAdapter()
     wire_body: Final = _proxy_wire_body(kwargs)
     system: Final = kwargs.get("system") or wire_body.get("system")
     param_keys: Final = (
@@ -144,10 +144,10 @@ def _chat_request_from_responses(
     for the same reason as the messages surface; the transformer translates them with
     the input (max_output_tokens to max_tokens, Responses tools to chat tools, reasoning
     to reasoning_effort) and never reads surface-only keys like previous_response_id."""
-    from litellm.responses.litellm_completion_transformation.transformation import (
-        LiteLLMCompletionResponsesConfig,
+    from embrouter.responses.embrouter_completion_transformation.transformation import (
+        EmbRouterCompletionResponsesConfig,
     )
-    from litellm.types.llms.openai import ResponsesAPIOptionalRequestParams
+    from embrouter.types.llms.openai import ResponsesAPIOptionalRequestParams
 
     wire_body: Final = _proxy_wire_body(kwargs)
     instructions: Final = kwargs.get("instructions") or wire_body.get("instructions")
@@ -160,7 +160,7 @@ def _chat_request_from_responses(
         )
     )
     return _CHAT_REQUEST_ADAPTER.validate_python(
-        LiteLLMCompletionResponsesConfig.transform_responses_api_request_to_chat_completion_request(  # pyright: ignore[reportUnknownMemberType]  # transformer declares a bare dict return
+        EmbRouterCompletionResponsesConfig.transform_responses_api_request_to_chat_completion_request(  # pyright: ignore[reportUnknownMemberType]  # transformer declares a bare dict return
             model=str(kwargs.get("model") or ""),
             input=kwargs.get("messages"),  # pyright: ignore[reportArgumentType]  # untyped callback kwargs; transformer validates shapes
             responses_api_request=responses_request,  # pyright: ignore[reportArgumentType]  # wire-body dict filtered to the surface's own request keys; the transformer is duck-typed
@@ -253,7 +253,7 @@ def _responses_final_text(response_obj: object) -> str:
     validated into the owner type first, because ``output_text`` is a derived property
     rather than a serialized field, so it never exists on a dict; a dict the owner type
     rejects is unjudgeable and skipped."""
-    from litellm.types.llms.openai import ResponsesAPIResponse
+    from embrouter.types.llms.openai import ResponsesAPIResponse
 
     try:
         response: Final = (
@@ -374,9 +374,9 @@ def _post_guardrail_kwargs(
 ) -> Mapping[str, object] | None:
     if guardrail_snapshot is None or guardrail_snapshot.fingerprint != request_guardrail_fingerprint(request_metadata):
         return None
-    raw_params: Final = kwargs.get("litellm_params")
-    litellm_params: Final = raw_params if isinstance(raw_params, Mapping) else _EMPTY_METADATA
-    raw_request: Final = litellm_params.get("proxy_server_request")
+    raw_params: Final = kwargs.get("embrouter_params")
+    embrouter_params: Final = raw_params if isinstance(raw_params, Mapping) else _EMPTY_METADATA
+    raw_request: Final = embrouter_params.get("proxy_server_request")
     request: Final = raw_request if isinstance(raw_request, Mapping) else _EMPTY_METADATA
     body: Final = guardrail_snapshot.body
     return MappingProxyType(
@@ -385,8 +385,8 @@ def _post_guardrail_kwargs(
             "messages": body.get("input" if ops is _RESPONSES_OPS else "messages"),
             "system": body.get("system"),
             "instructions": body.get("instructions"),
-            "litellm_params": MappingProxyType(
-                {**litellm_params, "proxy_server_request": MappingProxyType({**request, "body": body})}
+            "embrouter_params": MappingProxyType(
+                {**embrouter_params, "proxy_server_request": MappingProxyType({**request, "body": body})}
             ),
         }
     )
@@ -527,10 +527,10 @@ def _call_cost(response: object) -> float:
 
 def _price_map_cost(response: object) -> float:
     """Public price map fallback, treating an unmapped model as free rather than fatal."""
-    import litellm
+    import embrouter
 
     try:
-        return litellm.completion_cost(completion_response=response) or 0.0
+        return embrouter.completion_cost(completion_response=response) or 0.0
     except Exception:  # noqa: BLE001  # unmapped model: the attempt still counts, cost stays 0
         return 0.0
 
@@ -597,7 +597,7 @@ async def _job_spend_from_counter(counter_key: str, fallback_spend: float, max_b
     """The leg's spend through the cross-pod counter the key budget gates read. The owner
     degrades internally to the fill-time DB floor and raises only under fail-closed
     enforcement, which the caller honors by skipping the sample."""
-    from litellm.proxy.proxy_server import get_current_spend
+    from embrouter.proxy.proxy_server import get_current_spend
 
     return await get_current_spend(counter_key=counter_key, fallback_spend=fallback_spend, max_budget=max_budget)
 
@@ -608,7 +608,7 @@ async def _add_job_spend_to_counter(counter_key: str, cost: float) -> None:
     gate degrades to the fill floor, and overshoot grows to in-flight plus one TTL of
     samples, the same degradation the key budget counters accept."""
     try:
-        from litellm.proxy.proxy_server import increment_spend_counter
+        from embrouter.proxy.proxy_server import increment_spend_counter
 
         await increment_spend_counter(counter_key=counter_key, increment=cost)
     except Exception as e:  # noqa: BLE001  # attempt recording must proceed; the row stays truth and the fill floor gates
@@ -617,7 +617,7 @@ async def _add_job_spend_to_counter(counter_key: str, cost: float) -> None:
 
 def _record_funnel_event(job_id: str, stage: "ShadowEvalFunnelStage") -> None:
     try:
-        from litellm.proxy.db.shadow_eval_funnel import record_shadow_eval_funnel_event
+        from embrouter.proxy.db.shadow_eval_funnel import record_shadow_eval_funnel_event
 
         record_shadow_eval_funnel_event(job_id, stage)
     except Exception as e:  # noqa: BLE001  # coverage stats are advisory; sampling must proceed
@@ -633,14 +633,14 @@ async def _key_or_team_is_over_budget(metadata: Mapping[str, object]) -> bool:
     where the key crosses its budget while a request is in flight.
     """
     try:
-        from litellm.exceptions import BudgetExceededError
-        from litellm.proxy._types import UserAPIKeyAuth
-        from litellm.proxy.auth.auth_checks import (
+        from embrouter.exceptions import BudgetExceededError
+        from embrouter.proxy._types import UserAPIKeyAuth
+        from embrouter.proxy.auth.auth_checks import (
             _team_max_budget_check,
             _virtual_key_max_budget_check,
             get_team_object,
         )
-        from litellm.proxy.proxy_server import prisma_client, proxy_logging_obj, user_api_key_cache
+        from embrouter.proxy.proxy_server import prisma_client, proxy_logging_obj, user_api_key_cache
     except ImportError:
         return False
 
@@ -863,14 +863,14 @@ class ShadowEvalLogger(CustomLogger):
         if prisma is None:
             return _EMPTY_JOBS
         try:
-            records: Final = await prisma.db.litellm_shadowevaljob.find_many(
+            records: Final = await prisma.db.embrouter_shadowevaljob.find_many(
                 where={  # mutable-ok: Prisma filter
                     "stopped_at": None,
                     "ends_at": {"gt": datetime.now(timezone.utc)},  # mutable-ok: Prisma filter
                 },
             )
             grouped: Final = (
-                await prisma.db.litellm_shadowevalattempt.group_by(
+                await prisma.db.embrouter_shadowevalattempt.group_by(
                     by=["job_id"],
                     count=True,
                     sum={"judge_cost": True, "shadow_cost": True, "shadow_classifier_cost": True},
@@ -952,7 +952,7 @@ class ShadowEvalLogger(CustomLogger):
             payload: Final[StandardLoggingPayload | None] = kwargs.get("standard_logging_object")  # pyright: ignore[reportAssignmentType]  # untyped callback kwargs
             if payload is None:
                 return
-            raw_meta: Final = get_litellm_metadata_from_kwargs(dict(kwargs))  # mutable-ok: helper needs dict
+            raw_meta: Final = get_embrouter_metadata_from_kwargs(dict(kwargs))  # mutable-ok: helper needs dict
             request_metadata: Final = raw_meta if isinstance(raw_meta, Mapping) else _EMPTY_METADATA
             if request_metadata.get(INTERNAL_CALL_ORIGIN_METADATA_KEY):
                 return  # internal sub-call (our own shadow/judge, a classifier), not user traffic
@@ -1245,7 +1245,7 @@ class ShadowEvalLogger(CustomLogger):
         if prisma is None:
             return
         try:
-            await prisma.db.litellm_shadowevalattempt.create(
+            await prisma.db.embrouter_shadowevalattempt.create(
                 data={  # mutable-ok: Prisma payload
                     "job_id": job.id,
                     "request_id": request_id,
@@ -1382,7 +1382,7 @@ _EMPTY_JOBS: Final[Mapping[tuple[str, str], tuple[ActiveShadowEvalJob, ...]]] = 
 
 def _default_prisma_provider() -> "PrismaClient | None":
     try:
-        from litellm.proxy.proxy_server import prisma_client
+        from embrouter.proxy.proxy_server import prisma_client
     except ImportError:
         return None
     return prisma_client

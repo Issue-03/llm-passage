@@ -7,22 +7,22 @@ from typing import TYPE_CHECKING, Any, ClassVar, Final
 import httpx
 from pydantic import BaseModel, ConfigDict
 
-import litellm
-from litellm.constants import request_timeout
+import embrouter
+from embrouter.constants import request_timeout
 
 # Import the adapter for fallback to completion format
-from litellm.google_genai.adapters.handler import GenerateContentToCompletionHandler
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.base_llm.google_genai.transformation import (
+from embrouter.google_genai.adapters.handler import GenerateContentToCompletionHandler
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.base_llm.google_genai.transformation import (
     BaseGoogleGenAIGenerateContentConfig,
 )
-from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import CallTypes
-from litellm.utils import ProviderConfigManager, client
+from embrouter.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import CallTypes
+from embrouter.utils import ProviderConfigManager, client
 
 if TYPE_CHECKING:
-    from litellm.types.google_genai.main import (
+    from embrouter.types.google_genai.main import (
         GenerateContentConfigDict,
         GenerateContentContentListUnionDict,
         GenerateContentResponse,
@@ -41,9 +41,9 @@ base_llm_http_handler = BaseLLMHTTPHandler()
 #################################################
 
 
-def _mark_async_entrypoint(logging_obj: LiteLLMLoggingObj | None, marker: str, is_async: bool) -> None:
+def _mark_async_entrypoint(logging_obj: EmbRouterLoggingObj | None, marker: str, is_async: bool) -> None:
     if logging_obj is not None:
-        logging_obj.model_call_details.setdefault("litellm_params", {})[marker] = is_async
+        logging_obj.model_call_details.setdefault("embrouter_params", {})[marker] = is_async
 
 
 class GenerateContentSetupResult(BaseModel):
@@ -57,9 +57,9 @@ class GenerateContentSetupResult(BaseModel):
     generate_content_provider_config: BaseGoogleGenAIGenerateContentConfig | None
     generate_content_config_dict: dict[str, object]
     native_request_fields: dict[str, object]
-    litellm_params: GenericLiteLLMParams
-    litellm_logging_obj: LiteLLMLoggingObj
-    litellm_call_id: str | None
+    embrouter_params: GenericEmbRouterParams
+    embrouter_logging_obj: EmbRouterLoggingObj
+    embrouter_call_id: str | None
 
 
 class GenerateContentHelper:
@@ -110,17 +110,17 @@ class GenerateContentHelper:
         Returns:
             GenerateContentSetupResult containing all setup information
         """
-        litellm_logging_obj: Final[LiteLLMLoggingObj | None] = kwargs.get("litellm_logging_obj")
-        litellm_call_id: Final[str | None] = kwargs.get("litellm_call_id", None)
+        embrouter_logging_obj: Final[EmbRouterLoggingObj | None] = kwargs.get("embrouter_logging_obj")
+        embrouter_call_id: Final[str | None] = kwargs.get("embrouter_call_id", None)
 
         # get llm provider logic
-        litellm_params: Final = GenericLiteLLMParams(**kwargs)
+        embrouter_params: Final = GenericEmbRouterParams(**kwargs)
 
         ## MOCK RESPONSE LOGIC (only for non-streaming)
         if (
             not kwargs.get("stream", False)
-            and litellm_params.mock_response
-            and isinstance(litellm_params.mock_response, str)
+            and embrouter_params.mock_response
+            and isinstance(embrouter_params.mock_response, str)
         ):
             raise ValueError("Mock response should be handled by caller")
 
@@ -129,29 +129,29 @@ class GenerateContentHelper:
             custom_llm_provider,
             dynamic_api_key,
             dynamic_api_base,
-        ) = litellm.get_llm_provider(
+        ) = embrouter.get_llm_provider(
             model=model,
             custom_llm_provider=custom_llm_provider,
-            api_base=litellm_params.api_base,
-            api_key=litellm_params.api_key,
+            api_base=embrouter_params.api_base,
+            api_key=embrouter_params.api_key,
         )
 
-        if litellm_params.custom_llm_provider is None:
-            litellm_params.custom_llm_provider = custom_llm_provider
+        if embrouter_params.custom_llm_provider is None:
+            embrouter_params.custom_llm_provider = custom_llm_provider
 
         # get provider config
         generate_content_provider_config: Final[BaseGoogleGenAIGenerateContentConfig | None] = (
             ProviderConfigManager.get_provider_google_genai_generate_content_config(
                 model=model,
-                provider=litellm.LlmProviders(custom_llm_provider),
+                provider=embrouter.LlmProviders(custom_llm_provider),
             )
         )
 
         if generate_content_provider_config is None:
             # Use adapter to transform to completion format when provider config is None
             # Signal that we should use the adapter by returning special result
-            if litellm_logging_obj is None:
-                raise ValueError("litellm_logging_obj is required, but got None")
+            if embrouter_logging_obj is None:
+                raise ValueError("embrouter_logging_obj is required, but got None")
             return GenerateContentSetupResult(
                 model=model,
                 custom_llm_provider=custom_llm_provider,
@@ -159,9 +159,9 @@ class GenerateContentHelper:
                 generate_content_provider_config=None,
                 generate_content_config_dict=dict(config or {}),
                 native_request_fields={},
-                litellm_params=litellm_params,
-                litellm_logging_obj=litellm_logging_obj,
-                litellm_call_id=litellm_call_id,
+                embrouter_params=embrouter_params,
+                embrouter_logging_obj=embrouter_logging_obj,
+                embrouter_call_id=embrouter_call_id,
             )
 
         #########################################################################################
@@ -189,15 +189,15 @@ class GenerateContentHelper:
         )
 
         # Pre Call logging
-        if litellm_logging_obj is None:
-            raise ValueError("litellm_logging_obj is required, but got None")
+        if embrouter_logging_obj is None:
+            raise ValueError("embrouter_logging_obj is required, but got None")
 
-        litellm_logging_obj.update_from_kwargs(
+        embrouter_logging_obj.update_from_kwargs(
             kwargs=kwargs,
             model=model,
             optional_params=dict(generate_content_config_dict),
-            litellm_params={
-                "litellm_call_id": litellm_call_id,
+            embrouter_params={
+                "embrouter_call_id": embrouter_call_id,
             },
             custom_llm_provider=custom_llm_provider,
         )
@@ -209,9 +209,9 @@ class GenerateContentHelper:
             generate_content_provider_config=generate_content_provider_config,
             generate_content_config_dict=generate_content_config_dict,
             native_request_fields=native_request_fields,
-            litellm_params=litellm_params,
-            litellm_logging_obj=litellm_logging_obj,
-            litellm_call_id=litellm_call_id,
+            embrouter_params=embrouter_params,
+            embrouter_logging_obj=embrouter_logging_obj,
+            embrouter_call_id=embrouter_call_id,
         )
 
 
@@ -243,7 +243,7 @@ async def agenerate_content(
     extra_query: dict[str, object] | None = None,
     extra_body: dict[str, object] | None = None,
     timeout: float | httpx.Timeout | None = None,
-    # LiteLLM specific params,
+    # EmbRouter specific params,
     custom_llm_provider: str | None = None,
     **kwargs,
 ) -> Any:
@@ -260,7 +260,7 @@ async def agenerate_content(
             config = kwargs.pop("generationConfig")
         # get custom llm provider so we can use this for mapping exceptions
         if custom_llm_provider is None:
-            _, custom_llm_provider, _, _ = litellm.get_llm_provider(
+            _, custom_llm_provider, _, _ = embrouter.get_llm_provider(
                 model=model,
                 custom_llm_provider=custom_llm_provider,
             )
@@ -290,7 +290,7 @@ async def agenerate_content(
 
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=model,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -311,7 +311,7 @@ def generate_content(
     extra_query: dict[str, object] | None = None,
     extra_body: dict[str, object] | None = None,
     timeout: float | httpx.Timeout | None = None,
-    # LiteLLM specific params,
+    # EmbRouter specific params,
     custom_llm_provider: str | None = None,
     **kwargs,
 ) -> Any:
@@ -322,15 +322,15 @@ def generate_content(
     try:
         _is_async: Final = kwargs.pop("agenerate_content", False)
 
-        _mark_async_entrypoint(kwargs.get("litellm_logging_obj"), CallTypes.agenerate_content.value, _is_async)
+        _mark_async_entrypoint(kwargs.get("embrouter_logging_obj"), CallTypes.agenerate_content.value, _is_async)
 
         # Handle generationConfig parameter from kwargs for backward compatibility
         if "generationConfig" in kwargs and config is None:
             config = kwargs.pop("generationConfig")
         # Check for mock response first
-        litellm_params: Final = GenericLiteLLMParams(**kwargs)
-        if litellm_params.mock_response and isinstance(litellm_params.mock_response, str):
-            return GenerateContentHelper.mock_generate_content_response(mock_response=litellm_params.mock_response)
+        embrouter_params: Final = GenericEmbRouterParams(**kwargs)
+        if embrouter_params.mock_response and isinstance(embrouter_params.mock_response, str):
+            return GenerateContentHelper.mock_generate_content_response(mock_response=embrouter_params.mock_response)
 
         # Setup the call
         setup_result: Final = GenerateContentHelper.setup_generate_content_call(
@@ -354,7 +354,7 @@ def generate_content(
                 config=setup_result.generate_content_config_dict,
                 tools=tools,
                 _is_async=_is_async,
-                litellm_params=setup_result.litellm_params,
+                embrouter_params=setup_result.embrouter_params,
                 extra_headers=extra_headers,
                 **kwargs,
             )
@@ -367,20 +367,20 @@ def generate_content(
             generate_content_provider_config=setup_result.generate_content_provider_config,
             generate_content_config_dict=setup_result.generate_content_config_dict,
             custom_llm_provider=setup_result.custom_llm_provider,
-            litellm_params=setup_result.litellm_params,
-            logging_obj=setup_result.litellm_logging_obj,
+            embrouter_params=setup_result.embrouter_params,
+            logging_obj=setup_result.embrouter_logging_obj,
             extra_headers=extra_headers,
             extra_body=_merge_native_request_fields(setup_result.native_request_fields, extra_body),
             timeout=timeout or request_timeout,
             _is_async=_is_async,
             client=kwargs.get("client"),
-            litellm_metadata=kwargs.get("litellm_metadata", {}),
+            embrouter_metadata=kwargs.get("embrouter_metadata", {}),
             system_instruction=system_instruction,
         )
 
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=model,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -401,7 +401,7 @@ async def agenerate_content_stream(
     extra_query: dict[str, object] | None = None,
     extra_body: dict[str, object] | None = None,
     timeout: float | httpx.Timeout | None = None,
-    # LiteLLM specific params,
+    # EmbRouter specific params,
     custom_llm_provider: str | None = None,
     **kwargs,
 ) -> Any:
@@ -412,14 +412,14 @@ async def agenerate_content_stream(
     try:
         kwargs["agenerate_content_stream"] = True
 
-        _mark_async_entrypoint(kwargs.get("litellm_logging_obj"), CallTypes.agenerate_content_stream.value, True)
+        _mark_async_entrypoint(kwargs.get("embrouter_logging_obj"), CallTypes.agenerate_content_stream.value, True)
 
         # Handle generationConfig parameter from kwargs for backward compatibility
         if "generationConfig" in kwargs and config is None:
             config = kwargs.pop("generationConfig")
         # get custom llm provider so we can use this for mapping exceptions
         if custom_llm_provider is None:
-            _, custom_llm_provider, _, _ = litellm.get_llm_provider(
+            _, custom_llm_provider, _, _ = embrouter.get_llm_provider(
                 model=model, api_base=local_vars.get("base_url", None)
             )
 
@@ -446,7 +446,7 @@ async def agenerate_content_stream(
                 model=model,
                 contents=contents,
                 config=setup_result.generate_content_config_dict,
-                litellm_params=setup_result.litellm_params,
+                embrouter_params=setup_result.embrouter_params,
                 tools=tools,
                 stream=True,
                 extra_headers=extra_headers,
@@ -462,20 +462,20 @@ async def agenerate_content_stream(
             generate_content_config_dict=setup_result.generate_content_config_dict,
             tools=tools,
             custom_llm_provider=setup_result.custom_llm_provider,
-            litellm_params=setup_result.litellm_params,
-            logging_obj=setup_result.litellm_logging_obj,
+            embrouter_params=setup_result.embrouter_params,
+            logging_obj=setup_result.embrouter_logging_obj,
             extra_headers=extra_headers,
             extra_body=_merge_native_request_fields(setup_result.native_request_fields, extra_body),
             timeout=timeout or request_timeout,
             _is_async=True,
             client=kwargs.get("client"),
             stream=True,
-            litellm_metadata=kwargs.get("litellm_metadata", {}),
+            embrouter_metadata=kwargs.get("embrouter_metadata", {}),
             system_instruction=system_instruction,
         )
 
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=model,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -496,7 +496,7 @@ def generate_content_stream(
     extra_query: dict[str, object] | None = None,
     extra_body: dict[str, object] | None = None,
     timeout: float | httpx.Timeout | None = None,
-    # LiteLLM specific params,
+    # EmbRouter specific params,
     custom_llm_provider: str | None = None,
     **kwargs,
 ) -> Iterator[Any]:
@@ -508,7 +508,7 @@ def generate_content_stream(
         # Remove any async-related flags since this is the sync function
         _is_async: Final = kwargs.pop("agenerate_content_stream", False)
 
-        _mark_async_entrypoint(kwargs.get("litellm_logging_obj"), CallTypes.agenerate_content_stream.value, _is_async)
+        _mark_async_entrypoint(kwargs.get("embrouter_logging_obj"), CallTypes.agenerate_content_stream.value, _is_async)
 
         # Handle generationConfig parameter from kwargs for backward compatibility
         if "generationConfig" in kwargs and config is None:
@@ -537,7 +537,7 @@ def generate_content_stream(
                 contents=contents,
                 config=setup_result.generate_content_config_dict,
                 _is_async=_is_async,
-                litellm_params=setup_result.litellm_params,
+                embrouter_params=setup_result.embrouter_params,
                 stream=True,
                 extra_headers=extra_headers,
                 **kwargs,
@@ -551,20 +551,20 @@ def generate_content_stream(
             generate_content_config_dict=setup_result.generate_content_config_dict,
             tools=tools,
             custom_llm_provider=setup_result.custom_llm_provider,
-            litellm_params=setup_result.litellm_params,
-            logging_obj=setup_result.litellm_logging_obj,
+            embrouter_params=setup_result.embrouter_params,
+            logging_obj=setup_result.embrouter_logging_obj,
             extra_headers=extra_headers,
             extra_body=_merge_native_request_fields(setup_result.native_request_fields, extra_body),
             timeout=timeout or request_timeout,
             _is_async=_is_async,
             client=kwargs.get("client"),
             stream=True,
-            litellm_metadata=kwargs.get("litellm_metadata", {}),
+            embrouter_metadata=kwargs.get("embrouter_metadata", {}),
             system_instruction=system_instruction,
         )
 
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=model,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,

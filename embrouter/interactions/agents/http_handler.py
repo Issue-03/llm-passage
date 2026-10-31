@@ -11,18 +11,18 @@ from typing import Final
 
 import httpx
 
-from litellm.constants import request_timeout
-from litellm.interactions.http_handler import InteractionsHTTPHandler
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.base_llm.agents.transformation import BaseAgentsAPIConfig
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-from litellm.types.agents import (
+from embrouter.constants import request_timeout
+from embrouter.interactions.http_handler import InteractionsHTTPHandler
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.base_llm.agents.transformation import BaseAgentsAPIConfig
+from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from embrouter.types.agents import (
     AgentCreateResponse,
     AgentDeleteResult,
     AgentListResponse,
     AgentVersionsResponse,
 )
-from litellm.types.router import GenericLiteLLMParams
+from embrouter.types.router import GenericEmbRouterParams
 
 
 class AgentsHTTPHandler(InteractionsHTTPHandler):
@@ -36,8 +36,8 @@ class AgentsHTTPHandler(InteractionsHTTPHandler):
         self,
         agents_api_config: BaseAgentsAPIConfig,
         name: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, str] | None = None,
         extra_body: Mapping[str, object] | None = None,
         timeout: float | httpx.Timeout | None = None,
@@ -48,22 +48,22 @@ class AgentsHTTPHandler(InteractionsHTTPHandler):
             return self.async_create_agent(
                 agents_api_config=agents_api_config,
                 name=name,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 extra_headers=extra_headers,
                 extra_body=extra_body,
                 timeout=timeout,
             )
 
-        sync_httpx_client: Final = self._sync_client(litellm_params, client)
+        sync_httpx_client: Final = self._sync_client(embrouter_params, client)
         headers: Final = agents_api_config.validate_environment(
-            headers=extra_headers or {}, litellm_params=dict(litellm_params)
+            headers=extra_headers or {}, embrouter_params=dict(embrouter_params)
         )
         url: Final = agents_api_config.get_complete_url(
-            api_base=litellm_params.get("api_base"),
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.get("api_base"),
+            embrouter_params=dict(embrouter_params),
         )
-        data: Final = agents_api_config.transform_create_request(name=name, litellm_params=dict(litellm_params))
+        data: Final = agents_api_config.transform_create_request(name=name, embrouter_params=dict(embrouter_params))
         if extra_body:
             data.update(extra_body)
 
@@ -91,22 +91,22 @@ class AgentsHTTPHandler(InteractionsHTTPHandler):
         self,
         agents_api_config: BaseAgentsAPIConfig,
         name: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, str] | None = None,
         extra_body: Mapping[str, object] | None = None,
         timeout: float | httpx.Timeout | None = None,
         client: AsyncHTTPHandler | None = None,
     ) -> AgentCreateResponse:
-        async_httpx_client: Final = self._async_client(litellm_params, client)
+        async_httpx_client: Final = self._async_client(embrouter_params, client)
         headers: Final = agents_api_config.validate_environment(
-            headers=extra_headers or {}, litellm_params=dict(litellm_params)
+            headers=extra_headers or {}, embrouter_params=dict(embrouter_params)
         )
         url: Final = agents_api_config.get_complete_url(
-            api_base=litellm_params.get("api_base"),
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.get("api_base"),
+            embrouter_params=dict(embrouter_params),
         )
-        data: Final = agents_api_config.transform_create_request(name=name, litellm_params=dict(litellm_params))
+        data: Final = agents_api_config.transform_create_request(name=name, embrouter_params=dict(embrouter_params))
         if extra_body:
             data.update(extra_body)
 
@@ -139,8 +139,8 @@ class AgentsHTTPHandler(InteractionsHTTPHandler):
     def list_agents(
         self,
         agents_api_config: BaseAgentsAPIConfig,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, str] | None = None,
         timeout: float | httpx.Timeout | None = None,
         client: HTTPHandler | None = None,
@@ -149,19 +149,19 @@ class AgentsHTTPHandler(InteractionsHTTPHandler):
         if _is_async:
             return self.async_list_agents(
                 agents_api_config=agents_api_config,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 extra_headers=extra_headers,
                 timeout=timeout,
             )
 
-        sync_httpx_client: Final = self._sync_client(litellm_params, client)
+        sync_httpx_client: Final = self._sync_client(embrouter_params, client)
         headers: Final = agents_api_config.validate_environment(
-            headers=extra_headers or {}, litellm_params=dict(litellm_params)
+            headers=extra_headers or {}, embrouter_params=dict(embrouter_params)
         )
         url, params = agents_api_config.transform_list_request(
-            api_base=litellm_params.get("api_base"),
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.get("api_base"),
+            embrouter_params=dict(embrouter_params),
         )
         logging_obj.pre_call(
             input="list_agents",
@@ -179,19 +179,19 @@ class AgentsHTTPHandler(InteractionsHTTPHandler):
     async def async_list_agents(
         self,
         agents_api_config: BaseAgentsAPIConfig,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, str] | None = None,
         timeout: float | httpx.Timeout | None = None,
         client: AsyncHTTPHandler | None = None,
     ) -> AgentListResponse:
-        async_httpx_client: Final = self._async_client(litellm_params, client)
+        async_httpx_client: Final = self._async_client(embrouter_params, client)
         headers: Final = agents_api_config.validate_environment(
-            headers=extra_headers or {}, litellm_params=dict(litellm_params)
+            headers=extra_headers or {}, embrouter_params=dict(embrouter_params)
         )
         url, params = agents_api_config.transform_list_request(
-            api_base=litellm_params.get("api_base"),
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.get("api_base"),
+            embrouter_params=dict(embrouter_params),
         )
         logging_obj.pre_call(
             input="list_agents",
@@ -214,8 +214,8 @@ class AgentsHTTPHandler(InteractionsHTTPHandler):
         self,
         agents_api_config: BaseAgentsAPIConfig,
         name: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, str] | None = None,
         timeout: float | httpx.Timeout | None = None,
         client: HTTPHandler | None = None,
@@ -225,20 +225,20 @@ class AgentsHTTPHandler(InteractionsHTTPHandler):
             return self.async_get_agent(
                 agents_api_config=agents_api_config,
                 name=name,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 extra_headers=extra_headers,
                 timeout=timeout,
             )
 
-        sync_httpx_client: Final = self._sync_client(litellm_params, client)
+        sync_httpx_client: Final = self._sync_client(embrouter_params, client)
         headers: Final = agents_api_config.validate_environment(
-            headers=extra_headers or {}, litellm_params=dict(litellm_params)
+            headers=extra_headers or {}, embrouter_params=dict(embrouter_params)
         )
         url, params = agents_api_config.transform_get_request(
             name=name,
-            api_base=litellm_params.get("api_base"),
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.get("api_base"),
+            embrouter_params=dict(embrouter_params),
         )
         logging_obj.pre_call(
             input=name,
@@ -257,20 +257,20 @@ class AgentsHTTPHandler(InteractionsHTTPHandler):
         self,
         agents_api_config: BaseAgentsAPIConfig,
         name: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, str] | None = None,
         timeout: float | httpx.Timeout | None = None,
         client: AsyncHTTPHandler | None = None,
     ) -> AgentCreateResponse:
-        async_httpx_client: Final = self._async_client(litellm_params, client)
+        async_httpx_client: Final = self._async_client(embrouter_params, client)
         headers: Final = agents_api_config.validate_environment(
-            headers=extra_headers or {}, litellm_params=dict(litellm_params)
+            headers=extra_headers or {}, embrouter_params=dict(embrouter_params)
         )
         url, params = agents_api_config.transform_get_request(
             name=name,
-            api_base=litellm_params.get("api_base"),
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.get("api_base"),
+            embrouter_params=dict(embrouter_params),
         )
         logging_obj.pre_call(
             input=name,
@@ -293,8 +293,8 @@ class AgentsHTTPHandler(InteractionsHTTPHandler):
         self,
         agents_api_config: BaseAgentsAPIConfig,
         name: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, str] | None = None,
         timeout: float | httpx.Timeout | None = None,
         client: HTTPHandler | None = None,
@@ -304,20 +304,20 @@ class AgentsHTTPHandler(InteractionsHTTPHandler):
             return self.async_delete_agent(
                 agents_api_config=agents_api_config,
                 name=name,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 extra_headers=extra_headers,
                 timeout=timeout,
             )
 
-        sync_httpx_client: Final = self._sync_client(litellm_params, client)
+        sync_httpx_client: Final = self._sync_client(embrouter_params, client)
         headers: Final = agents_api_config.validate_environment(
-            headers=extra_headers or {}, litellm_params=dict(litellm_params)
+            headers=extra_headers or {}, embrouter_params=dict(embrouter_params)
         )
         url: Final = agents_api_config.transform_delete_request(
             name=name,
-            api_base=litellm_params.get("api_base"),
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.get("api_base"),
+            embrouter_params=dict(embrouter_params),
         )
         logging_obj.pre_call(
             input=name,
@@ -336,20 +336,20 @@ class AgentsHTTPHandler(InteractionsHTTPHandler):
         self,
         agents_api_config: BaseAgentsAPIConfig,
         name: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, str] | None = None,
         timeout: float | httpx.Timeout | None = None,
         client: AsyncHTTPHandler | None = None,
     ) -> AgentDeleteResult:
-        async_httpx_client: Final = self._async_client(litellm_params, client)
+        async_httpx_client: Final = self._async_client(embrouter_params, client)
         headers: Final = agents_api_config.validate_environment(
-            headers=extra_headers or {}, litellm_params=dict(litellm_params)
+            headers=extra_headers or {}, embrouter_params=dict(embrouter_params)
         )
         url: Final = agents_api_config.transform_delete_request(
             name=name,
-            api_base=litellm_params.get("api_base"),
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.get("api_base"),
+            embrouter_params=dict(embrouter_params),
         )
         logging_obj.pre_call(
             input=name,
@@ -372,8 +372,8 @@ class AgentsHTTPHandler(InteractionsHTTPHandler):
         self,
         agents_api_config: BaseAgentsAPIConfig,
         name: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, str] | None = None,
         timeout: float | httpx.Timeout | None = None,
         client: HTTPHandler | None = None,
@@ -383,20 +383,20 @@ class AgentsHTTPHandler(InteractionsHTTPHandler):
             return self.async_list_agent_versions(
                 agents_api_config=agents_api_config,
                 name=name,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 extra_headers=extra_headers,
                 timeout=timeout,
             )
 
-        sync_httpx_client: Final = self._sync_client(litellm_params, client)
+        sync_httpx_client: Final = self._sync_client(embrouter_params, client)
         headers: Final = agents_api_config.validate_environment(
-            headers=extra_headers or {}, litellm_params=dict(litellm_params)
+            headers=extra_headers or {}, embrouter_params=dict(embrouter_params)
         )
         url, params = agents_api_config.transform_list_versions_request(
             name=name,
-            api_base=litellm_params.get("api_base"),
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.get("api_base"),
+            embrouter_params=dict(embrouter_params),
         )
         logging_obj.pre_call(
             input=name,
@@ -415,20 +415,20 @@ class AgentsHTTPHandler(InteractionsHTTPHandler):
         self,
         agents_api_config: BaseAgentsAPIConfig,
         name: str,
-        litellm_params: GenericLiteLLMParams,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams,
+        logging_obj: EmbRouterLoggingObj,
         extra_headers: dict[str, str] | None = None,
         timeout: float | httpx.Timeout | None = None,
         client: AsyncHTTPHandler | None = None,
     ) -> AgentVersionsResponse:
-        async_httpx_client: Final = self._async_client(litellm_params, client)
+        async_httpx_client: Final = self._async_client(embrouter_params, client)
         headers: Final = agents_api_config.validate_environment(
-            headers=extra_headers or {}, litellm_params=dict(litellm_params)
+            headers=extra_headers or {}, embrouter_params=dict(embrouter_params)
         )
         url, params = agents_api_config.transform_list_versions_request(
             name=name,
-            api_base=litellm_params.get("api_base"),
-            litellm_params=dict(litellm_params),
+            api_base=embrouter_params.get("api_base"),
+            embrouter_params=dict(embrouter_params),
         )
         logging_obj.pre_call(
             input=name,

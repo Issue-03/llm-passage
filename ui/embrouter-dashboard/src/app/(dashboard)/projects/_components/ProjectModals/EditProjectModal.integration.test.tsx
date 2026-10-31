@@ -66,7 +66,7 @@ const project: ProjectResponse = {
   created_by: "user-1",
   updated_at: "2024-01-02T00:00:00Z",
   updated_by: "user-1",
-  litellm_budget_table: { max_budget: 50 },
+  embrouter_budget_table: { max_budget: 50 },
 } as unknown as ProjectResponse;
 
 const renderModal = (data: ProjectResponse = project) =>
@@ -156,7 +156,7 @@ describe("EditProjectModal submit payload", () => {
     expect(variables().params).not.toHaveProperty("project_id");
     expect(variables().params).not.toHaveProperty("spend");
     expect(variables().params).not.toHaveProperty("budget_id");
-    expect(variables().params).not.toHaveProperty("litellm_budget_table");
+    expect(variables().params).not.toHaveProperty("embrouter_budget_table");
   });
 
   it("keeps the internal metadata keys out of user metadata", async () => {
@@ -198,7 +198,7 @@ describe("EditProjectModal submit payload", () => {
 
   it("omits max_budget when the project has no budget row", async () => {
     const user = setup();
-    renderModal({ ...project, litellm_budget_table: null } as unknown as ProjectResponse);
+    renderModal({ ...project, embrouter_budget_table: null } as unknown as ProjectResponse);
     await screen.findByDisplayValue("My Project");
 
     await save(user);

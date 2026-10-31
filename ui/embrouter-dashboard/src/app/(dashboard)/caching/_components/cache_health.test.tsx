@@ -9,10 +9,10 @@ const healthyResponse = {
   status: "healthy",
   ping_response: true,
   set_cache_response: "success",
-  litellm_cache_params: JSON.stringify({ type: "redis", supported_call_types: ["acompletion"] }),
+  embrouter_cache_params: JSON.stringify({ type: "redis", supported_call_types: ["acompletion"] }),
   health_check_cache_params: JSON.stringify({
     redis_version: "7.2.1",
-    namespace: "litellm-ns",
+    namespace: "embrouter-ns",
     connection_kwargs: { host: "redis.internal", port: 6379 },
   }),
 };
@@ -20,7 +20,7 @@ const healthyResponse = {
 const errorPayload = {
   message: "Connection refused",
   traceback: "Traceback (most recent call last): ...",
-  litellm_cache_params: { type: "redis" },
+  embrouter_cache_params: { type: "redis" },
   health_check_cache_params: {},
 };
 
@@ -86,7 +86,7 @@ describe("CacheHealthTab", () => {
     expect(screen.getByText("Redis Version")).toBeInTheDocument();
     expect(screen.getByText("7.2.1")).toBeInTheDocument();
     expect(screen.getByText("Namespace")).toBeInTheDocument();
-    expect(screen.getByText("litellm-ns")).toBeInTheDocument();
+    expect(screen.getByText("embrouter-ns")).toBeInTheDocument();
   });
 
   it("omits the Redis detail rows for a non-redis cache type", async () => {
@@ -94,7 +94,7 @@ describe("CacheHealthTab", () => {
       healthCheckResponse: {
         status: "healthy",
         ping_response: true,
-        litellm_cache_params: JSON.stringify({ type: "local" }),
+        embrouter_cache_params: JSON.stringify({ type: "local" }),
         health_check_cache_params: JSON.stringify({}),
       },
     });

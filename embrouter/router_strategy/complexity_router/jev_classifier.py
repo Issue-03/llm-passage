@@ -7,22 +7,22 @@ from uuid import uuid4
 import httpx
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 
-import litellm
-from litellm._logging import verbose_router_logger
-from litellm.constants import INTERNAL_CALL_ORIGIN_METADATA_KEY
-from litellm.litellm_core_utils.internal_call_metadata import (
+import embrouter
+from embrouter._logging import verbose_router_logger
+from embrouter.constants import INTERNAL_CALL_ORIGIN_METADATA_KEY
+from embrouter.embrouter_core_utils.internal_call_metadata import (
     effective_turn_off_message_logging,
     forwarded_internal_call_metadata,
     parent_session_kwargs,
 )
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.proxy.pass_through_endpoints.llm_provider_handlers.typesafe_passthrough_logging_handler import (
+from embrouter.embrouter_core_utils.embrouter_logging import Logging
+from embrouter.embrouter_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from embrouter.proxy.pass_through_endpoints.llm_provider_handlers.typesafe_passthrough_logging_handler import (
     TypeSafePassthroughLoggingHandler,
 )
-from litellm.router_strategy.complexity_router.config import DEFAULT_JEV_INSTRUCTIONS as _DEFAULT_JEV_INSTRUCTIONS
-from litellm.types.utils import AUTOROUTER_CLASSIFIER_CALL_ORIGIN
+from embrouter.router_strategy.complexity_router.config import DEFAULT_JEV_INSTRUCTIONS as _DEFAULT_JEV_INSTRUCTIONS
+from embrouter.types.utils import AUTOROUTER_CLASSIFIER_CALL_ORIGIN
 
 JevProbability: TypeAlias = Annotated[float, Field(ge=0.0, le=1.0)]
 DEFAULT_JEV_INSTRUCTIONS: Final = _DEFAULT_JEV_INSTRUCTIONS
@@ -125,12 +125,12 @@ class HttpJevClassifierClient:
         parent_metadata: Final = MappingProxyType(
             {
                 key: value
-                for field in ("metadata", "litellm_metadata")
+                for field in ("metadata", "embrouter_metadata")
                 if isinstance(metadata := parent.get(field), Mapping)
                 for key, value in TypeAdapter(Mapping[str, object]).validate_python(metadata).items()
             }
         )
-        params: Final = {  # mutable-ok: Logging's kwargs and litellm_params require dicts
+        params: Final = {  # mutable-ok: Logging's kwargs and embrouter_params require dicts
             "metadata": {  # mutable-ok: Logging enriches metadata in place before dispatching callbacks
                 **forwarded_internal_call_metadata(parent_metadata, AUTOROUTER_CLASSIFIER_CALL_ORIGIN),
                 INTERNAL_CALL_ORIGIN_METADATA_KEY: AUTOROUTER_CLASSIFIER_CALL_ORIGIN,
@@ -144,16 +144,16 @@ class HttpJevClassifierClient:
             stream=False,
             call_type="pass_through_endpoint",
             start_time=start_time,
-            litellm_call_id=str(uuid4()),
+            embrouter_call_id=str(uuid4()),
             function_id="jev_classifier",
-            litellm_trace_id=parent_session_kwargs(request_kwargs).get("litellm_trace_id"),
+            embrouter_trace_id=parent_session_kwargs(request_kwargs).get("embrouter_trace_id"),
             kwargs=params,
         )
         logging_obj.update_environment_variables(
             model=f"typesafe/{request.model}",
             user=parent_user if isinstance(parent_user := parent.get("user"), str) else None,
             optional_params={},  # mutable-ok: Logging's optional_params contract requires a dict
-            litellm_params=params,
+            embrouter_params=params,
         )
         normalized: Final = TypeSafePassthroughLoggingHandler.typesafe_passthrough_handler(
             httpx_response=response,
@@ -166,7 +166,7 @@ class HttpJevClassifierClient:
             cache_hit=False,
             request_body=MappingProxyType({"model": request.model}),
             custom_llm_provider="typesafe",
-            litellm_params=params,
+            embrouter_params=params,
         )
         success_handlers: Final = logging_obj.dispatch_success_handlers(
             result=normalized["result"],
@@ -217,11 +217,11 @@ def jev_classifier_cost(response: JevSystemOneResponse, configured_model: str) -
         return None
     model: Final = response.model or configured_model
     model_key: Final = f"typesafe/{model}"
-    if model_key not in litellm.model_cost:  # pyright: ignore[reportUnknownMemberType]  # registry is dynamically typed
+    if model_key not in embrouter.model_cost:  # pyright: ignore[reportUnknownMemberType]  # registry is dynamically typed
         return None
     try:
         pricing: Final = _REGISTRY_PRICING_ADAPTER.validate_python(
-            litellm.model_cost[model_key]  # pyright: ignore[reportUnknownMemberType]  # registry is dynamically typed
+            embrouter.model_cost[model_key]  # pyright: ignore[reportUnknownMemberType]  # registry is dynamically typed
         )
     except ValidationError:
         return None

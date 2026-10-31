@@ -1,5 +1,5 @@
-import litellm
-from litellm.llms.deepseek.chat.transformation import DeepSeekChatConfig
+import embrouter
+from embrouter.llms.deepseek.chat.transformation import DeepSeekChatConfig
 
 
 def _function_tool(name: str) -> dict:
@@ -76,7 +76,7 @@ def test_transform_request_strips_unsupported_tools_from_body():
             ],
             "tool_choice": "auto",
         },
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -96,7 +96,7 @@ async def test_async_transform_request_strips_unsupported_tools_from_body():
             ],
             "tool_choice": "auto",
         },
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -117,12 +117,12 @@ class TestDeepSeekVisionMultimodalContent:
 
     def setup_method(self):
         self.config = DeepSeekChatConfig()
-        prior_entry = litellm.model_cost.get(self.VISION_MODEL)
+        prior_entry = embrouter.model_cost.get(self.VISION_MODEL)
         self._prior_registry_entry = dict(prior_entry) if prior_entry is not None else None
-        litellm.register_model(
+        embrouter.register_model(
             {
                 "deepseek/deepseek-v4-flash-vision-exp": {
-                    "litellm_provider": "deepseek",
+                    "embrouter_provider": "deepseek",
                     "mode": "chat",
                     "input_cost_per_token": 4.4e-07,
                     "output_cost_per_token": 1.32e-06,
@@ -133,9 +133,9 @@ class TestDeepSeekVisionMultimodalContent:
 
     def teardown_method(self):
         if self._prior_registry_entry is None:
-            litellm.model_cost.pop(self.VISION_MODEL, None)
+            embrouter.model_cost.pop(self.VISION_MODEL, None)
         else:
-            litellm.model_cost[self.VISION_MODEL] = self._prior_registry_entry
+            embrouter.model_cost[self.VISION_MODEL] = self._prior_registry_entry
 
     @staticmethod
     def _image_message(role="user"):
@@ -365,7 +365,7 @@ class TestDeepSeekVisionMultimodalContent:
             model=self.VISION_MODEL,
             messages=[self._image_message()],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -378,7 +378,7 @@ class TestDeepSeekVisionMultimodalContent:
             model=self.VISION_MODEL,
             messages=[self._image_message()],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 

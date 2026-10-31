@@ -1,7 +1,7 @@
 """
 Tests for MCP sampling handler response/tool conversion.
 
-Covers the translation of a LiteLLM completion response back into MCP
+Covers the translation of a EmbRouter completion response back into MCP
 `CreateMessageResult` / `CreateMessageResultWithTools`, plus the helpers that
 convert MCP tool definitions, tool-choice modes, and image/audio content into
 OpenAI request format.
@@ -18,7 +18,7 @@ from mcp.types import (
     ToolUseContent,
 )
 
-from litellm.proxy._experimental.mcp_server.sampling_handler import (
+from embrouter.proxy._experimental.mcp_server.sampling_handler import (
     _convert_mcp_content_to_openai,
     _convert_mcp_tool_choice_to_openai,
     _convert_mcp_tools_to_openai,

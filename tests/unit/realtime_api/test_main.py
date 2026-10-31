@@ -6,19 +6,19 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import litellm
-from litellm.models.credentials import CredentialItem
-from litellm.realtime_api import main as realtime_main
-from litellm.realtime_api.main import _with_resolved_session_model
+import embrouter
+from embrouter.models.credentials import CredentialItem
+from embrouter.realtime_api import main as realtime_main
+from embrouter.realtime_api.main import _with_resolved_session_model
 
 
 @pytest.fixture
 def local_model_cost_map(monkeypatch):
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
-    litellm.get_model_info.cache_clear()
+    monkeypatch.setenv("EMBROUTER_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setattr(embrouter, "model_cost", embrouter.get_model_cost_map(url=""))
+    embrouter.get_model_info.cache_clear()
     yield
-    litellm.get_model_info.cache_clear()
+    embrouter.get_model_info.cache_clear()
 
 
 class FakeLogging:
@@ -84,7 +84,7 @@ def _run_client_secret(session, model, monkeypatch):
         realtime_main.acreate_realtime_client_secret.__wrapped__(
             model=model,
             session=session,
-            litellm_logging_obj=FakeLogging(),
+            embrouter_logging_obj=FakeLogging(),
         )
     )
     return captured
@@ -108,7 +108,7 @@ async def _hanging_resolver(credentials, project_id, custom_llm_provider) -> tup
 
 
 async def _thread_offloaded_hanging_resolver(credentials, project_id, custom_llm_provider) -> tuple[str, str]:
-    from litellm.litellm_core_utils.asyncify import asyncify
+    from embrouter.embrouter_core_utils.asyncify import asyncify
 
     await asyncify(time.sleep)(30)
     return "", ""
@@ -163,7 +163,7 @@ async def test_vertex_credential_resolution_bounds_a_thread_offloaded_refresh():
 
 @pytest.mark.asyncio
 async def test_meta_realtime_dispatches_to_base_handler_with_meta_config(monkeypatch: pytest.MonkeyPatch):
-    from litellm.llms.meta.realtime.transformation import MetaRealtimeConfig
+    from embrouter.llms.meta.realtime.transformation import MetaRealtimeConfig
 
     captured: dict[str, object] = {}
 
@@ -179,7 +179,7 @@ async def test_meta_realtime_dispatches_to_base_handler_with_meta_config(monkeyp
     await realtime_main._arealtime.__wrapped__(
         model="meta/muse-voice-transcribe-1.0",
         websocket=MagicMock(),
-        litellm_logging_obj=FakeLogging(),
+        embrouter_logging_obj=FakeLogging(),
         query_params={"model": "meta/muse-voice-transcribe-1.0", "intent": "transcription"},
     )
 
@@ -209,7 +209,7 @@ async def test_arealtime_vertex_branch_resolves_credentials_under_a_bound(monkey
         await realtime_main._arealtime.__wrapped__(
             model="gemini-live-2.5-flash",
             websocket=MagicMock(),
-            litellm_logging_obj=FakeLogging(),
+            embrouter_logging_obj=FakeLogging(),
             vertex_credentials="fake-credentials",
             vertex_project="fake-project",
             vertex_location="us-central1",
@@ -256,7 +256,7 @@ class _CapturingConnect:
 @pytest.mark.asyncio
 async def test_azure_health_check_resolves_stored_credentials(monkeypatch):
     monkeypatch.setattr(
-        litellm,
+        embrouter,
         "credential_list",
         [
             CredentialItem(
@@ -277,7 +277,7 @@ async def test_azure_health_check_resolves_stored_credentials(monkeypatch):
             custom_llm_provider="azure",
             api_key=None,
             realtime_protocol="beta",
-            model_params={"model": "azure/gpt-realtime", "litellm_credential_name": "azure-rt"},
+            model_params={"model": "azure/gpt-realtime", "embrouter_credential_name": "azure-rt"},
         )
     assert connect.kwargs["additional_headers"] == {"api-key": "sk-from-credential"}
     assert connect.url is not None
@@ -297,7 +297,7 @@ async def test_bearer_health_check_sends_stored_credential_as_bearer_token(
     monkeypatch, custom_llm_provider: str, model: str, expected_url: str
 ):
     monkeypatch.setattr(
-        litellm,
+        embrouter,
         "credential_list",
         [
             CredentialItem(
@@ -313,7 +313,7 @@ async def test_bearer_health_check_sends_stored_credential_as_bearer_token(
             model=model,
             custom_llm_provider=custom_llm_provider,
             api_key=None,
-            model_params={"model": f"{custom_llm_provider}/{model}", "litellm_credential_name": "voice-key"},
+            model_params={"model": f"{custom_llm_provider}/{model}", "embrouter_credential_name": "voice-key"},
         )
     assert connect.kwargs["additional_headers"] == {"Authorization": "Bearer sk-from-credential"}
     assert connect.url == expected_url
@@ -345,8 +345,8 @@ async def test_azure_health_check_stays_on_ga_when_deployment_registration_overw
     azure/gpt-realtime-whisper, so mode alone misreads the model as speech-capable
     and the probe regresses to the beta path. supported_endpoints survives that
     registration and must keep the probe on the GA transcription path."""
-    polluted = {**litellm.model_cost["azure/gpt-realtime-whisper"], "mode": "realtime"}
-    monkeypatch.setitem(litellm.model_cost, "azure/gpt-realtime-whisper", polluted)
+    polluted = {**embrouter.model_cost["azure/gpt-realtime-whisper"], "mode": "realtime"}
+    monkeypatch.setitem(embrouter.model_cost, "azure/gpt-realtime-whisper", polluted)
     connect = _CapturingConnect()
     with patch("websockets.connect", connect):
         assert await realtime_main._realtime_health_check(
@@ -371,7 +371,7 @@ def test_transcription_only_detection_rejects_speech_model(local_model_cost_map)
 
 @pytest.mark.asyncio
 async def test_azure_health_check_probes_the_ga_upstream_for_an_unconfigured_speech_model(monkeypatch):
-    monkeypatch.delenv("LITELLM_AZURE_REALTIME_PROTOCOL", raising=False)
+    monkeypatch.delenv("EMBROUTER_AZURE_REALTIME_PROTOCOL", raising=False)
     connect = _CapturingConnect()
     with patch("websockets.connect", connect):
         assert await realtime_main._realtime_health_check(
@@ -392,7 +392,7 @@ _AZURE_BETA_HEALTH_URL: Final = (
 
 @pytest.mark.asyncio
 async def test_azure_health_check_honors_deployment_realtime_protocol(monkeypatch):
-    monkeypatch.delenv("LITELLM_AZURE_REALTIME_PROTOCOL", raising=False)
+    monkeypatch.delenv("EMBROUTER_AZURE_REALTIME_PROTOCOL", raising=False)
     connect = _CapturingConnect()
     with patch("websockets.connect", connect):
         assert await realtime_main._realtime_health_check(
@@ -408,7 +408,7 @@ async def test_azure_health_check_honors_deployment_realtime_protocol(monkeypatc
 
 @pytest.mark.asyncio
 async def test_azure_health_check_honors_env_realtime_protocol(monkeypatch):
-    monkeypatch.setenv("LITELLM_AZURE_REALTIME_PROTOCOL", "beta")
+    monkeypatch.setenv("EMBROUTER_AZURE_REALTIME_PROTOCOL", "beta")
     connect = _CapturingConnect()
     with patch("websockets.connect", connect):
         assert await realtime_main._realtime_health_check(
@@ -449,7 +449,7 @@ async def test_arealtime_azure_ai_on_a_foundry_host_connects_to_the_azure_openai
             websocket=MagicMock(),
             api_base="https://my-project.services.ai.azure.com",
             api_key="fake-key",
-            litellm_logging_obj=FakeLogging(),
+            embrouter_logging_obj=FakeLogging(),
         )
     assert connect.url == "wss://my-project.services.ai.azure.com/openai/v1/realtime?model=gpt-realtime-mini"
 
@@ -471,7 +471,7 @@ async def _azure_backend_url_dialed_for(websocket: _ClientWebSocketWithHeaders, 
             websocket=websocket,
             api_base="https://my-endpoint.openai.azure.com",
             api_key="fake-key",
-            litellm_logging_obj=FakeLogging(),
+            embrouter_logging_obj=FakeLogging(),
             **kwargs,
         )
     return connect.url
@@ -479,7 +479,7 @@ async def _azure_backend_url_dialed_for(websocket: _ClientWebSocketWithHeaders, 
 
 @pytest.mark.asyncio
 async def test_arealtime_azure_ga_client_without_beta_header_dials_the_ga_upstream(monkeypatch):
-    monkeypatch.delenv("LITELLM_AZURE_REALTIME_PROTOCOL", raising=False)
+    monkeypatch.delenv("EMBROUTER_AZURE_REALTIME_PROTOCOL", raising=False)
     assert (
         await _azure_backend_url_dialed_for(_GA_CLIENT)
         == "wss://my-endpoint.openai.azure.com/openai/v1/realtime?model=gpt-realtime"
@@ -488,7 +488,7 @@ async def test_arealtime_azure_ga_client_without_beta_header_dials_the_ga_upstre
 
 @pytest.mark.asyncio
 async def test_arealtime_azure_beta_header_client_keeps_the_beta_upstream(monkeypatch):
-    monkeypatch.delenv("LITELLM_AZURE_REALTIME_PROTOCOL", raising=False)
+    monkeypatch.delenv("EMBROUTER_AZURE_REALTIME_PROTOCOL", raising=False)
     assert await _azure_backend_url_dialed_for(_BETA_CLIENT) == (
         "wss://my-endpoint.openai.azure.com/openai/realtime?api-version=2024-10-01-preview&deployment=gpt-realtime"
     )
@@ -496,7 +496,7 @@ async def test_arealtime_azure_beta_header_client_keeps_the_beta_upstream(monkey
 
 @pytest.mark.asyncio
 async def test_arealtime_azure_explicit_beta_protocol_wins_over_a_ga_client(monkeypatch):
-    monkeypatch.delenv("LITELLM_AZURE_REALTIME_PROTOCOL", raising=False)
+    monkeypatch.delenv("EMBROUTER_AZURE_REALTIME_PROTOCOL", raising=False)
     assert await _azure_backend_url_dialed_for(_GA_CLIENT, realtime_protocol="beta") == (
         "wss://my-endpoint.openai.azure.com/openai/realtime?api-version=2024-10-01-preview&deployment=gpt-realtime"
     )
@@ -504,15 +504,15 @@ async def test_arealtime_azure_explicit_beta_protocol_wins_over_a_ga_client(monk
 
 @pytest.mark.asyncio
 async def test_arealtime_azure_env_beta_protocol_wins_over_a_ga_client(monkeypatch):
-    monkeypatch.setenv("LITELLM_AZURE_REALTIME_PROTOCOL", "beta")
+    monkeypatch.setenv("EMBROUTER_AZURE_REALTIME_PROTOCOL", "beta")
     assert await _azure_backend_url_dialed_for(_GA_CLIENT) == (
         "wss://my-endpoint.openai.azure.com/openai/realtime?api-version=2024-10-01-preview&deployment=gpt-realtime"
     )
 
 
 async def _vertex_provider_config_for(monkeypatch, model: str, vertex_location: str | None):
-    from litellm.llms.vertex_ai.audio_transcription.realtime_transformation import VertexChirpRealtimeConfig
-    from litellm.llms.vertex_ai.realtime.transformation import VertexAIRealtimeConfig
+    from embrouter.llms.vertex_ai.audio_transcription.realtime_transformation import VertexChirpRealtimeConfig
+    from embrouter.llms.vertex_ai.realtime.transformation import VertexAIRealtimeConfig
 
     captured: dict[str, object] = {}
 
@@ -528,12 +528,12 @@ async def _vertex_provider_config_for(monkeypatch, model: str, vertex_location: 
     monkeypatch.setattr(realtime_main, "get_llm_provider", mock_get_llm_provider)
     monkeypatch.setattr(realtime_main, "vertex_access_token_resolver", mock_token_resolver)
     monkeypatch.setattr(realtime_main.base_llm_http_handler, "async_realtime", mock_async_realtime)
-    monkeypatch.setattr(litellm, "vertex_location", None)
+    monkeypatch.setattr(embrouter, "vertex_location", None)
     monkeypatch.delenv("VERTEXAI_LOCATION", raising=False)
     await realtime_main._arealtime.__wrapped__(
         model=model,
         websocket=MagicMock(),
-        litellm_logging_obj=FakeLogging(),
+        embrouter_logging_obj=FakeLogging(),
         query_params={"model": model, "intent": "transcription"},
         vertex_credentials="fake-credentials",
         vertex_project="proj-1",
@@ -546,7 +546,7 @@ async def _vertex_provider_config_for(monkeypatch, model: str, vertex_location: 
 
 @pytest.mark.asyncio
 async def test_arealtime_routes_chirp_models_to_the_speech_to_text_backend(monkeypatch):
-    from litellm.llms.vertex_ai.audio_transcription.realtime_transformation import VertexChirpRealtimeConfig
+    from embrouter.llms.vertex_ai.audio_transcription.realtime_transformation import VertexChirpRealtimeConfig
 
     provider_config, model = await _vertex_provider_config_for(monkeypatch, "vertex_ai/chirp_3", None)
     assert isinstance(provider_config, VertexChirpRealtimeConfig)
@@ -563,7 +563,7 @@ async def test_arealtime_routes_chirp_models_to_the_configured_speech_region(mon
 
 @pytest.mark.asyncio
 async def test_arealtime_keeps_gemini_live_on_the_vertex_realtime_websocket(monkeypatch):
-    from litellm.llms.vertex_ai.realtime.transformation import VertexAIRealtimeConfig
+    from embrouter.llms.vertex_ai.realtime.transformation import VertexAIRealtimeConfig
 
     provider_config, model = await _vertex_provider_config_for(monkeypatch, "vertex_ai/gemini-live-2.5-flash", None)
     assert isinstance(provider_config, VertexAIRealtimeConfig)

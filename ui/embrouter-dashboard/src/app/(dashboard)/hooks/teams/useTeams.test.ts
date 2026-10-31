@@ -14,7 +14,7 @@ vi.mock("@/app/(dashboard)/networking", () => ({
 vi.mock("@/components/networking", () => ({
   teamInfoCall: vi.fn(),
   getProxyBaseUrl: vi.fn(() => ""),
-  getGlobalLitellmHeaderName: vi.fn(() => "Authorization"),
+  getGlobalEmbrouterHeaderName: vi.fn(() => "Authorization"),
   deriveErrorMessage: vi.fn((data) => data?.error || "Error"),
   handleError: vi.fn(),
 }));

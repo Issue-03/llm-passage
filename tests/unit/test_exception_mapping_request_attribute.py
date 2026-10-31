@@ -31,9 +31,9 @@ import pytest
 import httpx
 from unittest.mock import patch
 
-import litellm
-from litellm.litellm_core_utils.exception_mapping_utils import exception_type
-from litellm.exceptions import APIError, APIConnectionError
+import embrouter
+from embrouter.embrouter_core_utils.exception_mapping_utils import exception_type
+from embrouter.exceptions import APIError, APIConnectionError
 
 
 class MockExceptionWithoutRequest:
@@ -167,7 +167,7 @@ def test_huggingface_specific_case():
             pytest.fail(
                 f"HuggingFace exception handling failed: Should not raise AttributeError about missing 'request' attribute: {e}"
             )
-    except litellm.ContextWindowExceededError:
+    except embrouter.ContextWindowExceededError:
         # Expected for "length limit exceeded" message
         pass
     except Exception:

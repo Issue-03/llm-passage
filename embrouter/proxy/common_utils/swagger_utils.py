@@ -3,7 +3,7 @@ from typing import Any, Final
 
 from pydantic import BaseModel, Field
 
-from litellm.exceptions import LITELLM_EXCEPTION_TYPES
+from embrouter.exceptions import EMBROUTER_EXCEPTION_TYPES
 
 
 class ErrorResponse(BaseModel):
@@ -42,7 +42,7 @@ ERROR_RESPONSES: Final = {
         "model": ErrorResponse,
         "description": _error_description(exception),
     }
-    for exception in LITELLM_EXCEPTION_TYPES
+    for exception in EMBROUTER_EXCEPTION_TYPES
 }
 
 # Ensure we have a 500 error response

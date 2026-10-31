@@ -7,7 +7,7 @@ Provides provider configuration utilities similar to ProviderConfigManager.
 from typing import TYPE_CHECKING, Final
 
 if TYPE_CHECKING:
-    from litellm.rag.ingestion.base_ingestion import BaseRAGIngestion
+    from embrouter.rag.ingestion.base_ingestion import BaseRAGIngestion
 
 
 def get_rag_ingestion_class(custom_llm_provider: str) -> type["BaseRAGIngestion"]:
@@ -23,9 +23,9 @@ def get_rag_ingestion_class(custom_llm_provider: str) -> type["BaseRAGIngestion"
     Raises:
         ValueError: If the provider is not supported
     """
-    from litellm.llms.vertex_ai.rag_engine.ingestion import VertexAIRAGIngestion
-    from litellm.rag.ingestion.bedrock_ingestion import BedrockRAGIngestion
-    from litellm.rag.ingestion.openai_ingestion import OpenAIRAGIngestion
+    from embrouter.llms.vertex_ai.rag_engine.ingestion import VertexAIRAGIngestion
+    from embrouter.rag.ingestion.bedrock_ingestion import BedrockRAGIngestion
+    from embrouter.rag.ingestion.openai_ingestion import OpenAIRAGIngestion
 
     provider_map: Final = {
         "openai": OpenAIRAGIngestion,
@@ -54,7 +54,7 @@ def get_rag_transformation_class(custom_llm_provider: str):
         The transformation class for the provider, or None if not needed
     """
     if custom_llm_provider == "vertex_ai":
-        from litellm.llms.vertex_ai.rag_engine.transformation import (
+        from embrouter.llms.vertex_ai.rag_engine.transformation import (
             VertexAIRAGTransformation,
         )
 

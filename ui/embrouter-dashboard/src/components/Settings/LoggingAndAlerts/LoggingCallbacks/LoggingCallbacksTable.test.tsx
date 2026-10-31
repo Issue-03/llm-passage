@@ -40,8 +40,8 @@ describe("LoggingCallbacksTable", () => {
         callbacks={[{ name: "otel", variables: baseVars }]}
         availableCallbacks={{
           otel: {
-            litellm_callback_name: "otel",
-            litellm_callback_params: [],
+            embrouter_callback_name: "otel",
+            embrouter_callback_params: [],
             ui_callback_name: "OpenTelemetry",
           },
         }}
@@ -130,8 +130,8 @@ describe("LoggingCallbacksTable", () => {
         ]}
         availableCallbacks={{
           generic_api: {
-            litellm_callback_name: "generic_api",
-            litellm_callback_params: [],
+            embrouter_callback_name: "generic_api",
+            embrouter_callback_params: [],
             ui_callback_name: "Custom Callback API",
           },
         }}

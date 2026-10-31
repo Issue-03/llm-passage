@@ -29,24 +29,24 @@ except ImportError:
 
 from fastapi import HTTPException
 
-import litellm
-from litellm import DualCache
-from litellm._logging import verbose_proxy_logger
-from litellm.integrations.custom_guardrail import (
+import embrouter
+from embrouter import DualCache
+from embrouter._logging import verbose_proxy_logger
+from embrouter.integrations.custom_guardrail import (
     CustomGuardrail,
     log_guardrail_information,
 )
-from litellm.integrations.custom_guardrail import dc as global_cache
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.integrations.custom_guardrail import dc as global_cache
+from embrouter.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.guardrails._content_utils import (
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.guardrails._content_utils import (
     build_inspection_messages,
     has_non_string_content,
 )
-from litellm.types.guardrails import GuardrailEventHooks
+from embrouter.types.guardrails import GuardrailEventHooks
 
 
 class LassoResponse(TypedDict):
@@ -59,7 +59,7 @@ class LassoResponse(TypedDict):
 
 
 if TYPE_CHECKING:
-    from litellm.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
+    from embrouter.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
 
 
 class LassoGuardrailMissingSecrets(Exception):
@@ -72,7 +72,7 @@ class LassoGuardrailAPIError(Exception):
 
 class LassoGuardrail(CustomGuardrail):
     """
-    Lasso Security Guardrail integration for LiteLLM.
+    Lasso Security Guardrail integration for EmbRouter.
 
     Provides content moderation, PII detection, and policy enforcement
     through the Lasso Security API.
@@ -248,7 +248,7 @@ class LassoGuardrail(CustomGuardrail):
             return response
 
         # Extract messages from the response for validation
-        if isinstance(response, litellm.ModelResponse):
+        if isinstance(response, embrouter.ModelResponse):
             response_messages: Final[list[dict[str, object]]] = []
             for choice in response.choices:
                 if not hasattr(choice, "message"):
@@ -273,10 +273,10 @@ class LassoGuardrail(CustomGuardrail):
                     )
 
             if response_messages:
-                # Include litellm_call_id from original data for conversation_id consistency
+                # Include embrouter_call_id from original data for conversation_id consistency
                 response_data: Final = {
                     "messages": response_messages,
-                    "litellm_call_id": data.get("litellm_call_id"),
+                    "embrouter_call_id": data.get("embrouter_call_id"),
                 }
 
                 # Handle masking for post-call
@@ -314,18 +314,18 @@ class LassoGuardrail(CustomGuardrail):
         """
         Get or generate a conversation_id for this request.
 
-        This method ensures session consistency by using litellm_call_id as a cache key.
+        This method ensures session consistency by using embrouter_call_id as a cache key.
         The same conversation_id is used for both pre-call and post-call hooks within
         the same request, enabling proper conversation grouping in Lasso UI.
 
         Example:
             >>> guardrail = LassoGuardrail(lasso_api_key="key")
-            >>> data = {"litellm_call_id": "call_123"}
+            >>> data = {"embrouter_call_id": "call_123"}
             >>> conversation_id = guardrail._get_or_generate_conversation_id(data, cache)
-            >>> # Returns consistent ID for same litellm_call_id
+            >>> # Returns consistent ID for same embrouter_call_id
 
         Args:
-            data: The request data containing litellm_call_id
+            data: The request data containing embrouter_call_id
             cache: The cache instance for storing conversation_id
 
         Returns:
@@ -335,15 +335,15 @@ class LassoGuardrail(CustomGuardrail):
         if self.conversation_id:
             return self.conversation_id
 
-        # Get the litellm_call_id which is consistent across all hooks for this request
-        litellm_call_id: Final = data.get("litellm_call_id")
+        # Get the embrouter_call_id which is consistent across all hooks for this request
+        embrouter_call_id: Final = data.get("embrouter_call_id")
 
-        if not litellm_call_id:
-            # Fallback to generating a new ULID if no litellm_call_id available
+        if not embrouter_call_id:
+            # Fallback to generating a new ULID if no embrouter_call_id available
             return self._generate_ulid()
 
-        # Use litellm_call_id as cache key for conversation_id
-        cache_key: Final = f"lasso_conversation_id:{litellm_call_id}"
+        # Use embrouter_call_id as cache key for conversation_id
+        cache_key: Final = f"lasso_conversation_id:{embrouter_call_id}"
 
         # Try to get existing conversation_id from cache
         try:
@@ -764,8 +764,8 @@ class LassoGuardrail(CustomGuardrail):
             "messages": messages,
             "messageType": message_type,
             # Drives the "Used By" badge on Lasso Application API Keys: every call from this
-            # integration is attributed as "litellm" on the keys list.
-            "source": {"type": "litellm"},
+            # integration is attributed as "embrouter" on the keys list.
+            "source": {"type": "embrouter"},
         }
 
         # Add optional parameters if available
@@ -917,7 +917,7 @@ class LassoGuardrail(CustomGuardrail):
 
     def _apply_masking_to_model_response(
         self,
-        model_response: litellm.ModelResponse,
+        model_response: embrouter.ModelResponse,
         masked_messages: Sequence[Mapping[str, object]],
     ) -> None:
         """Apply masking to the actual model response when mask=True and masked content is available."""
@@ -973,7 +973,7 @@ class LassoGuardrail(CustomGuardrail):
 
     @staticmethod
     def get_config_model() -> type["GuardrailConfigModel"] | None:
-        from litellm.types.proxy.guardrails.guardrail_hooks.lasso import (
+        from embrouter.types.proxy.guardrails.guardrail_hooks.lasso import (
             LassoGuardrailConfigModel,
         )
 

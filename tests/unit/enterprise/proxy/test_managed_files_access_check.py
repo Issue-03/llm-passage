@@ -4,7 +4,7 @@ Tests for managed files access control in batch polling context.
 Regression test for: batch polling job running as default_user_id gets 403
 when trying to access managed files created by a real user.
 
-The fix (Option C) makes check_batch_cost call litellm.afile_content directly
+The fix (Option C) makes check_batch_cost call embrouter.afile_content directly
 with deployment credentials, bypassing the managed files access-control hooks.
 """
 
@@ -15,9 +15,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from fastapi import HTTPException
 
-from litellm.caching.dual_cache import DualCache
-from litellm.proxy._types import CallTypes, UserAPIKeyAuth
-from litellm.types.utils import LiteLLMBatch
+from embrouter.caching.dual_cache import DualCache
+from embrouter.proxy._types import CallTypes, UserAPIKeyAuth
+from embrouter.types.utils import EmbRouterBatch
 
 
 def _make_user_api_key_dict(user_id: str) -> UserAPIKeyAuth:
@@ -30,7 +30,7 @@ def _make_user_api_key_dict(user_id: str) -> UserAPIKeyAuth:
 
 def _make_unified_file_id() -> str:
     """Create a base64-encoded unified file ID that passes _is_base64_encoded_unified_file_id."""
-    raw = "litellm_proxy:application/octet-stream;unified_id,test-123;target_model_names,azure-gpt-4"
+    raw = "embrouter_proxy:application/octet-stream;unified_id,test-123;target_model_names,azure-gpt-4"
     return base64.b64encode(raw.encode()).decode()
 
 
@@ -39,9 +39,9 @@ def _make_managed_files_instance(
     unified_file_id: str,
     file_team_id=None,
 ):
-    """Create a _PROXY_LiteLLMManagedFiles with a mocked DB that returns a file owned by file_created_by."""
-    from litellm_enterprise.proxy.hooks.managed_files import (
-        _PROXY_LiteLLMManagedFiles,
+    """Create a _PROXY_EmbRouterManagedFiles with a mocked DB that returns a file owned by file_created_by."""
+    from embrouter_enterprise.proxy.hooks.managed_files import (
+        _PROXY_EmbRouterManagedFiles,
     )
 
     mock_db_record = MagicMock()
@@ -49,11 +49,11 @@ def _make_managed_files_instance(
     mock_db_record.team_id = file_team_id
 
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_managedfiletable.find_first = AsyncMock(
+    mock_prisma.db.embrouter_managedfiletable.find_first = AsyncMock(
         return_value=mock_db_record
     )
 
-    instance = _PROXY_LiteLLMManagedFiles(
+    instance = _PROXY_EmbRouterManagedFiles(
         internal_usage_cache=MagicMock(),
         prisma_client=mock_prisma,
     )
@@ -168,15 +168,15 @@ async def test_service_account_blocked_from_other_team_file():
 
 
 def _make_unified_batch_id() -> str:
-    raw = "litellm_proxy;model_id:my-model-id;llm_batch_id:batch_raw_123"
+    raw = "embrouter_proxy;model_id:my-model-id;llm_batch_id:batch_raw_123"
     return base64.urlsafe_b64encode(raw.encode()).decode().rstrip("=")
 
 
 def _make_managed_files_instance_with_object_store():
     """Managed-files hook backed by an in-memory stand-in for the managed
     object table, so create and retrieve exercise the same stored row."""
-    from litellm_enterprise.proxy.hooks.managed_files import (
-        _PROXY_LiteLLMManagedFiles,
+    from embrouter_enterprise.proxy.hooks.managed_files import (
+        _PROXY_EmbRouterManagedFiles,
     )
 
     store = {}
@@ -188,13 +188,13 @@ def _make_managed_files_instance_with_object_store():
         return store.get(where["unified_object_id"])
 
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_managedobjecttable.upsert = AsyncMock(side_effect=upsert)
-    mock_prisma.db.litellm_managedobjecttable.find_first = AsyncMock(
+    mock_prisma.db.embrouter_managedobjecttable.upsert = AsyncMock(side_effect=upsert)
+    mock_prisma.db.embrouter_managedobjecttable.find_first = AsyncMock(
         side_effect=find_first
     )
 
     return (
-        _PROXY_LiteLLMManagedFiles(
+        _PROXY_EmbRouterManagedFiles(
             internal_usage_cache=DualCache(),
             prisma_client=mock_prisma,
         ),
@@ -205,7 +205,7 @@ def _make_managed_files_instance_with_object_store():
 async def _store_batch(managed_files, unified_batch_id: str, creator: UserAPIKeyAuth):
     await managed_files.store_unified_object_id(
         unified_object_id=unified_batch_id,
-        file_object=LiteLLMBatch(
+        file_object=EmbRouterBatch(
             id="batch_raw_123",
             completion_window="24h",
             created_at=0,
@@ -214,7 +214,7 @@ async def _store_batch(managed_files, unified_batch_id: str, creator: UserAPIKey
             object="batch",
             status="validating",
         ),
-        litellm_parent_otel_span=None,
+        embrouter_parent_otel_span=None,
         model_object_id="batch_raw_123",
         file_purpose="batch",
         user_api_key_dict=creator,
@@ -272,16 +272,16 @@ async def test_other_keyless_key_still_denied_the_batch():
 @pytest.mark.asyncio
 async def test_check_batch_cost_should_call_afile_content_directly_with_credentials():
     """
-    check_batch_cost should call litellm.afile_content directly with deployment
+    check_batch_cost should call embrouter.afile_content directly with deployment
     credentials, bypassing managed_files_obj.afile_content and its access-control
     hooks. This avoids the 403 that occurs when the background job runs as
     default_user_id.
     """
-    from litellm_enterprise.proxy.common_utils.check_batch_cost import CheckBatchCost
+    from embrouter_enterprise.proxy.common_utils.check_batch_cost import CheckBatchCost
 
     # Build a unified object ID in the expected format:
-    # litellm_proxy;model_id:{};llm_batch_id:{};llm_output_file_id:{}
-    unified_raw = "litellm_proxy;model_id:model-deploy-xyz;llm_batch_id:batch-123;llm_output_file_id:file-raw-output"
+    # embrouter_proxy;model_id:{};llm_batch_id:{};llm_output_file_id:{}
+    unified_raw = "embrouter_proxy;model_id:model-deploy-xyz;llm_batch_id:batch-123;llm_output_file_id:file-raw-output"
     unified_object_id = base64.b64encode(unified_raw.encode()).decode()
 
     # Mock a pending job from the DB
@@ -293,11 +293,11 @@ async def test_check_batch_cost_should_call_afile_content_directly_with_credenti
 
     # Mock prisma
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_managedobjecttable.find_many = AsyncMock(
+    mock_prisma.db.embrouter_managedobjecttable.find_many = AsyncMock(
         return_value=[mock_job]
     )
-    mock_prisma.db.litellm_managedobjecttable.update = AsyncMock()
-    mock_prisma.db.litellm_managedobjecttable.update_many = AsyncMock(return_value=1)
+    mock_prisma.db.embrouter_managedobjecttable.update = AsyncMock()
+    mock_prisma.db.embrouter_managedobjecttable.update_many = AsyncMock(return_value=1)
 
     # Mock proxy_logging_obj — should NOT be called for file content
     mock_proxy_logging = MagicMock()
@@ -310,9 +310,9 @@ async def test_check_batch_cost_should_call_afile_content_directly_with_credenti
     mock_proxy_logging.get_proxy_hook = MagicMock(return_value=mock_managed_files_hook)
 
     # Mock the batch response (completed, with output file)
-    from litellm.types.utils import LiteLLMBatch
+    from embrouter.types.utils import EmbRouterBatch
 
-    batch_response = LiteLLMBatch(
+    batch_response = EmbRouterBatch(
         id="batch-123",
         completion_window="24h",
         created_at=1700000000,
@@ -335,8 +335,8 @@ async def test_check_batch_cost_should_call_afile_content_directly_with_credenti
     )
 
     mock_deployment = MagicMock()
-    mock_deployment.litellm_params.custom_llm_provider = "azure"
-    mock_deployment.litellm_params.model = "azure/gpt-4"
+    mock_deployment.embrouter_params.custom_llm_provider = "azure"
+    mock_deployment.embrouter_params.model = "azure/gpt-4"
     mock_router.get_deployment = MagicMock(return_value=mock_deployment)
 
     checker = CheckBatchCost(
@@ -349,7 +349,7 @@ async def test_check_batch_cost_should_call_afile_content_directly_with_credenti
     mock_file_content.content = b'{"id":"req-1","response":{"status_code":200,"body":{"id":"cmpl-1","object":"chat.completion","created":1700000000,"model":"gpt-4","choices":[{"index":0,"message":{"role":"assistant","content":"hi"},"finish_reason":"stop"}],"usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}}}}\n'
 
     with patch(
-        "litellm.files.main.afile_content",
+        "embrouter.files.main.afile_content",
         new_callable=AsyncMock,
         return_value=mock_file_content,
     ) as mock_direct_afile_content:
@@ -368,9 +368,9 @@ async def test_check_batch_cost_should_call_afile_content_directly_with_credenti
         mock_managed_files_hook.afile_content.assert_not_called()
 
         # Verify the DB update writes batch_processed, status, and file_object
-        mock_prisma.db.litellm_managedobjecttable.update.assert_called_once()
+        mock_prisma.db.embrouter_managedobjecttable.update.assert_called_once()
         update_call_kwargs = (
-            mock_prisma.db.litellm_managedobjecttable.update.call_args.kwargs
+            mock_prisma.db.embrouter_managedobjecttable.update.call_args.kwargs
         )
         assert update_call_kwargs["data"]["batch_processed"] is True
         assert update_call_kwargs["data"]["status"] == "complete"

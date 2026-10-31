@@ -3,12 +3,12 @@ from unittest.mock import Mock, patch
 import pytest
 from fastapi import HTTPException
 
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.guardrails.guardrail_hooks.azure.prompt_shield import (
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.guardrails.guardrail_hooks.azure.prompt_shield import (
     AzureContentSafetyPromptShieldGuardrail,
 )
-from litellm.proxy.guardrails.guardrail_registry import InMemoryGuardrailHandler
-from litellm.types.guardrails import LitellmParams
+from embrouter.proxy.guardrails.guardrail_registry import InMemoryGuardrailHandler
+from embrouter.types.guardrails import EmbrouterParams
 
 
 @pytest.mark.asyncio
@@ -495,7 +495,7 @@ async def test_apply_guardrail_aggregates_billing_usage_across_texts():
     # Non-empty, like the real /guardrails/apply_guardrail request_data: the
     # @log_guardrail_information decorator substitutes a fresh dict for a falsy
     # request_data, which would strand the recorded entry in that substitute.
-    request_data = {"litellm_call_id": "test-call-id"}
+    request_data = {"embrouter_call_id": "test-call-id"}
 
     with patch.object(guardrail.async_handler, "post", return_value=_shield_response(False)):
         await guardrail.apply_guardrail(
@@ -568,53 +568,53 @@ def test_pricing_env_reference_resolving_to_nothing_fails_startup(monkeypatch):
         _priced_shield_guardrail(price_per_1000_text_records="os.environ/_TEST_SHIELD_BLANK_PRICE")
 
 
-def test_update_in_memory_litellm_params_applies_new_pricing_from_raw_dict():
-    """The immediate PUT sync hands the raw DB dict to update_in_memory_litellm_params;
+def test_update_in_memory_embrouter_params_applies_new_pricing_from_raw_dict():
+    """The immediate PUT sync hands the raw DB dict to update_in_memory_embrouter_params;
     the pricing extras must reach the live instance (base vars() loop never sees
     pydantic extras and rejects dicts outright)."""
     guardrail = _priced_shield_guardrail(cost_tier="paid", price_per_1000_text_records=0.38)
 
-    guardrail.update_in_memory_litellm_params({"cost_tier": "paid", "price_per_1000_text_records": 0.76})
+    guardrail.update_in_memory_embrouter_params({"cost_tier": "paid", "price_per_1000_text_records": 0.76})
 
     assert guardrail.price_per_1000_text_records == 0.76
     assert guardrail.cost_tier == "paid"
 
 
-def test_update_in_memory_litellm_params_rejects_invalid_pricing_untouched():
+def test_update_in_memory_embrouter_params_rejects_invalid_pricing_untouched():
     """An invalid pricing update raises BEFORE any state is mutated, so the running
     guardrail keeps enforcing with its previous valid configuration."""
     guardrail = _priced_shield_guardrail(cost_tier="paid", price_per_1000_text_records=0.38)
 
     with pytest.raises(ValueError, match="requires a positive price"):
-        guardrail.update_in_memory_litellm_params({"cost_tier": "paid", "price_per_1000_text_records": None})
+        guardrail.update_in_memory_embrouter_params({"cost_tier": "paid", "price_per_1000_text_records": None})
 
     assert guardrail.cost_tier == "paid"
     assert guardrail.price_per_1000_text_records == 0.38
 
 
-def test_update_in_memory_litellm_params_reads_extras_from_pydantic_object():
+def test_update_in_memory_embrouter_params_reads_extras_from_pydantic_object():
     """Pricing extras live in __pydantic_extra__, which the base vars() loop never
     sees; an object-shaped update must not silently clear a paid config into
     usage-only mode."""
     guardrail = _priced_shield_guardrail(cost_tier="paid", price_per_1000_text_records=0.38)
-    params = LitellmParams(
+    params = EmbrouterParams(
         guardrail="azure/prompt_shield", mode="pre_call", cost_tier="paid", price_per_1000_text_records=0.5
     )
 
-    guardrail.update_in_memory_litellm_params(params)
+    guardrail.update_in_memory_embrouter_params(params)
 
     assert guardrail.cost_tier == "paid"
     assert guardrail.price_per_1000_text_records == 0.5
 
 
-def test_update_in_memory_litellm_params_resolves_env_credential_references(monkeypatch):
+def test_update_in_memory_embrouter_params_resolves_env_credential_references(monkeypatch):
     """A raw os.environ/ credential in the update payload must land resolved,
     never as the literal reference: the request path sends self.api_key verbatim
     as the Ocp-Apim-Subscription-Key header."""
     monkeypatch.setenv("_TEST_SHIELD_UPDATED_KEY", "resolved-key")
     guardrail = _priced_shield_guardrail(cost_tier="paid", price_per_1000_text_records=0.38)
 
-    guardrail.update_in_memory_litellm_params(
+    guardrail.update_in_memory_embrouter_params(
         {"api_key": "os.environ/_TEST_SHIELD_UPDATED_KEY", "cost_tier": "paid", "price_per_1000_text_records": 0.76}
     )
 
@@ -622,7 +622,7 @@ def test_update_in_memory_litellm_params_resolves_env_credential_references(monk
     assert guardrail.price_per_1000_text_records == 0.76
 
 
-def test_update_in_memory_litellm_params_dead_env_credential_rejected_untouched(monkeypatch):
+def test_update_in_memory_embrouter_params_dead_env_credential_rejected_untouched(monkeypatch):
     """An update carrying a credential reference that resolves to nothing is
     rejected before any state is mutated, keeping the working credential and
     pricing in place."""
@@ -630,7 +630,7 @@ def test_update_in_memory_litellm_params_dead_env_credential_rejected_untouched(
     guardrail = _priced_shield_guardrail(cost_tier="paid", price_per_1000_text_records=0.38)
 
     with pytest.raises(ValueError, match="unset or blank"):
-        guardrail.update_in_memory_litellm_params(
+        guardrail.update_in_memory_embrouter_params(
             {"api_key": "os.environ/_TEST_SHIELD_DEAD_KEY", "cost_tier": "paid", "price_per_1000_text_records": 0.76}
         )
 
@@ -644,7 +644,7 @@ async def test_config_without_api_version_calls_documented_azure_api_version():
     registered = handler.initialize_guardrail(
         guardrail={
             "guardrail_name": "azure-prompt-shield-no-api-version",
-            "litellm_params": {
+            "embrouter_params": {
                 "guardrail": "azure/prompt_shield",
                 "mode": "pre_call",
                 "api_key": "azure_prompt_shield_api_key",
@@ -668,8 +668,8 @@ async def test_config_without_api_version_calls_documented_azure_api_version():
 @pytest.mark.asyncio
 async def test_update_without_api_version_keeps_documented_azure_api_version():
     guardrail = _shield_guardrail()
-    guardrail.update_in_memory_litellm_params(
-        LitellmParams(
+    guardrail.update_in_memory_embrouter_params(
+        EmbrouterParams(
             guardrail="azure/prompt_shield",
             mode="pre_call",
             api_key="azure_prompt_shield_api_key",

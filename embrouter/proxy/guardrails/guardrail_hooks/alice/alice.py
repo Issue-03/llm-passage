@@ -19,26 +19,26 @@ from typing import (
 import httpx
 from typing_extensions import NotRequired, ReadOnly, TypedDict, Unpack
 
-from litellm._logging import verbose_proxy_logger
-from litellm.exceptions import GuardrailRaisedException, Timeout
-from litellm.integrations.custom_guardrail import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.exceptions import GuardrailRaisedException, Timeout
+from embrouter.integrations.custom_guardrail import (
     CustomGuardrail,
     log_guardrail_information,
 )
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.utils import GenericGuardrailAPIInputs
+from embrouter.types.guardrails import GuardrailEventHooks
+from embrouter.types.utils import GenericGuardrailAPIInputs
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
 
 GUARDRAIL_NAME: Final = "alice"
 
 _DEFAULT_API_BASE: Final = "https://api.alice.io"
-_EVALUATE_PATH: Final = "/v2/evaluate/litellm"
+_EVALUATE_PATH: Final = "/v2/evaluate/embrouter"
 
 _VERDICT_ALLOW: Final = "ALLOW"
 _VERDICT_BLOCK: Final = "BLOCK"
@@ -60,9 +60,9 @@ _MAX_ITEMS: Final = 5000
 
 # request_data carries the caller's raw credentials under these keys, at any nesting depth —
 # a real captured payload puts inbound headers at request_data["proxy_server_request"]["headers"],
-# again under ["metadata"]["headers"] / ["litellm_metadata"]["headers"], and again under
+# again under ["metadata"]["headers"] / ["embrouter_metadata"]["headers"], and again under
 # ["metadata"]["requester_metadata"]["headers"], any of which can carry an Authorization or
-# x-api-key value. LiteLLM's own spend-log sanitizer excludes `secret_fields` for the same reason
+# x-api-key value. EmbRouter's own spend-log sanitizer excludes `secret_fields` for the same reason
 # (spend_tracking_utils._SENSITIVE_REQUEST_BODY_KEYS): `secret_fields.raw_headers` holds the
 # caller's Authorization / x-api-key in the clear, and `api_key` can carry a forwarded provider
 # credential. Stripping by key name rather than by path means a new nesting path can never
@@ -82,7 +82,7 @@ class AliceReplacement(TypedDict):
 
 
 class AliceVerdict(TypedDict):
-    """Body returned by Alice's LiteLLM evaluate endpoint."""
+    """Body returned by Alice's EmbRouter evaluate endpoint."""
 
     verdict: ReadOnly[NotRequired[str]]
     categories: ReadOnly[NotRequired["tuple[str, ...]"]]
@@ -109,7 +109,7 @@ class AliceGuardrail(CustomGuardrail):
     before it is serialized, and never reaches Alice. Short of that, it selects nothing and
     renames nothing: which parts of a conversation are worth evaluating, and how a verdict is
     reached, are decided by Alice — so changing either is a change on their side rather than a
-    LiteLLM upgrade. A batch with nothing selectable at all (no `texts`, `images`, `tools`,
+    EmbRouter upgrade. A batch with nothing selectable at all (no `texts`, `images`, `tools`,
     `tool_calls`, or `structured_messages`) still skips the call, since there would be nothing to
     send.
 
@@ -123,7 +123,7 @@ class AliceGuardrail(CustomGuardrail):
     Alice evaluates against policies configured per *application*, and one proxy typically fronts
     several, so the application is named on the virtual key rather than in this config:
 
-        curl $PROXY/key/generate -H "Authorization: Bearer $LITELLM_MASTER_KEY" \\
+        curl $PROXY/key/generate -H "Authorization: Bearer $EMBROUTER_MASTER_KEY" \\
           -d '{"key_alias": "payments-bot",
                "metadata": {"alice_app_id": "payments-bot"}}'
 
@@ -131,10 +131,10 @@ class AliceGuardrail(CustomGuardrail):
     `user_api_key_*` from the request before a guardrail sees it, a caller cannot point its own
     traffic at an application with laxer policies than the one its key was issued for.
 
-    Configuration example (litellm config YAML):
+    Configuration example (embrouter config YAML):
         guardrails:
           - guardrail_name: alice
-            litellm_params:
+            embrouter_params:
               guardrail: alice
               mode: [pre_call, post_call]
               api_key: os.environ/ALICE_API_KEY
@@ -180,7 +180,7 @@ class AliceGuardrail(CustomGuardrail):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict[str, object],  # mutable-ok: overrides CustomGuardrail.apply_guardrail's plain-dict contract
         input_type: Literal["request", "response"],
-        logging_obj: Optional["LiteLLMLoggingObj"] = None,
+        logging_obj: Optional["EmbRouterLoggingObj"] = None,
     ) -> GenericGuardrailAPIInputs:
         if not any(inputs.get(field) for field in _SELECTABLE_INPUT_FIELDS):
             return inputs
@@ -316,7 +316,7 @@ class AliceGuardrail(CustomGuardrail):
 
     @staticmethod
     def get_config_model() -> type | None:
-        from litellm.types.proxy.guardrails.guardrail_hooks.alice import (
+        from embrouter.types.proxy.guardrails.guardrail_hooks.alice import (
             AliceGuardrailConfigModel,
         )
 

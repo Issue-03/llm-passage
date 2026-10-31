@@ -45,7 +45,7 @@ To add a new container file endpoint (e.g., `get_container_file_content`):
 
 ### Step 2: Add Response Type (if new)
 
-In `litellm/types/containers/main.py`:
+In `embrouter/types/containers/main.py`:
 
 ```python
 class ContainerFileContentResponse(BaseModel):
@@ -56,7 +56,7 @@ class ContainerFileContentResponse(BaseModel):
 
 ### Step 3: Register Response Type
 
-In `litellm/llms/custom_httpx/container_handler.py`, add to `RESPONSE_TYPES`:
+In `embrouter/llms/custom_httpx/container_handler.py`, add to `RESPONSE_TYPES`:
 
 ```python
 RESPONSE_TYPES = {
@@ -67,13 +67,13 @@ RESPONSE_TYPES = {
 
 ### Step 4: Update Router (one-time setup)
 
-In `litellm/router.py`, add the call_type to the factory_function Literal and `_init_containers_api_endpoints` condition.
+In `embrouter/router.py`, add the call_type to the factory_function Literal and `_init_containers_api_endpoints` condition.
 
-In `litellm/proxy/route_llm_request.py`, add to the route mappings and skip-model-routing lists.
+In `embrouter/proxy/route_llm_request.py`, add to the route mappings and skip-model-routing lists.
 
 ### Step 5: Update Proxy Handler Factory (if new path params)
 
-If your endpoint has a new combination of path parameters, add a handler in `litellm/proxy/container_endpoints/handler_factory.py`:
+If your endpoint has a new combination of path parameters, add a handler in `embrouter/proxy/container_endpoints/handler_factory.py`:
 
 ```python
 elif path_params == ["container_id", "file_id", "new_param"]:
@@ -87,20 +87,20 @@ elif path_params == ["container_id", "file_id", "new_param"]:
 
 ### Step 1: Create Provider Config
 
-Create `litellm/llms/azure/containers/transformation.py`:
+Create `embrouter/llms/azure/containers/transformation.py`:
 
 ```python
 from typing import Dict, Optional, Tuple, Any
 import httpx
 
-from litellm.llms.base_llm.containers.transformation import BaseContainerConfig
-from litellm.types.containers.main import (
+from embrouter.llms.base_llm.containers.transformation import BaseContainerConfig
+from embrouter.types.containers.main import (
     ContainerFileListResponse,
     ContainerFileObject,
     DeleteContainerFileResponse,
 )
-from litellm.types.router import GenericLiteLLMParams
-from litellm.secret_managers.main import get_secret_str
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.secret_managers.main import get_secret_str
 
 
 class AzureContainerConfig(BaseContainerConfig):
@@ -122,11 +122,11 @@ class AzureContainerConfig(BaseContainerConfig):
         api_key: Optional[str] = None,
     ) -> dict:
         """Azure uses api-key header instead of Bearer token."""
-        import litellm
+        import embrouter
         
         api_key = (
             api_key
-            or litellm.azure_key
+            or embrouter.azure_key
             or get_secret_str("AZURE_API_KEY")
         )
         headers["api-key"] = api_key
@@ -135,7 +135,7 @@ class AzureContainerConfig(BaseContainerConfig):
     def get_complete_url(
         self,
         api_base: Optional[str],
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> str:
         """
         Azure format: 
@@ -144,7 +144,7 @@ class AzureContainerConfig(BaseContainerConfig):
         if api_base is None:
             raise ValueError("api_base is required for Azure")
         
-        api_version = litellm_params.get("api_version", "2024-02-15-preview")
+        api_version = embrouter_params.get("api_version", "2024-02-15-preview")
         return f"{api_base.rstrip('/')}/openai/containers?api-version={api_version}"
 
     # Implement remaining abstract methods from BaseContainerConfig:
@@ -162,7 +162,7 @@ class AzureContainerConfig(BaseContainerConfig):
 
 ### Step 2: Register Provider Config
 
-In `litellm/utils.py`, find `ProviderConfigManager.get_provider_container_config()` and add:
+In `embrouter/utils.py`, find `ProviderConfigManager.get_provider_container_config()` and add:
 
 ```python
 @staticmethod
@@ -170,10 +170,10 @@ def get_provider_container_config(
     provider: LlmProviders,
 ) -> Optional[BaseContainerConfig]:
     if provider == LlmProviders.OPENAI:
-        from litellm.llms.openai.containers.transformation import OpenAIContainerConfig
+        from embrouter.llms.openai.containers.transformation import OpenAIContainerConfig
         return OpenAIContainerConfig()
     elif provider == LlmProviders.AZURE:
-        from litellm.llms.azure.containers.transformation import AzureContainerConfig
+        from embrouter.llms.azure.containers.transformation import AzureContainerConfig
         return AzureContainerConfig()
     return None
 ```
@@ -212,20 +212,20 @@ curl -X GET "http://localhost:4000/v1/containers/cntr_123/files" \
 Run the container API tests:
 
 ```bash
-cd /Users/ishaanjaffer/github/litellm
+cd /Users/ishaanjaffer/github/embrouter
 python -m pytest tests/unit/containers/ -v
 ```
 
 Test via proxy:
 
 ```bash
-# Start proxy (proxy_config.yaml reads its master key from LITELLM_MASTER_KEY)
-export LITELLM_MASTER_KEY="sk-$(openssl rand -hex 32)"
-cd litellm/proxy && python proxy_cli.py --config proxy_config.yaml --port 4000
+# Start proxy (proxy_config.yaml reads its master key from EMBROUTER_MASTER_KEY)
+export EMBROUTER_MASTER_KEY="sk-$(openssl rand -hex 32)"
+cd embrouter/proxy && python proxy_cli.py --config proxy_config.yaml --port 4000
 
 # Test endpoints
 curl -X GET "http://localhost:4000/v1/containers/cntr_123/files" \
-    -H "Authorization: Bearer $LITELLM_MASTER_KEY"
+    -H "Authorization: Bearer $EMBROUTER_MASTER_KEY"
 ```
 
 ---

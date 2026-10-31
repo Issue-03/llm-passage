@@ -8,17 +8,17 @@ from typing import TYPE_CHECKING, Final, Protocol, TypeAlias
 
 from pydantic import BaseModel, ConfigDict, TypeAdapter, ValidationError
 
-from litellm.types.utils import CallTypes
+from embrouter.types.utils import CallTypes
 
 from ..base_utils import BaseLLMModelInfo
 
 if TYPE_CHECKING:
     from httpx import URL, Headers, Response
 
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.types.llms.openai import ResponsesAPIResponse, ResponsesTerminalEvent
-    from litellm.types.rerank import RerankResponse
-    from litellm.types.utils import CostResponseTypes, StandardPassThroughResponseObject
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.types.llms.openai import ResponsesAPIResponse, ResponsesTerminalEvent
+    from embrouter.types.rerank import RerankResponse
+    from embrouter.types.utils import CostResponseTypes, StandardPassThroughResponseObject
 
     from ..chat.transformation import BaseLLMException
     from ..ocr.transformation import OCRResponse
@@ -35,9 +35,9 @@ class PassthroughMetadata(BaseModel):
     model_group: str = ""
 
 
-def model_group_from(litellm_params: Mapping[str, object]) -> str:
+def model_group_from(embrouter_params: Mapping[str, object]) -> str:
     try:
-        return PassthroughMetadata.model_validate(litellm_params.get("litellm_metadata")).model_group
+        return PassthroughMetadata.model_validate(embrouter_params.get("embrouter_metadata")).model_group
     except ValidationError:
         return ""
 
@@ -84,7 +84,7 @@ class RelayShape:
 
 
 def logged_relay_shape(
-    shapes: Sequence[RelayShape], httpx_response: Response, logging_obj: LiteLLMLoggingObj, endpoint: str
+    shapes: Sequence[RelayShape], httpx_response: Response, logging_obj: EmbRouterLoggingObj, endpoint: str
 ) -> LoggedRelayResponse | None:
     relayed_path: Final = f"/{endpoint.strip('/')}"
     shape: Final = next((candidate for candidate in shapes if relayed_path.endswith(candidate.path_suffix)), None)
@@ -104,7 +104,7 @@ class PassthroughStreamCollector(Protocol):
 
     def add(self, chunk: bytes) -> None: ...
 
-    def build_logged_response(self, litellm_logging_obj: LiteLLMLoggingObj) -> LoggedRelayResponse | None: ...
+    def build_logged_response(self, embrouter_logging_obj: EmbRouterLoggingObj) -> LoggedRelayResponse | None: ...
 
 
 class RawBytesStreamCollector:
@@ -120,11 +120,11 @@ class RawBytesStreamCollector:
     def add(self, chunk: bytes) -> None:
         self._raw_bytes.append(chunk)
 
-    def build_logged_response(self, litellm_logging_obj: LiteLLMLoggingObj) -> LoggedRelayResponse | None:
+    def build_logged_response(self, embrouter_logging_obj: EmbRouterLoggingObj) -> LoggedRelayResponse | None:
         all_chunks: Final = self._provider_config._convert_raw_bytes_to_str_lines(self._raw_bytes)
         return self._provider_config.handle_logging_collected_chunks(
             all_chunks=all_chunks,
-            litellm_logging_obj=litellm_logging_obj,
+            embrouter_logging_obj=embrouter_logging_obj,
             model=self._model,
             custom_llm_provider=self._custom_llm_provider,
             endpoint=self._endpoint,
@@ -176,7 +176,7 @@ class BasePassthroughConfig(BaseLLMModelInfo):
         model: str,
         endpoint: str,
         request_query_params: dict | None,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> tuple[URL, str]:
         """
         Get the complete url for the request
@@ -188,7 +188,7 @@ class BasePassthroughConfig(BaseLLMModelInfo):
     def sign_request(
         self,
         headers: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         request_data: dict | None,
         api_base: str,
         model: str | None = None,
@@ -208,7 +208,7 @@ class BasePassthroughConfig(BaseLLMModelInfo):
         return headers, None
 
     def get_error_class(self, error_message: str, status_code: int, headers: dict | Headers) -> BaseLLMException:
-        from litellm.llms.base_llm.chat.transformation import BaseLLMException
+        from embrouter.llms.base_llm.chat.transformation import BaseLLMException
 
         return BaseLLMException(status_code=status_code, message=error_message, headers=headers)
 
@@ -218,7 +218,7 @@ class BasePassthroughConfig(BaseLLMModelInfo):
         custom_llm_provider: str,
         httpx_response: Response,
         request_data: dict,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         endpoint: str,
     ) -> LoggedRelayResponse | OCRResponse | StandardPassThroughResponseObject | None:
         pass
@@ -226,7 +226,7 @@ class BasePassthroughConfig(BaseLLMModelInfo):
     def handle_logging_collected_chunks(
         self,
         all_chunks: list[str],
-        litellm_logging_obj: LiteLLMLoggingObj,
+        embrouter_logging_obj: EmbRouterLoggingObj,
         model: str,
         custom_llm_provider: str,
         endpoint: str,

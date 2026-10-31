@@ -8,10 +8,10 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-from litellm.types.utils import ModelResponse, PromptTokensDetailsWrapper, Usage
+import embrouter
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.embrouter_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from embrouter.types.utils import ModelResponse, PromptTokensDetailsWrapper, Usage
 
 TIER_MODEL: Final = "tier-priced-test-model"
 TIER_ROW: Final[Mapping[str, float]] = MappingProxyType(
@@ -42,7 +42,7 @@ def _cost_at(prices: Mapping[str, float], column_suffix: str) -> float:
 
 
 def _register_tier_model() -> None:
-    litellm.register_model({TIER_MODEL: {"litellm_provider": "openai", "mode": "chat", **TIER_ROW}})
+    embrouter.register_model({TIER_MODEL: {"embrouter_provider": "openai", "mode": "chat", **TIER_ROW}})
 
 
 @pytest.mark.parametrize(
@@ -71,7 +71,7 @@ def test_completion_cost_bills_the_price_columns_of_the_service_tier(
         ),
     )
 
-    cost: Final = litellm.completion_cost(
+    cost: Final = embrouter.completion_cost(
         completion_response=response, model=TIER_MODEL, custom_llm_provider="openai", service_tier=service_tier
     )
 
@@ -148,19 +148,19 @@ async def test_router_prices_balanced_columns_by_the_same_rules_as_flex(
     monkeypatch: pytest.MonkeyPatch,
     overridden_columns: tuple[str, ...],
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
     recorder: Final = _CostRecorder()
-    monkeypatch.setattr(litellm, "callbacks", [recorder])
-    litellm.register_model({TIER_MODEL: {"litellm_provider": "openai", "mode": "chat", **PARITY_ROW}})
+    monkeypatch.setattr(embrouter, "callbacks", [recorder])
+    embrouter.register_model({TIER_MODEL: {"embrouter_provider": "openai", "mode": "chat", **PARITY_ROW}})
     respx_mock.post(f"{TIER_API_BASE}/chat/completions").mock(
         return_value=httpx.Response(200, json=_chat_completion_body())
     )
     group: Final = {tier: f"{tier}-{uuid.uuid4().hex}" for tier in ("flex", "balanced")}
-    router: Final = litellm.Router(
+    router: Final = embrouter.Router(
         model_list=[
             {
                 "model_name": group[tier],
-                "litellm_params": {
+                "embrouter_params": {
                     "model": f"openai/{TIER_MODEL}",
                     "api_key": "sk-test",
                     "api_base": TIER_API_BASE,

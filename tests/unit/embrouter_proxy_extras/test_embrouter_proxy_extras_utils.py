@@ -9,11 +9,11 @@ import pytest
 sys.path.insert(
     0,
     os.path.abspath(
-        os.path.join(os.path.dirname(__file__), "../../../litellm-proxy-extras")
+        os.path.join(os.path.dirname(__file__), "../../../embrouter-proxy-extras")
     ),
 )
 
-from litellm_proxy_extras.utils import (
+from embrouter_proxy_extras.utils import (
     PARTITIONED_SPEND_LOGS_PUSH_ERROR,
     ProxyExtrasDBManager,
     filter_partitioned_spend_logs_diff,
@@ -23,7 +23,7 @@ from litellm_proxy_extras.utils import (
 _MIGRATIONS_DIR = os.path.abspath(
     os.path.join(
         os.path.dirname(__file__),
-        "../../../litellm-proxy-extras/litellm_proxy_extras/migrations",
+        "../../../embrouter-proxy-extras/embrouter_proxy_extras/migrations",
     )
 )
 
@@ -33,7 +33,7 @@ def test_custom_prisma_dir(monkeypatch):
 
     # create a temp directory
     temp_dir = tempfile.mkdtemp()
-    monkeypatch.setenv("LITELLM_MIGRATION_DIR", temp_dir)
+    monkeypatch.setenv("EMBROUTER_MIGRATION_DIR", temp_dir)
 
     ## Check if the prisma dir is the temp directory
     assert ProxyExtrasDBManager._get_prisma_dir() == temp_dir
@@ -177,7 +177,7 @@ _PRE_GUARD_MIGRATIONS = frozenset({
     "20260626120000_add_mcp_tool_search_enabled",
     "20260629000000_add_max_concurrent_requests_to_mcp_server_table",
     "20260710000000_add_dcr_bridge_to_mcp_server_table",
-    "20260713230852_add_key_type_to_litellm_verification_token",
+    "20260713230852_add_key_type_to_embrouter_verification_token",
     "20260811172448_add_shadow_eval",
     "20260813180408_add_shadow_eval_direction",
     "20260814000000_add_proxy_worker_heartbeat",
@@ -483,52 +483,52 @@ class TestMigrationGuardScope:
 
 
 _PARTITIONED_DRIFT_SQL = """-- AlterTable
-ALTER TABLE "LiteLLM_BudgetTable" ADD COLUMN     "updated_by" TEXT;
+ALTER TABLE "EmbRouter_BudgetTable" ADD COLUMN     "updated_by" TEXT;
 
 -- AlterTable
-ALTER TABLE "LiteLLM_SpendLogs" DROP CONSTRAINT "LiteLLM_SpendLogs_pkey",
+ALTER TABLE "EmbRouter_SpendLogs" DROP CONSTRAINT "EmbRouter_SpendLogs_pkey",
 ADD COLUMN     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 ADD COLUMN     "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-ADD CONSTRAINT "LiteLLM_SpendLogs_pkey" PRIMARY KEY ("request_id");
+ADD CONSTRAINT "EmbRouter_SpendLogs_pkey" PRIMARY KEY ("request_id");
 
 -- DropTable
-DROP TABLE "LiteLLM_SpendLogs_legacy";
+DROP TABLE "EmbRouter_SpendLogs_legacy";
 """
 
 
 class TestPartitionedSpendLogsDriftFilter:
-    """A doc-partitioned LiteLLM_SpendLogs (db_scripts/partition_spend_logs.sql) has a
+    """A doc-partitioned EmbRouter_SpendLogs (db_scripts/partition_spend_logs.sql) has a
     composite primary key that schema.prisma cannot express, so `prisma migrate diff`
     emits a primary-key rewrite that Postgres rejects, aborting the whole drift script
     before its legitimate statements run."""
 
     def test_pk_rewrite_and_runbook_artifact_drops_are_removed(self):
         filtered = filter_partitioned_spend_logs_diff(_PARTITIONED_DRIFT_SQL)
-        assert 'DROP CONSTRAINT "LiteLLM_SpendLogs_pkey"' not in filtered
+        assert 'DROP CONSTRAINT "EmbRouter_SpendLogs_pkey"' not in filtered
         assert 'PRIMARY KEY ("request_id")' not in filtered
-        assert "LiteLLM_SpendLogs_legacy" not in filtered
+        assert "EmbRouter_SpendLogs_legacy" not in filtered
 
     def test_legitimate_statements_in_the_same_script_are_kept(self):
         filtered = filter_partitioned_spend_logs_diff(_PARTITIONED_DRIFT_SQL)
-        assert 'ALTER TABLE "LiteLLM_BudgetTable" ADD COLUMN     "updated_by" TEXT;' in filtered
+        assert 'ALTER TABLE "EmbRouter_BudgetTable" ADD COLUMN     "updated_by" TEXT;' in filtered
         assert 'ADD COLUMN     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP' in filtered
         assert 'ADD COLUMN     "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP' in filtered
-        assert filtered.count('ALTER TABLE "LiteLLM_SpendLogs"') == 1
+        assert filtered.count('ALTER TABLE "EmbRouter_SpendLogs"') == 1
 
     def test_an_alter_containing_only_the_pk_rewrite_is_dropped_entirely(self):
         sql = (
-            'ALTER TABLE "LiteLLM_SpendLogs" DROP CONSTRAINT "LiteLLM_SpendLogs_pkey",\n'
-            'ADD CONSTRAINT "LiteLLM_SpendLogs_pkey" PRIMARY KEY ("request_id");\n'
+            'ALTER TABLE "EmbRouter_SpendLogs" DROP CONSTRAINT "EmbRouter_SpendLogs_pkey",\n'
+            'ADD CONSTRAINT "EmbRouter_SpendLogs_pkey" PRIMARY KEY ("request_id");\n'
         )
         assert filter_partitioned_spend_logs_diff(sql).strip() == ""
 
     def test_other_tables_pk_changes_are_untouched(self):
         sql = (
-            'ALTER TABLE "LiteLLM_TeamTable" DROP CONSTRAINT "LiteLLM_TeamTable_pkey",\n'
-            'ADD CONSTRAINT "LiteLLM_TeamTable_pkey" PRIMARY KEY ("team_id");\n'
+            'ALTER TABLE "EmbRouter_TeamTable" DROP CONSTRAINT "EmbRouter_TeamTable_pkey",\n'
+            'ADD CONSTRAINT "EmbRouter_TeamTable_pkey" PRIMARY KEY ("team_id");\n'
         )
         filtered = filter_partitioned_spend_logs_diff(sql)
-        assert 'DROP CONSTRAINT "LiteLLM_TeamTable_pkey"' in filtered
+        assert 'DROP CONSTRAINT "EmbRouter_TeamTable_pkey"' in filtered
         assert 'PRIMARY KEY ("team_id")' in filtered
 
 
@@ -541,7 +541,7 @@ class TestResolveAllMigrationsLedger:
     def _run(self, monkeypatch, tmp_path, partitioned, execute_fails):
         import subprocess as subprocess_module
 
-        import litellm_proxy_extras.utils as utils_module
+        import embrouter_proxy_extras.utils as utils_module
 
         monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@localhost:5432/db")
         monkeypatch.delenv("DIRECT_URL", raising=False)
@@ -590,8 +590,8 @@ class TestResolveAllMigrationsLedger:
         calls = self._run(monkeypatch, tmp_path, partitioned=True, execute_fails=False)
         executed_sql = self._executed_sql(calls)
         assert 'PRIMARY KEY ("request_id")' not in executed_sql
-        assert "LiteLLM_SpendLogs_legacy" not in executed_sql
-        assert 'ALTER TABLE "LiteLLM_BudgetTable" ADD COLUMN     "updated_by" TEXT;' in executed_sql
+        assert "EmbRouter_SpendLogs_legacy" not in executed_sql
+        assert 'ALTER TABLE "EmbRouter_BudgetTable" ADD COLUMN     "updated_by" TEXT;' in executed_sql
         assert 'ADD COLUMN     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP' in executed_sql
         assert len(self._resolved(calls)) == 1
 
@@ -602,7 +602,7 @@ class TestResolveAllMigrationsLedger:
 
 class TestPartitionedSpendLogsPushGuard:
     def _forbid_subprocess(self, monkeypatch):
-        import litellm_proxy_extras.utils as utils_module
+        import embrouter_proxy_extras.utils as utils_module
 
         def fail_run(cmd, **kwargs):
             raise AssertionError(f"run_prisma should not be called, got: {cmd}")
@@ -649,7 +649,7 @@ class _FakePsycopgConn:
 
 
 class TestSpendLogsPartitionDetectionSchemaScope:
-    """A same-named LiteLLM_SpendLogs in another schema must not trip the
+    """A same-named EmbRouter_SpendLogs in another schema must not trip the
     detector: the catalog lookup has to be scoped to Prisma's target schema."""
 
     def _detect(self, monkeypatch, database_url):
@@ -688,7 +688,7 @@ class TestSpendLogsPartitionDetectionMissingPsycopg:
     """psycopg ships in the `extra_proxy` install, but a stripped-down image
     can still lack it. When it does, detection must fail closed to False
     (never crash the migration path) and say so loudly, because a silent
-    False here is what let a genuinely partitioned LiteLLM_SpendLogs hit the
+    False here is what let a genuinely partitioned EmbRouter_SpendLogs hit the
     unfiltered primary-key rewrite in production."""
 
     def test_missing_psycopg_returns_false(self, monkeypatch):
@@ -699,7 +699,7 @@ class TestSpendLogsPartitionDetectionMissingPsycopg:
     def test_missing_psycopg_logs_a_warning(self, monkeypatch, caplog):
         monkeypatch.setitem(sys.modules, "psycopg", None)
         monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@localhost:5432/db")
-        with caplog.at_level("WARNING", logger="litellm_proxy_extras"):
+        with caplog.at_level("WARNING", logger="embrouter_proxy_extras"):
             ProxyExtrasDBManager.spend_logs_is_partitioned()
         assert any(
             "psycopg is not installed" in record.message for record in caplog.records
@@ -741,7 +741,7 @@ ERROR: relation "SomeTable" already exists
     ),
 )
 def test_v2_migrations_use_the_direct_connection_with_the_runtime_schema(pooled, direct, expected):
-    from litellm_proxy_extras.migration_lock import migration_environment
+    from embrouter_proxy_extras.migration_lock import migration_environment
 
     environment = {"DATABASE_URL": pooled, "PRISMA_OFFLINE_MODE": "true"}
     configured = {**environment, **({"DIRECT_URL": direct} if direct else {})}
@@ -760,7 +760,7 @@ class _MigrateDeployHarness:
     def __init__(self, monkeypatch, tmp_path, outcomes, repeat_last=False, confirmed_migrations=()):
         import subprocess as subprocess_module
 
-        import litellm_proxy_extras.utils as utils_module
+        import embrouter_proxy_extras.utils as utils_module
 
         self.deploy_calls = []
         self.resolved = []
@@ -771,7 +771,7 @@ class _MigrateDeployHarness:
         self.confirmed_migrations = set(confirmed_migrations)
 
         monkeypatch.delenv("DATABASE_URL", raising=False)
-        monkeypatch.setenv("LITELLM_MIGRATION_DIR", str(tmp_path))
+        monkeypatch.setenv("EMBROUTER_MIGRATION_DIR", str(tmp_path))
         monkeypatch.setattr(utils_module.prisma_toolchain, "run_prisma", self._fake_run)
         monkeypatch.setattr(utils_module, "_get_prisma_env", lambda: {})
         monkeypatch.setattr(utils_module.time, "sleep", lambda seconds: None)
@@ -944,14 +944,14 @@ class TestMigrateDeployAttemptAccounting:
 def test_migration_completion_requires_a_matching_successful_script(steps, logs, script, expected):
     import hashlib
 
-    from litellm_proxy_extras.migration_recovery import MigrationProgress
+    from embrouter_proxy_extras.migration_recovery import MigrationProgress
 
     progress = MigrationProgress(hashlib.sha256(b"CREATE TABLE item (id int);").hexdigest(), steps, logs)
     assert progress.confirms_completion(script) is expected
 
 
 def test_prisma_lock_waiting_has_its_own_deadline():
-    from litellm_proxy_extras.utils import _MigrateAttemptBudget
+    from embrouter_proxy_extras.utils import _MigrateAttemptBudget
 
     budget = _MigrateAttemptBudget(attempts_left=4, contention_seconds_left=2)
     waiting = budget.after_contention(1)
@@ -963,14 +963,14 @@ def test_prisma_lock_waiting_has_its_own_deadline():
 class TestJWTKeyMappingCascade:
     """Regression tests for issue #33702.
 
-    A virtual key referenced by a LiteLLM_JWTKeyMapping row could not be deleted
-    because LiteLLM_JWTKeyMapping_token_fkey was created ON DELETE RESTRICT, so
+    A virtual key referenced by a EmbRouter_JWTKeyMapping row could not be deleted
+    because EmbRouter_JWTKeyMapping_token_fkey was created ON DELETE RESTRICT, so
     deleting the key (Admin UI, /key/delete, team delete, ...) raised a foreign
     key violation. The mapping must be removed automatically when its key is
     deleted, which the FK now enforces via ON DELETE CASCADE.
     """
 
-    _FK_NAME = "LiteLLM_JWTKeyMapping_token_fkey"
+    _FK_NAME = "EmbRouter_JWTKeyMapping_token_fkey"
 
     def _effective_on_delete(self):
         """Replay every migration in order and return the last ON DELETE action
@@ -1007,16 +1007,16 @@ class TestJWTKeyMappingCascade:
         declaring = tuple(
             (path, schema)
             for path, schema in ((p, Path(p).read_text()) for p in schema_paths)
-            if "model LiteLLM_JWTKeyMapping" in schema
+            if "model EmbRouter_JWTKeyMapping" in schema
         )
-        assert declaring, "No schema.prisma declaring LiteLLM_JWTKeyMapping found"
+        assert declaring, "No schema.prisma declaring EmbRouter_JWTKeyMapping found"
         for path, schema in declaring:
             match = re.search(
-                r"litellm_verification_token\s+LiteLLM_VerificationToken\s+@relation\(([^)]*)\)",
+                r"embrouter_verification_token\s+EmbRouter_VerificationToken\s+@relation\(([^)]*)\)",
                 schema,
             )
             assert match is not None, (
-                f"{path} declares LiteLLM_JWTKeyMapping but its verification token "
+                f"{path} declares EmbRouter_JWTKeyMapping but its verification token "
                 "relation could not be parsed, so this test cannot vouch for it "
                 "(issue #33702)"
             )

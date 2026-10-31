@@ -8,8 +8,8 @@ Docs: https://docs.together.ai/reference/completions-1
 
 from typing import Final, cast
 
-from litellm.llms.openai.completion.utils import is_tokens_or_list_of_tokens
-from litellm.types.llms.openai import (
+from embrouter.llms.openai.completion.utils import is_tokens_or_list_of_tokens
+from embrouter.types.llms.openai import (
     AllMessageValues,
     AllPromptValues,
     OpenAITextCompletionUserMessage,

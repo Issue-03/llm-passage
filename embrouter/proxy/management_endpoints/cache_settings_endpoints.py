@@ -17,27 +17,27 @@ from typing import TYPE_CHECKING, Any, Final, Protocol
 from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, Field, TypeAdapter
 
-from litellm._logging import verbose_proxy_logger
-from litellm._redis import _redis_kwargs_from_environment
-from litellm._uuid import uuid
-from litellm.litellm_core_utils.sensitive_data_masker import SensitiveDataMasker
-from litellm.proxy._types import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter._redis import _redis_kwargs_from_environment
+from embrouter._uuid import uuid
+from embrouter.embrouter_core_utils.sensitive_data_masker import SensitiveDataMasker
+from embrouter.proxy._types import (
     AUDIT_ACTIONS,
-    LiteLLM_AuditLogs,
-    LitellmTableNames,
+    EmbRouter_AuditLogs,
+    EmbrouterTableNames,
     UserAPIKeyAuth,
 )
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.db.exception_handler import call_with_db_reconnect_retry
-from litellm.repositories.table_repositories import CacheConfigRepository
-from litellm.types.management_endpoints import (
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.db.exception_handler import call_with_db_reconnect_retry
+from embrouter.repositories.table_repositories import CacheConfigRepository
+from embrouter.types.management_endpoints import (
     CACHE_SETTINGS_FIELDS,
     REDIS_TYPE_DESCRIPTIONS,
     CacheSettingsField,
 )
 
 if TYPE_CHECKING:
-    from litellm.proxy.utils import PrismaClient
+    from embrouter.proxy.utils import PrismaClient
 
 router: Final = APIRouter()
 
@@ -88,7 +88,7 @@ def _resolve_cache_url_precedence(settings: Mapping[str, object]) -> dict[str, A
 
     When a full ``url`` is supplied it wins: the discrete
     host/port/db/password/username fields are dropped so the persisted config
-    is unambiguous and matches runtime resolution in ``litellm._redis``
+    is unambiguous and matches runtime resolution in ``embrouter._redis``
     (``redis.Redis.from_url`` ignores them). Cluster mode
     (``redis_startup_nodes``) is exempt because it authenticates via the
     discrete fields rather than a url.
@@ -291,33 +291,33 @@ async def _emit_cache_settings_audit_log(
     before_settings: Mapping[str, object] | None,
     after_settings: Mapping[str, object] | None,
     user_api_key_dict: UserAPIKeyAuth,
-    litellm_changed_by: str | None,
+    embrouter_changed_by: str | None,
 ) -> None:
     """Emit an audit-log row for a /cache/settings mutation.
 
     Mirrors the ``store_audit_logs``-gated pattern used in
     ``team_callback_endpoints.py``: fire-and-forget, no-op when audit
     logging is disabled, with a done-callback that surfaces any task
-    exception.  Captured under ``LiteLLM_CacheConfig`` so the row
+    exception.  Captured under ``EmbRouter_CacheConfig`` so the row
     co-locates with the table it mutates.
     """
-    from litellm.proxy.management_helpers.audit_logs import (
+    from embrouter.proxy.management_helpers.audit_logs import (
         create_audit_log_for_update,
         is_audit_logging_enabled,
     )
-    from litellm.proxy.proxy_server import litellm_proxy_admin_name
+    from embrouter.proxy.proxy_server import embrouter_proxy_admin_name
 
     if not is_audit_logging_enabled():
         return
 
     task: Final = asyncio.create_task(
         create_audit_log_for_update(
-            request_data=LiteLLM_AuditLogs(
+            request_data=EmbRouter_AuditLogs(
                 id=str(uuid.uuid4()),
                 updated_at=datetime.now(timezone.utc),
-                changed_by=litellm_changed_by or user_api_key_dict.user_id or litellm_proxy_admin_name,
+                changed_by=embrouter_changed_by or user_api_key_dict.user_id or embrouter_proxy_admin_name,
                 changed_by_api_key=user_api_key_dict.api_key,
-                table_name=LitellmTableNames.CACHE_CONFIG_TABLE_NAME,
+                table_name=EmbrouterTableNames.CACHE_CONFIG_TABLE_NAME,
                 object_id="cache_config",
                 action=action,
                 updated_values=json.dumps({"settings": _redact_settings(after_settings)}, default=str),
@@ -406,7 +406,7 @@ class CacheSettingsManager:
                 verbose_proxy_logger.info("Cache settings initialized from database")
         except Exception as e:
             verbose_proxy_logger.exception(
-                "litellm.proxy.management_endpoints.cache_settings_endpoints.py::CacheSettingsManager::init_cache_settings_in_db - %s",
+                "embrouter.proxy.management_endpoints.cache_settings_endpoints.py::CacheSettingsManager::init_cache_settings_in_db - %s",
                 e,
             )
 
@@ -455,7 +455,7 @@ async def get_cache_settings(
     - fields: List of all configurable cache settings with their metadata (type, description, default, options)
     - current_values: Current values of cache settings from database
     """
-    from litellm.proxy.proxy_server import prisma_client, proxy_config
+    from embrouter.proxy.proxy_server import prisma_client, proxy_config
 
     try:
         # Get cache settings fields from types file
@@ -521,8 +521,8 @@ async def test_cache_connection(
     Creates a temporary cache instance and uses its test_connection method
     to verify the credentials work without affecting global state.
     """
-    from litellm import Cache
-    from litellm.proxy.proxy_server import prisma_client, proxy_config
+    from embrouter import Cache
+    from embrouter.proxy.proxy_server import prisma_client, proxy_config
 
     try:
         # A credential the form left untouched arrives redacted; resolve it back
@@ -574,9 +574,9 @@ async def test_cache_connection(
 async def update_cache_settings(
     request: CacheSettingsUpdateRequest,
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
-    litellm_changed_by: str | None = Header(
+    embrouter_changed_by: str | None = Header(
         None,
-        description="The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability",
+        description="The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability",
     ),
 ):
     """
@@ -584,10 +584,10 @@ async def update_cache_settings(
 
     This endpoint:
     1. Encrypts sensitive fields (passwords, etc.)
-    2. Saves to LiteLLM_CacheConfig table
+    2. Saves to EmbRouter_CacheConfig table
     3. Reinitializes cache with new settings
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         prisma_client,
         proxy_config,
         store_model_in_db,
@@ -662,7 +662,7 @@ async def update_cache_settings(
             before_settings=before_settings,
             after_settings=cache_settings,
             user_api_key_dict=user_api_key_dict,
-            litellm_changed_by=litellm_changed_by,
+            embrouter_changed_by=embrouter_changed_by,
         )
 
         return {

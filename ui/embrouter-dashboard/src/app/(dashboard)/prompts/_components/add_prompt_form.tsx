@@ -21,7 +21,7 @@ interface AddPromptFormProps {
 
 interface CreatePromptRequest {
   prompt_id: string;
-  litellm_params: {
+  embrouter_params: {
     prompt_integration: string;
     prompt_id: string;
     prompt_data: unknown;
@@ -93,7 +93,7 @@ const AddPromptForm: React.FC<AddPromptFormProps> = ({ visible, onClose, accessT
 
       return {
         prompt_id: promptId,
-        litellm_params: {
+        embrouter_params: {
           prompt_integration: "dotprompt",
           prompt_id: conversionResult.prompt_id,
           prompt_data: conversionResult.json_data,

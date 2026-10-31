@@ -4,10 +4,10 @@ from typing import Final
 
 from pydantic import JsonValue, TypeAdapter, ValidationError
 
-from litellm.constants import INTERNAL_CALL_ORIGIN_METADATA_KEY
-from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
-from litellm.litellm_core_utils.sensitive_data_masker import redact_credentials_in_payload
-from litellm.types.utils import AUTOROUTER_CLASSIFIER_CALL_ORIGIN, ClassifierAudit
+from embrouter.constants import INTERNAL_CALL_ORIGIN_METADATA_KEY
+from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps
+from embrouter.embrouter_core_utils.sensitive_data_masker import redact_credentials_in_payload
+from embrouter.types.utils import AUTOROUTER_CLASSIFIER_CALL_ORIGIN, ClassifierAudit
 
 CLASSIFIER_AUDIT_FIELDS: Final = ("classifier_input", "originating_request_masked")
 _JSON_OBJECT: Final = TypeAdapter(dict[str, JsonValue])
@@ -36,7 +36,7 @@ def is_classifier_call(call_type: str, params: Mapping[str, object]) -> bool:
     return call_type in ("completion", "acompletion", "responses", "aresponses") and any(
         isinstance(metadata := params.get(key), Mapping)
         and metadata.get(INTERNAL_CALL_ORIGIN_METADATA_KEY) == AUTOROUTER_CLASSIFIER_CALL_ORIGIN
-        for key in ("metadata", "litellm_metadata")
+        for key in ("metadata", "embrouter_metadata")
     )
 
 

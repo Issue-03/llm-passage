@@ -5,13 +5,13 @@ Translates from OpenAI's `/v1/chat/completions` to Moonshot AI's `/v1/chat/compl
 from collections.abc import Coroutine, Mapping
 from typing import Any, Final, Literal, cast, overload
 
-import litellm
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+import embrouter
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
     handle_messages_with_content_list_to_str_conversion,
 )
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.openai import AllMessageValues
-from litellm.utils import supports_reasoning
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.utils import supports_reasoning
 
 from ...openai.chat.gpt_transformation import OpenAIGPTConfig
 
@@ -80,7 +80,7 @@ class MoonshotChatConfig(OpenAIGPTConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         """
@@ -166,7 +166,7 @@ class MoonshotChatConfig(OpenAIGPTConfig):
           1. Check if reasoning_content exists at the top level (for Pydantic models
              that have the attribute but don't support 'in' operator)
           2. Promote provider_specific_fields["reasoning_content"] if present and non-empty
-             (this is where LiteLLM stores it from a previous response)
+             (this is where EmbRouter stores it from a previous response)
           3. Otherwise inject a single space — the minimum value the API accepts
         Messages that already carry the field, or are not assistant/tool-call messages,
         are appended as-is (no copy made).
@@ -191,7 +191,7 @@ class MoonshotChatConfig(OpenAIGPTConfig):
                     cleaned_provider_fields.pop("reasoning_content", None)
                     patched["provider_specific_fields"] = cleaned_provider_fields
                 else:
-                    litellm.verbose_logger.warning(
+                    embrouter.verbose_logger.warning(
                         "Moonshot reasoning model: assistant tool-call message is missing "
                         "`reasoning_content`. Injecting a placeholder to satisfy API validation. "
                         "For best results, preserve `reasoning_content` from the original "
@@ -208,7 +208,7 @@ class MoonshotChatConfig(OpenAIGPTConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         """
@@ -232,7 +232,7 @@ class MoonshotChatConfig(OpenAIGPTConfig):
             model=model,
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 

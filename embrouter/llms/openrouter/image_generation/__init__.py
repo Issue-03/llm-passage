@@ -1,4 +1,4 @@
-from litellm.llms.base_llm.image_generation.transformation import (
+from embrouter.llms.base_llm.image_generation.transformation import (
     BaseImageGenerationConfig,
 )
 

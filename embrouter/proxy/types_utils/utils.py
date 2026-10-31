@@ -17,13 +17,13 @@ def get_instance_fn(value: str, config_file_path: str | None = None) -> Any:
             # the YAML path). Without that signal the URL is request-body
             # data on an admin endpoint — a one-step admin-to-RCE primitive
             # via ``_load_instance_from_remote_storage``'s ``exec_module``.
-            # Register the module under ``litellm_settings`` in the
+            # Register the module under ``embrouter_settings`` in the
             # config.yaml instead.
             if config_file_path is None:
                 raise ValueError(
                     "Remote module loading (s3://, gcs://) is only "
                     "permitted from the config-file load path. Register "
-                    "the module under ``litellm_settings`` in your "
+                    "the module under ``embrouter_settings`` in your "
                     "config.yaml instead."
                 )
             return _load_instance_from_remote_storage(value, config_file_path)
@@ -81,7 +81,7 @@ def _load_instance_from_remote_storage(remote_url: str, config_file_path: str | 
         Any: The loaded instance
     """
     try:
-        from litellm._logging import verbose_proxy_logger
+        from embrouter._logging import verbose_proxy_logger
 
         # Parse the URL
         if remote_url.startswith("s3://"):
@@ -143,7 +143,7 @@ def _load_instance_from_remote_storage(remote_url: str, config_file_path: str | 
 
         # Download the file
         if storage_type == "s3":
-            from litellm.proxy.common_utils.load_config_utils import (
+            from embrouter.proxy.common_utils.load_config_utils import (
                 download_python_file_from_s3,
             )
 
@@ -185,13 +185,13 @@ def _load_instance_from_remote_storage(remote_url: str, config_file_path: str | 
 async def _download_gcs_file_wrapper(bucket_name: str, object_key: str, local_file_path: str) -> bool:
     """Wrapper for GCS download to handle async properly"""
     try:
-        from litellm.proxy.common_utils.load_config_utils import (
+        from embrouter.proxy.common_utils.load_config_utils import (
             download_python_file_from_gcs,
         )
 
         return await download_python_file_from_gcs(bucket_name, object_key, local_file_path)
     except Exception as e:
-        from litellm._logging import verbose_proxy_logger
+        from embrouter._logging import verbose_proxy_logger
 
         verbose_proxy_logger.error("Error downloading from GCS: %s", e)
         return False

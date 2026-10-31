@@ -31,12 +31,12 @@ from typing import Any, Final
 
 import httpx
 
-from litellm._uuid import uuid
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.base_llm.rerank.transformation import BaseRerankConfig
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.rerank import (
+from embrouter._uuid import uuid
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.base_llm.rerank.transformation import BaseRerankConfig
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.rerank import (
     OptionalRerankParams,
     RerankBilledUnits,
     RerankResponse,
@@ -99,7 +99,7 @@ class DashScopeRerankConfig(BaseRerankConfig):
         model: str,
         api_key: str | None = None,
         optional_params: dict | None = None,
-        litellm_params: Mapping[str, object] | None = None,
+        embrouter_params: Mapping[str, object] | None = None,
     ) -> dict:
         return {
             "Authorization": f"Bearer {self._resolve_api_key(api_key)}",
@@ -143,7 +143,7 @@ class DashScopeRerankConfig(BaseRerankConfig):
         model: str,
         optional_rerank_params: dict,
         headers: dict,
-        litellm_params: dict | None = None,
+        embrouter_params: dict | None = None,
     ) -> dict:
         if "query" not in optional_rerank_params:
             raise ValueError("query is required for DashScope rerank")
@@ -166,15 +166,15 @@ class DashScopeRerankConfig(BaseRerankConfig):
         model: str,
         raw_response: httpx.Response,
         model_response: RerankResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_key: str | None = None,
         request_data: dict | None = None,
         optional_params: dict | None = None,
-        litellm_params: dict | None = None,
+        embrouter_params: dict | None = None,
     ) -> RerankResponse:
         request_data = request_data or {}
         optional_params = optional_params or {}
-        litellm_params = litellm_params or {}
+        embrouter_params = embrouter_params or {}
         try:
             response_json: Final = raw_response.json()
         except Exception:
@@ -208,7 +208,7 @@ class DashScopeRerankConfig(BaseRerankConfig):
         #   {"index": int, "relevance_score": float}
         # plus, when return_documents=true was sent:
         #   "document": {"text": "..."}
-        # which already matches LiteLLM's RerankResponseDocument shape.
+        # which already matches EmbRouter's RerankResponseDocument shape.
         transformed_results: Final[list[dict]] = []
         for r in results:
             item: dict[str, object] = {

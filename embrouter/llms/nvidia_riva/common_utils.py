@@ -4,7 +4,7 @@ Common utilities and exceptions for the NVIDIA Riva STT provider
 
 from typing import Any, Final
 
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
 
 
 class NvidiaRivaException(BaseLLMException):
@@ -12,7 +12,7 @@ class NvidiaRivaException(BaseLLMException):
     Exception raised for NVIDIA Riva (gRPC) errors.
 
     ``status_code`` is an HTTP-equivalent code derived from the underlying
-    gRPC ``StatusCode`` (when available) so that litellm's existing error
+    gRPC ``StatusCode`` (when available) so that embrouter's existing error
     classifiers (RateLimitError, AuthenticationError, etc.) keep working.
     """
 
@@ -73,7 +73,7 @@ def _extract_grpc_details(error: Any) -> str | None:
     return None
 
 
-def grpc_error_to_litellm_exception(error: Exception) -> NvidiaRivaException:
+def grpc_error_to_embrouter_exception(error: Exception) -> NvidiaRivaException:
     """
     Convert a gRPC error (or any exception raised from the Riva client) into
     a ``NvidiaRivaException`` with an appropriate HTTP-equivalent status code.

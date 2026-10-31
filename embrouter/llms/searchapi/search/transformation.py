@@ -9,13 +9,13 @@ from urllib.parse import urlencode
 
 import httpx
 
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.base_llm.search.transformation import (
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.base_llm.search.transformation import (
     BaseSearchConfig,
     SearchResponse,
     SearchResult,
 )
-from litellm.secret_managers.main import get_secret_str
+from embrouter.secret_managers.main import get_secret_str
 
 
 class _SearchAPIRequestRequired(TypedDict):
@@ -201,13 +201,13 @@ class SearchAPIConfig(BaseSearchConfig):
     def transform_search_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj | None,
+        logging_obj: EmbRouterLoggingObj | None,
         **kwargs,
     ) -> SearchResponse:
         """
-        Transform SearchAPI.io response to LiteLLM unified SearchResponse format.
+        Transform SearchAPI.io response to EmbRouter unified SearchResponse format.
 
-        SearchAPI.io → LiteLLM mappings:
+        SearchAPI.io → EmbRouter mappings:
         - organic_results[].title → SearchResult.title
         - organic_results[].link → SearchResult.url
         - organic_results[].snippet → SearchResult.snippet

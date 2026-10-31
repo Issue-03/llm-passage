@@ -6,7 +6,7 @@ revoke_ui_session_keys — revoke every UI session key a user holds (password wr
 
 Logging out of the dashboard was purely client-side (cookies cleared, redirect);
 the DB-backed virtual key minted at login stayed valid until
-LITELLM_UI_SESSION_DURATION elapsed, so a captured token kept working access
+EMBROUTER_UI_SESSION_DURATION elapsed, so a captured token kept working access
 after logout, and changing a password did not invalidate existing sessions.
 
 Deliberately NOT reusing /key/delete: its `can_modify_verification_token`
@@ -19,21 +19,21 @@ from typing import TYPE_CHECKING, Annotated, Final, cast
 from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import TypeAdapter
 
-from litellm._logging import verbose_proxy_logger
-from litellm.constants import UI_SESSION_TOKEN_TEAM_ID
-from litellm.proxy._types import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.constants import UI_SESSION_TOKEN_TEAM_ID
+from embrouter.proxy._types import (
     CommonProxyErrors,
     HTTPExceptionErrorDetail,
-    LiteLLM_VerificationToken,
+    EmbRouter_VerificationToken,
     SessionLogoutResponse,
     UserAPIKeyAuth,
 )
-from litellm.proxy.auth.auth_checks import delete_cache_key_objects
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.management_endpoints.key_management_endpoints import (
+from embrouter.proxy.auth.auth_checks import delete_cache_key_objects
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.management_endpoints.key_management_endpoints import (
     _persist_deleted_verification_tokens,
 )
-from litellm.repositories.verification_token_repository import (
+from embrouter.repositories.verification_token_repository import (
     VerificationTokenRepository,
 )
 
@@ -55,7 +55,7 @@ async def revoke_ui_session_keys(
     user_api_key_dict: UserAPIKeyAuth,
     *,
     keep_hashed_token: str | None = None,
-    litellm_changed_by: str | None = None,
+    embrouter_changed_by: str | None = None,
 ) -> int:
     """Revoke every UI session key belonging to ``user_id``, except
     ``keep_hashed_token`` (the caller's own session on a self-service password
@@ -63,22 +63,22 @@ async def revoke_ui_session_keys(
 
     Best-effort: the password write this runs after has already committed, so a
     revocation failure is logged loudly rather than failing the request — the
-    unrevoked keys still expire at LITELLM_UI_SESSION_DURATION.
+    unrevoked keys still expire at EMBROUTER_UI_SESSION_DURATION.
 
     Returns the number of sessions revoked.
     """
-    from litellm.proxy.proxy_server import prisma_client, proxy_logging_obj, user_api_key_cache
+    from embrouter.proxy.proxy_server import prisma_client, proxy_logging_obj, user_api_key_cache
 
     if prisma_client is None:
         return 0
 
     try:
-        where_user_sessions: Final[prisma_types.LiteLLM_VerificationTokenWhereInput] = {
+        where_user_sessions: Final[prisma_types.EmbRouter_VerificationTokenWhereInput] = {
             "user_id": user_id,
             "team_id": UI_SESSION_TOKEN_TEAM_ID,
         }
         rows: Final = cast(  # cast-ok: find_many returns prisma rows shaped like the pydantic model
-            "tuple[LiteLLM_VerificationToken, ...]",
+            "tuple[EmbRouter_VerificationToken, ...]",
             tuple(await VerificationTokenRepository(prisma_client).table.find_many(where=where_user_sessions)),
         )
         revoked_rows: Final = tuple(row for row in rows if row.token is not None and row.token != keep_hashed_token)
@@ -90,9 +90,9 @@ async def revoke_ui_session_keys(
             keys=revoked_rows,
             prisma_client=prisma_client,
             user_api_key_dict=user_api_key_dict,
-            litellm_changed_by=litellm_changed_by,
+            embrouter_changed_by=embrouter_changed_by,
         )
-        where_revoked: Final[prisma_types.LiteLLM_VerificationTokenWhereInput] = {"token": {"in": revoked_tokens}}
+        where_revoked: Final[prisma_types.EmbRouter_VerificationTokenWhereInput] = {"token": {"in": revoked_tokens}}
         await VerificationTokenRepository(prisma_client).table.delete_many(where=where_revoked)
         await delete_cache_key_objects(
             hashed_tokens=revoked_tokens,
@@ -129,7 +129,7 @@ async def session_logout(
     Revokes only the presented session, not the user's other sessions.
     Idempotent: logging out an already-revoked session succeeds.
     """
-    from litellm.proxy.proxy_server import prisma_client, proxy_logging_obj, user_api_key_cache
+    from embrouter.proxy.proxy_server import prisma_client, proxy_logging_obj, user_api_key_cache
 
     if prisma_client is None:
         raise HTTPException(
@@ -146,13 +146,13 @@ async def session_logout(
     hashed_token: Final = user_api_key_dict.token
     revoked = False
     if hashed_token is not None:
-        where_token: Final[prisma_types.LiteLLM_VerificationTokenWhereUniqueInput] = {"token": hashed_token}
+        where_token: Final[prisma_types.EmbRouter_VerificationTokenWhereUniqueInput] = {"token": hashed_token}
         row: Final = await VerificationTokenRepository(prisma_client).table.find_unique(where=where_token)
         # A missing row means the session is already revoked (or an
         # EXPERIMENTAL_UI_LOGIN blob token); logout is idempotent either way.
         if row is not None:
             caller_row: Final = cast(  # cast-ok: find_unique returns a prisma row shaped like the pydantic model
-                "LiteLLM_VerificationToken", row
+                "EmbRouter_VerificationToken", row
             )
             await _persist_deleted_verification_tokens(
                 keys=(caller_row,),

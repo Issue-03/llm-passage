@@ -12,21 +12,21 @@ from typing import Any, Final
 import httpx
 from pydantic import BaseModel
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm._uuid import uuid
-from litellm.integrations.custom_batch_logger import CustomBatchLogger
-from litellm.integrations.langsmith_mock_client import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter._uuid import uuid
+from embrouter.integrations.custom_batch_logger import CustomBatchLogger
+from embrouter.integrations.langsmith_mock_client import (
     create_mock_langsmith_client,
     should_use_langsmith_mock,
 )
-from litellm.litellm_core_utils.redact_messages import redact_user_api_key_info
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.embrouter_core_utils.redact_messages import redact_user_api_key_info
+from embrouter.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.types.integrations.langsmith import *
-from litellm.types.utils import StandardCallbackDynamicParams, StandardLoggingPayload
+from embrouter.types.integrations.langsmith import *
+from embrouter.types.utils import StandardCallbackDynamicParams, StandardLoggingPayload
 
 
 def is_serializable(value):
@@ -73,7 +73,7 @@ class LangsmithLogger(CustomBatchLogger):
         )
         self.langsmith_default_run_name = os.getenv("LANGSMITH_DEFAULT_RUN_NAME", "LLMRun")
         self.async_httpx_client = get_async_httpx_client(llm_provider=httpxSpecialProvider.LoggingCallback)
-        _batch_size: Final = os.getenv("LANGSMITH_BATCH_SIZE", None) or litellm.langsmith_batch_size
+        _batch_size: Final = os.getenv("LANGSMITH_BATCH_SIZE", None) or embrouter.langsmith_batch_size
 
         if _batch_size:
             self.batch_size = int(_batch_size)
@@ -107,12 +107,12 @@ class LangsmithLogger(CustomBatchLogger):
     ) -> LangsmithCredentialsObject:
         if allow_env_credentials is False and langsmith_base_url is not None:
             _credentials_api_key = langsmith_api_key
-            _credentials_project = langsmith_project or "litellm-completion"
+            _credentials_project = langsmith_project or "embrouter-completion"
             _credentials_base_url = langsmith_base_url
             _credentials_tenant_id = langsmith_tenant_id
         else:
             _credentials_api_key = langsmith_api_key or os.getenv("LANGSMITH_API_KEY")
-            _credentials_project = langsmith_project or os.getenv("LANGSMITH_PROJECT") or "litellm-completion"
+            _credentials_project = langsmith_project or os.getenv("LANGSMITH_PROJECT") or "embrouter-completion"
             _credentials_base_url = (
                 langsmith_base_url or os.getenv("LANGSMITH_BASE_URL") or "https://api.smith.langchain.com"
             )
@@ -195,8 +195,8 @@ class LangsmithLogger(CustomBatchLogger):
         credentials: LangsmithCredentialsObject,
     ):
         try:
-            _litellm_params: Final = kwargs.get("litellm_params", {}) or {}
-            metadata = _litellm_params.get("metadata", {}) or {}
+            _embrouter_params: Final = kwargs.get("embrouter_params", {}) or {}
+            metadata = _embrouter_params.get("metadata", {}) or {}
 
             fields: Final = self._extract_metadata_fields(metadata, credentials)
             # the proxy header fan-out mirrors one value into both keys, and LangSmith
@@ -533,7 +533,7 @@ class LangsmithLogger(CustomBatchLogger):
         headers: Final = {"x-api-key": langsmith_api_key}
         if langsmith_tenant_id:
             headers["x-tenant-id"] = langsmith_tenant_id
-        response: Final = litellm.module_level_client.get(
+        response: Final = embrouter.module_level_client.get(
             url=url,
             headers=headers,
         )

@@ -2,7 +2,7 @@
 Unit Tests for the per-session budget limiter for the proxy.
 
 Tests that session-scoped budget tracking works correctly:
-- Enforces max_budget_per_session per session_id (read from agent litellm_params)
+- Enforces max_budget_per_session per session_id (read from agent embrouter_params)
 - Different sessions have independent budgets
 - Requests under budget pass through
 - Requests without agent_id pass through
@@ -14,21 +14,21 @@ import logging
 import pytest
 from fastapi import HTTPException
 
-from litellm.caching.caching import DualCache
-from litellm.caching.redis_cache import _redis_circuit_breaker_guard
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.hooks.max_budget_per_session_limiter import (
+from embrouter.caching.caching import DualCache
+from embrouter.caching.redis_cache import _redis_circuit_breaker_guard
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.hooks.max_budget_per_session_limiter import (
     _PROXY_MaxBudgetPerSessionHandler,
 )
-from litellm.proxy.utils import InternalUsageCache
-from litellm.types.agents import AgentResponse
+from embrouter.proxy.utils import InternalUsageCache
+from embrouter.types.agents import AgentResponse
 
 
 def _make_mock_agent(max_budget_per_session: float) -> AgentResponse:
     return AgentResponse(
         agent_id="agent-budget-123",
         agent_name="budget-agent",
-        litellm_params={"max_budget_per_session": max_budget_per_session},
+        embrouter_params={"max_budget_per_session": max_budget_per_session},
         agent_card_params={"name": "budget-agent", "version": "1.0.0"},
     )
 
@@ -50,7 +50,7 @@ async def test_budget_per_session_under_budget_passes():
     mock_agent = _make_mock_agent(max_budget_per_session=5.0)
 
     with patch(
-        "litellm.proxy.agent_endpoints.agent_registry.global_agent_registry"
+        "embrouter.proxy.agent_endpoints.agent_registry.global_agent_registry"
     ) as mock_registry:
         mock_registry.get_agent_by_id.return_value = mock_agent
 
@@ -85,7 +85,7 @@ async def test_budget_per_session_exceeds_budget():
     mock_agent = _make_mock_agent(max_budget_per_session=1.0)
 
     with patch(
-        "litellm.proxy.agent_endpoints.agent_registry.global_agent_registry"
+        "embrouter.proxy.agent_endpoints.agent_registry.global_agent_registry"
     ) as mock_registry:
         mock_registry.get_agent_by_id.return_value = mock_agent
 
@@ -121,7 +121,7 @@ async def test_budget_per_session_independent_sessions():
     mock_agent = _make_mock_agent(max_budget_per_session=2.0)
 
     with patch(
-        "litellm.proxy.agent_endpoints.agent_registry.global_agent_registry"
+        "embrouter.proxy.agent_endpoints.agent_registry.global_agent_registry"
     ) as mock_registry:
         mock_registry.get_agent_by_id.return_value = mock_agent
 
@@ -169,7 +169,7 @@ async def test_no_agent_id_passes():
 
 class _OpenBreakerRedis:
     def __init__(self) -> None:
-        from litellm.caching.redis_cache import RedisCircuitBreaker
+        from embrouter.caching.redis_cache import RedisCircuitBreaker
 
         self._circuit_breaker = RedisCircuitBreaker(failure_threshold=3, recovery_timeout=60)
         for _ in range(3):
@@ -193,7 +193,7 @@ async def test_an_open_circuit_breaker_reads_session_spend_locally_without_a_war
     handler = _PROXY_MaxBudgetPerSessionHandler(internal_usage_cache=InternalUsageCache(cache))
     caplog.clear()
 
-    with caplog.at_level(logging.DEBUG, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.DEBUG, logger="EmbRouter Proxy"):
         spend = await handler._get_current_spend("{session_budget:quiet}:spend")
 
     assert spend == 0.0

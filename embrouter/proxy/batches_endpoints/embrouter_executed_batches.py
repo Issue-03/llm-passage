@@ -15,30 +15,30 @@ from openai.types.batch_request_counts import BatchRequestCounts
 from pydantic import BaseModel, ConfigDict, TypeAdapter, ValidationError
 from typing_extensions import ReadOnly, TypedDict
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm._uuid import uuid as uuid_module
-from litellm.constants import LITELLM_EXECUTED_BATCH_CONCURRENCY
-from litellm.integrations.prometheus import PrometheusLogger
-from litellm.llms.base_llm.files.litellm_db_storage_backend import LITELLM_DB_STORAGE_BACKEND_NAME
-from litellm.llms.base_llm.files.storage_backend import BaseFileStorageBackend
-from litellm.llms.base_llm.files.storage_backend_factory import get_storage_backend
-from litellm.llms.custom_httpx.http_handler import get_async_httpx_client
-from litellm.models.managed_files import LiteLLM_ManagedFileTable
-from litellm.proxy._types import ProxyErrorTypes, ProxyException, UserAPIKeyAuth
-from litellm.proxy.auth.auth_utils import is_request_body_safe
-from litellm.proxy.litellm_pre_call_utils import LiteLLMProxyRequestSetup
-from litellm.proxy.openai_files_endpoints.common_utils import LITELLM_EXECUTED_BATCH_ID_PREFIX
-from litellm.proxy.openai_files_endpoints.storage_backend_service import StorageBackendFileService
-from litellm.proxy.utils import PrismaClient, ProxyLogging
-from litellm.repositories.managed_batch_repository import ManagedBatchRepository
-from litellm.types.llms.openai import LiteLLMBatchCreateRequest, OpenAIFileObject, OpenAIFilesPurpose
-from litellm.types.utils import LITELLM_EXECUTED_BATCH_PROVIDERS, ExtractedFileData, LiteLLMBatch, LlmProviders
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter._uuid import uuid as uuid_module
+from embrouter.constants import EMBROUTER_EXECUTED_BATCH_CONCURRENCY
+from embrouter.integrations.prometheus import PrometheusLogger
+from embrouter.llms.base_llm.files.embrouter_db_storage_backend import EMBROUTER_DB_STORAGE_BACKEND_NAME
+from embrouter.llms.base_llm.files.storage_backend import BaseFileStorageBackend
+from embrouter.llms.base_llm.files.storage_backend_factory import get_storage_backend
+from embrouter.llms.custom_httpx.http_handler import get_async_httpx_client
+from embrouter.models.managed_files import EmbRouter_ManagedFileTable
+from embrouter.proxy._types import ProxyErrorTypes, ProxyException, UserAPIKeyAuth
+from embrouter.proxy.auth.auth_utils import is_request_body_safe
+from embrouter.proxy.embrouter_pre_call_utils import EmbRouterProxyRequestSetup
+from embrouter.proxy.openai_files_endpoints.common_utils import EMBROUTER_EXECUTED_BATCH_ID_PREFIX
+from embrouter.proxy.openai_files_endpoints.storage_backend_service import StorageBackendFileService
+from embrouter.proxy.utils import PrismaClient, ProxyLogging
+from embrouter.repositories.managed_batch_repository import ManagedBatchRepository
+from embrouter.types.llms.openai import EmbRouterBatchCreateRequest, OpenAIFileObject, OpenAIFilesPurpose
+from embrouter.types.utils import EMBROUTER_EXECUTED_BATCH_PROVIDERS, ExtractedFileData, EmbRouterBatch, LlmProviders
 
 if TYPE_CHECKING:
     from prisma import types as prisma_types
 
-    from litellm.router import Router
+    from embrouter.router import Router
 
 BatchEndpoint: TypeAlias = Literal["/v1/chat/completions", "/v1/embeddings", "/v1/completions", "/v1/responses"]
 BatchStatus: TypeAlias = Literal[
@@ -65,9 +65,9 @@ _ROUTER_METHODS: Final[Mapping[BatchEndpoint, str]] = MappingProxyType(
 _CANCELLING_TRANSITIONS: Final[Mapping[BatchStatus, BatchStatus]] = MappingProxyType(
     {"completed": "cancelled", "expired": "cancelled", "in_progress": "cancelling", "finalizing": "cancelling"}
 )
-LITELLM_EXECUTED_BATCH_UPLOAD_GUIDANCE: Final = (
-    "upload it through POST /v1/files with purpose=batch and either the x-litellm-model header or the "
-    "target_model_names form field naming the model, so LiteLLM keeps the file and runs the batch itself"
+EMBROUTER_EXECUTED_BATCH_UPLOAD_GUIDANCE: Final = (
+    "upload it through POST /v1/files with purpose=batch and either the x-embrouter-model header or the "
+    "target_model_names form field naming the model, so EmbRouter keeps the file and runs the batch itself"
 )
 _RUNNING_BATCHES: Final[set[asyncio.Task[None]]] = set()  # mutable-ok: strong references keep running batch tasks alive
 _NO_FIELDS: Final[Mapping[str, object]] = MappingProxyType({})
@@ -151,14 +151,14 @@ class ManagedBatchStore(Protocol):
     def get_unified_batch_id(self, batch_id: str, model_id: str) -> str: ...
 
     async def get_unified_file_id(
-        self, file_id: str, litellm_parent_otel_span: object | None = None
-    ) -> LiteLLM_ManagedFileTable | None: ...
+        self, file_id: str, embrouter_parent_otel_span: object | None = None
+    ) -> EmbRouter_ManagedFileTable | None: ...
 
     async def store_unified_object_id(
         self,
         unified_object_id: str,
-        file_object: LiteLLMBatch,
-        litellm_parent_otel_span: object | None,
+        file_object: EmbRouterBatch,
+        embrouter_parent_otel_span: object | None,
         model_object_id: str,
         file_purpose: Literal["batch", "fine-tune", "response"],
         user_api_key_dict: UserAPIKeyAuth,
@@ -190,12 +190,12 @@ class _RouterCall(Protocol):
     def __call__(self, **params: object) -> Awaitable[object]: ...  # kwargs-ok: the request body is passed as keywords
 
 
-def litellm_executed_provider_of(credentials: Mapping[str, object]) -> str | None:
+def embrouter_executed_provider_of(credentials: Mapping[str, object]) -> str | None:
     explicit_provider: Final = credentials.get("custom_llm_provider")
     provider: Final = (
         explicit_provider if isinstance(explicit_provider, str) else _provider_of(credentials.get("model"))
     )
-    return provider if provider in LITELLM_EXECUTED_BATCH_PROVIDERS else None
+    return provider if provider in EMBROUTER_EXECUTED_BATCH_PROVIDERS else None
 
 
 class _HttpGetter(Protocol):
@@ -236,7 +236,7 @@ def _upstream_of(credentials: Mapping[str, object], provider: str) -> tuple[str,
     if not isinstance(model, str):
         return None
     try:
-        _, _, resolved_api_key, resolved_api_base = litellm.get_llm_provider(
+        _, _, resolved_api_key, resolved_api_base = embrouter.get_llm_provider(
             model=model,
             custom_llm_provider=provider,
             api_base=api_base if isinstance(api_base, str) else None,
@@ -247,10 +247,10 @@ def _upstream_of(credentials: Mapping[str, object], provider: str) -> tuple[str,
     return None if resolved_api_base is None else (resolved_api_base, resolved_api_key)
 
 
-async def litellm_executed_provider_for(
+async def embrouter_executed_provider_for(
     credentials: Mapping[str, object], lacks_files_api: FilesApiProbe = upstream_lacks_files_api
 ) -> str | None:
-    provider: Final = litellm_executed_provider_of(credentials)
+    provider: Final = embrouter_executed_provider_of(credentials)
     if provider is None:
         return None
     upstream: Final = _upstream_of(credentials, provider)
@@ -259,21 +259,21 @@ async def litellm_executed_provider_for(
     return provider if await lacks_files_api(*upstream) else None
 
 
-async def resolve_litellm_executed_provider(
+async def resolve_embrouter_executed_provider(
     llm_router: "Router",
     model: str,
     team_id: str | None,
     lacks_files_api: FilesApiProbe = upstream_lacks_files_api,
 ) -> str | None:
     credentials: Final = llm_router.get_deployment_credentials_with_provider(model_id=model, team_id=team_id)
-    return None if credentials is None else await litellm_executed_provider_for(credentials, lacks_files_api)
+    return None if credentials is None else await embrouter_executed_provider_for(credentials, lacks_files_api)
 
 
 def _provider_of(model: object) -> str | None:
     if not isinstance(model, str):
         return None
     try:
-        return litellm.get_llm_provider(model=model)[1]
+        return embrouter.get_llm_provider(model=model)[1]
     except Exception:  # noqa: BLE001  # get_llm_provider raises on an unknown model, which means no provider
         return None
 
@@ -333,7 +333,7 @@ def _validate_endpoint(endpoint: object) -> BatchEndpoint:
     try:
         return _BATCH_ENDPOINT_ADAPTER.validate_python(endpoint)
     except ValidationError:
-        raise batch_error(400, f"endpoint {endpoint!r} is not supported for a LiteLLM-executed batch")
+        raise batch_error(400, f"endpoint {endpoint!r} is not supported for a EmbRouter-executed batch")
 
 
 def _status_code_of(error: Exception) -> int:
@@ -412,7 +412,7 @@ class _StopWatch:
         return self._stopped
 
 
-class LiteLLMExecutedBatchRunner:
+class EmbRouterExecutedBatchRunner:
     def __init__(
         self,
         llm_router: "Router",
@@ -421,7 +421,7 @@ class LiteLLMExecutedBatchRunner:
         batches: ManagedBatchRepository,
         proxy_logging_obj: ProxyLogging,
         general_settings: Mapping[str, object],
-        concurrency: int = LITELLM_EXECUTED_BATCH_CONCURRENCY,
+        concurrency: int = EMBROUTER_EXECUTED_BATCH_CONCURRENCY,
         heartbeat_seconds: float = _HEARTBEAT_SECONDS,
         completion_window_seconds: float = _COMPLETION_WINDOW_SECONDS,
         storage_backend_factory: _StorageBackendFactory = get_storage_backend,
@@ -441,24 +441,24 @@ class LiteLLMExecutedBatchRunner:
 
     async def create(
         self,
-        create_request: LiteLLMBatchCreateRequest,
+        create_request: EmbRouterBatchCreateRequest,
         unified_input_file_id: str,
         model: str,
         provider: str,
         user_api_key_dict: UserAPIKeyAuth,
         request_tags: Sequence[str] | None,
-    ) -> LiteLLMBatch:
+    ) -> EmbRouterBatch:
         endpoint: Final = _validate_endpoint(create_request.get("endpoint"))
         content: Final = await self._download_input(unified_input_file_id, user_api_key_dict)
         parsed: Final = parse_batch_input(content, endpoint, self._body_rejection(model))
         if isinstance(parsed, InvalidBatchInput):
             raise batch_error(400, f"Invalid batch input file: {parsed.describe()}")
-        llm_batch_id: Final = f"{LITELLM_EXECUTED_BATCH_ID_PREFIX}{uuid_module.uuid4().hex}"
+        llm_batch_id: Final = f"{EMBROUTER_EXECUTED_BATCH_ID_PREFIX}{uuid_module.uuid4().hex}"
         model_id: Final = next(iter(self.llm_router.get_model_ids(model_name=model)), model)
         unified_batch_id: Final = self.managed_files.get_unified_batch_id(batch_id=llm_batch_id, model_id=model_id)
         now: Final = time.time()
         created_at: Final = int(now)
-        batch: Final = LiteLLMBatch(
+        batch: Final = EmbRouterBatch(
             id=unified_batch_id,
             object="batch",
             endpoint=endpoint,
@@ -474,7 +474,7 @@ class LiteLLMExecutedBatchRunner:
         await self.managed_files.store_unified_object_id(
             unified_object_id=unified_batch_id,
             file_object=batch,
-            litellm_parent_otel_span=user_api_key_dict.parent_otel_span,
+            embrouter_parent_otel_span=user_api_key_dict.parent_otel_span,
             model_object_id=llm_batch_id,
             file_purpose="batch",
             user_api_key_dict=user_api_key_dict,
@@ -498,7 +498,7 @@ class LiteLLMExecutedBatchRunner:
         task.add_done_callback(_RUNNING_BATCHES.discard)
         return batch
 
-    async def cancel(self, unified_batch_id: str, user_api_key_dict: UserAPIKeyAuth) -> LiteLLMBatch:
+    async def cancel(self, unified_batch_id: str, user_api_key_dict: UserAPIKeyAuth) -> EmbRouterBatch:
         current: Final = await self.batches.load_batch(unified_batch_id)
         if current is None:
             raise batch_error(404, f"Batch {unified_batch_id} not found")
@@ -509,12 +509,12 @@ class LiteLLMExecutedBatchRunner:
         cancelling: Final = current.model_copy(
             update=MappingProxyType({"status": "cancelling", "cancelling_at": int(time.time())})
         )
-        unchanged: Final[prisma_types.LiteLLM_ManagedObjectTableWhereInput] = {"status": current.status}
+        unchanged: Final[prisma_types.EmbRouter_ManagedObjectTableWhereInput] = {"status": current.status}
         if await self.batches.compare_and_set(cancelling, unchanged, user_api_key_dict.user_id):
             return cancelling
         return await self.cancel(unified_batch_id, user_api_key_dict)
 
-    async def fail_abandoned(self, batch: LiteLLMBatch, user_api_key_dict: UserAPIKeyAuth) -> LiteLLMBatch:
+    async def fail_abandoned(self, batch: EmbRouterBatch, user_api_key_dict: UserAPIKeyAuth) -> EmbRouterBatch:
         error: Final = BatchError(message=_RUNNER_LOST_MESSAGE, code="runner_lost")
         errors: Final = Errors(data=[error], object="list")  # mutable-ok: Errors.data is typed as a list
         failed: Final = batch.model_copy(
@@ -523,7 +523,7 @@ class LiteLLMExecutedBatchRunner:
         untouched: Final[prisma_types.DateTimeFilter] = {
             "lt": datetime.now(timezone.utc) - timedelta(seconds=_STALE_AFTER_SECONDS)
         }
-        still_abandoned: Final[prisma_types.LiteLLM_ManagedObjectTableWhereInput] = {
+        still_abandoned: Final[prisma_types.EmbRouter_ManagedObjectTableWhereInput] = {
             "status": batch.status,
             "updated_at": untouched,
         }
@@ -548,13 +548,13 @@ class LiteLLMExecutedBatchRunner:
 
     async def _download_input(self, unified_input_file_id: str, user_api_key_dict: UserAPIKeyAuth) -> bytes:
         stored: Final = await self.managed_files.get_unified_file_id(
-            unified_input_file_id, litellm_parent_otel_span=user_api_key_dict.parent_otel_span
+            unified_input_file_id, embrouter_parent_otel_span=user_api_key_dict.parent_otel_span
         )
         if stored is None or not stored.storage_backend or not stored.storage_url:
             raise batch_error(
                 400,
-                f"LiteLLM does not hold the content of input file {unified_input_file_id}: "
-                f"{LITELLM_EXECUTED_BATCH_UPLOAD_GUIDANCE}",
+                f"EmbRouter does not hold the content of input file {unified_input_file_id}: "
+                f"{EMBROUTER_EXECUTED_BATCH_UPLOAD_GUIDANCE}",
             )
         try:
             backend: Final = self.storage_backend_factory(stored.storage_backend, prisma_client=self.prisma_client)
@@ -567,14 +567,14 @@ class LiteLLMExecutedBatchRunner:
         try:
             await self._execute(run)
         except Exception as e:  # noqa: BLE001  # whatever fails, the batch must end up marked failed
-            verbose_proxy_logger.exception("LiteLLM-executed batch %s failed: %s", run.unified_batch_id, e)
+            verbose_proxy_logger.exception("EmbRouter-executed batch %s failed: %s", run.unified_batch_id, e)
             error: Final = BatchError(message=str(e), code="internal_error")
             errors: Final = Errors(data=[error], object="list")  # mutable-ok: Errors.data is typed as a list
             try:
                 await self._advance(run, "failed", MappingProxyType({"errors": errors}))
             except Exception as advance_error:  # noqa: BLE001  # a failed status write is logged, never raised
                 verbose_proxy_logger.exception(
-                    "LiteLLM-executed batch %s could not be marked failed: %s", run.unified_batch_id, advance_error
+                    "EmbRouter-executed batch %s could not be marked failed: %s", run.unified_batch_id, advance_error
                 )
         finally:
             heartbeat.cancel()
@@ -585,7 +585,7 @@ class LiteLLMExecutedBatchRunner:
             try:
                 await self._touch(run)
             except Exception as e:  # noqa: BLE001  # a missed beat is logged and the next one retries
-                verbose_proxy_logger.warning("LiteLLM-executed batch %s heartbeat failed: %s", run.unified_batch_id, e)
+                verbose_proxy_logger.warning("EmbRouter-executed batch %s heartbeat failed: %s", run.unified_batch_id, e)
 
     async def _touch(self, run: _BatchRun) -> None:
         await self.batches.touch(run.unified_batch_id, run.user_api_key_dict.user_id)
@@ -655,10 +655,10 @@ class LiteLLMExecutedBatchRunner:
 
     def _row_metadata(self, run: _BatchRun) -> dict[str, object]:  # mutable-ok: router updates metadata in place
         return {  # mutable-ok: the router updates request metadata in place
-            **LiteLLMProxyRequestSetup.get_sanitized_user_information_from_key(run.user_api_key_dict),
-            "user_api_key": LiteLLMProxyRequestSetup.get_logged_api_key(run.user_api_key_dict),
+            **EmbRouterProxyRequestSetup.get_sanitized_user_information_from_key(run.user_api_key_dict),
+            "user_api_key": EmbRouterProxyRequestSetup.get_logged_api_key(run.user_api_key_dict),
             "user_api_end_user_max_budget": run.user_api_key_dict.end_user_max_budget,
-            "tags": list(run.request_tags),  # mutable-ok: litellm types request tags as a list
+            "tags": list(run.request_tags),  # mutable-ok: embrouter types request tags as a list
             "batch_id": run.unified_batch_id,
         }
 
@@ -676,7 +676,7 @@ class LiteLLMExecutedBatchRunner:
         }
         file_object: Final = await self.upload_result_file(
             file_data=file_data,
-            target_storage=LITELLM_DB_STORAGE_BACKEND_NAME,
+            target_storage=EMBROUTER_DB_STORAGE_BACKEND_NAME,
             target_model_names=(run.model,),
             purpose="batch_output",
             proxy_logging_obj=self.proxy_logging_obj,
@@ -697,7 +697,7 @@ class LiteLLMExecutedBatchRunner:
         updated: Final = current.model_copy(
             update=MappingProxyType({**fields, "status": status, f"{status}_at": int(time.time())})
         )
-        unchanged: Final[prisma_types.LiteLLM_ManagedObjectTableWhereInput] = {"status": current.status}
+        unchanged: Final[prisma_types.EmbRouter_ManagedObjectTableWhereInput] = {"status": current.status}
         if await self.batches.compare_and_set(updated, unchanged, run.user_api_key_dict.user_id):
             return status
         return await self._advance(run, requested, fields)

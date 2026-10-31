@@ -10,9 +10,9 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-from litellm.proxy.auth.auth_utils import iter_request_fallback_targets
-from litellm.proxy.auth.user_api_key_auth import (
+from embrouter.proxy._types import EmbrouterUserRoles, UserAPIKeyAuth
+from embrouter.proxy.auth.auth_utils import iter_request_fallback_targets
+from embrouter.proxy.auth.user_api_key_auth import (
     _enforce_key_and_fallback_model_access,
     _fallback_target_model_name,
 )
@@ -31,7 +31,7 @@ def _key_with_models(models: List[str]) -> UserAPIKeyAuth:
     return UserAPIKeyAuth(
         api_key="hashed",
         user_id="caller",
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=EmbrouterUserRoles.INTERNAL_USER,
         models=models,
     )
 
@@ -95,11 +95,11 @@ async def test_router_override_fallbacks_validated_against_key_allowlist():
 
     with (
         patch(
-            "litellm.proxy.auth.user_api_key_auth.can_key_call_model",
+            "embrouter.proxy.auth.user_api_key_auth.can_key_call_model",
             side_effect=fake_can_key_call_model,
         ),
         patch(
-            "litellm.proxy.auth.user_api_key_auth.is_valid_fallback_model",
+            "embrouter.proxy.auth.user_api_key_auth.is_valid_fallback_model",
             new=AsyncMock(),
         ),
     ):
@@ -146,11 +146,11 @@ async def test_router_override_all_fallback_fields_validated(fallback_field):
 
     with (
         patch(
-            "litellm.proxy.auth.user_api_key_auth.can_key_call_model",
+            "embrouter.proxy.auth.user_api_key_auth.can_key_call_model",
             side_effect=fake_can_key_call_model,
         ),
         patch(
-            "litellm.proxy.auth.user_api_key_auth.is_valid_fallback_model",
+            "embrouter.proxy.auth.user_api_key_auth.is_valid_fallback_model",
             new=AsyncMock(),
         ),
     ):
@@ -193,11 +193,11 @@ async def test_top_level_fallback_fields_validated(fallback_field):
 
     with (
         patch(
-            "litellm.proxy.auth.user_api_key_auth.can_key_call_model",
+            "embrouter.proxy.auth.user_api_key_auth.can_key_call_model",
             side_effect=fake_can_key_call_model,
         ),
         patch(
-            "litellm.proxy.auth.user_api_key_auth.is_valid_fallback_model",
+            "embrouter.proxy.auth.user_api_key_auth.is_valid_fallback_model",
             new=AsyncMock(),
         ),
     ):
@@ -239,11 +239,11 @@ async def test_nested_deployment_fallback_inner_model_validated():
 
     with (
         patch(
-            "litellm.proxy.auth.user_api_key_auth.can_key_call_model",
+            "embrouter.proxy.auth.user_api_key_auth.can_key_call_model",
             side_effect=fake_can_key_call_model,
         ),
         patch(
-            "litellm.proxy.auth.user_api_key_auth.is_valid_fallback_model",
+            "embrouter.proxy.auth.user_api_key_auth.is_valid_fallback_model",
             new=AsyncMock(),
         ),
     ):
@@ -284,11 +284,11 @@ async def test_model_less_fallback_dict_is_skipped_never_passed_as_none():
 
     with (
         patch(
-            "litellm.proxy.auth.user_api_key_auth.can_key_call_model",
+            "embrouter.proxy.auth.user_api_key_auth.can_key_call_model",
             side_effect=fake_can_key_call_model,
         ),
         patch(
-            "litellm.proxy.auth.user_api_key_auth.is_valid_fallback_model",
+            "embrouter.proxy.auth.user_api_key_auth.is_valid_fallback_model",
             new=AsyncMock(),
         ),
     ):
@@ -322,11 +322,11 @@ async def test_router_override_without_fallbacks_does_not_break_auth():
 
     with (
         patch(
-            "litellm.proxy.auth.user_api_key_auth.can_key_call_model",
+            "embrouter.proxy.auth.user_api_key_auth.can_key_call_model",
             side_effect=fake_can_key_call_model,
         ),
         patch(
-            "litellm.proxy.auth.user_api_key_auth.is_valid_fallback_model",
+            "embrouter.proxy.auth.user_api_key_auth.is_valid_fallback_model",
             new=AsyncMock(),
         ),
     ):

@@ -3,8 +3,8 @@ from typing import Final
 
 import httpx
 
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.secret_managers.main import get_secret_str
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.secret_managers.main import get_secret_str
 
 MISTRAL_API_BASE: Final = "https://api.mistral.ai"
 MISTRAL_API_KEY_ENV_VAR: Final = "MISTRAL_API_KEY"

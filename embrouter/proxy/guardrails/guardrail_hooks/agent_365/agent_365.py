@@ -22,20 +22,20 @@ from fastapi import HTTPException
 from pydantic import TypeAdapter, ValidationError
 from typing_extensions import ReadOnly, TypedDict
 
-from litellm._logging import verbose_proxy_logger
-from litellm.exceptions import Timeout as LitellmTimeout
-from litellm.integrations.custom_guardrail import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.exceptions import Timeout as EmbrouterTimeout
+from embrouter.integrations.custom_guardrail import (
     CustomGuardrail,
     log_guardrail_information,
 )
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.custom_httpx.http_handler import (
     AsyncHTTPHandler,
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.proxy.guardrails.guardrail_hooks.agent_365 import (
+from embrouter.types.guardrails import GuardrailEventHooks
+from embrouter.types.proxy.guardrails.guardrail_hooks.agent_365 import (
     AGENT_365_PROD_API_BASE,
     AGENT_365_PROD_RESOURCE_APP_ID,
     AGENT_365_SCOPE_NAME,
@@ -43,10 +43,10 @@ from litellm.types.proxy.guardrails.guardrail_hooks.agent_365 import (
 )
 
 if TYPE_CHECKING:
-    from litellm.caching.caching import DualCache
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
-    from litellm.types.utils import GuardrailStatus
+    from embrouter.caching.caching import DualCache
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
+    from embrouter.types.utils import GuardrailStatus
 
 TOKEN_ENDPOINT_TEMPLATE: Final = "https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token"
 EVALUATE_URL: Final = f"{AGENT_365_PROD_API_BASE}/agents/tool-evaluation/evaluate"
@@ -84,7 +84,7 @@ def _parse_aadsts_codes(raw: object) -> tuple[int, ...]:
 
 def entra_assertion(value: object) -> str | None:
     """``value`` when it is a compact JWS, the only bearer shape the OBO exchange accepts as its assertion.
-    A LiteLLM virtual key, session bearer, or opaque upstream token in ``Authorization`` yields ``None``."""
+    A EmbRouter virtual key, session bearer, or opaque upstream token in ``Authorization`` yields ``None``."""
     return value if isinstance(value, str) and value.count(".") == 2 else None
 
 
@@ -241,7 +241,7 @@ class Agent365Guardrail(CustomGuardrail):
                 reason=f"the Entra token endpoint returned HTTP {exc.status_code}",
                 latency_ms=None,
             )
-        except (httpx.HTTPError, LitellmTimeout, TimeoutError) as exc:
+        except (httpx.HTTPError, EmbrouterTimeout, TimeoutError) as exc:
             return self._handle_unavailable(
                 data=data,
                 tool_name=tool_name,
@@ -261,7 +261,7 @@ class Agent365Guardrail(CustomGuardrail):
                 json=self._build_evaluate_payload(data=data, user_api_key_dict=user_api_key_dict),
                 headers={"Authorization": f"Bearer {obo_token}"},  # mutable-ok: httpx header dict
             )
-        except (httpx.HTTPError, LitellmTimeout, TimeoutError) as exc:
+        except (httpx.HTTPError, EmbrouterTimeout, TimeoutError) as exc:
             return self._handle_unavailable(
                 data=data,
                 tool_name=tool_name,
@@ -390,7 +390,7 @@ class Agent365Guardrail(CustomGuardrail):
     ) -> dict[str, object]:  # mutable-ok: JSON body for AsyncHTTPHandler.post, which requires dict
         tool_name: Final = str(data.get("mcp_tool_name") or "")
         arguments: Final = data.get("mcp_arguments")
-        server_name: Final = str(data.get("mcp_server_name") or "litellm")
+        server_name: Final = str(data.get("mcp_server_name") or "embrouter")
         agent_id: Final = user_api_key_dict.key_alias
         payload: Final[dict[str, object]] = {  # mutable-ok: JSON body with optional fields added below
             "tool": {"name": tool_name},
@@ -407,8 +407,8 @@ class Agent365Guardrail(CustomGuardrail):
     def _resolve_conversation_id(data: Mapping[str, object]) -> str:
         """The MCP session groups every tool call of one client conversation, so it is the conversation id
         when the transport carries one; stateless calls fall back to the per-call id."""
-        raw_logging_obj: Final = data.get("litellm_logging_obj")
-        logging_obj: Final = raw_logging_obj if isinstance(raw_logging_obj, LiteLLMLoggingObj) else None
+        raw_logging_obj: Final = data.get("embrouter_logging_obj")
+        logging_obj: Final = raw_logging_obj if isinstance(raw_logging_obj, EmbRouterLoggingObj) else None
         if logging_obj is not None:
             tool_call_metadata: Final = logging_obj.model_call_details.get("mcp_tool_call_metadata")
             session_from_logging: Final = (
@@ -417,7 +417,7 @@ class Agent365Guardrail(CustomGuardrail):
             if isinstance(session_from_logging, str) and session_from_logging:
                 return session_from_logging
         metadata: Final = next(
-            (m for m in (data.get("metadata"), data.get("litellm_metadata")) if isinstance(m, Mapping)),
+            (m for m in (data.get("metadata"), data.get("embrouter_metadata")) if isinstance(m, Mapping)),
             None,
         )
         headers: Final = metadata.get("headers") if isinstance(metadata, Mapping) else None
@@ -428,7 +428,7 @@ class Agent365Guardrail(CustomGuardrail):
             )
             if isinstance(session_id, str) and session_id:
                 return session_id
-        call_id: Final = data.get("litellm_call_id") or (logging_obj.litellm_call_id if logging_obj else None)
+        call_id: Final = data.get("embrouter_call_id") or (logging_obj.embrouter_call_id if logging_obj else None)
         if isinstance(call_id, str) and call_id:
             return call_id
         return str(uuid.uuid4())

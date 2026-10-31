@@ -25,10 +25,10 @@ from openai.types.completion_usage import CompletionUsage
 if TYPE_CHECKING:
     from aiohttp import ClientSession
 
-import litellm
-from litellm.litellm_core_utils.token_counter import token_counter
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.custom_httpx.http_handler import (
+import embrouter
+from embrouter.embrouter_core_utils.token_counter import token_counter
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.custom_httpx.http_handler import (
     _DEFAULT_TTL_FOR_HTTPX_CLIENTS,
     AsyncHTTPHandler,
     get_ssl_configuration,
@@ -217,45 +217,45 @@ class BaseOpenAILLM:
             client_initialization_params=client_initialization_params,
             client_type=client_type,
         )
-        _cached_client: Final = litellm.in_memory_llm_clients_cache.get_cache(_cache_key)
+        _cached_client: Final = embrouter.in_memory_llm_clients_cache.get_cache(_cache_key)
         return _cached_client
 
     @staticmethod
     def owns_wrapped_http_client(http_client: httpx.Client | httpx.AsyncClient | None) -> bool:
-        """Whether litellm may close an SDK client built around ``http_client``.
+        """Whether embrouter may close an SDK client built around ``http_client``.
 
         ``_get_async_http_client`` / ``_get_sync_http_client`` hand back
-        ``litellm.aclient_session`` / ``litellm.client_session`` when the caller
+        ``embrouter.aclient_session`` / ``embrouter.client_session`` when the caller
         configured one. The SDK's ``close()`` closes whatever http client it was
         given, so an SDK client wrapping one of those shared sessions must never be
         closed on eviction; the caller goes on using the session. ``None`` means the
-        SDK built its own http client, which litellm does own.
+        SDK built its own http client, which embrouter does own.
         """
         if http_client is None:
             return True
-        return http_client is not litellm.aclient_session and http_client is not litellm.client_session
+        return http_client is not embrouter.aclient_session and http_client is not embrouter.client_session
 
     @staticmethod
     def set_cached_openai_client(
         openai_client: OpenAI | AsyncOpenAI | AzureOpenAI | AsyncAzureOpenAI,
         client_type: Literal["openai", "azure"],
         client_initialization_params: dict,
-        litellm_owned_client: bool = False,
+        embrouter_owned_client: bool = False,
     ):
         """Stores the OpenAI client in the in-memory cache for _DEFAULT_TTL_FOR_HTTPX_CLIENTS SECONDS
 
-        ``litellm_owned_client`` says litellm built this client, so the cache may close it once it
-        is evicted. A client the caller supplied stays open, since litellm does not own it.
+        ``embrouter_owned_client`` says embrouter built this client, so the cache may close it once it
+        is evicted. A client the caller supplied stays open, since embrouter does not own it.
         """
         _cache_key: Final = BaseOpenAILLM.get_openai_client_cache_key(
             client_initialization_params=client_initialization_params,
             client_type=client_type,
         )
-        litellm.in_memory_llm_clients_cache.set_cache(
+        embrouter.in_memory_llm_clients_cache.set_cache(
             key=_cache_key,
             value=openai_client,
             ttl=_DEFAULT_TTL_FOR_HTTPX_CLIENTS,
-            litellm_owned_client=litellm_owned_client,
+            embrouter_owned_client=embrouter_owned_client,
         )
 
     @staticmethod
@@ -273,7 +273,7 @@ class BaseOpenAILLM:
             f"is_async={client_initialization_params.get('is_async')}",
         ]
 
-        LITELLM_CLIENT_SPECIFIC_PARAMS: Final = (
+        EMBROUTER_CLIENT_SPECIFIC_PARAMS: Final = (
             "timeout",
             "max_retries",
             "organization",
@@ -282,7 +282,7 @@ class BaseOpenAILLM:
         )
         openai_client_fields: Final = (
             BaseOpenAILLM.get_openai_client_initialization_param_fields(client_type=client_type)
-            + LITELLM_CLIENT_SPECIFIC_PARAMS
+            + EMBROUTER_CLIENT_SPECIFIC_PARAMS
         )
 
         for param in openai_client_fields:
@@ -305,11 +305,11 @@ class BaseOpenAILLM:
     def _get_async_http_client(
         shared_session: Optional["ClientSession"] = None,
     ) -> httpx.AsyncClient | None:
-        if litellm.aclient_session is not None:
-            return litellm.aclient_session
+        if embrouter.aclient_session is not None:
+            return embrouter.aclient_session
 
-        if getattr(litellm, "network_mock", False):
-            from litellm.llms.custom_httpx.mock_transport import MockOpenAITransport
+        if getattr(embrouter, "network_mock", False):
+            from embrouter.llms.custom_httpx.mock_transport import MockOpenAITransport
 
             return httpx.AsyncClient(transport=MockOpenAITransport())
 
@@ -331,11 +331,11 @@ class BaseOpenAILLM:
 
     @staticmethod
     def _get_sync_http_client() -> httpx.Client | None:
-        if litellm.client_session is not None:
-            return litellm.client_session
+        if embrouter.client_session is not None:
+            return embrouter.client_session
 
-        if getattr(litellm, "network_mock", False):
-            from litellm.llms.custom_httpx.mock_transport import MockOpenAITransport
+        if getattr(embrouter, "network_mock", False):
+            from embrouter.llms.custom_httpx.mock_transport import MockOpenAITransport
 
             return httpx.Client(transport=MockOpenAITransport())
 
@@ -360,16 +360,16 @@ def get_openai_credentials(
     api_key: str | None = None,
     organization: str | None = None,
 ) -> OpenAICredentials:
-    """Resolve OpenAI credentials from params, litellm globals, and env vars."""
+    """Resolve OpenAI credentials from params, embrouter globals, and env vars."""
     resolved_api_base: Final = (
         api_base
-        or litellm.api_base
+        or embrouter.api_base
         or os.getenv("OPENAI_BASE_URL")
         or os.getenv("OPENAI_API_BASE")
         or "https://api.openai.com/v1"
     )
-    resolved_organization = organization or litellm.organization or os.getenv("OPENAI_ORGANIZATION", None) or None
-    resolved_api_key: Final = api_key or litellm.api_key or litellm.openai_key or os.getenv("OPENAI_API_KEY")
+    resolved_organization = organization or embrouter.organization or os.getenv("OPENAI_ORGANIZATION", None) or None
+    resolved_api_key: Final = api_key or embrouter.api_key or embrouter.openai_key or os.getenv("OPENAI_API_KEY")
     return OpenAICredentials(
         api_base=resolved_api_base,
         api_key=resolved_api_key,

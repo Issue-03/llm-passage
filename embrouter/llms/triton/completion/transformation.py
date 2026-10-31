@@ -8,16 +8,16 @@ from typing import TYPE_CHECKING, Final, Literal
 
 from httpx import Headers, Response
 
-from litellm.constants import DEFAULT_MAX_TOKENS_FOR_TRITON
-from litellm.litellm_core_utils.prompt_templates.factory import prompt_factory
-from litellm.llms.base_llm.base_model_iterator import BaseModelResponseIterator
-from litellm.llms.base_llm.chat.transformation import (
+from embrouter.constants import DEFAULT_MAX_TOKENS_FOR_TRITON
+from embrouter.embrouter_core_utils.prompt_templates.factory import prompt_factory
+from embrouter.llms.base_llm.base_model_iterator import BaseModelResponseIterator
+from embrouter.llms.base_llm.chat.transformation import (
     BaseConfig,
     BaseLLMException,
-    LiteLLMLoggingObj,
+    EmbRouterLoggingObj,
 )
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.utils import (
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.utils import (
     ChatCompletionToolCallChunk,
     ChatCompletionUsageBlock,
     Choices,
@@ -29,7 +29,7 @@ from litellm.types.utils import (
 from ..common_utils import TritonError
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
 
 
 class TritonConfig(BaseConfig):
@@ -48,7 +48,7 @@ class TritonConfig(BaseConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
@@ -75,7 +75,7 @@ class TritonConfig(BaseConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         if api_base is None:
@@ -90,16 +90,16 @@ class TritonConfig(BaseConfig):
         model: str,
         raw_response: Response,
         model_response: ModelResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         request_data: dict,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,
     ) -> ModelResponse:
-        api_base: Final = litellm_params.get("api_base", "")
+        api_base: Final = embrouter_params.get("api_base", "")
         llm_type: Final = self._get_triton_llm_type(api_base)
         if llm_type == "generate":
             return TritonGenerateConfig().transform_response(
@@ -110,7 +110,7 @@ class TritonConfig(BaseConfig):
                 request_data=request_data,
                 messages=messages,
                 optional_params=optional_params,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 encoding=encoding,
                 api_key=api_key,
                 json_mode=json_mode,
@@ -124,7 +124,7 @@ class TritonConfig(BaseConfig):
                 request_data=request_data,
                 messages=messages,
                 optional_params=optional_params,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 encoding=encoding,
                 api_key=api_key,
                 json_mode=json_mode,
@@ -136,17 +136,17 @@ class TritonConfig(BaseConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
-        api_base: Final = litellm_params.get("api_base", "")
+        api_base: Final = embrouter_params.get("api_base", "")
         llm_type: Final = self._get_triton_llm_type(api_base)
         if llm_type == "generate":
             return TritonGenerateConfig().transform_request(
                 model=model,
                 messages=messages,
                 optional_params=optional_params,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 headers=headers,
             )
         elif llm_type == "infer":
@@ -154,7 +154,7 @@ class TritonConfig(BaseConfig):
                 model=model,
                 messages=messages,
                 optional_params=optional_params,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 headers=headers,
             )
         return {}
@@ -190,7 +190,7 @@ class TritonGenerateConfig(TritonConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         inference_params: Final = optional_params.copy()
@@ -210,11 +210,11 @@ class TritonGenerateConfig(TritonConfig):
         model: str,
         raw_response: Response,
         model_response: ModelResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         request_data: dict,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,
@@ -238,7 +238,7 @@ class TritonInferConfig(TritonConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         text_input: Final = messages[0].get("content", "")
@@ -275,11 +275,11 @@ class TritonInferConfig(TritonConfig):
         model: str,
         raw_response: Response,
         model_response: ModelResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         request_data: dict,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,

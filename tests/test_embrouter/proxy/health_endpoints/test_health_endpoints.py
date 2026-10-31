@@ -16,26 +16,26 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from prisma.errors import ClientNotConnectedError, HTTPClientClosedError, PrismaError
 
-import litellm
-import litellm.proxy.health_endpoints._health_endpoints as _health_endpoints_module
-from litellm.litellm_core_utils.health_check_helpers import TEST_IMAGE_BASE64
-from litellm.models.credentials import CredentialItem
-from litellm.proxy._types import LitellmUserRoles, ProxyException, UserAPIKeyAuth
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.router import Router
-from litellm.proxy.health_endpoints._health_endpoints import (
+import embrouter
+import embrouter.proxy.health_endpoints._health_endpoints as _health_endpoints_module
+from embrouter.embrouter_core_utils.health_check_helpers import TEST_IMAGE_BASE64
+from embrouter.models.credentials import CredentialItem
+from embrouter.proxy._types import EmbrouterUserRoles, ProxyException, UserAPIKeyAuth
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.router import Router
+from embrouter.proxy.health_endpoints._health_endpoints import (
     _db_health_readiness_check,
     _show_no_redis_warning,
     get_callback_identifier,
     health_license_endpoint,
     health_services_endpoint,
 )
-from litellm.proxy.health_endpoints._health_endpoints import (
+from embrouter.proxy.health_endpoints._health_endpoints import (
     test_model_connection as health_test_model_connection,
 )
 
 # Import shared proxy test helpers from conftest
-from tests.test_litellm.proxy.conftest import create_proxy_test_client
+from tests.test_embrouter.proxy.conftest import create_proxy_test_client
 
 
 @pytest.mark.asyncio
@@ -52,7 +52,7 @@ async def test_db_health_cache_hit_returns_cached():
         "last_updated": datetime.now(),
     }
 
-    with patch("litellm.proxy.proxy_server.prisma_client", mock_prisma):
+    with patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma):
         result = await _db_health_readiness_check()
 
     assert result["status"] == "connected"
@@ -73,7 +73,7 @@ async def test_db_health_cache_expired_calls_health_check():
         "last_updated": datetime.now() - timedelta(seconds=20),
     }
 
-    with patch("litellm.proxy.proxy_server.prisma_client", mock_prisma):
+    with patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma):
         result = await _db_health_readiness_check()
 
     assert result["status"] == "connected"
@@ -94,7 +94,7 @@ async def test_db_health_non_connected_ignores_cache_ttl():
         "last_updated": datetime.now(),
     }
 
-    with patch("litellm.proxy.proxy_server.prisma_client", mock_prisma):
+    with patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma):
         result = await _db_health_readiness_check()
 
     assert result["status"] == "connected"
@@ -112,7 +112,7 @@ async def test_db_health_prisma_client_none():
         "last_updated": datetime.now() - timedelta(minutes=5),
     }
 
-    with patch("litellm.proxy.proxy_server.prisma_client", None):
+    with patch("embrouter.proxy.proxy_server.prisma_client", None):
         result = await _db_health_readiness_check()
 
     assert result["status"] == "disconnected"
@@ -146,7 +146,7 @@ async def test_db_health_transport_error_never_raises(transport_error):
         "last_updated": datetime.now() - timedelta(seconds=20),
     }
 
-    with patch("litellm.proxy.proxy_server.prisma_client", mock_prisma):
+    with patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma):
         result = await _db_health_readiness_check()
 
     assert result["status"] == "disconnected"
@@ -180,7 +180,7 @@ async def test_db_health_transport_error_reconnect_succeeds(transport_error):
         "last_updated": datetime.now() - timedelta(seconds=20),
     }
 
-    with patch("litellm.proxy.proxy_server.prisma_client", mock_prisma):
+    with patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma):
         result = await _db_health_readiness_check()
 
     assert result["status"] == "connected"
@@ -215,7 +215,7 @@ async def test_db_health_transport_error_reconnect_fails(transport_error):
         "last_updated": datetime.now() - timedelta(seconds=20),
     }
 
-    with patch("litellm.proxy.proxy_server.prisma_client", mock_prisma):
+    with patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma):
         result = await _db_health_readiness_check()
 
     assert result["status"] == "disconnected"
@@ -238,7 +238,7 @@ async def test_db_health_non_transport_error_returns_disconnected():
         "last_updated": datetime.now() - timedelta(seconds=20),
     }
 
-    with patch("litellm.proxy.proxy_server.prisma_client", mock_prisma):
+    with patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma):
         result = await _db_health_readiness_check()
 
     assert result["status"] == "disconnected"
@@ -258,7 +258,7 @@ async def test_health_services_endpoint_sqs(status, error_message):
     Verify the /health/services SQS branch returns expected status and message
     based on SQSLogger.async_health_check().
     """
-    with patch("litellm.integrations.sqs.SQSLogger") as MockSQSLogger:
+    with patch("embrouter.integrations.sqs.SQSLogger") as MockSQSLogger:
         mock_instance = MagicMock()
         mock_instance.async_health_check = AsyncMock(return_value={"status": status, "error_message": error_message})
         MockSQSLogger.return_value = mock_instance
@@ -287,15 +287,15 @@ async def test_health_license_endpoint_with_active_license():
 
     with (
         patch(
-            "litellm.proxy.proxy_server._license_check",
+            "embrouter.proxy.proxy_server._license_check",
             mock_license_check,
         ),
         patch(
-            "litellm.proxy.proxy_server.premium_user",
+            "embrouter.proxy.proxy_server.premium_user",
             True,
         ),
         patch(
-            "litellm.proxy.proxy_server.premium_user_data",
+            "embrouter.proxy.proxy_server.premium_user_data",
             license_data,
         ),
     ):
@@ -319,15 +319,15 @@ async def test_health_license_endpoint_without_valid_license():
 
     with (
         patch(
-            "litellm.proxy.proxy_server._license_check",
+            "embrouter.proxy.proxy_server._license_check",
             mock_license_check,
         ),
         patch(
-            "litellm.proxy.proxy_server.premium_user",
+            "embrouter.proxy.proxy_server.premium_user",
             False,
         ),
         patch(
-            "litellm.proxy.proxy_server.premium_user_data",
+            "embrouter.proxy.proxy_server.premium_user_data",
             None,
         ),
     ):
@@ -361,7 +361,7 @@ async def test_test_model_connection_loads_config_from_router():
     mock_router = MagicMock()
     mock_deployment = {
         "model_name": "gpt-4o",
-        "litellm_params": {
+        "embrouter_params": {
             "model": "azure/gpt-4o",
             "api_key": "resolved-api-key-from-env",
             "api_base": "https://resolved-endpoint.openai.azure.com/",
@@ -374,7 +374,7 @@ async def test_test_model_connection_loads_config_from_router():
     # Mock ModelManagementAuthChecks - patch at the source module since it's imported inside the function
     mock_can_user_make_model_call = AsyncMock()
 
-    # Mock litellm.ahealth_check
+    # Mock embrouter.ahealth_check
     mock_health_check_result = {
         "status": "healthy",
         "response_time_ms": 100,
@@ -384,10 +384,10 @@ async def test_test_model_connection_loads_config_from_router():
     # Mock run_with_timeout
     mock_run_with_timeout = AsyncMock(return_value=mock_health_check_result)
 
-    # Mock _update_litellm_params_for_health_check
-    def mock_update_params(model_info, litellm_params):
+    # Mock _update_embrouter_params_for_health_check
+    def mock_update_params(model_info, embrouter_params):
         # Just return params with messages added
-        params = litellm_params.copy()
+        params = embrouter_params.copy()
         params["messages"] = [{"role": "user", "content": "test"}]
         return params
 
@@ -397,35 +397,35 @@ async def test_test_model_connection_loads_config_from_router():
 
     with (
         patch(
-            "litellm.proxy.proxy_server.prisma_client",
+            "embrouter.proxy.proxy_server.prisma_client",
             mock_prisma_client,
         ),
         patch(
-            "litellm.proxy.proxy_server.llm_router",
+            "embrouter.proxy.proxy_server.llm_router",
             mock_router,
         ),
         patch(
-            "litellm.proxy.proxy_server.premium_user",
+            "embrouter.proxy.proxy_server.premium_user",
             False,
         ),
         patch(
-            "litellm.proxy.management_endpoints.model_management_endpoints.ModelManagementAuthChecks.can_user_make_model_call",
+            "embrouter.proxy.management_endpoints.model_management_endpoints.ModelManagementAuthChecks.can_user_make_model_call",
             mock_can_user_make_model_call,
         ),
         patch(
-            "litellm.proxy.health_endpoints._health_endpoints.litellm.ahealth_check",
+            "embrouter.proxy.health_endpoints._health_endpoints.embrouter.ahealth_check",
             mock_ahealth_check,
         ),
         patch(
-            "litellm.proxy.health_endpoints._health_endpoints.run_with_timeout",
+            "embrouter.proxy.health_endpoints._health_endpoints.run_with_timeout",
             mock_run_with_timeout,
         ),
         patch(
-            "litellm.proxy.health_endpoints._health_endpoints._update_litellm_params_for_health_check",
+            "embrouter.proxy.health_endpoints._health_endpoints._update_embrouter_params_for_health_check",
             mock_update_params,
         ),
         patch(
-            "litellm.proxy.health_endpoints._health_endpoints._reject_os_environ_references",
+            "embrouter.proxy.health_endpoints._health_endpoints._reject_os_environ_references",
             mock_reject_os_environ,
         ),
     ):
@@ -433,7 +433,7 @@ async def test_test_model_connection_loads_config_from_router():
         result = await health_test_model_connection(
             request=mock_request,
             mode="chat",
-            litellm_params={"model": "gpt-4o"},
+            embrouter_params={"model": "gpt-4o"},
             model_info={},
             user_api_key_dict=mock_user_api_key_dict,
         )
@@ -481,7 +481,7 @@ async def test_test_model_connection_uses_model_info_id_to_disambiguate_duplicat
     Regression test for: silent fallback to deployments[0] when
     multiple deployments share a wildcard model_name.
     """
-    from litellm.types.router import Deployment, LiteLLM_Params
+    from embrouter.types.router import Deployment, EmbRouter_Params
 
     mock_request = MagicMock()
     mock_user_api_key_dict = MagicMock()
@@ -492,7 +492,7 @@ async def test_test_model_connection_uses_model_info_id_to_disambiguate_duplicat
 
     deployment_a = {
         "model_name": "openai/*",
-        "litellm_params": {
+        "embrouter_params": {
             "model": "openai/*",
             "api_base": "https://deployment-A-base.invalid/v1",
             "api_key": "fake-key-A",
@@ -501,7 +501,7 @@ async def test_test_model_connection_uses_model_info_id_to_disambiguate_duplicat
     }
     deployment_b = {
         "model_name": "openai/*",
-        "litellm_params": {
+        "embrouter_params": {
             "model": "openai/*",
             "api_base": "https://deployment-B-base.invalid/v1",
             "api_key": "fake-key-B",
@@ -517,13 +517,13 @@ async def test_test_model_connection_uses_model_info_id_to_disambiguate_duplicat
         if model_id == "deployment-A-id":
             return Deployment(
                 model_name="openai/*",
-                litellm_params=LiteLLM_Params(**deployment_a["litellm_params"]),
+                embrouter_params=EmbRouter_Params(**deployment_a["embrouter_params"]),
                 model_info=deployment_a["model_info"],
             )
         if model_id == "deployment-B-id":
             return Deployment(
                 model_name="openai/*",
-                litellm_params=LiteLLM_Params(**deployment_b["litellm_params"]),
+                embrouter_params=EmbRouter_Params(**deployment_b["embrouter_params"]),
                 model_info=deployment_b["model_info"],
             )
         return None
@@ -536,8 +536,8 @@ async def test_test_model_connection_uses_model_info_id_to_disambiguate_duplicat
     mock_ahealth_check = AsyncMock(return_value=mock_health_check_result)
     mock_run_with_timeout = AsyncMock(return_value=mock_health_check_result)
 
-    def mock_update_params(model_info, litellm_params):
-        params = litellm_params.copy()
+    def mock_update_params(model_info, embrouter_params):
+        params = embrouter_params.copy()
         params["messages"] = [{"role": "user", "content": "test"}]
         return params
 
@@ -546,35 +546,35 @@ async def test_test_model_connection_uses_model_info_id_to_disambiguate_duplicat
 
     with (
         patch(
-            "litellm.proxy.proxy_server.prisma_client",
+            "embrouter.proxy.proxy_server.prisma_client",
             mock_prisma_client,
         ),
         patch(
-            "litellm.proxy.proxy_server.llm_router",
+            "embrouter.proxy.proxy_server.llm_router",
             mock_router,
         ),
         patch(
-            "litellm.proxy.proxy_server.premium_user",
+            "embrouter.proxy.proxy_server.premium_user",
             False,
         ),
         patch(
-            "litellm.proxy.management_endpoints.model_management_endpoints.ModelManagementAuthChecks.can_user_make_model_call",
+            "embrouter.proxy.management_endpoints.model_management_endpoints.ModelManagementAuthChecks.can_user_make_model_call",
             mock_can_user_make_model_call,
         ),
         patch(
-            "litellm.proxy.health_endpoints._health_endpoints.litellm.ahealth_check",
+            "embrouter.proxy.health_endpoints._health_endpoints.embrouter.ahealth_check",
             mock_ahealth_check,
         ),
         patch(
-            "litellm.proxy.health_endpoints._health_endpoints.run_with_timeout",
+            "embrouter.proxy.health_endpoints._health_endpoints.run_with_timeout",
             mock_run_with_timeout,
         ),
         patch(
-            "litellm.proxy.health_endpoints._health_endpoints._update_litellm_params_for_health_check",
+            "embrouter.proxy.health_endpoints._health_endpoints._update_embrouter_params_for_health_check",
             mock_update_params,
         ),
         patch(
-            "litellm.proxy.health_endpoints._health_endpoints._reject_os_environ_references",
+            "embrouter.proxy.health_endpoints._health_endpoints._reject_os_environ_references",
             mock_reject_os_environ,
         ),
     ):
@@ -585,7 +585,7 @@ async def test_test_model_connection_uses_model_info_id_to_disambiguate_duplicat
         await health_test_model_connection(
             request=mock_request,
             mode="chat",
-            litellm_params={"model": "openai/*"},
+            embrouter_params={"model": "openai/*"},
             model_info={"id": "deployment-B-id"},
             user_api_key_dict=mock_user_api_key_dict,
         )
@@ -622,7 +622,7 @@ async def test_test_model_connection_falls_back_to_deployments_zero_without_id()
 
     deployment_a = {
         "model_name": "openai/*",
-        "litellm_params": {
+        "embrouter_params": {
             "model": "openai/*",
             "api_base": "https://deployment-A-base.invalid/v1",
             "api_key": "fake-key-A",
@@ -631,7 +631,7 @@ async def test_test_model_connection_falls_back_to_deployments_zero_without_id()
     }
     deployment_b = {
         "model_name": "openai/*",
-        "litellm_params": {
+        "embrouter_params": {
             "model": "openai/*",
             "api_base": "https://deployment-B-base.invalid/v1",
             "api_key": "fake-key-B",
@@ -647,8 +647,8 @@ async def test_test_model_connection_falls_back_to_deployments_zero_without_id()
     mock_ahealth_check = AsyncMock(return_value=mock_health_check_result)
     mock_run_with_timeout = AsyncMock(return_value=mock_health_check_result)
 
-    def mock_update_params(model_info, litellm_params):
-        params = litellm_params.copy()
+    def mock_update_params(model_info, embrouter_params):
+        params = embrouter_params.copy()
         params["messages"] = [{"role": "user", "content": "test"}]
         return params
 
@@ -656,34 +656,34 @@ async def test_test_model_connection_falls_back_to_deployments_zero_without_id()
         return None
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client),
-        patch("litellm.proxy.proxy_server.llm_router", mock_router),
-        patch("litellm.proxy.proxy_server.premium_user", False),
+        patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma_client),
+        patch("embrouter.proxy.proxy_server.llm_router", mock_router),
+        patch("embrouter.proxy.proxy_server.premium_user", False),
         patch(
-            "litellm.proxy.management_endpoints.model_management_endpoints.ModelManagementAuthChecks.can_user_make_model_call",
+            "embrouter.proxy.management_endpoints.model_management_endpoints.ModelManagementAuthChecks.can_user_make_model_call",
             mock_can_user_make_model_call,
         ),
         patch(
-            "litellm.proxy.health_endpoints._health_endpoints.litellm.ahealth_check",
+            "embrouter.proxy.health_endpoints._health_endpoints.embrouter.ahealth_check",
             mock_ahealth_check,
         ),
         patch(
-            "litellm.proxy.health_endpoints._health_endpoints.run_with_timeout",
+            "embrouter.proxy.health_endpoints._health_endpoints.run_with_timeout",
             mock_run_with_timeout,
         ),
         patch(
-            "litellm.proxy.health_endpoints._health_endpoints._update_litellm_params_for_health_check",
+            "embrouter.proxy.health_endpoints._health_endpoints._update_embrouter_params_for_health_check",
             mock_update_params,
         ),
         patch(
-            "litellm.proxy.health_endpoints._health_endpoints._reject_os_environ_references",
+            "embrouter.proxy.health_endpoints._health_endpoints._reject_os_environ_references",
             mock_reject_os_environ,
         ),
     ):
         await health_test_model_connection(
             request=mock_request,
             mode="chat",
-            litellm_params={"model": "openai/*"},
+            embrouter_params={"model": "openai/*"},
             model_info={},  # no id provided
             user_api_key_dict=mock_user_api_key_dict,
         )
@@ -704,11 +704,11 @@ async def test_test_model_connection_uses_loaded_deployment_team_id():
     """
     from fastapi import HTTPException
 
-    from litellm.proxy._types import LiteLLM_TeamTable
-    from litellm.proxy.management_endpoints.model_management_endpoints import (
+    from embrouter.proxy._types import EmbRouter_TeamTable
+    from embrouter.proxy.management_endpoints.model_management_endpoints import (
         ModelManagementAuthChecks,
     )
-    from litellm.types.router import Deployment, LiteLLM_Params, ModelInfo
+    from embrouter.types.router import Deployment, EmbRouter_Params, ModelInfo
 
     mock_request = MagicMock()
 
@@ -720,14 +720,14 @@ async def test_test_model_connection_uses_loaded_deployment_team_id():
         token="requester-token",
         user_id="team-b-admin-user",
         team_id=requester_team_id,
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=EmbrouterUserRoles.INTERNAL_USER,
     )
 
     mock_prisma_client = MagicMock()
 
     other_team_deployment = Deployment(
         model_name="team-a-model",
-        litellm_params=LiteLLM_Params(
+        embrouter_params=EmbRouter_Params(
             model="openai/gpt-4o",
             api_base="https://team-a-api.invalid/v1",
             api_key="TEAM-A-API-KEY",
@@ -742,7 +742,7 @@ async def test_test_model_connection_uses_loaded_deployment_team_id():
         team_id = where["team_id"]
         if team_id == requester_team_id:
             return SimpleNamespace(
-                model_dump=lambda: LiteLLM_TeamTable(
+                model_dump=lambda: EmbRouter_TeamTable(
                     team_id=requester_team_id,
                     members_with_roles=[
                         {
@@ -754,7 +754,7 @@ async def test_test_model_connection_uses_loaded_deployment_team_id():
             )
         if team_id == deployment_owner_team_id:
             return SimpleNamespace(
-                model_dump=lambda: LiteLLM_TeamTable(
+                model_dump=lambda: EmbRouter_TeamTable(
                     team_id=deployment_owner_team_id,
                     members_with_roles=[],
                 ).model_dump()
@@ -762,15 +762,15 @@ async def test_test_model_connection_uses_loaded_deployment_team_id():
         return None
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client),
-        patch("litellm.proxy.proxy_server.llm_router", mock_router),
-        patch("litellm.proxy.proxy_server.premium_user", True),
+        patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma_client),
+        patch("embrouter.proxy.proxy_server.llm_router", mock_router),
+        patch("embrouter.proxy.proxy_server.premium_user", True),
         patch.object(
             ModelManagementAuthChecks,
             "can_user_make_model_call",
             wraps=ModelManagementAuthChecks.can_user_make_model_call,
         ) as spy_auth_check,
-        patch("litellm.proxy.management_endpoints.model_management_endpoints.TeamRepository") as MockTeamRepo,
+        patch("embrouter.proxy.management_endpoints.model_management_endpoints.TeamRepository") as MockTeamRepo,
     ):
         mock_team_repo_instance = MagicMock()
         mock_team_repo_instance.table.find_unique = AsyncMock(side_effect=fake_find_unique)
@@ -780,7 +780,7 @@ async def test_test_model_connection_uses_loaded_deployment_team_id():
             await health_test_model_connection(
                 request=mock_request,
                 mode="chat",
-                litellm_params={
+                embrouter_params={
                     "model": "openai/gpt-4o",
                     "api_base": "https://swapped-base.invalid/v1",
                 },
@@ -812,8 +812,8 @@ async def test_test_model_connection_uses_loaded_deployment_team_id_via_model_na
     """
     from fastapi import HTTPException
 
-    from litellm.proxy._types import LiteLLM_TeamTable
-    from litellm.proxy.management_endpoints.model_management_endpoints import (
+    from embrouter.proxy._types import EmbRouter_TeamTable
+    from embrouter.proxy.management_endpoints.model_management_endpoints import (
         ModelManagementAuthChecks,
     )
 
@@ -826,14 +826,14 @@ async def test_test_model_connection_uses_loaded_deployment_team_id_via_model_na
         token="requester-token-2",
         user_id="team-b-admin-user-2",
         team_id=requester_team_id,
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=EmbrouterUserRoles.INTERNAL_USER,
     )
 
     mock_prisma_client = MagicMock()
 
     other_team_deployment_dict = {
         "model_name": "shared-model-name",
-        "litellm_params": {
+        "embrouter_params": {
             "model": "openai/gpt-4o",
             "api_base": "https://team-a-api-2.invalid/v1",
             "api_key": "TEAM-A-API-KEY-2",
@@ -849,7 +849,7 @@ async def test_test_model_connection_uses_loaded_deployment_team_id_via_model_na
 
     async def fake_find_unique(*, where):
         return SimpleNamespace(
-            model_dump=lambda: LiteLLM_TeamTable(
+            model_dump=lambda: EmbRouter_TeamTable(
                 team_id=where["team_id"],
                 members_with_roles=(
                     [{"user_id": "team-b-admin-user-2", "role": "admin"}]
@@ -860,15 +860,15 @@ async def test_test_model_connection_uses_loaded_deployment_team_id_via_model_na
         )
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client),
-        patch("litellm.proxy.proxy_server.llm_router", mock_router),
-        patch("litellm.proxy.proxy_server.premium_user", True),
+        patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma_client),
+        patch("embrouter.proxy.proxy_server.llm_router", mock_router),
+        patch("embrouter.proxy.proxy_server.premium_user", True),
         patch.object(
             ModelManagementAuthChecks,
             "can_user_make_model_call",
             wraps=ModelManagementAuthChecks.can_user_make_model_call,
         ) as spy_auth_check,
-        patch("litellm.proxy.management_endpoints.model_management_endpoints.TeamRepository") as MockTeamRepo,
+        patch("embrouter.proxy.management_endpoints.model_management_endpoints.TeamRepository") as MockTeamRepo,
     ):
         mock_team_repo_instance = MagicMock()
         mock_team_repo_instance.table.find_unique = AsyncMock(side_effect=fake_find_unique)
@@ -878,7 +878,7 @@ async def test_test_model_connection_uses_loaded_deployment_team_id_via_model_na
             await health_test_model_connection(
                 request=mock_request,
                 mode="chat",
-                litellm_params={
+                embrouter_params={
                     "model": "shared-model-name",
                     "api_base": "https://swapped-base-2.invalid/v1",
                 },
@@ -905,20 +905,20 @@ async def test_test_model_connection_authorizes_on_params_after_health_check_par
     """
     from fastapi import HTTPException
 
-    from litellm.proxy.management_endpoints.model_management_endpoints import (
+    from embrouter.proxy.management_endpoints.model_management_endpoints import (
         ModelManagementAuthChecks,
     )
-    from litellm.types.router import Deployment
+    from embrouter.types.router import Deployment
 
     marker = "sentinel-from-health-check-params"
     mock_can_user_make_model_call = AsyncMock(side_effect=HTTPException(status_code=403, detail="denied"))
 
     with (
         patch(  # test-quality-ok: proxy module global, no injection seam
-            "litellm.proxy.proxy_server.prisma_client", MagicMock()
+            "embrouter.proxy.proxy_server.prisma_client", MagicMock()
         ),
         patch(  # test-quality-ok: proxy module global, no injection seam
-            "litellm.proxy.proxy_server.llm_router", None
+            "embrouter.proxy.proxy_server.llm_router", None
         ),
         patch.object(  # test-quality-ok: capturing the params handed to auth is the assertion
             ModelManagementAuthChecks,
@@ -930,19 +930,19 @@ async def test_test_model_connection_authorizes_on_params_after_health_check_par
         await health_test_model_connection(
             request=MagicMock(),
             mode="chat",
-            litellm_params={"model": "openai/gpt-4o"},
+            embrouter_params={"model": "openai/gpt-4o"},
             model_info={"health_check_params": {"probe_marker": marker}},
             user_api_key_dict=UserAPIKeyAuth(
                 token="requester-token",
                 user_id="admin-user",
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=EmbrouterUserRoles.PROXY_ADMIN,
             ),
         )
 
     assert mock_can_user_make_model_call.called
     passed_model_params = mock_can_user_make_model_call.call_args.kwargs["model_params"]
     assert isinstance(passed_model_params, Deployment)
-    authorized_params = passed_model_params.litellm_params.model_dump()
+    authorized_params = passed_model_params.embrouter_params.model_dump()
     assert authorized_params.get("probe_marker") == marker
 
 
@@ -955,11 +955,11 @@ async def test_test_model_connection_authorized_team_admin_passes_real_auth():
     health probe. Guards against a regression that swaps the auth `team_id`
     for something deny-all on the legit path.
     """
-    from litellm.proxy._types import LiteLLM_TeamTable
-    from litellm.proxy.management_endpoints.model_management_endpoints import (
+    from embrouter.proxy._types import EmbRouter_TeamTable
+    from embrouter.proxy.management_endpoints.model_management_endpoints import (
         ModelManagementAuthChecks,
     )
-    from litellm.types.router import Deployment, LiteLLM_Params, ModelInfo
+    from embrouter.types.router import Deployment, EmbRouter_Params, ModelInfo
 
     mock_request = MagicMock()
 
@@ -971,14 +971,14 @@ async def test_test_model_connection_authorized_team_admin_passes_real_auth():
         token="owner-admin-token",
         user_id=owner_admin_user_id,
         team_id=owner_team_id,
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=EmbrouterUserRoles.INTERNAL_USER,
     )
 
     mock_prisma_client = MagicMock()
 
     owned_deployment = Deployment(
         model_name="owner-model",
-        litellm_params=LiteLLM_Params(
+        embrouter_params=EmbRouter_Params(
             model="openai/gpt-4o-mini",
             api_base="https://owner-real-api.invalid/v1",
             api_key="owner-team-api-key",
@@ -992,7 +992,7 @@ async def test_test_model_connection_authorized_team_admin_passes_real_auth():
     async def fake_find_unique(*, where):
         if where["team_id"] == owner_team_id:
             return SimpleNamespace(
-                model_dump=lambda: LiteLLM_TeamTable(
+                model_dump=lambda: EmbRouter_TeamTable(
                     team_id=owner_team_id,
                     members_with_roles=[{"user_id": owner_admin_user_id, "role": "admin"}],
                 ).model_dump()
@@ -1002,21 +1002,21 @@ async def test_test_model_connection_authorized_team_admin_passes_real_auth():
     health_result = {"status": "healthy", "response_time_ms": 50}
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client),
-        patch("litellm.proxy.proxy_server.llm_router", mock_router),
-        patch("litellm.proxy.proxy_server.premium_user", True),
+        patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma_client),
+        patch("embrouter.proxy.proxy_server.llm_router", mock_router),
+        patch("embrouter.proxy.proxy_server.premium_user", True),
         patch.object(
             ModelManagementAuthChecks,
             "can_user_make_model_call",
             wraps=ModelManagementAuthChecks.can_user_make_model_call,
         ) as spy_auth_check,
-        patch("litellm.proxy.management_endpoints.model_management_endpoints.TeamRepository") as MockTeamRepo,
+        patch("embrouter.proxy.management_endpoints.model_management_endpoints.TeamRepository") as MockTeamRepo,
         patch(
-            "litellm.proxy.health_endpoints._health_endpoints.litellm.ahealth_check",
+            "embrouter.proxy.health_endpoints._health_endpoints.embrouter.ahealth_check",
             AsyncMock(return_value=health_result),
         ),
         patch(
-            "litellm.proxy.health_endpoints._health_endpoints.run_with_timeout",
+            "embrouter.proxy.health_endpoints._health_endpoints.run_with_timeout",
             AsyncMock(return_value=health_result),
         ),
     ):
@@ -1027,7 +1027,7 @@ async def test_test_model_connection_authorized_team_admin_passes_real_auth():
         result = await health_test_model_connection(
             request=mock_request,
             mode="chat",
-            litellm_params={"model": "openai/gpt-4o-mini"},
+            embrouter_params={"model": "openai/gpt-4o-mini"},
             model_info={"id": owned_deployment_id, "team_id": owner_team_id},
             user_api_key_dict=owner_admin_api_key_dict,
         )
@@ -1046,7 +1046,7 @@ async def test_test_model_connection_authorized_team_admin_passes_real_auth():
     ],
 )
 async def test_health_services_endpoint_galileo(status, error_message):
-    with patch("litellm.integrations.galileo.GalileoObserve") as MockGalileoObserve:
+    with patch("embrouter.integrations.galileo.GalileoObserve") as MockGalileoObserve:
         mock_instance = MagicMock()
         mock_instance.async_health_check = AsyncMock(return_value={"status": status, "error_message": error_message})
         MockGalileoObserve.return_value = mock_instance
@@ -1071,7 +1071,7 @@ async def test_health_services_endpoint_galileo(status, error_message):
     ],
 )
 async def test_health_services_endpoint_pointfive(monkeypatch, status, error_message):
-    import litellm.integrations.pointfive as pointfive_package
+    import embrouter.integrations.pointfive as pointfive_package
 
     mock_instance = MagicMock()
     mock_instance.async_health_check = AsyncMock(return_value={"status": status, "error_message": error_message})
@@ -1100,12 +1100,12 @@ async def test_health_services_endpoint_datadog_llm_observability():
 
     The service was missing from the allowed services validation list.
     """
-    from litellm.proxy.health_endpoints._health_endpoints import (
+    from embrouter.proxy.health_endpoints._health_endpoints import (
         health_services_endpoint,
     )
 
     # Mock datadog_llm_observability to be in success_callback so the generic branch handles it
-    with patch("litellm.success_callback", ["datadog_llm_observability"]):
+    with patch("embrouter.success_callback", ["datadog_llm_observability"]):
         result = await health_services_endpoint(service="datadog_llm_observability")
 
     # Should not raise HTTPException(400) and should return success
@@ -1118,7 +1118,7 @@ async def test_health_services_endpoint_rejects_unknown_service():
     """
     Verify that an unknown service name is rejected with a 400 error.
     """
-    from litellm.proxy._types import ProxyException
+    from embrouter.proxy._types import ProxyException
 
     with pytest.raises(ProxyException):
         await health_services_endpoint(service="totally_unknown_service_xyz")
@@ -1129,20 +1129,20 @@ async def test_health_services_endpoint_rejects_unknown_service():
     "role",
     [
         None,
-        LitellmUserRoles.INTERNAL_USER,
-        LitellmUserRoles.INTERNAL_USER_VIEW_ONLY,
-        LitellmUserRoles.TEAM,
-        LitellmUserRoles.CUSTOMER,
+        EmbrouterUserRoles.INTERNAL_USER,
+        EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY,
+        EmbrouterUserRoles.TEAM,
+        EmbrouterUserRoles.CUSTOMER,
     ],
 )
 async def test_health_services_endpoint_newrelic_blocks_non_admin(role):
     """
-    /health/services?service=newrelic emits a real LiteLLMConnectionTest event
+    /health/services?service=newrelic emits a real EmbRouterConnectionTest event
     to the configured New Relic account. Only proxy admins (full or view-only)
     should be able to trigger it; every other caller must be rejected before
     the external event is recorded.
     """
-    from litellm.proxy._types import ProxyException
+    from embrouter.proxy._types import ProxyException
 
     user_api_key_dict = UserAPIKeyAuth(
         token="non-admin-token",
@@ -1150,7 +1150,7 @@ async def test_health_services_endpoint_newrelic_blocks_non_admin(role):
         user_role=role,
     )
 
-    with patch("litellm.integrations.newrelic.newrelic.NewRelicLogger") as MockNewRelicLogger:
+    with patch("embrouter.integrations.newrelic.newrelic.NewRelicLogger") as MockNewRelicLogger:
         mock_instance = MagicMock()
         mock_instance.async_health_check = AsyncMock(return_value={"status": "healthy", "error_message": ""})
         MockNewRelicLogger.return_value = mock_instance
@@ -1169,7 +1169,7 @@ async def test_health_services_endpoint_newrelic_blocks_non_admin(role):
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "admin_role",
-    [LitellmUserRoles.PROXY_ADMIN, LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY],
+    [EmbrouterUserRoles.PROXY_ADMIN, EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY],
 )
 async def test_health_services_endpoint_newrelic_allows_proxy_admin(admin_role):
     """
@@ -1181,7 +1181,7 @@ async def test_health_services_endpoint_newrelic_allows_proxy_admin(admin_role):
         user_role=admin_role,
     )
 
-    with patch("litellm.integrations.newrelic.newrelic.NewRelicLogger") as MockNewRelicLogger:
+    with patch("embrouter.integrations.newrelic.newrelic.NewRelicLogger") as MockNewRelicLogger:
         mock_instance = MagicMock()
         mock_instance.async_health_check = AsyncMock(return_value={"status": "healthy", "error_message": ""})
         MockNewRelicLogger.return_value = mock_instance
@@ -1200,10 +1200,10 @@ async def test_health_services_endpoint_newrelic_allows_proxy_admin(admin_role):
     "role",
     [
         None,
-        LitellmUserRoles.INTERNAL_USER,
-        LitellmUserRoles.INTERNAL_USER_VIEW_ONLY,
-        LitellmUserRoles.TEAM,
-        LitellmUserRoles.CUSTOMER,
+        EmbrouterUserRoles.INTERNAL_USER,
+        EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY,
+        EmbrouterUserRoles.TEAM,
+        EmbrouterUserRoles.CUSTOMER,
     ],
 )
 async def test_health_services_endpoint_webhook_blocks_non_admin(role):
@@ -1218,7 +1218,7 @@ async def test_health_services_endpoint_webhook_blocks_non_admin(role):
     user_api_key_dict = UserAPIKeyAuth(token="non-admin-token", user_id="non-admin-user", user_role=role)
 
     with patch(  # test-quality-ok: endpoint reads proxy_server module globals, same pattern as sibling tests
-        "litellm.proxy.proxy_server.proxy_logging_obj",
+        "embrouter.proxy.proxy_server.proxy_logging_obj",
         mock_proxy_logging,
     ):
         with pytest.raises(ProxyException) as exc_info:
@@ -1231,7 +1231,7 @@ async def test_health_services_endpoint_webhook_blocks_non_admin(role):
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "admin_role",
-    [LitellmUserRoles.PROXY_ADMIN, LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY],
+    [EmbrouterUserRoles.PROXY_ADMIN, EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY],
 )
 async def test_health_services_endpoint_webhook_allows_proxy_admin(admin_role):
     mock_proxy_logging = MagicMock()
@@ -1239,7 +1239,7 @@ async def test_health_services_endpoint_webhook_allows_proxy_admin(admin_role):
     user_api_key_dict = UserAPIKeyAuth(token="admin-token", user_id="admin-user", user_role=admin_role)
 
     with patch(  # test-quality-ok: endpoint reads proxy_server module globals, same pattern as sibling tests
-        "litellm.proxy.proxy_server.proxy_logging_obj",
+        "embrouter.proxy.proxy_server.proxy_logging_obj",
         mock_proxy_logging,
     ):
         await health_services_endpoint(user_api_key_dict=user_api_key_dict, service="webhook")
@@ -1374,17 +1374,17 @@ def test_health_readiness_details_returns_diagnostic_fields(monkeypatch):
     """
     app = FastAPI()
     app.include_router(_health_endpoints_module.router)
-    app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN)
+    app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(user_role=EmbrouterUserRoles.PROXY_ADMIN)
     client = TestClient(app)
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", None)
 
     response = client.get("/health/readiness/details")
 
     assert response.status_code == 200, response.text
     response_data = response.json()
     assert response_data["status"] == "healthy"
-    assert "litellm_version" in response_data
+    assert "embrouter_version" in response_data
     assert "success_callbacks" in response_data
     assert "cache" in response_data
 
@@ -1404,11 +1404,11 @@ def test_health_readiness_details_reports_env_credential_login_warning(monkeypat
     """
     app = FastAPI()
     app.include_router(_health_endpoints_module.router)
-    app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN)
+    app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(user_role=EmbrouterUserRoles.PROXY_ADMIN)
     client = TestClient(app)
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", general_settings)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.general_settings", general_settings)
 
     response = client.get("/health/readiness/details")
 
@@ -1424,9 +1424,9 @@ def test_health_readiness_allows_explicit_legacy_public_details(monkeypatch):
     app.include_router(_health_endpoints_module.router)
     client = TestClient(app)
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", None)
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.general_settings",
+        "embrouter.proxy.proxy_server.general_settings",
         {"allow_public_health_readiness_details": True},
     )
 
@@ -1435,7 +1435,7 @@ def test_health_readiness_allows_explicit_legacy_public_details(monkeypatch):
     assert response.status_code == 200, response.text
     response_data = response.json()
     assert response_data["status"] == "healthy"
-    assert "litellm_version" in response_data
+    assert "embrouter_version" in response_data
     assert "success_callbacks" in response_data
     assert "cache" in response_data
 
@@ -1480,7 +1480,7 @@ def test_get_callback_identifier_custom_logger_registry_and_fallback():
     - Object with callback_name that matches registry entry
     - Fallback to callback_name() helper function
     """
-    from litellm.litellm_core_utils.custom_logger_registry import CustomLoggerRegistry
+    from embrouter.embrouter_core_utils.custom_logger_registry import CustomLoggerRegistry
 
     # Test 1: Object registered in CustomLoggerRegistry (without callback_name attribute)
     # Mock a class that's registered in the registry
@@ -1583,13 +1583,13 @@ async def test_health_endpoint_filters_model_list_by_user_access():
     check. A key scoped to ["model-a"] should only see model-a in the result,
     not other deployments configured on the proxy.
     """
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy.health_endpoints._health_endpoints import health_endpoint
 
     full_model_list = [
         {
             "model_name": "model-a",
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "openai/gpt-4o",
                 "api_base": "https://example-a.test",
             },
@@ -1597,7 +1597,7 @@ async def test_health_endpoint_filters_model_list_by_user_access():
         },
         {
             "model_name": "model-b",
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "openai/gpt-4o",
                 "api_base": "https://example-b.test",
                 "api_version": "2024-10-21",
@@ -1623,16 +1623,16 @@ async def test_health_endpoint_filters_model_list_by_user_access():
         }
 
     with (
-        patch("litellm.proxy.proxy_server.llm_model_list", full_model_list),
-        patch("litellm.proxy.proxy_server.llm_router", None),
-        patch("litellm.proxy.proxy_server.prisma_client", None),
-        patch("litellm.proxy.proxy_server.use_background_health_checks", False),
-        patch("litellm.proxy.proxy_server.user_model", None),
-        patch("litellm.proxy.proxy_server.health_check_results", {}),
-        patch("litellm.proxy.proxy_server.health_check_details", True),
-        patch("litellm.proxy.proxy_server.health_check_concurrency", 1),
+        patch("embrouter.proxy.proxy_server.llm_model_list", full_model_list),
+        patch("embrouter.proxy.proxy_server.llm_router", None),
+        patch("embrouter.proxy.proxy_server.prisma_client", None),
+        patch("embrouter.proxy.proxy_server.use_background_health_checks", False),
+        patch("embrouter.proxy.proxy_server.user_model", None),
+        patch("embrouter.proxy.proxy_server.health_check_results", {}),
+        patch("embrouter.proxy.proxy_server.health_check_details", True),
+        patch("embrouter.proxy.proxy_server.health_check_concurrency", 1),
         patch(
-            "litellm.proxy.health_endpoints._health_endpoints._perform_health_check_and_save",
+            "embrouter.proxy.health_endpoints._health_endpoints._perform_health_check_and_save",
             side_effect=fake_perform,
         ),
     ):
@@ -1653,18 +1653,18 @@ async def test_health_endpoint_keeps_full_model_list_for_all_proxy_models():
     model_name, so the access filter must be skipped entirely; otherwise the
     model list filters down to nothing and /health reports 0/0 counts.
     """
-    from litellm.proxy._types import SpecialModelNames, UserAPIKeyAuth
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from embrouter.proxy._types import SpecialModelNames, UserAPIKeyAuth
+    from embrouter.proxy.health_endpoints._health_endpoints import health_endpoint
 
     full_model_list = [
         {
             "model_name": "model-a",
-            "litellm_params": {"model": "openai/gpt-4o"},
+            "embrouter_params": {"model": "openai/gpt-4o"},
             "model_info": {"id": "id-a"},
         },
         {
             "model_name": "model-b",
-            "litellm_params": {"model": "openai/gpt-4o"},
+            "embrouter_params": {"model": "openai/gpt-4o"},
             "model_info": {"id": "id-b"},
         },
     ]
@@ -1686,16 +1686,16 @@ async def test_health_endpoint_keeps_full_model_list_for_all_proxy_models():
         }
 
     with (
-        patch("litellm.proxy.proxy_server.llm_model_list", full_model_list),
-        patch("litellm.proxy.proxy_server.llm_router", None),
-        patch("litellm.proxy.proxy_server.prisma_client", None),
-        patch("litellm.proxy.proxy_server.use_background_health_checks", False),
-        patch("litellm.proxy.proxy_server.user_model", None),
-        patch("litellm.proxy.proxy_server.health_check_results", {}),
-        patch("litellm.proxy.proxy_server.health_check_details", True),
-        patch("litellm.proxy.proxy_server.health_check_concurrency", 1),
+        patch("embrouter.proxy.proxy_server.llm_model_list", full_model_list),
+        patch("embrouter.proxy.proxy_server.llm_router", None),
+        patch("embrouter.proxy.proxy_server.prisma_client", None),
+        patch("embrouter.proxy.proxy_server.use_background_health_checks", False),
+        patch("embrouter.proxy.proxy_server.user_model", None),
+        patch("embrouter.proxy.proxy_server.health_check_results", {}),
+        patch("embrouter.proxy.proxy_server.health_check_details", True),
+        patch("embrouter.proxy.proxy_server.health_check_concurrency", 1),
         patch(
-            "litellm.proxy.health_endpoints._health_endpoints._perform_health_check_and_save",
+            "embrouter.proxy.health_endpoints._health_endpoints._perform_health_check_and_save",
             side_effect=fake_perform,
         ),
     ):
@@ -1719,18 +1719,18 @@ async def test_health_endpoint_resolves_all_team_models_to_team_allowlist():
     semantics as get_key_models); otherwise the filter would zero out the
     model list just like the all-proxy-models case.
     """
-    from litellm.proxy._types import SpecialModelNames, UserAPIKeyAuth
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from embrouter.proxy._types import SpecialModelNames, UserAPIKeyAuth
+    from embrouter.proxy.health_endpoints._health_endpoints import health_endpoint
 
     full_model_list = [
         {
             "model_name": "model-a",
-            "litellm_params": {"model": "openai/gpt-4o"},
+            "embrouter_params": {"model": "openai/gpt-4o"},
             "model_info": {"id": "id-a"},
         },
         {
             "model_name": "model-b",
-            "litellm_params": {"model": "openai/gpt-4o"},
+            "embrouter_params": {"model": "openai/gpt-4o"},
             "model_info": {"id": "id-b"},
         },
     ]
@@ -1754,16 +1754,16 @@ async def test_health_endpoint_resolves_all_team_models_to_team_allowlist():
         }
 
     with (
-        patch("litellm.proxy.proxy_server.llm_model_list", full_model_list),
-        patch("litellm.proxy.proxy_server.llm_router", None),
-        patch("litellm.proxy.proxy_server.prisma_client", None),
-        patch("litellm.proxy.proxy_server.use_background_health_checks", False),
-        patch("litellm.proxy.proxy_server.user_model", None),
-        patch("litellm.proxy.proxy_server.health_check_results", {}),
-        patch("litellm.proxy.proxy_server.health_check_details", True),
-        patch("litellm.proxy.proxy_server.health_check_concurrency", 1),
+        patch("embrouter.proxy.proxy_server.llm_model_list", full_model_list),
+        patch("embrouter.proxy.proxy_server.llm_router", None),
+        patch("embrouter.proxy.proxy_server.prisma_client", None),
+        patch("embrouter.proxy.proxy_server.use_background_health_checks", False),
+        patch("embrouter.proxy.proxy_server.user_model", None),
+        patch("embrouter.proxy.proxy_server.health_check_results", {}),
+        patch("embrouter.proxy.proxy_server.health_check_details", True),
+        patch("embrouter.proxy.proxy_server.health_check_concurrency", 1),
         patch(
-            "litellm.proxy.health_endpoints._health_endpoints._perform_health_check_and_save",
+            "embrouter.proxy.health_endpoints._health_endpoints._perform_health_check_and_save",
             side_effect=fake_perform,
         ),
     ):
@@ -1782,12 +1782,12 @@ def _router_for(model_list: Sequence[Mapping[str, object]]) -> Router:
 _ACCESS_GROUP_MODEL_LIST = [
     {
         "model_name": "bedrock-nova",
-        "litellm_params": {"model": "bedrock/us.amazon.nova-2-lite-v1:0"},
+        "embrouter_params": {"model": "bedrock/us.amazon.nova-2-lite-v1:0"},
         "model_info": {"id": "id-bedrock", "access_groups": ["bedrock-group"]},
     },
     {
         "model_name": "gpt-5.4-mini",
-        "litellm_params": {"model": "openai/gpt-5.4-mini"},
+        "embrouter_params": {"model": "openai/gpt-5.4-mini"},
         "model_info": {"id": "id-openai"},
     },
 ]
@@ -1796,7 +1796,7 @@ _TEAM_MODEL_LIST = [
     _ACCESS_GROUP_MODEL_LIST[0],
     {
         "model_name": "bedrock-nova_team-b_9f2c",
-        "litellm_params": {"model": "bedrock/us.amazon.nova-2-lite-v1:0"},
+        "embrouter_params": {"model": "bedrock/us.amazon.nova-2-lite-v1:0"},
         "model_info": {
             "id": "id-team-b",
             "team_id": "team-b",
@@ -1834,28 +1834,28 @@ def _proxy_health_globals(
 ) -> Iterator[None]:
     with (
         patch(  # test-quality-ok: proxy module global, no injection seam
-            "litellm.proxy.proxy_server.llm_model_list", list(llm_model_list)
+            "embrouter.proxy.proxy_server.llm_model_list", list(llm_model_list)
         ),
         patch(  # test-quality-ok: proxy module global, no injection seam
-            "litellm.proxy.proxy_server.llm_router", llm_router
+            "embrouter.proxy.proxy_server.llm_router", llm_router
         ),
         patch(  # test-quality-ok: proxy module global, no injection seam
-            "litellm.proxy.proxy_server.prisma_client", None
+            "embrouter.proxy.proxy_server.prisma_client", None
         ),
         patch(  # test-quality-ok: proxy module global, no injection seam
-            "litellm.proxy.proxy_server.use_background_health_checks", use_background_health_checks
+            "embrouter.proxy.proxy_server.use_background_health_checks", use_background_health_checks
         ),
         patch(  # test-quality-ok: proxy module global, no injection seam
-            "litellm.proxy.proxy_server.user_model", None
+            "embrouter.proxy.proxy_server.user_model", None
         ),
         patch(  # test-quality-ok: proxy module global, no injection seam
-            "litellm.proxy.proxy_server.health_check_results", dict(health_check_results or {})
+            "embrouter.proxy.proxy_server.health_check_results", dict(health_check_results or {})
         ),
         patch(  # test-quality-ok: proxy module global, no injection seam
-            "litellm.proxy.proxy_server.health_check_details", True
+            "embrouter.proxy.proxy_server.health_check_details", True
         ),
         patch(  # test-quality-ok: proxy module global, no injection seam
-            "litellm.proxy.proxy_server.health_check_concurrency", 1
+            "embrouter.proxy.proxy_server.health_check_concurrency", 1
         ),
     ):
         yield
@@ -1871,8 +1871,8 @@ async def test_health_endpoint_expands_access_group_on_live_path():
     """
     from fastapi import Response
 
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy.health_endpoints._health_endpoints import health_endpoint
 
     captured: dict = {}
 
@@ -1883,7 +1883,7 @@ async def test_health_endpoint_expands_access_group_on_live_path():
     with (
         _proxy_health_globals(_ACCESS_GROUP_MODEL_LIST, _ACCESS_GROUP_ROUTER),
         patch(  # test-quality-ok: the model list handed to the probe is the assertion; no injection seam
-            "litellm.proxy.health_endpoints._health_endpoints._perform_health_check_and_save",
+            "embrouter.proxy.health_endpoints._health_endpoints._perform_health_check_and_save",
             side_effect=fake_perform,
         ),
     ):
@@ -1906,8 +1906,8 @@ async def test_health_endpoint_expands_access_group_on_background_cache_path():
     """
     from fastapi import Response
 
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy.health_endpoints._health_endpoints import health_endpoint
 
     with _proxy_health_globals(
         _ACCESS_GROUP_MODEL_LIST,
@@ -1936,8 +1936,8 @@ async def test_health_endpoint_treats_no_team_all_team_models_as_unrestricted():
     """
     from fastapi import Response
 
-    from litellm.proxy._types import SpecialModelNames, UserAPIKeyAuth
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from embrouter.proxy._types import SpecialModelNames, UserAPIKeyAuth
+    from embrouter.proxy.health_endpoints._health_endpoints import health_endpoint
 
     captured: dict = {}
 
@@ -1948,7 +1948,7 @@ async def test_health_endpoint_treats_no_team_all_team_models_as_unrestricted():
     with (
         _proxy_health_globals(_ACCESS_GROUP_MODEL_LIST, None),
         patch(  # test-quality-ok: the model list handed to the probe is the assertion; no injection seam
-            "litellm.proxy.health_endpoints._health_endpoints._perform_health_check_and_save",
+            "embrouter.proxy.health_endpoints._health_endpoints._perform_health_check_and_save",
             side_effect=fake_perform,
         ),
     ):
@@ -1973,8 +1973,8 @@ async def test_health_endpoint_omits_model_id_warning_when_no_deployment_matches
     """
     from fastapi import Response
 
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy.health_endpoints._health_endpoints import health_endpoint
 
     with _proxy_health_globals(
         _ACCESS_GROUP_MODEL_LIST,
@@ -2001,13 +2001,13 @@ async def test_health_endpoint_filters_background_cache_by_user_access():
     scope the cached result to the caller's allowed models rather than
     returning the cache verbatim.
     """
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy.health_endpoints._health_endpoints import health_endpoint
 
     full_model_list = [
         {
             "model_name": "model-a",
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "openai/gpt-4o",
                 "api_base": "https://example-a.test",
             },
@@ -2015,7 +2015,7 @@ async def test_health_endpoint_filters_background_cache_by_user_access():
         },
         {
             "model_name": "model-b",
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "openai/gpt-4o",
                 "api_base": "https://example-b.test",
             },
@@ -2047,14 +2047,14 @@ async def test_health_endpoint_filters_background_cache_by_user_access():
     )
 
     with (
-        patch("litellm.proxy.proxy_server.llm_model_list", full_model_list),
-        patch("litellm.proxy.proxy_server.llm_router", None),
-        patch("litellm.proxy.proxy_server.prisma_client", None),
-        patch("litellm.proxy.proxy_server.use_background_health_checks", True),
-        patch("litellm.proxy.proxy_server.user_model", None),
-        patch("litellm.proxy.proxy_server.health_check_results", cached_results),
-        patch("litellm.proxy.proxy_server.health_check_details", True),
-        patch("litellm.proxy.proxy_server.health_check_concurrency", 1),
+        patch("embrouter.proxy.proxy_server.llm_model_list", full_model_list),
+        patch("embrouter.proxy.proxy_server.llm_router", None),
+        patch("embrouter.proxy.proxy_server.prisma_client", None),
+        patch("embrouter.proxy.proxy_server.use_background_health_checks", True),
+        patch("embrouter.proxy.proxy_server.user_model", None),
+        patch("embrouter.proxy.proxy_server.health_check_results", cached_results),
+        patch("embrouter.proxy.proxy_server.health_check_details", True),
+        patch("embrouter.proxy.proxy_server.health_check_concurrency", 1),
     ):
         from fastapi import Response
 
@@ -2097,13 +2097,13 @@ async def test_health_endpoint_admin_sees_routing_fields_non_admin_does_not():
     """
     from fastapi import Response
 
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from embrouter.proxy._types import EmbrouterUserRoles, UserAPIKeyAuth
+    from embrouter.proxy.health_endpoints._health_endpoints import health_endpoint
 
     full_model_list = [
         {
             "model_name": "model-a",
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "openai/gpt-4o",
                 "api_base": "https://example-a.test",
             },
@@ -2127,7 +2127,7 @@ async def test_health_endpoint_admin_sees_routing_fields_non_admin_does_not():
     admin_key = UserAPIKeyAuth(
         api_key="hashed-admin-key",
         models=["model-a"],
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN,
     )
     non_admin_key = UserAPIKeyAuth(
         api_key="hashed-user-key",
@@ -2135,14 +2135,14 @@ async def test_health_endpoint_admin_sees_routing_fields_non_admin_does_not():
     )
 
     common_patches = [
-        patch("litellm.proxy.proxy_server.llm_model_list", full_model_list),
-        patch("litellm.proxy.proxy_server.llm_router", None),
-        patch("litellm.proxy.proxy_server.prisma_client", None),
-        patch("litellm.proxy.proxy_server.use_background_health_checks", True),
-        patch("litellm.proxy.proxy_server.user_model", None),
-        patch("litellm.proxy.proxy_server.health_check_results", cached_results),
-        patch("litellm.proxy.proxy_server.health_check_details", True),
-        patch("litellm.proxy.proxy_server.health_check_concurrency", 1),
+        patch("embrouter.proxy.proxy_server.llm_model_list", full_model_list),
+        patch("embrouter.proxy.proxy_server.llm_router", None),
+        patch("embrouter.proxy.proxy_server.prisma_client", None),
+        patch("embrouter.proxy.proxy_server.use_background_health_checks", True),
+        patch("embrouter.proxy.proxy_server.user_model", None),
+        patch("embrouter.proxy.proxy_server.health_check_results", cached_results),
+        patch("embrouter.proxy.proxy_server.health_check_details", True),
+        patch("embrouter.proxy.proxy_server.health_check_concurrency", 1),
     ]
 
     for p in common_patches:
@@ -2184,10 +2184,10 @@ async def test_health_endpoint_admin_sees_routing_fields_non_admin_does_not():
     # Non-admin response must advertise that api_base/api_version were
     # withheld so clients that previously parsed them can detect the change.
     assert (
-        non_admin_response.headers.get("Litellm-Health-Field-Notice")
+        non_admin_response.headers.get("Embrouter-Health-Field-Notice")
         == "api_base, api_version, aws_bedrock_runtime_endpoint are admin-only on this endpoint"
     )
-    assert "Litellm-Health-Field-Notice" not in admin_response.headers
+    assert "Embrouter-Health-Field-Notice" not in admin_response.headers
 
     # Stripping must produce a copy — the shared cache must still carry the
     # routing fields so the next admin caller can read them.
@@ -2207,13 +2207,13 @@ async def test_health_endpoint_warns_when_scoped_models_lack_model_id():
     """
     from fastapi import Response
 
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy.health_endpoints._health_endpoints import health_endpoint
 
     full_model_list = [
         {
             "model_name": "model-a",
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "openai/gpt-4o",
                 "api_base": "https://example-a.test",
             },
@@ -2240,14 +2240,14 @@ async def test_health_endpoint_warns_when_scoped_models_lack_model_id():
     )
 
     with (
-        patch("litellm.proxy.proxy_server.llm_model_list", full_model_list),
-        patch("litellm.proxy.proxy_server.llm_router", None),
-        patch("litellm.proxy.proxy_server.prisma_client", None),
-        patch("litellm.proxy.proxy_server.use_background_health_checks", True),
-        patch("litellm.proxy.proxy_server.user_model", None),
-        patch("litellm.proxy.proxy_server.health_check_results", cached_results),
-        patch("litellm.proxy.proxy_server.health_check_details", True),
-        patch("litellm.proxy.proxy_server.health_check_concurrency", 1),
+        patch("embrouter.proxy.proxy_server.llm_model_list", full_model_list),
+        patch("embrouter.proxy.proxy_server.llm_router", None),
+        patch("embrouter.proxy.proxy_server.prisma_client", None),
+        patch("embrouter.proxy.proxy_server.use_background_health_checks", True),
+        patch("embrouter.proxy.proxy_server.user_model", None),
+        patch("embrouter.proxy.proxy_server.health_check_results", cached_results),
+        patch("embrouter.proxy.proxy_server.health_check_details", True),
+        patch("embrouter.proxy.proxy_server.health_check_concurrency", 1),
     ):
         result = await health_endpoint(
             response=Response(),
@@ -2276,18 +2276,18 @@ async def test_health_endpoint_blocks_cross_scope_model_id_under_background_cach
     """
     from fastapi import HTTPException, Response
 
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy.health_endpoints._health_endpoints import health_endpoint
 
     full_model_list = [
         {
             "model_name": "model-a",
-            "litellm_params": {"model": "openai/gpt-4o"},
+            "embrouter_params": {"model": "openai/gpt-4o"},
             "model_info": {"id": "id-a"},
         },
         {
             "model_name": "model-b",  # caller has no access
-            "litellm_params": {"model": "openai/gpt-4o"},
+            "embrouter_params": {"model": "openai/gpt-4o"},
             "model_info": {"id": "id-b"},
         },
     ]
@@ -2312,16 +2312,16 @@ async def test_health_endpoint_blocks_cross_scope_model_id_under_background_cach
 
     response = Response()
     with (
-        patch("litellm.proxy.proxy_server.llm_model_list", full_model_list),
+        patch("embrouter.proxy.proxy_server.llm_model_list", full_model_list),
         # llm_router None here means the model_id 404 lookup short-circuits;
         # we patch _llm_model_list directly instead to drive the cache path.
-        patch("litellm.proxy.proxy_server.llm_router", None),
-        patch("litellm.proxy.proxy_server.prisma_client", None),
-        patch("litellm.proxy.proxy_server.use_background_health_checks", True),
-        patch("litellm.proxy.proxy_server.user_model", None),
-        patch("litellm.proxy.proxy_server.health_check_results", cached_results),
-        patch("litellm.proxy.proxy_server.health_check_details", True),
-        patch("litellm.proxy.proxy_server.health_check_concurrency", 1),
+        patch("embrouter.proxy.proxy_server.llm_router", None),
+        patch("embrouter.proxy.proxy_server.prisma_client", None),
+        patch("embrouter.proxy.proxy_server.use_background_health_checks", True),
+        patch("embrouter.proxy.proxy_server.user_model", None),
+        patch("embrouter.proxy.proxy_server.health_check_results", cached_results),
+        patch("embrouter.proxy.proxy_server.health_check_details", True),
+        patch("embrouter.proxy.proxy_server.health_check_concurrency", 1),
     ):
         # Calling with model="model-b" rather than model_id="id-b" because
         # the model_id branch raises 404 when llm_router is None. The bug
@@ -2349,18 +2349,18 @@ async def test_health_endpoint_503_for_targeted_unhealthy_model_under_background
     """
     from fastapi import Response
 
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from embrouter.proxy._types import EmbrouterUserRoles, UserAPIKeyAuth
+    from embrouter.proxy.health_endpoints._health_endpoints import health_endpoint
 
     full_model_list = [
         {
             "model_name": "model-a",  # the unhealthy target
-            "litellm_params": {"model": "openai/gpt-4o"},
+            "embrouter_params": {"model": "openai/gpt-4o"},
             "model_info": {"id": "id-a"},
         },
         {
             "model_name": "model-b",  # an unrelated healthy model
-            "litellm_params": {"model": "openai/gpt-4o"},
+            "embrouter_params": {"model": "openai/gpt-4o"},
             "model_info": {"id": "id-b"},
         },
     ]
@@ -2378,19 +2378,19 @@ async def test_health_endpoint_503_for_targeted_unhealthy_model_under_background
 
     user_api_key_dict = UserAPIKeyAuth(
         api_key="hashed-admin",
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN,
     )
 
     response = Response()
     with (
-        patch("litellm.proxy.proxy_server.llm_model_list", full_model_list),
-        patch("litellm.proxy.proxy_server.llm_router", None),
-        patch("litellm.proxy.proxy_server.prisma_client", None),
-        patch("litellm.proxy.proxy_server.use_background_health_checks", True),
-        patch("litellm.proxy.proxy_server.user_model", None),
-        patch("litellm.proxy.proxy_server.health_check_results", cached_results),
-        patch("litellm.proxy.proxy_server.health_check_details", True),
-        patch("litellm.proxy.proxy_server.health_check_concurrency", 1),
+        patch("embrouter.proxy.proxy_server.llm_model_list", full_model_list),
+        patch("embrouter.proxy.proxy_server.llm_router", None),
+        patch("embrouter.proxy.proxy_server.prisma_client", None),
+        patch("embrouter.proxy.proxy_server.use_background_health_checks", True),
+        patch("embrouter.proxy.proxy_server.user_model", None),
+        patch("embrouter.proxy.proxy_server.health_check_results", cached_results),
+        patch("embrouter.proxy.proxy_server.health_check_details", True),
+        patch("embrouter.proxy.proxy_server.health_check_concurrency", 1),
     ):
         result = await health_endpoint(
             response=response,
@@ -2416,13 +2416,13 @@ async def test_health_endpoint_returns_503_when_requested_model_has_no_healthy_e
     """
     from fastapi import Response
 
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from embrouter.proxy._types import EmbrouterUserRoles, UserAPIKeyAuth
+    from embrouter.proxy.health_endpoints._health_endpoints import health_endpoint
 
     full_model_list = [
         {
             "model_name": "model-a",
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "openai/gpt-4o",
                 "api_base": "https://example-a.test",
             },
@@ -2432,7 +2432,7 @@ async def test_health_endpoint_returns_503_when_requested_model_has_no_healthy_e
 
     user_api_key_dict = UserAPIKeyAuth(
         api_key="hashed-test-key",
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN,
     )
 
     async def fake_perform(**kwargs):
@@ -2451,16 +2451,16 @@ async def test_health_endpoint_returns_503_when_requested_model_has_no_healthy_e
 
     response = Response()
     with (
-        patch("litellm.proxy.proxy_server.llm_model_list", full_model_list),
-        patch("litellm.proxy.proxy_server.llm_router", None),
-        patch("litellm.proxy.proxy_server.prisma_client", None),
-        patch("litellm.proxy.proxy_server.use_background_health_checks", False),
-        patch("litellm.proxy.proxy_server.user_model", None),
-        patch("litellm.proxy.proxy_server.health_check_results", {}),
-        patch("litellm.proxy.proxy_server.health_check_details", True),
-        patch("litellm.proxy.proxy_server.health_check_concurrency", 1),
+        patch("embrouter.proxy.proxy_server.llm_model_list", full_model_list),
+        patch("embrouter.proxy.proxy_server.llm_router", None),
+        patch("embrouter.proxy.proxy_server.prisma_client", None),
+        patch("embrouter.proxy.proxy_server.use_background_health_checks", False),
+        patch("embrouter.proxy.proxy_server.user_model", None),
+        patch("embrouter.proxy.proxy_server.health_check_results", {}),
+        patch("embrouter.proxy.proxy_server.health_check_details", True),
+        patch("embrouter.proxy.proxy_server.health_check_concurrency", 1),
         patch(
-            "litellm.proxy.health_endpoints._health_endpoints._perform_health_check_and_save",
+            "embrouter.proxy.health_endpoints._health_endpoints._perform_health_check_and_save",
             side_effect=fake_perform,
         ),
     ):
@@ -2484,20 +2484,20 @@ async def test_health_endpoint_returns_200_when_requested_model_has_healthy_endp
     """
     from fastapi import Response
 
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from embrouter.proxy._types import EmbrouterUserRoles, UserAPIKeyAuth
+    from embrouter.proxy.health_endpoints._health_endpoints import health_endpoint
 
     full_model_list = [
         {
             "model_name": "model-a",
-            "litellm_params": {"model": "openai/gpt-4o"},
+            "embrouter_params": {"model": "openai/gpt-4o"},
             "model_info": {"id": "id-a"},
         },
     ]
 
     user_api_key_dict = UserAPIKeyAuth(
         api_key="hashed-test-key",
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN,
     )
 
     async def fake_perform(**kwargs):
@@ -2512,16 +2512,16 @@ async def test_health_endpoint_returns_200_when_requested_model_has_healthy_endp
     # Default Response() exposes status_code as None; the endpoint should
     # leave it alone for the healthy path.
     with (
-        patch("litellm.proxy.proxy_server.llm_model_list", full_model_list),
-        patch("litellm.proxy.proxy_server.llm_router", None),
-        patch("litellm.proxy.proxy_server.prisma_client", None),
-        patch("litellm.proxy.proxy_server.use_background_health_checks", False),
-        patch("litellm.proxy.proxy_server.user_model", None),
-        patch("litellm.proxy.proxy_server.health_check_results", {}),
-        patch("litellm.proxy.proxy_server.health_check_details", True),
-        patch("litellm.proxy.proxy_server.health_check_concurrency", 1),
+        patch("embrouter.proxy.proxy_server.llm_model_list", full_model_list),
+        patch("embrouter.proxy.proxy_server.llm_router", None),
+        patch("embrouter.proxy.proxy_server.prisma_client", None),
+        patch("embrouter.proxy.proxy_server.use_background_health_checks", False),
+        patch("embrouter.proxy.proxy_server.user_model", None),
+        patch("embrouter.proxy.proxy_server.health_check_results", {}),
+        patch("embrouter.proxy.proxy_server.health_check_details", True),
+        patch("embrouter.proxy.proxy_server.health_check_concurrency", 1),
         patch(
-            "litellm.proxy.health_endpoints._health_endpoints._perform_health_check_and_save",
+            "embrouter.proxy.health_endpoints._health_endpoints._perform_health_check_and_save",
             side_effect=fake_perform,
         ),
     ):
@@ -2544,20 +2544,20 @@ async def test_health_endpoint_no_model_param_returns_200_even_when_zero_healthy
     """
     from fastapi import Response
 
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from embrouter.proxy._types import EmbrouterUserRoles, UserAPIKeyAuth
+    from embrouter.proxy.health_endpoints._health_endpoints import health_endpoint
 
     full_model_list = [
         {
             "model_name": "model-a",
-            "litellm_params": {"model": "openai/gpt-4o"},
+            "embrouter_params": {"model": "openai/gpt-4o"},
             "model_info": {"id": "id-a"},
         },
     ]
 
     user_api_key_dict = UserAPIKeyAuth(
         api_key="hashed-test-key",
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN,
     )
 
     async def fake_perform(**kwargs):
@@ -2570,16 +2570,16 @@ async def test_health_endpoint_no_model_param_returns_200_even_when_zero_healthy
 
     response = Response()
     with (
-        patch("litellm.proxy.proxy_server.llm_model_list", full_model_list),
-        patch("litellm.proxy.proxy_server.llm_router", None),
-        patch("litellm.proxy.proxy_server.prisma_client", None),
-        patch("litellm.proxy.proxy_server.use_background_health_checks", False),
-        patch("litellm.proxy.proxy_server.user_model", None),
-        patch("litellm.proxy.proxy_server.health_check_results", {}),
-        patch("litellm.proxy.proxy_server.health_check_details", True),
-        patch("litellm.proxy.proxy_server.health_check_concurrency", 1),
+        patch("embrouter.proxy.proxy_server.llm_model_list", full_model_list),
+        patch("embrouter.proxy.proxy_server.llm_router", None),
+        patch("embrouter.proxy.proxy_server.prisma_client", None),
+        patch("embrouter.proxy.proxy_server.use_background_health_checks", False),
+        patch("embrouter.proxy.proxy_server.user_model", None),
+        patch("embrouter.proxy.proxy_server.health_check_results", {}),
+        patch("embrouter.proxy.proxy_server.health_check_details", True),
+        patch("embrouter.proxy.proxy_server.health_check_concurrency", 1),
         patch(
-            "litellm.proxy.health_endpoints._health_endpoints._perform_health_check_and_save",
+            "embrouter.proxy.health_endpoints._health_endpoints._perform_health_check_and_save",
             side_effect=fake_perform,
         ),
     ):
@@ -2607,7 +2607,7 @@ async def test_health_readiness_returns_503_when_db_disconnected():
     """
     from fastapi import Response
 
-    from litellm.proxy.health_endpoints._health_endpoints import health_readiness
+    from embrouter.proxy.health_endpoints._health_endpoints import health_readiness
 
     mock_prisma = MagicMock()
     mock_prisma.health_check = AsyncMock(side_effect=PrismaError("nope"))
@@ -2619,7 +2619,7 @@ async def test_health_readiness_returns_503_when_db_disconnected():
     }
 
     response = Response()
-    with patch("litellm.proxy.proxy_server.prisma_client", mock_prisma):
+    with patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma):
         result = await health_readiness(response=response)
 
     assert response.status_code == 503
@@ -2638,7 +2638,7 @@ async def test_health_readiness_returns_200_when_db_down_and_allow_requests_on_d
     """
     from fastapi import Response
 
-    from litellm.proxy.health_endpoints._health_endpoints import health_readiness
+    from embrouter.proxy.health_endpoints._health_endpoints import health_readiness
 
     mock_prisma = MagicMock()
     mock_prisma.health_check = AsyncMock(side_effect=PrismaError("nope"))
@@ -2652,10 +2652,10 @@ async def test_health_readiness_returns_200_when_db_down_and_allow_requests_on_d
     response = Response()
     with (
         patch(  # test-quality-ok: the readiness path reads the proxy-global DB client; it has no injection seam
-            "litellm.proxy.proxy_server.prisma_client", mock_prisma
+            "embrouter.proxy.proxy_server.prisma_client", mock_prisma
         ),
         patch.dict(  # test-quality-ok: the fail-open flag lives in the proxy-global general_settings; no injection seam
-            "litellm.proxy.proxy_server.general_settings",
+            "embrouter.proxy.proxy_server.general_settings",
             {"allow_requests_on_db_unavailable": True},
         ),
     ):
@@ -2674,7 +2674,7 @@ async def test_health_readiness_details_returns_200_when_db_down_and_allow_reque
     """
     from fastapi import Response
 
-    from litellm.proxy.health_endpoints._health_endpoints import (
+    from embrouter.proxy.health_endpoints._health_endpoints import (
         _get_health_readiness_details,
     )
 
@@ -2690,10 +2690,10 @@ async def test_health_readiness_details_returns_200_when_db_down_and_allow_reque
     response = Response()
     with (
         patch(  # test-quality-ok: the readiness path reads the proxy-global DB client; it has no injection seam
-            "litellm.proxy.proxy_server.prisma_client", mock_prisma
+            "embrouter.proxy.proxy_server.prisma_client", mock_prisma
         ),
         patch.dict(  # test-quality-ok: the fail-open flag lives in the proxy-global general_settings; no injection seam
-            "litellm.proxy.proxy_server.general_settings",
+            "embrouter.proxy.proxy_server.general_settings",
             {"allow_requests_on_db_unavailable": True},
         ),
     ):
@@ -2705,7 +2705,7 @@ async def test_health_readiness_details_returns_200_when_db_down_and_allow_reque
 
 @pytest.fixture
 def _clear_db_lookup_stall() -> Iterator[None]:
-    from litellm.proxy.db.db_lookup_gate import db_lookup_stall_tracker
+    from embrouter.proxy.db.db_lookup_gate import db_lookup_stall_tracker
 
     db_lookup_stall_tracker.clear()
     yield
@@ -2732,15 +2732,15 @@ async def test_health_readiness_returns_503_stalled_after_a_db_lookup_deadline_h
     that hit its deadline inside the stall window must take the pod out of rotation."""
     from fastapi import Response
 
-    from litellm.proxy.db.db_lookup_gate import db_lookup_stall_tracker
-    from litellm.proxy.health_endpoints._health_endpoints import health_readiness
+    from embrouter.proxy.db.db_lookup_gate import db_lookup_stall_tracker
+    from embrouter.proxy.health_endpoints._health_endpoints import health_readiness
 
     _forget_db_health_cache()
     db_lookup_stall_tracker.record_hit()
 
     response = Response()
     with patch(  # test-quality-ok: the readiness path reads the proxy-global DB client; it has no injection seam
-        "litellm.proxy.proxy_server.prisma_client", _connected_prisma()
+        "embrouter.proxy.proxy_server.prisma_client", _connected_prisma()
     ):
         result = await health_readiness(response=response)
 
@@ -2752,15 +2752,15 @@ async def test_health_readiness_returns_503_stalled_after_a_db_lookup_deadline_h
 async def test_health_readiness_details_returns_503_stalled_after_a_db_lookup_deadline_hit(_clear_db_lookup_stall):
     from fastapi import Response
 
-    from litellm.proxy.db.db_lookup_gate import db_lookup_stall_tracker
-    from litellm.proxy.health_endpoints._health_endpoints import _get_health_readiness_details
+    from embrouter.proxy.db.db_lookup_gate import db_lookup_stall_tracker
+    from embrouter.proxy.health_endpoints._health_endpoints import _get_health_readiness_details
 
     _forget_db_health_cache()
     db_lookup_stall_tracker.record_hit()
 
     response = Response()
     with patch(  # test-quality-ok: the readiness path reads the proxy-global DB client; it has no injection seam
-        "litellm.proxy.proxy_server.prisma_client", _connected_prisma()
+        "embrouter.proxy.proxy_server.prisma_client", _connected_prisma()
     ):
         result = await _get_health_readiness_details(response=response)
 
@@ -2777,8 +2777,8 @@ async def test_health_readiness_stays_200_with_stalled_body_when_requests_are_al
     for a disconnected one."""
     from fastapi import Response
 
-    from litellm.proxy.db.db_lookup_gate import db_lookup_stall_tracker
-    from litellm.proxy.health_endpoints._health_endpoints import health_readiness
+    from embrouter.proxy.db.db_lookup_gate import db_lookup_stall_tracker
+    from embrouter.proxy.health_endpoints._health_endpoints import health_readiness
 
     _forget_db_health_cache()
     db_lookup_stall_tracker.record_hit()
@@ -2786,10 +2786,10 @@ async def test_health_readiness_stays_200_with_stalled_body_when_requests_are_al
     response = Response()
     with (
         patch(  # test-quality-ok: the readiness path reads the proxy-global DB client; it has no injection seam
-            "litellm.proxy.proxy_server.prisma_client", _connected_prisma()
+            "embrouter.proxy.proxy_server.prisma_client", _connected_prisma()
         ),
         patch.dict(  # test-quality-ok: the fail-open flag lives in the proxy-global general_settings; no injection seam
-            "litellm.proxy.proxy_server.general_settings",
+            "embrouter.proxy.proxy_server.general_settings",
             {"allow_requests_on_db_unavailable": True},
         ),
     ):
@@ -2808,8 +2808,8 @@ async def test_health_readiness_reports_connected_without_a_stall_inside_the_win
     answer, so a healthy pod never leaves rotation over the stall check."""
     from fastapi import Response
 
-    from litellm.proxy.db.db_lookup_gate import db_lookup_stall_tracker
-    from litellm.proxy.health_endpoints._health_endpoints import health_readiness
+    from embrouter.proxy.db.db_lookup_gate import db_lookup_stall_tracker
+    from embrouter.proxy.health_endpoints._health_endpoints import health_readiness
 
     _forget_db_health_cache()
     if hit_recorded:
@@ -2818,10 +2818,10 @@ async def test_health_readiness_reports_connected_without_a_stall_inside_the_win
     response = Response()
     with (
         patch(  # test-quality-ok: the readiness path reads the proxy-global DB client; it has no injection seam
-            "litellm.proxy.proxy_server.prisma_client", _connected_prisma()
+            "embrouter.proxy.proxy_server.prisma_client", _connected_prisma()
         ),
         patch(  # test-quality-ok: lowers the module-level stall window to its opt-out value for the recorded-hit case
-            "litellm.proxy.health_endpoints._health_endpoints.PROXY_DB_LOOKUP_STALL_WINDOW_SECONDS",
+            "embrouter.proxy.health_endpoints._health_endpoints.PROXY_DB_LOOKUP_STALL_WINDOW_SECONDS",
             0.0 if hit_recorded else 30.0,
         ),
     ):
@@ -2838,7 +2838,7 @@ async def test_db_health_readiness_check_bounds_hung_health_check():
     kubelet's timeoutSeconds; the DB round-trip is bounded and reported as
     disconnected instead.
     """
-    from litellm.proxy.health_endpoints._health_endpoints import (
+    from embrouter.proxy.health_endpoints._health_endpoints import (
         _db_health_readiness_check,
     )
 
@@ -2855,12 +2855,12 @@ async def test_db_health_readiness_check_bounds_hung_health_check():
     }
 
     with patch(  # test-quality-ok: lowers the module-level probe timeout so the hung-call test finishes fast
-        "litellm.proxy.health_endpoints._health_endpoints.DB_READINESS_CHECK_TIMEOUT_SECONDS",
+        "embrouter.proxy.health_endpoints._health_endpoints.DB_READINESS_CHECK_TIMEOUT_SECONDS",
         0.05,
     ):
         start = time.monotonic()
         with patch(  # test-quality-ok: the readiness path reads the proxy-global DB client; it has no injection seam
-            "litellm.proxy.proxy_server.prisma_client", mock_prisma
+            "embrouter.proxy.proxy_server.prisma_client", mock_prisma
         ):
             result = await _db_health_readiness_check()
         elapsed = time.monotonic() - start
@@ -2876,7 +2876,7 @@ async def test_db_health_readiness_check_overall_deadline_bounds_hung_reconnect(
     including reconnect lock waits) runs under one deadline, so a reconnect
     that hangs on the lock still returns disconnected within the deadline.
     """
-    from litellm.proxy.health_endpoints._health_endpoints import (
+    from embrouter.proxy.health_endpoints._health_endpoints import (
         _db_health_readiness_check,
     )
 
@@ -2893,12 +2893,12 @@ async def test_db_health_readiness_check_overall_deadline_bounds_hung_reconnect(
     }
 
     with patch(  # test-quality-ok: lowers the module-level probe timeout so the hung-call test finishes fast
-        "litellm.proxy.health_endpoints._health_endpoints.DB_READINESS_PROBE_DEADLINE_SECONDS",
+        "embrouter.proxy.health_endpoints._health_endpoints.DB_READINESS_PROBE_DEADLINE_SECONDS",
         0.05,
     ):
         start = time.monotonic()
         with patch(  # test-quality-ok: the readiness path reads the proxy-global DB client; it has no injection seam
-            "litellm.proxy.proxy_server.prisma_client", mock_prisma
+            "embrouter.proxy.proxy_server.prisma_client", mock_prisma
         ):
             result = await _db_health_readiness_check()
         elapsed = time.monotonic() - start
@@ -2912,7 +2912,7 @@ async def test_health_readiness_returns_200_when_db_connected():
     """Happy path: connected DB keeps the legacy 200."""
     from fastapi import Response
 
-    from litellm.proxy.health_endpoints._health_endpoints import health_readiness
+    from embrouter.proxy.health_endpoints._health_endpoints import health_readiness
 
     mock_prisma = MagicMock()
     mock_prisma.health_check = AsyncMock()
@@ -2923,7 +2923,7 @@ async def test_health_readiness_returns_200_when_db_connected():
     }
 
     response = Response()
-    with patch("litellm.proxy.proxy_server.prisma_client", mock_prisma):
+    with patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma):
         result = await health_readiness(response=response)
 
     assert response.status_code == 200
@@ -2939,10 +2939,10 @@ async def test_health_readiness_returns_200_when_no_db_configured():
     """
     from fastapi import Response
 
-    from litellm.proxy.health_endpoints._health_endpoints import health_readiness
+    from embrouter.proxy.health_endpoints._health_endpoints import health_readiness
 
     response = Response()
-    with patch("litellm.proxy.proxy_server.prisma_client", None):
+    with patch("embrouter.proxy.proxy_server.prisma_client", None):
         result = await health_readiness(response=response)
 
     assert response.status_code == 200
@@ -2956,7 +2956,7 @@ def test_clean_endpoint_data_strips_credentials_keeps_routing_fields():
     layer based on user role, not in the cleaning helper. This guarantees
     proxy admins continue to see those fields in the /health response.
     """
-    from litellm.proxy.health_check import _clean_endpoint_data
+    from embrouter.proxy.health_check import _clean_endpoint_data
 
     raw = {
         "model": "openai/gpt-4o",
@@ -2980,7 +2980,7 @@ def test_clean_endpoint_data_strips_extra_headers_and_aws_session_token():
     `extra_headers` / `headers` / `aws_session_token`. Before the fix these
     were returned in plaintext (api_key was stripped, but these were not).
     """
-    from litellm.proxy.health_check import _clean_endpoint_data
+    from embrouter.proxy.health_check import _clean_endpoint_data
 
     raw = {
         "model": "openai/gpt-4o",
@@ -3024,9 +3024,9 @@ def test_clean_endpoint_data_strips_extra_headers_and_aws_session_token():
 def test_clean_endpoint_data_never_displays_credential_fields(credential_field, details):
     """
     LIT-6239 / gh-36898: /health entries, healthy and unhealthy alike, must never
-    carry credential-bearing litellm_params, with or without details.
+    carry credential-bearing embrouter_params, with or without details.
     """
-    from litellm.proxy.health_check import _clean_endpoint_data
+    from embrouter.proxy.health_check import _clean_endpoint_data
 
     canary = f"CANARY-{credential_field}-VALUE"
     cleaned = _clean_endpoint_data(
@@ -3047,7 +3047,7 @@ async def _live_probed_model_ids(
 ) -> set[str]:
     from fastapi import Response
 
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from embrouter.proxy.health_endpoints._health_endpoints import health_endpoint
 
     captured: dict = {}
 
@@ -3058,7 +3058,7 @@ async def _live_probed_model_ids(
     with (
         _proxy_health_globals(model_list, _router_for(model_list)),
         patch(  # test-quality-ok: the model list handed to the probe is the assertion; no injection seam
-            "litellm.proxy.health_endpoints._health_endpoints._perform_health_check_and_save",
+            "embrouter.proxy.health_endpoints._health_endpoints._perform_health_check_and_save",
             side_effect=fake_perform,
         ),
     ):
@@ -3119,7 +3119,7 @@ async def test_health_endpoint_keeps_an_unrestricted_non_admin_key_to_its_own_te
 async def test_health_endpoint_lets_a_proxy_admin_probe_every_teams_deployment():
     probed = await _live_probed_model_ids(
         _TEAM_MODEL_LIST,
-        UserAPIKeyAuth(api_key="hashed-test-key", models=[], user_role=LitellmUserRoles.PROXY_ADMIN),
+        UserAPIKeyAuth(api_key="hashed-test-key", models=[], user_role=EmbrouterUserRoles.PROXY_ADMIN),
     )
 
     assert probed == {"id-bedrock", "id-team-b"}
@@ -3129,7 +3129,7 @@ async def test_health_endpoint_lets_a_proxy_admin_probe_every_teams_deployment()
 async def test_health_endpoint_keeps_an_unrestricted_non_admin_key_to_its_own_team_on_background_cache_path():
     from fastapi import Response
 
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from embrouter.proxy.health_endpoints._health_endpoints import health_endpoint
 
     with _proxy_health_globals(
         _TEAM_MODEL_LIST,
@@ -3167,7 +3167,7 @@ async def test_health_endpoint_shows_a_teams_own_deployment_by_its_public_name()
 async def test_health_endpoint_hides_another_teams_deployment_on_background_cache_path():
     from fastapi import Response
 
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from embrouter.proxy.health_endpoints._health_endpoints import health_endpoint
 
     with _proxy_health_globals(
         _TEAM_MODEL_LIST,
@@ -3195,14 +3195,14 @@ async def test_health_endpoint_refuses_a_targeted_deployment_outside_the_callers
     """
     from fastapi import HTTPException, Response
 
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from embrouter.proxy.health_endpoints._health_endpoints import health_endpoint
 
     fake_perform = AsyncMock()
 
     with (
         _proxy_health_globals(_TEAM_MODEL_LIST, _router_for(_TEAM_MODEL_LIST)),
         patch(  # test-quality-ok: the probe must never run; no injection seam
-            "litellm.proxy.health_endpoints._health_endpoints._perform_health_check_and_save",
+            "embrouter.proxy.health_endpoints._health_endpoints._perform_health_check_and_save",
             fake_perform,
         ),
         pytest.raises(HTTPException) as excinfo,
@@ -3222,7 +3222,7 @@ async def test_health_endpoint_refuses_a_targeted_deployment_outside_the_callers
 async def test_health_endpoint_refuses_a_targeted_deployment_outside_the_callers_scope_on_background_cache_path():
     from fastapi import HTTPException, Response
 
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from embrouter.proxy.health_endpoints._health_endpoints import health_endpoint
 
     with (
         _proxy_health_globals(
@@ -3247,7 +3247,7 @@ async def test_health_endpoint_refuses_a_targeted_deployment_outside_the_callers
 async def test_health_endpoint_hides_team_deployments_from_a_key_with_no_team_on_background_cache_path():
     from fastapi import Response
 
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from embrouter.proxy.health_endpoints._health_endpoints import health_endpoint
 
     with _proxy_health_globals(
         _TEAM_MODEL_LIST,
@@ -3268,10 +3268,10 @@ async def test_health_endpoint_hides_team_deployments_from_a_key_with_no_team_on
 
 _TEAM_ONLY_MODEL_LIST = [_TEAM_MODEL_LIST[1]]
 _BARE_NAME_MODEL_LIST = [
-    {"model_name": "gpt-5.4-nano", "litellm_params": {"model": "gpt-5.4-nano"}, "model_info": {"id": "id-nano"}},
+    {"model_name": "gpt-5.4-nano", "embrouter_params": {"model": "gpt-5.4-nano"}, "model_info": {"id": "id-nano"}},
     {
         "model_name": "gpt-5.4-nano_team-b_7c3d",
-        "litellm_params": {"model": "gpt-5.4-nano"},
+        "embrouter_params": {"model": "gpt-5.4-nano"},
         "model_info": {"id": "id-nano-team-b", "team_id": "team-b", "team_public_model_name": "gpt-5.4-nano"},
     },
 ]
@@ -3306,7 +3306,7 @@ async def test_health_endpoint_probes_a_team_only_deployment_by_its_public_name_
 async def test_health_endpoint_returns_a_team_only_deployment_by_its_public_name_on_background_cache_path():
     from fastapi import Response
 
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from embrouter.proxy.health_endpoints._health_endpoints import health_endpoint
 
     with _proxy_health_globals(
         _TEAM_ONLY_MODEL_LIST,
@@ -3328,7 +3328,7 @@ async def test_health_endpoint_returns_a_team_only_deployment_by_its_public_name
 async def test_health_endpoint_returns_only_the_owning_teams_copy_behind_a_shared_public_name_on_cache_path():
     from fastapi import Response
 
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from embrouter.proxy.health_endpoints._health_endpoints import health_endpoint
 
     with _proxy_health_globals(
         _TEAM_MODEL_LIST,
@@ -3354,16 +3354,16 @@ async def _live_narrowed_model_ids(
 ) -> set[str]:
     from fastapi import Response
 
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from embrouter.proxy.health_endpoints._health_endpoints import health_endpoint
 
     async def fake_probe(model_list, details=True, max_concurrency=None, instrumentation_context=None):
-        probed = [{"model": m["litellm_params"]["model"], "model_id": m["model_info"]["id"]} for m in model_list]
+        probed = [{"model": m["embrouter_params"]["model"], "model_id": m["model_info"]["id"]} for m in model_list]
         return probed, [], {}
 
     with (
         _proxy_health_globals(model_list, _router_for(model_list)),
         patch(  # test-quality-ok: the probe is the provider edge; which deployments reach it is the assertion
-            "litellm.proxy.health_check._perform_health_check", side_effect=fake_probe
+            "embrouter.proxy.health_check._perform_health_check", side_effect=fake_probe
         ),
     ):
         result = await health_endpoint(
@@ -3373,7 +3373,7 @@ async def _live_narrowed_model_ids(
     return {ep["model_id"] for ep in result["healthy_endpoints"]}
 
 
-_ADMIN_OUTSIDE_TEAM_B = UserAPIKeyAuth(api_key="hashed-test-key", models=[], user_role=LitellmUserRoles.PROXY_ADMIN)
+_ADMIN_OUTSIDE_TEAM_B = UserAPIKeyAuth(api_key="hashed-test-key", models=[], user_role=EmbrouterUserRoles.PROXY_ADMIN)
 
 
 @pytest.mark.asyncio
@@ -3417,7 +3417,7 @@ async def test_health_endpoint_probes_only_the_teams_copy_when_provider_model_eq
 async def test_health_endpoint_returns_only_the_teams_copy_when_provider_model_equals_public_name_on_cache_path():
     from fastapi import Response
 
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from embrouter.proxy.health_endpoints._health_endpoints import health_endpoint
 
     with _proxy_health_globals(
         _BARE_NAME_MODEL_LIST,
@@ -3439,7 +3439,7 @@ async def test_health_endpoint_returns_only_the_teams_copy_when_provider_model_e
 async def test_health_endpoint_keeps_an_admin_probe_by_name_off_other_teams_public_copies_on_background_cache_path():
     from fastapi import Response
 
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from embrouter.proxy.health_endpoints._health_endpoints import health_endpoint
 
     with _proxy_health_globals(
         _TEAM_MODEL_LIST,
@@ -3470,7 +3470,7 @@ async def test_health_endpoint_probes_a_team_only_public_name_for_an_admin_on_li
 async def test_health_endpoint_returns_a_team_only_public_name_for_an_admin_on_background_cache_path():
     from fastapi import Response
 
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from embrouter.proxy.health_endpoints._health_endpoints import health_endpoint
 
     with _proxy_health_globals(
         _TEAM_ONLY_MODEL_LIST,
@@ -3494,7 +3494,7 @@ async def test_health_endpoint_keeps_a_team_only_public_name_off_a_team_less_key
     """
     from fastapi import HTTPException, Response
 
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from embrouter.proxy.health_endpoints._health_endpoints import health_endpoint
 
     with (
         _proxy_health_globals(
@@ -3504,7 +3504,7 @@ async def test_health_endpoint_keeps_a_team_only_public_name_off_a_team_less_key
             health_check_results=_TEAM_CACHED_RESULTS,
         ),
         patch(  # test-quality-ok: the probe must never run; the endpoint has no injection seam for it
-            "litellm.proxy.health_endpoints._health_endpoints._perform_health_check_and_save", new_callable=AsyncMock
+            "embrouter.proxy.health_endpoints._health_endpoints._perform_health_check_and_save", new_callable=AsyncMock
         ) as probe,
         pytest.raises(HTTPException) as refused,
     ):
@@ -3541,7 +3541,7 @@ async def test_health_endpoint_rejects_an_in_scope_model_paired_with_a_foreign_m
     """
     from fastapi import HTTPException, Response
 
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from embrouter.proxy.health_endpoints._health_endpoints import health_endpoint
 
     with (
         _proxy_health_globals(
@@ -3551,7 +3551,7 @@ async def test_health_endpoint_rejects_an_in_scope_model_paired_with_a_foreign_m
             health_check_results=_TEAM_CACHED_RESULTS,
         ),
         patch(  # test-quality-ok: the probe must never run; the endpoint has no injection seam for it
-            "litellm.proxy.health_endpoints._health_endpoints._perform_health_check_and_save", new_callable=AsyncMock
+            "embrouter.proxy.health_endpoints._health_endpoints._perform_health_check_and_save", new_callable=AsyncMock
         ) as probe,
         pytest.raises(HTTPException) as refused,
     ):
@@ -3577,7 +3577,7 @@ async def test_health_endpoint_returns_404_for_a_model_paired_with_an_unknown_mo
     """
     from fastapi import HTTPException, Response
 
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from embrouter.proxy.health_endpoints._health_endpoints import health_endpoint
 
     with (
         _proxy_health_globals(
@@ -3587,7 +3587,7 @@ async def test_health_endpoint_returns_404_for_a_model_paired_with_an_unknown_mo
             health_check_results=_TEAM_CACHED_RESULTS,
         ),
         patch(  # test-quality-ok: the probe must never run; the endpoint has no injection seam for it
-            "litellm.proxy.health_endpoints._health_endpoints._perform_health_check_and_save", new_callable=AsyncMock
+            "embrouter.proxy.health_endpoints._health_endpoints._perform_health_check_and_save", new_callable=AsyncMock
         ) as probe,
         pytest.raises(HTTPException) as refused,
     ):
@@ -3609,17 +3609,17 @@ def test_health_test_connection_keeps_error_and_raw_request_through_the_allowlis
     ``result.raw_request_typed_dict`` from /health/test_connection, so the
     allowlist must keep both while dropping the probe's own params.
     """
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
+    embrouter.in_memory_llm_clients_cache.flush_cache()
 
     app = FastAPI()
     app.include_router(_health_endpoints_module.router)
-    app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN)
+    app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(user_role=EmbrouterUserRoles.PROXY_ADMIN)
     client = TestClient(app)
 
     with (
         patch(  # test-quality-ok: the endpoint reads the proxy-global DB client and 500s when it is None; it has no injection seam
-            "litellm.proxy.proxy_server.prisma_client", MagicMock()
+            "embrouter.proxy.proxy_server.prisma_client", MagicMock()
         ),
         respx.mock(assert_all_called=True) as respx_mock,
     ):
@@ -3630,7 +3630,7 @@ def test_health_test_connection_keeps_error_and_raw_request_through_the_allowlis
             "/health/test_connection",
             json={
                 "mode": "chat",
-                "litellm_params": {"model": "openai/gpt-5.4-mini", "api_key": "sk-test", "timeout": 7},
+                "embrouter_params": {"model": "openai/gpt-5.4-mini", "api_key": "sk-test", "timeout": 7},
             },
         )
 
@@ -3644,13 +3644,13 @@ def test_health_test_connection_keeps_error_and_raw_request_through_the_allowlis
 
 def test_clean_endpoint_data_keeps_only_json_safe_diagnostics():
     """
-    LIT-6907: _clean_endpoint_data used to copy every litellm_param not on a
+    LIT-6907: _clean_endpoint_data used to copy every embrouter_param not on a
     deny list, so a nested mapping keyed by a tuple reached jsonable_encoder
     and 500'd /health. Only the explicit allowlist survives now.
     """
     from fastapi.encoders import jsonable_encoder
 
-    from litellm.proxy.health_check import _clean_endpoint_data
+    from embrouter.proxy.health_check import _clean_endpoint_data
 
     cleaned = _clean_endpoint_data(
         {
@@ -3688,13 +3688,13 @@ async def test_health_endpoint_result_survives_non_json_safe_deployment_params()
     from fastapi import Response
     from fastapi.encoders import jsonable_encoder
 
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-    from litellm.proxy.health_endpoints._health_endpoints import health_endpoint
+    from embrouter.proxy._types import EmbrouterUserRoles, UserAPIKeyAuth
+    from embrouter.proxy.health_endpoints._health_endpoints import health_endpoint
 
     model_list = [
         {
             "model_name": "bedrock-nova",
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "bedrock/us.amazon.nova-2-lite-v1:0",
                 "aws_region_name": "us-east-1",
                 "aws_access_key_id": "CANARY-ACCESS-KEY",
@@ -3707,12 +3707,12 @@ async def test_health_endpoint_result_survives_non_json_safe_deployment_params()
     with (
         _proxy_health_globals(model_list, None),
         patch(  # test-quality-ok: the provider probe is faked; the assertion is the response shaping after it
-            "litellm.ahealth_check", AsyncMock(return_value={"x-ratelimit-remaining-requests": 99})
+            "embrouter.ahealth_check", AsyncMock(return_value={"x-ratelimit-remaining-requests": 99})
         ),
     ):
         result = await health_endpoint(
             response=Response(),
-            user_api_key_dict=UserAPIKeyAuth(api_key="hashed-admin-key", user_role=LitellmUserRoles.PROXY_ADMIN),
+            user_api_key_dict=UserAPIKeyAuth(api_key="hashed-admin-key", user_role=EmbrouterUserRoles.PROXY_ADMIN),
             model=None,
             model_id=None,
         )
@@ -3741,7 +3741,7 @@ class TestConfigBaseForHealthCheck:
     }
 
     def _base(self, config, request, allow_client_side_credentials=False):
-        from litellm.proxy.health_endpoints._health_endpoints import (
+        from embrouter.proxy.health_endpoints._health_endpoints import (
             _config_base_for_health_check,
         )
 
@@ -3803,37 +3803,37 @@ class TestConfigBaseForHealthCheck:
     def test_stored_credential_reference_is_dropped_with_the_credentials(self):
         """A stored-credential name resolves to the same secrets downstream, so a
         request that redirects the destination must not keep it either."""
-        config = {**self.CONFIG, "litellm_credential_name": "OpenAI-prod"}
+        config = {**self.CONFIG, "embrouter_credential_name": "OpenAI-prod"}
         base = self._base(config, {"api_base": "https://caller.example/v1"})
-        assert "litellm_credential_name" not in base
+        assert "embrouter_credential_name" not in base
         assert "api_key" not in base
 
     def test_stored_credential_reference_kept_when_request_sets_no_connection(self):
         """The Admin UI tests a configured model by naming it plus its stored
         credential and nothing else; that keeps working."""
-        config = {**self.CONFIG, "litellm_credential_name": "OpenAI-prod"}
+        config = {**self.CONFIG, "embrouter_credential_name": "OpenAI-prod"}
         base = self._base(
             config,
-            {"model": "openai/gpt-4o", "litellm_credential_name": "OpenAI-prod", "custom_llm_provider": "openai"},
+            {"model": "openai/gpt-4o", "embrouter_credential_name": "OpenAI-prod", "custom_llm_provider": "openai"},
         )
-        assert base["litellm_credential_name"] == "OpenAI-prod"
+        assert base["embrouter_credential_name"] == "OpenAI-prod"
         assert base["api_key"] == "sk-configured"
 
     def test_request_naming_another_credential_does_not_inherit_config_credentials(self):
-        base = self._base(self.CONFIG, {"model": "openai/gpt-4o", "litellm_credential_name": "Another-cred"})
+        base = self._base(self.CONFIG, {"model": "openai/gpt-4o", "embrouter_credential_name": "Another-cred"})
         assert "api_key" not in base
         assert "api_base" not in base
         assert "vertex_credentials" not in base
         assert base["rpm"] == 100
 
     def test_blank_credential_name_names_no_credential(self):
-        base = self._base(self.CONFIG, {"model": "openai/gpt-4o", "litellm_credential_name": ""})
+        base = self._base(self.CONFIG, {"model": "openai/gpt-4o", "embrouter_credential_name": ""})
         assert base["api_key"] == "sk-configured"
 
     def test_opt_in_does_not_put_config_credentials_over_a_named_credential(self):
         base = self._base(
             self.CONFIG,
-            {"model": "openai/gpt-4o", "litellm_credential_name": "Another-cred"},
+            {"model": "openai/gpt-4o", "embrouter_credential_name": "Another-cred"},
             allow_client_side_credentials=True,
         )
         assert "api_key" not in base
@@ -3846,7 +3846,7 @@ class TestTestConnectionUsesTheNamedCredential:
     REQUEST = {
         "model": "xai/grok-4",
         "custom_llm_provider": "xai",
-        "litellm_credential_name": "my-xai-cred",
+        "embrouter_credential_name": "my-xai-cred",
     }
     COMPLETION = {
         "id": "chatcmpl-test",
@@ -3862,10 +3862,10 @@ class TestTestConnectionUsesTheNamedCredential:
         return CredentialItem(credential_name="my-xai-cred", credential_info={}, credential_values=values)
 
     @staticmethod
-    def _wildcard_deployment(**litellm_params: str) -> dict:
+    def _wildcard_deployment(**embrouter_params: str) -> dict:
         return {
             "model_name": "xai/*",
-            "litellm_params": {"model": "xai/*", **litellm_params},
+            "embrouter_params": {"model": "xai/*", **embrouter_params},
             "model_info": {"id": "unrelated-wildcard-deployment"},
         }
 
@@ -3873,17 +3873,17 @@ class TestTestConnectionUsesTheNamedCredential:
         self,
         monkeypatch,
         deployment: dict,
-        request_litellm_params: dict,
+        request_embrouter_params: dict,
         deployment_by_id: object | None = None,
         request_model_info: dict | None = None,
     ) -> httpx.Request:
         """Run /health/test_connection and hand back the upstream request it made."""
-        monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
+        embrouter.in_memory_llm_clients_cache.flush_cache()
 
         app = FastAPI()
         app.include_router(_health_endpoints_module.router)
-        app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN)
+        app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(user_role=EmbrouterUserRoles.PROXY_ADMIN)
 
         router = MagicMock()
         router.get_model_list.return_value = [deployment]
@@ -3891,10 +3891,10 @@ class TestTestConnectionUsesTheNamedCredential:
 
         with (
             patch(  # test-quality-ok: the endpoint reads the proxy-global DB client and 500s when it is None; it has no injection seam
-                "litellm.proxy.proxy_server.prisma_client", MagicMock()
+                "embrouter.proxy.proxy_server.prisma_client", MagicMock()
             ),
             patch(  # test-quality-ok: the deployment the probe is matched against is a proxy global; it has no injection seam
-                "litellm.proxy.proxy_server.llm_router", router
+                "embrouter.proxy.proxy_server.llm_router", router
             ),
             respx.mock(assert_all_called=True) as respx_mock,
         ):
@@ -3903,7 +3903,7 @@ class TestTestConnectionUsesTheNamedCredential:
                 "/health/test_connection",
                 json={
                     "mode": "chat",
-                    "litellm_params": request_litellm_params,
+                    "embrouter_params": request_embrouter_params,
                     "model_info": request_model_info or {"mode": "chat"},
                 },
             )
@@ -3914,7 +3914,7 @@ class TestTestConnectionUsesTheNamedCredential:
         return probe
 
     def test_named_credentials_key_is_sent_not_the_matched_deployments_key(self, monkeypatch):
-        monkeypatch.setattr(litellm, "credential_list", [self._credential(api_key=self.CREDENTIAL_KEY)])
+        monkeypatch.setattr(embrouter, "credential_list", [self._credential(api_key=self.CREDENTIAL_KEY)])
 
         probe = self._probe(
             monkeypatch,
@@ -3926,7 +3926,7 @@ class TestTestConnectionUsesTheNamedCredential:
 
     def test_named_credentials_api_base_is_used_not_the_matched_deployments(self, monkeypatch):
         monkeypatch.setattr(
-            litellm,
+            embrouter,
             "credential_list",
             [self._credential(api_key=self.CREDENTIAL_KEY, api_base="https://credential.example/v1")],
         )
@@ -3940,7 +3940,7 @@ class TestTestConnectionUsesTheNamedCredential:
         assert probe.url.host == "credential.example"
 
     def test_named_credential_without_an_api_base_leaves_the_provider_default(self, monkeypatch):
-        monkeypatch.setattr(litellm, "credential_list", [self._credential(api_key=self.CREDENTIAL_KEY)])
+        monkeypatch.setattr(embrouter, "credential_list", [self._credential(api_key=self.CREDENTIAL_KEY)])
 
         probe = self._probe(
             monkeypatch,
@@ -3962,9 +3962,9 @@ class TestTestConnectionUsesTheNamedCredential:
 
     def test_deployment_probed_by_id_keeps_the_endpoint_it_is_configured_with(self, monkeypatch):
         """The model detail page always echoes back the credential the deployment already uses."""
-        from litellm.types.router import Deployment, LiteLLM_Params
+        from embrouter.types.router import Deployment, EmbRouter_Params
 
-        monkeypatch.setattr(litellm, "credential_list", [self._credential(api_key=self.CREDENTIAL_KEY)])
+        monkeypatch.setattr(embrouter, "credential_list", [self._credential(api_key=self.CREDENTIAL_KEY)])
 
         probe = self._probe(
             monkeypatch,
@@ -3972,10 +3972,10 @@ class TestTestConnectionUsesTheNamedCredential:
             self.REQUEST,
             deployment_by_id=Deployment(
                 model_name="grok-4",
-                litellm_params=LiteLLM_Params(
+                embrouter_params=EmbRouter_Params(
                     model="xai/grok-4",
                     api_base="https://configured.example/v1",
-                    litellm_credential_name="my-xai-cred",
+                    embrouter_credential_name="my-xai-cred",
                 ),
                 model_info={"id": "configured-deployment"},
             ),
@@ -4004,65 +4004,65 @@ class TestNoRedisWarning:
 
     @pytest.mark.asyncio
     async def test_warns_when_no_redis_and_no_db_to_count_workers(self, monkeypatch):
-        monkeypatch.delenv("LITELLM_DISABLE_NO_REDIS_WARNING", raising=False)
+        monkeypatch.delenv("EMBROUTER_DISABLE_NO_REDIS_WARNING", raising=False)
         with (
-            patch("litellm.proxy.proxy_server.redis_usage_cache", None),
-            patch("litellm.proxy.proxy_server.llm_router", self._router(None)),
-            patch("litellm.proxy.proxy_server.prisma_client", None),
+            patch("embrouter.proxy.proxy_server.redis_usage_cache", None),
+            patch("embrouter.proxy.proxy_server.llm_router", self._router(None)),
+            patch("embrouter.proxy.proxy_server.prisma_client", None),
         ):
             assert await _show_no_redis_warning() is True
 
     @pytest.mark.asyncio
     async def test_warns_when_there_is_no_router_at_all(self, monkeypatch):
-        monkeypatch.delenv("LITELLM_DISABLE_NO_REDIS_WARNING", raising=False)
+        monkeypatch.delenv("EMBROUTER_DISABLE_NO_REDIS_WARNING", raising=False)
         with (
-            patch("litellm.proxy.proxy_server.redis_usage_cache", None),
-            patch("litellm.proxy.proxy_server.llm_router", None),
-            patch("litellm.proxy.proxy_server.prisma_client", None),
+            patch("embrouter.proxy.proxy_server.redis_usage_cache", None),
+            patch("embrouter.proxy.proxy_server.llm_router", None),
+            patch("embrouter.proxy.proxy_server.prisma_client", None),
         ):
             assert await _show_no_redis_warning() is True
 
     @pytest.mark.asyncio
     async def test_stays_quiet_for_a_confirmed_single_worker(self, monkeypatch):
         """One live worker needs no cross-worker coordination, so no env var is needed."""
-        monkeypatch.delenv("LITELLM_DISABLE_NO_REDIS_WARNING", raising=False)
+        monkeypatch.delenv("EMBROUTER_DISABLE_NO_REDIS_WARNING", raising=False)
         with (
-            patch("litellm.proxy.proxy_server.redis_usage_cache", None),
-            patch("litellm.proxy.proxy_server.llm_router", self._router(None)),
-            patch("litellm.proxy.proxy_server.prisma_client", self._prisma_with_workers(1)),
+            patch("embrouter.proxy.proxy_server.redis_usage_cache", None),
+            patch("embrouter.proxy.proxy_server.llm_router", self._router(None)),
+            patch("embrouter.proxy.proxy_server.prisma_client", self._prisma_with_workers(1)),
         ):
             assert await _show_no_redis_warning() is False
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("live_workers", [2, 5])
     async def test_warns_when_multiple_workers_share_the_db(self, monkeypatch, live_workers):
-        monkeypatch.delenv("LITELLM_DISABLE_NO_REDIS_WARNING", raising=False)
+        monkeypatch.delenv("EMBROUTER_DISABLE_NO_REDIS_WARNING", raising=False)
         with (
-            patch("litellm.proxy.proxy_server.redis_usage_cache", None),
-            patch("litellm.proxy.proxy_server.llm_router", self._router(None)),
-            patch("litellm.proxy.proxy_server.prisma_client", self._prisma_with_workers(live_workers)),
+            patch("embrouter.proxy.proxy_server.redis_usage_cache", None),
+            patch("embrouter.proxy.proxy_server.llm_router", self._router(None)),
+            patch("embrouter.proxy.proxy_server.prisma_client", self._prisma_with_workers(live_workers)),
         ):
             assert await _show_no_redis_warning() is True
 
     @pytest.mark.asyncio
     async def test_warns_when_the_worker_census_is_empty(self, monkeypatch):
         """Zero rows means the census cannot CONFIRM a single worker, so warn."""
-        monkeypatch.delenv("LITELLM_DISABLE_NO_REDIS_WARNING", raising=False)
+        monkeypatch.delenv("EMBROUTER_DISABLE_NO_REDIS_WARNING", raising=False)
         with (
-            patch("litellm.proxy.proxy_server.redis_usage_cache", None),
-            patch("litellm.proxy.proxy_server.llm_router", self._router(None)),
-            patch("litellm.proxy.proxy_server.prisma_client", self._prisma_with_workers(0)),
+            patch("embrouter.proxy.proxy_server.redis_usage_cache", None),
+            patch("embrouter.proxy.proxy_server.llm_router", self._router(None)),
+            patch("embrouter.proxy.proxy_server.prisma_client", self._prisma_with_workers(0)),
         ):
             assert await _show_no_redis_warning() is True
 
     @pytest.mark.asyncio
     async def test_warns_when_the_worker_census_query_fails(self, monkeypatch):
-        monkeypatch.delenv("LITELLM_DISABLE_NO_REDIS_WARNING", raising=False)
+        monkeypatch.delenv("EMBROUTER_DISABLE_NO_REDIS_WARNING", raising=False)
         with (
-            patch("litellm.proxy.proxy_server.redis_usage_cache", None),
-            patch("litellm.proxy.proxy_server.llm_router", self._router(None)),
+            patch("embrouter.proxy.proxy_server.redis_usage_cache", None),
+            patch("embrouter.proxy.proxy_server.llm_router", self._router(None)),
             patch(
-                "litellm.proxy.proxy_server.prisma_client",
+                "embrouter.proxy.proxy_server.prisma_client",
                 self._prisma_with_workers(error=RuntimeError("db down")),
             ),
         ):
@@ -4070,12 +4070,12 @@ class TestNoRedisWarning:
 
     @pytest.mark.asyncio
     async def test_stays_quiet_when_a_coordination_redis_is_configured(self, monkeypatch):
-        monkeypatch.delenv("LITELLM_DISABLE_NO_REDIS_WARNING", raising=False)
+        monkeypatch.delenv("EMBROUTER_DISABLE_NO_REDIS_WARNING", raising=False)
         prisma = self._prisma_with_workers(5)
         with (
-            patch("litellm.proxy.proxy_server.redis_usage_cache", MagicMock()),
-            patch("litellm.proxy.proxy_server.llm_router", self._router(None)),
-            patch("litellm.proxy.proxy_server.prisma_client", prisma),
+            patch("embrouter.proxy.proxy_server.redis_usage_cache", MagicMock()),
+            patch("embrouter.proxy.proxy_server.llm_router", self._router(None)),
+            patch("embrouter.proxy.proxy_server.prisma_client", prisma),
         ):
             assert await _show_no_redis_warning() is False
         prisma.db.query_raw.assert_not_called()
@@ -4083,54 +4083,54 @@ class TestNoRedisWarning:
     @pytest.mark.asyncio
     async def test_stays_quiet_when_only_the_router_has_redis(self, monkeypatch):
         """router_settings.redis_host alone backs cooldowns and usage-based routing."""
-        monkeypatch.delenv("LITELLM_DISABLE_NO_REDIS_WARNING", raising=False)
+        monkeypatch.delenv("EMBROUTER_DISABLE_NO_REDIS_WARNING", raising=False)
         with (
-            patch("litellm.proxy.proxy_server.redis_usage_cache", None),
-            patch("litellm.proxy.proxy_server.llm_router", self._router(MagicMock())),
-            patch("litellm.proxy.proxy_server.prisma_client", self._prisma_with_workers(5)),
+            patch("embrouter.proxy.proxy_server.redis_usage_cache", None),
+            patch("embrouter.proxy.proxy_server.llm_router", self._router(MagicMock())),
+            patch("embrouter.proxy.proxy_server.prisma_client", self._prisma_with_workers(5)),
         ):
             assert await _show_no_redis_warning() is False
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("value", ["true", "True"])
     async def test_env_var_suppresses_the_warning_despite_multiple_workers(self, monkeypatch, value):
-        monkeypatch.setenv("LITELLM_DISABLE_NO_REDIS_WARNING", value)
+        monkeypatch.setenv("EMBROUTER_DISABLE_NO_REDIS_WARNING", value)
         with (
-            patch("litellm.proxy.proxy_server.redis_usage_cache", None),
-            patch("litellm.proxy.proxy_server.llm_router", self._router(None)),
-            patch("litellm.proxy.proxy_server.prisma_client", self._prisma_with_workers(5)),
+            patch("embrouter.proxy.proxy_server.redis_usage_cache", None),
+            patch("embrouter.proxy.proxy_server.llm_router", self._router(None)),
+            patch("embrouter.proxy.proxy_server.prisma_client", self._prisma_with_workers(5)),
         ):
             assert await _show_no_redis_warning() is False
 
     @pytest.mark.asyncio
     async def test_env_var_set_false_keeps_the_warning_for_multiple_workers(self, monkeypatch):
-        monkeypatch.setenv("LITELLM_DISABLE_NO_REDIS_WARNING", "false")
+        monkeypatch.setenv("EMBROUTER_DISABLE_NO_REDIS_WARNING", "false")
         with (
-            patch("litellm.proxy.proxy_server.redis_usage_cache", None),
-            patch("litellm.proxy.proxy_server.llm_router", self._router(None)),
-            patch("litellm.proxy.proxy_server.prisma_client", self._prisma_with_workers(2)),
+            patch("embrouter.proxy.proxy_server.redis_usage_cache", None),
+            patch("embrouter.proxy.proxy_server.llm_router", self._router(None)),
+            patch("embrouter.proxy.proxy_server.prisma_client", self._prisma_with_workers(2)),
         ):
             assert await _show_no_redis_warning() is True
 
     @pytest.mark.asyncio
     async def test_env_var_set_false_does_not_force_the_warning_for_a_single_worker(self, monkeypatch):
-        monkeypatch.setenv("LITELLM_DISABLE_NO_REDIS_WARNING", "false")
+        monkeypatch.setenv("EMBROUTER_DISABLE_NO_REDIS_WARNING", "false")
         with (
-            patch("litellm.proxy.proxy_server.redis_usage_cache", None),
-            patch("litellm.proxy.proxy_server.llm_router", self._router(None)),
-            patch("litellm.proxy.proxy_server.prisma_client", self._prisma_with_workers(1)),
+            patch("embrouter.proxy.proxy_server.redis_usage_cache", None),
+            patch("embrouter.proxy.proxy_server.llm_router", self._router(None)),
+            patch("embrouter.proxy.proxy_server.prisma_client", self._prisma_with_workers(1)),
         ):
             assert await _show_no_redis_warning() is False
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("has_prisma_client", [True, False])
     async def test_readiness_details_carries_the_flag(self, monkeypatch, has_prisma_client):
-        monkeypatch.delenv("LITELLM_DISABLE_NO_REDIS_WARNING", raising=False)
+        monkeypatch.delenv("EMBROUTER_DISABLE_NO_REDIS_WARNING", raising=False)
         prisma_client = self._prisma_with_workers(2) if has_prisma_client else None
         with (
-            patch("litellm.proxy.proxy_server.prisma_client", prisma_client),
-            patch("litellm.proxy.proxy_server.redis_usage_cache", None),
-            patch("litellm.proxy.proxy_server.llm_router", self._router(None)),
+            patch("embrouter.proxy.proxy_server.prisma_client", prisma_client),
+            patch("embrouter.proxy.proxy_server.redis_usage_cache", None),
+            patch("embrouter.proxy.proxy_server.llm_router", self._router(None)),
             patch.object(
                 _health_endpoints_module,
                 "_db_health_readiness_check",
@@ -4141,8 +4141,8 @@ class TestNoRedisWarning:
         assert details["show_no_redis_warning"] is True
 
         with (
-            patch("litellm.proxy.proxy_server.prisma_client", prisma_client),
-            patch("litellm.proxy.proxy_server.redis_usage_cache", MagicMock()),
+            patch("embrouter.proxy.proxy_server.prisma_client", prisma_client),
+            patch("embrouter.proxy.proxy_server.redis_usage_cache", MagicMock()),
             patch.object(
                 _health_endpoints_module,
                 "_db_health_readiness_check",
@@ -4163,11 +4163,11 @@ async def test_health_services_endpoint_ms_teams_posts_adaptive_card():
 
     with (
         patch(  # test-quality-ok: endpoint reads proxy_server module globals, same pattern as sibling tests
-            "litellm.proxy.proxy_server.general_settings",
+            "embrouter.proxy.proxy_server.general_settings",
             {"alerting": ["ms_teams"]},
         ),
         patch(  # test-quality-ok: endpoint reads proxy_server module globals, same pattern as sibling tests
-            "litellm.proxy.proxy_server.proxy_logging_obj",
+            "embrouter.proxy.proxy_server.proxy_logging_obj",
             mock_proxy_logging,
         ),
         patch.dict("os.environ", {"MS_TEAMS_WEBHOOK_URL": "https://teams.example/webhook"}),
@@ -4192,11 +4192,11 @@ async def test_health_services_endpoint_ms_teams_surfaces_delivery_failure():
 
     with (
         patch(  # test-quality-ok: endpoint reads proxy_server module globals, same pattern as sibling tests
-            "litellm.proxy.proxy_server.general_settings",
+            "embrouter.proxy.proxy_server.general_settings",
             {"alerting": ["ms_teams"]},
         ),
         patch(  # test-quality-ok: endpoint reads proxy_server module globals, same pattern as sibling tests
-            "litellm.proxy.proxy_server.proxy_logging_obj",
+            "embrouter.proxy.proxy_server.proxy_logging_obj",
             mock_proxy_logging,
         ),
         patch.dict("os.environ", {"MS_TEAMS_WEBHOOK_URL": "https://teams.example/webhook"}),
@@ -4210,7 +4210,7 @@ async def test_health_services_endpoint_ms_teams_surfaces_delivery_failure():
 @pytest.mark.asyncio
 async def test_health_services_endpoint_ms_teams_requires_alerting_config():
     with patch(  # test-quality-ok: endpoint reads proxy_server module globals, same pattern as sibling tests
-        "litellm.proxy.proxy_server.general_settings",
+        "embrouter.proxy.proxy_server.general_settings",
         {"alerting": ["slack"]},
     ):
         with pytest.raises(ProxyException):
@@ -4223,17 +4223,17 @@ def test_test_model_connection_accepts_image_edit_mode(monkeypatch):
     before image_edit was added to its mode Literal, breaking the UI Test
     Connection button for image edit deployments.
     """
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
+    embrouter.in_memory_llm_clients_cache.flush_cache()
 
     app = FastAPI()
     app.include_router(_health_endpoints_module.router)
-    app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN)
+    app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(user_role=EmbrouterUserRoles.PROXY_ADMIN)
     client = TestClient(app)
 
     with (
         patch(  # test-quality-ok: the endpoint reads the proxy-global DB client and 500s when it is None; it has no injection seam
-            "litellm.proxy.proxy_server.prisma_client", MagicMock()
+            "embrouter.proxy.proxy_server.prisma_client", MagicMock()
         ),
         respx.mock(assert_all_called=True) as respx_mock,
     ):
@@ -4244,7 +4244,7 @@ def test_test_model_connection_accepts_image_edit_mode(monkeypatch):
             "/health/test_connection",
             json={
                 "mode": "image_edit",
-                "litellm_params": {"model": "openai/gpt-image-2", "api_key": "sk-test"},
+                "embrouter_params": {"model": "openai/gpt-image-2", "api_key": "sk-test"},
             },
         )
 
@@ -4253,7 +4253,7 @@ def test_test_model_connection_accepts_image_edit_mode(monkeypatch):
 
 
 def _pointfive_admin() -> UserAPIKeyAuth:
-    return UserAPIKeyAuth(token="admin-token", user_id="admin-user", user_role=LitellmUserRoles.PROXY_ADMIN)
+    return UserAPIKeyAuth(token="admin-token", user_id="admin-user", user_role=EmbrouterUserRoles.PROXY_ADMIN)
 
 
 @pytest.mark.asyncio
@@ -4264,7 +4264,7 @@ async def test_health_services_endpoint_pointfive_without_a_key_is_unhealthy_not
     That refusal is the answer the operator asked for, so it has to come back as an
     unhealthy result rather than a 500 from the endpoint.
     """
-    import litellm.integrations.pointfive as pointfive_package
+    import embrouter.integrations.pointfive as pointfive_package
 
     def refuse(**_):
         raise ValueError("pointfive logging requires an api key. Set POINTFIVE_API_KEY")
@@ -4281,10 +4281,10 @@ async def test_health_services_endpoint_pointfive_without_a_key_is_unhealthy_not
 @pytest.mark.parametrize(
     "role",
     [
-        LitellmUserRoles.INTERNAL_USER,
-        LitellmUserRoles.INTERNAL_USER_VIEW_ONLY,
-        LitellmUserRoles.TEAM,
-        LitellmUserRoles.CUSTOMER,
+        EmbrouterUserRoles.INTERNAL_USER,
+        EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY,
+        EmbrouterUserRoles.TEAM,
+        EmbrouterUserRoles.CUSTOMER,
     ],
 )
 async def test_health_services_endpoint_pointfive_blocks_non_admin(monkeypatch, role):
@@ -4294,8 +4294,8 @@ async def test_health_services_endpoint_pointfive_blocks_non_admin(monkeypatch, 
     A tenant key must not be able to keep an integration looking alive, or read back
     account-level authentication failures through it.
     """
-    import litellm.integrations.pointfive as pointfive_package
-    from litellm.proxy._types import ProxyException
+    import embrouter.integrations.pointfive as pointfive_package
+    from embrouter.proxy._types import ProxyException
 
     logger_class = MagicMock()
     monkeypatch.setattr(pointfive_package, "PointFiveLogger", logger_class)
@@ -4314,8 +4314,8 @@ async def test_health_services_endpoint_langfuse_missing_keys_errors(monkeypatch
     """v2 raised out of ``auth_check`` and the endpoint printed the server's answer; the v4 check
     returns the failure as a value, and the endpoint has to error with that reason rather than a
     generic credentials message that reads the same for an outage and a bad key."""
-    import litellm.integrations.langfuse.langfuse as langfuse_module
-    from litellm.integrations.langfuse.langfuse_sdk import AuthCheckFailure
+    import embrouter.integrations.langfuse.langfuse as langfuse_module
+    from embrouter.integrations.langfuse.langfuse_sdk import AuthCheckFailure
 
     logger_class = MagicMock()
     logger_class.return_value.api_client.auth_check.return_value = AuthCheckFailure(

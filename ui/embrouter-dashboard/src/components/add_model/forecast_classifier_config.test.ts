@@ -234,12 +234,12 @@ describe("forecast classifier configuration", () => {
       expect(saved.tiers).toEqual({ SIMPLE: expectedTiers.SIMPLE, REASONING: expectedTiers.REASONING });
       expect(saved.tier_model_configs).toEqual({
         SIMPLE: [
-          { model_name: "efficient", litellm_params: efficientParams },
-          ...(preservesPools ? [{ model_name: "second-efficient", litellm_params: secondEfficientParams }] : []),
+          { model_name: "efficient", embrouter_params: efficientParams },
+          ...(preservesPools ? [{ model_name: "second-efficient", embrouter_params: secondEfficientParams }] : []),
         ],
         REASONING: [
-          { model_name: "capable", litellm_params: capableParams },
-          ...(preservesPools ? [{ model_name: "second-capable", litellm_params: secondCapableParams }] : []),
+          { model_name: "capable", embrouter_params: capableParams },
+          ...(preservesPools ? [{ model_name: "second-capable", embrouter_params: secondCapableParams }] : []),
         ],
       });
       expect(saved).not.toHaveProperty("plan_mode_min_tier");
@@ -312,7 +312,7 @@ describe("forecast classifier configuration", () => {
       adaptive: true,
       plan_mode_min_tier: "MEDIUM",
       tiers: { ...capability.tiers, MEDIUM: ["middle"] },
-      tier_model_configs: { MEDIUM: [{ model_name: "middle", litellm_params: { speed: "fast", max_tokens: 1024 } }] },
+      tier_model_configs: { MEDIUM: [{ model_name: "middle", embrouter_params: { speed: "fast", max_tokens: 1024 } }] },
     };
     const hydrated = hydrateComplexityRouterConfig(stored, undefined);
     expect(hydrated.tiers.MEDIUM).toEqual(["middle"]);

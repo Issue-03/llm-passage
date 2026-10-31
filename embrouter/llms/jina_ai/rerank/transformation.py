@@ -11,17 +11,17 @@ from typing import Final
 
 from httpx import URL, Response
 
-from litellm._uuid import uuid
-from litellm.llms.base_llm.chat.transformation import LiteLLMLoggingObj
-from litellm.llms.base_llm.rerank.transformation import BaseRerankConfig
-from litellm.types.rerank import (
+from embrouter._uuid import uuid
+from embrouter.llms.base_llm.chat.transformation import EmbRouterLoggingObj
+from embrouter.llms.base_llm.rerank.transformation import BaseRerankConfig
+from embrouter.types.rerank import (
     OptionalRerankParams,
     RerankBilledUnits,
     RerankResponse,
     RerankResponseMeta,
     RerankTokens,
 )
-from litellm.types.utils import ModelInfo
+from embrouter.types.utils import ModelInfo
 
 
 class JinaAIRerankConfig(BaseRerankConfig):
@@ -80,7 +80,7 @@ class JinaAIRerankConfig(BaseRerankConfig):
         model: str,
         optional_rerank_params: dict,
         headers: dict,
-        litellm_params: dict | None = None,
+        embrouter_params: dict | None = None,
     ) -> dict:
         return {"model": model, **optional_rerank_params}
 
@@ -89,11 +89,11 @@ class JinaAIRerankConfig(BaseRerankConfig):
         model: str,
         raw_response: Response,
         model_response: RerankResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_key: str | None = None,
         request_data: dict = {},
         optional_params: dict = {},
-        litellm_params: dict = {},
+        embrouter_params: dict = {},
     ) -> RerankResponse:
         if raw_response.status_code != 200:
             raise Exception(raw_response.text)
@@ -111,9 +111,9 @@ class JinaAIRerankConfig(BaseRerankConfig):
         if _results is None:
             raise ValueError(f"No results found in the response={_json_response}")
 
-        # Transform Jina AI's response format to match LiteLLM's expected format
+        # Transform Jina AI's response format to match EmbRouter's expected format
         # Jina AI returns: {"index": 0, "relevance_score": 0.72, "document": "hello"}
-        # LiteLLM expects: {"index": 0, "relevance_score": 0.72, "document": {"text": "hello"}}
+        # EmbRouter expects: {"index": 0, "relevance_score": 0.72, "document": {"text": "hello"}}
         transformed_results: Final = []
         for result in _results:
             transformed_result = {
@@ -140,7 +140,7 @@ class JinaAIRerankConfig(BaseRerankConfig):
         model: str,
         api_key: str | None = None,
         optional_params: dict | None = None,
-        litellm_params: Mapping[str, object] | None = None,
+        embrouter_params: Mapping[str, object] | None = None,
     ) -> dict:
         if api_key is None:
             raise ValueError("api_key is required. Set via `api_key` parameter or `JINA_API_KEY` environment variable.")

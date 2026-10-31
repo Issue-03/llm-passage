@@ -16,10 +16,10 @@ from urllib.parse import parse_qs, urlencode, urlparse
 import httpx
 from typing_extensions import NotRequired, ReadOnly, TypedDict
 
-from litellm._logging import verbose_logger
-from litellm.constants import XAI_API_BASE
-from litellm.llms.custom_httpx.http_handler import HTTPHandler, _get_httpx_client
-from litellm.secret_managers.main import get_secret_str
+from embrouter._logging import verbose_logger
+from embrouter.constants import XAI_API_BASE
+from embrouter.llms.custom_httpx.http_handler import HTTPHandler, _get_httpx_client
+from embrouter.secret_managers.main import get_secret_str
 
 XAI_OAUTH_ISSUER: Final = "https://auth.x.ai"
 XAI_OAUTH_DISCOVERY_URL: Final = f"{XAI_OAUTH_ISSUER}/.well-known/openid-configuration"
@@ -122,7 +122,7 @@ class _CallbackServer(HTTPServer):
 
 class XAIOAuthAuthenticator:
     def __init__(self, http_client: httpx.Client | HTTPHandler | None = None) -> None:
-        self.token_dir = get_secret_str("XAI_OAUTH_TOKEN_DIR") or os.path.expanduser("~/.config/litellm/xai_oauth")
+        self.token_dir = get_secret_str("XAI_OAUTH_TOKEN_DIR") or os.path.expanduser("~/.config/embrouter/xai_oauth")
         self.auth_file = os.path.join(self.token_dir, get_secret_str("XAI_OAUTH_AUTH_FILE") or "auth.json")
         self.http_client = http_client
 
@@ -132,7 +132,7 @@ class XAIOAuthAuthenticator:
     def get_access_token(self) -> str:
         auth_data: Final = self._read_auth_file()
         if not auth_data:
-            raise XAIOAuthLoginRequiredError("xAI OAuth login required. Run `litellm xai-oauth login`.")
+            raise XAIOAuthLoginRequiredError("xAI OAuth login required. Run `embrouter xai-oauth login`.")
 
         access_token = auth_data.get("access_token")
         if access_token and not self._is_expired(auth_data):
@@ -140,7 +140,7 @@ class XAIOAuthAuthenticator:
 
         refresh_token: Final = auth_data.get("refresh_token")
         if not refresh_token:
-            raise XAIOAuthLoginRequiredError("xAI OAuth refresh token missing. Run `litellm xai-oauth login`.")
+            raise XAIOAuthLoginRequiredError("xAI OAuth refresh token missing. Run `embrouter xai-oauth login`.")
 
         with _XAI_OAUTH_REFRESH_LOCK:
             locked_auth_data: Final = self._read_auth_file() or auth_data
@@ -399,7 +399,7 @@ class XAIOAuthAuthenticator:
         token_endpoint = self._validate_xai_endpoint(token_endpoint)
         refresh_token: Final = auth_data.get("refresh_token")
         if not refresh_token:
-            raise XAIOAuthLoginRequiredError("xAI OAuth refresh token missing. Run `litellm xai-oauth login`.")
+            raise XAIOAuthLoginRequiredError("xAI OAuth refresh token missing. Run `embrouter xai-oauth login`.")
 
         token_payload: Final = self._exchange_token(
             token_endpoint,
@@ -418,5 +418,5 @@ class XAIOAuthAuthenticator:
         return refreshed
 
 
-def should_use_xai_oauth(litellm_params: Mapping[str, object] | None) -> bool:
-    return bool((litellm_params or {}).get("use_xai_oauth"))
+def should_use_xai_oauth(embrouter_params: Mapping[str, object] | None) -> bool:
+    return bool((embrouter_params or {}).get("use_xai_oauth"))

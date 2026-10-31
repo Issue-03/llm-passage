@@ -2,17 +2,17 @@ from typing import TYPE_CHECKING, Any, Final, cast
 
 from httpx import Response
 
-from litellm import verbose_logger
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+from embrouter import verbose_logger
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
     _parse_content_for_reasoning,
 )
-from litellm.llms.base_llm.base_model_iterator import BaseModelResponseIterator
-from litellm.llms.bedrock.chat.invoke_transformations.base_invoke_transformation import (
-    LiteLLMLoggingObj,
+from embrouter.llms.base_llm.base_model_iterator import BaseModelResponseIterator
+from embrouter.llms.bedrock.chat.invoke_transformations.base_invoke_transformation import (
+    EmbRouterLoggingObj,
 )
-from litellm.types.llms.bedrock import AmazonDeepSeekR1StreamingResponse
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.utils import (
+from embrouter.types.llms.bedrock import AmazonDeepSeekR1StreamingResponse
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.utils import (
     ChatCompletionUsageBlock,
     Choices,
     Delta,
@@ -25,7 +25,7 @@ from litellm.types.utils import (
 from .amazon_llama_transformation import AmazonLlamaConfig
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
 
 
 class AmazonDeepSeekR1Config(AmazonLlamaConfig):
@@ -34,11 +34,11 @@ class AmazonDeepSeekR1Config(AmazonLlamaConfig):
         model: str,
         raw_response: Response,
         model_response: ModelResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         request_data: dict,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,
@@ -54,7 +54,7 @@ class AmazonDeepSeekR1Config(AmazonLlamaConfig):
             request_data,
             messages,
             optional_params,
-            litellm_params,
+            embrouter_params,
             encoding,
             api_key,
             json_mode,

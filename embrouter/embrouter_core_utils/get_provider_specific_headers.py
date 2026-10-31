@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 from typing import Final
 
-from litellm.types.utils import ProviderSpecificHeader
+from embrouter.types.utils import ProviderSpecificHeader
 
 
 class ProviderSpecificHeaderUtils:

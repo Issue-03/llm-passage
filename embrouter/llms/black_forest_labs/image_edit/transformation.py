@@ -15,14 +15,14 @@ from typing import TYPE_CHECKING, Any, Final
 import httpx
 from httpx._types import RequestFiles
 
-import litellm
-from litellm.constants import DEFAULT_MAX_RECURSE_DEPTH
-from litellm.litellm_core_utils.url_utils import async_safe_get, safe_get
-from litellm.llms.base_llm.image_edit.transformation import BaseImageEditConfig
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.images.main import ImageEditOptionalRequestParams
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import FileTypes, ImageObject, ImageResponse
+import embrouter
+from embrouter.constants import DEFAULT_MAX_RECURSE_DEPTH
+from embrouter.embrouter_core_utils.url_utils import async_safe_get, safe_get
+from embrouter.llms.base_llm.image_edit.transformation import BaseImageEditConfig
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.images.main import ImageEditOptionalRequestParams
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import FileTypes, ImageObject, ImageResponse
 
 from ..common_utils import (
     DEFAULT_API_BASE,
@@ -31,11 +31,11 @@ from ..common_utils import (
 )
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 
 _BFL_REQUEST_PARAMS: Final = (
@@ -118,7 +118,7 @@ class BlackForestLabsImageEditConfig(BaseImageEditConfig):
         headers: dict,
         model: str,
         api_key: str | None = None,
-        litellm_params: dict | None = None,
+        embrouter_params: dict | None = None,
         api_base: str | None = None,
     ) -> dict:
         """
@@ -169,7 +169,7 @@ class BlackForestLabsImageEditConfig(BaseImageEditConfig):
         self,
         model: str,
         api_base: str | None,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> str:
         """
         Get the complete URL for the Black Forest Labs API request.
@@ -198,7 +198,7 @@ class BlackForestLabsImageEditConfig(BaseImageEditConfig):
             return self._read_image_bytes(image[0], depth=depth + 1, max_depth=max_depth)
         elif isinstance(image, str):
             if image.startswith(("http://", "https://")):
-                response: Final = safe_get(litellm.module_level_client, image, timeout=60.0)
+                response: Final = safe_get(embrouter.module_level_client, image, timeout=60.0)
                 response.raise_for_status()
                 return response.content
             else:
@@ -226,7 +226,7 @@ class BlackForestLabsImageEditConfig(BaseImageEditConfig):
         prompt: str | None,
         image: FileTypes | None,
         image_edit_optional_request_params: dict,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[dict, RequestFiles]:
         """
@@ -263,7 +263,7 @@ class BlackForestLabsImageEditConfig(BaseImageEditConfig):
         prompt: str | None,
         image: FileTypes | None,
         image_edit_optional_request_params: Mapping[str, object],
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: Mapping[str, str],
     ) -> tuple[dict, RequestFiles]:
         downloaded_image: Final = await self._fetch_remote_image(image)
@@ -277,7 +277,7 @@ class BlackForestLabsImageEditConfig(BaseImageEditConfig):
                 if downloaded_mask is None
                 else {**image_edit_optional_request_params, "mask": downloaded_mask}
             ),
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=dict(headers),
         )
 
@@ -285,7 +285,7 @@ class BlackForestLabsImageEditConfig(BaseImageEditConfig):
         candidate: Final = image[0] if isinstance(image, list) and image else image
         if not isinstance(candidate, str) or not candidate.startswith(("http://", "https://")):
             return None
-        response: Final = await async_safe_get(litellm.module_level_aclient, candidate, timeout=60.0)
+        response: Final = await async_safe_get(embrouter.module_level_aclient, candidate, timeout=60.0)
         response.raise_for_status()
         return response.content
 
@@ -293,7 +293,7 @@ class BlackForestLabsImageEditConfig(BaseImageEditConfig):
         self,
         model: str,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> ImageResponse:
         """
         Transform Black Forest Labs response to OpenAI-compatible ImageResponse.

@@ -6,7 +6,7 @@ from typing import Final
 import pytest
 import uvloop
 
-from litellm.proxy.spend_tracking.spend_event_producer import (
+from embrouter.proxy.spend_tracking.spend_event_producer import (
     AddressError,
     CollectorAddress,
     CollectorSettings,
@@ -133,8 +133,8 @@ def _producer(
 
 
 def test_parse_collector_address():
-    assert parse_collector_address("unix:///var/run/litellm/collector.sock") == UnixAddress(
-        path="/var/run/litellm/collector.sock"
+    assert parse_collector_address("unix:///var/run/embrouter/collector.sock") == UnixAddress(
+        path="/var/run/embrouter/collector.sock"
     )
     assert parse_collector_address("tcp://127.0.0.1:4100") == TcpAddress(host="127.0.0.1", port=4100)
     assert parse_collector_address("tcp://localhost:4100") == TcpAddress(host="localhost", port=4100)
@@ -161,11 +161,11 @@ def test_gateway_produces_only_when_enabled_and_not_the_sidecar_itself():
 
 
 def test_settings_read_the_documented_env(monkeypatch):
-    monkeypatch.setenv("LITELLM_COLLECTOR_ENABLED", "true")
-    monkeypatch.setenv("LITELLM_COLLECTOR_ADDRESS", "tcp://127.0.0.1:4100")
-    monkeypatch.setenv("LITELLM_COLLECTOR_BUFFER_SIZE", "50")
-    monkeypatch.setenv("LITELLM_COLLECTOR_ON_UNAVAILABLE", "drop")
-    monkeypatch.setenv("LITELLM_JOB_ROLE", "collector")
+    monkeypatch.setenv("EMBROUTER_COLLECTOR_ENABLED", "true")
+    monkeypatch.setenv("EMBROUTER_COLLECTOR_ADDRESS", "tcp://127.0.0.1:4100")
+    monkeypatch.setenv("EMBROUTER_COLLECTOR_BUFFER_SIZE", "50")
+    monkeypatch.setenv("EMBROUTER_COLLECTOR_ON_UNAVAILABLE", "drop")
+    monkeypatch.setenv("EMBROUTER_JOB_ROLE", "collector")
     settings: Final = CollectorSettings()
     assert (settings.enabled, settings.address, settings.buffer_size, settings.on_unavailable) == (
         True,

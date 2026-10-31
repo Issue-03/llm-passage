@@ -5,8 +5,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 
-from litellm.integrations.bitbucket.bitbucket_client import BitBucketClient
-from litellm.integrations.bitbucket.bitbucket_prompt_manager import (
+from embrouter.integrations.bitbucket.bitbucket_client import BitBucketClient
+from embrouter.integrations.bitbucket.bitbucket_prompt_manager import (
     BitBucketPromptManager,
     BitBucketPromptTemplate,
 )
@@ -83,7 +83,7 @@ def test_bitbucket_client_missing_required_fields():
         BitBucketClient({"access_token": "test"})
 
 
-@patch("litellm.llms.custom_httpx.http_handler.HTTPHandler.get")
+@patch("embrouter.llms.custom_httpx.http_handler.HTTPHandler.get")
 def test_bitbucket_client_get_file_content_success(mock_get):
     """Test successful file content retrieval from BitBucket."""
     # Mock successful response
@@ -106,7 +106,7 @@ def test_bitbucket_client_get_file_content_success(mock_get):
     mock_get.assert_called_once()
 
 
-@patch("litellm.llms.custom_httpx.http_handler.HTTPHandler.get")
+@patch("embrouter.llms.custom_httpx.http_handler.HTTPHandler.get")
 def test_bitbucket_client_get_file_content_not_found(mock_get):
     """Test file content retrieval when file doesn't exist."""
     # Mock 404 response
@@ -132,7 +132,7 @@ def test_bitbucket_client_get_file_content_not_found(mock_get):
     assert content is None
 
 
-@patch("litellm.llms.custom_httpx.http_handler.HTTPHandler.get")
+@patch("embrouter.llms.custom_httpx.http_handler.HTTPHandler.get")
 def test_bitbucket_client_get_file_content_access_denied(mock_get):
     """Test file content retrieval with access denied error."""
     # Mock 403 response
@@ -158,7 +158,7 @@ def test_bitbucket_client_get_file_content_access_denied(mock_get):
         client.get_file_content("test.prompt")
 
 
-@patch("litellm.llms.custom_httpx.http_handler.HTTPHandler.get")
+@patch("embrouter.llms.custom_httpx.http_handler.HTTPHandler.get")
 def test_bitbucket_client_get_file_content_auth_failed(mock_get):
     """Test file content retrieval with authentication failure."""
     # Mock 401 response
@@ -184,7 +184,7 @@ def test_bitbucket_client_get_file_content_auth_failed(mock_get):
         client.get_file_content("test.prompt")
 
 
-@patch("litellm.llms.custom_httpx.http_handler.HTTPHandler.get")
+@patch("embrouter.llms.custom_httpx.http_handler.HTTPHandler.get")
 def test_bitbucket_client_list_files_success(mock_get):
     """Test successful file listing from BitBucket."""
     # Mock successful response
@@ -361,12 +361,12 @@ def test_bitbucket_prompt_manager_pre_call_hook():
 
     # Test pre_call_hook
     messages = [{"role": "user", "content": "This will be ignored"}]
-    litellm_params = {}
+    embrouter_params = {}
 
     result_messages, result_params = manager.pre_call_hook(
         user_id="test_user",
         messages=messages,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         prompt_id="test_prompt",
         prompt_variables={"user_message": "Hello!"},
     )
@@ -378,7 +378,7 @@ def test_bitbucket_prompt_manager_pre_call_hook():
     assert result_messages[1]["role"] == "user"
     assert result_messages[1]["content"] == "Hello!"
 
-    # Should have updated litellm_params
+    # Should have updated embrouter_params
     assert result_params["model"] == "gpt-4"
     assert result_params["temperature"] == 0.7
 
@@ -394,18 +394,18 @@ def test_bitbucket_prompt_manager_pre_call_hook_no_prompt_id():
     manager = BitBucketPromptManager(config)
 
     messages = [{"role": "user", "content": "Hello"}]
-    litellm_params = {}
+    embrouter_params = {}
 
     result_messages, result_params = manager.pre_call_hook(
         user_id="test_user",
         messages=messages,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         prompt_id=None,
     )
 
     # Should return original messages and params unchanged
     assert result_messages == messages
-    assert result_params == litellm_params
+    assert result_params == embrouter_params
 
 
 def test_bitbucket_prompt_manager_get_available_prompts():
@@ -428,7 +428,7 @@ def test_bitbucket_prompt_manager_get_available_prompts():
     assert set(available_prompts) == {"prompt1", "prompt2"}
 
 
-@patch("litellm.integrations.bitbucket.bitbucket_prompt_manager.BitBucketClient")
+@patch("embrouter.integrations.bitbucket.bitbucket_prompt_manager.BitBucketClient")
 def test_bitbucket_prompt_manager_reload_prompts(mock_client_class):
     """Test reloading prompts from BitBucket."""
     # Mock the BitBucket client

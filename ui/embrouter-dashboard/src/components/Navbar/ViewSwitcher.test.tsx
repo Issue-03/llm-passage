@@ -70,10 +70,10 @@ describe("ViewSwitcher", () => {
 
   it("labels the button from the active plugin and lists AI Gateway + each plugin", async () => {
     state.plugins = [
-      { name: "litellm-platform-plugin", display_name: "Chat UI", url: "http://localhost:3300" },
+      { name: "embrouter-platform-plugin", display_name: "Chat UI", url: "http://localhost:3300" },
       { name: "obs", display_name: "Observability", url: "http://localhost:9000" },
     ];
-    state.mode = "litellm-platform-plugin";
+    state.mode = "embrouter-platform-plugin";
     render(<ViewSwitcher />);
 
     expect(screen.getByRole("button")).toHaveTextContent("Chat UI");
@@ -86,7 +86,7 @@ describe("ViewSwitcher", () => {
   });
 
   it("switches plugin mode when a mode entry is picked", async () => {
-    state.plugins = [{ name: "litellm-platform-plugin", display_name: "Chat UI", url: "http://localhost:3300" }];
+    state.plugins = [{ name: "embrouter-platform-plugin", display_name: "Chat UI", url: "http://localhost:3300" }];
     state.mode = "ai-gateway";
     render(<ViewSwitcher />);
 
@@ -97,7 +97,7 @@ describe("ViewSwitcher", () => {
     act(() => {
       fireEvent.click(screen.getByText("Chat UI"));
     });
-    expect(state.setMode).toHaveBeenCalledWith("litellm-platform-plugin");
+    expect(state.setMode).toHaveBeenCalledWith("embrouter-platform-plugin");
     expect(assignSpy).not.toHaveBeenCalled();
   });
 
@@ -121,7 +121,7 @@ describe("ViewSwitcher", () => {
   it("navigates back to the dashboard when a mode entry is picked from the chat route", async () => {
     state.enableChatUI = true;
     state.pathname = "/ui/chat";
-    state.plugins = [{ name: "litellm-platform-plugin", display_name: "Chat UI", url: "http://localhost:3300" }];
+    state.plugins = [{ name: "embrouter-platform-plugin", display_name: "Chat UI", url: "http://localhost:3300" }];
     render(<ViewSwitcher />);
 
     act(() => {

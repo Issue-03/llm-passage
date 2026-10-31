@@ -7,7 +7,7 @@ from typing import Final
 
 from typing_extensions import ReadOnly, TypedDict
 
-from litellm.types.utils import Delta, ModelResponseBase, ModelResponseStream, StreamingChoices
+from embrouter.types.utils import Delta, ModelResponseBase, ModelResponseStream, StreamingChoices
 
 
 class _AttributeView(TypedDict):

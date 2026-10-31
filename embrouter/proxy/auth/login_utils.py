@@ -15,38 +15,38 @@ from typing import TYPE_CHECKING, Final, Literal, cast
 import jwt
 from fastapi import HTTPException
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.constants import LITELLM_PROXY_ADMIN_NAME, LITELLM_UI_SESSION_DURATION
-from litellm.litellm_core_utils.duration_parser import duration_in_seconds
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.proxy._types import (
-    LiteLLM_UserTable,
-    LitellmUserRoles,
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.constants import EMBROUTER_PROXY_ADMIN_NAME, EMBROUTER_UI_SESSION_DURATION
+from embrouter.embrouter_core_utils.duration_parser import duration_in_seconds
+from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from embrouter.proxy._types import (
+    EmbRouter_UserTable,
+    EmbrouterUserRoles,
     ProxyErrorTypes,
     ProxyException,
     UpdateUserRequest,
     UserAPIKeyAuth,
 )
-from litellm.proxy.auth.auth_utils import is_sso_provider_fully_configured
-from litellm.proxy.auth.login_throttle import LoginAttempt, LoginThrottle
-from litellm.proxy.auth.password_policy import is_breach_check_enabled, is_password_breached
-from litellm.proxy.management_endpoints.internal_user_endpoints import user_update
-from litellm.proxy.management_endpoints.key_management_endpoints import (
+from embrouter.proxy.auth.auth_utils import is_sso_provider_fully_configured
+from embrouter.proxy.auth.login_throttle import LoginAttempt, LoginThrottle
+from embrouter.proxy.auth.password_policy import is_breach_check_enabled, is_password_breached
+from embrouter.proxy.management_endpoints.internal_user_endpoints import user_update
+from embrouter.proxy.management_endpoints.key_management_endpoints import (
     generate_key_helper_fn,
 )
-from litellm.proxy.management_endpoints.ui_sso import (
+from embrouter.proxy.management_endpoints.ui_sso import (
     get_disabled_non_admin_personal_key_creation,
 )
-from litellm.proxy.utils import (
+from embrouter.proxy.utils import (
     PrismaClient,
     get_server_root_path,
     hash_password,
     verify_password,
 )
-from litellm.repositories.user_repository import UserRepository
-from litellm.secret_managers.main import get_secret_bool
-from litellm.types.proxy.ui_sso import ReturnedUITokenObject
+from embrouter.repositories.user_repository import UserRepository
+from embrouter.secret_managers.main import get_secret_bool
+from embrouter.types.proxy.ui_sso import ReturnedUITokenObject
 
 INVALID_UI_CREDENTIALS_MESSAGE: Final = (
     "Invalid credentials used to access UI. Check 'UI_USERNAME' and 'UI_PASSWORD', or the password set for your user"
@@ -91,13 +91,13 @@ async def screen_login_password_for_breach(
         return False
     breached: Final = await is_password_breached(password, general_settings, client)
     checked_at: Final = datetime.now(timezone.utc)
-    breached_update: Final[prisma_types.LiteLLM_UserTableUpdateInput] = {
+    breached_update: Final[prisma_types.EmbRouter_UserTableUpdateInput] = {
         "last_breach_check_at": checked_at,
         "password_reset_required": True,
     }
-    recheck_update: Final[prisma_types.LiteLLM_UserTableUpdateInput] = {"last_breach_check_at": checked_at}
+    recheck_update: Final[prisma_types.EmbRouter_UserTableUpdateInput] = {"last_breach_check_at": checked_at}
     update_data: Final = breached_update if breached else recheck_update
-    find_user: Final[prisma_types.LiteLLM_UserTableWhereInput] = {"user_id": user_id}
+    find_user: Final[prisma_types.EmbRouter_UserTableWhereInput] = {"user_id": user_id}
     try:
         await UserRepository(prisma_client).table.update(where=find_user, data=update_data)
     except Exception as e:  # noqa: BLE001  # a failed stamp must never surface into the login
@@ -109,7 +109,7 @@ async def _rehash_password_if_needed(user_id: str, password: str, stored: str) -
     """Rehash legacy password (SHA256) to scrypt on successful login."""
     if stored.startswith("scrypt:"):
         return
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is not None:
         await UserRepository(prisma_client).table.update(
@@ -270,7 +270,7 @@ async def authenticate_user(
 
     if master_key is None:
         raise ProxyException(
-            message="Master Key not set for Proxy. Please set Master Key to use Admin UI. Set `LITELLM_MASTER_KEY` in .env or set general_settings:master_key in config.yaml. If set, use `--detailed_debug` to debug issue.",
+            message="Master Key not set for Proxy. Please set Master Key to use Admin UI. Set `EMBROUTER_MASTER_KEY` in .env or set general_settings:master_key in config.yaml. If set, use `--detailed_debug` to debug issue.",
             type=ProxyErrorTypes.auth_error,
             param="master_key",
             code=500,
@@ -290,20 +290,20 @@ async def _sign_in(
 ) -> LoginResult:
     admin_credentials_match: Final = _admin_credentials_match(username, password, master_key, general_settings)
     # Check if we can find the `username` in the db. On the UI, users can enter username=their email
-    _user_row: LiteLLM_UserTable | None = None
+    _user_row: EmbRouter_UserTable | None = None
     user_role: (
         Literal[
-            LitellmUserRoles.PROXY_ADMIN,
-            LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY,
-            LitellmUserRoles.INTERNAL_USER,
-            LitellmUserRoles.INTERNAL_USER_VIEW_ONLY,
+            EmbrouterUserRoles.PROXY_ADMIN,
+            EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY,
+            EmbrouterUserRoles.INTERNAL_USER,
+            EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY,
         ]
         | None
     ) = None
 
     if prisma_client is not None:
         _user_row = cast(
-            LiteLLM_UserTable | None,
+            EmbRouter_UserTable | None,
             await UserRepository(prisma_client).table.find_first(
                 where={"user_email": {"equals": username, "mode": "insensitive"}}
             ),
@@ -316,11 +316,11 @@ async def _sign_in(
     """
     if admin_credentials_match:
         # Non SSO -> If user is using UI_USERNAME and UI_PASSWORD they are Proxy admin
-        user_role = LitellmUserRoles.PROXY_ADMIN
-        user_id = LITELLM_PROXY_ADMIN_NAME
+        user_role = EmbrouterUserRoles.PROXY_ADMIN
+        user_id = EMBROUTER_PROXY_ADMIN_NAME
 
         # we want the key created to have PROXY_ADMIN_PERMISSIONS
-        key_user_id: Final = os.getenv("PROXY_ADMIN_ID", LITELLM_PROXY_ADMIN_NAME)
+        key_user_id: Final = os.getenv("PROXY_ADMIN_ID", EMBROUTER_PROXY_ADMIN_NAME)
 
         # Admin is Authe'd in - generate key for the UI to access Proxy
 
@@ -331,7 +331,7 @@ async def _sign_in(
                 user_role=user_role,
             ),
             user_api_key_dict=UserAPIKeyAuth(
-                user_role=LitellmUserRoles.PROXY_ADMIN,
+                user_role=EmbrouterUserRoles.PROXY_ADMIN,
             ),
         )
 
@@ -340,15 +340,15 @@ async def _sign_in(
                 llm_router=None,
                 request_type="key",
                 **{
-                    "user_role": LitellmUserRoles.PROXY_ADMIN,
-                    "duration": LITELLM_UI_SESSION_DURATION,
-                    "key_max_budget": litellm.max_ui_session_budget,
+                    "user_role": EmbrouterUserRoles.PROXY_ADMIN,
+                    "duration": EMBROUTER_UI_SESSION_DURATION,
+                    "key_max_budget": embrouter.max_ui_session_budget,
                     "models": [],
                     "aliases": {},
                     "config": {},
                     "spend": 0,
                     "user_id": key_user_id,
-                    "team_id": "litellm-dashboard",
+                    "team_id": "embrouter-dashboard",
                 },
             )
         else:
@@ -362,17 +362,17 @@ async def _sign_in(
         key = response["token"]
 
         if get_secret_bool("EXPERIMENTAL_UI_LOGIN"):
-            from litellm.proxy.auth.auth_checks import ExperimentalUIJWTToken
+            from embrouter.proxy.auth.auth_checks import ExperimentalUIJWTToken
 
-            user_info: LiteLLM_UserTable | None = None
+            user_info: EmbRouter_UserTable | None = None
             if _user_row is not None:
                 user_info = _user_row
             elif user_id is not None:  # if user_id is not None, we are using the UI_USERNAME and UI_PASSWORD
-                user_info = LiteLLM_UserTable(
+                user_info = EmbRouter_UserTable(
                     user_id=user_id,
                     user_role=user_role,
                     models=[],
-                    max_budget=litellm.max_ui_session_budget,
+                    max_budget=embrouter.max_ui_session_budget,
                 )
             if user_info is None:
                 raise HTTPException(
@@ -399,7 +399,7 @@ async def _sign_in(
         -> if the user has no role in the DB assume they are only a viewer
         """
         user_id = getattr(_user_row, "user_id", "unknown")
-        user_role = getattr(_user_row, "user_role", LitellmUserRoles.INTERNAL_USER_VIEW_ONLY)
+        user_role = getattr(_user_row, "user_role", EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY)
         user_email: Final = getattr(_user_row, "user_email", "unknown")
         _password: Final = getattr(_user_row, "password", "unknown")
 
@@ -426,11 +426,11 @@ async def _sign_in(
                     llm_router=None,
                     request_type="key",
                     user_role=user_role,
-                    duration=LITELLM_UI_SESSION_DURATION,
-                    key_max_budget=litellm.max_ui_session_budget,
+                    duration=EMBROUTER_UI_SESSION_DURATION,
+                    key_max_budget=embrouter.max_ui_session_budget,
                     spend=0,
                     user_id=user_id,
-                    team_id="litellm-dashboard",
+                    team_id="embrouter-dashboard",
                     allowed_routes=list(PASSWORD_RESET_ALLOWED_ROUTES) if password_reset_required else None,
                     metadata={
                         **PASSWORD_SESSION_METADATA,
@@ -476,12 +476,12 @@ async def _sign_in(
 
 
 def _ui_session_exp_timestamp() -> int:
-    """The ``exp`` claim (unix seconds) for a UI session cookie, ``LITELLM_UI_SESSION_DURATION``
+    """The ``exp`` claim (unix seconds) for a UI session cookie, ``EMBROUTER_UI_SESSION_DURATION``
     from now. The virtual key sealed inside the cookie already expires after this same
     duration; stamping the JWT itself gives the cookie the bounded lifetime the dashboard's
     client-side expiry check and the server-side session-cookie readers both assume, instead
     of a token that stays signature-valid until the master key rotates."""
-    ttl_seconds: Final = duration_in_seconds(LITELLM_UI_SESSION_DURATION)
+    ttl_seconds: Final = duration_in_seconds(EMBROUTER_UI_SESSION_DURATION)
     return int((datetime.now(timezone.utc) + timedelta(seconds=ttl_seconds)).timestamp())
 
 
@@ -523,7 +523,7 @@ def create_ui_token_object(
         user_role=login_result.user_role,
         login_method=login_result.login_method,
         premium_user=premium_user,
-        auth_header_name=general_settings.get("litellm_key_header_name", "Authorization"),
+        auth_header_name=general_settings.get("embrouter_key_header_name", "Authorization"),
         disabled_non_admin_personal_key_creation=disabled_non_admin_personal_key_creation,
         server_root_path=get_server_root_path(),
         password_reset_required=login_result.password_reset_required,

@@ -12,24 +12,24 @@ import pytest
 
 from fastapi import HTTPException
 
-from litellm.constants import (
+from embrouter.constants import (
     CONTENT_FILTER_STREAMING_HOLDBACK_CHARS,
     CONTENT_FILTER_STREAMING_SCAN_CONTEXT_CHARS,
 )
-from litellm.proxy.guardrails.guardrail_hooks.litellm_content_filter.content_filter import (
+from embrouter.proxy.guardrails.guardrail_hooks.embrouter_content_filter.content_filter import (
     ContentFilterGuardrail,
 )
-from litellm.types.guardrails import (
+from embrouter.types.guardrails import (
     BlockedWord,
     ContentFilterAction,
     ContentFilterPattern,
     GuardrailEventHooks,
 )
-from litellm.types.proxy.guardrails.guardrail_hooks.litellm_content_filter import (
+from embrouter.types.proxy.guardrails.guardrail_hooks.embrouter_content_filter import (
     ContentFilterCategoryConfig,
     ContentFilterDetection,
 )
-from litellm.types.utils import StandardLoggingGuardrailInformation
+from embrouter.types.utils import StandardLoggingGuardrailInformation
 
 
 class TestContentFilterGuardrail:
@@ -398,7 +398,7 @@ class TestContentFilterGuardrail:
         Test streaming hook with MASK action.
         This now works with the 50-char sliding window buffer.
         """
-        from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices
+        from embrouter.types.utils import Delta, ModelResponseStream, StreamingChoices
 
         patterns = [
             ContentFilterPattern(
@@ -459,7 +459,7 @@ class TestContentFilterGuardrail:
 
     @pytest.mark.asyncio
     async def test_streaming_hook_mask_checks_all_choices(self):
-        from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices
+        from embrouter.types.utils import Delta, ModelResponseStream, StreamingChoices
 
         patterns = [
             ContentFilterPattern(
@@ -528,7 +528,7 @@ class TestContentFilterGuardrail:
         Test streaming hook with BLOCK action
         """
 
-        from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices
+        from embrouter.types.utils import Delta, ModelResponseStream, StreamingChoices
 
         patterns = [
             ContentFilterPattern(
@@ -580,7 +580,7 @@ class TestContentFilterGuardrail:
         never produced a `standard_logging_object.guardrail_information` entry on
         streaming responses (Branch 1 dispatcher + iterator hook had no log write).
         """
-        from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices
+        from embrouter.types.utils import Delta, ModelResponseStream, StreamingChoices
 
         patterns = [
             ContentFilterPattern(
@@ -629,7 +629,7 @@ class TestContentFilterGuardrail:
         assert len(entries) == 1
         entry = entries[0]
         assert entry["guardrail_name"] == "test-streaming-logging-clean"
-        assert entry["guardrail_provider"] == "litellm_content_filter"
+        assert entry["guardrail_provider"] == "embrouter_content_filter"
         assert entry["guardrail_status"] == "success"
         assert entry["guardrail_response"] == []
 
@@ -639,12 +639,12 @@ class TestContentFilterGuardrail:
         Streaming post-call: the logged guardrail duration must only cover the
         per-chunk scans, not the time spent waiting on the provider between
         chunks. PrometheusLogger adds post_call guardrail duration to
-        litellm_overhead_with_guardrails_latency_metric, so a duration spanning
+        embrouter_overhead_with_guardrails_latency_metric, so a duration spanning
         the whole stream reports LLM generation time as guardrail overhead.
         """
         import asyncio
 
-        from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices
+        from embrouter.types.utils import Delta, ModelResponseStream, StreamingChoices
 
         guardrail = ContentFilterGuardrail(
             guardrail_name="test-streaming-duration",
@@ -697,7 +697,7 @@ class TestContentFilterGuardrail:
         Streaming post-call with a MASK pattern: writes a success row with the
         detection in guardrail_response and a non-zero masked_entity_count.
         """
-        from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices
+        from embrouter.types.utils import Delta, ModelResponseStream, StreamingChoices
 
         patterns = [
             ContentFilterPattern(
@@ -751,7 +751,7 @@ class TestContentFilterGuardrail:
         assert len(entries) == 1
         entry = entries[0]
         assert entry["guardrail_status"] == "success"
-        assert entry["guardrail_provider"] == "litellm_content_filter"
+        assert entry["guardrail_provider"] == "embrouter_content_filter"
 
         detections = entry["guardrail_response"]
         assert isinstance(detections, list)
@@ -769,7 +769,7 @@ class TestContentFilterGuardrail:
         but the `finally` block still writes a log row with
         guardrail_status == "guardrail_intervened".
         """
-        from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices
+        from embrouter.types.utils import Delta, ModelResponseStream, StreamingChoices
 
         patterns = [
             ContentFilterPattern(
@@ -825,7 +825,7 @@ class TestContentFilterGuardrail:
         be appended once per chunk after it first appears, inflating
         masked_entity_count and guardrail_response in the log.
         """
-        from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices
+        from embrouter.types.utils import Delta, ModelResponseStream, StreamingChoices
 
         patterns = [
             ContentFilterPattern(
@@ -913,7 +913,7 @@ class TestContentFilterGuardrail:
         chunks: list[str],
         metadata: dict[str, list[StandardLoggingGuardrailInformation]],
     ) -> str:
-        from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices
+        from embrouter.types.utils import Delta, ModelResponseStream, StreamingChoices
 
         async def mock_stream():
             for i, content in enumerate(chunks):
@@ -1559,7 +1559,7 @@ class TestContentFilterGuardrail:
 
         # Verify basic fields
         assert guardrail_info["guardrail_name"] == "test-logging"
-        assert guardrail_info["guardrail_provider"] == "litellm_content_filter"
+        assert guardrail_info["guardrail_provider"] == "embrouter_content_filter"
         assert guardrail_info["guardrail_status"] == "success"
         assert "start_time" in guardrail_info
         assert "end_time" in guardrail_info
@@ -2280,7 +2280,7 @@ class TestContentFilterGuardrail:
 
         Regression test for GitHub issue #20441.
         """
-        from litellm.proxy.guardrails.guardrail_hooks.litellm_content_filter.patterns import (
+        from embrouter.proxy.guardrails.guardrail_hooks.embrouter_content_filter.patterns import (
             PREBUILT_PATTERNS,
             get_compiled_pattern,
         )
@@ -3021,7 +3021,7 @@ class TestContentFilterMCPPreCall:
         """
         Arguments nested beyond DEFAULT_MAX_RECURSE_DEPTH block fail-closed instead of passing unscanned
         """
-        from litellm.constants import DEFAULT_MAX_RECURSE_DEPTH
+        from embrouter.constants import DEFAULT_MAX_RECURSE_DEPTH
 
         guardrail = ContentFilterGuardrail(
             guardrail_name="test-mcp-depth-cap",
@@ -3252,12 +3252,12 @@ class TestContentFilterMCPPreCall:
 @pytest.fixture
 def restore_callbacks():
     """Restore the process-wide callback state post_mcp_call_hook reads."""
-    import litellm
-    from litellm.proxy.utils import ProxyLogging
+    import embrouter
+    from embrouter.proxy.utils import ProxyLogging
 
-    original = list(litellm.callbacks)
+    original = list(embrouter.callbacks)
     yield
-    litellm.callbacks = original
+    embrouter.callbacks = original
     ProxyLogging._callback_capabilities_cache.clear()
 
 
@@ -3282,11 +3282,11 @@ class TestContentFilterMCPPostCall:
 
     @staticmethod
     def _proxy_logging(guardrail):
-        import litellm
-        from litellm.caching.caching import DualCache
-        from litellm.proxy.utils import ProxyLogging
+        import embrouter
+        from embrouter.caching.caching import DualCache
+        from embrouter.proxy.utils import ProxyLogging
 
-        litellm.callbacks = [guardrail]
+        embrouter.callbacks = [guardrail]
         ProxyLogging._callback_capabilities_cache.clear()
         return ProxyLogging(user_api_key_cache=DualCache())
 

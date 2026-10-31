@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, AsyncMock, patch
 import pytest
 
 
-from litellm.caching.gcs_cache import GCSCache
+from embrouter.caching.gcs_cache import GCSCache
 
 
 @pytest.fixture
@@ -14,12 +14,12 @@ def mock_gcs_dependencies():
     mock_async_client = AsyncMock()
 
     with (
-        patch.object(import_module("litellm.caching.gcs_cache"), "_get_httpx_client", return_value=mock_sync_client
+        patch.object(import_module("embrouter.caching.gcs_cache"), "_get_httpx_client", return_value=mock_sync_client
         ),
-        patch.object(import_module("litellm.caching.gcs_cache"), "get_async_httpx_client",
+        patch.object(import_module("embrouter.caching.gcs_cache"), "get_async_httpx_client",
             return_value=mock_async_client,
         ),
-        patch.object(import_module("litellm.caching.gcs_cache").GCSBucketBase, "sync_construct_request_headers",
+        patch.object(import_module("embrouter.caching.gcs_cache").GCSBucketBase, "sync_construct_request_headers",
             return_value={},
         ),
     ):

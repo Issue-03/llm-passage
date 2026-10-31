@@ -45,7 +45,7 @@ const A2A_AGENT = {
     iconUrl: "https://example.com/icon.png",
     documentationUrl: "https://example.com/docs",
   },
-  litellm_params: { model: "gpt-4o", make_public: true, cost_per_query: 0.5 },
+  embrouter_params: { model: "gpt-4o", make_public: true, cost_per_query: 0.5 },
   tpm_limit: 111,
   rpm_limit: 222,
   session_tpm_limit: 333,
@@ -58,7 +58,7 @@ const LANGGRAPH_AGENT = {
   agent_id: "agent-2",
   agent_name: "lg-agent",
   agent_card_params: { name: "LG", description: "graph agent", url: "", version: "1.0.0", skills: [] },
-  litellm_params: {
+  embrouter_params: {
     custom_llm_provider: "langgraph",
     model: "langgraph/asst_1",
     api_base: "https://lg.example.com",
@@ -72,7 +72,7 @@ const langgraphInfo: AgentCreateInfo = {
   description: "LangGraph platform",
   logo_url: "/l.png",
   use_a2a_form_fields: false,
-  litellm_params_template: { custom_llm_provider: "langgraph" },
+  embrouter_params_template: { custom_llm_provider: "langgraph" },
   model_template: "langgraph/{assistant_id}",
   credential_fields: [
     { key: "api_base", label: "API Base", field_type: "text", required: true },
@@ -81,7 +81,7 @@ const langgraphInfo: AgentCreateInfo = {
       label: "Assistant ID",
       field_type: "text",
       required: false,
-      include_in_litellm_params: false,
+      include_in_embrouter_params: false,
     },
   ],
 };
@@ -92,7 +92,7 @@ const BEDROCK_AGENTCORE_AGENT = {
   agent_id: "agent-3",
   agent_name: "bedrock-agent",
   agent_card_params: { name: "bedrock-agent", description: "agentcore agent", url: "", version: "1.0.0", skills: [] },
-  litellm_params: {
+  embrouter_params: {
     custom_llm_provider: "bedrock",
     model: `bedrock/agentcore/${FULL_RUNTIME_ARN}`,
   },
@@ -104,7 +104,7 @@ const bedrockAgentcoreInfo: AgentCreateInfo = {
   description: "Bedrock AgentCore runtimes",
   logo_url: "/b.png",
   use_a2a_form_fields: false,
-  litellm_params_template: { custom_llm_provider: "bedrock" },
+  embrouter_params_template: { custom_llm_provider: "bedrock" },
   model_template: "bedrock/agentcore/{agent_runtime_arn}",
   credential_fields: [
     {
@@ -112,7 +112,7 @@ const bedrockAgentcoreInfo: AgentCreateInfo = {
       label: "Agent Runtime ARN",
       field_type: "text",
       required: true,
-      include_in_litellm_params: false,
+      include_in_embrouter_params: false,
       validation_pattern: "^arn:aws[a-zA-Z0-9-]*:bedrock-agentcore:[a-z0-9-]+:[0-9]{12}:runtime/.+$",
       validation_message:
         'Enter the complete Bedrock AgentCore runtime ARN, including the runtime ID after "runtime/".',
@@ -214,7 +214,7 @@ describe("AgentInfoView update payload", () => {
         iconUrl: "https://example.com/icon.png",
         documentationUrl: "https://example.com/docs",
       },
-      litellm_params: { model: "gpt-4o", make_public: true, cost_per_query: 0.5 },
+      embrouter_params: { model: "gpt-4o", make_public: true, cost_per_query: 0.5 },
       static_headers: { Authorization: "Bearer x" },
       extra_headers: ["x-api-key"],
       tpm_limit: 111,
@@ -295,7 +295,7 @@ describe("AgentInfoView update payload", () => {
         capabilities: { streaming: true },
         skills: [{ id: "chat", name: "Chat", description: "General chat capability", tags: ["chat", "conversation"] }],
       },
-      litellm_params: {
+      embrouter_params: {
         custom_llm_provider: "langgraph",
         api_base: "https://other.example.com",
         model: "langgraph/asst_1",
@@ -336,7 +336,7 @@ describe("AgentInfoView update payload", () => {
 
     await save(user);
 
-    expect((patchedPayload().litellm_params as Record<string, unknown>).model).toBe(
+    expect((patchedPayload().embrouter_params as Record<string, unknown>).model).toBe(
       `bedrock/agentcore/${FULL_RUNTIME_ARN}`,
     );
   });
@@ -383,7 +383,7 @@ describe("AgentInfoView update payload", () => {
 
     await save(user);
 
-    expect((patchedPayload().litellm_params as Record<string, unknown>).model).toBe(
+    expect((patchedPayload().embrouter_params as Record<string, unknown>).model).toBe(
       `bedrock/agentcore/${FULL_RUNTIME_ARN}`,
     );
   });

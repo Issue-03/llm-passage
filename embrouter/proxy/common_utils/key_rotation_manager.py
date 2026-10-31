@@ -8,27 +8,27 @@ from collections.abc import Sequence
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Final
 
-from litellm._logging import verbose_proxy_logger
-from litellm.constants import (
-    LITELLM_INTERNAL_JOBS_SERVICE_ACCOUNT_NAME,
-    LITELLM_KEY_ROTATION_GRACE_PERIOD,
-    LITELLM_KEY_ROTATION_LOCK_TTL_SECONDS,
+from embrouter._logging import verbose_proxy_logger
+from embrouter.constants import (
+    EMBROUTER_INTERNAL_JOBS_SERVICE_ACCOUNT_NAME,
+    EMBROUTER_KEY_ROTATION_GRACE_PERIOD,
+    EMBROUTER_KEY_ROTATION_LOCK_TTL_SECONDS,
 )
-from litellm.proxy._types import (
+from embrouter.proxy._types import (
     GenerateKeyResponse,
-    LiteLLM_VerificationToken,
+    EmbRouter_VerificationToken,
     RegenerateKeyRequest,
 )
-from litellm.proxy.hooks.key_management_event_hooks import KeyManagementEventHooks
-from litellm.proxy.management_endpoints.key_management_endpoints import (
+from embrouter.proxy.hooks.key_management_event_hooks import KeyManagementEventHooks
+from embrouter.proxy.management_endpoints.key_management_endpoints import (
     _calculate_key_rotation_time,
     regenerate_key_fn,
 )
-from litellm.proxy.utils import PrismaClient
-from litellm.repositories.table_repositories import (
+from embrouter.proxy.utils import PrismaClient
+from embrouter.repositories.table_repositories import (
     DeprecatedVerificationTokenRepository,
 )
-from litellm.repositories.verification_token_repository import (
+from embrouter.repositories.verification_token_repository import (
     VerificationTokenRepository,
 )
 
@@ -50,7 +50,7 @@ class KeyRotationManager:
         Main entry point - find and rotate keys that are due for rotation.
         Uses PodLockManager to ensure only one pod runs rotation in multi-pod deployments.
         """
-        from litellm.constants import KEY_ROTATION_JOB_NAME
+        from embrouter.constants import KEY_ROTATION_JOB_NAME
 
         lock_acquired = False
         try:
@@ -60,8 +60,8 @@ class KeyRotationManager:
                 # (which defaults to 86400s / 24h). Using the check interval would create
                 # a 24-hour deadlock window if a pod crashes before releasing the lock.
                 lock_ttl: Final = max(
-                    LITELLM_KEY_ROTATION_LOCK_TTL_SECONDS, 300
-                )  # At least 5 minutes, configurable via LITELLM_KEY_ROTATION_LOCK_TTL_SECONDS
+                    EMBROUTER_KEY_ROTATION_LOCK_TTL_SECONDS, 300
+                )  # At least 5 minutes, configurable via EMBROUTER_KEY_ROTATION_LOCK_TTL_SECONDS
                 lock_acquired = (
                     await self.pod_lock_manager.acquire_lock(
                         cronjob_id=KEY_ROTATION_JOB_NAME,
@@ -110,7 +110,7 @@ class KeyRotationManager:
                     cronjob_id=KEY_ROTATION_JOB_NAME,
                 )
 
-    async def _find_keys_needing_rotation(self) -> "Sequence[prisma_models.LiteLLM_VerificationToken]":
+    async def _find_keys_needing_rotation(self) -> "Sequence[prisma_models.EmbRouter_VerificationToken]":
         """
         Find keys that are due for rotation based on their key_rotation_at timestamp.
 
@@ -146,7 +146,7 @@ class KeyRotationManager:
         except Exception as e:
             verbose_proxy_logger.debug("Deprecated key cleanup skipped (table may not exist): %s", e)
 
-    def _should_rotate_key(self, key: LiteLLM_VerificationToken, now: datetime) -> bool:
+    def _should_rotate_key(self, key: EmbRouter_VerificationToken, now: datetime) -> bool:
         """
         Determine if a key should be rotated based on key_rotation_at timestamp.
         """
@@ -160,7 +160,7 @@ class KeyRotationManager:
         # Check if the rotation time has passed
         return now >= key.key_rotation_at
 
-    async def _rotate_key(self, key: "prisma_models.LiteLLM_VerificationToken"):
+    async def _rotate_key(self, key: "prisma_models.EmbRouter_VerificationToken"):
         """
         Rotate a single key using existing regenerate_key_fn and call the rotation hook
         """
@@ -168,19 +168,19 @@ class KeyRotationManager:
         regenerate_request: Final = RegenerateKeyRequest(
             key=key.token or "",
             key_alias=key.key_alias,  # Pass key alias to ensure correct secret is updated in AWS Secrets Manager
-            grace_period=LITELLM_KEY_ROTATION_GRACE_PERIOD or None,
+            grace_period=EMBROUTER_KEY_ROTATION_GRACE_PERIOD or None,
         )
 
         # Create a system user for key rotation
-        from litellm.proxy._types import UserAPIKeyAuth
+        from embrouter.proxy._types import UserAPIKeyAuth
 
-        system_user: Final = UserAPIKeyAuth.get_litellm_internal_jobs_user_api_key_auth()
+        system_user: Final = UserAPIKeyAuth.get_embrouter_internal_jobs_user_api_key_auth()
 
         # Use existing regenerate key function
         response: Final = await regenerate_key_fn(
             data=regenerate_request,
             user_api_key_dict=system_user,
-            litellm_changed_by=LITELLM_INTERNAL_JOBS_SERVICE_ACCOUNT_NAME,
+            embrouter_changed_by=EMBROUTER_INTERNAL_JOBS_SERVICE_ACCOUNT_NAME,
         )
 
         # Update the NEW key with rotation info (regenerate_key_fn creates a new token)
@@ -204,5 +204,5 @@ class KeyRotationManager:
                 existing_key_row=key,  # pyright: ignore[reportArgumentType]  # prisma row, hook wants the domain model
                 response=response,
                 user_api_key_dict=system_user,
-                litellm_changed_by=LITELLM_INTERNAL_JOBS_SERVICE_ACCOUNT_NAME,
+                embrouter_changed_by=EMBROUTER_INTERNAL_JOBS_SERVICE_ACCOUNT_NAME,
             )

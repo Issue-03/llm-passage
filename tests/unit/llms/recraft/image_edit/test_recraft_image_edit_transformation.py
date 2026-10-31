@@ -7,10 +7,10 @@ import httpx
 import pytest
 
 
-from litellm.llms.recraft.image_edit.transformation import RecraftImageEditConfig
-from litellm.types.images.main import ImageEditOptionalRequestParams
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import ImageObject, ImageResponse
+from embrouter.llms.recraft.image_edit.transformation import RecraftImageEditConfig
+from embrouter.types.images.main import ImageEditOptionalRequestParams
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import ImageObject, ImageResponse
 
 
 class TestRecraftImageEditTransformation:
@@ -41,7 +41,7 @@ class TestRecraftImageEditTransformation:
             "style": "photographic",
         }
 
-        litellm_params = GenericLiteLLMParams()
+        embrouter_params = GenericEmbRouterParams()
         headers = {}
 
         data, files = self.config.transform_image_edit_request(
@@ -49,7 +49,7 @@ class TestRecraftImageEditTransformation:
             prompt=self.prompt,
             image=image,
             image_edit_optional_request_params=image_edit_optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 

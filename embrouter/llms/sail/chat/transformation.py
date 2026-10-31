@@ -1,14 +1,14 @@
 from collections.abc import Mapping
 from typing import Final
 
-from litellm.llms.openai.chat.gpt_transformation import OpenAIGPTConfig
-from litellm.llms.sail.common_utils import (
+from embrouter.llms.openai.chat.gpt_transformation import OpenAIGPTConfig
+from embrouter.llms.sail.common_utils import (
     chat_request_for_sail,
     completion_window_for_service_tier,
     extra_body_for_sail,
     json_body,
 )
-from litellm.types.llms.openai import AllMessageValues
+from embrouter.types.llms.openai import AllMessageValues
 
 _REJECTED_BY_SAIL: Final = frozenset(
     {"stop", "seed", "frequency_penalty", "presence_penalty", "logit_bias", "logprobs", "top_logprobs"}
@@ -44,7 +44,7 @@ class SailChatConfig(OpenAIGPTConfig):
         model: str,
         messages: list[AllMessageValues],  # mutable-ok: signature fixed by the base interface
         optional_params: dict,  # mutable-ok: signature fixed by the base interface
-        litellm_params: dict,  # mutable-ok: signature fixed by the base interface
+        embrouter_params: dict,  # mutable-ok: signature fixed by the base interface
         headers: dict,  # mutable-ok: signature fixed by the base interface
     ) -> dict:  # mutable-ok: return type fixed by the base interface
         request: Final = chat_request_for_sail(
@@ -52,11 +52,11 @@ class SailChatConfig(OpenAIGPTConfig):
                 model=model,
                 messages=messages,
                 optional_params=optional_params,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 headers=headers,
             ),
             model=model,
-            drop_params=bool(litellm_params.get("drop_params")),
+            drop_params=bool(embrouter_params.get("drop_params")),
         )
         return json_body(request)
 
@@ -65,8 +65,8 @@ class SailChatConfig(OpenAIGPTConfig):
         extra_body: Mapping[str, object],
         request: Mapping[str, object],
         model: str,
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
     ) -> Mapping[str, object]:
         return extra_body_for_sail(
-            extra_body, request.get("metadata"), model=model, drop_params=bool(litellm_params.get("drop_params"))
+            extra_body, request.get("metadata"), model=model, drop_params=bool(embrouter_params.get("drop_params"))
         )

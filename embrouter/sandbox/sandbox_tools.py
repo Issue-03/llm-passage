@@ -7,7 +7,7 @@ code interpreter interceptor can resolve a tool by name to provider/key/base.
 
 from collections.abc import Iterator
 
-from litellm._logging import verbose_logger
+from embrouter._logging import verbose_logger
 
 _SANDBOX_TOOL_REGISTRY: dict[str, dict] = {}
 
@@ -16,7 +16,7 @@ def _resolve_secret_value(value: str | None) -> str | None:
     if not isinstance(value, str):
         return None
     if value.startswith("os.environ/"):
-        from litellm.secret_managers.main import get_secret_str
+        from embrouter.secret_managers.main import get_secret_str
 
         return get_secret_str(value)
     return value
@@ -31,7 +31,7 @@ def _iter_valid_tools(tools: list[dict]) -> Iterator[tuple[str, dict]]:
         if not name:
             verbose_logger.warning("sandbox_tools: skipping entry missing 'sandbox_tool_name': %r", tool)
             continue
-        params = tool.get("litellm_params") or {}
+        params = tool.get("embrouter_params") or {}
         provider = params.get("sandbox_provider")
         if not provider:
             verbose_logger.warning("sandbox_tools: skipping entry missing 'sandbox_provider': %r", tool)

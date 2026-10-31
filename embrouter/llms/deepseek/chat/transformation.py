@@ -5,14 +5,14 @@ Translates from OpenAI's `/v1/chat/completions` to DeepSeek's `/v1/chat/completi
 from collections.abc import Coroutine, Mapping, Sequence
 from typing import Any, Final, Literal, cast, overload
 
-import litellm
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+import embrouter
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
     convert_content_list_to_str,
     extract_search_results_text,
 )
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.openai import AllMessageValues
-from litellm.utils import supports_reasoning, supports_vision
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.utils import supports_reasoning, supports_vision
 
 from ...openai.chat.gpt_transformation import OpenAIGPTConfig
 
@@ -70,7 +70,7 @@ class DeepSeekChatConfig(OpenAIGPTConfig):
 
         For each assistant message that is missing `reasoning_content`:
           1. Promote it from `provider_specific_fields["reasoning_content"]` if present
-             (LiteLLM stores provider-specific response fields there).
+             (EmbRouter stores provider-specific response fields there).
           2. Otherwise inject a single space — the minimum value the API accepts.
         """
         result: Final[list[AllMessageValues]] = []
@@ -85,7 +85,7 @@ class DeepSeekChatConfig(OpenAIGPTConfig):
                     cleaned.pop("reasoning_content", None)
                     patched["provider_specific_fields"] = cleaned
                 else:
-                    litellm.verbose_logger.warning(
+                    embrouter.verbose_logger.warning(
                         "DeepSeek thinking mode: assistant message is missing "
                         "`reasoning_content` and none was saved in "
                         "`provider_specific_fields`. A single-space placeholder "
@@ -277,7 +277,7 @@ class DeepSeekChatConfig(OpenAIGPTConfig):
                 if not _is_function_tool(tool)
             }
         )
-        litellm.verbose_logger.warning(
+        embrouter.verbose_logger.warning(
             "DeepSeek chat completions only supports function tools; dropping "
             "unsupported tool type(s) %s before sending the request",
             dropped_types,
@@ -298,7 +298,7 @@ class DeepSeekChatConfig(OpenAIGPTConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         """
@@ -317,7 +317,7 @@ class DeepSeekChatConfig(OpenAIGPTConfig):
             model=model,
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
@@ -326,7 +326,7 @@ class DeepSeekChatConfig(OpenAIGPTConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         """
@@ -340,7 +340,7 @@ class DeepSeekChatConfig(OpenAIGPTConfig):
             model=model,
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
@@ -357,7 +357,7 @@ class DeepSeekChatConfig(OpenAIGPTConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         """

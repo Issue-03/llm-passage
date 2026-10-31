@@ -4,7 +4,7 @@ from typing import Any, Final
 
 import httpx
 
-from litellm import verbose_logger
+from embrouter import verbose_logger
 
 _UNSAFE_SECRET_NAME_PATTERN: Final = re.compile(r"(^|/)\.\.(/|$)|[\x00-\x1f\x7f-\x9f  ]")
 

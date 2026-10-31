@@ -1,6 +1,6 @@
-# GCS (Google Cloud Storage) Bucket Logging on LiteLLM Gateway 
+# GCS (Google Cloud Storage) Bucket Logging on EmbRouter Gateway 
 
-This folder contains the GCS Bucket Logging integration for LiteLLM Gateway. 
+This folder contains the GCS Bucket Logging integration for EmbRouter Gateway. 
 
 ## Folder Structure 
 
@@ -8,5 +8,5 @@ This folder contains the GCS Bucket Logging integration for LiteLLM Gateway.
 - `gcs_bucket_base.py`: This file contains the GCSBucketBase class which handles Authentication for GCS Buckets
 
 ## Further Reading
-- Doc setting up GCS Bucket Logging on LiteLLM Proxy (Gateway)
+- Doc setting up GCS Bucket Logging on EmbRouter Proxy (Gateway)
 - Doc on Key / Team Based logging with GCS

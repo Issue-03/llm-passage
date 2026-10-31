@@ -29,30 +29,30 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, s
 from pydantic import TypeAdapter
 from typing_extensions import ReadOnly, TypedDict
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm._uuid import uuid
-from litellm.caching.dual_cache import DualCache
-from litellm.constants import (
-    LENGTH_OF_LITELLM_GENERATED_KEY,
-    LITELLM_PROXY_ADMIN_NAME,
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter._uuid import uuid
+from embrouter.caching.dual_cache import DualCache
+from embrouter.constants import (
+    LENGTH_OF_EMBROUTER_GENERATED_KEY,
+    EMBROUTER_PROXY_ADMIN_NAME,
     MINIMUM_CUSTOM_KEY_LENGTH,
     UI_SESSION_TOKEN_TEAM_ID,
 )
-from litellm.litellm_core_utils.duration_parser import duration_in_seconds
-from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
-from litellm.models.credentials import CredentialItem
-from litellm.proxy._experimental.mcp_server.db import (
+from embrouter.embrouter_core_utils.duration_parser import duration_in_seconds
+from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps
+from embrouter.models.credentials import CredentialItem
+from embrouter.proxy._experimental.mcp_server.db import (
     rotate_mcp_server_credentials_master_key,
     rotate_mcp_user_credentials_master_key,
     rotate_mcp_user_env_vars_master_key,
 )
-from litellm.proxy._experimental.mcp_server.outbound_credentials.sso_assertion_store import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.sso_assertion_store import (
     rotate_sso_identity_assertions_master_key,
 )
-from litellm.proxy._types import *
-from litellm.proxy._types import Litellm_EntityType, LiteLLM_VerificationToken, hash_token
-from litellm.proxy.auth.auth_checks import (
+from embrouter.proxy._types import *
+from embrouter.proxy._types import Embrouter_EntityType, EmbRouter_VerificationToken, hash_token
+from embrouter.proxy.auth.auth_checks import (
     _delete_cache_key_object,
     can_team_access_model,
     get_jwt_key_mapping_cache_keys_for_token,
@@ -61,31 +61,31 @@ from litellm.proxy.auth.auth_checks import (
     get_project_object,
     get_team_object,
 )
-from litellm.proxy.auth.auth_utils import (
+from embrouter.proxy.auth.auth_utils import (
     abbreviate_api_key,
     enforce_batch_enqueued_token_limit_is_admin_only,
     enforce_output_token_estimates_are_admin_only,
 )
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.common_utils.auth_cache_invalidation_pubsub import (
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.common_utils.auth_cache_invalidation_pubsub import (
     evict_and_broadcast,
     publish_auth_cache_invalidation,
 )
-from litellm.proxy.common_utils.callback_config_validation import logging_metadata_config_error
-from litellm.proxy.common_utils.callback_utils import (
+from embrouter.proxy.common_utils.callback_config_validation import logging_metadata_config_error
+from embrouter.proxy.common_utils.callback_utils import (
     decrypt_callback_vars,
     encrypt_callback_vars,
 )
-from litellm.proxy.common_utils.config_sync_pubsub import (
+from embrouter.proxy.common_utils.config_sync_pubsub import (
     coordination_redis_cache,
     publish_config_change,
 )
-from litellm.proxy.common_utils.rbac_utils import check_org_admin_can_generate_keys
-from litellm.proxy.common_utils.timezone_utils import get_budget_reset_time
-from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-from litellm.proxy.hooks.key_management_event_hooks import KeyManagementEventHooks
-from litellm.proxy.hooks.model_max_budget_limiter import build_model_max_budget_usage
-from litellm.proxy.management_endpoints.common_utils import (
+from embrouter.proxy.common_utils.rbac_utils import check_org_admin_can_generate_keys
+from embrouter.proxy.common_utils.timezone_utils import get_budget_reset_time
+from embrouter.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+from embrouter.proxy.hooks.key_management_event_hooks import KeyManagementEventHooks
+from embrouter.proxy.hooks.model_max_budget_limiter import build_model_max_budget_usage
+from embrouter.proxy.management_endpoints.common_utils import (
     _check_disable_global_guardrails_caller_permission,
     _check_passthrough_routes_caller_permission,
     _is_user_org_admin_for_team,
@@ -96,22 +96,22 @@ from litellm.proxy.management_endpoints.common_utils import (
     validate_budget_duration,
     validate_finite_spend,
 )
-from litellm.proxy.management_endpoints.model_management_endpoints import (
+from embrouter.proxy.management_endpoints.model_management_endpoints import (
     _add_model_to_db,
 )
-from litellm.proxy.management_endpoints.router_weights import validate_router_settings_weights
-from litellm.proxy.management_endpoints.team_admin_field_permissions import (
+from embrouter.proxy.management_endpoints.router_weights import validate_router_settings_weights
+from embrouter.proxy.management_endpoints.team_admin_field_permissions import (
     team_admin_key_edit_verdict,
     team_admin_key_request_or_raise,
     team_admin_may_edit_member_key_budgets,
 )
-from litellm.proxy.management_helpers.access_group_key_sync import (
+from embrouter.proxy.management_helpers.access_group_key_sync import (
     sync_key_access_group_membership,
     sync_key_regeneration_access_group_membership,
     sync_key_update_access_group_membership,
 )
-from litellm.proxy.management_helpers.key_settings_audit import with_settings_updated_at
-from litellm.proxy.management_helpers.object_permission_utils import (
+from embrouter.proxy.management_helpers.key_settings_audit import with_settings_updated_at
+from embrouter.proxy.management_helpers.object_permission_utils import (
     _set_object_permission,
     attach_object_permission_to_dict,
     handle_update_object_permission_common,
@@ -120,38 +120,38 @@ from litellm.proxy.management_helpers.object_permission_utils import (
     validate_key_search_tools_against_team,
     validate_key_vector_stores_against_team,
 )
-from litellm.proxy.management_helpers.team_member_permission_checks import (
+from embrouter.proxy.management_helpers.team_member_permission_checks import (
     TeamMemberPermissionChecks,
 )
-from litellm.proxy.management_helpers.utils import management_endpoint_wrapper
-from litellm.proxy.spend_tracking.budget_reservation import get_budget_window_start
-from litellm.proxy.spend_tracking.spend_tracking_utils import _is_master_key
-from litellm.proxy.utils import (
+from embrouter.proxy.management_helpers.utils import management_endpoint_wrapper
+from embrouter.proxy.spend_tracking.budget_reservation import get_budget_window_start
+from embrouter.proxy.spend_tracking.spend_tracking_utils import _is_master_key
+from embrouter.proxy.utils import (
     PrismaClient,
     ProxyLogging,
     _hash_token_if_needed,
     handle_exception_on_proxy,
     is_valid_api_key,
 )
-from litellm.repositories.base_repository import BaseRepository
-from litellm.repositories.budget_repository import BudgetRepository
-from litellm.repositories.config_repository import ConfigParam, ConfigRepository
-from litellm.repositories.credentials_repository import CredentialsRepository
-from litellm.repositories.model_repository import ModelRepository
-from litellm.repositories.prisma_protocols import TableActions
-from litellm.repositories.table_repositories import (
+from embrouter.repositories.base_repository import BaseRepository
+from embrouter.repositories.budget_repository import BudgetRepository
+from embrouter.repositories.config_repository import ConfigParam, ConfigRepository
+from embrouter.repositories.credentials_repository import CredentialsRepository
+from embrouter.repositories.model_repository import ModelRepository
+from embrouter.repositories.prisma_protocols import TableActions
+from embrouter.repositories.table_repositories import (
     DeletedVerificationTokenRepository,
     DeprecatedVerificationTokenRepository,
 )
-from litellm.repositories.team_repository import TeamRepository
-from litellm.repositories.user_repository import UserRepository
-from litellm.repositories.verification_token_repository import (
+from embrouter.repositories.team_repository import TeamRepository
+from embrouter.repositories.user_repository import UserRepository
+from embrouter.repositories.verification_token_repository import (
     VerificationTokenRepository,
 )
-from litellm.router import Router
-from litellm.secret_managers.base_secret_manager import raise_if_unsafe_secret_name
-from litellm.secret_managers.main import get_secret
-from litellm.types.proxy.management_endpoints.key_management_endpoints import (
+from embrouter.router import Router
+from embrouter.secret_managers.base_secret_manager import raise_if_unsafe_secret_name
+from embrouter.secret_managers.main import get_secret
+from embrouter.types.proxy.management_endpoints.key_management_endpoints import (
     BulkUpdateKeyRequest,
     BulkUpdateKeyResponse,
     BulkUpdateTeamKeysRequest,
@@ -160,8 +160,8 @@ from litellm.types.proxy.management_endpoints.key_management_endpoints import (
     KeySearchWhere,
     SuccessfulKeyUpdate,
 )
-from litellm.types.router import Deployment
-from litellm.types.utils import (
+from embrouter.types.router import Deployment
+from embrouter.types.utils import (
     BudgetConfig,
     PersonalUIKeyGenerationConfig,
     TeamUIKeyGenerationConfig,
@@ -193,11 +193,11 @@ class _UserRowLike(Protocol):
 
 
 class _TxTables(Protocol):
-    litellm_proxymodeltable: TableActions[object]
+    embrouter_proxymodeltable: TableActions[object]
 
 
 class _ModelParamsUpdate(TypedDict):
-    litellm_params: ReadOnly["prisma.Json"]
+    embrouter_params: ReadOnly["prisma.Json"]
 
 
 class _ModelRowWhere(TypedDict):
@@ -234,10 +234,10 @@ class _BudgetRowSoftBudgetCreate(TypedDict):
 
 class _KeyUpdateTx(Protocol):
     @property
-    def litellm_verificationtoken(self) -> "TableActions[prisma_models.LiteLLM_VerificationToken]": ...
+    def embrouter_verificationtoken(self) -> "TableActions[prisma_models.EmbRouter_VerificationToken]": ...
 
     @property
-    def litellm_budgettable(self) -> "TableActions[prisma_models.LiteLLM_BudgetTable]": ...
+    def embrouter_budgettable(self) -> "TableActions[prisma_models.EmbRouter_BudgetTable]": ...
 
 
 class _ConfigTableActions(Protocol):
@@ -263,13 +263,13 @@ def _prisma_table(
 
 def _deleted_verification_token_table(
     prisma_client: PrismaClient,
-) -> "TableActions[prisma_models.LiteLLM_DeletedVerificationToken]":
+) -> "TableActions[prisma_models.EmbRouter_DeletedVerificationToken]":
     return DeletedVerificationTokenRepository(prisma_client).table
 
 
 def _deprecated_verification_token_table(
     prisma_client: PrismaClient,
-) -> "TableActions[prisma_models.LiteLLM_DeprecatedVerificationToken]":
+) -> "TableActions[prisma_models.EmbRouter_DeprecatedVerificationToken]":
     return DeprecatedVerificationTokenRepository(prisma_client).table
 
 
@@ -348,7 +348,7 @@ async def _enforce_custom_key_policy(
 _KEY_UPDATE_JSON_STRING_COLUMNS: Final = frozenset({"router_settings", "budget_limits"})
 
 _KEY_METADATA_REQUEST_FIELDS: Final = frozenset(
-    (*LiteLLM_ManagementEndpoint_MetadataFields_Premium, *LiteLLM_ManagementEndpoint_MetadataFields)
+    (*EmbRouter_ManagementEndpoint_MetadataFields_Premium, *EmbRouter_ManagementEndpoint_MetadataFields)
 )
 
 
@@ -358,15 +358,15 @@ def _decode_json_string_column(column: str, value: object) -> object:
     return value
 
 
-def _verification_token_from_row(row: Mapping[str, object]) -> LiteLLM_VerificationToken:
+def _verification_token_from_row(row: Mapping[str, object]) -> EmbRouter_VerificationToken:
     org_id: Final = row["organization_id"] if "organization_id" in row else row.get("org_id")
-    return LiteLLM_VerificationToken.model_validate(MappingProxyType({**row, "org_id": org_id}))
+    return EmbRouter_VerificationToken.model_validate(MappingProxyType({**row, "org_id": org_id}))
 
 
 def _effective_key_after_update(
-    existing_key_row: LiteLLM_VerificationToken,
+    existing_key_row: EmbRouter_VerificationToken,
     non_default_values: Mapping[str, object],
-) -> LiteLLM_VerificationToken:
+) -> EmbRouter_VerificationToken:
     overlay: Final = MappingProxyType(
         {column: _decode_json_string_column(column, value) for column, value in non_default_values.items()}
     )
@@ -377,7 +377,7 @@ def _effective_key_after_update(
 
 def _update_policy_request(
     operation: Literal["update", "regenerate"],
-    existing_key_row: LiteLLM_VerificationToken,
+    existing_key_row: EmbRouter_VerificationToken,
     non_default_values: Mapping[str, object],
     request: UpdateKeyRequest | RegenerateKeyRequest,
 ) -> CustomKeyPolicyRequest:
@@ -407,7 +407,7 @@ def _generate_budget_windows(
     )
 
 
-def _effective_key_for_generate(data: GenerateKeyRequest, now: datetime) -> LiteLLM_VerificationToken:
+def _effective_key_for_generate(data: GenerateKeyRequest, now: datetime) -> EmbRouter_VerificationToken:
     requested: Final = data.model_dump(exclude_unset=True, exclude_none=True)
     metadata_fields: Final = MappingProxyType(
         {field: value for field, value in requested.items() if field in _KEY_METADATA_REQUEST_FIELDS}
@@ -492,8 +492,8 @@ async def _check_custom_key_allowed(custom_key_value: str | None) -> None:
     if custom_key_value is None:
         return
 
-    from litellm.proxy.config_resolvers.settings_rules import coerce_bool
-    from litellm.proxy.proxy_server import general_settings
+    from embrouter.proxy.config_resolvers.settings_rules import coerce_bool
+    from embrouter.proxy.proxy_server import general_settings
 
     if coerce_bool(general_settings.get("disable_custom_api_keys", False)) is True:
         verbose_proxy_logger.warning("Custom API key rejected: disable_custom_api_keys is enabled")
@@ -503,11 +503,11 @@ async def _check_custom_key_allowed(custom_key_value: str | None) -> None:
         )
 
 
-def _is_team_key(data: GenerateKeyRequest | LiteLLM_VerificationToken):
+def _is_team_key(data: GenerateKeyRequest | EmbRouter_VerificationToken):
     return data.team_id is not None
 
 
-def _get_user_in_team(team_table: LiteLLM_TeamTableCachedObj, user_id: str | None) -> Member | None:
+def _get_user_in_team(team_table: EmbRouter_TeamTableCachedObj, user_id: str | None) -> Member | None:
     if user_id is None:
         return None
     for member in team_table.members_with_roles:
@@ -518,7 +518,7 @@ def _get_user_in_team(team_table: LiteLLM_TeamTableCachedObj, user_id: str | Non
 
 
 def _get_caller_team_role(
-    team_table: LiteLLM_TeamTableCachedObj,
+    team_table: EmbRouter_TeamTableCachedObj,
     user_api_key_dict: UserAPIKeyAuth,
 ) -> Literal["admin", "user"] | None:
     if user_api_key_dict.is_team_service_account and user_api_key_dict.team_id == team_table.team_id:
@@ -559,8 +559,8 @@ def _set_key_rotation_fields(
     """
     if auto_rotate and rotation_interval:
         if (
-            litellm._key_management_settings is not None
-            and litellm._key_management_settings.store_virtual_keys is True
+            embrouter._key_management_settings is not None
+            and embrouter._key_management_settings.store_virtual_keys is True
             and data.get("key_alias") is None
             and existing_key_alias is None
         ):
@@ -590,7 +590,7 @@ def _is_allowed_to_make_key_request(
 
     """
     ## BASE CASE - PROXY ADMIN
-    if user_api_key_dict.user_role is not None and user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN.value:
+    if user_api_key_dict.user_role is not None and user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN.value:
         return True
 
     if user_id is not None:
@@ -607,7 +607,7 @@ def _is_allowed_to_make_key_request(
 
 def _team_key_operation_team_member_check(
     assigned_user_id: str | None,
-    team_table: LiteLLM_TeamTableCachedObj,
+    team_table: EmbRouter_TeamTableCachedObj,
     user_api_key_dict: UserAPIKeyAuth,
     team_key_generation: TeamUIKeyGenerationConfig,
     route: KeyManagementRoutes,
@@ -624,7 +624,7 @@ def _team_key_operation_team_member_check(
     caller_team_role: Final = _get_caller_team_role(team_table=team_table, user_api_key_dict=user_api_key_dict)
 
     is_admin: Final = (
-        user_api_key_dict.user_role is not None and user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN.value
+        user_api_key_dict.user_role is not None and user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN.value
     )
 
     if is_admin:
@@ -666,15 +666,15 @@ def _key_generation_required_param_check(data: GenerateKeyRequest, required_para
 
 
 def _team_key_generation_check(
-    team_table: LiteLLM_TeamTableCachedObj,
+    team_table: EmbRouter_TeamTableCachedObj,
     user_api_key_dict: UserAPIKeyAuth,
     data: GenerateKeyRequest,
     route: KeyManagementRoutes,
 ):
-    if user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN.value:
+    if user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN.value:
         return True
-    if litellm.key_generation_settings is not None and "team_key_generation" in litellm.key_generation_settings:
-        _team_key_generation = litellm.key_generation_settings["team_key_generation"]
+    if embrouter.key_generation_settings is not None and "team_key_generation" in embrouter.key_generation_settings:
+        _team_key_generation = embrouter.key_generation_settings["team_key_generation"]
     else:
         _team_key_generation = TeamUIKeyGenerationConfig(
             allowed_team_member_roles=["admin", "user"],
@@ -720,7 +720,7 @@ def _personal_key_membership_check(
 
 
 def _object_permission_to_dict(
-    object_permission: LiteLLM_ObjectPermissionBase | None,
+    object_permission: EmbRouter_ObjectPermissionBase | None,
 ) -> ObjectPermissionDict | None:
     if object_permission is None:
         return None
@@ -735,12 +735,12 @@ def _personal_key_generation_check(user_api_key_dict: UserAPIKeyAuth, data: Gene
     )
 
     if (
-        litellm.key_generation_settings is None
-        or litellm.key_generation_settings.get("personal_key_generation") is None
+        embrouter.key_generation_settings is None
+        or embrouter.key_generation_settings.get("personal_key_generation") is None
     ):
         return True
 
-    _personal_key_generation: Final = litellm.key_generation_settings["personal_key_generation"]
+    _personal_key_generation: Final = embrouter.key_generation_settings["personal_key_generation"]
 
     _personal_key_membership_check(
         user_api_key_dict,
@@ -756,7 +756,7 @@ def _personal_key_generation_check(user_api_key_dict: UserAPIKeyAuth, data: Gene
 
 
 def key_generation_check(
-    team_table: LiteLLM_TeamTableCachedObj | None,
+    team_table: EmbRouter_TeamTableCachedObj | None,
     user_api_key_dict: UserAPIKeyAuth,
     data: GenerateKeyRequest,
     route: KeyManagementRoutes,
@@ -774,10 +774,10 @@ def key_generation_check(
     ## check if key is for team or individual
     is_team_key: Final = _is_team_key(data=data)
     _is_admin: Final = (
-        user_api_key_dict.user_role is not None and user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN.value
+        user_api_key_dict.user_role is not None and user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN.value
     )
     if is_team_key:
-        if team_table is None and litellm.key_generation_settings is not None:
+        if team_table is None and embrouter.key_generation_settings is not None:
             raise HTTPException(
                 status_code=400,
                 detail=f"Unable to find team object in database. Team ID: {data.team_id}",
@@ -858,11 +858,11 @@ def handle_key_type(data: GenerateKeyRequest, data_json: dict) -> dict:
         data_json.pop("key_type", None)
         return data_json
     data_json["key_type"] = key_type.value
-    if key_type == LiteLLMKeyType.LLM_API:
+    if key_type == EmbRouterKeyType.LLM_API:
         data_json["allowed_routes"] = ["llm_api_routes"]
-    elif key_type == LiteLLMKeyType.MANAGEMENT:
+    elif key_type == EmbRouterKeyType.MANAGEMENT:
         data_json["allowed_routes"] = ["management_routes"]
-    elif key_type == LiteLLMKeyType.READ_ONLY:
+    elif key_type == EmbRouterKeyType.READ_ONLY:
         data_json["allowed_routes"] = ["info_routes"]
     return data_json
 
@@ -872,13 +872,13 @@ _NON_ADMIN_SAFE_ALLOWED_ROUTES_PRESETS: Final = frozenset({"llm_api_routes", "in
 
 def _validate_caller_can_change_key_ownership(
     data: BaseModel | None,
-    existing_key_row: LiteLLM_VerificationToken,
+    existing_key_row: EmbRouter_VerificationToken,
     user_api_key_dict: UserAPIKeyAuth,
 ) -> None:
     """
     Non-admin callers must not rebind a key's ``user_id`` to a different
     user. The ``user_id`` on a verification token is what
-    ``_return_user_api_key_auth_obj`` resolves against ``litellm_usertable``
+    ``_return_user_api_key_auth_obj`` resolves against ``embrouter_usertable``
     to derive the request's role; a non-admin rebinding their own key's
     ``user_id`` to a ``PROXY_ADMIN`` row promotes themselves.
 
@@ -886,7 +886,7 @@ def _validate_caller_can_change_key_ownership(
     not. Sharing the check keeps both endpoints — and any future
     regenerate-style endpoint — consistent.
     """
-    if user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN.value:
+    if user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN.value:
         return
     if data is None:
         return
@@ -940,7 +940,7 @@ def _check_allowed_routes_caller_permission(
     """
     if not allowed_routes_was_provided and not allowed_routes:
         return
-    if user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN.value:
+    if user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN.value:
         return
     if (
         allow_safe_presets
@@ -983,7 +983,7 @@ def _is_safe_preset_route_transition(
 
 def _enforce_allowed_routes_update_permission(
     data: UpdateKeyRequest,
-    existing_key_row: LiteLLM_VerificationToken,
+    existing_key_row: EmbRouter_VerificationToken,
     user_api_key_dict: UserAPIKeyAuth,
 ) -> None:
     if _is_safe_preset_route_transition(
@@ -1012,7 +1012,7 @@ def _check_permissions_caller_permission(
     permissions_in_request: Final = "permissions" in data.model_fields_set
     if not permissions_in_request and not data.permissions:
         return
-    if user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN.value:
+    if user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN.value:
         return
     raise HTTPException(
         status_code=403,
@@ -1025,7 +1025,7 @@ def _check_budget_limits_delegation_ceiling(
     delegation_ceiling: float | None,
     user_api_key_dict: UserAPIKeyAuth,
     is_ui_session_team_key: bool,
-    team_table: LiteLLM_TeamTableCachedObj | None,
+    team_table: EmbRouter_TeamTableCachedObj | None,
 ) -> None:
     """
     Enforce three invariants on `budget_limits`:
@@ -1045,7 +1045,7 @@ def _check_budget_limits_delegation_ceiling(
             status_code=400,
             detail={"error": (f"budget_limits entry max_budget ({non_finite.max_budget}) must be a finite number.")},
         )
-    if user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN.value:
+    if user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN.value:
         return
     if is_ui_session_team_key:
         return
@@ -1130,12 +1130,12 @@ def _enforce_upperbound_key_params(
                     detail={"error": f"{key} must be a finite number. Received: {value}"},
                 )
 
-    if litellm.upperbound_key_generate_params is None:
+    if embrouter.upperbound_key_generate_params is None:
         return
 
     for elem in data:
         key, value = elem
-        upperbound_value = getattr(litellm.upperbound_key_generate_params, key, None)
+        upperbound_value = getattr(embrouter.upperbound_key_generate_params, key, None)
         if upperbound_value is not None:
             if value is None:
                 if fill_defaults:
@@ -1172,12 +1172,12 @@ def _enforce_upperbound_key_params(
 async def _common_key_generation_helper(
     data: GenerateKeyRequest,
     user_api_key_dict: UserAPIKeyAuth,
-    litellm_changed_by: str | None,
-    team_table: LiteLLM_TeamTableCachedObj | None,
+    embrouter_changed_by: str | None,
+    team_table: EmbRouter_TeamTableCachedObj | None,
 ) -> GenerateKeyResponse:
-    from litellm.proxy import proxy_server
-    from litellm.proxy.proxy_server import (
-        litellm_proxy_admin_name,
+    from embrouter.proxy import proxy_server
+    from embrouter.proxy.proxy_server import (
+        embrouter_proxy_admin_name,
         llm_router,
         premium_user,
         prisma_client,
@@ -1193,7 +1193,7 @@ async def _common_key_generation_helper(
     validate_budget_duration(data.budget_duration)
     raise_on_invalid_key_logging_config(data.metadata)
 
-    if data.throttle_on_budget_exceeded is True and user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN.value:
+    if data.throttle_on_budget_exceeded is True and user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN.value:
         raise HTTPException(
             status_code=403,
             detail={"error": "Only proxy admins can enable throttle_on_budget_exceeded on a key."},
@@ -1234,7 +1234,7 @@ async def _common_key_generation_helper(
     _requested_metadata: Final = data.metadata  # pyright: ignore[reportUnknownMemberType]  # request models declare `metadata` as bare dict
 
     # check if user set default key/generate params on config.yaml
-    if litellm.default_key_generate_params is not None:
+    if embrouter.default_key_generate_params is not None:
         for elem in _model_items(data):
             key, value = elem
             if (
@@ -1252,13 +1252,13 @@ async def _common_key_generation_helper(
                     "duration",
                 ]
             ):
-                default_value = litellm.default_key_generate_params.get(key)
+                default_value = embrouter.default_key_generate_params.get(key)
                 if default_value is not None:
                     setattr(data, key, default_value)
             elif key == "models" and value == []:
-                setattr(data, key, litellm.default_key_generate_params.get(key, []))
+                setattr(data, key, embrouter.default_key_generate_params.get(key, []))
             elif key == "metadata" and value == {}:
-                setattr(data, key, litellm.default_key_generate_params.get(key, {}))
+                setattr(data, key, embrouter.default_key_generate_params.get(key, {}))
 
     # check if user set upperbound key/generate params on config.yaml
     _enforce_upperbound_key_params(data, fill_defaults=True)
@@ -1270,7 +1270,7 @@ async def _common_key_generation_helper(
     is_ui_session_team_key = is_ui_session_token and _requested_team_id is not None
     if (
         user_api_key_dict.is_session_token
-        and user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN.value
+        and user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN.value
         and not is_ui_session_team_key
         and _requested_max_budget is not None
         and team_table is None
@@ -1292,7 +1292,7 @@ async def _common_key_generation_helper(
         else (team_table.max_budget if user_api_key_dict.is_session_token and team_table is not None else None)
     )
     if (
-        user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN.value
+        user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN.value
         and not is_ui_session_team_key
         and _requested_max_budget is not None
         and delegation_ceiling is not None
@@ -1327,14 +1327,14 @@ async def _common_key_generation_helper(
 
     # APPLY ENTERPRISE KEY MANAGEMENT PARAMS
     try:
-        from litellm_enterprise.proxy.management_endpoints.key_management_endpoints import (
+        from embrouter_enterprise.proxy.management_endpoints.key_management_endpoints import (
             apply_enterprise_key_management_params,
         )
 
         data = apply_enterprise_key_management_params(data, team_table)
     except Exception as e:
         verbose_proxy_logger.debug(
-            "litellm.proxy.proxy_server.generate_key_fn(): Enterprise key management params not applied - %s", e
+            "embrouter.proxy.proxy_server.generate_key_fn(): Enterprise key management params not applied - %s", e
         )
 
     await _enforce_custom_key_policy(
@@ -1347,28 +1347,28 @@ async def _common_key_generation_helper(
         ),
     )
 
-    # TODO: @ishaan-jaff: Migrate all budget tracking to use LiteLLM_BudgetTable
+    # TODO: @ishaan-jaff: Migrate all budget tracking to use EmbRouter_BudgetTable
     _budget_id = data.budget_id
     if prisma_client is not None and data.soft_budget is not None:
-        # create the Budget Row for the LiteLLM Verification Token
-        budget_row: Final = LiteLLM_BudgetTable(
+        # create the Budget Row for the EmbRouter Verification Token
+        budget_row: Final = EmbRouter_BudgetTable(
             soft_budget=data.soft_budget,
             model_max_budget=data.model_max_budget or {},
         )
         new_budget: Final = prisma_client.jsonify_object(budget_row.json(exclude_none=True))
 
-        _budget: Final[prisma_models.LiteLLM_BudgetTable] = await BudgetRepository(prisma_client).table.create(
+        _budget: Final[prisma_models.EmbRouter_BudgetTable] = await BudgetRepository(prisma_client).table.create(
             data={
                 **new_budget,
-                "created_by": user_api_key_dict.user_id or litellm_proxy_admin_name,
-                "updated_by": user_api_key_dict.user_id or litellm_proxy_admin_name,
+                "created_by": user_api_key_dict.user_id or embrouter_proxy_admin_name,
+                "updated_by": user_api_key_dict.user_id or embrouter_proxy_admin_name,
             }
         )
         _budget_id = getattr(_budget, "budget_id", None)
 
     # ADD METADATA FIELDS
     # Set Management Endpoint Metadata Fields
-    for field in LiteLLM_ManagementEndpoint_MetadataFields_Premium:
+    for field in EmbRouter_ManagementEndpoint_MetadataFields_Premium:
         if getattr(data, field, None) is not None:
             _set_object_metadata_field(
                 object_data=data,
@@ -1377,7 +1377,7 @@ async def _common_key_generation_helper(
             )
             delattr(data, field)
 
-    for field in LiteLLM_ManagementEndpoint_MetadataFields:
+    for field in EmbRouter_ManagementEndpoint_MetadataFields:
         if getattr(data, field, None) is not None:
             _set_object_metadata_field(
                 object_data=data,
@@ -1409,7 +1409,7 @@ async def _common_key_generation_helper(
 
     # Only set budget_duration on key when explicitly provided. Keys with budget_id
     # but no explicit budget_duration follow their linked budget tier's schedule;
-    # reset_budget_for_litellm_budget_table() resets them when the tier resets.
+    # reset_budget_for_embrouter_budget_table() resets them when the tier resets.
     # This avoids duplicating budget_duration on keys so tier updates apply automatically.
     if "budget_duration" in data_json:
         data_json["key_budget_duration"] = data_json.pop("budget_duration", None)
@@ -1420,7 +1420,7 @@ async def _common_key_generation_helper(
 
     # Set tags on the new key
     if "tags" in data_json:
-        from litellm.proxy.proxy_server import premium_user
+        from embrouter.proxy.proxy_server import premium_user
 
         if premium_user is not True and data_json["tags"] is not None:
             raise ValueError(f"Only premium users can add tags to keys. {CommonProxyErrors.not_premium_user.value}")
@@ -1434,7 +1434,7 @@ async def _common_key_generation_helper(
         data_json.pop("tags")
 
     # Validate MCP servers in object_permission are within team scope
-    _is_proxy_admin_caller: Final = user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN.value
+    _is_proxy_admin_caller: Final = user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN.value
     normalized_object_permission: Final = await validate_key_mcp_servers_against_team(
         object_permission=data_json.get("object_permission"),
         team_obj=team_table,
@@ -1459,8 +1459,8 @@ async def _common_key_generation_helper(
     # is never mistaken for a caller-requested permission and rejected by those
     # non-admin/no-team checks. Only fields the caller left unset are filled in.
     _default_object_permission: Final = (
-        litellm.default_key_generate_params.get("object_permission")
-        if litellm.default_key_generate_params is not None
+        embrouter.default_key_generate_params.get("object_permission")
+        if embrouter.default_key_generate_params is not None
         else None
     )
     if isinstance(_default_object_permission, dict):
@@ -1491,20 +1491,20 @@ async def _common_key_generation_helper(
         _masked: Final = f"{data.key[:4]}****{data.key[-4:]}" if len(data.key) > 8 else "****"
         raise HTTPException(
             status_code=400,
-            detail={"error": f"Invalid key format. LiteLLM Virtual Key must start with 'sk-'. Received: {_masked}"},
+            detail={"error": f"Invalid key format. EmbRouter Virtual Key must start with 'sk-'. Received: {_masked}"},
         )
 
     if data.key is not None and len(data.key) < MINIMUM_CUSTOM_KEY_LENGTH:
         raise HTTPException(
             status_code=400,
             detail={
-                "error": f"Invalid key format. LiteLLM Virtual Key must be at least {MINIMUM_CUSTOM_KEY_LENGTH} characters long."
+                "error": f"Invalid key format. EmbRouter Virtual Key must be at least {MINIMUM_CUSTOM_KEY_LENGTH} characters long."
             },
         )
 
     # check org key limits - done here to handle inheriting org id from team
     if data.organization_id is not None:
-        from litellm.proxy.proxy_server import prisma_client, user_api_key_cache
+        from embrouter.proxy.proxy_server import prisma_client, user_api_key_cache
 
         if prisma_client:
             # Mirror the membership rule applied to /key/update: when the
@@ -1512,7 +1512,7 @@ async def _common_key_generation_helper(
             # member of (or proxy admin over) the target organization.
             _is_proxy_admin: Final = (
                 user_api_key_dict.user_role is not None
-                and user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN.value
+                and user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN.value
             )
             _org_inherited_from_team: Final = (
                 team_table is not None
@@ -1555,7 +1555,7 @@ async def _common_key_generation_helper(
             data=data,
             response=response,
             user_api_key_dict=user_api_key_dict,
-            litellm_changed_by=litellm_changed_by,
+            embrouter_changed_by=embrouter_changed_by,
         )
     )
 
@@ -1563,7 +1563,7 @@ async def _common_key_generation_helper(
 
 
 def _check_key_model_specific_limits(
-    keys: Sequence[LiteLLM_VerificationToken],
+    keys: Sequence[EmbRouter_VerificationToken],
     data: GenerateKeyRequest | UpdateKeyRequest,
     entity_rpm_limit: int | None,
     entity_tpm_limit: int | None,
@@ -1634,7 +1634,7 @@ def _check_key_model_specific_limits(
 
 
 def _check_key_rpm_tpm_limits(
-    keys: Sequence[LiteLLM_VerificationToken],
+    keys: Sequence[EmbRouter_VerificationToken],
     data: GenerateKeyRequest | UpdateKeyRequest,
     entity_rpm_limit: int | None,
     entity_tpm_limit: int | None,
@@ -1672,8 +1672,8 @@ def _check_key_rpm_tpm_limits(
 
 
 def check_team_key_model_specific_limits(
-    keys: Sequence[LiteLLM_VerificationToken],
-    team_table: LiteLLM_TeamTableCachedObj,
+    keys: Sequence[EmbRouter_VerificationToken],
+    team_table: EmbRouter_TeamTableCachedObj,
     data: GenerateKeyRequest | UpdateKeyRequest,
 ) -> None:
     """
@@ -1697,8 +1697,8 @@ def check_team_key_model_specific_limits(
 
 
 def check_team_key_rpm_tpm_limits(
-    keys: Sequence[LiteLLM_VerificationToken],
-    team_table: LiteLLM_TeamTableCachedObj,
+    keys: Sequence[EmbRouter_VerificationToken],
+    team_table: EmbRouter_TeamTableCachedObj,
     data: GenerateKeyRequest | UpdateKeyRequest,
 ) -> None:
     """
@@ -1714,7 +1714,7 @@ def check_team_key_rpm_tpm_limits(
 
 
 async def _check_team_key_limits(
-    team_table: LiteLLM_TeamTableCachedObj,
+    team_table: EmbRouter_TeamTableCachedObj,
     data: GenerateKeyRequest | UpdateKeyRequest,
     prisma_client: PrismaClient,
 ) -> None:
@@ -1792,8 +1792,8 @@ async def _check_project_key_limits(
 
     # Validate key max_budget <= project max_budget
     project_max_budget = None
-    if project_obj.litellm_budget_table is not None:
-        project_max_budget = getattr(project_obj.litellm_budget_table, "max_budget", None)
+    if project_obj.embrouter_budget_table is not None:
+        project_max_budget = getattr(project_obj.embrouter_budget_table, "max_budget", None)
 
     if data.max_budget is not None and project_max_budget is not None and data.max_budget > project_max_budget:
         raise HTTPException(
@@ -1805,8 +1805,8 @@ async def _check_project_key_limits(
 
 
 def check_org_key_model_specific_limits(
-    keys: Sequence[LiteLLM_VerificationToken],
-    org_table: LiteLLM_OrganizationTable,
+    keys: Sequence[EmbRouter_VerificationToken],
+    org_table: EmbRouter_OrganizationTable,
     data: GenerateKeyRequest | UpdateKeyRequest,
 ) -> None:
     """
@@ -1818,9 +1818,9 @@ def check_org_key_model_specific_limits(
     entity_model_rpm_limit_dict = {}
     entity_model_tpm_limit_dict = {}
 
-    if org_table.litellm_budget_table is not None:
-        entity_rpm_limit = org_table.litellm_budget_table.rpm_limit
-        entity_tpm_limit = org_table.litellm_budget_table.tpm_limit
+    if org_table.embrouter_budget_table is not None:
+        entity_rpm_limit = org_table.embrouter_budget_table.rpm_limit
+        entity_tpm_limit = org_table.embrouter_budget_table.tpm_limit
 
     if org_table.metadata:
         entity_model_rpm_limit_dict = org_table.metadata.get("model_rpm_limit", {})
@@ -1838,8 +1838,8 @@ def check_org_key_model_specific_limits(
 
 
 def check_org_key_rpm_tpm_limits(
-    keys: Sequence[LiteLLM_VerificationToken],
-    org_table: LiteLLM_OrganizationTable,
+    keys: Sequence[EmbRouter_VerificationToken],
+    org_table: EmbRouter_OrganizationTable,
     data: GenerateKeyRequest | UpdateKeyRequest,
 ) -> None:
     """
@@ -1849,9 +1849,9 @@ def check_org_key_rpm_tpm_limits(
     entity_rpm_limit = None
     entity_tpm_limit = None
 
-    if org_table.litellm_budget_table is not None:
-        entity_rpm_limit = org_table.litellm_budget_table.rpm_limit
-        entity_tpm_limit = org_table.litellm_budget_table.tpm_limit
+    if org_table.embrouter_budget_table is not None:
+        entity_rpm_limit = org_table.embrouter_budget_table.rpm_limit
+        entity_tpm_limit = org_table.embrouter_budget_table.tpm_limit
 
     _check_key_rpm_tpm_limits(
         keys=keys,
@@ -1895,7 +1895,7 @@ async def _validate_caller_can_assign_key_org(
 
 
 async def _check_org_key_limits(
-    org_table: LiteLLM_OrganizationTable,
+    org_table: EmbRouter_OrganizationTable,
     data: GenerateKeyRequest | UpdateKeyRequest,
     prisma_client: PrismaClient,
 ) -> None:
@@ -1947,9 +1947,9 @@ async def _check_org_key_limits(
 async def generate_key_fn(
     data: GenerateKeyRequest,
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
-    litellm_changed_by: str | None = Header(
+    embrouter_changed_by: str | None = Header(
         None,
-        description="The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability",
+        description="The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability",
     ),
 ):
     """
@@ -1967,7 +1967,7 @@ async def generate_key_fn(
     - organization_id: Optional[str] - The organization id of the key. If not set, and team_id is set, the organization id will be the same as the team id. If conflict, an error will be raised.
     - project_id: Optional[str] - The project id of the key. When set, models and max_budget are validated against the project's limits.
     - budget_id: Optional[str] - The budget id associated with the key. Created by calling `/budget/new`.
-    - end_user_budget_id: Optional[str] - Proxy admin only. Budget id applied to end users first seen through this key that carry no budget of their own. Takes precedence over `litellm_settings.max_end_user_budget_id`.
+    - end_user_budget_id: Optional[str] - Proxy admin only. Budget id applied to end users first seen through this key that carry no budget of their own. Takes precedence over `embrouter_settings.max_end_user_budget_id`.
     - models: Optional[list] - Model_name's a user is allowed to call. (if empty, key is allowed to call all models)
     - aliases: Optional[dict] - Any alias mappings, on top of anything in the config.yaml model list.
     - config: Optional[dict] - any key-specific configs, overrides config in config.yaml
@@ -1999,13 +1999,13 @@ async def generate_key_fn(
     - tpm_limit: Optional[int] - Specify tpm limit for a given key (Tokens per minute)
     - tpd_limit: Optional[int] - Specify tpd limit for a given key (Tokens per day). Charged by batch submissions instead of tpm_limit/rpm_limit.
     - soft_budget: Optional[float] - Specify soft budget for a given key. Will trigger a slack alert when this soft budget is reached.
-    - tags: Optional[List[str]] - Tags for [tracking spend](https://litellm.vercel.app/docs/proxy/enterprise#tracking-spend-for-custom-tags) and/or doing [tag-based routing](https://litellm.vercel.app/docs/proxy/tag_routing).
+    - tags: Optional[List[str]] - Tags for [tracking spend](https://embrouter.vercel.app/docs/proxy/enterprise#tracking-spend-for-custom-tags) and/or doing [tag-based routing](https://embrouter.vercel.app/docs/proxy/tag_routing).
     - prompts: Optional[List[str]] - List of prompts that the key is allowed to use.
     - enforced_params: Optional[List[str]] - List of enforced params for the key (Enterprise only).
     - prompts: Optional[List[str]] - List of prompts that the key is allowed to use.
     - allowed_routes: Optional[list] - List of allowed routes for the key. Store the actual route or store a wildcard pattern for a set of routes. Example - ["/chat/completions", "/embeddings", "/keys/*"]
     - allowed_passthrough_routes: Optional[list] - List of allowed pass through endpoints for the key. Store the actual endpoint or store a wildcard pattern for a set of endpoints. Example - ["/my-custom-endpoint"]. Use this instead of allowed_routes, if you just want to specify which pass through endpoints the key can access, without specifying the routes. If allowed_routes is specified, allowed_pass_through_endpoints is ignored.
-    - object_permission: Optional[LiteLLM_ObjectPermissionBase] - key-specific object permission. Example - {"vector_stores": ["vector_store_1", "vector_store_2"], "agents": ["agent_1", "agent_2"], "agent_access_groups": ["dev_group"]}. IF null or {} then no object permission.
+    - object_permission: Optional[EmbRouter_ObjectPermissionBase] - key-specific object permission. Example - {"vector_stores": ["vector_store_1", "vector_store_2"], "agents": ["agent_1", "agent_2"], "agent_access_groups": ["dev_group"]}. IF null or {} then no object permission.
     - key_type: Optional[str] - Type of key that determines default allowed routes. Options: "llm_api" (can call LLM API routes), "management" (can call management routes), "read_only" (can only call info/read routes), "default" (uses default allowed routes). Defaults to "default".
     - prompts: Optional[List[str]] - List of allowed prompts for the key. If specified, the key will only be able to use these specific prompts.
     - auto_rotate: Optional[bool] - Whether this key should be automatically rotated (regenerated)
@@ -2034,9 +2034,9 @@ async def generate_key_fn(
     - user_id: (str) Unique user id - used for tracking spend across multiple keys for same user id.
     """
     try:
-        from litellm.proxy import proxy_server
-        from litellm.proxy._types import CommonProxyErrors
-        from litellm.proxy.proxy_server import (
+        from embrouter.proxy import proxy_server
+        from embrouter.proxy._types import CommonProxyErrors
+        from embrouter.proxy.proxy_server import (
             prisma_client,
             user_api_key_cache,
         )
@@ -2087,7 +2087,7 @@ async def generate_key_fn(
         # This prevents creating unbound keys with no user association (LIT-1884)
         _is_proxy_admin: Final = (
             user_api_key_dict.user_role is not None
-            and user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN.value
+            and user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN.value
         )
         if not _is_proxy_admin and data.user_id is None:
             data.user_id = user_api_key_dict.user_id
@@ -2096,7 +2096,7 @@ async def generate_key_fn(
                 user_api_key_dict.user_id,
             )
 
-        team_table: LiteLLM_TeamTableCachedObj | None = None
+        team_table: EmbRouter_TeamTableCachedObj | None = None
         if data.team_id is not None:
             try:
                 team_table = await get_team_object(
@@ -2141,12 +2141,12 @@ async def generate_key_fn(
         return await _common_key_generation_helper(
             data=data,
             user_api_key_dict=user_api_key_dict,
-            litellm_changed_by=litellm_changed_by,
+            embrouter_changed_by=embrouter_changed_by,
             team_table=team_table,
         )
 
     except Exception as e:
-        verbose_proxy_logger.exception("litellm.proxy.proxy_server.generate_key_fn(): Exception occured - %s", e)
+        verbose_proxy_logger.exception("embrouter.proxy.proxy_server.generate_key_fn(): Exception occured - %s", e)
         raise handle_exception_on_proxy(e)
 
 
@@ -2159,9 +2159,9 @@ async def generate_key_fn(
 async def generate_service_account_key_fn(
     data: GenerateKeyRequest,
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
-    litellm_changed_by: str | None = Header(
+    embrouter_changed_by: str | None = Header(
         None,
-        description="The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability",
+        description="The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability",
     ),
 ):
     """
@@ -2207,10 +2207,10 @@ async def generate_service_account_key_fn(
     - tpm_limit: Optional[int] - Specify tpm limit for a given key (Tokens per minute)
     - tpd_limit: Optional[int] - Specify tpd limit for a given key (Tokens per day). Charged by batch submissions instead of tpm_limit/rpm_limit.
     - soft_budget: Optional[float] - Specify soft budget for a given key. Will trigger a slack alert when this soft budget is reached.
-    - tags: Optional[List[str]] - Tags for [tracking spend](https://litellm.vercel.app/docs/proxy/enterprise#tracking-spend-for-custom-tags) and/or doing [tag-based routing](https://litellm.vercel.app/docs/proxy/tag_routing).
+    - tags: Optional[List[str]] - Tags for [tracking spend](https://embrouter.vercel.app/docs/proxy/enterprise#tracking-spend-for-custom-tags) and/or doing [tag-based routing](https://embrouter.vercel.app/docs/proxy/tag_routing).
     - enforced_params: Optional[List[str]] - List of enforced params for the key (Enterprise only).
     - allowed_routes: Optional[list] - List of allowed routes for the key. Store the actual route or store a wildcard pattern for a set of routes. Example - ["/chat/completions", "/embeddings", "/keys/*"]
-    - object_permission: Optional[LiteLLM_ObjectPermissionBase] - key-specific object permission. Example - {"vector_stores": ["vector_store_1", "vector_store_2"], "agents": ["agent_1", "agent_2"], "agent_access_groups": ["dev_group"]}. IF null or {} then no object permission.
+    - object_permission: Optional[EmbRouter_ObjectPermissionBase] - key-specific object permission. Example - {"vector_stores": ["vector_store_1", "vector_store_2"], "agents": ["agent_1", "agent_2"], "agent_access_groups": ["dev_group"]}. IF null or {} then no object permission.
     Examples:
     - allowed_vector_store_indexes: Optional[List[dict]] - List of allowed vector store indexes for the key. Example - [{"index_name": "my-index", "index_permissions": ["write", "read"]}]. If specified, the key will only be able to use these specific vector store indexes. Create index, using `/v1/indexes` endpoint.
 
@@ -2232,9 +2232,9 @@ async def generate_service_account_key_fn(
     - user_id: (str) Unique user id - used for tracking spend across multiple keys for same user id.
 
     """
-    from litellm.proxy import proxy_server
-    from litellm.proxy._types import CommonProxyErrors
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy import proxy_server
+    from embrouter.proxy._types import CommonProxyErrors
+    from embrouter.proxy.proxy_server import (
         prisma_client,
         user_api_key_cache,
     )
@@ -2284,7 +2284,7 @@ async def generate_service_account_key_fn(
         message: Final = result.get("message", "Authentication Failed - Custom Auth Rule")
         if not decision:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=message)
-    team_table: LiteLLM_TeamTableCachedObj | None = None
+    team_table: EmbRouter_TeamTableCachedObj | None = None
     if data.team_id is not None:
         try:
             team_table = await get_team_object(
@@ -2317,14 +2317,14 @@ async def generate_service_account_key_fn(
     return await _common_key_generation_helper(
         data=data,
         user_api_key_dict=user_api_key_dict,
-        litellm_changed_by=litellm_changed_by,
+        embrouter_changed_by=embrouter_changed_by,
         team_table=team_table,
     )
 
 
 def prepare_metadata_fields(data: BaseModel, non_default_values: dict, existing_metadata: dict) -> dict:
     """
-    Check LiteLLM_ManagementEndpoint_MetadataFields (proxy/_types.py) for fields that are allowed to be updated
+    Check EmbRouter_ManagementEndpoint_MetadataFields (proxy/_types.py) for fields that are allowed to be updated
     """
     raise_on_invalid_key_logging_config(non_default_values.get("metadata"))
 
@@ -2335,7 +2335,7 @@ def prepare_metadata_fields(data: BaseModel, non_default_values: dict, existing_
 
     # Reserved metadata fields are immutable once set. Preserve the existing value
     # when omitted, reject any explicit attempt to change it (including null).
-    for reserved_field in LiteLLM_Reserved_Metadata_Fields:
+    for reserved_field in EmbRouter_Reserved_Metadata_Fields:
         existing_value = existing_metadata.get(reserved_field)
         if existing_value is None:
             continue
@@ -2352,13 +2352,13 @@ def prepare_metadata_fields(data: BaseModel, non_default_values: dict, existing_
 
     try:
         for k, v in data_json.items():
-            if k in LiteLLM_ManagementEndpoint_MetadataFields:
+            if k in EmbRouter_ManagementEndpoint_MetadataFields:
                 if isinstance(v, datetime):
                     casted_metadata[k] = v.isoformat()
                 else:
                     casted_metadata[k] = v
-            if k in LiteLLM_ManagementEndpoint_MetadataFields_Premium:
-                from litellm.proxy.utils import _premium_user_check
+            if k in EmbRouter_ManagementEndpoint_MetadataFields_Premium:
+                from embrouter.proxy.utils import _premium_user_check
 
                 if v:
                     _premium_user_check(k)
@@ -2366,7 +2366,7 @@ def prepare_metadata_fields(data: BaseModel, non_default_values: dict, existing_
 
     except Exception as e:
         verbose_proxy_logger.exception(
-            "litellm.proxy.proxy_server.prepare_metadata_fields(): Exception occured - %s", e
+            "embrouter.proxy.proxy_server.prepare_metadata_fields(): Exception occured - %s", e
         )
 
     non_default_values["metadata"] = encrypt_callback_vars(casted_metadata)
@@ -2383,7 +2383,7 @@ def _validate_soft_budget_value(soft_budget: float | None) -> None:
 
 async def _update_key_soft_budget(
     db: _KeyUpdateTx,
-    existing_key_row: LiteLLM_VerificationToken,
+    existing_key_row: EmbRouter_VerificationToken,
     soft_budget: float | None,
     changed_by: str,
 ) -> str | None:
@@ -2391,7 +2391,7 @@ async def _update_key_soft_budget(
     if existing_budget_id is not None:
         budget_update: Final[_BudgetRowSoftBudgetUpdate] = {"soft_budget": soft_budget, "updated_by": changed_by}
         budget_where: Final[_BudgetRowWhere] = {"budget_id": existing_budget_id}
-        await db.litellm_budgettable.update(where=budget_where, data=budget_update)
+        await db.embrouter_budgettable.update(where=budget_where, data=budget_update)
         return existing_budget_id
     if soft_budget is None:
         return None
@@ -2400,7 +2400,7 @@ async def _update_key_soft_budget(
         "created_by": changed_by,
         "updated_by": changed_by,
     }
-    created_budget: Final = await db.litellm_budgettable.create(data=budget_create)
+    created_budget: Final = await db.embrouter_budgettable.create(data=budget_create)
     return created_budget.budget_id
 
 
@@ -2408,7 +2408,7 @@ async def _apply_soft_budget_update(
     data: UpdateKeyRequest,
     non_default_values: Mapping[str, object],
     db: _KeyUpdateTx,
-    existing_key_row: LiteLLM_VerificationToken,
+    existing_key_row: EmbRouter_VerificationToken,
     changed_by: str,
 ) -> Mapping[str, object]:
     remaining: Final = MappingProxyType({k: v for k, v in non_default_values.items() if k != "soft_budget"})
@@ -2428,7 +2428,7 @@ async def _update_key_row_with_soft_budget(
     key: str,
     data: UpdateKeyRequest,
     non_default_values: Mapping[str, object],
-    existing_key_row: LiteLLM_VerificationToken,
+    existing_key_row: EmbRouter_VerificationToken,
     changed_by: str,
 ) -> _KeyUpdateResult:
     hashed_token: Final = _hash_token_if_needed(key)
@@ -2442,8 +2442,8 @@ async def _update_key_row_with_soft_budget(
             existing_key_row=existing_key_row,
             changed_by=changed_by,
         )
-        include_object_permission: Final[prisma.types.LiteLLM_VerificationTokenInclude] = {"object_permission": True}
-        updated_row: Final = await tx.litellm_verificationtoken.update(
+        include_object_permission: Final[prisma.types.EmbRouter_VerificationTokenInclude] = {"object_permission": True}
+        updated_row: Final = await tx.embrouter_verificationtoken.update(
             where=key_where,
             data=with_settings_updated_at(
                 prisma_client.jsonify_object(MappingProxyType({**update_values, "token": hashed_token}))
@@ -2459,7 +2459,7 @@ async def _update_key_row_with_soft_budget(
 
 async def prepare_key_update_data(
     data: UpdateKeyRequest | RegenerateKeyRequest,
-    existing_key_row: LiteLLM_VerificationToken,
+    existing_key_row: EmbRouter_VerificationToken,
     *,
     prisma_client: PrismaClient | None = None,
     llm_router: Router | None = None,
@@ -2496,7 +2496,7 @@ async def prepare_key_update_data(
     non_default_values = {}
     # ADD METADATA FIELDS
     # Set Management Endpoint Metadata Fields
-    for field in LiteLLM_ManagementEndpoint_MetadataFields_Premium:
+    for field in EmbRouter_ManagementEndpoint_MetadataFields_Premium:
         if getattr(data, field, None) is not None:
             _set_object_metadata_field(
                 object_data=data,
@@ -2504,7 +2504,7 @@ async def prepare_key_update_data(
                 value=getattr(data, field),
             )
     for k, v in data_json.items():
-        if k in LiteLLM_ManagementEndpoint_MetadataFields or k in LiteLLM_ManagementEndpoint_MetadataFields_Premium:
+        if k in EmbRouter_ManagementEndpoint_MetadataFields or k in EmbRouter_ManagementEndpoint_MetadataFields_Premium:
             continue
         non_default_values[k] = v
 
@@ -2524,7 +2524,7 @@ async def prepare_key_update_data(
             non_default_values["budget_duration"] = None
             non_default_values["budget_reset_at"] = None
         elif isinstance(budget_duration, str) and len(budget_duration) > 0:
-            from litellm.proxy.common_utils.timezone_utils import get_budget_reset_time
+            from embrouter.proxy.common_utils.timezone_utils import get_budget_reset_time
 
             key_reset_at: Final = get_budget_reset_time(budget_duration=budget_duration)
             non_default_values["budget_reset_at"] = key_reset_at
@@ -2533,7 +2533,7 @@ async def prepare_key_update_data(
     if "budget_limits" in non_default_values:
         raw_windows: Final = non_default_values["budget_limits"]
         if raw_windows:
-            from litellm.proxy.common_utils.timezone_utils import get_budget_reset_time
+            from embrouter.proxy.common_utils.timezone_utils import get_budget_reset_time
 
             initialized_windows: Final = []
             for window in raw_windows:
@@ -2565,7 +2565,7 @@ async def prepare_key_update_data(
 
 async def _handle_update_object_permission(
     data_json: dict,
-    existing_key_row: LiteLLM_VerificationToken,
+    existing_key_row: EmbRouter_VerificationToken,
     prisma_client: PrismaClient,
 ) -> dict:
     """Persist the requested object permission row and swap it for its id, only after the key policy allowed the write."""
@@ -2586,7 +2586,7 @@ async def _handle_update_object_permission(
     return data_json
 
 
-def is_different_team(data: UpdateKeyRequest, existing_key_row: LiteLLM_VerificationToken) -> bool:
+def is_different_team(data: UpdateKeyRequest, existing_key_row: EmbRouter_VerificationToken) -> bool:
     if data.team_id is None:
         return False
     if existing_key_row.team_id is None:
@@ -2613,7 +2613,7 @@ def _validate_max_budget(max_budget: float | None) -> None:
 
 async def _get_and_validate_existing_key(
     token: str | None, prisma_client: PrismaClient | None, key_alias: str | None = None
-) -> LiteLLM_VerificationToken:
+) -> EmbRouter_VerificationToken:
     """
     Get existing key from database and validate it exists.
 
@@ -2623,7 +2623,7 @@ async def _get_and_validate_existing_key(
         key_alias: Alias to look the key up by when token is not provided
 
     Returns:
-        LiteLLM_VerificationToken: The existing key row
+        EmbRouter_VerificationToken: The existing key row
 
     Raises:
         ProxyException: 404 if key is not found, 400 if the alias matches multiple keys
@@ -2637,7 +2637,7 @@ async def _get_and_validate_existing_key(
     if token is not None:
         hashed_token: Final = _hash_token_if_needed(token=token)
 
-        existing_key_row: Final[LiteLLM_VerificationToken | None] = await _prisma_table(
+        existing_key_row: Final[EmbRouter_VerificationToken | None] = await _prisma_table(
             VerificationTokenRepository(prisma_client)
         ).find_unique(where={"token": hashed_token}, include={"object_permission": True})
 
@@ -2659,7 +2659,7 @@ async def _get_and_validate_existing_key(
             code=status.HTTP_400_BAD_REQUEST,
         )
 
-    rows: Sequence[LiteLLM_VerificationToken] = await _prisma_table(
+    rows: Sequence[EmbRouter_VerificationToken] = await _prisma_table(
         VerificationTokenRepository(prisma_client)
     ).find_many(where={"key_alias": key_alias}, take=2)
 
@@ -2682,7 +2682,7 @@ async def _get_and_validate_existing_key(
     return rows[0]
 
 
-def _resolve_token_to_update(data: UpdateKeyRequest, existing_key_row: LiteLLM_VerificationToken) -> str:
+def _resolve_token_to_update(data: UpdateKeyRequest, existing_key_row: EmbRouter_VerificationToken) -> str:
     if data.key is not None:
         return data.key
     if existing_key_row.token is None:
@@ -2698,13 +2698,13 @@ def _resolve_token_to_update(data: UpdateKeyRequest, existing_key_row: LiteLLM_V
 async def _process_single_key_update(
     update_key_request: UpdateKeyRequest,
     user_api_key_dict: UserAPIKeyAuth,
-    litellm_changed_by: str | None,
+    embrouter_changed_by: str | None,
     prisma_client: PrismaClient | None,
     user_api_key_cache: UserApiKeyCache,
     proxy_logging_obj: ProxyLogging,
     llm_router: Router | None,
     user_custom_key_update: Callable | None = None,
-    existing_key_row: LiteLLM_VerificationToken | None = None,
+    existing_key_row: EmbRouter_VerificationToken | None = None,
     user_custom_key_policy: Callable[..., Awaitable[Mapping[str, object]]] | None = None,
 ) -> dict[str, object]:
     """
@@ -2716,7 +2716,7 @@ async def _process_single_key_update(
     Args:
         update_key_request: Fully-constructed UpdateKeyRequest for the target key
         user_api_key_dict: The authenticated user's API key info
-        litellm_changed_by: Optional header for tracking who made the change
+        embrouter_changed_by: Optional header for tracking who made the change
         prisma_client: Prisma client instance
         user_api_key_cache: User API key cache
         proxy_logging_obj: Proxy logging object
@@ -2748,7 +2748,7 @@ async def _process_single_key_update(
         update_key_request.disable_global_guardrails,
         update_key_request.metadata,  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]  # request models declare `metadata` as bare dict
         user_api_key_dict,
-        existing_metadata=existing_key_row.metadata,  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]  # LiteLLM_VerificationToken.metadata is a bare dict
+        existing_metadata=existing_key_row.metadata,  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]  # EmbRouter_VerificationToken.metadata is a bare dict
     )
 
     enforce_batch_enqueued_token_limit_is_admin_only(
@@ -2783,7 +2783,7 @@ async def _process_single_key_update(
     _enforce_upperbound_key_params(update_key_request, fill_defaults=False)
 
     # Get team object and check team limits if team_id is provided
-    team_obj: LiteLLM_TeamTableCachedObj | None = None
+    team_obj: EmbRouter_TeamTableCachedObj | None = None
     if update_key_request.team_id is not None:
         team_obj = await get_team_object(
             team_id=update_key_request.team_id,
@@ -2892,7 +2892,7 @@ async def _process_single_key_update(
             existing_key_row=existing_key_row,
             response=response,
             user_api_key_dict=user_api_key_dict,
-            litellm_changed_by=litellm_changed_by,
+            embrouter_changed_by=embrouter_changed_by,
         )
     )
 
@@ -2913,8 +2913,8 @@ async def _process_single_key_update(
 
 async def _with_validated_object_permission(
     update_key_request: UpdateKeyRequest,
-    team_obj: LiteLLM_TeamTableCachedObj | None,
-    existing_key_row: LiteLLM_VerificationToken,
+    team_obj: EmbRouter_TeamTableCachedObj | None,
+    existing_key_row: EmbRouter_VerificationToken,
     prisma_client: PrismaClient | None,
     user_api_key_cache: UserApiKeyCache,
     user_api_key_dict: UserAPIKeyAuth,
@@ -2927,19 +2927,19 @@ async def _with_validated_object_permission(
         existing_key_row=existing_key_row,
         prisma_client=prisma_client,
         user_api_key_cache=user_api_key_cache,
-        is_proxy_admin=user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN.value,
+        is_proxy_admin=user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN.value,
     )
     if normalized_object_permission is None:
         return update_key_request
     return update_key_request.model_copy(
-        update=MappingProxyType({"object_permission": LiteLLM_ObjectPermissionBase(**normalized_object_permission)})
+        update=MappingProxyType({"object_permission": EmbRouter_ObjectPermissionBase(**normalized_object_permission)})
     )
 
 
 async def _validate_mcp_servers_for_key_update(
     data: "UpdateKeyRequest",
-    team_obj: Optional["LiteLLM_TeamTableCachedObj"],
-    existing_key_row: LiteLLM_VerificationToken,
+    team_obj: Optional["EmbRouter_TeamTableCachedObj"],
+    existing_key_row: EmbRouter_VerificationToken,
     prisma_client: PrismaClient | None,
     user_api_key_cache: UserApiKeyCache,
     is_proxy_admin: bool,
@@ -3001,7 +3001,7 @@ async def _validate_end_user_budget_id_change(
     may change it, and a non-empty value must name an existing budget (empty clears it)."""
     if requested_budget_id is None or requested_budget_id == (existing_budget_id or ""):
         return
-    if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN.value:
+    if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN.value:
         forbidden_detail: Final = {  # mutable-ok: FastAPI detail contract
             "error": "Only proxy admins can set end_user_budget_id on a key."
         }
@@ -3020,7 +3020,7 @@ _GENERAL_SETTINGS: Final = TypeAdapter(dict[str, object])
 
 
 def _general_settings() -> Mapping[str, object]:
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,  # pyright: ignore[reportUnknownVariableType]  # untyped module-level dict in proxy_server
     )
 
@@ -3029,7 +3029,7 @@ def _general_settings() -> Mapping[str, object]:
 
 async def _acting_as_team_admin_for_key_update(
     data: UpdateKeyRequest,
-    existing_key_row: LiteLLM_VerificationToken,
+    existing_key_row: EmbRouter_VerificationToken,
     user_api_key_dict: UserAPIKeyAuth,
     checked_prisma_client: PrismaClient,
     user_api_key_cache: UserApiKeyCache,
@@ -3067,7 +3067,7 @@ async def _acting_as_team_admin_for_key_update(
 
 async def _validate_update_key_data(
     data: UpdateKeyRequest,
-    existing_key_row: LiteLLM_VerificationToken,
+    existing_key_row: EmbRouter_VerificationToken,
     user_api_key_dict: UserAPIKeyAuth,
     llm_router: Router | None,
     premium_user: bool,
@@ -3081,7 +3081,7 @@ async def _validate_update_key_data(
     validate_finite_spend(data.spend)
     validate_budget_duration(data.budget_duration)
 
-    _is_proxy_admin: Final = user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN.value
+    _is_proxy_admin: Final = user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN.value
 
     _enforce_allowed_routes_update_permission(
         data=data,
@@ -3100,7 +3100,7 @@ async def _validate_update_key_data(
         data.disable_global_guardrails,
         data.metadata,  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]  # request models declare `metadata` as bare dict
         user_api_key_dict,
-        existing_metadata=existing_key_row.metadata,  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]  # LiteLLM_VerificationToken.metadata is a bare dict
+        existing_metadata=existing_key_row.metadata,  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]  # EmbRouter_VerificationToken.metadata is a bare dict
     )
 
     _validate_caller_can_change_key_ownership(
@@ -3239,7 +3239,7 @@ async def _validate_update_key_data(
         )
 
     # Check team limits if key has a team_id (from request or existing key)
-    team_obj: LiteLLM_TeamTableCachedObj | None = None
+    team_obj: EmbRouter_TeamTableCachedObj | None = None
     _team_id_to_check: Final = data.team_id or getattr(existing_key_row, "team_id", None)
     if _team_id_to_check is not None:
         team_obj = await get_team_object(
@@ -3353,7 +3353,7 @@ async def _validate_update_key_data(
             is_proxy_admin=_is_proxy_admin,
         )
         if normalized_object_permission is not None:
-            data.object_permission = LiteLLM_ObjectPermissionBase(**normalized_object_permission)
+            data.object_permission = EmbRouter_ObjectPermissionBase(**normalized_object_permission)
 
 
 @router.post("/key/update", tags=["key management"], dependencies=[Depends(user_api_key_auth)])
@@ -3362,9 +3362,9 @@ async def update_key_fn(
     request: Request,
     data: UpdateKeyRequest,
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
-    litellm_changed_by: str | None = Header(
+    embrouter_changed_by: str | None = Header(
         None,
-        description="The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability",
+        description="The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability",
     ),
 ):
     """
@@ -3419,14 +3419,14 @@ async def update_key_fn(
     - enable_prompt_caching: Optional[bool] - Auto-inject prompt caching breakpoints (Anthropic cache_control markers) on requests made with this key. Supported Claude models on Anthropic, Bedrock, Vertex AI, and Azure AI only.
     - prompts: Optional[List[str]] - List of prompts that the key is allowed to use.
     - blocked: Optional[bool] - Whether the key is blocked
-    - aliases: Optional[dict] - Model aliases for the key - [Docs](https://litellm.vercel.app/docs/proxy/virtual_keys#model-aliases)
+    - aliases: Optional[dict] - Model aliases for the key - [Docs](https://embrouter.vercel.app/docs/proxy/virtual_keys#model-aliases)
     - config: Optional[dict] - [DEPRECATED PARAM] Key-specific config.
     - temp_budget_increase: Optional[float] - Temporary budget increase for the key (Enterprise only).
     - temp_budget_expiry: Optional[str] - Expiry time for the temporary budget increase (Enterprise only).
     - allowed_routes: Optional[list] - List of allowed routes for the key. Store the actual route or store a wildcard pattern for a set of routes. Example - ["/chat/completions", "/embeddings", "/keys/*"]
     - allowed_passthrough_routes: Optional[list] - List of allowed pass through routes for the key. Store the actual route or store a wildcard pattern for a set of routes. Example - ["/my-custom-endpoint"]. Use this instead of allowed_routes, if you just want to specify which pass through routes the key can access, without specifying the routes. If allowed_routes is specified, allowed_passthrough_routes is ignored.
     - prompts: Optional[List[str]] - List of allowed prompts for the key. If specified, the key will only be able to use these specific prompts.
-    - object_permission: Optional[LiteLLM_ObjectPermissionBase] - key-specific object permission. Example - {"vector_stores": ["vector_store_1", "vector_store_2"], "agents": ["agent_1", "agent_2"], "agent_access_groups": ["dev_group"]}. IF null or {} then no object permission.
+    - object_permission: Optional[EmbRouter_ObjectPermissionBase] - key-specific object permission. Example - {"vector_stores": ["vector_store_1", "vector_store_2"], "agents": ["agent_1", "agent_2"], "agent_access_groups": ["dev_group"]}. IF null or {} then no object permission.
     - auto_rotate: Optional[bool] - Whether this key should be automatically rotated
     - rotation_interval: Optional[str] - How often to rotate this key (e.g., '30d', '90d'). Required if auto_rotate=True
     - allowed_vector_store_indexes: Optional[List[dict]] - List of allowed vector store indexes for the key. Example - [{"index_name": "my-index", "index_permissions": ["write", "read"]}]. If specified, the key will only be able to use these specific vector store indexes. Create index, using `/v1/indexes` endpoint.
@@ -3449,9 +3449,9 @@ async def update_key_fn(
     }'
     ```
     """
-    from litellm.proxy import proxy_server
-    from litellm.proxy.proxy_server import (
-        litellm_proxy_admin_name,
+    from embrouter.proxy import proxy_server
+    from embrouter.proxy.proxy_server import (
+        embrouter_proxy_admin_name,
         llm_router,
         premium_user,
         prisma_client,
@@ -3533,7 +3533,7 @@ async def update_key_fn(
             existing_key_row=existing_key_row,
             prisma_client=prisma_client,
         )
-        changed_by: Final = user_api_key_dict.user_id or litellm_proxy_admin_name
+        changed_by: Final = user_api_key_dict.user_id or embrouter_proxy_admin_name
         response: Final = (
             await _update_key_row_with_soft_budget(
                 prisma_client=prisma_client,
@@ -3572,7 +3572,7 @@ async def update_key_fn(
         )
 
         if data.spend is not None:
-            from litellm.proxy.proxy_server import spend_counter_cache
+            from embrouter.proxy.proxy_server import spend_counter_cache
 
             counter_key: Final = f"spend:key:{_hash_token_if_needed(key)}"
             spend_counter_cache.in_memory_cache.set_cache(key=counter_key, value=data.spend, ttl=60)
@@ -3593,7 +3593,7 @@ async def update_key_fn(
                 existing_key_row=existing_key_row,
                 response=response,
                 user_api_key_dict=user_api_key_dict,
-                litellm_changed_by=litellm_changed_by,
+                embrouter_changed_by=embrouter_changed_by,
             )
         )
 
@@ -3603,7 +3603,7 @@ async def update_key_fn(
         return {"key": key, **response["data"]}
         # update based on remaining passed in values
     except Exception as e:
-        verbose_proxy_logger.exception("litellm.proxy.proxy_server.update_key_fn(): Exception occured - %s", e)
+        verbose_proxy_logger.exception("embrouter.proxy.proxy_server.update_key_fn(): Exception occured - %s", e)
         if isinstance(e, HTTPException):
             raise ProxyException(
                 message=getattr(e, "detail", f"Authentication Error({e})"),
@@ -3631,9 +3631,9 @@ async def update_key_fn(
 async def bulk_update_keys(
     data: BulkUpdateKeyRequest,
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
-    litellm_changed_by: str | None = Header(
+    embrouter_changed_by: str | None = Header(
         None,
-        description="The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability",
+        description="The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability",
     ),
 ):
     """
@@ -3649,7 +3649,7 @@ async def bulk_update_keys(
         - max_budget: Optional[float] - Max budget for key
         - team_id: Optional[str] - Team ID associated with key
         - tags: Optional[List[str]] - Tags for organizing keys
-        - object_permission: Optional[LiteLLM_ObjectPermissionBase] - key-specific object permission, as on /key/update
+        - object_permission: Optional[EmbRouter_ObjectPermissionBase] - key-specific object permission, as on /key/update
 
     Only the fields an item carries are written: a field left out keeps its current value, and a field
     sent explicitly, null included, is applied exactly as /key/update applies it.
@@ -3681,8 +3681,8 @@ async def bulk_update_keys(
     }'
     ```
     """
-    from litellm.proxy import proxy_server
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy import proxy_server
+    from embrouter.proxy.proxy_server import (
         llm_router,
         prisma_client,
         proxy_logging_obj,
@@ -3692,7 +3692,7 @@ async def bulk_update_keys(
     custom_key_update_hook: Final = _custom_key_update_hook(proxy_server)
     custom_key_policy_hook: Final = _custom_key_policy_hook(proxy_server)
 
-    if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN.value:
+    if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN.value:
         raise HTTPException(
             status_code=403,
             detail={"error": "Only proxy admins can perform bulk key updates"},
@@ -3725,7 +3725,7 @@ async def bulk_update_keys(
             updated_key_info = await _process_single_key_update(
                 update_key_request=UpdateKeyRequest.model_validate(key_update_item.model_dump(exclude_unset=True)),
                 user_api_key_dict=user_api_key_dict,
-                litellm_changed_by=litellm_changed_by,
+                embrouter_changed_by=embrouter_changed_by,
                 prisma_client=prisma_client,
                 user_api_key_cache=user_api_key_cache,
                 proxy_logging_obj=proxy_logging_obj,
@@ -3790,7 +3790,7 @@ async def bulk_update_keys(
 def _build_failed_team_key_update(
     token: str,
     exception: Exception,
-    existing_key_row: LiteLLM_VerificationToken | None,
+    existing_key_row: EmbRouter_VerificationToken | None,
 ) -> FailedKeyUpdate:
     """Normalize an exception from the per-key update loop into a FailedKeyUpdate."""
     if isinstance(exception, HTTPException):
@@ -3826,9 +3826,9 @@ def _build_failed_team_key_update(
 async def bulk_update_team_keys(
     data: BulkUpdateTeamKeysRequest,
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
-    litellm_changed_by: str | None = Header(
+    embrouter_changed_by: str | None = Header(
         None,
-        description="The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability",
+        description="The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability",
     ),
 ):
     """
@@ -3840,8 +3840,8 @@ async def bulk_update_team_keys(
 
     Callable by proxy admins, or by team admins with `KEY_UPDATE` permission.
     """
-    from litellm.proxy import proxy_server
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy import proxy_server
+    from embrouter.proxy.proxy_server import (
         llm_router,
         prisma_client,
         proxy_logging_obj,
@@ -3920,11 +3920,11 @@ async def bulk_update_team_keys(
         )
 
     # Anchor membership check on data.team_id (not existing_keys[0]); empty result must still gate non-admins.
-    if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN.value:
+    if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN.value:
         auth_anchor: Final = (
             existing_keys[0]
             if existing_keys
-            else LiteLLM_VerificationToken(
+            else EmbRouter_VerificationToken(
                 token="__team_scope_auth_check__",
                 team_id=data.team_id,
                 models=[],
@@ -3974,7 +3974,7 @@ async def bulk_update_team_keys(
             updated_key_info = await _process_single_key_update(
                 update_key_request=update_key_request,
                 user_api_key_dict=user_api_key_dict,
-                litellm_changed_by=litellm_changed_by,
+                embrouter_changed_by=embrouter_changed_by,
                 prisma_client=prisma_client,
                 user_api_key_cache=user_api_key_cache,
                 proxy_logging_obj=proxy_logging_obj,
@@ -4005,8 +4005,8 @@ async def bulk_update_team_keys(
 
 
 async def validate_key_team_change(
-    key: LiteLLM_VerificationToken,
-    team: LiteLLM_TeamTable,
+    key: EmbRouter_VerificationToken,
+    team: EmbRouter_TeamTable,
     change_initiated_by: UserAPIKeyAuth,
     llm_router: Router,
 ):
@@ -4044,7 +4044,7 @@ async def validate_key_team_change(
                 detail=f"Key={key.token} has a rpm_limit={key.rpm_limit} which is greater than the team's rpm_limit={team.rpm_limit}.",
             )
 
-    team_table: Final = cast(LiteLLM_TeamTableCachedObj, team)
+    team_table: Final = cast(EmbRouter_TeamTableCachedObj, team)
 
     # Check if the key's user_id is a member of the team
     member_object: Final = _get_user_in_team(team_table=team_table, user_id=key.user_id)
@@ -4057,7 +4057,7 @@ async def validate_key_team_change(
 
     # Check if the person initiating the change is a Proxy Admin or Team Admin
     if (
-        change_initiated_by.user_role == LitellmUserRoles.PROXY_ADMIN.value
+        change_initiated_by.user_role == EmbrouterUserRoles.PROXY_ADMIN.value
         or _is_user_team_admin(
             user_api_key_dict=change_initiated_by,
             team_obj=team,
@@ -4081,9 +4081,9 @@ async def validate_key_team_change(
 async def delete_key_fn(
     data: KeyRequest,
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
-    litellm_changed_by: str | None = Header(
+    embrouter_changed_by: str | None = Header(
         None,
-        description="The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability",
+        description="The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability",
     ),
 ):
     """
@@ -4110,14 +4110,14 @@ async def delete_key_fn(
         HTTPException: If an error occurs during key deletion.
     """
     try:
-        from litellm.proxy.proxy_server import prisma_client, user_api_key_cache
+        from embrouter.proxy.proxy_server import prisma_client, user_api_key_cache
 
         if prisma_client is None:
             raise Exception("Not connected to DB!")
 
-        # Normalize litellm_changed_by: if it's a Header object or not a string, convert to None
-        if litellm_changed_by is not None and not isinstance(litellm_changed_by, str):
-            litellm_changed_by = None
+        # Normalize embrouter_changed_by: if it's a Header object or not a string, convert to None
+        if embrouter_changed_by is not None and not isinstance(embrouter_changed_by, str):
+            embrouter_changed_by = None
 
         ## only allow user to delete keys they own
         verbose_proxy_logger.debug("user_api_key_dict.user_role: %s", user_api_key_dict.user_role)
@@ -4129,7 +4129,7 @@ async def delete_key_fn(
                 tokens=data.keys,
                 user_api_key_cache=user_api_key_cache,
                 user_api_key_dict=user_api_key_dict,
-                litellm_changed_by=litellm_changed_by,
+                embrouter_changed_by=embrouter_changed_by,
             )
             num_keys_to_be_deleted = len(data.keys)
             deleted_keys = data.keys
@@ -4139,7 +4139,7 @@ async def delete_key_fn(
                 prisma_client=prisma_client,
                 user_api_key_cache=user_api_key_cache,
                 user_api_key_dict=user_api_key_dict,
-                litellm_changed_by=litellm_changed_by,
+                embrouter_changed_by=embrouter_changed_by,
             )
             num_keys_to_be_deleted = len(data.key_aliases)
             deleted_keys = data.key_aliases
@@ -4174,14 +4174,14 @@ async def delete_key_fn(
                 data=data,
                 keys_being_deleted=_keys_being_deleted,
                 user_api_key_dict=user_api_key_dict,
-                litellm_changed_by=litellm_changed_by,
+                embrouter_changed_by=embrouter_changed_by,
                 response=number_deleted_keys,
             )
         )
 
         return {"deleted_keys": deleted_keys}
     except Exception as e:
-        verbose_proxy_logger.exception("litellm.proxy.proxy_server.delete_key_fn(): Exception occured - %s", e)
+        verbose_proxy_logger.exception("embrouter.proxy.proxy_server.delete_key_fn(): Exception occured - %s", e)
         raise handle_exception_on_proxy(e)
 
 
@@ -4191,7 +4191,7 @@ async def _build_model_max_budget_usage(
     user_api_key_cache: DualCache | None,
 ) -> dict[str, dict[str, object]]:
     return await build_model_max_budget_usage(
-        entity_type=Litellm_EntityType.KEY,
+        entity_type=Embrouter_EntityType.KEY,
         entity_id=api_key_hash,
         model_max_budget=model_max_budget,
         cache=user_api_key_cache,
@@ -4219,9 +4219,9 @@ async def _budget_window_usage(
     Reads the same cross-pod counter (spend:key:{hashed_token}:window:{budget_duration})
     that _virtual_key_multi_budget_check enforces against, passing the same
     window_duration + window_start so a stale-low counter is re-checked against
-    the LiteLLM_BudgetWindowSpend row instead of a spend-log aggregate.
+    the EmbRouter_BudgetWindowSpend row instead of a spend-log aggregate.
     """
-    from litellm.proxy.proxy_server import get_current_spend
+    from embrouter.proxy.proxy_server import get_current_spend
 
     duration: Final = window.get("budget_duration")
     if not isinstance(duration, str) or not duration:
@@ -4282,7 +4282,7 @@ async def info_key_fn_v2(
     -d {"keys": ["sk-1", "sk-2", "sk-3"]}
     ```
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         model_max_budget_limiter,
         prisma_client,
     )
@@ -4302,7 +4302,7 @@ async def info_key_fn_v2(
         if data.key_aliases:
             alias_rows: Final = await _prisma_table(VerificationTokenRepository(prisma_client)).find_many(
                 where={"key_alias": {"in": data.key_aliases}},
-                include={"litellm_budget_table": True},
+                include={"embrouter_budget_table": True},
             )
             alias_tokens: Final = [row.token for row in alias_rows if row.token]
             tokens_to_query.extend(alias_tokens)
@@ -4329,7 +4329,7 @@ async def info_key_fn_v2(
             k_token_hash = k_dict.pop("token", None)
 
             model_max_budget = k_dict.get("model_max_budget") or {}
-            budget_table = k_dict.get("litellm_budget_table") or {}
+            budget_table = k_dict.get("embrouter_budget_table") or {}
             if not model_max_budget and isinstance(budget_table, dict):
                 model_max_budget = budget_table.get("model_max_budget") or {}
             if model_max_budget and k_token_hash:
@@ -4376,7 +4376,7 @@ async def info_key_fn(
     Returns:
     - key: str - The key that was looked up, echoed back as it was passed in
     - info: dict - The key's row, minus the hashed token. Deleted keys are served from the
-      LiteLLM_DeletedVerificationToken archive and carry deleted_at / deleted_by
+      EmbRouter_DeletedVerificationToken archive and carry deleted_at / deleted_by
         - status: "active" | "expired" | "revoked" | "deleted" - Derived from blocked, expires and
           whether the row came from the archive
         - key_alias: str | None - User-friendly key alias
@@ -4416,7 +4416,7 @@ async def info_key_fn(
 -H "Authorization: Bearer sk-test-example-key-123"
     ```
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         model_max_budget_limiter,
         prisma_client,
     )
@@ -4434,7 +4434,7 @@ async def info_key_fn(
             hashed_key = _hash_token_if_needed(token=key)
         live_key_info: Final = await _prisma_table(VerificationTokenRepository(prisma_client)).find_unique(
             where={"token": hashed_key},
-            include={"litellm_budget_table": True},
+            include={"embrouter_budget_table": True},
         )
         key_info: Final = (
             live_key_info
@@ -4468,7 +4468,7 @@ async def info_key_fn(
         )
 
         model_max_budget = key_info_dict.get("model_max_budget") or {}
-        budget_table: Final = key_info_dict.get("litellm_budget_table") or {}
+        budget_table: Final = key_info_dict.get("embrouter_budget_table") or {}
         if not model_max_budget and isinstance(budget_table, dict):
             model_max_budget = budget_table.get("model_max_budget") or {}
         if model_max_budget and key_token_hash:
@@ -4491,14 +4491,14 @@ async def info_key_fn(
 
 async def _find_deleted_key_info(
     prisma_client: PrismaClient, hashed_key: str | None
-) -> LiteLLM_DeletedVerificationToken | None:
+) -> EmbRouter_DeletedVerificationToken | None:
     archived_row: Final = await _deleted_verification_token_table(prisma_client).find_first(
         where={"token": hashed_key},
         order={"deleted_at": "desc"},
     )
     if archived_row is None:
         return None
-    return LiteLLM_DeletedVerificationToken.model_validate(archived_row.model_dump())
+    return EmbRouter_DeletedVerificationToken.model_validate(archived_row.model_dump())
 
 
 def _check_model_access_group(models: list[str] | None, llm_router: Router | None, premium_user: bool) -> Literal[True]:
@@ -4516,7 +4516,7 @@ def _check_model_access_group(models: list[str] | None, llm_router: Router | Non
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail={
-                        "error": f"Setting a model access group on a wildcard model is only available for LiteLLM Enterprise users.{CommonProxyErrors.not_premium_user.value}"
+                        "error": f"Setting a model access group on a wildcard model is only available for EmbRouter Enterprise users.{CommonProxyErrors.not_premium_user.value}"
                     },
                 )
 
@@ -4566,7 +4566,7 @@ async def generate_key_helper_fn(
     spend: float = 0.0,
     key_max_budget: float | None = None,  # key_max_budget is used to Budget Per key
     key_budget_duration: str | None = None,
-    budget_id: float | None = None,  # budget id <-> LiteLLM_BudgetTable
+    budget_id: float | None = None,  # budget id <-> EmbRouter_BudgetTable
     soft_budget: float | None = None,  # soft_budget is used to set soft Budgets Per user
     max_budget: float | None = None,  # max_budget is used to Budget Per user
     blocked: bool | None = None,
@@ -4609,8 +4609,8 @@ async def generate_key_helper_fn(
     allowed_routes: list | None = None,
     key_type: str | None = None,
     sso_user_id: str | None = None,
-    object_permission_id: str | None = None,  # object_permission_id <-> LiteLLM_ObjectPermissionTable
-    object_permission: LiteLLM_ObjectPermissionBase | None = None,
+    object_permission_id: str | None = None,  # object_permission_id <-> EmbRouter_ObjectPermissionTable
+    object_permission: EmbRouter_ObjectPermissionBase | None = None,
     auto_rotate: bool | None = None,
     rotation_interval: str | None = None,
     router_settings: dict[str, object] | None = None,
@@ -4619,7 +4619,7 @@ async def generate_key_helper_fn(
     *,
     llm_router: Router | None = None,
 ):
-    from litellm.proxy.proxy_server import premium_user, prisma_client
+    from embrouter.proxy.proxy_server import premium_user, prisma_client
 
     if prisma_client is None:
         raise Exception("Connect Proxy to database to generate keys ")
@@ -4635,7 +4635,7 @@ async def generate_key_helper_fn(
         if key is not None:
             token = key
         else:
-            token = f"sk-{secrets.token_urlsafe(LENGTH_OF_LITELLM_GENERATED_KEY)}"
+            token = f"sk-{secrets.token_urlsafe(LENGTH_OF_EMBROUTER_GENERATED_KEY)}"
 
     if duration is None:  # allow tokens that never expire
         expires = None
@@ -4775,7 +4775,7 @@ async def generate_key_helper_fn(
             saved_token["metadata"] = json.loads(saved_token["metadata"])
         if isinstance(saved_token["permissions"], str):
             if "get_spend_routes" in saved_token["permissions"] and premium_user is not True:
-                raise ValueError("get_spend_routes permission is only available for LiteLLM Enterprise users")
+                raise ValueError("get_spend_routes permission is only available for EmbRouter Enterprise users")
 
             saved_token["permissions"] = json.loads(saved_token["permissions"])
         if isinstance(saved_token["model_max_budget"], str):
@@ -4795,7 +4795,7 @@ async def generate_key_helper_fn(
                 ## CREATE USER (If necessary)
                 if query_type == "insert_data":
                     user_row = cast(  # cast-ok: table_name="user" is the insert_data branch returning the user row
-                        "prisma_models.LiteLLM_UserTable | None",
+                        "prisma_models.EmbRouter_UserTable | None",
                         await prisma_client.insert_data(data=user_data, table_name="user"),
                     )
 
@@ -4813,7 +4813,7 @@ async def generate_key_helper_fn(
             if table_name is not None and table_name == "user":
                 # do not create a key if table name is set to just 'user'
                 # we only need to ensure this exists in the user table
-                # the LiteLLM_VerificationToken table will increase in size if we don't do this check
+                # the EmbRouter_VerificationToken table will increase in size if we don't do this check
                 return user_data
 
             ## CREATE KEY
@@ -4832,7 +4832,7 @@ async def generate_key_helper_fn(
                     previous_access_group_ids=None,
                     updated_access_group_ids=access_group_ids,
                 )
-            key_data["litellm_budget_table"] = getattr(create_key_response, "litellm_budget_table", None)
+            key_data["embrouter_budget_table"] = getattr(create_key_response, "embrouter_budget_table", None)
             key_data["created_at"] = getattr(create_key_response, "created_at", None)
             key_data["updated_at"] = getattr(create_key_response, "updated_at", None)
 
@@ -4845,7 +4845,7 @@ async def generate_key_helper_fn(
                     # If it's not valid JSON/YAML, keep as is or set to empty dict
                     key_data["router_settings"] = {}
     except Exception as e:
-        verbose_proxy_logger.error("litellm.proxy.proxy_server.generate_key_helper_fn(): Exception occured - %s", e)
+        verbose_proxy_logger.error("embrouter.proxy.proxy_server.generate_key_helper_fn(): Exception occured - %s", e)
         verbose_proxy_logger.debug(traceback.format_exc())
         if isinstance(e, HTTPException):
             raise e
@@ -4866,7 +4866,7 @@ async def generate_key_helper_fn(
 
 async def _team_key_deletion_check(
     user_api_key_dict: UserAPIKeyAuth,
-    key_info: LiteLLM_VerificationToken,
+    key_info: EmbRouter_VerificationToken,
     prisma_client: PrismaClient,
     user_api_key_cache: UserApiKeyCache,
 ):
@@ -4879,8 +4879,8 @@ async def _team_key_deletion_check(
             user_api_key_cache=user_api_key_cache,
             check_db_only=True,
         )
-        if litellm.key_generation_settings is not None and "team_key_generation" in litellm.key_generation_settings:
-            _team_key_generation = litellm.key_generation_settings["team_key_generation"]
+        if embrouter.key_generation_settings is not None and "team_key_generation" in embrouter.key_generation_settings:
+            _team_key_generation = embrouter.key_generation_settings["team_key_generation"]
         else:
             _team_key_generation = TeamUIKeyGenerationConfig(
                 allowed_team_member_roles=["admin", "user"],
@@ -4903,7 +4903,7 @@ async def _team_key_deletion_check(
 
 
 async def can_modify_verification_token(
-    key_info: LiteLLM_VerificationToken,
+    key_info: EmbRouter_VerificationToken,
     user_api_key_cache: UserApiKeyCache,
     user_api_key_dict: UserAPIKeyAuth,
     prisma_client: PrismaClient,
@@ -4926,16 +4926,16 @@ async def can_modify_verification_token(
     Returns:
         True if user can modify the key, False otherwise
     """
-    from litellm.constants import LITELLM_INTERNAL_JOBS_SERVICE_ACCOUNT_NAME
+    from embrouter.constants import EMBROUTER_INTERNAL_JOBS_SERVICE_ACCOUNT_NAME
 
     is_team_key: Final = _is_team_key(data=key_info)
 
     # 1. Proxy admin can modify any key
-    if user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN.value:
+    if user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN.value:
         return True
 
     # 2. Internal jobs service account can modify any key (for auto-rotation)
-    if user_api_key_dict.api_key == LITELLM_INTERNAL_JOBS_SERVICE_ACCOUNT_NAME:
+    if user_api_key_dict.api_key == EMBROUTER_INTERNAL_JOBS_SERVICE_ACCOUNT_NAME:
         return True
 
     # 3. For team keys: only team admin or key owner can modify
@@ -4977,8 +4977,8 @@ async def delete_verification_tokens(
     tokens: list,
     user_api_key_cache: UserApiKeyCache,
     user_api_key_dict: UserAPIKeyAuth,
-    litellm_changed_by: str | None = None,
-) -> tuple[dict | None, list[LiteLLM_VerificationToken]]:
+    embrouter_changed_by: str | None = None,
+) -> tuple[dict | None, list[EmbRouter_VerificationToken]]:
     """
     Helper that deletes the list of tokens from the database
 
@@ -4990,22 +4990,22 @@ async def delete_verification_tokens(
         user_id: Optional user_id to filter by
 
     Returns:
-        Tuple[Optional[Dict], List[LiteLLM_VerificationToken]]:
+        Tuple[Optional[Dict], List[EmbRouter_VerificationToken]]:
             Optional[Dict]:
                 - Number of deleted tokens
-            List[LiteLLM_VerificationToken]:
+            List[EmbRouter_VerificationToken]:
                 - List of keys being deleted, this contains information about the key_alias, token, and user_id being deleted,
                 this is passed down to the KeyManagementEventHooks to delete the keys from the secret manager and handle audit logs
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     failed_tokens: list = []
     try:
         if prisma_client:
             hashed_tokens: Final[list[str]] = [_hash_token_if_needed(token=key) for key in tokens]
             tokens = hashed_tokens
-            _keys_being_deleted: Final[list[LiteLLM_VerificationToken]] = cast(  # cast-ok: find_many returns a list
-                "list[LiteLLM_VerificationToken]",
+            _keys_being_deleted: Final[list[EmbRouter_VerificationToken]] = cast(  # cast-ok: find_many returns a list
+                "list[EmbRouter_VerificationToken]",
                 await _prisma_table(VerificationTokenRepository(prisma_client)).find_many(
                     where={"token": {"in": hashed_tokens}}
                 ),
@@ -5017,7 +5017,7 @@ async def delete_verification_tokens(
                     detail={"error": "No keys found"},
                 )
 
-            if user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN.value:
+            if user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN.value:
                 authorized_keys = _keys_being_deleted
             else:
                 authorized_keys = []
@@ -5038,7 +5038,7 @@ async def delete_verification_tokens(
                 keys=authorized_keys,
                 prisma_client=prisma_client,
                 user_api_key_dict=user_api_key_dict,
-                litellm_changed_by=litellm_changed_by,
+                embrouter_changed_by=embrouter_changed_by,
             )
 
             # Snapshot before the delete: the FK cascade drops the mapping rows, but their
@@ -5058,7 +5058,7 @@ async def delete_verification_tokens(
                 for cache_key in keys_for_token
             )
 
-            if user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN.value:
+            if user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN.value:
                 deleted_tokens = await prisma_client.delete_data(tokens=tokens)
                 if deleted_tokens is not None and len(deleted_tokens) != len(tokens):
                     failed_tokens = [token for token in tokens if token not in deleted_tokens]
@@ -5076,7 +5076,7 @@ async def delete_verification_tokens(
             raise Exception("DB not connected. prisma_client is None")
     except Exception as e:
         verbose_proxy_logger.exception(
-            "litellm.proxy.proxy_server.delete_verification_tokens(): Exception occured - %s", e
+            "embrouter.proxy.proxy_server.delete_verification_tokens(): Exception occured - %s", e
         )
         verbose_proxy_logger.debug(traceback.format_exc())
         raise e
@@ -5104,9 +5104,9 @@ async def delete_verification_tokens(
 
 
 def _transform_verification_tokens_to_deleted_records(
-    keys: Sequence[LiteLLM_VerificationToken],
+    keys: Sequence[EmbRouter_VerificationToken],
     user_api_key_dict: UserAPIKeyAuth,
-    litellm_changed_by: str | None = None,
+    embrouter_changed_by: str | None = None,
 ) -> list[dict[str, object]]:
     """Transform verification tokens into deleted token records ready for persistence."""
     if not keys:
@@ -5116,13 +5116,13 @@ def _transform_verification_tokens_to_deleted_records(
     records: Final = []
     for key in keys:
         key_payload = key.model_dump()
-        deleted_record = LiteLLM_DeletedVerificationToken.model_validate(
+        deleted_record = EmbRouter_DeletedVerificationToken.model_validate(
             {
                 **key_payload,
                 "deleted_at": deleted_at,
                 "deleted_by": user_api_key_dict.user_id,
                 "deleted_by_api_key": user_api_key_dict.api_key,
-                "litellm_changed_by": litellm_changed_by,
+                "embrouter_changed_by": embrouter_changed_by,
             }
         )
         record = dict[str, object](_as_object_dict(deleted_record.model_dump()))
@@ -5146,8 +5146,8 @@ def _transform_verification_tokens_to_deleted_records(
                 record[json_field] = json.dumps(record[json_field])
 
         for rel_key in (
-            "litellm_budget_table",
-            "litellm_organization_table",
+            "embrouter_budget_table",
+            "embrouter_organization_table",
             "object_permission",
             "id",
             "budget_limits",
@@ -5173,23 +5173,23 @@ async def _save_deleted_verification_token_records(
     if not records:
         return
     if tx is not None:
-        await tx.litellm_deletedverificationtoken.create_many(data=records)
+        await tx.embrouter_deletedverificationtoken.create_many(data=records)
         return
     await _deleted_verification_token_table(prisma_client).create_many(data=records)
 
 
 async def _persist_deleted_verification_tokens(
-    keys: Sequence[LiteLLM_VerificationToken],
+    keys: Sequence[EmbRouter_VerificationToken],
     prisma_client: PrismaClient,
     user_api_key_dict: UserAPIKeyAuth,
-    litellm_changed_by: str | None = None,
+    embrouter_changed_by: str | None = None,
     tx: "Prisma | None" = None,
 ) -> None:
     """Persist deleted verification token records by transforming and saving them."""
     records: Final = _transform_verification_tokens_to_deleted_records(
         keys=keys,
         user_api_key_dict=user_api_key_dict,
-        litellm_changed_by=litellm_changed_by,
+        embrouter_changed_by=embrouter_changed_by,
     )
     await _save_deleted_verification_token_records(
         records=records,
@@ -5203,8 +5203,8 @@ async def delete_key_aliases(
     user_api_key_cache: UserApiKeyCache,
     prisma_client: PrismaClient,
     user_api_key_dict: UserAPIKeyAuth,
-    litellm_changed_by: str | None = None,
-) -> tuple[dict | None, list[LiteLLM_VerificationToken]]:
+    embrouter_changed_by: str | None = None,
+) -> tuple[dict | None, list[EmbRouter_VerificationToken]]:
     _keys_being_deleted: Final = await _prisma_table(VerificationTokenRepository(prisma_client)).find_many(
         where={"key_alias": {"in": key_aliases}}
     )
@@ -5214,7 +5214,7 @@ async def delete_key_aliases(
         tokens=tokens,
         user_api_key_cache=user_api_key_cache,
         user_api_key_dict=user_api_key_dict,
-        litellm_changed_by=litellm_changed_by,
+        embrouter_changed_by=embrouter_changed_by,
     )
 
 
@@ -5232,14 +5232,14 @@ async def _rotate_master_key(
         - Get config from DB
     2. Decrypt the values
         - ModelTable
-            - [{"model_name": "str", "litellm_params": {}}]
+            - [{"model_name": "str", "embrouter_params": {}}]
         - ConfigTable
     3. Encrypt the values with the new master key
     4. Update the values in the DB
     """
     import prisma
 
-    from litellm.proxy.proxy_server import proxy_config
+    from embrouter.proxy.proxy_server import proxy_config
 
     try:
         models: list | None = cast(  # cast-ok: find_many returns a real list, which TableActions widens to Sequence
@@ -5266,15 +5266,15 @@ async def _rotate_master_key(
                 )
             ]
         )
-        verbose_proxy_logger.debug("Re-encrypting litellm_params on %s model rows", len(reencrypted_models))
+        verbose_proxy_logger.debug("Re-encrypting embrouter_params on %s model rows", len(reencrypted_models))
         async with prisma_client.db.tx(timeout=timedelta(minutes=2)) as tx_ctx:
             tx: Final[_TxTables] = tx_ctx
             for reencrypted_model in reencrypted_models:
-                await tx.litellm_proxymodeltable.update_many(
-                    data=_ModelParamsUpdate(litellm_params=prisma.Json(reencrypted_model.litellm_params)),
+                await tx.embrouter_proxymodeltable.update_many(
+                    data=_ModelParamsUpdate(embrouter_params=prisma.Json(reencrypted_model.embrouter_params)),
                     where=_ModelRowWhere(model_id=reencrypted_model.model_id),
                 )
-        await publish_config_change(redis_cache=coordination_redis_cache(), object_type="litellm_proxymodeltable")
+        await publish_config_change(redis_cache=coordination_redis_cache(), object_type="embrouter_proxymodeltable")
     # 3. process config table
     try:
         config = await _config_table(prisma_client).find_many()
@@ -5307,7 +5307,7 @@ async def _rotate_master_key(
     try:
         await rotate_mcp_server_credentials_master_key(
             prisma_client=prisma_client,
-            touched_by=user_api_key_dict.user_id or LITELLM_PROXY_ADMIN_NAME,
+            touched_by=user_api_key_dict.user_id or EMBROUTER_PROXY_ADMIN_NAME,
             new_master_key=new_master_key,
         )
     except Exception as e:
@@ -5346,7 +5346,7 @@ async def _rotate_master_key(
     except Exception:
         credentials = None
     if credentials:
-        from litellm.proxy.credential_endpoints.endpoints import update_db_credential
+        from embrouter.proxy.credential_endpoints.endpoints import update_db_credential
 
         for cred in credentials:
             try:
@@ -5376,9 +5376,9 @@ async def _rotate_master_key(
 
 
 def _require_proxy_admin(user_api_key_dict: UserAPIKeyAuth) -> None:
-    from litellm.proxy._types import CommonProxyErrors
+    from embrouter.proxy._types import CommonProxyErrors
 
-    if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN.value:
+    if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN.value:
         raise HTTPException(
             status_code=403,
             detail={"error": CommonProxyErrors.not_allowed_access.value},
@@ -5404,11 +5404,11 @@ async def migrate_encryption_endpoint(
     Idempotent and resumable — re-running skips already-migrated values. Pass
     ``dry_run=true`` for a non-mutating scan (equivalent to ``--check``).
     """
-    from litellm.proxy._types import CommonProxyErrors
-    from litellm.proxy.management_endpoints.credential_migration import (
+    from embrouter.proxy._types import CommonProxyErrors
+    from embrouter.proxy.management_endpoints.credential_migration import (
         migrate_encryption,
     )
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     _require_proxy_admin(user_api_key_dict)
     if prisma_client is None:
@@ -5438,11 +5438,11 @@ async def check_encryption_endpoint(
     values are still in the legacy format. ``residual_legacy == 0`` attests no
     legacy ciphertext remains. Admin only; performs no writes.
     """
-    from litellm.proxy._types import CommonProxyErrors
-    from litellm.proxy.management_endpoints.credential_migration import (
+    from embrouter.proxy._types import CommonProxyErrors
+    from embrouter.proxy.management_endpoints.credential_migration import (
         check_encryption,
     )
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     _require_proxy_admin(user_api_key_dict)
     if prisma_client is None:
@@ -5463,7 +5463,7 @@ async def get_new_token(data: RegenerateKeyRequest | None) -> str:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail={
-                    "error": "New key must start with 'sk-'. This is to distinguish a key hash (used by litellm for logging / internal logic) from the actual key."
+                    "error": "New key must start with 'sk-'. This is to distinguish a key hash (used by embrouter for logging / internal logic) from the actual key."
                 },
             )
         if len(data.new_key) < MINIMUM_CUSTOM_KEY_LENGTH:
@@ -5473,7 +5473,7 @@ async def get_new_token(data: RegenerateKeyRequest | None) -> str:
             )
         new_token = data.new_key
     else:
-        new_token = f"sk-{secrets.token_urlsafe(LENGTH_OF_LITELLM_GENERATED_KEY)}"
+        new_token = f"sk-{secrets.token_urlsafe(LENGTH_OF_EMBROUTER_GENERATED_KEY)}"
     return new_token
 
 
@@ -5494,7 +5494,7 @@ async def _insert_deprecated_key(
         new_token_hash: Hash of the new replacement key
         grace_period: Duration string (e.g. "24h", "2d") or None/empty for immediate revoke
     """
-    grace_period_value: Final = grace_period or os.getenv("LITELLM_KEY_ROTATION_GRACE_PERIOD", "")
+    grace_period_value: Final = grace_period or os.getenv("EMBROUTER_KEY_ROTATION_GRACE_PERIOD", "")
     if not grace_period_value:
         return
 
@@ -5542,18 +5542,18 @@ async def _execute_virtual_key_regeneration(
     *,
     prisma_client: PrismaClient,
     llm_router: Router | None = None,
-    key_in_db: LiteLLM_VerificationToken,
+    key_in_db: EmbRouter_VerificationToken,
     hashed_api_key: str,
     key: str,
     data: RegenerateKeyRequest | None,
     user_api_key_dict: UserAPIKeyAuth,
-    litellm_changed_by: str | None,
+    embrouter_changed_by: str | None,
     user_api_key_cache: UserApiKeyCache,
     proxy_logging_obj: ProxyLogging,
 ) -> GenerateKeyResponse:
     """Generate new token, update DB, invalidate cache, and return response."""
-    from litellm.proxy import proxy_server
-    from litellm.proxy.proxy_server import hash_token
+    from embrouter.proxy import proxy_server
+    from embrouter.proxy.proxy_server import hash_token
 
     # Mirror the /key/update ownership rebind guard. See helper docstring.
     _validate_caller_can_change_key_ownership(
@@ -5569,7 +5569,7 @@ async def _execute_virtual_key_regeneration(
         _existing_org_id: Final = getattr(key_in_db, "organization_id", None)
         _is_proxy_admin: Final = (
             user_api_key_dict.user_role is not None
-            and user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN.value
+            and user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN.value
         )
         if data.organization_id != _existing_org_id and not _is_proxy_admin:
             await _validate_caller_can_assign_key_org(
@@ -5649,7 +5649,7 @@ async def _execute_virtual_key_regeneration(
         keys=[key_in_db],
         prisma_client=prisma_client,
         user_api_key_dict=user_api_key_dict,
-        litellm_changed_by=litellm_changed_by,
+        embrouter_changed_by=embrouter_changed_by,
     )
 
     # If grace period set, insert deprecated key so old key remains valid
@@ -5660,7 +5660,7 @@ async def _execute_virtual_key_regeneration(
         grace_period=data.grace_period if data else None,
     )
 
-    updated_token: Final[LiteLLM_VerificationToken | None] = await _prisma_table(
+    updated_token: Final[EmbRouter_VerificationToken | None] = await _prisma_table(
         VerificationTokenRepository(prisma_client)
     ).update(
         where={"token": hashed_api_key},
@@ -5702,7 +5702,7 @@ async def _execute_virtual_key_regeneration(
             existing_key_row=key_in_db,
             response=response,
             user_api_key_dict=user_api_key_dict,
-            litellm_changed_by=litellm_changed_by,
+            embrouter_changed_by=embrouter_changed_by,
         )
     )
     return response
@@ -5738,9 +5738,9 @@ async def regenerate_key_fn(
     key: str | None = None,
     data: RegenerateKeyRequest | None = None,
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
-    litellm_changed_by: str | None = Header(
+    embrouter_changed_by: str | None = Header(
         None,
-        description="The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability",
+        description="The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability",
     ),
 ) -> GenerateKeyResponse | None:
     """
@@ -5774,7 +5774,7 @@ async def regenerate_key_fn(
         - permissions: Optional[dict] - Key-specific permissions
         - guardrails: Optional[List[str]] - List of active guardrails for the key
         - blocked: Optional[bool] - Whether the key is blocked
-        - grace_period: Optional[str] - Duration to keep old key valid after rotation (e.g. "24h", "2d"). Omitted = immediate revoke. Env: LITELLM_KEY_ROTATION_GRACE_PERIOD
+        - grace_period: Optional[str] - Duration to keep old key valid after rotation (e.g. "24h", "2d"). Omitted = immediate revoke. Env: EMBROUTER_KEY_ROTATION_GRACE_PERIOD
 
 
     Returns:
@@ -5795,7 +5795,7 @@ async def regenerate_key_fn(
     Note: This is an Enterprise feature. It requires a premium license to use.
     """
     try:
-        from litellm.proxy.proxy_server import (
+        from embrouter.proxy.proxy_server import (
             hash_token,
             llm_router,
             master_key,
@@ -5908,7 +5908,7 @@ async def regenerate_key_fn(
 
         _check_regenerate_guardrail_opt_out(
             data,
-            _key_in_db.metadata,  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]  # LiteLLM_VerificationToken.metadata is a bare dict
+            _key_in_db.metadata,  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]  # EmbRouter_VerificationToken.metadata is a bare dict
             user_api_key_dict,
         )
 
@@ -5934,7 +5934,7 @@ async def regenerate_key_fn(
             )
 
         if data is not None and (data.access_group_ids or data.object_permission is not None):
-            regenerate_team_table: LiteLLM_TeamTableCachedObj | None = None
+            regenerate_team_table: EmbRouter_TeamTableCachedObj | None = None
             if _key_in_db.team_id is not None:
                 regenerate_team_table = await get_team_object(
                     team_id=_key_in_db.team_id,
@@ -5942,7 +5942,7 @@ async def regenerate_key_fn(
                     user_api_key_cache=user_api_key_cache,
                     check_db_only=True,
                 )
-            _regen_is_proxy_admin: Final = user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN.value
+            _regen_is_proxy_admin: Final = user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN.value
             TeamMemberPermissionChecks.enforce_member_can_assign_access_groups(
                 user_api_key_dict=user_api_key_dict,
                 team_table=regenerate_team_table,
@@ -5956,7 +5956,7 @@ async def regenerate_key_fn(
                 is_proxy_admin=_regen_is_proxy_admin,
             )
             if normalized_object_permission is not None:
-                data.object_permission = LiteLLM_ObjectPermissionBase(**normalized_object_permission)
+                data.object_permission = EmbRouter_ObjectPermissionBase(**normalized_object_permission)
                 _regen_object_permission_dict = normalized_object_permission
             await validate_key_search_tools_against_team(
                 object_permission=_regen_object_permission_dict,
@@ -5975,9 +5975,9 @@ async def regenerate_key_fn(
         )
         verbose_proxy_logger.debug("key_in_db: %s", _key_in_db)
 
-        # Normalize litellm_changed_by: if it's a Header object or not a string, convert to None
-        if litellm_changed_by is not None and not isinstance(litellm_changed_by, str):
-            litellm_changed_by = None
+        # Normalize embrouter_changed_by: if it's a Header object or not a string, convert to None
+        if embrouter_changed_by is not None and not isinstance(embrouter_changed_by, str):
+            embrouter_changed_by = None
 
         return await _execute_virtual_key_regeneration(
             prisma_client=prisma_client,
@@ -5987,7 +5987,7 @@ async def regenerate_key_fn(
             key=key,
             data=data,
             user_api_key_dict=user_api_key_dict,
-            litellm_changed_by=litellm_changed_by,
+            embrouter_changed_by=embrouter_changed_by,
             user_api_key_cache=user_api_key_cache,
             proxy_logging_obj=proxy_logging_obj,
         )
@@ -5997,12 +5997,12 @@ async def regenerate_key_fn(
 
 
 async def _check_proxy_or_team_admin_for_key(
-    key_in_db: LiteLLM_VerificationToken,
+    key_in_db: EmbRouter_VerificationToken,
     user_api_key_dict: UserAPIKeyAuth,
     prisma_client: PrismaClient,
     user_api_key_cache: UserApiKeyCache,
 ) -> None:
-    if user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN.value:
+    if user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN.value:
         return
 
     if key_in_db.team_id is not None:
@@ -6025,7 +6025,7 @@ async def _check_proxy_or_team_admin_for_key(
     )
 
 
-def _validate_reset_spend_value(reset_to: object, key_in_db: LiteLLM_VerificationToken) -> float:
+def _validate_reset_spend_value(reset_to: object, key_in_db: EmbRouter_VerificationToken) -> float:
     if not isinstance(reset_to, (int, float)):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -6048,8 +6048,8 @@ def _validate_reset_spend_value(reset_to: object, key_in_db: LiteLLM_Verificatio
         )
 
     max_budget = key_in_db.max_budget
-    if key_in_db.litellm_budget_table is not None:
-        budget_max_budget: Final[float | None] = getattr(key_in_db.litellm_budget_table, "max_budget", None)
+    if key_in_db.embrouter_budget_table is not None:
+        budget_max_budget: Final[float | None] = getattr(key_in_db.embrouter_budget_table, "max_budget", None)
         if budget_max_budget is not None:
             if max_budget is None or budget_max_budget < max_budget:
                 max_budget = budget_max_budget
@@ -6076,7 +6076,7 @@ async def _set_spend_counter_with_floor_and_broadcast(counter_key: str, value: f
     Without the broadcast, a worker that already cached the pre-reset key object
     or floor marker keeps enforcing against it until its own TTL expires.
     """
-    from litellm.proxy.proxy_server import SPEND_DB_FLOOR_CACHE_TTL_SECONDS, spend_counter_cache
+    from embrouter.proxy.proxy_server import SPEND_DB_FLOOR_CACHE_TTL_SECONDS, spend_counter_cache
 
     spend_counter_cache.in_memory_cache.set_cache(key=counter_key, value=value, ttl=60)
     if spend_counter_cache.redis_cache is not None:
@@ -6155,7 +6155,7 @@ async def _reset_key_budget_windows(
     Redis counter, not after: a window counter reading zero is only durable
     once every reader recomputing its floor from the DB sees the new
     boundary too (`get_current_spend` re-derives a window counter from real
-    `LiteLLM_SpendLogs` rows inside `[window_start, now)` on every read below
+    `EmbRouter_SpendLogs` rows inside `[window_start, now)` on every read below
     max_budget, see its `is_window` branch). Zeroing first would let a
     request racing the DB write compute `window_start` from the stale
     pre-reset boundary, re-sum the unchanged historical spend, and put the
@@ -6192,13 +6192,13 @@ async def reset_key_spend_fn(
     key: str,
     data: ResetSpendRequest,
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
-    litellm_changed_by: str | None = Header(
+    embrouter_changed_by: str | None = Header(
         None,
-        description="The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability",
+        description="The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability",
     ),
 ) -> dict[str, Any]:
     try:
-        from litellm.proxy.proxy_server import (
+        from embrouter.proxy.proxy_server import (
             hash_token,
             prisma_client,
             proxy_logging_obj,
@@ -6218,7 +6218,7 @@ async def reset_key_spend_fn(
 
         _key_in_db: Final = await _prisma_table(VerificationTokenRepository(prisma_client)).find_unique(
             where={"token": hashed_api_key},
-            include={"litellm_budget_table": True},
+            include={"embrouter_budget_table": True},
         )
         if _key_in_db is None:
             raise HTTPException(
@@ -6296,7 +6296,7 @@ async def validate_key_list_check(
     key_alias: str | None,
     key_hash: str | None,
     prisma_client: PrismaClient,
-) -> LiteLLM_UserTable | None:
+) -> EmbRouter_UserTable | None:
     if _user_has_admin_view(user_api_key_dict):
         return None
 
@@ -6320,7 +6320,7 @@ async def validate_key_list_check(
             code=status.HTTP_403_FORBIDDEN,
         )
 
-    complete_user_info: Final = LiteLLM_UserTable.model_validate(complete_user_info_db_obj.model_dump())
+    complete_user_info: Final = EmbRouter_UserTable.model_validate(complete_user_info_db_obj.model_dump())
 
     # internal user can only see their own keys
     if user_id:
@@ -6354,7 +6354,7 @@ async def validate_key_list_check(
 
     if key_hash:
         try:
-            key_info: Final[LiteLLM_VerificationToken | None] = await _prisma_table(
+            key_info: Final[EmbRouter_VerificationToken | None] = await _prisma_table(
                 VerificationTokenRepository(prisma_client)
             ).find_unique(
                 where={"token": key_hash},
@@ -6387,9 +6387,9 @@ async def validate_key_list_check(
 
 
 async def _fetch_user_team_objects(
-    complete_user_info: LiteLLM_UserTable | None,
+    complete_user_info: EmbRouter_UserTable | None,
     prisma_client: PrismaClient,
-) -> list[LiteLLM_TeamTable]:
+) -> list[EmbRouter_TeamTable]:
     """Fetch team objects for all teams a user belongs to (single DB query)."""
     if complete_user_info is None or not complete_user_info.teams:
         return []
@@ -6401,12 +6401,12 @@ async def _fetch_user_team_objects(
     if teams is None:
         return []
 
-    return [LiteLLM_TeamTable.model_validate(team.model_dump()) for team in teams]
+    return [EmbRouter_TeamTable.model_validate(team.model_dump()) for team in teams]
 
 
 def _get_admin_team_ids_from_objects(
     user_api_key_dict: UserAPIKeyAuth,
-    team_objects: list[LiteLLM_TeamTable],
+    team_objects: list[EmbRouter_TeamTable],
 ) -> list[str]:
     """Filter team objects to those where the user is an admin."""
     return [
@@ -6416,7 +6416,7 @@ def _get_admin_team_ids_from_objects(
 
 def _get_team_ids_with_key_list_permission_from_objects(
     user_api_key_dict: UserAPIKeyAuth,
-    team_objects: list[LiteLLM_TeamTable],
+    team_objects: list[EmbRouter_TeamTable],
 ) -> list[str]:
     """Filter team objects to non-admin teams where the caller has /key/list
     permission via team_member_permissions. These teams should grant the
@@ -6436,7 +6436,7 @@ def _get_team_ids_with_key_list_permission_from_objects(
 
 def _get_member_team_ids_from_objects(
     user_api_key_dict: UserAPIKeyAuth,
-    team_objects: list[LiteLLM_TeamTable],
+    team_objects: list[EmbRouter_TeamTable],
 ) -> list[str]:
     """Filter team objects to those where the user is a member (any role)."""
     return [
@@ -6450,7 +6450,7 @@ def _get_member_team_ids_from_objects(
 
 
 async def get_admin_team_ids(
-    complete_user_info: LiteLLM_UserTable | None,
+    complete_user_info: EmbRouter_UserTable | None,
     user_api_key_dict: UserAPIKeyAuth,
     prisma_client: PrismaClient,
 ) -> list[str]:
@@ -6460,7 +6460,7 @@ async def get_admin_team_ids(
 
 
 async def get_member_team_ids(
-    complete_user_info: LiteLLM_UserTable | None,
+    complete_user_info: EmbRouter_UserTable | None,
     user_api_key_dict: UserAPIKeyAuth,
     prisma_client: PrismaClient,
 ) -> list[str]:
@@ -6552,7 +6552,7 @@ async def list_keys(
     Parameters:
         expand: Optional[List[str]] - Expand related objects (e.g. 'user' to include user information)
         status: Optional[str] - Filter by status: "active", "expired", "revoked" (blocked) or "deleted".
-        "deleted" reads the LiteLLM_DeletedVerificationToken archive; the other values partition the
+        "deleted" reads the EmbRouter_DeletedVerificationToken archive; the other values partition the
         live key table, so every live key matches exactly one of them.
 
     Returns:
@@ -6567,7 +6567,7 @@ async def list_keys(
     Note: When expand=user is specified, full key objects are returned regardless of the return_full_object parameter.
     """
     try:
-        from litellm.proxy.proxy_server import prisma_client
+        from embrouter.proxy.proxy_server import prisma_client
 
         verbose_proxy_logger.debug("Entering list_keys function")
 
@@ -6630,8 +6630,8 @@ async def list_keys(
             admin_team_ids = None
 
         is_proxy_admin: Final = user_api_key_dict.user_role in [
-            LitellmUserRoles.PROXY_ADMIN.value,
-            LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
+            EmbrouterUserRoles.PROXY_ADMIN.value,
+            EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
         ]
 
         # Substring matching is opt-in. /key/list matched user_id and key_alias
@@ -6759,7 +6759,7 @@ async def key_aliases(
         }
     """
     try:
-        from litellm.proxy.proxy_server import prisma_client
+        from embrouter.proxy.proxy_server import prisma_client
 
         verbose_proxy_logger.debug("Entering key_aliases function")
 
@@ -6782,8 +6782,8 @@ async def key_aliases(
         # Scope results for non-admin users: only show aliases for keys the
         # user owns or keys belonging to teams they are a member of.
         is_proxy_admin: Final = user_api_key_dict.user_role in [
-            LitellmUserRoles.PROXY_ADMIN.value,
-            LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
+            EmbrouterUserRoles.PROXY_ADMIN.value,
+            EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
         ]
         if not is_proxy_admin:
             await _apply_non_admin_alias_scope(user_api_key_dict, prisma_client, query_params, where_parts)
@@ -6798,7 +6798,7 @@ async def key_aliases(
 
         where_sql: Final = " AND ".join(where_parts)
 
-        count_sql: Final = f'SELECT COUNT(*) AS count FROM "LiteLLM_VerificationToken" WHERE {where_sql}'
+        count_sql: Final = f'SELECT COUNT(*) AS count FROM "EmbRouter_VerificationToken" WHERE {where_sql}'
         count_rows: Final[Sequence[Mapping[str, int]]] = await prisma_client.db.query_raw(count_sql, *query_params)
         total_count: Final = int(count_rows[0]["count"]) if count_rows else 0
 
@@ -6807,7 +6807,7 @@ async def key_aliases(
         offset_idx: Final = len(aliases_params)
         aliases_sql: Final = (
             f"SELECT key_alias"
-            f' FROM "LiteLLM_VerificationToken"'
+            f' FROM "EmbRouter_VerificationToken"'
             f" WHERE {where_sql}"
             f" ORDER BY key_alias ASC"
             f" LIMIT ${limit_idx} OFFSET ${offset_idx}"
@@ -7158,7 +7158,7 @@ async def _list_key_helper(
                     {"token": "desc"},  # fallback sort
                 ]
             ),
-            include={"object_permission": True, "litellm_budget_table": True},
+            include={"object_permission": True, "embrouter_budget_table": True},
         )
 
     verbose_proxy_logger.debug("Fetched %s keys", len(keys))
@@ -7187,7 +7187,7 @@ async def _list_key_helper(
             user_map = {user.user_id: user for user in users}
 
     # Prepare response
-    key_list: Final[list[str | UserAPIKeyAuth | LiteLLM_DeletedVerificationToken]] = []
+    key_list: Final[list[str | UserAPIKeyAuth | EmbRouter_DeletedVerificationToken]] = []
     for key in keys:
         # Convert Prisma model to dict (supports both Pydantic v1 and v2)
         try:
@@ -7217,7 +7217,7 @@ async def _list_key_helper(
         if return_full_object is True or (expand and "user" in expand):
             if use_deleted_table:
                 # Use deleted key type to preserve deleted_at, deleted_by, etc.
-                key_list.append(LiteLLM_DeletedVerificationToken.model_validate(key_dict))
+                key_list.append(EmbRouter_DeletedVerificationToken.model_validate(key_dict))
             else:
                 key_list.append(
                     UserAPIKeyAuth(**key_dict)  # pyright: ignore[reportAny]  # model_dump() is dict[str, Any]
@@ -7264,7 +7264,7 @@ async def _check_key_admin_access(
     Raises HTTPException(403) if the caller is not authorized.
     """
 
-    if user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN.value:
+    if user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN.value:
         return
 
     # Look up the target key to find its team
@@ -7306,11 +7306,11 @@ async def block_key(
     data: BlockKeyRequest,
     http_request: Request,
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
-    litellm_changed_by: str | None = Header(
+    embrouter_changed_by: str | None = Header(
         None,
-        description="The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability",
+        description="The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability",
     ),
-) -> LiteLLM_VerificationToken | None:
+) -> EmbRouter_VerificationToken | None:
     """
     Block an Virtual key from making any requests.
 
@@ -7329,14 +7329,14 @@ async def block_key(
 
     Note: This is an admin-only endpoint. Only proxy admins, team admins, or org admins can block keys.
     """
-    from litellm.proxy.management_helpers.audit_logs import (
+    from embrouter.proxy.management_helpers.audit_logs import (
         get_audit_log_changed_by,
         is_audit_logging_enabled,
     )
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         create_audit_log_for_update,
         hash_token,
-        litellm_proxy_admin_name,
+        embrouter_proxy_admin_name,
         prisma_client,
         proxy_logging_obj,
         user_api_key_cache,
@@ -7381,16 +7381,16 @@ async def block_key(
     if is_audit_logging_enabled():
         asyncio.create_task(
             create_audit_log_for_update(
-                request_data=LiteLLM_AuditLogs(
+                request_data=EmbRouter_AuditLogs(
                     id=str(uuid.uuid4()),
                     updated_at=datetime.now(timezone.utc),
                     changed_by=get_audit_log_changed_by(
-                        litellm_changed_by=litellm_changed_by,
+                        embrouter_changed_by=embrouter_changed_by,
                         user_api_key_dict=user_api_key_dict,
-                        litellm_proxy_admin_name=litellm_proxy_admin_name,
+                        embrouter_proxy_admin_name=embrouter_proxy_admin_name,
                     ),
                     changed_by_api_key=user_api_key_dict.api_key,
-                    table_name=LitellmTableNames.KEY_TABLE_NAME,
+                    table_name=EmbrouterTableNames.KEY_TABLE_NAME,
                     object_id=hashed_token,
                     action="blocked",
                     updated_values="{}",
@@ -7420,9 +7420,9 @@ async def unblock_key(
     data: BlockKeyRequest,
     http_request: Request,
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
-    litellm_changed_by: str | None = Header(
+    embrouter_changed_by: str | None = Header(
         None,
-        description="The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability",
+        description="The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability",
     ),
 ):
     """
@@ -7443,14 +7443,14 @@ async def unblock_key(
 
     Note: This is an admin-only endpoint. Only proxy admins, team admins, or org admins can unblock keys.
     """
-    from litellm.proxy.management_helpers.audit_logs import (
+    from embrouter.proxy.management_helpers.audit_logs import (
         get_audit_log_changed_by,
         is_audit_logging_enabled,
     )
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         create_audit_log_for_update,
         hash_token,
-        litellm_proxy_admin_name,
+        embrouter_proxy_admin_name,
         prisma_client,
         proxy_logging_obj,
         user_api_key_cache,
@@ -7495,16 +7495,16 @@ async def unblock_key(
     if is_audit_logging_enabled():
         asyncio.create_task(
             create_audit_log_for_update(
-                request_data=LiteLLM_AuditLogs(
+                request_data=EmbRouter_AuditLogs(
                     id=str(uuid.uuid4()),
                     updated_at=datetime.now(timezone.utc),
                     changed_by=get_audit_log_changed_by(
-                        litellm_changed_by=litellm_changed_by,
+                        embrouter_changed_by=embrouter_changed_by,
                         user_api_key_dict=user_api_key_dict,
-                        litellm_proxy_admin_name=litellm_proxy_admin_name,
+                        embrouter_proxy_admin_name=embrouter_proxy_admin_name,
                     ),
                     changed_by_api_key=user_api_key_dict.api_key,
-                    table_name=LitellmTableNames.KEY_TABLE_NAME,
+                    table_name=EmbrouterTableNames.KEY_TABLE_NAME,
                     object_id=hashed_token,
                     action="unblocked",
                     updated_values="{}",
@@ -7621,15 +7621,15 @@ async def key_health(
 async def _can_user_query_key_info(
     user_api_key_dict: UserAPIKeyAuth,
     key: str | None,
-    key_info: LiteLLM_VerificationToken,
+    key_info: EmbRouter_VerificationToken,
 ) -> bool:
     """
     Helper to check if the user has access to the key's info
     """
     if (
         (
-            user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN.value
-            or user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY.value
+            user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN.value
+            or user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY.value
         )
         or user_api_key_dict.api_key == key
         or key_info.user_id == user_api_key_dict.user_id
@@ -7657,8 +7657,8 @@ async def test_key_logging(
     import logging
     from io import StringIO
 
-    from litellm.proxy.litellm_pre_call_utils import add_litellm_data_to_request
-    from litellm.proxy.proxy_server import general_settings, proxy_config
+    from embrouter.proxy.embrouter_pre_call_utils import add_embrouter_data_to_request
+    from embrouter.proxy.proxy_server import general_settings, proxy_config
 
     logging_callbacks: Final[list[str]] = []
     for callback in key_logging:
@@ -7675,15 +7675,15 @@ async def test_key_logging(
 
     try:
         data = {
-            "model": "openai/litellm-key-health-test",
+            "model": "openai/embrouter-key-health-test",
             "messages": [
                 {
                     "role": "user",
-                    "content": "Hello, this is a test from litellm /key/health. No LLM API call was made for this",
+                    "content": "Hello, this is a test from embrouter /key/health. No LLM API call was made for this",
                 }
             ],
         }
-        data = await add_litellm_data_to_request(
+        data = await add_embrouter_data_to_request(
             data=data,
             user_api_key_dict=user_api_key_dict,
             proxy_config=proxy_config,
@@ -7691,7 +7691,7 @@ async def test_key_logging(
             request=request,
         )
         data["mock_response"] = "test response"
-        await litellm.acompletion(**data)  # make mock completion call to trigger key based callbacks
+        await embrouter.acompletion(**data)  # make mock completion call to trigger key based callbacks
     except Exception as e:
         return LoggingCallbackStatus(
             callbacks=logging_callbacks,
@@ -7730,23 +7730,23 @@ def parse_key_alias_pattern(value: object) -> str | None:
         return None
     if not isinstance(value, str):
         raise ValueError(
-            f"Invalid regex set for litellm_settings.key_alias_pattern - value={value!r}: must be a string"
+            f"Invalid regex set for embrouter_settings.key_alias_pattern - value={value!r}: must be a string"
         )
     try:
         re.compile(value)
     except re.error as e:
-        raise ValueError(f"Invalid regex set for litellm_settings.key_alias_pattern - value={value}: {e}") from e
+        raise ValueError(f"Invalid regex set for embrouter_settings.key_alias_pattern - value={value}: {e}") from e
     return value
 
 
 def _key_alias_rule() -> tuple[re.Pattern[str], str] | None:
-    if litellm.key_alias_pattern is not None:
+    if embrouter.key_alias_pattern is not None:
         return (
-            re.compile(litellm.key_alias_pattern),
+            re.compile(embrouter.key_alias_pattern),
             f"Invalid key_alias format. Must be at most {_KEY_ALIAS_MAX_LENGTH} characters and match the configured"
-            f" key_alias_pattern: {litellm.key_alias_pattern}",
+            f" key_alias_pattern: {embrouter.key_alias_pattern}",
         )
-    if litellm.enable_key_alias_format_validation:
+    if embrouter.enable_key_alias_format_validation:
         return (_KEY_ALIAS_PATTERN, _KEY_ALIAS_PATTERN_MESSAGE)
     return None
 
@@ -7756,9 +7756,9 @@ def _validate_key_alias_format(key_alias: str | None) -> None:
     Validate the format of the key_alias.
 
     Path traversal and control characters are always rejected. The alias then has to
-    stay within ``_KEY_ALIAS_MAX_LENGTH`` and fully match ``litellm.key_alias_pattern``
+    stay within ``_KEY_ALIAS_MAX_LENGTH`` and fully match ``embrouter.key_alias_pattern``
     when one is configured, else the built-in pattern when
-    ``litellm.enable_key_alias_format_validation`` is on, else nothing more is checked
+    ``embrouter.enable_key_alias_format_validation`` is on, else nothing more is checked
     so existing workflows are not broken.
     """
     if key_alias is None:
@@ -7834,7 +7834,7 @@ def validate_model_max_budget(model_max_budget: dict | None) -> None:
         if len(model_max_budget) == 0:
             return
         if model_max_budget is not None:
-            from litellm.proxy.proxy_server import CommonProxyErrors, premium_user
+            from embrouter.proxy.proxy_server import CommonProxyErrors, premium_user
 
             if premium_user is not True:
                 raise ValueError(

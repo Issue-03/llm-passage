@@ -9,8 +9,8 @@ secrets from strings without depending on the logging-configuration module.
 import re
 from typing import Final
 
-from litellm.constants import MINIMUM_CUSTOM_KEY_LENGTH
-from litellm.rust_bridge import diagnostics
+from embrouter.constants import MINIMUM_CUSTOM_KEY_LENGTH
+from embrouter.rust_bridge import diagnostics
 
 REDACTED: Final = "REDACTED"
 
@@ -57,8 +57,8 @@ def _build_secret_patterns() -> "re.Pattern[str]":
         r"(?<=://)[^\s'\":]{0,4096}:[^\s'\"]{1,4096}(?=@)",
         # Databricks personal access tokens
         r"dapi[0-9a-f]{32}",
-        # Module-level provider keys logged as litellm.<provider>_key=<value>
-        r"litellm\.[A-Za-z0-9_]*_key['\"]?\s*[:=]\s*['\"]?[^\s,'\"})\]{}>]+",
+        # Module-level provider keys logged as embrouter.<provider>_key=<value>
+        r"embrouter\.[A-Za-z0-9_]*_key['\"]?\s*[:=]\s*['\"]?[^\s,'\"})\]{}>]+",
         # ── Key-name-based redaction ──
         # Catches secrets inside dicts/config dumps by matching on the KEY name
         # regardless of what the value looks like.

@@ -7,7 +7,7 @@ from datetime import datetime
 from pydantic import BaseModel, Field
 
 
-class LiteLLM_MemoryRow(BaseModel):
+class EmbRouter_MemoryRow(BaseModel):
     memory_id: str
     key: str
     value: str
@@ -48,7 +48,7 @@ class MemoryUpdateRequest(BaseModel):
 
 
 class MemoryListResponse(BaseModel):
-    memories: list[LiteLLM_MemoryRow]
+    memories: list[EmbRouter_MemoryRow]
     total: int
 
 

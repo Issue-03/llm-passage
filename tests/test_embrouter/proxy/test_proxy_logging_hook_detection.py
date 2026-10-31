@@ -1,20 +1,20 @@
 import pytest
 from fastapi import HTTPException
 
-import litellm
-from litellm.caching import DualCache
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.utils import ProxyLogging
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.utils import CallTypesLiteral
+import embrouter
+from embrouter.caching import DualCache
+from embrouter.integrations.custom_guardrail import CustomGuardrail
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.utils import ProxyLogging
+from embrouter.types.guardrails import GuardrailEventHooks
+from embrouter.types.utils import CallTypesLiteral
 
 
 def test_has_post_call_response_headers_callbacks_ignores_empty_callbacks(
     monkeypatch,
 ):
-    monkeypatch.setattr(litellm, "callbacks", [])
+    monkeypatch.setattr(embrouter, "callbacks", [])
 
     assert ProxyLogging.has_post_call_response_headers_callbacks() is False
 
@@ -25,34 +25,34 @@ def test_has_post_call_response_headers_callbacks_requires_override(
     """A vanilla ``CustomLogger`` inherits the no-op response-headers hook;
     the capability flag must stay False so the proxy can skip the headers
     loop entirely.  Only callbacks that *override* the hook should flip it."""
-    monkeypatch.setattr(litellm, "callbacks", [CustomLogger()])
+    monkeypatch.setattr(embrouter, "callbacks", [CustomLogger()])
     assert ProxyLogging.has_post_call_response_headers_callbacks() is False
 
     class _AddsHeaders(CustomLogger):
         async def async_post_call_response_headers_hook(self, **kwargs):
             return {"x-custom": "1"}
 
-    monkeypatch.setattr(litellm, "callbacks", [_AddsHeaders()])
+    monkeypatch.setattr(embrouter, "callbacks", [_AddsHeaders()])
     assert ProxyLogging.has_post_call_response_headers_callbacks() is True
 
 
 def test_has_streaming_callbacks_uses_custom_logger_detection(monkeypatch):
-    monkeypatch.setattr(litellm, "callbacks", [])
+    monkeypatch.setattr(embrouter, "callbacks", [])
     assert ProxyLogging.has_streaming_callbacks() is False
 
-    monkeypatch.setattr(litellm, "callbacks", [CustomLogger()])
+    monkeypatch.setattr(embrouter, "callbacks", [CustomLogger()])
     assert ProxyLogging.has_streaming_callbacks() is False
 
     class StreamingLogger(CustomLogger):
         async def async_post_call_streaming_hook(self, **kwargs):
             return kwargs.get("response")
 
-    monkeypatch.setattr(litellm, "callbacks", [StreamingLogger()])
+    monkeypatch.setattr(embrouter, "callbacks", [StreamingLogger()])
     assert ProxyLogging.has_streaming_callbacks() is True
 
 
 def test_has_streaming_callbacks_detects_guardrails(monkeypatch):
-    monkeypatch.setattr(litellm, "callbacks", [CustomGuardrail()])
+    monkeypatch.setattr(embrouter, "callbacks", [CustomGuardrail()])
     assert ProxyLogging.has_streaming_callbacks() is True
 
 
@@ -60,7 +60,7 @@ def test_has_streaming_callbacks_detects_guardrails(monkeypatch):
 async def test_post_call_response_headers_hook_returns_early_without_callbacks(
     monkeypatch,
 ):
-    monkeypatch.setattr(litellm, "callbacks", [])
+    monkeypatch.setattr(embrouter, "callbacks", [])
     proxy_logging_obj = ProxyLogging(user_api_key_cache={})  # type: ignore[arg-type]
 
     result = await proxy_logging_obj.post_call_response_headers_hook(
@@ -85,7 +85,7 @@ def test_callback_capabilities_skips_default_custom_logger(monkeypatch):
     class _InternalNoopHook(CustomLogger):
         pass
 
-    monkeypatch.setattr(litellm, "callbacks", [_InternalNoopHook()])
+    monkeypatch.setattr(embrouter, "callbacks", [_InternalNoopHook()])
 
     caps = ProxyLogging._callback_capabilities()
     # Subclass inherits the base no-op for every hook — every capability flag
@@ -106,7 +106,7 @@ def test_callback_capabilities_captures_iterator_override(monkeypatch):
                 yield item
 
     override = _OverridesIterator()
-    monkeypatch.setattr(litellm, "callbacks", [override])
+    monkeypatch.setattr(embrouter, "callbacks", [override])
 
     caps = ProxyLogging._callback_capabilities()
     assert caps.has_iterator_override is True
@@ -133,7 +133,7 @@ def test_callback_capabilities_detects_inherited_streaming_chunk_override(monkey
     class _LeafWithoutOverride(_StreamingBase):
         pass
 
-    monkeypatch.setattr(litellm, "callbacks", [_LeafWithoutOverride()])
+    monkeypatch.setattr(embrouter, "callbacks", [_LeafWithoutOverride()])
     caps = ProxyLogging._callback_capabilities()
     assert caps.has_streaming_chunk_override is True
 
@@ -141,7 +141,7 @@ def test_callback_capabilities_detects_inherited_streaming_chunk_override(monkey
 def test_callback_capabilities_cache_invalidates_on_list_change(monkeypatch):
     """The cache key includes (length, id-of-each-callback).  Mutating the
     callback list must produce a fresh capability snapshot."""
-    monkeypatch.setattr(litellm, "callbacks", [])
+    monkeypatch.setattr(embrouter, "callbacks", [])
     assert ProxyLogging._callback_capabilities().resolved_callbacks == ()
 
     class _OverridesPreCall(CustomLogger):
@@ -149,7 +149,7 @@ def test_callback_capabilities_cache_invalidates_on_list_change(monkeypatch):
             return kwargs.get("data")
 
     pre = _OverridesPreCall()
-    monkeypatch.setattr(litellm, "callbacks", [pre])
+    monkeypatch.setattr(embrouter, "callbacks", [pre])
     caps = ProxyLogging._callback_capabilities()
     assert caps.has_pre_call_override is True
     assert pre in caps.resolved_callbacks
@@ -206,10 +206,10 @@ def _anthropic_stream_chunks(text_parts):
 
 
 def _content_filter_guardrail(action: str, guardrail_cls=None, **guardrail_kwargs):
-    from litellm.proxy.guardrails.guardrail_hooks.litellm_content_filter.content_filter import (
+    from embrouter.proxy.guardrails.guardrail_hooks.embrouter_content_filter.content_filter import (
         ContentFilterGuardrail,
     )
-    from litellm.types.guardrails import BlockedWord, ContentFilterAction
+    from embrouter.types.guardrails import BlockedWord, ContentFilterAction
 
     cls = guardrail_cls or ContentFilterGuardrail
     return cls(
@@ -225,7 +225,7 @@ def _streaming_logging_obj():
     import datetime
     import uuid
 
-    from litellm.litellm_core_utils.litellm_logging import Logging
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging
 
     return Logging(
         model="claude-sonnet-5",
@@ -233,7 +233,7 @@ def _streaming_logging_obj():
         stream=True,
         call_type="anthropic_messages",
         start_time=datetime.datetime.now(),
-        litellm_call_id=str(uuid.uuid4()),
+        embrouter_call_id=str(uuid.uuid4()),
         function_id="test",
     )
 
@@ -277,14 +277,14 @@ async def test_post_call_stream_guardrail_blocks_anthropic_messages_stream(monke
     """
     from fastapi import HTTPException
 
-    from litellm.caching.caching import DualCache
+    from embrouter.caching.caching import DualCache
     guardrail = _content_filter_guardrail("BLOCK")
-    monkeypatch.setattr(litellm, "callbacks", [guardrail])
+    monkeypatch.setattr(embrouter, "callbacks", [guardrail])
 
     proxy_logging = ProxyLogging(user_api_key_cache=DualCache())
     request_data = {
         "model": "claude-sonnet-5",
-        "litellm_logging_obj": _streaming_logging_obj(),
+        "embrouter_logging_obj": _streaming_logging_obj(),
         "metadata": {},
     }
 
@@ -318,11 +318,11 @@ async def test_post_call_stream_guardrail_keeps_own_iterator_on_chat_completions
     unified block_only path never does. Masked output proves the own-hook
     path was used.
     """
-    from litellm.caching.caching import DualCache
-    from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices
+    from embrouter.caching.caching import DualCache
+    from embrouter.types.utils import Delta, ModelResponseStream, StreamingChoices
 
     guardrail = _content_filter_guardrail("MASK")
-    monkeypatch.setattr(litellm, "callbacks", [guardrail])
+    monkeypatch.setattr(embrouter, "callbacks", [guardrail])
 
     proxy_logging = ProxyLogging(user_api_key_cache=DualCache())
 
@@ -349,11 +349,11 @@ async def test_post_call_stream_guardrail_keeps_own_iterator_on_chat_completions
 
 @pytest.mark.asyncio
 async def test_post_call_stream_records_masked_text_for_deferred_logging(monkeypatch):
-    from litellm.caching.caching import DualCache
-    from litellm.litellm_core_utils.served_output_texts import SERVED_OUTPUT_TEXTS_KEY
-    from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices
+    from embrouter.caching.caching import DualCache
+    from embrouter.embrouter_core_utils.served_output_texts import SERVED_OUTPUT_TEXTS_KEY
+    from embrouter.types.utils import Delta, ModelResponseStream, StreamingChoices
 
-    monkeypatch.setattr(litellm, "callbacks", [_content_filter_guardrail("MASK")])
+    monkeypatch.setattr(embrouter, "callbacks", [_content_filter_guardrail("MASK")])
     proxy_logging = ProxyLogging(user_api_key_cache=DualCache())
     logging_obj = _streaming_logging_obj()
 
@@ -365,7 +365,7 @@ async def test_post_call_stream_records_masked_text_for_deferred_logging(monkeyp
     async for chunk in proxy_logging.async_post_call_streaming_iterator_hook(
         response=fake_stream(),
         user_api_key_dict=UserAPIKeyAuth(api_key="sk-1234", request_route="/chat/completions"),
-        request_data={"model": "gpt-4o-mini", "metadata": {}, "litellm_logging_obj": logging_obj},
+        request_data={"model": "gpt-4o-mini", "metadata": {}, "embrouter_logging_obj": logging_obj},
     ):
         for choice in chunk.choices:
             delivered_text += choice.delta.content or ""
@@ -376,11 +376,11 @@ async def test_post_call_stream_records_masked_text_for_deferred_logging(monkeyp
 
 @pytest.mark.asyncio
 async def test_post_call_stream_records_the_served_text_when_the_client_disconnects(monkeypatch):
-    from litellm.caching.caching import DualCache
-    from litellm.litellm_core_utils.served_output_texts import SERVED_OUTPUT_TEXTS_KEY
-    from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices
+    from embrouter.caching.caching import DualCache
+    from embrouter.embrouter_core_utils.served_output_texts import SERVED_OUTPUT_TEXTS_KEY
+    from embrouter.types.utils import Delta, ModelResponseStream, StreamingChoices
 
-    monkeypatch.setattr(litellm, "callbacks", [_content_filter_guardrail("MASK")])
+    monkeypatch.setattr(embrouter, "callbacks", [_content_filter_guardrail("MASK")])
     proxy_logging = ProxyLogging(user_api_key_cache=DualCache())
     logging_obj = _streaming_logging_obj()
 
@@ -391,7 +391,7 @@ async def test_post_call_stream_records_the_served_text_when_the_client_disconne
     stream = proxy_logging.async_post_call_streaming_iterator_hook(
         response=fake_stream(),
         user_api_key_dict=UserAPIKeyAuth(api_key="sk-1234", request_route="/chat/completions"),
-        request_data={"model": "gpt-4o-mini", "metadata": {}, "litellm_logging_obj": logging_obj},
+        request_data={"model": "gpt-4o-mini", "metadata": {}, "embrouter_logging_obj": logging_obj},
     )
     first = await stream.__anext__()
     await stream.aclose()
@@ -410,12 +410,12 @@ async def test_unified_guardrail_iterator_accepts_explicit_guardrail():
     flushed to the client, so it surfaces as a trailing in-stream error frame
     rather than a raised HTTPException.
     """
-    from litellm.proxy.utils import unified_guardrail
+    from embrouter.proxy.utils import unified_guardrail
 
     guardrail = _content_filter_guardrail("BLOCK")
     request_data = {
         "model": "claude-sonnet-5",
-        "litellm_logging_obj": _streaming_logging_obj(),
+        "embrouter_logging_obj": _streaming_logging_obj(),
         "metadata": {},
     }
 
@@ -449,8 +449,8 @@ async def test_post_call_stream_guardrail_reroutes_inherited_apply_guardrail(mon
     """
     from fastapi import HTTPException
 
-    from litellm.caching.caching import DualCache
-    from litellm.proxy.guardrails.guardrail_hooks.litellm_content_filter.content_filter import (
+    from embrouter.caching.caching import DualCache
+    from embrouter.proxy.guardrails.guardrail_hooks.embrouter_content_filter.content_filter import (
         ContentFilterGuardrail,
     )
 
@@ -461,12 +461,12 @@ async def test_post_call_stream_guardrail_reroutes_inherited_apply_guardrail(mon
 
     guardrail = _content_filter_guardrail("BLOCK", guardrail_cls=_InheritsApplyGuardrail)
     assert "apply_guardrail" not in type(guardrail).__dict__
-    monkeypatch.setattr(litellm, "callbacks", [guardrail])
+    monkeypatch.setattr(embrouter, "callbacks", [guardrail])
 
     proxy_logging = ProxyLogging(user_api_key_cache=DualCache())
     request_data = {
         "model": "claude-sonnet-5",
-        "litellm_logging_obj": _streaming_logging_obj(),
+        "embrouter_logging_obj": _streaming_logging_obj(),
         "metadata": {},
     }
 
@@ -500,8 +500,8 @@ async def test_post_call_stream_masking_guardrail_keeps_own_iterator_on_anthropi
     deliver content it decided to mask. PANW Prisma AIRS is the concrete
     case: its own hook parses the raw bytes and blocks instead of masking.
     """
-    from litellm.caching.caching import DualCache
-    from litellm.proxy.guardrails.guardrail_hooks.litellm_content_filter.content_filter import (
+    from embrouter.caching.caching import DualCache
+    from embrouter.proxy.guardrails.guardrail_hooks.embrouter_content_filter.content_filter import (
         ContentFilterGuardrail,
     )
 
@@ -518,7 +518,7 @@ async def test_post_call_stream_masking_guardrail_keeps_own_iterator_on_anthropi
     guardrail = _content_filter_guardrail(
         "BLOCK", guardrail_cls=_MasksViaOwnRawStreamHook, mask_response_content=True
     )
-    monkeypatch.setattr(litellm, "callbacks", [guardrail])
+    monkeypatch.setattr(embrouter, "callbacks", [guardrail])
 
     proxy_logging = ProxyLogging(user_api_key_cache=DualCache())
     chunks = _anthropic_stream_chunks(["the", " zebra runs"])
@@ -533,7 +533,7 @@ async def test_post_call_stream_masking_guardrail_keeps_own_iterator_on_anthropi
         user_api_key_dict=UserAPIKeyAuth(api_key="sk-1234", request_route="/v1/messages"),
         request_data={
             "model": "claude-sonnet-5",
-            "litellm_logging_obj": _streaming_logging_obj(),
+            "embrouter_logging_obj": _streaming_logging_obj(),
             "metadata": {},
         },
     ):
@@ -550,15 +550,15 @@ async def test_post_call_stream_presidio_output_masking_masks_anthropic_messages
     the analyzer flagged still streamed to the caller unmasked."""
     import json
 
-    from litellm.caching.caching import DualCache
-    from litellm.proxy.guardrails.guardrail_registry import InMemoryGuardrailHandler
-    from litellm.types.guardrails import SupportedGuardrailIntegrations
+    from embrouter.caching.caching import DualCache
+    from embrouter.proxy.guardrails.guardrail_registry import InMemoryGuardrailHandler
+    from embrouter.types.guardrails import SupportedGuardrailIntegrations
 
     handler = InMemoryGuardrailHandler()
     result = handler.initialize_guardrail(
         guardrail={
             "guardrail_name": "presidio-card-mask",
-            "litellm_params": {
+            "embrouter_params": {
                 "guardrail": SupportedGuardrailIntegrations.PRESIDIO.value,
                 "mode": ["pre_call", "post_call"],
                 "default_on": True,
@@ -574,7 +574,7 @@ async def test_post_call_stream_presidio_output_masking_masks_anthropic_messages
         handler.guardrail_id_to_custom_guardrail[guardrail_id],
         *handler.guardrail_id_to_sibling_callbacks[guardrail_id],
     ]
-    monkeypatch.setattr(litellm, "callbacks", callbacks)
+    monkeypatch.setattr(embrouter, "callbacks", callbacks)
 
     chunks = _anthropic_stream_chunks(["4111", " 1111 1111 1111"])
 
@@ -588,7 +588,7 @@ async def test_post_call_stream_presidio_output_masking_masks_anthropic_messages
         user_api_key_dict=UserAPIKeyAuth(api_key="sk-1234", request_route="/v1/messages"),
         request_data={
             "model": "claude-sonnet-5",
-            "litellm_logging_obj": _streaming_logging_obj(),
+            "embrouter_logging_obj": _streaming_logging_obj(),
             "metadata": {},
         },
     ):
@@ -693,10 +693,10 @@ async def test_execute_guardrail_hook_keeps_native_hooks_when_opted_out(hook_typ
 
 
 def test_azure_content_safety_guardrails_keep_their_native_hooks():
-    from litellm.proxy.guardrails.guardrail_hooks.azure.prompt_shield import (
+    from embrouter.proxy.guardrails.guardrail_hooks.azure.prompt_shield import (
         AzureContentSafetyPromptShieldGuardrail,
     )
-    from litellm.proxy.guardrails.guardrail_hooks.azure.text_moderation import (
+    from embrouter.proxy.guardrails.guardrail_hooks.azure.text_moderation import (
         AzureContentSafetyTextModerationGuardrail,
     )
 
@@ -709,7 +709,7 @@ def test_azure_content_safety_guardrails_keep_their_native_hooks():
 async def test_during_call_hook_keeps_native_moderation_hook_when_opted_out(monkeypatch):
     opted_out = _KeepsNativeHooks(event_hook=GuardrailEventHooks.during_call, default_on=True)
     routed = _AppliesGuardrail(event_hook=GuardrailEventHooks.during_call, default_on=True)
-    monkeypatch.setattr(litellm, "callbacks", [opted_out, routed])
+    monkeypatch.setattr(embrouter, "callbacks", [opted_out, routed])
 
     await ProxyLogging(user_api_key_cache=DualCache()).during_call_hook(
         data={"messages": [{"role": "user", "content": "hi"}]},
@@ -739,7 +739,7 @@ class _RejectsInModeration(CustomLogger):
 @pytest.mark.asyncio
 async def test_during_call_hook_runs_custom_logger_moderation_override(monkeypatch):
     moderator = _RejectsInModeration()
-    monkeypatch.setattr(litellm, "callbacks", [CustomLogger(), moderator])
+    monkeypatch.setattr(embrouter, "callbacks", [CustomLogger(), moderator])
 
     with pytest.raises(HTTPException) as exc_info:
         await ProxyLogging(user_api_key_cache=DualCache()).during_call_hook(
@@ -755,7 +755,7 @@ async def test_during_call_hook_runs_custom_logger_moderation_override(monkeypat
 @pytest.mark.asyncio
 async def test_during_call_hook_skips_custom_logger_moderation_without_auth(monkeypatch):
     moderator = _RejectsInModeration()
-    monkeypatch.setattr(litellm, "callbacks", [moderator])
+    monkeypatch.setattr(embrouter, "callbacks", [moderator])
     data = {"messages": [{"role": "user", "content": "hi"}]}
 
     result = await ProxyLogging(user_api_key_cache=DualCache()).during_call_hook(
@@ -782,7 +782,7 @@ class _V1PreCallGuardrail(CustomGuardrail):
 @pytest.mark.filterwarnings("error::RuntimeWarning")
 async def test_during_call_hook_runs_moderation_override_after_v1_pre_call_guardrail(monkeypatch):
     moderator = _RejectsInModeration()
-    monkeypatch.setattr(litellm, "callbacks", [_V1PreCallGuardrail(), moderator])
+    monkeypatch.setattr(embrouter, "callbacks", [_V1PreCallGuardrail(), moderator])
 
     with pytest.raises(HTTPException) as exc_info:
         await ProxyLogging(user_api_key_cache=DualCache()).during_call_hook(
@@ -798,7 +798,7 @@ async def test_during_call_hook_runs_moderation_override_after_v1_pre_call_guard
 @pytest.mark.asyncio
 async def test_during_call_hook_runs_moderation_override_inherited_from_parent(monkeypatch):
     moderator = _InheritsModerationOverride()
-    monkeypatch.setattr(litellm, "callbacks", [moderator])
+    monkeypatch.setattr(embrouter, "callbacks", [moderator])
 
     with pytest.raises(HTTPException) as exc_info:
         await ProxyLogging(user_api_key_cache=DualCache()).during_call_hook(
@@ -813,11 +813,11 @@ async def test_during_call_hook_runs_moderation_override_inherited_from_parent(m
 
 @pytest.mark.asyncio
 async def test_post_call_success_hook_keeps_native_hook_when_opted_out(monkeypatch):
-    from litellm.types.utils import Choices, Message, ModelResponse
+    from embrouter.types.utils import Choices, Message, ModelResponse
 
     opted_out = _KeepsNativeHooks(event_hook=GuardrailEventHooks.post_call, default_on=True)
     routed = _AppliesGuardrail(event_hook=GuardrailEventHooks.post_call, default_on=True)
-    monkeypatch.setattr(litellm, "callbacks", [opted_out, routed])
+    monkeypatch.setattr(embrouter, "callbacks", [opted_out, routed])
     response = ModelResponse(choices=[Choices(message=Message(role="assistant", content="hello"))])
 
     await ProxyLogging(user_api_key_cache=DualCache()).post_call_success_hook(
@@ -837,7 +837,7 @@ def test_callback_capabilities_excludes_opted_out_guardrail_from_iterator_overri
     ProxyLogging._callback_capabilities_cache.clear()
     opted_out = _KeepsNativeHooks()
     routed = _AppliesGuardrail()
-    monkeypatch.setattr(litellm, "callbacks", [opted_out, routed])
+    monkeypatch.setattr(embrouter, "callbacks", [opted_out, routed])
 
     caps = ProxyLogging._callback_capabilities()
 
@@ -860,12 +860,12 @@ async def test_deferred_stream_guardrails_run_native_hook_when_opted_out(monkeyp
     """The deferred path skips unified-routed guardrails because the streaming iterator
     already scanned. An opted-out guardrail never reached that iterator, so its own
     post-call hook has to run here."""
-    from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
-    from litellm.types.utils import Choices, Message, ModelResponse
+    from embrouter.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+    from embrouter.types.utils import Choices, Message, ModelResponse
 
     opted_out = _KeepsNativeHooks(event_hook=GuardrailEventHooks.post_call, default_on=True)
     routed = _AppliesGuardrail(event_hook=GuardrailEventHooks.post_call, default_on=True)
-    monkeypatch.setattr(litellm, "callbacks", [opted_out, routed])
+    monkeypatch.setattr(embrouter, "callbacks", [opted_out, routed])
 
     await ProxyBaseLLMRequestProcessing._run_deferred_stream_guardrails(
         captured_data={"messages": [{"role": "user", "content": "hi"}]},
@@ -883,12 +883,12 @@ async def test_deferred_stream_guardrails_run_native_hook_when_opted_out(monkeyp
 async def test_deferred_stream_guardrails_skip_pipeline_managed_native_hook(monkeypatch):
     """A post_call pipeline step already ran the opted-out guardrail's own hook against
     the buffered stream, so the deferred audit must not run it a second time."""
-    from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
-    from litellm.types.proxy.policy_engine.pipeline_types import GuardrailPipeline, PipelineStep
-    from litellm.types.utils import Choices, Message, ModelResponse
+    from embrouter.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+    from embrouter.types.proxy.policy_engine.pipeline_types import GuardrailPipeline, PipelineStep
+    from embrouter.types.utils import Choices, Message, ModelResponse
 
     pipeline_managed = _KeepsNativeHooks(event_hook=GuardrailEventHooks.post_call, default_on=True)
-    monkeypatch.setattr(litellm, "callbacks", [pipeline_managed])
+    monkeypatch.setattr(embrouter, "callbacks", [pipeline_managed])
     pipeline = GuardrailPipeline(mode="post_call", steps=[PipelineStep(guardrail="keeps_native", on_fail="block")])
 
     await ProxyBaseLLMRequestProcessing._run_deferred_stream_guardrails(
@@ -910,16 +910,16 @@ async def test_deferred_stream_guardrails_run_native_hook_whose_pipeline_could_n
     """A pipeline step with neither streaming interface keeps the whole pipeline off the
     stream, so the deferred audit is the only place the opted-out guardrail's own hook
     still runs, the way it did before pipelines ran on streams."""
-    from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
-    from litellm.types.proxy.policy_engine.pipeline_types import GuardrailPipeline, PipelineStep
-    from litellm.types.utils import Choices, Message, ModelResponse
+    from embrouter.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+    from embrouter.types.proxy.policy_engine.pipeline_types import GuardrailPipeline, PipelineStep
+    from embrouter.types.utils import Choices, Message, ModelResponse
 
     class NeitherHookGuardrail(CustomGuardrail):
         pass
 
     pipeline_managed = _KeepsNativeHooks(event_hook=GuardrailEventHooks.post_call, default_on=True)
     neither = NeitherHookGuardrail(guardrail_name="gr-neither", event_hook=GuardrailEventHooks.post_call)
-    monkeypatch.setattr(litellm, "callbacks", [pipeline_managed, neither])
+    monkeypatch.setattr(embrouter, "callbacks", [pipeline_managed, neither])
     pipeline = GuardrailPipeline(
         mode="post_call",
         steps=[
@@ -946,12 +946,12 @@ async def test_deferred_stream_guardrails_run_native_hook_whose_pipeline_could_n
 async def test_deferred_stream_guardrails_run_native_hook_on_route_without_translation(monkeypatch):
     """A route with no endpoint guardrail translation cannot gate the stream through its
     pipelines, so the deferred audit still owes the opted-out guardrail its own hook."""
-    from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
-    from litellm.types.proxy.policy_engine.pipeline_types import GuardrailPipeline, PipelineStep
-    from litellm.types.utils import Choices, Message, ModelResponse
+    from embrouter.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+    from embrouter.types.proxy.policy_engine.pipeline_types import GuardrailPipeline, PipelineStep
+    from embrouter.types.utils import Choices, Message, ModelResponse
 
     pipeline_managed = _KeepsNativeHooks(event_hook=GuardrailEventHooks.post_call, default_on=True)
-    monkeypatch.setattr(litellm, "callbacks", [pipeline_managed])
+    monkeypatch.setattr(embrouter, "callbacks", [pipeline_managed])
     pipeline = GuardrailPipeline(mode="post_call", steps=[PipelineStep(guardrail="keeps_native", on_fail="block")])
 
     await ProxyBaseLLMRequestProcessing._run_deferred_stream_guardrails(
@@ -972,7 +972,7 @@ async def test_deferred_stream_guardrails_run_native_hook_on_route_without_trans
 async def test_realtime_guardrails_skip_opted_out_guardrail(monkeypatch):
     """The realtime path calls apply_guardrail directly, so the opt-out has to be
     honored there too or a request-traffic guardrail starts blocking live sessions."""
-    from litellm.litellm_core_utils.realtime_streaming import RealTimeStreaming
+    from embrouter.embrouter_core_utils.realtime_streaming import RealTimeStreaming
 
     opted_out = _KeepsNativeHooks(event_hook=GuardrailEventHooks.pre_call, default_on=True)
     routed = _AppliesGuardrail(event_hook=GuardrailEventHooks.pre_call, default_on=True)
@@ -984,7 +984,7 @@ async def test_realtime_guardrails_skip_opted_out_guardrail(monkeypatch):
             return inputs
 
         guardrail.apply_guardrail = _record
-    monkeypatch.setattr(litellm, "callbacks", [opted_out, routed])
+    monkeypatch.setattr(embrouter, "callbacks", [opted_out, routed])
 
     streaming = RealTimeStreaming.__new__(RealTimeStreaming)
     streaming.request_data = {"model": "gpt-realtime"}
@@ -1002,7 +1002,7 @@ async def test_post_call_stream_keeps_own_iterator_when_opted_out(monkeypatch):
     """A guardrail carrying both apply_guardrail and its own streaming iterator hook
     is re-routed to the unified path on /v1/messages. Opting out has to suppress that
     re-route, or its streamed responses get scanned by the unified pipeline instead."""
-    from litellm.proxy.guardrails.guardrail_hooks.litellm_content_filter.content_filter import (
+    from embrouter.proxy.guardrails.guardrail_hooks.embrouter_content_filter.content_filter import (
         ContentFilterGuardrail,
     )
 
@@ -1021,7 +1021,7 @@ async def test_post_call_stream_keeps_own_iterator_when_opted_out(monkeypatch):
 
     guardrail = _content_filter_guardrail("BLOCK", guardrail_cls=_OptedOutWithOwnIterator)
     assert "apply_guardrail" in type(guardrail).__dict__
-    monkeypatch.setattr(litellm, "callbacks", [guardrail])
+    monkeypatch.setattr(embrouter, "callbacks", [guardrail])
 
     chunks = _anthropic_stream_chunks(["the", " zebra runs"])
 
@@ -1033,7 +1033,7 @@ async def test_post_call_stream_keeps_own_iterator_when_opted_out(monkeypatch):
     async for chunk in ProxyLogging(user_api_key_cache=DualCache()).async_post_call_streaming_iterator_hook(
         response=fake_stream(),
         user_api_key_dict=UserAPIKeyAuth(api_key="sk-1234", request_route="/v1/messages"),
-        request_data={"model": "claude-sonnet-5", "litellm_logging_obj": _streaming_logging_obj(), "metadata": {}},
+        request_data={"model": "claude-sonnet-5", "embrouter_logging_obj": _streaming_logging_obj(), "metadata": {}},
     ):
         delivered.append(chunk)
 
@@ -1045,11 +1045,11 @@ async def test_post_call_stream_keeps_own_iterator_when_opted_out(monkeypatch):
 async def test_parallel_post_call_guardrails_keep_native_hook_when_opted_out(monkeypatch):
     """The run_in_parallel post-call path has its own dispatch check, so the opt-out has
     to be honored there too."""
-    from litellm.types.utils import Choices, Message, ModelResponse
+    from embrouter.types.utils import Choices, Message, ModelResponse
 
     opted_out = _KeepsNativeHooks(event_hook=GuardrailEventHooks.post_call, default_on=True, run_in_parallel=True)
     routed = _AppliesGuardrail(event_hook=GuardrailEventHooks.post_call, default_on=True, run_in_parallel=True)
-    monkeypatch.setattr(litellm, "callbacks", [opted_out, routed])
+    monkeypatch.setattr(embrouter, "callbacks", [opted_out, routed])
     response = ModelResponse(choices=[Choices(message=Message(role="assistant", content="hello"))])
 
     await ProxyLogging(user_api_key_cache=DualCache()).post_call_success_hook(

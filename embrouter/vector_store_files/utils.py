@@ -1,7 +1,7 @@
 from collections.abc import Mapping
 from typing import Final, cast, get_type_hints
 
-from litellm.types.vector_store_files import (
+from embrouter.types.vector_store_files import (
     VectorStoreFileCreateRequest,
     VectorStoreFileListQueryParams,
     VectorStoreFileUpdateRequest,

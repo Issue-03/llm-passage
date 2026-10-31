@@ -9,7 +9,7 @@ Two failures the fix closes:
    explicitly setting ``auth: true`` shipped an unauthenticated
    forwarder.
 2. Setting ``auth: true`` was rejected at startup unless the operator
-   had a LiteLLM Enterprise license, leaving OSS deployments with no
+   had a EmbRouter Enterprise license, leaving OSS deployments with no
    safe configuration.
 
 The fix flips the default to ``True`` (safe-by-default) and removes
@@ -25,11 +25,11 @@ import pytest
 from fastapi import FastAPI
 
 
-from litellm.proxy._types import PassThroughGenericEndpoint
-from litellm.proxy.auth.user_api_key_auth import (
+from embrouter.proxy._types import PassThroughGenericEndpoint
+from embrouter.proxy.auth.user_api_key_auth import (
     check_api_key_for_custom_headers_or_pass_through_endpoints,
 )
-from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+from embrouter.proxy.pass_through_endpoints.pass_through_endpoints import (
     _register_pass_through_endpoint,
 )
 
@@ -113,7 +113,7 @@ async def test_runtime_check_treats_missing_auth_key_as_authenticated():
 async def test_runtime_check_explicit_auth_false_still_skips_validation():
     # Operators who explicitly set ``auth: False`` get the legacy
     # behaviour — an empty UserAPIKeyAuth, no key required.
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     request = MagicMock()
     request.headers = {}

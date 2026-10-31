@@ -2,7 +2,7 @@
 Has all /sso/* routes
 
 /sso/key/generate - handles user signing in with SSO and redirects to /sso/callback
-/sso/callback - returns JWT Redirect Response that redirects to LiteLLM UI
+/sso/callback - returns JWT Redirect Response that redirects to EmbRouter UI
 
 /sso/debug/login - handles user signing in with SSO and redirects to /sso/debug/callback
 /sso/debug/callback - returns the OpenID object returned by the SSO provider
@@ -43,18 +43,18 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, TypeAdapter, ValidationError
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm._uuid import uuid
-from litellm.caching.dual_cache import DualCache
-from litellm.caching.redis_cache import RedisCircuitBreakerOpenError
-from litellm.constants import (
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter._uuid import uuid
+from embrouter.caching.dual_cache import DualCache
+from embrouter.caching.redis_cache import RedisCircuitBreakerOpenError
+from embrouter.constants import (
     CLI_SSO_CLAIM_MAP,
     CLI_SSO_CLAIM_MAX_SCALAR_LENGTH,
     CLI_SSO_SESSION_CACHE_KEY_PREFIX,
     CLI_SSO_SESSION_TTL_SECONDS,
-    LITELLM_CLI_SOURCE_IDENTIFIER,
-    LITELLM_UI_SESSION_DURATION,
+    EMBROUTER_CLI_SOURCE_IDENTIFIER,
+    EMBROUTER_UI_SESSION_DURATION,
     MAX_SPENDLOG_ROWS_TO_QUERY,
     MICROSOFT_USER_DISPLAY_NAME_ATTRIBUTE,
     MICROSOFT_USER_EMAIL_ATTRIBUTE,
@@ -62,22 +62,22 @@ from litellm.constants import (
     MICROSOFT_USER_ID_ATTRIBUTE,
     MICROSOFT_USER_LAST_NAME_ATTRIBUTE,
 )
-from litellm.litellm_core_utils.dot_notation_indexing import get_nested_value
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.embrouter_core_utils.dot_notation_indexing import get_nested_value
+from embrouter.llms.custom_httpx.http_handler import (
     AsyncHTTPHandler,
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.proxy._experimental.mcp_server.outbound_credentials.sso_assertion_store import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.sso_assertion_store import (
     SSOIdentityAssertion,
     assertion_from_sso_login,
     ema_assertion_retention_enabled,
     retain_sso_identity_assertion_for_ema,
 )
-from litellm.proxy._types import (
+from embrouter.proxy._types import (
     CommonProxyErrors,
-    LiteLLM_UserTable,
-    LitellmUserRoles,
+    EmbRouter_UserTable,
+    EmbrouterUserRoles,
     Member,
     NewTeamRequest,
     NewUserRequest,
@@ -88,55 +88,55 @@ from litellm.proxy._types import (
     TeamMemberAddRequest,
     UserAPIKeyAuth,
 )
-from litellm.proxy.auth.auth_checks import ExperimentalUIJWTToken, get_user_object
-from litellm.proxy.auth.auth_utils import (
+from embrouter.proxy.auth.auth_checks import ExperimentalUIJWTToken, get_user_object
+from embrouter.proxy.auth.auth_utils import (
     _get_request_ip_address,
     has_user_setup_sso,
 )
-from litellm.proxy.auth.handle_jwt import JWTHandler
-from litellm.proxy.auth.ip_address_utils import IPAddressUtils
-from litellm.proxy.auth.team_grants import TeamModelAliasTable
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.common_utils.admin_ui_utils import (
+from embrouter.proxy.auth.handle_jwt import JWTHandler
+from embrouter.proxy.auth.ip_address_utils import IPAddressUtils
+from embrouter.proxy.auth.team_grants import TeamModelAliasTable
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.common_utils.admin_ui_utils import (
     admin_ui_disabled,
     show_missing_vars_in_env,
 )
-from litellm.proxy.common_utils.html_forms.default_credentials_hint import should_hide_default_credentials_hint
-from litellm.proxy.common_utils.html_forms.jwt_display_template import (
+from embrouter.proxy.common_utils.html_forms.default_credentials_hint import should_hide_default_credentials_hint
+from embrouter.proxy.common_utils.html_forms.jwt_display_template import (
     jwt_display_template,
 )
-from litellm.proxy.common_utils.html_forms.ui_login import build_ui_login_form
-from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-from litellm.proxy.management_endpoints.internal_user_endpoints import new_user
-from litellm.proxy.management_endpoints.sso import CustomMicrosoftSSO
-from litellm.proxy.management_endpoints.sso.id_jag_assertion_capture import (
+from embrouter.proxy.common_utils.html_forms.ui_login import build_ui_login_form
+from embrouter.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+from embrouter.proxy.management_endpoints.internal_user_endpoints import new_user
+from embrouter.proxy.management_endpoints.sso import CustomMicrosoftSSO
+from embrouter.proxy.management_endpoints.sso.id_jag_assertion_capture import (
     id_jag_assertion_capture_gap,
 )
-from litellm.proxy.management_endpoints.sso.saml_sso import SAMLAuthHandler
-from litellm.proxy.management_endpoints.sso_helper_utils import (
+from embrouter.proxy.management_endpoints.sso.saml_sso import SAMLAuthHandler
+from embrouter.proxy.management_endpoints.sso_helper_utils import (
     check_is_admin_only_access,
     has_admin_ui_access,
 )
-from litellm.proxy.management_endpoints.team_endpoints import new_team, team_member_add
-from litellm.proxy.management_endpoints.types import (
-    LITELLM_USER_ROLE_HIERARCHY,
+from embrouter.proxy.management_endpoints.team_endpoints import new_team, team_member_add
+from embrouter.proxy.management_endpoints.types import (
+    EMBROUTER_USER_ROLE_HIERARCHY,
     CustomOpenID,
-    get_litellm_user_role,
-    is_valid_litellm_user_role,
+    get_embrouter_user_role,
+    is_valid_embrouter_user_role,
 )
-from litellm.proxy.utils import (
+from embrouter.proxy.utils import (
     PrismaClient,
     ProxyLogging,
     get_custom_url,
     get_server_root_path,
 )
-from litellm.repositories.prisma_protocols import TableActions
-from litellm.repositories.table_repositories import SSOConfigRepository
-from litellm.repositories.team_repository import TeamRepository
-from litellm.repositories.user_repository import UserRepository
-from litellm.secret_managers.main import get_secret_bool, get_secret_str, str_to_bool
-from litellm.types.proxy.management_endpoints.ui_sso import *  # noqa: F403
-from litellm.types.proxy.management_endpoints.ui_sso import (
+from embrouter.repositories.prisma_protocols import TableActions
+from embrouter.repositories.table_repositories import SSOConfigRepository
+from embrouter.repositories.team_repository import TeamRepository
+from embrouter.repositories.user_repository import UserRepository
+from embrouter.secret_managers.main import get_secret_bool, get_secret_str, str_to_bool
+from embrouter.types.proxy.management_endpoints.ui_sso import *  # noqa: F403
+from embrouter.types.proxy.management_endpoints.ui_sso import (
     DefaultTeamSSOParams,
     MicrosoftGraphAPIUserGroupDirectoryObject,
     MicrosoftGraphAPIUserGroupResponse,
@@ -144,7 +144,7 @@ from litellm.types.proxy.management_endpoints.ui_sso import (
     RoleMappings,
     TeamMappings,
 )
-from litellm.types.proxy.ui_sso import ParsedOpenIDResult
+from embrouter.types.proxy.ui_sso import ParsedOpenIDResult
 
 if TYPE_CHECKING:
     from fastapi_sso.sso.base import OpenID
@@ -218,7 +218,7 @@ class _TeamRowGrants(BaseModel):
     team_id: str
     team_alias: str | None = None
     models: tuple[str, ...] = ()
-    litellm_model_table: TeamModelAliasTable | None = None
+    embrouter_model_table: TeamModelAliasTable | None = None
 
 
 class CliSsoTeamDetail(BaseModel):
@@ -284,7 +284,7 @@ def _is_valid_cli_sso_user_code(user_code: str | None) -> bool:
 
 
 def _cli_sso_verification_uri_complete_enabled() -> bool:
-    from litellm.proxy.proxy_server import general_settings
+    from embrouter.proxy.proxy_server import general_settings
 
     return bool(general_settings.get("allow_cli_sso_verification_uri_complete", False))
 
@@ -353,8 +353,8 @@ def _get_cli_sso_flow_or_raise(login_id: str | None, cache: DualCache) -> dict:
         raise HTTPException(
             status_code=400,
             detail=(
-                "Your litellm CLI is out of date and uses a login flow this proxy no longer supports. "
-                "Upgrade it with `pip install -U 'litellm[proxy]'` and run `lite login` again."
+                "Your embrouter CLI is out of date and uses a login flow this proxy no longer supports. "
+                "Upgrade it with `pip install -U 'embrouter[proxy]'` and run `lite login` again."
             ),
         )
     if not _is_valid_cli_sso_login_id(login_id):
@@ -403,12 +403,12 @@ def _verify_cli_sso_poll_secret(flow: dict, poll_secret: str | None) -> bool:
 
 def _parse_cli_sso_claim_map() -> list[tuple[str, str]]:
     """
-    Parse CLI_SSO_CLAIM_MAP / LITELLM_CLI_SSO_CLAIM_MAP.
+    Parse CLI_SSO_CLAIM_MAP / EMBROUTER_CLI_SSO_CLAIM_MAP.
 
     Format: comma-separated ``source_claim->metadata_key`` pairs, e.g.
     ``employment_type->acme_employment_type,org_info.department->department``.
     Destination keys may use an optional ``metadata.`` prefix; values are stored
-    on the LiteLLM user's ``metadata`` JSON column.
+    on the EmbRouter user's ``metadata`` JSON column.
     """
     claim_map_raw: Final = CLI_SSO_CLAIM_MAP.strip()
     if not claim_map_raw:
@@ -533,7 +533,7 @@ def build_cli_sso_attribution_metadata(
     """
     Build allowlisted, non-secret scalar attribution metadata from an SSO result.
 
-    Sources are configured via CLI_SSO_CLAIM_MAP / LITELLM_CLI_SSO_CLAIM_MAP and
+    Sources are configured via CLI_SSO_CLAIM_MAP / EMBROUTER_CLI_SSO_CLAIM_MAP and
     may include claims captured by GENERIC_USER_EXTRA_ATTRIBUTES on CustomOpenID.
     """
     claim_map: Final = _parse_cli_sso_claim_map()
@@ -638,7 +638,7 @@ def _render_cli_sso_verification_page(
     <!doctype html>
     <html>
       <head>
-        <title>LiteLLM CLI Login</title>
+        <title>EmbRouter CLI Login</title>
         <style>
           body {{
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -702,7 +702,7 @@ def _render_cli_sso_verification_page(
 
 @router.post("/sso/cli/start", tags=["experimental"], include_in_schema=False)
 async def cli_sso_start(request: Request):
-    from litellm.proxy.proxy_server import cli_sso_session_cache, general_settings
+    from embrouter.proxy.proxy_server import cli_sso_session_cache, general_settings
 
     _check_cli_sso_start_rate_limit(
         request=request,
@@ -729,7 +729,7 @@ async def cli_sso_start(request: Request):
             + "?"
             + urlencode(
                 {
-                    "source": LITELLM_CLI_SOURCE_IDENTIFIER,
+                    "source": EMBROUTER_CLI_SOURCE_IDENTIFIER,
                     "key": login_id,
                     "user_code": user_code,
                 }
@@ -750,10 +750,10 @@ async def cli_sso_start(request: Request):
 async def cli_sso_complete(request: Request, login_id: str):
     from fastapi.responses import HTMLResponse
 
-    from litellm.proxy.common_utils.html_forms.cli_sso_success import (
+    from embrouter.proxy.common_utils.html_forms.cli_sso_success import (
         render_cli_sso_success_page,
     )
-    from litellm.proxy.proxy_server import cli_sso_session_cache
+    from embrouter.proxy.proxy_server import cli_sso_session_cache
 
     flow: Final = _get_cli_sso_flow_or_raise(login_id=login_id, cache=cli_sso_session_cache)
     if not flow.get("sso_complete") or not flow.get("session_data"):
@@ -808,7 +808,7 @@ def normalize_email(email: str | None) -> str | None:
 def determine_role_from_groups(
     user_groups: list[str],
     role_mappings: "RoleMappings",
-) -> LitellmUserRoles | None:
+) -> EmbrouterUserRoles | None:
     """
     Determine the highest privilege role for a user based on their groups.
 
@@ -833,7 +833,7 @@ def determine_role_from_groups(
     user_groups_set: Final = set(user_groups) if isinstance(user_groups, list) else set()
 
     # Find the highest privilege role the user belongs to
-    for role in LITELLM_USER_ROLE_HIERARCHY:
+    for role in EMBROUTER_USER_ROLE_HIERARCHY:
         if role in role_mappings.roles:
             role_groups = role_mappings.roles[role]
             if isinstance(role_groups, list) and user_groups_set.intersection(set(role_groups)):
@@ -904,7 +904,7 @@ def process_sso_jwt_access_token(
         # Extract user role from access token if not already set from UserInfo
         existing_role = result.get("user_role") if isinstance(result, dict) else getattr(result, "user_role", None)
         if existing_role is None:
-            user_role: LitellmUserRoles | None = None
+            user_role: EmbrouterUserRoles | None = None
 
             # Try role_mappings first (group-based role determination)
             if role_mappings is not None and role_mappings.roles:
@@ -933,7 +933,7 @@ def process_sso_jwt_access_token(
                 generic_user_role_attribute_name: Final = os.getenv("GENERIC_USER_ROLE_ATTRIBUTE", "role")
                 user_role_from_token: Final = get_nested_value(access_token_payload, generic_user_role_attribute_name)
                 if user_role_from_token is not None:
-                    user_role = get_litellm_user_role(user_role_from_token)
+                    user_role = get_embrouter_user_role(user_role_from_token)
                     verbose_proxy_logger.debug(
                         "Extracted role '%s' from access token field '%s'", user_role, generic_user_role_attribute_name
                     )
@@ -988,7 +988,7 @@ async def _raise_if_sso_exceeds_free_user_limit(premium_user: bool, prisma_clien
     billable_users: Final = await UserRepository(prisma_client).count_billable_users()
     if billable_users and billable_users > 5:
         raise ProxyException(
-            message="You must be a LiteLLM Enterprise user to use SSO for more than 5 users. If you have a license please set `LITELLM_LICENSE` in your env. If you want to obtain a license meet with us here: https://enterprise.litellm.ai/demo You are seeing this error message because You configured SSO (one of `MICROSOFT_CLIENT_ID`, `GOOGLE_CLIENT_ID`, `GENERIC_CLIENT_ID`, or SAML) in your env. Please unset it",
+            message="You must be a EmbRouter Enterprise user to use SSO for more than 5 users. If you have a license please set `EMBROUTER_LICENSE` in your env. If you want to obtain a license meet with us here: https://enterprise.embrouter.ai/demo You are seeing this error message because You configured SSO (one of `MICROSOFT_CLIENT_ID`, `GOOGLE_CLIENT_ID`, `GENERIC_CLIENT_ID`, or SAML) in your env. Please unset it",
             type=ProxyErrorTypes.auth_error,
             param="premium_user",
             code=status.HTTP_403_FORBIDDEN,
@@ -1006,10 +1006,10 @@ async def google_login(
 ):
     """
     Create Proxy API Keys using Google Workspace SSO. Requires setting PROXY_BASE_URL in .env
-    PROXY_BASE_URL should be the your deployed proxy endpoint, e.g. PROXY_BASE_URL="https://litellm-production-7002.up.railway.app/"
+    PROXY_BASE_URL should be the your deployed proxy endpoint, e.g. PROXY_BASE_URL="https://embrouter-production-7002.up.railway.app/"
     Example:
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         cli_sso_session_cache,
         general_settings,
         premium_user,
@@ -1049,7 +1049,7 @@ async def google_login(
         sso_callback_route="sso/callback",
     )
 
-    if source == LITELLM_CLI_SOURCE_IDENTIFIER:
+    if source == EMBROUTER_CLI_SOURCE_IDENTIFIER:
         _get_cli_sso_flow_or_raise(login_id=key, cache=cli_sso_session_cache)
 
     # Store CLI login handle in state for OAuth flow
@@ -1062,7 +1062,7 @@ async def google_login(
     # check if user defined a custom auth sso sign in handler, if yes, use it
     if user_custom_ui_sso_sign_in_handler is not None:
         try:
-            from litellm_enterprise.proxy.auth.custom_sso_handler import (
+            from embrouter_enterprise.proxy.auth.custom_sso_handler import (
                 EnterpriseCustomSSOHandler,
             )
 
@@ -1071,7 +1071,7 @@ async def google_login(
             )
         except ImportError:
             raise ValueError(
-                "Enterprise features are not available. Custom UI SSO sign-in requires LiteLLM Enterprise."
+                "Enterprise features are not available. Custom UI SSO sign-in requires EmbRouter Enterprise."
             )
 
     if (
@@ -1177,7 +1177,7 @@ def generic_response_convertor(
 
     # Determine user role based on role_mappings if available
     # Only apply role_mappings for GENERIC SSO provider
-    user_role: LitellmUserRoles | None = None
+    user_role: EmbrouterUserRoles | None = None
 
     if role_mappings is not None and role_mappings.provider.lower() in [
         "generic",
@@ -1217,11 +1217,11 @@ def generic_response_convertor(
     if user_role is None:
         user_role_from_sso: Final = get_nested_value(response, generic_user_role_attribute_name)
         if user_role_from_sso is not None:
-            role: Final = get_litellm_user_role(user_role_from_sso)
+            role: Final = get_embrouter_user_role(user_role_from_sso)
             if role is not None:
                 user_role = role
                 verbose_proxy_logger.debug(
-                    "Found valid LitellmUserRoles '%s' from SSO attribute '%s'",
+                    "Found valid EmbrouterUserRoles '%s' from SSO attribute '%s'",
                     role.value,
                     generic_user_role_attribute_name,
                 )
@@ -1308,11 +1308,11 @@ def _setup_generic_sso_env_vars(
 
 async def _setup_team_mappings() -> Optional["TeamMappings"]:
     """Setup team mappings from SSO database settings."""
-    from litellm.types.proxy.management_endpoints.ui_sso import TeamMappings
+    from embrouter.types.proxy.management_endpoints.ui_sso import TeamMappings
 
     team_mappings: TeamMappings | None = None
     try:
-        from litellm.proxy.utils import get_prisma_client_or_throw
+        from embrouter.proxy.utils import get_prisma_client_or_throw
 
         prisma_client: Final = get_prisma_client_or_throw("Prisma client is None, connect a database to your proxy")
 
@@ -1346,7 +1346,7 @@ async def _setup_role_mappings() -> Optional["RoleMappings"]:
     """Setup role mappings from SSO database settings."""
     role_mappings: RoleMappings | None = None
     try:
-        from litellm.proxy.utils import get_prisma_client_or_throw
+        from embrouter.proxy.utils import get_prisma_client_or_throw
 
         prisma_client: Final = get_prisma_client_or_throw("Prisma client is None, connect a database to your proxy")
 
@@ -1379,7 +1379,7 @@ async def _setup_role_mappings() -> Optional["RoleMappings"]:
         import ast
 
         try:
-            generic_user_role_mappings_data: dict[LitellmUserRoles, list[str]] = ast.literal_eval(generic_role_mappings)
+            generic_user_role_mappings_data: dict[EmbrouterUserRoles, list[str]] = ast.literal_eval(generic_role_mappings)
             if isinstance(generic_user_role_mappings_data, dict):
                 role_mappings_data = {
                     "provider": "generic",
@@ -1435,7 +1435,7 @@ def _handle_generic_sso_error(
 
         detailed_message = (
             f"SSO authentication failed: {provider_name} requires PKCE (Proof Key for Code Exchange) "
-            f"but it's not enabled in your LiteLLM configuration.\n\n"
+            f"but it's not enabled in your EmbRouter configuration.\n\n"
             f"SOLUTION: Add this environment variable and restart your proxy:\n"
             f"  GENERIC_CLIENT_USE_PKCE=true\n\n"
         )
@@ -1575,12 +1575,12 @@ async def get_generic_sso_response(
             # delegates to fastapi-sso's ``verify_and_process``, which
             # performs its own session-cookie check.  The PKCE branch
             # bypasses that helper, so we validate the URL ``state``
-            # against the ``litellm_oauth_state`` cookie set on the
+            # against the ``embrouter_oauth_state`` cookie set on the
             # redirect response — without this an attacker can pre-mint
             # a state + cached PKCE verifier and hijack a victim's auth
             # code (Login-CSRF / token theft).
             url_state: Final = request.query_params.get("state")
-            cookie_state: Final = request.cookies.get("litellm_oauth_state")
+            cookie_state: Final = request.cookies.get("embrouter_oauth_state")
             if not url_state or not cookie_state or not secrets.compare_digest(url_state, cookie_state):
                 raise ProxyException(
                     message=("Invalid OAuth state parameter — does not match the browser-bound state cookie."),
@@ -1719,13 +1719,13 @@ async def create_team_member_add_task(team_id, user_info):
         )
         return await team_member_add(
             data=team_member_add_request,
-            user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN),
+            user_api_key_dict=UserAPIKeyAuth(user_role=EmbrouterUserRoles.PROXY_ADMIN),
         )
     except Exception as e:
         verbose_proxy_logger.debug("[Non-Blocking] Error trying to add sso user to db: %s", e)
 
 
-async def add_missing_team_member(user_info: NewUserResponse | LiteLLM_UserTable, sso_teams: list[str]):
+async def add_missing_team_member(user_info: NewUserResponse | EmbRouter_UserTable, sso_teams: list[str]):
     """
     - Get missing teams (diff b/w user_info.team_ids and sso_teams)
     - Add missing user to missing teams
@@ -1744,7 +1744,7 @@ async def add_missing_team_member(user_info: NewUserResponse | LiteLLM_UserTable
 
 
 def get_disabled_non_admin_personal_key_creation():
-    key_generation_settings: Final = litellm.key_generation_settings
+    key_generation_settings: Final = embrouter.key_generation_settings
     if key_generation_settings is None:
         return False
     personal_key_generation: Final = key_generation_settings.get("personal_key_generation") or {}
@@ -1758,7 +1758,7 @@ async def get_existing_user_info_from_db(
     prisma_client: PrismaClient,
     user_api_key_cache: UserApiKeyCache,
     proxy_logging_obj: ProxyLogging,
-) -> LiteLLM_UserTable | None:
+) -> EmbRouter_UserTable | None:
     try:
         user_info = await get_user_object(
             user_id=user_id,
@@ -1785,7 +1785,7 @@ async def get_user_info_from_db(
     user_email: str | None,
     user_defined_values: SSOUserDefinedValues | None,
     alternate_user_id: str | None = None,
-) -> LiteLLM_UserTable | NewUserResponse | None:
+) -> EmbRouter_UserTable | NewUserResponse | None:
     try:
         potential_user_ids: Final = []
         if alternate_user_id is not None:
@@ -1803,7 +1803,7 @@ async def get_user_info_from_db(
             getattr(result, "email", None) if not isinstance(result, dict) else result.get("email", None)
         )
 
-        user_info: LiteLLM_UserTable | NewUserResponse | None = None
+        user_info: EmbRouter_UserTable | NewUserResponse | None = None
 
         for user_id in potential_user_ids:
             user_info = await get_existing_user_info_from_db(
@@ -1817,10 +1817,10 @@ async def get_user_info_from_db(
                 break
 
         verbose_proxy_logger.debug(
-            "user_info: %s; litellm.default_internal_user_params: %s", user_info, litellm.default_internal_user_params
+            "user_info: %s; embrouter.default_internal_user_params: %s", user_info, embrouter.default_internal_user_params
         )
 
-        # Upsert SSO User to LiteLLM DB
+        # Upsert SSO User to EmbRouter DB
         user_info = await SSOAuthenticationHandler.upsert_sso_user(
             result=result,
             user_info=user_info,
@@ -1846,9 +1846,9 @@ def _should_use_role_from_sso_response(sso_role: str | None) -> bool:
     if sso_role is None:
         return False
 
-    if not is_valid_litellm_user_role(sso_role):
+    if not is_valid_embrouter_user_role(sso_role):
         verbose_proxy_logger.debug(
-            "SSO role '%s' is not a valid LiteLLM user role. Ignoring role from SSO response. See LitellmUserRoles enum for valid roles.",
+            "SSO role '%s' is not a valid EmbRouter user role. Ignoring role from SSO response. See EmbrouterUserRoles enum for valid roles.",
             sso_role,
         )
         return False
@@ -1877,9 +1877,9 @@ def _build_sso_user_update_data(
     sso_role: Final = getattr(result, "user_role", None)
     if sso_role is not None:
         # Convert enum to string if needed
-        sso_role_str: Final = sso_role.value if isinstance(sso_role, LitellmUserRoles) else sso_role
+        sso_role_str: Final = sso_role.value if isinstance(sso_role, EmbrouterUserRoles) else sso_role
 
-        # Only include if it's a valid LiteLLM role
+        # Only include if it's a valid EmbRouter role
         if _should_use_role_from_sso_response(sso_role_str):
             update_data["user_role"] = sso_role_str
             verbose_proxy_logger.info("Updating user %s role from SSO: %s", user_id, sso_role_str)
@@ -1890,31 +1890,31 @@ def _build_sso_user_update_data(
 async def _sync_user_role_from_jwt_role_map(
     jwt_handler: JWTHandler | None,
     received_response: dict | None,
-    user_info: LiteLLM_UserTable | NewUserResponse | None,
+    user_info: EmbRouter_UserTable | NewUserResponse | None,
     prisma_client: PrismaClient,
     user_api_key_cache: UserApiKeyCache,
     user_defined_values: SSOUserDefinedValues | None,
 ) -> None:
     """
-    Apply jwt_litellm_role_map during SSO login.
+    Apply jwt_embrouter_role_map during SSO login.
 
-    When jwt_litellm_role_map is configured with sync_user_role_and_teams=True,
+    When jwt_embrouter_role_map is configured with sync_user_role_and_teams=True,
     this ensures SSO users get the same role mapping as API/JWT users. Without
     this, the SSO path falls back to INTERNAL_USER_VIEW_ONLY for roles that
-    don't directly match LitellmUserRoles enum values.
+    don't directly match EmbrouterUserRoles enum values.
     """
     if jwt_handler is None or received_response is None:
         return
-    if not jwt_handler.litellm_jwtauth.sync_user_role_and_teams:
+    if not jwt_handler.embrouter_jwtauth.sync_user_role_and_teams:
         return
-    if not jwt_handler.litellm_jwtauth.jwt_litellm_role_map:
+    if not jwt_handler.embrouter_jwtauth.jwt_embrouter_role_map:
         return
 
-    mapped_role: Final = jwt_handler.map_jwt_role_to_litellm_role(received_response)
+    mapped_role: Final = jwt_handler.map_jwt_role_to_embrouter_role(received_response)
     if mapped_role is None:
         return
 
-    verbose_proxy_logger.info("SSO jwt_litellm_role_map matched role: %s", mapped_role.value)
+    verbose_proxy_logger.info("SSO jwt_embrouter_role_map matched role: %s", mapped_role.value)
 
     # Update user_defined_values so downstream code uses the mapped role
     if user_defined_values is not None:
@@ -1930,12 +1930,12 @@ async def _sync_user_role_from_jwt_role_map(
         await user_api_key_cache.async_set_cache(
             key=user_info.user_id,
             value=user_info,
-            model_type=LiteLLM_UserTable,
+            model_type=EmbRouter_UserTable,
         )
 
 
 def apply_user_info_values_to_sso_user_defined_values(
-    user_info: LiteLLM_UserTable | NewUserResponse | None,
+    user_info: EmbRouter_UserTable | NewUserResponse | None,
     user_defined_values: SSOUserDefinedValues | None,
 ) -> SSOUserDefinedValues | None:
     if user_defined_values is None:
@@ -1954,7 +1954,7 @@ def apply_user_info_values_to_sso_user_defined_values(
     else:
         # SSO didn't provide a valid role, fall back to DB role or default
         if user_info is None or user_info.user_role is None:
-            user_defined_values["user_role"] = LitellmUserRoles.INTERNAL_USER_VIEW_ONLY.value
+            user_defined_values["user_role"] = EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY.value
             verbose_proxy_logger.debug("No SSO or DB role found, using default: INTERNAL_USER_VIEW_ONLY")
         else:
             user_defined_values["user_role"] = user_info.user_role
@@ -1974,16 +1974,16 @@ async def check_and_update_if_proxy_admin_id(user_role: str, user_id: str, prism
     """
     proxy_admin_id: Final = os.getenv("PROXY_ADMIN_ID")
     if proxy_admin_id is not None and proxy_admin_id == user_id:
-        if user_role and user_role == LitellmUserRoles.PROXY_ADMIN.value:
+        if user_role and user_role == EmbrouterUserRoles.PROXY_ADMIN.value:
             return user_role
 
         if prisma_client:
             await _user_meta_db(UserRepository(prisma_client)).update(
                 where={"user_id": user_id},
-                data={"user_role": LitellmUserRoles.PROXY_ADMIN.value},
+                data={"user_role": EmbrouterUserRoles.PROXY_ADMIN.value},
             )
 
-        user_role = LitellmUserRoles.PROXY_ADMIN.value
+        user_role = EmbrouterUserRoles.PROXY_ADMIN.value
 
     return user_role
 
@@ -2006,10 +2006,10 @@ async def auth_callback(request: Request, state: str | None = None):
         )
 
     # Check if this is a CLI login (state starts with our CLI prefix)
-    from litellm.constants import LITELLM_CLI_SESSION_TOKEN_PREFIX
-    from litellm.proxy._types import LiteLLM_JWTAuth
-    from litellm.proxy.auth.handle_jwt import JWTHandler
-    from litellm.proxy.proxy_server import (
+    from embrouter.constants import EMBROUTER_CLI_SESSION_TOKEN_PREFIX
+    from embrouter.proxy._types import EmbRouter_JWTAuth
+    from embrouter.proxy.auth.handle_jwt import JWTHandler
+    from embrouter.proxy.proxy_server import (
         general_settings,
         jwt_handler,
         master_key,
@@ -2027,7 +2027,7 @@ async def auth_callback(request: Request, state: str | None = None):
         sso_jwt_handler.update_environment(
             prisma_client=prisma_client,
             user_api_key_cache=user_api_key_cache,
-            litellm_jwtauth=LiteLLM_JWTAuth(
+            embrouter_jwtauth=EmbRouter_JWTAuth(
                 team_ids_jwt_field=general_settings.get("ui_access_mode", {}).get("sso_group_jwt_field", None),
             ),
             leeway=0,
@@ -2042,7 +2042,7 @@ async def auth_callback(request: Request, state: str | None = None):
     # get url from request
     if master_key is None:
         raise ProxyException(
-            message="Master Key not set for Proxy. Please set Master Key to use Admin UI. Set `LITELLM_MASTER_KEY` in .env or set general_settings:master_key in config.yaml. If set, use `--detailed_debug` to debug issue.",
+            message="Master Key not set for Proxy. Please set Master Key to use Admin UI. Set `EMBROUTER_MASTER_KEY` in .env or set general_settings:master_key in config.yaml. If set, use `--detailed_debug` to debug issue.",
             type=ProxyErrorTypes.auth_error,
             param="master_key",
             code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -2084,7 +2084,7 @@ async def auth_callback(request: Request, state: str | None = None):
             detail="Result not returned by SSO provider.",
         )
 
-    if state and state.startswith(f"{LITELLM_CLI_SESSION_TOKEN_PREFIX}:"):
+    if state and state.startswith(f"{EMBROUTER_CLI_SESSION_TOKEN_PREFIX}:"):
         # State format: {PREFIX}:{login_id}[:{user_code}]
         state_parts: Final = state.split(":", 2)
         key_id: Final = state_parts[1] if len(state_parts) > 1 else None
@@ -2102,7 +2102,7 @@ async def auth_callback(request: Request, state: str | None = None):
 
     # Control-plane cross-origin: read return_to from cookie.
     # Starlette's cookie_parser already handles RFC 2109 unquoting.
-    cp_return_to: Final[str | None] = request.cookies.get("litellm_cp_return_to")
+    cp_return_to: Final[str | None] = request.cookies.get("embrouter_cp_return_to")
 
     return await SSOAuthenticationHandler.get_redirect_response_from_openid(
         result=result,
@@ -2120,7 +2120,7 @@ async def auth_callback(request: Request, state: str | None = None):
 @router.get("/sso/saml/login", tags=["experimental"], include_in_schema=False)
 async def saml_login(request: Request, return_to: str | None = None):
     """SP-initiated SAML login. Redirects the user to the configured IdP."""
-    from litellm.proxy.proxy_server import user_api_key_cache
+    from embrouter.proxy.proxy_server import user_api_key_cache
 
     _disable_ui_flag: Final = os.getenv("DISABLE_ADMIN_UI")
     if _disable_ui_flag is not None and str_to_bool(value=_disable_ui_flag):
@@ -2132,7 +2132,7 @@ async def saml_login(request: Request, return_to: str | None = None):
 @router.get("/sso/saml/metadata", tags=["experimental"], include_in_schema=False)
 async def saml_metadata(request: Request):
     """Service Provider metadata XML, for registering this proxy at the IdP."""
-    from litellm.proxy.proxy_server import user_api_key_cache
+    from embrouter.proxy.proxy_server import user_api_key_cache
 
     metadata: Final = await SAMLAuthHandler.build_sp_metadata(request=request, cache=user_api_key_cache)
     return Response(content=metadata, media_type="application/xml")
@@ -2141,7 +2141,7 @@ async def saml_metadata(request: Request):
 @router.post("/sso/saml/callback", tags=["experimental"], include_in_schema=False)
 async def saml_callback(request: Request):
     """Assertion Consumer Service. Validates the IdP assertion and issues a UI session."""
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         jwt_handler,
         master_key,
@@ -2158,7 +2158,7 @@ async def saml_callback(request: Request):
         raise HTTPException(status_code=500, detail=CommonProxyErrors.db_not_connected_error.value)
     if master_key is None:
         raise ProxyException(
-            message="Master Key not set for Proxy. Set `LITELLM_MASTER_KEY` in .env or general_settings:master_key in config.yaml.",
+            message="Master Key not set for Proxy. Set `EMBROUTER_MASTER_KEY` in .env or general_settings:master_key in config.yaml.",
             type=ProxyErrorTypes.auth_error,
             param="master_key",
             code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -2196,7 +2196,7 @@ async def _build_cli_sso_user_defined_values(
     result: OpenID | dict,
     parsed_openid_result: ParsedOpenIDResult,
 ) -> SSOUserDefinedValues | None:
-    from litellm.proxy.proxy_server import user_custom_sso
+    from embrouter.proxy.proxy_server import user_custom_sso
 
     custom_sso_handler: Final[_CustomSsoCall | None] = user_custom_sso
     user_id: Final = parsed_openid_result.get("user_id")
@@ -2210,15 +2210,15 @@ async def _build_cli_sso_user_defined_values(
         models=[],
         user_id=user_id,
         user_email=parsed_openid_result.get("user_email"),
-        max_budget=litellm.max_internal_user_budget,
+        max_budget=embrouter.max_internal_user_budget,
         user_role=parsed_openid_result.get("user_role"),
-        budget_duration=litellm.internal_user_budget_duration,
+        budget_duration=embrouter.internal_user_budget_duration,
     )
 
 
 def _cli_sso_team_detail(team_row: Mapping[str, object]) -> CliSsoTeamDetail:
     team: Final = _TeamRowGrants.model_validate(team_row)
-    alias_table: Final = team.litellm_model_table
+    alias_table: Final = team.embrouter_model_table
     return CliSsoTeamDetail(
         team_id=team.team_id,
         team_alias=team.team_alias,
@@ -2237,7 +2237,7 @@ async def fetch_cli_sso_team_details(
     try:
         prisma_teams: Final = await _team_detail_db(TeamRepository(prisma_client)).find_many(
             where={"team_id": {"in": teams}},
-            include={"litellm_model_table": True},
+            include={"embrouter_model_table": True},
         )
     except Exception as e:
         verbose_proxy_logger.error("Error fetching team details for CLI SSO session: %s", e)
@@ -2313,10 +2313,10 @@ async def _complete_cli_sso_callback_session(
             status_code=500,
             detail="Could not resolve team model grants for this login. Please try again",
         )
-    from litellm.proxy.management_endpoints.sso.agent_subject_enrollment import enroll_microsoft_subject
+    from embrouter.proxy.management_endpoints.sso.agent_subject_enrollment import enroll_microsoft_subject
 
     await enroll_microsoft_subject(
-        request.scope.get("litellm_microsoft_interactive_subject"), user_info.user_id, prisma_client
+        request.scope.get("embrouter_microsoft_interactive_subject"), user_info.user_id, prisma_client
     )
     resolved_teams: Final = _cli_sso_session_teams(team_details)
     attribution_metadata: Final = build_cli_sso_attribution_metadata(result=result)
@@ -2372,7 +2372,7 @@ async def cli_sso_callback(
     """CLI SSO callback - stores session info for JWT generation on polling"""
     verbose_proxy_logger.info("CLI SSO callback")
 
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         cli_sso_session_cache,
         general_settings,
         prisma_client,
@@ -2438,7 +2438,7 @@ async def cli_sso_callback(
 async def cli_poll_key(
     key_id: str,
     team_id: str | None = None,
-    x_litellm_cli_poll_secret: str | None = Header(default=None),
+    x_embrouter_cli_poll_secret: str | None = Header(default=None),
 ):
     """
     CLI polling endpoint - retrieves session from cache and generates JWT.
@@ -2451,12 +2451,12 @@ async def cli_poll_key(
         key_id: The CLI login session ID
         team_id: Optional team ID to assign to the JWT. If provided, must be one of user's teams.
     """
-    from litellm.proxy.auth.auth_checks import ExperimentalUIJWTToken
-    from litellm.proxy.proxy_server import cli_sso_session_cache
+    from embrouter.proxy.auth.auth_checks import ExperimentalUIJWTToken
+    from embrouter.proxy.proxy_server import cli_sso_session_cache
 
     try:
         flow: Final = _get_cli_sso_flow_or_raise(login_id=key_id, cache=cli_sso_session_cache)
-        if not _verify_cli_sso_poll_secret(flow=flow, poll_secret=x_litellm_cli_poll_secret):
+        if not _verify_cli_sso_poll_secret(flow=flow, poll_secret=x_embrouter_cli_poll_secret):
             raise HTTPException(status_code=403, detail="Invalid CLI polling secret")
 
         if not flow.get("sso_complete") or not flow.get("user_code_verified"):
@@ -2523,7 +2523,7 @@ async def cli_poll_key(
                     detail=f"Could not resolve the model grants for team: {team_id}. Please run `lite login` again",
                 )
 
-            user_info: Final = LiteLLM_UserTable(
+            user_info: Final = EmbRouter_UserTable(
                 user_id=user_id,
                 user_role=session_data["user_role"],
                 models=session_data.get("models", []),
@@ -2571,11 +2571,11 @@ async def insert_sso_user(
     user_defined_values: SSOUserDefinedValues | None = None,
 ) -> NewUserResponse:
     """
-    Helper function to create a New User in LiteLLM DB after a successful SSO login
+    Helper function to create a New User in EmbRouter DB after a successful SSO login
 
     Args:
         result_openid (OpenID): User information in OpenID format if the login was successful.
-        user_defined_values (Optional[SSOUserDefinedValues], optional): LiteLLM SSOValues / fields that were read
+        user_defined_values (Optional[SSOUserDefinedValues], optional): EmbRouter SSOValues / fields that were read
 
     Returns:
         Tuple[str, str]: User ID and User Role
@@ -2590,30 +2590,30 @@ async def insert_sso_user(
         raise ValueError("user_defined_values is None")
 
     # Apply default_internal_user_params
-    if litellm.default_internal_user_params:
-        # Preserve the SSO-extracted role if it's a valid LiteLLM role,
+    if embrouter.default_internal_user_params:
+        # Preserve the SSO-extracted role if it's a valid EmbRouter role,
         # regardless of how it was determined (role_mappings, Microsoft app_roles,
         # GENERIC_USER_ROLE_ATTRIBUTE, custom SSO handler, etc.)
         sso_role: Final = user_defined_values.get("user_role")
         if _should_use_role_from_sso_response(sso_role):
             # Preserve the SSO-extracted role, but apply other defaults
             preserved_role: Final = sso_role
-            user_defined_values.update(litellm.default_internal_user_params)
+            user_defined_values.update(embrouter.default_internal_user_params)
             user_defined_values["user_role"] = preserved_role  # Restore preserved role
             verbose_proxy_logger.debug("Preserved SSO-extracted role '%s'", preserved_role)
         else:
             # SSO didn't provide a valid role, apply all defaults including role
-            user_defined_values.update(litellm.default_internal_user_params)
+            user_defined_values.update(embrouter.default_internal_user_params)
 
     # Set budget for internal users
-    if user_defined_values.get("user_role") == LitellmUserRoles.INTERNAL_USER.value:
+    if user_defined_values.get("user_role") == EmbrouterUserRoles.INTERNAL_USER.value:
         if user_defined_values.get("max_budget") is None:
-            user_defined_values["max_budget"] = litellm.max_internal_user_budget
+            user_defined_values["max_budget"] = embrouter.max_internal_user_budget
         if user_defined_values.get("budget_duration") is None:
-            user_defined_values["budget_duration"] = litellm.internal_user_budget_duration
+            user_defined_values["budget_duration"] = embrouter.internal_user_budget_duration
 
     if user_defined_values["user_role"] is None:
-        user_defined_values["user_role"] = LitellmUserRoles.INTERNAL_USER_VIEW_ONLY
+        user_defined_values["user_role"] = EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY
 
     new_user_request: Final = NewUserRequest(
         user_id=user_defined_values["user_id"],
@@ -2630,7 +2630,7 @@ async def insert_sso_user(
 
     response: Final = await new_user(
         data=new_user_request,
-        user_api_key_dict=UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN),
+        user_api_key_dict=UserAPIKeyAuth(user_role=EmbrouterUserRoles.PROXY_ADMIN),
     )
 
     return response
@@ -2643,11 +2643,11 @@ async def insert_sso_user(
     dependencies=[Depends(user_api_key_auth)],
 )
 async def get_ui_settings(request: Request):
-    from litellm.proxy.proxy_server import general_settings, proxy_state
+    from embrouter.proxy.proxy_server import general_settings, proxy_state
 
     _proxy_base_url: Final = os.getenv("PROXY_BASE_URL", None)
     _logout_url: Final = os.getenv("PROXY_LOGOUT_URL", None)
-    _api_doc_base_url: Final = os.getenv("LITELLM_UI_API_DOC_BASE_URL", None)
+    _api_doc_base_url: Final = os.getenv("EMBROUTER_UI_API_DOC_BASE_URL", None)
     _is_sso_enabled: Final = has_user_setup_sso()
     disable_expensive_db_queries: Final = (
         proxy_state.get_proxy_state_variable("spend_logs_row_count") > MAX_SPENDLOG_ROWS_TO_QUERY
@@ -2660,7 +2660,7 @@ async def get_ui_settings(request: Request):
     return {
         "PROXY_BASE_URL": _proxy_base_url,
         "PROXY_LOGOUT_URL": _logout_url,
-        "LITELLM_UI_API_DOC_BASE_URL": _api_doc_base_url,
+        "EMBROUTER_UI_API_DOC_BASE_URL": _api_doc_base_url,
         "DEFAULT_TEAM_DISABLED": default_team_disabled,
         "SSO_ENABLED": _is_sso_enabled,
         "NUM_SPEND_LOGS_ROWS": proxy_state.get_proxy_state_variable("spend_logs_row_count"),
@@ -2760,7 +2760,7 @@ def _is_same_origin_return_path(return_to: str) -> bool:
     Requires a single leading ``/`` (not protocol-relative ``//``), no backslash (browsers
     fold ``\\`` to ``/``, so ``/\\evil.com`` would escape the origin), and no control or
     whitespace characters. Rejecting control chars keeps a ``\\r\\n``/tab-bearing value out
-    of the redirect ``Location`` and the ``litellm_cp_return_to`` cookie entirely, rather
+    of the redirect ``Location`` and the ``embrouter_cp_return_to`` cookie entirely, rather
     than relying on downstream header encoding to neutralize it."""
     if not return_to.startswith("/") or return_to.startswith("//") or "\\" in return_to:
         return False
@@ -2776,7 +2776,7 @@ async def _sso_return_to_redirect(
 ) -> RedirectResponse | None:
     """Resolve the post-SSO redirect for a ``return_to``, or None to fall through to the dashboard.
 
-    Two arms, both clearing the one-shot ``litellm_cp_return_to`` cookie:
+    Two arms, both clearing the one-shot ``embrouter_cp_return_to`` cookie:
     - **Same-origin relative path** (the MCP gateway DCR authorize round-trip): set the session cookie
       exactly like the dashboard path, then send the browser back where it came from.
     - **Control-plane cross-origin** (``control_plane_url``): stash the JWT behind a single-use opaque
@@ -2792,7 +2792,7 @@ async def _sso_return_to_redirect(
     if _is_same_origin_return_path(return_to):
         redirect_response = RedirectResponse(url=return_to, status_code=303)
         set_session_token_cookie(redirect_response, request, jwt_token)
-        redirect_response.delete_cookie("litellm_cp_return_to")
+        redirect_response.delete_cookie("embrouter_cp_return_to")
         return redirect_response
 
     if SSOAuthenticationHandler._validate_return_to(return_to):
@@ -2808,7 +2808,7 @@ async def _sso_return_to_redirect(
         redirect_url: Final = return_to + separator + urlencode({"login": "success", "code": code})
         verbose_proxy_logger.info("Cross-origin SSO: redirecting to control plane with login code")
         redirect_response = RedirectResponse(url=redirect_url, status_code=303)
-        redirect_response.delete_cookie("litellm_cp_return_to")
+        redirect_response.delete_cookie("embrouter_cp_return_to")
         return redirect_response
 
     return None
@@ -2819,10 +2819,10 @@ def set_session_token_cookie(response: Response, request: Request, jwt_token: st
 
     Not HttpOnly: the dashboard reads this cookie via ``document.cookie`` to
     populate its own Authorization headers (see
-    ``ui/litellm-dashboard/src/utils/cookieUtils.ts``), so marking it
+    ``ui/embrouter-dashboard/src/utils/cookieUtils.ts``), so marking it
     HttpOnly would break login. Secure is still required whenever the public
     origin is HTTPS, resolved the same trust-aware way as every other
-    litellm cookie."""
+    embrouter cookie."""
     response.set_cookie(
         key="token",
         value=jwt_token,
@@ -2833,7 +2833,7 @@ def set_session_token_cookie(response: Response, request: Request, jwt_token: st
 
 
 def _persist_return_to_cookie(response: Response, return_to: str | None, request: Request) -> None:
-    """Best-effort: persist a SAFE ``return_to`` on ``response`` as the one-shot ``litellm_cp_return_to``
+    """Best-effort: persist a SAFE ``return_to`` on ``response`` as the one-shot ``embrouter_cp_return_to``
     cookie so ANY sign-in path — SSO / Okta / generic OR the username/password form — can resume there
     afterwards. THIS is the single source of truth, called by every sign-in branch so they cannot
     diverge (a per-branch reimplementation is exactly how the two drifted before). Honors a strictly
@@ -2848,7 +2848,7 @@ def _persist_return_to_cookie(response: Response, return_to: str | None, request
         return  # a non-matching absolute return_to is ignored, never blocks sign-in
     if safe:
         response.set_cookie(
-            key="litellm_cp_return_to",
+            key="embrouter_cp_return_to",
             value=return_to,
             max_age=600,
             httponly=True,
@@ -2871,7 +2871,7 @@ class SSOAuthenticationHandler:
         Returns False if control_plane_url is not configured (return_to is ignored).
         Raises HTTPException(400) if return_to origin does not match control_plane_url origin.
         """
-        from litellm.proxy.proxy_server import general_settings
+        from embrouter.proxy.proxy_server import general_settings
 
         control_plane_url: Final = general_settings.get("control_plane_url")
         if control_plane_url is None:
@@ -2911,7 +2911,7 @@ class SSOAuthenticationHandler:
             microsoft_client_id (Optional[str], optional): The Microsoft Client ID. Defaults to None.
             generic_client_id (Optional[str], optional): The Generic Client ID. Defaults to None.
             request: Optional FastAPI request, used to drive the ``Secure``
-                attribute on the ``litellm_oauth_state`` CSRF cookie.
+                attribute on the ``embrouter_oauth_state`` CSRF cookie.
 
         Returns:
             RedirectResponse: The redirect response from the SSO provider.
@@ -3041,10 +3041,10 @@ class SSOAuthenticationHandler:
         """
         from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
-        from litellm.proxy.proxy_server import redis_usage_cache, user_api_key_cache
+        from embrouter.proxy.proxy_server import redis_usage_cache, user_api_key_cache
 
         with generic_sso:
-            # State is bound to the caller's browser via a ``litellm_oauth_state``
+            # State is bound to the caller's browser via a ``embrouter_oauth_state``
             # HttpOnly cookie set on the redirect response below; the SSO
             # callback validates the URL ``state`` against that cookie before
             # completing the PKCE token exchange.  Without this binding, an
@@ -3133,10 +3133,10 @@ class SSOAuthenticationHandler:
                     # state value and bypass this protection. Trust-aware:
                     # honors PROXY_BASE_URL / a trusted reverse proxy's
                     # X-Forwarded-Proto instead of only the literal scheme
-                    # litellm sees on the wire.
+                    # embrouter sees on the wire.
                     secure_flag: Final = request is None or IPAddressUtils.is_request_https(request)
                     redirect_response.set_cookie(
-                        key="litellm_oauth_state",
+                        key="embrouter_oauth_state",
                         value=state_value,
                         max_age=600,
                         httponly=True,
@@ -3174,7 +3174,7 @@ class SSOAuthenticationHandler:
 
         if state:
             # CLI state takes priority
-            # the litellm proxy cli sends the "state" parameter to the proxy server for auth. We should maintain the state parameter for the cli if it is provided
+            # the embrouter proxy cli sends the "state" parameter to the proxy server for auth. We should maintain the state parameter for the cli if it is provided
             redirect_params["state"] = state
         else:
             generic_client_state: Final = os.getenv("GENERIC_CLIENT_STATE", None)
@@ -3220,7 +3220,7 @@ class SSOAuthenticationHandler:
         Note: existing_key is not added to the URL to avoid changing the callback URL.
         It should be passed via the state parameter instead.
         """
-        from litellm.proxy.utils import get_custom_url
+        from embrouter.proxy.utils import get_custom_url
 
         redirect_url = get_custom_url(request_base_url=str(request.base_url))
         if redirect_url.endswith("/"):
@@ -3233,16 +3233,16 @@ class SSOAuthenticationHandler:
     @staticmethod
     async def upsert_sso_user(
         result: CustomOpenID | OpenID | dict | None,
-        user_info: NewUserResponse | LiteLLM_UserTable | None,
+        user_info: NewUserResponse | EmbRouter_UserTable | None,
         user_email: str | None,
         user_defined_values: SSOUserDefinedValues | None,
         prisma_client: PrismaClient,
     ):
         """
-        Connects the SSO Users to the User Table in LiteLLM DB
+        Connects the SSO Users to the User Table in EmbRouter DB
 
-        - If user on LiteLLM DB, update the user_email and user_role (if SSO provides valid role) with the SSO values
-        - If user not on LiteLLM DB, insert the user into LiteLLM DB
+        - If user on EmbRouter DB, update the user_email and user_role (if SSO provides valid role) with the SSO values
+        - If user not on EmbRouter DB, insert the user into EmbRouter DB
         """
         try:
             if user_info is not None:
@@ -3257,30 +3257,30 @@ class SSOAuthenticationHandler:
                     where={"user_id": user_id}, data=update_data
                 )
             else:
-                verbose_proxy_logger.info("user not in DB, inserting user into LiteLLM DB")
-                # user not in DB, insert User into LiteLLM DB
+                verbose_proxy_logger.info("user not in DB, inserting user into EmbRouter DB")
+                # user not in DB, insert User into EmbRouter DB
                 user_info = await insert_sso_user(
                     result_openid=result,
                     user_defined_values=user_defined_values,
                 )
             return user_info
         except Exception as e:
-            verbose_proxy_logger.exception("Error upserting SSO user into LiteLLM DB: %s", e)
+            verbose_proxy_logger.exception("Error upserting SSO user into EmbRouter DB: %s", e)
             return user_info
 
     @staticmethod
     async def add_user_to_teams_from_sso_response(
         result: CustomOpenID | OpenID | dict | None,
-        user_info: NewUserResponse | LiteLLM_UserTable | None,
+        user_info: NewUserResponse | EmbRouter_UserTable | None,
     ):
         """
         Adds the user as a team member to the teams specified in the SSO responses `team_ids` field
 
 
-        The `team_ids` field is populated by litellm after processing the SSO response
+        The `team_ids` field is populated by embrouter after processing the SSO response
         """
         if user_info is None:
-            verbose_proxy_logger.debug("User not found in LiteLLM DB, skipping team member addition")
+            verbose_proxy_logger.debug("User not found in EmbRouter DB, skipping team member addition")
             return
         sso_teams: Final = getattr(result, "team_ids", [])
         await add_missing_team_member(user_info=user_info, sso_teams=sso_teams)
@@ -3322,22 +3322,22 @@ class SSOAuthenticationHandler:
         return True
 
     @staticmethod
-    async def create_litellm_team_from_sso_group(
-        litellm_team_id: str,
-        litellm_team_name: str | None = None,
+    async def create_embrouter_team_from_sso_group(
+        embrouter_team_id: str,
+        embrouter_team_name: str | None = None,
     ):
         """
-        Creates a Litellm Team from a SSO Group ID
+        Creates a Embrouter Team from a SSO Group ID
 
-        Your SSO provider might have groups that should be created on LiteLLM
+        Your SSO provider might have groups that should be created on EmbRouter
 
-        Use this helper to create a Litellm Team from a SSO Group ID
+        Use this helper to create a Embrouter Team from a SSO Group ID
 
         Args:
-            litellm_team_id (str): The ID of the Litellm Team
-            litellm_team_name (Optional[str]): The name of the Litellm Team
+            embrouter_team_id (str): The ID of the Embrouter Team
+            embrouter_team_name (Optional[str]): The name of the Embrouter Team
         """
-        from litellm.proxy.proxy_server import prisma_client
+        from embrouter.proxy.proxy_server import prisma_client
 
         if prisma_client is None:
             raise ProxyException(
@@ -3348,24 +3348,24 @@ class SSOAuthenticationHandler:
             )
         try:
             team_obj: Final = await _team_detail_db(TeamRepository(prisma_client)).find_first(
-                where={"team_id": litellm_team_id}
+                where={"team_id": embrouter_team_id}
             )
             verbose_proxy_logger.debug("Team object: %s", team_obj)
 
             # only create a new team if it doesn't exist
             if team_obj:
-                verbose_proxy_logger.debug("Team already exists: %s - %s", litellm_team_id, litellm_team_name)
+                verbose_proxy_logger.debug("Team already exists: %s - %s", embrouter_team_id, embrouter_team_name)
                 return
 
             team_request: NewTeamRequest = NewTeamRequest(
-                team_id=litellm_team_id,
-                team_alias=litellm_team_name,
+                team_id=embrouter_team_id,
+                team_alias=embrouter_team_name,
             )
-            if litellm.default_team_params:
-                team_request = SSOAuthenticationHandler._cast_and_deepcopy_litellm_default_team_params(
-                    default_team_params=litellm.default_team_params,
-                    litellm_team_id=litellm_team_id,
-                    litellm_team_name=litellm_team_name,
+            if embrouter.default_team_params:
+                team_request = SSOAuthenticationHandler._cast_and_deepcopy_embrouter_default_team_params(
+                    default_team_params=embrouter.default_team_params,
+                    embrouter_team_id=embrouter_team_id,
+                    embrouter_team_name=embrouter_team_name,
                     team_request=team_request,
                 )
 
@@ -3375,33 +3375,33 @@ class SSOAuthenticationHandler:
                 http_request=Request(scope={"type": "http", "method": "POST"}),
                 user_api_key_dict=UserAPIKeyAuth(
                     token="",
-                    key_alias=f"litellm.{MicrosoftSSOHandler.__name__}",
+                    key_alias=f"embrouter.{MicrosoftSSOHandler.__name__}",
                 ),
             )
         except Exception as e:
-            verbose_proxy_logger.exception("Error creating Litellm Team: %s", e)
+            verbose_proxy_logger.exception("Error creating Embrouter Team: %s", e)
 
     @staticmethod
-    def _cast_and_deepcopy_litellm_default_team_params(
+    def _cast_and_deepcopy_embrouter_default_team_params(
         default_team_params: DefaultTeamSSOParams | dict,
         team_request: NewTeamRequest,
-        litellm_team_id: str,
-        litellm_team_name: str | None = None,
+        embrouter_team_id: str,
+        embrouter_team_name: str | None = None,
     ) -> NewTeamRequest:
         """
-        Casts and deepcopies the litellm.default_team_params to a NewTeamRequest object
+        Casts and deepcopies the embrouter.default_team_params to a NewTeamRequest object
 
         - Ensures we create a new DefaultTeamSSOParams object
-        - Handle the case where litellm.default_team_params is a dict or a DefaultTeamSSOParams object
-        - Adds the litellm_team_id and litellm_team_name to the DefaultTeamSSOParams object
+        - Handle the case where embrouter.default_team_params is a dict or a DefaultTeamSSOParams object
+        - Adds the embrouter_team_id and embrouter_team_name to the DefaultTeamSSOParams object
         """
         if isinstance(default_team_params, dict):
             _team_request: Final = deepcopy(default_team_params)
-            _team_request["team_id"] = litellm_team_id
-            _team_request["team_alias"] = litellm_team_name
+            _team_request["team_id"] = embrouter_team_id
+            _team_request["team_alias"] = embrouter_team_name
             team_request = NewTeamRequest(**_team_request)
-        elif isinstance(litellm.default_team_params, DefaultTeamSSOParams):
-            _default_team_params: Final = deepcopy(litellm.default_team_params)
+        elif isinstance(embrouter.default_team_params, DefaultTeamSSOParams):
+            _default_team_params: Final = deepcopy(embrouter.default_team_params)
             _new_team_request: Final = team_request.model_dump()
             _new_team_request.update(_default_team_params)
             team_request = NewTeamRequest.model_validate(_new_team_request)
@@ -3423,14 +3423,14 @@ class SSOAuthenticationHandler:
         - The state parameter is used to pass data through the OAuth flow without changing the callback URL
         - user_code is appended only for the opt-in verification_uri_complete flow so the verify page can pre-fill it
         """
-        from litellm.constants import (
-            LITELLM_CLI_SESSION_TOKEN_PREFIX,
+        from embrouter.constants import (
+            EMBROUTER_CLI_SESSION_TOKEN_PREFIX,
         )
 
-        if source == LITELLM_CLI_SOURCE_IDENTIFIER and key:
+        if source == EMBROUTER_CLI_SOURCE_IDENTIFIER and key:
             if _is_valid_cli_sso_user_code(user_code):
-                return f"{LITELLM_CLI_SESSION_TOKEN_PREFIX}:{key}:{user_code}"
-            return f"{LITELLM_CLI_SESSION_TOKEN_PREFIX}:{key}"
+                return f"{EMBROUTER_CLI_SESSION_TOKEN_PREFIX}:{key}:{user_code}"
+            return f"{EMBROUTER_CLI_SESSION_TOKEN_PREFIX}:{key}"
         else:
             return None
 
@@ -3462,7 +3462,7 @@ class SSOAuthenticationHandler:
             _user_role: Final = getattr(result, "user_role", None)
             if _user_role is not None:
                 # Convert enum to string if needed
-                user_role = _user_role.value if isinstance(_user_role, LitellmUserRoles) else _user_role
+                user_role = _user_role.value if isinstance(_user_role, EmbrouterUserRoles) else _user_role
                 verbose_proxy_logger.debug("Extracted user_role from SSO result: %s", user_role)
 
         # generic client id - override with custom attribute name if specified
@@ -3475,7 +3475,7 @@ class SSOAuthenticationHandler:
                 if _role_from_attr is not None:
                     # Convert enum to string if needed
                     user_role = (
-                        _role_from_attr.value if isinstance(_role_from_attr, LitellmUserRoles) else _role_from_attr
+                        _role_from_attr.value if isinstance(_role_from_attr, EmbrouterUserRoles) else _role_from_attr
                     )
 
         if user_id is None and result is not None:
@@ -3505,7 +3505,7 @@ class SSOAuthenticationHandler:
         sso_assertion: SSOIdentityAssertion | None = None,
     ) -> RedirectResponse:
 
-        from litellm.proxy.proxy_server import (
+        from embrouter.proxy.proxy_server import (
             general_settings,
             generate_key_helper_fn,
             master_key,
@@ -3515,8 +3515,8 @@ class SSOAuthenticationHandler:
             user_api_key_cache,
             user_custom_sso,
         )
-        from litellm.proxy.utils import get_prisma_client_or_throw
-        from litellm.types.proxy.ui_sso import ReturnedUITokenObject
+        from embrouter.proxy.utils import get_prisma_client_or_throw
+        from embrouter.types.proxy.ui_sso import ReturnedUITokenObject
 
         prisma_client: Final = get_prisma_client_or_throw("Prisma client is None, connect a database to your proxy")
 
@@ -3531,8 +3531,8 @@ class SSOAuthenticationHandler:
 
         user_info = None
         user_id_models: Final[list] = []
-        max_internal_user_budget: Final = litellm.max_internal_user_budget
-        internal_user_budget_duration: Final = litellm.internal_user_budget_duration
+        max_internal_user_budget: Final = embrouter.max_internal_user_budget
+        internal_user_budget_duration: Final = embrouter.internal_user_budget_duration
 
         # User might not be already created on first generation of key
         # But if it is, we want their models preferences
@@ -3571,7 +3571,7 @@ class SSOAuthenticationHandler:
             alternate_user_id=user_id,
         )
 
-        # Sync user role from JWT claims via jwt_litellm_role_map (if configured).
+        # Sync user role from JWT claims via jwt_embrouter_role_map (if configured).
         # This ensures SSO users get the same role mapping as API/JWT users.
         # Use the decoded access_token_payload (not received_response) because
         # custom role claims (e.g. custom_roles) are encoded inside the JWT
@@ -3599,12 +3599,12 @@ class SSOAuthenticationHandler:
         response: Final = await generate_key_helper_fn(
             llm_router=None,
             request_type="key",
-            duration=LITELLM_UI_SESSION_DURATION,
-            key_max_budget=litellm.max_ui_session_budget,
+            duration=EMBROUTER_UI_SESSION_DURATION,
+            key_max_budget=embrouter.max_ui_session_budget,
             aliases={},
             config={},
             spend=0,
-            team_id="litellm-dashboard",
+            team_id="embrouter-dashboard",
             models=user_defined_values["models"],
             user_id=user_defined_values["user_id"],
             user_email=user_defined_values["user_email"],
@@ -3617,7 +3617,7 @@ class SSOAuthenticationHandler:
         key = response["token"]
         user_id = response["user_id"]
 
-        user_role = user_defined_values["user_role"] or LitellmUserRoles.INTERNAL_USER_VIEW_ONLY.value
+        user_role = user_defined_values["user_role"] or EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY.value
         if user_id and isinstance(user_id, str):
             user_role = await check_and_update_if_proxy_admin_id(
                 user_role=user_role, user_id=user_id, prisma_client=prisma_client
@@ -3636,10 +3636,10 @@ class SSOAuthenticationHandler:
                     },
                 )
 
-        from litellm.proxy.management_endpoints.sso.agent_subject_enrollment import enroll_microsoft_subject
+        from embrouter.proxy.management_endpoints.sso.agent_subject_enrollment import enroll_microsoft_subject
 
         await enroll_microsoft_subject(
-            request.scope.get("litellm_microsoft_interactive_subject"), user_id, prisma_client
+            request.scope.get("embrouter_microsoft_interactive_subject"), user_id, prisma_client
         )
 
         if isinstance(user_id, str) and user_id:
@@ -3647,16 +3647,16 @@ class SSOAuthenticationHandler:
             await warn_if_id_jag_assertion_uncaptured(sso_assertion)
 
         disabled_non_admin_personal_key_creation: Final = get_disabled_non_admin_personal_key_creation()
-        litellm_dashboard_ui = get_custom_url(request_base_url=str(request.base_url), route="ui/")
+        embrouter_dashboard_ui = get_custom_url(request_base_url=str(request.base_url), route="ui/")
 
         if get_secret_bool("EXPERIMENTAL_UI_LOGIN"):
-            _user_info: LiteLLM_UserTable | None = None
+            _user_info: EmbRouter_UserTable | None = None
             if user_defined_values is not None and user_defined_values["user_id"] is not None:
-                _user_info = LiteLLM_UserTable(
+                _user_info = EmbRouter_UserTable(
                     user_id=user_defined_values["user_id"],
                     user_role=user_defined_values["user_role"] or user_role,
                     models=[],
-                    max_budget=litellm.max_ui_session_budget,
+                    max_budget=embrouter.max_ui_session_budget,
                 )
             if _user_info is None:
                 raise HTTPException(
@@ -3670,16 +3670,16 @@ class SSOAuthenticationHandler:
             user_id=cast(str, user_id),
             key=key,
             user_email=user_email,
-            user_role=user_role or LitellmUserRoles.INTERNAL_USER_VIEW_ONLY.value,
+            user_role=user_role or EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY.value,
             login_method="sso",
             premium_user=premium_user,
-            auth_header_name=general_settings.get("litellm_key_header_name", "Authorization"),
+            auth_header_name=general_settings.get("embrouter_key_header_name", "Authorization"),
             disabled_non_admin_personal_key_creation=disabled_non_admin_personal_key_creation,
             server_root_path=get_server_root_path(),
             password_reset_required=False,
         )
 
-        from litellm.proxy.auth.login_utils import encode_ui_session_jwt
+        from embrouter.proxy.auth.login_utils import encode_ui_session_jwt
 
         jwt_token: Final = encode_ui_session_jwt(returned_ui_token_object, master_key or "")
 
@@ -3697,9 +3697,9 @@ class SSOAuthenticationHandler:
             return return_to_redirect
 
         if user_id is not None and isinstance(user_id, str):
-            litellm_dashboard_ui += "?login=success"
-        verbose_proxy_logger.info("Redirecting to %s", litellm_dashboard_ui)
-        redirect_response: Final = RedirectResponse(url=litellm_dashboard_ui, status_code=303)
+            embrouter_dashboard_ui += "?login=success"
+        verbose_proxy_logger.info("Redirecting to %s", embrouter_dashboard_ui)
+        redirect_response: Final = RedirectResponse(url=embrouter_dashboard_ui, status_code=303)
         set_session_token_cookie(redirect_response, request, jwt_token)
         return redirect_response
 
@@ -3739,7 +3739,7 @@ class SSOAuthenticationHandler:
             )
 
         if state and use_pkce:
-            from litellm.proxy.proxy_server import redis_usage_cache, user_api_key_cache
+            from embrouter.proxy.proxy_server import redis_usage_cache, user_api_key_cache
 
             cache_key: Final = f"pkce_verifier:{state}"
             if redis_usage_cache is not None:
@@ -3889,7 +3889,7 @@ class SSOAuthenticationHandler:
         Failure is non-fatal: a leftover verifier is a minor security concern
         (unused key in cache) but not worth aborting an otherwise-successful login.
         """
-        from litellm.proxy.proxy_server import redis_usage_cache, user_api_key_cache
+        from embrouter.proxy.proxy_server import redis_usage_cache, user_api_key_cache
 
         try:
             if redis_usage_cache is not None:
@@ -4232,7 +4232,7 @@ class MicrosoftSSOHandler:
     """
     MAX_GRAPH_API_PAGES = 200
 
-    # used for debugging to show the user groups litellm found from Graph API
+    # used for debugging to show the user groups embrouter found from Graph API
     GRAPH_API_RESPONSE_KEY = "graph_api_user_groups"
 
     @staticmethod
@@ -4311,9 +4311,9 @@ class MicrosoftSSOHandler:
             original_msft_result["app_roles"] = app_roles
             return original_msft_result or {}
 
-        from litellm.proxy.management_endpoints.sso.agent_subject_enrollment import microsoft_interactive_subject
+        from embrouter.proxy.management_endpoints.sso.agent_subject_enrollment import microsoft_interactive_subject
 
-        request.scope["litellm_microsoft_interactive_subject"] = microsoft_interactive_subject(
+        request.scope["embrouter_microsoft_interactive_subject"] = microsoft_interactive_subject(
             microsoft_tenant,
             original_msft_result,
             MappingProxyType(
@@ -4338,7 +4338,7 @@ class MicrosoftSSOHandler:
     def openid_from_response(
         response: dict | None,
         team_ids: list[str],
-        user_role: LitellmUserRoles | None,
+        user_role: EmbrouterUserRoles | None,
     ) -> CustomOpenID:
         response = response or {}
         verbose_proxy_logger.debug("Microsoft SSO Callback Response: %s", response)
@@ -4358,16 +4358,16 @@ class MicrosoftSSOHandler:
     @staticmethod
     def get_user_role_from_app_roles(
         app_roles: Sequence[str] | None,
-    ) -> LitellmUserRoles | None:
+    ) -> EmbrouterUserRoles | None:
         """
-        Resolve the one role LiteLLM stores for a user from their Entra app roles.
+        Resolve the one role EmbRouter stores for a user from their Entra app roles.
 
         Entra does not guarantee `roles` claim ordering, so a user holding several app
         roles resolves to the highest privilege one rather than whichever the claim
         listed first. Roles the hierarchy does not rank (org_admin, team, customer)
         resolve by name to stay deterministic
         """
-        return get_litellm_user_role(tuple(app_roles or ()))
+        return get_embrouter_user_role(tuple(app_roles or ()))
 
     @staticmethod
     def get_app_roles_from_id_token(id_token: str | None) -> list[str]:
@@ -4440,7 +4440,7 @@ class MicrosoftSSOHandler:
                 )
                 verbose_proxy_logger.debug("Service principal group IDs: %s", service_principal_group_ids)
                 if len(service_principal_group_ids) > 0:
-                    await MicrosoftSSOHandler.create_litellm_teams_from_service_principal_team_ids(
+                    await MicrosoftSSOHandler.create_embrouter_teams_from_service_principal_team_ids(
                         service_principal_teams=service_principal_teams,
                     )
 
@@ -4573,27 +4573,27 @@ class MicrosoftSSOHandler:
         return group_ids, service_principal_teams
 
     @staticmethod
-    async def create_litellm_teams_from_service_principal_team_ids(
+    async def create_embrouter_teams_from_service_principal_team_ids(
         service_principal_teams: list[MicrosoftServicePrincipalTeam],
     ):
         """
-        Creates Litellm Teams from the Service Principal Group IDs
+        Creates Embrouter Teams from the Service Principal Group IDs
 
-        When a user sets a `SERVICE_PRINCIPAL_ID` in the env, litellm will fetch groups under that service principal and create Litellm Teams from them
+        When a user sets a `SERVICE_PRINCIPAL_ID` in the env, embrouter will fetch groups under that service principal and create Embrouter Teams from them
         """
-        verbose_proxy_logger.debug("Creating Litellm Teams from Service Principal Teams: %s", service_principal_teams)
+        verbose_proxy_logger.debug("Creating Embrouter Teams from Service Principal Teams: %s", service_principal_teams)
         for service_principal_team in service_principal_teams:
-            litellm_team_id: str | None = service_principal_team.get("principalId")
-            litellm_team_name: str | None = service_principal_team.get("principalDisplayName")
-            if not litellm_team_id:
+            embrouter_team_id: str | None = service_principal_team.get("principalId")
+            embrouter_team_name: str | None = service_principal_team.get("principalDisplayName")
+            if not embrouter_team_id:
                 verbose_proxy_logger.debug(
-                    "Skipping team creation for %s because it has no principalId", litellm_team_name
+                    "Skipping team creation for %s because it has no principalId", embrouter_team_name
                 )
                 continue
 
-            await SSOAuthenticationHandler.create_litellm_team_from_sso_group(
-                litellm_team_id=litellm_team_id,
-                litellm_team_name=litellm_team_name,
+            await SSOAuthenticationHandler.create_embrouter_team_from_sso_group(
+                embrouter_team_id=embrouter_team_id,
+                embrouter_team_name=embrouter_team_name,
             )
 
 
@@ -4656,12 +4656,12 @@ def _raise_if_sso_debug_disabled() -> None:
 async def debug_sso_login(request: Request):
     """
     Create Proxy API Keys using Google Workspace SSO. Requires setting PROXY_BASE_URL in .env
-    PROXY_BASE_URL should be the your deployed proxy endpoint, e.g. PROXY_BASE_URL="https://litellm-production-7002.up.railway.app/"
+    PROXY_BASE_URL should be the your deployed proxy endpoint, e.g. PROXY_BASE_URL="https://embrouter-production-7002.up.railway.app/"
     Example:
     """
     _raise_if_sso_debug_disabled()
 
-    from litellm.proxy.proxy_server import premium_user
+    from embrouter.proxy.proxy_server import premium_user
 
     microsoft_client_id: Final = os.getenv("MICROSOFT_CLIENT_ID", None)
     google_client_id: Final = os.getenv("GOOGLE_CLIENT_ID", None)
@@ -4671,7 +4671,7 @@ async def debug_sso_login(request: Request):
     if microsoft_client_id is not None or google_client_id is not None or generic_client_id is not None:
         if premium_user is not True:
             raise ProxyException(
-                message="You must be a LiteLLM Enterprise user to use SSO. If you have a license please set `LITELLM_LICENSE` in your env. If you want to obtain a license meet with us here: https://enterprise.litellm.ai/demo You are seeing this error message because You set one of `MICROSOFT_CLIENT_ID`, `GOOGLE_CLIENT_ID`, or `GENERIC_CLIENT_ID` in your env. Please unset this",
+                message="You must be a EmbRouter Enterprise user to use SSO. If you have a license please set `EMBROUTER_LICENSE` in your env. If you want to obtain a license meet with us here: https://enterprise.embrouter.ai/demo You are seeing this error message because You set one of `MICROSOFT_CLIENT_ID`, `GOOGLE_CLIENT_ID`, or `GENERIC_CLIENT_ID` in your env. Please unset this",
                 type=ProxyErrorTypes.auth_error,
                 param="premium_user",
                 code=status.HTTP_403_FORBIDDEN,
@@ -4712,9 +4712,9 @@ async def debug_sso_callback(request: Request):
 
     from fastapi.responses import HTMLResponse
 
-    from litellm.proxy._types import LiteLLM_JWTAuth
-    from litellm.proxy.auth.handle_jwt import JWTHandler
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy._types import EmbRouter_JWTAuth
+    from embrouter.proxy.auth.handle_jwt import JWTHandler
+    from embrouter.proxy.proxy_server import (
         general_settings,
         jwt_handler,
         prisma_client,
@@ -4728,7 +4728,7 @@ async def debug_sso_callback(request: Request):
         sso_jwt_handler.update_environment(
             prisma_client=prisma_client,
             user_api_key_cache=user_api_key_cache,
-            litellm_jwtauth=LiteLLM_JWTAuth(
+            embrouter_jwtauth=EmbRouter_JWTAuth(
                 team_ids_jwt_field=general_settings.get("ui_access_mode", {}).get("sso_group_jwt_field", None),
             ),
             leeway=0,

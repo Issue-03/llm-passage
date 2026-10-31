@@ -2,9 +2,9 @@ from collections.abc import Mapping
 from types import MappingProxyType
 from typing import Final
 
-from litellm.exceptions import BadRequestError, UnsupportedParamsError
-from litellm.llms.openai.image_generation import GPTImageGenerationConfig
-from litellm.types.llms.openai import OpenAIImageGenerationOptionalParams
+from embrouter.exceptions import BadRequestError, UnsupportedParamsError
+from embrouter.llms.openai.image_generation import GPTImageGenerationConfig
+from embrouter.types.llms.openai import OpenAIImageGenerationOptionalParams
 
 FLUX2_DROPPED_OPENAI_PARAMS: Final[tuple[OpenAIImageGenerationOptionalParams, ...]] = (
     "background",
@@ -32,7 +32,7 @@ class AzureFoundryFluxImageGenerationConfig(GPTImageGenerationConfig):
         - FLUX 2: /providers/blackforestlabs/v1/{model-path}
 
         Args:
-            api_base: Base URL (e.g., https://litellm-ci-cd-prod.services.ai.azure.com)
+            api_base: Base URL (e.g., https://embrouter-ci-cd-prod.services.ai.azure.com)
             model: Model name (e.g., FLUX.2-flex or FLUX.2-pro)
             api_version: API version (e.g., preview)
 

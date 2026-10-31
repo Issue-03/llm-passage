@@ -13,7 +13,7 @@ xhigh is gated on the request path by the openai and azure gpt-5 configs. max is
 all: outside the gpt-6-astra rows every entry carrying supports_max_reasoning_effort is Claude-family,
 and anthropic/chat/transformation.py gates max on the output_config path while its reasoning_effort
 path maps any level to a thinking budget. Making max opt-in is a deliberate trade, then, since an
-explicit flag is the only signal that the tier is a real one rather than litellm rounding the level
+explicit flag is the only signal that the tier is a real one rather than embrouter rounding the level
 to a budget, and a missing flag costs advisory metadata rather than a rejected request.
 
 A deployment the map describes with no effort flags at all resolves to None rather than to the
@@ -31,8 +31,8 @@ from collections.abc import Mapping, Sequence
 from types import MappingProxyType
 from typing import Final, get_args
 
-import litellm
-from litellm.types.llms.openai import REASONING_EFFORT
+import embrouter
+from embrouter.types.llms.openai import REASONING_EFFORT
 
 REASONING_EFFORT_ADVERTISEMENT_ORDER: Final = get_args(REASONING_EFFORT)
 _EMPTY_ENTRY: Final[Mapping[str, object]] = MappingProxyType({})
@@ -56,10 +56,10 @@ def _bare_model_entry(model_info: Mapping[str, object]) -> Mapping[str, object]:
     gates resolve through the same twin (_supports_factory, #20885), so reading it here is what
     keeps the advertisement and the gate on the same answer."""
     key: Final = model_info.get("key")
-    provider: Final = model_info.get("litellm_provider")
+    provider: Final = model_info.get("embrouter_provider")
     if not isinstance(key, str) or not isinstance(provider, str) or not key.startswith(f"{provider}/"):
         return _EMPTY_ENTRY
-    entry: Final[Mapping[str, object] | None] = litellm.model_cost.get(key.removeprefix(f"{provider}/"))
+    entry: Final[Mapping[str, object] | None] = embrouter.model_cost.get(key.removeprefix(f"{provider}/"))
     return entry if entry is not None else _EMPTY_ENTRY
 
 
@@ -97,7 +97,7 @@ def declared_reasoning_efforts_for_model(model: str, custom_llm_provider: str) -
     it does not know: a provider config runs on the request path for every model it serves, most of
     which the map never named, and a lookup miss there must not fail the call.
     """
-    entry: Final = litellm.model_cost.get(f"{custom_llm_provider}/{model}") or litellm.model_cost.get(model)
+    entry: Final = embrouter.model_cost.get(f"{custom_llm_provider}/{model}") or embrouter.model_cost.get(model)
     if not isinstance(entry, dict):
         return None
     return declared_reasoning_efforts(entry)
@@ -126,10 +126,10 @@ def _supports_none_reasoning_effort(model_info: Mapping[str, object], flag: obje
     """Opt-in only where a request path refuses the level. AzureOpenAIGPT5Config raises
     UnsupportedParamsError on reasoning_effort='none' without an explicit true, and it is selected
     only for the gpt-5 family, so every other azure deployment keeps the opt-out default."""
-    if model_info.get("litellm_provider") != "azure":
+    if model_info.get("embrouter_provider") != "azure":
         return flag is not False
 
-    from litellm.llms.azure.chat.gpt_5_transformation import AzureOpenAIGPT5Config
+    from embrouter.llms.azure.chat.gpt_5_transformation import AzureOpenAIGPT5Config
 
     key: Final = model_info.get("key")
     if not isinstance(key, str) or not AzureOpenAIGPT5Config.is_model_gpt_5_model(key):

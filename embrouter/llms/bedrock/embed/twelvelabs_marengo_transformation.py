@@ -13,13 +13,13 @@ from typing import Final, cast
 from pydantic import BaseModel, ConfigDict, TypeAdapter
 from typing_extensions import assert_never
 
-import litellm
-from litellm.llms.bedrock.embed.twelvelabs_marengo_3_transformation import (
+import embrouter
+from embrouter.llms.bedrock.embed.twelvelabs_marengo_3_transformation import (
     MARENGO_2_7_ONLY_PARAMS,
     build_marengo_3_request,
     is_marengo_3_model,
 )
-from litellm.types.llms.bedrock import (
+from embrouter.types.llms.bedrock import (
     TWELVELABS_EMBEDDING_INPUT_TYPES,
     TWELVELABS_MARENGO_3_INPUT_TYPES,
     TwelveLabsAsyncInvokeRequest,
@@ -29,7 +29,7 @@ from litellm.types.llms.bedrock import (
     TwelveLabsS3Location,
     TwelveLabsS3OutputDataConfig,
 )
-from litellm.types.utils import Embedding, EmbeddingResponse, PromptTokensDetailsWrapper, Usage
+from embrouter.types.utils import Embedding, EmbeddingResponse, PromptTokensDetailsWrapper, Usage
 
 
 class MarengoEmbeddingItem(BaseModel):
@@ -116,8 +116,8 @@ MARENGO_SHARED_PARAMS: Final = (
 )
 
 
-def drop_params_enabled(litellm_params: Mapping[str, object]) -> bool:
-    return litellm.drop_params is True or litellm_params.get("drop_params") is True
+def drop_params_enabled(embrouter_params: Mapping[str, object]) -> bool:
+    return embrouter.drop_params is True or embrouter_params.get("drop_params") is True
 
 
 class TwelveLabsMarengoEmbeddingConfig:
@@ -244,7 +244,7 @@ class TwelveLabsMarengoEmbeddingConfig:
                     b64_str = input.split(",", 1)[1] if "," in input else input
                 else:
                     # Direct base64 string
-                    from litellm.utils import get_base64_str
+                    from embrouter.utils import get_base64_str
 
                     b64_str = get_base64_str(input)
 
@@ -354,7 +354,7 @@ class TwelveLabsMarengoEmbeddingConfig:
         usage: Final = Usage(prompt_tokens=0, total_tokens=0)
 
         # Create hidden params with job ID
-        from litellm.types.llms.base import HiddenParams
+        from embrouter.types.llms.base import HiddenParams
 
         hidden_params: Final = HiddenParams()
         setattr(hidden_params, "_invocation_arn", invocation_arn)

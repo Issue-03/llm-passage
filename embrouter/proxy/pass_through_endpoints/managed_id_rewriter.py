@@ -45,21 +45,21 @@ from urllib.parse import quote, unquote
 from fastapi import HTTPException
 from pydantic import JsonValue, TypeAdapter, ValidationError
 
-from litellm._logging import verbose_proxy_logger
-from litellm.llms.base_llm.managed_resources.isolation import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.llms.base_llm.managed_resources.isolation import (
     build_owner_filter,
     can_access_resource,
     resolve_resource_owner_id,
 )
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.batches_endpoints.common_utils import validate_batch_list_limit
-from litellm.proxy.common_utils.sse_keepalive import split_complete_sse_frames
-from litellm.repositories.table_repositories import (
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.batches_endpoints.common_utils import validate_batch_list_limit
+from embrouter.proxy.common_utils.sse_keepalive import split_complete_sse_frames
+from embrouter.repositories.table_repositories import (
     ManagedFileRepository,
     ManagedObjectRepository,
 )
-from litellm.types.llms.openai import BATCH_GUARDRAIL_RESPONSE_FIELD, OpenAIFileObject
-from litellm.types.passthrough_endpoints.managed_id_rewriter import (
+from embrouter.types.llms.openai import BATCH_GUARDRAIL_RESPONSE_FIELD, OpenAIFileObject
+from embrouter.types.passthrough_endpoints.managed_id_rewriter import (
     ManagedFileIdReader,
     ManagedFileIdWriter,
     ManagedFileRow,
@@ -78,8 +78,8 @@ from litellm.types.passthrough_endpoints.managed_id_rewriter import (
 from .managed_id_codec import ManagedIdPayload, decode, is_managed, new_managed_id
 
 if TYPE_CHECKING:
-    from litellm.integrations.custom_logger import CustomLogger
-    from litellm.proxy.utils import PrismaClient
+    from embrouter.integrations.custom_logger import CustomLogger
+    from embrouter.proxy.utils import PrismaClient
 
 _RowT = TypeVar("_RowT", bound=ManagedResourceRow)
 
@@ -189,7 +189,7 @@ _MAX_BODY_REWRITE_DEPTH: Final = 64
 
 # Caps the distinct raw-provider-id guard lookups issued per request. A raw
 # file-id guard is an unindexed array-containment scan over
-# LiteLLM_ManagedFileTable (flat_model_file_ids has no index), so a body packed
+# EmbRouter_ManagedFileTable (flat_model_file_ids has no index), so a body packed
 # with id-shaped strings could otherwise amplify one request into thousands of
 # full-table scans. Legitimate callers reference managed IDs (resolved via an
 # indexed lookup, never the guard), so guarding more raw ids than this only
@@ -353,7 +353,7 @@ async def _resolve_one(
             try:
                 file_row: Final = await managed_files_hook.get_unified_file_id(
                     managed_id,
-                    litellm_parent_otel_span=None,
+                    embrouter_parent_otel_span=None,
                 )
                 if file_row is not None:
                     row_created_by = file_row.created_by
@@ -571,7 +571,7 @@ async def _mint_or_reuse_file(
             await managed_files_hook.store_unified_file_id(
                 file_id=managed_id,
                 file_object=_build_managed_file_object(file_object_snapshot, managed_id),
-                litellm_parent_otel_span=None,
+                embrouter_parent_otel_span=None,
                 model_mappings={
                     _passthrough_sentinel_model_id(provider): raw_id,
                     _PASSTHROUGH_PROVIDER_MARKER_KEY: _passthrough_provider_marker(provider),
@@ -736,7 +736,7 @@ async def rewrite_response_ids(
     Returns a shallow-copy of *body* with swapped values when any field is
     rewritten.
     """
-    from litellm.proxy.auth.auth_utils import normalize_request_route
+    from embrouter.proxy.auth.auth_utils import normalize_request_route
 
     # Strip passthrough prefix then normalize to get e.g. /v1/batches/{batch_id}
     canonical: Final = normalize_request_route(_canonical_path(route))
@@ -911,7 +911,7 @@ async def rewrite_streamed_response_ids(
 
     Streams for any other ``(provider, method, route)`` are relayed untouched.
     """
-    from litellm.proxy.auth.auth_utils import normalize_request_route
+    from embrouter.proxy.auth.auth_utils import normalize_request_route
 
     canonical: Final = normalize_request_route(_canonical_path(route))
     field_specs: Final = BUILTIN_OUTPUT_ID_FIELD_MAP.get((provider, method, canonical), ())
@@ -945,7 +945,7 @@ def is_passthrough_list_route(provider: str, method: str, route: str) -> bool:
     from the DB (user-scoped) rather than forwarded upstream."""
     if method != "GET":
         return False
-    from litellm.proxy.auth.auth_utils import normalize_request_route
+    from embrouter.proxy.auth.auth_utils import normalize_request_route
 
     canonical: Final = normalize_request_route(_canonical_path(route))
     return (provider, canonical) in _LIST_ROUTE_TABLE
@@ -1147,7 +1147,7 @@ async def list_passthrough_ids_from_db(
     if prisma_client is None:
         return None
 
-    from litellm.proxy.auth.auth_utils import normalize_request_route
+    from embrouter.proxy.auth.auth_utils import normalize_request_route
 
     canonical: Final = normalize_request_route(_canonical_path(route))
     resource_kind: Final = _LIST_ROUTE_TABLE.get((provider, canonical))
@@ -1216,8 +1216,8 @@ async def list_passthrough_ids_from_db(
 # ---------------------------------------------------------------------------
 
 
-def _is_litellm_internal_key(key: object) -> bool:
-    return isinstance(key, str) and key.startswith("litellm_")
+def _is_embrouter_internal_key(key: object) -> bool:
+    return isinstance(key, str) and key.startswith("embrouter_")
 
 
 async def rewrite_path_ids(
@@ -1326,7 +1326,7 @@ async def rewrite_body_ids(
 ) -> object:
     """
     Recursively walk a request body dict/list and resolve any passthrough
-    managed IDs.  Skips litellm internal keys (``litellm_*``).
+    managed IDs.  Skips embrouter internal keys (``embrouter_*``).
     Returns *body* unchanged (same object) when nothing is resolved.
     """
     if not body:
@@ -1338,8 +1338,8 @@ async def rewrite_body_ids(
         result: Final[dict[str, object]] = {}
         changed_inner = False  # rebind-ok: flips when any child rewrite returns a new object
         for k, v in node.items():
-            # Skip litellm internal injection keys (e.g. litellm_logging_obj)
-            if _is_litellm_internal_key(k):
+            # Skip embrouter internal injection keys (e.g. embrouter_logging_obj)
+            if _is_embrouter_internal_key(k):
                 result[k] = v
                 continue
             new_v = await _walk(v, depth + 1)

@@ -5,14 +5,14 @@ from typing import Final, Protocol, TypeVar
 
 from pydantic import TypeAdapter, ValidationError
 
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy._types import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy._types import (
     DB_CONNECTION_ERROR_TYPES,
     ProxyErrorTypes,
     ProxyException,
 )
-from litellm.proxy.db.db_lookup_gate import DBLookupDeadlineExceeded
-from litellm.secret_managers.main import str_to_bool
+from embrouter.proxy.db.db_lookup_gate import DBLookupDeadlineExceeded
+from embrouter.secret_managers.main import str_to_bool
 
 # Bounds the __cause__/__context__ walk in find_database_service_unavailable_error_in_chain.
 # Real exception chains are a few links deep; the cap also makes the walk cycle-safe.
@@ -72,7 +72,7 @@ class PrismaDBExceptionHandler:
         """
         Returns True if the request should be allowed to proceed despite the DB connection error
         """
-        from litellm.proxy.proxy_server import general_settings
+        from embrouter.proxy.proxy_server import general_settings
 
         _allow_requests_on_db_unavailable: bool | str = general_settings.get("allow_requests_on_db_unavailable", False)
         if isinstance(_allow_requests_on_db_unavailable, bool):

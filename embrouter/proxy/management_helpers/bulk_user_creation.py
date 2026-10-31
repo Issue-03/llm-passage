@@ -16,63 +16,63 @@ from fastapi import HTTPException, Request
 from pydantic import BaseModel, ConfigDict, TypeAdapter, ValidationError
 from typing_extensions import ReadOnly, TypedDict
 
-from litellm._logging import verbose_proxy_logger
-from litellm._uuid import uuid
-from litellm.integrations.prometheus import PrometheusLogger
-from litellm.proxy._types import (
-    LiteLLM_TeamTable,
-    LitellmUserRoles,
+from embrouter._logging import verbose_proxy_logger
+from embrouter._uuid import uuid
+from embrouter.integrations.prometheus import PrometheusLogger
+from embrouter.proxy._types import (
+    EmbRouter_TeamTable,
+    EmbrouterUserRoles,
     Member,
     NewUserRequestTeam,
     OrganizationMemberAddRequest,
     OrgMember,
     UserAPIKeyAuth,
 )
-from litellm.proxy.auth.auth_checks import invalidate_team_member_spend_state
-from litellm.proxy.auth.litellm_license import LicenseCheck
-from litellm.proxy.common_utils.timezone_utils import get_budget_reset_time
-from litellm.proxy.db.exception_handler import PrismaDBExceptionHandler
-from litellm.proxy.hooks.user_management_event_hooks import UserManagementEventHooks
-from litellm.proxy.list_api.common import PROBLEM_TYPE_BASE, ManagementProblem
-from litellm.proxy.management_endpoints.common_utils import (
+from embrouter.proxy.auth.auth_checks import invalidate_team_member_spend_state
+from embrouter.proxy.auth.embrouter_license import LicenseCheck
+from embrouter.proxy.common_utils.timezone_utils import get_budget_reset_time
+from embrouter.proxy.db.exception_handler import PrismaDBExceptionHandler
+from embrouter.proxy.hooks.user_management_event_hooks import UserManagementEventHooks
+from embrouter.proxy.list_api.common import PROBLEM_TYPE_BASE, ManagementProblem
+from embrouter.proxy.management_endpoints.common_utils import (
     _is_user_org_admin_for_team,  # pyright: ignore[reportPrivateUsage]  # same team-admin check /user/new uses
     _is_user_team_admin,  # pyright: ignore[reportPrivateUsage]  # same team-admin check /user/new uses
     validate_budget_duration,
 )
-from litellm.proxy.management_endpoints.internal_user_endpoints import (
+from embrouter.proxy.management_endpoints.internal_user_endpoints import (
     _update_internal_new_user_params,  # pyright: ignore[reportPrivateUsage, reportUnknownVariableType]  # /user/new defaults; result validated below
     check_if_default_team_set,
 )
-from litellm.proxy.management_endpoints.key_management_endpoints import (
+from embrouter.proxy.management_endpoints.key_management_endpoints import (
     _check_permissions_caller_permission,  # pyright: ignore[reportPrivateUsage]  # same permission check /user/new uses
     generate_key_helper_fn,  # pyright: ignore[reportUnknownVariableType]  # legacy untyped helper; result validated by _KEY_RESPONSE
     metadata_json_with_limits,
 )
-from litellm.proxy.management_endpoints.organization_endpoints import organization_member_add
-from litellm.proxy.management_helpers.access_group_team_sync import TEAM_ADVISORY_LOCK_SQL
-from litellm.proxy.management_helpers.object_permission_utils import (
+from embrouter.proxy.management_endpoints.organization_endpoints import organization_member_add
+from embrouter.proxy.management_helpers.access_group_team_sync import TEAM_ADVISORY_LOCK_SQL
+from embrouter.proxy.management_helpers.object_permission_utils import (
     _set_object_permission,  # pyright: ignore[reportPrivateUsage, reportUnknownVariableType]  # shared with /user/new; result validated below
 )
-from litellm.proxy.management_helpers.utils import (
+from embrouter.proxy.management_helpers.utils import (
     _resolve_member_budget_id,  # pyright: ignore[reportPrivateUsage]  # shared with /team/member_add
 )
-from litellm.proxy.utils import PrismaClient
-from litellm.repositories.prisma_protocols import TableActions
-from litellm.repositories.team_repository import TeamRepository
-from litellm.repositories.user_repository import UserRepository
-from litellm.types.proxy.management_endpoints.internal_user_endpoints import (
+from embrouter.proxy.utils import PrismaClient
+from embrouter.repositories.prisma_protocols import TableActions
+from embrouter.repositories.team_repository import TeamRepository
+from embrouter.repositories.user_repository import UserRepository
+from embrouter.types.proxy.management_endpoints.internal_user_endpoints import (
     BulkNewUserItem,
     BulkNewUserMeta,
     BulkNewUserResponse,
     UserCreateResult,
 )
-from litellm.types.proxy.management_endpoints.management_v1 import ProblemDetail
+from embrouter.types.proxy.management_endpoints.management_v1 import ProblemDetail
 
 if TYPE_CHECKING:
     from prisma import Prisma
     from prisma import models as prisma_models
 
-    from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+    from embrouter.proxy.common_utils.user_api_key_cache import UserApiKeyCache
 
 BULK_NEW_USER_CONCURRENCY: Final = 10
 
@@ -205,8 +205,8 @@ def _requested_teams(item: BulkNewUserItem) -> tuple[NewUserRequestTeam, ...]:
 
 def _row_error(item: BulkNewUserItem, user_api_key_dict: UserAPIKeyAuth) -> str | None:
     if (
-        item.user_role in (LitellmUserRoles.PROXY_ADMIN, LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY)
-        and user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN
+        item.user_role in (EmbrouterUserRoles.PROXY_ADMIN, EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY)
+        and user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN
     ):
         return (
             "Only proxy admins can create administrative users (proxy_admin, proxy_admin_viewer). "
@@ -259,7 +259,7 @@ def _partition_rows(
     )
 
 
-def _user_table(prisma_client: PrismaClient) -> "TableActions[prisma_models.LiteLLM_UserTable]":
+def _user_table(prisma_client: PrismaClient) -> "TableActions[prisma_models.EmbRouter_UserTable]":
     return UserRepository(prisma_client).table
 
 
@@ -282,17 +282,17 @@ async def _existing_user_conflicts(
     )
 
 
-async def _load_teams(prisma_client: PrismaClient, team_ids: frozenset[str]) -> Mapping[str, LiteLLM_TeamTable]:
+async def _load_teams(prisma_client: PrismaClient, team_ids: frozenset[str]) -> Mapping[str, EmbRouter_TeamTable]:
     if not team_ids:
         return MappingProxyType({})
     rows: Final = await TeamRepository(prisma_client).table.find_many(
         where={"team_id": {"in": sorted(team_ids)}}  # mutable-ok: Prisma query filters are dict-shaped
     )
-    return MappingProxyType({row.team_id: LiteLLM_TeamTable.model_validate(row.model_dump()) for row in rows})
+    return MappingProxyType({row.team_id: EmbRouter_TeamTable.model_validate(row.model_dump()) for row in rows})
 
 
-async def _team_permission_error(team: LiteLLM_TeamTable, user_api_key_dict: UserAPIKeyAuth) -> str | None:
-    if user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN.value:
+async def _team_permission_error(team: EmbRouter_TeamTable, user_api_key_dict: UserAPIKeyAuth) -> str | None:
+    if user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN.value:
         return None
     if _is_user_team_admin(user_api_key_dict=user_api_key_dict, team_obj=team):
         return None
@@ -305,7 +305,7 @@ async def _unusable_teams(
     prisma_client: PrismaClient,
     pending: Sequence[_PendingUser],
     user_api_key_dict: UserAPIKeyAuth,
-) -> tuple[Mapping[str, LiteLLM_TeamTable], Mapping[str, str]]:
+) -> tuple[Mapping[str, EmbRouter_TeamTable], Mapping[str, str]]:
     """Load every referenced team once and explain, per team id, why rows naming it cannot proceed."""
     team_ids: Final = frozenset(team.team_id for user in pending for team in user.teams)
     teams: Final = await _load_teams(prisma_client, team_ids)
@@ -357,7 +357,7 @@ async def _prepare_user(user: _PendingUser, prisma_client: PrismaClient) -> _Pre
 
 
 class _UserCreateData(TypedDict):
-    """One `LiteLLM_UserTable` row as `create_many` takes it; JSON columns are pre-serialized."""
+    """One `EmbRouter_UserTable` row as `create_many` takes it; JSON columns are pre-serialized."""
 
     user_id: ReadOnly[str]
     user_email: ReadOnly[str | None]
@@ -506,10 +506,10 @@ class _TeamsData(TypedDict):
     teams: ReadOnly[tuple[str, ...]]
 
 
-def _default_member_budget_id(team: LiteLLM_TeamTable) -> str | None:
+def _default_member_budget_id(team: EmbRouter_TeamTable) -> str | None:
     metadata: Final = (
         _JSON_OBJECT.validate_python(
-            team.metadata  # pyright: ignore[reportUnknownMemberType]  # LiteLLM_TeamTable.metadata is a bare dict; validated by the adapter
+            team.metadata  # pyright: ignore[reportUnknownMemberType]  # EmbRouter_TeamTable.metadata is a bare dict; validated by the adapter
         )
         if team.metadata  # pyright: ignore[reportUnknownMemberType]  # same bare dict
         else None
@@ -518,20 +518,20 @@ def _default_member_budget_id(team: LiteLLM_TeamTable) -> str | None:
     return budget_id if isinstance(budget_id, str) else None
 
 
-def _team_tx_db(tx: "Prisma") -> "TableActions[prisma_models.LiteLLM_TeamTable]":
-    return tx.litellm_teamtable  # pyright: ignore[reportReturnType]  # TableActions widens the generated inputs to Mapping, as the repositories do
+def _team_tx_db(tx: "Prisma") -> "TableActions[prisma_models.EmbRouter_TeamTable]":
+    return tx.embrouter_teamtable  # pyright: ignore[reportReturnType]  # TableActions widens the generated inputs to Mapping, as the repositories do
 
 
-def _membership_tx_db(tx: "Prisma") -> "TableActions[prisma_models.LiteLLM_TeamMembership]":
-    return tx.litellm_teammembership  # pyright: ignore[reportReturnType]  # TableActions widens the generated inputs to Mapping, as the repositories do
+def _membership_tx_db(tx: "Prisma") -> "TableActions[prisma_models.EmbRouter_TeamMembership]":
+    return tx.embrouter_teammembership  # pyright: ignore[reportReturnType]  # TableActions widens the generated inputs to Mapping, as the repositories do
 
 
 async def _write_team_roster(
     prisma_client: PrismaClient,
-    team: LiteLLM_TeamTable,
+    team: EmbRouter_TeamTable,
     members: Sequence[_TeamAssignment],
     user_api_key_dict: UserAPIKeyAuth,
-    litellm_proxy_admin_name: str,
+    embrouter_proxy_admin_name: str,
 ) -> _TeamWrite:
     """Add every new member to one team under its advisory lock: one roster rewrite and one membership insert."""
     try:
@@ -547,7 +547,7 @@ async def _write_team_roster(
                     await _resolve_member_budget_id(
                         prisma_client=prisma_client,
                         user_api_key_dict=user_api_key_dict,
-                        litellm_proxy_admin_name=litellm_proxy_admin_name,
+                        embrouter_proxy_admin_name=embrouter_proxy_admin_name,
                         max_budget_in_team=member.max_budget_in_team,
                         allowed_models=team.default_team_member_models or None,
                         budget_duration=None,
@@ -616,7 +616,7 @@ async def _publish_team_writes(writes: Sequence[_TeamWrite], user_api_key_cache:
             continue
         try:
             prometheus_logger.set_team_members_metric(
-                LiteLLM_TeamTable(
+                EmbRouter_TeamTable(
                     team_id=write.team_id,
                     members_with_roles=write.after,  # pyright: ignore[reportArgumentType]  # pydantic coerces the tuple into the declared list
                 )
@@ -690,7 +690,7 @@ async def _add_to_organizations(
         await organization_member_add(
             data=OrganizationMemberAddRequest(
                 organization_id=organization_id,
-                member=OrgMember(user_id=prepared.row.user_id, role=LitellmUserRoles.INTERNAL_USER),
+                member=OrgMember(user_id=prepared.row.user_id, role=EmbrouterUserRoles.INTERNAL_USER),
             ),
             http_request=Request(scope={"type": "http", "path": "/user/bulk_new"}),  # mutable-ok: ASGI scopes are dicts
             user_api_key_dict=user_api_key_dict,
@@ -711,7 +711,7 @@ async def _write_audit_logs(
     prisma_client: PrismaClient,
     created: Sequence[_PreparedUser],
     user_api_key_dict: UserAPIKeyAuth,
-    litellm_proxy_admin_name: str,
+    embrouter_proxy_admin_name: str,
 ) -> None:
     if not created:
         return
@@ -724,9 +724,9 @@ async def _write_audit_logs(
             UserManagementEventHooks.create_internal_user_audit_log(
                 user_id=row.user_id,
                 action="created",
-                litellm_changed_by=user_api_key_dict.user_id,
+                embrouter_changed_by=user_api_key_dict.user_id,
                 user_api_key_dict=user_api_key_dict,
-                litellm_proxy_admin_name=litellm_proxy_admin_name,
+                embrouter_proxy_admin_name=embrouter_proxy_admin_name,
                 before_value=None,
                 after_value=row.model_dump_json(exclude_none=True),
             )
@@ -773,7 +773,7 @@ async def bulk_create_users(
     user_api_key_dict: UserAPIKeyAuth,
     prisma_client: PrismaClient,
     license_check: LicenseCheck,
-    litellm_proxy_admin_name: str,
+    embrouter_proxy_admin_name: str,
     user_api_key_cache: "UserApiKeyCache",
     generate_key: KeyGenerator = generate_key_helper_fn,
 ) -> BulkNewUserResponse:
@@ -813,7 +813,7 @@ async def bulk_create_users(
     team_writes: Final = MappingProxyType(
         {
             team_id: await _write_team_roster(
-                prisma_client, teams[team_id], members, user_api_key_dict, litellm_proxy_admin_name
+                prisma_client, teams[team_id], members, user_api_key_dict, embrouter_proxy_admin_name
             )
             for team_id, members in _assignments_by_team(created).items()
         }
@@ -829,7 +829,7 @@ async def bulk_create_users(
         lambda user: bool(user.row.organizations),
         lambda user: _add_to_organizations(user, user.row.organizations or (), user_api_key_dict),
     )
-    await _write_audit_logs(prisma_client, created, user_api_key_dict, litellm_proxy_admin_name)
+    await _write_audit_logs(prisma_client, created, user_api_key_dict, embrouter_proxy_admin_name)
 
     def finish(prepared: _PreparedUser) -> _CreatedUser:
         landed, team_failures = _row_teams(prepared, team_writes)

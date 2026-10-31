@@ -4,28 +4,28 @@ from typing import TYPE_CHECKING, Any, Final
 
 import httpx
 
-import litellm
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.openai.chat.gpt_transformation import OpenAIGPTConfig
-from litellm.types.llms.cohere import CohereV2ChatResponse
-from litellm.types.llms.openai import (
+import embrouter
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.openai.chat.gpt_transformation import OpenAIGPTConfig
+from embrouter.types.llms.cohere import CohereV2ChatResponse
+from embrouter.types.llms.openai import (
     AllMessageValues,
     ChatCompletionAnnotation,
     ChatCompletionAnnotationURLCitation,
     ChatCompletionToolCallChunk,
 )
-from litellm.types.utils import ModelResponse, Usage
+from embrouter.types.utils import ModelResponse, Usage
 
 from ..common_utils import CohereError, CohereV2ModelResponseIterator
 from ..common_utils import validate_environment as cohere_validate_environment
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 
 class CohereV2ChatConfig(OpenAIGPTConfig):
@@ -104,7 +104,7 @@ class CohereV2ChatConfig(OpenAIGPTConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
@@ -170,13 +170,13 @@ class CohereV2ChatConfig(OpenAIGPTConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         """
         Cohere v2 chat api is in openai format, so we can use the openai transform request function to transform the request.
         """
-        data: Final = super().transform_request(model, messages, optional_params, litellm_params, headers)
+        data: Final = super().transform_request(model, messages, optional_params, embrouter_params, headers)
 
         return data
 
@@ -185,11 +185,11 @@ class CohereV2ChatConfig(OpenAIGPTConfig):
         model: str,
         raw_response: httpx.Response,
         model_response: ModelResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         request_data: dict,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,
@@ -231,7 +231,7 @@ class CohereV2ChatConfig(OpenAIGPTConfig):
                     "index": index,
                 }
                 tool_calls.append(tool_call)
-            _message: Final = litellm.Message(
+            _message: Final = embrouter.Message(
                 tool_calls=tool_calls,
                 content=None,
                 annotations=annotations,
@@ -275,7 +275,7 @@ class CohereV2ChatConfig(OpenAIGPTConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         """

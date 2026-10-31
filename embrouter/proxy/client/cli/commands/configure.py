@@ -105,7 +105,7 @@ def _configure_group(ctx: click.Context, api_key: str | None, gateway_url: str |
 
 
 @click.group(name="configure", invoke_without_command=True)
-@click.option("--api-key", default=None, help="Long-lived LiteLLM virtual key to save for the selected agents.")
+@click.option("--api-key", default=None, help="Long-lived EmbRouter virtual key to save for the selected agents.")
 @click.option("--gateway-url", "--base-url", default=None, help="Gateway URL, including any deployment path prefix.")
 @click.pass_context
 def configure_group(ctx: click.Context, api_key: str | None, gateway_url: str | None) -> None:
@@ -114,7 +114,7 @@ def configure_group(ctx: click.Context, api_key: str | None, gateway_url: str | 
 
 
 @click.group(name="reconfigure", invoke_without_command=True)
-@click.option("--api-key", default=None, help="Long-lived LiteLLM virtual key to save for the selected agents.")
+@click.option("--api-key", default=None, help="Long-lived EmbRouter virtual key to save for the selected agents.")
 @click.option("--gateway-url", "--base-url", default=None, help="Gateway URL, including any deployment path prefix.")
 @click.pass_context
 def reconfigure_group(ctx: click.Context, api_key: str | None, gateway_url: str | None) -> None:
@@ -148,7 +148,7 @@ def _configure_target(
 
 
 @configure_group.command(name="claude")
-@click.option("--api-key", default=None, help="Long-lived LiteLLM virtual key, or reuse the saved key.")
+@click.option("--api-key", default=None, help="Long-lived EmbRouter virtual key, or reuse the saved key.")
 @click.option("--gateway-url", "--base-url", default=None, help="Gateway URL, or reuse the saved gateway.")
 @click.option("--model", default=None, help=MODEL_OPTION_HELP)
 @click.option(
@@ -167,7 +167,7 @@ def configure_claude(
 
 
 @configure_group.command(name="codex")
-@click.option("--api-key", default=None, help="Long-lived LiteLLM virtual key, or reuse the saved key.")
+@click.option("--api-key", default=None, help="Long-lived EmbRouter virtual key, or reuse the saved key.")
 @click.option("--gateway-url", "--base-url", default=None, help="Gateway URL, or reuse the saved gateway.")
 @click.option("--model", default=None, help="Gateway model to start on; required only for first-time setup.")
 @click.pass_context
@@ -177,7 +177,7 @@ def configure_codex(ctx: click.Context, api_key: str | None, gateway_url: str | 
 
 
 @reconfigure_group.command(name="claude")
-@click.option("--api-key", default=None, help="Long-lived LiteLLM virtual key, or reuse the saved key.")
+@click.option("--api-key", default=None, help="Long-lived EmbRouter virtual key, or reuse the saved key.")
 @click.option("--gateway-url", "--base-url", default=None, help="Gateway URL, or reuse the saved gateway.")
 @click.option("--model", default=None, help=MODEL_OPTION_HELP)
 @click.option(
@@ -196,7 +196,7 @@ def reconfigure_claude(
 
 
 @reconfigure_group.command(name="codex")
-@click.option("--api-key", default=None, help="Long-lived LiteLLM virtual key, or reuse the saved key.")
+@click.option("--api-key", default=None, help="Long-lived EmbRouter virtual key, or reuse the saved key.")
 @click.option("--gateway-url", "--base-url", default=None, help="Gateway URL, or reuse the saved gateway.")
 @click.option("--model", default=None, help="Gateway model to start on; omit to open the setup wizard.")
 @click.pass_context

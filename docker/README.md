@@ -1,14 +1,14 @@
 # Docker Development Guide
 
-This guide provides instructions for building and running the LiteLLM application using Docker and Docker Compose.
+This guide provides instructions for building and running the EmbRouter application using Docker and Docker Compose.
 
-> **Just want to run LiteLLM?** This guide builds from source. To run the published
+> **Just want to run EmbRouter?** This guide builds from source. To run the published
 > image instead, use `docker-compose.quickstart.yml` in this directory — the
 > two-service stack (gateway + Postgres) that the
 >
 > ```bash
 > curl -sSLO
-> printf 'LITELLM_MASTER_KEY=sk-%s\nLITELLM_SALT_KEY=sk-%s\n' "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" > .env
+> printf 'EMBROUTER_MASTER_KEY=sk-%s\nEMBROUTER_SALT_KEY=sk-%s\n' "$(openssl rand -hex 32)" "$(openssl rand -hex 32)" > .env
 > docker compose -f docker-compose.quickstart.yml up -d
 > ```
 
@@ -23,19 +23,19 @@ To build and run the application, you will use the `docker-compose.yml` file loc
 
 ### 1. Set the Master Key
 
-The application requires a `LITELLM_MASTER_KEY` for signing and validating tokens. You must set this key as an environment variable before running the application.
+The application requires a `EMBROUTER_MASTER_KEY` for signing and validating tokens. You must set this key as an environment variable before running the application.
 
 Create a `.env` file in the root of the project and add the following line:
 
 ```
-LITELLM_MASTER_KEY=your-secret-key
+EMBROUTER_MASTER_KEY=your-secret-key
 ```
 
 Replace `your-secret-key` with a strong, randomly generated secret.
 
 ### 2. Build and Run the Containers
 
-Once you have set the `LITELLM_MASTER_KEY`, you can build and run the containers using the following command:
+Once you have set the `EMBROUTER_MASTER_KEY`, you can build and run the containers using the following command:
 
 ```bash
 docker compose up -d --build
@@ -44,7 +44,7 @@ docker compose up -d --build
 This command will:
 
 -   Build the Docker image using `Dockerfile.non_root`.
--   Start the `litellm`, `litellm_db`, and `prometheus` services in detached mode (`-d`).
+-   Start the `embrouter`, `embrouter_db`, and `prometheus` services in detached mode (`-d`).
 -   The `--build` flag ensures that the image is rebuilt if there are any changes to the Dockerfile or the application code.
 
 ### 3. Verifying the Application is Running
@@ -55,10 +55,10 @@ You can check the status of the running containers with the following command:
 docker compose ps
 ```
 
-To view the logs of the `litellm` container, run:
+To view the logs of the `embrouter` container, run:
 
 ```bash
-docker compose logs -f litellm
+docker compose logs -f embrouter
 ```
 
 ### 4. Stopping the Application
@@ -82,16 +82,16 @@ This setup:
 - Builds from `docker/Dockerfile.non_root` with Prisma engines and Node toolchain baked into the image.
 - Runs the proxy as a non-root user with a read-only rootfs and only writable tmpfs mounts:
   - `/app/cache` (Prisma/NPM cache; backing `PRISMA_BINARY_CACHE_DIR`, `NPM_CONFIG_CACHE`, `XDG_CACHE_HOME`)
-  - `/app/migrations` (Prisma migration workspace; backing `LITELLM_MIGRATION_DIR`)
+  - `/app/migrations` (Prisma migration workspace; backing `EMBROUTER_MIGRATION_DIR`)
 - Pre-builds and serves the admin UI from read-only paths:
-  - `/var/lib/litellm/ui` (pre-restructured Next.js UI with `.litellm_ui_ready` marker)
-  - `/var/lib/litellm/assets` (UI logos and assets)
+  - `/var/lib/embrouter/ui` (pre-restructured Next.js UI with `.embrouter_ui_ready` marker)
+  - `/var/lib/embrouter/assets` (UI logos and assets)
 - Routes all outbound traffic through a local Squid proxy that denies egress, so Prisma migrations must use the cached CLI and engines.
 
 You should also verify offline Prisma behaviour with:
 
 ```bash
-docker run --rm --network none --entrypoint prisma litellm:local --version
+docker run --rm --network none --entrypoint prisma embrouter:local --version
 ```
 
 This command should succeed (showing engine versions) even with `--network none`, confirming that Prisma binaries are available without network access.
@@ -99,4 +99,4 @@ This command should succeed (showing engine versions) even with `--network none`
 ## Troubleshooting
 
 -   **`build_admin_ui.sh: not found`**: This error can occur if the Docker build context is not set correctly. Ensure that you are running the `docker-compose` command from the root of the project.
--   **`Master key is not initialized`**: This error means the `LITELLM_MASTER_KEY` environment variable is not set. Make sure you have created a `.env` file in the project root with the `LITELLM_MASTER_KEY` defined.
+-   **`Master key is not initialized`**: This error means the `EMBROUTER_MASTER_KEY` environment variable is not set. Make sure you have created a `.env` file in the project root with the `EMBROUTER_MASTER_KEY` defined.

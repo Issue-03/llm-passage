@@ -7,7 +7,7 @@ from mcp_types.methods import serialize_server_result
 from mcp_types.version import KNOWN_PROTOCOL_VERSIONS, MODERN_PROTOCOL_VERSIONS
 from pydantic import JsonValue, ValidationError
 
-from litellm.proxy._experimental.mcp_server.result_conversion import (
+from embrouter.proxy._experimental.mcp_server.result_conversion import (
     INPUT_REQUIRED_UNSUPPORTED_MESSAGE,
     JsonResult,
     TextResult,

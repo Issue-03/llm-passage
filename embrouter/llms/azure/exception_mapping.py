@@ -1,6 +1,6 @@
 from typing import Any, Final
 
-from litellm.exceptions import ContentPolicyViolationError
+from embrouter.exceptions import ContentPolicyViolationError
 
 
 class AzureOpenAIExceptionMapping:
@@ -38,7 +38,7 @@ class AzureOpenAIExceptionMapping:
             message=provider_message,
             llm_provider="azure",
             model=model,
-            litellm_debug_info=extra_information,
+            embrouter_debug_info=extra_information,
             response=getattr(original_exception, "response", None),
             provider_specific_fields={
                 # Preserve legacy key for backward compatibility.

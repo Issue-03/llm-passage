@@ -423,7 +423,7 @@ export interface ComplexityRouterConfigValue {
    */
   reasoning_override_min_score?: number;
   /**
-   * Per-(tier, model) litellm_params, serialized to the sibling tier_model_configs key. The full
+   * Per-(tier, model) embrouter_params, serialized to the sibling tier_model_configs key. The full
    * params object is held, not just reasoning_effort, so keys authored in config.yaml survive an
    * edit round-trip.
    */

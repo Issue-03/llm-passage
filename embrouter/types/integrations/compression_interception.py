@@ -9,8 +9,8 @@ class CompressionInterceptionConfig(TypedDict, total=False):
     """
     Configuration parameters for CompressionInterceptionLogger.
 
-    Used in proxy_config.yaml under litellm_settings:
-        litellm_settings:
+    Used in proxy_config.yaml under embrouter_settings:
+        embrouter_settings:
           compression_interception_params:
             enabled: true
             compression_trigger: 100000

@@ -4,8 +4,8 @@ A2A Streaming Response Iterator
 
 from typing import Final
 
-from litellm.llms.base_llm.base_model_iterator import BaseModelResponseIterator
-from litellm.types.utils import GenericStreamingChunk, ModelResponseStream
+from embrouter.llms.base_llm.base_model_iterator import BaseModelResponseIterator
+from embrouter.types.utils import GenericStreamingChunk, ModelResponseStream
 
 from ..common_utils import A2AError, extract_text_from_a2a_response
 

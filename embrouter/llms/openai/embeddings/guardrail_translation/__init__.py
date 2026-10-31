@@ -2,10 +2,10 @@
 
 from typing import Final
 
-from litellm.llms.openai.embeddings.guardrail_translation.handler import (
+from embrouter.llms.openai.embeddings.guardrail_translation.handler import (
     OpenAIEmbeddingsHandler,
 )
-from litellm.types.utils import CallTypes
+from embrouter.types.utils import CallTypes
 
 guardrail_translation_mappings: Final = {
     CallTypes.embedding: OpenAIEmbeddingsHandler,

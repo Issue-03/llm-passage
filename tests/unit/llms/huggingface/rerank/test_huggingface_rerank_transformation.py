@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-import litellm
+import embrouter
 
 
 def assert_response_shape(response, custom_llm_provider):
@@ -27,8 +27,8 @@ def assert_response_shape(response, custom_llm_provider):
 
 
 @pytest.mark.parametrize("sync_mode", [True, False])
-@patch("litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post")
-@patch("litellm.llms.custom_httpx.http_handler.HTTPHandler.post")
+@patch("embrouter.llms.custom_httpx.http_handler.AsyncHTTPHandler.post")
+@patch("embrouter.llms.custom_httpx.http_handler.HTTPHandler.post")
 def test_basic_rerank_huggingface(mock_sync_post, mock_async_post, sync_mode):
     """Test basic HuggingFace rerank functionality."""
     # Mock response data that matches HuggingFace rerank API format
@@ -47,7 +47,7 @@ def test_basic_rerank_huggingface(mock_sync_post, mock_async_post, sync_mode):
         mock_response.headers = {"content-type": "application/json"}
         mock_sync_post.return_value = mock_response
 
-        response = litellm.rerank(
+        response = embrouter.rerank(
             model="huggingface/BAAI/bge-reranker-base",
             query="hello",
             documents=["hello", "world"],
@@ -68,7 +68,7 @@ def test_basic_rerank_huggingface(mock_sync_post, mock_async_post, sync_mode):
         mock_async_post.return_value = mock_response
 
         response = asyncio.run(
-            litellm.arerank(
+            embrouter.arerank(
                 model="huggingface/BAAI/bge-reranker-base",
                 query="hello",
                 documents=["hello", "world"],
@@ -87,8 +87,8 @@ def test_basic_rerank_huggingface(mock_sync_post, mock_async_post, sync_mode):
 
 
 @pytest.mark.parametrize("sync_mode", [True, False])
-@patch("litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post")
-@patch("litellm.llms.custom_httpx.http_handler.HTTPHandler.post")
+@patch("embrouter.llms.custom_httpx.http_handler.AsyncHTTPHandler.post")
+@patch("embrouter.llms.custom_httpx.http_handler.HTTPHandler.post")
 def test_huggingface_rerank_custom_api_base(mock_sync_post, mock_async_post, sync_mode):
     """Test HuggingFace rerank with custom API base."""
     mock_response_data = [{"index": 0, "score": 0.9}, {"index": 1, "score": 0.1}]
@@ -103,7 +103,7 @@ def test_huggingface_rerank_custom_api_base(mock_sync_post, mock_async_post, syn
         mock_response.headers = {"content-type": "application/json"}
         mock_sync_post.return_value = mock_response
 
-        response = litellm.rerank(
+        response = embrouter.rerank(
             model="huggingface/BAAI/bge-reranker-base",
             query="hello",
             documents=["hello", "world"],
@@ -129,7 +129,7 @@ def test_huggingface_rerank_custom_api_base(mock_sync_post, mock_async_post, syn
         mock_async_post.return_value = mock_response
 
         response = asyncio.run(
-            litellm.arerank(
+            embrouter.arerank(
                 model="huggingface/BAAI/bge-reranker-base",
                 query="hello",
                 documents=["hello", "world"],
@@ -146,7 +146,7 @@ def test_huggingface_rerank_custom_api_base(mock_sync_post, mock_async_post, syn
         assert len(response.results) == 2
 
 
-@patch("litellm.llms.custom_httpx.http_handler.HTTPHandler.post")
+@patch("embrouter.llms.custom_httpx.http_handler.HTTPHandler.post")
 def test_huggingface_rerank_with_env_vars(mock_post, monkeypatch):
     """Test HuggingFace rerank with environment variable configuration."""
     monkeypatch.setenv("HUGGINGFACE_API_KEY", "env_test_key")
@@ -163,7 +163,7 @@ def test_huggingface_rerank_with_env_vars(mock_post, monkeypatch):
     mock_response.headers = {"content-type": "application/json"}
     mock_post.return_value = mock_response
 
-    response = litellm.rerank(
+    response = embrouter.rerank(
         model="huggingface/BAAI/bge-reranker-base",
         query="hello",
         documents=["hello", "world"],
@@ -181,7 +181,7 @@ def test_huggingface_rerank_with_env_vars(mock_post, monkeypatch):
     assert len(response.results) == 2
 
 
-@patch("litellm.llms.custom_httpx.http_handler.HTTPHandler.post")
+@patch("embrouter.llms.custom_httpx.http_handler.HTTPHandler.post")
 def test_huggingface_rerank_return_documents(mock_post):
     """Test HuggingFace rerank with return_documents=True."""
     mock_response_data = [
@@ -198,7 +198,7 @@ def test_huggingface_rerank_return_documents(mock_post):
     mock_response.headers = {"content-type": "application/json"}
     mock_post.return_value = mock_response
 
-    response = litellm.rerank(
+    response = embrouter.rerank(
         model="huggingface/BAAI/bge-reranker-base",
         query="hello",
         documents=["hello", "world"],
@@ -221,7 +221,7 @@ def test_huggingface_rerank_return_documents(mock_post):
 
 def test_huggingface_rerank_config():
     """Test HuggingFaceRerankConfig class functionality."""
-    from litellm.llms.huggingface.rerank.transformation import HuggingFaceRerankConfig
+    from embrouter.llms.huggingface.rerank.transformation import HuggingFaceRerankConfig
 
     config = HuggingFaceRerankConfig()
 
@@ -261,8 +261,8 @@ def test_huggingface_rerank_config():
 
 def test_request_transformation():
     """Test request transformation logic."""
-    from litellm.llms.huggingface.rerank.transformation import HuggingFaceRerankConfig
-    from litellm.types.rerank import OptionalRerankParams
+    from embrouter.llms.huggingface.rerank.transformation import HuggingFaceRerankConfig
+    from embrouter.types.rerank import OptionalRerankParams
 
     config = HuggingFaceRerankConfig()
 
@@ -281,8 +281,8 @@ def test_request_transformation():
 
 def test_response_transformation():
     """Test response transformation logic."""
-    from litellm.llms.huggingface.rerank.transformation import HuggingFaceRerankConfig
-    from litellm.types.rerank import RerankResponse
+    from embrouter.llms.huggingface.rerank.transformation import HuggingFaceRerankConfig
+    from embrouter.types.rerank import RerankResponse
 
     config = HuggingFaceRerankConfig()
 
@@ -324,7 +324,7 @@ def test_response_transformation():
 
 def test_validate_environment():
     """Test environment validation logic."""
-    from litellm.llms.huggingface.rerank.transformation import HuggingFaceRerankConfig
+    from embrouter.llms.huggingface.rerank.transformation import HuggingFaceRerankConfig
 
     config = HuggingFaceRerankConfig()
 
@@ -344,7 +344,7 @@ def test_validate_environment():
     assert headers["custom"] == "header"
 
 
-@patch("litellm.llms.custom_httpx.http_handler.HTTPHandler.post")
+@patch("embrouter.llms.custom_httpx.http_handler.HTTPHandler.post")
 def test_huggingface_rerank_request_payload(mock_post):
     """Test that the request payload is correctly formatted for HuggingFace API."""
     mock_response_data = [{"index": 0, "score": 0.9}, {"index": 1, "score": 0.1}]
@@ -358,7 +358,7 @@ def test_huggingface_rerank_request_payload(mock_post):
     mock_response.headers = {"content-type": "application/json"}
     mock_post.return_value = mock_response
 
-    response = litellm.rerank(
+    response = embrouter.rerank(
         model="huggingface/BAAI/bge-reranker-base",
         query="hello",
         documents=["hello", "world"],

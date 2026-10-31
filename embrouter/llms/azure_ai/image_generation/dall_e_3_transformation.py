@@ -1,4 +1,4 @@
-from litellm.llms.openai.image_generation import DallE3ImageGenerationConfig
+from embrouter.llms.openai.image_generation import DallE3ImageGenerationConfig
 
 
 class AzureFoundryDallE3ImageGenerationConfig(DallE3ImageGenerationConfig):

@@ -3,24 +3,24 @@ from typing import Final
 
 import httpx
 
-import litellm
-from litellm import stream_chunk_builder
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.litellm_core_utils.litellm_logging import (
+import embrouter
+from embrouter import stream_chunk_builder
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.embrouter_core_utils.embrouter_logging import (
     get_standard_logging_object_payload,
 )
-from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
-from litellm.llms.base_llm.chat.transformation import BaseConfig
-from litellm.llms.cohere.chat.v2_transformation import CohereV2ChatConfig
-from litellm.llms.cohere.common_utils import (
+from embrouter.embrouter_core_utils.streaming_handler import CustomStreamWrapper
+from embrouter.llms.base_llm.chat.transformation import BaseConfig
+from embrouter.llms.cohere.chat.v2_transformation import CohereV2ChatConfig
+from embrouter.llms.cohere.common_utils import (
     ModelResponseIterator as CohereModelResponseIterator,
 )
-from litellm.llms.cohere.embed.v1_transformation import CohereEmbeddingConfig
-from litellm.proxy._types import PassThroughEndpointLoggingTypedDict
-from litellm.types.passthrough_endpoints.pass_through_endpoints import (
+from embrouter.llms.cohere.embed.v1_transformation import CohereEmbeddingConfig
+from embrouter.proxy._types import PassThroughEndpointLoggingTypedDict
+from embrouter.types.passthrough_endpoints.pass_through_endpoints import (
     PassthroughStandardLoggingPayload,
 )
-from litellm.types.utils import (
+from embrouter.types.utils import (
     LlmProviders,
     ModelResponse,
     TextCompletionResponse,
@@ -40,26 +40,26 @@ class CoherePassthroughLoggingHandler(BasePassthroughLoggingHandler):
     def _build_complete_streaming_response(
         self,
         all_chunks: list[str],
-        litellm_logging_obj: LiteLLMLoggingObj,
+        embrouter_logging_obj: EmbRouterLoggingObj,
         model: str,
     ) -> ModelResponse | TextCompletionResponse | None:
         cohere_model_response_iterator: Final = CohereModelResponseIterator(
             streaming_response=None,
             sync_stream=False,
         )
-        litellm_custom_stream_wrapper: Final = CustomStreamWrapper(
+        embrouter_custom_stream_wrapper: Final = CustomStreamWrapper(
             completion_stream=cohere_model_response_iterator,
             model=model,
-            logging_obj=litellm_logging_obj,
+            logging_obj=embrouter_logging_obj,
             custom_llm_provider="cohere",
         )
         all_openai_chunks: Final = []
         for _chunk_str in all_chunks:
             try:
                 generic_chunk = cohere_model_response_iterator.convert_str_chunk_to_generic_chunk(chunk=_chunk_str)
-                litellm_chunk = litellm_custom_stream_wrapper.chunk_creator(chunk=generic_chunk)
-                if litellm_chunk is not None:
-                    all_openai_chunks.append(litellm_chunk)
+                embrouter_chunk = embrouter_custom_stream_wrapper.chunk_creator(chunk=generic_chunk)
+                if embrouter_chunk is not None:
+                    all_openai_chunks.append(embrouter_chunk)
             except (StopIteration, StopAsyncIteration):
                 break
         complete_streaming_response: Final = stream_chunk_builder(chunks=all_openai_chunks)
@@ -69,7 +69,7 @@ class CoherePassthroughLoggingHandler(BasePassthroughLoggingHandler):
         self,
         httpx_response: httpx.Response,
         response_body: dict,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         url_route: str,
         result: str,
         start_time: datetime,
@@ -86,7 +86,7 @@ class CoherePassthroughLoggingHandler(BasePassthroughLoggingHandler):
             model: Final = request_body.get("model", response_body.get("model", ""))
             try:
                 cohere_embed_config: Final = CohereEmbeddingConfig()
-                litellm_model_response = litellm.EmbeddingResponse()
+                embrouter_model_response = embrouter.EmbeddingResponse()
                 handler_instance: Final = CoherePassthroughLoggingHandler()
 
                 input_texts = request_body.get("texts", [])
@@ -94,29 +94,29 @@ class CoherePassthroughLoggingHandler(BasePassthroughLoggingHandler):
                     input_texts = request_body.get("input", [])
 
                 # Transform the response
-                litellm_model_response = cohere_embed_config._transform_response(
+                embrouter_model_response = cohere_embed_config._transform_response(
                     response=httpx_response,
                     api_key="",
                     logging_obj=logging_obj,
                     data=request_body,
-                    model_response=litellm_model_response,
+                    model_response=embrouter_model_response,
                     model=model,
-                    encoding=litellm.encoding,
+                    encoding=embrouter.encoding,
                     input=input_texts,
                 )
 
-                # Calculate cost using LiteLLM's cost calculator
-                response_cost: Final = litellm.completion_cost(
-                    completion_response=litellm_model_response,
+                # Calculate cost using EmbRouter's cost calculator
+                response_cost: Final = embrouter.completion_cost(
+                    completion_response=embrouter_model_response,
                     model=model,
                     custom_llm_provider="cohere",
                     call_type="aembedding",
                 )
 
                 # Set the calculated cost in _hidden_params to prevent recalculation
-                if not hasattr(litellm_model_response, "_hidden_params"):
-                    litellm_model_response._hidden_params = {}
-                litellm_model_response._hidden_params["response_cost"] = response_cost
+                if not hasattr(embrouter_model_response, "_hidden_params"):
+                    embrouter_model_response._hidden_params = {}
+                embrouter_model_response._hidden_params["response_cost"] = response_cost
 
                 kwargs["response_cost"] = response_cost
                 kwargs["model"] = model
@@ -131,14 +131,14 @@ class CoherePassthroughLoggingHandler(BasePassthroughLoggingHandler):
                         passthrough_logging_payload=passthrough_logging_payload,
                     )
                     if user:
-                        kwargs.setdefault("litellm_params", {})
-                        kwargs["litellm_params"].update({"proxy_server_request": {"body": {"user": user}}})
+                        kwargs.setdefault("embrouter_params", {})
+                        kwargs["embrouter_params"].update({"proxy_server_request": {"body": {"user": user}}})
 
                 # Create standard logging object
-                if litellm_model_response is not None:
+                if embrouter_model_response is not None:
                     get_standard_logging_object_payload(
                         kwargs=kwargs,
-                        init_response_obj=litellm_model_response,
+                        init_response_obj=embrouter_model_response,
                         start_time=start_time,
                         end_time=end_time,
                         logging_obj=logging_obj,
@@ -151,7 +151,7 @@ class CoherePassthroughLoggingHandler(BasePassthroughLoggingHandler):
                 logging_obj.model_call_details["response_cost"] = response_cost
 
                 return {
-                    "result": litellm_model_response,
+                    "result": embrouter_model_response,
                     "kwargs": kwargs,
                 }
             except Exception:

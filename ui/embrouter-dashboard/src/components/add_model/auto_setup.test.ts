@@ -12,7 +12,7 @@ const reasoningModel = (model_group: string, supported_reasoning_efforts: string
 });
 const deployment = (model_name: string, model = model_name): AutoRouterDeployment => ({
   model_name,
-  litellm_params: { model },
+  embrouter_params: { model },
 });
 const tierModels = (config: ReturnType<typeof buildAutomaticRouterConfig>) =>
   config && Object.values(config.tiers).map((tier) => (typeof tier === "string" ? tier : tier[0]));

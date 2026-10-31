@@ -10,40 +10,40 @@ from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, TypeAdapter
 from typing_extensions import ReadOnly, TypedDict
 
-from litellm._uuid import uuid
-from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
-from litellm.litellm_core_utils.safe_json_loads import safe_json_loads
+from embrouter._uuid import uuid
+from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps
+from embrouter.embrouter_core_utils.safe_json_loads import safe_json_loads
 
 try:
     from prisma.errors import RecordNotFoundError
 except ImportError:
     RecordNotFoundError = Exception
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.litellm_core_utils.sensitive_data_masker import SensitiveDataMasker
-from litellm.llms.custom_httpx.http_handler import get_async_httpx_client
-from litellm.proxy._types import (
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.embrouter_core_utils.sensitive_data_masker import SensitiveDataMasker
+from embrouter.llms.custom_httpx.http_handler import get_async_httpx_client
+from embrouter.proxy._types import (
     AUDIT_ACTIONS,
     CommonProxyErrors,
     KeyManagementSystem,
-    LiteLLM_AuditLogs,
-    LitellmTableNames,
-    LitellmUserRoles,
+    EmbRouter_AuditLogs,
+    EmbrouterTableNames,
+    EmbrouterUserRoles,
     UserAPIKeyAuth,
 )
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.repositories.table_repositories import ConfigOverridesRepository
-from litellm.types.llms.custom_http import httpxSpecialProvider
-from litellm.types.proxy.management_endpoints.config_overrides import (
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.repositories.table_repositories import ConfigOverridesRepository
+from embrouter.types.llms.custom_http import httpxSpecialProvider
+from embrouter.types.proxy.management_endpoints.config_overrides import (
     ConfigOverrideSettingsResponse,
     CyberArkConfig,
     HashicorpVaultConfig,
 )
 
 if TYPE_CHECKING:
-    from litellm.proxy.proxy_server import ProxyConfig
-    from litellm.proxy.utils import PrismaClient
+    from embrouter.proxy.proxy_server import ProxyConfig
+    from embrouter.proxy.utils import PrismaClient
 
 router: Final = APIRouter()
 
@@ -72,7 +72,7 @@ def _redact_config(config: Mapping[str, object] | None) -> dict[str, str]:
     """Strip values from a config snapshot before audit-log emission.
 
     Hashicorp Vault config carries ``vault_token``, ``approle_secret_id``,
-    ``client_key`` etc.  Persisting them verbatim into ``LiteLLM_AuditLogs``
+    ``client_key`` etc.  Persisting them verbatim into ``EmbRouter_AuditLogs``
     would let anyone with read access to the audit table harvest the
     proxy's KMS credentials.  Keep keys, redact values.
     """
@@ -96,32 +96,32 @@ async def _emit_config_override_audit_log(
     before_config: Mapping[str, object] | None,
     after_config: Mapping[str, object] | None,
     user_api_key_dict: UserAPIKeyAuth,
-    litellm_changed_by: str | None,
+    embrouter_changed_by: str | None,
 ) -> None:
     """Emit an audit-log row for a /config_overrides/{object_id} mutation.
 
     Mirrors the ``store_audit_logs``-gated pattern from
     ``team_callback_endpoints.py``.  Captured under
-    ``LiteLLM_ConfigOverrides`` so the row co-locates with the table it
+    ``EmbRouter_ConfigOverrides`` so the row co-locates with the table it
     mutates.
     """
-    from litellm.proxy.management_helpers.audit_logs import (
+    from embrouter.proxy.management_helpers.audit_logs import (
         create_audit_log_for_update,
         is_audit_logging_enabled,
     )
-    from litellm.proxy.proxy_server import litellm_proxy_admin_name
+    from embrouter.proxy.proxy_server import embrouter_proxy_admin_name
 
     if not is_audit_logging_enabled():
         return
 
     task: Final = asyncio.create_task(
         create_audit_log_for_update(
-            request_data=LiteLLM_AuditLogs(
+            request_data=EmbRouter_AuditLogs(
                 id=str(uuid.uuid4()),
                 updated_at=datetime.now(timezone.utc),
-                changed_by=litellm_changed_by or user_api_key_dict.user_id or litellm_proxy_admin_name,
+                changed_by=embrouter_changed_by or user_api_key_dict.user_id or embrouter_proxy_admin_name,
                 changed_by_api_key=user_api_key_dict.api_key,
-                table_name=LitellmTableNames.CONFIG_OVERRIDES_TABLE_NAME,
+                table_name=EmbrouterTableNames.CONFIG_OVERRIDES_TABLE_NAME,
                 object_id=object_id,
                 action=action,
                 updated_values=json.dumps({"config": _redact_config(after_config)}, default=str),
@@ -255,9 +255,9 @@ def _set_env_vars(
 def _clear_hashicorp_vault_state(proxy_config: "ProxyConfig") -> None:
     """Clear all Hashicorp Vault state: env vars, secret manager, and change-detection cache."""
     _set_env_vars({})
-    if litellm._key_management_system == KeyManagementSystem.HASHICORP_VAULT:
-        litellm.secret_manager_client = None
-        litellm._key_management_system = None
+    if embrouter._key_management_system == KeyManagementSystem.HASHICORP_VAULT:
+        embrouter.secret_manager_client = None
+        embrouter._key_management_system = None
     proxy_config._last_hashicorp_vault_config = None  # pyright: ignore[reportPrivateUsage]  # proxy-internal change-detection cache
 
 
@@ -277,10 +277,10 @@ def _restore_cyberark_runtime(proxy_config: "ProxyConfig", env_values: Mapping[s
             verbose_proxy_logger.exception("Failed to restore previous CyberArk configuration")
         else:
             return
-    if litellm._key_management_system != KeyManagementSystem.CYBERARK:  # pyright: ignore[reportPrivateUsage]  # proxy-internal helper, mirrors hashicorp endpoint usage
+    if embrouter._key_management_system != KeyManagementSystem.CYBERARK:  # pyright: ignore[reportPrivateUsage]  # proxy-internal helper, mirrors hashicorp endpoint usage
         return
-    litellm.secret_manager_client = None
-    litellm._key_management_system = None  # pyright: ignore[reportPrivateUsage]  # proxy-internal helper, mirrors hashicorp endpoint usage
+    embrouter.secret_manager_client = None
+    embrouter._key_management_system = None  # pyright: ignore[reportPrivateUsage]  # proxy-internal helper, mirrors hashicorp endpoint usage
     # Force the vault reload to re-init from its own row so no manager is stranded inactive
     proxy_config._last_hashicorp_vault_config = None  # pyright: ignore[reportPrivateUsage]  # proxy-internal change-detection cache
     if os.environ.get("HCP_VAULT_ADDR"):
@@ -333,9 +333,9 @@ async def _persist_cyberark_config(
 async def update_hashicorp_vault_config(
     config: HashicorpVaultConfig,
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
-    litellm_changed_by: str | None = Header(
+    embrouter_changed_by: str | None = Header(
         None,
-        description="The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability",
+        description="The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability",
     ),
 ):
     """
@@ -343,9 +343,9 @@ async def update_hashicorp_vault_config(
     Sets environment variables, encrypts sensitive fields, and stores in DB.
     Reinitializes the secret manager on this pod.
     """
-    from litellm.proxy.proxy_server import prisma_client, proxy_config
+    from embrouter.proxy.proxy_server import prisma_client, proxy_config
 
-    if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+    if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
         raise HTTPException(
             status_code=403,
             detail="Only admin users can update config overrides",
@@ -452,7 +452,7 @@ async def update_hashicorp_vault_config(
         before_config=before_config,
         after_config=config_data,
         user_api_key_dict=user_api_key_dict,
-        litellm_changed_by=litellm_changed_by,
+        embrouter_changed_by=embrouter_changed_by,
     )
 
     return {
@@ -474,8 +474,8 @@ async def get_hashicorp_vault_config(
     Get current Hashicorp Vault configuration.
     Returns decrypted values from DB, or falls back to current env vars.
     """
-    from litellm.proxy.management_endpoints.common_utils import _user_has_admin_view
-    from litellm.proxy.proxy_server import prisma_client, proxy_config
+    from embrouter.proxy.management_endpoints.common_utils import _user_has_admin_view
+    from embrouter.proxy.proxy_server import prisma_client, proxy_config
 
     # Admin Viewer follows the read-parity rule.
     if not _user_has_admin_view(user_api_key_dict):
@@ -528,15 +528,15 @@ async def get_hashicorp_vault_config(
 )
 async def delete_hashicorp_vault_config(
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
-    litellm_changed_by: str | None = Header(
+    embrouter_changed_by: str | None = Header(
         None,
-        description="The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability",
+        description="The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability",
     ),
 ):
     """Delete Hashicorp Vault configuration. Idempotent."""
-    from litellm.proxy.proxy_server import prisma_client, proxy_config
+    from embrouter.proxy.proxy_server import prisma_client, proxy_config
 
-    if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+    if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
         raise HTTPException(
             status_code=403,
             detail="Only admin users can delete config overrides",
@@ -579,7 +579,7 @@ async def delete_hashicorp_vault_config(
             before_config=before_config,
             after_config=None,
             user_api_key_dict=user_api_key_dict,
-            litellm_changed_by=litellm_changed_by,
+            embrouter_changed_by=embrouter_changed_by,
         )
 
     return {
@@ -600,17 +600,17 @@ async def test_hashicorp_vault_connection(
     Test the connection to the currently configured Hashicorp Vault.
     Uses the already-initialized secret manager client. Does not modify any state.
     """
-    from litellm.secret_managers.hashicorp_secret_manager import (
+    from embrouter.secret_managers.hashicorp_secret_manager import (
         HashicorpSecretManager,
     )
 
-    if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+    if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
         raise HTTPException(
             status_code=403,
             detail="Only admin users can test Vault connection",
         )
 
-    client: Final = litellm.secret_manager_client
+    client: Final = embrouter.secret_manager_client
     if not isinstance(client, HashicorpSecretManager):
         raise HTTPException(
             status_code=400,
@@ -656,9 +656,9 @@ async def test_hashicorp_vault_connection(
 async def update_cyberark_config(
     config: CyberArkConfig,
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),  # noqa: B008  # FastAPI dependency injection
-    litellm_changed_by: str | None = Header(
+    embrouter_changed_by: str | None = Header(
         None,
-        description="The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability",
+        description="The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability",
     ),
 ) -> dict[str, str]:
     """
@@ -666,9 +666,9 @@ async def update_cyberark_config(
     Sets environment variables, encrypts sensitive fields, and stores in DB.
     Reinitializes the secret manager on this pod.
     """
-    from litellm.proxy.proxy_server import prisma_client, proxy_config
+    from embrouter.proxy.proxy_server import prisma_client, proxy_config
 
-    if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+    if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
         raise HTTPException(
             status_code=403,
             detail="Only admin users can update config overrides",
@@ -754,7 +754,7 @@ async def update_cyberark_config(
         before_config=before_config,
         after_config=config_data,
         user_api_key_dict=user_api_key_dict,
-        litellm_changed_by=litellm_changed_by,
+        embrouter_changed_by=embrouter_changed_by,
     )
 
     return {  # mutable-ok: JSON response payload
@@ -777,10 +777,10 @@ async def get_cyberark_config(
     Returns decrypted values from DB, or falls back to current env vars.
     Sensitive fields are masked before leaving the server.
     """
-    from litellm.proxy.management_endpoints.common_utils import (
+    from embrouter.proxy.management_endpoints.common_utils import (
         _user_has_admin_view,  # pyright: ignore[reportPrivateUsage]  # proxy-internal helper, mirrors hashicorp endpoint usage
     )
-    from litellm.proxy.proxy_server import prisma_client, proxy_config
+    from embrouter.proxy.proxy_server import prisma_client, proxy_config
 
     if not _user_has_admin_view(user_api_key_dict):
         raise HTTPException(
@@ -826,15 +826,15 @@ async def get_cyberark_config(
 )
 async def delete_cyberark_config(
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),  # noqa: B008  # FastAPI dependency injection
-    litellm_changed_by: str | None = Header(
+    embrouter_changed_by: str | None = Header(
         None,
-        description="The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability",
+        description="The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability",
     ),
 ) -> dict[str, str]:
     """Delete CyberArk Conjur configuration. Idempotent."""
-    from litellm.proxy.proxy_server import prisma_client, proxy_config
+    from embrouter.proxy.proxy_server import prisma_client, proxy_config
 
-    if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+    if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
         raise HTTPException(
             status_code=403,
             detail="Only admin users can delete config overrides",
@@ -872,7 +872,7 @@ async def delete_cyberark_config(
             before_config=before_config,
             after_config=None,
             user_api_key_dict=user_api_key_dict,
-            litellm_changed_by=litellm_changed_by,
+            embrouter_changed_by=embrouter_changed_by,
         )
 
     return {  # mutable-ok: JSON response payload
@@ -893,15 +893,15 @@ async def test_cyberark_connection(
     Test the connection to the currently configured CyberArk Conjur server.
     Uses the already-initialized secret manager client. Does not modify any state.
     """
-    from litellm.secret_managers.cyberark_secret_manager import CyberArkSecretManager
+    from embrouter.secret_managers.cyberark_secret_manager import CyberArkSecretManager
 
-    if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+    if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
         raise HTTPException(
             status_code=403,
             detail="Only admin users can test CyberArk connection",
         )
 
-    client: Final = litellm.secret_manager_client
+    client: Final = embrouter.secret_manager_client
     if not isinstance(client, CyberArkSecretManager):
         raise HTTPException(
             status_code=400,

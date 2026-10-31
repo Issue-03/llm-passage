@@ -72,7 +72,7 @@ export const toKeyEditFormValues = (keyData: KeyResponse): KeyEditFormValues => 
     Array.isArray(keyData.allowed_routes) && keyData.allowed_routes.length > 0 ? keyData.allowed_routes.join(", ") : "",
   max_budget: keyData.max_budget,
   soft_budget:
-    (keyData.litellm_budget_table as { soft_budget?: number | null } | null | undefined)?.soft_budget ?? null,
+    (keyData.embrouter_budget_table as { soft_budget?: number | null } | null | undefined)?.soft_budget ?? null,
   budget_duration: canonicalBudgetDuration(keyData.budget_duration),
   tpm_limit: keyData.tpm_limit,
   tpm_limit_type: (keyData as { tpm_limit_type?: string | null }).tpm_limit_type ?? null,
@@ -114,8 +114,8 @@ export const toKeyEditFormValues = (keyData: KeyResponse): KeyEditFormValues => 
   metadata: formatMetadataForDisplay(stripTagsFromMetadata(keyData.metadata)),
   duration: (keyData as { duration?: string }).duration ?? "",
   token: keyData.token || keyData.token_id,
-  disabled_callbacks: Array.isArray(readMetadata(keyData, "litellm_disabled_callbacks"))
-    ? mapInternalToDisplayNames(readMetadata(keyData, "litellm_disabled_callbacks") as string[])
+  disabled_callbacks: Array.isArray(readMetadata(keyData, "embrouter_disabled_callbacks"))
+    ? mapInternalToDisplayNames(readMetadata(keyData, "embrouter_disabled_callbacks") as string[])
     : [],
   auto_rotate: keyData.auto_rotate || false,
   rotation_interval: keyData.rotation_interval,

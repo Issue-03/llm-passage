@@ -7,9 +7,9 @@ from typing import Final, Literal, TypeAlias
 
 from pydantic import BaseModel, TypeAdapter
 
-from litellm._logging import verbose_proxy_logger
-from litellm.caching import RedisCache
-from litellm.constants import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.caching import RedisCache
+from embrouter.constants import (
     SPEND_LOG_CLEANUP_BATCH_FAILURE_BACKOFF_SECONDS,
     SPEND_LOG_CLEANUP_BATCH_SIZE,
     SPEND_LOG_CLEANUP_BATCH_TIMEOUT_SECONDS,
@@ -19,16 +19,16 @@ from litellm.constants import (
     SPEND_LOG_CLEANUP_RUN_BUDGET_SECONDS,
     SPEND_LOG_RUN_LOOPS,
 )
-from litellm.litellm_core_utils.duration_parser import duration_in_seconds
-from litellm.proxy.db.db_transaction_queue.spend_log_cleanup_metrics import (
+from embrouter.embrouter_core_utils.duration_parser import duration_in_seconds
+from embrouter.proxy.db.db_transaction_queue.spend_log_cleanup_metrics import (
     RunOutcome,
     SpendLogCleanupMetrics,
 )
-from litellm.proxy.db.db_transaction_queue.spend_logs_partition_manager import (
+from embrouter.proxy.db.db_transaction_queue.spend_logs_partition_manager import (
     RemainingTimeoutMs,
     SpendLogsPartitionManager,
 )
-from litellm.proxy.utils import PrismaClient
+from embrouter.proxy.utils import PrismaClient
 
 StopReason: TypeAlias = Literal["exhausted", "budget_exhausted", "batch_cap_reached", "aborted"]
 
@@ -95,7 +95,7 @@ class SpendLogCleanup:
     """
     Handles cleaning up old spend logs based on maximum retention period.
 
-    When LiteLLM_SpendLogs is range-partitioned, expired data is reclaimed by
+    When EmbRouter_SpendLogs is range-partitioned, expired data is reclaimed by
     dropping whole partitions (instant, frees disk immediately). Otherwise it
     falls back to deleting logs in batches.
     Uses PodLockManager to ensure only one pod runs cleanup in multi-pod deployments.
@@ -127,11 +127,11 @@ class SpendLogCleanup:
     ):
         self.retention_seconds: int | None = None
         self.partition_manager = partition_manager or SpendLogsPartitionManager()
-        from litellm.proxy.proxy_server import general_settings as default_settings
+        from embrouter.proxy.proxy_server import general_settings as default_settings
 
         self.general_settings = general_settings or default_settings
         self._refresh_bounds()
-        from litellm.proxy.proxy_server import proxy_logging_obj
+        from embrouter.proxy.proxy_server import proxy_logging_obj
 
         pod_lock_manager: Final = proxy_logging_obj.db_spend_update_writer.pod_lock_manager
         self.pod_lock_manager = pod_lock_manager
@@ -496,7 +496,7 @@ class SpendLogCleanup:
         return await self._delete_old_rows_batched(
             prisma_client,
             cutoff_date,
-            table_name="LiteLLM_SpendLogs",
+            table_name="EmbRouter_SpendLogs",
             key_columns=("request_id", "startTime"),
             time_column="startTime",
             deadline=deadline,
@@ -510,7 +510,7 @@ class SpendLogCleanup:
         return await self._delete_old_rows_batched(
             prisma_client,
             cutoff_date,
-            table_name="LiteLLM_SpendLogToolIndex",
+            table_name="EmbRouter_SpendLogToolIndex",
             key_columns=("request_id", "tool_name"),
             time_column="start_time",
             deadline=deadline,
@@ -522,7 +522,7 @@ class SpendLogCleanup:
         return await self._delete_old_rows_batched(
             prisma_client,
             cutoff_date,
-            table_name="LiteLLM_AutoRouterSession",
+            table_name="EmbRouter_AutoRouterSession",
             key_columns=("api_key", "session_id", "router_name"),
             time_column="last_turn_at",
             deadline=deadline,
@@ -534,7 +534,7 @@ class SpendLogCleanup:
         return await self._delete_old_rows_batched(
             prisma_client,
             cutoff_date,
-            table_name="LiteLLM_AutoRouterUserSession",
+            table_name="EmbRouter_AutoRouterUserSession",
             key_columns=("user_id", "api_key", "session_id", "router_name"),
             time_column="last_turn_at",
             deadline=deadline,
@@ -546,7 +546,7 @@ class SpendLogCleanup:
         return await self._delete_old_rows_batched(
             prisma_client,
             cutoff_date,
-            table_name="LiteLLM_HealthCheckTable",
+            table_name="EmbRouter_HealthCheckTable",
             key_columns=("health_check_id",),
             time_column="checked_at",
             deadline=deadline,
@@ -558,7 +558,7 @@ class SpendLogCleanup:
         return await self._delete_old_rows_batched(
             prisma_client,
             cutoff_day,
-            table_name="LiteLLM_DailyTagSpend",
+            table_name="EmbRouter_DailyTagSpend",
             key_columns=("id",),
             time_column="date",
             deadline=deadline,
@@ -611,7 +611,7 @@ class SpendLogCleanup:
         Prune auto-router session rollup rows, which carry their own retention horizon.
         """
         session_cutoff: Final = datetime.now(timezone.utc) - timedelta(seconds=float(retention_seconds))
-        from litellm.proxy.db.baseline_accounting import BaselineAccountingStore
+        from embrouter.proxy.db.baseline_accounting import BaselineAccountingStore
 
         if remaining_ms := self._remaining_timeout_ms(deadline)():
             try:

@@ -61,7 +61,7 @@ export default function MyUserTab({ teamId }: MyUserTabProps) {
     );
   }
 
-  const budgetTable = data.litellm_budget_table ?? null;
+  const budgetTable = data.embrouter_budget_table ?? null;
   const maxBudget = budgetTable?.max_budget ?? null;
   const spend = data.spend ?? 0;
   const totalSpend = data.total_spend ?? 0;

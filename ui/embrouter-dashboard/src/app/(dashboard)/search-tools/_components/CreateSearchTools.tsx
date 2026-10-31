@@ -313,7 +313,7 @@ const CreateSearchTool: React.FC<CreateSearchToolProps> = ({
             {isTestModalVisible && accessToken && (
               <SearchConnectionTest
                 key={connectionTestId}
-                litellmParams={{
+                embrouterParams={{
                   search_provider: watchedProvider ?? undefined,
                   api_key: watchedApiKey,
                   api_base: undefined,

@@ -1,4 +1,4 @@
-"""Tests for litellm/router_strategy/auto_router/litellm_encoder.py"""
+"""Tests for embrouter/router_strategy/auto_router/embrouter_encoder.py"""
 
 import sys
 from typing import Any, Final
@@ -6,16 +6,16 @@ from typing import Any, Final
 import pytest
 
 
-import litellm
-from litellm.constants import DEFAULT_AUTO_ROUTER_MAX_INPUT_CHARS
+import embrouter
+from embrouter.constants import DEFAULT_AUTO_ROUTER_MAX_INPUT_CHARS
 if sys.version_info >= (3, 14):
     pytest.skip("The semantic-router extra excludes Python 3.14", allow_module_level=True)
 
-from litellm.router_strategy.auto_router.litellm_encoder import LiteLLMRouterEncoder
+from embrouter.router_strategy.auto_router.embrouter_encoder import EmbRouterRouterEncoder
 
 
 class RecordingRouter:
-    """Stand-in for the LiteLLM Router that records what reached the embedding call.
+    """Stand-in for the EmbRouter Router that records what reached the embedding call.
 
     Injected through the encoder's constructor so the assertion is on the real code path
     rather than on a patched attribute.
@@ -24,22 +24,22 @@ class RecordingRouter:
     def __init__(self) -> None:
         self.embedded_inputs: list[list[str]] = []
 
-    def _response(self, input: list[str]) -> litellm.EmbeddingResponse:
+    def _response(self, input: list[str]) -> embrouter.EmbeddingResponse:
         self.embedded_inputs.append(list(input))
-        return litellm.EmbeddingResponse(
+        return embrouter.EmbeddingResponse(
             data=[{"embedding": [0.1, 0.2], "index": i, "object": "embedding"} for i in range(len(input))]
         )
 
-    def embedding(self, input: list[str], model: str, **kwargs: Any) -> litellm.EmbeddingResponse:
+    def embedding(self, input: list[str], model: str, **kwargs: Any) -> embrouter.EmbeddingResponse:
         return self._response(input)
 
-    async def aembedding(self, input: list[str], model: str, **kwargs: Any) -> litellm.EmbeddingResponse:
+    async def aembedding(self, input: list[str], model: str, **kwargs: Any) -> embrouter.EmbeddingResponse:
         return self._response(input)
 
 
-def _encoder(router: RecordingRouter, **kwargs: Any) -> LiteLLMRouterEncoder:
-    return LiteLLMRouterEncoder(
-        litellm_router_instance=router,  # pyright: ignore[reportArgumentType]  # test double stands in for Router
+def _encoder(router: RecordingRouter, **kwargs: Any) -> EmbRouterRouterEncoder:
+    return EmbRouterRouterEncoder(
+        embrouter_router_instance=router,  # pyright: ignore[reportArgumentType]  # test double stands in for Router
         model_name="text-embedding-3-small",
         **kwargs,
     )

@@ -1,4 +1,4 @@
-// litellmMapping.ts
+// embrouterMapping.ts
 
 // Define an enum for the modes as returned in model_info
 export enum ModelMode {
@@ -33,7 +33,7 @@ export enum EndpointType {
 }
 
 // Create a mapping between the model mode and the corresponding endpoint type
-export const litellmModeMapping: Record<ModelMode, EndpointType> = {
+export const embrouterModeMapping: Record<ModelMode, EndpointType> = {
   [ModelMode.IMAGE_GENERATION]: EndpointType.IMAGE,
   [ModelMode.VIDEO_GENERATION]: EndpointType.VIDEO,
   [ModelMode.CHAT]: EndpointType.CHAT,
@@ -50,7 +50,7 @@ export const litellmModeMapping: Record<ModelMode, EndpointType> = {
 export const getEndpointType = (mode: string): EndpointType => {
   // Check if the string mode exists as a key in ModelMode enum
   if (Object.values(ModelMode).includes(mode as ModelMode)) {
-    const endpointType = litellmModeMapping[mode as ModelMode];
+    const endpointType = embrouterModeMapping[mode as ModelMode];
     return endpointType;
   }
 

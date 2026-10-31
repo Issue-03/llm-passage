@@ -7,11 +7,11 @@ Even "pass-through" endpoints must perform essential transformations. The reques
 ```mermaid
 sequenceDiagram
     participant Client
-    participant Proxy as LiteLLM Proxy
+    participant Proxy as EmbRouter Proxy
     participant Provider as LLM Provider
 
     Client->>Proxy: POST /vertex_ai/v1/projects/.../generateContent
-    Note over Client,Proxy: Headers: Authorization: Bearer sk-litellm-key
+    Note over Client,Proxy: Headers: Authorization: Bearer sk-embrouter-key
     Note over Client,Proxy: Body: { "contents": [...] }
     
     rect rgb(240, 240, 240)
@@ -21,13 +21,13 @@ sequenceDiagram
     
     rect rgb(240, 240, 240)
         Note over Proxy: 2. Auth Header Replacement
-        Note over Proxy: LiteLLM key → provider credentials
+        Note over Proxy: EmbRouter key → provider credentials
     end
 
     rect rgb(240, 240, 240)
         Note over Proxy: 3. Extra Operations
         Note over Proxy: • x-pass-* headers (strip prefix, forward)
-        Note over Proxy: • x-litellm-tags → metadata
+        Note over Proxy: • x-embrouter-tags → metadata
         Note over Proxy: • Guardrails (opt-in)
         Note over Proxy: • Multipart form reconstruction
     end
@@ -51,14 +51,14 @@ sequenceDiagram
 ## Essential Transformations
 
 - **URL Construction** - Build correct provider URL (e.g., regional endpoints for Vertex AI, Bedrock)
-- **Auth Header Replacement** - Swap LiteLLM virtual key for actual provider credentials
+- **Auth Header Replacement** - Swap EmbRouter virtual key for actual provider credentials
 
 ## Extra Operations
 
 | Operation | Description |
 |-----------|-------------|
 | `x-pass-*` headers | Strip prefix and forward (e.g., `x-pass-anthropic-beta` → `anthropic-beta`) |
-| `x-litellm-tags` header | Extract tags and add to request metadata for logging |
+| `x-embrouter-tags` header | Extract tags and add to request metadata for logging |
 | Streaming chunk collection | Collect chunks async for logging after stream completes |
 | Multipart form handling | Reconstruct multipart/form-data requests for file uploads |
 | Guardrails (opt-in) | Run content filtering when explicitly configured |

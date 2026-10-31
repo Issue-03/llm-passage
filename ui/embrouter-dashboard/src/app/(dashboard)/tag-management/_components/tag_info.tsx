@@ -50,8 +50,8 @@ const TagEditForm: React.FC<TagEditFormProps> = ({ tag, seedBudgetFields, userMo
       name: tag.name,
       description: tag.description,
       models: tag.models,
-      max_budget: seedBudgetFields ? tag.litellm_budget_table?.max_budget : undefined,
-      budget_duration: seedBudgetFields ? tag.litellm_budget_table?.budget_duration : undefined,
+      max_budget: seedBudgetFields ? tag.embrouter_budget_table?.max_budget : undefined,
+      budget_duration: seedBudgetFields ? tag.embrouter_budget_table?.budget_duration : undefined,
     },
   });
 
@@ -290,36 +290,36 @@ const TagInfoView: React.FC<TagInfoViewProps> = ({ tagId, onClose, accessToken, 
             </CardContent>
           </Card>
 
-          {tagDetails.litellm_budget_table && (
+          {tagDetails.embrouter_budget_table && (
             <Card>
               <CardContent>
                 <CardTitle>Budget & Rate Limits</CardTitle>
                 <div className="space-y-4 mt-4">
-                  {tagDetails.litellm_budget_table.max_budget !== undefined &&
-                    tagDetails.litellm_budget_table.max_budget !== null && (
+                  {tagDetails.embrouter_budget_table.max_budget !== undefined &&
+                    tagDetails.embrouter_budget_table.max_budget !== null && (
                       <div>
                         <p className="font-medium">Max Budget</p>
-                        <p>${tagDetails.litellm_budget_table.max_budget}</p>
+                        <p>${tagDetails.embrouter_budget_table.max_budget}</p>
                       </div>
                     )}
-                  {tagDetails.litellm_budget_table.budget_duration && (
+                  {tagDetails.embrouter_budget_table.budget_duration && (
                     <div>
                       <p className="font-medium">Budget Duration</p>
-                      <p>{tagDetails.litellm_budget_table.budget_duration}</p>
+                      <p>{tagDetails.embrouter_budget_table.budget_duration}</p>
                     </div>
                   )}
-                  {tagDetails.litellm_budget_table.tpm_limit !== undefined &&
-                    tagDetails.litellm_budget_table.tpm_limit !== null && (
+                  {tagDetails.embrouter_budget_table.tpm_limit !== undefined &&
+                    tagDetails.embrouter_budget_table.tpm_limit !== null && (
                       <div>
                         <p className="font-medium">TPM Limit</p>
-                        <p>{tagDetails.litellm_budget_table.tpm_limit.toLocaleString()}</p>
+                        <p>{tagDetails.embrouter_budget_table.tpm_limit.toLocaleString()}</p>
                       </div>
                     )}
-                  {tagDetails.litellm_budget_table.rpm_limit !== undefined &&
-                    tagDetails.litellm_budget_table.rpm_limit !== null && (
+                  {tagDetails.embrouter_budget_table.rpm_limit !== undefined &&
+                    tagDetails.embrouter_budget_table.rpm_limit !== null && (
                       <div>
                         <p className="font-medium">RPM Limit</p>
-                        <p>{tagDetails.litellm_budget_table.rpm_limit.toLocaleString()}</p>
+                        <p>{tagDetails.embrouter_budget_table.rpm_limit.toLocaleString()}</p>
                       </div>
                     )}
                 </div>

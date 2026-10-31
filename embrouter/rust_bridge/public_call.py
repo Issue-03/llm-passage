@@ -1,4 +1,4 @@
-"""Bind a public LiteLLM call to its legacy Python signature without running it."""
+"""Bind a public EmbRouter call to its legacy Python signature without running it."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import inspect
 from collections.abc import Callable, Mapping, Sequence
 from typing import Final, cast  # noqa: TID251  # narrows caller-owned containers without copying them
 
-import litellm
+import embrouter
 
 _INFERENCE_CONTEXT: Final = frozenset(
     {
@@ -24,11 +24,11 @@ _INFERENCE_CONTEXT: Final = frozenset(
         "success_callback",
         "failure_callback",
         "metadata",
-        "litellm_metadata",
-        "litellm_call_id",
-        "litellm_trace_id",
-        "litellm_logging_obj",
-        "litellm_credential_name",
+        "embrouter_metadata",
+        "embrouter_call_id",
+        "embrouter_trace_id",
+        "embrouter_logging_obj",
+        "embrouter_credential_name",
         "proxy_server_request",
     }
 )
@@ -70,7 +70,7 @@ def optional_sequence(value: object) -> Sequence[object] | None:
 
 
 def inference_decline_reason(parameters: tuple[str, ...], kwargs: Mapping[str, object]) -> str | None:
-    if litellm.drop_params or litellm.modify_params:
+    if embrouter.drop_params or embrouter.modify_params:
         return "native inference does not implement the configured parameter rewrites"
     for name, value in kwargs.items():
         if value is None:

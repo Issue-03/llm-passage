@@ -1,17 +1,17 @@
 -- AlterTable
-ALTER TABLE "LiteLLM_DeletedTeamTable" ADD COLUMN IF NOT EXISTS "access_group_ids" TEXT[] DEFAULT ARRAY[]::TEXT[];
+ALTER TABLE "EmbRouter_DeletedTeamTable" ADD COLUMN IF NOT EXISTS "access_group_ids" TEXT[] DEFAULT ARRAY[]::TEXT[];
 
 -- AlterTable
-ALTER TABLE "LiteLLM_DeletedVerificationToken" ADD COLUMN IF NOT EXISTS "access_group_ids" TEXT[] DEFAULT ARRAY[]::TEXT[];
+ALTER TABLE "EmbRouter_DeletedVerificationToken" ADD COLUMN IF NOT EXISTS "access_group_ids" TEXT[] DEFAULT ARRAY[]::TEXT[];
 
 -- AlterTable
-ALTER TABLE "LiteLLM_TeamTable" ADD COLUMN IF NOT EXISTS "access_group_ids" TEXT[] DEFAULT ARRAY[]::TEXT[];
+ALTER TABLE "EmbRouter_TeamTable" ADD COLUMN IF NOT EXISTS "access_group_ids" TEXT[] DEFAULT ARRAY[]::TEXT[];
 
 -- AlterTable
-ALTER TABLE "LiteLLM_VerificationToken" ADD COLUMN IF NOT EXISTS "access_group_ids" TEXT[] DEFAULT ARRAY[]::TEXT[];
+ALTER TABLE "EmbRouter_VerificationToken" ADD COLUMN IF NOT EXISTS "access_group_ids" TEXT[] DEFAULT ARRAY[]::TEXT[];
 
 -- CreateTable
-CREATE TABLE IF NOT EXISTS "LiteLLM_AccessGroupTable" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_AccessGroupTable" (
     "access_group_id" TEXT NOT NULL,
     "access_group_name" TEXT NOT NULL,
     "description" TEXT,
@@ -25,9 +25,9 @@ CREATE TABLE IF NOT EXISTS "LiteLLM_AccessGroupTable" (
     "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_by" TEXT,
 
-    CONSTRAINT "LiteLLM_AccessGroupTable_pkey" PRIMARY KEY ("access_group_id")
+    CONSTRAINT "EmbRouter_AccessGroupTable_pkey" PRIMARY KEY ("access_group_id")
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX IF NOT EXISTS "LiteLLM_AccessGroupTable_access_group_name_key" ON "LiteLLM_AccessGroupTable"("access_group_name");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_AccessGroupTable_access_group_name_key" ON "EmbRouter_AccessGroupTable"("access_group_name");
 

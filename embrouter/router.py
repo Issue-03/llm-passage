@@ -43,19 +43,19 @@ from openai import AsyncOpenAI
 from pydantic import BaseModel, TypeAdapter, ValidationError
 from typing_extensions import overload
 
-import litellm
-import litellm.litellm_core_utils.exception_mapping_utils
-from litellm import get_secret_str
-from litellm._logging import verbose_router_logger
-from litellm._uuid import uuid
-from litellm.caching.caching import (
+import embrouter
+import embrouter.embrouter_core_utils.exception_mapping_utils
+from embrouter import get_secret_str
+from embrouter._logging import verbose_router_logger
+from embrouter._uuid import uuid
+from embrouter.caching.caching import (
     DualCache,
     InMemoryCache,
     RedisCache,
     RedisClusterCache,
 )
-from litellm.caching.redis_cache import log_redis_failure
-from litellm.constants import (
+from embrouter.caching.redis_cache import log_redis_failure
+from embrouter.constants import (
     CLIENT_OUTPUT_CEILING_METADATA_KEY,
     CONSUMED_REQUEST_TAGS_METADATA_KEY,
     DEFAULT_AUTO_ROUTER_MAX_INPUT_CHARS,
@@ -69,25 +69,25 @@ from litellm.constants import (
     RUNTIME_UPDATABLE_ROUTER_SETTINGS,
     SESSION_DEPLOYMENT_AFFINITY_TTL_METADATA_KEY,
 )
-from litellm.integrations.custom_guardrail import is_guardrail_intervention
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.asyncify import run_async_function
-from litellm.litellm_core_utils.core_helpers import (
+from embrouter.integrations.custom_guardrail import is_guardrail_intervention
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.embrouter_core_utils.asyncify import run_async_function
+from embrouter.embrouter_core_utils.core_helpers import (
     _get_parent_otel_span_from_kwargs,
     coerce_token_limit,
-    get_litellm_metadata_from_kwargs,
+    get_embrouter_metadata_from_kwargs,
     get_metadata_variable_name_from_kwargs,
     get_or_create_metadata_bucket,
 )
-from litellm.litellm_core_utils.coroutine_checker import coroutine_checker
-from litellm.litellm_core_utils.credential_accessor import CredentialAccessor
-from litellm.litellm_core_utils.dd_tracing import tracer
-from litellm.litellm_core_utils.get_llm_provider_logic import (
+from embrouter.embrouter_core_utils.coroutine_checker import coroutine_checker
+from embrouter.embrouter_core_utils.credential_accessor import CredentialAccessor
+from embrouter.embrouter_core_utils.dd_tracing import tracer
+from embrouter.embrouter_core_utils.get_llm_provider_logic import (
     declared_authenticating_provider,
     is_registered_custom_provider,
 )
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLogging
-from litellm.litellm_core_utils.ptu_pricing import (
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLogging
+from embrouter.embrouter_core_utils.ptu_pricing import (
     PTU_COST_ATTRIBUTION_ENV_VAR,
     declares_ptu,
     is_ptu_cost_attribution_enabled,
@@ -96,32 +96,32 @@ from litellm.litellm_core_utils.ptu_pricing import (
     ptu_terms,
     zeroed_ptu_pricing,
 )
-from litellm.litellm_core_utils.request_timeout_resolver import (
+from embrouter.embrouter_core_utils.request_timeout_resolver import (
     get_configured_request_timeout,
 )
-from litellm.litellm_core_utils.secret_redaction import redact_string
-from litellm.litellm_core_utils.sensitive_data_masker import (
+from embrouter.embrouter_core_utils.secret_redaction import redact_string
+from embrouter.embrouter_core_utils.sensitive_data_masker import (
     SensitiveDataMasker,
     mask_sensitive_structure,
 )
-from litellm.litellm_core_utils.token_counter import offload_token_count
-from litellm.llms.anthropic.common_utils import AnthropicModelInfo
-from litellm.llms.base_llm.passthrough.transformation import replace_path_segment
-from litellm.llms.base_llm.vector_store.transformation import (
+from embrouter.embrouter_core_utils.token_counter import offload_token_count
+from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
+from embrouter.llms.base_llm.passthrough.transformation import replace_path_segment
+from embrouter.llms.base_llm.vector_store.transformation import (
     RouterVectorStoreEmbeddingExecutor,
     vector_store_request_metadata,
 )
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, get_async_httpx_client
-from litellm.llms.openai_like.json_loader import JSONProviderRegistry
-from litellm.llms.openai_like.model_info import (
+from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler, get_async_httpx_client
+from embrouter.llms.openai_like.json_loader import JSONProviderRegistry
+from embrouter.llms.openai_like.model_info import (
     MODEL_INFO_DISCOVERY_PROVIDERS,
     MODEL_INFO_REFRESH_CONCURRENCY,
     MODEL_INFO_REFRESH_SECONDS,
     get_openai_compatible_model_info,
 )
-from litellm.router_strategy.base_routing_strategy import BaseRoutingStrategy
-from litellm.router_strategy.budget_limiter import RouterBudgetLimiting
-from litellm.router_strategy.complexity_router.context_compaction import (
+from embrouter.router_strategy.base_routing_strategy import BaseRoutingStrategy
+from embrouter.router_strategy.budget_limiter import RouterBudgetLimiting
+from embrouter.router_strategy.complexity_router.context_compaction import (
     arm_compaction,
     compact_to_fit,
     compaction_pending,
@@ -130,19 +130,19 @@ from litellm.router_strategy.complexity_router.context_compaction import (
     reject_recursive_compactor,
     surface_for_call,
 )
-from litellm.router_strategy.least_busy import LeastBusyLoggingHandler
-from litellm.router_strategy.lowest_cost import LowestCostLoggingHandler
-from litellm.router_strategy.lowest_latency import LowestLatencyLoggingHandler
-from litellm.router_strategy.lowest_tpm_rpm import LowestTPMLoggingHandler
-from litellm.router_strategy.lowest_tpm_rpm_v2 import LowestTPMLoggingHandler_v2, PrefetchedUsage
-from litellm.router_strategy.simple_shuffle import simple_shuffle
-from litellm.router_strategy.tag_based_routing import (
+from embrouter.router_strategy.least_busy import LeastBusyLoggingHandler
+from embrouter.router_strategy.lowest_cost import LowestCostLoggingHandler
+from embrouter.router_strategy.lowest_latency import LowestLatencyLoggingHandler
+from embrouter.router_strategy.lowest_tpm_rpm import LowestTPMLoggingHandler
+from embrouter.router_strategy.lowest_tpm_rpm_v2 import LowestTPMLoggingHandler_v2, PrefetchedUsage
+from embrouter.router_strategy.simple_shuffle import simple_shuffle
+from embrouter.router_strategy.tag_based_routing import (
     _get_tags_from_request_kwargs,
     get_deployments_for_tag,
     is_valid_deployment_tag,
 )
-from litellm.router_utils.access_windows import access_windows_config_error, filter_reserved_deployments
-from litellm.router_utils.add_retry_fallback_headers import (
+from embrouter.router_utils.access_windows import access_windows_config_error, filter_reserved_deployments
+from embrouter.router_utils.add_retry_fallback_headers import (
     _HiddenParamsHost,
     add_fallback_headers_to_response,
     add_retry_headers_to_response,
@@ -156,7 +156,7 @@ from litellm.router_utils.add_retry_fallback_headers import (
     replace_complexity_router_headers,
     response_total_token_count,
 )
-from litellm.router_utils.auto_router_model_naming import (
+from embrouter.router_utils.auto_router_model_naming import (
     AUTO_ROUTER_MODEL_PREFIX,
     GatedAutoRouterCapability,
     capability_limit_violation,
@@ -164,18 +164,18 @@ from litellm.router_utils.auto_router_model_naming import (
     classify_strategy_router_model,
     count_capability_routers,
 )
-from litellm.router_utils.batch_utils import (
+from embrouter.router_utils.batch_utils import (
     _get_router_metadata_variable_name,
     is_batch_retrieve_call_type,
     replace_model_in_jsonl,
     should_replace_model_in_jsonl,
 )
-from litellm.router_utils.client_initalization_utils import InitalizeCachedClient, MaxParallelRequestsLimit
-from litellm.router_utils.clientside_credential_handler import (
-    get_dynamic_litellm_params,
+from embrouter.router_utils.client_initalization_utils import InitalizeCachedClient, MaxParallelRequestsLimit
+from embrouter.router_utils.clientside_credential_handler import (
+    get_dynamic_embrouter_params,
     is_clientside_credential,
 )
-from litellm.router_utils.common_utils import (
+from embrouter.router_utils.common_utils import (
     _is_proxy_admin_request,
     filter_team_based_models,
     filter_web_search_deployments,
@@ -187,8 +187,8 @@ from litellm.router_utils.common_utils import (
     truncate_fallback_error_detail,
     warn_on_provider_credential_mismatch,
 )
-from litellm.router_utils.cooldown_cache import CooldownCache
-from litellm.router_utils.cooldown_handlers import (
+from embrouter.router_utils.cooldown_cache import CooldownCache
+from embrouter.router_utils.cooldown_handlers import (
     DEFAULT_COOLDOWN_TIME_SECONDS,
     _async_get_cooldown_deployments,
     _async_get_cooldown_deployments_with_debug_info,
@@ -199,7 +199,7 @@ from litellm.router_utils.cooldown_handlers import (
     is_background_response_cost_poll_not_found,
     is_caller_timeout_408,
 )
-from litellm.router_utils.fallback_event_handlers import (
+from embrouter.router_utils.fallback_event_handlers import (
     MID_STREAM_FALLBACK_CONTROLS_KEY,
     AttemptedFallbackTargets,
     _check_non_standard_fallback_format,
@@ -216,68 +216,68 @@ from litellm.router_utils.fallback_event_handlers import (
     record_pre_routing_selection,
     run_async_fallback,
 )
-from litellm.router_utils.get_retry_from_policy import (
+from embrouter.router_utils.get_retry_from_policy import (
     get_num_retries_from_retry_policy as _get_num_retries_from_retry_policy,
 )
-from litellm.router_utils.handle_error import (
+from embrouter.router_utils.handle_error import (
     async_raise_no_deployment_exception,
     send_llm_exception_alert,
 )
-from litellm.router_utils.health_state_cache import DeploymentHealthCache
-from litellm.router_utils.pre_call_checks.deployment_affinity_check import (
+from embrouter.router_utils.health_state_cache import DeploymentHealthCache
+from embrouter.router_utils.pre_call_checks.deployment_affinity_check import (
     DeploymentAffinityCheck,
     warn_on_unknown_model_group_affinity_flags,
 )
-from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+from embrouter.router_utils.pre_call_checks.encrypted_content_affinity_check import (
     EncryptedContentAffinityCheck,
 )
-from litellm.router_utils.pre_call_checks.io_token_rate_limit_check import (
+from embrouter.router_utils.pre_call_checks.io_token_rate_limit_check import (
     build_io_token_rate_limit_headers,
     deployment_has_io_token_limits,
     refund_stale_reservation_before_retry,
     set_io_token_rate_limit_request_kwargs,
 )
-from litellm.router_utils.pre_call_checks.model_rate_limit_check import (
+from embrouter.router_utils.pre_call_checks.model_rate_limit_check import (
     ModelRateLimitingCheck,
 )
-from litellm.router_utils.pre_call_checks.prompt_caching_deployment_check import (
+from embrouter.router_utils.pre_call_checks.prompt_caching_deployment_check import (
     PromptCachingDeploymentCheck,
 )
-from litellm.router_utils.reasoning_effort_capability import (
+from embrouter.router_utils.reasoning_effort_capability import (
     deployment_is_catalog_mapped,
     intersect_supported_reasoning_efforts,
     resolve_supported_reasoning_efforts,
 )
-from litellm.router_utils.router_callbacks.track_deployment_metrics import (
+from embrouter.router_utils.router_callbacks.track_deployment_metrics import (
     find_deployment_metadata,
     get_counted_usage_tokens,
     increment_deployment_failures_for_current_minute,
     increment_deployment_successes_for_current_minute,
 )
-from litellm.router_utils.routing_groups import (
+from embrouter.router_utils.routing_groups import (
     apply_routing_group_priority,
     parse_routing_groups,
     validate_routing_strategy,
 )
-from litellm.router_utils.routing_read_batch import RoutingPrefetch, RoutingReadBatch
-from litellm.scheduler import FlowItem, Scheduler
-from litellm.types.litellm_params import RoutingStrategyName
-from litellm.types.llms.openai import (
+from embrouter.router_utils.routing_read_batch import RoutingPrefetch, RoutingReadBatch
+from embrouter.scheduler import FlowItem, Scheduler
+from embrouter.types.embrouter_params import RoutingStrategyName
+from embrouter.types.llms.openai import (
     AllMessageValues,
     ChatCompletionToolParam,
     FileTypes,
     OpenAIFileObject,
     OpenAIFilesPurpose,
 )
-from litellm.types.router import (
+from embrouter.types.router import (
     CONFIGURABLE_CLIENTSIDE_AUTH_PARAMS,
-    VALID_LITELLM_ENVIRONMENTS,
+    VALID_EMBROUTER_ENVIRONMENTS,
     AlertingConfig,
     AllowedFailsPolicy,
     AssistantsTypedDict,
     AutoRouterCapabilityLimit,
     ConsumedRequestTagsStamp,
-    CredentialLiteLLMParams,
+    CredentialEmbRouterParams,
     CustomRoutingStrategyBase,
     Deployment,
     DeploymentModelListingInfo,
@@ -286,7 +286,7 @@ from litellm.types.router import (
     FallbackAccessCheck,
     FallbackBudgetCheck,
     GuardrailTypedDict,
-    LiteLLM_Params,
+    EmbRouter_Params,
     MockRouterTestingParams,
     ModelGroupInfo,
     OptionalPreCallChecks,
@@ -305,24 +305,24 @@ from litellm.types.router import (
     SearchToolTypedDict,
     TaggedPreRoutingStrategy,
 )
-from litellm.types.services import ServiceTypes
-from litellm.types.utils import (
+from embrouter.types.services import ServiceTypes
+from embrouter.types.utils import (
     AUTOROUTER_CLASSIFIER_CALL_ORIGIN,
     PROMPT_QUOTING_ROUTING_DECISION_FIELDS,
-    CustomPricingLiteLLMParams,
+    CustomPricingEmbRouterParams,
     GenericBudgetConfigType,
-    LiteLLMBatch,
+    EmbRouterBatch,
     LlmProviders,
     ModelInfo,
     ModelResponseStream,
     StandardLoggingPayload,
     StandardLoggingRoutingDecision,
     Usage,
-    all_litellm_params,
+    all_embrouter_params,
     shared_backend_model_info,
 )
-from litellm.types.utils import ModelInfo as ModelMapInfo
-from litellm.utils import (
+from embrouter.types.utils import ModelInfo as ModelMapInfo
+from embrouter.utils import (
     CustomStreamWrapper,
     EmbeddingResponse,
     ModelResponse,
@@ -342,28 +342,28 @@ from .router_utils.pattern_match_deployments import PatternMatchRouter
 if TYPE_CHECKING:
     from opentelemetry.trace import Span as _Span
 
-    from litellm.exceptions import MidStreamFallbackError
-    from litellm.responses.streaming_iterator import (
+    from embrouter.exceptions import MidStreamFallbackError
+    from embrouter.responses.streaming_iterator import (
         BaseResponsesAPIStreamingIterator,
     )
-    from litellm.router_strategy.adaptive_router.adaptive_router import (
+    from embrouter.router_strategy.adaptive_router.adaptive_router import (
         AdaptiveRouter,
     )
-    from litellm.router_strategy.auto_router.auto_router import (
+    from embrouter.router_strategy.auto_router.auto_router import (
         AutoRouter,
         PreRoutingHookResponse,
     )
-    from litellm.router_strategy.complexity_router.complexity_router import (
+    from embrouter.router_strategy.complexity_router.complexity_router import (
         ComplexityRouter,
     )
-    from litellm.router_strategy.quality_router.quality_router import (
+    from embrouter.router_strategy.quality_router.quality_router import (
         QualityRouter,
     )
-    from litellm.types.llms.anthropic_messages.anthropic_response import (
+    from embrouter.types.llms.anthropic_messages.anthropic_response import (
         AnthropicMessagesResponse,
     )
-    from litellm.types.llms.base import BaseLiteLLMOpenAIResponseObject
-    from litellm.types.llms.openai import (
+    from embrouter.types.llms.base import BaseEmbRouterOpenAIResponseObject
+    from embrouter.types.llms.openai import (
         ResponseAPIUsage,
         ResponseInputParam,
         ResponsesAPIResponse,
@@ -398,7 +398,7 @@ def _cost_value_as_float(value: str | float | None) -> float | None:
 
 def model_info_is_active_for_environment(model_info: Mapping[str, object] | None) -> bool:
     """Single owner of the environment-gating rule: a deployment whose model_info names
-    `supported_environments` loads only on pods whose LITELLM_ENVIRONMENT is in that list.
+    `supported_environments` loads only on pods whose EMBROUTER_ENVIRONMENT is in that list.
     `Router.deployment_is_active_for_environment` delegates here, and the model-write
     endpoints consult the same rule to tell a deliberately inactive model from one that
     was dropped by a failed reload."""
@@ -409,26 +409,26 @@ def model_info_is_active_for_environment(model_info: Mapping[str, object] | None
         return True
     if not isinstance(supported_environments, (list, tuple)):
         raise ValueError(
-            f"supported_environments must be a list of {VALID_LITELLM_ENVIRONMENTS}. "
+            f"supported_environments must be a list of {VALID_EMBROUTER_ENVIRONMENTS}. "
             f"but set as: {supported_environments} for model_info: {model_info}"
         )
-    litellm_environment: Final = get_secret_str(secret_name="LITELLM_ENVIRONMENT")
-    if litellm_environment is None:
-        raise ValueError("Set 'supported_environments' for model but not 'LITELLM_ENVIRONMENT' set in .env")
+    embrouter_environment: Final = get_secret_str(secret_name="EMBROUTER_ENVIRONMENT")
+    if embrouter_environment is None:
+        raise ValueError("Set 'supported_environments' for model but not 'EMBROUTER_ENVIRONMENT' set in .env")
 
-    if litellm_environment not in VALID_LITELLM_ENVIRONMENTS:
+    if embrouter_environment not in VALID_EMBROUTER_ENVIRONMENTS:
         raise ValueError(
-            f"LITELLM_ENVIRONMENT must be one of {VALID_LITELLM_ENVIRONMENTS}. but set as: {litellm_environment}"
+            f"EMBROUTER_ENVIRONMENT must be one of {VALID_EMBROUTER_ENVIRONMENTS}. but set as: {embrouter_environment}"
         )
 
     for _env in supported_environments:
-        if _env not in VALID_LITELLM_ENVIRONMENTS:
+        if _env not in VALID_EMBROUTER_ENVIRONMENTS:
             raise ValueError(
-                f"supported_environments must be one of {VALID_LITELLM_ENVIRONMENTS}. but set as: {_env} "
+                f"supported_environments must be one of {VALID_EMBROUTER_ENVIRONMENTS}. but set as: {_env} "
                 f"for model_info: {model_info}"
             )
 
-    if litellm_environment in supported_environments:
+    if embrouter_environment in supported_environments:
         return True
     return False
 
@@ -530,7 +530,7 @@ def _anthropic_stream_forwards_ping_live(chunk: object, has_generated_content: b
     """A `ping` keepalive reaches the client live whenever the stream has not committed: it carries no
     lifecycle, so it cannot create overlapping lifecycles on the wire, and it keeps the connection alive
     while lifecycle frames sit buffered for a possible fallback during a long thinking pass."""
-    from litellm.llms.anthropic.pass_through.messages.streaming_iterator import is_anthropic_ping_chunk
+    from embrouter.llms.anthropic.pass_through.messages.streaming_iterator import is_anthropic_ping_chunk
 
     return not has_generated_content and is_anthropic_ping_chunk(chunk)
 
@@ -546,7 +546,7 @@ def _without_line_breaks(value: object) -> str:
 def _anthropic_stream_error_is_gateway_verdict(chunk: object) -> bool:
     """AgenticAnthropicStreamingIterator's own retrieval-failure frame is the gateway's verdict, not a provider
     failure: another deployment would rerun the same failed hook, so it reaches the client instead of falling back."""
-    from litellm.llms.anthropic.pass_through.messages.agentic_streaming_iterator import (
+    from embrouter.llms.anthropic.pass_through.messages.agentic_streaming_iterator import (
         is_server_fulfilled_tool_leak_error,
     )
 
@@ -578,7 +578,7 @@ def _anthropic_stream_fallback_error_for_raised(
     error: Exception, model: str, has_generated_content: bool
 ) -> "MidStreamFallbackError | None":
     """Same gate as a detected SSE error event; None means the raise propagates unchanged."""
-    from litellm.exceptions import MidStreamFallbackError
+    from embrouter.exceptions import MidStreamFallbackError
 
     if has_generated_content:
         return None
@@ -601,7 +601,7 @@ def _anthropic_stream_commits_now(chunk: object, has_generated_content: bool, bu
     pre-content buffer cap was hit) rather than keep buffering lifecycle
     frames toward a possible fallback.
     """
-    from litellm.llms.anthropic.pass_through.messages.streaming_iterator import (
+    from embrouter.llms.anthropic.pass_through.messages.streaming_iterator import (
         is_anthropic_content_delta_chunk,
     )
 
@@ -614,7 +614,7 @@ MAX_HELD_PRE_OUTPUT_RESPONSES_EVENTS: Final = 200
 
 
 def _responses_stream_holds_event(item: object, held_event_count: int) -> bool:
-    from litellm.responses.streaming_iterator import PRE_OUTPUT_LIFECYCLE_EVENT_TYPES
+    from embrouter.responses.streaming_iterator import PRE_OUTPUT_LIFECYCLE_EVENT_TYPES
 
     if held_event_count >= MAX_HELD_PRE_OUTPUT_RESPONSES_EVENTS:
         return False
@@ -741,7 +741,7 @@ class FallbackAwareStreamWrapper(CustomStreamWrapper):
         self._response_headers = getattr(fallback_response, "_response_headers", None)
         fallback_hidden_params, fallback_headers = prepared_fallback_hidden_params
         if fallback_hidden_params:
-            self._hidden_params = {  # mutable-ok: the rest of litellm writes into _hidden_params
+            self._hidden_params = {  # mutable-ok: the rest of embrouter writes into _hidden_params
                 **fallback_hidden_params,
                 # dict() because add_retry_fallback_headers mutates additional_headers in place
                 "additional_headers": dict(fallback_headers),  # mutable-ok: see above
@@ -801,7 +801,7 @@ class Router:
         max_fallbacks: int | None = None,  # max fallbacks to try before exiting the call. Defaults to 5.
         timeout: float | None = None,
         stream_timeout: float | None = None,
-        default_litellm_params: dict | None = None,  # default params for Router.chat.completion.create
+        default_embrouter_params: dict | None = None,  # default params for Router.chat.completion.create
         default_max_parallel_requests: int | None = None,
         set_verbose: bool = False,
         debug_level: Literal["DEBUG", "INFO"] = "INFO",
@@ -858,7 +858,7 @@ class Router:
             default_priority: (Optional[int]): the default priority for a request. Only for '.scheduler_acompletion()'. Default is None.
             num_retries (Optional[int]): Number of retries for failed requests. Defaults to 2.
             timeout (Optional[float]): Timeout for requests. Defaults to None.
-            default_litellm_params (dict): Default parameters for Router.chat.completion.create. Defaults to {}.
+            default_embrouter_params (dict): Default parameters for Router.chat.completion.create. Defaults to {}.
             set_verbose (bool): Flag to set verbose mode. Defaults to False.
             debug_level (Literal["DEBUG", "INFO"]): Debug level for logging. Defaults to "INFO".
             fallbacks (List): List of fallback options. Defaults to [].
@@ -881,15 +881,15 @@ class Router:
             fallback_access_check (Optional[FallbackAccessCheck]): Awaited before each cross-model-group fallback attempt on the async path; a fallback target it rejects is skipped. Defaults to None (every configured fallback is attempted).
             fallback_budget_check (Optional[FallbackBudgetCheck]): Awaited before each cross-model-group fallback attempt on the async path; a fallback target it rejects as over budget is skipped. Defaults to None (budget is not re-checked on fallback).
         Returns:
-            Router: An instance of the litellm.Router class.
+            Router: An instance of the embrouter.Router class.
 
         Example Usage:
         ```python
-        from litellm import Router
+        from embrouter import Router
         model_list = [
         {
             "model_name": "azure-gpt-3.5-turbo", # model alias
-            "litellm_params": { # params for litellm completion/embedding call
+            "embrouter_params": { # params for embrouter completion/embedding call
                 "model": "azure/<your-deployment-name-1>",
                 "api_key": <your-api-key>,
                 "api_version": <your-api-version>,
@@ -898,7 +898,7 @@ class Router:
         },
         {
             "model_name": "azure-gpt-3.5-turbo", # model alias
-            "litellm_params": { # params for litellm completion/embedding call
+            "embrouter_params": { # params for embrouter completion/embedding call
                 "model": "azure/<your-deployment-name-2>",
                 "api_key": <your-api-key>,
                 "api_version": <your-api-version>,
@@ -907,7 +907,7 @@ class Router:
         },
         {
             "model_name": "openai-gpt-3.5-turbo", # model alias
-            "litellm_params": { # params for litellm completion/embedding call
+            "embrouter_params": { # params for embrouter completion/embedding call
                 "model": "gpt-3.5-turbo",
                 "api_key": <your-api-key>,
             },
@@ -927,10 +927,10 @@ class Router:
         self.enable_tag_filtering = enable_tag_filtering
         self.tag_filtering_match_any = tag_filtering_match_any
         self.tag_routing_prefix = tag_routing_prefix
-        from litellm._service_logger import ServiceLogging
+        from embrouter._service_logger import ServiceLogging
 
         self.service_logger_obj: ServiceLogging = ServiceLogging()
-        litellm.suppress_debug_info = True  # prevents 'Give Feedback/Get help' message from being emitted on Router
+        embrouter.suppress_debug_info = True  # prevents 'Give Feedback/Get help' message from being emitted on Router
         if self.set_verbose is True:
             if debug_level == "INFO":
                 verbose_router_logger.setLevel(logging.INFO)
@@ -941,7 +941,7 @@ class Router:
         self.assistants_config = assistants_config
         self.search_tools = search_tools or []
         self.guardrail_list = guardrail_list or []
-        self.deployment_names: list = []  # names of models under litellm_params. ex. azure/chatgpt-v-2
+        self.deployment_names: list = []  # names of models under embrouter_params. ex. azure/chatgpt-v-2
         self.deployment_latency_map = {}
         ### CACHING ###
         cache_type: Literal["local", "redis", "redis-semantic", "s3", "disk"] = "local"  # default to an in-memory cache
@@ -975,9 +975,9 @@ class Router:
             redis_cache = self._create_redis_cache(cache_config)
 
         if cache_responses:
-            if litellm.cache is None:
+            if embrouter.cache is None:
                 # the cache can be initialized on the proxy server. We should not overwrite it
-                litellm.cache = litellm.Cache(type=cache_type, **cache_config)
+                embrouter.cache = embrouter.Cache(type=cache_type, **cache_config)
             self.cache_responses = cache_responses
         self.cache = DualCache(
             redis_cache=redis_cache, in_memory_cache=InMemoryCache()
@@ -1027,7 +1027,7 @@ class Router:
         # zero-cost?" check. Lives on the router so it is invalidated alongside
         # ``_cached_get_model_group_info`` and dies with the router (no
         # ``id()``-reuse risk after GC). See
-        # ``litellm.proxy.auth.auth_checks._is_model_cost_zero``.
+        # ``embrouter.proxy.auth.auth_checks._is_model_cost_zero``.
         self._zero_cost_cache: dict[str, bool] = {}
         self.cached_deployment_model_info = lru_cache(maxsize=DEFAULT_MAX_LRU_CACHE_SIZE)(
             self.get_deployment_model_info
@@ -1052,15 +1052,15 @@ class Router:
             _live_routers.add(self)
             self.healthy_deployments: list = self.model_list
             for m in model_list:
-                if "model" in m["litellm_params"]:
-                    self.deployment_latency_map[m["litellm_params"]["model"]] = 0
+                if "model" in m["embrouter_params"]:
+                    self.deployment_latency_map[m["embrouter_params"]["model"]] = 0
         else:
             self.model_list: list = []  # initialize an empty list - to allow _add_deployment and delete_deployment to work
 
         if allowed_fails is not None:
             self.allowed_fails = allowed_fails
         else:
-            self.allowed_fails = litellm.allowed_fails
+            self.allowed_fails = embrouter.allowed_fails
         self.cooldown_time = cooldown_time or DEFAULT_COOLDOWN_TIME_SECONDS
         self.cooldown_cache = CooldownCache(cache=self.cache, default_cooldown_time=self.cooldown_time)
         self.disable_cooldowns = disable_cooldowns
@@ -1079,20 +1079,20 @@ class Router:
 
         if num_retries is not None:
             self.num_retries = num_retries
-        elif litellm.num_retries is not None:
-            self.num_retries = litellm.num_retries
+        elif embrouter.num_retries is not None:
+            self.num_retries = embrouter.num_retries
         else:
             self.num_retries = openai.DEFAULT_MAX_RETRIES
 
         if max_fallbacks is not None:
             self.max_fallbacks = max_fallbacks
-        elif litellm.max_fallbacks is not None:
-            self.max_fallbacks = litellm.max_fallbacks
+        elif embrouter.max_fallbacks is not None:
+            self.max_fallbacks = embrouter.max_fallbacks
         else:
-            self.max_fallbacks = litellm.ROUTER_MAX_FALLBACKS
+            self.max_fallbacks = embrouter.ROUTER_MAX_FALLBACKS
 
         self._explicit_timeout = timeout  # None when user did not pass timeout
-        self.timeout = timeout or litellm.request_timeout
+        self.timeout = timeout or embrouter.request_timeout
         # Per-attempt request_timeout, independent of router_settings.timeout.
         # Only stored when a router timeout is also set, since otherwise
         # request_timeout already flows through self.timeout above.
@@ -1105,22 +1105,22 @@ class Router:
 
         ## SETTING FALLBACKS ##
         ### validate if it's set + in correct format
-        _fallbacks = fallbacks or litellm.fallbacks
+        _fallbacks = fallbacks or embrouter.fallbacks
 
         self.validate_fallbacks(fallback_param=_fallbacks)
         ### set fallbacks
         self.fallbacks = _fallbacks
 
-        if default_fallbacks is not None or litellm.default_fallbacks is not None:
-            _fallbacks = default_fallbacks or litellm.default_fallbacks
+        if default_fallbacks is not None or embrouter.default_fallbacks is not None:
+            _fallbacks = default_fallbacks or embrouter.default_fallbacks
             if self.fallbacks is not None:
                 self.fallbacks.append({"*": _fallbacks})
             else:
                 self.fallbacks = [{"*": _fallbacks}]
 
-        self.context_window_fallbacks = context_window_fallbacks or litellm.context_window_fallbacks
+        self.context_window_fallbacks = context_window_fallbacks or embrouter.context_window_fallbacks
 
-        _content_policy_fallbacks: Final = content_policy_fallbacks or litellm.content_policy_fallbacks
+        _content_policy_fallbacks: Final = content_policy_fallbacks or embrouter.content_policy_fallbacks
         self.validate_fallbacks(fallback_param=_content_policy_fallbacks)
         self.content_policy_fallbacks = _content_policy_fallbacks
         self.total_calls: defaultdict = defaultdict(int)  # dict to store total calls made to each model
@@ -1128,14 +1128,14 @@ class Router:
         self.success_calls: defaultdict = defaultdict(int)  # dict to store success_calls  made to each model
 
         # make Router.chat.completions.create compatible for openai.chat.completions.create
-        default_litellm_params = default_litellm_params or {}
-        self.chat = litellm.Chat(params=default_litellm_params, router_obj=self)
+        default_embrouter_params = default_embrouter_params or {}
+        self.chat = embrouter.Chat(params=default_embrouter_params, router_obj=self)
 
-        # default litellm args
-        self.default_litellm_params = default_litellm_params
-        self.default_litellm_params.setdefault("timeout", timeout)
-        self.default_litellm_params.setdefault("max_retries", 0)
-        self.default_litellm_params.setdefault("metadata", {}).update({"caching_groups": caching_groups})
+        # default embrouter args
+        self.default_embrouter_params = default_embrouter_params
+        self.default_embrouter_params.setdefault("timeout", timeout)
+        self.default_embrouter_params.setdefault("max_retries", 0)
+        self.default_embrouter_params.setdefault("metadata", {}).update({"caching_groups": caching_groups})
 
         self.deployment_stats: dict = {}  # used for debugging load balancing
         """
@@ -1154,7 +1154,7 @@ class Router:
 
         ### ROUTING SETUP ###
         if self._normalize_strategy(routing_strategy) == "lar1":
-            from litellm.router_strategy.lar1_routing import apply_lar1_routing_strategy
+            from embrouter.router_strategy.lar1_routing import apply_lar1_routing_strategy
 
             apply_lar1_routing_strategy(self, routing_strategy_args)
         else:
@@ -1167,25 +1167,25 @@ class Router:
         self._override_selectors_lock = threading.Lock()
         self.access_groups = None
         ## USAGE TRACKING ##
-        if isinstance(litellm._async_success_callback, list):
-            litellm.logging_callback_manager.add_litellm_async_success_callback(self.deployment_callback_on_success)
+        if isinstance(embrouter._async_success_callback, list):
+            embrouter.logging_callback_manager.add_embrouter_async_success_callback(self.deployment_callback_on_success)
         else:
-            litellm.logging_callback_manager.add_litellm_async_success_callback(self.deployment_callback_on_success)
-        if isinstance(litellm.success_callback, list):
-            litellm.logging_callback_manager.add_litellm_success_callback(self.sync_deployment_callback_on_success)
+            embrouter.logging_callback_manager.add_embrouter_async_success_callback(self.deployment_callback_on_success)
+        if isinstance(embrouter.success_callback, list):
+            embrouter.logging_callback_manager.add_embrouter_success_callback(self.sync_deployment_callback_on_success)
         else:
-            litellm.success_callback = [self.sync_deployment_callback_on_success]
-        if isinstance(litellm._async_failure_callback, list):
-            litellm.logging_callback_manager.add_litellm_async_failure_callback(
+            embrouter.success_callback = [self.sync_deployment_callback_on_success]
+        if isinstance(embrouter._async_failure_callback, list):
+            embrouter.logging_callback_manager.add_embrouter_async_failure_callback(
                 self.async_deployment_callback_on_failure
             )
         else:
-            litellm._async_failure_callback = [self.async_deployment_callback_on_failure]
+            embrouter._async_failure_callback = [self.async_deployment_callback_on_failure]
         ## COOLDOWNS ##
-        if isinstance(litellm.failure_callback, list):
-            litellm.logging_callback_manager.add_litellm_failure_callback(self.deployment_callback_on_failure)
+        if isinstance(embrouter.failure_callback, list):
+            embrouter.logging_callback_manager.add_embrouter_failure_callback(self.deployment_callback_on_failure)
         else:
-            litellm.failure_callback = [self.deployment_callback_on_failure]
+            embrouter.failure_callback = [self.deployment_callback_on_failure]
         self.routing_strategy_args = routing_strategy_args
         self.provider_budget_config = provider_budget_config
         self.router_budget_logger: RouterBudgetLimiting | None = None
@@ -1268,19 +1268,19 @@ class Router:
         # Stop contributing to cost-map rebuilds straight away rather than waiting
         # for this router to be collected.
         _live_routers.discard(self)
-        litellm.logging_callback_manager.remove_callback_from_list_by_object(litellm._async_success_callback, self)
-        litellm.logging_callback_manager.remove_callback_from_list_by_object(litellm.success_callback, self)
-        litellm.logging_callback_manager.remove_callback_from_list_by_object(litellm._async_failure_callback, self)
-        litellm.logging_callback_manager.remove_callback_from_list_by_object(litellm.failure_callback, self)
-        litellm.logging_callback_manager.remove_callback_from_list_by_object(litellm.input_callback, self)
-        litellm.logging_callback_manager.remove_callback_from_list_by_object(litellm.service_callback, self)
-        litellm.logging_callback_manager.remove_callback_from_list_by_object(litellm.callbacks, self)
+        embrouter.logging_callback_manager.remove_callback_from_list_by_object(embrouter._async_success_callback, self)
+        embrouter.logging_callback_manager.remove_callback_from_list_by_object(embrouter.success_callback, self)
+        embrouter.logging_callback_manager.remove_callback_from_list_by_object(embrouter._async_failure_callback, self)
+        embrouter.logging_callback_manager.remove_callback_from_list_by_object(embrouter.failure_callback, self)
+        embrouter.logging_callback_manager.remove_callback_from_list_by_object(embrouter.input_callback, self)
+        embrouter.logging_callback_manager.remove_callback_from_list_by_object(embrouter.service_callback, self)
+        embrouter.logging_callback_manager.remove_callback_from_list_by_object(embrouter.callbacks, self)
 
         # Remove ForwardClientSideHeadersByModelGroup if it exists
         if self.optional_callbacks is not None:
             for callback in self.optional_callbacks:
-                litellm.logging_callback_manager.remove_callback_from_list_by_object(
-                    litellm.callbacks, callback, require_self=False
+                embrouter.logging_callback_manager.remove_callback_from_list_by_object(
+                    embrouter.callbacks, callback, require_self=False
                 )
 
     @staticmethod
@@ -1307,7 +1307,7 @@ class Router:
 
         Allows proxy user to just do
         ```yaml
-        litellm_settings:
+        embrouter_settings:
             cache: true
         ```
         and caching to just work.
@@ -1386,16 +1386,16 @@ class Router:
     @staticmethod
     def _register_router_selector(selector: RouterStrategySelector) -> None:
         if isinstance(selector, LeastBusyLoggingHandler):
-            if isinstance(litellm.input_callback, list):
-                litellm.logging_callback_manager.add_litellm_input_callback(selector)
+            if isinstance(embrouter.input_callback, list):
+                embrouter.logging_callback_manager.add_embrouter_input_callback(selector)
             else:
-                litellm.input_callback = [selector]
-        if isinstance(litellm.callbacks, list):
-            litellm.logging_callback_manager.add_litellm_callback(selector)
+                embrouter.input_callback = [selector]
+        if isinstance(embrouter.callbacks, list):
+            embrouter.logging_callback_manager.add_embrouter_callback(selector)
 
     def _unregister_router_selectors(self, selectors: Sequence[object]) -> None:
         """
-        Drop router-owned strategy selectors from litellm's global callback
+        Drop router-owned strategy selectors from embrouter's global callback
         lists by identity. Used before re-init (`routing_strategy_init` /
         `_init_routing_groups`) so repeated `update_settings` calls don't
         accumulate dead selectors that keep receiving callback events.
@@ -1406,10 +1406,10 @@ class Router:
         selector_ids: Final = {id(s) for s in selectors if s is not None}
         if not selector_ids:
             return
-        if isinstance(litellm.callbacks, list):
-            litellm.callbacks = [c for c in litellm.callbacks if id(c) not in selector_ids]
-        if isinstance(litellm.input_callback, list):
-            litellm.input_callback = [c for c in litellm.input_callback if id(c) not in selector_ids]
+        if isinstance(embrouter.callbacks, list):
+            embrouter.callbacks = [c for c in embrouter.callbacks if id(c) not in selector_ids]
+        if isinstance(embrouter.input_callback, list):
+            embrouter.input_callback = [c for c in embrouter.input_callback if id(c) not in selector_ids]
 
     def _apply_updated_routing_strategy_args(self) -> None:
         """
@@ -1422,7 +1422,7 @@ class Router:
         """
         strategy: Final = self._normalize_strategy(self.routing_strategy)
         if strategy == "lar1":
-            from litellm.router_strategy.lar1_routing import apply_lar1_routing_strategy
+            from embrouter.router_strategy.lar1_routing import apply_lar1_routing_strategy
 
             apply_lar1_routing_strategy(self, self.routing_strategy_args)
             return
@@ -1697,7 +1697,7 @@ class Router:
         self, strategy: str | None, selector: RouterStrategySelector | None, deployment: dict
     ) -> None:
         """
-        Override selectors are not in `litellm.callbacks`, so the pre-call check that
+        Override selectors are not in `embrouter.callbacks`, so the pre-call check that
         `routing_strategy_pre_call_checks` runs for the router's own selectors (rpm
         accounting for `usage-based-routing-v2`) runs here, for the overriding request only.
         """
@@ -1721,8 +1721,8 @@ class Router:
     ) -> None:
         if selector is None or request_kwargs is None or strategy in self._globally_registered_strategies():
             return
-        logging_obj: Final = request_kwargs.get("litellm_logging_obj")
-        if isinstance(logging_obj, LiteLLMLogging):
+        logging_obj: Final = request_kwargs.get("embrouter_logging_obj")
+        if isinstance(logging_obj, EmbRouterLogging):
             logging_obj.add_dynamic_callback(selector)
 
     def _globally_registered_strategies(self) -> frozenset[str]:
@@ -1903,67 +1903,67 @@ class Router:
 
     def initialize_assistants_endpoint(self):
         ## INITIALIZE PASS THROUGH ASSISTANTS ENDPOINT ##
-        self.acreate_assistants = self.factory_function(litellm.acreate_assistants)
-        self.adelete_assistant = self.factory_function(litellm.adelete_assistant)
-        self.aget_assistants = self.factory_function(litellm.aget_assistants)
-        self.acreate_thread = self.factory_function(litellm.acreate_thread)
-        self.aget_thread = self.factory_function(litellm.aget_thread)
-        self.a_add_message = self.factory_function(litellm.a_add_message)
-        self.aget_messages = self.factory_function(litellm.aget_messages)
-        self.arun_thread = self.factory_function(litellm.arun_thread)
+        self.acreate_assistants = self.factory_function(embrouter.acreate_assistants)
+        self.adelete_assistant = self.factory_function(embrouter.adelete_assistant)
+        self.aget_assistants = self.factory_function(embrouter.aget_assistants)
+        self.acreate_thread = self.factory_function(embrouter.acreate_thread)
+        self.aget_thread = self.factory_function(embrouter.aget_thread)
+        self.a_add_message = self.factory_function(embrouter.a_add_message)
+        self.aget_messages = self.factory_function(embrouter.aget_messages)
+        self.arun_thread = self.factory_function(embrouter.arun_thread)
 
     def _initialize_core_endpoints(self):
         """Helper to initialize core router endpoints."""
-        self.amoderation = self.factory_function(litellm.amoderation, call_type="moderation")
-        self.aanthropic_messages = self.factory_function(litellm.anthropic_messages, call_type="anthropic_messages")
-        self.anthropic_messages = self.factory_function(litellm.anthropic_messages, call_type="anthropic_messages")
-        self.agenerate_content = self.factory_function(litellm.agenerate_content, call_type="agenerate_content")
+        self.amoderation = self.factory_function(embrouter.amoderation, call_type="moderation")
+        self.aanthropic_messages = self.factory_function(embrouter.anthropic_messages, call_type="anthropic_messages")
+        self.anthropic_messages = self.factory_function(embrouter.anthropic_messages, call_type="anthropic_messages")
+        self.agenerate_content = self.factory_function(embrouter.agenerate_content, call_type="agenerate_content")
         self.aadapter_generate_content = self.factory_function(
-            litellm.aadapter_generate_content, call_type="aadapter_generate_content"
+            embrouter.aadapter_generate_content, call_type="aadapter_generate_content"
         )
-        self.aresponses = self.factory_function(litellm.aresponses, call_type="aresponses")
-        self.afile_delete = self.factory_function(litellm.afile_delete, call_type="afile_delete")
-        self.afile_content = self.factory_function(litellm.afile_content, call_type="afile_content")
-        self.responses = self.factory_function(litellm.responses, call_type="responses")
-        self.aget_responses = self.factory_function(litellm.aget_responses, call_type="aget_responses")
-        self.acancel_responses = self.factory_function(litellm.acancel_responses, call_type="acancel_responses")
-        self.acompact_responses = self.factory_function(litellm.acompact_responses, call_type="acompact_responses")
-        self.adelete_responses = self.factory_function(litellm.adelete_responses, call_type="adelete_responses")
-        self.alist_input_items = self.factory_function(litellm.alist_input_items, call_type="alist_input_items")
-        self._arealtime = self.factory_function(litellm._arealtime, call_type="_arealtime")
+        self.aresponses = self.factory_function(embrouter.aresponses, call_type="aresponses")
+        self.afile_delete = self.factory_function(embrouter.afile_delete, call_type="afile_delete")
+        self.afile_content = self.factory_function(embrouter.afile_content, call_type="afile_content")
+        self.responses = self.factory_function(embrouter.responses, call_type="responses")
+        self.aget_responses = self.factory_function(embrouter.aget_responses, call_type="aget_responses")
+        self.acancel_responses = self.factory_function(embrouter.acancel_responses, call_type="acancel_responses")
+        self.acompact_responses = self.factory_function(embrouter.acompact_responses, call_type="acompact_responses")
+        self.adelete_responses = self.factory_function(embrouter.adelete_responses, call_type="adelete_responses")
+        self.alist_input_items = self.factory_function(embrouter.alist_input_items, call_type="alist_input_items")
+        self._arealtime = self.factory_function(embrouter._arealtime, call_type="_arealtime")
         self.acreate_realtime_client_secret = self.factory_function(
-            litellm.acreate_realtime_client_secret, call_type="acreate_realtime_client_secret"
+            embrouter.acreate_realtime_client_secret, call_type="acreate_realtime_client_secret"
         )
-        self.arealtime_calls = self.factory_function(litellm.arealtime_calls, call_type="arealtime_calls")
+        self.arealtime_calls = self.factory_function(embrouter.arealtime_calls, call_type="arealtime_calls")
         self.acreate_realtime_transcription_session = self.factory_function(
-            litellm.acreate_realtime_transcription_session, call_type="acreate_realtime_transcription_session"
+            embrouter.acreate_realtime_transcription_session, call_type="acreate_realtime_transcription_session"
         )
         self._aresponses_websocket = self.factory_function(
-            litellm._aresponses_websocket, call_type="_aresponses_websocket"
+            embrouter._aresponses_websocket, call_type="_aresponses_websocket"
         )
         self.acreate_fine_tuning_job = self.factory_function(
-            litellm.acreate_fine_tuning_job, call_type="acreate_fine_tuning_job"
+            embrouter.acreate_fine_tuning_job, call_type="acreate_fine_tuning_job"
         )
         self.acancel_fine_tuning_job = self.factory_function(
-            litellm.acancel_fine_tuning_job, call_type="acancel_fine_tuning_job"
+            embrouter.acancel_fine_tuning_job, call_type="acancel_fine_tuning_job"
         )
         self.alist_fine_tuning_jobs = self.factory_function(
-            litellm.alist_fine_tuning_jobs, call_type="alist_fine_tuning_jobs"
+            embrouter.alist_fine_tuning_jobs, call_type="alist_fine_tuning_jobs"
         )
         self.aretrieve_fine_tuning_job = self.factory_function(
-            litellm.aretrieve_fine_tuning_job, call_type="aretrieve_fine_tuning_job"
+            embrouter.aretrieve_fine_tuning_job, call_type="aretrieve_fine_tuning_job"
         )
-        self.afile_list = self.factory_function(litellm.afile_list, call_type="alist_files")
-        self.aimage_edit = self.factory_function(litellm.aimage_edit, call_type="aimage_edit")
+        self.afile_list = self.factory_function(embrouter.afile_list, call_type="alist_files")
+        self.aimage_edit = self.factory_function(embrouter.aimage_edit, call_type="aimage_edit")
         self.allm_passthrough_route = self.factory_function(
-            litellm.allm_passthrough_route, call_type="allm_passthrough_route"
+            embrouter.allm_passthrough_route, call_type="allm_passthrough_route"
         )
         # Note: acancel_batch is defined as a method on the Router class (not using factory_function)
         # to properly handle model-to-provider mapping like acreate_batch and aretrieve_batch
 
     def _initialize_vector_store_endpoints(self):
         """Initialize vector store endpoints."""
-        from litellm.vector_stores.main import (
+        from embrouter.vector_stores.main import (
             adelete,
             alist,
             aretrieve,
@@ -1991,36 +1991,36 @@ class Router:
 
     def _initialize_vector_store_file_endpoints(self):
         """Initialize vector store file endpoints."""
-        from litellm.vector_store_files.main import (
+        from embrouter.vector_store_files.main import (
             acreate as avector_store_file_create_fn,
         )
-        from litellm.vector_store_files.main import (
+        from embrouter.vector_store_files.main import (
             adelete as avector_store_file_delete_fn,
         )
-        from litellm.vector_store_files.main import alist as avector_store_file_list_fn
-        from litellm.vector_store_files.main import (
+        from embrouter.vector_store_files.main import alist as avector_store_file_list_fn
+        from embrouter.vector_store_files.main import (
             aretrieve as avector_store_file_retrieve_fn,
         )
-        from litellm.vector_store_files.main import (
+        from embrouter.vector_store_files.main import (
             aretrieve_content as avector_store_file_content_fn,
         )
-        from litellm.vector_store_files.main import (
+        from embrouter.vector_store_files.main import (
             aupdate as avector_store_file_update_fn,
         )
-        from litellm.vector_store_files.main import (
+        from embrouter.vector_store_files.main import (
             create as vector_store_file_create_fn,
         )
-        from litellm.vector_store_files.main import (
+        from embrouter.vector_store_files.main import (
             delete as vector_store_file_delete_fn,
         )
-        from litellm.vector_store_files.main import list as vector_store_file_list_fn
-        from litellm.vector_store_files.main import (
+        from embrouter.vector_store_files.main import list as vector_store_file_list_fn
+        from embrouter.vector_store_files.main import (
             retrieve as vector_store_file_retrieve_fn,
         )
-        from litellm.vector_store_files.main import (
+        from embrouter.vector_store_files.main import (
             retrieve_content as vector_store_file_content_fn,
         )
-        from litellm.vector_store_files.main import (
+        from embrouter.vector_store_files.main import (
             update as vector_store_file_update_fn,
         )
 
@@ -2063,7 +2063,7 @@ class Router:
 
     def _initialize_google_genai_endpoints(self):
         """Initialize Google GenAI endpoints."""
-        from litellm.google_genai import (
+        from embrouter.google_genai import (
             agenerate_content,
             agenerate_content_stream,
             generate_content,
@@ -2081,19 +2081,19 @@ class Router:
 
     def _initialize_ocr_search_endpoints(self):
         """Initialize OCR and search endpoints."""
-        from litellm.ocr import aocr, ocr
+        from embrouter.ocr import aocr, ocr
 
         self.aocr = self.factory_function(aocr, call_type="aocr")
         self.ocr = self.factory_function(ocr, call_type="ocr")
 
-        from litellm.search import asearch, search
+        from embrouter.search import asearch, search
 
         self.asearch = self.factory_function(asearch, call_type="asearch")
         self.search = self.factory_function(search, call_type="search")
 
     def _initialize_video_endpoints(self):
         """Initialize video endpoints."""
-        from litellm.videos import (
+        from embrouter.videos import (
             avideo_content,
             avideo_create_character,
             avideo_edit,
@@ -2137,7 +2137,7 @@ class Router:
 
     def _initialize_container_endpoints(self):
         """Initialize container endpoints."""
-        from litellm.containers import (
+        from embrouter.containers import (
             acreate_container,
             adelete_container,
             alist_containers,
@@ -2147,7 +2147,7 @@ class Router:
             list_containers,
             retrieve_container,
         )
-        from litellm.containers.endpoint_factory import (
+        from embrouter.containers.endpoint_factory import (
             _generated_endpoints as container_file_endpoints,
         )
 
@@ -2166,21 +2166,21 @@ class Router:
 
     def _initialize_skills_endpoints(self):
         """Initialize Anthropic Skills API endpoints."""
-        self.acreate_skill = self.factory_function(litellm.acreate_skill, call_type="acreate_skill")
-        self.alist_skills = self.factory_function(litellm.alist_skills, call_type="alist_skills")
-        self.aget_skill = self.factory_function(litellm.aget_skill, call_type="aget_skill")
-        self.adelete_skill = self.factory_function(litellm.adelete_skill, call_type="adelete_skill")
+        self.acreate_skill = self.factory_function(embrouter.acreate_skill, call_type="acreate_skill")
+        self.alist_skills = self.factory_function(embrouter.alist_skills, call_type="alist_skills")
+        self.aget_skill = self.factory_function(embrouter.aget_skill, call_type="aget_skill")
+        self.adelete_skill = self.factory_function(embrouter.adelete_skill, call_type="adelete_skill")
 
     def _initialize_interactions_endpoints(self):
         """Initialize Google Interactions API endpoints."""
-        from litellm.interactions import acancel as acancel_interaction
-        from litellm.interactions import acreate as acreate_interaction
-        from litellm.interactions import adelete as adelete_interaction
-        from litellm.interactions import aget as aget_interaction
-        from litellm.interactions import cancel as cancel_interaction
-        from litellm.interactions import create as create_interaction
-        from litellm.interactions import delete as delete_interaction
-        from litellm.interactions import get as get_interaction
+        from embrouter.interactions import acancel as acancel_interaction
+        from embrouter.interactions import acreate as acreate_interaction
+        from embrouter.interactions import adelete as adelete_interaction
+        from embrouter.interactions import aget as aget_interaction
+        from embrouter.interactions import cancel as cancel_interaction
+        from embrouter.interactions import create as create_interaction
+        from embrouter.interactions import delete as delete_interaction
+        from embrouter.interactions import get as get_interaction
 
         self.acreate_interaction = self.factory_function(acreate_interaction, call_type="acreate_interaction")
         self.create_interaction = self.factory_function(create_interaction, call_type="create_interaction")
@@ -2193,16 +2193,16 @@ class Router:
 
     def _initialize_managed_agents_endpoints(self):
         """Initialize Google Managed Agents API endpoints (v1beta/agents)."""
-        from litellm.interactions.agents import acreate as acreate_agent
-        from litellm.interactions.agents import adelete as adelete_agent
-        from litellm.interactions.agents import aget as aget_agent
-        from litellm.interactions.agents import alist as alist_agents
-        from litellm.interactions.agents import alist_versions as alist_agent_versions
-        from litellm.interactions.agents import create as create_agent
-        from litellm.interactions.agents import delete as delete_agent
-        from litellm.interactions.agents import get as get_agent
-        from litellm.interactions.agents import list as list_agents
-        from litellm.interactions.agents import list_versions as list_agent_versions
+        from embrouter.interactions.agents import acreate as acreate_agent
+        from embrouter.interactions.agents import adelete as adelete_agent
+        from embrouter.interactions.agents import aget as aget_agent
+        from embrouter.interactions.agents import alist as alist_agents
+        from embrouter.interactions.agents import alist_versions as alist_agent_versions
+        from embrouter.interactions.agents import create as create_agent
+        from embrouter.interactions.agents import delete as delete_agent
+        from embrouter.interactions.agents import get as get_agent
+        from embrouter.interactions.agents import list as list_agents
+        from embrouter.interactions.agents import list_versions as list_agent_versions
 
         self.acreate_agent = self.factory_function(acreate_agent, call_type="acreate_agent")
         self.create_agent = self.factory_function(create_agent, call_type="create_agent")
@@ -2287,10 +2287,10 @@ class Router:
                     model_group_affinity_config=self.model_group_affinity_config,
                 )
                 self.optional_callbacks.append(ec_callback)
-                litellm.logging_callback_manager.add_litellm_callback(ec_callback)
+                embrouter.logging_callback_manager.add_embrouter_callback(ec_callback)
 
             _move_before_deployment_affinity(self.optional_callbacks, ec_callback)
-            _move_before_deployment_affinity(litellm.callbacks, ec_callback)
+            _move_before_deployment_affinity(embrouter.callbacks, ec_callback)
 
     def _ensure_deployment_affinity_callback(self) -> None:
         """Register the DeploymentAffinityCheck callback (global flags all False) if absent.
@@ -2313,7 +2313,7 @@ class Router:
             is_priority_group=self._is_priority_routing_group,
         )
         self.optional_callbacks.append(affinity_callback)
-        litellm.logging_callback_manager.add_litellm_callback(affinity_callback)
+        embrouter.logging_callback_manager.add_embrouter_callback(affinity_callback)
 
     def add_optional_pre_call_checks(self, optional_pre_call_checks: OptionalPreCallChecks | None):
         if optional_pre_call_checks is None:
@@ -2359,7 +2359,7 @@ class Router:
                     is_priority_group=self._is_priority_routing_group,
                 )
                 self.optional_callbacks.append(affinity_callback)
-                litellm.logging_callback_manager.add_litellm_callback(affinity_callback)
+                embrouter.logging_callback_manager.add_embrouter_callback(affinity_callback)
 
         # ---------------------------------------------------------------------
         # Encrypted content affinity
@@ -2406,7 +2406,7 @@ class Router:
             if self.optional_callbacks is None:
                 self.optional_callbacks = []
             self.optional_callbacks.append(_callback)
-            litellm.logging_callback_manager.add_litellm_callback(_callback)
+            embrouter.logging_callback_manager.add_embrouter_callback(_callback)
 
     def set_optional_pre_call_checks(self, optional_pre_call_checks: OptionalPreCallChecks | None) -> None:
         if optional_pre_call_checks is None:
@@ -2426,10 +2426,10 @@ class Router:
             for router in tuple(_live_routers)
         ):
             return
-        for cb in tuple(litellm.callbacks):
+        for cb in tuple(embrouter.callbacks):
             if type(cb) is callback_cls:
-                litellm.logging_callback_manager.remove_callback_from_list_by_object(
-                    litellm.callbacks, cb, require_self=False
+                embrouter.logging_callback_manager.remove_callback_from_list_by_object(
+                    embrouter.callbacks, cb, require_self=False
                 )
 
     def print_deployment(self, deployment: dict):
@@ -2440,13 +2440,13 @@ class Router:
         """
         try:
             _deployment_copy: Final = copy.deepcopy(deployment)
-            litellm_params: Final[dict] = _deployment_copy["litellm_params"]
+            embrouter_params: Final[dict] = _deployment_copy["embrouter_params"]
 
-            if litellm.redact_user_api_key_info:
+            if embrouter.redact_user_api_key_info:
                 masker: Final = SensitiveDataMasker(visible_prefix=2, visible_suffix=0)
-                _deployment_copy["litellm_params"] = masker.mask_dict(litellm_params)
-            elif "api_key" in litellm_params:
-                litellm_params["api_key"] = litellm_params["api_key"][:2] + "*" * 10
+                _deployment_copy["embrouter_params"] = masker.mask_dict(embrouter_params)
+            elif "api_key" in embrouter_params:
+                embrouter_params["api_key"] = embrouter_params["api_key"][:2] + "*" * 10
 
             return _deployment_copy
         except Exception as e:
@@ -2456,7 +2456,7 @@ class Router:
     @staticmethod
     def _deployment_params_with_request_reasoning_override(
         deployment_params: Mapping[str, object], request_kwargs: Mapping[str, object]
-    ) -> dict[str, object]:  # mutable-ok: litellm's request pipeline consumes a mutable kwargs mapping
+    ) -> dict[str, object]:  # mutable-ok: embrouter's request pipeline consumes a mutable kwargs mapping
         """Return deployment params whose equivalent effort controls cannot outrank a request override.
 
         Providers expose the same setting through several native carriers. A request-level
@@ -2488,11 +2488,11 @@ class Router:
     @staticmethod
     def _is_classifier_internal_call(kwargs: Mapping[str, object]) -> bool:
         metadata: Final = kwargs.get("metadata")
-        litellm_metadata: Final = kwargs.get("litellm_metadata")
+        embrouter_metadata: Final = kwargs.get("embrouter_metadata")
         return any(
             isinstance(candidate, Mapping)
             and candidate.get(INTERNAL_CALL_ORIGIN_METADATA_KEY) == AUTOROUTER_CLASSIFIER_CALL_ORIGIN
-            for candidate in (metadata, litellm_metadata)
+            for candidate in (metadata, embrouter_metadata)
         )
 
     def _drop_unsupported_classifier_reasoning_effort(
@@ -2512,7 +2512,7 @@ class Router:
         if self._deployment_accepts_param(deployment, model, "reasoning_effort"):
             return
         verbose_router_logger.warning(
-            "litellm.router.py: dropping classifier reasoning_effort for model=%s because the selected deployment does not support it",
+            "embrouter.router.py: dropping classifier reasoning_effort for model=%s because the selected deployment does not support it",
             model,
         )
         kwargs.pop("reasoning_effort", None)
@@ -2564,11 +2564,11 @@ class Router:
                 kwargs=kwargs,
             )
             # Check for silent model experiment
-            # Make a local copy of litellm_params to avoid mutating the Router's state
-            litellm_params: Final = self._deployment_params_with_request_reasoning_override(
-                deployment["litellm_params"], kwargs
+            # Make a local copy of embrouter_params to avoid mutating the Router's state
+            embrouter_params: Final = self._deployment_params_with_request_reasoning_override(
+                deployment["embrouter_params"], kwargs
             )
-            silent_model: Final = litellm_params.pop("silent_model", None)
+            silent_model: Final = embrouter_params.pop("silent_model", None)
 
             for silent_target in _silent_experiment_targets(silent_model):
                 # Mirroring traffic to a secondary model
@@ -2585,7 +2585,7 @@ class Router:
             kwargs.setdefault("messages", messages)
             self._update_kwargs_with_deployment(deployment=deployment, kwargs=kwargs)
             kwargs.pop("silent_model", None)  # Ensure it's not in kwargs either
-            model_name = litellm_params["model"]
+            model_name = embrouter_params["model"]
             potential_model_client: Final = self._get_client(deployment=deployment, kwargs=kwargs)
             # check if provided keys == client keys #
             dynamic_api_key: Final = kwargs.get("api_key", None)
@@ -2604,20 +2604,20 @@ class Router:
                 self.routing_strategy_pre_call_checks(deployment=deployment)
 
             input_kwargs: Final = {
-                **litellm_params,
+                **embrouter_params,
                 "messages": messages,
                 "caching": self.cache_responses,
                 "client": model_client,
                 **kwargs,
             }
-            response: Final = litellm.completion(**input_kwargs)
-            verbose_router_logger.info("litellm.completion(model=%s)\x1b[32m 200 OK\x1b[0m", model_name)
+            response: Final = embrouter.completion(**input_kwargs)
+            verbose_router_logger.info("embrouter.completion(model=%s)\x1b[32m 200 OK\x1b[0m", model_name)
 
             ## CHECK CONTENT FILTER ERROR ##
             if isinstance(response, ModelResponse):
                 _should_raise = self._should_raise_content_policy_error(model=model, response=response, kwargs=kwargs)
                 if _should_raise:
-                    raise litellm.ContentPolicyViolationError(
+                    raise embrouter.ContentPolicyViolationError(
                         message="Response output was blocked.",
                         model=model,
                         llm_provider="",
@@ -2641,7 +2641,7 @@ class Router:
 
             return response
         except Exception as e:
-            verbose_router_logger.info("litellm.completion(model=%s)\x1b[31m Exception %s\x1b[0m", model_name, e)
+            verbose_router_logger.info("embrouter.completion(model=%s)\x1b[31m Exception %s\x1b[0m", model_name, e)
             # Set per-deployment num_retries on exception for retry logic
             if deployment is not None:
                 self._set_deployment_num_retries_on_exception(e, deployment)
@@ -2658,7 +2658,7 @@ class Router:
         copy of the metadata dict so mutations (model_group, is_silent_experiment)
         never corrupt the main call's metadata.
         """
-        from litellm.litellm_core_utils.core_helpers import safe_deep_copy
+        from embrouter.embrouter_core_utils.core_helpers import safe_deep_copy
 
         silent_kwargs: Final = safe_deep_copy(kwargs)
 
@@ -2677,14 +2677,14 @@ class Router:
         # OTel spans are not safe to use across event loops. The silent
         # experiment runs in a new event loop, so strip the span to prevent
         # cross-loop tracing races or span corruption.
-        silent_kwargs["metadata"].pop("litellm_parent_otel_span", None)
+        silent_kwargs["metadata"].pop("embrouter_parent_otel_span", None)
 
         silent_kwargs["metadata"]["is_silent_experiment"] = True
 
         # Pop logging objects and call IDs to ensure a fresh logging context
         # This prevents collisions in the Proxy's database (spend_logs)
-        silent_kwargs.pop("litellm_call_id", None)
-        silent_kwargs.pop("litellm_logging_obj", None)
+        silent_kwargs.pop("embrouter_call_id", None)
+        silent_kwargs.pop("embrouter_logging_obj", None)
         silent_kwargs.pop("standard_logging_object", None)
         # DON'T pop proxy_server_request — it's needed for spend log metadata
 
@@ -2816,7 +2816,7 @@ class Router:
         except Exception as e:
             asyncio.create_task(
                 send_llm_exception_alert(
-                    litellm_router_instance=self,
+                    embrouter_router_instance=self,
                     request_kwargs=kwargs,
                     error_traceback_str=traceback.format_exc(),
                     original_exception=e,
@@ -2830,7 +2830,7 @@ class Router:
         complete_response_object_usage: Usage | None,
     ) -> None:
         """Merge partial-stream usage with fallback-stream usage on the chunk."""
-        from litellm.cost_calculator import BaseTokenUsageProcessor
+        from embrouter.cost_calculator import BaseTokenUsageProcessor
 
         usage: Final = cast(Usage | None, getattr(fallback_item, "usage", None))
         usage_objects: Final = [usage] if usage is not None else []
@@ -2900,7 +2900,7 @@ class Router:
         `deployment_slot` holds the deployment's max_parallel_requests semaphore; it is
         released when the stream is exhausted, closed, or falls back to another deployment
         """
-        from litellm.exceptions import MidStreamFallbackError
+        from embrouter.exceptions import MidStreamFallbackError
 
         held_slot: Final = deployment_slot if deployment_slot is not None else contextlib.AsyncExitStack()
 
@@ -2918,7 +2918,7 @@ class Router:
                 inner_chunks: Final[object] = getattr(model_response, "chunks", None)
                 if isinstance(inner_chunks, list):
                     self.chunks = inner_chunks
-                # Preserve hidden params (including litellm_overhead_time_ms) from original response
+                # Preserve hidden params (including embrouter_overhead_time_ms) from original response
                 if hasattr(model_response, "_hidden_params"):
                     self._hidden_params = model_response._hidden_params.copy()
 
@@ -2955,7 +2955,7 @@ class Router:
                         raise e.original_exception from e
                     raise
 
-                from litellm.main import stream_chunk_builder
+                from embrouter.main import stream_chunk_builder
 
                 complete_response_object: Final = stream_chunk_builder(chunks=model_response.chunks)
                 complete_response_object_usage: Final = cast(
@@ -3057,7 +3057,7 @@ class Router:
         the caller can combine without crossing token-naming conventions.
 
         Two sources, in priority order:
-          1. The bridge path (LiteLLMCompletionStreamingIterator) accumulates
+          1. The bridge path (EmbRouterCompletionStreamingIterator) accumulates
              chat-completion chunks while streaming — feed them through
              stream_chunk_builder to recover chat Usage, then translate
              (prompt_tokens → input_tokens, completion_tokens → output_tokens).
@@ -3068,10 +3068,10 @@ class Router:
 
         Returns None when no partial usage is recoverable.
         """
-        from litellm.responses.litellm_completion_transformation.streaming_iterator import (
-            LiteLLMCompletionStreamingIterator,
+        from embrouter.responses.embrouter_completion_transformation.streaming_iterator import (
+            EmbRouterCompletionStreamingIterator,
         )
-        from litellm.types.llms.openai import (
+        from embrouter.types.llms.openai import (
             ResponseAPIUsage,
             ResponseCompletedEvent,
             ResponseFailedEvent,
@@ -3081,11 +3081,11 @@ class Router:
         # Bridge subclass is the only iterator that accumulates chat-completion
         # chunks. isinstance narrows the type so we can read the attribute
         # directly instead of getattr-ing on the base class.
-        if isinstance(source_iterator, LiteLLMCompletionStreamingIterator):
+        if isinstance(source_iterator, EmbRouterCompletionStreamingIterator):
             chunks: Final = source_iterator.collected_chat_completion_chunks
             if chunks:
                 try:
-                    from litellm.main import stream_chunk_builder
+                    from embrouter.main import stream_chunk_builder
 
                     built: Final = stream_chunk_builder(chunks=chunks)
                     # stream_chunk_builder returns ModelResponse |
@@ -3123,7 +3123,7 @@ class Router:
 
     @staticmethod
     def _combine_responses_fallback_usage(
-        fallback_item: "BaseLiteLLMOpenAIResponseObject",
+        fallback_item: "BaseEmbRouterOpenAIResponseObject",
         partial_usage: "ResponseAPIUsage",
     ) -> None:
         """
@@ -3140,7 +3140,7 @@ class Router:
         and produce a clean ResponseAPIUsage — no token-naming split, no
         setattr bypass.
         """
-        from litellm.types.llms.openai import (
+        from embrouter.types.llms.openai import (
             ResponseAPIUsage,
             ResponseCompletedEvent,
             ResponseFailedEvent,
@@ -3239,7 +3239,7 @@ class Router:
         returned iterator is never wrapped by the chat completions
         fallback handler. Without this wrapper, MidStreamFallbackError
         raised mid-stream from the underlying CustomStreamWrapper (used by
-        LiteLLMCompletionStreamingIterator when the Responses API is
+        EmbRouterCompletionStreamingIterator when the Responses API is
         served via the completion bridge) propagates unhandled and the
         configured cross-provider fallback never fires.
 
@@ -3253,8 +3253,8 @@ class Router:
           - Stream cleanup: shielded aclose() on both source and fallback
             iterators on terminate.
         """
-        from litellm.exceptions import MidStreamFallbackError
-        from litellm.responses.streaming_iterator import (
+        from embrouter.exceptions import MidStreamFallbackError
+        from embrouter.responses.streaming_iterator import (
             BaseResponsesAPIStreamingIterator,
             _get_openai_response_types,
         )
@@ -3294,13 +3294,13 @@ class Router:
                 # defaults elsewhere. This keeps inherited methods (e.g.
                 # _check_max_streaming_duration, _handle_failure) safe to call.
                 #
-                # The bridge path (LiteLLMCompletionStreamingIterator used by
+                # The bridge path (EmbRouterCompletionStreamingIterator used by
                 # Anthropic/Bedrock/Vertex) does not call super().__init__ and
                 # is missing many of these attributes — use getattr fallbacks
                 # so wrapper construction never raises AttributeError. The
-                # bridge stores the logging object as `litellm_logging_obj`.
+                # bridge stores the logging object as `embrouter_logging_obj`.
                 # base class declares non-Optional types for these
-                # fields but the bridge path (LiteLLMCompletionStreamingIterator)
+                # fields but the bridge path (EmbRouterCompletionStreamingIterator)
                 # can legitimately omit them at runtime — keep the None
                 # fallback. Same lines passed mypy on the pre-fix file
                 # because the surrounding function body wasn't fully
@@ -3311,7 +3311,7 @@ class Router:
                 self.logging_obj = getattr(
                     source_iterator,
                     "logging_obj",
-                    getattr(source_iterator, "litellm_logging_obj", None),
+                    getattr(source_iterator, "embrouter_logging_obj", None),
                 )
                 self.finished = False
                 self.responses_api_provider_config = getattr(source_iterator, "responses_api_provider_config", None)
@@ -3325,7 +3325,7 @@ class Router:
                 self._completed_response_cache_hit = None
                 self._persist_completed_response_before_logging = True
                 self._stream_created_time = time.time()
-                self.litellm_metadata = getattr(source_iterator, "litellm_metadata", None)
+                self.embrouter_metadata = getattr(source_iterator, "embrouter_metadata", None)
                 self.custom_llm_provider = getattr(source_iterator, "custom_llm_provider", None)
                 self.request_data = getattr(source_iterator, "request_data", {}) or {}
                 self.call_type = getattr(source_iterator, "call_type", None)
@@ -3430,7 +3430,7 @@ class Router:
         _aresponses_streaming_iterator to keep each function's cyclomatic complexity within
         the repo's C901 budget.
         """
-        from litellm.exceptions import MidStreamFallbackError
+        from embrouter.exceptions import MidStreamFallbackError
 
         partial_usage: Final = Router._extract_partial_responses_usage(source_iterator)
         fallback_response = None  # rebind-ok: pre-init so finally can close it if a fallback was actually attempted
@@ -3455,19 +3455,19 @@ class Router:
                     e.generated_content,
                 )
             # The Responses-API path stores observability metadata
-            # under "litellm_metadata" (not the default "metadata") —
+            # under "embrouter_metadata" (not the default "metadata") —
             # see _ageneric_api_call_with_fallbacks. Mirroring that
             # here ensures model_group, model_group_alias, and trace
-            # ids land in the same key litellm.aresponses reads from.
+            # ids land in the same key embrouter.aresponses reads from.
             self._update_kwargs_before_fallbacks(
                 model=model_group,
                 kwargs=initial_kwargs,
-                metadata_variable_name="litellm_metadata",
+                metadata_variable_name="embrouter_metadata",
             )
             # The content-policy dispatch branch matches on the trigger's own type, so a refusal's
             # MidStreamFallbackError envelope is unwrapped here or the wrong fallback list is consulted.
             fallback_trigger: Final[Exception] = (
-                e.original_exception if isinstance(e.original_exception, litellm.ContentPolicyViolationError) else e
+                e.original_exception if isinstance(e.original_exception, embrouter.ContentPolicyViolationError) else e
             )
             fallback_response = await self.async_function_with_fallbacks_common_utils(  # rebind-ok: set on success
                 e=fallback_trigger,
@@ -3523,7 +3523,7 @@ class Router:
         (raised by CustomStreamWrapper.__next__) triggers the Router's
         fallback chain instead of surfacing directly to the caller.
         """
-        from litellm.exceptions import MidStreamFallbackError
+        from embrouter.exceptions import MidStreamFallbackError
 
         class SyncFallbackStreamWrapper(FallbackAwareStreamWrapper):
             def __init__(self, sync_generator: Generator):
@@ -3560,7 +3560,7 @@ class Router:
                         raise e.original_exception from e
                     raise
 
-                from litellm.main import stream_chunk_builder
+                from embrouter.main import stream_chunk_builder
 
                 complete_response_object: Final = stream_chunk_builder(chunks=model_response.chunks)
                 complete_response_object_usage: Final = cast(
@@ -3713,11 +3713,11 @@ class Router:
             self._track_deployment_metrics(deployment=deployment, parent_otel_span=parent_otel_span)
 
             # Check for silent model experiment
-            # Make a local copy of litellm_params to avoid mutating the Router's state
-            litellm_params: Final = self._deployment_params_with_request_reasoning_override(
-                deployment["litellm_params"], kwargs
+            # Make a local copy of embrouter_params to avoid mutating the Router's state
+            embrouter_params: Final = self._deployment_params_with_request_reasoning_override(
+                deployment["embrouter_params"], kwargs
             )
-            silent_model: Final = litellm_params.pop("silent_model", None)
+            silent_model: Final = embrouter_params.pop("silent_model", None)
 
             for silent_target in _silent_experiment_targets(silent_model):
                 # Mirroring traffic to a secondary model
@@ -3734,7 +3734,7 @@ class Router:
             self._update_kwargs_with_deployment(deployment=deployment, kwargs=kwargs)
             kwargs.pop("silent_model", None)  # Ensure it's not in kwargs either
 
-            model_name = litellm_params["model"]
+            model_name = embrouter_params["model"]
 
             model_client: Final = self._get_async_openai_model_client(
                 deployment=deployment,
@@ -3743,7 +3743,7 @@ class Router:
             self.total_calls[model_name] += 1
 
             input_kwargs: Final = {
-                **litellm_params,
+                **embrouter_params,
                 "messages": messages,
                 "caching": self.cache_responses,
                 "client": model_client,
@@ -3752,7 +3752,7 @@ class Router:
             input_kwargs.pop("silent_model", None)
             input_kwargs.pop("include_fallback_errors", None)
 
-            logging_obj: Final[LiteLLMLogging | None] = kwargs.get("litellm_logging_obj", None)
+            logging_obj: Final[EmbRouterLogging | None] = kwargs.get("embrouter_logging_obj", None)
 
             max_parallel_requests_limit: Final = self._get_client(
                 deployment=deployment,
@@ -3768,7 +3768,7 @@ class Router:
                     logging_obj=logging_obj,
                     parent_otel_span=parent_otel_span,
                 )
-                response = await litellm.acompletion(**compacted_input)
+                response = await embrouter.acompletion(**compacted_input)
 
                 ## CHECK CONTENT FILTER ERROR ##
                 if isinstance(response, ModelResponse):
@@ -3776,7 +3776,7 @@ class Router:
                         model=model, response=response, kwargs=kwargs
                     )
                     if _should_raise:
-                        raise litellm.ContentPolicyViolationError(
+                        raise embrouter.ContentPolicyViolationError(
                             message="Response output was blocked.",
                             model=model,
                             llm_provider="",
@@ -3790,7 +3790,7 @@ class Router:
                     await response.fetch_stream()
 
                 self.success_calls[model_name] += 1
-                verbose_router_logger.info("litellm.acompletion(model=%s)\x1b[32m 200 OK\x1b[0m", model_name)
+                verbose_router_logger.info("embrouter.acompletion(model=%s)\x1b[32m 200 OK\x1b[0m", model_name)
                 # debug how often this deployment picked
                 self._track_deployment_metrics(
                     deployment=deployment,
@@ -3807,12 +3807,12 @@ class Router:
                     )
 
                 return response
-        except litellm.Timeout as e:
-            deployment_request_timeout_param: Final = _timeout_debug_deployment_dict.get("litellm_params", {}).get(
+        except embrouter.Timeout as e:
+            deployment_request_timeout_param: Final = _timeout_debug_deployment_dict.get("embrouter_params", {}).get(
                 "request_timeout", None
             )
-            deployment_timeout_param = _timeout_debug_deployment_dict.get("litellm_params", {}).get("timeout", None)
-            if litellm.expose_router_debug_in_errors:
+            deployment_timeout_param = _timeout_debug_deployment_dict.get("embrouter_params", {}).get("timeout", None)
+            if embrouter.expose_router_debug_in_errors:
                 e.message += f"\n\nDeployment Info: request_timeout: {deployment_request_timeout_param}\ntimeout: {deployment_timeout_param}"
             # Set per-deployment num_retries on exception for retry logic
             if deployment is not None:
@@ -3820,7 +3820,7 @@ class Router:
                 self._stamp_failed_deployment_id_with_effective_model_info(e, deployment, kwargs)
             raise e
         except Exception as e:
-            verbose_router_logger.info("litellm.acompletion(model=%s)\x1b[31m Exception %s\x1b[0m", model_name, e)
+            verbose_router_logger.info("embrouter.acompletion(model=%s)\x1b[31m Exception %s\x1b[0m", model_name, e)
             if model_name is not None:
                 self.fail_calls[model_name] += 1
             # Set per-deployment num_retries on exception for retry logic
@@ -3837,15 +3837,15 @@ class Router:
     ) -> None:
         """
         Adds/updates to kwargs:
-        - litellm_trace_id
+        - embrouter_trace_id
         - metadata
 
         num_retries is deliberately left as the caller passed it, with no default filled in.
         async_function_with_retries resolves the router/global default itself, and it can only
-        honour the precedence request > deployment litellm_params > litellm_settings while an
+        honour the precedence request > deployment embrouter_params > embrouter_settings while an
         absent num_retries still means "the caller did not ask for one".
         """
-        kwargs.setdefault("litellm_trace_id", str(uuid.uuid4()))
+        kwargs.setdefault("embrouter_trace_id", str(uuid.uuid4()))
         model_group_alias: str | None = None
         if self._get_model_from_alias(model=model):
             model_group_alias = model
@@ -3855,7 +3855,7 @@ class Router:
 
     def _set_deployment_num_retries_on_exception(self, exception: Exception, deployment: dict) -> None:
         """
-        Set num_retries from deployment litellm_params on the exception.
+        Set num_retries from deployment embrouter_params on the exception.
 
         This allows the retry logic in async_function_with_retries to use
         per-deployment retry settings instead of the global setting.
@@ -3864,8 +3864,8 @@ class Router:
         if hasattr(exception, "num_retries") and exception.num_retries is not None:
             return
 
-        litellm_params: Final = deployment.get("litellm_params", {})
-        dep_num_retries: Final = litellm_params.get("num_retries")
+        embrouter_params: Final = deployment.get("embrouter_params", {})
+        dep_num_retries: Final = embrouter_params.get("num_retries")
         if dep_num_retries is not None:
             try:
                 exception.num_retries = int(dep_num_retries)  # Handle both int and str
@@ -3908,16 +3908,16 @@ class Router:
         if isinstance(deployment_id, str) and deployment_id:
             exception.retry_skip_deployment_id = deployment_id  # pyright: ignore[reportAttributeAccessIssue]  # dynamic stamp, read by _deployment_ids_to_skip_on_retry
 
-    def _update_kwargs_with_default_litellm_params(
+    def _update_kwargs_with_default_embrouter_params(
         self, kwargs: dict, metadata_variable_name: str | None = "metadata"
     ) -> None:
         """
-        Adds default litellm params to kwargs, if set.
+        Adds default embrouter params to kwargs, if set.
 
-        Handles inserting this as either "metadata" or "litellm_metadata" depending on the metadata_variable_name
+        Handles inserting this as either "metadata" or "embrouter_metadata" depending on the metadata_variable_name
         """
         # 1) copy your defaults and pull out metadata
-        defaults: Final = self.default_litellm_params.copy()
+        defaults: Final = self.default_embrouter_params.copy()
         metadata_defaults: Final = defaults.pop("metadata", {}) or {}
 
         # 2) add any non-metadata defaults that aren't already in kwargs
@@ -3926,7 +3926,7 @@ class Router:
                 continue
             kwargs.setdefault(key, value)
 
-        # 3) merge in metadata, this handles inserting this as either "metadata" or "litellm_metadata"
+        # 3) merge in metadata, this handles inserting this as either "metadata" or "embrouter_metadata"
         kwargs.setdefault(metadata_variable_name, {}).update(metadata_defaults)
 
     def _handle_clientside_credential(
@@ -3945,20 +3945,20 @@ class Router:
         underlying deployment still applies to this call.
         """
         model_info: Final = deployment.get("model_info", {}).copy()
-        litellm_params: Final = deployment["litellm_params"].copy()
-        dynamic_litellm_params: Final = get_dynamic_litellm_params(litellm_params=litellm_params, request_kwargs=kwargs)
+        embrouter_params: Final = deployment["embrouter_params"].copy()
+        dynamic_embrouter_params: Final = get_dynamic_embrouter_params(embrouter_params=embrouter_params, request_kwargs=kwargs)
         # Use deployment model_name as model_group for generating model_id
         metadata_variable_name: Final = _get_router_metadata_variable_name(
             function_name=function_name,
         )
         model_group: Final = kwargs.get(metadata_variable_name, {}).get("model_group")
-        _model_id: Final = self.generate_model_id(model_group=model_group, litellm_params=dynamic_litellm_params)
+        _model_id: Final = self.generate_model_id(model_group=model_group, embrouter_params=dynamic_embrouter_params)
         original_model_id: Final = model_info.get("id")
         model_info["id"] = _model_id
         model_info["original_model_id"] = original_model_id
         deployment_pydantic_obj: Final = Deployment(
             model_name=model_group,
-            litellm_params=LiteLLM_Params(**dynamic_litellm_params),
+            embrouter_params=EmbRouter_Params(**dynamic_embrouter_params),
             model_info=model_info,
         )
         Router._register_deployment_pricing(deployment=deployment_pydantic_obj)
@@ -3967,11 +3967,11 @@ class Router:
     @staticmethod
     def _merge_tools_from_deployment(deployment: dict, kwargs: dict) -> None:
         """
-        Merge tools from deployment litellm_params with request kwargs.
+        Merge tools from deployment embrouter_params with request kwargs.
         When both have tools, concatenate them (deployment tools first, then request tools).
         tool_choice: use request value if provided, else deployment's.
         """
-        dep_params_raw: Final = deployment.get("litellm_params", {}) or {}
+        dep_params_raw: Final = deployment.get("embrouter_params", {}) or {}
         if isinstance(dep_params_raw, dict):
             dep_params = dep_params_raw
         else:
@@ -3993,7 +3993,7 @@ class Router:
         """
         3 jobs:
         - Adds selected deployment, model_info and api_base to kwargs["metadata"] (used for logging)
-        - Adds default litellm params to kwargs, if set.
+        - Adds default embrouter params to kwargs, if set.
         - Merges tools from deployment with request (proxy-configured tools + request tools).
         """
         for key in self._forwarded_alias_marker_keys_the_deployment_sets(
@@ -4003,16 +4003,16 @@ class Router:
         self._merge_tools_from_deployment(deployment=deployment, kwargs=kwargs)
 
         model_info = deployment.get("model_info", {}).copy()
-        deployment_litellm_model_name = deployment["litellm_params"]["model"]
-        deployment_api_base = deployment["litellm_params"].get("api_base")
+        deployment_embrouter_model_name = deployment["embrouter_params"]["model"]
+        deployment_api_base = deployment["embrouter_params"].get("api_base")
         deployment_model_name: Final = deployment["model_name"]
         if is_clientside_credential(request_kwargs=kwargs):
             deployment_pydantic_obj: Final = self._handle_clientside_credential(
                 deployment=deployment, kwargs=kwargs, function_name=function_name
             )
             model_info = deployment_pydantic_obj.model_info.model_dump()
-            deployment_litellm_model_name = deployment_pydantic_obj.litellm_params.model
-            deployment_api_base = deployment_pydantic_obj.litellm_params.api_base
+            deployment_embrouter_model_name = deployment_pydantic_obj.embrouter_params.model
+            deployment_api_base = deployment_pydantic_obj.embrouter_params.api_base
 
         metadata_variable_name: Final = _get_router_metadata_variable_name(
             function_name=function_name,
@@ -4020,7 +4020,7 @@ class Router:
 
         kwargs.setdefault(metadata_variable_name, {}).update(
             {
-                "deployment": deployment_litellm_model_name,
+                "deployment": deployment_embrouter_model_name,
                 "model_info": model_info,
                 "api_base": deployment_api_base,
                 "deployment_model_name": deployment_model_name,
@@ -4040,7 +4040,7 @@ class Router:
         )
 
         ## DEPLOYMENT-LEVEL TAGS
-        deployment_tags: Final = deployment.get("litellm_params", {}).get("tags")
+        deployment_tags: Final = deployment.get("embrouter_params", {}).get("tags")
         if deployment_tags:
             existing_tags = kwargs[metadata_variable_name].get("tags") or []
             merged_tags: Final = list(existing_tags)
@@ -4050,7 +4050,7 @@ class Router:
             kwargs[metadata_variable_name]["tags"] = merged_tags
 
         ## CREDENTIAL NAME AS TAG
-        credential_name: Final = deployment.get("litellm_params", {}).get("litellm_credential_name")
+        credential_name: Final = deployment.get("embrouter_params", {}).get("embrouter_credential_name")
         if credential_name:
             credential_tag: Final = f"Credential: {credential_name}"
             existing_tags = kwargs[metadata_variable_name].get("tags") or []
@@ -4061,7 +4061,7 @@ class Router:
         kwargs["model_info"] = model_info
 
         if function_name == "_ageneric_api_call_with_fallbacks":
-            from litellm.passthrough.timeout_utils import (
+            from embrouter.passthrough.timeout_utils import (
                 resolve_llm_passthrough_timeout,
             )
 
@@ -4077,18 +4077,18 @@ class Router:
                 if self.stream_timeout is not None
                 else self.request_timeout
                 if self.request_timeout is not None
-                else self.default_litellm_params.get("stream_timeout")
+                else self.default_embrouter_params.get("stream_timeout")
             )
             kwargs["timeout"] = resolve_llm_passthrough_timeout(
                 kwargs=kwargs,
-                litellm_params=deployment["litellm_params"],
+                embrouter_params=deployment["embrouter_params"],
                 router_timeout=_router_timeout,
                 router_stream_timeout=_router_stream_timeout,
             )
         else:
-            kwargs["timeout"] = self._get_timeout(kwargs=kwargs, data=deployment["litellm_params"])
+            kwargs["timeout"] = self._get_timeout(kwargs=kwargs, data=deployment["embrouter_params"])
 
-        self._update_kwargs_with_default_litellm_params(kwargs=kwargs, metadata_variable_name=metadata_variable_name)
+        self._update_kwargs_with_default_embrouter_params(kwargs=kwargs, metadata_variable_name=metadata_variable_name)
 
     def _get_async_openai_model_client(self, deployment: dict, kwargs: dict):
         """
@@ -4118,10 +4118,10 @@ class Router:
         """Helper to get stream timeout from kwargs or deployment params"""
         return (
             kwargs.get("stream_timeout", None)  # the params dynamically set by user
-            or data.get("stream_timeout", None)  # timeout set on litellm_params for this deployment
+            or data.get("stream_timeout", None)  # timeout set on embrouter_params for this deployment
             or self.stream_timeout  # timeout set on router
-            or self.request_timeout  # litellm_settings.request_timeout (per-attempt)
-            or self.default_litellm_params.get("stream_timeout", None)
+            or self.request_timeout  # embrouter_settings.request_timeout (per-attempt)
+            or self.default_embrouter_params.get("stream_timeout", None)
         )
 
     def _get_non_stream_timeout(self, kwargs: dict, data: dict) -> float | int | None:
@@ -4129,11 +4129,11 @@ class Router:
         timeout: Final = (
             kwargs.get("timeout", None)  # the params dynamically set by user
             or kwargs.get("request_timeout", None)  # the params dynamically set by user
-            or data.get("timeout", None)  # timeout set on litellm_params for this deployment
-            or data.get("request_timeout", None)  # timeout set on litellm_params for this deployment
-            or self.request_timeout  # litellm_settings.request_timeout (per-attempt)
+            or data.get("timeout", None)  # timeout set on embrouter_params for this deployment
+            or data.get("request_timeout", None)  # timeout set on embrouter_params for this deployment
+            or self.request_timeout  # embrouter_settings.request_timeout (per-attempt)
             or self.timeout  # timeout set on router (router_settings.timeout)
-            or self.default_litellm_params.get("timeout", None)
+            or self.default_embrouter_params.get("timeout", None)
         )
         return timeout
 
@@ -4156,15 +4156,15 @@ class Router:
     ):
         """
         Async Batch Completion. Used for 2 scenarios:
-        1. Batch Process 1 request to N models on litellm.Router. Pass messages as List[Dict[str, str]] to use this
-        2. Batch Process N requests to M models on litellm.Router. Pass messages as List[List[Dict[str, str]]] to use this
+        1. Batch Process 1 request to N models on embrouter.Router. Pass messages as List[Dict[str, str]] to use this
+        2. Batch Process N requests to M models on embrouter.Router. Pass messages as List[List[Dict[str, str]]] to use this
 
         Example Request for 1 request to N models:
         ```
             response = await router.abatch_completion(
                 models=["gpt-3.5-turbo", "groq-llama"],
                 messages=[
-                    {"role": "user", "content": "is litellm becoming a better product ?"}
+                    {"role": "user", "content": "is embrouter becoming a better product ?"}
                 ],
                 max_tokens=15,
             )
@@ -4176,7 +4176,7 @@ class Router:
             response = await router.abatch_completion(
                 models=["gpt-3.5-turbo", "groq-llama"],
                 messages=[
-                    [{"role": "user", "content": "is litellm becoming a better product ?"}],
+                    [{"role": "user", "content": "is embrouter becoming a better product ?"}],
                     [{"role": "user", "content": "who is this"}],
                 ],
             )
@@ -4245,7 +4245,7 @@ class Router:
         self, model: str, messages: list[list[AllMessageValues]], **kwargs
     ):
         """
-        Async Batch Completion - Batch Process multiple Messages to one model_group on litellm.Router
+        Async Batch Completion - Batch Process multiple Messages to one model_group on embrouter.Router
 
         Use this for sending multiple requests to 1 model
 
@@ -4433,7 +4433,7 @@ class Router:
             try:
                 _response: Final = await self.acompletion(model=model, messages=messages, stream=stream, **kwargs)
                 _response._hidden_params.setdefault("additional_headers", {})
-                _response._hidden_params["additional_headers"].update({"x-litellm-request-prioritization-used": True})
+                _response._hidden_params["additional_headers"].update({"x-embrouter-request-prioritization-used": True})
                 return _response
             except Exception as e:
                 setattr(e, "priority", priority)
@@ -4441,7 +4441,7 @@ class Router:
         else:
             # Clean up the request from the scheduler queue also before raising the timeout exception
             await self.scheduler.remove_request(request_id=item.request_id, model_name=item.model_name)
-            raise litellm.Timeout(
+            raise embrouter.Timeout(
                 message="Request timed out while polling queue",
                 model=model,
                 llm_provider="openai",
@@ -4495,7 +4495,7 @@ class Router:
                 if isinstance(_response._hidden_params, dict):
                     _response._hidden_params.setdefault("additional_headers", {})
                     _response._hidden_params["additional_headers"].update(
-                        {"x-litellm-request-prioritization-used": True}
+                        {"x-embrouter-request-prioritization-used": True}
                     )
                 return _response
             except Exception as e:
@@ -4504,7 +4504,7 @@ class Router:
         else:
             # Clean up the request from the scheduler queue also before raising the timeout exception
             await self.scheduler.remove_request(request_id=item.request_id, model_name=item.model_name)
-            raise litellm.Timeout(
+            raise embrouter.Timeout(
                 message="Request timed out while polling queue",
                 model=model,
                 llm_provider="openai",
@@ -4515,12 +4515,12 @@ class Router:
         if model_list is None or len(model_list) != 1:
             return False
 
-        litellm_model: Final = model_list[0]["litellm_params"].get("model", None)
-        if litellm_model is None or "/" not in litellm_model:
+        embrouter_model: Final = model_list[0]["embrouter_params"].get("model", None)
+        if embrouter_model is None or "/" not in embrouter_model:
             return False
 
-        split_litellm_model: Final = litellm_model.split("/")[0]
-        return split_litellm_model in litellm._known_custom_logger_compatible_callbacks
+        split_embrouter_model: Final = embrouter_model.split("/")[0]
+        return split_embrouter_model in embrouter._known_custom_logger_compatible_callbacks
 
     async def _prompt_management_factory(
         self,
@@ -4528,9 +4528,9 @@ class Router:
         messages: list[AllMessageValues],
         kwargs: dict[str, Any],
     ):
-        litellm_logging_object = kwargs.get("litellm_logging_obj", None)
-        if litellm_logging_object is None:
-            litellm_logging_object, kwargs = function_setup(
+        embrouter_logging_object = kwargs.get("embrouter_logging_obj", None)
+        if embrouter_logging_object is None:
+            embrouter_logging_object, kwargs = function_setup(
                 **{
                     "original_function": "acompletion",
                     "rules_obj": Rules(),
@@ -4538,7 +4538,7 @@ class Router:
                     **kwargs,
                 }
             )
-        litellm_logging_object = cast(LiteLLMLogging, litellm_logging_object)
+        embrouter_logging_object = cast(EmbRouterLogging, embrouter_logging_object)
         specific_deployment: Final = kwargs.pop("specific_deployment", None)
         prompt_management_deployment: Final = await self.async_get_available_deployment(
             model=model,
@@ -4548,22 +4548,22 @@ class Router:
         )
 
         self._update_kwargs_with_deployment(deployment=prompt_management_deployment, kwargs=kwargs)
-        data: Final = prompt_management_deployment["litellm_params"].copy()
+        data: Final = prompt_management_deployment["embrouter_params"].copy()
 
-        litellm_model: Final = data.get("model", None)
+        embrouter_model: Final = data.get("model", None)
 
-        # litellm_agent/ prefix only strips the model name, no prompt_id needed
-        is_litellm_agent_model: Final = isinstance(litellm_model, str) and litellm_model.startswith("litellm_agent/")
+        # embrouter_agent/ prefix only strips the model name, no prompt_id needed
+        is_embrouter_agent_model: Final = isinstance(embrouter_model, str) and embrouter_model.startswith("embrouter_agent/")
 
-        prompt_id = kwargs.get("prompt_id") or prompt_management_deployment["litellm_params"].get("prompt_id", None)
-        prompt_variables: Final = kwargs.get("prompt_variables") or prompt_management_deployment["litellm_params"].get(
+        prompt_id = kwargs.get("prompt_id") or prompt_management_deployment["embrouter_params"].get("prompt_id", None)
+        prompt_variables: Final = kwargs.get("prompt_variables") or prompt_management_deployment["embrouter_params"].get(
             "prompt_variables", None
         )
-        prompt_label: Final = kwargs.get("prompt_label", None) or prompt_management_deployment["litellm_params"].get(
+        prompt_label: Final = kwargs.get("prompt_label", None) or prompt_management_deployment["embrouter_params"].get(
             "prompt_label", None
         )
 
-        if not is_litellm_agent_model and (prompt_id is None or not isinstance(prompt_id, str)):
+        if not is_embrouter_agent_model and (prompt_id is None or not isinstance(prompt_id, str)):
             raise ValueError(f"Prompt ID is not set or not a string. Got={prompt_id}, type={type(prompt_id)}")
         if prompt_variables is not None and not isinstance(prompt_variables, dict):
             raise ValueError(
@@ -4574,8 +4574,8 @@ class Router:
             model,
             messages,
             optional_params,
-        ) = litellm_logging_object.get_chat_completion_prompt(
-            model=litellm_model,
+        ) = embrouter_logging_object.get_chat_completion_prompt(
+            model=embrouter_model,
             messages=messages,
             non_default_params=get_non_default_completion_params(kwargs=kwargs),
             prompt_id=prompt_id,
@@ -4599,7 +4599,7 @@ class Router:
         kwargs = {**filtered_data, **kwargs, **optional_params}
         kwargs["model"] = model
         kwargs["messages"] = messages
-        kwargs["litellm_logging_obj"] = litellm_logging_object
+        kwargs["embrouter_logging_obj"] = embrouter_logging_object
         kwargs["prompt_id"] = prompt_id
         kwargs["prompt_variables"] = prompt_variables
         kwargs["prompt_label"] = prompt_label
@@ -4607,7 +4607,7 @@ class Router:
         _model_list: Final = self.get_model_list(model_name=model)
         if _model_list is None or len(_model_list) == 0:  # if direct call to model
             kwargs.pop("original_function")
-            return await litellm.acompletion(**kwargs)
+            return await embrouter.acompletion(**kwargs)
 
         return await self.async_function_with_fallbacks(**kwargs)
 
@@ -4634,7 +4634,7 @@ class Router:
                 request_kwargs=kwargs,
             )
             self._update_kwargs_with_deployment(deployment=deployment, kwargs=kwargs)
-            data: Final = deployment["litellm_params"].copy()
+            data: Final = deployment["embrouter_params"].copy()
 
             model_client: Final = self._get_async_openai_model_client(
                 deployment=deployment,
@@ -4646,7 +4646,7 @@ class Router:
             ### DEPLOYMENT-SPECIFIC PRE-CALL CHECKS ### (e.g. update rpm pre-call. Raise error, if deployment over limit)
             self.routing_strategy_pre_call_checks(deployment=deployment)
 
-            response: Final = litellm.image_generation(
+            response: Final = embrouter.image_generation(
                 **{
                     **data,
                     "prompt": prompt,
@@ -4656,10 +4656,10 @@ class Router:
                 }
             )
             self.success_calls[model_name] += 1
-            verbose_router_logger.info("litellm.image_generation(model=%s)\x1b[32m 200 OK\x1b[0m", model_name)
+            verbose_router_logger.info("embrouter.image_generation(model=%s)\x1b[32m 200 OK\x1b[0m", model_name)
             return response
         except Exception as e:
-            verbose_router_logger.info("litellm.image_generation(model=%s)\x1b[31m Exception %s\x1b[0m", model_name, e)
+            verbose_router_logger.info("embrouter.image_generation(model=%s)\x1b[31m Exception %s\x1b[0m", model_name, e)
             if model_name is not None:
                 self.fail_calls[model_name] += 1
             self._stamp_retry_skip_deployment_id(e, kwargs)
@@ -4677,7 +4677,7 @@ class Router:
         except Exception as e:
             asyncio.create_task(
                 send_llm_exception_alert(
-                    litellm_router_instance=self,
+                    embrouter_router_instance=self,
                     request_kwargs=kwargs,
                     error_traceback_str=traceback.format_exc(),
                     original_exception=e,
@@ -4698,7 +4698,7 @@ class Router:
             )
             self._update_kwargs_with_deployment(deployment=deployment, kwargs=kwargs)
 
-            data: Final = deployment["litellm_params"].copy()
+            data: Final = deployment["embrouter_params"].copy()
             model_name = data["model"]
 
             model_client: Final = self._get_async_openai_model_client(
@@ -4708,7 +4708,7 @@ class Router:
 
             self.total_calls[model_name] += 1
             async with self._deployment_slot(deployment=deployment, kwargs=kwargs, parent_otel_span=parent_otel_span):
-                response = await litellm.aimage_generation(
+                response = await embrouter.aimage_generation(
                     **{
                         **data,
                         "prompt": prompt,
@@ -4719,10 +4719,10 @@ class Router:
                 )
 
             self.success_calls[model_name] += 1
-            verbose_router_logger.info("litellm.aimage_generation(model=%s)\x1b[32m 200 OK\x1b[0m", model_name)
+            verbose_router_logger.info("embrouter.aimage_generation(model=%s)\x1b[32m 200 OK\x1b[0m", model_name)
             return response
         except Exception as e:
-            verbose_router_logger.info("litellm.aimage_generation(model=%s)\x1b[31m Exception %s\x1b[0m", model_name, e)
+            verbose_router_logger.info("embrouter.aimage_generation(model=%s)\x1b[31m Exception %s\x1b[0m", model_name, e)
             if model_name is not None:
                 self.fail_calls[model_name] += 1
             self._stamp_retry_skip_deployment_id(e, kwargs)
@@ -4733,11 +4733,11 @@ class Router:
         Example Usage:
 
         ```
-        from litellm import Router
+        from embrouter import Router
         client = Router(model_list = [
             {
                 "model_name": "whisper",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "whisper-1",
                 },
             },
@@ -4762,7 +4762,7 @@ class Router:
         except Exception as e:
             asyncio.create_task(
                 send_llm_exception_alert(
-                    litellm_router_instance=self,
+                    embrouter_router_instance=self,
                     request_kwargs=kwargs,
                     error_traceback_str=traceback.format_exc(),
                     original_exception=e,
@@ -4783,7 +4783,7 @@ class Router:
             )
 
             self._update_kwargs_with_deployment(deployment=deployment, kwargs=kwargs)
-            data: Final = deployment["litellm_params"].copy()
+            data: Final = deployment["embrouter_params"].copy()
             model_client: Final = self._get_async_openai_model_client(
                 deployment=deployment,
                 kwargs=kwargs,
@@ -4791,7 +4791,7 @@ class Router:
 
             self.total_calls[model_name] += 1
             async with self._deployment_slot(deployment=deployment, kwargs=kwargs, parent_otel_span=parent_otel_span):
-                response = await litellm.atranscription(
+                response = await embrouter.atranscription(
                     **{
                         **data,
                         "file": file,
@@ -4802,10 +4802,10 @@ class Router:
                 )
 
             self.success_calls[model_name] += 1
-            verbose_router_logger.info("litellm.atranscription(model=%s)\x1b[32m 200 OK\x1b[0m", model_name)
+            verbose_router_logger.info("embrouter.atranscription(model=%s)\x1b[32m 200 OK\x1b[0m", model_name)
             return response
         except Exception as e:
-            verbose_router_logger.info("litellm.atranscription(model=%s)\x1b[31m Exception %s\x1b[0m", model_name, e)
+            verbose_router_logger.info("embrouter.atranscription(model=%s)\x1b[31m Exception %s\x1b[0m", model_name, e)
             if model_name is not None:
                 self.fail_calls[model_name] += 1
             self._stamp_retry_skip_deployment_id(e, kwargs)
@@ -4816,11 +4816,11 @@ class Router:
         Example Usage:
 
         ```
-        from litellm import Router
+        from embrouter import Router
         client = Router(model_list = [
             {
                 "model_name": "tts",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "tts-1",
                 },
             },
@@ -4855,7 +4855,7 @@ class Router:
         except Exception as e:
             asyncio.create_task(
                 send_llm_exception_alert(
-                    litellm_router_instance=self,
+                    embrouter_router_instance=self,
                     request_kwargs=kwargs,
                     error_traceback_str=traceback.format_exc(),
                     original_exception=e,
@@ -4876,7 +4876,7 @@ class Router:
             )
 
             self._update_kwargs_with_deployment(deployment=deployment, kwargs=kwargs)
-            data: Final = deployment["litellm_params"].copy()
+            data: Final = deployment["embrouter_params"].copy()
             model_client: Final = self._get_async_openai_model_client(
                 deployment=deployment,
                 kwargs=kwargs,
@@ -4884,7 +4884,7 @@ class Router:
 
             self.total_calls[model_name] += 1
             async with self._deployment_slot(deployment=deployment, kwargs=kwargs, parent_otel_span=parent_otel_span):
-                response = await litellm.aspeech(
+                response = await embrouter.aspeech(
                     **{
                         **data,
                         "input": input,
@@ -4895,10 +4895,10 @@ class Router:
                 )
 
             self.success_calls[model_name] += 1
-            verbose_router_logger.info("litellm.aspeech(model=%s)\x1b[32m 200 OK\x1b[0m", model_name)
+            verbose_router_logger.info("embrouter.aspeech(model=%s)\x1b[32m 200 OK\x1b[0m", model_name)
             return response
         except Exception as e:
-            verbose_router_logger.info("litellm.aspeech(model=%s)\x1b[31m Exception %s\x1b[0m", model_name, e)
+            verbose_router_logger.info("embrouter.aspeech(model=%s)\x1b[31m Exception %s\x1b[0m", model_name, e)
             if model_name is not None:
                 self.fail_calls[model_name] += 1
             self._stamp_retry_skip_deployment_id(e, kwargs)
@@ -4917,7 +4917,7 @@ class Router:
         except Exception as e:
             asyncio.create_task(
                 send_llm_exception_alert(
-                    litellm_router_instance=self,
+                    embrouter_router_instance=self,
                     request_kwargs=kwargs,
                     error_traceback_str=traceback.format_exc(),
                     original_exception=e,
@@ -4935,7 +4935,7 @@ class Router:
                 request_kwargs=kwargs,
             )
             self._update_kwargs_with_deployment(deployment=deployment, kwargs=kwargs)
-            data: Final = deployment["litellm_params"].copy()
+            data: Final = deployment["embrouter_params"].copy()
             model_name = data["model"]
 
             model_client: Final = self._get_async_openai_model_client(
@@ -4944,7 +4944,7 @@ class Router:
             )
             self.total_calls[model_name] += 1
 
-            response: Final = await litellm.arerank(
+            response: Final = await embrouter.arerank(
                 **{
                     **data,
                     "caching": self.cache_responses,
@@ -4954,10 +4954,10 @@ class Router:
             )
 
             self.success_calls[model_name] += 1
-            verbose_router_logger.info("litellm.arerank(model=%s)\x1b[32m 200 OK\x1b[0m", model_name)
+            verbose_router_logger.info("embrouter.arerank(model=%s)\x1b[32m 200 OK\x1b[0m", model_name)
             return response
         except Exception as e:
-            verbose_router_logger.info("litellm.arerank(model=%s)\x1b[31m Exception %s\x1b[0m", model_name, e)
+            verbose_router_logger.info("embrouter.arerank(model=%s)\x1b[31m Exception %s\x1b[0m", model_name, e)
             if model_name is not None:
                 self.fail_calls[model_name] += 1
             self._stamp_retry_skip_deployment_id(e, kwargs)
@@ -4987,15 +4987,15 @@ class Router:
                 request_kwargs=kwargs,
             )
 
-            data: Final = deployment["litellm_params"].copy()
-            for k, v in self.default_litellm_params.items():
+            data: Final = deployment["embrouter_params"].copy()
+            for k, v in self.default_embrouter_params.items():
                 if k not in kwargs:  # prioritize model-specific params > default router params
                     kwargs[k] = v
                 elif k == "metadata":
                     kwargs[k].update(v)
 
-            # call via litellm.completion()
-            return litellm.text_completion(**{**data, "prompt": prompt, "caching": self.cache_responses, **kwargs})
+            # call via embrouter.completion()
+            return embrouter.text_completion(**{**data, "prompt": prompt, "caching": self.cache_responses, **kwargs})
         except Exception as e:
             raise e
 
@@ -5028,7 +5028,7 @@ class Router:
         except Exception as e:
             asyncio.create_task(
                 send_llm_exception_alert(
-                    litellm_router_instance=self,
+                    embrouter_router_instance=self,
                     request_kwargs=kwargs,
                     error_traceback_str=traceback.format_exc(),
                     original_exception=e,
@@ -5048,7 +5048,7 @@ class Router:
             )
             self._update_kwargs_with_deployment(deployment=deployment, kwargs=kwargs)
 
-            data: Final = deployment["litellm_params"].copy()
+            data: Final = deployment["embrouter_params"].copy()
             model_name: Final = data["model"]
 
             model_client: Final = self._get_async_openai_model_client(
@@ -5058,7 +5058,7 @@ class Router:
             self.total_calls[model_name] += 1
 
             async with self._deployment_slot(deployment=deployment, kwargs=kwargs, parent_otel_span=parent_otel_span):
-                response = await litellm.atext_completion(
+                response = await embrouter.atext_completion(
                     **{
                         **data,
                         "prompt": prompt,
@@ -5069,10 +5069,10 @@ class Router:
                 )
 
             self.success_calls[model_name] += 1
-            verbose_router_logger.info("litellm.atext_completion(model=%s)\x1b[32m 200 OK\x1b[0m", model_name)
+            verbose_router_logger.info("embrouter.atext_completion(model=%s)\x1b[32m 200 OK\x1b[0m", model_name)
             return response
         except Exception as e:
-            verbose_router_logger.info("litellm.atext_completion(model=%s)\x1b[31m Exception %s\x1b[0m", model, e)
+            verbose_router_logger.info("embrouter.atext_completion(model=%s)\x1b[31m Exception %s\x1b[0m", model, e)
             if model is not None:
                 self.fail_calls[model] += 1
             self._stamp_retry_skip_deployment_id(e, kwargs)
@@ -5098,7 +5098,7 @@ class Router:
         except Exception as e:
             asyncio.create_task(
                 send_llm_exception_alert(
-                    litellm_router_instance=self,
+                    embrouter_router_instance=self,
                     request_kwargs=kwargs,
                     error_traceback_str=traceback.format_exc(),
                     original_exception=e,
@@ -5118,7 +5118,7 @@ class Router:
             )
             self._update_kwargs_with_deployment(deployment=deployment, kwargs=kwargs)
 
-            data: Final = deployment["litellm_params"].copy()
+            data: Final = deployment["embrouter_params"].copy()
             model_name: Final = data["model"]
 
             model_client: Final = self._get_async_openai_model_client(
@@ -5128,7 +5128,7 @@ class Router:
             self.total_calls[model_name] += 1
 
             async with self._deployment_slot(deployment=deployment, kwargs=kwargs, parent_otel_span=parent_otel_span):
-                response = await litellm.aadapter_completion(
+                response = await embrouter.aadapter_completion(
                     **{
                         **data,
                         "adapter_id": adapter_id,
@@ -5139,10 +5139,10 @@ class Router:
                 )
 
             self.success_calls[model_name] += 1
-            verbose_router_logger.info("litellm.aadapter_completion(model=%s)\x1b[32m 200 OK\x1b[0m", model_name)
+            verbose_router_logger.info("embrouter.aadapter_completion(model=%s)\x1b[32m 200 OK\x1b[0m", model_name)
             return response
         except Exception as e:
-            verbose_router_logger.info("litellm.aadapter_completion(model=%s)\x1b[31m Exception %s\x1b[0m", model, e)
+            verbose_router_logger.info("embrouter.aadapter_completion(model=%s)\x1b[31m Exception %s\x1b[0m", model, e)
             if model is not None:
                 self.fail_calls[model] += 1
             self._stamp_retry_skip_deployment_id(e, kwargs)
@@ -5153,7 +5153,7 @@ class Router:
         Helper function to make a search API call through the router with load balancing and fallbacks.
         Reuses the router's retry/fallback infrastructure.
         """
-        from litellm.router_utils.search_api_router import SearchAPIRouter
+        from embrouter.router_utils.search_api_router import SearchAPIRouter
 
         return await SearchAPIRouter.async_search_with_fallbacks(
             router_instance=self,
@@ -5166,7 +5166,7 @@ class Router:
         Helper function for search API calls - selects a search tool and calls the original function.
         Called by async_function_with_fallbacks for each retry attempt.
         """
-        from litellm.router_utils.search_api_router import SearchAPIRouter
+        from embrouter.router_utils.search_api_router import SearchAPIRouter
 
         return await SearchAPIRouter.async_search_with_fallbacks_helper(
             router_instance=self,
@@ -5198,7 +5198,7 @@ class Router:
         self._update_kwargs_before_fallbacks(
             model=guardrail_name,
             kwargs=kwargs,
-            metadata_variable_name="litellm_metadata",
+            metadata_variable_name="embrouter_metadata",
         )
         verbose_router_logger.debug("Inside aguardrail() - guardrail_name: %s; kwargs: %s", guardrail_name, kwargs)
         response: Final = await self.async_function_with_fallbacks(**kwargs)
@@ -5225,7 +5225,7 @@ class Router:
         )
 
         verbose_router_logger.debug(
-            "Selected guardrail deployment: %s", selected_guardrail.get("litellm_params", {}).get("guardrail")
+            "Selected guardrail deployment: %s", selected_guardrail.get("embrouter_params", {}).get("guardrail")
         )
 
         # Pass the selected guardrail config to the original function
@@ -5246,7 +5246,7 @@ class Router:
         Returns:
             Selected guardrail configuration dict
         """
-        from litellm.router_strategy.simple_shuffle import simple_shuffle
+        from embrouter.router_strategy.simple_shuffle import simple_shuffle
 
         healthy_deployments: Final = [g for g in self.guardrail_list if g.get("guardrail_name") == guardrail_name]
 
@@ -5268,7 +5268,7 @@ class Router:
         self, model: str, original_function: Callable, attempt_function: Callable | None = None, **kwargs
     ):
         """
-        Helper function to make a generic LLM API call through the router, this allows you to use retries/fallbacks with litellm router
+        Helper function to make a generic LLM API call through the router, this allows you to use retries/fallbacks with embrouter router
 
         attempt_function runs every attempt of the chain instead of the plain helper, so a streaming
         endpoint can wrap each attempt's stream with its own mid-stream fallback handling.
@@ -5280,7 +5280,7 @@ class Router:
             if attempt_function is not None:
                 controls: Final = per_request_fallback_controls(kwargs)
                 kwargs[MID_STREAM_FALLBACK_CONTROLS_KEY] = controls  # rebind-ok: forwarded to every hop
-            self._update_kwargs_before_fallbacks(model=model, kwargs=kwargs, metadata_variable_name="litellm_metadata")
+            self._update_kwargs_before_fallbacks(model=model, kwargs=kwargs, metadata_variable_name="embrouter_metadata")
             verbose_router_logger.debug(
                 "Inside ageneric_api_call_with_fallbacks() - model: %s; kwargs: %s", model, kwargs
             )
@@ -5289,7 +5289,7 @@ class Router:
         except Exception as e:
             asyncio.create_task(
                 send_llm_exception_alert(
-                    litellm_router_instance=self,
+                    embrouter_router_instance=self,
                     request_kwargs=kwargs,
                     error_traceback_str=traceback.format_exc(),
                     original_exception=e,
@@ -5309,7 +5309,7 @@ class Router:
         if "endpoint" in kwargs and kwargs["endpoint"]:
             # For provider-specific endpoints, strip the provider prefix from model_name
             # e.g., "bedrock/us.anthropic.claude-3-5-sonnet-20240620-v1:0" -> "us.anthropic.claude-3-5-sonnet-20240620-v1:0"
-            from litellm import get_llm_provider
+            from embrouter import get_llm_provider
 
             try:
                 # get_llm_provider returns (model_without_prefix, provider, api_key, api_base)
@@ -5328,7 +5328,7 @@ class Router:
 
     async def _ageneric_api_call_with_fallbacks_helper(self, model: str, original_generic_function: Callable, **kwargs):
         """
-        Helper function to make a generic LLM API call through the router, this allows you to use retries/fallbacks with litellm router
+        Helper function to make a generic LLM API call through the router, this allows you to use retries/fallbacks with embrouter router
         """
 
         passthrough_on_no_deployment: Final = kwargs.pop("passthrough_on_no_deployment", False)
@@ -5351,7 +5351,7 @@ class Router:
 
             self._update_kwargs_with_deployment(deployment=deployment, kwargs=kwargs, function_name=function_name)
 
-            data: Final = deployment["litellm_params"].copy()
+            data: Final = deployment["embrouter_params"].copy()
             model_name: Final = data["model"]
             self.total_calls[model_name] += 1
 
@@ -5387,7 +5387,7 @@ class Router:
                 response=response,
                 kwargs=kwargs,
             ):
-                from litellm.llms.anthropic.pass_through.messages.utils import (
+                from embrouter.llms.anthropic.pass_through.messages.utils import (
                     safeguard_refusal_error,
                 )
 
@@ -5432,9 +5432,9 @@ class Router:
         One attempt of the Responses API fallback chain. A streaming result is wrapped with
         _aresponses_streaming_iterator over this attempt's own kwargs, so a fallback hop that
         fails mid-stream resumes the original group's chain instead of re-raising; the name keeps
-        _get_router_metadata_variable_name resolving to litellm_metadata for every hop.
+        _get_router_metadata_variable_name resolving to embrouter_metadata for every hop.
         """
-        from litellm.responses.streaming_iterator import (
+        from embrouter.responses.streaming_iterator import (
             BaseResponsesAPIStreamingIterator,
         )
 
@@ -5467,7 +5467,7 @@ class Router:
         shapes land here:
           - the completion-bridge path (deployments with no native
             /v1/messages endpoint, via
-            LiteLLMMessagesToCompletionTransformationHandler) already
+            EmbRouterMessagesToCompletionTransformationHandler) already
             raises MidStreamFallbackError out of its underlying
             CustomStreamWrapper; this wrapper only needs to catch it.
           - a native Anthropic/Bedrock passthrough never raises anything
@@ -5502,19 +5502,19 @@ class Router:
         including pings and provider error frames, is forwarded live and
         verbatim instead.
         """
-        from litellm.llms.anthropic.pass_through.messages.streaming_iterator import (
+        from embrouter.llms.anthropic.pass_through.messages.streaming_iterator import (
             aclose_if_supported,
             parse_anthropic_error_event,
             parse_anthropic_refusal_stop_details,
         )
-        from litellm.llms.anthropic.pass_through.messages.utils import (
+        from embrouter.llms.anthropic.pass_through.messages.utils import (
             safeguard_refusal_error,
         )
 
         source_iterator: Final = response
 
         async def stream_with_fallbacks() -> AsyncGenerator[bytes, None]:
-            from litellm.exceptions import MidStreamFallbackError
+            from embrouter.exceptions import MidStreamFallbackError
 
             # Lifecycle/bookkeeping frames (message_start, content_block_start,
             # ...) are held back rather than forwarded immediately, but only
@@ -5585,7 +5585,7 @@ class Router:
                             message=message,
                             model=model,
                             llm_provider="anthropic",
-                            original_exception=litellm.exceptions.APIError(
+                            original_exception=embrouter.exceptions.APIError(
                                 status_code=status_code,
                                 message=message,
                                 llm_provider="anthropic",
@@ -5629,7 +5629,7 @@ class Router:
         wrapper: "FallbackAwareAnthropicMessagesStream",
     ) -> AsyncGenerator[bytes, None]:
         """Turns a source-iterator failure into a fallback attempt or the error reaching the caller."""
-        from litellm.exceptions import MidStreamFallbackError
+        from embrouter.exceptions import MidStreamFallbackError
 
         if isinstance(stream_error, MidStreamFallbackError) and _anthropic_stream_should_decline_fallback(
             has_generated_content, stream_error
@@ -5662,8 +5662,8 @@ class Router:
         keep each function's cyclomatic complexity within the repo's C901
         budget.
         """
-        from litellm.exceptions import MidStreamFallbackError
-        from litellm.llms.anthropic.pass_through.messages.streaming_iterator import (
+        from embrouter.exceptions import MidStreamFallbackError
+        from embrouter.llms.anthropic.pass_through.messages.streaming_iterator import (
             aclose_if_supported,
             anthropic_messages_response_as_sse_events,
         )
@@ -5684,12 +5684,12 @@ class Router:
             self._update_kwargs_before_fallbacks(
                 model=model_group,
                 kwargs=initial_kwargs,
-                metadata_variable_name="litellm_metadata",
+                metadata_variable_name="embrouter_metadata",
             )
             # The content-policy dispatch branch matches on the trigger's own type, so a refusal's
             # MidStreamFallbackError envelope is unwrapped here or the wrong fallback list is consulted.
             fallback_trigger: Final[Exception] = (
-                e.original_exception if isinstance(e.original_exception, litellm.ContentPolicyViolationError) else e
+                e.original_exception if isinstance(e.original_exception, embrouter.ContentPolicyViolationError) else e
             )
             fallback_response = await self.async_function_with_fallbacks_common_utils(  # rebind-ok: set on success
                 e=fallback_trigger,
@@ -5755,7 +5755,7 @@ class Router:
         One attempt of the anthropic_messages fallback chain. A streaming result is wrapped with
         _aanthropic_messages_streaming_iterator over this attempt's own kwargs, so a fallback hop
         that fails mid-stream resumes the original group's chain instead of re-raising; the name
-        keeps _get_router_metadata_variable_name resolving to litellm_metadata for every hop.
+        keeps _get_router_metadata_variable_name resolving to embrouter_metadata for every hop.
         """
         controls: Final = kwargs.pop(MID_STREAM_FALLBACK_CONTROLS_KEY, None)
         hop_kwargs: Final = mid_stream_fallback_hop_kwargs(
@@ -5793,10 +5793,10 @@ class Router:
 
     def _generic_api_call_with_fallbacks(self, model: str, original_function: Callable, **kwargs):
         """
-        Make a generic LLM API call through the router, this allows you to use retries/fallbacks with litellm router
+        Make a generic LLM API call through the router, this allows you to use retries/fallbacks with embrouter router
         Args:
             model: The model to use
-            original_function: The handler function to call (e.g., litellm.completion)
+            original_function: The handler function to call (e.g., embrouter.completion)
             **kwargs: Additional arguments to pass to the handler function
         Returns:
             The response from the handler function
@@ -5821,7 +5821,7 @@ class Router:
             )
             self._update_kwargs_with_deployment(deployment=deployment, kwargs=kwargs, function_name="generic_api_call")
 
-            data: Final = deployment["litellm_params"].copy()
+            data: Final = deployment["embrouter_params"].copy()
             model_name: Final = data["model"]
 
             self.total_calls[model_name] += 1
@@ -5883,7 +5883,7 @@ class Router:
                 request_kwargs=kwargs,
             )
             self._update_kwargs_with_deployment(deployment=deployment, kwargs=kwargs)
-            data: Final = deployment["litellm_params"].copy()
+            data: Final = deployment["embrouter_params"].copy()
             model_name = data["model"]
 
             potential_model_client: Final = self._get_client(deployment=deployment, kwargs=kwargs, client_type="sync")
@@ -5903,7 +5903,7 @@ class Router:
             ### DEPLOYMENT-SPECIFIC PRE-CALL CHECKS ### (e.g. update rpm pre-call. Raise error, if deployment over limit)
             self.routing_strategy_pre_call_checks(deployment=deployment)
 
-            response: Final = litellm.embedding(
+            response: Final = embrouter.embedding(
                 **{
                     **data,
                     "input": input,
@@ -5913,10 +5913,10 @@ class Router:
                 }
             )
             self.success_calls[model_name] += 1
-            verbose_router_logger.info("litellm.embedding(model=%s)\x1b[32m 200 OK\x1b[0m", model_name)
+            verbose_router_logger.info("embrouter.embedding(model=%s)\x1b[32m 200 OK\x1b[0m", model_name)
             return response
         except Exception as e:
-            verbose_router_logger.info("litellm.embedding(model=%s)\x1b[31m Exception %s\x1b[0m", model_name, e)
+            verbose_router_logger.info("embrouter.embedding(model=%s)\x1b[31m Exception %s\x1b[0m", model_name, e)
             if model_name is not None:
                 self.fail_calls[model_name] += 1
             self._stamp_retry_skip_deployment_id(e, kwargs)
@@ -5939,7 +5939,7 @@ class Router:
         except Exception as e:
             asyncio.create_task(
                 send_llm_exception_alert(
-                    litellm_router_instance=self,
+                    embrouter_router_instance=self,
                     request_kwargs=kwargs,
                     error_traceback_str=traceback.format_exc(),
                     original_exception=e,
@@ -5959,7 +5959,7 @@ class Router:
                 request_kwargs=kwargs,
             )
             self._update_kwargs_with_deployment(deployment=deployment, kwargs=kwargs)
-            data: Final = deployment["litellm_params"].copy()
+            data: Final = deployment["embrouter_params"].copy()
             model_name = data["model"]
             model_client: Final = self._get_async_openai_model_client(
                 deployment=deployment,
@@ -5968,7 +5968,7 @@ class Router:
 
             self.total_calls[model_name] += 1
             async with self._deployment_slot(deployment=deployment, kwargs=kwargs, parent_otel_span=parent_otel_span):
-                response = await litellm.aembedding(
+                response = await embrouter.aembedding(
                     **{
                         **data,
                         "input": input,
@@ -5979,10 +5979,10 @@ class Router:
                 )
 
             self.success_calls[model_name] += 1
-            verbose_router_logger.info("litellm.aembedding(model=%s)\x1b[32m 200 OK\x1b[0m", model_name)
+            verbose_router_logger.info("embrouter.aembedding(model=%s)\x1b[32m 200 OK\x1b[0m", model_name)
             return response
         except Exception as e:
-            verbose_router_logger.info("litellm.aembedding(model=%s)\x1b[31m Exception %s\x1b[0m", model_name, e)
+            verbose_router_logger.info("embrouter.aembedding(model=%s)\x1b[31m Exception %s\x1b[0m", model_name, e)
             if model_name is not None:
                 self.fail_calls[model_name] += 1
             self._stamp_retry_skip_deployment_id(e, kwargs)
@@ -6004,7 +6004,7 @@ class Router:
         except Exception as e:
             asyncio.create_task(
                 send_llm_exception_alert(
-                    litellm_router_instance=self,
+                    embrouter_router_instance=self,
                     request_kwargs=kwargs,
                     error_traceback_str=traceback.format_exc(),
                     original_exception=e,
@@ -6018,7 +6018,7 @@ class Router:
         **kwargs,
     ) -> OpenAIFileObject:
         try:
-            from litellm.router_utils.common_utils import add_model_file_id_mappings
+            from embrouter.router_utils.common_utils import add_model_file_id_mappings
 
             verbose_router_logger.debug("Inside _atext_completion()- model: %s; kwargs: %s", model, kwargs)
             parent_otel_span: Final = _get_parent_otel_span_from_kwargs(kwargs)
@@ -6031,7 +6031,7 @@ class Router:
             )
 
             async def create_file_for_deployment(deployment: dict) -> OpenAIFileObject:
-                from litellm.litellm_core_utils.core_helpers import safe_deep_copy
+                from embrouter.embrouter_core_utils.core_helpers import safe_deep_copy
 
                 kwargs_copy: Final = safe_deep_copy(kwargs)
                 self._update_kwargs_with_deployment(
@@ -6039,7 +6039,7 @@ class Router:
                     kwargs=kwargs_copy,
                     function_name="acreate_file",
                 )
-                data: Final = deployment["litellm_params"].copy()
+                data: Final = deployment["embrouter_params"].copy()
                 model_name: Final = data["model"]
 
                 model_client: Final = self._get_async_openai_model_client(
@@ -6075,7 +6075,7 @@ class Router:
                     )
 
                     kwargs_copy["file"] = file
-                if custom_llm_provider == LlmProviders.LITELLM_PROXY.value:
+                if custom_llm_provider == LlmProviders.EMBROUTER_PROXY.value:
                     kwargs_copy["extra_body"] = MappingProxyType(
                         {
                             **(kwargs_copy.get("extra_body") or MappingProxyType({})),
@@ -6085,11 +6085,11 @@ class Router:
                 if (
                     "gcs_bucket_name" in data
                 ):  # TODO: Remove this once we have a better way to handle GCS bucket name:  Problem is that we need to pass the gcs_bucket_name to the router for the create_file call but it doesn't show up there
-                    kwargs_copy.setdefault("litellm_metadata", {})["gcs_bucket_name"] = data["gcs_bucket_name"]
+                    kwargs_copy.setdefault("embrouter_metadata", {})["gcs_bucket_name"] = data["gcs_bucket_name"]
                 async with self._deployment_slot(
                     deployment=deployment, kwargs=kwargs_copy, parent_otel_span=parent_otel_span
                 ):
-                    response = await litellm.acreate_file(
+                    response = await embrouter.acreate_file(
                         **{
                             **data,
                             "custom_llm_provider": custom_llm_provider,
@@ -6100,7 +6100,7 @@ class Router:
                     )
 
                 self.success_calls[model_name] += 1
-                verbose_router_logger.info("litellm.acreate_file(model=%s)\x1b[32m 200 OK\x1b[0m", model_name)
+                verbose_router_logger.info("embrouter.acreate_file(model=%s)\x1b[32m 200 OK\x1b[0m", model_name)
 
                 return response
 
@@ -6125,7 +6125,7 @@ class Router:
             return returned_response
         except Exception as e:
             verbose_router_logger.exception(
-                "litellm.acreate_file(model=%s, %s)\x1b[31m Exception %s\x1b[0m", model, kwargs, e
+                "embrouter.acreate_file(model=%s, %s)\x1b[31m Exception %s\x1b[0m", model, kwargs, e
             )
             if model is not None:
                 self.fail_calls[model] += 1
@@ -6150,13 +6150,13 @@ class Router:
         try:
             # If model is None, use the factory function approach (direct SDK call)
             if model is None:
-                from litellm.vector_stores.main import acreate
+                from embrouter.vector_stores.main import acreate
 
                 # Use the factory function to handle the call
                 factory_fn: Final = self.factory_function(acreate, call_type="avector_store_create")
                 return await factory_fn(**kwargs)
 
-            from litellm.vector_stores import acreate as avector_store_create_sdk
+            from embrouter.vector_stores import acreate as avector_store_create_sdk
 
             parent_otel_span: Final = _get_parent_otel_span_from_kwargs(kwargs)
             deployment: Final = await self.async_get_available_deployment(
@@ -6165,7 +6165,7 @@ class Router:
                 specific_deployment=kwargs.pop("specific_deployment", None),
                 request_kwargs=kwargs,
             )
-            data: Final = deployment["litellm_params"].copy()
+            data: Final = deployment["embrouter_params"].copy()
             model_name: Final = data["model"]
             self._update_kwargs_with_deployment(
                 deployment=deployment,
@@ -6199,12 +6199,12 @@ class Router:
                 )
 
             self.success_calls[model_name] += 1
-            verbose_router_logger.info("litellm.avector_store_create(model=%s)\x1b[32m 200 OK\x1b[0m", model_name)
+            verbose_router_logger.info("embrouter.avector_store_create(model=%s)\x1b[32m 200 OK\x1b[0m", model_name)
 
             return response
         except Exception as e:
             verbose_router_logger.exception(
-                "litellm.avector_store_create(model=%s)\x1b[31m Exception %s\x1b[0m", model, e
+                "embrouter.avector_store_create(model=%s)\x1b[31m Exception %s\x1b[0m", model, e
             )
             if model is not None:
                 self.fail_calls[model] += 1
@@ -6225,7 +6225,7 @@ class Router:
         self,
         model: str,
         **kwargs,
-    ) -> LiteLLMBatch:
+    ) -> EmbRouterBatch:
         try:
             kwargs["model"] = model
             kwargs["original_function"] = self._acreate_batch
@@ -6241,7 +6241,7 @@ class Router:
         except Exception as e:
             asyncio.create_task(
                 send_llm_exception_alert(
-                    litellm_router_instance=self,
+                    embrouter_router_instance=self,
                     request_kwargs=kwargs,
                     error_traceback_str=traceback.format_exc(),
                     original_exception=e,
@@ -6253,7 +6253,7 @@ class Router:
         self,
         model: str,
         **kwargs,
-    ) -> LiteLLMBatch:
+    ) -> EmbRouterBatch:
         try:
             verbose_router_logger.debug("Inside _acreate_batch()- model: %s; kwargs: %s", model, kwargs)
             parent_otel_span: Final = _get_parent_otel_span_from_kwargs(kwargs)
@@ -6264,7 +6264,7 @@ class Router:
                 request_kwargs=kwargs,
             )
 
-            data: Final = deployment["litellm_params"].copy()
+            data: Final = deployment["embrouter_params"].copy()
             model_name: Final = data["model"]
             self._update_kwargs_with_deployment(deployment=deployment, kwargs=kwargs, function_name="_acreate_batch")
 
@@ -6283,7 +6283,7 @@ class Router:
             custom_llm_provider = custom_llm_provider or inferred_custom_llm_provider
 
             async with self._deployment_slot(deployment=deployment, kwargs=kwargs, parent_otel_span=parent_otel_span):
-                response = await litellm.acreate_batch(
+                response = await embrouter.acreate_batch(
                     **{
                         **data,
                         "custom_llm_provider": custom_llm_provider,
@@ -6294,12 +6294,12 @@ class Router:
                 )
 
             self.success_calls[model_name] += 1
-            verbose_router_logger.info("litellm.acreate_batch(model=%s)\x1b[32m 200 OK\x1b[0m", model_name)
+            verbose_router_logger.info("embrouter.acreate_batch(model=%s)\x1b[32m 200 OK\x1b[0m", model_name)
 
             return response
         except Exception as e:
             verbose_router_logger.exception(
-                "litellm._acreate_batch(model=%s, %s)\x1b[31m Exception %s\x1b[0m", model, kwargs, e
+                "embrouter._acreate_batch(model=%s, %s)\x1b[31m Exception %s\x1b[0m", model, kwargs, e
             )
             if model is not None:
                 self.fail_calls[model] += 1
@@ -6310,7 +6310,7 @@ class Router:
         self,
         model: str | None = None,
         **kwargs,
-    ) -> LiteLLMBatch:
+    ) -> EmbRouterBatch:
         """
         Iterate through all models in a model group to check for batch
 
@@ -6339,13 +6339,13 @@ class Router:
 
             async def try_retrieve_batch(model_name: DeploymentTypedDict):
                 try:
-                    from litellm.litellm_core_utils.core_helpers import safe_deep_copy
+                    from embrouter.embrouter_core_utils.core_helpers import safe_deep_copy
 
-                    model: Final = model_name["litellm_params"].get("model")
-                    data: Final = model_name["litellm_params"].copy()
+                    model: Final = model_name["embrouter_params"].get("model")
+                    data: Final = model_name["embrouter_params"].copy()
                     custom_llm_provider = data.get("custom_llm_provider")
                     if model is None:
-                        raise Exception(f"Model not found in litellm_params for deployment: {model_name}")
+                        raise Exception(f"Model not found in embrouter_params for deployment: {model_name}")
                     # Update kwargs with the current model name or any other model-specific adjustments
                     ## SET CUSTOM PROVIDER TO SELECTED DEPLOYMENT ##
                     if not custom_llm_provider:
@@ -6361,7 +6361,7 @@ class Router:
                         new_kwargs[metadata_variable_name]["model_group"] = model_group
                     new_kwargs.pop("custom_llm_provider", None)
                     data.pop("custom_llm_provider", None)
-                    return await litellm.aretrieve_batch(
+                    return await embrouter.aretrieve_batch(
                         **{
                             **data,
                             "custom_llm_provider": custom_llm_provider,
@@ -6392,11 +6392,11 @@ class Router:
 
             # Check for successful responses and handle exceptions
             if results is not None:
-                if isinstance(results, LiteLLMBatch):
+                if isinstance(results, EmbRouterBatch):
                     return results
                 elif isinstance(results, list):
                     for result in results:
-                        if isinstance(result, LiteLLMBatch):
+                        if isinstance(result, EmbRouterBatch):
                             return result
 
             # If no valid Batch response was found, raise the first encountered exception
@@ -6408,7 +6408,7 @@ class Router:
         except Exception as e:
             asyncio.create_task(
                 send_llm_exception_alert(
-                    litellm_router_instance=self,
+                    embrouter_router_instance=self,
                     request_kwargs=kwargs,
                     error_traceback_str=traceback.format_exc(),
                     original_exception=e,
@@ -6420,7 +6420,7 @@ class Router:
         self,
         model: str,
         **kwargs,
-    ) -> LiteLLMBatch:
+    ) -> EmbRouterBatch:
         """
         Cancel a batch through the router with proper model-to-provider mapping.
         """
@@ -6439,7 +6439,7 @@ class Router:
         except Exception as e:
             asyncio.create_task(
                 send_llm_exception_alert(
-                    litellm_router_instance=self,
+                    embrouter_router_instance=self,
                     request_kwargs=kwargs,
                     error_traceback_str=traceback.format_exc(),
                     original_exception=e,
@@ -6451,7 +6451,7 @@ class Router:
         self,
         model: str,
         **kwargs,
-    ) -> LiteLLMBatch:
+    ) -> EmbRouterBatch:
         try:
             verbose_router_logger.debug("Inside _acancel_batch()- model: %s; kwargs: %s", model, kwargs)
             parent_otel_span: Final = _get_parent_otel_span_from_kwargs(kwargs)
@@ -6463,13 +6463,13 @@ class Router:
             )
 
             selected_deployment_id: Final = (deployment.get("model_info") or {}).get("id")
-            data: Final = deployment["litellm_params"].copy()
+            data: Final = deployment["embrouter_params"].copy()
             resolved_credentials: Final = self.get_deployment_credentials_with_provider(
                 model_id=selected_deployment_id or model
             )
             if resolved_credentials is not None:
                 data.update(resolved_credentials)
-            data.pop("litellm_credential_name", None)
+            data.pop("embrouter_credential_name", None)
             model_name: Final = data["model"]
             self._update_kwargs_with_deployment(deployment=deployment, kwargs=kwargs, function_name="_acancel_batch")
 
@@ -6488,7 +6488,7 @@ class Router:
             custom_llm_provider = custom_llm_provider or inferred_custom_llm_provider
 
             async with self._deployment_slot(deployment=deployment, kwargs=kwargs, parent_otel_span=parent_otel_span):
-                response = await litellm.acancel_batch(
+                response = await embrouter.acancel_batch(
                     **{
                         **data,
                         "custom_llm_provider": custom_llm_provider,
@@ -6499,12 +6499,12 @@ class Router:
                 )
 
             self.success_calls[model_name] += 1
-            verbose_router_logger.info("litellm.acancel_batch(model=%s)\x1b[32m 200 OK\x1b[0m", model_name)
+            verbose_router_logger.info("embrouter.acancel_batch(model=%s)\x1b[32m 200 OK\x1b[0m", model_name)
 
             return response
         except Exception as e:
             verbose_router_logger.exception(
-                "litellm._acancel_batch(model=%s, %s)\x1b[31m Exception %s\x1b[0m", model, kwargs, e
+                "embrouter._acancel_batch(model=%s, %s)\x1b[31m Exception %s\x1b[0m", model, kwargs, e
             )
             if model is not None:
                 self.fail_calls[model] += 1
@@ -6527,7 +6527,7 @@ class Router:
         async def try_retrieve_batch(model: DeploymentTypedDict):
             try:
                 # Update kwargs with the current model name or any other model-specific adjustments
-                return await litellm.alist_batches(**{**model["litellm_params"], **kwargs})
+                return await embrouter.alist_batches(**{**model["embrouter_params"], **kwargs})
             except Exception:
                 return None
 
@@ -6574,8 +6574,8 @@ class Router:
                 model=kwargs["model"],
                 request_kwargs=kwargs,
             )
-            kwargs["model"] = deployment["litellm_params"]["model"]
-            data: Final = deployment["litellm_params"].copy()
+            kwargs["model"] = deployment["embrouter_params"]["model"]
+            data: Final = deployment["embrouter_params"].copy()
             self._update_kwargs_with_deployment(
                 deployment=deployment,
                 kwargs=kwargs,
@@ -7043,7 +7043,7 @@ class Router:
         """
         Initialize the Containers API endpoints on the router.
 
-        LiteLLM-managed container IDs (``cntr_...``) encode ``model_id`` and provider
+        EmbRouter-managed container IDs (``cntr_...``) encode ``model_id`` and provider
         metadata. When present, decode the ID, replace ``container_id`` with the
         upstream value, and route through ``_ageneric_api_call_with_fallbacks`` so
         deployment credentials (e.g. regional ``api_base`` for Azure) match
@@ -7055,7 +7055,7 @@ class Router:
         if custom_llm_provider and "custom_llm_provider" not in kwargs:
             kwargs["custom_llm_provider"] = custom_llm_provider
 
-        from litellm.responses.utils import ResponsesAPIRequestUtils
+        from embrouter.responses.utils import ResponsesAPIRequestUtils
 
         container_id: Final = kwargs.get("container_id")
         _forwarded_model_id: Final = kwargs.get("model_id")
@@ -7068,7 +7068,7 @@ class Router:
             if decoded_provider and kwargs.get("custom_llm_provider") == "openai":
                 kwargs["custom_llm_provider"] = decoded_provider
             # Fall back to the model_id forwarded by the proxy when the container_id
-            # is a native upstream ID (e.g. Azure hex cntr_) that carries no LiteLLM
+            # is a native upstream ID (e.g. Azure hex cntr_) that carries no EmbRouter
             # routing payload, so deployment credentials (api_base, api_key) are applied.
             model_id: Final = decoded.get("model_id") or (
                 _forwarded_model_id.strip()
@@ -7102,7 +7102,7 @@ class Router:
 
         GET, DELETE, CANCEL Responses API Requests encode the model_id in the response_id, this function decodes the response_id and sets the model to the model_id.
         """
-        from litellm.responses.utils import ResponsesAPIRequestUtils
+        from embrouter.responses.utils import ResponsesAPIRequestUtils
 
         model_id: Final = ResponsesAPIRequestUtils.get_model_id_from_response_id(kwargs.get("response_id"))
         if model_id is not None:
@@ -7133,7 +7133,7 @@ class Router:
         if kwargs.get("agent") and kwargs.get("model") == kwargs.get("agent"):
             kwargs["model"] = None
         # Model-based interactions use deployment routing + fallbacks; agent-only calls
-        # must not enter model-group lookup (agent name is not a LiteLLM deployment).
+        # must not enter model-group lookup (agent name is not a EmbRouter deployment).
         if kwargs.get("model"):
             return await self._ageneric_api_call_with_fallbacks(
                 original_function=original_function,
@@ -7170,7 +7170,7 @@ class Router:
         if custom_llm_provider is None:
             if self.assistants_config is not None:
                 custom_llm_provider = self.assistants_config["custom_llm_provider"]
-                kwargs.update(self.assistants_config["litellm_params"])
+                kwargs.update(self.assistants_config["embrouter_params"])
             else:
                 raise Exception(
                     "'custom_llm_provider' must be set. Either via:\n `Router(assistants_config={'custom_llm_provider': ..})` \nor\n `router.arun_thread(custom_llm_provider=..)`"
@@ -7217,7 +7217,7 @@ class Router:
         # that fails with RouterRateLimitError whenever the "remaining" entries
         # are all in cooldown — the inner async_get_healthy_deployments call
         # would find an empty list and raise immediately.
-        cooldown_ids = set(await _async_get_cooldown_deployments(litellm_router_instance=self, parent_otel_span=None))
+        cooldown_ids = set(await _async_get_cooldown_deployments(embrouter_router_instance=self, parent_otel_span=None))
         remaining: Final = (all_ids - cooldown_ids) - excluded
         if not remaining:
             return None
@@ -7248,7 +7248,7 @@ class Router:
             return await run_async_fallback(*args, **failover_kwargs)
         except (openai.APIError, RouterRateLimitError, RouterRateLimitErrorBasic):
             # Expected model-level failure on the retried deployment. All
-            # litellm provider errors derive from openai.APIError; if every
+            # embrouter provider errors derive from openai.APIError; if every
             # remaining deployment in the group is in cooldown the router
             # raises RouterRateLimitError (a ValueError, not an APIError).
             # In either case defer to the regular fallback path. Programming
@@ -7288,7 +7288,7 @@ class Router:
             raise e
 
         input_kwargs: Final = {
-            "litellm_router": self,
+            "embrouter_router": self,
             "original_exception": original_exception,
             **kwargs,
         }
@@ -7304,7 +7304,7 @@ class Router:
         # Skip for error types that have their own dedicated fallback handlers
         _skip_order_fallback: Final = isinstance(
             e,
-            (litellm.ContextWindowExceededError, litellm.ContentPolicyViolationError),
+            (embrouter.ContextWindowExceededError, embrouter.ContentPolicyViolationError),
         )
         _request_team_id: Final[str | None] = (kwargs.get("metadata", {}) or {}).get("user_api_key_team_id")
         # Use wildcard-aware lookup so order-based fallback also works for model
@@ -7312,9 +7312,9 @@ class Router:
         order_model_group: Final = get_pre_routing_selection(kwargs) or original_model_group
         all_deployments: Final = self.get_model_list(model_name=order_model_group, team_id=_request_team_id) or ()
         _order_set: Final[set] = {
-            litellm.utils._get_deployment_order(d)
+            embrouter.utils._get_deployment_order(d)
             for d in all_deployments
-            if litellm.utils._get_deployment_order(d) is not None
+            if embrouter.utils._get_deployment_order(d) is not None
         }
         order_values: Final[list] = sorted(_order_set)
         if len(order_values) > 1 and not _skip_order_fallback:
@@ -7390,7 +7390,7 @@ class Router:
 
                 return response
 
-            if isinstance(e, litellm.ContextWindowExceededError):
+            if isinstance(e, embrouter.ContextWindowExceededError):
                 if context_window_fallbacks is not None:
                     context_window_fallback_model_group: Final[list[str] | None] = (
                         self._get_fallback_model_group_for_lookup_groups(
@@ -7421,9 +7421,9 @@ class Router:
                         to fallbacks, if available.{error_message}"
                     )
 
-                    if litellm.expose_router_debug_in_errors:
+                    if embrouter.expose_router_debug_in_errors:
                         e.message += f"\n{error_message}"
-            elif isinstance(e, litellm.ContentPolicyViolationError):
+            elif isinstance(e, embrouter.ContentPolicyViolationError):
                 if content_policy_fallbacks is not None:
                     content_policy_fallback_model_group: Final[list[str] | None] = (
                         self._get_fallback_model_group_for_lookup_groups(
@@ -7453,7 +7453,7 @@ class Router:
                         to fallbacks, if available.{error_message}"
                     )
 
-                    if litellm.expose_router_debug_in_errors:
+                    if embrouter.expose_router_debug_in_errors:
                         e.message += f"\n{error_message}"
             if fallbacks is not None and lookup_groups:
                 verbose_router_logger.debug("inside model fallbacks: %s", mask_sensitive_structure(fallbacks))
@@ -7477,7 +7477,7 @@ class Router:
                     )
                     if (
                         hasattr(original_exception, "message")
-                        and litellm.expose_router_debug_in_errors
+                        and embrouter.expose_router_debug_in_errors
                         and not nested_fallback_hop
                     ):
                         original_exception.message += format_no_fallback_group_message(lookup_groups, fallbacks)
@@ -7501,11 +7501,11 @@ class Router:
             parent_otel_span: Final = _get_parent_otel_span_from_kwargs(kwargs)
             fallback_failure_exception_str = truncate_fallback_error_detail(redact_string(str(new_exception)))
             cooldown_info: Final = await _async_get_cooldown_deployments_with_debug_info(
-                litellm_router_instance=self,
+                embrouter_router_instance=self,
                 parent_otel_span=parent_otel_span,
             )
             verbose_router_logger.error(
-                "litellm.router.py::async_function_with_fallbacks() - "
+                "embrouter.router.py::async_function_with_fallbacks() - "
                 "Error occurred while trying to do fallbacks - %s\n"
                 "Debug Information:\nCooldown Deployments=%s",
                 fallback_failure_exception_str,
@@ -7515,7 +7515,7 @@ class Router:
         attempted_fallback_group: Final = input_kwargs.get("fallback_model_group")
         if (
             hasattr(original_exception, "message")
-            and litellm.expose_router_debug_in_errors
+            and embrouter.expose_router_debug_in_errors
             and not no_fallback_group_explained
             and not nested_fallback_hop
         ):
@@ -7543,7 +7543,7 @@ class Router:
                 function_name=getattr(kwargs.get("original_function"), "__name__", None)
             )
             _sibling_metadata_key: Final = (
-                "metadata" if _fallback_metadata_key == "litellm_metadata" else "litellm_metadata"
+                "metadata" if _fallback_metadata_key == "embrouter_metadata" else "embrouter_metadata"
             )
             if isinstance(_sibling_metadata := kwargs.get(_sibling_metadata_key), dict):
                 # In place, like every other router bucket write: downstream resolves the bucket by
@@ -7605,19 +7605,19 @@ class Router:
         content_policy_fallbacks: list | None = None,
     ):
         """
-        Helper function to raise a litellm Error for mock testing purposes.
+        Helper function to raise a embrouter Error for mock testing purposes.
 
         Raises:
-            litellm.InternalServerError: when `mock_testing_fallbacks=True` passed in request params
-            litellm.ContextWindowExceededError: when `mock_testing_context_fallbacks=True` passed in request params
-            litellm.ContentPolicyViolationError: when `mock_testing_content_policy_fallbacks=True` passed in request params
+            embrouter.InternalServerError: when `mock_testing_fallbacks=True` passed in request params
+            embrouter.ContextWindowExceededError: when `mock_testing_context_fallbacks=True` passed in request params
+            embrouter.ContentPolicyViolationError: when `mock_testing_content_policy_fallbacks=True` passed in request params
         """
         mock_testing_params: Final = MockRouterTestingParams.from_kwargs(kwargs)
         if (
             mock_testing_params.mock_testing_fallbacks is not None
             and mock_testing_params.mock_testing_fallbacks is True
         ):
-            raise litellm.InternalServerError(
+            raise embrouter.InternalServerError(
                 model=model_group,
                 llm_provider="",
                 message=f"This is a mock exception for model={model_group}, to trigger a fallback. Fallbacks={fallbacks}",
@@ -7626,7 +7626,7 @@ class Router:
             mock_testing_params.mock_testing_context_fallbacks is not None
             and mock_testing_params.mock_testing_context_fallbacks is True
         ):
-            raise litellm.ContextWindowExceededError(
+            raise embrouter.ContextWindowExceededError(
                 model=model_group,
                 llm_provider="",
                 message=f"This is a mock exception for model={model_group}, to trigger a fallback. \
@@ -7636,7 +7636,7 @@ class Router:
             mock_testing_params.mock_testing_content_policy_fallbacks is not None
             and mock_testing_params.mock_testing_content_policy_fallbacks is True
         ):
-            raise litellm.ContentPolicyViolationError(
+            raise embrouter.ContentPolicyViolationError(
                 model=model_group,
                 llm_provider="",
                 message=f"This is a mock exception for model={model_group}, to trigger a fallback. \
@@ -7651,7 +7651,7 @@ class Router:
         status_code: Final = getattr(exception, "status_code", None)
         if not failed_deployment_id or not isinstance(status_code, int):
             return ()
-        if litellm._should_retry(status_code):  # pyright: ignore[reportPrivateUsage]  # as in should_retry_this_error
+        if embrouter._should_retry(status_code):  # pyright: ignore[reportPrivateUsage]  # as in should_retry_this_error
             return ()
         already_skipped_ids: Final = _as_retry_skipped_deployment_ids(already_skipped)
         skipped: Final = tuple(sorted(frozenset((*already_skipped_ids, failed_deployment_id))))
@@ -7679,7 +7679,7 @@ class Router:
             num_retries = self.num_retries if self.num_retries is not None else 0
 
         ## ADD MODEL GROUP SIZE TO METADATA - used for model_group_rate_limit_error tracking
-        _metadata: Final[dict] = kwargs.get("litellm_metadata", kwargs.get("metadata")) or {}
+        _metadata: Final[dict] = kwargs.get("embrouter_metadata", kwargs.get("metadata")) or {}
         if "model_group" in _metadata and isinstance(_metadata["model_group"], str):
             model_list: Final = self.get_model_list(model_name=_metadata["model_group"])
             if model_list is not None:
@@ -7847,7 +7847,7 @@ class Router:
                     )
                     await asyncio.sleep(_timeout)
 
-            if type(original_exception) in litellm.LITELLM_EXCEPTION_TYPES:
+            if type(original_exception) in embrouter.EMBROUTER_EXCEPTION_TYPES:
                 setattr(original_exception, "max_retries", num_retries)
                 # current_attempt is 0-indexed (0 to num_retries-1), so after loop completion
                 # it represents the last attempt index. The actual number of retries attempted
@@ -7875,10 +7875,10 @@ class Router:
 
     def _handle_mock_testing_rate_limit_error(self, kwargs: dict, model_group: str | None = None):
         """
-        Helper function to raise a mock litellm.RateLimitError error for testing purposes.
+        Helper function to raise a mock embrouter.RateLimitError error for testing purposes.
 
         Raises:
-            litellm.RateLimitError error when `mock_testing_rate_limit_error=True` passed in request params
+            embrouter.RateLimitError error when `mock_testing_rate_limit_error=True` passed in request params
         """
         mock_testing_rate_limit_error: Final[bool | None] = kwargs.pop("mock_testing_rate_limit_error", None)
 
@@ -7886,13 +7886,13 @@ class Router:
         num_retries: int | None = None
 
         if available_models is not None and len(available_models) == 1:
-            num_retries = cast(int | None, available_models[0]["litellm_params"].get("num_retries"))
+            num_retries = cast(int | None, available_models[0]["embrouter_params"].get("num_retries"))
 
         if mock_testing_rate_limit_error is not None and mock_testing_rate_limit_error is True:
             verbose_router_logger.info(
-                "litellm.router.py::_mock_rate_limit_error() - Raising mock RateLimitError for model=%s", model_group
+                "embrouter.router.py::_mock_rate_limit_error() - Raising mock RateLimitError for model=%s", model_group
             )
-            raise litellm.RateLimitError(
+            raise embrouter.RateLimitError(
                 model=model_group,
                 llm_provider="",
                 message=f"This is a mock exception for model={model_group}, to trigger a rate limit error.",
@@ -7925,19 +7925,19 @@ class Router:
             _num_all_deployments = len(all_deployments)
 
         ### CHECK IF RATE LIMIT / CONTEXT WINDOW ERROR / CONTENT POLICY VIOLATION ERROR w/ fallbacks available / Bad Request Error
-        if isinstance(error, litellm.ContextWindowExceededError) and context_window_fallbacks is not None:
+        if isinstance(error, embrouter.ContextWindowExceededError) and context_window_fallbacks is not None:
             raise error
 
-        if isinstance(error, litellm.ContentPolicyViolationError) and content_policy_fallbacks is not None:
+        if isinstance(error, embrouter.ContentPolicyViolationError) and content_policy_fallbacks is not None:
             raise error
 
         status_code: Final = getattr(error, "status_code", None)
-        if status_code is not None and not litellm._should_retry(status_code):
+        if status_code is not None and not embrouter._should_retry(status_code):
             # 401/403 are special cases - allow retry if multiple deployments exist (handled below)
             if status_code not in (401, 403):
                 raise error
 
-        if isinstance(error, litellm.NotFoundError):
+        if isinstance(error, embrouter.NotFoundError):
             raise error
         # Error we should only retry if there are other deployments
         if isinstance(error, openai.RateLimitError):
@@ -8019,11 +8019,11 @@ class Router:
         response_headers: httpx.Headers | None = None
         if hasattr(e, "response") and hasattr(e.response, "headers"):
             response_headers = e.response.headers
-        if hasattr(e, "litellm_response_headers"):
-            response_headers = e.litellm_response_headers
+        if hasattr(e, "embrouter_response_headers"):
+            response_headers = e.embrouter_response_headers
 
         if response_headers is not None:
-            timeout = litellm._calculate_retry_after(
+            timeout = embrouter._calculate_retry_after(
                 remaining_retries=remaining_retries,
                 max_retries=num_retries,
                 response_headers=response_headers,
@@ -8031,7 +8031,7 @@ class Router:
             )
 
         else:
-            timeout = litellm._calculate_retry_after(
+            timeout = embrouter._calculate_retry_after(
                 remaining_retries=remaining_retries,
                 max_retries=num_retries,
                 min_timeout=self.retry_after,
@@ -8060,24 +8060,24 @@ class Router:
             standard_logging_object: Final[StandardLoggingPayload | None] = kwargs.get("standard_logging_object", None)
             if standard_logging_object is None:
                 raise ValueError("standard_logging_object is None")
-            litellm_params: Final = kwargs["litellm_params"]
-            metadata: Final = litellm_params.get("metadata")
+            embrouter_params: Final = kwargs["embrouter_params"]
+            metadata: Final = embrouter_params.get("metadata")
             if metadata is None:
                 return
             model_group: Final = metadata.get("model_group", None)
-            model_info: Final = litellm_params.get("model_info", {}) or {}
+            model_info: Final = embrouter_params.get("model_info", {}) or {}
             deployment_id: Final = model_info.get("id", None)
             if model_group is None or deployment_id is None or self.get_deployment(model_id=str(deployment_id)) is None:
                 return
 
             # Always track deployment successes for cooldown logic, regardless of TPM/RPM limits
             increment_deployment_successes_for_current_minute(
-                litellm_router_instance=self,
+                embrouter_router_instance=self,
                 deployment_id=str(deployment_id),
             )
 
             total_tokens: Final[float] = standard_logging_object.get("total_tokens", 0)
-            counted_tokens: Final = get_counted_usage_tokens(litellm_params)
+            counted_tokens: Final = get_counted_usage_tokens(embrouter_params)
             deployment_name: Final = metadata.get("deployment", None)
             return await self._increment_deployment_usage(
                 deployment_id=str(deployment_id),
@@ -8090,7 +8090,7 @@ class Router:
 
         except Exception as e:
             verbose_router_logger.debug(
-                "litellm.router.Router::deployment_callback_on_success(): Exception occured - %s", e
+                "embrouter.router.Router::deployment_callback_on_success(): Exception occured - %s", e
             )
 
     async def increment_deployment_usage_for_response(
@@ -8126,7 +8126,7 @@ class Router:
                 raise
         except Exception as e:
             verbose_router_logger.debug(
-                "litellm.router.Router::increment_deployment_usage_for_response(): Exception occured - %s", e
+                "embrouter.router.Router::increment_deployment_usage_for_response(): Exception occured - %s", e
             )
 
     async def _increment_deployment_usage(
@@ -8139,7 +8139,7 @@ class Router:
         rpm_increment: int,
         parent_otel_span: Span | None,
     ) -> str | None:
-        from litellm.types.caching import RedisPipelineIncrementOperation
+        from embrouter.types.caching import RedisPipelineIncrementOperation
 
         deployment_info: Final = self.get_deployment(model_id=deployment_id)
         if deployment_info is None:
@@ -8151,8 +8151,8 @@ class Router:
         configured_limits: Final = (
             deployment_info.get("tpm", None),
             deployment_info.get("rpm", None),
-            deployment_info.litellm_params.tpm,
-            deployment_info.litellm_params.rpm,
+            deployment_info.embrouter_params.tpm,
+            deployment_info.embrouter_params.rpm,
             deployment_model_info.get("tpm", None),
             deployment_model_info.get("rpm", None),
         )
@@ -8206,11 +8206,11 @@ class Router:
         if is_batch_retrieve_call_type(kwargs.get("call_type")):
             return None
         id = None
-        if kwargs["litellm_params"].get("metadata") is None:
+        if kwargs["embrouter_params"].get("metadata") is None:
             pass
         else:
-            model_group: Final = kwargs["litellm_params"]["metadata"].get("model_group", None)
-            model_info: Final = kwargs["litellm_params"].get("model_info", {}) or {}
+            model_group: Final = kwargs["embrouter_params"]["metadata"].get("model_group", None)
+            model_info: Final = kwargs["embrouter_params"].get("model_info", {}) or {}
             id = model_info.get("id", None)
             if model_group is None or id is None:
                 return None
@@ -8219,7 +8219,7 @@ class Router:
 
         if id is not None:
             key: Final = increment_deployment_successes_for_current_minute(
-                litellm_router_instance=self,
+                embrouter_router_instance=self,
                 deployment_id=id,
             )
             return key
@@ -8253,11 +8253,11 @@ class Router:
                 )
                 return False
 
-            # Cache litellm_params to avoid repeated dict lookups
-            litellm_params: Final = kwargs.get("litellm_params", {})
-            _model_info: Final = litellm_params.get("model_info", {})
+            # Cache embrouter_params to avoid repeated dict lookups
+            embrouter_params: Final = kwargs.get("embrouter_params", {})
+            _model_info: Final = embrouter_params.get("model_info", {})
 
-            if is_background_response_cost_poll_not_found(exception, litellm_params):
+            if is_background_response_cost_poll_not_found(exception, embrouter_params):
                 verbose_router_logger.debug(
                     "Router: Exiting 'deployment_callback_on_failure' without cooldown. "
                     "Provider 404 came from the background response cost poll, not the deployment's health."
@@ -8273,18 +8273,18 @@ class Router:
                 )
                 return False
 
-            exception_headers: Final = litellm.litellm_core_utils.exception_mapping_utils._get_response_headers(
+            exception_headers: Final = embrouter.embrouter_core_utils.exception_mapping_utils._get_response_headers(
                 original_exception=exception
             )
 
             # Determine cooldown time with priority: deployment config > response header > router default
             deployment_cooldown: Final = _first_present(
-                _model_info if isinstance(_model_info, dict) else None, litellm_params, key="cooldown_time"
+                _model_info if isinstance(_model_info, dict) else None, embrouter_params, key="cooldown_time"
             )
 
             header_cooldown = None
             if exception_headers is not None:
-                header_cooldown = litellm.utils._get_retry_after_from_exception_header(
+                header_cooldown = embrouter.utils._get_retry_after_from_exception_header(
                     response_headers=exception_headers
                 )
             ##############################################
@@ -8305,16 +8305,16 @@ class Router:
                 if deployment_id is None:
                     return False
                 increment_deployment_failures_for_current_minute(
-                    litellm_router_instance=self,
+                    embrouter_router_instance=self,
                     deployment_id=deployment_id,
                 )
                 result: Final = _set_cooldown_deployments(
-                    litellm_router_instance=self,
+                    embrouter_router_instance=self,
                     exception_status=exception_status,
                     original_exception=exception,
                     deployment=deployment_id,
                     time_to_cooldown=_time_to_cooldown,
-                    requested_model_group=(get_litellm_metadata_from_kwargs(kwargs) or {}).get("model_group"),
+                    requested_model_group=(get_embrouter_metadata_from_kwargs(kwargs) or {}).get("model_group"),
                 )  # setting deployment_id in cooldown deployments
 
                 return result
@@ -8335,11 +8335,11 @@ class Router:
         """
         if is_batch_retrieve_call_type(kwargs.get("call_type")):
             return
-        deployment_name: Final = kwargs["litellm_params"]["metadata"].get(
+        deployment_name: Final = kwargs["embrouter_params"]["metadata"].get(
             "deployment", None
-        )  # handles wildcard routes - by giving the original name sent to `litellm.completion`
-        model_group: Final = kwargs["litellm_params"]["metadata"].get("model_group", None)
-        model_info: Final = kwargs["litellm_params"].get("model_info", {}) or {}
+        )  # handles wildcard routes - by giving the original name sent to `embrouter.completion`
+        model_group: Final = kwargs["embrouter_params"]["metadata"].get("model_group", None)
+        model_info: Final = kwargs["embrouter_params"].get("model_info", {}) or {}
         id = model_info.get("id", None)
         if model_group is None or id is None:
             return
@@ -8359,17 +8359,17 @@ class Router:
             ttl=RoutingArgs.ttl.value,
         )
 
-    def _get_metadata_variable_name_from_kwargs(self, kwargs: dict) -> Literal["metadata", "litellm_metadata"]:
+    def _get_metadata_variable_name_from_kwargs(self, kwargs: dict) -> Literal["metadata", "embrouter_metadata"]:
         """
         Helper to return what the "metadata" field should be called in the request data
 
-        - New endpoints return `litellm_metadata`
+        - New endpoints return `embrouter_metadata`
         - Old endpoints return `metadata`
 
         Context:
-        - LiteLLM used `metadata` as an internal field for storing metadata
+        - EmbRouter used `metadata` as an internal field for storing metadata
         - OpenAI then started using this field for their metadata
-        - LiteLLM is now moving to using `litellm_metadata` for our metadata
+        - EmbRouter is now moving to using `embrouter_metadata` for our metadata
         """
         return get_metadata_variable_name_from_kwargs(kwargs)
 
@@ -8378,9 +8378,9 @@ class Router:
         When a retry or fallback happens, record which model group, deployment and attempt just failed and why,
         and count it toward the request-wide num_retries_per_request cap
         """
-        from litellm.types.router import RetryAttemptRecord
+        from embrouter.types.router import RetryAttemptRecord
 
-        _metadata_var: Final = "litellm_metadata" if "litellm_metadata" in kwargs else "metadata"
+        _metadata_var: Final = "embrouter_metadata" if "embrouter_metadata" in kwargs else "metadata"
         request_metadata: Final[Mapping[str, object]] = kwargs[_metadata_var]
         model_group: Final = kwargs.get("model")
         model_info: Final = request_metadata.get("model_info")
@@ -8493,9 +8493,9 @@ class Router:
         return tuple(
             sorted(
                 {
-                    litellm.utils._get_deployment_order(d)
+                    embrouter.utils._get_deployment_order(d)
                     for d in all_deployments
-                    if litellm.utils._get_deployment_order(d) is not None
+                    if embrouter.utils._get_deployment_order(d) is not None
                 }
             )
         )
@@ -8555,7 +8555,7 @@ class Router:
         when a content-policy fallback is configured; a plain refusal without stop_details, or
         any response with nothing configured, is returned to the client unchanged.
         """
-        from litellm.llms.anthropic.pass_through.messages.utils import (
+        from embrouter.llms.anthropic.pass_through.messages.utils import (
             get_safeguard_refusal_stop_details,
         )
 
@@ -8577,7 +8577,7 @@ class Router:
             pass
 
         unhealthy_deployments: Final = _get_cooldown_deployments(
-            litellm_router_instance=self, parent_otel_span=parent_otel_span
+            embrouter_router_instance=self, parent_otel_span=parent_otel_span
         )
         unhealthy_set: Final = set(unhealthy_deployments)
         healthy_deployments: list = [d for d in _all_deployments if d["model_info"]["id"] not in unhealthy_set]
@@ -8605,7 +8605,7 @@ class Router:
             pass
 
         unhealthy_deployments: Final = await _async_get_cooldown_deployments(
-            litellm_router_instance=self, parent_otel_span=parent_otel_span
+            embrouter_router_instance=self, parent_otel_span=parent_otel_span
         )
         # Convert to set for O(1) lookup instead of O(n)
         unhealthy_deployments_set: Final = set(unhealthy_deployments)
@@ -8627,7 +8627,7 @@ class Router:
         Raises:
         - Rate Limit Exception - If the deployment is over it's tpm/rpm limits
         """
-        for _callback in litellm.callbacks:
+        for _callback in embrouter.callbacks:
             if isinstance(_callback, CustomLogger):
                 _callback.pre_call_check(deployment)
 
@@ -8635,7 +8635,7 @@ class Router:
         self,
         deployment: dict,
         parent_otel_span: Span | None,
-        logging_obj: LiteLLMLogging | None = None,
+        logging_obj: EmbRouterLogging | None = None,
     ):
         """
         For usage-based-routing-v2, enables running rpm checks before the call is made, inside the semaphore.
@@ -8648,11 +8648,11 @@ class Router:
         Raises:
         - Rate Limit Exception - If the deployment is over it's tpm/rpm limits
         """
-        for _callback in litellm.callbacks:
+        for _callback in embrouter.callbacks:
             if isinstance(_callback, CustomLogger):
                 try:
                     await _callback.async_pre_call_check(deployment, parent_otel_span)
-                except litellm.RateLimitError as e:
+                except embrouter.RateLimitError as e:
                     ## LOG FAILURE EVENT
                     if logging_obj is not None:
                         asyncio.create_task(
@@ -8663,7 +8663,7 @@ class Router:
                             )
                         )
                     _set_cooldown_deployments(
-                        litellm_router_instance=self,
+                        embrouter_router_instance=self,
                         exception_status=e.status_code,
                         original_exception=e,
                         deployment=deployment["model_info"]["id"],
@@ -8706,7 +8706,7 @@ class Router:
         messages: list[AllMessageValues] | None,
         parent_otel_span: Span | None,
         request_kwargs: dict | None = None,
-        logging_obj: LiteLLMLogging | None = None,
+        logging_obj: EmbRouterLogging | None = None,
     ):
         """
         For usage-based-routing-v2, enables running rpm checks before the call is made, inside the semaphore.
@@ -8720,7 +8720,7 @@ class Router:
         - Rate Limit Exception - If the deployment is over it's tpm/rpm limits
         """
         returned_healthy_deployments = healthy_deployments
-        for _callback in litellm.callbacks:
+        for _callback in embrouter.callbacks:
             if isinstance(_callback, CustomLogger):
                 try:
                     returned_healthy_deployments = await _callback.async_filter_deployments(
@@ -8752,18 +8752,18 @@ class Router:
         return f"{type(value).__module__}.{type(value).__qualname__}"
 
     @staticmethod
-    def generate_model_id(model_group: str, litellm_params: dict) -> str:  # mutable-ok: hashed read-only
+    def generate_model_id(model_group: str, embrouter_params: dict) -> str:  # mutable-ok: hashed read-only
         """
         Helper function to consistently generate the same id for a deployment
 
-        - create a string from all the litellm params
+        - create a string from all the embrouter params
         - hash
         - use hash as id
         """
         # Optimized: Use list and join instead of string concatenation in loop
         # This avoids creating many temporary string objects (O(n) vs O(n²) complexity)
         parts: Final = [model_group]
-        for k, v in litellm_params.items():
+        for k, v in embrouter_params.items():
             if isinstance(k, str):
                 parts.append(k)
             elif isinstance(k, dict):
@@ -8803,7 +8803,7 @@ class Router:
         if all(model_info.get(f) is not None for f in cache_fields):
             return
         try:
-            backend_info: Final = litellm.get_model_info(model=backend_model, custom_llm_provider=custom_llm_provider)
+            backend_info: Final = embrouter.get_model_info(model=backend_model, custom_llm_provider=custom_llm_provider)
         except Exception:
             return
         for field in cache_fields:
@@ -8831,7 +8831,7 @@ class Router:
         companion billing fields like ``web_search_billing_unit`` and the
         regional uplift multipliers all carry over, and peak-hour billing
         through the deployment entry matches the shared backend entry exactly.
-        The raw ``litellm.model_cost`` entry is the copy source rather than
+        The raw ``embrouter.model_cost`` entry is the copy source rather than
         ``get_model_info``'s view of it, since that view synthesizes zero flat
         token rates for backends without one and storing those would mark a
         tiered-only backend explicitly priced free. Values are deep-copied to
@@ -8847,10 +8847,10 @@ class Router:
         ):
             return
         try:
-            backend_info: Final = litellm.get_model_info(model=backend_model, custom_llm_provider=custom_llm_provider)
+            backend_info: Final = embrouter.get_model_info(model=backend_model, custom_llm_provider=custom_llm_provider)
         except Exception:  # noqa: BLE001  # get_model_info raises plain Exception for an unmapped backend model
             return
-        backend_entry: Final = litellm.model_cost.get(backend_info.get("key") or "")
+        backend_entry: Final = embrouter.model_cost.get(backend_info.get("key") or "")
         if not isinstance(backend_entry, dict):
             return
         for field, backend_value in backend_entry.items():
@@ -8866,7 +8866,7 @@ class Router:
         table omits one, from the backend model's built-in cost map entry.
 
         A deployment's custom pricing is registered as its own standalone
-        ``litellm.model_cost`` entry holding only the supplied fields, and the
+        ``embrouter.model_cost`` entry holding only the supplied fields, and the
         tiered-cost output fallback reads that same entry, so a tier table that
         spells out only input-side rates would bill every completion at 0.
 
@@ -8884,7 +8884,7 @@ class Router:
         if all(isinstance(tier, dict) and "output_cost_per_token" in tier for tier in tiers):
             return
         try:
-            backend_info: Final = litellm.get_model_info(model=backend_model, custom_llm_provider=custom_llm_provider)
+            backend_info: Final = embrouter.get_model_info(model=backend_model, custom_llm_provider=custom_llm_provider)
         except Exception:  # noqa: BLE001  # get_model_info raises plain Exception for an unmapped backend model
             return
         backend_rate: Final = backend_info.get("output_cost_per_token")
@@ -8895,7 +8895,7 @@ class Router:
         self,
         deployment_info: dict,
         _model_name: str,
-        _litellm_params: dict,
+        _embrouter_params: dict,
         _model_info: dict,
         *,
         declared_id: str | None = None,
@@ -8908,7 +8908,7 @@ class Router:
 
         Returns:
         - Deployment: The deployment object
-        - None: If the deployment is not active for the current environment (if 'supported_environments' is set in litellm_params)
+        - None: If the deployment is not active for the current environment (if 'supported_environments' is set in embrouter_params)
         """
         try:
             config_sourced: Final = _model_info.get("db_model") is not True
@@ -8930,48 +8930,48 @@ class Router:
             access_windows_error: Final = access_windows_config_error(_model_info, model_name=_model_name)
             if access_windows_error is not None:
                 raise ValueError(access_windows_error)
-            zeroed_pricing: Final = zeroed_ptu_pricing(_model_info, _litellm_params) if config_sourced else None
-            litellm_params: Final[LiteLLM_Params] = LiteLLM_Params(
+            zeroed_pricing: Final = zeroed_ptu_pricing(_model_info, _embrouter_params) if config_sourced else None
+            embrouter_params: Final[EmbRouter_Params] = EmbRouter_Params(
                 **(  # pyright: ignore[reportArgumentType]  # untyped merged dict; already true for every field here
-                    _litellm_params
+                    _embrouter_params
                     if zeroed_pricing is None
-                    else MappingProxyType({**_litellm_params, **zeroed_pricing})
+                    else MappingProxyType({**_embrouter_params, **zeroed_pricing})
                 )
             )
-            warn_on_provider_credential_mismatch(model_name=_model_name, litellm_params=_litellm_params)
+            warn_on_provider_credential_mismatch(model_name=_model_name, embrouter_params=_embrouter_params)
             deployment = Deployment(
                 **deployment_info,
                 model_name=_model_name,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 model_info=_model_info,
             )
-            for field in CustomPricingLiteLLMParams.model_fields:
-                if deployment.litellm_params.get(field) is not None:
-                    _model_info[field] = deployment.litellm_params[field]
+            for field in CustomPricingEmbRouterParams.model_fields:
+                if deployment.embrouter_params.get(field) is not None:
+                    _model_info[field] = deployment.embrouter_params[field]
 
             Router._inherit_builtin_base_rates_for_off_peak(
                 model_info=_model_info,
-                backend_model=deployment.litellm_params.model,
-                custom_llm_provider=deployment.litellm_params.custom_llm_provider,
+                backend_model=deployment.embrouter_params.model,
+                custom_llm_provider=deployment.embrouter_params.custom_llm_provider,
             )
             if _model_info.get("input_cost_per_token") is not None:
                 Router._inherit_builtin_cache_pricing(
                     model_info=_model_info,
-                    backend_model=deployment.litellm_params.model,
-                    custom_llm_provider=deployment.litellm_params.custom_llm_provider,
+                    backend_model=deployment.embrouter_params.model,
+                    custom_llm_provider=deployment.embrouter_params.custom_llm_provider,
                 )
             Router._inherit_builtin_tiered_output_rate(
                 model_info=_model_info,
-                backend_model=deployment.litellm_params.model,
-                custom_llm_provider=deployment.litellm_params.custom_llm_provider,
+                backend_model=deployment.embrouter_params.model,
+                custom_llm_provider=deployment.embrouter_params.custom_llm_provider,
             )
 
-            ## REGISTER MODEL INFO IN LITELLM MODEL COST MAP
+            ## REGISTER MODEL INFO IN EMBROUTER MODEL COST MAP
             Router._register_deployment_in_model_cost(
                 model_id=deployment.model_info.id,
                 model_info=_model_info,
-                model=deployment.litellm_params.model,
-                custom_llm_provider=deployment.litellm_params.custom_llm_provider,
+                model=deployment.embrouter_params.model,
+                custom_llm_provider=deployment.embrouter_params.custom_llm_provider,
             )
 
             ## Check if LLM Deployment is allowed for this deployment
@@ -8985,7 +8985,7 @@ class Router:
 
             # Validate tag_regex patterns BEFORE adding the deployment so we never
             # have partially-initialised router state if a pattern is invalid.
-            _tag_regex: Final = deployment.litellm_params.get("tag_regex") or []
+            _tag_regex: Final = deployment.embrouter_params.get("tag_regex") or []
             for pattern in _tag_regex:
                 try:
                     re.compile(pattern)
@@ -9002,14 +9002,14 @@ class Router:
             return deployment
         except Exception as e:
             if self.ignore_invalid_deployments:
-                if isinstance(e, litellm.BadRequestError):
+                if isinstance(e, embrouter.BadRequestError):
                     self._provider_unresolved_deployments = (
                         *self._provider_unresolved_deployments,
                         partial(
                             self._create_deployment,
                             deployment_info=deployment_info,
                             _model_name=_model_name,
-                            _litellm_params=_litellm_params,
+                            _embrouter_params=_embrouter_params,
                             _model_info=_model_info,
                             declared_id=declared_id,
                             duplicate_ids=duplicate_ids,
@@ -9022,20 +9022,20 @@ class Router:
             else:
                 raise e
 
-    def _is_auto_router_deployment(self, litellm_params: LiteLLM_Params) -> bool:
+    def _is_auto_router_deployment(self, embrouter_params: EmbRouter_Params) -> bool:
         """
         Check if the deployment is an auto-router deployment (semantic router).
 
-        Returns True if the litellm_params model starts with "auto_router/"
+        Returns True if the embrouter_params model starts with "auto_router/"
         but NOT "auto_router/complexity_router" or "auto_router/adaptive_router"
         (which use the complexity-router and adaptive-router strategies).
         """
-        return classify_strategy_router_model(litellm_params.model) == "semantic"
+        return classify_strategy_router_model(embrouter_params.model) == "semantic"
 
     @staticmethod
     def _deployment_tags(deployment: Deployment) -> tuple[str, ...]:
         """Deployment tags used to disambiguate strategy registries keyed by model_name."""
-        return tuple(deployment.litellm_params.tags or ())
+        return tuple(deployment.embrouter_params.tags or ())
 
     def init_auto_router_deployment(self, deployment: Deployment):
         """
@@ -9043,28 +9043,28 @@ class Router:
 
         This will initialize the auto-router and add it to the auto-routers dictionary.
         """
-        from litellm.router_strategy.auto_router.auto_router import AutoRouter
+        from embrouter.router_strategy.auto_router.auto_router import AutoRouter
 
-        auto_router_config_path: Final[str | None] = deployment.litellm_params.auto_router_config_path
-        auto_router_config: Final[str | None] = deployment.litellm_params.auto_router_config
+        auto_router_config_path: Final[str | None] = deployment.embrouter_params.auto_router_config_path
+        auto_router_config: Final[str | None] = deployment.embrouter_params.auto_router_config
         if auto_router_config_path is None and auto_router_config is None:
             raise ValueError(
-                "auto_router_config_path or auto_router_config is required for auto-router deployments. Please set it in the litellm_params"
+                "auto_router_config_path or auto_router_config is required for auto-router deployments. Please set it in the embrouter_params"
             )
 
-        default_model: Final[str | None] = deployment.litellm_params.auto_router_default_model
+        default_model: Final[str | None] = deployment.embrouter_params.auto_router_default_model
         if default_model is None:
             raise ValueError(
-                "auto_router_default_model is required for auto-router deployments. Please set it in the litellm_params"
+                "auto_router_default_model is required for auto-router deployments. Please set it in the embrouter_params"
             )
 
-        embedding_model: Final[str | None] = deployment.litellm_params.auto_router_embedding_model
+        embedding_model: Final[str | None] = deployment.embrouter_params.auto_router_embedding_model
         if embedding_model is None:
             raise ValueError(
-                "auto_router_embedding_model is required for auto-router deployments. Please set it in the litellm_params"
+                "auto_router_embedding_model is required for auto-router deployments. Please set it in the embrouter_params"
             )
 
-        max_input_chars: Final[int | None] = deployment.litellm_params.auto_router_max_input_chars
+        max_input_chars: Final[int | None] = deployment.embrouter_params.auto_router_max_input_chars
 
         autor_router: Final[AutoRouter] = AutoRouter(
             model_name=deployment.model_name,
@@ -9072,7 +9072,7 @@ class Router:
             auto_router_config=auto_router_config,
             default_model=default_model,
             embedding_model=embedding_model,
-            litellm_router_instance=self,
+            embrouter_router_instance=self,
             max_input_chars=(max_input_chars if max_input_chars is not None else DEFAULT_AUTO_ROUTER_MAX_INPUT_CHARS),
         )
         self._register_pre_routing_strategy(
@@ -9082,13 +9082,13 @@ class Router:
             strategy_label="Auto-router",
         )
 
-    def _is_complexity_router_deployment(self, litellm_params: LiteLLM_Params) -> bool:
+    def _is_complexity_router_deployment(self, embrouter_params: EmbRouter_Params) -> bool:
         """
         Check if the deployment is a complexity-router deployment.
 
-        Returns True if the litellm_params model starts with "auto_router/complexity_router"
+        Returns True if the embrouter_params model starts with "auto_router/complexity_router"
         """
-        return classify_strategy_router_model(litellm_params.model) == "complexity"
+        return classify_strategy_router_model(embrouter_params.model) == "complexity"
 
     def config_deployments(self) -> Iterator[Mapping[str, object]]:
         """The model_list rows that came from config.yaml rather than the DB (``model_info.db_model`` unset)."""
@@ -9122,23 +9122,23 @@ class Router:
         This will initialize the complexity-router and add it to the complexity-routers dictionary.
         """
         # Import here to avoid circular imports — ComplexityRouter is a CustomLogger
-        # subclass that imports litellm internals which depend on router.py.
+        # subclass that imports embrouter internals which depend on router.py.
         # This matches the AutoRouter pattern in init_auto_router_deployment above.
-        from litellm.router_strategy.complexity_router.complexity_router import (
+        from embrouter.router_strategy.complexity_router.complexity_router import (
             ComplexityRouter,
         )
-        from litellm.router_strategy.complexity_router.config import (
+        from embrouter.router_strategy.complexity_router.config import (
             ComplexityRouterConfig,
         )
 
-        complexity_router_config: Final[dict | None] = deployment.litellm_params.complexity_router_config
+        complexity_router_config: Final[dict | None] = deployment.embrouter_params.complexity_router_config
         capability: Final = claimed_capability(complexity_router_config)
         if capability is not None:
             limit_violation: Final = self.auto_router_capability_violation(capability)
             if limit_violation is not None:
                 raise ValueError(limit_violation)
 
-        default_model: str | None = deployment.litellm_params.complexity_router_default_model
+        default_model: str | None = deployment.embrouter_params.complexity_router_default_model
 
         # If no default model specified, try to get from config tiers. Derived from the
         # validated model, not the raw dict, so normalization (e.g. fallback_tier
@@ -9159,13 +9159,13 @@ class Router:
         if default_model is None:
             raise ValueError(
                 "complexity_router_default_model is required for complexity-router deployments, "
-                "or configure tiers in complexity_router_config. Please set it in the litellm_params"
+                "or configure tiers in complexity_router_config. Please set it in the embrouter_params"
             )
 
         complexity_router: Final[ComplexityRouter] = ComplexityRouter(
             model_name=deployment.model_name,
             default_model=default_model,
-            litellm_router_instance=self,
+            embrouter_router_instance=self,
             complexity_router_config=complexity_router_config,
         )
         self._register_pre_routing_strategy(
@@ -9177,20 +9177,20 @@ class Router:
         if complexity_router._uses_deployment_pin:
             self._ensure_deployment_affinity_callback()
 
-    def _is_adaptive_router_deployment(self, litellm_params: LiteLLM_Params) -> bool:
+    def _is_adaptive_router_deployment(self, embrouter_params: EmbRouter_Params) -> bool:
         """True when this deployment opts in via the `auto_router/adaptive_router` model prefix."""
-        return classify_strategy_router_model(litellm_params.model) == "adaptive"
+        return classify_strategy_router_model(embrouter_params.model) == "adaptive"
 
-    def _deployment_participates_in_adaptive_routing(self, litellm_params: LiteLLM_Params) -> bool:
+    def _deployment_participates_in_adaptive_routing(self, embrouter_params: EmbRouter_Params) -> bool:
         """True when this deployment owns an `adaptive_routers` entry once finalized:
         a dedicated adaptive router, or a complexity router whose config enables the
         adaptive companion. Mirrors the two arms of
         `_finalize_adaptive_router_if_configured`, which is the registry's only writer."""
-        if self._is_adaptive_router_deployment(litellm_params=litellm_params):
+        if self._is_adaptive_router_deployment(embrouter_params=embrouter_params):
             return True
-        if not self._is_complexity_router_deployment(litellm_params=litellm_params):
+        if not self._is_complexity_router_deployment(embrouter_params=embrouter_params):
             return False
-        config: Final = litellm_params.complexity_router_config
+        config: Final = embrouter_params.complexity_router_config
         if not config:
             return False
         adaptive_flag: Final[object] = config.get("adaptive")
@@ -9264,7 +9264,7 @@ class Router:
         Guarded on the auto_router/ prefix so removing a *regular* deployment can't evict a
         router that merely shares its model_name.
         """
-        if not deployment.litellm_params.model.startswith("auto_router/"):
+        if not deployment.embrouter_params.model.startswith("auto_router/"):
             return
         model_name: Final = deployment.model_name
         tags: Final = self._deployment_tags(deployment)
@@ -9279,7 +9279,7 @@ class Router:
         Idempotent: skips any deployment whose (model_name, tags) pair is already
         initialized, so hot-reloads don't rebuild routers that would lose state."""
         for entry in self.model_list or []:
-            lp = entry.get("litellm_params") if isinstance(entry, dict) else entry.litellm_params
+            lp = entry.get("embrouter_params") if isinstance(entry, dict) else entry.embrouter_params
             lp_model = (lp.get("model") if isinstance(lp, dict) else lp.model) if lp else None
             if not (lp_model and lp_model.startswith("auto_router/adaptive_router")):
                 continue
@@ -9288,7 +9288,7 @@ class Router:
                 continue
             deployment = Deployment(
                 model_name=model_name,
-                litellm_params=(lp if not isinstance(lp, dict) else LiteLLM_Params(**lp)),
+                embrouter_params=(lp if not isinstance(lp, dict) else EmbRouter_Params(**lp)),
                 model_info=(entry.get("model_info") if isinstance(entry, dict) else entry.model_info),
             )
             if self._has_registered_strategy(self.adaptive_routers, model_name, self._deployment_tags(deployment)):
@@ -9315,15 +9315,15 @@ class Router:
         """Rebuild the AdaptiveRouterPostCallHook set so it is exactly one hook per
         currently registered adaptive router. Run at every point the adaptive registry
         changes, otherwise a released router keeps recording turns through its hook."""
-        from litellm.router_strategy.adaptive_router.hooks import (
+        from embrouter.router_strategy.adaptive_router.hooks import (
             AdaptiveRouterPostCallHook,
         )
 
-        for callback in litellm.logging_callback_manager.get_custom_loggers_for_type(AdaptiveRouterPostCallHook):
-            litellm.logging_callback_manager.remove_callback_from_all_lists(callback)
+        for callback in embrouter.logging_callback_manager.get_custom_loggers_for_type(AdaptiveRouterPostCallHook):
+            embrouter.logging_callback_manager.remove_callback_from_all_lists(callback)
         for tagged_adaptive_routers in self.adaptive_routers.values():
             for tagged in tagged_adaptive_routers:
-                litellm.logging_callback_manager.add_litellm_callback(
+                embrouter.logging_callback_manager.add_embrouter_callback(
                     AdaptiveRouterPostCallHook(adaptive_router=tagged.strategy)
                 )
 
@@ -9337,20 +9337,20 @@ class Router:
         already registered in `self.model_list` whose `model_name` appears in
         `available_models`. Models not yet registered fall back to defaults.
         """
-        # Local import: AdaptiveRouter -> hooks -> classifier all import litellm
+        # Local import: AdaptiveRouter -> hooks -> classifier all import embrouter
         # internals which transitively import this module. (AGENTS.md exception clause.)
-        from litellm.router_strategy.adaptive_router.adaptive_router import (
+        from embrouter.router_strategy.adaptive_router.adaptive_router import (
             AdaptiveRouter,
         )
-        from litellm.router_strategy.adaptive_router.hooks import (
+        from embrouter.router_strategy.adaptive_router.hooks import (
             AdaptiveRouterPostCallHook,
         )
-        from litellm.types.router import (
+        from embrouter.types.router import (
             AdaptiveRouterConfig,
             AdaptiveRouterPreferences,
         )
 
-        raw_config: Final = deployment.litellm_params.adaptive_router_config
+        raw_config: Final = deployment.embrouter_params.adaptive_router_config
         if raw_config is None:
             raise ValueError("adaptive_router_config is required for adaptive-router deployments.")
 
@@ -9371,8 +9371,8 @@ class Router:
             if prefs_raw is not None:
                 model_to_prefs[name] = AdaptiveRouterPreferences(**prefs_raw)
 
-            # model_info is the conventional pricing location elsewhere in LiteLLM; litellm_params wins if set.
-            lp = d.get("litellm_params") if isinstance(d, dict) else d.litellm_params
+            # model_info is the conventional pricing location elsewhere in EmbRouter; embrouter_params wins if set.
+            lp = d.get("embrouter_params") if isinstance(d, dict) else d.embrouter_params
             lp_dict: dict[str, Any] = lp if isinstance(lp, dict) else (lp.model_dump() if lp else {})
             cost = lp_dict.get("input_cost_per_token")
             if cost is None:
@@ -9392,7 +9392,7 @@ class Router:
             strategy=adaptive_router,
             strategy_label="Adaptive-router",
         )
-        litellm.logging_callback_manager.add_litellm_callback(
+        embrouter.logging_callback_manager.add_embrouter_callback(
             AdaptiveRouterPostCallHook(adaptive_router=adaptive_router)
         )
         verbose_router_logger.info(
@@ -9401,13 +9401,13 @@ class Router:
             len(config.available_models),
         )
 
-    def _is_quality_router_deployment(self, litellm_params: LiteLLM_Params) -> bool:
+    def _is_quality_router_deployment(self, embrouter_params: EmbRouter_Params) -> bool:
         """
         Check if the deployment is a quality-router deployment.
 
-        Returns True if the litellm_params model starts with "auto_router/quality_router".
+        Returns True if the embrouter_params model starts with "auto_router/quality_router".
         """
-        return classify_strategy_router_model(litellm_params.model) == "quality"
+        return classify_strategy_router_model(embrouter_params.model) == "quality"
 
     def init_quality_router_deployment(self, deployment: Deployment):
         """
@@ -9419,26 +9419,26 @@ class Router:
         """
         # Import here to mirror the AutoRouter / ComplexityRouter init pattern
         # and avoid circular imports.
-        from litellm.router_strategy.quality_router.quality_router import (
+        from embrouter.router_strategy.quality_router.quality_router import (
             QualityRouter,
         )
 
-        quality_router_config: Final[dict | None] = deployment.litellm_params.quality_router_config
+        quality_router_config: Final[dict | None] = deployment.embrouter_params.quality_router_config
 
-        default_model: str | None = deployment.litellm_params.quality_router_default_model
+        default_model: str | None = deployment.embrouter_params.quality_router_default_model
         if default_model is None and quality_router_config:
             default_model = quality_router_config.get("default_model")
 
         if default_model is None:
             raise ValueError(
                 "quality_router_default_model is required for quality-router deployments, "
-                "or set default_model in quality_router_config. Please configure it in the litellm_params"
+                "or set default_model in quality_router_config. Please configure it in the embrouter_params"
             )
 
         quality_router: Final[QualityRouter] = QualityRouter(
             model_name=deployment.model_name,
             default_model=default_model,
-            litellm_router_instance=self,
+            embrouter_router_instance=self,
             quality_router_config=quality_router_config,
         )
         self._register_pre_routing_strategy(
@@ -9452,13 +9452,13 @@ class Router:
         """
         Function to check if a llm deployment is active for a given environment. Allows using the same config.yaml across multople environments
 
-        Requires `LITELLM_ENVIRONMENT` to be set in .env. Valid values for environment:
+        Requires `EMBROUTER_ENVIRONMENT` to be set in .env. Valid values for environment:
             - development
             - staging
             - production
 
         Raises:
-        - ValueError: If LITELLM_ENVIRONMENT is not set in .env or not one of the valid values
+        - ValueError: If EMBROUTER_ENVIRONMENT is not set in .env or not one of the valid values
         - ValueError: If supported_environments is not set in model_info or not one of the valid values
         """
         return model_info_is_active_for_environment(model_info=deployment.model_info)
@@ -9506,12 +9506,12 @@ class Router:
 
         for model in original_model_list:
             _model_name = model.pop("model_name")
-            _litellm_params = model.pop("litellm_params")
-            ## check if litellm params in os.environ
-            if isinstance(_litellm_params, dict):
-                for k, v in _litellm_params.items():
+            _embrouter_params = model.pop("embrouter_params")
+            ## check if embrouter params in os.environ
+            if isinstance(_embrouter_params, dict):
+                for k, v in _embrouter_params.items():
                     if isinstance(v, str) and v.startswith("os.environ/"):
-                        _litellm_params[k] = get_secret(v)
+                        _embrouter_params[k] = get_secret(v)
 
             _model_info: dict = model.pop("model_info", {})
 
@@ -9519,18 +9519,18 @@ class Router:
 
             # check if model info has id
             if "id" not in _model_info:
-                _id = self.generate_model_id(_model_name, _litellm_params)
+                _id = self.generate_model_id(_model_name, _embrouter_params)
                 _model_info["id"] = _id
 
-            if _litellm_params.get("organization", None) is not None and isinstance(
-                _litellm_params["organization"], list
+            if _embrouter_params.get("organization", None) is not None and isinstance(
+                _embrouter_params["organization"], list
             ):  # Addresses
-                for org in _litellm_params["organization"]:
-                    _litellm_params["organization"] = org
+                for org in _embrouter_params["organization"]:
+                    _embrouter_params["organization"] = org
                     self._create_deployment(
                         deployment_info=model,
                         _model_name=_model_name,
-                        _litellm_params=_litellm_params,
+                        _embrouter_params=_embrouter_params,
                         _model_info=_model_info,
                         declared_id=declared_id,
                         duplicate_ids=duplicate_ids,
@@ -9539,7 +9539,7 @@ class Router:
                 self._create_deployment(
                     deployment_info=model,
                     _model_name=_model_name,
-                    _litellm_params=_litellm_params,
+                    _embrouter_params=_embrouter_params,
                     _model_info=_model_info,
                     declared_id=declared_id,
                     duplicate_ids=duplicate_ids,
@@ -9560,24 +9560,24 @@ class Router:
 
         #### VALIDATE MODEL ########
         # Check if this is a prompt management model before validating as LLM provider
-        litellm_model: Final = deployment.litellm_params.model
-        if isinstance(deployment.litellm_params.drop_params, str):
+        embrouter_model: Final = deployment.embrouter_params.model
+        if isinstance(deployment.embrouter_params.drop_params, str):
             verbose_router_logger.warning(
                 "model=%s drop_params=%r is not a flag value, treating it as unset",
                 deployment.model_name,
-                deployment.litellm_params.drop_params,
+                deployment.embrouter_params.drop_params,
             )
         is_prompt_management_model = False
 
-        if "/" in litellm_model:
-            split_litellm_model: Final = litellm_model.split("/")[0]
-            if split_litellm_model in litellm._known_custom_logger_compatible_callbacks:
+        if "/" in embrouter_model:
+            split_embrouter_model: Final = embrouter_model.split("/")[0]
+            if split_embrouter_model in embrouter._known_custom_logger_compatible_callbacks:
                 is_prompt_management_model = True
 
         if is_prompt_management_model:
             # For prompt management models, skip LLM provider validation
             # The actual model will be resolved at runtime from the prompt file
-            _model = litellm_model
+            _model = embrouter_model
             custom_llm_provider = None
             dynamic_api_key = None
             api_base = None
@@ -9588,36 +9588,36 @@ class Router:
                 custom_llm_provider,
                 dynamic_api_key,
                 api_base,
-            ) = litellm.get_llm_provider(
-                model=deployment.litellm_params.model,
-                custom_llm_provider=deployment.litellm_params.get("custom_llm_provider", None),
-                api_base=deployment.litellm_params.api_base,
+            ) = embrouter.get_llm_provider(
+                model=deployment.embrouter_params.model,
+                custom_llm_provider=deployment.embrouter_params.get("custom_llm_provider", None),
+                api_base=deployment.embrouter_params.api_base,
             )
-            # done reading model["litellm_params"]
+            # done reading model["embrouter_params"]
             # Check if provider is supported: either in enum or JSON-configured
             if (
-                custom_llm_provider not in litellm.provider_list
+                custom_llm_provider not in embrouter.provider_list
                 and not JSONProviderRegistry.exists(custom_llm_provider)
                 and not is_registered_custom_provider(custom_llm_provider)
             ):
                 raise Exception(f"Unsupported provider - {custom_llm_provider}")
 
         #### DEPLOYMENT NAMES INIT ########
-        self.deployment_names.append(deployment.litellm_params.model)
-        ############ Users can either pass tpm/rpm as a litellm_param or a router param ###########
-        # for get_available_deployment, we use the litellm_param["rpm"]
-        # in this snippet we also set rpm to be a litellm_param
-        if deployment.litellm_params.rpm is None and getattr(deployment, "rpm", None) is not None:
-            deployment.litellm_params.rpm = getattr(deployment, "rpm")
+        self.deployment_names.append(deployment.embrouter_params.model)
+        ############ Users can either pass tpm/rpm as a embrouter_param or a router param ###########
+        # for get_available_deployment, we use the embrouter_param["rpm"]
+        # in this snippet we also set rpm to be a embrouter_param
+        if deployment.embrouter_params.rpm is None and getattr(deployment, "rpm", None) is not None:
+            deployment.embrouter_params.rpm = getattr(deployment, "rpm")
 
-        if deployment.litellm_params.tpm is None and getattr(deployment, "tpm", None) is not None:
-            deployment.litellm_params.tpm = getattr(deployment, "tpm")
+        if deployment.embrouter_params.tpm is None and getattr(deployment, "tpm", None) is not None:
+            deployment.embrouter_params.tpm = getattr(deployment, "tpm")
 
         # Check if user is trying to use model_name == "*"
         # this is a catch all model for their specific api key
         # if deployment.model_name == "*":
-        #     if deployment.litellm_params.model == "*":
-        #         # user wants to pass through all requests to litellm.acompletion for unknown deployments
+        #     if deployment.embrouter_params.model == "*":
+        #         # user wants to pass through all requests to embrouter.acompletion for unknown deployments
         #         self.router_general_settings.pass_through_all_models = True
         #     else:
         #         self.default_deployment = deployment.to_json(exclude_none=True)
@@ -9640,7 +9640,7 @@ class Router:
             )
 
         # Azure GPT-Vision Enhancements, users can pass os.environ/
-        data_sources: Final = deployment.litellm_params.get("dataSources", []) or []
+        data_sources: Final = deployment.embrouter_params.get("dataSources", []) or []
 
         for data_source in data_sources:
             params = data_source.get("parameters", {})
@@ -9652,7 +9652,7 @@ class Router:
 
         # # init OpenAI, Azure clients
         # InitalizeOpenAISDKClient.set_client(
-        #     litellm_router_instance=self, model=deployment.to_json(exclude_none=True)
+        #     embrouter_router_instance=self, model=deployment.to_json(exclude_none=True)
         # )
 
         if custom_llm_provider is not None:
@@ -9664,13 +9664,13 @@ class Router:
         #########################################################
         # Check if this is an auto-router deployment
         #########################################################
-        if self._is_auto_router_deployment(litellm_params=deployment.litellm_params):
+        if self._is_auto_router_deployment(embrouter_params=deployment.embrouter_params):
             self.init_auto_router_deployment(deployment=deployment)
 
         #########################################################
         # Check if this is a complexity-router deployment
         #########################################################
-        if self._is_complexity_router_deployment(litellm_params=deployment.litellm_params):
+        if self._is_complexity_router_deployment(embrouter_params=deployment.embrouter_params):
             self.init_complexity_router_deployment(deployment=deployment)
 
         # NOTE: adaptive-router deployments are deferred to the end of
@@ -9680,38 +9680,38 @@ class Router:
         #########################################################
         # Check if this is a quality-router deployment
         #########################################################
-        if self._is_quality_router_deployment(litellm_params=deployment.litellm_params):
+        if self._is_quality_router_deployment(embrouter_params=deployment.embrouter_params):
             self.init_quality_router_deployment(deployment=deployment)
 
         return deployment
 
     def _initialize_deployment_for_pass_through(self, deployment: Deployment, custom_llm_provider: str):
         """
-        Optional: Register vertex credentials for pass-through endpoints if `deployment.litellm_params.use_in_pass_through` is True
+        Optional: Register vertex credentials for pass-through endpoints if `deployment.embrouter_params.use_in_pass_through` is True
 
         Other providers need no registration here: PassthroughEndpointRouter.get_credentials resolves their credentials per-request from the live router deployments
         """
-        if deployment.litellm_params.use_in_pass_through is not True:
+        if deployment.embrouter_params.use_in_pass_through is not True:
             return
         if custom_llm_provider != "vertex_ai":
             return
-        from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+        from embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
             passthrough_endpoint_router,
         )
 
-        credential_name: Final = deployment.litellm_params.litellm_credential_name
+        credential_name: Final = deployment.embrouter_params.embrouter_credential_name
         credential_values: Final = (
             CredentialAccessor.get_credential_values(credential_name) if credential_name is not None else {}
         )
-        vertex_project: Final = credential_values.get("vertex_project") or deployment.litellm_params.vertex_project
-        vertex_location: Final = credential_values.get("vertex_location") or deployment.litellm_params.vertex_location
+        vertex_project: Final = credential_values.get("vertex_project") or deployment.embrouter_params.vertex_project
+        vertex_location: Final = credential_values.get("vertex_location") or deployment.embrouter_params.vertex_location
         vertex_credentials: Final = (
-            credential_values.get("vertex_credentials") or deployment.litellm_params.vertex_credentials
+            credential_values.get("vertex_credentials") or deployment.embrouter_params.vertex_credentials
         )
 
         if vertex_project is None or vertex_location is None:
             raise ValueError(
-                "vertex_project, and vertex_location must be set in litellm_params for pass-through endpoints."
+                "vertex_project, and vertex_location must be set in embrouter_params for pass-through endpoints."
             )
         passthrough_endpoint_router.add_vertex_credentials(
             project_id=vertex_project,
@@ -9736,7 +9736,7 @@ class Router:
 
         warn_on_provider_credential_mismatch(
             model_name=deployment.model_name,
-            litellm_params=deployment.litellm_params.model_dump(exclude_none=True),
+            embrouter_params=deployment.embrouter_params.model_dump(exclude_none=True),
         )
 
         # add to model list
@@ -9885,13 +9885,13 @@ class Router:
                 # deployment with this model_id exists on the router
                 if (
                     deployment.model_name == _deployment_on_router.model_name
-                    and deployment.litellm_params == _deployment_on_router.litellm_params
+                    and deployment.embrouter_params == _deployment_on_router.embrouter_params
                     and deployment.model_info == _deployment_on_router.model_info
                 ):
                     # No need to update
                     return None
 
-                # if there is a new litellm param -> then update the deployment
+                # if there is a new embrouter param -> then update the deployment
                 # remove the previous deployment
                 removal_idx: int | None = None
                 deployment_id: Final = deployment.model_info.id
@@ -9916,10 +9916,10 @@ class Router:
             # set_model_list() defers until the whole model_list is visible. Re-run that
             # deferred pass so an adaptive router whose slot was just released above is
             # rebuilt rather than left unregistered.
-            if self._deployment_participates_in_adaptive_routing(litellm_params=deployment.litellm_params) or (
+            if self._deployment_participates_in_adaptive_routing(embrouter_params=deployment.embrouter_params) or (
                 _deployment_on_router is not None
                 and self._deployment_participates_in_adaptive_routing(
-                    litellm_params=_deployment_on_router.litellm_params
+                    embrouter_params=_deployment_on_router.embrouter_params
                 )
             ):
                 self._finalize_adaptive_router_if_configured()
@@ -9969,7 +9969,7 @@ class Router:
 
     @staticmethod
     def _backend_cost_map_keys(model: str, custom_llm_provider: str | None) -> tuple[str, ...]:
-        """The ``litellm.model_cost`` keys a deployment's shared backend info is registered under."""
+        """The ``embrouter.model_cost`` keys a deployment's shared backend info is registered under."""
         backend_key: Final = model if custom_llm_provider is None else f"{custom_llm_provider}/{model}"
         if "responses/" in backend_key:
             return (backend_key, backend_key.replace("responses/", ""))
@@ -9977,39 +9977,39 @@ class Router:
 
     @staticmethod
     def _deployment_model_cost_payload(deployment: Deployment) -> dict:  # mutable-ok: cost-map entry
-        """The ``model_info`` a deployment contributes to ``litellm.model_cost``.
+        """The ``model_info`` a deployment contributes to ``embrouter.model_cost``.
 
-        Custom pricing lives on ``litellm_params`` rather than ``model_info``, and
+        Custom pricing lives on ``embrouter_params`` rather than ``model_info``, and
         the built-in cache-pricing inheritance is derived rather than stored, so
         both are folded back in here. That keeps this reproducible from a
         deployment alone, which is what lets a refresh rebuild the same entries.
         """
         model_info: Final[dict] = deployment.model_info.model_dump(exclude_none=True)  # mutable-ok: built in place
-        for field in CustomPricingLiteLLMParams.model_fields:
-            field_value = deployment.litellm_params.get(field)
+        for field in CustomPricingEmbRouterParams.model_fields:
+            field_value = deployment.embrouter_params.get(field)
             if field_value is not None:
                 model_info[field] = field_value
         Router._inherit_builtin_base_rates_for_off_peak(
             model_info=model_info,
-            backend_model=deployment.litellm_params.model,
-            custom_llm_provider=deployment.litellm_params.custom_llm_provider,
+            backend_model=deployment.embrouter_params.model,
+            custom_llm_provider=deployment.embrouter_params.custom_llm_provider,
         )
         if model_info.get("input_cost_per_token") is not None:
             Router._inherit_builtin_cache_pricing(
                 model_info=model_info,
-                backend_model=deployment.litellm_params.model,
-                custom_llm_provider=deployment.litellm_params.custom_llm_provider,
+                backend_model=deployment.embrouter_params.model,
+                custom_llm_provider=deployment.embrouter_params.custom_llm_provider,
             )
         Router._inherit_builtin_tiered_output_rate(
             model_info=model_info,
-            backend_model=deployment.litellm_params.model,
-            custom_llm_provider=deployment.litellm_params.custom_llm_provider,
+            backend_model=deployment.embrouter_params.model,
+            custom_llm_provider=deployment.embrouter_params.custom_llm_provider,
         )
         return model_info
 
     @staticmethod
     def _register_deployment_pricing(deployment: Deployment) -> None:
-        """Register a deployment's custom/inherited pricing in ``litellm.model_cost``.
+        """Register a deployment's custom/inherited pricing in ``embrouter.model_cost``.
 
         Takes only a ``Deployment``, so it registers pricing for a deployment that
         is never added to ``self.model_list`` (a per-request client-side-credential
@@ -10018,8 +10018,8 @@ class Router:
         Router._register_deployment_in_model_cost(
             model_id=deployment.model_info.id,
             model_info=Router._deployment_model_cost_payload(deployment),
-            model=deployment.litellm_params.model,
-            custom_llm_provider=deployment.litellm_params.custom_llm_provider,
+            model=deployment.embrouter_params.model,
+            custom_llm_provider=deployment.embrouter_params.custom_llm_provider,
         )
 
     @staticmethod
@@ -10030,7 +10030,7 @@ class Router:
         model: str,
         custom_llm_provider: str | None,
     ) -> None:
-        """Write a deployment's metadata into ``litellm.model_cost``.
+        """Write a deployment's metadata into ``embrouter.model_cost``.
 
         Runs when a deployment is added and again after a price data reload, so
         the entries a refresh rebuilds are the ones a fresh boot would produce.
@@ -10046,11 +10046,11 @@ class Router:
         """
         if classify_strategy_router_model(model) is not None:
             model_info = {  # mutable-ok: filtered copy of the caller's entry, handed straight to register_model
-                k: v for k, v in model_info.items() if k not in CustomPricingLiteLLMParams.model_fields
+                k: v for k, v in model_info.items() if k not in CustomPricingEmbRouterParams.model_fields
             }
 
         if model_id is not None:
-            litellm.register_model(
+            embrouter.register_model(
                 model_cost={model_id: model_info},
                 persist_across_reloads=False,
                 warning_display_name=model,
@@ -10067,7 +10067,7 @@ class Router:
         # name. Each deployment's full model_info is already stored under
         # its unique model_id above.
         shared_model_info: Final = shared_backend_model_info(model_info)
-        existing_shared_mode: Final = (cast(dict | None, litellm.model_cost.get(backend_key, {})) or {}).get("mode")
+        existing_shared_mode: Final = (cast(dict | None, embrouter.model_cost.get(backend_key, {})) or {}).get("mode")
         deployment_mode: Final = shared_model_info.get("mode")
         # Keep the built-in bridge mode stable for shared backend keys.
         # Multiple aliases can point at the same provider/model backend,
@@ -10093,7 +10093,7 @@ class Router:
             shared_model_info["mode"] = existing_shared_mode
 
         # Always register the (possibly mode-preserved) shared backend info.
-        litellm.register_model(
+        embrouter.register_model(
             model_cost={_key: shared_model_info for _key in backend_keys},
             persist_across_reloads=False,
         )
@@ -10119,8 +10119,8 @@ class Router:
             Router._register_deployment_in_model_cost(
                 model_id=deployment.model_info.id,
                 model_info=Router._deployment_model_cost_payload(deployment),
-                model=deployment.litellm_params.model,
-                custom_llm_provider=deployment.litellm_params.custom_llm_provider,
+                model=deployment.embrouter_params.model,
+                custom_llm_provider=deployment.embrouter_params.custom_llm_provider,
             )
         self._invalidate_model_group_info_cache()
 
@@ -10170,7 +10170,7 @@ class Router:
         Return the router's deployment-budget callback.
 
         Uses exact-type matching so proxy subclasses (e.g. virtual-key model budgets)
-        registered on litellm.callbacks are not mistaken for router deployment budgets.
+        registered on embrouter.callbacks are not mistaken for router deployment budgets.
         """
         if self.router_budget_logger is not None:
             return self.router_budget_logger
@@ -10184,8 +10184,8 @@ class Router:
 
     def _deployment_has_budget_limits(self, deployment: Deployment) -> bool:
         return (
-            deployment.litellm_params.get("max_budget") is not None
-            and deployment.litellm_params.get("budget_duration") is not None
+            deployment.embrouter_params.get("max_budget") is not None
+            and deployment.embrouter_params.get("budget_duration") is not None
             and deployment.model_info.id is not None
         )
 
@@ -10231,15 +10231,15 @@ class Router:
         """
         Returns -> dict of credentials for a given model id.
 
-        Returns None if the deployment is paused via `LiteLLM_ProxyModelTable.blocked`,
+        Returns None if the deployment is paused via `EmbRouter_ProxyModelTable.blocked`,
         so file/batch/passthrough callers that resolve credentials directly cannot keep
         using a paused deployment.
         """
         deployment: Final = self.get_deployment(model_id=model_id)
         if deployment is None or self._is_deployment_blocked(deployment):
             return None
-        return CredentialLiteLLMParams.model_validate(
-            deployment.litellm_params.model_dump(exclude_none=True)
+        return CredentialEmbRouterParams.model_validate(
+            deployment.embrouter_params.model_dump(exclude_none=True)
         ).model_dump(exclude_none=True)
 
     def get_deployment_by_model_group_name(self, model_group_name: str) -> Deployment | None:
@@ -10309,10 +10309,10 @@ class Router:
         self, raw_deployment: Mapping[str, object], *, client: AsyncHTTPHandler | None
     ) -> None:
         deployment: Final = Deployment.model_validate(raw_deployment)
-        params: Final = LiteLLM_Params.model_validate(
+        params: Final = EmbRouter_Params.model_validate(
             MappingProxyType(
                 {
-                    **deployment.litellm_params.model_dump(exclude_none=True),
+                    **deployment.embrouter_params.model_dump(exclude_none=True),
                     **(
                         self.get_deployment_credentials_with_provider(deployment.model_info.id or "")
                         or MappingProxyType({})
@@ -10320,7 +10320,7 @@ class Router:
                 }
             )
         )
-        model, provider, dynamic_api_key, api_base = litellm.get_llm_provider(model=params.model, litellm_params=params)
+        model, provider, dynamic_api_key, api_base = embrouter.get_llm_provider(model=params.model, embrouter_params=params)
         if provider not in MODEL_INFO_DISCOVERY_PROVIDERS:
             return
         if api_base is None or "*" in model or params.get("use_clientside_credentials"):
@@ -10404,15 +10404,15 @@ class Router:
             )
             for deployment in deployments
         )
-        params: Final = tuple(deployment.get("litellm_params") or MappingProxyType({}) for deployment in deployments)
+        params: Final = tuple(deployment.get("embrouter_params") or MappingProxyType({}) for deployment in deployments)
         # base_model resolution mirrors get_router_model_info: unset or blank means the
         # deployment's own model name is the cost-map key.
         cost_map_keys: Final = tuple(
             dict.fromkeys(  # deduplicates while preserving config order
                 key
                 for key in (
-                    model_info.get("base_model") or litellm_params.get("base_model") or litellm_params.get("model")
-                    for model_info, litellm_params in zip(model_infos, params)
+                    model_info.get("base_model") or embrouter_params.get("base_model") or embrouter_params.get("model")
+                    for model_info, embrouter_params in zip(model_infos, params)
                 )
                 if isinstance(key, str) and key
             )
@@ -10500,7 +10500,7 @@ class Router:
         entry). Name and wildcard lookups never resolve another team's deployment.
 
         Returns None when nothing matches or the match is paused via
-        `LiteLLM_ProxyModelTable.blocked`, so callers cannot bypass an admin pause
+        `EmbRouter_ProxyModelTable.blocked`, so callers cannot bypass an admin pause
         by resolving the deployment directly.
         """
         deployment: Final = (
@@ -10551,7 +10551,7 @@ class Router:
         then model_name, team public model name, and wildcard pattern).
 
         Args:
-            model_id: Model ID or model name from model_list (e.g., "gpt-4o-litellm")
+            model_id: Model ID or model name from model_list (e.g., "gpt-4o-embrouter")
             team_id: Optional team id of the caller. When set, team-scoped
                 deployments (indexed by team public model name, including team
                 wildcard models like "openai/*") are also considered. Name and
@@ -10562,11 +10562,11 @@ class Router:
         Returns:
             Dictionary containing api_key, api_base, custom_llm_provider, etc.
             Returns None if model not found, or if the resolved deployment is
-            paused via `LiteLLM_ProxyModelTable.blocked` (so passthrough callers
+            paused via `EmbRouter_ProxyModelTable.blocked` (so passthrough callers
             cannot bypass an admin pause by resolving credentials directly).
 
         Example:
-            credentials = router.get_deployment_credentials_with_provider("gpt-4o-litellm")
+            credentials = router.get_deployment_credentials_with_provider("gpt-4o-embrouter")
             # Returns: {"api_key": "sk-...", "custom_llm_provider": "openai", "model": "gpt-4o", ...}
         """
         deployment: Final = self.get_credential_deployment(model_id=model_id, team_id=team_id)
@@ -10574,31 +10574,31 @@ class Router:
             return None
 
         # Get basic credentials
-        credentials: Final = CredentialLiteLLMParams.model_validate(
-            deployment.litellm_params.model_dump(exclude_none=True)
+        credentials: Final = CredentialEmbRouterParams.model_validate(
+            deployment.embrouter_params.model_dump(exclude_none=True)
         ).model_dump(exclude_none=True)
 
-        # Resolve litellm_credential_name to actual credentials
-        if deployment.litellm_params.litellm_credential_name is not None:
+        # Resolve embrouter_credential_name to actual credentials
+        if deployment.embrouter_params.embrouter_credential_name is not None:
             credential_values: Final = CredentialAccessor.get_credential_values(
-                deployment.litellm_params.litellm_credential_name
+                deployment.embrouter_params.embrouter_credential_name
             )
             if not credential_values:
                 verbose_router_logger.warning(
-                    "Credential '%s' not found in credential_list", deployment.litellm_params.litellm_credential_name
+                    "Credential '%s' not found in credential_list", deployment.embrouter_params.embrouter_credential_name
                 )
             credentials.update(credential_values)
             # Remove the credential name since we've resolved it
-            credentials.pop("litellm_credential_name", None)
+            credentials.pop("embrouter_credential_name", None)
 
-        credentials["model"] = deployment.litellm_params.model
+        credentials["model"] = deployment.embrouter_params.model
 
         # Add custom_llm_provider
-        if deployment.litellm_params.custom_llm_provider:
-            credentials["custom_llm_provider"] = deployment.litellm_params.custom_llm_provider
-        elif "/" in deployment.litellm_params.model:
+        if deployment.embrouter_params.custom_llm_provider:
+            credentials["custom_llm_provider"] = deployment.embrouter_params.custom_llm_provider
+        elif "/" in deployment.embrouter_params.model:
             # Extract provider from "provider/model" format
-            credentials["custom_llm_provider"] = deployment.litellm_params.model.split("/")[0]
+            credentials["custom_llm_provider"] = deployment.embrouter_params.model.split("/")[0]
         else:
             credentials["custom_llm_provider"] = "openai"  # default
 
@@ -10626,7 +10626,7 @@ class Router:
         """
         For a given model id, return the model info (max tokens, input cost, output cost, etc.).
 
-        Augment litellm info with additional params set in `model_info`.
+        Augment embrouter info with additional params set in `model_info`.
 
         For azure models, ignore the `model:`. Only set max tokens, cost values if base_model is set.
 
@@ -10647,35 +10647,35 @@ class Router:
         ## GET BASE MODEL
         base_model = (deployment.get("model_info") or {}).get("base_model", None)
         if base_model is None:
-            base_model = (deployment.get("litellm_params") or {}).get("base_model", None)
+            base_model = (deployment.get("embrouter_params") or {}).get("base_model", None)
 
         model = base_model
 
-        ## GET PROVIDER - reuse LiteLLM_Params if already constructed
-        litellm_params_data: Final = deployment.get("litellm_params")
-        litellm_params: LiteLLM_Params
-        if isinstance(litellm_params_data, LiteLLM_Params):
-            litellm_params = litellm_params_data
-        elif isinstance(litellm_params_data, dict) and "model" in litellm_params_data:
-            litellm_params = LiteLLM_Params(**litellm_params_data)
+        ## GET PROVIDER - reuse EmbRouter_Params if already constructed
+        embrouter_params_data: Final = deployment.get("embrouter_params")
+        embrouter_params: EmbRouter_Params
+        if isinstance(embrouter_params_data, EmbRouter_Params):
+            embrouter_params = embrouter_params_data
+        elif isinstance(embrouter_params_data, dict) and "model" in embrouter_params_data:
+            embrouter_params = EmbRouter_Params(**embrouter_params_data)
         else:
             raise ValueError(
-                f"Deployment missing valid litellm_params. "
-                f"Got: {type(litellm_params_data).__name__}, "
+                f"Deployment missing valid embrouter_params. "
+                f"Got: {type(embrouter_params_data).__name__}, "
                 f"deployment_id: {(deployment.get('model_info') or {}).get('id', 'unknown')}"
             )
-        _model, custom_llm_provider, _, _ = litellm.get_llm_provider(
-            model=litellm_params.model,
-            litellm_params=litellm_params,
+        _model, custom_llm_provider, _, _ = embrouter.get_llm_provider(
+            model=embrouter_params.model,
+            embrouter_params=embrouter_params,
         )
 
         ## SET MODEL TO 'model=' - if base_model is None + not azure
         if custom_llm_provider == "azure" and base_model is None:
             # Router init auto-registers every deployment name into
-            # litellm.model_cost as a zeroed stub, so membership alone can't
+            # embrouter.model_cost as a zeroed stub, so membership alone can't
             # tell a resolvable name apart; require usable limits/costs.
             _azure_fallback_key = _model if _model.startswith("azure/") else f"azure/{_model}"
-            _fallback_entry = litellm.model_cost.get(_azure_fallback_key)
+            _fallback_entry = embrouter.model_cost.get(_azure_fallback_key)
             _fallback_resolves = _fallback_entry is not None and (
                 (_fallback_entry.get("max_input_tokens") or 0) > 0
                 or (_fallback_entry.get("max_tokens") or 0) > 0
@@ -10703,15 +10703,15 @@ class Router:
                             if (potential_model.get("model_info") or {}).get("id") == (
                                 deployment.get("model_info") or {}
                             ).get("id"):
-                                model = (potential_model.get("litellm_params") or {}).get("model")
+                                model = (potential_model.get("embrouter_params") or {}).get("model")
                                 break
                         except Exception:
                             pass
 
-        ## GET LITELLM MODEL INFO - raises exception, if model is not mapped
+        ## GET EMBROUTER MODEL INFO - raises exception, if model is not mapped
         if model is None:
             # Handle case where base_model is None (e.g., Azure models without base_model set)
-            # Use the original model from litellm_params
+            # Use the original model from embrouter_params
             model = _model
 
         if not model.startswith(f"{custom_llm_provider}/"):
@@ -10719,7 +10719,7 @@ class Router:
         else:
             model_info_name = model
 
-        model_info: Final = litellm.get_model_info(model=model_info_name)
+        model_info: Final = embrouter.get_model_info(model=model_info_name)
         if model_info is None:
             return model_info
 
@@ -10748,7 +10748,7 @@ class Router:
         For a given model id, return the model info
 
         Returns
-        - dict: the model in list with 'model_name', 'litellm_params', Optional['model_info']
+        - dict: the model in list with 'model_name', 'embrouter_params', Optional['model_info']
         - None: could not find deployment in list
 
         Optimized with O(1) index lookup instead of O(n) linear scan.
@@ -10776,30 +10776,30 @@ class Router:
         For a given model id, return the model info
 
         1. Check if model_id is in model info
-        2. If not, check if litellm model name is in model info
+        2. If not, check if embrouter model name is in model info
         3. If not, return None
         """
-        from litellm.utils import _update_dictionary, cost_map_omits_token_price
+        from embrouter.utils import _update_dictionary, cost_map_omits_token_price
 
         model_info: ModelInfo | None = None
         custom_model_info: dict | None = None
-        litellm_model_name_model_info: ModelInfo | None = None
+        embrouter_model_name_model_info: ModelInfo | None = None
         base_model_key: str | None = None
 
         try:
             custom_model_info = (
                 {  # mutable-ok: the legacy model-info merge updates this private copy
-                    **copy.deepcopy(litellm.model_cost.get(model_id) or MappingProxyType({})),
+                    **copy.deepcopy(embrouter.model_cost.get(model_id) or MappingProxyType({})),
                     **self.get_discovered_model_info(model_id),
                 }
-                if model_id in litellm.model_cost
+                if model_id in embrouter.model_cost
                 else None
             )
         except Exception:
             pass
 
         try:
-            litellm_model_name_model_info = litellm.get_model_info(model=model_name)
+            embrouter_model_name_model_info = embrouter.get_model_info(model=model_name)
         except Exception:
             pass
 
@@ -10808,8 +10808,8 @@ class Router:
             if custom_model_info is not None:
                 base_model: Final = custom_model_info.get("base_model", None)
                 if base_model is not None:
-                    ## update litellm model info with base model info
-                    base_model_info: Final = copy.deepcopy(litellm.get_model_info(model=base_model))
+                    ## update embrouter model info with base model info
+                    base_model_info: Final = copy.deepcopy(embrouter.get_model_info(model=base_model))
                     if base_model_info is not None:
                         base_model_key = base_model_info.get("key")
                         # Base model provides defaults, custom model info overrides
@@ -10821,19 +10821,19 @@ class Router:
             pass
 
         # Three mutually exclusive scenarios for the model's metadata:
-        if custom_model_info is not None and litellm_model_name_model_info is not None:
+        if custom_model_info is not None and embrouter_model_name_model_info is not None:
             # (1) It has both custom model_info set and exists in the built-in map
             # merge with custom overriding built-in
             model_info = cast(
                 ModelInfo,
                 _update_dictionary(
-                    copy.deepcopy(cast(dict, litellm_model_name_model_info)),
+                    copy.deepcopy(cast(dict, embrouter_model_name_model_info)),
                     custom_model_info,
                 ),
             )
-        elif litellm_model_name_model_info is not None:
+        elif embrouter_model_name_model_info is not None:
             # (2) Built-in only — no custom pricing to merge
-            model_info = copy.deepcopy(litellm_model_name_model_info)
+            model_info = copy.deepcopy(embrouter_model_name_model_info)
         elif custom_model_info is not None:
             # (3) Custom only — model not in built-in cost map yet
             # custom_model_info already includes base_model defaults at this point, if applicable
@@ -10842,7 +10842,7 @@ class Router:
         if model_info is None:
             return None
         builtin_key: Final = (
-            litellm_model_name_model_info.get("key") if litellm_model_name_model_info is not None else None
+            embrouter_model_name_model_info.get("key") if embrouter_model_name_model_info is not None else None
         )
         if cost_map_omits_token_price(model_id, builtin_key, base_model_key):
             return cast(  # cast-ok: TypedDict spread with overridden keys loses its type
@@ -10883,12 +10883,12 @@ class Router:
             if not is_match:
                 continue
             # model in model group found #
-            litellm_params = LiteLLM_Params(**model["litellm_params"])
+            embrouter_params = EmbRouter_Params(**model["embrouter_params"])
             # get configurable clientside auth params
-            configurable_clientside_auth_params = litellm_params.configurable_clientside_auth_params
+            configurable_clientside_auth_params = embrouter_params.configurable_clientside_auth_params
 
             # Cache nested dict access to avoid repeated temporary dict allocations
-            model_litellm_params = model.get("litellm_params", {})
+            model_embrouter_params = model.get("embrouter_params", {})
             model_info_dict = model.get("model_info", {})
 
             # get model tpm
@@ -10896,7 +10896,7 @@ class Router:
             if _deployment_tpm is None:
                 _deployment_tpm = model.get("tpm", None)
             if _deployment_tpm is None:
-                _deployment_tpm = model_litellm_params.get("tpm", None)
+                _deployment_tpm = model_embrouter_params.get("tpm", None)
             if _deployment_tpm is None:
                 _deployment_tpm = model_info_dict.get("tpm", None)
 
@@ -10905,19 +10905,19 @@ class Router:
             if _deployment_rpm is None:
                 _deployment_rpm = model.get("rpm", None)
             if _deployment_rpm is None:
-                _deployment_rpm = model_litellm_params.get("rpm", None)
+                _deployment_rpm = model_embrouter_params.get("rpm", None)
             if _deployment_rpm is None:
                 _deployment_rpm = model_info_dict.get("rpm", None)
 
             _deployment_itpm: int | None = model.get("itpm")
             if _deployment_itpm is None:
-                _deployment_itpm = model_litellm_params.get("itpm", None)
+                _deployment_itpm = model_embrouter_params.get("itpm", None)
             if _deployment_itpm is None:
                 _deployment_itpm = model_info_dict.get("itpm", None)
 
             _deployment_otpm: int | None = model.get("otpm")
             if _deployment_otpm is None:
-                _deployment_otpm = model_litellm_params.get("otpm", None)
+                _deployment_otpm = model_embrouter_params.get("otpm", None)
             if _deployment_otpm is None:
                 _deployment_otpm = model_info_dict.get("otpm", None)
 
@@ -10925,7 +10925,7 @@ class Router:
             try:
                 model_id = model_info_dict.get("id", None)
                 if model_id is not None:
-                    model_info = self.get_deployment_model_info(model_id=model_id, model_name=litellm_params.model)
+                    model_info = self.get_deployment_model_info(model_id=model_id, model_name=embrouter_params.model)
                 else:
                     model_info = None
             except Exception:
@@ -10934,18 +10934,18 @@ class Router:
             deployment_is_mapped = deployment_is_catalog_mapped(model_info, model_info_dict)
 
             # get llm provider
-            litellm_model, llm_provider = "", ""
+            embrouter_model, llm_provider = "", ""
             try:
-                litellm_model, llm_provider, _, _ = litellm.get_llm_provider(
-                    model=litellm_params.model,
-                    custom_llm_provider=litellm_params.custom_llm_provider,
+                embrouter_model, llm_provider, _, _ = embrouter.get_llm_provider(
+                    model=embrouter_params.model,
+                    custom_llm_provider=embrouter_params.custom_llm_provider,
                 )
-            except litellm.exceptions.BadRequestError as e:
-                verbose_router_logger.error("litellm.router.py::get_model_group_info() - %s", e)
+            except embrouter.exceptions.BadRequestError as e:
+                verbose_router_logger.error("embrouter.router.py::get_model_group_info() - %s", e)
 
             if model_info is None:
-                supported_openai_params = litellm.get_supported_openai_params(
-                    model=litellm_model, custom_llm_provider=llm_provider
+                supported_openai_params = embrouter.get_supported_openai_params(
+                    model=embrouter_model, custom_llm_provider=llm_provider
                 )
                 if supported_openai_params is None:
                     supported_openai_params = []
@@ -10963,7 +10963,7 @@ class Router:
                     max_output_tokens=None,
                     input_cost_per_token=input_cost_per_token,
                     output_cost_per_token=output_cost_per_token,
-                    litellm_provider=llm_provider,
+                    embrouter_provider=llm_provider,
                     mode=mode,
                     supported_openai_params=supported_openai_params,
                     supports_system_messages=None,
@@ -11055,7 +11055,7 @@ class Router:
                     _deployment_rpm = model_info.get("rpm")
 
             model_group_info.supports_fast_mode = model_group_info.supports_fast_mode and (
-                AnthropicModelInfo.supports_fast_mode(litellm_model, llm_provider)
+                AnthropicModelInfo.supports_fast_mode(embrouter_model, llm_provider)
             )
             deployment_reasoning_efforts = resolve_supported_reasoning_efforts(
                 model_info, deployment_is_mapped=deployment_is_mapped
@@ -11162,22 +11162,22 @@ class Router:
 
         for model in model_list:
             id: str | None = model.get("model_info", {}).get("id")
-            litellm_model: str | None = model["litellm_params"].get(
+            embrouter_model: str | None = model["embrouter_params"].get(
                 "model"
-            )  # USE THE MODEL SENT TO litellm.completion() - consistent with how global_router cache is written.
-            if id is None or litellm_model is None:
+            )  # USE THE MODEL SENT TO embrouter.completion() - consistent with how global_router cache is written.
+            if id is None or embrouter_model is None:
                 continue
             tpm_keys.append(
                 RouterCacheEnum.TPM.value.format(
                     id=id,
-                    model=litellm_model,
+                    model=embrouter_model,
                     current_minute=current_minute,
                 )
             )
             rpm_keys.append(
                 RouterCacheEnum.RPM.value.format(
                     id=id,
-                    model=litellm_model,
+                    model=embrouter_model,
                     current_minute=current_minute,
                 )
             )
@@ -11223,20 +11223,20 @@ class Router:
 
         for model in model_list:
             model_id: str | None = model.get("model_info", {}).get("id")
-            litellm_model: str | None = model["litellm_params"].get("model")
-            if model_id is None or litellm_model is None:
+            embrouter_model: str | None = model["embrouter_params"].get("model")
+            if model_id is None or embrouter_model is None:
                 continue
             itpm_keys.append(
                 RouterCacheEnum.ITPM.value.format(
                     id=model_id,
-                    model=litellm_model,
+                    model=embrouter_model,
                     current_minute=current_minute,
                 )
             )
             otpm_keys.append(
                 RouterCacheEnum.OTPM.value.format(
                     id=model_id,
-                    model=litellm_model,
+                    model=embrouter_model,
                     current_minute=current_minute,
                 )
             )
@@ -11329,7 +11329,7 @@ class Router:
         apply_response_model_id(
             response, find_deployment_metadata(request_kwargs) if request_kwargs is not None else None
         )
-        additional_headers["x-litellm-model-group"] = model_group
+        additional_headers["x-embrouter-model-group"] = model_group
         apply_quality_router_decision_headers(additional_headers, request_kwargs)
         additional_headers.update(complexity_router_decision_headers(request_kwargs))
 
@@ -11376,8 +11376,8 @@ class Router:
             # If no ID exists, generate one using the same logic as set_model_list
             if model_id is None:
                 model_name = model.get("model_name", "")
-                litellm_params = model.get("litellm_params", {})
-                model_id = self.generate_model_id(model_name, litellm_params)
+                embrouter_params = model.get("embrouter_params", {})
+                model_id = self.generate_model_id(model_name, embrouter_params)
                 # Update the model_info in the original list
                 if "model_info" not in model:
                     model["model_info"] = {}
@@ -11474,16 +11474,16 @@ class Router:
         Resolve model_name from model_id.
 
         This method attempts to find the correct model_name to use with the router
-        so that litellm_params can be automatically injected from the model config.
+        so that embrouter_params can be automatically injected from the model config.
 
         Strategy:
         1. First, check if model_id directly matches a model_name or deployment ID
-        2. If not, search through router's model_list to find a match by litellm_params.model
+        2. If not, search through router's model_list to find a match by embrouter_params.model
         3. Return the model_name if found, None otherwise
 
         Args:
             model_id: The model_id extracted from decoded video_id
-                     (could be model_name or litellm_params.model value)
+                     (could be model_name or embrouter_params.model value)
 
         Returns:
             model_name if found, None otherwise. If None, the request will fall through
@@ -11501,14 +11501,14 @@ class Router:
                 return deployment.model_name
             return model_id
 
-        # Strategy 2: Search through router's model_list to find by litellm_params.model
+        # Strategy 2: Search through router's model_list to find by embrouter_params.model
         all_models: Final = self.get_model_list(model_name=None)
         if not all_models:
             return None
 
         for deployment in all_models:
-            litellm_params = deployment.get("litellm_params", {})
-            actual_model = litellm_params.get("model")
+            embrouter_params = deployment.get("embrouter_params", {})
+            actual_model = embrouter_params.get("model")
 
             # Match by exact match or by checking if actual_model ends with /model_id or :model_id
             # e.g., model_id="veo-2.0-generate-001" matches actual_model="vertex_ai/veo-2.0-generate-001"
@@ -11876,7 +11876,7 @@ class Router:
         }
         return {**deployment, "model_info": model_info}  # mutable-ok: DeploymentTypedDict rows are plain dicts
 
-    TIER_PARAMS_NEVER_DROPPED: Final = frozenset(all_litellm_params) | frozenset(
+    TIER_PARAMS_NEVER_DROPPED: Final = frozenset(all_embrouter_params) | frozenset(
         {
             "additional_drop_params",
             "drop_params",
@@ -11897,7 +11897,7 @@ class Router:
 
     @staticmethod
     def _deployment_accepts_param(deployment: DeploymentTypedDict, group: str, param: str) -> bool:
-        deployment_params: Final = deployment.get("litellm_params")
+        deployment_params: Final = deployment.get("embrouter_params")
         if not deployment_params:
             return True
         if param in Router._declared_param_allowlist(deployment_params):
@@ -11911,18 +11911,18 @@ class Router:
             deployment_model_info.get("base_model") if deployment_model_info else None
         ) or deployment_params.get("base_model")
         try:
-            model, custom_llm_provider, _, _ = litellm.get_llm_provider(
+            model, custom_llm_provider, _, _ = embrouter.get_llm_provider(
                 model=deployment_params.get("model") or group,
                 custom_llm_provider=deployment_params.get("custom_llm_provider"),
             )
-            supported: Final = litellm.get_supported_openai_params(
+            supported: Final = embrouter.get_supported_openai_params(
                 model=model,
                 custom_llm_provider=custom_llm_provider,
                 base_model=base_model if isinstance(base_model, str) else None,
             )
         except Exception as e:  # noqa: BLE001  # best-effort filter: an unresolvable provider must not narrow the request
             verbose_router_logger.debug(
-                "litellm.router.py::_deployment_accepts_param: keeping %s for model=%s. Got - %s", param, group, e
+                "embrouter.router.py::_deployment_accepts_param: keeping %s for model=%s. Got - %s", param, group, e
             )
             return True
         return supported is None or param in supported
@@ -11932,14 +11932,14 @@ class Router:
     ) -> Mapping[str, object]:
         """Drop an OpenAI param that no deployment behind ``model`` declares.
 
-        A tier's litellm_params are an operator override applied to every request the tier routes,
+        A tier's embrouter_params are an operator override applied to every request the tier routes,
         so one the target cannot take turns that whole tier into a 400 raised before the request
         leaves the proxy. The candidates are exactly what get_optional_params can reject, asked of
         the module that raises, so credentials and endpoint controls are never at risk.
 
         TIER_PARAMS_NEVER_DROPPED is excluded on top of that, for two reasons. No provider lists a
-        litellm control among its supported params, so "no deployment declares it" means litellm
-        consumes it rather than that the target refuses it, and dropping one changes litellm's own
+        embrouter control among its supported params, so "no deployment declares it" means embrouter
+        consumes it rather than that the target refuses it, and dropping one changes embrouter's own
         behavior: dropping drop_params or additional_drop_params silently disables the sanitization
         the operator configured. Providers do list extra_headers, but it carries auth, tenancy and
         routing information, so sending fewer headers than configured is worse than today's error.
@@ -11961,7 +11961,7 @@ class Router:
         allowed_openai_params is the documented escape hatch for an outdated or incomplete
         supported-params list: request-time validation extends the supported list with it before
         comparing. The filter asks the same question, so a param named by the allowlist on the tier
-        overlay, the request, or a deployment's own litellm_params is never a drop candidate.
+        overlay, the request, or a deployment's own embrouter_params is never a drop candidate.
         """
         deployments: Final = self.get_model_list(model_name=model) or ()
         if not deployments:
@@ -11978,7 +11978,7 @@ class Router:
         if not unsupported:
             return tier_params
         verbose_router_logger.warning(
-            "litellm.router.py: dropping tier params %s for model=%s, no deployment behind it declares them",
+            "embrouter.router.py: dropping tier params %s for model=%s, no deployment behind it declares them",
             ", ".join(sorted(unsupported)),
             model,
         )
@@ -12023,7 +12023,7 @@ class Router:
 
         return returned_models
 
-    def resolved_litellm_models(self, model_name: str, team_id: str | None = None) -> tuple[str, ...]:
+    def resolved_embrouter_models(self, model_name: str, team_id: str | None = None) -> tuple[str, ...]:
         """The provider model strings `model_name` can actually be served by on this proxy.
 
         `get_model_list` composes every channel the request path itself uses (exact name,
@@ -12037,9 +12037,9 @@ class Router:
         never this function's.
         """
         return tuple(
-            litellm_model
+            embrouter_model
             for deployment in self.get_model_list(model_name=model_name, team_id=team_id) or ()
-            if isinstance(litellm_model := deployment.get("litellm_params", {}).get("model"), str) and litellm_model
+            if isinstance(embrouter_model := deployment.get("embrouter_params", {}).get("model"), str) and embrouter_model
         )
 
     def _invalidate_model_group_info_cache(self) -> None:
@@ -12207,7 +12207,7 @@ class Router:
                         value = self._normalize_strategy(value)
                         if _existing_router_settings["routing_strategy"] != value:
                             if value == "lar1":
-                                from litellm.router_strategy.lar1_routing import (
+                                from embrouter.router_strategy.lar1_routing import (
                                     apply_lar1_routing_strategy,
                                 )
 
@@ -12254,7 +12254,7 @@ class Router:
             cache_key = f"{model_id}_max_parallel_requests_client"
             client = self.cache.get_cache(key=cache_key, local_only=True, parent_otel_span=parent_otel_span)
             if client is None:
-                InitalizeCachedClient.set_max_parallel_requests_client(litellm_router_instance=self, model=deployment)
+                InitalizeCachedClient.set_max_parallel_requests_client(embrouter_router_instance=self, model=deployment)
                 client = self.cache.get_cache(key=cache_key, local_only=True, parent_otel_span=parent_otel_span)
             return client
         elif client_type == "async":
@@ -12288,14 +12288,14 @@ class Router:
         Chat Completions send `messages`; the Responses API sends `input` (a string or
         a list of Responses input items) plus an optional `instructions` system prompt.
         The Responses payload is normalized to chat messages via the shared
-        LiteLLMCompletionResponsesConfig transform so the same token_counter path covers
+        EmbRouterCompletionResponsesConfig transform so the same token_counter path covers
         both API surfaces and `instructions` tokens are included in the count.
 
         Prompt content the message list never carries is read from `request_kwargs`:
         `tools` (Chat Completions, Responses and Anthropic Messages shapes) and the
         Anthropic Messages top-level `system` block.
         """
-        from litellm.llms.anthropic.pass_through.messages.utils import (
+        from embrouter.llms.anthropic.pass_through.messages.utils import (
             anthropic_system_to_openai_message,
         )
 
@@ -12311,20 +12311,20 @@ class Router:
         system_message: Final = anthropic_system_to_openai_message(extras.get("system"))
         if messages is not None:
             counted_messages: Final = (system_message, *messages) if system_message is not None else messages
-            return litellm.token_counter(messages=counted_messages, tools=tools)
+            return embrouter.token_counter(messages=counted_messages, tools=tools)
         if input is not None:
             from openai.types.responses.response_create_params import ResponseInputParam
 
-            from litellm.responses.litellm_completion_transformation.transformation import (
-                LiteLLMCompletionResponsesConfig,
+            from embrouter.responses.embrouter_completion_transformation.transformation import (
+                EmbRouterCompletionResponsesConfig,
             )
 
             typed_input: Final = cast(str | ResponseInputParam, input)  # cast-ok: str | list matches transform input
-            input_messages: Final = LiteLLMCompletionResponsesConfig.transform_responses_api_input_to_messages(
+            input_messages: Final = EmbRouterCompletionResponsesConfig.transform_responses_api_input_to_messages(
                 input=typed_input,
                 responses_api_request={"instructions": instructions} if instructions is not None else {},
             )
-            return litellm.token_counter(
+            return embrouter.token_counter(
                 messages=cast(list, input_messages),  # cast-ok: transformed chat messages
                 tools=tools,
             )
@@ -12339,7 +12339,7 @@ class Router:
             )
         except Exception as e:  # noqa: BLE001  # best-effort: an unmappable deployment must not hide the others
             verbose_router_logger.debug(
-                "litellm.router.py::_deployment_max_input_tokens: skipping deployment. Got - %s", e
+                "embrouter.router.py::_deployment_max_input_tokens: skipping deployment. Got - %s", e
             )
             return None
         max_input_tokens: Final = model_info.get("max_input_tokens")
@@ -12383,7 +12383,7 @@ class Router:
             )
         except Exception as e:  # noqa: BLE001  # best-effort: an uncountable prompt must not fail the request
             verbose_router_logger.error(
-                "litellm.router.py::_acount_pre_call_check_tokens: failed to count tokens. Got - %s", e
+                "embrouter.router.py::_acount_pre_call_check_tokens: failed to count tokens. Got - %s", e
             )
             return None
 
@@ -12439,7 +12439,7 @@ class Router:
         )  # check the in-memory cache used by lowest_latency and usage-based routing. Only check the local cache.
         for idx, deployment in enumerate(_returned_deployments):
             # Cache nested dict access to avoid repeated temporary dict allocations
-            _litellm_params = deployment.get("litellm_params", {})
+            _embrouter_params = deployment.get("embrouter_params", {})
             _model_info = deployment.get("model_info", {})
 
             # see if we have the info for this model
@@ -12447,8 +12447,8 @@ class Router:
             try:
                 base_model = _model_info.get("base_model", None)
                 if base_model is None:
-                    base_model = _litellm_params.get("base_model", None)
-                _deployment_model = base_model or _litellm_params.get("model", None)
+                    base_model = _embrouter_params.get("base_model", None)
+                _deployment_model = base_model or _embrouter_params.get("model", None)
                 model_info = self.get_router_model_info(deployment=deployment, received_model_name=model)
 
                 max_input_tokens = model_info.get("max_input_tokens") if isinstance(model_info, dict) else None
@@ -12462,7 +12462,7 @@ class Router:
                             )
                         except Exception as e:
                             verbose_router_logger.error(
-                                "litellm.router.py::_pre_call_checks: failed to count tokens. Returning initial list of deployments. Got - %s",
+                                "embrouter.router.py::_pre_call_checks: failed to count tokens. Returning initial list of deployments. Got - %s",
                                 e,
                             )
                             return _returned_deployments
@@ -12488,8 +12488,8 @@ class Router:
 
                 current_request = max(current_request_cache_local, model_group_cache[model_id])
 
-                if isinstance(_litellm_params, dict) and _litellm_params.get("rpm", None) is not None:
-                    if isinstance(_litellm_params["rpm"], int) and _litellm_params["rpm"] <= current_request:
+                if isinstance(_embrouter_params, dict) and _embrouter_params.get("rpm", None) is not None:
+                    if isinstance(_embrouter_params["rpm"], int) and _embrouter_params["rpm"] <= current_request:
                         invalid_model_indices.add(idx)
                         _rate_limit_error = True
                         continue
@@ -12500,14 +12500,14 @@ class Router:
 
                 if allowed_model_region is not None:
                     if not is_region_allowed(
-                        litellm_params=LiteLLM_Params(**_litellm_params),
+                        embrouter_params=EmbRouter_Params(**_embrouter_params),
                         allowed_model_region=allowed_model_region,
                     ):
                         invalid_model_indices.add(idx)
                         continue
 
             ## INVALID PARAMS ## -> catch 'gpt-3.5-turbo-16k' not supporting 'response_format' param
-            if request_kwargs is not None and litellm.drop_params is False:
+            if request_kwargs is not None and embrouter.drop_params is False:
                 # get supported params — use per-deployment model to avoid overwriting the outer model group name
                 _dep_model_for_params: str = _deployment_model or model
                 try:
@@ -12516,19 +12516,19 @@ class Router:
                         custom_llm_provider,
                         _,
                         _,
-                    ) = litellm.get_llm_provider(
+                    ) = embrouter.get_llm_provider(
                         model=_dep_model_for_params,
-                        litellm_params=LiteLLM_Params(**_litellm_params),
+                        embrouter_params=EmbRouter_Params(**_embrouter_params),
                     )
                 except Exception as e:  # noqa: BLE001  # best-effort filter: an unresolvable provider must not fail the request
                     verbose_router_logger.debug(
-                        "litellm.router.py::_pre_call_checks: skipping supported-params check for model=%s. Got - %s",
+                        "embrouter.router.py::_pre_call_checks: skipping supported-params check for model=%s. Got - %s",
                         _dep_model_for_params,
                         e,
                     )
                     continue
 
-                supported_openai_params = litellm.get_supported_openai_params(
+                supported_openai_params = embrouter.get_supported_openai_params(
                     model=_dep_model_for_params,
                     custom_llm_provider=custom_llm_provider,
                 )
@@ -12537,7 +12537,7 @@ class Router:
                     continue
                 else:
                     # check the non-default openai params in request kwargs
-                    non_default_params = litellm.utils.get_non_default_params(passed_params=request_kwargs)
+                    non_default_params = embrouter.utils.get_non_default_params(passed_params=request_kwargs)
                     special_params = ["response_format"]
                     # check if all params are supported
                     for k, v in non_default_params.items():
@@ -12559,8 +12559,8 @@ class Router:
                 )
 
             elif _context_window_error is True:
-                raise litellm.ContextWindowExceededError(
-                    message=f"litellm._pre_call_checks: Context Window exceeded for given call. No models have context window large enough for this call.\n{_potential_error_str}",
+                raise embrouter.ContextWindowExceededError(
+                    message=f"embrouter._pre_call_checks: Context Window exceeded for given call. No models have context window large enough for this call.\n{_potential_error_str}",
                     model=model,
                     llm_provider="",
                 )
@@ -12575,16 +12575,16 @@ class Router:
         Get the model from the alias.
 
         Returns:
-        - str, the litellm model name
+        - str, the embrouter model name
         - None, if model is not in model group alias
         """
         return resolve_model_group_alias(self.model_group_alias, model)
 
-    def _get_deployment_by_litellm_model(self, model: str) -> list:
+    def _get_deployment_by_embrouter_model(self, model: str) -> list:
         """
-        Get the deployment by litellm model.
+        Get the deployment by embrouter model.
         """
-        return [m for m in self.model_list if m["litellm_params"]["model"] == model]
+        return [m for m in self.model_list if m["embrouter_params"]["model"] == model]
 
     def _try_early_resolve_deployments_for_model_not_in_names(
         self,
@@ -12625,10 +12625,10 @@ class Router:
                 return model, pattern_deployments
 
         if self.default_deployment is not None:
-            # Shallow copy with nested litellm_params copy (100x+ faster than deepcopy)
+            # Shallow copy with nested embrouter_params copy (100x+ faster than deepcopy)
             updated_deployment: Final = self.default_deployment.copy()
-            updated_deployment["litellm_params"] = self.default_deployment["litellm_params"].copy()
-            updated_deployment["litellm_params"]["model"] = model
+            updated_deployment["embrouter_params"] = self.default_deployment["embrouter_params"].copy()
+            updated_deployment["embrouter_params"]["model"] = model
             return model, updated_deployment
 
         return None
@@ -12648,7 +12648,7 @@ class Router:
             if team_id is not None
         }
         if len(team_ids) > 1:
-            raise litellm.BadRequestError(
+            raise embrouter.BadRequestError(
                 message=(
                     f"Model name '{model}' matches deployments from multiple teams. "
                     "Specify the deployment ID directly to disambiguate."
@@ -12674,10 +12674,10 @@ class Router:
 
     @staticmethod
     def _is_strategy_marker_deployment(deployment: Mapping[str, object]) -> bool:
-        litellm_params: Final = deployment.get("litellm_params")
-        if not isinstance(litellm_params, Mapping):
+        embrouter_params: Final = deployment.get("embrouter_params")
+        if not isinstance(embrouter_params, Mapping):
             return False
-        deployment_model: Final = litellm_params.get("model")
+        deployment_model: Final = embrouter_params.get("model")
         return isinstance(deployment_model, str) and classify_strategy_router_model(deployment_model) is not None
 
     def _common_checks_available_deployment(
@@ -12694,26 +12694,26 @@ class Router:
         If 'healthy_deployments' returned is None, this means the user chose a specific deployment
 
         Returns
-        - str, the litellm model name
+        - str, the embrouter model name
         - List, if multiple models chosen
         - Dict, if specific model chosen
         """
 
         request_team_id: Final = get_request_team_id(request_kwargs)
-        # check if aliases set on litellm model alias map
+        # check if aliases set on embrouter model alias map
         if specific_deployment is True:
             return model, self._drop_strategy_markers(
                 model,
                 self._filter_reserved_deployments(
                     model=model,
-                    healthy_deployments=self._get_deployment_by_litellm_model(model=model),
+                    healthy_deployments=self._get_deployment_by_embrouter_model(model=model),
                     request_team_id=request_team_id,
                 ),
             )
         elif model not in self.model_names and self.has_model_id(model):
             deployment: Final = self.get_deployment(model_id=model)
             if deployment is not None:
-                deployment_model: Final = deployment.litellm_params.model
+                deployment_model: Final = deployment.embrouter_params.model
                 return deployment_model, cast(  # cast-ok: contract requires a plain dict for a single deployment
                     dict,
                     self._filter_reserved_deployments(
@@ -12727,7 +12727,7 @@ class Router:
                     )[0],
                 )
             raise ValueError(
-                f"LiteLLM Router: Trying to call specific deployment, but Model ID :{model} does not exist in Model ID map"
+                f"EmbRouter Router: Trying to call specific deployment, but Model ID :{model} does not exist in Model ID map"
             )
 
         _model_from_alias: Final = self._get_model_from_alias(model=model)
@@ -12789,25 +12789,25 @@ class Router:
         if len(healthy_deployments) == 0:
             # check if the user sent in a deployment name instead
             # Do not fall back when access-group filtering removed every candidate;
-            # _get_deployment_by_litellm_model does not re-apply that filter.
+            # _get_deployment_by_embrouter_model does not re-apply that filter.
             if _pre_model_access_group_filter_len == 0:
-                _litellm_model_deployments: Final = self._get_deployment_by_litellm_model(model=model)
+                _embrouter_model_deployments: Final = self._get_deployment_by_embrouter_model(model=model)
                 healthy_deployments = self._filter_reserved_deployments(
                     model=model,
                     healthy_deployments=self._filter_deployments_by_model_access_groups(
                         model=model,
-                        healthy_deployments=_litellm_model_deployments,
+                        healthy_deployments=_embrouter_model_deployments,
                         request_kwargs=request_kwargs,
                         request_team_id=request_team_id,
                     ),
                     request_team_id=request_team_id,
                 )
-                # If the litellm-model lookup produced candidates that access-group
+                # If the embrouter-model lookup produced candidates that access-group
                 # filtering then removed, treat this the same as the by-name path
                 # being emptied: prevent default-model fallback from bypassing the
                 # restriction (the fallback model may have no access_groups and
                 # would short-circuit the filter).
-                if len(_litellm_model_deployments) > 0 and len(healthy_deployments) == 0:
+                if len(_embrouter_model_deployments) > 0 and len(healthy_deployments) == 0:
                     _access_group_filter_emptied_candidates = True
 
         if verbose_router_logger.isEnabledFor(logging.DEBUG):
@@ -12840,14 +12840,14 @@ class Router:
 
             # If still no deployments after checking for fallbacks, raise an error
             if len(healthy_deployments) == 0:
-                raise litellm.BadRequestError(
+                raise embrouter.BadRequestError(
                     message=f"You passed in model={model}. {RouterErrors.no_healthy_deployments.value}",
                     model=model,
                     llm_provider="",
                 )
 
-        if litellm.model_alias_map and model in litellm.model_alias_map:
-            model = litellm.model_alias_map[
+        if embrouter.model_alias_map and model in embrouter.model_alias_map:
+            model = embrouter.model_alias_map[
                 model
             ]  # update the model to the actual value if an alias has been passed in
 
@@ -12861,7 +12861,7 @@ class Router:
             d for d in deployments if not self._is_strategy_marker_deployment(d)
         ]
         if deployments and not selectable:
-            raise litellm.BadRequestError(
+            raise embrouter.BadRequestError(
                 message=f"You passed in model={model}. {RouterErrors.only_strategy_marker_deployments.value}",
                 model=model,
                 llm_provider="",
@@ -12878,7 +12878,7 @@ class Router:
             self._drop_strategy_markers(model, healthy_deployments), request_team_id, now=datetime.now(timezone.utc)
         )
         if result.blocking_window is not None and len(result.deployments) == 0:
-            raise litellm.BadRequestError(
+            raise embrouter.BadRequestError(
                 message=f"Deployment {model} is reserved for another team until "
                 f"{result.blocking_window.end:%H:%M} {result.blocking_window.timezone}",
                 model=model,
@@ -12905,8 +12905,8 @@ class Router:
             return healthy_deployments
 
         metadata: Final = request_kwargs.get("metadata") or {}
-        litellm_metadata: Final = request_kwargs.get("litellm_metadata") or {}
-        user_api_key_auth: Final = metadata.get("user_api_key_auth") or litellm_metadata.get("user_api_key_auth")
+        embrouter_metadata: Final = request_kwargs.get("embrouter_metadata") or {}
+        user_api_key_auth: Final = metadata.get("user_api_key_auth") or embrouter_metadata.get("user_api_key_auth")
         if user_api_key_auth is None:
             return healthy_deployments
 
@@ -12987,7 +12987,7 @@ class Router:
 
         if isinstance(healthy_deployments, dict):
             if (healthy_deployments.get("model_info") or {}).get("blocked") is True:
-                raise litellm.ServiceUnavailableError(
+                raise embrouter.ServiceUnavailableError(
                     message=f"Model '{model}' is currently paused and cannot accept requests.",
                     model=model,
                     llm_provider="",
@@ -13003,10 +13003,10 @@ class Router:
 
         routing_read_batch: Final = RoutingReadBatch.active()
         cooldown_deployments: Final = (
-            await _async_get_cooldown_deployments(litellm_router_instance=self, parent_otel_span=parent_otel_span)
+            await _async_get_cooldown_deployments(embrouter_router_instance=self, parent_otel_span=parent_otel_span)
             if routing_read_batch is None
             else await routing_read_batch.async_get_cooldown_deployments(
-                litellm_router_instance=self,
+                embrouter_router_instance=self,
                 healthy_deployments=healthy_deployments,
                 parent_otel_span=parent_otel_span,
             )
@@ -13071,7 +13071,7 @@ class Router:
 
         ## ORDER FILTERING ## -> if user set 'order' in deployments, return deployments with lowest order (e.g. order=1 > order=2)
         _target_order: Final = (request_kwargs or {}).pop("_target_order", None)
-        healthy_deployments = litellm.utils.get_order_filtered_deployments(
+        healthy_deployments = embrouter.utils.get_order_filtered_deployments(
             cast(list[dict], healthy_deployments), target_order=_target_order
         )
 
@@ -13079,7 +13079,7 @@ class Router:
         ## this request via weighted-failover. Always honored, regardless of the
         ## router-level flag, so a stale exclusion key on kwargs cannot escape.
         _excluded_deployment_ids: Final = (request_kwargs or {}).pop("_excluded_deployment_ids", None)
-        healthy_deployments = litellm.utils.get_excluded_filtered_deployments(
+        healthy_deployments = embrouter.utils.get_excluded_filtered_deployments(
             cast(list[dict], healthy_deployments),
             excluded_deployment_ids=_excluded_deployment_ids,
         )
@@ -13091,7 +13091,7 @@ class Router:
             request_kwargs.pop("_retry_skipped_deployment_ids", None) if request_kwargs else None
         )
         healthy_deployments = (
-            litellm.utils.get_excluded_filtered_deployments(
+            embrouter.utils.get_excluded_filtered_deployments(
                 healthy_deployments, excluded_deployment_ids=_retry_skipped_deployment_ids
             )
             or healthy_deployments
@@ -13099,7 +13099,7 @@ class Router:
 
         if len(healthy_deployments) == 0:
             exception: Final = await async_raise_no_deployment_exception(
-                litellm_router_instance=self,
+                embrouter_router_instance=self,
                 model=model,
                 parent_otel_span=parent_otel_span,
             )
@@ -13120,13 +13120,13 @@ class Router:
 
     @staticmethod
     def _tier_ceiling_under_the_surface_name(
-        tier_litellm_params: Mapping[str, object], responses_call: bool
+        tier_embrouter_params: Mapping[str, object], responses_call: bool
     ) -> Mapping[str, object]:
         """``max_tokens``, ``max_completion_tokens`` and ``max_output_tokens`` are one
         ceiling under three names, and each surface reads exactly one of them: the
         Responses bridge builds its internal ``max_tokens`` from ``max_output_tokens``
         and would overwrite the tier's, chat and /v1/messages never read
-        ``max_output_tokens``, and litellm already renames ``max_tokens`` to
+        ``max_output_tokens``, and embrouter already renames ``max_tokens`` to
         ``max_completion_tokens`` for the OpenAI models that require it. Collapse
         whatever the tier carries onto the surface's own name, preferring a value the
         operator already wrote under that name."""
@@ -13134,30 +13134,30 @@ class Router:
         carried: Final = tuple(
             key
             for key in (surface_key, "max_tokens", "max_completion_tokens", "max_output_tokens")
-            if key in tier_litellm_params
+            if key in tier_embrouter_params
         )
         if not carried:
-            return tier_litellm_params
+            return tier_embrouter_params
         return MappingProxyType(
             {
-                **{k: v for k, v in tier_litellm_params.items() if k not in OUTPUT_TOKEN_CEILING_PARAMS},
-                surface_key: tier_litellm_params[carried[0]],
+                **{k: v for k, v in tier_embrouter_params.items() if k not in OUTPUT_TOKEN_CEILING_PARAMS},
+                surface_key: tier_embrouter_params[carried[0]],
             }
         )
 
     def _pin_tier_params_onto_request(
         self,
         model: str,
-        tier_litellm_params: Mapping[str, object] | None,
+        tier_embrouter_params: Mapping[str, object] | None,
         request_kwargs: dict,
         responses_call: bool,
     ) -> bool:
-        """Apply a routing strategy's per-tier litellm_params on top of the request and report
+        """Apply a routing strategy's per-tier embrouter_params on top of the request and report
         whether they pinned an output ceiling, so the caller can hand the request its own ceiling
         back on a routing pass that pins none."""
-        if not tier_litellm_params:
+        if not tier_embrouter_params:
             return False
-        accepted_tier_params: Final = self._tier_params_the_target_accepts(model, tier_litellm_params, request_kwargs)
+        accepted_tier_params: Final = self._tier_params_the_target_accepts(model, tier_embrouter_params, request_kwargs)
         surface_tier_params: Final = self._tier_ceiling_under_the_surface_name(
             accepted_tier_params, responses_call=responses_call
         )
@@ -13176,7 +13176,7 @@ class Router:
         stamped: Final = next(
             (
                 bucket.get(CLIENT_OUTPUT_CEILING_METADATA_KEY)
-                for bucket in (request_kwargs.get("metadata"), request_kwargs.get("litellm_metadata"))
+                for bucket in (request_kwargs.get("metadata"), request_kwargs.get("embrouter_metadata"))
                 if isinstance(bucket, dict) and CLIENT_OUTPUT_CEILING_METADATA_KEY in bucket
             ),
             None,
@@ -13197,9 +13197,9 @@ class Router:
     @staticmethod
     def _drop_client_carriers_a_tier_pin_supersedes(
         request_kwargs: dict[str, object],
-        tier_litellm_params: Mapping[str, object],
+        tier_embrouter_params: Mapping[str, object],
     ) -> None:
-        """Tier litellm_params are deliberate operator overrides, but provider
+        """Tier embrouter_params are deliberate operator overrides, but provider
         translations let a caller-supplied carrier of the same setting
         (``thinking``, ``output_config.effort``, ``reasoning.effort``) outrank
         the ``reasoning_effort`` alias, so a pinned effort only reaches the wire
@@ -13209,7 +13209,7 @@ class Router:
         ``max_tokens``, ``max_completion_tokens`` and ``max_output_tokens`` are
         one setting under three names, and a provider handed two of them either
         rejects the request or picks one by iteration order."""
-        if not OUTPUT_TOKEN_CEILING_PARAMS.isdisjoint(tier_litellm_params):
+        if not OUTPUT_TOKEN_CEILING_PARAMS.isdisjoint(tier_embrouter_params):
             _, metadata_bucket = get_or_create_metadata_bucket(request_kwargs)
             metadata_bucket.setdefault(
                 CLIENT_OUTPUT_CEILING_METADATA_KEY,
@@ -13221,7 +13221,7 @@ class Router:
             )
             for carrier in OUTPUT_TOKEN_CEILING_PARAMS:
                 request_kwargs.pop(carrier, None)
-        if "reasoning_effort" not in tier_litellm_params:
+        if "reasoning_effort" not in tier_embrouter_params:
             return
         request_kwargs.pop("thinking", None)
         Router._pop_effort_from_nested_carrier(request_kwargs, "output_config")
@@ -13275,7 +13275,7 @@ class Router:
                 record_pre_routing_selection(request_kwargs, model)
             tier_pins_ceiling: Final = self._pin_tier_params_onto_request(
                 model=model,
-                tier_litellm_params=pre_routing_hook_response.litellm_params if pre_routing_hook_response else None,
+                tier_embrouter_params=pre_routing_hook_response.embrouter_params if pre_routing_hook_response else None,
                 request_kwargs=request_kwargs,
                 responses_call=responses_call,
             )
@@ -13333,7 +13333,7 @@ class Router:
                 )
             if deployment is None:
                 exception: Final = await async_raise_no_deployment_exception(
-                    litellm_router_instance=self,
+                    embrouter_router_instance=self,
                     model=model,
                     parent_otel_span=parent_otel_span,
                 )
@@ -13366,7 +13366,7 @@ class Router:
             traceback_exception: Final = traceback.format_exc()
             # if router rejects call -> log to langfuse/otel/etc.
             if request_kwargs is not None:
-                logging_obj: Final = request_kwargs.get("litellm_logging_obj", None)
+                logging_obj: Final = request_kwargs.get("embrouter_logging_obj", None)
 
                 if logging_obj is not None:
                     asyncio.create_task(
@@ -13409,7 +13409,7 @@ class Router:
                 record_pre_routing_selection(request_kwargs, model)
             tier_pins_ceiling: Final = self._pin_tier_params_onto_request(
                 model=model,
-                tier_litellm_params=pre_routing_hook_response.litellm_params if pre_routing_hook_response else None,
+                tier_embrouter_params=pre_routing_hook_response.embrouter_params if pre_routing_hook_response else None,
                 request_kwargs=request_kwargs,
                 responses_call=responses_call,
             )
@@ -13431,19 +13431,19 @@ class Router:
             # 3. If specific deployment returned, verify if it supports pass-through
             if isinstance(healthy_deployments, dict):
                 if (healthy_deployments.get("model_info") or {}).get("blocked") is True:
-                    raise litellm.ServiceUnavailableError(
+                    raise embrouter.ServiceUnavailableError(
                         message=f"Model '{model}' is currently paused and cannot accept requests.",
                         model=model,
                         llm_provider="",
                     )
-                litellm_params: Final = healthy_deployments.get("litellm_params", {})
-                if litellm_params.get("use_in_pass_through"):
+                embrouter_params: Final = healthy_deployments.get("embrouter_params", {})
+                if embrouter_params.get("use_in_pass_through"):
                     await self._async_override_selector_pre_call_check(
                         strategy, strategy_selector, healthy_deployments, parent_otel_span
                     )
                     return healthy_deployments
                 else:
-                    raise litellm.BadRequestError(
+                    raise embrouter.BadRequestError(
                         message=f"Deployment {healthy_deployments.get('model_info', {}).get('id')} does not support pass-through endpoint (use_in_pass_through=False)",
                         model=model,
                         llm_provider="",
@@ -13453,7 +13453,7 @@ class Router:
             pass_through_deployments = self._filter_pass_through_deployments(healthy_deployments=healthy_deployments)
 
             if len(pass_through_deployments) == 0:
-                raise litellm.BadRequestError(
+                raise embrouter.BadRequestError(
                     message=f"Model {model} has no deployments configured with use_in_pass_through=True. Please add use_in_pass_through: true to the deployment configuration",
                     model=model,
                     llm_provider="",
@@ -13480,7 +13480,7 @@ class Router:
 
             if deployment is None:
                 exception: Final = await async_raise_no_deployment_exception(
-                    litellm_router_instance=self,
+                    embrouter_router_instance=self,
                     model=model,
                     parent_otel_span=parent_otel_span,
                 )
@@ -13512,7 +13512,7 @@ class Router:
         except Exception as e:
             traceback_exception: Final = traceback.format_exc()
             if request_kwargs is not None:
-                logging_obj: Final = request_kwargs.get("litellm_logging_obj", None)
+                logging_obj: Final = request_kwargs.get("embrouter_logging_obj", None)
                 if logging_obj is not None:
                     asyncio.create_task(
                         logging_obj.dispatch_failure_handlers(
@@ -13535,11 +13535,11 @@ class Router:
         onto `request_kwargs["metadata"]` so `_filter_by_routing_plugin_candidates`
         (called later, during healthy-deployment filtering) can consume them.
         """
-        from litellm.litellm_core_utils.prompt_templates.factory import (
+        from embrouter.embrouter_core_utils.prompt_templates.factory import (
             resolve_structured_messages,
         )
 
-        candidate_models: Final = list(self.resolved_litellm_models(model))
+        candidate_models: Final = list(self.resolved_embrouter_models(model))
 
         metadata_key: Final = self._get_metadata_variable_name_from_kwargs(request_kwargs)
         metadata: Final = request_kwargs.setdefault(metadata_key, {})
@@ -13583,7 +13583,7 @@ class Router:
             return healthy_deployments
 
         candidate_set: Final = set(candidate_models)
-        filtered: Final = [d for d in healthy_deployments if d.get("litellm_params", {}).get("model") in candidate_set]
+        filtered: Final = [d for d in healthy_deployments if d.get("embrouter_params", {}).get("model") in candidate_set]
 
         if not filtered:
             raise ValueError(f"No deployments left after routing-plugin filtering. candidate_models={candidate_models}")
@@ -13666,7 +13666,7 @@ class Router:
         session_id: Final = self._request_header(request_kwargs, "x-claude-code-session-id")
         if session_id is None or _CLAUDE_CODE_SESSION_ID_RE.fullmatch(session_id) is None:
             return None
-        metadata_name: Final = "litellm_metadata" if "litellm_metadata" in request_kwargs else "metadata"
+        metadata_name: Final = "embrouter_metadata" if "embrouter_metadata" in request_kwargs else "metadata"
         metadata: Final = request_kwargs.get(metadata_name)
         if not isinstance(metadata, Mapping):
             return None
@@ -13752,7 +13752,7 @@ class Router:
         """
         This hook is called before the routing decision is made.
 
-        Used for the litellm auto-router to modify the request before the routing decision is made.
+        Used for the embrouter auto-router to modify the request before the routing decision is made.
 
         `model` is whatever the caller asked for, which may be a `model_group_alias` key or a team's
         public model name, while the strategy registries and the marker deployment are keyed by the
@@ -13793,8 +13793,8 @@ class Router:
             )
             return None
 
-        from litellm.proxy.auth.auto_router_checks import authorize_member_auto_router_inference
-        from litellm.router_strategy.complexity_router.complexity_router import ComplexityRouter
+        from embrouter.proxy.auth.auto_router_checks import authorize_member_auto_router_inference
+        from embrouter.router_strategy.complexity_router.complexity_router import ComplexityRouter
 
         reject_recursive_compactor(registered_model_name)
         await arm_compaction(
@@ -13828,7 +13828,7 @@ class Router:
             llm_router=self,
         )
 
-        from litellm.proxy.guardrails.auto_router_compression import (
+        from embrouter.proxy.guardrails.auto_router_compression import (
             messages_for_routing,
             model_hop_compression_armed,
             policy_for_model,
@@ -13889,14 +13889,14 @@ class Router:
         )
 
         # `model` (the alias, e.g. "smart-router") is never the deployment actually
-        # called - apply the router marker's own litellm_params to the request,
+        # called - apply the router marker's own embrouter_params to the request,
         # since the tier/route deployment the hook selected won't have them. The
         # marker entry is looked up by its `auto_router/` model prefix and the
         # selected strategy's tags, never by list position: plain deployments may
         # share the alias `model_name` and must not leak their params (`api_base`,
         # `api_key`, ...) onto the routed call. Router-only fields (tpm, rpm,
         # weight, complexity_router_config, ...) are excluded from the actual
-        # outbound LLM call downstream by litellm.types.utils.all_litellm_params,
+        # outbound LLM call downstream by embrouter.types.utils.all_embrouter_params,
         # not here. Custom pricing fields ARE call params, so they must be
         # excluded here: they price the alias, not the deployment the hook
         # selected, and forwarding them re-registers the routed deployment at
@@ -13905,7 +13905,7 @@ class Router:
         # request (top level, so sibling requests sharing a `metadata` dict never see
         # them) until `_update_kwargs_with_deployment` drops any the selected
         # deployment sets itself (its own `aws_region_name` beats the marker's).
-        # Per-tier `litellm_params` on the hook response are deliberate overrides
+        # Per-tier `embrouter_params` on the hook response are deliberate overrides
         # the caller applies on top, so those keys are never forwarded here.
         marker_params: Final = (
             self._forwardable_alias_marker_params(
@@ -13915,7 +13915,7 @@ class Router:
             else ()
         )
         tier_param_keys: Final = (
-            tuple(pre_routing_hook_response.litellm_params or ()) if pre_routing_hook_response is not None else ()
+            tuple(pre_routing_hook_response.embrouter_params or ()) if pre_routing_hook_response is not None else ()
         )
         newly_forwarded: Final = tuple(
             (key, value) for key, value in marker_params if key not in request_kwargs and key not in tier_param_keys
@@ -13933,13 +13933,13 @@ class Router:
         markers: Final = tuple(
             deployment
             for deployment in self.deployments_for_request(model, request_kwargs)
-            if "model" in deployment["litellm_params"]
-            and str(deployment["litellm_params"]["model"]).startswith(AUTO_ROUTER_MODEL_PREFIX)
+            if "model" in deployment["embrouter_params"]
+            and str(deployment["embrouter_params"]["model"]).startswith(AUTO_ROUTER_MODEL_PREFIX)
         )
         tag_matched: Final = tuple(
             deployment
             for deployment in markers
-            if (tuple(deployment["litellm_params"]["tags"] or ()) if "tags" in deployment["litellm_params"] else ())
+            if (tuple(deployment["embrouter_params"]["tags"] or ()) if "tags" in deployment["embrouter_params"] else ())
             == strategy_tags
         )
         return tag_matched[0] if tag_matched else (markers[0] if markers else None)
@@ -13954,9 +13954,9 @@ class Router:
             return ()
         return tuple(
             (key, value)
-            for key, value in marker["litellm_params"].items()
+            for key, value in marker["embrouter_params"].items()
             if key not in _ALIAS_PARAMS_NEVER_FORWARDED
-            and key not in CustomPricingLiteLLMParams.model_fields
+            and key not in CustomPricingEmbRouterParams.model_fields
             and value is not None
         )
 
@@ -13964,21 +13964,21 @@ class Router:
     def _forwarded_alias_marker_keys_the_deployment_sets(
         deployment: Mapping[str, object], forwarded_keys: object
     ) -> tuple[str, ...]:
-        deployment_litellm_params: Final = deployment.get("litellm_params")
-        if not isinstance(deployment_litellm_params, Mapping) or not isinstance(forwarded_keys, tuple):
+        deployment_embrouter_params: Final = deployment.get("embrouter_params")
+        if not isinstance(deployment_embrouter_params, Mapping) or not isinstance(forwarded_keys, tuple):
             return ()
         return tuple(
             key
             for key in forwarded_keys
-            if isinstance(key, str) and Router._deployment_sets_litellm_param(deployment_litellm_params, key)
+            if isinstance(key, str) and Router._deployment_sets_embrouter_param(deployment_embrouter_params, key)
         )
 
     @staticmethod
-    def _deployment_sets_litellm_param(deployment_litellm_params: Mapping[str, object], key: str) -> bool:
-        value: Final = deployment_litellm_params.get(key)
+    def _deployment_sets_embrouter_param(deployment_embrouter_params: Mapping[str, object], key: str) -> bool:
+        value: Final = deployment_embrouter_params.get(key)
         if value is None:
             return False
-        field: Final = LiteLLM_Params.model_fields.get(key)
+        field: Final = EmbRouter_Params.model_fields.get(key)
         return field is None or value != field.default
 
     def _consumed_request_tags_stamp(
@@ -14016,7 +14016,7 @@ class Router:
         to the deployment that actually served the request. Every attempt therefore
         writes or clears, never just writes.
         """
-        from litellm.types.router import BaselineRouteStamp
+        from embrouter.types.router import BaselineRouteStamp
 
         baseline_model: Final = routing_decision.get("savings_baseline_model") if routing_decision else None
         baseline_id: Final = routing_decision.get("savings_baseline_deployment_id") if routing_decision else None
@@ -14050,14 +14050,14 @@ class Router:
         `request_kwargs`, so every attempt must write or clear, never just write;
         a value left behind by an earlier attempt would be attributed to this one.
         `get_or_create_metadata_bucket` is the single owner of "which dict holds
-        proxy-internal metadata": it picks `litellm_metadata` when present (so the
+        proxy-internal metadata": it picks `embrouter_metadata` when present (so the
         value never lands in the `metadata` dict that routes like /v1/messages
         forward to the provider) and replaces a non-dict value rather than silently
         skipping the write. Clearing pops from BOTH buckets so a request whose
         bucket resolution changed between attempts cannot resurrect a stale value.
         """
         if value is None:
-            for bucket in (request_kwargs.get("metadata"), request_kwargs.get("litellm_metadata")):
+            for bucket in (request_kwargs.get("metadata"), request_kwargs.get("embrouter_metadata")):
                 if isinstance(bucket, dict):
                     bucket.pop(key, None)
             return
@@ -14080,13 +14080,13 @@ class Router:
         no privacy gain. Applied here rather than in each strategy so a strategy added
         later cannot bypass it.
         """
-        from litellm.litellm_core_utils.redact_messages import (
+        from embrouter.embrouter_core_utils.redact_messages import (
             should_redact_message_logging,
         )
 
         if not should_redact_message_logging(
             {
-                "litellm_params": request_kwargs,
+                "embrouter_params": request_kwargs,
                 "standard_callback_dynamic_params": request_kwargs.get("standard_callback_dynamic_params"),
             }
         ):
@@ -14135,7 +14135,7 @@ class Router:
 
         if isinstance(healthy_deployments, dict):
             if (healthy_deployments.get("model_info") or {}).get("blocked") is True:
-                raise litellm.ServiceUnavailableError(
+                raise embrouter.ServiceUnavailableError(
                     message=f"Model '{model}' is currently paused and cannot accept requests.",
                     model=model,
                     llm_provider="",
@@ -14152,7 +14152,7 @@ class Router:
         )
 
         cooldown_deployments: Final = _get_cooldown_deployments(
-            litellm_router_instance=self, parent_otel_span=parent_otel_span
+            embrouter_router_instance=self, parent_otel_span=parent_otel_span
         )
         _pre_cooldown_deployments: Final = healthy_deployments
         healthy_deployments = self._filter_cooldown_deployments(
@@ -14179,7 +14179,7 @@ class Router:
 
         ## ORDER FILTERING ## -> if user set 'order' in deployments, return deployments with lowest order (e.g. order=1 > order=2)
         _target_order: Final = (request_kwargs or {}).pop("_target_order", None)
-        healthy_deployments = litellm.utils.get_order_filtered_deployments(
+        healthy_deployments = embrouter.utils.get_order_filtered_deployments(
             healthy_deployments, target_order=_target_order
         )
 
@@ -14187,7 +14187,7 @@ class Router:
         ## this request via weighted-failover. See async counterpart in
         ## async_get_healthy_deployments for details.
         _excluded_deployment_ids: Final = (request_kwargs or {}).pop("_excluded_deployment_ids", None)
-        healthy_deployments = litellm.utils.get_excluded_filtered_deployments(
+        healthy_deployments = embrouter.utils.get_excluded_filtered_deployments(
             healthy_deployments,
             excluded_deployment_ids=_excluded_deployment_ids,
         )
@@ -14197,7 +14197,7 @@ class Router:
             request_kwargs.pop("_retry_skipped_deployment_ids", None) if request_kwargs else None
         )
         healthy_deployments = (
-            litellm.utils.get_excluded_filtered_deployments(
+            embrouter.utils.get_excluded_filtered_deployments(
                 healthy_deployments, excluded_deployment_ids=_retry_skipped_deployment_ids
             )
             or healthy_deployments
@@ -14208,7 +14208,7 @@ class Router:
             _cooldown_time = self.cooldown_cache.get_min_cooldown(
                 model_ids=model_ids, parent_otel_span=parent_otel_span
             )
-            _cooldown_list = _get_cooldown_deployments(litellm_router_instance=self, parent_otel_span=parent_otel_span)
+            _cooldown_list = _get_cooldown_deployments(embrouter_router_instance=self, parent_otel_span=parent_otel_span)
             raise RouterRateLimitError(
                 model=model,
                 cooldown_time=_cooldown_time,
@@ -14242,7 +14242,7 @@ class Router:
             _cooldown_time = self.cooldown_cache.get_min_cooldown(
                 model_ids=model_ids, parent_otel_span=parent_otel_span
             )
-            _cooldown_list = _get_cooldown_deployments(litellm_router_instance=self, parent_otel_span=parent_otel_span)
+            _cooldown_list = _get_cooldown_deployments(embrouter_router_instance=self, parent_otel_span=parent_otel_span)
             raise RouterRateLimitError(
                 model=model,
                 cooldown_time=_cooldown_time,
@@ -14300,18 +14300,18 @@ class Router:
         # 2. If the returned is a specific deployment (Dict), verify and return directly
         if isinstance(healthy_deployments, dict):
             if (healthy_deployments.get("model_info") or {}).get("blocked") is True:
-                raise litellm.ServiceUnavailableError(
+                raise embrouter.ServiceUnavailableError(
                     message=f"Model '{model}' is currently paused and cannot accept requests.",
                     model=model,
                     llm_provider="",
                 )
-            litellm_params: Final = healthy_deployments.get("litellm_params", {})
-            if litellm_params.get("use_in_pass_through"):
+            embrouter_params: Final = healthy_deployments.get("embrouter_params", {})
+            if embrouter_params.get("use_in_pass_through"):
                 self._override_selector_pre_call_check(strategy, strategy_selector, healthy_deployments)
                 return healthy_deployments
             else:
                 # Specific deployment does not support pass-through
-                raise litellm.BadRequestError(
+                raise embrouter.BadRequestError(
                     message=f"Deployment {healthy_deployments.get('model_info', {}).get('id')} does not support pass-through endpoint (use_in_pass_through=False)",
                     model=model,
                     llm_provider="",
@@ -14322,7 +14322,7 @@ class Router:
 
         if len(pass_through_deployments) == 0:
             # No deployments support pass-through
-            raise litellm.BadRequestError(
+            raise embrouter.BadRequestError(
                 message=f"Model {model} has no deployment configured with use_in_pass_through=True. Please add use_in_pass_through: true in the deployment configuration",
                 model=model,
                 llm_provider="",
@@ -14340,7 +14340,7 @@ class Router:
             parent_otel_span=parent_otel_span,
         )
         cooldown_deployments: Final = _get_cooldown_deployments(
-            litellm_router_instance=self, parent_otel_span=parent_otel_span
+            embrouter_router_instance=self, parent_otel_span=parent_otel_span
         )
         pass_through_deployments = self._filter_cooldown_deployments(
             healthy_deployments=pass_through_deployments,
@@ -14359,7 +14359,7 @@ class Router:
             )
 
         if self._is_priority_routing_group(model):
-            pass_through_deployments = litellm.utils.get_order_filtered_deployments(
+            pass_through_deployments = embrouter.utils.get_order_filtered_deployments(
                 pass_through_deployments,
                 target_order=request_kwargs.pop("_target_order", None) if request_kwargs is not None else None,
             )
@@ -14369,7 +14369,7 @@ class Router:
             _cooldown_time = self.cooldown_cache.get_min_cooldown(
                 model_ids=model_ids, parent_otel_span=parent_otel_span
             )
-            _cooldown_list = _get_cooldown_deployments(litellm_router_instance=self, parent_otel_span=parent_otel_span)
+            _cooldown_list = _get_cooldown_deployments(embrouter_router_instance=self, parent_otel_span=parent_otel_span)
             raise RouterRateLimitError(
                 model=model,
                 cooldown_time=_cooldown_time,
@@ -14404,7 +14404,7 @@ class Router:
             _cooldown_time = self.cooldown_cache.get_min_cooldown(
                 model_ids=model_ids, parent_otel_span=parent_otel_span
             )
-            _cooldown_list = _get_cooldown_deployments(litellm_router_instance=self, parent_otel_span=parent_otel_span)
+            _cooldown_list = _get_cooldown_deployments(embrouter_router_instance=self, parent_otel_span=parent_otel_span)
             raise RouterRateLimitError(
                 model=model,
                 cooldown_time=_cooldown_time,
@@ -14442,7 +14442,7 @@ class Router:
 
     def _filter_blocked_deployments(self, healthy_deployments: list[dict]) -> list[dict]:
         """
-        Filters out deployments that an admin has paused via `LiteLLM_ProxyModelTable.blocked`.
+        Filters out deployments that an admin has paused via `EmbRouter_ProxyModelTable.blocked`.
 
         Applied alongside the cooldown filter on every routing entry point that calls
         `_common_checks_available_deployment` directly — the primary sync/async path,
@@ -14560,7 +14560,7 @@ class Router:
         pass_through_deployments: Final = [
             deployment
             for deployment in healthy_deployments
-            if deployment.get("litellm_params", {}).get("use_in_pass_through", False)
+            if deployment.get("embrouter_params", {}).get("use_in_pass_through", False)
         ]
 
         verbose_router_logger.debug("Found %s deployments with pass-through enabled", len(pass_through_deployments))
@@ -14603,47 +14603,47 @@ class Router:
             return None
 
         if (
-            isinstance(exception, litellm.AuthenticationError)
+            isinstance(exception, embrouter.AuthenticationError)
             and allowed_fails_policy.AuthenticationErrorAllowedFails is not None
         ):
             return allowed_fails_policy.AuthenticationErrorAllowedFails
-        if isinstance(exception, litellm.Timeout) and allowed_fails_policy.TimeoutErrorAllowedFails is not None:
+        if isinstance(exception, embrouter.Timeout) and allowed_fails_policy.TimeoutErrorAllowedFails is not None:
             return allowed_fails_policy.TimeoutErrorAllowedFails
         if (
-            isinstance(exception, litellm.RateLimitError)
+            isinstance(exception, embrouter.RateLimitError)
             and allowed_fails_policy.RateLimitErrorAllowedFails is not None
         ):
             return allowed_fails_policy.RateLimitErrorAllowedFails
         if (
-            isinstance(exception, litellm.ContentPolicyViolationError)
+            isinstance(exception, embrouter.ContentPolicyViolationError)
             and allowed_fails_policy.ContentPolicyViolationErrorAllowedFails is not None
         ):
             return allowed_fails_policy.ContentPolicyViolationErrorAllowedFails
         if (
-            isinstance(exception, litellm.BadRequestError)
+            isinstance(exception, embrouter.BadRequestError)
             and allowed_fails_policy.BadRequestErrorAllowedFails is not None
         ):
             return allowed_fails_policy.BadRequestErrorAllowedFails
         if (
-            isinstance(exception, litellm.InternalServerError)
+            isinstance(exception, embrouter.InternalServerError)
             and allowed_fails_policy.InternalServerErrorAllowedFails is not None
         ):
             return allowed_fails_policy.InternalServerErrorAllowedFails
         if (
-            isinstance(exception, litellm.ServiceUnavailableError)
+            isinstance(exception, embrouter.ServiceUnavailableError)
             and allowed_fails_policy.ServiceUnavailableErrorAllowedFails is not None
         ):
             return allowed_fails_policy.ServiceUnavailableErrorAllowedFails
         if (
-            isinstance(exception, litellm.BadGatewayError)
+            isinstance(exception, embrouter.BadGatewayError)
             and allowed_fails_policy.BadGatewayErrorAllowedFails is not None
         ):
             return allowed_fails_policy.BadGatewayErrorAllowedFails
-        if isinstance(exception, litellm.NotFoundError) and allowed_fails_policy.NotFoundErrorAllowedFails is not None:
+        if isinstance(exception, embrouter.NotFoundError) and allowed_fails_policy.NotFoundErrorAllowedFails is not None:
             return allowed_fails_policy.NotFoundErrorAllowedFails
 
     def _initialize_alerting(self):
-        from litellm.integrations.SlackAlerting.slack_alerting import SlackAlerting
+        from embrouter.integrations.SlackAlerting.slack_alerting import SlackAlerting
 
         if self.alerting_config is None:
             return
@@ -14658,20 +14658,20 @@ class Router:
 
         self.slack_alerting_logger = _slack_alerting_logger
 
-        litellm.logging_callback_manager.add_litellm_callback(_slack_alerting_logger)
-        litellm.logging_callback_manager.add_litellm_success_callback(
+        embrouter.logging_callback_manager.add_embrouter_callback(_slack_alerting_logger)
+        embrouter.logging_callback_manager.add_embrouter_success_callback(
             _slack_alerting_logger.response_taking_too_long_callback
         )
-        verbose_router_logger.info("\033[94m\nInitialized Alerting for litellm.Router\033[0m\n")
+        verbose_router_logger.info("\033[94m\nInitialized Alerting for embrouter.Router\033[0m\n")
 
     def set_custom_routing_strategy(self, CustomRoutingStrategy: CustomRoutingStrategyBase):
         """
-        Sets get_available_deployment and async_get_available_deployment on an instanced of litellm.Router
+        Sets get_available_deployment and async_get_available_deployment on an instanced of embrouter.Router
 
         Use this to set your custom routing strategy
 
         Args:
-            CustomRoutingStrategy: litellm.router.CustomRoutingStrategyBase
+            CustomRoutingStrategy: embrouter.router.CustomRoutingStrategyBase
         """
 
         setattr(
@@ -14691,7 +14691,7 @@ class Router:
                 delattr(self, attr)
 
     def flush_cache(self):
-        litellm.cache = None
+        embrouter.cache = None
         self.cache.flush_cache()
         session_in_memory_cache: Final = self._claude_code_session_router_cache.in_memory_cache
         if session_in_memory_cache is not None:
@@ -14699,9 +14699,9 @@ class Router:
 
     def reset(self):
         ## clean up on close
-        litellm.success_callback = []
-        litellm._async_success_callback = []
-        litellm.failure_callback = []
-        litellm._async_failure_callback = []
+        embrouter.success_callback = []
+        embrouter._async_success_callback = []
+        embrouter.failure_callback = []
+        embrouter._async_failure_callback = []
         self.retry_policy = None
         self.flush_cache()

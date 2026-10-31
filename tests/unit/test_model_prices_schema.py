@@ -11,15 +11,15 @@ from typing import Final
 import jsonschema
 import pytest
 
-import litellm
-from litellm.llms.openai.chat.gpt_5_transformation import is_gpt_reasoning_series_name
-from litellm.llms.openai_like.json_loader import JSONProviderRegistry
-from litellm.router_utils.reasoning_effort_capability import resolve_supported_reasoning_efforts
+import embrouter
+from embrouter.llms.openai.chat.gpt_5_transformation import is_gpt_reasoning_series_name
+from embrouter.llms.openai_like.json_loader import JSONProviderRegistry
+from embrouter.router_utils.reasoning_effort_capability import resolve_supported_reasoning_efforts
 
 REPO_ROOT = Path(__file__).parents[2]
 GENERATOR_PATH = REPO_ROOT / "ci_cd" / "generate_model_prices_schema.py"
 PRICES_PATH = REPO_ROOT / "model_prices_and_context_window.json"
-BACKUP_PRICES_PATH = REPO_ROOT / "litellm" / "model_prices_and_context_window_backup.json"
+BACKUP_PRICES_PATH = REPO_ROOT / "embrouter" / "model_prices_and_context_window_backup.json"
 SCHEMA_PATH = REPO_ROOT / "model_prices_and_context_window.schema.json"
 
 
@@ -66,20 +66,20 @@ def test_prices_file_validates_against_committed_schema(prices: dict, committed_
 @pytest.mark.parametrize(
     "entry",
     [
-        {"litellm_provider": "openai", "mode": "chat", "input_cost_per_token": "0.01"},
-        {"litellm_provider": "openai", "mode": "chat", "input_cost_per_token": -1},
-        {"litellm_provider": "openai", "mode": "not_a_real_mode"},
+        {"embrouter_provider": "openai", "mode": "chat", "input_cost_per_token": "0.01"},
+        {"embrouter_provider": "openai", "mode": "chat", "input_cost_per_token": -1},
+        {"embrouter_provider": "openai", "mode": "not_a_real_mode"},
         {"mode": "chat"},
-        {"litellm_provider": "openai", "deprecation_date": "June 2026"},
-        {"litellm_provider": "openai", "deprecation_date": "2026-99-99"},
-        {"litellm_provider": "openai", "deprecation_date": "2026-13-01"},
-        {"litellm_provider": "openai", "deprecation_date": "2026-01-32"},
-        {"litellm_provider": "openai", "deprecation_date": "2026-01-00"},
-        {"litellm_provider": "openai", "deprecation_date": "2026-02-31"},
-        {"litellm_provider": "openai", "supported_modalities": ["smell"]},
-        {"litellm_provider": "openai", "supports_vision": "yes"},
-        {"litellm_provider": "openai", "max_tokens": 8191.5},
-        {"litellm_provider": "openai", "tiered_pricing": [{"unknown_tier_field": 1}]},
+        {"embrouter_provider": "openai", "deprecation_date": "June 2026"},
+        {"embrouter_provider": "openai", "deprecation_date": "2026-99-99"},
+        {"embrouter_provider": "openai", "deprecation_date": "2026-13-01"},
+        {"embrouter_provider": "openai", "deprecation_date": "2026-01-32"},
+        {"embrouter_provider": "openai", "deprecation_date": "2026-01-00"},
+        {"embrouter_provider": "openai", "deprecation_date": "2026-02-31"},
+        {"embrouter_provider": "openai", "supported_modalities": ["smell"]},
+        {"embrouter_provider": "openai", "supports_vision": "yes"},
+        {"embrouter_provider": "openai", "max_tokens": 8191.5},
+        {"embrouter_provider": "openai", "tiered_pricing": [{"unknown_tier_field": 1}]},
     ],
     ids=[
         "cost_as_string",
@@ -105,14 +105,14 @@ def test_schema_rejects_malformed_entries(committed_schema: dict, entry: dict):
 
 def test_schema_accepts_minimal_and_unknown_optional_fields(committed_schema: dict):
     validator = build_validator(committed_schema)
-    assert validator.is_valid({"some-model": {"litellm_provider": "openai"}})
-    assert validator.is_valid({"some-model": {"litellm_provider": "openai", "brand_new_field": {"nested": True}}})
+    assert validator.is_valid({"some-model": {"embrouter_provider": "openai"}})
+    assert validator.is_valid({"some-model": {"embrouter_provider": "openai", "brand_new_field": {"nested": True}}})
 
 
 def test_schema_accepts_cache_creation_cost_inside_a_pricing_tier(committed_schema: dict):
     validator = build_validator(committed_schema)
     entry = {
-        "litellm_provider": "dashscope",
+        "embrouter_provider": "dashscope",
         "mode": "chat",
         "tiered_pricing": [
             {
@@ -129,7 +129,7 @@ def test_schema_accepts_cache_creation_cost_inside_a_pricing_tier(committed_sche
 
 OFF_PEAK_ENTRY: Final = MappingProxyType(
     {
-        "litellm_provider": "openrouter",
+        "embrouter_provider": "openrouter",
         "mode": "chat",
         "input_cost_per_token": 2e-6,
         "output_cost_per_token": 8e-6,
@@ -255,7 +255,7 @@ def test_openai_reasoning_family_entries_carry_supports_reasoning(prices: dict):
         name
         for name, entry in prices.items()
         if isinstance(entry, dict)
-        and entry.get("litellm_provider") == "openai"
+        and entry.get("embrouter_provider") == "openai"
         and is_openai_reasoning_family(name)
         and entry.get("supports_reasoning") is not True
     ]
@@ -291,7 +291,7 @@ def chatgpt_openai_twins(prices: dict) -> list[tuple[str, str]]:
             continue
         bare = name.split("/", 1)[1]
         twin = prices.get(bare)
-        if isinstance(twin, dict) and twin.get("litellm_provider") == "openai":
+        if isinstance(twin, dict) and twin.get("embrouter_provider") == "openai":
             pairs.append((name, bare))
     return pairs
 
@@ -299,7 +299,7 @@ def chatgpt_openai_twins(prices: dict) -> list[tuple[str, str]]:
 def test_chatgpt_rows_carry_their_openai_twin_reasoning_annotations(prices: dict):
     """A chatgpt row must not silently drop the reasoning annotations of the model it proxies.
 
-    `litellm.utils._get_model_info_from_generalization` refuses to fall back when an exact cost-map
+    `embrouter.utils._get_model_info_from_generalization` refuses to fall back when an exact cost-map
     key exists, so an unannotated `chatgpt/<model>` row wins over its annotated twin and
     `/model/info` reports the model as non-reasoning.
     """
@@ -376,7 +376,7 @@ def test_every_bedrock_openai_gpt_row_advertises_xhigh(prices: dict):
         name
         for name, entry in prices.items()
         if isinstance(entry, dict)
-        and entry.get("litellm_provider") in BEDROCK_PROVIDERS
+        and entry.get("embrouter_provider") in BEDROCK_PROVIDERS
         and any(marker in name for marker in BEDROCK_OPENAI_GPT_MARKERS)
         and "xhigh" not in (resolve_supported_reasoning_efforts(entry, deployment_is_mapped=True) or ())
     ]
@@ -480,10 +480,10 @@ VERTEX_FAMILIES_A_VERTEX_WILDCARD_GRANT_DOES_NOT_LIST: Final = frozenset(
 
 
 def is_registered_provider(label: str, model_names: tuple[str, ...]) -> bool:
-    if label in litellm.models_by_provider or JSONProviderRegistry.exists(label):
+    if label in embrouter.models_by_provider or JSONProviderRegistry.exists(label):
         return True
     family_root: Final = label.split("-", 1)[0]
-    wildcard_models: Final = litellm.models_by_provider.get(family_root, ())
+    wildcard_models: Final = embrouter.models_by_provider.get(family_root, ())
     return any(
         name in wildcard_models or name.removeprefix(f"{family_root}/") in wildcard_models for name in model_names
     )
@@ -491,14 +491,14 @@ def is_registered_provider(label: str, model_names: tuple[str, ...]) -> bool:
 
 def unregistered_providers(rows: Mapping[str, object]) -> list[str]:
     labelled_rows: Final = tuple(
-        (name, entry["litellm_provider"])
+        (name, entry["embrouter_provider"])
         for name, entry in rows.items()
         if name != "sample_spec"
         and isinstance(entry, dict)
-        and "litellm_provider" in entry
+        and "embrouter_provider" in entry
         and entry.get("mode") not in MODES_SERVED_OUTSIDE_THE_LLM_PROVIDER_REGISTRY
-        and entry["litellm_provider"] not in PROVIDER_LABELS_WITHOUT_A_MODEL_SET
-        and entry["litellm_provider"] not in VERTEX_FAMILIES_A_VERTEX_WILDCARD_GRANT_DOES_NOT_LIST
+        and entry["embrouter_provider"] not in PROVIDER_LABELS_WITHOUT_A_MODEL_SET
+        and entry["embrouter_provider"] not in VERTEX_FAMILIES_A_VERTEX_WILDCARD_GRANT_DOES_NOT_LIST
     )
     return sorted(
         label
@@ -510,23 +510,23 @@ def unregistered_providers(rows: Mapping[str, object]) -> list[str]:
 @pytest.mark.parametrize("path", (PRICES_PATH, BACKUP_PRICES_PATH), ids=("main", "backup"))
 def test_every_cost_map_provider_is_registered(path: Path):
     assert unregistered_providers(json.loads(path.read_text())) == [], (
-        f"{path.name} carries a litellm_provider whose models a `<provider>/*` grant does not list. A new provider "
-        "needs a `<provider>_models` set in litellm/__init__.py, filled in _populate_provider_model_sets and listed "
+        f"{path.name} carries a embrouter_provider whose models a `<provider>/*` grant does not list. A new provider "
+        "needs a `<provider>_models` set in embrouter/__init__.py, filled in _populate_provider_model_sets and listed "
         "in _build_models_by_provider. A new `<provider>-<family>` label needs its rows added to a set that "
         "`models_by_provider[<provider>]` includes"
     )
 
 
 def test_unregistered_provider_guard_flags_only_labels_nobody_registered():
-    wired_vertex_model: Final = sorted(litellm.vertex_language_models)[0]
+    wired_vertex_model: Final = sorted(embrouter.vertex_language_models)[0]
     rows: Final = {
-        "sample_spec": {"litellm_provider": "one of the supported providers", "mode": "chat"},
-        "nobody_registered/StartJob": {"litellm_provider": "nobody_registered", "mode": "audio_transcription"},
-        "gpt-4o": {"litellm_provider": "openai", "mode": "chat"},
-        wired_vertex_model: {"litellm_provider": "vertex_ai-language-models", "mode": "chat"},
-        "vertex_ai/new-family-model": {"litellm_provider": "vertex_ai-new_family_models", "mode": "chat"},
-        "unknown_root/model": {"litellm_provider": "unknown_root-new_family_models", "mode": "chat"},
-        "some_search/search": {"litellm_provider": "some_search", "mode": "search"},
+        "sample_spec": {"embrouter_provider": "one of the supported providers", "mode": "chat"},
+        "nobody_registered/StartJob": {"embrouter_provider": "nobody_registered", "mode": "audio_transcription"},
+        "gpt-4o": {"embrouter_provider": "openai", "mode": "chat"},
+        wired_vertex_model: {"embrouter_provider": "vertex_ai-language-models", "mode": "chat"},
+        "vertex_ai/new-family-model": {"embrouter_provider": "vertex_ai-new_family_models", "mode": "chat"},
+        "unknown_root/model": {"embrouter_provider": "unknown_root-new_family_models", "mode": "chat"},
+        "some_search/search": {"embrouter_provider": "some_search", "mode": "search"},
     }
     assert unregistered_providers(rows) == [
         "nobody_registered",

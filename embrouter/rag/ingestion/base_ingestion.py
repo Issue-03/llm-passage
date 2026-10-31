@@ -16,21 +16,21 @@ import base64
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, Final, cast
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm._uuid import uuid4
-from litellm.constants import DEFAULT_CHUNK_OVERLAP, DEFAULT_CHUNK_SIZE
-from litellm.litellm_core_utils.url_utils import async_safe_get
-from litellm.llms.custom_httpx.http_handler import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter._uuid import uuid4
+from embrouter.constants import DEFAULT_CHUNK_OVERLAP, DEFAULT_CHUNK_SIZE
+from embrouter.embrouter_core_utils.url_utils import async_safe_get
+from embrouter.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.rag.ingestion.file_parsers import extract_text_from_pdf
-from litellm.rag.text_splitters import RecursiveCharacterTextSplitter
-from litellm.types.rag import RAGIngestOptions, RAGIngestResponse
+from embrouter.rag.ingestion.file_parsers import extract_text_from_pdf
+from embrouter.rag.text_splitters import RecursiveCharacterTextSplitter
+from embrouter.types.rag import RAGIngestOptions, RAGIngestResponse
 
 if TYPE_CHECKING:
-    from litellm import Router
+    from embrouter import Router
 
 
 class BaseRAGIngestion(ABC):
@@ -63,23 +63,23 @@ class BaseRAGIngestion(ABC):
         self.vector_store_config: dict[str, Any] = cast(dict[str, Any], ingest_options.get("vector_store") or {})
         self.ingest_name = ingest_options.get("name")
 
-        # Load credentials from litellm_credential_name if provided in vector_store config
+        # Load credentials from embrouter_credential_name if provided in vector_store config
         self._load_credentials_from_config()
 
     def _load_credentials_from_config(self) -> None:
         """
-        Load credentials from litellm_credential_name if provided in vector_store config.
+        Load credentials from embrouter_credential_name if provided in vector_store config.
 
         This allows users to specify a credential name in the vector_store config
-        which will be resolved from litellm.credential_list. When a stored
+        which will be resolved from embrouter.credential_list. When a stored
         credential is used, its values take precedence over caller-supplied
         equivalents so endpoint and identity fields stay consistent with the
         credential definition.
         """
-        from litellm.litellm_core_utils.credential_accessor import CredentialAccessor
+        from embrouter.embrouter_core_utils.credential_accessor import CredentialAccessor
 
-        credential_name: Final = self.vector_store_config.get("litellm_credential_name")
-        if credential_name and litellm.credential_list:
+        credential_name: Final = self.vector_store_config.get("embrouter_credential_name")
+        if credential_name and embrouter.credential_list:
             credential_values: Final = CredentialAccessor.get_credential_values(credential_name)
             if not credential_values:
                 return
@@ -170,7 +170,7 @@ class BaseRAGIngestion(ABC):
                 document={"type": doc_type, url_key: data_url},
             )
         else:
-            ocr_response = await litellm.aocr(
+            ocr_response = await embrouter.aocr(
                 model=ocr_model,
                 document={"type": doc_type, url_key: data_url},
             )
@@ -262,7 +262,7 @@ class BaseRAGIngestion(ABC):
         if self.router is not None:
             response = await self.router.aembedding(model=embedding_model, input=chunks)
         else:
-            response = await litellm.aembedding(model=embedding_model, input=chunks)
+            response = await embrouter.aembedding(model=embedding_model, input=chunks)
 
         return [item["embedding"] for item in response.data]
 

@@ -9,11 +9,11 @@ from typing import Final
 
 from pydantic import AliasChoices, BaseModel, Field, ValidationError
 
-import litellm
-from litellm.exceptions import AuthenticationError
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.utils import LlmProviders
+import embrouter
+from embrouter.exceptions import AuthenticationError
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.utils import LlmProviders
 
 EDENAI_API_BASE: Final = "https://api.edenai.run/v3"
 EDENAI_COST_HEADER: Final = "x-edenai-cost"
@@ -36,7 +36,7 @@ def resolve_api_key(api_key: str | None) -> str | None:
 
 
 def require_api_key(api_key: str | None, model: str) -> str:
-    resolved: Final = resolve_api_key(api_key or litellm.api_key)
+    resolved: Final = resolve_api_key(api_key or embrouter.api_key)
     if resolved is None:
         raise AuthenticationError(
             message="Missing Eden AI API key: set EDENAI_API_KEY or pass api_key",

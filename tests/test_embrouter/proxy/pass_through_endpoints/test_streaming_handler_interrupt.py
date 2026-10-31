@@ -9,19 +9,19 @@ import httpx
 import pytest
 import respx
 
-import litellm
-import litellm.proxy.pass_through_endpoints.llm_provider_handlers.tinyfish_passthrough_logging_handler as tinyfish_handler_module
-from litellm.proxy.pass_through_endpoints.llm_provider_handlers.tinyfish_passthrough_logging_handler import (
+import embrouter
+import embrouter.proxy.pass_through_endpoints.llm_provider_handlers.tinyfish_passthrough_logging_handler as tinyfish_handler_module
+from embrouter.proxy.pass_through_endpoints.llm_provider_handlers.tinyfish_passthrough_logging_handler import (
     mark_sse_poller_spawned,
     sse_poller_spawned,
 )
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-from litellm.proxy.pass_through_endpoints.streaming_handler import (
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.embrouter_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from embrouter.proxy.pass_through_endpoints.streaming_handler import (
     PassThroughStreamingHandler,
 )
-from litellm.types.passthrough_endpoints.pass_through_endpoints import EndpointType
+from embrouter.types.passthrough_endpoints.pass_through_endpoints import EndpointType
 
 
 def _make_streaming_response(chunks):
@@ -62,7 +62,7 @@ async def test_chunk_processor_logs_on_normal_completion():
         async for chunk in PassThroughStreamingHandler.chunk_processor(
             response=response,
             request_body={"model": "claude-3-haiku"},
-            litellm_logging_obj=mock_logging_obj,
+            embrouter_logging_obj=mock_logging_obj,
             endpoint_type=EndpointType.GENERIC,
             start_time=datetime.now(),
             passthrough_success_handler_obj=mock_passthrough_handler,
@@ -94,7 +94,7 @@ async def test_chunk_processor_logs_on_client_disconnect():
         gen = PassThroughStreamingHandler.chunk_processor(
             response=response,
             request_body={"model": "claude-3-haiku"},
-            litellm_logging_obj=mock_logging_obj,
+            embrouter_logging_obj=mock_logging_obj,
             endpoint_type=EndpointType.GENERIC,
             start_time=datetime.now(),
             passthrough_success_handler_obj=mock_passthrough_handler,
@@ -133,7 +133,7 @@ async def test_chunk_processor_does_not_schedule_success_logging_for_upstream_er
         async for chunk in PassThroughStreamingHandler.chunk_processor(
             response=response,
             request_body={"model": "claude-3-haiku"},
-            litellm_logging_obj=mock_logging_obj,
+            embrouter_logging_obj=mock_logging_obj,
             endpoint_type=EndpointType.GENERIC,
             start_time=datetime.now(),
             passthrough_success_handler_obj=mock_passthrough_handler,
@@ -163,7 +163,7 @@ async def test_chunk_processor_does_not_schedule_logging_when_no_chunks():
         async for chunk in PassThroughStreamingHandler.chunk_processor(
             response=response,
             request_body={"model": "claude-3-haiku"},
-            litellm_logging_obj=mock_logging_obj,
+            embrouter_logging_obj=mock_logging_obj,
             endpoint_type=EndpointType.GENERIC,
             start_time=datetime.now(),
             passthrough_success_handler_obj=mock_passthrough_handler,
@@ -206,7 +206,7 @@ async def test_chunk_processor_routes_logging_through_logging_worker():
         async for chunk in PassThroughStreamingHandler.chunk_processor(
             response=response,
             request_body={"model": "claude-3-haiku"},
-            litellm_logging_obj=_unarmed_logging_obj(),
+            embrouter_logging_obj=_unarmed_logging_obj(),
             endpoint_type=EndpointType.GENERIC,
             start_time=datetime.now(),
             passthrough_success_handler_obj=MagicMock(),
@@ -247,7 +247,7 @@ async def test_chunk_processor_routes_logging_through_logging_worker_on_disconne
         gen = PassThroughStreamingHandler.chunk_processor(
             response=response,
             request_body={"model": "claude-3-haiku"},
-            litellm_logging_obj=_unarmed_logging_obj(),
+            embrouter_logging_obj=_unarmed_logging_obj(),
             endpoint_type=EndpointType.GENERIC,
             start_time=datetime.now(),
             passthrough_success_handler_obj=MagicMock(),
@@ -294,7 +294,7 @@ async def test_chunk_processor_stamps_completion_start_time_on_first_chunk():
         async for chunk in PassThroughStreamingHandler.chunk_processor(
             response=response,
             request_body={"model": "claude-haiku-4-5"},
-            litellm_logging_obj=mock_logging_obj,
+            embrouter_logging_obj=mock_logging_obj,
             endpoint_type=EndpointType.ANTHROPIC,
             start_time=datetime.now(),
             passthrough_success_handler_obj=mock_passthrough_handler,
@@ -332,7 +332,7 @@ async def test_chunk_processor_does_not_reset_completion_start_time_on_later_chu
         async for _ in PassThroughStreamingHandler.chunk_processor(
             response=response,
             request_body={"model": "claude-haiku-4-5"},
-            litellm_logging_obj=mock_logging_obj,
+            embrouter_logging_obj=mock_logging_obj,
             endpoint_type=EndpointType.ANTHROPIC,
             start_time=datetime.now(),
             passthrough_success_handler_obj=mock_passthrough_handler,
@@ -347,7 +347,7 @@ async def test_chunk_processor_does_not_reset_completion_start_time_on_later_chu
 @pytest.mark.asyncio
 async def test_chunk_processor_stamps_completion_start_time_on_cost_injection_path():
     """The cost-injection branch runs alongside a hot path; both must stamp TTFT."""
-    import litellm as litellm_mod
+    import embrouter as embrouter_mod
 
     chunks = [b"event: message_start\ndata: {}\n\n"]
     response = _make_streaming_response(chunks)
@@ -356,8 +356,8 @@ async def test_chunk_processor_stamps_completion_start_time_on_cost_injection_pa
     mock_logging_obj.model_call_details = {"model": "claude-haiku-4-5"}
     mock_passthrough_handler = MagicMock()
 
-    original = getattr(litellm_mod, "include_cost_in_streaming_usage", False)
-    litellm_mod.include_cost_in_streaming_usage = True
+    original = getattr(embrouter_mod, "include_cost_in_streaming_usage", False)
+    embrouter_mod.include_cost_in_streaming_usage = True
     try:
         with patch.object(
             PassThroughStreamingHandler,
@@ -367,7 +367,7 @@ async def test_chunk_processor_stamps_completion_start_time_on_cost_injection_pa
             async for _ in PassThroughStreamingHandler.chunk_processor(
                 response=response,
                 request_body={"model": "claude-haiku-4-5"},
-                litellm_logging_obj=mock_logging_obj,
+                embrouter_logging_obj=mock_logging_obj,
                 endpoint_type=EndpointType.ANTHROPIC,
                 start_time=datetime.now(),
                 passthrough_success_handler_obj=mock_passthrough_handler,
@@ -375,7 +375,7 @@ async def test_chunk_processor_stamps_completion_start_time_on_cost_injection_pa
             ):
                 pass
     finally:
-        litellm_mod.include_cost_in_streaming_usage = original
+        embrouter_mod.include_cost_in_streaming_usage = original
 
     mock_logging_obj._update_completion_start_time.assert_called_once()
 
@@ -404,7 +404,7 @@ async def _collect_openai_passthrough_chunks(chunks, endpoint_type):
     async for chunk in PassThroughStreamingHandler.chunk_processor(
         response=response,
         request_body={"model": "gpt-4o-mini", "stream": True},
-        litellm_logging_obj=_unarmed_logging_obj(),
+        embrouter_logging_obj=_unarmed_logging_obj(),
         endpoint_type=endpoint_type,
         start_time=datetime.now(),
         passthrough_success_handler_obj=MagicMock(),
@@ -421,7 +421,7 @@ async def test_chunk_processor_injects_cost_into_openai_passthrough_usage_frame(
     """Regression: issue #36492 — with include_cost_in_streaming_usage on, the final
     OpenAI passthrough chat.completion.chunk usage frame must carry usage.cost, like
     every other streaming surface already does."""
-    monkeypatch.setattr(litellm, "include_cost_in_streaming_usage", True)
+    monkeypatch.setattr(embrouter, "include_cost_in_streaming_usage", True)
     chunks = _openai_passthrough_stream_chunks()
 
     received = await _collect_openai_passthrough_chunks(chunks, EndpointType.OPENAI)
@@ -430,7 +430,7 @@ async def test_chunk_processor_injects_cost_into_openai_passthrough_usage_frame(
     assert received[1] == chunks[1]
     assert received[3] == chunks[3]
     final_payload = json.loads(received[2].decode("utf-8").split("data:", 1)[1].strip())
-    pricing = litellm.model_cost["gpt-4o-mini"]
+    pricing = embrouter.model_cost["gpt-4o-mini"]
     expected_cost = 11 * pricing["input_cost_per_token"] + 4 * pricing["output_cost_per_token"]
     assert final_payload["usage"]["cost"] == pytest.approx(expected_cost)
     assert final_payload["usage"]["cost"] > 0
@@ -443,7 +443,7 @@ async def test_chunk_processor_injects_cost_into_openai_passthrough_usage_frame(
 async def test_chunk_processor_injects_cost_into_usage_frame_fragmented_across_chunks(monkeypatch):
     """Regression: an SSE usage frame split across transport chunks must still get
     cost injected once the frame completes, instead of passing through untouched."""
-    monkeypatch.setattr(litellm, "include_cost_in_streaming_usage", True)
+    monkeypatch.setattr(embrouter, "include_cost_in_streaming_usage", True)
     whole = _openai_passthrough_stream_chunks()
     usage_frame = whole[2]
     split_at = len(usage_frame) // 2
@@ -464,7 +464,7 @@ async def test_chunk_processor_injects_cost_into_usage_frame_fragmented_across_c
 async def test_chunk_processor_streams_crlf_delimited_frames_live_and_injects_cost(monkeypatch):
     """Regression: CRLF-delimited SSE frames must flow as they complete instead of
     buffering until EOF, and the usage frame must still get cost injected."""
-    monkeypatch.setattr(litellm, "include_cost_in_streaming_usage", True)
+    monkeypatch.setattr(embrouter, "include_cost_in_streaming_usage", True)
     chunks = [chunk.replace(b"\n\n", b"\r\n\r\n") for chunk in _openai_passthrough_stream_chunks()]
 
     received = await _collect_openai_passthrough_chunks(chunks, EndpointType.OPENAI)
@@ -483,7 +483,7 @@ async def test_chunk_processor_streams_crlf_delimited_frames_live_and_injects_co
 
 @pytest.mark.asyncio
 async def test_chunk_processor_flag_off_leaves_openai_passthrough_stream_byte_identical(monkeypatch):
-    monkeypatch.setattr(litellm, "include_cost_in_streaming_usage", False)
+    monkeypatch.setattr(embrouter, "include_cost_in_streaming_usage", False)
     chunks = _openai_passthrough_stream_chunks()
 
     received = await _collect_openai_passthrough_chunks(chunks, EndpointType.OPENAI)
@@ -493,7 +493,7 @@ async def test_chunk_processor_flag_off_leaves_openai_passthrough_stream_byte_id
 
 @pytest.mark.asyncio
 async def test_chunk_processor_flag_on_leaves_openai_frames_without_usage_untouched(monkeypatch):
-    monkeypatch.setattr(litellm, "include_cost_in_streaming_usage", True)
+    monkeypatch.setattr(embrouter, "include_cost_in_streaming_usage", True)
     chunks = [
         (
             b'data: {"id":"chatcmpl-1","object":"chat.completion.chunk",'
@@ -511,7 +511,7 @@ async def test_chunk_processor_flag_on_leaves_openai_frames_without_usage_untouc
 
 @pytest.mark.asyncio
 async def test_chunk_processor_flag_on_leaves_generic_passthrough_untouched(monkeypatch):
-    monkeypatch.setattr(litellm, "include_cost_in_streaming_usage", True)
+    monkeypatch.setattr(embrouter, "include_cost_in_streaming_usage", True)
     chunks = _openai_passthrough_stream_chunks()
 
     received = await _collect_openai_passthrough_chunks(chunks, EndpointType.GENERIC)
@@ -544,8 +544,8 @@ async def test_chunk_processor_defers_logging_until_fire_when_armed():
     guardrail_information as null. With deferred dispatch armed, the completed
     stream must park the logging coroutine on logging_obj and only enqueue it
     when ProxyLogging._fire_deferred_stream_logging fires after the scan."""
-    from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
-    from litellm.proxy.utils import ProxyLogging
+    from embrouter.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+    from embrouter.proxy.utils import ProxyLogging
 
     chunks = [b"event-1", b"event-2"]
     response = _make_streaming_response(chunks)
@@ -567,7 +567,7 @@ async def test_chunk_processor_defers_logging_until_fire_when_armed():
         gen = PassThroughStreamingHandler.chunk_processor(
             response=response,
             request_body={"model": "claude-3-haiku"},
-            litellm_logging_obj=logging_obj,
+            embrouter_logging_obj=logging_obj,
             endpoint_type=EndpointType.ANTHROPIC,
             start_time=datetime.now(),
             passthrough_success_handler_obj=MagicMock(),
@@ -592,7 +592,7 @@ async def test_chunk_processor_defers_logging_until_fire_when_armed():
         assert isinstance(parked, tuple) and len(parked) == 1
         assert asyncio.iscoroutine(parked[0])
 
-        ProxyLogging._fire_deferred_stream_logging({"litellm_logging_obj": logging_obj})
+        ProxyLogging._fire_deferred_stream_logging({"embrouter_logging_obj": logging_obj})
         await asyncio.sleep(0)
 
         mock_enqueue.assert_called_once()
@@ -628,7 +628,7 @@ async def test_chunk_processor_enqueues_immediately_on_disconnect_even_when_arme
         gen = PassThroughStreamingHandler.chunk_processor(
             response=response,
             request_body={"model": "claude-3-haiku"},
-            litellm_logging_obj=logging_obj,
+            embrouter_logging_obj=logging_obj,
             endpoint_type=EndpointType.ANTHROPIC,
             start_time=datetime.now(),
             passthrough_success_handler_obj=MagicMock(),
@@ -699,13 +699,13 @@ async def test_chunk_processor_logs_failure_not_success_on_mid_stream_exception(
     callbacks must fire once with the partial usage and cost, and the success
     routing must never run for it."""
     recorder = _EventRecorder()
-    logging_obj = LiteLLMLoggingObj(
+    logging_obj = EmbRouterLoggingObj(
         model="claude-sonnet-5",
         messages=[{"role": "user", "content": "hi"}],
         stream=True,
         call_type="anthropic_messages",
         start_time=datetime.now(),
-        litellm_call_id="test-mid-stream-timeout",
+        embrouter_call_id="test-mid-stream-timeout",
         function_id="test-mid-stream-timeout",
         dynamic_async_success_callbacks=[recorder],
         dynamic_async_failure_callbacks=[recorder],
@@ -721,7 +721,7 @@ async def test_chunk_processor_logs_failure_not_success_on_mid_stream_exception(
         async for chunk in PassThroughStreamingHandler.chunk_processor(
             response=_anthropic_stream_that_times_out_mid_stream(),
             request_body={"model": "claude-sonnet-5", "stream": True},
-            litellm_logging_obj=logging_obj,
+            embrouter_logging_obj=logging_obj,
             endpoint_type=EndpointType.ANTHROPIC,
             start_time=datetime.now(),
             passthrough_success_handler_obj=MagicMock(),
@@ -791,13 +791,13 @@ async def test_chunk_processor_bills_partial_google_usage_on_mid_stream_exceptio
     dies mid-way must log a failure billed at what was already delivered rather
     than a failure at zero usage."""
     recorder = _EventRecorder()
-    logging_obj = LiteLLMLoggingObj(
+    logging_obj = EmbRouterLoggingObj(
         model="gemini-3.8-flash",
         messages=[{"role": "user", "content": "hi"}],
         stream=True,
         call_type="pass_through_endpoint",
         start_time=datetime.now(),
-        litellm_call_id=f"test-google-mid-stream-timeout-{endpoint_type.value}",
+        embrouter_call_id=f"test-google-mid-stream-timeout-{endpoint_type.value}",
         function_id="test-google-mid-stream-timeout",
         dynamic_async_success_callbacks=[recorder],
         dynamic_async_failure_callbacks=[recorder],
@@ -806,7 +806,7 @@ async def test_chunk_processor_bills_partial_google_usage_on_mid_stream_exceptio
         model="gemini-3.8-flash",
         user="unknown",
         optional_params={},
-        litellm_params={"metadata": {}},
+        embrouter_params={"metadata": {}},
         call_type="pass_through_endpoint",
     )
     success_routes = []
@@ -818,7 +818,7 @@ async def test_chunk_processor_bills_partial_google_usage_on_mid_stream_exceptio
         async for _ in PassThroughStreamingHandler.chunk_processor(
             response=_google_stream_that_times_out_mid_stream(),
             request_body={"contents": [{"role": "user", "parts": [{"text": "hi"}]}]},
-            litellm_logging_obj=logging_obj,
+            embrouter_logging_obj=logging_obj,
             endpoint_type=endpoint_type,
             start_time=datetime.now(),
             passthrough_success_handler_obj=MagicMock(),
@@ -859,8 +859,8 @@ class TestTinyFishStreamBilling:
         monkeypatch.delenv("TINYFISH_COST_PER_STEP", raising=False)
         monkeypatch.delenv("TINYFISH_AGENT_API_BASE", raising=False)
         # aiohttp transport bypasses respx; force plain httpx and drop any cached aiohttp client
-        monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
+        embrouter.in_memory_llm_clients_cache.flush_cache()
 
     def _tinyfish_logging_obj(self):
         obj = _unarmed_logging_obj()
@@ -889,7 +889,7 @@ class TestTinyFishStreamBilling:
             async for chunk in PassThroughStreamingHandler.chunk_processor(
                 response=_make_streaming_response(chunks),
                 request_body={"url": "https://scrapeme.live/shop", "goal": "extract"},
-                litellm_logging_obj=logging_obj,
+                embrouter_logging_obj=logging_obj,
                 endpoint_type=EndpointType.TINYFISH,
                 start_time=datetime.now(),
                 passthrough_success_handler_obj=MagicMock(),
@@ -923,7 +923,7 @@ class TestTinyFishStreamBilling:
             gen = PassThroughStreamingHandler.chunk_processor(
                 response=_make_streaming_response(chunks),
                 request_body={"url": "https://scrapeme.live/shop", "goal": "extract"},
-                litellm_logging_obj=logging_obj,
+                embrouter_logging_obj=logging_obj,
                 endpoint_type=EndpointType.TINYFISH,
                 start_time=datetime.now(),
                 passthrough_success_handler_obj=MagicMock(),
@@ -950,7 +950,7 @@ class TestTinyFishStreamBilling:
         async for _ in PassThroughStreamingHandler.chunk_processor(
             response=_make_streaming_response([b": keepalive\n\n", b'data: {"event": "HEARTBEAT"}\n\n']),
             request_body={},
-            litellm_logging_obj=logging_obj,
+            embrouter_logging_obj=logging_obj,
             endpoint_type=EndpointType.TINYFISH,
             start_time=datetime.now(),
             passthrough_success_handler_obj=MagicMock(),
@@ -968,7 +968,7 @@ class TestTinyFishStreamBilling:
         mark_sse_poller_spawned(logging_obj)
 
         await PassThroughStreamingHandler._route_streaming_logging_to_handler(
-            litellm_logging_obj=logging_obj,
+            embrouter_logging_obj=logging_obj,
             passthrough_success_handler_obj=MagicMock(),
             url_route=self.SSE_ROUTE,
             request_body={},
@@ -985,7 +985,7 @@ class TestTinyFishStreamBilling:
         logging_obj = self._tinyfish_logging_obj()
 
         await PassThroughStreamingHandler._route_streaming_logging_to_handler(
-            litellm_logging_obj=logging_obj,
+            embrouter_logging_obj=logging_obj,
             passthrough_success_handler_obj=MagicMock(),
             url_route=self.SSE_ROUTE,
             request_body={},
@@ -1016,7 +1016,7 @@ class TestTinyFishStreamBilling:
             async for _ in PassThroughStreamingHandler.chunk_processor(
                 response=response,
                 request_body={},
-                litellm_logging_obj=logging_obj,
+                embrouter_logging_obj=logging_obj,
                 endpoint_type=EndpointType.TINYFISH,
                 start_time=datetime.now(),
                 passthrough_success_handler_obj=MagicMock(),
@@ -1041,7 +1041,7 @@ class TestTinyFishStreamBilling:
         tasks_before = set(tinyfish_handler_module._BACKGROUND_BILLING_TASKS)
 
         await PassThroughStreamingHandler._route_streaming_logging_to_handler(
-            litellm_logging_obj=logging_obj,
+            embrouter_logging_obj=logging_obj,
             passthrough_success_handler_obj=MagicMock(),
             url_route=self.SSE_ROUTE,
             request_body={},
@@ -1072,7 +1072,7 @@ async def test_chunk_processor_claims_the_budget_reservation_before_handing_it_t
     reservation = {"reserved_cost": 0.5, "entries": [], "finalized": False, "callback_bound": False}
     response = _make_streaming_response([b"event-1", b"event-2"])
     logging_obj = _unarmed_logging_obj()
-    logging_obj.litellm_params = {"metadata": {"user_api_key_budget_reservation": reservation}}
+    logging_obj.embrouter_params = {"metadata": {"user_api_key_budget_reservation": reservation}}
     if deferred_dispatch_armed:
         logging_obj._on_deferred_stream_complete = AsyncMock()
     claimed_when_the_callback_ran = []
@@ -1083,7 +1083,7 @@ async def test_chunk_processor_claims_the_budget_reservation_before_handing_it_t
     async for _ in PassThroughStreamingHandler.chunk_processor(
         response=response,
         request_body={"model": "claude-3-haiku"},
-        litellm_logging_obj=logging_obj,
+        embrouter_logging_obj=logging_obj,
         endpoint_type=EndpointType.GENERIC,
         start_time=datetime.now(),
         passthrough_success_handler_obj=MagicMock(),
@@ -1107,7 +1107,7 @@ async def test_chunk_processor_leaves_the_budget_reservation_for_the_request_end
     reservation = {"reserved_cost": 0.5, "entries": [], "finalized": False, "callback_bound": False}
     response = _make_streaming_response([b"event-1", b"event-2"])
     logging_obj = _unarmed_logging_obj()
-    logging_obj.litellm_params = {"metadata": {"user_api_key_budget_reservation": reservation}}
+    logging_obj.embrouter_params = {"metadata": {"user_api_key_budget_reservation": reservation}}
 
     def refuse_to_enqueue(async_coroutine):
         async_coroutine.close()
@@ -1117,7 +1117,7 @@ async def test_chunk_processor_leaves_the_budget_reservation_for_the_request_end
         async for _ in PassThroughStreamingHandler.chunk_processor(
             response=response,
             request_body={"model": "claude-3-haiku"},
-            litellm_logging_obj=logging_obj,
+            embrouter_logging_obj=logging_obj,
             endpoint_type=EndpointType.GENERIC,
             start_time=datetime.now(),
             passthrough_success_handler_obj=MagicMock(),

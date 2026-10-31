@@ -11,7 +11,7 @@ This hook is automatically registered and called by the proxy system.
 See BATCH_RATE_LIMITER_INTEGRATION.md for complete integration details.
 
 Quick summary:
-- Add to PROXY_HOOKS in litellm/proxy/hooks/__init__.py
+- Add to PROXY_HOOKS in embrouter/proxy/hooks/__init__.py
 - Gets auto-instantiated on proxy startup via _add_proxy_hooks()
 - async_pre_call_hook() fires on POST /v1/batches (batch submission)
 - async_log_success_event() fires on GET /v1/batches/{id} (batch completion)
@@ -26,58 +26,58 @@ from typing import TYPE_CHECKING, Any, Final, Literal, NoReturn, TypeAlias
 from fastapi import HTTPException
 from pydantic import BaseModel, Field, TypeAdapter, ValidationError
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.batches.batch_utils import (
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.batches.batch_utils import (
     _count_entry_tokens,
     _estimate_batch_entry_tokens,
     _extract_file_access_credentials,
     _iter_batch_input_lines,
 )
-from litellm.constants import BATCH_TPD_DESCRIPTOR_SUFFIX, BATCH_TPD_WINDOW_SECONDS
-from litellm.exceptions import RateLimitErrorCategory
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.proxy._types import (
+from embrouter.constants import BATCH_TPD_DESCRIPTOR_SUFFIX, BATCH_TPD_WINDOW_SECONDS
+from embrouter.exceptions import RateLimitErrorCategory
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.proxy._types import (
     ProxyErrorTypes,
     ProxyException,
     SpecialModelNames,
     UserAPIKeyAuth,
 )
-from litellm.proxy.auth.auth_utils import get_model_rate_limit_from_metadata
-from litellm.proxy.common_utils.proxy_rate_limit_error import (
+from embrouter.proxy.auth.auth_utils import get_model_rate_limit_from_metadata
+from embrouter.proxy.common_utils.proxy_rate_limit_error import (
     ProxyRateLimitError,
     map_v3_rate_limit_type,
 )
-from litellm.proxy.hooks.batch_enqueued_tokens import (
+from embrouter.proxy.hooks.batch_enqueued_tokens import (
     BatchEnqueuedTokenOverLimit,
     BatchEnqueuedTokenReservation,
     BatchEnqueuedTokenScope,
     resolve_batch_enqueued_token_scopes,
 )
-from litellm.proxy.hooks.parallel_request_limiter_v3 import (
+from embrouter.proxy.hooks.parallel_request_limiter_v3 import (
     PROJECT_ITPM_DESCRIPTOR_KEY,
     PROJECT_OTPM_DESCRIPTOR_KEY,
     ReservationAwareIncrementOperation,
     get_or_create_request_stash,
 )
-from litellm.proxy.hooks.rate_limiter_utils import resolve_llm_provider_for_rate_limit
+from embrouter.proxy.hooks.rate_limiter_utils import resolve_llm_provider_for_rate_limit
 
 if TYPE_CHECKING:
     from opentelemetry.trace import Span as _Span
 
-    from litellm.caching.caching import DualCache
-    from litellm.proxy.hooks.parallel_request_limiter_v3 import (
+    from embrouter.caching.caching import DualCache
+    from embrouter.proxy.hooks.parallel_request_limiter_v3 import (
         RateLimitDescriptor as _RateLimitDescriptor,
     )
-    from litellm.proxy.hooks.parallel_request_limiter_v3 import (
+    from embrouter.proxy.hooks.parallel_request_limiter_v3 import (
         RateLimitStatus as _RateLimitStatus,
     )
-    from litellm.proxy.hooks.parallel_request_limiter_v3 import (
+    from embrouter.proxy.hooks.parallel_request_limiter_v3 import (
         _PROXY_MaxParallelRequestsHandler_v3 as _ParallelRequestLimiter,
     )
-    from litellm.proxy.utils import InternalUsageCache as _InternalUsageCache
-    from litellm.router import Router as _Router
-    from litellm.types.llms.openai import HttpxBinaryResponseContent
+    from embrouter.proxy.utils import InternalUsageCache as _InternalUsageCache
+    from embrouter.router import Router as _Router
+    from embrouter.types.llms.openai import HttpxBinaryResponseContent
 
     Span = _Span
     InternalUsageCache = _InternalUsageCache
@@ -161,7 +161,7 @@ class _PROXY_BatchRateLimiter(CustomLogger):
         if not isinstance(input_file_id, str) or not input_file_id:
             return None
 
-        from litellm.proxy.openai_files_endpoints.common_utils import (
+        from embrouter.proxy.openai_files_endpoints.common_utils import (
             _is_base64_encoded_unified_file_id,
             decode_model_from_file_id,
             get_models_from_unified_file_id,
@@ -208,10 +208,10 @@ class _PROXY_BatchRateLimiter(CustomLogger):
         if not batch_model:
             return None
 
-        from litellm.proxy.openai_files_endpoints.common_utils import (
+        from embrouter.proxy.openai_files_endpoints.common_utils import (
             get_credentials_for_model,
         )
-        from litellm.proxy.proxy_server import llm_router
+        from embrouter.proxy.proxy_server import llm_router
 
         if llm_router is None:
             return None
@@ -371,7 +371,7 @@ class _PROXY_BatchRateLimiter(CustomLogger):
         rate-limit descriptor list computed for the no-limits check, so the
         caller can reuse it for counter enforcement without recomputing.
         """
-        from litellm.proxy.proxy_server import general_settings
+        from embrouter.proxy.proxy_server import general_settings
 
         self._warn_if_unsupported_model_skip_configured(general_settings)
 
@@ -515,12 +515,12 @@ class _PROXY_BatchRateLimiter(CustomLogger):
         without decoding them, ``afile_content`` is called with the encoded ID
         and the upstream provider returns 404.
         """
-        from litellm.proxy.openai_files_endpoints.common_utils import (
+        from embrouter.proxy.openai_files_endpoints.common_utils import (
             decode_model_from_file_id,
             get_credentials_for_model,
             get_original_file_id,
         )
-        from litellm.proxy.proxy_server import llm_router
+        from embrouter.proxy.proxy_server import llm_router
 
         fetch_kwargs: Final[dict[str, Any]] = {
             "custom_llm_provider": custom_llm_provider,
@@ -580,7 +580,7 @@ class _PROXY_BatchRateLimiter(CustomLogger):
         outcome: Final = await self.parallel_request_limiter.batch_enqueued_token_store.reserve(
             tokens=batch_usage.total_tokens,
             scopes=scopes,
-            litellm_parent_otel_span=user_api_key_dict.parent_otel_span,
+            embrouter_parent_otel_span=user_api_key_dict.parent_otel_span,
         )
         match outcome:
             case BatchEnqueuedTokenOverLimit():
@@ -609,7 +609,7 @@ class _PROXY_BatchRateLimiter(CustomLogger):
         raise ProxyRateLimitError(
             detail=detail,
             headers=MappingProxyType({"rate_limit_type": "tokens"}),
-            category=RateLimitErrorCategory.LITELLM_BATCH_RATE_LIMIT,
+            category=RateLimitErrorCategory.EMBROUTER_BATCH_RATE_LIMIT,
             rate_limit_type=map_v3_rate_limit_type("tokens"),
             model=resolved_model,
             llm_provider=llm_provider,
@@ -710,7 +710,7 @@ class _PROXY_BatchRateLimiter(CustomLogger):
                 "rate_limit_type": limit_type,
                 "reset_at": reset_time_formatted,
             },
-            category=RateLimitErrorCategory.LITELLM_BATCH_RATE_LIMIT,
+            category=RateLimitErrorCategory.EMBROUTER_BATCH_RATE_LIMIT,
             rate_limit_type=map_v3_rate_limit_type(limit_type),
             model=resolved_model,
             llm_provider=llm_provider,
@@ -795,7 +795,7 @@ class _PROXY_BatchRateLimiter(CustomLogger):
             window_start: Final = _WINDOW_START_ADAPTER.validate_python(
                 await self.parallel_request_limiter.internal_usage_cache.async_get_cache(
                     key=f"{{{descriptor_key}:{status.get('descriptor_value') or ''}}}:window",
-                    litellm_parent_otel_span=parent_otel_span,
+                    embrouter_parent_otel_span=parent_otel_span,
                 ),
                 strict=True,
             )
@@ -888,7 +888,7 @@ class _PROXY_BatchRateLimiter(CustomLogger):
         min_configured_otpm_limit: Final = min((*descriptor_otpm_limits, *project_otpm_limits), default=None)
         try:
             # Check if this is a managed file (base64 encoded unified file ID)
-            from litellm.proxy.openai_files_endpoints.common_utils import (
+            from embrouter.proxy.openai_files_endpoints.common_utils import (
                 _is_base64_encoded_unified_file_id,
                 get_models_from_unified_file_id,
             )
@@ -910,8 +910,8 @@ class _PROXY_BatchRateLimiter(CustomLogger):
                     custom_llm_provider=custom_llm_provider,
                     data=data or {},
                 )
-                # For non-managed files, use the standard litellm.afile_content
-                file_content = await litellm.afile_content(
+                # For non-managed files, use the standard embrouter.afile_content
+                file_content = await embrouter.afile_content(
                     file_id=provider_file_id,
                     user_api_key_dict=user_api_key_dict,
                     **fetch_kwargs,
@@ -1035,14 +1035,14 @@ class _PROXY_BatchRateLimiter(CustomLogger):
         Reuses standard auth helpers so the same model access rules the proxy
         enforces on `/chat/completions` apply here.
         """
-        from litellm.proxy.auth.auth_checks import (
+        from embrouter.proxy.auth.auth_checks import (
             _check_team_member_model_access,
             _key_access_group_grants_model,
             can_key_call_model,
             can_team_access_model,
             get_team_object,
         )
-        from litellm.proxy.proxy_server import llm_router, prisma_client, proxy_logging_obj, user_api_key_cache
+        from embrouter.proxy.proxy_server import llm_router, prisma_client, proxy_logging_obj, user_api_key_cache
 
         if target_model_names:
             models = target_model_names
@@ -1143,11 +1143,11 @@ class _PROXY_BatchRateLimiter(CustomLogger):
         Returns:
             HttpxBinaryResponseContent with the file content
         """
-        from litellm.llms.base_llm.files.transformation import BaseFileEndpoints
+        from embrouter.llms.base_llm.files.transformation import BaseFileEndpoints
 
         # Import proxy_server dependencies at runtime to avoid circular imports
         try:
-            from litellm.proxy.proxy_server import llm_router, proxy_logging_obj
+            from embrouter.proxy.proxy_server import llm_router, proxy_logging_obj
         except ImportError as e:
             raise ValueError(
                 f"Cannot import proxy_server dependencies: {e}. Managed files require proxy_server to be initialized."
@@ -1171,7 +1171,7 @@ class _PROXY_BatchRateLimiter(CustomLogger):
         # This properly handles user permissions and file ownership
         file_content: Final = await managed_files_obj.afile_content(
             file_id=file_id,
-            litellm_parent_otel_span=user_api_key_dict.parent_otel_span,
+            embrouter_parent_otel_span=user_api_key_dict.parent_otel_span,
             llm_router=llm_router,
         )
 

@@ -7,20 +7,20 @@ from typing import TYPE_CHECKING, Final
 
 import httpx
 
-import litellm
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.custom_httpx.http_handler import (
+import embrouter
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.custom_httpx.http_handler import (
     AsyncHTTPHandler,
     HTTPHandler,
     get_async_httpx_client,
 )
-from litellm.types.llms.bedrock import CohereEmbeddingRequest
-from litellm.types.utils import EmbeddingResponse
+from embrouter.types.llms.bedrock import CohereEmbeddingRequest
+from embrouter.types.utils import EmbeddingResponse
 
 from .v1_transformation import CohereEmbeddingConfig
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
 
 
 def validate_environment(api_key, headers: dict):
@@ -30,7 +30,7 @@ def validate_environment(api_key, headers: dict):
 
     # Only add headers if they don't already exist (case-insensitive check)
     if "request-source" not in existing_keys_lower:
-        headers["Request-Source"] = "unspecified:litellm"
+        headers["Request-Source"] = "unspecified:embrouter"
     if "accept" not in existing_keys_lower:
         headers["accept"] = "application/json"
     if "content-type" not in existing_keys_lower:
@@ -53,9 +53,9 @@ async def async_embedding(
     model: str,
     data: dict | CohereEmbeddingRequest,
     input: list,
-    model_response: litellm.utils.EmbeddingResponse,
+    model_response: embrouter.utils.EmbeddingResponse,
     timeout: float | httpx.Timeout | None,
-    logging_obj: LiteLLMLoggingObj,
+    logging_obj: EmbRouterLoggingObj,
     optional_params: dict,
     api_base: str,
     api_key: str | None,
@@ -77,7 +77,7 @@ async def async_embedding(
 
     if client is None:
         client = get_async_httpx_client(
-            llm_provider=litellm.LlmProviders.COHERE,
+            llm_provider=embrouter.LlmProviders.COHERE,
             params={"timeout": timeout},
         )
 
@@ -119,7 +119,7 @@ def embedding(
     model: str,
     input: list,
     model_response: EmbeddingResponse,
-    logging_obj: LiteLLMLoggingObj,
+    logging_obj: EmbRouterLoggingObj,
     optional_params: dict,
     headers: dict,
     encoding: "Tokenizer | None",

@@ -1,5 +1,5 @@
 """
-Microsoft Purview DLP Guardrail for LiteLLM.
+Microsoft Purview DLP Guardrail for EmbRouter.
 
 Supports three modes:
 - pre_call:      Block sensitive data in prompts before they reach the LLM.
@@ -17,13 +17,13 @@ from typing import TYPE_CHECKING, Any, Final, cast
 import httpx
 from fastapi import HTTPException
 
-from litellm._logging import verbose_proxy_logger
-from litellm.integrations.custom_guardrail import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.integrations.custom_guardrail import (
     CustomGuardrail,
     log_guardrail_information,
 )
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.utils import (
+from embrouter.types.guardrails import GuardrailEventHooks
+from embrouter.types.utils import (
     Choices,
     GuardrailStatus,
     ModelResponse,
@@ -36,13 +36,13 @@ from litellm.types.utils import (
 from .base import PurviewGuardrailBase
 
 if TYPE_CHECKING:
-    from litellm.caching.dual_cache import DualCache
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.types.llms.openai import AllMessageValues
-    from litellm.types.proxy.guardrails.guardrail_hooks.base import (
+    from embrouter.caching.dual_cache import DualCache
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.types.llms.openai import AllMessageValues
+    from embrouter.types.proxy.guardrails.guardrail_hooks.base import (
         GuardrailConfigModel,
     )
-    from litellm.types.utils import (
+    from embrouter.types.utils import (
         CallTypesLiteral,
         LLMResponseTypes,
     )
@@ -62,7 +62,7 @@ class MicrosoftPurviewDLPGuardrail(PurviewGuardrailBase, CustomGuardrail):
         tenant_id: str,
         client_id: str,
         client_secret: str,
-        purview_app_name: str = "LiteLLM",
+        purview_app_name: str = "EmbRouter",
         user_id_field: str = "user_id",
         **kwargs: object,
     ):
@@ -124,7 +124,7 @@ class MicrosoftPurviewDLPGuardrail(PurviewGuardrailBase, CustomGuardrail):
 
         try:
             etag, _ = await self._compute_protection_scopes(user_id)
-            correlation_id: Final = request_data.get("litellm_call_id") or str(uuid.uuid4())
+            correlation_id: Final = request_data.get("embrouter_call_id") or str(uuid.uuid4())
             response = await self._process_content(
                 user_id=user_id,
                 text=text,
@@ -294,15 +294,15 @@ class MicrosoftPurviewDLPGuardrail(PurviewGuardrailBase, CustomGuardrail):
 
         ``input`` may be a plain string or a list of input items (messages).  In
         the latter case the items are converted to chat messages via the standard
-        LiteLLM transformation and then concatenated by ``get_prompt_text_for_dlp``.
+        EmbRouter transformation and then concatenated by ``get_prompt_text_for_dlp``.
 
         When ``raise_on_failure`` is True (blocking mode), a transformation error
         raises ``HTTPException`` so the request is fail-closed.  In logging-only
         mode the error is swallowed and ``None`` is returned so audit attempts on
         the response side can still run.
         """
-        from litellm.responses.litellm_completion_transformation.transformation import (
-            LiteLLMCompletionResponsesConfig,
+        from embrouter.responses.embrouter_completion_transformation.transformation import (
+            EmbRouterCompletionResponsesConfig,
         )
 
         input_data: Final = data.get("input")
@@ -311,7 +311,7 @@ class MicrosoftPurviewDLPGuardrail(PurviewGuardrailBase, CustomGuardrail):
         try:
             # Always transform via messages so ``instructions`` become a system message
             # (string ``input`` alone would skip instructions and bypass DLP).
-            messages: Final = LiteLLMCompletionResponsesConfig.transform_responses_api_input_to_messages(
+            messages: Final = EmbRouterCompletionResponsesConfig.transform_responses_api_input_to_messages(
                 input=input_data if input_data is not None else "",
                 responses_api_request=data,
             )
@@ -486,8 +486,8 @@ class MicrosoftPurviewDLPGuardrail(PurviewGuardrailBase, CustomGuardrail):
         The proxy automatically skips ``async_post_call_success_hook`` for
         guardrails that define this method, preventing duplicate scans.
         """
-        from litellm.llms.base_llm.base_model_iterator import MockResponseIterator
-        from litellm.main import stream_chunk_builder
+        from embrouter.llms.base_llm.base_model_iterator import MockResponseIterator
+        from embrouter.main import stream_chunk_builder
 
         # Resolve user ID up-front so identity failures don't waste work
         # buffering and assembling the stream.
@@ -596,7 +596,7 @@ class MicrosoftPurviewDLPGuardrail(PurviewGuardrailBase, CustomGuardrail):
     def logging_hook(self, kwargs: dict, result: object, call_type: str) -> tuple[dict, object]:
         """Fire-and-forget async audit logging; returns original (kwargs, result) immediately.
 
-        In the proxy's async success path, litellm independently calls both
+        In the proxy's async success path, embrouter independently calls both
         ``logging_hook`` (sync) and ``async_logging_hook`` (async) for every
         ``CustomGuardrail`` callback.  To avoid making two complete sets of
         Purview API calls per request, this sync hook is a no-op whenever an
@@ -658,7 +658,7 @@ class MicrosoftPurviewDLPGuardrail(PurviewGuardrailBase, CustomGuardrail):
             prompt_text: str | None = None
             if call_type in ("responses", "aresponses"):
                 # Responses API: route to the responses-specific extractor
-                # before the generic ``messages`` branch.  litellm's logging
+                # before the generic ``messages`` branch.  embrouter's logging
                 # pipeline stores the raw responses ``input`` (a string or a
                 # list of input items) under ``model_call_details["messages"]``
                 # via ``function_setup``, which is NOT the chat message format

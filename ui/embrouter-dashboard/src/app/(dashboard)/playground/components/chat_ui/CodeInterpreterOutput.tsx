@@ -4,7 +4,7 @@ import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { coy } from "react-syntax-highlighter/dist/esm/styles/prism";
 
 import { useSyntaxTheme } from "@/hooks/useSyntaxTheme";
-import { getProxyBaseUrl, getGlobalLitellmHeaderName } from "@/components/networking";
+import { getProxyBaseUrl, getGlobalEmbrouterHeaderName } from "@/components/networking";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
@@ -60,7 +60,7 @@ const CodeInterpreterOutput: React.FC<CodeInterpreterOutputProps> = ({ code, ann
             `${proxyBaseUrl}/v1/containers/${annotation.container_id}/files/${annotation.file_id}/content`,
             {
               headers: {
-                [getGlobalLitellmHeaderName()]: `Bearer ${accessToken}`,
+                [getGlobalEmbrouterHeaderName()]: `Bearer ${accessToken}`,
               },
             },
           );
@@ -101,7 +101,7 @@ const CodeInterpreterOutput: React.FC<CodeInterpreterOutputProps> = ({ code, ann
         `${proxyBaseUrl}/v1/containers/${annotation.container_id}/files/${annotation.file_id}/content`,
         {
           headers: {
-            [getGlobalLitellmHeaderName()]: `Bearer ${accessToken}`,
+            [getGlobalEmbrouterHeaderName()]: `Bearer ${accessToken}`,
           },
         },
       );

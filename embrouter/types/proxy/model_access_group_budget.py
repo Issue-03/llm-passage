@@ -6,7 +6,7 @@ from pydantic import BaseModel
 
 
 class ModelAccessGroupBudget(BaseModel):
-    """One model access group's budget, flattened out of its joined ``LiteLLM_ModelAccessGroupBudgetTable`` row.
+    """One model access group's budget, flattened out of its joined ``EmbRouter_ModelAccessGroupBudgetTable`` row.
 
     Both readers want only the recorded spend and the ceiling, and this sits on the per-request hot
     path behind a cache, so the linked budget row is collapsed to ``max_budget`` rather than cached

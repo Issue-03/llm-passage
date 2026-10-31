@@ -54,7 +54,7 @@ const STORED_CONFIG = {
 
 const MODEL_DATA = {
   model_name: "tri-tier-router",
-  litellm_params: {
+  embrouter_params: {
     model: "auto_router/complexity_router",
     complexity_router_config: STORED_CONFIG,
   },
@@ -76,7 +76,7 @@ const renderModal = (props: Partial<React.ComponentProps<typeof EditAutoRouterMo
 
 const savedConfig = () => {
   const [, payload] = modelPatchUpdateCall.mock.calls.at(-1) ?? [];
-  return payload?.litellm_params?.complexity_router_config;
+  return payload?.embrouter_params?.complexity_router_config;
 };
 
 describe("EditAutoRouterModal keyword matching", () => {
@@ -96,8 +96,8 @@ describe("EditAutoRouterModal keyword matching", () => {
           team_id: "team-1",
           access_groups: ["restricted"],
         },
-        litellm_params: {
-          ...MODEL_DATA.litellm_params,
+        embrouter_params: {
+          ...MODEL_DATA.embrouter_params,
           auto_router_routing_compression: "admin-compression",
           complexity_router_config: { ...STORED_CONFIG, deployment_affinity: true },
         },
@@ -115,7 +115,7 @@ describe("EditAutoRouterModal keyword matching", () => {
     expect(modelPatchUpdateCall).toHaveBeenLastCalledWith(
       "token",
       {
-        litellm_params: {
+        embrouter_params: {
           complexity_router_config: expect.objectContaining({ deployment_affinity: false, tiers: STORED_CONFIG.tiers }),
           complexity_router_default_model: "gpt-4o-mini",
         },
@@ -143,8 +143,8 @@ describe("EditAutoRouterModal keyword matching", () => {
     renderModal({
       modelData: {
         ...MODEL_DATA,
-        litellm_params: {
-          ...MODEL_DATA.litellm_params,
+        embrouter_params: {
+          ...MODEL_DATA.embrouter_params,
           complexity_router_config: {
             ...STORED_CONFIG,
             classifier_type: "heuristic_v2",
@@ -169,8 +169,8 @@ describe("EditAutoRouterModal keyword matching", () => {
     renderModal({
       modelData: {
         ...MODEL_DATA,
-        litellm_params: {
-          ...MODEL_DATA.litellm_params,
+        embrouter_params: {
+          ...MODEL_DATA.embrouter_params,
           complexity_router_config: {
             ...STORED_CONFIG,
             classifier_type: "heuristic_v2",
@@ -260,8 +260,8 @@ describe("EditAutoRouterModal keyword matching", () => {
         onSuccess={vi.fn()}
         modelData={{
           ...MODEL_DATA,
-          litellm_params: {
-            ...MODEL_DATA.litellm_params,
+          embrouter_params: {
+            ...MODEL_DATA.embrouter_params,
             complexity_router_config: {
               ...STORED_CONFIG,
               semantic_keyword_matching: true,
@@ -295,8 +295,8 @@ describe("EditAutoRouterModal keyword matching", () => {
         onSuccess={vi.fn()}
         modelData={{
           ...MODEL_DATA,
-          litellm_params: {
-            ...MODEL_DATA.litellm_params,
+          embrouter_params: {
+            ...MODEL_DATA.embrouter_params,
             complexity_router_config: {
               ...STORED_CONFIG,
               semantic_keyword_matching: false,
@@ -329,8 +329,8 @@ describe("EditAutoRouterModal keyword matching", () => {
         onSuccess={vi.fn()}
         modelData={{
           ...MODEL_DATA,
-          litellm_params: {
-            ...MODEL_DATA.litellm_params,
+          embrouter_params: {
+            ...MODEL_DATA.embrouter_params,
             complexity_router_config: {
               ...STORED_CONFIG,
               semantic_keyword_matching: false,
@@ -372,7 +372,7 @@ describe("EditAutoRouterModal advanced field round trips", () => {
     renderModal({
       modelData: {
         ...MODEL_DATA,
-        litellm_params: { ...MODEL_DATA.litellm_params, complexity_router_config: storedAdvancedConfig },
+        embrouter_params: { ...MODEL_DATA.embrouter_params, complexity_router_config: storedAdvancedConfig },
       },
       ...props,
     });
@@ -453,7 +453,7 @@ describe("EditAutoRouterModal classifier context window", () => {
         onSuccess={vi.fn()}
         modelData={{
           ...MODEL_DATA,
-          litellm_params: { ...MODEL_DATA.litellm_params, complexity_router_config: STORED_LLM_CONFIG },
+          embrouter_params: { ...MODEL_DATA.embrouter_params, complexity_router_config: STORED_LLM_CONFIG },
         }}
         accessToken="token"
         userRole="Admin"
@@ -533,7 +533,7 @@ describe("EditAutoRouterModal assistant turns", () => {
         onSuccess={vi.fn()}
         modelData={{
           ...MODEL_DATA,
-          litellm_params: { ...MODEL_DATA.litellm_params, complexity_router_config: STORED_CONFIG },
+          embrouter_params: { ...MODEL_DATA.embrouter_params, complexity_router_config: STORED_CONFIG },
         }}
         accessToken="token"
         userRole="Admin"
@@ -585,7 +585,7 @@ describe("EditAutoRouterModal classification frequency", () => {
         isVisible
         onCancel={vi.fn()}
         onSuccess={vi.fn()}
-        modelData={{ ...MODEL_DATA, litellm_params: { ...MODEL_DATA.litellm_params, complexity_router_config } }}
+        modelData={{ ...MODEL_DATA, embrouter_params: { ...MODEL_DATA.embrouter_params, complexity_router_config } }}
         accessToken="token"
         userRole="Admin"
       />,
@@ -723,7 +723,7 @@ describe("EditAutoRouterModal deployment affinity", () => {
         isVisible
         onCancel={vi.fn()}
         onSuccess={vi.fn()}
-        modelData={{ ...MODEL_DATA, litellm_params: { ...MODEL_DATA.litellm_params, complexity_router_config } }}
+        modelData={{ ...MODEL_DATA, embrouter_params: { ...MODEL_DATA.embrouter_params, complexity_router_config } }}
         accessToken="token"
         userRole="Admin"
       />,
@@ -889,7 +889,7 @@ describe("EditAutoRouterModal custom classifier prompt and fallback", () => {
         onSuccess={vi.fn()}
         modelData={{
           ...MODEL_DATA,
-          litellm_params: { ...MODEL_DATA.litellm_params, complexity_router_config: STORED_CUSTOM_CONFIG },
+          embrouter_params: { ...MODEL_DATA.embrouter_params, complexity_router_config: STORED_CUSTOM_CONFIG },
         }}
         accessToken="token"
         userRole="Admin"
@@ -949,7 +949,7 @@ describe("EditAutoRouterModal default model", () => {
 
   const savedDefaultModel = () => {
     const [, payload] = modelPatchUpdateCall.mock.calls.at(-1) ?? [];
-    return payload?.litellm_params?.complexity_router_default_model;
+    return payload?.embrouter_params?.complexity_router_default_model;
   };
 
   const renderWithStoredPin = (default_model?: string) =>
@@ -960,8 +960,8 @@ describe("EditAutoRouterModal default model", () => {
         onSuccess={vi.fn()}
         modelData={{
           ...MODEL_DATA,
-          litellm_params: {
-            ...MODEL_DATA.litellm_params,
+          embrouter_params: {
+            ...MODEL_DATA.embrouter_params,
             complexity_router_config: { ...STORED_CONFIG, ...(default_model && { default_model }) },
           },
         }}
@@ -970,9 +970,9 @@ describe("EditAutoRouterModal default model", () => {
       />,
     );
 
-  // No config blob marker — only litellm_params.complexity_router_default_model, as an untouched
+  // No config blob marker — only embrouter_params.complexity_router_default_model, as an untouched
   // router looked before this PR's marker existed, or one an external API call wrote directly to.
-  const renderWithLitellmParamsDefaultOnly = (complexityRouterDefaultModel: string) =>
+  const renderWithEmbrouterParamsDefaultOnly = (complexityRouterDefaultModel: string) =>
     renderWithProviders(
       <EditAutoRouterModal
         isVisible
@@ -980,8 +980,8 @@ describe("EditAutoRouterModal default model", () => {
         onSuccess={vi.fn()}
         modelData={{
           ...MODEL_DATA,
-          litellm_params: {
-            ...MODEL_DATA.litellm_params,
+          embrouter_params: {
+            ...MODEL_DATA.embrouter_params,
             complexity_router_config: STORED_CONFIG,
             complexity_router_default_model: complexityRouterDefaultModel,
           },
@@ -1025,13 +1025,13 @@ describe("EditAutoRouterModal default model", () => {
     expect(savedConfig()).toMatchObject({ default_model: STORED_CONFIG.tiers.MEDIUM[0] });
   });
 
-  // Greptile P1 on #36615: with no config blob marker, a litellm_params default that merely
+  // Greptile P1 on #36615: with no config blob marker, a embrouter_params default that merely
   // matches what the tiers derive is indistinguishable from the pre-PR auto-derive-and-write
   // behavior (main always wrote a tier-derived value there on every save). Treating it as a pin
   // would freeze every pre-existing router's default away from its tiers, so it stays unpinned.
-  it("treats a litellm_params default matching tier-derivation as unpinned, not a frozen-in pin", async () => {
+  it("treats a embrouter_params default matching tier-derivation as unpinned, not a frozen-in pin", async () => {
     const user = userEvent.setup();
-    renderWithLitellmParamsDefaultOnly(STORED_CONFIG.tiers.MEDIUM[0]);
+    renderWithEmbrouterParamsDefaultOnly(STORED_CONFIG.tiers.MEDIUM[0]);
 
     const select = await screen.findByRole("combobox", { name: "Default model" });
     expect(select).toHaveValue("");
@@ -1043,13 +1043,13 @@ describe("EditAutoRouterModal default model", () => {
     expect(savedDefaultModel()).toBe(STORED_CONFIG.tiers.MEDIUM[0]);
   });
 
-  // Greptile P1 on #36615: a litellm_params default that diverges from tier-derivation could only
+  // Greptile P1 on #36615: a embrouter_params default that diverges from tier-derivation could only
   // have gotten there via an explicit override — set by the API directly, since this UI's own
   // save path keeps it in sync with tiers whenever there's no pin. That divergence must survive
   // the next save instead of being silently recomputed away.
-  it("treats a diverging litellm_params default as an external pin and preserves it", async () => {
+  it("treats a diverging embrouter_params default as an external pin and preserves it", async () => {
     const user = userEvent.setup();
-    renderWithLitellmParamsDefaultOnly("claude-sonnet-4");
+    renderWithEmbrouterParamsDefaultOnly("claude-sonnet-4");
 
     const select = await screen.findByRole("combobox", { name: "Default model" });
     expect(select).toHaveValue("claude-sonnet-4");
@@ -1062,9 +1062,9 @@ describe("EditAutoRouterModal default model", () => {
   });
 
   // The config blob marker is this UI's own authoritative record of intent (see
-  // hydratePinnedDefaultModel), so it wins even over a litellm_params value that disagrees —
+  // hydratePinnedDefaultModel), so it wins even over a embrouter_params value that disagrees —
   // e.g. a stale value from before the operator most recently changed the pin.
-  it("prefers the config blob marker over a diverging litellm_params value", async () => {
+  it("prefers the config blob marker over a diverging embrouter_params value", async () => {
     const user = userEvent.setup();
     renderWithProviders(
       <EditAutoRouterModal
@@ -1073,10 +1073,10 @@ describe("EditAutoRouterModal default model", () => {
         onSuccess={vi.fn()}
         modelData={{
           ...MODEL_DATA,
-          litellm_params: {
-            ...MODEL_DATA.litellm_params,
+          embrouter_params: {
+            ...MODEL_DATA.embrouter_params,
             complexity_router_config: { ...STORED_CONFIG, default_model: "blob-pin" },
-            complexity_router_default_model: "stale-litellm-params-value",
+            complexity_router_default_model: "stale-embrouter-params-value",
           },
         }}
         accessToken="token"
@@ -1104,8 +1104,8 @@ describe("EditAutoRouterModal default model", () => {
         onSuccess={vi.fn()}
         modelData={{
           ...MODEL_DATA,
-          litellm_params: {
-            ...MODEL_DATA.litellm_params,
+          embrouter_params: {
+            ...MODEL_DATA.embrouter_params,
             complexity_router_config: {
               ...STORED_CONFIG,
               tiers: { SIMPLE: [], MEDIUM: [], COMPLEX: ["complex-model"], REASONING: [] },
@@ -1152,8 +1152,8 @@ describe("EditAutoRouterModal plan-mode minimum tier", () => {
         onSuccess={vi.fn()}
         modelData={{
           ...MODEL_DATA,
-          litellm_params: {
-            ...MODEL_DATA.litellm_params,
+          embrouter_params: {
+            ...MODEL_DATA.embrouter_params,
             complexity_router_config: { ...STORED_CONFIG, ...(plan_mode_min_tier && { plan_mode_min_tier }) },
           },
         }}
@@ -1211,7 +1211,7 @@ describe("EditAutoRouterModal with a stored custom tier set", () => {
     plan_mode_min_tier: "SECURITY_REVIEW",
     classification_prompt: "operator written preamble",
     tier_model_configs: {
-      SECURITY_REVIEW: [{ model_name: "gpt-4o-mini", litellm_params: { reasoning_effort: "high" } }],
+      SECURITY_REVIEW: [{ model_name: "gpt-4o-mini", embrouter_params: { reasoning_effort: "high" } }],
     },
   };
 
@@ -1223,7 +1223,7 @@ describe("EditAutoRouterModal with a stored custom tier set", () => {
         onSuccess={vi.fn()}
         modelData={{
           ...MODEL_DATA,
-          litellm_params: { ...MODEL_DATA.litellm_params, complexity_router_config: CUSTOM_STORED },
+          embrouter_params: { ...MODEL_DATA.embrouter_params, complexity_router_config: CUSTOM_STORED },
         }}
         accessToken="token"
         userRole="Admin"
@@ -1275,9 +1275,9 @@ describe("EditAutoRouterModal prompt compression", () => {
     modelPatchUpdateCall.mockClear();
   });
 
-  const savedLitellmParams = () => {
+  const savedEmbrouterParams = () => {
     const [, payload] = modelPatchUpdateCall.mock.calls.at(-1) ?? [];
-    return payload?.litellm_params;
+    return payload?.embrouter_params;
   };
 
   const renderWithStoredCompression = (compression?: {
@@ -1291,7 +1291,7 @@ describe("EditAutoRouterModal prompt compression", () => {
         onSuccess={vi.fn()}
         modelData={{
           ...MODEL_DATA,
-          litellm_params: { ...MODEL_DATA.litellm_params, ...compression },
+          embrouter_params: { ...MODEL_DATA.embrouter_params, ...compression },
         }}
         accessToken="token"
         userRole="Admin"
@@ -1314,7 +1314,7 @@ describe("EditAutoRouterModal prompt compression", () => {
       expect(modelPatchUpdateCall).toHaveBeenCalledWith(
         "token",
         expect.objectContaining({
-          litellm_params: expect.objectContaining({
+          embrouter_params: expect.objectContaining({
             model: "auto_router/complexity_router",
             auto_router_routing_compression: null,
             auto_router_model_compression: null,
@@ -1346,7 +1346,7 @@ describe("EditAutoRouterModal prompt compression", () => {
     await user.click(screen.getByRole("button", { name: /save changes/i }));
 
     await waitFor(() => expect(modelPatchUpdateCall).toHaveBeenCalled());
-    expect(savedLitellmParams()).toMatchObject(stored);
+    expect(savedEmbrouterParams()).toMatchObject(stored);
   });
 
   it("leaves both compression keys out of an untouched save when none were stored", async () => {
@@ -1357,8 +1357,8 @@ describe("EditAutoRouterModal prompt compression", () => {
     await user.click(await screen.findByRole("button", { name: /save changes/i }));
 
     await waitFor(() => expect(modelPatchUpdateCall).toHaveBeenCalled());
-    expect(savedLitellmParams()).not.toHaveProperty("auto_router_routing_compression");
-    expect(savedLitellmParams()).not.toHaveProperty("auto_router_model_compression");
+    expect(savedEmbrouterParams()).not.toHaveProperty("auto_router_routing_compression");
+    expect(savedEmbrouterParams()).not.toHaveProperty("auto_router_model_compression");
   });
 
   it.each([
@@ -1375,7 +1375,7 @@ describe("EditAutoRouterModal prompt compression", () => {
     await waitFor(() => expect(modelPatchUpdateCall).toHaveBeenCalled());
     expect(
       Object.fromEntries(
-        Object.entries(savedLitellmParams()).filter(
+        Object.entries(savedEmbrouterParams()).filter(
           ([key]) => key === "auto_router_routing_compression" || key === "auto_router_model_compression",
         ),
       ),
@@ -1407,8 +1407,8 @@ describe("EditAutoRouterModal prompt compression", () => {
     await user.click(await screen.findByRole("button", { name: /save changes/i }));
 
     await waitFor(() => expect(modelPatchUpdateCall).toHaveBeenCalled());
-    expect(savedLitellmParams()?.auto_router_routing_compression).toBe("headroom-a");
-    expect(savedLitellmParams()?.auto_router_model_compression).toBe("none");
+    expect(savedEmbrouterParams()?.auto_router_routing_compression).toBe("headroom-a");
+    expect(savedEmbrouterParams()?.auto_router_model_compression).toBe("none");
   });
 });
 
@@ -1435,7 +1435,7 @@ describe("EditAutoRouterModal classifier vision", () => {
         onSuccess={vi.fn()}
         modelData={{
           ...MODEL_DATA,
-          litellm_params: { ...MODEL_DATA.litellm_params, complexity_router_config: STORED_CONFIG },
+          embrouter_params: { ...MODEL_DATA.embrouter_params, complexity_router_config: STORED_CONFIG },
         }}
         accessToken="token"
         userRole="Admin"

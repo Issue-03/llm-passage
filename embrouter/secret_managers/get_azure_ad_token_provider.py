@@ -2,8 +2,8 @@ import os
 from collections.abc import Callable
 from typing import Any, Final
 
-from litellm._logging import verbose_logger
-from litellm.types.secret_managers.get_azure_ad_token_provider import (
+from embrouter._logging import verbose_logger
+from embrouter.types.secret_managers.get_azure_ad_token_provider import (
     AzureCredentialType,
 )
 

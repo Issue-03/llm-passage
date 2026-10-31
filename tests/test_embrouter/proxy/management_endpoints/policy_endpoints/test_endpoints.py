@@ -7,7 +7,7 @@ without needing a running proxy.
 
 import pytest
 
-from litellm.proxy.management_endpoints.policy_endpoints.endpoints import (
+from embrouter.proxy.management_endpoints.policy_endpoints.endpoints import (
     GuardrailTestResultEntry,
     _compute_overall_action,
     _test_guardrail_definitions,
@@ -20,8 +20,8 @@ async def test_pattern_based_guardrail_masks_pii():
     guardrail_defs = [
         {
             "guardrail_name": "test-ssn-masker",
-            "litellm_params": {
-                "guardrail": "litellm_content_filter",
+            "embrouter_params": {
+                "guardrail": "embrouter_content_filter",
                 "mode": "pre_call",
                 "patterns": [
                     {
@@ -54,8 +54,8 @@ async def test_blocked_words_guardrail_blocks():
     guardrail_defs = [
         {
             "guardrail_name": "test-word-blocker",
-            "litellm_params": {
-                "guardrail": "litellm_content_filter",
+            "embrouter_params": {
+                "guardrail": "embrouter_content_filter",
                 "mode": "pre_call",
                 "blocked_words": [
                     {
@@ -85,8 +85,8 @@ async def test_clean_text_passes():
     guardrail_defs = [
         {
             "guardrail_name": "test-ssn-masker",
-            "litellm_params": {
-                "guardrail": "litellm_content_filter",
+            "embrouter_params": {
+                "guardrail": "embrouter_content_filter",
                 "mode": "pre_call",
                 "patterns": [
                     {
@@ -112,11 +112,11 @@ async def test_clean_text_passes():
 
 @pytest.mark.asyncio
 async def test_unsupported_guardrail_type():
-    """Non-litellm_content_filter types should return unsupported."""
+    """Non-embrouter_content_filter types should return unsupported."""
     guardrail_defs = [
         {
             "guardrail_name": "test-mcp",
-            "litellm_params": {
+            "embrouter_params": {
                 "guardrail": "mcp_security",
                 "mode": "pre_call",
             },
@@ -140,8 +140,8 @@ async def test_multiple_guardrails_mixed_results():
     guardrail_defs = [
         {
             "guardrail_name": "ssn-masker",
-            "litellm_params": {
-                "guardrail": "litellm_content_filter",
+            "embrouter_params": {
+                "guardrail": "embrouter_content_filter",
                 "mode": "pre_call",
                 "patterns": [
                     {
@@ -156,8 +156,8 @@ async def test_multiple_guardrails_mixed_results():
         },
         {
             "guardrail_name": "email-masker",
-            "litellm_params": {
-                "guardrail": "litellm_content_filter",
+            "embrouter_params": {
+                "guardrail": "embrouter_content_filter",
                 "mode": "pre_call",
                 "patterns": [
                     {
@@ -232,17 +232,17 @@ class TestEnrichPolicyTemplateStreamKeepalive:
         import asyncio
         from unittest.mock import MagicMock
 
-        import litellm
-        import litellm.proxy.management_endpoints.policy_endpoints.endpoints as policy_endpoints
-        import litellm.proxy.proxy_server as proxy_server
+        import embrouter
+        import embrouter.proxy.management_endpoints.policy_endpoints.endpoints as policy_endpoints
+        import embrouter.proxy.proxy_server as proxy_server
         from fastapi.responses import StreamingResponse
-        from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-        from litellm.proxy.management_endpoints.policy_endpoints.endpoints import (
+        from embrouter.proxy._types import EmbrouterUserRoles, UserAPIKeyAuth
+        from embrouter.proxy.management_endpoints.policy_endpoints.endpoints import (
             EnrichTemplateRequest,
             enrich_policy_template_stream,
         )
 
-        monkeypatch.setattr(litellm, "sse_keepalive_ping_interval_seconds", interval)
+        monkeypatch.setattr(embrouter, "sse_keepalive_ping_interval_seconds", interval)
 
         async def _name_chunks():
             await asyncio.sleep(delay)
@@ -268,7 +268,7 @@ class TestEnrichPolicyTemplateStreamKeepalive:
                 model="gpt-5.4-mini",
             ),
             request=MagicMock(),
-            user_api_key_dict=UserAPIKeyAuth(user_id="admin", user_role=LitellmUserRoles.PROXY_ADMIN),
+            user_api_key_dict=UserAPIKeyAuth(user_id="admin", user_role=EmbrouterUserRoles.PROXY_ADMIN),
         )
         assert isinstance(response, StreamingResponse)
         chunks = [chunk if isinstance(chunk, bytes) else chunk.encode() async for chunk in response.body_iterator]

@@ -18,11 +18,11 @@ interface RequestDetailProps {
   traceStartMs: number;
 }
 
-/** Request tab for LLM spans; "Open request log" opens the LiteLLM request drawer over the run. */
+/** Request tab for LLM spans; "Open request log" opens the EmbRouter request drawer over the run. */
 export function RequestDetail({ span, accessToken, traceStartMs }: RequestDetailProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const spanStartMs = traceStartMs + span.start_offset_ms;
-  const logQuery = useSpanRequestLog(accessToken, span.litellm_request_id, spanStartMs, drawerOpen);
+  const logQuery = useSpanRequestLog(accessToken, span.embrouter_request_id, spanStartMs, drawerOpen);
   const lookupDone = drawerOpen && logQuery.isSuccess;
   const logNotFound = lookupDone && logQuery.data === null;
 
@@ -59,15 +59,15 @@ export function RequestDetail({ span, accessToken, traceStartMs }: RequestDetail
       <div className="mt-3 rounded border border-border bg-muted/40 p-3">
         <div className="flex items-center font-mono text-[9px] tracking-[0.1em] text-muted-foreground uppercase">
           Request ID
-          {span.litellm_request_id && (
-            <CopyButton value={span.litellm_request_id} label="Copy request ID" iconOnly className="ml-auto" />
+          {span.embrouter_request_id && (
+            <CopyButton value={span.embrouter_request_id} label="Copy request ID" iconOnly className="ml-auto" />
           )}
         </div>
         <div className="mt-1.5 font-mono text-[11px] break-all text-foreground">
-          {span.litellm_request_id ?? "Not linked to an EmbRouter request"}
+          {span.embrouter_request_id ?? "Not linked to an EmbRouter request"}
         </div>
       </div>
-      {span.litellm_request_id && (
+      {span.embrouter_request_id && (
         <Button
           variant="outline"
           size="sm"

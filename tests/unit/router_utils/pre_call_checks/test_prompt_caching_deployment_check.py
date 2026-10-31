@@ -5,18 +5,18 @@ from typing import Final, cast
 
 import pytest
 
-import litellm
-from litellm.caching.dual_cache import DualCache
-from litellm.constants import DEFAULT_MINIMUM_PROMPT_CACHE_TOKEN_COUNT, PROMPT_CACHE_LOOKBACK_POSITIONS
-from litellm.integrations.anthropic_cache_control_hook import AnthropicCacheControlHook
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.router_utils.pre_call_checks.prompt_caching_deployment_check import (
+import embrouter
+from embrouter.caching.dual_cache import DualCache
+from embrouter.constants import DEFAULT_MINIMUM_PROMPT_CACHE_TOKEN_COUNT, PROMPT_CACHE_LOOKBACK_POSITIONS
+from embrouter.integrations.anthropic_cache_control_hook import AnthropicCacheControlHook
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.router_utils.pre_call_checks.prompt_caching_deployment_check import (
     PromptCachingDeploymentCheck,
     _get_min_token_count_for_deployments,
 )
-from litellm.router_utils.prompt_caching_cache import PromptCachingCache
-from litellm.types.llms.openai import AllMessageValues
-from litellm.utils import get_prompt_cache_min_tokens, is_prompt_caching_valid_prompt, token_counter
+from embrouter.router_utils.prompt_caching_cache import PromptCachingCache
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.utils import get_prompt_cache_min_tokens, is_prompt_caching_valid_prompt, token_counter
 
 MODEL_GROUP_ALIAS = "my-claude-group"
 OPUS_4_6_MIN_TOKENS = 4096
@@ -32,20 +32,20 @@ CALLBACK_REGISTRIES: Final = (
 
 @pytest.fixture(autouse=True)
 def _fresh_callback_registries(monkeypatch):
-    """`litellm.logging_callback_manager` keeps one callback per class, so a
+    """`embrouter.logging_callback_manager` keeps one callback per class, so a
     `PromptCachingDeploymentCheck` or `_SentMessagesCapture` left behind by an
     earlier test would swallow the next test's success events."""
     for registry in CALLBACK_REGISTRIES:
-        monkeypatch.setattr(litellm, registry, [])
+        monkeypatch.setattr(embrouter, registry, [])
 
 
 @pytest.fixture
 def local_model_cost_map(monkeypatch):
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
-    litellm.get_model_info.cache_clear()
+    monkeypatch.setenv("EMBROUTER_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setattr(embrouter, "model_cost", embrouter.get_model_cost_map(url=""))
+    embrouter.get_model_info.cache_clear()
     yield
-    litellm.get_model_info.cache_clear()
+    embrouter.get_model_info.cache_clear()
 
 
 @pytest.fixture(autouse=True)
@@ -60,7 +60,7 @@ def _deployments(*models: str) -> list[dict]:
     return [
         {
             "model_name": MODEL_GROUP_ALIAS,
-            "litellm_params": {"model": model},
+            "embrouter_params": {"model": model},
             "model_info": {"id": f"dep-{index}"},
         }
         for index, model in enumerate(models, start=1)
@@ -248,7 +248,7 @@ async def test_replayed_redacted_thinking_block_still_records_and_pins():
             {
                 "role": "assistant",
                 "content": [
-                    {"type": "redacted_thinking", "data": "litellm_encrypted_reasoning:" + "Z" * 400},
+                    {"type": "redacted_thinking", "data": "embrouter_encrypted_reasoning:" + "Z" * 400},
                     {"type": "text", "text": "Draw from the box labeled Mixed."},
                 ],
             },
@@ -324,17 +324,17 @@ async def _eventually(predicate, timeout: float = 10.0):
 async def test_affinity_key_matches_the_messages_auto_caching_actually_sends(monkeypatch, local_model_cost_map):
     """
     The regression. `enable_anthropic_prompt_caching` injects cache_control inside
-    `litellm.acompletion`, which runs after routing, so at filter time the messages carried no
+    `embrouter.acompletion`, which runs after routing, so at filter time the messages carried no
     marker, `extract_cacheable_prefix` returned [], the key was None, and the check no-opped on
     every request. Routing must derive the same key the success event writes from the messages the
     request was actually sent with, otherwise auto-injected caching gets no affinity at all.
     """
-    monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", True)
+    monkeypatch.setattr(embrouter, "enable_anthropic_prompt_caching", True)
     capture = _SentMessagesCapture()
-    monkeypatch.setattr(litellm, "callbacks", [capture])
+    monkeypatch.setattr(embrouter, "callbacks", [capture])
     messages = _auto_caching_messages()
 
-    await litellm.acompletion(
+    await embrouter.acompletion(
         model=AUTO_CACHING_MODEL,
         messages=copy.deepcopy(messages),
         mock_response="ok",
@@ -356,12 +356,12 @@ async def test_repeated_auto_cached_prefix_pins_to_one_deployment(monkeypatch, l
     across a multi-deployment group once one deployment has cached the prefix. Bedrock and Anthropic
     caches are per account and region, so every bounce paid the cache write premium and never read.
     """
-    monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", True)
-    router = litellm.Router(
+    monkeypatch.setattr(embrouter, "enable_anthropic_prompt_caching", True)
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": MODEL_GROUP_ALIAS,
-                "litellm_params": {"model": AUTO_CACHING_MODEL, "api_key": "sk-fake"},
+                "embrouter_params": {"model": AUTO_CACHING_MODEL, "api_key": "sk-fake"},
                 "model_info": {"id": model_id},
             }
             for model_id in ("dep-1", "dep-2")
@@ -393,7 +393,7 @@ async def test_per_request_enable_prompt_caching_reaches_the_affinity_key(monkey
     off, so routing has to read it too. Ignore it and the key comes off unmarked messages, which is
     never what the request goes on to send, and the pin is lost for every per-key enablement.
     """
-    monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", False)
+    monkeypatch.setattr(embrouter, "enable_anthropic_prompt_caching", False)
     cache = DualCache()
     check = PromptCachingDeploymentCheck(cache=cache)
     deployments = _deployments(AUTO_CACHING_MODEL, AUTO_CACHING_MODEL)
@@ -417,7 +417,7 @@ async def test_per_request_enable_prompt_caching_reaches_the_affinity_key(monkey
 
 @pytest.mark.asyncio
 async def test_claude_code_one_shot_subagent_does_not_reuse_an_auto_injected_affinity_key(monkeypatch):
-    monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", True)
+    monkeypatch.setattr(embrouter, "enable_anthropic_prompt_caching", True)
     cache = DualCache()
     check = PromptCachingDeploymentCheck(cache=cache)
     deployments = _deployments(AUTO_CACHING_MODEL, AUTO_CACHING_MODEL)
@@ -452,7 +452,7 @@ async def test_claude_code_one_shot_subagent_does_not_reuse_an_auto_injected_aff
 
 @pytest.mark.asyncio
 async def test_root_cache_control_does_not_reuse_an_auto_injected_affinity_key(monkeypatch):
-    monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", True)
+    monkeypatch.setattr(embrouter, "enable_anthropic_prompt_caching", True)
     cache = DualCache()
     check = PromptCachingDeploymentCheck(cache=cache)
     deployments = _deployments(AUTO_CACHING_MODEL, AUTO_CACHING_MODEL)
@@ -480,11 +480,11 @@ async def test_root_cache_control_does_not_reuse_an_auto_injected_affinity_key(m
 async def test_tool_marked_cache_control_keeps_routing_off_another_requests_prefix(monkeypatch, local_model_cost_map):
     """
     Tools carrying the client's own cache_control make auto-injection stand down, so this request
-    will not carry litellm's breakpoints. Routing must see the tools as well. Ignore them and it
+    will not carry embrouter's breakpoints. Routing must see the tools as well. Ignore them and it
     keys off the injected prefix, pinning the request to whichever deployment cached a different,
     tool-less request whose prefix it can never actually reuse.
     """
-    monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", True)
+    monkeypatch.setattr(embrouter, "enable_anthropic_prompt_caching", True)
     cache = DualCache()
     check = PromptCachingDeploymentCheck(cache=cache)
     deployments = _deployments(AUTO_CACHING_MODEL, AUTO_CACHING_MODEL)
@@ -522,7 +522,7 @@ def test_client_supplied_cache_control_keeps_its_own_prefix_boundary(monkeypatch
     keep keying off the client's boundary. Injecting on top would push the boundary to the trailing
     turn and break affinity for prompts that already worked.
     """
-    monkeypatch.setattr(litellm, "enable_anthropic_prompt_caching", True)
+    monkeypatch.setattr(embrouter, "enable_anthropic_prompt_caching", True)
     messages = cast(
         list[AllMessageValues],
         [
@@ -544,13 +544,13 @@ def test_client_supplied_cache_control_keeps_its_own_prefix_boundary(monkeypatch
 
 @pytest.mark.asyncio
 async def test_wildcard_route_resolves_underlying_model_minimum(local_model_cost_map):
-    from litellm import Router
+    from embrouter import Router
 
     router = Router(
         model_list=[
             {
                 "model_name": "anthropic/*",
-                "litellm_params": {"model": "anthropic/*", "api_key": "sk-fake"},
+                "embrouter_params": {"model": "anthropic/*", "api_key": "sk-fake"},
                 "model_info": {"id": "wild-1"},
             }
         ]
@@ -558,14 +558,14 @@ async def test_wildcard_route_resolves_underlying_model_minimum(local_model_cost
 
     deployments = await router.async_get_healthy_deployments(model="anthropic/claude-opus-4-6", request_kwargs={})
 
-    assert deployments[0]["litellm_params"]["model"] == "anthropic/claude-opus-4-6"
+    assert deployments[0]["embrouter_params"]["model"] == "anthropic/claude-opus-4-6"
     assert _get_min_token_count_for_deployments(deployments) == 4096
 
 
 @pytest.mark.asyncio
 async def test_async_filter_deployments_counts_the_prompt_off_the_event_loop():
     from tests.large_text import text
-    from tests.unit.litellm_core_utils.event_loop_lag import (
+    from tests.unit.embrouter_core_utils.event_loop_lag import (
         assert_loop_stayed_free,
         timed_with_loop_lags,
         warm_tokenizer,
@@ -589,7 +589,7 @@ async def test_async_filter_deployments_counts_the_prompt_off_the_event_loop():
 @pytest.mark.asyncio
 async def test_async_log_success_event_counts_the_prompt_off_the_event_loop():
     from tests.large_text import text
-    from tests.unit.litellm_core_utils.event_loop_lag import (
+    from tests.unit.embrouter_core_utils.event_loop_lag import (
         assert_loop_stayed_free,
         timed_with_loop_lags,
         warm_tokenizer,
@@ -855,11 +855,11 @@ async def test_pin_matches_when_the_success_event_truncated_an_image_payload(mon
     read side would key every image-carrying session past its own pin.
     """
     capture = _SentMessagesCapture()
-    monkeypatch.setattr(litellm, "callbacks", [capture])
+    monkeypatch.setattr(embrouter, "callbacks", [capture])
     image = {"type": "image_url", "image_url": {"url": ONE_PIXEL_PNG}}
     turn_one = _turn({"role": "user", "content": [image, _marked(LONG_PROMPT)]})
 
-    await litellm.acompletion(
+    await embrouter.acompletion(
         model=AUTO_CACHING_MODEL, messages=copy.deepcopy(turn_one), mock_response="ok", api_key="sk-fake"
     )
     logged = await _eventually(lambda: capture.messages)
@@ -888,11 +888,11 @@ async def test_claude_code_style_session_stays_on_one_deployment_across_turns(lo
     End to end over the router with a client that marks only the newest user message each turn, the
     way Claude Code does. Every turn has to land on the deployment that served the first one.
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": MODEL_GROUP_ALIAS,
-                "litellm_params": {"model": AUTO_CACHING_MODEL, "api_key": "sk-fake"},
+                "embrouter_params": {"model": AUTO_CACHING_MODEL, "api_key": "sk-fake"},
                 "model_info": {"id": model_id},
             }
             for model_id in (f"dep-{number}" for number in range(1, 7))

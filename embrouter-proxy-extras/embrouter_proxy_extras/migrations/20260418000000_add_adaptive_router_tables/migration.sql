@@ -1,5 +1,5 @@
 -- One row per (router, request_type, model). Hot path on every routing decision.
-CREATE TABLE "LiteLLM_AdaptiveRouterState" (
+CREATE TABLE "EmbRouter_AdaptiveRouterState" (
     router_name      TEXT NOT NULL,
     request_type     TEXT NOT NULL,
     model_name       TEXT NOT NULL,
@@ -11,7 +11,7 @@ CREATE TABLE "LiteLLM_AdaptiveRouterState" (
 );
 
 -- One row per (session, router, model). Updated per turn via the queue.
-CREATE TABLE "LiteLLM_AdaptiveRouterSession" (
+CREATE TABLE "EmbRouter_AdaptiveRouterSession" (
     session_id              TEXT NOT NULL,
     router_name             TEXT NOT NULL,
     model_name              TEXT NOT NULL,
@@ -36,4 +36,4 @@ CREATE TABLE "LiteLLM_AdaptiveRouterSession" (
 );
 
 CREATE INDEX "idx_adaptive_router_session_activity"
-    ON "LiteLLM_AdaptiveRouterSession" (last_activity_at);
+    ON "EmbRouter_AdaptiveRouterSession" (last_activity_at);

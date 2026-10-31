@@ -1,19 +1,19 @@
 import os
 import unittest
-from litellm._uuid import uuid
+from embrouter._uuid import uuid
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
-from litellm.integrations.deepeval.api import Endpoints, HttpMethods
-from litellm.integrations.deepeval.deepeval import DeepEvalLogger
-from litellm.integrations.deepeval.types import SpanApiType, TraceSpanApiStatus
+from embrouter.integrations.deepeval.api import Endpoints, HttpMethods
+from embrouter.integrations.deepeval.deepeval import DeepEvalLogger
+from embrouter.integrations.deepeval.types import SpanApiType, TraceSpanApiStatus
 
 
 class TestDeepEvalLogger(unittest.TestCase):
     @patch.dict(os.environ, {"CONFIDENT_API_KEY": "test-api-key"})
     def setUp(self):
         # Mock the Api class before initializing DeepEvalLogger
-        self.api_patcher = patch("litellm.integrations.deepeval.deepeval.Api")
+        self.api_patcher = patch("embrouter.integrations.deepeval.deepeval.Api")
         self.mock_api_class = self.api_patcher.start()
         self.mock_api_instance = MagicMock()
         self.mock_api_class.return_value = self.mock_api_instance
@@ -53,9 +53,9 @@ class TestDeepEvalLogger(unittest.TestCase):
         self.assertEqual(llm_span["uuid"], self.span_id)
 
         expected_name = (
-            "litellm_success_callback"
+            "embrouter_success_callback"
             if expected_status == TraceSpanApiStatus.SUCCESS
-            else "litellm_failure_callback"
+            else "embrouter_failure_callback"
         )
         self.assertEqual(llm_span["name"], expected_name)
 

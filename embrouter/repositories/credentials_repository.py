@@ -1,7 +1,7 @@
 """
-Credentials repository for database operations on LiteLLM_CredentialsTable.
+Credentials repository for database operations on EmbRouter_CredentialsTable.
 
-This is the only place that talks to ``litellm_credentialstable``. Encryption of
+This is the only place that talks to ``embrouter_credentialstable``. Encryption of
 credential values is the caller's responsibility (see ``CredentialHelperUtils``),
 so reads return the stored values verbatim.
 """
@@ -9,20 +9,20 @@ so reads return the stored values verbatim.
 from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Any, Final, Protocol, TypeAlias
 
-from litellm.models.credentials import CredentialItem
-from litellm.proxy.common_utils.config_sync_pubsub import wrap_table_actions_for_config_sync
-from litellm.repositories.base_repository import DbRecord, record_to_dict
-from litellm.repositories.prisma_protocols import TableActions
+from embrouter.models.credentials import CredentialItem
+from embrouter.proxy.common_utils.config_sync_pubsub import wrap_table_actions_for_config_sync
+from embrouter.repositories.base_repository import DbRecord, record_to_dict
+from embrouter.repositories.prisma_protocols import TableActions
 
 if TYPE_CHECKING:
     from prisma import models as prisma_models
 
-    _CredentialsTable: TypeAlias = TableActions[prisma_models.LiteLLM_CredentialsTable]
+    _CredentialsTable: TypeAlias = TableActions[prisma_models.EmbRouter_CredentialsTable]
 
 
 class _PrismaCredentialsDb(Protocol):
     @property
-    def litellm_credentialstable(self) -> "_CredentialsTable": ...
+    def embrouter_credentialstable(self) -> "_CredentialsTable": ...
 
 
 class _PrismaClientView(Protocol):
@@ -46,8 +46,8 @@ class CredentialsRepository:
     @property
     def table(self) -> "_CredentialsTable":
         return wrap_table_actions_for_config_sync(
-            actions=self.prisma_client.db.litellm_credentialstable,
-            table_name="litellm_credentialstable",
+            actions=self.prisma_client.db.embrouter_credentialstable,
+            table_name="embrouter_credentialstable",
         )
 
     @staticmethod
@@ -63,10 +63,10 @@ class CredentialsRepository:
             }
         )
 
-    async def find_all(self) -> Sequence["prisma_models.LiteLLM_CredentialsTable"]:
+    async def find_all(self) -> Sequence["prisma_models.EmbRouter_CredentialsTable"]:
         return await self.table.find_many()
 
-    async def create(self, data: Mapping[str, object]) -> "prisma_models.LiteLLM_CredentialsTable":
+    async def create(self, data: Mapping[str, object]) -> "prisma_models.EmbRouter_CredentialsTable":
         return await self.table.create(data=data)
 
     async def find_by_name(self, credential_name: str) -> CredentialItem | None:
@@ -75,8 +75,8 @@ class CredentialsRepository:
 
     async def update_by_name(
         self, credential_name: str, data: Mapping[str, object]
-    ) -> "prisma_models.LiteLLM_CredentialsTable | None":
+    ) -> "prisma_models.EmbRouter_CredentialsTable | None":
         return await self.table.update(where={"credential_name": credential_name}, data=data)
 
-    async def delete_by_name(self, credential_name: str) -> "prisma_models.LiteLLM_CredentialsTable | None":
+    async def delete_by_name(self, credential_name: str) -> "prisma_models.EmbRouter_CredentialsTable | None":
         return await self.table.delete(where={"credential_name": credential_name})

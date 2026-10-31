@@ -1,5 +1,5 @@
 """
-Routing-contract tests for litellm/proxy/video_endpoints/endpoints.py
+Routing-contract tests for embrouter/proxy/video_endpoints/endpoints.py
 
 Unlike the batches layer, every video endpoint funnels into a single downstream
 seam - ProxyBaseLLMRequestProcessing.base_process_llm_request - so there is no
@@ -35,13 +35,13 @@ import orjson
 import pytest
 
 
-import litellm.proxy.proxy_server as proxy_server
-import litellm.proxy.video_endpoints.endpoints as endpoints
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
-from litellm.proxy.utils import ProxyLogging
-from litellm.router import Router
-from litellm.types.videos.utils import (
+import embrouter.proxy.proxy_server as proxy_server
+import embrouter.proxy.video_endpoints.endpoints as endpoints
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+from embrouter.proxy.utils import ProxyLogging
+from embrouter.router import Router
+from embrouter.types.videos.utils import (
     encode_character_id_with_provider,
     encode_video_id_with_provider,
 )

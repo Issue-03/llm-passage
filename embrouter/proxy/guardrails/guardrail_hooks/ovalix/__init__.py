@@ -2,23 +2,23 @@
 
 from typing import TYPE_CHECKING, Final
 
-from litellm.types.guardrails import SupportedGuardrailIntegrations
+from embrouter.types.guardrails import SupportedGuardrailIntegrations
 
 from .ovalix import OvalixGuardrail
 
 if TYPE_CHECKING:
-    from litellm.types.guardrails import Guardrail, LitellmParams
+    from embrouter.types.guardrails import Guardrail, EmbrouterParams
 
 
-def initialize_guardrail(litellm_params: "LitellmParams", guardrail: "Guardrail"):
+def initialize_guardrail(embrouter_params: "EmbrouterParams", guardrail: "Guardrail"):
     """Create and register an Ovalix guardrail callback from proxy config."""
-    import litellm
+    import embrouter
 
-    tracker_api_base: Final = getattr(litellm_params, "tracker_api_base", None)
-    tracker_api_key: Final = getattr(litellm_params, "tracker_api_key", None)
-    application_id: Final = getattr(litellm_params, "application_id", None)
-    pre_checkpoint_id: Final = getattr(litellm_params, "pre_checkpoint_id", None)
-    post_checkpoint_id: Final = getattr(litellm_params, "post_checkpoint_id", None)
+    tracker_api_base: Final = getattr(embrouter_params, "tracker_api_base", None)
+    tracker_api_key: Final = getattr(embrouter_params, "tracker_api_key", None)
+    application_id: Final = getattr(embrouter_params, "application_id", None)
+    pre_checkpoint_id: Final = getattr(embrouter_params, "pre_checkpoint_id", None)
+    post_checkpoint_id: Final = getattr(embrouter_params, "post_checkpoint_id", None)
 
     _ovalix_callback: Final = OvalixGuardrail(
         guardrail_name=guardrail.get("guardrail_name", ""),
@@ -27,10 +27,10 @@ def initialize_guardrail(litellm_params: "LitellmParams", guardrail: "Guardrail"
         application_id=application_id,
         pre_checkpoint_id=pre_checkpoint_id,
         post_checkpoint_id=post_checkpoint_id,
-        event_hook=litellm_params.mode,
-        default_on=litellm_params.default_on,
+        event_hook=embrouter_params.mode,
+        default_on=embrouter_params.default_on,
     )
-    litellm.logging_callback_manager.add_litellm_callback(_ovalix_callback)
+    embrouter.logging_callback_manager.add_embrouter_callback(_ovalix_callback)
 
     return _ovalix_callback
 

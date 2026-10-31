@@ -7,14 +7,14 @@ The handler processes the output transcribed text (input is audio, so no text to
 
 from typing import TYPE_CHECKING, Any, Final
 
-from litellm._logging import verbose_proxy_logger
-from litellm.llms.base_llm.guardrail_translation.base_translation import BaseTranslation
-from litellm.types.utils import GenericGuardrailAPIInputs
+from embrouter._logging import verbose_proxy_logger
+from embrouter.llms.base_llm.guardrail_translation.base_translation import BaseTranslation
+from embrouter.types.utils import GenericGuardrailAPIInputs
 
 if TYPE_CHECKING:
-    from litellm.integrations.custom_guardrail import CustomGuardrail
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.utils import TranscriptionResponse
+    from embrouter.integrations.custom_guardrail import CustomGuardrail
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.utils import TranscriptionResponse
 
 
 class OpenAIAudioTranscriptionHandler(BaseTranslation):
@@ -32,7 +32,7 @@ class OpenAIAudioTranscriptionHandler(BaseTranslation):
         self,
         data: dict,
         guardrail_to_apply: "CustomGuardrail",
-        litellm_logging_obj: "LiteLLMLoggingObj | None" = None,
+        embrouter_logging_obj: "EmbRouterLoggingObj | None" = None,
     ) -> Any:
         """
         Process input - not applicable for audio transcription.
@@ -56,7 +56,7 @@ class OpenAIAudioTranscriptionHandler(BaseTranslation):
         self,
         response: "TranscriptionResponse",
         guardrail_to_apply: "CustomGuardrail",
-        litellm_logging_obj: "LiteLLMLoggingObj | None" = None,
+        embrouter_logging_obj: "EmbRouterLoggingObj | None" = None,
         user_api_key_dict: Any | None = None,
         request_data: dict | None = None,
     ) -> Any:
@@ -66,7 +66,7 @@ class OpenAIAudioTranscriptionHandler(BaseTranslation):
         Args:
             response: Transcription response object containing transcribed text
             guardrail_to_apply: The guardrail instance to apply
-            litellm_logging_obj: Optional logging object
+            embrouter_logging_obj: Optional logging object
             user_api_key_dict: User API key metadata to pass to guardrails
 
         Returns:
@@ -87,10 +87,10 @@ class OpenAIAudioTranscriptionHandler(BaseTranslation):
                     request_data["response"] = response
 
             # Add user API key metadata with prefixed keys
-            if "litellm_metadata" not in request_data:
+            if "embrouter_metadata" not in request_data:
                 user_metadata: Final = self.transform_user_api_key_dict_to_metadata(user_api_key_dict)
                 if user_metadata:
-                    request_data["litellm_metadata"] = user_metadata
+                    request_data["embrouter_metadata"] = user_metadata
 
             inputs: Final = GenericGuardrailAPIInputs(texts=[original_text])
             # Include model information from the response if available
@@ -100,7 +100,7 @@ class OpenAIAudioTranscriptionHandler(BaseTranslation):
                 inputs=inputs,
                 request_data=request_data,
                 input_type="response",
-                logging_obj=litellm_logging_obj,
+                logging_obj=embrouter_logging_obj,
             )
             guardrailed_texts: Final = guardrailed_inputs.get("texts", [])
             response.text = guardrailed_texts[0] if guardrailed_texts else original_text

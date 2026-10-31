@@ -1,5 +1,5 @@
 -- CreateTable
-CREATE TABLE IF NOT EXISTS "LiteLLM_BudgetTable" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_BudgetTable" (
     "budget_id" TEXT NOT NULL,
     "max_budget" DOUBLE PRECISION,
     "soft_budget" DOUBLE PRECISION,
@@ -14,11 +14,11 @@ CREATE TABLE IF NOT EXISTS "LiteLLM_BudgetTable" (
     "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_by" TEXT NOT NULL,
 
-    CONSTRAINT "LiteLLM_BudgetTable_pkey" PRIMARY KEY ("budget_id")
+    CONSTRAINT "EmbRouter_BudgetTable_pkey" PRIMARY KEY ("budget_id")
 );
 
 -- CreateTable
-CREATE TABLE IF NOT EXISTS "LiteLLM_CredentialsTable" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_CredentialsTable" (
     "credential_id" TEXT NOT NULL,
     "credential_name" TEXT NOT NULL,
     "credential_values" JSONB NOT NULL,
@@ -28,25 +28,25 @@ CREATE TABLE IF NOT EXISTS "LiteLLM_CredentialsTable" (
     "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_by" TEXT NOT NULL,
 
-    CONSTRAINT "LiteLLM_CredentialsTable_pkey" PRIMARY KEY ("credential_id")
+    CONSTRAINT "EmbRouter_CredentialsTable_pkey" PRIMARY KEY ("credential_id")
 );
 
 -- CreateTable
-CREATE TABLE IF NOT EXISTS "LiteLLM_ProxyModelTable" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_ProxyModelTable" (
     "model_id" TEXT NOT NULL,
     "model_name" TEXT NOT NULL,
-    "litellm_params" JSONB NOT NULL,
+    "embrouter_params" JSONB NOT NULL,
     "model_info" JSONB,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "created_by" TEXT NOT NULL,
     "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_by" TEXT NOT NULL,
 
-    CONSTRAINT "LiteLLM_ProxyModelTable_pkey" PRIMARY KEY ("model_id")
+    CONSTRAINT "EmbRouter_ProxyModelTable_pkey" PRIMARY KEY ("model_id")
 );
 
 -- CreateTable
-CREATE TABLE IF NOT EXISTS "LiteLLM_OrganizationTable" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_OrganizationTable" (
     "organization_id" TEXT NOT NULL,
     "organization_alias" TEXT NOT NULL,
     "budget_id" TEXT NOT NULL,
@@ -59,11 +59,11 @@ CREATE TABLE IF NOT EXISTS "LiteLLM_OrganizationTable" (
     "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_by" TEXT NOT NULL,
 
-    CONSTRAINT "LiteLLM_OrganizationTable_pkey" PRIMARY KEY ("organization_id")
+    CONSTRAINT "EmbRouter_OrganizationTable_pkey" PRIMARY KEY ("organization_id")
 );
 
 -- CreateTable
-CREATE TABLE IF NOT EXISTS "LiteLLM_ModelTable" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_ModelTable" (
     "id" SERIAL NOT NULL,
     "aliases" JSONB,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -71,11 +71,11 @@ CREATE TABLE IF NOT EXISTS "LiteLLM_ModelTable" (
     "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_by" TEXT NOT NULL,
 
-    CONSTRAINT "LiteLLM_ModelTable_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "EmbRouter_ModelTable_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
-CREATE TABLE IF NOT EXISTS "LiteLLM_TeamTable" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_TeamTable" (
     "team_id" TEXT NOT NULL,
     "team_alias" TEXT,
     "organization_id" TEXT,
@@ -98,11 +98,11 @@ CREATE TABLE IF NOT EXISTS "LiteLLM_TeamTable" (
     "model_max_budget" JSONB NOT NULL DEFAULT '{}',
     "model_id" INTEGER,
 
-    CONSTRAINT "LiteLLM_TeamTable_pkey" PRIMARY KEY ("team_id")
+    CONSTRAINT "EmbRouter_TeamTable_pkey" PRIMARY KEY ("team_id")
 );
 
 -- CreateTable
-CREATE TABLE IF NOT EXISTS "LiteLLM_UserTable" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_UserTable" (
     "user_id" TEXT NOT NULL,
     "user_alias" TEXT,
     "team_id" TEXT,
@@ -127,11 +127,11 @@ CREATE TABLE IF NOT EXISTS "LiteLLM_UserTable" (
     "created_at" TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP,
 
-    CONSTRAINT "LiteLLM_UserTable_pkey" PRIMARY KEY ("user_id")
+    CONSTRAINT "EmbRouter_UserTable_pkey" PRIMARY KEY ("user_id")
 );
 
 -- CreateTable
-CREATE TABLE IF NOT EXISTS "LiteLLM_VerificationToken" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_VerificationToken" (
     "token" TEXT NOT NULL,
     "key_name" TEXT,
     "key_alias" TEXT,
@@ -162,11 +162,11 @@ CREATE TABLE IF NOT EXISTS "LiteLLM_VerificationToken" (
     "updated_at" TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP,
     "updated_by" TEXT,
 
-    CONSTRAINT "LiteLLM_VerificationToken_pkey" PRIMARY KEY ("token")
+    CONSTRAINT "EmbRouter_VerificationToken_pkey" PRIMARY KEY ("token")
 );
 
 -- CreateTable
-CREATE TABLE IF NOT EXISTS "LiteLLM_EndUserTable" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_EndUserTable" (
     "user_id" TEXT NOT NULL,
     "alias" TEXT,
     "spend" DOUBLE PRECISION NOT NULL DEFAULT 0.0,
@@ -175,19 +175,19 @@ CREATE TABLE IF NOT EXISTS "LiteLLM_EndUserTable" (
     "budget_id" TEXT,
     "blocked" BOOLEAN NOT NULL DEFAULT false,
 
-    CONSTRAINT "LiteLLM_EndUserTable_pkey" PRIMARY KEY ("user_id")
+    CONSTRAINT "EmbRouter_EndUserTable_pkey" PRIMARY KEY ("user_id")
 );
 
 -- CreateTable
-CREATE TABLE IF NOT EXISTS "LiteLLM_Config" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_Config" (
     "param_name" TEXT NOT NULL,
     "param_value" JSONB,
 
-    CONSTRAINT "LiteLLM_Config_pkey" PRIMARY KEY ("param_name")
+    CONSTRAINT "EmbRouter_Config_pkey" PRIMARY KEY ("param_name")
 );
 
 -- CreateTable
-CREATE TABLE IF NOT EXISTS "LiteLLM_SpendLogs" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_SpendLogs" (
     "request_id" TEXT NOT NULL,
     "call_type" TEXT NOT NULL,
     "api_key" TEXT NOT NULL DEFAULT '',
@@ -214,49 +214,49 @@ CREATE TABLE IF NOT EXISTS "LiteLLM_SpendLogs" (
     "messages" JSONB DEFAULT '{}',
     "response" JSONB DEFAULT '{}',
 
-    CONSTRAINT "LiteLLM_SpendLogs_pkey" PRIMARY KEY ("request_id")
+    CONSTRAINT "EmbRouter_SpendLogs_pkey" PRIMARY KEY ("request_id")
 );
 
 -- CreateTable
-CREATE TABLE IF NOT EXISTS "LiteLLM_ErrorLogs" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_ErrorLogs" (
     "request_id" TEXT NOT NULL,
     "startTime" TIMESTAMP(3) NOT NULL,
     "endTime" TIMESTAMP(3) NOT NULL,
     "api_base" TEXT NOT NULL DEFAULT '',
     "model_group" TEXT NOT NULL DEFAULT '',
-    "litellm_model_name" TEXT NOT NULL DEFAULT '',
+    "embrouter_model_name" TEXT NOT NULL DEFAULT '',
     "model_id" TEXT NOT NULL DEFAULT '',
     "request_kwargs" JSONB NOT NULL DEFAULT '{}',
     "exception_type" TEXT NOT NULL DEFAULT '',
     "exception_string" TEXT NOT NULL DEFAULT '',
     "status_code" TEXT NOT NULL DEFAULT '',
 
-    CONSTRAINT "LiteLLM_ErrorLogs_pkey" PRIMARY KEY ("request_id")
+    CONSTRAINT "EmbRouter_ErrorLogs_pkey" PRIMARY KEY ("request_id")
 );
 
 -- CreateTable
-CREATE TABLE IF NOT EXISTS "LiteLLM_UserNotifications" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_UserNotifications" (
     "request_id" TEXT NOT NULL,
     "user_id" TEXT NOT NULL,
     "models" TEXT[],
     "justification" TEXT NOT NULL,
     "status" TEXT NOT NULL,
 
-    CONSTRAINT "LiteLLM_UserNotifications_pkey" PRIMARY KEY ("request_id")
+    CONSTRAINT "EmbRouter_UserNotifications_pkey" PRIMARY KEY ("request_id")
 );
 
 -- CreateTable
-CREATE TABLE IF NOT EXISTS "LiteLLM_TeamMembership" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_TeamMembership" (
     "user_id" TEXT NOT NULL,
     "team_id" TEXT NOT NULL,
     "spend" DOUBLE PRECISION NOT NULL DEFAULT 0.0,
     "budget_id" TEXT,
 
-    CONSTRAINT "LiteLLM_TeamMembership_pkey" PRIMARY KEY ("user_id","team_id")
+    CONSTRAINT "EmbRouter_TeamMembership_pkey" PRIMARY KEY ("user_id","team_id")
 );
 
 -- CreateTable
-CREATE TABLE IF NOT EXISTS "LiteLLM_OrganizationMembership" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_OrganizationMembership" (
     "user_id" TEXT NOT NULL,
     "organization_id" TEXT NOT NULL,
     "user_role" TEXT,
@@ -265,11 +265,11 @@ CREATE TABLE IF NOT EXISTS "LiteLLM_OrganizationMembership" (
     "created_at" TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP,
 
-    CONSTRAINT "LiteLLM_OrganizationMembership_pkey" PRIMARY KEY ("user_id","organization_id")
+    CONSTRAINT "EmbRouter_OrganizationMembership_pkey" PRIMARY KEY ("user_id","organization_id")
 );
 
 -- CreateTable
-CREATE TABLE IF NOT EXISTS "LiteLLM_InvitationLink" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_InvitationLink" (
     "id" TEXT NOT NULL,
     "user_id" TEXT NOT NULL,
     "is_accepted" BOOLEAN NOT NULL DEFAULT false,
@@ -280,11 +280,11 @@ CREATE TABLE IF NOT EXISTS "LiteLLM_InvitationLink" (
     "updated_at" TIMESTAMP(3) NOT NULL,
     "updated_by" TEXT NOT NULL,
 
-    CONSTRAINT "LiteLLM_InvitationLink_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "EmbRouter_InvitationLink_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
-CREATE TABLE IF NOT EXISTS "LiteLLM_AuditLog" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_AuditLog" (
     "id" TEXT NOT NULL,
     "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "changed_by" TEXT NOT NULL DEFAULT '',
@@ -295,136 +295,136 @@ CREATE TABLE IF NOT EXISTS "LiteLLM_AuditLog" (
     "before_value" JSONB,
     "updated_values" JSONB,
 
-    CONSTRAINT "LiteLLM_AuditLog_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "EmbRouter_AuditLog_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX IF NOT EXISTS "LiteLLM_CredentialsTable_credential_name_key" ON "LiteLLM_CredentialsTable"("credential_name");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_CredentialsTable_credential_name_key" ON "EmbRouter_CredentialsTable"("credential_name");
 
 -- CreateIndex
-CREATE UNIQUE INDEX IF NOT EXISTS "LiteLLM_TeamTable_model_id_key" ON "LiteLLM_TeamTable"("model_id");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_TeamTable_model_id_key" ON "EmbRouter_TeamTable"("model_id");
 
 -- CreateIndex
-CREATE UNIQUE INDEX IF NOT EXISTS "LiteLLM_UserTable_sso_user_id_key" ON "LiteLLM_UserTable"("sso_user_id");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_UserTable_sso_user_id_key" ON "EmbRouter_UserTable"("sso_user_id");
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "LiteLLM_SpendLogs_startTime_idx" ON "LiteLLM_SpendLogs"("startTime");
+CREATE INDEX IF NOT EXISTS "EmbRouter_SpendLogs_startTime_idx" ON "EmbRouter_SpendLogs"("startTime");
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "LiteLLM_SpendLogs_end_user_idx" ON "LiteLLM_SpendLogs"("end_user");
+CREATE INDEX IF NOT EXISTS "EmbRouter_SpendLogs_end_user_idx" ON "EmbRouter_SpendLogs"("end_user");
 
 -- CreateIndex
-CREATE UNIQUE INDEX IF NOT EXISTS "LiteLLM_OrganizationMembership_user_id_organization_id_key" ON "LiteLLM_OrganizationMembership"("user_id", "organization_id");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_OrganizationMembership_user_id_organization_id_key" ON "EmbRouter_OrganizationMembership"("user_id", "organization_id");
 
 -- AddForeignKey
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'LiteLLM_OrganizationTable_budget_id_fkey') THEN
-        ALTER TABLE "LiteLLM_OrganizationTable" ADD CONSTRAINT "LiteLLM_OrganizationTable_budget_id_fkey" FOREIGN KEY ("budget_id") REFERENCES "LiteLLM_BudgetTable"("budget_id") ON DELETE RESTRICT ON UPDATE CASCADE;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'EmbRouter_OrganizationTable_budget_id_fkey') THEN
+        ALTER TABLE "EmbRouter_OrganizationTable" ADD CONSTRAINT "EmbRouter_OrganizationTable_budget_id_fkey" FOREIGN KEY ("budget_id") REFERENCES "EmbRouter_BudgetTable"("budget_id") ON DELETE RESTRICT ON UPDATE CASCADE;
     END IF;
 END $$;
 
 -- AddForeignKey
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'LiteLLM_TeamTable_organization_id_fkey') THEN
-        ALTER TABLE "LiteLLM_TeamTable" ADD CONSTRAINT "LiteLLM_TeamTable_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "LiteLLM_OrganizationTable"("organization_id") ON DELETE SET NULL ON UPDATE CASCADE;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'EmbRouter_TeamTable_organization_id_fkey') THEN
+        ALTER TABLE "EmbRouter_TeamTable" ADD CONSTRAINT "EmbRouter_TeamTable_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "EmbRouter_OrganizationTable"("organization_id") ON DELETE SET NULL ON UPDATE CASCADE;
     END IF;
 END $$;
 
 -- AddForeignKey
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'LiteLLM_TeamTable_model_id_fkey') THEN
-        ALTER TABLE "LiteLLM_TeamTable" ADD CONSTRAINT "LiteLLM_TeamTable_model_id_fkey" FOREIGN KEY ("model_id") REFERENCES "LiteLLM_ModelTable"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'EmbRouter_TeamTable_model_id_fkey') THEN
+        ALTER TABLE "EmbRouter_TeamTable" ADD CONSTRAINT "EmbRouter_TeamTable_model_id_fkey" FOREIGN KEY ("model_id") REFERENCES "EmbRouter_ModelTable"("id") ON DELETE SET NULL ON UPDATE CASCADE;
     END IF;
 END $$;
 
 -- AddForeignKey
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'LiteLLM_UserTable_organization_id_fkey') THEN
-        ALTER TABLE "LiteLLM_UserTable" ADD CONSTRAINT "LiteLLM_UserTable_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "LiteLLM_OrganizationTable"("organization_id") ON DELETE SET NULL ON UPDATE CASCADE;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'EmbRouter_UserTable_organization_id_fkey') THEN
+        ALTER TABLE "EmbRouter_UserTable" ADD CONSTRAINT "EmbRouter_UserTable_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "EmbRouter_OrganizationTable"("organization_id") ON DELETE SET NULL ON UPDATE CASCADE;
     END IF;
 END $$;
 
 -- AddForeignKey
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'LiteLLM_VerificationToken_budget_id_fkey') THEN
-        ALTER TABLE "LiteLLM_VerificationToken" ADD CONSTRAINT "LiteLLM_VerificationToken_budget_id_fkey" FOREIGN KEY ("budget_id") REFERENCES "LiteLLM_BudgetTable"("budget_id") ON DELETE SET NULL ON UPDATE CASCADE;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'EmbRouter_VerificationToken_budget_id_fkey') THEN
+        ALTER TABLE "EmbRouter_VerificationToken" ADD CONSTRAINT "EmbRouter_VerificationToken_budget_id_fkey" FOREIGN KEY ("budget_id") REFERENCES "EmbRouter_BudgetTable"("budget_id") ON DELETE SET NULL ON UPDATE CASCADE;
     END IF;
 END $$;
 
 -- AddForeignKey
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'LiteLLM_VerificationToken_organization_id_fkey') THEN
-        ALTER TABLE "LiteLLM_VerificationToken" ADD CONSTRAINT "LiteLLM_VerificationToken_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "LiteLLM_OrganizationTable"("organization_id") ON DELETE SET NULL ON UPDATE CASCADE;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'EmbRouter_VerificationToken_organization_id_fkey') THEN
+        ALTER TABLE "EmbRouter_VerificationToken" ADD CONSTRAINT "EmbRouter_VerificationToken_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "EmbRouter_OrganizationTable"("organization_id") ON DELETE SET NULL ON UPDATE CASCADE;
     END IF;
 END $$;
 
 -- AddForeignKey
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'LiteLLM_EndUserTable_budget_id_fkey') THEN
-        ALTER TABLE "LiteLLM_EndUserTable" ADD CONSTRAINT "LiteLLM_EndUserTable_budget_id_fkey" FOREIGN KEY ("budget_id") REFERENCES "LiteLLM_BudgetTable"("budget_id") ON DELETE SET NULL ON UPDATE CASCADE;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'EmbRouter_EndUserTable_budget_id_fkey') THEN
+        ALTER TABLE "EmbRouter_EndUserTable" ADD CONSTRAINT "EmbRouter_EndUserTable_budget_id_fkey" FOREIGN KEY ("budget_id") REFERENCES "EmbRouter_BudgetTable"("budget_id") ON DELETE SET NULL ON UPDATE CASCADE;
     END IF;
 END $$;
 
 -- AddForeignKey
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'LiteLLM_TeamMembership_budget_id_fkey') THEN
-        ALTER TABLE "LiteLLM_TeamMembership" ADD CONSTRAINT "LiteLLM_TeamMembership_budget_id_fkey" FOREIGN KEY ("budget_id") REFERENCES "LiteLLM_BudgetTable"("budget_id") ON DELETE SET NULL ON UPDATE CASCADE;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'EmbRouter_TeamMembership_budget_id_fkey') THEN
+        ALTER TABLE "EmbRouter_TeamMembership" ADD CONSTRAINT "EmbRouter_TeamMembership_budget_id_fkey" FOREIGN KEY ("budget_id") REFERENCES "EmbRouter_BudgetTable"("budget_id") ON DELETE SET NULL ON UPDATE CASCADE;
     END IF;
 END $$;
 
 -- AddForeignKey
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'LiteLLM_OrganizationMembership_user_id_fkey') THEN
-        ALTER TABLE "LiteLLM_OrganizationMembership" ADD CONSTRAINT "LiteLLM_OrganizationMembership_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "LiteLLM_UserTable"("user_id") ON DELETE RESTRICT ON UPDATE CASCADE;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'EmbRouter_OrganizationMembership_user_id_fkey') THEN
+        ALTER TABLE "EmbRouter_OrganizationMembership" ADD CONSTRAINT "EmbRouter_OrganizationMembership_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "EmbRouter_UserTable"("user_id") ON DELETE RESTRICT ON UPDATE CASCADE;
     END IF;
 END $$;
 
 -- AddForeignKey
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'LiteLLM_OrganizationMembership_organization_id_fkey') THEN
-        ALTER TABLE "LiteLLM_OrganizationMembership" ADD CONSTRAINT "LiteLLM_OrganizationMembership_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "LiteLLM_OrganizationTable"("organization_id") ON DELETE RESTRICT ON UPDATE CASCADE;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'EmbRouter_OrganizationMembership_organization_id_fkey') THEN
+        ALTER TABLE "EmbRouter_OrganizationMembership" ADD CONSTRAINT "EmbRouter_OrganizationMembership_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "EmbRouter_OrganizationTable"("organization_id") ON DELETE RESTRICT ON UPDATE CASCADE;
     END IF;
 END $$;
 
 -- AddForeignKey
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'LiteLLM_OrganizationMembership_budget_id_fkey') THEN
-        ALTER TABLE "LiteLLM_OrganizationMembership" ADD CONSTRAINT "LiteLLM_OrganizationMembership_budget_id_fkey" FOREIGN KEY ("budget_id") REFERENCES "LiteLLM_BudgetTable"("budget_id") ON DELETE SET NULL ON UPDATE CASCADE;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'EmbRouter_OrganizationMembership_budget_id_fkey') THEN
+        ALTER TABLE "EmbRouter_OrganizationMembership" ADD CONSTRAINT "EmbRouter_OrganizationMembership_budget_id_fkey" FOREIGN KEY ("budget_id") REFERENCES "EmbRouter_BudgetTable"("budget_id") ON DELETE SET NULL ON UPDATE CASCADE;
     END IF;
 END $$;
 
 -- AddForeignKey
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'LiteLLM_InvitationLink_user_id_fkey') THEN
-        ALTER TABLE "LiteLLM_InvitationLink" ADD CONSTRAINT "LiteLLM_InvitationLink_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "LiteLLM_UserTable"("user_id") ON DELETE RESTRICT ON UPDATE CASCADE;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'EmbRouter_InvitationLink_user_id_fkey') THEN
+        ALTER TABLE "EmbRouter_InvitationLink" ADD CONSTRAINT "EmbRouter_InvitationLink_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "EmbRouter_UserTable"("user_id") ON DELETE RESTRICT ON UPDATE CASCADE;
     END IF;
 END $$;
 
 -- AddForeignKey
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'LiteLLM_InvitationLink_created_by_fkey') THEN
-        ALTER TABLE "LiteLLM_InvitationLink" ADD CONSTRAINT "LiteLLM_InvitationLink_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "LiteLLM_UserTable"("user_id") ON DELETE RESTRICT ON UPDATE CASCADE;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'EmbRouter_InvitationLink_created_by_fkey') THEN
+        ALTER TABLE "EmbRouter_InvitationLink" ADD CONSTRAINT "EmbRouter_InvitationLink_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "EmbRouter_UserTable"("user_id") ON DELETE RESTRICT ON UPDATE CASCADE;
     END IF;
 END $$;
 
 -- AddForeignKey
 DO $$
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'LiteLLM_InvitationLink_updated_by_fkey') THEN
-        ALTER TABLE "LiteLLM_InvitationLink" ADD CONSTRAINT "LiteLLM_InvitationLink_updated_by_fkey" FOREIGN KEY ("updated_by") REFERENCES "LiteLLM_UserTable"("user_id") ON DELETE RESTRICT ON UPDATE CASCADE;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'EmbRouter_InvitationLink_updated_by_fkey') THEN
+        ALTER TABLE "EmbRouter_InvitationLink" ADD CONSTRAINT "EmbRouter_InvitationLink_updated_by_fkey" FOREIGN KEY ("updated_by") REFERENCES "EmbRouter_UserTable"("user_id") ON DELETE RESTRICT ON UPDATE CASCADE;
     END IF;
 END $$;
 

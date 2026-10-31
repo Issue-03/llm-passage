@@ -2,7 +2,7 @@
 Compression Interception Handler
 
 CustomLogger that compresses inbound Anthropic Messages requests and fulfills
-litellm_content_retrieve tool calls server-side via the typed agentic loop plan.
+embrouter_content_retrieve tool calls server-side via the typed agentic loop plan.
 """
 
 import time
@@ -12,21 +12,21 @@ from typing import Any, ClassVar, Final, Protocol, cast
 
 from typing_extensions import ReadOnly, TypedDict
 
-from litellm._logging import verbose_logger
-from litellm.compression import compress
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.asyncify import asyncify
-from litellm.types.integrations.compression_interception import (
+from embrouter._logging import verbose_logger
+from embrouter.compression import compress
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.embrouter_core_utils.asyncify import asyncify
+from embrouter.types.integrations.compression_interception import (
     CompressionInterceptionConfig,
     CompressionSavingsMetadata,
 )
-from litellm.types.integrations.custom_logger import (
+from embrouter.types.integrations.custom_logger import (
     AgenticLoopPlan,
     AgenticLoopRequestPatch,
 )
-from litellm.types.utils import CallTypes
+from embrouter.types.utils import CallTypes
 
-LITELLM_CONTENT_RETRIEVE_TOOL_NAME: Final = "litellm_content_retrieve"
+EMBROUTER_CONTENT_RETRIEVE_TOOL_NAME: Final = "embrouter_content_retrieve"
 _CACHE_TTL_SECONDS: Final = 15 * 60
 
 
@@ -62,20 +62,20 @@ def _compression_savings_from_counts(
 
 def _record_compression_savings(kwargs: dict[str, object], savings: CompressionSavingsMetadata) -> None:
     """
-    Attach savings to the request's litellm metadata so they land in the
+    Attach savings to the request's embrouter metadata so they land in the
     SpendLog row's metadata JSON under ``compression_savings``.
 
-    ``/v1/messages`` requests carry proxy metadata under ``litellm_metadata``
+    ``/v1/messages`` requests carry proxy metadata under ``embrouter_metadata``
     (the ``metadata`` key is Anthropic's own API field). The existing dict is
     updated in place because the proxy and the logging object hold references
     to the same object; replacing it would orphan writes made through those
     references.
     """
-    existing: Final = kwargs.get("litellm_metadata")
+    existing: Final = kwargs.get("embrouter_metadata")
     if isinstance(existing, dict):
         existing["compression_savings"] = savings
         return
-    kwargs["litellm_metadata"] = {"compression_savings": savings}
+    kwargs["embrouter_metadata"] = {"compression_savings": savings}
 
 
 class CompressionInterceptionLogger(CustomLogger):
@@ -84,12 +84,12 @@ class CompressionInterceptionLogger(CustomLogger):
 
     Flow:
     1. Compress inbound /v1/messages requests in pre-call hook.
-    2. Inject litellm_content_retrieve tool and persist compressed cache by call_id.
+    2. Inject embrouter_content_retrieve tool and persist compressed cache by call_id.
     3. Detect retrieval tool_use blocks in first model response.
     4. Build typed rerun plan with tool_result blocks from the compressed cache.
     """
 
-    server_fulfilled_tool_names: ClassVar[frozenset[str]] = frozenset({LITELLM_CONTENT_RETRIEVE_TOOL_NAME})
+    server_fulfilled_tool_names: ClassVar[frozenset[str]] = frozenset({EMBROUTER_CONTENT_RETRIEVE_TOOL_NAME})
 
     def __init__(
         self,
@@ -119,12 +119,12 @@ class CompressionInterceptionLogger(CustomLogger):
 
     @staticmethod
     def initialize_from_proxy_config(
-        litellm_settings: dict[str, Any],
+        embrouter_settings: dict[str, Any],
         callback_specific_params: Mapping[str, object],
     ) -> "CompressionInterceptionLogger":
         compression_params: CompressionInterceptionConfig = {}
-        if "compression_interception_params" in litellm_settings:
-            compression_params = litellm_settings["compression_interception_params"]
+        if "compression_interception_params" in embrouter_settings:
+            compression_params = embrouter_settings["compression_interception_params"]
         elif "compression_interception" in callback_specific_params and isinstance(
             callback_specific_params["compression_interception"], dict
         ):
@@ -180,10 +180,10 @@ class CompressionInterceptionLogger(CustomLogger):
                     existing_tools=cast(list[dict[str, object]] | None, kwargs.get("tools")),
                     compressed_tools=compressed_tools,
                 )
-            call_id = cast(str | None, kwargs.get("litellm_call_id"))
+            call_id = cast(str | None, kwargs.get("embrouter_call_id"))
             if not call_id:
                 call_id = str(uuid.uuid4())
-                kwargs["litellm_call_id"] = call_id
+                kwargs["embrouter_call_id"] = call_id
             self._compression_cache_by_call_id[call_id] = (cache, time.time())
             savings: Final = _compression_savings_from_counts(
                 original_tokens=compressed.get("original_tokens"),
@@ -260,7 +260,7 @@ class CompressionInterceptionLogger(CustomLogger):
                 {
                     "type": "tool_use",
                     "id": tc.get("id"),
-                    "name": tc.get("name", LITELLM_CONTENT_RETRIEVE_TOOL_NAME),
+                    "name": tc.get("name", EMBROUTER_CONTENT_RETRIEVE_TOOL_NAME),
                     "input": tc.get("input", {}),
                 }
                 for tc in tool_calls
@@ -327,10 +327,10 @@ class CompressionInterceptionLogger(CustomLogger):
 
     def _resolve_call_id(self, logging_obj: _AgenticLoopLoggingObj | None, kwargs: Mapping[str, object]) -> str | None:
         if logging_obj is not None:
-            logging_call_id: Final = getattr(logging_obj, "litellm_call_id", None)
+            logging_call_id: Final = getattr(logging_obj, "embrouter_call_id", None)
             if isinstance(logging_call_id, str) and logging_call_id:
                 return logging_call_id
-        kwargs_call_id: Final = kwargs.get("litellm_call_id")
+        kwargs_call_id: Final = kwargs.get("embrouter_call_id")
         return kwargs_call_id if isinstance(kwargs_call_id, str) else None
 
     def _resolve_retrieval_content(self, tool_call: Mapping[str, object], cache: Mapping[str, str]) -> str:
@@ -364,7 +364,7 @@ class CompressionInterceptionLogger(CustomLogger):
                 block_name = block.get("name")
                 if block_type in ("thinking", "redacted_thinking"):
                     thinking_blocks.append(block)
-                if block_type == "tool_use" and block_name == LITELLM_CONTENT_RETRIEVE_TOOL_NAME:
+                if block_type == "tool_use" and block_name == EMBROUTER_CONTENT_RETRIEVE_TOOL_NAME:
                     tool_calls.append(
                         {
                             "id": block.get("id"),
@@ -391,7 +391,7 @@ class CompressionInterceptionLogger(CustomLogger):
                             "data": getattr(block, "data", ""),
                         }
                     )
-                if block_type == "tool_use" and block_name == LITELLM_CONTENT_RETRIEVE_TOOL_NAME:
+                if block_type == "tool_use" and block_name == EMBROUTER_CONTENT_RETRIEVE_TOOL_NAME:
                     tool_calls.append(
                         {
                             "id": getattr(block, "id", None),
@@ -404,7 +404,7 @@ class CompressionInterceptionLogger(CustomLogger):
         return tool_calls, thinking_blocks
 
     def _prepare_followup_kwargs(self, kwargs: Mapping[str, object]) -> dict[str, object]:
-        internal_keys: Final = {"litellm_logging_obj"}
+        internal_keys: Final = {"embrouter_logging_obj"}
         return {
             k: v for k, v in kwargs.items() if not k.startswith("_compression_interception") and k not in internal_keys
         }
@@ -417,9 +417,9 @@ class CompressionInterceptionLogger(CustomLogger):
                 continue
             function = tool.get("function")
             if tool.get("type") == "function" and isinstance(function, dict):
-                if function.get("name") == LITELLM_CONTENT_RETRIEVE_TOOL_NAME:
+                if function.get("name") == EMBROUTER_CONTENT_RETRIEVE_TOOL_NAME:
                     return True
-            if tool.get("type") == "custom" and tool.get("name") == LITELLM_CONTENT_RETRIEVE_TOOL_NAME:
+            if tool.get("type") == "custom" and tool.get("name") == EMBROUTER_CONTENT_RETRIEVE_TOOL_NAME:
                 return True
         return False
 

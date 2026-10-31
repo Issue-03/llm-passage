@@ -15,8 +15,8 @@ from unittest.mock import AsyncMock, MagicMock
 import httpx
 import pytest
 
-from litellm.proxy import proxy_server
-from litellm.types.llms.openai import HttpxBinaryResponseContent
+from embrouter.proxy import proxy_server
+from embrouter.types.llms.openai import HttpxBinaryResponseContent
 
 
 @pytest.fixture
@@ -37,7 +37,7 @@ def patched_speech(monkeypatch, request):
     async def _add_data(data, **kwargs):
         return data
 
-    monkeypatch.setattr(proxy_server, "add_litellm_data_to_request", _add_data)
+    monkeypatch.setattr(proxy_server, "add_embrouter_data_to_request", _add_data)
 
     async def _llm_call():
         return HttpxBinaryResponseContent(
@@ -72,7 +72,7 @@ def patched_speech_error(monkeypatch):
     async def _add_data(data, **kwargs):
         return data
 
-    monkeypatch.setattr(proxy_server, "add_litellm_data_to_request", _add_data)
+    monkeypatch.setattr(proxy_server, "add_embrouter_data_to_request", _add_data)
 
     async def _raise(*args, **kwargs):
         raise ValueError("speech boom")
@@ -83,10 +83,10 @@ def patched_speech_error(monkeypatch):
 
 @pytest.fixture
 def patched_speech_provider_rejection(monkeypatch, patched_speech_error):
-    import litellm
+    import embrouter
 
     async def _raise(*args, **kwargs):
-        raise litellm.BadRequestError(
+        raise embrouter.BadRequestError(
             message=(
                 "Gemini TTS only produces raw PCM16 audio, so response_format='mp3' is not supported."
                 " Supported response formats: pcm, wav."
@@ -118,7 +118,7 @@ def patched_transcription(monkeypatch):
     async def _add_data(data, **kwargs):
         return data
 
-    monkeypatch.setattr(proxy_server, "add_litellm_data_to_request", _add_data)
+    monkeypatch.setattr(proxy_server, "add_embrouter_data_to_request", _add_data)
     monkeypatch.setattr(
         proxy_server, "check_file_size_under_limit", lambda **kwargs: True
     )

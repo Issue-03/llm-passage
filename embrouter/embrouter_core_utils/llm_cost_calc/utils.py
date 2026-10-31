@@ -11,20 +11,20 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from typing_extensions import ReadOnly
 
-import litellm
-from litellm._internal_context import current_billing_time
-from litellm._logging import verbose_logger
-from litellm.litellm_core_utils.llm_cost_calc.tiered_pricing import (
+import embrouter
+from embrouter._internal_context import current_billing_time
+from embrouter._logging import verbose_logger
+from embrouter.embrouter_core_utils.llm_cost_calc.tiered_pricing import (
     select_tier_for_input,
     tier_rate,
 )
-from litellm.llms.fireworks_ai.cache_pricing import with_default_cache_read_rate
-from litellm.types.utils import (
+from embrouter.llms.fireworks_ai.cache_pricing import with_default_cache_read_rate
+from embrouter.types.utils import (
     CacheCreationTokenDetails,
     CallTypes,
     CompletionTokensDetailsWrapper,
     CostPerToken,
-    CustomPricingLiteLLMParams,
+    CustomPricingEmbRouterParams,
     DataResidency,
     ImageResponse,
     ModelInfo,
@@ -34,7 +34,7 @@ from litellm.types.utils import (
     Usage,
     text_tokens_without_nested_reasoning,
 )
-from litellm.utils import get_model_info
+from embrouter.utils import get_model_info
 
 # Pre-resolved CallTypes enum values for fast membership checks
 _IMAGE_RESPONSE_CALL_TYPES: Final = frozenset(
@@ -50,7 +50,7 @@ _IMAGE_RESPONSE_CALL_TYPES: Final = frozenset(
 # Pre-resolved DataResidency enum values for fast membership checks
 _VALID_DATA_RESIDENCIES: Final = frozenset(r.value for r in DataResidency)
 
-_DEPLOYMENT_PRICING_KEYS: Final[frozenset[str]] = frozenset(CustomPricingLiteLLMParams.model_fields)
+_DEPLOYMENT_PRICING_KEYS: Final[frozenset[str]] = frozenset(CustomPricingEmbRouterParams.model_fields)
 
 _IMAGE_TOKEN_RATE_KEYS: Final[tuple[str, ...]] = (
     "input_cost_per_token",
@@ -209,7 +209,7 @@ def _generic_cost_per_character(
         Exception if 'input_cost_per_character' or 'output_cost_per_character' is missing from model_info
     """
     ## GET MODEL INFO
-    model_info: Final = litellm.get_model_info(model=model, custom_llm_provider=custom_llm_provider)
+    model_info: Final = embrouter.get_model_info(model=model, custom_llm_provider=custom_llm_provider)
 
     ## CALCULATE INPUT COST
     try:
@@ -222,7 +222,7 @@ def _generic_cost_per_character(
         prompt_cost = prompt_characters * custom_prompt_cost
     except Exception as e:
         verbose_logger.exception(
-            "litellm.litellm_core_utils.llm_cost_calc.utils.py::cost_per_character(): Exception occured - %s\nDefaulting to None",
+            "embrouter.embrouter_core_utils.llm_cost_calc.utils.py::cost_per_character(): Exception occured - %s\nDefaulting to None",
             e,
         )
 
@@ -238,7 +238,7 @@ def _generic_cost_per_character(
         completion_cost = completion_characters * custom_completion_cost
     except Exception as e:
         verbose_logger.exception(
-            "litellm.litellm_core_utils.llm_cost_calc.utils.py::cost_per_character(): Exception occured - %s\nDefaulting to None",
+            "embrouter.embrouter_core_utils.llm_cost_calc.utils.py::cost_per_character(): Exception occured - %s\nDefaulting to None",
             e,
         )
 
@@ -808,7 +808,7 @@ def _get_cost_per_unit(model_info: ModelInfo, cost_key: str, default_value: floa
             return float(cost_per_unit)
         except ValueError:
             verbose_logger.exception(
-                "litellm.litellm_core_utils.llm_cost_calc.utils.py::calculate_cost_per_component(): Exception occured - %s\nDefaulting to 0.0",
+                "embrouter.embrouter_core_utils.llm_cost_calc.utils.py::calculate_cost_per_component(): Exception occured - %s\nDefaulting to 0.0",
                 cost_per_unit,
             )
 
@@ -829,7 +829,7 @@ def _get_cost_per_unit(model_info: ModelInfo, cost_key: str, default_value: floa
                         return float(fallback_cost)
                     except ValueError:
                         verbose_logger.exception(
-                            "litellm.litellm_core_utils.llm_cost_calc.utils.py::_get_cost_per_unit(): Exception occured - %s\nDefaulting to 0.0",
+                            "embrouter.embrouter_core_utils.llm_cost_calc.utils.py::_get_cost_per_unit(): Exception occured - %s\nDefaulting to 0.0",
                             fallback_cost,
                         )
                 break  # Only try the first matching suffix
@@ -1300,7 +1300,7 @@ def generic_cost_per_token(
 
     Input:
         - model: str, the model name without provider prefix
-        - usage: LiteLLM Usage block, containing anthropic caching information
+        - usage: EmbRouter Usage block, containing anthropic caching information
         - data_residency: optional OpenAI data-residency region (e.g. "eu", "us"),
           used to apply the per-model regional-processing uplift multiplier.
         - vertex_location: optional Vertex AI location the request was served from
@@ -1877,7 +1877,7 @@ def calculate_image_response_web_search_cost(
     if not web_search_requests:
         return 0.0
 
-    from litellm.llms import get_cost_for_web_search_request
+    from embrouter.llms import get_cost_for_web_search_request
 
     synthetic_usage = Usage(prompt_tokens_details=PromptTokensDetailsWrapper(web_search_requests=web_search_requests))
     return (
@@ -1923,20 +1923,20 @@ class CostCalculatorUtils:
         deployment prices all apply while provider logic (token-first billing, grounding surcharges,
         image counting) stays in one place. An unparseable price is logged and ignored.
         """
-        from litellm.cost_calculator import default_image_cost_calculator
-        from litellm.llms.azure_ai.image_generation.cost_calculator import (
+        from embrouter.cost_calculator import default_image_cost_calculator
+        from embrouter.llms.azure_ai.image_generation.cost_calculator import (
             cost_calculator as azure_ai_image_cost_calculator,
         )
-        from litellm.llms.bedrock.image_generation.cost_calculator import (
+        from embrouter.llms.bedrock.image_generation.cost_calculator import (
             cost_calculator as bedrock_image_cost_calculator,
         )
-        from litellm.llms.gemini.image_generation.cost_calculator import (
+        from embrouter.llms.gemini.image_generation.cost_calculator import (
             cost_calculator as gemini_image_cost_calculator,
         )
-        from litellm.llms.recraft.cost_calculator import (
+        from embrouter.llms.recraft.cost_calculator import (
             cost_calculator as recraft_image_cost_calculator,
         )
-        from litellm.llms.vertex_ai.image_generation.cost_calculator import (
+        from embrouter.llms.vertex_ai.image_generation.cost_calculator import (
             cost_calculator as vertex_ai_image_cost_calculator,
         )
 
@@ -1949,14 +1949,14 @@ class CostCalculatorUtils:
         resolved_n: Final = n if n is not None else (len(completion_response.data) if completion_response.data else 0)
         pricing: Final = deployment_pricing(model_info)
 
-        if custom_llm_provider == litellm.LlmProviders.VERTEX_AI.value:
+        if custom_llm_provider == embrouter.LlmProviders.VERTEX_AI.value:
             if isinstance(completion_response, ImageResponse):
                 return vertex_ai_image_cost_calculator(
                     model=model,
                     image_response=completion_response,
                     model_info=pricing,
                 )
-        elif custom_llm_provider == litellm.LlmProviders.BEDROCK.value:
+        elif custom_llm_provider == embrouter.LlmProviders.BEDROCK.value:
             if isinstance(completion_response, ImageResponse):
                 return bedrock_image_cost_calculator(
                     model=model,
@@ -1965,8 +1965,8 @@ class CostCalculatorUtils:
                     optional_params=optional_params,
                 )
             raise TypeError("completion_response must be of type ImageResponse for bedrock image cost calculation")
-        elif custom_llm_provider == litellm.LlmProviders.RECRAFT.value:
-            from litellm.llms.recraft.cost_calculator import (
+        elif custom_llm_provider == embrouter.LlmProviders.RECRAFT.value:
+            from embrouter.llms.recraft.cost_calculator import (
                 cost_calculator as recraft_image_cost_calculator,
             )
 
@@ -1975,8 +1975,8 @@ class CostCalculatorUtils:
                 image_response=completion_response,
                 model_info=pricing,
             )
-        elif custom_llm_provider == litellm.LlmProviders.AIML.value:
-            from litellm.llms.aiml.image_generation.cost_calculator import (
+        elif custom_llm_provider == embrouter.LlmProviders.AIML.value:
+            from embrouter.llms.aiml.image_generation.cost_calculator import (
                 cost_calculator as aiml_image_cost_calculator,
             )
 
@@ -1985,8 +1985,8 @@ class CostCalculatorUtils:
                 image_response=completion_response,
                 model_info=pricing,
             )
-        elif custom_llm_provider == litellm.LlmProviders.COMETAPI.value:
-            from litellm.llms.cometapi.image_generation.cost_calculator import (
+        elif custom_llm_provider == embrouter.LlmProviders.COMETAPI.value:
+            from embrouter.llms.cometapi.image_generation.cost_calculator import (
                 cost_calculator as cometapi_image_cost_calculator,
             )
 
@@ -1995,12 +1995,12 @@ class CostCalculatorUtils:
                 image_response=completion_response,
                 model_info=pricing,
             )
-        elif custom_llm_provider == litellm.LlmProviders.GEMINI.value:
+        elif custom_llm_provider == embrouter.LlmProviders.GEMINI.value:
             if call_type in (
                 CallTypes.image_edit.value,
                 CallTypes.aimage_edit.value,
             ):
-                from litellm.llms.gemini.image_edit.cost_calculator import (
+                from embrouter.llms.gemini.image_edit.cost_calculator import (
                     cost_calculator as gemini_image_edit_cost_calculator,
                 )
 
@@ -2009,7 +2009,7 @@ class CostCalculatorUtils:
                     image_response=completion_response,
                     model_info=pricing,
                 )
-            from litellm.llms.gemini.image_generation.cost_calculator import (
+            from embrouter.llms.gemini.image_generation.cost_calculator import (
                 cost_calculator as gemini_image_cost_calculator,
             )
 
@@ -2018,7 +2018,7 @@ class CostCalculatorUtils:
                 image_response=completion_response,
                 model_info=pricing,
             )
-        elif custom_llm_provider == litellm.LlmProviders.AZURE_AI.value:
+        elif custom_llm_provider == embrouter.LlmProviders.AZURE_AI.value:
             return azure_ai_image_cost_calculator(
                 model=model,
                 image_response=completion_response,
@@ -2027,8 +2027,8 @@ class CostCalculatorUtils:
                 optional_params=optional_params,
                 model_info=pricing,
             )
-        elif custom_llm_provider == litellm.LlmProviders.FAL_AI.value:
-            from litellm.llms.fal_ai.cost_calculator import (
+        elif custom_llm_provider == embrouter.LlmProviders.FAL_AI.value:
+            from embrouter.llms.fal_ai.cost_calculator import (
                 cost_calculator as fal_ai_image_cost_calculator,
             )
 
@@ -2038,8 +2038,8 @@ class CostCalculatorUtils:
                 optional_params=optional_params,
                 model_info=pricing,
             )
-        elif custom_llm_provider == litellm.LlmProviders.RUNWAYML.value:
-            from litellm.llms.runwayml.cost_calculator import (
+        elif custom_llm_provider == embrouter.LlmProviders.RUNWAYML.value:
+            from embrouter.llms.runwayml.cost_calculator import (
                 cost_calculator as runwayml_image_cost_calculator,
             )
 
@@ -2049,13 +2049,13 @@ class CostCalculatorUtils:
                 model_info=pricing,
             )
         elif (
-            custom_llm_provider == litellm.LlmProviders.OPENAI.value
-            or custom_llm_provider == litellm.LlmProviders.AZURE.value
+            custom_llm_provider == embrouter.LlmProviders.OPENAI.value
+            or custom_llm_provider == embrouter.LlmProviders.AZURE.value
         ):
             # gpt-image models use token-based pricing.
             model_lower: Final = model.lower()
             if "gpt-image" in model_lower:
-                from litellm.llms.openai.image_generation.cost_calculator import (
+                from embrouter.llms.openai.image_generation.cost_calculator import (
                     cost_calculator as openai_gpt_image_cost_calculator,
                 )
 

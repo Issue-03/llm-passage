@@ -8,7 +8,7 @@ from typing import Final, Protocol
 from starlette.routing import BaseRoute
 from typing_extensions import NotRequired, ReadOnly, TypedDict
 
-from litellm._logging import verbose_logger
+from embrouter._logging import verbose_logger
 
 
 class NamedEndpoint(Protocol):

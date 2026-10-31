@@ -9,4 +9,4 @@
 --   migrations; add a new migration instead.
 -- - Requires PostgreSQL that supports CONCURRENTLY with IF NOT EXISTS (use a new migration
 --   without IF NOT EXISTS if you must support older versions).
-CREATE INDEX CONCURRENTLY IF NOT EXISTS "LiteLLM_HealthCheckTable_model_id_model_name_checked_at_idx" ON "LiteLLM_HealthCheckTable"("model_id", "model_name", "checked_at" DESC);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS "EmbRouter_HealthCheckTable_model_id_model_name_checked_at_idx" ON "EmbRouter_HealthCheckTable"("model_id", "model_name", "checked_at" DESC);

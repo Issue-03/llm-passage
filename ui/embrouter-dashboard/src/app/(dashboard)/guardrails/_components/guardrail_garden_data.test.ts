@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ALL_CARDS, LITELLM_CONTENT_FILTER_CARDS, PARTNER_GUARDRAIL_CARDS } from "./guardrail_garden_data";
+import { ALL_CARDS, EMBROUTER_CONTENT_FILTER_CARDS, PARTNER_GUARDRAIL_CARDS } from "./guardrail_garden_data";
 
 const EXPECTED_PARTNER_LOGO_FILES: Record<string, string> = {
   presidio: "microsoft_azure.svg",
@@ -43,8 +43,8 @@ describe("guardrail_garden_data logos", () => {
   });
 
   it("uses the EmbRouter logo for every content filter card", () => {
-    for (const card of LITELLM_CONTENT_FILTER_CARDS) {
-      expect(card.logo, `card ${card.id}`).toContain("litellm_logo.jpg");
+    for (const card of EMBROUTER_CONTENT_FILTER_CARDS) {
+      expect(card.logo, `card ${card.id}`).toContain("embrouter_logo.jpg");
     }
   });
 

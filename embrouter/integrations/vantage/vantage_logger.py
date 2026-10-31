@@ -9,10 +9,10 @@ from __future__ import annotations
 import os
 from typing import TYPE_CHECKING, Any, Final, cast
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.integrations.focus.focus_logger import FocusLogger
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.integrations.focus.focus_logger import FocusLogger
 
 if TYPE_CHECKING:
     from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -89,7 +89,7 @@ class VantageLogger(FocusLogger):
         same ``FOCUS_USAGE_DATA_JOB_NAME`` lock, causing one to silently
         skip its export cycle when both are configured simultaneously.
         """
-        from litellm.proxy.proxy_server import proxy_logging_obj
+        from embrouter.proxy.proxy_server import proxy_logging_obj
 
         pod_lock_manager = None
         if proxy_logging_obj is not None:
@@ -114,7 +114,7 @@ class VantageLogger(FocusLogger):
         scheduler: AsyncIOScheduler,
     ) -> None:
         """Register the Vantage export job with the provided scheduler."""
-        vantage_loggers: Final[list[CustomLogger]] = litellm.logging_callback_manager.get_custom_loggers_for_type(
+        vantage_loggers: Final[list[CustomLogger]] = embrouter.logging_callback_manager.get_custom_loggers_for_type(
             callback_type=VantageLogger
         )
         if not vantage_loggers:

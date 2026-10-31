@@ -5,8 +5,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import litellm
-from litellm.llms.azure.chat.o_series_transformation import AzureOpenAIO1Config
+import embrouter
+from embrouter.llms.azure.chat.o_series_transformation import AzureOpenAIO1Config
 
 
 @pytest.mark.asyncio
@@ -15,11 +15,11 @@ async def test_azure_chat_o_series_transformation():
     model = "o_series/web-interface-o1-mini"
     messages = [{"role": "user", "content": "Hello, how are you?"}]
     optional_params = {}
-    litellm_params = {}
+    embrouter_params = {}
     headers = {}
 
     response = await provider_config.async_transform_request(
-        model, messages, optional_params, litellm_params, headers
+        model, messages, optional_params, embrouter_params, headers
     )
     print(response)
     assert response["model"] == "web-interface-o1-mini"
@@ -57,7 +57,7 @@ def test_azure_o_series_transform_request_flattens_top_level_anyof():
         model="o3-mini",
         messages=[{"role": "user", "content": "hi"}],
         optional_params=optional_params,
-        litellm_params={"custom_llm_provider": "azure"},
+        embrouter_params={"custom_llm_provider": "azure"},
         headers={},
     )
 
@@ -71,7 +71,7 @@ def test_azure_o_series_transform_request_flattens_top_level_anyof():
 
 
 def test_azure_o_series_transform_request_moves_system_messages_first(monkeypatch):
-    monkeypatch.setattr(litellm, "openai_system_messages_first", True)
+    monkeypatch.setattr(embrouter, "openai_system_messages_first", True)
     messages = [
         {"role": "user", "content": "hi"},
         {"role": "developer", "content": "dev"},
@@ -83,7 +83,7 @@ def test_azure_o_series_transform_request_moves_system_messages_first(monkeypatc
         model="o3-mini",
         messages=messages,
         optional_params={},
-        litellm_params={"custom_llm_provider": "azure"},
+        embrouter_params={"custom_llm_provider": "azure"},
         headers={},
     )
 

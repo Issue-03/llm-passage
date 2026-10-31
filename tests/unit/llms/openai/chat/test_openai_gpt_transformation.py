@@ -1,5 +1,5 @@
 """
-Tests for OpenAI GPT transformation (litellm/llms/openai/chat/gpt_transformation.py)
+Tests for OpenAI GPT transformation (embrouter/llms/openai/chat/gpt_transformation.py)
 """
 
 
@@ -7,10 +7,10 @@ import pytest
 from typing import Final
 
 
-import litellm
-from litellm.litellm_core_utils.prompt_templates.common_utils import TOOL_RESULT_IMAGE_BOUNDARY
-from litellm.llms.openai.chat.gpt_5_transformation import OpenAIGPT5Config
-from litellm.llms.openai.chat.gpt_transformation import (
+import embrouter
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import TOOL_RESULT_IMAGE_BOUNDARY
+from embrouter.llms.openai.chat.gpt_5_transformation import OpenAIGPT5Config
+from embrouter.llms.openai.chat.gpt_transformation import (
     OpenAIChatCompletionStreamingHandler,
     OpenAIGPTConfig,
 )
@@ -97,7 +97,7 @@ class TestOpenAIGPTConfig:
 
 
 class TestGetOptionalParamsIntegration:
-    """Integration tests using litellm.get_optional_params()"""
+    """Integration tests using embrouter.get_optional_params()"""
 
     def test_user_in_optional_params_for_responses_model(self):
         """Test that 'user' ends up in optional_params when using responses API models.
@@ -105,7 +105,7 @@ class TestGetOptionalParamsIntegration:
 
         This verifies the full flow through get_optional_params().
         """
-        from litellm.utils import get_optional_params
+        from embrouter.utils import get_optional_params
 
         # Test with responses model
         optional_params = get_optional_params(
@@ -117,7 +117,7 @@ class TestGetOptionalParamsIntegration:
 
     def test_user_in_optional_params_for_regular_model(self):
         """Test that 'user' ends up in optional_params for regular OpenAI models."""
-        from litellm.utils import get_optional_params
+        from embrouter.utils import get_optional_params
 
         optional_params = get_optional_params(
             model="gpt-4o",
@@ -128,7 +128,7 @@ class TestGetOptionalParamsIntegration:
 
     def test_user_param_consistency_between_regular_and_responses(self):
         """Test that 'user' param behavior is consistent between regular and responses models."""
-        from litellm.utils import get_optional_params
+        from embrouter.utils import get_optional_params
 
         regular_params = get_optional_params(
             model="gpt-4.1-mini",
@@ -147,9 +147,9 @@ class TestGetOptionalParamsIntegration:
         assert responses_params.get("user") == "my-end-user"
 
     def test_reasoning_effort_supported_for_unknown_model_alias(self):
-        """An openai/-routed model litellm doesn't recognize is likely a proxy alias:
+        """An openai/-routed model embrouter doesn't recognize is likely a proxy alias:
         reasoning_effort must be forwarded so the server decides support."""
-        from litellm.llms.openai.openai import OpenAIConfig
+        from embrouter.llms.openai.openai import OpenAIConfig
 
         supported_params = OpenAIConfig().get_supported_openai_params(
             "my-claude-alias"
@@ -158,7 +158,7 @@ class TestGetOptionalParamsIntegration:
 
     def test_reasoning_effort_not_supported_for_known_non_reasoning_models(self):
         """Known OpenAI models keep failing closed client-side."""
-        from litellm.llms.openai.openai import OpenAIConfig
+        from embrouter.llms.openai.openai import OpenAIConfig
 
         config = OpenAIConfig()
         assert "reasoning_effort" not in config.get_supported_openai_params("gpt-4o")
@@ -169,7 +169,7 @@ class TestGetOptionalParamsIntegration:
     def test_reasoning_effort_not_inherited_by_openai_compatible_subclasses(self):
         """Providers subclassing either openai config keep their own reasoning_effort gating
         for their models, which are all unknown to the openai catalog."""
-        from litellm.llms.openai.openai import OpenAIConfig
+        from embrouter.llms.openai.openai import OpenAIConfig
 
         class InheritingDispatcherConfig(OpenAIConfig):
             pass
@@ -189,7 +189,7 @@ class TestGetOptionalParamsIntegration:
     ):
         """Regression test for reasoning_effort raising UnsupportedParamsError
         client-side for openai/-prefixed proxy aliases before any HTTP request."""
-        from litellm.utils import get_optional_params
+        from embrouter.utils import get_optional_params
 
         optional_params = get_optional_params(
             model="my-claude-alias",
@@ -200,9 +200,9 @@ class TestGetOptionalParamsIntegration:
 
     def test_reasoning_effort_still_rejected_for_known_non_reasoning_model(self):
         """A real OpenAI model that doesn't reason still rejects the param client-side."""
-        from litellm.utils import get_optional_params
+        from embrouter.utils import get_optional_params
 
-        with pytest.raises(litellm.utils.UnsupportedParamsError):
+        with pytest.raises(embrouter.utils.UnsupportedParamsError):
             get_optional_params(
                 model="gpt-4o",
                 custom_llm_provider="openai",
@@ -280,7 +280,7 @@ class TestOpenAIChatCompletionStreamingHandler:
         e.g. data: {"error": {..., "code": 400}}. chunk_parser must surface it
         as a provider error instead of parsing an empty chunk that silently
         ends the stream."""
-        from litellm.llms.openai.common_utils import OpenAIError
+        from embrouter.llms.openai.common_utils import OpenAIError
 
         handler = OpenAIChatCompletionStreamingHandler(
             streaming_response=None, sync_stream=True
@@ -305,7 +305,7 @@ class TestOpenAIChatCompletionStreamingHandler:
     def test_chunk_parser_error_payload_without_usable_code_maps_to_500(self):
         """OpenAI-style error payloads may carry a string code (e.g.
         "invalid_api_key") or none at all; those must map to 500, not crash."""
-        from litellm.llms.openai.common_utils import OpenAIError
+        from embrouter.llms.openai.common_utils import OpenAIError
 
         handler = OpenAIChatCompletionStreamingHandler(
             streaming_response=None, sync_stream=True
@@ -384,7 +384,7 @@ class TestOpenAIChatCompletionStreamingHandler:
         Test that chunk_parser maps 'reasoning' field to 'reasoning_content'.
 
         Some OpenAI-compatible providers (e.g., GLM-5, hosted_vllm) return
-        delta.reasoning, but LiteLLM expects delta.reasoning_content.
+        delta.reasoning, but EmbRouter expects delta.reasoning_content.
 
         Regression test for: Streaming responses with delta.reasoning field
         coming back empty when using openai/ or hosted_vllm/ providers.
@@ -501,7 +501,7 @@ class TestPromptCacheKeyIntegration:
 
     def test_prompt_cache_key_in_optional_params(self):
         """Test that 'prompt_cache_key' flows through get_optional_params for OpenAI models."""
-        from litellm.utils import get_optional_params
+        from embrouter.utils import get_optional_params
 
         optional_params = get_optional_params(
             model="gpt-4.1-nano",
@@ -643,14 +643,14 @@ class TestGPT5ReasoningEffortPreservation:
         When reasoning_effort={"effort": "xhigh", "summary": "detailed"} is passed to a model
         that doesn't support xhigh (e.g. gpt-5.1), the xhigh guard must fire.
         """
-        import litellm
+        import embrouter
 
         non_default_params = {
             "reasoning_effort": {"effort": "xhigh", "summary": "detailed"}
         }
         optional_params = {}
 
-        with pytest.raises(litellm.utils.UnsupportedParamsError):
+        with pytest.raises(embrouter.utils.UnsupportedParamsError):
             self.config.map_openai_params(
                 non_default_params=non_default_params,
                 optional_params=optional_params,
@@ -747,7 +747,7 @@ class TestCacheControlPreservationForCustomEndpoint:
     The AnthropicCacheControlHook injects cache_control when a user passes
     cache_control_injection_points, but the base OpenAIGPTConfig used to strip
     it unconditionally, making the feature a guaranteed no-op for the generic
-    openai provider pointed at a cache_control-aware endpoint (a LiteLLM proxy,
+    openai provider pointed at a cache_control-aware endpoint (a EmbRouter proxy,
     vLLM, an Anthropic-compatible gateway). cache_control must survive there
     while still being stripped for real api.openai.com.
     """
@@ -759,7 +759,7 @@ class TestCacheControlPreservationForCustomEndpoint:
     def _clean_openai_base_env(self, monkeypatch):
         monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
         monkeypatch.delenv("OPENAI_API_BASE", raising=False)
-        monkeypatch.setattr(litellm, "api_base", None, raising=False)
+        monkeypatch.setattr(embrouter, "api_base", None, raising=False)
 
     @staticmethod
     def _cache_controlled_messages():
@@ -781,7 +781,7 @@ class TestCacheControlPreservationForCustomEndpoint:
             model="claude-sonnet-4",
             messages=self._cache_controlled_messages(),
             optional_params=optional_params or {},
-            litellm_params={
+            embrouter_params={
                 "custom_llm_provider": custom_llm_provider,
                 "api_base": api_base,
             },
@@ -879,7 +879,7 @@ class TestCacheControlPreservationForCustomEndpoint:
             model="claude-sonnet-4",
             messages=self._cache_controlled_messages(),
             optional_params={},
-            litellm_params={
+            embrouter_params={
                 "custom_llm_provider": "openai",
                 "api_base": "http://localhost:4000/v1",
             },
@@ -893,7 +893,7 @@ class TestCacheControlPreservationForCustomEndpoint:
             model="gpt-4o",
             messages=self._cache_controlled_messages(),
             optional_params={},
-            litellm_params={"custom_llm_provider": "openai", "api_base": None},
+            embrouter_params={"custom_llm_provider": "openai", "api_base": None},
             headers={},
         )
         assert all("cache_control" not in m for m in body["messages"])
@@ -926,7 +926,7 @@ class TestToolChoiceWithoutToolsDropped:
             model=model,
             messages=self._pi_compact_summarization_messages(),
             optional_params=optional_params,
-            litellm_params={"custom_llm_provider": "openai", "api_base": None},
+            embrouter_params={"custom_llm_provider": "openai", "api_base": None},
             headers={},
         )
 
@@ -1003,7 +1003,7 @@ class TestToolChoiceWithoutToolsDropped:
             model="gpt-5.6-sol",
             messages=self._pi_compact_summarization_messages(),
             optional_params={"stream": True, "tool_choice": "none"},
-            litellm_params={"custom_llm_provider": "openai", "api_base": None},
+            embrouter_params={"custom_llm_provider": "openai", "api_base": None},
             headers={},
         )
         assert "tool_choice" not in body
@@ -1020,7 +1020,7 @@ class TestToolChoiceWithoutToolsDropped:
             model="gpt-5.6-sol",
             messages=self._pi_compact_summarization_messages(),
             optional_params={"tools": tools, "tool_choice": "auto"},
-            litellm_params={"custom_llm_provider": "openai", "api_base": None},
+            embrouter_params={"custom_llm_provider": "openai", "api_base": None},
             headers={},
         )
         assert body["tool_choice"] == "auto"
@@ -1062,7 +1062,7 @@ class TestToolMessageImageHoisting:
             model="gpt-5.4-mini",
             messages=self._messages_with_image_part_in_tool(),
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -1079,7 +1079,7 @@ class TestToolMessageImageHoisting:
             model="gpt-5.4-mini",
             messages=self._messages_with_image_part_in_tool(),
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -1118,7 +1118,7 @@ class TestToolReferenceStripping:
             model="gpt-4.1",
             messages=self._messages_with_tool_reference(extra_parts=({"type": "text", "text": "loaded"},)),
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -1131,7 +1131,7 @@ class TestToolReferenceStripping:
             model="gpt-4.1",
             messages=self._messages_with_tool_reference(),
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -1144,7 +1144,7 @@ class TestToolReferenceStripping:
             model="gpt-4.1",
             messages=self._messages_with_tool_reference(),
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -1152,7 +1152,7 @@ class TestToolReferenceStripping:
 
 
 class TestSystemMessagesFirst:
-    """With litellm.openai_system_messages_first on, requests bound for OpenAI put system and
+    """With embrouter.openai_system_messages_first on, requests bound for OpenAI put system and
     developer messages ahead of the conversation, keeping each group's order, so the instruction
     prefix stays byte-stable for OpenAI's prefix-matched prompt cache."""
 
@@ -1178,30 +1178,30 @@ class TestSystemMessagesFirst:
             model="gpt-4.1",
             messages=self._messages(),
             optional_params={},
-            litellm_params={"custom_llm_provider": provider},
+            embrouter_params={"custom_llm_provider": provider},
             headers={},
         )
 
     def test_default_off_keeps_caller_order(self, monkeypatch):
-        monkeypatch.setattr(litellm, "openai_system_messages_first", False)
+        monkeypatch.setattr(embrouter, "openai_system_messages_first", False)
         assert tuple(m["content"] for m in self._transform("openai")["messages"]) == self.ORIGINAL_ORDER
 
     def test_moves_system_and_developer_messages_first_for_openai(self, monkeypatch):
-        monkeypatch.setattr(litellm, "openai_system_messages_first", True)
+        monkeypatch.setattr(embrouter, "openai_system_messages_first", True)
         assert tuple(m["content"] for m in self._transform("openai")["messages"]) == self.ORDERED
 
     def test_leaves_openai_compatible_providers_alone(self, monkeypatch):
-        monkeypatch.setattr(litellm, "openai_system_messages_first", True)
+        monkeypatch.setattr(embrouter, "openai_system_messages_first", True)
         assert tuple(m["content"] for m in self._transform("deepseek")["messages"]) == self.ORIGINAL_ORDER
 
     def test_does_not_mutate_caller_messages(self, monkeypatch):
-        monkeypatch.setattr(litellm, "openai_system_messages_first", True)
+        monkeypatch.setattr(embrouter, "openai_system_messages_first", True)
         messages = self._messages()
         self.config.transform_request(
             model="gpt-4.1",
             messages=messages,
             optional_params={},
-            litellm_params={"custom_llm_provider": "openai"},
+            embrouter_params={"custom_llm_provider": "openai"},
             headers={},
         )
         assert tuple(m["content"] for m in messages) == self.ORIGINAL_ORDER
@@ -1214,12 +1214,12 @@ class TestSystemMessagesFirst:
             def __init__(self) -> None:
                 pass
 
-        monkeypatch.setattr(litellm, "openai_system_messages_first", True)
+        monkeypatch.setattr(embrouter, "openai_system_messages_first", True)
         request = await UninstantiatedOpenAIGPTConfig().async_transform_request(
             model="gpt-4.1",
             messages=self._messages(),
             optional_params={},
-            litellm_params={"custom_llm_provider": "openai"},
+            embrouter_params={"custom_llm_provider": "openai"},
             headers={},
         )
         assert tuple(m["content"] for m in request["messages"]) == self.ORDERED
@@ -1231,7 +1231,7 @@ class TestOpenAIPromptCacheBreakpointChatPath:
     EXPLICIT = {"mode": "explicit"}
 
     def test_prompt_cache_options_travels_in_extra_body(self):
-        optional_params = litellm.get_optional_params(
+        optional_params = embrouter.get_optional_params(
             model="gpt-5.6", custom_llm_provider="openai", prompt_cache_options=self.EXPLICIT
         )
         assert optional_params["extra_body"]["prompt_cache_options"] == self.EXPLICIT
@@ -1259,7 +1259,7 @@ class TestOpenAIPromptCacheBreakpointChatPath:
                 {"role": "user", "content": [{"type": "text", "text": "hi", "prompt_cache_breakpoint": self.EXPLICIT}]},
             ],
             optional_params={"extra_body": {"prompt_cache_options": self.EXPLICIT}},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
         assert request["messages"][0]["content"] == [
@@ -1287,7 +1287,7 @@ class TestToolSchemaCombinatorFlatteningForOpenAI:
     def _clean_openai_base_env(self, monkeypatch):
         monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
         monkeypatch.delenv("OPENAI_API_BASE", raising=False)
-        monkeypatch.setattr(litellm, "api_base", None, raising=False)
+        monkeypatch.setattr(embrouter, "api_base", None, raising=False)
 
     @staticmethod
     def _anyof_tool():
@@ -1314,12 +1314,12 @@ class TestToolSchemaCombinatorFlatteningForOpenAI:
             },
         }
 
-    def _transform(self, config, model, litellm_params, tools):
+    def _transform(self, config, model, embrouter_params, tools):
         return config.transform_request(
             model=model,
             messages=[{"role": "user", "content": "hi"}],
             optional_params={"tools": tools},
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers={},
         )
 
@@ -1380,7 +1380,7 @@ class TestToolSchemaCombinatorFlatteningForOpenAI:
             model="gpt-4o",
             messages=[{"role": "user", "content": "hi"}],
             optional_params={"tools": [self._anyof_tool()]},
-            litellm_params={"custom_llm_provider": "openai", "api_base": None},
+            embrouter_params={"custom_llm_provider": "openai", "api_base": None},
             headers={},
         )
         parameters = request["tools"][0]["function"]["parameters"]

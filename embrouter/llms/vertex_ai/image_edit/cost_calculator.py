@@ -4,8 +4,8 @@ Vertex AI Image Edit Cost Calculator
 
 from typing import Any, Final
 
-import litellm
-from litellm.types.utils import ImageResponse
+import embrouter
+from embrouter.types.utils import ImageResponse
 
 
 def cost_calculator(
@@ -18,7 +18,7 @@ def cost_calculator(
     Mirrors image generation pricing: charge per returned image based on
     model metadata (`output_cost_per_image`).
     """
-    model_info: Final = litellm.get_model_info(
+    model_info: Final = embrouter.get_model_info(
         model=model,
         custom_llm_provider="vertex_ai",
     )

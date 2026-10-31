@@ -9,8 +9,8 @@ Tests:
 
 import pytest
 
-from litellm.proxy.policy_engine.policy_resolver import PolicyResolver
-from litellm.types.proxy.policy_engine import (
+from embrouter.proxy.policy_engine.policy_resolver import PolicyResolver
+from embrouter.types.proxy.policy_engine import (
     GuardrailPipeline,
     PipelineStep,
     Policy,

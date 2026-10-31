@@ -6,8 +6,8 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Final
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
-from litellm_proxy_extras._logging import logger
-from litellm_proxy_extras.prisma_toolchain import MIGRATION_LOCK_TIMEOUT_ENV_VAR, migration_lock_timeout
+from embrouter_proxy_extras._logging import logger
+from embrouter_proxy_extras.prisma_toolchain import MIGRATION_LOCK_TIMEOUT_ENV_VAR, migration_lock_timeout
 
 MIGRATION_LOCK_KEY: Final = int.from_bytes(b"llm_mig2", "big")
 
@@ -56,7 +56,7 @@ class MigrationCoordinator:
                 return
             time.sleep(min(random.uniform(0.5, 1.5), max(0.0, deadline - time.monotonic())))
         raise RuntimeError(
-            "Timed out waiting for Prisma's lock to recover migration history. LiteLLM startup has stopped. "
+            "Timed out waiting for Prisma's lock to recover migration history. EmbRouter startup has stopped. "
             "Another migration or a pooled database session may still hold the lock. Check the database lock holder. "
             "When using a transaction pooler, configure DIRECT_URL to reach the same database without the pooler."
         )

@@ -108,7 +108,7 @@ class SpendAnalyticsPaginatedResponse(BaseModel):
     metadata: DailySpendMetadata = Field(default_factory=DailySpendMetadata)
 
 
-class LiteLLM_DailyUserSpend(BaseModel):
+class EmbRouter_DailyUserSpend(BaseModel):
     id: str
     user_id: str
     date: str

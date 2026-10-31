@@ -9,13 +9,13 @@ import json
 from collections.abc import AsyncIterator, Mapping
 from typing import Any, Final
 
-from litellm._logging import verbose_logger
-from litellm.a2a_protocol.providers.bedrock_agentcore.transformation import (
+from embrouter._logging import verbose_logger
+from embrouter.a2a_protocol.providers.bedrock_agentcore.transformation import (
     BedrockAgentCoreA2ATransformation,
 )
-from litellm.llms.bedrock.base_aws_llm import run_aws_signing
-from litellm.llms.custom_httpx.http_handler import get_async_httpx_client
-from litellm.types.llms.custom_http import httpxSpecialProvider
+from embrouter.llms.bedrock.base_aws_llm import run_aws_signing
+from embrouter.llms.custom_httpx.http_handler import get_async_httpx_client
+from embrouter.types.llms.custom_http import httpxSpecialProvider
 
 
 class BedrockAgentCoreA2AHandler:
@@ -30,7 +30,7 @@ class BedrockAgentCoreA2AHandler:
     async def handle_non_streaming(
         request_id: str,
         params: Mapping[str, object],
-        litellm_params: dict[str, Any],
+        embrouter_params: dict[str, Any],
         agent_extra_headers: dict[str, str] | None = None,
     ) -> dict[str, Any]:
         """
@@ -39,7 +39,7 @@ class BedrockAgentCoreA2AHandler:
         Args:
             request_id: A2A JSON-RPC request ID
             params: A2A MessageSendParams containing the message
-            litellm_params: Agent's litellm_params (model, api_key, etc.)
+            embrouter_params: Agent's embrouter_params (model, api_key, etc.)
             agent_extra_headers: Per-request headers (from x-a2a-{agent}-* rewrite and
                 admin extra_headers) to forward on the upstream HTTP call.
 
@@ -50,7 +50,7 @@ class BedrockAgentCoreA2AHandler:
             BedrockAgentCoreA2ATransformation.get_url_and_signed_request,
             request_id=request_id,
             params=params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             method="message/send",
             agent_extra_headers=agent_extra_headers,
         )
@@ -77,7 +77,7 @@ class BedrockAgentCoreA2AHandler:
     async def handle_streaming(
         request_id: str,
         params: Mapping[str, object],
-        litellm_params: dict[str, Any],
+        embrouter_params: dict[str, Any],
         agent_extra_headers: dict[str, str] | None = None,
     ) -> AsyncIterator[dict[str, Any]]:
         """
@@ -86,7 +86,7 @@ class BedrockAgentCoreA2AHandler:
         Args:
             request_id: A2A JSON-RPC request ID
             params: A2A MessageSendParams containing the message
-            litellm_params: Agent's litellm_params (model, api_key, etc.)
+            embrouter_params: Agent's embrouter_params (model, api_key, etc.)
             agent_extra_headers: Per-request headers (from x-a2a-{agent}-* rewrite and
                 admin extra_headers) to forward on the upstream HTTP call.
 
@@ -97,7 +97,7 @@ class BedrockAgentCoreA2AHandler:
             BedrockAgentCoreA2ATransformation.get_url_and_signed_request,
             request_id=request_id,
             params=params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             method="message/stream",
             stream=True,
             agent_extra_headers=agent_extra_headers,

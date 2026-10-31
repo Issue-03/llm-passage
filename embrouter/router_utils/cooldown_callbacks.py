@@ -5,53 +5,53 @@ Callbacks triggered on cooling down deployments
 import copy
 from typing import TYPE_CHECKING, Any, Final
 
-import litellm
-from litellm._logging import verbose_logger
+import embrouter
+from embrouter._logging import verbose_logger
 
 if TYPE_CHECKING:
-    from litellm.router import Router as _Router
+    from embrouter.router import Router as _Router
 
-    LitellmRouter = _Router
-    from litellm.integrations.prometheus import PrometheusLogger
+    EmbrouterRouter = _Router
+    from embrouter.integrations.prometheus import PrometheusLogger
 else:
-    LitellmRouter = Any
+    EmbrouterRouter = Any
     PrometheusLogger = Any
 
 
 async def router_cooldown_event_callback(
-    litellm_router_instance: LitellmRouter,
+    embrouter_router_instance: EmbrouterRouter,
     deployment_id: str,
     exception_status: str | int,
     cooldown_time: float | None,
 ):
     """
-    Callback triggered when a deployment is put into cooldown by litellm
+    Callback triggered when a deployment is put into cooldown by embrouter
 
     - Updates deployment state on Prometheus
     - Increments cooldown metric for deployment on Prometheus
     """
     verbose_logger.debug("In router_cooldown_event_callback - updating prometheus")
-    _deployment: Final = litellm_router_instance.get_deployment(model_id=deployment_id)
+    _deployment: Final = embrouter_router_instance.get_deployment(model_id=deployment_id)
     if _deployment is None:
         verbose_logger.warning(
             "in router_cooldown_event_callback but _deployment is None for deployment_id=%s. Doing nothing",
             deployment_id,
         )
         return
-    _litellm_params: Final = _deployment["litellm_params"]
-    temp_litellm_params = copy.deepcopy(_litellm_params)
-    temp_litellm_params = dict(temp_litellm_params)
+    _embrouter_params: Final = _deployment["embrouter_params"]
+    temp_embrouter_params = copy.deepcopy(_embrouter_params)
+    temp_embrouter_params = dict(temp_embrouter_params)
     _model_name: Final = _deployment.get("model_name", None) or ""
-    _api_base: Final = litellm.get_api_base(model=_model_name, optional_params=temp_litellm_params) or ""
+    _api_base: Final = embrouter.get_api_base(model=_model_name, optional_params=temp_embrouter_params) or ""
     model_info: Final = _deployment["model_info"]
     model_id: Final = model_info.id
 
-    litellm_model_name: Final = temp_litellm_params.get("model") or ""
+    embrouter_model_name: Final = temp_embrouter_params.get("model") or ""
     llm_provider = ""
     try:
-        _, llm_provider, _, _ = litellm.get_llm_provider(
-            model=litellm_model_name,
-            custom_llm_provider=temp_litellm_params.get("custom_llm_provider"),
+        _, llm_provider, _, _ = embrouter.get_llm_provider(
+            model=embrouter_model_name,
+            custom_llm_provider=temp_embrouter_params.get("custom_llm_provider"),
         )
     except Exception:
         pass
@@ -61,14 +61,14 @@ async def router_cooldown_event_callback(
 
     if prometheusLogger is not None:
         prometheusLogger.set_deployment_complete_outage(
-            litellm_model_name=_model_name,
+            embrouter_model_name=_model_name,
             model_id=model_id,
             api_base=_api_base,
             api_provider=llm_provider,
         )
 
         prometheusLogger.increment_deployment_cooled_down(
-            litellm_model_name=_model_name,
+            embrouter_model_name=_model_name,
             model_id=model_id,
             api_base=_api_base,
             api_provider=llm_provider,
@@ -82,15 +82,15 @@ def _get_prometheus_logger_from_callbacks() -> PrometheusLogger | None:
     """
     Checks if prometheus is a initalized callback, if yes returns it
     """
-    from litellm.integrations.prometheus import PrometheusLogger
+    from embrouter.integrations.prometheus import PrometheusLogger
 
     if PrometheusLogger is None:
         return None
 
-    for _callback in litellm._async_success_callback:
+    for _callback in embrouter._async_success_callback:
         if isinstance(_callback, PrometheusLogger):
             return _callback
-    for global_callback in litellm.callbacks:
+    for global_callback in embrouter.callbacks:
         if isinstance(global_callback, PrometheusLogger):
             return global_callback
 

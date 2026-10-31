@@ -1,6 +1,6 @@
 """The human behind an agent's own proxy calls.
 
-``/a2a/{agent}`` forwards the invoking key's ``X-LiteLLM-User-Id`` / ``X-LiteLLM-Team-Id`` to the
+``/a2a/{agent}`` forwards the invoking key's ``X-EmbRouter-User-Id`` / ``X-EmbRouter-Team-Id`` to the
 agent backend. When the agent echoes them back on requests made with its own key, the proxy caps
 that key at what the invoking user and team may reach. The cap is intersected with, never
 substituted for, the agent key's own grants and the agent's access group ceiling, so the headers
@@ -11,9 +11,9 @@ from collections.abc import Mapping
 from types import MappingProxyType
 from typing import Final
 
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy._types import LiteLLM_TeamTable, LiteLLM_UserTable, UserAPIKeyAuth
-from litellm.types.agents import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy._types import EmbRouter_TeamTable, EmbRouter_UserTable, UserAPIKeyAuth
+from embrouter.types.agents import (
     AGENT_CALLER_TEAM_ID_HEADER,
     AGENT_CALLER_USER_ID_HEADER,
     AgentCaller,
@@ -49,11 +49,11 @@ def agent_caller_auth(user_api_key_auth: UserAPIKeyAuth) -> UserAPIKeyAuth | Non
     ).model_copy(update=MappingProxyType({"requires_fresh_policy": user_api_key_auth.requires_fresh_policy}))
 
 
-async def load_agent_caller_team(user_api_key_auth: UserAPIKeyAuth) -> LiteLLM_TeamTable | None:
+async def load_agent_caller_team(user_api_key_auth: UserAPIKeyAuth) -> EmbRouter_TeamTable | None:
     """The invoking team's row, or ``None`` when no team id was echoed. Raises when the id names a team
     that cannot be loaded, since a caller we cannot resolve must not be treated as unrestricted."""
-    from litellm.proxy.auth.auth_checks import get_team_object
-    from litellm.proxy.proxy_server import prisma_client, proxy_logging_obj, user_api_key_cache
+    from embrouter.proxy.auth.auth_checks import get_team_object
+    from embrouter.proxy.proxy_server import prisma_client, proxy_logging_obj, user_api_key_cache
 
     caller: Final = user_api_key_auth.agent_caller
     if caller is None or caller.team_id is None:
@@ -67,10 +67,10 @@ async def load_agent_caller_team(user_api_key_auth: UserAPIKeyAuth) -> LiteLLM_T
     )
 
 
-async def load_agent_caller_user(user_api_key_auth: UserAPIKeyAuth) -> LiteLLM_UserTable | None:
+async def load_agent_caller_user(user_api_key_auth: UserAPIKeyAuth) -> EmbRouter_UserTable | None:
     """The invoking user's row, or ``None`` when no user id was echoed or the row does not exist."""
-    from litellm.proxy.auth.auth_checks import get_user_object
-    from litellm.proxy.proxy_server import prisma_client, proxy_logging_obj, user_api_key_cache
+    from embrouter.proxy.auth.auth_checks import get_user_object
+    from embrouter.proxy.proxy_server import prisma_client, proxy_logging_obj, user_api_key_cache
 
     caller: Final = user_api_key_auth.agent_caller
     if caller is None or caller.user_id is None:

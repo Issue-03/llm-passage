@@ -2,9 +2,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from litellm.integrations.prometheus import PrometheusLogger
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.types.integrations.prometheus import (
+from embrouter.integrations.prometheus import PrometheusLogger
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.types.integrations.prometheus import (
     UserAPIKeyLabelValues,
 )
 
@@ -17,12 +17,12 @@ async def test_async_post_call_failure_hook_includes_client_ip_user_agent():
     # Mocking
     # Mocking
     with patch(
-        "litellm.integrations.prometheus.PrometheusLogger.__init__", return_value=None
+        "embrouter.integrations.prometheus.PrometheusLogger.__init__", return_value=None
     ):
         logger = PrometheusLogger()
         # Initialize attributes manually as __init__ is mocked
-        logger.litellm_proxy_failed_requests_metric = MagicMock()
-        logger.litellm_proxy_total_requests_metric = MagicMock()
+        logger.embrouter_proxy_failed_requests_metric = MagicMock()
+        logger.embrouter_proxy_total_requests_metric = MagicMock()
         logger.get_labels_for_metric = MagicMock(
             return_value=["client_ip", "user_agent"]
         )
@@ -39,7 +39,7 @@ async def test_async_post_call_failure_hook_includes_client_ip_user_agent():
 
     # Mock prometheus_label_factory to inspect arguments
     with patch(
-        "litellm.integrations.prometheus.prometheus_label_factory"
+        "embrouter.integrations.prometheus.prometheus_label_factory"
     ) as mock_label_factory:
         mock_label_factory.return_value = {}
 
@@ -81,11 +81,11 @@ async def test_async_post_call_success_hook_includes_client_ip_user_agent():
     """
     # Mocking
     with patch(
-        "litellm.integrations.prometheus.PrometheusLogger.__init__", return_value=None
+        "embrouter.integrations.prometheus.PrometheusLogger.__init__", return_value=None
     ):
         logger = PrometheusLogger()
         logger._emit_input_sequence_length_label = False
-        logger.litellm_proxy_total_requests_metric = MagicMock()
+        logger.embrouter_proxy_total_requests_metric = MagicMock()
         logger.get_labels_for_metric = MagicMock(
             return_value=["client_ip", "user_agent"]
         )
@@ -101,7 +101,7 @@ async def test_async_post_call_success_hook_includes_client_ip_user_agent():
 
     kwargs = {
         "model": "gpt-4",
-        "litellm_params": {"metadata": {}},
+        "embrouter_params": {"metadata": {}},
         "start_time": None,
         "standard_logging_object": {
             "model_group": "gpt-4",
@@ -130,7 +130,7 @@ async def test_async_post_call_success_hook_includes_client_ip_user_agent():
 
     # Mock prometheus_label_factory to inspect arguments
     with patch(
-        "litellm.integrations.prometheus.prometheus_label_factory"
+        "embrouter.integrations.prometheus.prometheus_label_factory"
     ) as mock_label_factory:
         mock_label_factory.return_value = {}
 
@@ -170,11 +170,11 @@ def test_set_llm_deployment_failure_metrics_includes_client_ip_user_agent():
     # Mocking
     # Mocking
     with patch(
-        "litellm.integrations.prometheus.PrometheusLogger.__init__", return_value=None
+        "embrouter.integrations.prometheus.PrometheusLogger.__init__", return_value=None
     ):
         logger = PrometheusLogger()
-        logger.litellm_deployment_failure_responses = MagicMock()
-        logger.litellm_deployment_total_requests = MagicMock()
+        logger.embrouter_deployment_failure_responses = MagicMock()
+        logger.embrouter_deployment_total_requests = MagicMock()
         logger.get_labels_for_metric = MagicMock(
             return_value=["client_ip", "user_agent"]
         )
@@ -194,13 +194,13 @@ def test_set_llm_deployment_failure_metrics_includes_client_ip_user_agent():
             "api_base": "http://api.base",
             "model_id": "model_1",
         },
-        "litellm_params": {},
+        "embrouter_params": {},
         "exception": Exception("Deployment failure"),
     }
 
     # Mock prometheus_label_factory to inspect arguments
     with patch(
-        "litellm.integrations.prometheus.prometheus_label_factory"
+        "embrouter.integrations.prometheus.prometheus_label_factory"
     ) as mock_label_factory:
         mock_label_factory.return_value = {}
 

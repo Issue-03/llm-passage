@@ -3,14 +3,14 @@ from typing import Final, cast
 
 import httpx
 
-import litellm
-from litellm.litellm_core_utils.url_utils import encode_url_path_segment
-from litellm.llms.base_llm.vector_store_files.transformation import (
+import embrouter
+from embrouter.embrouter_core_utils.url_utils import encode_url_path_segment
+from embrouter.llms.base_llm.vector_store_files.transformation import (
     BaseVectorStoreFilesConfig,
 )
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.vector_store_files import (
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.vector_store_files import (
     VectorStoreFileAuthCredentials,
     VectorStoreFileContentResponse,
     VectorStoreFileCreateRequest,
@@ -20,7 +20,7 @@ from litellm.types.vector_store_files import (
     VectorStoreFileObject,
     VectorStoreFileUpdateRequest,
 )
-from litellm.utils import add_openai_metadata
+from embrouter.utils import add_openai_metadata
 
 
 def _clean_dict(source: Mapping[str, object]) -> dict[str, object]:
@@ -31,8 +31,8 @@ class OpenAIVectorStoreFilesConfig(BaseVectorStoreFilesConfig):
     ASSISTANTS_HEADER_KEY = "OpenAI-Beta"
     ASSISTANTS_HEADER_VALUE = "assistants=v2"
 
-    def get_auth_credentials(self, litellm_params: Mapping[str, object]) -> VectorStoreFileAuthCredentials:
-        api_key: Final = litellm_params.get("api_key")
+    def get_auth_credentials(self, embrouter_params: Mapping[str, object]) -> VectorStoreFileAuthCredentials:
+        api_key: Final = embrouter_params.get("api_key")
         if api_key is None:
             raise ValueError("api_key is required")
         return {
@@ -64,10 +64,10 @@ class OpenAIVectorStoreFilesConfig(BaseVectorStoreFilesConfig):
         self,
         *,
         headers: dict[str, str],
-        litellm_params: GenericLiteLLMParams | None,
+        embrouter_params: GenericEmbRouterParams | None,
     ) -> dict[str, str]:
-        litellm_params = litellm_params or GenericLiteLLMParams()
-        api_key = litellm_params.api_key or litellm.api_key or litellm.openai_key or get_secret_str("OPENAI_API_KEY")
+        embrouter_params = embrouter_params or GenericEmbRouterParams()
+        api_key = embrouter_params.api_key or embrouter.api_key or embrouter.openai_key or get_secret_str("OPENAI_API_KEY")
         headers.update(
             {
                 "Authorization": f"Bearer {api_key}",
@@ -83,11 +83,11 @@ class OpenAIVectorStoreFilesConfig(BaseVectorStoreFilesConfig):
         *,
         api_base: str | None,
         vector_store_id: str,
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
     ) -> str:
         base_url = (
             api_base
-            or litellm.api_base
+            or embrouter.api_base
             or get_secret_str("OPENAI_BASE_URL")
             or get_secret_str("OPENAI_API_BASE")
             or "https://api.openai.com/v1"

@@ -10,20 +10,20 @@ at a different endpoint (bedrock-mantle.{region}.api.aws) with AWS SigV4 auth.
 from collections.abc import AsyncIterator, Iterator
 from typing import TYPE_CHECKING, Any, Final
 
-from litellm.litellm_core_utils.prompt_templates.image_handling import async_inline_remote_media
-from litellm.llms.bedrock.chat.invoke_transformations.anthropic_claude3_transformation import (
+from embrouter.embrouter_core_utils.prompt_templates.image_handling import async_inline_remote_media
+from embrouter.llms.bedrock.chat.invoke_transformations.anthropic_claude3_transformation import (
     AmazonAnthropicClaudeConfig,
 )
-from litellm.llms.bedrock.common_utils import build_mantle_messages_url
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.utils import ModelResponse
+from embrouter.llms.bedrock.common_utils import build_mantle_messages_url
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.utils import ModelResponse
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 
 class AmazonMantleConfig(AmazonAnthropicClaudeConfig):
@@ -42,7 +42,7 @@ class AmazonMantleConfig(AmazonAnthropicClaudeConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         region: Final = self._get_aws_region_name(optional_params=optional_params, model=model)
@@ -58,7 +58,7 @@ class AmazonMantleConfig(AmazonAnthropicClaudeConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
@@ -67,11 +67,11 @@ class AmazonMantleConfig(AmazonAnthropicClaudeConfig):
             model=model,
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             api_key=api_key,
             api_base=api_base,
         )
-        project_id: Final = litellm_params.get("aws_bedrock_project_id")
+        project_id: Final = embrouter_params.get("aws_bedrock_project_id")
         if project_id:
             headers["anthropic-workspace"] = project_id
         return headers
@@ -81,7 +81,7 @@ class AmazonMantleConfig(AmazonAnthropicClaudeConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         # Strip the "mantle/" routing prefix to get the real model ID
@@ -91,7 +91,7 @@ class AmazonMantleConfig(AmazonAnthropicClaudeConfig):
             model=model_id,
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
         # The parent strips "model" and "stream" from the body (Invoke API puts
@@ -108,14 +108,14 @@ class AmazonMantleConfig(AmazonAnthropicClaudeConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         return self.transform_request(
             model=model,
             messages=await async_inline_remote_media(messages),
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
@@ -134,7 +134,7 @@ class AmazonMantleConfig(AmazonAnthropicClaudeConfig):
         sync_stream: bool,
         json_mode: bool | None = False,
     ) -> Any:
-        from litellm.llms.anthropic.chat.handler import ModelResponseIterator
+        from embrouter.llms.anthropic.chat.handler import ModelResponseIterator
 
         return ModelResponseIterator(
             streaming_response=streaming_response,

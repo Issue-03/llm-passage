@@ -3,9 +3,9 @@ import threading
 import time
 from typing import Final
 
-from litellm._logging import verbose_logger
-from litellm.constants import LOGGING_EXECUTOR_MAX_PENDING_TASKS
-from litellm.litellm_core_utils.thread_pool_executor import (
+from embrouter._logging import verbose_logger
+from embrouter.constants import LOGGING_EXECUTOR_MAX_PENDING_TASKS
+from embrouter.embrouter_core_utils.thread_pool_executor import (
     BoundedLoggingThreadPoolExecutor,
     executor,
 )

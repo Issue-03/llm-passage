@@ -7,22 +7,22 @@ import pytest
 from fastapi.exceptions import HTTPException
 from httpx import ReadTimeout, Request, Response
 
-import litellm
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.guardrails.guardrail_hooks.prompt_security.prompt_security import (
+import embrouter
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.guardrails.guardrail_hooks.prompt_security.prompt_security import (
     PromptSecurityGuardrail,
     PromptSecurityGuardrailMissingSecrets,
 )
-from litellm.proxy.guardrails.guardrail_hooks.unified_guardrail.unified_guardrail import UnifiedLLMGuardrails
-from litellm.proxy.guardrails.init_guardrails import init_guardrails_v2
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices
+from embrouter.proxy.guardrails.guardrail_hooks.unified_guardrail.unified_guardrail import UnifiedLLMGuardrails
+from embrouter.proxy.guardrails.init_guardrails import init_guardrails_v2
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.utils import Delta, ModelResponseStream, StreamingChoices
 
 
 def test_prompt_security_guard_config(monkeypatch: pytest.MonkeyPatch):
     """Test guardrail initialization with proper configuration"""
-    monkeypatch.setattr(litellm, "guardrail_name_config_map", {})
-    monkeypatch.setattr(litellm, "callbacks", [])
+    monkeypatch.setattr(embrouter, "guardrail_name_config_map", {})
+    monkeypatch.setattr(embrouter, "callbacks", [])
 
     monkeypatch.setenv("PROMPT_SECURITY_API_KEY", "test-key")
     monkeypatch.setenv("PROMPT_SECURITY_API_BASE", "https://test.prompt.security")
@@ -31,7 +31,7 @@ def test_prompt_security_guard_config(monkeypatch: pytest.MonkeyPatch):
         all_guardrails=[
             {
                 "guardrail_name": "prompt_security",
-                "litellm_params": {
+                "embrouter_params": {
                     "guardrail": "prompt_security",
                     "mode": "during_call",
                     "default_on": True,
@@ -43,7 +43,7 @@ def test_prompt_security_guard_config(monkeypatch: pytest.MonkeyPatch):
         config_file_path="",
     )
 
-    registered = [c for c in litellm.callbacks if isinstance(c, PromptSecurityGuardrail)]
+    registered = [c for c in embrouter.callbacks if isinstance(c, PromptSecurityGuardrail)]
     assert len(registered) == 1
     assert registered[0].guardrail_name == "prompt_security"
     assert registered[0].default_on is True
@@ -58,7 +58,7 @@ def test_prompt_security_guard_config(monkeypatch: pytest.MonkeyPatch):
 
 def test_prompt_security_guard_config_no_api_key(monkeypatch: pytest.MonkeyPatch):
     """Test that initialization fails when API key is missing"""
-    monkeypatch.setattr(litellm, "guardrail_name_config_map", {})
+    monkeypatch.setattr(embrouter, "guardrail_name_config_map", {})
 
     monkeypatch.delenv("PROMPT_SECURITY_API_KEY", raising=False)
     monkeypatch.delenv("PROMPT_SECURITY_API_BASE", raising=False)
@@ -71,7 +71,7 @@ def test_prompt_security_guard_config_no_api_key(monkeypatch: pytest.MonkeyPatch
             all_guardrails=[
                 {
                     "guardrail_name": "prompt_security",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "guardrail": "prompt_security",
                         "mode": "during_call",
                         "default_on": True,
@@ -460,8 +460,8 @@ async def test_apply_guardrail_modify_response_keeps_multi_choice_texts_aligned(
 
 
 def test_prompt_security_streaming_transform_mode_from_config(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(litellm, "guardrail_name_config_map", {})
-    monkeypatch.setattr(litellm, "callbacks", [])
+    monkeypatch.setattr(embrouter, "guardrail_name_config_map", {})
+    monkeypatch.setattr(embrouter, "callbacks", [])
     monkeypatch.setenv("PROMPT_SECURITY_API_KEY", "test-key")
     monkeypatch.setenv("PROMPT_SECURITY_API_BASE", "https://test.prompt.security")
 
@@ -469,7 +469,7 @@ def test_prompt_security_streaming_transform_mode_from_config(monkeypatch: pytes
         all_guardrails=[
             {
                 "guardrail_name": "prompt_security_streaming",
-                "litellm_params": {
+                "embrouter_params": {
                     "guardrail": "prompt_security",
                     "mode": "post_call",
                     "default_on": True,
@@ -480,7 +480,7 @@ def test_prompt_security_streaming_transform_mode_from_config(monkeypatch: pytes
         config_file_path="",
     )
 
-    registered = [c for c in litellm.callbacks if isinstance(c, PromptSecurityGuardrail)]
+    registered = [c for c in embrouter.callbacks if isinstance(c, PromptSecurityGuardrail)]
     assert len(registered) == 1
     assert registered[0].streaming_transform_mode == "incremental_diff"
     assert PromptSecurityGuardrail(api_key="k", api_base="https://b").streaming_transform_mode == "block_only"
@@ -908,17 +908,17 @@ async def test_file_sanitization_terminal_failure_does_not_fail_open(monkeypatch
 @pytest.mark.parametrize(
     "timeout",
     (
-        litellm.Timeout(
+        embrouter.Timeout(
             message="Prompt Security upload timed out",
             model="default-model-name",
-            llm_provider="litellm-httpx-handler",
+            llm_provider="embrouter-httpx-handler",
         ),
         ReadTimeout(
             "Prompt Security poll timed out",
             request=Request(method="GET", url="https://test.prompt.security/api/sanitizeFile"),
         ),
     ),
-    ids=("litellm", "httpx"),
+    ids=("embrouter", "httpx"),
 )
 @pytest.mark.parametrize("fail_open", (True, False), ids=("fail-open", "fail-closed"))
 async def test_file_sanitization_request_timeout_policy(
@@ -1076,7 +1076,7 @@ async def test_user_api_key_alias_forwarding(monkeypatch: pytest.MonkeyPatch):
 
     request_data = {
         "messages": [{"role": "user", "content": "Safe prompt"}],
-        "litellm_metadata": {"user_api_key_alias": "vk-alias"},
+        "embrouter_metadata": {"user_api_key_alias": "vk-alias"},
     }
 
     inputs = {"texts": ["Safe prompt"], "structured_messages": request_data["messages"]}
@@ -1100,7 +1100,7 @@ async def test_user_api_key_alias_forwarding(monkeypatch: pytest.MonkeyPatch):
     call_kwargs = mock_post.call_args.kwargs
     assert "headers" in call_kwargs
     headers = call_kwargs["headers"]
-    assert headers.get("X-LiteLLM-Key-Alias") == "vk-alias"
+    assert headers.get("X-EmbRouter-Key-Alias") == "vk-alias"
     payload = call_kwargs["json"]
     assert payload["user"] == "vk-alias"
 

@@ -13,29 +13,29 @@ from urllib.parse import urlsplit
 import httpx
 from pydantic import BaseModel, TypeAdapter, ValidationError
 
-from litellm._logging import verbose_proxy_logger
-from litellm._version import version as litellm_version
-from litellm.caching.in_memory_cache import InMemoryCache
-from litellm.exceptions import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter._version import version as embrouter_version
+from embrouter.caching.in_memory_cache import InMemoryCache
+from embrouter.exceptions import (
     BadRequestError,
     GuardrailRaisedException,
     ModifyResponseException,
     Timeout,
 )
-from litellm.integrations.custom_guardrail import (
+from embrouter.integrations.custom_guardrail import (
     CustomGuardrail,
     get_session_id_from_request_data,
     log_guardrail_information,
 )
-from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
-from litellm.litellm_core_utils.prompt_templates.factory import resolve_structured_messages
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.embrouter_core_utils.get_llm_provider_logic import get_llm_provider
+from embrouter.embrouter_core_utils.prompt_templates.factory import resolve_structured_messages
+from embrouter.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.proxy._types import SpecialProxyStrings
-from litellm.types.guardrails import GuardrailEventHooks, Mode
-from litellm.types.proxy.guardrails.guardrail_hooks.straiker import (
+from embrouter.proxy._types import SpecialProxyStrings
+from embrouter.types.guardrails import GuardrailEventHooks, Mode
+from embrouter.types.proxy.guardrails.guardrail_hooks.straiker import (
     STRAIKER_WEBHOOK_SCHEMA_VERSION,
     StraikerGuardrailConfigModel,
     StraikerWebhookApplication,
@@ -48,11 +48,11 @@ from litellm.types.proxy.guardrails.guardrail_hooks.straiker import (
     StraikerWebhookStream,
     StraikerWebhookUsage,
 )
-from litellm.types.utils import CallTypes, GenericGuardrailAPIInputs, ModelResponse, TextCompletionResponse
+from embrouter.types.utils import CallTypes, GenericGuardrailAPIInputs, ModelResponse, TextCompletionResponse
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
 
 GUARDRAIL_NAME: Final = "straiker"
 DEFAULT_BLOCK_MESSAGE: Final = "Content violates policy"
@@ -68,8 +68,8 @@ V3_FORMAT_HEADER: Final = "x-s6r-format"
 # from the system prompt of its main turns only; Claude Code's title and topic sidecars carry
 # other prompts and would split the session across two agents. The User-Agent is on every call.
 _V3_CLIENT_BY_USER_AGENT: Final = (("claude-cli/", "claude", "Claude"),)
-V3_GATEWAY_NAME: Final = "LiteLLM"
-V3_DERIVED_SESSION_PREFIX: Final = "litellm-"
+V3_GATEWAY_NAME: Final = "EmbRouter"
+V3_DERIVED_SESSION_PREFIX: Final = "embrouter-"
 V3_AGENT_HEADER: Final = "x-s6r-agent"
 V3_RESPONSE_PHASE: Final = "response-sync"
 V3_BLOCK_DECISIONS: Final = frozenset({"block", "deny"})
@@ -182,7 +182,7 @@ def _as_dict(value: object) -> dict:
 def _merged_metadata(request_data: Mapping[str, object]) -> dict:
     return {
         **_as_dict(request_data.get("metadata")),
-        **_as_dict(request_data.get("litellm_metadata")),
+        **_as_dict(request_data.get("embrouter_metadata")),
     }
 
 
@@ -206,21 +206,21 @@ def _build_webhook_metadata(request_data: dict, default_metadata: dict[str, str]
 def _extract_identity(request_data: dict) -> StraikerWebhookIdentity:
     meta: Final = _merged_metadata(request_data)
     return StraikerWebhookIdentity(
-        litellm_key=_as_optional_str(meta.get("user_api_key_alias"))
+        embrouter_key=_as_optional_str(meta.get("user_api_key_alias"))
         or _as_optional_str(meta.get("user_api_key_hash"))
         or _as_optional_str(meta.get("user_api_key_token")),
-        litellm_team=_as_optional_str(meta.get("user_api_key_team_alias"))
+        embrouter_team=_as_optional_str(meta.get("user_api_key_team_alias"))
         or _as_optional_str(meta.get("user_api_key_team_id")),
-        litellm_user_id=_as_optional_str(meta.get("user_api_key_user_id")),
-        litellm_user_email=_as_optional_str(meta.get("user_api_key_user_email")),
-        litellm_org_id=_as_optional_str(meta.get("user_api_key_org_id")),
+        embrouter_user_id=_as_optional_str(meta.get("user_api_key_user_id")),
+        embrouter_user_email=_as_optional_str(meta.get("user_api_key_user_email")),
+        embrouter_org_id=_as_optional_str(meta.get("user_api_key_org_id")),
         end_user_id=_as_optional_str(meta.get("user_api_key_end_user_id")),
     )
 
 
 def _resolve_provider(request_data: dict, model: str | None) -> str | None:
-    litellm_params: Final = _as_dict(request_data.get("litellm_params"))
-    custom_llm_provider: Final = request_data.get("custom_llm_provider") or litellm_params.get("custom_llm_provider")
+    embrouter_params: Final = _as_dict(request_data.get("embrouter_params"))
+    custom_llm_provider: Final = request_data.get("custom_llm_provider") or embrouter_params.get("custom_llm_provider")
     if custom_llm_provider:
         return custom_llm_provider
     if not model:
@@ -228,8 +228,8 @@ def _resolve_provider(request_data: dict, model: str | None) -> str | None:
     try:
         _, provider, _, _ = get_llm_provider(
             model=model,
-            api_base=request_data.get("api_base") or litellm_params.get("api_base"),
-            api_key=request_data.get("api_key") or litellm_params.get("api_key"),
+            api_base=request_data.get("api_base") or embrouter_params.get("api_base"),
+            api_key=request_data.get("api_key") or embrouter_params.get("api_key"),
         )
     except BadRequestError:
         return None
@@ -237,8 +237,8 @@ def _resolve_provider(request_data: dict, model: str | None) -> str | None:
 
 
 def _resolve_destination(request_data: dict) -> str | None:
-    litellm_params: Final = _as_dict(request_data.get("litellm_params"))
-    api_base: Final = request_data.get("api_base") or litellm_params.get("api_base")
+    embrouter_params: Final = _as_dict(request_data.get("embrouter_params"))
+    api_base: Final = request_data.get("api_base") or embrouter_params.get("api_base")
     if not isinstance(api_base, str):
         return None
     try:
@@ -248,10 +248,10 @@ def _resolve_destination(request_data: dict) -> str | None:
 
 
 def _route_has_translation(request_data: dict) -> bool:
-    from litellm.litellm_core_utils.api_route_to_call_types import get_call_types_for_route
-    from litellm.llms import load_guardrail_translation_mappings
+    from embrouter.embrouter_core_utils.api_route_to_call_types import get_call_types_for_route
+    from embrouter.llms import load_guardrail_translation_mappings
 
-    route: Final = _as_dict(request_data.get("litellm_metadata")).get("user_api_key_request_route")
+    route: Final = _as_dict(request_data.get("embrouter_metadata")).get("user_api_key_request_route")
     if not isinstance(route, str) or not route:
         return False
     mappings: Final = load_guardrail_translation_mappings()
@@ -285,11 +285,11 @@ def _configured_modes(event_hook: object) -> list[str] | None:
     return list(dict.fromkeys(names)) or None
 
 
-def _resolve_call_surface(logging_obj: LiteLLMLoggingObj | None, request_data: dict) -> str:
+def _resolve_call_surface(logging_obj: EmbRouterLoggingObj | None, request_data: dict) -> str:
     call_type: Final = (
         (getattr(logging_obj, "call_type", None) if logging_obj is not None else None)
         or request_data.get("call_type")
-        or request_data.get("litellm_call_type")
+        or request_data.get("embrouter_call_type")
     )
     return call_type if isinstance(call_type, str) and call_type else "unknown"
 
@@ -378,17 +378,17 @@ def _is_streamed_request(request_data: dict) -> bool:
 
 # What the proxy stamps on a master-key call in place of a person. Sent onward, either
 # would be recorded as an identity and every master-key turn filed under it.
-_PLACEHOLDER_IDENTITIES: Final = frozenset({SpecialProxyStrings.default_user_id.value, "litellm_proxy_master_key"})
+_PLACEHOLDER_IDENTITIES: Final = frozenset({SpecialProxyStrings.default_user_id.value, "embrouter_proxy_master_key"})
 
 
 def _real_identity(value: object) -> str | None:
-    """LiteLLM's proxy-admin placeholders are not a person."""
+    """EmbRouter's proxy-admin placeholders are not a person."""
     identity: Final = _as_optional_str(value)
     return None if identity in _PLACEHOLDER_IDENTITIES else identity
 
 
 def _request_header(request_data: Mapping[str, object], name: str | None) -> str | None:
-    """A header from the inbound request, when LiteLLM kept it on the request data."""
+    """A header from the inbound request, when EmbRouter kept it on the request data."""
     if not name:
         return None
     proxy_request: Final = request_data.get("proxy_server_request")
@@ -421,12 +421,12 @@ def _v3_identity_metadata(request_data: Mapping[str, object]) -> Mapping[str, st
 
 
 def _v3_request_body(request_data: Mapping[str, object]) -> Mapping[str, object]:
-    """The provider body LiteLLM received, stripped of everything the proxy added.
+    """The provider body EmbRouter received, stripped of everything the proxy added.
 
     The hook sees the client's request merged with proxy bookkeeping: logging objects,
     the resolved key, the inbound headers. Only the provider body is Straiker's to read,
     and the client's Authorization header must not travel. Identity survives as the
-    metadata subset the Straiker LiteLLM adapter reads.
+    metadata subset the Straiker EmbRouter adapter reads.
     """
     identity: Final = _v3_identity_metadata(request_data)
     turns: Final = (
@@ -458,7 +458,7 @@ def _v3_without_credentials(entries: object) -> object:
 
 
 def _v3_route_is(request_data: Mapping[str, object], call_type: CallTypes) -> bool:
-    from litellm.litellm_core_utils.api_route_to_call_types import get_call_types_for_route
+    from embrouter.embrouter_core_utils.api_route_to_call_types import get_call_types_for_route
 
     route: Final = _merged_metadata(request_data).get("user_api_key_request_route")
     if not isinstance(route, str) or not route:
@@ -495,7 +495,7 @@ def _v3_decode_tokens(tokens: Iterable[object]) -> str | None:
 def _v3_prompt_texts(prompt: object) -> tuple[str, ...] | None:
     """The text the model receives for a completions `prompt`, in the proxy's own terms.
 
-    LiteLLM accepts a string, a list of strings, a list of token ids, or a list of token-id
+    EmbRouter accepts a string, a list of strings, a list of token ids, or a list of token-id
     lists, and decodes token ids with the text-davinci-003 tokenizer before calling the model.
     The same decoding here means Straiker screens what the model gets. None when the prompt
     is a shape this cannot render, so the caller relays it untouched rather than screening
@@ -535,11 +535,11 @@ def _v3_answer(request_data: Mapping[str, object], model: str | None) -> Mapping
         return _v3_text_completion_as_chat(response)
     if not isinstance(response, ModelResponse) or not _v3_anthropic_messages_route(request_data):
         return _jsonable_dict(response)
-    from litellm.llms.anthropic.pass_through.adapters.transformation import (
-        LiteLLMAnthropicMessagesAdapter,
+    from embrouter.llms.anthropic.pass_through.adapters.transformation import (
+        EmbRouterAnthropicMessagesAdapter,
     )
 
-    translated: Final = LiteLLMAnthropicMessagesAdapter().translate_openai_response_to_anthropic(response=response)
+    translated: Final = EmbRouterAnthropicMessagesAdapter().translate_openai_response_to_anthropic(response=response)
     re_keyed: Final = dict(translated, model=response.model or model)  # mutable-ok: adapter TypedDict re-keyed
     return _jsonable_dict(re_keyed)
 
@@ -666,7 +666,7 @@ def _v3_session_id(
 ) -> str | None:
     """A stable id for the conversation, in Kong's order of precedence.
 
-    Claude Code names its session on the wire and that wins. Then the session LiteLLM
+    Claude Code names its session on the wire and that wins. Then the session EmbRouter
     resolved from its own metadata. Then, for a conversation that states none, a hash of
     the principal, the system prompt and the first message: a chat client replays the
     whole conversation on every turn, so that triple is constant for its lifetime and
@@ -746,11 +746,11 @@ def _v3_user(envelope: StraikerWebhookRequest) -> str | None:
     names the person even when the client packs something else into the body. Claude Code
     packs a hashed account-and-session token into `metadata.user_id`, which is what the end
     user resolves to when nothing better is set; it is a session, not a person, and only
-    surfaces when the key names nobody. A master-key call resolves to LiteLLM's
+    surfaces when the key names nobody. A master-key call resolves to EmbRouter's
     `default_user_id`; sent as an identity it would become one.
     """
     identity: Final = envelope.identity
-    for candidate in (identity.litellm_user_email, identity.litellm_user_id, identity.end_user_id):
+    for candidate in (identity.embrouter_user_email, identity.embrouter_user_id, identity.end_user_id):
         real = _real_identity(candidate)
         if real:
             return real
@@ -868,7 +868,7 @@ class StraikerGuardrail(CustomGuardrail):
         agent_ref: str | None = None,
         client: str | None = None,
         format_hint: Literal["anthropic.messages", "openai.chat"] | None = None,
-        source: str = "LiteLLM Gateway",
+        source: str = "EmbRouter Gateway",
         timeout: float = 5.0,
         max_retries: int = 2,
         initial_backoff: float = 0.1,
@@ -943,7 +943,7 @@ class StraikerGuardrail(CustomGuardrail):
             "Content-Type": "application/json",
         }
         if self.api_version != "v3":
-            headers["X-Straiker-Webhook-Format"] = "litellm"
+            headers["X-Straiker-Webhook-Format"] = "embrouter"
         return {**headers, **extra}
 
     def _build_application(self, request_data: dict) -> StraikerWebhookApplication:
@@ -958,7 +958,7 @@ class StraikerGuardrail(CustomGuardrail):
         self,
         request_data: dict,
         model: str | None,
-        logging_obj: LiteLLMLoggingObj | None,
+        logging_obj: EmbRouterLoggingObj | None,
     ) -> StraikerWebhookContext:
         return StraikerWebhookContext(
             call_surface=_resolve_call_surface(logging_obj, request_data),
@@ -967,9 +967,9 @@ class StraikerGuardrail(CustomGuardrail):
             model_provider=_resolve_provider(request_data, model),
             destination=_resolve_destination(request_data),
             session_id=get_session_id_from_request_data(request_data),
-            litellm_call_id=getattr(logging_obj, "litellm_call_id", None) if logging_obj else None,
-            litellm_trace_id=getattr(logging_obj, "litellm_trace_id", None) if logging_obj else None,
-            litellm_version=litellm_version,
+            embrouter_call_id=getattr(logging_obj, "embrouter_call_id", None) if logging_obj else None,
+            embrouter_trace_id=getattr(logging_obj, "embrouter_trace_id", None) if logging_obj else None,
+            embrouter_version=embrouter_version,
         )
 
     def _build_envelope(
@@ -978,11 +978,11 @@ class StraikerGuardrail(CustomGuardrail):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict,
         input_type: Literal["request", "response"],
-        logging_obj: LiteLLMLoggingObj | None,
+        logging_obj: EmbRouterLoggingObj | None,
     ) -> StraikerWebhookRequest:
         model: Final = inputs.get("model") or request_data.get("model")
-        call_id: Final = getattr(logging_obj, "litellm_call_id", None) if logging_obj else None
-        event_id: Final = f"{call_id or 'litellm'}:{input_type}"
+        call_id: Final = getattr(logging_obj, "embrouter_call_id", None) if logging_obj else None
+        event_id: Final = f"{call_id or 'embrouter'}:{input_type}"
 
         content: Final = StraikerWebhookContent(
             texts=list(inputs.get("texts") or []),
@@ -1105,7 +1105,7 @@ class StraikerGuardrail(CustomGuardrail):
         self,
         *,
         request_data: dict,
-        logging_obj: LiteLLMLoggingObj | None,
+        logging_obj: EmbRouterLoggingObj | None,
         parsed: StraikerWebhookResponse,
     ) -> None:
         if not self.verbose:
@@ -1186,7 +1186,7 @@ class StraikerGuardrail(CustomGuardrail):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict,
         input_type: Literal["request", "response"],
-        logging_obj: LiteLLMLoggingObj | None,
+        logging_obj: EmbRouterLoggingObj | None,
     ) -> GenericGuardrailAPIInputs:
         """One phase of a turn against /api/v3/detect: relay, read the decision, enforce."""
         try:
@@ -1256,7 +1256,7 @@ class StraikerGuardrail(CustomGuardrail):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict,
         input_type: Literal["request", "response"],
-        logging_obj: LiteLLMLoggingObj | None = None,
+        logging_obj: EmbRouterLoggingObj | None = None,
     ) -> GenericGuardrailAPIInputs:
         if self.api_version == "v3":
             return await self._apply_v3(

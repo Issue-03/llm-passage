@@ -4,7 +4,7 @@ from typing import Any, Final
 
 from pydantic import BaseModel
 
-from litellm.constants import DEFAULT_MAX_RECURSE_DEPTH
+from embrouter.constants import DEFAULT_MAX_RECURSE_DEPTH
 
 UNSERIALIZABLE_OBJECT: Final = "Unserializable Object"
 

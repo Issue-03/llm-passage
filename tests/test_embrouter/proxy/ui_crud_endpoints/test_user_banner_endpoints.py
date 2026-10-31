@@ -5,9 +5,9 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from fastapi.testclient import TestClient
 
-from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.proxy_server import app
+from embrouter.proxy._types import EmbrouterUserRoles, UserAPIKeyAuth
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.proxy_server import app
 
 client = TestClient(app)
 
@@ -21,7 +21,7 @@ PUBLISH_BODY = {k: v for k, v in PUBLISHED_BANNER.items() if k != "revision"}
 DISABLED_BANNER = {"enabled": False, "message": "", "severity": "info", "revision": ""}
 
 
-def _auth_override(role: LitellmUserRoles):
+def _auth_override(role: EmbrouterUserRoles):
     async def override() -> UserAPIKeyAuth:
         return UserAPIKeyAuth(api_key="sk-test", user_id="test-user", user_role=role)
 
@@ -30,14 +30,14 @@ def _auth_override(role: LitellmUserRoles):
 
 @pytest.fixture
 def admin_auth():
-    app.dependency_overrides[user_api_key_auth] = _auth_override(LitellmUserRoles.PROXY_ADMIN)
+    app.dependency_overrides[user_api_key_auth] = _auth_override(EmbrouterUserRoles.PROXY_ADMIN)
     yield
     app.dependency_overrides.pop(user_api_key_auth, None)
 
 
 @pytest.fixture
 def internal_user_auth():
-    app.dependency_overrides[user_api_key_auth] = _auth_override(LitellmUserRoles.INTERNAL_USER)
+    app.dependency_overrides[user_api_key_auth] = _auth_override(EmbrouterUserRoles.INTERNAL_USER)
     yield
     app.dependency_overrides.pop(user_api_key_auth, None)
 
@@ -45,22 +45,22 @@ def internal_user_auth():
 @pytest.fixture
 def mock_audit_log(monkeypatch):
     audit_mock = AsyncMock(return_value=None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.create_config_audit_log", audit_mock)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.create_config_audit_log", audit_mock)
     return audit_mock
 
 
 def _mock_prisma(monkeypatch, record=None):
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_uisettings.find_unique = AsyncMock(return_value=record)
-    mock_prisma.db.litellm_uisettings.upsert = AsyncMock()
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma)
+    mock_prisma.db.embrouter_uisettings.find_unique = AsyncMock(return_value=record)
+    mock_prisma.db.embrouter_uisettings.upsert = AsyncMock()
+    monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", mock_prisma)
     return mock_prisma
 
 
 class TestGetUserBanner:
     def test_requires_auth(self, monkeypatch):
         _mock_prisma(monkeypatch)
-        monkeypatch.setattr("litellm.proxy.proxy_server.master_key", "sk-1234")
+        monkeypatch.setattr("embrouter.proxy.proxy_server.master_key", "sk-1234")
         response = client.get("/get/user_banner")
         assert response.status_code in (401, 403)
 
@@ -93,7 +93,7 @@ class TestGetUserBanner:
         assert response.json() == DISABLED_BANNER
 
     def test_no_database_returns_disabled_banner(self, admin_auth, monkeypatch):
-        monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", None)
         response = client.get("/get/user_banner")
         assert response.status_code == 200
         assert response.json() == DISABLED_BANNER
@@ -104,7 +104,7 @@ class TestUpdateUserBanner:
         mock_prisma = _mock_prisma(monkeypatch)
         response = client.patch("/update/user_banner", json=PUBLISH_BODY)
         assert response.status_code == 403
-        mock_prisma.db.litellm_uisettings.upsert.assert_not_awaited()
+        mock_prisma.db.embrouter_uisettings.upsert.assert_not_awaited()
 
     def test_persists_and_round_trips(self, admin_auth, monkeypatch, mock_audit_log):
         mock_prisma = _mock_prisma(monkeypatch, record=None)
@@ -115,13 +115,13 @@ class TestUpdateUserBanner:
         assert {k: saved[k] for k in PUBLISH_BODY} == PUBLISH_BODY
         assert saved["revision"] != ""
 
-        upsert_kwargs = mock_prisma.db.litellm_uisettings.upsert.await_args.kwargs
+        upsert_kwargs = mock_prisma.db.embrouter_uisettings.upsert.await_args.kwargs
         assert upsert_kwargs["where"] == {"id": "user_banner"}
         persisted_payload = upsert_kwargs["data"]["create"]["ui_settings"]
         assert json.loads(persisted_payload) == saved
         assert json.loads(upsert_kwargs["data"]["update"]["ui_settings"]) == saved
 
-        mock_prisma.db.litellm_uisettings.find_unique = AsyncMock(
+        mock_prisma.db.embrouter_uisettings.find_unique = AsyncMock(
             return_value=SimpleNamespace(ui_settings=persisted_payload)
         )
         read_back = client.get("/get/user_banner")
@@ -172,4 +172,4 @@ class TestUpdateUserBanner:
         mock_prisma = _mock_prisma(monkeypatch)
         response = client.patch("/update/user_banner", json=payload)
         assert response.status_code == 422
-        mock_prisma.db.litellm_uisettings.upsert.assert_not_awaited()
+        mock_prisma.db.embrouter_uisettings.upsert.assert_not_awaited()

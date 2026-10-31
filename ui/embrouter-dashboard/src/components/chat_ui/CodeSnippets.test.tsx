@@ -71,18 +71,18 @@ describe("CodeSnippets", () => {
   });
 
   describe("base URL selection", () => {
-    it("should use LITELLM_UI_API_DOC_BASE_URL when provided", () => {
+    it("should use EMBROUTER_UI_API_DOC_BASE_URL when provided", () => {
       const customBaseUrl = "https://custom-doc.example.com";
       const code = generateCodeSnippet({
         ...baseParams,
         proxySettings: {
-          LITELLM_UI_API_DOC_BASE_URL: customBaseUrl,
+          EMBROUTER_UI_API_DOC_BASE_URL: customBaseUrl,
         },
       });
       expect(code).toContain(`base_url="${customBaseUrl}"`);
     });
 
-    it("should use PROXY_BASE_URL when LITELLM_UI_API_DOC_BASE_URL is not provided", () => {
+    it("should use PROXY_BASE_URL when EMBROUTER_UI_API_DOC_BASE_URL is not provided", () => {
       const proxyBaseUrl = "https://proxy.example.com";
       const code = generateCodeSnippet({
         ...baseParams,
@@ -93,13 +93,13 @@ describe("CodeSnippets", () => {
       expect(code).toContain(`base_url="${proxyBaseUrl}"`);
     });
 
-    it("should prioritize LITELLM_UI_API_DOC_BASE_URL over PROXY_BASE_URL when both are provided", () => {
+    it("should prioritize EMBROUTER_UI_API_DOC_BASE_URL over PROXY_BASE_URL when both are provided", () => {
       const customBaseUrl = "https://custom-doc.example.com";
       const proxyBaseUrl = "https://proxy.example.com";
       const code = generateCodeSnippet({
         ...baseParams,
         proxySettings: {
-          LITELLM_UI_API_DOC_BASE_URL: customBaseUrl,
+          EMBROUTER_UI_API_DOC_BASE_URL: customBaseUrl,
           PROXY_BASE_URL: proxyBaseUrl,
         },
       });
@@ -120,53 +120,53 @@ describe("CodeSnippets", () => {
       expect(code).toContain(`base_url="http://localhost:4000"`);
     });
 
-    it("should fallback to PROXY_BASE_URL when LITELLM_UI_API_DOC_BASE_URL is empty string", () => {
+    it("should fallback to PROXY_BASE_URL when EMBROUTER_UI_API_DOC_BASE_URL is empty string", () => {
       const proxyBaseUrl = "https://proxy.example.com";
       const code = generateCodeSnippet({
         ...baseParams,
         proxySettings: {
-          LITELLM_UI_API_DOC_BASE_URL: "",
+          EMBROUTER_UI_API_DOC_BASE_URL: "",
           PROXY_BASE_URL: proxyBaseUrl,
         },
       });
       expect(code).toContain(`base_url="${proxyBaseUrl}"`);
     });
 
-    it("should fallback to PROXY_BASE_URL when LITELLM_UI_API_DOC_BASE_URL is whitespace only", () => {
+    it("should fallback to PROXY_BASE_URL when EMBROUTER_UI_API_DOC_BASE_URL is whitespace only", () => {
       const proxyBaseUrl = "https://proxy.example.com";
       const code = generateCodeSnippet({
         ...baseParams,
         proxySettings: {
-          LITELLM_UI_API_DOC_BASE_URL: "   ",
+          EMBROUTER_UI_API_DOC_BASE_URL: "   ",
           PROXY_BASE_URL: proxyBaseUrl,
         },
       });
       expect(code).toContain(`base_url="${proxyBaseUrl}"`);
     });
 
-    it("should fallback to window.location.origin when LITELLM_UI_API_DOC_BASE_URL is null", () => {
+    it("should fallback to window.location.origin when EMBROUTER_UI_API_DOC_BASE_URL is null", () => {
       const code = generateCodeSnippet({
         ...baseParams,
         proxySettings: {
-          LITELLM_UI_API_DOC_BASE_URL: null,
+          EMBROUTER_UI_API_DOC_BASE_URL: null,
         },
       });
       expect(code).toContain(`base_url="http://localhost:4000"`);
     });
 
-    it("should use LITELLM_UI_API_DOC_BASE_URL for Azure SDK", () => {
+    it("should use EMBROUTER_UI_API_DOC_BASE_URL for Azure SDK", () => {
       const customBaseUrl = "https://custom-doc.example.com";
       const code = generateCodeSnippet({
         ...baseParams,
         selectedSdk: "azure",
         proxySettings: {
-          LITELLM_UI_API_DOC_BASE_URL: customBaseUrl,
+          EMBROUTER_UI_API_DOC_BASE_URL: customBaseUrl,
         },
       });
       expect(code).toContain(`azure_endpoint="${customBaseUrl}"`);
     });
 
-    it("should use PROXY_BASE_URL for Azure SDK when LITELLM_UI_API_DOC_BASE_URL is not provided", () => {
+    it("should use PROXY_BASE_URL for Azure SDK when EMBROUTER_UI_API_DOC_BASE_URL is not provided", () => {
       const proxyBaseUrl = "https://proxy.example.com";
       const code = generateCodeSnippet({
         ...baseParams,

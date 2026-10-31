@@ -15,7 +15,7 @@ const baseLog: AuditLogEntry = {
   changed_by: "user-1",
   changed_by_api_key: "hashed-key-abc",
   action: "updated",
-  table_name: "LiteLLM_TeamTable",
+  table_name: "EmbRouter_TeamTable",
   object_id: "team-42",
   before_value: { max_budget: 10, tpm_limit: 100 },
   updated_values: { max_budget: 25, tpm_limit: 100 },
@@ -54,8 +54,8 @@ describe("AuditLogDrawer", () => {
   });
 
   it("should fall back to the raw table name when it is not mapped", () => {
-    render(<AuditLogDrawer {...defaultProps} log={{ ...baseLog, table_name: "LiteLLM_SomethingElse" }} />);
-    expect(screen.getByText("LiteLLM_SomethingElse")).toBeInTheDocument();
+    render(<AuditLogDrawer {...defaultProps} log={{ ...baseLog, table_name: "EmbRouter_SomethingElse" }} />);
+    expect(screen.getByText("EmbRouter_SomethingElse")).toBeInTheDocument();
   });
 
   it("should show the object id, the actor and the api key hash", () => {
@@ -109,7 +109,7 @@ describe("AuditLogDrawer", () => {
         {...defaultProps}
         log={{
           ...baseLog,
-          table_name: "LiteLLM_VerificationToken",
+          table_name: "EmbRouter_VerificationToken",
           before_value: { spend: 1, max_budget: 10 },
           updated_values: { spend: 2, max_budget: 10 },
         }}
@@ -160,33 +160,33 @@ describe("AuditLogDrawer", () => {
     });
 
     it("restores a stored width", () => {
-      localStorage.setItem("litellm:auditLogDrawerWidth", "58");
+      localStorage.setItem("embrouter:auditLogDrawerWidth", "58");
       render(<AuditLogDrawer {...defaultProps} />);
       expect(sheetContent().style.getPropertyValue("--sheet-width")).toBe("58%");
     });
 
     it("keeps the saved width while expanded and restores it on collapse", async () => {
       const user = userEvent.setup();
-      localStorage.setItem("litellm:auditLogDrawerWidth", "58");
+      localStorage.setItem("embrouter:auditLogDrawerWidth", "58");
       render(<AuditLogDrawer {...defaultProps} />);
 
       await user.click(screen.getByRole("button", { name: /expand drawer/i }));
       expect(sheetContent().style.getPropertyValue("--sheet-width")).toBe("100%");
-      expect(localStorage.getItem("litellm:auditLogDrawerWidth")).toBe("58");
+      expect(localStorage.getItem("embrouter:auditLogDrawerWidth")).toBe("58");
 
       await user.click(screen.getByRole("button", { name: /collapse drawer/i }));
       expect(sheetContent().style.getPropertyValue("--sheet-width")).toBe("58%");
-      expect(localStorage.getItem("litellm:auditLogDrawerWidth")).toBe("58");
+      expect(localStorage.getItem("embrouter:auditLogDrawerWidth")).toBe("58");
     });
 
     it("falls back to the default width for a non-numeric stored value", () => {
-      localStorage.setItem("litellm:auditLogDrawerWidth", "abc");
+      localStorage.setItem("embrouter:auditLogDrawerWidth", "abc");
       render(<AuditLogDrawer {...defaultProps} />);
       expect(sheetContent().style.getPropertyValue("--sheet-width")).toBe("75%");
     });
 
     it("falls back to the default width for an out-of-range stored value", () => {
-      localStorage.setItem("litellm:auditLogDrawerWidth", "10");
+      localStorage.setItem("embrouter:auditLogDrawerWidth", "10");
       render(<AuditLogDrawer {...defaultProps} />);
       expect(sheetContent().style.getPropertyValue("--sheet-width")).toBe("75%");
     });

@@ -4,7 +4,7 @@ from typing import Final, TypeAlias, Union, cast
 
 from pydantic import TypeAdapter
 
-from litellm._logging import verbose_proxy_logger
+from embrouter._logging import verbose_proxy_logger
 
 JsonValue: TypeAlias = Union["JsonObject", "JsonArray", str, int, float, bool, None]
 JsonObject: TypeAlias = dict[str, JsonValue]
@@ -349,7 +349,7 @@ class CustomOpenAPISpec:
             Modified OpenAPI schema
         """
         try:
-            from litellm.proxy._types import ProxyChatCompletionRequest
+            from embrouter.proxy._types import ProxyChatCompletionRequest
 
             return CustomOpenAPISpec.add_request_schema(
                 openapi_schema=openapi_schema,
@@ -375,7 +375,7 @@ class CustomOpenAPISpec:
             Modified OpenAPI schema
         """
         try:
-            from litellm.types.embedding import EmbeddingRequest
+            from embrouter.types.embedding import EmbeddingRequest
 
             return CustomOpenAPISpec.add_request_schema(
                 openapi_schema=openapi_schema,
@@ -403,7 +403,7 @@ class CustomOpenAPISpec:
             Modified OpenAPI schema
         """
         try:
-            from litellm.types.llms.openai import ResponsesAPIRequestParams
+            from embrouter.types.llms.openai import ResponsesAPIRequestParams
 
             return CustomOpenAPISpec.add_request_schema(
                 openapi_schema=openapi_schema,

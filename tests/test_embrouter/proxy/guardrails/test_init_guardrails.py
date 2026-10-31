@@ -5,25 +5,25 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 
-from litellm.proxy.guardrails.guardrail_hooks.custom_code.custom_code_guardrail import CustomCodeCompilationError
-from litellm.proxy.guardrails.guardrail_registry import InMemoryGuardrailHandler
-from litellm.proxy.guardrails.init_guardrails import init_guardrails_v2
-from litellm.types.guardrails import Mode, SupportedGuardrailIntegrations
+from embrouter.proxy.guardrails.guardrail_hooks.custom_code.custom_code_guardrail import CustomCodeCompilationError
+from embrouter.proxy.guardrails.guardrail_registry import InMemoryGuardrailHandler
+from embrouter.proxy.guardrails.init_guardrails import init_guardrails_v2
+from embrouter.types.guardrails import Mode, SupportedGuardrailIntegrations
 
 
 def test_init_guardrails_v2_registers_panw_mcp_output_scanner(monkeypatch: pytest.MonkeyPatch) -> None:
-    import litellm
-    from litellm.proxy.guardrails import guardrail_registry
-    from litellm.proxy.guardrails.guardrail_hooks.panw_prisma_airs import PanwPrismaAirsHandler
-    from litellm.types.guardrails import GuardrailEventHooks
+    import embrouter
+    from embrouter.proxy.guardrails import guardrail_registry
+    from embrouter.proxy.guardrails.guardrail_hooks.panw_prisma_airs import PanwPrismaAirsHandler
+    from embrouter.types.guardrails import GuardrailEventHooks
 
-    monkeypatch.setenv("LITELLM_STRICT_GUARDRAIL_MODES", "true")
+    monkeypatch.setenv("EMBROUTER_STRICT_GUARDRAIL_MODES", "true")
     monkeypatch.setattr(guardrail_registry, "IN_MEMORY_GUARDRAIL_HANDLER", InMemoryGuardrailHandler())
     init_guardrails_v2(
         all_guardrails=[
             {
                 "guardrail_name": "panw-mcp-output",
-                "litellm_params": {
+                "embrouter_params": {
                     "guardrail": "panw_prisma_airs",
                     "mode": "post_mcp_call",
                     "default_on": True,
@@ -35,7 +35,7 @@ def test_init_guardrails_v2_registers_panw_mcp_output_scanner(monkeypatch: pytes
     )
     scanners: Final = tuple(
         callback
-        for callback in litellm.callbacks
+        for callback in embrouter.callbacks
         if isinstance(callback, PanwPrismaAirsHandler) and callback.guardrail_name == "panw-mcp-output"
     )
     assert len(scanners) == 1, "PANW MCP output scanning must be registered at startup"
@@ -51,7 +51,7 @@ def test_initialize_presidio_guardrail():
     # Setup test data for a non-custom guardrail (using Presidio as an example)
     test_guardrail = {
         "guardrail_name": "test_presidio_guardrail",
-        "litellm_params": {
+        "embrouter_params": {
             "guardrail": SupportedGuardrailIntegrations.PRESIDIO.value,
             "mode": "pre_call",
             "presidio_analyzer_api_base": "https://fakelink.com/v1/presidio/analyze",
@@ -66,25 +66,25 @@ def test_initialize_presidio_guardrail():
     )
 
     assert result["guardrail_name"] == "test_presidio_guardrail"
-    assert result["litellm_params"].guardrail == SupportedGuardrailIntegrations.PRESIDIO.value
-    assert result["litellm_params"].mode == "pre_call"
+    assert result["embrouter_params"].guardrail == SupportedGuardrailIntegrations.PRESIDIO.value
+    assert result["embrouter_params"].mode == "pre_call"
 
 
 def test_initialize_bedrock_forwards_chunk_budget_chars():
     """Regression: `chunk_budget_chars` set in config.yaml must reach the guardrail.
 
-    The field lives on BedrockGuardrailConfigModel, so LitellmParams parsed it and the
+    The field lives on BedrockGuardrailConfigModel, so EmbrouterParams parsed it and the
     Admin UI rendered it, but initialize_bedrock enumerates its kwargs explicitly and
     dropped it. The setting validated and then silently did nothing. Asserting through
     initialize_guardrail rather than the constructor is the point: constructing
     BedrockGuardrail directly bypasses the only path a user can actually reach.
     """
-    import litellm
-    from litellm.proxy.guardrails.guardrail_hooks.bedrock_guardrails import BedrockGuardrail
+    import embrouter
+    from embrouter.proxy.guardrails.guardrail_hooks.bedrock_guardrails import BedrockGuardrail
 
     test_guardrail = {
         "guardrail_name": "test_bedrock_chunk_budget",
-        "litellm_params": {
+        "embrouter_params": {
             "guardrail": SupportedGuardrailIntegrations.BEDROCK.value,
             "mode": "pre_call",
             "guardrailIdentifier": "test-guardrail",
@@ -98,7 +98,7 @@ def test_initialize_bedrock_forwards_chunk_budget_chars():
 
     initialized = [
         callback
-        for callback in litellm.callbacks
+        for callback in embrouter.callbacks
         if isinstance(callback, BedrockGuardrail) and callback.guardrail_name == "test_bedrock_chunk_budget"
     ]
     assert initialized, "bedrock guardrail was not registered as a callback"
@@ -108,13 +108,13 @@ def test_initialize_bedrock_forwards_chunk_budget_chars():
 def test_initialize_bedrock_forwards_contextual_grounding_from_messages():
     """`contextual_grounding_from_messages: true` in config.yaml must make the post-call
     payload carry the plain system prompt and user turn as grounding_source and query."""
-    import litellm
-    from litellm.proxy.guardrails.guardrail_hooks.bedrock_guardrails import BedrockGuardrail
-    from litellm.types.utils import Choices, Message, ModelResponse
+    import embrouter
+    from embrouter.proxy.guardrails.guardrail_hooks.bedrock_guardrails import BedrockGuardrail
+    from embrouter.types.utils import Choices, Message, ModelResponse
 
     test_guardrail = {
         "guardrail_name": "test_bedrock_grounding_from_messages",
-        "litellm_params": {
+        "embrouter_params": {
             "guardrail": SupportedGuardrailIntegrations.BEDROCK.value,
             "mode": "post_call",
             "guardrailIdentifier": "test-guardrail",
@@ -143,7 +143,7 @@ def test_initialize_bedrock_forwards_contextual_grounding_from_messages():
 
     initialized = [
         callback
-        for callback in litellm.callbacks
+        for callback in embrouter.callbacks
         if isinstance(callback, BedrockGuardrail) and callback.guardrail_name == "test_bedrock_grounding_from_messages"
     ]
     assert initialized, "bedrock guardrail was not registered as a callback"
@@ -159,7 +159,7 @@ def test_initialize_guardrail_preserves_guardrail_info():
     """
     test_guardrail = {
         "guardrail_name": "test_presidio_with_info",
-        "litellm_params": {
+        "embrouter_params": {
             "guardrail": SupportedGuardrailIntegrations.PRESIDIO.value,
             "mode": "pre_call",
             "presidio_analyzer_api_base": "https://fakelink.com/v1/presidio/analyze",
@@ -182,19 +182,19 @@ def test_initialize_guardrail_preserves_guardrail_info():
     [(True, True), (False, False), (None, False)],
 )
 def test_initialize_guardrail_sets_run_in_parallel(config_value, expected):
-    """run_in_parallel from litellm_params must reach the built guardrail instance."""
-    litellm_params = {
+    """run_in_parallel from embrouter_params must reach the built guardrail instance."""
+    embrouter_params = {
         "guardrail": SupportedGuardrailIntegrations.PRESIDIO.value,
         "mode": "pre_call",
         "presidio_analyzer_api_base": "https://fakelink.com/v1/presidio/analyze",
         "presidio_anonymizer_api_base": "https://fakelink.com/v1/presidio/anonymize",
     }
     if config_value is not None:
-        litellm_params["run_in_parallel"] = config_value
+        embrouter_params["run_in_parallel"] = config_value
 
     guardrail_handler = InMemoryGuardrailHandler()
     result = guardrail_handler.initialize_guardrail(
-        guardrail={"guardrail_name": "test_parallel_flag", "litellm_params": litellm_params},
+        guardrail={"guardrail_name": "test_parallel_flag", "embrouter_params": embrouter_params},
     )
 
     custom_guardrail = guardrail_handler.guardrail_id_to_custom_guardrail[result["guardrail_id"]]
@@ -204,17 +204,17 @@ def test_initialize_guardrail_sets_run_in_parallel(config_value, expected):
 def test_initialize_presidio_forwards_analyze_chunk_size_bytes():
     """Regression (LIT-4785): `presidio_analyze_chunk_size_bytes` set in
     config.yaml must reach the guardrail instance. The field lives on
-    PresidioConfigModel, so LitellmParams parses it, but initialize_presidio
+    PresidioConfigModel, so EmbrouterParams parses it, but initialize_presidio
     enumerates its constructor kwargs explicitly and would silently drop it.
     """
-    import litellm
-    from litellm.proxy.guardrails.guardrail_hooks.presidio import (
+    import embrouter
+    from embrouter.proxy.guardrails.guardrail_hooks.presidio import (
         _OPTIONAL_PresidioPIIMasking,
     )
 
     test_guardrail = {
         "guardrail_name": "test_presidio_chunk_size",
-        "litellm_params": {
+        "embrouter_params": {
             "guardrail": SupportedGuardrailIntegrations.PRESIDIO.value,
             "mode": "pre_call",
             "presidio_analyzer_api_base": "https://fakelink.com/v1/presidio/analyze",
@@ -228,7 +228,7 @@ def test_initialize_presidio_forwards_analyze_chunk_size_bytes():
 
     initialized = [
         callback
-        for callback in litellm.callbacks
+        for callback in embrouter.callbacks
         if isinstance(callback, _OPTIONAL_PresidioPIIMasking)
         and callback.guardrail_name == "test_presidio_chunk_size"
     ]
@@ -256,13 +256,13 @@ async def test_initialize_presidio_mcp_only_mode_skips_post_call_output_scan(
     """Regression: an MCP-only Presidio guardrail used to also scan the LLM
     response on post_call, so a blocked MCP tool call that the model repeated in
     its answer turned the whole request into an HTTP 400 instead of a 200."""
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.types.guardrails import GuardrailEventHooks
-    from litellm.types.utils import Choices, Message, ModelResponse
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.types.guardrails import GuardrailEventHooks
+    from embrouter.types.utils import Choices, Message, ModelResponse
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", True)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.premium_user", True)
     llm_answer = "Call me at 415-555-2671"
-    litellm_params = {
+    embrouter_params = {
         "guardrail": SupportedGuardrailIntegrations.PRESIDIO.value,
         "mode": mode,
         "presidio_analyzer_api_base": "https://fakelink.com/v1/presidio/analyze",
@@ -271,11 +271,11 @@ async def test_initialize_presidio_mcp_only_mode_skips_post_call_output_scan(
         "default_on": True,
     }
     if filter_scope is not None:
-        litellm_params["presidio_filter_scope"] = filter_scope
+        embrouter_params["presidio_filter_scope"] = filter_scope
 
     guardrail_handler = InMemoryGuardrailHandler()
     result = guardrail_handler.initialize_guardrail(
-        guardrail={"guardrail_name": "test_presidio_mcp_scope", "litellm_params": litellm_params}
+        guardrail={"guardrail_name": "test_presidio_mcp_scope", "embrouter_params": embrouter_params}
     )
     guardrail_id = result["guardrail_id"]
     callbacks = [
@@ -301,20 +301,20 @@ async def test_initialize_presidio_mcp_only_mode_skips_post_call_output_scan(
     [(True, True), (False, False), (None, False)],
 )
 def test_initialize_guardrail_sets_scan_raw_request(config_value, expected):
-    """scan_raw_request from litellm_params must reach the built guardrail instance,
+    """scan_raw_request from embrouter_params must reach the built guardrail instance,
     same wiring as run_in_parallel."""
-    litellm_params = {
+    embrouter_params = {
         "guardrail": SupportedGuardrailIntegrations.PRESIDIO.value,
         "mode": "pre_call",
         "presidio_analyzer_api_base": "https://fakelink.com/v1/presidio/analyze",
         "presidio_anonymizer_api_base": "https://fakelink.com/v1/presidio/anonymize",
     }
     if config_value is not None:
-        litellm_params["scan_raw_request"] = config_value
+        embrouter_params["scan_raw_request"] = config_value
 
     guardrail_handler = InMemoryGuardrailHandler()
     result = guardrail_handler.initialize_guardrail(
-        guardrail={"guardrail_name": "test_scan_raw_request_flag", "litellm_params": litellm_params},
+        guardrail={"guardrail_name": "test_scan_raw_request_flag", "embrouter_params": embrouter_params},
     )
 
     custom_guardrail = guardrail_handler.guardrail_id_to_custom_guardrail[result["guardrail_id"]]
@@ -323,7 +323,7 @@ def test_initialize_guardrail_sets_scan_raw_request(config_value, expected):
 
 def test_init_guardrails_v2_skips_invalid_guardrail_instead_of_crashing_boot():
     """
-    Regression: one guardrail with an invalid litellm_params combination (Lakera's
+    Regression: one guardrail with an invalid embrouter_params combination (Lakera's
     on_flagged="inject_system_message" with payload=False, which LakeraAIGuardrail's
     __init__ rejects with ValueError since masking can't happen without payload data)
     must not take down the entire proxy at startup. init_guardrails_v2 previously had
@@ -336,7 +336,7 @@ def test_init_guardrails_v2_skips_invalid_guardrail_instead_of_crashing_boot():
     now accepted at construction time, since async_moderation_hook already degrades
     it gracefully at runtime instead of needing a config-time rejection.
     """
-    from litellm.proxy.guardrails.guardrail_registry import IN_MEMORY_GUARDRAIL_HANDLER
+    from embrouter.proxy.guardrails.guardrail_registry import IN_MEMORY_GUARDRAIL_HANDLER
 
     IN_MEMORY_GUARDRAIL_HANDLER.IN_MEMORY_GUARDRAILS.clear()
     IN_MEMORY_GUARDRAIL_HANDLER.guardrail_id_to_custom_guardrail.clear()
@@ -344,7 +344,7 @@ def test_init_guardrails_v2_skips_invalid_guardrail_instead_of_crashing_boot():
     all_guardrails = [
         {
             "guardrail_name": "broken_lakera_advisory",
-            "litellm_params": {
+            "embrouter_params": {
                 "guardrail": SupportedGuardrailIntegrations.LAKERA_V2.value,
                 "mode": "pre_call",
                 "on_flagged": "inject_system_message",
@@ -354,7 +354,7 @@ def test_init_guardrails_v2_skips_invalid_guardrail_instead_of_crashing_boot():
         },
         {
             "guardrail_name": "healthy_presidio",
-            "litellm_params": {
+            "embrouter_params": {
                 "guardrail": SupportedGuardrailIntegrations.PRESIDIO.value,
                 "mode": "pre_call",
                 "presidio_analyzer_api_base": "https://fakelink.com/v1/presidio/analyze",
@@ -373,7 +373,7 @@ def test_init_guardrails_v2_skips_invalid_guardrail_instead_of_crashing_boot():
 
 
 def test_init_guardrails_v2_stops_boot_when_a_custom_code_guardrail_does_not_compile():
-    from litellm.proxy.guardrails.guardrail_registry import IN_MEMORY_GUARDRAIL_HANDLER
+    from embrouter.proxy.guardrails.guardrail_registry import IN_MEMORY_GUARDRAIL_HANDLER
 
     IN_MEMORY_GUARDRAIL_HANDLER.IN_MEMORY_GUARDRAILS.clear()
     IN_MEMORY_GUARDRAIL_HANDLER.guardrail_id_to_custom_guardrail.clear()
@@ -381,7 +381,7 @@ def test_init_guardrails_v2_stops_boot_when_a_custom_code_guardrail_does_not_com
     all_guardrails = [
         {
             "guardrail_name": "custom-code-without-apply-guardrail",
-            "litellm_params": {
+            "embrouter_params": {
                 "guardrail": SupportedGuardrailIntegrations.CUSTOM_CODE.value,
                 "mode": "pre_call",
                 "custom_code": "x = 1\n",
@@ -401,7 +401,7 @@ def test_init_guardrails_v2_accepts_during_call_advisory_mode():
     advisory itself can't be delivered, so rejecting this combination at config time
     disabled a guardrail that runtime already handles safely.
     """
-    from litellm.proxy.guardrails.guardrail_registry import IN_MEMORY_GUARDRAIL_HANDLER
+    from embrouter.proxy.guardrails.guardrail_registry import IN_MEMORY_GUARDRAIL_HANDLER
 
     IN_MEMORY_GUARDRAIL_HANDLER.IN_MEMORY_GUARDRAILS.clear()
     IN_MEMORY_GUARDRAIL_HANDLER.guardrail_id_to_custom_guardrail.clear()
@@ -409,7 +409,7 @@ def test_init_guardrails_v2_accepts_during_call_advisory_mode():
     all_guardrails = [
         {
             "guardrail_name": "during_call_advisory",
-            "litellm_params": {
+            "embrouter_params": {
                 "guardrail": SupportedGuardrailIntegrations.LAKERA_V2.value,
                 "mode": "during_call",
                 "on_flagged": "inject_system_message",
@@ -433,7 +433,7 @@ def test_init_guardrails_v2_skips_guardrail_with_malformed_advisory_template():
     uncaught-ValueError-crashes-boot root cause as the during_call+inject_system_message
     case above. Both must be caught by init_guardrails_v2, not just one.
     """
-    from litellm.proxy.guardrails.guardrail_registry import IN_MEMORY_GUARDRAIL_HANDLER
+    from embrouter.proxy.guardrails.guardrail_registry import IN_MEMORY_GUARDRAIL_HANDLER
 
     IN_MEMORY_GUARDRAIL_HANDLER.IN_MEMORY_GUARDRAILS.clear()
     IN_MEMORY_GUARDRAIL_HANDLER.guardrail_id_to_custom_guardrail.clear()
@@ -441,7 +441,7 @@ def test_init_guardrails_v2_skips_guardrail_with_malformed_advisory_template():
     all_guardrails = [
         {
             "guardrail_name": "broken_lakera_template",
-            "litellm_params": {
+            "embrouter_params": {
                 "guardrail": SupportedGuardrailIntegrations.LAKERA_V2.value,
                 "mode": "pre_call",
                 "on_flagged": "inject_system_message",
@@ -451,7 +451,7 @@ def test_init_guardrails_v2_skips_guardrail_with_malformed_advisory_template():
         },
         {
             "guardrail_name": "healthy_presidio",
-            "litellm_params": {
+            "embrouter_params": {
                 "guardrail": SupportedGuardrailIntegrations.PRESIDIO.value,
                 "mode": "pre_call",
                 "presidio_analyzer_api_base": "https://fakelink.com/v1/presidio/analyze",
@@ -496,14 +496,14 @@ async def test_presidio_initialized_output_dispatch(
 ) -> None:
     from typing import Final
 
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.guardrails.guardrail_hooks.unified_guardrail.unified_guardrail import UnifiedLLMGuardrails
-    from litellm.proxy.guardrails.guardrail_initializers import initialize_presidio
-    from litellm.types.guardrails import GuardrailEventHooks, LitellmParams
-    from litellm.types.utils import Choices, Message, ModelResponse
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy.guardrails.guardrail_hooks.unified_guardrail.unified_guardrail import UnifiedLLMGuardrails
+    from embrouter.proxy.guardrails.guardrail_initializers import initialize_presidio
+    from embrouter.types.guardrails import GuardrailEventHooks, EmbrouterParams
+    from embrouter.types.utils import Choices, Message, ModelResponse
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.premium_user", True)
-    params: Final = LitellmParams(
+    monkeypatch.setattr("embrouter.proxy.proxy_server.premium_user", True)
+    params: Final = EmbrouterParams(
         guardrail="presidio",
         mode=mode,
         default_on=True,

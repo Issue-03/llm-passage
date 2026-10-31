@@ -7,35 +7,35 @@ from enum import Enum
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Final
 
-import litellm
-from litellm._logging import verbose_router_logger
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.core_helpers import get_metadata_variable_name_from_kwargs, safe_deep_copy
-from litellm.litellm_core_utils.get_llm_provider_logic import inferred_provider
-from litellm.litellm_core_utils.sensitive_data_masker import mask_sensitive_structure
-from litellm.router_utils.add_retry_fallback_headers import (
+import embrouter
+from embrouter._logging import verbose_router_logger
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.embrouter_core_utils.core_helpers import get_metadata_variable_name_from_kwargs, safe_deep_copy
+from embrouter.embrouter_core_utils.get_llm_provider_logic import inferred_provider
+from embrouter.embrouter_core_utils.sensitive_data_masker import mask_sensitive_structure
+from embrouter.router_utils.add_retry_fallback_headers import (
     add_fallback_headers_to_response,
     get_fallback_error_info,
 )
-from litellm.router_utils.batch_utils import _get_router_metadata_variable_name
-from litellm.router_utils.cooldown_handlers import (
+from embrouter.router_utils.batch_utils import _get_router_metadata_variable_name
+from embrouter.router_utils.cooldown_handlers import (
     _first_present,  # pyright: ignore[reportPrivateUsage] - shared internal helper, used across router_utils
     _set_cooldown_deployments,  # pyright: ignore[reportPrivateUsage] - shared helper, used across router_utils
     cast_exception_status_to_int,
     is_advisor_orchestration_failure,
     is_caller_timeout_408,
 )
-from litellm.router_utils.router_callbacks.track_deployment_metrics import (
+from embrouter.router_utils.router_callbacks.track_deployment_metrics import (
     increment_deployment_failures_for_current_minute,
 )
-from litellm.types.router import LiteLLMParamsTypedDict
+from embrouter.types.router import EmbRouterParamsTypedDict
 
 if TYPE_CHECKING:
-    from litellm.router import Router as _Router
+    from embrouter.router import Router as _Router
 
-    LitellmRouter = _Router
+    EmbrouterRouter = _Router
 else:
-    LitellmRouter = Any
+    EmbrouterRouter = Any
 
 # Status codes a generic API call's caller-supplied resource id can trigger on its own
 # (e.g. a nonexistent file/batch/thread id), independent of the selected deployment's health.
@@ -44,7 +44,7 @@ _NO_MODEL_CALL_DETAILS: Final[Mapping[str, object]] = MappingProxyType({})
 
 
 def _trigger_cooldown_for_failed_deployment(
-    litellm_router: LitellmRouter,
+    embrouter_router: EmbrouterRouter,
     kwargs: Mapping[str, object],
     exception: Exception,
     model_call_details: Mapping[str, object] = _NO_MODEL_CALL_DETAILS,
@@ -82,8 +82,8 @@ def _trigger_cooldown_for_failed_deployment(
             )
             return
 
-        # The proxy's `x-litellm-timeout` header lets a caller set an arbitrarily short
-        # timeout, which litellm.Timeout reports as status 408 regardless of the deployment's
+        # The proxy's `x-embrouter-timeout` header lets a caller set an arbitrarily short
+        # timeout, which embrouter.Timeout reports as status 408 regardless of the deployment's
         # actual health. Left unguarded, a caller could force a 408 on every deployment in
         # the fallback chain from a single request with a near-zero timeout.
         if is_caller_timeout_408(
@@ -93,12 +93,12 @@ def _trigger_cooldown_for_failed_deployment(
         ):
             verbose_router_logger.debug(
                 "Not triggering cooldown for fallback deployment: a caller-supplied "
-                "x-litellm-timeout caused this 408, not deployment health."
+                "x-embrouter-timeout caused this 408, not deployment health."
             )
             return
 
         # Only Router._set_failed_deployment_id_on_exception()'s server-stamped id is
-        # trusted here: a metadata-bucket lookup (e.g. "metadata"/"litellm_metadata")
+        # trusted here: a metadata-bucket lookup (e.g. "metadata"/"embrouter_metadata")
         # can't reliably tell a caller-supplied bucket from a router-authored one
         # without knowing this call's function_name, so a client with permission to
         # set metadata could otherwise get an arbitrary deployment cooled down.
@@ -110,19 +110,19 @@ def _trigger_cooldown_for_failed_deployment(
 
         # Priority: deployment config > response header > router default, matching
         # Router.deployment_callback_on_failure's precedence for the primary path.
-        deployment_dict: Final = litellm_router.get_model_info(id=deployment_id)
+        deployment_dict: Final = embrouter_router.get_model_info(id=deployment_id)
         deployment_cooldown: Final = (
             _first_present(
-                deployment_dict.get("model_info"), deployment_dict.get("litellm_params"), key="cooldown_time"
+                deployment_dict.get("model_info"), deployment_dict.get("embrouter_params"), key="cooldown_time"
             )
             if deployment_dict is not None
             else None
         )
-        exception_headers: Final = litellm.litellm_core_utils.exception_mapping_utils._get_response_headers(
+        exception_headers: Final = embrouter.embrouter_core_utils.exception_mapping_utils._get_response_headers(
             original_exception=exception
         )
         _get_retry_after: Final = (
-            litellm.utils._get_retry_after_from_exception_header  # pyright: ignore[reportPrivateUsage] - as router.py
+            embrouter.utils._get_retry_after_from_exception_header  # pyright: ignore[reportPrivateUsage] - as router.py
         )
         header_cooldown: Final = (
             _get_retry_after(response_headers=exception_headers) if exception_headers is not None else None
@@ -133,16 +133,16 @@ def _trigger_cooldown_for_failed_deployment(
             else (
                 header_cooldown
                 if header_cooldown is not None and header_cooldown >= 0
-                else litellm_router.cooldown_time
+                else embrouter_router.cooldown_time
             )
         )
 
         increment_deployment_failures_for_current_minute(
-            litellm_router_instance=litellm_router,
+            embrouter_router_instance=embrouter_router,
             deployment_id=deployment_id,
         )
         _set_cooldown_deployments(
-            litellm_router_instance=litellm_router,
+            embrouter_router_instance=embrouter_router,
             exception_status=exception_status,
             original_exception=exception,
             deployment=deployment_id,
@@ -225,7 +225,7 @@ def _check_stripped_model_group(model_group: str, fallback_key: str) -> bool:
     Returns:
     - True if the stripped model group == fallback_key
     """
-    for provider in litellm.provider_list:
+    for provider in embrouter.provider_list:
         if isinstance(provider, Enum):
             _provider = provider.value
         else:
@@ -245,7 +245,7 @@ def _provider_prefixed_model_group(model_group: str, fallback_keys: Sequence[str
 
 
 PRE_ROUTING_SELECTED_MODEL_KEY: Final = "pre_routing_selected_model"
-_ROUTER_METADATA_BUCKETS: Final = ("metadata", "litellm_metadata")
+_ROUTER_METADATA_BUCKETS: Final = ("metadata", "embrouter_metadata")
 
 
 def record_pre_routing_selection(request_kwargs: Mapping[str, object] | None, selected_model: str) -> None:
@@ -372,7 +372,7 @@ def record_disable_fallbacks(request_kwargs: Mapping[str, object] | None, disabl
     gate (which decides whether to convert a refusal into a recoverable error) needs this
     carrier to know recovery is impossible.
     """
-    from litellm.litellm_core_utils.core_helpers import get_metadata_variable_name_from_kwargs
+    from embrouter.embrouter_core_utils.core_helpers import get_metadata_variable_name_from_kwargs
 
     if request_kwargs is None:
         return
@@ -503,12 +503,12 @@ def _get_fallback_target_model_group(fallback_entry: str | Mapping[str, object])
 
 
 async def _is_fallback_target_authorized(
-    litellm_router: LitellmRouter,
+    embrouter_router: EmbrouterRouter,
     fallback_entry: str | Mapping[str, object],
     original_model_group: str,
     kwargs: Mapping[str, object],
 ) -> bool:
-    access_check: Final = litellm_router.fallback_access_check
+    access_check: Final = embrouter_router.fallback_access_check
     target: Final = _get_fallback_target_model_group(fallback_entry)
     if (
         access_check is None
@@ -517,7 +517,7 @@ async def _is_fallback_target_authorized(
         or target == get_pre_routing_selection(kwargs)
     ):
         return True
-    if await access_check(model=target, request_kwargs=kwargs, llm_router=litellm_router):
+    if await access_check(model=target, request_kwargs=kwargs, llm_router=embrouter_router):
         return True
     verbose_router_logger.info(
         "Skipping fallback to model_group = %s: caller is not authorized to call it",
@@ -527,16 +527,16 @@ async def _is_fallback_target_authorized(
 
 
 async def _is_fallback_target_within_budget(
-    litellm_router: LitellmRouter,
+    embrouter_router: EmbrouterRouter,
     fallback_entry: str | Mapping[str, object],
     original_model_group: str,
     kwargs: Mapping[str, object],
 ) -> bool:
-    budget_check: Final = litellm_router.fallback_budget_check
+    budget_check: Final = embrouter_router.fallback_budget_check
     target: Final = _get_fallback_target_model_group(fallback_entry)
     if budget_check is None or target is None or target == original_model_group:
         return True
-    if await budget_check(model=target, request_kwargs=kwargs, llm_router=litellm_router):
+    if await budget_check(model=target, request_kwargs=kwargs, llm_router=embrouter_router):
         return True
     verbose_router_logger.info(
         "Skipping fallback to model_group = %s: caller is over budget",
@@ -581,7 +581,7 @@ def creates_provider_scoped_resource(kwargs: Mapping[str, object]) -> bool:
 
 async def run_async_fallback(
     *args: object,
-    litellm_router: LitellmRouter,
+    embrouter_router: EmbrouterRouter,
     fallback_model_group: list[str],
     original_model_group: str,
     original_exception: Exception,
@@ -598,7 +598,7 @@ async def run_async_fallback(
     If all fallback model groups fail, it raises the most recent exception.
 
     Args:
-        litellm_router: The litellm router instance.
+        embrouter_router: The embrouter router instance.
         *args: Positional arguments.
         fallback_model_group: List[str] of fallback model groups. example: ["gpt-4", "gpt-3.5-turbo"]
         original_model_group: The original model group. example: "gpt-3.5-turbo"
@@ -650,9 +650,9 @@ async def run_async_fallback(
                 original_model_group,
             )
             continue
-        if not await _is_fallback_target_authorized(litellm_router, mg, original_model_group, kwargs):
+        if not await _is_fallback_target_authorized(embrouter_router, mg, original_model_group, kwargs):
             continue
-        if not await _is_fallback_target_within_budget(litellm_router, mg, original_model_group, kwargs):
+        if not await _is_fallback_target_within_budget(embrouter_router, mg, original_model_group, kwargs):
             continue
         attempt_key = fallback_attempt_key(mg)
         if attempt_key is not None:
@@ -665,7 +665,7 @@ async def run_async_fallback(
             attempted.record(attempt_key)
         try:
             # LOGGING
-            kwargs = litellm_router.log_retry(kwargs=kwargs, e=original_exception)
+            kwargs = embrouter_router.log_retry(kwargs=kwargs, e=original_exception)
             verbose_router_logger.info("Falling back to model_group = %s", mask_sensitive_structure(mg))
             kwargs.pop("_target_order", None)
             if isinstance(mg, str):
@@ -686,7 +686,7 @@ async def run_async_fallback(
             kwargs["attempted_targets"] = attempted
             if include_fallback_errors:
                 kwargs["include_fallback_errors"] = include_fallback_errors
-            response = await litellm_router.async_function_with_fallbacks(*args, **kwargs)
+            response = await embrouter_router.async_function_with_fallbacks(*args, **kwargs)
             verbose_router_logger.info("Successful fallback b/w models.")
             response = add_fallback_headers_to_response(
                 response=response,
@@ -708,10 +708,10 @@ async def run_async_fallback(
                 kwargs=kwargs,
                 original_exception=original_exception,
             )
-            logging_obj = kwargs.get("litellm_logging_obj")
+            logging_obj = kwargs.get("embrouter_logging_obj")
             if logging_obj is not None and logging_obj.model_call_details.get("has_logged_async_failure", False):
                 _trigger_cooldown_for_failed_deployment(
-                    litellm_router=litellm_router,
+                    embrouter_router=embrouter_router,
                     kwargs=kwargs,
                     exception=e,
                     model_call_details=logging_obj.model_call_details,
@@ -734,7 +734,7 @@ async def log_success_fallback_event(original_model_group: str, kwargs: dict, or
         Errors during logging are caught and reported but do not interrupt the process.
     """
     # Get deduplicated CustomLogger instances from all callback lists
-    custom_loggers: Final = litellm.logging_callback_manager.get_custom_loggers_for_type(CustomLogger)
+    custom_loggers: Final = embrouter.logging_callback_manager.get_custom_loggers_for_type(CustomLogger)
 
     for _callback_custom_logger in custom_loggers:
         try:
@@ -762,7 +762,7 @@ async def log_failure_fallback_event(original_model_group: str, kwargs: dict, or
         Errors during logging are caught and reported but do not interrupt the process.
     """
     # Get deduplicated CustomLogger instances from all callback lists
-    custom_loggers: Final = litellm.logging_callback_manager.get_custom_loggers_for_type(CustomLogger)
+    custom_loggers: Final = embrouter.logging_callback_manager.get_custom_loggers_for_type(CustomLogger)
 
     for _callback_custom_logger in custom_loggers:
         try:
@@ -781,7 +781,7 @@ def _check_non_standard_fallback_format(fallbacks: Sequence[object] | None) -> b
 
     If
     - List[str]: e.g. ["claude-3-haiku", "openai/o-1"]
-    - List[Dict[<LiteLLMParamsTypedDict>, Any]]: e.g. [{"model": "claude-3-haiku", "messages": [{"role": "user", "content": "Hey, how's it going?"}]}]
+    - List[Dict[<EmbRouterParamsTypedDict>, Any]]: e.g. [{"model": "claude-3-haiku", "messages": [{"role": "user", "content": "Hey, how's it going?"}]}]
 
     If [{"gpt-3.5-turbo": ["claude-3-haiku"]}] then standard format.
     """
@@ -792,7 +792,7 @@ def _check_non_standard_fallback_format(fallbacks: Sequence[object] | None) -> b
     dict_entries: Final = tuple(item for item in fallbacks if isinstance(item, dict))
     if len(dict_entries) == len(fallbacks):
         for item in dict_entries:
-            for key in LiteLLMParamsTypedDict.__annotations__:
+            for key in EmbRouterParamsTypedDict.__annotations__:
                 if key in item:
                     # If the value is a list, it's likely a standard fallback model group mapping
                     # (e.g. {"model": ["backup"]}) rather than a parameter override.

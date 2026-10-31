@@ -6,7 +6,7 @@ from zoneinfo import ZoneInfo
 
 from pydantic import TypeAdapter, ValidationError
 
-from litellm.types.router import ModelAccessWindow
+from embrouter.types.router import ModelAccessWindow
 
 _WINDOWS_ADAPTER: Final = TypeAdapter(tuple[ModelAccessWindow, ...])
 

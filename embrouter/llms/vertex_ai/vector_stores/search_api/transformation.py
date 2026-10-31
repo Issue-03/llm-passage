@@ -5,13 +5,13 @@ from typing import TYPE_CHECKING, Any, Final, Protocol
 import httpx
 from typing_extensions import ReadOnly, TypedDict
 
-from litellm import get_model_info
-from litellm.exceptions import BadRequestError
-from litellm.litellm_core_utils.url_utils import encode_url_path_segment
-from litellm.llms.base_llm.vector_store.transformation import BaseVectorStoreConfig
-from litellm.llms.vertex_ai.vertex_llm_base import VertexBase
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.vector_stores import (
+from embrouter import get_model_info
+from embrouter.exceptions import BadRequestError
+from embrouter.embrouter_core_utils.url_utils import encode_url_path_segment
+from embrouter.llms.base_llm.vector_store.transformation import BaseVectorStoreConfig
+from embrouter.llms.vertex_ai.vertex_llm_base import VertexBase
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.vector_stores import (
     BaseVectorStoreAuthCredentials,
     VectorStoreCreateOptionalRequestParams,
     VectorStoreCreateResponse,
@@ -25,11 +25,11 @@ from litellm.types.vector_stores import (
 )
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 
 # Fields that select which data store / serving config to search. These are
@@ -290,10 +290,10 @@ class VertexSearchAPIVectorStoreConfig(BaseVectorStoreConfig, VertexBase):
 
         return filtered
 
-    def get_auth_credentials(self, litellm_params: dict) -> BaseVectorStoreAuthCredentials:
+    def get_auth_credentials(self, embrouter_params: dict) -> BaseVectorStoreAuthCredentials:
         # Get credentials and project info
-        vertex_credentials: Final = self.get_vertex_ai_credentials(dict(litellm_params))
-        vertex_project: Final = self.get_vertex_ai_project(dict(litellm_params))
+        vertex_credentials: Final = self.get_vertex_ai_credentials(dict(embrouter_params))
+        vertex_project: Final = self.get_vertex_ai_project(dict(embrouter_params))
 
         # Get access token using the base class method
         access_token, project_id = self._ensure_access_token(
@@ -315,19 +315,19 @@ class VertexSearchAPIVectorStoreConfig(BaseVectorStoreConfig, VertexBase):
             "write": [],
         }
 
-    def validate_environment(self, headers: dict, litellm_params: GenericLiteLLMParams | None) -> dict:
+    def validate_environment(self, headers: dict, embrouter_params: GenericEmbRouterParams | None) -> dict:
         """
         Validate and set up authentication for Vertex AI RAG API
         """
-        litellm_params = litellm_params or GenericLiteLLMParams()
-        auth_headers: Final = self.get_auth_credentials(litellm_params.model_dump())
+        embrouter_params = embrouter_params or GenericEmbRouterParams()
+        auth_headers: Final = self.get_auth_credentials(embrouter_params.model_dump())
         headers.update(auth_headers.get("headers", {}))
         return headers
 
     def get_complete_url(
         self,
         api_base: str | None,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> str:
         """
         Get the Base endpoint for Vertex AI Search API.
@@ -341,9 +341,9 @@ class VertexSearchAPIVectorStoreConfig(BaseVectorStoreConfig, VertexBase):
         if api_base:
             return api_base.rstrip("/")
 
-        vertex_location: Final = self.get_vertex_ai_location(litellm_params)
-        vertex_project: Final = self.get_vertex_ai_project(litellm_params)
-        collection_id: Final = litellm_params.get("vertex_collection_id") or "default_collection"
+        vertex_location: Final = self.get_vertex_ai_location(embrouter_params)
+        vertex_project: Final = self.get_vertex_ai_project(embrouter_params)
+        collection_id: Final = embrouter_params.get("vertex_collection_id") or "default_collection"
         encoded_collection_id: Final = encode_url_path_segment(collection_id, field_name="vertex_collection_id")
         base: Final = (
             f"https://discoveryengine.googleapis.com/v1/"
@@ -351,12 +351,12 @@ class VertexSearchAPIVectorStoreConfig(BaseVectorStoreConfig, VertexBase):
             f"collections/{encoded_collection_id}"
         )
 
-        engine_id: Final = litellm_params.get("vertex_engine_id")
+        engine_id: Final = embrouter_params.get("vertex_engine_id")
         if engine_id:
             encoded_engine_id: Final = encode_url_path_segment(engine_id, field_name="vertex_engine_id")
             return f"{base}/engines/{encoded_engine_id}/servingConfigs/default_serving_config"
 
-        datastore_id: Final = litellm_params.get("vector_store_id")
+        datastore_id: Final = embrouter_params.get("vector_store_id")
         if not datastore_id:
             raise ValueError("vector_store_id is required when vertex_engine_id is not set")
         encoded_datastore_id: Final = encode_url_path_segment(datastore_id, field_name="vector_store_id")
@@ -368,8 +368,8 @@ class VertexSearchAPIVectorStoreConfig(BaseVectorStoreConfig, VertexBase):
         query: str | list[str],
         vector_store_search_optional_params: VectorStoreSearchOptionalRequestParams,
         api_base: str,
-        litellm_logging_obj: LiteLLMLoggingObj,
-        litellm_params: dict,
+        embrouter_logging_obj: EmbRouterLoggingObj,
+        embrouter_params: dict,
         extra_body: Mapping[str, object] | None = None,
     ) -> tuple[str, dict[str, object]]:
         """
@@ -394,7 +394,7 @@ class VertexSearchAPIVectorStoreConfig(BaseVectorStoreConfig, VertexBase):
 
         url: Final = f"{api_base}:search"
 
-        is_engine: Final = bool(litellm_params.get("vertex_engine_id"))
+        is_engine: Final = bool(embrouter_params.get("vertex_engine_id"))
 
         request_body: Final[dict[str, object]] = {"query": query, "pageSize": 10}
         max_num_results: Final = vector_store_search_optional_params.get("max_num_results")
@@ -403,12 +403,12 @@ class VertexSearchAPIVectorStoreConfig(BaseVectorStoreConfig, VertexBase):
         if isinstance(extra_body, dict):
             request_body.update(self._filter_extra_body(extra_body, is_engine=is_engine))
 
-        litellm_logging_obj.model_call_details["query"] = request_body.get("query", query)
+        embrouter_logging_obj.model_call_details["query"] = request_body.get("query", query)
 
         return url, request_body
 
     def transform_search_vector_store_response(
-        self, response: httpx.Response, litellm_logging_obj: LiteLLMLoggingObj
+        self, response: httpx.Response, embrouter_logging_obj: EmbRouterLoggingObj
     ) -> VectorStoreSearchResponse:
         """
         Transform a Discovery Engine ``:search`` response into the standard vector store search response.
@@ -424,7 +424,7 @@ class VertexSearchAPIVectorStoreConfig(BaseVectorStoreConfig, VertexBase):
             search_results: Final = [
                 _search_result(hit, position) for position, hit in enumerate(response_json.get("results", ()))
             ]
-            query_view: Final[_SearchQueryView] = {"query": litellm_logging_obj.model_call_details.get("query", "")}
+            query_view: Final[_SearchQueryView] = {"query": embrouter_logging_obj.model_call_details.get("query", "")}
             return VectorStoreSearchResponse(
                 object="vector_store.search_results.page",
                 search_query=query_view["query"],

@@ -15,33 +15,33 @@ from urllib.parse import urlparse
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, ValidationError
 
-from litellm._logging import verbose_proxy_logger
-from litellm.constants import DEFAULT_MAX_RECURSE_DEPTH
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
-from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.common_utils.path_utils import safe_join
-from litellm.proxy.guardrails.guardrail_hooks.custom_code.bounded_execution import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.constants import DEFAULT_MAX_RECURSE_DEPTH
+from embrouter.integrations.custom_guardrail import CustomGuardrail
+from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps
+from embrouter.proxy._types import EmbrouterUserRoles, UserAPIKeyAuth
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.common_utils.path_utils import safe_join
+from embrouter.proxy.guardrails.guardrail_hooks.custom_code.bounded_execution import (
     ExecutionTimeoutError,
     await_with_timeout,
     call_off_loop_with_timeout,
 )
-from litellm.proxy.guardrails.guardrail_hooks.custom_code.custom_code_guardrail import CustomCodeCompilationError
-from litellm.proxy.guardrails.guardrail_hooks.custom_code.sandbox import (
+from embrouter.proxy.guardrails.guardrail_hooks.custom_code.custom_code_guardrail import CustomCodeCompilationError
+from embrouter.proxy.guardrails.guardrail_hooks.custom_code.sandbox import (
     build_sandbox_globals,
     compile_sandboxed,
 )
-from litellm.proxy.guardrails.guardrail_registry import GuardrailRegistry
-from litellm.proxy.guardrails.usage_endpoints import router as guardrails_usage_router
-from litellm.proxy.management_endpoints.common_utils import _user_has_admin_view
-from litellm.repositories.prisma_protocols import TableActions
-from litellm.repositories.table_repositories import GuardrailsRepository
-from litellm.types.guardrails import (
+from embrouter.proxy.guardrails.guardrail_registry import GuardrailRegistry
+from embrouter.proxy.guardrails.usage_endpoints import router as guardrails_usage_router
+from embrouter.proxy.management_endpoints.common_utils import _user_has_admin_view
+from embrouter.repositories.prisma_protocols import TableActions
+from embrouter.repositories.table_repositories import GuardrailsRepository
+from embrouter.types.guardrails import (
     PII_ENTITY_CATEGORIES_MAP,
     ApplyGuardrailRequest,
     ApplyGuardrailResponse,
-    BaseLitellmParams,
+    BaseEmbrouterParams,
     BedrockGuardrailConfigModel,
     BedrockGuardrailStreamingParams,
     Guardrail,
@@ -50,7 +50,7 @@ from litellm.types.guardrails import (
     GuardrailUIAddGuardrailSettings,
     LakeraV2GuardrailConfigModel,
     ListGuardrailsResponse,
-    LitellmParams,
+    EmbrouterParams,
     PatchGuardrailRequest,
     PiiAction,
     PiiEntityType,
@@ -58,17 +58,17 @@ from litellm.types.guardrails import (
     SupportedGuardrailIntegrations,
     ToolPermissionGuardrailConfigModel,
 )
-from litellm.types.proxy.guardrails.guardrail_hooks.hide_secrets import (
+from embrouter.types.proxy.guardrails.guardrail_hooks.hide_secrets import (
     HideSecretsGuardrailConfigModel,
 )
 
 if TYPE_CHECKING:
     from types import CodeType
 
-    from prisma.models import LiteLLM_GuardrailsTable
+    from prisma.models import EmbRouter_GuardrailsTable
     from pydantic.fields import FieldInfo
 
-    from litellm.proxy.utils import PrismaClient
+    from embrouter.proxy.utils import PrismaClient
 
 #### GUARDRAILS ENDPOINTS ####
 
@@ -80,11 +80,11 @@ def _as_str_object_mapping(mapping: Mapping[str, object]) -> Mapping[str, object
     return mapping
 
 
-def _guardrails_table(prisma_client: "PrismaClient") -> "TableActions[LiteLLM_GuardrailsTable]":
+def _guardrails_table(prisma_client: "PrismaClient") -> "TableActions[EmbRouter_GuardrailsTable]":
     return GuardrailsRepository(prisma_client).table
 
 
-async def _create_guardrail_row(prisma_client: "PrismaClient", data: Mapping[str, object]) -> "LiteLLM_GuardrailsTable":
+async def _create_guardrail_row(prisma_client: "PrismaClient", data: Mapping[str, object]) -> "EmbRouter_GuardrailsTable":
     row: Final = await _guardrails_table(prisma_client).create(data=data)
     return row
 
@@ -95,7 +95,7 @@ async def _delete_guardrail_row(prisma_client: "PrismaClient", where: Mapping[st
 
 async def _find_team_guardrail_rows(
     prisma_client: "PrismaClient", where: Mapping[str, object]
-) -> "Sequence[LiteLLM_GuardrailsTable]":
+) -> "Sequence[EmbRouter_GuardrailsTable]":
     rows: Final = await _guardrails_table(prisma_client).find_many(
         where=where,
         order={"created_at": "desc"},
@@ -109,13 +109,13 @@ def _get_guardrails_list_response(
     """
     Helper function to get the guardrails list response
     """
-    from litellm.litellm_core_utils.litellm_logging import _get_masked_values
+    from embrouter.embrouter_core_utils.embrouter_logging import _get_masked_values
 
     guardrail_configs: Final[list[GuardrailInfoResponse]] = []
     for guardrail in guardrails_config:
-        litellm_params = guardrail.get("litellm_params") or {}
+        embrouter_params = guardrail.get("embrouter_params") or {}
         masked_params = _get_masked_values(
-            litellm_params,
+            embrouter_params,
             unmasked_length=4,
             number_of_asterisks=4,
         )
@@ -123,7 +123,7 @@ def _get_guardrails_list_response(
             GuardrailInfoResponse(
                 guardrail_id=guardrail.get("guardrail_id"),
                 guardrail_name=guardrail.get("guardrail_name"),
-                litellm_params=masked_params,
+                embrouter_params=masked_params,
                 guardrail_info=guardrail.get("guardrail_info"),
             )
         )
@@ -171,7 +171,7 @@ async def list_guardrails():
     }
     ```
     """
-    from litellm.proxy.proxy_server import proxy_config
+    from embrouter.proxy.proxy_server import proxy_config
 
     config: Final = proxy_config.config
 
@@ -208,7 +208,7 @@ async def list_guardrails_v2(
             {
                 "guardrail_id": "123e4567-e89b-12d3-a456-426614174000",
                 "guardrail_name": "my-bedrock-guard",
-                "litellm_params": {
+                "embrouter_params": {
                     "guardrail": "bedrock",
                     "mode": "pre_call",
                     "guardrailIdentifier": "ff6ujrregl1q",
@@ -223,9 +223,9 @@ async def list_guardrails_v2(
     }
     ```
     """
-    from litellm.litellm_core_utils.litellm_logging import _get_masked_values
-    from litellm.proxy.guardrails.guardrail_registry import IN_MEMORY_GUARDRAIL_HANDLER
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.embrouter_core_utils.embrouter_logging import _get_masked_values
+    from embrouter.proxy.guardrails.guardrail_registry import IN_MEMORY_GUARDRAIL_HANDLER
+    from embrouter.proxy.proxy_server import prisma_client
 
     is_admin: Final = _user_has_admin_view(user_api_key_dict)
 
@@ -253,25 +253,25 @@ async def list_guardrails_v2(
         guardrail_configs: Final[list[GuardrailInfoResponse]] = []
         seen_guardrail_ids: Final[set] = excluded_guardrail_ids.copy()
         for guardrail in guardrails:
-            litellm_params: LitellmParams | dict | None = guardrail.get("litellm_params")
-            litellm_params_dict = (
-                litellm_params.model_dump(exclude_none=True)
-                if isinstance(litellm_params, LitellmParams)
-                else litellm_params
+            embrouter_params: EmbrouterParams | dict | None = guardrail.get("embrouter_params")
+            embrouter_params_dict = (
+                embrouter_params.model_dump(exclude_none=True)
+                if isinstance(embrouter_params, EmbrouterParams)
+                else embrouter_params
             ) or {}
-            masked_litellm_params_dict = _get_masked_values(
-                litellm_params_dict,
+            masked_embrouter_params_dict = _get_masked_values(
+                embrouter_params_dict,
                 unmasked_length=4,
                 number_of_asterisks=4,
             )
-            masked_litellm_params = (
-                BaseLitellmParams(**masked_litellm_params_dict) if masked_litellm_params_dict else None
+            masked_embrouter_params = (
+                BaseEmbrouterParams(**masked_embrouter_params_dict) if masked_embrouter_params_dict else None
             )
             guardrail_configs.append(
                 GuardrailInfoResponse(
                     guardrail_id=guardrail.get("guardrail_id"),
                     guardrail_name=guardrail.get("guardrail_name"),
-                    litellm_params=masked_litellm_params,
+                    embrouter_params=masked_embrouter_params,
                     guardrail_info=guardrail.get("guardrail_info"),
                     created_at=guardrail.get("created_at"),
                     updated_at=guardrail.get("updated_at"),
@@ -280,7 +280,7 @@ async def list_guardrails_v2(
             )
             seen_guardrail_ids.add(guardrail.get("guardrail_id"))
 
-        # get guardrails initialized on litellm config.yaml
+        # get guardrails initialized on embrouter config.yaml
         in_memory_guardrails: Final = IN_MEMORY_GUARDRAIL_HANDLER.list_in_memory_guardrails()
         for guardrail in in_memory_guardrails:
             gid = guardrail.get("guardrail_id")
@@ -294,25 +294,25 @@ async def list_guardrails_v2(
                 g_team_id = guardrail.get("team_id")
                 if g_team_id is not None and g_team_id not in caller_team_ids:
                     continue
-            in_memory_litellm_params_raw = guardrail.get("litellm_params")
-            in_memory_litellm_params_dict = (
-                in_memory_litellm_params_raw.model_dump(exclude_none=True)
-                if isinstance(in_memory_litellm_params_raw, LitellmParams)
-                else in_memory_litellm_params_raw
+            in_memory_embrouter_params_raw = guardrail.get("embrouter_params")
+            in_memory_embrouter_params_dict = (
+                in_memory_embrouter_params_raw.model_dump(exclude_none=True)
+                if isinstance(in_memory_embrouter_params_raw, EmbrouterParams)
+                else in_memory_embrouter_params_raw
             ) or {}
-            masked_in_memory_litellm_params = _get_masked_values(
-                in_memory_litellm_params_dict,
+            masked_in_memory_embrouter_params = _get_masked_values(
+                in_memory_embrouter_params_dict,
                 unmasked_length=4,
                 number_of_asterisks=4,
             )
-            masked_in_memory_litellm_params_typed = (
-                BaseLitellmParams(**masked_in_memory_litellm_params) if masked_in_memory_litellm_params else None
+            masked_in_memory_embrouter_params_typed = (
+                BaseEmbrouterParams(**masked_in_memory_embrouter_params) if masked_in_memory_embrouter_params else None
             )
             guardrail_configs.append(
                 GuardrailInfoResponse(
                     guardrail_id=guardrail.get("guardrail_id"),
                     guardrail_name=guardrail.get("guardrail_name"),
-                    litellm_params=masked_in_memory_litellm_params_typed,
+                    embrouter_params=masked_in_memory_embrouter_params_typed,
                     guardrail_info=dict(guardrail.get("guardrail_info") or {}),
                     guardrail_definition_location="config",
                 )
@@ -350,7 +350,7 @@ async def create_guardrail(
         -d '{
             "guardrail": {
                 "guardrail_name": "my-bedrock-guard",
-                "litellm_params": {
+                "embrouter_params": {
                     "guardrail": "bedrock",
                     "mode": "pre_call",
                     "guardrailIdentifier": "ff6ujrregl1q",
@@ -369,7 +369,7 @@ async def create_guardrail(
     {
         "guardrail_id": "123e4567-e89b-12d3-a456-426614174000",
         "guardrail_name": "my-bedrock-guard",
-        "litellm_params": {
+        "embrouter_params": {
             "guardrail": "bedrock",
             "mode": "pre_call",
             "guardrailIdentifier": "ff6ujrregl1q",
@@ -384,10 +384,10 @@ async def create_guardrail(
     }
     ```
     """
-    from litellm.proxy.guardrails.guardrail_registry import IN_MEMORY_GUARDRAIL_HANDLER
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.guardrails.guardrail_registry import IN_MEMORY_GUARDRAIL_HANDLER
+    from embrouter.proxy.proxy_server import prisma_client
 
-    if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+    if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
         raise HTTPException(
             status_code=403,
             detail="Admin access required to manage guardrails",
@@ -460,7 +460,7 @@ async def update_guardrail(
         -d '{
             "guardrail": {
                 "guardrail_name": "updated-bedrock-guard",
-                "litellm_params": {
+                "embrouter_params": {
                     "guardrail": "bedrock",
                     "mode": "pre_call",
                     "guardrailIdentifier": "ff6ujrregl1q",
@@ -479,7 +479,7 @@ async def update_guardrail(
     {
         "guardrail_id": "123e4567-e89b-12d3-a456-426614174000",
         "guardrail_name": "updated-bedrock-guard",
-        "litellm_params": {
+        "embrouter_params": {
             "guardrail": "bedrock",
             "mode": "pre_call",
             "guardrailIdentifier": "ff6ujrregl1q",
@@ -494,10 +494,10 @@ async def update_guardrail(
     }
     ```
     """
-    from litellm.proxy.guardrails.guardrail_registry import IN_MEMORY_GUARDRAIL_HANDLER
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.guardrails.guardrail_registry import IN_MEMORY_GUARDRAIL_HANDLER
+    from embrouter.proxy.proxy_server import prisma_client
 
-    if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+    if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
         raise HTTPException(
             status_code=403,
             detail="Admin access required to manage guardrails",
@@ -587,10 +587,10 @@ async def delete_guardrail(
     }
     ```
     """
-    from litellm.proxy.guardrails.guardrail_registry import IN_MEMORY_GUARDRAIL_HANDLER
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.guardrails.guardrail_registry import IN_MEMORY_GUARDRAIL_HANDLER
+    from embrouter.proxy.proxy_server import prisma_client
 
-    if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+    if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
         raise HTTPException(
             status_code=403,
             detail="Admin access required to manage guardrails",
@@ -645,12 +645,12 @@ class RegisterGuardrailRequest(BaseModel):
     """Request body for POST /guardrails/register. Follows Generic Guardrail API config."""
 
     guardrail_name: str
-    litellm_params: dict[str, object]  # guardrail, mode, api_base required; api_key, headers, etc. optional
+    embrouter_params: dict[str, object]  # guardrail, mode, api_base required; api_key, headers, etc. optional
     guardrail_info: dict[str, object] | None = None
     team_id: str | None = None
 
-    def get_litellm_params_dict(self) -> dict[str, Any]:
-        return dict(self.litellm_params)
+    def get_embrouter_params_dict(self) -> dict[str, Any]:
+        return dict(self.embrouter_params)
 
 
 class RegisterGuardrailResponse(BaseModel):
@@ -675,7 +675,7 @@ class GuardrailSubmissionItem(BaseModel):
     team_guardrail: bool = (
         False  # True when submitted via team (team_id set); use to distinguish team vs regular guardrails
     )
-    litellm_params: dict[str, object] | None = None
+    embrouter_params: dict[str, object] | None = None
     guardrail_info: dict[str, object] | None = None
     submitted_by_user_id: str | None = None
     submitted_by_email: str | None = None
@@ -706,7 +706,7 @@ async def register_guardrail(
     Generic Guardrail API format.
     The submission is stored with status `pending_review` until an admin approves it.
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail="Prisma client not initialized")
@@ -720,7 +720,7 @@ async def register_guardrail(
         )
 
     # Validate team membership for non-admin users when team differs from key
-    is_admin: Final = user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN
+    is_admin: Final = user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN
     if not is_admin and team_id != user_api_key_dict.team_id:
         user_team_ids: Final = await _get_user_team_ids(user_api_key_dict)
         if team_id not in user_team_ids:
@@ -729,34 +729,34 @@ async def register_guardrail(
                 detail=f"You are not a member of team {team_id!r}",
             )
 
-    params: Final = request.get_litellm_params_dict()
+    params: Final = request.get_embrouter_params_dict()
     if params.get("guardrail") != GENERIC_GUARDRAIL_API:
         raise HTTPException(
             status_code=400,
-            detail=f"Only guardrails with litellm_params.guardrail={GENERIC_GUARDRAIL_API!r} are accepted for registration",
+            detail=f"Only guardrails with embrouter_params.guardrail={GENERIC_GUARDRAIL_API!r} are accepted for registration",
         )
     api_base: Final = params.get("api_base")
     if not api_base:
         raise HTTPException(
             status_code=400,
-            detail="litellm_params.api_base is required for generic_guardrail_api",
+            detail="embrouter_params.api_base is required for generic_guardrail_api",
         )
     parsed: Final = urlparse(api_base)
     if parsed.scheme not in ("http", "https"):
         raise HTTPException(
             status_code=400,
-            detail="litellm_params.api_base must use http or https scheme",
+            detail="embrouter_params.api_base must use http or https scheme",
         )
     if not parsed.hostname:
         raise HTTPException(
             status_code=400,
-            detail="litellm_params.api_base must contain a valid hostname",
+            detail="embrouter_params.api_base must contain a valid hostname",
         )
     mode: Final = params.get("mode")
     if mode is None:
         raise HTTPException(
             status_code=400,
-            detail="litellm_params.mode is required (e.g. pre_call, post_call)",
+            detail="embrouter_params.mode is required (e.g. pre_call, post_call)",
         )
 
     try:
@@ -773,7 +773,7 @@ async def register_guardrail(
         raise HTTPException(status_code=500, detail=str(e))
 
     now: Final = datetime.now(timezone.utc)
-    litellm_params_str: Final = safe_dumps(params)
+    embrouter_params_str: Final = safe_dumps(params)
     guardrail_info: Final = dict(request.guardrail_info or {})
     guardrail_info["submitted_by_user_id"] = user_api_key_dict.user_id
     guardrail_info["submitted_by_email"] = user_api_key_dict.user_email
@@ -785,7 +785,7 @@ async def register_guardrail(
             prisma_client,
             data={
                 "guardrail_name": request.guardrail_name,
-                "litellm_params": litellm_params_str,
+                "embrouter_params": embrouter_params_str,
                 "guardrail_info": guardrail_info_str,
                 "status": "pending_review",
                 "team_id": team_id,
@@ -820,8 +820,8 @@ def _parse_json_field(value: object) -> dict[str, Any] | None:
 
 async def _get_user_team_ids(user_api_key_dict: UserAPIKeyAuth) -> list[str]:
     """Return the list of team_ids the caller belongs to (empty list if none)."""
-    from litellm.proxy.auth.auth_checks import get_user_object
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.auth.auth_checks import get_user_object
+    from embrouter.proxy.proxy_server import (
         prisma_client,
         proxy_logging_obj,
         user_api_key_cache,
@@ -842,12 +842,12 @@ async def _get_user_team_ids(user_api_key_dict: UserAPIKeyAuth) -> list[str]:
     return [t for t in user_obj.teams if t]
 
 
-def _row_to_submission_item(row: "LiteLLM_GuardrailsTable") -> GuardrailSubmissionItem:
-    from litellm.litellm_core_utils.litellm_logging import _get_masked_values
+def _row_to_submission_item(row: "EmbRouter_GuardrailsTable") -> GuardrailSubmissionItem:
+    from embrouter.embrouter_core_utils.embrouter_logging import _get_masked_values
 
     guardrail_info: Final = _parse_json_field(row.guardrail_info) or {}
     team_guardrail: Final = row.team_id is not None
-    raw_params: Final = _parse_json_field(row.litellm_params) or {}
+    raw_params: Final = _parse_json_field(row.embrouter_params) or {}
     masked_params: Final = _get_masked_values(raw_params, unmasked_length=4, number_of_asterisks=4)
     return GuardrailSubmissionItem(
         guardrail_id=row.guardrail_id,
@@ -855,7 +855,7 @@ def _row_to_submission_item(row: "LiteLLM_GuardrailsTable") -> GuardrailSubmissi
         status=row.status or "active",
         team_id=row.team_id,
         team_guardrail=team_guardrail,
-        litellm_params=masked_params,
+        embrouter_params=masked_params,
         guardrail_info=guardrail_info,
         submitted_by_user_id=guardrail_info.get("submitted_by_user_id"),
         submitted_by_email=guardrail_info.get("submitted_by_email"),
@@ -890,7 +890,7 @@ async def list_guardrail_submissions(
     - team_id: filter by specific team (non-admins must be a member of that team)
     - search: name/description
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail="Prisma client not initialized")
@@ -972,7 +972,7 @@ async def get_guardrail_submission(
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
 ):
     """Get a single guardrail submission by id. Non-admins may only access submissions for teams they belong to."""
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail="Prisma client not initialized")
@@ -1007,10 +1007,10 @@ async def approve_guardrail_submission(
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
 ):
     """Approve a pending guardrail submission: set status to active and initialize in memory (admin only)."""
-    from litellm.proxy.guardrails.guardrail_registry import IN_MEMORY_GUARDRAIL_HANDLER
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.guardrails.guardrail_registry import IN_MEMORY_GUARDRAIL_HANDLER
+    from embrouter.proxy.proxy_server import prisma_client
 
-    if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+    if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
         raise HTTPException(status_code=403, detail="Admin access required")
 
     if prisma_client is None:
@@ -1032,17 +1032,17 @@ async def approve_guardrail_submission(
             data={"status": "active", "reviewed_at": now, "updated_at": now},
         )
 
-        litellm_params: Final = _parse_json_field(row.litellm_params)
+        embrouter_params: Final = _parse_json_field(row.embrouter_params)
         guardrail_info: Final = _parse_json_field(row.guardrail_info)
-        if not litellm_params:
+        if not embrouter_params:
             raise HTTPException(
                 status_code=500,
-                detail="Guardrail litellm_params is missing or invalid",
+                detail="Guardrail embrouter_params is missing or invalid",
             )
         guardrail_dict: Final = {
             "guardrail_id": row.guardrail_id,
             "guardrail_name": row.guardrail_name,
-            "litellm_params": litellm_params,
+            "embrouter_params": embrouter_params,
             "guardrail_info": guardrail_info or {},
             "team_id": row.team_id,
         }
@@ -1088,9 +1088,9 @@ async def reject_guardrail_submission(
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
 ):
     """Reject a guardrail submission (admin only)."""
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
-    if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+    if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
         raise HTTPException(status_code=403, detail="Admin access required")
 
     if prisma_client is None:
@@ -1162,7 +1162,7 @@ async def patch_guardrail(
     {
         "guardrail_id": "123e4567-e89b-12d3-a456-426614174000",
         "guardrail_name": "updated-name",
-        "litellm_params": {
+        "embrouter_params": {
             "guardrail": "bedrock",
             "mode": "pre_call",
             "guardrailIdentifier": "ff6ujrregl1q",
@@ -1177,10 +1177,10 @@ async def patch_guardrail(
     }
     ```
     """
-    from litellm.proxy.guardrails.guardrail_registry import IN_MEMORY_GUARDRAIL_HANDLER
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.guardrails.guardrail_registry import IN_MEMORY_GUARDRAIL_HANDLER
+    from embrouter.proxy.proxy_server import prisma_client
 
-    if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+    if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
         raise HTTPException(
             status_code=403,
             detail="Admin access required to manage guardrails",
@@ -1203,16 +1203,16 @@ async def patch_guardrail(
             request.guardrail_name if request.guardrail_name is not None else existing_guardrail.get("guardrail_name")
         )
 
-        # Update litellm_params if default_on is provided or pii_entities_config is provided
-        existing_litellm_params: Final = _as_str_object_mapping(dict(existing_guardrail.get("litellm_params", {})))
-        litellm_params = LitellmParams(**existing_litellm_params)
-        if request.litellm_params is not None:
-            requested_litellm_params: Final = request.litellm_params.model_dump(exclude_unset=True)
-            litellm_params_dict: Final = litellm_params.model_dump(exclude_unset=True)
-            litellm_params_dict.update(requested_litellm_params)
-            merged_litellm_params: Final = _as_str_object_mapping(litellm_params_dict)
+        # Update embrouter_params if default_on is provided or pii_entities_config is provided
+        existing_embrouter_params: Final = _as_str_object_mapping(dict(existing_guardrail.get("embrouter_params", {})))
+        embrouter_params = EmbrouterParams(**existing_embrouter_params)
+        if request.embrouter_params is not None:
+            requested_embrouter_params: Final = request.embrouter_params.model_dump(exclude_unset=True)
+            embrouter_params_dict: Final = embrouter_params.model_dump(exclude_unset=True)
+            embrouter_params_dict.update(requested_embrouter_params)
+            merged_embrouter_params: Final = _as_str_object_mapping(embrouter_params_dict)
             try:
-                litellm_params = LitellmParams(**merged_litellm_params)
+                embrouter_params = EmbrouterParams(**merged_embrouter_params)
             except ValidationError as validation_error:
                 raise HTTPException(
                     status_code=422,
@@ -1230,7 +1230,7 @@ async def patch_guardrail(
         guardrail: Final = Guardrail(
             guardrail_id=guardrail_id,
             guardrail_name=guardrail_name or "",
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             guardrail_info=guardrail_info,
         )
         result: Final = _as_str_object_mapping(
@@ -1262,7 +1262,7 @@ async def patch_guardrail(
                 guardrail=Guardrail(
                     guardrail_id=guardrail_id,
                     guardrail_name=existing_guardrail.get("guardrail_name") or "",
-                    litellm_params=LitellmParams(**existing_litellm_params),
+                    embrouter_params=EmbrouterParams(**existing_embrouter_params),
                     guardrail_info=existing_guardrail.get(
                         "guardrail_info",
                         {},  # mutable-ok: Guardrail's own constructor takes a plain dict
@@ -1317,7 +1317,7 @@ async def get_guardrail_info(guardrail_id: str):
     {
         "guardrail_id": "123e4567-e89b-12d3-a456-426614174000",
         "guardrail_name": "my-bedrock-guard",
-        "litellm_params": {
+        "embrouter_params": {
             "guardrail": "bedrock",
             "mode": "pre_call",
             "guardrailIdentifier": "ff6ujrregl1q",
@@ -1333,10 +1333,10 @@ async def get_guardrail_info(guardrail_id: str):
     ```
     """
 
-    from litellm.litellm_core_utils.litellm_logging import _get_masked_values
-    from litellm.proxy.guardrails.guardrail_registry import IN_MEMORY_GUARDRAIL_HANDLER
-    from litellm.proxy.proxy_server import prisma_client
-    from litellm.types.guardrails import GUARDRAIL_DEFINITION_LOCATION
+    from embrouter.embrouter_core_utils.embrouter_logging import _get_masked_values
+    from embrouter.proxy.guardrails.guardrail_registry import IN_MEMORY_GUARDRAIL_HANDLER
+    from embrouter.proxy.proxy_server import prisma_client
+    from embrouter.types.guardrails import GUARDRAIL_DEFINITION_LOCATION
 
     try:
         guardrail_definition_location: GUARDRAIL_DEFINITION_LOCATION = GUARDRAIL_DEFINITION_LOCATION.DB
@@ -1357,23 +1357,23 @@ async def get_guardrail_info(guardrail_id: str):
         if result is None:
             raise HTTPException(status_code=404, detail=f"Guardrail with ID {guardrail_id} not found")
 
-        litellm_params: Final[LitellmParams | dict | None] = result.get("litellm_params")
-        result_litellm_params_dict: Final = (
-            litellm_params.model_dump(exclude_none=True)
-            if isinstance(litellm_params, LitellmParams)
-            else litellm_params
+        embrouter_params: Final[EmbrouterParams | dict | None] = result.get("embrouter_params")
+        result_embrouter_params_dict: Final = (
+            embrouter_params.model_dump(exclude_none=True)
+            if isinstance(embrouter_params, EmbrouterParams)
+            else embrouter_params
         ) or {}
-        masked_litellm_params_dict: Final = _get_masked_values(
-            result_litellm_params_dict,
+        masked_embrouter_params_dict: Final = _get_masked_values(
+            result_embrouter_params_dict,
             unmasked_length=4,
             number_of_asterisks=4,
         )
-        masked_litellm_params = BaseLitellmParams(**masked_litellm_params_dict) if masked_litellm_params_dict else None
+        masked_embrouter_params = BaseEmbrouterParams(**masked_embrouter_params_dict) if masked_embrouter_params_dict else None
 
         return GuardrailInfoResponse(
             guardrail_id=result.get("guardrail_id"),
             guardrail_name=result.get("guardrail_name"),
-            litellm_params=masked_litellm_params,
+            embrouter_params=masked_embrouter_params,
             guardrail_info=dict(result.get("guardrail_info") or {}),
             created_at=result.get("created_at"),
             updated_at=result.get("updated_at"),
@@ -1400,12 +1400,12 @@ async def get_guardrail_ui_settings():
     - PII entity categories for UI organization
     - Content filter settings (patterns and categories)
     """
-    from litellm.proxy.guardrails.guardrail_hooks.litellm_content_filter.patterns import (
+    from embrouter.proxy.guardrails.guardrail_hooks.embrouter_content_filter.patterns import (
         PATTERN_CATEGORIES,
         get_available_content_categories,
         get_pattern_metadata,
     )
-    from litellm.proxy.guardrails.guardrail_registry import guardrail_class_registry
+    from embrouter.proxy.guardrails.guardrail_registry import guardrail_class_registry
 
     category_maps: Final = [
         {
@@ -1459,7 +1459,7 @@ async def get_category_yaml(category_name: str):
     categories_dir: Final = os.path.join(
         os.path.dirname(__file__),
         "guardrail_hooks",
-        "litellm_content_filter",
+        "embrouter_content_filter",
         "categories",
     )
 
@@ -1512,7 +1512,7 @@ async def get_major_airlines():
     airlines_path: Final = os.path.join(
         os.path.dirname(__file__),
         "guardrail_hooks",
-        "litellm_content_filter",
+        "embrouter_content_filter",
         "competitor_intent",
         "major_airlines.json",
     )
@@ -1993,7 +1993,7 @@ async def get_provider_specific_params():
     }
 
     ### get the config model for the guardrail - go through the registry and get the config model for the guardrail
-    from litellm.proxy.guardrails.guardrail_registry import guardrail_class_registry
+    from embrouter.proxy.guardrails.guardrail_registry import guardrail_class_registry
 
     for guardrail_name, guardrail_class in guardrail_class_registry.items():
         guardrail_config_model = guardrail_class.get_config_model()
@@ -2121,7 +2121,7 @@ async def test_custom_code_guardrail(
     ```
     """
 
-    if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+    if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
         raise HTTPException(
             status_code=403,
             detail="Admin access required to test custom code guardrails",
@@ -2270,30 +2270,30 @@ class _GuardrailProxyLogging(Protocol):
     def post_call_success_hook(self) -> "Callable[..., Awaitable[object]]": ...
 
 
-def _patch_logging_obj_for_guardrail(litellm_logging_obj: _GuardrailLoggingObj, request: ApplyGuardrailRequest) -> None:
+def _patch_logging_obj_for_guardrail(embrouter_logging_obj: _GuardrailLoggingObj, request: ApplyGuardrailRequest) -> None:
     """Configure the logging object so Langfuse/OTEL extract input and output correctly."""
-    litellm_logging_obj.call_type = "pass_through_endpoint"
-    litellm_logging_obj.model_call_details["call_type"] = "pass_through_endpoint"
-    litellm_logging_obj.update_messages(
+    embrouter_logging_obj.call_type = "pass_through_endpoint"
+    embrouter_logging_obj.model_call_details["call_type"] = "pass_through_endpoint"
+    embrouter_logging_obj.update_messages(
         request.messages if request.messages else [{"role": "user", "content": request.text}]
     )
 
 
 async def _emit_guardrail_success_logs(
     proxy_logging_obj: _GuardrailProxyLogging,
-    litellm_logging_obj: _GuardrailLoggingObj | None,
+    embrouter_logging_obj: _GuardrailLoggingObj | None,
     data: dict,
     user_api_key_dict: UserAPIKeyAuth,
     response: ApplyGuardrailResponse,
     start_time: datetime,
 ) -> ApplyGuardrailResponse:
-    """Fire proxy and LiteLLM success hooks after a successful guardrail run.
+    """Fire proxy and EmbRouter success hooks after a successful guardrail run.
 
     Each hook is wrapped defensively so a callback failure never prevents the
     caller from receiving the guardrail response.  Returns the (possibly
     hook-modified) response.
     """
-    from litellm.litellm_core_utils.thread_pool_executor import (
+    from embrouter.embrouter_core_utils.thread_pool_executor import (
         executor as thread_pool_executor,
     )
 
@@ -2313,10 +2313,10 @@ async def _emit_guardrail_success_logs(
     # the response.
     response_for_logging: Final = {"response": response.model_dump(exclude_none=True)}
 
-    if litellm_logging_obj is not None:
+    if embrouter_logging_obj is not None:
         end_time: Final = datetime.now(timezone.utc)
         try:
-            await litellm_logging_obj.async_success_handler(
+            await embrouter_logging_obj.async_success_handler(
                 result=response_for_logging,
                 start_time=start_time,
                 end_time=end_time,
@@ -2326,7 +2326,7 @@ async def _emit_guardrail_success_logs(
             verbose_proxy_logger.exception("apply_guardrail: async_success_handler failed")
         try:
             thread_pool_executor.submit(
-                litellm_logging_obj.success_handler,
+                embrouter_logging_obj.success_handler,
                 response_for_logging,
                 start_time,
                 end_time,
@@ -2352,17 +2352,17 @@ async def apply_guardrail(
     """
     import traceback
 
-    from litellm.litellm_core_utils.thread_pool_executor import (
+    from embrouter.embrouter_core_utils.thread_pool_executor import (
         executor as thread_pool_executor,
     )
-    from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+    from embrouter.proxy.proxy_server import (
         general_settings,
         proxy_config,
         proxy_logging_obj,
         version,
     )
-    from litellm.proxy.utils import handle_exception_on_proxy
+    from embrouter.proxy.utils import handle_exception_on_proxy
 
     data: dict = {
         "guardrail_name": request.guardrail_name,
@@ -2370,10 +2370,10 @@ async def apply_guardrail(
         "messages": request.messages or [],
         "metadata": {"route": "/apply_guardrail"},
     }
-    litellm_logging_obj = None
+    embrouter_logging_obj = None
     start_time: Final = datetime.now(timezone.utc)
 
-    from litellm.proxy.common_utils.registry_read_through import (
+    from embrouter.proxy.common_utils.registry_read_through import (
         get_initialized_guardrail_with_read_through,
     )
 
@@ -2384,13 +2384,13 @@ async def apply_guardrail(
         if active_guardrail is None:
             raise HTTPException(
                 status_code=404,
-                detail=f"Guardrail '{request.guardrail_name}' not found. Please ensure the guardrail is configured in your LiteLLM proxy.",
+                detail=f"Guardrail '{request.guardrail_name}' not found. Please ensure the guardrail is configured in your EmbRouter proxy.",
             )
 
         request_processor: Final = ProxyBaseLLMRequestProcessing(data=data)
         (
             data,
-            litellm_logging_obj,
+            embrouter_logging_obj,
         ) = await request_processor.common_processing_pre_call_logic(
             request=fastapi_request,
             general_settings=general_settings,
@@ -2401,8 +2401,8 @@ async def apply_guardrail(
             route_type="apply_guardrail",
         )
 
-        if litellm_logging_obj is not None:
-            _patch_logging_obj_for_guardrail(litellm_logging_obj, request)
+        if embrouter_logging_obj is not None:
+            _patch_logging_obj_for_guardrail(embrouter_logging_obj, request)
 
         request_data: Final[dict] = {
             **({"messages": request.messages} if request.messages is not None else {}),
@@ -2417,9 +2417,9 @@ async def apply_guardrail(
         response_text: Final = guardrailed_inputs.get("texts", [])
         response = ApplyGuardrailResponse(response_text=response_text[0] if response_text else request.text)
     except Exception as e:
-        if litellm_logging_obj is not None and not isinstance(e, HTTPException):
+        if embrouter_logging_obj is not None and not isinstance(e, HTTPException):
             try:
-                await litellm_logging_obj.async_failure_handler(
+                await embrouter_logging_obj.async_failure_handler(
                     exception=e,
                     traceback_exception=traceback.format_exc(),
                 )
@@ -2427,7 +2427,7 @@ async def apply_guardrail(
                 verbose_proxy_logger.exception("apply_guardrail: async_failure_handler failed")
             try:
                 thread_pool_executor.submit(
-                    litellm_logging_obj.failure_handler,
+                    embrouter_logging_obj.failure_handler,
                     e,
                     traceback.format_exc(),
                 )
@@ -2448,7 +2448,7 @@ async def apply_guardrail(
     # Success logging outside except so a hook error never triggers failure handlers.
     response = await _emit_guardrail_success_logs(
         proxy_logging_obj=proxy_logging_obj,
-        litellm_logging_obj=litellm_logging_obj,
+        embrouter_logging_obj=embrouter_logging_obj,
         data=data,
         user_api_key_dict=user_api_key_dict,
         response=response,

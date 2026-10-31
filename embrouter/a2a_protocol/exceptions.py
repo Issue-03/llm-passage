@@ -1,7 +1,7 @@
 """
 A2A Protocol Exceptions.
 
-Custom exception types for A2A protocol operations, following LiteLLM's exception pattern.
+Custom exception types for A2A protocol operations, following EmbRouter's exception pattern.
 """
 
 from typing import Final
@@ -13,7 +13,7 @@ class A2AError(Exception):
     """
     Base exception for A2A protocol errors.
 
-    Follows the same pattern as LiteLLM's main exceptions.
+    Follows the same pattern as EmbRouter's main exceptions.
     """
 
     def __init__(
@@ -23,15 +23,15 @@ class A2AError(Exception):
         llm_provider: str = "a2a_agent",
         model: str | None = None,
         response: httpx.Response | None = None,
-        litellm_debug_info: str | None = None,
+        embrouter_debug_info: str | None = None,
         max_retries: int | None = None,
         num_retries: int | None = None,
     ):
         self.status_code = status_code
-        self.message = f"litellm.A2AError: {message}"
+        self.message = f"embrouter.A2AError: {message}"
         self.llm_provider = llm_provider
         self.model = model
-        self.litellm_debug_info = litellm_debug_info
+        self.embrouter_debug_info = embrouter_debug_info
         self.max_retries = max_retries
         self.num_retries = num_retries
         self.response = response or httpx.Response(
@@ -43,9 +43,9 @@ class A2AError(Exception):
     def __str__(self) -> str:
         _message = self.message
         if self.num_retries:
-            _message += f" LiteLLM Retried: {self.num_retries} times"
+            _message += f" EmbRouter Retried: {self.num_retries} times"
         if self.max_retries:
-            _message += f", LiteLLM Max Retries: {self.max_retries}"
+            _message += f", EmbRouter Max Retries: {self.max_retries}"
         return _message
 
     def __repr__(self) -> str:
@@ -68,7 +68,7 @@ class A2AConnectionError(A2AError):
         url: str | None = None,
         model: str | None = None,
         response: httpx.Response | None = None,
-        litellm_debug_info: str | None = None,
+        embrouter_debug_info: str | None = None,
         max_retries: int | None = None,
         num_retries: int | None = None,
     ):
@@ -79,7 +79,7 @@ class A2AConnectionError(A2AError):
             llm_provider="a2a_agent",
             model=model,
             response=response,
-            litellm_debug_info=litellm_debug_info,
+            embrouter_debug_info=embrouter_debug_info,
             max_retries=max_retries,
             num_retries=num_retries,
         )
@@ -101,7 +101,7 @@ class A2AAgentCardError(A2AError):
         url: str | None = None,
         model: str | None = None,
         response: httpx.Response | None = None,
-        litellm_debug_info: str | None = None,
+        embrouter_debug_info: str | None = None,
         status_code: int = 404,
     ):
         self.url = url
@@ -111,7 +111,7 @@ class A2AAgentCardError(A2AError):
             llm_provider="a2a_agent",
             model=model,
             response=response,
-            litellm_debug_info=litellm_debug_info,
+            embrouter_debug_info=embrouter_debug_info,
         )
 
 

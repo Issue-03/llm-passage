@@ -6,9 +6,9 @@ import time
 
 import pytest
 
-from litellm.caching.caching import DualCache
-from litellm.caching.redis_cache import RedisCircuitBreakerOpenError
-from litellm.router_utils.health_state_cache import DeploymentHealthCache
+from embrouter.caching.caching import DualCache
+from embrouter.caching.redis_cache import RedisCircuitBreakerOpenError
+from embrouter.router_utils.health_state_cache import DeploymentHealthCache
 
 
 @pytest.fixture

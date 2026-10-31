@@ -8,7 +8,7 @@ import { AvailableSearchProvider, SearchTool } from "./types";
 const makeSearchTool = (overrides: Partial<SearchTool> = {}): SearchTool => ({
   search_tool_id: "tool-1",
   search_tool_name: "Perplexity Search",
-  litellm_params: {
+  embrouter_params: {
     search_provider: "perplexity",
   },
   created_at: "2024-01-15T10:30:00Z",

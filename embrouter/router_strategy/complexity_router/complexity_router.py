@@ -31,41 +31,41 @@ from typing import TYPE_CHECKING, Any, Final, Literal, NamedTuple, cast
 from pydantic import BaseModel, TypeAdapter, ValidationError, create_model
 from pydantic_core import ErrorDetails
 
-from litellm._logging import verbose_router_logger
-from litellm.caching.affinity_cache import claim_affinity_pin
-from litellm.constants import (
+from embrouter._logging import verbose_router_logger
+from embrouter.caching.affinity_cache import claim_affinity_pin
+from embrouter.constants import (
     EMPTY_MAPPING,
     INTERNAL_CALL_ORIGIN_METADATA_KEY,
     OUTPUT_TOKEN_CEILING_PARAMS,
     RETURN_RAW_MODEL_NAME_METADATA_KEY,
     SESSION_ID_GENERATED_METADATA_KEY,
 )
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.classifier_logging import masked_originating_request
-from litellm.litellm_core_utils.core_helpers import (
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.embrouter_core_utils.classifier_logging import masked_originating_request
+from embrouter.embrouter_core_utils.core_helpers import (
     _get_parent_otel_span_from_kwargs,
     get_metadata_variable_name_from_kwargs,
     is_codex_user_agent,
 )
-from litellm.litellm_core_utils.internal_call_metadata import forwarded_internal_call_metadata
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+from embrouter.embrouter_core_utils.internal_call_metadata import forwarded_internal_call_metadata
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
     as_openai_image_part,
     request_contains_image_content,
 )
-from litellm.litellm_core_utils.sensitive_data_masker import mask_credentials_in_payload
-from litellm.llms.anthropic.common_utils import is_claude_code_user_agent
-from litellm.llms.base_llm.base_utils import type_to_response_format_param
-from litellm.llms.custom_httpx.http_handler import get_async_httpx_client
-from litellm.router_strategy.adaptive_router.classifier import classify_prompt
-from litellm.router_strategy.complexity_router.context_compaction import compaction_pending
-from litellm.router_strategy.complexity_router.tier_predictor import (
+from embrouter.embrouter_core_utils.sensitive_data_masker import mask_credentials_in_payload
+from embrouter.llms.anthropic.common_utils import is_claude_code_user_agent
+from embrouter.llms.base_llm.base_utils import type_to_response_format_param
+from embrouter.llms.custom_httpx.http_handler import get_async_httpx_client
+from embrouter.router_strategy.adaptive_router.classifier import classify_prompt
+from embrouter.router_strategy.complexity_router.context_compaction import compaction_pending
+from embrouter.router_strategy.complexity_router.tier_predictor import (
     TierSuccessPredictor,
     resolve_tier_artifact,
 )
-from litellm.router_utils.pre_call_checks.deployment_affinity_check import DeploymentAffinityCheck
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.custom_http import httpxSpecialProvider
-from litellm.types.llms.openai import (
+from embrouter.router_utils.pre_call_checks.deployment_affinity_check import DeploymentAffinityCheck
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.custom_http import httpxSpecialProvider
+from embrouter.types.llms.openai import (
     AllMessageValues,
     ChatCompletionImageObject,
     ChatCompletionSystemMessage,
@@ -73,7 +73,7 @@ from litellm.types.llms.openai import (
     ChatCompletionUserMessage,
     ResponsesAPIResponse,
 )
-from litellm.types.utils import (
+from embrouter.types.utils import (
     AUTOROUTER_CLASSIFIER_CALL_ORIGIN,
     ModelResponse,
     RoutingDecisionCause,
@@ -125,10 +125,10 @@ from .stall_detector import detect_stalled_task
 if TYPE_CHECKING:
     from semantic_router.routers import SemanticRouter
 
-    from litellm.router import Router
-    from litellm.router_strategy.adaptive_router.adaptive_router import AdaptiveRouter
-    from litellm.router_strategy.savings_baseline import Baseline
-    from litellm.types.router import PreRoutingHookResponse
+    from embrouter.router import Router
+    from embrouter.router_strategy.adaptive_router.adaptive_router import AdaptiveRouter
+    from embrouter.router_strategy.savings_baseline import Baseline
+    from embrouter.types.router import PreRoutingHookResponse
 else:
     Router = Any
     PreRoutingHookResponse = Any
@@ -405,7 +405,7 @@ def _append_custom_keywords(base_keywords: list[str], custom_keywords: list[str]
 
 def _parent_session_kwargs(request_kwargs: Mapping[str, object] | None) -> Mapping[str, Any]:
     kwargs: Final = request_kwargs or {}
-    return {k: kwargs[k] for k in ("litellm_session_id", "litellm_trace_id") if kwargs.get(k) is not None}
+    return {k: kwargs[k] for k in ("embrouter_session_id", "embrouter_trace_id") if kwargs.get(k) is not None}
 
 
 def _response_cost_or_none(response: ModelResponse | ResponsesAPIResponse) -> float | None:
@@ -419,7 +419,7 @@ def _response_cost_or_none(response: ModelResponse | ResponsesAPIResponse) -> fl
 
 
 def _effective_turn_off_message_logging(request_kwargs: Mapping[str, object] | None) -> bool | None:
-    from litellm.litellm_core_utils.initialize_dynamic_callback_params import (
+    from embrouter.embrouter_core_utils.initialize_dynamic_callback_params import (
         initialize_standard_callback_dynamic_params,
     )
 
@@ -429,16 +429,16 @@ def _effective_turn_off_message_logging(request_kwargs: Mapping[str, object] | N
 
 
 def _classifier_reply_is_private(request_kwargs: Mapping[str, object] | None) -> bool:
-    from litellm.litellm_core_utils.initialize_dynamic_callback_params import (
+    from embrouter.embrouter_core_utils.initialize_dynamic_callback_params import (
         initialize_standard_callback_dynamic_params,
     )
-    from litellm.litellm_core_utils.redact_messages import should_redact_message_logging
+    from embrouter.embrouter_core_utils.redact_messages import should_redact_message_logging
 
     kwargs: Final = dict(request_kwargs) if request_kwargs else {}
     try:
         return should_redact_message_logging(
             {
-                "litellm_params": kwargs,
+                "embrouter_params": kwargs,
                 "standard_callback_dynamic_params": initialize_standard_callback_dynamic_params(kwargs),
             }
         )
@@ -576,7 +576,7 @@ def _encrypted_classifier_task(
     request_kwargs: Mapping[str, object] | None,
     marker_pairs: tuple[tuple[str, str], ...],
 ) -> dict[str, object] | None:
-    from litellm.litellm_core_utils.prompt_templates.factory import resolve_structured_messages
+    from embrouter.embrouter_core_utils.prompt_templates.factory import resolve_structured_messages
 
     raw_input: Final = (request_kwargs or EMPTY_MAPPING).get("input")
     if not isinstance(raw_input, list) or (request_kwargs or EMPTY_MAPPING).get("messages"):
@@ -810,7 +810,7 @@ def _matched_plan_mode_sentinel(
     client-owned strings, not incidental prose. A caller can still paste one deliberately; that
     only raises the tier within pools the operator configured, so it spends up, never sideways.
     """
-    from litellm.litellm_core_utils.prompt_templates.factory import has_tool_with_name
+    from embrouter.embrouter_core_utils.prompt_templates.factory import has_tool_with_name
 
     tools: Final = body.get("tools") if body is not None else None
     if has_tool_with_name(tools, PLAN_MODE_TOOL_NAME):
@@ -1210,12 +1210,12 @@ class _ClassifierCircuitBreaker:
 
 def _is_classifier_timeout(exc: BaseException) -> bool:
     # asyncio.TimeoutError became an alias of the built-in TimeoutError in Python 3.11.
-    # LiteLLM still supports 3.10, where they are distinct exception classes.
+    # EmbRouter still supports 3.10, where they are distinct exception classes.
     if isinstance(exc, (TimeoutError, asyncio.TimeoutError)):
         return True
-    from litellm.exceptions import Timeout as LiteLLMTimeout
+    from embrouter.exceptions import Timeout as EmbRouterTimeout
 
-    return isinstance(exc, LiteLLMTimeout)
+    return isinstance(exc, EmbRouterTimeout)
 
 
 def _allowed(models: tuple[str, ...], fit_filter: frozenset[str] | None) -> tuple[str, ...]:
@@ -1322,7 +1322,7 @@ class ComplexityRouter(CustomLogger):
     def __init__(
         self,
         model_name: str,
-        litellm_router_instance: Router,
+        embrouter_router_instance: Router,
         complexity_router_config: Mapping[str, object] | None = None,
         default_model: str | None = None,
         derive_savings_baseline: bool = True,
@@ -1333,7 +1333,7 @@ class ComplexityRouter(CustomLogger):
 
         Args:
             model_name: The name of the model/deployment using this router.
-            litellm_router_instance: The LiteLLM Router instance.
+            embrouter_router_instance: The EmbRouter Router instance.
             complexity_router_config: Optional configuration dict from proxy config.
             default_model: Optional default model to use if tier cannot be determined.
             derive_savings_baseline: False for callers whose decisions are never spend
@@ -1341,7 +1341,7 @@ class ComplexityRouter(CustomLogger):
                 would leak deployment mappings the caller was not authorized for.
         """
         self.model_name = model_name
-        self.litellm_router_instance = litellm_router_instance
+        self.embrouter_router_instance = embrouter_router_instance
         self._derive_savings_baseline = derive_savings_baseline
 
         # Parse config - always create a new instance to avoid singleton mutation
@@ -1541,12 +1541,12 @@ class ComplexityRouter(CustomLogger):
         ``__init__`` because during a config load this router can be constructed
         before its tier deployments are.
         """
-        from litellm.router_strategy.savings_baseline import resolve_baseline
+        from embrouter.router_strategy.savings_baseline import resolve_baseline
 
         if not self._derive_savings_baseline:
             return None
         if not self._savings_baseline_derived:
-            self._savings_baseline = resolve_baseline(self.litellm_router_instance, self._hardest_tier_models())
+            self._savings_baseline = resolve_baseline(self.embrouter_router_instance, self._hardest_tier_models())
             self._savings_baseline_derived = True
         return self._savings_baseline
 
@@ -1814,7 +1814,7 @@ class ComplexityRouter(CustomLogger):
         classifier_model: str | None = None,
         classifier_cost: float | None = None,
         conversation_continuing: bool = True,
-        tier_litellm_params: Mapping[str, object] | None = None,
+        tier_embrouter_params: Mapping[str, object] | None = None,
         context_escalation_original_tier: ComplexityTier | str | None = None,
         previous_decision: StandardLoggingRoutingDecision | None = None,
     ) -> StandardLoggingRoutingDecision:
@@ -1872,10 +1872,10 @@ class ComplexityRouter(CustomLogger):
             # (classifier, keyword rule, or session pin) had placed it before physics did.
             decision["context_escalated"] = True
             decision["context_escalation_original_tier"] = _tier_name(context_escalation_original_tier)
-        if tier_litellm_params:
-            masked_tier_litellm_params: Final = mask_credentials_in_payload(tier_litellm_params)
-            if isinstance(masked_tier_litellm_params, Mapping):
-                decision["tier_litellm_params"] = masked_tier_litellm_params
+        if tier_embrouter_params:
+            masked_tier_embrouter_params: Final = mask_credentials_in_payload(tier_embrouter_params)
+            if isinstance(masked_tier_embrouter_params, Mapping):
+                decision["tier_embrouter_params"] = masked_tier_embrouter_params
         forecast_fields: Final = MappingProxyType(
             {
                 field: value
@@ -2301,8 +2301,8 @@ class ComplexityRouter(CustomLogger):
         request_kwargs: dict[str, object] | None,  # mutable-ok: handed to resolve_structured_messages as-is
         raw_messages: list[dict[str, object]] | None,  # mutable-ok: same shape _run_routing_plugins receives
     ) -> ClassificationOutcome:
-        from litellm.litellm_core_utils.prompt_templates.factory import resolve_structured_messages
-        from litellm.types.router import RoutingContext
+        from embrouter.embrouter_core_utils.prompt_templates.factory import resolve_structured_messages
+        from embrouter.types.router import RoutingContext
 
         plugin: Final = self.config.classifier_plugin
         if plugin is None:
@@ -2637,7 +2637,7 @@ class ComplexityRouter(CustomLogger):
             raise ValueError("classifier_llm_config is not set")
 
         request_values: Final = request_kwargs or EMPTY_MAPPING
-        request_metadata = request_values.get("litellm_metadata") or request_values.get("metadata")
+        request_metadata = request_values.get("embrouter_metadata") or request_values.get("metadata")
         metadata: Final = {  # mutable-ok: SDK metadata kwarg is enriched by the request pipeline
             **forwarded_internal_call_metadata(request_metadata, AUTOROUTER_CLASSIFIER_CALL_ORIGIN),
             INTERNAL_CALL_ORIGIN_METADATA_KEY: AUTOROUTER_CLASSIFIER_CALL_ORIGIN,
@@ -2671,9 +2671,9 @@ class ComplexityRouter(CustomLogger):
             "body": {"model": llm_config.model, **payload},  # mutable-ok: logging SDK expects a JSON request body
         }
         classify: Final = (
-            self.litellm_router_instance.aresponses
+            self.embrouter_router_instance.aresponses
             if encrypted_task is not None
-            else self.litellm_router_instance.acompletion
+            else self.embrouter_router_instance.acompletion
         )
 
         classifier_timeout_s: Final[float] = llm_config.timeout_ms / 1000
@@ -2703,11 +2703,11 @@ class ComplexityRouter(CustomLogger):
         response_format: Mapping[str, object],
         encrypted_task: Mapping[str, object],
     ) -> Mapping[str, object]:
-        from litellm.completion_extras.litellm_responses_transformation.transformation import (
-            LiteLLMResponsesTransformationHandler,
+        from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
+            EmbRouterResponsesTransformationHandler,
         )
 
-        transformation: Final = LiteLLMResponsesTransformationHandler()
+        transformation: Final = EmbRouterResponsesTransformationHandler()
         input_items, instructions = transformation.convert_chat_completion_messages_to_responses_api(messages)
         llm_config: Final = self.config.classifier_llm_config
         reasoning: Final = (
@@ -2810,10 +2810,10 @@ class ComplexityRouter(CustomLogger):
 
         raise ValueError(f"No model configured for tier {tier_key} and no default_model set")
 
-    def _litellm_params_for_model(self, tier: ComplexityTier | str | None, model: str) -> Mapping[str, object]:
+    def _embrouter_params_for_model(self, tier: ComplexityTier | str | None, model: str) -> Mapping[str, object]:
         entries: Final = self.config.tier_model_configs.get(_tier_name(tier), ()) if tier is not None else ()
         entry: Final = next((candidate for candidate in entries if candidate.model_name == model), None)
-        explicit: Final = entry.litellm_params if entry is not None else MappingProxyType({})
+        explicit: Final = entry.embrouter_params if entry is not None else MappingProxyType({})
         if not self.config.max_tokens_from_tier_model or not OUTPUT_TOKEN_CEILING_PARAMS.isdisjoint(explicit):
             return explicit
         ceiling: Final = self._group_output_ceiling(model)
@@ -2865,7 +2865,7 @@ class ComplexityRouter(CustomLogger):
             + hashlib.sha256(json.dumps(cache_identity).encode()).hexdigest()
         )
         winner: Final = await claim_affinity_pin(
-            self.litellm_router_instance.cache,
+            self.embrouter_router_instance.cache,
             cache_key,
             MappingProxyType({"model": model}),
             self.config.session_affinity_ttl_seconds,
@@ -2897,7 +2897,7 @@ class ComplexityRouter(CustomLogger):
             )
             return await self._pin_model_for_tier(tier, selected, candidates, request_kwargs, retained_pin)
 
-        from litellm.types.router import RoutingContext
+        from embrouter.types.router import RoutingContext
 
         tier_key: Final = _tier_name(tier)
         metadata_key: Final = get_metadata_variable_name_from_kwargs(request_kwargs)
@@ -2937,13 +2937,13 @@ class ComplexityRouter(CustomLogger):
             return self.adaptive_router
         self._adaptive_init_attempted = True
 
-        from litellm.router_strategy.adaptive_router.adaptive_router import (
+        from embrouter.router_strategy.adaptive_router.adaptive_router import (
             AdaptiveRouter,
         )
-        from litellm.router_strategy.adaptive_router.config import (
+        from embrouter.router_strategy.adaptive_router.config import (
             ADAPTIVE_ROUTER_CHOSEN_MODEL_KEY,
         )
-        from litellm.types.router import (
+        from embrouter.types.router import (
             AdaptiveRouterConfig,
             AdaptiveRouterPreferences,
         )
@@ -2957,8 +2957,8 @@ class ComplexityRouter(CustomLogger):
 
         model_to_prefs: Final[dict[str, AdaptiveRouterPreferences]] = {}
         model_to_cost: Final[dict[str, float]] = {}
-        model_list: Final = getattr(self.litellm_router_instance, "model_list", None) or []
-        name_to_indices: Final = getattr(self.litellm_router_instance, "model_name_to_deployment_indices", {}) or {}
+        model_list: Final = getattr(self.embrouter_router_instance, "model_list", None) or []
+        name_to_indices: Final = getattr(self.embrouter_router_instance, "model_name_to_deployment_indices", {}) or {}
         for name in available_models:
             indices = name_to_indices.get(name, [])
             if not indices:
@@ -2974,8 +2974,8 @@ class ComplexityRouter(CustomLogger):
             else:
                 model_to_prefs[name] = AdaptiveRouterPreferences(quality_tier=2, strengths=[])
 
-            # model_info is the conventional pricing location elsewhere in LiteLLM; litellm_params wins if set.
-            lp = deployment.get("litellm_params") if isinstance(deployment, dict) else deployment.litellm_params
+            # model_info is the conventional pricing location elsewhere in EmbRouter; embrouter_params wins if set.
+            lp = deployment.get("embrouter_params") if isinstance(deployment, dict) else deployment.embrouter_params
             lp_dict: dict[str, Any] = lp if isinstance(lp, dict) else (lp.model_dump() if lp else {})
             cost = lp_dict.get("input_cost_per_token")
             if cost is None:
@@ -3052,11 +3052,11 @@ class ComplexityRouter(CustomLogger):
 
         fit_filter excludes candidates the context-window gate proved cannot hold the prompt,
         in every phase including cold start and the tier fallbacks."""
-        from litellm.router_strategy.adaptive_router.bandit import (
+        from embrouter.router_strategy.adaptive_router.bandit import (
             normalized_cost,
             thompson_sample,
         )
-        from litellm.router_strategy.adaptive_router.classifier import classify_prompt
+        from embrouter.router_strategy.adaptive_router.classifier import classify_prompt
 
         adaptive: Final = self._ensure_adaptive_router()
         if adaptive is None or not isinstance(classified_tier, ComplexityTier):
@@ -3227,14 +3227,14 @@ class ComplexityRouter(CustomLogger):
     def _deployment_limit(
         self, group: str, deployment: Mapping[str, object], key: Literal["max_input_tokens", "max_output_tokens"]
     ) -> int | None:
-        from litellm.litellm_core_utils.get_llm_provider_logic import declared_authenticating_provider
+        from embrouter.embrouter_core_utils.get_llm_provider_logic import declared_authenticating_provider
 
         deployment_model_info: Final = deployment.get("model_info")
         declared: Final = deployment_model_info.get(key) if isinstance(deployment_model_info, Mapping) else None
         if isinstance(declared, int):
             return declared
-        litellm_params: Final = deployment.get("litellm_params")
-        params: Final = litellm_params if isinstance(litellm_params, Mapping) else EMPTY_MAPPING
+        embrouter_params: Final = deployment.get("embrouter_params")
+        params: Final = embrouter_params if isinstance(embrouter_params, Mapping) else EMPTY_MAPPING
         provider_override: Final = params.get("custom_llm_provider")
         # get_router_model_info resolves the provider, and get_llm_provider runs the OAuth device
         # flow for github_copilot/chatgpt, so a metadata question must never reach it for those.
@@ -3243,7 +3243,7 @@ class ComplexityRouter(CustomLogger):
         ):
             return None
         try:
-            model_info: Final = self.litellm_router_instance.get_router_model_info(
+            model_info: Final = self.embrouter_router_instance.get_router_model_info(
                 deployment=cast(dict, deployment),  # cast-ok: router deployments are plain dicts
                 received_model_name=group,
             )
@@ -3253,7 +3253,7 @@ class ComplexityRouter(CustomLogger):
         return limit if isinstance(limit, int) else None
 
     def _group_deployments(self, group: str) -> Sequence[Mapping[str, object]]:
-        list_models: Final = getattr(self.litellm_router_instance, "get_model_list", None)
+        list_models: Final = getattr(self.embrouter_router_instance, "get_model_list", None)
         deployments: Final = list_models(model_name=group) if callable(list_models) else None
         return tuple(deployments) if isinstance(deployments, list) else ()
 
@@ -3318,15 +3318,15 @@ class ComplexityRouter(CustomLogger):
     ) -> int | None:
         """Real-tokenizer count of the resolved messages plus the out-of-band carriers, off the
         event loop; None when counting fails, and the gate then leaves the placement alone."""
-        import litellm
-        from litellm.litellm_core_utils.token_counter import offload_token_count
+        import embrouter
+        from embrouter.embrouter_core_utils.token_counter import offload_token_count
 
         out_of_band: Final = self._out_of_band_request_text(request_kwargs)
         try:
-            counted: Final = await offload_token_count(litellm.token_counter)(
+            counted: Final = await offload_token_count(embrouter.token_counter)(
                 messages=cast(list, resolved_messages)  # cast-ok: token_counter only iterates the sequence
             )
-            return counted + (await offload_token_count(litellm.token_counter)(text=out_of_band) if out_of_band else 0)
+            return counted + (await offload_token_count(embrouter.token_counter)(text=out_of_band) if out_of_band else 0)
         except Exception as e:  # noqa: BLE001  # best-effort: an uncountable prompt must not fail the request
             verbose_router_logger.debug("ComplexityRouter: context-window token count failed. Got - %s", e)
             return None
@@ -3438,7 +3438,7 @@ class ComplexityRouter(CustomLogger):
     def _matched_escalation_keyword(self, user_message: str) -> str | None:
         """The escalation keyword the prompt contains, or None when escalation is off.
 
-        Matching is a case-sensitive substring test so the default "LITELLM ESCALATE"
+        Matching is a case-sensitive substring test so the default "EMBROUTER ESCALATE"
         only fires on the deliberate, shouted form and not on incidental lowercase
         mentions of the word (e.g. "how do I escalate this ticket").
         """
@@ -3512,7 +3512,7 @@ class ComplexityRouter(CustomLogger):
         call each time. An undeclared model instead keeps today's text-only payload, which is a
         visible no-op the operator fixes by declaring supports_vision on the deployment.
         """
-        from litellm.utils import is_vision_explicitly_disabled, supports_vision
+        from embrouter.utils import is_vision_explicitly_disabled, supports_vision
 
         def model_verdict(model: str) -> bool | None:
             if supports_vision(model):
@@ -3523,9 +3523,9 @@ class ComplexityRouter(CustomLogger):
             declared: Final = (deployment.get("model_info") or EMPTY_MAPPING).get("supports_vision")
             if declared is not None:
                 return declared is True
-            return model_verdict((deployment.get("litellm_params") or EMPTY_MAPPING).get("model") or model_name)
+            return model_verdict((deployment.get("embrouter_params") or EMPTY_MAPPING).get("model") or model_name)
 
-        deployments: Final = self.litellm_router_instance.get_model_list(model_name=model_name)
+        deployments: Final = self.embrouter_router_instance.get_model_list(model_name=model_name)
         if not deployments:
             return (model_verdict(model_name),)
         return tuple(deployment_verdict(deployment) for deployment in deployments)
@@ -3612,9 +3612,9 @@ class ComplexityRouter(CustomLogger):
             new_tier = None
             new_model = self._placed_default_model()
         else:
-            import litellm
+            import embrouter
 
-            raise litellm.BadRequestError(
+            raise embrouter.BadRequestError(
                 message=(
                     f"Auto-router {self.model_name} received a request with image input, but no model "
                     f"at or above the decided tier accepts images and modality_routing is enabled. "
@@ -3652,18 +3652,18 @@ class ComplexityRouter(CustomLogger):
             conversation_continuing=bool(decision.get("conversation_continuing", True))
             if decision is not None
             else True,
-            tier_litellm_params=self._litellm_params_for_model(new_tier, new_model),
+            tier_embrouter_params=self._embrouter_params_for_model(new_tier, new_model),
             context_escalation_original_tier=(
                 decision.get("context_escalation_original_tier") if decision is not None else None
             ),
             previous_decision=decision,
         )
-        from litellm.types.router import PreRoutingHookResponse as HookResponse
+        from embrouter.types.router import PreRoutingHookResponse as HookResponse
 
         return HookResponse(
             model=new_model,
             messages=response.messages,
-            litellm_params=self._litellm_params_for_model(new_tier, new_model),
+            embrouter_params=self._embrouter_params_for_model(new_tier, new_model),
             routing_decision=new_decision,
         )
 
@@ -3717,12 +3717,12 @@ class ComplexityRouter(CustomLogger):
         rather than negative, so it reads as capacity: absent information must never decide the
         verdict.
         """
-        from litellm.exceptions import BadRequestError
-        from litellm.types.router import RouterErrors, RouterRateLimitError, RouterRateLimitErrorBasic
+        from embrouter.exceptions import BadRequestError
+        from embrouter.types.router import RouterErrors, RouterRateLimitError, RouterRateLimitErrorBasic
 
         probe_kwargs: Final = dict(request_kwargs)  # mutable-ok: the owner pops routing keys off the dict it is handed
         try:
-            deployments: Final = await self.litellm_router_instance.async_get_healthy_deployments(
+            deployments: Final = await self.embrouter_router_instance.async_get_healthy_deployments(
                 model=model_name,
                 request_kwargs=probe_kwargs,
                 messages=messages,
@@ -3834,14 +3834,14 @@ class ComplexityRouter(CustomLogger):
                         classifier_model=decision.get("classifier_model"),
                         classifier_cost=decision.get("classifier_cost"),
                         conversation_continuing=bool(decision.get("conversation_continuing", True)),
-                        tier_litellm_params=self._litellm_params_for_model(candidate_tier, new_model),
+                        tier_embrouter_params=self._embrouter_params_for_model(candidate_tier, new_model),
                         context_escalation_original_tier=decision.get("context_escalation_original_tier"),
                         previous_decision=decision,
                     )
                     return response.model_copy(
                         update={  # mutable-ok: model_copy types update as a plain dict
                             "model": new_model,
-                            "litellm_params": self._litellm_params_for_model(candidate_tier, new_model),
+                            "embrouter_params": self._embrouter_params_for_model(candidate_tier, new_model),
                             "routing_decision": new_decision,
                         }
                     )
@@ -3879,14 +3879,14 @@ class ComplexityRouter(CustomLogger):
             classifier_model=decision.get("classifier_model"),
             classifier_cost=decision.get("classifier_cost"),
             conversation_continuing=bool(decision.get("conversation_continuing", True)),
-            tier_litellm_params=self._litellm_params_for_model(None, default_model),
+            tier_embrouter_params=self._embrouter_params_for_model(None, default_model),
             context_escalation_original_tier=decision.get("context_escalation_original_tier"),
             previous_decision=decision,
         )
         return response.model_copy(
             update={  # mutable-ok: model_copy types update as a plain dict
                 "model": default_model,
-                "litellm_params": self._litellm_params_for_model(None, default_model),
+                "embrouter_params": self._embrouter_params_for_model(None, default_model),
                 "routing_decision": default_decision,
             }
         )
@@ -3944,8 +3944,8 @@ class ComplexityRouter(CustomLogger):
         from semantic_router.routers import SemanticRouter
         from semantic_router.routers.base import Route
 
-        from litellm.router_strategy.auto_router.litellm_encoder import (
-            LiteLLMRouterEncoder,
+        from embrouter.router_strategy.auto_router.embrouter_encoder import (
+            EmbRouterRouterEncoder,
         )
 
         embedding_model: Final = self.config.embedding_model
@@ -3964,8 +3964,8 @@ class ComplexityRouter(CustomLogger):
         ]
         routelayer: Final = SemanticRouter(
             routes=routes,
-            encoder=LiteLLMRouterEncoder(
-                litellm_router_instance=self.litellm_router_instance,
+            encoder=EmbRouterRouterEncoder(
+                embrouter_router_instance=self.embrouter_router_instance,
                 model_name=embedding_model,
                 score_threshold=self.config.match_threshold,
             ),
@@ -3995,21 +3995,21 @@ class ComplexityRouter(CustomLogger):
         """Match the prompt against keyword_tier_rules by embedding similarity.
 
         Embeds the query ourselves (instead of letting SemanticRouter.acall embed it
-        internally) so the caller's metadata/litellm_metadata flows into aembedding()
+        internally) so the caller's metadata/embrouter_metadata flows into aembedding()
         and this spend is attributed and budget-checked against the originating key/team,
-        the same as any other litellm call. SemanticRouter.acall() has no parameter to
+        the same as any other embrouter call. SemanticRouter.acall() has no parameter to
         pass such kwargs through to the encoder, so it's bypassed for the query embedding;
         the route index itself (static utterances, embedded once at build time with no
         caller context) is unaffected and still reused via the precomputed `vector=` path.
         """
         from semantic_router.schema import RouteChoice
 
-        from litellm.router_strategy.auto_router.litellm_encoder import (
-            LiteLLMRouterEncoder,
+        from embrouter.router_strategy.auto_router.embrouter_encoder import (
+            EmbRouterRouterEncoder,
         )
 
         routelayer: Final = await self._ensure_semantic_routelayer()
-        encoder: Final = cast(LiteLLMRouterEncoder, routelayer.encoder)  # cast-ok: always the encoder we built above
+        encoder: Final = cast(EmbRouterRouterEncoder, routelayer.encoder)  # cast-ok: always the encoder we built above
         # Strip the parent request's budget reservation before forwarding: the reservation
         # belongs to the routed completion this embedding is helping select, not to the
         # embedding call. Forwarding it would let the embedding's cost callback finalize the
@@ -4018,8 +4018,8 @@ class ComplexityRouter(CustomLogger):
         metadata: Final = forwarded_internal_call_metadata(
             request_kwargs.get("metadata"), AUTOROUTER_CLASSIFIER_CALL_ORIGIN
         )
-        litellm_metadata: Final = forwarded_internal_call_metadata(
-            request_kwargs.get("litellm_metadata"), AUTOROUTER_CLASSIFIER_CALL_ORIGIN
+        embrouter_metadata: Final = forwarded_internal_call_metadata(
+            request_kwargs.get("embrouter_metadata"), AUTOROUTER_CLASSIFIER_CALL_ORIGIN
         )
         turn_off_message_logging: Final = _effective_turn_off_message_logging(request_kwargs)
         proxy_server_request: Final = {"body": {"model": self.config.embedding_model, "input": [user_message]}}
@@ -4027,7 +4027,7 @@ class ComplexityRouter(CustomLogger):
             await encoder.aencode_queries(
                 [user_message],
                 metadata=metadata,
-                litellm_metadata=litellm_metadata,
+                embrouter_metadata=embrouter_metadata,
                 proxy_server_request=proxy_server_request,
                 turn_off_message_logging=turn_off_message_logging,
                 **_parent_session_kwargs(request_kwargs),
@@ -4076,7 +4076,7 @@ class ComplexityRouter(CustomLogger):
         Uses the guardrail translation handler dispatch to convert Responses API
         ``input`` (or other non-chat-completions formats) into OpenAI-spec messages.
         """
-        from litellm.litellm_core_utils.prompt_templates.factory import (
+        from embrouter.embrouter_core_utils.prompt_templates.factory import (
             resolve_structured_messages,
         )
 
@@ -4099,7 +4099,7 @@ class ComplexityRouter(CustomLogger):
             return self._reminder_markers
         if any(
             is_codex_user_agent(user_agent)
-            for metadata_key in ("litellm_metadata", "metadata")
+            for metadata_key in ("embrouter_metadata", "metadata")
             if isinstance(metadata := request_kwargs.get(metadata_key), Mapping)
             if isinstance(user_agent := metadata.get("user_agent"), str)
         ):
@@ -4108,11 +4108,11 @@ class ComplexityRouter(CustomLogger):
 
     @staticmethod
     def _iter_metadata_dicts(request_kwargs: dict) -> list[dict]:
-        """Metadata may land on `metadata` or `litellm_metadata` depending on the
+        """Metadata may land on `metadata` or `embrouter_metadata` depending on the
         endpoint, mirroring DeploymentAffinityCheck's precedence."""
         return [
             metadata
-            for metadata_key in ("litellm_metadata", "metadata")
+            for metadata_key in ("embrouter_metadata", "metadata")
             if isinstance(metadata := request_kwargs.get(metadata_key), dict)
         ]
 
@@ -4195,10 +4195,10 @@ class ComplexityRouter(CustomLogger):
         re-checked against a policy plugin whose decision can change between turns (e.g. a
         budget plugin, once the session's spend crosses its cap).
         """
-        from litellm.types.router import PreRoutingHookResponse
+        from embrouter.types.router import PreRoutingHookResponse
 
         if self.config.return_raw_model_name:
-            metadata_key: Final = "litellm_metadata" if "litellm_metadata" in request_kwargs else "metadata"
+            metadata_key: Final = "embrouter_metadata" if "embrouter_metadata" in request_kwargs else "metadata"
             metadata: Final = request_kwargs.setdefault(metadata_key, {})
             if isinstance(metadata, dict):
                 metadata[RETURN_RAW_MODEL_NAME_METADATA_KEY] = True
@@ -4222,7 +4222,7 @@ class ComplexityRouter(CustomLogger):
         )
 
         if cache_key is not None and pin_replay_allowed:
-            pinned_value: Final = await self.litellm_router_instance.cache.async_get_cache(key=cache_key)
+            pinned_value: Final = await self.embrouter_router_instance.cache.async_get_cache(key=cache_key)
             pinned_pin: Final = _parse_session_affinity_pin(pinned_value, self.config.tier_names())
             if pinned_pin is not None:
                 user_message: Final = _newest_turn_ask(resolved_messages, marker_pairs) if resolved_messages else None
@@ -4317,13 +4317,13 @@ class ComplexityRouter(CustomLogger):
                     )
                     # Refresh the TTL on every hit so an active session doesn't lose its
                     # pin mid-conversation just because it outlives the original write.
-                    await self.litellm_router_instance.cache.async_set_cache(
+                    await self.embrouter_router_instance.cache.async_set_cache(
                         key=cache_key,
                         value=_session_affinity_cache_value(session_model, resolved_pin_tier),
                         ttl=self.config.session_affinity_ttl_seconds,
                     )
                     if self.config.adaptive:
-                        from litellm.router_strategy.adaptive_router.config import (
+                        from embrouter.router_strategy.adaptive_router.config import (
                             ADAPTIVE_ROUTER_CHOSEN_MODEL_KEY,
                         )
 
@@ -4344,7 +4344,7 @@ class ComplexityRouter(CustomLogger):
                         if pin_placement is not None and pin_context_original_tier is not None
                         else pin_source_tier
                     )
-                    session_tier_litellm_params: Final = self._litellm_params_for_model(routed_pin_tier, routed_model)
+                    session_tier_embrouter_params: Final = self._embrouter_params_for_model(routed_pin_tier, routed_model)
                     has_original_messages: Final = messages is not None and len(messages) > 0
                     return self._with_session_deployment_affinity(
                         await self._gate_response_health(
@@ -4352,7 +4352,7 @@ class ComplexityRouter(CustomLogger):
                                 PreRoutingHookResponse(
                                     model=routed_model,
                                     messages=messages if has_original_messages else None,
-                                    litellm_params=session_tier_litellm_params,
+                                    embrouter_params=session_tier_embrouter_params,
                                     routing_decision=self._build_routing_decision(
                                         routed_model=routed_model,
                                         cause=cause,
@@ -4361,7 +4361,7 @@ class ComplexityRouter(CustomLogger):
                                         escalation_keyword=pin_escalation_keyword,
                                         escalated=escalated,
                                         conversation_continuing=conversation_continuing,
-                                        tier_litellm_params=session_tier_litellm_params,
+                                        tier_embrouter_params=session_tier_embrouter_params,
                                         context_escalation_original_tier=pin_context_original_tier,
                                     ),
                                 ),
@@ -4418,7 +4418,7 @@ class ComplexityRouter(CustomLogger):
             and self._matched_plan_mode_signal(request_kwargs, resolved_messages) is None
         )
         if pinnable and cache_key is not None and response is not None:
-            await self.litellm_router_instance.cache.async_set_cache(
+            await self.embrouter_router_instance.cache.async_set_cache(
                 key=cache_key,
                 value=_session_affinity_cache_value(
                     response.model,
@@ -4437,26 +4437,26 @@ class ComplexityRouter(CustomLogger):
     ) -> PreRoutingHookResponse | None:
         if not self.config.cache_aware_routing or response is None or response.routing_decision is None:
             return response
-        from litellm.proxy.common_utils.cache_aware_routing import choose_cached_model
+        from embrouter.proxy.common_utils.cache_aware_routing import choose_cached_model
 
         choice: Final = await choose_cached_model(
-            router=self.litellm_router_instance,
+            router=self.embrouter_router_instance,
             config=self.config,
-            params_for_model=self._litellm_params_for_model,
+            params_for_model=self._embrouter_params_for_model,
             response=response,
             request_kwargs=request_kwargs,
             messages=messages,
         )
         if choice is None or not context_fit.accepts(choice.model):
             return response
-        params: Final = self._litellm_params_for_model(choice.tier, choice.model)
+        params: Final = self._embrouter_params_for_model(choice.tier, choice.model)
         decision: Final[StandardLoggingRoutingDecision] = {
             **response.routing_decision,
             "routed_model": choice.model,
             "cause": "prompt_cache_cost",
             "tier": choice.tier,
             "tier_label": (self.config.tier_labels or {}).get(choice.tier, choice.tier),
-            "tier_litellm_params": params,
+            "tier_embrouter_params": params,
             "signals": (
                 *(response.routing_decision.get("signals") or ()),
                 f"cache-aware:classified-model={response.model}",
@@ -4472,7 +4472,7 @@ class ComplexityRouter(CustomLogger):
             choice.original_cost,
         )
         return response.model_copy(
-            update=MappingProxyType({"model": choice.model, "litellm_params": params, "routing_decision": decision})
+            update=MappingProxyType({"model": choice.model, "embrouter_params": params, "routing_decision": decision})
         )
 
     async def _classify_and_route(
@@ -4504,7 +4504,7 @@ class ComplexityRouter(CustomLogger):
         Returns:
             PreRoutingHookResponse with the routed model, or None if no routing needed.
         """
-        from litellm.types.router import PreRoutingHookResponse
+        from embrouter.types.router import PreRoutingHookResponse
 
         if resolved_messages is None:
             resolved_messages = self._resolve_messages(messages, request_kwargs)
@@ -4536,7 +4536,7 @@ class ComplexityRouter(CustomLogger):
                     ComplexityTier.MEDIUM, messages, resolved_messages, request_kwargs
                 )
             fallback_tier: Final = None if default_model_first else ComplexityTier.MEDIUM
-            default_tier_params: Final = self._litellm_params_for_model(fallback_tier, routed_model)
+            default_tier_params: Final = self._embrouter_params_for_model(fallback_tier, routed_model)
             return PreRoutingHookResponse(
                 model=routed_model,
                 messages=messages if has_original_messages else None,
@@ -4545,9 +4545,9 @@ class ComplexityRouter(CustomLogger):
                     cause="default_fallback",
                     tier=fallback_tier,
                     conversation_continuing=conversation_continuing,
-                    tier_litellm_params=default_tier_params,
+                    tier_embrouter_params=default_tier_params,
                 ),
-                litellm_params=default_tier_params,
+                embrouter_params=default_tier_params,
             )
 
         ask: Final = user_message or ""
@@ -4574,7 +4574,7 @@ class ComplexityRouter(CustomLogger):
                 _tier_name(plan_floor),
                 routed_model,
             )
-            plan_tier_params: Final = self._litellm_params_for_model(plan_floor, routed_model)
+            plan_tier_params: Final = self._embrouter_params_for_model(plan_floor, routed_model)
             return PreRoutingHookResponse(
                 model=routed_model,
                 messages=messages if has_original_messages else None,
@@ -4586,9 +4586,9 @@ class ComplexityRouter(CustomLogger):
                     matched_keyword=plan_mode_sentinel,
                     escalation_keyword=escalation_keyword,
                     escalated=False,
-                    tier_litellm_params=plan_tier_params,
+                    tier_embrouter_params=plan_tier_params,
                 ),
-                litellm_params=plan_tier_params,
+                embrouter_params=plan_tier_params,
             )
 
         override: Final = await self._resolve_keyword_tier_override(ask, request_kwargs)
@@ -4603,7 +4603,7 @@ class ComplexityRouter(CustomLogger):
             )
             keyword_plan_floored: Final = routed_tier != escalated_tier
             routed_model = await self._pick_model_for_tier(routed_tier, messages, resolved_messages, request_kwargs)
-            keyword_tier_litellm_params: Final = self._litellm_params_for_model(routed_tier, routed_model)
+            keyword_tier_embrouter_params: Final = self._embrouter_params_for_model(routed_tier, routed_model)
             keyword_cause: Final[RoutingDecisionCause] = (
                 "plan_mode"
                 if keyword_plan_floored
@@ -4619,7 +4619,7 @@ class ComplexityRouter(CustomLogger):
             return PreRoutingHookResponse(
                 model=routed_model,
                 messages=messages if has_original_messages else None,
-                litellm_params=keyword_tier_litellm_params,
+                embrouter_params=keyword_tier_embrouter_params,
                 routing_decision=self._build_routing_decision(
                     routed_model=routed_model,
                     conversation_continuing=conversation_continuing,
@@ -4629,7 +4629,7 @@ class ComplexityRouter(CustomLogger):
                     matched_keyword=plan_mode_sentinel if keyword_plan_floored else override.matched_keyword,
                     escalation_keyword=escalation_keyword,
                     escalated=keyword_escalated,
-                    tier_litellm_params=keyword_tier_litellm_params,
+                    tier_embrouter_params=keyword_tier_embrouter_params,
                 ),
             )
 
@@ -4683,7 +4683,7 @@ class ComplexityRouter(CustomLogger):
                 outcome.signals,
                 fallback_model,
             )
-            fallback_tier_params: Final = self._litellm_params_for_model(None, fallback_model)
+            fallback_tier_params: Final = self._embrouter_params_for_model(None, fallback_model)
             return PreRoutingHookResponse(
                 model=fallback_model,
                 messages=messages if has_original_messages else None,
@@ -4694,9 +4694,9 @@ class ComplexityRouter(CustomLogger):
                     signals=outcome.signals,
                     escalation_keyword=escalation_keyword,
                     escalated=False,
-                    tier_litellm_params=fallback_tier_params,
+                    tier_embrouter_params=fallback_tier_params,
                 ),
-                litellm_params=fallback_tier_params,
+                embrouter_params=fallback_tier_params,
             )
         if self.config.adaptive:
             # hard_floor rather than a hard pick, and passed whenever the sentinel is present
@@ -4763,7 +4763,7 @@ class ComplexityRouter(CustomLogger):
                 routed_model,
             )
 
-        tier_litellm_params: Final = self._litellm_params_for_model(tier, routed_model)
+        tier_embrouter_params: Final = self._embrouter_params_for_model(tier, routed_model)
         classifier_model: Final = (
             f"typesafe/{outcome.jev_verdict.model}"
             if outcome.cause == "jev_classifier" and outcome.jev_verdict is not None
@@ -4804,12 +4804,12 @@ class ComplexityRouter(CustomLogger):
             escalated=escalated,
             classifier_model=classifier_model,
             classifier_cost=outcome.classifier_cost,
-            tier_litellm_params=tier_litellm_params,
+            tier_embrouter_params=tier_embrouter_params,
             context_escalation_original_tier=context_original_tier,
         )
         return PreRoutingHookResponse(
             model=routed_model,
             messages=messages if has_original_messages else None,
-            litellm_params=tier_litellm_params,
+            embrouter_params=tier_embrouter_params,
             routing_decision=_with_classifier_forecast(routing_decision, outcome),
         )

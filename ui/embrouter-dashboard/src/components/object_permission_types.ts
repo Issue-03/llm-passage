@@ -1,3 +1,3 @@
 import type { components } from "@/lib/http/schema";
 
-export type ObjectPermission = Partial<components["schemas"]["LiteLLM_ObjectPermissionTable"]>;
+export type ObjectPermission = Partial<components["schemas"]["EmbRouter_ObjectPermissionTable"]>;

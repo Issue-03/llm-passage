@@ -2,10 +2,10 @@ import json
 
 import pytest
 
-import litellm
-from litellm.litellm_core_utils.llm_response_utils import get_api_base as get_api_base_module
-from litellm.llms.chatgpt.common_utils import CHATGPT_API_BASE
-from litellm.llms.github_copilot.common_utils import DEFAULT_GITHUB_COPILOT_API_BASE
+import embrouter
+from embrouter.embrouter_core_utils.llm_response_utils import get_api_base as get_api_base_module
+from embrouter.llms.chatgpt.common_utils import CHATGPT_API_BASE
+from embrouter.llms.github_copilot.common_utils import DEFAULT_GITHUB_COPILOT_API_BASE
 
 
 @pytest.fixture
@@ -48,7 +48,7 @@ class TestDeclaredAuthenticatingProvider:
     def test_answers_without_resolving(
         self, model, custom_llm_provider, expected, isolated_token_dirs, resolution_lookups
     ):
-        api_base = litellm.get_api_base(model=model, optional_params={"custom_llm_provider": custom_llm_provider})
+        api_base = embrouter.get_api_base(model=model, optional_params={"custom_llm_provider": custom_llm_provider})
 
         assert resolution_lookups == []
         assert api_base == expected
@@ -60,13 +60,13 @@ class TestDeclaredAuthenticatingProvider:
             json.dumps({"endpoints": {"api": "https://api.enterprise.githubcopilot.com"}})
         )
 
-        api_base = litellm.get_api_base(model="github_copilot/gpt-4o", optional_params={})
+        api_base = embrouter.get_api_base(model="github_copilot/gpt-4o", optional_params={})
 
         assert resolution_lookups == []
         assert api_base == "https://api.enterprise.githubcopilot.com"
 
     def test_explicit_api_base_still_wins(self, isolated_token_dirs, resolution_lookups):
-        api_base = litellm.get_api_base(
+        api_base = embrouter.get_api_base(
             model="github_copilot/gpt-4o", optional_params={"api_base": "https://copilot.example/v1"}
         )
 
@@ -74,7 +74,7 @@ class TestDeclaredAuthenticatingProvider:
         assert api_base == "https://copilot.example/v1"
 
     def test_other_providers_still_resolve(self, isolated_token_dirs, resolution_lookups):
-        litellm.get_api_base(model="openai/gpt-4o", optional_params={})
+        embrouter.get_api_base(model="openai/gpt-4o", optional_params={})
 
         assert len(resolution_lookups) == 1
 
@@ -90,4 +90,4 @@ def test_providers_with_a_fixed_base_still_get_it(model, expected, monkeypatch):
     for env in ("GEMINI_API_BASE", "OPENAI_API_BASE", "OPENAI_BASE_URL"):
         monkeypatch.delenv(env, raising=False)
 
-    assert litellm.get_api_base(model=model, optional_params={}) == expected
+    assert embrouter.get_api_base(model=model, optional_params={}) == expected

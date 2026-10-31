@@ -1,9 +1,9 @@
 from typing import Final
 from urllib.parse import parse_qs, urlparse, urlunparse
 
-from litellm.llms.azure.common_utils import BaseAzureLLM
-from litellm.llms.openai.containers.transformation import OpenAIContainerConfig
-from litellm.types.router import GenericLiteLLMParams
+from embrouter.llms.azure.common_utils import BaseAzureLLM
+from embrouter.llms.openai.containers.transformation import OpenAIContainerConfig
+from embrouter.types.router import GenericEmbRouterParams
 
 # Endpoint-specific path suffixes that may appear in a deployment's api_base
 # (e.g. the responses endpoint URL is stored as api_base for Azure models).
@@ -31,7 +31,7 @@ class AzureContainerConfig(OpenAIContainerConfig):
     ) -> dict:
         return BaseAzureLLM._base_validate_azure_environment(
             headers=headers,
-            litellm_params=GenericLiteLLMParams(api_key=api_key),
+            embrouter_params=GenericEmbRouterParams(api_key=api_key),
         )
 
     @staticmethod
@@ -56,7 +56,7 @@ class AzureContainerConfig(OpenAIContainerConfig):
     def get_complete_url(
         self,
         api_base: str | None,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> str:
         """
         Build the Azure container endpoint URL.
@@ -71,13 +71,13 @@ class AzureContainerConfig(OpenAIContainerConfig):
         prefer the api-version embedded there over the deployment's
         api_version field, which may point to an older chat API version.
         """
-        effective_params: Final = dict(litellm_params)
+        effective_params: Final = dict(embrouter_params)
         api_version_from_base: Final = self._extract_api_version(api_base)
         if api_version_from_base:
             effective_params["api_version"] = api_version_from_base
         return BaseAzureLLM._get_base_azure_url(
             api_base=self._normalize_api_base(api_base),
-            litellm_params=effective_params,
+            embrouter_params=effective_params,
             route="/openai/containers",
             default_api_version="v1",
         )

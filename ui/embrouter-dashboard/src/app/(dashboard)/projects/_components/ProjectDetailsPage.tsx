@@ -27,7 +27,7 @@ export function ProjectDetail({ projectId, onBack }: ProjectDetailProps) {
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
 
   const spend = project?.spend ?? 0;
-  const maxBudget = project?.litellm_budget_table?.max_budget ?? null;
+  const maxBudget = project?.embrouter_budget_table?.max_budget ?? null;
   const hasLimit = maxBudget != null && maxBudget > 0;
   const spendPercent = hasLimit ? Math.min((spend / maxBudget) * 100, 100) : 0;
 

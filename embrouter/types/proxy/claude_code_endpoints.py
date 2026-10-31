@@ -1,5 +1,5 @@
 """
-Claude Code Marketplace endpoint types for LiteLLM Proxy
+Claude Code Marketplace endpoint types for EmbRouter Proxy
 """
 
 from pydantic import BaseModel, Field
@@ -47,7 +47,7 @@ class RegisterPluginRequest(PluginSpec):
     """
     Request body for registering a plugin in the marketplace.
 
-    LiteLLM acts as a registry/discovery layer. Plugins are hosted on
+    EmbRouter acts as a registry/discovery layer. Plugins are hosted on
     GitHub/GitLab/Bitbucket or as a zip archive on any https host and referenced by their source.
     """
 

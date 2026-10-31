@@ -21,46 +21,46 @@ from typing import TYPE_CHECKING, Any, Final, Literal, Optional, Protocol, Typed
 import aiohttp
 from typing_extensions import NotRequired, ReadOnly
 
-import litellm
-from litellm import get_secret
-from litellm._logging import verbose_proxy_logger
-from litellm.constants import (
+import embrouter
+from embrouter import get_secret
+from embrouter._logging import verbose_proxy_logger
+from embrouter.constants import (
     DEFAULT_PRESIDIO_ANALYZE_CHUNK_SIZE_BYTES,
     PRESIDIO_ANALYZE_CHUNK_CONCURRENCY,
     PRESIDIO_ANALYZE_CHUNK_OVERLAP_CHARS,
 )
-from litellm.types.utils import GenericGuardrailAPIInputs
+from embrouter.types.utils import GenericGuardrailAPIInputs
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
 
-from litellm.caching.caching import DualCache
-from litellm.exceptions import BlockedPiiEntityError, GuardrailRaisedException
-from litellm.integrations.custom_guardrail import (
+from embrouter.caching.caching import DualCache
+from embrouter.exceptions import BlockedPiiEntityError, GuardrailRaisedException
+from embrouter.integrations.custom_guardrail import (
     CustomGuardrail,
     log_guardrail_information,
 )
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.common_utils.sse_keepalive import split_complete_sse_frames
-from litellm.proxy.guardrails.anthropic_sse import (
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.common_utils.sse_keepalive import split_complete_sse_frames
+from embrouter.proxy.guardrails.anthropic_sse import (
     anthropic_sse_chunks_from_response,
     assemble_anthropic_sse_stream,
     is_anthropic_sse_stream,
     model_response_text,
 )
-from litellm.types.guardrails import (
+from embrouter.types.guardrails import (
     GuardrailEventHooks,
-    LitellmParams,
+    EmbrouterParams,
     PiiAction,
     PiiEntityType,
     PresidioPerRequestConfig,
 )
-from litellm.types.proxy.guardrails.guardrail_hooks.presidio import (
+from embrouter.types.proxy.guardrails.guardrail_hooks.presidio import (
     PresidioAnalyzeRequest,
     PresidioAnalyzeResponseItem,
 )
-from litellm.types.utils import GuardrailStatus, StreamingChoices
-from litellm.utils import (
+from embrouter.types.utils import GuardrailStatus, StreamingChoices
+from embrouter.utils import (
     EmbeddingResponse,
     ImageResponse,
     ModelResponse,
@@ -275,7 +275,7 @@ class _OPTIONAL_PresidioPIIMasking(CustomGuardrail):
         self.presidio_analyzer_api_base: str | None = presidio_analyzer_api_base or get_secret(
             "PRESIDIO_ANALYZER_API_BASE", None
         )
-        self.presidio_anonymizer_api_base: str | None = presidio_anonymizer_api_base or litellm.get_secret(
+        self.presidio_anonymizer_api_base: str | None = presidio_anonymizer_api_base or embrouter.get_secret(
             "PRESIDIO_ANONYMIZER_API_BASE", None
         )
 
@@ -1212,7 +1212,7 @@ class _OPTIONAL_PresidioPIIMasking(CustomGuardrail):
                 )
             return await self._mask_output_response(response=response, request_data=data)
 
-        if self.output_parse_pii is False and litellm.output_parse_pii is False:
+        if self.output_parse_pii is False and embrouter.output_parse_pii is False:
             return response
 
         if isinstance(response, ModelResponse) and not isinstance(
@@ -1413,11 +1413,11 @@ class _OPTIONAL_PresidioPIIMasking(CustomGuardrail):
     async def _mask_buffered_model_response_stream(
         self, all_chunks: Sequence[ModelResponseStream], request_data: dict
     ) -> tuple[object, ...]:
-        from litellm.llms.base_llm.base_model_iterator import (
+        from embrouter.llms.base_llm.base_model_iterator import (
             convert_model_response_to_streaming,
         )
-        from litellm.main import stream_chunk_builder
-        from litellm.types.utils import ModelResponse
+        from embrouter.main import stream_chunk_builder
+        from embrouter.types.utils import ModelResponse
 
         assembled: Final = stream_chunk_builder(chunks=list(all_chunks), messages=request_data.get("messages"))
         if not isinstance(assembled, ModelResponse):
@@ -1567,11 +1567,11 @@ class _OPTIONAL_PresidioPIIMasking(CustomGuardrail):
         request_data: dict,
     ) -> AsyncGenerator[object, None]:
         """Apply PII unmasking to streaming output (output_parse_pii=True path)."""
-        from litellm.llms.base_llm.base_model_iterator import (
+        from embrouter.llms.base_llm.base_model_iterator import (
             convert_model_response_to_streaming,
         )
-        from litellm.main import stream_chunk_builder
-        from litellm.types.utils import ModelResponse
+        from embrouter.main import stream_chunk_builder
+        from embrouter.types.utils import ModelResponse
 
         metadata: Final = (request_data.get("metadata") or {}) if request_data else {}
         pii_tokens: Final[dict[str, str]] = metadata.get("pii_tokens", {})
@@ -1692,7 +1692,7 @@ class _OPTIONAL_PresidioPIIMasking(CustomGuardrail):
     def print_verbose(self, print_statement):
         try:
             verbose_proxy_logger.debug(print_statement)
-            if litellm.set_verbose:
+            if embrouter.set_verbose:
                 print(print_statement)  # noqa: T201
         except Exception:
             pass
@@ -1703,7 +1703,7 @@ class _OPTIONAL_PresidioPIIMasking(CustomGuardrail):
         inputs: "GenericGuardrailAPIInputs",
         request_data: dict,
         input_type: Literal["request", "response"],
-        logging_obj: Optional["LiteLLMLoggingObj"] = None,
+        logging_obj: Optional["EmbRouterLoggingObj"] = None,
     ) -> "GenericGuardrailAPIInputs":
         """
         UI will call this function to check:
@@ -1734,22 +1734,22 @@ class _OPTIONAL_PresidioPIIMasking(CustomGuardrail):
         inputs["texts"] = new_texts
         return inputs
 
-    def update_in_memory_litellm_params(self, litellm_params: LitellmParams) -> None:
+    def update_in_memory_embrouter_params(self, embrouter_params: EmbrouterParams) -> None:
         """
-        Update the guardrails litellm params in memory
+        Update the guardrails embrouter params in memory
         """
-        super().update_in_memory_litellm_params(litellm_params)
+        super().update_in_memory_embrouter_params(embrouter_params)
         if self.apply_to_output:
             self.output_parse_pii = False
-        if litellm_params.pii_entities_config:
-            self.pii_entities_config = litellm_params.pii_entities_config
-        if litellm_params.presidio_score_thresholds:
-            self.presidio_score_thresholds = litellm_params.presidio_score_thresholds
-        if litellm_params.presidio_entities_deny_list:
-            self.presidio_entities_deny_list = litellm_params.presidio_entities_deny_list
-        if litellm_params.presidio_analyze_chunk_size_bytes is not None:
+        if embrouter_params.pii_entities_config:
+            self.pii_entities_config = embrouter_params.pii_entities_config
+        if embrouter_params.presidio_score_thresholds:
+            self.presidio_score_thresholds = embrouter_params.presidio_score_thresholds
+        if embrouter_params.presidio_entities_deny_list:
+            self.presidio_entities_deny_list = embrouter_params.presidio_entities_deny_list
+        if embrouter_params.presidio_analyze_chunk_size_bytes is not None:
             # Same validation as __init__: a non-positive value from a guardrail
             # update must not silently disable detection via degenerate chunking.
             self.presidio_analyze_chunk_size_bytes = self._coerce_analyze_chunk_size(
-                litellm_params.presidio_analyze_chunk_size_bytes
+                embrouter_params.presidio_analyze_chunk_size_bytes
             )

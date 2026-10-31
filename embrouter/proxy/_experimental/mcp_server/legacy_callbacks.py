@@ -11,8 +11,8 @@ from mcp.types import (
     ErrorData,
 )
 
-from litellm.proxy._experimental.mcp_server.contracts import OperationContext
-from litellm.proxy._types import UserAPIKeyAuth
+from embrouter.proxy._experimental.mcp_server.contracts import OperationContext
+from embrouter.proxy._types import UserAPIKeyAuth
 
 
 class SamplingCallback(Protocol):
@@ -31,7 +31,7 @@ def create_sampling_callback(
     client_ip: str | None = None,
     operation_context: OperationContext | None = None,
 ) -> SamplingCallback:
-    from litellm.proxy._experimental.mcp_server.server import get_active_auth_context
+    from embrouter.proxy._experimental.mcp_server.server import get_active_auth_context
 
     auth: Final = get_active_auth_context() if operation_context is None and user_api_key_auth is None else None
     captured: Final = (
@@ -47,13 +47,13 @@ def create_sampling_callback(
     async def callback(
         context: ClientRequestContext, params: CreateMessageRequestParams
     ) -> CreateMessageResult | CreateMessageResultWithTools | ErrorData:
-        import litellm
-        from litellm.proxy._experimental.mcp_server.sampling_handler import handle_sampling_create_message
+        import embrouter
+        from embrouter.proxy._experimental.mcp_server.sampling_handler import handle_sampling_create_message
 
         return await handle_sampling_create_message(
             context=context,
             params=params,
-            default_model=getattr(litellm, "default_mcp_sampling_model", None),
+            default_model=getattr(embrouter, "default_mcp_sampling_model", None),
             user_api_key_auth=captured.user_api_key_auth,
             raw_headers=dict(captured.raw_headers) if captured.raw_headers is not None else None,
             client_ip=captured.client_ip,
@@ -63,13 +63,13 @@ def create_sampling_callback(
 
 
 def create_elicitation_callback() -> ElicitationCallback:
-    from litellm.proxy._experimental.mcp_server.server import get_active_mcp_session
+    from embrouter.proxy._experimental.mcp_server.server import get_active_mcp_session
 
     downstream_session: Final = get_active_mcp_session()
     downstream_capabilities: Final = getattr(downstream_session, "capabilities", None)
 
     async def callback(context: object, params: ElicitRequestParams) -> ElicitResult | ErrorData:
-        from litellm.proxy._experimental.mcp_server.elicitation_handler import handle_elicitation_request
+        from embrouter.proxy._experimental.mcp_server.elicitation_handler import handle_elicitation_request
 
         return await handle_elicitation_request(
             context=context,

@@ -7,9 +7,9 @@ import json
 from typing import Final
 from urllib.parse import quote
 
-from litellm._logging import print_verbose, verbose_logger
-from litellm.integrations.gcs_bucket.gcs_bucket_base import GCSBucketBase
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter._logging import print_verbose, verbose_logger
+from embrouter.integrations.gcs_bucket.gcs_bucket_base import GCSBucketBase
+from embrouter.llms.custom_httpx.http_handler import (
     _get_httpx_client,
     get_async_httpx_client,
     httpxSpecialProvider,
@@ -41,7 +41,7 @@ class GCSCache(BaseCache):
 
     def set_cache(self, key, value, **kwargs):
         try:
-            print_verbose(f"LiteLLM SET Cache - GCS. Key={key}. Value={value}")
+            print_verbose(f"EmbRouter SET Cache - GCS. Key={key}. Value={value}")
             headers: Final = self._construct_headers()
             object_name: Final = self.key_prefix + key
             bucket_name: Final = self.bucket_name

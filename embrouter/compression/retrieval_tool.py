@@ -1,5 +1,5 @@
 """
-Build the litellm_content_retrieve tool definition for the LLM.
+Build the embrouter_content_retrieve tool definition for the LLM.
 """
 
 
@@ -11,7 +11,7 @@ def build_retrieval_tool(available_keys: list[str]) -> dict:
     return {
         "type": "function",
         "function": {
-            "name": "litellm_content_retrieve",
+            "name": "embrouter_content_retrieve",
             "description": (
                 "Retrieve the full content of a file or message that was "
                 "compressed to save tokens. Use this when you need the complete "

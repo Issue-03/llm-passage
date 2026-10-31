@@ -1,6 +1,6 @@
 # IBM Guardrails Detector Integration
 
-This integration provides support for IBM's FMS Guardrails detectors in LiteLLM. It supports both direct detector server calls and calls via the FMS Guardrails Orchestrator.
+This integration provides support for IBM's FMS Guardrails detectors in EmbRouter. It supports both direct detector server calls and calls via the FMS Guardrails Orchestrator.
 
 ## Features
 
@@ -35,7 +35,7 @@ This integration provides support for IBM's FMS Guardrails detectors in LiteLLM.
 ```yaml
 guardrails:
   - guardrail_name: "ibm-jailbreak-detector"
-    litellm_params:
+    embrouter_params:
       guardrail: ibm_guardrails
       mode: pre_call
       default_on: true
@@ -53,7 +53,7 @@ guardrails:
 ```yaml
 guardrails:
   - guardrail_name: "ibm-content-safety"
-    litellm_params:
+    embrouter_params:
       guardrail: ibm_guardrails
       mode: post_call
       default_on: true
@@ -66,7 +66,7 @@ guardrails:
 ### Example 3: Python Usage
 
 ```python
-from litellm.proxy.guardrails.guardrail_hooks.ibm_guardrails import IBMGuardrailDetector
+from embrouter.proxy.guardrails.guardrail_hooks.ibm_guardrails import IBMGuardrailDetector
 
 # Initialize the guardrail
 guardrail = IBMGuardrailDetector(

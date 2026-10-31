@@ -78,7 +78,7 @@ vi.mock("../../hooks/models/useModels", () => ({
 }));
 
 vi.mock("../../hooks/models/useModelCostMap", () => ({
-  useModelCostMap: () => ({ data: { "gpt-4": { litellm_provider: "openai" } }, isLoading: false, error: null }),
+  useModelCostMap: () => ({ data: { "gpt-4": { embrouter_provider: "openai" } }, isLoading: false, error: null }),
 }));
 
 const mockTeams = [{ team_id: "team-1", team_alias: "Engineering" }];
@@ -98,7 +98,7 @@ const BASE_MODEL_INFO = {
 
 const makeRow = (overrides: Record<string, unknown> = {}) => ({
   model_name: "gpt-4",
-  litellm_params: { model: "openai/gpt-4", custom_llm_provider: "openai" },
+  embrouter_params: { model: "openai/gpt-4", custom_llm_provider: "openai" },
   model_info: { ...BASE_MODEL_INFO, ...((overrides.model_info as Record<string, unknown>) ?? {}) },
 });
 
@@ -332,7 +332,7 @@ describe("AllModelsTab", () => {
 
     it("ignores a sort_by the table cannot sort by instead of forwarding it to the server", () => {
       renderWithProviders(<AllModelsTab {...defaultProps} />, {
-        searchParams: { sort_by: "litellm_credential_name", sort_order: "desc" },
+        searchParams: { sort_by: "embrouter_credential_name", sort_order: "desc" },
       });
 
       expect(lastModelsInfoCall().sortBy).toBeUndefined();

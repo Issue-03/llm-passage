@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 
-from litellm.types.proxy.control_plane_endpoints import WorkerRegistryEntry
+from embrouter.types.proxy.control_plane_endpoints import WorkerRegistryEntry
 
 
 class UiDiscoveryEndpoints(BaseModel):

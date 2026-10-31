@@ -2,7 +2,7 @@ from typing import Final
 
 import pytest
 
-from litellm.litellm_core_utils.classifier_logging import classifier_input_snapshot, masked_originating_request
+from embrouter.embrouter_core_utils.classifier_logging import classifier_input_snapshot, masked_originating_request
 
 
 @pytest.mark.parametrize("encoded", [False, True])

@@ -413,7 +413,7 @@ export const getProviderLogoAndName = (providerValue: string): { logo: string; d
     return { logo, displayName };
   }
 
-  // Resolve by the litellm provider slug (e.g. "bedrock_mantle"); fall back to
+  // Resolve by the embrouter provider slug (e.g. "bedrock_mantle"); fall back to
   // the enum key (e.g. "BedrockMantle") for callers like the Add Model dropdown
   // that pass the key instead of the slug.
   const enumKey =
@@ -473,15 +473,15 @@ export const getProviderModels = (provider: string, modelMap: any): Array<string
 
   if (providerKey && typeof modelMap === "object") {
     Object.entries(modelMap).forEach(([key, value]) => {
-      if (value !== null && typeof value === "object" && "litellm_provider" in (value as object)) {
-        const litellmProvider = (value as any)["litellm_provider"];
+      if (value !== null && typeof value === "object" && "embrouter_provider" in (value as object)) {
+        const embrouterProvider = (value as any)["embrouter_provider"];
         const isPrefixVariant =
-          typeof litellmProvider === "string" &&
-          (litellmProvider.startsWith(`${custom_llm_provider}_`) ||
-            litellmProvider.startsWith(`${custom_llm_provider}-`));
+          typeof embrouterProvider === "string" &&
+          (embrouterProvider.startsWith(`${custom_llm_provider}_`) ||
+            embrouterProvider.startsWith(`${custom_llm_provider}-`));
         if (
-          litellmProvider === custom_llm_provider ||
-          (isPrefixVariant && !standaloneSubproviderSlugs.has(litellmProvider))
+          embrouterProvider === custom_llm_provider ||
+          (isPrefixVariant && !standaloneSubproviderSlugs.has(embrouterProvider))
         ) {
           providerModels.push(key);
         }
@@ -494,8 +494,8 @@ export const getProviderModels = (provider: string, modelMap: any): Array<string
         if (
           value !== null &&
           typeof value === "object" &&
-          "litellm_provider" in (value as object) &&
-          (value as any)["litellm_provider"] === "cohere_chat"
+          "embrouter_provider" in (value as object) &&
+          (value as any)["embrouter_provider"] === "cohere_chat"
         ) {
           providerModels.push(key);
         }
@@ -509,8 +509,8 @@ export const getProviderModels = (provider: string, modelMap: any): Array<string
         if (
           value !== null &&
           typeof value === "object" &&
-          "litellm_provider" in (value as object) &&
-          (value as any)["litellm_provider"] === "sagemaker_chat"
+          "embrouter_provider" in (value as object) &&
+          (value as any)["embrouter_provider"] === "sagemaker_chat"
         ) {
           providerModels.push(key);
         }

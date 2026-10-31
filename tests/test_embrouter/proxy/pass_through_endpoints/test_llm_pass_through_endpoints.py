@@ -22,11 +22,11 @@ from fastapi.testclient import TestClient
 from starlette.datastructures import FormData
 
 
-import litellm
-from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+import embrouter
+from embrouter.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
 from tests.unit.llms.bedrock.event_loop_probe import EventLoopProbe
-from litellm.constants import LITELLM_PROXY_MASTER_KEY_ALIAS
-from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+from embrouter.constants import EMBROUTER_PROXY_MASTER_KEY_ALIAS
+from embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
     BaseOpenAIPassThroughHandler,
     RouteChecks,
     _fal_target,
@@ -55,10 +55,10 @@ from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
     vertex_proxy_route,
     vllm_proxy_route,
 )
-from litellm.proxy._types import LitellmUserRoles, SpecialHeaders, UserAPIKeyAuth
-from litellm.proxy.auth.handle_jwt import JWTHandler
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.types.passthrough_endpoints.vertex_ai import VertexPassThroughCredentials
+from embrouter.proxy._types import EmbrouterUserRoles, SpecialHeaders, UserAPIKeyAuth
+from embrouter.proxy.auth.handle_jwt import JWTHandler
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.types.passthrough_endpoints.vertex_ai import VertexPassThroughCredentials
 
 
 class TestVertexPassthroughGetVertexBaseUrl:
@@ -98,7 +98,7 @@ class TestBaseOpenAIPassThroughHandler:
         base_url = httpx.URL("https://api.example.com")
         path = "/v1/chat/completions"
         result = _join_url_paths(
-            base_url, path, litellm.LlmProviders.OPENAI.value
+            base_url, path, embrouter.LlmProviders.OPENAI.value
         )
         print(f"Base URL with no path: '{base_url}' + '{path}' → '{result}'")
         assert str(result) == "https://api.example.com/v1/chat/completions"
@@ -107,7 +107,7 @@ class TestBaseOpenAIPassThroughHandler:
         base_url = httpx.URL("https://api.example.com/v1")
         path = "/chat/completions"
         result = _join_url_paths(
-            base_url, path, litellm.LlmProviders.OPENAI.value
+            base_url, path, embrouter.LlmProviders.OPENAI.value
         )
         print(f"Base URL with path: '{base_url}' + '{path}' → '{result}'")
         assert str(result) == "https://api.example.com/v1/chat/completions"
@@ -116,7 +116,7 @@ class TestBaseOpenAIPassThroughHandler:
         base_url = httpx.URL("https://api.example.com/v1")
         path = "chat/completions"
         result = _join_url_paths(
-            base_url, path, litellm.LlmProviders.OPENAI.value
+            base_url, path, embrouter.LlmProviders.OPENAI.value
         )
         print(f"Path without leading slash: '{base_url}' + '{path}' → '{result}'")
         assert str(result) == "https://api.example.com/v1/chat/completions"
@@ -125,7 +125,7 @@ class TestBaseOpenAIPassThroughHandler:
         base_url = httpx.URL("https://api.example.com/v1/")
         path = "/chat/completions"
         result = _join_url_paths(
-            base_url, path, litellm.LlmProviders.OPENAI.value
+            base_url, path, embrouter.LlmProviders.OPENAI.value
         )
         print(f"Base URL with trailing slash: '{base_url}' + '{path}' → '{result}'")
         assert str(result) == "https://api.example.com/v1/chat/completions"
@@ -196,8 +196,8 @@ class TestBaseOpenAIPassThroughHandler:
             assert result["api-key"] == "test_api_key"
             assert result["test-header"] == "value"
 
-    @patch(  # test-quality-ok: patching litellm internal for unit test isolation
-        "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
+    @patch(  # test-quality-ok: patching embrouter internal for unit test isolation
+        "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
     )
     async def test_base_openai_pass_through_handler(self, mock_create_pass_through):
         print("\nTesting _base_openai_pass_through_handler method...")
@@ -221,7 +221,7 @@ class TestBaseOpenAIPassThroughHandler:
             user_api_key_dict=mock_user_api_key_dict,
             base_target_url="https://api.openai.com",
             api_key="test_api_key",
-            custom_llm_provider=litellm.LlmProviders.OPENAI.value,
+            custom_llm_provider=embrouter.LlmProviders.OPENAI.value,
         )
 
         # Verify the result
@@ -259,7 +259,7 @@ class TestVertexAIPassThroughHandler:
         """
         Test that when passthrough credentials are set, they are correctly used in the request
         """
-        from litellm.proxy.pass_through_endpoints.passthrough_endpoint_router import (
+        from embrouter.proxy.pass_through_endpoints.passthrough_endpoint_router import (
             PassthroughEndpointRouter,
         )
 
@@ -276,7 +276,7 @@ class TestVertexAIPassThroughHandler:
         )
 
         monkeypatch.setattr(
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router",
+            "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router",
             pass_through_router,
         )
 
@@ -305,19 +305,19 @@ class TestVertexAIPassThroughHandler:
 
         with (
             mock.patch(
-                "litellm.llms.vertex_ai.vertex_llm_base.VertexBase.load_auth"
+                "embrouter.llms.vertex_ai.vertex_llm_base.VertexBase.load_auth"
             ) as mock_load_auth,
             mock.patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
             ) as mock_create_route,
             mock.patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_litellm_virtual_key"
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_embrouter_virtual_key"
             ) as mock_get_virtual_key,
             mock.patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.user_api_key_auth"
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.user_api_key_auth"
             ) as mock_user_auth,
             mock.patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_vertex_pass_through_handler"
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_vertex_pass_through_handler"
             ) as mock_get_handler,
         ):
             # Mock credentials object with necessary attributes
@@ -364,7 +364,7 @@ class TestVertexAIPassThroughHandler:
         """
         Test that when global location is used, it is correctly handled in the request
         """
-        from litellm.proxy.pass_through_endpoints.passthrough_endpoint_router import (
+        from embrouter.proxy.pass_through_endpoints.passthrough_endpoint_router import (
             PassthroughEndpointRouter,
         )
 
@@ -381,7 +381,7 @@ class TestVertexAIPassThroughHandler:
         )
 
         monkeypatch.setattr(
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router",
+            "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router",
             pass_through_router,
         )
 
@@ -410,19 +410,19 @@ class TestVertexAIPassThroughHandler:
 
         with (
             mock.patch(
-                "litellm.llms.vertex_ai.vertex_llm_base.VertexBase.load_auth"
+                "embrouter.llms.vertex_ai.vertex_llm_base.VertexBase.load_auth"
             ) as mock_load_auth,
             mock.patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
             ) as mock_create_route,
             mock.patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_litellm_virtual_key"
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_embrouter_virtual_key"
             ) as mock_get_virtual_key,
             mock.patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.user_api_key_auth"
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.user_api_key_auth"
             ) as mock_user_auth,
             mock.patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_vertex_pass_through_handler"
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_vertex_pass_through_handler"
             ) as mock_get_handler,
         ):
             # Mock credentials object with necessary attributes
@@ -478,7 +478,7 @@ class TestVertexAIPassThroughHandler:
         """
         Test that when no passthrough credentials are set, default credentials are used in the request
         """
-        from litellm.proxy.pass_through_endpoints.passthrough_endpoint_router import (
+        from embrouter.proxy.pass_through_endpoints.passthrough_endpoint_router import (
             PassthroughEndpointRouter,
         )
 
@@ -495,7 +495,7 @@ class TestVertexAIPassThroughHandler:
         )
 
         monkeypatch.setattr(
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router",
+            "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router",
             pass_through_router,
         )
 
@@ -514,16 +514,16 @@ class TestVertexAIPassThroughHandler:
 
         with (
             mock.patch(
-                "litellm.llms.vertex_ai.vertex_llm_base.VertexBase.load_auth"
+                "embrouter.llms.vertex_ai.vertex_llm_base.VertexBase.load_auth"
             ) as mock_load_auth,
             mock.patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
             ) as mock_create_route,
             mock.patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_vertex_pass_through_handler"
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_vertex_pass_through_handler"
             ) as mock_get_handler,
             mock.patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.user_api_key_auth",
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.user_api_key_auth",
                 new_callable=AsyncMock,
             ) as mock_auth,
         ):
@@ -570,7 +570,7 @@ class TestVertexAIPassThroughHandler:
         is the caller's own virtual key. It must not be forwarded to Google; the
         request fails with a clean 401 instead (LIT-5997).
         """
-        from litellm.proxy.pass_through_endpoints.passthrough_endpoint_router import (
+        from embrouter.proxy.pass_through_endpoints.passthrough_endpoint_router import (
             PassthroughEndpointRouter,
         )
 
@@ -591,10 +591,10 @@ class TestVertexAIPassThroughHandler:
         )
 
         monkeypatch.setattr(
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router",
+            "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router",
             pass_through_router,
         )
-        monkeypatch.setattr("litellm.proxy.proxy_server.master_key", "sk-master-1234")
+        monkeypatch.setattr("embrouter.proxy.proxy_server.master_key", "sk-master-1234")
 
         endpoint = f"/v1/projects/{test_project}/locations/{test_location}/publishers/google/models/gemini-1.5-flash:generateContent"
 
@@ -615,16 +615,16 @@ class TestVertexAIPassThroughHandler:
 
         with (
             mock.patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.vertex_llm_base._ensure_access_token_async"
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.vertex_llm_base._ensure_access_token_async"
             ) as mock_ensure_token,
             mock.patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.vertex_llm_base._get_token_and_url"
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.vertex_llm_base._get_token_and_url"
             ) as mock_get_token,
             mock.patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
             ) as mock_create_route,
             mock.patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.user_api_key_auth",
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.user_api_key_auth",
                 new_callable=AsyncMock,
             ) as mock_auth,
         ):
@@ -647,24 +647,24 @@ class TestVertexAIPassThroughHandler:
         """
         Critical
 
-        This is how Vertex AI JS SDK will Auth to Litellm Proxy: the virtual key
-        arrives in x-litellm-api-key and must reach user_api_key_auth. With no Vertex
+        This is how Vertex AI JS SDK will Auth to Embrouter Proxy: the virtual key
+        arrives in x-embrouter-api-key and must reach user_api_key_auth. With no Vertex
         credential configured, that virtual key must not be forwarded to Google, so
         the request fails with a clean 401 (LIT-5997).
         """
         # Mock dependencies
         mock_request = Mock()
-        mock_request.headers = {"x-litellm-api-key": "test-key-123"}
+        mock_request.headers = {"x-embrouter-api-key": "test-key-123"}
         mock_request.method = "POST"
         mock_response = Mock()
 
         with patch(
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.user_api_key_auth"
+            "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.user_api_key_auth"
         ) as mock_auth:
             mock_auth.return_value = {"api_key": "test-key-123"}
 
             with patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
             ) as mock_pass_through:
                 mock_pass_through.return_value = AsyncMock(
                     return_value={"status": "success"}
@@ -690,10 +690,10 @@ class TestVertexAIPassThroughHandler:
         import datetime
         from unittest.mock import Mock
 
-        from litellm.litellm_core_utils.litellm_logging import (
-            Logging as LiteLLMLoggingObj,
+        from embrouter.embrouter_core_utils.embrouter_logging import (
+            Logging as EmbRouterLoggingObj,
         )
-        from litellm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler import (
+        from embrouter.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler import (
             VertexPassthroughLoggingHandler,
         )
 
@@ -722,9 +722,9 @@ class TestVertexAIPassThroughHandler:
         mock_httpx_response.status_code = 200
 
         # Create mock logging object
-        mock_logging_obj = Mock(spec=LiteLLMLoggingObj)
+        mock_logging_obj = Mock(spec=EmbRouterLoggingObj)
         mock_logging_obj.optional_params = {}
-        mock_logging_obj.litellm_call_id = "test-call-id-123"
+        mock_logging_obj.embrouter_call_id = "test-call-id-123"
         mock_logging_obj.model_call_details = {}
 
         # Test URL with multimodal embedding model
@@ -734,14 +734,14 @@ class TestVertexAIPassThroughHandler:
         end_time = datetime.datetime.now()
 
         with patch(
-            "litellm.llms.vertex_ai.multimodal_embeddings.transformation.VertexAIMultimodalEmbeddingConfig"
+            "embrouter.llms.vertex_ai.multimodal_embeddings.transformation.VertexAIMultimodalEmbeddingConfig"
         ) as mock_multimodal_config:
             # Mock the multimodal config instance and its methods
             mock_config_instance = Mock()
             mock_multimodal_config.return_value = mock_config_instance
 
             # Create a mock embedding response that would be returned by the transformation
-            from litellm.types.utils import Embedding, EmbeddingResponse, Usage
+            from embrouter.types.utils import Embedding, EmbeddingResponse, Usage
 
             mock_embedding_response = EmbeddingResponse(
                 object="list",
@@ -789,7 +789,7 @@ class TestVertexAIPassThroughHandler:
         """
         Test the _is_multimodal_embedding_response detection method specifically
         """
-        from litellm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler import (
+        from embrouter.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler import (
             VertexPassthroughLoggingHandler,
         )
 
@@ -874,10 +874,10 @@ class TestVertexAIPassThroughHandler:
         import datetime
         from unittest.mock import Mock, patch
 
-        from litellm.litellm_core_utils.litellm_logging import (
-            Logging as LiteLLMLoggingObj,
+        from embrouter.embrouter_core_utils.embrouter_logging import (
+            Logging as EmbRouterLoggingObj,
         )
-        from litellm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler import (
+        from embrouter.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler import (
             VertexPassthroughLoggingHandler,
         )
 
@@ -899,9 +899,9 @@ class TestVertexAIPassThroughHandler:
         mock_httpx_response.status_code = 200
 
         # Create mock logging object
-        mock_logging_obj = Mock(spec=LiteLLMLoggingObj)
+        mock_logging_obj = Mock(spec=EmbRouterLoggingObj)
         mock_logging_obj.optional_params = {}
-        mock_logging_obj.litellm_call_id = "test-call-id-123"
+        mock_logging_obj.embrouter_call_id = "test-call-id-123"
         mock_logging_obj.model_call_details = {}
 
         # Test URL with /predict endpoint
@@ -910,7 +910,7 @@ class TestVertexAIPassThroughHandler:
         start_time = datetime.datetime.now()
         end_time = datetime.datetime.now()
 
-        with patch("litellm.completion_cost") as mock_completion_cost:
+        with patch("embrouter.completion_cost") as mock_completion_cost:
             # Mock the completion cost calculation
             mock_completion_cost.return_value = 0.0001
 
@@ -953,10 +953,10 @@ class TestVertexAIPassThroughHandler:
         import datetime
         from unittest.mock import Mock, patch
 
-        from litellm.litellm_core_utils.litellm_logging import (
-            Logging as LiteLLMLoggingObj,
+        from embrouter.embrouter_core_utils.embrouter_logging import (
+            Logging as EmbRouterLoggingObj,
         )
-        from litellm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler import (
+        from embrouter.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler import (
             VertexPassthroughLoggingHandler,
         )
 
@@ -970,9 +970,9 @@ class TestVertexAIPassThroughHandler:
         mock_httpx_response.json.return_value = embed_content_response_data
         mock_httpx_response.status_code = 200
 
-        mock_logging_obj = Mock(spec=LiteLLMLoggingObj)
+        mock_logging_obj = Mock(spec=EmbRouterLoggingObj)
         mock_logging_obj.optional_params = {}
-        mock_logging_obj.litellm_call_id = "test-call-id-embed"
+        mock_logging_obj.embrouter_call_id = "test-call-id-embed"
         mock_logging_obj.model_call_details = {}
 
         url_route = "/v1/projects/test-project/locations/us-central1/publishers/google/models/gemini-embedding-001:embedContent"
@@ -980,7 +980,7 @@ class TestVertexAIPassThroughHandler:
         start_time = datetime.datetime.now()
         end_time = datetime.datetime.now()
 
-        with patch("litellm.completion_cost") as mock_completion_cost:
+        with patch("embrouter.completion_cost") as mock_completion_cost:
             mock_completion_cost.return_value = 0.0002
 
             result = VertexPassthroughLoggingHandler.vertex_passthrough_handler(
@@ -1011,10 +1011,10 @@ class TestVertexAIPassThroughHandler:
         import datetime
         from unittest.mock import Mock, patch
 
-        from litellm.litellm_core_utils.litellm_logging import (
-            Logging as LiteLLMLoggingObj,
+        from embrouter.embrouter_core_utils.embrouter_logging import (
+            Logging as EmbRouterLoggingObj,
         )
-        from litellm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler import (
+        from embrouter.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler import (
             VertexPassthroughLoggingHandler,
         )
 
@@ -1029,9 +1029,9 @@ class TestVertexAIPassThroughHandler:
         mock_httpx_response.json.return_value = batch_embed_response_data
         mock_httpx_response.status_code = 200
 
-        mock_logging_obj = Mock(spec=LiteLLMLoggingObj)
+        mock_logging_obj = Mock(spec=EmbRouterLoggingObj)
         mock_logging_obj.optional_params = {}
-        mock_logging_obj.litellm_call_id = "test-call-id-batch"
+        mock_logging_obj.embrouter_call_id = "test-call-id-batch"
         mock_logging_obj.model_call_details = {}
 
         url_route = "/v1/projects/test-project/locations/us-central1/publishers/google/models/gemini-embedding-001:batchEmbedContents"
@@ -1039,7 +1039,7 @@ class TestVertexAIPassThroughHandler:
         start_time = datetime.datetime.now()
         end_time = datetime.datetime.now()
 
-        with patch("litellm.completion_cost") as mock_completion_cost:
+        with patch("embrouter.completion_cost") as mock_completion_cost:
             mock_completion_cost.return_value = 0.0003
 
             result = VertexPassthroughLoggingHandler.vertex_passthrough_handler(
@@ -1069,10 +1069,10 @@ class TestVertexAIPassThroughHandler:
         import datetime
         from unittest.mock import Mock, patch
 
-        from litellm.litellm_core_utils.litellm_logging import (
-            Logging as LiteLLMLoggingObj,
+        from embrouter.embrouter_core_utils.embrouter_logging import (
+            Logging as EmbRouterLoggingObj,
         )
-        from litellm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler import (
+        from embrouter.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler import (
             VertexPassthroughLoggingHandler,
         )
 
@@ -1086,9 +1086,9 @@ class TestVertexAIPassThroughHandler:
         mock_httpx_response.json.return_value = embed_content_response_data
         mock_httpx_response.status_code = 200
 
-        mock_logging_obj = Mock(spec=LiteLLMLoggingObj)
+        mock_logging_obj = Mock(spec=EmbRouterLoggingObj)
         mock_logging_obj.optional_params = {}
-        mock_logging_obj.litellm_call_id = "test-call-id-gemini-studio"
+        mock_logging_obj.embrouter_call_id = "test-call-id-gemini-studio"
         mock_logging_obj.model_call_details = {}
 
         # Google AI Studio URL (not Vertex AI)
@@ -1097,7 +1097,7 @@ class TestVertexAIPassThroughHandler:
         start_time = datetime.datetime.now()
         end_time = datetime.datetime.now()
 
-        with patch("litellm.completion_cost") as mock_completion_cost:
+        with patch("embrouter.completion_cost") as mock_completion_cost:
             mock_completion_cost.return_value = 0.0001
 
             result = VertexPassthroughLoggingHandler.vertex_passthrough_handler(
@@ -1128,19 +1128,19 @@ class TestVertexAIPassThroughHandler:
         """
         import datetime
 
-        from litellm.litellm_core_utils.litellm_logging import Logging
-        from litellm.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler import (
+        from embrouter.embrouter_core_utils.embrouter_logging import Logging
+        from embrouter.proxy.pass_through_endpoints.llm_provider_handlers.vertex_passthrough_logging_handler import (
             VertexPassthroughLoggingHandler,
         )
 
-        monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
+        monkeypatch.setenv("EMBROUTER_LOCAL_MODEL_COST_MAP", "True")
         monkeypatch.setattr(
-            litellm,
+            embrouter,
             "model_cost",
             {
-                **litellm.get_model_cost_map(url=""),
+                **embrouter.get_model_cost_map(url=""),
                 "vertex_ai/gemini-fake-regional": {
-                    "litellm_provider": "vertex_ai",
+                    "embrouter_provider": "vertex_ai",
                     "mode": "chat",
                     "input_cost_per_token": 1e-06,
                     "output_cost_per_token": 2e-06,
@@ -1177,19 +1177,19 @@ class TestVertexAIPassThroughHandler:
                 stream=streaming,
                 call_type="pass_through_endpoint",
                 start_time=start_time,
-                litellm_call_id="call-id",
+                embrouter_call_id="call-id",
                 function_id="fn-id",
             )
             logging_obj.update_environment_variables(
                 model="gemini-fake-regional",
                 user="unknown",
                 optional_params={},
-                litellm_params={},
+                embrouter_params={},
                 call_type="pass_through_endpoint",
             )
             if streaming:
                 result = VertexPassthroughLoggingHandler._handle_logging_vertex_collected_chunks(
-                    litellm_logging_obj=logging_obj,
+                    embrouter_logging_obj=logging_obj,
                     passthrough_success_handler_obj=Mock(),
                     url_route=url_route,
                     request_body={},
@@ -1240,7 +1240,7 @@ class TestVertexAIDiscoveryPassThroughHandler:
         """
         Test that when passthrough credentials are set, they are correctly used in the request
         """
-        from litellm.proxy.pass_through_endpoints.passthrough_endpoint_router import (
+        from embrouter.proxy.pass_through_endpoints.passthrough_endpoint_router import (
             PassthroughEndpointRouter,
         )
 
@@ -1257,7 +1257,7 @@ class TestVertexAIDiscoveryPassThroughHandler:
         )
 
         monkeypatch.setattr(
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router",
+            "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router",
             pass_through_router,
         )
 
@@ -1286,19 +1286,19 @@ class TestVertexAIDiscoveryPassThroughHandler:
 
         with (
             mock.patch(
-                "litellm.llms.vertex_ai.vertex_llm_base.VertexBase.load_auth"
+                "embrouter.llms.vertex_ai.vertex_llm_base.VertexBase.load_auth"
             ) as mock_load_auth,
             mock.patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
             ) as mock_create_route,
             mock.patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_litellm_virtual_key"
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_embrouter_virtual_key"
             ) as mock_get_virtual_key,
             mock.patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.user_api_key_auth"
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.user_api_key_auth"
             ) as mock_user_auth,
             mock.patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_vertex_pass_through_handler"
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_vertex_pass_through_handler"
             ) as mock_get_handler,
         ):
             # Mock credentials object with necessary attributes
@@ -1343,23 +1343,23 @@ class TestVertexAIDiscoveryPassThroughHandler:
     @pytest.mark.asyncio
     async def test_vertex_discovery_proxy_route_api_key_auth(self):
         """
-        The virtual key arrives in x-litellm-api-key and must reach user_api_key_auth.
+        The virtual key arrives in x-embrouter-api-key and must reach user_api_key_auth.
         With no Vertex credential configured, that virtual key must not be forwarded to
         Google, so the request fails with a clean 401 (LIT-5997).
         """
         # Mock dependencies
         mock_request = Mock()
-        mock_request.headers = {"x-litellm-api-key": "test-key-123"}
+        mock_request.headers = {"x-embrouter-api-key": "test-key-123"}
         mock_request.method = "POST"
         mock_response = Mock()
 
         with patch(
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.user_api_key_auth"
+            "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.user_api_key_auth"
         ) as mock_auth:
             mock_auth.return_value = {"api_key": "test-key-123"}
 
             with patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
             ) as mock_pass_through:
                 mock_pass_through.return_value = AsyncMock(
                     return_value={"status": "success"}
@@ -1381,7 +1381,7 @@ class TestVertexAIDiscoveryPassThroughHandler:
 
 @pytest.mark.asyncio
 async def test_is_streaming_request_fn():
-    from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+    from embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
         is_streaming_request_fn,
     )
 
@@ -1394,7 +1394,7 @@ async def test_is_streaming_request_fn():
 
 @pytest.mark.asyncio
 async def test_mistral_passthrough_accepts_multipart_without_json_parsing():
-    boundary = "----litellm-test-boundary"
+    boundary = "----embrouter-test-boundary"
     body = (
         f"--{boundary}\r\n"
         'Content-Disposition: form-data; name="purpose"\r\n\r\n'
@@ -1442,11 +1442,11 @@ async def test_mistral_passthrough_accepts_multipart_without_json_parsing():
 
     with (
         patch(
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials",
+            "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials",
             return_value="mistral-test-key",
         ),
         patch(
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
+            "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
             side_effect=fake_create_pass_through_route,
         ),
     ):
@@ -1479,11 +1479,11 @@ class TestBedrockLLMProxyRoute:
 
         with (
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints._read_request_body",
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints._read_request_body",
                 return_value=mock_request_body,
             ),
             patch(
-                "litellm.proxy.common_request_processing.ProxyBaseLLMRequestProcessing",
+                "embrouter.proxy.common_request_processing.ProxyBaseLLMRequestProcessing",
                 return_value=mock_processor,
             ),
         ):
@@ -1524,11 +1524,11 @@ class TestBedrockLLMProxyRoute:
 
         with (
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints._read_request_body",
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints._read_request_body",
                 return_value=mock_request_body,
             ),
             patch(
-                "litellm.proxy.common_request_processing.ProxyBaseLLMRequestProcessing",
+                "embrouter.proxy.common_request_processing.ProxyBaseLLMRequestProcessing",
                 return_value=mock_processor,
             ),
         ):
@@ -1559,7 +1559,7 @@ class TestBedrockLLMProxyRoute:
         """
         from fastapi import HTTPException
 
-        from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+        from embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
             handle_bedrock_passthrough_router_model,
         )
 
@@ -1595,7 +1595,7 @@ class TestBedrockLLMProxyRoute:
 
         # Mock ProxyBaseLLMRequestProcessing to raise the httpx error
         with patch(
-            "litellm.proxy.common_request_processing.ProxyBaseLLMRequestProcessing.base_passthrough_process_llm_request",
+            "embrouter.proxy.common_request_processing.ProxyBaseLLMRequestProcessing.base_passthrough_process_llm_request",
             new_callable=AsyncMock,
             side_effect=mock_http_error,
         ):
@@ -1644,9 +1644,9 @@ class TestBedrockLLMProxyRoute:
         This test verifies the fix for the bug where passthrough endpoints were using
         environment variables instead of model-specific credentials from config.yaml.
         """
-        from litellm import Router
-        from litellm.litellm_core_utils.get_litellm_params import get_litellm_params
-        from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+        from embrouter import Router
+        from embrouter.embrouter_core_utils.get_embrouter_params import get_embrouter_params
+        from embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
             handle_bedrock_passthrough_router_model,
         )
 
@@ -1670,7 +1670,7 @@ class TestBedrockLLMProxyRoute:
                 "AWS_REGION_NAME": env_region,
             },
         ):
-            # Test 1: Verify get_litellm_params extracts AWS credentials from kwargs
+            # Test 1: Verify get_embrouter_params extracts AWS credentials from kwargs
             kwargs_with_creds = {
                 "aws_access_key_id": model_access_key,
                 "aws_secret_access_key": model_secret_key,
@@ -1678,20 +1678,20 @@ class TestBedrockLLMProxyRoute:
                 "aws_session_token": model_session_token,
                 "model": "bedrock/test-model",
             }
-            litellm_params = get_litellm_params(**kwargs_with_creds)
+            embrouter_params = get_embrouter_params(**kwargs_with_creds)
 
             # Verify credentials are extracted
-            assert litellm_params.get("aws_access_key_id") == model_access_key
-            assert litellm_params.get("aws_secret_access_key") == model_secret_key
-            assert litellm_params.get("aws_region_name") == model_region
-            assert litellm_params.get("aws_session_token") == model_session_token
+            assert embrouter_params.get("aws_access_key_id") == model_access_key
+            assert embrouter_params.get("aws_secret_access_key") == model_secret_key
+            assert embrouter_params.get("aws_region_name") == model_region
+            assert embrouter_params.get("aws_session_token") == model_session_token
 
             # Test 2: Verify router passes model credentials to passthrough
             router = Router(
                 model_list=[
                     {
                         "model_name": "claude-opus-4-1",
-                        "litellm_params": {
+                        "embrouter_params": {
                             "model": "bedrock/us.anthropic.claude-opus-4-20250514-v1:0",
                             "aws_access_key_id": model_access_key,
                             "aws_secret_access_key": model_secret_key,
@@ -1707,28 +1707,28 @@ class TestBedrockLLMProxyRoute:
             deployments = router.get_model_list(model_name="claude-opus-4-1")
             assert len(deployments) > 0
             deployment = deployments[0]
-            deployment_litellm_params = deployment.get("litellm_params", {})
+            deployment_embrouter_params = deployment.get("embrouter_params", {})
 
             # Verify model-specific credentials are in the deployment
             assert (
-                deployment_litellm_params.get("aws_access_key_id") == model_access_key
+                deployment_embrouter_params.get("aws_access_key_id") == model_access_key
             )
             assert (
-                deployment_litellm_params.get("aws_secret_access_key")
+                deployment_embrouter_params.get("aws_secret_access_key")
                 == model_secret_key
             )
-            assert deployment_litellm_params.get("aws_region_name") == model_region
+            assert deployment_embrouter_params.get("aws_region_name") == model_region
             assert (
-                deployment_litellm_params.get("aws_session_token")
+                deployment_embrouter_params.get("aws_session_token")
                 == model_session_token
             )
 
             # Verify environment variables are NOT in the deployment
-            assert deployment_litellm_params.get("aws_access_key_id") != env_access_key
+            assert deployment_embrouter_params.get("aws_access_key_id") != env_access_key
             assert (
-                deployment_litellm_params.get("aws_secret_access_key") != env_secret_key
+                deployment_embrouter_params.get("aws_secret_access_key") != env_secret_key
             )
-            assert deployment_litellm_params.get("aws_region_name") != env_region
+            assert deployment_embrouter_params.get("aws_region_name") != env_region
 
             # Test 3: Verify credentials are passed through the passthrough route
             # Mock the passthrough route to capture what credentials are used
@@ -1761,12 +1761,12 @@ class TestBedrockLLMProxyRoute:
 
             with (
                 patch(
-                    "litellm.passthrough.main.llm_passthrough_route",
+                    "embrouter.passthrough.main.llm_passthrough_route",
                     new_callable=AsyncMock,
                     side_effect=mock_llm_passthrough_route,
                 ),
                 patch(
-                    "litellm.proxy.common_request_processing.ProxyBaseLLMRequestProcessing.base_passthrough_process_llm_request",
+                    "embrouter.proxy.common_request_processing.ProxyBaseLLMRequestProcessing.base_passthrough_process_llm_request",
                     new_callable=AsyncMock,
                 ) as mock_process,
             ):
@@ -1799,7 +1799,7 @@ class TestBedrockLLMProxyRoute:
                 )
 
                 # Verify that the router was called (which means credentials flow through)
-                # The key verification is that get_litellm_params extracts the credentials
+                # The key verification is that get_embrouter_params extracts the credentials
                 # and they're available in the router's deployment
                 assert mock_process.called
 
@@ -1812,11 +1812,11 @@ class TestBedrockLLMProxyRoute:
         """
         from fastapi import HTTPException
 
-        from litellm.integrations.custom_guardrail import CustomGuardrail
-        from litellm.llms.pass_through.guardrail_translation import (
+        from embrouter.integrations.custom_guardrail import CustomGuardrail
+        from embrouter.llms.pass_through.guardrail_translation import (
             guardrail_translation_mappings,
         )
-        from litellm.types.utils import CallTypes, GenericGuardrailAPIInputs
+        from embrouter.types.utils import CallTypes, GenericGuardrailAPIInputs
 
         assert CallTypes.allm_passthrough_route in guardrail_translation_mappings, (
             "allm_passthrough_route missing from guardrail_translation_mappings; "
@@ -1876,18 +1876,18 @@ class TestBedrockAgentRuntimePassthroughToggle:
         forwarder: Final = AsyncMock(return_value="forwarded")
 
         with (
-            patch("litellm.proxy.proxy_server.general_settings", general_settings),
+            patch("embrouter.proxy.proxy_server.general_settings", general_settings),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_secret_str",
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_secret_str",
                 return_value="us-east-1",
             ),
-            patch("litellm.llms.bedrock.chat.BedrockConverseLLM", return_value=bedrock_llm),
+            patch("embrouter.llms.bedrock.chat.BedrockConverseLLM", return_value=bedrock_llm),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_request_copy",
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_request_copy",
                 Mock(),
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
                 return_value=forwarder,
             ) as create_route,
         ):
@@ -1950,17 +1950,17 @@ class TestBedrockAgentRuntimePassthroughToggle:
     @pytest.mark.asyncio
     async def test_model_invoke_still_routed_when_agent_runtime_disabled(self):
         with (
-            patch("litellm.proxy.proxy_server.general_settings", self.DISABLED),
+            patch("embrouter.proxy.proxy_server.general_settings", self.DISABLED),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_secret_str",
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_secret_str",
                 return_value="us-east-1",
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_request_copy",
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_request_copy",
                 Mock(),
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.bedrock_llm_proxy_route",
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.bedrock_llm_proxy_route",
                 new=AsyncMock(return_value="llm-route"),
             ) as llm_route,
         ):
@@ -1993,7 +1993,7 @@ class TestBedrockAgentRuntimePassthroughToggle:
 
 class TestBedrockAgentRuntimePassthroughVirtualKeyLeak:
 
-    VKEY: Final = "sk-litellm-victim-key"
+    VKEY: Final = "sk-embrouter-victim-key"
     MASTER_KEY: Final = "sk-master-1234"
     ENDPOINT: Final = "knowledgebases/KB1234567/retrieve"
     AMBIENT_AWS_ENV: Final = (
@@ -2008,10 +2008,10 @@ class TestBedrockAgentRuntimePassthroughVirtualKeyLeak:
     )
 
     async def _upstream_headers(self, monkeypatch, headers: list[tuple[bytes, bytes]]) -> dict:
-        from litellm.proxy.pass_through_endpoints.pass_through_endpoints import HttpPassThroughEndpointHelpers
+        from embrouter.proxy.pass_through_endpoints.pass_through_endpoints import HttpPassThroughEndpointHelpers
 
-        monkeypatch.setattr("litellm.proxy.proxy_server.master_key", self.MASTER_KEY)
-        monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
+        monkeypatch.setattr("embrouter.proxy.proxy_server.master_key", self.MASTER_KEY)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.general_settings", {})
         for ambient in self.AMBIENT_AWS_ENV:
             monkeypatch.delenv(ambient, raising=False)
         monkeypatch.setenv("AWS_ACCESS_KEY_ID", "ak")
@@ -2038,7 +2038,7 @@ class TestBedrockAgentRuntimePassthroughVirtualKeyLeak:
             captured.update(kwargs)
             return AsyncMock(return_value={"status": "success"})
 
-        module: Final = "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints"
+        module: Final = "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints"
         with (
             patch(f"{module}.create_request_copy", Mock()),
             patch(f"{module}.create_pass_through_route", side_effect=fake_create_pass_through_route),
@@ -2065,7 +2065,7 @@ class TestBedrockAgentRuntimePassthroughVirtualKeyLeak:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
-        "header_name", ["x-api-key", "x-litellm-api-key", "api-key", "x-goog-api-key", "ocp-apim-subscription-key"]
+        "header_name", ["x-api-key", "x-embrouter-api-key", "api-key", "x-goog-api-key", "ocp-apim-subscription-key"]
     )
     async def test_virtual_key_in_a_credential_header_never_reaches_aws(self, monkeypatch, header_name: str):
         upstream: Final = await self._upstream_headers(
@@ -2090,14 +2090,14 @@ class TestBedrockAgentRuntimePassthroughVirtualKeyLeak:
             monkeypatch,
             [
                 (b"x-api-key", other_key.encode()),
-                (b"x-litellm-api-key", other_key.encode()),
+                (b"x-embrouter-api-key", other_key.encode()),
                 (b"x-request-id", b"trace-3"),
             ],
         )
 
         assert other_key not in self._blob(upstream)
         assert self._names_matching(upstream, "x-api-key") == []
-        assert self._names_matching(upstream, "x-litellm-api-key") == []
+        assert self._names_matching(upstream, "x-embrouter-api-key") == []
         assert upstream["x-request-id"] == "trace-3"
 
     @pytest.mark.asyncio
@@ -2132,7 +2132,7 @@ class TestBedrockAgentRuntimePassthroughVirtualKeyLeak:
 class TestLLMPassthroughFactoryProxyRoute:
     @pytest.mark.asyncio
     async def test_llm_passthrough_factory_proxy_route_success(self):
-        from litellm.types.utils import LlmProviders
+        from embrouter.types.utils import LlmProviders
 
         mock_request = MagicMock(spec=Request)
         mock_request.method = "POST"
@@ -2142,13 +2142,13 @@ class TestLLMPassthroughFactoryProxyRoute:
 
         with (
             patch(
-                "litellm.utils.ProviderConfigManager.get_provider_model_info"
+                "embrouter.utils.ProviderConfigManager.get_provider_model_info"
             ) as mock_get_provider,
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials"
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials"
             ) as mock_get_creds,
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
             ) as mock_create_route,
         ):
             mock_provider_config = MagicMock()
@@ -2172,7 +2172,7 @@ class TestLLMPassthroughFactoryProxyRoute:
 
             assert result == "success"
             mock_get_provider.assert_called_once_with(
-                provider=litellm.LlmProviders(LlmProviders.VLLM), model=None
+                provider=embrouter.LlmProviders(LlmProviders.VLLM), model=None
             )
             mock_get_creds.assert_called_once_with(
                 custom_llm_provider=LlmProviders.VLLM, region_name=None
@@ -2188,15 +2188,15 @@ class TestLLMPassthroughFactoryProxyRoute:
 
 class TestVLLMProxyRoute:
     @pytest.mark.asyncio
-    @patch(  # test-quality-ok: patching litellm internal for unit test isolation
-        "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_request_body",
+    @patch(  # test-quality-ok: patching embrouter internal for unit test isolation
+        "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_request_body",
         return_value={"model": "router-model", "stream": False},
     )
-    @patch(  # test-quality-ok: patching litellm internal for unit test isolation
-        "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_passthrough_request_using_router_model",
+    @patch(  # test-quality-ok: patching embrouter internal for unit test isolation
+        "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_passthrough_request_using_router_model",
         return_value=True,
     )
-    @patch("litellm.proxy.proxy_server.llm_router")  # test-quality-ok: patching litellm internal for unit test isolation
+    @patch("embrouter.proxy.proxy_server.llm_router")  # test-quality-ok: patching embrouter internal for unit test isolation
     async def test_vllm_proxy_route_with_router_model(
         self, mock_llm_router, mock_is_router, mock_get_body
     ):
@@ -2221,16 +2221,16 @@ class TestVLLMProxyRoute:
         mock_llm_router.allm_passthrough_route.assert_awaited_once()
 
     @pytest.mark.asyncio
-    @patch(  # test-quality-ok: patching litellm internal for unit test isolation
-        "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_request_body",
+    @patch(  # test-quality-ok: patching embrouter internal for unit test isolation
+        "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_request_body",
         return_value={"model": "other-model"},
     )
-    @patch(  # test-quality-ok: patching litellm internal for unit test isolation
-        "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_passthrough_request_using_router_model",
+    @patch(  # test-quality-ok: patching embrouter internal for unit test isolation
+        "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_passthrough_request_using_router_model",
         return_value=False,
     )
-    @patch(  # test-quality-ok: patching litellm internal for unit test isolation
-        "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.llm_passthrough_factory_proxy_route"
+    @patch(  # test-quality-ok: patching embrouter internal for unit test isolation
+        "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.llm_passthrough_factory_proxy_route"
     )
     async def test_vllm_proxy_route_fallback_to_factory(
         self, mock_factory_route, mock_is_router, mock_get_body
@@ -2253,15 +2253,15 @@ class TestVLLMProxyRoute:
 
 class TestGigachatProxyRoute:
     @pytest.mark.asyncio
-    @patch(  # test-quality-ok: patching litellm internal for unit test isolation
-        "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_request_body",
+    @patch(  # test-quality-ok: patching embrouter internal for unit test isolation
+        "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_request_body",
         return_value={"model": "router-model", "stream": False},
     )
-    @patch(  # test-quality-ok: patching litellm internal for unit test isolation
-        "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_passthrough_request_using_router_model",
+    @patch(  # test-quality-ok: patching embrouter internal for unit test isolation
+        "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_passthrough_request_using_router_model",
         return_value=True,
     )
-    @patch("litellm.proxy.proxy_server.llm_router")  # test-quality-ok: patching litellm internal for unit test isolation
+    @patch("embrouter.proxy.proxy_server.llm_router")  # test-quality-ok: patching embrouter internal for unit test isolation
     async def test_gigachat_proxy_route_with_router_model(
         self, mock_llm_router, mock_is_router, mock_get_body
     ):
@@ -2289,8 +2289,8 @@ class TestGigachatProxyRoute:
     @pytest.mark.asyncio
     async def test_gigachat_router_handler_keeps_cached_body_and_payload_metadata_pristine(self):
         """Regression: auth-metadata injection must not leak into the cached parsed body or the upstream payload."""
-        from litellm.proxy.common_utils.http_parsing_utils import get_request_body
-        from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+        from embrouter.proxy.common_utils.http_parsing_utils import get_request_body
+        from embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
             handle_gigachat_passthrough_router_model,
         )
 
@@ -2324,8 +2324,8 @@ class TestGigachatProxyRoute:
             async def base_passthrough_process_llm_request(self, **kwargs):
                 return Response(content=b"{}", status_code=200)
 
-        with patch(  # test-quality-ok: patching litellm internal for unit test isolation
-            "litellm.proxy.common_request_processing.ProxyBaseLLMRequestProcessing",
+        with patch(  # test-quality-ok: patching embrouter internal for unit test isolation
+            "embrouter.proxy.common_request_processing.ProxyBaseLLMRequestProcessing",
             _CapturingProcessor,
         ):
             await handle_gigachat_passthrough_router_model(
@@ -2358,21 +2358,21 @@ class TestGigachatProxyRoute:
         assert cached_reread["metadata"] == {"client_tag": "user-supplied"}
 
     @pytest.mark.asyncio
-    @patch(  # test-quality-ok: patching litellm internal for unit test isolation
-        "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_request_body",
+    @patch(  # test-quality-ok: patching embrouter internal for unit test isolation
+        "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_request_body",
         return_value={"model": "other-model"},
     )
-    @patch(  # test-quality-ok: patching litellm internal for unit test isolation
-        "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_passthrough_request_using_router_model",
+    @patch(  # test-quality-ok: patching embrouter internal for unit test isolation
+        "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_passthrough_request_using_router_model",
         return_value=False,
     )
-    @patch(  # test-quality-ok: patching litellm internal for unit test isolation
-        "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_streaming_request_fn",
+    @patch(  # test-quality-ok: patching embrouter internal for unit test isolation
+        "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_streaming_request_fn",
         new_callable=AsyncMock,
         return_value=False,
     )
-    @patch(  # test-quality-ok: patching litellm internal for unit test isolation
-        "litellm.llms.gigachat.authenticator.get_access_token",
+    @patch(  # test-quality-ok: patching embrouter internal for unit test isolation
+        "embrouter.llms.gigachat.authenticator.get_access_token",
         return_value="gigachat-test-token",
     )
     async def test_gigachat_proxy_route_fallback_forwards_to_gigachat_api(
@@ -2397,8 +2397,8 @@ class TestGigachatProxyRoute:
             captured_kwargs.update(kwargs)
             return fake_endpoint
 
-        with patch(  # test-quality-ok: patching litellm internal for unit test isolation
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
+        with patch(  # test-quality-ok: patching embrouter internal for unit test isolation
+            "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
             side_effect=fake_create_pass_through_route,
         ):
             result = await gigachat_proxy_route(
@@ -2414,17 +2414,17 @@ class TestGigachatProxyRoute:
         assert captured_kwargs["custom_headers"] == {"Authorization": "Bearer gigachat-test-token"}
 
     @pytest.mark.asyncio
-    @patch(  # test-quality-ok: patching litellm internal for unit test isolation
-        "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_request_body",
+    @patch(  # test-quality-ok: patching embrouter internal for unit test isolation
+        "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_request_body",
         return_value={},
     )
-    @patch(  # test-quality-ok: patching litellm internal for unit test isolation
-        "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_streaming_request_fn",
+    @patch(  # test-quality-ok: patching embrouter internal for unit test isolation
+        "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_streaming_request_fn",
         new_callable=AsyncMock,
         return_value=False,
     )
-    @patch(  # test-quality-ok: patching litellm internal for unit test isolation
-        "litellm.llms.gigachat.authenticator.get_access_token",
+    @patch(  # test-quality-ok: patching embrouter internal for unit test isolation
+        "embrouter.llms.gigachat.authenticator.get_access_token",
         return_value="gigachat-test-token",
     )
     async def test_gigachat_proxy_route_models_endpoint_without_model(
@@ -2448,8 +2448,8 @@ class TestGigachatProxyRoute:
             captured_kwargs.update(kwargs)
             return fake_endpoint
 
-        with patch(  # test-quality-ok: patching litellm internal for unit test isolation
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
+        with patch(  # test-quality-ok: patching embrouter internal for unit test isolation
+            "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
             side_effect=fake_create_pass_through_route,
         ):
             result = await gigachat_proxy_route(
@@ -2491,8 +2491,8 @@ class TestGigachatProxyRoute:
             data={
                 "model": "some-provider/model",
                 "stream": True,
-                "litellm_call_id": "call-123",
-                "litellm_logging_obj": MagicMock(litellm_call_id="call-123"),
+                "embrouter_call_id": "call-123",
+                "embrouter_logging_obj": MagicMock(embrouter_call_id="call-123"),
             }
         )
 
@@ -2523,15 +2523,15 @@ class TestGigachatProxyRoute:
             new=AsyncMock(
                 return_value=(
                     processor.data,
-                    processor.data["litellm_logging_obj"],
+                    processor.data["embrouter_logging_obj"],
                 )
             ),
-        ), patch(  # test-quality-ok: patching litellm internal for unit test isolation
-            "litellm.proxy.common_request_processing.route_request",
+        ), patch(  # test-quality-ok: patching embrouter internal for unit test isolation
+            "embrouter.proxy.common_request_processing.route_request",
             new=_fake_route_request,
-        ), patch(  # test-quality-ok: patching litellm internal for unit test isolation
-            "litellm.proxy.common_request_processing.ProxyBaseLLMRequestProcessing.get_custom_headers",
-            return_value={"x-litellm-call-id": "call-123"},
+        ), patch(  # test-quality-ok: patching embrouter internal for unit test isolation
+            "embrouter.proxy.common_request_processing.ProxyBaseLLMRequestProcessing.get_custom_headers",
+            return_value={"x-embrouter-call-id": "call-123"},
         ):
             result = await processor.base_passthrough_process_llm_request(
                 request=mock_request,
@@ -2551,7 +2551,7 @@ class TestGigachatProxyRoute:
         assert result.headers["content-type"] == "text/event-stream; charset=utf-8"
         assert result.headers["x-request-id"] == "req-123"
         assert result.headers["x-ratelimit-remaining-requests"] == "77"
-        assert result.headers["x-litellm-call-id"] == "call-123"
+        assert result.headers["x-embrouter-call-id"] == "call-123"
         assert result.headers["x-test-callback-header"] == "callback-value"
         assert "transfer-encoding" not in result.headers
         assert "content-encoding" not in result.headers
@@ -2568,7 +2568,7 @@ class TestForwardHeaders:
         Test that when forward_headers=True, user headers from the main request
         are forwarded to the target endpoint (except content-length and host)
         """
-        from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+        from embrouter.proxy.pass_through_endpoints.pass_through_endpoints import (
             pass_through_request,
         )
 
@@ -2602,7 +2602,7 @@ class TestForwardHeaders:
 
         # Custom headers that should be merged with user headers
         custom_headers = {
-            "x-litellm-header": "litellm-value",
+            "x-embrouter-header": "embrouter-value",
         }
 
         target_url = "https://api.example.com/v1/test"
@@ -2618,13 +2618,13 @@ class TestForwardHeaders:
 
         with (
             patch(
-                "litellm.proxy.pass_through_endpoints.pass_through_endpoints._read_request_body",
+                "embrouter.proxy.pass_through_endpoints.pass_through_endpoints._read_request_body",
                 return_value=mock_request_body,
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
+                "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
             ) as mock_get_client,
-            patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_logging_obj,
+            patch("embrouter.proxy.proxy_server.proxy_logging_obj") as mock_logging_obj,
         ):
             # Setup mock httpx client
             mock_client = MagicMock()
@@ -2667,7 +2667,7 @@ class TestForwardHeaders:
             assert sent_headers["content-type"] == "application/json"
 
             # Verify custom headers were included
-            assert sent_headers["x-litellm-header"] == "litellm-value"
+            assert sent_headers["x-embrouter-header"] == "embrouter-value"
 
             # Verify content-length and host were NOT forwarded
             assert "content-length" not in sent_headers
@@ -2679,7 +2679,7 @@ class TestForwardHeaders:
         Test that when forward_headers=False (default), user headers are NOT forwarded,
         only custom_headers are sent
         """
-        from litellm.proxy.pass_through_endpoints.pass_through_endpoints import (
+        from embrouter.proxy.pass_through_endpoints.pass_through_endpoints import (
             pass_through_request,
         )
 
@@ -2703,8 +2703,8 @@ class TestForwardHeaders:
 
         # Only these custom headers should be sent
         custom_headers = {
-            "x-litellm-header": "litellm-value",
-            "authorization": "Bearer litellm-token",
+            "x-embrouter-header": "embrouter-value",
+            "authorization": "Bearer embrouter-token",
         }
 
         target_url = "https://api.example.com/v1/test"
@@ -2720,13 +2720,13 @@ class TestForwardHeaders:
 
         with (
             patch(
-                "litellm.proxy.pass_through_endpoints.pass_through_endpoints._read_request_body",
+                "embrouter.proxy.pass_through_endpoints.pass_through_endpoints._read_request_body",
                 return_value=mock_request_body,
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
+                "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
             ) as mock_get_client,
-            patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_logging_obj,
+            patch("embrouter.proxy.proxy_server.proxy_logging_obj") as mock_logging_obj,
         ):
             # Setup mock httpx client
             mock_client = MagicMock()
@@ -2762,14 +2762,14 @@ class TestForwardHeaders:
             sent_headers = call_args[1]["headers"]
 
             # Verify only custom headers were sent
-            assert sent_headers["x-litellm-header"] == "litellm-value"
-            assert sent_headers["authorization"] == "Bearer litellm-token"
+            assert sent_headers["x-embrouter-header"] == "embrouter-value"
+            assert sent_headers["authorization"] == "Bearer embrouter-token"
 
             # Verify user headers were NOT forwarded
             assert "x-custom-header" not in sent_headers
             assert "x-api-key" not in sent_headers
             # Authorization is present but should be from custom_headers, not user headers
-            assert sent_headers["authorization"] == "Bearer litellm-token"
+            assert sent_headers["authorization"] == "Bearer embrouter-token"
 
     @pytest.mark.asyncio
     async def test_llm_passthrough_factory_with_forward_headers(self):
@@ -2777,7 +2777,7 @@ class TestForwardHeaders:
         Test that _forward_headers works correctly in llm_passthrough_factory_proxy_route
         which is used in the code snippet provided by the user
         """
-        from litellm.types.utils import LlmProviders
+        from embrouter.types.utils import LlmProviders
 
         mock_request = MagicMock(spec=Request)
         mock_request.method = "POST"
@@ -2807,19 +2807,19 @@ class TestForwardHeaders:
 
         with (
             patch(
-                "litellm.utils.ProviderConfigManager.get_provider_model_info"
+                "embrouter.utils.ProviderConfigManager.get_provider_model_info"
             ) as mock_get_provider,
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials"
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials"
             ) as mock_get_creds,
             patch(
-                "litellm.proxy.pass_through_endpoints.pass_through_endpoints._read_request_body",
+                "embrouter.proxy.pass_through_endpoints.pass_through_endpoints._read_request_body",
                 return_value={"messages": [{"role": "user", "content": "test"}]},
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
+                "embrouter.proxy.pass_through_endpoints.pass_through_endpoints.get_async_httpx_client"
             ) as mock_get_client,
-            patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_logging_obj,
+            patch("embrouter.proxy.proxy_server.proxy_logging_obj") as mock_logging_obj,
         ):
             # Setup provider config
             mock_provider_config = MagicMock()
@@ -2846,7 +2846,7 @@ class TestForwardHeaders:
             # This is the key part - when create_pass_through_route is called with _forward_headers=True
             # it should forward the user headers
             with patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
             ) as mock_create_route:
                 mock_endpoint_func = AsyncMock(return_value="success")
                 mock_create_route.return_value = mock_endpoint_func
@@ -2898,12 +2898,12 @@ class TestMilvusProxyRoute:
 
         # Mock vector store index object
         mock_index_object = MagicMock()
-        mock_index_object.litellm_params.vector_store_name = vector_store_name
-        mock_index_object.litellm_params.vector_store_index = vector_store_index
+        mock_index_object.embrouter_params.vector_store_name = vector_store_name
+        mock_index_object.embrouter_params.vector_store_index = vector_store_index
 
         # Mock vector store
         mock_vector_store = {
-            "litellm_params": {
+            "embrouter_params": {
                 "api_base": api_base,
                 "api_key": "test-milvus-key",
             }
@@ -2911,23 +2911,23 @@ class TestMilvusProxyRoute:
 
         with (
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_request_body",
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_request_body",
                 return_value={"collectionName": collection_name, "data": [[0.1, 0.2]]},
             ) as mock_get_body,
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_vector_stores_config"
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_vector_stores_config"
             ) as mock_get_config,
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_allowed_to_call_vector_store_endpoint"
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_allowed_to_call_vector_store_endpoint"
             ) as mock_is_allowed,
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints._safe_set_request_parsed_body"
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints._safe_set_request_parsed_body"
             ) as mock_safe_set,
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
             ) as mock_create_route,
-            patch.object(litellm, "vector_store_index_registry") as mock_index_registry,
-            patch.object(litellm, "vector_store_registry") as mock_vector_registry,
+            patch.object(embrouter, "vector_store_index_registry") as mock_index_registry,
+            patch.object(embrouter, "vector_store_registry") as mock_vector_registry,
         ):
             # Setup mocks
             mock_provider_config = MagicMock()
@@ -2942,7 +2942,7 @@ class TestMilvusProxyRoute:
                 mock_index_object
             )
 
-            mock_vector_registry.get_litellm_managed_vector_store_from_registry_by_name.return_value = (
+            mock_vector_registry.get_embrouter_managed_vector_store_from_registry_by_name.return_value = (
                 mock_vector_store
             )
 
@@ -2997,11 +2997,11 @@ class TestMilvusProxyRoute:
 
         with (
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_request_body",
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_request_body",
                 return_value={"data": [[0.1, 0.2]]},  # No collectionName
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_vector_stores_config"
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_vector_stores_config"
             ) as mock_get_config,
         ):
             mock_get_config.return_value = MagicMock()
@@ -3030,7 +3030,7 @@ class TestMilvusProxyRoute:
         mock_user_api_key_dict = MagicMock()
 
         with patch(
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_vector_stores_config",
+            "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_vector_stores_config",
             return_value=None,
         ):
             with pytest.raises(HTTPException) as exc_info:
@@ -3062,13 +3062,13 @@ class TestMilvusProxyRoute:
 
         with (
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_request_body",
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_request_body",
                 return_value={"collectionName": collection_name},
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_vector_stores_config"
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_vector_stores_config"
             ) as mock_get_config,
-            patch.object(litellm, "vector_store_index_registry", None),
+            patch.object(embrouter, "vector_store_index_registry", None),
         ):
             mock_get_config.return_value = MagicMock()
 
@@ -3101,14 +3101,14 @@ class TestMilvusProxyRoute:
 
         with (
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_request_body",
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_request_body",
                 return_value={"collectionName": collection_name},
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_vector_stores_config"
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_vector_stores_config"
             ) as mock_get_config,
-            patch.object(litellm, "vector_store_index_registry") as mock_index_registry,
-            patch.object(litellm, "vector_store_registry", MagicMock()),
+            patch.object(embrouter, "vector_store_index_registry") as mock_index_registry,
+            patch.object(embrouter, "vector_store_registry", MagicMock()),
         ):
             mock_get_config.return_value = MagicMock()
             mock_index_registry.is_vector_store_index.return_value = False
@@ -3123,7 +3123,7 @@ class TestMilvusProxyRoute:
 
             assert exc_info.value.status_code == 400
             assert (
-                f"Collection {collection_name} is not a litellm managed vector store index"
+                f"Collection {collection_name} is not a embrouter managed vector store index"
                 in str(exc_info.value.detail)
             )
 
@@ -3142,32 +3142,32 @@ class TestMilvusProxyRoute:
         mock_user_api_key_dict = MagicMock()
 
         mock_index_object = MagicMock()
-        mock_index_object.litellm_params.vector_store_name = vector_store_name
-        mock_index_object.litellm_params.vector_store_index = vector_store_index
+        mock_index_object.embrouter_params.vector_store_name = vector_store_name
+        mock_index_object.embrouter_params.vector_store_index = vector_store_index
 
         with (
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_request_body",
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_request_body",
                 return_value={"collectionName": collection_name},
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_vector_stores_config"
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_vector_stores_config"
             ) as mock_get_config,
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_allowed_to_call_vector_store_endpoint"
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_allowed_to_call_vector_store_endpoint"
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints._safe_set_request_parsed_body"
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints._safe_set_request_parsed_body"
             ),
-            patch.object(litellm, "vector_store_index_registry") as mock_index_registry,
-            patch.object(litellm, "vector_store_registry") as mock_vector_registry,
+            patch.object(embrouter, "vector_store_index_registry") as mock_index_registry,
+            patch.object(embrouter, "vector_store_registry") as mock_vector_registry,
         ):
             mock_get_config.return_value = MagicMock()
             mock_index_registry.is_vector_store_index.return_value = True
             mock_index_registry.get_vector_store_index_by_name.return_value = (
                 mock_index_object
             )
-            mock_vector_registry.get_litellm_managed_vector_store_from_registry_by_name.return_value = (
+            mock_vector_registry.get_embrouter_managed_vector_store_from_registry_by_name.return_value = (
                 None
             )
 
@@ -3198,27 +3198,27 @@ class TestMilvusProxyRoute:
         mock_user_api_key_dict = MagicMock()
 
         mock_index_object = MagicMock()
-        mock_index_object.litellm_params.vector_store_name = vector_store_name
-        mock_index_object.litellm_params.vector_store_index = vector_store_index
+        mock_index_object.embrouter_params.vector_store_name = vector_store_name
+        mock_index_object.embrouter_params.vector_store_index = vector_store_index
 
-        mock_vector_store = {"litellm_params": {}}  # No api_base
+        mock_vector_store = {"embrouter_params": {}}  # No api_base
 
         with (
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_request_body",
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_request_body",
                 return_value={"collectionName": collection_name},
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_vector_stores_config"
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_vector_stores_config"
             ) as mock_get_config,
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_allowed_to_call_vector_store_endpoint"
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_allowed_to_call_vector_store_endpoint"
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints._safe_set_request_parsed_body"
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints._safe_set_request_parsed_body"
             ),
-            patch.object(litellm, "vector_store_index_registry") as mock_index_registry,
-            patch.object(litellm, "vector_store_registry") as mock_vector_registry,
+            patch.object(embrouter, "vector_store_index_registry") as mock_index_registry,
+            patch.object(embrouter, "vector_store_registry") as mock_vector_registry,
         ):
             mock_provider_config = MagicMock()
             mock_provider_config.get_auth_credentials.return_value = {"headers": {}}
@@ -3229,7 +3229,7 @@ class TestMilvusProxyRoute:
             mock_index_registry.get_vector_store_index_by_name.return_value = (
                 mock_index_object
             )
-            mock_vector_registry.get_litellm_managed_vector_store_from_registry_by_name.return_value = (
+            mock_vector_registry.get_embrouter_managed_vector_store_from_registry_by_name.return_value = (
                 mock_vector_store
             )
 
@@ -3262,30 +3262,30 @@ class TestMilvusProxyRoute:
         mock_user_api_key_dict = MagicMock()
 
         mock_index_object = MagicMock()
-        mock_index_object.litellm_params.vector_store_name = vector_store_name
-        mock_index_object.litellm_params.vector_store_index = vector_store_index
+        mock_index_object.embrouter_params.vector_store_name = vector_store_name
+        mock_index_object.embrouter_params.vector_store_index = vector_store_index
 
-        mock_vector_store = {"litellm_params": {"api_base": api_base}}
+        mock_vector_store = {"embrouter_params": {"api_base": api_base}}
 
         with (
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_request_body",
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_request_body",
                 return_value={"collectionName": collection_name},
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_vector_stores_config"
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_vector_stores_config"
             ) as mock_get_config,
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_allowed_to_call_vector_store_endpoint"
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_allowed_to_call_vector_store_endpoint"
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints._safe_set_request_parsed_body"
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints._safe_set_request_parsed_body"
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
             ) as mock_create_route,
-            patch.object(litellm, "vector_store_index_registry") as mock_index_registry,
-            patch.object(litellm, "vector_store_registry") as mock_vector_registry,
+            patch.object(embrouter, "vector_store_index_registry") as mock_index_registry,
+            patch.object(embrouter, "vector_store_registry") as mock_vector_registry,
         ):
             mock_provider_config = MagicMock()
             mock_provider_config.get_auth_credentials.return_value = {"headers": {}}
@@ -3296,7 +3296,7 @@ class TestMilvusProxyRoute:
             mock_index_registry.get_vector_store_index_by_name.return_value = (
                 mock_index_object
             )
-            mock_vector_registry.get_litellm_managed_vector_store_from_registry_by_name.return_value = (
+            mock_vector_registry.get_embrouter_managed_vector_store_from_registry_by_name.return_value = (
                 mock_vector_store
             )
 
@@ -3326,7 +3326,7 @@ class TestOpenAIPassthroughRoute:
         """
         Test that /openai_passthrough endpoint correctly handles Responses API calls
         This verifies the fix for issue #18865 where /openai/v1/responses was being
-        routed to LiteLLM's native implementation instead of passthrough
+        routed to EmbRouter's native implementation instead of passthrough
         """
 
         # Mock request for Responses API
@@ -3339,11 +3339,11 @@ class TestOpenAIPassthroughRoute:
 
         with (
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials",
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials",
                 return_value="sk-test-key",
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
             ) as mock_create_route,
         ):
             mock_endpoint_func = AsyncMock(
@@ -3389,11 +3389,11 @@ class TestOpenAIPassthroughRoute:
 
         with (
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials",
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials",
                 return_value="sk-test-key",
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
             ) as mock_create_route,
         ):
             mock_endpoint_func = AsyncMock(
@@ -3427,7 +3427,7 @@ class TestOpenAIPassthroughRoute:
         mock_user_api_key_dict = MagicMock()
 
         with patch(
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials",
+            "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials",
             return_value=None,
         ):
             with pytest.raises(Exception, match="Required 'OPENAI_API_KEY' in environment to make") as exc_info:
@@ -3457,11 +3457,11 @@ class TestOpenAIPassthroughRoute:
 
         with (
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials",
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials",
                 return_value="sk-test-key",
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
             ) as mock_create_route,
         ):
             mock_endpoint_func = AsyncMock(
@@ -3491,8 +3491,8 @@ class TestOpenAIPassthroughRoute:
 def _resolve_route_name(method: str, path: str) -> str | None:
     from starlette.routing import Match
 
-    from litellm.proxy._lazy_features import LAZY_FEATURES, _force_load
-    from litellm.proxy.proxy_server import app
+    from embrouter.proxy._lazy_features import LAZY_FEATURES, _force_load
+    from embrouter.proxy.proxy_server import app
 
     asyncio.run(_force_load(app, next(f for f in LAZY_FEATURES if f.name == "llm_passthrough")))
 
@@ -3550,12 +3550,12 @@ def test_native_provider_routes_are_unchanged(method, path, expected_name):
 
 @pytest.fixture
 def openai_passthrough_client(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
-    from litellm.proxy.proxy_server import app
+    from embrouter.proxy.proxy_server import app
 
     monkeypatch.setenv("OPENAI_API_KEY", "sk-upstream")
     monkeypatch.delenv("SERVER_ROOT_PATH", raising=False)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
+    embrouter.in_memory_llm_clients_cache.flush_cache()
     monkeypatch.setitem(app.dependency_overrides, user_api_key_auth, lambda: UserAPIKeyAuth(api_key="sk-virtual"))
     yield TestClient(app)
 
@@ -3602,11 +3602,11 @@ class TestCursorProxyRoute:
 
         with (
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials",
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials",
                 return_value=test_api_key,
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
             ) as mock_create_route,
         ):
             mock_endpoint_func = AsyncMock(
@@ -3646,11 +3646,11 @@ class TestCursorProxyRoute:
 
         with (
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials",
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials",
                 return_value=None,
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.litellm.credential_list",
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.embrouter.credential_list",
                 [],
             ),
         ):
@@ -3665,8 +3665,8 @@ class TestCursorProxyRoute:
 
     @pytest.mark.asyncio
     async def test_cursor_proxy_route_uses_ui_credential(self):
-        """should use credentials added via UI (litellm.credential_list) when env var is not set"""
-        from litellm.types.utils import CredentialItem
+        """should use credentials added via UI (embrouter.credential_list) when env var is not set"""
+        from embrouter.types.utils import CredentialItem
 
         mock_request = MagicMock(spec=Request)
         mock_request.method = "GET"
@@ -3686,15 +3686,15 @@ class TestCursorProxyRoute:
 
         with (
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials",
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials",
                 return_value=None,
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.litellm.credential_list",
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.embrouter.credential_list",
                 [ui_credential],
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
             ) as mock_create_route,
         ):
             mock_endpoint_func = AsyncMock(return_value={"models": []})
@@ -3732,11 +3732,11 @@ class TestCursorProxyRoute:
                 os.environ, {"CURSOR_API_BASE": "https://custom-cursor.example.com"}
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials",
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials",
                 return_value="test-key",
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
             ) as mock_create_route,
         ):
             mock_endpoint_func = AsyncMock(return_value={})
@@ -3764,11 +3764,11 @@ class TestCursorProxyRoute:
 
         with (
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials",
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials",
                 return_value="test-key",
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route"
             ) as mock_create_route,
         ):
             mock_endpoint_func = AsyncMock(
@@ -3831,7 +3831,7 @@ class TestVertexRawPredictStreamingClassification:
                 "path": f"/vertex_ai/{endpoint}",
                 "headers": [
                     (b"content-type", b"application/json"),
-                    (b"x-litellm-api-key", b"test-key"),
+                    (b"x-embrouter-api-key", b"test-key"),
                     (b"authorization", b"Bearer ya29.byo-google-oauth"),
                 ],
                 "query_string": b"",
@@ -3852,14 +3852,14 @@ class TestVertexRawPredictStreamingClassification:
         mock_handler = Mock()
         mock_handler.get_default_base_target_url.return_value = base_url
 
-        module = "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints"
+        module = "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints"
         with (
             mock.patch(
-                "litellm.llms.vertex_ai.vertex_llm_base.VertexBase.load_auth",
+                "embrouter.llms.vertex_ai.vertex_llm_base.VertexBase.load_auth",
                 return_value=(mock_credentials, "test-project"),
             ),
             mock.patch(f"{module}.create_pass_through_route", side_effect=fake_create_pass_through_route),
-            mock.patch(f"{module}.get_litellm_virtual_key", return_value="Bearer test-key"),
+            mock.patch(f"{module}.get_embrouter_virtual_key", return_value="Bearer test-key"),
             mock.patch(f"{module}.user_api_key_auth", new=AsyncMock(return_value=UserAPIKeyAuth(api_key="test-key"))),
             mock.patch(f"{module}.get_vertex_pass_through_handler", return_value=mock_handler),
         ):
@@ -3958,7 +3958,7 @@ def test_is_passthrough_request_streaming_tolerates_non_object_bodies(request_bo
     streaming decision funnels through this predicate, so a list or scalar body
     must answer False instead of raising AttributeError.
     """
-    from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+    from embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
         is_passthrough_request_streaming,
     )
 
@@ -3977,29 +3977,29 @@ class TestVertexCredentiallessPassthroughVirtualKeyLeak:
 
     With no Vertex credential configured, the passthrough took the
     bring-your-own-credentials branch and forwarded the whole incoming header set
-    to Google, including whichever header carried the caller's LiteLLM virtual key.
-    LiteLLM accepts that key from several headers (``Authorization``,
-    ``x-litellm-api-key``, ``x-goog-api-key``, ``api-key``, ``x-api-key``), and
+    to Google, including whichever header carried the caller's EmbRouter virtual key.
+    EmbRouter accepts that key from several headers (``Authorization``,
+    ``x-embrouter-api-key``, ``x-goog-api-key``, ``api-key``, ``x-api-key``), and
     ``x-goog-api-key`` doubles as a genuine Google credential, so any of them could
     leak the proxy's own secret to an upstream provider.
 
     A credential-less request that carries no upstream Google credential must now
     fail with a clean 401 and never reach ``create_pass_through_route``. The
-    proxy-only auth headers Google never consumes (``x-litellm-api-key``,
+    proxy-only auth headers Google never consumes (``x-embrouter-api-key``,
     ``api-key``, ``x-api-key``) are dropped by name, and the virtual key is dropped
     by value from ``Authorization`` / ``x-goog-api-key``, which may instead carry a
     genuine bring-your-own Google credential that must still pass through. The
     by-value strip also covers a virtual key sent in the operator-configured
-    ``general_settings.litellm_key_header_name``, whatever that header is named.
+    ``general_settings.embrouter_key_header_name``, whatever that header is named.
 
     The by-value strip keys off what actually authenticated the caller (the
-    master key, or the LiteLLM key whose hash ``user_api_key_auth`` resolved as
+    master key, or the EmbRouter key whose hash ``user_api_key_auth`` resolved as
     ``api_key``), never off header precedence: a custom auth or JWT that
     authenticated the caller without consuming ``Authorization`` leaves the
     caller's own Google token there, and it must keep flowing.
     """
 
-    VKEY = "sk-litellm-victim-key"
+    VKEY = "sk-embrouter-victim-key"
     ENDPOINT = (
         "v1/projects/my-proj/locations/us-central1/publishers/google/models/"
         "gemini-2.5-flash:generateContent"
@@ -4012,9 +4012,9 @@ class TestVertexCredentiallessPassthroughVirtualKeyLeak:
         authenticated: UserAPIKeyAuth | None = None,
         master_key: str | None = "sk-master-1234",
     ) -> tuple[HTTPException | None, dict | None]:
-        monkeypatch.setattr("litellm.proxy.proxy_server.master_key", master_key)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.master_key", master_key)
         caller: Final = authenticated if authenticated is not None else UserAPIKeyAuth(api_key=self.VKEY)
-        from litellm.proxy.pass_through_endpoints.passthrough_endpoint_router import (
+        from embrouter.proxy.pass_through_endpoints.passthrough_endpoint_router import (
             PassthroughEndpointRouter,
         )
 
@@ -4041,7 +4041,7 @@ class TestVertexCredentiallessPassthroughVirtualKeyLeak:
         mock_handler = Mock()
         mock_handler.get_default_base_target_url.return_value = "https://us-central1-aiplatform.googleapis.com/"
 
-        module = "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints"
+        module = "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints"
         monkeypatch.setattr(f"{module}.passthrough_endpoint_router", PassthroughEndpointRouter())
         raised: HTTPException | None = None
         with (
@@ -4071,10 +4071,10 @@ class TestVertexCredentiallessPassthroughVirtualKeyLeak:
         assert raised is not None and raised.status_code == 401
 
     @pytest.mark.asyncio
-    async def test_x_litellm_api_key_virtual_key_is_rejected_not_forwarded(self, monkeypatch):
+    async def test_x_embrouter_api_key_virtual_key_is_rejected_not_forwarded(self, monkeypatch):
         raised, forwarded = await self._run(
             monkeypatch,
-            [(b"x-litellm-api-key", self.VKEY.encode()), (b"content-type", b"application/json")],
+            [(b"x-embrouter-api-key", self.VKEY.encode()), (b"content-type", b"application/json")],
         )
         assert forwarded is None, "credential-less request must never reach the upstream forwarder"
         assert raised is not None and raised.status_code == 401
@@ -4084,7 +4084,7 @@ class TestVertexCredentiallessPassthroughVirtualKeyLeak:
         raised, forwarded = await self._run(
             monkeypatch,
             [
-                (b"x-litellm-api-key", self.VKEY.encode()),
+                (b"x-embrouter-api-key", self.VKEY.encode()),
                 (b"x-goog-api-key", self.VKEY.encode()),
                 (b"content-type", b"application/json"),
             ],
@@ -4109,7 +4109,7 @@ class TestVertexCredentiallessPassthroughVirtualKeyLeak:
         raised, forwarded = await self._run(
             monkeypatch,
             [
-                (b"x-litellm-api-key", self.VKEY.encode()),
+                (b"x-embrouter-api-key", self.VKEY.encode()),
                 (b"authorization", b"Bearer ya29.google-oauth-token"),
                 (b"content-type", b"application/json"),
             ],
@@ -4117,7 +4117,7 @@ class TestVertexCredentiallessPassthroughVirtualKeyLeak:
         assert raised is None
         assert forwarded is not None
         assert forwarded.get("authorization") == "Bearer ya29.google-oauth-token"
-        assert "x-litellm-api-key" not in forwarded
+        assert "x-embrouter-api-key" not in forwarded
         assert self.VKEY not in " ".join(f"{name}:{value}" for name, value in forwarded.items())
 
     @pytest.mark.asyncio
@@ -4126,7 +4126,7 @@ class TestVertexCredentiallessPassthroughVirtualKeyLeak:
         raised, forwarded = await self._run(
             monkeypatch,
             [
-                (b"x-litellm-api-key", self.VKEY.encode()),
+                (b"x-embrouter-api-key", self.VKEY.encode()),
                 (b"authorization", f"{scheme} {self.VKEY}".encode()),
                 (b"content-type", b"application/json"),
             ],
@@ -4139,7 +4139,7 @@ class TestVertexCredentiallessPassthroughVirtualKeyLeak:
         raised, forwarded = await self._run(
             monkeypatch,
             [
-                (b"x-litellm-api-key", self.VKEY.encode()),
+                (b"x-embrouter-api-key", self.VKEY.encode()),
                 (b"x-goog-api-key", b"AIza-google-api-key"),
                 (b"content-type", b"application/json"),
             ],
@@ -4147,7 +4147,7 @@ class TestVertexCredentiallessPassthroughVirtualKeyLeak:
         assert raised is None
         assert forwarded is not None
         assert forwarded.get("x-goog-api-key") == "AIza-google-api-key"
-        assert "x-litellm-api-key" not in forwarded
+        assert "x-embrouter-api-key" not in forwarded
         assert self.VKEY not in " ".join(f"{name}:{value}" for name, value in forwarded.items())
 
     @pytest.mark.asyncio
@@ -4155,7 +4155,7 @@ class TestVertexCredentiallessPassthroughVirtualKeyLeak:
         raised, forwarded = await self._run(
             monkeypatch,
             [
-                (b"x-litellm-api-key", self.VKEY.encode()),
+                (b"x-embrouter-api-key", self.VKEY.encode()),
                 (b"authorization", b"Bearer ya29.google-oauth-token"),
                 (b"api-key", b"azure-style-caller-secret"),
                 (b"x-api-key", b"anthropic-style-caller-secret"),
@@ -4167,7 +4167,7 @@ class TestVertexCredentiallessPassthroughVirtualKeyLeak:
         assert forwarded.get("authorization") == "Bearer ya29.google-oauth-token"
         assert "api-key" not in forwarded
         assert "x-api-key" not in forwarded
-        assert "x-litellm-api-key" not in forwarded
+        assert "x-embrouter-api-key" not in forwarded
         forwarded_blob = " ".join(f"{name}:{value}" for name, value in forwarded.items())
         assert self.VKEY not in forwarded_blob
         assert "azure-style-caller-secret" not in forwarded_blob
@@ -4177,15 +4177,15 @@ class TestVertexCredentiallessPassthroughVirtualKeyLeak:
     @pytest.mark.parametrize(
         "credential_header",
         sorted(
-            SpecialHeaders.litellm_credential_header_names()
-            - {"authorization", "x-goog-api-key", "x-litellm-api-key"}
+            SpecialHeaders.embrouter_credential_header_names()
+            - {"authorization", "x-goog-api-key", "x-embrouter-api-key"}
         ),
     )
     async def test_every_non_google_credential_header_is_dropped_by_name(self, monkeypatch, credential_header):
         raised, forwarded = await self._run(
             monkeypatch,
             [
-                (b"x-litellm-api-key", self.VKEY.encode()),
+                (b"x-embrouter-api-key", self.VKEY.encode()),
                 (b"x-goog-api-key", b"AIza-real-google-api-key"),
                 (credential_header.encode(), b"some-distinct-caller-secret-value"),
                 (b"content-type", b"application/json"),
@@ -4195,16 +4195,16 @@ class TestVertexCredentiallessPassthroughVirtualKeyLeak:
         assert forwarded is not None
         assert forwarded.get("x-goog-api-key") == "AIza-real-google-api-key"
         assert credential_header not in forwarded
-        assert "x-litellm-api-key" not in forwarded
+        assert "x-embrouter-api-key" not in forwarded
         forwarded_blob = " ".join(f"{name}:{value}" for name, value in forwarded.items())
         assert self.VKEY not in forwarded_blob
         assert "some-distinct-caller-secret-value" not in forwarded_blob
 
     @pytest.mark.asyncio
     async def test_virtual_key_in_operator_configured_header_is_stripped(self, monkeypatch):
-        with mock.patch.dict(  # test-quality-ok: general_settings is the real proxy config surface for litellm_key_header_name; no injection seam exists on this route
-            "litellm.proxy.proxy_server.general_settings",
-            {"litellm_key_header_name": "x-company-key"},
+        with mock.patch.dict(  # test-quality-ok: general_settings is the real proxy config surface for embrouter_key_header_name; no injection seam exists on this route
+            "embrouter.proxy.proxy_server.general_settings",
+            {"embrouter_key_header_name": "x-company-key"},
         ):
             raised, forwarded = await self._run(
                 monkeypatch,
@@ -4222,9 +4222,9 @@ class TestVertexCredentiallessPassthroughVirtualKeyLeak:
 
     @pytest.mark.asyncio
     async def test_virtual_key_in_operator_configured_header_alone_is_rejected(self, monkeypatch):
-        with mock.patch.dict(  # test-quality-ok: general_settings is the real proxy config surface for litellm_key_header_name; no injection seam exists on this route
-            "litellm.proxy.proxy_server.general_settings",
-            {"litellm_key_header_name": "x-company-key"},
+        with mock.patch.dict(  # test-quality-ok: general_settings is the real proxy config surface for embrouter_key_header_name; no injection seam exists on this route
+            "embrouter.proxy.proxy_server.general_settings",
+            {"embrouter_key_header_name": "x-company-key"},
         ):
             raised, forwarded = await self._run(
                 monkeypatch,
@@ -4239,8 +4239,8 @@ class TestVertexCredentiallessPassthroughVirtualKeyLeak:
     @pytest.mark.asyncio
     async def test_virtual_key_in_pass_through_configured_header_is_dropped_and_rejected(self, monkeypatch):
         with mock.patch.dict(  # test-quality-ok: general_settings is the real proxy config surface for pass_through_endpoints; no injection seam exists on this route
-            "litellm.proxy.proxy_server.general_settings",
-            {"pass_through_endpoints": [{"headers": {"litellm_user_api_key": "x-company-key"}}]},
+            "embrouter.proxy.proxy_server.general_settings",
+            {"pass_through_endpoints": [{"headers": {"embrouter_user_api_key": "x-company-key"}}]},
         ):
             raised, forwarded = await self._run(
                 monkeypatch,
@@ -4255,8 +4255,8 @@ class TestVertexCredentiallessPassthroughVirtualKeyLeak:
     @pytest.mark.asyncio
     async def test_authenticated_authorization_is_stripped_over_a_lower_precedence_pass_through_header(self, monkeypatch):
         with mock.patch.dict(  # test-quality-ok: general_settings is the real proxy config surface for pass_through_endpoints; no injection seam exists on this route
-            "litellm.proxy.proxy_server.general_settings",
-            {"pass_through_endpoints": [{"headers": {"litellm_user_api_key": "x-company-key"}}]},
+            "embrouter.proxy.proxy_server.general_settings",
+            {"pass_through_endpoints": [{"headers": {"embrouter_user_api_key": "x-company-key"}}]},
         ):
             raised, forwarded = await self._run(
                 monkeypatch,
@@ -4275,11 +4275,11 @@ class TestVertexCredentiallessPassthroughVirtualKeyLeak:
         assert self.VKEY not in " ".join(f"{name}:{value}" for name, value in forwarded.items())
 
     @pytest.mark.asyncio
-    async def test_virtual_key_in_mapped_route_litellm_user_api_key_header_is_stripped(self, monkeypatch):
+    async def test_virtual_key_in_mapped_route_embrouter_user_api_key_header_is_stripped(self, monkeypatch):
         raised, forwarded = await self._run(
             monkeypatch,
             [
-                (b"litellm_user_api_key", self.VKEY.encode()),
+                (b"embrouter_user_api_key", self.VKEY.encode()),
                 (b"authorization", b"Bearer ya29.byo-google-oauth"),
                 (b"x-goog-api-key", b"AIza-real-google-api-key"),
                 (b"content-type", b"application/json"),
@@ -4289,25 +4289,25 @@ class TestVertexCredentiallessPassthroughVirtualKeyLeak:
         assert forwarded is not None
         assert forwarded.get("x-goog-api-key") == "AIza-real-google-api-key"
         assert forwarded.get("authorization") == "Bearer ya29.byo-google-oauth"
-        assert "litellm_user_api_key" not in forwarded
+        assert "embrouter_user_api_key" not in forwarded
         assert self.VKEY not in " ".join(f"{name}:{value}" for name, value in forwarded.items())
 
     @pytest.mark.asyncio
-    async def test_virtual_key_in_mapped_route_litellm_user_api_key_header_alone_is_rejected(self, monkeypatch):
+    async def test_virtual_key_in_mapped_route_embrouter_user_api_key_header_alone_is_rejected(self, monkeypatch):
         raised, forwarded = await self._run(
             monkeypatch,
             [
-                (b"litellm_user_api_key", self.VKEY.encode()),
+                (b"embrouter_user_api_key", self.VKEY.encode()),
                 (b"content-type", b"application/json"),
             ],
         )
-        assert forwarded is None, "a virtual key in the mapped-route litellm_user_api_key header must be dropped, not forwarded"
+        assert forwarded is None, "a virtual key in the mapped-route embrouter_user_api_key header must be dropped, not forwarded"
         assert raised is not None and raised.status_code == 401
 
     GOOGLE_OAUTH_TOKEN = "ya29.byo-google-oauth-token"
 
-    LITELLM_JWT_CLAIMS = MappingProxyType({"sub": "jwt-subject", "iss": "https://idp.example.com"})
-    LITELLM_JWT = _unsigned_jwt(LITELLM_JWT_CLAIMS)
+    EMBROUTER_JWT_CLAIMS = MappingProxyType({"sub": "jwt-subject", "iss": "https://idp.example.com"})
+    EMBROUTER_JWT = _unsigned_jwt(EMBROUTER_JWT_CLAIMS)
     GOOGLE_SERVICE_ACCOUNT_JWT = _unsigned_jwt(
         {
             "sub": "vertex-caller@my-proj.iam.gserviceaccount.com",
@@ -4322,12 +4322,12 @@ class TestVertexCredentiallessPassthroughVirtualKeyLeak:
         [
             pytest.param(
                 "sk-master-1234",
-                UserAPIKeyAuth(api_key="best-api-key-ever", user_role=LitellmUserRoles.PROXY_ADMIN),
+                UserAPIKeyAuth(api_key="best-api-key-ever", user_role=EmbrouterUserRoles.PROXY_ADMIN),
                 id="custom-auth-returning-its-own-identifier",
             ),
             pytest.param(
                 "sk-master-1234",
-                UserAPIKeyAuth(api_key=None, user_id="jwt-subject", jwt_claims=dict(LITELLM_JWT_CLAIMS)),
+                UserAPIKeyAuth(api_key=None, user_id="jwt-subject", jwt_claims=dict(EMBROUTER_JWT_CLAIMS)),
                 id="jwt-auth",
             ),
             pytest.param(None, UserAPIKeyAuth(api_key=GOOGLE_OAUTH_TOKEN), id="no-master-key-echoes-raw-header"),
@@ -4345,7 +4345,7 @@ class TestVertexCredentiallessPassthroughVirtualKeyLeak:
             authenticated=authenticated,
             master_key=master_key,
         )
-        assert raised is None, f"the caller's own Google token must not be mistaken for a LiteLLM key: {raised}"
+        assert raised is None, f"the caller's own Google token must not be mistaken for a EmbRouter key: {raised}"
         assert forwarded is not None
         assert forwarded.get("authorization") == f"Bearer {self.GOOGLE_OAUTH_TOKEN}"
 
@@ -4355,31 +4355,31 @@ class TestVertexCredentiallessPassthroughVirtualKeyLeak:
         [
             pytest.param("modified_key", UserAPIKeyAuth(api_key="modified_key"), id="custom-auth-echoing-opaque-credential"),
             pytest.param(
-                LITELLM_JWT,
-                UserAPIKeyAuth(api_key=LITELLM_JWT, user_id="jwt-subject"),
+                EMBROUTER_JWT,
+                UserAPIKeyAuth(api_key=EMBROUTER_JWT, user_id="jwt-subject"),
                 id="custom-auth-echoing-jwt",
             ),
             pytest.param(
-                LITELLM_JWT,
-                UserAPIKeyAuth(api_key=None, user_id="jwt-subject", jwt_claims=dict(LITELLM_JWT_CLAIMS)),
+                EMBROUTER_JWT,
+                UserAPIKeyAuth(api_key=None, user_id="jwt-subject", jwt_claims=dict(EMBROUTER_JWT_CLAIMS)),
                 id="jwt-auth",
             ),
             pytest.param(
-                LITELLM_JWT,
+                EMBROUTER_JWT,
                 UserAPIKeyAuth(
                     api_key=None,
                     user_id="jwt-subject",
                     jwt_claims={
-                        **LITELLM_JWT_CLAIMS,
-                        JWTHandler.LITELLM_JWT_ISSUER_CLAIM: "https://idp.example.com",
-                        JWTHandler.LITELLM_USER_ID_CLAIM: "jwt-subject",
+                        **EMBROUTER_JWT_CLAIMS,
+                        JWTHandler.EMBROUTER_JWT_ISSUER_CLAIM: "https://idp.example.com",
+                        JWTHandler.EMBROUTER_USER_ID_CLAIM: "jwt-subject",
                     },
                 ),
                 id="multi-issuer-jwt-auth-normalized-claims",
             ),
         ],
     )
-    async def test_non_sk_litellm_credential_that_authenticated_is_rejected_not_forwarded(
+    async def test_non_sk_embrouter_credential_that_authenticated_is_rejected_not_forwarded(
         self, monkeypatch, credential: str, authenticated: UserAPIKeyAuth
     ):
         raised, forwarded = await self._run(
@@ -4395,23 +4395,23 @@ class TestVertexCredentiallessPassthroughVirtualKeyLeak:
         raised, forwarded = await self._run(
             monkeypatch,
             [
-                (b"x-litellm-api-key", self.LITELLM_JWT.encode()),
+                (b"x-embrouter-api-key", self.EMBROUTER_JWT.encode()),
                 (b"authorization", f"Bearer {self.GOOGLE_SERVICE_ACCOUNT_JWT}".encode()),
                 (b"content-type", b"application/json"),
             ],
-            authenticated=UserAPIKeyAuth(api_key=None, user_id="jwt-subject", jwt_claims=dict(self.LITELLM_JWT_CLAIMS)),
+            authenticated=UserAPIKeyAuth(api_key=None, user_id="jwt-subject", jwt_claims=dict(self.EMBROUTER_JWT_CLAIMS)),
         )
         assert raised is None, f"a Google JWT that is not the one that authenticated must keep flowing: {raised}"
         assert forwarded is not None
         assert forwarded.get("authorization") == f"Bearer {self.GOOGLE_SERVICE_ACCOUNT_JWT}"
-        assert "x-litellm-api-key" not in forwarded
+        assert "x-embrouter-api-key" not in forwarded
 
     @pytest.mark.asyncio
     async def test_master_key_in_authorization_alone_is_rejected(self, monkeypatch):
         raised, forwarded = await self._run(
             monkeypatch,
             [(b"authorization", b"Bearer sk-master-1234"), (b"content-type", b"application/json")],
-            authenticated=UserAPIKeyAuth(api_key=LITELLM_PROXY_MASTER_KEY_ALIAS, user_role=LitellmUserRoles.PROXY_ADMIN),
+            authenticated=UserAPIKeyAuth(api_key=EMBROUTER_PROXY_MASTER_KEY_ALIAS, user_role=EmbrouterUserRoles.PROXY_ADMIN),
         )
         assert forwarded is None, "the master key must never reach the upstream forwarder"
         assert raised is not None and raised.status_code == 401
@@ -4425,7 +4425,7 @@ class TestVertexCredentiallessPassthroughVirtualKeyLeak:
                 (b"x-goog-api-key", b"AIza-real-google-api-key"),
                 (b"content-type", b"application/json"),
             ],
-            authenticated=UserAPIKeyAuth(api_key=LITELLM_PROXY_MASTER_KEY_ALIAS, user_role=LitellmUserRoles.PROXY_ADMIN),
+            authenticated=UserAPIKeyAuth(api_key=EMBROUTER_PROXY_MASTER_KEY_ALIAS, user_role=EmbrouterUserRoles.PROXY_ADMIN),
         )
         assert raised is None
         assert forwarded is not None
@@ -4435,7 +4435,7 @@ class TestVertexCredentiallessPassthroughVirtualKeyLeak:
 
 
 class TestAnthropicPassthroughVirtualKeyLeak:
-    VKEY = "sk-litellm-victim-key"
+    VKEY = "sk-embrouter-victim-key"
     PROXY_KEY = "sk-ant-api03-proxy-configured-key"
     ENDPOINT = "v1/messages"
 
@@ -4447,12 +4447,12 @@ class TestAnthropicPassthroughVirtualKeyLeak:
         master_key: str | None = "sk-master-1234",
         proxy_api_key: str | None = None,
     ) -> tuple[HTTPException | None, dict | None]:
-        from litellm.proxy.pass_through_endpoints.pass_through_endpoints import HttpPassThroughEndpointHelpers
-        from litellm.proxy.pass_through_endpoints.passthrough_endpoint_router import (
+        from embrouter.proxy.pass_through_endpoints.pass_through_endpoints import HttpPassThroughEndpointHelpers
+        from embrouter.proxy.pass_through_endpoints.passthrough_endpoint_router import (
             PassthroughEndpointRouter,
         )
 
-        monkeypatch.setattr("litellm.proxy.proxy_server.master_key", master_key)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.master_key", master_key)
         monkeypatch.delenv("ANTHROPIC_AUTH_TOKEN", raising=False)
         if proxy_api_key is None:
             monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
@@ -4480,7 +4480,7 @@ class TestAnthropicPassthroughVirtualKeyLeak:
             captured.update(kwargs)
             return AsyncMock(return_value={"status": "success"})
 
-        module = "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints"
+        module = "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints"
         monkeypatch.setattr(f"{module}.passthrough_endpoint_router", PassthroughEndpointRouter(lambda: None))
         raised: HTTPException | None = None
         with (
@@ -4530,10 +4530,10 @@ class TestAnthropicPassthroughVirtualKeyLeak:
         assert raised is not None and raised.status_code == 401
 
     @pytest.mark.asyncio
-    async def test_x_litellm_api_key_virtual_key_is_rejected_not_forwarded(self, monkeypatch):
+    async def test_x_embrouter_api_key_virtual_key_is_rejected_not_forwarded(self, monkeypatch):
         raised, forwarded = await self._run(
             monkeypatch,
-            [(b"x-litellm-api-key", self.VKEY.encode()), (b"content-type", b"application/json")],
+            [(b"x-embrouter-api-key", self.VKEY.encode()), (b"content-type", b"application/json")],
         )
         assert forwarded is None, "credential-less request must never reach the upstream forwarder"
         assert raised is not None and raised.status_code == 401
@@ -4543,7 +4543,7 @@ class TestAnthropicPassthroughVirtualKeyLeak:
         raised, forwarded = await self._run(
             monkeypatch,
             [(b"authorization", b"Bearer sk-master-1234"), (b"content-type", b"application/json")],
-            authenticated=UserAPIKeyAuth(api_key="sk-master-1234", user_role=LitellmUserRoles.PROXY_ADMIN),
+            authenticated=UserAPIKeyAuth(api_key="sk-master-1234", user_role=EmbrouterUserRoles.PROXY_ADMIN),
         )
         assert forwarded is None, "the master key must never reach Anthropic"
         assert raised is not None and raised.status_code == 401
@@ -4559,26 +4559,26 @@ class TestAnthropicPassthroughVirtualKeyLeak:
     async def test_without_a_master_key_the_callers_own_anthropic_key_still_forwards(
         self, monkeypatch, header: bytes, value: bytes
     ):
-        monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
-        monkeypatch.setattr("litellm.proxy.proxy_server.user_custom_auth", None)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.general_settings", {})
+        monkeypatch.setattr("embrouter.proxy.proxy_server.user_custom_auth", None)
         raised, forwarded = await self._run(
             monkeypatch,
             [(header, value), (b"anthropic-version", b"2023-06-01"), (b"content-type", b"application/json")],
-            authenticated=UserAPIKeyAuth(api_key="sk-ant-api03-callers-own-key", user_role=LitellmUserRoles.INTERNAL_USER),
+            authenticated=UserAPIKeyAuth(api_key="sk-ant-api03-callers-own-key", user_role=EmbrouterUserRoles.INTERNAL_USER),
             master_key=None,
         )
-        assert raised is None, "with no master key the proxy authenticated nothing, so nothing of the caller's is a LiteLLM secret"
+        assert raised is None, "with no master key the proxy authenticated nothing, so nothing of the caller's is a EmbRouter secret"
         assert forwarded is not None
         assert forwarded.get(header.decode()) == value.decode()
 
     @pytest.mark.asyncio
     async def test_without_a_master_key_a_custom_auth_credential_is_still_stripped(self, monkeypatch):
-        monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
-        monkeypatch.setattr("litellm.proxy.proxy_server.user_custom_auth", AsyncMock())
+        monkeypatch.setattr("embrouter.proxy.proxy_server.general_settings", {})
+        monkeypatch.setattr("embrouter.proxy.proxy_server.user_custom_auth", AsyncMock())
         raised, forwarded = await self._run(
             monkeypatch,
             [(b"authorization", b"Bearer sk-custom-auth-token"), (b"anthropic-version", b"2023-06-01")],
-            authenticated=UserAPIKeyAuth(api_key="sk-custom-auth-token", user_role=LitellmUserRoles.INTERNAL_USER),
+            authenticated=UserAPIKeyAuth(api_key="sk-custom-auth-token", user_role=EmbrouterUserRoles.INTERNAL_USER),
             master_key=None,
         )
         assert raised is not None and raised.status_code == 401
@@ -4586,12 +4586,12 @@ class TestAnthropicPassthroughVirtualKeyLeak:
 
     @pytest.mark.asyncio
     async def test_without_a_master_key_an_oauth2_token_is_still_stripped(self, monkeypatch):
-        monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {"enable_oauth2_auth": True})
-        monkeypatch.setattr("litellm.proxy.proxy_server.user_custom_auth", None)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.general_settings", {"enable_oauth2_auth": True})
+        monkeypatch.setattr("embrouter.proxy.proxy_server.user_custom_auth", None)
         raised, forwarded = await self._run(
             monkeypatch,
             [(b"authorization", b"Bearer oauth2-access-token"), (b"anthropic-version", b"2023-06-01")],
-            authenticated=UserAPIKeyAuth(api_key="oauth2-access-token", user_role=LitellmUserRoles.INTERNAL_USER),
+            authenticated=UserAPIKeyAuth(api_key="oauth2-access-token", user_role=EmbrouterUserRoles.INTERNAL_USER),
             master_key=None,
         )
         assert raised is not None and raised.status_code == 401
@@ -4602,7 +4602,7 @@ class TestAnthropicPassthroughVirtualKeyLeak:
         raised, forwarded = await self._run(
             monkeypatch,
             [
-                (b"x-litellm-api-key", self.VKEY.encode()),
+                (b"x-embrouter-api-key", self.VKEY.encode()),
                 (b"authorization", b"Bearer sk-ant-oat01-caller-oauth-token"),
                 (b"anthropic-version", b"2023-06-01"),
                 (b"content-type", b"application/json"),
@@ -4612,7 +4612,7 @@ class TestAnthropicPassthroughVirtualKeyLeak:
         assert forwarded is not None
         assert forwarded.get("authorization") == "Bearer sk-ant-oat01-caller-oauth-token"
         assert forwarded.get("anthropic-version") == "2023-06-01"
-        assert "x-litellm-api-key" not in forwarded
+        assert "x-embrouter-api-key" not in forwarded
         assert self.VKEY not in self._blob(forwarded)
 
     @pytest.mark.asyncio
@@ -4646,13 +4646,13 @@ class TestAnthropicPassthroughVirtualKeyLeak:
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
         "credential_header",
-        sorted(SpecialHeaders.litellm_credential_header_names() - {"authorization", "x-api-key", "x-litellm-api-key"}),
+        sorted(SpecialHeaders.embrouter_credential_header_names() - {"authorization", "x-api-key", "x-embrouter-api-key"}),
     )
     async def test_every_non_anthropic_credential_header_is_dropped_by_name(self, monkeypatch, credential_header):
         raised, forwarded = await self._run(
             monkeypatch,
             [
-                (b"x-litellm-api-key", self.VKEY.encode()),
+                (b"x-embrouter-api-key", self.VKEY.encode()),
                 (b"x-api-key", b"sk-ant-api03-caller-own-key"),
                 (credential_header.encode(), b"some-distinct-caller-secret-value"),
                 (b"content-type", b"application/json"),
@@ -4662,15 +4662,15 @@ class TestAnthropicPassthroughVirtualKeyLeak:
         assert forwarded is not None
         assert forwarded.get("x-api-key") == "sk-ant-api03-caller-own-key"
         assert credential_header not in forwarded
-        assert "x-litellm-api-key" not in forwarded
+        assert "x-embrouter-api-key" not in forwarded
         assert self.VKEY not in self._blob(forwarded)
         assert "some-distinct-caller-secret-value" not in self._blob(forwarded)
 
     @pytest.mark.asyncio
     async def test_virtual_key_in_operator_configured_header_is_stripped(self, monkeypatch):
-        with mock.patch.dict(  # test-quality-ok: general_settings is the real proxy config surface for litellm_key_header_name; no injection seam exists on this route
-            "litellm.proxy.proxy_server.general_settings",
-            {"litellm_key_header_name": "x-company-key"},
+        with mock.patch.dict(  # test-quality-ok: general_settings is the real proxy config surface for embrouter_key_header_name; no injection seam exists on this route
+            "embrouter.proxy.proxy_server.general_settings",
+            {"embrouter_key_header_name": "x-company-key"},
         ):
             raised, forwarded = await self._run(
                 monkeypatch,
@@ -4721,7 +4721,7 @@ class TestAnthropicPassthroughVirtualKeyLeak:
         raised, forwarded = await self._run(
             monkeypatch,
             [
-                (b"x-litellm-api-key", self.VKEY.encode()),
+                (b"x-embrouter-api-key", self.VKEY.encode()),
                 (b"x-api-key", b"sk-ant-api03-caller-own-key"),
                 (b"content-type", b"application/json"),
             ],
@@ -4773,7 +4773,7 @@ class TestVertexPassthroughDefaultLocationOnShortRoutes:
         headers: list[tuple[bytes, bytes]],
         forwarder: Mock,
     ) -> None:
-        from litellm.proxy.pass_through_endpoints.passthrough_endpoint_router import (
+        from embrouter.proxy.pass_through_endpoints.passthrough_endpoint_router import (
             PassthroughEndpointRouter,
         )
 
@@ -4793,15 +4793,15 @@ class TestVertexPassthroughDefaultLocationOnShortRoutes:
         router: Final = PassthroughEndpointRouter()
         if default_config is not None:
             router.set_default_vertex_config(dict(default_config))
-        module: Final = "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints"
+        module: Final = "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints"
         monkeypatch.setattr(f"{module}.passthrough_endpoint_router", router)
-        monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", None)
         mock_credentials: Final = Mock()
         mock_credentials.token = "test-token"
         caller: Final = UserAPIKeyAuth(api_key="test-key")
         with (
             mock.patch(  # test-quality-ok: the route mints its Google token through its own VertexBase, nothing injects the credential loader
-                "litellm.llms.vertex_ai.vertex_llm_base.VertexBase.load_auth",
+                "embrouter.llms.vertex_ai.vertex_llm_base.VertexBase.load_auth",
                 return_value=(mock_credentials, self.PROJECT),
             ),
             mock.patch(f"{module}.create_pass_through_route", new=forwarder),
@@ -4920,38 +4920,38 @@ class TestAzureProxyRouteCrossIndexAuthorization:
     @pytest.mark.asyncio
     async def test_authorizes_the_targeted_index(self):
         index_object = MagicMock()
-        index_object.litellm_params.vector_store_name = "my-store"
-        vector_store = {"litellm_params": {"api_base": "https://svc.search.windows.net"}}
+        index_object.embrouter_params.vector_store_name = "my-store"
+        vector_store = {"embrouter_params": {"api_base": "https://svc.search.windows.net"}}
 
         with (
-            patch("litellm.proxy.proxy_server.llm_router", MagicMock()),
+            patch("embrouter.proxy.proxy_server.llm_router", MagicMock()),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_passthrough_request_using_router_model",
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_passthrough_request_using_router_model",
                 return_value=False,
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_vector_stores_config"
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.ProviderConfigManager.get_provider_vector_stores_config"
             ) as mock_get_config,
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_allowed_to_call_vector_store_endpoint"
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_allowed_to_call_vector_store_endpoint"
             ) as mock_is_allowed,
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.assert_user_can_access_vector_store",
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.assert_user_can_access_vector_store",
                 new=AsyncMock(),
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.BaseOpenAIPassThroughHandler._base_openai_pass_through_handler",
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.BaseOpenAIPassThroughHandler._base_openai_pass_through_handler",
                 new=AsyncMock(return_value=Response()),
             ),
-            patch.object(litellm, "vector_store_index_registry") as mock_index_registry,
-            patch.object(litellm, "vector_store_registry") as mock_vector_registry,
+            patch.object(embrouter, "vector_store_index_registry") as mock_index_registry,
+            patch.object(embrouter, "vector_store_registry") as mock_vector_registry,
         ):
             mock_get_config.return_value.get_auth_credentials.return_value = {"headers": {"api-key": "k"}}
             mock_index_registry.is_vector_store_index.side_effect = lambda vector_store_index_name: (
                 vector_store_index_name == "my-index"
             )
             mock_index_registry.get_vector_store_index_by_name.return_value = index_object
-            mock_vector_registry.get_litellm_managed_vector_store_from_registry_by_name.return_value = vector_store
+            mock_vector_registry.get_embrouter_managed_vector_store_from_registry_by_name.return_value = vector_store
 
             await azure_proxy_route(
                 endpoint="indexes/my-index/docs/index",
@@ -4969,27 +4969,27 @@ class TestAzureProxyRouteCrossIndexAuthorization:
     @pytest.mark.asyncio
     async def test_trailing_index_segment_does_not_authorize_a_different_index(self):
         with (
-            patch("litellm.proxy.proxy_server.llm_router", MagicMock()),
+            patch("embrouter.proxy.proxy_server.llm_router", MagicMock()),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_passthrough_request_using_router_model",
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_passthrough_request_using_router_model",
                 return_value=False,
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_allowed_to_call_vector_store_endpoint"
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.is_allowed_to_call_vector_store_endpoint"
             ) as mock_is_allowed,
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_secret_str",
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_secret_str",
                 return_value="https://azure-openai.example.com",
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials",
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials",
                 return_value="azure-key",
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.BaseOpenAIPassThroughHandler._base_openai_pass_through_handler",
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.BaseOpenAIPassThroughHandler._base_openai_pass_through_handler",
                 new=AsyncMock(return_value=Response()),
             ) as mock_handler,
-            patch.object(litellm, "vector_store_index_registry") as mock_index_registry,
+            patch.object(embrouter, "vector_store_index_registry") as mock_index_registry,
         ):
             mock_index_registry.is_vector_store_index.side_effect = lambda vector_store_index_name: (
                 vector_store_index_name == "index"
@@ -5004,7 +5004,7 @@ class TestAzureProxyRouteCrossIndexAuthorization:
 
             mock_is_allowed.assert_not_called()
             mock_handler.assert_awaited_once()
-            assert mock_handler.await_args.kwargs["custom_llm_provider"] == litellm.LlmProviders.AZURE
+            assert mock_handler.await_args.kwargs["custom_llm_provider"] == embrouter.LlmProviders.AZURE
 
 
 class TestAzureProxyRouteServiceLevelIndexCreate:
@@ -5040,13 +5040,13 @@ class TestAzureProxyRouteServiceLevelIndexCreate:
     @pytest.mark.asyncio
     async def test_non_admin_cannot_create_an_index(self):
         with (
-            patch("litellm.proxy.proxy_server.llm_router", MagicMock()),
+            patch("embrouter.proxy.proxy_server.llm_router", MagicMock()),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_secret_str",
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_secret_str",
                 return_value="https://svc.search.windows.net",
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.BaseOpenAIPassThroughHandler._base_openai_pass_through_handler",
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.BaseOpenAIPassThroughHandler._base_openai_pass_through_handler",
                 new=AsyncMock(return_value=Response()),
             ) as mock_handler,
         ):
@@ -5057,7 +5057,7 @@ class TestAzureProxyRouteServiceLevelIndexCreate:
                     fastapi_response=MagicMock(spec=Response),
                     user_api_key_dict=UserAPIKeyAuth(
                         token="sk-team-token",
-                        user_role=LitellmUserRoles.INTERNAL_USER,
+                        user_role=EmbrouterUserRoles.INTERNAL_USER,
                     ),
                 )
 
@@ -5068,17 +5068,17 @@ class TestAzureProxyRouteServiceLevelIndexCreate:
     @pytest.mark.asyncio
     async def test_admin_can_still_create_an_index(self):
         with (
-            patch("litellm.proxy.proxy_server.llm_router", MagicMock()),
+            patch("embrouter.proxy.proxy_server.llm_router", MagicMock()),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_secret_str",
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_secret_str",
                 return_value="https://svc.search.windows.net",
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials",
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials",
                 return_value="azure-key",
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.BaseOpenAIPassThroughHandler._base_openai_pass_through_handler",
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.BaseOpenAIPassThroughHandler._base_openai_pass_through_handler",
                 new=AsyncMock(return_value=Response()),
             ) as mock_handler,
         ):
@@ -5088,7 +5088,7 @@ class TestAzureProxyRouteServiceLevelIndexCreate:
                 fastapi_response=MagicMock(spec=Response),
                 user_api_key_dict=UserAPIKeyAuth(
                     token="sk-admin-token",
-                    user_role=LitellmUserRoles.PROXY_ADMIN,
+                    user_role=EmbrouterUserRoles.PROXY_ADMIN,
                 ),
             )
 
@@ -5106,12 +5106,12 @@ class TestComprehendMedicalProxyRoute:
     async def test_signs_and_forwards_detect_entities_v2(self):
         from botocore.credentials import Credentials
 
-        from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+        from embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
             comprehend_medical_proxy_route,
         )
-        from litellm.types.passthrough_endpoints.pass_through_endpoints import (
-            LITELLM_PASS_THROUGH_CUSTOM_BODY_STATE_KEY,
-            LITELLM_PASS_THROUGH_RAW_BODY_STATE_KEY,
+        from embrouter.types.passthrough_endpoints.pass_through_endpoints import (
+            EMBROUTER_PASS_THROUGH_CUSTOM_BODY_STATE_KEY,
+            EMBROUTER_PASS_THROUGH_RAW_BODY_STATE_KEY,
         )
 
         request_body = {"Text": "Patient was prescribed 40mg atorvastatin daily."}
@@ -5120,15 +5120,15 @@ class TestComprehendMedicalProxyRoute:
 
         with (
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_secret_str",
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_secret_str",
                 side_effect=lambda secret_name: "us-east-1" if secret_name == "AWS_REGION_NAME" else None,
             ),
             patch(
-                "litellm.llms.bedrock.base_aws_llm.BaseAWSLLM.get_credentials",
+                "embrouter.llms.bedrock.base_aws_llm.BaseAWSLLM.get_credentials",
                 return_value=Credentials("test-access-key", "test-secret-key"),
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
                 return_value=mock_endpoint_func,
             ) as mock_create_route,
         ):
@@ -5149,8 +5149,8 @@ class TestComprehendMedicalProxyRoute:
         assert signed_headers["Content-Type"] == "application/x-amz-json-1.1"
         assert signed_headers["Authorization"].startswith("AWS4-HMAC-SHA256")
         assert "/comprehendmedical/aws4_request" in signed_headers["Authorization"]
-        assert getattr(mock_request.state, LITELLM_PASS_THROUGH_CUSTOM_BODY_STATE_KEY) == request_body
-        assert json.loads(getattr(mock_request.state, LITELLM_PASS_THROUGH_RAW_BODY_STATE_KEY)) == request_body
+        assert getattr(mock_request.state, EMBROUTER_PASS_THROUGH_CUSTOM_BODY_STATE_KEY) == request_body
+        assert json.loads(getattr(mock_request.state, EMBROUTER_PASS_THROUGH_RAW_BODY_STATE_KEY)) == request_body
         mock_endpoint_func.assert_awaited_once()
 
     @pytest.mark.asyncio
@@ -5166,7 +5166,7 @@ class TestComprehendMedicalProxyRoute:
         ],
     )
     async def test_rejects_unsupported_operations(self, operation):
-        from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+        from embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
             comprehend_medical_proxy_route,
         )
 
@@ -5182,12 +5182,12 @@ class TestComprehendMedicalProxyRoute:
     @pytest.mark.asyncio
     @pytest.mark.parametrize("body", [{"Text": "hi", "stream": True}, {"Text": "hi", "stream": False}, ["Text"]])
     async def test_rejects_stream_key_and_non_object_bodies(self, body):
-        from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+        from embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
             comprehend_medical_proxy_route,
         )
 
         with patch(
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_secret_str",
+            "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_secret_str",
             return_value="us-east-1",
         ):
             with pytest.raises(HTTPException) as exc_info:
@@ -5201,12 +5201,12 @@ class TestComprehendMedicalProxyRoute:
 
     @pytest.mark.asyncio
     async def test_missing_region_returns_400(self):
-        from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+        from embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
             comprehend_medical_proxy_route,
         )
 
         with patch(
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_secret_str",
+            "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_secret_str",
             return_value=None,
         ):
             with pytest.raises(HTTPException) as exc_info:
@@ -5219,15 +5219,15 @@ class TestComprehendMedicalProxyRoute:
         assert exc_info.value.status_code == 400
 
     def test_comprehendmedical_is_a_mapped_pass_through_route(self):
-        from litellm.proxy._types import LiteLLMRoutes
+        from embrouter.proxy._types import EmbRouterRoutes
 
-        assert "/comprehendmedical" in LiteLLMRoutes.mapped_pass_through_routes.value
+        assert "/comprehendmedical" in EmbRouterRoutes.mapped_pass_through_routes.value
 
     @pytest.mark.asyncio
     async def test_sdk_route_reads_operation_from_x_amz_target(self):
         from botocore.credentials import Credentials
 
-        from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+        from embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
             comprehend_medical_sdk_proxy_route,
         )
 
@@ -5237,15 +5237,15 @@ class TestComprehendMedicalProxyRoute:
 
         with (
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_secret_str",
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.get_secret_str",
                 side_effect=lambda secret_name: "us-east-1" if secret_name == "AWS_REGION_NAME" else None,
             ),
             patch(
-                "litellm.llms.bedrock.base_aws_llm.BaseAWSLLM.get_credentials",
+                "embrouter.llms.bedrock.base_aws_llm.BaseAWSLLM.get_credentials",
                 return_value=Credentials("test-access-key", "test-secret-key"),
             ),
             patch(
-                "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
+                "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
                 return_value=mock_endpoint_func,
             ) as mock_create_route,
         ):
@@ -5265,7 +5265,7 @@ class TestComprehendMedicalProxyRoute:
         ["", "ComprehendMedical_20181030", "WrongService.DetectPHI", "ComprehendMedical_20181030."],
     )
     async def test_sdk_route_rejects_bad_x_amz_target(self, target_header):
-        from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+        from embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
             comprehend_medical_sdk_proxy_route,
         )
 
@@ -5286,15 +5286,15 @@ TRANSCRIBE_UPSTREAM = "https://transcribe.us-west-2.amazonaws.com/"
 
 @pytest.fixture
 def transcribe_client(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
-    from litellm.proxy.proxy_server import app
+    from embrouter.proxy.proxy_server import app
 
     monkeypatch.setenv("AWS_REGION_NAME", "us-west-2")
     monkeypatch.setenv("AWS_ACCESS_KEY_ID", "test-access-key")
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "test-secret-key")
     monkeypatch.delenv("AWS_SESSION_TOKEN", raising=False)
     monkeypatch.delenv("SERVER_ROOT_PATH", raising=False)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
+    embrouter.in_memory_llm_clients_cache.flush_cache()
     monkeypatch.setitem(
         app.dependency_overrides, user_api_key_auth, lambda: UserAPIKeyAuth(api_key="sk-virtual", user_id="user-a")
     )
@@ -5305,23 +5305,23 @@ def transcribe_client(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
 
 
 def _owned_job(owner: str | None, status: str = "COMPLETED") -> dict[str, object]:
-    tags = {"Tags": [{"Key": "litellm-owner", "Value": owner}]} if owner is not None else {}
-    return {"TranscriptionJob": {"TranscriptionJobName": "litellm-job-1", "TranscriptionJobStatus": status, **tags}}
+    tags = {"Tags": [{"Key": "embrouter-owner", "Value": owner}]} if owner is not None else {}
+    return {"TranscriptionJob": {"TranscriptionJobName": "embrouter-job-1", "TranscriptionJobStatus": status, **tags}}
 
 
 class TestTranscribeProxyRoute:
     START_JOB_BODY: Final = MappingProxyType(
         {
-            "TranscriptionJobName": "litellm-job-1",
+            "TranscriptionJobName": "embrouter-job-1",
             "LanguageCode": "en-US",
             "Media": {"MediaFileUri": "s3://bucket/audio.wav"},
         }
     )
-    OWNER_TAG: Final = MappingProxyType({"Key": "litellm-owner", "Value": "user-a"})
+    OWNER_TAG: Final = MappingProxyType({"Key": "embrouter-owner", "Value": "user-a"})
 
     def test_signs_and_forwards_start_transcription_job(self, transcribe_client: TestClient) -> None:
         upstream_body = {
-            "TranscriptionJob": {"TranscriptionJobName": "litellm-job-1", "TranscriptionJobStatus": "IN_PROGRESS"}
+            "TranscriptionJob": {"TranscriptionJobName": "embrouter-job-1", "TranscriptionJobStatus": "IN_PROGRESS"}
         }
         with respx.mock(assert_all_called=True) as upstream:
             route = upstream.post(TRANSCRIBE_UPSTREAM).mock(return_value=httpx.Response(200, json=upstream_body))
@@ -5364,7 +5364,7 @@ class TestTranscribeProxyRoute:
     def test_start_needs_a_bucket_list_unless_the_caller_is_a_proxy_admin(
         self, transcribe_client: TestClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        from litellm.proxy.proxy_server import app
+        from embrouter.proxy.proxy_server import app
 
         monkeypatch.setitem(app.dependency_overrides, _proxy_general_settings, lambda: {})
         with respx.mock(assert_all_called=False) as upstream:
@@ -5373,7 +5373,7 @@ class TestTranscribeProxyRoute:
             monkeypatch.setitem(
                 app.dependency_overrides,
                 user_api_key_auth,
-                lambda: UserAPIKeyAuth(api_key="sk-admin", user_id="admin", user_role=LitellmUserRoles.PROXY_ADMIN),
+                lambda: UserAPIKeyAuth(api_key="sk-admin", user_id="admin", user_role=EmbrouterUserRoles.PROXY_ADMIN),
             )
             allowed = transcribe_client.post("/transcribe/StartTranscriptionJob", json=dict(self.START_JOB_BODY))
 
@@ -5387,11 +5387,11 @@ class TestTranscribeProxyRoute:
             route = upstream.post(TRANSCRIBE_UPSTREAM)
             response = transcribe_client.post(
                 "/transcribe/StartTranscriptionJob",
-                json={**dict(self.START_JOB_BODY), "Tags": [{"Key": "litellm-owner", "Value": "user-b"}]},
+                json={**dict(self.START_JOB_BODY), "Tags": [{"Key": "embrouter-owner", "Value": "user-b"}]},
             )
 
         assert response.status_code == 400
-        assert "litellm-owner" in response.json()["detail"]
+        assert "embrouter-owner" in response.json()["detail"]
         assert not route.called
 
     def test_sdk_route_reads_operation_from_x_amz_target_and_resigns(self, transcribe_client: TestClient) -> None:
@@ -5399,7 +5399,7 @@ class TestTranscribeProxyRoute:
             route = upstream.post(TRANSCRIBE_UPSTREAM).mock(return_value=httpx.Response(200, json=_owned_job("user-a")))
             response = transcribe_client.post(
                 "/transcribe",
-                json={"TranscriptionJobName": "litellm-job-1"},
+                json={"TranscriptionJobName": "embrouter-job-1"},
                 headers={
                     "Authorization": "AWS4-HMAC-SHA256 Credential=sk-virtual/20260101/us-west-2/transcribe/aws4_request",
                     "X-Amz-Target": "Transcribe.GetTranscriptionJob",
@@ -5421,7 +5421,7 @@ class TestTranscribeProxyRoute:
         with respx.mock(assert_all_called=True) as upstream:
             route = upstream.post(TRANSCRIBE_UPSTREAM).mock(return_value=httpx.Response(200, json=_owned_job(owner)))
             response = transcribe_client.post(
-                f"/transcribe/{operation}", json={"TranscriptionJobName": "litellm-job-1"}
+                f"/transcribe/{operation}", json={"TranscriptionJobName": "embrouter-job-1"}
             )
 
         assert response.status_code == 404
@@ -5432,7 +5432,7 @@ class TestTranscribeProxyRoute:
             route = upstream.post(TRANSCRIBE_UPSTREAM)
             route.side_effect = [httpx.Response(200, json=_owned_job("user-a")), httpx.Response(200, json={})]
             response = transcribe_client.post(
-                "/transcribe/DeleteTranscriptionJob", json={"TranscriptionJobName": "litellm-job-1"}
+                "/transcribe/DeleteTranscriptionJob", json={"TranscriptionJobName": "embrouter-job-1"}
             )
 
         assert (response.status_code, response.json()) == (200, {})
@@ -5454,13 +5454,13 @@ class TestTranscribeProxyRoute:
     def test_a_proxy_admin_reaches_account_wide_operations(
         self, transcribe_client: TestClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        from litellm.proxy._types import LitellmUserRoles
-        from litellm.proxy.proxy_server import app
+        from embrouter.proxy._types import EmbrouterUserRoles
+        from embrouter.proxy.proxy_server import app
 
         monkeypatch.setitem(
             app.dependency_overrides,
             user_api_key_auth,
-            lambda: UserAPIKeyAuth(api_key="sk-admin", user_role=LitellmUserRoles.PROXY_ADMIN),
+            lambda: UserAPIKeyAuth(api_key="sk-admin", user_role=EmbrouterUserRoles.PROXY_ADMIN),
         )
         with respx.mock(assert_all_called=True) as upstream:
             upstream.post(TRANSCRIBE_UPSTREAM).mock(
@@ -5554,7 +5554,7 @@ class TestTranscribeProxyRoute:
     def test_rejects_start_transcription_job_when_the_cost_map_has_no_rate(
         self, transcribe_client: TestClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        monkeypatch.delitem(litellm.model_cost, "transcribe/StartTranscriptionJob")
+        monkeypatch.delitem(embrouter.model_cost, "transcribe/StartTranscriptionJob")
         with respx.mock(assert_all_called=False) as upstream:
             route = upstream.post(TRANSCRIBE_UPSTREAM)
             response = transcribe_client.post("/transcribe/StartTranscriptionJob", json=dict(self.START_JOB_BODY))
@@ -5574,9 +5574,9 @@ class TestTranscribeProxyRoute:
         assert not route.called
 
     def test_transcribe_is_a_mapped_pass_through_route(self) -> None:
-        from litellm.proxy._types import LiteLLMRoutes
+        from embrouter.proxy._types import EmbRouterRoutes
 
-        assert "/transcribe" in LiteLLMRoutes.mapped_pass_through_routes.value
+        assert "/transcribe" in EmbRouterRoutes.mapped_pass_through_routes.value
 
 
 LIVE_RESOURCE_PATH = "projects/proj-db/locations/global/publishers/google/models/gemini-live-2.5-flash"
@@ -5600,15 +5600,15 @@ class TestVertexAILiveWebsocketPassthrough:
 
     @pytest.mark.asyncio
     async def test_uses_db_deployment_credentials_without_query_params(self, monkeypatch):
-        from litellm.proxy.pass_through_endpoints import (
+        from embrouter.proxy.pass_through_endpoints import (
             llm_passthrough_endpoints as passthrough_module,
         )
 
-        llm_router = litellm.Router(
+        llm_router = embrouter.Router(
             model_list=[
                 {
                     "model_name": "gemini-live",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "vertex_ai/gemini-live-2.5-flash",
                         "use_in_pass_through": True,
                         "vertex_project": "proj-db",
@@ -5618,7 +5618,7 @@ class TestVertexAILiveWebsocketPassthrough:
                 }
             ]
         )
-        monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", llm_router)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", llm_router)
         monkeypatch.setattr(passthrough_module.passthrough_endpoint_router, "default_vertex_config", None)
         self._clear_vertex_env(monkeypatch)
         websocket = self._websocket()
@@ -5669,15 +5669,15 @@ class TestVertexAILiveWebsocketPassthrough:
         ],
     )
     def test_setup_model_rewriter_normalises_the_forms_clients_send(self, setup_model, expected):
-        from litellm.proxy.pass_through_endpoints import (
+        from embrouter.proxy.pass_through_endpoints import (
             llm_passthrough_endpoints as passthrough_module,
         )
 
-        llm_router = litellm.Router(
+        llm_router = embrouter.Router(
             model_list=[
                 {
                     "model_name": "gemini-live",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "vertex_ai/gemini-live-2.5-flash",
                         "use_in_pass_through": True,
                         "vertex_project": "proj-db",
@@ -5698,18 +5698,18 @@ class TestVertexAILiveWebsocketPassthrough:
 
     @pytest.mark.asyncio
     async def test_default_vertex_config_outranks_db_deployment(self, monkeypatch):
-        from litellm.proxy.pass_through_endpoints import (
+        from embrouter.proxy.pass_through_endpoints import (
             llm_passthrough_endpoints as passthrough_module,
         )
-        from litellm.types.passthrough_endpoints.vertex_ai import (
+        from embrouter.types.passthrough_endpoints.vertex_ai import (
             VertexPassThroughCredentials,
         )
 
-        llm_router = litellm.Router(
+        llm_router = embrouter.Router(
             model_list=[
                 {
                     "model_name": "gemini-live",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "vertex_ai/gemini-live-2.5-flash",
                         "use_in_pass_through": True,
                         "vertex_project": "proj-db",
@@ -5719,7 +5719,7 @@ class TestVertexAILiveWebsocketPassthrough:
                 }
             ]
         )
-        monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", llm_router)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", llm_router)
         monkeypatch.setattr(
             passthrough_module.passthrough_endpoint_router,
             "default_vertex_config",
@@ -5756,11 +5756,11 @@ class TestVertexAILiveWebsocketPassthrough:
 
     @pytest.mark.asyncio
     async def test_credential_failure_close_names_configuration_options(self, monkeypatch):
-        from litellm.proxy.pass_through_endpoints import (
+        from embrouter.proxy.pass_through_endpoints import (
             llm_passthrough_endpoints as passthrough_module,
         )
 
-        monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", None)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", None)
         monkeypatch.setattr(passthrough_module.passthrough_endpoint_router, "default_vertex_config", None)
         self._clear_vertex_env(monkeypatch)
         websocket = self._websocket()
@@ -5768,7 +5768,7 @@ class TestVertexAILiveWebsocketPassthrough:
 
         with (
             patch.object(passthrough_module.vertex_llm_base, "_ensure_access_token_async", ensure_token),
-            patch("litellm.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging,
+            patch("embrouter.proxy.proxy_server.proxy_logging_obj") as mock_proxy_logging,
         ):
             mock_proxy_logging.post_call_failure_hook = AsyncMock()
             await passthrough_module.vertex_ai_live_websocket_passthrough(
@@ -5814,8 +5814,8 @@ class TestPassthroughRouterModelBudgetReservation:
         return request
 
     def _install_recording_router(self, monkeypatch, body: dict) -> list[dict]:
-        import litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints as ep
-        import litellm.proxy.proxy_server as proxy_server
+        import embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints as ep
+        import embrouter.proxy.proxy_server as proxy_server
 
         captured: list[dict] = []
 
@@ -5839,16 +5839,16 @@ class TestPassthroughRouterModelBudgetReservation:
     def _assert_metadata_carries_attribution(self, captured: list[dict], user_api_key_dict: UserAPIKeyAuth) -> None:
         assert len(captured) == 1, "the router-model branch must dispatch exactly once"
         assert captured[0].get("metadata") is None, (
-            "attribution must ride the litellm_metadata bucket the router canonicalizes on; "
+            "attribution must ride the embrouter_metadata bucket the router canonicalizes on; "
             "the plain metadata bucket is dropped for every non-user_api_key field"
         )
-        litellm_metadata = captured[0]["litellm_metadata"]
-        assert litellm_metadata["user_api_key"] == user_api_key_dict.api_key
-        assert litellm_metadata["user_api_key_budget_reservation"] is user_api_key_dict.budget_reservation
-        assert litellm_metadata["user_api_key_user_id"] == user_api_key_dict.user_id
-        assert litellm_metadata["user_api_key_team_id"] == user_api_key_dict.team_id
-        assert litellm_metadata["agent_id"] == user_api_key_dict.agent_id
-        assert litellm_metadata["user_api_end_user_max_budget"] == user_api_key_dict.end_user_max_budget
+        embrouter_metadata = captured[0]["embrouter_metadata"]
+        assert embrouter_metadata["user_api_key"] == user_api_key_dict.api_key
+        assert embrouter_metadata["user_api_key_budget_reservation"] is user_api_key_dict.budget_reservation
+        assert embrouter_metadata["user_api_key_user_id"] == user_api_key_dict.user_id
+        assert embrouter_metadata["user_api_key_team_id"] == user_api_key_dict.team_id
+        assert embrouter_metadata["agent_id"] == user_api_key_dict.agent_id
+        assert embrouter_metadata["user_api_end_user_max_budget"] == user_api_key_dict.end_user_max_budget
 
     @pytest.mark.asyncio
     async def test_vllm_router_model_threads_key_metadata(self, monkeypatch):
@@ -5895,9 +5895,9 @@ class TestAzureRouterModelStreamingDispatch:
 
     @pytest.mark.asyncio
     async def test_azure_router_model_streaming_returns_streaming_response(self, monkeypatch):
-        import litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints as ep
-        import litellm.proxy.proxy_server as proxy_server
-        from litellm.passthrough.main import AsyncPassthroughStreamingResponse
+        import embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints as ep
+        import embrouter.proxy.proxy_server as proxy_server
+        from embrouter.passthrough.main import AsyncPassthroughStreamingResponse
 
         upstream_body = b"data: hello\n\n"
 
@@ -5916,13 +5916,13 @@ class TestAzureRouterModelStreamingDispatch:
         logging_obj = MagicMock()
         logging_obj.async_flush_passthrough_collected_chunks = AsyncMock()
 
-        from litellm.router_utils.add_retry_fallback_headers import prepare_response_for_header_attachment
+        from embrouter.router_utils.add_retry_fallback_headers import prepare_response_for_header_attachment
 
         class StreamingRouter:
             async def allm_passthrough_route(self, **kwargs):
                 streaming_response = await AsyncPassthroughStreamingResponse(
                     response=_upstream_response(),
-                    litellm_logging_obj=logging_obj,
+                    embrouter_logging_obj=logging_obj,
                     provider_config=MagicMock(),
                 )
                 return prepare_response_for_header_attachment(streaming_response)
@@ -5960,11 +5960,11 @@ class TestAzureRouterModelStreamingKeepalive:
     async def _dispatch(self, monkeypatch, interval, headers_delay=0.0, body_delay=0.0) -> StreamingResponse:
         import asyncio
 
-        import litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints as ep
-        import litellm.proxy.proxy_server as proxy_server
-        from litellm.passthrough.main import AsyncPassthroughStreamingResponse
+        import embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints as ep
+        import embrouter.proxy.proxy_server as proxy_server
+        from embrouter.passthrough.main import AsyncPassthroughStreamingResponse
 
-        monkeypatch.setattr(litellm, "sse_keepalive_ping_interval_seconds", interval)
+        monkeypatch.setattr(embrouter, "sse_keepalive_ping_interval_seconds", interval)
 
         class _StallingBody(httpx.AsyncByteStream):
             async def __aiter__(self):
@@ -5987,7 +5987,7 @@ class TestAzureRouterModelStreamingKeepalive:
             async def allm_passthrough_route(self, **kwargs):
                 return await AsyncPassthroughStreamingResponse(
                     response=_upstream_response(),
-                    litellm_logging_obj=logging_obj,
+                    embrouter_logging_obj=logging_obj,
                     provider_config=MagicMock(),
                 )
 
@@ -6059,8 +6059,8 @@ class TestRouterModelRelayUpstreamContract:
         return request
 
     def _install_router(self, monkeypatch, router, body: dict) -> None:
-        import litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints as ep
-        import litellm.proxy.proxy_server as proxy_server
+        import embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints as ep
+        import embrouter.proxy.proxy_server as proxy_server
 
         async def fake_get_request_body(_request):
             return body
@@ -6160,7 +6160,7 @@ class TestNvidiaNimProxyRoute:
     def _recording_router(self, captured: list[dict], deployments: dict[str, str]):
         class RecordingRouter:
             def get_model_list(self):
-                return [{"model_name": name, "litellm_params": {"model": model}} for name, model in deployments.items()]
+                return [{"model_name": name, "embrouter_params": {"model": model}} for name, model in deployments.items()]
 
             async def allm_passthrough_route(self, **kwargs):
                 captured.append(kwargs)
@@ -6203,7 +6203,7 @@ class TestNvidiaNimProxyRoute:
         assert relay["method"] == "POST"
         assert relay["json"] == NIM_INFER_BODY
         assert "model" not in relay["json"]
-        assert relay["litellm_metadata"]["user_api_key_team_id"] == "team-1"
+        assert relay["embrouter_metadata"]["user_api_key_team_id"] == "team-1"
         assert result.status_code == 200
         assert json.loads(result.body) == {"data": [{"index": 0, "bounding_boxes": {}}]}
         assert result.headers["x-nim-request"] == "r1"
@@ -6228,7 +6228,7 @@ class TestNvidiaNimProxyRoute:
                 return [
                     {
                         "model_name": "page-elements",
-                        "litellm_params": {
+                        "embrouter_params": {
                             "model": "nvidia/nemoretriever-page-elements-v2",
                             "custom_llm_provider": "nvidia_nim",
                         },
@@ -6270,9 +6270,9 @@ class TestNvidiaNimProxyRoute:
                 return [
                     {
                         "model_name": "detect",
-                        "litellm_params": {"model": "nvidia_nim/nvidia/nemoretriever-page-elements-v2"},
+                        "embrouter_params": {"model": "nvidia_nim/nvidia/nemoretriever-page-elements-v2"},
                     },
-                    {"model_name": "detect", "litellm_params": {"model": "openai/gpt-4o"}},
+                    {"model_name": "detect", "embrouter_params": {"model": "openai/gpt-4o"}},
                 ]
 
             async def allm_passthrough_route(self, **kwargs):
@@ -6301,7 +6301,7 @@ class TestNvidiaNimProxyRoute:
                 return [
                     {
                         "model_name": "nim-page-elements",
-                        "litellm_params": {"model": "nvidia_nim/nvidia/nemoretriever-page-elements-v2"},
+                        "embrouter_params": {"model": "nvidia_nim/nvidia/nemoretriever-page-elements-v2"},
                     }
                 ]
 
@@ -6327,8 +6327,8 @@ async def test_bedrock_count_tokens_error_forwards_provider_headers():
     headers there loses x-amzn-RequestId after the handler went to the trouble of keeping it."""
     from fastapi import HTTPException
 
-    from litellm.llms.bedrock.common_utils import BedrockError
-    from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+    from embrouter.llms.bedrock.common_utils import BedrockError
+    from embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
         handle_bedrock_count_tokens,
     )
 
@@ -6339,7 +6339,7 @@ async def test_bedrock_count_tokens_error_forwards_provider_headers():
     )
 
     with patch(  # test-quality-ok: the route's BedrockError branch is only reachable when the handler raises
-        "litellm.llms.bedrock.count_tokens.handler.BedrockCountTokensHandler.handle_count_tokens_request",
+        "embrouter.llms.bedrock.count_tokens.handler.BedrockCountTokensHandler.handle_count_tokens_request",
         new=AsyncMock(side_effect=failure),
     ):
         with pytest.raises(HTTPException) as exc_info:
@@ -6364,8 +6364,8 @@ class _AzureGroupRouter:
 
     def get_model_list(self, model_name=None, team_id=None):
         rows = [
-            {"model_name": "gpt", "litellm_params": {"model": "azure_ai/gpt-5.4-mini", "api_key": "k"}},
-            {"model_name": "other-group", "litellm_params": {"model": "azure/gpt-5.4", "api_key": "k"}},
+            {"model_name": "gpt", "embrouter_params": {"model": "azure_ai/gpt-5.4-mini", "api_key": "k"}},
+            {"model_name": "other-group", "embrouter_params": {"model": "azure/gpt-5.4", "api_key": "k"}},
         ]
         return [row for row in rows if model_name is None or row["model_name"] == model_name]
 
@@ -6379,14 +6379,14 @@ class TestAzureRelayDeploymentSegment:
     ``openai/deployments/<x>`` segment while the group segment picks the credential."""
 
     def test_models_served_by_group_resolves_each_deployment_to_its_model_name(self):
-        from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import _models_served_by_group
+        from embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints import _models_served_by_group
 
         assert _models_served_by_group(_AzureGroupRouter([]), "gpt") == frozenset({"gpt-5.4-mini"})
         assert _models_served_by_group(_AzureGroupRouter([]), "missing-group") == frozenset()
 
     def _install(self, monkeypatch, body: dict) -> list[dict]:
-        import litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints as ep
-        import litellm.proxy.proxy_server as proxy_server
+        import embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints as ep
+        import embrouter.proxy.proxy_server as proxy_server
 
         captured: list[dict] = []
 
@@ -6453,14 +6453,14 @@ AZURE_SPEECH_TRANSCRIPT: Final = {"RecognitionStatus": "Success", "DisplayText":
 
 
 def _azure_speech_test_client(monkeypatch: pytest.MonkeyPatch, caller: UserAPIKeyAuth) -> TestClient:
-    from litellm.proxy.proxy_server import app
+    from embrouter.proxy.proxy_server import app
 
     monkeypatch.setenv("AZURE_SPEECH_API_KEY", "server-subscription-key")
     monkeypatch.setenv("AZURE_SPEECH_REGION", "eastus")
     monkeypatch.delenv("AZURE_SPEECH_API_BASE", raising=False)
     monkeypatch.delenv("SERVER_ROOT_PATH", raising=False)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
+    embrouter.in_memory_llm_clients_cache.flush_cache()
     monkeypatch.setitem(app.dependency_overrides, user_api_key_auth, lambda: caller)
     return TestClient(app)
 
@@ -6473,7 +6473,7 @@ def azure_speech_client(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]
 @pytest.fixture
 def azure_speech_admin_client(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
     yield _azure_speech_test_client(
-        monkeypatch, UserAPIKeyAuth(api_key="sk-admin", user_role=LitellmUserRoles.PROXY_ADMIN)
+        monkeypatch, UserAPIKeyAuth(api_key="sk-admin", user_role=EmbrouterUserRoles.PROXY_ADMIN)
     )
 
 
@@ -6635,7 +6635,7 @@ class TestAzureSpeechProxyRoute:
     def test_batch_requests_are_logged_as_azure_speech_not_assemblyai(
         self, azure_speech_admin_client: TestClient, monkeypatch: pytest.MonkeyPatch, method: str
     ) -> None:
-        from litellm.integrations.custom_logger import CustomLogger
+        from embrouter.integrations.custom_logger import CustomLogger
 
         class _Recorder(CustomLogger):
             def __init__(self) -> None:
@@ -6646,7 +6646,7 @@ class TestAzureSpeechProxyRoute:
                 self.payloads.append(kwargs["standard_logging_object"])
 
         recorder: Final = _Recorder()
-        monkeypatch.setattr(litellm, "_async_success_callback", [*litellm._async_success_callback, recorder])
+        monkeypatch.setattr(embrouter, "_async_success_callback", [*embrouter._async_success_callback, recorder])
         with respx.mock(assert_all_called=True) as upstream:
             upstream.request(method, f"https://eastus.api.cognitive.microsoft.com{AZURE_SPEECH_BATCH_ENDPOINT}").mock(
                 return_value=httpx.Response(200, json={"values": []})
@@ -6667,7 +6667,7 @@ class TestAzureSpeechProxyRoute:
     def test_fast_transcription_spend_is_priced_from_duration_milliseconds(
         self, azure_speech_client: TestClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        from litellm.integrations.custom_logger import CustomLogger
+        from embrouter.integrations.custom_logger import CustomLogger
 
         class _Recorder(CustomLogger):
             def __init__(self) -> None:
@@ -6678,12 +6678,12 @@ class TestAzureSpeechProxyRoute:
                 self.payloads.append(kwargs["standard_logging_object"])
 
         recorder: Final = _Recorder()
-        monkeypatch.setattr(litellm, "_async_success_callback", [*litellm._async_success_callback, recorder])
+        monkeypatch.setattr(embrouter, "_async_success_callback", [*embrouter._async_success_callback, recorder])
         monkeypatch.setitem(
-            litellm.model_cost,
+            embrouter.model_cost,
             "azure/speech/azure-stt",
             {
-                "litellm_provider": "azure",
+                "embrouter_provider": "azure",
                 "mode": "audio_transcription",
                 "input_cost_per_second": 0.25,
                 "output_cost_per_second": 0.0,
@@ -6711,7 +6711,7 @@ class TestAzureSpeechProxyRoute:
     def test_short_audio_spend_is_priced_from_the_recognized_duration(
         self, azure_speech_client: TestClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        from litellm.integrations.custom_logger import CustomLogger
+        from embrouter.integrations.custom_logger import CustomLogger
 
         class _Recorder(CustomLogger):
             def __init__(self) -> None:
@@ -6722,12 +6722,12 @@ class TestAzureSpeechProxyRoute:
                 self.payloads.append(kwargs["standard_logging_object"])
 
         recorder: Final = _Recorder()
-        monkeypatch.setattr(litellm, "_async_success_callback", [*litellm._async_success_callback, recorder])
+        monkeypatch.setattr(embrouter, "_async_success_callback", [*embrouter._async_success_callback, recorder])
         monkeypatch.setitem(
-            litellm.model_cost,
+            embrouter.model_cost,
             "azure/speech/azure-stt",
             {
-                "litellm_provider": "azure",
+                "embrouter_provider": "azure",
                 "mode": "audio_transcription",
                 "input_cost_per_second": 0.25,
                 "output_cost_per_second": 0.0,
@@ -6827,14 +6827,14 @@ class TestAzureSpeechProxyRoute:
         assert not catch_all.called
 
     def test_azure_speech_is_a_mapped_pass_through_route(self) -> None:
-        from litellm.proxy._types import LiteLLMRoutes
+        from embrouter.proxy._types import EmbRouterRoutes
 
-        assert "/azure_speech" in LiteLLMRoutes.mapped_pass_through_routes.value
+        assert "/azure_speech" in EmbRouterRoutes.mapped_pass_through_routes.value
 
     def test_short_audio_with_no_recognized_speech_is_billed_for_the_uploaded_audio(
         self, azure_speech_client: TestClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        from litellm.integrations.custom_logger import CustomLogger
+        from embrouter.integrations.custom_logger import CustomLogger
 
         class _Recorder(CustomLogger):
             def __init__(self) -> None:
@@ -6845,12 +6845,12 @@ class TestAzureSpeechProxyRoute:
                 self.payloads.append(kwargs["standard_logging_object"])
 
         recorder: Final = _Recorder()
-        monkeypatch.setattr(litellm, "_async_success_callback", [*litellm._async_success_callback, recorder])
+        monkeypatch.setattr(embrouter, "_async_success_callback", [*embrouter._async_success_callback, recorder])
         monkeypatch.setitem(
-            litellm.model_cost,
+            embrouter.model_cost,
             "azure/speech/azure-stt",
             {
-                "litellm_provider": "azure",
+                "embrouter_provider": "azure",
                 "mode": "audio_transcription",
                 "input_cost_per_second": 0.25,
                 "output_cost_per_second": 0.0,
@@ -6906,8 +6906,8 @@ class TestAzureSpeechProxyRoutePathTraversal:
 
 
 def _azure_speech_real_auth_attrs() -> dict[str, object]:
-    from litellm.caching.caching import DualCache
-    from litellm.proxy.utils import ProxyLogging
+    from embrouter.caching.caching import DualCache
+    from embrouter.proxy.utils import ProxyLogging
 
     user_api_key_cache: Final = DualCache()
     return {
@@ -6930,17 +6930,17 @@ class TestAzureSpeechRawBodyThroughRealAuth:
     def _post(
         self, monkeypatch: pytest.MonkeyPatch, path: str, api_key: str, content_type: str, body: bytes
     ) -> httpx.Response:
-        from litellm.proxy.proxy_server import app
+        from embrouter.proxy.proxy_server import app
 
         monkeypatch.delitem(app.dependency_overrides, user_api_key_auth, raising=False)
         monkeypatch.setenv("AZURE_SPEECH_API_KEY", "server-subscription-key")
         monkeypatch.setenv("AZURE_SPEECH_REGION", "eastus")
         monkeypatch.delenv("AZURE_SPEECH_API_BASE", raising=False)
         monkeypatch.delenv("SERVER_ROOT_PATH", raising=False)
-        monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
+        embrouter.in_memory_llm_clients_cache.flush_cache()
         with patch.multiple(  # test-quality-ok: the real user_api_key_auth reads proxy_server module globals (master_key, caches) that have no injection seam
-            "litellm.proxy.proxy_server", **_azure_speech_real_auth_attrs()
+            "embrouter.proxy.proxy_server", **_azure_speech_real_auth_attrs()
         ):
             client = TestClient(app)
             return client.post(
@@ -6959,7 +6959,7 @@ class TestAzureSpeechRawBodyThroughRealAuth:
     def test_master_key_with_raw_wav_body_reaches_azure_without_a_parse_attempt(
         self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, body: bytes
     ) -> None:
-        with respx.mock(assert_all_called=True) as upstream, caplog.at_level(logging.ERROR, logger="LiteLLM Proxy"):
+        with respx.mock(assert_all_called=True) as upstream, caplog.at_level(logging.ERROR, logger="EmbRouter Proxy"):
             route = upstream.post(
                 f"https://eastus.stt.speech.microsoft.com{AZURE_SPEECH_SHORT_AUDIO_ENDPOINT}"
             ).mock(return_value=httpx.Response(200, json=AZURE_SPEECH_TRANSCRIPT))
@@ -6972,7 +6972,7 @@ class TestAzureSpeechRawBodyThroughRealAuth:
         assert route.calls.last.request.content == body
         assert [record.message for record in caplog.records if "request body" in record.message] == []
 
-    def test_wrong_litellm_key_with_raw_wav_body_is_rejected(self, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_wrong_embrouter_key_with_raw_wav_body_is_rejected(self, monkeypatch: pytest.MonkeyPatch) -> None:
         with respx.mock(assert_all_called=False) as upstream:
             catch_all = upstream.route().mock(return_value=httpx.Response(200))
 
@@ -7013,7 +7013,7 @@ class TestAzureSpeechRawBodyThroughRealAuth:
         assert sent.headers["ocp-apim-subscription-key"] == "server-subscription-key"
 
     @pytest.mark.parametrize("content_type", ["audio/wav", "multipart/form-data; boundary=x"])
-    def test_wrong_litellm_key_with_multipart_batch_upload_is_rejected(
+    def test_wrong_embrouter_key_with_multipart_batch_upload_is_rejected(
         self, monkeypatch: pytest.MonkeyPatch, content_type: str
     ) -> None:
         with respx.mock(assert_all_called=False) as upstream:
@@ -7046,13 +7046,13 @@ class TestTypeSafePassthroughRoute:
 
     @pytest.fixture
     def client(self, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
-        from litellm.proxy.proxy_server import app
+        from embrouter.proxy.proxy_server import app
 
         monkeypatch.setenv("TYPESAFE_API_KEY", "typesafe-test-key")
         monkeypatch.setenv("TYPESAFE_API_BASE", "https://typesafe.example/base")
         monkeypatch.delenv("SERVER_ROOT_PATH", raising=False)
-        monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
+        embrouter.in_memory_llm_clients_cache.flush_cache()
         monkeypatch.setitem(app.dependency_overrides, user_api_key_auth, lambda: UserAPIKeyAuth(api_key="sk-virtual"))
         yield TestClient(app)
 
@@ -7093,7 +7093,7 @@ class TestTypeSafePassthroughRoute:
         endpoint_func = AsyncMock(side_effect=fake_upstream)
         create_route = Mock(return_value=endpoint_func)
         monkeypatch.setattr(
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
+            "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
             create_route,
         )
 
@@ -7122,13 +7122,13 @@ class TestTypeSafePassthroughRoute:
 class TestFalAIPassthroughRoute:
     @pytest.fixture
     def client(self, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
-        from litellm.proxy.proxy_server import app
+        from embrouter.proxy.proxy_server import app
 
         monkeypatch.setenv("FAL_AI_API_KEY", "fal-test-key")
         monkeypatch.delenv("FAL_AI_QUEUE_API_BASE", raising=False)
         monkeypatch.delenv("SERVER_ROOT_PATH", raising=False)
-        monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
+        embrouter.in_memory_llm_clients_cache.flush_cache()
         monkeypatch.setitem(app.dependency_overrides, user_api_key_auth, lambda: UserAPIKeyAuth(api_key="sk-virtual"))
         yield TestClient(app)
 
@@ -7163,7 +7163,7 @@ class TestFalAIPassthroughRoute:
         endpoint_func = AsyncMock(return_value={"ok": True})
         create_route = Mock(return_value=endpoint_func)
         monkeypatch.setattr(
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
+            "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
             create_route,
         )
         request = MagicMock(spec=Request)
@@ -7204,9 +7204,9 @@ class TestFalAIPassthroughRoute:
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setitem(
-            litellm.model_cost,
+            embrouter.model_cost,
             "fal_ai/fal-ai/priceless-model",
-            {"litellm_provider": "fal_ai", "mode": "image_generation"},
+            {"embrouter_provider": "fal_ai", "mode": "image_generation"},
         )
         with respx.mock(assert_all_called=False) as upstream:
             route = upstream.post("https://queue.fal.run/fal-ai/priceless-model").mock(
@@ -7222,9 +7222,9 @@ class TestFalAIPassthroughRoute:
         self, client: TestClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setitem(
-            litellm.model_cost,
+            embrouter.model_cost,
             "fal_ai/fal-ai/keyed-only-model",
-            {"litellm_provider": "fal_ai", "mode": "image_generation", "output_cost_per_image_512": 0.02},
+            {"embrouter_provider": "fal_ai", "mode": "image_generation", "output_cost_per_image_512": 0.02},
         )
         with respx.mock(assert_all_called=False) as upstream:
             route = upstream.post("https://queue.fal.run/fal-ai/keyed-only-model").mock(
@@ -7283,13 +7283,13 @@ class TestOpenRouterPassthroughRoute:
 
     @pytest.fixture
     def client(self, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
-        from litellm.proxy.proxy_server import app
+        from embrouter.proxy.proxy_server import app
 
         monkeypatch.setenv("OPENROUTER_API_KEY", "openrouter-test-key")
         monkeypatch.setenv("OPENROUTER_API_BASE", "https://openrouter.example/base")
         monkeypatch.delenv("SERVER_ROOT_PATH", raising=False)
-        monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
+        embrouter.in_memory_llm_clients_cache.flush_cache()
         monkeypatch.setitem(app.dependency_overrides, user_api_key_auth, lambda: UserAPIKeyAuth(api_key="sk-virtual"))
         yield TestClient(app)
 
@@ -7330,7 +7330,7 @@ class TestOpenRouterPassthroughRoute:
         endpoint_func = AsyncMock(side_effect=fake_upstream)
         create_route = Mock(return_value=endpoint_func)
         monkeypatch.setattr(
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
+            "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
             create_route,
         )
 
@@ -7363,7 +7363,7 @@ class TestOpenRouterPassthroughRoute:
         endpoint_func = AsyncMock(return_value={"ok": True})
         create_route = Mock(return_value=endpoint_func)
         monkeypatch.setattr(
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
+            "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
             create_route,
         )
 
@@ -7399,7 +7399,7 @@ class TestOpenRouterPassthroughRoute:
         endpoint_func = AsyncMock(return_value={"ok": True})
         create_route = Mock(return_value=endpoint_func)
         monkeypatch.setattr(
-            "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
+            "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.create_pass_through_route",
             create_route,
         )
 
@@ -7420,14 +7420,14 @@ class TestTinyFishProxyRoute:
 
     @pytest.fixture
     def tinyfish_client(self, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
-        from litellm.proxy.proxy_server import app
+        from embrouter.proxy.proxy_server import app
 
         monkeypatch.setenv("TINYFISH_API_KEY", "sk-tf-upstream")
         monkeypatch.delenv("TINYFISH_AGENT_API_BASE", raising=False)
         monkeypatch.delenv("TINYFISH_ALLOW_AUTHENTICATED_RUNS", raising=False)
         monkeypatch.delenv("SERVER_ROOT_PATH", raising=False)
-        monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
+        embrouter.in_memory_llm_clients_cache.flush_cache()
         monkeypatch.setitem(app.dependency_overrides, user_api_key_auth, lambda: UserAPIKeyAuth(api_key="sk-virtual"))
         yield TestClient(app)
 
@@ -7596,15 +7596,15 @@ class TestTinyFishProxyRoute:
 
 class TestTinyFishRouteTimeout:
     def test_default_covers_upstream_run_cap(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        from litellm.proxy import proxy_server
-        from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import _tinyfish_route_timeout
+        from embrouter.proxy import proxy_server
+        from embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints import _tinyfish_route_timeout
 
         monkeypatch.setattr(proxy_server, "general_settings", {}, raising=False)
         assert _tinyfish_route_timeout() == 1500.0
 
     def test_operator_configured_timeout_wins(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        from litellm.proxy import proxy_server
-        from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import _tinyfish_route_timeout
+        from embrouter.proxy import proxy_server
+        from embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints import _tinyfish_route_timeout
 
         monkeypatch.setattr(proxy_server, "general_settings", {"pass_through_request_timeout": 30}, raising=False)
         assert _tinyfish_route_timeout() is None

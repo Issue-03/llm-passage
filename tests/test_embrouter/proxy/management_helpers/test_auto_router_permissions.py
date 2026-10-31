@@ -5,26 +5,26 @@ from typing import Final
 import pytest
 from fastapi import HTTPException
 
-from litellm.proxy._types import (
+from embrouter.proxy._types import (
     UI_TEAM_ID,
-    LiteLLM_OrganizationTable,
-    LiteLLM_ProjectTable,
-    LiteLLM_TeamMembership,
-    LiteLLM_TeamTable,
-    LitellmUserRoles,
+    EmbRouter_OrganizationTable,
+    EmbRouter_ProjectTable,
+    EmbRouter_TeamMembership,
+    EmbRouter_TeamTable,
+    EmbrouterUserRoles,
     Member,
     ProxyException,
     UserAPIKeyAuth,
 )
-from litellm.proxy.management_helpers.auto_router_permissions import (
+from embrouter.proxy.management_helpers.auto_router_permissions import (
     MemberAutoRouterDependencyObjects,
     authorize_member_auto_router_dependencies,
     authorize_member_auto_router_team,
     authorize_member_auto_router_write,
     validate_member_auto_router_config,
 )
-from litellm.router import Router
-from litellm.types.router import Deployment, LiteLLM_Params, ModelInfo, updateDeployment
+from embrouter.router import Router
+from embrouter.types.router import Deployment, EmbRouter_Params, ModelInfo, updateDeployment
 
 
 class _ReadTable:
@@ -34,7 +34,7 @@ class _ReadTable:
 
 @dataclass(frozen=True)
 class _PermissionDb:
-    litellm_teammembership: _ReadTable = _ReadTable()
+    embrouter_teammembership: _ReadTable = _ReadTable()
 
 
 @dataclass(frozen=True)
@@ -42,8 +42,8 @@ class _Client:
     db: _PermissionDb = _PermissionDb()
 
 
-def _team(**updates: object) -> LiteLLM_TeamTable:
-    return LiteLLM_TeamTable.model_validate(
+def _team(**updates: object) -> EmbRouter_TeamTable:
+    return EmbRouter_TeamTable.model_validate(
         {
             "team_id": "team-a",
             "models": ["allowed"],
@@ -64,7 +64,7 @@ def _actor(**updates: object) -> UserAPIKeyAuth:
 def catalog() -> Router:
     return Router(
         model_list=[
-            {"model_name": name, "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "fake"}}
+            {"model_name": name, "embrouter_params": {"model": "openai/gpt-4o-mini", "api_key": "fake"}}
             for name in ("allowed", "other")
         ]
     )
@@ -76,14 +76,14 @@ def catalog() -> Router:
         ({}, {}, True, True),
         ({"team_id": UI_TEAM_ID}, {}, True, True),
         ({"team_id": "team-a"}, {}, True, True),
-        ({"user_role": LitellmUserRoles.TEAM}, {}, True, True),
-        ({"user_role": LitellmUserRoles.ORG_ADMIN}, {}, True, True),
+        ({"user_role": EmbrouterUserRoles.TEAM}, {}, True, True),
+        ({"user_role": EmbrouterUserRoles.ORG_ADMIN}, {}, True, True),
         ({"team_id": "team-b"}, {}, True, False),
         ({"user_id": None}, {}, True, False),
         ({"user_id": ""}, {}, True, False),
         ({"user_id": "peer"}, {}, True, False),
-        ({"user_role": LitellmUserRoles.INTERNAL_USER_VIEW_ONLY}, {}, True, False),
-        ({"user_role": LitellmUserRoles.CUSTOMER}, {}, True, False),
+        ({"user_role": EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY}, {}, True, False),
+        ({"user_role": EmbrouterUserRoles.CUSTOMER}, {}, True, False),
         ({}, {"team_member_permissions": []}, True, False),
         ({}, {"team_member_permissions": None}, True, False),
         ({}, {"blocked": True}, True, False),
@@ -112,7 +112,7 @@ def test_opt_in_requires_live_named_membership_and_write_role(
 def test_all_tier_parameter_representations_reject_privileged_overrides(
     placement: str, overrides: Mapping[str, object]
 ) -> None:
-    entry: Final = {"model_name": "allowed", "litellm_params": overrides}
+    entry: Final = {"model_name": "allowed", "embrouter_params": overrides}
     config: Final = (
         {"tiers": {"SIMPLE": [entry]}}
         if placement == "inline"
@@ -125,10 +125,10 @@ def test_all_tier_parameter_representations_reject_privileged_overrides(
 
 def test_tier_config_is_normalized_and_unknown_router_extras_are_rejected() -> None:
     validated: Final = validate_member_auto_router_config(
-        {"tiers": {"SIMPLE": [{"model_name": "allowed", "litellm_params": {"reasoning_effort": "low"}}]}}
+        {"tiers": {"SIMPLE": [{"model_name": "allowed", "embrouter_params": {"reasoning_effort": "low"}}]}}
     )
     assert validated.tiers == {"SIMPLE": ["allowed"]}
-    assert validated.tier_model_configs["SIMPLE"][0].litellm_params == {"reasoning_effort": "low"}
+    assert validated.tier_model_configs["SIMPLE"][0].embrouter_params == {"reasoning_effort": "low"}
     assert validate_member_auto_router_config(validated.model_dump()).tiers == validated.tiers
     with pytest.raises(HTTPException):
         validate_member_auto_router_config({"tiers": {"SIMPLE": "allowed"}, "api_base": "https://example.invalid"})
@@ -176,19 +176,19 @@ def test_members_can_still_tune_the_jev_classifier() -> None:
         {"blocked": False},
         {"model_info": {"team_id": "other-team"}},
         {"model_info": {"member_auto_router": False}},
-        {"litellm_params": {"model": "auto_router/quality_router"}},
-        {"litellm_params": {"api_key": "fake"}},
+        {"embrouter_params": {"model": "auto_router/quality_router"}},
+        {"embrouter_params": {"api_key": "fake"}},
     ],
 )
 async def test_member_updates_restrict_fields_and_preserve_an_inherited_default(
     catalog: Router, monkeypatch: pytest.MonkeyPatch, patch_fields: Mapping[str, object]
 ) -> None:
-    from litellm.proxy.common_utils.encrypt_decrypt_utils import encrypt_value_helper
+    from embrouter.proxy.common_utils.encrypt_decrypt_utils import encrypt_value_helper
 
-    monkeypatch.setenv("LITELLM_SALT_KEY", "member-router-test-salt")
+    monkeypatch.setenv("EMBROUTER_SALT_KEY", "member-router-test-salt")
     existing: Final = Deployment(
         model_name="model_name_team-a_uuid",
-        litellm_params=LiteLLM_Params(
+        embrouter_params=EmbRouter_Params(
             model=encrypt_value_helper("auto_router/complexity_router"),
             complexity_router_config={"tiers": {"SIMPLE": "allowed"}},
             complexity_router_default_model=encrypt_value_helper("allowed"),
@@ -197,7 +197,7 @@ async def test_member_updates_restrict_fields_and_preserve_an_inherited_default(
         created_by="owner",
     )
     patch: Final = updateDeployment.model_validate(
-        {"litellm_params": {"complexity_router_config": {"tiers": {"SIMPLE": "allowed"}}}, **patch_fields}
+        {"embrouter_params": {"complexity_router_config": {"tiers": {"SIMPLE": "allowed"}}}, **patch_fields}
     )
     operation: Final = authorize_member_auto_router_write(
         incoming=patch,
@@ -222,10 +222,10 @@ async def test_member_updates_restrict_fields_and_preserve_an_inherited_default(
 async def test_member_dependencies_require_plain_configured_models(target: str) -> None:
     catalog: Final = Router(
         model_list=[
-            {"model_name": "allowed", "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "fake"}},
+            {"model_name": "allowed", "embrouter_params": {"model": "openai/gpt-4o-mini", "api_key": "fake"}},
             {
                 "model_name": "nested",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "auto_router/complexity_router",
                     "complexity_router_config": {"tiers": {"SIMPLE": "allowed"}},
                 },
@@ -272,14 +272,14 @@ async def test_jev_evaluation_requires_model_access_but_no_completion_deployment
 @pytest.mark.parametrize("restricted", ["member", "project", "organization", None])
 async def test_jev_evaluation_obeys_each_containing_scope(catalog: Router, restricted: str | None) -> None:
     allowed: Final = ["allowed", "typesafe/jev-latest"]
-    membership: Final = LiteLLM_TeamMembership.model_validate(
+    membership: Final = EmbRouter_TeamMembership.model_validate(
         {
             "user_id": "owner",
             "team_id": "team-a",
-            "litellm_budget_table": {"allowed_models": ["allowed"] if restricted == "member" else allowed},
+            "embrouter_budget_table": {"allowed_models": ["allowed"] if restricted == "member" else allowed},
         }
     )
-    organization: Final = LiteLLM_OrganizationTable.model_validate(
+    organization: Final = EmbRouter_OrganizationTable.model_validate(
         {
             "organization_id": "org-a",
             "models": ["allowed"] if restricted == "organization" else allowed,
@@ -288,7 +288,7 @@ async def test_jev_evaluation_obeys_each_containing_scope(catalog: Router, restr
             "updated_by": "admin",
         }
     )
-    project: Final = LiteLLM_ProjectTable.model_validate(
+    project: Final = EmbRouter_ProjectTable.model_validate(
         {"project_id": "project-a", "team_id": "team-a", "models": ["allowed"] if restricted == "project" else allowed}
     )
     operation: Final = authorize_member_auto_router_dependencies(

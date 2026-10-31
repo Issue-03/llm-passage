@@ -15,18 +15,18 @@ from typing import Final, Protocol, cast
 
 import httpx
 
-import litellm
-from litellm import COHERE_DEFAULT_EMBEDDING_INPUT_TYPE
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.base_llm import BaseEmbeddingConfig
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.types.llms.bedrock import (
+import embrouter
+from embrouter import COHERE_DEFAULT_EMBEDDING_INPUT_TYPE
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.base_llm import BaseEmbeddingConfig
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.types.llms.bedrock import (
     CohereEmbeddingRequest,
     CohereEmbeddingRequestWithModel,
 )
-from litellm.types.llms.openai import AllEmbeddingInputValues, AllMessageValues
-from litellm.types.utils import EmbeddingResponse, PromptTokensDetailsWrapper, Usage
-from litellm.utils import is_base64_encoded
+from embrouter.types.llms.openai import AllEmbeddingInputValues, AllMessageValues
+from embrouter.types.utils import EmbeddingResponse, PromptTokensDetailsWrapper, Usage
+from embrouter.utils import is_base64_encoded
 
 from ..common_utils import CohereError
 
@@ -71,7 +71,7 @@ class CohereEmbeddingConfig(BaseEmbeddingConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
@@ -92,7 +92,7 @@ class CohereEmbeddingConfig(BaseEmbeddingConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         return api_base or "https://api.cohere.ai/v2/embed"
@@ -172,7 +172,7 @@ class CohereEmbeddingConfig(BaseEmbeddingConfig):
         self,
         response: httpx.Response,
         api_key: str | None,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         data: dict | CohereEmbeddingRequest,
         model_response: EmbeddingResponse,
         model: str,
@@ -223,11 +223,11 @@ class CohereEmbeddingConfig(BaseEmbeddingConfig):
         model: str,
         raw_response: httpx.Response,
         model_response: EmbeddingResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_key: str | None,
         request_data: dict,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> EmbeddingResponse:
         return self._transform_response(
             response=raw_response,
@@ -236,7 +236,7 @@ class CohereEmbeddingConfig(BaseEmbeddingConfig):
             data=request_data,
             model_response=model_response,
             model=model,
-            encoding=litellm.encoding,
+            encoding=embrouter.encoding,
             input=logging_obj.model_call_details["input"],
         )
 

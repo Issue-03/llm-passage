@@ -18,8 +18,8 @@ import pytest
 from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 
-from litellm.proxy.enterprise_billing import billing_metrics as bm
-from litellm.proxy.middleware.billable_request_metrics_middleware import BillableCategory
+from embrouter.proxy.enterprise_billing import billing_metrics as bm
+from embrouter.proxy.middleware.billable_request_metrics_middleware import BillableCategory
 
 _ENV_VARS = (
     bm.ENDPOINT_ENV,
@@ -69,7 +69,7 @@ def _config(tmp_path: Path, license_id: Optional[str] = "org-1") -> bm.BillingMe
         client_key_path=paths[bm.CLIENT_KEY_ENV],
         ca_cert_path=paths[bm.CA_CERT_ENV],
         export_interval_ms=60_000,
-        litellm_version="1.2.3",
+        embrouter_version="1.2.3",
         license_id=license_id,
     )
 
@@ -79,11 +79,11 @@ def _config(tmp_path: Path, license_id: Optional[str] = "org-1") -> bm.BillingMe
 
 def test_not_premium_returns_none(tmp_path, monkeypatch):
     _set_full_env(monkeypatch, tmp_path)
-    assert bm.build_billing_metrics_recorder(premium=False, license_data=None, litellm_version="1.0") is None
+    assert bm.build_billing_metrics_recorder(premium=False, license_data=None, embrouter_version="1.0") is None
 
 
 def test_premium_without_config_returns_none(monkeypatch):
-    assert bm.build_billing_metrics_recorder(premium=True, license_data={"user_id": "x"}, litellm_version="1.0") is None
+    assert bm.build_billing_metrics_recorder(premium=True, license_data={"user_id": "x"}, embrouter_version="1.0") is None
 
 
 def test_premium_with_missing_cert_files_returns_none(monkeypatch, tmp_path):
@@ -91,7 +91,7 @@ def test_premium_with_missing_cert_files_returns_none(monkeypatch, tmp_path):
     monkeypatch.setenv(bm.CA_CERT_ENV, str(tmp_path / "missing-ca.pem"))
     monkeypatch.setenv(bm.CLIENT_CERT_ENV, str(tmp_path / "missing-cert.pem"))
     monkeypatch.setenv(bm.CLIENT_KEY_ENV, str(tmp_path / "missing-key.pem"))
-    assert bm.build_billing_metrics_recorder(premium=True, license_data=None, litellm_version="1.0") is None
+    assert bm.build_billing_metrics_recorder(premium=True, license_data=None, embrouter_version="1.0") is None
 
 
 def test_premium_with_full_config_builds_recorder(monkeypatch, tmp_path):
@@ -111,7 +111,7 @@ def test_premium_with_full_config_builds_recorder(monkeypatch, tmp_path):
     monkeypatch.setattr(socket, "getaddrinfo", _spy_getaddrinfo)
 
     recorder = bm.build_billing_metrics_recorder(
-        premium=True, license_data={"user_id": "org-1"}, litellm_version="1.0"
+        premium=True, license_data={"user_id": "org-1"}, embrouter_version="1.0"
     )
     assert isinstance(recorder, bm.BillingMetricsRecorder)
     recorder.record(category=BillableCategory.LLM, route="/chat/completions", status_code=200, model_id=None)
@@ -134,7 +134,7 @@ def test_building_the_recorder_logs_an_affirmative_line(monkeypatch, tmp_path):
     infos: List[str] = []
     monkeypatch.setattr(bm.verbose_proxy_logger, "info", lambda msg, *args: infos.append(msg % args if args else msg))
 
-    recorder = bm.build_billing_metrics_recorder(premium=True, license_data={"user_id": "org-1"}, litellm_version="1.0")
+    recorder = bm.build_billing_metrics_recorder(premium=True, license_data={"user_id": "org-1"}, embrouter_version="1.0")
 
     assert recorder is not None
     joined = "\n".join(infos)
@@ -149,7 +149,7 @@ def test_unlicensed_build_does_not_warn(monkeypatch, tmp_path):
     warnings: List[str] = []
     monkeypatch.setattr(bm.verbose_proxy_logger, "warning", lambda msg, *args: warnings.append(str(msg)))
 
-    assert bm.build_billing_metrics_recorder(premium=False, license_data=None, litellm_version="1.0") is None
+    assert bm.build_billing_metrics_recorder(premium=False, license_data=None, embrouter_version="1.0") is None
     assert warnings == []
 
 
@@ -167,7 +167,7 @@ def test_shutdown_flushes_active_recorder_once(monkeypatch, tmp_path):
             shutdowns.append(timeout_millis)
 
     monkeypatch.setattr(bm, "build_mtls_meter_provider", lambda config: _SpyProvider())
-    recorder = bm.build_billing_metrics_recorder(premium=True, license_data=None, litellm_version="1.0")
+    recorder = bm.build_billing_metrics_recorder(premium=True, license_data=None, embrouter_version="1.0")
     assert recorder is not None
 
     bm.shutdown_billing_metrics_recorder()
@@ -184,8 +184,8 @@ def test_shutdown_without_active_recorder_is_noop():
 
 def test_load_config_carries_license_id(monkeypatch, tmp_path):
     _set_full_env(monkeypatch, tmp_path)
-    config = bm.load_billing_metrics_config(license_data={"user_id": "org-42"}, litellm_version="9.9")
-    assert config is not None and config.license_id == "org-42" and config.litellm_version == "9.9"
+    config = bm.load_billing_metrics_config(license_data={"user_id": "org-42"}, embrouter_version="9.9")
+    assert config is not None and config.license_id == "org-42" and config.embrouter_version == "9.9"
 
 
 def test_load_config_with_empty_string_env_is_disabled(monkeypatch, tmp_path):
@@ -195,7 +195,7 @@ def test_load_config_with_empty_string_env_is_disabled(monkeypatch, tmp_path):
     monkeypatch.setenv(bm.ENDPOINT_ENV, "")
     monkeypatch.setenv(bm.CLIENT_CERT_ENV, paths[bm.CLIENT_CERT_ENV])
     monkeypatch.setenv(bm.CLIENT_KEY_ENV, paths[bm.CLIENT_KEY_ENV])
-    assert bm.load_billing_metrics_config(license_data=None, litellm_version="1.0") is None
+    assert bm.load_billing_metrics_config(license_data=None, embrouter_version="1.0") is None
 
 
 _CLIENT_CERT_PEM = "-----BEGIN CERTIFICATE-----\nclient-cert-body\n-----END CERTIFICATE-----"
@@ -214,7 +214,7 @@ def test_load_config_materializes_inline_pem_content(monkeypatch):
     monkeypatch.setenv(bm.CLIENT_KEY_ENV, _CLIENT_KEY_PEM)
     monkeypatch.setenv(bm.CA_CERT_ENV, _CA_CERT_PEM)
 
-    config = bm.load_billing_metrics_config(license_data=None, litellm_version="1.0")
+    config = bm.load_billing_metrics_config(license_data=None, embrouter_version="1.0")
 
     assert config is not None
     assert config.ca_cert_path is not None
@@ -240,7 +240,7 @@ def test_load_config_accepts_a_mix_of_pem_content_and_file_paths(monkeypatch, tm
     monkeypatch.setenv(bm.CLIENT_KEY_ENV, _CLIENT_KEY_PEM)
     monkeypatch.setenv(bm.CA_CERT_ENV, paths[bm.CA_CERT_ENV])
 
-    config = bm.load_billing_metrics_config(license_data=None, litellm_version="1.0")
+    config = bm.load_billing_metrics_config(license_data=None, embrouter_version="1.0")
 
     assert config is not None
     assert config.ca_cert_path == paths[bm.CA_CERT_ENV]
@@ -251,7 +251,7 @@ def test_load_config_leaves_file_paths_untouched(monkeypatch, tmp_path):
     """Path-valued env vars keep working; nothing is copied or rewritten."""
     paths = _set_full_env(monkeypatch, tmp_path)
 
-    config = bm.load_billing_metrics_config(license_data=None, litellm_version="1.0")
+    config = bm.load_billing_metrics_config(license_data=None, embrouter_version="1.0")
 
     assert config is not None
     assert config.client_cert_path == paths[bm.CLIENT_CERT_ENV]
@@ -270,7 +270,7 @@ def test_load_config_with_inline_pem_disabled_when_unwritable(monkeypatch):
 
     monkeypatch.setattr(bm.tempfile, "mkdtemp", _explode)
 
-    assert bm.load_billing_metrics_config(license_data=None, litellm_version="1.0") is None
+    assert bm.load_billing_metrics_config(license_data=None, embrouter_version="1.0") is None
 
 
 def test_load_config_never_logs_credential_values(monkeypatch):
@@ -291,7 +291,7 @@ def test_load_config_never_logs_credential_values(monkeypatch):
 
     monkeypatch.setattr(bm.verbose_proxy_logger, "warning", _capture)
 
-    assert bm.load_billing_metrics_config(license_data=None, litellm_version="1.0") is None
+    assert bm.load_billing_metrics_config(license_data=None, embrouter_version="1.0") is None
 
     joined = "\n".join(logged)
     assert secret_material not in joined
@@ -304,7 +304,7 @@ def test_load_config_with_empty_pem_env_is_disabled(monkeypatch):
     monkeypatch.setenv(bm.CLIENT_CERT_ENV, "")
     monkeypatch.setenv(bm.CLIENT_KEY_ENV, "")
 
-    assert bm.load_billing_metrics_config(license_data=None, litellm_version="1.0") is None
+    assert bm.load_billing_metrics_config(license_data=None, embrouter_version="1.0") is None
 
 
 def test_export_interval_default_and_override(monkeypatch):
@@ -371,7 +371,7 @@ def test_load_config_without_ca_is_valid(monkeypatch, tmp_path):
     monkeypatch.setenv(bm.ENDPOINT_ENV, "https://telemetry.example.com")
     monkeypatch.setenv(bm.CLIENT_CERT_ENV, paths[bm.CLIENT_CERT_ENV])
     monkeypatch.setenv(bm.CLIENT_KEY_ENV, paths[bm.CLIENT_KEY_ENV])
-    config = bm.load_billing_metrics_config(license_data=None, litellm_version="1.0")
+    config = bm.load_billing_metrics_config(license_data=None, embrouter_version="1.0")
     assert config is not None and config.ca_cert_path is None
 
 
@@ -380,29 +380,29 @@ def test_load_config_without_ca_is_valid(monkeypatch, tmp_path):
 
 def test_resource_attributes_include_license_id(tmp_path):
     attrs = bm._resource_attributes(_config(tmp_path, license_id="org-7"))
-    assert attrs["service.name"] == "litellm-proxy"
-    assert attrs["litellm.version"] == "1.2.3"
-    assert attrs["litellm.license.id"] == "org-7"
+    assert attrs["service.name"] == "embrouter-proxy"
+    assert attrs["embrouter.version"] == "1.2.3"
+    assert attrs["embrouter.license.id"] == "org-7"
 
 
 def test_resource_attributes_omit_license_id_when_absent(tmp_path):
     attrs = bm._resource_attributes(_config(tmp_path, license_id=None))
-    assert "litellm.license.id" not in attrs
+    assert "embrouter.license.id" not in attrs
 
 
 def test_billable_attributes_with_model_id():
     attrs = bm._billable_attributes(BillableCategory.LLM, "/chat/completions", 200, "deploy-3")
     assert attrs == {
-        "litellm.endpoint.category": "llm",
+        "embrouter.endpoint.category": "llm",
         "http.route": "/chat/completions",
         "http.response.status_code": 200,
-        "litellm.model_id": "deploy-3",
+        "embrouter.model_id": "deploy-3",
     }
 
 
 def test_billable_attributes_omit_model_id_when_none():
     attrs = bm._billable_attributes(BillableCategory.MCP, "/mcp", 200, None)
-    assert "litellm.model_id" not in attrs
+    assert "embrouter.model_id" not in attrs
 
 
 # ── End-to-end recording via in-memory reader ─────────────────────────────────
@@ -427,6 +427,6 @@ def test_record_increments_counter_with_attributes():
     recorder.record(category=BillableCategory.MCP, route="/mcp", status_code=200, model_id=None)
 
     points = _counter_points(reader)
-    by_category = {point.attributes["litellm.endpoint.category"]: point.value for point in points}
+    by_category = {point.attributes["embrouter.endpoint.category"]: point.value for point in points}
     assert by_category["llm"] == 2
     assert by_category["mcp"] == 1

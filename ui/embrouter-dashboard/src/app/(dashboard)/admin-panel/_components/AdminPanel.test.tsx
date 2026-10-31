@@ -10,7 +10,7 @@ const mockDeleteAllowedIP = vi.fn();
 
 vi.mock("@/components/networking", () => ({
   getProxyBaseUrl: () => "http://localhost:4000",
-  getGlobalLitellmHeaderName: () => "Authorization",
+  getGlobalEmbrouterHeaderName: () => "Authorization",
   getSSOSettings: (...args: unknown[]) => mockGetSSOSettings(...args),
   getAllowedIPs: (...args: unknown[]) => mockGetAllowedIPs(...args),
   addAllowedIP: (...args: unknown[]) => mockAddAllowedIP(...args),

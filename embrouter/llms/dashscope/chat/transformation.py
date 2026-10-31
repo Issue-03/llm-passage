@@ -5,8 +5,8 @@ Translates from OpenAI's `/v1/chat/completions` to DashScope's `/v1/chat/complet
 from collections.abc import Coroutine
 from typing import Any, Final, Literal, overload
 
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.openai import AllMessageValues, ChatCompletionToolParam
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.openai import AllMessageValues, ChatCompletionToolParam
 
 from ...openai.chat.gpt_transformation import OpenAIGPTConfig
 
@@ -69,7 +69,7 @@ class DashScopeChatConfig(OpenAIGPTConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         """

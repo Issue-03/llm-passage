@@ -1,14 +1,14 @@
-# used for monitoring litellm services health on `/metrics` endpoint on LiteLLM Proxy
+# used for monitoring embrouter services health on `/metrics` endpoint on EmbRouter Proxy
 #### What this does ####
-#    On success + failure, log events to Prometheus for litellm / adjacent services (litellm, redis, postgres, llm api providers)
+#    On success + failure, log events to Prometheus for embrouter / adjacent services (embrouter, redis, postgres, llm api providers)
 
 
 from typing import Final
 
-import litellm
-from litellm._logging import print_verbose, verbose_logger
-from litellm.types.integrations.prometheus import LATENCY_BUCKETS
-from litellm.types.services import (
+import embrouter
+from embrouter._logging import print_verbose, verbose_logger
+from embrouter.types.integrations.prometheus import LATENCY_BUCKETS
+from embrouter.types.services import (
     DEFAULT_SERVICE_CONFIGS,
     ServiceLoggerPayload,
     ServiceMetrics,
@@ -20,7 +20,7 @@ FAILED_REQUESTS_LABELS: Final = ["error_class", "function_name"]
 
 class PrometheusServicesLogger:
     # Class variables or attributes
-    litellm_service_latency = None  # Class-level attribute to store the Histogram
+    embrouter_service_latency = None  # Class-level attribute to store the Histogram
 
     def __init__(
         self,
@@ -34,7 +34,7 @@ class PrometheusServicesLogger:
             except ImportError:
                 raise Exception("Missing prometheus_client. Run `pip install prometheus-client`")
 
-            _custom_buckets: Final = litellm.prometheus_latency_buckets
+            _custom_buckets: Final = embrouter.prometheus_latency_buckets
             self.latency_buckets = tuple(_custom_buckets) if _custom_buckets is not None else LATENCY_BUCKETS
 
             self.Histogram = Histogram
@@ -116,7 +116,7 @@ class PrometheusServicesLogger:
         return self.REGISTRY._names_to_collectors.get(metric_name)
 
     def create_histogram(self, service: str, type_of_request: str):
-        metric_name: Final = f"litellm_{service}_{type_of_request}"
+        metric_name: Final = f"embrouter_{service}_{type_of_request}"
         is_registered: Final = self.is_metric_registered(metric_name)
         if is_registered:
             return self._get_metric(metric_name)
@@ -128,7 +128,7 @@ class PrometheusServicesLogger:
         )
 
     def create_gauge(self, service: str, type_of_request: str):
-        metric_name: Final = f"litellm_{service}_{type_of_request}"
+        metric_name: Final = f"embrouter_{service}_{type_of_request}"
         is_registered: Final = self.is_metric_registered(metric_name)
         if is_registered:
             return self._get_metric(metric_name)
@@ -140,7 +140,7 @@ class PrometheusServicesLogger:
         type_of_request: str,
         additional_labels: list[str] | None = None,
     ):
-        metric_name: Final = f"litellm_{service}_{type_of_request}"
+        metric_name: Final = f"embrouter_{service}_{type_of_request}"
         is_registered: Final = self.is_metric_registered(metric_name)
         if is_registered:
             return self._get_metric(metric_name)

@@ -32,14 +32,14 @@ from typing import Final
 
 from httpx import HTTPStatusError, Response
 
-from litellm._logging import verbose_logger
-from litellm.integrations.custom_batch_logger import CustomBatchLogger
-from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter._logging import verbose_logger
+from embrouter.integrations.custom_batch_logger import CustomBatchLogger
+from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps
+from embrouter.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.types.integrations.newrelic import (
+from embrouter.types.integrations.newrelic import (
     NEWRELIC_DEFAULT_REGION,
     NEWRELIC_METRIC_ATTRIBUTE_MAX_LEN,
     NEWRELIC_METRIC_COMPLETION_TOKENS,
@@ -63,7 +63,7 @@ from litellm.types.integrations.newrelic import (
     NewRelicSummaryMetric,
     NewRelicSummaryValue,
 )
-from litellm.types.utils import StandardLoggingPayload
+from embrouter.types.utils import StandardLoggingPayload
 
 # 408 (request timeout) and 429 (rate limit) are transient client errors the
 # Metric API expects a retry on, unlike 400/403 which a retry would only repeat.

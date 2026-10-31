@@ -7,15 +7,15 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from fastapi import Request
 
-import litellm
-from litellm.proxy._types import (
-    LiteLLM_BudgetTable,
-    LiteLLM_TeamMembership,
-    LiteLLM_TeamTable,
-    LiteLLM_UserTable,
+import embrouter
+from embrouter.proxy._types import (
+    EmbRouter_BudgetTable,
+    EmbRouter_TeamMembership,
+    EmbRouter_TeamTable,
+    EmbRouter_UserTable,
     UserAPIKeyAuth,
 )
-from litellm.proxy.auth.auth_checks import common_checks, get_team_membership
+from embrouter.proxy.auth.auth_checks import common_checks, get_team_membership
 
 
 @pytest.mark.asyncio
@@ -27,7 +27,7 @@ async def test_team_member_budget_check_exceeds_budget():
     }
 
     # Create team object
-    team_object = LiteLLM_TeamTable(
+    team_object = EmbRouter_TeamTable(
         team_id="test-team-1",
         team_alias="Test Team",
         spend=0.0,
@@ -35,7 +35,7 @@ async def test_team_member_budget_check_exceeds_budget():
     )
 
     # Create user object
-    user_object = LiteLLM_UserTable(
+    user_object = EmbRouter_UserTable(
         user_id="test-user-1",
         spend=0.0,
         max_budget=None,
@@ -50,11 +50,11 @@ async def test_team_member_budget_check_exceeds_budget():
     )
 
     # Create team membership with budget exceeded
-    team_membership = LiteLLM_TeamMembership(
+    team_membership = EmbRouter_TeamMembership(
         user_id="test-user-1",
         team_id="test-team-1",
         spend=0.0000002,  # Exceeds budget
-        litellm_budget_table=LiteLLM_BudgetTable(
+        embrouter_budget_table=EmbRouter_BudgetTable(
             max_budget=0.0000001,  # Very small budget
         ),
     )
@@ -67,15 +67,15 @@ async def test_team_member_budget_check_exceeds_budget():
     # Mock get_team_membership to return our team membership
     with (
         patch(
-            "litellm.proxy.auth.auth_checks.get_team_membership",
+            "embrouter.proxy.auth.auth_checks.get_team_membership",
             new_callable=AsyncMock,
             return_value=team_membership,
         ),
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client),
-        patch("litellm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache),
+        patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma_client),
+        patch("embrouter.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache),
     ):
         # Should raise BudgetExceededError
-        with pytest.raises(litellm.BudgetExceededError) as exc_info:
+        with pytest.raises(embrouter.BudgetExceededError) as exc_info:
             await common_checks(
                 request_body=request_body,
                 team_object=team_object,
@@ -105,7 +105,7 @@ async def test_team_member_budget_check_within_budget():
     }
 
     # Create team object
-    team_object = LiteLLM_TeamTable(
+    team_object = EmbRouter_TeamTable(
         team_id="test-team-1",
         team_alias="Test Team",
         spend=0.0,
@@ -113,7 +113,7 @@ async def test_team_member_budget_check_within_budget():
     )
 
     # Create user object
-    user_object = LiteLLM_UserTable(
+    user_object = EmbRouter_UserTable(
         user_id="test-user-1",
         spend=0.0,
         max_budget=None,
@@ -128,11 +128,11 @@ async def test_team_member_budget_check_within_budget():
     )
 
     # Create team membership within budget
-    team_membership = LiteLLM_TeamMembership(
+    team_membership = EmbRouter_TeamMembership(
         user_id="test-user-1",
         team_id="test-team-1",
         spend=0.00000005,  # Within budget
-        litellm_budget_table=LiteLLM_BudgetTable(
+        embrouter_budget_table=EmbRouter_BudgetTable(
             max_budget=0.0000001,
         ),
     )
@@ -145,12 +145,12 @@ async def test_team_member_budget_check_within_budget():
     # Mock get_team_membership to return our team membership
     with (
         patch(
-            "litellm.proxy.auth.auth_checks.get_team_membership",
+            "embrouter.proxy.auth.auth_checks.get_team_membership",
             new_callable=AsyncMock,
             return_value=team_membership,
         ),
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client),
-        patch("litellm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache),
+        patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma_client),
+        patch("embrouter.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache),
     ):
         # Should not raise an exception
         result = await common_checks(
@@ -179,7 +179,7 @@ async def test_team_member_budget_check_no_budget_set():
     }
 
     # Create team object
-    team_object = LiteLLM_TeamTable(
+    team_object = EmbRouter_TeamTable(
         team_id="test-team-1",
         team_alias="Test Team",
         spend=0.0,
@@ -187,7 +187,7 @@ async def test_team_member_budget_check_no_budget_set():
     )
 
     # Create user object
-    user_object = LiteLLM_UserTable(
+    user_object = EmbRouter_UserTable(
         user_id="test-user-1",
         spend=0.0,
         max_budget=None,
@@ -202,11 +202,11 @@ async def test_team_member_budget_check_no_budget_set():
     )
 
     # Create team membership without budget
-    team_membership = LiteLLM_TeamMembership(
+    team_membership = EmbRouter_TeamMembership(
         user_id="test-user-1",
         team_id="test-team-1",
         spend=0.0,
-        litellm_budget_table=None,  # No budget set
+        embrouter_budget_table=None,  # No budget set
     )
 
     mock_request = MagicMock(spec=Request)
@@ -217,12 +217,12 @@ async def test_team_member_budget_check_no_budget_set():
     # Mock get_team_membership to return our team membership
     with (
         patch(
-            "litellm.proxy.auth.auth_checks.get_team_membership",
+            "embrouter.proxy.auth.auth_checks.get_team_membership",
             new_callable=AsyncMock,
             return_value=team_membership,
         ),
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client),
-        patch("litellm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache),
+        patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma_client),
+        patch("embrouter.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache),
     ):
         # Should not raise an exception (no budget means no limit)
         result = await common_checks(
@@ -251,7 +251,7 @@ async def test_team_member_budget_check_no_team_membership():
     }
 
     # Create team object
-    team_object = LiteLLM_TeamTable(
+    team_object = EmbRouter_TeamTable(
         team_id="test-team-1",
         team_alias="Test Team",
         spend=0.0,
@@ -259,7 +259,7 @@ async def test_team_member_budget_check_no_team_membership():
     )
 
     # Create user object
-    user_object = LiteLLM_UserTable(
+    user_object = EmbRouter_UserTable(
         user_id="test-user-1",
         spend=0.0,
         max_budget=None,
@@ -281,12 +281,12 @@ async def test_team_member_budget_check_no_team_membership():
     # Mock get_team_membership to return None (no membership)
     with (
         patch(
-            "litellm.proxy.auth.auth_checks.get_team_membership",
+            "embrouter.proxy.auth.auth_checks.get_team_membership",
             new_callable=AsyncMock,
             return_value=None,
         ),
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client),
-        patch("litellm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache),
+        patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma_client),
+        patch("embrouter.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache),
     ):
         # Should not raise an exception (no membership means no budget check)
         result = await common_checks(
@@ -314,7 +314,7 @@ async def test_team_member_budget_check_blocks_regenerated_key_after_old_key_exh
         "messages": [{"role": "user", "content": "test"}],
     }
 
-    team_object = LiteLLM_TeamTable(
+    team_object = EmbRouter_TeamTable(
         team_id="test-team-1",
         team_alias="Test Team",
         spend=0.0,
@@ -329,11 +329,11 @@ async def test_team_member_budget_check_blocks_regenerated_key_after_old_key_exh
         team_id="test-team-1",
         models=["gpt-3.5-turbo"],
     )
-    team_membership = LiteLLM_TeamMembership(
+    team_membership = EmbRouter_TeamMembership(
         user_id="test-user-1",
         team_id="test-team-1",
         spend=0.0000002,
-        litellm_budget_table=LiteLLM_BudgetTable(
+        embrouter_budget_table=EmbRouter_BudgetTable(
             max_budget=0.0000001,
         ),
     )
@@ -345,14 +345,14 @@ async def test_team_member_budget_check_blocks_regenerated_key_after_old_key_exh
 
     with (
         patch(
-            "litellm.proxy.auth.auth_checks.get_team_membership",
+            "embrouter.proxy.auth.auth_checks.get_team_membership",
             new_callable=AsyncMock,
             return_value=team_membership,
         ) as mock_get_team_membership,
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client),
-        patch("litellm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache),
+        patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma_client),
+        patch("embrouter.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache),
     ):
-        with pytest.raises(litellm.BudgetExceededError) as exc_info:
+        with pytest.raises(embrouter.BudgetExceededError) as exc_info:
             await common_checks(
                 request_body=request_body,
                 team_object=team_object,
@@ -391,7 +391,7 @@ async def test_team_member_budget_check_personal_key_not_team():
     team_object = None
 
     # Create user object
-    user_object = LiteLLM_UserTable(
+    user_object = EmbRouter_UserTable(
         user_id="test-user-1",
         spend=0.0,
         max_budget=None,
@@ -413,11 +413,11 @@ async def test_team_member_budget_check_personal_key_not_team():
     # get_team_membership should not be called for personal keys
     with (
         patch(
-            "litellm.proxy.auth.auth_checks.get_team_membership",
+            "embrouter.proxy.auth.auth_checks.get_team_membership",
             new_callable=AsyncMock,
         ) as mock_get_team_membership,
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma_client),
-        patch("litellm.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache),
+        patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma_client),
+        patch("embrouter.proxy.proxy_server.user_api_key_cache", mock_user_api_key_cache),
     ):
         result = await common_checks(
             request_body=request_body,

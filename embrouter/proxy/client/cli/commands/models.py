@@ -46,7 +46,7 @@ class ModelYamlInfo:
 def _get_model_info_obj_from_yaml(model: dict[str, Any]) -> ModelYamlInfo:
     """Extract model info from a model dict and return as ModelYamlInfo dataclass."""
     model_name: Final[str] = model["model_name"]
-    model_params: Final[dict[str, Any]] = model["litellm_params"]
+    model_params: Final[dict[str, Any]] = model["embrouter_params"]
     model_info: Final[dict[str, Any]] = model.get("model_info", {})
     model_id: Final[str] = model_params["model"]
     access_groups: Final = model_info.get("access_groups", [])
@@ -105,7 +105,7 @@ def create_client(ctx: click.Context) -> Client:
 
 @click.group()
 def models() -> None:
-    """Manage models on your LiteLLM proxy server"""
+    """Manage models on your EmbRouter proxy server"""
 
 
 @models.command("list")
@@ -241,12 +241,12 @@ def get_models_info(ctx: click.Context, output_format: Literal["table", "json"],
             "upstream_model": {
                 "header": "Upstream Model",
                 "style": "green",
-                "get_value": lambda m: str(m.get("litellm_params", {}).get("model", "")),
+                "get_value": lambda m: str(m.get("embrouter_params", {}).get("model", "")),
             },
             "credential_name": {
                 "header": "Credential Name",
                 "style": "yellow",
-                "get_value": lambda m: str(m.get("litellm_params", {}).get("litellm_credential_name", "")),
+                "get_value": lambda m: str(m.get("embrouter_params", {}).get("embrouter_credential_name", "")),
             },
             "created_at": {
                 "header": "Created At",
@@ -334,7 +334,7 @@ def update_model(ctx: click.Context, model_id: str, param: tuple[str, ...], info
 
 def _filter_model(model, model_regex, access_group_regex):
     model_name: Final = model.get("model_name")
-    model_params: Final = model.get("litellm_params")
+    model_params: Final = model.get("embrouter_params")
     model_info: Final = model.get("model_info", {})
     if not model_name or not model_params:
         return False
@@ -414,7 +414,7 @@ def _import_models_get_table_title(dry_run: bool) -> str:
 @click.option(
     "--only-models-matching-regex",
     default=None,
-    help="Only import models where litellm_params.model matches the given regex.",
+    help="Only import models where embrouter_params.model matches the given regex.",
 )
 @click.option(
     "--only-access-groups-matching-regex",

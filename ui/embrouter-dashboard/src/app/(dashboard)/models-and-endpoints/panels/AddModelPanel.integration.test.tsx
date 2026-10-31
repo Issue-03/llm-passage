@@ -53,7 +53,7 @@ vi.mock("@/app/(dashboard)/hooks/providers/useProviderFields", () => ({
       {
         provider: "OpenAI",
         provider_display_name: "OpenAI",
-        litellm_provider: "openai",
+        embrouter_provider: "openai",
         default_model_placeholder: "gpt-4o",
         credential_fields: [
           { key: "api_key", label: "API Key", field_type: "password", required: false },
@@ -149,7 +149,7 @@ describe("AddModelPanel submit payload contract", () => {
 
     expect(lastCreatedModel()).toStrictEqual({
       model_name: "gpt-4o",
-      litellm_params: { ...alwaysMounted },
+      embrouter_params: { ...alwaysMounted },
       model_info: { ...baseModelInfo },
     });
   });
@@ -162,12 +162,12 @@ describe("AddModelPanel submit payload contract", () => {
 
     expect(lastCreatedModel()).toStrictEqual({
       model_name: "gpt-4o",
-      litellm_params: { ...alwaysMounted, ...advancedOpenExtras },
+      embrouter_params: { ...alwaysMounted, ...advancedOpenExtras },
       model_info: { ...baseModelInfo },
     });
   });
 
-  it("merges typed EmbRouter Params into litellm_params", async () => {
+  it("merges typed EmbRouter Params into embrouter_params", async () => {
     const { user, openAdvanced, fillRequired, submit } = await setup();
     await fillRequired();
     await openAdvanced();
@@ -176,7 +176,7 @@ describe("AddModelPanel submit payload contract", () => {
 
     expect(lastCreatedModel()).toStrictEqual({
       model_name: "gpt-4o",
-      litellm_params: { ...alwaysMounted, ...advancedOpenExtras, rpm: 7 },
+      embrouter_params: { ...alwaysMounted, ...advancedOpenExtras, rpm: 7 },
       model_info: { ...baseModelInfo },
     });
   });
@@ -191,7 +191,7 @@ describe("AddModelPanel submit payload contract", () => {
 
     expect(lastCreatedModel()).toStrictEqual({
       model_name: "gpt-4o",
-      litellm_params: { ...alwaysMounted },
+      embrouter_params: { ...alwaysMounted },
       model_info: { ...baseModelInfo },
     });
   });
@@ -209,7 +209,7 @@ describe("AddModelPanel submit payload contract", () => {
 
     expect(lastCreatedModel()).toStrictEqual({
       model_name: "gpt-4o",
-      litellm_params: { ...alwaysMounted, ...advancedOpenExtras, rpm: 7 },
+      embrouter_params: { ...alwaysMounted, ...advancedOpenExtras, rpm: 7 },
       model_info: { ...baseModelInfo },
     });
   });
@@ -225,7 +225,7 @@ describe("AddModelPanel submit payload contract", () => {
 
     expect(lastCreatedModel()).toStrictEqual({
       model_name: "gpt-4o",
-      litellm_params: {
+      embrouter_params: {
         ...alwaysMounted,
         ...advancedOpenExtras,
         input_cost_per_token: 0.000003,
@@ -246,7 +246,7 @@ describe("AddModelPanel submit payload contract", () => {
 
     expect(lastCreatedModel()).toStrictEqual({
       model_name: "gpt-4o",
-      litellm_params: {
+      embrouter_params: {
         ...alwaysMounted,
         ...advancedOpenExtras,
         cache_control_injection_points: [{ location: "message" }],
@@ -268,7 +268,7 @@ describe("AddModelPanel submit payload contract", () => {
 
     expect(lastCreatedModel()).toStrictEqual({
       model_name: "gpt-4o",
-      litellm_params: {
+      embrouter_params: {
         ...alwaysMounted,
         ...advancedOpenExtras,
         cache_control_injection_points: [{ location: "message", role: "system", index: "3" }],
@@ -286,7 +286,7 @@ describe("AddModelPanel submit payload contract", () => {
 
     expect(lastCreatedModel()).toStrictEqual({
       model_name: "gpt-4o",
-      litellm_params: { ...alwaysMounted },
+      embrouter_params: { ...alwaysMounted },
       model_info: { ...baseModelInfo, team_id: undefined },
     });
   });
@@ -305,7 +305,7 @@ describe("AddModelPanel empty-string skip", () => {
     await user.type(screen.getByLabelText("API Base"), "https://example.test");
     await submit();
 
-    expect(lastCreatedModel().litellm_params).toStrictEqual({
+    expect(lastCreatedModel().embrouter_params).toStrictEqual({
       ...alwaysMounted,
       api_base: "https://example.test",
     });
@@ -319,7 +319,7 @@ describe("AddModelPanel empty-string skip", () => {
     await user.clear(apiBase);
     await submit();
 
-    const params = lastCreatedModel().litellm_params;
+    const params = lastCreatedModel().embrouter_params;
     expect(params).not.toHaveProperty("api_base");
     expect(params).toStrictEqual(ALWAYS_MOUNTED_WITHOUT_API_BASE);
   });
@@ -391,7 +391,7 @@ describe("AddModelPanel behaviours the removed Advanced Settings form instance n
 
     expect(lastCreatedModel()).toStrictEqual({
       model_name: "gpt-4o",
-      litellm_params: { ...alwaysMounted, ...advancedOpenExtras, use_in_pass_through: true },
+      embrouter_params: { ...alwaysMounted, ...advancedOpenExtras, use_in_pass_through: true },
       model_info: { ...baseModelInfo },
     });
   });
@@ -411,7 +411,7 @@ describe("AddModelPanel behaviours the removed Advanced Settings form instance n
 
     expect(lastCreatedModel()).toStrictEqual({
       model_name: "gpt-4o",
-      litellm_params: {
+      embrouter_params: {
         ...alwaysMounted,
         ...advancedOpenExtras,
         input_cost_per_token: 0.000003,

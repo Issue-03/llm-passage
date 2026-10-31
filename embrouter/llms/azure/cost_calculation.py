@@ -3,8 +3,8 @@ Helper util for handling azure openai-specific cost calculation
 - e.g.: prompt caching, audio tokens
 """
 
-from litellm.litellm_core_utils.llm_cost_calc.utils import generic_cost_per_token
-from litellm.types.utils import Usage
+from embrouter.embrouter_core_utils.llm_cost_calc.utils import generic_cost_per_token
+from embrouter.types.utils import Usage
 
 
 def cost_per_token(
@@ -18,7 +18,7 @@ def cost_per_token(
 
     Input:
         - model: str, the model name without provider prefix
-        - usage: LiteLLM Usage block, containing caching and audio token information
+        - usage: EmbRouter Usage block, containing caching and audio token information
 
     Returns:
         Tuple[float, float] - prompt_cost_in_usd, completion_cost_in_usd

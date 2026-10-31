@@ -3,15 +3,15 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from litellm.litellm_core_utils.prompt_templates.common_utils import TOOL_RESULT_IMAGE_BOUNDARY
-from litellm.types.llms.openai import AllMessageValues
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import TOOL_RESULT_IMAGE_BOUNDARY
+from embrouter.types.llms.openai import AllMessageValues
 
 
-from litellm.llms.mistral.chat.transformation import (
+from embrouter.llms.mistral.chat.transformation import (
     MistralChatResponseIterator,
     MistralConfig,
 )
-from litellm.types.utils import ModelResponse
+from embrouter.types.utils import ModelResponse
 
 
 @pytest.mark.asyncio
@@ -108,9 +108,9 @@ class TestMistralReasoningSupport:
         ],
     )
     def test_reasoning_effort_is_sent_as_a_level_the_model_accepts(self, local_model_cost_map, model, requested, sent):
-        import litellm
+        import embrouter
 
-        optional_params = litellm.get_optional_params(
+        optional_params = embrouter.get_optional_params(
             model=model,
             custom_llm_provider="mistral",
             reasoning_effort=requested,
@@ -120,14 +120,14 @@ class TestMistralReasoningSupport:
     def test_reasoning_effort_is_forwarded_verbatim_when_the_map_declares_no_levels(
         self, local_model_cost_map, monkeypatch
     ):
-        import litellm
+        import embrouter
 
         monkeypatch.setitem(
-            litellm.model_cost,
+            embrouter.model_cost,
             "mistral/undeclared-reasoner",
-            {"litellm_provider": "mistral", "mode": "chat", "supports_reasoning": True},
+            {"embrouter_provider": "mistral", "mode": "chat", "supports_reasoning": True},
         )
-        optional_params = litellm.get_optional_params(
+        optional_params = embrouter.get_optional_params(
             model="undeclared-reasoner",
             custom_llm_provider="mistral",
             reasoning_effort="medium",
@@ -135,16 +135,16 @@ class TestMistralReasoningSupport:
         assert optional_params["reasoning_effort"] == "medium"
 
     def test_reasoning_effort_stays_unsupported_for_non_reasoning_models(self):
-        import litellm
+        import embrouter
 
-        with pytest.raises(litellm.UnsupportedParamsError):
-            litellm.get_optional_params(
+        with pytest.raises(embrouter.UnsupportedParamsError):
+            embrouter.get_optional_params(
                 model="codestral-latest",
                 custom_llm_provider="mistral",
                 reasoning_effort="high",
             )
 
-        dropped = litellm.get_optional_params(
+        dropped = embrouter.get_optional_params(
             model="codestral-latest",
             custom_llm_provider="mistral",
             reasoning_effort="high",
@@ -159,7 +159,7 @@ class TestMistralReasoningSupport:
             model="mistral-medium-latest",
             messages=[{"role": "user", "content": "hi"}],
             optional_params={"client_metadata": {"originator": "codex_cli_rs"}, "temperature": 0.2},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -338,7 +338,7 @@ class TestMistralReasoningSupport:
             model="mistral/magistral-medium-2506",
             messages=messages,
             optional_params=optional_params,
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -362,7 +362,7 @@ class TestMistralReasoningSupport:
             model="mistral/magistral-medium-2506",
             messages=messages,
             optional_params=optional_params,
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -381,7 +381,7 @@ class TestMistralReasoningSupport:
             model="mistral/mistral-large-latest",
             messages=messages,
             optional_params=optional_params,
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -428,7 +428,7 @@ class TestMistralReasoningSupport:
             model="mistral/magistral-medium-2506",
             messages=messages,
             optional_params=mapped_params,
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -539,7 +539,7 @@ class TestMistralParallelToolCalls:
             model="mistral/mistral-large-latest",
             messages=messages,
             optional_params=optional_params,
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -556,7 +556,7 @@ class TestMistralThinkingContentHandling:
         import json
         from unittest.mock import Mock
 
-        import litellm
+        import embrouter
 
         # Raw response from Mistral with thinking content
         raw_response_data = {
@@ -614,7 +614,7 @@ class TestMistralThinkingContentHandling:
 
         # Test the transformation
         mistral_config = MistralConfig()
-        model_response = litellm.ModelResponse()
+        model_response = embrouter.ModelResponse()
 
         # Test transform_response method
         final_response = mistral_config.transform_response(
@@ -625,7 +625,7 @@ class TestMistralThinkingContentHandling:
             request_data={},
             messages=[{"role": "user", "content": "What is the capital of France?"}],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             encoding=None,
         )
 
@@ -802,7 +802,7 @@ class TestMistralFileHandling:
 class TestMistralStripsOutputOnlyFields:
     """Mistral rejects unknown input fields with a 422 ``extra_forbidden``.
 
-    LiteLLM attaches ``reasoning_content`` / ``thinking_blocks`` to assistant
+    EmbRouter attaches ``reasoning_content`` / ``thinking_blocks`` to assistant
     responses, so replaying an assistant turn verbatim must not forward them.
     Regression test.
     """
@@ -914,7 +914,7 @@ def test_mistral_transform_request_hoists_tool_message_image():
     )
 
     request = MistralConfig().transform_request(
-        model="mistral-medium-2508", messages=messages, optional_params={}, litellm_params={}, headers={}
+        model="mistral-medium-2508", messages=messages, optional_params={}, embrouter_params={}, headers={}
     )
 
     result = request["messages"]

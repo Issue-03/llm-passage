@@ -3,17 +3,17 @@ from collections.abc import Awaitable, Callable, Coroutine, Mapping
 from types import MappingProxyType
 from typing import Final, TypeAlias, cast  # noqa: TID251  # native binding selects a sync result or an async awaitable
 
-from litellm.responses import main
-from litellm.responses.streaming_iterator import BaseResponsesAPIStreamingIterator
-from litellm.rust_bridge.catalog import Route, RouteContext
-from litellm.rust_bridge.dispatch import PublicDispatch, call_hook
-from litellm.rust_bridge.public_call import bind, optional_bool, optional_mapping, optional_str, signature
-from litellm.rust_bridge.responses.entrypoints import (
+from embrouter.responses import main
+from embrouter.responses.streaming_iterator import BaseResponsesAPIStreamingIterator
+from embrouter.rust_bridge.catalog import Route, RouteContext
+from embrouter.rust_bridge.dispatch import PublicDispatch, call_hook
+from embrouter.rust_bridge.public_call import bind, optional_bool, optional_mapping, optional_str, signature
+from embrouter.rust_bridge.responses.entrypoints import (
     NATIVE_ARESPONSES,
     NATIVE_RESPONSES,
-    LiteLLMResponsesRequest,
+    EmbRouterResponsesRequest,
 )
-from litellm.types.llms.openai import ResponsesAPIResponse
+from embrouter.types.llms.openai import ResponsesAPIResponse
 
 __all__ = ("aresponses", "responses")
 
@@ -44,7 +44,7 @@ _ARESPONSES: Final = signature(_PYTHON_ARESPONSES)
 
 def _public_request(
     legacy: inspect.Signature, args: tuple[object, ...], kwargs: Mapping[str, object]
-) -> LiteLLMResponsesRequest | None:
+) -> EmbRouterResponsesRequest | None:
     fields: Final = bind(legacy, args, kwargs)
     if fields is None:
         return None
@@ -52,7 +52,7 @@ def _public_request(
     extra: Final = optional_mapping(fields.get("kwargs")) or MappingProxyType({})
     if not isinstance(model, str):
         return None
-    return LiteLLMResponsesRequest(
+    return EmbRouterResponsesRequest(
         model=model,
         input=fields.get("input"),
         stream=optional_bool(fields.get("stream")),
@@ -65,7 +65,7 @@ def _public_request(
     )
 
 
-def _context(request: LiteLLMResponsesRequest) -> RouteContext:
+def _context(request: EmbRouterResponsesRequest) -> RouteContext:
     return RouteContext(
         Route.RESPONSES,
         provider=request.custom_llm_provider,

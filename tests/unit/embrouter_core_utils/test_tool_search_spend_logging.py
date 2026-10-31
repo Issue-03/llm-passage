@@ -28,9 +28,9 @@ These tests exercise the real public entry points (not the private
 
 
 
-import litellm
-from litellm import stream_chunk_builder
-from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices
+import embrouter
+from embrouter import stream_chunk_builder
+from embrouter.types.utils import Delta, ModelResponseStream, StreamingChoices
 
 ANTHROPIC_MODEL = "anthropic/claude-sonnet-4-5-20250929"
 
@@ -58,7 +58,7 @@ def test_completion_cost_with_tool_reference_records_spend():
     callback then dropped the SpendLogs row. A positive cost here means the
     row is recorded instead of silently dropped.
     """
-    cost = litellm.completion_cost(model=ANTHROPIC_MODEL, messages=TOOL_SEARCH_MESSAGES)
+    cost = embrouter.completion_cost(model=ANTHROPIC_MODEL, messages=TOOL_SEARCH_MESSAGES)
 
     assert cost is not None, "response_cost is None -> SpendLogs row would be dropped"
     assert cost > 0, f"Expected a positive cost for tool-search traffic, got {cost}"
@@ -74,7 +74,7 @@ def test_completion_cost_with_empty_tool_name_records_spend():
         }
     ]
 
-    cost = litellm.completion_cost(model=ANTHROPIC_MODEL, messages=messages)
+    cost = embrouter.completion_cost(model=ANTHROPIC_MODEL, messages=messages)
 
     assert cost is not None
     assert cost >= 0

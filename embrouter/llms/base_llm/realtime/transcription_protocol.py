@@ -7,8 +7,8 @@ from typing import Final, Literal
 
 from pydantic import JsonValue, TypeAdapter, ValidationError
 
-from litellm._uuid import uuid
-from litellm.types.llms.openai import (
+from embrouter._uuid import uuid
+from embrouter.types.llms.openai import (
     OpenAIRealtimeErrorEvent,
     OpenAIRealtimeInputAudioBufferSpeechEvent,
     OpenAIRealtimeInputAudioTranscriptionCompleted,
@@ -18,7 +18,7 @@ from litellm.types.llms.openai import (
     OpenAIRealtimeTranscriptionSessionCreated,
     OpenAIRealtimeTranscriptionSettings,
 )
-from litellm.types.realtime import RealtimeInputAudioTranscriptionDurationUsage, RealtimeInputAudioTranscriptionUsage
+from embrouter.types.realtime import RealtimeInputAudioTranscriptionDurationUsage, RealtimeInputAudioTranscriptionUsage
 
 SESSION_UPDATE_EVENT_TYPES: Final = frozenset(("session.update", "transcription_session.update"))
 PCM16_ENCODINGS: Final = frozenset(("pcm16", "audio/pcm"))

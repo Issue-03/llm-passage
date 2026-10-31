@@ -9,15 +9,15 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-import litellm
-from litellm.constants import LITTELM_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME
-from litellm.litellm_core_utils.health_check_helpers import (
+import embrouter
+from embrouter.constants import EMBROUTER_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME
+from embrouter.embrouter_core_utils.health_check_helpers import (
     IMAGE_EDIT_HEALTH_CHECK_PROMPT,
     HealthCheckHelpers,
 )
-from litellm.main import ahealth_check
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.types.utils import LIST_BATCHES_SUPPORTED_PROVIDERS
+from embrouter.main import ahealth_check
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.types.utils import LIST_BATCHES_SUPPORTED_PROVIDERS
 
 
 def _png_chunks(png: bytes, offset: int = 8) -> tuple[tuple[bytes, bytes], ...]:
@@ -49,14 +49,14 @@ async def test_image_edit_health_check_handler_uses_descriptive_prompt_and_multi
     assert "image_edit" in mode_handlers
 
     with patch(  # test-quality-ok: the public health-check path has no dependency injection seam
-        "litellm.aimage_edit", new_callable=AsyncMock, return_value={}
+        "embrouter.aimage_edit", new_callable=AsyncMock, return_value={}
     ) as mock_aimage_edit:
         await mode_handlers["image_edit"]()
         await HealthCheckHelpers.get_mode_handlers(
             model="gpt-image-1",
             custom_llm_provider="openai",
             model_params=model_params,
-            prompt="test from litellm",
+            prompt="test from embrouter",
         )["image_edit"]()
 
     assert mock_aimage_edit.call_count == 2
@@ -73,13 +73,13 @@ async def test_image_edit_health_check_handler_uses_descriptive_prompt_and_multi
 
 @pytest.mark.asyncio
 async def test_ahealth_check_image_edit_treats_content_policy_violation_as_healthy():
-    moderation_error = litellm.ContentPolicyViolationError(
+    moderation_error = embrouter.ContentPolicyViolationError(
         message="Your request was rejected as a result of our safety system.",
         model="gpt-image-1",
         llm_provider="openai",
     )
     with patch(  # test-quality-ok: the public health-check path has no dependency injection seam
-        "litellm.aimage_edit", new_callable=AsyncMock, side_effect=moderation_error
+        "embrouter.aimage_edit", new_callable=AsyncMock, side_effect=moderation_error
     ):
         result = await ahealth_check(
             {"model": "gpt-image-1", "api_key": "sk-test"},
@@ -91,7 +91,7 @@ async def test_ahealth_check_image_edit_treats_content_policy_violation_as_healt
 
 @pytest.mark.asyncio
 async def test_ahealth_check_image_edit_treats_moderation_blocked_code_as_healthy():
-    moderation_blocked = litellm.BadRequestError(
+    moderation_blocked = embrouter.BadRequestError(
         message=(
             '{"error": {"code": "moderation_blocked", "message": "Your request was blocked", '
             '"moderation_stage": "output", "type": "invalid_request_error"}}'
@@ -100,7 +100,7 @@ async def test_ahealth_check_image_edit_treats_moderation_blocked_code_as_health
         llm_provider="openai",
     )
     with patch(  # test-quality-ok: the public health-check path has no dependency injection seam
-        "litellm.aimage_edit", new_callable=AsyncMock, side_effect=moderation_blocked
+        "embrouter.aimage_edit", new_callable=AsyncMock, side_effect=moderation_blocked
     ):
         result = await ahealth_check(
             {"model": "gpt-image-1", "api_key": "sk-test"},
@@ -112,13 +112,13 @@ async def test_ahealth_check_image_edit_treats_moderation_blocked_code_as_health
 
 @pytest.mark.asyncio
 async def test_ahealth_check_image_edit_still_fails_on_non_moderation_errors():
-    auth_error = litellm.AuthenticationError(
+    auth_error = embrouter.AuthenticationError(
         message="Incorrect API key provided",
         llm_provider="openai",
         model="gpt-image-1",
     )
     with patch(  # test-quality-ok: the public health-check path has no dependency injection seam
-        "litellm.aimage_edit", new_callable=AsyncMock, side_effect=auth_error
+        "embrouter.aimage_edit", new_callable=AsyncMock, side_effect=auth_error
     ):
         result = await ahealth_check(
             {"model": "gpt-image-1", "api_key": "sk-bad"},
@@ -131,7 +131,7 @@ async def test_ahealth_check_image_edit_still_fails_on_non_moderation_errors():
 @pytest.mark.asyncio
 async def test_ahealth_check_supports_image_edit_mode():
     with patch(  # test-quality-ok: the public health-check path has no dependency injection seam
-        "litellm.aimage_edit", new_callable=AsyncMock, return_value={}
+        "embrouter.aimage_edit", new_callable=AsyncMock, return_value={}
     ):
         result = await ahealth_check(
             {"model": "gpt-image-1", "api_key": "sk-test"},
@@ -147,18 +147,18 @@ def test_update_model_params_with_health_check_tracking_information():
     initial_model_params = {"model": "gpt-3.5-turbo", "api_key": "test_key"}
 
     with patch(
-        "litellm.proxy._types.UserAPIKeyAuth.get_litellm_internal_health_check_user_api_key_auth"
+        "embrouter.proxy._types.UserAPIKeyAuth.get_embrouter_internal_health_check_user_api_key_auth"
     ) as mock_get_auth:
         mock_auth = MagicMock()
         mock_get_auth.return_value = mock_auth
 
         with patch(
-            "litellm.proxy.litellm_pre_call_utils.LiteLLMProxyRequestSetup.add_user_api_key_auth_to_request_metadata"
+            "embrouter.proxy.embrouter_pre_call_utils.EmbRouterProxyRequestSetup.add_user_api_key_auth_to_request_metadata"
         ) as mock_add_auth:
             mock_add_auth.return_value = {
                 **initial_model_params,
-                "litellm_metadata": {
-                    "tags": [LITTELM_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME],
+                "embrouter_metadata": {
+                    "tags": [EMBROUTER_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME],
                     "user_api_key_auth": mock_auth,
                 },
             }
@@ -167,15 +167,15 @@ def test_update_model_params_with_health_check_tracking_information():
                 initial_model_params
             )
 
-            # Verify that litellm_metadata was added
-            assert "litellm_metadata" in result
-            assert result["litellm_metadata"]["tags"] == [LITTELM_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME]
+            # Verify that embrouter_metadata was added
+            assert "embrouter_metadata" in result
+            assert result["embrouter_metadata"]["tags"] == [EMBROUTER_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME]
 
             # Verify the auth setup was called
             mock_add_auth.assert_called_once()
             call_args = mock_add_auth.call_args
             assert call_args[1]["user_api_key_dict"] == mock_auth
-            assert call_args[1]["_metadata_variable_name"] == "litellm_metadata"
+            assert call_args[1]["_metadata_variable_name"] == "embrouter_metadata"
 
 
 def test_get_metadata_for_health_check_call():
@@ -183,27 +183,27 @@ def test_get_metadata_for_health_check_call():
     result = HealthCheckHelpers._get_metadata_for_health_check_call()
 
     expected_metadata = {
-        "tags": [LITTELM_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME],
+        "tags": [EMBROUTER_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME],
     }
 
     assert result == expected_metadata
     assert isinstance(result["tags"], list)
     assert len(result["tags"]) == 1
-    assert result["tags"][0] == LITTELM_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME
+    assert result["tags"][0] == EMBROUTER_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME
 
 
-def test_get_litellm_internal_health_check_user_api_key_auth():
-    """Test get_litellm_internal_health_check_user_api_key_auth returns properly configured UserAPIKeyAuth object."""
-    result = UserAPIKeyAuth.get_litellm_internal_health_check_user_api_key_auth()
+def test_get_embrouter_internal_health_check_user_api_key_auth():
+    """Test get_embrouter_internal_health_check_user_api_key_auth returns properly configured UserAPIKeyAuth object."""
+    result = UserAPIKeyAuth.get_embrouter_internal_health_check_user_api_key_auth()
 
     # Verify the returned object is of correct type
     assert isinstance(result, UserAPIKeyAuth)
 
     # Verify all fields are set to the expected constant value
-    assert result.api_key == LITTELM_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME
-    assert result.team_id == LITTELM_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME
-    assert result.key_alias == LITTELM_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME
-    assert result.team_alias == LITTELM_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME
+    assert result.api_key == EMBROUTER_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME
+    assert result.team_id == EMBROUTER_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME
+    assert result.key_alias == EMBROUTER_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME
+    assert result.team_alias == EMBROUTER_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME
 
 
 @pytest.mark.asyncio
@@ -261,23 +261,23 @@ async def test_ahealth_check_failure_masks_raw_request_headers():
 async def test_batch_health_check_bridges_metadata_into_logging_obj():
     """_batch_health_check must call update_from_kwargs on the pre-injected
     logging object so callbacks receive identity/tracking fields in
-    model_call_details["litellm_params"]["metadata"]."""
+    model_call_details["embrouter_params"]["metadata"]."""
     mock_logging_obj = MagicMock()
     mock_logging_obj.update_from_kwargs = MagicMock()
 
-    litellm_metadata = {
-        "tags": [LITTELM_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME],
+    embrouter_metadata = {
+        "tags": [EMBROUTER_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME],
         "user_api_key_alias": "health-check-key",
     }
 
     filtered_model_params = {
         "model": "openai/gpt-4",
         "api_base": "https://api.openai.com",
-        "litellm_logging_obj": mock_logging_obj,
-        "litellm_metadata": litellm_metadata,
+        "embrouter_logging_obj": mock_logging_obj,
+        "embrouter_metadata": embrouter_metadata,
     }
 
-    with patch("litellm.alist_batches", new_callable=AsyncMock, return_value={}):
+    with patch("embrouter.alist_batches", new_callable=AsyncMock, return_value={}):
         await HealthCheckHelpers._batch_health_check(
             custom_llm_provider="openai",
             model_params={"model": "openai/gpt-4"},
@@ -288,25 +288,25 @@ async def test_batch_health_check_bridges_metadata_into_logging_obj():
     call_kwargs = mock_logging_obj.update_from_kwargs.call_args[1]
     assert call_kwargs["model"] == "openai/gpt-4"
     assert call_kwargs["kwargs"] is filtered_model_params
-    assert call_kwargs["litellm_params"] == {"api_base": "https://api.openai.com"}
+    assert call_kwargs["embrouter_params"] == {"api_base": "https://api.openai.com"}
 
 
 @pytest.mark.asyncio
 async def test_batch_health_check_omits_api_base_when_absent():
-    """api_base must not appear in litellm_params when the provider resolves
+    """api_base must not appear in embrouter_params when the provider resolves
     it implicitly (bedrock, vertex, gemini)."""
     mock_logging_obj = MagicMock()
     mock_logging_obj.update_from_kwargs = MagicMock()
 
-    litellm_metadata = {"tags": [LITTELM_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME]}
+    embrouter_metadata = {"tags": [EMBROUTER_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME]}
 
     filtered_model_params = {
         "model": "bedrock/anthropic.claude-v2",
-        "litellm_logging_obj": mock_logging_obj,
-        "litellm_metadata": litellm_metadata,
+        "embrouter_logging_obj": mock_logging_obj,
+        "embrouter_metadata": embrouter_metadata,
     }
 
-    with patch("litellm.acompletion", new_callable=AsyncMock, return_value={}):
+    with patch("embrouter.acompletion", new_callable=AsyncMock, return_value={}):
         await HealthCheckHelpers._batch_health_check(
             custom_llm_provider="bedrock",
             model_params={"model": "bedrock/anthropic.claude-v2"},
@@ -314,20 +314,20 @@ async def test_batch_health_check_omits_api_base_when_absent():
         )
 
     call_kwargs = mock_logging_obj.update_from_kwargs.call_args[1]
-    assert call_kwargs["litellm_params"] is None
+    assert call_kwargs["embrouter_params"] is None
 
 
 @pytest.mark.asyncio
 async def test_batch_health_check_skips_bridge_when_no_logging_obj():
-    """When litellm_logging_obj is absent, dispatch still proceeds."""
-    litellm_metadata = {"tags": [LITTELM_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME]}
+    """When embrouter_logging_obj is absent, dispatch still proceeds."""
+    embrouter_metadata = {"tags": [EMBROUTER_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME]}
 
     filtered_model_params = {
         "model": "openai/gpt-4",
-        "litellm_metadata": litellm_metadata,
+        "embrouter_metadata": embrouter_metadata,
     }
 
-    with patch("litellm.alist_batches", new_callable=AsyncMock, return_value={}) as mock_alist:
+    with patch("embrouter.alist_batches", new_callable=AsyncMock, return_value={}) as mock_alist:
         await HealthCheckHelpers._batch_health_check(
             custom_llm_provider="openai",
             model_params={"model": "openai/gpt-4"},
@@ -342,16 +342,16 @@ async def test_batch_health_check_uses_alist_batches_for_supported_providers():
     mock_logging_obj = MagicMock()
     mock_logging_obj.update_from_kwargs = MagicMock()
 
-    litellm_metadata = {"tags": [LITTELM_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME]}
+    embrouter_metadata = {"tags": [EMBROUTER_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME]}
 
     for provider in LIST_BATCHES_SUPPORTED_PROVIDERS:
         filtered_model_params = {
             "model": f"{provider}/some-model",
-            "litellm_logging_obj": mock_logging_obj,
-            "litellm_metadata": litellm_metadata,
+            "embrouter_logging_obj": mock_logging_obj,
+            "embrouter_metadata": embrouter_metadata,
         }
 
-        with patch("litellm.alist_batches", new_callable=AsyncMock, return_value={}) as mock_alist:
+        with patch("embrouter.alist_batches", new_callable=AsyncMock, return_value={}) as mock_alist:
             await HealthCheckHelpers._batch_health_check(
                 custom_llm_provider=provider,
                 model_params={"model": f"{provider}/some-model"},
@@ -365,10 +365,10 @@ async def test_batch_health_check_hands_the_resolved_provider_to_alist_batches()
     filtered_model_params: Final = {
         "model": "xai/grok-4.3",
         "api_key": "sk-test",
-        "litellm_metadata": {"tags": [LITTELM_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME]},
+        "embrouter_metadata": {"tags": [EMBROUTER_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME]},
     }
 
-    with patch("litellm.alist_batches", new_callable=AsyncMock, return_value={}) as mock_alist:
+    with patch("embrouter.alist_batches", new_callable=AsyncMock, return_value={}) as mock_alist:
         await HealthCheckHelpers._batch_health_check(
             custom_llm_provider="xai",
             model_params={**filtered_model_params, "messages": []},
@@ -386,19 +386,19 @@ async def test_batch_health_check_falls_back_to_acompletion_for_unsupported():
     mock_logging_obj = MagicMock()
     mock_logging_obj.update_from_kwargs = MagicMock()
 
-    litellm_metadata = {"tags": [LITTELM_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME]}
+    embrouter_metadata = {"tags": [EMBROUTER_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME]}
 
     filtered_model_params = {
         "model": "bedrock/anthropic.claude-v2",
-        "litellm_logging_obj": mock_logging_obj,
-        "litellm_metadata": litellm_metadata,
+        "embrouter_logging_obj": mock_logging_obj,
+        "embrouter_metadata": embrouter_metadata,
     }
 
     model_params = {"model": "bedrock/anthropic.claude-v2", "messages": []}
 
     with (
-        patch("litellm.alist_batches", new_callable=AsyncMock) as mock_alist,
-        patch("litellm.acompletion", new_callable=AsyncMock, return_value={}) as mock_acompletion,
+        patch("embrouter.alist_batches", new_callable=AsyncMock) as mock_alist,
+        patch("embrouter.acompletion", new_callable=AsyncMock, return_value={}) as mock_acompletion,
     ):
         await HealthCheckHelpers._batch_health_check(
             custom_llm_provider="bedrock",
@@ -425,8 +425,8 @@ async def test_realtime_health_check_uses_model_level_vertex_params():
     """Regression test: realtime health checks must resolve vertex_credentials,
     vertex_project, and vertex_location from the model row's params instead of
     falling back to process-global VERTEXAI_* settings."""
-    import litellm
-    from litellm.realtime_api import main as realtime_main
+    import embrouter
+    from embrouter.realtime_api import main as realtime_main
 
     fake_vertex_base = MagicMock()
     fake_vertex_base.get_vertex_region = MagicMock(return_value="us-central1")
@@ -445,7 +445,7 @@ async def test_realtime_health_check_uses_model_level_vertex_params():
             staticmethod(lambda model_params: model_params),
         ),
     ):
-        result = await litellm.ahealth_check(
+        result = await embrouter.ahealth_check(
             model_params={
                 "model": "vertex_ai/gemini-live-2.5-flash-native-audio",
                 "vertex_credentials": '{"type":"service_account"}',
@@ -493,7 +493,7 @@ async def test_ocr_health_check_sends_the_document_kind_the_provider_config_acce
     )
 
     with patch(  # test-quality-ok: the public health-check path has no dependency injection seam
-        "litellm.aocr", new_callable=AsyncMock, return_value={}
+        "embrouter.aocr", new_callable=AsyncMock, return_value={}
     ) as mock_aocr:
         await handlers["ocr"]()
 
@@ -503,7 +503,7 @@ async def test_ocr_health_check_sends_the_document_kind_the_provider_config_acce
 
 
 def test_realtime_health_check_azure_ad_params_drop_reserved_keys():
-    from litellm.realtime_api import main as realtime_main
+    from embrouter.realtime_api import main as realtime_main
 
     seen = []
     with patch.object(realtime_main, "get_azure_ad_token", lambda params: seen.append(params) or "ad-token"):
@@ -519,10 +519,10 @@ def test_realtime_health_check_azure_ad_params_drop_reserved_keys():
 
 
 def test_ocr_health_check_document_uses_the_native_binding():
-    from litellm.litellm_core_utils.health_check_helpers import (
+    from embrouter.embrouter_core_utils.health_check_helpers import (
         _ocr_health_check_document,  # pyright: ignore[reportPrivateUsage]  # tests the health-check wiring
     )
-    from litellm.rust_bridge.ocr.entrypoints import NATIVE_OCR_HEALTH_CHECK_DOCUMENT
+    from embrouter.rust_bridge.ocr.entrypoints import NATIVE_OCR_HEALTH_CHECK_DOCUMENT
 
     document: Final = {
         "type": "image_url",
@@ -536,11 +536,11 @@ def test_ocr_health_check_document_uses_the_native_binding():
 
 
 def test_ocr_health_check_document_raises_without_the_extension():
-    from litellm.litellm_core_utils.health_check_helpers import (
+    from embrouter.embrouter_core_utils.health_check_helpers import (
         _ocr_health_check_document,  # pyright: ignore[reportPrivateUsage]  # tests the health-check wiring
     )
-    from litellm.rust_bridge import runtime
-    from litellm.rust_bridge.ocr.entrypoints import NATIVE_OCR_HEALTH_CHECK_DOCUMENT
+    from embrouter.rust_bridge import runtime
+    from embrouter.rust_bridge.ocr.entrypoints import NATIVE_OCR_HEALTH_CHECK_DOCUMENT
 
     NATIVE_OCR_HEALTH_CHECK_DOCUMENT.override(None)
     try:

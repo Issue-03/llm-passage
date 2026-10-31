@@ -15,7 +15,7 @@ import time
 from collections.abc import Awaitable, Callable
 from typing import Final, Protocol, TypeVar
 
-from litellm._logging import verbose_proxy_logger
+from embrouter._logging import verbose_proxy_logger
 
 T = TypeVar("T")
 

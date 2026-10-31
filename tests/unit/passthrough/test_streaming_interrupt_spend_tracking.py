@@ -41,7 +41,7 @@ class _RecordingCollector:
     def add(self, chunk: bytes) -> None:
         self.chunks.append(chunk)
 
-    def build_logged_response(self, litellm_logging_obj: MagicMock) -> bytes:
+    def build_logged_response(self, embrouter_logging_obj: MagicMock) -> bytes:
         return b"".join(self.chunks)
 
 
@@ -59,12 +59,12 @@ def _provider_config(collector: _RecordingCollector) -> MagicMock:
 def _spend_payload(flush_mock: MagicMock) -> bytes:
     flush_mock.assert_called_once()
     collector = flush_mock.call_args.kwargs["collector"]
-    return collector.build_logged_response(litellm_logging_obj=MagicMock())
+    return collector.build_logged_response(embrouter_logging_obj=MagicMock())
 
 
 @pytest.mark.asyncio
 async def test_asyncpassthroughstreamingresponse_flushes_on_normal_completion():
-    from litellm.passthrough.main import AsyncPassthroughStreamingResponse
+    from embrouter.passthrough.main import AsyncPassthroughStreamingResponse
 
     chunks = [b"chunk-1", b"chunk-2", b"chunk-3"]
     mock_response = _make_streaming_response(chunks)
@@ -78,7 +78,7 @@ async def test_asyncpassthroughstreamingresponse_flushes_on_normal_completion():
     received = []
     received_response = AsyncPassthroughStreamingResponse(
         response=response_coro(),
-        litellm_logging_obj=mock_logging_obj,
+        embrouter_logging_obj=mock_logging_obj,
         provider_config=_provider_config(_RecordingCollector()),
     )
 
@@ -97,7 +97,7 @@ async def test_asyncpassthroughstreamingresponse_flushes_on_normal_completion():
 
 @pytest.mark.asyncio
 async def test_asyncpassthroughstreamingresponse_flushes_on_client_disconnect():
-    from litellm.passthrough.main import AsyncPassthroughStreamingResponse
+    from embrouter.passthrough.main import AsyncPassthroughStreamingResponse
 
     chunks = [
         b'{"chunk": 1, "outputTokens": 10}',
@@ -114,7 +114,7 @@ async def test_asyncpassthroughstreamingresponse_flushes_on_client_disconnect():
 
     gen = AsyncPassthroughStreamingResponse(
         response=response_coro(),
-        litellm_logging_obj=mock_logging_obj,
+        embrouter_logging_obj=mock_logging_obj,
         provider_config=_provider_config(_RecordingCollector()),
     )
 
@@ -130,7 +130,7 @@ async def test_asyncpassthroughstreamingresponse_flushes_on_client_disconnect():
 
 @pytest.mark.asyncio
 async def test_asyncpassthroughstreamingresponse_does_not_flush_on_4xx():
-    from litellm.passthrough.main import AsyncPassthroughStreamingResponse
+    from embrouter.passthrough.main import AsyncPassthroughStreamingResponse
 
     err_response = MagicMock(spec=httpx.Response)
     err_response.status_code = 429
@@ -154,7 +154,7 @@ async def test_asyncpassthroughstreamingresponse_does_not_flush_on_4xx():
     with pytest.raises(httpx.HTTPStatusError):
         async for _ in AsyncPassthroughStreamingResponse(
             response=response_coro(),
-            litellm_logging_obj=mock_logging_obj,
+            embrouter_logging_obj=mock_logging_obj,
             provider_config=MagicMock(),
         ):
             pass
@@ -164,7 +164,7 @@ async def test_asyncpassthroughstreamingresponse_does_not_flush_on_4xx():
 
 @pytest.mark.asyncio
 async def test_asyncpassthroughstreamingresponse_flushes_on_upstream_exception_with_partial_data():
-    from litellm.passthrough.main import AsyncPassthroughStreamingResponse
+    from embrouter.passthrough.main import AsyncPassthroughStreamingResponse
 
     partial_chunks = [b"partial-chunk-1", b"partial-chunk-2"]
 
@@ -191,7 +191,7 @@ async def test_asyncpassthroughstreamingresponse_flushes_on_upstream_exception_w
     async def _drain():
         async for chunk in AsyncPassthroughStreamingResponse(
             response=response_coro(),
-            litellm_logging_obj=mock_logging_obj,
+            embrouter_logging_obj=mock_logging_obj,
             provider_config=_provider_config(_RecordingCollector()),
         ):
             received.append(chunk)
@@ -207,7 +207,7 @@ async def test_asyncpassthroughstreamingresponse_flushes_on_upstream_exception_w
 
 
 def test_passthroughstreamingresponse_flushes_on_normal_completion():
-    from litellm.passthrough.main import PassthroughStreamingResponse
+    from embrouter.passthrough.main import PassthroughStreamingResponse
 
     chunks = [b"a", b"b", b"c"]
 
@@ -225,11 +225,11 @@ def test_passthroughstreamingresponse_flushes_on_normal_completion():
 
     received_responce = PassthroughStreamingResponse(
         response=mock_response,
-        litellm_logging_obj=mock_logging_obj,
+        embrouter_logging_obj=mock_logging_obj,
         provider_config=_provider_config(_RecordingCollector()),
     )
 
-    with patch("litellm.utils.executor", _ImmediateExecutor()):
+    with patch("embrouter.utils.executor", _ImmediateExecutor()):
         received = list(received_responce)
 
     assert received == chunks
@@ -241,7 +241,7 @@ def test_passthroughstreamingresponse_flushes_on_normal_completion():
 
 
 def test_passthroughstreamingresponse_flushes_on_early_close():
-    from litellm.passthrough.main import PassthroughStreamingResponse
+    from embrouter.passthrough.main import PassthroughStreamingResponse
 
     chunks = [b"first", b"second", b"third"]
 
@@ -257,10 +257,10 @@ def test_passthroughstreamingresponse_flushes_on_early_close():
     mock_logging_obj = MagicMock()
     mock_logging_obj.flush_passthrough_collected_chunks = MagicMock()
 
-    with patch("litellm.utils.executor", _ImmediateExecutor()):
+    with patch("embrouter.utils.executor", _ImmediateExecutor()):
         gen = PassthroughStreamingResponse(
             response=mock_response,
-            litellm_logging_obj=mock_logging_obj,
+            embrouter_logging_obj=mock_logging_obj,
             provider_config=_provider_config(_RecordingCollector()),
         )
 
@@ -273,7 +273,7 @@ def test_passthroughstreamingresponse_flushes_on_early_close():
 
 @pytest.mark.asyncio
 async def test_asyncpassthroughstreamingresponse_relays_the_stream_when_spend_parsing_fails():
-    from litellm.passthrough.main import AsyncPassthroughStreamingResponse
+    from embrouter.passthrough.main import AsyncPassthroughStreamingResponse
 
     chunks = [b"chunk-1", b"chunk-2", b"chunk-3"]
     mock_response = _make_streaming_response(chunks)
@@ -287,7 +287,7 @@ async def test_asyncpassthroughstreamingresponse_relays_the_stream_when_spend_pa
         chunk
         async for chunk in AsyncPassthroughStreamingResponse(
             response=response_coro(),
-            litellm_logging_obj=mock_logging_obj,
+            embrouter_logging_obj=mock_logging_obj,
             provider_config=_provider_config(_FailingCollector()),
         )
     ]
@@ -298,7 +298,7 @@ async def test_asyncpassthroughstreamingresponse_relays_the_stream_when_spend_pa
 
 
 def test_passthroughstreamingresponse_relays_the_stream_when_spend_parsing_fails():
-    from litellm.passthrough.main import PassthroughStreamingResponse
+    from embrouter.passthrough.main import PassthroughStreamingResponse
 
     chunks = [b"a", b"b", b"c"]
     mock_response = MagicMock(spec=httpx.Response)
@@ -312,7 +312,7 @@ def test_passthroughstreamingresponse_relays_the_stream_when_spend_parsing_fails
     received = list(
         PassthroughStreamingResponse(
             response=mock_response,
-            litellm_logging_obj=mock_logging_obj,
+            embrouter_logging_obj=mock_logging_obj,
             provider_config=_provider_config(_FailingCollector()),
         )
     )

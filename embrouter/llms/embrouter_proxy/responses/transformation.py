@@ -1,43 +1,43 @@
 """
-Responses API transformation for LiteLLM Proxy provider.
+Responses API transformation for EmbRouter Proxy provider.
 
-LiteLLM Proxy supports the OpenAI Responses API natively when the underlying model supports it.
+EmbRouter Proxy supports the OpenAI Responses API natively when the underlying model supports it.
 This config enables pass-through behavior to the proxy's /v1/responses endpoint.
 """
 
-from litellm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.utils import LlmProviders
+from embrouter.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.utils import LlmProviders
 
 
-class LiteLLMProxyResponsesAPIConfig(OpenAIResponsesAPIConfig):
+class EmbRouterProxyResponsesAPIConfig(OpenAIResponsesAPIConfig):
     """
-    Configuration for LiteLLM Proxy Responses API support.
+    Configuration for EmbRouter Proxy Responses API support.
 
     Extends OpenAI's config since the proxy follows OpenAI's API spec,
-    but uses LITELLM_PROXY_API_BASE for the base URL.
+    but uses EMBROUTER_PROXY_API_BASE for the base URL.
     """
 
     @property
     def custom_llm_provider(self) -> LlmProviders:
-        return LlmProviders.LITELLM_PROXY
+        return LlmProviders.EMBROUTER_PROXY
 
     def get_complete_url(
         self,
         api_base: str | None,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> str:
         """
-        Get the endpoint for LiteLLM Proxy responses API.
+        Get the endpoint for EmbRouter Proxy responses API.
 
-        Uses LITELLM_PROXY_API_BASE environment variable if api_base is not provided.
+        Uses EMBROUTER_PROXY_API_BASE environment variable if api_base is not provided.
         """
-        api_base = api_base or get_secret_str("LITELLM_PROXY_API_BASE")
+        api_base = api_base or get_secret_str("EMBROUTER_PROXY_API_BASE")
 
         if api_base is None:
             raise ValueError(
-                "api_base not set for LiteLLM Proxy responses API. "
-                "Set via api_base parameter or LITELLM_PROXY_API_BASE environment variable"
+                "api_base not set for EmbRouter Proxy responses API. "
+                "Set via api_base parameter or EMBROUTER_PROXY_API_BASE environment variable"
             )
 
         # Remove trailing slashes
@@ -46,5 +46,5 @@ class LiteLLMProxyResponsesAPIConfig(OpenAIResponsesAPIConfig):
         return f"{api_base}/responses"
 
     def supports_native_websocket(self) -> bool:
-        """LiteLLM Proxy does not support native WebSocket for Responses API"""
+        """EmbRouter Proxy does not support native WebSocket for Responses API"""
         return False

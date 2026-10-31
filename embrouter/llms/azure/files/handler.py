@@ -5,8 +5,8 @@ import httpx
 from openai import AsyncAzureOpenAI, AsyncOpenAI, AzureOpenAI, OpenAI
 from openai.types.file_deleted import FileDeleted
 
-from litellm._logging import verbose_logger
-from litellm.types.llms.openai import *
+from embrouter._logging import verbose_logger
+from embrouter.types.llms.openai import *
 
 from ..common_utils import BaseAzureLLM
 
@@ -60,10 +60,10 @@ class AzureOpenAIFilesAPI(BaseAzureLLM):
         timeout: float | httpx.Timeout,
         max_retries: int | None,
         client: AzureOpenAI | AsyncAzureOpenAI | OpenAI | AsyncOpenAI | None = None,
-        litellm_params: dict[str, object] | None = None,
+        embrouter_params: dict[str, object] | None = None,
     ) -> OpenAIFileObject | Coroutine[object, object, OpenAIFileObject]:
         openai_client: AzureOpenAI | AsyncAzureOpenAI | OpenAI | AsyncOpenAI | None = self.get_azure_openai_client(
-            litellm_params=litellm_params or {},
+            embrouter_params=embrouter_params or {},
             api_key=api_key,
             api_base=api_base,
             api_version=api_version,
@@ -104,10 +104,10 @@ class AzureOpenAIFilesAPI(BaseAzureLLM):
         max_retries: int | None,
         api_version: str | None = None,
         client: AzureOpenAI | AsyncAzureOpenAI | OpenAI | AsyncOpenAI | None = None,
-        litellm_params: dict[str, object] | None = None,
+        embrouter_params: dict[str, object] | None = None,
     ) -> HttpxBinaryResponseContent | Coroutine[object, object, HttpxBinaryResponseContent]:
         openai_client: AzureOpenAI | AsyncAzureOpenAI | OpenAI | AsyncOpenAI | None = self.get_azure_openai_client(
-            litellm_params=litellm_params or {},
+            embrouter_params=embrouter_params or {},
             api_key=api_key,
             api_base=api_base,
             api_version=api_version,
@@ -150,10 +150,10 @@ class AzureOpenAIFilesAPI(BaseAzureLLM):
         max_retries: int | None,
         api_version: str | None = None,
         client: AzureOpenAI | AsyncAzureOpenAI | OpenAI | AsyncOpenAI | None = None,
-        litellm_params: dict[str, object] | None = None,
+        embrouter_params: dict[str, object] | None = None,
     ):
         openai_client: AzureOpenAI | AsyncAzureOpenAI | OpenAI | AsyncOpenAI | None = self.get_azure_openai_client(
-            litellm_params=litellm_params or {},
+            embrouter_params=embrouter_params or {},
             api_key=api_key,
             api_base=api_base,
             api_version=api_version,
@@ -200,10 +200,10 @@ class AzureOpenAIFilesAPI(BaseAzureLLM):
         organization: str | None = None,
         api_version: str | None = None,
         client: AzureOpenAI | AsyncAzureOpenAI | OpenAI | AsyncOpenAI | None = None,
-        litellm_params: dict[str, object] | None = None,
+        embrouter_params: dict[str, object] | None = None,
     ):
         openai_client: AzureOpenAI | AsyncAzureOpenAI | OpenAI | AsyncOpenAI | None = self.get_azure_openai_client(
-            litellm_params=litellm_params or {},
+            embrouter_params=embrouter_params or {},
             api_key=api_key,
             api_base=api_base,
             api_version=api_version,
@@ -252,10 +252,10 @@ class AzureOpenAIFilesAPI(BaseAzureLLM):
         purpose: str | None = None,
         api_version: str | None = None,
         client: AzureOpenAI | AsyncAzureOpenAI | OpenAI | AsyncOpenAI | None = None,
-        litellm_params: dict[str, object] | None = None,
+        embrouter_params: dict[str, object] | None = None,
     ):
         openai_client: AzureOpenAI | AsyncAzureOpenAI | OpenAI | AsyncOpenAI | None = self.get_azure_openai_client(
-            litellm_params=litellm_params or {},
+            embrouter_params=embrouter_params or {},
             api_key=api_key,
             api_base=api_base,
             api_version=api_version,

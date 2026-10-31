@@ -1,5 +1,5 @@
 """
-SAML 2.0 SSO for the LiteLLM proxy admin UI.
+SAML 2.0 SSO for the EmbRouter proxy admin UI.
 
 Supports both SP-initiated and IdP-initiated login via the HTTP-POST binding,
 using the OneLogin python3-saml toolkit for signature, audience and time
@@ -34,11 +34,11 @@ from fastapi import HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 from pydantic import ValidationError
 
-from litellm._logging import verbose_proxy_logger
-from litellm.caching.dual_cache import DualCache
-from litellm.proxy.auth.ip_address_utils import IPAddressUtils
-from litellm.proxy.management_endpoints.types import CustomOpenID, get_litellm_user_role
-from litellm.proxy.utils import get_custom_url
+from embrouter._logging import verbose_proxy_logger
+from embrouter.caching.dual_cache import DualCache
+from embrouter.proxy.auth.ip_address_utils import IPAddressUtils
+from embrouter.proxy.management_endpoints.types import CustomOpenID, get_embrouter_user_role
+from embrouter.proxy.utils import get_custom_url
 
 try:
     from onelogin.saml2.auth import OneLogin_Saml2_Auth
@@ -54,7 +54,7 @@ SAML_LOGIN_ROUTE: Final = "sso/saml/login"
 SAML_CALLBACK_ROUTE: Final = "sso/saml/callback"
 SAML_METADATA_ROUTE: Final = "sso/saml/metadata"
 
-_SAML_AUTHN_STATE_COOKIE: Final = "litellm_saml_authn"
+_SAML_AUTHN_STATE_COOKIE: Final = "embrouter_saml_authn"
 _SAML_IDP_SETTINGS_CACHE_PREFIX: Final = "saml_idp_settings"
 _SAML_AUTHN_REQUEST_CACHE_PREFIX: Final = "saml_authn_request"
 _SAML_CONSUMED_ASSERTION_CACHE_PREFIX: Final = "saml_consumed_assertion"
@@ -91,7 +91,7 @@ _LAST_NAME_ATTRIBUTE_CANDIDATES: Final = (
     "last_name",
     "lastName",
 )
-_ROLE_ATTRIBUTE_CANDIDATES: Final = ("role", "roles", "litellm_role")
+_ROLE_ATTRIBUTE_CANDIDATES: Final = ("role", "roles", "embrouter_role")
 _TEAM_IDS_ATTRIBUTE_CANDIDATES: Final = ("teams", "team_ids", "groups")
 
 
@@ -100,8 +100,8 @@ def _saml_unavailable_error() -> HTTPException:
         status_code=status.HTTP_501_NOT_IMPLEMENTED,
         detail=(
             "SAML SSO requires the optional 'python3-saml' dependency, which is "
-            "not installed. Re-install litellm with the saml extra: "
-            "'pip install litellm[saml]'. The saml extra bundles the native "
+            "not installed. Re-install embrouter with the saml extra: "
+            "'pip install embrouter[saml]'. The saml extra bundles the native "
             "xmlsec/libxml2 libraries, so no system packages are required."
         ),
     )
@@ -466,7 +466,7 @@ class SAMLAuthHandler:
                 picture=None,
                 provider="saml",
                 team_ids=team_ids,
-                user_role=get_litellm_user_role(role_values),
+                user_role=get_embrouter_user_role(role_values),
             )
         except ValidationError as e:
             raise HTTPException(

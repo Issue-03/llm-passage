@@ -2,7 +2,7 @@ import json
 from unittest.mock import patch, MagicMock, AsyncMock
 
 
-import litellm
+import embrouter
 import pytest
 import respx
 
@@ -13,7 +13,7 @@ MOCK_EMBEDDING_RESPONSE = [[0.1, 0.2, 0.3, 0.4, 0.5]]
 @pytest.fixture
 def mock_embedding_http_handler():
     """Fixture to mock the HTTP handler for embedding tests"""
-    with patch("litellm.llms.custom_httpx.http_handler.HTTPHandler.post") as mock_post:
+    with patch("embrouter.llms.custom_httpx.http_handler.HTTPHandler.post") as mock_post:
         mock_response = MagicMock()
         mock_response.raise_for_status.return_value = None
         mock_response.status_code = 200
@@ -36,7 +36,7 @@ def mock_hf_config_fetch():
 def mock_embedding_async_http_handler():
     """Fixture to mock the async HTTP handler for embedding tests"""
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "embrouter.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         new_callable=AsyncMock,
     ) as mock_post:
         mock_response = MagicMock()
@@ -52,7 +52,7 @@ class TestHuggingFaceEmbedding:
     @pytest.fixture(autouse=True)
     def setup(self, mock_embedding_http_handler, mock_embedding_async_http_handler, mock_hf_config_fetch):
         self.mock_get_task_patcher = patch(
-            "litellm.llms.huggingface.embedding.handler.get_hf_task_embedding_for_model"
+            "embrouter.llms.huggingface.embedding.handler.get_hf_task_embedding_for_model"
         )
         self.mock_get_task = self.mock_get_task_patcher.start()
 
@@ -66,7 +66,7 @@ class TestHuggingFaceEmbedding:
         self.model = "huggingface/BAAI/bge-m3"
         self.mock_http = mock_embedding_http_handler
         self.mock_async_http = mock_embedding_async_http_handler
-        litellm.set_verbose = False
+        embrouter.set_verbose = False
 
         yield
 
@@ -75,7 +75,7 @@ class TestHuggingFaceEmbedding:
     def test_input_type_preserved_in_optional_params(self):
         input_text = ["hello world"]
 
-        response = litellm.embedding(
+        response = embrouter.embedding(
             model=self.model,
             input=input_text,
             input_type="embed",
@@ -97,7 +97,7 @@ class TestHuggingFaceEmbedding:
     def test_embedding_allows_special_token_looking_input(self):
         input_text = ["hello <|fim_prefix|> world"]
 
-        response = litellm.embedding(
+        response = embrouter.embedding(
             model=self.model,
             input=input_text,
             input_type="embed",
@@ -114,7 +114,7 @@ class TestHuggingFaceEmbedding:
     def test_model_name_with_https_substring_uses_api_base(self):
         api_base = "https://legit.example/embed"
 
-        litellm.embedding(
+        embrouter.embedding(
             model="huggingface/my-https-endpoint",
             input=["hello world"],
             input_type="embed",
@@ -139,7 +139,7 @@ class TestHuggingFaceEmbedding:
             "This is sentence two",
         ]
 
-        response = litellm.embedding(
+        response = embrouter.embedding(
             model=self.model,
             input=input_text,
             # Use the model's natural task type (sentence-similarity)

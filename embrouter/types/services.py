@@ -13,14 +13,14 @@ class ServiceMetrics(enum.Enum):
 
 class ServiceTypes(str, enum.Enum):
     """
-    Enum for litellm + litellm-adjacent services (redis/postgres/etc.)
+    Enum for embrouter + embrouter-adjacent services (redis/postgres/etc.)
     """
 
     REDIS = "redis"
     DB = "postgres"
     BATCH_WRITE_TO_DB = "batch_write_to_db"
     RESET_BUDGET_JOB = "reset_budget_job"
-    LITELLM = "self"
+    EMBROUTER = "self"
     ROUTER = "router"
     AUTH = "auth"
     PROXY_PRE_CALL = "proxy_pre_call"
@@ -63,7 +63,7 @@ DEFAULT_SERVICE_CONFIGS: Final = {
     ServiceTypes.DB.value: {"metrics": [ServiceMetrics.COUNTER, ServiceMetrics.HISTOGRAM]},
     ServiceTypes.BATCH_WRITE_TO_DB.value: {"metrics": [ServiceMetrics.COUNTER, ServiceMetrics.HISTOGRAM]},
     ServiceTypes.RESET_BUDGET_JOB.value: {"metrics": [ServiceMetrics.COUNTER, ServiceMetrics.HISTOGRAM]},
-    ServiceTypes.LITELLM.value: {"metrics": [ServiceMetrics.COUNTER, ServiceMetrics.HISTOGRAM]},
+    ServiceTypes.EMBROUTER.value: {"metrics": [ServiceMetrics.COUNTER, ServiceMetrics.HISTOGRAM]},
     ServiceTypes.ROUTER.value: {"metrics": [ServiceMetrics.COUNTER, ServiceMetrics.HISTOGRAM]},
     ServiceTypes.AUTH.value: {"metrics": [ServiceMetrics.COUNTER, ServiceMetrics.HISTOGRAM]},
     ServiceTypes.PROXY_PRE_CALL.value: {"metrics": [ServiceMetrics.COUNTER, ServiceMetrics.HISTOGRAM]},
@@ -100,7 +100,7 @@ class ServiceLoggerPayload(BaseModel):
     service: ServiceTypes = Field(description="who is this for? - postgres/redis")
     duration: float = Field(description="How long did the request take?")
     call_type: str = Field(description="The call of the service, being made")
-    caller: str | None = Field(None, description="The litellm call chain that made the service call, innermost first")
+    caller: str | None = Field(None, description="The embrouter call chain that made the service call, innermost first")
     event_metadata: dict | None = Field(description="The metadata logged during service success/failure")
 
     def to_json(self, **kwargs):

@@ -8,8 +8,8 @@ from typing import Final
 
 from fastapi import APIRouter, Depends, Request, Response
 
-from litellm.proxy._types import *
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy._types import *
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
 
 router: Final = APIRouter()
 

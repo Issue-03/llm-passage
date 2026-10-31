@@ -7,15 +7,15 @@ from urllib.parse import urlparse
 
 import httpx
 
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.secret_managers.main import get_secret_str
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.secret_managers.main import get_secret_str
 
 if TYPE_CHECKING:
-    from litellm.llms.base_llm.embedding.transformation import BaseEmbeddingConfig
-    from litellm.llms.base_llm.image_generation.transformation import (
+    from embrouter.llms.base_llm.embedding.transformation import BaseEmbeddingConfig
+    from embrouter.llms.base_llm.image_generation.transformation import (
         BaseImageGenerationConfig,
     )
-    from litellm.llms.base_llm.rerank.transformation import BaseRerankConfig
+    from embrouter.llms.base_llm.rerank.transformation import BaseRerankConfig
 
 DASHSCOPE_CHAT_COMPATIBLE_PATH: Final = "/compatible-mode/v1"
 DASHSCOPE_RERANK_PATH: Final = "/compatible-api/v1/reranks"
@@ -41,30 +41,30 @@ def resolve_dashscope_family_rerank_api_base(api_base: str | None, env_var: str,
 
 def get_dashscope_family_embedding_config(custom_llm_provider: str) -> "BaseEmbeddingConfig":
     if custom_llm_provider == "qwencloud":
-        from litellm.llms.dashscope.qwencloud import QwenCloudEmbeddingConfig
+        from embrouter.llms.dashscope.qwencloud import QwenCloudEmbeddingConfig
 
         return QwenCloudEmbeddingConfig()
     if custom_llm_provider == "qwen_ai_platform":
-        from litellm.llms.dashscope.qwen_ai_platform import (
+        from embrouter.llms.dashscope.qwen_ai_platform import (
             QwenAIPlatformEmbeddingConfig,
         )
 
         return QwenAIPlatformEmbeddingConfig()
-    from litellm.llms.dashscope.embed.transformation import DashScopeEmbeddingConfig
+    from embrouter.llms.dashscope.embed.transformation import DashScopeEmbeddingConfig
 
     return DashScopeEmbeddingConfig()
 
 
 def get_dashscope_family_rerank_config(custom_llm_provider: str) -> "BaseRerankConfig":
     if custom_llm_provider == "qwencloud":
-        from litellm.llms.dashscope.qwencloud import QwenCloudRerankConfig
+        from embrouter.llms.dashscope.qwencloud import QwenCloudRerankConfig
 
         return QwenCloudRerankConfig()
     if custom_llm_provider == "qwen_ai_platform":
-        from litellm.llms.dashscope.qwen_ai_platform import QwenAIPlatformRerankConfig
+        from embrouter.llms.dashscope.qwen_ai_platform import QwenAIPlatformRerankConfig
 
         return QwenAIPlatformRerankConfig()
-    from litellm.llms.dashscope.rerank.transformation import DashScopeRerankConfig
+    from embrouter.llms.dashscope.rerank.transformation import DashScopeRerankConfig
 
     return DashScopeRerankConfig()
 
@@ -73,16 +73,16 @@ def get_dashscope_family_image_generation_config(
     custom_llm_provider: str,
 ) -> "BaseImageGenerationConfig":
     if custom_llm_provider == "qwencloud":
-        from litellm.llms.dashscope.qwencloud import QwenCloudImageGenerationConfig
+        from embrouter.llms.dashscope.qwencloud import QwenCloudImageGenerationConfig
 
         return QwenCloudImageGenerationConfig()
     if custom_llm_provider == "qwen_ai_platform":
-        from litellm.llms.dashscope.qwen_ai_platform import (
+        from embrouter.llms.dashscope.qwen_ai_platform import (
             QwenAIPlatformImageGenerationConfig,
         )
 
         return QwenAIPlatformImageGenerationConfig()
-    from litellm.llms.dashscope.image_generation.transformation import (
+    from embrouter.llms.dashscope.image_generation.transformation import (
         DashScopeImageGenerationConfig,
     )
 

@@ -1,5 +1,5 @@
 """
-Tests for enterprise/litellm_enterprise/proxy/hooks/managed_files.py
+Tests for enterprise/embrouter_enterprise/proxy/hooks/managed_files.py
 
 Regression test for afile_retrieve called without credentials in
 async_post_call_success_hook when processing completed batch responses.
@@ -14,10 +14,10 @@ import pytest
 from typing import Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from litellm.proxy._types import LitellmUserRoles, ProxyException, UserAPIKeyAuth
-from litellm.proxy.openai_files_endpoints.common_utils import BATCH_CREATE_HIDDEN_PARAM
-from litellm.types.llms.openai import FileListPage, OpenAIFileObject
-from litellm.types.utils import LiteLLMBatch
+from embrouter.proxy._types import EmbrouterUserRoles, ProxyException, UserAPIKeyAuth
+from embrouter.proxy.openai_files_endpoints.common_utils import BATCH_CREATE_HIDDEN_PARAM
+from embrouter.types.llms.openai import FileListPage, OpenAIFileObject
+from embrouter.types.utils import EmbRouterBatch
 
 
 def _make_file_object(file_id: str = "file-output-abc") -> OpenAIFileObject:
@@ -38,9 +38,9 @@ def _make_batch_response(
     status: str = "completed",
     model_id: str = "model-deploy-xyz",
     model_name: str = "azure/gpt-4",
-) -> LiteLLMBatch:
-    """Create a LiteLLMBatch response with hidden params set as the router would."""
-    batch = LiteLLMBatch(
+) -> EmbRouterBatch:
+    """Create a EmbRouterBatch response with hidden params set as the router would."""
+    batch = EmbRouterBatch(
         id=batch_id,
         completion_window="24h",
         created_at=1700000000,
@@ -89,7 +89,7 @@ def _make_admin_api_key_dict() -> UserAPIKeyAuth:
     return UserAPIKeyAuth(
         api_key="sk-admin",
         user_id="admin-user",
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN,
         parent_otel_span=None,
     )
 
@@ -171,20 +171,20 @@ class _FakeManagedFileTable:
 def _make_managed_files_over_rows(rows):
     managed_files = _make_managed_files_instance()
     table = _FakeManagedFileTable(rows)
-    managed_files.prisma_client.db.litellm_managedfiletable = table
+    managed_files.prisma_client.db.embrouter_managedfiletable = table
     return managed_files, table
 
 
 def _make_managed_files_instance():
-    """Create a _PROXY_LiteLLMManagedFiles with storage methods mocked out."""
-    from litellm_enterprise.proxy.hooks.managed_files import (
-        _PROXY_LiteLLMManagedFiles,
+    """Create a _PROXY_EmbRouterManagedFiles with storage methods mocked out."""
+    from embrouter_enterprise.proxy.hooks.managed_files import (
+        _PROXY_EmbRouterManagedFiles,
     )
 
     mock_cache = MagicMock()
     mock_prisma = MagicMock()
 
-    instance = _PROXY_LiteLLMManagedFiles(
+    instance = _PROXY_EmbRouterManagedFiles(
         internal_usage_cache=mock_cache,
         prisma_client=mock_prisma,
     )
@@ -225,8 +225,8 @@ async def test_should_pass_credentials_to_afile_retrieve():
     mock_afile_retrieve = AsyncMock(return_value=_make_file_object("file-output-abc"))
 
     with (
-        patch("litellm.afile_retrieve", mock_afile_retrieve),
-        patch("litellm.proxy.proxy_server.llm_router", mock_router),
+        patch("embrouter.afile_retrieve", mock_afile_retrieve),
+        patch("embrouter.proxy.proxy_server.llm_router", mock_router),
     ):
         await managed_files.async_post_call_success_hook(
             data={},
@@ -252,7 +252,7 @@ async def test_should_pass_credentials_to_afile_retrieve():
 @pytest.mark.asyncio
 async def test_get_user_created_file_ids_skips_rows_without_file_object():
     managed_files = _make_managed_files_instance()
-    managed_files.prisma_client.db.litellm_managedfiletable.find_many = AsyncMock(
+    managed_files.prisma_client.db.embrouter_managedfiletable.find_many = AsyncMock(
         return_value=[
             MagicMock(
                 file_object=_make_file_object().model_dump(),
@@ -281,7 +281,7 @@ async def test_get_user_created_file_ids_remaps_stored_raw_provider_id_to_unifie
     unified_id = "bGl0ZWxsbV9wcm94eTt1bmlmaWVkX2lkLGRlYWRiZWVm"
     raw_provider_object = _make_file_object("file-raw-provider-123")
     managed_files = _make_managed_files_instance()
-    managed_files.prisma_client.db.litellm_managedfiletable.find_many = AsyncMock(
+    managed_files.prisma_client.db.embrouter_managedfiletable.find_many = AsyncMock(
         return_value=[
             MagicMock(
                 file_object=raw_provider_object.model_dump(),
@@ -302,7 +302,7 @@ async def test_get_user_created_file_ids_remaps_stored_raw_provider_id_to_unifie
 @pytest.mark.asyncio
 async def test_afile_list_returns_owner_scoped_managed_files():
     managed_files = _make_managed_files_instance()
-    managed_files.prisma_client.db.litellm_managedfiletable.find_many = AsyncMock(
+    managed_files.prisma_client.db.embrouter_managedfiletable.find_many = AsyncMock(
         return_value=[
             MagicMock(
                 file_object=_make_file_object("file-provider-id").model_dump(),
@@ -319,11 +319,11 @@ async def test_afile_list_returns_owner_scoped_managed_files():
 
     response = await managed_files.afile_list(
         purpose="batch_output",
-        litellm_parent_otel_span=None,
+        embrouter_parent_otel_span=None,
         user_api_key_dict=_make_user_api_key_dict(),
     )
 
-    managed_files.prisma_client.db.litellm_managedfiletable.find_many.assert_awaited_once_with(
+    managed_files.prisma_client.db.embrouter_managedfiletable.find_many.assert_awaited_once_with(
         where={"created_by": "test-user"},
         take=10001,
         order=[{"created_at": "desc"}, {"unified_file_id": "desc"}],
@@ -344,7 +344,7 @@ async def test_afile_list_returns_a_page_object_callbacks_can_read():
 
     page = await managed_files.afile_list(
         purpose=None,
-        litellm_parent_otel_span=None,
+        embrouter_parent_otel_span=None,
         user_api_key_dict=_make_user_api_key_dict(),
     )
 
@@ -370,7 +370,7 @@ async def test_afile_list_rejects_a_purpose_the_files_api_never_accepts(purpose)
     with pytest.raises(ProxyException) as exc_info:
         await managed_files.afile_list(
             purpose=purpose,
-            litellm_parent_otel_span=None,
+            embrouter_parent_otel_span=None,
             user_api_key_dict=_make_user_api_key_dict(),
         )
 
@@ -387,7 +387,7 @@ async def test_afile_list_accepts_every_documented_purpose(purpose):
 
     page = await managed_files.afile_list(
         purpose=purpose,
-        litellm_parent_otel_span=None,
+        embrouter_parent_otel_span=None,
         user_api_key_dict=_make_user_api_key_dict(),
     )
 
@@ -406,7 +406,7 @@ async def test_afile_list_does_not_leak_another_callers_files():
 
     response = await managed_files.afile_list(
         purpose=None,
-        litellm_parent_otel_span=None,
+        embrouter_parent_otel_span=None,
         user_api_key_dict=_make_user_api_key_dict(),
     )
 
@@ -426,7 +426,7 @@ async def test_afile_list_returns_own_and_team_files_for_a_key_carrying_both_ids
 
     response = await managed_files.afile_list(
         purpose=None,
-        litellm_parent_otel_span=None,
+        embrouter_parent_otel_span=None,
         user_api_key_dict=_make_team_member_api_key_dict(),
     )
 
@@ -447,7 +447,7 @@ async def test_afile_list_scopes_a_service_account_key_to_its_team():
 
     response = await managed_files.afile_list(
         purpose=None,
-        litellm_parent_otel_span=None,
+        embrouter_parent_otel_span=None,
         user_api_key_dict=_make_service_account_api_key_dict(),
     )
 
@@ -466,7 +466,7 @@ async def test_afile_list_returns_every_callers_files_for_a_proxy_admin():
 
     response = await managed_files.afile_list(
         purpose=None,
-        litellm_parent_otel_span=None,
+        embrouter_parent_otel_span=None,
         user_api_key_dict=_make_admin_api_key_dict(),
     )
 
@@ -494,7 +494,7 @@ async def test_afile_list_pages_a_team_key_across_both_halves_of_its_filter():
     for _ in range(4):
         response = await managed_files.afile_list(
             purpose=None,
-            litellm_parent_otel_span=None,
+            embrouter_parent_otel_span=None,
             user_api_key_dict=user_api_key_dict,
             limit=2,
             after=cursor,
@@ -517,7 +517,7 @@ async def test_afile_list_orders_newest_first_and_breaks_ties_on_the_cursor_colu
 
     await managed_files.afile_list(
         purpose=None,
-        litellm_parent_otel_span=None,
+        embrouter_parent_otel_span=None,
         user_api_key_dict=_make_user_api_key_dict(),
     )
 
@@ -539,7 +539,7 @@ async def test_afile_list_scopes_a_keyless_key_to_its_own_hashed_token():
 
     response = await managed_files.afile_list(
         purpose=None,
-        litellm_parent_otel_span=None,
+        embrouter_parent_otel_span=None,
         user_api_key_dict=caller,
     )
 
@@ -553,7 +553,7 @@ async def test_afile_list_denies_a_caller_with_no_identity_at_all():
 
     response = await managed_files.afile_list(
         purpose=None,
-        litellm_parent_otel_span=None,
+        embrouter_parent_otel_span=None,
         user_api_key_dict=UserAPIKeyAuth(parent_otel_span=None),
     )
 
@@ -573,7 +573,7 @@ async def test_afile_list_filters_by_purpose():
 
     response = await managed_files.afile_list(
         purpose="batch",
-        litellm_parent_otel_span=None,
+        embrouter_parent_otel_span=None,
         user_api_key_dict=_make_user_api_key_dict(),
     )
 
@@ -587,7 +587,7 @@ async def _walk_afile_list(managed_files, user_api_key_dict, purpose, limit):
     while True:
         page = await managed_files.afile_list(
             purpose=purpose,
-            litellm_parent_otel_span=None,
+            embrouter_parent_otel_span=None,
             user_api_key_dict=user_api_key_dict,
             limit=limit,
             after=after,
@@ -617,7 +617,7 @@ async def test_afile_list_fills_a_page_past_rows_the_purpose_filter_drops():
 
     first_page = await managed_files.afile_list(
         purpose="batch",
-        litellm_parent_otel_span=None,
+        embrouter_parent_otel_span=None,
         user_api_key_dict=user_api_key_dict,
         limit=1,
     )
@@ -628,7 +628,7 @@ async def test_afile_list_fills_a_page_past_rows_the_purpose_filter_drops():
 
     second_page = await managed_files.afile_list(
         purpose="batch",
-        litellm_parent_otel_span=None,
+        embrouter_parent_otel_span=None,
         user_api_key_dict=user_api_key_dict,
         limit=1,
         after=first_page.last_id,
@@ -670,7 +670,7 @@ async def test_afile_list_fills_a_page_past_rows_that_do_not_parse():
 
     page = await managed_files.afile_list(
         purpose=None,
-        litellm_parent_otel_span=None,
+        embrouter_parent_otel_span=None,
         user_api_key_dict=_make_user_api_key_dict(),
         limit=1,
     )
@@ -693,7 +693,7 @@ async def test_afile_list_bounds_the_queries_a_deep_purpose_match_costs():
 
     page = await managed_files.afile_list(
         purpose="batch",
-        litellm_parent_otel_span=None,
+        embrouter_parent_otel_span=None,
         user_api_key_dict=_make_user_api_key_dict(),
         limit=1,
     )
@@ -713,7 +713,7 @@ async def test_afile_list_bounds_the_queries_a_deep_unparseable_run_costs():
 
     page = await managed_files.afile_list(
         purpose=None,
-        litellm_parent_otel_span=None,
+        embrouter_parent_otel_span=None,
         user_api_key_dict=_make_user_api_key_dict(),
         limit=1,
     )
@@ -732,7 +732,7 @@ async def test_afile_list_reads_one_chunk_when_the_first_one_fills_the_page():
 
     page = await managed_files.afile_list(
         purpose=None,
-        litellm_parent_otel_span=None,
+        embrouter_parent_otel_span=None,
         user_api_key_dict=_make_user_api_key_dict(),
         limit=2,
     )
@@ -750,7 +750,7 @@ async def test_afile_list_reports_no_more_pages_when_nothing_matches():
 
     page = await managed_files.afile_list(
         purpose="batch",
-        litellm_parent_otel_span=None,
+        embrouter_parent_otel_span=None,
         user_api_key_dict=_make_user_api_key_dict(),
         limit=2,
     )
@@ -769,7 +769,7 @@ async def test_afile_list_honors_limit_and_reports_more_pages():
 
     response = await managed_files.afile_list(
         purpose=None,
-        litellm_parent_otel_span=None,
+        embrouter_parent_otel_span=None,
         user_api_key_dict=_make_user_api_key_dict(),
         limit=2,
     )
@@ -791,7 +791,7 @@ async def test_afile_list_pages_through_every_file_without_overlap():
     while True:
         page = await managed_files.afile_list(
             purpose=None,
-            litellm_parent_otel_span=None,
+            embrouter_parent_otel_span=None,
             user_api_key_dict=user_api_key_dict,
             limit=2,
             after=after,
@@ -815,7 +815,7 @@ async def test_afile_list_pages_through_every_file_without_overlap():
 )
 @pytest.mark.asyncio
 async def test_afile_list_rejects_an_after_cursor_outside_the_callers_files(unknown_cursor):
-    from litellm.proxy._types import ProxyException
+    from embrouter.proxy._types import ProxyException
 
     managed_files, table = _make_managed_files_over_rows(
         [
@@ -827,7 +827,7 @@ async def test_afile_list_rejects_an_after_cursor_outside_the_callers_files(unkn
     with pytest.raises(ProxyException) as exc_info:
         await managed_files.afile_list(
             purpose=None,
-            litellm_parent_otel_span=None,
+            embrouter_parent_otel_span=None,
             user_api_key_dict=_make_user_api_key_dict(),
             after=unknown_cursor,
         )
@@ -853,14 +853,14 @@ async def test_afile_list_rejects_an_after_cursor_outside_the_callers_files(unkn
 )
 @pytest.mark.asyncio
 async def test_afile_list_rejects_a_limit_outside_the_openai_range(limit, bound, expected_range):
-    from litellm.proxy._types import ProxyException
+    from embrouter.proxy._types import ProxyException
 
     managed_files, table = _make_managed_files_over_rows([_make_managed_file_row("unified-mine")])
 
     with pytest.raises(ProxyException) as exc_info:
         await managed_files.afile_list(
             purpose=None,
-            litellm_parent_otel_span=None,
+            embrouter_parent_otel_span=None,
             user_api_key_dict=_make_user_api_key_dict(),
             limit=limit,
         )
@@ -881,7 +881,7 @@ async def test_afile_list_accepts_the_ends_of_the_openai_limit_range(limit):
 
     response = await managed_files.afile_list(
         purpose=None,
-        litellm_parent_otel_span=None,
+        embrouter_parent_otel_span=None,
         user_api_key_dict=_make_user_api_key_dict(),
         limit=limit,
     )
@@ -893,7 +893,7 @@ async def test_afile_list_accepts_the_ends_of_the_openai_limit_range(limit):
 
 @pytest.mark.asyncio
 async def test_parse_managed_file_object_warning_omits_rejected_values(caplog):
-    from litellm_enterprise.proxy.hooks.managed_files import (
+    from embrouter_enterprise.proxy.hooks.managed_files import (
         _parse_managed_file_object,
     )
 
@@ -912,7 +912,7 @@ async def test_parse_managed_file_object_warning_omits_rejected_values(caplog):
 @pytest.mark.asyncio
 async def test_get_user_created_file_ids_skips_unparseable_rows():
     managed_files = _make_managed_files_instance()
-    managed_files.prisma_client.db.litellm_managedfiletable.find_many = AsyncMock(
+    managed_files.prisma_client.db.embrouter_managedfiletable.find_many = AsyncMock(
         return_value=[
             MagicMock(
                 file_object={"id": "file-corrupt", "object": "file"},
@@ -949,8 +949,8 @@ async def test_should_fallback_when_no_router():
     mock_afile_retrieve = AsyncMock(return_value=_make_file_object("file-output-abc"))
 
     with (
-        patch("litellm.afile_retrieve", mock_afile_retrieve),
-        patch("litellm.proxy.proxy_server.llm_router", None),
+        patch("embrouter.afile_retrieve", mock_afile_retrieve),
+        patch("embrouter.proxy.proxy_server.llm_router", None),
     ):
         await managed_files.async_post_call_success_hook(
             data={},
@@ -998,8 +998,8 @@ async def test_should_not_double_wrap_already_unified_output_file_id():
     mock_afile_retrieve = AsyncMock(return_value=_make_file_object(provider_file_id))
 
     with (
-        patch("litellm.afile_retrieve", mock_afile_retrieve),
-        patch("litellm.proxy.proxy_server.llm_router", mock_router),
+        patch("embrouter.afile_retrieve", mock_afile_retrieve),
+        patch("embrouter.proxy.proxy_server.llm_router", mock_router),
     ):
         await managed_files.async_post_call_success_hook(
             data={},
@@ -1029,7 +1029,7 @@ async def test_should_skip_non_file_unified_id_on_output_file_id():
     managed_files = _make_managed_files_instance()
     batch_unified = (
         base64.urlsafe_b64encode(
-            b"litellm_proxy;model_id:openai/openai/gpt-5.5-batch;llm_batch_id:batch_abc"
+            b"embrouter_proxy;model_id:openai/openai/gpt-5.5-batch;llm_batch_id:batch_abc"
         )
         .decode()
         .rstrip("=")
@@ -1042,7 +1042,7 @@ async def test_should_skip_non_file_unified_id_on_output_file_id():
     )
     user_api_key_dict = _make_user_api_key_dict()
 
-    with patch("litellm.afile_retrieve", AsyncMock()) as mock_afile_retrieve:
+    with patch("embrouter.afile_retrieve", AsyncMock()) as mock_afile_retrieve:
         await managed_files.async_post_call_success_hook(
             data={},
             user_api_key_dict=user_api_key_dict,
@@ -1066,7 +1066,7 @@ async def test_afile_content_passes_trusted_model_credentials_to_router():
 
     managed_files = _make_managed_files_instance()
     unified_file_id = "unified-file-id"
-    s3_uri = "s3://my-bucket/litellm-batch-outputs/job-123/input.jsonl.out"
+    s3_uri = "s3://my-bucket/embrouter-batch-outputs/job-123/input.jsonl.out"
     managed_files.get_unified_file_id = AsyncMock(return_value=None)
     managed_files.get_model_file_id_mapping = AsyncMock(
         return_value={unified_file_id: {"model-123": s3_uri}}
@@ -1084,33 +1084,33 @@ async def test_afile_content_passes_trusted_model_credentials_to_router():
 
     await managed_files.afile_content(
         file_id=unified_file_id,
-        litellm_parent_otel_span=None,
+        embrouter_parent_otel_span=None,
         llm_router=mock_router,
     )
 
     call_kwargs = mock_router.afile_content.call_args.kwargs
     assert call_kwargs["model"] == "model-123"
     assert call_kwargs["file_id"] == s3_uri
-    trusted_credentials = call_kwargs["_litellm_internal_model_credentials"]
+    trusted_credentials = call_kwargs["_embrouter_internal_model_credentials"]
     assert isinstance(trusted_credentials, MappingProxyType)
     assert trusted_credentials["s3_bucket_name"] == "my-bucket"
 
 
 def _managed_deletion_file_id(provider_file_id):
-    from litellm.types.utils import SpecialEnums
+    from embrouter.types.utils import SpecialEnums
 
-    value = SpecialEnums.LITELLM_MANAGED_FILE_COMPLETE_STR.value.format(
+    value = SpecialEnums.EMBROUTER_MANAGED_FILE_COMPLETE_STR.value.format(
         "application/json", "test-file", "batch-model", provider_file_id, "model-123"
     )
     return base64.urlsafe_b64encode(value.encode()).decode().rstrip("=")
 
 
 def _managed_files_with_deletion_row(unified_file_id, provider_file_id, file_object):
-    from litellm.caching import DualCache
-    from litellm.models.managed_files import LiteLLM_ManagedFileTable
-    from litellm_enterprise.proxy.hooks.managed_files import _PROXY_LiteLLMManagedFiles
+    from embrouter.caching import DualCache
+    from embrouter.models.managed_files import EmbRouter_ManagedFileTable
+    from embrouter_enterprise.proxy.hooks.managed_files import _PROXY_EmbRouterManagedFiles
 
-    row = LiteLLM_ManagedFileTable(
+    row = EmbRouter_ManagedFileTable(
         unified_file_id=unified_file_id,
         model_mappings={"model-123": provider_file_id},
         flat_model_file_ids=[provider_file_id],
@@ -1120,9 +1120,9 @@ def _managed_files_with_deletion_row(unified_file_id, provider_file_id, file_obj
         find_first=AsyncMock(return_value=row),
         delete=AsyncMock(),
     )
-    return _PROXY_LiteLLMManagedFiles(
+    return _PROXY_EmbRouterManagedFiles(
         internal_usage_cache=DualCache(),
-        prisma_client=MagicMock(db=MagicMock(litellm_managedfiletable=table)),
+        prisma_client=MagicMock(db=MagicMock(embrouter_managedfiletable=table)),
     ), table
 
 
@@ -1131,7 +1131,7 @@ async def test_afile_delete_bedrock_uses_deployment_bucket_and_signed_s3_delete(
     import httpx
     import respx
 
-    from litellm import Router
+    from embrouter import Router
 
     monkeypatch.delenv("AWS_S3_BUCKET_NAME", raising=False)
     monkeypatch.delenv("AWS_S3_OUTPUT_BUCKET_NAME", raising=False)
@@ -1140,7 +1140,7 @@ async def test_afile_delete_bedrock_uses_deployment_bucket_and_signed_s3_delete(
         model_list=[
             {
                 "model_name": "bedrock-batch",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0",
                     "aws_access_key_id": "AKIAEXAMPLE",
                     "aws_secret_access_key": "secret",
@@ -1152,18 +1152,18 @@ async def test_afile_delete_bedrock_uses_deployment_bucket_and_signed_s3_delete(
         ],
         num_retries=0,
     )
-    s3_uri = "s3://my-bucket/litellm-bedrock-files/input.jsonl"
+    s3_uri = "s3://my-bucket/embrouter-bedrock-files/input.jsonl"
     unified_file_id = _managed_deletion_file_id(s3_uri)
     managed_files, table = _managed_files_with_deletion_row(unified_file_id, s3_uri, None)
     with respx.mock:
         route = respx.delete(
-            "https://s3.us-west-2.amazonaws.com/my-bucket/litellm-bedrock-files/input.jsonl"
+            "https://s3.us-west-2.amazonaws.com/my-bucket/embrouter-bedrock-files/input.jsonl"
         ).mock(return_value=httpx.Response(204))
         response = await managed_files.afile_delete(
             file_id=unified_file_id,
-            litellm_parent_otel_span=None,
+            embrouter_parent_otel_span=None,
             llm_router=router,
-            _litellm_internal_model_credentials={"s3_bucket_name": "request-bucket"},
+            _embrouter_internal_model_credentials={"s3_bucket_name": "request-bucket"},
         )
 
     assert len(route.calls) == 1
@@ -1187,9 +1187,9 @@ async def test_afile_delete_returns_managed_id_for_stored_provider_output():
     )
     response = await managed_files.afile_delete(
         file_id=unified_file_id,
-        litellm_parent_otel_span=None,
+        embrouter_parent_otel_span=None,
         llm_router=router,
-        _litellm_internal_model_credentials={"s3_bucket_name": "request-bucket"},
+        _embrouter_internal_model_credentials={"s3_bucket_name": "request-bucket"},
     )
 
     assert response.id == unified_file_id
@@ -1213,18 +1213,18 @@ async def test_afile_content_bedrock_unified_id_end_to_end(monkeypatch):
     import httpx
     import respx
 
-    import litellm
-    from litellm import Router
+    import embrouter
+    from embrouter import Router
 
     monkeypatch.delenv("AWS_S3_BUCKET_NAME", raising=False)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
+    embrouter.in_memory_llm_clients_cache.flush_cache()
 
     router = Router(
         model_list=[
             {
                 "model_name": "bedrock-claude",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "bedrock/anthropic.claude-3-5-sonnet-20240620-v1:0",
                     "aws_access_key_id": "AKIAEXAMPLE",
                     "aws_secret_access_key": "secret",
@@ -1238,13 +1238,13 @@ async def test_afile_content_bedrock_unified_id_end_to_end(monkeypatch):
 
     managed_files = _make_managed_files_instance()
     unified_file_id = "unified-file-id"
-    s3_uri = "s3://my-bucket/litellm-batch-outputs/job-123/input.jsonl.out"
+    s3_uri = "s3://my-bucket/embrouter-batch-outputs/job-123/input.jsonl.out"
     managed_files.get_unified_file_id = AsyncMock(return_value=None)
     managed_files.get_model_file_id_mapping = AsyncMock(
         return_value={unified_file_id: {"model-123": s3_uri}}
     )
 
-    expected_url = "https://s3.us-west-2.amazonaws.com/my-bucket/litellm-batch-outputs/job-123/input.jsonl.out"
+    expected_url = "https://s3.us-west-2.amazonaws.com/my-bucket/embrouter-batch-outputs/job-123/input.jsonl.out"
     with respx.mock:
         route = respx.get(expected_url).mock(
             return_value=httpx.Response(200, content=b'{"recordId": "x"}')
@@ -1252,7 +1252,7 @@ async def test_afile_content_bedrock_unified_id_end_to_end(monkeypatch):
 
         response = await managed_files.afile_content(
             file_id=unified_file_id,
-            litellm_parent_otel_span=None,
+            embrouter_parent_otel_span=None,
             llm_router=router,
         )
 
@@ -1268,8 +1268,8 @@ async def test_afile_content_error_reports_unified_id_not_provider_uri():
     """When every model attempt fails, the error must name the caller's unified
     file id, never the resolved internal s3:// URI (no internal-path leak)."""
     managed_files = _make_managed_files_instance()
-    unified_file_id = "litellm_proxy_unified_id_abc"
-    s3_uri = "s3://my-bucket/litellm-batch-outputs/job-123/input.jsonl.out"
+    unified_file_id = "embrouter_proxy_unified_id_abc"
+    s3_uri = "s3://my-bucket/embrouter-batch-outputs/job-123/input.jsonl.out"
     managed_files.get_unified_file_id = AsyncMock(return_value=None)
     managed_files.get_model_file_id_mapping = AsyncMock(
         return_value={unified_file_id: {"model-123": s3_uri}}
@@ -1279,10 +1279,10 @@ async def test_afile_content_error_reports_unified_id_not_provider_uri():
     mock_router.get_deployment_credentials_with_provider = MagicMock(return_value=None)
     mock_router.afile_content = AsyncMock(side_effect=Exception("deployment failed"))
 
-    with pytest.raises(Exception, match='LiteLLM Managed File object with') as exc_info:
+    with pytest.raises(Exception, match='EmbRouter Managed File object with') as exc_info:
         await managed_files.afile_content(
             file_id=unified_file_id,
-            litellm_parent_otel_span=None,
+            embrouter_parent_otel_span=None,
             llm_router=mock_router,
         )
 
@@ -1292,25 +1292,25 @@ async def test_afile_content_error_reports_unified_id_not_provider_uri():
 
 
 def _make_real_managed_files_instance():
-    """Create a _PROXY_LiteLLMManagedFiles with a real store_unified_file_id but
+    """Create a _PROXY_EmbRouterManagedFiles with a real store_unified_file_id but
     an AsyncMock prisma client, so the DB write path itself can be asserted."""
-    from litellm_enterprise.proxy.hooks.managed_files import (
-        _PROXY_LiteLLMManagedFiles,
+    from embrouter_enterprise.proxy.hooks.managed_files import (
+        _PROXY_EmbRouterManagedFiles,
     )
 
     mock_cache = MagicMock()
     mock_cache.async_set_cache = AsyncMock()
 
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_managedfiletable.upsert = AsyncMock()
-    mock_prisma.db.litellm_managedfiletable.create = AsyncMock(
+    mock_prisma.db.embrouter_managedfiletable.upsert = AsyncMock()
+    mock_prisma.db.embrouter_managedfiletable.create = AsyncMock(
         side_effect=AssertionError(
             "store_unified_file_id must upsert, not create, on the retrieve path"
         )
     )
 
     return (
-        _PROXY_LiteLLMManagedFiles(
+        _PROXY_EmbRouterManagedFiles(
             internal_usage_cache=mock_cache,
             prisma_client=mock_prisma,
         ),
@@ -1321,19 +1321,19 @@ def _make_real_managed_files_instance():
 def _make_object_store_instance():
     """A real store_unified_object_id over an AsyncMock prisma client, so both the
     upsert and the update-only write path can be asserted."""
-    from litellm_enterprise.proxy.hooks.managed_files import (
-        _PROXY_LiteLLMManagedFiles,
+    from embrouter_enterprise.proxy.hooks.managed_files import (
+        _PROXY_EmbRouterManagedFiles,
     )
 
     mock_cache = MagicMock()
     mock_cache.async_set_cache = AsyncMock()
 
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_managedobjecttable.upsert = AsyncMock()
-    mock_prisma.db.litellm_managedobjecttable.update_many = AsyncMock()
+    mock_prisma.db.embrouter_managedobjecttable.upsert = AsyncMock()
+    mock_prisma.db.embrouter_managedobjecttable.update_many = AsyncMock()
 
     return (
-        _PROXY_LiteLLMManagedFiles(
+        _PROXY_EmbRouterManagedFiles(
             internal_usage_cache=mock_cache,
             prisma_client=mock_prisma,
         ),
@@ -1355,7 +1355,7 @@ async def test_poll_refreshes_batch_state_without_claiming_the_row():
     await managed_files.store_unified_object_id(
         unified_object_id="uoi-1",
         file_object=_make_batch_response(status="completed"),
-        litellm_parent_otel_span=None,
+        embrouter_parent_otel_span=None,
         model_object_id="batch-123",
         file_purpose="batch",
         user_api_key_dict=poller,
@@ -1365,8 +1365,8 @@ async def test_poll_refreshes_batch_state_without_claiming_the_row():
     )
 
     # the row is refreshed in place, and cannot be conjured by a poll
-    mock_prisma.db.litellm_managedobjecttable.upsert.assert_not_awaited()
-    update_many = mock_prisma.db.litellm_managedobjecttable.update_many
+    mock_prisma.db.embrouter_managedobjecttable.upsert.assert_not_awaited()
+    update_many = mock_prisma.db.embrouter_managedobjecttable.update_many
     update_many.assert_awaited_once()
     call = update_many.await_args
     assert call.kwargs["where"] == {"unified_object_id": "uoi-1"}
@@ -1391,7 +1391,7 @@ async def test_create_still_upserts_and_claims_attribution():
     await managed_files.store_unified_object_id(
         unified_object_id="uoi-2",
         file_object=_make_batch_response(status="validating"),
-        litellm_parent_otel_span=None,
+        embrouter_parent_otel_span=None,
         model_object_id="batch-456",
         file_purpose="batch",
         user_api_key_dict=creator,
@@ -1399,8 +1399,8 @@ async def test_create_still_upserts_and_claims_attribution():
         persist_attribution=True,
     )
 
-    mock_prisma.db.litellm_managedobjecttable.update_many.assert_not_awaited()
-    upsert = mock_prisma.db.litellm_managedobjecttable.upsert
+    mock_prisma.db.embrouter_managedobjecttable.update_many.assert_not_awaited()
+    upsert = mock_prisma.db.embrouter_managedobjecttable.upsert
     upsert.assert_awaited_once()
     created = upsert.await_args.kwargs["data"]["create"]
     # UserAPIKeyAuth hashes an sk- token on construction; the hash is what is billed
@@ -1419,14 +1419,14 @@ async def test_default_callers_still_create_their_rows():
     await managed_files.store_unified_object_id(
         unified_object_id="uoi-3",
         file_object=_make_batch_response(),
-        litellm_parent_otel_span=None,
+        embrouter_parent_otel_span=None,
         model_object_id="ft-789",
         file_purpose="fine-tune",
         user_api_key_dict=_make_user_api_key_dict(),
     )
 
-    mock_prisma.db.litellm_managedobjecttable.upsert.assert_awaited_once()
-    mock_prisma.db.litellm_managedobjecttable.update_many.assert_not_awaited()
+    mock_prisma.db.embrouter_managedobjecttable.upsert.assert_awaited_once()
+    mock_prisma.db.embrouter_managedobjecttable.update_many.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -1435,20 +1435,20 @@ async def test_store_unified_file_id_is_idempotent_via_upsert():
     unified_file_id): re-registering an already-stored output file id must upsert on
     unified_file_id, never do an unconditional create that raises on conflict."""
     managed_files, mock_prisma = _make_real_managed_files_instance()
-    file_id = "litellm_proxy_unified_output_id_abc"
+    file_id = "embrouter_proxy_unified_output_id_abc"
     model_mappings = {"model-deploy-xyz": "file-output-abc"}
 
     for _ in range(2):
         await managed_files.store_unified_file_id(
             file_id=file_id,
             file_object=_make_file_object(),
-            litellm_parent_otel_span=None,
+            embrouter_parent_otel_span=None,
             model_mappings=model_mappings,
             user_api_key_dict=_make_user_api_key_dict(),
         )
 
-    mock_prisma.db.litellm_managedfiletable.create.assert_not_awaited()
-    upsert_mock = mock_prisma.db.litellm_managedfiletable.upsert
+    mock_prisma.db.embrouter_managedfiletable.create.assert_not_awaited()
+    upsert_mock = mock_prisma.db.embrouter_managedfiletable.upsert
     assert upsert_mock.await_count == 2
     for upsert_call in upsert_mock.await_args_list:
         assert upsert_call.kwargs["where"] == {"unified_file_id": file_id}
@@ -1503,7 +1503,7 @@ async def test_concurrent_first_registrations_converge_on_one_row():
             managed_files.store_unified_file_id(
                 file_id=unified_id,
                 file_object=None,
-                litellm_parent_otel_span=None,
+                embrouter_parent_otel_span=None,
                 model_mappings={"model-deploy-xyz": "file-output-abc"},
                 user_api_key_dict=_make_user_api_key_dict(),
             )
@@ -1513,7 +1513,7 @@ async def test_concurrent_first_registrations_converge_on_one_row():
 
     upserted_row_keys = {
         upsert_call.kwargs["where"]["unified_file_id"]
-        for upsert_call in mock_prisma.db.litellm_managedfiletable.upsert.await_args_list
+        for upsert_call in mock_prisma.db.embrouter_managedfiletable.upsert.await_args_list
     }
     assert minted_ids[0] == minted_ids[1]
     assert upserted_row_keys == {minted_ids[0]}
@@ -1521,7 +1521,7 @@ async def test_concurrent_first_registrations_converge_on_one_row():
 
 def _b64_unified_input_file_id(target_model_names: str) -> str:
     unified_input_file_id = (
-        "litellm_proxy:application/octet-stream;unified_id,input-uuid;"
+        "embrouter_proxy:application/octet-stream;unified_id,input-uuid;"
         f"target_model_names,{target_model_names}"
     )
     return base64.urlsafe_b64encode(unified_input_file_id.encode()).decode().rstrip("=")
@@ -1539,8 +1539,8 @@ async def test_hook_mint_prefers_input_file_target_model_names():
     mock_router.get_deployment_credentials_with_provider = MagicMock(return_value={})
 
     with (
-        patch("litellm.afile_retrieve", AsyncMock(return_value=_make_file_object())),
-        patch("litellm.proxy.proxy_server.llm_router", mock_router),
+        patch("embrouter.afile_retrieve", AsyncMock(return_value=_make_file_object())),
+        patch("embrouter.proxy.proxy_server.llm_router", mock_router),
     ):
         await managed_files.async_post_call_success_hook(
             data={},
@@ -1569,8 +1569,8 @@ async def test_hook_mint_falls_back_to_response_input_file_id_target_models():
     mock_router.get_deployment_credentials_with_provider = MagicMock(return_value={})
 
     with (
-        patch("litellm.afile_retrieve", AsyncMock(return_value=_make_file_object())),
-        patch("litellm.proxy.proxy_server.llm_router", mock_router),
+        patch("embrouter.afile_retrieve", AsyncMock(return_value=_make_file_object())),
+        patch("embrouter.proxy.proxy_server.llm_router", mock_router),
     ):
         await managed_files.async_post_call_success_hook(
             data={},
@@ -1587,16 +1587,16 @@ async def test_hook_mint_falls_back_to_response_input_file_id_target_models():
 
 @pytest.mark.asyncio
 async def test_cost_job_and_retrieve_paths_mint_identical_unified_output_file_ids():
-    from litellm.proxy.openai_files_endpoints.common_utils import (
+    from embrouter.proxy.openai_files_endpoints.common_utils import (
         ensure_batch_response_managed_file_ids,
     )
-    from litellm_enterprise.proxy.common_utils.check_batch_cost import CheckBatchCost
+    from embrouter_enterprise.proxy.common_utils.check_batch_cost import CheckBatchCost
 
     managed_files, mock_prisma = _make_real_managed_files_instance()
-    mock_prisma.db.litellm_managedfiletable.find_first = AsyncMock(return_value=None)
+    mock_prisma.db.embrouter_managedfiletable.find_first = AsyncMock(return_value=None)
     unified_input_file_id = _b64_unified_input_file_id("model-a")
 
-    retrieve_response = LiteLLMBatch(
+    retrieve_response = EmbRouterBatch(
         id="batch-123",
         completion_window="24h",
         created_at=1700000000,
@@ -1655,7 +1655,7 @@ async def test_batch_create_hook_persists_creating_key_and_tags():
     }
 
     await managed_files.async_post_call_success_hook(
-        data={"litellm_metadata": {"tags": ["env:prod", "team:ml"], "user_api_key": creator.api_key}},
+        data={"embrouter_metadata": {"tags": ["env:prod", "team:ml"], "user_api_key": creator.api_key}},
         user_api_key_dict=creator,
         response=create_response,
     )
@@ -1726,7 +1726,7 @@ async def test_batch_retrieve_hook_does_not_claim_attribution():
     }
 
     await managed_files.async_post_call_success_hook(
-        data={"litellm_metadata": {"tags": ["poller:tag"]}},
+        data={"embrouter_metadata": {"tags": ["poller:tag"]}},
         user_api_key_dict=UserAPIKeyAuth(api_key="sk-the-poller", user_id="bob", parent_otel_span=None),
         response=retrieve_response,
     )
@@ -1736,17 +1736,17 @@ async def test_batch_retrieve_hook_does_not_claim_attribution():
 
 
 def _unified_batch_id(llm_batch_id: str) -> str:
-    decoded = f"litellm_proxy;model_id:my-vllm;llm_batch_id:{llm_batch_id}"
+    decoded = f"embrouter_proxy;model_id:my-vllm;llm_batch_id:{llm_batch_id}"
     return base64.urlsafe_b64encode(decoded.encode()).decode().rstrip("=")
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "llm_batch_id, stores",
-    [("litellm_batch_abc", False), ("batch_abc", True)],
-    ids=["litellm-executed batch is left alone", "provider batch is still stored"],
+    [("embrouter_batch_abc", False), ("batch_abc", True)],
+    ids=["embrouter-executed batch is left alone", "provider batch is still stored"],
 )
-async def test_post_call_hook_leaves_litellm_executed_batches_untouched(llm_batch_id: str, stores: bool):
+async def test_post_call_hook_leaves_embrouter_executed_batches_untouched(llm_batch_id: str, stores: bool):
     managed_files = _make_managed_files_instance()
     response = _make_batch_response(status="in_progress", output_file_id=None)
     response.id = _unified_batch_id(llm_batch_id)
@@ -1779,7 +1779,7 @@ async def test_afile_delete_passes_trusted_model_credentials_to_router():
 
     managed_files = _make_managed_files_instance()
     unified_file_id = "unified-file-id"
-    s3_uri = "s3://my-bucket/litellm-bedrock-files/job-123/input.jsonl"
+    s3_uri = "s3://my-bucket/embrouter-bedrock-files/job-123/input.jsonl"
     managed_files.get_unified_file_id = AsyncMock(return_value=None)
     managed_files.get_model_file_id_mapping = AsyncMock(return_value={unified_file_id: {"model-123": s3_uri}})
     managed_files.delete_unified_file_id = AsyncMock(return_value=_make_file_object(unified_file_id))
@@ -1796,14 +1796,14 @@ async def test_afile_delete_passes_trusted_model_credentials_to_router():
 
     await managed_files.afile_delete(
         file_id=unified_file_id,
-        litellm_parent_otel_span=None,
+        embrouter_parent_otel_span=None,
         llm_router=mock_router,
     )
 
     call_kwargs = mock_router.afile_delete.call_args.kwargs
     assert call_kwargs["model"] == "model-123"
     assert call_kwargs["file_id"] == s3_uri
-    trusted_credentials = call_kwargs["_litellm_internal_model_credentials"]
+    trusted_credentials = call_kwargs["_embrouter_internal_model_credentials"]
     assert isinstance(trusted_credentials, MappingProxyType)
     assert trusted_credentials["s3_bucket_name"] == "my-bucket"
 
@@ -1821,18 +1821,18 @@ async def test_afile_delete_bedrock_unified_id_end_to_end(monkeypatch):
     import httpx
     import respx
 
-    import litellm
-    from litellm import Router
+    import embrouter
+    from embrouter import Router
 
     monkeypatch.delenv("AWS_S3_BUCKET_NAME", raising=False)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
+    embrouter.in_memory_llm_clients_cache.flush_cache()
 
     router = Router(
         model_list=[
             {
                 "model_name": "bedrock-claude",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "bedrock/anthropic.claude-3-5-sonnet-20240620-v1:0",
                     "aws_access_key_id": "AKIAEXAMPLE",
                     "aws_secret_access_key": "secret",
@@ -1846,18 +1846,18 @@ async def test_afile_delete_bedrock_unified_id_end_to_end(monkeypatch):
 
     managed_files = _make_managed_files_instance()
     unified_file_id = "unified-file-id"
-    s3_uri = "s3://my-bucket/litellm-bedrock-files/job-123/input.jsonl"
+    s3_uri = "s3://my-bucket/embrouter-bedrock-files/job-123/input.jsonl"
     managed_files.get_unified_file_id = AsyncMock(return_value=None)
     managed_files.get_model_file_id_mapping = AsyncMock(return_value={unified_file_id: {"model-123": s3_uri}})
     managed_files.delete_unified_file_id = AsyncMock(return_value=_make_file_object(unified_file_id))
 
-    expected_url = "https://s3.us-west-2.amazonaws.com/my-bucket/litellm-bedrock-files/job-123/input.jsonl"
+    expected_url = "https://s3.us-west-2.amazonaws.com/my-bucket/embrouter-bedrock-files/job-123/input.jsonl"
     with respx.mock:
         route = respx.delete(expected_url).mock(return_value=httpx.Response(204))
 
         response = await managed_files.afile_delete(
             file_id=unified_file_id,
-            litellm_parent_otel_span=None,
+            embrouter_parent_otel_span=None,
             llm_router=router,
         )
 
@@ -1870,28 +1870,28 @@ async def test_afile_delete_bedrock_unified_id_end_to_end(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_afile_delete_storage_backed_row_deletes_stored_content_not_provider_files():
-    from litellm_enterprise.proxy.hooks.managed_files import _PROXY_LiteLLMManagedFiles
+    from embrouter_enterprise.proxy.hooks.managed_files import _PROXY_EmbRouterManagedFiles
     from openai.types import FileDeleted
 
-    from litellm.caching import DualCache
-    from litellm.models.managed_files import LiteLLM_ManagedFileTable
+    from embrouter.caching import DualCache
+    from embrouter.models.managed_files import EmbRouter_ManagedFileTable
 
-    storage_url = "litellm_db://content-row-1"
+    storage_url = "embrouter_db://content-row-1"
     unified_file_id = _managed_deletion_file_id(storage_url)
-    row = LiteLLM_ManagedFileTable(
+    row = EmbRouter_ManagedFileTable(
         unified_file_id=unified_file_id,
         model_mappings={"vllm-batch": storage_url},
         flat_model_file_ids=[storage_url],
         file_object=_make_file_object(unified_file_id),
-        storage_backend="litellm_db",
+        storage_backend="embrouter_db",
         storage_url=storage_url,
     )
     file_table = MagicMock(find_first=AsyncMock(return_value=row), delete=AsyncMock())
     content_table = MagicMock(delete=AsyncMock())
-    managed_files = _PROXY_LiteLLMManagedFiles(
+    managed_files = _PROXY_EmbRouterManagedFiles(
         internal_usage_cache=DualCache(),
         prisma_client=MagicMock(
-            db=MagicMock(litellm_managedfiletable=file_table, litellm_managedfilecontenttable=content_table)
+            db=MagicMock(embrouter_managedfiletable=file_table, embrouter_managedfilecontenttable=content_table)
         ),
     )
     router = MagicMock(
@@ -1901,7 +1901,7 @@ async def test_afile_delete_storage_backed_row_deletes_stored_content_not_provid
 
     response = await managed_files.afile_delete(
         file_id=unified_file_id,
-        litellm_parent_otel_span=None,
+        embrouter_parent_otel_span=None,
         llm_router=router,
     )
 
@@ -1913,29 +1913,29 @@ async def test_afile_delete_storage_backed_row_deletes_stored_content_not_provid
 
 @pytest.mark.asyncio
 async def test_afile_content_storage_backed_row_returns_stored_bytes_not_provider_content():
-    from litellm_enterprise.proxy.hooks.managed_files import _PROXY_LiteLLMManagedFiles
+    from embrouter_enterprise.proxy.hooks.managed_files import _PROXY_EmbRouterManagedFiles
     from prisma import Base64
 
-    from litellm.caching import DualCache
-    from litellm.models.managed_files import LiteLLM_ManagedFileTable
+    from embrouter.caching import DualCache
+    from embrouter.models.managed_files import EmbRouter_ManagedFileTable
 
-    storage_url = "litellm_db://content-row-1"
+    storage_url = "embrouter_db://content-row-1"
     unified_file_id = _managed_deletion_file_id(storage_url)
     stored_bytes = b'{"custom_id": "line-1", "method": "POST", "url": "/v1/chat/completions", "body": {}}\n'
-    row = LiteLLM_ManagedFileTable(
+    row = EmbRouter_ManagedFileTable(
         unified_file_id=unified_file_id,
         model_mappings={"vllm-batch": storage_url},
         flat_model_file_ids=[storage_url],
         file_object=_make_file_object(unified_file_id),
-        storage_backend="litellm_db",
+        storage_backend="embrouter_db",
         storage_url=storage_url,
     )
     file_table = MagicMock(find_first=AsyncMock(return_value=row))
     content_table = MagicMock(find_unique=AsyncMock(return_value=MagicMock(content=Base64.encode(stored_bytes))))
-    managed_files = _PROXY_LiteLLMManagedFiles(
+    managed_files = _PROXY_EmbRouterManagedFiles(
         internal_usage_cache=DualCache(),
         prisma_client=MagicMock(
-            db=MagicMock(litellm_managedfiletable=file_table, litellm_managedfilecontenttable=content_table)
+            db=MagicMock(embrouter_managedfiletable=file_table, embrouter_managedfilecontenttable=content_table)
         ),
     )
     router = MagicMock(
@@ -1945,7 +1945,7 @@ async def test_afile_content_storage_backed_row_returns_stored_bytes_not_provide
 
     response = await managed_files.afile_content(
         file_id=unified_file_id,
-        litellm_parent_otel_span=None,
+        embrouter_parent_otel_span=None,
         llm_router=router,
     )
 
@@ -1957,13 +1957,13 @@ async def test_afile_content_storage_backed_row_returns_stored_bytes_not_provide
 @pytest.mark.asyncio
 async def test_store_unified_object_id_batch_processed_is_written_only_when_asked():
     managed_files, mock_prisma = _make_object_store_instance()
-    upsert = mock_prisma.db.litellm_managedobjecttable.upsert
+    upsert = mock_prisma.db.embrouter_managedobjecttable.upsert
     creator = UserAPIKeyAuth(api_key="sk-creator", user_id="alice", team_id="team-alpha", parent_otel_span=None)
 
     await managed_files.store_unified_object_id(
         unified_object_id="uoi-processed",
         file_object=_make_batch_response(status="completed"),
-        litellm_parent_otel_span=None,
+        embrouter_parent_otel_span=None,
         model_object_id="batch-processed",
         file_purpose="batch",
         user_api_key_dict=creator,
@@ -1972,7 +1972,7 @@ async def test_store_unified_object_id_batch_processed_is_written_only_when_aske
     await managed_files.store_unified_object_id(
         unified_object_id="uoi-default",
         file_object=_make_batch_response(status="completed"),
-        litellm_parent_otel_span=None,
+        embrouter_parent_otel_span=None,
         model_object_id="batch-default",
         file_purpose="batch",
         user_api_key_dict=creator,
@@ -1985,28 +1985,28 @@ async def test_store_unified_object_id_batch_processed_is_written_only_when_aske
 
 @pytest.mark.asyncio
 async def test_store_unified_file_id_caches_the_storage_location_the_db_row_gets():
-    from litellm_enterprise.proxy.hooks.managed_files import _PROXY_LiteLLMManagedFiles
+    from embrouter_enterprise.proxy.hooks.managed_files import _PROXY_EmbRouterManagedFiles
 
-    from litellm.caching import DualCache
+    from embrouter.caching import DualCache
 
     file_table = MagicMock(upsert=AsyncMock(), find_first=AsyncMock(side_effect=AssertionError("cache miss")))
-    managed_files = _PROXY_LiteLLMManagedFiles(
+    managed_files = _PROXY_EmbRouterManagedFiles(
         internal_usage_cache=DualCache(),
-        prisma_client=MagicMock(db=MagicMock(litellm_managedfiletable=file_table)),
+        prisma_client=MagicMock(db=MagicMock(embrouter_managedfiletable=file_table)),
     )
     stored = _make_file_object("file-kept").model_copy(update={"purpose": "batch"})
-    stored._hidden_params = {"storage_backend": "litellm_db", "storage_url": "litellm_db://content-row-1"}
+    stored._hidden_params = {"storage_backend": "embrouter_db", "storage_url": "embrouter_db://content-row-1"}
 
     await managed_files.store_unified_file_id(
         file_id="unified-kept",
         file_object=stored,
-        litellm_parent_otel_span=None,
-        model_mappings={"vllm-batch": "litellm_db://content-row-1"},
+        embrouter_parent_otel_span=None,
+        model_mappings={"vllm-batch": "embrouter_db://content-row-1"},
         user_api_key_dict=_make_user_api_key_dict(),
     )
     cached = await managed_files.get_unified_file_id("unified-kept")
 
     assert cached is not None
-    assert (cached.storage_backend, cached.storage_url) == ("litellm_db", "litellm_db://content-row-1")
+    assert (cached.storage_backend, cached.storage_url) == ("embrouter_db", "embrouter_db://content-row-1")
     create_data = file_table.upsert.await_args.kwargs["data"]["create"]
-    assert (create_data["storage_backend"], create_data["storage_url"]) == ("litellm_db", "litellm_db://content-row-1")
+    assert (create_data["storage_backend"], create_data["storage_url"]) == ("embrouter_db", "embrouter_db://content-row-1")

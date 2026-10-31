@@ -3,7 +3,7 @@
 import pytest
 from fastapi import HTTPException
 
-from litellm.proxy.guardrails.guardrail_hooks.custom_code import (
+from embrouter.proxy.guardrails.guardrail_hooks.custom_code import (
     RESPONSE_REJECTION_GUARDRAIL_CODE,
     CustomCodeGuardrail,
 )

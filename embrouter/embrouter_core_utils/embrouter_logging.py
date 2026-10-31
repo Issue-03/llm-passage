@@ -19,10 +19,10 @@ from typing import TYPE_CHECKING, Any, Final, Literal, Union, cast
 from httpx import Response
 from pydantic import BaseModel, JsonValue
 
-import litellm
-from litellm import _custom_logger_compatible_callbacks_literal
-from litellm._internal_context import post_response_phase
-from litellm._logging import (
+import embrouter
+from embrouter import _custom_logger_compatible_callbacks_literal
+from embrouter._internal_context import post_response_phase
+from embrouter._logging import (
     _is_debugging_on,
     _redact_string,
     session_id_var,
@@ -31,96 +31,96 @@ from litellm._logging import (
     trace_id_var,
     verbose_logger,
 )
-from litellm._uuid import uuid
-from litellm.batches.batch_utils import _handle_completed_batch, batch_cost_is_final
-from litellm.caching.caching import DualCache
-from litellm.caching.caching_handler import LLMCachingHandler
-from litellm.caching.redis_batch import flush_post_call_redis_batches
-from litellm.constants import (
+from embrouter._uuid import uuid
+from embrouter.batches.batch_utils import _handle_completed_batch, batch_cost_is_final
+from embrouter.caching.caching import DualCache
+from embrouter.caching.caching_handler import LLMCachingHandler
+from embrouter.caching.redis_batch import flush_post_call_redis_batches
+from embrouter.constants import (
     DEFAULT_MOCK_RESPONSE_COMPLETION_TOKEN_COUNT,
     DEFAULT_MOCK_RESPONSE_PROMPT_TOKEN_COUNT,
     EMPTY_MAPPING,
     PROVIDER_REQUEST_ID_HEADERS,
-    REDACTED_BY_LITELLM,
+    REDACTED_BY_EMBROUTER,
 )
-from litellm.cost_calculator import (
+from embrouter.cost_calculator import (
     RealtimeAPITokenUsageProcessor,
     ResponsesWebSocketTokenUsageProcessor,
     _select_model_name_for_cost_calc,
     get_usage_object,
     pricing_entry_for_cost_calc,
 )
-from litellm.exceptions import (
+from embrouter.exceptions import (
     BudgetExceededError,
     validate_rate_limit_category,
     validate_rate_limit_type,
 )
-from litellm.integrations.agentops import AgentOps
-from litellm.integrations.anthropic_cache_control_hook import AnthropicCacheControlHook
-from litellm.integrations.arize.arize import ArizeLogger
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.integrations.deepeval.deepeval import DeepEvalLogger
-from litellm.integrations.langtrace import langtrace_trace_endpoint
-from litellm.integrations.mlflow import MlflowLogger
-from litellm.integrations.sqs import SQSLogger
-from litellm.litellm_core_utils.classifier_logging import (
+from embrouter.integrations.agentops import AgentOps
+from embrouter.integrations.anthropic_cache_control_hook import AnthropicCacheControlHook
+from embrouter.integrations.arize.arize import ArizeLogger
+from embrouter.integrations.custom_guardrail import CustomGuardrail
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.integrations.deepeval.deepeval import DeepEvalLogger
+from embrouter.integrations.langtrace import langtrace_trace_endpoint
+from embrouter.integrations.mlflow import MlflowLogger
+from embrouter.integrations.sqs import SQSLogger
+from embrouter.embrouter_core_utils.classifier_logging import (
     classifier_audit_fields,
     classifier_input_snapshot,
     is_classifier_call,
 )
-from litellm.litellm_core_utils.core_helpers import (
+from embrouter.embrouter_core_utils.core_helpers import (
     get_provider_response_headers_from_hidden_params,
     is_expected_client_error,
     reconstruct_model_name,
     set_response_cost_in_hidden_params,
 )
-from litellm.litellm_core_utils.error_normalization import normalize_error
-from litellm.litellm_core_utils.get_litellm_params import get_litellm_params
-from litellm.litellm_core_utils.internal_call_metadata import (
+from embrouter.embrouter_core_utils.error_normalization import normalize_error
+from embrouter.embrouter_core_utils.get_embrouter_params import get_embrouter_params
+from embrouter.embrouter_core_utils.internal_call_metadata import (
     MODEL_ACCESS_GROUP_METADATA_KEY,
     is_unbilled_non_inference_call,
 )
-from litellm.litellm_core_utils.llm_cost_calc.guardrail_cost import (
+from embrouter.embrouter_core_utils.llm_cost_calc.guardrail_cost import (
     cost_breakdown_with_guardrail,
     guardrail_information_cost,
 )
-from litellm.litellm_core_utils.llm_cost_calc.tool_call_cost_tracking import (
+from embrouter.embrouter_core_utils.llm_cost_calc.tool_call_cost_tracking import (
     StandardBuiltInToolCostTracking,
 )
-from litellm.litellm_core_utils.llm_cost_calc.usage_object_transformation import (
+from embrouter.embrouter_core_utils.llm_cost_calc.usage_object_transformation import (
     InteractionsUsageObjectTransformation,
 )
-from litellm.litellm_core_utils.llm_cost_calc.zero_cost_diagnostic import (
+from embrouter.embrouter_core_utils.llm_cost_calc.zero_cost_diagnostic import (
     diagnose_zero_cost,
     zero_cost_warning,
 )
-from litellm.litellm_core_utils.logging_utils import (
+from embrouter.embrouter_core_utils.logging_utils import (
     truncate_base64_in_messages,
     truncate_base64_in_messages_async,
 )
-from litellm.litellm_core_utils.model_param_helper import ModelParamHelper
-from litellm.litellm_core_utils.ptu_pricing import is_spilled_over_ptu_request
-from litellm.litellm_core_utils.redact_messages import (
+from embrouter.embrouter_core_utils.model_param_helper import ModelParamHelper
+from embrouter.embrouter_core_utils.ptu_pricing import is_spilled_over_ptu_request
+from embrouter.embrouter_core_utils.redact_messages import (
     redact_message_input_output_from_custom_logger,
     redact_message_input_output_from_logging,
     redact_streaming_responses_for_custom_logger,
     should_redact_message_logging,
 )
-from litellm.litellm_core_utils.served_output_texts import (
+from embrouter.embrouter_core_utils.served_output_texts import (
     SERVED_OUTPUT_TEXTS_KEY,
     overlay_served_output_texts,
 )
-from litellm.llms.base_llm.ocr.transformation import OCRResponse
-from litellm.llms.base_llm.search.transformation import SearchResponse
-from litellm.responses.utils import ResponseAPILoggingUtils
-from litellm.types.agents import LiteLLMSendMessageResponse
-from litellm.types.containers.main import ContainerObject
-from litellm.types.interactions import (
+from embrouter.llms.base_llm.ocr.transformation import OCRResponse
+from embrouter.llms.base_llm.search.transformation import SearchResponse
+from embrouter.responses.utils import ResponseAPILoggingUtils
+from embrouter.types.agents import EmbRouterSendMessageResponse
+from embrouter.types.containers.main import ContainerObject
+from embrouter.types.interactions import (
     InteractionsAPIResponse,
     InteractionsAPIStreamingResponse,
 )
-from litellm.types.llms.openai import (
+from embrouter.types.llms.openai import (
     AllMessageValues,
     Batch,
     FineTuningJob,
@@ -133,22 +133,22 @@ from litellm.types.llms.openai import (
     ResponseIncompleteEvent,
     ResponsesAPIResponse,
 )
-from litellm.types.mcp import MCPPostCallResponseObject
-from litellm.types.prompts.init_prompts import PromptSpec
-from litellm.types.rerank import RerankResponse
-from litellm.types.utils import (
+from embrouter.types.mcp import MCPPostCallResponseObject
+from embrouter.types.prompts.init_prompts import PromptSpec
+from embrouter.types.rerank import RerankResponse
+from embrouter.types.utils import (
     DEPLOYMENT_SCOPED_PRICING_FIELDS,
     CachingDetails,
     CallTypes,
     CostBreakdown,
-    CustomPricingLiteLLMParams,
+    CustomPricingEmbRouterParams,
     DynamicPromptManagementParamLiteral,
     EmbeddingResponse,
     GuardrailStatus,
     ImageResponse,
-    LiteLLMBatch,
-    LiteLLMLoggingBaseClass,
-    LiteLLMRealtimeStreamLoggingObject,
+    EmbRouterBatch,
+    EmbRouterLoggingBaseClass,
+    EmbRouterRealtimeStreamLoggingObject,
     ModelInfo,
     ModelResponse,
     ModelResponseStream,
@@ -172,8 +172,8 @@ from litellm.types.utils import (
     TranscriptionResponse,
     Usage,
 )
-from litellm.types.videos.main import VideoObject
-from litellm.utils import _get_base_model_from_metadata, executor, print_verbose
+from embrouter.types.videos.main import VideoObject
+from embrouter.utils import _get_base_model_from_metadata, executor, print_verbose
 
 from ..integrations.argilla import ArgillaLogger
 from ..integrations.arize.arize_phoenix import ArizePhoenixLogger
@@ -197,7 +197,7 @@ from ..integrations.langfuse.langfuse import LangFuseLogger
 from ..integrations.langfuse.langfuse_handler import LangFuseHandler
 from ..integrations.langfuse.langfuse_prompt_management import LangfusePromptManagement
 from ..integrations.langsmith import LangsmithLogger
-from ..integrations.litellm_agent import LiteLLMAgentModelResolver
+from ..integrations.embrouter_agent import EmbRouterAgentModelResolver
 from ..integrations.literal_ai import LiteralAILogger
 from ..integrations.logfire_logger import LogfireLevel, LogfireLogger
 from ..integrations.lunary import LunaryLogger
@@ -225,31 +225,31 @@ from .specialty_caches.service_trace_id_cache import in_memory_trace_id_cache
 if TYPE_CHECKING:
     from mcp.types import CallToolResult, EmbeddedResource, ImageContent, TextContent
 
-    from litellm.integrations.otel.logger import OpenTelemetryV2
-    from litellm.integrations.otel.model.config import ExporterSpec, OpenTelemetryV2Config
-    from litellm.integrations.shadow_eval_logger import GuardrailRequestSnapshot
-    from litellm.litellm_core_utils.llm_cost_calc.utils import BilledTokenRates
-    from litellm.llms.base_llm.passthrough.transformation import PassthroughStreamCollector
-    from litellm.proxy.hooks.autorouter_baseline_cache import BaselineCacheContext, CapturedBaselineObservation
-from litellm.integrations.generic_api.generic_api_callback import GenericAPILogger
+    from embrouter.integrations.otel.logger import OpenTelemetryV2
+    from embrouter.integrations.otel.model.config import ExporterSpec, OpenTelemetryV2Config
+    from embrouter.integrations.shadow_eval_logger import GuardrailRequestSnapshot
+    from embrouter.embrouter_core_utils.llm_cost_calc.utils import BilledTokenRates
+    from embrouter.llms.base_llm.passthrough.transformation import PassthroughStreamCollector
+    from embrouter.proxy.hooks.autorouter_baseline_cache import BaselineCacheContext, CapturedBaselineObservation
+from embrouter.integrations.generic_api.generic_api_callback import GenericAPILogger
 
 try:
-    from litellm_enterprise.enterprise_callbacks.callback_controls import (
+    from embrouter_enterprise.enterprise_callbacks.callback_controls import (
         EnterpriseCallbackControls,
     )
-    from litellm_enterprise.enterprise_callbacks.pagerduty.pagerduty import (
+    from embrouter_enterprise.enterprise_callbacks.pagerduty.pagerduty import (
         PagerDutyAlerting,
     )
-    from litellm_enterprise.enterprise_callbacks.send_emails.resend_email import (
+    from embrouter_enterprise.enterprise_callbacks.send_emails.resend_email import (
         ResendEmailLogger,
     )
-    from litellm_enterprise.enterprise_callbacks.send_emails.sendgrid_email import (
+    from embrouter_enterprise.enterprise_callbacks.send_emails.sendgrid_email import (
         SendGridEmailLogger,
     )
-    from litellm_enterprise.enterprise_callbacks.send_emails.smtp_email import (
+    from embrouter_enterprise.enterprise_callbacks.send_emails.smtp_email import (
         SMTPEmailLogger,
     )
-    from litellm_enterprise.litellm_core_utils.litellm_logging import (
+    from embrouter_enterprise.embrouter_core_utils.embrouter_logging import (
         StandardLoggingPayloadSetup as EnterpriseStandardLoggingPayloadSetup,
     )
 
@@ -266,7 +266,7 @@ except Exception as e:
     EnterpriseCallbackControls = None
     EnterpriseStandardLoggingPayloadSetupVAR = None
 if TYPE_CHECKING:
-    from litellm.integrations.generic_api.generic_api_callback import (
+    from embrouter.integrations.generic_api.generic_api_callback import (
         GenericAPILogger as _GenericAPILoggerCls,
     )
 
@@ -292,7 +292,7 @@ def _get_provider_request_id(original_exception: Exception) -> str | None:
         header_sources: Final = (
             _get_response_headers(original_exception),
             getattr(error_response, "headers", None),
-            getattr(original_exception, "litellm_response_headers", None),
+            getattr(original_exception, "embrouter_response_headers", None),
         )
         return next(
             (
@@ -312,7 +312,7 @@ def _get_provider_request_id(original_exception: Exception) -> str | None:
 ### GLOBAL VARIABLES ###
 
 # Cache custom pricing keys as frozenset for O(1) lookups instead of looping through 49 keys
-_CUSTOM_PRICING_KEYS: Final[frozenset[str]] = frozenset(CustomPricingLiteLLMParams.model_fields.keys())
+_CUSTOM_PRICING_KEYS: Final[frozenset[str]] = frozenset(CustomPricingEmbRouterParams.model_fields.keys())
 _MODEL_INFO_CUSTOM_PRICING_KEYS: Final[frozenset[str]] = _CUSTOM_PRICING_KEYS | DEPLOYMENT_SCOPED_PRICING_FIELDS
 _UNSERIALIZABLE_METADATA_KEYS: Final[frozenset[str]] = frozenset(
     ("user_api_key_auth", "user_api_key_budget_reservation")
@@ -364,7 +364,7 @@ def _get_cached_prometheus_logger():
     """
     global _PrometheusLogger
     if _PrometheusLogger is None:
-        from litellm.integrations.prometheus import PrometheusLogger
+        from embrouter.integrations.prometheus import PrometheusLogger
 
         _PrometheusLogger = PrometheusLogger
     return _PrometheusLogger
@@ -440,11 +440,11 @@ def deployment_pricing_model_info(model_id: str | None, deployment_model: str | 
     """
     if model_id is None:
         return None
-    registered: Final = litellm.model_cost.get(model_id)
+    registered: Final = embrouter.model_cost.get(model_id)
     if not isinstance(registered, dict) or not any(registered.get(key) is not None for key in _DEPLOYMENT_PRICING_KEYS):
         return None
     try:
-        merged: Final = litellm.get_model_info(model=model_id).copy()
+        merged: Final = embrouter.get_model_info(model=model_id).copy()
     except Exception:  # noqa: BLE001  # get_model_info raises for ids it cannot resolve a provider for
         return None
     published: Final = _published_pricing(deployment_model)
@@ -480,14 +480,14 @@ def _published_pricing(deployment_model: str | None) -> ModelInfo | None:
     if deployment_model is None:
         return None
     try:
-        return litellm.get_model_info(model=deployment_model)
+        return embrouter.get_model_info(model=deployment_model)
     except Exception:  # noqa: BLE001  # no published entry to layer the declared rates over
         return None
 
 
 def _resolve_vertex_location_for_cost(
     custom_llm_provider: str | None,
-    litellm_params: Mapping[str, object] | None,
+    embrouter_params: Mapping[str, object] | None,
     optional_params: Mapping[str, object] | None,
     model: str,
 ) -> str | None:
@@ -499,16 +499,16 @@ def _resolve_vertex_location_for_cost(
     Chat dispatch reads the location from request kwargs, which reach this
     logging object through optional_params: on the proxy the logging object is
     created before the router picks a deployment, so the deployment's location
-    never lands in litellm_params.
+    never lands in embrouter_params.
     """
     if custom_llm_provider is None or not custom_llm_provider.startswith("vertex_ai"):
         return None
-    from litellm.llms.vertex_ai.vertex_llm_base import VertexBase
+    from embrouter.llms.vertex_ai.vertex_llm_base import VertexBase
 
     empty: Final[Mapping[str, object]] = MappingProxyType({})
     configured_location: Final = (
         VertexBase.explicit_vertex_ai_location(optional_params or empty)
-        or VertexBase.explicit_vertex_ai_location(litellm_params or empty)
+        or VertexBase.explicit_vertex_ai_location(embrouter_params or empty)
         or VertexBase.safe_get_vertex_ai_location(empty)
     )
     return VertexBase.get_vertex_region(configured_location, model)
@@ -516,13 +516,13 @@ def _resolve_vertex_location_for_cost(
 
 def _resolve_mantle_region_for_cost(
     custom_llm_provider: str | None,
-    litellm_params: Mapping[str, object] | None,
+    embrouter_params: Mapping[str, object] | None,
 ) -> str | None:
     if custom_llm_provider != "bedrock_mantle":
         return None
-    from litellm.llms.bedrock_mantle.common_utils import resolve_mantle_region
+    from embrouter.llms.bedrock_mantle.common_utils import resolve_mantle_region
 
-    return resolve_mantle_region(litellm_params or MappingProxyType({}))
+    return resolve_mantle_region(embrouter_params or MappingProxyType({}))
 
 
 def _provider_response_id(source: object) -> str | None:
@@ -545,7 +545,7 @@ def _timestamp_seconds(moment: object) -> float | None:
     return None
 
 
-class Logging(LiteLLMLoggingBaseClass):
+class Logging(EmbRouterLoggingBaseClass):
     global \
         supabaseClient, \
         promptLayerLogger, \
@@ -559,7 +559,7 @@ class Logging(LiteLLMLoggingBaseClass):
         slack_app
     custom_pricing: bool = False
     stream_options = None
-    litellm_request_debug: bool = False
+    embrouter_request_debug: bool = False
     streamed_anthropic_message_id: str | None = None
     classifier_input: Mapping[str, JsonValue] | None = None
     baseline_cache_context: "BaselineCacheContext | None" = None
@@ -572,9 +572,9 @@ class Logging(LiteLLMLoggingBaseClass):
         stream,
         call_type,
         start_time: datetime.datetime,
-        litellm_call_id: str,
+        embrouter_call_id: str,
         function_id: str,
-        litellm_trace_id: str | None = None,
+        embrouter_trace_id: str | None = None,
         dynamic_input_callbacks: list[str | Callable | CustomLogger] | None = None,
         dynamic_success_callbacks: list[str | Callable | CustomLogger] | None = None,
         dynamic_async_success_callbacks: list[str | Callable | CustomLogger] | None = None,
@@ -608,8 +608,8 @@ class Logging(LiteLLMLoggingBaseClass):
         self.stream = stream
         self.start_time = start_time  # log the call start time
         self.call_type = call_type
-        self.litellm_call_id = litellm_call_id
-        self.litellm_trace_id: str = litellm_trace_id if litellm_trace_id else str(uuid.uuid4())
+        self.embrouter_call_id = embrouter_call_id
+        self.embrouter_trace_id: str = embrouter_trace_id if embrouter_trace_id else str(uuid.uuid4())
 
         # Capture the pre-call *value* (not a contextvars.Token) so restoration works
         # even if this attempt's own logging ends up dispatched onto a different
@@ -617,8 +617,8 @@ class Logging(LiteLLMLoggingBaseClass):
         # a Token can only be reset in the exact Context where it was created.
         self._pre_call_trace_id: str = trace_id_var.get()
         self._pre_call_session_id: str = session_id_var.get()
-        _sid: Final = kwargs.get("litellm_session_id") if kwargs else None
-        self.litellm_session_id: str = str(_sid) if _sid else ""
+        _sid: Final = kwargs.get("embrouter_session_id") if kwargs else None
+        self.embrouter_session_id: str = str(_sid) if _sid else ""
         # supports_correlation_logging is False for calls originating from the
         # sync client entry point (wrapper() in utils.py): a plain OS thread
         # has no per-call context isolation the way an asyncio Task does, and
@@ -627,12 +627,12 @@ class Logging(LiteLLMLoggingBaseClass):
         # ids leaking into a different, later request on the same thread. Sync
         # support is deferred to a follow-up PR with its own safe-restore
         # mechanism; async calls (the proxy's only call path) are unaffected.
-        if supports_correlation_logging and litellm.request_correlation_in_logs:
-            set_trace_id(self.litellm_trace_id)
-            set_session_id(self.litellm_session_id)
+        if supports_correlation_logging and embrouter.request_correlation_in_logs:
+            set_trace_id(self.embrouter_trace_id)
+            set_session_id(self.embrouter_session_id)
         # set_trace_id()/set_session_id() sanitize (strip control chars, bound
         # length) before storing, so the contextvar's actual value can differ
-        # from self.litellm_trace_id/litellm_session_id. Capture what was
+        # from self.embrouter_trace_id/embrouter_session_id. Capture what was
         # really stored - _restore_correlation_context_if_unclaimed() must
         # compare against this, not the raw ids, or a caller-supplied id
         # containing control characters/oversized input would never match
@@ -675,13 +675,13 @@ class Logging(LiteLLMLoggingBaseClass):
         self.zero_cost_warned: bool = False
         self._llm_caching_handler: LLMCachingHandler | None = None
 
-        # INITIAL LITELLM_PARAMS
-        litellm_params = {}
+        # INITIAL EMBROUTER_PARAMS
+        embrouter_params = {}
         if kwargs is not None:
-            litellm_params = get_litellm_params(**kwargs)
-            litellm_params = scrub_sensitive_keys_in_metadata(litellm_params)
+            embrouter_params = get_embrouter_params(**kwargs)
+            embrouter_params = scrub_sensitive_keys_in_metadata(embrouter_params)
 
-        self.litellm_params = litellm_params
+        self.embrouter_params = embrouter_params
 
         # Initialize cost breakdown field
         self.cost_breakdown: CostBreakdown | None = None
@@ -697,10 +697,10 @@ class Logging(LiteLLMLoggingBaseClass):
         self.passthrough_guardrails_config: dict[str, object] | None = None
 
         self.model_call_details: dict[str, Any] = {
-            "litellm_trace_id": self.litellm_trace_id,
-            "litellm_call_id": litellm_call_id,
+            "embrouter_trace_id": self.embrouter_trace_id,
+            "embrouter_call_id": embrouter_call_id,
             "input": _input,
-            "litellm_params": litellm_params,
+            "embrouter_params": embrouter_params,
             "applied_guardrails": applied_guardrails,
             "model": model,
         }
@@ -714,7 +714,7 @@ class Logging(LiteLLMLoggingBaseClass):
         self.shadow_eval_request_snapshot: GuardrailRequestSnapshot | None = None
 
     def set_response_timing_metrics(self, timing_metrics: Mapping[str, float]) -> None:
-        """Keep ``_response_ms`` / ``litellm_overhead_time_ms`` for a result that has no ``_hidden_params``."""
+        """Keep ``_response_ms`` / ``embrouter_overhead_time_ms`` for a result that has no ``_hidden_params``."""
         self.response_timing_metrics = dict(timing_metrics)  # mutable-ok: kept deep-copyable
 
     def add_dynamic_callback(self, callback: CustomLogger) -> None:
@@ -739,7 +739,7 @@ class Logging(LiteLLMLoggingBaseClass):
         """
         Initializes CustomLogger compatible callbacks in self.dynamic_* callbacks
 
-        If a callback is in litellm._known_custom_logger_compatible_callbacks, it needs to be intialized and added to the respective dynamic_* callback list.
+        If a callback is in embrouter._known_custom_logger_compatible_callbacks, it needs to be intialized and added to the respective dynamic_* callback list.
         """
         # Process input callbacks
         self.dynamic_input_callbacks = self._process_dynamic_callback_list(
@@ -774,7 +774,7 @@ class Logging(LiteLLMLoggingBaseClass):
         """
         Helper function to initialize CustomLogger compatible callbacks in self.dynamic_* callbacks
 
-        - If a callback is in litellm._known_custom_logger_compatible_callbacks,
+        - If a callback is in embrouter._known_custom_logger_compatible_callbacks,
         replace the string with the initialized callback class.
         - If dynamic callback is a "success" callback that is a known_custom_logger_compatible_callbacks then add it to dynamic_async_success_callbacks
         - If dynamic callback is a "failure" callback that is a known_custom_logger_compatible_callbacks then add it to dynamic_failure_callbacks
@@ -784,7 +784,7 @@ class Logging(LiteLLMLoggingBaseClass):
 
         processed_list: Final[list[str | Callable | CustomLogger]] = []
         for callback in callback_list:
-            if isinstance(callback, str) and callback in litellm._known_custom_logger_compatible_callbacks:
+            if isinstance(callback, str) and callback in embrouter._known_custom_logger_compatible_callbacks:
                 for callback_instance in self._resolve_dynamic_callback_string(callback):
                     processed_list.append(callback_instance)
 
@@ -860,16 +860,16 @@ class Logging(LiteLLMLoggingBaseClass):
         )
 
     def get_router_model_id(self) -> str | None:
-        """Extract the router deployment model_id from litellm_params.
+        """Extract the router deployment model_id from embrouter_params.
 
-        Checks both litellm_metadata and metadata for model_info.id.
+        Checks both embrouter_metadata and metadata for model_info.id.
         Used by cost calculators to look up custom pricing registered
-        under the deployment's model_info.id in litellm.model_cost.
+        under the deployment's model_info.id in embrouter.model_cost.
         """
-        if not hasattr(self, "litellm_params"):
+        if not hasattr(self, "embrouter_params"):
             return None
-        for key in ("litellm_metadata", "metadata"):
-            meta = self.litellm_params.get(key, {}) or {}
+        for key in ("embrouter_metadata", "metadata"):
+            meta = self.embrouter_params.get(key, {}) or {}
             info = meta.get("model_info", {}) or {}
             model_id = info.get("id")
             if model_id is not None:
@@ -879,14 +879,14 @@ class Logging(LiteLLMLoggingBaseClass):
     def get_deployment_model_for_cost(self) -> str | None:
         """The provider-qualified model to price against.
 
-        On a batch retrieve both self.model and litellm_params["model"] can be
+        On a batch retrieve both self.model and embrouter_params["model"] can be
         unset, and self.model can otherwise carry the router's model_group alias,
         which no cost map resolves. model_call_details holds the deployment's own
         provider-qualified model, so it is preferred.
         """
         candidates: Final = (
             (self.model_call_details or {}).get("model") if hasattr(self, "model_call_details") else None,
-            self.litellm_params.get("model") if hasattr(self, "litellm_params") else None,
+            self.embrouter_params.get("model") if hasattr(self, "embrouter_params") else None,
             self.model,
         )
         return next((candidate for candidate in candidates if isinstance(candidate, str) and candidate), None)
@@ -900,7 +900,7 @@ class Logging(LiteLLMLoggingBaseClass):
 
     def update_environment_variables(
         self,
-        litellm_params: dict,
+        embrouter_params: dict,
         optional_params: dict,
         model: str | None = None,
         user: str | None = None,
@@ -910,13 +910,13 @@ class Logging(LiteLLMLoggingBaseClass):
         if model is not None:
             self.model = model
         self.user = user
-        self.litellm_params = {
-            **self.litellm_params,
-            **scrub_sensitive_keys_in_metadata(litellm_params),
+        self.embrouter_params = {
+            **self.embrouter_params,
+            **scrub_sensitive_keys_in_metadata(embrouter_params),
         }
-        self.litellm_request_debug = litellm_params.get("litellm_request_debug", False)
-        self.logger_fn = litellm_params.get("logger_fn", None)
-        if _is_debugging_on() or self.litellm_request_debug:
+        self.embrouter_request_debug = embrouter_params.get("embrouter_request_debug", False)
+        self.logger_fn = embrouter_params.get("logger_fn", None)
+        if _is_debugging_on() or self.embrouter_request_debug:
             verbose_logger.debug("self.optional_params: %s", self.optional_params)
 
         self.model_call_details.update(
@@ -924,12 +924,12 @@ class Logging(LiteLLMLoggingBaseClass):
                 "model": self.model,
                 "messages": self.messages,
                 "optional_params": self.optional_params,
-                "litellm_params": self.litellm_params,
+                "embrouter_params": self.embrouter_params,
                 "start_time": self.start_time,
                 "stream": self.stream,
                 "user": user,
                 "call_type": str(self.call_type),
-                "litellm_call_id": self.litellm_call_id,
+                "embrouter_call_id": self.embrouter_call_id,
                 "completion_start_time": self.completion_start_time,
                 "standard_callback_dynamic_params": self.standard_callback_dynamic_params,
                 **self.optional_params,
@@ -941,7 +941,7 @@ class Logging(LiteLLMLoggingBaseClass):
         if "stream_options" in additional_params:
             self.stream_options = additional_params["stream_options"]
         ## check if custom pricing set ##
-        if any(litellm_params.get(key) is not None for key in _CUSTOM_PRICING_KEYS & litellm_params.keys()):
+        if any(embrouter_params.get(key) is not None for key in _CUSTOM_PRICING_KEYS & embrouter_params.keys()):
             self.custom_pricing = True
 
         if "custom_llm_provider" in self.model_call_details:
@@ -950,7 +950,7 @@ class Logging(LiteLLMLoggingBaseClass):
     def update_from_kwargs(
         self,
         kwargs: dict,
-        litellm_params: dict | None = None,
+        embrouter_params: dict | None = None,
         optional_params: dict | None = None,
         model: str | None = None,
         user: str | None = None,
@@ -958,33 +958,33 @@ class Logging(LiteLLMLoggingBaseClass):
     ):
         """
         Convenience wrapper around update_environment_variables that
-        automatically extracts metadata/litellm_metadata from kwargs,
-        so callers don't need to manually plumb them into litellm_params.
+        automatically extracts metadata/embrouter_metadata from kwargs,
+        so callers don't need to manually plumb them into embrouter_params.
         """
-        base_litellm_params: Final[dict[str, Any]] = {}
+        base_embrouter_params: Final[dict[str, Any]] = {}
 
         if isinstance(kwargs.get("metadata"), dict):
-            base_litellm_params["metadata"] = kwargs["metadata"].copy()
-        if "litellm_metadata" in kwargs and isinstance(kwargs["litellm_metadata"], dict):
-            base_litellm_params["litellm_metadata"] = kwargs["litellm_metadata"]
-            if "metadata" not in base_litellm_params:
-                base_litellm_params["metadata"] = kwargs["litellm_metadata"].copy()
+            base_embrouter_params["metadata"] = kwargs["metadata"].copy()
+        if "embrouter_metadata" in kwargs and isinstance(kwargs["embrouter_metadata"], dict):
+            base_embrouter_params["embrouter_metadata"] = kwargs["embrouter_metadata"]
+            if "metadata" not in base_embrouter_params:
+                base_embrouter_params["metadata"] = kwargs["embrouter_metadata"].copy()
 
-        if litellm_params:
+        if embrouter_params:
             # Merge metadata carefully — don't overwrite the merged metadata
-            # from kwargs/litellm_metadata with the caller's litellm_params metadata.
+            # from kwargs/embrouter_metadata with the caller's embrouter_params metadata.
             # e.g. anthropic_messages passes Anthropic's native metadata ({user_id: ...})
-            # in litellm_params, which would overwrite proxy key-auth fields.
-            lp_metadata: Final = litellm_params.pop("metadata", None)
-            base_litellm_params.update(litellm_params)
+            # in embrouter_params, which would overwrite proxy key-auth fields.
+            lp_metadata: Final = embrouter_params.pop("metadata", None)
+            base_embrouter_params.update(embrouter_params)
             if lp_metadata and isinstance(lp_metadata, dict):
-                base_litellm_params.setdefault("metadata", {})
+                base_embrouter_params.setdefault("metadata", {})
                 for k, v in lp_metadata.items():
-                    if k not in base_litellm_params["metadata"]:
-                        base_litellm_params["metadata"][k] = v
+                    if k not in base_embrouter_params["metadata"]:
+                        base_embrouter_params["metadata"][k] = v
 
         self.update_environment_variables(
-            litellm_params=base_litellm_params,
+            embrouter_params=base_embrouter_params,
             optional_params=optional_params or {},
             model=model,
             user=user,
@@ -1012,9 +1012,9 @@ class Logging(LiteLLMLoggingBaseClass):
         if prompt_id:
             return True
 
-        # Check if model uses litellm_agent prefix (model replacement without prompt_id)
+        # Check if model uses embrouter_agent prefix (model replacement without prompt_id)
         model: Final = non_default_params.get("model", "")
-        if isinstance(model, str) and model.startswith("litellm_agent/"):
+        if isinstance(model, str) and model.startswith("embrouter_agent/"):
             return True
 
         if self._should_run_prompt_management_hooks_without_prompt_id(
@@ -1042,8 +1042,8 @@ class Logging(LiteLLMLoggingBaseClass):
         #############################################################################
         # Check if Vector Store / Knowledge Base hooks should be applied to the prompt
         #############################################################################
-        if litellm.vector_store_registry is not None:
-            if litellm.vector_store_registry.get_vector_store_to_run(
+        if embrouter.vector_store_registry is not None:
+            if embrouter.vector_store_registry.get_vector_store_to_run(
                 non_default_params=non_default_params, tools=tools
             ):
                 return True
@@ -1063,7 +1063,7 @@ class Logging(LiteLLMLoggingBaseClass):
         request_kwargs: dict[str, object] | None = None,  # mutable-ok: marker stamped into live request kwargs
         injected_for_every_deployment: bool = False,
     ) -> tuple[str, list[AllMessageValues], dict]:
-        from litellm.integrations.anthropic_cache_control_hook import AnthropicCacheControlHook
+        from embrouter.integrations.anthropic_cache_control_hook import AnthropicCacheControlHook
 
         custom_logger: Final = prompt_management_logger or self.get_custom_logger_for_prompt_management(
             model=model,
@@ -1114,7 +1114,7 @@ class Logging(LiteLLMLoggingBaseClass):
         request_kwargs: dict[str, object] | None = None,  # mutable-ok: marker stamped into live request kwargs
         injected_for_every_deployment: bool = False,
     ) -> tuple[str, list[AllMessageValues], dict]:
-        from litellm.integrations.anthropic_cache_control_hook import AnthropicCacheControlHook
+        from embrouter.integrations.anthropic_cache_control_hook import AnthropicCacheControlHook
 
         custom_logger: Final = prompt_management_logger or self.get_custom_logger_for_prompt_management(
             model=model,
@@ -1139,7 +1139,7 @@ class Logging(LiteLLMLoggingBaseClass):
                 prompt_spec=prompt_spec,
                 prompt_variables=prompt_variables,
                 dynamic_callback_params=self.standard_callback_dynamic_params,
-                litellm_logging_obj=self,
+                embrouter_logging_obj=self,
                 tools=tools,
                 prompt_label=prompt_label,
                 prompt_version=prompt_version,
@@ -1171,7 +1171,7 @@ class Logging(LiteLLMLoggingBaseClass):
         Returns:
             A CustomLogger instance if a matching prompt management system is found, None otherwise
         """
-        prompt_management_loggers: Final = litellm.logging_callback_manager.get_custom_loggers_for_type(
+        prompt_management_loggers: Final = embrouter.logging_callback_manager.get_custom_loggers_for_type(
             callback_type=CustomPromptManagement
         )
 
@@ -1232,7 +1232,7 @@ class Logging(LiteLLMLoggingBaseClass):
         """
         # First check if model starts with a known custom logger compatible callback
         # This takes precedence for backward compatibility
-        for callback_name in litellm._known_custom_logger_compatible_callbacks:
+        for callback_name in embrouter._known_custom_logger_compatible_callbacks:
             if model.startswith(callback_name):
                 custom_logger = _init_custom_logger_compatible_class(
                     logging_integration=callback_name,
@@ -1254,7 +1254,7 @@ class Logging(LiteLLMLoggingBaseClass):
                 return auto_detected_logger
 
         # Then check for any registered CustomPromptManagement loggers (fallback)
-        prompt_management_loggers: Final = litellm.logging_callback_manager.get_custom_loggers_for_type(
+        prompt_management_loggers: Final = embrouter.logging_callback_manager.get_custom_loggers_for_type(
             callback_type=CustomPromptManagement
         )
 
@@ -1278,7 +1278,7 @@ class Logging(LiteLLMLoggingBaseClass):
         #########################################################
         # Vector Store / Knowledge Base hooks
         #########################################################
-        if litellm.vector_store_registry is not None:
+        if embrouter.vector_store_registry is not None:
             vector_store_custom_logger: Final = _init_custom_logger_compatible_class(
                 logging_integration="vector_store_pre_call_hook",
                 internal_usage_cache=None,
@@ -1286,8 +1286,8 @@ class Logging(LiteLLMLoggingBaseClass):
             )
             self.model_call_details["prompt_integration"] = vector_store_custom_logger.__class__.__name__
             # Add to global callbacks so post-call hooks are invoked
-            if vector_store_custom_logger and vector_store_custom_logger not in litellm.callbacks:
-                litellm.logging_callback_manager.add_litellm_callback(vector_store_custom_logger)
+            if vector_store_custom_logger and vector_store_custom_logger not in embrouter.callbacks:
+                embrouter.logging_callback_manager.add_embrouter_callback(vector_store_custom_logger)
             return vector_store_custom_logger
 
         return None
@@ -1324,7 +1324,7 @@ class Logging(LiteLLMLoggingBaseClass):
         self.model_call_details["api_key"] = api_key
         self.model_call_details["additional_args"] = additional_args
         self.model_call_details["log_event_type"] = "pre_api_call"
-        if is_classifier_call(self.call_type, self.model_call_details.get("litellm_params") or EMPTY_MAPPING):
+        if is_classifier_call(self.call_type, self.model_call_details.get("embrouter_params") or EMPTY_MAPPING):
             self.classifier_input = (
                 None
                 if should_redact_message_logging(self.model_call_details)
@@ -1334,7 +1334,7 @@ class Logging(LiteLLMLoggingBaseClass):
             )
         if model:  # if model name was changes pre-call, overwrite the initial model call name with the new one
             self.model_call_details["model"] = model
-        self.model_call_details["litellm_params"]["api_base"] = self._get_masked_api_base(
+        self.model_call_details["embrouter_params"]["api_base"] = self._get_masked_api_base(
             additional_args.get("api_base", "")
         )
 
@@ -1355,9 +1355,9 @@ class Logging(LiteLLMLoggingBaseClass):
                 additional_args=additional_args,
             )
             # log raw request to provider (like LangFuse) -- if opted in.
-            if self.log_raw_request_response is True or litellm.log_raw_request_response is True:
-                _litellm_params: Final = self.model_call_details.get("litellm_params", {})
-                _metadata: Final = _litellm_params.get("metadata", {}) or {}
+            if self.log_raw_request_response is True or embrouter.log_raw_request_response is True:
+                _embrouter_params: Final = self.model_call_details.get("embrouter_params", {})
+                _metadata: Final = _embrouter_params.get("metadata", {}) or {}
                 try:
                     self.model_call_details["raw_request_typed_dict"] = RawRequestTypedDict(
                         raw_request_api_base=self._get_masked_api_base(str(additional_args.get("api_base") or "")),
@@ -1371,7 +1371,7 @@ class Logging(LiteLLMLoggingBaseClass):
                         error=None,
                     )
                     if should_redact_message_logging(self.model_call_details):
-                        _metadata["raw_request"] = REDACTED_BY_LITELLM
+                        _metadata["raw_request"] = REDACTED_BY_EMBROUTER
                     else:
                         curl_command: Final = self._get_request_curl_command(
                             api_base=additional_args.get("api_base", ""),
@@ -1395,7 +1395,7 @@ class Logging(LiteLLMLoggingBaseClass):
                     )  # Expectation: any logger function passed in by the user should accept a dict object
                 except Exception as e:
                     verbose_logger.exception(
-                        "LiteLLM.LoggingError: [Non-Blocking] Exception occurred while logging %s", e
+                        "EmbRouter.LoggingError: [Non-Blocking] Exception occurred while logging %s", e
                     )
 
             self.model_call_details["api_call_start_time"] = datetime.datetime.now()
@@ -1403,12 +1403,12 @@ class Logging(LiteLLMLoggingBaseClass):
             # is overwritten on every retry, so it can't measure one-time
             # preprocessing; pinning the first attempt excludes retry loops
             # + backoff. Logging object only — must NOT go into
-            # litellm_params["metadata"] (caller request metadata, typed
+            # embrouter_params["metadata"] (caller request metadata, typed
             # Dict[str, str], echoed downstream; a datetime breaks it).
             if self.model_call_details.get("first_api_call_start_time") is None:
                 self.model_call_details["first_api_call_start_time"] = self.model_call_details["api_call_start_time"]
             # Input Integration Logging -> If you want to log the fact that an attempt to call the model was made
-            callbacks: Final = litellm.input_callback + (self.dynamic_input_callbacks or [])
+            callbacks: Final = embrouter.input_callback + (self.dynamic_input_callbacks or [])
             for callback in callbacks:
                 try:
                     if callback == "supabase" and supabaseClient is not None:
@@ -1420,7 +1420,7 @@ class Logging(LiteLLMLoggingBaseClass):
                             model=model,
                             messages=messages,
                             end_user=self.model_call_details.get("user", "default"),
-                            litellm_call_id=self.litellm_params["litellm_call_id"],
+                            embrouter_call_id=self.embrouter_params["embrouter_call_id"],
                             print_verbose=print_verbose,
                         )
                     elif callback == "sentry" and add_breadcrumb:
@@ -1428,14 +1428,14 @@ class Logging(LiteLLMLoggingBaseClass):
                             details_to_log = copy.deepcopy(self.model_call_details)
                         except Exception:
                             details_to_log = self.model_call_details
-                        if litellm.turn_off_message_logging:
+                        if embrouter.turn_off_message_logging:
                             # make a copy of the _model_Call_details and log it
                             details_to_log.pop("messages", None)
                             details_to_log.pop("input", None)
                             details_to_log.pop("prompt", None)
 
                         add_breadcrumb(
-                            category="litellm.llm_call",
+                            category="embrouter.llm_call",
                             message=f"Model Call Details pre-call: {details_to_log}",
                             level="info",
                         )
@@ -1455,15 +1455,15 @@ class Logging(LiteLLMLoggingBaseClass):
                             callback_func=callback,
                         )
                 except Exception as e:
-                    verbose_logger.exception("litellm.Logging.pre_call(): Exception occured - %s", e)
+                    verbose_logger.exception("embrouter.Logging.pre_call(): Exception occured - %s", e)
                     verbose_logger.debug(
-                        "LiteLLM.Logging: is sentry capture exception initialized %s", capture_exception
+                        "EmbRouter.Logging: is sentry capture exception initialized %s", capture_exception
                     )
                     if capture_exception:  # log this error to sentry for debugging
                         capture_exception(e)
         except Exception as e:
-            verbose_logger.exception("LiteLLM.LoggingError: [Non-Blocking] Exception occurred while logging %s", e)
-            verbose_logger.error("LiteLLM.Logging: is sentry capture exception initialized %s", capture_exception)
+            verbose_logger.exception("EmbRouter.LoggingError: [Non-Blocking] Exception occurred while logging %s", e)
+            verbose_logger.error("EmbRouter.Logging: is sentry capture exception initialized %s", capture_exception)
             if capture_exception:  # log this error to sentry for debugging
                 capture_exception(e)
 
@@ -1479,20 +1479,20 @@ class Logging(LiteLLMLoggingBaseClass):
         """
         Internal debugging helper function
 
-        Prints the RAW curl command sent from LiteLLM
+        Prints the RAW curl command sent from EmbRouter
         """
-        if _is_debugging_on() or self.litellm_request_debug:
-            if litellm.json_logs:
+        if _is_debugging_on() or self.embrouter_request_debug:
+            if embrouter.json_logs:
                 masked_headers: Final = self._get_masked_headers(headers or {})
                 masked_api_base: Final = self._get_masked_api_base(str(api_base or ""))
-                if self.litellm_request_debug:
+                if self.embrouter_request_debug:
                     verbose_logger.warning(  # .warning ensures this shows up in all environments
-                        "POST Request Sent from LiteLLM",
+                        "POST Request Sent from EmbRouter",
                         extra={"api_base": {masked_api_base}, **masked_headers},
                     )
                 else:
                     verbose_logger.debug(
-                        "POST Request Sent from LiteLLM",
+                        "POST Request Sent from EmbRouter",
                         extra={"api_base": {masked_api_base}, **masked_headers},
                     )
             else:
@@ -1507,7 +1507,7 @@ class Logging(LiteLLMLoggingBaseClass):
                     additional_args=additional_args,
                     data=data,
                 )
-                if self.litellm_request_debug:
+                if self.embrouter_request_debug:
                     verbose_logger.warning(
                         "\x1b[92m%s\x1b[0m\n", curl_command
                     )  # .warning ensures this shows up in all environments
@@ -1521,7 +1521,7 @@ class Logging(LiteLLMLoggingBaseClass):
         masked_api_base: Final = self._get_masked_api_base(api_base)
         if headers is None:
             headers = {}
-        curl_command = "\n\nPOST Request Sent from LiteLLM:\n"
+        curl_command = "\n\nPOST Request Sent from EmbRouter:\n"
         curl_command += "curl -X POST \\\n"
         curl_command += f"{masked_api_base} \\\n"
         masked_headers: Final = self._get_masked_headers(headers)
@@ -1530,7 +1530,7 @@ class Logging(LiteLLMLoggingBaseClass):
         curl_command += f"-d '{self._get_request_body(data)}'\n"
         if additional_args.get("request_str", None) is not None:
             # print the sagemaker / bedrock client request
-            curl_command = "\nRequest Sent from LiteLLM:\n"
+            curl_command = "\nRequest Sent from EmbRouter:\n"
             request_str: Final = additional_args.get("request_str", "")
             curl_command += request_str
         return curl_command
@@ -1539,7 +1539,7 @@ class Logging(LiteLLMLoggingBaseClass):
         """
         Internal debugging helper function
 
-        Masks the headers of the request sent from LiteLLM
+        Masks the headers of the request sent from EmbRouter
         """
         return _get_masked_values(headers, ignore_sensitive_values=ignore_sensitive_headers)
 
@@ -1555,7 +1555,7 @@ class Logging(LiteLLMLoggingBaseClass):
             self.model_call_details["log_event_type"] = "post_api_call"
 
             attr: Literal["warning", "debug"]
-            if self.litellm_request_debug:
+            if self.embrouter_request_debug:
                 attr = "warning"
             else:
                 attr = "debug"
@@ -1573,7 +1573,7 @@ class Logging(LiteLLMLoggingBaseClass):
                     )  # Expectation: any logger function passed in by the user should accept a dict object
                 except Exception as e:
                     verbose_logger.exception(
-                        "LiteLLM.LoggingError: [Non-Blocking] Exception occurred while logging %s", e
+                        "EmbRouter.LoggingError: [Non-Blocking] Exception occurred while logging %s", e
                     )
             original_response = redact_message_input_output_from_logging(
                 model_call_details=(self.model_call_details if hasattr(self, "model_call_details") else {}),
@@ -1581,7 +1581,7 @@ class Logging(LiteLLMLoggingBaseClass):
             )
             # Input Integration Logging -> If you want to log the fact that an attempt to call the model was made
 
-            callbacks: Final = litellm.input_callback + (self.dynamic_input_callbacks or [])
+            callbacks: Final = embrouter.input_callback + (self.dynamic_input_callbacks or [])
             for callback in callbacks:
                 try:
                     if callback == "sentry" and add_breadcrumb:
@@ -1590,14 +1590,14 @@ class Logging(LiteLLMLoggingBaseClass):
                             details_to_log = copy.deepcopy(self.model_call_details)
                         except Exception:
                             details_to_log = self.model_call_details
-                        if litellm.turn_off_message_logging:
+                        if embrouter.turn_off_message_logging:
                             # make a copy of the _model_Call_details and log it
                             details_to_log.pop("messages", None)
                             details_to_log.pop("input", None)
                             details_to_log.pop("prompt", None)
 
                         add_breadcrumb(
-                            category="litellm.llm_call",
+                            category="embrouter.llm_call",
                             message=f"Model Call Details post-call: {details_to_log}",
                             level="info",
                         )
@@ -1610,16 +1610,16 @@ class Logging(LiteLLMLoggingBaseClass):
                         )
                 except Exception as e:
                     verbose_logger.exception(
-                        "LiteLLM.LoggingError: [Non-Blocking] Exception occurred while post-call logging with integrations %s",
+                        "EmbRouter.LoggingError: [Non-Blocking] Exception occurred while post-call logging with integrations %s",
                         e,
                     )
                     verbose_logger.debug(
-                        "LiteLLM.Logging: is sentry capture exception initialized %s", capture_exception
+                        "EmbRouter.Logging: is sentry capture exception initialized %s", capture_exception
                     )
                     if capture_exception:  # log this error to sentry for debugging
                         capture_exception(e)
         except Exception as e:
-            verbose_logger.exception("LiteLLM.LoggingError: [Non-Blocking] Exception occurred while logging %s", e)
+            verbose_logger.exception("EmbRouter.LoggingError: [Non-Blocking] Exception occurred while logging %s", e)
 
     async def async_post_mcp_tool_call_hook(
         self,
@@ -1629,12 +1629,12 @@ class Logging(LiteLLMLoggingBaseClass):
         end_time: datetime.datetime,
     ) -> "CallToolResult":
         """Apply ordered MCP content callbacks to the result returned to the caller."""
-        from litellm.types.llms.base import HiddenParams
-        from litellm.types.mcp import MCPPostCallResponseObject
+        from embrouter.types.llms.base import HiddenParams
+        from embrouter.types.mcp import MCPPostCallResponseObject
 
         callbacks: Final = self.get_combined_callback_list(
             dynamic_success_callbacks=self.dynamic_success_callbacks,
-            global_callbacks=litellm.success_callback,
+            global_callbacks=embrouter.success_callback,
         )
         hidden_params = HiddenParams()
         for callback in callbacks:
@@ -1661,7 +1661,7 @@ class Logging(LiteLLMLoggingBaseClass):
                             hidden_params = response.hidden_params
                     except Exception as e:
                         verbose_logger.exception(
-                            "LiteLLM.LoggingError: [Non-Blocking] Exception occurred while logging %s", e
+                            "EmbRouter.LoggingError: [Non-Blocking] Exception occurred while logging %s", e
                         )
                         hook_content = None
                     structured_replacement_matches = (
@@ -1682,7 +1682,7 @@ class Logging(LiteLLMLoggingBaseClass):
                         response_obj.structured_content = None
                         response_obj.is_error = True
             except Exception as e:
-                verbose_logger.exception("LiteLLM.LoggingError: [Non-Blocking] Exception occurred while logging %s", e)
+                verbose_logger.exception("EmbRouter.LoggingError: [Non-Blocking] Exception occurred while logging %s", e)
         return response_obj
 
     def _parse_post_mcp_call_hook_response(
@@ -1802,14 +1802,14 @@ class Logging(LiteLLMLoggingBaseClass):
             ResponsesAPIResponse,
             ResponseCompletedEvent,
             OpenAIFileObject,
-            LiteLLMRealtimeStreamLoggingObject,
+            EmbRouterRealtimeStreamLoggingObject,
             OpenAIModerationResponse,
             "SearchResponse",
             dict,
             list,
         ],
         cache_hit: bool | None = None,
-        litellm_model_name: str | None = None,
+        embrouter_model_name: str | None = None,
         router_model_id: str | None = None,
     ) -> float | None:
         """
@@ -1825,7 +1825,7 @@ class Logging(LiteLLMLoggingBaseClass):
             return 0.0
 
         if is_unbilled_non_inference_call(
-            self.call_type, StandardLoggingPayloadSetup.merge_litellm_metadata(self.litellm_params), result
+            self.call_type, StandardLoggingPayloadSetup.merge_embrouter_metadata(self.embrouter_params), result
         ):
             return 0.0
 
@@ -1850,14 +1850,14 @@ class Logging(LiteLLMLoggingBaseClass):
                 self._record_zero_cost_diagnostic(
                     priced_result,
                     hidden_params["response_cost"],
-                    litellm_model_name=litellm_model_name,
+                    embrouter_model_name=embrouter_model_name,
                     router_model_id=router_model_id or hidden_params.get("model_id"),
                 )
                 return hidden_params["response_cost"]
             elif router_model_id is None and "model_id" in hidden_params:  # use model_id if not already set
                 router_model_id = hidden_params["model_id"]
 
-        # Fallback: extract router_model_id from litellm_params when not available
+        # Fallback: extract router_model_id from embrouter_params when not available
         # from the result object. ResponsesAPIResponse objects (used by /v1/responses
         # streaming) don't carry _hidden_params["model_id"] like ModelResponse does.
         if router_model_id is None:
@@ -1874,7 +1874,7 @@ class Logging(LiteLLMLoggingBaseClass):
         try:
             response_cost_calculator_kwargs: Final = {
                 "response_object": priced_result,
-                "model": litellm_model_name or self.model,
+                "model": embrouter_model_name or self.model,
                 "cache_hit": cache_hit,
                 "custom_llm_provider": self.model_call_details.get("custom_llm_provider", None),
                 "base_model": _get_base_model_from_metadata(model_call_details=self.model_call_details),
@@ -1884,21 +1884,21 @@ class Logging(LiteLLMLoggingBaseClass):
                 "prompt": prompt,
                 "standard_built_in_tools_params": self.standard_built_in_tools_params,
                 "router_model_id": router_model_id,
-                "litellm_logging_obj": self,
+                "embrouter_logging_obj": self,
                 "data_residency": (
-                    self.litellm_params.get("data_residency")
-                    if hasattr(self, "litellm_params") and self.litellm_params
+                    self.embrouter_params.get("data_residency")
+                    if hasattr(self, "embrouter_params") and self.embrouter_params
                     else None
                 ),
                 "vertex_location": _resolve_vertex_location_for_cost(
                     custom_llm_provider=self.model_call_details.get("custom_llm_provider", None),
-                    litellm_params=(self.litellm_params if hasattr(self, "litellm_params") else None),
+                    embrouter_params=(self.embrouter_params if hasattr(self, "embrouter_params") else None),
                     optional_params=self.optional_params,
-                    model=litellm_model_name or self.model,
+                    model=embrouter_model_name or self.model,
                 ),
                 "region_name": _resolve_mantle_region_for_cost(
                     custom_llm_provider=self.model_call_details.get("custom_llm_provider", None),
-                    litellm_params=self.model_call_details.get("litellm_params"),
+                    embrouter_params=self.model_call_details.get("embrouter_params"),
                 ),
             }
         except Exception as e:  # error creating kwargs for cost calculation
@@ -1911,7 +1911,7 @@ class Logging(LiteLLMLoggingBaseClass):
             return None
 
         try:
-            response_cost: Final = litellm.response_cost_calculator(**response_cost_calculator_kwargs)
+            response_cost: Final = embrouter.response_cost_calculator(**response_cost_calculator_kwargs)
 
             verbose_logger.debug("response_cost: %s", response_cost)
             additional_response_cost: Final[object] = self.model_call_details.get("additional_response_cost")
@@ -1923,7 +1923,7 @@ class Logging(LiteLLMLoggingBaseClass):
             self._record_zero_cost_diagnostic(
                 priced_result,
                 total_response_cost,
-                litellm_model_name=litellm_model_name,
+                embrouter_model_name=embrouter_model_name,
                 router_model_id=router_model_id,
             )
             return total_response_cost
@@ -1944,7 +1944,7 @@ class Logging(LiteLLMLoggingBaseClass):
                 priced_result,
                 None,
                 calculation_failed=True,
-                litellm_model_name=litellm_model_name,
+                embrouter_model_name=embrouter_model_name,
                 router_model_id=router_model_id,
             )
 
@@ -1956,7 +1956,7 @@ class Logging(LiteLLMLoggingBaseClass):
         response_cost: float | None,
         *,
         calculation_failed: bool = False,
-        litellm_model_name: str | None = None,
+        embrouter_model_name: str | None = None,
         router_model_id: str | None = None,
     ) -> None:
         if response_cost is None and not calculation_failed:
@@ -1969,7 +1969,7 @@ class Logging(LiteLLMLoggingBaseClass):
                 result,
                 response_cost,
                 calculation_failed=calculation_failed,
-                litellm_model_name=litellm_model_name,
+                embrouter_model_name=embrouter_model_name,
                 router_model_id=router_model_id,
             )
         except Exception as e:  # noqa: BLE001  # the pricing helpers raise plain Exception and a diagnostic must never break cost tracking
@@ -1987,16 +1987,16 @@ class Logging(LiteLLMLoggingBaseClass):
         response_cost: float | None,
         *,
         calculation_failed: bool,
-        litellm_model_name: str | None,
+        embrouter_model_name: str | None,
         router_model_id: str | None,
     ) -> tuple[StandardLoggingZeroCostDiagnostic, str] | None:
-        metadata: Final = StandardLoggingPayloadSetup.merge_litellm_metadata(self.litellm_params)
+        metadata: Final = StandardLoggingPayloadSetup.merge_embrouter_metadata(self.embrouter_params)
         if response_cost or is_unbilled_non_inference_call(self.call_type, metadata, result):
             return None
         usage: Final = get_usage_object(completion_response=result)
         if usage is None:
             return None
-        model: Final = litellm_model_name or self.model
+        model: Final = embrouter_model_name or self.model
         custom_llm_provider: Final = self.model_call_details.get("custom_llm_provider")
         pricing: Final = pricing_entry_for_cost_calc(
             model=model,
@@ -2007,9 +2007,9 @@ class Logging(LiteLLMLoggingBaseClass):
             router_model_id=router_model_id or self.get_router_model_id(),
             region_name=_resolve_mantle_region_for_cost(
                 custom_llm_provider=custom_llm_provider,
-                litellm_params=self.model_call_details.get("litellm_params"),
+                embrouter_params=self.model_call_details.get("embrouter_params"),
             ),
-            litellm_logging_obj=self,
+            embrouter_logging_obj=self,
         )
         if pricing is None:
             return None
@@ -2028,7 +2028,7 @@ class Logging(LiteLLMLoggingBaseClass):
         )
 
     def _custom_pricing_for(self, result: object) -> bool:
-        litellm_params: Final = getattr(self, "litellm_params", None)
+        embrouter_params: Final = getattr(self, "embrouter_params", None)
         result_hidden_params: Final = getattr(result, "_hidden_params", None) or MappingProxyType({})
         additional_headers: Final = (
             result_hidden_params.get("additional_headers")
@@ -2036,11 +2036,11 @@ class Logging(LiteLLMLoggingBaseClass):
             else getattr(result_hidden_params, "additional_headers", None)
         )
         spilled_over: Final = is_spilled_over_ptu_request(
-            model_info=_deployment_model_info(litellm_params),
+            model_info=_deployment_model_info(embrouter_params),
             response_headers=self.model_call_details.get("response_headers"),
             additional_headers=additional_headers,
         )
-        return False if spilled_over else use_custom_pricing_for_model(litellm_params=litellm_params)
+        return False if spilled_over else use_custom_pricing_for_model(embrouter_params=embrouter_params)
 
     def _prompt_for_cost_calculation(self) -> str:
         """
@@ -2061,7 +2061,7 @@ class Logging(LiteLLMLoggingBaseClass):
         ``usageMetadata``, which the cost calculator does not read, so a raw body
         always costs 0. The async success path already transforms it into a
         ``ModelResponse`` before costing; do the same transformation here so the
-        synchronously-built ``x-litellm-response-cost`` header carries the real
+        synchronously-built ``x-embrouter-response-cost`` header carries the real
         cost. Returns ``None`` (leaving the original result untouched) for other
         call types, for already-transformed ``ModelResponse`` results, and on any
         transformation failure.
@@ -2077,7 +2077,7 @@ class Logging(LiteLLMLoggingBaseClass):
             import httpx
 
             completion_response = result.model_dump(by_alias=True) if isinstance(result, BaseModel) else dict(result)
-            return litellm.VertexGeminiConfig()._transform_google_generate_content_to_openai_model_response(
+            return embrouter.VertexGeminiConfig()._transform_google_generate_content_to_openai_model_response(
                 completion_response=completion_response,
                 model_response=ModelResponse(),
                 model=self.model or "",
@@ -2105,19 +2105,19 @@ class Logging(LiteLLMLoggingBaseClass):
         return self._response_cost_calculator(result=result, cache_hit=cache_hit)
 
     @staticmethod
-    def _is_sync_litellm_request(litellm_params: dict) -> bool:
+    def _is_sync_embrouter_request(embrouter_params: dict) -> bool:
         """True for sync SDK entrypoints (``completion``), false for async (``acompletion``, etc.)."""
         return (
-            litellm_params.get(CallTypes.acompletion.value, False) is not True
-            and litellm_params.get(CallTypes.aresponses.value, False) is not True
-            and litellm_params.get(CallTypes.aembedding.value, False) is not True
-            and litellm_params.get(CallTypes.aimage_generation.value, False) is not True
-            and litellm_params.get(CallTypes.atranscription.value, False) is not True
-            and litellm_params.get(CallTypes.allm_passthrough_route.value, False) is not True
-            and litellm_params.get(CallTypes.aanthropic_messages.value, False) is not True
-            and litellm_params.get(CallTypes.agenerate_content.value, False) is not True
-            and litellm_params.get(CallTypes.agenerate_content_stream.value, False) is not True
-            and litellm_params.get(CallTypes.arealtime.value, False) is not True
+            embrouter_params.get(CallTypes.acompletion.value, False) is not True
+            and embrouter_params.get(CallTypes.aresponses.value, False) is not True
+            and embrouter_params.get(CallTypes.aembedding.value, False) is not True
+            and embrouter_params.get(CallTypes.aimage_generation.value, False) is not True
+            and embrouter_params.get(CallTypes.atranscription.value, False) is not True
+            and embrouter_params.get(CallTypes.allm_passthrough_route.value, False) is not True
+            and embrouter_params.get(CallTypes.aanthropic_messages.value, False) is not True
+            and embrouter_params.get(CallTypes.agenerate_content.value, False) is not True
+            and embrouter_params.get(CallTypes.agenerate_content_stream.value, False) is not True
+            and embrouter_params.get(CallTypes.arealtime.value, False) is not True
         )
 
     def _is_assembled_stream_success(self, result=None) -> bool:
@@ -2153,15 +2153,15 @@ class Logging(LiteLLMLoggingBaseClass):
         ``async for`` on a stream from ``completion()``). Legacy string callbacks
         still run via ``executor.submit(success_handler)`` when configured.
         """
-        from litellm.litellm_core_utils.thread_pool_executor import executor
+        from embrouter.embrouter_core_utils.thread_pool_executor import executor
 
         if self._is_assembled_stream_success(result):
             if self.model_call_details.get("has_dispatched_final_stream_success"):
                 return
             self.model_call_details["has_dispatched_final_stream_success"] = True
 
-        litellm_params: Final = self.model_call_details.get("litellm_params", {}) or {}
-        sync_sdk: Final = self._is_sync_litellm_request(litellm_params)
+        embrouter_params: Final = self.model_call_details.get("embrouter_params", {}) or {}
+        sync_sdk: Final = self._is_sync_embrouter_request(embrouter_params)
         passthrough: Final = self.call_type == CallTypes.pass_through.value
         if sync_sdk and not prefer_async_handlers and not passthrough:
             self.success_handler(
@@ -2221,8 +2221,8 @@ class Logging(LiteLLMLoggingBaseClass):
         when the awaiting task is cancelled (e.g. the event loop shuts down right after
         the request failed).
         """
-        litellm_params: Final = self.model_call_details.get("litellm_params", {}) or {}
-        sync_sdk: Final = self._is_sync_litellm_request(litellm_params)
+        embrouter_params: Final = self.model_call_details.get("embrouter_params", {}) or {}
+        sync_sdk: Final = self._is_sync_embrouter_request(embrouter_params)
         passthrough: Final = self.call_type == CallTypes.pass_through.value
         if sync_sdk and not prefer_async_handlers and not passthrough:
             self.failure_handler(exception, traceback_exception)
@@ -2259,11 +2259,11 @@ class Logging(LiteLLMLoggingBaseClass):
         self.model_call_details[f"has_logged_{event_type}"] = True
         return
 
-    def should_run_callback(self, callback: litellm.CALLBACK_TYPES, litellm_params: dict, event_hook: str) -> bool:
-        if litellm.global_disable_no_log_param:
+    def should_run_callback(self, callback: embrouter.CALLBACK_TYPES, embrouter_params: dict, event_hook: str) -> bool:
+        if embrouter.global_disable_no_log_param:
             return True
 
-        if litellm_params.get("no-log", False) is True:
+        if embrouter_params.get("no-log", False) is True:
             # proxy cost tracking cal backs should run
 
             if not (isinstance(callback, CustomLogger) and "_PROXY_" in callback.__class__.__name__):
@@ -2273,11 +2273,11 @@ class Logging(LiteLLMLoggingBaseClass):
         # Check for dynamically disabled callbacks via headers
         if EnterpriseCallbackControls is not None and EnterpriseCallbackControls.is_callback_disabled_dynamically(
             callback=callback,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             standard_callback_dynamic_params=self.standard_callback_dynamic_params,
         ):
             verbose_logger.debug(
-                "Callback %s disabled via x-litellm-disable-callbacks header for %s event", callback, event_hook
+                "Callback %s disabled via x-embrouter-disable-callbacks header for %s event", callback, event_hook
             )
             return False
 
@@ -2312,7 +2312,7 @@ class Logging(LiteLLMLoggingBaseClass):
                 results=result  # pyright: ignore[reportUnknownArgumentType]  # raw event dicts from the WS stream
             )
             ws_service_tier: Final = next(iter(ws_tier_partition)) if len(ws_tier_partition) == 1 else None
-            logging_result = LiteLLMRealtimeStreamLoggingObject(
+            logging_result = EmbRouterRealtimeStreamLoggingObject(
                 usage=combined_ws_usage,
                 results=result,  # pyright: ignore[reportUnknownArgumentType]  # raw event dicts from the WS stream
                 service_tier=ws_service_tier,
@@ -2322,7 +2322,7 @@ class Logging(LiteLLMLoggingBaseClass):
             self.call_type == CallTypes.llm_passthrough_route.value
             or self.call_type == CallTypes.allm_passthrough_route.value
         ) and isinstance(result, Response):
-            from litellm.utils import ProviderConfigManager
+            from embrouter.utils import ProviderConfigManager
 
             provider_config: Final = ProviderConfigManager.get_provider_passthrough_config(
                 provider=self.model_call_details.get("custom_llm_provider", ""),
@@ -2350,7 +2350,7 @@ class Logging(LiteLLMLoggingBaseClass):
 
     def _merge_hidden_params_from_response_into_metadata(self, logging_result: object) -> None:
         """
-        Copy response._hidden_params into litellm_params.metadata['hidden_params'].
+        Copy response._hidden_params into embrouter_params.metadata['hidden_params'].
 
         Non-streaming success uses _process_hidden_params_and_response_cost (skipped when
         stream=True). Streaming assembles the full response later; without this merge,
@@ -2361,16 +2361,16 @@ class Logging(LiteLLMLoggingBaseClass):
         hidden_params: Final = getattr(logging_result, "_hidden_params", None)
         if not hidden_params:
             return
-        if self.model_call_details.get("litellm_params") is None:
+        if self.model_call_details.get("embrouter_params") is None:
             return
         metadata_hidden_params: Final = hidden_params.copy()
         response_cost: Final[object] = self.model_call_details.get("response_cost")
         if metadata_hidden_params.get("response_cost") is None and response_cost is not None:
             metadata_hidden_params["response_cost"] = response_cost
 
-        litellm_params: Final = self.model_call_details["litellm_params"]
-        metadata: Final = litellm_params.get("metadata") or {}
-        litellm_params["metadata"] = metadata
+        embrouter_params: Final = self.model_call_details["embrouter_params"]
+        metadata: Final = embrouter_params.get("metadata") or {}
+        embrouter_params["metadata"] = metadata
         metadata["hidden_params"] = metadata_hidden_params
 
     def _process_hidden_params_and_response_cost(
@@ -2384,11 +2384,11 @@ class Logging(LiteLLMLoggingBaseClass):
         self._surface_response_headers_from_result(logging_result)
         hidden_params: Final = getattr(logging_result, "_hidden_params", {})
         if hidden_params:
-            if self.model_call_details.get("litellm_params") is not None:
-                self.model_call_details["litellm_params"].setdefault("metadata", {})
-                if self.model_call_details["litellm_params"]["metadata"] is None:
-                    self.model_call_details["litellm_params"]["metadata"] = {}
-                self.model_call_details["litellm_params"]["metadata"]["hidden_params"] = getattr(
+            if self.model_call_details.get("embrouter_params") is not None:
+                self.model_call_details["embrouter_params"].setdefault("metadata", {})
+                if self.model_call_details["embrouter_params"]["metadata"] is None:
+                    self.model_call_details["embrouter_params"]["metadata"] = {}
+                self.model_call_details["embrouter_params"]["metadata"]["hidden_params"] = getattr(
                     logging_result, "_hidden_params", {}
                 )
 
@@ -2421,13 +2421,13 @@ class Logging(LiteLLMLoggingBaseClass):
     async def _prepare_baseline_cache_estimate(self, response_obj: object) -> None:
         if self.baseline_cache_context is None:
             return
-        from litellm.proxy.hooks.autorouter_baseline_cache import finalize_baseline_cache
+        from embrouter.proxy.hooks.autorouter_baseline_cache import finalize_baseline_cache
 
         await finalize_baseline_cache(self, response_obj)
 
     async def invalidate_baseline_cache_estimate(self, reason: str, *, completed: bool = False) -> None:
         """Invalidate uncertain attempts; retire the reservation at logical completion."""
-        from litellm.proxy.hooks.autorouter_baseline_cache import invalidate_baseline_cache
+        from embrouter.proxy.hooks.autorouter_baseline_cache import invalidate_baseline_cache
 
         await invalidate_baseline_cache(self, reason, completed=completed)
 
@@ -2464,7 +2464,7 @@ class Logging(LiteLLMLoggingBaseClass):
                     )
                 standard_logging_payload["response"] = response_dict
         elif isinstance(result, TranscriptionResponse):
-            from litellm.litellm_core_utils.llm_cost_calc.usage_object_transformation import (
+            from embrouter.embrouter_core_utils.llm_cost_calc.usage_object_transformation import (
                 TranscriptionUsageObjectTransformation,
             )
 
@@ -2537,7 +2537,7 @@ class Logging(LiteLLMLoggingBaseClass):
             result = self._transform_usage_objects(result=result)
 
             if (
-                litellm.max_budget
+                embrouter.max_budget
                 and self.stream is False
                 and result is not None
                 and isinstance(result, dict)
@@ -2545,7 +2545,7 @@ class Logging(LiteLLMLoggingBaseClass):
             ):
                 time_diff: Final = (end_time - start_time).total_seconds()
                 float_diff: Final = float(time_diff)
-                litellm._current_cost += litellm.completion_cost(
+                embrouter._current_cost += embrouter.completion_cost(
                     model=self.model,
                     prompt="",
                     completion=getattr(result, "content", ""),
@@ -2555,7 +2555,7 @@ class Logging(LiteLLMLoggingBaseClass):
 
             return start_time, end_time, result
         except Exception as e:
-            raise Exception(f"[Non-Blocking] LiteLLM.Success_Call Error: {e}")
+            raise Exception(f"[Non-Blocking] EmbRouter.Success_Call Error: {e}")
 
     def _is_recognized_call_type_for_logging(
         self,
@@ -2574,10 +2574,10 @@ class Logging(LiteLLMLoggingBaseClass):
             or isinstance(logging_result, HttpxBinaryResponseContent)  # tts
             or isinstance(logging_result, RerankResponse)
             or isinstance(logging_result, FineTuningJob)
-            or isinstance(logging_result, LiteLLMBatch)
+            or isinstance(logging_result, EmbRouterBatch)
             or isinstance(logging_result, ResponsesAPIResponse)
             or isinstance(logging_result, OpenAIFileObject)
-            or isinstance(logging_result, LiteLLMRealtimeStreamLoggingObject)
+            or isinstance(logging_result, EmbRouterRealtimeStreamLoggingObject)
             or isinstance(logging_result, OpenAIModerationResponse)
             or isinstance(logging_result, OCRResponse)  # OCR
             or isinstance(logging_result, SearchResponse)  # Search API
@@ -2592,7 +2592,7 @@ class Logging(LiteLLMLoggingBaseClass):
             and logging_result.get("object") == "search"  # Search API (dict format)
             or isinstance(logging_result, VideoObject)
             or isinstance(logging_result, ContainerObject)
-            or isinstance(logging_result, LiteLLMSendMessageResponse)  # A2A
+            or isinstance(logging_result, EmbRouterSendMessageResponse)  # A2A
             or (self.call_type == CallTypes.call_mcp_tool.value)
         ):
             return True
@@ -2612,7 +2612,7 @@ class Logging(LiteLLMLoggingBaseClass):
         usage, and billing it would write a $0 spend log under the interaction
         id that collides with the row the background poll task writes once the
         interaction completes (see
-        ``litellm.interactions.background_cost_polling``).
+        ``embrouter.interactions.background_cost_polling``).
         """
         return self.call_type in (
             CallTypes.create_interaction.value,
@@ -2635,7 +2635,7 @@ class Logging(LiteLLMLoggingBaseClass):
         The poll fetched this body through its own client call, which priced it
         against a throwaway logging object holding none of this request's
         deployment context: no ``model_info``, no router ``model_id``, no
-        deployment ``litellm_params``. Keeping that price would bill a
+        deployment ``embrouter_params``. Keeping that price would bill a
         custom-priced deployment at the wrong rate, and it would also satisfy
         the "already calculated" shortcut and skip repricing here, leaving the
         cost breakdown at the zeros the usage-less create stamped and writing
@@ -2643,13 +2643,13 @@ class Logging(LiteLLMLoggingBaseClass):
         settled body itself, against the deployment that served the create.
 
         The same throwaway call stamped the deployment identity that travels
-        with the price, so ``model_id`` and ``litellm_model_name`` go with it.
+        with the price, so ``model_id`` and ``embrouter_model_name`` go with it.
         Left in place they overwrite the create's real deployment with the
         poll's empty one in the payload every logging integration reads.
         """
         settled_hidden_params: Final = getattr(result, "_hidden_params", None)
         if isinstance(settled_hidden_params, dict):
-            for poll_scoped_key in ("response_cost", "model_id", "litellm_model_name"):
+            for poll_scoped_key in ("response_cost", "model_id", "embrouter_model_name"):
                 settled_hidden_params.pop(poll_scoped_key, None)
         self._reset_success_emission_dedupe()
         await self.async_success_handler(result=result)
@@ -2664,10 +2664,10 @@ class Logging(LiteLLMLoggingBaseClass):
         discarded as a duplicate of the in-progress create.
         """
         self.model_call_details.pop("has_logged_async_success", None)
-        litellm_params = self.model_call_details.get("litellm_params")
-        if not isinstance(litellm_params, dict):
+        embrouter_params = self.model_call_details.get("embrouter_params")
+        if not isinstance(embrouter_params, dict):
             return
-        metadata = litellm_params.get("metadata")
+        metadata = embrouter_params.get("metadata")
         if not isinstance(metadata, dict):
             return
         otel_internal = metadata.get("_otel_internal")
@@ -2683,13 +2683,13 @@ class Logging(LiteLLMLoggingBaseClass):
         """
         Log the response a passthrough stream collector assembled once streaming is done (trigger success handler)
         """
-        complete_streaming_response: Final = collector.build_logged_response(litellm_logging_obj=self)
+        complete_streaming_response: Final = collector.build_logged_response(embrouter_logging_obj=self)
 
         if complete_streaming_response is not None:
             self.success_handler(result=complete_streaming_response)
 
     async def async_flush_passthrough_collected_chunks(self, collector: "PassthroughStreamCollector"):
-        complete_streaming_response: Final = collector.build_logged_response(litellm_logging_obj=self)
+        complete_streaming_response: Final = collector.build_logged_response(embrouter_logging_obj=self)
 
         if complete_streaming_response is not None:
             await self.async_success_handler(result=complete_streaming_response)
@@ -2697,7 +2697,7 @@ class Logging(LiteLLMLoggingBaseClass):
     def _restore_correlation_context(self) -> None:
         """Restore trace_id/session_id contextvars to their pre-call value.
 
-        Without this, a nested LiteLLM call sharing the same asyncio Task as an
+        Without this, a nested EmbRouter call sharing the same asyncio Task as an
         outer request (e.g. a guardrail's own LLM-as-judge call, an MCP sampling
         call) would leave the outer request's subsequent log lines stamped with
         the nested call's trace_id/session_id instead of its own.
@@ -2756,7 +2756,7 @@ class Logging(LiteLLMLoggingBaseClass):
         cache_hit: bool | None = None,
         **kwargs: Any,  # kwargs-ok: forwarded from success_handler
     ) -> None:
-        verbose_logger.debug("Logging Details LiteLLM-Success Call: Cache_hit=%s", cache_hit)
+        verbose_logger.debug("Logging Details EmbRouter-Success Call: Cache_hit=%s", cache_hit)
         if not self.should_run_logging(event_type="sync_success"):  # prevent double logging
             return
         start_time, end_time, result = self._success_handler_helper_fn(
@@ -2766,8 +2766,8 @@ class Logging(LiteLLMLoggingBaseClass):
             cache_hit=cache_hit,
             standard_logging_object=kwargs.get("standard_logging_object", None),
         )
-        litellm_params = self.model_call_details.get("litellm_params", {})
-        is_sync_request: Final = self._is_sync_litellm_request(litellm_params)
+        embrouter_params = self.model_call_details.get("embrouter_params", {})
+        is_sync_request: Final = self._is_sync_embrouter_request(embrouter_params)
         try:
             ## BUILD COMPLETE STREAMED RESPONSE
             complete_streaming_response: (
@@ -2783,7 +2783,7 @@ class Logging(LiteLLMLoggingBaseClass):
                 streaming_chunks=self.sync_streaming_chunks,
             )
             if complete_streaming_response is not None:
-                verbose_logger.debug("Logging Details LiteLLM-Success Call streaming complete")
+                verbose_logger.debug("Logging Details EmbRouter-Success Call streaming complete")
                 self.model_call_details["complete_streaming_response"] = complete_streaming_response
                 self._surface_response_headers_from_result(complete_streaming_response)
                 self.model_call_details["response_cost"] = self._response_cost_calculator(
@@ -2803,7 +2803,7 @@ class Logging(LiteLLMLoggingBaseClass):
                         emit_standard_logging_payload(standard_logging_payload)
             callbacks: Final = self.get_combined_callback_list(
                 dynamic_success_callbacks=self.dynamic_success_callbacks,
-                global_callbacks=litellm.success_callback,
+                global_callbacks=embrouter.success_callback,
             )
 
             ## REDACT MESSAGES ##
@@ -2814,7 +2814,7 @@ class Logging(LiteLLMLoggingBaseClass):
             ## LOGGING HOOK ##
             for callback in callbacks:
                 if isinstance(callback, CustomGuardrail):
-                    from litellm.types.guardrails import GuardrailEventHooks
+                    from embrouter.types.guardrails import GuardrailEventHooks
 
                     if (
                         callback.should_run_guardrail(
@@ -2843,7 +2843,7 @@ class Logging(LiteLLMLoggingBaseClass):
                 try:
                     should_run = self.should_run_callback(
                         callback=callback,
-                        litellm_params=litellm_params,
+                        embrouter_params=embrouter_params,
                         event_hook="success_handler",
                     )
                     if not should_run:
@@ -2872,7 +2872,7 @@ class Logging(LiteLLMLoggingBaseClass):
                         model = kwargs["model"]
                         messages = kwargs["messages"]
                         optional_params = kwargs.get("optional_params", {})
-                        litellm_params = kwargs.get("litellm_params", {})
+                        embrouter_params = kwargs.get("embrouter_params", {})
                         supabaseClient.log_event(
                             model=model,
                             messages=messages,
@@ -2880,9 +2880,9 @@ class Logging(LiteLLMLoggingBaseClass):
                             response_obj=result,
                             start_time=start_time,
                             end_time=end_time,
-                            litellm_call_id=(
+                            embrouter_call_id=(
                                 current_call_id
-                                if (current_call_id := litellm_params.get("litellm_call_id")) is not None
+                                if (current_call_id := embrouter_params.get("embrouter_call_id")) is not None
                                 else str(uuid.uuid4())
                             ),
                             print_verbose=print_verbose,
@@ -2948,7 +2948,7 @@ class Logging(LiteLLMLoggingBaseClass):
                             response_obj=result,
                             start_time=start_time,
                             end_time=end_time,
-                            run_id=self.litellm_call_id,
+                            run_id=self.embrouter_call_id,
                             print_verbose=print_verbose,
                         )
                     if callback == "helicone" and heliconeLogger is not None:
@@ -3010,7 +3010,7 @@ class Logging(LiteLLMLoggingBaseClass):
                                 _trace_id = _response.get("trace_id", None)
                                 if _trace_id is not None:
                                     in_memory_trace_id_cache.set_cache(
-                                        litellm_call_id=self.litellm_call_id,
+                                        embrouter_call_id=self.embrouter_call_id,
                                         service_name="langfuse",
                                         trace_id=_trace_id,
                                     )
@@ -3153,9 +3153,9 @@ class Logging(LiteLLMLoggingBaseClass):
 
                 except Exception as e:
                     print_verbose(
-                        f"LiteLLM.LoggingError: [Non-Blocking] Exception occurred while success logging with integrations {traceback.format_exc()}"
+                        f"EmbRouter.LoggingError: [Non-Blocking] Exception occurred while success logging with integrations {traceback.format_exc()}"
                     )
-                    print_verbose(f"LiteLLM.Logging: is sentry capture exception initialized {capture_exception}")
+                    print_verbose(f"EmbRouter.Logging: is sentry capture exception initialized {capture_exception}")
                     if capture_exception:  # log this error to sentry for debugging
                         capture_exception(e)
                     # Track callback logging failures in Prometheus
@@ -3165,7 +3165,7 @@ class Logging(LiteLLMLoggingBaseClass):
                         pass
         except Exception as e:
             verbose_logger.exception(
-                "LiteLLM.LoggingError: [Non-Blocking] Exception occurred while success logging %s",
+                "EmbRouter.LoggingError: [Non-Blocking] Exception occurred while success logging %s",
                 e,
             )
 
@@ -3198,18 +3198,18 @@ class Logging(LiteLLMLoggingBaseClass):
         """
         Implementing async callbacks, to handle asyncio event loop issues when custom integrations need to use async functions.
         """
-        print_verbose(f"Logging Details LiteLLM-Async Success Call, cache_hit={cache_hit}")
+        print_verbose(f"Logging Details EmbRouter-Async Success Call, cache_hit={cache_hit}")
         if not self._is_assembled_stream_success(result) and not self.should_run_logging(
             event_type="async_success"
         ):  # prevent double logging (non-streaming)
             return
 
         ## CALCULATE COST FOR BATCH JOBS
-        if self.call_type == CallTypes.aretrieve_batch.value and isinstance(result, LiteLLMBatch):
-            litellm_params = self.litellm_params or {}
-            litellm_metadata: Final = litellm_params.get("litellm_metadata") or {}
+        if self.call_type == CallTypes.aretrieve_batch.value and isinstance(result, EmbRouterBatch):
+            embrouter_params = self.embrouter_params or {}
+            embrouter_metadata: Final = embrouter_params.get("embrouter_metadata") or {}
             if (
-                litellm_metadata.get("batch_ignore_default_logging", False) is True
+                embrouter_metadata.get("batch_ignore_default_logging", False) is True
             ):  # polling job will query these frequently, don't spam db logs
                 return
 
@@ -3246,7 +3246,7 @@ class Logging(LiteLLMLoggingBaseClass):
                     batch=result,
                     custom_llm_provider=self.custom_llm_provider,
                     model_name=self.get_deployment_model_for_cost(),
-                    litellm_params=self.litellm_params,
+                    embrouter_params=self.embrouter_params,
                     model_info=self.get_router_deployment_model_info(),
                 )
 
@@ -3315,7 +3315,7 @@ class Logging(LiteLLMLoggingBaseClass):
                     )
 
                 verbose_logger.debug("Model=%s; cost=%s", self.model, self.model_call_details["response_cost"])
-            except litellm.NotFoundError:
+            except embrouter.NotFoundError:
                 verbose_logger.warning(
                     "Model=%s not found in completion cost map. Setting 'response_cost' to None", self.model
                 )
@@ -3338,7 +3338,7 @@ class Logging(LiteLLMLoggingBaseClass):
                 )
             except Exception:  # noqa: BLE001  # payload build must never block later callbacks (slot release)
                 verbose_logger.exception(
-                    "LiteLLM.LoggingError: [Non-Blocking] Exception building the standard logging payload "
+                    "EmbRouter.LoggingError: [Non-Blocking] Exception building the standard logging payload "
                     "for a streaming response; callbacks still run without it"
                 )
 
@@ -3370,7 +3370,7 @@ class Logging(LiteLLMLoggingBaseClass):
                     emit_standard_logging_payload(standard_logging_payload)
         callbacks: Final = self.get_combined_callback_list(
             dynamic_success_callbacks=self.dynamic_async_success_callbacks,
-            global_callbacks=litellm._async_success_callback,
+            global_callbacks=embrouter._async_success_callback,
         )
 
         result = redact_message_input_output_from_logging(
@@ -3383,7 +3383,7 @@ class Logging(LiteLLMLoggingBaseClass):
         for callback in callbacks:
             try:
                 if isinstance(callback, CustomGuardrail):
-                    from litellm.types.guardrails import GuardrailEventHooks
+                    from embrouter.types.guardrails import GuardrailEventHooks
 
                     if (
                         callback.should_run_guardrail(
@@ -3402,7 +3402,7 @@ class Logging(LiteLLMLoggingBaseClass):
                     )
                 elif isinstance(callback, CustomLogger):
                     result = redact_message_input_output_from_custom_logger(
-                        result=result, litellm_logging_obj=self, custom_logger=callback
+                        result=result, embrouter_logging_obj=self, custom_logger=callback
                     )
                     self.model_call_details, result = await callback.async_logging_hook(
                         kwargs=self.model_call_details,
@@ -3411,7 +3411,7 @@ class Logging(LiteLLMLoggingBaseClass):
                     )
             except Exception:  # noqa: BLE001  # one failing hook must not skip later callbacks (slot release)
                 verbose_logger.error(
-                    "LiteLLM.LoggingError: [Non-Blocking] Exception occurred in async_logging_hook %s",
+                    "EmbRouter.LoggingError: [Non-Blocking] Exception occurred in async_logging_hook %s",
                     traceback.format_exc(),
                 )
                 self._handle_callback_failure(callback=callback)
@@ -3420,10 +3420,10 @@ class Logging(LiteLLMLoggingBaseClass):
 
         for callback in callbacks:
             # check if callback can run for this request
-            litellm_params = self.model_call_details.get("litellm_params", {})
+            embrouter_params = self.model_call_details.get("embrouter_params", {})
             should_run = self.should_run_callback(
                 callback=callback,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 event_hook="async_success_handler",
             )
             if not should_run:
@@ -3454,7 +3454,7 @@ class Logging(LiteLLMLoggingBaseClass):
                         )
 
                 if isinstance(callback, CustomLogger):  # custom logger class
-                    from litellm.integrations.shadow_eval_logger import ShadowEvalLogger
+                    from embrouter.integrations.shadow_eval_logger import ShadowEvalLogger
 
                     model_call_details: dict = self.model_call_details
                     ##################################
@@ -3549,7 +3549,7 @@ class Logging(LiteLLMLoggingBaseClass):
                         )
             except Exception:
                 verbose_logger.error(
-                    "LiteLLM.LoggingError: [Non-Blocking] Exception occurred while success logging %s",
+                    "EmbRouter.LoggingError: [Non-Blocking] Exception occurred while success logging %s",
                     traceback.format_exc(),
                 )
                 self._handle_callback_failure(callback=callback)
@@ -3567,7 +3567,7 @@ class Logging(LiteLLMLoggingBaseClass):
         try:
             callback_name: Final = self._get_callback_name(callback)
 
-            all_callbacks: Final = litellm.logging_callback_manager._get_all_callbacks()
+            all_callbacks: Final = embrouter.logging_callback_manager._get_all_callbacks()
 
             for callback_obj in all_callbacks:
                 if hasattr(callback_obj, "increment_callback_logging_failure"):
@@ -3608,8 +3608,8 @@ class Logging(LiteLLMLoggingBaseClass):
             self.model_call_details["response_cost"] = 0
 
         if hasattr(exception, "headers") and isinstance(exception.headers, dict):
-            self.model_call_details.setdefault("litellm_params", {})
-            metadata: Final = self.model_call_details["litellm_params"].get("metadata", {}) or {}
+            self.model_call_details.setdefault("embrouter_params", {})
+            metadata: Final = self.model_call_details["embrouter_params"].get("metadata", {}) or {}
             metadata.update(exception.headers)
 
         ## STANDARDIZED LOGGING PAYLOAD
@@ -3633,10 +3633,10 @@ class Logging(LiteLLMLoggingBaseClass):
 
         Currently just for router model group rate limit error
         """
-        from litellm.types.router import RouterErrors
+        from embrouter.types.router import RouterErrors
 
-        litellm_params: Final[dict] = self.model_call_details.get("litellm_params") or {}
-        metadata: Final = litellm_params.get("metadata") or {}
+        embrouter_params: Final[dict] = self.model_call_details.get("embrouter_params") or {}
+        metadata: Final = embrouter_params.get("metadata") or {}
 
         ## BASE CASE ## check if rate limit error for model group size 1
         is_base_case = False
@@ -3651,7 +3651,7 @@ class Logging(LiteLLMLoggingBaseClass):
         ## get original model group ##
 
         model_group: Final = metadata.get("model_group") or None
-        for callback in litellm._async_failure_callback:
+        for callback in embrouter._async_failure_callback:
             if isinstance(callback, CustomLogger):  # custom logger class
                 await callback.log_model_group_rate_limit_error(
                     exception=exception,
@@ -3685,11 +3685,11 @@ class Logging(LiteLLMLoggingBaseClass):
         start_time: datetime.datetime | None = None,
         end_time: datetime.datetime | None = None,
     ) -> None:
-        verbose_logger.debug("Logging Details LiteLLM-Failure Call: %s", litellm.failure_callback)
+        verbose_logger.debug("Logging Details EmbRouter-Failure Call: %s", embrouter.failure_callback)
         if not self.should_run_logging(event_type="sync_failure"):  # prevent double logging
             return
-        litellm_params: Final = self.model_call_details.get("litellm_params", {})
-        is_sync_request: Final = self._is_sync_litellm_request(litellm_params)
+        embrouter_params: Final = self.model_call_details.get("embrouter_params", {})
+        is_sync_request: Final = self._is_sync_embrouter_request(embrouter_params)
 
         try:
             start_time, end_time = self._failure_handler_helper_fn(
@@ -3700,7 +3700,7 @@ class Logging(LiteLLMLoggingBaseClass):
             )
             callbacks: Final = self.get_combined_callback_list(
                 dynamic_success_callbacks=self.dynamic_failure_callbacks,
-                global_callbacks=litellm.failure_callback,
+                global_callbacks=embrouter.failure_callback,
             )
 
             result: object = None  # result sent to all loggers, init this to None incase it's not created
@@ -3714,7 +3714,7 @@ class Logging(LiteLLMLoggingBaseClass):
                 try:
                     should_run = self.should_run_callback(
                         callback=callback,
-                        litellm_params=litellm_params,
+                        embrouter_params=embrouter_params,
                         event_hook="failure_handler",
                     )
                     if not should_run:
@@ -3736,7 +3736,7 @@ class Logging(LiteLLMLoggingBaseClass):
                             model=model,
                             input=input,
                             error=traceback_exception,
-                            run_id=self.litellm_call_id,
+                            run_id=self.embrouter_call_id,
                             start_time=start_time,
                             end_time=end_time,
                             print_verbose=print_verbose,
@@ -3757,7 +3757,7 @@ class Logging(LiteLLMLoggingBaseClass):
                             response_obj=result,
                             start_time=start_time,
                             end_time=end_time,
-                            litellm_call_id=self.model_call_details["litellm_call_id"],
+                            embrouter_call_id=self.model_call_details["embrouter_call_id"],
                             print_verbose=print_verbose,
                         )
                     if callable(callback):  # custom logger functions
@@ -3809,7 +3809,7 @@ class Logging(LiteLLMLoggingBaseClass):
                             _trace_id = _response.get("trace_id", None)
                             if _trace_id is not None:
                                 in_memory_trace_id_cache.set_cache(
-                                    litellm_call_id=self.litellm_call_id,
+                                    embrouter_call_id=self.embrouter_call_id,
                                     service_name="langfuse",
                                     trace_id=_trace_id,
                                 )
@@ -3843,14 +3843,14 @@ class Logging(LiteLLMLoggingBaseClass):
 
                 except Exception as e:
                     print_verbose(
-                        f"LiteLLM.LoggingError: [Non-Blocking] Exception occurred while failure logging with integrations {e}"
+                        f"EmbRouter.LoggingError: [Non-Blocking] Exception occurred while failure logging with integrations {e}"
                     )
-                    print_verbose(f"LiteLLM.Logging: is sentry capture exception initialized {capture_exception}")
+                    print_verbose(f"EmbRouter.Logging: is sentry capture exception initialized {capture_exception}")
                     if capture_exception:  # log this error to sentry for debugging
                         capture_exception(e)
         except Exception as e:
             verbose_logger.exception(
-                "LiteLLM.LoggingError: [Non-Blocking] Exception occurred while failure logging %s", e
+                "EmbRouter.LoggingError: [Non-Blocking] Exception occurred while failure logging %s", e
             )
 
     async def async_failure_handler(
@@ -3896,7 +3896,7 @@ class Logging(LiteLLMLoggingBaseClass):
 
         callbacks: Final = self.get_combined_callback_list(
             dynamic_success_callbacks=self.dynamic_async_failure_callbacks,
-            global_callbacks=litellm._async_failure_callback,
+            global_callbacks=embrouter._async_failure_callback,
         )
 
         result: Final = None  # result sent to all loggers, init this to None incase it's not created
@@ -3904,10 +3904,10 @@ class Logging(LiteLLMLoggingBaseClass):
         self.has_run_logging(event_type="async_failure")
         for callback in callbacks:
             try:
-                litellm_params = self.model_call_details.get("litellm_params", {})
+                embrouter_params = self.model_call_details.get("embrouter_params", {})
                 should_run = self.should_run_callback(
                     callback=callback,
-                    litellm_params=litellm_params,
+                    embrouter_params=embrouter_params,
                     event_hook="async_failure_handler",
                 )
                 if not should_run:
@@ -3933,7 +3933,7 @@ class Logging(LiteLLMLoggingBaseClass):
                     )
             except Exception as e:
                 verbose_logger.exception(
-                    "LiteLLM.LoggingError: [Non-Blocking] Exception occurred while failure                         logging %s\nCallback=%s",
+                    "EmbRouter.LoggingError: [Non-Blocking] Exception occurred while failure                         logging %s\nCallback=%s",
                     e,
                     callback,
                 )
@@ -3954,7 +3954,7 @@ class Logging(LiteLLMLoggingBaseClass):
         trace_id: str | None = None
         if service_name == "langfuse":
             trace_id = in_memory_trace_id_cache.get_cache(
-                litellm_call_id=self.litellm_call_id, service_name=service_name
+                embrouter_call_id=self.embrouter_call_id, service_name=service_name
             )
 
         return trace_id
@@ -3989,10 +3989,10 @@ class Logging(LiteLLMLoggingBaseClass):
         """
         _combined_sync_callbacks: Final = self.get_combined_callback_list(
             dynamic_success_callbacks=self.dynamic_success_callbacks,
-            global_callbacks=litellm.success_callback,
+            global_callbacks=embrouter.success_callback,
         )
         _filtered_success_callbacks = self._remove_internal_custom_logger_callbacks(_combined_sync_callbacks)
-        _filtered_success_callbacks = self._remove_internal_litellm_callbacks(_filtered_success_callbacks)
+        _filtered_success_callbacks = self._remove_internal_embrouter_callbacks(_filtered_success_callbacks)
         return len(_filtered_success_callbacks) > 0
 
     def _should_run_sync_failure_callbacks_for_async_calls(self) -> bool:
@@ -4007,10 +4007,10 @@ class Logging(LiteLLMLoggingBaseClass):
         """
         _combined_sync_callbacks: Final = self.get_combined_callback_list(
             dynamic_success_callbacks=self.dynamic_failure_callbacks,
-            global_callbacks=litellm.failure_callback,
+            global_callbacks=embrouter.failure_callback,
         )
         _filtered_failure_callbacks = self._remove_internal_custom_logger_callbacks(_combined_sync_callbacks)
-        _filtered_failure_callbacks = self._remove_internal_litellm_callbacks(_filtered_failure_callbacks)
+        _filtered_failure_callbacks = self._remove_internal_embrouter_callbacks(_filtered_failure_callbacks)
         return len(_filtered_failure_callbacks) > 0
 
     def get_combined_callback_list(self, dynamic_success_callbacks: list | None, global_callbacks: list) -> list:
@@ -4018,9 +4018,9 @@ class Logging(LiteLLMLoggingBaseClass):
             return list(global_callbacks)
         return list(dict.fromkeys(dynamic_success_callbacks + global_callbacks))
 
-    def _remove_internal_litellm_callbacks(self, callbacks: list) -> list:
+    def _remove_internal_embrouter_callbacks(self, callbacks: list) -> list:
         """
-        Creates a filtered list of callbacks, excluding internal LiteLLM callbacks.
+        Creates a filtered list of callbacks, excluding internal EmbRouter callbacks.
 
         Args:
             callbacks: List of callback functions/strings to filter
@@ -4028,7 +4028,7 @@ class Logging(LiteLLMLoggingBaseClass):
         Returns:
             List of filtered callbacks with internal ones removed
         """
-        filtered: Final = [cb for cb in callbacks if not self._is_internal_litellm_proxy_callback(cb)]
+        filtered: Final = [cb for cb in callbacks if not self._is_internal_embrouter_proxy_callback(cb)]
 
         verbose_logger.debug("Filtered callbacks: %s", filtered)
         return filtered
@@ -4053,7 +4053,7 @@ class Logging(LiteLLMLoggingBaseClass):
             return cb.__class__.__name__
         return str(cb)
 
-    def _is_internal_litellm_proxy_callback(self, cb) -> bool:
+    def _is_internal_embrouter_proxy_callback(self, cb) -> bool:
         """Helper to check if a callback is internal"""
         INTERNAL_PREFIXES: Final = [
             "_PROXY",
@@ -4078,7 +4078,7 @@ class Logging(LiteLLMLoggingBaseClass):
             if (
                 isinstance(_c, CustomLogger)
                 or isinstance(_c, str)
-                and _c in litellm._known_custom_logger_compatible_callbacks
+                and _c in embrouter._known_custom_logger_compatible_callbacks
             ):
                 continue
             _new_callbacks.append(_c)
@@ -4196,35 +4196,35 @@ class Logging(LiteLLMLoggingBaseClass):
         provider_response_id: Final = _provider_response_id(result)
         httpx_response: Final = self.model_call_details.get("httpx_response", None)
         if httpx_response and isinstance(httpx_response, httpx.Response):
-            result = litellm.AnthropicConfig().transform_response(
+            result = embrouter.AnthropicConfig().transform_response(
                 raw_response=httpx_response,
-                model_response=litellm.ModelResponse(id=provider_response_id),
+                model_response=embrouter.ModelResponse(id=provider_response_id),
                 model=self.model,
                 messages=[],
                 logging_obj=self,
                 optional_params=self.optional_params or {},
                 api_key="",
                 request_data={},
-                encoding=litellm.encoding,
+                encoding=embrouter.encoding,
                 json_mode=False,
-                litellm_params={},
+                embrouter_params={},
             )
         elif result is None:
-            verbose_logger.warning("LiteLLM: the anthropic_messages stream assembled no response, logging an empty one")
-            return litellm.ModelResponse(model=self.model)
+            verbose_logger.warning("EmbRouter: the anthropic_messages stream assembled no response, logging an empty one")
+            return embrouter.ModelResponse(model=self.model)
         else:
-            from litellm.types.llms.anthropic import AnthropicResponse
+            from embrouter.types.llms.anthropic import AnthropicResponse
 
             pydantic_result: Final = AnthropicResponse.model_validate(result)
             import httpx
 
-            result = litellm.AnthropicConfig().transform_parsed_response(
+            result = embrouter.AnthropicConfig().transform_parsed_response(
                 completion_response=pydantic_result.model_dump(),
                 raw_response=httpx.Response(
                     status_code=200,
                     headers={},
                 ),
-                model_response=litellm.ModelResponse(id=provider_response_id),
+                model_response=embrouter.ModelResponse(id=provider_response_id),
                 json_mode=None,
                 speed=self.optional_params.get("speed") if self.optional_params else None,
             )
@@ -4239,22 +4239,22 @@ class Logging(LiteLLMLoggingBaseClass):
         would render as empty in the Logs tab. Translation also yields full
         choices/message detail downstream consumers can rely on.
         """
-        from litellm.completion_extras.litellm_responses_transformation.transformation import (
-            LiteLLMResponsesTransformationHandler,
+        from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
+            EmbRouterResponsesTransformationHandler,
         )
 
         served_id: Final = _provider_response_id(result)
         try:
-            translated: Final = LiteLLMResponsesTransformationHandler().transform_response(
+            translated: Final = EmbRouterResponsesTransformationHandler().transform_response(
                 model=self.model,
                 raw_response=result,
-                model_response=litellm.ModelResponse(id=served_id),
+                model_response=embrouter.ModelResponse(id=served_id),
                 logging_obj=self,
                 request_data={},
                 messages=[],
                 optional_params={},
-                litellm_params={},
-                encoding=litellm.encoding,
+                embrouter_params={},
+                encoding=embrouter.encoding,
             )
             translated.id = served_id or translated.id
             return translated
@@ -4265,7 +4265,7 @@ class Logging(LiteLLMLoggingBaseClass):
                 "usage-only ModelResponse to keep the spend_logs row.",
                 str(e),
             )
-            model_response: Final = litellm.ModelResponse(id=served_id)
+            model_response: Final = embrouter.ModelResponse(id=served_id)
             model_response.model = self.model
             usage: Final = getattr(result, "usage", None)
             if usage is not None and ResponseAPILoggingUtils._is_response_api_usage(usage):
@@ -4286,9 +4286,9 @@ class Logging(LiteLLMLoggingBaseClass):
         if httpx_response is None:
             raise ValueError("Google GenAI Generate Content: httpx_response is None")
         dict_result: Final = httpx_response.json()
-        result = litellm.VertexGeminiConfig()._transform_google_generate_content_to_openai_model_response(
+        result = embrouter.VertexGeminiConfig()._transform_google_generate_content_to_openai_model_response(
             completion_response=dict_result,
-            model_response=litellm.ModelResponse(),
+            model_response=embrouter.ModelResponse(),
             model=self.model,
             logging_obj=self,
             raw_response=httpx.Response(
@@ -4306,7 +4306,7 @@ class Logging(LiteLLMLoggingBaseClass):
         Uses Pydantic's model_copy to avoid modifying the original response.
 
         Args:
-            result: The LiteLLMSendMessageResponse from the A2A call
+            result: The EmbRouterSendMessageResponse from the A2A call
 
         Returns:
             The response object with usage added if available
@@ -4334,7 +4334,7 @@ def _get_masked_values(
     """
     Internal debugging helper function
 
-    Masks the headers of the request sent from LiteLLM
+    Masks the headers of the request sent from EmbRouter
 
     Args:
         masked_length: Optional length for the masked portion (number of *). If set, will use exactly this many *
@@ -4420,7 +4420,7 @@ def set_callbacks(callback_list, function_id=None):
                     print_verbose("Package 'sentry_sdk' is missing. Installing it...")
                     subprocess.check_call([sys.executable, "-m", "pip", "install", "sentry_sdk"])
                     import sentry_sdk
-                from litellm.litellm_core_utils.sentry_scrubbing import build_sentry_init_options
+                from embrouter.embrouter_core_utils.sentry_scrubbing import build_sentry_init_options
 
                 sentry_sdk_instance = sentry_sdk
                 sentry_sdk_instance.init(**build_sentry_init_options(os.environ))
@@ -4461,7 +4461,7 @@ def set_callbacks(callback_list, function_id=None):
             elif callback == "s3":
                 s3Logger = S3Logger()
             elif callback == "wandb":
-                from litellm.integrations.weights_biases import WeightsBiasesLogger
+                from embrouter.integrations.weights_biases import WeightsBiasesLogger
 
                 weightsBiasesLogger = WeightsBiasesLogger()
             elif callback == "logfire":
@@ -4481,7 +4481,7 @@ def set_callbacks(callback_list, function_id=None):
 def _init_custom_logger_compatible_class(
     logging_integration: _custom_logger_compatible_callbacks_literal,
     internal_usage_cache: DualCache | None,
-    llm_router: object,  # expect litellm.Router, but typing errors due to circular import
+    llm_router: object,  # expect embrouter.Router, but typing errors due to circular import
     custom_logger_init_args: dict | None = {},
 ) -> CustomLogger | None:
     """
@@ -4525,7 +4525,7 @@ def _init_custom_logger_compatible_class(
             _in_memory_loggers.append(_posthog_logger)
             return _posthog_logger
         elif logging_integration == "braintrust":
-            from litellm.integrations.braintrust_logging import BraintrustLogger
+            from embrouter.integrations.braintrust_logging import BraintrustLogger
 
             for callback in _in_memory_loggers:
                 if isinstance(callback, BraintrustLogger):
@@ -4558,14 +4558,14 @@ def _init_custom_logger_compatible_class(
             _literalai_logger: Final = LiteralAILogger()
             _in_memory_loggers.append(_literalai_logger)
             return _literalai_logger
-        elif logging_integration == "litellm_agent":
+        elif logging_integration == "embrouter_agent":
             for callback in _in_memory_loggers:
-                if isinstance(callback, LiteLLMAgentModelResolver):
+                if isinstance(callback, EmbRouterAgentModelResolver):
                     return callback
 
-            _litellm_agent_resolver: Final = LiteLLMAgentModelResolver()
-            _in_memory_loggers.append(_litellm_agent_resolver)
-            return _litellm_agent_resolver
+            _embrouter_agent_resolver: Final = EmbRouterAgentModelResolver()
+            _in_memory_loggers.append(_embrouter_agent_resolver)
+            return _embrouter_agent_resolver
         elif logging_integration == "prometheus":
             PrometheusLogger: Final = _get_cached_prometheus_logger()
 
@@ -4585,7 +4585,7 @@ def _init_custom_logger_compatible_class(
 
             if _dd_api_key or _dd_site or _dd_agent_host:
                 # Team-scoped credentials: use DynamicLoggingCache for per-credential isolation
-                from litellm.integrations.datadog.datadog_team_handler import (
+                from embrouter.integrations.datadog.datadog_team_handler import (
                     DataDogHandler,
                 )
 
@@ -4682,7 +4682,7 @@ def _init_custom_logger_compatible_class(
             _v2 = _maybe_construct_otel_v2("arize", _in_memory_loggers)
             if _v2 is not None:
                 return _v2
-            from litellm.integrations.opentelemetry import (
+            from embrouter.integrations.opentelemetry import (
                 OpenTelemetry,
                 OpenTelemetryConfig,
             )
@@ -4711,7 +4711,7 @@ def _init_custom_logger_compatible_class(
             _v2 = _maybe_construct_otel_v2("arize_phoenix", _in_memory_loggers)
             if _v2 is not None:
                 return _v2
-            from litellm.integrations.opentelemetry import (
+            from embrouter.integrations.opentelemetry import (
                 OpenTelemetry,
                 OpenTelemetryConfig,
             )
@@ -4737,8 +4737,8 @@ def _init_custom_logger_compatible_class(
             _v2 = _maybe_construct_otel_v2("levo", _in_memory_loggers)
             if _v2 is not None:
                 return _v2
-            from litellm.integrations.levo.levo import LevoLogger
-            from litellm.integrations.opentelemetry import (
+            from embrouter.integrations.levo.levo import LevoLogger
+            from embrouter.integrations.opentelemetry import (
                 OpenTelemetry,
                 OpenTelemetryConfig,
             )
@@ -4759,16 +4759,16 @@ def _init_custom_logger_compatible_class(
             _in_memory_loggers.append(_levo_otel_logger)
             return _levo_otel_logger
         elif logging_integration == "otel":
-            # Gate the new typed V2 adapter behind LITELLM_OTEL_V2. When off,
+            # Gate the new typed V2 adapter behind EMBROUTER_OTEL_V2. When off,
             # the legacy 3,227-line god-class is used unchanged. The two are
             # never registered simultaneously — the dedup loop below treats
-            # any module under ``litellm.integrations.otel`` or
-            # ``litellm.integrations.opentelemetry`` as "the OTel callback".
-            from litellm.integrations.otel.model.config import is_otel_v2_enabled
+            # any module under ``embrouter.integrations.otel`` or
+            # ``embrouter.integrations.opentelemetry`` as "the OTel callback".
+            from embrouter.integrations.otel.model.config import is_otel_v2_enabled
 
             if is_otel_v2_enabled():
-                from litellm.integrations.otel.logger import OpenTelemetryV2, build_otel_v2_logger
-                from litellm.integrations.otel.model.config import OpenTelemetryV2Config
+                from embrouter.integrations.otel.logger import OpenTelemetryV2, build_otel_v2_logger
+                from embrouter.integrations.otel.model.config import OpenTelemetryV2Config
 
                 for callback in _in_memory_loggers:
                     if isinstance(callback, OpenTelemetryV2):
@@ -4781,7 +4781,7 @@ def _init_custom_logger_compatible_class(
                 _maybe_auto_initialize_arize_phoenix(_in_memory_loggers)
                 return otel_logger_v2
 
-            from litellm.integrations.opentelemetry import OpenTelemetry
+            from embrouter.integrations.opentelemetry import OpenTelemetry
 
             for callback in _in_memory_loggers:
                 if type(callback) is OpenTelemetry:
@@ -4807,7 +4807,7 @@ def _init_custom_logger_compatible_class(
             _in_memory_loggers.append(galileo_logger)
             return galileo_logger
         elif logging_integration == "cloudzero":
-            from litellm.integrations.cloudzero.cloudzero import CloudZeroLogger
+            from embrouter.integrations.cloudzero.cloudzero import CloudZeroLogger
 
             for callback in _in_memory_loggers:
                 if isinstance(callback, CloudZeroLogger):
@@ -4816,7 +4816,7 @@ def _init_custom_logger_compatible_class(
             _in_memory_loggers.append(cloudzero_logger)
             return cloudzero_logger
         elif logging_integration == "focus":
-            from litellm.integrations.focus.focus_logger import FocusLogger
+            from embrouter.integrations.focus.focus_logger import FocusLogger
 
             for callback in _in_memory_loggers:
                 if type(callback) is FocusLogger:  # exact match; exclude subclasses like VantageLogger
@@ -4825,7 +4825,7 @@ def _init_custom_logger_compatible_class(
             _in_memory_loggers.append(focus_logger)
             return focus_logger
         elif logging_integration == "mavvrik":
-            from litellm.integrations.mavvrik_focus.mavvrik_focus_logger import (
+            from embrouter.integrations.mavvrik_focus.mavvrik_focus_logger import (
                 MavvrikFocusLogger,
             )
 
@@ -4836,7 +4836,7 @@ def _init_custom_logger_compatible_class(
             _in_memory_loggers.append(mavvrik_focus_logger)
             return mavvrik_focus_logger
         elif logging_integration == "vantage":
-            from litellm.integrations.vantage.vantage_logger import VantageLogger
+            from embrouter.integrations.vantage.vantage_logger import VantageLogger
 
             for callback in _in_memory_loggers:
                 if isinstance(callback, VantageLogger):
@@ -4855,7 +4855,7 @@ def _init_custom_logger_compatible_class(
         elif logging_integration == "logfire":
             if "LOGFIRE_TOKEN" not in os.environ:
                 raise ValueError("LOGFIRE_TOKEN not found in environment variables")
-            from litellm.integrations.opentelemetry import (
+            from embrouter.integrations.opentelemetry import (
                 OpenTelemetry,
                 OpenTelemetryConfig,
             )
@@ -4874,7 +4874,7 @@ def _init_custom_logger_compatible_class(
             _in_memory_loggers.append(_otel_logger)
             return _otel_logger
         elif logging_integration == "dynamic_rate_limiter":
-            from litellm.proxy.hooks.dynamic_rate_limiter import (
+            from embrouter.proxy.hooks.dynamic_rate_limiter import (
                 _PROXY_DynamicRateLimitHandler,
             )
 
@@ -4887,12 +4887,12 @@ def _init_custom_logger_compatible_class(
 
             dynamic_rate_limiter_obj: Final = _PROXY_DynamicRateLimitHandler(internal_usage_cache=internal_usage_cache)
 
-            if llm_router is not None and isinstance(llm_router, litellm.Router):
+            if llm_router is not None and isinstance(llm_router, embrouter.Router):
                 dynamic_rate_limiter_obj.update_variables(llm_router=llm_router)
             _in_memory_loggers.append(dynamic_rate_limiter_obj)
             return dynamic_rate_limiter_obj
         elif logging_integration == "dynamic_rate_limiter_v3":
-            from litellm.proxy.hooks.dynamic_rate_limiter_v3 import (
+            from embrouter.proxy.hooks.dynamic_rate_limiter_v3 import (
                 _PROXY_DynamicRateLimitHandlerV3,
             )
 
@@ -4905,7 +4905,7 @@ def _init_custom_logger_compatible_class(
 
             dynamic_rate_limiter_obj_v3 = _PROXY_DynamicRateLimitHandlerV3(internal_usage_cache=internal_usage_cache)
 
-            if llm_router is not None and isinstance(llm_router, litellm.Router):
+            if llm_router is not None and isinstance(llm_router, embrouter.Router):
                 dynamic_rate_limiter_obj_v3.update_variables(llm_router=llm_router)
             _in_memory_loggers.append(dynamic_rate_limiter_obj_v3)
             return dynamic_rate_limiter_obj_v3
@@ -4916,7 +4916,7 @@ def _init_custom_logger_compatible_class(
             if _v2 is not None:
                 return _v2
 
-            from litellm.integrations.opentelemetry import (
+            from embrouter.integrations.opentelemetry import (
                 OpenTelemetry,
                 OpenTelemetryConfig,
             )
@@ -4934,7 +4934,7 @@ def _init_custom_logger_compatible_class(
             return _otel_logger
 
         elif logging_integration == "signoz":
-            from litellm.integrations.otel.presets.signoz import (
+            from embrouter.integrations.otel.presets.signoz import (
                 SIGNOZ_INGESTION_ENDPOINT_ENV,
             )
 
@@ -4946,7 +4946,7 @@ def _init_custom_logger_compatible_class(
             if _signoz_v2 is not None:
                 return _signoz_v2
 
-            from litellm.integrations.opentelemetry import (
+            from embrouter.integrations.opentelemetry import (
                 OpenTelemetry,
                 OpenTelemetryConfig,
             )
@@ -4985,7 +4985,7 @@ def _init_custom_logger_compatible_class(
             _v2 = _maybe_construct_otel_v2("langfuse_otel", _in_memory_loggers)
             if _v2 is not None:
                 return _v2
-            from litellm.integrations.langfuse.langfuse_otel import LangfuseOtelLogger
+            from embrouter.integrations.langfuse.langfuse_otel import LangfuseOtelLogger
 
             for callback in _in_memory_loggers:
                 if isinstance(callback, LangfuseOtelLogger) and callback.callback_name == "langfuse_otel":
@@ -4999,8 +4999,8 @@ def _init_custom_logger_compatible_class(
             _v2 = _maybe_construct_otel_v2("weave_otel", _in_memory_loggers)
             if _v2 is not None:
                 return _v2
-            from litellm.integrations.opentelemetry import OpenTelemetryConfig
-            from litellm.integrations.weave.weave_otel import (
+            from embrouter.integrations.opentelemetry import OpenTelemetryConfig
+            from embrouter.integrations.weave.weave_otel import (
                 WeaveOtelLogger,
                 get_weave_otel_config,
             )
@@ -5034,7 +5034,7 @@ def _init_custom_logger_compatible_class(
             _in_memory_loggers.append(anthropic_cache_control_hook)
             return anthropic_cache_control_hook
         elif logging_integration == "vector_store_pre_call_hook":
-            from litellm.integrations.vector_store_integrations.vector_store_pre_call_hook import (
+            from embrouter.integrations.vector_store_integrations.vector_store_pre_call_hook import (
                 VectorStorePreCallHook,
             )
 
@@ -5096,7 +5096,7 @@ def _init_custom_logger_compatible_class(
             _in_memory_loggers.append(dotprompt_logger)
             return dotprompt_logger
         elif logging_integration == "bitbucket":
-            from litellm.integrations.bitbucket.bitbucket_prompt_manager import (
+            from embrouter.integrations.bitbucket.bitbucket_prompt_manager import (
                 BitBucketPromptManager,
             )
 
@@ -5105,15 +5105,15 @@ def _init_custom_logger_compatible_class(
                     return callback
 
             # Get global BitBucket config
-            bitbucket_config: Final = getattr(litellm, "global_bitbucket_config", None)
+            bitbucket_config: Final = getattr(embrouter, "global_bitbucket_config", None)
             if bitbucket_config is None:
-                raise ValueError("BitBucket configuration not found. Please set litellm.global_bitbucket_config first.")
+                raise ValueError("BitBucket configuration not found. Please set embrouter.global_bitbucket_config first.")
 
             bitbucket_logger: Final = BitBucketPromptManager(bitbucket_config=bitbucket_config)
             _in_memory_loggers.append(bitbucket_logger)
             return bitbucket_logger
         elif logging_integration == "gitlab":
-            from litellm.integrations.gitlab.gitlab_prompt_manager import (
+            from embrouter.integrations.gitlab.gitlab_prompt_manager import (
                 GitLabPromptManager,
             )
 
@@ -5122,9 +5122,9 @@ def _init_custom_logger_compatible_class(
                     return callback
 
             # Get global BitBucket config
-            gitlab_config: Final = getattr(litellm, "global_gitlab_config", None)
+            gitlab_config: Final = getattr(embrouter, "global_gitlab_config", None)
             if gitlab_config is None:
-                raise ValueError("Gitlab configuration not found. Please set litellm.global_gitlab_config first.")
+                raise ValueError("Gitlab configuration not found. Please set embrouter.global_gitlab_config first.")
 
             gitlab_logger: Final = GitLabPromptManager(gitlab_config=gitlab_config)
             _in_memory_loggers.append(gitlab_logger)
@@ -5134,7 +5134,7 @@ def _init_custom_logger_compatible_class(
                 # Team-scoped credentials: per-team METRICS logger, isolated per
                 # credential set via DynamicLoggingCache. The trace logger for
                 # this name stays on the global path below.
-                from litellm.integrations.newrelic.newrelic_team_handler import (
+                from embrouter.integrations.newrelic.newrelic_team_handler import (
                     NewRelicHandler,
                 )
 
@@ -5160,7 +5160,7 @@ def _init_custom_logger_compatible_class(
 
 
 def _maybe_construct_otel_v2(callback_name: str, _in_memory_loggers: list[CustomLogger]) -> "OpenTelemetryV2 | None":
-    """If ``LITELLM_OTEL_V2`` is on, build (or reuse) a single ``OpenTelemetryV2``
+    """If ``EMBROUTER_OTEL_V2`` is on, build (or reuse) a single ``OpenTelemetryV2``
     instance configured via the preset for ``callback_name``.
 
     Returns ``None`` when V2 is off OR when there's no preset registered for
@@ -5174,13 +5174,13 @@ def _maybe_construct_otel_v2(callback_name: str, _in_memory_loggers: list[Custom
     but its gated exporter and the default console placeholder returns ``None``, so the
     caller falls through to the legacy path exactly as before V2 landed.
     """
-    from litellm.integrations.otel.model.config import is_otel_v2_enabled
+    from embrouter.integrations.otel.model.config import is_otel_v2_enabled
 
     if not is_otel_v2_enabled():
         return None
-    from litellm.integrations.otel.logger import OpenTelemetryV2, build_otel_v2_logger
-    from litellm.integrations.otel.plumbing.context import destination_backends
-    from litellm.integrations.otel.presets import PRESET_BY_CALLBACK
+    from embrouter.integrations.otel.logger import OpenTelemetryV2, build_otel_v2_logger
+    from embrouter.integrations.otel.plumbing.context import destination_backends
+    from embrouter.integrations.otel.presets import PRESET_BY_CALLBACK
 
     preset_fn: Final = PRESET_BY_CALLBACK.get(callback_name)
     if preset_fn is None:
@@ -5227,7 +5227,7 @@ def _is_credential_gated(config: "OpenTelemetryV2Config") -> bool:
 
 def _has_operator_exporter(config: "OpenTelemetryV2Config") -> bool:
     """Whether the operator configured somewhere real to export, beyond the default console placeholder."""
-    from litellm.integrations.otel.presets.utils import is_unconfigured_placeholder
+    from embrouter.integrations.otel.presets.utils import is_unconfigured_placeholder
 
     return any(not _is_gated(spec) and not is_unconfigured_placeholder(spec) for spec in config.exporters)
 
@@ -5263,7 +5263,7 @@ def _maybe_auto_initialize_arize_phoenix(_in_memory_loggers: list[CustomLogger])
         return
 
     try:
-        from litellm.integrations.opentelemetry import OpenTelemetryConfig
+        from embrouter.integrations.opentelemetry import OpenTelemetryConfig
 
         arize_phoenix_config: Final = ArizePhoenixLogger.get_arize_phoenix_config()
         otel_config: Final = OpenTelemetryConfig(
@@ -5274,8 +5274,8 @@ def _maybe_auto_initialize_arize_phoenix(_in_memory_loggers: list[CustomLogger])
         phoenix_logger: Final = ArizePhoenixLogger(config=otel_config, callback_name="arize_phoenix")
         _in_memory_loggers.append(phoenix_logger)
 
-        # Register as a litellm callback so it receives success/failure events
-        litellm.logging_callback_manager.add_litellm_callback(phoenix_logger)
+        # Register as a embrouter callback so it receives success/failure events
+        embrouter.logging_callback_manager.add_embrouter_callback(phoenix_logger)
 
         verbose_logger.info(
             "Auto-initialized Arize Phoenix logger alongside otel (endpoint=%s)",
@@ -5298,7 +5298,7 @@ def get_custom_logger_compatible_class(
                 if isinstance(callback, OpenMeterLogger):
                     return callback
         elif logging_integration == "braintrust":
-            from litellm.integrations.braintrust_logging import BraintrustLogger
+            from embrouter.integrations.braintrust_logging import BraintrustLogger
 
             for callback in _in_memory_loggers:
                 if isinstance(callback, BraintrustLogger):
@@ -5308,19 +5308,19 @@ def get_custom_logger_compatible_class(
                 if isinstance(callback, GalileoObserve):
                     return callback
         elif logging_integration == "cloudzero":
-            from litellm.integrations.cloudzero.cloudzero import CloudZeroLogger
+            from embrouter.integrations.cloudzero.cloudzero import CloudZeroLogger
 
             for callback in _in_memory_loggers:
                 if isinstance(callback, CloudZeroLogger):
                     return callback
         elif logging_integration == "focus":
-            from litellm.integrations.focus.focus_logger import FocusLogger
+            from embrouter.integrations.focus.focus_logger import FocusLogger
 
             for callback in _in_memory_loggers:
                 if type(callback) is FocusLogger:  # exact match; exclude subclasses like VantageLogger
                     return callback
         elif logging_integration == "vantage":
-            from litellm.integrations.vantage.vantage_logger import VantageLogger
+            from embrouter.integrations.vantage.vantage_logger import VantageLogger
 
             for callback in _in_memory_loggers:
                 if isinstance(callback, VantageLogger):
@@ -5341,9 +5341,9 @@ def get_custom_logger_compatible_class(
             for callback in _in_memory_loggers:
                 if isinstance(callback, LiteralAILogger):
                     return callback
-        elif logging_integration == "litellm_agent":
+        elif logging_integration == "embrouter_agent":
             for callback in _in_memory_loggers:
-                if isinstance(callback, LiteLLMAgentModelResolver):
+                if isinstance(callback, EmbRouterAgentModelResolver):
                     return callback
         elif logging_integration == "prometheus":
             PrometheusLogger: Final = _get_cached_prometheus_logger()
@@ -5402,7 +5402,7 @@ def get_custom_logger_compatible_class(
                 if isinstance(callback, LangfusePromptManagement):
                     return callback
         elif logging_integration == "otel":
-            from litellm.integrations.opentelemetry import OpenTelemetry
+            from embrouter.integrations.opentelemetry import OpenTelemetry
 
             for callback in _in_memory_loggers:
                 # Use exact type check to avoid matching ArizePhoenixLogger (subclass)
@@ -5417,7 +5417,7 @@ def get_custom_logger_compatible_class(
         elif logging_integration == "logfire":
             if "LOGFIRE_TOKEN" not in os.environ:
                 raise ValueError("LOGFIRE_TOKEN not found in environment variables")
-            from litellm.integrations.opentelemetry import OpenTelemetry
+            from embrouter.integrations.opentelemetry import OpenTelemetry
 
             for callback in _in_memory_loggers:
                 # Use exact type check to avoid matching ArizePhoenixLogger (subclass)
@@ -5425,7 +5425,7 @@ def get_custom_logger_compatible_class(
                     return callback
 
         elif logging_integration == "dynamic_rate_limiter":
-            from litellm.proxy.hooks.dynamic_rate_limiter import (
+            from embrouter.proxy.hooks.dynamic_rate_limiter import (
                 _PROXY_DynamicRateLimitHandler,
             )
 
@@ -5433,7 +5433,7 @@ def get_custom_logger_compatible_class(
                 if isinstance(callback, _PROXY_DynamicRateLimitHandler):
                     return callback
         elif logging_integration == "dynamic_rate_limiter_v3":
-            from litellm.proxy.hooks.dynamic_rate_limiter_v3 import (
+            from embrouter.proxy.hooks.dynamic_rate_limiter_v3 import (
                 _PROXY_DynamicRateLimitHandlerV3,
             )
 
@@ -5442,7 +5442,7 @@ def get_custom_logger_compatible_class(
                     return callback
 
         elif logging_integration == "langtrace":
-            from litellm.integrations.opentelemetry import OpenTelemetry
+            from embrouter.integrations.opentelemetry import OpenTelemetry
 
             if "LANGTRACE_API_KEY" not in os.environ:
                 raise ValueError("LANGTRACE_API_KEY not found in environment variables")
@@ -5464,7 +5464,7 @@ def get_custom_logger_compatible_class(
                 if isinstance(callback, AnthropicCacheControlHook):
                     return callback
         elif logging_integration == "vector_store_pre_call_hook":
-            from litellm.integrations.vector_store_integrations.vector_store_pre_call_hook import (
+            from embrouter.integrations.vector_store_integrations.vector_store_pre_call_hook import (
                 VectorStorePreCallHook,
             )
 
@@ -5492,7 +5492,7 @@ def get_custom_logger_compatible_class(
                 if isinstance(callback, SMTPEmailLogger):
                     return callback
         elif logging_integration == "newrelic":
-            from litellm.integrations.otel.logger import OpenTelemetryV2
+            from embrouter.integrations.otel.logger import OpenTelemetryV2
 
             for callback in _in_memory_loggers:
                 if isinstance(callback, OpenTelemetryV2) and callback.callback_name == "newrelic":
@@ -5516,44 +5516,44 @@ def _get_custom_logger_settings_from_proxy_server(callback_name: str) -> dict:
         otel:
             message_logging: False
     """
-    if litellm.callback_settings:
-        return dict(litellm.callback_settings.get(callback_name, {}))
+    if embrouter.callback_settings:
+        return dict(embrouter.callback_settings.get(callback_name, {}))
     return {}
 
 
-def _deployment_model_info(litellm_params: dict | None) -> Mapping[str, object]:
+def _deployment_model_info(embrouter_params: dict | None) -> Mapping[str, object]:
     """The router-stamped deployment model_info from whichever metadata field carries it."""
-    if litellm_params is None:
+    if embrouter_params is None:
         return MappingProxyType({})
-    for metadata_key in ("metadata", "litellm_metadata"):
-        if not isinstance(metadata := litellm_params.get(metadata_key), Mapping):
+    for metadata_key in ("metadata", "embrouter_metadata"):
+        if not isinstance(metadata := embrouter_params.get(metadata_key), Mapping):
             continue
         if model_info := metadata.get("model_info"):
             return model_info
     return MappingProxyType({})
 
 
-def use_custom_pricing_for_model(litellm_params: dict | None) -> bool:
+def use_custom_pricing_for_model(embrouter_params: dict | None) -> bool:
     """
     Check if the model uses custom pricing
 
-    Returns True if any custom pricing field is present in `litellm_params`, or if
+    Returns True if any custom pricing field is present in `embrouter_params`, or if
     any custom pricing or deployment-scoped pricing field (such as
     ``off_peak_pricing``) is present in the metadata ``model_info``
     """
-    if litellm_params is None:
+    if embrouter_params is None:
         return False
 
-    # Check litellm_params using set intersection (only check keys that exist in both)
-    matching_keys = _CUSTOM_PRICING_KEYS & litellm_params.keys()
+    # Check embrouter_params using set intersection (only check keys that exist in both)
+    matching_keys = _CUSTOM_PRICING_KEYS & embrouter_params.keys()
     for key in matching_keys:
-        if litellm_params.get(key) is not None:
+        if embrouter_params.get(key) is not None:
             return True
 
-    # Check model_info from metadata or litellm_metadata (generic_api_call routes
-    # like /responses and /messages store model_info under litellm_metadata)
-    for metadata_key in ("metadata", "litellm_metadata"):
-        metadata: dict = litellm_params.get(metadata_key, {}) or {}
+    # Check model_info from metadata or embrouter_metadata (generic_api_call routes
+    # like /responses and /messages store model_info under embrouter_metadata)
+    for metadata_key in ("metadata", "embrouter_metadata"):
+        metadata: dict = embrouter_params.get(metadata_key, {}) or {}
         model_info: dict = metadata.get("model_info", {}) or {}
 
         if model_info:
@@ -5590,14 +5590,14 @@ def _model_access_groups_from_metadata(metadata: Mapping[str, object]) -> tuple[
     return coerce_model_access_groups(_model_access_groups_on_auth_object(metadata.get("user_api_key_auth")))
 
 
-def request_model_access_groups_from_litellm_params(litellm_params: Mapping[str, object]) -> tuple[str, ...]:
+def request_model_access_groups_from_embrouter_params(embrouter_params: Mapping[str, object]) -> tuple[str, ...]:
     """Access groups the auth layer stamped onto this request, from whichever metadata field carries them.
 
     Detached internal sub-calls only inherit the identity keys, so the auth object is the
     fallback there, exactly as budget_reservation_from_metadata does for reservations.
     """
-    for metadata_variable_name in ("metadata", "litellm_metadata"):
-        metadata = litellm_params.get(metadata_variable_name)
+    for metadata_variable_name in ("metadata", "embrouter_metadata"):
+        metadata = embrouter_params.get(metadata_variable_name)
         if not isinstance(metadata, Mapping):
             continue
         model_access_groups = _model_access_groups_from_metadata(metadata)
@@ -5674,21 +5674,21 @@ class StandardLoggingPayloadSetup:
         return messages
 
     @staticmethod
-    def merge_litellm_metadata(litellm_params: Mapping[str, object]) -> dict:
+    def merge_embrouter_metadata(embrouter_params: Mapping[str, object]) -> dict:
         """
-        Merge both litellm_metadata and metadata from litellm_params.
+        Merge both embrouter_metadata and metadata from embrouter_params.
 
-        litellm_metadata contains model-related fields, metadata contains user API key fields.
+        embrouter_metadata contains model-related fields, metadata contains user API key fields.
         We need both for complete standard logging payload.
 
         Args:
-            litellm_params: Dictionary containing metadata and litellm_metadata
+            embrouter_params: Dictionary containing metadata and embrouter_metadata
 
         Returns:
             dict: Merged metadata with user API key fields taking precedence
         """
-        metadata: Final = litellm_params.get("metadata")
-        litellm_metadata: Final = litellm_params.get("litellm_metadata")
+        metadata: Final = embrouter_params.get("metadata")
+        embrouter_metadata: Final = embrouter_params.get("embrouter_metadata")
         user_metadata: Final = MappingProxyType(
             {
                 key: value
@@ -5699,7 +5699,7 @@ class StandardLoggingPayloadSetup:
         model_metadata: Final = MappingProxyType(
             {
                 key: value
-                for key, value in (litellm_metadata.copy().items() if isinstance(litellm_metadata, dict) else ())
+                for key, value in (embrouter_metadata.copy().items() if isinstance(embrouter_metadata, dict) else ())
                 if key not in user_metadata
             }
         )
@@ -5708,7 +5708,7 @@ class StandardLoggingPayloadSetup:
     @staticmethod
     def get_standard_logging_metadata(
         metadata: Mapping[str, object] | None,
-        litellm_params: dict | None = None,
+        embrouter_params: dict | None = None,
         prompt_integration: str | None = None,
         applied_guardrails: list[str] | None = None,
         mcp_tool_call_metadata: StandardLoggingMCPToolCall | None = None,
@@ -5733,9 +5733,9 @@ class StandardLoggingPayloadSetup:
         """
 
         prompt_management_metadata: StandardLoggingPromptManagementMetadata | None = None
-        if litellm_params is not None:
-            prompt_id: Final = cast(str | None, litellm_params.get("prompt_id", None))
-            prompt_variables: Final = cast(dict | None, litellm_params.get("prompt_variables", None))
+        if embrouter_params is not None:
+            prompt_id: Final = cast(str | None, embrouter_params.get("prompt_id", None))
+            prompt_variables: Final = cast(dict | None, embrouter_params.get("prompt_variables", None))
 
             if prompt_id is not None and prompt_integration is not None:
                 prompt_management_metadata = StandardLoggingPromptManagementMetadata(
@@ -5899,7 +5899,7 @@ class StandardLoggingPayloadSetup:
             model_cost_information = StandardLoggingModelInformation(model_map_key="", model_map_value=None)
         else:
             try:
-                _model_cost_information: Final = litellm.get_model_info(
+                _model_cost_information: Final = embrouter.get_model_info(
                     model=model_cost_name,
                     custom_llm_provider=custom_llm_provider,
                     api_base=api_base,
@@ -5976,11 +5976,11 @@ class StandardLoggingPayloadSetup:
             api_base=None,
             response_cost=None,
             additional_headers=None,
-            litellm_overhead_time_ms=None,
+            embrouter_overhead_time_ms=None,
             batch_models=None,
             batch_successful_requests=None,
             batch_failed_requests=None,
-            litellm_model_name=None,
+            embrouter_model_name=None,
             usage_object=None,
         )
         if hidden_params is not None:
@@ -6021,15 +6021,15 @@ class StandardLoggingPayloadSetup:
             Optional[str]: The generated object key or None if cold storage not configured
         """
         # Generate object key in same format as S3Logger
-        from litellm.integrations.s3 import get_s3_object_key
+        from embrouter.integrations.s3 import get_s3_object_key
 
         # Only generate object key if cold storage is configured
-        cold_storage_custom_logger: Final = litellm.cold_storage_custom_logger
+        cold_storage_custom_logger: Final = embrouter.cold_storage_custom_logger
         if cold_storage_custom_logger is None:
             return None
 
         try:
-            # Generate file name in same format as litellm.utils.get_logging_id
+            # Generate file name in same format as embrouter.utils.get_logging_id
             s3_file_name: Final = f"time-{start_time.strftime('%H-%M-%S-%f')}_{response_id}"
 
             # Get the actual s3_path from the configured cold storage logger instance
@@ -6037,7 +6037,7 @@ class StandardLoggingPayloadSetup:
 
             # Try to get the actual logger instance from the logger name
             try:
-                custom_logger: Final = litellm.logging_callback_manager.get_active_custom_logger_for_callback_name(
+                custom_logger: Final = embrouter.logging_callback_manager.get_active_custom_logger_for_callback_name(
                     cold_storage_custom_logger
                 )
                 if custom_logger and hasattr(custom_logger, "s3_path") and getattr(custom_logger, "s3_path"):
@@ -6063,9 +6063,9 @@ class StandardLoggingPayloadSetup:
         original_exception: Exception | None,
         traceback_str: str | None = None,
     ) -> StandardLoggingPayloadErrorInformation:
-        from litellm.constants import MAXIMUM_TRACEBACK_LINES_TO_LOG
+        from embrouter.constants import MAXIMUM_TRACEBACK_LINES_TO_LOG
 
-        # ProxyException uses .code, LiteLLM exceptions use .status_code,
+        # ProxyException uses .code, EmbRouter exceptions use .status_code,
         # httpx.HTTPStatusError exposes status only as .response.status_code.
         # Stringified for Prisma JSON compatibility.
         error_code_attr: Final[object] = getattr(original_exception, "code", None)
@@ -6082,7 +6082,7 @@ class StandardLoggingPayloadSetup:
 
         traceback_info = traceback_str or ""
         if original_exception and (
-            litellm.log_client_error_tracebacks or not is_expected_client_error(original_exception)
+            embrouter.log_client_error_tracebacks or not is_expected_client_error(original_exception)
         ):
             tb: Final[TracebackType | None] = getattr(original_exception, "__traceback__", None)
             if tb:
@@ -6090,7 +6090,7 @@ class StandardLoggingPayloadSetup:
                 traceback_info += "".join(tb_lines[:MAXIMUM_TRACEBACK_LINES_TO_LOG])  # Limit to first 100 lines
 
         # Prefer the `.message` attribute (set by ProxyException and every
-        # litellm.exceptions.* class) over str(exc); ProxyException does not
+        # embrouter.exceptions.* class) over str(exc); ProxyException does not
         # call super().__init__() nor define __str__, so str() on it returns
         # an empty string, which used to silently strip the human-readable
         # message from spend_logs.metadata.error_information.
@@ -6182,66 +6182,66 @@ class StandardLoggingPayloadSetup:
     @staticmethod
     def get_standard_logging_payload_trace_id(
         logging_obj: Logging,
-        litellm_params: Mapping[str, Any],
+        embrouter_params: Mapping[str, Any],
     ) -> str:
         """
-        Returns the `litellm_trace_id` for this request
+        Returns the `embrouter_trace_id` for this request
 
         This helps link sessions when multiple requests are made in a single session
 
-        Gated behind `litellm.request_correlation_in_logs`:
+        Gated behind `embrouter.request_correlation_in_logs`:
         - Off (default): legacy behavior, preserved for backward compatibility -
-          `litellm_session_id` takes priority over `litellm_trace_id` since historically
+          `embrouter_session_id` takes priority over `embrouter_trace_id` since historically
           this field doubled as the session-grouping field.
-        - On: `litellm_trace_id` takes priority - trace_id and session_id are independent,
+        - On: `embrouter_trace_id` takes priority - trace_id and session_id are independent,
           see `get_standard_logging_payload_session_id` for session tracking.
         """
-        dynamic_litellm_session_id: Final = litellm_params.get("litellm_session_id")
-        dynamic_litellm_trace_id: Final = litellm_params.get("litellm_trace_id")
-        metadata: Final[Mapping[str, object] | None] = litellm_params.get("metadata")
+        dynamic_embrouter_session_id: Final = embrouter_params.get("embrouter_session_id")
+        dynamic_embrouter_trace_id: Final = embrouter_params.get("embrouter_trace_id")
+        metadata: Final[Mapping[str, object] | None] = embrouter_params.get("metadata")
         metadata_session_id: Final = metadata.get("session_id") if metadata else None
         metadata_trace_id: Final = metadata.get("trace_id") if metadata else None
 
         ordered_candidates: Final[tuple[object, object, object, object]] = (
-            (dynamic_litellm_trace_id, dynamic_litellm_session_id, metadata_trace_id, metadata_session_id)
-            if litellm.request_correlation_in_logs
-            else (dynamic_litellm_session_id, dynamic_litellm_trace_id, metadata_session_id, metadata_trace_id)
+            (dynamic_embrouter_trace_id, dynamic_embrouter_session_id, metadata_trace_id, metadata_session_id)
+            if embrouter.request_correlation_in_logs
+            else (dynamic_embrouter_session_id, dynamic_embrouter_trace_id, metadata_session_id, metadata_trace_id)
         )
         for candidate in ordered_candidates:
             if candidate:
                 return str(candidate)
-        return logging_obj.litellm_trace_id
+        return logging_obj.embrouter_trace_id
 
     @staticmethod
     def get_standard_logging_payload_session_id(
         logging_obj: Logging,
-        litellm_params: Mapping[str, Any],
+        embrouter_params: Mapping[str, Any],
     ) -> str:
         """
-        Returns the end-user/conversation `litellm_session_id` for this request, independent of trace_id.
+        Returns the end-user/conversation `embrouter_session_id` for this request, independent of trace_id.
 
-        Only populated when `litellm.request_correlation_in_logs` is enabled - off by default
+        Only populated when `embrouter.request_correlation_in_logs` is enabled - off by default
         to avoid changing existing StandardLoggingPayload shape for callers who haven't opted in.
         Unlike `get_standard_logging_payload_trace_id`, this never falls back to a generated
         per-call trace id: it's empty when the caller never supplied a session id.
         """
-        if not litellm.request_correlation_in_logs:
+        if not embrouter.request_correlation_in_logs:
             return ""
-        dynamic_litellm_session_id: Final[object] = litellm_params.get("litellm_session_id")
-        if dynamic_litellm_session_id:
-            return str(dynamic_litellm_session_id)
-        metadata: Final[Mapping[str, object] | None] = litellm_params.get("metadata")
+        dynamic_embrouter_session_id: Final[object] = embrouter_params.get("embrouter_session_id")
+        if dynamic_embrouter_session_id:
+            return str(dynamic_embrouter_session_id)
+        metadata: Final[Mapping[str, object] | None] = embrouter_params.get("metadata")
         metadata_session_id: Final = metadata.get("session_id") if metadata else None
         if metadata_session_id:
             return str(metadata_session_id)
-        return logging_obj.litellm_session_id
+        return logging_obj.embrouter_session_id
 
     @staticmethod
     def _get_user_agent_tags(proxy_server_request: dict) -> list[str] | None:
         """
         Return the user agent tags from the proxy server request for spend tracking
         """
-        if litellm.disable_add_user_agent_to_request_tags is True:
+        if embrouter.disable_add_user_agent_to_request_tags is True:
             return None
         user_agent_tags: list[str] | None = None
         headers: Final = proxy_server_request.get("headers", {})
@@ -6265,7 +6265,7 @@ class StandardLoggingPayloadSetup:
         """
         Extract additional header tags for spend tracking based on config.
         """
-        extra_headers: Final[list[str]] = getattr(litellm, "extra_spend_tag_headers", None) or []
+        extra_headers: Final[list[str]] = getattr(embrouter, "extra_spend_tag_headers", None) or []
         if not extra_headers:
             return None
 
@@ -6282,14 +6282,14 @@ class StandardLoggingPayloadSetup:
         return header_tags if header_tags else None
 
     @staticmethod
-    def _get_request_tags(litellm_params: dict, proxy_server_request: dict) -> list[str]:
-        # check for 'tags' in both 'metadata' and 'litellm_metadata'
-        metadata: Final = litellm_params.get("metadata") or {}
-        litellm_metadata: Final = litellm_params.get("litellm_metadata") or {}
+    def _get_request_tags(embrouter_params: dict, proxy_server_request: dict) -> list[str]:
+        # check for 'tags' in both 'metadata' and 'embrouter_metadata'
+        metadata: Final = embrouter_params.get("metadata") or {}
+        embrouter_metadata: Final = embrouter_params.get("embrouter_metadata") or {}
         if metadata.get("tags", []):
             request_tags = metadata.get("tags", []).copy()
-        elif litellm_metadata.get("tags", []):
-            request_tags = litellm_metadata.get("tags", []).copy()
+        elif embrouter_metadata.get("tags", []):
+            request_tags = embrouter_metadata.get("tags", []).copy()
         else:
             request_tags = []
         user_agent_tags: Final = StandardLoggingPayloadSetup._get_user_agent_tags(proxy_server_request)
@@ -6392,11 +6392,11 @@ def _extract_response_obj_and_hidden_params(
                     cache_key=None,
                     api_base=None,
                     response_cost=None,
-                    litellm_overhead_time_ms=None,
+                    embrouter_overhead_time_ms=None,
                     batch_models=None,
                     batch_successful_requests=None,
                     batch_failed_requests=None,
-                    litellm_model_name=None,
+                    embrouter_model_name=None,
                     usage_object=None,
                 )
             )
@@ -6420,7 +6420,7 @@ def _autorouter_savings_for_payload(
     math, and SDK-only installs have no proxy package to import.
     """
     try:
-        from litellm.proxy.spend_tracking.savings import autorouter_savings_for_logging_payload
+        from embrouter.proxy.spend_tracking.savings import autorouter_savings_for_logging_payload
     except Exception:  # noqa: BLE001  # SDK-only install: no savings driver to run
         return None
     try:
@@ -6456,11 +6456,11 @@ def get_standard_logging_object_payload(
         response_obj, hidden_params = _extract_response_obj_and_hidden_params(init_response_obj, original_exception)
 
         # standardize this function to be used across, s3, dynamoDB, langfuse logging
-        litellm_params: Final = kwargs.get("litellm_params", {}) or {}
-        proxy_server_request: Final = litellm_params.get("proxy_server_request") or {}
+        embrouter_params: Final = kwargs.get("embrouter_params", {}) or {}
+        proxy_server_request: Final = embrouter_params.get("proxy_server_request") or {}
 
-        # Merge both litellm_metadata and metadata to get complete metadata
-        metadata: Final[dict] = StandardLoggingPayloadSetup.merge_litellm_metadata(litellm_params)
+        # Merge both embrouter_metadata and metadata to get complete metadata
+        metadata: Final[dict] = StandardLoggingPayloadSetup.merge_embrouter_metadata(embrouter_params)
 
         completion_start_time: Final = kwargs.get("completion_start_time", end_time)
         call_type: Final = kwargs.get("call_type")
@@ -6476,15 +6476,15 @@ def get_standard_logging_object_payload(
             else raw_usage_dict
         )
 
-        id = response_obj.get("id", kwargs.get("litellm_call_id"))
+        id = response_obj.get("id", kwargs.get("embrouter_call_id"))
 
         _model_id: Final = metadata.get("model_info", {}).get("id", "")
         _model_group: Final = metadata.get("model_group", "")
 
         request_tags: Final = StandardLoggingPayloadSetup._get_request_tags(
-            litellm_params=litellm_params, proxy_server_request=proxy_server_request
+            embrouter_params=embrouter_params, proxy_server_request=proxy_server_request
         )
-        request_model_access_groups: Final = request_model_access_groups_from_litellm_params(litellm_params)
+        request_model_access_groups: Final = request_model_access_groups_from_embrouter_params(embrouter_params)
 
         # cleanup timestamps
         (
@@ -6502,10 +6502,10 @@ def get_standard_logging_object_payload(
             completion_start_time_float=completion_start_time_float,
             stream=kwargs.get("stream", False),
         )
-        # clean up litellm metadata
+        # clean up embrouter metadata
         clean_metadata: Final = StandardLoggingPayloadSetup.get_standard_logging_metadata(
             metadata=metadata,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             prompt_integration=kwargs.get("prompt_integration", None),
             applied_guardrails=kwargs.get("applied_guardrails", None),
             mcp_tool_call_metadata=kwargs.get("mcp_tool_call_metadata", None),
@@ -6538,30 +6538,30 @@ def get_standard_logging_object_payload(
         # Fall back to the actual deployment model set by the router in metadata.
         if base_model is None:
             base_model = metadata.get("deployment")
-        custom_pricing: Final = use_custom_pricing_for_model(litellm_params=litellm_params)
+        custom_pricing: Final = use_custom_pricing_for_model(embrouter_params=embrouter_params)
         raw_response_cost: Final = kwargs.get("response_cost")
         llm_response_cost: Final[float] = raw_response_cost or 0.0
         guardrail_cost: Final = guardrail_information_cost(metadata.get("standard_logging_guardrail_information"))
         response_cost: Final[float] = llm_response_cost + guardrail_cost
 
-        # clean up litellm hidden params
+        # clean up embrouter hidden params
         clean_hidden_params: Final = StandardLoggingPayloadSetup.get_hidden_params(hidden_params)
         if clean_hidden_params["response_cost"] is None and raw_response_cost is not None:
             clean_hidden_params["response_cost"] = llm_response_cost
-        if clean_hidden_params["litellm_overhead_time_ms"] is None and status == "success":
+        if clean_hidden_params["embrouter_overhead_time_ms"] is None and status == "success":
             # /v1/messages dict results and the bridge stream wrappers keep it on the logging object;
             # failure payloads stay None like every response type that carries its own _hidden_params
             timing_metrics: Final = (
                 getattr(logging_obj, "response_timing_metrics", None) or {}  # mutable-ok: empty fallback
             )
-            clean_hidden_params["litellm_overhead_time_ms"] = timing_metrics.get("litellm_overhead_time_ms")
+            clean_hidden_params["embrouter_overhead_time_ms"] = timing_metrics.get("embrouter_overhead_time_ms")
 
         model_cost_information: Final = StandardLoggingPayloadSetup.get_model_cost_information(
             base_model=base_model,
             custom_pricing=custom_pricing,
             custom_llm_provider=kwargs.get("custom_llm_provider"),
             init_response_obj=init_response_obj,
-            api_base=litellm_params.get("api_base"),
+            api_base=embrouter_params.get("api_base"),
         )
 
         error_information, error_str = StandardLoggingPayloadSetup.get_error_information_for_logging_payload(
@@ -6595,7 +6595,7 @@ def get_standard_logging_object_payload(
 
         # For Azure Model Router, preserve the actual model in the top-level standard
         # logging payload.
-        from litellm.llms.azure_ai.common_utils import AzureFoundryModelInfo
+        from embrouter.llms.azure_ai.common_utils import AzureFoundryModelInfo
 
         requested_model: Final = kwargs.get("model")
         stamped_selected_model: Final = AzureFoundryModelInfo.get_model_router_selected_model(hidden_params)
@@ -6633,18 +6633,18 @@ def get_standard_logging_object_payload(
                         }
                     )
                 )
-                if is_classifier_call(call_type or "", litellm_params) and not should_redact_message_logging(kwargs)
+                if is_classifier_call(call_type or "", embrouter_params) and not should_redact_message_logging(kwargs)
                 else EMPTY_MAPPING
             ),
             id=str(id),
-            litellm_call_id=kwargs.get("litellm_call_id") or litellm_params.get("litellm_call_id"),
+            embrouter_call_id=kwargs.get("embrouter_call_id") or embrouter_params.get("embrouter_call_id"),
             trace_id=StandardLoggingPayloadSetup.get_standard_logging_payload_trace_id(
                 logging_obj=logging_obj,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
             ),
             session_id=StandardLoggingPayloadSetup.get_standard_logging_payload_session_id(
                 logging_obj=logging_obj,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
             ),
             call_type=call_type or "",
             cache_hit=cache_hit,
@@ -6693,7 +6693,7 @@ def get_standard_logging_object_payload(
             request_tags=request_tags,
             request_model_access_groups=request_model_access_groups,
             end_user=end_user_id,
-            api_base=StandardLoggingPayloadSetup.strip_trailing_slash(litellm_params.get("api_base", "")) or "",
+            api_base=StandardLoggingPayloadSetup.strip_trailing_slash(embrouter_params.get("api_base", "")) or "",
             model_group=_model_group,
             model_id=_model_id,
             requester_ip_address=clean_metadata.get("requester_ip_address", None),
@@ -6729,7 +6729,7 @@ def get_standard_logging_object_payload(
 
 
 def emit_standard_logging_payload(payload: StandardLoggingPayload):
-    if os.getenv("LITELLM_PRINT_STANDARD_LOGGING_PAYLOAD"):
+    if os.getenv("EMBROUTER_PRINT_STANDARD_LOGGING_PAYLOAD"):
         try:
             print(json.dumps(payload, indent=4, default=str), flush=True)  # noqa: T201
         except Exception as e:  # noqa: BLE001 # Safe catch-all for verbose logging
@@ -6801,11 +6801,11 @@ def get_standard_logging_metadata(
     return clean_metadata
 
 
-def scrub_sensitive_keys_in_metadata(litellm_params: dict | None):
-    if litellm_params is None:
-        litellm_params = {}
+def scrub_sensitive_keys_in_metadata(embrouter_params: dict | None):
+    if embrouter_params is None:
+        embrouter_params = {}
 
-    metadata: Final = litellm_params.get("metadata", {}) or {}
+    metadata: Final = embrouter_params.get("metadata", {}) or {}
 
     ## Extract provider-specific callable values (like langfuse_masking_function)
     ## Store them separately so only the intended logger can access them
@@ -6813,10 +6813,10 @@ def scrub_sensitive_keys_in_metadata(litellm_params: dict | None):
     if "langfuse_masking_function" in metadata:
         masking_fn: Final = metadata.pop("langfuse_masking_function", None)
         if callable(masking_fn):
-            litellm_params["_langfuse_masking_function"] = masking_fn
-        litellm_params["metadata"] = metadata
+            embrouter_params["_langfuse_masking_function"] = masking_fn
+        embrouter_params["metadata"] = metadata
 
-    return litellm_params
+    return embrouter_params
 
 
 # integration helper function
@@ -6868,11 +6868,11 @@ def create_dummy_standard_logging_payload() -> StandardLoggingPayload:
         api_base=None,
         response_cost=None,
         additional_headers=None,
-        litellm_overhead_time_ms=None,
+        embrouter_overhead_time_ms=None,
         batch_models=None,
         batch_successful_requests=None,
         batch_failed_requests=None,
-        litellm_model_name=None,
+        embrouter_model_name=None,
         usage_object=None,
     )
 

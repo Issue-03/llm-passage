@@ -4,14 +4,14 @@ from typing import Any, Final
 
 import httpx
 
-from litellm import LlmProviders
-from litellm.litellm_core_utils.cloud_storage_security import (
+from embrouter import LlmProviders
+from embrouter.embrouter_core_utils.cloud_storage_security import (
     BEDROCK_MANAGED_S3_PREFIXES,
     should_allow_legacy_cloud_file_ids,
     validate_managed_cloud_file_id,
 )
-from litellm.llms.custom_httpx.http_handler import get_async_httpx_client
-from litellm.types.llms.openai import (
+from embrouter.llms.custom_httpx.http_handler import get_async_httpx_client
+from embrouter.types.llms.openai import (
     FileContentRequest,
     HttpxBinaryResponseContent,
 )
@@ -61,10 +61,10 @@ class BedrockFilesHandler(BaseAWSLLM):
             allow_legacy_cloud_file_ids=allow_legacy_cloud_file_ids,
         )
 
-    def _get_configured_s3_bucket_name(self, litellm_params: Mapping[str, object]) -> str:
+    def _get_configured_s3_bucket_name(self, embrouter_params: Mapping[str, object]) -> str:
         from .transformation import get_configured_s3_bucket_name
 
-        return get_configured_s3_bucket_name(litellm_params)
+        return get_configured_s3_bucket_name(embrouter_params)
 
     async def afile_content(
         self,

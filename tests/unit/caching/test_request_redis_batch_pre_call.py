@@ -12,23 +12,23 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from litellm import Router
-import litellm.caching.dual_cache as dual_cache_module
-from litellm.caching.dual_cache import DualCache
-from litellm.caching.redis_batch import active_request_redis_batches, request_redis_batch_scope
-from litellm.proxy._types import LiteLLM_TeamTableCachedObj, LiteLLM_UserTable
-from litellm.proxy.auth.auth_checks import _cache_team_object
-from litellm.proxy.auth.auth_object_prefetch import _CacheEntry, _write_back, prefetch_identity_keys
-from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-from litellm.proxy.hooks.parallel_request_limiter_v3 import (
+from embrouter import Router
+import embrouter.caching.dual_cache as dual_cache_module
+from embrouter.caching.dual_cache import DualCache
+from embrouter.caching.redis_batch import active_request_redis_batches, request_redis_batch_scope
+from embrouter.proxy._types import EmbRouter_TeamTableCachedObj, EmbRouter_UserTable
+from embrouter.proxy.auth.auth_checks import _cache_team_object
+from embrouter.proxy.auth.auth_object_prefetch import _CacheEntry, _write_back, prefetch_identity_keys
+from embrouter.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+from embrouter.proxy.hooks.parallel_request_limiter_v3 import (
     CHECK_AND_INCREMENT_BY_N_SCRIPT,
     RateLimitDescriptor,
     RateLimitUnverifiableError,
     _PROXY_MaxParallelRequestsHandler_v3,
 )
-from litellm.proxy.utils import InternalUsageCache
-from litellm.router_utils.cooldown_cache import CooldownCache
-from litellm.router_utils.routing_read_batch import RoutingPrefetch
+from embrouter.proxy.utils import InternalUsageCache
+from embrouter.router_utils.cooldown_cache import CooldownCache
+from embrouter.router_utils.routing_read_batch import RoutingPrefetch
 
 from .test_redis_batch import FakeClient, FakeRedisCache, replies
 
@@ -270,7 +270,7 @@ async def test_without_a_request_scope_descriptor_groups_run_the_script_directly
 def _deployment(deployment_id: str) -> dict:
     return {
         "model_name": _MODEL_GROUP,
-        "litellm_params": {"model": "anthropic/claude-x", "api_key": "test", "mock_response": "pong"},
+        "embrouter_params": {"model": "anthropic/claude-x", "api_key": "test", "mock_response": "pong"},
         "model_info": {"id": deployment_id},
     }
 
@@ -912,9 +912,9 @@ async def test_caches_on_one_server_with_different_namespaces_keep_their_own_key
     assert sent == ((("MGET", "proxy:a"),), (("MGET", "router:b"),)), "each cache reads under its own namespace"
 
 
-def _user_entry() -> tuple[_CacheEntry, LiteLLM_UserTable]:
-    entry = _CacheEntry("user-1", "user_row", LiteLLM_UserTable, 42)
-    return entry, LiteLLM_UserTable(user_id="user-1", max_budget=None, spend=0.0)
+def _user_entry() -> tuple[_CacheEntry, EmbRouter_UserTable]:
+    entry = _CacheEntry("user-1", "user_row", EmbRouter_UserTable, 42)
+    return entry, EmbRouter_UserTable(user_id="user-1", max_budget=None, spend=0.0)
 
 
 @pytest.mark.asyncio
@@ -997,7 +997,7 @@ async def test_a_team_refresh_inside_a_request_sends_its_set_and_alias_del_in_on
     cache.in_memory_cache.set_cache("team_alias:alpha", "stale alias")
     proxy_logging_obj = MagicMock()
     proxy_logging_obj.internal_usage_cache = InternalUsageCache(dual_cache=usage_cache)
-    team = LiteLLM_TeamTableCachedObj(team_id="t1", team_alias="alpha")
+    team = EmbRouter_TeamTableCachedObj(team_id="t1", team_alias="alpha")
     with request_redis_batch_scope() as request:
         await _cache_team_object("t1", team, cache, proxy_logging_obj)
         assert [c[:2] for c in client.pipelines[0].commands] == [("SET", "team_id:t1"), ("DEL", "team_alias:alpha")], (

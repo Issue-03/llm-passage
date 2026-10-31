@@ -110,10 +110,10 @@ def _write_executable(path: Path, body: str) -> None:
 
 def _sandbox(tmp_path: Path) -> tuple[Path, Path]:
     repo = tmp_path / "repo"
-    (repo / "litellm" / "proxy").mkdir(parents=True)
-    (repo / "litellm" / "foo.py").write_text("x = 1\n")
-    (repo / "litellm" / "proxy" / "spec.py").write_text("y = 2\n")
-    dashboard = repo / "ui" / "litellm-dashboard"
+    (repo / "embrouter" / "proxy").mkdir(parents=True)
+    (repo / "embrouter" / "foo.py").write_text("x = 1\n")
+    (repo / "embrouter" / "proxy" / "spec.py").write_text("y = 2\n")
+    dashboard = repo / "ui" / "embrouter-dashboard"
     (dashboard / "src").mkdir(parents=True)
     (dashboard / "node_modules").mkdir()
     (dashboard / "src" / "app.ts").write_text("export {}\n")
@@ -181,11 +181,11 @@ def test_nothing_staged_scopes_to_working_tree_diff_and_runs_checks(tmp_path: Pa
     repo, bin_dir = _sandbox(tmp_path)
     _commit_all(repo, "base")
     _set_base_ref(repo, branch)
-    (repo / "litellm" / "foo.py").write_text("x = 2\n")
+    (repo / "embrouter" / "foo.py").write_text("x = 2\n")
     proc = _run(repo, bin_dir, {})
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert "nothing staged; scoping to the working tree's diff" in proc.stdout
-    assert "litellm/foo.py" in proc.stdout
+    assert "embrouter/foo.py" in proc.stdout
     assert "linting Python" in proc.stdout
 
 
@@ -193,7 +193,7 @@ def test_nothing_staged_checks_committed_branch_changes(tmp_path: Path) -> None:
     repo, bin_dir = _sandbox(tmp_path)
     _commit_all(repo, "base")
     _set_base_ref(repo)
-    (repo / "litellm" / "foo.py").write_text("x = 2\n")
+    (repo / "embrouter" / "foo.py").write_text("x = 2\n")
     _commit_all(repo, "branch change")
     proc = _run(repo, bin_dir, {})
     assert proc.returncode == 0, proc.stdout + proc.stderr
@@ -205,10 +205,10 @@ def test_nothing_staged_includes_untracked_files_in_scope(tmp_path: Path) -> Non
     repo, bin_dir = _sandbox(tmp_path)
     _commit_all(repo, "base")
     _set_base_ref(repo)
-    (repo / "litellm" / "brand_new.py").write_text("z = 3\n")
+    (repo / "embrouter" / "brand_new.py").write_text("z = 3\n")
     proc = _run(repo, bin_dir, {})
     assert proc.returncode == 0, proc.stdout + proc.stderr
-    assert "litellm/brand_new.py" in proc.stdout
+    assert "embrouter/brand_new.py" in proc.stdout
     assert "linting Python" in proc.stdout
 
 
@@ -216,12 +216,12 @@ def test_nothing_staged_deletion_only_branch_triggers_checks(tmp_path: Path) -> 
     repo, bin_dir = _sandbox(tmp_path)
     _commit_all(repo, "base")
     _set_base_ref(repo)
-    (repo / "litellm" / "foo.py").unlink()
+    (repo / "embrouter" / "foo.py").unlink()
     _commit_all(repo, "delete module")
     proc = _run(repo, bin_dir, {})
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert "nothing to check" not in proc.stdout
-    assert "litellm/foo.py" in proc.stdout
+    assert "embrouter/foo.py" in proc.stdout
     assert "linting Python" in proc.stdout
     assert "ruff format --check" not in proc.stdout
 
@@ -229,7 +229,7 @@ def test_nothing_staged_deletion_only_branch_triggers_checks(tmp_path: Path) -> 
 def test_staged_deletion_triggers_checks_without_feeding_missing_files_to_tools(tmp_path: Path) -> None:
     repo, bin_dir = _sandbox(tmp_path)
     _commit_all(repo, "base")
-    subprocess.run(["git", "rm", "-q", "litellm/foo.py"], cwd=repo, check=True)
+    subprocess.run(["git", "rm", "-q", "embrouter/foo.py"], cwd=repo, check=True)
     proc = _run(repo, bin_dir, {})
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert "nothing staged" not in proc.stdout
@@ -241,7 +241,7 @@ def test_deleted_dashboard_file_still_triggers_dashboard_lint(tmp_path: Path) ->
     repo, bin_dir = _sandbox(tmp_path)
     _commit_all(repo, "base")
     _set_base_ref(repo)
-    (repo / "ui" / "litellm-dashboard" / "src" / "app.ts").unlink()
+    (repo / "ui" / "embrouter-dashboard" / "src" / "app.ts").unlink()
     _commit_all(repo, "delete dashboard file")
     proc = _run(repo, bin_dir, {})
     assert proc.returncode == 0, proc.stdout + proc.stderr
@@ -274,11 +274,11 @@ def test_partial_staging_warns_which_checks_were_skipped(tmp_path: Path) -> None
     _commit_all(repo, "base")
     (repo / "notes.md").write_text("hi\n")
     subprocess.run(["git", "add", "notes.md"], cwd=repo, check=True)
-    (repo / "litellm" / "foo.py").write_text("x = 4\n")
+    (repo / "embrouter" / "foo.py").write_text("x = 4\n")
     proc = _run(repo, bin_dir, {})
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert "SKIPPED Python lint (make lint)" in proc.stdout
-    assert "litellm/foo.py" in proc.stdout
+    assert "embrouter/foo.py" in proc.stdout
     assert "linting Python" not in proc.stdout
 
 
@@ -440,7 +440,7 @@ def test_staged_files_matching_no_check_print_an_explicit_noop_note_and_nonempty
     assert "linting Python" not in proc.stdout
     log = (repo / ".git" / "pre_commit_lint.log").read_text()
     assert "check: summary" in log
-    assert "skipped: Python lint (make lint) (no litellm/ Python files in scope)" in log
+    assert "skipped: Python lint (make lint) (no embrouter/ Python files in scope)" in log
     assert TEST_TREE_SKIPPED in log
 
 
@@ -527,12 +527,12 @@ def test_a_failing_quality_gate_fails_a_tests_only_run(tmp_path: Path) -> None:
     assert "check: FAIL" in proc.stdout
 
 
-def test_tests_changed_alongside_litellm_files_defer_to_make_lint(tmp_path: Path) -> None:
+def test_tests_changed_alongside_embrouter_files_defer_to_make_lint(tmp_path: Path) -> None:
     repo, bin_dir = _sandbox(tmp_path)
     _commit_all(repo, "base")
     args_dir = tmp_path / "args"
     args_dir.mkdir()
-    _stage_file(repo, "litellm/foo.py", "x = 2\n")
+    _stage_file(repo, "embrouter/foo.py", "x = 2\n")
     _stage_file(repo, "tests/test_a.py", "def test_a() -> None: ...\n")
     proc = _run(repo, bin_dir, {"STUB_ARGS_DIR": str(args_dir), "STUB_FAIL": "test-quality"})
     assert proc.returncode == 0, proc.stdout + proc.stderr
@@ -575,7 +575,7 @@ def test_partial_staging_warns_when_test_files_are_left_unstaged(tmp_path: Path)
 def test_run_queues_through_the_machine_wide_gate_slot_lock(tmp_path: Path) -> None:
     repo, bin_dir = _sandbox(tmp_path)
     lock_dir = tmp_path / "gate-locks"
-    proc = _run(repo, bin_dir, {"LITELLM_GATE_SLOT_DIR": str(lock_dir)})
+    proc = _run(repo, bin_dir, {"EMBROUTER_GATE_SLOT_DIR": str(lock_dir)})
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert (lock_dir / "slot-0.lock").exists()
 
@@ -586,7 +586,7 @@ def test_run_under_a_held_slot_skips_reacquiring_the_gate_lock(tmp_path: Path) -
     proc = _run(
         repo,
         bin_dir,
-        {"LITELLM_GATE_SLOT_DIR": str(lock_dir), "LITELLM_GATE_SLOT_HELD": "1"},
+        {"EMBROUTER_GATE_SLOT_DIR": str(lock_dir), "EMBROUTER_GATE_SLOT_HELD": "1"},
     )
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert not lock_dir.exists()
@@ -605,7 +605,7 @@ def test_hook_symlink_install_still_resolves_the_slot_lock_helper(tmp_path: Path
         cwd=repo,
         capture_output=True,
         text=True,
-        env=_env(repo, bin_dir, {"LITELLM_GATE_SLOT_DIR": str(lock_dir)}),
+        env=_env(repo, bin_dir, {"EMBROUTER_GATE_SLOT_DIR": str(lock_dir)}),
         timeout=120,
     )
     assert proc.returncode == 0, proc.stdout + proc.stderr
@@ -624,7 +624,7 @@ def test_failing_run_ends_with_a_fail_verdict(tmp_path: Path) -> None:
 def test_explicit_base_scopes_offline_without_a_remote(tmp_path: Path) -> None:
     repo, bin_dir = _sandbox(tmp_path)
     _commit_all(repo, "base")
-    (repo / "litellm" / "foo.py").write_text("x = 2\n")
+    (repo / "embrouter" / "foo.py").write_text("x = 2\n")
     proc = _run(repo, bin_dir, {"BASE_REF": "HEAD"})
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert "merge base with HEAD" in proc.stdout

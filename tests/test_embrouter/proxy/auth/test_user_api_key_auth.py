@@ -18,26 +18,26 @@ from unittest.mock import ANY, AsyncMock, MagicMock, patch
 import pytest
 from fastapi import HTTPException, status
 
-import litellm
-import litellm.proxy.proxy_server
-from litellm.caching.dual_cache import DualCache
-from litellm.proxy._types import (
-    LiteLLMRoutes,
-    LiteLLM_JWTAuth,
-    LiteLLM_BudgetTable,
-    LiteLLM_EndUserTable,
-    LiteLLM_OrganizationTable,
-    LiteLLM_TeamTableCachedObj,
-    LiteLLM_UserTable,
-    Litellm_EntityType,
-    LitellmUserRoles,
+import embrouter
+import embrouter.proxy.proxy_server
+from embrouter.caching.dual_cache import DualCache
+from embrouter.proxy._types import (
+    EmbRouterRoutes,
+    EmbRouter_JWTAuth,
+    EmbRouter_BudgetTable,
+    EmbRouter_EndUserTable,
+    EmbRouter_OrganizationTable,
+    EmbRouter_TeamTableCachedObj,
+    EmbRouter_UserTable,
+    Embrouter_EntityType,
+    EmbrouterUserRoles,
     ProxyErrorTypes,
     ProxyException,
     UserAPIKeyAuth,
     JWTRoutingOverride,
 )
-from litellm.proxy.auth.handle_jwt import JWTHandler
-from litellm.proxy.auth.auth_checks import (
+from embrouter.proxy.auth.handle_jwt import JWTHandler
+from embrouter.proxy.auth.auth_checks import (
     OrganizationNotFoundError,
     TeamNotFoundError,
     UserNotFoundError,
@@ -45,11 +45,11 @@ from litellm.proxy.auth.auth_checks import (
     _cache_key_object,
     jwt_key_mapping_cache_key,
 )
-from litellm.proxy.auth.route_checks import RouteChecks
-from litellm.proxy.common_utils.http_parsing_utils import get_client_requested_model
-from litellm.proxy.auth.user_api_key_auth import (
+from embrouter.proxy.auth.route_checks import RouteChecks
+from embrouter.proxy.common_utils.http_parsing_utils import get_client_requested_model
+from embrouter.proxy.auth.user_api_key_auth import (
     _check_key_model_budget_with_fallback,
-    _ensure_litellm_received_at_on_request_state,
+    _ensure_embrouter_received_at_on_request_state,
     _ensure_parent_otel_span_on_request_state,
     _PendingAutoRegister,
     _matches_routing_override,
@@ -63,7 +63,7 @@ from litellm.proxy.auth.user_api_key_auth import (
     user_api_key_auth,
     user_api_key_auth_websocket_for_model,
 )
-from litellm.proxy.spend_tracking.carried_budget_state import carried_budget_metadata
+from embrouter.proxy.spend_tracking.carried_budget_state import carried_budget_metadata
 
 
 class _RoutingRequest:
@@ -78,7 +78,7 @@ def test_get_api_key():
     api_key = "sk-12345678"
     passed_in_key = "Bearer sk-12345678"
     assert get_api_key(
-        custom_litellm_key_header=None,
+        custom_embrouter_key_header=None,
         api_key=bearer_token,
         azure_api_key_header=None,
         anthropic_api_key_header=None,
@@ -91,12 +91,12 @@ def test_get_api_key():
 
 
 def test_route_requires_auth_despite_public_for_metrics(monkeypatch):
-    monkeypatch.setattr(litellm, "require_auth_for_metrics_endpoint", True)
+    monkeypatch.setattr(embrouter, "require_auth_for_metrics_endpoint", True)
 
     assert _route_requires_auth_despite_public("/metrics", {}) is True
     assert _route_requires_auth_despite_public("/metrics/", {}) is True
 
-    monkeypatch.setattr(litellm, "require_auth_for_metrics_endpoint", False)
+    monkeypatch.setattr(embrouter, "require_auth_for_metrics_endpoint", False)
 
     assert _route_requires_auth_despite_public("/metrics", {}) is False
 
@@ -109,7 +109,7 @@ def test_public_ai_hub_routes_remain_public():
         "/public/mcp_hub",
         "/public/skill_hub",
     ):
-        assert route in LiteLLMRoutes.public_routes.value
+        assert route in EmbRouterRoutes.public_routes.value
         assert _route_requires_auth_despite_public(route, {}) is False
 
 
@@ -147,7 +147,7 @@ async def test_disable_budget_reservation_skips_reservation():
     user_api_key_auth_obj = UserAPIKeyAuth(token="test_token")
 
     with patch(
-        "litellm.proxy.spend_tracking.budget_reservation.reserve_budget_for_request",
+        "embrouter.proxy.spend_tracking.budget_reservation.reserve_budget_for_request",
         new=AsyncMock(return_value={"reserved_cost": 0.5, "entries": []}),
     ) as mock_reserve:
         await _reserve_budget_after_common_checks(
@@ -172,7 +172,7 @@ async def test_disable_budget_reservation_skips_reservation():
 async def test_disable_budget_reservation_does_not_log_per_request(caplog):
     user_api_key_auth_obj = UserAPIKeyAuth(token="test_token")
 
-    with caplog.at_level(logging.INFO, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.INFO, logger="EmbRouter Proxy"):
         for _ in range(3):
             await _reserve_budget_after_common_checks(
                 user_api_key_auth_obj=user_api_key_auth_obj,
@@ -203,7 +203,7 @@ async def test_budget_reservation_runs_when_not_disabled():
     }
 
     with patch(
-        "litellm.proxy.spend_tracking.budget_reservation.reserve_budget_for_request",
+        "embrouter.proxy.spend_tracking.budget_reservation.reserve_budget_for_request",
         new=AsyncMock(return_value=reservation),
     ) as mock_reserve:
         await _reserve_budget_after_common_checks(
@@ -238,7 +238,7 @@ async def test_fail_closed_budget_enforcement_reaches_reservation(general_settin
     user_api_key_auth_obj = UserAPIKeyAuth(token="test_token")
 
     with patch(
-        "litellm.proxy.spend_tracking.budget_reservation.reserve_budget_for_request",
+        "embrouter.proxy.spend_tracking.budget_reservation.reserve_budget_for_request",
         new=AsyncMock(return_value=None),
     ) as mock_reserve:
         await _reserve_budget_after_common_checks(
@@ -274,7 +274,7 @@ async def test_apply_user_budget_to_team_keys_reaches_reservation(general_settin
     user_api_key_auth_obj = UserAPIKeyAuth(token="test_token")
 
     with patch(
-        "litellm.proxy.spend_tracking.budget_reservation.reserve_budget_for_request",
+        "embrouter.proxy.spend_tracking.budget_reservation.reserve_budget_for_request",
         new=AsyncMock(return_value=None),
     ) as mock_reserve:
         await _reserve_budget_after_common_checks(
@@ -343,11 +343,11 @@ async def test_custom_auth_does_not_enforce_key_model_access_by_default():
 
     with (
         patch(
-            "litellm.proxy.auth.user_api_key_auth.can_key_call_model",
+            "embrouter.proxy.auth.user_api_key_auth.can_key_call_model",
             new_callable=AsyncMock,
         ) as mock_can_key,
         patch(
-            "litellm.proxy.proxy_server.general_settings",
+            "embrouter.proxy.proxy_server.general_settings",
             {},
         ),
     ):
@@ -388,12 +388,12 @@ async def test_custom_auth_honors_key_level_model_access_restriction_allowed_wit
 
     with (
         patch(
-            "litellm.proxy.auth.user_api_key_auth.can_key_call_model",
+            "embrouter.proxy.auth.user_api_key_auth.can_key_call_model",
             new_callable=AsyncMock,
         ) as mock_can_key,
-        patch("litellm.proxy.auth.user_api_key_auth.common_checks", new_callable=AsyncMock),
+        patch("embrouter.proxy.auth.user_api_key_auth.common_checks", new_callable=AsyncMock),
         patch(
-            "litellm.proxy.proxy_server.general_settings",
+            "embrouter.proxy.proxy_server.general_settings",
             {"custom_auth_run_common_checks": True},
         ),
     ):
@@ -415,16 +415,16 @@ async def test_custom_auth_honors_key_level_model_access_restriction_allowed_wit
 @pytest.mark.asyncio
 async def test_custom_auth_enforces_key_model_access_from_file_route_header_with_opt_in():
     valid_token = UserAPIKeyAuth(token="test_token", models=["allowed-model"])
-    request = _RoutingRequest(headers={"x-litellm-model": "restricted-model"})
+    request = _RoutingRequest(headers={"x-embrouter-model": "restricted-model"})
 
     with (
         patch(
-            "litellm.proxy.auth.user_api_key_auth.can_key_call_model",
+            "embrouter.proxy.auth.user_api_key_auth.can_key_call_model",
             new_callable=AsyncMock,
         ) as mock_can_key,
-        patch("litellm.proxy.auth.user_api_key_auth.common_checks", new_callable=AsyncMock),
+        patch("embrouter.proxy.auth.user_api_key_auth.common_checks", new_callable=AsyncMock),
         patch(
-            "litellm.proxy.proxy_server.general_settings",
+            "embrouter.proxy.proxy_server.general_settings",
             {"custom_auth_run_common_checks": True},
         ),
     ):
@@ -450,12 +450,12 @@ async def test_custom_auth_honors_key_level_model_access_restriction_denied_with
 
     with (
         patch(
-            "litellm.proxy.auth.user_api_key_auth.can_key_call_model",
+            "embrouter.proxy.auth.user_api_key_auth.can_key_call_model",
             new_callable=AsyncMock,
         ) as mock_can_key,
-        patch("litellm.proxy.auth.user_api_key_auth.common_checks", new_callable=AsyncMock),
+        patch("embrouter.proxy.auth.user_api_key_auth.common_checks", new_callable=AsyncMock),
         patch(
-            "litellm.proxy.proxy_server.general_settings",
+            "embrouter.proxy.proxy_server.general_settings",
             {"custom_auth_run_common_checks": True},
         ),
     ):
@@ -504,7 +504,7 @@ def _proxy_server_attrs_for_custom_auth(*, user_custom_auth):
         "model_max_budget_limiter": MagicMock(),
         "user_custom_auth": user_custom_auth,
         "jwt_handler": None,
-        "litellm_proxy_admin_name": "admin",
+        "embrouter_proxy_admin_name": "admin",
     }
 
 
@@ -514,35 +514,35 @@ async def test_user_custom_auth_skips_post_custom_auth_checks_by_default():
     Regression test: after v1.82.6, _run_post_custom_auth_checks was unconditionally
     invoked on the user_custom_auth return path, which caused a ~44% RPS drop for
     custom-auth deployments due to per-request DB lookups on trusted tokens.
-    The outer gate (litellm.enable_post_custom_auth_checks, default False) must
+    The outer gate (embrouter.enable_post_custom_auth_checks, default False) must
     short-circuit that call so the fast path returns the validated token unchanged.
     """
     from fastapi import Request
     from starlette.datastructures import URL
 
-    import litellm
-    import litellm.proxy.proxy_server as _proxy_server_mod
-    from litellm.proxy._types import LitellmUserRoles
-    from litellm.proxy.auth.user_api_key_auth import _user_api_key_auth_builder
+    import embrouter
+    import embrouter.proxy.proxy_server as _proxy_server_mod
+    from embrouter.proxy._types import EmbrouterUserRoles
+    from embrouter.proxy.auth.user_api_key_auth import _user_api_key_auth_builder
 
     trusted_token = UserAPIKeyAuth(
         api_key="sk-custom-auth-trusted",
         user_id="custom-user-123",
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN,
     )
     mock_user_custom_auth = AsyncMock(return_value=trusted_token)
 
     attrs = _proxy_server_attrs_for_custom_auth(user_custom_auth=mock_user_custom_auth)
     originals = {attr: getattr(_proxy_server_mod, attr, None) for attr in attrs}
-    original_flag = getattr(litellm, "enable_post_custom_auth_checks", False)
+    original_flag = getattr(embrouter, "enable_post_custom_auth_checks", False)
 
     try:
         for attr, val in attrs.items():
             setattr(_proxy_server_mod, attr, val)
-        litellm.enable_post_custom_auth_checks = False  # explicit: documents default
+        embrouter.enable_post_custom_auth_checks = False  # explicit: documents default
 
         with patch(
-            "litellm.proxy.auth.user_api_key_auth._run_post_custom_auth_checks",
+            "embrouter.proxy.auth.user_api_key_auth._run_post_custom_auth_checks",
             new_callable=AsyncMock,
         ) as mock_post_checks:
             request = Request(scope={"type": "http"})
@@ -564,43 +564,43 @@ async def test_user_custom_auth_skips_post_custom_auth_checks_by_default():
     finally:
         for attr, val in originals.items():
             setattr(_proxy_server_mod, attr, val)
-        litellm.enable_post_custom_auth_checks = original_flag
+        embrouter.enable_post_custom_auth_checks = original_flag
 
 
 @pytest.mark.asyncio
 async def test_user_custom_auth_runs_post_custom_auth_checks_when_opt_in():
     """
     Opt-in half of the outer-gate regression test: when
-    litellm.enable_post_custom_auth_checks=True, the user_custom_auth return path
+    embrouter.enable_post_custom_auth_checks=True, the user_custom_auth return path
     must invoke _run_post_custom_auth_checks so deployments that rely on the
     v1.82.6 DB-lookup behavior keep working after an explicit opt-in.
     """
     from fastapi import Request
     from starlette.datastructures import URL
 
-    import litellm
-    import litellm.proxy.proxy_server as _proxy_server_mod
-    from litellm.proxy._types import LitellmUserRoles
-    from litellm.proxy.auth.user_api_key_auth import _user_api_key_auth_builder
+    import embrouter
+    import embrouter.proxy.proxy_server as _proxy_server_mod
+    from embrouter.proxy._types import EmbrouterUserRoles
+    from embrouter.proxy.auth.user_api_key_auth import _user_api_key_auth_builder
 
     trusted_token = UserAPIKeyAuth(
         api_key="sk-custom-auth-trusted",
         user_id="custom-user-123",
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN,
     )
     mock_user_custom_auth = AsyncMock(return_value=trusted_token)
 
     attrs = _proxy_server_attrs_for_custom_auth(user_custom_auth=mock_user_custom_auth)
     originals = {attr: getattr(_proxy_server_mod, attr, None) for attr in attrs}
-    original_flag = getattr(litellm, "enable_post_custom_auth_checks", False)
+    original_flag = getattr(embrouter, "enable_post_custom_auth_checks", False)
 
     try:
         for attr, val in attrs.items():
             setattr(_proxy_server_mod, attr, val)
-        litellm.enable_post_custom_auth_checks = True
+        embrouter.enable_post_custom_auth_checks = True
 
         with patch(
-            "litellm.proxy.auth.user_api_key_auth._run_post_custom_auth_checks",
+            "embrouter.proxy.auth.user_api_key_auth._run_post_custom_auth_checks",
             new_callable=AsyncMock,
             return_value=trusted_token,
         ) as mock_post_checks:
@@ -622,7 +622,7 @@ async def test_user_custom_auth_runs_post_custom_auth_checks_when_opt_in():
     finally:
         for attr, val in originals.items():
             setattr(_proxy_server_mod, attr, val)
-        litellm.enable_post_custom_auth_checks = original_flag
+        embrouter.enable_post_custom_auth_checks = original_flag
 
 
 @pytest.mark.asyncio
@@ -635,34 +635,34 @@ async def test_enterprise_custom_auth_skips_post_custom_auth_checks_by_default()
     from fastapi import Request
     from starlette.datastructures import URL
 
-    import litellm
-    import litellm.proxy.proxy_server as _proxy_server_mod
-    from litellm.proxy._types import LitellmUserRoles
-    from litellm.proxy.auth.user_api_key_auth import _user_api_key_auth_builder
+    import embrouter
+    import embrouter.proxy.proxy_server as _proxy_server_mod
+    from embrouter.proxy._types import EmbrouterUserRoles
+    from embrouter.proxy.auth.user_api_key_auth import _user_api_key_auth_builder
 
     trusted_token = UserAPIKeyAuth(
         api_key="sk-enterprise-custom-auth-trusted",
         user_id="enterprise-user-456",
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN,
     )
     mock_enterprise_custom_auth = AsyncMock(return_value=trusted_token)
 
     attrs = _proxy_server_attrs_for_custom_auth(user_custom_auth=None)
     originals = {attr: getattr(_proxy_server_mod, attr, None) for attr in attrs}
-    original_flag = getattr(litellm, "enable_post_custom_auth_checks", False)
+    original_flag = getattr(embrouter, "enable_post_custom_auth_checks", False)
 
     try:
         for attr, val in attrs.items():
             setattr(_proxy_server_mod, attr, val)
-        litellm.enable_post_custom_auth_checks = False
+        embrouter.enable_post_custom_auth_checks = False
 
         with (
             patch(
-                "litellm.proxy.auth.user_api_key_auth.enterprise_custom_auth",
+                "embrouter.proxy.auth.user_api_key_auth.enterprise_custom_auth",
                 new=mock_enterprise_custom_auth,
             ),
             patch(
-                "litellm.proxy.auth.user_api_key_auth._run_post_custom_auth_checks",
+                "embrouter.proxy.auth.user_api_key_auth._run_post_custom_auth_checks",
                 new_callable=AsyncMock,
             ) as mock_post_checks,
         ):
@@ -685,7 +685,7 @@ async def test_enterprise_custom_auth_skips_post_custom_auth_checks_by_default()
     finally:
         for attr, val in originals.items():
             setattr(_proxy_server_mod, attr, val)
-        litellm.enable_post_custom_auth_checks = original_flag
+        embrouter.enable_post_custom_auth_checks = original_flag
 
 
 @pytest.mark.asyncio
@@ -698,34 +698,34 @@ async def test_enterprise_custom_auth_runs_post_custom_auth_checks_when_opt_in()
     from fastapi import Request
     from starlette.datastructures import URL
 
-    import litellm
-    import litellm.proxy.proxy_server as _proxy_server_mod
-    from litellm.proxy._types import LitellmUserRoles
-    from litellm.proxy.auth.user_api_key_auth import _user_api_key_auth_builder
+    import embrouter
+    import embrouter.proxy.proxy_server as _proxy_server_mod
+    from embrouter.proxy._types import EmbrouterUserRoles
+    from embrouter.proxy.auth.user_api_key_auth import _user_api_key_auth_builder
 
     trusted_token = UserAPIKeyAuth(
         api_key="sk-enterprise-custom-auth-trusted",
         user_id="enterprise-user-456",
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN,
     )
     mock_enterprise_custom_auth = AsyncMock(return_value=trusted_token)
 
     attrs = _proxy_server_attrs_for_custom_auth(user_custom_auth=None)
     originals = {attr: getattr(_proxy_server_mod, attr, None) for attr in attrs}
-    original_flag = getattr(litellm, "enable_post_custom_auth_checks", False)
+    original_flag = getattr(embrouter, "enable_post_custom_auth_checks", False)
 
     try:
         for attr, val in attrs.items():
             setattr(_proxy_server_mod, attr, val)
-        litellm.enable_post_custom_auth_checks = True
+        embrouter.enable_post_custom_auth_checks = True
 
         with (
             patch(
-                "litellm.proxy.auth.user_api_key_auth.enterprise_custom_auth",
+                "embrouter.proxy.auth.user_api_key_auth.enterprise_custom_auth",
                 new=mock_enterprise_custom_auth,
             ),
             patch(
-                "litellm.proxy.auth.user_api_key_auth._run_post_custom_auth_checks",
+                "embrouter.proxy.auth.user_api_key_auth._run_post_custom_auth_checks",
                 new_callable=AsyncMock,
                 return_value=trusted_token,
             ) as mock_post_checks,
@@ -748,12 +748,12 @@ async def test_enterprise_custom_auth_runs_post_custom_auth_checks_when_opt_in()
     finally:
         for attr, val in originals.items():
             setattr(_proxy_server_mod, attr, val)
-        litellm.enable_post_custom_auth_checks = original_flag
+        embrouter.enable_post_custom_auth_checks = original_flag
 
 
-def _assert_get_api_key_with_custom_litellm_key_header(custom_litellm_key_header, api_key, passed_in_key):
+def _assert_get_api_key_with_custom_embrouter_key_header(custom_embrouter_key_header, api_key, passed_in_key):
     assert get_api_key(
-        custom_litellm_key_header=custom_litellm_key_header,
+        custom_embrouter_key_header=custom_embrouter_key_header,
         api_key=None,
         azure_api_key_header=None,
         anthropic_api_key_header=None,
@@ -792,20 +792,20 @@ def _assert_get_api_key_with_custom_litellm_key_header(custom_litellm_key_header
             True,
             False,
         ),
-        ("*MID_LITELLM", "STREAM_MID_LITELLM", True, False),
-        ("*MID_LITELLM", "REDIS_LITELLM", False, False),
+        ("*MID_EMBROUTER", "STREAM_MID_EMBROUTER", True, False),
+        ("*MID_EMBROUTER", "REDIS_EMBROUTER", False, False),
         ("machine-??", "machine-01", True, False),
         ("machine-??", "machine-001", False, False),
         # Wildcard matching is case-sensitive (fnmatch.fnmatchcase)
-        ("*litellm", "BATCH_LITELLM", False, False),
-        ("*LITELLM", "BATCH_LITELLM", True, False),
-        ("App:LiteLLM", "App:LiteLLM openid", True, True),
-        ("App:*", "App:LiteLLM openid", True, True),
-        (["openid", "App:LiteLLM"], "openid profile", True, True),
+        ("*embrouter", "BATCH_EMBROUTER", False, False),
+        ("*EMBROUTER", "BATCH_EMBROUTER", True, False),
+        ("App:EmbRouter", "App:EmbRouter openid", True, True),
+        ("App:*", "App:EmbRouter openid", True, True),
+        (["openid", "App:EmbRouter"], "openid profile", True, True),
         (["service-*", "batch-*"], "batch-123", True, False),
         (["service-*", "batch-*"], "other-123", False, False),
-        ("App:LiteLLM", ["openid", "App:LiteLLM"], True, False),
-        ("App:LiteLLM", None, False, False),
+        ("App:EmbRouter", ["openid", "App:EmbRouter"], True, False),
+        ("App:EmbRouter", None, False, False),
     ],
 )
 def test_routing_selector_matches_claim_parametrized(selector_value, claim_value, expected, split_space_delimited):
@@ -832,26 +832,26 @@ def test_routing_selector_matches_claim_parametrized(selector_value, claim_value
         (
             JWTRoutingOverride(
                 iss="oauth-issuer.example.com",
-                scope="App:LiteLLM",
+                scope="App:EmbRouter",
                 path="oauth2",
             ),
-            {"iss": "oauth-issuer.example.com", "scope": "App:LiteLLM openid"},
+            {"iss": "oauth-issuer.example.com", "scope": "App:EmbRouter openid"},
             True,
         ),
         # client_id wildcard selector narrows the match.
         (
             JWTRoutingOverride(
                 iss="oauth-issuer.example.com",
-                client_id="*MID_LITELLM",
+                client_id="*MID_EMBROUTER",
                 path="oauth2",
             ),
-            {"iss": "oauth-issuer.example.com", "client_id": "BATCH_MID_LITELLM"},
+            {"iss": "oauth-issuer.example.com", "client_id": "BATCH_MID_EMBROUTER"},
             True,
         ),
         (
             JWTRoutingOverride(
                 iss="oauth-issuer.example.com",
-                client_id="*MID_LITELLM",
+                client_id="*MID_EMBROUTER",
                 path="oauth2",
             ),
             {"iss": "oauth-issuer.example.com", "client_id": "BATCH_PORTAL"},
@@ -861,12 +861,12 @@ def test_routing_selector_matches_claim_parametrized(selector_value, claim_value
         (
             JWTRoutingOverride(
                 iss="oauth-issuer.example.com",
-                aud=["api://litellm", "api://fallback"],
+                aud=["api://embrouter", "api://fallback"],
                 path="oauth2",
             ),
             {
                 "iss": "oauth-issuer.example.com",
-                "aud": ["api://other", "api://litellm"],
+                "aud": ["api://other", "api://embrouter"],
             },
             True,
         ),
@@ -874,28 +874,28 @@ def test_routing_selector_matches_claim_parametrized(selector_value, claim_value
         (
             JWTRoutingOverride(
                 iss="oauth-issuer.example.com",
-                scope="App:LiteLLM",
-                client_id="*MID_LITELLM",
+                scope="App:EmbRouter",
+                client_id="*MID_EMBROUTER",
                 path="oauth2",
             ),
             {
                 "iss": "oauth-issuer.example.com",
-                "scope": "App:LiteLLM openid",
-                "client_id": "BATCH_MID_LITELLM",
+                "scope": "App:EmbRouter openid",
+                "client_id": "BATCH_MID_EMBROUTER",
             },
             True,
         ),
         (
             JWTRoutingOverride(
                 iss="oauth-issuer.example.com",
-                scope="App:LiteLLM",
-                client_id="*MID_LITELLM",
+                scope="App:EmbRouter",
+                client_id="*MID_EMBROUTER",
                 path="oauth2",
             ),
             {
                 "iss": "oauth-issuer.example.com",
                 "scope": "App:Other openid",
-                "client_id": "BATCH_MID_LITELLM",
+                "client_id": "BATCH_MID_EMBROUTER",
             },
             False,
         ),
@@ -905,46 +905,46 @@ def test_matches_routing_override_parametrized(override, token_claims, expected)
     assert _matches_routing_override(token_claims=token_claims, override=override) is expected
 
 
-def test_get_api_key_with_custom_litellm_key_header_bearer_prefix():
+def test_get_api_key_with_custom_embrouter_key_header_bearer_prefix():
     token = "sk-" + "1" * 8
     header = f"Bearer {token}"
-    _assert_get_api_key_with_custom_litellm_key_header(
-        custom_litellm_key_header=header, api_key=token, passed_in_key=header
+    _assert_get_api_key_with_custom_embrouter_key_header(
+        custom_embrouter_key_header=header, api_key=token, passed_in_key=header
     )
 
 
-def test_get_api_key_with_custom_litellm_key_header_basic_prefix():
+def test_get_api_key_with_custom_embrouter_key_header_basic_prefix():
     token = "sk-" + "1" * 8
     header = f"Basic {token}"
-    _assert_get_api_key_with_custom_litellm_key_header(
-        custom_litellm_key_header=header, api_key=token, passed_in_key=header
+    _assert_get_api_key_with_custom_embrouter_key_header(
+        custom_embrouter_key_header=header, api_key=token, passed_in_key=header
     )
 
 
-def test_get_api_key_with_custom_litellm_key_header_lowercase_bearer_prefix():
+def test_get_api_key_with_custom_embrouter_key_header_lowercase_bearer_prefix():
     token = "sk-" + "1" * 8
     header = f"bearer {token}"
-    _assert_get_api_key_with_custom_litellm_key_header(
-        custom_litellm_key_header=header, api_key=token, passed_in_key=header
+    _assert_get_api_key_with_custom_embrouter_key_header(
+        custom_embrouter_key_header=header, api_key=token, passed_in_key=header
     )
 
 
-def test_get_api_key_with_custom_litellm_key_header_no_prefix():
+def test_get_api_key_with_custom_embrouter_key_header_no_prefix():
     token = "sk-" + "1" * 8
-    _assert_get_api_key_with_custom_litellm_key_header(
-        custom_litellm_key_header=token, api_key=token, passed_in_key=token
+    _assert_get_api_key_with_custom_embrouter_key_header(
+        custom_embrouter_key_header=token, api_key=token, passed_in_key=token
     )
 
 
-def test_get_api_key_with_custom_litellm_key_header_aws_sigv4():
+def test_get_api_key_with_custom_embrouter_key_header_aws_sigv4():
     """AWS Signature V4 format (LangChain AWS SDK)."""
     token = "sk-" + "1" * 8
     header = (
         f"AWS4-HMAC-SHA256 Credential=Bearer {token}/20260210/us-east-1/bedrock/"
         "aws4_request, SignedHeaders=host, Signature=abc123"
     )
-    _assert_get_api_key_with_custom_litellm_key_header(
-        custom_litellm_key_header=header, api_key=token, passed_in_key=header
+    _assert_get_api_key_with_custom_embrouter_key_header(
+        custom_embrouter_key_header=header, api_key=token, passed_in_key=header
     )
 
 
@@ -953,12 +953,12 @@ def test_team_metadata_with_tags_flows_through_jwt_auth():
     Test that team_metadata (specifically tags) flows through JWT authentication.
 
     This is a regression test for the issue where JWT auth was not populating
-    team_metadata, causing team-level tags to be missing in litellm_pre_call_utils.py
+    team_metadata, causing team-level tags to be missing in embrouter_pre_call_utils.py
     """
-    from litellm.proxy._types import LiteLLM_TeamTable, UserAPIKeyAuth
+    from embrouter.proxy._types import EmbRouter_TeamTable, UserAPIKeyAuth
 
     # Create a team object with metadata containing tags
-    team_object = LiteLLM_TeamTable(
+    team_object = EmbRouter_TeamTable(
         team_id="test-team-id",
         team_alias="test-team-alias",
         metadata={"tags": ["production", "high-priority"], "department": "engineering"},
@@ -1063,7 +1063,7 @@ def test_route_checks_is_llm_api_route():
     for route in mcp_routes:
         assert RouteChecks.is_llm_api_route(route=route), f"Route {route} should be identified as LLM API route"
 
-    # Test LiteLLM native RAG routes
+    # Test EmbRouter native RAG routes
     rag_routes = [
         "/rag/ingest",
         "/v1/rag/ingest",
@@ -1147,14 +1147,14 @@ async def test_proxy_admin_expired_key_from_cache():
     from fastapi import Request
     from starlette.datastructures import URL
 
-    from litellm.proxy._types import (
-        LitellmUserRoles,
+    from embrouter.proxy._types import (
+        EmbrouterUserRoles,
         ProxyErrorTypes,
         ProxyException,
         UserAPIKeyAuth,
     )
-    from litellm.proxy.auth.user_api_key_auth import _user_api_key_auth_builder
-    from litellm.proxy.proxy_server import hash_token
+    from embrouter.proxy.auth.user_api_key_auth import _user_api_key_auth_builder
+    from embrouter.proxy.proxy_server import hash_token
 
     # Create an expired PROXY_ADMIN key
     api_key = "sk-test-proxy-admin-key"
@@ -1163,7 +1163,7 @@ async def test_proxy_admin_expired_key_from_cache():
 
     expired_token = UserAPIKeyAuth(
         api_key=api_key,
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN,
         expires=expired_time,
         token=hashed_key,
     )
@@ -1187,18 +1187,18 @@ async def test_proxy_admin_expired_key_from_cache():
     # Mock get_key_object to return expired token from cache
     with (
         patch(
-            "litellm.proxy.auth.resolvers.store.IdentityStore._resolve_key",
+            "embrouter.proxy.auth.resolvers.store.IdentityStore._resolve_key",
             new_callable=AsyncMock,
         ) as mock_get_key_object,
         patch(
-            "litellm.proxy.auth.user_api_key_auth._delete_cache_key_object",
+            "embrouter.proxy.auth.user_api_key_auth._delete_cache_key_object",
             new_callable=AsyncMock,
         ) as mock_delete_cache,
     ):
         mock_get_key_object.return_value = expired_token
 
         # Set attributes on proxy_server module (these are imported inside _user_api_key_auth_builder)
-        import litellm.proxy.proxy_server as _proxy_server_mod
+        import embrouter.proxy.proxy_server as _proxy_server_mod
 
         _attrs_to_set = {
             "prisma_client": mock_prisma_client,
@@ -1212,7 +1212,7 @@ async def test_proxy_admin_expired_key_from_cache():
             "model_max_budget_limiter": MagicMock(),
             "user_custom_auth": None,
             "jwt_handler": None,
-            "litellm_proxy_admin_name": "admin",
+            "embrouter_proxy_admin_name": "admin",
         }
         _original_values = {attr: getattr(_proxy_server_mod, attr, None) for attr in _attrs_to_set}
         try:
@@ -1276,8 +1276,8 @@ async def test_scim_deactivated_user_key_is_rejected():
     from fastapi import Request
     from starlette.datastructures import URL
 
-    from litellm.proxy.auth.user_api_key_auth import _user_api_key_auth_builder
-    from litellm.proxy.proxy_server import hash_token
+    from embrouter.proxy.auth.user_api_key_auth import _user_api_key_auth_builder
+    from embrouter.proxy.proxy_server import hash_token
 
     api_key = "sk-scim-deactivated-user-key"
     hashed_key = hash_token(api_key)
@@ -1287,7 +1287,7 @@ async def test_scim_deactivated_user_key_is_rejected():
         token=hashed_key,
         user_id="scim-disabled-user",
     )
-    deactivated_user = LiteLLM_UserTable(
+    deactivated_user = EmbRouter_UserTable(
         user_id="scim-disabled-user",
         metadata={"scim_active": False},
     )
@@ -1304,7 +1304,7 @@ async def test_scim_deactivated_user_key_is_rejected():
 
     mock_prisma_client = MagicMock()
 
-    import litellm.proxy.proxy_server as _proxy_server_mod
+    import embrouter.proxy.proxy_server as _proxy_server_mod
 
     _attrs_to_set = {
         "prisma_client": mock_prisma_client,
@@ -1318,7 +1318,7 @@ async def test_scim_deactivated_user_key_is_rejected():
         "model_max_budget_limiter": MagicMock(),
         "user_custom_auth": None,
         "jwt_handler": None,
-        "litellm_proxy_admin_name": "admin",
+        "embrouter_proxy_admin_name": "admin",
     }
     _original_values = {attr: getattr(_proxy_server_mod, attr, None) for attr in _attrs_to_set}
     try:
@@ -1330,12 +1330,12 @@ async def test_scim_deactivated_user_key_is_rejected():
 
         with (
             patch(
-                "litellm.proxy.auth.resolvers.store.IdentityStore._resolve_key",
+                "embrouter.proxy.auth.resolvers.store.IdentityStore._resolve_key",
                 new_callable=AsyncMock,
                 return_value=valid_token,
             ),
             patch(
-                "litellm.proxy.auth.user_api_key_auth.get_user_object",
+                "embrouter.proxy.auth.user_api_key_auth.get_user_object",
                 new_callable=AsyncMock,
                 return_value=deactivated_user,
             ),
@@ -1366,8 +1366,8 @@ async def test_cached_proxy_admin_key_sets_via_virtual_key_marker():
     from fastapi import Request
     from starlette.datastructures import URL
 
-    from litellm.proxy.auth.user_api_key_auth import _user_api_key_auth_builder
-    from litellm.proxy.proxy_server import hash_token
+    from embrouter.proxy.auth.user_api_key_auth import _user_api_key_auth_builder
+    from embrouter.proxy.proxy_server import hash_token
 
     api_key = "sk-cached-admin-marker-test"
     hashed_key = hash_token(api_key)
@@ -1376,7 +1376,7 @@ async def test_cached_proxy_admin_key_sets_via_virtual_key_marker():
         api_key=api_key,
         token=hashed_key,
         user_id="cached-admin-user",
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN,
     )
     assert cached_token.via_virtual_key is False
 
@@ -1390,7 +1390,7 @@ async def test_cached_proxy_admin_key_sets_via_virtual_key_marker():
     mock_proxy_logging_obj.internal_usage_cache.dual_cache.async_delete_cache = AsyncMock()
     mock_proxy_logging_obj.post_call_failure_hook = AsyncMock(return_value=None)
 
-    import litellm.proxy.proxy_server as _proxy_server_mod
+    import embrouter.proxy.proxy_server as _proxy_server_mod
 
     _attrs_to_set = {
         "prisma_client": MagicMock(),
@@ -1404,7 +1404,7 @@ async def test_cached_proxy_admin_key_sets_via_virtual_key_marker():
         "model_max_budget_limiter": MagicMock(),
         "user_custom_auth": None,
         "jwt_handler": None,
-        "litellm_proxy_admin_name": "admin",
+        "embrouter_proxy_admin_name": "admin",
     }
     _original_values = {attr: getattr(_proxy_server_mod, attr, None) for attr in _attrs_to_set}
     try:
@@ -1415,7 +1415,7 @@ async def test_cached_proxy_admin_key_sets_via_virtual_key_marker():
         request._url = URL(url="/chat/completions")
 
         with patch(
-            "litellm.proxy.auth.resolvers.store.IdentityStore._resolve_key",
+            "embrouter.proxy.auth.resolvers.store.IdentityStore._resolve_key",
             new_callable=AsyncMock,
             return_value=cached_token,
         ):
@@ -1430,7 +1430,7 @@ async def test_cached_proxy_admin_key_sets_via_virtual_key_marker():
             )
 
         assert isinstance(result, UserAPIKeyAuth)
-        assert result.user_role == LitellmUserRoles.PROXY_ADMIN
+        assert result.user_role == EmbrouterUserRoles.PROXY_ADMIN
         assert result.via_virtual_key is True
         assert result.api_key == hashed_key
     finally:
@@ -1446,8 +1446,8 @@ async def test_master_key_auth_sets_via_virtual_key_marker():
     from fastapi import Request
     from starlette.datastructures import URL
 
-    from litellm.constants import LITELLM_PROXY_MASTER_KEY_ALIAS
-    from litellm.proxy.auth.user_api_key_auth import _user_api_key_auth_builder
+    from embrouter.constants import EMBROUTER_PROXY_MASTER_KEY_ALIAS
+    from embrouter.proxy.auth.user_api_key_auth import _user_api_key_auth_builder
 
     master_key = "sk-master-key"
 
@@ -1461,7 +1461,7 @@ async def test_master_key_auth_sets_via_virtual_key_marker():
     mock_proxy_logging_obj.internal_usage_cache.dual_cache.async_delete_cache = AsyncMock()
     mock_proxy_logging_obj.post_call_failure_hook = AsyncMock(return_value=None)
 
-    import litellm.proxy.proxy_server as _proxy_server_mod
+    import embrouter.proxy.proxy_server as _proxy_server_mod
 
     _attrs_to_set = {
         "prisma_client": MagicMock(),
@@ -1475,7 +1475,7 @@ async def test_master_key_auth_sets_via_virtual_key_marker():
         "model_max_budget_limiter": MagicMock(),
         "user_custom_auth": None,
         "jwt_handler": None,
-        "litellm_proxy_admin_name": "admin",
+        "embrouter_proxy_admin_name": "admin",
     }
     _original_values = {attr: getattr(_proxy_server_mod, attr, None) for attr in _attrs_to_set}
     try:
@@ -1497,7 +1497,7 @@ async def test_master_key_auth_sets_via_virtual_key_marker():
 
         assert isinstance(result, UserAPIKeyAuth)
         assert result.via_virtual_key is True
-        assert result.api_key == LITELLM_PROXY_MASTER_KEY_ALIAS
+        assert result.api_key == EMBROUTER_PROXY_MASTER_KEY_ALIAS
     finally:
         for attr, val in _original_values.items():
             setattr(_proxy_server_mod, attr, val)
@@ -1511,8 +1511,8 @@ async def test_db_virtual_key_auth_sets_via_virtual_key_marker():
     from fastapi import Request
     from starlette.datastructures import URL
 
-    from litellm.proxy.auth.user_api_key_auth import _user_api_key_auth_builder
-    from litellm.proxy.proxy_server import hash_token
+    from embrouter.proxy.auth.user_api_key_auth import _user_api_key_auth_builder
+    from embrouter.proxy.proxy_server import hash_token
 
     api_key = "sk-via-virtual-key-marker-test"
     hashed_key = hash_token(api_key)
@@ -1535,7 +1535,7 @@ async def test_db_virtual_key_auth_sets_via_virtual_key_marker():
 
     mock_prisma_client = MagicMock()
 
-    import litellm.proxy.proxy_server as _proxy_server_mod
+    import embrouter.proxy.proxy_server as _proxy_server_mod
 
     _attrs_to_set = {
         "prisma_client": mock_prisma_client,
@@ -1549,7 +1549,7 @@ async def test_db_virtual_key_auth_sets_via_virtual_key_marker():
         "model_max_budget_limiter": MagicMock(),
         "user_custom_auth": None,
         "jwt_handler": None,
-        "litellm_proxy_admin_name": "admin",
+        "embrouter_proxy_admin_name": "admin",
     }
     _original_values = {attr: getattr(_proxy_server_mod, attr, None) for attr in _attrs_to_set}
     try:
@@ -1561,12 +1561,12 @@ async def test_db_virtual_key_auth_sets_via_virtual_key_marker():
 
         with (
             patch(
-                "litellm.proxy.auth.resolvers.store.IdentityStore._resolve_key",
+                "embrouter.proxy.auth.resolvers.store.IdentityStore._resolve_key",
                 new_callable=AsyncMock,
                 return_value=valid_token,
             ),
             patch(
-                "litellm.proxy.auth.user_api_key_auth.get_user_object",
+                "embrouter.proxy.auth.user_api_key_auth.get_user_object",
                 new_callable=AsyncMock,
                 return_value=None,
             ),
@@ -1596,8 +1596,8 @@ async def test_auth_prefetches_referenced_objects_only_after_the_key_may_call_th
     from fastapi import Request
     from starlette.datastructures import URL
 
-    from litellm.proxy.auth.user_api_key_auth import _user_api_key_auth_builder
-    from litellm.proxy.proxy_server import hash_token
+    from embrouter.proxy.auth.user_api_key_auth import _user_api_key_auth_builder
+    from embrouter.proxy.proxy_server import hash_token
 
     api_key = "sk-prefetch-order-test"
     valid_token = UserAPIKeyAuth(api_key=api_key, token=hash_token(api_key), user_id="u1", team_id="t1")
@@ -1608,7 +1608,7 @@ async def test_auth_prefetches_referenced_objects_only_after_the_key_may_call_th
     mock_proxy_logging_obj = MagicMock()
     mock_proxy_logging_obj.post_call_failure_hook = AsyncMock(return_value=None)
 
-    import litellm.proxy.proxy_server as _proxy_server_mod
+    import embrouter.proxy.proxy_server as _proxy_server_mod
 
     _attrs_to_set = {
         "prisma_client": MagicMock(),
@@ -1622,7 +1622,7 @@ async def test_auth_prefetches_referenced_objects_only_after_the_key_may_call_th
         "model_max_budget_limiter": MagicMock(),
         "user_custom_auth": None,
         "jwt_handler": None,
-        "litellm_proxy_admin_name": "admin",
+        "embrouter_proxy_admin_name": "admin",
     }
     _original_values = {attr: getattr(_proxy_server_mod, attr, None) for attr in _attrs_to_set}
     denied = ProxyException(
@@ -1639,20 +1639,20 @@ async def test_auth_prefetches_referenced_objects_only_after_the_key_may_call_th
 
         with (
             patch(  # test-quality-ok: the builder has no DI seam for the key lookup; stands in for the DB
-                "litellm.proxy.auth.resolvers.store.IdentityStore._resolve_key",
+                "embrouter.proxy.auth.resolvers.store.IdentityStore._resolve_key",
                 new_callable=AsyncMock,
                 return_value=valid_token,
             ),
             patch(  # test-quality-ok: the observable is whether the prefetch runs before or after this check
-                "litellm.proxy.auth.user_api_key_auth._enforce_key_and_fallback_model_access",
+                "embrouter.proxy.auth.user_api_key_auth._enforce_key_and_fallback_model_access",
                 new_callable=AsyncMock,
                 side_effect=None if model_allowed else denied,
             ),
             patch(  # test-quality-ok: counting prefetch calls on a denied request IS the regression being pinned
-                "litellm.proxy.auth.user_api_key_auth.prefetch_auth_objects", new_callable=AsyncMock
+                "embrouter.proxy.auth.user_api_key_auth.prefetch_auth_objects", new_callable=AsyncMock
             ) as mock_prefetch,
             patch(  # test-quality-ok: no DB in this test; the user lookup must not fail the allowed path
-                "litellm.proxy.auth.user_api_key_auth.get_user_object", new_callable=AsyncMock, return_value=None
+                "embrouter.proxy.auth.user_api_key_auth.get_user_object", new_callable=AsyncMock, return_value=None
             ),
         ):
             call = _user_api_key_auth_builder(
@@ -1686,11 +1686,11 @@ async def test_return_user_api_key_auth_obj_user_spend_and_budget():
     """
     from datetime import datetime
 
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.auth.user_api_key_auth import _return_user_api_key_auth_obj
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy.auth.user_api_key_auth import _return_user_api_key_auth_obj
 
     user_obj = type(
-        "LiteLLM_UserTable",
+        "EmbRouter_UserTable",
         (),
         {
             "tpm_limit": 1000,
@@ -1714,7 +1714,7 @@ async def test_return_user_api_key_auth_obj_user_spend_and_budget():
     mock_service_logger.async_service_success_hook = AsyncMock()
 
     with patch(
-        "litellm.proxy.auth.user_api_key_auth.user_api_key_service_logger_obj",
+        "embrouter.proxy.auth.user_api_key_auth.user_api_key_service_logger_obj",
         new=mock_service_logger,
     ):
         result = await _return_user_api_key_auth_obj(
@@ -1744,9 +1744,9 @@ def test_proxy_admin_jwt_auth_includes_identity_fields():
     and parent_otel_span, discarding all identity fields resolved from the JWT.
     This caused blank Team Name and Internal User in Request Logs UI.
     """
-    from litellm.proxy._types import LiteLLM_TeamTable, LitellmUserRoles, UserAPIKeyAuth
+    from embrouter.proxy._types import EmbRouter_TeamTable, EmbrouterUserRoles, UserAPIKeyAuth
 
-    team_object = LiteLLM_TeamTable(
+    team_object = EmbRouter_TeamTable(
         team_id="team-123",
         team_alias="my-team",
         metadata={"tags": ["prod"], "env": "production"},
@@ -1755,7 +1755,7 @@ def test_proxy_admin_jwt_auth_includes_identity_fields():
     # Simulate the proxy admin early-return path (user_api_key_auth.py ~line 586)
     result = UserAPIKeyAuth(
         api_key=None,
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN,
         user_id="user-abc",
         team_id="team-123",
         team_alias=(team_object.team_alias if team_object is not None else None),
@@ -1765,7 +1765,7 @@ def test_proxy_admin_jwt_auth_includes_identity_fields():
         parent_otel_span=None,
     )
 
-    assert result.user_role == LitellmUserRoles.PROXY_ADMIN
+    assert result.user_role == EmbrouterUserRoles.PROXY_ADMIN
     assert result.user_id == "user-abc"
     assert result.team_id == "team-123"
     assert result.team_alias == "my-team"
@@ -1780,13 +1780,13 @@ def test_proxy_admin_jwt_auth_handles_no_team_object():
     Test that the proxy admin early-return path works correctly when
     team_object is None (user has admin role but no team association).
     """
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
+    from embrouter.proxy._types import EmbrouterUserRoles, UserAPIKeyAuth
 
     team_object = None
 
     result = UserAPIKeyAuth(
         api_key=None,
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN,
         user_id="admin-user",
         team_id=None,
         team_alias=(team_object.team_alias if team_object is not None else None),
@@ -1796,7 +1796,7 @@ def test_proxy_admin_jwt_auth_handles_no_team_object():
         parent_otel_span=None,
     )
 
-    assert result.user_role == LitellmUserRoles.PROXY_ADMIN
+    assert result.user_role == EmbrouterUserRoles.PROXY_ADMIN
     assert result.user_id == "admin-user"
     assert result.team_id is None
     assert result.team_alias is None
@@ -1809,7 +1809,7 @@ def test_proxy_admin_jwt_auth_handles_no_team_object():
 async def test_standard_jwt_auth_propagates_user_email():
     """
     Standard (non-mapped) JWT auth must copy user_email from the resolved
-    LiteLLM_UserTable onto the returned UserAPIKeyAuth so spend logs attribute
+    EmbRouter_UserTable onto the returned UserAPIKeyAuth so spend logs attribute
     user_api_key_user_email. Regression: this branch built
     UserAPIKeyAuth(api_key=None, ...) with user_id but never user_email, so
     the email was silently dropped even though the DB user row had it.
@@ -1819,9 +1819,9 @@ async def test_standard_jwt_auth_propagates_user_email():
     user_api_key_cache = DualCache()
     jwt_handler = MagicMock()
     jwt_handler.is_jwt.return_value = True
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth()
+    jwt_handler.embrouter_jwtauth = EmbRouter_JWTAuth()
 
-    user_object = LiteLLM_UserTable(
+    user_object = EmbRouter_UserTable(
         user_id="jwt-human-user",
         user_email="human@example.com",
         user_role="internal_user",
@@ -1850,15 +1850,15 @@ async def test_standard_jwt_auth_propagates_user_email():
     mock_request.state = SimpleNamespace()
 
     with (
-        patch("litellm.proxy.proxy_server.general_settings", general_settings),
-        patch("litellm.proxy.proxy_server.premium_user", True),
-        patch("litellm.proxy.proxy_server.master_key", "sk-master"),
-        patch("litellm.proxy.proxy_server.prisma_client", None),
-        patch("litellm.proxy.proxy_server.user_api_key_cache", user_api_key_cache),
-        patch("litellm.proxy.proxy_server.proxy_logging_obj", MagicMock()),
-        patch("litellm.proxy.proxy_server.jwt_handler", jwt_handler),
+        patch("embrouter.proxy.proxy_server.general_settings", general_settings),
+        patch("embrouter.proxy.proxy_server.premium_user", True),
+        patch("embrouter.proxy.proxy_server.master_key", "sk-master"),
+        patch("embrouter.proxy.proxy_server.prisma_client", None),
+        patch("embrouter.proxy.proxy_server.user_api_key_cache", user_api_key_cache),
+        patch("embrouter.proxy.proxy_server.proxy_logging_obj", MagicMock()),
+        patch("embrouter.proxy.proxy_server.jwt_handler", jwt_handler),
         patch(
-            "litellm.proxy.auth.user_api_key_auth.JWTAuthManager.auth_builder",
+            "embrouter.proxy.auth.user_api_key_auth.JWTAuthManager.auth_builder",
             new_callable=AsyncMock,
             return_value=mock_jwt_result,
         ),
@@ -1889,9 +1889,9 @@ async def test_jwt_auth_propagates_agent_id_to_user_api_key_auth(is_proxy_admin:
     user_api_key_cache = DualCache()
     jwt_handler = MagicMock()
     jwt_handler.is_jwt.return_value = True
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(agent_id_jwt_field="azp")
+    jwt_handler.embrouter_jwtauth = EmbRouter_JWTAuth(agent_id_jwt_field="azp")
 
-    user_object = LiteLLM_UserTable(user_id="sp-object-id-1234", user_role="internal_user")
+    user_object = EmbRouter_UserTable(user_id="sp-object-id-1234", user_role="internal_user")
     mock_jwt_result = {
         "is_proxy_admin": is_proxy_admin,
         "team_object": None,
@@ -1918,7 +1918,7 @@ async def test_jwt_auth_propagates_agent_id_to_user_api_key_auth(is_proxy_admin:
 
     with (
         patch.multiple(  # test-quality-ok: production auth reads these module globals; no dependency injection seam exists
-            "litellm.proxy.proxy_server",
+            "embrouter.proxy.proxy_server",
             general_settings=general_settings,
             premium_user=True,
             master_key="sk-master",
@@ -1928,7 +1928,7 @@ async def test_jwt_auth_propagates_agent_id_to_user_api_key_auth(is_proxy_admin:
             jwt_handler=jwt_handler,
         ),
         patch(  # test-quality-ok: the builder calls this static method directly; no dependency injection seam exists
-            "litellm.proxy.auth.user_api_key_auth.JWTAuthManager.auth_builder",
+            "embrouter.proxy.auth.user_api_key_auth.JWTAuthManager.auth_builder",
             new_callable=AsyncMock,
             return_value=mock_jwt_result,
         ),
@@ -1955,13 +1955,13 @@ async def test_auto_register_binds_api_key_to_token_hash():
     api_key is bound to the new key's token hash. Regression: the auto-register
     path built the object from the DB row (token set, api_key None) and the JWT
     branch early-returned it without going through _return_user_api_key_auth_obj,
-    so litellm_pre_call_utils logged user_api_key_hash=None on that first request.
+    so embrouter_pre_call_utils logged user_api_key_hash=None on that first request.
     """
-    from litellm.proxy.auth.auth_method import AuthMethod
-    from litellm.proxy.auth.resolvers.models import CredentialRef
-    from litellm.proxy.auth.resolvers.store import IdentityStore
-    from litellm.proxy.auth.user_api_key_auth import _auto_register_jwt_mapping
-    from litellm.proxy.proxy_server import hash_token
+    from embrouter.proxy.auth.auth_method import AuthMethod
+    from embrouter.proxy.auth.resolvers.models import CredentialRef
+    from embrouter.proxy.auth.resolvers.store import IdentityStore
+    from embrouter.proxy.auth.user_api_key_auth import _auto_register_jwt_mapping
+    from embrouter.proxy.proxy_server import hash_token
 
     plaintext = "sk-auto-registered-plaintext"
     token_hash = hash_token(plaintext)
@@ -1978,22 +1978,22 @@ async def test_auto_register_binds_api_key_to_token_hash():
     )
 
     prisma_client = MagicMock()
-    prisma_client.db.litellm_jwtkeymapping.create = AsyncMock()
+    prisma_client.db.embrouter_jwtkeymapping.create = AsyncMock()
 
     user_api_key_cache = MagicMock()
     user_api_key_cache.async_set_cache = AsyncMock()
 
     jwt_handler = MagicMock()
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(virtual_key_mapping_cache_ttl=300)
+    jwt_handler.embrouter_jwtauth = EmbRouter_JWTAuth(virtual_key_mapping_cache_ttl=300)
 
     with (
         patch(
-            "litellm.proxy.management_endpoints.key_management_endpoints.generate_key_helper_fn",
+            "embrouter.proxy.management_endpoints.key_management_endpoints.generate_key_helper_fn",
             new_callable=AsyncMock,
             return_value={"token": plaintext},
         ),
         patch(
-            "litellm.proxy.auth.resolvers.store.IdentityStore.resolve",
+            "embrouter.proxy.auth.resolvers.store.IdentityStore.resolve",
             new_callable=AsyncMock,
             return_value=principal,
         ),
@@ -2025,7 +2025,7 @@ async def test_auto_register_binds_api_key_to_token_hash():
 async def test_auto_register_first_request_propagates_user_email(active: bool) -> None:
     """
     The first auto-registered JWT request must also carry user_email (resolved
-    from the validated LiteLLM_UserTable), so attribution is consistent with the
+    from the validated EmbRouter_UserTable), so attribution is consistent with the
     subsequent mapped-key requests. Regression: the auto-registered object was
     returned with user_email unset, logging user_api_key_user_email=None on the
     very first request even though the user identity was known.
@@ -2037,7 +2037,7 @@ async def test_auto_register_first_request_propagates_user_email(active: bool) -
     jwt_handler = MagicMock()
     jwt_handler.is_jwt.return_value = True
     jwt_handler.auth_jwt = AsyncMock(return_value={"sub": "user1"})
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(
+    jwt_handler.embrouter_jwtauth = EmbRouter_JWTAuth(
         virtual_key_claim_field="sub",
         virtual_key_mapping_cache_ttl=300,
     )
@@ -2047,7 +2047,7 @@ async def test_auto_register_first_request_propagates_user_email(active: bool) -
         team_id="validated-team",
         user_id="validated-user",
     )
-    user_object = LiteLLM_UserTable(
+    user_object = EmbRouter_UserTable(
         user_id="validated-user",
         user_email="validated@example.com",
         user_role="internal_user",
@@ -2077,18 +2077,18 @@ async def test_auto_register_first_request_propagates_user_email(active: bool) -
     mock_request.state = SimpleNamespace()
 
     with (
-        patch("litellm.proxy.proxy_server.general_settings", general_settings),
-        patch("litellm.proxy.proxy_server.premium_user", True),
-        patch("litellm.proxy.proxy_server.master_key", "sk-master"),
-        patch("litellm.proxy.proxy_server.prisma_client", prisma_client),
-        patch("litellm.proxy.proxy_server.user_api_key_cache", user_api_key_cache),
+        patch("embrouter.proxy.proxy_server.general_settings", general_settings),
+        patch("embrouter.proxy.proxy_server.premium_user", True),
+        patch("embrouter.proxy.proxy_server.master_key", "sk-master"),
+        patch("embrouter.proxy.proxy_server.prisma_client", prisma_client),
+        patch("embrouter.proxy.proxy_server.user_api_key_cache", user_api_key_cache),
         patch(
-            "litellm.proxy.proxy_server.proxy_logging_obj",
+            "embrouter.proxy.proxy_server.proxy_logging_obj",
             MagicMock(post_call_failure_hook=AsyncMock(return_value=None)),
         ),
-        patch("litellm.proxy.proxy_server.jwt_handler", jwt_handler),
+        patch("embrouter.proxy.proxy_server.jwt_handler", jwt_handler),
         patch(
-            "litellm.proxy.auth.user_api_key_auth._resolve_jwt_to_virtual_key",
+            "embrouter.proxy.auth.user_api_key_auth._resolve_jwt_to_virtual_key",
             new_callable=AsyncMock,
             return_value=_PendingAutoRegister(
                 claim_field="sub",
@@ -2097,12 +2097,12 @@ async def test_auto_register_first_request_propagates_user_email(active: bool) -
             ),
         ),
         patch(
-            "litellm.proxy.auth.user_api_key_auth.JWTAuthManager.auth_builder",
+            "embrouter.proxy.auth.user_api_key_auth.JWTAuthManager.auth_builder",
             new_callable=AsyncMock,
             return_value=mock_jwt_result,
         ),
         patch(
-            "litellm.proxy.auth.user_api_key_auth._auto_register_jwt_mapping",
+            "embrouter.proxy.auth.user_api_key_auth._auto_register_jwt_mapping",
             new_callable=AsyncMock,
             return_value=auto_registered_key,
         ) as auto_register,
@@ -2141,11 +2141,11 @@ async def test_auto_register_stamps_new_key_with_jwt_agent_id():
     """The virtual key AUTO_REGISTER creates must carry the agent id auth_builder bound
     from the JWT claim, and the first request's principal must carry it too, or the
     mapped-key path would drop the agent policies on that request and every later one."""
-    from litellm.proxy.auth.auth_method import AuthMethod
-    from litellm.proxy.auth.resolvers.models import CredentialRef
-    from litellm.proxy.auth.resolvers.store import IdentityStore
-    from litellm.proxy.auth.user_api_key_auth import _auto_register_jwt_mapping
-    from litellm.proxy.proxy_server import hash_token
+    from embrouter.proxy.auth.auth_method import AuthMethod
+    from embrouter.proxy.auth.resolvers.models import CredentialRef
+    from embrouter.proxy.auth.resolvers.store import IdentityStore
+    from embrouter.proxy.auth.user_api_key_auth import _auto_register_jwt_mapping
+    from embrouter.proxy.proxy_server import hash_token
 
     plaintext = "sk-auto-registered-agent"
     token_hash = hash_token(plaintext)
@@ -2157,20 +2157,20 @@ async def test_auto_register_stamps_new_key_with_jwt_agent_id():
         credential_ref=CredentialRef(token_id=token_hash),
     )
     prisma_client = MagicMock()
-    prisma_client.db.litellm_jwtkeymapping.create = AsyncMock()
+    prisma_client.db.embrouter_jwtkeymapping.create = AsyncMock()
     user_api_key_cache = MagicMock()
     user_api_key_cache.async_set_cache = AsyncMock()
     jwt_handler = MagicMock()
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(virtual_key_mapping_cache_ttl=300)
+    jwt_handler.embrouter_jwtauth = EmbRouter_JWTAuth(virtual_key_mapping_cache_ttl=300)
     generate_key = AsyncMock(return_value={"token": plaintext})
 
     with (
         patch(  # test-quality-ok: key creation is an inline import inside the helper; no dependency injection seam exists
-            "litellm.proxy.management_endpoints.key_management_endpoints.generate_key_helper_fn",
+            "embrouter.proxy.management_endpoints.key_management_endpoints.generate_key_helper_fn",
             generate_key,
         ),
         patch(  # test-quality-ok: the helper constructs IdentityStore itself; no dependency injection seam exists
-            "litellm.proxy.auth.resolvers.store.IdentityStore.resolve",
+            "embrouter.proxy.auth.resolvers.store.IdentityStore.resolve",
             new_callable=AsyncMock,
             return_value=persisted_principal,
         ),
@@ -2202,10 +2202,10 @@ async def test_auto_register_race_loser_keeps_winners_agent_id(losing_agent_id: 
     the persisted key, agent binding included. Every later request on that mapping uses the
     winner's key, so stamping the loser's own (or missing) agent id on it would give one request
     different agent policies and spend attribution than all the others."""
-    from litellm.proxy.auth.auth_method import AuthMethod
-    from litellm.proxy.auth.resolvers.models import CredentialRef
-    from litellm.proxy.auth.resolvers.store import IdentityStore
-    from litellm.proxy.auth.user_api_key_auth import _auto_register_jwt_mapping
+    from embrouter.proxy.auth.auth_method import AuthMethod
+    from embrouter.proxy.auth.resolvers.models import CredentialRef
+    from embrouter.proxy.auth.resolvers.store import IdentityStore
+    from embrouter.proxy.auth.user_api_key_auth import _auto_register_jwt_mapping
 
     winner_hash = "winner-key-hash"
     winner_principal = IdentityStore._principal_from_key(
@@ -2214,28 +2214,28 @@ async def test_auto_register_race_loser_keeps_winners_agent_id(losing_agent_id: 
         credential_ref=CredentialRef(token_id=winner_hash),
     )
     prisma_client = MagicMock()
-    prisma_client.db.litellm_jwtkeymapping.create = AsyncMock(
+    prisma_client.db.embrouter_jwtkeymapping.create = AsyncMock(
         side_effect=Exception("Unique constraint failed on the fields: (`jwt_claim_name`,`jwt_claim_value`)")
     )
-    prisma_client.db.litellm_verificationtoken.delete = AsyncMock()
+    prisma_client.db.embrouter_verificationtoken.delete = AsyncMock()
     user_api_key_cache = MagicMock()
     user_api_key_cache.async_set_cache = AsyncMock()
     jwt_handler = MagicMock()
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(virtual_key_mapping_cache_ttl=300)
+    jwt_handler.embrouter_jwtauth = EmbRouter_JWTAuth(virtual_key_mapping_cache_ttl=300)
 
     with (
         patch(  # test-quality-ok: key creation is an inline import inside the helper; no dependency injection seam exists
-            "litellm.proxy.management_endpoints.key_management_endpoints.generate_key_helper_fn",
+            "embrouter.proxy.management_endpoints.key_management_endpoints.generate_key_helper_fn",
             new_callable=AsyncMock,
             return_value={"token": "sk-orphaned-loser-key"},
         ),
         patch(  # test-quality-ok: module-level helper called by the builder; no dependency injection seam exists
-            "litellm.proxy.auth.user_api_key_auth.get_jwt_key_mapping_object",
+            "embrouter.proxy.auth.user_api_key_auth.get_jwt_key_mapping_object",
             new_callable=AsyncMock,
             return_value=winner_hash,
         ),
         patch(  # test-quality-ok: the helper constructs IdentityStore itself; no dependency injection seam exists
-            "litellm.proxy.auth.resolvers.store.IdentityStore.resolve",
+            "embrouter.proxy.auth.resolvers.store.IdentityStore.resolve",
             new_callable=AsyncMock,
             return_value=winner_principal,
         ),
@@ -2269,12 +2269,12 @@ async def test_jwt_auto_register_forwards_bound_agent_id():
     jwt_handler = MagicMock()
     jwt_handler.is_jwt.return_value = True
     jwt_handler.auth_jwt = AsyncMock(return_value={"sub": "user1", "appid": "2f5c9b1e-6a4d-4c8e-9f0b-7d1a3e5c9b21"})
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(
+    jwt_handler.embrouter_jwtauth = EmbRouter_JWTAuth(
         virtual_key_claim_field="sub",
         virtual_key_mapping_cache_ttl=300,
         agent_id_jwt_field="appid",
     )
-    user_object = LiteLLM_UserTable(user_id="validated-user", user_role="internal_user")
+    user_object = EmbRouter_UserTable(user_id="validated-user", user_role="internal_user")
     mock_jwt_result = {
         "is_proxy_admin": False,
         "team_object": None,
@@ -2310,7 +2310,7 @@ async def test_jwt_auto_register_forwards_bound_agent_id():
 
     with (
         patch.multiple(  # test-quality-ok: production auth reads these module globals; no dependency injection seam exists
-            "litellm.proxy.proxy_server",
+            "embrouter.proxy.proxy_server",
             general_settings={"enable_jwt_auth": True},
             premium_user=True,
             master_key="sk-master",
@@ -2320,7 +2320,7 @@ async def test_jwt_auto_register_forwards_bound_agent_id():
             jwt_handler=jwt_handler,
         ),
         patch(  # test-quality-ok: module-level helper called by the builder; no dependency injection seam exists
-            "litellm.proxy.auth.user_api_key_auth._resolve_jwt_to_virtual_key",
+            "embrouter.proxy.auth.user_api_key_auth._resolve_jwt_to_virtual_key",
             new_callable=AsyncMock,
             return_value=_PendingAutoRegister(
                 claim_field="sub",
@@ -2329,12 +2329,12 @@ async def test_jwt_auto_register_forwards_bound_agent_id():
             ),
         ),
         patch(  # test-quality-ok: the builder calls this static method directly; no dependency injection seam exists
-            "litellm.proxy.auth.user_api_key_auth.JWTAuthManager.auth_builder",
+            "embrouter.proxy.auth.user_api_key_auth.JWTAuthManager.auth_builder",
             new_callable=AsyncMock,
             return_value=mock_jwt_result,
         ),
         patch(  # test-quality-ok: module-level helper called by the builder; no dependency injection seam exists
-            "litellm.proxy.auth.user_api_key_auth._auto_register_jwt_mapping",
+            "embrouter.proxy.auth.user_api_key_auth._auto_register_jwt_mapping",
             auto_register,
         ),
     ):
@@ -2405,24 +2405,24 @@ class TestJWTOAuth2Coexistence:
         mock_request.query_params = {}
 
         with (
-            patch("litellm.proxy.proxy_server.general_settings", general_settings),
-            patch("litellm.proxy.proxy_server.premium_user", True),
-            patch("litellm.proxy.proxy_server.master_key", "sk-master"),
-            patch("litellm.proxy.proxy_server.prisma_client", None),
+            patch("embrouter.proxy.proxy_server.general_settings", general_settings),
+            patch("embrouter.proxy.proxy_server.premium_user", True),
+            patch("embrouter.proxy.proxy_server.master_key", "sk-master"),
+            patch("embrouter.proxy.proxy_server.prisma_client", None),
             patch(
-                "litellm.proxy.auth.user_api_key_auth.Oauth2Handler.check_oauth2_token",
+                "embrouter.proxy.auth.user_api_key_auth.Oauth2Handler.check_oauth2_token",
                 new_callable=AsyncMock,
                 return_value=mock_oauth2_response,
             ) as mock_oauth2,
             patch(
-                "litellm.proxy.auth.user_api_key_auth.JWTAuthManager.auth_builder",
+                "embrouter.proxy.auth.user_api_key_auth.JWTAuthManager.auth_builder",
                 new_callable=AsyncMock,
             ) as mock_jwt_auth,
         ):
-            litellm.proxy.proxy_server.jwt_handler.update_environment(
+            embrouter.proxy.proxy_server.jwt_handler.update_environment(
                 prisma_client=None,
                 user_api_key_cache=DualCache(),
-                litellm_jwtauth=LiteLLM_JWTAuth(),
+                embrouter_jwtauth=EmbRouter_JWTAuth(),
             )
 
             result = await user_api_key_auth(
@@ -2453,19 +2453,19 @@ class TestJWTOAuth2Coexistence:
         mock_request.query_params = {}
 
         with (
-            patch("litellm.proxy.proxy_server.general_settings", general_settings),
-            patch("litellm.proxy.proxy_server.premium_user", False),
-            patch("litellm.proxy.proxy_server.master_key", "sk-master"),
-            patch("litellm.proxy.proxy_server.prisma_client", None),
+            patch("embrouter.proxy.proxy_server.general_settings", general_settings),
+            patch("embrouter.proxy.proxy_server.premium_user", False),
+            patch("embrouter.proxy.proxy_server.master_key", "sk-master"),
+            patch("embrouter.proxy.proxy_server.prisma_client", None),
             patch(
-                "litellm.proxy.auth.user_api_key_auth.Oauth2Handler.check_oauth2_token",
+                "embrouter.proxy.auth.user_api_key_auth.Oauth2Handler.check_oauth2_token",
                 new_callable=AsyncMock,
             ) as mock_oauth2,
         ):
-            litellm.proxy.proxy_server.jwt_handler.update_environment(
+            embrouter.proxy.proxy_server.jwt_handler.update_environment(
                 prisma_client=None,
                 user_api_key_cache=DualCache(),
-                litellm_jwtauth=LiteLLM_JWTAuth(),
+                embrouter_jwtauth=EmbRouter_JWTAuth(),
             )
 
             with pytest.raises(ProxyException) as exc_info:
@@ -2495,13 +2495,13 @@ class TestJWTOAuth2Coexistence:
         mock_request.query_params = {}
 
         with (
-            patch("litellm.proxy.proxy_server.general_settings", {}),
-            patch("litellm.proxy.proxy_server.premium_user", False),
-            patch("litellm.proxy.proxy_server.master_key", "sk-master"),
-            patch("litellm.proxy.proxy_server.prisma_client", MagicMock()),
-            patch("litellm.proxy.proxy_server.user_api_key_cache", DualCache()),
+            patch("embrouter.proxy.proxy_server.general_settings", {}),
+            patch("embrouter.proxy.proxy_server.premium_user", False),
+            patch("embrouter.proxy.proxy_server.master_key", "sk-master"),
+            patch("embrouter.proxy.proxy_server.prisma_client", MagicMock()),
+            patch("embrouter.proxy.proxy_server.user_api_key_cache", DualCache()),
             patch(
-                "litellm.proxy.auth.user_api_key_auth.Oauth2Handler.check_oauth2_token",
+                "embrouter.proxy.auth.user_api_key_auth.Oauth2Handler.check_oauth2_token",
                 new_callable=AsyncMock,
             ) as mock_oauth2,
         ):
@@ -2551,24 +2551,24 @@ class TestJWTOAuth2Coexistence:
         mock_request.query_params = {}
 
         with (
-            patch("litellm.proxy.proxy_server.general_settings", general_settings),
-            patch("litellm.proxy.proxy_server.premium_user", True),
-            patch("litellm.proxy.proxy_server.master_key", "sk-master"),
-            patch("litellm.proxy.proxy_server.prisma_client", None),
+            patch("embrouter.proxy.proxy_server.general_settings", general_settings),
+            patch("embrouter.proxy.proxy_server.premium_user", True),
+            patch("embrouter.proxy.proxy_server.master_key", "sk-master"),
+            patch("embrouter.proxy.proxy_server.prisma_client", None),
             patch(
-                "litellm.proxy.auth.user_api_key_auth.Oauth2Handler.check_oauth2_token",
+                "embrouter.proxy.auth.user_api_key_auth.Oauth2Handler.check_oauth2_token",
                 new_callable=AsyncMock,
             ) as mock_oauth2,
             patch(
-                "litellm.proxy.auth.user_api_key_auth.JWTAuthManager.auth_builder",
+                "embrouter.proxy.auth.user_api_key_auth.JWTAuthManager.auth_builder",
                 new_callable=AsyncMock,
                 return_value=mock_jwt_result,
             ) as mock_jwt_auth,
         ):
-            litellm.proxy.proxy_server.jwt_handler.update_environment(
+            embrouter.proxy.proxy_server.jwt_handler.update_environment(
                 prisma_client=None,
                 user_api_key_cache=DualCache(),
-                litellm_jwtauth=LiteLLM_JWTAuth(),
+                embrouter_jwtauth=EmbRouter_JWTAuth(),
             )
 
             result = await user_api_key_auth(
@@ -2592,7 +2592,7 @@ class TestJWTOAuth2Coexistence:
         jwt_handler = MagicMock()
         jwt_handler.is_jwt.return_value = True
         jwt_handler.auth_jwt = AsyncMock(return_value={"sub": "user1"})
-        jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(
+        jwt_handler.embrouter_jwtauth = EmbRouter_JWTAuth(
             virtual_key_claim_field="sub",
             virtual_key_mapping_cache_ttl=300,
         )
@@ -2627,15 +2627,15 @@ class TestJWTOAuth2Coexistence:
         mock_request.state = SimpleNamespace()
 
         with (
-            patch("litellm.proxy.proxy_server.general_settings", general_settings),
-            patch("litellm.proxy.proxy_server.premium_user", True),
-            patch("litellm.proxy.proxy_server.master_key", "sk-master"),
-            patch("litellm.proxy.proxy_server.prisma_client", prisma_client),
-            patch("litellm.proxy.proxy_server.user_api_key_cache", user_api_key_cache),
-            patch("litellm.proxy.proxy_server.proxy_logging_obj", MagicMock()),
-            patch("litellm.proxy.proxy_server.jwt_handler", jwt_handler),
+            patch("embrouter.proxy.proxy_server.general_settings", general_settings),
+            patch("embrouter.proxy.proxy_server.premium_user", True),
+            patch("embrouter.proxy.proxy_server.master_key", "sk-master"),
+            patch("embrouter.proxy.proxy_server.prisma_client", prisma_client),
+            patch("embrouter.proxy.proxy_server.user_api_key_cache", user_api_key_cache),
+            patch("embrouter.proxy.proxy_server.proxy_logging_obj", MagicMock()),
+            patch("embrouter.proxy.proxy_server.jwt_handler", jwt_handler),
             patch(
-                "litellm.proxy.auth.user_api_key_auth._resolve_jwt_to_virtual_key",
+                "embrouter.proxy.auth.user_api_key_auth._resolve_jwt_to_virtual_key",
                 new_callable=AsyncMock,
                 return_value=_PendingAutoRegister(
                     claim_field="sub",
@@ -2644,12 +2644,12 @@ class TestJWTOAuth2Coexistence:
                 ),
             ),
             patch(
-                "litellm.proxy.auth.user_api_key_auth.JWTAuthManager.auth_builder",
+                "embrouter.proxy.auth.user_api_key_auth.JWTAuthManager.auth_builder",
                 new_callable=AsyncMock,
                 return_value=mock_jwt_result,
             ),
             patch(
-                "litellm.proxy.auth.user_api_key_auth._auto_register_jwt_mapping",
+                "embrouter.proxy.auth.user_api_key_auth._auto_register_jwt_mapping",
                 new_callable=AsyncMock,
                 return_value=auto_registered_key,
             ) as mock_auto_register,
@@ -2690,7 +2690,7 @@ class TestJWTOAuth2Coexistence:
         jwt_handler.auth_jwt = AsyncMock(return_value={"sub": "mapped-user"})
         jwt_handler.get_user_email = MagicMock(return_value="mapped@example.com")
         jwt_handler.get_user_id = MagicMock(return_value="mapped-user")
-        jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(
+        jwt_handler.embrouter_jwtauth = EmbRouter_JWTAuth(
             virtual_key_claim_field="sub",
             user_email_jwt_field="sub",
             virtual_key_mapping_cache_ttl=300,
@@ -2702,7 +2702,7 @@ class TestJWTOAuth2Coexistence:
             user_id="mapped-user",
             user_email=None,
         )
-        backfilled_user = LiteLLM_UserTable(
+        backfilled_user = EmbRouter_UserTable(
             user_id="mapped-user",
             user_email="mapped@example.com",
             user_role="internal_user",
@@ -2716,20 +2716,20 @@ class TestJWTOAuth2Coexistence:
         mock_request.state = SimpleNamespace()
 
         with (
-            patch("litellm.proxy.proxy_server.general_settings", general_settings),
-            patch("litellm.proxy.proxy_server.premium_user", True),
-            patch("litellm.proxy.proxy_server.master_key", "sk-master"),
-            patch("litellm.proxy.proxy_server.prisma_client", prisma_client),
-            patch("litellm.proxy.proxy_server.user_api_key_cache", user_api_key_cache),
-            patch("litellm.proxy.proxy_server.proxy_logging_obj", MagicMock()),
-            patch("litellm.proxy.proxy_server.jwt_handler", jwt_handler),
+            patch("embrouter.proxy.proxy_server.general_settings", general_settings),
+            patch("embrouter.proxy.proxy_server.premium_user", True),
+            patch("embrouter.proxy.proxy_server.master_key", "sk-master"),
+            patch("embrouter.proxy.proxy_server.prisma_client", prisma_client),
+            patch("embrouter.proxy.proxy_server.user_api_key_cache", user_api_key_cache),
+            patch("embrouter.proxy.proxy_server.proxy_logging_obj", MagicMock()),
+            patch("embrouter.proxy.proxy_server.jwt_handler", jwt_handler),
             patch(
-                "litellm.proxy.auth.user_api_key_auth._resolve_jwt_to_virtual_key",
+                "embrouter.proxy.auth.user_api_key_auth._resolve_jwt_to_virtual_key",
                 new_callable=AsyncMock,
                 return_value=mapped_key,
             ),
             patch(
-                "litellm.proxy.auth.user_api_key_auth.get_user_object",
+                "embrouter.proxy.auth.user_api_key_auth.get_user_object",
                 new_callable=AsyncMock,
                 return_value=backfilled_user,
             ) as mock_get_user_object,
@@ -2765,7 +2765,7 @@ class TestJWTOAuth2Coexistence:
         jwt_handler.auth_jwt = AsyncMock(return_value={"sub": "jwt-principal"})
         jwt_handler.get_user_email = MagicMock(return_value="principal@example.com")
         jwt_handler.get_user_id = MagicMock(return_value="jwt-principal")
-        jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(
+        jwt_handler.embrouter_jwtauth = EmbRouter_JWTAuth(
             virtual_key_claim_field="sub",
             user_email_jwt_field="sub",
             virtual_key_mapping_cache_ttl=300,
@@ -2777,7 +2777,7 @@ class TestJWTOAuth2Coexistence:
             user_id="other-owner",
             user_email=None,
         )
-        other_owner = LiteLLM_UserTable(
+        other_owner = EmbRouter_UserTable(
             user_id="other-owner",
             user_email=None,
             user_role="internal_user",
@@ -2791,20 +2791,20 @@ class TestJWTOAuth2Coexistence:
         mock_request.state = SimpleNamespace()
 
         with (
-            patch("litellm.proxy.proxy_server.general_settings", general_settings),
-            patch("litellm.proxy.proxy_server.premium_user", True),
-            patch("litellm.proxy.proxy_server.master_key", "sk-master"),
-            patch("litellm.proxy.proxy_server.prisma_client", prisma_client),
-            patch("litellm.proxy.proxy_server.user_api_key_cache", user_api_key_cache),
-            patch("litellm.proxy.proxy_server.proxy_logging_obj", MagicMock()),
-            patch("litellm.proxy.proxy_server.jwt_handler", jwt_handler),
+            patch("embrouter.proxy.proxy_server.general_settings", general_settings),
+            patch("embrouter.proxy.proxy_server.premium_user", True),
+            patch("embrouter.proxy.proxy_server.master_key", "sk-master"),
+            patch("embrouter.proxy.proxy_server.prisma_client", prisma_client),
+            patch("embrouter.proxy.proxy_server.user_api_key_cache", user_api_key_cache),
+            patch("embrouter.proxy.proxy_server.proxy_logging_obj", MagicMock()),
+            patch("embrouter.proxy.proxy_server.jwt_handler", jwt_handler),
             patch(
-                "litellm.proxy.auth.user_api_key_auth._resolve_jwt_to_virtual_key",
+                "embrouter.proxy.auth.user_api_key_auth._resolve_jwt_to_virtual_key",
                 new_callable=AsyncMock,
                 return_value=mapped_key,
             ),
             patch(
-                "litellm.proxy.auth.user_api_key_auth.get_user_object",
+                "embrouter.proxy.auth.user_api_key_auth.get_user_object",
                 new_callable=AsyncMock,
                 return_value=other_owner,
             ) as mock_get_user_object,
@@ -2841,7 +2841,7 @@ class TestJWTOAuth2Coexistence:
         jwt_handler.auth_jwt = AsyncMock(return_value={"sub": "mapped-user"})
         jwt_handler.get_user_email = MagicMock(return_value="mapped@example.com")
         jwt_handler.get_user_id = MagicMock(return_value="mapped-user")
-        jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(
+        jwt_handler.embrouter_jwtauth = EmbRouter_JWTAuth(
             virtual_key_claim_field="sub",
             user_email_jwt_field="sub",
             virtual_key_mapping_cache_ttl=300,
@@ -2862,20 +2862,20 @@ class TestJWTOAuth2Coexistence:
         mock_request.state = SimpleNamespace()
 
         with (
-            patch("litellm.proxy.proxy_server.general_settings", general_settings),
-            patch("litellm.proxy.proxy_server.premium_user", True),
-            patch("litellm.proxy.proxy_server.master_key", "sk-master"),
-            patch("litellm.proxy.proxy_server.prisma_client", prisma_client),
-            patch("litellm.proxy.proxy_server.user_api_key_cache", user_api_key_cache),
-            patch("litellm.proxy.proxy_server.proxy_logging_obj", MagicMock()),
-            patch("litellm.proxy.proxy_server.jwt_handler", jwt_handler),
+            patch("embrouter.proxy.proxy_server.general_settings", general_settings),
+            patch("embrouter.proxy.proxy_server.premium_user", True),
+            patch("embrouter.proxy.proxy_server.master_key", "sk-master"),
+            patch("embrouter.proxy.proxy_server.prisma_client", prisma_client),
+            patch("embrouter.proxy.proxy_server.user_api_key_cache", user_api_key_cache),
+            patch("embrouter.proxy.proxy_server.proxy_logging_obj", MagicMock()),
+            patch("embrouter.proxy.proxy_server.jwt_handler", jwt_handler),
             patch(
-                "litellm.proxy.auth.user_api_key_auth._resolve_jwt_to_virtual_key",
+                "embrouter.proxy.auth.user_api_key_auth._resolve_jwt_to_virtual_key",
                 new_callable=AsyncMock,
                 return_value=mapped_key,
             ),
             patch(
-                "litellm.proxy.auth.user_api_key_auth.get_user_object",
+                "embrouter.proxy.auth.user_api_key_auth.get_user_object",
                 new_callable=AsyncMock,
                 side_effect=Exception("can't reach database server"),
             ),
@@ -2918,28 +2918,28 @@ class TestJWTOAuth2Coexistence:
         mock_request.query_params = {}
 
         with (
-            patch("litellm.proxy.proxy_server.general_settings", general_settings),
-            patch("litellm.proxy.proxy_server.premium_user", True),
-            patch("litellm.proxy.proxy_server.master_key", "sk-master"),
-            patch("litellm.proxy.proxy_server.prisma_client", None),
+            patch("embrouter.proxy.proxy_server.general_settings", general_settings),
+            patch("embrouter.proxy.proxy_server.premium_user", True),
+            patch("embrouter.proxy.proxy_server.master_key", "sk-master"),
+            patch("embrouter.proxy.proxy_server.prisma_client", None),
             patch(
-                "litellm.proxy.auth.user_api_key_auth.Oauth2Handler.check_oauth2_token",
+                "embrouter.proxy.auth.user_api_key_auth.Oauth2Handler.check_oauth2_token",
                 new_callable=AsyncMock,
                 return_value=mock_oauth2_response,
             ) as mock_oauth2,
             patch(
-                "litellm.proxy.auth.user_api_key_auth.JWTAuthManager.auth_builder",
+                "embrouter.proxy.auth.user_api_key_auth.JWTAuthManager.auth_builder",
                 new_callable=AsyncMock,
             ) as mock_jwt_auth,
         ):
-            litellm.proxy.proxy_server.jwt_handler.update_environment(
+            embrouter.proxy.proxy_server.jwt_handler.update_environment(
                 prisma_client=None,
                 user_api_key_cache=DualCache(),
-                litellm_jwtauth=LiteLLM_JWTAuth(
+                embrouter_jwtauth=EmbRouter_JWTAuth(
                     routing_overrides=[
                         JWTRoutingOverride(
                             iss="machine-issuer.example.com",
-                            client_id="MID_LITELLM",
+                            client_id="MID_EMBROUTER",
                             path="oauth2",
                         )
                     ]
@@ -2991,28 +2991,28 @@ class TestJWTOAuth2Coexistence:
         mock_request.query_params = {}
 
         with (
-            patch("litellm.proxy.proxy_server.general_settings", general_settings),
-            patch("litellm.proxy.proxy_server.premium_user", True),
-            patch("litellm.proxy.proxy_server.master_key", "sk-master"),
-            patch("litellm.proxy.proxy_server.prisma_client", None),
+            patch("embrouter.proxy.proxy_server.general_settings", general_settings),
+            patch("embrouter.proxy.proxy_server.premium_user", True),
+            patch("embrouter.proxy.proxy_server.master_key", "sk-master"),
+            patch("embrouter.proxy.proxy_server.prisma_client", None),
             patch(
-                "litellm.proxy.auth.user_api_key_auth.Oauth2Handler.check_oauth2_token",
+                "embrouter.proxy.auth.user_api_key_auth.Oauth2Handler.check_oauth2_token",
                 new_callable=AsyncMock,
             ) as mock_oauth2,
             patch(
-                "litellm.proxy.auth.user_api_key_auth.JWTAuthManager.auth_builder",
+                "embrouter.proxy.auth.user_api_key_auth.JWTAuthManager.auth_builder",
                 new_callable=AsyncMock,
                 return_value=mock_jwt_result,
             ) as mock_jwt_auth,
         ):
-            litellm.proxy.proxy_server.jwt_handler.update_environment(
+            embrouter.proxy.proxy_server.jwt_handler.update_environment(
                 prisma_client=None,
                 user_api_key_cache=DualCache(),
-                litellm_jwtauth=LiteLLM_JWTAuth(
+                embrouter_jwtauth=EmbRouter_JWTAuth(
                     routing_overrides=[
                         JWTRoutingOverride(
                             iss="machine-issuer.example.com",
-                            client_id="MID_LITELLM",
+                            client_id="MID_EMBROUTER",
                             path="oauth2",
                         )
                     ]
@@ -3053,32 +3053,32 @@ class TestJWTOAuth2Coexistence:
         mock_request.query_params = {}
 
         with (
-            patch("litellm.proxy.proxy_server.general_settings", general_settings),
-            patch("litellm.proxy.proxy_server.premium_user", True),
-            patch("litellm.proxy.proxy_server.master_key", "sk-master"),
-            patch("litellm.proxy.proxy_server.prisma_client", None),
+            patch("embrouter.proxy.proxy_server.general_settings", general_settings),
+            patch("embrouter.proxy.proxy_server.premium_user", True),
+            patch("embrouter.proxy.proxy_server.master_key", "sk-master"),
+            patch("embrouter.proxy.proxy_server.prisma_client", None),
             patch(
-                "litellm.proxy.auth.user_api_key_auth.Oauth2Handler.check_oauth2_token",
+                "embrouter.proxy.auth.user_api_key_auth.Oauth2Handler.check_oauth2_token",
                 new_callable=AsyncMock,
                 return_value=mock_oauth2_response,
             ) as mock_oauth2,
             patch(
-                "litellm.proxy.auth.user_api_key_auth.JWTAuthManager.auth_builder",
+                "embrouter.proxy.auth.user_api_key_auth.JWTAuthManager.auth_builder",
                 new_callable=AsyncMock,
             ) as mock_jwt_auth,
         ):
-            litellm.proxy.proxy_server.jwt_handler.update_environment(
+            embrouter.proxy.proxy_server.jwt_handler.update_environment(
                 prisma_client=None,
                 user_api_key_cache=DualCache(),
-                litellm_jwtauth=LiteLLM_JWTAuth(
+                embrouter_jwtauth=EmbRouter_JWTAuth(
                     routing_overrides=[
                         JWTRoutingOverride(
                             iss=[
                                 "machine-issuer.example.com",
                                 "other-issuer.example.com",
                             ],
-                            client_id=["MID_LITELLM", "MID_BACKUP"],
-                            aud=["api://litellm", "api://fallback"],
+                            client_id=["MID_EMBROUTER", "MID_BACKUP"],
+                            aud=["api://embrouter", "api://fallback"],
                             path="oauth2",
                         )
                     ]
@@ -3119,28 +3119,28 @@ class TestJWTOAuth2Coexistence:
         mock_request.query_params = {}
 
         with (
-            patch("litellm.proxy.proxy_server.general_settings", general_settings),
-            patch("litellm.proxy.proxy_server.premium_user", True),
-            patch("litellm.proxy.proxy_server.master_key", "sk-master"),
-            patch("litellm.proxy.proxy_server.prisma_client", None),
+            patch("embrouter.proxy.proxy_server.general_settings", general_settings),
+            patch("embrouter.proxy.proxy_server.premium_user", True),
+            patch("embrouter.proxy.proxy_server.master_key", "sk-master"),
+            patch("embrouter.proxy.proxy_server.prisma_client", None),
             patch(
-                "litellm.proxy.auth.user_api_key_auth.Oauth2Handler.check_oauth2_token",
+                "embrouter.proxy.auth.user_api_key_auth.Oauth2Handler.check_oauth2_token",
                 new_callable=AsyncMock,
                 return_value=mock_oauth2_response,
             ) as mock_oauth2,
             patch(
-                "litellm.proxy.auth.user_api_key_auth.JWTAuthManager.auth_builder",
+                "embrouter.proxy.auth.user_api_key_auth.JWTAuthManager.auth_builder",
                 new_callable=AsyncMock,
             ) as mock_jwt_auth,
         ):
-            litellm.proxy.proxy_server.jwt_handler.update_environment(
+            embrouter.proxy.proxy_server.jwt_handler.update_environment(
                 prisma_client=None,
                 user_api_key_cache=DualCache(),
-                litellm_jwtauth=LiteLLM_JWTAuth(
+                embrouter_jwtauth=EmbRouter_JWTAuth(
                     routing_overrides=[
                         JWTRoutingOverride(
                             iss="oauth-issuer.example.com",
-                            scope="App:LiteLLM",
+                            scope="App:EmbRouter",
                             path="oauth2",
                         )
                     ]
@@ -3192,28 +3192,28 @@ class TestJWTOAuth2Coexistence:
         mock_request.query_params = {}
 
         with (
-            patch("litellm.proxy.proxy_server.general_settings", general_settings),
-            patch("litellm.proxy.proxy_server.premium_user", True),
-            patch("litellm.proxy.proxy_server.master_key", "sk-master"),
-            patch("litellm.proxy.proxy_server.prisma_client", None),
+            patch("embrouter.proxy.proxy_server.general_settings", general_settings),
+            patch("embrouter.proxy.proxy_server.premium_user", True),
+            patch("embrouter.proxy.proxy_server.master_key", "sk-master"),
+            patch("embrouter.proxy.proxy_server.prisma_client", None),
             patch(
-                "litellm.proxy.auth.user_api_key_auth.Oauth2Handler.check_oauth2_token",
+                "embrouter.proxy.auth.user_api_key_auth.Oauth2Handler.check_oauth2_token",
                 new_callable=AsyncMock,
             ) as mock_oauth2,
             patch(
-                "litellm.proxy.auth.user_api_key_auth.JWTAuthManager.auth_builder",
+                "embrouter.proxy.auth.user_api_key_auth.JWTAuthManager.auth_builder",
                 new_callable=AsyncMock,
                 return_value=mock_jwt_result,
             ) as mock_jwt_auth,
         ):
-            litellm.proxy.proxy_server.jwt_handler.update_environment(
+            embrouter.proxy.proxy_server.jwt_handler.update_environment(
                 prisma_client=None,
                 user_api_key_cache=DualCache(),
-                litellm_jwtauth=LiteLLM_JWTAuth(
+                embrouter_jwtauth=EmbRouter_JWTAuth(
                     routing_overrides=[
                         JWTRoutingOverride(
                             iss="oauth-issuer.example.com",
-                            scope="App:LiteLLM",
+                            scope="App:EmbRouter",
                             path="oauth2",
                         )
                     ]
@@ -3257,29 +3257,29 @@ class TestJWTOAuth2Coexistence:
         mock_request.query_params = {}
 
         with (
-            patch("litellm.proxy.proxy_server.general_settings", general_settings),
-            patch("litellm.proxy.proxy_server.premium_user", True),
-            patch("litellm.proxy.proxy_server.master_key", "sk-master"),
-            patch("litellm.proxy.proxy_server.prisma_client", None),
+            patch("embrouter.proxy.proxy_server.general_settings", general_settings),
+            patch("embrouter.proxy.proxy_server.premium_user", True),
+            patch("embrouter.proxy.proxy_server.master_key", "sk-master"),
+            patch("embrouter.proxy.proxy_server.prisma_client", None),
             patch(
-                "litellm.proxy.auth.user_api_key_auth.Oauth2Handler.check_oauth2_token",
+                "embrouter.proxy.auth.user_api_key_auth.Oauth2Handler.check_oauth2_token",
                 new_callable=AsyncMock,
                 return_value=mock_oauth2_response,
             ) as mock_oauth2,
             patch(
-                "litellm.proxy.auth.user_api_key_auth.JWTAuthManager.auth_builder",
+                "embrouter.proxy.auth.user_api_key_auth.JWTAuthManager.auth_builder",
                 new_callable=AsyncMock,
             ) as mock_jwt_auth,
         ):
-            litellm.proxy.proxy_server.jwt_handler.update_environment(
+            embrouter.proxy.proxy_server.jwt_handler.update_environment(
                 prisma_client=None,
                 user_api_key_cache=DualCache(),
-                litellm_jwtauth=LiteLLM_JWTAuth(
+                embrouter_jwtauth=EmbRouter_JWTAuth(
                     routing_overrides=[
                         JWTRoutingOverride(
                             iss="oauth-issuer.example.com",
-                            scope="App:LiteLLM",
-                            client_id="*MID_LITELLM",
+                            scope="App:EmbRouter",
+                            client_id="*MID_EMBROUTER",
                             path="oauth2",
                         )
                     ]
@@ -3323,28 +3323,28 @@ class TestJWTOAuth2Coexistence:
         mock_request.query_params = {}
 
         with (
-            patch("litellm.proxy.proxy_server.general_settings", general_settings),
-            patch("litellm.proxy.proxy_server.premium_user", True),
-            patch("litellm.proxy.proxy_server.master_key", "sk-master"),
-            patch("litellm.proxy.proxy_server.prisma_client", None),
+            patch("embrouter.proxy.proxy_server.general_settings", general_settings),
+            patch("embrouter.proxy.proxy_server.premium_user", True),
+            patch("embrouter.proxy.proxy_server.master_key", "sk-master"),
+            patch("embrouter.proxy.proxy_server.prisma_client", None),
             patch(
-                "litellm.proxy.auth.user_api_key_auth.Oauth2Handler.check_oauth2_token",
+                "embrouter.proxy.auth.user_api_key_auth.Oauth2Handler.check_oauth2_token",
                 new_callable=AsyncMock,
                 return_value=mock_oauth2_response,
             ) as mock_oauth2,
             patch(
-                "litellm.proxy.auth.user_api_key_auth.JWTAuthManager.auth_builder",
+                "embrouter.proxy.auth.user_api_key_auth.JWTAuthManager.auth_builder",
                 new_callable=AsyncMock,
             ) as mock_jwt_auth,
         ):
-            litellm.proxy.proxy_server.jwt_handler.update_environment(
+            embrouter.proxy.proxy_server.jwt_handler.update_environment(
                 prisma_client=None,
                 user_api_key_cache=DualCache(),
-                litellm_jwtauth=LiteLLM_JWTAuth(
+                embrouter_jwtauth=EmbRouter_JWTAuth(
                     routing_overrides=[
                         JWTRoutingOverride(
                             iss="machine-issuer.example.com",
-                            client_id="MID_LITELLM",
+                            client_id="MID_EMBROUTER",
                             path="oauth2",
                         )
                     ]
@@ -3379,12 +3379,12 @@ class TestJWTOAuth2Coexistence:
         mock_request.query_params = {}
 
         with (
-            patch("litellm.proxy.proxy_server.general_settings", general_settings),
-            patch("litellm.proxy.proxy_server.premium_user", True),
-            patch("litellm.proxy.proxy_server.master_key", "sk-master"),
-            patch("litellm.proxy.proxy_server.prisma_client", None),
+            patch("embrouter.proxy.proxy_server.general_settings", general_settings),
+            patch("embrouter.proxy.proxy_server.premium_user", True),
+            patch("embrouter.proxy.proxy_server.master_key", "sk-master"),
+            patch("embrouter.proxy.proxy_server.prisma_client", None),
             patch(
-                "litellm.proxy.auth.user_api_key_auth.Oauth2Handler.check_oauth2_token",
+                "embrouter.proxy.auth.user_api_key_auth.Oauth2Handler.check_oauth2_token",
                 new_callable=AsyncMock,
             ) as mock_oauth2,
         ):
@@ -3428,28 +3428,28 @@ class TestJWTOAuth2Coexistence:
         mock_request.query_params = {}
 
         with (
-            patch("litellm.proxy.proxy_server.general_settings", general_settings),
-            patch("litellm.proxy.proxy_server.premium_user", True),
-            patch("litellm.proxy.proxy_server.master_key", "sk-master"),
-            patch("litellm.proxy.proxy_server.prisma_client", None),
+            patch("embrouter.proxy.proxy_server.general_settings", general_settings),
+            patch("embrouter.proxy.proxy_server.premium_user", True),
+            patch("embrouter.proxy.proxy_server.master_key", "sk-master"),
+            patch("embrouter.proxy.proxy_server.prisma_client", None),
             patch(
-                "litellm.proxy.auth.user_api_key_auth.Oauth2Handler.check_oauth2_token",
+                "embrouter.proxy.auth.user_api_key_auth.Oauth2Handler.check_oauth2_token",
                 new_callable=AsyncMock,
                 return_value=mock_oauth2_response,
             ) as mock_oauth2,
             patch(
-                "litellm.proxy.auth.user_api_key_auth.JWTAuthManager.auth_builder",
+                "embrouter.proxy.auth.user_api_key_auth.JWTAuthManager.auth_builder",
                 new_callable=AsyncMock,
             ) as mock_jwt_auth,
         ):
-            litellm.proxy.proxy_server.jwt_handler.update_environment(
+            embrouter.proxy.proxy_server.jwt_handler.update_environment(
                 prisma_client=None,
                 user_api_key_cache=DualCache(),
-                litellm_jwtauth=LiteLLM_JWTAuth(
+                embrouter_jwtauth=EmbRouter_JWTAuth(
                     routing_overrides=[
                         JWTRoutingOverride(
                             iss="machine-issuer.example.com",
-                            client_id="MID_LITELLM",
+                            client_id="MID_EMBROUTER",
                             path="oauth2",
                         )
                     ]
@@ -3494,7 +3494,7 @@ class TestJWTOAuth2Coexistence:
             "team_membership": None,
             "jwt_claims": {
                 "iss": "machine-issuer.example.com",
-                "client_id": "MID_LITELLM",
+                "client_id": "MID_EMBROUTER",
             },
         }
 
@@ -3504,28 +3504,28 @@ class TestJWTOAuth2Coexistence:
         mock_request.query_params = {}
 
         with (
-            patch("litellm.proxy.proxy_server.general_settings", general_settings),
-            patch("litellm.proxy.proxy_server.premium_user", True),
-            patch("litellm.proxy.proxy_server.master_key", "sk-master"),
-            patch("litellm.proxy.proxy_server.prisma_client", None),
+            patch("embrouter.proxy.proxy_server.general_settings", general_settings),
+            patch("embrouter.proxy.proxy_server.premium_user", True),
+            patch("embrouter.proxy.proxy_server.master_key", "sk-master"),
+            patch("embrouter.proxy.proxy_server.prisma_client", None),
             patch(
-                "litellm.proxy.auth.user_api_key_auth.Oauth2Handler.check_oauth2_token",
+                "embrouter.proxy.auth.user_api_key_auth.Oauth2Handler.check_oauth2_token",
                 new_callable=AsyncMock,
             ) as mock_oauth2,
             patch(
-                "litellm.proxy.auth.user_api_key_auth.JWTAuthManager.auth_builder",
+                "embrouter.proxy.auth.user_api_key_auth.JWTAuthManager.auth_builder",
                 new_callable=AsyncMock,
                 return_value=mock_jwt_result,
             ) as mock_jwt_auth,
         ):
-            litellm.proxy.proxy_server.jwt_handler.update_environment(
+            embrouter.proxy.proxy_server.jwt_handler.update_environment(
                 prisma_client=None,
                 user_api_key_cache=DualCache(),
-                litellm_jwtauth=LiteLLM_JWTAuth(
+                embrouter_jwtauth=EmbRouter_JWTAuth(
                     routing_overrides=[
                         JWTRoutingOverride(
                             iss="machine-issuer.example.com",
-                            client_id="MID_LITELLM",
+                            client_id="MID_EMBROUTER",
                             path="oauth2",
                         )
                     ]
@@ -3565,12 +3565,12 @@ class TestJWTOAuth2Coexistence:
         mock_request.query_params = {}
 
         with (
-            patch("litellm.proxy.proxy_server.general_settings", general_settings),
-            patch("litellm.proxy.proxy_server.premium_user", True),
-            patch("litellm.proxy.proxy_server.master_key", "sk-master"),
-            patch("litellm.proxy.proxy_server.prisma_client", None),
+            patch("embrouter.proxy.proxy_server.general_settings", general_settings),
+            patch("embrouter.proxy.proxy_server.premium_user", True),
+            patch("embrouter.proxy.proxy_server.master_key", "sk-master"),
+            patch("embrouter.proxy.proxy_server.prisma_client", None),
             patch(
-                "litellm.proxy.auth.user_api_key_auth.Oauth2Handler.check_oauth2_token",
+                "embrouter.proxy.auth.user_api_key_auth.Oauth2Handler.check_oauth2_token",
                 new_callable=AsyncMock,
                 return_value=mock_oauth2_response,
             ) as mock_oauth2,
@@ -3596,8 +3596,8 @@ async def test_user_api_key_auth_builder_no_blocking_calls():
     from starlette.datastructures import URL
     from starlette.requests import Request
 
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-    from litellm.proxy.auth.user_api_key_auth import _user_api_key_auth_builder
+    from embrouter.proxy._types import EmbrouterUserRoles, UserAPIKeyAuth
+    from embrouter.proxy.auth.user_api_key_auth import _user_api_key_auth_builder
 
     _blocking_methods = [
         "set_cache",
@@ -3611,7 +3611,7 @@ async def test_user_api_key_auth_builder_no_blocking_calls():
     valid_token = UserAPIKeyAuth(
         api_key=api_key,
         token=api_key,
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=EmbrouterUserRoles.INTERNAL_USER,
         team_id="team-abc",
     )
 
@@ -3630,7 +3630,7 @@ async def test_user_api_key_auth_builder_no_blocking_calls():
     mock_proxy_logging_obj.internal_usage_cache.dual_cache.async_delete_cache = AsyncMock()
     mock_proxy_logging_obj.post_call_failure_hook = AsyncMock(return_value=None)
 
-    import litellm.proxy.proxy_server as _proxy_server_mod
+    import embrouter.proxy.proxy_server as _proxy_server_mod
 
     _attrs = {
         "prisma_client": MagicMock(),
@@ -3644,7 +3644,7 @@ async def test_user_api_key_auth_builder_no_blocking_calls():
         "model_max_budget_limiter": MagicMock(),
         "user_custom_auth": None,
         "jwt_handler": None,
-        "litellm_proxy_admin_name": "admin",
+        "embrouter_proxy_admin_name": "admin",
     }
     _originals = {k: getattr(_proxy_server_mod, k, None) for k in _attrs}
 
@@ -3657,7 +3657,7 @@ async def test_user_api_key_auth_builder_no_blocking_calls():
 
         import contextlib
 
-        from litellm.caching.dual_cache import DualCache
+        from embrouter.caching.dual_cache import DualCache
 
         blocking_patches = [
             patch.object(
@@ -3677,14 +3677,14 @@ async def test_user_api_key_auth_builder_no_blocking_calls():
                 stack.enter_context(p)
             stack.enter_context(
                 patch(
-                    "litellm.proxy.auth.resolvers.store.IdentityStore._resolve_key",
+                    "embrouter.proxy.auth.resolvers.store.IdentityStore._resolve_key",
                     new_callable=AsyncMock,
                     return_value=valid_token,
                 )
             )
             stack.enter_context(
                 patch(
-                    "litellm.proxy.auth.user_api_key_auth.get_team_object",
+                    "embrouter.proxy.auth.user_api_key_auth.get_team_object",
                     new_callable=AsyncMock,
                     return_value=None,
                 )
@@ -3726,12 +3726,12 @@ async def test_team_metadata_refreshed_from_team_object_during_auth():
     from starlette.datastructures import URL
     from starlette.requests import Request
 
-    from litellm.proxy._types import (
-        LiteLLM_TeamTableCachedObj,
-        LitellmUserRoles,
+    from embrouter.proxy._types import (
+        EmbRouter_TeamTableCachedObj,
+        EmbrouterUserRoles,
         UserAPIKeyAuth,
     )
-    from litellm.proxy.auth.user_api_key_auth import _user_api_key_auth_builder
+    from embrouter.proxy.auth.user_api_key_auth import _user_api_key_auth_builder
 
     api_key = "sk-test-team-metadata-refresh"
 
@@ -3741,13 +3741,13 @@ async def test_team_metadata_refreshed_from_team_object_during_auth():
     valid_token = UserAPIKeyAuth(
         api_key=api_key,
         token=api_key,
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=EmbrouterUserRoles.INTERNAL_USER,
         team_id="team-guardrail-test",
         team_metadata=stale_team_metadata,
     )
 
     # The fresh team object returned by get_team_object has the new guardrail.
-    fresh_team_obj = LiteLLM_TeamTableCachedObj(
+    fresh_team_obj = EmbRouter_TeamTableCachedObj(
         team_id="team-guardrail-test",
         metadata={"guardrails": ["test-guardrail-333"]},
     )
@@ -3762,7 +3762,7 @@ async def test_team_metadata_refreshed_from_team_object_during_auth():
     mock_proxy_logging_obj.internal_usage_cache.dual_cache.async_delete_cache = AsyncMock()
     mock_proxy_logging_obj.post_call_failure_hook = AsyncMock(return_value=None)
 
-    import litellm.proxy.proxy_server as _proxy_server_mod
+    import embrouter.proxy.proxy_server as _proxy_server_mod
 
     _attrs = {
         "prisma_client": MagicMock(),
@@ -3776,7 +3776,7 @@ async def test_team_metadata_refreshed_from_team_object_during_auth():
         "model_max_budget_limiter": MagicMock(),
         "user_custom_auth": None,
         "jwt_handler": None,
-        "litellm_proxy_admin_name": "admin",
+        "embrouter_proxy_admin_name": "admin",
     }
     _originals = {k: getattr(_proxy_server_mod, k, None) for k in _attrs}
 
@@ -3789,12 +3789,12 @@ async def test_team_metadata_refreshed_from_team_object_during_auth():
 
         with (
             patch(
-                "litellm.proxy.auth.resolvers.store.IdentityStore._resolve_key",
+                "embrouter.proxy.auth.resolvers.store.IdentityStore._resolve_key",
                 new_callable=AsyncMock,
                 return_value=valid_token,
             ),
             patch(
-                "litellm.proxy.auth.user_api_key_auth.get_team_object",
+                "embrouter.proxy.auth.user_api_key_auth.get_team_object",
                 new_callable=AsyncMock,
                 return_value=fresh_team_obj,
             ),
@@ -3843,14 +3843,14 @@ async def test_auth_flow_never_persists_fallback_team_object_lit_4391():
     from starlette.requests import Request
     from fastapi import HTTPException
 
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-    from litellm.proxy.auth.user_api_key_auth import _user_api_key_auth_builder
+    from embrouter.proxy._types import EmbrouterUserRoles, UserAPIKeyAuth
+    from embrouter.proxy.auth.user_api_key_auth import _user_api_key_auth_builder
 
     api_key = "sk-test-lit-4391-no-team-writeback"
     valid_token = UserAPIKeyAuth(
         api_key=api_key,
         token=api_key,
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=EmbrouterUserRoles.INTERNAL_USER,
         team_id="team-lit-4391",
         team_models=["model-a"],
         models=["all-team-models"],
@@ -3865,7 +3865,7 @@ async def test_auth_flow_never_persists_fallback_team_object_lit_4391():
     mock_proxy_logging_obj.internal_usage_cache.dual_cache = AsyncMock()
     mock_proxy_logging_obj.post_call_failure_hook = AsyncMock(return_value=None)
 
-    import litellm.proxy.proxy_server as _proxy_server_mod
+    import embrouter.proxy.proxy_server as _proxy_server_mod
 
     _attrs = {
         "prisma_client": MagicMock(),
@@ -3879,7 +3879,7 @@ async def test_auth_flow_never_persists_fallback_team_object_lit_4391():
         "model_max_budget_limiter": MagicMock(),
         "user_custom_auth": None,
         "jwt_handler": None,
-        "litellm_proxy_admin_name": "admin",
+        "embrouter_proxy_admin_name": "admin",
     }
     _originals = {k: getattr(_proxy_server_mod, k, None) for k in _attrs}
 
@@ -3892,12 +3892,12 @@ async def test_auth_flow_never_persists_fallback_team_object_lit_4391():
 
         with (
             patch(
-                "litellm.proxy.auth.resolvers.store.IdentityStore._resolve_key",
+                "embrouter.proxy.auth.resolvers.store.IdentityStore._resolve_key",
                 new_callable=AsyncMock,
                 return_value=valid_token,
             ),
             patch(
-                "litellm.proxy.auth.user_api_key_auth.get_team_object",
+                "embrouter.proxy.auth.user_api_key_auth.get_team_object",
                 new_callable=AsyncMock,
                 side_effect=HTTPException(
                     status_code=404,
@@ -3942,23 +3942,23 @@ async def test_auth_flow_fallback_team_resolves_object_permission_by_id():
     from starlette.requests import Request
     from fastapi import HTTPException
 
-    from litellm.proxy._types import (
-        LiteLLM_ObjectPermissionTable,
-        LitellmUserRoles,
+    from embrouter.proxy._types import (
+        EmbRouter_ObjectPermissionTable,
+        EmbrouterUserRoles,
         UserAPIKeyAuth,
     )
-    from litellm.proxy.auth.user_api_key_auth import _user_api_key_auth_builder
+    from embrouter.proxy.auth.user_api_key_auth import _user_api_key_auth_builder
 
     api_key = "sk-test-fallback-team-object-permission"
     valid_token = UserAPIKeyAuth(
         api_key=api_key,
         token=api_key,
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=EmbrouterUserRoles.INTERNAL_USER,
         team_id="team-fallback-object-permission",
         team_object_permission_id="op-fallback-object-permission",
     )
 
-    restricted_object_permission = LiteLLM_ObjectPermissionTable(
+    restricted_object_permission = EmbRouter_ObjectPermissionTable(
         object_permission_id="op-fallback-object-permission",
         vector_stores=["vs-allowed-only"],
         mcp_servers=["mcp-allowed-only"],
@@ -3973,7 +3973,7 @@ async def test_auth_flow_fallback_team_resolves_object_permission_by_id():
     mock_proxy_logging_obj.internal_usage_cache.dual_cache = AsyncMock()
     mock_proxy_logging_obj.post_call_failure_hook = AsyncMock(return_value=None)
 
-    import litellm.proxy.proxy_server as _proxy_server_mod
+    import embrouter.proxy.proxy_server as _proxy_server_mod
 
     _attrs = {
         "prisma_client": MagicMock(),
@@ -3987,7 +3987,7 @@ async def test_auth_flow_fallback_team_resolves_object_permission_by_id():
         "model_max_budget_limiter": MagicMock(),
         "user_custom_auth": None,
         "jwt_handler": None,
-        "litellm_proxy_admin_name": "admin",
+        "embrouter_proxy_admin_name": "admin",
     }
     _originals = {k: getattr(_proxy_server_mod, k, None) for k in _attrs}
 
@@ -4000,12 +4000,12 @@ async def test_auth_flow_fallback_team_resolves_object_permission_by_id():
 
         with (
             patch(
-                "litellm.proxy.auth.resolvers.store.IdentityStore._resolve_key",
+                "embrouter.proxy.auth.resolvers.store.IdentityStore._resolve_key",
                 new_callable=AsyncMock,
                 return_value=valid_token,
             ),
             patch(
-                "litellm.proxy.auth.user_api_key_auth.get_team_object",
+                "embrouter.proxy.auth.user_api_key_auth.get_team_object",
                 new_callable=AsyncMock,
                 side_effect=HTTPException(
                     status_code=404,
@@ -4013,7 +4013,7 @@ async def test_auth_flow_fallback_team_resolves_object_permission_by_id():
                 ),
             ),
             patch(
-                "litellm.proxy.auth.user_api_key_auth.get_object_permission",
+                "embrouter.proxy.auth.user_api_key_auth.get_object_permission",
                 new_callable=AsyncMock,
                 return_value=restricted_object_permission,
             ) as mock_get_object_permission,
@@ -4047,14 +4047,14 @@ async def test_auth_flow_fallback_team_object_permission_none_when_unreadable():
     from starlette.requests import Request
     from fastapi import HTTPException
 
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-    from litellm.proxy.auth.user_api_key_auth import _user_api_key_auth_builder
+    from embrouter.proxy._types import EmbrouterUserRoles, UserAPIKeyAuth
+    from embrouter.proxy.auth.user_api_key_auth import _user_api_key_auth_builder
 
     api_key = "sk-test-fallback-team-object-permission-unreadable"
     valid_token = UserAPIKeyAuth(
         api_key=api_key,
         token=api_key,
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=EmbrouterUserRoles.INTERNAL_USER,
         team_id="team-fallback-object-permission-unreadable",
         team_object_permission_id="op-fallback-object-permission-unreadable",
     )
@@ -4068,7 +4068,7 @@ async def test_auth_flow_fallback_team_object_permission_none_when_unreadable():
     mock_proxy_logging_obj.internal_usage_cache.dual_cache = AsyncMock()
     mock_proxy_logging_obj.post_call_failure_hook = AsyncMock(return_value=None)
 
-    import litellm.proxy.proxy_server as _proxy_server_mod
+    import embrouter.proxy.proxy_server as _proxy_server_mod
 
     _attrs = {
         "prisma_client": MagicMock(),
@@ -4082,7 +4082,7 @@ async def test_auth_flow_fallback_team_object_permission_none_when_unreadable():
         "model_max_budget_limiter": MagicMock(),
         "user_custom_auth": None,
         "jwt_handler": None,
-        "litellm_proxy_admin_name": "admin",
+        "embrouter_proxy_admin_name": "admin",
     }
     _originals = {k: getattr(_proxy_server_mod, k, None) for k in _attrs}
 
@@ -4095,12 +4095,12 @@ async def test_auth_flow_fallback_team_object_permission_none_when_unreadable():
 
         with (
             patch(
-                "litellm.proxy.auth.resolvers.store.IdentityStore._resolve_key",
+                "embrouter.proxy.auth.resolvers.store.IdentityStore._resolve_key",
                 new_callable=AsyncMock,
                 return_value=valid_token,
             ),
             patch(
-                "litellm.proxy.auth.user_api_key_auth.get_team_object",
+                "embrouter.proxy.auth.user_api_key_auth.get_team_object",
                 new_callable=AsyncMock,
                 side_effect=HTTPException(
                     status_code=404,
@@ -4108,7 +4108,7 @@ async def test_auth_flow_fallback_team_object_permission_none_when_unreadable():
                 ),
             ),
             patch(
-                "litellm.proxy.auth.user_api_key_auth.get_object_permission",
+                "embrouter.proxy.auth.user_api_key_auth.get_object_permission",
                 new_callable=AsyncMock,
                 return_value=None,
             ),
@@ -4151,7 +4151,7 @@ def _proxy_attrs_for_centralized_checks(user_custom_auth=None, flag=False, maste
         "general_settings": ({"custom_auth_run_common_checks": True} if flag else {}),
         "llm_router": None,
         "user_custom_auth": user_custom_auth,
-        "litellm_proxy_admin_name": "admin",
+        "embrouter_proxy_admin_name": "admin",
         "master_key": master_key,
     }
 
@@ -4161,7 +4161,7 @@ async def test_centralized_common_checks_runs_for_standard_auth():
     """Regardless of which _user_api_key_auth_builder path returned, the
     wrapper must run common_checks. This is the structural fix: no
     early-return path can skip authorization."""
-    import litellm.proxy.proxy_server as _proxy_server_mod
+    import embrouter.proxy.proxy_server as _proxy_server_mod
     from fastapi import Request
     from starlette.datastructures import URL
 
@@ -4175,7 +4175,7 @@ async def test_centralized_common_checks_runs_for_standard_auth():
         for k, v in attrs.items():
             setattr(_proxy_server_mod, k, v)
         with patch(
-            "litellm.proxy.auth.user_api_key_auth.common_checks",
+            "embrouter.proxy.auth.user_api_key_auth.common_checks",
             new_callable=AsyncMock,
         ) as mock_checks:
             await _run_centralized_common_checks(
@@ -4198,15 +4198,15 @@ async def test_centralized_common_checks_runs_for_standard_auth():
         "/v1/messages",
     ],
 )
-async def test_centralized_common_checks_routes_header_tags_to_litellm_metadata(route):
-    """GH#30629: on LITELLM_METADATA_ROUTES the tag-budget read resolves to
-    litellm_metadata, so the litellm_metadata pre-seed must run before
-    apply_client_tag_policy_pre_auth merges x-litellm-tags. Otherwise header tags
+async def test_centralized_common_checks_routes_header_tags_to_embrouter_metadata(route):
+    """GH#30629: on EMBROUTER_METADATA_ROUTES the tag-budget read resolves to
+    embrouter_metadata, so the embrouter_metadata pre-seed must run before
+    apply_client_tag_policy_pre_auth merges x-embrouter-tags. Otherwise header tags
     land in metadata and silently escape _tag_max_budget_check. This guards the
     pre-seed call site in _run_centralized_common_checks; dropping it routes header
     tags back into metadata.
     """
-    import litellm.proxy.proxy_server as _proxy_server_mod
+    import embrouter.proxy.proxy_server as _proxy_server_mod
     from fastapi import Request
     from starlette.datastructures import URL
 
@@ -4215,7 +4215,7 @@ async def test_centralized_common_checks_routes_header_tags_to_litellm_metadata(
         scope={
             "type": "http",
             "method": "POST",
-            "headers": [(b"x-litellm-tags", b"tenant:acme")],
+            "headers": [(b"x-embrouter-tags", b"tenant:acme")],
             "query_string": b"",
         }
     )
@@ -4229,11 +4229,11 @@ async def test_centralized_common_checks_routes_header_tags_to_litellm_metadata(
             setattr(_proxy_server_mod, k, v)
         with (
             patch(
-                "litellm.proxy.auth.user_api_key_auth.common_checks",
+                "embrouter.proxy.auth.user_api_key_auth.common_checks",
                 new_callable=AsyncMock,
             ),
             patch(
-                "litellm.proxy.auth.user_api_key_auth._reserve_budget_after_common_checks",
+                "embrouter.proxy.auth.user_api_key_auth._reserve_budget_after_common_checks",
                 new_callable=AsyncMock,
             ),
         ):
@@ -4247,7 +4247,7 @@ async def test_centralized_common_checks_routes_header_tags_to_litellm_metadata(
         for k, v in originals.items():
             setattr(_proxy_server_mod, k, v)
 
-    assert request_data["litellm_metadata"]["tags"] == ["tenant:acme"]
+    assert request_data["embrouter_metadata"]["tags"] == ["tenant:acme"]
     assert "metadata" not in request_data
 
 
@@ -4259,7 +4259,7 @@ async def test_centralized_common_checks_carries_team_and_user_budget_state_on_t
     from fastapi import Request
     from starlette.datastructures import URL
 
-    import litellm.proxy.proxy_server as _proxy_server_mod
+    import embrouter.proxy.proxy_server as _proxy_server_mod
 
     reset_at = datetime(2026, 10, 1, tzinfo=timezone.utc)
     token = UserAPIKeyAuth(api_key="sk-test", token="hashed", team_id="t1", user_id="u1")
@@ -4269,11 +4269,11 @@ async def test_centralized_common_checks_carries_team_and_user_budget_state_on_t
     user_api_key_cache = DualCache()
     await user_api_key_cache.async_set_cache(
         key="team_id:t1",
-        value=LiteLLM_TeamTableCachedObj(team_id="t1", budget_reset_at=reset_at, max_budget=300.0),
+        value=EmbRouter_TeamTableCachedObj(team_id="t1", budget_reset_at=reset_at, max_budget=300.0),
     )
     await user_api_key_cache.async_set_cache(
         key="u1",
-        value=LiteLLM_UserTable(user_id="u1", user_alias="Alice", budget_reset_at=None, max_budget=None),
+        value=EmbRouter_UserTable(user_id="u1", user_alias="Alice", budget_reset_at=None, max_budget=None),
     )
     proxy_logging_obj = MagicMock()
     proxy_logging_obj.service_logging_obj.async_service_success_hook = AsyncMock()
@@ -4288,7 +4288,7 @@ async def test_centralized_common_checks_carries_team_and_user_budget_state_on_t
         for k, v in attrs.items():
             setattr(_proxy_server_mod, k, v)
         with patch(  # test-quality-ok: the authz gate has its own tests above; this one checks the carry step before it
-            "litellm.proxy.auth.user_api_key_auth.common_checks",
+            "embrouter.proxy.auth.user_api_key_auth.common_checks",
             new_callable=AsyncMock,
         ):
             await _run_centralized_common_checks(
@@ -4330,16 +4330,16 @@ async def _run_centralized_checks_with_key_end_user_budget(
     from fastapi import Request
     from starlette.datastructures import URL
 
-    import litellm.proxy.proxy_server as _proxy_server_mod
+    import embrouter.proxy.proxy_server as _proxy_server_mod
 
     async def _find_budget(where: Mapping[str, str]) -> MagicMock | None:
         budget_id = where["budget_id"]
         return _end_user_budget_row(budget_id, budgets[budget_id]) if budget_id in budgets else None
 
     prisma_client = MagicMock()
-    prisma_client.db.litellm_endusertable.find_many = AsyncMock(return_value=[])
-    prisma_client.db.litellm_endusertable.find_unique = AsyncMock(return_value=end_user_row)
-    prisma_client.db.litellm_budgettable.find_unique = AsyncMock(side_effect=_find_budget)
+    prisma_client.db.embrouter_endusertable.find_many = AsyncMock(return_value=[])
+    prisma_client.db.embrouter_endusertable.find_unique = AsyncMock(return_value=end_user_row)
+    prisma_client.db.embrouter_budgettable.find_unique = AsyncMock(side_effect=_find_budget)
 
     proxy_logging_obj = MagicMock()
     proxy_logging_obj.service_logging_obj.async_service_success_hook = AsyncMock()
@@ -4357,10 +4357,10 @@ async def _run_centralized_checks_with_key_end_user_budget(
             setattr(_proxy_server_mod, k, v)
         with (
             patch(  # test-quality-ok: the authz gate has its own tests above; this one checks what reaches reservation
-                "litellm.proxy.auth.user_api_key_auth.common_checks", new_callable=AsyncMock
+                "embrouter.proxy.auth.user_api_key_auth.common_checks", new_callable=AsyncMock
             ),
             patch(  # test-quality-ok: reservation is the observable boundary; its input token is what is asserted
-                "litellm.proxy.auth.user_api_key_auth._reserve_budget_after_common_checks",
+                "embrouter.proxy.auth.user_api_key_auth._reserve_budget_after_common_checks",
                 new_callable=AsyncMock,
             ) as mock_reserve,
         ):
@@ -4383,8 +4383,8 @@ async def test_centralized_common_checks_keeps_a_validated_away_end_user_when_th
     """With ``validate_end_user_id_in_db`` on and no proxy-wide default, the builder drops an
     unregistered customer id before it knows the key. The central gate must re-resolve it with the
     key's default so the customer is both budgeted and attributed on the first request."""
-    monkeypatch.setattr(litellm, "max_end_user_budget_id", None)
-    monkeypatch.setattr(litellm, "validate_end_user_id_in_db", True)
+    monkeypatch.setattr(embrouter, "max_end_user_budget_id", None)
+    monkeypatch.setattr(embrouter, "validate_end_user_id_in_db", True)
     cache = DualCache()
     await cache.async_set_cache(key="end_user_validation:cust-new", value="invalid")
     token = UserAPIKeyAuth(
@@ -4407,7 +4407,7 @@ async def test_centralized_common_checks_reserves_key_default_budget_for_a_brand
     """A service-account key's ``end_user_budget_id`` must reach the token before the budget
     reservation runs, on the very first request, when no end-user row exists yet and even though
     the builder already applied the proxy-wide default."""
-    monkeypatch.setattr(litellm, "max_end_user_budget_id", "global-eu-budget")
+    monkeypatch.setattr(embrouter, "max_end_user_budget_id", "global-eu-budget")
     token = UserAPIKeyAuth(
         api_key="sk-test",
         token="hashed",
@@ -4425,7 +4425,7 @@ async def test_centralized_common_checks_reserves_key_default_budget_for_a_brand
 
 @pytest.mark.asyncio
 async def test_centralized_common_checks_keeps_an_end_users_own_budget_over_the_key_default(monkeypatch):
-    monkeypatch.setattr(litellm, "max_end_user_budget_id", None)
+    monkeypatch.setattr(embrouter, "max_end_user_budget_id", None)
     token = UserAPIKeyAuth(
         api_key="sk-test",
         token="hashed",
@@ -4439,7 +4439,7 @@ async def test_centralized_common_checks_keeps_an_end_users_own_budget_over_the_
         "blocked": False,
         "spend": 0.0,
         "budget_id": "vip-budget",
-        "litellm_budget_table": {"budget_id": "vip-budget", "max_budget": 500.0},
+        "embrouter_budget_table": {"budget_id": "vip-budget", "max_budget": 500.0},
     }
 
     reserved_token = await _run_centralized_checks_with_key_end_user_budget(
@@ -4453,7 +4453,7 @@ async def test_centralized_common_checks_keeps_an_end_users_own_budget_over_the_
 async def test_centralized_common_checks_keeps_a_stricter_custom_auth_cap_over_the_key_default(monkeypatch):
     """A custom auth callable that caps the end user tighter than the key's default budget keeps
     its cap and its rate limit. The key default only fills the limits the callable left unset."""
-    monkeypatch.setattr(litellm, "max_end_user_budget_id", None)
+    monkeypatch.setattr(embrouter, "max_end_user_budget_id", None)
     token = UserAPIKeyAuth(
         api_key="sk-test",
         token="hashed",
@@ -4473,7 +4473,7 @@ async def test_centralized_common_checks_keeps_a_stricter_custom_auth_cap_over_t
 
 @pytest.mark.asyncio
 async def test_centralized_common_checks_fills_a_custom_auth_token_without_a_cap_from_the_key_default(monkeypatch):
-    monkeypatch.setattr(litellm, "max_end_user_budget_id", None)
+    monkeypatch.setattr(embrouter, "max_end_user_budget_id", None)
     token = UserAPIKeyAuth(
         api_key="sk-test",
         token="hashed",
@@ -4506,7 +4506,7 @@ async def test_centralized_common_checks_enforces_team_model_max_budget_from_the
     from fastapi import Request
     from starlette.datastructures import URL
 
-    import litellm.proxy.proxy_server as _proxy_server_mod
+    import embrouter.proxy.proxy_server as _proxy_server_mod
 
     team_caps = {"gpt-4o": {"max_budget": 5.0, "budget_duration": "1d"}}
     key_caps = {"claude-sonnet-4-6": {"max_budget": 1.0, "budget_duration": "1d"}}
@@ -4523,7 +4523,7 @@ async def test_centralized_common_checks_enforces_team_model_max_budget_from_the
     user_api_key_cache = DualCache()
     await user_api_key_cache.async_set_cache(
         key="team_id:t1",
-        value=LiteLLM_TeamTableCachedObj(team_id="t1", model_max_budget=team_caps),
+        value=EmbRouter_TeamTableCachedObj(team_id="t1", model_max_budget=team_caps),
     )
     limiter = _RecordingTeamModelBudgetLimiter()
     attrs = {
@@ -4538,10 +4538,10 @@ async def test_centralized_common_checks_enforces_team_model_max_budget_from_the
             setattr(_proxy_server_mod, k, v)
         with (
             patch(
-                "litellm.proxy.auth.user_api_key_auth.common_checks", new_callable=AsyncMock
+                "embrouter.proxy.auth.user_api_key_auth.common_checks", new_callable=AsyncMock
             ),  # test-quality-ok: stubs the sibling check so only the team model-budget gate is under test
             patch(  # test-quality-ok: stubs the budget reservation so only the team model-budget gate is under test
-                "litellm.proxy.auth.user_api_key_auth._reserve_budget_after_common_checks",
+                "embrouter.proxy.auth.user_api_key_auth._reserve_budget_after_common_checks",
                 new_callable=AsyncMock,
             ),
         ):
@@ -4564,7 +4564,7 @@ async def test_centralized_common_checks_skipped_for_custom_auth_without_flag():
     custom_auth_run_common_checks must not pay the centralized gate.
     Custom-auth paths don't use OAuth2/DB-fallback so this skip does
     not widen any bypass."""
-    import litellm.proxy.proxy_server as _proxy_server_mod
+    import embrouter.proxy.proxy_server as _proxy_server_mod
     from fastapi import Request
     from starlette.datastructures import URL
 
@@ -4578,7 +4578,7 @@ async def test_centralized_common_checks_skipped_for_custom_auth_without_flag():
         for k, v in attrs.items():
             setattr(_proxy_server_mod, k, v)
         with patch(
-            "litellm.proxy.auth.user_api_key_auth.common_checks",
+            "embrouter.proxy.auth.user_api_key_auth.common_checks",
             new_callable=AsyncMock,
         ) as mock_checks:
             await _run_centralized_common_checks(
@@ -4601,11 +4601,11 @@ def _unrestricted_end_user_prisma(spend: float):
     end_user_row.dict = lambda: {"user_id": "customer-1", "blocked": False, "spend": spend}
 
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_endusertable.find_many = AsyncMock(return_value=[])
-    mock_prisma.db.litellm_endusertable.find_unique = AsyncMock(return_value=end_user_row)
-    mock_prisma.db.litellm_usertable.find_unique = AsyncMock(return_value=None)
-    mock_prisma.db.litellm_teamtable.find_unique = AsyncMock(return_value=None)
-    mock_prisma.db.litellm_verificationtoken.find_unique = AsyncMock(return_value=None)
+    mock_prisma.db.embrouter_endusertable.find_many = AsyncMock(return_value=[])
+    mock_prisma.db.embrouter_endusertable.find_unique = AsyncMock(return_value=end_user_row)
+    mock_prisma.db.embrouter_usertable.find_unique = AsyncMock(return_value=None)
+    mock_prisma.db.embrouter_teamtable.find_unique = AsyncMock(return_value=None)
+    mock_prisma.db.embrouter_verificationtoken.find_unique = AsyncMock(return_value=None)
     return mock_prisma
 
 
@@ -4614,10 +4614,10 @@ def _custom_auth_end_user_world(mock_prisma):
     """The proxy globals a custom-auth deployment running the centralized gate reads, with cold
     spend counters. Real caches, so the end user's spend reaches the counter the way it does in
     production: through the cache entry get_end_user_object writes."""
-    import litellm.proxy.proxy_server as _proxy_server_mod
+    import embrouter.proxy.proxy_server as _proxy_server_mod
 
-    from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-    from litellm.proxy.utils import ProxyLogging
+    from embrouter.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+    from embrouter.proxy.utils import ProxyLogging
 
     key_cache = UserApiKeyCache()
     attrs = {
@@ -4669,14 +4669,14 @@ async def test_centralized_checks_enforce_token_end_user_budget_against_row_spen
     with _custom_auth_end_user_world(mock_prisma):
         with (
             patch(
-                "litellm.proxy.auth.user_api_key_auth.common_checks",
+                "embrouter.proxy.auth.user_api_key_auth.common_checks",
                 new_callable=AsyncMock,
             ),
             patch(
-                "litellm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost",
+                "embrouter.proxy.spend_tracking.budget_reservation.estimate_request_max_cost",
                 return_value=0.6,
             ),
-            pytest.raises(litellm.BudgetExceededError) as exc_info,
+            pytest.raises(embrouter.BudgetExceededError) as exc_info,
         ):
             await _run_centralized_common_checks(
                 user_api_key_auth_obj=token,
@@ -4706,11 +4706,11 @@ async def test_centralized_checks_skip_end_user_lookup_without_a_token_budget():
     with _custom_auth_end_user_world(mock_prisma):
         with (
             patch(
-                "litellm.proxy.auth.user_api_key_auth.common_checks",
+                "embrouter.proxy.auth.user_api_key_auth.common_checks",
                 new_callable=AsyncMock,
             ),
             patch(
-                "litellm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost",
+                "embrouter.proxy.spend_tracking.budget_reservation.estimate_request_max_cost",
                 return_value=0.6,
             ),
         ):
@@ -4724,14 +4724,14 @@ async def test_centralized_checks_skip_end_user_lookup_without_a_token_budget():
                 route="/chat/completions",
             )
 
-    mock_prisma.db.litellm_endusertable.find_unique.assert_not_awaited()
+    mock_prisma.db.embrouter_endusertable.find_unique.assert_not_awaited()
 
 
 @pytest.mark.asyncio
 async def test_centralized_common_checks_runs_for_custom_auth_with_flag():
     """Custom-auth deployments that opt in via custom_auth_run_common_checks
     get the centralized gate."""
-    import litellm.proxy.proxy_server as _proxy_server_mod
+    import embrouter.proxy.proxy_server as _proxy_server_mod
     from fastapi import Request
     from starlette.datastructures import URL
 
@@ -4745,7 +4745,7 @@ async def test_centralized_common_checks_runs_for_custom_auth_with_flag():
         for k, v in attrs.items():
             setattr(_proxy_server_mod, k, v)
         with patch(
-            "litellm.proxy.auth.user_api_key_auth.common_checks",
+            "embrouter.proxy.auth.user_api_key_auth.common_checks",
             new_callable=AsyncMock,
         ) as mock_checks:
             await _run_centralized_common_checks(
@@ -4765,7 +4765,7 @@ async def test_centralized_common_checks_runs_for_oauth2_fallback_token():
     """VERIA-18 regression: an OAuth2 token that would previously early-
     return without common_checks is now subject to it. If common_checks
     raises, the gate propagates the failure."""
-    import litellm.proxy.proxy_server as _proxy_server_mod
+    import embrouter.proxy.proxy_server as _proxy_server_mod
     from fastapi import Request
     from starlette.datastructures import URL
 
@@ -4779,7 +4779,7 @@ async def test_centralized_common_checks_runs_for_oauth2_fallback_token():
         for k, v in attrs.items():
             setattr(_proxy_server_mod, k, v)
         with patch(
-            "litellm.proxy.auth.user_api_key_auth.common_checks",
+            "embrouter.proxy.auth.user_api_key_auth.common_checks",
             new_callable=AsyncMock,
             side_effect=ProxyException(
                 message="Key not allowed to access model",
@@ -4807,11 +4807,11 @@ async def test_centralized_common_checks_tolerates_db_errors_when_fetching_conte
     DB is down, then the gate tries to fetch team/user/etc. Those fetches
     fail — the gate must swallow and still call common_checks with None
     objects so enforcement runs against whatever the token recorded."""
-    import litellm.proxy.proxy_server as _proxy_server_mod
+    import embrouter.proxy.proxy_server as _proxy_server_mod
     from fastapi import Request
     from starlette.datastructures import URL
 
-    from litellm.proxy.auth.auth_exception_handler import (
+    from embrouter.proxy.auth.auth_exception_handler import (
         DB_UNAVAILABLE_FALLBACK_USER_ID,
     )
 
@@ -4830,12 +4830,12 @@ async def test_centralized_common_checks_tolerates_db_errors_when_fetching_conte
             setattr(_proxy_server_mod, k, v)
         with (
             patch(
-                "litellm.proxy.auth.user_api_key_auth.get_team_object",
+                "embrouter.proxy.auth.user_api_key_auth.get_team_object",
                 new_callable=AsyncMock,
                 side_effect=Exception("DB down"),
             ),
             patch(
-                "litellm.proxy.auth.user_api_key_auth.common_checks",
+                "embrouter.proxy.auth.user_api_key_auth.common_checks",
                 new_callable=AsyncMock,
             ) as mock_checks,
         ):
@@ -4856,13 +4856,13 @@ async def test_centralized_common_checks_tolerates_db_errors_when_fetching_conte
 
 @pytest.mark.asyncio
 async def test_centralized_common_checks_propagates_end_user_budget_error():
-    """Regression: ``get_end_user_object`` raises ``litellm.BudgetExceededError``
+    """Regression: ``get_end_user_object`` raises ``embrouter.BudgetExceededError``
     internally when an end user is over budget. ``_safe_fetch`` must
     re-raise it so the wrapper surfaces the budget violation, rather
     than swallowing it and letting ``common_checks`` see
     ``end_user_object=None`` and skip enforcement."""
-    import litellm
-    import litellm.proxy.proxy_server as _proxy_server_mod
+    import embrouter
+    import embrouter.proxy.proxy_server as _proxy_server_mod
     from fastapi import Request
     from starlette.datastructures import URL
 
@@ -4878,20 +4878,20 @@ async def test_centralized_common_checks_propagates_end_user_budget_error():
             setattr(_proxy_server_mod, k, v)
         with (
             patch(
-                "litellm.proxy.auth.user_api_key_auth.get_end_user_object",
+                "embrouter.proxy.auth.user_api_key_auth.get_end_user_object",
                 new_callable=AsyncMock,
-                side_effect=litellm.BudgetExceededError(
+                side_effect=embrouter.BudgetExceededError(
                     message="End-user budget exceeded",
                     current_cost=20.0,
                     max_budget=10.0,
                 ),
             ),
             patch(
-                "litellm.proxy.auth.user_api_key_auth.common_checks",
+                "embrouter.proxy.auth.user_api_key_auth.common_checks",
                 new_callable=AsyncMock,
             ) as mock_checks,
         ):
-            with pytest.raises(litellm.BudgetExceededError):
+            with pytest.raises(embrouter.BudgetExceededError):
                 await _run_centralized_common_checks(
                     user_api_key_auth_obj=token,
                     request=request,
@@ -4912,7 +4912,7 @@ async def test_centralized_common_checks_reserves_request_end_user_budget():
     """Regression: reservation runs before user_api_key_auth() copies the
     request end-user onto the token, so centralized checks must pass the
     locally extracted end_user_id/end_user_object into reservation."""
-    import litellm.proxy.proxy_server as _proxy_server_mod
+    import embrouter.proxy.proxy_server as _proxy_server_mod
     from fastapi import Request
     from starlette.datastructures import URL
 
@@ -4924,11 +4924,11 @@ async def test_centralized_common_checks_reserves_request_end_user_budget():
         "messages": [{"role": "user", "content": "hello"}],
         "user": "alice",
     }
-    end_user_object = LiteLLM_EndUserTable(
+    end_user_object = EmbRouter_EndUserTable(
         user_id="alice",
         blocked=False,
         spend=0.0,
-        litellm_budget_table=LiteLLM_BudgetTable(max_budget=1.0),
+        embrouter_budget_table=EmbRouter_BudgetTable(max_budget=1.0),
     )
 
     attrs = _proxy_attrs_for_centralized_checks(user_custom_auth=None)
@@ -4940,16 +4940,16 @@ async def test_centralized_common_checks_reserves_request_end_user_budget():
             setattr(_proxy_server_mod, k, v)
         with (
             patch(
-                "litellm.proxy.auth.user_api_key_auth.get_end_user_object",
+                "embrouter.proxy.auth.user_api_key_auth.get_end_user_object",
                 new_callable=AsyncMock,
                 return_value=end_user_object,
             ),
             patch(
-                "litellm.proxy.auth.user_api_key_auth.common_checks",
+                "embrouter.proxy.auth.user_api_key_auth.common_checks",
                 new_callable=AsyncMock,
             ),
             patch(
-                "litellm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost",
+                "embrouter.proxy.spend_tracking.budget_reservation.estimate_request_max_cost",
                 return_value=0.6,
             ),
         ):
@@ -4986,13 +4986,13 @@ async def test_centralized_common_checks_short_circuits_when_master_key_unset():
     common_checks must not run. Deployments in this mode have no proxy-
     level authentication, so applying authz would block every admin
     route for a test/dev setup that was previously wide-open."""
-    import litellm.proxy.proxy_server as _proxy_server_mod
+    import embrouter.proxy.proxy_server as _proxy_server_mod
     from fastapi import Request
     from starlette.datastructures import URL
 
-    from litellm.proxy._types import LitellmUserRoles
+    from embrouter.proxy._types import EmbrouterUserRoles
 
-    token = UserAPIKeyAuth(api_key="sk-test", user_id="u", user_role=LitellmUserRoles.INTERNAL_USER)
+    token = UserAPIKeyAuth(api_key="sk-test", user_id="u", user_role=EmbrouterUserRoles.INTERNAL_USER)
     request = Request(scope={"type": "http"})
     request._url = URL(url="/get/config/callbacks")
 
@@ -5002,7 +5002,7 @@ async def test_centralized_common_checks_short_circuits_when_master_key_unset():
         for k, v in attrs.items():
             setattr(_proxy_server_mod, k, v)
         with patch(
-            "litellm.proxy.auth.user_api_key_auth.common_checks",
+            "embrouter.proxy.auth.user_api_key_auth.common_checks",
             new_callable=AsyncMock,
         ) as mock_checks:
             await _run_centralized_common_checks(
@@ -5024,11 +5024,11 @@ async def test_centralized_common_checks_skips_public_routes():
     common_checks on top — the synthetic INTERNAL_USER_VIEW_ONLY token
     has no user_id, so common_checks would reject the request as
     admin-only."""
-    import litellm.proxy.proxy_server as _proxy_server_mod
+    import embrouter.proxy.proxy_server as _proxy_server_mod
     from fastapi import Request
     from starlette.datastructures import URL
 
-    token = UserAPIKeyAuth(user_role=LitellmUserRoles.INTERNAL_USER_VIEW_ONLY)
+    token = UserAPIKeyAuth(user_role=EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY)
     request = Request(scope={"type": "http"})
     request._url = URL(url="/health/liveness")
 
@@ -5038,7 +5038,7 @@ async def test_centralized_common_checks_skips_public_routes():
         for k, v in attrs.items():
             setattr(_proxy_server_mod, k, v)
         with patch(
-            "litellm.proxy.auth.user_api_key_auth.common_checks",
+            "embrouter.proxy.auth.user_api_key_auth.common_checks",
             new_callable=AsyncMock,
         ) as mock_checks:
             await _run_centralized_common_checks(
@@ -5061,7 +5061,7 @@ async def test_centralized_common_checks_skips_passthrough_endpoint_with_auth_fa
     common_checks on that empty token would reject the request as
     admin-only. The "auth" flag on the endpoint config is the contract
     — when it's anything other than True, skip the gate."""
-    import litellm.proxy.proxy_server as _proxy_server_mod
+    import embrouter.proxy.proxy_server as _proxy_server_mod
     from fastapi import Request
     from starlette.datastructures import URL
 
@@ -5084,7 +5084,7 @@ async def test_centralized_common_checks_skips_passthrough_endpoint_with_auth_fa
         for k, v in attrs.items():
             setattr(_proxy_server_mod, k, v)
         with patch(
-            "litellm.proxy.auth.user_api_key_auth.common_checks",
+            "embrouter.proxy.auth.user_api_key_auth.common_checks",
             new_callable=AsyncMock,
         ) as mock_checks:
             await _run_centralized_common_checks(
@@ -5105,7 +5105,7 @@ async def test_centralized_common_checks_runs_for_passthrough_endpoint_with_auth
     has ``auth: true``, the builder runs full authentication and the
     centralized gate must run too. Skipping based on path-match alone
     would re-open every ``auth: true`` pass-through endpoint."""
-    import litellm.proxy.proxy_server as _proxy_server_mod
+    import embrouter.proxy.proxy_server as _proxy_server_mod
     from fastapi import Request
     from starlette.datastructures import URL
 
@@ -5128,7 +5128,7 @@ async def test_centralized_common_checks_runs_for_passthrough_endpoint_with_auth
         for k, v in attrs.items():
             setattr(_proxy_server_mod, k, v)
         with patch(
-            "litellm.proxy.auth.user_api_key_auth.common_checks",
+            "embrouter.proxy.auth.user_api_key_auth.common_checks",
             new_callable=AsyncMock,
         ) as mock_checks:
             await _run_centralized_common_checks(
@@ -5145,31 +5145,31 @@ async def test_centralized_common_checks_runs_for_passthrough_endpoint_with_auth
 
 @pytest.mark.asyncio
 async def test_centralized_common_checks_master_key_admin_overrides_db_user_role():
-    """Regression: master_key tokens have user_id=litellm_proxy_admin_name
+    """Regression: master_key tokens have user_id=embrouter_proxy_admin_name
     (default 'default_user_id') and user_role=PROXY_ADMIN. If a row with
-    that user_id exists in litellm_usertable with a non-admin user_role
+    that user_id exists in embrouter_usertable with a non-admin user_role
     (created as a side effect of team membership), get_user_object
     returns it and the synthesized admin user_object is skipped — so
     common_checks demotes the master_key request to internal_user and
     blocks /team/update. The token is the source of truth for admin
     status; the DB row must not override it."""
-    import litellm.proxy.proxy_server as _proxy_server_mod
+    import embrouter.proxy.proxy_server as _proxy_server_mod
     from fastapi import Request
     from starlette.datastructures import URL
 
     token = UserAPIKeyAuth(
         api_key="sk-master",
         user_id="default_user_id",
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN,
     )
     request = Request(scope={"type": "http"})
     request._url = URL(url="/team/update")
 
     # Simulate the DB row that team-creation created: same user_id, but
     # with user_role=internal_user (the default for new user rows).
-    db_user = LiteLLM_UserTable(
+    db_user = EmbRouter_UserTable(
         user_id="default_user_id",
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
+        user_role=EmbrouterUserRoles.INTERNAL_USER.value,
         spend=1.5,
         max_budget=None,
     )
@@ -5181,12 +5181,12 @@ async def test_centralized_common_checks_master_key_admin_overrides_db_user_role
             setattr(_proxy_server_mod, k, v)
         with (
             patch(
-                "litellm.proxy.auth.user_api_key_auth.get_user_object",
+                "embrouter.proxy.auth.user_api_key_auth.get_user_object",
                 new_callable=AsyncMock,
                 return_value=db_user,
             ),
             patch(
-                "litellm.proxy.auth.user_api_key_auth.common_checks",
+                "embrouter.proxy.auth.user_api_key_auth.common_checks",
                 new_callable=AsyncMock,
             ) as mock_checks,
         ):
@@ -5199,7 +5199,7 @@ async def test_centralized_common_checks_master_key_admin_overrides_db_user_role
             mock_checks.assert_awaited_once()
             forwarded = mock_checks.call_args.kwargs["user_object"]
             assert forwarded is not None
-            assert forwarded.user_role == LitellmUserRoles.PROXY_ADMIN
+            assert forwarded.user_role == EmbrouterUserRoles.PROXY_ADMIN
             assert forwarded.user_id == "default_user_id"
     finally:
         for k, v in originals.items():
@@ -5213,7 +5213,7 @@ async def test_centralized_common_checks_http_exception_without_team_id():
     _team_obj_from_token reconstruction when the token has no team_id —
     the helper asserts team_id is not None. This is the Greptile P1
     finding: the ``except HTTPException`` arm was team-fetch-biased."""
-    import litellm.proxy.proxy_server as _proxy_server_mod
+    import embrouter.proxy.proxy_server as _proxy_server_mod
     from fastapi import HTTPException, Request
     from starlette.datastructures import URL
 
@@ -5230,12 +5230,12 @@ async def test_centralized_common_checks_http_exception_without_team_id():
         # return_exceptions=False propagates it.
         with (
             patch(
-                "litellm.proxy.auth.user_api_key_auth.get_user_object",
+                "embrouter.proxy.auth.user_api_key_auth.get_user_object",
                 new_callable=AsyncMock,
                 side_effect=HTTPException(status_code=404, detail="user-not-found"),
             ),
             patch(
-                "litellm.proxy.auth.user_api_key_auth.common_checks",
+                "embrouter.proxy.auth.user_api_key_auth.common_checks",
                 new_callable=AsyncMock,
             ) as mock_checks,
         ):
@@ -5262,13 +5262,13 @@ async def test_centralized_common_checks_team_404_does_not_zero_other_contexts()
     Pre-fix a bare ``except HTTPException`` over ``asyncio.gather`` zeroed
     every context, silently skipping user-budget, end-user-budget, and
     project enforcement whenever the token's team_id was stale."""
-    import litellm.proxy.proxy_server as _proxy_server_mod
+    import embrouter.proxy.proxy_server as _proxy_server_mod
     from fastapi import HTTPException, Request
     from starlette.datastructures import URL
 
-    from litellm.proxy._types import (
-        LiteLLM_EndUserTable,
-        LiteLLM_ProjectTableCachedObj,
+    from embrouter.proxy._types import (
+        EmbRouter_EndUserTable,
+        EmbRouter_ProjectTableCachedObj,
     )
 
     token = UserAPIKeyAuth(
@@ -5284,14 +5284,14 @@ async def test_centralized_common_checks_team_404_does_not_zero_other_contexts()
     request._url = URL(url="/chat/completions")
     request._body = json.dumps({"user": "alice", "model": "gpt-4o"}).encode()
 
-    fetched_user = LiteLLM_UserTable(
+    fetched_user = EmbRouter_UserTable(
         user_id="u",
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
+        user_role=EmbrouterUserRoles.INTERNAL_USER.value,
         max_budget=10.0,
         spend=2.0,
     )
-    fetched_end_user = LiteLLM_EndUserTable(user_id="alice", blocked=False, spend=1.0)
-    fetched_project = LiteLLM_ProjectTableCachedObj(
+    fetched_end_user = EmbRouter_EndUserTable(user_id="alice", blocked=False, spend=1.0)
+    fetched_project = EmbRouter_ProjectTableCachedObj(
         project_id="proj-1",
         project_alias="Proj 1",
         metadata={},
@@ -5306,27 +5306,27 @@ async def test_centralized_common_checks_team_404_does_not_zero_other_contexts()
             setattr(_proxy_server_mod, k, v)
         with (
             patch(
-                "litellm.proxy.auth.user_api_key_auth.get_team_object",
+                "embrouter.proxy.auth.user_api_key_auth.get_team_object",
                 new_callable=AsyncMock,
                 side_effect=HTTPException(status_code=404, detail="team-not-found"),
             ),
             patch(
-                "litellm.proxy.auth.user_api_key_auth.get_user_object",
+                "embrouter.proxy.auth.user_api_key_auth.get_user_object",
                 new_callable=AsyncMock,
                 return_value=fetched_user,
             ),
             patch(
-                "litellm.proxy.auth.user_api_key_auth.get_project_object",
+                "embrouter.proxy.auth.user_api_key_auth.get_project_object",
                 new_callable=AsyncMock,
                 return_value=fetched_project,
             ),
             patch(
-                "litellm.proxy.auth.user_api_key_auth.get_end_user_object",
+                "embrouter.proxy.auth.user_api_key_auth.get_end_user_object",
                 new_callable=AsyncMock,
                 return_value=fetched_end_user,
             ),
             patch(
-                "litellm.proxy.auth.user_api_key_auth.common_checks",
+                "embrouter.proxy.auth.user_api_key_auth.common_checks",
                 new_callable=AsyncMock,
             ) as mock_checks,
         ):
@@ -5358,7 +5358,7 @@ async def test_centralized_common_checks_unresolvable_team_without_grant_is_refu
     only surviving team record is the token's own, which carries ``team_models=[]``
     and reads as every model. The request must be refused with the original lookup
     error. Pre-fix it was served."""
-    import litellm.proxy.proxy_server as _proxy_server_mod
+    import embrouter.proxy.proxy_server as _proxy_server_mod
     from fastapi import HTTPException, Request
     from starlette.datastructures import URL
 
@@ -5383,7 +5383,7 @@ async def test_centralized_common_checks_unresolvable_team_without_grant_is_refu
         for k, v in attrs.items():
             setattr(_proxy_server_mod, k, v)
         with patch(
-            "litellm.proxy.auth.user_api_key_auth.get_team_object",
+            "embrouter.proxy.auth.user_api_key_auth.get_team_object",
             new_callable=AsyncMock,
             side_effect=team_read_failure,
         ):
@@ -5412,11 +5412,11 @@ async def test_centralized_common_checks_absent_team_refused_despite_db_unavaila
     Imported from the module under test rather than from ``auth_checks``: other
     tests in this suite ``importlib.reload`` that module, which rebinds the class
     and would leave this raising a type the guard has never seen."""
-    import litellm.proxy.proxy_server as _proxy_server_mod
+    import embrouter.proxy.proxy_server as _proxy_server_mod
     from fastapi import HTTPException, Request
     from starlette.datastructures import URL
 
-    from litellm.proxy.auth.user_api_key_auth import TeamNotFoundError
+    from embrouter.proxy.auth.user_api_key_auth import TeamNotFoundError
 
     token = UserAPIKeyAuth(
         api_key="sk-test",
@@ -5437,7 +5437,7 @@ async def test_centralized_common_checks_absent_team_refused_despite_db_unavaila
         for k, v in attrs.items():
             setattr(_proxy_server_mod, k, v)
         with patch(
-            "litellm.proxy.auth.user_api_key_auth.get_team_object",
+            "embrouter.proxy.auth.user_api_key_auth.get_team_object",
             new_callable=AsyncMock,
             side_effect=team_absent,
         ):
@@ -5460,19 +5460,19 @@ async def test_centralized_common_checks_unreadable_team_keeps_db_unavailable_op
     answered, so an operator who has accepted degraded authorization during a
     database fault still gets the fallback. Without this the fix would trade the
     widening for a lockout with no way out."""
-    import litellm.proxy.proxy_server as _proxy_server_mod
+    import embrouter.proxy.proxy_server as _proxy_server_mod
     from fastapi import HTTPException as _HTTPException
     from fastapi import Request
     from starlette.datastructures import URL
 
-    from litellm.proxy._types import LiteLLM_TeamTableCachedObj
+    from embrouter.proxy._types import EmbRouter_TeamTableCachedObj
 
     token = UserAPIKeyAuth(api_key="sk-test", team_id="unreadable-team", models=[], team_models=[])
     request = Request(scope={"type": "http"})
     request._url = URL(url="/chat/completions")
     request._body = json.dumps({"model": "gpt-4.1"}).encode()
 
-    received_team_objects: list[LiteLLM_TeamTableCachedObj | None] = []
+    received_team_objects: list[EmbRouter_TeamTableCachedObj | None] = []
 
     async def _capturing_common_checks(*_args, **kwargs) -> bool:
         received_team_objects.append(kwargs.get("team_object"))
@@ -5486,12 +5486,12 @@ async def test_centralized_common_checks_unreadable_team_keeps_db_unavailable_op
             setattr(_proxy_server_mod, k, v)
         with (
             patch(
-                "litellm.proxy.auth.user_api_key_auth.get_team_object",
+                "embrouter.proxy.auth.user_api_key_auth.get_team_object",
                 new_callable=AsyncMock,
                 side_effect=_HTTPException(status_code=404, detail={"error": "team unreadable"}),
             ),
             patch(
-                "litellm.proxy.auth.user_api_key_auth.common_checks",
+                "embrouter.proxy.auth.user_api_key_auth.common_checks",
                 _capturing_common_checks,
             ),
         ):
@@ -5519,11 +5519,11 @@ async def test_centralized_common_checks_unresolvable_team_with_grant_enforces_i
     """Mirror of the refusal above: a token that does carry a team model grant keeps
     the fallback, and the reconstructed team must still enforce that grant rather
     than wave the request through."""
-    import litellm.proxy.proxy_server as _proxy_server_mod
+    import embrouter.proxy.proxy_server as _proxy_server_mod
     from fastapi import HTTPException, Request
     from starlette.datastructures import URL
 
-    from litellm.proxy._types import ProxyErrorTypes, ProxyException
+    from embrouter.proxy._types import ProxyErrorTypes, ProxyException
 
     token = UserAPIKeyAuth(
         api_key="sk-test",
@@ -5541,7 +5541,7 @@ async def test_centralized_common_checks_unresolvable_team_with_grant_enforces_i
         for k, v in attrs.items():
             setattr(_proxy_server_mod, k, v)
         with patch(
-            "litellm.proxy.auth.user_api_key_auth.get_team_object",
+            "embrouter.proxy.auth.user_api_key_auth.get_team_object",
             new_callable=AsyncMock,
             side_effect=HTTPException(status_code=404, detail={"error": "team unreadable"}),
         ):
@@ -5569,17 +5569,17 @@ async def test_centralized_common_checks_unresolvable_team_with_grant_enforces_i
 @pytest.mark.asyncio
 async def test_centralized_common_checks_ui_sentinel_team_vouches_despite_absent_row():
     """The Admin UI mints every session key against the ``UI_TEAM_ID`` sentinel,
-    which by design never has a ``LiteLLM_TeamTable`` row, so ``get_team_object``
+    which by design never has a ``EmbRouter_TeamTable`` row, so ``get_team_object``
     always raises ``TeamNotFoundError`` for it. That must NOT be read as "team
     provably gone, refuse" the way it is for a real team_id: PR #36837 made that
     exact mistake and PR #36982 reverted it because every dashboard request
     404'd. The sentinel must keep vouching from the token unconditionally."""
-    import litellm.proxy.proxy_server as _proxy_server_mod
+    import embrouter.proxy.proxy_server as _proxy_server_mod
     from fastapi import Request
     from starlette.datastructures import URL
 
-    from litellm.proxy._types import UI_TEAM_ID, LiteLLM_TeamTableCachedObj
-    from litellm.proxy.auth.user_api_key_auth import TeamNotFoundError
+    from embrouter.proxy._types import UI_TEAM_ID, EmbRouter_TeamTableCachedObj
+    from embrouter.proxy.auth.user_api_key_auth import TeamNotFoundError
 
     token = UserAPIKeyAuth(
         api_key="sk-test",
@@ -5592,7 +5592,7 @@ async def test_centralized_common_checks_ui_sentinel_team_vouches_despite_absent
     request._url = URL(url="/user/info")
     request._body = b"{}"
 
-    received_team_objects: list[LiteLLM_TeamTableCachedObj | None] = []
+    received_team_objects: list[EmbRouter_TeamTableCachedObj | None] = []
 
     async def _capturing_common_checks(*_args, **kwargs) -> bool:
         received_team_objects.append(kwargs.get("team_object"))
@@ -5605,12 +5605,12 @@ async def test_centralized_common_checks_ui_sentinel_team_vouches_despite_absent
             setattr(_proxy_server_mod, k, v)
         with (
             patch(
-                "litellm.proxy.auth.user_api_key_auth.get_team_object",
+                "embrouter.proxy.auth.user_api_key_auth.get_team_object",
                 new_callable=AsyncMock,
                 side_effect=TeamNotFoundError(team_id=UI_TEAM_ID),
             ),
             patch(
-                "litellm.proxy.auth.user_api_key_auth.common_checks",
+                "embrouter.proxy.auth.user_api_key_auth.common_checks",
                 _capturing_common_checks,
             ),
         ):
@@ -5633,15 +5633,15 @@ async def test_centralized_common_checks_ui_sentinel_team_vouches_despite_absent
 async def test_centralized_common_checks_ui_sentinel_team_skips_db_lookup():
     """LIT-6297 / GH#28775: ``UI_TEAM_ID`` never has a team row and the
     not-found path bypasses the DB throttle, so building the team fetch for it
-    cost one guaranteed-miss ``LiteLLM_TeamTable.find_unique`` plus a 404 debug
+    cost one guaranteed-miss ``EmbRouter_TeamTable.find_unique`` plus a 404 debug
     log on every dashboard request. The gate must not call ``get_team_object``
     for the sentinel at all, while the token-derived team object still reaches
     ``common_checks``."""
-    import litellm.proxy.proxy_server as _proxy_server_mod
+    import embrouter.proxy.proxy_server as _proxy_server_mod
     from fastapi import Request
     from starlette.datastructures import URL
 
-    from litellm.proxy._types import UI_TEAM_ID, LiteLLM_TeamTableCachedObj
+    from embrouter.proxy._types import UI_TEAM_ID, EmbRouter_TeamTableCachedObj
 
     token = UserAPIKeyAuth(
         api_key="sk-test",
@@ -5654,7 +5654,7 @@ async def test_centralized_common_checks_ui_sentinel_team_skips_db_lookup():
     request._url = URL(url="/user/info")
     request._body = b"{}"
 
-    received_team_objects: list[LiteLLM_TeamTableCachedObj | None] = []
+    received_team_objects: list[EmbRouter_TeamTableCachedObj | None] = []
 
     async def _capturing_common_checks(*_args, **kwargs) -> bool:
         received_team_objects.append(kwargs.get("team_object"))
@@ -5667,11 +5667,11 @@ async def test_centralized_common_checks_ui_sentinel_team_skips_db_lookup():
             setattr(_proxy_server_mod, k, v)
         with (
             patch(  # test-quality-ok: the regression IS that this DB lookup is never made for the sentinel
-                "litellm.proxy.auth.user_api_key_auth.get_team_object",
+                "embrouter.proxy.auth.user_api_key_auth.get_team_object",
                 new_callable=AsyncMock,
             ) as mock_get_team_object,
             patch(  # test-quality-ok: capture the team_object the consumer receives without a DB
-                "litellm.proxy.auth.user_api_key_auth.common_checks",
+                "embrouter.proxy.auth.user_api_key_auth.common_checks",
                 _capturing_common_checks,
             ),
         ):
@@ -5697,20 +5697,20 @@ async def test_builder_ui_sentinel_team_never_hits_get_team_object():  # test-qu
     UI session token's team refresh and the post-validation team fetch must
     both skip ``get_team_object`` for ``UI_TEAM_ID`` instead of 404ing on
     every request."""
-    import litellm.proxy.proxy_server as _proxy_server_mod
+    import embrouter.proxy.proxy_server as _proxy_server_mod
     from fastapi import Request
     from starlette.datastructures import URL
 
-    from litellm.proxy._types import UI_TEAM_ID
-    from litellm.proxy.auth.user_api_key_auth import _user_api_key_auth_builder
-    from litellm.proxy.proxy_server import hash_token
+    from embrouter.proxy._types import UI_TEAM_ID
+    from embrouter.proxy.auth.user_api_key_auth import _user_api_key_auth_builder
+    from embrouter.proxy.proxy_server import hash_token
 
     api_key = "sk-test-ui-session-key"
     cached_token = UserAPIKeyAuth(
         api_key=api_key,
         token=hash_token(api_key),
         user_id="ui-session-user",
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=EmbrouterUserRoles.INTERNAL_USER,
         team_id=UI_TEAM_ID,
     )
 
@@ -5729,7 +5729,7 @@ async def test_builder_ui_sentinel_team_never_hits_get_team_object():  # test-qu
         "model_max_budget_limiter": MagicMock(),
         "user_custom_auth": None,
         "jwt_handler": None,
-        "litellm_proxy_admin_name": "admin",
+        "embrouter_proxy_admin_name": "admin",
     }
     originals = {a: getattr(_proxy_server_mod, a, None) for a in attrs}
     try:
@@ -5741,12 +5741,12 @@ async def test_builder_ui_sentinel_team_never_hits_get_team_object():  # test-qu
 
         with (
             patch(  # test-quality-ok: seed the cached UI session token without a DB
-                "litellm.proxy.auth.resolvers.store.IdentityStore._resolve_key",
+                "embrouter.proxy.auth.resolvers.store.IdentityStore._resolve_key",
                 new_callable=AsyncMock,
                 return_value=cached_token,
             ),
             patch(  # test-quality-ok: the regression IS that this DB lookup is never made for the sentinel
-                "litellm.proxy.auth.user_api_key_auth.get_team_object",
+                "embrouter.proxy.auth.user_api_key_auth.get_team_object",
                 new_callable=AsyncMock,
             ) as mock_get_team_object,
         ):
@@ -5772,14 +5772,14 @@ async def test_centralized_common_checks_user_http_exception_isolates_to_user_on
     from get_user_object must zero only ``user_object``. The successfully
     fetched team / end_user / project / global_spend must reach
     common_checks intact so their enforcement still runs."""
-    import litellm.proxy.proxy_server as _proxy_server_mod
+    import embrouter.proxy.proxy_server as _proxy_server_mod
     from fastapi import HTTPException, Request
     from starlette.datastructures import URL
 
-    from litellm.proxy._types import (
-        LiteLLM_EndUserTable,
-        LiteLLM_ProjectTableCachedObj,
-        LiteLLM_TeamTableCachedObj,
+    from embrouter.proxy._types import (
+        EmbRouter_EndUserTable,
+        EmbRouter_ProjectTableCachedObj,
+        EmbRouter_TeamTableCachedObj,
     )
 
     token = UserAPIKeyAuth(
@@ -5793,9 +5793,9 @@ async def test_centralized_common_checks_user_http_exception_isolates_to_user_on
     request._url = URL(url="/chat/completions")
     request._body = json.dumps({"user": "alice", "model": "gpt-4o"}).encode()
 
-    fetched_team = LiteLLM_TeamTableCachedObj(team_id="t1", max_budget=20.0, models=["gpt-4o"])
-    fetched_end_user = LiteLLM_EndUserTable(user_id="alice", blocked=False, spend=1.0)
-    fetched_project = LiteLLM_ProjectTableCachedObj(
+    fetched_team = EmbRouter_TeamTableCachedObj(team_id="t1", max_budget=20.0, models=["gpt-4o"])
+    fetched_end_user = EmbRouter_EndUserTable(user_id="alice", blocked=False, spend=1.0)
+    fetched_project = EmbRouter_ProjectTableCachedObj(
         project_id="proj-1",
         project_alias="Proj 1",
         metadata={},
@@ -5810,27 +5810,27 @@ async def test_centralized_common_checks_user_http_exception_isolates_to_user_on
             setattr(_proxy_server_mod, k, v)
         with (
             patch(
-                "litellm.proxy.auth.user_api_key_auth.get_team_object",
+                "embrouter.proxy.auth.user_api_key_auth.get_team_object",
                 new_callable=AsyncMock,
                 return_value=fetched_team,
             ),
             patch(
-                "litellm.proxy.auth.user_api_key_auth.get_user_object",
+                "embrouter.proxy.auth.user_api_key_auth.get_user_object",
                 new_callable=AsyncMock,
                 side_effect=HTTPException(status_code=404, detail="user-not-found"),
             ),
             patch(
-                "litellm.proxy.auth.user_api_key_auth.get_project_object",
+                "embrouter.proxy.auth.user_api_key_auth.get_project_object",
                 new_callable=AsyncMock,
                 return_value=fetched_project,
             ),
             patch(
-                "litellm.proxy.auth.user_api_key_auth.get_end_user_object",
+                "embrouter.proxy.auth.user_api_key_auth.get_end_user_object",
                 new_callable=AsyncMock,
                 return_value=fetched_end_user,
             ),
             patch(
-                "litellm.proxy.auth.user_api_key_auth.common_checks",
+                "embrouter.proxy.auth.user_api_key_auth.common_checks",
                 new_callable=AsyncMock,
             ) as mock_checks,
         ):
@@ -5868,17 +5868,17 @@ async def test_centralized_common_checks_backfills_org_id_from_team(key_org_id, 
     spend writer (which reads user_api_key_dict.org_id, no team fallback)
     credits the org and the org budget cap can actually trip. A key with an
     explicitly pinned org_id must win over the team's org."""
-    import litellm.proxy.proxy_server as _proxy_server_mod
+    import embrouter.proxy.proxy_server as _proxy_server_mod
     from fastapi import Request
     from starlette.datastructures import URL
 
-    from litellm.proxy._types import LiteLLM_TeamTableCachedObj
+    from embrouter.proxy._types import EmbRouter_TeamTableCachedObj
 
     token = UserAPIKeyAuth(api_key="sk-test", user_id="u", team_id="t1", org_id=key_org_id)
     request = Request(scope={"type": "http"})
     request._url = URL(url="/chat/completions")
 
-    fetched_team = LiteLLM_TeamTableCachedObj(team_id="t1", organization_id=team_org_id)
+    fetched_team = EmbRouter_TeamTableCachedObj(team_id="t1", organization_id=team_org_id)
 
     attrs = _proxy_attrs_for_centralized_checks(user_custom_auth=None)
     originals = {a: getattr(_proxy_server_mod, a, None) for a in attrs}
@@ -5888,12 +5888,12 @@ async def test_centralized_common_checks_backfills_org_id_from_team(key_org_id, 
         org_id_seen_by_common_checks = []
         with (
             patch(
-                "litellm.proxy.auth.user_api_key_auth.get_team_object",
+                "embrouter.proxy.auth.user_api_key_auth.get_team_object",
                 new_callable=AsyncMock,
                 return_value=fetched_team,
             ),
             patch(
-                "litellm.proxy.auth.user_api_key_auth.common_checks",
+                "embrouter.proxy.auth.user_api_key_auth.common_checks",
                 new_callable=AsyncMock,
                 side_effect=lambda **kw: org_id_seen_by_common_checks.append(kw["valid_token"].org_id),
             ) as mock_checks,
@@ -5977,11 +5977,11 @@ async def test_centralized_common_checks_inherits_org_identity(
     expected_alias: str | None,
     expected_limits: tuple[float | None, int | None, int | None],
 ) -> None:
-    import litellm.proxy.proxy_server as _proxy_server_mod
+    import embrouter.proxy.proxy_server as _proxy_server_mod
     from fastapi import Request
     from starlette.datastructures import URL
 
-    from litellm.proxy._types import LiteLLM_TeamTableCachedObj
+    from embrouter.proxy._types import EmbRouter_TeamTableCachedObj
 
     token = UserAPIKeyAuth(
         api_key="sk-test",
@@ -5995,9 +5995,9 @@ async def test_centralized_common_checks_inherits_org_identity(
     request._url = URL(url="/chat/completions")
 
     fetched_team = (
-        LiteLLM_TeamTableCachedObj(team_id="t1", organization_id=team_org_id) if team_id is not None else None
+        EmbRouter_TeamTableCachedObj(team_id="t1", organization_id=team_org_id) if team_id is not None else None
     )
-    organization = LiteLLM_OrganizationTable(
+    organization = EmbRouter_OrganizationTable(
         organization_id=expected_org_id,
         organization_alias="acme-org",
         budget_id="budget-id",
@@ -6005,10 +6005,10 @@ async def test_centralized_common_checks_inherits_org_identity(
         models=[],
         created_by="test",
         updated_by="test",
-        litellm_budget_table=(
+        embrouter_budget_table=(
             None
             if lookup_mode == "no_budget"
-            else LiteLLM_BudgetTable(budget_id="budget-id", max_budget=12.5, tpm_limit=700, rpm_limit=7)
+            else EmbRouter_BudgetTable(budget_id="budget-id", max_budget=12.5, tpm_limit=700, rpm_limit=7)
         ),
     )
 
@@ -6021,17 +6021,17 @@ async def test_centralized_common_checks_inherits_org_identity(
             setattr(_proxy_server_mod, k, v)
         with (
             patch(  # test-quality-ok: centralized auth calls this module helper directly; no dependency injection seam exists
-                "litellm.proxy.auth.user_api_key_auth.get_team_object",
+                "embrouter.proxy.auth.user_api_key_auth.get_team_object",
                 new_callable=AsyncMock,
                 return_value=fetched_team,
             ) as mock_get_team_object,
             patch(  # test-quality-ok: centralized auth calls this module helper directly; no dependency injection seam exists
-                "litellm.proxy.auth.auth_checks.get_org_object",
+                "embrouter.proxy.auth.auth_checks.get_org_object",
                 new_callable=AsyncMock,
                 return_value=organization,
             ) as mock_get_org_object,
             patch(  # test-quality-ok: capture downstream token state without invoking unrelated common checks
-                "litellm.proxy.auth.user_api_key_auth.common_checks",
+                "embrouter.proxy.auth.user_api_key_auth.common_checks",
                 new_callable=AsyncMock,
             ) as mock_checks,
         ):
@@ -6102,16 +6102,16 @@ async def test_cli_session_token_org_backfilled_from_team(monkeypatch):
     without the combined_view team join, so their spend never reached the org.
     The centralized-checks backfill must complete the credential from the team
     the same way the SQL view does for DB keys."""
-    import litellm.proxy.proxy_server as _proxy_server_mod
+    import embrouter.proxy.proxy_server as _proxy_server_mod
     from fastapi import Request
     from starlette.datastructures import URL
 
-    from litellm.proxy._types import LiteLLM_TeamTableCachedObj, LiteLLM_UserTable
-    from litellm.proxy.auth.auth_checks import ExperimentalUIJWTToken
+    from embrouter.proxy._types import EmbRouter_TeamTableCachedObj, EmbRouter_UserTable
+    from embrouter.proxy.auth.auth_checks import ExperimentalUIJWTToken
 
-    monkeypatch.setenv("LITELLM_SALT_KEY", "sk-test-salt-lit4688")
+    monkeypatch.setenv("EMBROUTER_SALT_KEY", "sk-test-salt-lit4688")
 
-    cli_user = LiteLLM_UserTable(user_id="cli-user", user_role="internal_user", teams=["t-cli"], models=[])
+    cli_user = EmbRouter_UserTable(user_id="cli-user", user_role="internal_user", teams=["t-cli"], models=[])
     blob = ExperimentalUIJWTToken.get_cli_jwt_auth_token(user_info=cli_user, team_id="t-cli", team_alias="cli-team")
     token = ExperimentalUIJWTToken.get_key_object_from_ui_hash_key(blob)
     assert token is not None
@@ -6122,7 +6122,7 @@ async def test_cli_session_token_org_backfilled_from_team(monkeypatch):
     request = Request(scope={"type": "http"})
     request._url = URL(url="/chat/completions")
 
-    org_linked_team = LiteLLM_TeamTableCachedObj(team_id="t-cli", organization_id="org-infoops")
+    org_linked_team = EmbRouter_TeamTableCachedObj(team_id="t-cli", organization_id="org-infoops")
 
     attrs = _proxy_attrs_for_centralized_checks(user_custom_auth=None)
     originals = {a: getattr(_proxy_server_mod, a, None) for a in attrs}
@@ -6131,12 +6131,12 @@ async def test_cli_session_token_org_backfilled_from_team(monkeypatch):
             setattr(_proxy_server_mod, k, v)
         with (
             patch(
-                "litellm.proxy.auth.user_api_key_auth.get_team_object",
+                "embrouter.proxy.auth.user_api_key_auth.get_team_object",
                 new_callable=AsyncMock,
                 return_value=org_linked_team,
             ),
             patch(
-                "litellm.proxy.auth.user_api_key_auth.common_checks",
+                "embrouter.proxy.auth.user_api_key_auth.common_checks",
                 new_callable=AsyncMock,
             ),
         ):
@@ -6158,7 +6158,7 @@ async def test_centralized_common_checks_org_backfill_survives_team_fetch_failur
     """When the team DB fetch fails, the token-derived fallback team carries no
     organization_id, so the backfill must leave org_id as None rather than
     crash or mis-attribute."""
-    import litellm.proxy.proxy_server as _proxy_server_mod
+    import embrouter.proxy.proxy_server as _proxy_server_mod
     from fastapi import Request
     from starlette.datastructures import URL
 
@@ -6173,12 +6173,12 @@ async def test_centralized_common_checks_org_backfill_survives_team_fetch_failur
             setattr(_proxy_server_mod, k, v)
         with (
             patch(
-                "litellm.proxy.auth.user_api_key_auth.get_team_object",
+                "embrouter.proxy.auth.user_api_key_auth.get_team_object",
                 new_callable=AsyncMock,
                 side_effect=Exception("DB down"),
             ),
             patch(
-                "litellm.proxy.auth.user_api_key_auth.common_checks",
+                "embrouter.proxy.auth.user_api_key_auth.common_checks",
                 new_callable=AsyncMock,
             ) as mock_checks,
         ):
@@ -6201,18 +6201,18 @@ async def test_master_key_auth_substitutes_alias_for_api_key():
     """
     When the master key authenticates a request, the resulting
     ``UserAPIKeyAuth.api_key`` must be the stable alias
-    ``LITELLM_PROXY_MASTER_KEY_ALIAS`` — never the raw master key (which
+    ``EMBROUTER_PROXY_MASTER_KEY_ALIAS`` — never the raw master key (which
     would propagate downstream and be hashed into spend logs, Prometheus
     ``/metrics`` labels, or audit trails) and never the master-key hash.
     """
     from fastapi import Request
     from starlette.datastructures import URL
 
-    from litellm.constants import LITELLM_PROXY_MASTER_KEY_ALIAS
-    from litellm.proxy.auth.user_api_key_auth import _user_api_key_auth_builder
-    from litellm.proxy.utils import hash_token
+    from embrouter.constants import EMBROUTER_PROXY_MASTER_KEY_ALIAS
+    from embrouter.proxy.auth.user_api_key_auth import _user_api_key_auth_builder
+    from embrouter.proxy.utils import hash_token
 
-    import litellm.proxy.proxy_server as _proxy_server_mod
+    import embrouter.proxy.proxy_server as _proxy_server_mod
 
     attrs = _proxy_server_attrs_for_custom_auth(user_custom_auth=None)
     master_key = attrs["master_key"]
@@ -6234,7 +6234,7 @@ async def test_master_key_auth_substitutes_alias_for_api_key():
             request_data={},
         )
 
-        assert result.api_key == LITELLM_PROXY_MASTER_KEY_ALIAS
+        assert result.api_key == EMBROUTER_PROXY_MASTER_KEY_ALIAS
         assert result.api_key != master_key
         assert result.api_key != hash_token(master_key)
     finally:
@@ -6256,7 +6256,7 @@ async def test_user_api_key_auth_sets_end_user_id_when_builder_skips_it():
     from fastapi import Request
     from starlette.datastructures import URL
 
-    import litellm.proxy.proxy_server as _proxy_server_mod
+    import embrouter.proxy.proxy_server as _proxy_server_mod
 
     builder_token = UserAPIKeyAuth(api_key="sk-test", user_id="u1")
     # builder did NOT set end_user_id (e.g. master_key=None early return)
@@ -6281,16 +6281,16 @@ async def test_user_api_key_auth_sets_end_user_id_when_builder_skips_it():
         # auth state machine; we only care about the wrapper's safety net.
         with (
             patch(
-                "litellm.proxy.auth.user_api_key_auth._user_api_key_auth_builder",
+                "embrouter.proxy.auth.user_api_key_auth._user_api_key_auth_builder",
                 new_callable=AsyncMock,
                 return_value=builder_token,
             ),
             patch(
-                "litellm.proxy.auth.user_api_key_auth._run_centralized_common_checks",
+                "embrouter.proxy.auth.user_api_key_auth._run_centralized_common_checks",
                 new_callable=AsyncMock,
             ),
             patch(
-                "litellm.proxy.auth.user_api_key_auth.RouteChecks.should_call_route",
+                "embrouter.proxy.auth.user_api_key_auth.RouteChecks.should_call_route",
             ),
         ):
             result = await user_api_key_auth(request=request, api_key="Bearer sk-test")
@@ -6312,7 +6312,7 @@ async def test_user_api_key_auth_does_not_overwrite_end_user_id_set_by_builder()
     from fastapi import Request
     from starlette.datastructures import URL
 
-    import litellm.proxy.proxy_server as _proxy_server_mod
+    import embrouter.proxy.proxy_server as _proxy_server_mod
 
     builder_token = UserAPIKeyAuth(api_key="sk-test", user_id="u1", end_user_id="builder-resolved-id")
 
@@ -6333,19 +6333,19 @@ async def test_user_api_key_auth_does_not_overwrite_end_user_id_set_by_builder()
             setattr(_proxy_server_mod, k, v)
         with (
             patch(
-                "litellm.proxy.auth.user_api_key_auth._user_api_key_auth_builder",
+                "embrouter.proxy.auth.user_api_key_auth._user_api_key_auth_builder",
                 new_callable=AsyncMock,
                 return_value=builder_token,
             ),
             patch(
-                "litellm.proxy.auth.user_api_key_auth._run_centralized_common_checks",
+                "embrouter.proxy.auth.user_api_key_auth._run_centralized_common_checks",
                 new_callable=AsyncMock,
             ),
             patch(
-                "litellm.proxy.auth.user_api_key_auth.RouteChecks.should_call_route",
+                "embrouter.proxy.auth.user_api_key_auth.RouteChecks.should_call_route",
             ),
             patch(
-                "litellm.proxy.auth.user_api_key_auth.resolve_and_validate_end_user_id",
+                "embrouter.proxy.auth.user_api_key_auth.resolve_and_validate_end_user_id",
                 new_callable=AsyncMock,
             ) as mock_resolve,
         ):
@@ -6367,7 +6367,7 @@ async def test_user_api_key_auth_authenticates_before_raising_malformed_body_err
     from fastapi import Request
     from starlette.datastructures import URL
 
-    import litellm.proxy.proxy_server as _proxy_server_mod
+    import embrouter.proxy.proxy_server as _proxy_server_mod
 
     builder_token = UserAPIKeyAuth(api_key="sk-test", user_id="u1", team_id="team-1")
 
@@ -6388,19 +6388,19 @@ async def test_user_api_key_auth_authenticates_before_raising_malformed_body_err
             setattr(_proxy_server_mod, k, v)
         with (
             patch(
-                "litellm.proxy.auth.user_api_key_auth._user_api_key_auth_builder",
+                "embrouter.proxy.auth.user_api_key_auth._user_api_key_auth_builder",
                 new_callable=AsyncMock,
                 return_value=builder_token,
             ) as mock_builder,
             patch(
-                "litellm.proxy.auth.user_api_key_auth._run_centralized_common_checks",
+                "embrouter.proxy.auth.user_api_key_auth._run_centralized_common_checks",
                 new_callable=AsyncMock,
             ) as mock_common_checks,
             patch(
-                "litellm.proxy.auth.user_api_key_auth.RouteChecks.should_call_route",
+                "embrouter.proxy.auth.user_api_key_auth.RouteChecks.should_call_route",
             ),
             patch(
-                "litellm.proxy.auth.user_api_key_auth.seed_request_identity",
+                "embrouter.proxy.auth.user_api_key_auth.seed_request_identity",
             ) as mock_seed,
         ):
             with pytest.raises(ProxyException) as exc_info:
@@ -6426,7 +6426,7 @@ async def _run_auth_with_malformed_body(post_call_failure_hook):
     from fastapi import Request
     from starlette.datastructures import URL
 
-    import litellm.proxy.proxy_server as _proxy_server_mod
+    import embrouter.proxy.proxy_server as _proxy_server_mod
 
     builder_token = UserAPIKeyAuth(api_key="sk-test", user_id="u1", team_id="team-1")
 
@@ -6448,12 +6448,12 @@ async def _run_auth_with_malformed_body(post_call_failure_hook):
             setattr(_proxy_server_mod, k, v)
         with (
             patch(
-                "litellm.proxy.auth.user_api_key_auth._user_api_key_auth_builder",
+                "embrouter.proxy.auth.user_api_key_auth._user_api_key_auth_builder",
                 new_callable=AsyncMock,
                 return_value=builder_token,
             ),
             patch(
-                "litellm.proxy.auth.user_api_key_auth.RouteChecks.should_call_route",
+                "embrouter.proxy.auth.user_api_key_auth.RouteChecks.should_call_route",
             ),
         ):
             with pytest.raises(ProxyException) as exc_info:
@@ -6500,7 +6500,7 @@ async def test_user_api_key_auth_malformed_body_with_rejected_key_still_returns_
     from fastapi import Request
     from starlette.datastructures import URL
 
-    import litellm.proxy.proxy_server as _proxy_server_mod
+    import embrouter.proxy.proxy_server as _proxy_server_mod
 
     request = Request(
         scope={
@@ -6519,7 +6519,7 @@ async def test_user_api_key_auth_malformed_body_with_rejected_key_still_returns_
             setattr(_proxy_server_mod, k, v)
         with (
             patch(
-                "litellm.proxy.auth.user_api_key_auth._user_api_key_auth_builder",
+                "embrouter.proxy.auth.user_api_key_auth._user_api_key_auth_builder",
                 new_callable=AsyncMock,
                 side_effect=ProxyException(
                     message="Authentication Error, invalid key",
@@ -6529,7 +6529,7 @@ async def test_user_api_key_auth_malformed_body_with_rejected_key_still_returns_
                 ),
             ),
             patch(
-                "litellm.proxy.auth.user_api_key_auth.RouteChecks.should_call_route",
+                "embrouter.proxy.auth.user_api_key_auth.RouteChecks.should_call_route",
             ),
         ):
             with pytest.raises(ProxyException) as exc_info:
@@ -6550,7 +6550,7 @@ async def test_user_api_key_auth_does_not_double_log_a_malformed_body_from_a_rej
     from fastapi import Request
     from starlette.datastructures import URL
 
-    import litellm.proxy.proxy_server as _proxy_server_mod
+    import embrouter.proxy.proxy_server as _proxy_server_mod
 
     request = Request(
         scope={
@@ -6571,7 +6571,7 @@ async def test_user_api_key_auth_does_not_double_log_a_malformed_body_from_a_rej
             setattr(_proxy_server_mod, k, v)
         with (
             patch(
-                "litellm.proxy.auth.user_api_key_auth._user_api_key_auth_builder",
+                "embrouter.proxy.auth.user_api_key_auth._user_api_key_auth_builder",
                 new_callable=AsyncMock,
                 side_effect=ProxyException(
                     message="Authentication Error, invalid key",
@@ -6581,7 +6581,7 @@ async def test_user_api_key_auth_does_not_double_log_a_malformed_body_from_a_rej
                 ),
             ),
             patch(
-                "litellm.proxy.auth.user_api_key_auth.RouteChecks.should_call_route",
+                "embrouter.proxy.auth.user_api_key_auth.RouteChecks.should_call_route",
             ),
         ):
             with pytest.raises(ProxyException):
@@ -6611,7 +6611,7 @@ def _proxy_attrs_for_db_lookup():
         "model_max_budget_limiter": MagicMock(),
         "user_custom_auth": None,
         "jwt_handler": None,
-        "litellm_proxy_admin_name": "admin",
+        "embrouter_proxy_admin_name": "admin",
     }
 
 
@@ -6622,8 +6622,8 @@ async def _run_builder_with_key_lookup(get_key_object_mock):
     from fastapi import Request
     from starlette.datastructures import URL
 
-    import litellm.proxy.proxy_server as _proxy_server_mod
-    from litellm.proxy.auth.user_api_key_auth import _user_api_key_auth_builder
+    import embrouter.proxy.proxy_server as _proxy_server_mod
+    from embrouter.proxy.auth.user_api_key_auth import _user_api_key_auth_builder
 
     attrs = _proxy_attrs_for_db_lookup()
     originals = {a: getattr(_proxy_server_mod, a, None) for a in attrs}
@@ -6634,11 +6634,11 @@ async def _run_builder_with_key_lookup(get_key_object_mock):
         request._url = URL(url="/chat/completions")
         with (
             patch(
-                "litellm.proxy.auth.resolvers.store.IdentityStore._resolve_key",
+                "embrouter.proxy.auth.resolvers.store.IdentityStore._resolve_key",
                 get_key_object_mock,
             ),
             patch(
-                "litellm.proxy.auth.auth_exception_handler.seed_request_identity",
+                "embrouter.proxy.auth.auth_exception_handler.seed_request_identity",
             ),
         ):
             return await _user_api_key_auth_builder(
@@ -6677,9 +6677,9 @@ async def test_burst_against_a_stalled_db_fails_fast_with_503_and_turns_readines
     import httpx
     from fastapi import Depends, FastAPI
 
-    import litellm.proxy.health_endpoints._health_endpoints as health_endpoints
-    import litellm.proxy.proxy_server as _proxy_server_mod
-    from litellm.proxy.db.db_lookup_gate import db_lookup_stall_tracker
+    import embrouter.proxy.health_endpoints._health_endpoints as health_endpoints
+    import embrouter.proxy.proxy_server as _proxy_server_mod
+    from embrouter.proxy.db.db_lookup_gate import db_lookup_stall_tracker
 
     app = FastAPI()
 
@@ -6700,9 +6700,9 @@ async def test_burst_against_a_stalled_db_fails_fast_with_503_and_turns_readines
             setattr(_proxy_server_mod, k, v)
         with (
             patch(  # test-quality-ok: lowers the module-level lookup deadline so the stalled burst finishes fast
-                "litellm.proxy.db.db_lookup_gate.PROXY_DB_LOOKUP_DEADLINE_SECONDS", 0.2
+                "embrouter.proxy.db.db_lookup_gate.PROXY_DB_LOOKUP_DEADLINE_SECONDS", 0.2
             ),
-            patch("litellm.proxy.auth.auth_exception_handler.seed_request_identity"),
+            patch("embrouter.proxy.auth.auth_exception_handler.seed_request_identity"),
         ):
             async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://t") as client:
                 started = time.monotonic()
@@ -6774,7 +6774,7 @@ async def test_builder_succeeds_when_db_lookup_returns_valid_token():
     get_key_object = AsyncMock(return_value=valid_token)
 
     with patch(
-        "litellm.proxy.auth.user_api_key_auth._return_user_api_key_auth_obj",
+        "embrouter.proxy.auth.user_api_key_auth._return_user_api_key_auth_obj",
         new_callable=AsyncMock,
         return_value=valid_token,
     ) as mock_return:
@@ -6789,13 +6789,13 @@ async def test_builder_succeeds_when_db_lookup_returns_valid_token():
 def _mint_cli_session_token(monkeypatch, *, user_id="cli-admin"):
     """Mint a CLI session token for a PROXY_ADMIN user so auth resolves on the
     admin early-return path (no prisma/common_checks needed)."""
-    monkeypatch.setenv("LITELLM_SALT_KEY", "sk-salt-cli-test")
-    from litellm.proxy.auth.auth_checks import ExperimentalUIJWTToken
+    monkeypatch.setenv("EMBROUTER_SALT_KEY", "sk-salt-cli-test")
+    from embrouter.proxy.auth.auth_checks import ExperimentalUIJWTToken
 
-    user_info = LiteLLM_UserTable(
+    user_info = EmbRouter_UserTable(
         user_id=user_id,
         user_email="cli@example.com",
-        user_role=LitellmUserRoles.PROXY_ADMIN.value,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN.value,
         models=["gpt-3.5-turbo"],
         max_budget=100.0,
     )
@@ -6817,8 +6817,8 @@ async def test_cli_session_token_authenticates_without_experimental_flag(monkeyp
     mock_request.query_params = {}
 
     with (
-        patch("litellm.proxy.proxy_server.master_key", "sk-master"),
-        patch("litellm.proxy.proxy_server.prisma_client", None),
+        patch("embrouter.proxy.proxy_server.master_key", "sk-master"),
+        patch("embrouter.proxy.proxy_server.prisma_client", None),
     ):
         result = await user_api_key_auth(
             request=mock_request,
@@ -6837,7 +6837,7 @@ async def test_random_non_sk_token_is_rejected(monkeypatch):
     accepted. A non-None prisma is used so the no-db short-circuit is skipped and
     the real rejection path (before any DB lookup) is exercised."""
     monkeypatch.delenv("EXPERIMENTAL_UI_LOGIN", raising=False)
-    monkeypatch.setenv("LITELLM_SALT_KEY", "sk-salt-cli-test")
+    monkeypatch.setenv("EMBROUTER_SALT_KEY", "sk-salt-cli-test")
 
     mock_request = MagicMock()
     mock_request.url.path = "/v1/messages"
@@ -6846,10 +6846,10 @@ async def test_random_non_sk_token_is_rejected(monkeypatch):
     mock_request.query_params = {}
 
     with (
-        patch("litellm.proxy.proxy_server.master_key", "sk-master"),
-        patch("litellm.proxy.proxy_server.prisma_client", MagicMock()),
+        patch("embrouter.proxy.proxy_server.master_key", "sk-master"),
+        patch("embrouter.proxy.proxy_server.prisma_client", MagicMock()),
     ):
-        with pytest.raises(Exception, match="LiteLLM Virtual Key expected\\.") as exc_info:
+        with pytest.raises(Exception, match="EmbRouter Virtual Key expected\\.") as exc_info:
             await user_api_key_auth(
                 request=mock_request,
                 api_key="Bearer not-a-real-token",
@@ -6865,21 +6865,21 @@ async def test_expired_cli_session_token_is_rejected(monkeypatch):
     """An expired CLI session token must 401 with expired_key. Expiry is enforced
     on the shared validation path, not only for DB-backed keys."""
     monkeypatch.delenv("EXPERIMENTAL_UI_LOGIN", raising=False)
-    monkeypatch.setenv("LITELLM_SALT_KEY", "sk-salt-cli-test")
-    monkeypatch.setenv("LITELLM_CLI_JWT_EXPIRATION_HOURS", "-1")
+    monkeypatch.setenv("EMBROUTER_SALT_KEY", "sk-salt-cli-test")
+    monkeypatch.setenv("EMBROUTER_CLI_JWT_EXPIRATION_HOURS", "-1")
 
     import importlib
 
-    from litellm import constants
-    from litellm.proxy.auth import auth_checks
+    from embrouter import constants
+    from embrouter.proxy.auth import auth_checks
 
     importlib.reload(constants)
     importlib.reload(auth_checks)
 
-    user_info = LiteLLM_UserTable(
+    user_info = EmbRouter_UserTable(
         user_id="cli-admin",
         user_email="cli@example.com",
-        user_role=LitellmUserRoles.PROXY_ADMIN.value,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN.value,
         models=["gpt-3.5-turbo"],
         max_budget=100.0,
     )
@@ -6893,8 +6893,8 @@ async def test_expired_cli_session_token_is_rejected(monkeypatch):
 
     try:
         with (
-            patch("litellm.proxy.proxy_server.master_key", "sk-master"),
-            patch("litellm.proxy.proxy_server.prisma_client", None),
+            patch("embrouter.proxy.proxy_server.master_key", "sk-master"),
+            patch("embrouter.proxy.proxy_server.prisma_client", None),
         ):
             with pytest.raises(ProxyException) as exc_info:
                 await user_api_key_auth(
@@ -6904,7 +6904,7 @@ async def test_expired_cli_session_token_is_rejected(monkeypatch):
 
         assert exc_info.value.type == ProxyErrorTypes.expired_key
     finally:
-        monkeypatch.delenv("LITELLM_CLI_JWT_EXPIRATION_HOURS", raising=False)
+        monkeypatch.delenv("EMBROUTER_CLI_JWT_EXPIRATION_HOURS", raising=False)
         importlib.reload(constants)
         importlib.reload(auth_checks)
 
@@ -6918,19 +6918,19 @@ async def test_non_admin_cli_session_token_reaches_production_auth_path(monkeypa
     sk- guard. With the fix, valid_token is set, the sk- guard is skipped, and
     _return_user_api_key_auth_obj is called with the correct identity."""
     monkeypatch.delenv("EXPERIMENTAL_UI_LOGIN", raising=False)
-    monkeypatch.setenv("LITELLM_SALT_KEY", "sk-salt-cli-test")
+    monkeypatch.setenv("EMBROUTER_SALT_KEY", "sk-salt-cli-test")
 
-    from litellm.proxy.auth.auth_checks import ExperimentalUIJWTToken
+    from embrouter.proxy.auth.auth_checks import ExperimentalUIJWTToken
 
-    user_info = LiteLLM_UserTable(
+    user_info = EmbRouter_UserTable(
         user_id="internal-user-1",
         user_email="user@example.com",
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
+        user_role=EmbrouterUserRoles.INTERNAL_USER.value,
         models=[],
     )
     cli_token = ExperimentalUIJWTToken.get_cli_jwt_auth_token(user_info, team_id="team-abc", team_alias="my-team")
 
-    import litellm.proxy.proxy_server as _proxy_server_mod
+    import embrouter.proxy.proxy_server as _proxy_server_mod
     from fastapi import Request
     from starlette.datastructures import URL
 
@@ -6948,17 +6948,17 @@ async def test_non_admin_cli_session_token_reaches_production_auth_path(monkeypa
         request._url = URL(url="/chat/completions")
         with (
             patch(
-                "litellm.proxy.auth.user_api_key_auth._return_user_api_key_auth_obj",
+                "embrouter.proxy.auth.user_api_key_auth._return_user_api_key_auth_obj",
                 new_callable=AsyncMock,
                 return_value=assembled,
             ) as mock_assemble,
             patch(
-                "litellm.proxy.auth.user_api_key_auth.get_user_object",
+                "embrouter.proxy.auth.user_api_key_auth.get_user_object",
                 new_callable=AsyncMock,
                 return_value=None,
             ),
             patch(
-                "litellm.proxy.auth.user_api_key_auth.get_team_object",
+                "embrouter.proxy.auth.user_api_key_auth.get_team_object",
                 new_callable=AsyncMock,
                 side_effect=__import__("fastapi").HTTPException(status_code=404),
             ),
@@ -6981,7 +6981,7 @@ async def test_non_admin_cli_session_token_reaches_production_auth_path(monkeypa
     assert call_kwargs["valid_token_dict"]["user_id"] == "internal-user-1"
     assert call_kwargs["valid_token_dict"]["team_id"] == "team-abc"
     assert call_kwargs["valid_token_dict"]["is_session_token"] is True
-    assert call_kwargs["valid_token_dict"]["user_role"] == LitellmUserRoles.INTERNAL_USER
+    assert call_kwargs["valid_token_dict"]["user_role"] == EmbrouterUserRoles.INTERNAL_USER
     assert result.is_session_token is True
 
 
@@ -6992,17 +6992,17 @@ SESSION_USER_ID = "member-1"
 def _mint_session_token(
     monkeypatch,
     *,
-    role=LitellmUserRoles.INTERNAL_USER,
+    role=EmbrouterUserRoles.INTERNAL_USER,
     team_id=SESSION_TEAM_ID,
     team_models=("stale-model",),
     models=(),
 ):
     """Mint a ``lite login`` token carrying the grants as they were at login time."""
     monkeypatch.delenv("EXPERIMENTAL_UI_LOGIN", raising=False)
-    monkeypatch.setenv("LITELLM_SALT_KEY", "sk-salt-cli-test")
-    from litellm.proxy.auth.auth_checks import ExperimentalUIJWTToken
+    monkeypatch.setenv("EMBROUTER_SALT_KEY", "sk-salt-cli-test")
+    from embrouter.proxy.auth.auth_checks import ExperimentalUIJWTToken
 
-    user_info = LiteLLM_UserTable(
+    user_info = EmbRouter_UserTable(
         user_id=SESSION_USER_ID, user_email="user@example.com", user_role=role.value, models=list(models)
     )
     return ExperimentalUIJWTToken.get_cli_jwt_auth_token(
@@ -7010,8 +7010,8 @@ def _mint_session_token(
     )
 
 
-def _session_user_row(*, teams=(SESSION_TEAM_ID,), role=LitellmUserRoles.INTERNAL_USER, models=()):
-    return LiteLLM_UserTable(user_id=SESSION_USER_ID, user_role=role.value, teams=list(teams), models=list(models))
+def _session_user_row(*, teams=(SESSION_TEAM_ID,), role=EmbrouterUserRoles.INTERNAL_USER, models=()):
+    return EmbRouter_UserTable(user_id=SESSION_USER_ID, user_role=role.value, teams=list(teams), models=list(models))
 
 
 async def _authenticate_session_token_against_db(
@@ -7020,12 +7020,12 @@ async def _authenticate_session_token_against_db(
     """Drive the real builder for a session token with the DB row readers replaced by the given rows or
     errors. Returns the ``_return_user_api_key_auth_obj`` mock so the caller can read the token it was
     handed; a denial surfaces as the exception the builder raises."""
-    import litellm.proxy.proxy_server as _proxy_server_mod
+    import embrouter.proxy.proxy_server as _proxy_server_mod
     from fastapi import Request
     from starlette.datastructures import URL
 
     attrs = _proxy_attrs_for_db_lookup()
-    attrs["prisma_client"].db.litellm_teammembership.find_first = AsyncMock(return_value=None)
+    attrs["prisma_client"].db.embrouter_teammembership.find_first = AsyncMock(return_value=None)
     originals = {a: getattr(_proxy_server_mod, a, None) for a in attrs}
     assemble = AsyncMock(return_value=UserAPIKeyAuth(user_id=SESSION_USER_ID, is_session_token=True))
     try:
@@ -7035,18 +7035,18 @@ async def _authenticate_session_token_against_db(
         request._url = URL(url="/chat/completions")
         with (
             patch(  # test-quality-ok: the builder has no injection seam for its assembler yet
-                "litellm.proxy.auth.user_api_key_auth._return_user_api_key_auth_obj", assemble
+                "embrouter.proxy.auth.user_api_key_auth._return_user_api_key_auth_obj", assemble
             ),
             patch(  # test-quality-ok: the builder reads its DB row loaders off module globals
-                "litellm.proxy.auth.user_api_key_auth.get_user_object",
+                "embrouter.proxy.auth.user_api_key_auth.get_user_object",
                 AsyncMock(return_value=user_row, side_effect=user_error),
             ),
             patch(  # test-quality-ok: the builder reads its DB row loaders off module globals
-                "litellm.proxy.auth.user_api_key_auth.get_team_object",
+                "embrouter.proxy.auth.user_api_key_auth.get_team_object",
                 AsyncMock(return_value=team_row, side_effect=team_error),
             ),
             patch(  # test-quality-ok: the builder reads its DB row loaders off module globals
-                "litellm.proxy.auth.user_api_key_auth.get_team_membership",
+                "embrouter.proxy.auth.user_api_key_auth.get_team_membership",
                 AsyncMock(return_value=membership_row),
             ),
         ):
@@ -7069,17 +7069,17 @@ async def _authenticate_session_token_against_db(
 async def test_session_token_reads_team_grants_from_the_live_team_row(monkeypatch):
     """LIT-7358: a lite login token snapshots the team's models at login, so adding a model to the team did
     nothing for that CLI until the user logged in again. The team row has to be re-read on every request."""
-    from litellm.models.team import LiteLLM_ModelTable
-    from litellm.proxy._types import LiteLLM_TeamMembership, LiteLLM_TeamTableCachedObj
+    from embrouter.models.team import EmbRouter_ModelTable
+    from embrouter.proxy._types import EmbRouter_TeamMembership, EmbRouter_TeamTableCachedObj
 
     cli_token = _mint_session_token(monkeypatch, team_models=("stale-model",))
-    live_team = LiteLLM_TeamTableCachedObj(
+    live_team = EmbRouter_TeamTableCachedObj(
         team_id=SESSION_TEAM_ID,
         team_alias="renamed-team",
         models=["gpt-5.5", "claude-opus-5"],
-        litellm_model_table=LiteLLM_ModelTable(model_aliases={"fast": "gpt-5.5"}, created_by="a", updated_by="a"),
+        embrouter_model_table=EmbRouter_ModelTable(model_aliases={"fast": "gpt-5.5"}, created_by="a", updated_by="a"),
     )
-    membership = LiteLLM_TeamMembership(user_id=SESSION_USER_ID, team_id=SESSION_TEAM_ID, spend=2.5)
+    membership = EmbRouter_TeamMembership(user_id=SESSION_USER_ID, team_id=SESSION_TEAM_ID, spend=2.5)
 
     assemble = await _authenticate_session_token_against_db(
         cli_token, user_row=_session_user_row(), team_row=live_team, membership_row=membership
@@ -7107,18 +7107,18 @@ async def test_session_token_without_a_team_reads_models_from_the_live_user_row(
 @pytest.mark.asyncio
 async def test_demoted_admin_session_token_loses_admin_on_the_next_request(monkeypatch):
     """The role baked into the token used to send a former admin down the admin early return forever."""
-    from litellm.proxy._types import LiteLLM_TeamTableCachedObj
+    from embrouter.proxy._types import EmbRouter_TeamTableCachedObj
 
-    cli_token = _mint_session_token(monkeypatch, role=LitellmUserRoles.PROXY_ADMIN)
+    cli_token = _mint_session_token(monkeypatch, role=EmbrouterUserRoles.PROXY_ADMIN)
 
     assemble = await _authenticate_session_token_against_db(
         cli_token,
-        user_row=_session_user_row(role=LitellmUserRoles.INTERNAL_USER),
-        team_row=LiteLLM_TeamTableCachedObj(team_id=SESSION_TEAM_ID, models=["gpt-5.5"]),
+        user_row=_session_user_row(role=EmbrouterUserRoles.INTERNAL_USER),
+        team_row=EmbRouter_TeamTableCachedObj(team_id=SESSION_TEAM_ID, models=["gpt-5.5"]),
     )
 
     assemble.assert_awaited_once()
-    assert assemble.call_args.kwargs["valid_token_dict"]["user_role"] == LitellmUserRoles.INTERNAL_USER
+    assert assemble.call_args.kwargs["valid_token_dict"]["user_role"] == EmbrouterUserRoles.INTERNAL_USER
 
 
 @pytest.mark.asyncio
@@ -7184,7 +7184,7 @@ async def test_cli_session_token_authenticates_when_jwt_auth_enabled_without_lic
 
     jwt_handler = MagicMock()
     jwt_handler.is_jwt = JWTHandler.is_jwt
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth()
+    jwt_handler.embrouter_jwtauth = EmbRouter_JWTAuth()
 
     mock_request = MagicMock()
     mock_request.url.path = "/v1/messages"
@@ -7193,11 +7193,11 @@ async def test_cli_session_token_authenticates_when_jwt_auth_enabled_without_lic
     mock_request.query_params = {}
 
     with (
-        patch("litellm.proxy.proxy_server.general_settings", {"enable_jwt_auth": True}),
-        patch("litellm.proxy.proxy_server.premium_user", False),
-        patch("litellm.proxy.proxy_server.jwt_handler", jwt_handler),
-        patch("litellm.proxy.proxy_server.master_key", "sk-master"),
-        patch("litellm.proxy.proxy_server.prisma_client", None),
+        patch("embrouter.proxy.proxy_server.general_settings", {"enable_jwt_auth": True}),
+        patch("embrouter.proxy.proxy_server.premium_user", False),
+        patch("embrouter.proxy.proxy_server.jwt_handler", jwt_handler),
+        patch("embrouter.proxy.proxy_server.master_key", "sk-master"),
+        patch("embrouter.proxy.proxy_server.prisma_client", None),
     ):
         result = await user_api_key_auth(
             request=mock_request,
@@ -7215,12 +7215,12 @@ async def test_real_jwt_still_requires_license_when_jwt_auth_enabled(monkeypatch
     actual JWT when there is no license. Moving the premium check inside the
     is_jwt branch must not open JWT auth to non-premium deployments."""
     monkeypatch.delenv("EXPERIMENTAL_UI_LOGIN", raising=False)
-    monkeypatch.setenv("LITELLM_SALT_KEY", "sk-salt-cli-test")
+    monkeypatch.setenv("EMBROUTER_SALT_KEY", "sk-salt-cli-test")
 
     jwt_token = "eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJ1c2VyMSJ9.sig"
     jwt_handler = MagicMock()
     jwt_handler.is_jwt = JWTHandler.is_jwt
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth()
+    jwt_handler.embrouter_jwtauth = EmbRouter_JWTAuth()
 
     mock_request = MagicMock()
     mock_request.url.path = "/v1/messages"
@@ -7229,11 +7229,11 @@ async def test_real_jwt_still_requires_license_when_jwt_auth_enabled(monkeypatch
     mock_request.query_params = {}
 
     with (
-        patch("litellm.proxy.proxy_server.general_settings", {"enable_jwt_auth": True}),
-        patch("litellm.proxy.proxy_server.premium_user", False),
-        patch("litellm.proxy.proxy_server.jwt_handler", jwt_handler),
-        patch("litellm.proxy.proxy_server.master_key", "sk-master"),
-        patch("litellm.proxy.proxy_server.prisma_client", None),
+        patch("embrouter.proxy.proxy_server.general_settings", {"enable_jwt_auth": True}),
+        patch("embrouter.proxy.proxy_server.premium_user", False),
+        patch("embrouter.proxy.proxy_server.jwt_handler", jwt_handler),
+        patch("embrouter.proxy.proxy_server.master_key", "sk-master"),
+        patch("embrouter.proxy.proxy_server.prisma_client", None),
     ):
         with pytest.raises(Exception, match="JWT Auth is an enterprise only feature\\. You must be a") as exc_info:
             await user_api_key_auth(
@@ -7259,10 +7259,10 @@ async def test_auth_does_not_rewrite_cached_key_object_back_into_cache():
     from fastapi import Request
     from starlette.datastructures import URL
 
-    import litellm.proxy.proxy_server as _proxy_server_mod
-    from litellm.proxy.auth.user_api_key_auth import _user_api_key_auth_builder
-    from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-    from litellm.proxy.proxy_server import hash_token
+    import embrouter.proxy.proxy_server as _proxy_server_mod
+    from embrouter.proxy.auth.user_api_key_auth import _user_api_key_auth_builder
+    from embrouter.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+    from embrouter.proxy.proxy_server import hash_token
 
     api_key = "sk-lit-cached-key-no-rewrite"
     hashed_key = hash_token(api_key)
@@ -7295,7 +7295,7 @@ async def test_auth_does_not_rewrite_cached_key_object_back_into_cache():
         "model_max_budget_limiter": MagicMock(),
         "user_custom_auth": None,
         "jwt_handler": None,
-        "litellm_proxy_admin_name": "admin",
+        "embrouter_proxy_admin_name": "admin",
     }
     originals = {a: getattr(_proxy_server_mod, a, None) for a in attrs}
     try:
@@ -7304,7 +7304,7 @@ async def test_auth_does_not_rewrite_cached_key_object_back_into_cache():
         request = Request(scope={"type": "http"})
         request._url = URL(url="/chat/completions")
         with patch(
-            "litellm.proxy.auth.resolvers.store._fetch_key_object_from_db_with_reconnect",
+            "embrouter.proxy.auth.resolvers.store._fetch_key_object_from_db_with_reconnect",
             fetch_from_db,
         ):
             result = await _user_api_key_auth_builder(
@@ -7348,22 +7348,22 @@ class TestJWTAuthUserEmail:
     async def _run_jwt_auth(self, mock_jwt_result, jwt_token, route="/v1/chat/completions"):
         with (
             patch(
-                "litellm.proxy.proxy_server.general_settings",
+                "embrouter.proxy.proxy_server.general_settings",
                 {"enable_jwt_auth": True},
             ),
-            patch("litellm.proxy.proxy_server.premium_user", True),
-            patch("litellm.proxy.proxy_server.master_key", "sk-master"),
-            patch("litellm.proxy.proxy_server.prisma_client", None),
+            patch("embrouter.proxy.proxy_server.premium_user", True),
+            patch("embrouter.proxy.proxy_server.master_key", "sk-master"),
+            patch("embrouter.proxy.proxy_server.prisma_client", None),
             patch(
-                "litellm.proxy.auth.user_api_key_auth.JWTAuthManager.auth_builder",
+                "embrouter.proxy.auth.user_api_key_auth.JWTAuthManager.auth_builder",
                 new_callable=AsyncMock,
                 return_value=mock_jwt_result,
             ),
         ):
-            litellm.proxy.proxy_server.jwt_handler.update_environment(
+            embrouter.proxy.proxy_server.jwt_handler.update_environment(
                 prisma_client=None,
                 user_api_key_cache=DualCache(),
-                litellm_jwtauth=LiteLLM_JWTAuth(),
+                embrouter_jwtauth=EmbRouter_JWTAuth(),
             )
             return await user_api_key_auth(
                 request=self._jwt_request(jwt_token, route),
@@ -7376,10 +7376,10 @@ class TestJWTAuthUserEmail:
         mock_jwt_result = {
             "is_proxy_admin": False,
             "team_object": None,
-            "user_object": LiteLLM_UserTable(
+            "user_object": EmbRouter_UserTable(
                 user_id="jwt-human-user",
                 user_email="row@example.com",
-                user_role=LitellmUserRoles.INTERNAL_USER.value,
+                user_role=EmbrouterUserRoles.INTERNAL_USER.value,
             ),
             "end_user_object": None,
             "org_object": None,
@@ -7413,9 +7413,9 @@ class TestJWTAuthUserEmail:
         result: Final = {
             "is_proxy_admin": is_admin,
             "team_object": None,
-            "user_object": LiteLLM_UserTable(
+            "user_object": EmbRouter_UserTable(
                 user_id="jwt-human-user",
-                user_role=LitellmUserRoles.PROXY_ADMIN.value if is_admin else LitellmUserRoles.INTERNAL_USER.value,
+                user_role=EmbrouterUserRoles.PROXY_ADMIN.value if is_admin else EmbrouterUserRoles.INTERNAL_USER.value,
                 metadata={} if active is None else {"scim_active": active},
             ),
             "end_user_object": None,
@@ -7459,7 +7459,7 @@ class TestJWTAuthUserEmail:
 
         result = await self._run_jwt_auth(mock_jwt_result, jwt_token)
 
-        assert result.user_role == LitellmUserRoles.PROXY_ADMIN
+        assert result.user_role == EmbrouterUserRoles.PROXY_ADMIN
         assert result.user_id == "jwt-admin-user"
         assert result.user_email == "admin@example.com"
 
@@ -7501,7 +7501,7 @@ class TestCheckKeyModelBudgetWithFallback:
             budget_fallbacks={"gpt-4o": ["gpt-4o-mini", "claude-haiku"]},
         )
         limiter = AsyncMock()
-        limiter.is_key_within_model_budget.side_effect = litellm.BudgetExceededError(current_cost=10, max_budget=5)
+        limiter.is_key_within_model_budget.side_effect = embrouter.BudgetExceededError(current_cost=10, max_budget=5)
         limiter.get_fallback_model_within_budget.return_value = "gpt-4o-mini"
         request_data = {"model": "gpt-4o"}
         request = self._make_request()
@@ -7526,13 +7526,13 @@ class TestCheckKeyModelBudgetWithFallback:
     async def test_raises_when_every_fallback_also_exceeded(self):
         valid_token = UserAPIKeyAuth(token="test-key", budget_fallbacks={"gpt-4o": ["gpt-4o-mini"]})
         limiter = AsyncMock()
-        original_error = litellm.BudgetExceededError(current_cost=10, max_budget=5)
+        original_error = embrouter.BudgetExceededError(current_cost=10, max_budget=5)
         limiter.is_key_within_model_budget.side_effect = original_error
         limiter.get_fallback_model_within_budget.return_value = None
         request_data = {"model": "gpt-4o"}
         request = self._make_request()
 
-        with pytest.raises(litellm.BudgetExceededError) as exc_info:
+        with pytest.raises(embrouter.BudgetExceededError) as exc_info:
             await _check_key_model_budget_with_fallback(
                 valid_token=valid_token,
                 model_max_budget_limiter=limiter,
@@ -7555,14 +7555,14 @@ class TestCheckKeyModelBudgetWithFallback:
             budget_fallbacks={"gpt-4o": ["restricted-model"]},
         )
         limiter = AsyncMock()
-        original_error = litellm.BudgetExceededError(current_cost=10, max_budget=5)
+        original_error = embrouter.BudgetExceededError(current_cost=10, max_budget=5)
         limiter.is_key_within_model_budget.side_effect = original_error
         limiter.get_fallback_model_within_budget.return_value = "restricted-model"
         request_data = {"model": "gpt-4o"}
         request = self._make_request()
 
         with patch(
-            "litellm.proxy.auth.user_api_key_auth.can_key_call_model",
+            "embrouter.proxy.auth.user_api_key_auth.can_key_call_model",
             side_effect=ProxyException(
                 message="model not allowed",
                 type=ProxyErrorTypes.budget_exceeded,
@@ -7570,7 +7570,7 @@ class TestCheckKeyModelBudgetWithFallback:
                 code=status.HTTP_403_FORBIDDEN,
             ),
         ):
-            with pytest.raises(litellm.BudgetExceededError) as exc_info:
+            with pytest.raises(embrouter.BudgetExceededError) as exc_info:
                 await _check_key_model_budget_with_fallback(
                     valid_token=valid_token,
                     model_max_budget_limiter=limiter,
@@ -7594,13 +7594,13 @@ class TestCheckKeyModelBudgetWithFallback:
             budget_fallbacks={"gpt-4o": ["gpt-4o-mini"]},
         )
         limiter = AsyncMock()
-        limiter.is_key_within_model_budget.side_effect = litellm.BudgetExceededError(current_cost=10, max_budget=5)
+        limiter.is_key_within_model_budget.side_effect = embrouter.BudgetExceededError(current_cost=10, max_budget=5)
         limiter.get_fallback_model_within_budget.return_value = "gpt-4o-mini"
         request_data = {"model": "gpt-4o"}
         request = self._make_request()
 
         with patch(
-            "litellm.proxy.auth.user_api_key_auth.can_key_call_model",
+            "embrouter.proxy.auth.user_api_key_auth.can_key_call_model",
             return_value=True,
         ):
             await _check_key_model_budget_with_fallback(
@@ -7627,17 +7627,17 @@ class TestCheckKeyModelBudgetWithFallback:
             budget_fallbacks={"gpt-4o": ["restricted-model"]},
         )
         limiter = AsyncMock()
-        original_error = litellm.BudgetExceededError(current_cost=10, max_budget=5)
+        original_error = embrouter.BudgetExceededError(current_cost=10, max_budget=5)
         limiter.is_key_within_model_budget.side_effect = original_error
         limiter.get_fallback_model_within_budget.return_value = "restricted-model"
         request_data = {"model": "gpt-4o"}
         request = self._make_request()
 
         with patch(
-            "litellm.proxy.auth.user_api_key_auth.can_key_call_model",
+            "embrouter.proxy.auth.user_api_key_auth.can_key_call_model",
             return_value=True,
         ):
-            with pytest.raises(litellm.BudgetExceededError) as exc_info:
+            with pytest.raises(embrouter.BudgetExceededError) as exc_info:
                 await _check_key_model_budget_with_fallback(
                     valid_token=valid_token,
                     model_max_budget_limiter=limiter,
@@ -7662,14 +7662,14 @@ class TestCheckKeyModelBudgetWithFallback:
             budget_fallbacks={"gpt-4o": ["gpt-4o-mini"]},
         )
         limiter = AsyncMock()
-        limiter.is_key_within_model_budget.side_effect = litellm.BudgetExceededError(current_cost=10, max_budget=5)
+        limiter.is_key_within_model_budget.side_effect = embrouter.BudgetExceededError(current_cost=10, max_budget=5)
         limiter.get_fallback_model_within_budget.return_value = "gpt-4o-mini"
         request_data = {"model": "gpt-4o"}
         request = self._make_request()
         request.scope["path_params"] = {"model": "gpt-4o"}
 
         with patch(
-            "litellm.proxy.auth.user_api_key_auth.can_key_call_model",
+            "embrouter.proxy.auth.user_api_key_auth.can_key_call_model",
             return_value=True,
         ):
             await _check_key_model_budget_with_fallback(
@@ -7696,12 +7696,12 @@ class TestCheckKeyModelBudgetWithFallback:
             budget_fallbacks={"gpt-4o": ["gpt-4o-mini"]},
         )
         limiter = AsyncMock()
-        original_error = litellm.BudgetExceededError(current_cost=10, max_budget=5)
+        original_error = embrouter.BudgetExceededError(current_cost=10, max_budget=5)
         limiter.is_key_within_model_budget.side_effect = original_error
         request_data = {"session": {"model": "gpt-4o"}}
         request = self._make_request()
 
-        with pytest.raises(litellm.BudgetExceededError) as exc_info:
+        with pytest.raises(embrouter.BudgetExceededError) as exc_info:
             await _check_key_model_budget_with_fallback(
                 valid_token=valid_token,
                 model_max_budget_limiter=limiter,
@@ -7718,19 +7718,19 @@ class TestCheckKeyModelBudgetWithFallback:
 async def test_global_proxy_spend_reads_resettable_proxy_budget_row():
     """Regression for the global proxy budget ignoring budget_duration
     (LIT-4309 / gh#31292): the enforced global spend must be loaded from the
-    "litellm-proxy-budget" user row, which the spend writer increments per
+    "embrouter-proxy-budget" user row, which the spend writer increments per
     request and ResetBudgetJob zeroes every budget_duration. It must NOT be
     loaded from the MonthlyGlobalSpend view, whose window is hardcoded to a
     trailing 30 days and never resets on the configured duration."""
-    from litellm.proxy.auth.user_api_key_auth import (
+    from embrouter.proxy.auth.user_api_key_auth import (
         _fetch_global_spend_with_event_coordination,
     )
-    from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+    from embrouter.proxy.common_utils.user_api_key_cache import UserApiKeyCache
 
     proxy_budget_row = MagicMock()
     proxy_budget_row.spend = 42.5
     prisma_client = MagicMock()
-    prisma_client.db.litellm_usertable.find_unique = AsyncMock(return_value=proxy_budget_row)
+    prisma_client.db.embrouter_usertable.find_unique = AsyncMock(return_value=proxy_budget_row)
     prisma_client.db.query_raw = AsyncMock(
         side_effect=AssertionError("global spend must not be loaded from the fixed-30d MonthlyGlobalSpend view")
     )
@@ -7742,20 +7742,20 @@ async def test_global_proxy_spend_reads_resettable_proxy_budget_row():
     )
 
     assert result == 42.5
-    prisma_client.db.litellm_usertable.find_unique.assert_awaited_once_with(where={"user_id": "litellm-proxy-budget"})
+    prisma_client.db.embrouter_usertable.find_unique.assert_awaited_once_with(where={"user_id": "embrouter-proxy-budget"})
 
 
 @pytest.mark.asyncio
 async def test_global_proxy_spend_none_when_proxy_budget_row_missing():
     """Before the startup upsert creates the aggregate row, enforcement must
     see None (no cap applied) rather than raising."""
-    from litellm.proxy.auth.user_api_key_auth import (
+    from embrouter.proxy.auth.user_api_key_auth import (
         _fetch_global_spend_with_event_coordination,
     )
-    from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+    from embrouter.proxy.common_utils.user_api_key_cache import UserApiKeyCache
 
     prisma_client = MagicMock()
-    prisma_client.db.litellm_usertable.find_unique = AsyncMock(return_value=None)
+    prisma_client.db.embrouter_usertable.find_unique = AsyncMock(return_value=None)
 
     result = await _fetch_global_spend_with_event_coordination(
         cache_key="default_user_id:spend",
@@ -7784,7 +7784,7 @@ async def test_temp_budget_increase_applied_for_cached_key():
     """
     from datetime import datetime, timedelta
 
-    from litellm.proxy.utils import hash_token
+    from embrouter.proxy.utils import hash_token
 
     api_key = "sk-temp-budget-cache-regression"
     hashed_token = hash_token(api_key)
@@ -7816,13 +7816,13 @@ async def test_temp_budget_increase_applied_for_cached_key():
     proxy_logging_obj.budget_alerts = AsyncMock()
 
     with (
-        patch("litellm.proxy.proxy_server.general_settings", {}),
-        patch("litellm.proxy.proxy_server.master_key", "sk-master"),
-        patch("litellm.proxy.proxy_server.prisma_client", MagicMock()),
-        patch("litellm.proxy.proxy_server.user_api_key_cache", user_api_key_cache),
-        patch("litellm.proxy.proxy_server.proxy_logging_obj", proxy_logging_obj),
+        patch("embrouter.proxy.proxy_server.general_settings", {}),
+        patch("embrouter.proxy.proxy_server.master_key", "sk-master"),
+        patch("embrouter.proxy.proxy_server.prisma_client", MagicMock()),
+        patch("embrouter.proxy.proxy_server.user_api_key_cache", user_api_key_cache),
+        patch("embrouter.proxy.proxy_server.proxy_logging_obj", proxy_logging_obj),
         patch(
-            "litellm.proxy.auth.user_api_key_auth._virtual_key_max_budget_alert_check",
+            "embrouter.proxy.auth.user_api_key_auth._virtual_key_max_budget_alert_check",
             new_callable=AsyncMock,
         ),
     ):
@@ -7859,9 +7859,9 @@ async def test_temp_budget_increase_applied_for_cached_key():
 async def test_cached_key_team_member_budget_blocks_at_exact_cap(team_member_spend, expect_blocked):
     """A team member counter sitting exactly at the cap (where a resized reservation
     lands it) must be rejected by the cached-key auth path like every other budget check."""
-    from litellm.proxy._types import LiteLLM_TeamMembership, LiteLLM_TeamTableCachedObj
-    from litellm.proxy.common_utils.user_api_key_cache import team_membership_auth_cache_key
-    from litellm.proxy.utils import hash_token
+    from embrouter.proxy._types import EmbRouter_TeamMembership, EmbRouter_TeamTableCachedObj
+    from embrouter.proxy.common_utils.user_api_key_cache import team_membership_auth_cache_key
+    from embrouter.proxy.utils import hash_token
 
     api_key = "sk-team-member-exact-cap"
     hashed_token = hash_token(api_key)
@@ -7883,20 +7883,20 @@ async def test_cached_key_team_member_budget_blocks_at_exact_cap(team_member_spe
     )
     await user_api_key_cache.async_set_cache(
         key=f"team_id:{team_id}",
-        value=LiteLLM_TeamTableCachedObj(team_id=team_id),
+        value=EmbRouter_TeamTableCachedObj(team_id=team_id),
     )
     await user_api_key_cache.async_set_cache(
         key=user_id,
-        value=LiteLLM_UserTable(user_id=user_id, user_role=LitellmUserRoles.INTERNAL_USER),
+        value=EmbRouter_UserTable(user_id=user_id, user_role=EmbrouterUserRoles.INTERNAL_USER),
     )
     await user_api_key_cache.async_set_cache(
         key=team_membership_auth_cache_key(team_id=team_id, user_id=user_id),
-        value=LiteLLM_TeamMembership(
+        value=EmbRouter_TeamMembership(
             user_id=user_id,
             team_id=team_id,
             spend=team_member_spend,
             budget_id="budget-exact-cap",
-            litellm_budget_table=LiteLLM_BudgetTable(max_budget=max_budget),
+            embrouter_budget_table=EmbRouter_BudgetTable(max_budget=max_budget),
         ),
     )
 
@@ -7924,18 +7924,18 @@ async def test_cached_key_team_member_budget_blocks_at_exact_cap(team_member_spe
 
     with (
         patch(  # test-quality-ok: the builder reads proxy settings from module globals, no injection seam
-            "litellm.proxy.proxy_server.general_settings", {"disable_budget_reservation": True}
+            "embrouter.proxy.proxy_server.general_settings", {"disable_budget_reservation": True}
         ),
-        patch("litellm.proxy.proxy_server.master_key", "sk-master"),  # test-quality-ok: module-global proxy state
-        patch("litellm.proxy.proxy_server.prisma_client", MagicMock()),  # test-quality-ok: module-global proxy state
+        patch("embrouter.proxy.proxy_server.master_key", "sk-master"),  # test-quality-ok: module-global proxy state
+        patch("embrouter.proxy.proxy_server.prisma_client", MagicMock()),  # test-quality-ok: module-global proxy state
         patch(  # test-quality-ok: seed the cached key, team and membership without a DB
-            "litellm.proxy.proxy_server.user_api_key_cache", user_api_key_cache
+            "embrouter.proxy.proxy_server.user_api_key_cache", user_api_key_cache
         ),
         patch(  # test-quality-ok: module-global proxy state
-            "litellm.proxy.proxy_server.proxy_logging_obj", proxy_logging_obj
+            "embrouter.proxy.proxy_server.proxy_logging_obj", proxy_logging_obj
         ),
         patch(  # test-quality-ok: the live counter needs Redis or a DB; pin the spend the check compares
-            "litellm.proxy.proxy_server.get_current_spend",
+            "embrouter.proxy.proxy_server.get_current_spend",
             new=AsyncMock(return_value=team_member_spend),
         ),
     ):
@@ -7961,9 +7961,9 @@ async def test_cached_key_team_member_budget_blocks_at_exact_cap(team_member_spe
 async def test_cached_key_team_member_budget_honours_temp_increase(expiry_offset, expect_blocked):
     """A member over their permanent cap is admitted while a temp_budget_increase is unexpired
     and blocked again once it expires, on the cached-key auth path."""
-    from litellm.proxy._types import LiteLLM_TeamMembership, LiteLLM_TeamTableCachedObj
-    from litellm.proxy.common_utils.user_api_key_cache import team_membership_auth_cache_key
-    from litellm.proxy.utils import hash_token
+    from embrouter.proxy._types import EmbRouter_TeamMembership, EmbRouter_TeamTableCachedObj
+    from embrouter.proxy.common_utils.user_api_key_cache import team_membership_auth_cache_key
+    from embrouter.proxy.utils import hash_token
 
     api_key = "sk-team-member-temp-budget"
     hashed_token = hash_token(api_key)
@@ -7985,20 +7985,20 @@ async def test_cached_key_team_member_budget_honours_temp_increase(expiry_offset
     )
     await user_api_key_cache.async_set_cache(
         key=f"team_id:{team_id}",
-        value=LiteLLM_TeamTableCachedObj(team_id=team_id),
+        value=EmbRouter_TeamTableCachedObj(team_id=team_id),
     )
     await user_api_key_cache.async_set_cache(
         key=user_id,
-        value=LiteLLM_UserTable(user_id=user_id, user_role=LitellmUserRoles.INTERNAL_USER),
+        value=EmbRouter_UserTable(user_id=user_id, user_role=EmbrouterUserRoles.INTERNAL_USER),
     )
     await user_api_key_cache.async_set_cache(
         key=team_membership_auth_cache_key(team_id=team_id, user_id=user_id),
-        value=LiteLLM_TeamMembership(
+        value=EmbRouter_TeamMembership(
             user_id=user_id,
             team_id=team_id,
             spend=team_member_spend,
             budget_id="budget-temp",
-            litellm_budget_table=LiteLLM_BudgetTable(
+            embrouter_budget_table=EmbRouter_BudgetTable(
                 max_budget=2.0,
                 temp_budget_increase=1.0,
                 temp_budget_expiry=datetime.now(timezone.utc) + expiry_offset,
@@ -8030,18 +8030,18 @@ async def test_cached_key_team_member_budget_honours_temp_increase(expiry_offset
 
     with (
         patch(  # test-quality-ok: the builder reads proxy settings from module globals, no injection seam
-            "litellm.proxy.proxy_server.general_settings", {"disable_budget_reservation": True}
+            "embrouter.proxy.proxy_server.general_settings", {"disable_budget_reservation": True}
         ),
-        patch("litellm.proxy.proxy_server.master_key", "sk-master"),  # test-quality-ok: module-global proxy state
-        patch("litellm.proxy.proxy_server.prisma_client", MagicMock()),  # test-quality-ok: module-global proxy state
+        patch("embrouter.proxy.proxy_server.master_key", "sk-master"),  # test-quality-ok: module-global proxy state
+        patch("embrouter.proxy.proxy_server.prisma_client", MagicMock()),  # test-quality-ok: module-global proxy state
         patch(  # test-quality-ok: seed the cached key, team and membership without a DB
-            "litellm.proxy.proxy_server.user_api_key_cache", user_api_key_cache
+            "embrouter.proxy.proxy_server.user_api_key_cache", user_api_key_cache
         ),
         patch(  # test-quality-ok: module-global proxy state
-            "litellm.proxy.proxy_server.proxy_logging_obj", proxy_logging_obj
+            "embrouter.proxy.proxy_server.proxy_logging_obj", proxy_logging_obj
         ),
         patch(  # test-quality-ok: the live counter needs Redis or a DB; pin the spend the check compares
-            "litellm.proxy.proxy_server.get_current_spend",
+            "embrouter.proxy.proxy_server.get_current_spend",
             new=AsyncMock(return_value=team_member_spend),
         ),
     ):
@@ -8058,7 +8058,7 @@ async def test_cached_key_team_member_budget_honours_temp_increase(expiry_offset
 
 async def _authenticate_and_authorize(mock_request, api_key):
     """Builder then the single common_checks gate, the same sequence user_api_key_auth runs."""
-    from litellm.proxy.auth.user_api_key_auth import _authorize_authenticated_request
+    from embrouter.proxy.auth.user_api_key_auth import _authorize_authenticated_request
 
     request_data = {"model": "claude-sonnet-5", "messages": [{"role": "user", "content": "hi"}]}
     auth_obj = await _user_api_key_auth_builder(
@@ -8094,12 +8094,12 @@ async def test_cached_key_team_member_budget_emails_configured_thresholds(
 ):
     """The team's team_member_max_budget_alert_emails thresholds fire from the cached-key auth path,
     including on the request that trips the hard cap, and stay silent below the lowest threshold."""
-    from litellm.proxy._types import LiteLLM_TeamMembership, LiteLLM_TeamTableCachedObj
-    from litellm.proxy.common_utils.user_api_key_cache import (
+    from embrouter.proxy._types import EmbRouter_TeamMembership, EmbRouter_TeamTableCachedObj
+    from embrouter.proxy.common_utils.user_api_key_cache import (
         team_membership_auth_cache_key,
         team_membership_reservation_cache_key,
     )
-    from litellm.proxy.utils import hash_token
+    from embrouter.proxy.utils import hash_token
 
     api_key = "sk-team-member-alert-thresholds"
     hashed_token = hash_token(api_key)
@@ -8123,7 +8123,7 @@ async def test_cached_key_team_member_budget_emails_configured_thresholds(
     )
     await user_api_key_cache.async_set_cache(
         key=f"team_id:{team_id}",
-        value=LiteLLM_TeamTableCachedObj(
+        value=EmbRouter_TeamTableCachedObj(
             team_id=team_id,
             team_alias="platform",
             metadata={"team_member_max_budget_alert_emails": alert_emails},
@@ -8131,16 +8131,16 @@ async def test_cached_key_team_member_budget_emails_configured_thresholds(
     )
     await user_api_key_cache.async_set_cache(
         key=user_id,
-        value=LiteLLM_UserTable(
-            user_id=user_id, user_email="member@example.com", user_role=LitellmUserRoles.INTERNAL_USER
+        value=EmbRouter_UserTable(
+            user_id=user_id, user_email="member@example.com", user_role=EmbrouterUserRoles.INTERNAL_USER
         ),
     )
-    membership = LiteLLM_TeamMembership(
+    membership = EmbRouter_TeamMembership(
         user_id=user_id,
         team_id=team_id,
         spend=team_member_spend,
         budget_id="budget-alert-thresholds",
-        litellm_budget_table=LiteLLM_BudgetTable(max_budget=2.4),
+        embrouter_budget_table=EmbRouter_BudgetTable(max_budget=2.4),
     )
     # A live proxy holds the row under both keys, so any second team-member check in the
     # auth flow would find it too and send a duplicate alert.
@@ -8167,18 +8167,18 @@ async def test_cached_key_team_member_budget_emails_configured_thresholds(
 
     with (
         patch(  # test-quality-ok: the builder reads proxy settings from module globals, no injection seam
-            "litellm.proxy.proxy_server.general_settings", {"disable_budget_reservation": True}
+            "embrouter.proxy.proxy_server.general_settings", {"disable_budget_reservation": True}
         ),
-        patch("litellm.proxy.proxy_server.master_key", "sk-master"),  # test-quality-ok: module-global proxy state
-        patch("litellm.proxy.proxy_server.prisma_client", MagicMock()),  # test-quality-ok: module-global proxy state
+        patch("embrouter.proxy.proxy_server.master_key", "sk-master"),  # test-quality-ok: module-global proxy state
+        patch("embrouter.proxy.proxy_server.prisma_client", MagicMock()),  # test-quality-ok: module-global proxy state
         patch(  # test-quality-ok: seed the cached key, team and membership without a DB
-            "litellm.proxy.proxy_server.user_api_key_cache", user_api_key_cache
+            "embrouter.proxy.proxy_server.user_api_key_cache", user_api_key_cache
         ),
         patch(  # test-quality-ok: module-global proxy state
-            "litellm.proxy.proxy_server.proxy_logging_obj", proxy_logging_obj
+            "embrouter.proxy.proxy_server.proxy_logging_obj", proxy_logging_obj
         ),
         patch(  # test-quality-ok: the live counter needs Redis or a DB; pin the spend the check compares
-            "litellm.proxy.proxy_server.get_current_spend",
+            "embrouter.proxy.proxy_server.get_current_spend",
             new=AsyncMock(return_value=team_member_spend),
         ),
     ):
@@ -8195,7 +8195,7 @@ async def test_cached_key_team_member_budget_emails_configured_thresholds(
         return
     call_info = proxy_logging_obj.budget_alerts.await_args.kwargs["user_info"]
     assert proxy_logging_obj.budget_alerts.await_args.kwargs["type"] == "max_budget_alert"
-    assert call_info.event_group == Litellm_EntityType.TEAM_MEMBER
+    assert call_info.event_group == Embrouter_EntityType.TEAM_MEMBER
     assert (call_info.spend, call_info.max_budget) == (team_member_spend, 2.4)
     assert (call_info.user_id, call_info.user_email) == (user_id, "member@example.com")
     assert (call_info.team_id, call_info.team_alias) == (team_id, "platform")
@@ -8222,17 +8222,17 @@ async def _proxy_exception_for_key(
     jwt_handler.update_environment(
         prisma_client=None,
         user_api_key_cache=user_api_key_cache,
-        litellm_jwtauth=LiteLLM_JWTAuth(),
+        embrouter_jwtauth=EmbRouter_JWTAuth(),
     )
 
     with (
-        patch("litellm.proxy.proxy_server.general_settings", general_settings),
-        patch("litellm.proxy.proxy_server.premium_user", premium_user),
-        patch("litellm.proxy.proxy_server.master_key", "sk-master"),
-        patch("litellm.proxy.proxy_server.prisma_client", MagicMock()),
-        patch("litellm.proxy.proxy_server.user_api_key_cache", user_api_key_cache),
-        patch("litellm.proxy.proxy_server.proxy_logging_obj", proxy_logging_obj),
-        patch("litellm.proxy.proxy_server.jwt_handler", jwt_handler),
+        patch("embrouter.proxy.proxy_server.general_settings", general_settings),
+        patch("embrouter.proxy.proxy_server.premium_user", premium_user),
+        patch("embrouter.proxy.proxy_server.master_key", "sk-master"),
+        patch("embrouter.proxy.proxy_server.prisma_client", MagicMock()),
+        patch("embrouter.proxy.proxy_server.user_api_key_cache", user_api_key_cache),
+        patch("embrouter.proxy.proxy_server.proxy_logging_obj", proxy_logging_obj),
+        patch("embrouter.proxy.proxy_server.jwt_handler", jwt_handler),
     ):
         with pytest.raises(ProxyException) as exc_info:
             await _user_api_key_auth_builder(
@@ -8296,41 +8296,41 @@ async def test_unlicensed_jwt_auth_is_forbidden_not_unauthorized():
     assert "enterprise" in error.message.lower()
 
 
-class TestLitellmReceivedAtStamping:
-    """request.state.litellm_received_at must be stamped unconditionally at the
+class TestEmbrouterReceivedAtStamping:
+    """request.state.embrouter_received_at must be stamped unconditionally at the
     top of auth (LIT-6012), so request-latency Prometheus metrics don't depend
     on OTEL being configured to see a true request-arrival timestamp."""
 
     def test_stamped_even_when_otel_is_not_configured(self, monkeypatch):
-        monkeypatch.setattr("litellm.proxy.proxy_server.open_telemetry_logger", None)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.open_telemetry_logger", None)
         request = MagicMock()
         request.state = SimpleNamespace()
 
         _ensure_parent_otel_span_on_request_state(request)
 
-        assert isinstance(request.state.litellm_received_at, datetime)
+        assert isinstance(request.state.embrouter_received_at, datetime)
 
     def test_helper_is_idempotent(self):
         request = MagicMock()
         request.state = SimpleNamespace()
 
-        first = _ensure_litellm_received_at_on_request_state(request)
-        second = _ensure_litellm_received_at_on_request_state(request)
+        first = _ensure_embrouter_received_at_on_request_state(request)
+        second = _ensure_embrouter_received_at_on_request_state(request)
 
         assert first == second
-        assert request.state.litellm_received_at == first
+        assert request.state.embrouter_received_at == first
 
     def test_does_not_overwrite_an_earlier_stamp(self):
         """Body-parse failures must not shorten the measured window: a value
         already on request.state (stamped earlier) must win."""
         request = MagicMock()
         earlier = datetime(2020, 1, 1)
-        request.state = SimpleNamespace(litellm_received_at=earlier)
+        request.state = SimpleNamespace(embrouter_received_at=earlier)
 
-        result = _ensure_litellm_received_at_on_request_state(request)
+        result = _ensure_embrouter_received_at_on_request_state(request)
 
         assert result == earlier
-        assert request.state.litellm_received_at == earlier
+        assert request.state.embrouter_received_at == earlier
 
 
 _RECORDING_DDTRACE = dedent(
@@ -8395,9 +8395,9 @@ _DDTRACE_AUTH_PROBE = dedent(
     from fastapi import Request
     from starlette.datastructures import URL
 
-    import litellm.proxy.proxy_server as proxy_server
-    from litellm.proxy._types import ProxyException
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+    import embrouter.proxy.proxy_server as proxy_server
+    from embrouter.proxy._types import ProxyException
+    from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
 
     proxy_server.master_key = "sk-probe"
 
@@ -8413,7 +8413,7 @@ _DDTRACE_AUTH_PROBE = dedent(
                 anthropic_api_key_header=None,
                 google_ai_studio_api_key_header=None,
                 azure_apim_header=None,
-                custom_litellm_key_header=None,
+                custom_embrouter_key_header=None,
             )
             return "accepted"
         except ProxyException:
@@ -8436,7 +8436,7 @@ def test_user_api_key_auth_opens_a_datadog_span_for_accepted_and_rejected_keys(t
     (stub_root / "ddtrace" / "__init__.py").write_text(_RECORDING_DDTRACE)
     probe = tmp_path / "probe.py"
     probe.write_text(_DDTRACE_AUTH_PROBE)
-    repo_root = Path(litellm.__file__).resolve().parent.parent
+    repo_root = Path(embrouter.__file__).resolve().parent.parent
     env = {
         **os.environ,
         "USE_DDTRACE": "true",
@@ -8452,7 +8452,7 @@ def test_user_api_key_auth_opens_a_datadog_span_for_accepted_and_rejected_keys(t
     assert result.returncode == 0, result.stderr[-4000:]
     report = json.loads(result.stdout.strip().splitlines()[-1])
     assert report["outcomes"] == ["accepted", "rejected"]
-    auth_span = "litellm.proxy.auth.user_api_key_auth.user_api_key_auth"
+    auth_span = "embrouter.proxy.auth.user_api_key_auth.user_api_key_auth"
     assert [span for span in report["spans"] if span == auth_span] == [auth_span, auth_span]
 
 
@@ -8462,15 +8462,15 @@ async def test_jwt_builder_returns_every_team_grant_the_key_path_gets(is_proxy_a
     """LIT-5858: the team-based JWT path hand-built ``UserAPIKeyAuth`` from a short list of team fields, so the
     team's model aliases (and on the admin return, its object permission) never reached the token and alias
     requests 403'd. Both returns now go through ``team_grants``; pin the fields that used to be dropped."""
-    import litellm.proxy.proxy_server as _proxy_server_mod
+    import embrouter.proxy.proxy_server as _proxy_server_mod
     from fastapi import Request
     from starlette.datastructures import URL
 
-    from litellm.models.team import LiteLLM_ModelTable
-    from litellm.proxy._types import (
-        LiteLLM_ObjectPermissionTable,
-        LiteLLM_TeamMembership,
-        LiteLLM_TeamTable,
+    from embrouter.models.team import EmbRouter_ModelTable
+    from embrouter.proxy._types import (
+        EmbRouter_ObjectPermissionTable,
+        EmbRouter_TeamMembership,
+        EmbRouter_TeamTable,
         Member,
     )
 
@@ -8479,9 +8479,9 @@ async def test_jwt_builder_returns_every_team_grant_the_key_path_gets(is_proxy_a
             return True
 
     jwt_handler = _AcceptEveryJwt()
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth()
+    jwt_handler.embrouter_jwtauth = EmbRouter_JWTAuth()
 
-    team = LiteLLM_TeamTable(
+    team = EmbRouter_TeamTable(
         team_id="team-jwt-aliases",
         team_alias="jwt-aliases",
         models=["gpt-4o"],
@@ -8489,14 +8489,14 @@ async def test_jwt_builder_returns_every_team_grant_the_key_path_gets(is_proxy_a
         spend=4.0,
         blocked=False,
         metadata={"tier": "gold"},
-        litellm_model_table=LiteLLM_ModelTable(
+        embrouter_model_table=EmbRouter_ModelTable(
             model_aliases='{"fast": "gpt-4o"}', created_by="admin", updated_by="admin"
         ),
         object_permission_id="op-jwt",
-        object_permission=LiteLLM_ObjectPermissionTable(object_permission_id="op-jwt", mcp_servers=["mcp-a"]),
+        object_permission=EmbRouter_ObjectPermissionTable(object_permission_id="op-jwt", mcp_servers=["mcp-a"]),
         members_with_roles=[Member(user_id="jwt-user", role="admin")],
     )
-    membership = LiteLLM_TeamMembership(user_id="jwt-user", team_id="team-jwt-aliases", spend=1.5)
+    membership = EmbRouter_TeamMembership(user_id="jwt-user", team_id="team-jwt-aliases", spend=1.5)
     builder_result = {
         "is_proxy_admin": is_proxy_admin,
         "team_object": team,
@@ -8530,7 +8530,7 @@ async def test_jwt_builder_returns_every_team_grant_the_key_path_gets(is_proxy_a
         "user_custom_auth": None,
         "jwt_handler": jwt_handler,
         "premium_user": True,
-        "litellm_proxy_admin_name": "admin",
+        "embrouter_proxy_admin_name": "admin",
     }
     originals = {a: getattr(_proxy_server_mod, a, None) for a in attrs}
     try:
@@ -8539,7 +8539,7 @@ async def test_jwt_builder_returns_every_team_grant_the_key_path_gets(is_proxy_a
         request = Request(scope={"type": "http", "headers": [], "method": "POST"})
         request._url = URL(url="/chat/completions")
         with patch(  # test-quality-ok: auth_builder is the claim-resolution seam; the regression is how its result is projected onto the token
-            "litellm.proxy.auth.user_api_key_auth.JWTAuthManager.auth_builder",
+            "embrouter.proxy.auth.user_api_key_auth.JWTAuthManager.auth_builder",
             new_callable=AsyncMock,
             return_value=builder_result,
         ):
@@ -8557,7 +8557,7 @@ async def test_jwt_builder_returns_every_team_grant_the_key_path_gets(is_proxy_a
             setattr(_proxy_server_mod, k, v)
 
     assert token.team_id == "team-jwt-aliases"
-    assert token.user_role == (LitellmUserRoles.PROXY_ADMIN if is_proxy_admin else LitellmUserRoles.INTERNAL_USER)
+    assert token.user_role == (EmbrouterUserRoles.PROXY_ADMIN if is_proxy_admin else EmbrouterUserRoles.INTERNAL_USER)
     assert token.team_model_aliases == {"fast": "gpt-4o"}
     assert token.team_object_permission is not None
     assert token.team_object_permission.mcp_servers == ["mcp-a"]
@@ -8578,14 +8578,14 @@ async def test_jwt_builder_returns_every_team_grant_the_key_path_gets(is_proxy_a
 )
 async def test_claude_view_normalizes_before_model_access(monkeypatch, route):
     from starlette.requests import Request
-    from litellm.proxy.auth.user_api_key_auth import _enforce_key_and_fallback_model_access
+    from embrouter.proxy.auth.user_api_key_auth import _enforce_key_and_fallback_model_access
 
     source = "foo[1m]"
     encoded = "claude-router-" + source.encode().hex() + "[1m]"
-    router = litellm.Router(
-        model_list=[{"model_name": source, "litellm_params": {"model": "openai/gpt-4o", "api_key": "sk-fake"}}]
+    router = embrouter.Router(
+        model_list=[{"model_name": source, "embrouter_params": {"model": "openai/gpt-4o", "api_key": "sk-fake"}}]
     )
-    monkeypatch.setattr(litellm.proxy.proxy_server, "llm_router", router)
+    monkeypatch.setattr(embrouter.proxy.proxy_server, "llm_router", router)
     data = {"model": encoded, "messages": [{"role": "user", "content": "hi"}]}
     request = Request({"type": "http", "method": "POST", "path": route, "headers": [], "query_string": b""})
     token = UserAPIKeyAuth(models=[source])
@@ -8616,19 +8616,19 @@ async def test_claude_view_normalizes_before_model_access(monkeypatch, route):
 @pytest.mark.parametrize("layer", ["literal", "global", "router", "key", "hierarchical", "unclaimed"])
 async def test_claude_view_never_reinterprets_explicit_names(monkeypatch, layer):
     from starlette.requests import Request
-    from litellm.proxy.auth.user_api_key_auth import _normalize_claude_model
+    from embrouter.proxy.auth.user_api_key_auth import _normalize_claude_model
 
     encoded = "claude-router-666f6f"
     names = ("foo", "other", encoded) if layer == "literal" else ("foo", "other")
     alias = {encoded: "other"}
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
-            {"model_name": name, "litellm_params": {"model": "openai/gpt-4o", "api_key": "sk-fake"}} for name in names
+            {"model_name": name, "embrouter_params": {"model": "openai/gpt-4o", "api_key": "sk-fake"}} for name in names
         ],
         model_group_alias=alias if layer == "router" else None,
     )
-    monkeypatch.setattr(litellm.proxy.proxy_server, "llm_router", router)
-    monkeypatch.setattr(litellm, "model_alias_map", alias if layer == "global" else {})
+    monkeypatch.setattr(embrouter.proxy.proxy_server, "llm_router", router)
+    monkeypatch.setattr(embrouter, "model_alias_map", alias if layer == "global" else {})
     token = UserAPIKeyAuth(
         aliases=alias if layer == "key" else {},
         router_settings={"model_group_alias": alias} if layer == "hierarchical" else None,
@@ -8650,7 +8650,7 @@ def _per_issuer_virtual_key_jwt_handler(
 ) -> MagicMock:
     jwt_handler = MagicMock()
     jwt_handler.is_jwt.return_value = True
-    jwt_handler.litellm_jwtauth = LiteLLM_JWTAuth(
+    jwt_handler.embrouter_jwtauth = EmbRouter_JWTAuth(
         virtual_key_claim_field=global_claim_field,
         unregistered_jwt_client_behavior=global_behavior,
         issuers=[
@@ -8675,7 +8675,7 @@ def _per_issuer_virtual_key_jwt_handler(
 def _fake_prisma_with_jwt_key_mapping(hashed_token: str | None) -> tuple[SimpleNamespace, AsyncMock]:
     """Every ``find_first`` call (issuer-scoped or global fallback) resolves the same way."""
     find_first = AsyncMock(return_value=None if hashed_token is None else SimpleNamespace(token=hashed_token))
-    prisma_client = SimpleNamespace(db=SimpleNamespace(litellm_jwtkeymapping=SimpleNamespace(find_first=find_first)))
+    prisma_client = SimpleNamespace(db=SimpleNamespace(embrouter_jwtkeymapping=SimpleNamespace(find_first=find_first)))
     return prisma_client, find_first
 
 
@@ -8694,7 +8694,7 @@ def _fake_prisma_jwt_key_mapping_table(rows: list[dict[str, object]]) -> tuple[S
         return None
 
     find_first = AsyncMock(side_effect=_find_first)
-    prisma_client = SimpleNamespace(db=SimpleNamespace(litellm_jwtkeymapping=SimpleNamespace(find_first=find_first)))
+    prisma_client = SimpleNamespace(db=SimpleNamespace(embrouter_jwtkeymapping=SimpleNamespace(find_first=find_first)))
     return prisma_client, find_first
 
 
@@ -8709,7 +8709,7 @@ def _mapping_where(claim_name: str, claim_value: str, jwt_issuer: str | None) ->
 
 @pytest.mark.asyncio
 async def test_per_issuer_virtual_key_claim_field_selects_the_issuer_mapping_for_the_db_lookup():
-    from litellm.proxy.auth.user_api_key_auth import _resolve_jwt_to_virtual_key
+    from embrouter.proxy.auth.user_api_key_auth import _resolve_jwt_to_virtual_key
 
     jwt_handler = _per_issuer_virtual_key_jwt_handler(global_claim_field=None)
     prisma_client, find_first = _fake_prisma_with_jwt_key_mapping("hashed-mapped-key")
@@ -8720,7 +8720,7 @@ async def test_per_issuer_virtual_key_claim_field_selects_the_issuer_mapping_for
     )
 
     resolved = await _resolve_jwt_to_virtual_key(
-        jwt_claims={JWTHandler.LITELLM_JWT_ISSUER_CLAIM: ISSUER_TWO, "sub": "svc-account-7"},
+        jwt_claims={JWTHandler.EMBROUTER_JWT_ISSUER_CLAIM: ISSUER_TWO, "sub": "svc-account-7"},
         jwt_handler=jwt_handler,
         prisma_client=prisma_client,
         user_api_key_cache=user_api_key_cache,
@@ -8739,13 +8739,13 @@ async def test_per_issuer_virtual_key_claim_field_selects_the_issuer_mapping_for
 
 @pytest.mark.asyncio
 async def test_per_issuer_reject_behavior_does_not_leak_into_the_team_issuer():
-    from litellm.proxy.auth.user_api_key_auth import _resolve_jwt_to_virtual_key
+    from embrouter.proxy.auth.user_api_key_auth import _resolve_jwt_to_virtual_key
 
     jwt_handler = _per_issuer_virtual_key_jwt_handler(global_claim_field=None)
     prisma_client, find_first = _fake_prisma_with_jwt_key_mapping(None)
 
     team_issuer_result = await _resolve_jwt_to_virtual_key(
-        jwt_claims={JWTHandler.LITELLM_JWT_ISSUER_CLAIM: ISSUER_ONE, "sub": "team-alpha"},
+        jwt_claims={JWTHandler.EMBROUTER_JWT_ISSUER_CLAIM: ISSUER_ONE, "sub": "team-alpha"},
         jwt_handler=jwt_handler,
         prisma_client=prisma_client,
         user_api_key_cache=DualCache(),
@@ -8757,7 +8757,7 @@ async def test_per_issuer_reject_behavior_does_not_leak_into_the_team_issuer():
 
     with pytest.raises(HTTPException) as exc:
         await _resolve_jwt_to_virtual_key(
-            jwt_claims={JWTHandler.LITELLM_JWT_ISSUER_CLAIM: ISSUER_TWO, "sub": "unknown-svc"},
+            jwt_claims={JWTHandler.EMBROUTER_JWT_ISSUER_CLAIM: ISSUER_TWO, "sub": "unknown-svc"},
             jwt_handler=jwt_handler,
             prisma_client=prisma_client,
             user_api_key_cache=DualCache(),
@@ -8776,7 +8776,7 @@ async def test_per_issuer_reject_behavior_does_not_leak_into_the_team_issuer():
 
 @pytest.mark.asyncio
 async def test_proxy_admin_sentinel_cached_by_another_issuer_does_not_bypass_reject():
-    from litellm.proxy.auth.user_api_key_auth import _JWT_PROXY_ADMIN_SENTINEL, _resolve_jwt_to_virtual_key
+    from embrouter.proxy.auth.user_api_key_auth import _JWT_PROXY_ADMIN_SENTINEL, _resolve_jwt_to_virtual_key
 
     jwt_handler = _per_issuer_virtual_key_jwt_handler(global_claim_field="sub", global_behavior="auto_register")
     prisma_client, find_first = _fake_prisma_with_jwt_key_mapping(None)
@@ -8787,7 +8787,7 @@ async def test_proxy_admin_sentinel_cached_by_another_issuer_does_not_bypass_rej
     )
 
     auto_register_issuer_result = await _resolve_jwt_to_virtual_key(
-        jwt_claims={JWTHandler.LITELLM_JWT_ISSUER_CLAIM: ISSUER_ONE, "sub": "admin-7"},
+        jwt_claims={JWTHandler.EMBROUTER_JWT_ISSUER_CLAIM: ISSUER_ONE, "sub": "admin-7"},
         jwt_handler=jwt_handler,
         prisma_client=prisma_client,
         user_api_key_cache=user_api_key_cache,
@@ -8799,7 +8799,7 @@ async def test_proxy_admin_sentinel_cached_by_another_issuer_does_not_bypass_rej
 
     with pytest.raises(HTTPException) as exc:
         await _resolve_jwt_to_virtual_key(
-            jwt_claims={JWTHandler.LITELLM_JWT_ISSUER_CLAIM: ISSUER_TWO, "sub": "admin-7"},
+            jwt_claims={JWTHandler.EMBROUTER_JWT_ISSUER_CLAIM: ISSUER_TWO, "sub": "admin-7"},
             jwt_handler=jwt_handler,
             prisma_client=prisma_client,
             user_api_key_cache=user_api_key_cache,
@@ -8817,13 +8817,13 @@ async def test_proxy_admin_sentinel_cached_by_another_issuer_does_not_bypass_rej
 
 @pytest.mark.asyncio
 async def test_issuer_without_virtual_key_claim_field_falls_back_to_the_global_field():
-    from litellm.proxy.auth.user_api_key_auth import _resolve_jwt_to_virtual_key
+    from embrouter.proxy.auth.user_api_key_auth import _resolve_jwt_to_virtual_key
 
     jwt_handler = _per_issuer_virtual_key_jwt_handler(global_claim_field="client_id")
     prisma_client, find_first = _fake_prisma_with_jwt_key_mapping(None)
 
     with_claim = await _resolve_jwt_to_virtual_key(
-        jwt_claims={JWTHandler.LITELLM_JWT_ISSUER_CLAIM: ISSUER_ONE, "sub": "team-alpha", "client_id": "app-9"},
+        jwt_claims={JWTHandler.EMBROUTER_JWT_ISSUER_CLAIM: ISSUER_ONE, "sub": "team-alpha", "client_id": "app-9"},
         jwt_handler=jwt_handler,
         prisma_client=prisma_client,
         user_api_key_cache=DualCache(),
@@ -8831,7 +8831,7 @@ async def test_issuer_without_virtual_key_claim_field_falls_back_to_the_global_f
         proxy_logging_obj=MagicMock(),
     )
     without_claim = await _resolve_jwt_to_virtual_key(
-        jwt_claims={JWTHandler.LITELLM_JWT_ISSUER_CLAIM: ISSUER_ONE, "sub": "team-alpha"},
+        jwt_claims={JWTHandler.EMBROUTER_JWT_ISSUER_CLAIM: ISSUER_ONE, "sub": "team-alpha"},
         jwt_handler=jwt_handler,
         prisma_client=prisma_client,
         user_api_key_cache=DualCache(),
@@ -8853,7 +8853,7 @@ async def test_colliding_claim_value_from_another_issuer_does_not_resolve_to_the
     """LIT-7417: a mapping registered for one issuer must not answer a lookup from a
     DIFFERENT issuer whose claim value happens to collide, even though both issuers
     use the same claim field (``sub``) for their virtual-key mapping."""
-    from litellm.proxy.auth.user_api_key_auth import _resolve_jwt_to_virtual_key
+    from embrouter.proxy.auth.user_api_key_auth import _resolve_jwt_to_virtual_key
 
     jwt_handler = _per_issuer_virtual_key_jwt_handler(global_claim_field="sub")
     prisma_client, find_first = _fake_prisma_jwt_key_mapping_table(
@@ -8874,7 +8874,7 @@ async def test_colliding_claim_value_from_another_issuer_does_not_resolve_to_the
     )
 
     owner_result = await _resolve_jwt_to_virtual_key(
-        jwt_claims={JWTHandler.LITELLM_JWT_ISSUER_CLAIM: ISSUER_TWO, "sub": "dev-alice"},
+        jwt_claims={JWTHandler.EMBROUTER_JWT_ISSUER_CLAIM: ISSUER_TWO, "sub": "dev-alice"},
         jwt_handler=jwt_handler,
         prisma_client=prisma_client,
         user_api_key_cache=user_api_key_cache,
@@ -8887,7 +8887,7 @@ async def test_colliding_claim_value_from_another_issuer_does_not_resolve_to_the
     # issuer-one's behavior is fallback_team_mapping: a correctly-scoped miss must
     # return None (fall through to team-based JWT auth), never issuer-two's key.
     colliding_result = await _resolve_jwt_to_virtual_key(
-        jwt_claims={JWTHandler.LITELLM_JWT_ISSUER_CLAIM: ISSUER_ONE, "sub": "dev-alice"},
+        jwt_claims={JWTHandler.EMBROUTER_JWT_ISSUER_CLAIM: ISSUER_ONE, "sub": "dev-alice"},
         jwt_handler=jwt_handler,
         prisma_client=prisma_client,
         user_api_key_cache=user_api_key_cache,
@@ -8903,7 +8903,7 @@ async def test_cached_resolution_for_one_issuer_does_not_leak_to_a_colliding_iss
     """A cached positive resolution must be keyed by issuer too, or a colliding
     claim value from another issuer could be served straight from cache without
     ever reaching the (correctly issuer-scoped) DB lookup."""
-    from litellm.proxy.auth.user_api_key_auth import _resolve_jwt_to_virtual_key
+    from embrouter.proxy.auth.user_api_key_auth import _resolve_jwt_to_virtual_key
 
     jwt_handler = _per_issuer_virtual_key_jwt_handler(global_claim_field="sub")
     prisma_client, find_first = _fake_prisma_jwt_key_mapping_table([])
@@ -8913,7 +8913,7 @@ async def test_cached_resolution_for_one_issuer_does_not_leak_to_a_colliding_iss
     )
 
     colliding_result = await _resolve_jwt_to_virtual_key(
-        jwt_claims={JWTHandler.LITELLM_JWT_ISSUER_CLAIM: ISSUER_ONE, "sub": "dev-alice"},
+        jwt_claims={JWTHandler.EMBROUTER_JWT_ISSUER_CLAIM: ISSUER_ONE, "sub": "dev-alice"},
         jwt_handler=jwt_handler,
         prisma_client=prisma_client,
         user_api_key_cache=user_api_key_cache,
@@ -8929,7 +8929,7 @@ async def test_cached_resolution_for_one_issuer_does_not_leak_to_a_colliding_iss
 async def test_issuer_agnostic_mapping_matches_every_issuer():
     """A mapping created before issuer scoping existed (``jwt_issuer`` is NULL) keeps
     matching any issuer, so existing global mappings are not broken by this fix."""
-    from litellm.proxy.auth.user_api_key_auth import _resolve_jwt_to_virtual_key
+    from embrouter.proxy.auth.user_api_key_auth import _resolve_jwt_to_virtual_key
 
     jwt_handler = _per_issuer_virtual_key_jwt_handler(global_claim_field="sub")
     prisma_client, _find_first = _fake_prisma_jwt_key_mapping_table(
@@ -8951,7 +8951,7 @@ async def test_issuer_agnostic_mapping_matches_every_issuer():
 
     for issuer in (ISSUER_ONE, ISSUER_TWO):
         resolved = await _resolve_jwt_to_virtual_key(
-            jwt_claims={JWTHandler.LITELLM_JWT_ISSUER_CLAIM: issuer, "sub": "legacy-user"},
+            jwt_claims={JWTHandler.EMBROUTER_JWT_ISSUER_CLAIM: issuer, "sub": "legacy-user"},
             jwt_handler=jwt_handler,
             prisma_client=prisma_client,
             user_api_key_cache=user_api_key_cache,
@@ -8967,7 +8967,7 @@ async def test_auth_flow_enters_virtual_key_mapping_when_only_an_issuer_configur
     jwt_token = "eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJzdmMtYWNjb3VudC03In0.signature"
     jwt_handler = _per_issuer_virtual_key_jwt_handler(global_claim_field=None)
     jwt_handler.auth_jwt = AsyncMock(
-        return_value={JWTHandler.LITELLM_JWT_ISSUER_CLAIM: ISSUER_TWO, "sub": "svc-account-7"}
+        return_value={JWTHandler.EMBROUTER_JWT_ISSUER_CLAIM: ISSUER_TWO, "sub": "svc-account-7"}
     )
     mapped_key = UserAPIKeyAuth(token="hashed-mapped-key", api_key="hashed-mapped-key", team_id="svc-team")
 
@@ -8980,25 +8980,25 @@ async def test_auth_flow_enters_virtual_key_mapping_when_only_an_issuer_configur
 
     with (
         patch(  # test-quality-ok: the builder reads proxy settings from module globals, no injection seam
-            "litellm.proxy.proxy_server.general_settings", {"enable_jwt_auth": True}
+            "embrouter.proxy.proxy_server.general_settings", {"enable_jwt_auth": True}
         ),
-        patch("litellm.proxy.proxy_server.premium_user", True),  # test-quality-ok: module-global proxy state
-        patch("litellm.proxy.proxy_server.master_key", "sk-master"),  # test-quality-ok: module-global proxy state
-        patch("litellm.proxy.proxy_server.prisma_client", MagicMock()),  # test-quality-ok: module-global proxy state
+        patch("embrouter.proxy.proxy_server.premium_user", True),  # test-quality-ok: module-global proxy state
+        patch("embrouter.proxy.proxy_server.master_key", "sk-master"),  # test-quality-ok: module-global proxy state
+        patch("embrouter.proxy.proxy_server.prisma_client", MagicMock()),  # test-quality-ok: module-global proxy state
         patch(  # test-quality-ok: module-global proxy state
-            "litellm.proxy.proxy_server.user_api_key_cache", DualCache()
+            "embrouter.proxy.proxy_server.user_api_key_cache", DualCache()
         ),
         patch(  # test-quality-ok: module-global proxy state
-            "litellm.proxy.proxy_server.proxy_logging_obj", MagicMock()
+            "embrouter.proxy.proxy_server.proxy_logging_obj", MagicMock()
         ),
-        patch("litellm.proxy.proxy_server.jwt_handler", jwt_handler),  # test-quality-ok: module-global proxy state
+        patch("embrouter.proxy.proxy_server.jwt_handler", jwt_handler),  # test-quality-ok: module-global proxy state
         patch(  # test-quality-ok: the regression is whether the builder reaches this seam at all
-            "litellm.proxy.auth.user_api_key_auth._resolve_jwt_to_virtual_key",
+            "embrouter.proxy.auth.user_api_key_auth._resolve_jwt_to_virtual_key",
             new_callable=AsyncMock,
             return_value=mapped_key,
         ) as resolve_mock,
         patch(  # test-quality-ok: a mapped key must short-circuit standard JWT auth; reaching it is the failure
-            "litellm.proxy.auth.user_api_key_auth.JWTAuthManager.auth_builder",
+            "embrouter.proxy.auth.user_api_key_auth.JWTAuthManager.auth_builder",
             new_callable=AsyncMock,
             side_effect=AssertionError("standard JWT auth must not run for a mapped virtual key"),
         ),
@@ -9014,15 +9014,15 @@ async def test_auth_flow_enters_virtual_key_mapping_when_only_an_issuer_configur
         )
 
     resolve_mock.assert_awaited_once()
-    assert resolve_mock.await_args.kwargs["jwt_claims"][JWTHandler.LITELLM_JWT_ISSUER_CLAIM] == ISSUER_TWO
+    assert resolve_mock.await_args.kwargs["jwt_claims"][JWTHandler.EMBROUTER_JWT_ISSUER_CLAIM] == ISSUER_TWO
     assert result.api_key == "hashed-mapped-key"
     assert result.team_id == "svc-team"
 
 
-def _alias_router() -> litellm.Router:
-    return litellm.Router(
+def _alias_router() -> embrouter.Router:
+    return embrouter.Router(
         model_list=[
-            {"model_name": name, "litellm_params": {"model": "openai/gpt-4o", "api_key": "sk-fake"}}
+            {"model_name": name, "embrouter_params": {"model": "openai/gpt-4o", "api_key": "sk-fake"}}
             for name in ("claude-haiku", "claude-sonnet")
         ]
     )
@@ -9046,8 +9046,8 @@ def _alias_request(route: str, data: dict, content_type: str = "application/json
     return request
 
 
-async def _enforce_alias_access(token: UserAPIKeyAuth, data: dict, route: str, request, router: litellm.Router):
-    from litellm.proxy.auth.user_api_key_auth import _enforce_key_and_fallback_model_access
+async def _enforce_alias_access(token: UserAPIKeyAuth, data: dict, route: str, request, router: embrouter.Router):
+    from embrouter.proxy.auth.user_api_key_auth import _enforce_key_and_fallback_model_access
 
     await _enforce_key_and_fallback_model_access(
         valid_token=token,
@@ -9061,15 +9061,15 @@ async def _enforce_alias_access(token: UserAPIKeyAuth, data: dict, route: str, r
 
 def _alias_token(monkeypatch, level: str, alias: dict, models: list) -> UserAPIKeyAuth:
     """A key whose ``router_settings.model_group_alias`` lives on the key itself or on its cached team row."""
-    from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+    from embrouter.proxy.common_utils.user_api_key_cache import UserApiKeyCache
 
     if level == "key":
         return UserAPIKeyAuth(models=models, router_settings={"model_group_alias": alias})
     cache = UserApiKeyCache()
-    team = LiteLLM_TeamTableCachedObj(team_id="team-alias", models=models, router_settings={"model_group_alias": alias})
+    team = EmbRouter_TeamTableCachedObj(team_id="team-alias", models=models, router_settings={"model_group_alias": alias})
     cache.set_cache(key="team_id:team-alias", value=team)
-    monkeypatch.setattr(litellm.proxy.proxy_server, "user_api_key_cache", cache)
-    monkeypatch.setattr(litellm.proxy.proxy_server, "prisma_client", MagicMock())
+    monkeypatch.setattr(embrouter.proxy.proxy_server, "user_api_key_cache", cache)
+    monkeypatch.setattr(embrouter.proxy.proxy_server, "prisma_client", MagicMock())
     return UserAPIKeyAuth(team_id="team-alias", models=models)
 
 
@@ -9083,7 +9083,7 @@ async def test_router_settings_model_group_alias_authorizes_target_for_key(monke
     """LIT-3054: a key allowed only the alias target must be able to call the alias, and a key not
     allowed the target must still be denied even when the alias itself is what it requested."""
     router = _alias_router()
-    monkeypatch.setattr(litellm.proxy.proxy_server, "llm_router", router)
+    monkeypatch.setattr(embrouter.proxy.proxy_server, "llm_router", router)
     data = {"model": "AgentX-LLM", "messages": [{"role": "user", "content": "hi"}]}
     request = _alias_request(route, data)
     token = _alias_token(monkeypatch, level, {"AgentX-LLM": "claude-haiku"}, ["claude-haiku"])
@@ -9105,7 +9105,7 @@ async def test_router_settings_model_group_alias_authorizes_target_for_key(monke
 async def test_router_settings_model_group_alias_leaves_form_bodies_alone(monkeypatch):
     """LIT-3054: a multipart body cannot be re-serialized as JSON, so auth must not rewrite it."""
     router = _alias_router()
-    monkeypatch.setattr(litellm.proxy.proxy_server, "llm_router", router)
+    monkeypatch.setattr(embrouter.proxy.proxy_server, "llm_router", router)
     data = {"model": "AgentX-LLM"}
     route = "/v1/audio/transcriptions"
     request = _alias_request(route, data, content_type="multipart/form-data; boundary=x")
@@ -9118,10 +9118,10 @@ async def test_router_settings_model_group_alias_leaves_form_bodies_alone(monkey
 @pytest.mark.asyncio
 async def test_router_settings_model_group_alias_rewrite_keeps_query_params_out_of_body(monkeypatch):
     """LIT-3054: auth merges query params into its own copy of the body; the rewrite must not forward them."""
-    from litellm.proxy.common_utils.http_parsing_utils import _read_request_body, populate_request_with_path_params
+    from embrouter.proxy.common_utils.http_parsing_utils import _read_request_body, populate_request_with_path_params
 
     router = _alias_router()
-    monkeypatch.setattr(litellm.proxy.proxy_server, "llm_router", router)
+    monkeypatch.setattr(embrouter.proxy.proxy_server, "llm_router", router)
     body = {"model": "AgentX-LLM", "messages": [{"role": "user", "content": "hi"}]}
     request = _alias_request("/v1/chat/completions", body)
     request.scope["query_string"] = b"api-version=2024-10-21&stream=true"
@@ -9136,12 +9136,12 @@ async def test_router_settings_model_group_alias_rewrite_keeps_query_params_out_
 
 
 def _user_defined_pass_through_endpoint():
-    from litellm.types.passthrough_endpoints.pass_through_endpoints import LITELLM_PASS_THROUGH_ENDPOINT_MARKER
+    from embrouter.types.passthrough_endpoints.pass_through_endpoints import EMBROUTER_PASS_THROUGH_ENDPOINT_MARKER
 
     async def endpoint():
         return None
 
-    setattr(endpoint, LITELLM_PASS_THROUGH_ENDPOINT_MARKER, True)
+    setattr(endpoint, EMBROUTER_PASS_THROUGH_ENDPOINT_MARKER, True)
     return endpoint
 
 
@@ -9151,19 +9151,19 @@ async def test_router_settings_model_group_alias_leaves_pass_through_bodies_alon
     """LIT-3054: pass-through handlers forward the body verbatim to the provider, so auth must not rewrite it.
     Built-in provider handlers bind ``{endpoint:path}``; user-defined ones carry the pass-through marker."""
     router = _alias_router()
-    monkeypatch.setattr(litellm.proxy.proxy_server, "llm_router", router)
+    monkeypatch.setattr(embrouter.proxy.proxy_server, "llm_router", router)
     data = {"model": "AgentX-LLM", "messages": [{"role": "user", "content": "hi"}]}
     route = "/custom-upstream/chat" if user_defined else "/anthropic/v1/messages"
     request = _alias_request(route, data, path_params={} if user_defined else {"endpoint": "v1/messages"})
     if user_defined:
         request.scope["endpoint"] = _user_defined_pass_through_endpoint()
-        LiteLLMRoutes.openai_routes.value.append(route)
+        EmbRouterRoutes.openai_routes.value.append(route)
     token = _alias_token(monkeypatch, "key", {"AgentX-LLM": "claude-haiku"}, ["claude-haiku", "AgentX-LLM"])
     try:
         await _enforce_alias_access(token, data, route, request, router)
     finally:
         if user_defined:
-            LiteLLMRoutes.openai_routes.value.remove(route)
+            EmbRouterRoutes.openai_routes.value.remove(route)
     assert data["model"] == "AgentX-LLM"
     assert (await request.json())["model"] == "AgentX-LLM"
     assert get_client_requested_model(request) is None
@@ -9173,8 +9173,8 @@ async def test_router_settings_model_group_alias_leaves_pass_through_bodies_alon
 @pytest.mark.parametrize("target, expect_denied", [("claude-haiku", False), ("claude-sonnet", True)])
 async def test_router_settings_model_group_alias_authorizes_target_for_team(monkeypatch, target, expect_denied):
     """LIT-3054: the team allowlist check in common_checks must judge the alias target, not the alias."""
-    import litellm.proxy.proxy_server as _proxy_server_mod
-    from litellm.proxy.auth.user_api_key_auth import _authorize_authenticated_request
+    import embrouter.proxy.proxy_server as _proxy_server_mod
+    from embrouter.proxy.auth.user_api_key_auth import _authorize_authenticated_request
 
     router = _alias_router()
     logging_obj = MagicMock(post_call_failure_hook=AsyncMock(return_value=None))
@@ -9214,7 +9214,7 @@ async def test_reserve_budget_after_common_checks_hands_the_reservation_to_the_r
     reservation = {"reserved_cost": 0.5, "entries": [], "finalized": False, "callback_bound": False}
 
     with patch(
-        "litellm.proxy.spend_tracking.budget_reservation.reserve_budget_for_request",
+        "embrouter.proxy.spend_tracking.budget_reservation.reserve_budget_for_request",
         new=AsyncMock(return_value=reservation),
     ):
         await _reserve_budget_after_common_checks(
@@ -9284,7 +9284,7 @@ async def test_websocket_auth_hands_the_reservation_to_the_socket_state():
         return UserAPIKeyAuth(token="hashed", budget_reservation=reservation)
 
     with patch(
-        "litellm.proxy.auth.user_api_key_auth.user_api_key_auth",
+        "embrouter.proxy.auth.user_api_key_auth.user_api_key_auth",
         new=AsyncMock(side_effect=auth_that_reserves),
     ):
         result = await user_api_key_auth_websocket_for_model(websocket, model="gpt-realtime")
@@ -9299,8 +9299,8 @@ async def test_admission_and_budget_reservation_read_the_key_spend_counter_with_
     from fastapi import Request
     from starlette.datastructures import URL
 
-    import litellm.proxy.proxy_server as _proxy_server_mod
-    from litellm.proxy.spend_tracking.spend_counter_batch import (
+    import embrouter.proxy.proxy_server as _proxy_server_mod
+    from embrouter.proxy.spend_tracking.spend_counter_batch import (
         read_batched_spend_counter,
         spend_counter_batch_scope,
     )
@@ -9329,11 +9329,11 @@ async def test_admission_and_budget_reservation_read_the_key_spend_counter_with_
             setattr(_proxy_server_mod, k, v)
         with (
             patch(  # test-quality-ok: authorization has its own tests above; this one checks the shared counter read
-                "litellm.proxy.auth.user_api_key_auth.common_checks",
+                "embrouter.proxy.auth.user_api_key_auth.common_checks",
                 new=AsyncMock(side_effect=_admission_reads_spend),
             ),
             patch(  # test-quality-ok: the reservation helper imports reserve_budget_for_request in its body
-                "litellm.proxy.spend_tracking.budget_reservation.reserve_budget_for_request",
+                "embrouter.proxy.spend_tracking.budget_reservation.reserve_budget_for_request",
                 side_effect=_reservation_reads_spend,
             ),
             spend_counter_batch_scope(redis),
@@ -9359,13 +9359,13 @@ async def test_admission_and_budget_reservation_read_the_key_spend_counter_with_
 
 
 def test_identity_prefetch_keys_match_what_auth_reads_for_the_request():
-    from litellm.proxy.auth.user_api_key_auth import _identity_cache_keys
-    from litellm.proxy.common_utils.user_api_key_cache import (
+    from embrouter.proxy.auth.user_api_key_auth import _identity_cache_keys
+    from embrouter.proxy.common_utils.user_api_key_cache import (
         end_user_cache_key,
         end_user_restricted_registry_cache_key,
         model_access_group_registry_cache_key,
     )
-    from litellm.proxy.utils import hash_token
+    from embrouter.proxy.utils import hash_token
 
     assert _identity_cache_keys("sk-1234", end_user_id="eu-1", key_is_resolved=False) == (
         hash_token("sk-1234"),
@@ -9388,10 +9388,10 @@ def test_identity_prefetch_keys_match_what_auth_reads_for_the_request():
 @pytest.mark.asyncio
 @pytest.mark.parametrize("invoke", [False, True])
 async def test_centralized_authorization_preserves_database_free_config_agents(monkeypatch, invoke: bool):
-    from litellm.proxy import proxy_server
-    from litellm.proxy.agent_endpoints.agent_registry import AgentRegistry
-    from litellm.proxy.agent_endpoints import agent_registry
-    from litellm.proxy.auth.user_api_key_auth import _authorize_authenticated_request
+    from embrouter.proxy import proxy_server
+    from embrouter.proxy.agent_endpoints.agent_registry import AgentRegistry
+    from embrouter.proxy.agent_endpoints import agent_registry
+    from embrouter.proxy.auth.user_api_key_auth import _authorize_authenticated_request
 
     for name, value in {
         **_proxy_attrs_for_centralized_checks(),
@@ -9420,10 +9420,10 @@ async def test_centralized_authorization_preserves_database_free_config_agents(m
 @pytest.mark.asyncio
 @pytest.mark.parametrize("verified_identity", [False, True])
 async def test_managed_actor_cannot_access_provider_resource_routes(monkeypatch, verified_identity: bool):
-    from litellm.proxy import proxy_server
-    from litellm.proxy.auth.user_api_key_auth import _authorize_authenticated_request
-    from litellm.types.agents import AgentResponse
-    from litellm.types.proxy.agent_identity import AgentIdentityBinding
+    from embrouter.proxy import proxy_server
+    from embrouter.proxy.auth.user_api_key_auth import _authorize_authenticated_request
+    from embrouter.types.agents import AgentResponse
+    from embrouter.types.proxy.agent_identity import AgentIdentityBinding
 
     policy = AgentResponse(
         agent_id="managed",
@@ -9442,7 +9442,7 @@ async def test_managed_actor_cannot_access_provider_resource_routes(monkeypatch,
         object_permission={"models": ["test-model"]},
     )
     database = MagicMock()
-    database.writer_db.litellm_agentstable.find_unique = AsyncMock(return_value=policy)
+    database.writer_db.embrouter_agentstable.find_unique = AsyncMock(return_value=policy)
     for name, value in {
         **_proxy_attrs_for_centralized_checks(),
         "prisma_client": database,
@@ -9451,7 +9451,7 @@ async def test_managed_actor_cannot_access_provider_resource_routes(monkeypatch,
         monkeypatch.setattr(proxy_server, name, value)
     request = _alias_request("/v1/files", {})
     request.scope["method"] = "GET"
-    from litellm.types.proxy.agent_identity import ManagedAgentContext
+    from embrouter.types.proxy.agent_identity import ManagedAgentContext
 
     auth = UserAPIKeyAuth(agent_id="managed", api_key="persisted-key", models=["test-model"])
     if verified_identity:
@@ -9487,10 +9487,10 @@ async def test_managed_actor_cannot_access_provider_resource_routes(monkeypatch,
 async def test_managed_agent_cannot_bypass_grants_with_server_default(
     monkeypatch, requested, route, settings, cli_model, grant_default
 ):
-    from litellm.proxy import proxy_server
-    from litellm.proxy.auth.user_api_key_auth import _authorize_authenticated_request
-    from litellm.types.agents import AgentResponse
-    from litellm.types.proxy.agent_identity import AgentIdentityBinding, ManagedAgentContext
+    from embrouter.proxy import proxy_server
+    from embrouter.proxy.auth.user_api_key_auth import _authorize_authenticated_request
+    from embrouter.types.agents import AgentResponse
+    from embrouter.types.proxy.agent_identity import AgentIdentityBinding, ManagedAgentContext
 
     policy = AgentResponse(
         agent_id="managed",
@@ -9509,7 +9509,7 @@ async def test_managed_agent_cannot_bypass_grants_with_server_default(
         object_permission={"models": ["test-model", "forbidden-model"] if grant_default else ["test-model"]},
     )
     database = MagicMock()
-    database.writer_db.litellm_agentstable.find_unique = AsyncMock(return_value=policy)
+    database.writer_db.embrouter_agentstable.find_unique = AsyncMock(return_value=policy)
     for name, value in {
         **_proxy_attrs_for_centralized_checks(),
         "prisma_client": database,
@@ -9530,7 +9530,7 @@ async def test_managed_agent_cannot_bypass_grants_with_server_default(
         assert "forbidden-model" in denied.value.message
         return
     with patch(
-        "litellm.proxy.spend_tracking.budget_reservation.reserve_budget_for_request",
+        "embrouter.proxy.spend_tracking.budget_reservation.reserve_budget_for_request",
         new_callable=AsyncMock,
     ) as reserve:
         reserve.return_value = None
@@ -9546,10 +9546,10 @@ async def test_managed_agent_cannot_bypass_grants_with_server_default(
 async def test_managed_jwt_cannot_be_downgraded_into_virtual_key_mapping(monkeypatch: pytest.MonkeyPatch) -> None:
     from typing import Final
 
-    from litellm.proxy import proxy_server
-    from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-    from litellm.types.agents import AgentResponse
-    from litellm.types.proxy.agent_identity import AgentIdentityBinding
+    from embrouter.proxy import proxy_server
+    from embrouter.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+    from embrouter.types.agents import AgentResponse
+    from embrouter.types.proxy.agent_identity import AgentIdentityBinding
 
     binding: Final = AgentIdentityBinding(
         agent_id="managed", provider="microsoft_entra", issuer="issuer", tenant_id="tenant",
@@ -9560,11 +9560,11 @@ async def test_managed_jwt_cannot_be_downgraded_into_virtual_key_mapping(monkeyp
         identity_managed=True, identity=binding, execution_mode="autonomous",
     )
     client: Final = MagicMock()
-    client.writer_db.litellm_agentidentity.find_unique = AsyncMock(return_value=binding)
-    client.writer_db.litellm_agentstable.find_unique = AsyncMock(return_value=agent)
+    client.writer_db.embrouter_agentidentity.find_unique = AsyncMock(return_value=binding)
+    client.writer_db.embrouter_agentstable.find_unique = AsyncMock(return_value=agent)
     handler: Final = MagicMock()
     handler.is_jwt.return_value = True
-    handler.litellm_jwtauth = LiteLLM_JWTAuth(virtual_key_claim_field="sub")
+    handler.embrouter_jwtauth = EmbRouter_JWTAuth(virtual_key_claim_field="sub")
     handler.auth_jwt = AsyncMock(return_value={
         "iss": "issuer", "tid": "tenant", "azp": "client", "oid": "principal", "sub": "mapped-key",
     })
@@ -9584,17 +9584,17 @@ async def test_managed_jwt_cannot_be_downgraded_into_virtual_key_mapping(monkeyp
             )
         assert failure.value.code == "403"
         assert "without virtual-key mapping" in failure.value.message
-    client.writer_db.litellm_agentidentity.find_unique.assert_awaited_once()
-    assert client.writer_db.litellm_agentstable.find_unique.await_count == 2
+    client.writer_db.embrouter_agentidentity.find_unique.assert_awaited_once()
+    assert client.writer_db.embrouter_agentstable.find_unique.await_count == 2
 
 
 @pytest.mark.asyncio
 async def test_virtual_key_cannot_enter_checks_as_an_identity_managed_actor(monkeypatch: pytest.MonkeyPatch) -> None:
     from typing import Final
-    from litellm.proxy import proxy_server
-    from litellm.proxy.auth import user_api_key_auth as auth_module
-    from litellm.types.agents import AgentResponse
-    from litellm.types.proxy.agent_identity import AgentIdentityBinding
+    from embrouter.proxy import proxy_server
+    from embrouter.proxy.auth import user_api_key_auth as auth_module
+    from embrouter.types.agents import AgentResponse
+    from embrouter.types.proxy.agent_identity import AgentIdentityBinding
 
     target: Final = AgentResponse(
         agent_id="bound", agent_name="Bound", agent_card_params={}, identity_managed=True,
@@ -9603,7 +9603,7 @@ async def test_virtual_key_cannot_enter_checks_as_an_identity_managed_actor(monk
         ),
     )
     client: Final = MagicMock()
-    client.writer_db.litellm_agentstable.find_unique = AsyncMock(return_value=target)
+    client.writer_db.embrouter_agentstable.find_unique = AsyncMock(return_value=target)
     monkeypatch.setattr(proxy_server, "prisma_client", client)
     checks: Final = AsyncMock()
     monkeypatch.setattr(auth_module, "_run_centralized_common_checks", checks)
@@ -9627,12 +9627,12 @@ async def test_custom_auth_grants_reach_managed_targets_without_a_virtual_key_ro
     import importlib
     from typing import Final
 
-    from litellm.proxy import proxy_server
-    from litellm.proxy.agent_endpoints import agent_registry
-    from litellm.proxy.agent_endpoints.agent_registry import AgentRegistry
-    from litellm.proxy.agent_endpoints.auth.agent_permission_handler import AgentRequestHandler
-    from litellm.types.agents import AgentResponse
-    from litellm.types.proxy.agent_identity import AgentIdentityBinding
+    from embrouter.proxy import proxy_server
+    from embrouter.proxy.agent_endpoints import agent_registry
+    from embrouter.proxy.agent_endpoints.agent_registry import AgentRegistry
+    from embrouter.proxy.agent_endpoints.auth.agent_permission_handler import AgentRequestHandler
+    from embrouter.types.agents import AgentResponse
+    from embrouter.types.proxy.agent_identity import AgentIdentityBinding
 
     target: Final = AgentResponse(
         agent_id="target", agent_name="Target", agent_card_params={}, identity_managed=True,
@@ -9649,16 +9649,16 @@ async def test_custom_auth_grants_reach_managed_targets_without_a_virtual_key_ro
     custom: Final = AsyncMock(return_value=trusted)
     database: Final = MagicMock()
     database.get_data = AsyncMock(return_value=None)
-    database.writer_db.litellm_agentstable.find_unique = AsyncMock(return_value=target)
+    database.writer_db.embrouter_agentstable.find_unique = AsyncMock(return_value=target)
     for name, value in {
         **_proxy_server_attrs_for_custom_auth(user_custom_auth=None if enterprise else custom),
         "prisma_client": database,
     }.items():
         monkeypatch.setattr(proxy_server, name, value)
-    module: Final = importlib.import_module("litellm.proxy.auth.user_api_key_auth")
+    module: Final = importlib.import_module("embrouter.proxy.auth.user_api_key_auth")
     monkeypatch.setattr(module, "enterprise_custom_auth", custom if enterprise else None)
     monkeypatch.setattr(agent_registry, "global_agent_registry", registry)
-    monkeypatch.setattr(litellm, "enable_post_custom_auth_checks", False, raising=False)
+    monkeypatch.setattr(embrouter, "enable_post_custom_auth_checks", False, raising=False)
     admitted: Final = await _user_api_key_auth_builder(
         request=_alias_request("/a2a/target/message/send", {}), api_key=f"Bearer {credential}",
         azure_api_key_header="", anthropic_api_key_header=None, google_ai_studio_api_key_header=None,
@@ -9674,12 +9674,12 @@ async def test_enterprise_custom_auth_key_return_stays_a_proxy_validated_key(mon
     import importlib
     from typing import Final
 
-    from litellm.proxy import proxy_server
+    from embrouter.proxy import proxy_server
 
     custom: Final = AsyncMock(return_value="sk-master-key")
     for name, value in _proxy_server_attrs_for_custom_auth(user_custom_auth=custom).items():
         monkeypatch.setattr(proxy_server, name, value)
-    module: Final = importlib.import_module("litellm.proxy.auth.user_api_key_auth")
+    module: Final = importlib.import_module("embrouter.proxy.auth.user_api_key_auth")
     monkeypatch.setattr(module, "enterprise_custom_auth", custom)
     admitted: Final = await _user_api_key_auth_builder(
         request=_alias_request("/v1/chat/completions", {}), api_key="Bearer external-credential",

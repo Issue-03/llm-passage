@@ -8,13 +8,13 @@ The proxy's internal rate-limit hooks (parallel_request_limiter,
 parallel_request_limiter_v3, dynamic_rate_limiter, dynamic_rate_limiter_v3,
 batch_rate_limiter, max_iterations_limiter,
 max_budget_per_session_limiter) all fire from ``async_pre_call_hook`` —
-*before* :func:`litellm.get_llm_provider` runs anywhere else in the request
+*before* :func:`embrouter.get_llm_provider` runs anywhere else in the request
 lifecycle.
 
 Until now, those hooks raised a bare ``HTTPException(429, ...)`` which carries
 no ``llm_provider`` / ``model`` attribute. Downstream:
 
-- The Prometheus ``litellm_proxy_failed_requests_metric`` reads
+- The Prometheus ``embrouter_proxy_failed_requests_metric`` reads
   ``exception.llm_provider`` via ``_get_exception_class_name`` — it came back
   empty, so dashboards showed ``exception_class="HTTPException"`` with no
   provider attribution.
@@ -23,9 +23,9 @@ no ``llm_provider`` / ``model`` attribute. Downstream:
 
 The fix wraps every internal raise site in
 :class:`ProxyRateLimitError` (an ``HTTPException`` *and* a
-``litellm.RateLimitError``), and resolves ``model`` / ``llm_provider`` from
+``embrouter.RateLimitError``), and resolves ``model`` / ``llm_provider`` from
 ``data["model"]`` via :func:`get_llm_provider`. When the model is missing or
-unparseable we fall back to ``llm_provider="litellm_proxy"`` so we never break
+unparseable we fall back to ``llm_provider="embrouter_proxy"`` so we never break
 the request path with a second exception.
 
 These tests pin both the happy path (provider correctly resolved) and the
@@ -38,35 +38,35 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi import HTTPException
 
-import litellm
-from litellm.caching.caching import DualCache
-from litellm.exceptions import RateLimitError
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.hooks.batch_rate_limiter import (
+import embrouter
+from embrouter.caching.caching import DualCache
+from embrouter.exceptions import RateLimitError
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.hooks.batch_rate_limiter import (
     BatchFileUsage,
     _PROXY_BatchRateLimiter,
 )
-from litellm.proxy.hooks.dynamic_rate_limiter import _PROXY_DynamicRateLimitHandler
-from litellm.proxy.hooks.dynamic_rate_limiter_v3 import (
+from embrouter.proxy.hooks.dynamic_rate_limiter import _PROXY_DynamicRateLimitHandler
+from embrouter.proxy.hooks.dynamic_rate_limiter_v3 import (
     _PROXY_DynamicRateLimitHandlerV3,
 )
-from litellm.proxy.hooks.max_budget_per_session_limiter import (
+from embrouter.proxy.hooks.max_budget_per_session_limiter import (
     _PROXY_MaxBudgetPerSessionHandler,
 )
-from litellm.proxy.hooks.max_iterations_limiter import _PROXY_MaxIterationsHandler
-from litellm.proxy.hooks.parallel_request_limiter import (
+from embrouter.proxy.hooks.max_iterations_limiter import _PROXY_MaxIterationsHandler
+from embrouter.proxy.hooks.parallel_request_limiter import (
     _PROXY_MaxParallelRequestsHandler,
 )
-from litellm.proxy.hooks.parallel_request_limiter_v3 import (
+from embrouter.proxy.hooks.parallel_request_limiter_v3 import (
     _PROXY_MaxParallelRequestsHandler_v3,
 )
-from litellm.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
-from litellm.proxy.hooks.rate_limiter_utils import (
+from embrouter.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
+from embrouter.proxy.hooks.rate_limiter_utils import (
     PROXY_LLM_PROVIDER_FALLBACK,
     resolve_llm_provider_for_rate_limit,
 )
-from litellm.proxy.utils import InternalUsageCache
-from litellm.types.agents import AgentResponse
+from embrouter.proxy.utils import InternalUsageCache
+from embrouter.types.agents import AgentResponse
 
 
 # ---------------------------------------------------------------------------
@@ -106,7 +106,7 @@ class TestProxyRateLimitErrorClass:
         assert isinstance(e.message, str)
         assert "over rpm" in e.message
 
-    def test_defaults_to_litellm_proxy_provider(self):
+    def test_defaults_to_embrouter_proxy_provider(self):
         e = ProxyRateLimitError(detail="x")
         assert e.llm_provider == PROXY_LLM_PROVIDER_FALLBACK
         assert e.model == ""
@@ -142,7 +142,7 @@ class TestResolveLLMProviderForRateLimit:
         # to surface to the user.
         # Pin llm_router to None so the alias-fallback path doesn't pick up
         # a router left behind by another test in the session.
-        with patch("litellm.proxy.proxy_server.llm_router", None):
+        with patch("embrouter.proxy.proxy_server.llm_router", None):
             resolved_model, provider = resolve_llm_provider_for_rate_limit(model)
         assert provider == PROXY_LLM_PROVIDER_FALLBACK
         # Resolver returns the input model verbatim on the unknown branch so
@@ -158,12 +158,12 @@ class TestResolveLLMProviderForRateLimit:
         # No router is registered in this test, so the alias-fallback path
         # also yields None and we land at PROXY_LLM_PROVIDER_FALLBACK.
         with patch.object(
-            litellm,
+            embrouter,
             "get_llm_provider",
             side_effect=RuntimeError("boom"),
         ):
             with patch(
-                "litellm.proxy.proxy_server.llm_router",
+                "embrouter.proxy.proxy_server.llm_router",
                 None,
             ):
                 resolved_model, provider = resolve_llm_provider_for_rate_limit(
@@ -174,27 +174,27 @@ class TestResolveLLMProviderForRateLimit:
 
     def test_router_alias_resolves_to_underlying_provider(self):
         """
-        Nearly every real LiteLLM proxy deployment uses router aliases:
+        Nearly every real EmbRouter proxy deployment uses router aliases:
 
             model_list:
               - model_name: tpm-locked
-                litellm_params:
+                embrouter_params:
                   model: openai/gpt-4o-mini
                   ...
 
-        ``litellm.get_llm_provider("tpm-locked")`` doesn't know about
+        ``embrouter.get_llm_provider("tpm-locked")`` doesn't know about
         router aliases and raises. Before this fix the resolver fell
-        through to ``"litellm_proxy"``, defeating the whole point of the
+        through to ``"embrouter_proxy"``, defeating the whole point of the
         ``llm_provider`` field on the rate-limit error. The alias path
         must look the deployment up in the router's ``model_list`` and
-        resolve from its ``litellm_params.model``.
+        resolve from its ``embrouter_params.model``.
         """
 
         class _FakeRouter:
             model_list = [
                 {
                     "model_name": "tpm-locked",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "openai/gpt-4o-mini",
                         "api_key": "fake",
                     },
@@ -202,12 +202,12 @@ class TestResolveLLMProviderForRateLimit:
             ]
 
         with patch(
-            "litellm.proxy.proxy_server.llm_router",
+            "embrouter.proxy.proxy_server.llm_router",
             _FakeRouter(),
         ):
             resolved_model, provider = resolve_llm_provider_for_rate_limit("tpm-locked")
         assert provider == "openai", (
-            f"Router-alias path must resolve through litellm_params.model, "
+            f"Router-alias path must resolve through embrouter_params.model, "
             f"not fall through to {PROXY_LLM_PROVIDER_FALLBACK!r}. Got "
             f"provider={provider!r}, model={resolved_model!r}."
         )
@@ -231,16 +231,16 @@ class TestResolveLLMProviderForRateLimit:
             model_list = [
                 {
                     "model_name": "claude-pool",
-                    "litellm_params": {"model": "anthropic/claude-3-5-sonnet"},
+                    "embrouter_params": {"model": "anthropic/claude-3-5-sonnet"},
                 },
                 {
                     "model_name": "claude-pool",
-                    "litellm_params": {"model": "anthropic/claude-3-5-haiku"},
+                    "embrouter_params": {"model": "anthropic/claude-3-5-haiku"},
                 },
             ]
 
         with patch(
-            "litellm.proxy.proxy_server.llm_router",
+            "embrouter.proxy.proxy_server.llm_router",
             _FakeRouter(),
         ):
             _, provider = resolve_llm_provider_for_rate_limit("claude-pool")
@@ -249,7 +249,7 @@ class TestResolveLLMProviderForRateLimit:
     def test_router_alias_unknown_falls_back(self):
         """
         Alias not in the router model_list — both lookups fail, so we
-        land at the defensive ``litellm_proxy`` fallback rather than
+        land at the defensive ``embrouter_proxy`` fallback rather than
         raising.
         """
 
@@ -257,12 +257,12 @@ class TestResolveLLMProviderForRateLimit:
             model_list = [
                 {
                     "model_name": "tpm-locked",
-                    "litellm_params": {"model": "openai/gpt-4o-mini"},
+                    "embrouter_params": {"model": "openai/gpt-4o-mini"},
                 }
             ]
 
         with patch(
-            "litellm.proxy.proxy_server.llm_router",
+            "embrouter.proxy.proxy_server.llm_router",
             _FakeRouter(),
         ):
             resolved_model, provider = resolve_llm_provider_for_rate_limit(
@@ -274,23 +274,23 @@ class TestResolveLLMProviderForRateLimit:
     def test_router_alias_with_malformed_deployment_falls_back(self):
         """
         A deployment in the router model_list with no usable
-        ``litellm_params.model`` (or where ``get_llm_provider`` on the
+        ``embrouter_params.model`` (or where ``get_llm_provider`` on the
         underlying string also raises) must not crash the resolver —
         fall through to the defensive fallback.
         """
 
         class _FakeRouter:
             model_list = [
-                {"model_name": "broken", "litellm_params": {}},
-                {"model_name": "broken", "litellm_params": {"model": ""}},
+                {"model_name": "broken", "embrouter_params": {}},
+                {"model_name": "broken", "embrouter_params": {"model": ""}},
                 {
                     "model_name": "broken",
-                    "litellm_params": {"model": "nonsense-no-provider"},
+                    "embrouter_params": {"model": "nonsense-no-provider"},
                 },
             ]
 
         with patch(
-            "litellm.proxy.proxy_server.llm_router",
+            "embrouter.proxy.proxy_server.llm_router",
             _FakeRouter(),
         ):
             resolved_model, provider = resolve_llm_provider_for_rate_limit("broken")
@@ -388,7 +388,7 @@ async def test_parallel_request_limiter_v1_global_limit_populates_provider():
         key="global_max_parallel_requests",
         value=5,
         local_only=True,
-        litellm_parent_otel_span=None,
+        embrouter_parent_otel_span=None,
     )
 
     with pytest.raises(HTTPException) as exc_info:
@@ -412,7 +412,7 @@ async def test_parallel_request_limiter_v1_global_limit_populates_provider():
 async def test_parallel_request_limiter_v1_unknown_model_falls_back():
     """
     When ``data["model"]`` is unparseable, the resolver falls back to
-    ``litellm_proxy`` — and crucially does *not* leak a secondary exception.
+    ``embrouter_proxy`` — and crucially does *not* leak a secondary exception.
     """
     handler = _PROXY_MaxParallelRequestsHandler(
         internal_usage_cache=InternalUsageCache(DualCache())
@@ -653,7 +653,7 @@ async def test_dynamic_rate_limiter_v3_model_capacity_path_populates_provider():
     path — that's the most common production trip — and confirm the
     raised exception carries provider info.
     """
-    from litellm.types.router import ModelGroupInfo
+    from embrouter.types.router import ModelGroupInfo
 
     handler = _PROXY_DynamicRateLimitHandlerV3(internal_usage_cache=DualCache())
     handler.v3_limiter.atomic_check_and_increment_by_n = AsyncMock(
@@ -702,7 +702,7 @@ async def test_dynamic_rate_limiter_v3_model_capacity_path_populates_provider():
 @pytest.mark.asyncio
 async def test_dynamic_rate_limiter_v3_unknown_descriptor_path_populates_provider():
     """Fail-closed unknown-descriptor branch must still attribute provider."""
-    from litellm.types.router import ModelGroupInfo
+    from embrouter.types.router import ModelGroupInfo
 
     handler = _PROXY_DynamicRateLimitHandlerV3(internal_usage_cache=DualCache())
     handler.v3_limiter.atomic_check_and_increment_by_n = AsyncMock(
@@ -838,7 +838,7 @@ def _make_iter_agent(max_iterations: int) -> AgentResponse:
     return AgentResponse(
         agent_id="agent-iter",
         agent_name="iter-agent",
-        litellm_params={"max_iterations": max_iterations},
+        embrouter_params={"max_iterations": max_iterations},
         agent_card_params={"name": "iter-agent", "version": "1.0.0"},
     )
 
@@ -852,7 +852,7 @@ async def test_max_iterations_limiter_populates_provider():
     user_api_key_dict = UserAPIKeyAuth(api_key="sk-iter", agent_id="agent-iter")
 
     with patch(
-        "litellm.proxy.agent_endpoints.agent_registry.global_agent_registry"
+        "embrouter.proxy.agent_endpoints.agent_registry.global_agent_registry"
     ) as mock_registry:
         mock_registry.get_agent_by_id.return_value = _make_iter_agent(max_iterations=1)
 
@@ -893,7 +893,7 @@ async def test_max_iterations_limiter_unknown_model_falls_back():
     user_api_key_dict = UserAPIKeyAuth(api_key="sk-iter", agent_id="agent-iter")
 
     with patch(
-        "litellm.proxy.agent_endpoints.agent_registry.global_agent_registry"
+        "embrouter.proxy.agent_endpoints.agent_registry.global_agent_registry"
     ) as mock_registry:
         mock_registry.get_agent_by_id.return_value = _make_iter_agent(max_iterations=1)
 
@@ -930,7 +930,7 @@ def _make_session_budget_agent(max_budget: float) -> AgentResponse:
     return AgentResponse(
         agent_id="agent-session-budget",
         agent_name="session-budget-agent",
-        litellm_params={"max_budget_per_session": max_budget},
+        embrouter_params={"max_budget_per_session": max_budget},
         agent_card_params={"name": "session-budget-agent", "version": "1.0.0"},
     )
 
@@ -945,7 +945,7 @@ async def test_max_budget_per_session_limiter_populates_provider():
     )
 
     with patch(
-        "litellm.proxy.agent_endpoints.agent_registry.global_agent_registry"
+        "embrouter.proxy.agent_endpoints.agent_registry.global_agent_registry"
     ) as mock_registry:
         mock_registry.get_agent_by_id.return_value = _make_session_budget_agent(
             max_budget=1.0
@@ -980,7 +980,7 @@ async def test_max_budget_per_session_limiter_unknown_model_falls_back():
     )
 
     with patch(
-        "litellm.proxy.agent_endpoints.agent_registry.global_agent_registry"
+        "embrouter.proxy.agent_endpoints.agent_registry.global_agent_registry"
     ) as mock_registry:
         mock_registry.get_agent_by_id.return_value = _make_session_budget_agent(
             max_budget=1.0
@@ -1021,7 +1021,7 @@ def test_prometheus_exception_class_name_back_compat_for_proxy_rate_limit_error(
     ``rate_limit_category`` / ``rate_limit_type`` labels — this test pins
     the back-compat shim itself.
     """
-    from litellm.integrations.prometheus import PrometheusLogger
+    from embrouter.integrations.prometheus import PrometheusLogger
 
     exc = ProxyRateLimitError(
         detail="over limit",
@@ -1030,7 +1030,7 @@ def test_prometheus_exception_class_name_back_compat_for_proxy_rate_limit_error(
     )
     assert PrometheusLogger._get_exception_class_name(exc) == "HTTPException"
 
-    # Same back-compat path even when the resolver fell back to litellm_proxy.
+    # Same back-compat path even when the resolver fell back to embrouter_proxy.
     exc_no_model = ProxyRateLimitError(detail="over limit")
     assert PrometheusLogger._get_exception_class_name(exc_no_model) == "HTTPException"
 
@@ -1045,9 +1045,9 @@ def test_prometheus_exception_class_name_back_compat_for_budget_exceeded_error()
     ``"Openai.BudgetExceededError"`` and break dashboards keyed on the
     historical value. Pin the literal label here.
     """
-    from litellm.integrations.prometheus import PrometheusLogger
+    from embrouter.integrations.prometheus import PrometheusLogger
 
-    err = litellm.BudgetExceededError(
+    err = embrouter.BudgetExceededError(
         current_cost=1.0,
         max_budget=0.5,
         llm_provider="openai",
@@ -1055,7 +1055,7 @@ def test_prometheus_exception_class_name_back_compat_for_budget_exceeded_error()
     assert PrometheusLogger._get_exception_class_name(err) == "BudgetExceededError"
 
     # Default (empty llm_provider) path — same literal label.
-    err_no_provider = litellm.BudgetExceededError(current_cost=1.0, max_budget=0.5)
+    err_no_provider = embrouter.BudgetExceededError(current_cost=1.0, max_budget=0.5)
     assert (
         PrometheusLogger._get_exception_class_name(err_no_provider)
         == "BudgetExceededError"

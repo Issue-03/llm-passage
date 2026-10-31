@@ -15,17 +15,17 @@ from typing import Any, AsyncGenerator, List, Literal, Optional
 
 import pytest
 
-from litellm.integrations.custom_guardrail import (
+from embrouter.integrations.custom_guardrail import (
     CustomGuardrail,
     ModifyResponseException,
 )
-from litellm.llms.base_llm.guardrail_translation.base_translation import StreamingScanKey
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.guardrails.guardrail_hooks.unified_guardrail.unified_guardrail import (
+from embrouter.llms.base_llm.guardrail_translation.base_translation import StreamingScanKey
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.guardrails.guardrail_hooks.unified_guardrail.unified_guardrail import (
     UnifiedLLMGuardrails,
     _is_redundant_scan,
 )
-from litellm.types.utils import (
+from embrouter.types.utils import (
     ChatCompletionDeltaToolCall,
     Delta,
     Function,

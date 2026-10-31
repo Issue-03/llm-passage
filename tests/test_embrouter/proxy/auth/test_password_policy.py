@@ -1,6 +1,6 @@
 """
 Tests for the configurable password-strength policy in
-`litellm.proxy.auth.password_policy`, enforced on every path that persists a
+`embrouter.proxy.auth.password_policy`, enforced on every path that persists a
 new or changed password for a locally-managed user.
 
 The breach-check (HIBP) tests inject a real AsyncHTTPHandler wrapping an
@@ -13,9 +13,9 @@ import hashlib
 import httpx
 import pytest
 
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.proxy._types import ProxyErrorTypes, ProxyException
-from litellm.proxy.auth.password_policy import (
+from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from embrouter.proxy._types import ProxyErrorTypes, ProxyException
+from embrouter.proxy.auth.password_policy import (
     DEFAULT_MIN_LENGTH,
     MIN_ALLOWED_LENGTH,
     PasswordPolicy,
@@ -213,7 +213,7 @@ async def test_only_sha1_prefix_leaves_the_proxy():
     assert request.url.path == f"/range/{sha1[:5]}"
     assert sha1[5:] not in str(request.url)
     assert request.headers["Add-Padding"] == "true"
-    assert "litellm" in request.headers["User-Agent"]
+    assert "embrouter" in request.headers["User-Agent"]
 
 
 @pytest.mark.asyncio

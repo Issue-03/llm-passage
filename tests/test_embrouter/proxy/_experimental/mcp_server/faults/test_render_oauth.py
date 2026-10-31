@@ -6,11 +6,11 @@ from typing import Final, Literal
 
 import pytest
 
-from litellm.proxy._experimental.mcp_server.faults.render_oauth import (
+from embrouter.proxy._experimental.mcp_server.faults.render_oauth import (
     dcr_fault_detail,
     render_token_fault,
 )
-from litellm.proxy._experimental.mcp_server.faults.types import (
+from embrouter.proxy._experimental.mcp_server.faults.types import (
     CallerRejected,
     GatewayRejected,
     UpstreamProtocolFault,

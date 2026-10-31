@@ -12,12 +12,12 @@ from pydantic import ValidationError
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import litellm
-from litellm.anthropic_interface import messages
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.types.utils import (
+import embrouter
+from embrouter.anthropic_interface import messages
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.embrouter_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from embrouter.types.utils import (
     Delta,
     ModelResponse,
     StandardLoggingPayloadErrorInformation,
@@ -27,14 +27,14 @@ from litellm.types.utils import (
 
 def test_anthropic_experimental_pass_through_messages_handler():
     """
-    Test that api key is passed to litellm.responses for OpenAI models.
+    Test that api key is passed to embrouter.responses for OpenAI models.
     OpenAI and Azure models are routed directly to the Responses API.
     """
-    from litellm.llms.anthropic.pass_through.messages.handler import (
+    from embrouter.llms.anthropic.pass_through.messages.handler import (
         anthropic_messages_handler,
     )
 
-    with patch("litellm.responses", return_value="test-response") as mock_responses:
+    with patch("embrouter.responses", return_value="test-response") as mock_responses:
         try:
             anthropic_messages_handler(
                 max_tokens=100,
@@ -96,7 +96,7 @@ async def test_openai_model_does_not_forward_stream_options_to_responses_api():
     with patch.object(AsyncHTTPHandler, "post", new_callable=AsyncMock) as mock_post:
         mock_post.return_value = mock_response
 
-        await litellm.anthropic.messages.acreate(
+        await embrouter.anthropic.messages.acreate(
             max_tokens=100,
             messages=[{"role": "user", "content": "Hello, how are you?"}],
             model="openai/gpt-5.5",
@@ -112,14 +112,14 @@ async def test_openai_model_does_not_forward_stream_options_to_responses_api():
 
 def test_anthropic_experimental_pass_through_messages_handler_dynamic_api_key_and_api_base_and_custom_values():
     """
-    Test that api key, api base, and extra kwargs are forwarded to litellm.completion for Azure models.
+    Test that api key, api base, and extra kwargs are forwarded to embrouter.completion for Azure models.
     Azure models are routed through chat/completions (not the Responses API).
     """
-    from litellm.llms.anthropic.pass_through.messages.handler import (
+    from embrouter.llms.anthropic.pass_through.messages.handler import (
         anthropic_messages_handler,
     )
 
-    with patch("litellm.completion", return_value=MagicMock()) as mock_completion:
+    with patch("embrouter.completion", return_value=MagicMock()) as mock_completion:
         try:
             anthropic_messages_handler(
                 max_tokens=100,
@@ -142,7 +142,7 @@ async def test_anthropic_messages_sanitizes_empty_text_blocks_before_dispatch():
     """Regression test for #22930.  The unified /v1/messages path must
     strip empty text blocks before forwarding, otherwise Anthropic
     returns 400 "text content blocks must be non-empty"."""
-    from litellm.llms.anthropic.pass_through.messages import handler
+    from embrouter.llms.anthropic.pass_through.messages import handler
 
     msgs = [
         {
@@ -180,7 +180,7 @@ async def test_anthropic_messages_sanitizes_empty_text_blocks_before_dispatch():
 
 @pytest.mark.asyncio
 async def test_anthropic_messages_sanitizes_tool_use_ids_before_dispatch():
-    from litellm.llms.anthropic.pass_through.messages import handler
+    from embrouter.llms.anthropic.pass_through.messages import handler
 
     msgs = [
         {
@@ -226,16 +226,16 @@ async def _async_return(value):
 
 def test_anthropic_experimental_pass_through_messages_handler_custom_llm_provider():
     """
-    Test that litellm.completion is called when a custom LLM provider is given.
+    Test that embrouter.completion is called when a custom LLM provider is given.
 
-    Provider resolution now happens exactly once, inside litellm.completion itself
+    Provider resolution now happens exactly once, inside embrouter.completion itself
     (upstream #37716), so the handler passes the original unresolved model through.
     """
-    from litellm.llms.anthropic.pass_through.messages.handler import (
+    from embrouter.llms.anthropic.pass_through.messages.handler import (
         anthropic_messages_handler,
     )
 
-    with patch("litellm.completion", return_value="test-response") as mock_completion:
+    with patch("embrouter.completion", return_value="test-response") as mock_completion:
         try:
             anthropic_messages_handler(
                 max_tokens=100,
@@ -247,7 +247,7 @@ def test_anthropic_experimental_pass_through_messages_handler_custom_llm_provide
         except (ValueError, TypeError, AttributeError) as e:
             print(f"Error: {e}")
 
-        # Assert that litellm.completion was called when using a custom LLM provider
+        # Assert that embrouter.completion was called when using a custom LLM provider
         mock_completion.assert_called_once()
 
         # Verify that the custom provider was passed through
@@ -266,7 +266,7 @@ async def test_bedrock_converse_budget_tokens_preserved():
     The bug was that the messages -> completion adapter was converting thinking to reasoning_effort
     and losing the original budget_tokens value, causing it to use the default (128) instead.
     """
-    # Mock litellm.acompletion which is called internally by anthropic_messages_handler
+    # Mock embrouter.acompletion which is called internally by anthropic_messages_handler
     mock_response = ModelResponse(
         id="test-id",
         model="bedrock/converse/us.anthropic.claude-sonnet-4-20250514-v1:0",
@@ -280,7 +280,7 @@ async def test_bedrock_converse_budget_tokens_preserved():
         usage={"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
     )
 
-    with patch("litellm.acompletion", new_callable=AsyncMock) as mock_acompletion:
+    with patch("embrouter.acompletion", new_callable=AsyncMock) as mock_acompletion:
         mock_acompletion.return_value = mock_response
 
         try:
@@ -313,13 +313,13 @@ def test_openai_model_with_thinking_converts_to_reasoning():
     converted to a Responses API `reasoning` param (NOT passed as thinking).
 
     OpenAI models are routed directly to the Responses API, so we verify that
-    litellm.responses() is called with `reasoning` properly set.
+    embrouter.responses() is called with `reasoning` properly set.
     """
-    from litellm.llms.anthropic.pass_through.messages.handler import (
+    from embrouter.llms.anthropic.pass_through.messages.handler import (
         anthropic_messages_handler,
     )
 
-    with patch("litellm.responses", return_value="test-response") as mock_responses:
+    with patch("embrouter.responses", return_value="test-response") as mock_responses:
         try:
             anthropic_messages_handler(
                 max_tokens=1024,
@@ -336,7 +336,7 @@ def test_openai_model_with_thinking_converts_to_reasoning():
         call_kwargs = mock_responses.call_args.kwargs
 
         # Verify reasoning is set (converted from thinking)
-        assert "reasoning" in call_kwargs, "reasoning should be passed to litellm.responses"
+        assert "reasoning" in call_kwargs, "reasoning should be passed to embrouter.responses"
 
         # budget_tokens=1024 -> effort="low" (at the LOW budget threshold)
         # reasoning_auto_summary is False by default, so no summary key
@@ -347,7 +347,7 @@ def test_openai_model_with_thinking_converts_to_reasoning():
         assert "summary" not in call_kwargs["reasoning"]
 
         # Verify thinking is NOT passed directly to the Responses API
-        assert "thinking" not in call_kwargs, "thinking should NOT be passed directly to litellm.responses"
+        assert "thinking" not in call_kwargs, "thinking should NOT be passed directly to embrouter.responses"
 
 
 class TestThinkingParameterTransformation:
@@ -355,12 +355,12 @@ class TestThinkingParameterTransformation:
 
     def test_claude_model_preserves_thinking_with_budget_tokens(self):
         """Test that Claude models get thinking parameter passed through with exact budget_tokens."""
-        from litellm.llms.anthropic.pass_through.adapters.transformation import (
-            LiteLLMAnthropicMessagesAdapter,
+        from embrouter.llms.anthropic.pass_through.adapters.transformation import (
+            EmbRouterAnthropicMessagesAdapter,
         )
 
         thinking = {"type": "enabled", "budget_tokens": 5000}
-        result = LiteLLMAnthropicMessagesAdapter.translate_thinking_for_model(
+        result = EmbRouterAnthropicMessagesAdapter.translate_thinking_for_model(
             thinking=thinking,
             model="bedrock/converse/us.anthropic.claude-sonnet-4-20250514-v1:0",
         )
@@ -370,12 +370,12 @@ class TestThinkingParameterTransformation:
 
     def test_non_claude_model_converts_thinking_to_reasoning_effort(self):
         """Test that non-Claude models convert thinking to reasoning_effort."""
-        from litellm.llms.anthropic.pass_through.adapters.transformation import (
-            LiteLLMAnthropicMessagesAdapter,
+        from embrouter.llms.anthropic.pass_through.adapters.transformation import (
+            EmbRouterAnthropicMessagesAdapter,
         )
 
         thinking = {"type": "enabled", "budget_tokens": 1024}
-        result = LiteLLMAnthropicMessagesAdapter.translate_thinking_for_model(
+        result = EmbRouterAnthropicMessagesAdapter.translate_thinking_for_model(
             thinking=thinking,
             model="openai/gpt-5.2",
         )
@@ -387,31 +387,31 @@ class TestThinkingParameterTransformation:
 
     def test_translate_thinking_for_model_summary_when_enabled(self):
         """When reasoning_auto_summary is True, summary='detailed' is injected."""
-        import litellm
-        from litellm.llms.anthropic.pass_through.adapters.transformation import (
-            LiteLLMAnthropicMessagesAdapter,
+        import embrouter
+        from embrouter.llms.anthropic.pass_through.adapters.transformation import (
+            EmbRouterAnthropicMessagesAdapter,
         )
 
-        original = litellm.reasoning_auto_summary
+        original = embrouter.reasoning_auto_summary
         try:
-            litellm.reasoning_auto_summary = True
+            embrouter.reasoning_auto_summary = True
             thinking = {"type": "enabled", "budget_tokens": 5000}
-            result = LiteLLMAnthropicMessagesAdapter.translate_thinking_for_model(
+            result = EmbRouterAnthropicMessagesAdapter.translate_thinking_for_model(
                 thinking=thinking,
                 model="openai/gpt-5.2",
             )
             assert result == {"reasoning_effort": {"effort": "high", "summary": "detailed"}}
         finally:
-            litellm.reasoning_auto_summary = original
+            embrouter.reasoning_auto_summary = original
 
     def test_translate_thinking_for_model_preserves_user_summary(self):
         """User-provided summary is always preserved regardless of flag."""
-        from litellm.llms.anthropic.pass_through.adapters.transformation import (
-            LiteLLMAnthropicMessagesAdapter,
+        from embrouter.llms.anthropic.pass_through.adapters.transformation import (
+            EmbRouterAnthropicMessagesAdapter,
         )
 
         thinking = {"type": "enabled", "budget_tokens": 10000, "summary": "concise"}
-        result = LiteLLMAnthropicMessagesAdapter.translate_thinking_for_model(
+        result = EmbRouterAnthropicMessagesAdapter.translate_thinking_for_model(
             thinking=thinking,
             model="openai/gpt-5.2",
         )
@@ -423,13 +423,13 @@ class TestThinkingSummaryPreservation:
 
     def test_thinking_summary_concise_preserved_for_openai(self):
         """User-provided summary='concise' should not be replaced with 'detailed'."""
-        from litellm.llms.anthropic.pass_through.adapters.handler import (
-            LiteLLMMessagesToCompletionTransformationHandler,
+        from embrouter.llms.anthropic.pass_through.adapters.handler import (
+            EmbRouterMessagesToCompletionTransformationHandler,
         )
 
         thinking = {"type": "enabled", "budget_tokens": 5000, "summary": "concise"}
         completion_kwargs = {"model": "openai/gpt-5.1", "reasoning_effort": "medium"}
-        LiteLLMMessagesToCompletionTransformationHandler._route_openai_thinking_to_responses_api_if_needed(
+        EmbRouterMessagesToCompletionTransformationHandler._route_openai_thinking_to_responses_api_if_needed(
             completion_kwargs, thinking=thinking
         )
         assert completion_kwargs["reasoning_effort"] == {
@@ -439,13 +439,13 @@ class TestThinkingSummaryPreservation:
 
     def test_thinking_summary_auto_preserved_for_openai(self):
         """User-provided summary='auto' should be preserved."""
-        from litellm.llms.anthropic.pass_through.adapters.handler import (
-            LiteLLMMessagesToCompletionTransformationHandler,
+        from embrouter.llms.anthropic.pass_through.adapters.handler import (
+            EmbRouterMessagesToCompletionTransformationHandler,
         )
 
         thinking = {"type": "enabled", "budget_tokens": 10000, "summary": "auto"}
         completion_kwargs = {"model": "openai/gpt-5.1", "reasoning_effort": "high"}
-        LiteLLMMessagesToCompletionTransformationHandler._route_openai_thinking_to_responses_api_if_needed(
+        EmbRouterMessagesToCompletionTransformationHandler._route_openai_thinking_to_responses_api_if_needed(
             completion_kwargs, thinking=thinking
         )
         assert completion_kwargs["reasoning_effort"] == {
@@ -455,20 +455,20 @@ class TestThinkingSummaryPreservation:
 
     def test_summary_added_when_auto_summary_enabled(self):
         """When reasoning_auto_summary is True, summary='detailed' is added."""
-        import litellm
-        from litellm.llms.anthropic.pass_through.adapters.handler import (
-            LiteLLMMessagesToCompletionTransformationHandler,
+        import embrouter
+        from embrouter.llms.anthropic.pass_through.adapters.handler import (
+            EmbRouterMessagesToCompletionTransformationHandler,
         )
 
-        original = litellm.reasoning_auto_summary
+        original = embrouter.reasoning_auto_summary
         try:
-            litellm.reasoning_auto_summary = True
+            embrouter.reasoning_auto_summary = True
             completion_kwargs = {
                 "model": "responses/gpt-5.2",
                 "custom_llm_provider": "openai",
                 "reasoning_effort": "medium",
             }
-            LiteLLMMessagesToCompletionTransformationHandler._route_openai_thinking_to_responses_api_if_needed(
+            EmbRouterMessagesToCompletionTransformationHandler._route_openai_thinking_to_responses_api_if_needed(
                 completion_kwargs, thinking={"type": "enabled", "budget_tokens": 5000}
             )
             assert completion_kwargs["reasoning_effort"] == {
@@ -476,71 +476,71 @@ class TestThinkingSummaryPreservation:
                 "summary": "detailed",
             }
         finally:
-            litellm.reasoning_auto_summary = original
+            embrouter.reasoning_auto_summary = original
 
     def test_no_summary_by_default_string_reasoning(self):
         """By default (reasoning_auto_summary=False), summary is not added for string reasoning_effort."""
-        import litellm
-        from litellm.llms.anthropic.pass_through.adapters.handler import (
-            LiteLLMMessagesToCompletionTransformationHandler,
+        import embrouter
+        from embrouter.llms.anthropic.pass_through.adapters.handler import (
+            EmbRouterMessagesToCompletionTransformationHandler,
         )
 
-        original = litellm.reasoning_auto_summary
+        original = embrouter.reasoning_auto_summary
         try:
-            litellm.reasoning_auto_summary = False
+            embrouter.reasoning_auto_summary = False
             completion_kwargs = {
                 "model": "responses/gpt-5.2",
                 "custom_llm_provider": "openai",
                 "reasoning_effort": "high",
             }
-            LiteLLMMessagesToCompletionTransformationHandler._route_openai_thinking_to_responses_api_if_needed(
+            EmbRouterMessagesToCompletionTransformationHandler._route_openai_thinking_to_responses_api_if_needed(
                 completion_kwargs, thinking={"type": "enabled", "budget_tokens": 10000}
             )
             assert completion_kwargs["reasoning_effort"] == {"effort": "high"}
             assert "summary" not in completion_kwargs["reasoning_effort"]
         finally:
-            litellm.reasoning_auto_summary = original
+            embrouter.reasoning_auto_summary = original
 
     def test_no_summary_by_default_dict_reasoning(self):
         """By default (reasoning_auto_summary=False), summary is not injected into dict reasoning_effort."""
-        import litellm
-        from litellm.llms.anthropic.pass_through.adapters.handler import (
-            LiteLLMMessagesToCompletionTransformationHandler,
+        import embrouter
+        from embrouter.llms.anthropic.pass_through.adapters.handler import (
+            EmbRouterMessagesToCompletionTransformationHandler,
         )
 
-        original = litellm.reasoning_auto_summary
+        original = embrouter.reasoning_auto_summary
         try:
-            litellm.reasoning_auto_summary = False
+            embrouter.reasoning_auto_summary = False
             completion_kwargs = {
                 "model": "responses/gpt-5.2",
                 "custom_llm_provider": "openai",
                 "reasoning_effort": {"effort": "medium"},
             }
-            LiteLLMMessagesToCompletionTransformationHandler._route_openai_thinking_to_responses_api_if_needed(
+            EmbRouterMessagesToCompletionTransformationHandler._route_openai_thinking_to_responses_api_if_needed(
                 completion_kwargs, thinking={"type": "enabled", "budget_tokens": 5000}
             )
             assert completion_kwargs["reasoning_effort"] == {"effort": "medium"}
             assert "summary" not in completion_kwargs["reasoning_effort"]
         finally:
-            litellm.reasoning_auto_summary = original
+            embrouter.reasoning_auto_summary = original
 
     def test_summary_added_when_env_var_set(self, monkeypatch):
-        """When LITELLM_REASONING_AUTO_SUMMARY env var is true, summary is added."""
-        import litellm
-        from litellm.llms.anthropic.pass_through.adapters.handler import (
-            LiteLLMMessagesToCompletionTransformationHandler,
+        """When EMBROUTER_REASONING_AUTO_SUMMARY env var is true, summary is added."""
+        import embrouter
+        from embrouter.llms.anthropic.pass_through.adapters.handler import (
+            EmbRouterMessagesToCompletionTransformationHandler,
         )
 
-        original = litellm.reasoning_auto_summary
+        original = embrouter.reasoning_auto_summary
         try:
-            litellm.reasoning_auto_summary = False
-            monkeypatch.setenv("LITELLM_REASONING_AUTO_SUMMARY", "true")
+            embrouter.reasoning_auto_summary = False
+            monkeypatch.setenv("EMBROUTER_REASONING_AUTO_SUMMARY", "true")
             completion_kwargs = {
                 "model": "responses/gpt-5.2",
                 "custom_llm_provider": "openai",
                 "reasoning_effort": "high",
             }
-            LiteLLMMessagesToCompletionTransformationHandler._route_openai_thinking_to_responses_api_if_needed(
+            EmbRouterMessagesToCompletionTransformationHandler._route_openai_thinking_to_responses_api_if_needed(
                 completion_kwargs, thinking={"type": "enabled", "budget_tokens": 10000}
             )
             assert completion_kwargs["reasoning_effort"] == {
@@ -548,38 +548,38 @@ class TestThinkingSummaryPreservation:
                 "summary": "detailed",
             }
         finally:
-            litellm.reasoning_auto_summary = original
-            os.environ.pop("LITELLM_REASONING_AUTO_SUMMARY", None)
+            embrouter.reasoning_auto_summary = original
+            os.environ.pop("EMBROUTER_REASONING_AUTO_SUMMARY", None)
 
     def test_user_provided_summary_preserved_even_when_flag_off(self):
         """When user already set summary in dict reasoning_effort, it's preserved regardless of flag."""
-        import litellm
-        from litellm.llms.anthropic.pass_through.adapters.handler import (
-            LiteLLMMessagesToCompletionTransformationHandler,
+        import embrouter
+        from embrouter.llms.anthropic.pass_through.adapters.handler import (
+            EmbRouterMessagesToCompletionTransformationHandler,
         )
 
-        original = litellm.reasoning_auto_summary
+        original = embrouter.reasoning_auto_summary
         try:
-            litellm.reasoning_auto_summary = False
+            embrouter.reasoning_auto_summary = False
             completion_kwargs = {
                 "model": "responses/gpt-5.2",
                 "custom_llm_provider": "openai",
                 "reasoning_effort": {"effort": "high", "summary": "concise"},
             }
-            LiteLLMMessagesToCompletionTransformationHandler._route_openai_thinking_to_responses_api_if_needed(
+            EmbRouterMessagesToCompletionTransformationHandler._route_openai_thinking_to_responses_api_if_needed(
                 completion_kwargs, thinking={"type": "enabled", "budget_tokens": 10000}
             )
             assert completion_kwargs["reasoning_effort"]["summary"] == "concise"
         finally:
-            litellm.reasoning_auto_summary = original
+            embrouter.reasoning_auto_summary = original
 
     def test_openai_model_with_thinking_summary_end_to_end(self):
         """End-to-end: anthropic_messages_handler should preserve thinking.summary for OpenAI models."""
-        from litellm.llms.anthropic.pass_through.messages.handler import (
+        from embrouter.llms.anthropic.pass_through.messages.handler import (
             anthropic_messages_handler,
         )
 
-        with patch("litellm.responses", return_value="test-response") as mock_responses:
+        with patch("embrouter.responses", return_value="test-response") as mock_responses:
             try:
                 anthropic_messages_handler(
                     max_tokens=1024,
@@ -604,39 +604,39 @@ class TestThinkingSummaryPreservation:
 
     def test_responses_adapter_preserves_summary(self):
         """translate_thinking_to_reasoning should include summary when user provides it."""
-        from litellm.llms.anthropic.pass_through.responses_adapters.transformation import (
-            LiteLLMAnthropicToResponsesAPIAdapter,
+        from embrouter.llms.anthropic.pass_through.responses_adapters.transformation import (
+            EmbRouterAnthropicToResponsesAPIAdapter,
         )
 
         thinking = {"type": "enabled", "budget_tokens": 5000, "summary": "concise"}
-        result = LiteLLMAnthropicToResponsesAPIAdapter.translate_thinking_to_reasoning(thinking)
+        result = EmbRouterAnthropicToResponsesAPIAdapter.translate_thinking_to_reasoning(thinking)
         assert result == {"effort": "high", "summary": "concise"}
 
     def test_responses_adapter_no_summary_by_default(self):
         """translate_thinking_to_reasoning should not include summary by default (opt-in)."""
-        import litellm
-        from litellm.llms.anthropic.pass_through.responses_adapters.transformation import (
-            LiteLLMAnthropicToResponsesAPIAdapter,
+        import embrouter
+        from embrouter.llms.anthropic.pass_through.responses_adapters.transformation import (
+            EmbRouterAnthropicToResponsesAPIAdapter,
         )
 
-        original = litellm.reasoning_auto_summary
+        original = embrouter.reasoning_auto_summary
         try:
-            litellm.reasoning_auto_summary = False
+            embrouter.reasoning_auto_summary = False
             thinking = {"type": "enabled", "budget_tokens": 5000}
-            result = LiteLLMAnthropicToResponsesAPIAdapter.translate_thinking_to_reasoning(thinking)
+            result = EmbRouterAnthropicToResponsesAPIAdapter.translate_thinking_to_reasoning(thinking)
             assert result == {"effort": "high"}
             assert result is not None and "summary" not in result
         finally:
-            litellm.reasoning_auto_summary = original
+            embrouter.reasoning_auto_summary = original
 
     def test_translate_thinking_for_model_preserves_summary(self):
         """translate_thinking_for_model should include summary in reasoning_effort dict when user provides it."""
-        from litellm.llms.anthropic.pass_through.adapters.transformation import (
-            LiteLLMAnthropicMessagesAdapter,
+        from embrouter.llms.anthropic.pass_through.adapters.transformation import (
+            EmbRouterAnthropicMessagesAdapter,
         )
 
         thinking = {"type": "enabled", "budget_tokens": 5000, "summary": "concise"}
-        result = LiteLLMAnthropicMessagesAdapter.translate_thinking_for_model(
+        result = EmbRouterAnthropicMessagesAdapter.translate_thinking_for_model(
             thinking=thinking,
             model="openai/gpt-5.2",
         )
@@ -644,21 +644,21 @@ class TestThinkingSummaryPreservation:
 
     def test_translate_thinking_for_model_disabled_stays_plain_string_when_auto_summary_enabled(self):
         """Disabled thinking must stay a plain string even when reasoning_auto_summary is on."""
-        import litellm
-        from litellm.llms.anthropic.pass_through.adapters.transformation import (
-            LiteLLMAnthropicMessagesAdapter,
+        import embrouter
+        from embrouter.llms.anthropic.pass_through.adapters.transformation import (
+            EmbRouterAnthropicMessagesAdapter,
         )
 
-        original = litellm.reasoning_auto_summary
+        original = embrouter.reasoning_auto_summary
         try:
-            litellm.reasoning_auto_summary = True
+            embrouter.reasoning_auto_summary = True
             thinking = {"type": "disabled"}
-            result = LiteLLMAnthropicMessagesAdapter.translate_thinking_for_model(
+            result = EmbRouterAnthropicMessagesAdapter.translate_thinking_for_model(
                 thinking=thinking,
                 model="openai/gpt-5.2",
             )
         finally:
-            litellm.reasoning_auto_summary = original
+            embrouter.reasoning_auto_summary = original
 
         assert result == {"reasoning_effort": "none"}
 
@@ -684,7 +684,7 @@ def _empty_block_msgs():
 
 def test_handler_strips_when_no_presanitized_flag():
     """Sync entry point (no async wrapper): handler must still sanitize."""
-    from litellm.llms.anthropic.pass_through.messages import handler
+    from embrouter.llms.anthropic.pass_through.messages import handler
 
     with patch.object(
         handler,
@@ -704,7 +704,7 @@ def test_handler_strips_when_no_presanitized_flag():
 
 def test_handler_skips_strip_when_presanitized():
     """Async wrapper already sanitized -> handler must NOT rescan."""
-    from litellm.llms.anthropic.pass_through.messages import handler
+    from embrouter.llms.anthropic.pass_through.messages import handler
 
     with patch.object(
         handler,
@@ -717,7 +717,7 @@ def test_handler_skips_strip_when_presanitized():
             model="anthropic/claude-3-5-sonnet-20241022",
             custom_llm_provider="anthropic",
             mock_response="hi there",
-            _litellm_messages_presanitized=True,
+            _embrouter_messages_presanitized=True,
         )
     assert spy.call_count == 0  # skipped the redundant scan
     assert result is not None
@@ -725,7 +725,7 @@ def test_handler_skips_strip_when_presanitized():
 
 def test_handler_flattens_replayed_unencrypted_web_search_results():
     """Synthesized search blocks replayed as history must reach the provider as text."""
-    from litellm.llms.anthropic.pass_through.messages import handler
+    from embrouter.llms.anthropic.pass_through.messages import handler
 
     captured = {}
 
@@ -741,7 +741,7 @@ def test_handler_flattens_replayed_unencrypted_web_search_results():
         handler.anthropic_messages_handler(
             max_tokens=10,
             messages=[
-                {"role": "user", "content": "latest litellm version?"},
+                {"role": "user", "content": "latest embrouter version?"},
                 {
                     "role": "assistant",
                     "content": [
@@ -749,7 +749,7 @@ def test_handler_flattens_replayed_unencrypted_web_search_results():
                             "type": "server_tool_use",
                             "id": "srvtoolu_1",
                             "name": "web_search",
-                            "input": {"query": "latest litellm version"},
+                            "input": {"query": "latest embrouter version"},
                         },
                         {
                             "type": "web_search_tool_result",
@@ -780,7 +780,7 @@ def test_handler_flattens_replayed_unencrypted_web_search_results():
 
 def test_presanitized_flag_not_leaked_to_provider_params():
     """The private sentinel must be popped, never forwarded as a request param."""
-    from litellm.llms.anthropic.pass_through.messages import handler
+    from embrouter.llms.anthropic.pass_through.messages import handler
 
     captured = {}
 
@@ -799,23 +799,23 @@ def test_presanitized_flag_not_leaked_to_provider_params():
             messages=[{"role": "user", "content": "hi"}],
             model="anthropic/claude-3-5-sonnet-20241022",
             custom_llm_provider="anthropic",
-            _litellm_messages_presanitized=True,
+            _embrouter_messages_presanitized=True,
         )
 
-    assert "_litellm_messages_presanitized" not in captured.get("optional", {})
-    assert "_litellm_messages_presanitized" not in captured.get("kwargs", {})
+    assert "_embrouter_messages_presanitized" not in captured.get("optional", {})
+    assert "_embrouter_messages_presanitized" not in captured.get("kwargs", {})
 
 
 @pytest.mark.asyncio
 async def test_async_wrapper_sets_presanitized_and_sanitizes_once():
     """End-to-end: wrapper sanitizes (once) AND signals the handler to skip."""
-    from litellm.llms.anthropic.pass_through.messages import handler
+    from embrouter.llms.anthropic.pass_through.messages import handler
 
     captured = {}
 
     def fake_handler(*args, **kwargs):
         captured["messages"] = kwargs.get("messages")
-        captured["presanitized"] = kwargs.get("_litellm_messages_presanitized")
+        captured["presanitized"] = kwargs.get("_embrouter_messages_presanitized")
         return "stub"
 
     fake_loop = MagicMock()
@@ -853,7 +853,7 @@ def _gate_stubs(monkeypatch):
     provider config handed to the native passthrough path and ``translation_calls``
     counts hits on the Anthropic->OpenAI translation handlers.
     """
-    from litellm.llms.anthropic.pass_through.messages import handler
+    from embrouter.llms.anthropic.pass_through.messages import handler
 
     captured = {}
     translation_calls = {"count": 0}
@@ -868,12 +868,12 @@ def _gate_stubs(monkeypatch):
 
     monkeypatch.setattr(handler.base_llm_http_handler, "anthropic_messages_handler", fake_native)
     monkeypatch.setattr(
-        handler.LiteLLMMessagesToResponsesAPIHandler,
+        handler.EmbRouterMessagesToResponsesAPIHandler,
         "anthropic_messages_handler",
         staticmethod(fake_translation),
     )
     monkeypatch.setattr(
-        handler.LiteLLMMessagesToCompletionTransformationHandler,
+        handler.EmbRouterMessagesToCompletionTransformationHandler,
         "anthropic_messages_handler",
         staticmethod(fake_translation),
     )
@@ -883,10 +883,10 @@ def _gate_stubs(monkeypatch):
 def test_gate_passthrough_when_supported_endpoints_opts_in(monkeypatch):
     """provider=openai + model_info.supported_endpoints containing /v1/messages
     must route to the native passthrough config, NOT the translation handlers."""
-    from litellm.llms.anthropic.pass_through.messages.handler import (
+    from embrouter.llms.anthropic.pass_through.messages.handler import (
         anthropic_messages_handler,
     )
-    from litellm.llms.openai_like.messages.transformation import (
+    from embrouter.llms.openai_like.messages.transformation import (
         OpenAILikeAnthropicMessagesConfig,
     )
 
@@ -909,7 +909,7 @@ def test_gate_passthrough_when_supported_endpoints_opts_in(monkeypatch):
 def test_gate_translates_when_supported_endpoints_absent(monkeypatch):
     """Default behavior is unchanged: without the /v1/messages opt-in, an openai
     deployment is translated (Responses API), never passed through natively."""
-    from litellm.llms.anthropic.pass_through.messages.handler import (
+    from embrouter.llms.anthropic.pass_through.messages.handler import (
         anthropic_messages_handler,
     )
 
@@ -931,7 +931,7 @@ def test_gate_translates_when_supported_endpoints_absent(monkeypatch):
 def test_gate_passthrough_skipped_when_only_chat_completions_supported(monkeypatch):
     """A deployment that lists only /v1/chat/completions is still translated;
     the opt-in is specifically the /v1/messages entry."""
-    from litellm.llms.anthropic.pass_through.messages.handler import (
+    from embrouter.llms.anthropic.pass_through.messages.handler import (
         anthropic_messages_handler,
     )
 
@@ -964,7 +964,7 @@ def test_gate_passthrough_forwards_cache_control_ttl_only_when_deployment_opts_i
 ):
     """The passthrough config strips cache_control.ttl unless the deployment sets
     model_info.cache_control_ttl to exactly true."""
-    from litellm.llms.anthropic.pass_through.messages.handler import (
+    from embrouter.llms.anthropic.pass_through.messages.handler import (
         anthropic_messages_handler,
     )
 
@@ -994,9 +994,9 @@ def test_first_party_claude_4_8_plus_cost_map_entries_carry_mid_conversation_sys
     import os
     import re
 
-    import litellm
+    import embrouter
 
-    cost_map_path = os.path.join(os.path.dirname(litellm.__file__), "model_prices_and_context_window_backup.json")
+    cost_map_path = os.path.join(os.path.dirname(embrouter.__file__), "model_prices_and_context_window_backup.json")
     with open(cost_map_path) as f:
         cost_map = json.load(f)
     rules = cost_map["fallback_generalizations"]["rules"]
@@ -1010,7 +1010,7 @@ def test_first_party_claude_4_8_plus_cost_map_entries_carry_mid_conversation_sys
         key
         for key, info in cost_map.items()
         if isinstance(info, dict)
-        and info.get("litellm_provider") == "anthropic"
+        and info.get("embrouter_provider") == "anthropic"
         and "claude" in key
         and pattern.search(key)
         and info.get("supports_mid_conversation_system") is not True
@@ -1059,9 +1059,9 @@ async def test_messages_strips_provider_prefix_exactly_once(requested_model, exp
 
     with (
         patch.object(httpx.AsyncClient, "send", fake_send),
-        pytest.raises(litellm.exceptions.InternalServerError),
+        pytest.raises(embrouter.exceptions.InternalServerError),
     ):
-        await litellm.anthropic.messages.acreate(
+        await embrouter.anthropic.messages.acreate(
             max_tokens=100,
             messages=[{"role": "user", "content": "ping"}],
             model=requested_model,
@@ -1107,9 +1107,9 @@ async def test_native_messages_strips_replayed_provider_specific_fields_from_wir
 
     with (
         patch.object(httpx.AsyncClient, "send", fake_send),
-        pytest.raises(litellm.exceptions.InternalServerError),
+        pytest.raises(embrouter.exceptions.InternalServerError),
     ):
-        await litellm.anthropic.messages.acreate(
+        await embrouter.anthropic.messages.acreate(
             max_tokens=100,
             messages=messages,
             model="anthropic/claude-haiku-4-5-20251001",
@@ -1141,8 +1141,8 @@ async def test_messages_streaming_reports_provider_local_model(requested_model, 
         async def __anext__(self):
             raise StopAsyncIteration
 
-    with patch("litellm.acompletion", new=AsyncMock(return_value=_EmptyStream())):
-        stream = await litellm.anthropic.messages.acreate(
+    with patch("embrouter.acompletion", new=AsyncMock(return_value=_EmptyStream())):
+        stream = await embrouter.anthropic.messages.acreate(
             max_tokens=100,
             messages=[{"role": "user", "content": "ping"}],
             model=requested_model,
@@ -1156,8 +1156,8 @@ async def test_messages_streaming_reports_provider_local_model(requested_model, 
 
 def test_messages_sync_streaming_reports_provider_local_model():
     """Same guarantee as the async bridge, at the sync call site."""
-    with patch("litellm.completion", new=MagicMock(return_value=iter(()))):
-        stream = litellm.anthropic.messages.create(
+    with patch("embrouter.completion", new=MagicMock(return_value=iter(()))):
+        stream = embrouter.anthropic.messages.create(
             max_tokens=100,
             messages=[{"role": "user", "content": "ping"}],
             model="perplexity/perplexity/kimi-k3",
@@ -1219,7 +1219,7 @@ class _SuccessPayloadCapture(CustomLogger):
         self.payloads: List[Dict[str, Any]] = []
 
     async def async_log_success_event(self, kwargs, response_obj, start_time, end_time):
-        if kwargs.get("litellm_call_id") == self.tracking_id:
+        if kwargs.get("embrouter_call_id") == self.tracking_id:
             self.payloads.append(kwargs.get("standard_logging_object") or {})
 
 
@@ -1227,7 +1227,7 @@ class _SuccessPayloadCapture(CustomLogger):
 def capture_success_payloads(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
     capture = _SuccessPayloadCapture(tracking_id=f"messages-stream-{uuid.uuid4()}")
-    monkeypatch.setattr(litellm, "callbacks", [capture])
+    monkeypatch.setattr(embrouter, "callbacks", [capture])
     return capture
 
 
@@ -1275,14 +1275,14 @@ class TestMessagesStreamingSuccessLogging:
     @pytest.mark.asyncio
     async def test_responses_bridge_streaming_emits_success_logging(self, capture_success_payloads):
         """The Responses bridge, which is the default for openai/ deployments."""
-        from litellm.llms.anthropic.pass_through.responses_adapters.handler import (
-            LiteLLMMessagesToResponsesAPIHandler,
+        from embrouter.llms.anthropic.pass_through.responses_adapters.handler import (
+            EmbRouterMessagesToResponsesAPIHandler,
         )
 
         _bind_logging_worker_to_running_loop()
 
         with patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "embrouter.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             new_callable=AsyncMock,
         ) as mock_post:
             mock_post.return_value = httpx.Response(
@@ -1290,13 +1290,13 @@ class TestMessagesStreamingSuccessLogging:
                 content=_sse_body(_RESPONSES_SSE_EVENTS),
                 headers={"content-type": "text/event-stream"},
             )
-            sse_stream = await LiteLLMMessagesToResponsesAPIHandler.async_anthropic_messages_handler(
+            sse_stream = await EmbRouterMessagesToResponsesAPIHandler.async_anthropic_messages_handler(
                 max_tokens=100,
                 messages=self.MESSAGES,
                 model="openai/gpt-4o-mini",
                 stream=True,
                 custom_llm_provider="openai",
-                litellm_call_id=capture_success_payloads.tracking_id,
+                embrouter_call_id=capture_success_payloads.tracking_id,
             )
             chunks = await _drain(sse_stream)
 
@@ -1314,26 +1314,26 @@ class TestMessagesStreamingSuccessLogging:
     @pytest.mark.asyncio
     async def test_chat_completions_bridge_streaming_emits_success_logging(self, capture_success_payloads):
         """The chat-completions bridge, reached via
-        litellm.use_chat_completions_url_for_anthropic_messages. Its router lookup is
+        embrouter.use_chat_completions_url_for_anthropic_messages. Its router lookup is
         stubbed to what an SDK caller with no proxy running already resolves to."""
-        from litellm.llms.anthropic.pass_through.adapters.handler import (
-            LiteLLMMessagesToCompletionTransformationHandler,
+        from embrouter.llms.anthropic.pass_through.adapters.handler import (
+            EmbRouterMessagesToCompletionTransformationHandler,
         )
 
         _bind_logging_worker_to_running_loop()
 
         with patch(
-            "litellm.llms.anthropic.pass_through.adapters.handler._proxy_router_fallback",
+            "embrouter.llms.anthropic.pass_through.adapters.handler._proxy_router_fallback",
             return_value=None,
         ):
-            sse_stream = await LiteLLMMessagesToCompletionTransformationHandler.async_anthropic_messages_handler(
+            sse_stream = await EmbRouterMessagesToCompletionTransformationHandler.async_anthropic_messages_handler(
                 max_tokens=100,
                 messages=self.MESSAGES,
                 model="openai/gpt-4o-mini",
                 stream=True,
                 custom_llm_provider="openai",
                 mock_response="hello there",
-                litellm_call_id=capture_success_payloads.tracking_id,
+                embrouter_call_id=capture_success_payloads.tracking_id,
             )
             chunks = await _drain(sse_stream)
 
@@ -1361,8 +1361,8 @@ class _FailureCapture(CustomLogger):
 @pytest.mark.parametrize(
     "upstream_status, upstream_error_type, expected_exception",
     [
-        (401, "authentication_error", litellm.AuthenticationError),
-        (403, "permission_error", litellm.PermissionDeniedError),
+        (401, "authentication_error", embrouter.AuthenticationError),
+        (403, "permission_error", embrouter.PermissionDeniedError),
     ],
 )
 async def test_anthropic_messages_maps_provider_exception_before_failure_logging(
@@ -1376,10 +1376,10 @@ async def test_anthropic_messages_maps_provider_exception_before_failure_logging
     The 403 row pins the upstream status on the way through the mapper: Anthropic's
     documented permission_error must reach the caller as a 403, never as the mapper's
     APIConnectionError 500 fallthrough."""
-    from litellm.llms.anthropic.pass_through.messages import handler
+    from embrouter.llms.anthropic.pass_through.messages import handler
 
     capture = _FailureCapture()
-    monkeypatch.setattr(litellm, "callbacks", [capture])
+    monkeypatch.setattr(embrouter, "callbacks", [capture])
 
     def upstream_rejects_the_request(request: httpx.Request) -> httpx.Response:
         return httpx.Response(
@@ -1418,7 +1418,7 @@ async def test_anthropic_messages_leaves_non_provider_failures_unmapped():
     """The mapping boundary is for provider failures only. A request rejected before
     the provider call (here invalid metadata) must surface as the original exception,
     not as the mapper's APIConnectionError, whose message embeds a server traceback."""
-    from litellm.llms.anthropic.pass_through.messages import handler
+    from embrouter.llms.anthropic.pass_through.messages import handler
 
     def upstream_must_not_be_called(request: httpx.Request) -> httpx.Response:
         raise AssertionError("the provider must not be called for a request rejected locally")
@@ -1464,7 +1464,7 @@ def _recording_client(seen_urls: list[str]) -> AsyncHTTPHandler:
 
 @pytest.mark.asyncio
 async def test_provider_messages_api_base_env_is_not_shadowed_by_the_chat_default(monkeypatch):
-    from litellm.llms.anthropic.pass_through.messages import handler
+    from embrouter.llms.anthropic.pass_through.messages import handler
 
     monkeypatch.delenv("DEEPSEEK_API_BASE", raising=False)
     monkeypatch.setenv("DEEPSEEK_ANTHROPIC_API_BASE", "https://deepseek.internal.example/anthropic")
@@ -1483,7 +1483,7 @@ async def test_provider_messages_api_base_env_is_not_shadowed_by_the_chat_defaul
 @pytest.mark.asyncio
 async def test_anthropic_messages_forwards_safeguards_and_unknown_beta_to_anthropic():
     """Shapes are what Claude Code 2.1.278 sends and api.anthropic.com returns, captured 2026-09-21."""
-    from litellm.llms.anthropic.pass_through.messages import handler
+    from embrouter.llms.anthropic.pass_through.messages import handler
 
     safeguards = [{"type": "dangerous_tool_use", "classifier_context": {"v": 1, "permission_mode": "auto"}}]
     client_betas = "dangerous-tool-use-2026-09-03,interleaved-thinking-2025-05-14"
@@ -1531,7 +1531,7 @@ async def test_anthropic_messages_forwards_safeguards_and_unknown_beta_to_anthro
 @pytest.mark.asyncio
 async def test_anthropic_messages_streaming_forwards_safeguards_and_keeps_safeguard_results():
     """Shapes are what Claude Code 2.1.278 sends and api.anthropic.com returns, captured 2026-09-21."""
-    from litellm.llms.anthropic.pass_through.messages import handler
+    from embrouter.llms.anthropic.pass_through.messages import handler
 
     safeguards = [{"type": "dangerous_tool_use", "classifier_context": {"v": 1, "permission_mode": "auto"}}]
     tool_verdicts = {"toolu_01": {"type": "evaluated", "outcome": "not_flagged"}}
@@ -1632,7 +1632,7 @@ async def test_anthropic_messages_forwards_safeguards_and_dangerous_tool_use_bet
     local_beta_headers_config, client_headers
 ):
     """Bedrock Invoke takes betas in the body's `anthropic_beta` and 400s on `safeguards` without the beta, so the beta rides along with the field."""
-    from litellm.llms.anthropic.pass_through.messages import handler
+    from embrouter.llms.anthropic.pass_through.messages import handler
 
     safeguards, safeguard_results = _claude_code_auto_mode_request()
     captured: dict[str, object] = {}
@@ -1661,8 +1661,8 @@ async def test_anthropic_messages_forwards_safeguards_and_dangerous_tool_use_bet
     local_beta_headers_config, client_headers
 ):
     """Vertex rawPredict takes the beta as the `anthropic-beta` header and 400s on `safeguards` without it, so the beta rides along with the field."""
-    from litellm.llms.anthropic.pass_through.messages import handler
-    from litellm.llms.vertex_ai.vertex_llm_base import VertexBase
+    from embrouter.llms.anthropic.pass_through.messages import handler
+    from embrouter.llms.vertex_ai.vertex_llm_base import VertexBase
 
     safeguards, safeguard_results = _claude_code_auto_mode_request()
     captured: dict[str, object] = {}

@@ -6,10 +6,10 @@ Helper util for handling openai-specific cost calculation
 from collections.abc import Mapping
 from typing import Any, Final, Literal
 
-from litellm._logging import verbose_logger
-from litellm.litellm_core_utils.llm_cost_calc.utils import generic_cost_per_token
-from litellm.types.utils import CallTypes, ModelInfo, Usage
-from litellm.utils import get_model_info
+from embrouter._logging import verbose_logger
+from embrouter.embrouter_core_utils.llm_cost_calc.utils import generic_cost_per_token
+from embrouter.types.utils import CallTypes, ModelInfo, Usage
+from embrouter.utils import get_model_info
 
 
 def cost_router(call_type: CallTypes) -> Literal["cost_per_token", "cost_per_second"]:
@@ -30,7 +30,7 @@ def cost_per_token(
 
     Input:
         - model: str, the model name without provider prefix
-        - usage: LiteLLM Usage block, containing anthropic caching information
+        - usage: EmbRouter Usage block, containing anthropic caching information
         - data_residency: optional OpenAI data-residency region (e.g. "eu", "us"),
           inferred from api_base. Applies the model's regional-processing
           uplift multiplier when set.

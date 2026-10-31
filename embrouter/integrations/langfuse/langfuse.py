@@ -12,27 +12,27 @@ from typing import TYPE_CHECKING, Any, Final, Literal, Protocol, cast, runtime_c
 
 from packaging.version import Version
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.constants import MAX_LANGFUSE_INITIALIZED_CLIENTS
-from litellm.integrations.langfuse.langfuse_mock_client import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.constants import MAX_LANGFUSE_INITIALIZED_CLIENTS
+from embrouter.integrations.langfuse.langfuse_mock_client import (
     create_mock_langfuse_client,
     should_use_langfuse_mock,
 )
-from litellm.litellm_core_utils.core_helpers import (
+from embrouter.embrouter_core_utils.core_helpers import (
     filter_exceptions_from_params,
     reconstruct_model_name,
     safe_deep_copy,
 )
-from litellm.litellm_core_utils.initialize_dynamic_callback_params import (
+from embrouter.embrouter_core_utils.initialize_dynamic_callback_params import (
     validate_langfuse_environment_value,
 )
-from litellm.litellm_core_utils.redact_messages import redact_user_api_key_info
-from litellm.llms.custom_httpx.http_handler import _get_httpx_client
-from litellm.secret_managers.main import str_to_bool
-from litellm.types.integrations.langfuse import *
-from litellm.types.llms.openai import HttpxBinaryResponseContent, ResponsesAPIResponse
-from litellm.types.utils import (
+from embrouter.embrouter_core_utils.redact_messages import redact_user_api_key_info
+from embrouter.llms.custom_httpx.http_handler import _get_httpx_client
+from embrouter.secret_managers.main import str_to_bool
+from embrouter.types.integrations.langfuse import *
+from embrouter.types.llms.openai import HttpxBinaryResponseContent, ResponsesAPIResponse
+from embrouter.types.utils import (
     EmbeddingResponse,
     ImageResponse,
     ModelResponse,
@@ -45,8 +45,8 @@ from litellm.types.utils import (
 )
 
 if TYPE_CHECKING:
-    from litellm.integrations.langfuse.langfuse_sdk import LangfuseApiClient, LangfuseObservation, LangfuseTracing
-    from litellm.litellm_core_utils.litellm_logging import DynamicLoggingCache
+    from embrouter.integrations.langfuse.langfuse_sdk import LangfuseApiClient, LangfuseObservation, LangfuseTracing
+    from embrouter.embrouter_core_utils.embrouter_logging import DynamicLoggingCache
 else:
     DynamicLoggingCache = Any
     LangfuseApiClient = Any
@@ -79,13 +79,13 @@ def _is_session_header_trace(trace_id: object, session_id: object, proxy_server_
     headers: Final = MappingProxyType(
         {key.lower(): value for key, value in _widened_items(raw_headers) if isinstance(key, str)}
     )
-    if headers.get("x-litellm-trace-id"):
+    if headers.get("x-embrouter-trace-id"):
         return False
     if headers.get("langfuse_trace_id") is not None:
         return False
     if trace_id != session_id and headers.get("langfuse_session_id") != session_id:
         return False
-    if headers.get("x-litellm-session-id") == trace_id:
+    if headers.get("x-embrouter-session-id") == trace_id:
         return True
     if re.fullmatch(r"[a-zA-Z0-9_\-]{8,}", trace_id) is None:
         return False
@@ -139,7 +139,7 @@ def _extract_cache_read_input_tokens(usage_obj) -> int:
 
 def _logging_id(start_time: datetime | None, response_obj: object) -> str | None:
     """Typed view of the timestamped response id Langfuse uses as the generation id."""
-    return litellm.utils.get_logging_id(start_time, response_obj)
+    return embrouter.utils.get_logging_id(start_time, response_obj)
 
 
 @runtime_checkable
@@ -149,10 +149,10 @@ class _ResponseWithId(Protocol):
     def get(self, key: Literal["id"], default: None = None, /) -> object: ...
 
 
-def _lookup_ids(litellm_call_id: str | None, response_obj: object) -> Mapping[str, str]:
+def _lookup_ids(embrouter_call_id: str | None, response_obj: object) -> Mapping[str, str]:
     """v2 carried the response id inside the generation id; v4 hashes ids to 16 hex chars, so they ride in metadata."""
     response_id: Final[object] = response_obj.get("id") if isinstance(response_obj, _ResponseWithId) else None
-    ids: Final[tuple[tuple[str, object], ...]] = (("litellm_call_id", litellm_call_id), ("response_id", response_id))
+    ids: Final[tuple[tuple[str, object], ...]] = (("embrouter_call_id", embrouter_call_id), ("response_id", response_id))
     return MappingProxyType({key: str(value) for key, value in ids if value is not None})
 
 
@@ -199,7 +199,7 @@ def raise_if_unsupported_langfuse_version(installed_version: str) -> None:
     if Version(MINIMUM_LANGFUSE_VERSION) <= installed and installed.major < Version(UNSUPPORTED_LANGFUSE_VERSION).major:
         return
     raise ImportError(
-        f"\033[91mlitellm requires langfuse>={MINIMUM_LANGFUSE_VERSION},<{UNSUPPORTED_LANGFUSE_VERSION} for the "
+        f"\033[91membrouter requires langfuse>={MINIMUM_LANGFUSE_VERSION},<{UNSUPPORTED_LANGFUSE_VERSION} for the "
         f"'langfuse' callback, but {installed_version} is installed. Run "
         f"'pip install \"langfuse>={MINIMUM_LANGFUSE_VERSION},<{UNSUPPORTED_LANGFUSE_VERSION}\"' to upgrade, or use "
         f"the 'langfuse_otel' callback, which does not depend on the langfuse SDK\033[0m"
@@ -302,7 +302,7 @@ class LangFuseLogger:
             ) from e
         raise_if_unsupported_langfuse_version(self.langfuse_sdk_version)
         raise_if_unusable_prompt_cache_ttl()
-        from litellm.integrations.langfuse.langfuse_sdk import configured_release
+        from embrouter.integrations.langfuse.langfuse_sdk import configured_release
 
         self.public_key, self.secret_key, self.langfuse_host = resolve_langfuse_credentials(
             langfuse_public_key=langfuse_public_key,
@@ -353,11 +353,11 @@ class LangFuseLogger:
         The budget dates from the SDK client, which started a consumer thread per instance and once
         pinned a CPU at 100% when many were built; it still bounds the number of per-key loggers.
         """
-        if litellm.initialized_langfuse_clients >= MAX_LANGFUSE_INITIALIZED_CLIENTS:
+        if embrouter.initialized_langfuse_clients >= MAX_LANGFUSE_INITIALIZED_CLIENTS:
             raise Exception(
-                f"Max langfuse clients reached: {litellm.initialized_langfuse_clients} is greater than {MAX_LANGFUSE_INITIALIZED_CLIENTS}"
+                f"Max langfuse clients reached: {embrouter.initialized_langfuse_clients} is greater than {MAX_LANGFUSE_INITIALIZED_CLIENTS}"
             )
-        from litellm.integrations.langfuse.langfuse_sdk import (
+        from embrouter.integrations.langfuse.langfuse_sdk import (
             acquire_langfuse_tracing,
             build_langfuse_client,
             release_langfuse_tracing,
@@ -382,8 +382,8 @@ class LangFuseLogger:
         except Exception:
             release_langfuse_tracing(tracing, grace_seconds=0.0)
             raise
-        litellm.initialized_langfuse_clients += 1
-        verbose_logger.debug("Created langfuse client number %s", litellm.initialized_langfuse_clients)
+        embrouter.initialized_langfuse_clients += 1
+        verbose_logger.debug("Created langfuse client number %s", embrouter.initialized_langfuse_clients)
         return api_client, tracing
 
     def flush(self) -> None:
@@ -392,29 +392,29 @@ class LangFuseLogger:
 
     def stop(self) -> None:
         """Give the export channel back; ``DynamicLoggingCache`` calls this when a per-key logger expires."""
-        from litellm.integrations.langfuse.langfuse_sdk import release_langfuse_tracing
+        from embrouter.integrations.langfuse.langfuse_sdk import release_langfuse_tracing
 
         release_langfuse_tracing(self.tracing)
 
     @staticmethod
-    def add_metadata_from_header(litellm_params: dict, metadata: dict) -> dict[str, object]:
+    def add_metadata_from_header(embrouter_params: dict, metadata: dict) -> dict[str, object]:
         """
         Adds metadata from proxy request headers to Langfuse logging if keys start with "langfuse_"
-        and overwrites litellm_params.metadata if already included.
+        and overwrites embrouter_params.metadata if already included.
 
         For example if you want to append your trace to an existing `trace_id` via header, send
         `headers: { ..., langfuse_existing_trace_id: your-existing-trace-id }` via proxy request.
         """
-        if litellm_params is None:
+        if embrouter_params is None:
             return metadata
 
-        if litellm_params.get("proxy_server_request") is None:
+        if embrouter_params.get("proxy_server_request") is None:
             return metadata
 
         if metadata is None:
             metadata = {}
 
-        proxy_headers: Final = litellm_params.get("proxy_server_request", {}).get("headers", {}) or {}
+        proxy_headers: Final = embrouter_params.get("proxy_server_request", {}).get("headers", {}) or {}
 
         for metadata_param_key in proxy_headers:
             if metadata_param_key.startswith("langfuse_"):
@@ -456,10 +456,10 @@ class LangFuseLogger:
             input = None
             output = None
 
-            litellm_params: Final = kwargs.get("litellm_params", {})
-            litellm_call_id: Final = kwargs.get("litellm_call_id", None)
-            metadata = litellm_params.get("metadata", {}) or {}  # if litellm_params['metadata'] == None
-            metadata = self.add_metadata_from_header(litellm_params, metadata)
+            embrouter_params: Final = kwargs.get("embrouter_params", {})
+            embrouter_call_id: Final = kwargs.get("embrouter_call_id", None)
+            metadata = embrouter_params.get("metadata", {}) or {}  # if embrouter_params['metadata'] == None
+            metadata = self.add_metadata_from_header(embrouter_params, metadata)
             optional_params: Final = safe_deep_copy(kwargs.get("optional_params", {}))
 
             prompt: Final = {"messages": kwargs.get("messages")}
@@ -493,7 +493,7 @@ class LangFuseLogger:
             trace_id, generation_id = self._log_langfuse_v2(
                 user_id=user_id,
                 metadata=metadata,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 output=output,
                 start_time=start_time,
                 end_time=end_time,
@@ -502,7 +502,7 @@ class LangFuseLogger:
                 input=input,
                 response_obj=response_obj,
                 level=level,
-                litellm_call_id=litellm_call_id,
+                embrouter_call_id=embrouter_call_id,
             )
             verbose_logger.debug("Langfuse Layer Logging - final response object: %s", response_obj)
             verbose_logger.info("Langfuse Layer Logging - logging success")
@@ -549,29 +549,29 @@ class LangFuseLogger:
             input = prompt
             output = status_message
         elif response_obj is not None and (
-            kwargs.get("call_type", None) == "embedding" or isinstance(response_obj, litellm.EmbeddingResponse)
+            kwargs.get("call_type", None) == "embedding" or isinstance(response_obj, embrouter.EmbeddingResponse)
         ):
             input = prompt
             output = None
-        elif response_obj is not None and isinstance(response_obj, litellm.ModelResponse):
+        elif response_obj is not None and isinstance(response_obj, embrouter.ModelResponse):
             input = prompt
             output = self._get_chat_content_for_langfuse(response_obj)
-        elif response_obj is not None and isinstance(response_obj, litellm.HttpxBinaryResponseContent):
+        elif response_obj is not None and isinstance(response_obj, embrouter.HttpxBinaryResponseContent):
             input = prompt
             output = "speech-output"
-        elif response_obj is not None and isinstance(response_obj, litellm.TextCompletionResponse):
+        elif response_obj is not None and isinstance(response_obj, embrouter.TextCompletionResponse):
             input = prompt
             output = self._get_text_completion_content_for_langfuse(response_obj)
-        elif response_obj is not None and isinstance(response_obj, litellm.ImageResponse):
+        elif response_obj is not None and isinstance(response_obj, embrouter.ImageResponse):
             input = prompt
             output = response_obj.get("data", None)
-        elif response_obj is not None and isinstance(response_obj, litellm.TranscriptionResponse):
+        elif response_obj is not None and isinstance(response_obj, embrouter.TranscriptionResponse):
             input = prompt
             output = response_obj.get("text", None)
-        elif response_obj is not None and isinstance(response_obj, litellm.RerankResponse):
+        elif response_obj is not None and isinstance(response_obj, embrouter.RerankResponse):
             input = prompt
             output = response_obj.results
-        elif response_obj is not None and isinstance(response_obj, litellm.ResponsesAPIResponse):
+        elif response_obj is not None and isinstance(response_obj, embrouter.ResponsesAPIResponse):
             input = prompt
             output = self._get_responses_api_content_for_langfuse(response_obj)
         elif (
@@ -603,7 +603,7 @@ class LangFuseLogger:
         self,
         user_id: str | None,
         metadata: dict[str, object],
-        litellm_params: dict,
+        embrouter_params: dict,
         output: str | dict | Sequence[object] | None,
         start_time: datetime | None,
         end_time: datetime | None,
@@ -612,7 +612,7 @@ class LangFuseLogger:
         input: dict | None,
         response_obj,
         level: str,
-        litellm_call_id: str | None,
+        embrouter_call_id: str | None,
     ) -> tuple:
         verbose_logger.debug("Langfuse Layer Logging - logging to langfuse via sdk v%s", self.langfuse_sdk_version)
 
@@ -634,22 +634,22 @@ class LangFuseLogger:
 
             # Clean Metadata before logging - never log raw metadata
             # the raw metadata can contain circular references which leads to infinite recursion
-            # we clean out all extra litellm metadata params before logging
+            # we clean out all extra embrouter metadata params before logging
             clean_metadata: dict[str, object] = {}
             if prompt_management_metadata is not None:
                 clean_metadata["prompt_management_metadata"] = prompt_management_metadata
             metadata_entries: Final = _object_mapping(metadata)
             if metadata_entries is not None:
                 for key, value in metadata_entries.items():
-                    # generate langfuse tags - Default Tags sent to Langfuse from LiteLLM Proxy
+                    # generate langfuse tags - Default Tags sent to Langfuse from EmbRouter Proxy
                     if (
-                        litellm.langfuse_default_tags is not None
-                        and isinstance(litellm.langfuse_default_tags, list)
-                        and key in litellm.langfuse_default_tags
+                        embrouter.langfuse_default_tags is not None
+                        and isinstance(embrouter.langfuse_default_tags, list)
+                        and key in embrouter.langfuse_default_tags
                     ):
                         tags.append(f"{key}:{value}")
 
-                    # clean litellm metadata before logging
+                    # clean embrouter metadata before logging
                     if key in _DENIED_STEERING_KEYS:
                         continue
                     else:
@@ -665,18 +665,18 @@ class LangFuseLogger:
             # This allows standard trace_id to be used when provided in standard_logging_object
             if trace_id is None and standard_logging_object is not None:
                 trace_id = cast(str | None, standard_logging_object.get("trace_id"))
-            # Fallback to litellm_call_id if no trace_id found
+            # Fallback to embrouter_call_id if no trace_id found
             if trace_id is None:
-                trace_id = kwargs.get("litellm_trace_id") or litellm_call_id
+                trace_id = kwargs.get("embrouter_trace_id") or embrouter_call_id
             existing_trace_id: Final = clean_metadata.pop("existing_trace_id", None)
             # If existing_trace_id is provided, use it as the trace_id to return
             # This allows continuing an existing trace while still returning the correct trace_id
             if existing_trace_id is not None:
                 trace_id = existing_trace_id
             call_trace_id: Final = (
-                litellm_call_id or trace_id
+                embrouter_call_id or trace_id
                 if existing_trace_id is None
-                and _is_session_header_trace(trace_id, session_id, litellm_params.get("proxy_server_request"))
+                and _is_session_header_trace(trace_id, session_id, embrouter_params.get("proxy_server_request"))
                 else trace_id
             )
             if call_trace_id != trace_id:
@@ -687,14 +687,14 @@ class LangFuseLogger:
                 )
             requested_trace_keys: Final = _as_steering_key_sequence(clean_metadata.pop("update_trace_keys", ()))
             update_trace_keys: Final = (
-                requested_trace_keys if _as_steering_flag(litellm.langfuse_enable_update_trace_keys) else ()
+                requested_trace_keys if _as_steering_flag(embrouter.langfuse_enable_update_trace_keys) else ()
             )
             debug: Final = clean_metadata.pop("debug_langfuse", None)
             mask_input: Final = _as_steering_flag(clean_metadata.pop("mask_input", False))
             mask_output: Final = _as_steering_flag(clean_metadata.pop("mask_output", False))
             # Look for masking function in the dedicated location first (set by scrub_sensitive_keys_in_metadata)
             # Fall back to metadata for backwards compatibility
-            masking_function: Final = litellm_params.get("_langfuse_masking_function") or clean_metadata.pop(
+            masking_function: Final = embrouter_params.get("_langfuse_masking_function") or clean_metadata.pop(
                 "langfuse_masking_function", None
             )
 
@@ -713,9 +713,9 @@ class LangFuseLogger:
             clean_metadata = redact_user_api_key_info(metadata=clean_metadata)
 
             if trace_name is None and existing_trace_id is None:
-                # just log `litellm-{call_type}` as the trace name
+                # just log `embrouter-{call_type}` as the trace name
                 ## DO NOT SET TRACE_NAME if trace-id set. this can lead to overwriting of past traces.
-                trace_name = f"litellm-{kwargs.get('call_type', 'completion')}"
+                trace_name = f"embrouter-{kwargs.get('call_type', 'completion')}"
 
             if existing_trace_id is not None:
                 trace_params: dict[str, Any] = {"id": existing_trace_id}
@@ -734,15 +734,15 @@ class LangFuseLogger:
 
                 # Special keys that are found in the function arguments and not the metadata
                 if "input" in update_trace_keys:
-                    trace_params["input"] = masked_input if not mask_input else "redacted-by-litellm"
+                    trace_params["input"] = masked_input if not mask_input else "redacted-by-embrouter"
                 if "output" in update_trace_keys:
-                    trace_params["output"] = masked_output if not mask_output else "redacted-by-litellm"
+                    trace_params["output"] = masked_output if not mask_output else "redacted-by-embrouter"
             else:  # don't overwrite an existing trace
                 trace_params = {
                     "id": call_trace_id,
                     "name": trace_name,
                     "session_id": session_id,
-                    "input": masked_input if not mask_input else "redacted-by-litellm",
+                    "input": masked_input if not mask_input else "redacted-by-embrouter",
                     "version": clean_metadata.pop(
                         "trace_version", clean_metadata.get("version", None)
                     ),  # If provided just version, it will applied to the trace as well, if applied a trace version it will take precedence
@@ -751,7 +751,7 @@ class LangFuseLogger:
                 for key in list(filter(lambda key: key.startswith("trace_"), clean_metadata.keys())):
                     trace_params[key.replace("trace_", "")] = clean_metadata.pop(key, None)
 
-                trace_params["output"] = masked_output if not mask_output else "redacted-by-litellm"
+                trace_params["output"] = masked_output if not mask_output else "redacted-by-embrouter"
 
             if debug is True or (isinstance(debug, str) and debug.lower() == "true"):
                 debug_metadata: Final = {
@@ -759,7 +759,7 @@ class LangFuseLogger:
                 }
                 trace_params["metadata"] = {
                     **(trace_params.get("metadata") or _NO_METADATA),
-                    "metadata_passed_to_litellm": debug_metadata,
+                    "metadata_passed_to_embrouter": debug_metadata,
                 }
 
             cost: Final = kwargs.get("response_cost", None)
@@ -768,20 +768,20 @@ class LangFuseLogger:
             hidden_params: Final = standard_logging_object.get("hidden_params") if standard_logging_object else None
 
             if (
-                litellm.langfuse_default_tags is not None
-                and isinstance(litellm.langfuse_default_tags, list)
-                and "proxy_base_url" in litellm.langfuse_default_tags
+                embrouter.langfuse_default_tags is not None
+                and isinstance(embrouter.langfuse_default_tags, list)
+                and "proxy_base_url" in embrouter.langfuse_default_tags
             ):
                 proxy_base_url: Final = os.environ.get("PROXY_BASE_URL", None)
                 if proxy_base_url is not None:
                     tags.append(f"proxy_base_url:{proxy_base_url}")
 
-            api_base: Final = litellm_params.get("api_base", None)
+            api_base: Final = embrouter_params.get("api_base", None)
             vertex_location: Final = kwargs.get("vertex_location", None)
             aws_region_name: Final = kwargs.get("aws_region_name", None)
 
             candidate_enrichments: Final = (
-                ("litellm_response_cost", cost, True),
+                ("embrouter_response_cost", cost, True),
                 ("hidden_params", filter_exceptions_from_params(hidden_params), hidden_params is not None),
                 ("api_base", api_base, bool(api_base)),
                 ("vertex_location", vertex_location, bool(vertex_location)),
@@ -797,7 +797,7 @@ class LangFuseLogger:
             if existing_trace_id is None:
                 trace_params.update({"tags": tags})
 
-            proxy_server_request: Final = litellm_params.get("proxy_server_request", None)
+            proxy_server_request: Final = embrouter_params.get("proxy_server_request", None)
             if proxy_server_request:
                 proxy_server_request.get("method", None)
                 proxy_server_request.get("url", None)
@@ -847,9 +847,9 @@ class LangFuseLogger:
             generation_name: Final = (
                 str(requested_generation_name)
                 if requested_generation_name is not None
-                else f"litellm:{_user_api_key_alias}"
+                else f"embrouter:{_user_api_key_alias}"
                 if _user_api_key_alias is not None
-                else f"litellm-{cast(str, kwargs.get('call_type', 'completion'))}"
+                else f"embrouter-{cast(str, kwargs.get('call_type', 'completion'))}"
             )
 
             if response_obj is not None:
@@ -866,15 +866,15 @@ class LangFuseLogger:
             generation_params = {
                 "name": generation_name,
                 "id": clean_metadata.pop("generation_id", generation_id),
-                "input": masked_input if not mask_input else "redacted-by-litellm",
-                "output": masked_output if not mask_output else "redacted-by-litellm",
+                "input": masked_input if not mask_input else "redacted-by-embrouter",
+                "output": masked_output if not mask_output else "redacted-by-embrouter",
                 "cost_details": {"total": cost}  # mutable-ok: langfuse serializes this payload
                 if usage is not None and isinstance(cost, (int, float))
                 else None,
                 "metadata": {  # mutable-ok: langfuse serializes this payload, a proxy is not json-encodable
                     **log_requester_metadata(redact_user_api_key_info(metadata=allowlisted_metadata)),  # pyright: ignore[reportArgumentType]  # TypedDict in, plain metadata dict out
                     **enrichments,
-                    **_lookup_ids(litellm_call_id, response_obj),
+                    **_lookup_ids(embrouter_call_id, response_obj),
                 },
                 "version": _optional_str(clean_metadata.pop("version", None)),
             }
@@ -890,7 +890,7 @@ class LangFuseLogger:
                 generation_params["status_message"] = masked_output
 
             # langfuse ships in the proxy-runtime extra, so this module must import cleanly without it
-            from litellm.integrations.langfuse.langfuse_sdk import (
+            from embrouter.integrations.langfuse.langfuse_sdk import (
                 observation_attributes,
                 resolve_observation_id,
                 resolve_trace_id,
@@ -1009,23 +1009,23 @@ class LangFuseLogger:
 
     def add_default_langfuse_tags(self, tags, kwargs, metadata):
         """
-        Helper function to add litellm default langfuse tags
+        Helper function to add embrouter default langfuse tags
 
-        - Special LiteLLM tags:
+        - Special EmbRouter tags:
             - cache_hit
             - cache_key
 
         """
-        if litellm.langfuse_default_tags is not None and isinstance(litellm.langfuse_default_tags, list):
-            if "cache_hit" in litellm.langfuse_default_tags:
+        if embrouter.langfuse_default_tags is not None and isinstance(embrouter.langfuse_default_tags, list):
+            if "cache_hit" in embrouter.langfuse_default_tags:
                 _cache_hit_value: Final = kwargs.get("cache_hit", False)
                 tags.append(f"cache_hit:{_cache_hit_value}")
-            if "cache_key" in litellm.langfuse_default_tags:
+            if "cache_key" in embrouter.langfuse_default_tags:
                 _hidden_params: Final = metadata.get("hidden_params", {}) or {}
                 _cache_key = _hidden_params.get("cache_key", None)
-                if _cache_key is None and litellm.cache is not None:
+                if _cache_key is None and embrouter.cache is not None:
                     # fallback to using "preset_cache_key"
-                    _preset_cache_key: Final = litellm.cache._get_preset_cache_key_from_kwargs(**kwargs)  # pyright: ignore[reportPrivateUsage]  # kwargs-ok: no public preset-cache-key accessor
+                    _preset_cache_key: Final = embrouter.cache._get_preset_cache_key_from_kwargs(**kwargs)  # pyright: ignore[reportPrivateUsage]  # kwargs-ok: no public preset-cache-key accessor
                     _cache_key = _preset_cache_key
                 tags.append(f"cache_key:{_cache_key}")
         return tags
@@ -1117,7 +1117,7 @@ class LangFuseLogger:
             )
             return
 
-        from litellm.integrations.langfuse.langfuse_sdk import observation_attributes, start_child_span
+        from embrouter.integrations.langfuse.langfuse_sdk import observation_attributes, start_child_span
 
         for guardrail_entry in guardrail_information:
             if not isinstance(guardrail_entry, dict):
@@ -1249,7 +1249,7 @@ def log_provider_specific_information_as_span(
 
 
 def _end_grounding_span(*, tracing: "LangfuseTracing", parent: "LangfuseObservation", name: str, value: object) -> None:
-    from litellm.integrations.langfuse.langfuse_sdk import observation_attributes, start_child_span
+    from embrouter.integrations.langfuse.langfuse_sdk import observation_attributes, start_child_span
 
     start_child_span(
         tracing=tracing,

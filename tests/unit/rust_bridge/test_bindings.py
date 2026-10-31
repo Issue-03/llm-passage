@@ -3,13 +3,13 @@ from typing import Final
 
 import pytest
 
-from litellm.rust_bridge import bindings
-from litellm.rust_bridge.chat_completions import entrypoints as chat_completions
-from litellm.rust_bridge.embeddings import entrypoints as embeddings
-from litellm.rust_bridge.messages import entrypoints as messages
-from litellm.rust_bridge.ocr import entrypoints as ocr
-from litellm.rust_bridge.responses import entrypoints as responses
-from litellm.rust_bridge.transcription import native as transcription
+from embrouter.rust_bridge import bindings
+from embrouter.rust_bridge.chat_completions import entrypoints as chat_completions
+from embrouter.rust_bridge.embeddings import entrypoints as embeddings
+from embrouter.rust_bridge.messages import entrypoints as messages
+from embrouter.rust_bridge.ocr import entrypoints as ocr
+from embrouter.rust_bridge.responses import entrypoints as responses
+from embrouter.rust_bridge.transcription import native as transcription
 
 
 def test_binding_distinguishes_disable_from_reset(monkeypatch) -> None:

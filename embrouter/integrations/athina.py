@@ -1,7 +1,7 @@
 import datetime
 from typing import Final
 
-import litellm
+import embrouter
 
 
 class AthinaLogger:
@@ -67,12 +67,12 @@ class AthinaLogger:
             data.update((k, v) for k, v in optional_params.items() if k in ["tools", "functions"])
 
             # Add additional metadata keys
-            metadata: Final = kwargs.get("litellm_params", {}).get("metadata", {})
+            metadata: Final = kwargs.get("embrouter_params", {}).get("metadata", {})
             if metadata:
                 for key in self.additional_keys:
                     if key in metadata:
                         data[key] = metadata[key]
-            response: Final = litellm.module_level_client.post(
+            response: Final = embrouter.module_level_client.post(
                 self.athina_logging_url,
                 headers=self.headers,
                 data=json.dumps(data, default=str),

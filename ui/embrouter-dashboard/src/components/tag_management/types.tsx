@@ -7,7 +7,7 @@ export interface Tag {
   updated_at: string;
   created_by?: string;
   updated_by?: string;
-  litellm_budget_table?: {
+  embrouter_budget_table?: {
     max_budget?: number;
     soft_budget?: number;
     tpm_limit?: number;

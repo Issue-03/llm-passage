@@ -1,7 +1,7 @@
 """
-LiteLLM Web Search Tool Definition
+EmbRouter Web Search Tool Definition
 
-This module defines the standard web search tool used across LiteLLM.
+This module defines the standard web search tool used across EmbRouter.
 Native provider tools (like Anthropic's web_search_20250305) are converted
 to this format for consistent interception and execution.
 """
@@ -9,7 +9,7 @@ to this format for consistent interception and execution.
 from collections.abc import Mapping
 from typing import Any, Final
 
-from litellm.constants import LITELLM_WEB_SEARCH_TOOL_NAME
+from embrouter.constants import EMBROUTER_WEB_SEARCH_TOOL_NAME
 
 _WEB_SEARCH_TOOL_DESCRIPTION: Final = (
     "Search the web for information. Use this when you need current "
@@ -56,9 +56,9 @@ def _web_search_input_schema() -> dict[str, object]:  # mutable-ok: plain-dict t
     }
 
 
-def get_litellm_web_search_tool() -> dict[str, object]:
+def get_embrouter_web_search_tool() -> dict[str, object]:
     """
-    Get the standard LiteLLM web search tool definition.
+    Get the standard EmbRouter web search tool definition.
 
     This is the canonical tool definition that all native web search tools
     (like Anthropic's web_search_20250305, Claude Code's web_search, etc.)
@@ -71,20 +71,20 @@ def get_litellm_web_search_tool() -> dict[str, object]:
         - input_schema: JSON schema for tool parameters
 
     Example:
-        >>> tool = get_litellm_web_search_tool()
+        >>> tool = get_embrouter_web_search_tool()
         >>> tool['name']
-        'litellm_web_search'
+        'embrouter_web_search'
     """
     return {
-        "name": LITELLM_WEB_SEARCH_TOOL_NAME,
+        "name": EMBROUTER_WEB_SEARCH_TOOL_NAME,
         "description": _WEB_SEARCH_TOOL_DESCRIPTION,
         "input_schema": _web_search_input_schema(),
     }
 
 
-def get_litellm_web_search_tool_openai() -> dict[str, object]:
+def get_embrouter_web_search_tool_openai() -> dict[str, object]:
     """
-    Get the standard LiteLLM web search tool definition in OpenAI format.
+    Get the standard EmbRouter web search tool definition in OpenAI format.
 
     Used by async_pre_call_deployment_hook which runs in the chat completions
     path where tools must be in OpenAI format (type: "function" with
@@ -96,16 +96,16 @@ def get_litellm_web_search_tool_openai() -> dict[str, object]:
     return {
         "type": "function",
         "function": {
-            "name": LITELLM_WEB_SEARCH_TOOL_NAME,
+            "name": EMBROUTER_WEB_SEARCH_TOOL_NAME,
             "description": _WEB_SEARCH_TOOL_DESCRIPTION,
             "parameters": _web_search_input_schema(),
         },
     }
 
 
-def get_litellm_web_search_tool_responses() -> dict[str, object]:
+def get_embrouter_web_search_tool_responses() -> dict[str, object]:
     """
-    Get the standard LiteLLM web search tool definition in Responses API format.
+    Get the standard EmbRouter web search tool definition in Responses API format.
 
     Used by async_pre_call_deployment_hook on the Responses API path, where a
     function tool is a flat object (``type: "function"`` with a top-level
@@ -117,7 +117,7 @@ def get_litellm_web_search_tool_responses() -> dict[str, object]:
     """
     return {
         "type": "function",
-        "name": LITELLM_WEB_SEARCH_TOOL_NAME,
+        "name": EMBROUTER_WEB_SEARCH_TOOL_NAME,
         "description": _WEB_SEARCH_TOOL_DESCRIPTION,
         "parameters": _web_search_input_schema(),
     }
@@ -131,8 +131,8 @@ def is_web_search_tool_responses(tool: Mapping[str, object]) -> bool:
     - OpenAI native Responses web search tools, whose ``type`` is one of
       ``web_search``, ``web_search_2025_08_26``, ``web_search_preview``,
       ``web_search_preview_2025_03_11`` (matched by the ``web_search`` prefix)
-    - The LiteLLM standard function tool in Responses shape:
-      ``{"type": "function", "name": "litellm_web_search"}``
+    - The EmbRouter standard function tool in Responses shape:
+      ``{"type": "function", "name": "embrouter_web_search"}``
 
     Args:
         tool: Tool dictionary to check
@@ -145,7 +145,7 @@ def is_web_search_tool_responses(tool: Mapping[str, object]) -> bool:
         True
         >>> is_web_search_tool_responses({"type": "web_search_preview"})
         True
-        >>> is_web_search_tool_responses({"type": "function", "name": "litellm_web_search"})
+        >>> is_web_search_tool_responses({"type": "function", "name": "embrouter_web_search"})
         True
         >>> is_web_search_tool_responses({"type": "function", "name": "get_weather"})
         False
@@ -155,7 +155,7 @@ def is_web_search_tool_responses(tool: Mapping[str, object]) -> bool:
         return False
 
     if tool_type == "function":
-        return tool.get("name") == LITELLM_WEB_SEARCH_TOOL_NAME
+        return tool.get("name") == EMBROUTER_WEB_SEARCH_TOOL_NAME
 
     return tool_type == "web_search" or tool_type.startswith("web_search_")
 
@@ -164,23 +164,23 @@ def is_web_search_tool_chat_completion(tool: dict[str, Any]) -> bool:
     """
     Check if a tool is a web search tool for Chat Completions API (strict check).
 
-    This is a stricter version that ONLY checks for the exact LiteLLM web search tool name.
+    This is a stricter version that ONLY checks for the exact EmbRouter web search tool name.
     Use this for Chat Completions API to avoid false positives with user-defined tools.
 
     Detects ONLY:
-    - LiteLLM standard: name == "litellm_web_search" (Anthropic format)
-    - OpenAI format: type == "function" with function.name == "litellm_web_search"
+    - EmbRouter standard: name == "embrouter_web_search" (Anthropic format)
+    - OpenAI format: type == "function" with function.name == "embrouter_web_search"
 
     Args:
         tool: Tool dictionary to check
 
     Returns:
-        True if tool is exactly the LiteLLM web search tool
+        True if tool is exactly the EmbRouter web search tool
 
     Example:
-        >>> is_web_search_tool_chat_completion({"name": "litellm_web_search"})
+        >>> is_web_search_tool_chat_completion({"name": "embrouter_web_search"})
         True
-        >>> is_web_search_tool_chat_completion({"type": "function", "function": {"name": "litellm_web_search"}})
+        >>> is_web_search_tool_chat_completion({"type": "function", "function": {"name": "embrouter_web_search"}})
         True
         >>> is_web_search_tool_chat_completion({"name": "web_search"})
         False
@@ -190,15 +190,15 @@ def is_web_search_tool_chat_completion(tool: dict[str, Any]) -> bool:
     tool_name: Final = tool.get("name", "")
     tool_type: Final = tool.get("type", "")
 
-    # Check for OpenAI format: {"type": "function", "function": {"name": "litellm_web_search"}}
+    # Check for OpenAI format: {"type": "function", "function": {"name": "embrouter_web_search"}}
     if tool_type == "function" and "function" in tool:
         function_def: Final = tool.get("function", {})
         function_name: Final = function_def.get("name", "")
-        if function_name == LITELLM_WEB_SEARCH_TOOL_NAME:
+        if function_name == EMBROUTER_WEB_SEARCH_TOOL_NAME:
             return True
 
-    # Check for LiteLLM standard tool (Anthropic format)
-    if tool_name == LITELLM_WEB_SEARCH_TOOL_NAME:
+    # Check for EmbRouter standard tool (Anthropic format)
+    if tool_name == EMBROUTER_WEB_SEARCH_TOOL_NAME:
         return True
 
     return False
@@ -213,9 +213,9 @@ def is_anthropic_native_web_search_tool(tool: Mapping[str, object]) -> bool:
     expect the response to contain ``web_search_tool_result`` content blocks
     so that citations can be rendered. This helper identifies that contract
     so the agentic loop can emit native-format blocks for those clients
-    without affecting clients that send the LiteLLM standard tool.
+    without affecting clients that send the EmbRouter standard tool.
 
-    Returns False for the LiteLLM standard tool (``litellm_web_search``),
+    Returns False for the EmbRouter standard tool (``embrouter_web_search``),
     the OpenAI-shaped variant, the bare ``WebSearch`` legacy name, and the
     bare ``web_search`` name (Claude Code style).
     """
@@ -227,11 +227,11 @@ def is_anthropic_native_web_search_tool(tool: Mapping[str, object]) -> bool:
 
 def is_web_search_tool(tool: dict[str, Any]) -> bool:
     """
-    Check if a tool is a web search tool (native or LiteLLM standard).
+    Check if a tool is a web search tool (native or EmbRouter standard).
 
     Detects:
-    - LiteLLM standard: name == "litellm_web_search"
-    - OpenAI format: type == "function" with function.name == "litellm_web_search"
+    - EmbRouter standard: name == "embrouter_web_search"
+    - OpenAI format: type == "function" with function.name == "embrouter_web_search"
     - Anthropic native: type starts with "web_search_" (e.g., "web_search_20250305")
     - Claude Code: name == "web_search" with a type field
     - Custom: name == "WebSearch" (legacy interception marker — only matched
@@ -258,9 +258,9 @@ def is_web_search_tool(tool: dict[str, Any]) -> bool:
         True if tool is a web search tool
 
     Example:
-        >>> is_web_search_tool({"name": "litellm_web_search"})
+        >>> is_web_search_tool({"name": "embrouter_web_search"})
         True
-        >>> is_web_search_tool({"type": "function", "function": {"name": "litellm_web_search"}})
+        >>> is_web_search_tool({"type": "function", "function": {"name": "embrouter_web_search"}})
         True
         >>> is_web_search_tool({"type": "web_search_20250305", "name": "web_search"})
         True
@@ -278,11 +278,11 @@ def is_web_search_tool(tool: dict[str, Any]) -> bool:
     if tool_type == "function" and "function" in tool:
         function_def: Final = tool.get("function", {})
         function_name: Final = function_def.get("name", "")
-        if function_name == LITELLM_WEB_SEARCH_TOOL_NAME:
+        if function_name == EMBROUTER_WEB_SEARCH_TOOL_NAME:
             return True
 
-    # Check for LiteLLM standard tool (Anthropic format)
-    if tool_name == LITELLM_WEB_SEARCH_TOOL_NAME:
+    # Check for EmbRouter standard tool (Anthropic format)
+    if tool_name == EMBROUTER_WEB_SEARCH_TOOL_NAME:
         return True
 
     # Check for native Anthropic web_search_* types

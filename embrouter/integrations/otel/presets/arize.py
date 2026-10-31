@@ -5,14 +5,14 @@ from typing import Final
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from litellm.integrations.arize.arize import ArizeLogger as _V1ArizeLogger
-from litellm.integrations.otel.model.config import (
+from embrouter.integrations.arize.arize import ArizeLogger as _V1ArizeLogger
+from embrouter.integrations.otel.model.config import (
     ExporterOwner,
     ExporterSpec,
     OpenTelemetryV2Config,
 )
-from litellm.integrations.otel.presets.utils import ensure_mappers
-from litellm.types.utils import StandardCallbackDynamicParams
+from embrouter.integrations.otel.presets.utils import ensure_mappers
+from embrouter.types.utils import StandardCallbackDynamicParams
 
 
 class _ArizeSettings(BaseSettings):

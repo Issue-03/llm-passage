@@ -37,12 +37,12 @@ def remote_and_clone(tmp_path: Path) -> tuple[Path, Path]:
     ):
         shutil.copyfile(ROOT / "scripts" / name, seed / "scripts" / name)
     shutil.copyfile(ROOT / "Makefile", seed / "Makefile")
-    (seed / "litellm").mkdir()
-    (seed / "litellm" / "example.py").write_text("value = 0\n")
+    (seed / "embrouter").mkdir()
+    (seed / "embrouter" / "example.py").write_text("value = 0\n")
     (seed / "ruff-strict-budget.json").write_text('{"C901": {"limit": 1}}\n')
     _commit(seed, "staging base")
     _git(seed, "checkout", "-qb", "main")
-    (seed / "litellm" / "example.py").write_text("value = 1\n")
+    (seed / "embrouter" / "example.py").write_text("value = 1\n")
     (seed / "ruff-strict-budget.json").write_text('{"C901": {"limit": 0}}\n')
     _commit(seed, "main base")
     remote: Final = tmp_path / "remote.git"
@@ -118,7 +118,7 @@ def test_explicit_base_works_without_remote_access(
     assert result.stdout.strip() == base_ref
     checked: Final = _make(repo, "lint-format-check-changed", f"BASE_REF={base_ref}")
     assert checked.returncode == 0, checked.stderr
-    assert "No changed litellm Python files" in checked.stdout
+    assert "No changed embrouter Python files" in checked.stdout
 
 
 def test_budget_ratchet_compares_against_new_default(remote_and_clone: tuple[Path, Path]) -> None:
@@ -126,7 +126,7 @@ def test_budget_ratchet_compares_against_new_default(remote_and_clone: tuple[Pat
     _git(remote, "symbolic-ref", "HEAD", "refs/heads/main")
     resolved: Final = _resolve(repo)
     assert resolved.returncode == 0, resolved.stderr
-    _git(repo, "checkout", "-qb", "litellm_feature", "origin/main")
+    _git(repo, "checkout", "-qb", "embrouter_feature", "origin/main")
     (repo / "ruff-strict-budget.json").write_text('{"C901": {"limit": 1}}\n')
     command: Final = [sys.executable, "scripts/budget_ratchet_check.py"]
     checked: Final = subprocess.run(command, cwd=repo, capture_output=True, text=True, check=False)

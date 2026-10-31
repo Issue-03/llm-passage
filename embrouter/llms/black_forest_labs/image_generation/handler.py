@@ -14,17 +14,17 @@ from typing import Final, Protocol, TypedDict
 import httpx
 from typing_extensions import ReadOnly
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.custom_httpx.http_handler import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.custom_httpx.http_handler import (
     AsyncHTTPHandler,
     HTTPHandler,
     _get_httpx_client,
     get_async_httpx_client,
 )
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import ImageResponse
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import ImageResponse
 
 from ..common_utils import (
     DEFAULT_MAX_POLLING_TIME,
@@ -69,8 +69,8 @@ class BlackForestLabsImageGeneration:
         prompt: str,
         model_response: ImageResponse,
         optional_params: dict,
-        litellm_params: GenericLiteLLMParams | dict,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams | dict,
+        logging_obj: EmbRouterLoggingObj,
         timeout: float | httpx.Timeout | None,
         extra_headers: Mapping[str, str] | None = None,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
@@ -84,7 +84,7 @@ class BlackForestLabsImageGeneration:
             prompt: The text prompt for image generation
             model_response: ImageResponse object to populate
             optional_params: Optional parameters for the request
-            litellm_params: LiteLLM parameters including api_key, api_base
+            embrouter_params: EmbRouter parameters including api_key, api_base
             logging_obj: Logging object
             timeout: Request timeout
             extra_headers: Additional headers
@@ -94,15 +94,15 @@ class BlackForestLabsImageGeneration:
         Returns:
             ImageResponse or coroutine if aimg_generation=True
         """
-        # Handle litellm_params as dict or object
-        if isinstance(litellm_params, dict):
-            api_key = litellm_params.get("api_key")
-            api_base = litellm_params.get("api_base")
-            litellm_params_dict = litellm_params
+        # Handle embrouter_params as dict or object
+        if isinstance(embrouter_params, dict):
+            api_key = embrouter_params.get("api_key")
+            api_base = embrouter_params.get("api_base")
+            embrouter_params_dict = embrouter_params
         else:
-            api_key = litellm_params.api_key
-            api_base = litellm_params.api_base
-            litellm_params_dict = dict(litellm_params)
+            api_key = embrouter_params.api_key
+            api_base = embrouter_params.api_base
+            embrouter_params_dict = dict(embrouter_params)
 
         if aimg_generation:
             return self.async_image_generation(
@@ -110,7 +110,7 @@ class BlackForestLabsImageGeneration:
                 prompt=prompt,
                 model_response=model_response,
                 optional_params=optional_params,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 timeout=timeout,
                 extra_headers=extra_headers,
@@ -130,7 +130,7 @@ class BlackForestLabsImageGeneration:
             model=model,
             messages=[],
             optional_params=optional_params,
-            litellm_params=litellm_params_dict,
+            embrouter_params=embrouter_params_dict,
         )
         if extra_headers:
             headers.update(extra_headers)
@@ -141,7 +141,7 @@ class BlackForestLabsImageGeneration:
             api_key=api_key,
             model=model,
             optional_params=optional_params,
-            litellm_params=litellm_params_dict,
+            embrouter_params=embrouter_params_dict,
         )
 
         # Transform request
@@ -149,7 +149,7 @@ class BlackForestLabsImageGeneration:
             model=model,
             prompt=prompt,
             optional_params=optional_params,
-            litellm_params=litellm_params_dict,
+            embrouter_params=embrouter_params_dict,
             headers=headers,
         )
 
@@ -193,7 +193,7 @@ class BlackForestLabsImageGeneration:
             logging_obj=logging_obj,
             request_data=data,
             optional_params=optional_params,
-            litellm_params=litellm_params_dict,
+            embrouter_params=embrouter_params_dict,
             encoding=None,
         )
 
@@ -203,8 +203,8 @@ class BlackForestLabsImageGeneration:
         prompt: str,
         model_response: ImageResponse,
         optional_params: dict,
-        litellm_params: GenericLiteLLMParams | dict,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams | dict,
+        logging_obj: EmbRouterLoggingObj,
         timeout: float | httpx.Timeout | None,
         extra_headers: Mapping[str, str] | None = None,
         client: AsyncHTTPHandler | None = None,
@@ -212,19 +212,19 @@ class BlackForestLabsImageGeneration:
         """
         Async version of image generation.
         """
-        # Handle litellm_params as dict or object
-        if isinstance(litellm_params, dict):
-            api_key = litellm_params.get("api_key")
-            api_base = litellm_params.get("api_base")
-            litellm_params_dict = litellm_params
+        # Handle embrouter_params as dict or object
+        if isinstance(embrouter_params, dict):
+            api_key = embrouter_params.get("api_key")
+            api_base = embrouter_params.get("api_base")
+            embrouter_params_dict = embrouter_params
         else:
-            api_key = litellm_params.api_key
-            api_base = litellm_params.api_base
-            litellm_params_dict = dict(litellm_params)
+            api_key = embrouter_params.api_key
+            api_base = embrouter_params.api_base
+            embrouter_params_dict = dict(embrouter_params)
 
         if client is None:
             async_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders.BLACK_FOREST_LABS,
+                llm_provider=embrouter.LlmProviders.BLACK_FOREST_LABS,
             )
         else:
             async_client = client
@@ -236,7 +236,7 @@ class BlackForestLabsImageGeneration:
             model=model,
             messages=[],
             optional_params=optional_params,
-            litellm_params=litellm_params_dict,
+            embrouter_params=embrouter_params_dict,
         )
         if extra_headers:
             headers.update(extra_headers)
@@ -247,7 +247,7 @@ class BlackForestLabsImageGeneration:
             api_key=api_key,
             model=model,
             optional_params=optional_params,
-            litellm_params=litellm_params_dict,
+            embrouter_params=embrouter_params_dict,
         )
 
         # Transform request
@@ -255,7 +255,7 @@ class BlackForestLabsImageGeneration:
             model=model,
             prompt=prompt,
             optional_params=optional_params,
-            litellm_params=litellm_params_dict,
+            embrouter_params=embrouter_params_dict,
             headers=headers,
         )
 
@@ -299,7 +299,7 @@ class BlackForestLabsImageGeneration:
             logging_obj=logging_obj,
             request_data=data,
             optional_params=optional_params,
-            litellm_params=litellm_params_dict,
+            embrouter_params=embrouter_params_dict,
             encoding=None,
         )
 

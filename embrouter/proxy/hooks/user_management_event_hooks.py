@@ -1,30 +1,30 @@
 """
-Hooks that are triggered when a litellm user event occurs
+Hooks that are triggered when a embrouter user event occurs
 """
 
 import asyncio
 from datetime import datetime, timezone
 from typing import Final
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm._uuid import uuid
-from litellm.proxy._types import (
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter._uuid import uuid
+from embrouter.proxy._types import (
     AUDIT_ACTIONS,
     CommonProxyErrors,
-    LiteLLM_AuditLogs,
-    Litellm_EntityType,
-    LitellmTableNames,
+    EmbRouter_AuditLogs,
+    Embrouter_EntityType,
+    EmbrouterTableNames,
     NewUserRequest,
     NewUserResponse,
     UserAPIKeyAuth,
     WebhookEvent,
 )
-from litellm.proxy.management_helpers.audit_logs import (
+from embrouter.proxy.management_helpers.audit_logs import (
     create_audit_log_for_update,
     is_audit_logging_enabled,
 )
-from litellm.repositories.user_repository import UserRepository
+from embrouter.repositories.user_repository import UserRepository
 
 
 class UserManagementEventHooks:
@@ -35,13 +35,13 @@ class UserManagementEventHooks:
         user_api_key_dict: UserAPIKeyAuth,
     ):
         """
-        This hook is called when a new user is created on litellm
+        This hook is called when a new user is created on embrouter
 
         Handles:
         - Creating an audit log for the user creation
         - Sending a user invitation email to the user
         """
-        from litellm.proxy.proxy_server import litellm_proxy_admin_name, prisma_client
+        from embrouter.proxy.proxy_server import embrouter_proxy_admin_name, prisma_client
 
         #########################################################
         ########## Send User Invitation Email ################
@@ -67,9 +67,9 @@ class UserManagementEventHooks:
                 UserManagementEventHooks.create_internal_user_audit_log(
                     user_id=user_row.user_id,
                     action="created",
-                    litellm_changed_by=user_api_key_dict.user_id,
+                    embrouter_changed_by=user_api_key_dict.user_id,
                     user_api_key_dict=user_api_key_dict,
-                    litellm_proxy_admin_name=litellm_proxy_admin_name,
+                    embrouter_proxy_admin_name=embrouter_proxy_admin_name,
                     before_value=None,
                     after_value=user_row.model_dump_json(exclude_none=True),
                 )
@@ -88,8 +88,8 @@ class UserManagementEventHooks:
         """
         event: Final = WebhookEvent(
             event="internal_user_created",
-            event_group=Litellm_EntityType.USER,
-            event_message="Welcome to LiteLLM Proxy",
+            event_group=Embrouter_EntityType.USER,
+            event_message="Welcome to EmbRouter Proxy",
             token=response.token,
             spend=response.spend or 0.0,
             max_budget=response.max_budget,
@@ -127,7 +127,7 @@ class UserManagementEventHooks:
             return False
 
         try:
-            from litellm_enterprise.enterprise_callbacks.send_emails.base_email import (
+            from embrouter_enterprise.enterprise_callbacks.send_emails.base_email import (
                 BaseEmailLogger,
             )
         except ImportError:
@@ -138,7 +138,7 @@ class UserManagementEventHooks:
 
         email_loggers: Final = tuple(
             email_logger
-            for email_logger in litellm.logging_callback_manager.get_custom_loggers_for_type(
+            for email_logger in embrouter.logging_callback_manager.get_custom_loggers_for_type(
                 callback_type=BaseEmailLogger
             )
             if isinstance(email_logger, BaseEmailLogger)
@@ -170,7 +170,7 @@ class UserManagementEventHooks:
         """
         Send a user invitation email to the user
         """
-        from litellm.proxy.proxy_server import general_settings, proxy_logging_obj
+        from embrouter.proxy.proxy_server import general_settings, proxy_logging_obj
 
         # check if user has setup email alerting
         if "email" not in general_settings.get("alerting", []):
@@ -189,9 +189,9 @@ class UserManagementEventHooks:
     async def create_internal_user_audit_log(
         user_id: str,
         action: AUDIT_ACTIONS,
-        litellm_changed_by: str | None,
+        embrouter_changed_by: str | None,
         user_api_key_dict: UserAPIKeyAuth,
-        litellm_proxy_admin_name: str | None,
+        embrouter_proxy_admin_name: str | None,
         before_value: str | None = None,
         after_value: str | None = None,
     ):
@@ -201,29 +201,29 @@ class UserManagementEventHooks:
         Parameters:
         - user_id: str - The id of the user to create the audit log for.
         - action: AUDIT_ACTIONS - The action to create the audit log for.
-        - user_row: LiteLLM_UserTable - The user row to create the audit log for.
-        - litellm_changed_by: Optional[str] - The user id of the user who is changing the user.
+        - user_row: EmbRouter_UserTable - The user row to create the audit log for.
+        - embrouter_changed_by: Optional[str] - The user id of the user who is changing the user.
         - user_api_key_dict: UserAPIKeyAuth - The user api key dictionary.
-        - litellm_proxy_admin_name: Optional[str] - The name of the proxy admin.
+        - embrouter_proxy_admin_name: Optional[str] - The name of the proxy admin.
         """
         if not is_audit_logging_enabled():
             return
 
-        from litellm.proxy.management_helpers.audit_logs import (
+        from embrouter.proxy.management_helpers.audit_logs import (
             get_audit_log_changed_by,
         )
 
         await create_audit_log_for_update(
-            request_data=LiteLLM_AuditLogs(
+            request_data=EmbRouter_AuditLogs(
                 id=str(uuid.uuid4()),
                 updated_at=datetime.now(timezone.utc),
                 changed_by=get_audit_log_changed_by(
-                    litellm_changed_by=litellm_changed_by,
+                    embrouter_changed_by=embrouter_changed_by,
                     user_api_key_dict=user_api_key_dict,
-                    litellm_proxy_admin_name=litellm_proxy_admin_name,
+                    embrouter_proxy_admin_name=embrouter_proxy_admin_name,
                 ),
                 changed_by_api_key=user_api_key_dict.api_key,
-                table_name=LitellmTableNames.USER_TABLE_NAME,
+                table_name=EmbrouterTableNames.USER_TABLE_NAME,
                 object_id=user_id,
                 action=action,
                 updated_values=after_value,

@@ -1,10 +1,10 @@
 
 import pytest
 
-import litellm
+import embrouter
 
 
-from litellm.llms.fireworks_ai.completion.transformation import (
+from embrouter.llms.fireworks_ai.completion.transformation import (
     FireworksAITextCompletionConfig,
 )
 
@@ -12,10 +12,10 @@ from litellm.llms.fireworks_ai.completion.transformation import (
 @pytest.fixture(autouse=True)
 def force_local_model_cost(monkeypatch):
     """Force local model cost map usage for all tests in this file."""
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    from litellm.litellm_core_utils.get_model_cost_map import get_model_cost_map
+    monkeypatch.setenv("EMBROUTER_LOCAL_MODEL_COST_MAP", "True")
+    from embrouter.embrouter_core_utils.get_model_cost_map import get_model_cost_map
 
-    litellm.model_cost = get_model_cost_map(url=litellm.model_cost_map_url)
+    embrouter.model_cost = get_model_cost_map(url=embrouter.model_cost_map_url)
 
 
 _REASONING_MODEL = "fireworks_ai/accounts/fireworks/models/glm-5p1"

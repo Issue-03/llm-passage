@@ -13,10 +13,10 @@ DELETE /fallback/{model} - Delete fallbacks for a specific model
 import json
 from typing import TYPE_CHECKING, Final, Literal
 
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.auth.model_checks import get_all_fallbacks
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.auth.model_checks import get_all_fallbacks
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
 
 if TYPE_CHECKING:
     from fastapi import APIRouter, Depends, HTTPException, status
@@ -27,8 +27,8 @@ else:
         # fastapi is only required for proxy, not for SDK usage
         pass
 
-from litellm.repositories.config_repository import ConfigRepository
-from litellm.types.management_endpoints.router_settings_endpoints import (
+from embrouter.repositories.config_repository import ConfigRepository
+from embrouter.types.management_endpoints.router_settings_endpoints import (
     FallbackCreateRequest,
     FallbackDeleteResponse,
     FallbackGetResponse,
@@ -69,7 +69,7 @@ async def create_fallback(
     - `context_window`: Fallbacks specifically for context window exceeded errors
     - `content_policy`: Fallbacks specifically for content policy violations
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         llm_router,
         prisma_client,
         proxy_config,
@@ -212,7 +212,7 @@ async def get_fallback(
     GET /fallback/gpt-3.5-turbo?fallback_type=general
     ```
     """
-    from litellm.proxy.proxy_server import llm_router
+    from embrouter.proxy.proxy_server import llm_router
 
     try:
         if llm_router is None:
@@ -269,7 +269,7 @@ async def delete_fallback(
     DELETE /fallback/gpt-3.5-turbo?fallback_type=general
     ```
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         llm_router,
         prisma_client,
         proxy_config,

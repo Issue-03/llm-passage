@@ -7,15 +7,15 @@ An alias the caller can complete on is listed next to its target and resolves by
 import pytest
 from starlette.requests import Request
 
-from litellm import Router
-from litellm.proxy import proxy_server
-from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
+from embrouter import Router
+from embrouter.proxy import proxy_server
+from embrouter.proxy._types import EmbrouterUserRoles, UserAPIKeyAuth
 
 
 def _deployment(model_name: str, model: str = "openai/gpt-4.1-mini", **model_info: str | bool) -> dict[str, object]:
     return {
         "model_name": model_name,
-        "litellm_params": {"model": model, "api_key": "sk-fake"},
+        "embrouter_params": {"model": model, "api_key": "sk-fake"},
         "model_info": {"id": f"{model_name}-id", **model_info},
     }
 
@@ -44,7 +44,7 @@ def _team_member(
     return UserAPIKeyAuth(
         api_key="sk-test",
         user_id="u",
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=EmbrouterUserRoles.INTERNAL_USER,
         team_id=team_id,
         team_models=["gpt-4.1-mini", "model_name_team1_abc"],
         models=models or ["gpt-4.1-mini", "model_name_team1_abc"],

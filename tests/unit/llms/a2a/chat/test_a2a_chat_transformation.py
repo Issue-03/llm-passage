@@ -1,11 +1,11 @@
-"""Tests for litellm/llms/a2a/chat/transformation.py response transform."""
+"""Tests for embrouter/llms/a2a/chat/transformation.py response transform."""
 
 from unittest.mock import MagicMock
 
 import pytest
 
-from litellm.llms.a2a.chat.transformation import A2AConfig
-from litellm.types.utils import ModelResponse
+from embrouter.llms.a2a.chat.transformation import A2AConfig
+from embrouter.types.utils import ModelResponse
 
 
 def _raw_response(text: str) -> MagicMock:
@@ -34,7 +34,7 @@ def test_transform_response_sets_usage():
         request_data={},
         messages=[{"role": "user", "content": "hi there agent"}],
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         encoding=None,
     )
 
@@ -51,7 +51,7 @@ def test_transform_request_asks_the_agent_for_a_blocking_send():
         model="a2a/test-agent",
         messages=[{"role": "user", "content": "hi there agent"}],
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -64,7 +64,7 @@ def test_transform_request_streams_without_a_send_configuration():
         model="a2a/test-agent",
         messages=[{"role": "user", "content": "hi there agent"}],
         optional_params={"stream": True},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -80,7 +80,7 @@ def test_transform_request_tags_the_message_with_its_kind(optional_params: dict)
         model="a2a/test-agent",
         messages=[{"role": "user", "content": "hi there agent"}],
         optional_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 

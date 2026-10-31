@@ -1,7 +1,7 @@
 """Collector sidecar: consume spend events from the pod's inference workers and run the cost pipeline.
 
 Runs the proxy startup lifespan (config, Prisma, Redis transaction buffer, scheduled spend flushes)
-without serving HTTP, then listens on ``LITELLM_COLLECTOR_ADDRESS`` for newline-delimited spend
+without serving HTTP, then listens on ``EMBROUTER_COLLECTOR_ADDRESS`` for newline-delimited spend
 events. Each event goes through the unchanged ``_ProxyDBLogger._PROXY_track_cost_callback``, so
 spend logs, spend counters, budget reservation reconciliation and cache updates happen exactly as
 they would in-process, just in this container. Events are handled in order per producer connection
@@ -12,13 +12,13 @@ policy, finishes the events already sent, then runs the proxy shutdown (which fl
 spend transactions).
 
 ``DATABASE_URL`` is assembled from the same ``DATABASE_*`` inputs as the proxy container, and when
-``LITELLM_PGBOUNCER_ENABLED`` is set it points at the PgBouncer that container already runs on the
+``EMBROUTER_PGBOUNCER_ENABLED`` is set it points at the PgBouncer that container already runs on the
 pod's loopback, so the sidecar must see the same env as the proxy. Under ``IAM_TOKEN_DB_AUTH`` or
 ``AZURE_POSTGRESQL_AUTH`` that PgBouncer only accepts the token the proxy container minted, so the
-sidecar goes to Postgres directly and mints its own. Works from any image that has ``litellm``
+sidecar goes to Postgres directly and mints its own. Works from any image that has ``embrouter``
 installed:
 
-    python -m litellm.proxy.collector [--address unix:///path.sock]
+    python -m embrouter.proxy.collector [--address unix:///path.sock]
 """
 
 import asyncio
@@ -30,15 +30,15 @@ from collections.abc import Awaitable, Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Final
 
-from litellm._logging import verbose_logger, verbose_proxy_logger, verbose_router_logger
-from litellm.proxy.db.db_url_settings import DatabaseURLSettings
-from litellm.proxy.db.pgbouncer import (
+from embrouter._logging import verbose_logger, verbose_proxy_logger, verbose_router_logger
+from embrouter.proxy.db.db_url_settings import DatabaseURLSettings
+from embrouter.proxy.db.pgbouncer import (
     PgBouncerError,
     PgBouncerSettings,
     export_pooled_database_url,
     pooled_database_url,
 )
-from litellm.proxy.spend_tracking.spend_event_producer import (
+from embrouter.proxy.spend_tracking.spend_event_producer import (
     COLLECTOR_JOB_ROLE,
     AddressError,
     CollectorAddress,
@@ -138,8 +138,8 @@ def _install_stop_signals(loop: asyncio.AbstractEventLoop, stop: asyncio.Event) 
 async def run_collector(address: CollectorAddress, drain_timeout: float) -> None:
     from fastapi import FastAPI
 
-    from litellm.proxy.hooks.proxy_track_cost_callback import run_spend_event
-    from litellm.proxy.proxy_server import proxy_startup_event
+    from embrouter.proxy.hooks.proxy_track_cost_callback import run_spend_event
+    from embrouter.proxy.proxy_server import proxy_startup_event
 
     stop: Final = asyncio.Event()
     _install_stop_signals(asyncio.get_running_loop(), stop)
@@ -166,12 +166,12 @@ def address_argument(argv: Sequence[str], default: str) -> str | AddressError:
         case ("--address", value):
             return value
         case _:
-            return AddressError(f"usage: python -m litellm.proxy.collector [--address ADDRESS], got {tuple(argv)}")
+            return AddressError(f"usage: python -m embrouter.proxy.collector [--address ADDRESS], got {tuple(argv)}")
 
 
-def apply_log_level(litellm_log: str | None) -> None:
-    """Mirror the proxy's ``LITELLM_LOG`` handling: the sidecar has no CLI flags to turn logging on."""
-    level: Final = logging.getLevelNamesMapping().get((litellm_log or "").upper())
+def apply_log_level(embrouter_log: str | None) -> None:
+    """Mirror the proxy's ``EMBROUTER_LOG`` handling: the sidecar has no CLI flags to turn logging on."""
+    level: Final = logging.getLevelNamesMapping().get((embrouter_log or "").upper())
     if level is None:
         return
     for logger in (verbose_logger, verbose_router_logger, verbose_proxy_logger):
@@ -190,13 +190,13 @@ def pod_pgbouncer_database_url(
         return None
     upstream_url: Final = environ.get("DATABASE_URL")
     if upstream_url is None:
-        return PgBouncerError("LITELLM_PGBOUNCER_ENABLED is set but no DATABASE_URL could be assembled")
+        return PgBouncerError("EMBROUTER_PGBOUNCER_ENABLED is set but no DATABASE_URL could be assembled")
     return pooled_database_url(upstream_url, pgbouncer)
 
 
 def main(argv: Sequence[str]) -> None:
-    os.environ.setdefault("LITELLM_JOB_ROLE", COLLECTOR_JOB_ROLE)
-    apply_log_level(os.environ.get("LITELLM_LOG"))
+    os.environ.setdefault("EMBROUTER_JOB_ROLE", COLLECTOR_JOB_ROLE)
+    apply_log_level(os.environ.get("EMBROUTER_LOG"))
     database: Final = DatabaseURLSettings.from_env()
     database.apply_to_env()
     pooled: Final = pod_pgbouncer_database_url(
@@ -205,14 +205,14 @@ def main(argv: Sequence[str]) -> None:
         token_auth=database.iam_token_db_auth or database.azure_postgresql_auth,
     )
     if isinstance(pooled, PgBouncerError):
-        sys.exit(f"LiteLLM collector: cannot use the pod's pgbouncer: {pooled.reason}")
+        sys.exit(f"EmbRouter collector: cannot use the pod's pgbouncer: {pooled.reason}")
     if pooled is not None:
         export_pooled_database_url(pooled)
     settings: Final = CollectorSettings()
     raw_address: Final = address_argument(argv, default=settings.address)
     address: Final = raw_address if isinstance(raw_address, AddressError) else parse_collector_address(raw_address)
     if isinstance(address, AddressError):
-        sys.exit(f"LiteLLM collector: {address.reason}")
+        sys.exit(f"EmbRouter collector: {address.reason}")
     asyncio.run(run_collector(address, drain_timeout=settings.drain_timeout_seconds))
 
 

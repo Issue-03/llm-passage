@@ -9,7 +9,7 @@ from typing import Final, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
-from litellm.types.router import RequestType
+from embrouter.types.router import RequestType
 
 
 class TierGlobalStatistic(BaseModel):

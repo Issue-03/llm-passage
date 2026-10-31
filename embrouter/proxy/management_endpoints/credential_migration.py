@@ -34,12 +34,12 @@ import json
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Final, Literal, cast
 
-from litellm._logging import verbose_proxy_logger
+from embrouter._logging import verbose_proxy_logger
 
 if TYPE_CHECKING:
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.utils import PrismaClient
-from litellm.proxy.common_utils.encrypt_decrypt_utils import (
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy.utils import PrismaClient
+from embrouter.proxy.common_utils.encrypt_decrypt_utils import (
     _ALGO_AES_GCM,
     _ENCRYPTION_ALGORITHM_SETTING,
     _V2_GCM_PREFIX,
@@ -194,7 +194,7 @@ def _assert_aes_gate_enabled() -> None:
     Running the migration with the gate off would decrypt then re-encrypt right
     back into the legacy format — a no-op that silently fails the migration.
     """
-    from litellm.proxy.proxy_server import general_settings
+    from embrouter.proxy.proxy_server import general_settings
 
     algo: Final = general_settings.get(_ENCRYPTION_ALGORITHM_SETTING)
     if not (isinstance(algo, str) and algo.lower() == _ALGO_AES_GCM):
@@ -218,11 +218,11 @@ async def _migrate_config_settings_row(
     sensitive_fields: list[str],
     dry_run: bool,
 ) -> LocationReport:
-    """Migrate a single ``LiteLLM_Config`` row whose ``param_value`` is a JSON
+    """Migrate a single ``EmbRouter_Config`` row whose ``param_value`` is a JSON
     dict with selected sensitive fields (vantage_settings / cloudzero_settings).
     """
     report: Final = LocationReport(location=param_name)
-    record: Final = await prisma_client.db.litellm_config.find_unique(where={"param_name": param_name})
+    record: Final = await prisma_client.db.embrouter_config.find_unique(where={"param_name": param_name})
     if record is None or record.param_value is None:
         return report
 
@@ -261,7 +261,7 @@ async def _migrate_config_settings_row(
             report.plaintext += 1
 
     if changed and not dry_run:
-        await prisma_client.db.litellm_config.update(
+        await prisma_client.db.embrouter_config.update(
             where={"param_name": param_name},
             data={"param_value": json.dumps(settings)},
         )
@@ -269,12 +269,12 @@ async def _migrate_config_settings_row(
 
 
 async def _migrate_sso_config(prisma_client: object, dry_run: bool) -> LocationReport:
-    """Migrate the ``LiteLLM_SSOConfig`` row. All non-null fields are encrypted
+    """Migrate the ``EmbRouter_SSOConfig`` row. All non-null fields are encrypted
     (via the same ``_encrypt_env_variables`` path used on save), so we re-encrypt
     every present string field.
     """
     report: Final = LocationReport(location="sso_config")
-    record: Final = await prisma_client.db.litellm_ssoconfig.find_unique(where={"id": "sso_config"})
+    record: Final = await prisma_client.db.embrouter_ssoconfig.find_unique(where={"id": "sso_config"})
     if record is None or record.sso_settings is None:
         return report
 
@@ -313,7 +313,7 @@ async def _migrate_sso_config(prisma_client: object, dry_run: bool) -> LocationR
             report.plaintext += 1
 
     if changed and not dry_run:
-        await prisma_client.db.litellm_ssoconfig.update(
+        await prisma_client.db.embrouter_ssoconfig.update(
             where={"id": "sso_config"},
             data={"sso_settings": json.dumps(new_settings)},
         )
@@ -333,7 +333,7 @@ async def _migrate_callback_vars_table(
     those proven transforms (selective, prefix-marked; legacy plaintext is left
     alone until re-encrypted).
     """
-    from litellm.proxy.common_utils.callback_utils import (
+    from embrouter.proxy.common_utils.callback_utils import (
         decrypt_callback_vars,
         encrypt_callback_vars,
     )
@@ -341,10 +341,10 @@ async def _migrate_callback_vars_table(
     report: Final = LocationReport(location=f"{table_name}.callback_vars")
 
     if table_name == "team":
-        table = prisma_client.db.litellm_teamtable
+        table = prisma_client.db.embrouter_teamtable
         pk = "team_id"
     else:
-        table = prisma_client.db.litellm_verificationtoken
+        table = prisma_client.db.embrouter_verificationtoken
         pk = "token"
 
     rows: Final = await table.find_many()
@@ -353,7 +353,7 @@ async def _migrate_callback_vars_table(
         if not isinstance(metadata, dict) or ("logging" not in metadata and "callback_settings" not in metadata):
             continue
 
-        # Classify every callback-var value directly (strip the litellm_enc::
+        # Classify every callback-var value directly (strip the embrouter_enc::
         # marker, then prefix/decrypt-classify), exactly like the covered-table
         # scanner. Detecting legacy this way is independent of the AES gate, so
         # the check_encryption (dry-run) attestation is correct even when run
@@ -425,14 +425,14 @@ def _iter_callback_var_dicts(metadata: dict[str, object]):
 def _classify_callback_value(value: object) -> ValueClass:
     """Classify one stored callback-var value, independent of the AES gate.
 
-    Encrypted callback vars carry the ``litellm_enc::`` marker in front of the
+    Encrypted callback vars carry the ``embrouter_enc::`` marker in front of the
     ciphertext; strip it, then classify the inner value the same way the
     covered-table scanner does (``v2:gcm:`` prefix -> migrated, nacl-decryptable
     -> legacy, otherwise plaintext). Detecting legacy by decrypt rather than by a
     re-encrypt delta is what makes the ``check_encryption`` attestation correct
     even when run with the AES write gate off.
     """
-    from litellm.proxy.common_utils.callback_utils import (
+    from embrouter.proxy.common_utils.callback_utils import (
         _CALLBACK_VAR_ENCRYPTED_PREFIX,
     )
 
@@ -455,11 +455,11 @@ def _classify_callback_value(value: object) -> ValueClass:
 
 # (location, prisma db attribute, JSON columns to walk, scalar string columns).
 _COVERED_TABLE_SPECS: Final = [
-    ("model_table", "litellm_proxymodeltable", ("litellm_params",), ()),
-    ("credentials", "litellm_credentialstable", ("credential_values",), ()),
-    ("mcp_server", "litellm_mcpservertable", ("credentials", "env_vars", "static_headers", "env"), ()),
-    ("mcp_user_credentials", "litellm_mcpusercredentials", (), ("credential_b64",)),
-    ("mcp_user_env_vars", "litellm_mcpuserenvvars", (), ("values_b64",)),
+    ("model_table", "embrouter_proxymodeltable", ("embrouter_params",), ()),
+    ("credentials", "embrouter_credentialstable", ("credential_values",), ()),
+    ("mcp_server", "embrouter_mcpservertable", ("credentials", "env_vars", "static_headers", "env"), ()),
+    ("mcp_user_credentials", "embrouter_mcpusercredentials", (), ("credential_b64",)),
+    ("mcp_user_env_vars", "embrouter_mcpuserenvvars", (), ("values_b64",)),
 ]
 
 
@@ -523,7 +523,7 @@ async def _scan_one_table(
             raw = getattr(row, col, None)
             if raw is None:
                 continue
-            if db_attr == "litellm_mcpservertable" and col in ("static_headers", "env"):
+            if db_attr == "embrouter_mcpservertable" and col in ("static_headers", "env"):
                 report.count(_classify_secret_map(raw, col))
                 continue
             if isinstance(raw, str):
@@ -544,7 +544,7 @@ async def _scan_config_env_vars(prisma_client: object) -> LocationReport:
     """Scan the ``environment_variables`` config row (``param_value`` dict)."""
     report: Final = LocationReport(location="config_environment_variables")
     try:
-        record: Final = await prisma_client.db.litellm_config.find_unique(where={"param_name": "environment_variables"})
+        record: Final = await prisma_client.db.embrouter_config.find_unique(where={"param_name": "environment_variables"})
     except Exception as e:  # pragma: no cover - defensive
         verbose_proxy_logger.debug("scan: config env vars unavailable: %s", str(e))
         return report
@@ -590,7 +590,7 @@ async def _migrate_covered_tables(prisma_client: object, user_api_key_dict: obje
     actually migrated per location, and the post-scan supplies the residual /
     already-v2 / scanned figures. Returns one report per covered location.
     """
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from embrouter.proxy.management_endpoints.key_management_endpoints import (
         _rotate_master_key,
     )
 
@@ -599,7 +599,7 @@ async def _migrate_covered_tables(prisma_client: object, user_api_key_dict: obje
     current_key: Final = _get_salt_key()
     if current_key is None:
         raise RuntimeError(
-            "Cannot migrate covered tables: no salt key / master key is set. Set LITELLM_SALT_KEY before migrating."
+            "Cannot migrate covered tables: no salt key / master key is set. Set EMBROUTER_SALT_KEY before migrating."
         )
     await _rotate_master_key(
         prisma_client=cast("PrismaClient", prisma_client),

@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import useAuthorized from "@/app/(dashboard)/hooks/useAuthorized";
 import { createQueryKeys } from "@/app/(dashboard)/hooks/common/queryKeysFactory";
-import { getGlobalLitellmHeaderName, getProxyBaseUrl } from "@/components/networking";
+import { getGlobalEmbrouterHeaderName, getProxyBaseUrl } from "@/components/networking";
 import { createApiClient } from "@/lib/http/client";
 
 export interface TeamMetadataField {
@@ -13,7 +13,7 @@ const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 
 const silentApiClient = createApiClient({
   getBaseUrl: getProxyBaseUrl,
-  getAuthHeaderName: getGlobalLitellmHeaderName,
+  getAuthHeaderName: getGlobalEmbrouterHeaderName,
 });
 
 export const fetchTeamMetadataSchema = async (accessToken: string): Promise<TeamMetadataField[]> => {

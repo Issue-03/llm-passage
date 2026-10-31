@@ -8,7 +8,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict
 from typing_extensions import ReadOnly, TypedDict
 
-from litellm.types.utils import ModelResponse
+from embrouter.types.utils import ModelResponse
 
 
 class RAGChunkingStrategy(TypedDict, total=False):
@@ -46,17 +46,17 @@ class OpenAIVectorStoreOptions(TypedDict, total=False):
         {"custom_llm_provider": "openai", "vector_store_id": "vs_xxx"}
 
     Example (with credentials):
-        {"custom_llm_provider": "openai", "litellm_credential_name": "my-openai-creds"}
+        {"custom_llm_provider": "openai", "embrouter_credential_name": "my-openai-creds"}
     """
 
     custom_llm_provider: Literal["openai"]
     vector_store_id: str | None  # Existing VS ID (auto-creates if not provided)
     ttl_days: int | None  # Time-to-live in days for indexed content
 
-    # Credentials (loaded from litellm.credential_list if litellm_credential_name is provided)
-    litellm_credential_name: str | None  # Credential name to load from litellm.credential_list
-    api_key: str | None  # Direct API key (alternative to litellm_credential_name)
-    api_base: str | None  # Direct API base (alternative to litellm_credential_name)
+    # Credentials (loaded from embrouter.credential_list if embrouter_credential_name is provided)
+    embrouter_credential_name: str | None  # Credential name to load from embrouter.credential_list
+    api_key: str | None  # Direct API key (alternative to embrouter_credential_name)
+    api_base: str | None  # Direct API base (alternative to embrouter_credential_name)
 
 
 class BedrockVectorStoreOptions(TypedDict, total=False):
@@ -70,7 +70,7 @@ class BedrockVectorStoreOptions(TypedDict, total=False):
         {"custom_llm_provider": "bedrock", "vector_store_id": "KB_ID"}
 
     Example (with credentials):
-        {"custom_llm_provider": "bedrock", "litellm_credential_name": "my-aws-creds"}
+        {"custom_llm_provider": "bedrock", "embrouter_credential_name": "my-aws-creds"}
 
     Auto-creation creates: S3 bucket, OpenSearch Serverless collection,
     IAM role, Knowledge Base, and Data Source.
@@ -87,8 +87,8 @@ class BedrockVectorStoreOptions(TypedDict, total=False):
     wait_for_ingestion: bool | None  # Wait for completion (default: False - returns immediately)
     ingestion_timeout: int | None  # Timeout in seconds if wait_for_ingestion=True (default: 300)
 
-    # Credentials (loaded from litellm.credential_list if litellm_credential_name is provided)
-    litellm_credential_name: str | None  # Credential name to load from litellm.credential_list
+    # Credentials (loaded from embrouter.credential_list if embrouter_credential_name is provided)
+    embrouter_credential_name: str | None  # Credential name to load from embrouter.credential_list
 
     # AWS auth (uses BaseAWSLLM)
     aws_access_key_id: str | None
@@ -112,7 +112,7 @@ class VertexAIVectorStoreOptions(TypedDict, total=False):
 
     Requires:
     - gcloud auth application-default login (for ADC authentication)
-    - Files are uploaded to GCS via litellm.files.create_file, then imported into RAG corpus
+    - Files are uploaded to GCS via embrouter.files.create_file, then imported into RAG corpus
     - GCS bucket must be provided via gcs_bucket or GCS_BUCKET_NAME env var
     """
 
@@ -143,10 +143,10 @@ class S3VectorsVectorStoreOptions(TypedDict, total=False):
 
     Example (with credentials):
         {"custom_llm_provider": "s3_vectors", "vector_bucket_name": "my-embeddings",
-         "litellm_credential_name": "my-aws-creds"}
+         "embrouter_credential_name": "my-aws-creds"}
 
     Auto-creation creates: S3 vector bucket and vector index (if not provided).
-    Embeddings are generated using LiteLLM's embedding API (supports any provider).
+    Embeddings are generated using EmbRouter's embedding API (supports any provider).
     """
 
     custom_llm_provider: Literal["s3_vectors"]
@@ -158,8 +158,8 @@ class S3VectorsVectorStoreOptions(TypedDict, total=False):
     distance_metric: Literal["cosine", "euclidean"] | None  # Default: cosine
     non_filterable_metadata_keys: list[str] | None  # Keys excluded from filtering (e.g., ["source_text"])
 
-    # Credentials (loaded from litellm.credential_list if litellm_credential_name is provided)
-    litellm_credential_name: str | None  # Credential name to load from litellm.credential_list
+    # Credentials (loaded from embrouter.credential_list if embrouter_credential_name is provided)
+    embrouter_credential_name: str | None  # Credential name to load from embrouter.credential_list
 
     # AWS auth (uses BaseAWSLLM)
     aws_access_key_id: str | None
@@ -187,7 +187,7 @@ class RAGIngestOptions(TypedDict, total=False):
     Unified interface - just specify custom_llm_provider:
 
     Example (OpenAI):
-        from litellm.types.rag import RAGIngestOptions, OpenAIVectorStoreOptions
+        from embrouter.types.rag import RAGIngestOptions, OpenAIVectorStoreOptions
 
         options: RAGIngestOptions = {
             "vector_store": OpenAIVectorStoreOptions(
@@ -197,7 +197,7 @@ class RAGIngestOptions(TypedDict, total=False):
         }
 
     Example (Bedrock):
-        from litellm.types.rag import RAGIngestOptions, BedrockVectorStoreOptions
+        from embrouter.types.rag import RAGIngestOptions, BedrockVectorStoreOptions
 
         options: RAGIngestOptions = {
             "vector_store": BedrockVectorStoreOptions(

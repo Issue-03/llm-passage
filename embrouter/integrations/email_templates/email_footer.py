@@ -2,6 +2,6 @@ from typing import Final
 
 EMAIL_FOOTER: Final = """
 <div class="footer">
-            <p>© 2025 LiteLLM. All rights reserved.</p>
+            <p>© 2025 EmbRouter. All rights reserved.</p>
 </div>
 """

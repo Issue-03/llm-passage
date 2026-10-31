@@ -7,16 +7,16 @@ a server-fault status) unrepresentable, and gives the trust-boundary rule one en
 spec-defined machine fields may cross to callers, upstream prose and raw bodies go to server logs.
 """
 
-from litellm.proxy._experimental.mcp_server.faults.classify import (
+from embrouter.proxy._experimental.mcp_server.faults.classify import (
     classify_upstream_dcr_rejection,
     classify_upstream_token_rejection,
 )
-from litellm.proxy._experimental.mcp_server.faults.render_oauth import (
+from embrouter.proxy._experimental.mcp_server.faults.render_oauth import (
     dcr_fault_detail,
     render_token_fault,
 )
-from litellm.proxy._experimental.mcp_server.faults.traversal import iter_exception_tree
-from litellm.proxy._experimental.mcp_server.faults.types import (
+from embrouter.proxy._experimental.mcp_server.faults.traversal import iter_exception_tree
+from embrouter.proxy._experimental.mcp_server.faults.types import (
     CallerRejected,
     CredentialSource,
     GatewayRejected,

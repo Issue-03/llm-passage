@@ -1,8 +1,8 @@
 """
-Tests for litellm.litellm_core_utils.redact_messages.should_redact_message_logging
+Tests for embrouter.embrouter_core_utils.redact_messages.should_redact_message_logging
 
-Covers the proxy flow where headers arrive in litellm_params["metadata"]["headers"]
-but litellm_params["litellm_metadata"] is None.
+Covers the proxy flow where headers arrive in embrouter_params["metadata"]["headers"]
+but embrouter_params["embrouter_metadata"] is None.
 """
 
 import threading
@@ -11,46 +11,46 @@ from types import SimpleNamespace
 
 import pytest
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.redact_messages import (
+import embrouter
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.embrouter_core_utils.redact_messages import (
     _redact_responses_api_output,
     perform_redaction,
     redact_streaming_responses_for_custom_logger,
     redacted_standard_logging_payload,
     should_redact_message_logging,
 )
-from litellm.responses.main import mock_responses_api_response
+from embrouter.responses.main import mock_responses_api_response
 
 
 @pytest.fixture(autouse=True)
 def _reset_global_redaction():
     """Ensure the global setting is off for every test."""
-    original = litellm.turn_off_message_logging
-    litellm.turn_off_message_logging = False
+    original = embrouter.turn_off_message_logging
+    embrouter.turn_off_message_logging = False
     yield
-    litellm.turn_off_message_logging = original
+    embrouter.turn_off_message_logging = original
 
 
 def _make_model_call_details(
     metadata_headers=None,
-    litellm_metadata=None,
+    embrouter_metadata=None,
     metadata=None,
     standard_callback_dynamic_params=None,
 ):
     """Build a model_call_details dict that mimics real proxy/SDK flows."""
-    litellm_params = {}
+    embrouter_params = {}
     if metadata is not None:
-        litellm_params["metadata"] = metadata
+        embrouter_params["metadata"] = metadata
     elif metadata_headers is not None:
-        litellm_params["metadata"] = {"headers": metadata_headers}
+        embrouter_params["metadata"] = {"headers": metadata_headers}
     else:
-        litellm_params["metadata"] = {}
+        embrouter_params["metadata"] = {}
 
-    # get_litellm_params always sets this key (even when value is None)
-    litellm_params["litellm_metadata"] = litellm_metadata
+    # get_embrouter_params always sets this key (even when value is None)
+    embrouter_params["embrouter_metadata"] = embrouter_metadata
 
-    details = {"litellm_params": litellm_params}
+    details = {"embrouter_params": embrouter_params}
     if standard_callback_dynamic_params is not None:
         details["standard_callback_dynamic_params"] = standard_callback_dynamic_params
     return details
@@ -59,50 +59,50 @@ def _make_model_call_details(
 class TestShouldRedactMessageLogging:
     """Unit tests for should_redact_message_logging()."""
 
-    # ---- proxy flow: headers in metadata, litellm_metadata is None ----
+    # ---- proxy flow: headers in metadata, embrouter_metadata is None ----
 
     def test_enable_redaction_via_x_header_proxy_flow(self):
-        """x-litellm-enable-message-redaction header should enable redaction
-        even when litellm_metadata is None (proxy path)."""
+        """x-embrouter-enable-message-redaction header should enable redaction
+        even when embrouter_metadata is None (proxy path)."""
         details = _make_model_call_details(
-            metadata_headers={"x-litellm-enable-message-redaction": "true"},
-            litellm_metadata=None,
+            metadata_headers={"x-embrouter-enable-message-redaction": "true"},
+            embrouter_metadata=None,
         )
         assert should_redact_message_logging(details) is True
 
     def test_enable_redaction_via_old_header_proxy_flow(self):
-        """litellm-enable-message-redaction header should enable redaction
-        even when litellm_metadata is None (proxy path)."""
+        """embrouter-enable-message-redaction header should enable redaction
+        even when embrouter_metadata is None (proxy path)."""
         details = _make_model_call_details(
-            metadata_headers={"litellm-enable-message-redaction": "true"},
-            litellm_metadata=None,
+            metadata_headers={"embrouter-enable-message-redaction": "true"},
+            embrouter_metadata=None,
         )
         assert should_redact_message_logging(details) is True
 
     def test_disable_redaction_via_header_proxy_flow(self):
         """Core helper still honors the explicit disable-redaction header."""
-        litellm.turn_off_message_logging = True
+        embrouter.turn_off_message_logging = True
         details = _make_model_call_details(
-            metadata_headers={"litellm-disable-message-redaction": "true"},
-            litellm_metadata=None,
+            metadata_headers={"embrouter-disable-message-redaction": "true"},
+            embrouter_metadata=None,
         )
         assert should_redact_message_logging(details) is False
 
     def test_disable_redaction_via_header_when_global_off(self):
-        """litellm-disable-message-redaction is still honored when global redaction is off."""
+        """embrouter-disable-message-redaction is still honored when global redaction is off."""
         details = _make_model_call_details(
-            metadata_headers={"litellm-disable-message-redaction": "true"},
-            litellm_metadata=None,
+            metadata_headers={"embrouter-disable-message-redaction": "true"},
+            embrouter_metadata=None,
         )
         assert should_redact_message_logging(details) is False
 
-    # ---- SDK direct-call flow: headers in litellm_metadata ----
+    # ---- SDK direct-call flow: headers in embrouter_metadata ----
 
-    def test_enable_redaction_via_header_in_litellm_metadata(self):
-        """Headers inside litellm_metadata (SDK direct call) should work."""
+    def test_enable_redaction_via_header_in_embrouter_metadata(self):
+        """Headers inside embrouter_metadata (SDK direct call) should work."""
         details = _make_model_call_details(
-            litellm_metadata={
-                "headers": {"x-litellm-enable-message-redaction": "true"}
+            embrouter_metadata={
+                "headers": {"x-embrouter-enable-message-redaction": "true"}
             },
         )
         assert should_redact_message_logging(details) is True
@@ -113,16 +113,16 @@ class TestShouldRedactMessageLogging:
         """Without headers, falls back to global setting (False)."""
         details = _make_model_call_details(
             metadata_headers=None,
-            litellm_metadata=None,
+            embrouter_metadata=None,
         )
         assert should_redact_message_logging(details) is False
 
     def test_no_headers_global_on(self):
         """Without headers, respects global turn_off_message_logging=True."""
-        litellm.turn_off_message_logging = True
+        embrouter.turn_off_message_logging = True
         details = _make_model_call_details(
             metadata_headers=None,
-            litellm_metadata=None,
+            embrouter_metadata=None,
         )
         assert should_redact_message_logging(details) is True
 
@@ -132,7 +132,7 @@ class TestShouldRedactMessageLogging:
         """Dynamic turn_off_message_logging=True should enable redaction."""
         details = _make_model_call_details(
             metadata_headers={},
-            litellm_metadata=None,
+            embrouter_metadata=None,
             standard_callback_dynamic_params={"turn_off_message_logging": True},
         )
         assert should_redact_message_logging(details) is True
@@ -140,18 +140,18 @@ class TestShouldRedactMessageLogging:
     def test_dynamic_param_false_overrides_header(self):
         """Dynamic turn_off_message_logging=False should take precedence over enable header."""
         details = _make_model_call_details(
-            metadata_headers={"x-litellm-enable-message-redaction": "true"},
-            litellm_metadata=None,
+            metadata_headers={"x-embrouter-enable-message-redaction": "true"},
+            embrouter_metadata=None,
             standard_callback_dynamic_params={"turn_off_message_logging": False},
         )
         assert should_redact_message_logging(details) is False
 
     def test_dynamic_param_false_overrides_global_redaction(self):
         """Dynamic turn_off_message_logging=False should take precedence."""
-        litellm.turn_off_message_logging = True
+        embrouter.turn_off_message_logging = True
         details = _make_model_call_details(
             metadata_headers={},
-            litellm_metadata=None,
+            embrouter_metadata=None,
             standard_callback_dynamic_params={"turn_off_message_logging": False},
         )
         assert should_redact_message_logging(details) is False
@@ -159,19 +159,19 @@ class TestShouldRedactMessageLogging:
     # ---- non-dict metadata safety ----
 
     def test_both_metadata_fields_none(self):
-        """When both litellm_metadata and metadata are None, should not raise."""
+        """When both embrouter_metadata and metadata are None, should not raise."""
         details = _make_model_call_details(
             metadata=None,
-            litellm_metadata=None,
+            embrouter_metadata=None,
         )
         assert should_redact_message_logging(details) is False
 
     def test_both_metadata_fields_none_global_on(self):
         """When both metadata fields are None but global is on, should still return True."""
-        litellm.turn_off_message_logging = True
+        embrouter.turn_off_message_logging = True
         details = _make_model_call_details(
             metadata=None,
-            litellm_metadata=None,
+            embrouter_metadata=None,
         )
         assert should_redact_message_logging(details) is True
 
@@ -206,25 +206,25 @@ class TestPerformRedaction:
         redacted = perform_redaction(details, result)
 
         assert details["messages"] == [
-            {"role": "user", "content": "redacted-by-litellm"}
+            {"role": "user", "content": "redacted-by-embrouter"}
         ]
         assert details["prompt"] == ""
         assert details["input"] == ""
 
         logged_response = details["standard_logging_object"]["response"]
         assert logged_response["usage"] == {"total_tokens": 1}
-        assert logged_response["output"][0]["text"] == "redacted-by-litellm"
+        assert logged_response["output"][0]["text"] == "redacted-by-embrouter"
         assert logged_response["output"][1]["content"][0]["text"] == (
-            "redacted-by-litellm"
+            "redacted-by-embrouter"
         )
         assert logged_response["output"][2]["summary"][0]["text"] == (
-            "redacted-by-litellm"
+            "redacted-by-embrouter"
         )
 
         assert redacted["usage"] == {"total_tokens": 1}
-        assert redacted["output"][0]["text"] == "redacted-by-litellm"
-        assert redacted["output"][1]["content"][0]["text"] == "redacted-by-litellm"
-        assert redacted["output"][2]["summary"][0]["text"] == "redacted-by-litellm"
+        assert redacted["output"][0]["text"] == "redacted-by-embrouter"
+        assert redacted["output"][1]["content"][0]["text"] == "redacted-by-embrouter"
+        assert redacted["output"][2]["summary"][0]["text"] == "redacted-by-embrouter"
         assert result["output"][0]["text"] == "top-level result"
 
     def test_redacts_model_response_dict_choices(self):
@@ -252,14 +252,14 @@ class TestPerformRedaction:
         redacted = perform_redaction({}, result)
 
         message = redacted["choices"][0]["message"]
-        assert message["content"] == "redacted-by-litellm"
-        assert message["reasoning_content"] == "redacted-by-litellm"
+        assert message["content"] == "redacted-by-embrouter"
+        assert message["reasoning_content"] == "redacted-by-embrouter"
         assert message["thinking_blocks"] is None
         assert message["audio"] is None
 
         delta = redacted["choices"][1]["delta"]
-        assert delta["content"] == "redacted-by-litellm"
-        assert delta["reasoning_content"] == "redacted-by-litellm"
+        assert delta["content"] == "redacted-by-embrouter"
+        assert delta["reasoning_content"] == "redacted-by-embrouter"
         assert delta["thinking_blocks"] is None
         assert delta["audio"] is None
 
@@ -293,14 +293,14 @@ class TestPerformRedaction:
 
         choices = details["standard_logging_object"]["response"]["choices"]
         message = choices[0]["message"]
-        assert message["content"] == "redacted-by-litellm"
-        assert message["reasoning_content"] == "redacted-by-litellm"
+        assert message["content"] == "redacted-by-embrouter"
+        assert message["reasoning_content"] == "redacted-by-embrouter"
         assert message["thinking_blocks"] is None
         assert message["audio"] is None
 
         delta = choices[1]["delta"]
-        assert delta["content"] == "redacted-by-litellm"
-        assert delta["reasoning_content"] == "redacted-by-litellm"
+        assert delta["content"] == "redacted-by-embrouter"
+        assert delta["reasoning_content"] == "redacted-by-embrouter"
         assert delta["thinking_blocks"] is None
         assert delta["audio"] is None
 
@@ -320,15 +320,15 @@ class TestPerformRedaction:
         perform_redaction(details, None)
 
         assert details["standard_logging_object"]["response"]["choices"] == [
-            {"text": "redacted-by-litellm", "finish_reason": "stop", "index": 0},
-            {"text": "redacted-by-litellm", "finish_reason": "length", "index": 1},
+            {"text": "redacted-by-embrouter", "finish_reason": "stop", "index": 0},
+            {"text": "redacted-by-embrouter", "finish_reason": "length", "index": 1},
         ]
 
     def test_redacts_object_choices_inside_model_response_dict(self):
         result = {
             "choices": [
-                litellm.Choices(
-                    message=litellm.Message(
+                embrouter.Choices(
+                    message=embrouter.Message(
                         content="message content",
                         role="assistant",
                         reasoning_content="message reasoning",
@@ -340,8 +340,8 @@ class TestPerformRedaction:
         redacted = perform_redaction({}, result)
 
         choice = redacted["choices"][0]
-        assert choice.message.content == "redacted-by-litellm"
-        assert choice.message.reasoning_content == "redacted-by-litellm"
+        assert choice.message.content == "redacted-by-embrouter"
+        assert choice.message.reasoning_content == "redacted-by-embrouter"
 
     def test_redacts_tool_call_arguments_in_model_response_dict(self):
         """Assistant tool call arguments must not leak when redaction is on."""
@@ -374,9 +374,9 @@ class TestPerformRedaction:
         message = redacted["choices"][0]["message"]
         assert message["content"] is None
         tool_call = message["tool_calls"][0]
-        assert tool_call["function"]["arguments"] == "redacted-by-litellm"
+        assert tool_call["function"]["arguments"] == "redacted-by-embrouter"
         assert tool_call["function"]["name"] == "get_weather"
-        assert message["function_call"]["arguments"] == "redacted-by-litellm"
+        assert message["function_call"]["arguments"] == "redacted-by-embrouter"
 
     def test_redacts_tool_call_arguments_in_streaming_delta_dict(self):
         result = {
@@ -401,14 +401,14 @@ class TestPerformRedaction:
         redacted = perform_redaction({}, result)
 
         delta = redacted["choices"][0]["delta"]
-        assert delta["tool_calls"][0]["function"]["arguments"] == "redacted-by-litellm"
+        assert delta["tool_calls"][0]["function"]["arguments"] == "redacted-by-embrouter"
 
     def test_redacts_tool_call_arguments_on_model_response_object(self):
-        result = litellm.ModelResponse(
+        result = embrouter.ModelResponse(
             id="resp-1",
             choices=[
-                litellm.Choices(
-                    message=litellm.Message(
+                embrouter.Choices(
+                    message=embrouter.Message(
                         content=None,
                         role="assistant",
                         tool_calls=[
@@ -430,7 +430,7 @@ class TestPerformRedaction:
         redacted = perform_redaction({}, result)
 
         tool_call = redacted.choices[0].message.tool_calls[0]
-        assert tool_call.function.arguments == "redacted-by-litellm"
+        assert tool_call.function.arguments == "redacted-by-embrouter"
         assert tool_call.function.name == "get_weather"
         assert result.choices[0].message.tool_calls[0].function.arguments == (
             '{"city": "sensitive-city"}'
@@ -438,8 +438,8 @@ class TestPerformRedaction:
 
     def test_redacts_tool_call_arguments_on_streaming_response_object(self):
         """Reproduces the Stream=True path where tool calls arrive as deltas."""
-        streaming_choice = litellm.utils.StreamingChoices(
-            delta=litellm.utils.Delta(
+        streaming_choice = embrouter.utils.StreamingChoices(
+            delta=embrouter.utils.Delta(
                 content=None,
                 role="assistant",
                 tool_calls=[
@@ -464,7 +464,7 @@ class TestPerformRedaction:
         perform_redaction(details, None)
 
         tool_call = streaming_response.choices[0].delta.tool_calls[0]
-        assert tool_call.function.arguments == "redacted-by-litellm"
+        assert tool_call.function.arguments == "redacted-by-embrouter"
 
     def test_redacts_tool_call_arguments_in_standard_logging_object(self):
         details = {
@@ -494,7 +494,7 @@ class TestPerformRedaction:
         perform_redaction(details, None)
 
         message = details["standard_logging_object"]["response"]["choices"][0]["message"]
-        assert message["tool_calls"][0]["function"]["arguments"] == "redacted-by-litellm"
+        assert message["tool_calls"][0]["function"]["arguments"] == "redacted-by-embrouter"
 
     def test_redacts_responses_api_function_call_arguments_dict(self):
         result = {
@@ -510,7 +510,7 @@ class TestPerformRedaction:
 
         redacted = perform_redaction({}, result)
 
-        assert redacted["output"][0]["arguments"] == "redacted-by-litellm"
+        assert redacted["output"][0]["arguments"] == "redacted-by-embrouter"
         assert redacted["output"][0]["name"] == "get_weather"
 
     def test_redacts_responses_api_custom_tool_call_input_dict(self):
@@ -523,7 +523,7 @@ class TestPerformRedaction:
 
         redacted = perform_redaction({}, result)
 
-        assert redacted["output"][0]["input"] == "redacted-by-litellm"
+        assert redacted["output"][0]["input"] == "redacted-by-embrouter"
         assert redacted["output"][0]["name"] == "grep"
         assert redacted["output"][1]["input"] == "not-a-custom-input"
 
@@ -543,16 +543,16 @@ class TestPerformRedaction:
 
         redacted = perform_redaction({}, result)
 
-        assert redacted["output"][0]["content"][0]["refusal"] == "redacted-by-litellm"
+        assert redacted["output"][0]["content"][0]["refusal"] == "redacted-by-embrouter"
         assert redacted["output"][0]["content"][0]["type"] == "refusal"
-        assert redacted["output"][0]["content"][1]["text"] == "redacted-by-litellm"
+        assert redacted["output"][0]["content"][1]["text"] == "redacted-by-embrouter"
 
     def test_redacts_every_tool_call_in_multi_element_list(self):
-        result = litellm.ModelResponse(
+        result = embrouter.ModelResponse(
             id="resp-multi",
             choices=[
-                litellm.Choices(
-                    message=litellm.Message(
+                embrouter.Choices(
+                    message=embrouter.Message(
                         content=None,
                         role="assistant",
                         tool_calls=[
@@ -576,15 +576,15 @@ class TestPerformRedaction:
         redacted = perform_redaction({}, result)
 
         tool_calls = redacted.choices[0].message.tool_calls
-        assert tool_calls[0].function.arguments == "redacted-by-litellm"
-        assert tool_calls[1].function.arguments == "redacted-by-litellm"
+        assert tool_calls[0].function.arguments == "redacted-by-embrouter"
+        assert tool_calls[1].function.arguments == "redacted-by-embrouter"
 
     def test_preserves_none_content_on_tool_call_only_message(self):
-        result = litellm.ModelResponse(
+        result = embrouter.ModelResponse(
             id="resp-none",
             choices=[
-                litellm.Choices(
-                    message=litellm.Message(
+                embrouter.Choices(
+                    message=embrouter.Message(
                         content=None,
                         role="assistant",
                         tool_calls=[
@@ -614,7 +614,7 @@ class TestPerformRedaction:
 
         _redact_responses_api_output([output_item])
 
-        assert output_item.arguments == "redacted-by-litellm"
+        assert output_item.arguments == "redacted-by-embrouter"
         assert output_item.name == "get_weather"
 
     def test_redacts_responses_api_custom_tool_call_input_object(self):
@@ -622,7 +622,7 @@ class TestPerformRedaction:
 
         _redact_responses_api_output([output_item])
 
-        assert output_item.input == "redacted-by-litellm"
+        assert output_item.input == "redacted-by-embrouter"
         assert output_item.name == "grep"
 
     def test_redacts_responses_api_refusal_parts_object(self):
@@ -631,7 +631,7 @@ class TestPerformRedaction:
 
         _redact_responses_api_output([output_item])
 
-        assert refusal.refusal == "redacted-by-litellm"
+        assert refusal.refusal == "redacted-by-embrouter"
         assert refusal.type == "refusal"
 
     def test_redacts_response_output_objects_with_top_level_text(self):
@@ -642,11 +642,11 @@ class TestPerformRedaction:
 
         _redact_responses_api_output(output_items)
 
-        assert output_items[0].text == "redacted-by-litellm"
+        assert output_items[0].text == "redacted-by-embrouter"
         assert output_items[1] == "non-dict output item"
 
     def test_preserves_none_text_in_responses_output(self):
-        from litellm.litellm_core_utils.redact_messages import _redact_responses_api_output_dict
+        from embrouter.embrouter_core_utils.redact_messages import _redact_responses_api_output_dict
 
         none_item = SimpleNamespace(type="output_text", text=None, content=[SimpleNamespace(text=None)])
         real_item = SimpleNamespace(type="output_text", text="real answer", content=[SimpleNamespace(text="real part")])
@@ -655,18 +655,18 @@ class TestPerformRedaction:
 
         assert none_item.text is None
         assert none_item.content[0].text is None
-        assert real_item.text == "redacted-by-litellm"
-        assert real_item.content[0].text == "redacted-by-litellm"
+        assert real_item.text == "redacted-by-embrouter"
+        assert real_item.content[0].text == "redacted-by-embrouter"
 
         none_dict = {"type": "output_text", "text": None, "content": [{"text": None}]}
         real_dict = {"type": "output_text", "text": "real answer", "content": [{"text": "real part"}]}
 
-        _redact_responses_api_output_dict([none_dict, real_dict], "redacted-by-litellm")
+        _redact_responses_api_output_dict([none_dict, real_dict], "redacted-by-embrouter")
 
         assert none_dict["text"] is None
         assert none_dict["content"][0]["text"] is None
-        assert real_dict["text"] == "redacted-by-litellm"
-        assert real_dict["content"][0]["text"] == "redacted-by-litellm"
+        assert real_dict["text"] == "redacted-by-embrouter"
+        assert real_dict["content"][0]["text"] == "redacted-by-embrouter"
 
     def test_skips_non_dict_response_output_items(self):
         result = {
@@ -679,14 +679,14 @@ class TestPerformRedaction:
         redacted = perform_redaction({}, result)
 
         assert redacted["output"][0] == "non-dict output item"
-        assert redacted["output"][1]["content"][0]["text"] == "redacted-by-litellm"
+        assert redacted["output"][1]["content"][0]["text"] == "redacted-by-embrouter"
 
     def test_redacts_responses_api_response_object(self):
         response = mock_responses_api_response("sensitive output")
 
         redacted = perform_redaction({}, response)
 
-        assert redacted.output[0].content[0].text == "redacted-by-litellm"
+        assert redacted.output[0].content[0].text == "redacted-by-embrouter"
         assert response.output[0].content[0].text == "sensitive output"
 
     def test_redacts_vertex_provider_metadata_in_standard_logging_response(self):
@@ -715,16 +715,16 @@ class TestPerformRedaction:
         perform_redaction(details, None)
 
         response = details["standard_logging_object"]["response"]
-        assert response["choices"][0]["message"]["content"] == "redacted-by-litellm"
+        assert response["choices"][0]["message"]["content"] == "redacted-by-embrouter"
         assert response["vertex_ai_grounding_metadata"] == []
         assert response["vertex_ai_url_context_metadata"] == []
 
     def test_redacts_vertex_provider_metadata_on_streaming_model_response(self):
-        response = litellm.ModelResponse(
+        response = embrouter.ModelResponse(
             id="resp-1",
             choices=[
-                litellm.Choices(
-                    message=litellm.Message(
+                embrouter.Choices(
+                    message=embrouter.Message(
                         content="sensitive answer",
                         role="assistant",
                     )
@@ -748,7 +748,7 @@ class TestPerformRedaction:
 
         perform_redaction(details, response)
 
-        assert response.choices[0].message.content == "redacted-by-litellm"
+        assert response.choices[0].message.content == "redacted-by-embrouter"
         assert getattr(response, "vertex_ai_grounding_metadata") == []
         assert "vertex_ai_grounding_metadata" not in response._hidden_params
 
@@ -756,7 +756,7 @@ class TestPerformRedaction:
         """Streaming success_handler copies _hidden_params into metadata before redaction."""
         details = {
             "stream": True,
-            "litellm_params": {
+            "embrouter_params": {
                 "metadata": {
                     "hidden_params": {
                         "response_cost": 0.01,
@@ -775,7 +775,7 @@ class TestPerformRedaction:
 
         perform_redaction(details, None)
 
-        hidden_params = details["litellm_params"]["metadata"]["hidden_params"]
+        hidden_params = details["embrouter_params"]["metadata"]["hidden_params"]
         assert hidden_params["response_cost"] == 0.01
         assert "vertex_ai_grounding_metadata" not in hidden_params
         assert "vertex_ai_url_context_metadata" not in hidden_params
@@ -784,10 +784,10 @@ class TestPerformRedaction:
 
     def test_redact_async_complete_streaming_response(self):
         """Test that async_complete_streaming_response is properly redacted."""
-        response_obj = litellm.ModelResponse(
+        response_obj = embrouter.ModelResponse(
             choices=[
-                litellm.Choices(
-                    message=litellm.Message(content="secret content", role="assistant")
+                embrouter.Choices(
+                    message=embrouter.Message(content="secret content", role="assistant")
                 )
             ]
         )
@@ -803,14 +803,14 @@ class TestPerformRedaction:
         perform_redaction(model_call_details, result=None)
 
         redacted_response = model_call_details["async_complete_streaming_response"]
-        assert redacted_response.choices[0].message.content == "redacted-by-litellm"
+        assert redacted_response.choices[0].message.content == "redacted-by-embrouter"
 
     def test_redact_complete_streaming_response(self):
         """Test that complete_streaming_response is properly redacted."""
-        response_obj = litellm.ModelResponse(
+        response_obj = embrouter.ModelResponse(
             choices=[
-                litellm.Choices(
-                    message=litellm.Message(content="secret content", role="assistant")
+                embrouter.Choices(
+                    message=embrouter.Message(content="secret content", role="assistant")
                 )
             ]
         )
@@ -826,13 +826,13 @@ class TestPerformRedaction:
         perform_redaction(model_call_details, result=None)
 
         redacted_response = model_call_details["complete_streaming_response"]
-        assert redacted_response.choices[0].message.content == "redacted-by-litellm"
+        assert redacted_response.choices[0].message.content == "redacted-by-embrouter"
 
     def test_streaming_responses_untouched_when_disabled(self):
-        response_obj = litellm.ModelResponse(
+        response_obj = embrouter.ModelResponse(
             choices=[
-                litellm.Choices(
-                    message=litellm.Message(content="secret content", role="assistant")
+                embrouter.Choices(
+                    message=embrouter.Message(content="secret content", role="assistant")
                 )
             ]
         )
@@ -869,37 +869,37 @@ class TestPerformRedaction:
 
         body = _BinaryResponseBody()
 
-        redacted = perform_redaction({"litellm_params": {}}, body)
+        redacted = perform_redaction({"embrouter_params": {}}, body)
 
-        assert redacted == {"text": "redacted-by-litellm"}
+        assert redacted == {"text": "redacted-by-embrouter"}
 
     def test_recognized_shapes_still_redact_a_copy(self):
         """The type gate must not change behaviour for shapes that were already handled."""
-        original = litellm.ModelResponse(
-            choices=[litellm.Choices(message=litellm.Message(content="secret content", role="assistant"))]
+        original = embrouter.ModelResponse(
+            choices=[embrouter.Choices(message=embrouter.Message(content="secret content", role="assistant"))]
         )
 
-        redacted = perform_redaction({"litellm_params": {}}, original)
+        redacted = perform_redaction({"embrouter_params": {}}, original)
 
-        assert redacted.choices[0].message.content == "redacted-by-litellm"
+        assert redacted.choices[0].message.content == "redacted-by-embrouter"
         assert original.choices[0].message.content == "secret content"
 
-        embedding = litellm.EmbeddingResponse(data=[{"embedding": [1.0, 2.0]}])
-        assert perform_redaction({"litellm_params": {}}, embedding).data == []
+        embedding = embrouter.EmbeddingResponse(data=[{"embedding": [1.0, 2.0]}])
+        assert perform_redaction({"embrouter_params": {}}, embedding).data == []
 
         as_dict = {"choices": [{"message": {"role": "assistant", "content": "secret content"}}]}
         assert (
-            perform_redaction({"litellm_params": {}}, as_dict)["choices"][0]["message"]["content"]
-            == "redacted-by-litellm"
+            perform_redaction({"embrouter_params": {}}, as_dict)["choices"][0]["message"]["content"]
+            == "redacted-by-embrouter"
         )
 
 
 class TestRedactStreamingResponsesForCustomLogger:
     def _model_call_details(self):
-        response_obj = litellm.ModelResponse(
+        response_obj = embrouter.ModelResponse(
             choices=[
-                litellm.Choices(
-                    message=litellm.Message(content="secret content", role="assistant")
+                embrouter.Choices(
+                    message=embrouter.Message(content="secret content", role="assistant")
                 )
             ]
         )
@@ -917,7 +917,7 @@ class TestRedactStreamingResponsesForCustomLogger:
         )
 
         redacted_response = redacted_details["async_complete_streaming_response"]
-        assert redacted_response.choices[0].message.content == "redacted-by-litellm"
+        assert redacted_response.choices[0].message.content == "redacted-by-embrouter"
         assert response_obj.choices[0].message.content == "secret content"
         assert model_call_details["async_complete_streaming_response"] is response_obj
 
@@ -944,7 +944,7 @@ def test_classifier_audit_redaction_removes_both_fields_and_source_carrier(callb
     }
     details: Final = {
         "standard_logging_object": standard_payload,
-        "litellm_params": {"proxy_server_request": {"body": {}, "originating_request_masked": audit["originating_request_masked"]}},
+        "embrouter_params": {"proxy_server_request": {"body": {}, "originating_request_masked": audit["originating_request_masked"]}},
     }
     logger: Final = CustomLogger()
     logger.turn_off_message_logging = True
@@ -952,14 +952,14 @@ def test_classifier_audit_redaction_removes_both_fields_and_source_carrier(callb
         redacted: Final = logger.redact_standard_logging_payload_from_model_call_details(details)
         assert "classifier_input" not in redacted["standard_logging_object"]
         assert "originating_request_masked" not in redacted["standard_logging_object"]
-        assert "originating_request_masked" not in redacted["litellm_params"]["proxy_server_request"]
+        assert "originating_request_masked" not in redacted["embrouter_params"]["proxy_server_request"]
         assert details["standard_logging_object"]["classifier_input"] == audit["classifier_input"]
-        assert details["litellm_params"]["proxy_server_request"]["originating_request_masked"] == audit["originating_request_masked"]
+        assert details["embrouter_params"]["proxy_server_request"]["originating_request_masked"] == audit["originating_request_masked"]
     else:
         perform_redaction(details, result=None)
         assert "classifier_input" not in details["standard_logging_object"]
         assert "originating_request_masked" not in details["standard_logging_object"]
-        assert "originating_request_masked" not in details["litellm_params"]["proxy_server_request"]
+        assert "originating_request_masked" not in details["embrouter_params"]["proxy_server_request"]
 
     assert standard_payload["classifier_input"] == audit["classifier_input"]
     assert standard_payload["originating_request_masked"] == audit["originating_request_masked"]
@@ -969,7 +969,7 @@ def test_classifier_audit_redaction_removes_both_fields_and_source_carrier(callb
 
 @pytest.mark.parametrize("excluded", [False, True])
 def test_classifier_callback_redaction_preserves_exclusions(monkeypatch: pytest.MonkeyPatch, excluded: bool) -> None:
-    monkeypatch.setattr(litellm, "standard_logging_payload_excluded_fields", ["messages", "response"] if excluded else [])
+    monkeypatch.setattr(embrouter, "standard_logging_payload_excluded_fields", ["messages", "response"] if excluded else [])
     payload: Final = {
         "classifier_input": {"system": "private rubric"},
         "originating_request_masked": {"input": "private source"},
@@ -987,14 +987,14 @@ def test_classifier_callback_redaction_preserves_exclusions(monkeypatch: pytest.
     assert ("messages" not in stored) is excluded
     assert ("response" not in stored) is excluded
     if not excluded:
-        assert stored["messages"][0]["content"] == "redacted-by-litellm"
-        assert stored["response"]["choices"][0]["message"]["content"] == "redacted-by-litellm"
+        assert stored["messages"][0]["content"] == "redacted-by-embrouter"
+        assert stored["response"]["choices"][0]["message"]["content"] == "redacted-by-embrouter"
 
     failure_payload: Final = redacted_standard_logging_payload(payload)
     assert "classifier_input" not in failure_payload
     assert "originating_request_masked" not in failure_payload
-    assert failure_payload["messages"][0]["content"] == "redacted-by-litellm"
-    assert failure_payload["response"]["choices"][0]["message"]["content"] == "redacted-by-litellm"
+    assert failure_payload["messages"][0]["content"] == "redacted-by-embrouter"
+    assert failure_payload["response"]["choices"][0]["message"]["content"] == "redacted-by-embrouter"
     assert payload["classifier_input"] == {"system": "private rubric"}
     assert payload["response"]["choices"][0]["message"]["content"] == "private answer"
 
@@ -1006,7 +1006,7 @@ class _SelfRedactingLogger(CustomLogger):
 
 @pytest.mark.parametrize("logger", [CustomLogger(), _SelfRedactingLogger()], ids=["default", "redacts_itself"])
 def test_field_exclusion_alone_leaves_messages_and_responses_intact(monkeypatch: pytest.MonkeyPatch, logger: CustomLogger) -> None:
-    monkeypatch.setattr(litellm, "standard_logging_payload_excluded_fields", ["model"])
+    monkeypatch.setattr(embrouter, "standard_logging_payload_excluded_fields", ["model"])
     payload: Final = {
         "messages": [{"role": "user", "content": "private prompt"}],
         "response": {"choices": [{"message": {"content": "private answer"}}]},
@@ -1035,8 +1035,8 @@ def test_a_callback_that_redacts_itself_keeps_its_messages_but_not_the_classifie
 
 
 def test_perform_redaction_drops_the_served_output_texts_from_the_callback_kwargs() -> None:
-    from litellm.litellm_core_utils.served_output_texts import SERVED_OUTPUT_TEXTS_KEY
+    from embrouter.embrouter_core_utils.served_output_texts import SERVED_OUTPUT_TEXTS_KEY
 
-    details: Final = {"litellm_params": {}, SERVED_OUTPUT_TEXTS_KEY: ("Card: <CREDIT_CARD>",)}
+    details: Final = {"embrouter_params": {}, SERVED_OUTPUT_TEXTS_KEY: ("Card: <CREDIT_CARD>",)}
     perform_redaction(details, None)
     assert SERVED_OUTPUT_TEXTS_KEY not in details

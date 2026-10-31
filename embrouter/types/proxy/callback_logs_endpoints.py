@@ -1,7 +1,7 @@
 """
 Types for the callback-logs ingest endpoint (POST /v1/callbacks/logs).
 
-External producers (e.g. the litellm-rust gateway) POST finished logging
+External producers (e.g. the embrouter-rust gateway) POST finished logging
 payloads here; the proxy replays them through the standard callback fan-out.
 """
 
@@ -9,7 +9,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from litellm.constants import MAX_CALLBACK_LOG_RECORDS
+from embrouter.constants import MAX_CALLBACK_LOG_RECORDS
 
 
 class CallbackLogRecord(BaseModel):

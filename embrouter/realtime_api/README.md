@@ -6,4 +6,4 @@ Supported endpoints:
 
 Supported providers: OpenAI, Azure OpenAI, Bedrock, Vertex AI, xAI.
 
-For user-facing documentation and usage examples, see the litellm-docs repo.
+For user-facing documentation and usage examples, see the embrouter-docs repo.

@@ -13,17 +13,17 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from litellm.proxy import proxy_server
-from litellm.proxy.common_utils.encrypt_decrypt_utils import (
+from embrouter.proxy import proxy_server
+from embrouter.proxy.common_utils.encrypt_decrypt_utils import (
     _V2_GCM_PREFIX,
     encrypt_value_helper,
 )
-from litellm.proxy.management_endpoints import credential_migration as cm
+from embrouter.proxy.management_endpoints import credential_migration as cm
 
 
 @pytest.fixture
 def salt_key(monkeypatch):
-    monkeypatch.setenv("LITELLM_SALT_KEY", "sk-migration-salt-1234")
+    monkeypatch.setenv("EMBROUTER_SALT_KEY", "sk-migration-salt-1234")
     monkeypatch.setattr(proxy_server, "general_settings", {})
     return "sk-migration-salt-1234"
 
@@ -131,10 +131,10 @@ async def test_migrate_requires_aes_gate(salt_key, monkeypatch):
 
 
 def _config_prisma(record):
-    """Build an AsyncMock prisma client whose litellm_config returns `record`."""
+    """Build an AsyncMock prisma client whose embrouter_config returns `record`."""
     client = MagicMock()
-    client.db.litellm_config.find_unique = AsyncMock(return_value=record)
-    client.db.litellm_config.update = AsyncMock()
+    client.db.embrouter_config.find_unique = AsyncMock(return_value=record)
+    client.db.embrouter_config.update = AsyncMock()
     return client
 
 
@@ -157,9 +157,9 @@ async def test_vantage_walker_migrates_legacy_field(salt_key, monkeypatch):
 
     assert report.migrated == 1
     assert report.legacy == 0  # migrated -> no longer residual legacy
-    client.db.litellm_config.update.assert_awaited_once()
+    client.db.embrouter_config.update.assert_awaited_once()
     written = json.loads(
-        client.db.litellm_config.update.call_args.kwargs["data"]["param_value"]
+        client.db.embrouter_config.update.call_args.kwargs["data"]["param_value"]
     )
     assert written["api_key"].startswith(_V2_GCM_PREFIX)
     assert written["base_url"] == "https://api.vantage.sh"  # non-sensitive untouched
@@ -179,7 +179,7 @@ async def test_vantage_walker_idempotent_no_write(salt_key, monkeypatch):
 
     assert report.already_v2 == 1
     assert report.migrated == 0
-    client.db.litellm_config.update.assert_not_awaited()
+    client.db.embrouter_config.update.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -197,7 +197,7 @@ async def test_config_walker_dry_run_does_not_write(salt_key, monkeypatch):
     # `migrated` and `residual_legacy` are never contradictory in --check output.
     assert report.legacy == 1
     assert report.migrated == 0
-    client.db.litellm_config.update.assert_not_awaited()
+    client.db.embrouter_config.update.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -208,7 +208,7 @@ async def test_config_walker_handles_missing_row(salt_key, monkeypatch):
         client, "cloudzero_settings", cm._CLOUDZERO_SENSITIVE, dry_run=False
     )
     assert report.scanned == 0
-    client.db.litellm_config.update.assert_not_awaited()
+    client.db.embrouter_config.update.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -218,14 +218,14 @@ async def test_sso_walker_real_run_migrates_and_clears_residual(salt_key, monkey
     _enable_aes(monkeypatch)
     record = SimpleNamespace(sso_settings={"client_secret": legacy, "client_id": "id"})
     client = MagicMock()
-    client.db.litellm_ssoconfig.find_unique = AsyncMock(return_value=record)
-    client.db.litellm_ssoconfig.update = AsyncMock()
+    client.db.embrouter_ssoconfig.find_unique = AsyncMock(return_value=record)
+    client.db.embrouter_ssoconfig.update = AsyncMock()
 
     report = await cm._migrate_sso_config(client, dry_run=False)
 
     assert report.migrated == 1
     assert report.legacy == 0  # migrated -> no longer residual
-    client.db.litellm_ssoconfig.update.assert_awaited_once()
+    client.db.embrouter_ssoconfig.update.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -235,14 +235,14 @@ async def test_sso_walker_dry_run_reports_residual_not_migrated(salt_key, monkey
     _enable_aes(monkeypatch)
     record = SimpleNamespace(sso_settings={"client_secret": legacy})
     client = MagicMock()
-    client.db.litellm_ssoconfig.find_unique = AsyncMock(return_value=record)
-    client.db.litellm_ssoconfig.update = AsyncMock()
+    client.db.embrouter_ssoconfig.find_unique = AsyncMock(return_value=record)
+    client.db.embrouter_ssoconfig.update = AsyncMock()
 
     report = await cm._migrate_sso_config(client, dry_run=True)
 
     assert report.legacy == 1
     assert report.migrated == 0
-    client.db.litellm_ssoconfig.update.assert_not_awaited()
+    client.db.embrouter_ssoconfig.update.assert_not_awaited()
 
 
 # --------------------------- --check scanner ---------------------------
@@ -255,10 +255,10 @@ async def test_check_reports_residual_legacy(salt_key, monkeypatch):
 
     client = MagicMock()
     # Net-new walker tables: empty team / token / sso, one legacy vantage field.
-    client.db.litellm_teamtable.find_many = AsyncMock(return_value=[])
-    client.db.litellm_verificationtoken.find_many = AsyncMock(return_value=[])
-    client.db.litellm_ssoconfig.find_unique = AsyncMock(return_value=None)
-    client.db.litellm_config.update = AsyncMock()
+    client.db.embrouter_teamtable.find_many = AsyncMock(return_value=[])
+    client.db.embrouter_verificationtoken.find_many = AsyncMock(return_value=[])
+    client.db.embrouter_ssoconfig.find_unique = AsyncMock(return_value=None)
+    client.db.embrouter_config.update = AsyncMock()
     _empty_covered_tables(client)
 
     def _find_unique(where):
@@ -266,22 +266,22 @@ async def test_check_reports_residual_legacy(salt_key, monkeypatch):
             return SimpleNamespace(param_value={"api_key": legacy_api_key})
         return None
 
-    client.db.litellm_config.find_unique = AsyncMock(side_effect=_find_unique)
+    client.db.embrouter_config.find_unique = AsyncMock(side_effect=_find_unique)
 
     report = await cm.check_encryption(client)
 
     assert report.residual_legacy == 1
-    client.db.litellm_config.update.assert_not_awaited()  # read-only
+    client.db.embrouter_config.update.assert_not_awaited()  # read-only
 
 
 @pytest.mark.asyncio
 async def test_check_reports_zero_after_migration(salt_key, monkeypatch):
     _enable_aes(monkeypatch)
     client = MagicMock()
-    client.db.litellm_teamtable.find_many = AsyncMock(return_value=[])
-    client.db.litellm_verificationtoken.find_many = AsyncMock(return_value=[])
-    client.db.litellm_ssoconfig.find_unique = AsyncMock(return_value=None)
-    client.db.litellm_config.update = AsyncMock()
+    client.db.embrouter_teamtable.find_many = AsyncMock(return_value=[])
+    client.db.embrouter_verificationtoken.find_many = AsyncMock(return_value=[])
+    client.db.embrouter_ssoconfig.find_unique = AsyncMock(return_value=None)
+    client.db.embrouter_config.update = AsyncMock()
     _empty_covered_tables(client)
 
     def _find_unique(where):
@@ -291,7 +291,7 @@ async def test_check_reports_zero_after_migration(salt_key, monkeypatch):
             )
         return None
 
-    client.db.litellm_config.find_unique = AsyncMock(side_effect=_find_unique)
+    client.db.embrouter_config.find_unique = AsyncMock(side_effect=_find_unique)
 
     report = await cm.check_encryption(client)
     assert report.residual_legacy == 0
@@ -303,7 +303,7 @@ async def test_check_reports_zero_after_migration(salt_key, monkeypatch):
 @pytest.mark.asyncio
 async def test_callback_vars_walker_migrates_team_metadata(salt_key, monkeypatch):
     """A team row with a legacy-encrypted callback var is rewritten to v2."""
-    from litellm.proxy.common_utils.callback_utils import encrypt_callback_vars
+    from embrouter.proxy.common_utils.callback_utils import encrypt_callback_vars
 
     # Legacy-encrypt a callback var via the real callback path (gate off).
     monkeypatch.setattr(proxy_server, "general_settings", {})
@@ -314,16 +314,16 @@ async def test_callback_vars_walker_migrates_team_metadata(salt_key, monkeypatch
 
     team_row = SimpleNamespace(team_id="team-1", metadata=legacy_meta)
     client = MagicMock()
-    client.db.litellm_teamtable.find_many = AsyncMock(return_value=[team_row])
-    client.db.litellm_teamtable.update = AsyncMock()
+    client.db.embrouter_teamtable.find_many = AsyncMock(return_value=[team_row])
+    client.db.embrouter_teamtable.update = AsyncMock()
 
     report = await cm._migrate_callback_vars_table(client, "team", dry_run=False)
 
     assert report.migrated == 1
     assert report.scanned == 1  # one field examined, not "post-v2" count
-    client.db.litellm_teamtable.update.assert_awaited_once()
+    client.db.embrouter_teamtable.update.assert_awaited_once()
     written = json.loads(
-        client.db.litellm_teamtable.update.call_args.kwargs["data"]["metadata"]
+        client.db.embrouter_teamtable.update.call_args.kwargs["data"]["metadata"]
     )
     inner = written["logging"][0]["callback_vars"]["gcs_path_service_account"]
     assert "v2:gcm:" in inner
@@ -332,7 +332,7 @@ async def test_callback_vars_walker_migrates_team_metadata(salt_key, monkeypatch
 @pytest.mark.asyncio
 async def test_callback_vars_walker_dry_run_reports_legacy(salt_key, monkeypatch):
     """In --check (dry-run) mode, a legacy callback var counts as residual legacy."""
-    from litellm.proxy.common_utils.callback_utils import encrypt_callback_vars
+    from embrouter.proxy.common_utils.callback_utils import encrypt_callback_vars
 
     monkeypatch.setattr(proxy_server, "general_settings", {})
     legacy_meta = encrypt_callback_vars(
@@ -342,15 +342,15 @@ async def test_callback_vars_walker_dry_run_reports_legacy(salt_key, monkeypatch
 
     team_row = SimpleNamespace(team_id="team-1", metadata=legacy_meta)
     client = MagicMock()
-    client.db.litellm_teamtable.find_many = AsyncMock(return_value=[team_row])
-    client.db.litellm_teamtable.update = AsyncMock()
+    client.db.embrouter_teamtable.find_many = AsyncMock(return_value=[team_row])
+    client.db.embrouter_teamtable.update = AsyncMock()
 
     report = await cm._migrate_callback_vars_table(client, "team", dry_run=True)
 
     assert report.scanned == 1
     assert report.legacy == 1  # would-migrate -> residual legacy in attestation
     assert report.migrated == 0
-    client.db.litellm_teamtable.update.assert_not_awaited()
+    client.db.embrouter_teamtable.update.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -364,7 +364,7 @@ async def test_callback_vars_walker_migrates_callback_settings_shape(
     this credential shape (which ``encrypt_callback_vars`` does encrypt) was left
     in legacy format at rest while the migration still reported success.
     """
-    from litellm.proxy.common_utils.callback_utils import encrypt_callback_vars
+    from embrouter.proxy.common_utils.callback_utils import encrypt_callback_vars
 
     monkeypatch.setattr(proxy_server, "general_settings", {})
     legacy_meta = encrypt_callback_vars(
@@ -379,16 +379,16 @@ async def test_callback_vars_walker_migrates_callback_settings_shape(
 
     team_row = SimpleNamespace(team_id="team-1", metadata=legacy_meta)
     client = MagicMock()
-    client.db.litellm_teamtable.find_many = AsyncMock(return_value=[team_row])
-    client.db.litellm_teamtable.update = AsyncMock()
+    client.db.embrouter_teamtable.find_many = AsyncMock(return_value=[team_row])
+    client.db.embrouter_teamtable.update = AsyncMock()
 
     report = await cm._migrate_callback_vars_table(client, "team", dry_run=False)
 
     assert report.migrated == 1
     assert report.scanned == 1
-    client.db.litellm_teamtable.update.assert_awaited_once()
+    client.db.embrouter_teamtable.update.assert_awaited_once()
     written = json.loads(
-        client.db.litellm_teamtable.update.call_args.kwargs["data"]["metadata"]
+        client.db.embrouter_teamtable.update.call_args.kwargs["data"]["metadata"]
     )
     inner = written["callback_settings"]["callback_vars"]["gcs_path_service_account"]
     assert "v2:gcm:" in inner
@@ -404,7 +404,7 @@ async def test_check_reports_callback_var_legacy_with_gate_off(salt_key, monkeyp
     read zero here (gate off -> no v2 produced) and emit a false-clean
     attestation -- exactly the compliance trap this guards against.
     """
-    from litellm.proxy.common_utils.callback_utils import encrypt_callback_vars
+    from embrouter.proxy.common_utils.callback_utils import encrypt_callback_vars
 
     # Legacy-encrypt a callback var, and leave the gate OFF for the check itself.
     monkeypatch.setattr(proxy_server, "general_settings", {})
@@ -415,17 +415,17 @@ async def test_check_reports_callback_var_legacy_with_gate_off(salt_key, monkeyp
 
     client = MagicMock()
     _empty_covered_tables(client)
-    client.db.litellm_teamtable.find_many = AsyncMock(return_value=[team_row])
-    client.db.litellm_verificationtoken.find_many = AsyncMock(return_value=[])
-    client.db.litellm_ssoconfig.find_unique = AsyncMock(return_value=None)
-    client.db.litellm_config.find_unique = AsyncMock(return_value=None)
-    client.db.litellm_teamtable.update = AsyncMock()
+    client.db.embrouter_teamtable.find_many = AsyncMock(return_value=[team_row])
+    client.db.embrouter_verificationtoken.find_many = AsyncMock(return_value=[])
+    client.db.embrouter_ssoconfig.find_unique = AsyncMock(return_value=None)
+    client.db.embrouter_config.find_unique = AsyncMock(return_value=None)
+    client.db.embrouter_teamtable.update = AsyncMock()
 
     report = await cm.check_encryption(client)
 
     assert report.residual_legacy == 1
     assert report.as_dict()["locations"]["team.callback_vars"]["legacy"] == 1
-    client.db.litellm_teamtable.update.assert_not_awaited()  # read-only
+    client.db.embrouter_teamtable.update.assert_not_awaited()  # read-only
 
 
 # --------------------------- covered-tables scanner ---------------------------
@@ -440,15 +440,15 @@ async def test_scan_covered_tables_classifies_legacy_and_v2(salt_key, monkeypatc
 
     client = MagicMock()
     _empty_covered_tables(client)
-    client.db.litellm_proxymodeltable.find_many = AsyncMock(
+    client.db.embrouter_proxymodeltable.find_many = AsyncMock(
         return_value=[
-            SimpleNamespace(litellm_params={"api_key": legacy, "model": "gpt-4"})
+            SimpleNamespace(embrouter_params={"api_key": legacy, "model": "gpt-4"})
         ]
     )
-    client.db.litellm_credentialstable.find_many = AsyncMock(
+    client.db.embrouter_credentialstable.find_many = AsyncMock(
         return_value=[SimpleNamespace(credential_values={"api_key": v2})]
     )
-    client.db.litellm_config.find_unique = AsyncMock(return_value=None)
+    client.db.embrouter_config.find_unique = AsyncMock(return_value=None)
 
     by_loc = {r.location: r for r in await cm._scan_covered_tables(client)}
 
@@ -474,7 +474,7 @@ async def test_check_classifies_mcp_secret_maps(
     case: str,
 ) -> None:
     monkeypatch.setattr(proxy_server, "general_settings", {"encryption_algorithm": algorithm})
-    plaintext: Final = {"Authorization": "v2:gcm:operator-text", "CUSTOM": "litellm_enc::literal\n café "}
+    plaintext: Final = {"Authorization": "v2:gcm:operator-text", "CUSTOM": "embrouter_enc::literal\n café "}
     ciphertext: Final = encrypt_value_helper(json.dumps(plaintext))
     cases: Final[dict[str, object]] = {
         "legacy": plaintext,
@@ -490,12 +490,12 @@ async def test_check_classifies_mcp_secret_maps(
     row: Final = SimpleNamespace(**{column: value})
     client: Final = MagicMock()
     _empty_covered_tables(client)
-    client.db.litellm_mcpservertable.find_many = AsyncMock(return_value=[row])
-    client.db.litellm_mcpservertable.update = AsyncMock()
-    client.db.litellm_teamtable.find_many = AsyncMock(return_value=[])
-    client.db.litellm_verificationtoken.find_many = AsyncMock(return_value=[])
-    client.db.litellm_ssoconfig.find_unique = AsyncMock(return_value=None)
-    client.db.litellm_config.find_unique = AsyncMock(return_value=None)
+    client.db.embrouter_mcpservertable.find_many = AsyncMock(return_value=[row])
+    client.db.embrouter_mcpservertable.update = AsyncMock()
+    client.db.embrouter_teamtable.find_many = AsyncMock(return_value=[])
+    client.db.embrouter_verificationtoken.find_many = AsyncMock(return_value=[])
+    client.db.embrouter_ssoconfig.find_unique = AsyncMock(return_value=None)
+    client.db.embrouter_config.find_unique = AsyncMock(return_value=None)
     monkeypatch.setattr(proxy_server, "general_settings", {})
 
     report: Final = await cm.check_encryption(client)
@@ -514,7 +514,7 @@ async def test_check_classifies_mcp_secret_maps(
     assert report.residual_legacy == expected_legacy
     assert report.total_undecryptable == expected_invalid
     assert getattr(row, column) == value
-    client.db.litellm_mcpservertable.update.assert_not_awaited()
+    client.db.embrouter_mcpservertable.update.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -527,20 +527,20 @@ async def test_check_counts_covered_table_residual(salt_key, monkeypatch):
 
     client = MagicMock()
     _empty_covered_tables(client)
-    client.db.litellm_teamtable.find_many = AsyncMock(return_value=[])
-    client.db.litellm_verificationtoken.find_many = AsyncMock(return_value=[])
-    client.db.litellm_ssoconfig.find_unique = AsyncMock(return_value=None)
-    client.db.litellm_config.find_unique = AsyncMock(return_value=None)
-    client.db.litellm_config.update = AsyncMock()
-    client.db.litellm_proxymodeltable.find_many = AsyncMock(
-        return_value=[SimpleNamespace(litellm_params={"api_key": legacy})]
+    client.db.embrouter_teamtable.find_many = AsyncMock(return_value=[])
+    client.db.embrouter_verificationtoken.find_many = AsyncMock(return_value=[])
+    client.db.embrouter_ssoconfig.find_unique = AsyncMock(return_value=None)
+    client.db.embrouter_config.find_unique = AsyncMock(return_value=None)
+    client.db.embrouter_config.update = AsyncMock()
+    client.db.embrouter_proxymodeltable.find_many = AsyncMock(
+        return_value=[SimpleNamespace(embrouter_params={"api_key": legacy})]
     )
 
     report = await cm.check_encryption(client)
 
     assert report.residual_legacy == 1
     assert report.as_dict()["locations"]["model_table"]["legacy"] == 1
-    client.db.litellm_config.update.assert_not_awaited()  # read-only
+    client.db.embrouter_config.update.assert_not_awaited()  # read-only
 
 
 @pytest.mark.asyncio
@@ -552,18 +552,18 @@ async def test_migrate_covered_tables_reports_real_counts(salt_key, monkeypatch)
     _enable_aes(monkeypatch)
     v2 = encrypt_value_helper("model-secret")
 
-    row = SimpleNamespace(litellm_params={"api_key": legacy})
+    row = SimpleNamespace(embrouter_params={"api_key": legacy})
     client = MagicMock()
     _empty_covered_tables(client)
-    client.db.litellm_proxymodeltable.find_many = AsyncMock(return_value=[row])
-    client.db.litellm_config.find_unique = AsyncMock(return_value=None)
+    client.db.embrouter_proxymodeltable.find_many = AsyncMock(return_value=[row])
+    client.db.embrouter_config.find_unique = AsyncMock(return_value=None)
 
     async def fake_rotate(**kwargs):
         # Stand in for _rotate_master_key: re-encrypt the model api_key in place.
-        row.litellm_params["api_key"] = v2
+        row.embrouter_params["api_key"] = v2
 
     monkeypatch.setattr(
-        "litellm.proxy.management_endpoints.key_management_endpoints._rotate_master_key",
+        "embrouter.proxy.management_endpoints.key_management_endpoints._rotate_master_key",
         fake_rotate,
     )
 

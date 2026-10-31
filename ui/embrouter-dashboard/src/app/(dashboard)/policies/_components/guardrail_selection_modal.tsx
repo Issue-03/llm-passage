@@ -163,18 +163,18 @@ const GuardrailSelectionModal: React.FC<GuardrailSelectionModalProps> = ({
 
                     {/* Show guardrail type and mode */}
                     <div className="flex gap-2 mt-2">
-                      <Badge variant="outline">{guardrail.definition?.litellm_params?.guardrail || "unknown"}</Badge>
+                      <Badge variant="outline">{guardrail.definition?.embrouter_params?.guardrail || "unknown"}</Badge>
                       <Badge variant="secondary">
-                        {formatGuardrailMode(guardrail.definition?.litellm_params?.mode) || "unknown"}
+                        {formatGuardrailMode(guardrail.definition?.embrouter_params?.mode) || "unknown"}
                       </Badge>
-                      {guardrail.definition?.litellm_params?.patterns && (
+                      {guardrail.definition?.embrouter_params?.patterns && (
                         <Badge variant="secondary">
-                          {guardrail.definition.litellm_params.patterns.length} pattern(s)
+                          {guardrail.definition.embrouter_params.patterns.length} pattern(s)
                         </Badge>
                       )}
-                      {guardrail.definition?.litellm_params?.categories && (
+                      {guardrail.definition?.embrouter_params?.categories && (
                         <Badge variant="secondary">
-                          {guardrail.definition.litellm_params.categories.length} category/categories
+                          {guardrail.definition.embrouter_params.categories.length} category/categories
                         </Badge>
                       )}
                     </div>

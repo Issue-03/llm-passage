@@ -20,8 +20,8 @@ from botocore.auth import SigV4Auth
 from botocore.credentials import Credentials
 from botocore.exceptions import ClientError, NoCredentialsError
 
-import litellm
-from litellm.llms.bedrock.base_aws_llm import (
+import embrouter
+from embrouter.llms.bedrock.base_aws_llm import (
     AwsAuthError,
     BaseAWSLLM,
     Boto3CredentialsInfo,
@@ -33,7 +33,7 @@ from tests.unit.llms.bedrock.event_loop_probe import EventLoopProbe
 # Global variable for the base_aws_llm.py file path
 
 BASE_AWS_LLM_PATH = os.path.join(
-    os.path.dirname(__file__), "../../../../litellm/llms/bedrock/base_aws_llm.py"
+    os.path.dirname(__file__), "../../../../embrouter/llms/bedrock/base_aws_llm.py"
 )
 
 
@@ -293,7 +293,7 @@ def test_web_identity_token_oidc_reference_still_resolved():
     base = BaseAWSLLM()
     env = _os_environ_without_aws_keys()
     with patch.dict(os.environ, env, clear=True), patch(
-        "litellm.llms.bedrock.base_aws_llm.get_secret", return_value=None
+        "embrouter.llms.bedrock.base_aws_llm.get_secret", return_value=None
     ):
         with pytest.raises(AwsAuthError) as exc:
             base.get_credentials(
@@ -360,7 +360,7 @@ def test_boto3_init_tracer_wrapping():
     """
     Test that all boto3 initializations are wrapped in tracer.trace or @tracer.wrap
 
-    Ensures observability of boto3 calls in litellm.
+    Ensures observability of boto3 calls in embrouter.
     """
     # Get the source code of base_aws_llm.py
     with open(BASE_AWS_LLM_PATH, "r") as f:
@@ -400,7 +400,7 @@ def test_auth_functions_tracer_wrapping():
     """
     Test that all _auth functions in base_aws_llm.py are wrapped with @tracer.wrap
 
-    Ensures observability of AWS authentication calls in litellm.
+    Ensures observability of AWS authentication calls in embrouter.
     """
     # Get the source code of base_aws_llm.py
     with open(BASE_AWS_LLM_PATH, "r") as f:
@@ -438,7 +438,7 @@ def test_get_aws_region_name_boto3_fallback():
     base_aws_llm = BaseAWSLLM()
 
     # Test case 1: boto3.Session() returns a configured region
-    with patch("litellm.llms.bedrock.base_aws_llm.get_secret") as mock_get_secret:
+    with patch("embrouter.llms.bedrock.base_aws_llm.get_secret") as mock_get_secret:
         mock_get_secret.return_value = None  # No region in env vars
 
         with patch("boto3.Session") as mock_boto3_session:
@@ -453,7 +453,7 @@ def test_get_aws_region_name_boto3_fallback():
             mock_boto3_session.assert_called_once()
 
     # Test case 2: boto3.Session() returns None for region (should default to us-west-2)
-    with patch("litellm.llms.bedrock.base_aws_llm.get_secret") as mock_get_secret:
+    with patch("embrouter.llms.bedrock.base_aws_llm.get_secret") as mock_get_secret:
         mock_get_secret.return_value = None  # No region in env vars
 
         with patch("boto3.Session") as mock_boto3_session:
@@ -468,7 +468,7 @@ def test_get_aws_region_name_boto3_fallback():
             mock_boto3_session.assert_called_once()
 
     # Test case 3: boto3 import/session creation raises exception (should default to us-west-2)
-    with patch("litellm.llms.bedrock.base_aws_llm.get_secret") as mock_get_secret:
+    with patch("embrouter.llms.bedrock.base_aws_llm.get_secret") as mock_get_secret:
         mock_get_secret.return_value = None  # No region in env vars
 
         with patch("boto3.Session") as mock_boto3_session:
@@ -489,7 +489,7 @@ def test_get_aws_region_name_boto3_fallback():
         mock_boto3_session.assert_not_called()
 
     # Test case 5: aws_region_name found in environment variables (should not use boto3)
-    with patch("litellm.llms.bedrock.base_aws_llm.get_secret") as mock_get_secret:
+    with patch("embrouter.llms.bedrock.base_aws_llm.get_secret") as mock_get_secret:
 
         def side_effect(key, default=None):
             if key == "AWS_REGION_NAME":
@@ -563,7 +563,7 @@ def test_get_aws_region_name_rejects_malformed_region_from_env():
     """
     base_aws_llm = BaseAWSLLM()
 
-    with patch("litellm.llms.bedrock.base_aws_llm.get_secret") as mock_get_secret:
+    with patch("embrouter.llms.bedrock.base_aws_llm.get_secret") as mock_get_secret:
 
         def side_effect(key, default=None):
             if key == "AWS_REGION_NAME":
@@ -596,7 +596,7 @@ def test_get_aws_region_name_for_non_llm_api_calls_rejects_malformed_env():
     """
     base_aws_llm = BaseAWSLLM()
 
-    with patch("litellm.llms.bedrock.base_aws_llm.get_secret") as mock_get_secret:
+    with patch("embrouter.llms.bedrock.base_aws_llm.get_secret") as mock_get_secret:
 
         def side_effect(key, default=None):
             if key == "AWS_REGION_NAME":
@@ -929,7 +929,7 @@ def test_role_assumption_without_session_name():
     # Test case 1: aws_role_name provided without aws_session_name
     with patch("boto3.client", return_value=mock_sts_client):
         credentials = base_aws_llm.get_credentials(
-            aws_role_name="arn:aws:iam::2222222222222:role/LitellmEvalBedrockRole"
+            aws_role_name="arn:aws:iam::2222222222222:role/EmbrouterEvalBedrockRole"
         )
 
         # Verify assume_role was called
@@ -939,10 +939,10 @@ def test_role_assumption_without_session_name():
         call_args = mock_sts_client.assume_role.call_args
         assert (
             call_args[1]["RoleArn"]
-            == "arn:aws:iam::2222222222222:role/LitellmEvalBedrockRole"
+            == "arn:aws:iam::2222222222222:role/EmbrouterEvalBedrockRole"
         )
-        # Session name should be auto-generated with format "litellm-session-{timestamp}"
-        assert call_args[1]["RoleSessionName"].startswith("litellm-session-")
+        # Session name should be auto-generated with format "embrouter-session-{timestamp}"
+        assert call_args[1]["RoleSessionName"].startswith("embrouter-session-")
 
         # Verify credentials are returned correctly
         assert isinstance(credentials, Credentials)
@@ -954,7 +954,7 @@ def test_role_assumption_without_session_name():
     mock_sts_client.reset_mock()
     with patch("boto3.client", return_value=mock_sts_client):
         credentials = base_aws_llm.get_credentials(
-            aws_role_name="arn:aws:iam::2222222222222:role/LitellmEvalBedrockRole",
+            aws_role_name="arn:aws:iam::2222222222222:role/EmbrouterEvalBedrockRole",
             aws_session_name="my-custom-session",
         )
 
@@ -968,11 +968,11 @@ def test_role_assumption_without_session_name():
     mock_sts_client.reset_mock()
     with patch("boto3.client", return_value=mock_sts_client):
         credentials1 = base_aws_llm.get_credentials(
-            aws_role_name="arn:aws:iam::2222222222222:role/LitellmEvalBedrockRole"
+            aws_role_name="arn:aws:iam::2222222222222:role/EmbrouterEvalBedrockRole"
         )
 
         credentials2 = base_aws_llm.get_credentials(
-            aws_role_name="arn:aws:iam::2222222222222:role/LitellmEvalBedrockRole"
+            aws_role_name="arn:aws:iam::2222222222222:role/EmbrouterEvalBedrockRole"
         )
 
         assert mock_sts_client.assume_role.call_count == 1
@@ -1008,7 +1008,7 @@ def test_assume_role_path_uses_process_iam_cache():
     """Repeat calls with identical AssumeRole args make no further STS calls of either kind."""
     base_aws_llm = BaseAWSLLM()
     mock_sts_client = _assume_role_sts_mock()
-    role_arn = "arn:aws:iam::2222222222222:role/LitellmEvalBedrockRole"
+    role_arn = "arn:aws:iam::2222222222222:role/EmbrouterEvalBedrockRole"
 
     with patch.dict(os.environ, _env_without_irsa(), clear=True):
         with patch("boto3.client", return_value=mock_sts_client):
@@ -1042,7 +1042,7 @@ def test_assume_role_cache_is_scoped_per_session_name():
         }
         for session_name in ("attributed-user-1", "attributed-user-2")
     ]
-    role_arn = "arn:aws:iam::2222222222222:role/LitellmEvalBedrockRole"
+    role_arn = "arn:aws:iam::2222222222222:role/EmbrouterEvalBedrockRole"
 
     with patch.dict(os.environ, _env_without_irsa(), clear=True):
         with patch("boto3.client", return_value=mock_sts_client):
@@ -1071,7 +1071,7 @@ def test_assume_role_cache_entry_expires_with_the_sts_session():
     """The cache entry is written with the STS lifetime, not an indefinite or default TTL."""
     base_aws_llm = BaseAWSLLM()
     mock_sts_client = _assume_role_sts_mock()
-    role_arn = "arn:aws:iam::2222222222222:role/LitellmEvalBedrockRole"
+    role_arn = "arn:aws:iam::2222222222222:role/EmbrouterEvalBedrockRole"
 
     with patch.dict(os.environ, _env_without_irsa(), clear=True):
         with patch("boto3.client", return_value=mock_sts_client):
@@ -1090,7 +1090,7 @@ def test_assume_role_credentials_expired_in_cache_trigger_a_fresh_sts_call():
     """Once the STS session lapses the next call re-assumes rather than serving dead credentials."""
     base_aws_llm = BaseAWSLLM()
     mock_sts_client = _assume_role_sts_mock()
-    role_arn = "arn:aws:iam::2222222222222:role/LitellmEvalBedrockRole"
+    role_arn = "arn:aws:iam::2222222222222:role/EmbrouterEvalBedrockRole"
 
     with patch.dict(os.environ, _env_without_irsa(), clear=True):
         with patch("boto3.client", return_value=mock_sts_client):
@@ -1112,7 +1112,7 @@ def test_assume_role_credentials_expired_in_cache_trigger_a_fresh_sts_call():
 def test_concurrent_cold_cache_calls_for_one_identity_make_a_single_sts_call():
     """Concurrent misses on one identity single-flight instead of each issuing its own AssumeRole."""
     base_aws_llm = BaseAWSLLM()
-    role_arn = "arn:aws:iam::2222222222222:role/LitellmEvalBedrockRole"
+    role_arn = "arn:aws:iam::2222222222222:role/EmbrouterEvalBedrockRole"
 
     calling_threads = set()
     threads_lock = threading.Lock()
@@ -1163,11 +1163,11 @@ def test_concurrent_cold_cache_calls_for_one_identity_make_a_single_sts_call():
 def test_ambient_identity_matching_target_role_is_cached_without_repeating_the_probe():
     """The skip-AssumeRole branch caches too, so GetCallerIdentity stops running per request."""
     base_aws_llm = BaseAWSLLM()
-    role_arn = "arn:aws:iam::2222222222222:role/LitellmEvalBedrockRole"
+    role_arn = "arn:aws:iam::2222222222222:role/EmbrouterEvalBedrockRole"
 
     mock_sts_client = MagicMock()
     mock_sts_client.get_caller_identity.return_value = {
-        "Arn": "arn:aws:sts::2222222222222:assumed-role/LitellmEvalBedrockRole/session-name",
+        "Arn": "arn:aws:sts::2222222222222:assumed-role/EmbrouterEvalBedrockRole/session-name",
     }
 
     mock_ambient_credentials = MagicMock()
@@ -1200,14 +1200,14 @@ def test_cache_keys_are_different_for_different_roles():
     args1 = {
         "aws_access_key_id": None,
         "aws_secret_access_key": None,
-        "aws_role_name": "arn:aws:iam::1111111111111:role/LitellmRole",
+        "aws_role_name": "arn:aws:iam::1111111111111:role/EmbrouterRole",
         "aws_session_name": "test-session-1",
     }
 
     args2 = {
         "aws_access_key_id": None,
         "aws_secret_access_key": None,
-        "aws_role_name": "arn:aws:iam::2222222222222:role/LitellmEvalBedrockRole",
+        "aws_role_name": "arn:aws:iam::2222222222222:role/EmbrouterEvalBedrockRole",
         "aws_session_name": "test-session-2",
     }
 
@@ -1230,14 +1230,14 @@ def test_different_roles_without_session_names_should_not_share_cache():
     args1 = {
         "aws_access_key_id": None,
         "aws_secret_access_key": None,
-        "aws_role_name": "arn:aws:iam::1111111111111:role/LitellmRole",
+        "aws_role_name": "arn:aws:iam::1111111111111:role/EmbrouterRole",
         "aws_session_name": None,
     }
 
     args2 = {
         "aws_access_key_id": None,
         "aws_secret_access_key": None,
-        "aws_role_name": "arn:aws:iam::2222222222222:role/LitellmEvalBedrockRole",
+        "aws_role_name": "arn:aws:iam::2222222222222:role/EmbrouterEvalBedrockRole",
         "aws_session_name": None,
     }
 
@@ -1302,13 +1302,13 @@ def test_eks_irsa_ambient_credentials_used(role_kwargs, expected_client_kwargs):
                 aws_access_key_id=None,
                 aws_secret_access_key=None,
                 aws_session_token=None,
-                aws_role_name="arn:aws:iam::2222222222222:role/LitellmEvalBedrockRole",
+                aws_role_name="arn:aws:iam::2222222222222:role/EmbrouterEvalBedrockRole",
                 aws_session_name="test-session",
                 **role_kwargs,
             )
             mock_boto3_client.assert_called_once_with("sts", **expected_client_kwargs)
             mock_sts_client.assume_role.assert_called_once_with(
-                RoleArn="arn:aws:iam::2222222222222:role/LitellmEvalBedrockRole",
+                RoleArn="arn:aws:iam::2222222222222:role/EmbrouterEvalBedrockRole",
                 RoleSessionName="test-session",
             )
             assert credentials.access_key == "assumed-access-key"
@@ -1521,7 +1521,7 @@ def test_assume_role_sts_client_uses_configured_cn_region() -> None:
                 aws_access_key_id=None,
                 aws_secret_access_key=None,
                 aws_session_token=None,
-                aws_role_name="arn:aws-cn:iam::2222222222222:role/LitellmBedrockRole",
+                aws_role_name="arn:aws-cn:iam::2222222222222:role/EmbrouterBedrockRole",
                 aws_session_name="test-session",
                 aws_region_name="cn-north-1",
             )
@@ -1652,7 +1652,7 @@ def test_web_identity_token_sts_client_uses_build_sts_client_kwargs():
     with patch.dict(os.environ, {"AWS_REGION": "eu-west-1"}, clear=True):
         with patch("boto3.client", return_value=mock_sts_client) as mock_boto3_client:
             with patch(
-                "litellm.llms.bedrock.base_aws_llm.get_secret",
+                "embrouter.llms.bedrock.base_aws_llm.get_secret",
                 return_value="oidc-token",
             ):
                 base_aws_llm._auth_with_web_identity_token(
@@ -1695,7 +1695,7 @@ def test_sts_uses_workload_region_not_bedrock_region():
                 aws_access_key_id=None,
                 aws_secret_access_key=None,
                 aws_session_token=None,
-                aws_role_name="arn:aws:iam::2222222222222:role/LitellmEvalBedrockRole",
+                aws_role_name="arn:aws:iam::2222222222222:role/EmbrouterEvalBedrockRole",
                 aws_session_name="test-session",
                 aws_region_name="eu-central-1",
             )
@@ -1741,7 +1741,7 @@ def test_sts_endpoint_region_matches_bedrock_region_param():
                 aws_access_key_id=None,
                 aws_secret_access_key=None,
                 aws_session_token=None,
-                aws_role_name="arn:aws:iam::2222222222222:role/LitellmEvalBedrockRole",
+                aws_role_name="arn:aws:iam::2222222222222:role/EmbrouterEvalBedrockRole",
                 aws_session_name="test-session",
                 aws_region_name="eu-central-1",
                 aws_sts_endpoint="https://sts.eu-west-1.amazonaws.com",
@@ -1824,13 +1824,13 @@ def test_explicit_credentials_used_when_provided(role_kwargs, expected_client_kw
                 aws_access_key_id="explicit-access-key",
                 aws_secret_access_key="explicit-secret-key",
                 aws_session_token="assumed-session-token",
-                aws_role_name="arn:aws:iam::2222222222222:role/LitellmEvalBedrockRole",
+                aws_role_name="arn:aws:iam::2222222222222:role/EmbrouterEvalBedrockRole",
                 aws_session_name="test-session",
                 **role_kwargs,
             )
             mock_boto3_client.assert_called_once_with("sts", **expected_client_kwargs)
             mock_sts_client.assume_role.assert_called_once_with(
-                RoleArn="arn:aws:iam::2222222222222:role/LitellmEvalBedrockRole",
+                RoleArn="arn:aws:iam::2222222222222:role/EmbrouterEvalBedrockRole",
                 RoleSessionName="test-session",
             )
             assert credentials.access_key == "assumed-access-key"
@@ -1879,7 +1879,7 @@ def test_partial_credentials_still_use_ambient():
                 aws_access_key_id="AKIAEXAMPLE",
                 aws_secret_access_key=None,
                 aws_session_token=None,
-                aws_role_name="arn:aws:iam::2222222222222:role/LitellmEvalBedrockRole",
+                aws_role_name="arn:aws:iam::2222222222222:role/EmbrouterEvalBedrockRole",
                 aws_session_name="test-session",
             )
 
@@ -1894,7 +1894,7 @@ def test_partial_credentials_still_use_ambient():
 
             # Should still call assume_role
             mock_sts_client.assume_role.assert_called_once_with(
-                RoleArn="arn:aws:iam::2222222222222:role/LitellmEvalBedrockRole",
+                RoleArn="arn:aws:iam::2222222222222:role/EmbrouterEvalBedrockRole",
                 RoleSessionName="test-session",
             )
 
@@ -1991,13 +1991,13 @@ def test_role_assumption_with_custom_session_name():
             aws_access_key_id=None,
             aws_secret_access_key=None,
             aws_session_token=None,
-            aws_role_name="arn:aws:iam::1111111111111:role/LitellmRole",
+            aws_role_name="arn:aws:iam::1111111111111:role/EmbrouterRole",
             aws_session_name="evals-bedrock-session",
         )
 
         # Should call assume_role with custom session name
         mock_sts_client.assume_role.assert_called_once_with(
-            RoleArn="arn:aws:iam::1111111111111:role/LitellmRole",
+            RoleArn="arn:aws:iam::1111111111111:role/EmbrouterRole",
             RoleSessionName="evals-bedrock-session",
         )
 
@@ -2035,7 +2035,7 @@ def test_role_assumption_ttl_calculation():
             aws_access_key_id=None,
             aws_secret_access_key=None,
             aws_session_token=None,
-            aws_role_name="arn:aws:iam::1111111111111:role/LitellmRole",
+            aws_role_name="arn:aws:iam::1111111111111:role/EmbrouterRole",
             aws_session_name="ttl-test-session",
         )
 
@@ -2186,7 +2186,7 @@ def test_multiple_role_assumptions_in_sequence():
             aws_access_key_id=None,
             aws_secret_access_key=None,
             aws_session_token=None,
-            aws_role_name="arn:aws:iam::1111111111111:role/LitellmRole",
+            aws_role_name="arn:aws:iam::1111111111111:role/EmbrouterRole",
             aws_session_name="session-1",
         )
 
@@ -2195,7 +2195,7 @@ def test_multiple_role_assumptions_in_sequence():
             aws_access_key_id=None,
             aws_secret_access_key=None,
             aws_session_token=None,
-            aws_role_name="arn:aws:iam::2222222222222:role/LitellmEvalBedrockRole",
+            aws_role_name="arn:aws:iam::2222222222222:role/EmbrouterEvalBedrockRole",
             aws_session_name="session-2",
         )
 
@@ -2307,7 +2307,7 @@ def test_auth_with_aws_role_same_role_irsa():
     with patch.dict(
         os.environ,
         {
-            "AWS_ROLE_ARN": "arn:aws:iam::111111111111:role/LitellmRole",
+            "AWS_ROLE_ARN": "arn:aws:iam::111111111111:role/EmbrouterRole",
             "AWS_WEB_IDENTITY_TOKEN_FILE": "/var/run/secrets/eks.amazonaws.com/serviceaccount/token",
         },
     ):
@@ -2325,7 +2325,7 @@ def test_auth_with_aws_role_same_role_irsa():
             creds = base_llm.get_credentials(
                 aws_access_key_id=None,
                 aws_secret_access_key=None,
-                aws_role_name="arn:aws:iam::111111111111:role/LitellmRole",  # Same as AWS_ROLE_ARN
+                aws_role_name="arn:aws:iam::111111111111:role/EmbrouterRole",  # Same as AWS_ROLE_ARN
                 aws_session_name="test-session",
                 aws_region_name="us-east-1",
             )
@@ -2423,7 +2423,7 @@ class _TagAwareSTSClient:
         self.assume_role_calls: list = []
 
     def get_caller_identity(self):
-        return {"Arn": "arn:aws:iam::111111111111:user/litellm-proxy-pod"}
+        return {"Arn": "arn:aws:iam::111111111111:user/embrouter-proxy-pod"}
 
     def assume_role_with_web_identity(self, **params):
         return {
@@ -2688,7 +2688,7 @@ def test_sign_request_signs_with_the_tagged_sts_session():
 
 def test_converse_handler_external_id_extraction():
     """Test that BedrockConverseLLM properly extracts and passes aws_external_id parameter"""
-    from litellm.llms.bedrock.chat.converse_handler import BedrockConverseLLM
+    from embrouter.llms.bedrock.chat.converse_handler import BedrockConverseLLM
 
     converse_llm = BedrockConverseLLM()
 
@@ -2712,7 +2712,7 @@ def test_converse_handler_external_id_extraction():
                 "get_runtime_endpoint",
                 return_value=("https://test", "https://test"),
             ):
-                with patch("litellm.AmazonConverseConfig") as mock_config:
+                with patch("embrouter.AmazonConverseConfig") as mock_config:
                     mock_config.return_value._transform_request.return_value = {
                         "test": "data"
                     }
@@ -2722,7 +2722,7 @@ def test_converse_handler_external_id_extraction():
                         mock_headers.return_value = MagicMock()
                         mock_headers.return_value.headers = {"Authorization": "test"}
                         with patch(
-                            "litellm.llms.custom_httpx.http_handler._get_httpx_client"
+                            "embrouter.llms.custom_httpx.http_handler._get_httpx_client"
                         ) as mock_client:
                             mock_http_client = MagicMock()
                             mock_response = MagicMock()
@@ -2754,7 +2754,7 @@ def test_converse_handler_external_id_extraction():
                                     optional_params=optional_params,
                                     acompletion=False,
                                     timeout=None,
-                                    litellm_params={},
+                                    embrouter_params={},
                                 )
                             except Exception:
                                 # We expect this to fail due to mocking, but that's OK
@@ -3243,7 +3243,7 @@ class TestGetBedrockModelIdArnHandling:
     ARN = "arn:aws:bedrock:us-east-1:086734376398:inference-profile/global.anthropic.claude-sonnet-4-5-20250929-v1:0"
 
     def _call(self, model: str, optional_params: dict | None = None) -> str:
-        from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM
+        from embrouter.llms.bedrock.base_aws_llm import BaseAWSLLM
 
         provider = BaseAWSLLM.get_bedrock_invoke_provider(model)
         return BaseAWSLLM.get_bedrock_model_id(
@@ -3294,7 +3294,7 @@ class TestGetBedrockModelIdArnHandling:
     def test_arn_url_matches_expected(self):
         """Full URL built from messages config must match expected encoded form."""
         import urllib.parse
-        from litellm.llms.bedrock.messages.invoke_transformations.anthropic_claude3_transformation import (
+        from embrouter.llms.bedrock.messages.invoke_transformations.anthropic_claude3_transformation import (
             AmazonAnthropicClaudeMessagesConfig,
         )
 
@@ -3304,7 +3304,7 @@ class TestGetBedrockModelIdArnHandling:
             api_key=None,
             model=f"bedrock/{self.ARN}",
             optional_params={"aws_region_name": "us-east-1"},
-            litellm_params={},
+            embrouter_params={},
             stream=True,
         )
         encoded_arn = urllib.parse.quote(self.ARN, safe="")
@@ -3491,12 +3491,12 @@ class TestGetRequestHeadersResign:
             headers={
                 "Content-Type": "application/json",
                 "anthropic-version": "bedrock-2023-05-31",
-                "user-agent": "litellm-test-client",
+                "user-agent": "embrouter-test-client",
             },
             data=json.dumps({"messages": []}),
         )
         assert prepped.headers["anthropic-version"] == "bedrock-2023-05-31"
-        assert prepped.headers["user-agent"] == "litellm-test-client"
+        assert prepped.headers["user-agent"] == "embrouter-test-client"
         assert prepped.headers["Content-Type"] == "application/json"
 
     def test_extra_headers_bearer_authorization_still_overrides_signature(self):
@@ -3597,15 +3597,15 @@ def _recording_boto3_client(recorded: dict[str, dict[str, object]]) -> Callable[
 
 def test_resolve_credentials_forwards_static_keys_role_session_and_external_id():
     """Every field the role-assumption route reads must reach STS, so a dropped struct field fails here."""
-    from litellm.types.llms.bedrock import AwsAuthParams
+    from embrouter.types.llms.bedrock import AwsAuthParams
 
     auth_params = AwsAuthParams(
         aws_access_key_id="AKIACALLER",
         aws_secret_access_key="caller-secret",
         aws_session_token="caller-token",
-        aws_role_name="arn:aws:iam::123456789012:role/litellm-target",
-        aws_session_name="litellm-session",
-        aws_external_id="litellm-external-id",
+        aws_role_name="arn:aws:iam::123456789012:role/embrouter-target",
+        aws_session_name="embrouter-session",
+        aws_external_id="embrouter-external-id",
         aws_sts_endpoint="https://custom-sts.example",
         aws_session_tags=[{"Key": "team", "Value": "genai"}, {"Key": "cost-center", "Value": "42"}],
     )
@@ -3621,9 +3621,9 @@ def test_resolve_credentials_forwards_static_keys_role_session_and_external_id()
     assert recorded["client_kwargs"]["aws_secret_access_key"] == "caller-secret"
     assert recorded["client_kwargs"]["aws_session_token"] == "caller-token"
     assert recorded["client_kwargs"]["endpoint_url"] == "https://custom-sts.example"
-    assert recorded["assume_role"]["RoleArn"] == "arn:aws:iam::123456789012:role/litellm-target"
-    assert recorded["assume_role"]["RoleSessionName"] == "litellm-session"
-    assert recorded["assume_role"]["ExternalId"] == "litellm-external-id"
+    assert recorded["assume_role"]["RoleArn"] == "arn:aws:iam::123456789012:role/embrouter-target"
+    assert recorded["assume_role"]["RoleSessionName"] == "embrouter-session"
+    assert recorded["assume_role"]["ExternalId"] == "embrouter-external-id"
     assert recorded["assume_role"]["Tags"] == (
         {"Key": "cost-center", "Value": "42"},
         {"Key": "team", "Value": "genai"},
@@ -3642,11 +3642,11 @@ def test_resolve_credentials_forwards_static_keys_role_session_and_external_id()
 )
 def test_resolve_credentials_rejects_malformed_session_tags(malformed_tags):
     """A struct built from raw config must surface the friendly session-tag error before STS is called."""
-    from litellm.types.llms.bedrock import AwsAuthParams
+    from embrouter.types.llms.bedrock import AwsAuthParams
 
     auth_params = AwsAuthParams(
-        aws_role_name="arn:aws:iam::123456789012:role/litellm-target",
-        aws_session_name="litellm-session",
+        aws_role_name="arn:aws:iam::123456789012:role/embrouter-target",
+        aws_session_name="embrouter-session",
         aws_session_tags=malformed_tags,
     )
     recorded: dict[str, dict[str, object]] = {}
@@ -3663,12 +3663,12 @@ def test_resolve_credentials_rejects_malformed_session_tags(malformed_tags):
 
 def test_resolve_credentials_forwards_web_identity_token():
     """A struct carrying a web-identity token must take the web-identity route, not plain role assumption."""
-    from litellm.types.llms.bedrock import AwsAuthParams
+    from embrouter.types.llms.bedrock import AwsAuthParams
 
     auth_params = AwsAuthParams(
         aws_web_identity_token="unresolvable-oidc-token",
-        aws_role_name="arn:aws:iam::123456789012:role/litellm-wif",
-        aws_session_name="litellm-wif-session",
+        aws_role_name="arn:aws:iam::123456789012:role/embrouter-wif",
+        aws_session_name="embrouter-wif-session",
     )
     recorded: dict[str, dict[str, object]] = {}
 
@@ -3685,9 +3685,9 @@ def test_resolve_credentials_forwards_web_identity_token():
 
 def test_resolve_credentials_forwards_profile_name():
     """The profile route must receive the struct's profile name rather than the ambient session."""
-    from litellm.types.llms.bedrock import AwsAuthParams
+    from embrouter.types.llms.bedrock import AwsAuthParams
 
-    auth_params = AwsAuthParams(aws_profile_name="litellm-qa-profile")
+    auth_params = AwsAuthParams(aws_profile_name="embrouter-qa-profile")
     session_instance = MagicMock()
     session_instance.get_credentials.return_value = Credentials(
         access_key="AKIAPROFILE", secret_key="profile-secret", token=None
@@ -3699,5 +3699,5 @@ def test_resolve_credentials_forwards_profile_name():
     ):
         credentials = BaseAWSLLM().resolve_credentials(auth_params, "us-east-1")
 
-    assert mock_session_cls.call_args.kwargs["profile_name"] == "litellm-qa-profile"
+    assert mock_session_cls.call_args.kwargs["profile_name"] == "embrouter-qa-profile"
     assert credentials.access_key == "AKIAPROFILE"

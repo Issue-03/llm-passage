@@ -15,11 +15,11 @@ Design:
 
 Configuration can be loaded from:
 - Remote URL (default): Fetches from GitHub repository
-- Local file: Set LITELLM_LOCAL_ANTHROPIC_BETA_HEADERS=True to use bundled config only
+- Local file: Set EMBROUTER_LOCAL_ANTHROPIC_BETA_HEADERS=True to use bundled config only
 
 Environment Variables:
-- LITELLM_LOCAL_ANTHROPIC_BETA_HEADERS: Set to "True" to disable remote fetching
-- LITELLM_ANTHROPIC_BETA_HEADERS_URL: Custom URL for remote config (optional)
+- EMBROUTER_LOCAL_ANTHROPIC_BETA_HEADERS: Set to "True" to disable remote fetching
+- EMBROUTER_ANTHROPIC_BETA_HEADERS_URL: Custom URL for remote config (optional)
 """
 
 import json
@@ -29,7 +29,7 @@ from typing import Final
 
 import httpx
 
-from litellm.litellm_core_utils.litellm_logging import verbose_logger
+from embrouter.embrouter_core_utils.embrouter_logging import verbose_logger
 
 # Cache for the loaded configuration
 _BETA_HEADERS_CONFIG: dict | None = None
@@ -48,7 +48,7 @@ class GetAnthropicBetaHeadersConfig:
         """Load the local backup beta headers config bundled with the package."""
         try:
             content: Final = json.loads(
-                files("litellm").joinpath("anthropic_beta_headers_config.json").read_text(encoding="utf-8")
+                files("embrouter").joinpath("anthropic_beta_headers_config.json").read_text(encoding="utf-8")
             )
             return content
         except Exception as e:
@@ -68,14 +68,14 @@ class GetAnthropicBetaHeadersConfig:
         """Check if fetched config is a non-empty dict with expected structure."""
         if not isinstance(fetched_config, dict):
             verbose_logger.warning(
-                "LiteLLM: Fetched beta headers config is not a dict (type=%s). Falling back to local backup.",
+                "EmbRouter: Fetched beta headers config is not a dict (type=%s). Falling back to local backup.",
                 type(fetched_config).__name__,
             )
             return False
 
         if len(fetched_config) == 0:
             verbose_logger.warning(
-                "LiteLLM: Fetched beta headers config is empty. Falling back to local backup.",
+                "EmbRouter: Fetched beta headers config is empty. Falling back to local backup.",
             )
             return False
 
@@ -91,7 +91,7 @@ class GetAnthropicBetaHeadersConfig:
 
         if not has_provider:
             verbose_logger.warning(
-                "LiteLLM: Fetched beta headers config missing provider keys. Falling back to local backup.",
+                "EmbRouter: Fetched beta headers config missing provider keys. Falling back to local backup.",
             )
             return False
 
@@ -123,7 +123,7 @@ def get_beta_headers_config(url: str) -> dict:
     """
     Public entry point — returns the beta headers config dict.
 
-    1. If ``LITELLM_LOCAL_ANTHROPIC_BETA_HEADERS`` is set, uses the local backup only.
+    1. If ``EMBROUTER_LOCAL_ANTHROPIC_BETA_HEADERS`` is set, uses the local backup only.
     2. Otherwise fetches from ``url``, validates integrity, and falls back
        to the local backup on any failure.
 
@@ -134,15 +134,15 @@ def get_beta_headers_config(url: str) -> dict:
         Dict containing the beta headers configuration
     """
     # Check if local-only mode is enabled
-    if not url or os.getenv("LITELLM_LOCAL_ANTHROPIC_BETA_HEADERS", "").lower() == "true":
-        # verbose_logger.debug("Using local Anthropic beta headers config (LITELLM_LOCAL_ANTHROPIC_BETA_HEADERS=True)")
+    if not url or os.getenv("EMBROUTER_LOCAL_ANTHROPIC_BETA_HEADERS", "").lower() == "true":
+        # verbose_logger.debug("Using local Anthropic beta headers config (EMBROUTER_LOCAL_ANTHROPIC_BETA_HEADERS=True)")
         return GetAnthropicBetaHeadersConfig.load_local_beta_headers_config()
 
     try:
         content: Final = GetAnthropicBetaHeadersConfig.fetch_remote_beta_headers_config(url)
     except Exception as e:
         verbose_logger.warning(
-            "LiteLLM: Failed to fetch remote beta headers config from %s: %s. Falling back to local backup.",
+            "EmbRouter: Failed to fetch remote beta headers config from %s: %s. Falling back to local backup.",
             url,
             str(e),
         )
@@ -151,7 +151,7 @@ def get_beta_headers_config(url: str) -> dict:
     # Validate the fetched config
     if not GetAnthropicBetaHeadersConfig.validate_beta_headers_config(fetched_config=content):
         verbose_logger.warning(
-            "LiteLLM: Fetched beta headers config failed integrity check. Using local backup instead. url=%s",
+            "EmbRouter: Fetched beta headers config failed integrity check. Using local backup instead. url=%s",
             url,
         )
         return GetAnthropicBetaHeadersConfig.load_local_beta_headers_config()
@@ -175,7 +175,7 @@ def _load_beta_headers_config() -> dict:
         return _BETA_HEADERS_CONFIG
 
     # Get the URL from environment or use default
-    from litellm import anthropic_beta_headers_url
+    from embrouter import anthropic_beta_headers_url
 
     _BETA_HEADERS_CONFIG = get_beta_headers_config(url=anthropic_beta_headers_url)
     verbose_logger.debug("Loaded and cached beta headers config")

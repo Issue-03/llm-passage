@@ -4,20 +4,20 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 
-import litellm
-from litellm.constants import MAX_SIZE_IN_MEMORY_QUEUE
-from litellm.proxy._types import (
+import embrouter
+from embrouter.constants import MAX_SIZE_IN_MEMORY_QUEUE
+from embrouter.proxy._types import (
     DailyUserSpendTransaction,
-    Litellm_EntityType,
+    Embrouter_EntityType,
     SpendUpdateQueueItem,
 )
 from typing import get_args
 
-from litellm.proxy._types import BaseDailySpendTransaction
-from litellm.proxy.db.db_transaction_queue.daily_spend_update_queue import (
+from embrouter.proxy._types import BaseDailySpendTransaction
+from embrouter.proxy.db.db_transaction_queue.daily_spend_update_queue import (
     DailySpendUpdateQueue,
 )
-from litellm.proxy.db.db_transaction_queue.spend_update_queue import SpendUpdateQueue
+from embrouter.proxy.db.db_transaction_queue.spend_update_queue import SpendUpdateQueue
 
 
 @pytest.fixture
@@ -287,7 +287,7 @@ async def test_queue_max_size_triggers_aggregation(
 ):
     """Test that reaching MAX_SIZE_IN_MEMORY_QUEUE triggers aggregation"""
     # Override MAX_SIZE_IN_MEMORY_QUEUE for testing
-    litellm._turn_on_debug()
+    embrouter._turn_on_debug()
     monkeypatch.setattr(daily_spend_update_queue, "MAX_SIZE_IN_MEMORY_QUEUE", 6)
 
     test_key = "user1_2023-01-01_key123_gpt-4_openai"

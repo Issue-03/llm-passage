@@ -26,7 +26,7 @@ export type GuardrailMode =
 export interface Guardrail {
   guardrail_id: string;
   guardrail_name: string | null;
-  litellm_params: {
+  embrouter_params: {
     guardrail: string;
     mode: GuardrailMode;
     default_on: boolean;

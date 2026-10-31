@@ -1,10 +1,10 @@
-# SCIM v2 Integration for LiteLLM Proxy
+# SCIM v2 Integration for EmbRouter Proxy
 
-This module provides SCIM v2 (System for Cross-domain Identity Management) endpoints for LiteLLM Proxy, allowing identity providers to manage users and teams (groups) within the LiteLLM ecosystem.
+This module provides SCIM v2 (System for Cross-domain Identity Management) endpoints for EmbRouter Proxy, allowing identity providers to manage users and teams (groups) within the EmbRouter ecosystem.
 
 ## Overview
 
-SCIM is an open standard designed to simplify user management across different systems. This implementation allows compatible identity providers (like Okta, Azure AD, OneLogin, etc.) to automatically provision and deprovision users and groups in LiteLLM Proxy.
+SCIM is an open standard designed to simplify user management across different systems. This implementation allows compatible identity providers (like Okta, Azure AD, OneLogin, etc.) to automatically provision and deprovision users and groups in EmbRouter Proxy.
 
 ## Endpoints
 
@@ -40,25 +40,25 @@ This implementation follows the standard SCIM v2 schema with the following mappi
 
 ### Users
 
-- SCIM User ID → LiteLLM `user_id`
-- SCIM User Email → LiteLLM `user_email`
-- SCIM User Group Memberships → LiteLLM User-Team relationships
+- SCIM User ID → EmbRouter `user_id`
+- SCIM User Email → EmbRouter `user_email`
+- SCIM User Group Memberships → EmbRouter User-Team relationships
 
 ### Groups
 
-- SCIM Group ID → LiteLLM `team_id`
-- SCIM Group Display Name → LiteLLM `team_alias`
-- SCIM Group Members → LiteLLM Team members list
+- SCIM Group ID → EmbRouter `team_id`
+- SCIM Group Display Name → EmbRouter `team_alias`
+- SCIM Group Members → EmbRouter Team members list
 
 ## Configuration
 
 To enable SCIM in your identity provider, use the full URL to the SCIM endpoint:
 
 ```
-https://your-litellm-proxy-url/scim/v2
+https://your-embrouter-proxy-url/scim/v2
 ```
 
-Most identity providers will require authentication. You should use a valid LiteLLM API key with administrative privileges.
+Most identity providers will require authentication. You should use a valid EmbRouter API key with administrative privileges.
 
 ## Features
 

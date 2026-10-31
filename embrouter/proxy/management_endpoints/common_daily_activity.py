@@ -8,24 +8,24 @@ from typing import TYPE_CHECKING, Final, Protocol
 from fastapi import HTTPException, status
 from typing_extensions import ReadOnly, TypedDict
 
-from litellm._logging import verbose_proxy_logger
-from litellm.constants import PTU_SENTINEL_API_KEY
-from litellm.proxy._types import CommonProxyErrors
-from litellm.proxy.spend_tracking.key_metadata_recovery import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.constants import PTU_SENTINEL_API_KEY
+from embrouter.proxy._types import CommonProxyErrors
+from embrouter.proxy.spend_tracking.key_metadata_recovery import (
     attach_user_details,
     recover_cli_session_key_metadata,
     recover_double_hashed_key_metadata,
     recover_key_metadata_from_spend_logs,
     recover_key_owner_from_daily_spend,
 )
-from litellm.proxy.spend_tracking.ptu_feature_flag import is_ptu_cost_attribution_enabled
-from litellm.proxy.utils import PrismaClient
-from litellm.repositories.prisma_protocols import TableActions
-from litellm.repositories.table_repositories import DeletedVerificationTokenRepository
-from litellm.repositories.verification_token_repository import (
+from embrouter.proxy.spend_tracking.ptu_feature_flag import is_ptu_cost_attribution_enabled
+from embrouter.proxy.utils import PrismaClient
+from embrouter.repositories.prisma_protocols import TableActions
+from embrouter.repositories.table_repositories import DeletedVerificationTokenRepository
+from embrouter.repositories.verification_token_repository import (
     VerificationTokenRepository,
 )
-from litellm.types.proxy.management_endpoints.common_daily_activity import (
+from embrouter.types.proxy.management_endpoints.common_daily_activity import (
     BreakdownMetrics,
     DailySpendData,
     DailySpendMetadata,
@@ -39,20 +39,20 @@ from litellm.types.proxy.management_endpoints.common_daily_activity import (
 
 if TYPE_CHECKING:
     from prisma.models import (
-        LiteLLM_DeletedVerificationToken as PrismaDeletedVerificationToken,
+        EmbRouter_DeletedVerificationToken as PrismaDeletedVerificationToken,
     )
     from prisma.models import (
-        LiteLLM_VerificationToken as PrismaVerificationToken,
+        EmbRouter_VerificationToken as PrismaVerificationToken,
     )
 
 # Mapping from Prisma accessor names to actual PostgreSQL table names.
 _PRISMA_TO_PG_TABLE: Final[Mapping[str, str]] = {
-    "litellm_dailyuserspend": "LiteLLM_DailyUserSpend",
-    "litellm_dailyteamspend": "LiteLLM_DailyTeamSpend",
-    "litellm_dailyorganizationspend": "LiteLLM_DailyOrganizationSpend",
-    "litellm_dailyenduserspend": "LiteLLM_DailyEndUserSpend",
-    "litellm_dailyagentspend": "LiteLLM_DailyAgentSpend",
-    "litellm_dailytagspend": "LiteLLM_DailyTagSpend",
+    "embrouter_dailyuserspend": "EmbRouter_DailyUserSpend",
+    "embrouter_dailyteamspend": "EmbRouter_DailyTeamSpend",
+    "embrouter_dailyorganizationspend": "EmbRouter_DailyOrganizationSpend",
+    "embrouter_dailyenduserspend": "EmbRouter_DailyEndUserSpend",
+    "embrouter_dailyagentspend": "EmbRouter_DailyAgentSpend",
+    "embrouter_dailytagspend": "EmbRouter_DailyTagSpend",
 }
 
 
@@ -567,7 +567,7 @@ def _adjust_dates_for_timezone(
     """
     Map a caller-local date range onto UTC bucket keys, extending only the live end.
 
-    The aggregation table (e.g. LiteLLM_DailyUserSpend) stores spend in whole-UTC-day
+    The aggregation table (e.g. EmbRouter_DailyUserSpend) stores spend in whole-UTC-day
     buckets keyed on date as YYYY-MM-DD. Any conversion of an interior local-day
     boundary using only date arithmetic must round to whole UTC days, allowing up to
     24h of slop at each boundary. A previous implementation expanded the SQL range by
@@ -722,9 +722,9 @@ def _build_aggregated_where_clause(
 
 
 def _ptu_flat_cost_select(table_name: str) -> str:
-    """Only LiteLLM_DailyTeamSpend carries ptu_flat_cost; other daily tables emit a
+    """Only EmbRouter_DailyTeamSpend carries ptu_flat_cost; other daily tables emit a
     constant zero so the SpendMetrics.flat_cost response shape stays uniform."""
-    if table_name == "litellm_dailyteamspend":
+    if table_name == "embrouter_dailyteamspend":
         return "SUM(ptu_flat_cost)::float AS ptu_flat_cost"
     return "0::float AS ptu_flat_cost"
 
@@ -780,7 +780,7 @@ def _build_aggregated_sql_query(
     #
     # TODO: drop the successful_requests/failed_requests aggregates (and the
     # total_successful_requests metadata they feed) once the admin UI reads SGR
-    # only from LiteLLM_DailyGatewayRequests. The remaining spend, token and
+    # only from EmbRouter_DailyGatewayRequests. The remaining spend, token and
     # api_requests rollups are still served from here.
     sql_query: Final = f"""
         SELECT
@@ -1246,7 +1246,7 @@ async def get_daily_activity(
         # and returned on another. A client that pages through and sums the
         # per-page metrics (the Usage dashboard) then gets a non-deterministic
         # total. Adding ``id`` (the row's UUID primary key, present on both
-        # LiteLLM_DailyUserSpend and LiteLLM_DailyTeamSpend) as a tiebreaker
+        # EmbRouter_DailyUserSpend and EmbRouter_DailyTeamSpend) as a tiebreaker
         # gives every page a stable cursor (#30164).
         daily_spend_data: Final[Sequence[DailySpendRecord]] = await spend_table.find_many(
             where=where_conditions,

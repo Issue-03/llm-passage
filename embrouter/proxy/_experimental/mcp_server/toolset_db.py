@@ -5,11 +5,11 @@ from typing import Final, Protocol
 
 from typing_extensions import NotRequired, ReadOnly, TypedDict
 
-from litellm._logging import verbose_proxy_logger
-from litellm._uuid import uuid
-from litellm.proxy.utils import PrismaClient
-from litellm.repositories.table_repositories import MCPToolsetRepository
-from litellm.types.mcp_server.mcp_toolset import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter._uuid import uuid
+from embrouter.proxy.utils import PrismaClient
+from embrouter.repositories.table_repositories import MCPToolsetRepository
+from embrouter.types.mcp_server.mcp_toolset import (
     MCPToolset,
     MCPToolsetTool,
     NewMCPToolsetRequest,
@@ -117,7 +117,7 @@ async def list_mcp_toolsets(
     except Exception as e:
         if use_writer:
             raise
-        verbose_proxy_logger.warning("litellm.proxy._experimental.mcp_server.toolset_db::list_mcp_toolsets - %s", e)
+        verbose_proxy_logger.warning("embrouter.proxy._experimental.mcp_server.toolset_db::list_mcp_toolsets - %s", e)
         return []
 
 

@@ -1,5 +1,5 @@
 """
-Test that litellm.responses() / litellm.aresponses() send the expected request body
+Test that embrouter.responses() / embrouter.aresponses() send the expected request body
 over the wire and surface provider errors correctly. Expected JSON bodies are stored
 in expected_responses_api_request/.
 """
@@ -15,8 +15,8 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+import embrouter
+from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler
 
 
 def _expected_dir() -> Path:
@@ -92,18 +92,18 @@ def _assert_request_body_matches(request_body: dict, expected_body: dict) -> Non
 @pytest.mark.asyncio
 async def test_aresponses_context_management_and_shell_request_body_matches_expected():
     """
-    Call litellm.aresponses() with context_management and shell tool;
+    Call embrouter.aresponses() with context_management and shell tool;
     assert the httpx POST request body matches the expected JSON.
     """
     expected_body = _load_expected_body("context_management_and_shell.json")
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "embrouter.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         new_callable=AsyncMock,
     ) as mock_post:
         mock_post.return_value = MockResponse(_minimal_responses_api_payload("resp_ctx_shell_test", "gpt-4o"), 200)
 
-        await litellm.aresponses(
+        await embrouter.aresponses(
             model="openai/gpt-4o",
             input=expected_body["input"],
             context_management=expected_body["context_management"],
@@ -119,20 +119,20 @@ async def test_aresponses_context_management_and_shell_request_body_matches_expe
 @pytest.mark.asyncio
 async def test_aresponses_azure_shell_tool_request_body_matches_expected():
     """
-    Call litellm.aresponses() on the Azure route with the shell tool;
+    Call embrouter.aresponses() on the Azure route with the shell tool;
     assert the httpx POST request body carries the shell tool verbatim.
     """
     expected_body = _load_expected_body("azure_shell_tool.json")
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "embrouter.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         new_callable=AsyncMock,
     ) as mock_post:
         mock_post.return_value = MockResponse(
             _minimal_responses_api_payload("resp_azure_shell_test", "gpt-5-mini"), 200
         )
 
-        await litellm.aresponses(
+        await embrouter.aresponses(
             model="azure/gpt-5-mini",
             api_base="https://fake-resource.openai.azure.com",
             api_key="fake-api-key",
@@ -151,7 +151,7 @@ async def test_aresponses_azure_shell_tool_request_body_matches_expected():
 async def test_aresponses_azure_shell_tool_400_maps_to_bad_request_error():
     """
     Azure rejects the shell tool for unsupported deployments with a 400;
-    litellm must surface that as litellm.BadRequestError carrying the provider message.
+    embrouter must surface that as embrouter.BadRequestError carrying the provider message.
     """
     error_body = {
         "error": {
@@ -177,13 +177,13 @@ async def test_aresponses_azure_shell_tool_400_maps_to_bad_request_error():
         response.raise_for_status()
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "embrouter.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         new_callable=AsyncMock,
     ) as mock_post:
         mock_post.side_effect = _raise_azure_400
 
-        with pytest.raises(litellm.BadRequestError) as excinfo:
-            await litellm.aresponses(
+        with pytest.raises(embrouter.BadRequestError) as excinfo:
+            await embrouter.aresponses(
                 model="azure/gpt-5-mini",
                 api_base="https://fake-resource.openai.azure.com",
                 api_key="fake-api-key",
@@ -203,14 +203,14 @@ async def test_aresponses_azure_shell_tool_400_maps_to_bad_request_error():
 async def test_aresponses_drops_stream_options():
     """The Responses API rejects include_usage, so include_usage-only stream_options must never reach the wire."""
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "embrouter.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         new_callable=AsyncMock,
     ) as mock_post:
         mock_post.return_value = MockResponse(
             _minimal_responses_api_payload("resp_stream_options_test", "gpt-5.5"), 200
         )
 
-        await litellm.aresponses(
+        await embrouter.aresponses(
             model="openai/gpt-5.5",
             api_key="fake-api-key",
             input="hi",
@@ -228,13 +228,13 @@ async def test_aresponses_forwards_non_enum_reasoning_effort(
     monkeypatch: pytest.MonkeyPatch, respx_mock: respx.MockRouter
 ):
     monkeypatch.setenv("OPENAI_API_KEY", "fake-api-key")
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
+    embrouter.in_memory_llm_clients_cache.flush_cache()
     upstream: Final = respx_mock.post("https://api.openai.com/v1/responses").mock(
         return_value=httpx.Response(200, json=_minimal_responses_api_payload("resp_effort_int", "gpt-5.4"))
     )
 
-    response: Final = await litellm.aresponses(model="openai/gpt-5.4", input="hi", reasoning_effort=5)
+    response: Final = await embrouter.aresponses(model="openai/gpt-5.4", input="hi", reasoning_effort=5)
 
     assert upstream.call_count == 1
     request_body: Final = json.loads(upstream.calls[0].request.read())
@@ -247,13 +247,13 @@ async def test_acompletion_with_tools_forwards_non_enum_reasoning_effort_over_th
     monkeypatch: pytest.MonkeyPatch, respx_mock: respx.MockRouter
 ):
     monkeypatch.setenv("OPENAI_API_KEY", "fake-api-key")
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
+    embrouter.in_memory_llm_clients_cache.flush_cache()
     upstream: Final = respx_mock.post("https://api.openai.com/v1/responses").mock(
         return_value=httpx.Response(200, json=_minimal_responses_api_payload("resp_bridge_int", "gpt-5.4"))
     )
 
-    response: Final = await litellm.acompletion(
+    response: Final = await embrouter.acompletion(
         model="openai/gpt-5.4",
         messages=[{"role": "user", "content": "What is the weather in Paris?"}],
         tools=[
@@ -278,16 +278,16 @@ async def test_acompletion_with_tools_forwards_non_enum_reasoning_effort_over_th
 async def test_aresponses_forwards_prompt_managed_reasoning_effort(
     monkeypatch: pytest.MonkeyPatch, respx_mock: respx.MockRouter
 ):
-    from litellm.responses.main import _AsyncPromptManagementOutcome
+    from embrouter.responses.main import _AsyncPromptManagementOutcome
 
     monkeypatch.setenv("OPENAI_API_KEY", "fake-api-key")
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
+    embrouter.in_memory_llm_clients_cache.flush_cache()
     upstream: Final = respx_mock.post("https://api.openai.com/v1/responses").mock(
         return_value=httpx.Response(200, json=_minimal_responses_api_payload("resp_prompt_effort", "gpt-5.4"))
     )
 
-    response: Final = await litellm.aresponses(
+    response: Final = await embrouter.aresponses(
         model="openai/gpt-5.4",
         input="hi",
         _async_prompt_merged_params=_AsyncPromptManagementOutcome(
@@ -306,16 +306,16 @@ async def test_aresponses_forwards_prompt_managed_reasoning_effort(
 async def test_aresponses_forwards_prompt_managed_reasoning_dict(
     monkeypatch: pytest.MonkeyPatch, respx_mock: respx.MockRouter
 ):
-    from litellm.responses.main import _AsyncPromptManagementOutcome
+    from embrouter.responses.main import _AsyncPromptManagementOutcome
 
     monkeypatch.setenv("OPENAI_API_KEY", "fake-api-key")
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
+    embrouter.in_memory_llm_clients_cache.flush_cache()
     upstream: Final = respx_mock.post("https://api.openai.com/v1/responses").mock(
         return_value=httpx.Response(200, json=_minimal_responses_api_payload("resp_prompt_reasoning", "gpt-5.4"))
     )
 
-    response: Final = await litellm.aresponses(
+    response: Final = await embrouter.aresponses(
         model="openai/gpt-5.4",
         input="hi",
         _async_prompt_merged_params=_AsyncPromptManagementOutcome(
@@ -333,14 +333,14 @@ async def test_aresponses_forwards_prompt_managed_reasoning_dict(
 async def test_aresponses_keeps_include_obfuscation_in_stream_options():
     """include_obfuscation is a valid Responses API stream option and must survive the include_usage strip."""
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "embrouter.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         new_callable=AsyncMock,
     ) as mock_post:
         mock_post.return_value = MockResponse(
             _minimal_responses_api_payload("resp_stream_options_obfuscation", "gpt-5.5"), 200
         )
 
-        await litellm.aresponses(
+        await embrouter.aresponses(
             model="openai/gpt-5.5",
             api_key="fake-api-key",
             input="hi",
@@ -364,10 +364,10 @@ async def test_aresponses_request_level_drop_params_drops_bedrock_mantle_service
     reach the provider config so bedrock_mantle strips the unsupported
     service_tier before the request hits the wire.
     """
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(embrouter, "drop_params", False)
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "embrouter.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         new_callable=AsyncMock,
     ) as mock_post:
         mock_post.return_value = MockResponse(
@@ -375,7 +375,7 @@ async def test_aresponses_request_level_drop_params_drops_bedrock_mantle_service
             200,
         )
 
-        await litellm.aresponses(
+        await embrouter.aresponses(
             model="bedrock_mantle/openai.gpt-5.5",
             api_key="fake-bearer-token",
             aws_region_name="us-east-1",
@@ -398,14 +398,14 @@ async def test_aresponses_bedrock_mantle_service_tier_raises_without_drop_params
     Without drop_params, an unsupported service_tier must fail fast with an
     error that names drop_params instead of sending a request Mantle rejects.
     """
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(embrouter, "drop_params", False)
 
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "embrouter.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         new_callable=AsyncMock,
     ) as mock_post:
-        with pytest.raises(litellm.BadRequestError) as excinfo:
-            await litellm.aresponses(
+        with pytest.raises(embrouter.BadRequestError) as excinfo:
+            await embrouter.aresponses(
                 model="bedrock_mantle/openai.gpt-5.5",
                 api_key="fake-bearer-token",
                 aws_region_name="us-east-1",
@@ -420,12 +420,12 @@ async def test_aresponses_bedrock_mantle_service_tier_raises_without_drop_params
 
 async def _aresponses_and_get_request_headers(**request_kwargs) -> dict:
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "embrouter.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         new_callable=AsyncMock,
     ) as mock_post:
         mock_post.return_value = MockResponse(_minimal_responses_api_payload("resp_headers_test", "gpt-4o"), 200)
 
-        await litellm.aresponses(
+        await embrouter.aresponses(
             model="openai/gpt-4o",
             api_key="fake-api-key",
             input="hi",
@@ -488,7 +488,7 @@ async def test_aresponses_client_header_conflict_is_case_insensitive():
 )
 async def test_aresponses_strips_responses_routing_prefix_from_openai_model(model, custom_llm_provider):
     """
-    `responses/` is LiteLLM routing sugar, never part of the provider model id.
+    `responses/` is EmbRouter routing sugar, never part of the provider model id.
     Deployments configured as openai/responses/<model> reach this path directly via
     /v1/responses and via the /v1/messages adapter (which passes responses/<model>
     with custom_llm_provider="openai"), so both shapes must hit OpenAI as <model>.
@@ -497,7 +497,7 @@ async def test_aresponses_strips_responses_routing_prefix_from_openai_model(mode
     mock_post = AsyncMock(return_value=MockResponse(_minimal_responses_api_payload("resp_prefix_test", "gpt-5.6"), 200))
     injected_client.post = mock_post
 
-    await litellm.aresponses(
+    await embrouter.aresponses(
         model=model,
         custom_llm_provider=custom_llm_provider,
         input="ping",
@@ -514,17 +514,17 @@ async def test_aresponses_strips_responses_routing_prefix_from_openai_model(mode
 async def test_aresponses_websocket_strips_responses_routing_prefix_from_openai_model():
     from unittest.mock import MagicMock
 
-    from litellm.responses.main import _aresponses_websocket
+    from embrouter.responses.main import _aresponses_websocket
 
     with patch.object(
-        import_module("litellm.responses.main").base_llm_http_handler, "async_responses_websocket",
+        import_module("embrouter.responses.main").base_llm_http_handler, "async_responses_websocket",
         new_callable=AsyncMock,
     ) as mock_ws:
         await _aresponses_websocket(
             model="openai/responses/gpt-5.6",
             websocket=MagicMock(),
             api_key="sk-test",
-            litellm_logging_obj=MagicMock(),
+            embrouter_logging_obj=MagicMock(),
         )
 
         mock_ws.assert_awaited_once()
@@ -536,17 +536,17 @@ async def test_aresponses_websocket_strips_responses_routing_prefix_from_openai_
 async def test_aresponses_websocket_keeps_routing_hints_out_of_the_relay_kwargs():  # test-quality-ok: the relay kwargs are the only place a dropped key is observable; the provider socket behind them is the boundary
     from unittest.mock import MagicMock
 
-    from litellm.responses.main import _aresponses_websocket
+    from embrouter.responses.main import _aresponses_websocket
 
     with patch.object(
-        import_module("litellm.responses.main").base_llm_http_handler, "async_responses_websocket",
+        import_module("embrouter.responses.main").base_llm_http_handler, "async_responses_websocket",
         new_callable=AsyncMock,
     ) as mock_ws:
         await _aresponses_websocket(
             model="openai/gpt-5.6",
             websocket=MagicMock(),
             api_key="sk-test",
-            litellm_logging_obj=MagicMock(),
+            embrouter_logging_obj=MagicMock(),
             input=[{"type": "message", "role": "user", "content": "hi"}],
             previous_response_id="resp_prev",
         )
@@ -568,7 +568,7 @@ _ORIGINAL_WS_INPUT = [
 async def test_aresponses_websocket_forwards_the_routed_input_in_the_first_frame(nested: bool):  # test-quality-ok: the first frame handed to the relay is the only place the routed input is observable before the provider socket
     from unittest.mock import MagicMock
 
-    from litellm.responses.main import _aresponses_websocket
+    from embrouter.responses.main import _aresponses_websocket
 
     body = {"model": "gpt-5.6", "input": _ORIGINAL_WS_INPUT, "store": False}
     first_message = json.dumps(
@@ -576,14 +576,14 @@ async def test_aresponses_websocket_forwards_the_routed_input_in_the_first_frame
     )
 
     with patch.object(
-        import_module("litellm.responses.main").base_llm_http_handler, "async_responses_websocket",
+        import_module("embrouter.responses.main").base_llm_http_handler, "async_responses_websocket",
         new_callable=AsyncMock,
     ) as mock_ws:
         await _aresponses_websocket(
             model="openai/gpt-5.6",
             websocket=MagicMock(),
             api_key="sk-test",
-            litellm_logging_obj=MagicMock(),
+            embrouter_logging_obj=MagicMock(),
             input=list(_STRIPPED_WS_INPUT),
             first_message=first_message,
         )
@@ -600,19 +600,19 @@ async def test_aresponses_websocket_forwards_the_routed_input_in_the_first_frame
 async def test_aresponses_websocket_forwards_the_first_frame_verbatim_when_routing_left_the_input_alone():  # test-quality-ok: the relay kwargs are the boundary; byte-identical passthrough is only observable there
     from unittest.mock import MagicMock
 
-    from litellm.responses.main import _aresponses_websocket
+    from embrouter.responses.main import _aresponses_websocket
 
     first_message = '{"type": "response.create", "model": "gpt-5.6",  "input": [{"role": "user", "content": "hi"}]}'
 
     with patch.object(
-        import_module("litellm.responses.main").base_llm_http_handler, "async_responses_websocket",
+        import_module("embrouter.responses.main").base_llm_http_handler, "async_responses_websocket",
         new_callable=AsyncMock,
     ) as mock_ws:
         await _aresponses_websocket(
             model="openai/gpt-5.6",
             websocket=MagicMock(),
             api_key="sk-test",
-            litellm_logging_obj=MagicMock(),
+            embrouter_logging_obj=MagicMock(),
             input=list(_STRIPPED_WS_INPUT),
             first_message=first_message,
         )
@@ -643,12 +643,12 @@ def _sent_body(mock_post) -> dict:
 @pytest.mark.asyncio
 async def test_aresponses_injection_point_marks_input_text_on_gpt_5_6():
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "embrouter.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         new_callable=AsyncMock,
     ) as mock_post:
         mock_post.return_value = MockResponse(_minimal_responses_api_payload("resp_pcb_async", "gpt-5.6"), 200)
 
-        await litellm.aresponses(
+        await embrouter.aresponses(
             model="openai/gpt-5.6",
             api_key="fake-api-key",
             input=copy.deepcopy(_INJECTION_POINT_INPUT),
@@ -666,10 +666,10 @@ async def test_aresponses_injection_point_marks_input_text_on_gpt_5_6():
 
 
 def test_responses_injection_point_marks_input_text_on_gpt_5_6():
-    with patch("litellm.llms.custom_httpx.http_handler.HTTPHandler.post") as mock_post:
+    with patch("embrouter.llms.custom_httpx.http_handler.HTTPHandler.post") as mock_post:
         mock_post.return_value = MockResponse(_minimal_responses_api_payload("resp_pcb_sync", "gpt-5.6"), 200)
 
-        litellm.responses(
+        embrouter.responses(
             model="openai/gpt-5.6",
             api_key="fake-api-key",
             input=copy.deepcopy(_INJECTION_POINT_INPUT),
@@ -689,12 +689,12 @@ def test_responses_injection_point_marks_input_text_on_gpt_5_6():
 @pytest.mark.asyncio
 async def test_aresponses_injection_point_sends_nothing_extra_below_gpt_5_6():
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "embrouter.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         new_callable=AsyncMock,
     ) as mock_post:
         mock_post.return_value = MockResponse(_minimal_responses_api_payload("resp_pcb_old", "gpt-4.1"), 200)
 
-        await litellm.aresponses(
+        await embrouter.aresponses(
             model="openai/gpt-4.1",
             api_key="fake-api-key",
             input=copy.deepcopy(_INJECTION_POINT_INPUT),
@@ -711,7 +711,7 @@ async def test_aresponses_injection_point_sends_nothing_extra_below_gpt_5_6():
 def _no_openai_api_base_override(monkeypatch):
     monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
     monkeypatch.delenv("OPENAI_API_BASE", raising=False)
-    monkeypatch.setattr(litellm, "api_base", None)
+    monkeypatch.setattr(embrouter, "api_base", None)
 
 
 _CUSTOM_API_BASE = "http://127.0.0.1:9/v1"
@@ -719,11 +719,11 @@ _CUSTOM_API_BASE = "http://127.0.0.1:9/v1"
 
 async def _aresponses_body_with_system_point(**request_kwargs) -> dict:
     with patch(
-        "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+        "embrouter.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
         new_callable=AsyncMock,
     ) as mock_post:
         mock_post.return_value = MockResponse(_minimal_responses_api_payload("resp_pcb_gate", "gpt-5.6"), 200)
-        await litellm.aresponses(
+        await embrouter.aresponses(
             api_key="fake-api-key",
             input=copy.deepcopy(_INJECTION_POINT_INPUT),
             cache_control_injection_points=copy.deepcopy(_SYSTEM_INJECTION_POINT),
@@ -734,8 +734,8 @@ async def _aresponses_body_with_system_point(**request_kwargs) -> dict:
 
 @pytest.mark.asyncio
 @pytest.mark.usefixtures("_no_openai_api_base_override")
-async def test_aresponses_litellm_proxy_target_sends_no_openai_markers():
-    body = await _aresponses_body_with_system_point(model="litellm_proxy/gpt-5.6", api_base=_CUSTOM_API_BASE)
+async def test_aresponses_embrouter_proxy_target_sends_no_openai_markers():
+    body = await _aresponses_body_with_system_point(model="embrouter_proxy/gpt-5.6", api_base=_CUSTOM_API_BASE)
     assert body["input"] == _INJECTION_POINT_INPUT
     assert "prompt_cache_options" not in body
 
@@ -772,10 +772,10 @@ async def test_aresponses_regional_openai_api_base_marks_input_text():
 
 @pytest.mark.usefixtures("_no_openai_api_base_override")
 def test_responses_custom_base_url_sends_no_openai_markers():
-    with patch("litellm.llms.custom_httpx.http_handler.HTTPHandler.post") as mock_post:
+    with patch("embrouter.llms.custom_httpx.http_handler.HTTPHandler.post") as mock_post:
         mock_post.return_value = MockResponse(_minimal_responses_api_payload("resp_pcb_gate_base_url", "gpt-5.6"), 200)
 
-        litellm.responses(
+        embrouter.responses(
             model="gpt-5.6",
             api_key="fake-api-key",
             base_url=_CUSTOM_API_BASE,
@@ -790,10 +790,10 @@ def test_responses_custom_base_url_sends_no_openai_markers():
 
 @pytest.mark.usefixtures("_no_openai_api_base_override")
 def test_responses_custom_api_base_sends_no_openai_markers():
-    with patch("litellm.llms.custom_httpx.http_handler.HTTPHandler.post") as mock_post:
+    with patch("embrouter.llms.custom_httpx.http_handler.HTTPHandler.post") as mock_post:
         mock_post.return_value = MockResponse(_minimal_responses_api_payload("resp_pcb_gate_sync", "gpt-5.6"), 200)
 
-        litellm.responses(
+        embrouter.responses(
             model="gpt-5.6",
             api_key="fake-api-key",
             api_base=_CUSTOM_API_BASE,
@@ -814,7 +814,7 @@ async def test_injection_points_still_reach_a_native_responses_provider():
     mock_post = AsyncMock(return_value=MockResponse(_minimal_responses_api_payload("resp_native", "gpt-5.6"), 200))
     injected_client.post = mock_post
 
-    await litellm.aresponses(
+    await embrouter.aresponses(
         model="openai/gpt-5.6",
         api_key="fake-api-key",
         input=copy.deepcopy(_INJECTION_POINT_INPUT),
@@ -831,7 +831,7 @@ async def _bridged_body(mock_post, *, points, input, instructions="You are a doc
     injected_client = AsyncHTTPHandler()
     injected_client.post = mock_post
 
-    await litellm.aresponses(
+    await embrouter.aresponses(
         model="anthropic/claude-sonnet-4-5",
         api_key="fake-api-key",
         instructions=instructions,
@@ -863,7 +863,7 @@ async def test_instructions_are_marked_when_the_bridge_builds_the_system_message
 
     Carrying it forward is what marks it at all. Carrying it *stamped* is what keeps a
     second point that did match from stranding it: without the stamp the next pass reads
-    litellm's own marks as client breakpoints and stands the whole configuration down.
+    embrouter's own marks as client breakpoints and stands the whole configuration down.
     """
     mock_post = AsyncMock(return_value=MockResponse(_ANTHROPIC_MESSAGES_PAYLOAD, 200))
     body = await _bridged_body(mock_post, points=points, input=[{"role": "user", "content": content}])
@@ -962,7 +962,7 @@ async def test_a_native_responses_provider_places_every_point_itself():
         injected_client = AsyncHTTPHandler()
         mock_post = AsyncMock(return_value=MockResponse(_minimal_responses_api_payload("resp_native", "gpt-5.6"), 200))
         injected_client.post = mock_post
-        await litellm.aresponses(
+        await embrouter.aresponses(
             model="openai/gpt-5.6",
             api_key="fake-api-key",
             input=copy.deepcopy(input_items),

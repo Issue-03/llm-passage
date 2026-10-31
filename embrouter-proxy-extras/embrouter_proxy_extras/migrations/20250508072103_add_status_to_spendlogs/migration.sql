@@ -1,3 +1,3 @@
 -- AlterTable
-ALTER TABLE "LiteLLM_SpendLogs" ADD COLUMN IF NOT EXISTS "status" TEXT;
+ALTER TABLE "EmbRouter_SpendLogs" ADD COLUMN IF NOT EXISTS "status" TEXT;
 

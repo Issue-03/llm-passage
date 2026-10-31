@@ -1,9 +1,9 @@
 from typing import Final
 
-from litellm.llms.anthropic.chat.guardrail_translation.handler import (
+from embrouter.llms.anthropic.chat.guardrail_translation.handler import (
     AnthropicMessagesHandler,
 )
-from litellm.types.utils import CallTypes
+from embrouter.types.utils import CallTypes
 
 guardrail_translation_mappings: Final = {
     CallTypes.anthropic_messages: AnthropicMessagesHandler,

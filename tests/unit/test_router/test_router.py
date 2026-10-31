@@ -20,22 +20,22 @@ import pytest
 import respx
 from fastapi import HTTPException
 
-import litellm
-from litellm import Router
-from litellm.caching.caching import DualCache
-from litellm.caching.redis_cache import _redis_circuit_breaker_guard
-from litellm.exceptions import GuardrailRaisedException, MidStreamFallbackError, ModifyResponseException
-from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLogging
-from litellm.llms.anthropic.pass_through.messages.agentic_streaming_iterator import (
+import embrouter
+from embrouter import Router
+from embrouter.caching.caching import DualCache
+from embrouter.caching.redis_cache import _redis_circuit_breaker_guard
+from embrouter.exceptions import GuardrailRaisedException, MidStreamFallbackError, ModifyResponseException
+from embrouter.embrouter_core_utils.streaming_handler import CustomStreamWrapper
+from embrouter.integrations.custom_guardrail import CustomGuardrail
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLogging
+from embrouter.llms.anthropic.pass_through.messages.agentic_streaming_iterator import (
     SERVER_FULFILLED_TOOL_LEAK_ERROR_SSE_BYTES,
 )
-from litellm.llms.bedrock.common_utils import BedrockError
-from litellm.models.access_group import LiteLLM_AccessGroupTable
-from litellm.proxy._types import LiteLLM_TeamTable, LitellmUserRoles, Member, ProxyException, UserAPIKeyAuth
-from litellm.router import (
+from embrouter.llms.bedrock.common_utils import BedrockError
+from embrouter.models.access_group import EmbRouter_AccessGroupTable
+from embrouter.proxy._types import EmbRouter_TeamTable, EmbrouterUserRoles, Member, ProxyException, UserAPIKeyAuth
+from embrouter.router import (
     MAX_BUFFERED_PRE_CONTENT_ANTHROPIC_CHUNKS,
     MAX_HELD_PRE_OUTPUT_RESPONSES_EVENTS,
     FallbackAwareAnthropicMessagesStream,
@@ -50,22 +50,22 @@ from litellm.router import (
     _without_line_breaks,
     Span,
 )
-from litellm.router_strategy import simple_shuffle
-from litellm.router_utils.client_initalization_utils import MaxParallelRequestsLimit
-from litellm.router_utils.cooldown_handlers import _async_get_cooldown_deployments
-from litellm.router_utils.fallback_event_handlers import DISABLE_FALLBACKS_METADATA_KEY
-from litellm.router_utils.router_callbacks.track_deployment_metrics import get_deployment_successes_for_current_minute
-from litellm.types.llms.openai import ChatCompletionRequest
-from litellm.types.router import Deployment, DeploymentTypedDict, LiteLLM_Params, ModelInfo, PreRoutingHookResponse, RetryPolicy
+from embrouter.router_strategy import simple_shuffle
+from embrouter.router_utils.client_initalization_utils import MaxParallelRequestsLimit
+from embrouter.router_utils.cooldown_handlers import _async_get_cooldown_deployments
+from embrouter.router_utils.fallback_event_handlers import DISABLE_FALLBACKS_METADATA_KEY
+from embrouter.router_utils.router_callbacks.track_deployment_metrics import get_deployment_successes_for_current_minute
+from embrouter.types.llms.openai import ChatCompletionRequest
+from embrouter.types.router import Deployment, DeploymentTypedDict, EmbRouter_Params, ModelInfo, PreRoutingHookResponse, RetryPolicy
 
 
 def test_update_kwargs_does_not_mutate_defaults_and_merges_metadata():
     # initialize a real Router (env‑vars can be empty)
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "azure/gpt-4.1-mini",
                     "api_key": os.getenv("AZURE_AI_API_KEY"),
                     "api_version": os.getenv("AZURE_API_VERSION"),
@@ -76,38 +76,38 @@ def test_update_kwargs_does_not_mutate_defaults_and_merges_metadata():
     )
 
     # override to known defaults for the test
-    router.default_litellm_params = {
+    router.default_embrouter_params = {
         "foo": "bar",
         "metadata": {"baz": 123},
     }
-    original = copy.deepcopy(router.default_litellm_params)
+    original = copy.deepcopy(router.default_embrouter_params)
     kwargs: dict = {}
 
     # invoke the helper
-    router._update_kwargs_with_default_litellm_params(
+    router._update_kwargs_with_default_embrouter_params(
         kwargs=kwargs,
-        metadata_variable_name="litellm_metadata",
+        metadata_variable_name="embrouter_metadata",
     )
 
     # 1) router.defaults must be unchanged
-    assert router.default_litellm_params == original
+    assert router.default_embrouter_params == original
 
     # 2) non‑metadata keys get merged
     assert kwargs["foo"] == "bar"
 
     # 3) metadata lands under "metadata"
-    assert kwargs["litellm_metadata"] == {"baz": 123}
+    assert kwargs["embrouter_metadata"] == {"baz": 123}
 
 
 def test_router_with_model_info_and_model_group():
     """
     Test edge case where user specifies model_group in model_info
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-3.5-turbo",
                 },
                 "model_info": {
@@ -126,10 +126,10 @@ def test_router_with_model_info_and_model_group():
 
 
 def test_router_model_group_encrypted_content_affinity_callback_registration():
-    from litellm.router_utils.pre_call_checks.deployment_affinity_check import (
+    from embrouter.router_utils.pre_call_checks.deployment_affinity_check import (
         DeploymentAffinityCheck,
     )
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from embrouter.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
@@ -137,16 +137,16 @@ def test_router_model_group_encrypted_content_affinity_callback_registration():
     model_group_affinity_config = {
         model_group: ["encrypted_content_affinity"],
     }
-    original_callbacks = list(litellm.callbacks)
-    litellm.callbacks = []
+    original_callbacks = list(embrouter.callbacks)
+    embrouter.callbacks = []
     router = None
 
     try:
-        router = litellm.Router(
+        router = embrouter.Router(
             model_list=[
                 {
                     "model_name": model_group,
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "openai/gpt-5.1-codex",
                         "api_key": "mock-api-key",
                     },
@@ -171,8 +171,8 @@ def test_router_model_group_encrypted_content_affinity_callback_registration():
         assert callbacks.index(encrypted_content_callbacks[0]) < callbacks.index(
             deployment_callback
         )
-        assert litellm.callbacks.index(encrypted_content_callbacks[0]) < (
-            litellm.callbacks.index(deployment_callback)
+        assert embrouter.callbacks.index(encrypted_content_callbacks[0]) < (
+            embrouter.callbacks.index(deployment_callback)
         )
 
         router._add_encrypted_content_affinity_check(enable_global_affinity=True)
@@ -187,26 +187,26 @@ def test_router_model_group_encrypted_content_affinity_callback_registration():
     finally:
         if router is not None:
             router.discard()
-        litellm.callbacks = original_callbacks
+        embrouter.callbacks = original_callbacks
 
 
 @pytest.mark.asyncio
 async def test_encrypted_content_affinity_model_group_config_is_additive():
-    from litellm.responses.utils import ResponsesAPIRequestUtils
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from embrouter.responses.utils import ResponsesAPIRequestUtils
+    from embrouter.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
     model_group = "openai.gpt-5.1-codex"
     target_deployment = {
         "model_name": model_group,
-        "litellm_params": {"model": "openai/gpt-5.1-codex"},
+        "embrouter_params": {"model": "openai/gpt-5.1-codex"},
         "model_info": {"id": "deployment-b"},
     }
     healthy_deployments = [
         {
             "model_name": model_group,
-            "litellm_params": {"model": "openai/gpt-5.1-codex"},
+            "embrouter_params": {"model": "openai/gpt-5.1-codex"},
             "model_info": {"id": "deployment-a"},
         },
         target_deployment,
@@ -228,7 +228,7 @@ async def test_encrypted_content_affinity_model_group_config_is_additive():
     )
     request_kwargs = {
         "input": [{"type": "reasoning", "id": encoded_id}],
-        "litellm_metadata": {},
+        "embrouter_metadata": {},
     }
     filtered = await per_group_check.async_filter_deployments(
         model=model_group,
@@ -238,7 +238,7 @@ async def test_encrypted_content_affinity_model_group_config_is_additive():
     )
 
     assert filtered == [target_deployment]
-    assert request_kwargs["litellm_metadata"]["encrypted_content_affinity_enabled"]
+    assert request_kwargs["embrouter_metadata"]["encrypted_content_affinity_enabled"]
 
     disabled_check = EncryptedContentAffinityCheck(
         enable_global_affinity=False,
@@ -248,7 +248,7 @@ async def test_encrypted_content_affinity_model_group_config_is_additive():
     )
     disabled_request_kwargs = {
         "input": [{"type": "reasoning", "id": encoded_id}],
-        "litellm_metadata": {},
+        "embrouter_metadata": {},
     }
     unfiltered = await disabled_check.async_filter_deployments(
         model=model_group,
@@ -260,7 +260,7 @@ async def test_encrypted_content_affinity_model_group_config_is_additive():
     assert unfiltered == healthy_deployments
     assert (
         "encrypted_content_affinity_enabled"
-        not in disabled_request_kwargs["litellm_metadata"]
+        not in disabled_request_kwargs["embrouter_metadata"]
     )
 
     global_check = EncryptedContentAffinityCheck(
@@ -271,7 +271,7 @@ async def test_encrypted_content_affinity_model_group_config_is_additive():
     )
     global_request_kwargs = {
         "input": [{"type": "reasoning", "id": encoded_id}],
-        "litellm_metadata": {},
+        "embrouter_metadata": {},
     }
     globally_filtered = await global_check.async_filter_deployments(
         model=model_group,
@@ -281,18 +281,18 @@ async def test_encrypted_content_affinity_model_group_config_is_additive():
     )
 
     assert globally_filtered == [target_deployment]
-    assert global_request_kwargs["litellm_metadata"][
+    assert global_request_kwargs["embrouter_metadata"][
         "encrypted_content_affinity_enabled"
     ]
 
 
 @pytest.mark.asyncio
 async def test_encrypted_content_affinity_takes_priority_over_user_key_affinity():
-    from litellm.responses.utils import ResponsesAPIRequestUtils
-    from litellm.router_utils.pre_call_checks.deployment_affinity_check import (
+    from embrouter.responses.utils import ResponsesAPIRequestUtils
+    from embrouter.router_utils.pre_call_checks.deployment_affinity_check import (
         DeploymentAffinityCheck,
     )
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from embrouter.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
@@ -300,7 +300,7 @@ async def test_encrypted_content_affinity_takes_priority_over_user_key_affinity(
     user_api_key_hash = "test-user-key"
     deployment_a = {
         "model_name": model_group,
-        "litellm_params": {
+        "embrouter_params": {
             "model": "openai/gpt-5.1-codex",
             "api_key": "mock-api-key-a",
         },
@@ -308,18 +308,18 @@ async def test_encrypted_content_affinity_takes_priority_over_user_key_affinity(
     }
     deployment_b = {
         "model_name": model_group,
-        "litellm_params": {
+        "embrouter_params": {
             "model": "openai/gpt-5.1-codex",
             "api_key": "mock-api-key-b",
         },
         "model_info": {"id": "deployment-b"},
     }
-    original_callbacks = list(litellm.callbacks)
-    litellm.callbacks = []
+    original_callbacks = list(embrouter.callbacks)
+    embrouter.callbacks = []
     router = None
 
     try:
-        router = litellm.Router(
+        router = embrouter.Router(
             model_list=[deployment_a, deployment_b],
             model_group_affinity_config={
                 model_group: [
@@ -339,8 +339,8 @@ async def test_encrypted_content_affinity_takes_priority_over_user_key_affinity(
         assert callbacks.index(encrypted_content_callback) < callbacks.index(
             deployment_callback
         )
-        assert litellm.callbacks.index(encrypted_content_callback) < (
-            litellm.callbacks.index(deployment_callback)
+        assert embrouter.callbacks.index(encrypted_content_callback) < (
+            embrouter.callbacks.index(deployment_callback)
         )
 
         cache_key = DeploymentAffinityCheck.get_affinity_cache_key(
@@ -357,7 +357,7 @@ async def test_encrypted_content_affinity_takes_priority_over_user_key_affinity(
         )
         request_kwargs = {
             "input": [{"type": "reasoning", "id": encoded_id}],
-            "litellm_metadata": {"user_api_key_hash": user_api_key_hash},
+            "embrouter_metadata": {"user_api_key_hash": user_api_key_hash},
         }
 
         filtered = await router.async_callback_filter_deployments(
@@ -373,7 +373,7 @@ async def test_encrypted_content_affinity_takes_priority_over_user_key_affinity(
     finally:
         if router is not None:
             router.discard()
-        litellm.callbacks = original_callbacks
+        embrouter.callbacks = original_callbacks
 
 
 @pytest.mark.asyncio
@@ -381,13 +381,13 @@ async def test_arouter_with_tags_and_fallbacks():
     """
     If fallback model missing tag, raise error
     """
-    from litellm import Router
+    from embrouter import Router
 
     router = Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-3.5-turbo",
                     "mock_response": "Hello, world!",
                     "tags": ["test"],
@@ -395,7 +395,7 @@ async def test_arouter_with_tags_and_fallbacks():
             },
             {
                 "model_name": "anthropic-claude-3-5-sonnet",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "claude-sonnet-4-5-20250929",
                     "mock_response": "Hello, world 2!",
                 },
@@ -407,7 +407,7 @@ async def test_arouter_with_tags_and_fallbacks():
         enable_tag_filtering=True,
     )
 
-    with pytest.raises(litellm.InternalServerError):
+    with pytest.raises(embrouter.InternalServerError):
         response = await router.acompletion(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "Hello, world!"}],
@@ -423,17 +423,17 @@ async def test_async_router_acreate_file():
     """
     from unittest.mock import MagicMock, patch
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {"model": "gpt-3.5-turbo"},
+                "embrouter_params": {"model": "gpt-3.5-turbo"},
             },
-            {"model_name": "gpt-3.5-turbo", "litellm_params": {"model": "gpt-4o-mini"}},
+            {"model_name": "gpt-3.5-turbo", "embrouter_params": {"model": "gpt-4o-mini"}},
         ],
     )
 
-    with patch("litellm.acreate_file", return_value=MagicMock()) as mock_acreate_file:
+    with patch("embrouter.acreate_file", return_value=MagicMock()) as mock_acreate_file:
         mock_acreate_file.return_value = MagicMock()
         response = await router.acreate_file(
             model="gpt-3.5-turbo",
@@ -478,20 +478,20 @@ async def test_async_router_acreate_file_with_jsonl():
     non_jsonl_file = BytesIO(non_jsonl_content.encode("utf-8"))
     non_jsonl_file.name = "test.txt"
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo-router",
-                "litellm_params": {"model": "gpt-3.5-turbo"},
+                "embrouter_params": {"model": "gpt-3.5-turbo"},
             },
             {
                 "model_name": "gpt-3.5-turbo-router",
-                "litellm_params": {"model": "gpt-4o-mini"},
+                "embrouter_params": {"model": "gpt-4o-mini"},
             },
         ],
     )
 
-    with patch("litellm.acreate_file", return_value=MagicMock()) as mock_acreate_file:
+    with patch("embrouter.acreate_file", return_value=MagicMock()) as mock_acreate_file:
         # Test with JSONL file
         response = await router.acreate_file(
             model="gpt-3.5-turbo-router",
@@ -541,16 +541,16 @@ async def test_async_router_acreate_file_passthrough_keeps_the_file_and_forwards
     from unittest.mock import MagicMock, patch
 
     jsonl_content = b'{"custom_id": "r1", "method": "POST", "url": "/v1/chat/completions", "body": {"model": "vertex-batch"}}\n'
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "vertex-batch",
-                "litellm_params": {"model": "vertex_ai/gemini-2.5-flash", "vertex_project": "p"},
+                "embrouter_params": {"model": "vertex_ai/gemini-2.5-flash", "vertex_project": "p"},
             }
         ],
     )
 
-    with patch("litellm.acreate_file", return_value=MagicMock()) as mock_acreate_file:
+    with patch("embrouter.acreate_file", return_value=MagicMock()) as mock_acreate_file:
         await router.acreate_file(
             model="vertex-batch", purpose="batch", file=BytesIO(jsonl_content), passthrough=True
         )
@@ -573,11 +573,11 @@ async def test_async_router_acreate_file_does_not_fall_back_across_model_groups(
     and the later batch create against the named group permanently fails."""
     from unittest.mock import MagicMock, patch
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "azure-gpt",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "azure/my-azure-deployment",
                     "api_base": "http://127.0.0.1:9",
                     "api_key": "dummy-key",
@@ -586,7 +586,7 @@ async def test_async_router_acreate_file_does_not_fall_back_across_model_groups(
             },
             {
                 "model_name": "openai-gpt",
-                "litellm_params": {"model": "gpt-4o-mini"},
+                "embrouter_params": {"model": "gpt-4o-mini"},
             },
         ],
         fallbacks=[{"azure-gpt": ["openai-gpt"]}],
@@ -594,15 +594,15 @@ async def test_async_router_acreate_file_does_not_fall_back_across_model_groups(
 
     def fail_azure(*args: object, **kwargs: object) -> MagicMock:
         if kwargs.get("model") == "azure/my-azure-deployment":
-            raise litellm.APIConnectionError(
+            raise embrouter.APIConnectionError(
                 message="Connection error.",
                 llm_provider="azure",
                 model="azure/my-azure-deployment",
             )
         return MagicMock()
 
-    with patch("litellm.acreate_file", side_effect=fail_azure) as mock_acreate_file:
-        with pytest.raises(litellm.APIConnectionError):
+    with patch("embrouter.acreate_file", side_effect=fail_azure) as mock_acreate_file:
+        with pytest.raises(embrouter.APIConnectionError):
             await router.acreate_file(
                 model="azure-gpt",
                 purpose="batch",
@@ -622,12 +622,12 @@ async def test_async_router_acancel_batch_does_not_fall_back_across_model_groups
     issued, which can only answer not-found. The router re-raises the owner's error after
     that wasted round trip, so the pin's observable is the foreign call never happening."""
 
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    router = litellm.Router(
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "azure-gpt",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "azure/my-azure-deployment",
                     "api_base": "http://127.0.0.1:9",
                     "api_key": "dummy-key",
@@ -637,7 +637,7 @@ async def test_async_router_acancel_batch_does_not_fall_back_across_model_groups
             },
             {
                 "model_name": "openai-gpt",
-                "litellm_params": {"model": "gpt-4o-mini", "api_key": "dummy-key"},
+                "embrouter_params": {"model": "gpt-4o-mini", "api_key": "dummy-key"},
             },
         ],
         default_fallbacks=["openai-gpt"],
@@ -674,11 +674,11 @@ async def test_async_router_acreate_file_uses_deployment_custom_llm_provider():
     """
     from unittest.mock import MagicMock, patch
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "team-azure-batch",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4.1-mini",
                     "custom_llm_provider": "azure",
                     "api_base": "https://example-resource.openai.azure.com",
@@ -687,7 +687,7 @@ async def test_async_router_acreate_file_uses_deployment_custom_llm_provider():
         ],
     )
 
-    with patch("litellm.acreate_file", return_value=MagicMock()) as mock_acreate_file:
+    with patch("embrouter.acreate_file", return_value=MagicMock()) as mock_acreate_file:
         await router.acreate_file(
             model="team-azure-batch",
             purpose="batch",
@@ -699,7 +699,7 @@ async def test_async_router_acreate_file_uses_deployment_custom_llm_provider():
 
 
 @pytest.mark.asyncio
-async def test_async_router_acreate_file_forwards_target_model_names_to_litellm_proxy():
+async def test_async_router_acreate_file_forwards_target_model_names_to_embrouter_proxy():
     import json
     from io import BytesIO
     from unittest.mock import MagicMock, patch
@@ -711,12 +711,12 @@ async def test_async_router_acreate_file_forwards_target_model_names_to_litellm_
     )
     jsonl_file.name = "test.jsonl"
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "chained-batch",
-                "litellm_params": {
-                    "model": "litellm_proxy/gpt-4.1-batch",
+                "embrouter_params": {
+                    "model": "embrouter_proxy/gpt-4.1-batch",
                     "api_base": "http://localhost:4001/v1",
                     "api_key": "sk-proxy-b",
                 },
@@ -724,7 +724,7 @@ async def test_async_router_acreate_file_forwards_target_model_names_to_litellm_
         ],
     )
 
-    with patch("litellm.acreate_file", return_value=MagicMock()) as mock_acreate_file:
+    with patch("embrouter.acreate_file", return_value=MagicMock()) as mock_acreate_file:
         await router.acreate_file(
             model="chained-batch",
             purpose="batch",
@@ -733,7 +733,7 @@ async def test_async_router_acreate_file_forwards_target_model_names_to_litellm_
 
         assert mock_acreate_file.call_count == 1
         call_kwargs = mock_acreate_file.call_args.kwargs
-        assert call_kwargs["custom_llm_provider"] == "litellm_proxy"
+        assert call_kwargs["custom_llm_provider"] == "embrouter_proxy"
         assert call_kwargs["extra_body"] == {"target_model_names": "gpt-4.1-batch"}
         uploaded_line = json.loads(call_kwargs["file"].read().decode("utf-8").split("\n")[0])
         assert uploaded_line["body"]["model"] == "gpt-4.1-batch"
@@ -743,16 +743,16 @@ async def test_async_router_acreate_file_forwards_target_model_names_to_litellm_
 async def test_async_router_acreate_file_does_not_inject_target_model_names_for_other_providers():
     from unittest.mock import MagicMock, patch
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4.1-batch",
-                "litellm_params": {"model": "gpt-4.1"},
+                "embrouter_params": {"model": "gpt-4.1"},
             },
         ],
     )
 
-    with patch("litellm.acreate_file", return_value=MagicMock()) as mock_acreate_file:
+    with patch("embrouter.acreate_file", return_value=MagicMock()) as mock_acreate_file:
         await router.acreate_file(
             model="gpt-4.1-batch",
             purpose="batch",
@@ -764,7 +764,7 @@ async def test_async_router_acreate_file_does_not_inject_target_model_names_for_
 
 
 @pytest.mark.asyncio
-async def test_async_router_acreate_file_litellm_proxy_sends_target_model_names_in_multipart_form():
+async def test_async_router_acreate_file_embrouter_proxy_sends_target_model_names_in_multipart_form():
     import json
     from io import BytesIO
 
@@ -777,12 +777,12 @@ async def test_async_router_acreate_file_litellm_proxy_sends_target_model_names_
     )
     jsonl_file.name = "test.jsonl"
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "chained-batch",
-                "litellm_params": {
-                    "model": "litellm_proxy/gpt-4.1-batch",
+                "embrouter_params": {
+                    "model": "embrouter_proxy/gpt-4.1-batch",
                     "api_base": "http://localhost:4001/v1",
                     "api_key": "sk-proxy-b",
                 },
@@ -826,13 +826,13 @@ async def test_async_router_afile_content_uses_deployment_custom_llm_provider():
     This prevents "None is not a valid LlmProviders" errors when calling file content operations.
     """
     from unittest.mock import AsyncMock, MagicMock, patch
-    from litellm.types.llms.openai import HttpxBinaryResponseContent
+    from embrouter.types.llms.openai import HttpxBinaryResponseContent
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "team-azure-batch",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4.1-mini",  # No provider prefix
                     "custom_llm_provider": "azure",
                     "api_base": "https://example-resource.openai.azure.com",
@@ -847,7 +847,7 @@ async def test_async_router_afile_content_uses_deployment_custom_llm_provider():
     mock_response.response = MagicMock()
 
     with patch(
-        "litellm.llms.azure.files.handler.AzureOpenAIFilesAPI.afile_content",
+        "embrouter.llms.azure.files.handler.AzureOpenAIFilesAPI.afile_content",
         return_value=mock_response,
     ) as mock_afile_content:
         result = await router.afile_content(
@@ -865,11 +865,11 @@ async def test_arouter_async_get_healthy_deployments():
     """
     Test that afile_content returns the correct file content
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {"model": "gpt-3.5-turbo"},
+                "embrouter_params": {"model": "gpt-3.5-turbo"},
             },
         ],
     )
@@ -885,7 +885,7 @@ async def test_arouter_async_get_healthy_deployments():
 
     assert len(result) == 1
     assert result[0]["model_name"] == "gpt-3.5-turbo"
-    assert result[0]["litellm_params"]["model"] == "gpt-3.5-turbo"
+    assert result[0]["embrouter_params"]["model"] == "gpt-3.5-turbo"
 
 
 
@@ -894,11 +894,11 @@ def test_arouter_test_team_model():
     """
     Test that router.test_team_model returns the correct model
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {"model": "gpt-3.5-turbo"},
+                "embrouter_params": {"model": "gpt-3.5-turbo"},
                 "model_info": {
                     "team_id": "test-team",
                     "team_public_model_name": "test-model",
@@ -917,7 +917,7 @@ def test_team_model_has_alternatives():
     ) -> DeploymentTypedDict:
         return {
             "model_name": f"model_name_{team_id}_{deployment_id}",
-            "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-test"},
+            "embrouter_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-test"},
             "model_info": {
                 "id": deployment_id,
                 "team_id": team_id,
@@ -926,7 +926,7 @@ def test_team_model_has_alternatives():
             },
         }
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             team_deployment("team-a-1", "team-a", "shared-model"),
             team_deployment("team-a-2", "team-a", "shared-model"),
@@ -936,7 +936,7 @@ def test_team_model_has_alternatives():
             team_deployment("team-c-paused", "team-c", "paused-sibling-model", blocked=True),
             {
                 "model_name": "plain-model",
-                "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-test"},
+                "embrouter_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-test"},
                 "model_info": {"id": "plain-1"},
             },
         ],
@@ -955,13 +955,13 @@ def test_arouter_ignore_invalid_deployments():
     """
     Test that router.ignore_invalid_deployments is set to True
     """
-    from litellm.types.router import Deployment
+    from embrouter.types.router import Deployment
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {"model": "my-bad-model"},
+                "embrouter_params": {"model": "my-bad-model"},
             },
         ],
         ignore_invalid_deployments=True,
@@ -974,7 +974,7 @@ def test_arouter_ignore_invalid_deployments():
     router.upsert_deployment(
         Deployment(
             model_name="gpt-3.5-turbo",
-            litellm_params={"model": "my-bad-model"},  # type: ignore
+            embrouter_params={"model": "my-bad-model"},  # type: ignore
             model_info={"tpm": 1000, "rpm": 1000},
         )
     )
@@ -987,11 +987,11 @@ async def test_arouter_aretrieve_batch():
     """
     Test that router.aretrieve_batch returns the correct response
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-3.5-turbo",
                     "custom_llm_provider": "azure",
                     "api_key": "my-custom-key",
@@ -1002,7 +1002,7 @@ async def test_arouter_aretrieve_batch():
     )
 
     with patch.object(
-        litellm, "aretrieve_batch", return_value=AsyncMock()
+        embrouter, "aretrieve_batch", return_value=AsyncMock()
     ) as mock_aretrieve_batch:
         try:
             response = await router.aretrieve_batch(
@@ -1086,11 +1086,11 @@ class _BatchPayloadCollector(CustomLogger):
 
 
 def _batch_model_group_router():
-    return litellm.Router(
+    return embrouter.Router(
         model_list=[
             {
                 "model_name": _BATCH_GROUP,
-                "litellm_params": {
+                "embrouter_params": {
                     "model": _BATCH_DEPLOYMENT_MODEL,
                     "api_base": _BATCH_API_BASE,
                     "api_key": "sk-fake",
@@ -1119,7 +1119,7 @@ async def test_arouter_aretrieve_batch_without_model_stamps_model_group(monkeypa
     import respx
 
     collector = _BatchPayloadCollector()
-    monkeypatch.setattr(litellm, "callbacks", [collector])
+    monkeypatch.setattr(embrouter, "callbacks", [collector])
     router = _batch_model_group_router()
 
     with respx.mock(assert_all_called=True) as respx_mock:
@@ -1139,7 +1139,7 @@ async def test_arouter_aretrieve_batch_with_model_stamps_requested_model_group(m
     import respx
 
     collector = _BatchPayloadCollector()
-    monkeypatch.setattr(litellm, "callbacks", [collector])
+    monkeypatch.setattr(embrouter, "callbacks", [collector])
     router = _batch_model_group_router()
 
     with respx.mock(assert_all_called=True) as respx_mock:
@@ -1184,12 +1184,12 @@ async def test_arouter_aretrieve_batch_does_not_consume_deployment_rate_limits(m
     import respx
 
     collector = _BatchPayloadCollector()
-    monkeypatch.setattr(litellm, "callbacks", [collector])
-    router = litellm.Router(
+    monkeypatch.setattr(embrouter, "callbacks", [collector])
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": _BATCH_GROUP,
-                "litellm_params": {
+                "embrouter_params": {
                     "model": _BATCH_DEPLOYMENT_MODEL,
                     "api_base": _BATCH_API_BASE,
                     "api_key": "sk-fake",
@@ -1200,7 +1200,7 @@ async def test_arouter_aretrieve_batch_does_not_consume_deployment_rate_limits(m
             },
             {
                 "model_name": _UNRELATED_BATCH_GROUP,
-                "litellm_params": {
+                "embrouter_params": {
                     "model": _BATCH_DEPLOYMENT_MODEL,
                     "api_base": _UNRELATED_BATCH_API_BASE,
                     "api_key": "sk-fake",
@@ -1237,11 +1237,11 @@ async def test_arouter_aretrieve_batch_does_not_consume_deployment_rate_limits(m
 def test_sync_deployment_callback_on_success_skips_batch_retrieves(
     call_type: str, expected_key: str | None, expected_successes: int
 ):
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": _BATCH_GROUP,
-                "litellm_params": {"model": _BATCH_DEPLOYMENT_MODEL, "api_base": _BATCH_API_BASE, "api_key": "sk-fake"},
+                "embrouter_params": {"model": _BATCH_DEPLOYMENT_MODEL, "api_base": _BATCH_API_BASE, "api_key": "sk-fake"},
                 "model_info": {"id": "batch-dep"},
             }
         ]
@@ -1250,7 +1250,7 @@ def test_sync_deployment_callback_on_success_skips_batch_retrieves(
     key = router.sync_deployment_callback_on_success(
         kwargs={
             "call_type": call_type,
-            "litellm_params": {"metadata": {"model_group": _BATCH_GROUP}, "model_info": {"id": "batch-dep"}},
+            "embrouter_params": {"metadata": {"model_group": _BATCH_GROUP}, "model_info": {"id": "batch-dep"}},
         },
         completion_response=None,
         start_time=datetime.now(),
@@ -1259,7 +1259,7 @@ def test_sync_deployment_callback_on_success_skips_batch_retrieves(
 
     assert key == expected_key
     assert (
-        get_deployment_successes_for_current_minute(litellm_router_instance=router, deployment_id="batch-dep")
+        get_deployment_successes_for_current_minute(embrouter_router_instance=router, deployment_id="batch-dep")
         == expected_successes
     )
 
@@ -1284,12 +1284,12 @@ async def _moved_routing_counters(router, timeout: float = 2.0) -> list[str]:
 
 
 def _batch_fan_out_router(routing_strategy: str):
-    return litellm.Router(
+    return embrouter.Router(
         routing_strategy=routing_strategy,
         model_list=[
             {
                 "model_name": _BATCH_GROUP,
-                "litellm_params": {
+                "embrouter_params": {
                     "model": _BATCH_DEPLOYMENT_MODEL,
                     "api_base": _BATCH_API_BASE,
                     "api_key": "sk-fake",
@@ -1298,7 +1298,7 @@ def _batch_fan_out_router(routing_strategy: str):
             },
             {
                 "model_name": _UNRELATED_BATCH_GROUP,
-                "litellm_params": {
+                "embrouter_params": {
                     "model": _BATCH_DEPLOYMENT_MODEL,
                     "api_base": _UNRELATED_BATCH_API_BASE,
                     "api_key": "sk-fake",
@@ -1332,8 +1332,8 @@ async def test_arouter_aretrieve_batch_does_not_feed_routing_strategies(
     import respx
 
     collector = _BatchPayloadCollector()
-    monkeypatch.setattr(litellm, "callbacks", [collector])
-    monkeypatch.setattr(litellm, "input_callback", [])
+    monkeypatch.setattr(embrouter, "callbacks", [collector])
+    monkeypatch.setattr(embrouter, "input_callback", [])
     router = _batch_fan_out_router(routing_strategy)
 
     with respx.mock(assert_all_called=True) as respx_mock:
@@ -1357,13 +1357,13 @@ async def test_arouter_aretrieve_file_content():
     """
 
     with patch.object(
-        litellm, "afile_content", return_value=AsyncMock()
+        embrouter, "afile_content", return_value=AsyncMock()
     ) as mock_afile_content:
-        router = litellm.Router(
+        router = embrouter.Router(
             model_list=[
                 {
                     "model_name": "gpt-3.5-turbo",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "gpt-3.5-turbo",
                         "custom_llm_provider": "azure",
                         "api_key": "my-custom-key",
@@ -1394,13 +1394,13 @@ async def test_arouter_filter_team_based_models():
     """
     Test that router.filter_team_based_models filters out models that are not in the team
     """
-    from litellm.types.router import Deployment
+    from embrouter.types.router import Deployment
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {"model": "gpt-3.5-turbo"},
+                "embrouter_params": {"model": "gpt-3.5-turbo"},
                 "model_info": {
                     "team_id": "test-team",
                 },
@@ -1432,7 +1432,7 @@ async def test_arouter_filter_team_based_models():
     router.add_deployment(
         Deployment(
             model_name="gpt-3.5-turbo",
-            litellm_params={"model": "gpt-3.5-turbo"},  # type: ignore
+            embrouter_params={"model": "gpt-3.5-turbo"},  # type: ignore
             model_info={"tpm": 1000, "rpm": 1000},
         )
     )
@@ -1456,11 +1456,11 @@ def test_arouter_should_include_deployment():
     2. Returns True if: model_name matches AND deployment has no team_id
     3. Otherwise returns False
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {"model": "gpt-3.5-turbo"},
+                "embrouter_params": {"model": "gpt-3.5-turbo"},
                 "model_info": {
                     "team_id": "test-team",
                 },
@@ -1574,13 +1574,13 @@ def test_arouter_responses_api_bridge():
     """
     from unittest.mock import MagicMock, patch
 
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+    from embrouter.llms.custom_httpx.http_handler import HTTPHandler
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "[IP-approved] o3-pro",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "azure/responses/o_series/webinterface-o3-pro",
                     "api_base": "https://webhook.site/fba79dae-220a-4bb7-9a3a-8caa49604e55",
                     "api_key": "sk-1234567890",
@@ -1596,7 +1596,7 @@ def test_arouter_responses_api_bridge():
     )
 
     ## CONFIRM BRIDGE IS CALLED
-    with patch.object(litellm, "responses", return_value=AsyncMock()) as mock_responses:
+    with patch.object(embrouter, "responses", return_value=AsyncMock()) as mock_responses:
         result = router.completion(
             model="[IP-approved] o3-pro",
             messages=[{"role": "user", "content": "Hello, world!"}],
@@ -1643,18 +1643,18 @@ async def test_router_v1_messages_fallbacks():
     """
     Test that router.v1_messages_fallbacks returns the correct response
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "claude-sonnet-4-5-20250929",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "anthropic/claude-sonnet-4-5-20250929",
-                    "mock_response": "litellm.InternalServerError",
+                    "mock_response": "embrouter.InternalServerError",
                 },
             },
             {
                 "model_name": "bedrock-claude",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "anthropic.claude-haiku-4-5-20251001-v1:0",
                     "mock_response": "Hello, world I am a fallback!",
                 },
@@ -1680,13 +1680,13 @@ def test_add_invalid_provider_to_router():
     """
     Test that router.add_deployment raises an error if the provider is invalid
     """
-    from litellm.types.router import Deployment
+    from embrouter.types.router import Deployment
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {"model": "gpt-3.5-turbo"},
+                "embrouter_params": {"model": "gpt-3.5-turbo"},
             }
         ],
     )
@@ -1695,7 +1695,7 @@ def test_add_invalid_provider_to_router():
         router.add_deployment(
             Deployment(
                 model_name="vertex_ai/*",
-                litellm_params={
+                embrouter_params={
                     "model": "vertex_ai/*",
                     "custom_llm_provider": "vertex_ai_eu",
                 },
@@ -1707,31 +1707,31 @@ def test_add_invalid_provider_to_router():
 
 @pytest.fixture
 def registered_custom_provider(monkeypatch: pytest.MonkeyPatch) -> str:
-    from litellm import CustomLLM
-    from litellm.types.utils import ModelResponse
+    from embrouter import CustomLLM
+    from embrouter.types.utils import ModelResponse
 
     class OnPremLLM(CustomLLM):
         def completion(self, *args, **kwargs) -> ModelResponse:
-            return litellm.completion(
+            return embrouter.completion(
                 model="gpt-5.6", messages=[{"role": "user", "content": "hi"}], mock_response="served by onprem handler"
             )
 
-    monkeypatch.setattr(litellm, "custom_provider_map", [{"provider": "test-onprem-llm", "custom_handler": OnPremLLM()}])
-    monkeypatch.setattr(litellm, "provider_list", list(litellm.provider_list))
-    monkeypatch.setattr(litellm, "_custom_providers", list(litellm._custom_providers))
+    monkeypatch.setattr(embrouter, "custom_provider_map", [{"provider": "test-onprem-llm", "custom_handler": OnPremLLM()}])
+    monkeypatch.setattr(embrouter, "provider_list", list(embrouter.provider_list))
+    monkeypatch.setattr(embrouter, "_custom_providers", list(embrouter._custom_providers))
     return "test-onprem-llm"
 
 
 def test_router_init_accepts_custom_provider_map_prefix_before_first_completion(registered_custom_provider: str):
-    assert registered_custom_provider not in litellm.provider_list
+    assert registered_custom_provider not in embrouter.provider_list
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
-            {"model_name": "onprem", "litellm_params": {"model": f"{registered_custom_provider}/my-model"}},
+            {"model_name": "onprem", "embrouter_params": {"model": f"{registered_custom_provider}/my-model"}},
         ],
     )
 
-    assert router.get_model_list(model_name="onprem")[0]["litellm_params"]["model"] == (
+    assert router.get_model_list(model_name="onprem")[0]["embrouter_params"]["model"] == (
         f"{registered_custom_provider}/my-model"
     )
     response = router.completion(model="onprem", messages=[{"role": "user", "content": "hi"}])
@@ -1741,18 +1741,18 @@ def test_router_init_accepts_custom_provider_map_prefix_before_first_completion(
 def test_router_add_deployment_accepts_explicit_custom_provider_from_custom_provider_map(
     registered_custom_provider: str,
 ):
-    from litellm.types.router import Deployment
+    from embrouter.types.router import Deployment
 
-    router = litellm.Router(model_list=[])
+    router = embrouter.Router(model_list=[])
 
     router.add_deployment(
         Deployment(
             model_name="onprem",
-            litellm_params={"model": "my-model", "custom_llm_provider": registered_custom_provider},
+            embrouter_params={"model": "my-model", "custom_llm_provider": registered_custom_provider},
         )
     )
 
-    assert router.get_model_list(model_name="onprem")[0]["litellm_params"]["model"] == "my-model"
+    assert router.get_model_list(model_name="onprem")[0]["embrouter_params"]["model"] == "my-model"
 
 
 @pytest.mark.asyncio
@@ -1762,11 +1762,11 @@ async def test_router_ageneric_api_call_with_fallbacks_helper():
     """
     from unittest.mock import patch
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-3.5-turbo",
                     "api_key": "test-key",
                     "api_base": "https://api.openai.com/v1",
@@ -1786,7 +1786,7 @@ async def test_router_ageneric_api_call_with_fallbacks_helper():
     with patch.object(router, "async_get_available_deployment") as mock_get_deployment:
         mock_get_deployment.return_value = {
             "model_name": "gpt-3.5-turbo",
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "gpt-3.5-turbo",
                 "api_key": "test-key",
                 "api_base": "https://api.openai.com/v1",
@@ -1855,7 +1855,7 @@ async def test_router_ageneric_api_call_with_fallbacks_helper():
     with patch.object(router, "async_get_available_deployment") as mock_get_deployment:
         mock_get_deployment.return_value = {
             "model_name": "gpt-3.5-turbo",
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "gpt-3.5-turbo",
                 "api_key": "test-key",
                 "api_base": "https://api.openai.com/v1",
@@ -1896,7 +1896,7 @@ async def test_router_ageneric_api_call_with_fallbacks_helper():
     with patch.object(router, "async_get_available_deployment") as mock_get_deployment:
         mock_get_deployment.return_value = {
             "model_name": "gpt-3.5-turbo",
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "gpt-3.5-turbo",
                 "api_key": "test-key",
                 "api_base": "https://api.openai.com/v1",
@@ -1928,7 +1928,7 @@ async def test_router_ageneric_api_call_with_fallbacks_helper():
 async def test_ageneric_api_call_deployment_model_overrides_alias():
     """
     Regression: when a model alias (e.g. "not-gemini-2.5-flash") maps to a deployment
-    with model="vertex_ai/gemini-2.5-flash", the underlying litellm function must receive
+    with model="vertex_ai/gemini-2.5-flash", the underlying embrouter function must receive
     the deployment model, not the alias. Before the fix, **kwargs overwrote data["model"].
     """
     from unittest.mock import patch
@@ -1939,11 +1939,11 @@ async def test_ageneric_api_call_deployment_model_overrides_alias():
         captured["model"] = kwargs.get("model")
         return {"result": "ok"}
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "not-gemini-2.5-flash",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "vertex_ai/gemini-2.5-flash",
                     "api_key": "fake-key",
                 },
@@ -1969,7 +1969,7 @@ async def test_ageneric_api_call_deployment_model_overrides_alias():
     ):
         mock_dep.return_value = {
             "model_name": "not-gemini-2.5-flash",
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "vertex_ai/gemini-2.5-flash",
                 "api_key": "fake-key",
             },
@@ -1989,16 +1989,16 @@ async def test_ageneric_api_call_deployment_model_overrides_alias():
 async def test_ageneric_api_call_resolves_realtime_session_model():
     """
     Regression for #36742: realtime client secret requests carry the model inside `session` too, and the proxy
-    fills it with the pre-routing model group name. The underlying litellm function reads session.model first,
+    fills it with the pre-routing model group name. The underlying embrouter function reads session.model first,
     so it must see the resolved deployment, while a caller's nested transcription model stays untouched.
     """
     routed: Final = AsyncMock(return_value={"result": "ok"})
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "my-realtime-group",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-realtime-2.1-mini",
                     "api_key": "fake-key",
                 },
@@ -2031,11 +2031,11 @@ async def test_ageneric_api_call_does_not_add_session_model():
     """
     routed: Final = AsyncMock(return_value={"result": "ok"})
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "my-realtime-group",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-realtime-2.1-mini",
                     "api_key": "fake-key",
                 },
@@ -2065,7 +2065,7 @@ async def test_ageneric_api_call_does_not_add_session_model():
     ],
 )
 def test_with_router_resolved_session_model(session, expected):
-    from litellm.router import _with_router_resolved_session_model
+    from embrouter.router import _with_router_resolved_session_model
 
     assert dict(_with_router_resolved_session_model(session, "resolved")) == expected
 
@@ -2074,11 +2074,11 @@ def test_router_get_model_access_groups_team_only_models():
     """
     Test that Router.get_model_access_groups returns the correct response for team-only models
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "my-custom-model-name",
-                "litellm_params": {"model": "gpt-3.5-turbo"},
+                "embrouter_params": {"model": "gpt-3.5-turbo"},
                 "model_info": {
                     "team_id": "team_1",
                     "access_groups": ["default-models"],
@@ -2104,13 +2104,13 @@ def test_cached_get_model_group_info():
     Test that _cached_get_model_group_info caches results and
     invalidates on deployment changes.
     """
-    from litellm.types.router import Deployment, LiteLLM_Params
+    from embrouter.types.router import Deployment, EmbRouter_Params
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {"model": "gpt-4", "api_key": "fake"},
+                "embrouter_params": {"model": "gpt-4", "api_key": "fake"},
                 "model_info": {"tpm": 1000, "rpm": 100},
             },
         ]
@@ -2129,7 +2129,7 @@ def test_cached_get_model_group_info():
     router.add_deployment(
         Deployment(
             model_name="gpt-4",
-            litellm_params=LiteLLM_Params(model="gpt-4", api_key="fake2"),
+            embrouter_params=EmbRouter_Params(model="gpt-4", api_key="fake2"),
             model_info={"tpm": 2000, "rpm": 200},
         )
     )
@@ -2151,7 +2151,7 @@ def test_cached_get_model_group_info():
         [
             {
                 "model_name": "gpt-4",
-                "litellm_params": {"model": "gpt-4", "api_key": "fake"},
+                "embrouter_params": {"model": "gpt-4", "api_key": "fake"},
                 "model_info": {"tpm": 5000},
             },
         ]
@@ -2173,11 +2173,11 @@ def test_model_group_info_cost_from_db_model_info():
     """
     from unittest.mock import patch
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "my-custom-model",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/my-custom-model",
                     "api_key": "fake",
                     "api_base": "https://my-custom-endpoint.com",
@@ -2206,11 +2206,11 @@ def test_model_group_info_cost_none_when_db_model_info_has_no_cost():
     """
     from unittest.mock import patch
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "my-custom-model-no-cost",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/my-custom-model-no-cost",
                     "api_key": "fake",
                     "api_base": "https://my-custom-endpoint.com",
@@ -2233,11 +2233,11 @@ def test_model_group_info_cost_none_for_unpriced_deployment_but_zero_when_declar
     """A deployment with no cost fields anywhere must report None, not the 0 that
     get_model_info defaults to, so the reported price matches what the zero-cost
     budget bypass accepts. A deployment declaring 0 keeps reporting 0."""
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "vllm-unpriced",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/my-vllm-unpriced",
                     "api_key": "fake",
                     "api_base": "http://localhost:8000/v1",
@@ -2245,7 +2245,7 @@ def test_model_group_info_cost_none_for_unpriced_deployment_but_zero_when_declar
             },
             {
                 "model_name": "vllm-free",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/my-vllm-free",
                     "api_key": "fake",
                     "api_base": "http://localhost:8000/v1",
@@ -2255,7 +2255,7 @@ def test_model_group_info_cost_none_for_unpriced_deployment_but_zero_when_declar
             },
             {
                 "model_name": "gpt-priced",
-                "litellm_params": {"model": "gpt-4o", "api_key": "fake"},
+                "embrouter_params": {"model": "gpt-4o", "api_key": "fake"},
             },
         ]
     )
@@ -2288,7 +2288,7 @@ def test_model_group_info_cost_none_for_unpriced_deployment_but_zero_when_declar
     ],
 )
 def test_cost_value_as_float(value, expected):
-    from litellm.router import _cost_value_as_float
+    from embrouter.router import _cost_value_as_float
 
     assert _cost_value_as_float(value) == expected
 
@@ -2300,11 +2300,11 @@ def test_model_group_info_with_stringified_cost_values():
     group must not raise TypeError('>' between str and float) and must return
     float costs.
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "my-custom-model",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/my-custom-backend-1",
                     "api_key": "fake",
                 },
@@ -2315,7 +2315,7 @@ def test_model_group_info_with_stringified_cost_values():
             },
             {
                 "model_name": "my-custom-model",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/my-custom-backend-2",
                     "api_key": "fake",
                 },
@@ -2334,7 +2334,7 @@ def test_model_group_info_with_stringified_cost_values():
                     "key": model_name,
                     "input_cost_per_token": model["model_info"]["input_cost_per_token"],
                     "output_cost_per_token": model["model_info"]["output_cost_per_token"],
-                    "litellm_provider": "openai",
+                    "embrouter_provider": "openai",
                     "mode": "chat",
                 }
         return None
@@ -2360,11 +2360,11 @@ def test_model_group_info_db_fallback_with_stringified_cost_values():
     read straight from the deployment's model_info dict, which can hold
     stringified floats parsed from YAML. They must be coerced to float.
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "my-custom-model",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/my-custom-backend-1",
                     "api_key": "fake",
                 },
@@ -2375,7 +2375,7 @@ def test_model_group_info_db_fallback_with_stringified_cost_values():
             },
             {
                 "model_name": "my-custom-model",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/my-custom-backend-2",
                     "api_key": "fake",
                 },
@@ -2407,13 +2407,13 @@ def test_get_model_access_groups_caching():
     Test that get_model_access_groups caches the no-args result
     and invalidates on deployment changes.
     """
-    from litellm.types.router import Deployment, LiteLLM_Params
+    from embrouter.types.router import Deployment, EmbRouter_Params
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {"model": "gpt-4"},
+                "embrouter_params": {"model": "gpt-4"},
                 "model_info": {"access_groups": ["premium"]},
             },
         ]
@@ -2435,7 +2435,7 @@ def test_get_model_access_groups_caching():
     router.add_deployment(
         Deployment(
             model_name="gpt-3.5",
-            litellm_params=LiteLLM_Params(model="gpt-3.5-turbo"),
+            embrouter_params=EmbRouter_Params(model="gpt-3.5-turbo"),
             model_info={"access_groups": ["default"]},
         )
     )
@@ -2462,11 +2462,11 @@ def test_get_model_access_groups_cache_invalidation_set_model_list():
     """
     Test that set_model_list invalidates the access groups cache.
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {"model": "gpt-4"},
+                "embrouter_params": {"model": "gpt-4"},
                 "model_info": {"access_groups": ["premium"]},
             },
         ]
@@ -2481,7 +2481,7 @@ def test_get_model_access_groups_cache_invalidation_set_model_list():
         [
             {
                 "model_name": "claude-3",
-                "litellm_params": {"model": "anthropic/claude-3-opus-20240229"},
+                "embrouter_params": {"model": "anthropic/claude-3-opus-20240229"},
                 "model_info": {"access_groups": ["research"]},
             },
         ]
@@ -2496,13 +2496,13 @@ def test_get_model_access_groups_cache_invalidation_upsert_deployment():
     """
     Test that upsert_deployment invalidates the access groups cache.
     """
-    from litellm.types.router import Deployment, LiteLLM_Params
+    from embrouter.types.router import Deployment, EmbRouter_Params
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {"model": "gpt-4"},
+                "embrouter_params": {"model": "gpt-4"},
                 "model_info": {"access_groups": ["premium"]},
             },
         ]
@@ -2519,7 +2519,7 @@ def test_get_model_access_groups_cache_invalidation_upsert_deployment():
     router.upsert_deployment(
         Deployment(
             model_name="gpt-4-updated",
-            litellm_params=LiteLLM_Params(model="gpt-4-turbo"),
+            embrouter_params=EmbRouter_Params(model="gpt-4-turbo"),
             model_info={"id": existing_id, "access_groups": ["updated-group"]},
         )
     )
@@ -2533,7 +2533,7 @@ async def test_acompletion_streaming_iterator():
     """Test _acompletion_streaming_iterator for normal streaming and fallback behavior."""
     from unittest.mock import MagicMock
 
-    from litellm.exceptions import MidStreamFallbackError
+    from embrouter.exceptions import MidStreamFallbackError
 
     # Helper class for creating async iterators
     class AsyncIterator:
@@ -2555,15 +2555,15 @@ async def test_acompletion_streaming_iterator():
             return item
 
     # Set up router with fallback configuration
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {"model": "gpt-4", "api_key": "fake-key-1"},
+                "embrouter_params": {"model": "gpt-4", "api_key": "fake-key-1"},
             },
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {"model": "gpt-3.5-turbo", "api_key": "fake-key-2"},
+                "embrouter_params": {"model": "gpt-3.5-turbo", "api_key": "fake-key-2"},
             },
         ],
         fallbacks=[{"gpt-4": ["gpt-3.5-turbo"]}],
@@ -2671,13 +2671,13 @@ async def test_acompletion_streaming_iterator_reraises_original_exception_when_a
     MidStreamFallbackError."""
     from unittest.mock import MagicMock
 
-    from litellm.exceptions import MidStreamFallbackError, RateLimitError
+    from embrouter.exceptions import MidStreamFallbackError, RateLimitError
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {"model": "gpt-4", "api_key": "fake-key"},
+                "embrouter_params": {"model": "gpt-4", "api_key": "fake-key"},
             }
         ],
         set_verbose=True,
@@ -2746,13 +2746,13 @@ async def test_acompletion_streaming_iterator_edge_cases():
     """Test edge cases for _acompletion_streaming_iterator."""
     from unittest.mock import MagicMock
 
-    from litellm.exceptions import MidStreamFallbackError
+    from embrouter.exceptions import MidStreamFallbackError
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {"model": "gpt-4", "api_key": "fake-key"},
+                "embrouter_params": {"model": "gpt-4", "api_key": "fake-key"},
             }
         ],
         set_verbose=True,
@@ -2826,30 +2826,30 @@ async def test_acompletion_streaming_iterator_edge_cases():
 async def test_acompletion_streaming_iterator_preserves_hidden_params():
     """
     Regression test: FallbackStreamWrapper must copy _hidden_params from the
-    original CustomStreamWrapper so that x-litellm-overhead-duration-ms (and
+    original CustomStreamWrapper so that x-embrouter-overhead-duration-ms (and
     other hidden params) are present in the proxy response headers for streaming.
     """
     from unittest.mock import MagicMock
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {"model": "gpt-4", "api_key": "fake-key"},
+                "embrouter_params": {"model": "gpt-4", "api_key": "fake-key"},
             }
         ],
     )
 
     # Simulate a CustomStreamWrapper that already has timing metadata set by
-    # update_response_metadata (litellm_overhead_time_ms, _response_ms, etc.)
+    # update_response_metadata (embrouter_overhead_time_ms, _response_ms, etc.)
     mock_response = MagicMock()
     mock_response.model = "gpt-4"
     mock_response.custom_llm_provider = "openai"
     mock_response.logging_obj = MagicMock()
     mock_response._hidden_params = {
-        "litellm_overhead_time_ms": 12.34,
+        "embrouter_overhead_time_ms": 12.34,
         "_response_ms": 500.0,
-        "litellm_call_id": "test-call-id",
+        "embrouter_call_id": "test-call-id",
         "api_base": "https://api.openai.com",
         "additional_headers": {},
     }
@@ -2869,11 +2869,11 @@ async def test_acompletion_streaming_iterator_preserves_hidden_params():
 
     # The returned FallbackStreamWrapper must carry the original _hidden_params
     assert hasattr(result, "_hidden_params"), "result must have _hidden_params"
-    assert result._hidden_params.get("litellm_overhead_time_ms") == 12.34, (
-        "litellm_overhead_time_ms must be preserved — "
-        "this is what drives x-litellm-overhead-duration-ms in streaming responses"
+    assert result._hidden_params.get("embrouter_overhead_time_ms") == 12.34, (
+        "embrouter_overhead_time_ms must be preserved — "
+        "this is what drives x-embrouter-overhead-duration-ms in streaming responses"
     )
-    assert result._hidden_params.get("litellm_call_id") == "test-call-id"
+    assert result._hidden_params.get("embrouter_call_id") == "test-call-id"
     assert result._hidden_params.get("_response_ms") == 500.0
 
 
@@ -2888,13 +2888,13 @@ async def test_acompletion_streaming_iterator_preserves_response_headers():
     """
     from unittest.mock import MagicMock
 
-    from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
+    from embrouter.embrouter_core_utils.streaming_handler import CustomStreamWrapper
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {"model": "gpt-4", "api_key": "fake-key"},
+                "embrouter_params": {"model": "gpt-4", "api_key": "fake-key"},
             }
         ],
     )
@@ -2907,7 +2907,7 @@ async def test_acompletion_streaming_iterator_preserves_response_headers():
         "x-request-id": "req-provider-123",
         "x-ratelimit-remaining-requests": "42",
         # a provider must never be able to spoof an internal header
-        "x-litellm-model-id": "spoofed",
+        "x-embrouter-model-id": "spoofed",
     }
     source = CustomStreamWrapper(
         completion_stream=_empty(),
@@ -2928,21 +2928,21 @@ async def test_acompletion_streaming_iterator_preserves_response_headers():
     assert additional_headers["llm_provider-x-request-id"] == "req-provider-123"
     assert additional_headers["llm_provider-x-ratelimit-remaining-requests"] == "42"
     # internal-header protection survives: the provider value is namespaced, never promoted
-    assert additional_headers["llm_provider-x-litellm-model-id"] == "spoofed"
-    assert "x-litellm-model-id" not in additional_headers
+    assert additional_headers["llm_provider-x-embrouter-model-id"] == "spoofed"
+    assert "x-embrouter-model-id" not in additional_headers
 
 
 def test_completion_streaming_iterator_preserves_response_headers():
     """LIT-6767, sync counterpart of the async header-preservation test."""
     from unittest.mock import MagicMock
 
-    from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
+    from embrouter.embrouter_core_utils.streaming_handler import CustomStreamWrapper
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {"model": "gpt-4", "api_key": "fake-key"},
+                "embrouter_params": {"model": "gpt-4", "api_key": "fake-key"},
             }
         ],
     )
@@ -2974,7 +2974,7 @@ def test_adopt_fallback_response_headers_replaces_rather_than_merges():
     """
     from unittest.mock import MagicMock
 
-    from litellm.router import FallbackAwareStreamWrapper, Router
+    from embrouter.router import FallbackAwareStreamWrapper, Router
 
     wrapper = FallbackAwareStreamWrapper(
         completion_stream=iter([]),
@@ -3019,7 +3019,7 @@ def test_adopt_fallback_response_headers_survives_a_collected_wrapper():
     import weakref
     from unittest.mock import MagicMock
 
-    from litellm.router import FallbackAwareStreamWrapper, Router
+    from embrouter.router import FallbackAwareStreamWrapper, Router
 
     fallback: Final = MagicMock()
     fallback._response_headers = {"x-request-id": "req-FALLBACK"}
@@ -3055,7 +3055,7 @@ def test_adopt_fallback_response_headers_drops_headers_the_fallback_cannot_repla
     """
     from unittest.mock import MagicMock
 
-    from litellm.router import FallbackAwareStreamWrapper, Router
+    from embrouter.router import FallbackAwareStreamWrapper, Router
 
     wrapper = FallbackAwareStreamWrapper(
         completion_stream=iter([]),
@@ -3082,12 +3082,12 @@ def test_adopt_fallback_response_headers_drops_headers_the_fallback_cannot_repla
 def test_adopt_fallback_response_headers_keeps_identity_when_fallback_has_none():
     """A fallback response carrying no hidden params keeps the identity headers.
 
-    Publishing no ``x-litellm-*`` header at all for a request the fallback served is
+    Publishing no ``x-embrouter-*`` header at all for a request the fallback served is
     worse than keeping what is there, so only the raw provider headers are dropped.
     """
     from unittest.mock import MagicMock
 
-    from litellm.router import FallbackAwareStreamWrapper, Router
+    from embrouter.router import FallbackAwareStreamWrapper, Router
 
     wrapper = FallbackAwareStreamWrapper(
         completion_stream=iter([]),
@@ -3135,7 +3135,7 @@ async def test_set_response_headers_exposes_complexity_decision_on_every_respons
                     "tier": "SIMPLE",
                     "cause": "heuristic_scorer",
                     "score": 0.25,
-                    "tier_litellm_params": {"reasoning_effort": "low"},
+                    "tier_embrouter_params": {"reasoning_effort": "low"},
                 }
             }
         },
@@ -3144,18 +3144,18 @@ async def test_set_response_headers_exposes_complexity_decision_on_every_respons
     additional_headers = hidden_params["additional_headers"]
 
     assert additional_headers == {
-        "x-litellm-model-group": None,
-        "x-litellm-complexity-router-tier": "SIMPLE",
-        "x-litellm-complexity-router-cause": "heuristic_scorer",
-        "x-litellm-complexity-router-score": "0.25",
-        "x-litellm-complexity-router-reasoning-effort": "low",
+        "x-embrouter-model-group": None,
+        "x-embrouter-complexity-router-tier": "SIMPLE",
+        "x-embrouter-complexity-router-cause": "heuristic_scorer",
+        "x-embrouter-complexity-router-score": "0.25",
+        "x-embrouter-complexity-router-reasoning-effort": "low",
     }
 
 
 @pytest.mark.asyncio
 async def test_set_response_headers_is_the_only_complexity_header_source_for_proxy_headers() -> None:
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
 
     router = Router(model_list=[])
     response = await router.set_response_headers(response={}, request_kwargs={})
@@ -3168,7 +3168,7 @@ async def test_set_response_headers_is_the_only_complexity_header_source_for_pro
                     "router_type": "complexity",
                     "tier": "REASONING",
                     "cause": "heuristic_scorer",
-                    "tier_litellm_params": {"reasoning_effort": "xhigh"},
+                    "tier_embrouter_params": {"reasoning_effort": "xhigh"},
                 }
             }
         },
@@ -3176,7 +3176,7 @@ async def test_set_response_headers_is_the_only_complexity_header_source_for_pro
     )
 
     assert not {
-        key for key in proxy_headers if key.startswith("x-litellm-complexity-router-")
+        key for key in proxy_headers if key.startswith("x-embrouter-complexity-router-")
     }
 
 
@@ -3187,13 +3187,13 @@ async def test_acompletion_streaming_iterator_adopts_fallback_response_headers()
     from the attempt that failed."""
     from unittest.mock import MagicMock, patch
 
-    from litellm.exceptions import MidStreamFallbackError
+    from embrouter.exceptions import MidStreamFallbackError
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {"model": "gpt-4", "api_key": "fake-key"},
+                "embrouter_params": {"model": "gpt-4", "api_key": "fake-key"},
             }
         ],
     )
@@ -3234,7 +3234,7 @@ async def test_acompletion_streaming_iterator_adopts_fallback_response_headers()
                 "api_base": "https://fallback.example",
                 "additional_headers": {"llm_provider-x-request-id": "req-FALLBACK"},
             }
-            self._chunks = iter([litellm.ModelResponseStream(choices=[{"index": 0, "delta": {"content": "OK"}}])])
+            self._chunks = iter([embrouter.ModelResponseStream(choices=[{"index": 0, "delta": {"content": "OK"}}])])
 
         def __aiter__(self):
             return self
@@ -3287,13 +3287,13 @@ async def test_acompletion_streaming_iterator_adopts_the_deployment_that_served_
     """
     from unittest.mock import MagicMock, patch
 
-    from litellm.exceptions import MidStreamFallbackError
+    from embrouter.exceptions import MidStreamFallbackError
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {"model": "gpt-4", "api_key": "fake-key"},
+                "embrouter_params": {"model": "gpt-4", "api_key": "fake-key"},
             }
         ],
     )
@@ -3333,7 +3333,7 @@ async def test_acompletion_streaming_iterator_adopts_the_deployment_that_served_
                 "model_id": "middle-deployment",
                 "additional_headers": {"llm_provider-x-request-id": "req-MIDDLE"},
             }
-            self._chunks = iter([litellm.ModelResponseStream(choices=[{"index": 0, "delta": {"content": "OK"}}])])
+            self._chunks = iter([embrouter.ModelResponseStream(choices=[{"index": 0, "delta": {"content": "OK"}}])])
 
         def __aiter__(self):
             return self
@@ -3378,13 +3378,13 @@ def test_completion_streaming_iterator_adopts_the_deployment_that_served_a_neste
     """LIT-6767, sync counterpart of the nested-fallback adoption test."""
     from unittest.mock import MagicMock, patch
 
-    from litellm.exceptions import MidStreamFallbackError
+    from embrouter.exceptions import MidStreamFallbackError
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {"model": "gpt-4", "api_key": "fake-key"},
+                "embrouter_params": {"model": "gpt-4", "api_key": "fake-key"},
             }
         ],
     )
@@ -3424,7 +3424,7 @@ def test_completion_streaming_iterator_adopts_the_deployment_that_served_a_neste
                 "model_id": "middle-deployment",
                 "additional_headers": {"llm_provider-x-request-id": "req-MIDDLE"},
             }
-            self._chunks = iter([litellm.ModelResponseStream(choices=[{"index": 0, "delta": {"content": "OK"}}])])
+            self._chunks = iter([embrouter.ModelResponseStream(choices=[{"index": 0, "delta": {"content": "OK"}}])])
 
         def __iter__(self):
             return self
@@ -3465,8 +3465,8 @@ async def test_acompletion_mid_stream_fallback_walks_every_entry_of_the_configur
     """
     from unittest.mock import MagicMock, patch
 
-    from litellm.exceptions import MidStreamFallbackError
-    from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
+    from embrouter.exceptions import MidStreamFallbackError
+    from embrouter.embrouter_core_utils.streaming_handler import CustomStreamWrapper
 
     class FailingStream(CustomStreamWrapper):
         def __init__(self, model: str):
@@ -3484,7 +3484,7 @@ async def test_acompletion_mid_stream_fallback_walks_every_entry_of_the_configur
                 llm_provider="openai",
                 generated_content="",
                 is_pre_first_chunk=True,
-                original_exception=litellm.InternalServerError(
+                original_exception=embrouter.InternalServerError(
                     message=f"provider 500 from {self.model}", model=self.model, llm_provider="openai"
                 ),
             )
@@ -3493,7 +3493,7 @@ async def test_acompletion_mid_stream_fallback_walks_every_entry_of_the_configur
         def __init__(self, model: str):
             super().__init__(model)
             self._chunks = iter(
-                [litellm.ModelResponseStream(choices=[{"index": 0, "delta": {"content": f"ok-from-{model}"}}])]
+                [embrouter.ModelResponseStream(choices=[{"index": 0, "delta": {"content": f"ok-from-{model}"}}])]
             )
 
         async def __anext__(self):
@@ -3507,17 +3507,17 @@ async def test_acompletion_mid_stream_fallback_walks_every_entry_of_the_configur
             return OkStream(kwargs["model"])
         return FailingStream(kwargs["model"])
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
-            {"model_name": "primary", "litellm_params": {"model": "openai/primary-model", "api_key": "fake-key"}},
-            {"model_name": "fb1", "litellm_params": {"model": "openai/fb1-model", "api_key": "fake-key"}},
-            {"model_name": "fb2", "litellm_params": {"model": "openai/fb2-model", "api_key": "fake-key"}},
+            {"model_name": "primary", "embrouter_params": {"model": "openai/primary-model", "api_key": "fake-key"}},
+            {"model_name": "fb1", "embrouter_params": {"model": "openai/fb1-model", "api_key": "fake-key"}},
+            {"model_name": "fb2", "embrouter_params": {"model": "openai/fb2-model", "api_key": "fake-key"}},
         ],
         fallbacks=[{"primary": ["fb1", "fb2"]}],
         num_retries=0,
     )
 
-    with patch("litellm.acompletion", side_effect=fake_acompletion) as mock_acompletion:
+    with patch("embrouter.acompletion", side_effect=fake_acompletion) as mock_acompletion:
         response = await router.acompletion(model="primary", messages=[{"role": "user", "content": "hi"}], stream=True)
         content: Final = "".join(
             [chunk.choices[0].delta.content or "" async for chunk in response if chunk is not None]
@@ -3533,13 +3533,13 @@ async def test_acompletion_mid_stream_fallback_walks_every_entry_of_the_configur
 
 def test_refusal_on_the_last_fallback_hop_is_returned_instead_of_raised():
     """LIT-7400 follow-up: a refusal on the final hop of an exhausted list passes through."""
-    from litellm.router_utils.fallback_event_handlers import AttemptedFallbackTargets
+    from embrouter.router_utils.fallback_event_handlers import AttemptedFallbackTargets
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
-            {"model_name": "primary", "litellm_params": {"model": "openai/primary-model", "api_key": "fake-key"}},
-            {"model_name": "fb1", "litellm_params": {"model": "openai/fb1-model", "api_key": "fake-key"}},
-            {"model_name": "fb2", "litellm_params": {"model": "openai/fb2-model", "api_key": "fake-key"}},
+            {"model_name": "primary", "embrouter_params": {"model": "openai/primary-model", "api_key": "fake-key"}},
+            {"model_name": "fb1", "embrouter_params": {"model": "openai/fb1-model", "api_key": "fake-key"}},
+            {"model_name": "fb2", "embrouter_params": {"model": "openai/fb2-model", "api_key": "fake-key"}},
         ],
         fallbacks=[{"primary": ["fb1", "fb2"]}],
         num_retries=0,
@@ -3567,13 +3567,13 @@ def test_completion_streaming_iterator_adopts_fallback_response_headers():
     """LIT-6767, sync counterpart of the fallback-adoption test."""
     from unittest.mock import MagicMock, patch
 
-    from litellm.exceptions import MidStreamFallbackError
+    from embrouter.exceptions import MidStreamFallbackError
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {"model": "gpt-4", "api_key": "fake-key"},
+                "embrouter_params": {"model": "gpt-4", "api_key": "fake-key"},
             }
         ],
     )
@@ -3640,13 +3640,13 @@ def test_completion_streaming_iterator_fallback_on_429():
     """
     from unittest.mock import MagicMock
 
-    from litellm.exceptions import MidStreamFallbackError
+    from embrouter.exceptions import MidStreamFallbackError
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {"model": "gpt-4", "api_key": "fake-key"},
+                "embrouter_params": {"model": "gpt-4", "api_key": "fake-key"},
             }
         ],
     )
@@ -3706,11 +3706,11 @@ def test_completion_streaming_iterator_preserves_hidden_params():
     """SyncFallbackStreamWrapper must copy _hidden_params from original response."""
     from unittest.mock import MagicMock
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {"model": "gpt-4", "api_key": "fake-key"},
+                "embrouter_params": {"model": "gpt-4", "api_key": "fake-key"},
             }
         ],
     )
@@ -3720,8 +3720,8 @@ def test_completion_streaming_iterator_preserves_hidden_params():
     mock_response.custom_llm_provider = "openai"
     mock_response.logging_obj = MagicMock()
     mock_response._hidden_params = {
-        "litellm_overhead_time_ms": 42.0,
-        "litellm_call_id": "test-sync-call",
+        "embrouter_overhead_time_ms": 42.0,
+        "embrouter_call_id": "test-sync-call",
     }
     mock_response.__iter__ = MagicMock(return_value=iter([]))
 
@@ -3732,8 +3732,8 @@ def test_completion_streaming_iterator_preserves_hidden_params():
     )
 
     assert hasattr(result, "_hidden_params")
-    assert result._hidden_params.get("litellm_overhead_time_ms") == 42.0
-    assert result._hidden_params.get("litellm_call_id") == "test-sync-call"
+    assert result._hidden_params.get("embrouter_overhead_time_ms") == 42.0
+    assert result._hidden_params.get("embrouter_call_id") == "test-sync-call"
 
 
 def test_completion_streaming_iterator_reraises_mid_chunk_error():
@@ -3742,13 +3742,13 @@ def test_completion_streaming_iterator_reraises_mid_chunk_error():
     has already been sent to the client."""
     from unittest.mock import MagicMock
 
-    from litellm.exceptions import MidStreamFallbackError
+    from embrouter.exceptions import MidStreamFallbackError
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {"model": "gpt-4", "api_key": "fake-key"},
+                "embrouter_params": {"model": "gpt-4", "api_key": "fake-key"},
             }
         ],
     )
@@ -3797,13 +3797,13 @@ def test_completion_streaming_iterator_reraises_original_exception_when_availabl
     MidStreamFallbackError."""
     from unittest.mock import MagicMock
 
-    from litellm.exceptions import MidStreamFallbackError, RateLimitError
+    from embrouter.exceptions import MidStreamFallbackError, RateLimitError
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {"model": "gpt-4", "api_key": "fake-key"},
+                "embrouter_params": {"model": "gpt-4", "api_key": "fake-key"},
             }
         ],
     )
@@ -3860,14 +3860,14 @@ def test_completion_streaming_iterator_reraises_mid_chunk_error_with_no_text_con
     the client receives duplicated/inconsistent output."""
     from unittest.mock import MagicMock
 
-    from litellm.exceptions import MidStreamFallbackError
-    from litellm.types.utils import Delta, StreamingChoices
+    from embrouter.exceptions import MidStreamFallbackError
+    from embrouter.types.utils import Delta, StreamingChoices
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {"model": "gpt-4", "api_key": "fake-key"},
+                "embrouter_params": {"model": "gpt-4", "api_key": "fake-key"},
             }
         ],
     )
@@ -3883,7 +3883,7 @@ def test_completion_streaming_iterator_reraises_mid_chunk_error_with_no_text_con
         is_pre_first_chunk=False,
     )
 
-    reasoning_chunk = litellm.ModelResponseStream(
+    reasoning_chunk = embrouter.ModelResponseStream(
         id="chatcmpl-partial-1",
         model="gpt-4",
         object="chat.completion.chunk",
@@ -3931,13 +3931,13 @@ async def test_acompletion_streaming_iterator_pre_first_chunk_skips_continuation
     """When MidStreamFallbackError has is_pre_first_chunk=True, use original messages."""
     from unittest.mock import MagicMock
 
-    from litellm.exceptions import MidStreamFallbackError
+    from embrouter.exceptions import MidStreamFallbackError
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {"model": "gpt-4", "api_key": "fake-key"},
+                "embrouter_params": {"model": "gpt-4", "api_key": "fake-key"},
             }
         ],
     )
@@ -4002,14 +4002,14 @@ async def test_acompletion_streaming_iterator_reraises_mid_chunk_error_with_no_t
     the client receives duplicated/inconsistent output."""
     from unittest.mock import MagicMock
 
-    from litellm.exceptions import MidStreamFallbackError
-    from litellm.types.utils import Delta, StreamingChoices
+    from embrouter.exceptions import MidStreamFallbackError
+    from embrouter.types.utils import Delta, StreamingChoices
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {"model": "gpt-4", "api_key": "fake-key"},
+                "embrouter_params": {"model": "gpt-4", "api_key": "fake-key"},
             }
         ],
     )
@@ -4025,7 +4025,7 @@ async def test_acompletion_streaming_iterator_reraises_mid_chunk_error_with_no_t
         is_pre_first_chunk=False,
     )
 
-    reasoning_chunk = litellm.ModelResponseStream(
+    reasoning_chunk = embrouter.ModelResponseStream(
         id="chatcmpl-partial-1",
         model="gpt-4",
         object="chat.completion.chunk",
@@ -4086,18 +4086,18 @@ def _make_responses_iterator(
     Bypasses BaseResponsesAPIStreamingIterator.__init__ but mirrors every
     attribute production code reads. Yields *chunks*, then raises *error*
     (or StopAsyncIteration). Set bridge=True to inherit from
-    LiteLLMCompletionStreamingIterator so the wrapper's bridge-path
+    EmbRouterCompletionStreamingIterator so the wrapper's bridge-path
     isinstance check (used by usage extraction) matches.
     """
-    from litellm.responses.litellm_completion_transformation.streaming_iterator import (
-        LiteLLMCompletionStreamingIterator,
+    from embrouter.responses.embrouter_completion_transformation.streaming_iterator import (
+        EmbRouterCompletionStreamingIterator,
     )
-    from litellm.responses.streaming_iterator import (
+    from embrouter.responses.streaming_iterator import (
         BaseResponsesAPIStreamingIterator,
     )
 
     base = (
-        LiteLLMCompletionStreamingIterator
+        EmbRouterCompletionStreamingIterator
         if bridge
         else BaseResponsesAPIStreamingIterator
     )
@@ -4110,7 +4110,7 @@ def _make_responses_iterator(
             self.model = model
             self.custom_llm_provider = "anthropic"
             self.logging_obj = MagicMock()
-            self.litellm_metadata = None
+            self.embrouter_metadata = None
             self.responses_api_provider_config = None
             self.finished = False
             self.completed_response = None
@@ -4154,15 +4154,15 @@ class _AsyncList:
 
 
 def _make_router_with_fallback(primary="gpt-4", secondary="gpt-3.5-turbo"):
-    return litellm.Router(
+    return embrouter.Router(
         model_list=[
             {
                 "model_name": primary,
-                "litellm_params": {"model": primary, "api_key": "k1"},
+                "embrouter_params": {"model": primary, "api_key": "k1"},
             },
             {
                 "model_name": secondary,
-                "litellm_params": {"model": secondary, "api_key": "k2"},
+                "embrouter_params": {"model": secondary, "api_key": "k2"},
             },
         ],
         fallbacks=[{primary: [secondary]}],
@@ -4195,8 +4195,8 @@ async def test_aresponses_streaming_iterator_fallback():
     async_function_with_fallbacks_common_utils with the per-attempt helper
     and original_generic_function preserved. Mirrors
     test_acompletion_streaming_iterator for the aresponses path."""
-    from litellm.exceptions import MidStreamFallbackError
-    from litellm.responses.streaming_iterator import (
+    from embrouter.exceptions import MidStreamFallbackError
+    from embrouter.responses.streaming_iterator import (
         BaseResponsesAPIStreamingIterator,
     )
 
@@ -4232,7 +4232,7 @@ async def test_aresponses_streaming_iterator_fallback():
                 "model": "anthropic/claude-sonnet-4-6",
                 "stream": True,
                 "input": "Hi",
-                "original_generic_function": litellm.aresponses,
+                "original_generic_function": embrouter.aresponses,
             },
         )
         assert isinstance(wrapped, BaseResponsesAPIStreamingIterator)
@@ -4244,7 +4244,7 @@ async def test_aresponses_streaming_iterator_fallback():
     fbk = call_kwargs["kwargs"]
     # Bound methods compare equal when they share the same instance + __func__.
     assert fbk["original_function"] == router._ageneric_api_call_with_fallbacks_responses_attempt
-    assert fbk["original_generic_function"] is litellm.aresponses
+    assert fbk["original_generic_function"] is embrouter.aresponses
     assert call_kwargs["model_group"] == "anthropic/claude-sonnet-4-6"
     assert call_kwargs["disable_fallbacks"] is False
 
@@ -4258,17 +4258,17 @@ async def test_aresponses_streaming_content_policy_error_event_routes_to_content
     The stream below is the customer's shape: a raw OpenAI error event with code
     content_policy_violation, transformed by the real OpenAI config, and the router must
     call the content_policy_fallbacks target, not the general fallbacks one."""
-    from litellm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
-    from litellm.responses.streaming_iterator import ResponsesAPIStreamingIterator
+    from embrouter.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
+    from embrouter.responses.streaming_iterator import ResponsesAPIStreamingIterator
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
-            {"model_name": "primary", "litellm_params": {"model": "openai/gpt-5.4", "api_key": "k1"}},
+            {"model_name": "primary", "embrouter_params": {"model": "openai/gpt-5.4", "api_key": "k1"}},
             {
                 "model_name": "content-fallback",
-                "litellm_params": {"model": "gemini/gemini-2.5-flash", "api_key": "k2"},
+                "embrouter_params": {"model": "gemini/gemini-2.5-flash", "api_key": "k2"},
             },
-            {"model_name": "general-fallback", "litellm_params": {"model": "openai/gpt-5-mini", "api_key": "k3"}},
+            {"model_name": "general-fallback", "embrouter_params": {"model": "openai/gpt-5-mini", "api_key": "k3"}},
         ],
         fallbacks=[{"primary": ["general-fallback"]}],
         content_policy_fallbacks=[{"primary": ["content-fallback"]}],
@@ -4290,8 +4290,8 @@ async def test_aresponses_streaming_content_policy_error_event_routes_to_content
     raw_response = MagicMock()
     raw_response.headers = {}
     raw_response.aiter_bytes = aiter_bytes
-    logging_obj = MagicMock(spec=LiteLLMLogging)
-    logging_obj.model_call_details = {"litellm_params": {}}
+    logging_obj = MagicMock(spec=EmbRouterLogging)
+    logging_obj.model_call_details = {"embrouter_params": {}}
     logging_obj.completion_start_time = None
     source = ResponsesAPIStreamingIterator(
         response=raw_response,
@@ -4324,7 +4324,7 @@ async def test_aresponses_streaming_iterator_unwraps_content_policy_trigger_for_
     """The fallback dispatch matches on the trigger's own type, so the wrapper must hand it the
     ContentPolicyViolationError carried inside MidStreamFallbackError, not the envelope."""
     router = _make_router_with_fallback("openai/gpt-5.4", "openai/gpt-5-mini")
-    content_policy_error = litellm.ContentPolicyViolationError(
+    content_policy_error = embrouter.ContentPolicyViolationError(
         message="flagged mid-stream", llm_provider="openai", model="openai/gpt-5.4"
     )
     src = _make_responses_iterator(
@@ -4361,7 +4361,7 @@ async def test_aresponses_streaming_iterator_unwraps_content_policy_trigger_for_
         {"x-fallback-only": "yes"},
         {
             "x-fallback-only": "yes",
-            "x-litellm-complexity-router-tier": "SIMPLE",
+            "x-embrouter-complexity-router-tier": "SIMPLE",
         },
     ],
     ids=["plain-fallback", "complexity-tier-fallback"],
@@ -4370,8 +4370,8 @@ async def test_aresponses_streaming_iterator_replaces_complexity_headers_before_
     fallback_headers: dict[str, str],
 ) -> None:
     primary_headers: Final = {
-        "x-litellm-complexity-router-tier": "REASONING",
-        "x-litellm-complexity-router-reasoning-effort": "xhigh",
+        "x-embrouter-complexity-router-tier": "REASONING",
+        "x-embrouter-complexity-router-reasoning-effort": "xhigh",
     }
     source: Final = _make_responses_iterator(
         error=MidStreamFallbackError(
@@ -4397,7 +4397,7 @@ async def test_aresponses_streaming_iterator_replaces_complexity_headers_before_
             "model": "gpt-4",
             "stream": True,
             "input": "Hello",
-            "original_generic_function": litellm.aresponses,
+            "original_generic_function": embrouter.aresponses,
         },
     )
     assert wrapped._hidden_params["additional_headers"] == primary_headers
@@ -4412,10 +4412,10 @@ async def test_aresponses_streaming_iterator_replaces_complexity_headers_before_
 
 
 @pytest.mark.asyncio
-async def test_aresponses_streaming_iterator_writes_litellm_metadata_on_fallback():
-    """Regression: model_group must land under "litellm_metadata" (the key
-    litellm.aresponses reads), not the default "metadata"."""
-    from litellm.exceptions import MidStreamFallbackError
+async def test_aresponses_streaming_iterator_writes_embrouter_metadata_on_fallback():
+    """Regression: model_group must land under "embrouter_metadata" (the key
+    embrouter.aresponses reads), not the default "metadata"."""
+    from embrouter.exceptions import MidStreamFallbackError
 
     router = _make_router_with_fallback()
     src = _make_responses_iterator(
@@ -4439,24 +4439,24 @@ async def test_aresponses_streaming_iterator_writes_litellm_metadata_on_fallback
                 "model": "gpt-4",
                 "stream": True,
                 "input": "Hello",
-                "original_generic_function": litellm.aresponses,
+                "original_generic_function": embrouter.aresponses,
             },
         )
         async for _ in wrapped:
             pass
 
     fbk = mock_fallback_utils.call_args.kwargs["kwargs"]
-    assert "litellm_metadata" in fbk, "wrong metadata_variable_name"
-    assert fbk["litellm_metadata"]["model_group"] == "gpt-4"
+    assert "embrouter_metadata" in fbk, "wrong metadata_variable_name"
+    assert fbk["embrouter_metadata"]["model_group"] == "gpt-4"
     assert "model_group" not in fbk.get(
         "metadata", {}
-    ), "model_group leaked into 'metadata' instead of 'litellm_metadata'"
+    ), "model_group leaked into 'metadata' instead of 'embrouter_metadata'"
 
 
 @pytest.mark.asyncio
 async def test_aresponses_streaming_iterator_pre_first_chunk_skips_continuation():
     """Pre-first-chunk error: original input is preserved unchanged."""
-    from litellm.exceptions import MidStreamFallbackError
+    from embrouter.exceptions import MidStreamFallbackError
 
     router = _make_router_with_fallback()
     src = _make_responses_iterator(
@@ -4480,7 +4480,7 @@ async def test_aresponses_streaming_iterator_pre_first_chunk_skips_continuation(
                 "model": "gpt-4",
                 "stream": True,
                 "input": "Hello",
-                "original_generic_function": litellm.aresponses,
+                "original_generic_function": embrouter.aresponses,
             },
         )
         async for _ in wrapped:
@@ -4493,8 +4493,8 @@ async def test_aresponses_streaming_iterator_pre_first_chunk_skips_continuation(
 def _make_native_responses_iterator(*, sse_payloads: tuple[dict[str, str], ...], trailing_error: Exception | None):
     """A real ResponsesAPIStreamingIterator over canned SSE bytes, so the router test covers the
     iterator's own transport-error classification instead of a hand-built MidStreamFallbackError."""
-    from litellm.llms.base_llm.responses.transformation import BaseResponsesAPIConfig
-    from litellm.responses.streaming_iterator import ResponsesAPIStreamingIterator
+    from embrouter.llms.base_llm.responses.transformation import BaseResponsesAPIConfig
+    from embrouter.responses.streaming_iterator import ResponsesAPIStreamingIterator
 
     async def aiter_bytes():
         for payload in sse_payloads:
@@ -4510,15 +4510,15 @@ def _make_native_responses_iterator(*, sse_payloads: tuple[dict[str, str], ...],
     response.aiter_bytes = aiter_bytes
     config: Final = MagicMock(spec=BaseResponsesAPIConfig)
     config.transform_streaming_response.side_effect = transform
-    logging_obj: Final = MagicMock(spec=LiteLLMLogging)
+    logging_obj: Final = MagicMock(spec=EmbRouterLogging)
     logging_obj.completion_start_time = None
-    logging_obj.model_call_details = {"litellm_params": {}}
+    logging_obj.model_call_details = {"embrouter_params": {}}
     return ResponsesAPIStreamingIterator(
         response=response,
         model="gpt-4",
         responses_api_provider_config=config,
         logging_obj=logging_obj,
-        litellm_metadata={},
+        embrouter_metadata={},
         custom_llm_provider="openai",
     )
 
@@ -4562,7 +4562,7 @@ async def test_aresponses_streaming_iterator_falls_back_on_transport_drop_before
                 "model": "gpt-4",
                 "stream": True,
                 "input": "Hello",
-                "original_generic_function": litellm.aresponses,
+                "original_generic_function": embrouter.aresponses,
             },
         )
         collected: Final = [chunk async for chunk in wrapped]
@@ -4593,7 +4593,7 @@ async def test_aresponses_streaming_iterator_surfaces_transport_drop_when_no_fal
                 "model": "gpt-4",
                 "stream": True,
                 "input": "Hello",
-                "original_generic_function": litellm.aresponses,
+                "original_generic_function": embrouter.aresponses,
             },
         )
         outcome: Final = [item async for item in _events_until_error(wrapped)]
@@ -4639,7 +4639,7 @@ async def test_aresponses_streaming_iterator_flushes_held_lifecycle_events_when_
 async def test_aresponses_streaming_iterator_forwards_held_lifecycle_events_before_a_non_fallback_error():
     router: Final = _make_router_with_fallback()
     chunks: Final = [MagicMock(type="response.created"), MagicMock(type="response.in_progress")]
-    client_error: Final = litellm.BadRequestError(message="bad input", model="gpt-4", llm_provider="openai")
+    client_error: Final = embrouter.BadRequestError(message="bad input", model="gpt-4", llm_provider="openai")
     wrapped: Final = await router._aresponses_streaming_iterator(
         response=_make_responses_iterator(chunks=chunks, error=client_error),
         initial_kwargs={"model": "gpt-4", "stream": True, "input": "Hello"},
@@ -4791,7 +4791,7 @@ async def test_aresponses_fallback_attempt_does_not_replay_held_lifecycle_events
 async def test_aresponses_streaming_iterator_partial_content_injects_continuation():
     """Mid-stream error: input is rewritten to include user prompt +
     developer instruction + prior assistant message with partial output."""
-    from litellm.exceptions import MidStreamFallbackError
+    from embrouter.exceptions import MidStreamFallbackError
 
     router = _make_router_with_fallback()
     src = _make_responses_iterator(
@@ -4816,7 +4816,7 @@ async def test_aresponses_streaming_iterator_partial_content_injects_continuatio
                 "model": "gpt-4",
                 "stream": True,
                 "input": "What's the capital of France?",
-                "original_generic_function": litellm.aresponses,
+                "original_generic_function": embrouter.aresponses,
             },
         )
         async for _ in wrapped:
@@ -4840,8 +4840,8 @@ async def test_aresponses_streaming_iterator_combines_partial_usage():
     split, clean ResponseAPIUsage on output."""
     from types import SimpleNamespace
 
-    from litellm.exceptions import MidStreamFallbackError
-    from litellm.types.llms.openai import (
+    from embrouter.exceptions import MidStreamFallbackError
+    from embrouter.types.llms.openai import (
         ResponseAPIUsage,
         ResponseCompletedEvent,
         ResponsesAPIResponse,
@@ -4875,7 +4875,7 @@ async def test_aresponses_streaming_iterator_combines_partial_usage():
 
     with (
         patch(
-            "litellm.main.stream_chunk_builder",
+            "embrouter.main.stream_chunk_builder",
             return_value=SimpleNamespace(
                 usage=SimpleNamespace(prompt_tokens=10, completion_tokens=4)
             ),
@@ -4892,7 +4892,7 @@ async def test_aresponses_streaming_iterator_combines_partial_usage():
                 "model": "gpt-4",
                 "stream": True,
                 "input": "hi",
-                "original_generic_function": litellm.aresponses,
+                "original_generic_function": embrouter.aresponses,
             },
         )
         async for _ in wrapped:
@@ -4906,7 +4906,7 @@ async def test_aresponses_streaming_iterator_combines_partial_usage():
 
 
 def _midstream_rate_limit_error():
-    rate_limit_error = litellm.RateLimitError(
+    rate_limit_error = embrouter.RateLimitError(
         message="vertex_ai_betaException - Resource exhausted.",
         model="gemini",
         llm_provider="vertex_ai_beta",
@@ -4928,11 +4928,11 @@ async def test_acompletion_streaming_iterator_surfaces_rate_limit_without_fallba
     wrapper to the client, and must terminate instead of hanging."""
     rate_limit_error, midstream_error = _midstream_rate_limit_error()
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gemini",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "vertex_ai/gemini-2.0-flash",
                     "api_key": "fake-key",
                 },
@@ -4971,7 +4971,7 @@ async def test_acompletion_streaming_iterator_surfaces_rate_limit_without_fallba
             async for _ in result:
                 pass
 
-        with pytest.raises(litellm.RateLimitError) as exc_info:
+        with pytest.raises(embrouter.RateLimitError) as exc_info:
             await asyncio.wait_for(_consume(), timeout=10)
 
     assert not isinstance(exc_info.value, MidStreamFallbackError)
@@ -4984,11 +4984,11 @@ def test_completion_streaming_iterator_surfaces_rate_limit_without_fallbacks():
     test_acompletion_streaming_iterator_surfaces_rate_limit_without_fallbacks."""
     rate_limit_error, midstream_error = _midstream_rate_limit_error()
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gemini",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "vertex_ai/gemini-2.0-flash",
                     "api_key": "fake-key",
                 },
@@ -5021,7 +5021,7 @@ def test_completion_streaming_iterator_surfaces_rate_limit_without_fallbacks():
             initial_kwargs={"model": "gemini", "stream": True},
         )
 
-        with pytest.raises(litellm.RateLimitError) as exc_info:
+        with pytest.raises(embrouter.RateLimitError) as exc_info:
             list(result)
 
     assert not isinstance(exc_info.value, MidStreamFallbackError)
@@ -5035,11 +5035,11 @@ async def test_aresponses_streaming_iterator_surfaces_rate_limit_without_fallbac
     test_acompletion_streaming_iterator_surfaces_rate_limit_without_fallbacks."""
     rate_limit_error, midstream_error = _midstream_rate_limit_error()
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gemini",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "vertex_ai/gemini-2.0-flash",
                     "api_key": "fake-key",
                 },
@@ -5060,7 +5060,7 @@ async def test_aresponses_streaming_iterator_surfaces_rate_limit_without_fallbac
                 "model": "gemini",
                 "stream": True,
                 "input": "Hello",
-                "original_generic_function": litellm.aresponses,
+                "original_generic_function": embrouter.aresponses,
             },
         )
 
@@ -5068,7 +5068,7 @@ async def test_aresponses_streaming_iterator_surfaces_rate_limit_without_fallbac
             async for _ in wrapped:
                 pass
 
-        with pytest.raises(litellm.RateLimitError) as exc_info:
+        with pytest.raises(embrouter.RateLimitError) as exc_info:
             await asyncio.wait_for(_consume(), timeout=10)
 
     assert not isinstance(exc_info.value, MidStreamFallbackError)
@@ -5080,11 +5080,11 @@ async def test_aresponses_streaming_iterator_surfaces_rate_limit_without_fallbac
 async def test_async_function_with_fallbacks_common_utils():
     """Test the async_function_with_fallbacks_common_utils method"""
     # Create a basic router for testing
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-3.5-turbo",
                 },
             }
@@ -5122,11 +5122,11 @@ async def test_async_function_with_fallbacks_common_utils():
 
 def test_should_include_deployment():
     """Test that Router.should_include_deployment returns the correct response"""
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "model_name_a28a12f9-3e44-4861-bd4f-325f2d309ce8_cd5dc6fb-b046-4e05-ae1d-32ba4d936266",
-                "litellm_params": {"model": "openai/*"},
+                "embrouter_params": {"model": "openai/*"},
                 "model_info": {
                     "team_id": "a28a12f9-3e44-4861-bd4f-325f2d309ce8",
                     "team_public_model_name": "openai/*",
@@ -5137,11 +5137,11 @@ def test_should_include_deployment():
 
     model = {
         "model_name": "model_name_a28a12f9-3e44-4861-bd4f-325f2d309ce8_cd5dc6fb-b046-4e05-ae1d-32ba4d936266",
-        "litellm_params": {
+        "embrouter_params": {
             "api_key": "sk-proj-1234567890",
             "custom_llm_provider": "openai",
             "use_in_pass_through": False,
-            "use_litellm_proxy": False,
+            "use_embrouter_proxy": False,
             "merge_reasoning_content_in_choices": False,
             "model": "openai/*",
         },
@@ -5170,9 +5170,9 @@ def test_pre_call_checks_skips_token_count_without_max_input_tokens(monkeypatch)
     deployment in the group declares max_input_tokens, the count is never consumed, so
     _pre_call_checks must not run it at all.
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
-            {"model_name": "m", "litellm_params": {"model": "gpt-3.5-turbo"}},
+            {"model_name": "m", "embrouter_params": {"model": "gpt-3.5-turbo"}},
         ],
         enable_pre_call_checks=True,
     )
@@ -5180,12 +5180,12 @@ def test_pre_call_checks_skips_token_count_without_max_input_tokens(monkeypatch)
 
     calls = []
     monkeypatch.setattr(
-        litellm, "token_counter", lambda *a, **k: calls.append(1) or 1000
+        embrouter, "token_counter", lambda *a, **k: calls.append(1) or 1000
     )
 
     deployments = [
-        {"litellm_params": {"model": "gpt-3.5-turbo"}, "model_info": {"id": "d1"}},
-        {"litellm_params": {"model": "gpt-3.5-turbo"}, "model_info": {"id": "d2"}},
+        {"embrouter_params": {"model": "gpt-3.5-turbo"}, "model_info": {"id": "d1"}},
+        {"embrouter_params": {"model": "gpt-3.5-turbo"}, "model_info": {"id": "d2"}},
     ]
     result = router._pre_call_checks(
         model="m",
@@ -5203,9 +5203,9 @@ def test_pre_call_checks_counts_once_and_filters_on_max_input_tokens(monkeypatch
     at most once across the group (memoized), and filter deployments whose limit is
     exceeded.
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
-            {"model_name": "m", "litellm_params": {"model": "gpt-3.5-turbo"}},
+            {"model_name": "m", "embrouter_params": {"model": "gpt-3.5-turbo"}},
         ],
         enable_pre_call_checks=True,
     )
@@ -5215,14 +5215,14 @@ def test_pre_call_checks_counts_once_and_filters_on_max_input_tokens(monkeypatch
 
     calls = []
     monkeypatch.setattr(
-        litellm, "token_counter", lambda *a, **k: calls.append(1) or 1000
+        embrouter, "token_counter", lambda *a, **k: calls.append(1) or 1000
     )
 
     deployments = [
-        {"litellm_params": {"model": "gpt-3.5-turbo"}, "model_info": {"id": "d1"}},
-        {"litellm_params": {"model": "gpt-3.5-turbo"}, "model_info": {"id": "d2"}},
+        {"embrouter_params": {"model": "gpt-3.5-turbo"}, "model_info": {"id": "d1"}},
+        {"embrouter_params": {"model": "gpt-3.5-turbo"}, "model_info": {"id": "d2"}},
     ]
-    with pytest.raises(litellm.ContextWindowExceededError):
+    with pytest.raises(embrouter.ContextWindowExceededError):
         router._pre_call_checks(
             model="m",
             healthy_deployments=deployments,
@@ -5237,9 +5237,9 @@ def test_pre_call_checks_uses_precounted_tokens(monkeypatch):
     An async caller counts off the event loop and passes the result in. _pre_call_checks
     must filter on that count instead of re-counting on the loop.
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
-            {"model_name": "m", "litellm_params": {"model": "gpt-3.5-turbo"}},
+            {"model_name": "m", "embrouter_params": {"model": "gpt-3.5-turbo"}},
         ],
         enable_pre_call_checks=True,
     )
@@ -5249,13 +5249,13 @@ def test_pre_call_checks_uses_precounted_tokens(monkeypatch):
 
     calls = []
     monkeypatch.setattr(
-        litellm, "token_counter", lambda *a, **k: calls.append(1) or 1
+        embrouter, "token_counter", lambda *a, **k: calls.append(1) or 1
     )
 
     deployments = [
-        {"litellm_params": {"model": "gpt-3.5-turbo"}, "model_info": {"id": "d1"}},
+        {"embrouter_params": {"model": "gpt-3.5-turbo"}, "model_info": {"id": "d1"}},
     ]
-    with pytest.raises(litellm.ContextWindowExceededError):
+    with pytest.raises(embrouter.ContextWindowExceededError):
         router._pre_call_checks(
             model="m",
             healthy_deployments=deployments,
@@ -5271,9 +5271,9 @@ async def test_async_get_healthy_deployments_counts_tokens_off_the_event_loop(mo
     The async deployment path must hand _pre_call_checks a count taken in a worker thread,
     so a multi-MB prompt never blocks the proxy during deployment selection.
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
-            {"model_name": "m", "litellm_params": {"model": "gpt-3.5-turbo"}},
+            {"model_name": "m", "embrouter_params": {"model": "gpt-3.5-turbo"}},
         ],
         enable_pre_call_checks=True,
     )
@@ -5283,7 +5283,7 @@ async def test_async_get_healthy_deployments_counts_tokens_off_the_event_loop(mo
 
     counting_threads = []
     monkeypatch.setattr(
-        litellm,
+        embrouter,
         "token_counter",
         lambda *a, **k: counting_threads.append(threading.current_thread()) or 42,
     )
@@ -5322,16 +5322,16 @@ async def test_async_get_healthy_deployments_counts_tokens_off_the_event_loop(mo
 )
 def test_pre_call_checks_need_token_count(monkeypatch, model_info, expected):
     """Only a deployment that declares an integer context window makes a token count worth taking."""
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
-            {"model_name": "m", "litellm_params": {"model": "gpt-3.5-turbo"}},
+            {"model_name": "m", "embrouter_params": {"model": "gpt-3.5-turbo"}},
         ],
         enable_pre_call_checks=True,
     )
     monkeypatch.setattr(router, "get_router_model_info", lambda **kwargs: model_info)
 
     deployments = [
-        {"litellm_params": {"model": "gpt-3.5-turbo"}, "model_info": {"id": "d1"}},
+        {"embrouter_params": {"model": "gpt-3.5-turbo"}, "model_info": {"id": "d1"}},
     ]
     assert router._pre_call_checks_need_token_count("m", deployments) is expected
 
@@ -5342,9 +5342,9 @@ def test_deployment_max_input_tokens_survives_an_unmappable_deployment(monkeypat
     pre-count must do the same, or an unmapped first deployment hides the limit declared by
     a later one and the count lands back on the event loop.
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
-            {"model_name": "m", "litellm_params": {"model": "gpt-3.5-turbo"}},
+            {"model_name": "m", "embrouter_params": {"model": "gpt-3.5-turbo"}},
         ],
         enable_pre_call_checks=True,
     )
@@ -5356,8 +5356,8 @@ def test_deployment_max_input_tokens_survives_an_unmappable_deployment(monkeypat
 
     monkeypatch.setattr(router, "get_router_model_info", flaky_model_info)
 
-    unmapped = {"litellm_params": {"model": "gpt-3.5-turbo"}, "model_info": {"id": "unmapped"}}
-    mapped = {"litellm_params": {"model": "gpt-3.5-turbo"}, "model_info": {"id": "mapped"}}
+    unmapped = {"embrouter_params": {"model": "gpt-3.5-turbo"}, "model_info": {"id": "unmapped"}}
+    mapped = {"embrouter_params": {"model": "gpt-3.5-turbo"}, "model_info": {"id": "mapped"}}
 
     assert router._deployment_max_input_tokens("m", unmapped) is None
     assert router._deployment_max_input_tokens("m", mapped) == 100
@@ -5369,9 +5369,9 @@ def test_pre_call_checks_does_not_recount_inline_after_an_off_loop_failure(monke
     When the off-loop count failed there is nothing left to filter on, so _pre_call_checks must
     return the deployments unfiltered rather than repeating the count on the event loop.
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
-            {"model_name": "m", "litellm_params": {"model": "gpt-3.5-turbo"}},
+            {"model_name": "m", "embrouter_params": {"model": "gpt-3.5-turbo"}},
         ],
         enable_pre_call_checks=True,
     )
@@ -5381,11 +5381,11 @@ def test_pre_call_checks_does_not_recount_inline_after_an_off_loop_failure(monke
 
     calls = []
     monkeypatch.setattr(
-        litellm, "token_counter", lambda *a, **k: calls.append(1) or 1000
+        embrouter, "token_counter", lambda *a, **k: calls.append(1) or 1000
     )
 
     deployments = [
-        {"litellm_params": {"model": "gpt-3.5-turbo"}, "model_info": {"id": "d1"}},
+        {"embrouter_params": {"model": "gpt-3.5-turbo"}, "model_info": {"id": "d1"}},
     ]
     result = router._pre_call_checks(
         model="m",
@@ -5404,9 +5404,9 @@ async def test_async_get_healthy_deployments_never_recounts_on_the_loop(monkeypa
     An off-loop count that raises must not send the same work back onto the event loop through
     _pre_call_checks' inline fallback.
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
-            {"model_name": "m", "litellm_params": {"model": "gpt-3.5-turbo"}},
+            {"model_name": "m", "embrouter_params": {"model": "gpt-3.5-turbo"}},
         ],
         enable_pre_call_checks=True,
     )
@@ -5420,7 +5420,7 @@ async def test_async_get_healthy_deployments_never_recounts_on_the_loop(monkeypa
         counting_threads.append(threading.current_thread())
         raise ValueError("Invalid content item type: image")
 
-    monkeypatch.setattr(litellm, "token_counter", exploding_counter)
+    monkeypatch.setattr(embrouter, "token_counter", exploding_counter)
 
     result = await router.async_get_healthy_deployments(
         model="m",
@@ -5441,9 +5441,9 @@ async def test_acount_pre_call_check_tokens_leaves_the_event_loop_free(monkeypat
     A multi-MB prompt must not stall the proxy: a competing coroutine has to get
     scheduled while the router's context-window count is in flight.
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
-            {"model_name": "m", "litellm_params": {"model": "gpt-3.5-turbo"}},
+            {"model_name": "m", "embrouter_params": {"model": "gpt-3.5-turbo"}},
         ],
         enable_pre_call_checks=True,
     )
@@ -5452,7 +5452,7 @@ async def test_acount_pre_call_check_tokens_leaves_the_event_loop_free(monkeypat
     )
 
     deployments = [
-        {"litellm_params": {"model": "gpt-3.5-turbo"}, "model_info": {"id": "d1"}},
+        {"embrouter_params": {"model": "gpt-3.5-turbo"}, "model_info": {"id": "d1"}},
     ]
     ran = []
 
@@ -5476,9 +5476,9 @@ async def test_acount_pre_call_check_tokens_leaves_the_event_loop_free(monkeypat
 
 async def test_acount_pre_call_check_tokens_skips_without_max_input_tokens(monkeypatch):
     """No deployment limits its context window, so there is nothing to count."""
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
-            {"model_name": "m", "litellm_params": {"model": "gpt-3.5-turbo"}},
+            {"model_name": "m", "embrouter_params": {"model": "gpt-3.5-turbo"}},
         ],
         enable_pre_call_checks=True,
     )
@@ -5486,13 +5486,13 @@ async def test_acount_pre_call_check_tokens_skips_without_max_input_tokens(monke
 
     calls = []
     monkeypatch.setattr(
-        litellm, "token_counter", lambda *a, **k: calls.append(1) or 1000
+        embrouter, "token_counter", lambda *a, **k: calls.append(1) or 1000
     )
 
     count = await router._acount_pre_call_check_tokens(
         model="m",
         healthy_deployments=[
-            {"litellm_params": {"model": "gpt-3.5-turbo"}, "model_info": {"id": "d1"}},
+            {"embrouter_params": {"model": "gpt-3.5-turbo"}, "model_info": {"id": "d1"}},
         ],
         messages=[{"role": "user", "content": "hi"}],
         input=None,
@@ -5509,9 +5509,9 @@ def test_pre_call_checks_counts_tokens_from_responses_input_string(monkeypatch):
     checks must count tokens from `input` and filter deployments over the limit. Uses
     the real token_counter so the transform + counting path is a true regression guard.
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
-            {"model_name": "m", "litellm_params": {"model": "gpt-3.5-turbo"}},
+            {"model_name": "m", "embrouter_params": {"model": "gpt-3.5-turbo"}},
         ],
         enable_pre_call_checks=True,
     )
@@ -5520,9 +5520,9 @@ def test_pre_call_checks_counts_tokens_from_responses_input_string(monkeypatch):
     )
 
     deployments = [
-        {"litellm_params": {"model": "gpt-3.5-turbo"}, "model_info": {"id": "d1"}},
+        {"embrouter_params": {"model": "gpt-3.5-turbo"}, "model_info": {"id": "d1"}},
     ]
-    with pytest.raises(litellm.ContextWindowExceededError):
+    with pytest.raises(embrouter.ContextWindowExceededError):
         router._pre_call_checks(
             model="m",
             healthy_deployments=deployments,
@@ -5536,9 +5536,9 @@ def test_pre_call_checks_counts_tokens_from_responses_input_list(monkeypatch):
     chat messages and counted so oversized requests are filtered out. Uses the real
     token_counter (no mock) so the transform + counting path is a true regression guard.
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
-            {"model_name": "m", "litellm_params": {"model": "gpt-3.5-turbo"}},
+            {"model_name": "m", "embrouter_params": {"model": "gpt-3.5-turbo"}},
         ],
         enable_pre_call_checks=True,
     )
@@ -5547,9 +5547,9 @@ def test_pre_call_checks_counts_tokens_from_responses_input_list(monkeypatch):
     )
 
     deployments = [
-        {"litellm_params": {"model": "gpt-3.5-turbo"}, "model_info": {"id": "d1"}},
+        {"embrouter_params": {"model": "gpt-3.5-turbo"}, "model_info": {"id": "d1"}},
     ]
-    with pytest.raises(litellm.ContextWindowExceededError):
+    with pytest.raises(embrouter.ContextWindowExceededError):
         router._pre_call_checks(
             model="m",
             healthy_deployments=deployments,
@@ -5566,15 +5566,15 @@ def test_pre_call_checks_counts_responses_instructions_tokens(monkeypatch):
     whose `input` + `instructions` exceeds it must be filtered (regression for the
     context-window check under-filtering when instructions were ignored).
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
-            {"model_name": "m", "litellm_params": {"model": "gpt-3.5-turbo"}},
+            {"model_name": "m", "embrouter_params": {"model": "gpt-3.5-turbo"}},
         ],
         enable_pre_call_checks=True,
     )
 
     deployments = [
-        {"litellm_params": {"model": "gpt-3.5-turbo"}, "model_info": {"id": "d1"}},
+        {"embrouter_params": {"model": "gpt-3.5-turbo"}, "model_info": {"id": "d1"}},
     ]
 
     short_input = "hi"
@@ -5589,7 +5589,7 @@ def test_pre_call_checks_counts_responses_instructions_tokens(monkeypatch):
     monkeypatch.setattr(
         router, "get_router_model_info", lambda **kwargs: {"max_input_tokens": input_only_tokens}
     )
-    with pytest.raises(litellm.ContextWindowExceededError):
+    with pytest.raises(embrouter.ContextWindowExceededError):
         router._pre_call_checks(
             model="m",
             healthy_deployments=deployments,
@@ -5644,14 +5644,14 @@ def test_pre_call_checks_counts_tool_definition_tokens(monkeypatch, prompt_kwarg
     whose prompt plus `tools` exceeds it must be rejected before dispatch, for the
     Chat Completions, Responses and Anthropic Messages tool shapes alike.
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
-            {"model_name": "m", "litellm_params": {"model": "gpt-3.5-turbo"}},
+            {"model_name": "m", "embrouter_params": {"model": "gpt-3.5-turbo"}},
         ],
         enable_pre_call_checks=True,
     )
     deployments = [
-        {"litellm_params": {"model": "gpt-3.5-turbo"}, "model_info": {"id": "d1"}},
+        {"embrouter_params": {"model": "gpt-3.5-turbo"}, "model_info": {"id": "d1"}},
     ]
 
     prompt_only_tokens = router._count_pre_call_check_tokens(
@@ -5662,7 +5662,7 @@ def test_pre_call_checks_counts_tool_definition_tokens(monkeypatch, prompt_kwarg
     )
 
     assert len(router._pre_call_checks(model="m", healthy_deployments=deployments, **prompt_kwargs)) == 1
-    with pytest.raises(litellm.ContextWindowExceededError):
+    with pytest.raises(embrouter.ContextWindowExceededError):
         router._pre_call_checks(
             model="m",
             healthy_deployments=deployments,
@@ -5687,14 +5687,14 @@ def test_pre_call_checks_counts_anthropic_system_tokens(monkeypatch, system):
     not as a message. Its tokens reach the model, so a request whose `messages` fit but
     whose `messages` plus `system` exceed the context window must be rejected.
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
-            {"model_name": "m", "litellm_params": {"model": "gpt-3.5-turbo"}},
+            {"model_name": "m", "embrouter_params": {"model": "gpt-3.5-turbo"}},
         ],
         enable_pre_call_checks=True,
     )
     deployments = [
-        {"litellm_params": {"model": "gpt-3.5-turbo"}, "model_info": {"id": "d1"}},
+        {"embrouter_params": {"model": "gpt-3.5-turbo"}, "model_info": {"id": "d1"}},
     ]
     messages = [{"role": "user", "content": "hi"}]
 
@@ -5702,7 +5702,7 @@ def test_pre_call_checks_counts_anthropic_system_tokens(monkeypatch, system):
     monkeypatch.setattr(router, "get_router_model_info", lambda **kwargs: {"max_input_tokens": messages_only_tokens})
 
     assert len(router._pre_call_checks(model="m", healthy_deployments=deployments, messages=messages)) == 1
-    with pytest.raises(litellm.ContextWindowExceededError):
+    with pytest.raises(embrouter.ContextWindowExceededError):
         router._pre_call_checks(
             model="m",
             healthy_deployments=deployments,
@@ -5719,11 +5719,11 @@ async def test_aanthropic_messages_enforces_context_window_with_system_and_tools
     context-window check instead of being dispatched (the deployment uses mock_response,
     so reaching the provider handler would return a response rather than raise).
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "small-ctx",
-                "litellm_params": {"model": "anthropic/claude-3-5-haiku-20241022", "mock_response": "hi"},
+                "embrouter_params": {"model": "anthropic/claude-3-5-haiku-20241022", "mock_response": "hi"},
                 "model_info": {"max_input_tokens": 20},
             }
         ],
@@ -5734,14 +5734,14 @@ async def test_aanthropic_messages_enforces_context_window_with_system_and_tools
     response = await router.aanthropic_messages(model="small-ctx", messages=messages, max_tokens=5)
     assert response is not None
 
-    with pytest.raises(litellm.ContextWindowExceededError):
+    with pytest.raises(embrouter.ContextWindowExceededError):
         await router.aanthropic_messages(
             model="small-ctx",
             messages=messages,
             max_tokens=5,
             system="You are a meticulous assistant. " * 40,
         )
-    with pytest.raises(litellm.ContextWindowExceededError):
+    with pytest.raises(embrouter.ContextWindowExceededError):
         await router.aanthropic_messages(
             model="small-ctx",
             messages=messages,
@@ -5761,9 +5761,9 @@ def test_count_pre_call_check_tokens_across_api_surfaces():
     _count_pre_call_check_tokens must count tokens from chat `messages`, a Responses
     API string `input`, and a Responses API list `input`, and raise when given neither.
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
-            {"model_name": "m", "litellm_params": {"model": "gpt-3.5-turbo"}},
+            {"model_name": "m", "embrouter_params": {"model": "gpt-3.5-turbo"}},
         ],
     )
 
@@ -5788,9 +5788,9 @@ def test_pre_call_checks_no_messages_or_input_does_not_crash(monkeypatch):
     When neither messages nor input is provided (e.g. endpoints without prompt text),
     token counting is skipped gracefully and all deployments are returned.
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
-            {"model_name": "m", "litellm_params": {"model": "gpt-3.5-turbo"}},
+            {"model_name": "m", "embrouter_params": {"model": "gpt-3.5-turbo"}},
         ],
         enable_pre_call_checks=True,
     )
@@ -5807,7 +5807,7 @@ def test_pre_call_checks_no_messages_or_input_does_not_crash(monkeypatch):
     )
 
     deployments = [
-        {"litellm_params": {"model": "gpt-3.5-turbo"}, "model_info": {"id": "d1"}},
+        {"embrouter_params": {"model": "gpt-3.5-turbo"}, "model_info": {"id": "d1"}},
     ]
     result = router._pre_call_checks(model="m", healthy_deployments=deployments)
     assert len(result) == 1
@@ -5823,17 +5823,17 @@ async def test_aresponses_enforces_context_window_pre_call_check():
     wiring that forwards `input` from the generic-call path into deployment selection
     (the deployment uses mock_response, so the check must trip before any real call).
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "small-ctx",
-                "litellm_params": {"model": "gpt-3.5-turbo", "mock_response": "hi"},
+                "embrouter_params": {"model": "gpt-3.5-turbo", "mock_response": "hi"},
                 "model_info": {"max_input_tokens": 5},
             }
         ],
         enable_pre_call_checks=True,
     )
-    with pytest.raises(litellm.ContextWindowExceededError):
+    with pytest.raises(embrouter.ContextWindowExceededError):
         await router.aresponses(
             model="small-ctx",
             input="this responses input is definitely much longer than five tokens for sure",
@@ -5844,11 +5844,11 @@ def test_get_deployment_model_info_base_model_flow():
     """Test that get_deployment_model_info correctly handles the base model flow"""
     from unittest.mock import patch
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {"model": "gpt-3.5-turbo"},
+                "embrouter_params": {"model": "gpt-3.5-turbo"},
             }
         ],
     )
@@ -5868,32 +5868,32 @@ def test_get_deployment_model_info_base_model_flow():
         "max_output_tokens": 4096,
         "input_cost_per_token": 0.0015,  # This should be overridden by custom model info
         "output_cost_per_token": 0.002,
-        "litellm_provider": "openai",
+        "embrouter_provider": "openai",
         "mode": "chat",
         "supported_openai_params": ["temperature", "max_tokens"],
     }
 
-    mock_litellm_model_name_info = {
+    mock_embrouter_model_name_info = {
         "key": "test-model",
         "max_tokens": 2048,
         "max_input_tokens": 2048,
         "max_output_tokens": 2048,
         "input_cost_per_token": 0.0005,
         "output_cost_per_token": 0.001,
-        "litellm_provider": "test_provider",
+        "embrouter_provider": "test_provider",
         "mode": "completion",
         "supported_openai_params": ["temperature"],
     }
 
     # Test Case 1: Base model flow with custom model info that has base_model
     with patch.object(
-        litellm, "model_cost", {"test-custom-model": mock_custom_model_info}
+        embrouter, "model_cost", {"test-custom-model": mock_custom_model_info}
     ):
-        with patch.object(litellm, "get_model_info") as mock_get_model_info:
+        with patch.object(embrouter, "get_model_info") as mock_get_model_info:
             # Configure mock returns
             mock_get_model_info.side_effect = lambda model: {
                 "gpt-3.5-turbo": mock_base_model_info,
-                "test-model": mock_litellm_model_name_info,
+                "test-model": mock_embrouter_model_name_info,
             }.get(model)
 
             result = router.get_deployment_model_info(
@@ -5912,7 +5912,7 @@ def test_get_deployment_model_info_base_model_flow():
 
             # Test the correct merging behavior after fix:
             # 1. base_model_info provides defaults, custom_model_info overrides (correct priority)
-            # 2. The result of step 1 gets merged into litellm_model_name_info (custom+base override litellm)
+            # 2. The result of step 1 gets merged into embrouter_model_name_info (custom+base override embrouter)
 
             # Fields from custom model (should override base model values)
             assert (
@@ -5925,16 +5925,16 @@ def test_get_deployment_model_info_base_model_flow():
 
             # Fields from base model that weren't overridden by custom
             assert result["max_tokens"] == 4096  # From base model
-            assert result["litellm_provider"] == "openai"  # From base model
+            assert result["embrouter_provider"] == "openai"  # From base model
             assert (
                 result["mode"] == "chat"
-            )  # From base model (overrides litellm "completion")
+            )  # From base model (overrides embrouter "completion")
 
-            # The key field comes from base model since both base and litellm have it
-            # and base model info overrides litellm model name info in final merge
+            # The key field comes from base model since both base and embrouter have it
+            # and base model info overrides embrouter model name info in final merge
             assert (
                 result["key"] == "gpt-3.5-turbo"
-            )  # From base model (overrides litellm key)
+            )  # From base model (overrides embrouter key)
 
     # Test Case 2: Custom model info without base_model
     mock_custom_model_info_no_base = {
@@ -5944,13 +5944,13 @@ def test_get_deployment_model_info_base_model_flow():
     }
 
     with patch.object(
-        litellm,
+        embrouter,
         "model_cost",
         {"test-custom-model-no-base": mock_custom_model_info_no_base},
     ):
-        with patch.object(litellm, "get_model_info") as mock_get_model_info:
+        with patch.object(embrouter, "get_model_info") as mock_get_model_info:
             mock_get_model_info.side_effect = lambda model: {
-                "test-model": mock_litellm_model_name_info,
+                "test-model": mock_embrouter_model_name_info,
             }.get(model)
 
             result = router.get_deployment_model_info(
@@ -5964,15 +5964,15 @@ def test_get_deployment_model_info_base_model_flow():
             # Verify the result contains merged information
             assert result is not None
             assert result["input_cost_per_token"] == 0.001  # From custom model
-            assert result["max_tokens"] == 2048  # From litellm model name info
+            assert result["max_tokens"] == 2048  # From embrouter model name info
             assert result["custom_field"] == "custom_value"  # From custom model
-            assert result["mode"] == "completion"  # From litellm model name info
+            assert result["mode"] == "completion"  # From embrouter model name info
 
-    # Test Case 3: No custom model info, only litellm model name info
-    with patch.object(litellm, "model_cost", {}):  # Empty model cost
-        with patch.object(litellm, "get_model_info") as mock_get_model_info:
+    # Test Case 3: No custom model info, only embrouter model name info
+    with patch.object(embrouter, "model_cost", {}):  # Empty model cost
+        with patch.object(embrouter, "get_model_info") as mock_get_model_info:
             mock_get_model_info.side_effect = lambda model: {
-                "test-model": mock_litellm_model_name_info,
+                "test-model": mock_embrouter_model_name_info,
             }.get(model)
 
             result = router.get_deployment_model_info(
@@ -5983,9 +5983,9 @@ def test_get_deployment_model_info_base_model_flow():
             assert mock_get_model_info.call_count == 1
             mock_get_model_info.assert_called_with(model="test-model")
 
-            # Result should be just the litellm model name info
+            # Result should be just the embrouter model name info
             assert result is not None
-            assert result == mock_litellm_model_name_info
+            assert result == mock_embrouter_model_name_info
 
     # Test Case 4: Base model info retrieval fails (exception handling)
     mock_custom_model_info_invalid_base = {
@@ -5995,17 +5995,17 @@ def test_get_deployment_model_info_base_model_flow():
     }
 
     with patch.object(
-        litellm,
+        embrouter,
         "model_cost",
         {"test-custom-model-invalid": mock_custom_model_info_invalid_base},
     ):
-        with patch.object(litellm, "get_model_info") as mock_get_model_info:
+        with patch.object(embrouter, "get_model_info") as mock_get_model_info:
             # Mock get_model_info to raise exception for invalid base model
             def mock_get_model_info_side_effect(model):
                 if model == "invalid-base-model":
                     raise Exception("Model not found")
                 elif model == "test-model":
-                    return mock_litellm_model_name_info
+                    return mock_embrouter_model_name_info
                 return None
 
             mock_get_model_info.side_effect = mock_get_model_info_side_effect
@@ -6017,12 +6017,12 @@ def test_get_deployment_model_info_base_model_flow():
             # Should handle exception gracefully and still return merged result
             assert result is not None
             assert result["input_cost_per_token"] == 0.001  # From custom model
-            assert result["mode"] == "completion"  # From litellm model name info
+            assert result["mode"] == "completion"  # From embrouter model name info
 
     # Test Case 5: Both model_cost.get() and get_model_info() return None
-    with patch.object(litellm, "model_cost", {}):
+    with patch.object(embrouter, "model_cost", {}):
         with patch.object(
-            litellm, "get_model_info", side_effect=Exception("Not found")
+            embrouter, "get_model_info", side_effect=Exception("Not found")
         ):
             result = router.get_deployment_model_info(
                 model_id="non-existent", model_name="non-existent"
@@ -6031,7 +6031,7 @@ def test_get_deployment_model_info_base_model_flow():
             # Should return None when no model info is found
             assert result is None
 
-    # Test Case 6: custom_model_info present but litellm_model_name_model_info is None
+    # Test Case 6: custom_model_info present but embrouter_model_name_model_info is None
     # (model has custom pricing in config but is not in built-in model_prices_and_context_window.json)
     mock_custom_pricing_only = {
         "input_cost_per_token": 1.74e-06,
@@ -6041,11 +6041,11 @@ def test_get_deployment_model_info_base_model_flow():
     }
 
     with patch.object(
-        litellm,
+        embrouter,
         "model_cost",
         {"custom-model-id": mock_custom_pricing_only},
     ):
-        with patch.object(litellm, "get_model_info") as mock_get_model_info:
+        with patch.object(embrouter, "get_model_info") as mock_get_model_info:
             # Model NOT in built-in cost map — raise exception
             mock_get_model_info.side_effect = Exception("Model not in cost map")
 
@@ -6053,14 +6053,14 @@ def test_get_deployment_model_info_base_model_flow():
                 model_id="custom-model-id", model_name="unknown-model"
             )
 
-            # Should return custom_model_info even when litellm_model_name_model_info is None
+            # Should return custom_model_info even when embrouter_model_name_model_info is None
             assert result is not None
             assert result["input_cost_per_token"] == 1.74e-06
             assert result["output_cost_per_token"] == 3.48e-06
             assert result["cache_read_input_token_cost"] == 1.45e-08
             assert result["mode"] == "chat"
 
-    # Test Case 7: custom_model_info with base_model but litellm_model_name_model_info None
+    # Test Case 7: custom_model_info with base_model but embrouter_model_name_model_info None
     mock_custom_with_base = {
         "base_model": "some-base-model",
         "input_cost_per_token": 0.01,
@@ -6070,15 +6070,15 @@ def test_get_deployment_model_info_base_model_flow():
         "key": "some-base-model",
         "max_tokens": 8192,
         "mode": "chat",
-        "litellm_provider": "openai",
+        "embrouter_provider": "openai",
     }
 
     with patch.object(
-        litellm,
+        embrouter,
         "model_cost",
         {"custom-with-base": mock_custom_with_base},
     ):
-        with patch.object(litellm, "get_model_info") as mock_get_model_info:
+        with patch.object(embrouter, "get_model_info") as mock_get_model_info:
 
             def get_info_side_effect(model):
                 if model == "some-base-model":
@@ -6097,21 +6097,21 @@ def test_get_deployment_model_info_base_model_flow():
                 result["input_cost_per_token"] == 0.01
             )  # From custom (overrides base)
             assert result["max_tokens"] == 8192  # From base model
-            assert result["litellm_provider"] == "openai"  # From base model
+            assert result["embrouter_provider"] == "openai"  # From base model
 
     print("✓ All base model flow test cases passed!")
 
 
-@patch("litellm.model_cost", {})
+@patch("embrouter.model_cost", {})
 def test_get_deployment_model_info_base_model_merge_priority():
     """Test that base model info merging respects the correct priority order"""
     from unittest.mock import patch
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "test-model",
-                "litellm_params": {"model": "gpt-3.5-turbo"},
+                "embrouter_params": {"model": "gpt-3.5-turbo"},
             }
         ],
     )
@@ -6129,26 +6129,26 @@ def test_get_deployment_model_info_base_model_merge_priority():
         "max_tokens": 4096,  # Should be overridden by custom model
         "input_cost_per_token": 0.03,  # Should be overridden by custom model
         "output_cost_per_token": 0.06,  # Should be preserved (not in custom)
-        "litellm_provider": "openai",
+        "embrouter_provider": "openai",
         "base_only_field": "base_value",
     }
 
-    mock_litellm_model_name_info = {
+    mock_embrouter_model_name_info = {
         "key": "test-model",
         "max_tokens": 2048,  # Should be overridden by final custom model info
         "input_cost_per_token": 0.005,  # Should be overridden by final custom model info
         "output_cost_per_token": 0.01,  # Should be overridden by final custom model info
         "mode": "completion",
-        "litellm_only_field": "litellm_value",
+        "embrouter_only_field": "embrouter_value",
     }
 
     with patch.object(
-        litellm, "model_cost", {"custom-model-id": mock_custom_model_info}
+        embrouter, "model_cost", {"custom-model-id": mock_custom_model_info}
     ):
-        with patch.object(litellm, "get_model_info") as mock_get_model_info:
+        with patch.object(embrouter, "get_model_info") as mock_get_model_info:
             mock_get_model_info.side_effect = lambda model: {
                 "gpt-4": mock_base_model_info,
-                "test-model": mock_litellm_model_name_info,
+                "test-model": mock_embrouter_model_name_info,
             }.get(model)
 
             result = router.get_deployment_model_info(
@@ -6160,7 +6160,7 @@ def test_get_deployment_model_info_base_model_merge_priority():
             # Test correct merge priority after fix:
             # 1. base_model_info provides defaults
             # 2. custom_model_info overrides base_model_info
-            # 3. Result from steps 1-2 overrides litellm_model_name_info
+            # 3. Result from steps 1-2 overrides embrouter_model_name_info
 
             # Fields that should come from custom model info (highest priority)
             assert (
@@ -6176,29 +6176,29 @@ def test_get_deployment_model_info_base_model_merge_priority():
                 result["output_cost_per_token"] == 0.06
             )  # From base model (not in custom)
             assert (
-                result["litellm_provider"] == "openai"
+                result["embrouter_provider"] == "openai"
             )  # From base model (not in custom)
             assert (
                 result["base_only_field"] == "base_value"
             )  # From base model (not in custom)
 
-            # Fields that should come from litellm model name info (not overridden by custom+base)
+            # Fields that should come from embrouter model name info (not overridden by custom+base)
             assert (
                 result["mode"] == "completion"
-            )  # From litellm model name info (not in custom or base)
+            )  # From embrouter model name info (not in custom or base)
             assert (
-                result["litellm_only_field"] == "litellm_value"
-            )  # From litellm model name info (not in custom or base)
+                result["embrouter_only_field"] == "embrouter_value"
+            )  # From embrouter model name info (not in custom or base)
 
-            # Key comes from base model since both base and litellm have key fields
-            # and the merged custom+base overrides litellm in the final merge
+            # Key comes from base model since both base and embrouter have key fields
+            # and the merged custom+base overrides embrouter in the final merge
             assert result["key"] == "gpt-4"
 
     print("✓ Base model merge priority test passed!")
 
 
 @pytest.mark.parametrize(
-    "model, litellm_params, endpoint, expected",
+    "model, embrouter_params, endpoint, expected",
     [
         (
             "gpt",
@@ -6221,12 +6221,12 @@ def test_get_deployment_model_info_base_model_merge_priority():
     ],
 )
 def test_add_deployment_model_to_endpoint_rewrites_the_model_group_only_as_whole_path_segments(
-    model, litellm_params, endpoint, expected
+    model, embrouter_params, endpoint, expected
 ):
-    router = litellm.Router(model_list=[{"model_name": model, "litellm_params": litellm_params}])
+    router = embrouter.Router(model_list=[{"model_name": model, "embrouter_params": embrouter_params}])
 
     result = router._add_deployment_model_to_endpoint_for_llm_passthrough_route(
-        kwargs={"endpoint": endpoint}, model=model, model_name=litellm_params["model"]
+        kwargs={"endpoint": endpoint}, model=model, model_name=embrouter_params["model"]
     )
 
     assert result["endpoint"] == expected
@@ -6236,11 +6236,11 @@ def test_add_deployment_model_to_endpoint_for_llm_passthrough_route():
     """
     Test that _add_deployment_model_to_endpoint_for_llm_passthrough_route correctly strips bedrock provider prefix
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "special-bedrock-model",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0",
                 },
             }
@@ -6306,11 +6306,11 @@ def test_add_deployment_model_to_endpoint_for_llm_passthrough_route():
 
 
 def test_update_kwargs_with_deployment_uses_pass_through_request_timeout():
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "my-bedrock-model",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "bedrock/us.anthropic.claude-opus-4-5-20251101-v1:0",
                 },
             }
@@ -6320,7 +6320,7 @@ def test_update_kwargs_with_deployment_uses_pass_through_request_timeout():
     kwargs: dict = {}
 
     with patch(
-        "litellm.proxy.proxy_server.general_settings",
+        "embrouter.proxy.proxy_server.general_settings",
         {"pass_through_request_timeout": 6},
     ):
         router._update_kwargs_with_deployment(
@@ -6332,7 +6332,7 @@ def test_update_kwargs_with_deployment_uses_pass_through_request_timeout():
     assert kwargs["timeout"] == 6.0
 
 
-def _passthrough_timeout(router: litellm.Router, deployment: dict, stream: bool) -> float:
+def _passthrough_timeout(router: embrouter.Router, deployment: dict, stream: bool) -> float:
     kwargs: Final[dict] = {"stream": stream}
     router._update_kwargs_with_deployment(
         deployment=deployment,
@@ -6343,11 +6343,11 @@ def _passthrough_timeout(router: litellm.Router, deployment: dict, stream: bool)
 
 
 def test_update_kwargs_with_deployment_passthrough_honors_stream_timeout():
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "anthropic-with-stream-timeout",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "anthropic/claude-sonnet-4-5",
                     "api_key": "fake-key",
                     "timeout": 60,
@@ -6356,7 +6356,7 @@ def test_update_kwargs_with_deployment_passthrough_honors_stream_timeout():
             },
             {
                 "model_name": "anthropic-router-default",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "anthropic/claude-sonnet-4-5",
                     "api_key": "fake-key",
                     "timeout": 60,
@@ -6377,13 +6377,13 @@ def test_update_kwargs_with_deployment_passthrough_honors_stream_timeout():
 def test_update_kwargs_with_deployment_passthrough_router_stream_timeout_sources():
     deployment: Final[dict] = {
         "model_name": "anthropic-router-default",
-        "litellm_params": {"model": "anthropic/claude-sonnet-4-5", "api_key": "fake-key"},
+        "embrouter_params": {"model": "anthropic/claude-sonnet-4-5", "api_key": "fake-key"},
     }
-    string_router = litellm.Router(model_list=[deployment], timeout=120, stream_timeout="900")
-    default_router = litellm.Router(
+    string_router = embrouter.Router(model_list=[deployment], timeout=120, stream_timeout="900")
+    default_router = embrouter.Router(
         model_list=[deployment],
         timeout=120,
-        default_litellm_params={"stream_timeout": 700},
+        default_embrouter_params={"stream_timeout": 700},
     )
 
     assert _passthrough_timeout(string_router, string_router.model_list[0], stream=True) == 900.0
@@ -6392,25 +6392,25 @@ def test_update_kwargs_with_deployment_passthrough_router_stream_timeout_sources
 
 
 def test_update_kwargs_with_deployment_passthrough_honors_global_request_timeout(monkeypatch: pytest.MonkeyPatch):
-    """litellm_settings.request_timeout must bound the native responses route when neither the
+    """embrouter_settings.request_timeout must bound the native responses route when neither the
     deployment nor the router carries a timeout, while a deployment timeout keeps winning."""
-    monkeypatch.setattr("litellm.request_timeout", 44.0, raising=False)
-    monkeypatch.setattr("litellm.request_timeout_explicitly_set", True, raising=False)
-    router: Final = litellm.Router(
+    monkeypatch.setattr("embrouter.request_timeout", 44.0, raising=False)
+    monkeypatch.setattr("embrouter.request_timeout_explicitly_set", True, raising=False)
+    router: Final = embrouter.Router(
         model_list=[
             {
                 "model_name": "responses-global-timeout",
-                "litellm_params": {"model": "openai/gpt-5.4-mini", "api_key": "fake-key"},
+                "embrouter_params": {"model": "openai/gpt-5.4-mini", "api_key": "fake-key"},
             },
             {
                 "model_name": "responses-deployment-timeout",
-                "litellm_params": {"model": "openai/gpt-5.4-mini", "api_key": "fake-key", "timeout": 3},
+                "embrouter_params": {"model": "openai/gpt-5.4-mini", "api_key": "fake-key", "timeout": 3},
             },
         ],
     )
     global_only, per_deployment = router.model_list
 
-    with patch("litellm.proxy.proxy_server.general_settings", {"pass_through_request_timeout": 6}):
+    with patch("embrouter.proxy.proxy_server.general_settings", {"pass_through_request_timeout": 6}):
         assert _passthrough_timeout(router, global_only, stream=True) == 44.0
         assert _passthrough_timeout(router, global_only, stream=False) == 44.0
         assert _passthrough_timeout(router, per_deployment, stream=True) == 3.0
@@ -6427,7 +6427,7 @@ async def test_router_acompletion_with_unknown_model_and_default_fallback():
     model_list = [
         {
             "model_name": "gpt-4o",  # This is the fallback model
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "azure/gpt-4o-real",  # The actual underlying model name
                 "api_key": "fake-key",
                 "api_base": "https://fake-endpoint.openai.azure.com/",
@@ -6437,7 +6437,7 @@ async def test_router_acompletion_with_unknown_model_and_default_fallback():
     ]
 
     # Initialize the router with a default fallback
-    router = litellm.Router(model_list=model_list, default_fallbacks=["gpt-4o"])
+    router = embrouter.Router(model_list=model_list, default_fallbacks=["gpt-4o"])
 
     messages = [
         {"role": "user", "content": "This call should succeed by falling back."}
@@ -6468,7 +6468,7 @@ async def test_router_acompletion_with_unknown_model_and_no_fallback():
     model_list = [
         {
             "model_name": "gpt-4o",
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "azure/gpt-4o-real",
                 "api_key": "fake-key",
                 "mock_response": "this should not be called",
@@ -6477,12 +6477,12 @@ async def test_router_acompletion_with_unknown_model_and_no_fallback():
     ]
 
     # Initialize the router WITHOUT any default fallbacks
-    router = litellm.Router(model_list=model_list)
+    router = embrouter.Router(model_list=model_list)
 
     messages = [{"role": "user", "content": "This call should fail."}]
 
     # Use pytest.raises to assert that a BadRequestError is thrown.
-    with pytest.raises(litellm.BadRequestError) as excinfo:
+    with pytest.raises(embrouter.BadRequestError) as excinfo:
         await router.acompletion(model="completely-unknown-model", messages=messages)
 
     # Check that the error message is correct.
@@ -6498,11 +6498,11 @@ async def test_router_unknown_model_error_message_renders_model_name_literally()
     literal text, not re-interpreted as a format template, which would distort
     the message and balloon its length.
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4o",
-                "litellm_params": {"model": "azure/gpt-4o-real", "api_key": "fake-key"},
+                "embrouter_params": {"model": "azure/gpt-4o-real", "api_key": "fake-key"},
             }
         ]
     )
@@ -6510,7 +6510,7 @@ async def test_router_unknown_model_error_message_renders_model_name_literally()
     weird_model = "ghost{:>200}model"
     messages = [{"role": "user", "content": "hi"}]
 
-    with pytest.raises(litellm.BadRequestError) as excinfo:
+    with pytest.raises(embrouter.BadRequestError) as excinfo:
         await router.acompletion(model=weird_model, messages=messages)
 
     message = str(excinfo.value)
@@ -6522,11 +6522,11 @@ def test_get_credential_deployment_is_the_deployment_credentials_resolve_to():
     """Regression: a batch retrieved with credentials resolved by model name was priced
     without its deployment id, so per-deployment pricing never applied. The deployment
     behind the credentials must be reachable by name and by id, carrying its model_info."""
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "mistral-ocr",
-                "litellm_params": {"model": "mistral/mistral-ocr-latest", "api_key": "sk-ocr"},
+                "embrouter_params": {"model": "mistral/mistral-ocr-latest", "api_key": "sk-ocr"},
                 "model_info": {"id": "ocr-dep", "ocr_cost_per_page_batches": 0.0123},
             }
         ]
@@ -6543,11 +6543,11 @@ def test_get_credential_deployment_is_the_deployment_credentials_resolve_to():
 
 
 def test_get_credential_deployment_skips_a_paused_deployment():
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "paused-ocr",
-                "litellm_params": {"model": "mistral/mistral-ocr-latest", "api_key": "sk-ocr"},
+                "embrouter_params": {"model": "mistral/mistral-ocr-latest", "api_key": "sk-ocr"},
                 "model_info": {"id": "paused-dep", "blocked": True},
             }
         ]
@@ -6558,11 +6558,11 @@ def test_get_credential_deployment_skips_a_paused_deployment():
 
 
 def test_get_team_public_name_deployment_only_resolves_the_owning_team():
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "mistral/mistral-ocr-latest",
-                "litellm_params": {"model": "mistral/mistral-ocr-latest", "api_key": "sk-team-a"},
+                "embrouter_params": {"model": "mistral/mistral-ocr-latest", "api_key": "sk-team-a"},
                 "model_info": {"id": "team-a-ocr", "team_id": "team-a", "team_public_model_name": "ocr"},
             }
         ]
@@ -6578,16 +6578,16 @@ def test_get_team_public_name_deployment_only_resolves_the_owning_team():
 
 
 def test_get_wildcard_deployment_usable_by_team_prefers_the_team_pattern():
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "mistral/*",
-                "litellm_params": {"model": "mistral/*", "api_key": "sk-shared"},
+                "embrouter_params": {"model": "mistral/*", "api_key": "sk-shared"},
                 "model_info": {"id": "shared-wildcard"},
             },
             {
                 "model_name": "mistral/*",
-                "litellm_params": {"model": "mistral/*", "api_key": "sk-team-a"},
+                "embrouter_params": {"model": "mistral/*", "api_key": "sk-team-a"},
                 "model_info": {"id": "team-a-wildcard", "team_id": "team-a", "team_public_model_name": "mistral/*"},
             },
         ]
@@ -6608,13 +6608,13 @@ def test_get_wildcard_deployment_usable_by_team_prefers_the_team_pattern():
 def test_get_deployment_credentials_with_provider_aws_bedrock_runtime_endpoint():
     """
     Test that get_deployment_credentials_with_provider correctly copies
-    aws_bedrock_runtime_endpoint from deployment litellm_params to credentials.
+    aws_bedrock_runtime_endpoint from deployment embrouter_params to credentials.
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "bedrock-claude-model",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0",
                     "aws_access_key_id": "test-access-key",
                     "aws_secret_access_key": "test-secret-key",
@@ -6642,15 +6642,15 @@ def test_get_deployment_credentials_with_provider_aws_bedrock_runtime_endpoint()
 
 def test_get_deployment_credentials_with_provider_includes_bucket_name():
     """
-    Regression: bucket_name must survive the CredentialLiteLLMParams filter so
+    Regression: bucket_name must survive the CredentialEmbRouterParams filter so
     managed-files batch retrieval can resolve the GCS/S3 bucket. Previously it was
     dropped, causing "GCS bucket_name is required" when fetching batch output files.
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "vertex-gemini",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "vertex_ai/gemini-3.5-flash",
                     "vertex_project": "my-project",
                     "vertex_location": "global",
@@ -6671,11 +6671,11 @@ def test_get_deployment_credentials_with_provider_includes_bucket_name():
 
 
 def test_get_deployment_credentials_with_provider_keeps_legacy_bucket_name():
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "vertex-gemini",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "vertex_ai/gemini-3.5-flash",
                     "vertex_project": "my-project",
                     "vertex_location": "global",
@@ -6693,11 +6693,11 @@ def test_get_deployment_credentials_with_provider_keeps_legacy_bucket_name():
 
 
 def test_get_deployment_credentials_with_provider_keeps_both_bucket_keys():
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "vertex-gemini",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "vertex_ai/gemini-3.5-flash",
                     "vertex_project": "my-project",
                     "vertex_location": "global",
@@ -6718,12 +6718,12 @@ def test_get_deployment_credentials_with_provider_keeps_both_bucket_keys():
 def test_get_deployment_credentials_with_provider_resolves_credential_name():
     """
     Test that get_deployment_credentials_with_provider correctly resolves
-    litellm_credential_name to actual credential values (for UI-created models).
+    embrouter_credential_name to actual credential values (for UI-created models).
     """
-    from litellm.types.utils import CredentialItem
+    from embrouter.types.utils import CredentialItem
 
     # Setup credential list with a test credential
-    litellm.credential_list = [
+    embrouter.credential_list = [
         CredentialItem(
             credential_name="test-azure-cred",
             credential_info={"custom_llm_provider": "azure"},
@@ -6735,13 +6735,13 @@ def test_get_deployment_credentials_with_provider_resolves_credential_name():
         )
     ]
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "azure-gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "azure/gpt-4",
-                    "litellm_credential_name": "test-azure-cred",
+                    "embrouter_credential_name": "test-azure-cred",
                 },
             }
         ],
@@ -6757,10 +6757,10 @@ def test_get_deployment_credentials_with_provider_resolves_credential_name():
     assert credentials["api_version"] == "2024-02-01"
     assert credentials["custom_llm_provider"] == "azure"
     # Ensure credential name is removed after resolution
-    assert "litellm_credential_name" not in credentials
+    assert "embrouter_credential_name" not in credentials
 
     # Cleanup
-    litellm.credential_list = []
+    embrouter.credential_list = []
 
 
 def test_get_deployment_credentials_with_provider_bedrock_batch_fields():
@@ -6769,11 +6769,11 @@ def test_get_deployment_credentials_with_provider_bedrock_batch_fields():
     model and the Bedrock batch/S3 fields (s3_region_name, s3_encryption_key_id,
     aws_batch_role_arn) instead of silently dropping them (#25104).
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "bedrock-batch-model",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0",
                     "aws_region_name": "us-west-2",
                     "s3_bucket_name": "my-batch-bucket",
@@ -6820,11 +6820,11 @@ def test_get_deployment_credentials_with_provider_preserves_aws_auth_params():
         "aws_sts_endpoint": "https://sts.us-west-2.amazonaws.com",
         "aws_external_id": "deployment-external-id",
     }
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "bedrock-batch-model",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0",
                     **aws_auth_params,
                 },
@@ -6850,11 +6850,11 @@ def test_get_deployment_credentials_preserves_azure_entra_id_params():
         "azure_username": "deployment-user",
         "azure_password": "deployment-password",
     }
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "azure-entra-model",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "azure/gpt-5.4",
                     "api_base": "https://example.openai.azure.com/",
                     "api_version": "2024-10-21",
@@ -6879,7 +6879,7 @@ def test_get_deployment_credentials_preserves_azure_entra_id_params():
 def _team_wildcard_model(api_key: str, model_id: str = "team-wildcard-id") -> dict:
     return {
         "model_name": f"model_name_team-1_{model_id}",
-        "litellm_params": {"model": "openai/*", "api_key": api_key},
+        "embrouter_params": {"model": "openai/*", "api_key": api_key},
         "model_info": {
             "id": model_id,
             "team_id": "team-1",
@@ -6894,11 +6894,11 @@ def test_get_deployment_credentials_with_provider_team_wildcard_priority():
     team's own wildcard entry. When team_id is provided, the team wildcard
     deployment's credentials win; without team_id the global one is used.
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "openai/*",
-                "litellm_params": {"model": "openai/*", "api_key": "global-key"},
+                "embrouter_params": {"model": "openai/*", "api_key": "global-key"},
             },
             _team_wildcard_model(api_key="team-key"),
         ],
@@ -6923,11 +6923,11 @@ def test_get_deployment_credentials_with_provider_skips_other_team_deployment():
     deployment must never resolve for another team's (or an unscoped) caller,
     even when it is indexed first; the shared global deployment wins instead.
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gemini-2.5-pro",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "vertex_ai/gemini-2.5-pro",
                     "vertex_project": "team-b-project",
                 },
@@ -6939,7 +6939,7 @@ def test_get_deployment_credentials_with_provider_skips_other_team_deployment():
             },
             {
                 "model_name": "gemini-2.5-pro",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "vertex_ai/gemini-2.5-pro",
                     "vertex_project": "shared-project",
                 },
@@ -6971,11 +6971,11 @@ def test_get_deployment_credentials_with_provider_no_fallback_to_other_team_only
     When the only deployments under a model name belong to another team, other
     callers must get None (env fallback) instead of that team's credentials.
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gemini-2.5-pro",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "vertex_ai/gemini-2.5-pro",
                     "vertex_project": "team-b-project",
                 },
@@ -7006,11 +7006,11 @@ def test_deployment_usable_by_team_helpers():
     usable only by its owning team, shared deployments by anyone, and the
     model-group picker returns the first usable deployment or None.
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gemini-2.5-pro",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "vertex_ai/gemini-2.5-pro",
                     "vertex_project": "team-b-project",
                 },
@@ -7022,7 +7022,7 @@ def test_deployment_usable_by_team_helpers():
             },
             {
                 "model_name": "gemini-2.5-pro",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "vertex_ai/gemini-2.5-pro",
                     "vertex_project": "shared-project",
                 },
@@ -7041,13 +7041,13 @@ def test_deployment_usable_by_team_helpers():
         model_group_name="gemini-2.5-pro", team_id="team-a"
     )
     assert picked is not None
-    assert picked.litellm_params.vertex_project == "shared-project"
+    assert picked.embrouter_params.vertex_project == "shared-project"
 
     owner_picked = router._get_model_group_deployment_usable_by_team(
         model_group_name="gemini-2.5-pro", team_id="team-b"
     )
     assert owner_picked is not None
-    assert owner_picked.litellm_params.vertex_project == "team-b-project"
+    assert owner_picked.embrouter_params.vertex_project == "team-b-project"
 
     assert (
         router._get_model_group_deployment_usable_by_team(
@@ -7062,11 +7062,11 @@ def test_get_deployment_credentials_with_provider_skips_other_team_wildcard():
     Global wildcard resolution must skip a team-scoped wildcard deployment for
     callers outside that team, falling through to the shared wildcard entry.
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "openai/*",
-                "litellm_params": {"model": "openai/*", "api_key": "team-b-key"},
+                "embrouter_params": {"model": "openai/*", "api_key": "team-b-key"},
                 "model_info": {
                     "id": "team-b-wildcard",
                     "team_id": "team-b",
@@ -7075,7 +7075,7 @@ def test_get_deployment_credentials_with_provider_skips_other_team_wildcard():
             },
             {
                 "model_name": "openai/*",
-                "litellm_params": {"model": "openai/*", "api_key": "global-key"},
+                "embrouter_params": {"model": "openai/*", "api_key": "global-key"},
             },
         ],
     )
@@ -7098,7 +7098,7 @@ def test_team_wildcard_credentials_not_usable_after_delete_deployment():
     Regression: team_pattern_routers retained deleted deployments, so a team
     user could keep resolving credentials of a deleted wildcard deployment.
     """
-    router = litellm.Router(model_list=[_team_wildcard_model(api_key="old-key")])
+    router = embrouter.Router(model_list=[_team_wildcard_model(api_key="old-key")])
 
     assert (
         router.get_deployment_credentials_with_provider(
@@ -7123,13 +7123,13 @@ def test_global_wildcard_pattern_router_evicts_stale_entry_on_upsert_and_delete(
     model_list but left it in the global pattern_router, so wildcard requests
     round-robined between the stale and the corrected deployment.
     """
-    from litellm.types.router import Deployment, LiteLLM_Params
+    from embrouter.types.router import Deployment, EmbRouter_Params
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "openai/*",
-                "litellm_params": {"model": "openai/openai/*", "api_key": "sk-old"},
+                "embrouter_params": {"model": "openai/openai/*", "api_key": "sk-old"},
                 "model_info": {"id": "global-wildcard"},
             }
         ]
@@ -7138,14 +7138,14 @@ def test_global_wildcard_pattern_router_evicts_stale_entry_on_upsert_and_delete(
     router.upsert_deployment(
         Deployment(
             model_name="openai/*",
-            litellm_params=LiteLLM_Params(model="openai/*", api_key="sk-new"),
+            embrouter_params=EmbRouter_Params(model="openai/*", api_key="sk-new"),
             model_info={"id": "global-wildcard"},
         )
     )
 
     matches = router.pattern_router.route("openai/gpt-5.2")
     assert matches is not None
-    assert [m["litellm_params"]["api_key"] for m in matches] == ["sk-new"]
+    assert [m["embrouter_params"]["api_key"] for m in matches] == ["sk-new"]
 
     router.delete_deployment(id="global-wildcard")
     assert router.pattern_router.patterns == {}
@@ -7156,16 +7156,16 @@ def test_pattern_match_router_remove_deployment():
     remove_deployment must drop only the deployment with the given model id and
     delete patterns whose deployment list becomes empty.
     """
-    from litellm.router_utils.pattern_match_deployments import PatternMatchRouter
+    from embrouter.router_utils.pattern_match_deployments import PatternMatchRouter
 
     pattern_router = PatternMatchRouter()
     pattern_router.add_pattern(
         "openai/*",
-        {"litellm_params": {"model": "openai/*", "api_key": "key-a"}, "model_info": {"id": "dep-a"}},
+        {"embrouter_params": {"model": "openai/*", "api_key": "key-a"}, "model_info": {"id": "dep-a"}},
     )
     pattern_router.add_pattern(
         "openai/*",
-        {"litellm_params": {"model": "openai/*", "api_key": "key-b"}, "model_info": {"id": "dep-b"}},
+        {"embrouter_params": {"model": "openai/*", "api_key": "key-b"}, "model_info": {"id": "dep-b"}},
     )
 
     pattern_router.remove_deployment(model_id="dep-a")
@@ -7183,9 +7183,9 @@ def test_team_wildcard_credentials_refreshed_on_upsert_and_set_model_list():
     Regression: replacing a team wildcard deployment (upsert or model list
     reload) must serve the new credentials, not the stale cached ones.
     """
-    from litellm.types.router import Deployment
+    from embrouter.types.router import Deployment
 
-    router = litellm.Router(model_list=[_team_wildcard_model(api_key="old-key")])
+    router = embrouter.Router(model_list=[_team_wildcard_model(api_key="old-key")])
 
     router.upsert_deployment(
         deployment=Deployment(**_team_wildcard_model(api_key="new-key"))
@@ -7211,15 +7211,15 @@ def test_get_available_guardrail_single_deployment():
     """
     guardrail_config = {
         "guardrail_name": "content-filter",
-        "litellm_params": {"guardrail": "custom", "mode": "pre_call"},
+        "embrouter_params": {"guardrail": "custom", "mode": "pre_call"},
         "id": "guardrail-1",
     }
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {"model": "gpt-3.5-turbo"},
+                "embrouter_params": {"model": "gpt-3.5-turbo"},
             }
         ],
         guardrail_list=[guardrail_config],
@@ -7235,20 +7235,20 @@ def test_get_available_guardrail_multiple_deployments():
     """
     guardrail_1 = {
         "guardrail_name": "content-filter",
-        "litellm_params": {"guardrail": "custom", "mode": "pre_call"},
+        "embrouter_params": {"guardrail": "custom", "mode": "pre_call"},
         "id": "guardrail-1",
     }
     guardrail_2 = {
         "guardrail_name": "content-filter",
-        "litellm_params": {"guardrail": "custom", "mode": "pre_call"},
+        "embrouter_params": {"guardrail": "custom", "mode": "pre_call"},
         "id": "guardrail-2",
     }
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {"model": "gpt-3.5-turbo"},
+                "embrouter_params": {"model": "gpt-3.5-turbo"},
             }
         ],
         guardrail_list=[guardrail_1, guardrail_2],
@@ -7268,11 +7268,11 @@ def test_get_available_guardrail_not_found():
     """
     Test get_available_guardrail raises ValueError when guardrail not found.
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {"model": "gpt-3.5-turbo"},
+                "embrouter_params": {"model": "gpt-3.5-turbo"},
             }
         ],
         guardrail_list=[],
@@ -7289,15 +7289,15 @@ async def test_aguardrail_helper():
     """
     guardrail_config = {
         "guardrail_name": "content-filter",
-        "litellm_params": {"guardrail": "custom", "mode": "pre_call"},
+        "embrouter_params": {"guardrail": "custom", "mode": "pre_call"},
         "id": "guardrail-1",
     }
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {"model": "gpt-3.5-turbo"},
+                "embrouter_params": {"model": "gpt-3.5-turbo"},
             }
         ],
         guardrail_list=[guardrail_config],
@@ -7326,15 +7326,15 @@ async def test_aguardrail():
     """
     guardrail_config = {
         "guardrail_name": "content-filter",
-        "litellm_params": {"guardrail": "custom", "mode": "pre_call"},
+        "embrouter_params": {"guardrail": "custom", "mode": "pre_call"},
         "id": "guardrail-1",
     }
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {"model": "gpt-3.5-turbo"},
+                "embrouter_params": {"model": "gpt-3.5-turbo"},
             }
         ],
         guardrail_list=[guardrail_config],
@@ -7364,12 +7364,12 @@ async def test_anthropic_messages_call_type_is_cached():
     """
     import asyncio
 
-    from litellm.caching.dual_cache import DualCache
-    from litellm.router_utils.pre_call_checks.prompt_caching_deployment_check import (
+    from embrouter.caching.dual_cache import DualCache
+    from embrouter.router_utils.pre_call_checks.prompt_caching_deployment_check import (
         PromptCachingDeploymentCheck,
     )
-    from litellm.router_utils.prompt_caching_cache import PromptCachingCache
-    from litellm.types.utils import (
+    from embrouter.router_utils.prompt_caching_cache import PromptCachingCache
+    from embrouter.types.utils import (
         CallTypes,
         StandardLoggingHiddenParams,
         StandardLoggingMetadata,
@@ -7482,17 +7482,17 @@ async def test_anthropic_messages_call_type_is_cached():
 
 def test_update_kwargs_with_deployment_propagates_model_tags():
     """
-    Test that deployment-level tags from litellm_params are merged into
+    Test that deployment-level tags from embrouter_params are merged into
     kwargs metadata when _update_kwargs_with_deployment is called.
 
     This ensures model-level tags defined in config.yaml appear in SpendLogs.
 
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4o-mini",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_key": "fake-key",
                     "tags": ["openai-account", "production"],
@@ -7518,11 +7518,11 @@ def test_update_kwargs_with_deployment_merges_tags_without_duplicates():
     Test that when both request-level and deployment-level tags exist,
     they are merged without duplicates.
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4o-mini",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_key": "fake-key",
                     "tags": ["openai-account", "shared-tag"],
@@ -7549,11 +7549,11 @@ def test_update_kwargs_with_deployment_no_tags():
     """
     Test that when deployment has no tags, kwargs metadata is not affected.
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4o-mini",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_key": "fake-key",
                 },
@@ -7577,19 +7577,19 @@ async def test_retry_does_not_narrow_tag_filtered_group_to_failed_deployments_ta
         model_list=[
             {
                 "model_name": "tagged-group",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-5.5",
                     "api_key": "fake-key",
                     "tags": ["free"],
                     "input_cost_per_token": 0.000001,
                     "output_cost_per_token": 0.000001,
-                    "mock_response": "litellm.ContextWindowExceededError",
+                    "mock_response": "embrouter.ContextWindowExceededError",
                 },
                 "model_info": {"id": "tagged-failing"},
             },
             {
                 "model_name": "tagged-group",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-5.5",
                     "api_key": "fake-key",
                     "input_cost_per_token": 0.001,
@@ -7617,17 +7617,17 @@ async def test_retry_does_not_narrow_tag_filtered_group_to_failed_deployments_ta
 
 def test_update_kwargs_with_deployment_merges_tools():
     """
-    Test that when both deployment litellm_params and request have tools,
+    Test that when both deployment embrouter_params and request have tools,
     they are merged (deployment tools first, then request tools).
 
     Supports proxy-configured tools (e.g. for o3 deep research) merged with
     client-provided tools.
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "o3-deep-research",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/o3-deep-research",
                     "api_key": "fake-key",
                     "tools": [{"type": "web_search"}],
@@ -7664,11 +7664,11 @@ def test_update_kwargs_with_deployment_merge_tools_deployment_only():
     """
     Test that when only deployment has tools, they are applied to kwargs.
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "o3-deep-research",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/o3-deep-research",
                     "api_key": "fake-key",
                     "tools": [{"type": "web_search"}],
@@ -7692,11 +7692,11 @@ def test_update_kwargs_with_deployment_merge_tools_request_overrides_tool_choice
     """
     Test that when request has tool_choice, it overrides deployment's.
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "o3-deep-research",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/o3-deep-research",
                     "api_key": "fake-key",
                     "tools": [{"type": "web_search"}],
@@ -7721,16 +7721,16 @@ def test_update_kwargs_with_deployment_merge_tools_request_overrides_tool_choice
 
 def test_credential_name_injected_as_tag():
     """
-    Test that litellm_credential_name from deployment litellm_params
+    Test that embrouter_credential_name from deployment embrouter_params
     is injected as a tag into metadata during _update_kwargs_with_deployment.
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "xai-model",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "xai/grok-4-1-fast",
-                    "litellm_credential_name": "xAI",
+                    "embrouter_credential_name": "xAI",
                 },
             }
         ],
@@ -7749,13 +7749,13 @@ def test_credential_name_not_duplicated_in_tags():
     Test that if the credential tag already exists in the tags list,
     it is not duplicated.
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "xai-model",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "xai/grok-4-1-fast",
-                    "litellm_credential_name": "xAI",
+                    "embrouter_credential_name": "xAI",
                 },
             }
         ],
@@ -7770,13 +7770,13 @@ def test_credential_name_not_duplicated_in_tags():
 
 def test_credential_name_not_injected_when_absent():
     """
-    Test that when no litellm_credential_name is set, tags are unchanged.
+    Test that when no embrouter_credential_name is set, tags are unchanged.
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-model",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4o",
                 },
             }
@@ -7790,17 +7790,17 @@ def test_credential_name_not_injected_when_absent():
     assert kwargs["metadata"]["tags"] == ["A.101"]
 
 
-def test_update_kwargs_with_deployment_model_info_in_litellm_metadata():
-    """For generic_api_call, model_info with pricing must go to litellm_metadata.
+def test_update_kwargs_with_deployment_model_info_in_embrouter_metadata():
+    """For generic_api_call, model_info with pricing must go to embrouter_metadata.
 
     Routes like /messages and /responses use generic_api_call which stores
-    model_info under litellm_metadata. Regression test for #23185.
+    model_info under embrouter_metadata. Regression test for #23185.
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "claude-sonnet-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "anthropic/claude-sonnet-4-20250514",
                     "api_key": "fake-key",
                 },
@@ -7821,8 +7821,8 @@ def test_update_kwargs_with_deployment_model_info_in_litellm_metadata():
         deployment=deployment, kwargs=kwargs, function_name="generic_api_call"
     )
 
-    assert "litellm_metadata" in kwargs
-    model_info = kwargs["litellm_metadata"]["model_info"]
+    assert "embrouter_metadata" in kwargs
+    model_info = kwargs["embrouter_metadata"]["model_info"]
     assert model_info["id"] == "custom-pricing-id"
     assert model_info["input_cost_per_token"] == 0.0003
     assert model_info["output_cost_per_token"] == 0.0015
@@ -7833,11 +7833,11 @@ def test_update_kwargs_with_deployment_model_info_in_metadata():
 
     /chat/completions uses acompletion which stores model_info under metadata.
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "claude-sonnet-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "anthropic/claude-sonnet-4-20250514",
                     "api_key": "fake-key",
                 },
@@ -7867,11 +7867,11 @@ def test_update_kwargs_with_deployment_model_info_in_metadata():
 
 def test_combine_fallback_usage():
     """Test that _combine_fallback_usage merges partial and fallback usage."""
-    from litellm.router import Router
-    from litellm.types.utils import Usage
+    from embrouter.router import Router
+    from embrouter.types.utils import Usage
 
     # Create a stream chunk with usage
-    chunk = litellm.ModelResponseStream(
+    chunk = embrouter.ModelResponseStream(
         id="test",
         model="gpt-4o",
         choices=[],
@@ -7893,14 +7893,14 @@ async def test_acompletion_streaming_iterator_does_not_log_success_on_terminal_f
     recovery for the failure row happens in the streaming handler, not here, so
     this guards only against reintroducing a success log for a failed stream.
     """
-    from litellm.exceptions import MidStreamFallbackError
-    from litellm.types.utils import Delta, StreamingChoices, Usage
+    from embrouter.exceptions import MidStreamFallbackError
+    from embrouter.types.utils import Delta, StreamingChoices, Usage
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {"model": "gpt-4", "api_key": "fake-key-1"},
+                "embrouter_params": {"model": "gpt-4", "api_key": "fake-key-1"},
             },
         ],
         set_verbose=True,
@@ -7914,7 +7914,7 @@ async def test_acompletion_streaming_iterator_does_not_log_success_on_terminal_f
     )
 
     def _make_interrupted_model_response():
-        partial_chunk = litellm.ModelResponseStream(
+        partial_chunk = embrouter.ModelResponseStream(
             id="chatcmpl-partial-1",
             created=1742056047,
             model="gpt-4",
@@ -8015,11 +8015,11 @@ async def test_team_scoped_model_fallback():
     When a team-scoped model fails and the fallback model is also team-scoped,
     the router should find the fallback deployment by matching team_public_model_name.
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "team-a-primary-internal",
-                "litellm_params": {"model": "gpt-3.5-turbo", "api_key": "fake"},
+                "embrouter_params": {"model": "gpt-3.5-turbo", "api_key": "fake"},
                 "model_info": {
                     "team_id": "team-a",
                     "team_public_model_name": "primary-model",
@@ -8027,7 +8027,7 @@ async def test_team_scoped_model_fallback():
             },
             {
                 "model_name": "team-a-fallback-internal",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4",
                     "api_key": "fake",
                     "mock_response": "fallback success from team-a",
@@ -8059,11 +8059,11 @@ async def test_team_scoped_model_fallback_to_global():
     Global models (no team_id on deployment) should be accessible as fallback
     targets for team-scoped requests.
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "team-a-primary-internal",
-                "litellm_params": {"model": "gpt-3.5-turbo", "api_key": "fake"},
+                "embrouter_params": {"model": "gpt-3.5-turbo", "api_key": "fake"},
                 "model_info": {
                     "team_id": "team-a",
                     "team_public_model_name": "primary-model",
@@ -8071,7 +8071,7 @@ async def test_team_scoped_model_fallback_to_global():
             },
             {
                 "model_name": "global-fallback",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4",
                     "api_key": "fake",
                     "mock_response": "global fallback success",
@@ -8099,11 +8099,11 @@ async def test_team_scoped_model_fallback_cross_team_blocked():
     When team-a's model fails and the fallback target is scoped to team-b,
     the router should NOT use it (team isolation).
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "team-a-primary-internal",
-                "litellm_params": {"model": "gpt-3.5-turbo", "api_key": "fake"},
+                "embrouter_params": {"model": "gpt-3.5-turbo", "api_key": "fake"},
                 "model_info": {
                     "team_id": "team-a",
                     "team_public_model_name": "primary-model",
@@ -8111,7 +8111,7 @@ async def test_team_scoped_model_fallback_cross_team_blocked():
             },
             {
                 "model_name": "team-b-fallback-internal",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4",
                     "api_key": "fake",
                     "mock_response": "team-b response - should not reach here",
@@ -8125,7 +8125,7 @@ async def test_team_scoped_model_fallback_cross_team_blocked():
         fallbacks=[{"primary-model": ["fallback-model"]}],
     )
 
-    with pytest.raises(litellm.InternalServerError):
+    with pytest.raises(embrouter.InternalServerError):
         await router.acompletion(
             model="primary-model",
             messages=[{"role": "user", "content": "Hello"}],
@@ -8139,11 +8139,11 @@ def test_get_all_deployments_with_team_id():
     Test that _get_all_deployments with team_id can find deployments
     by team_public_model_name when the model_name is not in the index.
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "internal-team-deployment",
-                "litellm_params": {"model": "gpt-4", "api_key": "fake"},
+                "embrouter_params": {"model": "gpt-4", "api_key": "fake"},
                 "model_info": {
                     "team_id": "team-x",
                     "team_public_model_name": "gpt-4",
@@ -8174,11 +8174,11 @@ def test_multiregion_team_deployments_unique_model_names():
     Verifies that _get_all_deployments returns ALL regional deployments
     for a team when queried by team_public_model_name.
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "metis-claude-us-east-1",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "bedrock/anthropic.claude-3-sonnet",
                     "aws_region_name": "us-east-1",
                     "api_key": "fake",
@@ -8190,7 +8190,7 @@ def test_multiregion_team_deployments_unique_model_names():
             },
             {
                 "model_name": "metis-claude-us-west-2",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "bedrock/anthropic.claude-3-sonnet",
                     "aws_region_name": "us-west-2",
                     "api_key": "fake",
@@ -8241,11 +8241,11 @@ async def test_multiregion_team_failover_between_regions():
 
     This is the exact scenario Sean Glover from athenahealth will demonstrate.
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "metis-claude-us-east-1",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "bedrock/anthropic.claude-3-sonnet",
                     "api_key": "fake",
                     "mock_response": "response from us-east-1",
@@ -8257,7 +8257,7 @@ async def test_multiregion_team_failover_between_regions():
             },
             {
                 "model_name": "metis-claude-us-west-2",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "bedrock/anthropic.claude-3-sonnet",
                     "api_key": "fake",
                     "mock_response": "response from us-west-2",
@@ -8298,13 +8298,13 @@ def test_access_group_scoped_key_filters_deployments_with_same_public_model():
     router candidate deployments for that public model should be constrained
     to deployments in the allowed access group.
     """
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-5",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-5.1",
                     "api_key": "key1",
                     "mock_response": "response-via-AG1",
@@ -8313,7 +8313,7 @@ def test_access_group_scoped_key_filters_deployments_with_same_public_model():
             },
             {
                 "model_name": "gpt-5",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-4o",
                     "api_key": "key2",
                     "mock_response": "response-via-AG2",
@@ -8360,13 +8360,13 @@ def test_explicit_model_access_does_not_force_access_group_filtering():
     If a key has explicit model access in addition to access group entries,
     do not force access-group-only filtering for deployment selection.
     """
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-5",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-5.1",
                     "api_key": "key1",
                     "mock_response": "response-via-AG1",
@@ -8375,7 +8375,7 @@ def test_explicit_model_access_does_not_force_access_group_filtering():
             },
             {
                 "model_name": "gpt-5",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-4o",
                     "api_key": "key2",
                     "mock_response": "response-via-AG2",
@@ -8409,26 +8409,26 @@ def test_explicit_model_access_does_not_force_access_group_filtering():
     assert ["AG2"] in deployment_groups
 
 
-def test_access_group_filter_empty_does_not_bypass_via_litellm_model_fallback(
+def test_access_group_filter_empty_does_not_bypass_via_embrouter_model_fallback(
     monkeypatch: pytest.MonkeyPatch,
 ):
     """
-    When access-group filtering removes all candidates, _get_deployment_by_litellm_model
+    When access-group filtering removes all candidates, _get_deployment_by_embrouter_model
     must not run: it does not re-apply access groups and could return blocked deployments
-    that share the same litellm_params.model as the request model string.
+    that share the same embrouter_params.model as the request model string.
 
     ``get_model_access_groups`` is patched to expose AG1 for the public model (so the
     access-group filter runs with a non-empty allowed set) while every deployment
     returned for that name is AG2-only — filtered to empty. Without the guard, the
-    litellm-model fallback would return both rows because ``litellm_params.model`` matches.
+    embrouter-model fallback would return both rows because ``embrouter_params.model`` matches.
     """
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-5",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-5",
                     "api_key": "key1",
                     "mock_response": "blocked-dep-1",
@@ -8437,7 +8437,7 @@ def test_access_group_filter_empty_does_not_bypass_via_litellm_model_fallback(
             },
             {
                 "model_name": "gpt-5",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-5",
                     "api_key": "key2",
                     "mock_response": "blocked-dep-2",
@@ -8469,7 +8469,7 @@ def test_access_group_filter_empty_does_not_bypass_via_litellm_model_fallback(
         team_models=["AG1"],
     )
 
-    with pytest.raises(litellm.BadRequestError):
+    with pytest.raises(embrouter.BadRequestError):
         router._common_checks_available_deployment(
             model="gpt-5",
             request_kwargs={
@@ -8490,13 +8490,13 @@ def test_access_group_block_does_not_silently_use_default_fallback_model(
     ``_filter_deployments_by_model_access_groups`` would not constrain Y and the caller
     would be served despite being blocked from X.
     """
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-5",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-5",
                     "api_key": "key1",
                     "mock_response": "blocked-dep-1",
@@ -8505,7 +8505,7 @@ def test_access_group_block_does_not_silently_use_default_fallback_model(
             },
             {
                 "model_name": "gpt-5",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-5",
                     "api_key": "key2",
                     "mock_response": "blocked-dep-2",
@@ -8514,7 +8514,7 @@ def test_access_group_block_does_not_silently_use_default_fallback_model(
             },
             {
                 "model_name": "gpt-4-fallback",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4",
                     "api_key": "fallback-key",
                     "mock_response": "should-not-reach",
@@ -8546,7 +8546,7 @@ def test_access_group_block_does_not_silently_use_default_fallback_model(
         team_models=["AG1"],
     )
 
-    with pytest.raises(litellm.BadRequestError):
+    with pytest.raises(embrouter.BadRequestError):
         router._common_checks_available_deployment(
             model="gpt-5",
             request_kwargs={
@@ -8558,23 +8558,23 @@ def test_access_group_block_does_not_silently_use_default_fallback_model(
         )
 
 
-def test_access_group_block_via_litellm_model_branch_does_not_use_default_fallback(
+def test_access_group_block_via_embrouter_model_branch_does_not_use_default_fallback(
     monkeypatch: pytest.MonkeyPatch,
 ):
     """
-    When the by-name lookup returns no deployments and the litellm-model fallback
+    When the by-name lookup returns no deployments and the embrouter-model fallback
     branch finds candidates that access-group filtering then empties, the router
     must not fall through to default ``fallbacks`` routing — the default fallback
     model may have no ``access_groups`` and would short-circuit the filter,
     silently serving a caller blocked by access-group restrictions.
     """
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-5-alias",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-5",
                     "api_key": "key1",
                     "mock_response": "blocked-dep-1",
@@ -8583,7 +8583,7 @@ def test_access_group_block_via_litellm_model_branch_does_not_use_default_fallba
             },
             {
                 "model_name": "gpt-4-fallback",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4",
                     "api_key": "fallback-key",
                     "mock_response": "should-not-reach",
@@ -8615,7 +8615,7 @@ def test_access_group_block_via_litellm_model_branch_does_not_use_default_fallba
         team_models=["AG1"],
     )
 
-    with pytest.raises(litellm.BadRequestError):
+    with pytest.raises(embrouter.BadRequestError):
         router._common_checks_available_deployment(
             model="gpt-5",
             request_kwargs={
@@ -8639,11 +8639,11 @@ def test_try_early_resolve_deployments_for_model_not_in_names():
     - Returns the default deployment with the request model substituted in when one
       is configured, without mutating the stored default.
     """
-    router_in_names = litellm.Router(
+    router_in_names = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-5",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-5",
                     "api_key": "key1",
                 },
@@ -8664,11 +8664,11 @@ def test_try_early_resolve_deployments_for_model_not_in_names():
         is None
     )
 
-    pattern_router = litellm.Router(
+    pattern_router = embrouter.Router(
         model_list=[
             {
                 "model_name": "openai/*",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/*",
                     "api_key": "key-pattern",
                 },
@@ -8686,11 +8686,11 @@ def test_try_early_resolve_deployments_for_model_not_in_names():
     assert resolved_model == "openai/gpt-4o-mini"
     assert isinstance(pattern_deployments, list) and len(pattern_deployments) == 1
 
-    default_router = litellm.Router(
+    default_router = embrouter.Router(
         model_list=[
             {
                 "model_name": "named-model",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-4o",
                     "api_key": "key-named",
                 },
@@ -8699,7 +8699,7 @@ def test_try_early_resolve_deployments_for_model_not_in_names():
     )
     default_router.default_deployment = {
         "model_name": "default",
-        "litellm_params": {
+        "embrouter_params": {
             "model": "openai/will-be-overridden",
             "api_key": "key-default",
         },
@@ -8714,27 +8714,27 @@ def test_try_early_resolve_deployments_for_model_not_in_names():
     resolved_model, default_deployment = default_result
     assert resolved_model == "brand-new-model"
     assert isinstance(default_deployment, dict)
-    assert default_deployment["litellm_params"]["model"] == "brand-new-model"
+    assert default_deployment["embrouter_params"]["model"] == "brand-new-model"
     # The original default_deployment must not be mutated.
     assert (
-        default_router.default_deployment["litellm_params"]["model"]
+        default_router.default_deployment["embrouter_params"]["model"]
         == "openai/will-be-overridden"
     )
 
 
 def _router_with_two_deployments(blocked_flags):
-    import litellm
+    import embrouter
 
     model_list = []
     for idx, blocked in enumerate(blocked_flags):
         model_list.append(
             {
                 "model_name": "gpt-4o",
-                "litellm_params": {"model": f"openai/gpt-4o-{idx}"},
+                "embrouter_params": {"model": f"openai/gpt-4o-{idx}"},
                 "model_info": {"id": f"dep-{idx}", "blocked": blocked},
             }
         )
-    return litellm.Router(model_list=model_list)
+    return embrouter.Router(model_list=model_list)
 
 
 def test_get_fully_blocked_model_names_marks_name_when_all_deployments_blocked():
@@ -8748,13 +8748,13 @@ def test_get_fully_blocked_model_names_keeps_name_when_partial_blocked():
 
 
 def test_get_fully_blocked_model_names_treats_missing_key_as_unblocked():
-    import litellm
+    import embrouter
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4o",
-                "litellm_params": {"model": "openai/gpt-4o"},
+                "embrouter_params": {"model": "openai/gpt-4o"},
                 "model_info": {"id": "dep-0"},
             }
         ]
@@ -8804,13 +8804,13 @@ async def test_health_probe_preserves_normal_caller_policy(
     strict_ids: tuple[str, ...],
 ) -> None:
     import time
-    from litellm.types.router import AllowedFailsPolicy, RouterRateLimitError
+    from embrouter.types.router import AllowedFailsPolicy, RouterRateLimitError
 
     router: Final = Router(
         model_list=[
             {
                 "model_name": "health-group",
-                "litellm_params": {"model": "openai/gpt-5.6", "api_key": "test-only"},
+                "embrouter_params": {"model": "openai/gpt-5.6", "api_key": "test-only"},
                 "model_info": {"id": model_id},
             }
             for model_id in ("dep-0", "dep-1")
@@ -8863,13 +8863,13 @@ async def test_async_get_fully_unhealthy_model_names_ignores_stale_state():
 
 @pytest.mark.asyncio
 async def test_async_get_fully_unhealthy_model_names_includes_team_alias():
-    import litellm
+    import embrouter
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4o",
-                "litellm_params": {"model": "openai/gpt-4o"},
+                "embrouter_params": {"model": "openai/gpt-4o"},
                 "model_info": {
                     "id": "dep-0",
                     "team_id": "team-1",
@@ -8887,7 +8887,7 @@ async def test_async_get_fully_unhealthy_model_names_includes_team_alias():
 
 @pytest.mark.asyncio
 async def test_async_get_fully_unhealthy_model_names_noop_with_allowed_fails_policy():
-    from litellm.types.router import AllowedFailsPolicy
+    from embrouter.types.router import AllowedFailsPolicy
 
     router = _router_with_two_deployments([False, False])
     router.allowed_fails_policy = AllowedFailsPolicy(BadRequestErrorAllowedFails=1)
@@ -8944,10 +8944,10 @@ def test_public_get_available_deployment_skips_blocked_on_primary_path():
 
 
 def test_get_available_deployment_raises_when_addressed_dict_is_blocked():
-    import litellm
+    import embrouter
 
     router = _router_with_two_deployments([True, True])
-    with pytest.raises(litellm.ServiceUnavailableError):
+    with pytest.raises(embrouter.ServiceUnavailableError):
         router.get_available_deployment(model="dep-0", request_kwargs={})
 
 
@@ -8955,7 +8955,7 @@ def _cool_down(router: Router, *deployment_ids: str) -> None:
     for deployment_id in deployment_ids:
         router.cooldown_cache.add_deployment_to_cooldown(
             model_id=deployment_id,
-            original_exception=litellm.RateLimitError(message="upstream 429", llm_provider="openai", model="gpt-4o"),
+            original_exception=embrouter.RateLimitError(message="upstream 429", llm_provider="openai", model="gpt-4o"),
             exception_status=429,
             cooldown_time=60,
         )
@@ -8971,7 +8971,7 @@ async def _select_deployment(router: Router, use_async: bool) -> None:
 @pytest.mark.parametrize("use_async", [False, True], ids=["sync", "async"])
 @pytest.mark.asyncio
 async def test_get_available_deployment_names_cooldown_when_every_deployment_is_cooled_down(use_async: bool):
-    from litellm.types.router import RouterErrors, RouterRateLimitError
+    from embrouter.types.router import RouterErrors, RouterRateLimitError
 
     router: Final = _router_with_two_deployments([False, False])
     _cool_down(router, "dep-0", "dep-1")
@@ -8986,7 +8986,7 @@ async def test_get_available_deployment_names_cooldown_when_every_deployment_is_
 @pytest.mark.parametrize("use_async", [False, True], ids=["sync", "async"])
 @pytest.mark.asyncio
 async def test_get_available_deployment_keeps_generic_error_when_cooldown_is_partial(use_async: bool):
-    from litellm.types.router import RouterErrors, RouterRateLimitError
+    from embrouter.types.router import RouterErrors, RouterRateLimitError
 
     router: Final = _router_with_two_deployments([False, True])
     _cool_down(router, "dep-0")
@@ -8998,14 +8998,14 @@ async def test_get_available_deployment_keeps_generic_error_when_cooldown_is_par
 
 
 def _router_with_two_pass_through_deployments(blocked_flags):
-    import litellm
+    import embrouter
 
     model_list = []
     for idx, blocked in enumerate(blocked_flags):
         model_list.append(
             {
                 "model_name": "gpt-4o",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": f"openai/gpt-4o-{idx}",
                     "api_key": "sk-fake-for-tests",
                     "use_in_pass_through": True,
@@ -9013,7 +9013,7 @@ def _router_with_two_pass_through_deployments(blocked_flags):
                 "model_info": {"id": f"pt-{idx}", "blocked": blocked},
             }
         )
-    return litellm.Router(model_list=model_list)
+    return embrouter.Router(model_list=model_list)
 
 
 def test_get_available_deployment_for_pass_through_skips_blocked():
@@ -9025,23 +9025,23 @@ def test_get_available_deployment_for_pass_through_skips_blocked():
 
 
 def test_get_available_deployment_for_pass_through_raises_when_dict_blocked():
-    import litellm
+    import embrouter
 
     router = _router_with_two_pass_through_deployments([True, True])
-    with pytest.raises(litellm.ServiceUnavailableError):
+    with pytest.raises(embrouter.ServiceUnavailableError):
         router.get_available_deployment_for_pass_through(
             model="pt-0", request_kwargs={}
         )
 
 
 def test_get_available_deployment_for_pass_through_names_cooldown_despite_healthy_non_pass_through():
-    from litellm.types.router import RouterRateLimitError
+    from embrouter.types.router import RouterRateLimitError
 
     router: Final = _router_with_two_pass_through_deployments([False, False])
     router.add_deployment(
         Deployment(
             model_name="gpt-4o",
-            litellm_params=LiteLLM_Params(model="openai/gpt-4o-plain", api_key="sk-fake-for-tests"),
+            embrouter_params=EmbRouter_Params(model="openai/gpt-4o-plain", api_key="sk-fake-for-tests"),
             model_info=ModelInfo(id="plain-0"),
         )
     )
@@ -9057,13 +9057,13 @@ def test_initialize_deployment_for_pass_through_keeps_bedrock_iam_deployment():
     Bedrock deployments using IAM/OIDC auth have no api_key; pass-through
     init must not raise and drop them from routing (#27728).
     """
-    import litellm
+    import embrouter
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "bedrock-claude",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "bedrock/anthropic.claude-3-5-sonnet-20241022-v2:0",
                     "aws_role_name": "arn:aws:iam::123456789012:role/my-role",
                     "aws_session_name": "my-session",
@@ -9079,7 +9079,7 @@ def test_initialize_deployment_for_pass_through_keeps_bedrock_iam_deployment():
 
 
 def test_pass_through_deployment_api_key_resolves_via_get_credentials():
-    from litellm.proxy.pass_through_endpoints.passthrough_endpoint_router import (
+    from embrouter.proxy.pass_through_endpoints.passthrough_endpoint_router import (
         PassthroughEndpointRouter,
     )
 
@@ -9113,26 +9113,26 @@ def test_is_deployment_blocked_static_helper_reflects_blocked_flag():
     """
     import types
 
-    import litellm
+    import embrouter
 
     router = _router_with_two_deployments([True, False])
     blocked_dep = router.get_deployment("dep-0")
     unblocked_dep = router.get_deployment("dep-1")
     assert blocked_dep is not None and unblocked_dep is not None
-    assert litellm.Router._is_deployment_blocked(blocked_dep) is True
-    assert litellm.Router._is_deployment_blocked(unblocked_dep) is False
+    assert embrouter.Router._is_deployment_blocked(blocked_dep) is True
+    assert embrouter.Router._is_deployment_blocked(unblocked_dep) is False
 
     # No model_info on deployment object → treated as not blocked
-    assert litellm.Router._is_deployment_blocked(object()) is False
+    assert embrouter.Router._is_deployment_blocked(object()) is False
     missing_blocked = types.SimpleNamespace()
     assert (
-        litellm.Router._is_deployment_blocked(
+        embrouter.Router._is_deployment_blocked(
             types.SimpleNamespace(model_info=missing_blocked)
         )
         is False
     )
     assert (
-        litellm.Router._is_deployment_blocked(
+        embrouter.Router._is_deployment_blocked(
             types.SimpleNamespace(model_info=types.SimpleNamespace(blocked=True))
         )
         is True
@@ -9140,7 +9140,7 @@ def test_is_deployment_blocked_static_helper_reflects_blocked_flag():
 
 
 class TestRouterRequestTimeoutPropagation:
-    """litellm_settings.request_timeout must act as an independent per-attempt timeout.
+    """embrouter_settings.request_timeout must act as an independent per-attempt timeout.
 
     Regression for LIT-2369: request_timeout was shadowed by router_settings.timeout,
     so Bedrock (and other provider) calls fell back to the hardcoded 600s httpx
@@ -9148,11 +9148,11 @@ class TestRouterRequestTimeoutPropagation:
     """
 
     def _make_router(self, timeout=None, stream_timeout=None):
-        return litellm.Router(
+        return embrouter.Router(
             model_list=[
                 {
                     "model_name": "test-model",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "openai/gpt-4",
                         "api_key": "sk-test",
                     },
@@ -9164,15 +9164,15 @@ class TestRouterRequestTimeoutPropagation:
 
     @pytest.fixture
     def explicit_request_timeout(self):
-        original_value = litellm.request_timeout
-        original_flag = litellm.request_timeout_explicitly_set
-        litellm.request_timeout = 300
-        litellm.request_timeout_explicitly_set = True
+        original_value = embrouter.request_timeout
+        original_flag = embrouter.request_timeout_explicitly_set
+        embrouter.request_timeout = 300
+        embrouter.request_timeout_explicitly_set = True
         try:
             yield 300
         finally:
-            litellm.request_timeout = original_value
-            litellm.request_timeout_explicitly_set = original_flag
+            embrouter.request_timeout = original_value
+            embrouter.request_timeout_explicitly_set = original_flag
 
     def test_request_timeout_stored_independently_when_both_set(
         self, explicit_request_timeout
@@ -9182,17 +9182,17 @@ class TestRouterRequestTimeoutPropagation:
         assert router.request_timeout == 300
 
     def test_request_timeout_none_when_not_explicitly_configured(self):
-        original_value = litellm.request_timeout
-        original_flag = litellm.request_timeout_explicitly_set
-        litellm.request_timeout = litellm.constants.DEFAULT_REQUEST_TIMEOUT_SECONDS
-        litellm.request_timeout_explicitly_set = False
+        original_value = embrouter.request_timeout
+        original_flag = embrouter.request_timeout_explicitly_set
+        embrouter.request_timeout = embrouter.constants.DEFAULT_REQUEST_TIMEOUT_SECONDS
+        embrouter.request_timeout_explicitly_set = False
         try:
             router = self._make_router(timeout=330)
             assert router.timeout == 330
             assert router.request_timeout is None
         finally:
-            litellm.request_timeout = original_value
-            litellm.request_timeout_explicitly_set = original_flag
+            embrouter.request_timeout = original_value
+            embrouter.request_timeout_explicitly_set = original_flag
 
     def test_non_stream_prefers_request_timeout_over_router_timeout(
         self, explicit_request_timeout
@@ -9214,16 +9214,16 @@ class TestRouterRequestTimeoutPropagation:
         assert router._get_stream_timeout(kwargs={}, data={}) == 45
 
     def test_non_stream_falls_through_to_router_timeout_without_request_timeout(self):
-        original_value = litellm.request_timeout
-        original_flag = litellm.request_timeout_explicitly_set
-        litellm.request_timeout = litellm.constants.DEFAULT_REQUEST_TIMEOUT_SECONDS
-        litellm.request_timeout_explicitly_set = False
+        original_value = embrouter.request_timeout
+        original_flag = embrouter.request_timeout_explicitly_set
+        embrouter.request_timeout = embrouter.constants.DEFAULT_REQUEST_TIMEOUT_SECONDS
+        embrouter.request_timeout_explicitly_set = False
         try:
             router = self._make_router(timeout=330)
             assert router._get_non_stream_timeout(kwargs={}, data={}) == 330
         finally:
-            litellm.request_timeout = original_value
-            litellm.request_timeout_explicitly_set = original_flag
+            embrouter.request_timeout = original_value
+            embrouter.request_timeout_explicitly_set = original_flag
 
     def test_per_deployment_timeout_overrides_request_timeout(
         self, explicit_request_timeout
@@ -9260,10 +9260,10 @@ class TestRouterRequestTimeoutPropagation:
 
 def _make_deferred_stream_wrapper(make_call_fn):
     """Return a CustomStreamWrapper with completion_stream=None and the given make_call."""
-    from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
+    from embrouter.embrouter_core_utils.streaming_handler import CustomStreamWrapper
 
     logging_obj = MagicMock()
-    logging_obj.model_call_details = {"litellm_params": {}}
+    logging_obj.model_call_details = {"embrouter_params": {}}
     return CustomStreamWrapper(
         completion_stream=None,
         model="vertex_ai/gemini-2.0-flash",
@@ -9274,11 +9274,11 @@ def _make_deferred_stream_wrapper(make_call_fn):
 
 
 def _make_router_with_vertex_and_fallback():
-    return litellm.Router(
+    return embrouter.Router(
         model_list=[
             {
                 "model_name": "my-gemini",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "vertex_ai/gemini-2.0-flash",
                     "vertex_project": "test-project",
                     "vertex_location": "us-central1",
@@ -9286,7 +9286,7 @@ def _make_router_with_vertex_and_fallback():
             },
             {
                 "model_name": "my-fallback",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_key": "sk-fake",
                 },
@@ -9307,9 +9307,9 @@ async def test_acompletion_deferred_stream_error_propagates_through_acompletion(
     Before the fix, the HTTP call happened inside __anext__ (outside the except block),
     so fail_calls was never incremented.
     """
-    import litellm as _litellm
+    import embrouter as _embrouter
 
-    rate_limit_err = _litellm.RateLimitError(
+    rate_limit_err = _embrouter.RateLimitError(
         message="Resource exhausted",
         llm_provider="vertex_ai",
         model="gemini-2.0-flash",
@@ -9322,11 +9322,11 @@ async def test_acompletion_deferred_stream_error_propagates_through_acompletion(
     deferred_wrapper = _make_deferred_stream_wrapper(failing_make_call)
 
     with patch(
-        "litellm.acompletion",
+        "embrouter.acompletion",
         new_callable=AsyncMock,
         return_value=deferred_wrapper,
     ):
-        with pytest.raises(_litellm.RateLimitError):
+        with pytest.raises(_embrouter.RateLimitError):
             await router._acompletion(
                 model="vertex_ai/gemini-2.0-flash",
                 messages=[{"role": "user", "content": "Hello"}],
@@ -9334,7 +9334,7 @@ async def test_acompletion_deferred_stream_error_propagates_through_acompletion(
                 specific_deployment=router.model_list[0],
             )
 
-    model_name = router.model_list[0]["litellm_params"]["model"]
+    model_name = router.model_list[0]["embrouter_params"]["model"]
     assert router.fail_calls[model_name] == 1, (
         "fail_calls must be incremented when the deferred HTTP call fails; "
         "without the eager fetch_stream() fix this stays at 0"
@@ -9349,9 +9349,9 @@ async def test_acompletion_deferred_stream_preserves_original_headers_on_error()
     proxy-authenticate) that only the proxy's own response construction needs to
     worry about. Stripping happens in the proxy layer instead
     (_handle_llm_api_exception)."""
-    import litellm as _litellm
+    import embrouter as _embrouter
 
-    err = _litellm.RateLimitError(
+    err = _embrouter.RateLimitError(
         message="Resource exhausted",
         llm_provider="vertex_ai",
         model="gemini-2.0-flash",
@@ -9371,11 +9371,11 @@ async def test_acompletion_deferred_stream_preserves_original_headers_on_error()
     deferred_wrapper = _make_deferred_stream_wrapper(failing_make_call)
 
     with patch(
-        "litellm.acompletion",
+        "embrouter.acompletion",
         new_callable=AsyncMock,
         return_value=deferred_wrapper,
     ):
-        with pytest.raises(_litellm.RateLimitError) as exc_info:
+        with pytest.raises(_embrouter.RateLimitError) as exc_info:
             await router._acompletion(
                 model="vertex_ai/gemini-2.0-flash",
                 messages=[{"role": "user", "content": "Hello"}],
@@ -9398,13 +9398,13 @@ async def test_acompletion_deferred_stream_skipped_when_stream_already_set():
     fetch_stream() call must be skipped entirely; no exception should be raised even
     if make_call would fail.
     """
-    from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
+    from embrouter.embrouter_core_utils.streaming_handler import CustomStreamWrapper
 
     async def would_fail(**kwargs):
         raise RuntimeError("should not be called")
 
     logging_obj = MagicMock()
-    logging_obj.model_call_details = {"litellm_params": {}}
+    logging_obj.model_call_details = {"embrouter_params": {}}
 
     async def noop_aiter():
         return
@@ -9419,11 +9419,11 @@ async def test_acompletion_deferred_stream_skipped_when_stream_already_set():
         make_call=would_fail,
     )
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "my-model",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-4o",
                     "api_key": "sk-fake",
                 },
@@ -9432,7 +9432,7 @@ async def test_acompletion_deferred_stream_skipped_when_stream_already_set():
     )
 
     with patch(
-        "litellm.acompletion",
+        "embrouter.acompletion",
         new_callable=AsyncMock,
         return_value=already_set_wrapper,
     ):
@@ -9456,9 +9456,9 @@ def test_completion_deferred_stream_error_propagates_through_completion():
     first iteration, outside _completion's except block. The deployment is then never
     marked failed and function_with_fallbacks never sees the error.
     """
-    import litellm as _litellm
+    import embrouter as _embrouter
 
-    rate_limit_err = _litellm.RateLimitError(
+    rate_limit_err = _embrouter.RateLimitError(
         message="Resource exhausted",
         llm_provider="vertex_ai",
         model="gemini-2.0-flash",
@@ -9472,8 +9472,8 @@ def test_completion_deferred_stream_error_propagates_through_completion():
     router = _make_router_with_vertex_and_fallback()
     deferred_wrapper = _make_deferred_stream_wrapper(failing_make_call)
 
-    with patch("litellm.completion", return_value=deferred_wrapper):
-        with pytest.raises(_litellm.RateLimitError):
+    with patch("embrouter.completion", return_value=deferred_wrapper):
+        with pytest.raises(_embrouter.RateLimitError):
             router._completion(
                 model="vertex_ai/gemini-2.0-flash",
                 messages=[{"role": "user", "content": "Hello"}],
@@ -9491,13 +9491,13 @@ def test_completion_deferred_stream_skipped_when_stream_already_set():
     """A non-deferred sync provider already has completion_stream populated, so the
     eager fetch must be skipped and make_call left untouched.
     """
-    from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
+    from embrouter.embrouter_core_utils.streaming_handler import CustomStreamWrapper
 
     def would_fail(**kwargs):
         raise RuntimeError("should not be called")
 
     logging_obj = MagicMock()
-    logging_obj.model_call_details = {"litellm_params": {}}
+    logging_obj.model_call_details = {"embrouter_params": {}}
     already_set_stream = iter([])
 
     already_set_wrapper = CustomStreamWrapper(
@@ -9508,16 +9508,16 @@ def test_completion_deferred_stream_skipped_when_stream_already_set():
         make_call=would_fail,
     )
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "my-model",
-                "litellm_params": {"model": "openai/gpt-4o", "api_key": "sk-fake"},
+                "embrouter_params": {"model": "openai/gpt-4o", "api_key": "sk-fake"},
             }
         ],
     )
 
-    with patch("litellm.completion", return_value=already_set_wrapper):
+    with patch("embrouter.completion", return_value=already_set_wrapper):
         result = router._completion(
             model="openai/gpt-4o",
             messages=[{"role": "user", "content": "Hello"}],
@@ -9535,11 +9535,11 @@ class TestAdvisorSubCallCooldown:
     callers to the same model group."""
 
     def _router(self):
-        return litellm.Router(
+        return embrouter.Router(
             model_list=[
                 {
                     "model_name": "claude-sonnet-5",
-                    "litellm_params": {"model": "bedrock/us.anthropic.claude-opus-4-8"},
+                    "embrouter_params": {"model": "bedrock/us.anthropic.claude-opus-4-8"},
                     "model_info": {"id": "dep-1"},
                 }
             ],
@@ -9548,11 +9548,11 @@ class TestAdvisorSubCallCooldown:
     def _kwargs(self, exception):
         return {
             "exception": exception,
-            "litellm_params": {"model_info": {"id": "dep-1"}, "metadata": {}},
+            "embrouter_params": {"model_info": {"id": "dep-1"}, "metadata": {}},
         }
 
     def _auth_error(self):
-        return litellm.AuthenticationError(
+        return embrouter.AuthenticationError(
             message="x-api-key header is required",
             llm_provider="anthropic",
             model="claude-opus-4-8",
@@ -9581,7 +9581,7 @@ class TestAdvisorSubCallCooldown:
     def test_advisor_orchestration_failure_does_not_cool_down_deployment(self):
         from datetime import datetime
 
-        from litellm.router_utils.cooldown_handlers import (
+        from embrouter.router_utils.cooldown_handlers import (
             mark_advisor_orchestration_failure,
         )
 
@@ -9601,11 +9601,11 @@ class TestAdvisorSubCallCooldown:
 
 class TestBackgroundResponseCostPollCooldown:
     def _router(self):
-        return litellm.Router(
+        return embrouter.Router(
             model_list=[
                 {
                     "model_name": "gpt-4.1",
-                    "litellm_params": {"model": "openai/gpt-4.1"},
+                    "embrouter_params": {"model": "openai/gpt-4.1"},
                     "model_info": {"id": "dep-1"},
                 }
             ],
@@ -9617,7 +9617,7 @@ class TestBackgroundResponseCostPollCooldown:
         return [entry[0] for entry in active]
 
     def _not_found(self):
-        return litellm.NotFoundError(
+        return embrouter.NotFoundError(
             message="Response with id 'resp_gone' not found.", llm_provider="openai", model="gpt-4.1"
         )
 
@@ -9635,7 +9635,7 @@ class TestBackgroundResponseCostPollCooldown:
                 router,
                 {
                     "exception": self._not_found(),
-                    "litellm_params": {"model_info": {"id": "dep-1"}, "metadata": {}},
+                    "embrouter_params": {"model_info": {"id": "dep-1"}, "metadata": {}},
                 },
             )
             is True
@@ -9645,11 +9645,11 @@ class TestBackgroundResponseCostPollCooldown:
     def test_cost_poll_not_found_does_not_cool_down_deployment(self):
         from datetime import datetime
 
-        from litellm.constants import INTERNAL_CALL_ORIGIN_METADATA_KEY
-        from litellm.router_utils.router_callbacks.track_deployment_metrics import (
+        from embrouter.constants import INTERNAL_CALL_ORIGIN_METADATA_KEY
+        from embrouter.router_utils.router_callbacks.track_deployment_metrics import (
             get_deployment_failures_for_current_minute,
         )
-        from litellm.types.utils import BACKGROUND_RESPONSE_COST_POLL_CALL_ORIGIN
+        from embrouter.types.utils import BACKGROUND_RESPONSE_COST_POLL_CALL_ORIGIN
 
         router = self._router()
         now = datetime.now()
@@ -9657,9 +9657,9 @@ class TestBackgroundResponseCostPollCooldown:
             router.deployment_callback_on_failure(
                 {
                     "exception": self._not_found(),
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model_info": {"id": "dep-1"},
-                        "litellm_metadata": {
+                        "embrouter_metadata": {
                             INTERNAL_CALL_ORIGIN_METADATA_KEY: BACKGROUND_RESPONSE_COST_POLL_CALL_ORIGIN
                         },
                     },
@@ -9671,25 +9671,25 @@ class TestBackgroundResponseCostPollCooldown:
             is False
         )
         assert self._cooled_down_ids(router) == []
-        value = get_deployment_failures_for_current_minute(litellm_router_instance=router, deployment_id="dep-1")
+        value = get_deployment_failures_for_current_minute(embrouter_router_instance=router, deployment_id="dep-1")
         assert not value
 
     @pytest.mark.asyncio
     async def test_cost_poll_non_404_still_cools_down_deployment(self):
-        from litellm.constants import INTERNAL_CALL_ORIGIN_METADATA_KEY
-        from litellm.types.utils import BACKGROUND_RESPONSE_COST_POLL_CALL_ORIGIN
+        from embrouter.constants import INTERNAL_CALL_ORIGIN_METADATA_KEY
+        from embrouter.types.utils import BACKGROUND_RESPONSE_COST_POLL_CALL_ORIGIN
 
         router = self._router()
         assert (
             self._deployment_callback_on_failure(
                 router,
                 {
-                    "exception": litellm.InternalServerError(
+                    "exception": embrouter.InternalServerError(
                         message="upstream 500", llm_provider="openai", model="gpt-4.1"
                     ),
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model_info": {"id": "dep-1"},
-                        "litellm_metadata": {
+                        "embrouter_metadata": {
                             INTERNAL_CALL_ORIGIN_METADATA_KEY: BACKGROUND_RESPONSE_COST_POLL_CALL_ORIGIN
                         },
                     },
@@ -9701,8 +9701,8 @@ class TestBackgroundResponseCostPollCooldown:
 
     @pytest.mark.asyncio
     async def test_other_internal_origin_not_found_still_cools_down_deployment(self):
-        from litellm.constants import INTERNAL_CALL_ORIGIN_METADATA_KEY
-        from litellm.types.utils import AUTOROUTER_CLASSIFIER_CALL_ORIGIN
+        from embrouter.constants import INTERNAL_CALL_ORIGIN_METADATA_KEY
+        from embrouter.types.utils import AUTOROUTER_CLASSIFIER_CALL_ORIGIN
 
         router = self._router()
         assert (
@@ -9710,9 +9710,9 @@ class TestBackgroundResponseCostPollCooldown:
                 router,
                 {
                     "exception": self._not_found(),
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model_info": {"id": "dep-1"},
-                        "litellm_metadata": {INTERNAL_CALL_ORIGIN_METADATA_KEY: AUTOROUTER_CLASSIFIER_CALL_ORIGIN},
+                        "embrouter_metadata": {INTERNAL_CALL_ORIGIN_METADATA_KEY: AUTOROUTER_CLASSIFIER_CALL_ORIGIN},
                     },
                 },
             )
@@ -9722,18 +9722,18 @@ class TestBackgroundResponseCostPollCooldown:
 
 
 class TestCallerTimeoutCooldown:
-    """A timeout the caller set (the proxy's `timeout` body field or x-litellm-timeout
+    """A timeout the caller set (the proxy's `timeout` body field or x-embrouter-timeout
     header) comes back as a 408 whatever the deployment's health, so it must neither
     count toward allowed_fails nor bench the deployment. A 408 without that marker, or
     one that arrives before the caller's deadline could have fired, is the provider's
     and keeps cooling the deployment down."""
 
     def _router(self):
-        return litellm.Router(
+        return embrouter.Router(
             model_list=[
                 {
                     "model_name": "slow-model",
-                    "litellm_params": {"model": "openai/gpt-5.6", "api_key": "sk-fake"},
+                    "embrouter_params": {"model": "openai/gpt-5.6", "api_key": "sk-fake"},
                     "model_info": {"id": "dep-1"},
                 }
             ],
@@ -9743,20 +9743,20 @@ class TestCallerTimeoutCooldown:
         )
 
     def _kwargs(self, marker, started=None, ended=None):
-        exception = litellm.Timeout(message="Request timed out", model="gpt-5.6", llm_provider="openai")
+        exception = embrouter.Timeout(message="Request timed out", model="gpt-5.6", llm_provider="openai")
         return {
             "exception": exception,
             "api_call_start_time": started,
             "end_time": ended,
-            "litellm_params": {"model_info": {"id": "dep-1"}, "metadata": {}, **marker},
+            "embrouter_params": {"model_info": {"id": "dep-1"}, "metadata": {}, **marker},
         }
 
     def _fail_count(self, router):
-        from litellm.router_utils.router_callbacks.track_deployment_metrics import (
+        from embrouter.router_utils.router_callbacks.track_deployment_metrics import (
             get_deployment_failures_for_current_minute,
         )
 
-        return get_deployment_failures_for_current_minute(litellm_router_instance=router, deployment_id="dep-1")
+        return get_deployment_failures_for_current_minute(embrouter_router_instance=router, deployment_id="dep-1")
 
     def _cooled_down_ids(self, router):
         active = router.cooldown_cache.get_active_cooldowns(model_ids=["dep-1"], parent_otel_span=None)
@@ -9803,9 +9803,9 @@ class TestCallerTimeoutCooldown:
             seen.append(kwargs)
             recorded.set()
 
-        litellm.failure_callback.append(record)
+        embrouter.failure_callback.append(record)
         try:
-            with pytest.raises(litellm.Timeout):
+            with pytest.raises(embrouter.Timeout):
                 await router.acompletion(
                     model="slow-model",
                     messages=[{"role": "user", "content": "hello"}],
@@ -9815,15 +9815,15 @@ class TestCallerTimeoutCooldown:
                 )
             assert await asyncio.to_thread(recorded.wait, 5)
         finally:
-            litellm.failure_callback.remove(record)
-        assert seen[0]["litellm_params"]["client_side_timeout"] is True
+            embrouter.failure_callback.remove(record)
+        assert seen[0]["embrouter_params"]["client_side_timeout"] is True
         assert self._fail_count(router) == 0
         assert self._cooled_down_ids(router) == []
 
 
 def test_stream_chunks_have_generated_content_detects_text_and_non_text():
-    from litellm.router import _stream_chunks_have_generated_content
-    from litellm.types.utils import (
+    from embrouter.router import _stream_chunks_have_generated_content
+    from embrouter.types.utils import (
         ChatCompletionDeltaToolCall,
         Delta,
         Function,
@@ -9831,7 +9831,7 @@ def test_stream_chunks_have_generated_content_detects_text_and_non_text():
     )
 
     def _chunk(delta):
-        return litellm.ModelResponseStream(
+        return embrouter.ModelResponseStream(
             id="chatcmpl-1",
             model="gpt-4",
             object="chat.completion.chunk",
@@ -9886,11 +9886,11 @@ def test_stream_chunks_have_generated_content_detects_text_and_non_text():
 
 
 def test_get_configured_token_limits_reads_deployment_model_info():
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "my-custom-model",
-                "litellm_params": {"model": "openai/some-unmapped-model"},
+                "embrouter_params": {"model": "openai/some-unmapped-model"},
                 "model_info": {"max_input_tokens": 32000, "max_output_tokens": 8000},
             }
         ]
@@ -9900,11 +9900,11 @@ def test_get_configured_token_limits_reads_deployment_model_info():
 
 
 def test_get_configured_token_limits_returns_none_for_unset_or_unknown():
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "no-limits-model",
-                "litellm_params": {"model": "openai/some-unmapped-model"},
+                "embrouter_params": {"model": "openai/some-unmapped-model"},
             }
         ]
     )
@@ -9914,11 +9914,11 @@ def test_get_configured_token_limits_returns_none_for_unset_or_unknown():
 
 
 def test_get_configured_token_limits_skips_wildcard_pattern_matching():
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "bedrock/*",
-                "litellm_params": {"model": "bedrock/*"},
+                "embrouter_params": {"model": "bedrock/*"},
                 "model_info": {"max_input_tokens": 12345},
             }
         ]
@@ -9934,11 +9934,11 @@ def test_get_configured_token_limits_skips_wildcard_pattern_matching():
 
 def test_get_configured_token_limits_treats_malformed_values_as_absent():
     malformed = ["", "unlimited", "128,000", [128000], {"max": 128000}, True]
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": f"bad-limit-{i}",
-                "litellm_params": {"model": "openai/some-unmapped-model"},
+                "embrouter_params": {"model": "openai/some-unmapped-model"},
                 "model_info": {"max_input_tokens": bad, "max_output_tokens": bad},
             }
             for i, bad in enumerate(malformed)
@@ -9950,11 +9950,11 @@ def test_get_configured_token_limits_treats_malformed_values_as_absent():
 
 
 def test_get_configured_token_limits_coerces_numeric_strings():
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "quoted-limits-model",
-                "litellm_params": {"model": "openai/some-unmapped-model"},
+                "embrouter_params": {"model": "openai/some-unmapped-model"},
                 "model_info": {"max_input_tokens": "32000", "max_output_tokens": "8000"},
             }
         ]
@@ -9963,14 +9963,14 @@ def test_get_configured_token_limits_coerces_numeric_strings():
     assert router.get_configured_token_limits("quoted-limits-model") == (32000, 8000)
 
 
-def test_get_model_listing_info_prefers_base_model_over_litellm_params_model():
+def test_get_model_listing_info_prefers_base_model_over_embrouter_params_model():
     """The cost-map key comes from base_model when set, so a deployment pointing at an
     opaque backend name still resolves the real catalog entry."""
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "bedrock-claude-opus-5",
-                "litellm_params": {"model": "bedrock/eu.anthropic.claude-opus-5"},
+                "embrouter_params": {"model": "bedrock/eu.anthropic.claude-opus-5"},
                 "model_info": {"base_model": "eu.anthropic.claude-opus-5"},
             }
         ]
@@ -9981,12 +9981,12 @@ def test_get_model_listing_info_prefers_base_model_over_litellm_params_model():
     assert info.cost_map_keys == ("eu.anthropic.claude-opus-5",)
 
 
-def test_get_model_listing_info_falls_back_to_litellm_params_model():
-    router = litellm.Router(
+def test_get_model_listing_info_falls_back_to_embrouter_params_model():
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "bedrock-claude-opus-5",
-                "litellm_params": {"model": "bedrock/eu.anthropic.claude-opus-5"},
+                "embrouter_params": {"model": "bedrock/eu.anthropic.claude-opus-5"},
             }
         ]
     )
@@ -9998,11 +9998,11 @@ def test_get_model_listing_info_falls_back_to_litellm_params_model():
 
 def test_get_model_listing_info_ignores_blank_base_model():
     """A base_model set to an empty string is absent, not a cost-map key."""
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "bedrock-claude-opus-5",
-                "litellm_params": {"model": "bedrock/eu.anthropic.claude-opus-5"},
+                "embrouter_params": {"model": "bedrock/eu.anthropic.claude-opus-5"},
                 "model_info": {"base_model": ""},
             }
         ]
@@ -10014,11 +10014,11 @@ def test_get_model_listing_info_ignores_blank_base_model():
 
 
 def test_get_model_listing_info_returns_none_for_unknown_name():
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "no-limits-model",
-                "litellm_params": {"model": "openai/some-unmapped-model"},
+                "embrouter_params": {"model": "openai/some-unmapped-model"},
             }
         ]
     )
@@ -10027,11 +10027,11 @@ def test_get_model_listing_info_returns_none_for_unknown_name():
 
 
 def test_get_model_listing_info_carries_configured_limits():
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "my-custom-model",
-                "litellm_params": {"model": "openai/some-unmapped-model"},
+                "embrouter_params": {"model": "openai/some-unmapped-model"},
                 "model_info": {"max_input_tokens": 32000, "max_output_tokens": 8000},
             }
         ]
@@ -10051,22 +10051,22 @@ def test_widest_configured_limit_ignores_absent_and_malformed_values():
         {"max_output_tokens": 4096},
     )
 
-    assert litellm.Router._widest_configured_limit(model_infos, "max_input_tokens") == 128000
-    assert litellm.Router._widest_configured_limit(model_infos, "max_output_tokens") == 4096
-    assert litellm.Router._widest_configured_limit((), "max_input_tokens") is None
+    assert embrouter.Router._widest_configured_limit(model_infos, "max_input_tokens") == 128000
+    assert embrouter.Router._widest_configured_limit(model_infos, "max_output_tokens") == 4096
+    assert embrouter.Router._widest_configured_limit((), "max_input_tokens") is None
 
 
 def test_get_model_listing_info_dedupes_interchangeable_deployments():
     """The ordinary group is N deployments of one model, so it yields exactly one key."""
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-4o",
-                "litellm_params": {"model": "openai/gpt-4o", "api_key": "sk-a"},
+                "embrouter_params": {"model": "openai/gpt-4o", "api_key": "sk-a"},
             },
             {
                 "model_name": "gpt-4o",
-                "litellm_params": {"model": "openai/gpt-4o", "api_key": "sk-b"},
+                "embrouter_params": {"model": "openai/gpt-4o", "api_key": "sk-b"},
             },
         ]
     )
@@ -10077,15 +10077,15 @@ def test_get_model_listing_info_dedupes_interchangeable_deployments():
 
 
 def test_get_model_listing_info_collects_every_model_in_a_mixed_group():
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "house-claude",
-                "litellm_params": {"model": "anthropic/claude-3-haiku-20240307"},
+                "embrouter_params": {"model": "anthropic/claude-3-haiku-20240307"},
             },
             {
                 "model_name": "house-claude",
-                "litellm_params": {"model": "bedrock/eu.anthropic.claude-opus-5"},
+                "embrouter_params": {"model": "bedrock/eu.anthropic.claude-opus-5"},
             },
         ]
     )
@@ -10100,16 +10100,16 @@ def test_get_model_listing_info_collects_every_model_in_a_mixed_group():
 
 def test_get_model_listing_info_reports_widest_configured_limits_in_a_mixed_group():
     """Matches how get_model_group_info aggregates for the Admin UI, so the two agree."""
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "house-model",
-                "litellm_params": {"model": "openai/some-unmapped-model"},
+                "embrouter_params": {"model": "openai/some-unmapped-model"},
                 "model_info": {"max_input_tokens": 32000, "max_output_tokens": 4096},
             },
             {
                 "model_name": "house-model",
-                "litellm_params": {"model": "openai/another-unmapped-model"},
+                "embrouter_params": {"model": "openai/another-unmapped-model"},
                 "model_info": {"max_input_tokens": 128000, "max_output_tokens": 16384},
             },
         ]
@@ -10120,13 +10120,13 @@ def test_get_model_listing_info_reports_widest_configured_limits_in_a_mixed_grou
     assert (info.max_input_tokens, info.max_output_tokens) == (128000, 16384)
 
 
-def test_get_model_listing_info_reads_base_model_from_litellm_params():
+def test_get_model_listing_info_reads_base_model_from_embrouter_params():
     """base_model resolution mirrors get_router_model_info, which also accepts it there."""
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "azure-deployment",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "azure/my-azure-deployment-name",
                     "base_model": "azure/gpt-4o",
                     "api_key": "sk-a",
@@ -10142,11 +10142,11 @@ def test_get_model_listing_info_reads_base_model_from_litellm_params():
 
 
 def test_get_model_listing_info_skips_wildcard_pattern_matching():
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "bedrock/*",
-                "litellm_params": {"model": "bedrock/*"},
+                "embrouter_params": {"model": "bedrock/*"},
                 "model_info": {"max_input_tokens": 12345},
             }
         ]
@@ -10162,11 +10162,11 @@ def test_get_model_listing_info_skips_wildcard_pattern_matching():
 
 
 def test_get_configured_mode_reads_deployment_model_info():
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "tts-model",
-                "litellm_params": {"model": "openai/some-unmapped-tts-model"},
+                "embrouter_params": {"model": "openai/some-unmapped-tts-model"},
                 "model_info": {"mode": "audio_speech"},
             }
         ]
@@ -10176,11 +10176,11 @@ def test_get_configured_mode_reads_deployment_model_info():
 
 
 def test_get_configured_mode_returns_none_for_unset_or_unknown():
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "no-mode-model",
-                "litellm_params": {"model": "openai/some-unmapped-model"},
+                "embrouter_params": {"model": "openai/some-unmapped-model"},
             }
         ]
     )
@@ -10190,11 +10190,11 @@ def test_get_configured_mode_returns_none_for_unset_or_unknown():
 
 
 def test_get_configured_mode_skips_wildcard_pattern_matching():
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "bedrock/*",
-                "litellm_params": {"model": "bedrock/*"},
+                "embrouter_params": {"model": "bedrock/*"},
                 "model_info": {"mode": "chat"},
             }
         ]
@@ -10211,11 +10211,11 @@ def test_get_configured_mode_skips_wildcard_pattern_matching():
 
 def test_get_configured_mode_treats_malformed_values_as_absent():
     malformed = ["", "   ", 12345, ["chat"], {"mode": "chat"}, True]
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": f"bad-mode-{i}",
-                "litellm_params": {"model": "openai/some-unmapped-model"},
+                "embrouter_params": {"model": "openai/some-unmapped-model"},
                 "model_info": {"mode": bad},
             }
             for i, bad in enumerate(malformed)
@@ -10227,11 +10227,11 @@ def test_get_configured_mode_treats_malformed_values_as_absent():
 
 
 def test_get_configured_display_name_reads_deployment_model_info():
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "Kimi K3-claude-compatible",
-                "litellm_params": {"model": "openai/some-unmapped-model"},
+                "embrouter_params": {"model": "openai/some-unmapped-model"},
                 "model_info": {"display_name": "Kimi K3"},
             }
         ]
@@ -10241,11 +10241,11 @@ def test_get_configured_display_name_reads_deployment_model_info():
 
 
 def test_get_configured_display_name_returns_none_for_unset_or_unknown():
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "no-display-model",
-                "litellm_params": {"model": "openai/some-unmapped-model"},
+                "embrouter_params": {"model": "openai/some-unmapped-model"},
             }
         ]
     )
@@ -10255,11 +10255,11 @@ def test_get_configured_display_name_returns_none_for_unset_or_unknown():
 
 
 def test_get_configured_display_name_skips_wildcard_pattern_matching():
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "bedrock/*",
-                "litellm_params": {"model": "bedrock/*"},
+                "embrouter_params": {"model": "bedrock/*"},
                 "model_info": {"display_name": "Bedrock"},
             }
         ]
@@ -10276,11 +10276,11 @@ def test_get_configured_display_name_skips_wildcard_pattern_matching():
 
 def test_get_configured_display_name_treats_malformed_values_as_absent():
     malformed = ["", "   ", 12345, ["Kimi K3"], {"name": "Kimi K3"}, True]
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": f"bad-display-{i}",
-                "litellm_params": {"model": "openai/some-unmapped-model"},
+                "embrouter_params": {"model": "openai/some-unmapped-model"},
                 "model_info": {"display_name": bad},
             }
             for i, bad in enumerate(malformed)
@@ -10293,18 +10293,18 @@ def test_get_configured_display_name_treats_malformed_values_as_absent():
 
 @pytest.mark.asyncio
 async def test_acreate_batch_disable_fallbacks_surfaces_owning_provider_error():
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "owning-model",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_key": "sk-owning",
                 },
             },
             {
                 "model_name": "fallback-model",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "azure/gpt-4o-mini",
                     "api_key": "sk-fallback",
                     "api_base": "https://fallback.openai.azure.com",
@@ -10315,7 +10315,7 @@ async def test_acreate_batch_disable_fallbacks_surfaces_owning_provider_error():
         fallbacks=[{"owning-model": ["fallback-model"]}],
         num_retries=0,
     )
-    owning_provider_error = litellm.BadRequestError(
+    owning_provider_error = embrouter.BadRequestError(
         message="completion_window must be one of: 24h",
         model="openai/gpt-4o-mini",
         llm_provider="openai",
@@ -10323,7 +10323,7 @@ async def test_acreate_batch_disable_fallbacks_surfaces_owning_provider_error():
     mock_create = AsyncMock(side_effect=owning_provider_error)
 
     with patch.object(router, "_acreate_batch", mock_create):
-        with pytest.raises(litellm.BadRequestError, match="24h"):
+        with pytest.raises(embrouter.BadRequestError, match="24h"):
             await router.acreate_batch(
                 model="owning-model",
                 input_file_id="file-owned-by-openai",
@@ -10341,20 +10341,20 @@ async def test_acreate_batch_surfaces_owning_provider_error_without_disable_fall
     """The router itself has to keep a batch inside the group that owns the input file:
     the proxy only sets disable_fallbacks on the managed-files route, so the caller
     otherwise gets the fallback provider's error for a file it never received."""
-    from litellm.types.utils import LiteLLMBatch
+    from embrouter.types.utils import EmbRouterBatch
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "owning-model",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_key": "sk-owning",
                 },
             },
             {
                 "model_name": "fallback-model",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "azure/gpt-4o-mini",
                     "api_key": "sk-fallback",
                     "api_base": "https://fallback.openai.azure.com",
@@ -10370,12 +10370,12 @@ async def test_acreate_batch_surfaces_owning_provider_error_without_disable_fall
     async def _acreate_batch(model, **kwargs):
         attempted_models.append(model)
         if model == "owning-model":
-            raise litellm.APIConnectionError(
+            raise embrouter.APIConnectionError(
                 message="Connection error - openai is unreachable",
                 model="openai/gpt-4o-mini",
                 llm_provider="openai",
             )
-        return LiteLLMBatch(
+        return EmbRouterBatch(
             id="batch-created-on-the-wrong-provider",
             completion_window="24h",
             created_at=0,
@@ -10386,7 +10386,7 @@ async def test_acreate_batch_surfaces_owning_provider_error_without_disable_fall
         )
 
     with patch.object(router, "_acreate_batch", _acreate_batch):
-        with pytest.raises(litellm.APIConnectionError, match="openai is unreachable"):
+        with pytest.raises(embrouter.APIConnectionError, match="openai is unreachable"):
             await router.acreate_batch(
                 model="owning-model",
                 input_file_id="file-owned-by-openai",
@@ -10410,22 +10410,22 @@ async def test_acreate_batch_still_falls_back_within_the_owning_model_group():
         model = kwargs["model"]
         attempted_models.append(model)
         if model.startswith("azure/"):
-            raise litellm.BadRequestError(
+            raise embrouter.BadRequestError(
                 message="Error code: 400 - {'error': {'code': 'quotaExceeded'}}",
                 model=model,
                 llm_provider="azure",
             )
-        raise litellm.BadRequestError(
+        raise embrouter.BadRequestError(
             message=completion_window_error,
             model=model,
             llm_provider="openai",
         )
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "my-gpt",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_key": "sk-owning",
                     "order": 1,
@@ -10434,7 +10434,7 @@ async def test_acreate_batch_still_falls_back_within_the_owning_model_group():
             },
             {
                 "model_name": "my-gpt",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-4o-mini-backup",
                     "api_key": "sk-owning",
                     "order": 2,
@@ -10443,7 +10443,7 @@ async def test_acreate_batch_still_falls_back_within_the_owning_model_group():
             },
             {
                 "model_name": "my-azure-gpt",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "azure/gpt-4o-mini",
                     "api_key": "sk-fallback",
                     "api_base": "https://fallback.openai.azure.com",
@@ -10456,8 +10456,8 @@ async def test_acreate_batch_still_falls_back_within_the_owning_model_group():
         num_retries=0,
     )
 
-    with patch.object(litellm, "acreate_batch", new=_acreate_batch):
-        with pytest.raises(litellm.BadRequestError) as raised:
+    with patch.object(embrouter, "acreate_batch", new=_acreate_batch):
+        with pytest.raises(embrouter.BadRequestError) as raised:
             await router.acreate_batch(
                 model="my-gpt",
                 input_file_id="file-owned-by-my-gpt",
@@ -10474,15 +10474,15 @@ async def test_acreate_batch_still_falls_back_within_the_owning_model_group():
 async def test_acreate_batch_request_bedrock_tags_override_deployment_tags():
     import httpx
 
-    from litellm.llms.bedrock.common_utils import CommonBatchFilesUtils
+    from embrouter.llms.bedrock.common_utils import CommonBatchFilesUtils
 
     deployment_tags = [{"key": "application", "value": "config-level"}]
     request_tags = [{"key": "application", "value": "request-level"}]
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "bedrock-batch-model",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "bedrock/us.anthropic.claude-sonnet-5",
                     "aws_batch_role_arn": "arn:aws:iam::123:role/batch-role",
                     "aws_region_name": "us-west-2",
@@ -10509,7 +10509,7 @@ async def test_acreate_batch_request_bedrock_tags_override_deployment_tags():
         "sign_aws_request",
         return_value=({"Authorization": "signed"}, b"{}"),
     ) as mock_sign, patch(
-        "litellm.llms.custom_httpx.llm_http_handler.get_async_httpx_client",
+        "embrouter.llms.custom_httpx.llm_http_handler.get_async_httpx_client",
         return_value=mock_client,
     ):
         await router.acreate_batch(
@@ -10537,7 +10537,7 @@ async def test_avector_store_search_injects_router():
     SDK search call so provider transforms can resolve router-managed
     embedding models (e.g. S3 Vectors query embeddings).
     """
-    from litellm.types.vector_stores import VectorStoreSearchResponse
+    from embrouter.types.vector_stores import VectorStoreSearchResponse
 
     expected_response = VectorStoreSearchResponse(
         object="vector_store.search_results.page", search_query="q", data=[]
@@ -10545,12 +10545,12 @@ async def test_avector_store_search_injects_router():
     mock_asearch = AsyncMock(return_value=expected_response)
     # Router.__init__ binds asearch via a local import, so patch the module
     # attribute before constructing the Router.
-    with patch("litellm.vector_stores.main.asearch", new=mock_asearch):  # test-quality-ok: the SDK call is the only place the injected router kwarg is observable
-        router = litellm.Router(
+    with patch("embrouter.vector_stores.main.asearch", new=mock_asearch):  # test-quality-ok: the SDK call is the only place the injected router kwarg is observable
+        router = embrouter.Router(
             model_list=[
                 {
                     "model_name": "gpt-3.5-turbo",
-                    "litellm_params": {"model": "openai/gpt-3.5-turbo", "api_key": "test-key"},
+                    "embrouter_params": {"model": "openai/gpt-3.5-turbo", "api_key": "test-key"},
                 }
             ]
         )
@@ -10571,15 +10571,15 @@ async def test_avector_store_create_does_not_inject_router():
     mock_acreate = AsyncMock(return_value=expected_response)
     # avector_store_create(model=None) resolves acreate via a local import at
     # call time, so patching after Router construction works here.
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {"model": "openai/gpt-3.5-turbo", "api_key": "test-key"},
+                "embrouter_params": {"model": "openai/gpt-3.5-turbo", "api_key": "test-key"},
             }
         ]
     )
-    with patch("litellm.vector_stores.main.acreate", new=mock_acreate):  # test-quality-ok: the SDK call is the only place a leaked router kwarg would surface
+    with patch("embrouter.vector_stores.main.acreate", new=mock_acreate):  # test-quality-ok: the SDK call is the only place a leaked router kwarg would surface
         create_response = await router.avector_store_create(model=None, custom_llm_provider="openai")
 
     assert create_response is expected_response
@@ -10593,7 +10593,7 @@ def test_vector_store_search_injects_router():
     the router down to the SDK search call so provider transforms can resolve
     router-managed embedding models, same as avector_store_search.
     """
-    from litellm.types.vector_stores import VectorStoreSearchResponse
+    from embrouter.types.vector_stores import VectorStoreSearchResponse
 
     expected_response = VectorStoreSearchResponse(
         object="vector_store.search_results.page", search_query="q", data=[]
@@ -10601,12 +10601,12 @@ def test_vector_store_search_injects_router():
     mock_search = MagicMock(return_value=expected_response)
     # Router.__init__ binds search via a local import, so patch the module
     # attribute before constructing the Router.
-    with patch("litellm.vector_stores.main.search", new=mock_search):  # test-quality-ok: the SDK call is the only place the injected router kwarg is observable
-        router = litellm.Router(
+    with patch("embrouter.vector_stores.main.search", new=mock_search):  # test-quality-ok: the SDK call is the only place the injected router kwarg is observable
+        router = embrouter.Router(
             model_list=[
                 {
                     "model_name": "gpt-3.5-turbo",
-                    "litellm_params": {"model": "openai/gpt-3.5-turbo", "api_key": "test-key"},
+                    "embrouter_params": {"model": "openai/gpt-3.5-turbo", "api_key": "test-key"},
                 }
             ]
         )
@@ -10626,12 +10626,12 @@ def test_vector_store_create_does_not_inject_router():
     mock_create = MagicMock(return_value=expected_response)
     # Router.__init__ binds create via a local import, so patch the module
     # attribute before constructing the Router.
-    with patch("litellm.vector_stores.main.create", new=mock_create):  # test-quality-ok: the SDK call is the only place a leaked router kwarg would surface
-        router = litellm.Router(
+    with patch("embrouter.vector_stores.main.create", new=mock_create):  # test-quality-ok: the SDK call is the only place a leaked router kwarg would surface
+        router = embrouter.Router(
             model_list=[
                 {
                     "model_name": "gpt-3.5-turbo",
-                    "litellm_params": {"model": "openai/gpt-3.5-turbo", "api_key": "test-key"},
+                    "embrouter_params": {"model": "openai/gpt-3.5-turbo", "api_key": "test-key"},
                 }
             ]
         )
@@ -10669,14 +10669,14 @@ class TestPreRoutingStrategyRegistryLifecycle:
         }
 
     @classmethod
-    def _router_with_complexity_router(cls, default_model: str = "gpt-4o") -> "litellm.Router":
-        return litellm.Router(
+    def _router_with_complexity_router(cls, default_model: str = "gpt-4o") -> "embrouter.Router":
+        return embrouter.Router(
             model_list=[
-                {"model_name": "gpt-4o", "litellm_params": {"model": "gpt-4o"}},
-                {"model_name": "gpt-4o-mini", "litellm_params": {"model": "gpt-4o-mini"}},
+                {"model_name": "gpt-4o", "embrouter_params": {"model": "gpt-4o"}},
+                {"model_name": "gpt-4o-mini", "embrouter_params": {"model": "gpt-4o-mini"}},
                 {
                     "model_name": "smart-router",
-                    "litellm_params": cls._complexity_router_params(default_model),
+                    "embrouter_params": cls._complexity_router_params(default_model),
                     "model_info": {"id": "router-1", "db_model": True},
                 },
             ],
@@ -10684,18 +10684,18 @@ class TestPreRoutingStrategyRegistryLifecycle:
         )
 
     @staticmethod
-    def _model_names(router: "litellm.Router") -> list:
+    def _model_names(router: "embrouter.Router") -> list:
         return [model["model_name"] for model in router.model_list]
 
     def test_upsert_of_edited_router_keeps_it_routable(self):
-        from litellm.types.router import Deployment, LiteLLM_Params, ModelInfo
+        from embrouter.types.router import Deployment, EmbRouter_Params, ModelInfo
 
         router = self._router_with_complexity_router()
 
         router.upsert_deployment(
             deployment=Deployment(
                 model_name="smart-router",
-                litellm_params=LiteLLM_Params(**self._complexity_router_params("gpt-4o-mini")),
+                embrouter_params=EmbRouter_Params(**self._complexity_router_params("gpt-4o-mini")),
                 model_info=ModelInfo(id="router-1", db_model=True),
             )
         )
@@ -10707,7 +10707,7 @@ class TestPreRoutingStrategyRegistryLifecycle:
         assert registered[0].strategy.config.default_model == "gpt-4o-mini"
 
     def test_unchanged_upsert_leaves_router_untouched(self):
-        from litellm.types.router import Deployment, LiteLLM_Params, ModelInfo
+        from embrouter.types.router import Deployment, EmbRouter_Params, ModelInfo
 
         router = self._router_with_complexity_router()
         strategy_before = router.complexity_routers["smart-router"][0].strategy
@@ -10716,7 +10716,7 @@ class TestPreRoutingStrategyRegistryLifecycle:
             router.upsert_deployment(
                 deployment=Deployment(
                     model_name="smart-router",
-                    litellm_params=LiteLLM_Params(**self._complexity_router_params("gpt-4o")),
+                    embrouter_params=EmbRouter_Params(**self._complexity_router_params("gpt-4o")),
                     model_info=ModelInfo(id="router-1", db_model=True),
                 )
             )
@@ -10725,7 +10725,7 @@ class TestPreRoutingStrategyRegistryLifecycle:
         assert router.complexity_routers["smart-router"][0].strategy is strategy_before
 
     def test_delete_frees_the_name_for_a_new_router(self):
-        from litellm.types.router import Deployment, LiteLLM_Params, ModelInfo
+        from embrouter.types.router import Deployment, EmbRouter_Params, ModelInfo
 
         router = self._router_with_complexity_router()
 
@@ -10735,7 +10735,7 @@ class TestPreRoutingStrategyRegistryLifecycle:
         router.add_deployment(
             deployment=Deployment(
                 model_name="smart-router",
-                litellm_params=LiteLLM_Params(**self._complexity_router_params("gpt-4o-mini")),
+                embrouter_params=EmbRouter_Params(**self._complexity_router_params("gpt-4o-mini")),
                 model_info=ModelInfo(id="router-2", db_model=True),
             )
         )
@@ -10744,18 +10744,18 @@ class TestPreRoutingStrategyRegistryLifecycle:
         assert router.complexity_routers["smart-router"][0].strategy.config.default_model == "gpt-4o-mini"
 
     def test_delete_only_frees_the_matching_tag_slot(self):
-        router = litellm.Router(
+        router = embrouter.Router(
             model_list=[
-                {"model_name": "gpt-4o", "litellm_params": {"model": "gpt-4o"}},
-                {"model_name": "gpt-4o-mini", "litellm_params": {"model": "gpt-4o-mini"}},
+                {"model_name": "gpt-4o", "embrouter_params": {"model": "gpt-4o"}},
+                {"model_name": "gpt-4o-mini", "embrouter_params": {"model": "gpt-4o-mini"}},
                 {
                     "model_name": "shared-router",
-                    "litellm_params": self._complexity_router_params("gpt-4o", tags=["team-a"]),
+                    "embrouter_params": self._complexity_router_params("gpt-4o", tags=["team-a"]),
                     "model_info": {"id": "router-a"},
                 },
                 {
                     "model_name": "shared-router",
-                    "litellm_params": self._complexity_router_params("gpt-4o-mini", tags=["team-b"]),
+                    "embrouter_params": self._complexity_router_params("gpt-4o-mini", tags=["team-b"]),
                     "model_info": {"id": "router-b"},
                 },
             ],
@@ -10770,18 +10770,18 @@ class TestPreRoutingStrategyRegistryLifecycle:
         assert remaining[0].tags == ("team-b",)
 
     def test_delete_of_regular_model_preserves_router_sharing_its_name(self):
-        router = litellm.Router(
+        router = embrouter.Router(
             model_list=[
-                {"model_name": "gpt-4o", "litellm_params": {"model": "gpt-4o"}},
-                {"model_name": "gpt-4o-mini", "litellm_params": {"model": "gpt-4o-mini"}},
+                {"model_name": "gpt-4o", "embrouter_params": {"model": "gpt-4o"}},
+                {"model_name": "gpt-4o-mini", "embrouter_params": {"model": "gpt-4o-mini"}},
                 {
                     "model_name": "shared-name",
-                    "litellm_params": self._complexity_router_params("gpt-4o"),
+                    "embrouter_params": self._complexity_router_params("gpt-4o"),
                     "model_info": {"id": "router-1"},
                 },
                 {
                     "model_name": "shared-name",
-                    "litellm_params": {"model": "openai/gpt-4o"},
+                    "embrouter_params": {"model": "openai/gpt-4o"},
                     "model_info": {"id": "regular-1"},
                 },
             ],
@@ -10797,7 +10797,7 @@ class TestPreRoutingStrategyRegistryLifecycle:
         """Adaptive routers are built by set_model_list()'s deferred pass, not by
         add_deployment(), so releasing the slot on edit must be paired with a rebuild -
         otherwise the edit silently turns adaptive routing off."""
-        from litellm.types.router import Deployment, LiteLLM_Params, ModelInfo
+        from embrouter.types.router import Deployment, EmbRouter_Params, ModelInfo
 
         def adaptive_params(available_models: list) -> dict:
             return {
@@ -10805,13 +10805,13 @@ class TestPreRoutingStrategyRegistryLifecycle:
                 "adaptive_router_config": {"available_models": available_models},
             }
 
-        router = litellm.Router(
+        router = embrouter.Router(
             model_list=[
-                {"model_name": "gpt-4o", "litellm_params": {"model": "openai/gpt-4o"}},
-                {"model_name": "gpt-4o-mini", "litellm_params": {"model": "openai/gpt-4o-mini"}},
+                {"model_name": "gpt-4o", "embrouter_params": {"model": "openai/gpt-4o"}},
+                {"model_name": "gpt-4o-mini", "embrouter_params": {"model": "openai/gpt-4o-mini"}},
                 {
                     "model_name": "adaptive-router",
-                    "litellm_params": adaptive_params(["gpt-4o-mini"]),
+                    "embrouter_params": adaptive_params(["gpt-4o-mini"]),
                     "model_info": {"id": "router-1", "db_model": True},
                 },
             ],
@@ -10822,7 +10822,7 @@ class TestPreRoutingStrategyRegistryLifecycle:
         router.upsert_deployment(
             deployment=Deployment(
                 model_name="adaptive-router",
-                litellm_params=LiteLLM_Params(**adaptive_params(["gpt-4o", "gpt-4o-mini"])),
+                embrouter_params=EmbRouter_Params(**adaptive_params(["gpt-4o", "gpt-4o-mini"])),
                 model_info=ModelInfo(id="router-1", db_model=True),
             )
         )
@@ -10838,7 +10838,7 @@ class TestPreRoutingStrategyRegistryLifecycle:
         registry slot runs after that repair and cannot abandon the router half-updated."""
         router = self._router_with_complexity_router()
         idx = router.model_id_to_deployment_index_map["router-1"]
-        router.model_list[idx] = {"model_name": "smart-router", "litellm_params": None}
+        router.model_list[idx] = {"model_name": "smart-router", "embrouter_params": None}
 
         returned = router.delete_deployment(id="router-1")
 
@@ -10853,8 +10853,8 @@ class TestPreRoutingStrategyRegistryLifecycle:
         and adaptive_routers under the same (model_name, tags). Releasing only the first
         match leaves the adaptive strategy live, so a deleted alias stays routable and its
         post-call hook keeps recording."""
-        import litellm as litellm_module
-        from litellm.router_strategy.adaptive_router.hooks import AdaptiveRouterPostCallHook
+        import embrouter as embrouter_module
+        from embrouter.router_strategy.adaptive_router.hooks import AdaptiveRouterPostCallHook
 
         params = {
             "model": "auto_router/complexity_router",
@@ -10864,13 +10864,13 @@ class TestPreRoutingStrategyRegistryLifecycle:
             },
             "complexity_router_default_model": "gpt-4o",
         }
-        router = litellm.Router(
+        router = embrouter.Router(
             model_list=[
-                {"model_name": "gpt-4o", "litellm_params": {"model": "openai/gpt-4o"}},
-                {"model_name": "gpt-4o-mini", "litellm_params": {"model": "openai/gpt-4o-mini"}},
+                {"model_name": "gpt-4o", "embrouter_params": {"model": "openai/gpt-4o"}},
+                {"model_name": "gpt-4o-mini", "embrouter_params": {"model": "openai/gpt-4o-mini"}},
                 {
                     "model_name": "hybrid-router",
-                    "litellm_params": params,
+                    "embrouter_params": params,
                     "model_info": {"id": "router-1", "db_model": True},
                 },
             ],
@@ -10878,14 +10878,14 @@ class TestPreRoutingStrategyRegistryLifecycle:
         )
         assert "hybrid-router" in router.complexity_routers
         assert "hybrid-router" in router.adaptive_routers
-        hooks = litellm_module.logging_callback_manager.get_custom_loggers_for_type(AdaptiveRouterPostCallHook)
+        hooks = embrouter_module.logging_callback_manager.get_custom_loggers_for_type(AdaptiveRouterPostCallHook)
         assert len(hooks) == 1
 
         router.delete_deployment(id="router-1")
 
         assert "hybrid-router" not in router.complexity_routers
         assert "hybrid-router" not in router.adaptive_routers
-        remaining_hooks = litellm_module.logging_callback_manager.get_custom_loggers_for_type(
+        remaining_hooks = embrouter_module.logging_callback_manager.get_custom_loggers_for_type(
             AdaptiveRouterPostCallHook
         )
         assert remaining_hooks == []
@@ -10893,7 +10893,7 @@ class TestPreRoutingStrategyRegistryLifecycle:
     def test_upsert_of_edited_quality_router_keeps_it_routable(self):
         """_unregister_pre_routing_strategy_for_deployment dispatches on four prefixes;
         quality_router is one of them and would otherwise go unexercised."""
-        from litellm.types.router import Deployment, LiteLLM_Params, ModelInfo
+        from embrouter.types.router import Deployment, EmbRouter_Params, ModelInfo
 
         def quality_params(default_model: str) -> dict:
             return {
@@ -10901,13 +10901,13 @@ class TestPreRoutingStrategyRegistryLifecycle:
                 "quality_router_default_model": default_model,
             }
 
-        router = litellm.Router(
+        router = embrouter.Router(
             model_list=[
-                {"model_name": "gpt-4o", "litellm_params": {"model": "openai/gpt-4o"}},
-                {"model_name": "gpt-4o-mini", "litellm_params": {"model": "openai/gpt-4o-mini"}},
+                {"model_name": "gpt-4o", "embrouter_params": {"model": "openai/gpt-4o"}},
+                {"model_name": "gpt-4o-mini", "embrouter_params": {"model": "openai/gpt-4o-mini"}},
                 {
                     "model_name": "quality-router",
-                    "litellm_params": quality_params("gpt-4o"),
+                    "embrouter_params": quality_params("gpt-4o"),
                     "model_info": {"id": "router-1", "db_model": True},
                 },
             ],
@@ -10918,7 +10918,7 @@ class TestPreRoutingStrategyRegistryLifecycle:
         router.upsert_deployment(
             deployment=Deployment(
                 model_name="quality-router",
-                litellm_params=LiteLLM_Params(**quality_params("gpt-4o-mini")),
+                embrouter_params=EmbRouter_Params(**quality_params("gpt-4o-mini")),
                 model_info=ModelInfo(id="router-1", db_model=True),
             )
         )
@@ -10937,14 +10937,14 @@ class TestPreRoutingStrategyRegistryLifecycle:
         }
 
     @classmethod
-    def _router_with_hybrid_router(cls) -> "litellm.Router":
-        return litellm.Router(
+    def _router_with_hybrid_router(cls) -> "embrouter.Router":
+        return embrouter.Router(
             model_list=[
-                {"model_name": "gpt-4o", "litellm_params": {"model": "openai/gpt-4o"}},
-                {"model_name": "gpt-4o-mini", "litellm_params": {"model": "openai/gpt-4o-mini"}},
+                {"model_name": "gpt-4o", "embrouter_params": {"model": "openai/gpt-4o"}},
+                {"model_name": "gpt-4o-mini", "embrouter_params": {"model": "openai/gpt-4o-mini"}},
                 {
                     "model_name": "hybrid-router",
-                    "litellm_params": cls._hybrid_router_params({"SIMPLE": "gpt-4o-mini", "MEDIUM": "gpt-4o"}),
+                    "embrouter_params": cls._hybrid_router_params({"SIMPLE": "gpt-4o-mini", "MEDIUM": "gpt-4o"}),
                     "model_info": {"id": "router-1", "db_model": True},
                 },
             ],
@@ -10957,9 +10957,9 @@ class TestPreRoutingStrategyRegistryLifecycle:
         `auto_router/adaptive_router` deployments) or the rebuilt complexity router keeps
         routing while bandit recording, DB persistence and /adaptive_router/state all
         silently stop until the next full reload."""
-        import litellm as litellm_module
-        from litellm.router_strategy.adaptive_router.hooks import AdaptiveRouterPostCallHook
-        from litellm.types.router import Deployment, LiteLLM_Params, ModelInfo
+        import embrouter as embrouter_module
+        from embrouter.router_strategy.adaptive_router.hooks import AdaptiveRouterPostCallHook
+        from embrouter.types.router import Deployment, EmbRouter_Params, ModelInfo
 
         router = self._router_with_hybrid_router()
         assert "hybrid-router" in router.adaptive_routers
@@ -10967,7 +10967,7 @@ class TestPreRoutingStrategyRegistryLifecycle:
         router.upsert_deployment(
             deployment=Deployment(
                 model_name="hybrid-router",
-                litellm_params=LiteLLM_Params(
+                embrouter_params=EmbRouter_Params(
                     **self._hybrid_router_params(
                         {"SIMPLE": "gpt-4o-mini", "MEDIUM": "gpt-4o", "COMPLEX": "gpt-4o"}
                     )
@@ -10981,14 +10981,14 @@ class TestPreRoutingStrategyRegistryLifecycle:
         assert "hybrid-router" in router.adaptive_routers
         rebuilt = router.complexity_routers["hybrid-router"][0].strategy
         assert router.adaptive_routers["hybrid-router"][0].strategy is rebuilt.adaptive_router
-        hooks = litellm_module.logging_callback_manager.get_custom_loggers_for_type(AdaptiveRouterPostCallHook)
+        hooks = embrouter_module.logging_callback_manager.get_custom_loggers_for_type(AdaptiveRouterPostCallHook)
         assert len(hooks) == 1
 
     def test_upsert_turning_adaptive_on_builds_the_companion(self):
         """An edit that flips `adaptive: true` on an existing complexity router must
         register the companion immediately; neither side of the old prefix-only gate
         matches a complexity deployment, so the flip was a silent no-op until restart."""
-        from litellm.types.router import Deployment, LiteLLM_Params, ModelInfo
+        from embrouter.types.router import Deployment, EmbRouter_Params, ModelInfo
 
         router = self._router_with_complexity_router()
         assert "smart-router" not in router.adaptive_routers
@@ -10998,7 +10998,7 @@ class TestPreRoutingStrategyRegistryLifecycle:
         router.upsert_deployment(
             deployment=Deployment(
                 model_name="smart-router",
-                litellm_params=LiteLLM_Params(**params),
+                embrouter_params=EmbRouter_Params(**params),
                 model_info=ModelInfo(id="router-1", db_model=True),
             )
         )
@@ -11008,7 +11008,7 @@ class TestPreRoutingStrategyRegistryLifecycle:
     def test_unregister_pre_routing_strategy_scopes_the_drop_by_tags(self):
         """The bool return drives the hook re-sync; a tag mismatch must report False and
         leave the registry untouched, and dropping the last entry must free the key."""
-        from litellm.types.router import TaggedPreRoutingStrategy
+        from embrouter.types.router import TaggedPreRoutingStrategy
 
         registry = {
             "m": [
@@ -11017,26 +11017,26 @@ class TestPreRoutingStrategyRegistryLifecycle:
             ]
         }
 
-        assert litellm.Router._unregister_pre_routing_strategy(registry, "m", ("team-b",)) is False
+        assert embrouter.Router._unregister_pre_routing_strategy(registry, "m", ("team-b",)) is False
         assert len(registry["m"]) == 2
 
-        assert litellm.Router._unregister_pre_routing_strategy(registry, "m", ("team-a",)) is True
+        assert embrouter.Router._unregister_pre_routing_strategy(registry, "m", ("team-a",)) is True
         assert [entry.tags for entry in registry["m"]] == [()]
 
-        assert litellm.Router._unregister_pre_routing_strategy(registry, "m", ()) is True
+        assert embrouter.Router._unregister_pre_routing_strategy(registry, "m", ()) is True
         assert "m" not in registry
 
     def test_unregister_for_deployment_ignores_non_router_deployments(self):
         """Direct twin of the endpoint-level test: a regular deployment that shares a
         router's model_name must not evict the router's registry slot."""
-        from litellm.types.router import Deployment, LiteLLM_Params, ModelInfo
+        from embrouter.types.router import Deployment, EmbRouter_Params, ModelInfo
 
         router = self._router_with_complexity_router()
 
         router._unregister_pre_routing_strategy_for_deployment(
             deployment=Deployment(
                 model_name="smart-router",
-                litellm_params=LiteLLM_Params(model="openai/gpt-4o"),
+                embrouter_params=EmbRouter_Params(model="openai/gpt-4o"),
                 model_info=ModelInfo(id="plain-1", db_model=True),
             )
         )
@@ -11046,21 +11046,21 @@ class TestPreRoutingStrategyRegistryLifecycle:
     def test_sync_adaptive_router_hooks_keeps_one_hook_per_registered_router(self):
         """Re-syncing must replace, not accumulate: a duplicated hook double-fires
         bandit signal recording for every request."""
-        import litellm as litellm_module
-        from litellm.router_strategy.adaptive_router.hooks import AdaptiveRouterPostCallHook
+        import embrouter as embrouter_module
+        from embrouter.router_strategy.adaptive_router.hooks import AdaptiveRouterPostCallHook
 
         router = self._router_with_hybrid_router()
 
         router._sync_adaptive_router_hooks()
         router._sync_adaptive_router_hooks()
 
-        hooks = litellm_module.logging_callback_manager.get_custom_loggers_for_type(AdaptiveRouterPostCallHook)
+        hooks = embrouter_module.logging_callback_manager.get_custom_loggers_for_type(AdaptiveRouterPostCallHook)
         assert len(hooks) == 1
 
     def test_deployment_participates_in_adaptive_routing_matrix(self):
         """The upsert finalize re-run keys off this predicate for both the incoming and
         outgoing deployment; a false negative silently strands the adaptive companion."""
-        from litellm.types.router import LiteLLM_Params
+        from embrouter.types.router import EmbRouter_Params
 
         router = self._router_with_complexity_router()
 
@@ -11080,7 +11080,7 @@ class TestPreRoutingStrategyRegistryLifecycle:
         ]
         for params, expected in cases:
             actual = router._deployment_participates_in_adaptive_routing(
-                litellm_params=LiteLLM_Params(**params)
+                embrouter_params=EmbRouter_Params(**params)
             )
             assert actual is expected, params["model"]
 
@@ -11089,18 +11089,18 @@ def test_model_info_is_active_for_environment_matrix(monkeypatch):
     """The model-write endpoints consult this predicate to tell a deliberately
     environment-inactive model from one dropped by a failed reload; the Router's own
     deployment gate delegates to it, so the two can never diverge."""
-    from litellm.router import model_info_is_active_for_environment
+    from embrouter.router import model_info_is_active_for_environment
 
     assert model_info_is_active_for_environment(model_info=None) is True
     assert model_info_is_active_for_environment(model_info={"id": "m1"}) is True
     assert model_info_is_active_for_environment(model_info={"supported_environments": None}) is True
 
-    monkeypatch.setenv("LITELLM_ENVIRONMENT", "development")
+    monkeypatch.setenv("EMBROUTER_ENVIRONMENT", "development")
     assert model_info_is_active_for_environment(model_info={"supported_environments": ["development"]}) is True
     assert model_info_is_active_for_environment(model_info={"supported_environments": ["production"]}) is False
 
-    monkeypatch.delenv("LITELLM_ENVIRONMENT")
-    with pytest.raises(ValueError, match="LITELLM_ENVIRONMENT"):
+    monkeypatch.delenv("EMBROUTER_ENVIRONMENT")
+    with pytest.raises(ValueError, match="EMBROUTER_ENVIRONMENT"):
         model_info_is_active_for_environment(model_info={"supported_environments": ["production"]})
 
 
@@ -11112,13 +11112,13 @@ def test_pre_call_checks_uses_deployment_model_when_model_info_lookup_raises(mon
     unregistered custom model), so the check falls back to the bare model group
     name and the request dies with 'LLM Provider NOT provided'.
     """
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(embrouter, "drop_params", False)
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "custom-alias",
-                "litellm_params": {"model": "hosted_vllm/not-in-the-catalog"},
+                "embrouter_params": {"model": "hosted_vllm/not-in-the-catalog"},
             }
         ],
         enable_pre_call_checks=True,
@@ -11130,17 +11130,17 @@ def test_pre_call_checks_uses_deployment_model_when_model_info_lookup_raises(mon
     monkeypatch.setattr(router, "get_router_model_info", _raise_unmapped)
 
     seen: list[tuple] = []
-    original_get_supported_openai_params = litellm.get_supported_openai_params
+    original_get_supported_openai_params = embrouter.get_supported_openai_params
 
     def _record(model, custom_llm_provider=None, **kwargs):
         seen.append((model, custom_llm_provider))
         return original_get_supported_openai_params(model=model, custom_llm_provider=custom_llm_provider, **kwargs)
 
-    monkeypatch.setattr(litellm, "get_supported_openai_params", _record)
+    monkeypatch.setattr(embrouter, "get_supported_openai_params", _record)
 
     deployments = [
         {
-            "litellm_params": {"model": "hosted_vllm/not-in-the-catalog"},
+            "embrouter_params": {"model": "hosted_vllm/not-in-the-catalog"},
             "model_info": {"id": "d1"},
         }
     ]
@@ -11161,30 +11161,30 @@ def test_pre_call_checks_keeps_deployment_when_provider_is_unresolvable(monkeypa
     a request. A deployment whose provider cannot be resolved simply skips the
     supported-params check instead of raising out of deployment selection.
     """
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(embrouter, "drop_params", False)
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "custom-alias",
-                "litellm_params": {"model": "gpt-3.5-turbo"},
+                "embrouter_params": {"model": "gpt-3.5-turbo"},
             }
         ],
         enable_pre_call_checks=True,
     )
 
     def _raise_no_provider(**kwargs):
-        raise litellm.BadRequestError(
+        raise embrouter.BadRequestError(
             message="LLM Provider NOT provided.",
             model="custom-alias",
             llm_provider="",
         )
 
-    monkeypatch.setattr(litellm, "get_llm_provider", _raise_no_provider)
+    monkeypatch.setattr(embrouter, "get_llm_provider", _raise_no_provider)
 
     deployments = [
         {
-            "litellm_params": {"model": "some-unresolvable-model"},
+            "embrouter_params": {"model": "some-unresolvable-model"},
             "model_info": {"id": "d1"},
         }
     ]
@@ -11209,13 +11209,13 @@ class TestUpsertDeploymentRollback:
     """
 
     def test_failed_upsert_keeps_previous_deployment_serving(self):
-        from litellm.types.router import Deployment, LiteLLM_Params, ModelInfo
+        from embrouter.types.router import Deployment, EmbRouter_Params, ModelInfo
 
-        router = litellm.Router(
+        router = embrouter.Router(
             model_list=[
                 {
                     "model_name": "prod-model",
-                    "litellm_params": {"model": "gpt-4o", "api_key": "sk-old"},
+                    "embrouter_params": {"model": "gpt-4o", "api_key": "sk-old"},
                     "model_info": {"id": "prod-1", "db_model": True},
                 }
             ],
@@ -11225,7 +11225,7 @@ class TestUpsertDeploymentRollback:
         result = router.upsert_deployment(
             deployment=Deployment(
                 model_name="prod-model",
-                litellm_params=LiteLLM_Params(model="auto_router/broken"),
+                embrouter_params=EmbRouter_Params(model="auto_router/broken"),
                 model_info=ModelInfo(id="prod-1", db_model=True),
             )
         )
@@ -11233,18 +11233,18 @@ class TestUpsertDeploymentRollback:
         assert result is None
         restored = router.get_deployment(model_id="prod-1")
         assert restored is not None
-        assert restored.litellm_params.model == "gpt-4o"
+        assert restored.embrouter_params.model == "gpt-4o"
         assert [model["model_name"] for model in router.model_list] == ["prod-model"]
 
     def test_failed_fresh_add_returns_none_without_restore(self):
-        from litellm.types.router import Deployment, LiteLLM_Params, ModelInfo
+        from embrouter.types.router import Deployment, EmbRouter_Params, ModelInfo
 
-        router = litellm.Router(model_list=[], ignore_invalid_deployments=True)
+        router = embrouter.Router(model_list=[], ignore_invalid_deployments=True)
 
         result = router.upsert_deployment(
             deployment=Deployment(
                 model_name="fresh-router",
-                litellm_params=LiteLLM_Params(model="auto_router/broken"),
+                embrouter_params=EmbRouter_Params(model="auto_router/broken"),
                 model_info=ModelInfo(id="fresh-1", db_model=True),
             )
         )
@@ -11254,11 +11254,11 @@ class TestUpsertDeploymentRollback:
         assert router.model_list == []
 
     def test_restore_re_adds_popped_deployment(self):
-        router = litellm.Router(
+        router = embrouter.Router(
             model_list=[
                 {
                     "model_name": "prod-model",
-                    "litellm_params": {"model": "gpt-4o", "api_key": "sk-old"},
+                    "embrouter_params": {"model": "gpt-4o", "api_key": "sk-old"},
                     "model_info": {"id": "prod-1", "db_model": True},
                 }
             ],
@@ -11274,7 +11274,7 @@ class TestUpsertDeploymentRollback:
 
         restored = router.get_deployment(model_id="prod-1")
         assert restored is not None
-        assert restored.litellm_params.model == "gpt-4o"
+        assert restored.embrouter_params.model == "gpt-4o"
 
         router._restore_deployment_after_failed_upsert(
             previous_deployment=previous, model_id="prod-1"
@@ -11290,18 +11290,18 @@ class TestUpsertDeploymentRollback:
 class TestUpsertDeploymentRename:
     """
     Issue #38360: renaming a model wrote the new `model_name` to the db, but the reload's
-    `upsert_deployment` compared only `litellm_params` and `model_info`. A rename with no
+    `upsert_deployment` compared only `embrouter_params` and `model_info`. A rename with no
     other edit therefore compared equal and the router kept the old name until a restart,
     so `/model/info` and `/v1/models` served the stale name and the new one was unroutable.
     """
 
     @staticmethod
-    def _router() -> "litellm.Router":
-        return litellm.Router(
+    def _router() -> "embrouter.Router":
+        return embrouter.Router(
             model_list=[
                 {
                     "model_name": "old-name",
-                    "litellm_params": {"model": "openai/gpt-4o", "api_key": "sk-test"},
+                    "embrouter_params": {"model": "openai/gpt-4o", "api_key": "sk-test"},
                     "model_info": {"id": "rename-1", "db_model": True},
                 }
             ]
@@ -11309,11 +11309,11 @@ class TestUpsertDeploymentRename:
 
     @staticmethod
     def _deployment(model_name: str, tpm: int | None = None):
-        from litellm.types.router import Deployment, LiteLLM_Params, ModelInfo
+        from embrouter.types.router import Deployment, EmbRouter_Params, ModelInfo
 
         return Deployment(
             model_name=model_name,
-            litellm_params=LiteLLM_Params(model="openai/gpt-4o", api_key="sk-test", tpm=tpm),
+            embrouter_params=EmbRouter_Params(model="openai/gpt-4o", api_key="sk-test", tpm=tpm),
             model_info=ModelInfo(id="rename-1", db_model=True),
         )
 
@@ -11343,7 +11343,7 @@ class TestUpsertDeploymentRename:
         assert router.get_model_ids(model_name="new-name") == ["rename-1"]
         renamed = router.get_deployment(model_id="rename-1")
         assert renamed is not None
-        assert renamed.litellm_params.tpm == 1234
+        assert renamed.embrouter_params.tpm == 1234
 
     def test_unchanged_deployment_is_still_a_no_op(self):
         router = self._router()
@@ -11365,18 +11365,18 @@ class TestConsumedRequestTagsStamp:
         async def async_pre_routing_hook(
             self, model, request_kwargs, messages=None, input=None, specific_deployment=False
         ):
-            from litellm.types.router import PreRoutingHookResponse
+            from embrouter.types.router import PreRoutingHookResponse
 
             return PreRoutingHookResponse(model=self.rewrite_to, messages=messages)
 
     @classmethod
-    def _router(cls, marker_tags=("route",)) -> "litellm.Router":
-        from litellm.types.router import TaggedPreRoutingStrategy
+    def _router(cls, marker_tags=("route",)) -> "embrouter.Router":
+        from embrouter.types.router import TaggedPreRoutingStrategy
 
-        router = litellm.Router(
+        router = embrouter.Router(
             model_list=[
-                {"model_name": "gpt4o", "litellm_params": {"model": "openai/gpt-4o"}},
-                {"model_name": "gemini-flash", "litellm_params": {"model": "gemini/gemini-3.6-flash"}},
+                {"model_name": "gpt4o", "embrouter_params": {"model": "openai/gpt-4o"}},
+                {"model_name": "gemini-flash", "embrouter_params": {"model": "gemini/gemini-3.6-flash"}},
             ],
             enable_tag_filtering=True,
         )
@@ -11387,8 +11387,8 @@ class TestConsumedRequestTagsStamp:
 
     @pytest.mark.asyncio
     async def test_stamps_the_rewritten_group_when_request_tags_selected_the_router(self):
-        from litellm.constants import CONSUMED_REQUEST_TAGS_METADATA_KEY
-        from litellm.types.router import ConsumedRequestTagsStamp
+        from embrouter.constants import CONSUMED_REQUEST_TAGS_METADATA_KEY
+        from embrouter.types.router import ConsumedRequestTagsStamp
 
         router = self._router()
         request_kwargs = {"metadata": {"tags": ["route"]}}
@@ -11400,22 +11400,22 @@ class TestConsumedRequestTagsStamp:
         )
 
     @pytest.mark.asyncio
-    async def test_stamps_into_litellm_metadata_when_the_request_uses_that_bucket(self):
-        from litellm.constants import CONSUMED_REQUEST_TAGS_METADATA_KEY
-        from litellm.types.router import ConsumedRequestTagsStamp
+    async def test_stamps_into_embrouter_metadata_when_the_request_uses_that_bucket(self):
+        from embrouter.constants import CONSUMED_REQUEST_TAGS_METADATA_KEY
+        from embrouter.types.router import ConsumedRequestTagsStamp
 
         router = self._router()
-        request_kwargs = {"litellm_metadata": {"tags": ["route"]}}
+        request_kwargs = {"embrouter_metadata": {"tags": ["route"]}}
 
         await router.async_pre_routing_hook(model="gpt4o", request_kwargs=request_kwargs)
 
-        assert request_kwargs["litellm_metadata"][CONSUMED_REQUEST_TAGS_METADATA_KEY] == ConsumedRequestTagsStamp(
+        assert request_kwargs["embrouter_metadata"][CONSUMED_REQUEST_TAGS_METADATA_KEY] == ConsumedRequestTagsStamp(
             model_group="gemini-flash", tags=("route",)
         )
 
     @pytest.mark.asyncio
     async def test_fallback_reentry_with_a_plain_group_clears_the_stale_stamp(self):
-        from litellm.constants import CONSUMED_REQUEST_TAGS_METADATA_KEY
+        from embrouter.constants import CONSUMED_REQUEST_TAGS_METADATA_KEY
 
         router = self._router()
         request_kwargs = {"metadata": {"tags": ["route"]}}
@@ -11427,7 +11427,7 @@ class TestConsumedRequestTagsStamp:
 
     @pytest.mark.asyncio
     async def test_no_stamp_when_the_request_is_untagged(self):
-        from litellm.constants import CONSUMED_REQUEST_TAGS_METADATA_KEY
+        from embrouter.constants import CONSUMED_REQUEST_TAGS_METADATA_KEY
 
         router = self._router()
         request_kwargs = {"metadata": {}}
@@ -11438,7 +11438,7 @@ class TestConsumedRequestTagsStamp:
 
     @pytest.mark.asyncio
     async def test_no_stamp_when_the_selected_strategy_carries_no_tags(self):
-        from litellm.constants import CONSUMED_REQUEST_TAGS_METADATA_KEY
+        from embrouter.constants import CONSUMED_REQUEST_TAGS_METADATA_KEY
 
         router = self._router(marker_tags=())
         request_kwargs = {"metadata": {"tags": ["route"]}}
@@ -11456,7 +11456,7 @@ class TestClaudeCodeSubagentSessionRouterBinding:
         async def async_pre_routing_hook(
             self, model, request_kwargs, messages=None, input=None, specific_deployment=False
         ):
-            from litellm.types.router import PreRoutingHookResponse
+            from embrouter.types.router import PreRoutingHookResponse
 
             return PreRoutingHookResponse(
                 model=self.routed_model,
@@ -11474,18 +11474,18 @@ class TestClaudeCodeSubagentSessionRouterBinding:
         cls,
         cheap_response: str = "cheap response",
         fallbacks: list[dict[str, list[str]]] | None = None,
-    ) -> "litellm.Router":
-        from litellm.types.router import TaggedPreRoutingStrategy
+    ) -> "embrouter.Router":
+        from embrouter.types.router import TaggedPreRoutingStrategy
 
-        router = litellm.Router(
+        router = embrouter.Router(
             model_list=[
                 {
                     "model_name": "cheap-model",
-                    "litellm_params": {"model": "openai/gpt-4o-mini", "mock_response": cheap_response},
+                    "embrouter_params": {"model": "openai/gpt-4o-mini", "mock_response": cheap_response},
                 },
                 {
                     "model_name": "expensive-model",
-                    "litellm_params": {"model": "openai/gpt-4o", "mock_response": "expensive response"},
+                    "embrouter_params": {"model": "openai/gpt-4o", "mock_response": "expensive response"},
                 },
             ],
             fallbacks=fallbacks,
@@ -11555,7 +11555,7 @@ class TestClaudeCodeSubagentSessionRouterBinding:
 
     @pytest.mark.asyncio
     async def test_redis_cleanup_failure_does_not_reject_a_subagent_request(self):
-        from litellm.caching.caching import RedisCache
+        from embrouter.caching.caching import RedisCache
 
         router = self._router()
         del router.complexity_routers["smart-router"]
@@ -11574,7 +11574,7 @@ class TestClaudeCodeSubagentSessionRouterBinding:
 
     @pytest.mark.asyncio
     async def test_redis_read_failure_does_not_reject_a_subagent_request(self):
-        from litellm.caching.caching import RedisCache
+        from embrouter.caching.caching import RedisCache
 
         router = self._router()
         request_kwargs = self._request_kwargs(agent_id="agent-1234")
@@ -11599,7 +11599,7 @@ class TestClaudeCodeSubagentSessionRouterBinding:
 
     @pytest.mark.asyncio
     async def test_redis_write_failures_do_not_reject_main_or_subagent_requests(self):
-        from litellm.caching.caching import RedisCache
+        from embrouter.caching.caching import RedisCache
 
         router = self._router()
         redis_cache = MagicMock(spec=RedisCache)
@@ -11626,7 +11626,7 @@ class TestClaudeCodeSubagentSessionRouterBinding:
     async def test_subagents_follow_the_main_threads_latest_router_across_workers(self):
         from types import SimpleNamespace
 
-        from litellm.caching.caching import RedisCache
+        from embrouter.caching.caching import RedisCache
 
         shared_binding = SimpleNamespace(value=None)
         shared_redis = MagicMock(spec=RedisCache)
@@ -11657,7 +11657,7 @@ class TestClaudeCodeSubagentSessionRouterBinding:
 
     @pytest.mark.asyncio
     async def test_no_pre_routing_strategies_means_no_session_cache_traffic(self):
-        from litellm.caching.caching import RedisCache
+        from embrouter.caching.caching import RedisCache
 
         router = self._router()
         router.complexity_routers.clear()
@@ -11727,7 +11727,7 @@ class TestClaudeCodeSubagentSessionRouterBinding:
     @pytest.mark.asyncio
     async def test_subagent_can_fallback_to_its_original_requested_model(self):
         router = self._router(
-            cheap_response="litellm.RateLimitError",
+            cheap_response="embrouter.RateLimitError",
             fallbacks=[{"cheap-model": ["expensive-model"]}],
         )
 
@@ -11750,7 +11750,7 @@ class TestClaudeCodeSubagentSessionRouterBinding:
     @pytest.mark.asyncio
     async def test_subagent_can_use_the_bound_router_name_fallback(self):
         router = self._router(
-            cheap_response="litellm.RateLimitError",
+            cheap_response="embrouter.RateLimitError",
             fallbacks=[{"smart-router": ["expensive-model"]}],
         )
 
@@ -11770,31 +11770,31 @@ class TestClaudeCodeSubagentSessionRouterBinding:
 
     @pytest.mark.asyncio
     async def test_anthropic_subagent_four_fallback_hops_use_each_current_model_chain(self):
-        from litellm.types.router import TaggedPreRoutingStrategy
+        from embrouter.types.router import TaggedPreRoutingStrategy
 
         failing_groups = ("cheap-model", "fallback-1", "fallback-2", "fallback-3")
-        router = litellm.Router(
+        router = embrouter.Router(
             model_list=[
                 *(
                     {
                         "model_name": group,
-                        "litellm_params": {
+                        "embrouter_params": {
                             "model": "anthropic/claude-3-haiku-20240307",
-                            "mock_response": "litellm.RateLimitError",
+                            "mock_response": "embrouter.RateLimitError",
                         },
                     }
                     for group in failing_groups
                 ),
                 {
                     "model_name": "requested-model",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "anthropic/claude-3-haiku-20240307",
                         "mock_response": "requested response",
                     },
                 },
                 {
                     "model_name": "fallback-4",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "anthropic/claude-3-haiku-20240307",
                         "mock_response": "fourth fallback response",
                     },
@@ -11813,10 +11813,10 @@ class TestClaudeCodeSubagentSessionRouterBinding:
             "smart-router": (TaggedPreRoutingStrategy(tags=(), strategy=self._RewriteStrategy()),)
         }
         main_kwargs = self._request_kwargs()
-        main_kwargs["litellm_metadata"] = main_kwargs.pop("metadata")
+        main_kwargs["embrouter_metadata"] = main_kwargs.pop("metadata")
         await router.async_pre_routing_hook(model="smart-router", request_kwargs=main_kwargs)
         subagent_kwargs = self._request_kwargs(agent_id="agent-1234")
-        subagent_kwargs["litellm_metadata"] = subagent_kwargs.pop("metadata")
+        subagent_kwargs["embrouter_metadata"] = subagent_kwargs.pop("metadata")
 
         response = await router.aanthropic_messages(
             model="requested-model",
@@ -11850,14 +11850,14 @@ class TestAutoRouterMaxInputCharsWiring:
     """
 
     @staticmethod
-    def _router(**extra_params) -> "litellm.Router":
+    def _router(**extra_params) -> "embrouter.Router":
         pytest.importorskip("semantic_router", reason="auto-router needs the semantic-router extra")
-        return litellm.Router(
+        return embrouter.Router(
             model_list=[
-                {"model_name": "gpt-4o", "litellm_params": {"model": "gpt-4o"}},
+                {"model_name": "gpt-4o", "embrouter_params": {"model": "gpt-4o"}},
                 {
                     "model_name": "my-auto-router",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "auto_router/my-auto-router",
                         "auto_router_config": json.dumps(
                             {"routes": [{"name": "gpt-4o", "utterances": ["write me code"]}]}
@@ -11871,7 +11871,7 @@ class TestAutoRouterMaxInputCharsWiring:
         )
 
     @staticmethod
-    def _registered_auto_router(router: "litellm.Router"):
+    def _registered_auto_router(router: "embrouter.Router"):
         return router.auto_routers["my-auto-router"][0].strategy
 
     def test_should_pass_the_configured_cap_to_the_auto_router(self):
@@ -11880,7 +11880,7 @@ class TestAutoRouterMaxInputCharsWiring:
         assert self._registered_auto_router(router).max_input_chars == 512
 
     def test_should_fall_back_to_the_shared_default_when_the_deployment_omits_it(self):
-        from litellm.constants import DEFAULT_AUTO_ROUTER_MAX_INPUT_CHARS
+        from embrouter.constants import DEFAULT_AUTO_ROUTER_MAX_INPUT_CHARS
 
         router = self._router()
 
@@ -11898,11 +11898,11 @@ class TestTaggedAutoRouterOnSharedModelName:
             return RouteChoice(name="gemini-flash")
 
     @classmethod
-    def _router(cls, marker_tags, include_plain_sibling: bool, enable_tag_filtering: bool) -> "litellm.Router":
+    def _router(cls, marker_tags, include_plain_sibling: bool, enable_tag_filtering: bool) -> "embrouter.Router":
         pytest.importorskip("semantic_router", reason="auto-router needs the semantic-router extra")
         marker = {
             "model_name": "gpt4o",
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "auto_router/gpt4o-router",
                 "auto_router_config": json.dumps(
                     {"routes": [{"name": "gemini-flash", "utterances": ["capital city questions"]}]}
@@ -11912,9 +11912,9 @@ class TestTaggedAutoRouterOnSharedModelName:
                 **({"tags": marker_tags} if marker_tags else {}),
             },
         }
-        plain = {"model_name": "gpt4o", "litellm_params": {"model": "openai/gpt-4o"}}
-        tier = {"model_name": "gemini-flash", "litellm_params": {"model": "gemini/gemini-3.6-flash"}}
-        router = litellm.Router(
+        plain = {"model_name": "gpt4o", "embrouter_params": {"model": "openai/gpt-4o"}}
+        tier = {"model_name": "gemini-flash", "embrouter_params": {"model": "gemini/gemini-3.6-flash"}}
+        router = embrouter.Router(
             model_list=[plain, marker, tier] if include_plain_sibling else [marker, tier],
             enable_tag_filtering=enable_tag_filtering,
         )
@@ -11922,7 +11922,7 @@ class TestTaggedAutoRouterOnSharedModelName:
         return router
 
     @staticmethod
-    async def _hook_response(router: "litellm.Router", request_kwargs: dict):
+    async def _hook_response(router: "embrouter.Router", request_kwargs: dict):
         return await router.async_pre_routing_hook(
             model="gpt4o",
             request_kwargs=request_kwargs,
@@ -11987,10 +11987,10 @@ class TestTaggedAutoRouterOnSharedModelName:
                 request_kwargs={},
                 messages=[{"role": "user", "content": "What is the capital of France?"}],
             )
-            assert deployment["litellm_params"]["model"] == "openai/gpt-4o"
+            assert deployment["embrouter_params"]["model"] == "openai/gpt-4o"
 
-    def test_deployment_without_litellm_params_mapping_is_not_a_marker(self):
-        assert litellm.Router._is_strategy_marker_deployment({"model_name": "gpt4o"}) is False
+    def test_deployment_without_embrouter_params_mapping_is_not_a_marker(self):
+        assert embrouter.Router._is_strategy_marker_deployment({"model_name": "gpt4o"}) is False
 
 
 class TestAutoRouterSharedModelNameConnectionParams:
@@ -12007,11 +12007,11 @@ class TestAutoRouterSharedModelNameConnectionParams:
             return RouteChoice(name="gemini-flash")
 
     @classmethod
-    def _router(cls, plain_entry_first: bool) -> "litellm.Router":
+    def _router(cls, plain_entry_first: bool) -> "embrouter.Router":
         pytest.importorskip("semantic_router", reason="auto-router needs the semantic-router extra")
         plain = {
             "model_name": "gpt4o",
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "openai/gpt-4o",
                 "api_key": cls.PLAIN_API_KEY,
                 "api_base": cls.PLAIN_API_BASE,
@@ -12019,7 +12019,7 @@ class TestAutoRouterSharedModelNameConnectionParams:
         }
         marker = {
             "model_name": "gpt4o",
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "auto_router/gpt4o-router",
                 "auto_router_config": json.dumps(
                     {"routes": [{"name": "gemini-flash", "utterances": ["capital city questions"]}]}
@@ -12031,10 +12031,10 @@ class TestAutoRouterSharedModelNameConnectionParams:
         }
         tier = {
             "model_name": "gemini-flash",
-            "litellm_params": {"model": "gemini/gemini-3.6-flash", "api_key": "sk-tier-key"},
+            "embrouter_params": {"model": "gemini/gemini-3.6-flash", "api_key": "sk-tier-key"},
         }
         shared_name_entries = [plain, marker] if plain_entry_first else [marker, plain]
-        router = litellm.Router(model_list=[*shared_name_entries, tier])
+        router = embrouter.Router(model_list=[*shared_name_entries, tier])
         router.auto_routers["gpt4o"][0].strategy.routelayer = cls._FixedRouteLayer()
         return router
 
@@ -12058,7 +12058,7 @@ class TestAutoRouterSharedModelNameConnectionParams:
     async def test_routed_tier_call_goes_out_on_its_own_endpoint_and_credentials(self, plain_entry_first):
         """The outbound provider request for the routed tier hits the tier's own Gemini host
         with the tier's own key, never the plain sibling's api_base or api_key."""
-        from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+        from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler
 
         router = self._router(plain_entry_first)
 
@@ -12082,43 +12082,43 @@ class TestAutoRouterSharedModelNameConnectionParams:
 
 
 class TestGetAllowedFailsFromPolicy:
-    def _make_router(self, **policy_kwargs) -> litellm.Router:
-        from litellm.types.router import AllowedFailsPolicy
+    def _make_router(self, **policy_kwargs) -> embrouter.Router:
+        from embrouter.types.router import AllowedFailsPolicy
 
-        return litellm.Router(
-            model_list=[{"model_name": "gpt-4", "litellm_params": {"model": "gpt-4", "api_key": "fake"}}],
+        return embrouter.Router(
+            model_list=[{"model_name": "gpt-4", "embrouter_params": {"model": "gpt-4", "api_key": "fake"}}],
             allowed_fails_policy=AllowedFailsPolicy(**policy_kwargs),
         )
 
     def test_no_policy_returns_none(self):
-        router = litellm.Router(
-            model_list=[{"model_name": "gpt-4", "litellm_params": {"model": "gpt-4", "api_key": "fake"}}],
+        router = embrouter.Router(
+            model_list=[{"model_name": "gpt-4", "embrouter_params": {"model": "gpt-4", "api_key": "fake"}}],
         )
-        assert router.get_allowed_fails_from_policy(litellm.RateLimitError("429", "openai", "gpt-4")) is None
+        assert router.get_allowed_fails_from_policy(embrouter.RateLimitError("429", "openai", "gpt-4")) is None
 
     def test_internal_server_error_allowed_fails(self):
         router = self._make_router(InternalServerErrorAllowedFails=7)
-        exc = litellm.InternalServerError("500", "openai", "gpt-4")
+        exc = embrouter.InternalServerError("500", "openai", "gpt-4")
         assert router.get_allowed_fails_from_policy(exc) == 7
 
     def test_service_unavailable_error_allowed_fails(self):
         router = self._make_router(ServiceUnavailableErrorAllowedFails=4)
-        exc = litellm.ServiceUnavailableError("503", "openai", "gpt-4")
+        exc = embrouter.ServiceUnavailableError("503", "openai", "gpt-4")
         assert router.get_allowed_fails_from_policy(exc) == 4
 
     def test_bad_gateway_error_allowed_fails(self):
         router = self._make_router(BadGatewayErrorAllowedFails=2)
-        exc = litellm.BadGatewayError("502", "openai", "gpt-4")
+        exc = embrouter.BadGatewayError("502", "openai", "gpt-4")
         assert router.get_allowed_fails_from_policy(exc) == 2
 
     def test_not_found_error_allowed_fails(self):
         router = self._make_router(NotFoundErrorAllowedFails=1)
-        exc = litellm.NotFoundError("404", "openai", "gpt-4")
+        exc = embrouter.NotFoundError("404", "openai", "gpt-4")
         assert router.get_allowed_fails_from_policy(exc) == 1
 
     def test_unmatched_exception_returns_none(self):
         router = self._make_router(InternalServerErrorAllowedFails=5)
-        exc = litellm.RateLimitError("429", "openai", "gpt-4")
+        exc = embrouter.RateLimitError("429", "openai", "gpt-4")
         assert router.get_allowed_fails_from_policy(exc) is None
 
 
@@ -12146,14 +12146,14 @@ class _FallbackAttemptRecorder(CustomLogger):
 
 def _cyclic_fallback_router(num_retries=0):
     groups = ["group-a", "group-b", "group-c", "group-d"]
-    return litellm.Router(
+    return embrouter.Router(
         model_list=[
             {
                 "model_name": group,
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_key": "sk-fake",
-                    "mock_response": "litellm.InternalServerError",
+                    "mock_response": "embrouter.InternalServerError",
                 },
                 "model_info": {"id": f"{group}-deployment"},
             }
@@ -12170,14 +12170,14 @@ def _cyclic_fallback_router(num_retries=0):
 
 
 async def _drive_cyclic_fallback(router, capture, recorder=None, **request_kwargs):
-    router_logger = logging.getLogger("LiteLLM Router")
+    router_logger = logging.getLogger("EmbRouter Router")
     previous_level = router_logger.level
     router_logger.setLevel(capture.level)
     router_logger.addHandler(capture)
     if recorder is not None:
-        litellm.callbacks.append(recorder)
+        embrouter.callbacks.append(recorder)
     try:
-        with pytest.raises(litellm.InternalServerError):
+        with pytest.raises(embrouter.InternalServerError):
             await router.acompletion(
                 model="group-a", messages=[{"role": "user", "content": "hi"}], **request_kwargs
             )
@@ -12185,7 +12185,7 @@ async def _drive_cyclic_fallback(router, capture, recorder=None, **request_kwarg
         router_logger.removeHandler(capture)
         router_logger.setLevel(previous_level)
         if recorder is not None:
-            litellm.callbacks.remove(recorder)
+            embrouter.callbacks.remove(recorder)
 
 
 @pytest.mark.asyncio
@@ -12279,14 +12279,14 @@ async def test_retry_records_never_carry_a_forwarded_credential(container_key, r
 
 
 def _always_failing_router(num_retries):
-    return litellm.Router(
+    return embrouter.Router(
         model_list=[
             {
                 "model_name": "broken-group",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_key": "sk-fake",
-                    "mock_response": "litellm.InternalServerError",
+                    "mock_response": "embrouter.InternalServerError",
                 },
             }
         ],
@@ -12294,7 +12294,7 @@ def _always_failing_router(num_retries):
     )
 
 
-async def _fail_one_proxy_shaped_request(router, request_marker, expected_error=litellm.InternalServerError):
+async def _fail_one_proxy_shaped_request(router, request_marker, expected_error=embrouter.InternalServerError):
     """The proxy hands the router a metadata dict and a proxy_server_request whose body is a
     shallow copy of the request, so body["metadata"] is the very same dict the router later
     stamps previous_models onto."""
@@ -12356,10 +12356,10 @@ async def test_retry_records_keep_only_the_last_four_attempts():
 
 @pytest.mark.asyncio
 async def test_num_retries_per_request_stops_retries_at_caps_above_four(monkeypatch):
-    monkeypatch.setattr(litellm, "num_retries_per_request", 5)
+    monkeypatch.setattr(embrouter, "num_retries_per_request", 5)
     router = _always_failing_router(num_retries=6)
 
-    records = await _fail_one_proxy_shaped_request(router, "request-1", expected_error=litellm.APIConnectionError)
+    records = await _fail_one_proxy_shaped_request(router, "request-1", expected_error=embrouter.APIConnectionError)
 
     assert [record["attempted_retries"] for record in records] == [3, 4, 5, 6]
     assert ["Max retries per request hit!" in record["exception_string"] for record in records] == [
@@ -12370,20 +12370,20 @@ async def test_num_retries_per_request_stops_retries_at_caps_above_four(monkeypa
     ]
 
 
-def _failing_group_with_healthy_fallback_router(num_retries: int) -> litellm.Router:
-    return litellm.Router(
+def _failing_group_with_healthy_fallback_router(num_retries: int) -> embrouter.Router:
+    return embrouter.Router(
         model_list=[
             {
                 "model_name": "broken-group",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-4o-mini",
                     "api_key": "sk-fake",
-                    "mock_response": "litellm.InternalServerError",
+                    "mock_response": "embrouter.InternalServerError",
                 },
             },
             {
                 "model_name": "healthy-group",
-                "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-fake", "mock_response": "ok"},
+                "embrouter_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-fake", "mock_response": "ok"},
             },
         ],
         fallbacks=[{"broken-group": ["healthy-group"]}],
@@ -12404,10 +12404,10 @@ async def test_num_retries_per_request_counts_retries_across_fallback_hops(
     fresh per-hop attempted_retries at zero, so a cap read from that counter let every hop retry from zero
     and a request could spend far more retries than the cap allows. A caller who plants a negative count
     in the request metadata must not push the cap further away either."""
-    monkeypatch.setattr(litellm, "num_retries_per_request", cap)
+    monkeypatch.setattr(embrouter, "num_retries_per_request", cap)
     router = _failing_group_with_healthy_fallback_router(num_retries=1)
     recorder = _FallbackAttemptRecorder()
-    litellm.callbacks.append(recorder)
+    embrouter.callbacks.append(recorder)
     try:
         metadata = {} if planted_count is None else {"request_retry_count": planted_count}
         request = router.acompletion(
@@ -12416,10 +12416,10 @@ async def test_num_retries_per_request_counts_retries_across_fallback_hops(
         if not hop_refused:
             assert (await request).choices[0].message.content == "ok"
             return
-        with pytest.raises(litellm.InternalServerError):
+        with pytest.raises(embrouter.InternalServerError):
             await request
     finally:
-        litellm.callbacks.remove(recorder)
+        embrouter.callbacks.remove(recorder)
 
     assert recorder.failed_targets == ["healthy-group"]
     hop_refusals = [
@@ -12454,7 +12454,7 @@ async def test_fallback_failure_detail_from_upstream_is_bounded():
     await _drive_cyclic_fallback(
         _cyclic_fallback_router(),
         capture,
-        mock_response=litellm.InternalServerError(
+        mock_response=embrouter.InternalServerError(
             message=huge_message, llm_provider="openai", model="group-a"
         ),
     )
@@ -12466,13 +12466,13 @@ async def test_fallback_failure_detail_from_upstream_is_bounded():
 
 def test_stamp_or_clear_metadata_key_writes_and_clears_both_buckets():
     request_kwargs = {"metadata": {}}
-    litellm.Router._stamp_or_clear_metadata_key(request_kwargs=request_kwargs, key="probe", value=7)
+    embrouter.Router._stamp_or_clear_metadata_key(request_kwargs=request_kwargs, key="probe", value=7)
     assert request_kwargs["metadata"]["probe"] == 7
 
-    stale_kwargs = {"metadata": {"probe": 7}, "litellm_metadata": {"probe": 7}}
-    litellm.Router._stamp_or_clear_metadata_key(request_kwargs=stale_kwargs, key="probe", value=None)
+    stale_kwargs = {"metadata": {"probe": 7}, "embrouter_metadata": {"probe": 7}}
+    embrouter.Router._stamp_or_clear_metadata_key(request_kwargs=stale_kwargs, key="probe", value=None)
     assert "probe" not in stale_kwargs["metadata"]
-    assert "probe" not in stale_kwargs["litellm_metadata"]
+    assert "probe" not in stale_kwargs["embrouter_metadata"]
 
 
 @pytest.mark.parametrize(
@@ -12489,16 +12489,16 @@ def test_complexity_router_registers_affinity_callback_for_deployment_pin(comple
     means a bare config registers one. Opting out must skip the callback entirely rather than
     register a filter that can never fire, including when session_affinity is on, since the two
     pins are independent."""
-    from litellm.router_utils.pre_call_checks.deployment_affinity_check import (
+    from embrouter.router_utils.pre_call_checks.deployment_affinity_check import (
         DeploymentAffinityCheck,
     )
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
-            {"model_name": "gpt-4o", "litellm_params": {"model": "gpt-4o"}},
+            {"model_name": "gpt-4o", "embrouter_params": {"model": "gpt-4o"}},
             {
                 "model_name": "my-complexity-router",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "auto_router/complexity_router",
                     "complexity_router_config": complexity_router_config,
                 },
@@ -12510,15 +12510,15 @@ def test_complexity_router_registers_affinity_callback_for_deployment_pin(comple
         assert registered is expect_callback
     finally:
         for cb in router.optional_callbacks or []:
-            litellm.logging_callback_manager.remove_callback_from_all_lists(cb)
+            embrouter.logging_callback_manager.remove_callback_from_all_lists(cb)
 
 
 def test_ensure_deployment_affinity_callback_is_idempotent():
-    from litellm.router_utils.pre_call_checks.deployment_affinity_check import (
+    from embrouter.router_utils.pre_call_checks.deployment_affinity_check import (
         DeploymentAffinityCheck,
     )
 
-    router = litellm.Router(model_list=[])
+    router = embrouter.Router(model_list=[])
     try:
         router._ensure_deployment_affinity_callback()
         router._ensure_deployment_affinity_callback()
@@ -12528,49 +12528,49 @@ def test_ensure_deployment_affinity_callback_is_idempotent():
         assert len(affinity_callbacks) == 1
     finally:
         for cb in router.optional_callbacks or []:
-            litellm.logging_callback_manager.remove_callback_from_all_lists(cb)
+            embrouter.logging_callback_manager.remove_callback_from_all_lists(cb)
 
 
 def test_get_router_model_info_does_not_wipe_cached_pricing():
     """A Deployment's model_info declares the mirrored pricing fields with None defaults;
     merging it must not write those Nones into the lru_cache'd dict get_model_info() owns,
     or /model/info loses built-in prices for every model a worker serves."""
-    from litellm.types.router import Deployment, LiteLLM_Params, ModelInfo
+    from embrouter.types.router import Deployment, EmbRouter_Params, ModelInfo
 
-    litellm.get_model_info.cache_clear()
-    expected = copy.deepcopy(litellm.get_model_info(model="anthropic/claude-sonnet-4-5"))
+    embrouter.get_model_info.cache_clear()
+    expected = copy.deepcopy(embrouter.get_model_info(model="anthropic/claude-sonnet-4-5"))
 
-    router = litellm.Router(model_list=[])
+    router = embrouter.Router(model_list=[])
     merged = router.get_router_model_info(
         deployment=Deployment(
             model_name="sonnet",
-            litellm_params=LiteLLM_Params(model="claude-sonnet-4-5", custom_llm_provider="anthropic"),
+            embrouter_params=EmbRouter_Params(model="claude-sonnet-4-5", custom_llm_provider="anthropic"),
             model_info=ModelInfo(id="sonnet-1"),
         ),
         received_model_name="sonnet",
     )
 
-    assert litellm.get_model_info(model="anthropic/claude-sonnet-4-5") == expected
+    assert embrouter.get_model_info(model="anthropic/claude-sonnet-4-5") == expected
     for field in ("input_cost_per_token", "output_cost_per_token", "cache_read_input_token_cost"):
         assert merged[field] == expected[field]
 
 
 def test_get_router_model_info_keeps_explicit_pricing_overrides():
-    from litellm.types.router import Deployment, LiteLLM_Params, ModelInfo
+    from embrouter.types.router import Deployment, EmbRouter_Params, ModelInfo
 
-    litellm.get_model_info.cache_clear()
-    router = litellm.Router(model_list=[])
+    embrouter.get_model_info.cache_clear()
+    router = embrouter.Router(model_list=[])
     merged = router.get_router_model_info(
         deployment=Deployment(
             model_name="sonnet",
-            litellm_params=LiteLLM_Params(model="claude-sonnet-4-5", custom_llm_provider="anthropic"),
+            embrouter_params=EmbRouter_Params(model="claude-sonnet-4-5", custom_llm_provider="anthropic"),
             model_info=ModelInfo(id="sonnet-1", input_cost_per_token=1e-08),
         ),
         received_model_name="sonnet",
     )
 
     assert merged["input_cost_per_token"] == 1e-08
-    assert litellm.get_model_info(model="anthropic/claude-sonnet-4-5")["input_cost_per_token"] != 1e-08
+    assert embrouter.get_model_info(model="anthropic/claude-sonnet-4-5")["input_cost_per_token"] != 1e-08
 
 
 class TestModelGroupAliasReachesPreRoutingStrategies:
@@ -12586,20 +12586,20 @@ class TestModelGroupAliasReachesPreRoutingStrategies:
         async def async_pre_routing_hook(
             self, model, request_kwargs, messages=None, input=None, specific_deployment=False
         ):
-            from litellm.types.router import PreRoutingHookResponse
+            from embrouter.types.router import PreRoutingHookResponse
 
             return PreRoutingHookResponse(model="gemini-flash", messages=messages)
 
     @classmethod
-    def _router(cls, registry_name: str | None) -> "litellm.Router":
-        from litellm.types.router import TaggedPreRoutingStrategy
+    def _router(cls, registry_name: str | None) -> "embrouter.Router":
+        from embrouter.types.router import TaggedPreRoutingStrategy
 
         tiers = dict.fromkeys(("SIMPLE", "MEDIUM", "COMPLEX", "REASONING"), "gemini-flash")
-        router = litellm.Router(
+        router = embrouter.Router(
             model_list=[
                 {
                     "model_name": "smart-route",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "auto_router/complexity_router",
                         "complexity_router_config": {"tiers": tiers},
                         "complexity_router_default_model": "gemini-flash",
@@ -12608,7 +12608,7 @@ class TestModelGroupAliasReachesPreRoutingStrategies:
                 },
                 {
                     "model_name": "gemini-flash",
-                    "litellm_params": {"model": "gemini/gemini-3.6-flash", "mock_response": "routed by the tier"},
+                    "embrouter_params": {"model": "gemini/gemini-3.6-flash", "mock_response": "routed by the tier"},
                 },
             ],
             model_group_alias={"smart-alias": "smart-route"},
@@ -12659,7 +12659,7 @@ class TestModelGroupAliasReachesPreRoutingStrategies:
             model="smart-alias", request_kwargs={"metadata": {}}, messages=self._messages()
         )
 
-        assert deployment["litellm_params"]["model"] == "gemini/gemini-3.6-flash"
+        assert deployment["embrouter_params"]["model"] == "gemini/gemini-3.6-flash"
 
     @pytest.mark.asyncio
     async def test_alias_call_completes_and_still_bills_the_name_the_caller_sent(self):
@@ -12677,7 +12677,7 @@ class TestModelGroupAliasReachesPreRoutingStrategies:
     def test_a_group_of_only_markers_is_not_a_callable_model(self):
         router = self._router(None)
 
-        with pytest.raises(litellm.BadRequestError, match="strategy router marker"):
+        with pytest.raises(embrouter.BadRequestError, match="strategy router marker"):
             router.get_available_deployment(
                 model="smart-route", messages=self._messages(), request_kwargs={"metadata": {}}
             )
@@ -12705,7 +12705,7 @@ class TestTeamPublicNameReachesPreRoutingStrategies:
         async def async_pre_routing_hook(
             self, model, request_kwargs, messages=None, input=None, specific_deployment=False
         ):
-            from litellm.types.router import PreRoutingHookResponse
+            from embrouter.types.router import PreRoutingHookResponse
 
             return PreRoutingHookResponse(model=self.rewrite_to, messages=messages)
 
@@ -12714,7 +12714,7 @@ class TestTeamPublicNameReachesPreRoutingStrategies:
         tiers = dict.fromkeys(("SIMPLE", "MEDIUM", "COMPLEX", "REASONING"), "gemini-flash")
         return {
             "model_name": internal_name,
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "auto_router/complexity_router",
                 "complexity_router_config": {"tiers": tiers},
                 "complexity_router_default_model": "gemini-flash",
@@ -12732,19 +12732,19 @@ class TestTeamPublicNameReachesPreRoutingStrategies:
         extra_deployments: tuple[dict, ...] = (),
         markers: tuple[dict, ...] | None = None,
         enable_tag_filtering: bool = False,
-    ) -> "litellm.Router":
-        from litellm.types.router import TaggedPreRoutingStrategy
+    ) -> "embrouter.Router":
+        from embrouter.types.router import TaggedPreRoutingStrategy
 
         markers = markers if markers is not None else (cls._team_marker(cls.INTERNAL_NAME),)
         tier = {
             "model_name": "gemini-flash",
-            "litellm_params": {"model": "gemini/gemini-3.6-flash", "mock_response": "routed by the tier"},
+            "embrouter_params": {"model": "gemini/gemini-3.6-flash", "mock_response": "routed by the tier"},
         }
-        router = litellm.Router(
+        router = embrouter.Router(
             model_list=[*markers, tier, *extra_deployments],
             enable_tag_filtering=enable_tag_filtering,
         )
-        tags_by_name = {m["model_name"]: tuple(m["litellm_params"].get("tags") or ()) for m in markers}
+        tags_by_name = {m["model_name"]: tuple(m["embrouter_params"].get("tags") or ()) for m in markers}
         for name in cls.REGISTRY_NAMES:
             setattr(router, name, {})
         setattr(
@@ -12787,7 +12787,7 @@ class TestTeamPublicNameReachesPreRoutingStrategies:
             model=self.PUBLIC_NAME, request_kwargs=request_kwargs, messages=self._messages()
         )
 
-        assert deployment["litellm_params"]["model"] == "gemini/gemini-3.6-flash"
+        assert deployment["embrouter_params"]["model"] == "gemini/gemini-3.6-flash"
         assert request_kwargs["timeout"] == self.MARKER_TIMEOUT
 
     @pytest.mark.asyncio
@@ -12800,7 +12800,7 @@ class TestTeamPublicNameReachesPreRoutingStrategies:
             )
             is None
         )
-        with pytest.raises(litellm.BadRequestError):
+        with pytest.raises(embrouter.BadRequestError):
             await router.async_get_available_deployment(
                 model=self.PUBLIC_NAME, request_kwargs=self._team_request(self.OTHER_TEAM), messages=self._messages()
             )
@@ -12832,7 +12832,7 @@ class TestTeamPublicNameReachesPreRoutingStrategies:
     async def test_team_public_name_shadows_a_global_model_for_that_team_only(self):
         router = self._router(
             {self.INTERNAL_NAME: self._RewriteStrategy()},
-            extra_deployments=({"model_name": self.PUBLIC_NAME, "litellm_params": {"model": "openai/gpt-4o"}},),
+            extra_deployments=({"model_name": self.PUBLIC_NAME, "embrouter_params": {"model": "openai/gpt-4o"}},),
         )
 
         async def routed(request_kwargs: dict) -> str | None:
@@ -12845,7 +12845,7 @@ class TestTeamPublicNameReachesPreRoutingStrategies:
             deployment = await router.async_get_available_deployment(
                 model=self.PUBLIC_NAME, request_kwargs=request_kwargs, messages=self._messages()
             )
-            return deployment["litellm_params"]["model"]
+            return deployment["embrouter_params"]["model"]
 
         assert await routed(self._team_request()) == "gemini-flash"
         assert await selected(self._team_request()) == "gemini/gemini-3.6-flash"
@@ -12857,7 +12857,7 @@ class TestTeamPublicNameReachesPreRoutingStrategies:
     async def test_tag_filtering_hands_untagged_team_requests_to_the_team_plain_sibling(self):
         plain_sibling = {
             "model_name": self.SIBLING_INTERNAL_NAME,
-            "litellm_params": {"model": "openai/gpt-4o"},
+            "embrouter_params": {"model": "openai/gpt-4o"},
             "model_info": {"team_id": self.TEAM, "team_public_model_name": self.PUBLIC_NAME},
         }
         router = self._router(
@@ -12875,18 +12875,18 @@ class TestTeamPublicNameReachesPreRoutingStrategies:
             deployment = await router.async_get_available_deployment(
                 model=self.PUBLIC_NAME, request_kwargs=self._team_request(), messages=self._messages()
             )
-            assert deployment["litellm_params"]["model"] == "openai/gpt-4o"
+            assert deployment["embrouter_params"]["model"] == "openai/gpt-4o"
 
     @pytest.mark.asyncio
     async def test_marker_only_team_resolution_is_rejected_as_uncallable(self):
         import re
 
-        from litellm.types.router import RouterErrors
+        from embrouter.types.router import RouterErrors
 
         router = self._router({})
 
         with pytest.raises(
-            litellm.BadRequestError, match=re.escape(RouterErrors.only_strategy_marker_deployments.value)
+            embrouter.BadRequestError, match=re.escape(RouterErrors.only_strategy_marker_deployments.value)
         ):
             await router.async_get_available_deployment(
                 model=self.PUBLIC_NAME, request_kwargs=self._team_request(), messages=self._messages()
@@ -12907,7 +12907,7 @@ class TestTeamPublicNameReachesPreRoutingStrategies:
     async def test_strategy_resolution_agrees_with_the_deployment_path_for_every_principal(self):
         router = self._router(
             {self.INTERNAL_NAME: self._RewriteStrategy()},
-            extra_deployments=({"model_name": "shared-name", "litellm_params": {"model": "openai/gpt-4o"}},),
+            extra_deployments=({"model_name": "shared-name", "embrouter_params": {"model": "openai/gpt-4o"}},),
         )
         principals = {
             "team": self._team_request(),
@@ -12924,10 +12924,10 @@ class TestTeamPublicNameReachesPreRoutingStrategies:
                     if not router._is_strategy_marker_deployment(deployment)
                 ]
                 if resolved and not callable_names:
-                    with pytest.raises(litellm.BadRequestError, match="strategy router marker"):
+                    with pytest.raises(embrouter.BadRequestError, match="strategy router marker"):
                         router._common_checks_available_deployment(model=model, request_kwargs=request_kwargs)
                 elif not resolved:
-                    with pytest.raises(litellm.BadRequestError):
+                    with pytest.raises(embrouter.BadRequestError):
                         router._common_checks_available_deployment(model=model, request_kwargs=request_kwargs)
                 else:
                     _, deployments = router._common_checks_available_deployment(
@@ -12938,12 +12938,12 @@ class TestTeamPublicNameReachesPreRoutingStrategies:
     def test_drop_strategy_markers_keeps_plain_deployments_and_rejects_marker_only_sets(self):
         router = self._router({})
         marker = router.model_list[0]
-        plain = {"model_name": "plain", "litellm_params": {"model": "openai/gpt-4o"}}
+        plain = {"model_name": "plain", "embrouter_params": {"model": "openai/gpt-4o"}}
 
         assert router._drop_strategy_markers("x", [marker, plain]) == [plain]
         assert router._drop_strategy_markers("x", [plain]) == [plain]
         assert router._drop_strategy_markers("x", []) == []
-        with pytest.raises(litellm.BadRequestError, match="strategy router marker"):
+        with pytest.raises(embrouter.BadRequestError, match="strategy router marker"):
             router._drop_strategy_markers("x", [marker])
 
     def test_team_deployments_across_teams_unions_one_team_and_rejects_two(self):
@@ -12958,15 +12958,15 @@ class TestTeamPublicNameReachesPreRoutingStrategies:
             self.INTERNAL_NAME
         ]
         assert one_team._team_deployments_across_teams("missing") == []
-        with pytest.raises(litellm.BadRequestError, match="multiple teams"):
+        with pytest.raises(embrouter.BadRequestError, match="multiple teams"):
             two_teams._team_deployments_across_teams(self.PUBLIC_NAME)
 
 
     def test_compression_policy_follows_the_same_resolution_for_every_principal(self):
-        from litellm.proxy.guardrails.auto_router_compression import AutoRouterCompressionPolicy, policy_for_model
+        from embrouter.proxy.guardrails.auto_router_compression import AutoRouterCompressionPolicy, policy_for_model
 
         marker = self._team_marker(self.INTERNAL_NAME)
-        marker["litellm_params"]["auto_router_routing_compression"] = "headroom-team"
+        marker["embrouter_params"]["auto_router_routing_compression"] = "headroom-team"
         router = self._router({}, markers=(marker,))
         admin = {"metadata": {"user_api_key_auth": SimpleNamespace(user_role="proxy_admin")}}
         expected = AutoRouterCompressionPolicy(routing="headroom-team", model=None)
@@ -12993,7 +12993,7 @@ class TestAutoRouterCompressionDecoupling:
         async def async_pre_routing_hook(
             self, model, request_kwargs, messages=None, input=None, specific_deployment=False
         ):
-            from litellm.types.router import PreRoutingHookResponse
+            from embrouter.types.router import PreRoutingHookResponse
 
             self.received_messages = messages
             return PreRoutingHookResponse(model="gemini-flash", messages=messages)
@@ -13013,24 +13013,24 @@ class TestAutoRouterCompressionDecoupling:
     def _messages() -> list[dict[str, str]]:
         return [{"role": "user", "content": "What is the capital of France?"}]
 
-    def _router(self, marker_litellm_params: dict) -> tuple[litellm.Router, "_RecordingStrategy"]:
-        from litellm.types.router import TaggedPreRoutingStrategy
+    def _router(self, marker_embrouter_params: dict) -> tuple[embrouter.Router, "_RecordingStrategy"]:
+        from embrouter.types.router import TaggedPreRoutingStrategy
 
         tiers = dict.fromkeys(("SIMPLE", "MEDIUM", "COMPLEX", "REASONING"), "gemini-flash")
-        router = litellm.Router(
+        router = embrouter.Router(
             model_list=[
                 {
                     "model_name": "smart-router",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "auto_router/complexity_router",
                         "complexity_router_config": {"tiers": tiers},
                         "complexity_router_default_model": "gemini-flash",
-                        **marker_litellm_params,
+                        **marker_embrouter_params,
                     },
                 },
                 {
                     "model_name": "gemini-flash",
-                    "litellm_params": {"model": "gemini/gemini-3.6-flash", "mock_response": "routed by the tier"},
+                    "embrouter_params": {"model": "gemini/gemini-3.6-flash", "mock_response": "routed by the tier"},
                 },
             ],
         )
@@ -13042,15 +13042,15 @@ class TestAutoRouterCompressionDecoupling:
 
     @pytest.fixture
     def registered_guardrail(self, monkeypatch):
-        from litellm.proxy.guardrails import guardrail_registry
+        from embrouter.proxy.guardrails import guardrail_registry
 
         # Registered under a compression provider name: both hops refuse a name that
         # does not resolve to one, so a bare callback would never be used.
         monkeypatch.setitem(guardrail_registry.guardrail_class_registry, "headroom", self._CompressingGuardrail)
         guardrail = self._CompressingGuardrail(guardrail_name="fake-compress")
-        litellm.logging_callback_manager.add_litellm_callback(guardrail)
+        embrouter.logging_callback_manager.add_embrouter_callback(guardrail)
         yield guardrail
-        litellm.logging_callback_manager.remove_callback_from_all_lists(guardrail)
+        embrouter.logging_callback_manager.remove_callback_from_all_lists(guardrail)
 
     @pytest.mark.asyncio
     async def test_routing_side_compression_never_reaches_the_caller_messages(self, registered_guardrail):
@@ -13120,7 +13120,7 @@ class TestAutoRouterCompressionDecoupling:
         arms the model-side guardrail and nothing has compressed anything, so reusing a
         model-hop result that was never produced would serve the request with no
         compression on either hop, silently ignoring the configuration."""
-        from litellm.proxy.guardrails import auto_router_compression
+        from embrouter.proxy.guardrails import auto_router_compression
 
         router, strategy = self._router(
             {
@@ -13143,7 +13143,7 @@ class TestAutoRouterCompressionDecoupling:
         compression twice: by the time the router runs, `messages` already reflects
         whatever the ordinary pre-call guardrail pipeline did for the model call, so
         the routing decision must reuse it rather than calling the guardrail again."""
-        from litellm.proxy.guardrails import auto_router_compression
+        from embrouter.proxy.guardrails import auto_router_compression
 
         router, strategy = self._router(
             {
@@ -13195,11 +13195,11 @@ class TestAzureBaseModelFallbackLogging:
     names. Issue #33172."""
 
     def _router_with_azure_deployment(self, deployment_model: str):
-        return litellm.Router(
+        return embrouter.Router(
             model_list=[
                 {
                     "model_name": "my-group",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": deployment_model,
                         "api_key": "fake-key",
                         "api_base": "https://fake.openai.azure.com",
@@ -13213,7 +13213,7 @@ class TestAzureBaseModelFallbackLogging:
         router = self._router_with_azure_deployment("azure/gpt-4o")
 
         with patch(
-            "litellm.router.verbose_router_logger.error"
+            "embrouter.router.verbose_router_logger.error"
         ) as mock_error:
             model_info = router.get_router_model_info(
                 deployment=None, received_model_name="my-group", id="azure-base-model-test-id"
@@ -13224,14 +13224,14 @@ class TestAzureBaseModelFallbackLogging:
             for call in mock_error.call_args_list
         ), f"unexpected error log: {mock_error.call_args_list}"
         # the fallback resolution must actually surface the map values
-        assert model_info["max_input_tokens"] == litellm.model_cost["azure/gpt-4o"]["max_input_tokens"]
-        assert model_info["input_cost_per_token"] == litellm.model_cost["azure/gpt-4o"]["input_cost_per_token"]
+        assert model_info["max_input_tokens"] == embrouter.model_cost["azure/gpt-4o"]["max_input_tokens"]
+        assert model_info["input_cost_per_token"] == embrouter.model_cost["azure/gpt-4o"]["input_cost_per_token"]
 
     def test_unmappable_deployment_name_still_logs_error(self):
         router = self._router_with_azure_deployment("azure/my-custom-deployment-name")
 
         with patch(
-            "litellm.router.verbose_router_logger.error"
+            "embrouter.router.verbose_router_logger.error"
         ) as mock_error:
             model_info = router.get_router_model_info(
                 deployment=None, received_model_name="my-group", id="azure-base-model-test-id"
@@ -13245,11 +13245,11 @@ class TestAzureBaseModelFallbackLogging:
         assert model_info.get("max_input_tokens") is None
 
     def test_explicit_base_model_still_wins(self):
-        router = litellm.Router(
+        router = embrouter.Router(
             model_list=[
                 {
                     "model_name": "my-group",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "azure/some-deployment",
                         "api_key": "fake-key",
                         "api_base": "https://fake.openai.azure.com",
@@ -13265,19 +13265,19 @@ class TestAzureBaseModelFallbackLogging:
         model_info = router.get_router_model_info(
             deployment=None, received_model_name="my-group", id="azure-base-model-test-id"
         )
-        assert model_info["max_input_tokens"] == litellm.model_cost["azure/gpt-4o-mini"]["max_input_tokens"]
+        assert model_info["max_input_tokens"] == embrouter.model_cost["azure/gpt-4o-mini"]["max_input_tokens"]
 
 def test_model_group_info_intersects_supported_reasoning_efforts():
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "smart-group",
-                "litellm_params": {"model": "anthropic/opus-like"},
+                "embrouter_params": {"model": "anthropic/opus-like"},
                 "model_info": {"id": "opus-like-deployment"},
             },
             {
                 "model_name": "smart-group",
-                "litellm_params": {"model": "openai/mini-like"},
+                "embrouter_params": {"model": "openai/mini-like"},
                 "model_info": {"id": "mini-like-deployment"},
             },
         ]
@@ -13287,7 +13287,7 @@ def test_model_group_info_intersects_supported_reasoning_efforts():
         if model_id == "opus-like-deployment":
             return {
                 "key": model_name,
-                "litellm_provider": "anthropic",
+                "embrouter_provider": "anthropic",
                 "mode": "chat",
                 "supports_reasoning": True,
                 "supports_xhigh_reasoning_effort": True,
@@ -13295,7 +13295,7 @@ def test_model_group_info_intersects_supported_reasoning_efforts():
             }
         return {
             "key": model_name,
-            "litellm_provider": "openai",
+            "embrouter_provider": "openai",
             "mode": "chat",
             "supports_reasoning": True,
             "supports_none_reasoning_effort": False,
@@ -13321,16 +13321,16 @@ def test_model_group_info_reasoning_efforts_are_unknown_when_any_deployment_is_o
     which is what separates it from a mapped non-reasoning model, and nothing being known about it is
     no evidence that the unknown deployment accepts levels its mapped sibling supports. The group
     therefore reports unknown instead of advertising a value routing might send to either one."""
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "smart-group",
-                "litellm_params": {"model": "anthropic/opus-like"},
+                "embrouter_params": {"model": "anthropic/opus-like"},
                 "model_info": {"id": "opus-like-deployment"},
             },
             {
                 "model_name": "smart-group",
-                "litellm_params": {"model": "openai/unmapped-model"},
+                "embrouter_params": {"model": "openai/unmapped-model"},
                 "model_info": {"id": "unmapped-deployment"},
             },
         ]
@@ -13340,12 +13340,12 @@ def test_model_group_info_reasoning_efforts_are_unknown_when_any_deployment_is_o
         if model_id == "opus-like-deployment":
             return {
                 "key": model_name,
-                "litellm_provider": "anthropic",
+                "embrouter_provider": "anthropic",
                 "mode": "chat",
                 "supports_reasoning": True,
                 "supports_max_reasoning_effort": True,
             }
-        return {"key": model_name, "litellm_provider": "openai", "mode": None, "supports_reasoning": None}
+        return {"key": model_name, "embrouter_provider": "openai", "mode": None, "supports_reasoning": None}
 
     with patch.object(router, "get_deployment_model_info", side_effect=_model_info):
         result = router._set_model_group_info(
@@ -13379,7 +13379,7 @@ def test_model_group_info_fast_mode_uses_exact_provider_catalog(
 ) -> None:
     router: Final = Router(model_list=[{
         "model_name": "fast-group",
-        "litellm_params": {"model": model, "custom_llm_provider": provider, "api_key": "fake-key"},
+        "embrouter_params": {"model": model, "custom_llm_provider": provider, "api_key": "fake-key"},
         "model_info": {"supports_fast_mode": operator_flag},
     }])
 
@@ -13393,14 +13393,14 @@ def test_model_group_info_fast_mode_uses_exact_provider_catalog(
 def test_model_group_info_fast_mode_fails_closed_without_explicit_boolean(
     local_model_cost_map: None, monkeypatch: pytest.MonkeyPatch, flag: object
 ) -> None:
-    entry: Final = {key: value for key, value in litellm.model_cost["claude-opus-5"].items()
+    entry: Final = {key: value for key, value in embrouter.model_cost["claude-opus-5"].items()
                    if key != "supports_fast_mode"}
     if flag is not None:
         entry["supports_fast_mode"] = flag
-    monkeypatch.setitem(litellm.model_cost, "claude-opus-5", entry)
+    monkeypatch.setitem(embrouter.model_cost, "claude-opus-5", entry)
     router: Final = Router(model_list=[{
         "model_name": "fast-group",
-        "litellm_params": {"model": "anthropic/claude-opus-5", "api_key": "fake-key"},
+        "embrouter_params": {"model": "anthropic/claude-opus-5", "api_key": "fake-key"},
         "model_info": {"supports_fast_mode": True},
     }])
 
@@ -13426,7 +13426,7 @@ def test_model_group_info_fast_mode_requires_every_deployment(
     )
     router: Final = Router(model_list=[{
         "model_name": "fast-group",
-        "litellm_params": {"model": model, "api_key": "fake-key"},
+        "embrouter_params": {"model": model, "api_key": "fake-key"},
     } for model in models])
 
     result: Final = router.get_model_group_info("fast-group")
@@ -13438,11 +13438,11 @@ def test_model_group_info_fast_mode_requires_every_deployment(
 def test_model_group_info_surfaces_supports_parallel_function_calling(local_model_cost_map):
     """``/model_group/info`` folds each deployment's registry flags into the group; a deployment whose
     registry entry declares parallel function calling must flip the group to True instead of False."""
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "glm-group",
-                "litellm_params": {"model": "together_ai/zai-org/GLM-5.3-Flash", "api_key": "fake-key"},
+                "embrouter_params": {"model": "together_ai/zai-org/GLM-5.3-Flash", "api_key": "fake-key"},
             }
         ]
     )
@@ -13457,16 +13457,16 @@ def test_model_group_info_reasoning_efforts_empty_on_a_mapped_non_reasoning_depl
     """A group mixing a reasoning model with one the map knows is not a reasoning model shares no
     level, so it advertises none and the picker offers nothing rather than a level routing would
     hand to a deployment that rejects it."""
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "mixed-group",
-                "litellm_params": {"model": "anthropic/opus-like"},
+                "embrouter_params": {"model": "anthropic/opus-like"},
                 "model_info": {"id": "opus-like-deployment"},
             },
             {
                 "model_name": "mixed-group",
-                "litellm_params": {"model": "openai/plain-chat"},
+                "embrouter_params": {"model": "openai/plain-chat"},
                 "model_info": {"id": "plain-chat-deployment"},
             },
         ]
@@ -13476,12 +13476,12 @@ def test_model_group_info_reasoning_efforts_empty_on_a_mapped_non_reasoning_depl
         if model_id == "opus-like-deployment":
             return {
                 "key": model_name,
-                "litellm_provider": "anthropic",
+                "embrouter_provider": "anthropic",
                 "mode": "chat",
                 "supports_reasoning": True,
                 "supports_max_reasoning_effort": True,
             }
-        return {"key": model_name, "litellm_provider": "openai", "mode": "chat", "supports_reasoning": None}
+        return {"key": model_name, "embrouter_provider": "openai", "mode": "chat", "supports_reasoning": None}
 
     with patch.object(router, "get_deployment_model_info", side_effect=_model_info):
         result = router._set_model_group_info(
@@ -13497,16 +13497,16 @@ def test_model_group_info_reasoning_efforts_ignore_a_value_declared_in_model_inf
     """The group's levels are computed from its deployments, so a value an operator left in one
     deployment's model_info must not seed them. Seeding let the first deployment read narrow the
     whole group while the same value on any other deployment was silently ignored."""
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "declared-group",
-                "litellm_params": {"model": "openai/first-reasoner"},
+                "embrouter_params": {"model": "openai/first-reasoner"},
                 "model_info": {"id": "first-deployment"},
             },
             {
                 "model_name": "declared-group",
-                "litellm_params": {"model": "openai/second-reasoner"},
+                "embrouter_params": {"model": "openai/second-reasoner"},
                 "model_info": {"id": "second-deployment"},
             },
         ]
@@ -13515,7 +13515,7 @@ def test_model_group_info_reasoning_efforts_ignore_a_value_declared_in_model_inf
     def _model_info(model_id: str, model_name: str):
         info = {
             "key": model_name,
-            "litellm_provider": "openai",
+            "embrouter_provider": "openai",
             "mode": "chat",
             "supports_reasoning": True,
             "supports_none_reasoning_effort": True,
@@ -13538,11 +13538,11 @@ def test_model_group_info_survives_a_junk_typed_operator_effort_value():
     """A deployment's registered model_info reads back with whatever the operator wrote under any
     key, so a wrong-typed supported_reasoning_efforts must not fail the group's info. Only the
     constructor's trailing override keeps the junk away from ModelGroupInfo validation."""
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "junk-declared-group",
-                "litellm_params": {"model": "openai/lone-reasoner"},
+                "embrouter_params": {"model": "openai/lone-reasoner"},
                 "model_info": {"id": "junk-deployment"},
             },
         ]
@@ -13551,7 +13551,7 @@ def test_model_group_info_survives_a_junk_typed_operator_effort_value():
     def _model_info(model_id: str, model_name: str):
         return {
             "key": model_name,
-            "litellm_provider": "openai",
+            "embrouter_provider": "openai",
             "mode": "chat",
             "supports_reasoning": True,
             "supports_none_reasoning_effort": True,
@@ -13573,25 +13573,25 @@ def test_model_group_info_reasoning_efforts_are_unknown_for_an_operator_declared
     operator wrote, so a mode they set themselves reads back exactly like one the map supplied. Only
     a mode the map supplied marks the deployment as known. An off-map deployment carrying an
     operator mode remains unknown and must keep the whole group's level support unknown."""
-    from litellm.router_utils.reasoning_effort_capability import resolve_supported_reasoning_efforts
+    from embrouter.router_utils.reasoning_effort_capability import resolve_supported_reasoning_efforts
 
     mapped_model = "openai/gpt-5.6-sol"
     expected = resolve_supported_reasoning_efforts(
-        litellm.get_model_info(model=mapped_model),
+        embrouter.get_model_info(model=mapped_model),
         deployment_is_mapped=True,
     )
     assert expected
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "smart-group",
-                "litellm_params": {"model": mapped_model, "api_key": "sk-fake"},
+                "embrouter_params": {"model": mapped_model, "api_key": "sk-fake"},
                 "model_info": {"id": "mapped-deployment"},
             },
             {
                 "model_name": "smart-group",
-                "litellm_params": {"model": "openai/a-model-the-map-never-heard-of", "api_key": "sk-fake"},
+                "embrouter_params": {"model": "openai/a-model-the-map-never-heard-of", "api_key": "sk-fake"},
                 "model_info": {"id": "off-map-deployment", "mode": "chat"},
             },
         ]
@@ -13608,11 +13608,11 @@ def test_model_group_info_reasoning_efforts_are_unknown_for_an_operator_declared
 
 class TestAddDeploymentApiBaseProviderResolution:
     def test_bare_model_with_known_api_base_initializes(self):
-        router = litellm.Router(
+        router = embrouter.Router(
             model_list=[
                 {
                     "model_name": "groq-pinned",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "llama-3.3-70b-versatile",
                         "api_base": "https://api.groq.com/openai/v1",
                         "api_key": "fake-key",
@@ -13620,7 +13620,7 @@ class TestAddDeploymentApiBaseProviderResolution:
                 },
                 {
                     "model_name": "deepseek-pinned",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "deepseek-chat",
                         "api_base": "https://api.deepseek.com/v1",
                         "api_key": "fake-key",
@@ -13634,12 +13634,12 @@ class TestAddDeploymentApiBaseProviderResolution:
         assert {m["model_name"] for m in model_list} == {"groq-pinned", "deepseek-pinned"}
 
     def test_bare_model_with_unknown_api_base_still_raises(self):
-        with pytest.raises(litellm.BadRequestError, match="LLM Provider NOT provided"):
-            litellm.Router(
+        with pytest.raises(embrouter.BadRequestError, match="LLM Provider NOT provided"):
+            embrouter.Router(
                 model_list=[
                     {
                         "model_name": "mystery",
-                        "litellm_params": {
+                        "embrouter_params": {
                             "model": "some-unknown-model",
                             "api_base": "https://llm.internal.example.com/v1",
                             "api_key": "fake-key",
@@ -13649,11 +13649,11 @@ class TestAddDeploymentApiBaseProviderResolution:
             )
 
     def test_explicit_custom_llm_provider_beats_api_base_endpoint_match(self):
-        router = litellm.Router(
+        router = embrouter.Router(
             model_list=[
                 {
                     "model_name": "openai-via-gateway",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "gpt-3.5-turbo",
                         "custom_llm_provider": "openai",
                         "api_base": "https://api.groq.com/openai/v1",
@@ -13665,7 +13665,7 @@ class TestAddDeploymentApiBaseProviderResolution:
 
         deployment = router.get_deployment_by_model_group_name("openai-via-gateway")
         assert deployment is not None
-        assert deployment.litellm_params.custom_llm_provider == "openai"
+        assert deployment.embrouter_params.custom_llm_provider == "openai"
 
 # =====================================================================
 # anthropic_messages mid-stream-fallback helpers, added for #24004
@@ -13704,14 +13704,14 @@ def _anthropic_messages_make_router(**router_kwargs) -> Router:
         model_list=[
             {
                 "model_name": "primary",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "anthropic/claude-sonnet-4-5",
                     "api_key": "sk-test",
                 },
             },
             {
                 "model_name": "fallback",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "bedrock/anthropic.claude-sonnet-4-5",
                 },
             },
@@ -14042,15 +14042,15 @@ def _anthropic_messages_two_order_primary_model_list() -> list:
     return [
         {
             "model_name": "primary",
-            "litellm_params": {"model": "anthropic/claude-sonnet-4-5", "api_key": "sk-test", "order": 1},
+            "embrouter_params": {"model": "anthropic/claude-sonnet-4-5", "api_key": "sk-test", "order": 1},
         },
         {
             "model_name": "primary",
-            "litellm_params": {"model": "bedrock/anthropic.claude-sonnet-4-5", "order": 2},
+            "embrouter_params": {"model": "bedrock/anthropic.claude-sonnet-4-5", "order": 2},
         },
         {
             "model_name": "fallback",
-            "litellm_params": {"model": "bedrock/anthropic.claude-sonnet-4-5"},
+            "embrouter_params": {"model": "bedrock/anthropic.claude-sonnet-4-5"},
         },
     ]
 
@@ -14102,7 +14102,7 @@ def test_anthropic_messages_stream_can_fall_back_order_levels(orders, expected):
         model_list=[
             {
                 "model_name": "primary",
-                "litellm_params": {"model": "anthropic/claude-sonnet-4-5", "api_key": "sk-test", "order": order},
+                "embrouter_params": {"model": "anthropic/claude-sonnet-4-5", "api_key": "sk-test", "order": order},
             }
             for order in orders
         ],
@@ -14134,7 +14134,7 @@ def test_anthropic_messages_order_levels_direct_call():
         model_list=[
             {
                 "model_name": "primary",
-                "litellm_params": {"model": "anthropic/claude-sonnet-4-5", "api_key": "sk-test", "order": order},
+                "embrouter_params": {"model": "anthropic/claude-sonnet-4-5", "api_key": "sk-test", "order": order},
             }
             for order in (2, 1, None)
         ],
@@ -14369,7 +14369,7 @@ async def test_aanthropic_messages_fallback_attempt_raises_original_exception_on
     exception must surface rather than the internal wrapper exception."""
     router = _anthropic_messages_make_router()
     error = MidStreamFallbackError(message="overloaded", model="primary", llm_provider="anthropic")
-    original_exception = litellm.APIError(
+    original_exception = embrouter.APIError(
         status_code=503, message="fallback also overloaded", llm_provider="bedrock", model="fallback"
     )
     fallback_failure = MidStreamFallbackError(
@@ -14381,7 +14381,7 @@ async def test_aanthropic_messages_fallback_attempt_raises_original_exception_on
         "async_function_with_fallbacks_common_utils",
         new=AsyncMock(side_effect=fallback_failure),
     ):
-        with pytest.raises(litellm.APIError) as exc_info:
+        with pytest.raises(embrouter.APIError) as exc_info:
             async for _ in router._aanthropic_messages_fallback_attempt(
                 error, {"model": "primary"}, _anthropic_messages_make_wrapper()
             ):
@@ -14698,7 +14698,7 @@ async def test_anthropic_messages_fallback_merges_fallback_hidden_params():
         {"x-fallback-only": "yes"},
         {
             "x-fallback-only": "yes",
-            "x-litellm-complexity-router-tier": "SIMPLE",
+            "x-embrouter-complexity-router-tier": "SIMPLE",
         },
     ],
     ids=["plain-fallback", "complexity-tier-fallback"],
@@ -14707,8 +14707,8 @@ async def test_anthropic_messages_fallback_replaces_complexity_headers_before_ou
     fallback_headers: dict[str, str],
 ) -> None:
     primary_headers: Final = {
-        "x-litellm-complexity-router-tier": "REASONING",
-        "x-litellm-complexity-router-reasoning-effort": "xhigh",
+        "x-embrouter-complexity-router-tier": "REASONING",
+        "x-embrouter-complexity-router-reasoning-effort": "xhigh",
     }
     source: Final = _AnthropicMessagesFallbackByteStream(
         [_anthropic_messages_overloaded_error_chunk()],
@@ -14742,7 +14742,7 @@ async def test_anthropic_messages_fallback_replaces_complexity_headers_before_ou
 @pytest.mark.asyncio
 async def test_aanthropic_messages_with_streaming_fallbacks_deep_copies_nested_metadata():
     """Bugbot regression: a shallow .copy() of kwargs still shares the
-    nested litellm_metadata/metadata dict objects with the primary attempt.
+    nested embrouter_metadata/metadata dict objects with the primary attempt.
     _update_kwargs_with_deployment mutates that dict in place with
     deployment-specific fields, which must not leak into the fallback
     request's metadata."""
@@ -14752,7 +14752,7 @@ async def test_aanthropic_messages_with_streaming_fallbacks_deep_copies_nested_m
 
     async def fake_original(**_kwargs):
         # Simulate _update_kwargs_with_deployment mutating the primary's
-        # litellm_metadata in place, as the real helper does.
+        # embrouter_metadata in place, as the real helper does.
         primary_metadata["deployment"] = "primary-deployment-object"
         return _AnthropicMessagesFakeByteStream([_anthropic_messages_content_chunk("hi")])
 
@@ -14770,18 +14770,18 @@ async def test_aanthropic_messages_with_streaming_fallbacks_deep_copies_nested_m
                 original_function=fake_original,
                 model="primary",
                 stream=True,
-                litellm_metadata=primary_metadata,
+                embrouter_metadata=primary_metadata,
             )
 
     fallback_kwargs = streaming_iter_kwargs["initial_kwargs"]
-    assert fallback_kwargs["litellm_metadata"] is not primary_metadata
-    assert "deployment" not in fallback_kwargs["litellm_metadata"]
+    assert fallback_kwargs["embrouter_metadata"] is not primary_metadata
+    assert "deployment" not in fallback_kwargs["embrouter_metadata"]
 
 
 @pytest.mark.asyncio
 async def test_aanthropic_messages_with_streaming_fallbacks_deep_copies_metadata_field():
     """Same regression as above for the (separate) `metadata` kwarg some
-    call sites use instead of `litellm_metadata`."""
+    call sites use instead of `embrouter_metadata`."""
     router = _anthropic_messages_make_router()
     primary_metadata = {"tag": "primary"}
     streaming_iter_kwargs = {}
@@ -14821,9 +14821,9 @@ async def test_anthropic_messages_hop_stream_failure_reaches_second_fallback_ent
     the client on an HTTP 200; fb2 was unreachable."""
     router = Router(
         model_list=[
-            {"model_name": "primary", "litellm_params": {"model": "anthropic/primary-model", "api_key": "sk-test"}},
-            {"model_name": "fb1", "litellm_params": {"model": "anthropic/fb1-model", "api_key": "sk-test"}},
-            {"model_name": "fb2", "litellm_params": {"model": "anthropic/fb2-model", "api_key": "sk-test"}},
+            {"model_name": "primary", "embrouter_params": {"model": "anthropic/primary-model", "api_key": "sk-test"}},
+            {"model_name": "fb1", "embrouter_params": {"model": "anthropic/fb1-model", "api_key": "sk-test"}},
+            {"model_name": "fb2", "embrouter_params": {"model": "anthropic/fb2-model", "api_key": "sk-test"}},
         ],
         num_retries=0,
         fallbacks=[{"primary": ["fb1", "fb2"]}],
@@ -14834,7 +14834,7 @@ async def test_anthropic_messages_hop_stream_failure_reaches_second_fallback_ent
         model = kwargs["model"]
         calls.append(model)
         if model == "anthropic/primary-model":
-            raise litellm.InternalServerError(message="primary down", llm_provider="anthropic", model=model)
+            raise embrouter.InternalServerError(message="primary down", llm_provider="anthropic", model=model)
         if model == "anthropic/fb1-model":
             return _AnthropicMessagesFakeByteStream(
                 [_anthropic_messages_message_start_chunk(), _anthropic_messages_overloaded_error_chunk()]
@@ -14863,14 +14863,14 @@ async def test_anthropic_messages_attempt_strips_the_controls_carrier_and_wraps_
     failover, and the per-request controls carrier never reaches the provider call."""
     from types import MappingProxyType
 
-    from litellm.router_utils.fallback_event_handlers import (
+    from embrouter.router_utils.fallback_event_handlers import (
         MID_STREAM_FALLBACK_CONTROLS_KEY,
         MidStreamFallbackControls,
     )
 
     router = Router(
         model_list=[
-            {"model_name": "fb1", "litellm_params": {"model": "anthropic/fb1-model", "api_key": "sk-test"}},
+            {"model_name": "fb1", "embrouter_params": {"model": "anthropic/fb1-model", "api_key": "sk-test"}},
         ],
         num_retries=0,
     )
@@ -14952,7 +14952,7 @@ async def test_anthropic_messages_raised_error_after_real_content_does_not_resta
     propagate to the caller instead."""
     router = _anthropic_messages_make_router()
     content = _anthropic_messages_content_chunk("partial answer")
-    original_exception = litellm.APIError(
+    original_exception = embrouter.APIError(
         status_code=503,
         message="stream reset",
         llm_provider="vertex_ai",
@@ -14982,7 +14982,7 @@ async def test_anthropic_messages_raised_error_after_real_content_does_not_resta
             async for chunk in wrapped:
                 collected.append(chunk)
 
-        with pytest.raises(litellm.APIError) as exc_info:
+        with pytest.raises(embrouter.APIError) as exc_info:
             await _consume()
 
     assert collected == [content]
@@ -15025,22 +15025,22 @@ async def test_anthropic_messages_fallback_also_catches_raised_midstream_error()
 _MID_STREAM_OPT_OUT_SHAPES: Final = (
     pytest.param({"disable_fallbacks": True}, id="raw-kwarg"),
     pytest.param({"metadata": {DISABLE_FALLBACKS_METADATA_KEY: True}}, id="metadata-stamp"),
-    pytest.param({"litellm_metadata": {DISABLE_FALLBACKS_METADATA_KEY: True}}, id="litellm_metadata-stamp"),
+    pytest.param({"embrouter_metadata": {DISABLE_FALLBACKS_METADATA_KEY: True}}, id="embrouter_metadata-stamp"),
 )
 
 
 def _mid_stream_opt_out_router() -> Router:
     return Router(
         model_list=[
-            {"model_name": "primary", "litellm_params": {"model": "openai/gpt-5.4", "api_key": "k1"}},
-            {"model_name": "fallback", "litellm_params": {"model": "openai/gpt-5.4-mini", "api_key": "k2"}},
+            {"model_name": "primary", "embrouter_params": {"model": "openai/gpt-5.4", "api_key": "k1"}},
+            {"model_name": "fallback", "embrouter_params": {"model": "openai/gpt-5.4-mini", "api_key": "k2"}},
         ],
         fallbacks=[{"primary": ["fallback"]}],
     )
 
 
-def _mid_stream_opt_out_primary_error() -> litellm.InternalServerError:
-    return litellm.InternalServerError(message="primary failed at stream start", llm_provider="openai", model="primary")
+def _mid_stream_opt_out_primary_error() -> embrouter.InternalServerError:
+    return embrouter.InternalServerError(message="primary failed at stream start", llm_provider="openai", model="primary")
 
 
 def _mid_stream_opt_out_trigger(primary_error: Exception) -> MidStreamFallbackError:
@@ -15088,7 +15088,7 @@ async def test_acompletion_streaming_iterator_honors_disable_fallbacks(opt_out):
             messages=[{"role": "user", "content": "Hi"}],
             initial_kwargs={"model": "primary", "stream": True, **copy.deepcopy(opt_out)},
         )
-        with pytest.raises(litellm.InternalServerError) as raised:
+        with pytest.raises(embrouter.InternalServerError) as raised:
             [chunk async for chunk in wrapped]
 
     assert raised.value is primary_error
@@ -15108,7 +15108,7 @@ def test_completion_streaming_iterator_honors_disable_fallbacks(opt_out):
             messages=[{"role": "user", "content": "Hi"}],
             initial_kwargs={"model": "primary", "stream": True, **copy.deepcopy(opt_out)},
         )
-        with pytest.raises(litellm.InternalServerError) as raised:
+        with pytest.raises(embrouter.InternalServerError) as raised:
             list(wrapped)
 
     assert raised.value is primary_error
@@ -15134,11 +15134,11 @@ async def test_aresponses_streaming_iterator_honors_disable_fallbacks(opt_out):
                 "model": "primary",
                 "stream": True,
                 "input": "Hi",
-                "original_generic_function": litellm.aresponses,
+                "original_generic_function": embrouter.aresponses,
                 **copy.deepcopy(opt_out),
             },
         )
-        with pytest.raises(litellm.InternalServerError) as raised:
+        with pytest.raises(embrouter.InternalServerError) as raised:
             [chunk async for chunk in wrapped]
 
     assert raised.value is primary_error
@@ -15162,7 +15162,7 @@ async def test_anthropic_messages_streaming_iterator_honors_disable_fallbacks(op
             response=source,
             initial_kwargs={"model": "primary", "stream": True, **copy.deepcopy(opt_out)},
         )
-        with pytest.raises(litellm.InternalServerError) as raised:
+        with pytest.raises(embrouter.InternalServerError) as raised:
             [chunk async for chunk in wrapped]
 
     assert raised.value is primary_error
@@ -15179,11 +15179,11 @@ async def test_acompletion_disable_fallbacks_reaches_the_mid_stream_hop():
     async def primary_stream(**kwargs):
         return _MidStreamOptOutChatStream(_mid_stream_opt_out_trigger(primary_error), model=kwargs["model"])
 
-    with patch("litellm.acompletion", side_effect=primary_stream) as provider_calls:
+    with patch("embrouter.acompletion", side_effect=primary_stream) as provider_calls:
         response = await router.acompletion(
             model="primary", messages=[{"role": "user", "content": "Hi"}], stream=True, disable_fallbacks=True
         )
-        with pytest.raises(litellm.InternalServerError) as raised:
+        with pytest.raises(embrouter.InternalServerError) as raised:
             [chunk async for chunk in response]
 
     assert raised.value is primary_error
@@ -15198,11 +15198,11 @@ def test_completion_disable_fallbacks_reaches_the_mid_stream_hop():
     def primary_stream(**kwargs):
         return _MidStreamOptOutChatStream(_mid_stream_opt_out_trigger(primary_error), model=kwargs["model"])
 
-    with patch("litellm.completion", side_effect=primary_stream) as provider_calls:
+    with patch("embrouter.completion", side_effect=primary_stream) as provider_calls:
         response = router.completion(
             model="primary", messages=[{"role": "user", "content": "Hi"}], stream=True, disable_fallbacks=True
         )
-        with pytest.raises(litellm.InternalServerError) as raised:
+        with pytest.raises(embrouter.InternalServerError) as raised:
             list(response)
 
     assert raised.value is primary_error
@@ -15566,7 +15566,7 @@ async def test_anthropic_messages_fallback_also_failing_raises_original_exceptio
     exception, not the internal MidStreamFallbackError."""
     router = _anthropic_messages_make_router()
     source = _AnthropicMessagesFakeByteStream([_anthropic_messages_overloaded_error_chunk()])
-    original_exception = litellm.APIError(
+    original_exception = embrouter.APIError(
         status_code=503,
         message="fallback also overloaded",
         llm_provider="bedrock",
@@ -15588,7 +15588,7 @@ async def test_anthropic_messages_fallback_also_failing_raises_original_exceptio
             response=source,
             initial_kwargs={"model": "primary"},
         )
-        with pytest.raises(litellm.APIError) as exc_info:
+        with pytest.raises(embrouter.APIError) as exc_info:
             async for _ in wrapped:
                 pass
 
@@ -15646,7 +15646,7 @@ async def test_factory_function_anthropic_messages_uses_streaming_fallback_dispa
     path rather than the bare generic dispatch every other call type without
     special handling uses."""
     router = _anthropic_messages_make_router()
-    wrapped = router.factory_function(litellm.anthropic_messages, call_type="anthropic_messages")
+    wrapped = router.factory_function(embrouter.anthropic_messages, call_type="anthropic_messages")
     assert callable(wrapped)
 
     with patch.object(
@@ -15662,12 +15662,12 @@ async def test_factory_function_anthropic_messages_uses_streaming_fallback_dispa
 @pytest.mark.asyncio
 async def test_async_function_with_fallbacks_stamps_zero_attempted_fallbacks():
     """A request served by the primary model group records attempted_fallbacks=0 and
-    the requested model group in metadata, mirroring the x-litellm-attempted-fallbacks header."""
-    router = litellm.Router(
+    the requested model group in metadata, mirroring the x-embrouter-attempted-fallbacks header."""
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {"model": "gpt-3.5-turbo", "mock_response": "hi"},
+                "embrouter_params": {"model": "gpt-3.5-turbo", "mock_response": "hi"},
             }
         ]
     )
@@ -15684,43 +15684,43 @@ async def test_async_function_with_fallbacks_stamps_zero_attempted_fallbacks():
 
 
 @pytest.mark.asyncio
-async def test_async_function_with_fallbacks_stamps_route_bucket_not_litellm_metadata():
+async def test_async_function_with_fallbacks_stamps_route_bucket_not_embrouter_metadata():
     """A chat completion carrying both metadata buckets gets stamped in the route's bucket
     (metadata), matching where run_async_fallback rewrites, so the two never diverge."""
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {"model": "gpt-3.5-turbo", "mock_response": "hi"},
+                "embrouter_params": {"model": "gpt-3.5-turbo", "mock_response": "hi"},
             }
         ]
     )
     metadata = {}
-    litellm_metadata = {"client_key": "client_value"}
+    embrouter_metadata = {"client_key": "client_value"}
 
     await router.acompletion(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": "hey"}],
         metadata=metadata,
-        litellm_metadata=litellm_metadata,
+        embrouter_metadata=embrouter_metadata,
     )
 
     assert metadata["attempted_fallbacks"] == 0
     assert metadata["original_model_group"] == "gpt-3.5-turbo"
-    assert litellm_metadata["client_key"] == "client_value"
-    assert "attempted_fallbacks" not in litellm_metadata
-    assert "original_model_group" not in litellm_metadata
+    assert embrouter_metadata["client_key"] == "client_value"
+    assert "attempted_fallbacks" not in embrouter_metadata
+    assert "original_model_group" not in embrouter_metadata
 
 
 @pytest.mark.asyncio
 async def test_async_function_with_fallbacks_overrides_client_supplied_stamp_values():
     """Client-supplied attempted_fallbacks and original_model_group are replaced on entry,
     so a reused metadata dict or a spoofed value cannot leak stale attribution into logs."""
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {"model": "gpt-3.5-turbo", "mock_response": "hi"},
+                "embrouter_params": {"model": "gpt-3.5-turbo", "mock_response": "hi"},
             }
         ]
     )
@@ -15739,13 +15739,13 @@ async def test_async_function_with_fallbacks_overrides_client_supplied_stamp_val
 @pytest.mark.asyncio
 async def test_async_function_with_fallbacks_stamps_despite_forged_reentry_params():
     """A client injecting fallback_depth or a JSON-shaped attempted_targets via request
-    litellm params cannot skip the entry stamp; only the router's own in-process
+    embrouter params cannot skip the entry stamp; only the router's own in-process
     AttemptedFallbackTargets instance marks a genuine re-entrant hop."""
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {"model": "gpt-3.5-turbo", "mock_response": "hi"},
+                "embrouter_params": {"model": "gpt-3.5-turbo", "mock_response": "hi"},
             }
         ]
     )
@@ -15767,13 +15767,13 @@ async def test_async_function_with_fallbacks_stamps_despite_forged_reentry_param
 async def test_async_function_with_fallbacks_skips_stamp_on_genuine_reentrant_hop():
     """A re-entrant hop carrying the router's own AttemptedFallbackTargets instance keeps
     the per-hop metadata that run_async_fallback wrote instead of resetting it to zero."""
-    from litellm.router_utils.fallback_event_handlers import AttemptedFallbackTargets
+    from embrouter.router_utils.fallback_event_handlers import AttemptedFallbackTargets
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {"model": "gpt-3.5-turbo", "mock_response": "hi"},
+                "embrouter_params": {"model": "gpt-3.5-turbo", "mock_response": "hi"},
             }
         ]
     )
@@ -15790,7 +15790,7 @@ async def test_async_function_with_fallbacks_skips_stamp_on_genuine_reentrant_ho
     assert metadata["original_model_group"] == "prod-chat"
 
 
-def _record_router_acompletion_kwargs(router: litellm.Router) -> list:
+def _record_router_acompletion_kwargs(router: embrouter.Router) -> list:
     """Spy on router._acompletion, recording each call's kwargs while delegating through."""
     records = []
     original_acompletion = router._acompletion
@@ -15806,19 +15806,19 @@ def _record_router_acompletion_kwargs(router: litellm.Router) -> list:
 
 @pytest.mark.asyncio
 async def test_async_function_with_fallbacks_scrubs_spoofed_values_from_sibling_bucket():
-    """Spend logs read a truthy litellm_metadata dict in preference to metadata, so spoofed
+    """Spend logs read a truthy embrouter_metadata dict in preference to metadata, so spoofed
     stamp keys planted in the bucket the route does not own are removed on entry, in place,
     before they can flow into the spend log row."""
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {"model": "gpt-3.5-turbo", "mock_response": "hi"},
+                "embrouter_params": {"model": "gpt-3.5-turbo", "mock_response": "hi"},
             }
         ]
     )
     metadata = {}
-    litellm_metadata = {
+    embrouter_metadata = {
         "attempted_fallbacks": 99,
         "original_model_group": "spoofed-group",
         "client_key": "client_value",
@@ -15829,17 +15829,17 @@ async def test_async_function_with_fallbacks_scrubs_spoofed_values_from_sibling_
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": "hey"}],
         metadata=metadata,
-        litellm_metadata=litellm_metadata,
+        embrouter_metadata=embrouter_metadata,
     )
 
     assert len(downstream_calls) == 1
-    downstream_sibling = downstream_calls[0]["litellm_metadata"]
+    downstream_sibling = downstream_calls[0]["embrouter_metadata"]
     assert "attempted_fallbacks" not in downstream_sibling
     assert "original_model_group" not in downstream_sibling
     assert downstream_sibling["client_key"] == "client_value"
-    assert "attempted_fallbacks" not in litellm_metadata
-    assert "original_model_group" not in litellm_metadata
-    assert litellm_metadata["client_key"] == "client_value"
+    assert "attempted_fallbacks" not in embrouter_metadata
+    assert "original_model_group" not in embrouter_metadata
+    assert embrouter_metadata["client_key"] == "client_value"
     assert metadata["attempted_fallbacks"] == 0
     assert metadata["original_model_group"] == "gpt-3.5-turbo"
 
@@ -15850,47 +15850,47 @@ async def test_async_function_with_fallbacks_scrubs_sibling_bucket_in_place():
     the caller's dict object like every other router bucket write. Rebinding kwargs to a
     scrubbed copy detaches the proxy's request_data write-backs (guardrail telemetry, retry
     accounting) from the object the spend row is built from."""
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {"model": "gpt-3.5-turbo", "mock_response": "hi"},
+                "embrouter_params": {"model": "gpt-3.5-turbo", "mock_response": "hi"},
             }
         ]
     )
-    litellm_metadata = {
+    embrouter_metadata = {
         "attempted_fallbacks": 7,
         "original_model_group": "planted-group",
         "client_key": "client_value",
     }
-    caller_snapshot = copy.deepcopy(litellm_metadata)
+    caller_snapshot = copy.deepcopy(embrouter_metadata)
     downstream_calls = _record_router_acompletion_kwargs(router)
 
     await router.acompletion(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": "hey"}],
         metadata={},
-        litellm_metadata=litellm_metadata,
+        embrouter_metadata=embrouter_metadata,
     )
 
     assert len(downstream_calls) == 1
-    assert downstream_calls[0]["litellm_metadata"] is litellm_metadata
-    assert "attempted_fallbacks" not in litellm_metadata
-    assert "original_model_group" not in litellm_metadata
-    assert litellm_metadata["client_key"] == caller_snapshot["client_key"]
+    assert downstream_calls[0]["embrouter_metadata"] is embrouter_metadata
+    assert "attempted_fallbacks" not in embrouter_metadata
+    assert "original_model_group" not in embrouter_metadata
+    assert embrouter_metadata["client_key"] == caller_snapshot["client_key"]
 
 
 @pytest.mark.asyncio
 async def test_async_function_with_fallbacks_stamps_aliased_buckets_on_every_call():
-    """One dict object passed as both metadata and litellm_metadata: the first call's own
+    """One dict object passed as both metadata and embrouter_metadata: the first call's own
     stamp puts the reserved keys into the shared object, so the second call enters the
     scrub with them present. Scrubbing in place keeps the stamp and the bucket on the same
     object; a scrubbed copy would leave the spend reader's preferred bucket unstamped."""
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "chat-group",
-                "litellm_params": {"model": "gpt-3.5-turbo", "mock_response": "hi"},
+                "embrouter_params": {"model": "gpt-3.5-turbo", "mock_response": "hi"},
             }
         ]
     )
@@ -15902,15 +15902,15 @@ async def test_async_function_with_fallbacks_stamps_aliased_buckets_on_every_cal
             model="chat-group",
             messages=[{"role": "user", "content": "hey"}],
             metadata=shared_metadata,
-            litellm_metadata=shared_metadata,
+            embrouter_metadata=shared_metadata,
         )
 
     assert len(downstream_calls) == 3
     for call_kwargs in downstream_calls:
-        assert call_kwargs["litellm_metadata"] is shared_metadata
+        assert call_kwargs["embrouter_metadata"] is shared_metadata
         assert call_kwargs["metadata"] is shared_metadata
-        assert call_kwargs["litellm_metadata"]["attempted_fallbacks"] == 0
-        assert call_kwargs["litellm_metadata"]["original_model_group"] == "chat-group"
+        assert call_kwargs["embrouter_metadata"]["attempted_fallbacks"] == 0
+        assert call_kwargs["embrouter_metadata"]["original_model_group"] == "chat-group"
 
 
 @pytest.mark.asyncio
@@ -15918,29 +15918,29 @@ async def test_async_function_with_fallbacks_passes_clean_sibling_bucket_through
     """A sibling bucket carrying no reserved stamp keys is forwarded downstream as the
     caller's own object with no copy made, matching pre-scrub behavior. Retry accounting
     stamped into that bucket downstream predates the scrub and is out of its scope."""
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {"model": "gpt-3.5-turbo", "mock_response": "hi"},
+                "embrouter_params": {"model": "gpt-3.5-turbo", "mock_response": "hi"},
             }
         ]
     )
-    litellm_metadata = {"client_key": "client_value"}
+    embrouter_metadata = {"client_key": "client_value"}
     downstream_calls = _record_router_acompletion_kwargs(router)
 
     await router.acompletion(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": "hey"}],
         metadata={},
-        litellm_metadata=litellm_metadata,
+        embrouter_metadata=embrouter_metadata,
     )
 
     assert len(downstream_calls) == 1
-    assert downstream_calls[0]["litellm_metadata"] is litellm_metadata
-    assert litellm_metadata["client_key"] == "client_value"
-    assert "attempted_fallbacks" not in litellm_metadata
-    assert "original_model_group" not in litellm_metadata
+    assert downstream_calls[0]["embrouter_metadata"] is embrouter_metadata
+    assert embrouter_metadata["client_key"] == "client_value"
+    assert "attempted_fallbacks" not in embrouter_metadata
+    assert "original_model_group" not in embrouter_metadata
 
 
 @pytest.mark.asyncio
@@ -15949,17 +15949,17 @@ async def test_run_async_fallback_keeps_caller_metadata_keys_on_the_wire(monkeyp
     string pairs of request metadata to the provider body, so the fallback hop must
     spread caller keys before the router's own stamps: a stamp inserted first evicts
     the caller's 16th key from the wire while the internal stamp rides in its place."""
-    monkeypatch.setattr(litellm, "enable_preview_features", True)
+    monkeypatch.setattr(embrouter, "enable_preview_features", True)
     caller_metadata = {f"user_key_{i}": f"value_{i}" for i in range(16)}
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "primary-group",
-                "litellm_params": {"model": "gpt-3.5-turbo", "api_key": "sk-test"},
+                "embrouter_params": {"model": "gpt-3.5-turbo", "api_key": "sk-test"},
             },
             {
                 "model_name": "fallback-group",
-                "litellm_params": {"model": "gpt-3.5-turbo", "api_key": "sk-test"},
+                "embrouter_params": {"model": "gpt-3.5-turbo", "api_key": "sk-test"},
             },
         ],
         fallbacks=[{"primary-group": ["fallback-group"]}],
@@ -16020,19 +16020,19 @@ async def test_run_async_fallback_two_hop_chain_reports_entry_group_and_hop_coun
     """A two-hop fallback chain stamps attempted_fallbacks=2 on the final leg and keeps
     original_model_group at the group requested on entry: a later hop's stamp appends
     after caller keys without overriding the value stamped by an earlier hop."""
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "group-a",
-                "litellm_params": {"model": "gpt-3.5-turbo", "mock_response": "litellm.InternalServerError"},
+                "embrouter_params": {"model": "gpt-3.5-turbo", "mock_response": "embrouter.InternalServerError"},
             },
             {
                 "model_name": "group-b",
-                "litellm_params": {"model": "gpt-3.5-turbo", "mock_response": "litellm.InternalServerError"},
+                "embrouter_params": {"model": "gpt-3.5-turbo", "mock_response": "embrouter.InternalServerError"},
             },
             {
                 "model_name": "group-c",
-                "litellm_params": {"model": "gpt-3.5-turbo", "mock_response": "ok"},
+                "embrouter_params": {"model": "gpt-3.5-turbo", "mock_response": "ok"},
             },
         ],
         fallbacks=[{"group-a": ["group-b"]}, {"group-b": ["group-c"]}],
@@ -16068,8 +16068,8 @@ async def test_run_async_fallback_two_hop_chain_reports_entry_group_and_hop_coun
     assert metadata["original_model_group"] == "group-a"
 
 
-def _permission_denied_error() -> litellm.PermissionDeniedError:
-    return litellm.PermissionDeniedError(
+def _permission_denied_error() -> embrouter.PermissionDeniedError:
+    return embrouter.PermissionDeniedError(
         message="OpenrouterException - this key has no access to the model",
         llm_provider="openrouter",
         model="openrouter/openai/gpt-4o",
@@ -16078,13 +16078,13 @@ def _permission_denied_error() -> litellm.PermissionDeniedError:
 
 
 def test_permission_denied_error_is_not_retried_against_a_single_deployment():
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
-            {"model_name": "gpt-4o", "litellm_params": {"model": "openrouter/openai/gpt-4o", "api_key": "sk-test"}},
+            {"model_name": "gpt-4o", "embrouter_params": {"model": "openrouter/openai/gpt-4o", "api_key": "sk-test"}},
         ]
     )
 
-    with pytest.raises(litellm.PermissionDeniedError):
+    with pytest.raises(embrouter.PermissionDeniedError):
         router.should_retry_this_error(
             error=_permission_denied_error(),
             healthy_deployments=router.model_list,
@@ -16093,10 +16093,10 @@ def test_permission_denied_error_is_not_retried_against_a_single_deployment():
 
 
 def test_permission_denied_error_is_retried_when_other_deployments_exist():
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
-            {"model_name": "gpt-4o", "litellm_params": {"model": "openrouter/openai/gpt-4o", "api_key": "sk-test"}},
-            {"model_name": "gpt-4o", "litellm_params": {"model": "openai/gpt-4o", "api_key": "sk-test"}},
+            {"model_name": "gpt-4o", "embrouter_params": {"model": "openrouter/openai/gpt-4o", "api_key": "sk-test"}},
+            {"model_name": "gpt-4o", "embrouter_params": {"model": "openai/gpt-4o", "api_key": "sk-test"}},
         ]
     )
 
@@ -16125,7 +16125,7 @@ def _router_with_failing_primary(fallback_access_check) -> Router:
         model_list=[
             {
                 "model_name": "primary",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/primary",
                     "api_key": "k",
                     "mock_response": Exception("primary is down"),
@@ -16133,7 +16133,7 @@ def _router_with_failing_primary(fallback_access_check) -> Router:
             },
             {
                 "model_name": "secret-fallback",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/secret",
                     "api_key": "k",
                     "mock_response": "served by secret-fallback",
@@ -16178,10 +16178,10 @@ async def test_router_without_fallback_access_check_attempts_every_config_fallba
 def _resolution_router() -> Router:
     return Router(
         model_list=[
-            {"model_name": "pinned", "litellm_params": {"model": "openai/gpt-4o", "api_key": "sk-test"}},
-            {"model_name": "pooled", "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-test"}},
-            {"model_name": "pooled", "litellm_params": {"model": "anthropic/claude-haiku-4-5", "api_key": "sk-test"}},
-            {"model_name": "bedrock/*", "litellm_params": {"model": "bedrock/*", "api_key": "sk-test"}},
+            {"model_name": "pinned", "embrouter_params": {"model": "openai/gpt-4o", "api_key": "sk-test"}},
+            {"model_name": "pooled", "embrouter_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-test"}},
+            {"model_name": "pooled", "embrouter_params": {"model": "anthropic/claude-haiku-4-5", "api_key": "sk-test"}},
+            {"model_name": "bedrock/*", "embrouter_params": {"model": "bedrock/*", "api_key": "sk-test"}},
         ],
         model_group_alias={"nickname": "pinned"},
     )
@@ -16198,7 +16198,7 @@ def _resolution_router() -> Router:
     ],
     ids=["exact-name", "model-group-alias", "every-member-of-a-pool", "wildcard-expands", "resolves-to-nothing"],
 )
-def test_resolved_litellm_models_answers_through_every_channel_a_request_uses(
+def test_resolved_embrouter_models_answers_through_every_channel_a_request_uses(
     model_name: str, expected: tuple[str, ...]
 ) -> None:
     """A caller comparing two names by what serves them needs each channel the request path
@@ -16207,24 +16207,24 @@ def test_resolved_litellm_models_answers_through_every_channel_a_request_uses(
     `resolves-to-nothing` is the contract that keeps the fallback out of here: an empty
     result is not "the call fails", so what to do about it stays each caller's policy.
     """
-    assert set(_resolution_router().resolved_litellm_models(model_name)) == set(expected)
+    assert set(_resolution_router().resolved_embrouter_models(model_name)) == set(expected)
 
 
 class TestTierParamsTheTargetAccepts:
-    """A tier's litellm_params are applied to every request that tier routes, so one the target
+    """A tier's embrouter_params are applied to every request that tier routes, so one the target
     cannot take raised UnsupportedParamsError before the request left the proxy, turning the whole
     tier into a 400."""
 
     @pytest.fixture(autouse=True)
     def force_local_model_cost(self, monkeypatch):
-        from litellm.litellm_core_utils.get_model_cost_map import GetModelCostMap
+        from embrouter.embrouter_core_utils.get_model_cost_map import GetModelCostMap
 
-        monkeypatch.setattr(litellm, "model_cost", GetModelCostMap.load_local_model_cost_map())
+        monkeypatch.setattr(embrouter, "model_cost", GetModelCostMap.load_local_model_cost_map())
 
     @staticmethod
-    def _router(model: str) -> litellm.Router:
-        return litellm.Router(
-            model_list=[{"model_name": "tiered", "litellm_params": {"model": model, "api_key": "sk-x"}}]
+    def _router(model: str) -> embrouter.Router:
+        return embrouter.Router(
+            model_list=[{"model_name": "tiered", "embrouter_params": {"model": model, "api_key": "sk-x"}}]
         )
 
     def test_drops_a_param_no_deployment_declares(self):
@@ -16273,9 +16273,9 @@ class TestTierParamsTheTargetAccepts:
             ("metadata", {"tier": "complex"}),
         ],
     )
-    def test_keeps_litellm_controls_the_provider_never_lists(self, control, value):
-        """No provider lists a litellm control among its supported params, so "no deployment
-        declares it" means litellm consumes it, not that the target refuses it. Dropping
+    def test_keeps_embrouter_controls_the_provider_never_lists(self, control, value):
+        """No provider lists a embrouter control among its supported params, so "no deployment
+        declares it" means embrouter consumes it, not that the target refuses it. Dropping
         drop_params or additional_drop_params would silently disable the operator's sanitization."""
         router = self._router("novita/moonshotai/kimi-k3")
 
@@ -16316,19 +16316,19 @@ class TestTierParamsTheTargetAccepts:
     def test_declared_param_allowlist_ignores_malformed_declarations(self):
         """A str is iterable, so without the type guard a YAML scalar mistake like
         allowed_openai_params: reasoning_effort would allowlist single characters."""
-        assert litellm.Router._declared_param_allowlist({"allowed_openai_params": ["reasoning_effort", 3]}) == frozenset(
+        assert embrouter.Router._declared_param_allowlist({"allowed_openai_params": ["reasoning_effort", 3]}) == frozenset(
             {"reasoning_effort"}
         )
-        assert litellm.Router._declared_param_allowlist({"allowed_openai_params": "reasoning_effort"}) == frozenset()
-        assert litellm.Router._declared_param_allowlist({}) == frozenset()
+        assert embrouter.Router._declared_param_allowlist({"allowed_openai_params": "reasoning_effort"}) == frozenset()
+        assert embrouter.Router._declared_param_allowlist({}) == frozenset()
 
     def test_deployment_accepts_param_honors_deployment_allowlist(self):
         deployment = {
             "model_name": "x",
-            "litellm_params": {"model": "novita/moonshotai/kimi-k3", "allowed_openai_params": ["reasoning_effort"]},
+            "embrouter_params": {"model": "novita/moonshotai/kimi-k3", "allowed_openai_params": ["reasoning_effort"]},
         }
 
-        assert litellm.Router._deployment_accepts_param(deployment, "x", "reasoning_effort") is True
+        assert embrouter.Router._deployment_accepts_param(deployment, "x", "reasoning_effort") is True
 
     def test_keeps_a_token_ceiling_the_provider_spells_differently(self):
         """petals lists max_tokens but not max_completion_tokens. A tier ceiling in the unsupported
@@ -16356,10 +16356,10 @@ class TestTierParamsTheTargetAccepts:
 
     def test_keeps_a_param_any_deployment_in_the_group_declares(self):
         """Routing has not picked a deployment yet, so one capable member keeps the param alive."""
-        router = litellm.Router(
+        router = embrouter.Router(
             model_list=[
-                {"model_name": "tiered", "litellm_params": {"model": "novita/moonshotai/kimi-k3", "api_key": "k"}},
-                {"model_name": "tiered", "litellm_params": {"model": "fireworks_ai/kimi-k3", "api_key": "k"}},
+                {"model_name": "tiered", "embrouter_params": {"model": "novita/moonshotai/kimi-k3", "api_key": "k"}},
+                {"model_name": "tiered", "embrouter_params": {"model": "fireworks_ai/kimi-k3", "api_key": "k"}},
             ]
         )
 
@@ -16373,39 +16373,39 @@ class TestTierParamsTheTargetAccepts:
         has to ask the same question or it drops a param the deployment accepts."""
         by_model_info = {
             "model_name": "x",
-            "litellm_params": {"model": "azure/my-gpt5-deploy"},
+            "embrouter_params": {"model": "azure/my-gpt5-deploy"},
             "model_info": {"base_model": "azure/gpt-5"},
         }
-        by_litellm_params = {
+        by_embrouter_params = {
             "model_name": "x",
-            "litellm_params": {"model": "azure/my-gpt5-deploy", "base_model": "azure/gpt-5"},
+            "embrouter_params": {"model": "azure/my-gpt5-deploy", "base_model": "azure/gpt-5"},
         }
-        without_hint = {"model_name": "x", "litellm_params": {"model": "azure/my-gpt5-deploy"}}
+        without_hint = {"model_name": "x", "embrouter_params": {"model": "azure/my-gpt5-deploy"}}
 
-        assert litellm.Router._deployment_accepts_param(by_model_info, "x", "reasoning_effort") is True
-        assert litellm.Router._deployment_accepts_param(by_litellm_params, "x", "reasoning_effort") is True
-        assert litellm.Router._deployment_accepts_param(without_hint, "x", "reasoning_effort") is False
+        assert embrouter.Router._deployment_accepts_param(by_model_info, "x", "reasoning_effort") is True
+        assert embrouter.Router._deployment_accepts_param(by_embrouter_params, "x", "reasoning_effort") is True
+        assert embrouter.Router._deployment_accepts_param(without_hint, "x", "reasoning_effort") is False
 
     def test_deployment_accepts_param_reads_the_provider(self):
-        deployment = {"model_name": "x", "litellm_params": {"model": "fireworks_ai/kimi-k3"}}
+        deployment = {"model_name": "x", "embrouter_params": {"model": "fireworks_ai/kimi-k3"}}
 
-        assert litellm.Router._deployment_accepts_param(deployment, "x", "reasoning_effort") is True
+        assert embrouter.Router._deployment_accepts_param(deployment, "x", "reasoning_effort") is True
 
     def test_deployment_accepts_param_is_false_when_the_provider_omits_it(self):
-        deployment = {"model_name": "x", "litellm_params": {"model": "novita/moonshotai/kimi-k3"}}
+        deployment = {"model_name": "x", "embrouter_params": {"model": "novita/moonshotai/kimi-k3"}}
 
-        assert litellm.Router._deployment_accepts_param(deployment, "x", "reasoning_effort") is False
+        assert embrouter.Router._deployment_accepts_param(deployment, "x", "reasoning_effort") is False
 
     @pytest.mark.parametrize(
         "deployment",
-        [{"model_name": "x"}, {"model_name": "x", "litellm_params": {}}, {"model_name": "x", "litellm_params": {"model": "not-a-real-provider/nope"}}],
+        [{"model_name": "x"}, {"model_name": "x", "embrouter_params": {}}, {"model_name": "x", "embrouter_params": {"model": "not-a-real-provider/nope"}}],
     )
     def test_deployment_accepts_param_fails_open(self, deployment):
         """An unresolvable deployment must not be the reason a param is dropped."""
-        assert litellm.Router._deployment_accepts_param(deployment, "x", "reasoning_effort") is True
+        assert embrouter.Router._deployment_accepts_param(deployment, "x", "reasoning_effort") is True
 
     @pytest.mark.parametrize(
-        "litellm_params",
+        "embrouter_params",
         [
             {"model": "github_copilot/gpt-4o"},
             {"model": "chatgpt/gpt-5"},
@@ -16413,7 +16413,7 @@ class TestTierParamsTheTargetAccepts:
         ],
     )
     def test_deployment_accepts_param_never_asks_a_provider_whose_lookup_authenticates(
-        self, litellm_params, monkeypatch
+        self, embrouter_params, monkeypatch
     ):
         """Resolving github_copilot or chatgpt runs their OAuth device flow, so a capability
         question asked from the routing path can freeze the event loop for minutes waiting on a
@@ -16426,10 +16426,10 @@ class TestTierParamsTheTargetAccepts:
             lookups.append((args, kwargs))
             raise RuntimeError("provider resolution must not run for an authenticating provider")
 
-        monkeypatch.setattr(litellm, "get_llm_provider", _record)
-        deployment = {"model_name": "x", "litellm_params": litellm_params}
+        monkeypatch.setattr(embrouter, "get_llm_provider", _record)
+        deployment = {"model_name": "x", "embrouter_params": embrouter_params}
 
-        assert litellm.Router._deployment_accepts_param(deployment, "x", "reasoning_effort") is True
+        assert embrouter.Router._deployment_accepts_param(deployment, "x", "reasoning_effort") is True
         assert lookups == []
 
     def test_keeps_everything_for_an_unknown_group(self):
@@ -16446,7 +16446,7 @@ async def test_router_aspeech_without_voice_dispatches_ref_audio_cloning(respx_m
     import base64
 
     monkeypatch.setenv("MISTRAL_API_KEY", "sk-mistral-test")
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
     audio_bytes = b"RIFFfake-wav-bytes"
     respx_mock.post("https://api.mistral.ai/v1/audio/speech").respond(
         json={"audio_data": base64.b64encode(audio_bytes).decode()}
@@ -16455,7 +16455,7 @@ async def test_router_aspeech_without_voice_dispatches_ref_audio_cloning(respx_m
         model_list=[
             {
                 "model_name": "voxtral-tts",
-                "litellm_params": {"model": "mistral/voxtral-mini-tts-2603"},
+                "embrouter_params": {"model": "mistral/voxtral-mini-tts-2603"},
             }
         ]
     )
@@ -16472,7 +16472,7 @@ async def test_router_aspeech_without_voice_keeps_deployment_default_voice(respx
     import base64
 
     monkeypatch.setenv("MISTRAL_API_KEY", "sk-mistral-test")
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
     audio_bytes = b"RIFFfake-wav-bytes"
     respx_mock.post("https://api.mistral.ai/v1/audio/speech").respond(
         json={"audio_data": base64.b64encode(audio_bytes).decode()}
@@ -16481,7 +16481,7 @@ async def test_router_aspeech_without_voice_keeps_deployment_default_voice(respx
         model_list=[
             {
                 "model_name": "voxtral-tts",
-                "litellm_params": {"model": "mistral/voxtral-mini-tts-2603", "voice": "en_paul_neutral"},
+                "embrouter_params": {"model": "mistral/voxtral-mini-tts-2603", "voice": "en_paul_neutral"},
             }
         ]
     )
@@ -16497,7 +16497,7 @@ async def test_router_aspeech_request_voice_overrides_deployment_default(respx_m
     import base64
 
     monkeypatch.setenv("MISTRAL_API_KEY", "sk-mistral-test")
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
     audio_bytes = b"RIFFfake-wav-bytes"
     respx_mock.post("https://api.mistral.ai/v1/audio/speech").respond(
         json={"audio_data": base64.b64encode(audio_bytes).decode()}
@@ -16506,7 +16506,7 @@ async def test_router_aspeech_request_voice_overrides_deployment_default(respx_m
         model_list=[
             {
                 "model_name": "voxtral-tts",
-                "litellm_params": {"model": "mistral/voxtral-mini-tts-2603", "voice": "en_paul_neutral"},
+                "embrouter_params": {"model": "mistral/voxtral-mini-tts-2603", "voice": "en_paul_neutral"},
             }
         ]
     )
@@ -16521,16 +16521,16 @@ class TestRequestReasoningEffortOverride:
     def test_drop_effort_from_nested_carrier_preserves_other_nested_values(self):
         params: dict[str, object] = {"output_config": {"effort": "high", "format": "json"}}
 
-        litellm.Router._pop_effort_from_nested_carrier(params, "output_config")
+        embrouter.Router._pop_effort_from_nested_carrier(params, "output_config")
 
         assert params == {"output_config": {"format": "json"}}
 
-    @pytest.mark.parametrize("metadata_key", ["metadata", "litellm_metadata"])
+    @pytest.mark.parametrize("metadata_key", ["metadata", "embrouter_metadata"])
     def test_is_classifier_internal_call_recognizes_both_metadata_carriers(self, metadata_key):
         kwargs = {metadata_key: {"internal_call_origin": "autorouter_classifier"}}
 
-        assert litellm.Router._is_classifier_internal_call(kwargs) is True
-        assert litellm.Router._is_classifier_internal_call({metadata_key: {}}) is False
+        assert embrouter.Router._is_classifier_internal_call(kwargs) is True
+        assert embrouter.Router._is_classifier_internal_call({metadata_key: {}}) is False
 
     def test_removes_every_deployment_native_effort_carrier_without_mutating_shared_config(self):
         extra_body: dict[str, object] = {
@@ -16548,7 +16548,7 @@ class TestRequestReasoningEffortOverride:
             "extra_body": extra_body,
         }
 
-        sanitized = litellm.Router._deployment_params_with_request_reasoning_override(
+        sanitized = embrouter.Router._deployment_params_with_request_reasoning_override(
             deployment_params, {"reasoning_effort": "low"}
         )
 
@@ -16575,7 +16575,7 @@ class TestRequestReasoningEffortOverride:
         }
 
         assert (
-            litellm.Router._deployment_params_with_request_reasoning_override(deployment_params, request_kwargs)
+            embrouter.Router._deployment_params_with_request_reasoning_override(deployment_params, request_kwargs)
             == deployment_params
         )
 
@@ -16592,7 +16592,7 @@ class TestRequestReasoningEffortOverride:
         results = await asyncio.gather(
             *(
                 asyncio.to_thread(
-                    litellm.Router._deployment_params_with_request_reasoning_override,
+                    embrouter.Router._deployment_params_with_request_reasoning_override,
                     deployment_params,
                     {"reasoning_effort": efforts[index % len(efforts)]},
                 )
@@ -16613,7 +16613,7 @@ class TestRequestReasoningEffortOverride:
         ids=["classifier", "ordinary-request"],
     )
     def test_only_classifier_calls_drop_effort_for_an_unsupported_fallback(self, metadata, should_drop):
-        router = litellm.Router(model_list=[])
+        router = embrouter.Router(model_list=[])
         body: dict[str, object] = {"model": "classifier", "reasoning_effort": "low"}
         kwargs: dict[str, object] = {
             "reasoning_effort": "low",
@@ -16622,7 +16622,7 @@ class TestRequestReasoningEffortOverride:
         }
         deployment: DeploymentTypedDict = {
             "model_name": "fallback",
-            "litellm_params": {"model": "openai/gpt-4o-mini"},
+            "embrouter_params": {"model": "openai/gpt-4o-mini"},
         }
 
         router._drop_unsupported_classifier_reasoning_effort(deployment, "fallback", kwargs)
@@ -16636,35 +16636,35 @@ class TestPreRoutingTierDrivesFallbacks:
     lookup stayed on the router name, so the tier's configured chain never ran and a
     provider failure on the tier's first hop was returned to the client."""
 
-    class _TierRouter(litellm.Router):
+    class _TierRouter(embrouter.Router):
         async def async_pre_routing_hook(
             self, model, request_kwargs, messages=None, input=None, specific_deployment=False
         ):
-            from litellm.types.router import PreRoutingHookResponse
+            from embrouter.types.router import PreRoutingHookResponse
 
             if model == "smart-router":
                 return PreRoutingHookResponse(model="tier1", messages=messages)
             return None
 
     @classmethod
-    def _router(cls, fallbacks) -> "litellm.Router":
+    def _router(cls, fallbacks) -> "embrouter.Router":
         return cls._TierRouter(
             model_list=[
                 {
                     "model_name": "smart-router",
-                    "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-x"},
+                    "embrouter_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-x"},
                 },
                 {
                     "model_name": "tier1",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "openai/gpt-4o-mini",
                         "api_key": "sk-x",
-                        "mock_response": "litellm.RateLimitError",
+                        "mock_response": "embrouter.RateLimitError",
                     },
                 },
                 {
                     "model_name": "backup-a",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "openai/gpt-4o-mini",
                         "api_key": "sk-x",
                         "mock_response": "from backup-a",
@@ -16672,7 +16672,7 @@ class TestPreRoutingTierDrivesFallbacks:
                 },
                 {
                     "model_name": "backup-b",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "openai/gpt-4o-mini",
                         "api_key": "sk-x",
                         "mock_response": "from backup-b",
@@ -16680,18 +16680,18 @@ class TestPreRoutingTierDrivesFallbacks:
                 },
                 {
                     "model_name": "failing-backup",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "openai/gpt-4o-mini",
                         "api_key": "sk-x",
-                        "mock_response": "litellm.RateLimitError",
+                        "mock_response": "embrouter.RateLimitError",
                     },
                 },
                 {
                     "model_name": "plain",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "openai/gpt-4o-mini",
                         "api_key": "sk-x",
-                        "mock_response": "litellm.RateLimitError",
+                        "mock_response": "embrouter.RateLimitError",
                     },
                 },
             ],
@@ -16714,7 +16714,7 @@ class TestPreRoutingTierDrivesFallbacks:
         """The router name has no chain of its own, so nothing should rescue this call."""
         router = self._router([{"tier2": ["backup-a"]}])
 
-        with pytest.raises(litellm.RateLimitError):
+        with pytest.raises(embrouter.RateLimitError):
             await router.acompletion(model="smart-router", messages=[{"role": "user", "content": "hi"}])
 
     @pytest.mark.asyncio
@@ -16749,7 +16749,7 @@ class TestPreRoutingTierDrivesFallbacks:
         """The metadata bucket carries caller-supplied keys, so only the hook may set the tier."""
         router = self._router([{"tier1": ["backup-a"]}])
 
-        with pytest.raises(litellm.RateLimitError):
+        with pytest.raises(embrouter.RateLimitError):
             await router.acompletion(
                 model="plain",
                 messages=[{"role": "user", "content": "hi"}],
@@ -16774,13 +16774,13 @@ async def test_prompt_management_factory_marks_injection_for_every_deployment(mo
     the provisional deployment's id, or a differently-billed deployment loses the credit."""
     import time
 
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLogging
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLogging
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "cached-claude",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "anthropic_cache_control_hook/claude-sonnet-5",
                     "prompt_id": "cache-points",
                 },
@@ -16792,16 +16792,16 @@ async def test_prompt_management_factory_marks_injection_for_every_deployment(mo
 
     async def _capture_acompletion(**kwargs):
         captured.update(kwargs)
-        return litellm.ModelResponse()
+        return embrouter.ModelResponse()
 
-    monkeypatch.setattr(litellm, "acompletion", _capture_acompletion)
-    logging_obj = LiteLLMLogging(
+    monkeypatch.setattr(embrouter, "acompletion", _capture_acompletion)
+    logging_obj = EmbRouterLogging(
         model="cached-claude",
         messages=[{"role": "user", "content": "hi"}],
         stream=False,
         call_type="acompletion",
         start_time=time.time(),
-        litellm_call_id="lit-6445",
+        embrouter_call_id="lit-6445",
         function_id="f",
     )
     await router.acompletion(
@@ -16811,35 +16811,35 @@ async def test_prompt_management_factory_marks_injection_for_every_deployment(mo
             {"role": "user", "content": "hi"},
         ],
         cache_control_injection_points=[{"location": "message", "role": "system"}],
-        litellm_logging_obj=logging_obj,
+        embrouter_logging_obj=logging_obj,
     )
-    bucket = captured.get("litellm_metadata") or captured["metadata"]
+    bucket = captured.get("embrouter_metadata") or captured["metadata"]
     assert captured["model_info"]["id"] == "provisional-dep"
-    assert bucket["litellm_gateway_injected_cache"] == ""
+    assert bucket["embrouter_gateway_injected_cache"] == ""
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "retry_policy,upstream_status,error_type,expected_upstream_calls",
     [
-        ({"ServiceUnavailableErrorRetries": 0}, 503, litellm.ServiceUnavailableError, 1),
-        ({"ServiceUnavailableErrorRetries": 1}, 503, litellm.ServiceUnavailableError, 2),
-        ({"InternalServerErrorRetries": 0}, 500, litellm.InternalServerError, 1),
-        ({"DefaultRetries": 0}, 502, litellm.BadGatewayError, 1),
-        ({"DefaultRetries": 0, "ServiceUnavailableErrorRetries": 1}, 503, litellm.ServiceUnavailableError, 2),
-        ({"ServiceUnavailableErrorRetries": 0}, 502, litellm.BadGatewayError, 3),
-        ({"BadRequestErrorRetries": 2}, 400, litellm.BadRequestError, 3),
+        ({"ServiceUnavailableErrorRetries": 0}, 503, embrouter.ServiceUnavailableError, 1),
+        ({"ServiceUnavailableErrorRetries": 1}, 503, embrouter.ServiceUnavailableError, 2),
+        ({"InternalServerErrorRetries": 0}, 500, embrouter.InternalServerError, 1),
+        ({"DefaultRetries": 0}, 502, embrouter.BadGatewayError, 1),
+        ({"DefaultRetries": 0, "ServiceUnavailableErrorRetries": 1}, 503, embrouter.ServiceUnavailableError, 2),
+        ({"ServiceUnavailableErrorRetries": 0}, 502, embrouter.BadGatewayError, 3),
+        ({"BadRequestErrorRetries": 2}, 400, embrouter.BadRequestError, 3),
     ],
 )
 async def test_router_retry_policy_controls_upstream_attempt_count(
     monkeypatch: pytest.MonkeyPatch, retry_policy, upstream_status, error_type, expected_upstream_calls
 ):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    router = litellm.Router(
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-5.6",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-5.6",
                     "api_key": "sk-fake",
                     "api_base": "https://retry-policy.local/v1",
@@ -16869,8 +16869,8 @@ async def test_router_retry_policy_controls_upstream_attempt_count(
 @pytest.mark.parametrize(
     "error_body,error_type",
     [
-        ({"message": "model is down", "type": "server_error"}, litellm.NotFoundError),
-        ({"message": "Response with id 'resp_x' not found.", "type": "invalid_request_error"}, litellm.BadRequestError),
+        ({"message": "model is down", "type": "server_error"}, embrouter.NotFoundError),
+        ({"message": "Response with id 'resp_x' not found.", "type": "invalid_request_error"}, embrouter.BadRequestError),
     ],
 )
 @pytest.mark.parametrize(
@@ -16884,12 +16884,12 @@ async def test_router_retry_policy_controls_upstream_attempt_count(
 async def test_router_not_found_retries_governs_every_404_shape(
     monkeypatch: pytest.MonkeyPatch, retry_policy, expected_upstream_calls, error_body, error_type
 ):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    router = litellm.Router(
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-5.6",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-5.6",
                     "api_key": "sk-fake",
                     "api_base": "https://retry-policy.local/v1",
@@ -16914,12 +16914,12 @@ async def test_router_not_found_retries_governs_every_404_shape(
 
 @pytest.mark.asyncio
 async def test_generic_call_keeps_the_deployment_name_of_an_azure_ai_model_on_an_azure_openai_host(monkeypatch):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    router = litellm.Router(
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "aoai-gpt",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "azure_ai/gpt-5.4-mini",
                     "api_base": "https://my-resource.openai.azure.com",
                     "api_key": "deployment-key",
@@ -16980,12 +16980,12 @@ async def test_generic_call_keeps_the_deployment_name_of_an_azure_ai_model_on_an
 async def test_router_retry_policy_400_retries_on_sibling_deployment(
     monkeypatch: pytest.MonkeyPatch, retry_policy, upstream_error
 ):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    router = litellm.Router(
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-5.6",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-5.6",
                     "api_key": "sk-fake",
                     "api_base": "https://rejecting.local/v1",
@@ -16995,7 +16995,7 @@ async def test_router_retry_policy_400_retries_on_sibling_deployment(
             },
             {
                 "model_name": "gpt-5.6",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-5.6",
                     "api_key": "sk-fake",
                     "api_base": "https://accepting.local/v1",
@@ -17033,20 +17033,20 @@ async def test_router_retry_policy_400_retries_on_sibling_deployment(
     assert rejecting.call_count == 1
     assert accepting.call_count == 1
     assert response.choices[0].message.content == "hi back"
-    assert response._hidden_params["additional_headers"]["x-litellm-attempted-retries"] == 1
+    assert response._hidden_params["additional_headers"]["x-embrouter-attempted-retries"] == 1
 
 
 _UPSTREAM_400 = {"message": "upstream refused this request", "type": "invalid_request_error", "code": "bad_request"}
 
 
-def _retry_skip_deployment(deployment_id, host, litellm_params=None, model_info=None):
+def _retry_skip_deployment(deployment_id, host, embrouter_params=None, model_info=None):
     return {
         "model_name": "gpt-5.6",
-        "litellm_params": {
+        "embrouter_params": {
             "model": "openai/gpt-5.6",
             "api_key": "sk-fake",
             "api_base": f"https://{host}.local/v1",
-            **(litellm_params or {}),
+            **(embrouter_params or {}),
         },
         "model_info": {"id": deployment_id, **(model_info or {})},
     }
@@ -17076,7 +17076,7 @@ def test_router_deployment_ids_to_skip_on_retry(status_code, failed_deployment_i
     exception.status_code = status_code
     exception.failed_deployment_id = failed_deployment_id
 
-    assert litellm.Router._deployment_ids_to_skip_on_retry(exception, already_skipped) == expected
+    assert embrouter.Router._deployment_ids_to_skip_on_retry(exception, already_skipped) == expected
 
 
 @pytest.mark.parametrize(
@@ -17098,9 +17098,9 @@ def test_router_retry_skip_stamp_feeds_deployment_ids_to_skip_on_retry(
     exception.status_code = 400
     exception.failed_deployment_id = failed_deployment_id
 
-    litellm.Router._stamp_retry_skip_deployment_id(exception, kwargs)
+    embrouter.Router._stamp_retry_skip_deployment_id(exception, kwargs)
 
-    assert litellm.Router._deployment_ids_to_skip_on_retry(exception, None) == expected
+    assert embrouter.Router._deployment_ids_to_skip_on_retry(exception, None) == expected
     assert exception.failed_deployment_id == failed_deployment_id
 
 
@@ -17119,7 +17119,7 @@ def test_router_retry_skip_stamp_feeds_deployment_ids_to_skip_on_retry(
     ],
 )
 def test_router_as_retry_skipped_deployment_ids_keeps_only_a_tuple_of_strings(value, expected):
-    from litellm.router import _as_retry_skipped_deployment_ids
+    from embrouter.router import _as_retry_skipped_deployment_ids
 
     assert _as_retry_skipped_deployment_ids(value) == expected
 
@@ -17142,7 +17142,7 @@ def test_router_as_retry_skipped_deployment_ids_keeps_only_a_tuple_of_strings(va
 )
 @pytest.mark.asyncio
 async def test_router_healthy_deployments_keep_the_last_candidate_a_retry_skipped(deployment_ids, skipped, expected):
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[_retry_skip_deployment(deployment_id, deployment_id) for deployment_id in deployment_ids],
         disable_cooldowns=True,
     )
@@ -17159,8 +17159,8 @@ async def test_router_healthy_deployments_keep_the_last_candidate_a_retry_skippe
 async def test_router_retry_policy_400_keeps_upstream_error_when_a_client_forges_the_skip_list(
     monkeypatch: pytest.MonkeyPatch, client_supplied
 ):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    router = litellm.Router(
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
+    router = embrouter.Router(
         model_list=[_retry_skip_deployment("rejecting", "rejecting"), _retry_skip_deployment("sibling", "sibling")],
         num_retries=2,
         retry_policy={"BadRequestErrorRetries": 2},
@@ -17174,7 +17174,7 @@ async def test_router_retry_policy_400_keeps_upstream_error_when_a_client_forges
         respx_mock.post("https://sibling.local/v1/chat/completions").mock(
             return_value=httpx.Response(400, json={"error": _UPSTREAM_400})
         )
-        with pytest.raises(litellm.BadRequestError) as raised:
+        with pytest.raises(embrouter.BadRequestError) as raised:
             await router.acompletion(
                 model="gpt-5.6",
                 messages=[{"role": "user", "content": "hi"}],
@@ -17186,11 +17186,11 @@ async def test_router_retry_policy_400_keeps_upstream_error_when_a_client_forges
 
 @pytest.mark.asyncio
 async def test_router_retry_policy_400_keeps_upstream_error_on_order_fallback_hop(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    router = litellm.Router(
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
+    router = embrouter.Router(
         model_list=[
-            _retry_skip_deployment("order1", "order1", litellm_params={"order": 1}),
-            _retry_skip_deployment("order2", "order2", litellm_params={"order": 2}),
+            _retry_skip_deployment("order1", "order1", embrouter_params={"order": 1}),
+            _retry_skip_deployment("order2", "order2", embrouter_params={"order": 2}),
         ],
         num_retries=2,
         retry_policy={"BadRequestErrorRetries": 2},
@@ -17204,7 +17204,7 @@ async def test_router_retry_policy_400_keeps_upstream_error_on_order_fallback_ho
         order2 = respx_mock.post("https://order2.local/v1/chat/completions").mock(
             return_value=httpx.Response(400, json={"error": _UPSTREAM_400})
         )
-        with pytest.raises(litellm.BadRequestError) as raised:
+        with pytest.raises(embrouter.BadRequestError) as raised:
             await router.acompletion(model="gpt-5.6", messages=[{"role": "user", "content": "hi"}])
 
     assert "upstream refused this request" in str(raised.value)
@@ -17217,11 +17217,11 @@ async def test_router_retry_policy_400_keeps_upstream_error_on_order_fallback_ho
 async def test_router_retry_policy_400_keeps_upstream_error_when_tags_narrow_the_group(
     monkeypatch: pytest.MonkeyPatch,
 ):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    router = litellm.Router(
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
+    router = embrouter.Router(
         model_list=[
             _retry_skip_deployment(
-                "tagged", "tagged", litellm_params={"tags": ["free"]}, model_info={"enable_tag_filtering": True}
+                "tagged", "tagged", embrouter_params={"tags": ["free"]}, model_info={"enable_tag_filtering": True}
             ),
             _retry_skip_deployment("untagged", "untagged", model_info={"enable_tag_filtering": True}),
         ],
@@ -17237,7 +17237,7 @@ async def test_router_retry_policy_400_keeps_upstream_error_when_tags_narrow_the
         untagged = respx_mock.post("https://untagged.local/v1/chat/completions").mock(
             return_value=httpx.Response(400, json={"error": _UPSTREAM_400})
         )
-        with pytest.raises(litellm.BadRequestError) as raised:
+        with pytest.raises(embrouter.BadRequestError) as raised:
             await router.acompletion(
                 model="gpt-5.6",
                 messages=[{"role": "user", "content": "hi"}],
@@ -17254,13 +17254,13 @@ async def test_router_retry_policy_400_keeps_upstream_error_when_tags_narrow_the
 async def test_router_retry_policy_400_never_returns_to_a_deployment_that_already_refused(
     monkeypatch: pytest.MonkeyPatch,
 ):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
     monkeypatch.setattr(simple_shuffle.random, "choice", lambda deployments: deployments[0])
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
-            _retry_skip_deployment("first-refuser", "first-refuser", litellm_params={"weight": 1}),
-            _retry_skip_deployment("second-refuser", "second-refuser", litellm_params={"weight": 0}),
-            _retry_skip_deployment("accepting", "accepting", litellm_params={"weight": 0}),
+            _retry_skip_deployment("first-refuser", "first-refuser", embrouter_params={"weight": 1}),
+            _retry_skip_deployment("second-refuser", "second-refuser", embrouter_params={"weight": 0}),
+            _retry_skip_deployment("accepting", "accepting", embrouter_params={"weight": 0}),
         ],
         num_retries=3,
         retry_policy={"BadRequestErrorRetries": 3},
@@ -17327,18 +17327,18 @@ class _PassthroughAdapter(CustomLogger):
     def translate_completion_input_params(self, kwargs: ChatCompletionRequest) -> ChatCompletionRequest:
         return ChatCompletionRequest(**kwargs)
 
-    def translate_completion_output_params(self, response: litellm.ModelResponse) -> litellm.ModelResponse:
+    def translate_completion_output_params(self, response: embrouter.ModelResponse) -> embrouter.ModelResponse:
         return response
 
 
-def _lit_7114_router(litellm_model: str) -> litellm.Router:
-    api_base_suffix: Final = "" if litellm_model.startswith("cohere/") else "/v1"
-    return litellm.Router(
+def _lit_7114_router(embrouter_model: str) -> embrouter.Router:
+    api_base_suffix: Final = "" if embrouter_model.startswith("cohere/") else "/v1"
+    return embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-5.6",
-                "litellm_params": {
-                    "model": litellm_model,
+                "embrouter_params": {
+                    "model": embrouter_model,
                     "api_key": "sk-fake",
                     "api_base": f"https://{host}.local{api_base_suffix}",
                     "weight": weight,
@@ -17371,7 +17371,7 @@ def _lit_7114_mock_upstreams(
 
 
 _LIT_7114_ASYNC_ENTRYPOINTS: Final[
-    Mapping[str, tuple[str, str, int, Mapping[str, object] | bytes, Callable[[litellm.Router], Awaitable[object]]]]
+    Mapping[str, tuple[str, str, int, Mapping[str, object] | bytes, Callable[[embrouter.Router], Awaitable[object]]]]
 ] = {
     "aembedding": (
         "openai/text-embedding-3-large",
@@ -17448,10 +17448,10 @@ _LIT_7114_ASYNC_ENTRYPOINTS: Final[
 async def test_router_retry_moves_off_the_refusing_deployment_on_every_async_entrypoint(
     monkeypatch: pytest.MonkeyPatch, entrypoint: str
 ):
-    litellm_model, path, refusal_status, success_body, call = _LIT_7114_ASYNC_ENTRYPOINTS[entrypoint]
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "adapters", [{"id": "lit-7114", "adapter": _PassthroughAdapter()}])
-    router: Final = _lit_7114_router(litellm_model)
+    embrouter_model, path, refusal_status, success_body, call = _LIT_7114_ASYNC_ENTRYPOINTS[entrypoint]
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(embrouter, "adapters", [{"id": "lit-7114", "adapter": _PassthroughAdapter()}])
+    router: Final = _lit_7114_router(embrouter_model)
 
     with respx.mock as respx_mock:
         rejecting, accepting = _lit_7114_mock_upstreams(respx_mock, path, refusal_status, success_body)
@@ -17463,7 +17463,7 @@ async def test_router_retry_moves_off_the_refusing_deployment_on_every_async_ent
 
 
 _LIT_7114_SYNC_ENTRYPOINTS: Final[
-    Mapping[str, tuple[str, str, Mapping[str, object], Callable[[litellm.Router], object]]]
+    Mapping[str, tuple[str, str, Mapping[str, object], Callable[[embrouter.Router], object]]]
 ] = {
     "embedding": (
         "openai/text-embedding-3-large",
@@ -17484,9 +17484,9 @@ _LIT_7114_SYNC_ENTRYPOINTS: Final[
 def test_router_retry_policy_400_moves_off_the_refusing_deployment_on_every_sync_entrypoint(
     monkeypatch: pytest.MonkeyPatch, entrypoint: str
 ):
-    litellm_model, path, success_body, call = _LIT_7114_SYNC_ENTRYPOINTS[entrypoint]
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    router: Final = _lit_7114_router(litellm_model)
+    embrouter_model, path, success_body, call = _LIT_7114_SYNC_ENTRYPOINTS[entrypoint]
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
+    router: Final = _lit_7114_router(embrouter_model)
 
     with respx.mock as respx_mock:
         rejecting, accepting = _lit_7114_mock_upstreams(respx_mock, path, 400, success_body)
@@ -17498,13 +17498,13 @@ def test_router_retry_policy_400_moves_off_the_refusing_deployment_on_every_sync
 
 
 def _make_failure_logging_obj():
-    return LiteLLMLogging(
+    return EmbRouterLogging(
         model="gpt-5.6",
         messages=[{"role": "user", "content": "hi"}],
         stream=False,
         call_type="acompletion",
         start_time=datetime.now(),
-        litellm_call_id="lit-6960",
+        embrouter_call_id="lit-6960",
         function_id="f",
     )
 
@@ -17541,7 +17541,7 @@ async def _assert_router_failure_logging_is_coordinated(logging_obj, trigger, ex
 @pytest.mark.parametrize(
     "hook_error",
     [
-        litellm.RateLimitError(message="rpm exceeded", llm_provider="openai", model="gpt-5.6"),
+        embrouter.RateLimitError(message="rpm exceeded", llm_provider="openai", model="gpt-5.6"),
         RuntimeError("pre call check blew up"),
     ],
 )
@@ -17550,13 +17550,13 @@ async def test_async_routing_strategy_pre_call_checks_failure_logging_is_coordin
         async def async_pre_call_check(self, deployment, parent_otel_span):
             raise hook_error
 
-    router = litellm.Router(
-        model_list=[{"model_name": "gpt-5.6", "litellm_params": {"model": "openai/gpt-5.6", "api_key": "sk-fake"}}]
+    router = embrouter.Router(
+        model_list=[{"model_name": "gpt-5.6", "embrouter_params": {"model": "openai/gpt-5.6", "api_key": "sk-fake"}}]
     )
     deployment = router.model_list[0]
     logging_obj = _make_failure_logging_obj()
 
-    with patch.object(litellm, "callbacks", [_RaisingPreCallCheck()]):  # test-quality-ok: router reads this global
+    with patch.object(embrouter, "callbacks", [_RaisingPreCallCheck()]):  # test-quality-ok: router reads this global
         await _assert_router_failure_logging_is_coordinated(
             logging_obj,
             lambda: router.async_routing_strategy_pre_call_checks(
@@ -17572,12 +17572,12 @@ async def test_async_callback_filter_deployments_failure_logging_is_coordinated(
         async def async_filter_deployments(self, *args, **kwargs):
             raise RuntimeError("filter blew up")
 
-    router = litellm.Router(
-        model_list=[{"model_name": "gpt-5.6", "litellm_params": {"model": "openai/gpt-5.6", "api_key": "sk-fake"}}]
+    router = embrouter.Router(
+        model_list=[{"model_name": "gpt-5.6", "embrouter_params": {"model": "openai/gpt-5.6", "api_key": "sk-fake"}}]
     )
     logging_obj = _make_failure_logging_obj()
 
-    with patch.object(litellm, "callbacks", [_RaisingFilter()]):  # test-quality-ok: router reads this global
+    with patch.object(embrouter, "callbacks", [_RaisingFilter()]):  # test-quality-ok: router reads this global
         await _assert_router_failure_logging_is_coordinated(
             logging_obj,
             lambda: router.async_callback_filter_deployments(
@@ -17594,8 +17594,8 @@ async def test_async_callback_filter_deployments_failure_logging_is_coordinated(
 
 @pytest.mark.asyncio
 async def test_async_get_available_deployment_failure_logging_is_coordinated():
-    router = litellm.Router(
-        model_list=[{"model_name": "gpt-5.6", "litellm_params": {"model": "openai/gpt-5.6", "api_key": "sk-fake"}}]
+    router = embrouter.Router(
+        model_list=[{"model_name": "gpt-5.6", "embrouter_params": {"model": "openai/gpt-5.6", "api_key": "sk-fake"}}]
     )
     logging_obj = _make_failure_logging_obj()
 
@@ -17603,17 +17603,17 @@ async def test_async_get_available_deployment_failure_logging_is_coordinated():
         logging_obj,
         lambda: router.async_get_available_deployment(
             model="model-that-is-not-configured",
-            request_kwargs={"litellm_logging_obj": logging_obj},
+            request_kwargs={"embrouter_logging_obj": logging_obj},
             messages=[{"role": "user", "content": "hi"}],
         ),
-        litellm.BadRequestError,
+        embrouter.BadRequestError,
     )
 
 
 @pytest.mark.asyncio
 async def test_async_get_available_deployment_for_pass_through_failure_logging_is_coordinated():
-    router = litellm.Router(
-        model_list=[{"model_name": "gpt-5.6", "litellm_params": {"model": "openai/gpt-5.6", "api_key": "sk-fake"}}]
+    router = embrouter.Router(
+        model_list=[{"model_name": "gpt-5.6", "embrouter_params": {"model": "openai/gpt-5.6", "api_key": "sk-fake"}}]
     )
     logging_obj = _make_failure_logging_obj()
 
@@ -17621,9 +17621,9 @@ async def test_async_get_available_deployment_for_pass_through_failure_logging_i
         logging_obj,
         lambda: router.async_get_available_deployment_for_pass_through(
             model="gpt-5.6",
-            request_kwargs={"litellm_logging_obj": logging_obj},
+            request_kwargs={"embrouter_logging_obj": logging_obj},
         ),
-        litellm.BadRequestError,
+        embrouter.BadRequestError,
     )
 
 
@@ -17678,7 +17678,7 @@ def _max_parallel_router(max_parallel_requests: int) -> Router:
         model_list=[
             {
                 "model_name": "gpt-5.6",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-5.6",
                     "api_key": "sk-fake",
                     "api_base": "https://max-parallel.local/v1",
@@ -17695,7 +17695,7 @@ def _max_parallel_router(max_parallel_requests: int) -> Router:
 async def test_router_max_parallel_requests_admits_the_cap_and_rejects_the_rest_with_429(
     monkeypatch: pytest.MonkeyPatch, stream: bool
 ):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
     tracker: Final = _InFlightTracker()
     router: Final = _max_parallel_router(max_parallel_requests=2)
 
@@ -17723,7 +17723,7 @@ async def test_router_max_parallel_requests_admits_the_cap_and_rejects_the_rest_
             response = await router.acompletion(
                 model="gpt-5.6", messages=[{"role": "user", "content": "hi"}], stream=stream
             )
-        except litellm.RateLimitError as e:
+        except embrouter.RateLimitError as e:
             return f"rejected:{e.status_code}"
         if stream:
             async for _ in response:
@@ -17745,7 +17745,7 @@ async def test_router_max_parallel_requests_admits_the_cap_and_rejects_the_rest_
 async def test_router_max_parallel_requests_slot_held_until_stream_closed_then_released(
     monkeypatch: pytest.MonkeyPatch,
 ):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
     tracker: Final = _InFlightTracker()
     router: Final = _max_parallel_router(max_parallel_requests=1)
 
@@ -17768,7 +17768,7 @@ async def test_router_max_parallel_requests_slot_held_until_stream_closed_then_r
                 pass
 
         assert tracker.current == 1
-        with pytest.raises(litellm.RateLimitError) as while_streaming:
+        with pytest.raises(embrouter.RateLimitError) as while_streaming:
             await second_call()
         assert while_streaming.value.status_code == 429
         await first.aclose()
@@ -17782,12 +17782,12 @@ async def test_router_max_parallel_requests_slot_held_until_stream_closed_then_r
 async def test_router_max_parallel_requests_overflow_is_429_without_cooldown_or_provider_call(
     monkeypatch: pytest.MonkeyPatch,
 ):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
     router: Final = Router(
         model_list=[
             {
                 "model_name": "gpt-5.6",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-5.6",
                     "api_key": "sk-fake",
                     "api_base": "https://max-parallel.local/v1",
@@ -17797,7 +17797,7 @@ async def test_router_max_parallel_requests_overflow_is_429_without_cooldown_or_
             },
             {
                 "model_name": "gpt-5.6",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-5.6",
                     "api_key": "sk-fake",
                     "api_base": "https://max-parallel-sibling.local/v1",
@@ -17839,23 +17839,23 @@ async def test_router_max_parallel_requests_overflow_is_429_without_cooldown_or_
 
     rejected: Final = [r for r in results if isinstance(r, BaseException)]
     assert len(rejected) == 2 and len(results) == 3
-    assert all(isinstance(r, litellm.RateLimitError) and r.status_code == 429 for r in rejected)
+    assert all(isinstance(r, embrouter.RateLimitError) and r.status_code == 429 for r in rejected)
     assert all("capped-deployment" in r.message and "max_parallel_requests=1" in r.message for r in rejected)
     assert route.call_count == 1
     assert sibling_route.call_count == 0
-    assert await _async_get_cooldown_deployments(litellm_router_instance=router, parent_otel_span=None) == []
+    assert await _async_get_cooldown_deployments(embrouter_router_instance=router, parent_otel_span=None) == []
 
 
 @pytest.mark.asyncio
 async def test_router_embedding_path_rejects_past_max_parallel_requests_without_orphan_coroutines(
     monkeypatch: pytest.MonkeyPatch,
 ):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
     router: Final = Router(
         model_list=[
             {
                 "model_name": "embed",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/text-embedding-3-small",
                     "api_key": "sk-fake",
                     "api_base": "https://max-parallel-embed.local/v1",
@@ -17893,7 +17893,7 @@ async def test_router_embedding_path_rejects_past_max_parallel_requests_without_
 
     rejected: Final = [r for r in results if isinstance(r, BaseException)]
     assert len(rejected) == 2 and len(results) == 3
-    assert all(isinstance(r, litellm.RateLimitError) and r.status_code == 429 for r in rejected)
+    assert all(isinstance(r, embrouter.RateLimitError) and r.status_code == 429 for r in rejected)
     assert all("embed-capped-deployment" in r.message for r in rejected)
     assert route.call_count == 1
     assert [str(w.message) for w in caught if "never awaited" in str(w.message)] == []
@@ -17903,12 +17903,12 @@ async def test_router_embedding_path_rejects_past_max_parallel_requests_without_
 async def test_router_max_parallel_requests_overflow_takes_the_ordinary_429_fallback_path(
     monkeypatch: pytest.MonkeyPatch,
 ):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
     router: Final = Router(
         model_list=[
             {
                 "model_name": "gpt-5.6",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-5.6",
                     "api_key": "sk-fake",
                     "api_base": "https://max-parallel-primary.local/v1",
@@ -17918,7 +17918,7 @@ async def test_router_max_parallel_requests_overflow_takes_the_ordinary_429_fall
             },
             {
                 "model_name": "gpt-5.6-fallback",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-5.6",
                     "api_key": "sk-fake",
                     "api_base": "https://max-parallel-fallback.local/v1",
@@ -17960,7 +17960,7 @@ async def test_router_max_parallel_requests_overflow_takes_the_ordinary_429_fall
     assert len(results) == 3
     assert primary.call_count == 1
     assert fallback.call_count == 2
-    assert await _async_get_cooldown_deployments(litellm_router_instance=router, parent_otel_span=None) == []
+    assert await _async_get_cooldown_deployments(embrouter_router_instance=router, parent_otel_span=None) == []
 
 
 @pytest.mark.asyncio
@@ -17969,7 +17969,7 @@ async def test_router_deployment_slot_rejects_while_held_and_frees_slot_on_exit(
         model_list=[
             {
                 "model_name": "gpt-5.6",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-5.6",
                     "api_key": "sk-fake",
                     "max_parallel_requests": 1,
@@ -17983,7 +17983,7 @@ async def test_router_deployment_slot_rejects_while_held_and_frees_slot_on_exit(
     kwargs: Final = {"model": "gpt-5.6"}
 
     async with router._deployment_slot(deployment=deployment.model_dump(), kwargs=kwargs, parent_otel_span=None):
-        with pytest.raises(litellm.RateLimitError) as overflow:
+        with pytest.raises(embrouter.RateLimitError) as overflow:
             async with router._deployment_slot(deployment=deployment.model_dump(), kwargs=kwargs, parent_otel_span=None):
                 pass
     assert overflow.value.status_code == 429
@@ -17995,14 +17995,14 @@ async def test_router_deployment_slot_rejects_while_held_and_frees_slot_on_exit(
 
 @pytest.mark.asyncio
 async def test_router_deployment_drop_params_string_true_is_honored(monkeypatch):
-    from litellm import Router
+    from embrouter import Router
 
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(embrouter, "drop_params", False)
     router = Router(
         model_list=[
             {
                 "model_name": "gpt-5-nano",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-5-nano",
                     "api_key": "sk-fake",
                     "temperature": 1,
@@ -18017,7 +18017,7 @@ async def test_router_deployment_drop_params_string_true_is_honored(monkeypatch)
 
     deployment = router.get_deployment_by_model_group_name(model_group_name="gpt-5-nano")
     assert deployment is not None
-    assert deployment.litellm_params.drop_params is True
+    assert deployment.embrouter_params.drop_params is True
 
     response = await router.acompletion(
         model="gpt-5-nano",
@@ -18029,30 +18029,30 @@ async def test_router_deployment_drop_params_string_true_is_honored(monkeypatch)
 
 @pytest.mark.parametrize("value", ["ture", "enabled"])
 def test_router_warns_when_a_deployment_drop_params_string_is_not_a_flag(value, caplog):
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Router"):
+    with caplog.at_level(logging.WARNING, logger="EmbRouter Router"):
         router = Router(
             model_list=[
                 {
                     "model_name": "gpt-5-nano",
-                    "litellm_params": {"model": "openai/gpt-5-nano", "api_key": "sk-fake", "drop_params": value},
+                    "embrouter_params": {"model": "openai/gpt-5-nano", "api_key": "sk-fake", "drop_params": value},
                 }
             ]
         )
 
     deployment = router.get_deployment_by_model_group_name(model_group_name="gpt-5-nano")
     assert deployment is not None
-    assert deployment.litellm_params.drop_params == value
+    assert deployment.embrouter_params.drop_params == value
     assert f"model=gpt-5-nano drop_params={value!r} is not a flag value, treating it as unset" in caplog.text
 
 
 @pytest.mark.parametrize("value", [True, "true", "off", None])
 def test_router_stays_quiet_when_a_deployment_drop_params_is_a_flag(value, caplog):
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Router"):
+    with caplog.at_level(logging.WARNING, logger="EmbRouter Router"):
         Router(
             model_list=[
                 {
                     "model_name": "gpt-5-nano",
-                    "litellm_params": {"model": "openai/gpt-5-nano", "api_key": "sk-fake", "drop_params": value},
+                    "embrouter_params": {"model": "openai/gpt-5-nano", "api_key": "sk-fake", "drop_params": value},
                 }
             ]
         )
@@ -18074,17 +18074,17 @@ def test_get_candidate_model_ids_for_route_covers_model_name_and_pattern():
         model_list=[
             {
                 "model_name": "grp",
-                "litellm_params": {"model": "openai/gpt-4o", "api_key": "sk-a", "api_base": "https://x.invalid"},
+                "embrouter_params": {"model": "openai/gpt-4o", "api_key": "sk-a", "api_base": "https://x.invalid"},
                 "model_info": {"id": "dep-a"},
             },
             {
                 "model_name": "grp",
-                "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-b", "api_base": "https://x.invalid"},
+                "embrouter_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-b", "api_base": "https://x.invalid"},
                 "model_info": {"id": "dep-b"},
             },
             {
                 "model_name": "openai/*",
-                "litellm_params": {"model": "openai/*", "api_key": "sk-c", "api_base": "https://x.invalid"},
+                "embrouter_params": {"model": "openai/*", "api_key": "sk-c", "api_base": "https://x.invalid"},
                 "model_info": {"id": "dep-wild"},
             },
         ]
@@ -18111,7 +18111,7 @@ def test_cached_model_info_lookups_match_uncached_and_reset_on_model_list_change
     def deployment(max_output_tokens: int) -> Deployment:
         return Deployment(
             model_name="grp",
-            litellm_params=LiteLLM_Params(model="openai/gpt-4o", api_key="sk-a"),
+            embrouter_params=EmbRouter_Params(model="openai/gpt-4o", api_key="sk-a"),
             model_info=ModelInfo(id="dep-a", max_output_tokens=max_output_tokens),
         )
 
@@ -18130,7 +18130,7 @@ def test_cached_model_info_lookups_match_uncached_and_reset_on_model_list_change
 
 class _OpenBreakerRedis:
     def __init__(self) -> None:
-        from litellm.caching.redis_cache import RedisCircuitBreaker
+        from embrouter.caching.redis_cache import RedisCircuitBreaker
 
         self._circuit_breaker = RedisCircuitBreaker(failure_threshold=3, recovery_timeout=60)
         for _ in range(3):
@@ -18143,13 +18143,13 @@ class _OpenBreakerRedis:
 
 @pytest.mark.asyncio
 async def test_an_open_circuit_breaker_skips_the_session_binding_without_a_warning(caplog):
-    router = litellm.Router(
-        model_list=[{"model_name": "haiku", "litellm_params": {"model": "anthropic/claude-haiku-4-5", "api_key": "k"}}]
+    router = embrouter.Router(
+        model_list=[{"model_name": "haiku", "embrouter_params": {"model": "anthropic/claude-haiku-4-5", "api_key": "k"}}]
     )
     router._claude_code_session_router_cache = DualCache(redis_cache=_OpenBreakerRedis())  # pyright: ignore[reportArgumentType]  # duck-typed Redis double
     caplog.clear()
 
-    with caplog.at_level(logging.DEBUG, logger="LiteLLM Router"):
+    with caplog.at_level(logging.DEBUG, logger="EmbRouter Router"):
         binding = await router._get_claude_code_session_router_binding("quiet-session")
 
     assert binding is None
@@ -18159,16 +18159,16 @@ async def test_an_open_circuit_breaker_skips_the_session_binding_without_a_warni
 
 @pytest.mark.asyncio
 async def test_model_name_colliding_with_a_deployment_id_still_load_balances_the_group():
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-5-nano",
-                "litellm_params": {"model": "openai/gpt-5-nano", "api_key": "k", "weight": 0, "mock_response": "A"},
+                "embrouter_params": {"model": "openai/gpt-5-nano", "api_key": "k", "weight": 0, "mock_response": "A"},
                 "model_info": {"id": "gpt-5-nano"},
             },
             {
                 "model_name": "gpt-5-nano",
-                "litellm_params": {"model": "openai/gpt-5-mini", "api_key": "k", "weight": 1, "mock_response": "B"},
+                "embrouter_params": {"model": "openai/gpt-5-mini", "api_key": "k", "weight": 1, "mock_response": "B"},
                 "model_info": {"id": "gpt-5-mini-dep"},
             },
         ],
@@ -18184,16 +18184,16 @@ async def test_model_name_colliding_with_a_deployment_id_still_load_balances_the
 
 
 def test_sync_completion_runs_pre_call_checks_for_a_model_name_colliding_with_a_deployment_id():
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-5-nano",
-                "litellm_params": {"model": "openai/gpt-5-nano", "api_key": "k", "weight": 0, "mock_response": "A"},
+                "embrouter_params": {"model": "openai/gpt-5-nano", "api_key": "k", "weight": 0, "mock_response": "A"},
                 "model_info": {"id": "gpt-5-nano"},
             },
             {
                 "model_name": "gpt-5-nano",
-                "litellm_params": {"model": "openai/gpt-5-mini", "api_key": "k", "weight": 1, "mock_response": "B"},
+                "embrouter_params": {"model": "openai/gpt-5-mini", "api_key": "k", "weight": 1, "mock_response": "B"},
                 "model_info": {"id": "gpt-5-mini-dep"},
             },
         ],
@@ -18214,22 +18214,22 @@ def test_sync_completion_runs_pre_call_checks_for_a_model_name_colliding_with_a_
 class TestMemberAutoRouterInference:
     @pytest.fixture(autouse=True)
     def runtime(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        from litellm.proxy import proxy_server
-        from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+        from embrouter.proxy import proxy_server
+        from embrouter.proxy.common_utils.user_api_key_cache import UserApiKeyCache
 
         self.cache = UserApiKeyCache()
-        self.team = LiteLLM_TeamTable(
+        self.team = EmbRouter_TeamTable(
             team_id="router-team", models=["member-router", "permitted-model"],
             members_with_roles=[Member(user_id="router-member", role="user")],
         )
         self.actor = UserAPIKeyAuth(
-            user_id="router-member", team_id="router-team", user_role=LitellmUserRoles.INTERNAL_USER,
+            user_id="router-member", team_id="router-team", user_role=EmbrouterUserRoles.INTERNAL_USER,
             models=["member-router", "permitted-model"], api_key="test-key-hash", config={"timeout": 60},
         )
         self.database = SimpleNamespace(db=SimpleNamespace(
-            litellm_teamtable=SimpleNamespace(find_unique=AsyncMock(return_value=self.team)),
-            litellm_teammembership=SimpleNamespace(find_unique=AsyncMock(return_value=None)),
-            litellm_accessgrouptable=SimpleNamespace(find_unique=AsyncMock()),
+            embrouter_teamtable=SimpleNamespace(find_unique=AsyncMock(return_value=self.team)),
+            embrouter_teammembership=SimpleNamespace(find_unique=AsyncMock(return_value=None)),
+            embrouter_accessgrouptable=SimpleNamespace(find_unique=AsyncMock()),
         ))
         monkeypatch.setattr(proxy_server, "user_api_key_cache", self.cache)
         monkeypatch.setattr(proxy_server, "prisma_client", self.database)
@@ -18239,7 +18239,7 @@ class TestMemberAutoRouterInference:
         target: Final = "permitted-model" if member else "restricted-model"
         return {
             "model_name": "model_name_router-team_member-router",
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "auto_router/complexity_router", "complexity_router_default_model": target,
                 "complexity_router_config": {
                     "tiers": dict.fromkeys(("SIMPLE", "MEDIUM", "COMPLEX", "REASONING"), target), "adaptive": False,
@@ -18256,20 +18256,20 @@ class TestMemberAutoRouterInference:
     def _router(cls, *markers: dict[str, object]) -> Router:
         return Router(model_list=[
             *(markers or (cls._marker(),)),
-            {"model_name": "permitted-model", "litellm_params": {
+            {"model_name": "permitted-model", "embrouter_params": {
                 "model": "openai/gpt-4o-mini", "api_key": "test-key", "api_base": "https://api.openai.com/v1",
             }},
-            {"model_name": "restricted-model", "litellm_params": {"model": "openai/gpt-4o", "api_key": "test-key"}},
+            {"model_name": "restricted-model", "embrouter_params": {"model": "openai/gpt-4o", "api_key": "test-key"}},
         ])
 
     def _request(
         self, *, actor: UserAPIKeyAuth | None = None, metadata_name: str = "metadata", tag: str = "member",
     ) -> dict[str, object]:
-        from litellm.proxy.litellm_pre_call_utils import LiteLLMProxyRequestSetup
+        from embrouter.proxy.embrouter_pre_call_utils import EmbRouterProxyRequestSetup
 
-        return LiteLLMProxyRequestSetup.add_user_api_key_auth_to_request_metadata(
+        return EmbRouterProxyRequestSetup.add_user_api_key_auth_to_request_metadata(
             data={metadata_name: {"tags": [tag]}, **({"metadata": {"user_api_key_auth": {"user_role": "proxy_admin"}}}
-                  if metadata_name == "litellm_metadata" else {})},
+                  if metadata_name == "embrouter_metadata" else {})},
             user_api_key_dict=actor or self.actor, _metadata_variable_name=metadata_name,
         )
 
@@ -18284,11 +18284,11 @@ class TestMemberAutoRouterInference:
         return response
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("metadata_name", ("metadata", "litellm_metadata"))
+    @pytest.mark.parametrize("metadata_name", ("metadata", "embrouter_metadata"))
     async def test_cached_roster_revocation_blocks_classifier_and_session_rebinding(
         self, metadata_name: str, respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        from litellm.proxy.auth.auth_checks import delete_cache_team_object
+        from embrouter.proxy.auth.auth_checks import delete_cache_team_object
 
         monkeypatch.setenv("DISABLE_AIOHTTP_TRANSPORT", "True")
         router: Final = self._router(self._marker(classifier=True))
@@ -18305,9 +18305,9 @@ class TestMemberAutoRouterInference:
         assert first.model == "permitted-model" and first.routing_decision is not None
         assert first.routing_decision["cause"] == "llm_classifier"
         assert (await self._route(router, request)).model == "permitted-model"
-        assert self.database.db.litellm_teamtable.find_unique.await_count == 1
-        assert self.database.db.litellm_teammembership.find_unique.await_count == 1
-        self.database.db.litellm_teamtable.find_unique.return_value = self.team.model_copy(update={"members_with_roles": []})
+        assert self.database.db.embrouter_teamtable.find_unique.await_count == 1
+        assert self.database.db.embrouter_teammembership.find_unique.await_count == 1
+        self.database.db.embrouter_teamtable.find_unique.return_value = self.team.model_copy(update={"members_with_roles": []})
         await delete_cache_team_object(
             team_id=self.team.team_id, team_alias=None, user_api_key_cache=self.cache, proxy_logging_obj=None,
         )
@@ -18323,14 +18323,14 @@ class TestMemberAutoRouterInference:
     @pytest.mark.asyncio
     @pytest.mark.parametrize("state", ("forged", "blocked", "deleted", "unavailable", "empty-user"))
     async def test_member_router_fails_closed(self, state: str, monkeypatch: pytest.MonkeyPatch) -> None:
-        from litellm.proxy import proxy_server
+        from embrouter.proxy import proxy_server
 
         request: Final = {"metadata": {"user_api_key_team_id": "router-team", "user_api_key_auth": {
             "team_id": "router-team", "user_role": "proxy_admin",
         }}} if state == "forged" else self._request(actor=self.actor.model_copy(
             update={"user_id": ""} if state == "empty-user" else {},
         ))
-        self.database.db.litellm_teamtable.find_unique.return_value = (
+        self.database.db.embrouter_teamtable.find_unique.return_value = (
             None if state == "deleted" else self.team.model_copy(update={"blocked": state == "blocked"})
         )
         if state == "unavailable":
@@ -18340,8 +18340,8 @@ class TestMemberAutoRouterInference:
         assert error.value.status_code == (503 if state == "unavailable" else 403)
 
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("user_id,role", [(None, LitellmUserRoles.INTERNAL_USER), ("admin", LitellmUserRoles.PROXY_ADMIN)])
-    async def test_service_key_and_admin_preserve_runtime_access(self, user_id: str | None, role: LitellmUserRoles) -> None:
+    @pytest.mark.parametrize("user_id,role", [(None, EmbrouterUserRoles.INTERNAL_USER), ("admin", EmbrouterUserRoles.PROXY_ADMIN)])
+    async def test_service_key_and_admin_preserve_runtime_access(self, user_id: str | None, role: EmbrouterUserRoles) -> None:
         assert (await self._route(self._router(), self._request(
             actor=self.actor.model_copy(update={"user_id": user_id, "user_role": role}),
         ))).model == "permitted-model"
@@ -18349,35 +18349,35 @@ class TestMemberAutoRouterInference:
     @pytest.mark.asyncio
     @pytest.mark.parametrize("ceiling", ("team", "key", "member", "organization", "project"))
     async def test_runtime_dependency_ceilings_use_cached_auth_state(self, ceiling: str) -> None:
-        from litellm.models.budget import LiteLLM_BudgetTable
-        from litellm.models.organization import LiteLLM_OrganizationTable
-        from litellm.models.team_membership import LiteLLM_TeamMembership
-        from litellm.proxy._types import LiteLLM_ProjectTableCachedObj
-        from litellm.proxy.common_utils.user_api_key_cache import team_membership_reservation_cache_key
+        from embrouter.models.budget import EmbRouter_BudgetTable
+        from embrouter.models.organization import EmbRouter_OrganizationTable
+        from embrouter.models.team_membership import EmbRouter_TeamMembership
+        from embrouter.proxy._types import EmbRouter_ProjectTableCachedObj
+        from embrouter.proxy.common_utils.user_api_key_cache import team_membership_reservation_cache_key
 
-        self.database.db.litellm_teamtable.find_unique.return_value = self.team.model_copy(update={
+        self.database.db.embrouter_teamtable.find_unique.return_value = self.team.model_copy(update={
             "models": ["member-router"] if ceiling == "team" else self.team.models,
             "organization_id": "router-org" if ceiling == "organization" else None,
         })
         if ceiling == "member":
             await self.cache.async_set_cache(
                 key=team_membership_reservation_cache_key(user_id="router-member", team_id="router-team"),
-                value=LiteLLM_TeamMembership(user_id="router-member", team_id="router-team",
-                    litellm_budget_table=LiteLLM_BudgetTable(allowed_models=["restricted-model"])),
-                model_type=LiteLLM_TeamMembership,
+                value=EmbRouter_TeamMembership(user_id="router-member", team_id="router-team",
+                    embrouter_budget_table=EmbRouter_BudgetTable(allowed_models=["restricted-model"])),
+                model_type=EmbRouter_TeamMembership,
             )
         elif ceiling == "organization":
             await self.cache.async_set_cache(
-                key="org_id:router-org", value=LiteLLM_OrganizationTable(
+                key="org_id:router-org", value=EmbRouter_OrganizationTable(
                     organization_id="router-org", budget_id="org-budget", created_by="admin", updated_by="admin",
                     models=["restricted-model"],
-                ), model_type=LiteLLM_OrganizationTable,
+                ), model_type=EmbRouter_OrganizationTable,
             )
         elif ceiling == "project":
             await self.cache.async_set_cache(
-                key="project_id:router-project", value=LiteLLM_ProjectTableCachedObj(
+                key="project_id:router-project", value=EmbRouter_ProjectTableCachedObj(
                     project_id="router-project", team_id="router-team", models=["restricted-model"],
-                ), model_type=LiteLLM_ProjectTableCachedObj,
+                ), model_type=EmbRouter_ProjectTableCachedObj,
             )
         with pytest.raises(ProxyException, match="is not available for this API key"):
             await self._route(self._router(), self._request(actor=self.actor.model_copy(update={
@@ -18388,13 +18388,13 @@ class TestMemberAutoRouterInference:
     @pytest.mark.asyncio
     @pytest.mark.parametrize("group_owner", ("team", "key"))
     async def test_access_group_grants_are_cached_and_revoked(self, group_owner: str) -> None:
-        from litellm.proxy.common_utils.auth_cache_invalidation_pubsub import evict_and_broadcast
+        from embrouter.proxy.common_utils.auth_cache_invalidation_pubsub import evict_and_broadcast
 
-        group: Final = LiteLLM_AccessGroupTable(
+        group: Final = EmbRouter_AccessGroupTable(
             access_group_id="router-group", access_group_name="Router targets", access_model_names=["permitted-model"],
         )
-        self.database.db.litellm_accessgrouptable.find_unique.return_value = group
-        self.database.db.litellm_teamtable.find_unique.return_value = self.team.model_copy(update={
+        self.database.db.embrouter_accessgrouptable.find_unique.return_value = group
+        self.database.db.embrouter_teamtable.find_unique.return_value = self.team.model_copy(update={
             "models": ["member-router"] if group_owner == "team" else self.team.models,
             "access_group_ids": ["router-group"] if group_owner == "team" else [],
         })
@@ -18405,12 +18405,12 @@ class TestMemberAutoRouterInference:
         router: Final = self._router()
         assert (await self._route(router, request)).model == "permitted-model"
         assert (await self._route(router, request)).model == "permitted-model"
-        assert self.database.db.litellm_accessgrouptable.find_unique.await_count == 1
-        self.database.db.litellm_accessgrouptable.find_unique.return_value = group.model_copy(update={"access_model_names": []})
+        assert self.database.db.embrouter_accessgrouptable.find_unique.await_count == 1
+        self.database.db.embrouter_accessgrouptable.find_unique.return_value = group.model_copy(update={"access_model_names": []})
         await evict_and_broadcast(cache_keys=("access_group_id:router-group",), user_api_key_cache=self.cache)
         with pytest.raises(ProxyException, match="is not available for this API key"):
             await self._route(router, request)
-        assert self.database.db.litellm_accessgrouptable.find_unique.await_count == 2
+        assert self.database.db.embrouter_accessgrouptable.find_unique.await_count == 2
 
     @pytest.mark.asyncio
     async def test_tagged_marker_owns_authorization_and_forwarded_parameters(self) -> None:
@@ -18423,22 +18423,22 @@ class TestMemberAutoRouterInference:
         assert (await self._route(router, request)).model == "permitted-model"
         assert request["timeout"] == 13.0
         await self.cache.async_set_cache(
-            key="team_id:router-team", model_type=LiteLLM_TeamTable,
+            key="team_id:router-team", model_type=EmbRouter_TeamTable,
             value=self.team.model_copy(update={"models": ["member-router"]}),
         )
         with pytest.raises(ProxyException, match="is not available for this API key"):
             await self._route(router, self._request())
-        self.database.db.litellm_teamtable.find_unique.reset_mock()
+        self.database.db.embrouter_teamtable.find_unique.reset_mock()
         admin: Final = self._request(tag="admin")
         assert (await self._route(router, admin)).model == "restricted-model"
         assert admin["timeout"] == 29.0
-        self.database.db.litellm_teamtable.find_unique.assert_not_awaited()
+        self.database.db.embrouter_teamtable.find_unique.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_sdk_router_does_not_import_proxy_dependencies(self, monkeypatch: pytest.MonkeyPatch) -> None:
         router: Final = self._router(self._marker(member=False))
         monkeypatch.setitem(sys.modules, "fastapi", None)
-        monkeypatch.delitem(sys.modules, "litellm.proxy.auth.auto_router_checks", raising=False)
+        monkeypatch.delitem(sys.modules, "embrouter.proxy.auth.auto_router_checks", raising=False)
         assert (await self._route(router, {"metadata": {"user_api_key_team_id": "router-team"}})).model == "restricted-model"
 
 
@@ -18455,14 +18455,14 @@ def _access_window_offsets(start_hours: float, end_hours: float, team_ids: list)
 def _reserved_model_list(windows_for_reserved=None, windows_for_open=None) -> list:
     reserved: dict = {
         "model_name": "gpt-4o-ptu",
-        "litellm_params": {"model": "gpt-4o", "mock_response": "reserved"},
+        "embrouter_params": {"model": "gpt-4o", "mock_response": "reserved"},
         "model_info": {"id": "reserved-deployment"},
     }
     if windows_for_reserved is not None:
         reserved["model_info"]["access_windows"] = windows_for_reserved
     unreserved: dict = {
         "model_name": "gpt-4o-ptu",
-        "litellm_params": {"model": "gpt-4o", "mock_response": "open"},
+        "embrouter_params": {"model": "gpt-4o", "mock_response": "open"},
         "model_info": {"id": "open-deployment"},
     }
     if windows_for_open is not None:
@@ -18489,7 +18489,7 @@ def test_access_windows_raise_when_only_reserved_deployments_remain():
         windows_for_open=[_access_window_offsets(-1, 1, ["team-a"])],
     )[:1])
     for request_kwargs in ({"metadata": {"user_api_key_team_id": "team-b"}}, {}):
-        with pytest.raises(litellm.BadRequestError, match="reserved for another team"):
+        with pytest.raises(embrouter.BadRequestError, match="reserved for another team"):
             router._common_checks_available_deployment(model="gpt-4o-ptu", request_kwargs=request_kwargs)
     _, deployments = router._common_checks_available_deployment(
         model="gpt-4o-ptu",
@@ -18500,13 +18500,13 @@ def test_access_windows_raise_when_only_reserved_deployments_remain():
 
 def test_reserved_deployments_drop_strategy_markers_before_filtering():
     router = Router(model_list=_reserved_model_list()[:1])
-    marker = {"model_name": "gpt-4o-ptu", "litellm_params": {"model": "auto_router/semantic"}}
+    marker = {"model_name": "gpt-4o-ptu", "embrouter_params": {"model": "auto_router/semantic"}}
     reserved = {
         "model_name": "gpt-4o-ptu",
-        "litellm_params": {"model": "gpt-4o"},
+        "embrouter_params": {"model": "gpt-4o"},
         "model_info": {"access_windows": [_access_window_offsets(-1, 1, ["team-a"])]},
     }
-    with pytest.raises(litellm.BadRequestError, match="reserved for another team"):
+    with pytest.raises(embrouter.BadRequestError, match="reserved for another team"):
         router._filter_reserved_deployments(
             model="gpt-4o-ptu",
             healthy_deployments=[marker, reserved],
@@ -18520,7 +18520,7 @@ def test_access_windows_invalid_timezone_fails_router_construction():
             model_list=[
                 {
                     "model_name": "gpt-4o-ptu",
-                    "litellm_params": {"model": "gpt-4o", "mock_response": "x"},
+                    "embrouter_params": {"model": "gpt-4o", "mock_response": "x"},
                     "model_info": {
                         "access_windows": [
                             {
@@ -18553,7 +18553,7 @@ def test_access_windows_apply_when_calling_by_model_id():
     router = Router(model_list=_reserved_model_list(
         windows_for_reserved=[_access_window_offsets(-1, 1, ["team-a"])],
     ))
-    with pytest.raises(litellm.BadRequestError, match="reserved for another team"):
+    with pytest.raises(embrouter.BadRequestError, match="reserved for another team"):
         router._common_checks_available_deployment(
             model="reserved-deployment",
             request_kwargs={"metadata": {"user_api_key_team_id": "team-b"}},
@@ -18565,23 +18565,23 @@ def test_access_windows_apply_when_calling_by_model_id():
     assert deployment["model_info"]["id"] == "reserved-deployment"
 
 
-def test_access_windows_apply_when_calling_by_litellm_model_name():
+def test_access_windows_apply_when_calling_by_embrouter_model_name():
     router = Router(
         model_list=[
             {
                 "model_name": "gpt-4o-ptu",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-5.6-bypass-probe",
                     "mock_response": "reserved",
                 },
                 "model_info": {
-                    "id": "reserved-litellm-model",
+                    "id": "reserved-embrouter-model",
                     "access_windows": [_access_window_offsets(-1, 1, ["team-a"])],
                 },
             }
         ],
     )
-    with pytest.raises(litellm.BadRequestError, match="reserved for another team"):
+    with pytest.raises(embrouter.BadRequestError, match="reserved for another team"):
         router._common_checks_available_deployment(
             model="openai/gpt-5.6-bypass-probe",
             request_kwargs={"metadata": {"user_api_key_team_id": "team-b"}},
@@ -18590,7 +18590,7 @@ def test_access_windows_apply_when_calling_by_litellm_model_name():
         model="openai/gpt-5.6-bypass-probe",
         request_kwargs={"metadata": {"user_api_key_team_id": "team-a"}},
     )
-    assert [d["model_info"]["id"] for d in deployments] == ["reserved-litellm-model"]
+    assert [d["model_info"]["id"] for d in deployments] == ["reserved-embrouter-model"]
 
 
 def test_access_windows_apply_to_specific_deployment_calls():
@@ -18598,7 +18598,7 @@ def test_access_windows_apply_to_specific_deployment_calls():
         model_list=[
             {
                 "model_name": "gpt-4o-ptu",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-5.6-specific-probe",
                     "mock_response": "reserved",
                 },
@@ -18609,7 +18609,7 @@ def test_access_windows_apply_to_specific_deployment_calls():
             }
         ],
     )
-    with pytest.raises(litellm.BadRequestError, match="reserved for another team"):
+    with pytest.raises(embrouter.BadRequestError, match="reserved for another team"):
         router._common_checks_available_deployment(
             model="openai/gpt-5.6-specific-probe",
             specific_deployment=True,
@@ -18628,7 +18628,7 @@ def test_access_windows_apply_to_wildcard_early_resolve():
         model_list=[
             {
                 "model_name": "openai/*",
-                "litellm_params": {"model": "openai/*", "mock_response": "reserved"},
+                "embrouter_params": {"model": "openai/*", "mock_response": "reserved"},
                 "model_info": {
                     "id": "reserved-wildcard",
                     "access_windows": [_access_window_offsets(-1, 1, ["team-a"])],
@@ -18636,7 +18636,7 @@ def test_access_windows_apply_to_wildcard_early_resolve():
             }
         ],
     )
-    with pytest.raises(litellm.BadRequestError, match="reserved for another team"):
+    with pytest.raises(embrouter.BadRequestError, match="reserved for another team"):
         router._common_checks_available_deployment(
             model="openai/gpt-probe-wildcard",
             request_kwargs={"metadata": {"user_api_key_team_id": "team-b"}},
@@ -18665,7 +18665,7 @@ def test_access_windows_filter_reserved_deployments_method():
             request_team_id="team-b",
         )
     ] == ["open-deployment"]
-    with pytest.raises(litellm.BadRequestError, match="reserved for another team"):
+    with pytest.raises(embrouter.BadRequestError, match="reserved for another team"):
         router._filter_reserved_deployments(
             model="gpt-4o-ptu",
             healthy_deployments=[reserved],
@@ -18686,19 +18686,19 @@ async def test_bare_model_group_served_by_wildcard_deployment_uses_provider_pref
     """Claude Code sends the bare "claude-sonnet-4-6" to /v1/messages; routing serves it through the
     "anthropic/*" wildcard, so a fallback keyed the way that wildcard is written ("anthropic/claude-sonnet-4-6",
     which is what the Admin UI offers) must catch the failure instead of surfacing the provider error."""
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "anthropic/*",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "anthropic/*",
                     "api_key": "sk-fake",
-                    "mock_response": "litellm.InternalServerError",
+                    "mock_response": "embrouter.InternalServerError",
                 },
             },
             {
                 "model_name": "openai/gpt-5.5-pro",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-5.5-pro",
                     "api_key": "sk-fake",
                     "mock_response": "served by the fallback",
@@ -18722,19 +18722,19 @@ async def test_bare_model_group_served_by_wildcard_deployment_uses_provider_pref
 async def test_bare_model_group_served_by_wildcard_deployment_uses_provider_prefixed_context_window_fallback_key() -> None:
     """The context-window chain is keyed the same way the ordinary chain is, so a key spelled like the
     wildcard deployment ("anthropic/claude-sonnet-4-6") must catch the bare group's context-window error too."""
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "anthropic/*",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "anthropic/*",
                     "api_key": "sk-fake",
-                    "mock_response": "litellm.ContextWindowExceededError",
+                    "mock_response": "embrouter.ContextWindowExceededError",
                 },
             },
             {
                 "model_name": "openai/gpt-5.5-pro",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-5.5-pro",
                     "api_key": "sk-fake",
                     "mock_response": "served by the context window fallback",
@@ -18755,15 +18755,15 @@ async def test_bare_model_group_served_by_wildcard_deployment_uses_provider_pref
 
 
 def test_bare_model_group_served_by_wildcard_deployment_has_provider_prefixed_content_policy_fallback() -> None:
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "anthropic/*",
-                "litellm_params": {"model": "anthropic/*", "api_key": "sk-fake"},
+                "embrouter_params": {"model": "anthropic/*", "api_key": "sk-fake"},
             },
             {
                 "model_name": "openai/gpt-5.5-pro",
-                "litellm_params": {"model": "openai/gpt-5.5-pro", "api_key": "sk-fake"},
+                "embrouter_params": {"model": "openai/gpt-5.5-pro", "api_key": "sk-fake"},
             },
         ],
         content_policy_fallbacks=[{"anthropic/claude-sonnet-4-6": ["openai/gpt-5.5-pro"]}],
@@ -18788,19 +18788,19 @@ async def test_a_guardrail_verdict_is_neither_retried_nor_fallen_back(verdict: E
     async def fake_acompletion(**kwargs):
         if kwargs["metadata"]["model_group"] == "primary":
             raise verdict
-        return litellm.ModelResponse(choices=[{"message": {"role": "assistant", "content": "ok"}}])
+        return embrouter.ModelResponse(choices=[{"message": {"role": "assistant", "content": "ok"}}])
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
-            {"model_name": "primary", "litellm_params": {"model": "openai/primary-model", "api_key": "fake-key"}},
-            {"model_name": "primary", "litellm_params": {"model": "openai/primary-sibling", "api_key": "fake-key"}},
-            {"model_name": "fb1", "litellm_params": {"model": "openai/fb1-model", "api_key": "fake-key"}},
+            {"model_name": "primary", "embrouter_params": {"model": "openai/primary-model", "api_key": "fake-key"}},
+            {"model_name": "primary", "embrouter_params": {"model": "openai/primary-sibling", "api_key": "fake-key"}},
+            {"model_name": "fb1", "embrouter_params": {"model": "openai/fb1-model", "api_key": "fake-key"}},
         ],
         fallbacks=[{"primary": ["fb1"]}],
         num_retries=2,
     )
 
-    with patch("litellm.acompletion", side_effect=fake_acompletion) as mock_acompletion:
+    with patch("embrouter.acompletion", side_effect=fake_acompletion) as mock_acompletion:
         with pytest.raises(type(verdict)):
             await router.acompletion(model="primary", messages=[{"role": "user", "content": "hi"}])
 
@@ -18820,8 +18820,8 @@ def test_without_line_breaks_drops_every_cr_and_lf_from_the_logged_value(value: 
 
 
 def test_a_failed_routing_read_prefetch_logs_the_request_model_without_its_line_breaks(monkeypatch, caplog) -> None:
-    router = litellm.Router(
-        model_list=[{"model_name": "gpt-4", "litellm_params": {"model": "openai/gpt-4", "api_key": "k"}}]
+    router = embrouter.Router(
+        model_list=[{"model_name": "gpt-4", "embrouter_params": {"model": "openai/gpt-4", "api_key": "k"}}]
     )
     forged_model: Final = "gpt-4\r\nERROR forged entry\n"
 
@@ -18831,7 +18831,7 @@ def test_a_failed_routing_read_prefetch_logs_the_request_model_without_its_line_
     monkeypatch.setattr(router, "get_model_list", fail_lookup)
     caplog.clear()
 
-    with caplog.at_level(logging.DEBUG, logger="LiteLLM Router"):
+    with caplog.at_level(logging.DEBUG, logger="EmbRouter Router"):
         router.arm_routing_read_prefetch(forged_model, {})
 
     messages: Final = [r.getMessage() for r in caplog.records if "routing read prefetch not armed" in r.getMessage()]
@@ -18848,7 +18848,7 @@ def test_a_failed_routing_read_prefetch_logs_the_request_model_without_its_line_
 async def test_router_subclass_overriding_async_get_healthy_deployments_with_the_old_signature_still_routes(
     routing_strategy: str,
 ) -> None:
-    class OldSignatureRouter(litellm.Router):
+    class OldSignatureRouter(embrouter.Router):
         async def async_get_healthy_deployments(
             self,
             model: str,
@@ -18873,7 +18873,7 @@ async def test_router_subclass_overriding_async_get_healthy_deployments_with_the
         model_list=[
             {
                 "model_name": "m",
-                "litellm_params": {"model": "openai/gpt-4o", "api_key": "x", "mock_response": "hi"},
+                "embrouter_params": {"model": "openai/gpt-4o", "api_key": "x", "mock_response": "hi"},
             }
         ],
         routing_strategy=routing_strategy,

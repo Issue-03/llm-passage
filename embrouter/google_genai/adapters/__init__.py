@@ -1,8 +1,8 @@
 """
-Google GenAI Adapters for LiteLLM
+Google GenAI Adapters for EmbRouter
 
 This module provides adapters for transforming Google GenAI generate_content requests
-to/from LiteLLM completion format with full support for:
+to/from EmbRouter completion format with full support for:
 - Text content transformation
 - Tool calling (function declarations, function calls, function responses)
 - Streaming (both regular and tool calling)

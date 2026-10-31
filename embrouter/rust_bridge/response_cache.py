@@ -32,8 +32,8 @@ class NativeCacheRequest(TypedDict, total=False):
     messages: ReadOnly[object | None]
     input: ReadOnly[object | None]
     metadata: ReadOnly[object | None]
-    litellm_metadata: ReadOnly[object | None]
-    litellm_params: ReadOnly[object | None]
+    embrouter_metadata: ReadOnly[object | None]
+    embrouter_params: ReadOnly[object | None]
     scope: ReadOnly[str]
 
 
@@ -86,8 +86,8 @@ class ResponseCacheRuntime:
             messages=kwargs.get("messages"),
             input=kwargs.get("input"),
             metadata=kwargs.get("metadata"),
-            litellm_metadata=kwargs.get("litellm_metadata"),
-            litellm_params=kwargs.get("litellm_params"),
+            embrouter_metadata=kwargs.get("embrouter_metadata"),
+            embrouter_params=kwargs.get("embrouter_params"),
             scope=cache.semantic_cache_scope,
         )
 

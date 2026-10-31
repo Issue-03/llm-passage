@@ -23,7 +23,7 @@ class QualityRouterConfig(BaseModel):
         default_factory=list,
         description=(
             "List of candidate model names this router may route to. Each model "
-            "must declare its quality_tier in model_info.litellm_routing_preferences."
+            "must declare its quality_tier in model_info.embrouter_routing_preferences."
         ),
     )
 

@@ -5,9 +5,9 @@ from unittest.mock import AsyncMock, patch
 
 
 # Import required modules
-import litellm
-from litellm.responses.mcp.litellm_proxy_mcp_handler import LiteLLM_Proxy_MCP_Handler
-from litellm.types.llms.openai import (
+import embrouter
+from embrouter.responses.mcp.embrouter_proxy_mcp_handler import EmbRouter_Proxy_MCP_Handler
+from embrouter.types.llms.openai import (
     ResponsesAPIResponse,
     ResponsesAPIStreamingResponse,
     OpenAIMcpServerTool,
@@ -35,11 +35,11 @@ class MockUserAPIKeyAuth:
 
 @pytest.mark.asyncio
 async def test_mcp_helper_methods():
-    """Test the core MCP helper methods in LiteLLM_Proxy_MCP_Handler"""
+    """Test the core MCP helper methods in EmbRouter_Proxy_MCP_Handler"""
 
-    # Test _should_use_litellm_mcp_gateway
+    # Test _should_use_embrouter_mcp_gateway
     mcp_tools: List[Any] = [
-        {"type": "mcp", "server_url": "litellm_proxy", "require_approval": "never"}
+        {"type": "mcp", "server_url": "embrouter_proxy", "require_approval": "never"}
     ]
 
     other_tools: List[Any] = [
@@ -54,20 +54,20 @@ async def test_mcp_helper_methods():
         }
     ]
 
-    # Should return True for MCP tools with litellm_proxy
-    assert LiteLLM_Proxy_MCP_Handler._should_use_litellm_mcp_gateway(mcp_tools) == True
+    # Should return True for MCP tools with embrouter_proxy
+    assert EmbRouter_Proxy_MCP_Handler._should_use_embrouter_mcp_gateway(mcp_tools) == True
 
     # Should return False for other tools
     assert (
-        LiteLLM_Proxy_MCP_Handler._should_use_litellm_mcp_gateway(other_tools) == False
+        EmbRouter_Proxy_MCP_Handler._should_use_embrouter_mcp_gateway(other_tools) == False
     )
 
     # Should return False for None
-    assert LiteLLM_Proxy_MCP_Handler._should_use_litellm_mcp_gateway(None) == False
+    assert EmbRouter_Proxy_MCP_Handler._should_use_embrouter_mcp_gateway(None) == False
 
     # Test _parse_mcp_tools
     mixed_tools = mcp_tools + other_tools
-    mcp_parsed, other_parsed = LiteLLM_Proxy_MCP_Handler._parse_mcp_tools(mixed_tools)
+    mcp_parsed, other_parsed = EmbRouter_Proxy_MCP_Handler._parse_mcp_tools(mixed_tools)
 
     assert len(mcp_parsed) == 1
     assert len(other_parsed) == 1
@@ -78,19 +78,19 @@ async def test_mcp_helper_methods():
     mcp_tools_never = [{"require_approval": "never"}]
     mcp_tools_always = [{"require_approval": "always"}]
 
-    assert LiteLLM_Proxy_MCP_Handler._should_auto_execute_tools(mcp_tools_never) == True
+    assert EmbRouter_Proxy_MCP_Handler._should_auto_execute_tools(mcp_tools_never) == True
     assert (
-        LiteLLM_Proxy_MCP_Handler._should_auto_execute_tools(mcp_tools_always) == False
+        EmbRouter_Proxy_MCP_Handler._should_auto_execute_tools(mcp_tools_always) == False
     )
 
     # A single approval-required reference must disable auto-execution for the
     # whole request; otherwise a "never" reference alongside an "always" one
     # would let the approval-gated tool run without approval.
     mcp_tools_mixed = [{"require_approval": "never"}, {"require_approval": "always"}]
-    assert LiteLLM_Proxy_MCP_Handler._should_auto_execute_tools(mcp_tools_mixed) == False
+    assert EmbRouter_Proxy_MCP_Handler._should_auto_execute_tools(mcp_tools_mixed) == False
     mcp_tools_manual = [{"require_approval": "never"}, {"require_approval": "manual"}]
-    assert LiteLLM_Proxy_MCP_Handler._should_auto_execute_tools(mcp_tools_manual) == False
-    assert LiteLLM_Proxy_MCP_Handler._should_auto_execute_tools([]) == False
+    assert EmbRouter_Proxy_MCP_Handler._should_auto_execute_tools(mcp_tools_manual) == False
+    assert EmbRouter_Proxy_MCP_Handler._should_auto_execute_tools([]) == False
 
     print("✓ MCP helper methods test passed!")
 
@@ -165,7 +165,7 @@ async def test_mcp_output_elements_addition():
     ]
 
     # Test adding output elements
-    updated_response = LiteLLM_Proxy_MCP_Handler._add_mcp_output_elements_to_response(
+    updated_response = EmbRouter_Proxy_MCP_Handler._add_mcp_output_elements_to_response(
         response=mock_response,
         mcp_tools_fetched=mock_mcp_tools,
         tool_results=mock_tool_results,
@@ -211,31 +211,31 @@ async def test_aresponses_api_with_mcp_mock_integration():
     Test the core MCP integration logic without complex external mocking.
     This focuses on verifying the MCP tool parsing and handling works correctly.
     """
-    # Define MCP tools with litellm_proxy server_url and require_approval="never"
+    # Define MCP tools with embrouter_proxy server_url and require_approval="never"
     mcp_tools: List[OpenAIMcpServerTool] = [
         {
             "type": "mcp",
-            "server_url": "litellm_proxy",
+            "server_url": "embrouter_proxy",
             "require_approval": "never",
             "server_label": "test_server",
         }
     ]
 
     # Test the helper methods that the integration relies on
-    from litellm.responses.mcp.litellm_proxy_mcp_handler import (
-        LiteLLM_Proxy_MCP_Handler,
+    from embrouter.responses.mcp.embrouter_proxy_mcp_handler import (
+        EmbRouter_Proxy_MCP_Handler,
     )
 
     # Test 1: Verify MCP tools are detected correctly
-    should_use_mcp = LiteLLM_Proxy_MCP_Handler._should_use_litellm_mcp_gateway(
+    should_use_mcp = EmbRouter_Proxy_MCP_Handler._should_use_embrouter_mcp_gateway(
         cast(Any, mcp_tools)
     )
     assert (
         should_use_mcp == True
-    ), "Should detect MCP tools with litellm_proxy server_url"
+    ), "Should detect MCP tools with embrouter_proxy server_url"
 
     # Test 2: Verify auto-execution detection works
-    should_auto_execute = LiteLLM_Proxy_MCP_Handler._should_auto_execute_tools(
+    should_auto_execute = EmbRouter_Proxy_MCP_Handler._should_auto_execute_tools(
         cast(Any, mcp_tools)
     )
     assert (
@@ -243,13 +243,13 @@ async def test_aresponses_api_with_mcp_mock_integration():
     ), "Should auto-execute tools with require_approval='never'"
 
     # Test 3: Verify tool parsing works correctly
-    mcp_parsed, other_parsed = LiteLLM_Proxy_MCP_Handler._parse_mcp_tools(
+    mcp_parsed, other_parsed = EmbRouter_Proxy_MCP_Handler._parse_mcp_tools(
         cast(Any, mcp_tools)
     )
     assert len(mcp_parsed) == 1, "Should parse one MCP tool"
     assert len(other_parsed) == 0, "Should have no other tools"
     assert mcp_parsed[0]["type"] == "mcp", "Parsed tool should be MCP type"
-    assert mcp_parsed[0]["server_url"] == "litellm_proxy", "Should preserve server_url"
+    assert mcp_parsed[0]["server_url"] == "embrouter_proxy", "Should preserve server_url"
     assert (
         mcp_parsed[0].get("require_approval") == "never"
     ), "Should preserve require_approval"
@@ -259,7 +259,7 @@ async def test_aresponses_api_with_mcp_mock_integration():
         {"type": "function", "name": "test_function", "parameters": {"type": "object"}}
     ]
 
-    mcp_parsed, other_parsed = LiteLLM_Proxy_MCP_Handler._parse_mcp_tools(
+    mcp_parsed, other_parsed = EmbRouter_Proxy_MCP_Handler._parse_mcp_tools(
         cast(Any, mixed_tools)
     )
     assert len(mcp_parsed) == 1, "Should parse one MCP tool from mixed list"
@@ -278,7 +278,7 @@ async def test_aresponses_api_with_mcp_passes_mcp_server_auth_headers_to_process
     Test that MCP auth headers from secret_fields (e.g. x-mcp-linear_config-authorization)
     are passed to _process_mcp_tools_without_openai_transform when using the responses API.
     """
-    from litellm.responses.main import aresponses_api_with_mcp
+    from embrouter.responses.main import aresponses_api_with_mcp
 
     captured_process_kwargs = {}
 
@@ -322,19 +322,19 @@ async def test_aresponses_api_with_mcp_passes_mcp_server_auth_headers_to_process
         }
     )
 
-    mcp_tools = [{"type": "mcp", "server_url": "litellm_proxy"}]
+    mcp_tools = [{"type": "mcp", "server_url": "embrouter_proxy"}]
     secret_fields = {
         "raw_headers": {"x-mcp-linear_config-authorization": "Bearer linear-token"},
     }
 
     with (
         patch.object(
-            LiteLLM_Proxy_MCP_Handler,
+            EmbRouter_Proxy_MCP_Handler,
             "_process_mcp_tools_without_openai_transform",
             mock_process,
         ),
         patch(
-            "litellm.responses.main.aresponses",
+            "embrouter.responses.main.aresponses",
             new_callable=AsyncMock,
             return_value=mock_response,
         ),
@@ -363,8 +363,8 @@ async def test_mcp_allowed_tools_filtering():
     This test verifies that when allowed_tools is specified in MCP tool config,
     only the allowed tools are passed to the LLM.
     """
-    from litellm.responses.mcp.litellm_proxy_mcp_handler import (
-        LiteLLM_Proxy_MCP_Handler,
+    from embrouter.responses.mcp.embrouter_proxy_mcp_handler import (
+        EmbRouter_Proxy_MCP_Handler,
     )
 
     # Mock MCP tools returned from the server (simulating all available tools)
@@ -415,9 +415,9 @@ async def test_mcp_allowed_tools_filtering():
     ]
 
     # Filter tools using the helper function
-    filtered_tools = LiteLLM_Proxy_MCP_Handler._filter_mcp_tools_by_allowed_tools(
+    filtered_tools = EmbRouter_Proxy_MCP_Handler._filter_mcp_tools_by_allowed_tools(
         mcp_tools=mock_mcp_tools_from_server,
-        mcp_tools_with_litellm_proxy=cast(
+        mcp_tools_with_embrouter_proxy=cast(
             List[ToolParam], mcp_tool_config_with_allowed_tools
         ),
     )
@@ -457,9 +457,9 @@ async def test_mcp_allowed_tools_filtering():
         }
     ]
 
-    filtered_tools_all = LiteLLM_Proxy_MCP_Handler._filter_mcp_tools_by_allowed_tools(
+    filtered_tools_all = EmbRouter_Proxy_MCP_Handler._filter_mcp_tools_by_allowed_tools(
         mcp_tools=mock_mcp_tools_from_server,
-        mcp_tools_with_litellm_proxy=cast(
+        mcp_tools_with_embrouter_proxy=cast(
             List[ToolParam], mcp_tool_config_without_allowed_tools
         ),
     )
@@ -475,8 +475,8 @@ async def test_mcp_allowed_tools_filtering():
     mock_mcp_tools_with_duplicates = [
         # First instance of duplicate tool
         MCPTool.model_validate({
-                "name": "GitMCP-fetch_litellm_documentation",
-                "description": "Fetch entire documentation file from GitHub repository: BerriAI/litellm. Useful for general questions. Always call this tool first if asked about BerriAI/litellm.",
+                "name": "GitMCP-fetch_embrouter_documentation",
+                "description": "Fetch entire documentation file from GitHub repository: BerriAI/embrouter. Useful for general questions. Always call this tool first if asked about BerriAI/embrouter.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {},
@@ -485,8 +485,8 @@ async def test_mcp_allowed_tools_filtering():
             }, by_name=False),
         # Second instance of duplicate tool (should be filtered out)
         MCPTool.model_validate({
-                "name": "GitMCP-fetch_litellm_documentation",
-                "description": "Fetch entire documentation file from GitHub repository: BerriAI/litellm. Useful for general questions. Always call this tool first if asked about BerriAI/litellm.",
+                "name": "GitMCP-fetch_embrouter_documentation",
+                "description": "Fetch entire documentation file from GitHub repository: BerriAI/embrouter. Useful for general questions. Always call this tool first if asked about BerriAI/embrouter.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {},
@@ -495,8 +495,8 @@ async def test_mcp_allowed_tools_filtering():
             }, by_name=False),
         # Other unique tools
         MCPTool.model_validate({
-                "name": "GitMCP-search_litellm_documentation",
-                "description": "Semantically search within the fetched documentation from GitHub repository: BerriAI/litellm. Useful for specific queries.",
+                "name": "GitMCP-search_embrouter_documentation",
+                "description": "Semantically search within the fetched documentation from GitHub repository: BerriAI/embrouter. Useful for specific queries.",
                 "inputSchema": {
                     "type": "object",
                     "properties": {"query": {"type": "string"}},
@@ -509,25 +509,25 @@ async def test_mcp_allowed_tools_filtering():
     mcp_tool_config_with_duplicates = [
         {
             "type": "mcp",
-            "server_label": "litellm",
-            "server_url": "litellm_proxy/mcp",
+            "server_label": "embrouter",
+            "server_url": "embrouter_proxy/mcp",
             "require_approval": "never",
-            "allowed_tools": ["GitMCP-fetch_litellm_documentation"],
+            "allowed_tools": ["GitMCP-fetch_embrouter_documentation"],
         }
     ]
 
     # First filter by allowed tools
     filtered_tools_with_duplicates = (
-        LiteLLM_Proxy_MCP_Handler._filter_mcp_tools_by_allowed_tools(
+        EmbRouter_Proxy_MCP_Handler._filter_mcp_tools_by_allowed_tools(
             mcp_tools=mock_mcp_tools_with_duplicates,
-            mcp_tools_with_litellm_proxy=cast(
+            mcp_tools_with_embrouter_proxy=cast(
                 List[ToolParam], mcp_tool_config_with_duplicates
             ),
         )
     )
 
     # Then deduplicate the filtered tools
-    filtered_tools_deduplicated, _ = LiteLLM_Proxy_MCP_Handler._deduplicate_mcp_tools(
+    filtered_tools_deduplicated, _ = EmbRouter_Proxy_MCP_Handler._deduplicate_mcp_tools(
         filtered_tools_with_duplicates, []
     )
 
@@ -538,25 +538,25 @@ async def test_mcp_allowed_tools_filtering():
 
     # Check that the correct tool is present
     assert (
-        filtered_tools_deduplicated[0].name == "GitMCP-fetch_litellm_documentation"
-    ), f"Expected GitMCP-fetch_litellm_documentation, got {filtered_tools_deduplicated[0].name}"
+        filtered_tools_deduplicated[0].name == "GitMCP-fetch_embrouter_documentation"
+    ), f"Expected GitMCP-fetch_embrouter_documentation, got {filtered_tools_deduplicated[0].name}"
 
     print("✓ Test Case 3: duplicate tools are properly deduplicated")
 
     # Test Case 3b: Test standalone deduplication method
-    standalone_deduplicated, _ = LiteLLM_Proxy_MCP_Handler._deduplicate_mcp_tools(
+    standalone_deduplicated, _ = EmbRouter_Proxy_MCP_Handler._deduplicate_mcp_tools(
         mock_mcp_tools_with_duplicates, allowed_mcp_servers
     )
 
-    # Should return 2 unique tools (GitMCP-fetch_litellm_documentation and GitMCP-search_litellm_documentation)
+    # Should return 2 unique tools (GitMCP-fetch_embrouter_documentation and GitMCP-search_embrouter_documentation)
     assert (
         len(standalone_deduplicated) == 2
     ), f"Expected 2 unique tools after standalone deduplication, got {len(standalone_deduplicated)}"
 
     unique_tool_names = [tool.name for tool in standalone_deduplicated]
     expected_unique_names = [
-        "GitMCP-fetch_litellm_documentation",
-        "GitMCP-search_litellm_documentation",
+        "GitMCP-fetch_embrouter_documentation",
+        "GitMCP-search_embrouter_documentation",
     ]
     assert set(unique_tool_names) == set(
         expected_unique_names
@@ -583,9 +583,9 @@ async def test_mcp_allowed_tools_filtering():
     ]
 
     filtered_tools_multiple = (
-        LiteLLM_Proxy_MCP_Handler._filter_mcp_tools_by_allowed_tools(
+        EmbRouter_Proxy_MCP_Handler._filter_mcp_tools_by_allowed_tools(
             mcp_tools=mock_mcp_tools_from_server,
-            mcp_tools_with_litellm_proxy=cast(List[ToolParam], multiple_mcp_configs),
+            mcp_tools_with_embrouter_proxy=cast(List[ToolParam], multiple_mcp_configs),
         )
     )
 
@@ -620,9 +620,9 @@ async def test_mcp_allowed_tools_filtering():
         }
     ]
 
-    filtered_tools_empty = LiteLLM_Proxy_MCP_Handler._filter_mcp_tools_by_allowed_tools(
+    filtered_tools_empty = EmbRouter_Proxy_MCP_Handler._filter_mcp_tools_by_allowed_tools(
         mcp_tools=mock_mcp_tools_from_server,
-        mcp_tools_with_litellm_proxy=cast(List[ToolParam], mcp_config_empty_allowed),
+        mcp_tools_with_embrouter_proxy=cast(List[ToolParam], mcp_config_empty_allowed),
     )
 
     # Should return all tools when allowed_tools is empty list (no filtering)
@@ -647,13 +647,13 @@ async def test_streaming_mcp_events_validation():
     """
     from unittest.mock import AsyncMock, MagicMock, patch
 
-    from litellm.types.llms.openai import ResponsesAPIStreamEvents
+    from embrouter.types.llms.openai import ResponsesAPIStreamEvents
 
     # Mock MCP tools that would be returned from the manager
     mock_mcp_tools = [
         MCPTool.model_validate({
                 "name": "search_repo",
-                "description": "Search BerriAI/litellm repository for information",
+                "description": "Search BerriAI/embrouter repository for information",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -727,17 +727,17 @@ async def test_streaming_mcp_events_validation():
     # Mock the MCP operations and the inner aresponses call
     with (
         patch.object(
-            LiteLLM_Proxy_MCP_Handler,
+            EmbRouter_Proxy_MCP_Handler,
             "_get_mcp_tools_from_manager",
             new_callable=AsyncMock,
         ) as mock_get_tools,
         patch.object(
-            LiteLLM_Proxy_MCP_Handler,
+            EmbRouter_Proxy_MCP_Handler,
             "_execute_tool_calls",
             new_callable=AsyncMock,
         ) as mock_execute_tools,
         patch(
-            "litellm.responses.main.aresponses",
+            "embrouter.responses.main.aresponses",
             new_callable=AsyncMock,
             return_value=fake_stream,
         ),
@@ -763,7 +763,7 @@ async def test_streaming_mcp_events_validation():
                     results.append(
                         {
                             "tool_call_id": call_id,
-                            "result": "LiteLLM is a unified interface for 100+ LLMs.",
+                            "result": "EmbRouter is a unified interface for 100+ LLMs.",
                         }
                     )
             return results
@@ -773,12 +773,12 @@ async def test_streaming_mcp_events_validation():
         # Configure MCP tool with streaming and auto-execution
         mcp_tool_config = {
             "type": "mcp",
-            "server_url": "litellm_proxy/mcp/test_server",
+            "server_url": "embrouter_proxy/mcp/test_server",
             "require_approval": "never",  # This enables auto-execution
         }
 
         # Make streaming request with MCP tools
-        response = await litellm.aresponses(
+        response = await embrouter.aresponses(
             model="gpt-4o-mini",
             tools=[mcp_tool_config],
             tool_choice="required",
@@ -786,7 +786,7 @@ async def test_streaming_mcp_events_validation():
                 {
                     "role": "user",
                     "type": "message",
-                    "content": "What is LiteLLM? Give me a brief overview.",
+                    "content": "What is EmbRouter? Give me a brief overview.",
                 }
             ],
             stream=True,
@@ -854,8 +854,8 @@ async def test_mcp_parameter_preparation_helpers():
     2. _prepare_follow_up_call_params - restores stream and removes tool_choice
     3. _build_request_params - clean parameter merging
     """
-    from litellm.responses.mcp.litellm_proxy_mcp_handler import (
-        LiteLLM_Proxy_MCP_Handler,
+    from embrouter.responses.mcp.embrouter_proxy_mcp_handler import (
+        EmbRouter_Proxy_MCP_Handler,
     )
 
     print("🧪 Testing MCP parameter preparation helpers...")
@@ -869,7 +869,7 @@ async def test_mcp_parameter_preparation_helpers():
     }
 
     # Test Case 1: Auto-execute scenario (should disable streaming)
-    initial_params_auto = LiteLLM_Proxy_MCP_Handler._prepare_initial_call_params(
+    initial_params_auto = EmbRouter_Proxy_MCP_Handler._prepare_initial_call_params(
         call_params=base_call_params, should_auto_execute=True
     )
 
@@ -885,7 +885,7 @@ async def test_mcp_parameter_preparation_helpers():
     print("✅ _prepare_initial_call_params (auto-execute) works correctly")
 
     # Test Case 2: No auto-execute scenario (should preserve streaming)
-    initial_params_no_auto = LiteLLM_Proxy_MCP_Handler._prepare_initial_call_params(
+    initial_params_no_auto = EmbRouter_Proxy_MCP_Handler._prepare_initial_call_params(
         call_params=base_call_params, should_auto_execute=False
     )
 
@@ -899,7 +899,7 @@ async def test_mcp_parameter_preparation_helpers():
     print("✅ _prepare_initial_call_params (no auto-execute) works correctly")
 
     # Test _prepare_follow_up_call_params
-    follow_up_params = LiteLLM_Proxy_MCP_Handler._prepare_follow_up_call_params(
+    follow_up_params = EmbRouter_Proxy_MCP_Handler._prepare_follow_up_call_params(
         call_params=base_call_params, original_stream_setting=True
     )
 
@@ -924,7 +924,7 @@ async def test_mcp_parameter_preparation_helpers():
     previous_response_id = "resp_123"
     extra_kwargs = {"custom_param": "test_value"}
 
-    request_params = LiteLLM_Proxy_MCP_Handler._build_request_params(
+    request_params = EmbRouter_Proxy_MCP_Handler._build_request_params(
         input=input_data,
         model=model,
         all_tools=tools,
@@ -953,7 +953,7 @@ async def test_mcp_parameter_preparation_helpers():
     print("✅ _build_request_params works correctly")
 
     # Test _build_request_params with None previous_response_id
-    request_params_no_prev = LiteLLM_Proxy_MCP_Handler._build_request_params(
+    request_params_no_prev = EmbRouter_Proxy_MCP_Handler._build_request_params(
         input=input_data,
         model=model,
         all_tools=tools,
@@ -975,8 +975,8 @@ async def test_mcp_tool_execution_events_creation():
     """
     Test the _create_tool_execution_events helper method for generating streaming events.
     """
-    from litellm.responses.mcp.litellm_proxy_mcp_handler import (
-        LiteLLM_Proxy_MCP_Handler,
+    from embrouter.responses.mcp.embrouter_proxy_mcp_handler import (
+        EmbRouter_Proxy_MCP_Handler,
     )
 
     print("Testing MCP tool execution events creation...")
@@ -986,7 +986,7 @@ async def test_mcp_tool_execution_events_creation():
         {
             "id": "call_abc123",
             "name": "search_repo",
-            "arguments": '{"query": "LiteLLM overview"}',
+            "arguments": '{"query": "EmbRouter overview"}',
             "type": "function_call",
         },
         {
@@ -1001,16 +1001,16 @@ async def test_mcp_tool_execution_events_creation():
     mock_tool_results = [
         {
             "tool_call_id": "call_abc123",
-            "result": "LiteLLM is a unified interface for 100+ LLMs",
+            "result": "EmbRouter is a unified interface for 100+ LLMs",
         },
         {
             "tool_call_id": "call_def456",
-            "result": "Repository: BerriAI/litellm - Python library for LLM integration",
+            "result": "Repository: BerriAI/embrouter - Python library for LLM integration",
         },
     ]
 
     # Create tool execution events
-    execution_events = LiteLLM_Proxy_MCP_Handler._create_tool_execution_events(
+    execution_events = EmbRouter_Proxy_MCP_Handler._create_tool_execution_events(
         tool_calls=mock_tool_calls, tool_results=mock_tool_results
     )
 
@@ -1036,7 +1036,7 @@ async def test_mcp_tool_execution_events_creation():
     print("Tool execution events have proper structure")
 
     # Test with empty inputs
-    empty_events = LiteLLM_Proxy_MCP_Handler._create_tool_execution_events(
+    empty_events = EmbRouter_Proxy_MCP_Handler._create_tool_execution_events(
         tool_calls=[], tool_results=[]
     )
 
@@ -1059,8 +1059,8 @@ async def test_no_duplicate_mcp_tools_in_streaming_e2e():
     sent to the LLM to ensure no duplication occurs.
     """
     from unittest.mock import AsyncMock, patch
-    from litellm.responses.mcp.litellm_proxy_mcp_handler import (
-        LiteLLM_Proxy_MCP_Handler,
+    from embrouter.responses.mcp.embrouter_proxy_mcp_handler import (
+        EmbRouter_Proxy_MCP_Handler,
     )
 
     print("Testing no duplicate MCP tools in streaming E2E...")
@@ -1111,11 +1111,11 @@ async def test_no_duplicate_mcp_tools_in_streaming_e2e():
     # Mock both the MCP manager and the underlying LLM call
     with (
         patch.object(
-            LiteLLM_Proxy_MCP_Handler,
+            EmbRouter_Proxy_MCP_Handler,
             "_get_mcp_tools_from_manager",
             new_callable=AsyncMock,
         ) as mock_get_tools,
-        patch("litellm.aresponses", side_effect=capture_llm_tools) as mock_aresponses,
+        patch("embrouter.aresponses", side_effect=capture_llm_tools) as mock_aresponses,
     ):
 
         # Setup MCP mock to return our test tools
@@ -1124,7 +1124,7 @@ async def test_no_duplicate_mcp_tools_in_streaming_e2e():
         # Configure MCP tool for streaming
         mcp_tool_config = {
             "type": "mcp",
-            "server_url": "litellm_proxy/mcp/test_server",
+            "server_url": "embrouter_proxy/mcp/test_server",
             "require_approval": "always",  # Disable auto-execution to focus on tool duplication
         }
 
@@ -1132,7 +1132,7 @@ async def test_no_duplicate_mcp_tools_in_streaming_e2e():
 
         # Make streaming request with MCP tools
         try:
-            response = await litellm.aresponses(
+            response = await embrouter.aresponses(
                 model="gpt-4o-mini",
                 tools=[mcp_tool_config],
                 input=[

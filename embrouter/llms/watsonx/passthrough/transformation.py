@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING, Final
 
-from litellm.llms.base_llm.passthrough.transformation import BasePassthroughConfig
-from litellm.llms.watsonx.common_utils import IBMWatsonXMixin
+from embrouter.llms.base_llm.passthrough.transformation import BasePassthroughConfig
+from embrouter.llms.watsonx.common_utils import IBMWatsonXMixin
 
 if TYPE_CHECKING:
     from httpx import URL
@@ -23,7 +23,7 @@ class WatsonxPassthroughConfig(IBMWatsonXMixin, BasePassthroughConfig):
         model: str,
         endpoint: str,
         request_query_params: dict | None,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> tuple["URL", str]:
         """
         Construct complete Watsonx URL with version parameter.

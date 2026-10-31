@@ -10,8 +10,8 @@ from unittest.mock import patch
 import pytest
 from starlette.routing import WebSocketRoute
 
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
     _OPENAI_WS_DISABLED_REFUSAL,
     _OPENAI_WS_MODEL_RESTRICTED_REFUSAL,
     _has_model_restrictions,
@@ -31,7 +31,7 @@ DISABLED_SETTINGS: Final = (
     MappingProxyType({"enable_openai_websocket_passthrough": None}),
 )
 GET_CREDENTIALS: Final = (
-    "litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials"
+    "embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints.passthrough_endpoint_router.get_credentials"
 )
 
 
@@ -291,7 +291,7 @@ async def test_openai_websocket_allows_unrestricted_identities(scopes):
 @pytest.mark.asyncio
 async def test_proxy_model_allowlists_reads_the_token_scopes_without_a_database():
     token: Final = UserAPIKeyAuth(models=[], team_id="team-fake", team_models=["gpt-4o"])
-    with patch("litellm.proxy.proxy_server.prisma_client", None):
+    with patch("embrouter.proxy.proxy_server.prisma_client", None):
         scopes = await _proxy_model_allowlists()(token)
 
     assert tuple(tuple(scope) for scope in scopes) == ((), ("gpt-4o",))

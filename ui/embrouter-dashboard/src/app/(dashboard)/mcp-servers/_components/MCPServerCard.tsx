@@ -62,7 +62,7 @@ const MCPServerCard: FC<MCPServerCardProps> = ({
   const authType = server.auth_type || "none";
   // An oauth2 server with no persisted oauth2_flow was never classified as M2M vs
   // interactive; flag it so an admin can set it from the edit page (see the OAuth
-  // Flow Type selector) instead of leaving LiteLLM to fall back to a default.
+  // Flow Type selector) instead of leaving EmbRouter to fall back to a default.
   // Delegate (PKCE passthrough) servers authenticate upstream and route to
   // passthrough regardless of oauth2_flow, so the classification does not apply to
   // them and they are not flagged.

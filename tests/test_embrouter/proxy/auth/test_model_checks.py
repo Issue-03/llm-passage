@@ -4,7 +4,7 @@ import pytest
 
 
 def test_get_team_models_for_all_models_and_team_only_models():
-    from litellm.proxy.auth.model_checks import get_team_models
+    from embrouter.proxy.auth.model_checks import get_team_models
 
     team_models = ["all-proxy-models", "team-only-model", "team-only-model-2"]
     proxy_model_list = ["model1", "model2", "model3"]
@@ -24,7 +24,7 @@ def test_get_team_models_all_proxy_models_includes_access_groups():
     the result should include model access group names (e.g. 'claude-model-group')
     in addition to individual model names.
     """
-    from litellm.proxy.auth.model_checks import get_team_models
+    from embrouter.proxy.auth.model_checks import get_team_models
 
     team_models = ["all-proxy-models"]
     proxy_model_list = ["model1", "model2"]
@@ -51,7 +51,7 @@ def test_get_team_models_all_proxy_models_without_include_flag():
     When include_model_access_groups=False, access group names should NOT
     appear in the result even with 'all-proxy-models'.
     """
-    from litellm.proxy.auth.model_checks import get_team_models
+    from embrouter.proxy.auth.model_checks import get_team_models
 
     team_models = ["all-proxy-models"]
     proxy_model_list = ["model1", "model2"]
@@ -77,8 +77,8 @@ def test_get_key_models_all_proxy_models_includes_access_groups():
     When a key has 'all-proxy-models' and include_model_access_groups=True,
     the result should include model access group names.
     """
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.auth.model_checks import get_key_models
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy.auth.model_checks import get_key_models
 
     user_api_key_dict = UserAPIKeyAuth(
         models=["all-proxy-models"],
@@ -107,8 +107,8 @@ def test_get_key_models_passes_include_model_access_groups():
     include_model_access_groups=True, the group name should be retained
     (not stripped by _get_models_from_access_groups).
     """
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.auth.model_checks import get_key_models
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy.auth.model_checks import get_key_models
 
     user_api_key_dict = UserAPIKeyAuth(
         models=["group-a"],
@@ -134,8 +134,8 @@ def test_get_key_models_keeps_literal_model_colliding_with_group_name():
     """A name that is BOTH a deployed model and an access group grants both at
     runtime (_check_model_access_helper unions them), so the listing must keep
     the literal model alongside the group members instead of dropping it."""
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.auth.model_checks import get_key_models
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy.auth.model_checks import get_key_models
 
     user_api_key_dict = UserAPIKeyAuth(models=["beta-models"], api_key="test-key")
 
@@ -150,7 +150,7 @@ def test_get_key_models_keeps_literal_model_colliding_with_group_name():
 
 def test_get_team_models_keeps_literal_model_colliding_with_group_name():
     """Team flavor of the collision case: literal deployment survives group expansion."""
-    from litellm.proxy.auth.model_checks import get_team_models
+    from embrouter.proxy.auth.model_checks import get_team_models
 
     result = get_team_models(
         team_models=["beta-models"],
@@ -163,7 +163,7 @@ def test_get_team_models_keeps_literal_model_colliding_with_group_name():
 
 def test_get_team_models_drops_group_name_that_is_not_a_deployed_model():
     """No collision: a pure access-group name is still replaced by its members."""
-    from litellm.proxy.auth.model_checks import get_team_models
+    from embrouter.proxy.auth.model_checks import get_team_models
 
     result = get_team_models(
         team_models=["beta-models"],
@@ -180,8 +180,8 @@ def test_get_key_models_does_not_mutate_input():
     _get_models_from_access_groups uses .pop()/.extend() which would corrupt
     cached UserAPIKeyAuth objects if all_models were an alias instead of a copy.
     """
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.auth.model_checks import get_key_models
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy.auth.model_checks import get_key_models
 
     original_models = ["group-a", "extra-model"]
     user_api_key_dict = UserAPIKeyAuth(
@@ -212,7 +212,7 @@ def test_get_key_models_does_not_mutate_input():
             ],
             [],
             [],
-            [{"model_name": "anthropic/*", "litellm_params": {"model": "anthropic/*"}}],
+            [{"model_name": "anthropic/*", "embrouter_params": {"model": "anthropic/*"}}],
             [
                 "anthropic/claude-3-haiku-20240307",
                 "anthropic/claude-3-5-haiku-20241022",
@@ -225,7 +225,7 @@ def test_get_key_models_does_not_mutate_input():
                 "anthropic/claude-3-5-haiku-20241022",
             ],
             [],
-            [{"model_name": "anthropic/*", "litellm_params": {"model": "anthropic/*"}}],
+            [{"model_name": "anthropic/*", "embrouter_params": {"model": "anthropic/*"}}],
             [
                 "anthropic/claude-3-haiku-20240307",
                 "anthropic/claude-3-5-haiku-20241022",
@@ -238,7 +238,7 @@ def test_get_key_models_does_not_mutate_input():
                 "anthropic/claude-3-haiku-20240307",
                 "anthropic/claude-3-5-haiku-20241022",
             ],
-            [{"model_name": "anthropic/*", "litellm_params": {"model": "anthropic/*"}}],
+            [{"model_name": "anthropic/*", "embrouter_params": {"model": "anthropic/*"}}],
             [
                 "anthropic/claude-3-haiku-20240307",
                 "anthropic/claude-3-5-haiku-20241022",
@@ -252,8 +252,8 @@ def test_get_complete_model_list_order(
     """
     Test that get_complete_model_list preserves order
     """
-    from litellm.proxy.auth.model_checks import get_complete_model_list
-    from litellm import Router
+    from embrouter.proxy.auth.model_checks import get_complete_model_list
+    from embrouter import Router
 
     assert (
         get_complete_model_list(
@@ -274,8 +274,8 @@ def test_get_complete_model_list_byok_wildcard_expansion():
     no deployment for them - BYOK case where team has openai/* but proxy has
     no openai config.
     """
-    from litellm.proxy.auth.model_checks import get_complete_model_list
-    from litellm import Router
+    from embrouter.proxy.auth.model_checks import get_complete_model_list
+    from embrouter import Router
 
     # Router with empty model_list - no openai/* deployment (BYOK scenario)
     result = get_complete_model_list(
@@ -299,14 +299,14 @@ def test_get_complete_model_list_expands_team_scoped_wildcard_with_stored_creden
     Team-scoped BYOK wildcard deployments are stored under an internal model_name,
     with the public wildcard name in model_info.team_public_model_name.
     """
-    import litellm
-    from litellm import Router
-    from litellm.proxy.auth import model_checks
-    from litellm.proxy.auth.model_checks import get_complete_model_list
-    from litellm.types.utils import CredentialItem
+    import embrouter
+    from embrouter import Router
+    from embrouter.proxy.auth import model_checks
+    from embrouter.proxy.auth.model_checks import get_complete_model_list
+    from embrouter.types.utils import CredentialItem
 
     monkeypatch.setattr(
-        litellm,
+        embrouter,
         "credential_list",
         [
             CredentialItem(
@@ -322,11 +322,11 @@ def test_get_complete_model_list_expands_team_scoped_wildcard_with_stored_creden
 
     captured_params = {}
 
-    def fake_get_provider_models(provider, litellm_params=None):
+    def fake_get_provider_models(provider, embrouter_params=None):
         captured_params["provider"] = provider
-        captured_params["api_key"] = litellm_params.api_key
-        captured_params["api_base"] = litellm_params.api_base
-        captured_params["credential_name"] = litellm_params.litellm_credential_name
+        captured_params["api_key"] = embrouter_params.api_key
+        captured_params["api_base"] = embrouter_params.api_base
+        captured_params["credential_name"] = embrouter_params.embrouter_credential_name
         return ["gpt-4o"]
 
     monkeypatch.setattr(model_checks, "get_provider_models", fake_get_provider_models)
@@ -335,10 +335,10 @@ def test_get_complete_model_list_expands_team_scoped_wildcard_with_stored_creden
         model_list=[
             {
                 "model_name": "model_name_team-1_generated",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/*",
                     "custom_llm_provider": "openai",
-                    "litellm_credential_name": "openai-credential",
+                    "embrouter_credential_name": "openai-credential",
                 },
                 "model_info": {
                     "team_id": "team-1",
@@ -370,14 +370,14 @@ def test_get_complete_model_list_expands_team_scoped_wildcard_with_stored_creden
 def test_wildcard_credential_hydration_preserves_deployment_params(
     monkeypatch,
 ):
-    import litellm
-    from litellm.proxy.auth import model_checks
-    from litellm.proxy.auth.model_checks import get_known_models_from_wildcard
-    from litellm.types.router import LiteLLM_Params
-    from litellm.types.utils import CredentialItem
+    import embrouter
+    from embrouter.proxy.auth import model_checks
+    from embrouter.proxy.auth.model_checks import get_known_models_from_wildcard
+    from embrouter.types.router import EmbRouter_Params
+    from embrouter.types.utils import CredentialItem
 
     monkeypatch.setattr(
-        litellm,
+        embrouter,
         "credential_list",
         [
             CredentialItem(
@@ -395,14 +395,14 @@ def test_wildcard_credential_hydration_preserves_deployment_params(
 
     captured_params = {}
 
-    def fake_get_provider_models(provider, litellm_params=None):
+    def fake_get_provider_models(provider, embrouter_params=None):
         captured_params["provider"] = provider
-        captured_params["model"] = litellm_params.model
-        captured_params["api_key"] = litellm_params.api_key
-        captured_params["api_version"] = litellm_params.api_version
-        captured_params["credential_name"] = litellm_params.litellm_credential_name
+        captured_params["model"] = embrouter_params.model
+        captured_params["api_key"] = embrouter_params.api_key
+        captured_params["api_version"] = embrouter_params.api_version
+        captured_params["credential_name"] = embrouter_params.embrouter_credential_name
         captured_params["has_unexpected_field"] = hasattr(
-            litellm_params, "unexpected_field"
+            embrouter_params, "unexpected_field"
         )
         return ["gpt-4o"]
 
@@ -410,11 +410,11 @@ def test_wildcard_credential_hydration_preserves_deployment_params(
 
     result = get_known_models_from_wildcard(
         wildcard_model="openai/*",
-        litellm_params=LiteLLM_Params(
+        embrouter_params=EmbRouter_Params(
             model="openai/*",
             custom_llm_provider="openai",
             api_version="deployment-version",
-            litellm_credential_name="openai-credential",
+            embrouter_credential_name="openai-credential",
         ),
     )
 
@@ -436,19 +436,19 @@ def test_wildcard_custom_prefix_does_not_stack_provider_prefix(monkeypatch):
     instances) must not stack the provider's own prefix onto the expanded model ids. The expanded
     ids should be ``ollama_server1/gemma3:1b`` rather than ``ollama_server1/ollama/gemma3:1b``.
     """
-    from litellm.proxy.auth import model_checks
-    from litellm.proxy.auth.model_checks import get_known_models_from_wildcard
-    from litellm.types.router import LiteLLM_Params
+    from embrouter.proxy.auth import model_checks
+    from embrouter.proxy.auth.model_checks import get_known_models_from_wildcard
+    from embrouter.types.router import EmbRouter_Params
 
     monkeypatch.setattr(
         model_checks,
         "get_provider_models",
-        lambda provider, litellm_params=None: ["ollama/gemma3:1b", "ollama/llama3:8b"],
+        lambda provider, embrouter_params=None: ["ollama/gemma3:1b", "ollama/llama3:8b"],
     )
 
     result = get_known_models_from_wildcard(
         wildcard_model="ollama_server1/*",
-        litellm_params=LiteLLM_Params(
+        embrouter_params=EmbRouter_Params(
             model="ollama_chat/*", custom_llm_provider="ollama_chat"
         ),
     )
@@ -461,23 +461,23 @@ def test_wildcard_custom_prefix_keeps_org_segment_for_non_provider_first_segment
 ):
     """Only a known provider prefix should be stripped before re-prefixing.
 
-    If ``get_provider_models`` returns ids whose first segment is an org rather than a litellm
+    If ``get_provider_models`` returns ids whose first segment is an org rather than a embrouter
     provider (e.g. ``meta-llama/Llama-3-8B``), stripping the first slash segment would drop the
     org and produce an uncallable id. The org segment must be preserved.
     """
-    from litellm.proxy.auth import model_checks
-    from litellm.proxy.auth.model_checks import get_known_models_from_wildcard
-    from litellm.types.router import LiteLLM_Params
+    from embrouter.proxy.auth import model_checks
+    from embrouter.proxy.auth.model_checks import get_known_models_from_wildcard
+    from embrouter.types.router import EmbRouter_Params
 
     monkeypatch.setattr(
         model_checks,
         "get_provider_models",
-        lambda provider, litellm_params=None: ["meta-llama/Llama-3-8B"],
+        lambda provider, embrouter_params=None: ["meta-llama/Llama-3-8B"],
     )
 
     result = get_known_models_from_wildcard(
         wildcard_model="my_hf/*",
-        litellm_params=LiteLLM_Params(
+        embrouter_params=EmbRouter_Params(
             model="huggingface/*", custom_llm_provider="huggingface"
         ),
     )
@@ -488,30 +488,30 @@ def test_wildcard_custom_prefix_keeps_org_segment_for_non_provider_first_segment
 def test_wildcard_credential_hydration_preserves_missing_credential_name(
     monkeypatch,
 ):
-    import litellm
-    from litellm.proxy.auth import model_checks
-    from litellm.proxy.auth.model_checks import get_known_models_from_wildcard
-    from litellm.types.router import LiteLLM_Params
+    import embrouter
+    from embrouter.proxy.auth import model_checks
+    from embrouter.proxy.auth.model_checks import get_known_models_from_wildcard
+    from embrouter.types.router import EmbRouter_Params
 
-    monkeypatch.setattr(litellm, "credential_list", [])
+    monkeypatch.setattr(embrouter, "credential_list", [])
 
     captured_params = {}
 
-    def fake_get_provider_models(provider, litellm_params=None):
+    def fake_get_provider_models(provider, embrouter_params=None):
         captured_params["provider"] = provider
-        captured_params["api_key"] = litellm_params.api_key
-        captured_params["credential_name"] = litellm_params.litellm_credential_name
+        captured_params["api_key"] = embrouter_params.api_key
+        captured_params["credential_name"] = embrouter_params.embrouter_credential_name
         return ["gpt-4o"]
 
     monkeypatch.setattr(model_checks, "get_provider_models", fake_get_provider_models)
 
     result = get_known_models_from_wildcard(
         wildcard_model="openai/*",
-        litellm_params=LiteLLM_Params(
+        embrouter_params=EmbRouter_Params(
             model="openai/*",
             custom_llm_provider="openai",
             api_key=None,
-            litellm_credential_name="missing-credential",
+            embrouter_credential_name="missing-credential",
         ),
     )
 
@@ -524,13 +524,13 @@ def test_wildcard_credential_hydration_preserves_missing_credential_name(
 
 
 def test_hydrate_credential_name_none_leaves_params_untouched(monkeypatch):
-    import litellm
-    from litellm.proxy.auth.model_checks import _hydrate_litellm_credential_name
-    from litellm.types.router import LiteLLM_Params
-    from litellm.types.utils import CredentialItem
+    import embrouter
+    from embrouter.proxy.auth.model_checks import _hydrate_embrouter_credential_name
+    from embrouter.types.router import EmbRouter_Params
+    from embrouter.types.utils import CredentialItem
 
     monkeypatch.setattr(
-        litellm,
+        embrouter,
         "credential_list",
         [
             CredentialItem(
@@ -540,23 +540,23 @@ def test_hydrate_credential_name_none_leaves_params_untouched(monkeypatch):
             )
         ],
     )
-    params = LiteLLM_Params(model="openai/gpt-4o", litellm_credential_name=None)
+    params = EmbRouter_Params(model="openai/gpt-4o", embrouter_credential_name=None)
 
-    result = _hydrate_litellm_credential_name(params)
+    result = _hydrate_embrouter_credential_name(params)
 
     assert result is not None
     assert result.api_key is None
-    assert result.litellm_credential_name is None
+    assert result.embrouter_credential_name is None
 
 
 def test_hydrate_replaced_credential_uses_new_credential_values(monkeypatch):
-    import litellm
-    from litellm.proxy.auth.model_checks import _hydrate_litellm_credential_name
-    from litellm.types.router import LiteLLM_Params
-    from litellm.types.utils import CredentialItem
+    import embrouter
+    from embrouter.proxy.auth.model_checks import _hydrate_embrouter_credential_name
+    from embrouter.types.router import EmbRouter_Params
+    from embrouter.types.utils import CredentialItem
 
     monkeypatch.setattr(
-        litellm,
+        embrouter,
         "credential_list",
         [
             CredentialItem(
@@ -571,23 +571,23 @@ def test_hydrate_replaced_credential_uses_new_credential_values(monkeypatch):
             ),
         ],
     )
-    params = LiteLLM_Params(model="openai/gpt-4o", litellm_credential_name="other-credential")
+    params = EmbRouter_Params(model="openai/gpt-4o", embrouter_credential_name="other-credential")
 
-    result = _hydrate_litellm_credential_name(params)
+    result = _hydrate_embrouter_credential_name(params)
 
     assert result is not None
     assert result.api_key == "sk-other"
-    assert result.litellm_credential_name is None
+    assert result.embrouter_credential_name is None
 
 
 def test_hydrate_inline_api_key_wins_over_stored_credential(monkeypatch):
-    import litellm
-    from litellm.proxy.auth.model_checks import _hydrate_litellm_credential_name
-    from litellm.types.router import LiteLLM_Params
-    from litellm.types.utils import CredentialItem
+    import embrouter
+    from embrouter.proxy.auth.model_checks import _hydrate_embrouter_credential_name
+    from embrouter.types.router import EmbRouter_Params
+    from embrouter.types.utils import CredentialItem
 
     monkeypatch.setattr(
-        litellm,
+        embrouter,
         "credential_list",
         [
             CredentialItem(
@@ -597,13 +597,13 @@ def test_hydrate_inline_api_key_wins_over_stored_credential(monkeypatch):
             )
         ],
     )
-    params = LiteLLM_Params(
+    params = EmbRouter_Params(
         model="openai/gpt-4o",
         api_key="sk-inline",
-        litellm_credential_name="shared-credential",
+        embrouter_credential_name="shared-credential",
     )
 
-    result = _hydrate_litellm_credential_name(params)
+    result = _hydrate_embrouter_credential_name(params)
 
     assert result is not None
     assert result.api_key == "sk-inline"
@@ -613,15 +613,15 @@ def test_hydrate_inline_api_key_wins_over_stored_credential(monkeypatch):
 async def test_get_available_models_for_user_expands_query_team_wildcard(
     monkeypatch,
 ):
-    import litellm
-    from litellm import Router
-    from litellm.proxy.auth import model_checks
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.utils import get_available_models_for_user
-    from litellm.types.utils import CredentialItem
+    import embrouter
+    from embrouter import Router
+    from embrouter.proxy.auth import model_checks
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy.utils import get_available_models_for_user
+    from embrouter.types.utils import CredentialItem
 
     monkeypatch.setattr(
-        litellm,
+        embrouter,
         "credential_list",
         [
             CredentialItem(
@@ -632,9 +632,9 @@ async def test_get_available_models_for_user_expands_query_team_wildcard(
         ],
     )
 
-    def fake_get_provider_models(provider, litellm_params=None):
-        assert litellm_params.api_key == "stored-openai-key"
-        assert litellm_params.litellm_credential_name is None
+    def fake_get_provider_models(provider, embrouter_params=None):
+        assert embrouter_params.api_key == "stored-openai-key"
+        assert embrouter_params.embrouter_credential_name is None
         return ["gpt-4o-mini"]
 
     monkeypatch.setattr(model_checks, "get_provider_models", fake_get_provider_models)
@@ -643,10 +643,10 @@ async def test_get_available_models_for_user_expands_query_team_wildcard(
         model_list=[
             {
                 "model_name": "model_name_team-1_generated",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/*",
                     "custom_llm_provider": "openai",
-                    "litellm_credential_name": "openai-credential",
+                    "embrouter_credential_name": "openai-credential",
                 },
                 "model_info": {
                     "team_id": "team-1",
@@ -675,8 +675,8 @@ async def test_get_available_models_for_user_expands_query_team_wildcard(
 def test_get_key_models_all_team_models_recursive_team():
     """GH#30619: when key and team both have all-team-models,
     the sentinel should expand to proxy_model_list."""
-    from litellm.proxy.auth.model_checks import get_key_models
-    from litellm.proxy._types import SpecialModelNames
+    from embrouter.proxy.auth.model_checks import get_key_models
+    from embrouter.proxy._types import SpecialModelNames
 
     user_api_key_dict = type(
         "obj",
@@ -694,8 +694,8 @@ def test_get_key_models_all_team_models_recursive_team():
 
 
 def test_get_key_models_all_team_models_keeps_mixed_team_entries():
-    from litellm.proxy.auth.model_checks import get_key_models
-    from litellm.proxy._types import SpecialModelNames
+    from embrouter.proxy.auth.model_checks import get_key_models
+    from embrouter.proxy._types import SpecialModelNames
 
     user_api_key_dict = type(
         "obj",
@@ -716,8 +716,8 @@ def test_get_key_models_all_team_models_keeps_mixed_team_entries():
 
 def test_get_team_models_all_team_models_expands():
     """GH#30619: all-team-models in team_models should expand."""
-    from litellm.proxy.auth.model_checks import get_team_models
-    from litellm.proxy._types import SpecialModelNames
+    from embrouter.proxy.auth.model_checks import get_team_models
+    from embrouter.proxy._types import SpecialModelNames
 
     result = get_team_models(
         [SpecialModelNames.all_team_models.value],
@@ -731,8 +731,8 @@ def test_get_team_models_all_team_models_expands():
 def test_get_team_models_all_team_models_expands_with_access_groups():
     """GH#30619: all-team-models with include_model_access_groups
     should include access group keys."""
-    from litellm.proxy.auth.model_checks import get_team_models
-    from litellm.proxy._types import SpecialModelNames
+    from embrouter.proxy.auth.model_checks import get_team_models
+    from embrouter.proxy._types import SpecialModelNames
 
     result = get_team_models(
         [SpecialModelNames.all_team_models.value],
@@ -752,8 +752,8 @@ def test_get_key_models_teamless_all_team_models_returns_unrestricted():
     models field empty ([] = unrestricted). The sentinel must not leak into
     the returned list. Fails if someone adds a team_id guard to the sentinel
     expansion in get_key_models."""
-    from litellm.proxy._types import SpecialModelNames
-    from litellm.proxy.auth.model_checks import get_key_models
+    from embrouter.proxy._types import SpecialModelNames
+    from embrouter.proxy.auth.model_checks import get_key_models
 
     user_api_key_dict = type(
         "obj",
@@ -772,11 +772,11 @@ def test_get_key_models_teamless_all_team_models_returns_unrestricted():
 
 def test_expand_wildcard_deployments_non_wildcard_passthrough():
     """Non-wildcard deployments must be returned unchanged."""
-    from litellm.proxy.auth.model_checks import (
+    from embrouter.proxy.auth.model_checks import (
         expand_wildcard_deployments_for_model_info,
     )
 
-    deployment = {"model_name": "gpt-4o", "litellm_params": {"model": "gpt-4o"}}
+    deployment = {"model_name": "gpt-4o", "embrouter_params": {"model": "gpt-4o"}}
     result = expand_wildcard_deployments_for_model_info([deployment])
     assert result == [deployment]
 
@@ -784,73 +784,73 @@ def test_expand_wildcard_deployments_non_wildcard_passthrough():
 def test_expand_wildcard_deployments_openai_wildcard():
     """openai/* should expand into ≥1 known openai model entries."""
 
-    from litellm.proxy.auth.model_checks import (
+    from embrouter.proxy.auth.model_checks import (
         expand_wildcard_deployments_for_model_info,
     )
 
     fake_models = ["openai/gpt-4o", "openai/gpt-4o-mini"]
     deployment = {
         "model_name": "openai/*",
-        "litellm_params": {"model": "openai/*"},
+        "embrouter_params": {"model": "openai/*"},
     }
     with patch(
-        "litellm.proxy.auth.model_checks.get_known_models_from_wildcard",
+        "embrouter.proxy.auth.model_checks.get_known_models_from_wildcard",
         return_value=fake_models,
     ):
         result = expand_wildcard_deployments_for_model_info([deployment])
 
     assert len(result) == 2
     assert all(r["model_name"] in fake_models for r in result)
-    assert all(r["litellm_params"]["model"] in fake_models for r in result)
+    assert all(r["embrouter_params"]["model"] in fake_models for r in result)
 
 
-def test_expand_wildcard_concrete_model_name_with_wildcard_litellm_params():
-    """Concrete model_name must not be overwritten when only litellm_params.model is wildcard."""
-    from litellm.proxy.auth.model_checks import (
+def test_expand_wildcard_concrete_model_name_with_wildcard_embrouter_params():
+    """Concrete model_name must not be overwritten when only embrouter_params.model is wildcard."""
+    from embrouter.proxy.auth.model_checks import (
         expand_wildcard_deployments_for_model_info,
     )
 
     deployment = {
         "model_name": "my-custom-alias",
-        "litellm_params": {"model": "openai/*"},
+        "embrouter_params": {"model": "openai/*"},
     }
     result = expand_wildcard_deployments_for_model_info([deployment])
     # model_name is not a wildcard, so the deployment passes through unchanged
     assert result == [deployment]
 
 
-def test_expand_wildcard_invalid_litellm_params_passthrough():
-    """Deployments with invalid litellm_params must pass through unchanged (no 500)."""
-    from litellm.proxy.auth.model_checks import (
+def test_expand_wildcard_invalid_embrouter_params_passthrough():
+    """Deployments with invalid embrouter_params must pass through unchanged (no 500)."""
+    from embrouter.proxy.auth.model_checks import (
         expand_wildcard_deployments_for_model_info,
     )
 
     deployment = {
         "model_name": "openai/*",
-        "litellm_params": {
+        "embrouter_params": {
             "model": "openai/*",
             "max_retries": "not-an-int-field-that-breaks",
         },
     }
-    # Even if LiteLLM_Params construction fails the deployment should survive
+    # Even if EmbRouter_Params construction fails the deployment should survive
     result = expand_wildcard_deployments_for_model_info([deployment])
     assert result == [deployment]
 
 
 def test_get_complete_model_list_excludes_wildcard_routes_by_default():
     """Regression (LIT-4108): a wildcard with a matching router deployment leaked into /v1/models."""
-    from litellm import Router
-    from litellm.proxy.auth.model_checks import get_complete_model_list
+    from embrouter import Router
+    from embrouter.proxy.auth.model_checks import get_complete_model_list
 
     router = Router(
         model_list=[
             {
                 "model_name": "bedrock/*",
-                "litellm_params": {"model": "bedrock/*"},
+                "embrouter_params": {"model": "bedrock/*"},
             },
             {
                 "model_name": "gpt-4",
-                "litellm_params": {"model": "openai/gpt-4"},
+                "embrouter_params": {"model": "openai/gpt-4"},
             },
         ]
     )
@@ -871,7 +871,7 @@ def test_get_complete_model_list_excludes_wildcard_routes_by_default():
 
 
 def test_get_complete_model_list_excludes_wildcard_routes_without_router():
-    from litellm.proxy.auth.model_checks import get_complete_model_list
+    from embrouter.proxy.auth.model_checks import get_complete_model_list
 
     result = get_complete_model_list(
         key_models=[],
@@ -889,14 +889,14 @@ def test_get_complete_model_list_excludes_wildcard_routes_without_router():
 
 
 def test_get_complete_model_list_includes_wildcard_routes_when_requested():
-    from litellm import Router
-    from litellm.proxy.auth.model_checks import get_complete_model_list
+    from embrouter import Router
+    from embrouter.proxy.auth.model_checks import get_complete_model_list
 
     router = Router(
         model_list=[
             {
                 "model_name": "bedrock/*",
-                "litellm_params": {"model": "bedrock/*"},
+                "embrouter_params": {"model": "bedrock/*"},
             },
         ]
     )
@@ -919,30 +919,30 @@ def test_add_known_models_refreshes_models_by_provider_for_wildcard_expansion():
     """models_by_provider was a frozen import-time snapshot of set unions, so cost map
     reloads (which call add_known_models) never reached wildcard expansion until a
     process restart (LIT-4947)."""
-    import litellm
-    from litellm.proxy.auth.model_checks import get_known_models_from_wildcard
+    import embrouter
+    from embrouter.proxy.auth.model_checks import get_known_models_from_wildcard
 
     fake_model = "vertex_ai/gemini-lit4947-regression"
-    captured_reference = litellm.models_by_provider
-    assert fake_model not in litellm.models_by_provider["vertex_ai"]
+    captured_reference = embrouter.models_by_provider
+    assert fake_model not in embrouter.models_by_provider["vertex_ai"]
     try:
-        litellm.add_known_models(
+        embrouter.add_known_models(
             model_cost_map={
-                fake_model: {"litellm_provider": "vertex_ai-language-models", "mode": "chat"}
+                fake_model: {"embrouter_provider": "vertex_ai-language-models", "mode": "chat"}
             }
         )
-        assert fake_model in litellm.models_by_provider["vertex_ai"]
-        assert litellm.models_by_provider is captured_reference
+        assert fake_model in embrouter.models_by_provider["vertex_ai"]
+        assert embrouter.models_by_provider is captured_reference
         assert fake_model in captured_reference["vertex_ai"]
         assert fake_model in get_known_models_from_wildcard("vertex_ai/*")
     finally:
-        litellm.vertex_language_models.discard(fake_model)
-        litellm.add_known_models(model_cost_map={})
-    assert fake_model not in litellm.models_by_provider["vertex_ai"]
+        embrouter.vertex_language_models.discard(fake_model)
+        embrouter.add_known_models(model_cost_map={})
+    assert fake_model not in embrouter.models_by_provider["vertex_ai"]
 
 
 def test_get_complete_model_list_drops_no_default_models_sentinel():
-    from litellm.proxy.auth.model_checks import get_complete_model_list
+    from embrouter.proxy.auth.model_checks import get_complete_model_list
 
     result = get_complete_model_list(
         key_models=["no-default-models", "model-a"],
@@ -955,7 +955,7 @@ def test_get_complete_model_list_drops_no_default_models_sentinel():
 
 
 def test_get_complete_model_list_sentinel_only_grants_nothing():
-    from litellm.proxy.auth.model_checks import get_complete_model_list
+    from embrouter.proxy.auth.model_checks import get_complete_model_list
 
     result = get_complete_model_list(
         key_models=["no-default-models"],
@@ -968,14 +968,14 @@ def test_get_complete_model_list_sentinel_only_grants_nothing():
 
 
 def test_transcribe_is_a_known_provider_for_wildcard_expansion():
-    import litellm
-    from litellm.proxy.auth.model_checks import (
+    import embrouter
+    from embrouter.proxy.auth.model_checks import (
         get_known_models_from_wildcard,
         get_provider_models,
     )
 
-    assert "transcribe" in litellm.models_by_provider
-    assert "transcribe/StartTranscriptionJob" in litellm.models_by_provider["transcribe"]
+    assert "transcribe" in embrouter.models_by_provider
+    assert "transcribe/StartTranscriptionJob" in embrouter.models_by_provider["transcribe"]
     assert get_provider_models("transcribe") == ["transcribe/StartTranscriptionJob"]
     assert get_known_models_from_wildcard("transcribe/*") == [
         "transcribe/StartTranscriptionJob"

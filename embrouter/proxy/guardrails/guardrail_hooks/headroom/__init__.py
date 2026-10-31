@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Final
 
-from litellm.types.guardrails import (
+from embrouter.types.guardrails import (
     GuardrailEventHooks,
     Mode,
     SupportedGuardrailIntegrations,
@@ -11,7 +11,7 @@ from litellm.types.guardrails import (
 from .headroom import HeadroomGuardrail
 
 if TYPE_CHECKING:
-    from litellm.types.guardrails import Guardrail, LitellmParams
+    from embrouter.types.guardrails import Guardrail, EmbrouterParams
 
 
 def _coerce_event_hook(
@@ -24,21 +24,21 @@ def _coerce_event_hook(
     return GuardrailEventHooks(mode)
 
 
-def initialize_guardrail(litellm_params: LitellmParams, guardrail: Guardrail) -> HeadroomGuardrail:
-    import litellm
+def initialize_guardrail(embrouter_params: EmbrouterParams, guardrail: Guardrail) -> HeadroomGuardrail:
+    import embrouter
 
     _callback: Final = HeadroomGuardrail(
-        api_base=litellm_params.api_base,
-        api_key=litellm_params.api_key,
-        model=litellm_params.model,
+        api_base=embrouter_params.api_base,
+        api_key=embrouter_params.api_key,
+        model=embrouter_params.model,
         guardrail_name=guardrail["guardrail_name"],
-        event_hook=_coerce_event_hook(litellm_params.mode),
-        default_on=litellm_params.default_on or False,
-        unreachable_fallback=litellm_params.unreachable_fallback,
-        timeout=litellm_params.timeout,
-        ccr_retrieval=litellm_params.ccr_retrieval,
+        event_hook=_coerce_event_hook(embrouter_params.mode),
+        default_on=embrouter_params.default_on or False,
+        unreachable_fallback=embrouter_params.unreachable_fallback,
+        timeout=embrouter_params.timeout,
+        ccr_retrieval=embrouter_params.ccr_retrieval,
     )
-    litellm.logging_callback_manager.add_litellm_callback(  # pyright: ignore[reportUnknownMemberType]
+    embrouter.logging_callback_manager.add_embrouter_callback(  # pyright: ignore[reportUnknownMemberType]
         _callback
     )
     return _callback

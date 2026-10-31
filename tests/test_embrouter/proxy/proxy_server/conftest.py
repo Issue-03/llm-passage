@@ -1,4 +1,4 @@
-"""Shared fixtures for tests/test_litellm/proxy/proxy_server/.
+"""Shared fixtures for tests/test_embrouter/proxy/proxy_server/.
 
 All fixtures and helpers used by PR1/PR2/PR3 test files live here. Do NOT
 add fixtures inside individual test files. If a fixture is missing, add it
@@ -18,7 +18,7 @@ import pytest
 
 # Repo root, anchored to this file (not CWD) so the path is correct no
 # matter where pytest is invoked from. With the project installed via
-# uv this is defensive — `litellm` already resolves through site-packages
+# uv this is defensive — `embrouter` already resolves through site-packages
 # — but it lets the harness work in editable-source layouts too.
 sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
@@ -37,7 +37,7 @@ VOLATILE_KEYS = frozenset(
         "request_id",
         "expires",
         "expires_at",
-        "litellm_call_id",
+        "embrouter_call_id",
         "key_alias",
         "created",
     }
@@ -73,8 +73,8 @@ def app():
     so the startup event (DB connect, Router init, OTEL setup) never fires.
     Module import still runs once; module-level globals are harmless.
     """
-    os.environ.setdefault("LITELLM_LOG", "ERROR")
-    from litellm.proxy.proxy_server import app as _app
+    os.environ.setdefault("EMBROUTER_LOG", "ERROR")
+    from embrouter.proxy.proxy_server import app as _app
 
     return _app
 
@@ -99,36 +99,36 @@ def client(app):
 # Tables most-touched by proxy_server.py routes. Add to this list if a
 # test discovers a missing table.
 _PRISMA_TABLES: List[str] = [
-    "litellm_verificationtoken",
-    "litellm_teamtable",
-    "litellm_usertable",
-    "litellm_endusertable",
-    "litellm_organizationtable",
-    "litellm_organizationmembership",
-    "litellm_proxymodeltable",
-    "litellm_modeltable",
-    "litellm_budgettable",
-    "litellm_spendlogs",
-    "litellm_invitationlink",
-    "litellm_credentialstable",
-    "litellm_mcpservertable",
-    "litellm_objectpermissiontable",
-    "litellm_configtable",
-    "litellm_audit_log",
-    "litellm_dailyuserspend",
-    "litellm_dailyteamspend",
-    "litellm_dailytagspend",
-    "litellm_managed_object_table",
-    "litellm_managed_vector_stores_table",
-    "litellm_promptstable",
-    "litellm_guardrailstable",
-    "litellm_managed_files",
-    "litellm_session_token_table",
-    "litellm_passthrough_endpoint_table",
-    "litellm_cron_job",
-    "litellm_passthrough_logs",
-    "litellm_health_check_table",
-    "litellm_mcpusercredentials",
+    "embrouter_verificationtoken",
+    "embrouter_teamtable",
+    "embrouter_usertable",
+    "embrouter_endusertable",
+    "embrouter_organizationtable",
+    "embrouter_organizationmembership",
+    "embrouter_proxymodeltable",
+    "embrouter_modeltable",
+    "embrouter_budgettable",
+    "embrouter_spendlogs",
+    "embrouter_invitationlink",
+    "embrouter_credentialstable",
+    "embrouter_mcpservertable",
+    "embrouter_objectpermissiontable",
+    "embrouter_configtable",
+    "embrouter_audit_log",
+    "embrouter_dailyuserspend",
+    "embrouter_dailyteamspend",
+    "embrouter_dailytagspend",
+    "embrouter_managed_object_table",
+    "embrouter_managed_vector_stores_table",
+    "embrouter_promptstable",
+    "embrouter_guardrailstable",
+    "embrouter_managed_files",
+    "embrouter_session_token_table",
+    "embrouter_passthrough_endpoint_table",
+    "embrouter_cron_job",
+    "embrouter_passthrough_logs",
+    "embrouter_health_check_table",
+    "embrouter_mcpusercredentials",
 ]
 
 
@@ -157,7 +157,7 @@ def mock_prisma() -> MagicMock:
     Default returns: find_unique/find_first -> None, find_many/group_by -> [],
     count -> 0. Override in a test with::
 
-        mock_prisma.db.litellm_teamtable.find_unique.return_value = ...
+        mock_prisma.db.embrouter_teamtable.find_unique.return_value = ...
     """
     client_mock = MagicMock()
     client_mock.db = MagicMock()
@@ -181,15 +181,15 @@ def auth_as(app) -> Callable[..., contextlib.AbstractContextManager]:
     Usage::
 
         def test_admin_only(client, auth_as):
-            from litellm.proxy._types import LitellmUserRoles
-            with auth_as(LitellmUserRoles.PROXY_ADMIN):
+            from embrouter.proxy._types import EmbrouterUserRoles
+            with auth_as(EmbrouterUserRoles.PROXY_ADMIN):
                 response = client.get("/some/admin/route")
                 assert response.status_code == 200
 
     Outside the ``with`` block the override is removed so other tests see
     the real dependency.
     """
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+    from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
 
     @contextlib.contextmanager
     def _auth_as(
@@ -199,10 +199,10 @@ def auth_as(app) -> Callable[..., contextlib.AbstractContextManager]:
         api_key: str = "sk-test-key",
         **kwargs: Any,
     ) -> Iterator[Any]:
-        from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
+        from embrouter.proxy._types import EmbrouterUserRoles, UserAPIKeyAuth
 
         if role is None:
-            role = LitellmUserRoles.PROXY_ADMIN
+            role = EmbrouterUserRoles.PROXY_ADMIN
 
         fake_auth = UserAPIKeyAuth(
             api_key=api_key,
@@ -248,7 +248,7 @@ def make_acompletion_response(
         - A tool-call shape when ``tools`` is non-empty
         - A plain text response otherwise
     """
-    from litellm.types.utils import (
+    from embrouter.types.utils import (
         ChatCompletionMessageToolCall,
         Choices,
         Function,
@@ -289,7 +289,7 @@ def make_acompletion_response(
 async def _stream_chunks(
     model: str = "gpt-4", content: str = "Hi"
 ) -> AsyncIterator[Any]:
-    from litellm.types.utils import (
+    from embrouter.types.utils import (
         Delta,
         ModelResponseStream,
         StreamingChoices,
@@ -317,7 +317,7 @@ def make_embedding_response(
     dimensions: int = 8,
     **kwargs: Any,
 ) -> Any:
-    from litellm.types.utils import EmbeddingResponse
+    from embrouter.types.utils import EmbeddingResponse
 
     if isinstance(input, list):
         n = len(input)
@@ -337,7 +337,7 @@ def make_embedding_response(
 
 
 def make_image_response(model: str = "dall-e-3", **kwargs: Any) -> Any:
-    from litellm.types.utils import ImageResponse
+    from embrouter.types.utils import ImageResponse
 
     return ImageResponse(
         created=0,
@@ -351,7 +351,7 @@ def make_speech_response(**kwargs: Any) -> bytes:
 
 
 def make_transcription_response(**kwargs: Any) -> Any:
-    from litellm.types.utils import TranscriptionResponse
+    from embrouter.types.utils import TranscriptionResponse
 
     return TranscriptionResponse(text="hello world")
 
@@ -405,14 +405,14 @@ def mock_router() -> MagicMock:
     router.atranscription = AsyncMock(side_effect=_atranscription)
     router.amoderation = AsyncMock(side_effect=_amoderation)
     router.model_list = [
-        {"model_name": "gpt-4", "litellm_params": {"model": "gpt-4"}},
+        {"model_name": "gpt-4", "embrouter_params": {"model": "gpt-4"}},
         {
             "model_name": "claude-sonnet",
-            "litellm_params": {"model": "anthropic/claude-3-5-sonnet-latest"},
+            "embrouter_params": {"model": "anthropic/claude-3-5-sonnet-latest"},
         },
         {
             "model_name": "bedrock-claude",
-            "litellm_params": {"model": "bedrock/anthropic.claude-3-5-sonnet"},
+            "embrouter_params": {"model": "bedrock/anthropic.claude-3-5-sonnet"},
         },
     ]
     router.model_names = ["gpt-4", "claude-sonnet", "bedrock-claude"]
@@ -427,8 +427,8 @@ def mock_router() -> MagicMock:
 
 @pytest.fixture(autouse=True)
 def mock_callbacks_disabled(monkeypatch) -> None:
-    """Wipe ``litellm.callbacks`` and friends so tests don't leak side effects."""
-    import litellm
+    """Wipe ``embrouter.callbacks`` and friends so tests don't leak side effects."""
+    import embrouter
 
     for attr in (
         "callbacks",
@@ -439,8 +439,8 @@ def mock_callbacks_disabled(monkeypatch) -> None:
         "input_callback",
         "service_callback",
     ):
-        if hasattr(litellm, attr):
-            monkeypatch.setattr(litellm, attr, [], raising=False)
+        if hasattr(embrouter, attr):
+            monkeypatch.setattr(embrouter, attr, [], raising=False)
 
 
 # ---------------------------------------------------------------------------
@@ -456,12 +456,12 @@ def make_user(
     spend: float = 0.0,
     **kwargs: Any,
 ) -> Any:
-    from litellm.proxy._types import LiteLLM_UserTable, LitellmUserRoles
+    from embrouter.proxy._types import EmbRouter_UserTable, EmbrouterUserRoles
 
     if role is None:
-        role = LitellmUserRoles.INTERNAL_USER
+        role = EmbrouterUserRoles.INTERNAL_USER
 
-    return LiteLLM_UserTable(
+    return EmbRouter_UserTable(
         user_id=user_id,
         user_role=role,
         teams=teams or [],
@@ -479,9 +479,9 @@ def make_team(
     members_with_roles: Optional[List[Dict[str, Any]]] = None,
     **kwargs: Any,
 ) -> Any:
-    from litellm.proxy._types import LiteLLM_TeamTable
+    from embrouter.proxy._types import EmbRouter_TeamTable
 
-    return LiteLLM_TeamTable(
+    return EmbRouter_TeamTable(
         team_id=team_id,
         team_alias=team_alias,
         max_budget=max_budget,
@@ -500,9 +500,9 @@ def make_key(
     max_budget: Optional[float] = None,
     **kwargs: Any,
 ) -> Any:
-    from litellm.proxy._types import LiteLLM_VerificationToken
+    from embrouter.proxy._types import EmbRouter_VerificationToken
 
-    return LiteLLM_VerificationToken(
+    return EmbRouter_VerificationToken(
         token=token,
         key_alias=key_alias,
         team_id=team_id,
@@ -521,9 +521,9 @@ def reset_login_throttle(monkeypatch):
     window, so without this a failed sign-in test could block unrelated tests later.
     Only the throttle's own keys are removed, so other cache entries remain untouched.
     """
-    from litellm.constants import LOGIN_THROTTLE_CACHE_KEY_PREFIX
-    from litellm.proxy import proxy_server as ps
-    from litellm.proxy.auth.login_throttle import _BLOCKS, _COUNTERS
+    from embrouter.constants import LOGIN_THROTTLE_CACHE_KEY_PREFIX
+    from embrouter.proxy import proxy_server as ps
+    from embrouter.proxy.auth.login_throttle import _BLOCKS, _COUNTERS
 
     def _drop_throttle_keys() -> None:
         for store in (_COUNTERS, _BLOCKS):

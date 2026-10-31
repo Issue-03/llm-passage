@@ -7,7 +7,7 @@ import useAuthorized from "@/app/(dashboard)/hooks/useAuthorized";
 
 export interface GuardrailListItem {
   guardrail_name: string;
-  litellm_params?: {
+  embrouter_params?: {
     default_on?: boolean;
     mode?: string | string[];
     [key: string]: unknown;
@@ -42,7 +42,7 @@ export const useGuardrails = (): UseQueryResult<GuardrailsListData> => {
       const globalGuardrailNames = new Set<string>();
       const optionalGuardrailNames = new Set<string>();
       for (const g of guardrails) {
-        if (g.litellm_params?.default_on) {
+        if (g.embrouter_params?.default_on) {
           globalGuardrailNames.add(g.guardrail_name);
         } else {
           optionalGuardrailNames.add(g.guardrail_name);

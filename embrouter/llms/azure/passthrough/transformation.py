@@ -7,24 +7,24 @@ import httpx
 from httpx import Response
 from pydantic import BaseModel, ValidationError
 
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.llms.azure.common_utils import BaseAzureLLM
-from litellm.llms.base_llm.passthrough.transformation import (
+from embrouter.embrouter_core_utils.embrouter_logging import Logging
+from embrouter.llms.azure.common_utils import BaseAzureLLM
+from embrouter.llms.base_llm.passthrough.transformation import (
     BasePassthroughConfig,
     RelayShape,
     logged_relay_shape,
     replace_path_segment,
     strip_leading_model_segment,
 )
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.openai import AllMessageValues, ResponsesAPIResponse, ResponsesTerminalEvent
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import CallTypes, EmbeddingResponse, ImageResponse
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.openai import AllMessageValues, ResponsesAPIResponse, ResponsesTerminalEvent
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import CallTypes, EmbeddingResponse, ImageResponse
 
 if TYPE_CHECKING:
     from httpx import URL
 
-    from litellm.llms.base_llm.passthrough.transformation import LoggedRelayResponse
+    from embrouter.llms.base_llm.passthrough.transformation import LoggedRelayResponse
 
 
 class RelayedChatRequest(BaseModel):
@@ -35,9 +35,9 @@ class RelayedCallDetails(BaseModel):
     request_data: RelayedChatRequest | None = None
 
 
-def _relayed_messages(litellm_logging_obj: Logging) -> Sequence[Mapping[str, object]] | None:
+def _relayed_messages(embrouter_logging_obj: Logging) -> Sequence[Mapping[str, object]] | None:
     try:
-        details: Final = RelayedCallDetails.model_validate(litellm_logging_obj.model_call_details)
+        details: Final = RelayedCallDetails.model_validate(embrouter_logging_obj.model_call_details)
     except ValidationError:
         return None
     return details.request_data.messages if details.request_data else None
@@ -54,7 +54,7 @@ OPENAI_RELAY_SHAPES: Final = (
 
 def logged_responses_stream(all_chunks: Sequence[str], logging_obj: Logging) -> ResponsesTerminalEvent | None:
     """A streaming logging object assembles the logged response from the terminal event, not from its body."""
-    from litellm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
+    from embrouter.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
 
     terminal_event: Final = OpenAIResponsesAPIConfig.parse_terminal_event_from_stream_chunks(all_chunks=all_chunks)
     if terminal_event is None:
@@ -103,15 +103,15 @@ class AzurePassthroughConfig(BasePassthroughConfig):
         model: str,
         endpoint: str,
         request_query_params: dict | None,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> tuple["URL", str]:
         base_target_url: Final = self.get_api_base(api_base)
 
         if base_target_url is None:
             raise Exception("Azure api base not found")
 
-        litellm_metadata: Final = litellm_params.get("litellm_metadata") or {}
-        model_group: Final = litellm_metadata.get("model_group")
+        embrouter_metadata: Final = embrouter_params.get("embrouter_metadata") or {}
+        model_group: Final = embrouter_metadata.get("model_group")
         routed_endpoint: Final = replace_path_segment(endpoint, model_group, model) if model_group else endpoint
         native_endpoint: Final = strip_leading_model_segment(routed_endpoint, (model,))
 
@@ -119,8 +119,8 @@ class AzurePassthroughConfig(BasePassthroughConfig):
         relay_base: Final = without_api_version(base_target_url) if caller_api_version else base_target_url
         complete_url: Final = BaseAzureLLM._get_base_azure_url(
             api_base=relay_base,
-            litellm_params=MappingProxyType(
-                {**litellm_params, "api_version": caller_api_version or litellm_params.get("api_version")}
+            embrouter_params=MappingProxyType(
+                {**embrouter_params, "api_version": caller_api_version or embrouter_params.get("api_version")}
             ),
             route=native_endpoint,
         )
@@ -135,13 +135,13 @@ class AzurePassthroughConfig(BasePassthroughConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
         return BaseAzureLLM._base_validate_azure_environment(
             headers=headers,
-            litellm_params=GenericLiteLLMParams.model_validate({**litellm_params, "api_key": api_key}),
+            embrouter_params=GenericEmbRouterParams.model_validate({**embrouter_params, "api_key": api_key}),
         )
 
     @staticmethod
@@ -172,50 +172,50 @@ class AzurePassthroughConfig(BasePassthroughConfig):
         logging_obj: Logging,
         endpoint: str,
     ) -> Optional["LoggedRelayResponse"]:
-        from litellm import encoding
-        from litellm.llms.openai.chat.gpt_transformation import OpenAIGPTConfig
-        from litellm.types.utils import ModelResponse
+        from embrouter import encoding
+        from embrouter.llms.openai.chat.gpt_transformation import OpenAIGPTConfig
+        from embrouter.types.utils import ModelResponse
 
         if "chat/completions" not in endpoint:
             return logged_relay_shape(OPENAI_RELAY_SHAPES, httpx_response, logging_obj, endpoint)
 
         openai_chat_config: Final = OpenAIGPTConfig()
 
-        litellm_model_response: Final[ModelResponse] = openai_chat_config.transform_response(
+        embrouter_model_response: Final[ModelResponse] = openai_chat_config.transform_response(
             model=model,
             messages=[{"role": "user", "content": "no-message-pass-through-endpoint"}],
             raw_response=httpx_response,
             model_response=ModelResponse(),
             logging_obj=logging_obj,
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             api_key="",
             request_data=request_data,
             encoding=encoding,
         )
 
-        return litellm_model_response
+        return embrouter_model_response
 
     def handle_logging_collected_chunks(
         self,
         all_chunks: Sequence[str],
-        litellm_logging_obj: Logging,
+        embrouter_logging_obj: Logging,
         model: str,
         custom_llm_provider: str,
         endpoint: str,
     ) -> Optional["LoggedRelayResponse"]:
-        from litellm.proxy.pass_through_endpoints.llm_provider_handlers.openai_passthrough_logging_handler import (
+        from embrouter.proxy.pass_through_endpoints.llm_provider_handlers.openai_passthrough_logging_handler import (
             OpenAIPassthroughLoggingHandler,
         )
 
         if f"/{endpoint.strip('/')}".endswith(RESPONSES_RELAY_SHAPE.path_suffix):
-            return logged_responses_stream(all_chunks, litellm_logging_obj)
+            return logged_responses_stream(all_chunks, embrouter_logging_obj)
         if "chat/completions" not in endpoint:
             return None
 
         return OpenAIPassthroughLoggingHandler()._build_complete_streaming_response(  # pyright: ignore[reportPrivateUsage]  # the only OpenAI SSE-to-ModelResponse assembler; reimplementing it would fork the parser
             all_chunks=all_chunks,
-            litellm_logging_obj=litellm_logging_obj,
+            embrouter_logging_obj=embrouter_logging_obj,
             model=model,
-            messages=_relayed_messages(litellm_logging_obj),
+            messages=_relayed_messages(embrouter_logging_obj),
         )

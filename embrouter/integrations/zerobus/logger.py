@@ -6,18 +6,18 @@ from datetime import datetime
 from typing import Final
 from urllib.parse import urlsplit
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.integrations.custom_batch_logger import CustomBatchLogger
-from litellm.integrations.zerobus.client import ZerobusIngestClient, ZerobusIngestError
-from litellm.integrations.zerobus.row import trace_row
-from litellm.litellm_core_utils.redact_messages import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.integrations.custom_batch_logger import CustomBatchLogger
+from embrouter.integrations.zerobus.client import ZerobusIngestClient, ZerobusIngestError
+from embrouter.integrations.zerobus.row import trace_row
+from embrouter.embrouter_core_utils.redact_messages import (
     redacted_standard_logging_payload,
     should_redact_message_logging,
 )
-from litellm.llms.custom_httpx.http_handler import get_async_httpx_client, httpxSpecialProvider
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.integrations.zerobus import ZerobusConnection, ZerobusInitParams
+from embrouter.llms.custom_httpx.http_handler import get_async_httpx_client, httpxSpecialProvider
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.integrations.zerobus import ZerobusConnection, ZerobusInitParams
 
 _ENV_REFERENCE_PREFIX: Final = "os.environ/"
 
@@ -33,7 +33,7 @@ def _resolved_secret(value: str | None) -> str | None:
 
 
 def _configured_params() -> ZerobusInitParams:
-    configured: Final = litellm.zerobus_params
+    configured: Final = embrouter.zerobus_params
     if isinstance(configured, ZerobusInitParams):
         return configured
     if isinstance(configured, Mapping):
@@ -47,7 +47,7 @@ def _setting(configured: str | None, env_var: str) -> str:
     if not value:
         raise ValueError(
             f"zerobus logging requires {env_var}. Set it in the environment, or "
-            f"litellm_settings.zerobus_params.{env_var.removeprefix('ZEROBUS_').lower()} in config.yaml"
+            f"embrouter_settings.zerobus_params.{env_var.removeprefix('ZEROBUS_').lower()} in config.yaml"
         )
     return value
 

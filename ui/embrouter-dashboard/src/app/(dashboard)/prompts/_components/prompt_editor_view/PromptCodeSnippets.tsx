@@ -25,7 +25,7 @@ interface PromptCodeSnippetsProps {
   environment?: string;
   proxySettings?: {
     PROXY_BASE_URL?: string;
-    LITELLM_UI_API_DOC_BASE_URL?: string | null;
+    EMBROUTER_UI_API_DOC_BASE_URL?: string | null;
   };
 }
 
@@ -52,9 +52,9 @@ const PromptCodeSnippets: React.FC<PromptCodeSnippetsProps> = ({
     setIsModalVisible(false);
   };
 
-  // Determine base URL with priority: LITELLM_UI_API_DOC_BASE_URL > PROXY_BASE_URL > window.location.origin
+  // Determine base URL with priority: EMBROUTER_UI_API_DOC_BASE_URL > PROXY_BASE_URL > window.location.origin
   let apiBase = window.location.origin;
-  const customDocBaseUrl = proxySettings?.LITELLM_UI_API_DOC_BASE_URL;
+  const customDocBaseUrl = proxySettings?.EMBROUTER_UI_API_DOC_BASE_URL;
   if (customDocBaseUrl && customDocBaseUrl.trim()) {
     apiBase = customDocBaseUrl;
   } else if (proxySettings?.PROXY_BASE_URL) {

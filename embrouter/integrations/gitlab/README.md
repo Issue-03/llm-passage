@@ -1,6 +1,6 @@
-# LiteLLM gitlab Prompt Management
+# EmbRouter gitlab Prompt Management
 
-A powerful prompt management system for LiteLLM that fetches `.prompt` files from gitlab repositories. This enables team-based prompt management with gitlab's built-in access control and version control capabilities.
+A powerful prompt management system for EmbRouter that fetches `.prompt` files from gitlab repositories. This enables team-based prompt management with gitlab's built-in access control and version control capabilities.
 
 ## Features
 
@@ -10,7 +10,7 @@ A powerful prompt management system for LiteLLM that fetches `.prompt` files fro
 - **🎯 YAML frontmatter**: Define model, parameters, and schemas in file headers
 - **🔧 Handlebars templating**: Use `{{variable}}` syntax with Jinja2 backend
 - **✅ Input validation**: Automatic validation against defined schemas
-- **🔗 LiteLLM integration**: Works seamlessly with `litellm.completion()`
+- **🔗 EmbRouter integration**: Works seamlessly with `embrouter.completion()`
 - **💬 Smart message parsing**: Converts prompts to proper chat messages
 - **⚙️ Parameter extraction**: Automatically applies model settings from prompts
 
@@ -53,7 +53,7 @@ input:
 #### Option A: Access Token (Recommended)
 
 ```python
-import litellm
+import embrouter
 
 # Configure gitlab access
 gitlab_config = {
@@ -65,13 +65,13 @@ gitlab_config = {
 }
 
 # Set global gitlab configuration
-litellm.set_global_gitlab_config(gitlab_config)
+embrouter.set_global_gitlab_config(gitlab_config)
 ```
 
 #### Option B: Basic Authentication
 
 ```python
-import litellm
+import embrouter
 
 # Configure gitlab access with basic auth
 gitlab_config = {
@@ -82,14 +82,14 @@ gitlab_config = {
     "prompts_path": "src/prompts", # folder to point to, defaults to root
 }
 
-litellm.set_global_gitlab_config(gitlab_config)
+embrouter.set_global_gitlab_config(gitlab_config)
 ```
 
-### 4. Use with LiteLLM
+### 4. Use with EmbRouter
 
 ```python
-# Use with completion - the model prefix 'gitlab/' tells LiteLLM to use gitlab prompt management
-response = litellm.completion(
+# Use with completion - the model prefix 'gitlab/' tells EmbRouter to use gitlab prompt management
+response = embrouter.completion(
     model="gitlab/gpt-4",  # The actual model comes from the .prompt file
     prompt_id="prompts/chat_assistant", # Location of the prompt file
     prompt_variables={
@@ -124,12 +124,12 @@ User: {{user_message}}
 ```yaml
 model_list:
   - model_name: my-gitlab-model
-    litellm_params:
+    embrouter_params:
       model: gitlab/gpt-4
       prompt_id: "prompts/hello"
       api_key: os.environ/OPENAI_API_KEY
 
-litellm_settings:
+embrouter_settings:
   global_gitlab_config:
     workspace: "your-workspace"
     repository: "your-repo"
@@ -140,7 +140,7 @@ litellm_settings:
 ### 3. Start the proxy
 
 ```bash
-litellm --config config.yaml --detailed_debug
+embrouter --config config.yaml --detailed_debug
 ```
 
 ### 4. Test it!
@@ -252,10 +252,10 @@ gitlab_config = {
 }
 ```
 
-### LiteLLM Integration
+### EmbRouter Integration
 
 ```python
-response = litellm.completion(
+response = embrouter.completion(
     model="gitlab/<base_model>",  # required (e.g., gitlab/gpt-4)
     prompt_id=str,                   # required - the .prompt filename without extension
     prompt_variables=dict,           # optional - variables for template rendering
@@ -294,11 +294,11 @@ The gitlab integration provides detailed error messages for common issues:
 Enable debug logging to troubleshoot issues:
 
 ```python
-import litellm
-litellm.set_verbose = True
+import embrouter
+embrouter.set_verbose = True
 
 # Your gitlab prompt calls will now show detailed logs
-response = litellm.completion(
+response = embrouter.completion(
     model="gitlab/gpt-4",
     prompt_id="your_prompt",
     prompt_variables={"key": "value"}

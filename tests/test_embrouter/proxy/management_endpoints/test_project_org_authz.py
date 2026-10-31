@@ -14,8 +14,8 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from fastapi import HTTPException
 
-from litellm.models.team import LiteLLM_TeamTable
-from litellm.proxy._types import LitellmUserRoles, Member, UserAPIKeyAuth
+from embrouter.models.team import EmbRouter_TeamTable
+from embrouter.proxy._types import EmbrouterUserRoles, Member, UserAPIKeyAuth
 
 _PROJECTS_ENABLED: Final = MappingProxyType({"team_admin_editable_team_fields": ["projects"]})
 _PROJECTS_DISABLED: Final = MappingProxyType({"team_admin_editable_team_fields": ["max_budget"]})
@@ -28,8 +28,8 @@ _PROJECTS_DISABLED: Final = MappingProxyType({"team_admin_editable_team_fields":
 
 def _make_prisma_with_team(team_id: str, admins: list, members_with_roles: tuple[Member, ...] = ()):
     prisma = MagicMock()
-    team_row = LiteLLM_TeamTable(team_id=team_id, admins=admins, members_with_roles=list(members_with_roles))
-    prisma.db.litellm_teamtable.find_unique = AsyncMock(return_value=team_row)
+    team_row = EmbRouter_TeamTable(team_id=team_id, admins=admins, members_with_roles=list(members_with_roles))
+    prisma.db.embrouter_teamtable.find_unique = AsyncMock(return_value=team_row)
     return prisma
 
 
@@ -38,7 +38,7 @@ async def test_project_perm_check_uses_current_team_not_caller_supplied():
     """The permission check must look at the project's existing team. Even
     if the caller is admin of an unrelated team, they must not pass when no
     explicit team_object is forced through."""
-    from litellm_enterprise.proxy.management_endpoints.project_endpoints import (
+    from embrouter_enterprise.proxy.management_endpoints.project_endpoints import (
         _check_user_permission_for_project,
     )
 
@@ -46,7 +46,7 @@ async def test_project_perm_check_uses_current_team_not_caller_supplied():
     prisma = _make_prisma_with_team(team_id="team-A", admins=["alice"])
     caller = UserAPIKeyAuth(
         user_id="bob",
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
+        user_role=EmbrouterUserRoles.INTERNAL_USER.value,
     )
 
     has_perm = await _check_user_permission_for_project(
@@ -56,19 +56,19 @@ async def test_project_perm_check_uses_current_team_not_caller_supplied():
         general_settings=_PROJECTS_ENABLED,
     )
     assert has_perm is False
-    prisma.db.litellm_teamtable.find_unique.assert_awaited_once()
+    prisma.db.embrouter_teamtable.find_unique.assert_awaited_once()
 
 
 @pytest.mark.asyncio
 async def test_project_perm_check_allows_team_admin_of_existing_team():
-    from litellm_enterprise.proxy.management_endpoints.project_endpoints import (
+    from embrouter_enterprise.proxy.management_endpoints.project_endpoints import (
         _check_user_permission_for_project,
     )
 
     prisma = _make_prisma_with_team(team_id="team-A", admins=["alice"])
     alice = UserAPIKeyAuth(
         user_id="alice",
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
+        user_role=EmbrouterUserRoles.INTERNAL_USER.value,
     )
 
     has_perm = await _check_user_permission_for_project(
@@ -83,7 +83,7 @@ async def test_project_perm_check_allows_team_admin_of_existing_team():
 @pytest.mark.asyncio
 async def test_project_perm_check_allows_members_with_roles_admin():
     """Team admins added through /team/member_add live in members_with_roles, not the legacy admins list."""
-    from litellm_enterprise.proxy.management_endpoints.project_endpoints import (
+    from embrouter_enterprise.proxy.management_endpoints.project_endpoints import (
         _check_user_permission_for_project,
     )
 
@@ -92,8 +92,8 @@ async def test_project_perm_check_allows_members_with_roles_admin():
         admins=[],
         members_with_roles=(Member(user_id="carol", role="admin"), Member(user_id="dave", role="user")),
     )
-    carol = UserAPIKeyAuth(user_id="carol", user_role=LitellmUserRoles.INTERNAL_USER.value)
-    dave = UserAPIKeyAuth(user_id="dave", user_role=LitellmUserRoles.INTERNAL_USER.value)
+    carol = UserAPIKeyAuth(user_id="carol", user_role=EmbrouterUserRoles.INTERNAL_USER.value)
+    dave = UserAPIKeyAuth(user_id="dave", user_role=EmbrouterUserRoles.INTERNAL_USER.value)
 
     assert (
         await _check_user_permission_for_project(
@@ -112,7 +112,7 @@ async def test_project_perm_check_allows_members_with_roles_admin():
 @pytest.mark.asyncio
 @pytest.mark.parametrize("general_settings", [MappingProxyType({}), _PROJECTS_DISABLED])
 async def test_project_perm_check_denies_team_admin_unless_projects_permission_configured(general_settings):
-    from litellm_enterprise.proxy.management_endpoints.project_endpoints import (
+    from embrouter_enterprise.proxy.management_endpoints.project_endpoints import (
         _check_user_permission_for_project,
     )
 
@@ -121,7 +121,7 @@ async def test_project_perm_check_denies_team_admin_unless_projects_permission_c
     )
 
     for user_id in ("alice", "carol"):
-        caller = UserAPIKeyAuth(user_id=user_id, user_role=LitellmUserRoles.INTERNAL_USER.value)
+        caller = UserAPIKeyAuth(user_id=user_id, user_role=EmbrouterUserRoles.INTERNAL_USER.value)
         has_perm = await _check_user_permission_for_project(
             user_api_key_dict=caller,
             team_id="team-A",
@@ -129,18 +129,18 @@ async def test_project_perm_check_denies_team_admin_unless_projects_permission_c
             general_settings=general_settings,
         )
         assert has_perm is False
-    prisma.db.litellm_teamtable.find_unique.assert_not_called()
+    prisma.db.embrouter_teamtable.find_unique.assert_not_called()
 
 
 @pytest.mark.asyncio
 async def test_project_perm_check_require_admin_denies_team_admin_even_when_configured():
     """/project/delete passes require_admin=True, so the projects permission must not open it up."""
-    from litellm_enterprise.proxy.management_endpoints.project_endpoints import (
+    from embrouter_enterprise.proxy.management_endpoints.project_endpoints import (
         _check_user_permission_for_project,
     )
 
     prisma = _make_prisma_with_team(team_id="team-A", admins=["alice"])
-    alice = UserAPIKeyAuth(user_id="alice", user_role=LitellmUserRoles.INTERNAL_USER.value)
+    alice = UserAPIKeyAuth(user_id="alice", user_role=EmbrouterUserRoles.INTERNAL_USER.value)
 
     has_perm = await _check_user_permission_for_project(
         user_api_key_dict=alice,
@@ -150,18 +150,18 @@ async def test_project_perm_check_require_admin_denies_team_admin_even_when_conf
         require_admin=True,
     )
     assert has_perm is False
-    prisma.db.litellm_teamtable.find_unique.assert_not_called()
+    prisma.db.embrouter_teamtable.find_unique.assert_not_called()
 
 
 @pytest.mark.asyncio
 async def test_project_perm_check_uses_injected_team_object_for_reassignment_target():
-    from litellm_enterprise.proxy.management_endpoints.project_endpoints import (
+    from embrouter_enterprise.proxy.management_endpoints.project_endpoints import (
         _check_user_permission_for_project,
     )
 
     prisma = _make_prisma_with_team(team_id="team-A", admins=["alice"])
-    alice = UserAPIKeyAuth(user_id="alice", user_role=LitellmUserRoles.INTERNAL_USER.value)
-    target_team = LiteLLM_TeamTable(team_id="team-B", members_with_roles=[Member(user_id="erin", role="admin")])
+    alice = UserAPIKeyAuth(user_id="alice", user_role=EmbrouterUserRoles.INTERNAL_USER.value)
+    target_team = EmbRouter_TeamTable(team_id="team-B", members_with_roles=[Member(user_id="erin", role="admin")])
 
     has_perm = await _check_user_permission_for_project(
         user_api_key_dict=alice,
@@ -171,19 +171,19 @@ async def test_project_perm_check_uses_injected_team_object_for_reassignment_tar
         team_object=target_team,
     )
     assert has_perm is False
-    prisma.db.litellm_teamtable.find_unique.assert_not_called()
+    prisma.db.embrouter_teamtable.find_unique.assert_not_called()
 
 
 @pytest.mark.asyncio
 async def test_project_perm_check_proxy_admin_always_allowed():
-    from litellm_enterprise.proxy.management_endpoints.project_endpoints import (
+    from embrouter_enterprise.proxy.management_endpoints.project_endpoints import (
         _check_user_permission_for_project,
     )
 
     prisma = MagicMock()
     admin = UserAPIKeyAuth(
         user_id="root",
-        user_role=LitellmUserRoles.PROXY_ADMIN.value,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN.value,
     )
 
     has_perm = await _check_user_permission_for_project(
@@ -194,7 +194,7 @@ async def test_project_perm_check_proxy_admin_always_allowed():
     )
     assert has_perm is True
     # Admin shortcut should not even hit the DB.
-    prisma.db.litellm_teamtable.find_unique.assert_not_called()
+    prisma.db.embrouter_teamtable.find_unique.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
@@ -208,20 +208,20 @@ def _make_prisma_with_user_orgs(user_id: str, org_ids: list):
     user_row.organization_memberships = [
         MagicMock(organization_id=org_id) for org_id in org_ids
     ]
-    prisma.db.litellm_usertable.find_unique = AsyncMock(return_value=user_row)
+    prisma.db.embrouter_usertable.find_unique = AsyncMock(return_value=user_row)
     return prisma
 
 
 @pytest.mark.asyncio
 async def test_assign_key_org_allows_member():
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from embrouter.proxy.management_endpoints.key_management_endpoints import (
         _validate_caller_can_assign_key_org,
     )
 
     prisma = _make_prisma_with_user_orgs("alice", ["org-1", "org-2"])
     caller = UserAPIKeyAuth(
         user_id="alice",
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
+        user_role=EmbrouterUserRoles.INTERNAL_USER.value,
     )
     # Should not raise.
     await _validate_caller_can_assign_key_org(
@@ -234,14 +234,14 @@ async def test_assign_key_org_allows_member():
 @pytest.mark.asyncio
 async def test_assign_key_org_blocks_non_member():
     """The IDOR: caller asks to point a key at an org they don't belong to."""
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from embrouter.proxy.management_endpoints.key_management_endpoints import (
         _validate_caller_can_assign_key_org,
     )
 
     prisma = _make_prisma_with_user_orgs("alice", ["org-1"])
     caller = UserAPIKeyAuth(
         user_id="alice",
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
+        user_role=EmbrouterUserRoles.INTERNAL_USER.value,
     )
     with pytest.raises(HTTPException) as exc_info:
         await _validate_caller_can_assign_key_org(
@@ -255,13 +255,13 @@ async def test_assign_key_org_blocks_non_member():
 
 @pytest.mark.asyncio
 async def test_assign_key_org_blocks_caller_without_user_id():
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from embrouter.proxy.management_endpoints.key_management_endpoints import (
         _validate_caller_can_assign_key_org,
     )
 
     prisma = MagicMock()
     caller = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
+        user_role=EmbrouterUserRoles.INTERNAL_USER.value,
     )
     with pytest.raises(HTTPException) as exc_info:
         await _validate_caller_can_assign_key_org(
@@ -274,18 +274,18 @@ async def test_assign_key_org_blocks_caller_without_user_id():
 
 @pytest.mark.asyncio
 async def test_assign_key_org_blocks_caller_with_no_memberships():
-    from litellm.proxy.management_endpoints.key_management_endpoints import (
+    from embrouter.proxy.management_endpoints.key_management_endpoints import (
         _validate_caller_can_assign_key_org,
     )
 
     prisma = MagicMock()
     user_row = MagicMock()
     user_row.organization_memberships = None
-    prisma.db.litellm_usertable.find_unique = AsyncMock(return_value=user_row)
+    prisma.db.embrouter_usertable.find_unique = AsyncMock(return_value=user_row)
 
     caller = UserAPIKeyAuth(
         user_id="alice",
-        user_role=LitellmUserRoles.INTERNAL_USER.value,
+        user_role=EmbrouterUserRoles.INTERNAL_USER.value,
     )
     with pytest.raises(HTTPException) as exc_info:
         await _validate_caller_can_assign_key_org(

@@ -1,5 +1,5 @@
 """
-Unit tests for litellm/batches/batch_utils.py
+Unit tests for embrouter/batches/batch_utils.py
 
 batch_utils.py is the batch cost/usage/parsing layer: it turns a batch output
 JSONL into spend (cost), token usage, and the list of models seen, and counts
@@ -9,7 +9,7 @@ numeric results rather than "ran without error".
 
 Pure functions (parsing, token math, credential extraction, success checks) run
 for real with exact-value assertions. The few true external seams - the cost
-maps (litellm.completion_cost, batch_cost_calculator), the tokenizer
+maps (embrouter.completion_cost, batch_cost_calculator), the tokenizer
 (token_counter), and remote file fetch (afile_content) - are mocked with
 deterministic stand-ins so the arithmetic under test is the only variable.
 """
@@ -24,9 +24,9 @@ import respx
 from openai.types.batch import BatchRequestCounts
 
 
-import litellm
-import litellm.batches.batch_utils as bu
-from litellm.types.utils import LiteLLMBatch, ModelInfo, Usage
+import embrouter
+import embrouter.batches.batch_utils as bu
+from embrouter.types.utils import EmbRouterBatch, ModelInfo, Usage
 
 # --------------------------------------------------------------------------- #
 # Builders for batch OUTPUT file rows.
@@ -211,7 +211,7 @@ def test_estimate_tokens_never_zero_for_short_rows():
 
 
 def test_output_models_uses_model_name_override(monkeypatch):
-    monkeypatch.setattr(litellm, "completion_cost", lambda **kw: 0.0)
+    monkeypatch.setattr(embrouter, "completion_cost", lambda **kw: 0.0)
     result = bu._aggregate_batch_cost_usage_models(
         entries=[_success_row(model="ignored")], custom_llm_provider="openai", model_name="forced-model"
     )
@@ -219,7 +219,7 @@ def test_output_models_uses_model_name_override(monkeypatch):
 
 
 def test_output_models_collects_from_successful_only(monkeypatch):
-    monkeypatch.setattr(litellm, "completion_cost", lambda **kw: 0.0)
+    monkeypatch.setattr(embrouter, "completion_cost", lambda **kw: 0.0)
     rows = [
         _success_row(model="gpt-4o"),
         _failed_row(model="should-be-skipped"),
@@ -230,7 +230,7 @@ def test_output_models_collects_from_successful_only(monkeypatch):
 
 
 def test_output_models_skips_successful_without_model(monkeypatch):
-    monkeypatch.setattr(litellm, "completion_cost", lambda **kw: 0.0)
+    monkeypatch.setattr(embrouter, "completion_cost", lambda **kw: 0.0)
     rows = [{"response": {"status_code": 200, "body": {}}}]
     result = bu._aggregate_batch_cost_usage_models(entries=rows, custom_llm_provider="openai")
     assert result.models == []
@@ -396,7 +396,7 @@ def test_count_entry_uses_model_name_fallback(monkeypatch):
 
 
 def test_total_usage_sums_successful_only(monkeypatch):
-    monkeypatch.setattr(litellm, "completion_cost", lambda **kw: 0.0)
+    monkeypatch.setattr(embrouter, "completion_cost", lambda **kw: 0.0)
     rows = [
         _success_row(usage=_usage(10, 5)),  # 15
         _failed_row(),  # excluded
@@ -451,7 +451,7 @@ def test_total_cost_applies_the_long_context_batch_tier_per_line():
             max_output_tokens=None,
             input_cost_per_token=2e-6,
             output_cost_per_token=8e-6,
-            litellm_provider="openai",
+            embrouter_provider="openai",
             mode="chat",
             supported_openai_params=None,
             input_cost_per_token_batches=1e-6,
@@ -485,7 +485,7 @@ def test_xai_output_lines_bill_reasoning_tokens_as_completion_tokens():
             max_output_tokens=None,
             input_cost_per_token=1.25e-6,
             output_cost_per_token=2.5e-6,
-            litellm_provider="xai",
+            embrouter_provider="xai",
             mode="chat",
             supported_openai_params=None,
             input_cost_per_token_batches=1e-6,
@@ -512,7 +512,7 @@ def test_total_usage_empty_is_zero():
 
 
 def test_total_usage_includes_reasoning_tokens(monkeypatch):
-    monkeypatch.setattr(litellm, "completion_cost", lambda **kw: 0.0)
+    monkeypatch.setattr(embrouter, "completion_cost", lambda **kw: 0.0)
     rows = [
         _success_row(
             usage={
@@ -538,7 +538,7 @@ def test_total_usage_includes_reasoning_tokens(monkeypatch):
 
 
 def test_aggregate_counts_successful_and_failed_requests(monkeypatch):
-    monkeypatch.setattr(litellm, "completion_cost", lambda **kw: 0.0)
+    monkeypatch.setattr(embrouter, "completion_cost", lambda **kw: 0.0)
     rows = [
         _success_row(usage=_usage(10, 5)),
         _failed_row(),
@@ -553,7 +553,7 @@ def test_aggregate_counts_successful_and_failed_requests(monkeypatch):
 
 
 def test_aggregate_returns_batch_cost_usage_result_dataclass(monkeypatch):
-    import litellm.cost_calculator as cc
+    import embrouter.cost_calculator as cc
 
     monkeypatch.setattr(cc, "batch_cost_calculator", lambda **kw: (0.4, 0.6))
     result = bu._aggregate_batch_cost_usage_models(
@@ -576,7 +576,7 @@ def test_aggregate_returns_batch_cost_usage_result_dataclass(monkeypatch):
 
 def test_cost_without_model_info_prices_each_row_by_its_response_model(monkeypatch):
     # model_info is None -> batch_cost_calculator per successful row, model from the response body.
-    import litellm.cost_calculator as cc
+    import embrouter.cost_calculator as cc
 
     calls = []
 
@@ -602,12 +602,12 @@ def test_cost_without_model_info_prices_each_row_by_its_response_model(monkeypat
 
 
 def test_empty_body_line_does_not_zero_whole_batch():
-    """A status-200 row with an empty body makes litellm.completion_cost raise;
+    """A status-200 row with an empty body makes embrouter.completion_cost raise;
     that line must be skipped from pricing instead of zeroing the whole batch.
 
     The provider still reported it as a success, so it stays in
     successful_requests and out of failed_requests - otherwise the counts stop
-    reconciling with the provider's own request_counts over a litellm-side
+    reconciling with the provider's own request_counts over a embrouter-side
     pricing gap the customer never caused."""
     rows = [
         _success_row(usage=_usage(10, 5)),
@@ -628,7 +628,7 @@ def test_empty_body_line_does_not_zero_whole_batch():
 
 def test_cost_from_content_model_info_path(monkeypatch):
     # model_info set -> batch_cost_calculator(prompt_cost, completion_cost).
-    import litellm.cost_calculator as cc
+    import embrouter.cost_calculator as cc
 
     monkeypatch.setattr(cc, "batch_cost_calculator", lambda **kw: (0.1, 0.2))
     rows = [
@@ -649,7 +649,7 @@ def test_aggregate_consumes_entries_in_a_single_pass(monkeypatch):
     """A one-shot generator: any implementation that iterates the entries twice
     (e.g. separate cost and usage passes) sees nothing on the second pass and
     returns wrong totals for at least one of cost/usage/models."""
-    import litellm.cost_calculator as cc
+    import embrouter.cost_calculator as cc
 
     monkeypatch.setattr(cc, "batch_cost_calculator", lambda **kw: (0.25, 0.25))
     one_shot = (row for row in [_success_row(usage=_usage(10, 5)), _failed_row(), _success_row(usage=_usage(20, 10))])
@@ -670,7 +670,7 @@ def test_aggregate_consumes_entries_in_a_single_pass(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_calculate_vertex_disable_transform_path(monkeypatch):
-    monkeypatch.setattr(litellm, "disable_vertex_batch_output_transformation", True, raising=False)
+    monkeypatch.setattr(embrouter, "disable_vertex_batch_output_transformation", True, raising=False)
     monkeypatch.setattr(
         bu,
         "calculate_vertex_ai_batch_cost_and_usage",
@@ -701,7 +701,7 @@ async def test_calculate_vertex_disable_transform_path(monkeypatch):
 async def test_calculate_vertex_disable_transform_needs_model_name(monkeypatch):
     """Without a model_name the raw-vertex path cannot price lines; the generic
     aggregation path must run even with the disable flag set."""
-    monkeypatch.setattr(litellm, "disable_vertex_batch_output_transformation", True, raising=False)
+    monkeypatch.setattr(embrouter, "disable_vertex_batch_output_transformation", True, raising=False)
     monkeypatch.setattr(
         bu,
         "calculate_vertex_ai_batch_cost_and_usage",
@@ -720,7 +720,7 @@ async def test_calculate_vertex_disable_transform_needs_model_name(monkeypatch):
 
 
 def test_vertex_cost_and_usage_aggregation(monkeypatch):
-    import litellm.cost_calculator as cc
+    import embrouter.cost_calculator as cc
 
     monkeypatch.setattr(cc, "batch_cost_calculator", lambda **kw: (0.1, 0.2))
     responses = [
@@ -758,7 +758,7 @@ def test_vertex_cost_and_usage_aggregation(monkeypatch):
 
 def test_vertex_batch_usage_preserves_modality_token_details(monkeypatch):
     monkeypatch.setitem(
-        litellm.model_cost,
+        embrouter.model_cost,
         "vertex_ai/gemini-embedding-2",
         {
             "input_cost_per_token_batches": 1e-7,
@@ -794,7 +794,7 @@ def test_vertex_batch_usage_preserves_modality_token_details(monkeypatch):
 
 
 def test_vertex_cost_skips_none_response_body(monkeypatch):
-    import litellm.cost_calculator as cc
+    import embrouter.cost_calculator as cc
 
     monkeypatch.setattr(cc, "batch_cost_calculator", lambda **kw: (1.0, 0.0))
     responses = [
@@ -820,7 +820,7 @@ def test_vertex_cost_skips_none_response_body(monkeypatch):
 
 def test_vertex_usage_total_token_fallback(monkeypatch):
     # no totalTokenCount -> falls back to prompt + completion.
-    import litellm.cost_calculator as cc
+    import embrouter.cost_calculator as cc
 
     monkeypatch.setattr(cc, "batch_cost_calculator", lambda **kw: (0.0, 0.0))
     responses = [{"response": {"usageMetadata": {"promptTokenCount": 8, "candidatesTokenCount": 4}}}]
@@ -831,7 +831,7 @@ def test_vertex_usage_total_token_fallback(monkeypatch):
 
 def test_vertex_cost_error_in_line_is_swallowed(monkeypatch):
     # a cost error on one line must not abort aggregation; usage still tallies.
-    import litellm.cost_calculator as cc
+    import embrouter.cost_calculator as cc
 
     def _boom(**kw):
         raise RuntimeError("price map miss")
@@ -861,7 +861,7 @@ def test_vertex_cost_error_in_line_is_swallowed(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_calculate_batch_cost_and_usage_orchestration(monkeypatch):
-    import litellm.cost_calculator as cc
+    import embrouter.cost_calculator as cc
 
     rows = [_success_row(model="gpt-4o", usage=_usage(10, 5))]
     monkeypatch.setattr(cc, "batch_cost_calculator", lambda **kw: (1.5, 1.0))
@@ -880,7 +880,7 @@ async def test_calculate_batch_cost_and_usage_orchestration(monkeypatch):
 
 
 def _batch(output_file_id):
-    from litellm.types.llms.openai import Batch
+    from embrouter.types.llms.openai import Batch
 
     return Batch(
         id="b",
@@ -925,7 +925,7 @@ def _vertex_jsonl(rows):
 
 @pytest.mark.asyncio
 async def test_output_file_content_vertex_fetches_via_afile_content(monkeypatch):
-    import litellm.files.main as files_main
+    import embrouter.files.main as files_main
 
     rows = [_vertex_openai_row("request-1", "gemini-3.6-flash", 10, 5)]
     captured: dict = {}
@@ -937,24 +937,24 @@ async def test_output_file_content_vertex_fetches_via_afile_content(monkeypatch)
     monkeypatch.setattr(files_main, "afile_content", fake_afile_content)
 
     result = await bu._fetch_batch_output_file_content(
-        _batch("gs://litellm-bucket/output/predictions.jsonl"),
+        _batch("gs://embrouter-bucket/output/predictions.jsonl"),
         custom_llm_provider="vertex_ai",
-        litellm_params={
+        embrouter_params={
             "vertex_project": "proj-1",
             "vertex_location": "us-central1",
             "vertex_credentials": "/path/to/creds.json",
-            "gcs_bucket_name": "litellm-bucket",
+            "gcs_bucket_name": "embrouter-bucket",
             "model": "vertex_ai/gemini-3.6-flash",
         },
     )
 
     assert bu._get_file_content_as_dictionary(result) == rows
-    assert captured["file_id"] == "gs://litellm-bucket/output/predictions.jsonl"
+    assert captured["file_id"] == "gs://embrouter-bucket/output/predictions.jsonl"
     assert captured["custom_llm_provider"] == "vertex_ai"
     assert captured["vertex_project"] == "proj-1"
     assert captured["vertex_location"] == "us-central1"
     assert captured["vertex_credentials"] == "/path/to/creds.json"
-    assert captured["gcs_bucket_name"] == "litellm-bucket"
+    assert captured["gcs_bucket_name"] == "embrouter-bucket"
     assert "model" not in captured
 
 
@@ -962,7 +962,7 @@ async def test_output_file_content_vertex_fetches_via_afile_content(monkeypatch)
 async def test_output_file_content_vertex_unified_file_id_extracts_gcs_uri(monkeypatch):
     import base64
 
-    import litellm.files.main as files_main
+    import embrouter.files.main as files_main
 
     captured: dict = {}
 
@@ -972,21 +972,21 @@ async def test_output_file_content_vertex_unified_file_id_extracts_gcs_uri(monke
 
     monkeypatch.setattr(files_main, "afile_content", fake_afile_content)
     unified_id = (
-        "litellm_proxy:application/jsonl;unified_id,uuid-1;target_model_names,vertex-model;"
-        "llm_output_file_id,gs://litellm-bucket/output/predictions.jsonl;llm_output_file_model_id,model-1"
+        "embrouter_proxy:application/jsonl;unified_id,uuid-1;target_model_names,vertex-model;"
+        "llm_output_file_id,gs://embrouter-bucket/output/predictions.jsonl;llm_output_file_model_id,model-1"
     )
     encoded_id = base64.urlsafe_b64encode(unified_id.encode()).decode().rstrip("=")
 
     await bu._fetch_batch_output_file_content(_batch(encoded_id), custom_llm_provider="vertex_ai")
 
-    assert captured["file_id"] == "gs://litellm-bucket/output/predictions.jsonl"
+    assert captured["file_id"] == "gs://embrouter-bucket/output/predictions.jsonl"
     assert captured["custom_llm_provider"] == "vertex_ai"
 
 
 @pytest.mark.asyncio
 async def test_output_file_content_model_encoded_file_id_decoded_to_provider_id(monkeypatch):
-    import litellm.files.main as files_main
-    from litellm.proxy.openai_files_endpoints.common_utils import encode_file_id_with_model
+    import embrouter.files.main as files_main
+    from embrouter.proxy.openai_files_endpoints.common_utils import encode_file_id_with_model
 
     captured: dict = {}
 
@@ -1005,7 +1005,7 @@ async def test_output_file_content_model_encoded_file_id_decoded_to_provider_id(
 
 @pytest.mark.asyncio
 async def test_output_file_content_raw_openai_file_id_passes_through(monkeypatch):
-    import litellm.files.main as files_main
+    import embrouter.files.main as files_main
 
     captured: dict = {}
 
@@ -1024,7 +1024,7 @@ def _vertex_predictions_row(custom_id, prompt_tokens, completion_tokens):
     return {
         "request": {
             "contents": [{"role": "user", "parts": [{"text": "hi"}]}],
-            "labels": {"litellm_custom_id": custom_id},
+            "labels": {"embrouter_custom_id": custom_id},
         },
         "status": "",
         "response": {
@@ -1047,35 +1047,35 @@ def _vertex_predictions_row(custom_id, prompt_tokens, completion_tokens):
 
 @pytest.fixture
 def respx_interceptable_httpx_client(monkeypatch):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
+    embrouter.in_memory_llm_clients_cache.flush_cache()
     yield
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    embrouter.in_memory_llm_clients_cache.flush_cache()
 
 
 @pytest.mark.asyncio
 @respx.mock
 async def test_output_file_content_vertex_managed_uri_accepted_by_real_validation(respx_interceptable_httpx_client):
     managed_output_uri = (
-        "gs://litellm-bucket/litellm-vertex-files/publishers/google/models/"
+        "gs://embrouter-bucket/embrouter-vertex-files/publishers/google/models/"
         "gemini-3.6-flash/abc-123/prediction-model/predictions.jsonl"
     )
     rows = [
         _vertex_predictions_row("request-1", 10, 5),
         _vertex_predictions_row("request-2", 20, 10),
     ]
-    route = respx.get(url__regex=r"https://storage\.googleapis\.com/storage/v1/b/litellm-bucket/o/.*").mock(
+    route = respx.get(url__regex=r"https://storage\.googleapis\.com/storage/v1/b/embrouter-bucket/o/.*").mock(
         return_value=httpx.Response(200, content=_vertex_jsonl(rows))
     )
 
     file_content = await bu._fetch_batch_output_file_content(
         _batch(managed_output_uri),
         custom_llm_provider="vertex_ai",
-        litellm_params={
+        embrouter_params={
             "api_key": "test-token",
             "vertex_project": "proj-1",
             "vertex_location": "us-central1",
-            "gcs_bucket_name": "litellm-bucket",
+            "gcs_bucket_name": "embrouter-bucket",
         },
     )
     result = bu._get_file_content_as_dictionary(file_content)
@@ -1083,8 +1083,8 @@ async def test_output_file_content_vertex_managed_uri_accepted_by_real_validatio
     assert route.call_count == 1
     request = route.calls.last.request
     assert request.url.raw_path == (
-        b"/storage/v1/b/litellm-bucket/o/"
-        b"litellm-vertex-files%2Fpublishers%2Fgoogle%2Fmodels%2Fgemini-3.6-flash"
+        b"/storage/v1/b/embrouter-bucket/o/"
+        b"embrouter-vertex-files%2Fpublishers%2Fgoogle%2Fmodels%2Fgemini-3.6-flash"
         b"%2Fabc-123%2Fprediction-model%2Fpredictions.jsonl?alt=media"
     )
     assert [row["custom_id"] for row in result] == ["request-1", "request-2"]
@@ -1099,13 +1099,13 @@ async def test_output_file_content_vertex_managed_uri_accepted_by_real_validatio
 async def test_output_file_content_vertex_foreign_bucket_rejected_by_real_validation():
     with pytest.raises(Exception, match="does not match the configured storage bucket"):
         await bu._fetch_batch_output_file_content(
-            _batch("gs://attacker-bucket/litellm-vertex-files/x/predictions.jsonl"),
+            _batch("gs://attacker-bucket/embrouter-vertex-files/x/predictions.jsonl"),
             custom_llm_provider="vertex_ai",
-            litellm_params={
+            embrouter_params={
                 "api_key": "test-token",
                 "vertex_project": "proj-1",
                 "vertex_location": "us-central1",
-                "gcs_bucket_name": "litellm-bucket",
+                "gcs_bucket_name": "embrouter-bucket",
             },
         )
 
@@ -1114,7 +1114,7 @@ async def test_output_file_content_vertex_foreign_bucket_rejected_by_real_valida
 
 @pytest.mark.asyncio
 async def test_handle_completed_vertex_batch_computes_cost_usage_and_models(monkeypatch):
-    import litellm.files.main as files_main
+    import embrouter.files.main as files_main
 
     rows = [
         _vertex_openai_row("request-1", "gemini-3.6-flash", 10, 5),
@@ -1127,12 +1127,12 @@ async def test_handle_completed_vertex_batch_computes_cost_usage_and_models(monk
     monkeypatch.setattr(files_main, "afile_content", fake_afile_content)
 
     result = await bu._handle_completed_batch(
-        _batch("gs://litellm-bucket/output/predictions.jsonl"),
+        _batch("gs://embrouter-bucket/output/predictions.jsonl"),
         custom_llm_provider="vertex_ai",
-        litellm_params={"vertex_project": "proj-1", "vertex_location": "us-central1"},
+        embrouter_params={"vertex_project": "proj-1", "vertex_location": "us-central1"},
     )
 
-    pricing = litellm.model_cost["vertex_ai/gemini-3.6-flash"]
+    pricing = embrouter.model_cost["vertex_ai/gemini-3.6-flash"]
     batch_input = pricing["input_cost_per_token_batches"]
     batch_output = pricing["output_cost_per_token_batches"]
 
@@ -1154,8 +1154,8 @@ async def test_output_file_content_no_output_file_id_raises():
 
 @pytest.mark.asyncio
 async def test_output_file_content_fetches_and_parses(monkeypatch):
-    import litellm.files.main as files_main
-    import litellm.proxy.openai_files_endpoints.common_utils as cu
+    import embrouter.files.main as files_main
+    import embrouter.proxy.openai_files_endpoints.common_utils as cu
 
     captured: dict = {}
 
@@ -1169,7 +1169,7 @@ async def test_output_file_content_fetches_and_parses(monkeypatch):
     result = await bu._fetch_batch_output_file_content(
         _batch("file-out"),
         custom_llm_provider="azure",
-        litellm_params={"api_key": "sk-az", "api_base": "https://az", "model": "x"},
+        embrouter_params={"api_key": "sk-az", "api_base": "https://az", "model": "x"},
     )
 
     assert result == b'{"a": 1}\n{"b": 2}'
@@ -1185,8 +1185,8 @@ async def test_output_file_content_fetches_and_parses(monkeypatch):
 async def test_output_file_content_unified_file_id_extraction(monkeypatch):
     # a base64 unified id carries the real provider file id inside
     # "llm_output_file_id,<FID>;" - it must be unwrapped before the fetch.
-    import litellm.files.main as files_main
-    import litellm.proxy.openai_files_endpoints.common_utils as cu
+    import embrouter.files.main as files_main
+    import embrouter.proxy.openai_files_endpoints.common_utils as cu
 
     captured: dict = {}
 
@@ -1198,7 +1198,7 @@ async def test_output_file_content_unified_file_id_extraction(monkeypatch):
     monkeypatch.setattr(
         cu,
         "_is_base64_encoded_unified_file_id",
-        lambda fid: "litellm_proxy;llm_output_file_id,real-file-99;rest",
+        lambda fid: "embrouter_proxy;llm_output_file_id,real-file-99;rest",
     )
 
     await bu._fetch_batch_output_file_content(_batch("encoded-blob"), custom_llm_provider="openai")
@@ -1215,10 +1215,10 @@ async def test_output_file_content_unified_file_id_extraction(monkeypatch):
 async def test_handle_completed_batch_orchestration(monkeypatch):
     rows = [_success_row(model="gpt-4o", usage=_usage(10, 5))]
 
-    async def fake_fetch(batch, custom_llm_provider, litellm_params=None):
+    async def fake_fetch(batch, custom_llm_provider, embrouter_params=None):
         return _vertex_jsonl(rows)
 
-    import litellm.cost_calculator as cc
+    import embrouter.cost_calculator as cc
 
     monkeypatch.setattr(bu, "_fetch_batch_output_file_content", fake_fetch)
     monkeypatch.setattr(cc, "batch_cost_calculator", lambda **kw: (2.0, 1.3))
@@ -1235,7 +1235,7 @@ async def test_handle_completed_batch_counts_error_file_failures(monkeypatch):
     """Regression test: OpenAI writes per-request failures (e.g. a rejected param)
     to a separate error_file_id, never into the output file - so failed_requests
     must include them or it silently undercounts real batch failures."""
-    from litellm.types.llms.openai import Batch
+    from embrouter.types.llms.openai import Batch
 
     rows = [_success_row(model="gpt-5-mini", usage=_usage(24, 107))]
     error_rows = [
@@ -1247,17 +1247,17 @@ async def test_handle_completed_batch_counts_error_file_failures(monkeypatch):
         }
     ]
 
-    async def fake_fetch(batch, custom_llm_provider, litellm_params=None):
+    async def fake_fetch(batch, custom_llm_provider, embrouter_params=None):
         return _vertex_jsonl(rows)
 
     async def fake_afile_content(**kw):
         return type("R", (), {"content": _vertex_jsonl(error_rows)})()
 
-    import litellm.files.main as files_main
+    import embrouter.files.main as files_main
 
     monkeypatch.setattr(bu, "_fetch_batch_output_file_content", fake_fetch)
     monkeypatch.setattr(files_main, "afile_content", fake_afile_content)
-    monkeypatch.setattr(litellm, "completion_cost", lambda **kw: 0.0)
+    monkeypatch.setattr(embrouter, "completion_cost", lambda **kw: 0.0)
 
     batch = Batch(
         id="b",
@@ -1284,27 +1284,27 @@ async def test_handle_completed_batch_decodes_model_encoded_error_file_id(monkey
     the provider 404s, and the swallowed fetch failure silently reports 0 failures."""
     import base64
 
-    from litellm.types.llms.openai import Batch
+    from embrouter.types.llms.openai import Batch
 
     provider_error_file_id = "file-real-error-id"
     encoded_error_file_id = "file-" + base64.urlsafe_b64encode(
-        f"litellm:{provider_error_file_id};model,model-abc".encode()
+        f"embrouter:{provider_error_file_id};model,model-abc".encode()
     ).decode().rstrip("=")
 
     requested_file_ids = []
 
-    async def fake_fetch(batch, custom_llm_provider, litellm_params=None):
+    async def fake_fetch(batch, custom_llm_provider, embrouter_params=None):
         return _vertex_jsonl([_success_row(model="gpt-4o", usage=_usage(10, 5))])
 
     async def fake_afile_content(**kw):
         requested_file_ids.append(kw["file_id"])
         return type("R", (), {"content": _vertex_jsonl([{"custom_id": "bad-1"}])})()
 
-    import litellm.files.main as files_main
+    import embrouter.files.main as files_main
 
     monkeypatch.setattr(bu, "_fetch_batch_output_file_content", fake_fetch)
     monkeypatch.setattr(files_main, "afile_content", fake_afile_content)
-    monkeypatch.setattr(litellm, "completion_cost", lambda **kw: 0.0)
+    monkeypatch.setattr(embrouter, "completion_cost", lambda **kw: 0.0)
 
     batch = Batch(
         id="b",
@@ -1328,11 +1328,11 @@ async def test_handle_completed_batch_decodes_model_encoded_error_file_id(monkey
 async def test_handle_completed_batch_no_error_file_id_reports_zero_error_failures(monkeypatch):
     rows = [_success_row(model="gpt-4o", usage=_usage(10, 5))]
 
-    async def fake_fetch(batch, custom_llm_provider, litellm_params=None):
+    async def fake_fetch(batch, custom_llm_provider, embrouter_params=None):
         return _vertex_jsonl(rows)
 
     monkeypatch.setattr(bu, "_fetch_batch_output_file_content", fake_fetch)
-    monkeypatch.setattr(litellm, "completion_cost", lambda **kw: 0.0)
+    monkeypatch.setattr(embrouter, "completion_cost", lambda **kw: 0.0)
 
     result = await bu._handle_completed_batch(_batch("of"), custom_llm_provider="openai")
 
@@ -1368,11 +1368,11 @@ async def test_handle_completed_batch_no_output_file_is_zero(monkeypatch):
 async def test_handle_completed_batch_vertex_disable_transform_path(monkeypatch):
     raw_rows = [{"response": {"usageMetadata": {"promptTokenCount": 1, "candidatesTokenCount": 2}}}]
 
-    async def fake_fetch(batch, custom_llm_provider, litellm_params=None):
+    async def fake_fetch(batch, custom_llm_provider, embrouter_params=None):
         return _vertex_jsonl(raw_rows)
 
     monkeypatch.setattr(bu, "_fetch_batch_output_file_content", fake_fetch)
-    monkeypatch.setattr(litellm, "disable_vertex_batch_output_transformation", True, raising=False)
+    monkeypatch.setattr(embrouter, "disable_vertex_batch_output_transformation", True, raising=False)
     seen: dict = {}
 
     def fake_vertex_calc(content, model, model_info=None):
@@ -1389,7 +1389,7 @@ async def test_handle_completed_batch_vertex_disable_transform_path(monkeypatch)
     monkeypatch.setattr(bu, "calculate_vertex_ai_batch_cost_and_usage", fake_vertex_calc)
 
     result = await bu._handle_completed_batch(
-        _batch("gs://litellm-bucket/output/predictions.jsonl"),
+        _batch("gs://embrouter-bucket/output/predictions.jsonl"),
         custom_llm_provider="vertex_ai",
         model_name="gemini-x",
     )
@@ -1514,7 +1514,7 @@ def test_bedrock_cost_uses_deployment_model_name():
 
 
 def test_anthropic_total_usage_sums_succeeded_only(monkeypatch):
-    import litellm.cost_calculator as cc
+    import embrouter.cost_calculator as cc
 
     monkeypatch.setattr(cc, "batch_cost_calculator", lambda **kw: (0.0, 0.0))
     rows = [
@@ -1529,7 +1529,7 @@ def test_anthropic_total_usage_sums_succeeded_only(monkeypatch):
 
 
 def test_anthropic_total_usage_aggregates_cache_token_details(monkeypatch):
-    import litellm.cost_calculator as cc
+    import embrouter.cost_calculator as cc
 
     monkeypatch.setattr(cc, "batch_cost_calculator", lambda **kw: (0.0, 0.0))
     rows = [
@@ -1545,7 +1545,7 @@ def test_anthropic_total_usage_aggregates_cache_token_details(monkeypatch):
 
 
 def test_total_usage_without_cache_tokens_has_no_prompt_details(monkeypatch):
-    monkeypatch.setattr(litellm, "completion_cost", lambda **kw: 0.0)
+    monkeypatch.setattr(embrouter, "completion_cost", lambda **kw: 0.0)
     rows = [
         {
             "custom_id": "req-1",
@@ -1582,7 +1582,7 @@ def test_anthropic_cost_applies_batch_discount_and_cache_pricing():
 
 
 def test_anthropic_cost_without_model_info_uses_batch_cost_calculator(monkeypatch):
-    import litellm.cost_calculator as cc
+    import embrouter.cost_calculator as cc
 
     seen = []
 
@@ -1592,7 +1592,7 @@ def test_anthropic_cost_without_model_info_uses_batch_cost_calculator(monkeypatc
 
     monkeypatch.setattr(cc, "batch_cost_calculator", _fake_batch_cost_calculator)
     monkeypatch.setattr(
-        litellm,
+        embrouter,
         "completion_cost",
         lambda **kw: pytest.fail("anthropic rows must not go through completion_cost"),
     )
@@ -1608,7 +1608,7 @@ def test_anthropic_cost_without_model_info_uses_batch_cost_calculator(monkeypatc
 
 
 def test_anthropic_batch_models_collected_from_succeeded_rows(monkeypatch):
-    import litellm.cost_calculator as cc
+    import embrouter.cost_calculator as cc
 
     monkeypatch.setattr(cc, "batch_cost_calculator", lambda **kw: (0.0, 0.0))
     rows = [
@@ -1650,16 +1650,16 @@ def test_extract_credentials_forwards_the_trusted_model_credential_snapshot():
     batch's cost is never recorded."""
     snapshot = MappingProxyType({"s3_bucket_name": "configured-bucket", "aws_region_name": "us-east-1"})
 
-    credentials = bu._extract_file_access_credentials({"_litellm_internal_model_credentials": snapshot})
+    credentials = bu._extract_file_access_credentials({"_embrouter_internal_model_credentials": snapshot})
 
-    assert credentials["_litellm_internal_model_credentials"] is snapshot
+    assert credentials["_embrouter_internal_model_credentials"] is snapshot
 
 
 def test_extract_credentials_forwards_the_deployment_aws_credentials():
     """The retrieve path's logging object carries the deployment's AWS keys in its
-    litellm_params, and the S3 read of the output file signs with whatever afile_content
+    embrouter_params, and the S3 read of the output file signs with whatever afile_content
     receives. Dropping them here sent the read to the ambient credential chain, so a
-    deployment whose only AWS credentials live in its litellm_params never recorded
+    deployment whose only AWS credentials live in its embrouter_params never recorded
     batch cost on retrieve even once the bucket resolved."""
     params = {
         "aws_access_key_id": "AKIA-deployment",
@@ -1677,7 +1677,7 @@ def test_extract_credentials_forwards_the_deployment_aws_credentials():
 
 @pytest.mark.asyncio
 async def test_output_file_content_bedrock_reads_with_deployment_aws_credentials(monkeypatch):
-    import litellm.files.main as files_main
+    import embrouter.files.main as files_main
 
     captured: dict = {}
 
@@ -1689,25 +1689,25 @@ async def test_output_file_content_bedrock_reads_with_deployment_aws_credentials
     snapshot = MappingProxyType({"s3_bucket_name": "configured-bucket", "aws_region_name": "us-west-2"})
 
     await bu._fetch_batch_output_file_content(
-        _batch("s3://configured-bucket/litellm-batch-outputs/job-1/out.jsonl.out"),
+        _batch("s3://configured-bucket/embrouter-batch-outputs/job-1/out.jsonl.out"),
         custom_llm_provider="bedrock",
-        litellm_params={
+        embrouter_params={
             "aws_access_key_id": "AKIA-deployment",
             "aws_secret_access_key": "secret-deployment",
             "aws_session_token": "token-deployment",
             "aws_region_name": "us-west-2",
-            "_litellm_internal_model_credentials": snapshot,
+            "_embrouter_internal_model_credentials": snapshot,
             "model": "bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0",
         },
     )
 
-    assert captured["file_id"] == "s3://configured-bucket/litellm-batch-outputs/job-1/out.jsonl.out"
+    assert captured["file_id"] == "s3://configured-bucket/embrouter-batch-outputs/job-1/out.jsonl.out"
     assert captured["custom_llm_provider"] == "bedrock"
     assert captured["aws_access_key_id"] == "AKIA-deployment"
     assert captured["aws_secret_access_key"] == "secret-deployment"
     assert captured["aws_session_token"] == "token-deployment"
     assert captured["aws_region_name"] == "us-west-2"
-    assert captured["_litellm_internal_model_credentials"] is snapshot
+    assert captured["_embrouter_internal_model_credentials"] is snapshot
     assert "model" not in captured
 
 
@@ -1742,7 +1742,7 @@ async def test_handle_completed_bedrock_batch_prices_from_deployment_model(monke
     """A bedrock batch must price from the deployment model, not the response model."""
     rows = [_bedrock_row("claude-sonnet-4-6", 18, 10)] * 100
 
-    async def fake_fetch(batch: object, custom_llm_provider: str, litellm_params: dict | None = None) -> bytes:
+    async def fake_fetch(batch: object, custom_llm_provider: str, embrouter_params: dict | None = None) -> bytes:
         return _vertex_jsonl(rows)
 
     monkeypatch.setattr(bu, "_fetch_batch_output_file_content", fake_fetch)
@@ -1770,7 +1770,7 @@ async def test_handle_completed_batch_honors_deployment_pricing(monkeypatch) -> 
     """A deployment's configured rates must win over the global cost map."""
     rows = [_success_row(model="gemini-2.5-flash", usage=_usage(60, 75))]
 
-    async def fake_fetch(batch: object, custom_llm_provider: str, litellm_params: dict | None = None) -> bytes:
+    async def fake_fetch(batch: object, custom_llm_provider: str, embrouter_params: dict | None = None) -> bytes:
         return _vertex_jsonl(rows)
 
     monkeypatch.setattr(bu, "_fetch_batch_output_file_content", fake_fetch)
@@ -1912,7 +1912,7 @@ def test_total_cost_bills_cached_tokens_per_line_at_the_batch_cached_rate():
             input_cost_per_token=2e-6,
             output_cost_per_token=8e-6,
             cache_read_input_token_cost=1e-6,
-            litellm_provider="openai",
+            embrouter_provider="openai",
             mode="chat",
             supported_openai_params=None,
             input_cost_per_token_batches=1e-6,
@@ -1936,8 +1936,8 @@ def test_total_cost_bills_cached_tokens_per_line_at_the_batch_cached_rate():
 
 def _retrieved_batch(
     status: str, output_file_id: str | None = None, counts: BatchRequestCounts | None = None
-) -> LiteLLMBatch:
-    return LiteLLMBatch(
+) -> EmbRouterBatch:
+    return EmbRouterBatch(
         id="batch_abc",
         completion_window="24h",
         created_at=1,
@@ -1995,7 +1995,7 @@ def _ocr_row(pages_processed, annotation_pages=None, model="mistral-ocr-latest")
 
 def test_ocr_rows_are_priced_per_page_at_batch_rate(monkeypatch):
     monkeypatch.setattr(
-        litellm,
+        embrouter,
         "get_model_info",
         lambda model, custom_llm_provider=None: {"ocr_cost_per_page": 0.004, "ocr_cost_per_page_batches": 0.002},
     )
@@ -2013,14 +2013,14 @@ def test_ocr_rows_are_priced_per_page_at_batch_rate(monkeypatch):
 
 
 def test_ocr_rows_fall_back_to_sync_page_rate_without_batch_price(monkeypatch):
-    monkeypatch.setattr(litellm, "get_model_info", lambda model, custom_llm_provider=None: {"ocr_cost_per_page": 0.004})
+    monkeypatch.setattr(embrouter, "get_model_info", lambda model, custom_llm_provider=None: {"ocr_cost_per_page": 0.004})
     result = bu._aggregate_batch_cost_usage_models(entries=[_ocr_row(2)], custom_llm_provider="mistral")
     assert result.cost == pytest.approx(2 * 0.004)
 
 
 def test_ocr_rows_bill_annotation_pages_separately(monkeypatch):
     monkeypatch.setattr(
-        litellm,
+        embrouter,
         "get_model_info",
         lambda model, custom_llm_provider=None: {
             "ocr_cost_per_page_batches": 0.002,
@@ -2035,7 +2035,7 @@ def test_ocr_rows_bill_annotation_pages_separately(monkeypatch):
 
 def test_ocr_rows_use_deployment_model_info_pricing_over_cost_map(monkeypatch):
     monkeypatch.setattr(
-        litellm, "get_model_info", lambda model, custom_llm_provider=None: pytest.fail("cost map must not be consulted")
+        embrouter, "get_model_info", lambda model, custom_llm_provider=None: pytest.fail("cost map must not be consulted")
     )
     result = bu._aggregate_batch_cost_usage_models(
         entries=[_ocr_row(10)],
@@ -2047,7 +2047,7 @@ def test_ocr_rows_use_deployment_model_info_pricing_over_cost_map(monkeypatch):
 
 def test_ocr_rows_keep_the_published_page_rate_when_the_deployment_prices_only_annotations(monkeypatch):
     monkeypatch.setattr(
-        litellm,
+        embrouter,
         "get_model_info",
         lambda model, custom_llm_provider=None: {
             "ocr_cost_per_page_batches": 0.002,
@@ -2066,7 +2066,7 @@ def test_ocr_rows_keep_the_deployment_page_rate_when_the_unmapped_model_has_no_a
     def _unmapped(model, custom_llm_provider=None):
         raise Exception(f"This model isn't mapped yet: {model}")
 
-    monkeypatch.setattr(litellm, "get_model_info", _unmapped)
+    monkeypatch.setattr(embrouter, "get_model_info", _unmapped)
     result = bu._aggregate_batch_cost_usage_models(
         entries=[_ocr_row(4, annotation_pages=4, model="my-private-ocr-model")],
         custom_llm_provider="mistral",
@@ -2077,7 +2077,7 @@ def test_ocr_rows_keep_the_deployment_page_rate_when_the_unmapped_model_has_no_a
 
 def test_ocr_rows_bill_the_deployment_sync_page_rate_over_the_published_batch_rate(monkeypatch):
     monkeypatch.setattr(
-        litellm, "get_model_info", lambda model, custom_llm_provider=None: pytest.fail("cost map must not be consulted")
+        embrouter, "get_model_info", lambda model, custom_llm_provider=None: pytest.fail("cost map must not be consulted")
     )
     result = bu._aggregate_batch_cost_usage_models(
         entries=[_ocr_row(3)],
@@ -2088,7 +2088,7 @@ def test_ocr_rows_bill_the_deployment_sync_page_rate_over_the_published_batch_ra
 
 
 def test_ocr_rows_without_pricing_bill_zero_but_count_as_successful(monkeypatch):
-    monkeypatch.setattr(litellm, "get_model_info", lambda model, custom_llm_provider=None: {"mode": "ocr"})
+    monkeypatch.setattr(embrouter, "get_model_info", lambda model, custom_llm_provider=None: {"mode": "ocr"})
     result = bu._aggregate_batch_cost_usage_models(entries=[_ocr_row(3)], custom_llm_provider="mistral")
     assert result.cost == 0.0
     assert (result.successful_requests, result.failed_requests) == (1, 0)
@@ -2096,7 +2096,7 @@ def test_ocr_rows_without_pricing_bill_zero_but_count_as_successful(monkeypatch)
 
 def test_chat_rows_from_mistral_still_use_token_pricing(monkeypatch):
     monkeypatch.setattr(
-        litellm,
+        embrouter,
         "get_model_info",
         lambda model, custom_llm_provider=None: {"input_cost_per_token": 0.001, "output_cost_per_token": 0.002},
     )
@@ -2122,7 +2122,7 @@ GROUNDED_USAGE_METADATA = {
 
 
 PASSTHROUGH_OUTPUT_URI = (
-    "gs://litellm-bucket/litellm-vertex-files/passthrough/publishers/google/models/gemini-2.5-flash/u/"
+    "gs://embrouter-bucket/embrouter-vertex-files/passthrough/publishers/google/models/gemini-2.5-flash/u/"
     "predictions.jsonl"
 )
 
@@ -2151,7 +2151,7 @@ def _native_vertex_row(usage_metadata: dict, *, grounded: bool, model_version: s
 
 
 def _capture_cost_calls(monkeypatch, prompt_cost=0.5, completion_cost=0.25) -> list:
-    import litellm.cost_calculator as cc
+    import embrouter.cost_calculator as cc
 
     calls: list = []
 
@@ -2164,7 +2164,7 @@ def _capture_cost_calls(monkeypatch, prompt_cost=0.5, completion_cost=0.25) -> l
 
 
 def test_vertex_native_cost_bills_embedding_rows(monkeypatch):
-    monkeypatch.setitem(litellm.model_cost, "vertex_ai/gemini-embedding-2", {"input_cost_per_token_batches": 1e-7})
+    monkeypatch.setitem(embrouter.model_cost, "vertex_ai/gemini-embedding-2", {"input_cost_per_token_batches": 1e-7})
     rows = [
         {
             "key": "id_1",
@@ -2191,7 +2191,7 @@ def test_vertex_native_cost_bills_embedding_rows(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_native_vertex_rows_route_to_vertex_cost_path_without_flag(monkeypatch):
-    monkeypatch.setattr(litellm, "disable_vertex_batch_output_transformation", False, raising=False)
+    monkeypatch.setattr(embrouter, "disable_vertex_batch_output_transformation", False, raising=False)
     monkeypatch.setattr(
         bu, "_aggregate_batch_cost_usage_models", lambda **kw: pytest.fail("generic path should not run")
     )
@@ -2213,7 +2213,7 @@ async def test_native_vertex_rows_route_to_vertex_cost_path_without_flag(monkeyp
 
 @pytest.mark.asyncio
 async def test_openai_shaped_vertex_rows_keep_the_generic_path_without_flag(monkeypatch):
-    monkeypatch.setattr(litellm, "disable_vertex_batch_output_transformation", False, raising=False)
+    monkeypatch.setattr(embrouter, "disable_vertex_batch_output_transformation", False, raising=False)
     monkeypatch.setattr(
         bu, "calculate_vertex_ai_batch_cost_and_usage", lambda *a, **kw: pytest.fail("native path should not run")
     )
@@ -2244,10 +2244,10 @@ async def test_native_vertex_rows_on_another_provider_keep_the_generic_path(monk
 
 @pytest.mark.asyncio
 async def test_handle_completed_batch_routes_native_rows_without_flag(monkeypatch):
-    monkeypatch.setattr(litellm, "disable_vertex_batch_output_transformation", False, raising=False)
+    monkeypatch.setattr(embrouter, "disable_vertex_batch_output_transformation", False, raising=False)
     raw_rows = [_native_vertex_row(GROUNDED_USAGE_METADATA, grounded=True)]
 
-    async def fake_fetch(batch, custom_llm_provider, litellm_params=None):
+    async def fake_fetch(batch, custom_llm_provider, embrouter_params=None):
         return _vertex_jsonl(raw_rows)
 
     monkeypatch.setattr(bu, "_fetch_batch_output_file_content", fake_fetch)
@@ -2415,7 +2415,7 @@ def test_native_vertex_row_without_model_version_under_a_wildcard_deployment_bil
 
 
 def test_native_vertex_row_the_cost_map_cannot_price_is_billed_at_zero_and_the_rest_still_bills(monkeypatch):
-    import litellm.cost_calculator as cc
+    import embrouter.cost_calculator as cc
 
     def _calc(**kw):
         if kw["model"] == "gemini-unpriced":
@@ -2438,7 +2438,7 @@ def test_native_vertex_row_the_cost_map_cannot_price_is_billed_at_zero_and_the_r
 
 @pytest.mark.asyncio
 async def test_flag_sends_every_vertex_row_down_the_native_path_when_a_model_is_known(monkeypatch):
-    monkeypatch.setattr(litellm, "disable_vertex_batch_output_transformation", True, raising=False)
+    monkeypatch.setattr(embrouter, "disable_vertex_batch_output_transformation", True, raising=False)
     monkeypatch.setattr(
         bu, "_aggregate_batch_cost_usage_models", lambda **kw: pytest.fail("generic path should not run")
     )

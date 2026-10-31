@@ -5,7 +5,7 @@ Flow:
   1. Convert file_search tools to a single function tool definition.
   2. Call the provider with the function tool.
   3. If the provider issues a file_search function_call, execute vector search
-     via litellm.vector_stores.main.asearch().
+     via embrouter.vector_stores.main.asearch().
   4. Feed results back and get the final answer.
   5. Wrap everything in OpenAI Responses-API format:
        [file_search_call output item] + [message output item with file_citation annotations]
@@ -19,18 +19,18 @@ from typing import TYPE_CHECKING, Any, Final, TypeAlias, cast  # noqa: TID251  #
 
 from typing_extensions import NotRequired, ReadOnly, TypedDict
 
-from litellm._internal_context import is_internal_call
-from litellm._logging import verbose_logger
-from litellm.types.llms.openai import ResponseOutputItem, ResponsesAPIResponse
-from litellm.types.vector_stores import VectorStoreSearchResult
+from embrouter._internal_context import is_internal_call
+from embrouter._logging import verbose_logger
+from embrouter.types.llms.openai import ResponseOutputItem, ResponsesAPIResponse
+from embrouter.types.vector_stores import VectorStoreSearchResult
 
 if TYPE_CHECKING:
-    from litellm.llms.base_llm.responses.transformation import BaseResponsesAPIConfig
+    from embrouter.llms.base_llm.responses.transformation import BaseResponsesAPIConfig
 
 # Keep ToolParam broad so we stay compatible with both dict and Pydantic forms
 ToolParam: TypeAlias = object
 
-FILE_SEARCH_FUNCTION_NAME: Final = "litellm_file_search"
+FILE_SEARCH_FUNCTION_NAME: Final = "embrouter_file_search"
 
 
 class FileSearchToolCallArgs(TypedDict):
@@ -66,12 +66,12 @@ def _build_function_tool(vector_store_ids: list[str]) -> dict[str, object]:
     """
     Create a Responses API function-tool definition that describes file search.
     The function accepts one or more natural-language queries (like OpenAI's native
-    file_search); LiteLLM runs the actual vector search against the configured
+    file_search); EmbRouter runs the actual vector search against the configured
     vector stores.
 
     Note: Uses Responses API format (name/description/parameters at top level),
     NOT Chat Completion format (nested under "function"), so that the
-    LiteLLMCompletionResponsesConfig transformation picks up name and description.
+    EmbRouterCompletionResponsesConfig transformation picks up name and description.
     """
     return {
         "type": "function",
@@ -151,7 +151,7 @@ async def _run_vector_searches(
     Returns:
         (queries_list, combined_results)
     """
-    import litellm.vector_stores.main as vs_main
+    import embrouter.vector_stores.main as vs_main
 
     all_results: Final[list[VectorStoreSearchResult]] = []
     ids_to_search: Final = vector_store_ids
@@ -390,7 +390,7 @@ def _synthesize_responses_api_response(
 
 
 async def _call_aresponses(input, model, tools, **kwargs):  # pragma: no cover – thin wrapper for patching in tests
-    from litellm.responses.main import aresponses  # noqa: TID251  # inner call must not re-enter file-search emulation
+    from embrouter.responses.main import aresponses  # noqa: TID251  # inner call must not re-enter file-search emulation
 
     return await aresponses(input=input, model=model, tools=tools, **kwargs)
 
@@ -533,7 +533,7 @@ async def aresponses_with_emulated_file_search(
 
     # 2. First provider call — provider will call the file_search function.
     # Mark as an internal sub-call so wrapper_async skips billing callbacks;
-    # the parent litellm_logging_obj (propagated via kwargs) fires once at the end.
+    # the parent embrouter_logging_obj (propagated via kwargs) fires once at the end.
     _prev_internal: Final = is_internal_call.get()
     is_internal_call.set(True)
     try:

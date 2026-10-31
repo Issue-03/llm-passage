@@ -6,10 +6,10 @@ from unittest.mock import MagicMock
 import pytest
 from fastapi import HTTPException
 
-from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-from litellm.router_strategy.adaptive_router.adaptive_router import AdaptiveRouter
-from litellm.router_strategy.adaptive_router.bandit import apply_delta
-from litellm.types.router import (
+from embrouter.proxy._types import EmbrouterUserRoles, UserAPIKeyAuth
+from embrouter.router_strategy.adaptive_router.adaptive_router import AdaptiveRouter
+from embrouter.router_strategy.adaptive_router.bandit import apply_delta
+from embrouter.types.router import (
     AdaptiveRouterConfig,
     AdaptiveRouterPreferences,
     RequestType,
@@ -103,13 +103,13 @@ async def test_get_state_snapshot_quality_mean_matches_alpha_over_total():
 @pytest.mark.asyncio
 async def test_endpoint_returns_404_when_no_adaptive_router(monkeypatch):
     """When llm_router is set but has no adaptive routers configured, return 404."""
-    from litellm.proxy import proxy_server
+    from embrouter.proxy import proxy_server
 
     fake_router = MagicMock()
     fake_router.adaptive_routers = {}
     monkeypatch.setattr(proxy_server, "llm_router", fake_router)
 
-    admin = UserAPIKeyAuth(api_key="sk-1234", user_role=LitellmUserRoles.PROXY_ADMIN)
+    admin = UserAPIKeyAuth(api_key="sk-1234", user_role=EmbrouterUserRoles.PROXY_ADMIN)
     with pytest.raises(HTTPException) as exc:
         await proxy_server.get_adaptive_router_state(user_api_key_dict=admin)
     assert exc.value.status_code == 404
@@ -117,11 +117,11 @@ async def test_endpoint_returns_404_when_no_adaptive_router(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_endpoint_returns_404_when_llm_router_is_none(monkeypatch):
-    from litellm.proxy import proxy_server
+    from embrouter.proxy import proxy_server
 
     monkeypatch.setattr(proxy_server, "llm_router", None)
 
-    admin = UserAPIKeyAuth(api_key="sk-1234", user_role=LitellmUserRoles.PROXY_ADMIN)
+    admin = UserAPIKeyAuth(api_key="sk-1234", user_role=EmbrouterUserRoles.PROXY_ADMIN)
     with pytest.raises(HTTPException) as exc:
         await proxy_server.get_adaptive_router_state(user_api_key_dict=admin)
     assert exc.value.status_code == 404
@@ -129,14 +129,14 @@ async def test_endpoint_returns_404_when_llm_router_is_none(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_endpoint_rejects_non_admin_role(monkeypatch):
-    from litellm.proxy import proxy_server
+    from embrouter.proxy import proxy_server
 
     fake_router = MagicMock()
     fake_router.adaptive_routers = {"r1": _entry()}
     monkeypatch.setattr(proxy_server, "llm_router", fake_router)
 
     non_admin = UserAPIKeyAuth(
-        api_key="sk-user", user_role=LitellmUserRoles.INTERNAL_USER
+        api_key="sk-user", user_role=EmbrouterUserRoles.INTERNAL_USER
     )
     with pytest.raises(HTTPException) as exc:
         await proxy_server.get_adaptive_router_state(user_api_key_dict=non_admin)
@@ -146,13 +146,13 @@ async def test_endpoint_rejects_non_admin_role(monkeypatch):
 @pytest.mark.asyncio
 async def test_endpoint_returns_snapshot_list_for_admin(monkeypatch):
     """Single configured router still returns the {"routers": [...]} list shape."""
-    from litellm.proxy import proxy_server
+    from embrouter.proxy import proxy_server
 
     fake_router = MagicMock()
     fake_router.adaptive_routers = {"r1": _entry("r1")}
     monkeypatch.setattr(proxy_server, "llm_router", fake_router)
 
-    admin = UserAPIKeyAuth(api_key="sk-1234", user_role=LitellmUserRoles.PROXY_ADMIN)
+    admin = UserAPIKeyAuth(api_key="sk-1234", user_role=EmbrouterUserRoles.PROXY_ADMIN)
     result = await proxy_server.get_adaptive_router_state(user_api_key_dict=admin)
     assert list(result.keys()) == ["routers"]
     assert len(result["routers"]) == 1
@@ -165,7 +165,7 @@ async def test_endpoint_returns_snapshot_list_for_admin(monkeypatch):
 @pytest.mark.asyncio
 async def test_endpoint_returns_one_snapshot_per_router(monkeypatch):
     """With multiple adaptive routers configured, return one snapshot per router."""
-    from litellm.proxy import proxy_server
+    from embrouter.proxy import proxy_server
 
     fake_router = MagicMock()
     fake_router.adaptive_routers = {
@@ -174,7 +174,7 @@ async def test_endpoint_returns_one_snapshot_per_router(monkeypatch):
     }
     monkeypatch.setattr(proxy_server, "llm_router", fake_router)
 
-    admin = UserAPIKeyAuth(api_key="sk-1234", user_role=LitellmUserRoles.PROXY_ADMIN)
+    admin = UserAPIKeyAuth(api_key="sk-1234", user_role=EmbrouterUserRoles.PROXY_ADMIN)
     result = await proxy_server.get_adaptive_router_state(user_api_key_dict=admin)
     names = sorted(s["router_name"] for s in result["routers"])
     assert names == ["r1", "r2"]

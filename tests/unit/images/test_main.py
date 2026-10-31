@@ -4,7 +4,7 @@ from typing import Final
 import httpx
 import respx
 
-import litellm
+import embrouter
 
 
 def test_image_generation_keeps_an_internal_prefixed_kwarg_out_of_the_provider_request(
@@ -15,15 +15,15 @@ def test_image_generation_keeps_an_internal_prefixed_kwarg_out_of_the_provider_r
         return_value=httpx.Response(status_code=200, json={"created": 1712697600, "data": [{"b64_json": "aW1n"}]})
     )
 
-    litellm.image_generation(
+    embrouter.image_generation(
         model="openai/gpt-image-1",
         prompt="a red circle",
         api_base=api_base,
         api_key="fake_openai_api_key",
-        _litellm_undeclared_sentinel="internal",
+        _embrouter_undeclared_sentinel="internal",
     )
 
     assert mock_route.called
     sent: Final = json.loads(respx_mock.calls[0].request.content)
-    assert "_litellm_undeclared_sentinel" not in sent, sent
+    assert "_embrouter_undeclared_sentinel" not in sent, sent
     assert sent["prompt"] == "a red circle"

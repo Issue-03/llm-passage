@@ -1,6 +1,6 @@
 """Browser sign-in for ``lite login --pkce``: OAuth 2.1 authorization code + PKCE S256
 against the proxy's own authorization server, as a public client on a loopback redirect.
-The proxy publishes everything this needs at ``/.well-known/litellm-cli-auth``, so a CLI
+The proxy publishes everything this needs at ``/.well-known/embrouter-cli-auth``, so a CLI
 in any other language can run the same steps from that document alone."""
 
 from __future__ import annotations
@@ -23,16 +23,16 @@ import requests
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 from typing_extensions import ReadOnly, TypedDict
 
-from litellm.litellm_core_utils.cli_token_utils import CLI_TOKEN_FRESHNESS_BUFFER_SECONDS
+from embrouter.embrouter_core_utils.cli_token_utils import CLI_TOKEN_FRESHNESS_BUFFER_SECONDS
 
 if TYPE_CHECKING:
     from .auth import CliTokenData
 
-CLI_AUTH_DISCOVERY_PATH: Final = "/.well-known/litellm-cli-auth"
+CLI_AUTH_DISCOVERY_PATH: Final = "/.well-known/embrouter-cli-auth"
 CALLBACK_PATH: Final = "/callback"
 LOGIN_TIMEOUT_SECONDS: Final = 300
 _HTTP_TIMEOUT_SECONDS: Final = 15
-_CLIENT_NAME: Final = "litellm-cli"
+_CLIENT_NAME: Final = "embrouter-cli"
 
 
 class CliAuthContract(BaseModel):
@@ -171,7 +171,7 @@ class _CallbackHandler(BaseHTTPRequestHandler):
             self._respond(400, "The sign-in response carried no authorization code; still waiting.")
             return
         self.server.outcome = CallbackCode(code=code)
-        self._respond(200, "Signed in to LiteLLM. You can close this window and return to the terminal.")
+        self._respond(200, "Signed in to EmbRouter. You can close this window and return to the terminal.")
 
     def log_message(self, format: str, *args: object) -> None:
         return

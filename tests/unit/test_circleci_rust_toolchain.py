@@ -1,6 +1,6 @@
 """Static guardrails for how CircleCI provisions Rust.
 
-The root package builds `litellm-rust` through maturin, so any job that runs
+The root package builds `embrouter-rust` through maturin, so any job that runs
 `uv sync` or `uv build` compiles the bridge. The `cimg/python` images ship no
 Rust toolchain, and when cargo is missing maturin's `puccinialin` helper
 quietly provisions one itself: it fetches `rustup-init` from the unversioned

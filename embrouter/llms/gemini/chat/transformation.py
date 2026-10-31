@@ -1,16 +1,16 @@
 from typing import Final, cast
 
-import litellm
-from litellm.litellm_core_utils.prompt_templates.factory import (
+import embrouter
+from embrouter.embrouter_core_utils.prompt_templates.factory import (
     convert_generic_image_chunk_to_openai_image_obj,
     convert_to_anthropic_image_obj,
 )
-from litellm.litellm_core_utils.prompt_templates.image_handling import (
+from embrouter.embrouter_core_utils.prompt_templates.image_handling import (
     convert_url_to_base64,
 )
-from litellm.types.llms.openai import AllMessageValues, ChatCompletionFileObject, ChatCompletionImageObject
-from litellm.types.llms.vertex_ai import ContentType, PartType
-from litellm.utils import supports_reasoning
+from embrouter.types.llms.openai import AllMessageValues, ChatCompletionFileObject, ChatCompletionImageObject
+from embrouter.types.llms.vertex_ai import ContentType, PartType
+from embrouter.utils import supports_reasoning
 
 from ...vertex_ai.gemini.transformation import GEMINI_FILES_API_URI_PREFIX, _gemini_convert_messages_with_history
 from ...vertex_ai.gemini.vertex_and_google_ai_studio_gemini import VertexGeminiConfig
@@ -114,7 +114,7 @@ class GoogleAIStudioGeminiConfig(VertexGeminiConfig):
         self,
         messages: list[AllMessageValues],
         model: str | None = None,
-        litellm_params: dict | None = None,
+        embrouter_params: dict | None = None,
     ) -> list[ContentType]:
         """
         Google AI Studio Gemini does not support HTTP/HTTPS URLs for files.
@@ -146,7 +146,7 @@ class GoogleAIStudioGeminiConfig(VertexGeminiConfig):
                         file_element = cast(ChatCompletionFileObject, element)
                         _file_field = file_element.get("file")
                         if _file_field is None:
-                            raise litellm.BadRequestError(
+                            raise embrouter.BadRequestError(
                                 message="Content block has type='file' but is missing the required 'file' field",
                                 model=model,
                                 llm_provider="gemini",
@@ -168,6 +168,6 @@ class GoogleAIStudioGeminiConfig(VertexGeminiConfig):
         return _gemini_convert_messages_with_history(
             messages=messages,
             model=model,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             custom_llm_provider="gemini",
         )

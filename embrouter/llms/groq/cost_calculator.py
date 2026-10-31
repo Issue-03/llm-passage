@@ -9,11 +9,11 @@ action kinds off `executed_tools` into `usage.server_tool_use`.
 
 from typing import TYPE_CHECKING, Final
 
-from litellm.constants import GROQ_BROWSER_VISIT_WEBSITE_COST_PER_CALL
-from litellm.types.utils import Usage
+from embrouter.constants import GROQ_BROWSER_VISIT_WEBSITE_COST_PER_CALL
+from embrouter.types.utils import Usage
 
 if TYPE_CHECKING:
-    from litellm.types.utils import ModelInfo
+    from embrouter.types.utils import ModelInfo
 
 
 def cost_per_web_search_request(usage: Usage, model_info: "ModelInfo") -> float:

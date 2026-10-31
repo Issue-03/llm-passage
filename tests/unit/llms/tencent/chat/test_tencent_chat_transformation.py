@@ -1,13 +1,13 @@
 from unittest.mock import patch
 
-from litellm.llms.tencent.chat.transformation import TencentChatConfig
+from embrouter.llms.tencent.chat.transformation import TencentChatConfig
 
 
 def test_supported_openai_params_includes_thinking_and_reasoning_effort():
     config = TencentChatConfig()
 
     with patch(
-        "litellm.llms.tencent.chat.transformation.supports_reasoning",
+        "embrouter.llms.tencent.chat.transformation.supports_reasoning",
         return_value=True,
     ):
         params = config.get_supported_openai_params(model="tencent/deepseek-v4-pro")
@@ -22,7 +22,7 @@ def test_supported_openai_params_excludes_thinking_without_reasoning_support():
     config = TencentChatConfig()
 
     with patch(
-        "litellm.llms.tencent.chat.transformation.supports_reasoning",
+        "embrouter.llms.tencent.chat.transformation.supports_reasoning",
         return_value=False,
     ):
         params = config.get_supported_openai_params(model="tencent/non-reasoning-model")
@@ -35,7 +35,7 @@ def test_supported_openai_params_excludes_thinking_without_reasoning_support():
 def test_map_openai_params_passes_thinking_dict_through():
     config = TencentChatConfig()
     with patch(
-        "litellm.llms.tencent.chat.transformation.supports_reasoning",
+        "embrouter.llms.tencent.chat.transformation.supports_reasoning",
         return_value=True,
     ):
         result = config.map_openai_params(
@@ -52,7 +52,7 @@ def test_map_openai_params_passes_thinking_dict_through():
 def test_map_openai_params_converts_reasoning_effort_to_thinking():
     config = TencentChatConfig()
     with patch(
-        "litellm.llms.tencent.chat.transformation.supports_reasoning",
+        "embrouter.llms.tencent.chat.transformation.supports_reasoning",
         return_value=True,
     ):
         result = config.map_openai_params(
@@ -69,7 +69,7 @@ def test_map_openai_params_converts_reasoning_effort_to_thinking():
 def test_map_openai_params_none_reasoning_effort_disables_thinking():
     config = TencentChatConfig()
     with patch(
-        "litellm.llms.tencent.chat.transformation.supports_reasoning",
+        "embrouter.llms.tencent.chat.transformation.supports_reasoning",
         return_value=True,
     ):
         result = config.map_openai_params(
@@ -87,7 +87,7 @@ def test_map_openai_params_none_reasoning_effort_disables_thinking():
 def test_map_openai_params_thinking_priority_over_reasoning_effort():
     config = TencentChatConfig()
     with patch(
-        "litellm.llms.tencent.chat.transformation.supports_reasoning",
+        "embrouter.llms.tencent.chat.transformation.supports_reasoning",
         return_value=True,
     ):
         result = config.map_openai_params(
@@ -138,7 +138,7 @@ def test_map_openai_params_overwrites_existing_extra_body():
 def test_get_optional_params_merges_thinking_with_user_extra_body(local_model_cost_map):
     """End-to-end at the get_optional_params layer: a user-supplied extra_body
     and the mapped thinking payload must coexist in the final extra_body."""
-    from litellm.utils import get_optional_params
+    from embrouter.utils import get_optional_params
 
     result = get_optional_params(
         model="tencent/deepseek-v4-pro",
@@ -170,7 +170,7 @@ def test_transform_request_never_passes_thinking_as_top_level_kwarg():
         model="deepseek-v4-pro",
         messages=[{"role": "user", "content": "hi"}],
         optional_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -255,7 +255,7 @@ def test_get_complete_url_default():
         api_key=None,
         model="tencent/deepseek-v4-pro",
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
     )
 
     assert url == "https://tokenhub-intl.tencentcloudmaas.com/v1/chat/completions"
@@ -269,7 +269,7 @@ def test_get_complete_url_strips_trailing_slash():
         api_key=None,
         model="tencent/deepseek-v4-pro",
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
     )
 
     assert url == "https://tokenhub-intl.tencentcloudmaas.com/v1/chat/completions"
@@ -283,7 +283,7 @@ def test_get_complete_url_custom_base_preserves_v1():
         api_key=None,
         model="tencent/deepseek-v4-pro",
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
     )
 
     assert url == "https://tokenhub.tencentcloudmaas.com/v1/chat/completions"
@@ -297,7 +297,7 @@ def test_get_complete_url_adds_v1_to_custom_base():
         api_key=None,
         model="tencent/deepseek-v4-pro",
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
     )
 
     assert url == "https://tokenhub.tencentcloudmaas.com/v1/chat/completions"
@@ -311,7 +311,7 @@ def test_get_complete_url_does_not_append_to_full_url():
         api_key=None,
         model="tencent/deepseek-v4-pro",
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
     )
 
     assert url == "https://tokenhub.tencentcloudmaas.com/v1/chat/completions"
@@ -320,7 +320,7 @@ def test_get_complete_url_does_not_append_to_full_url():
 def test_provider_info_falls_back_to_default_base():
     config = TencentChatConfig()
 
-    with patch("litellm.llms.tencent.chat.transformation.get_secret_str", return_value=None):
+    with patch("embrouter.llms.tencent.chat.transformation.get_secret_str", return_value=None):
         api_base, api_key = config._get_openai_compatible_provider_info(api_base=None, api_key="sk-arg")
 
     assert api_base == "https://tokenhub-intl.tencentcloudmaas.com/v1"
@@ -332,7 +332,7 @@ def test_provider_info_reads_env_secrets():
 
     secrets = {"TENCENT_API_BASE": "https://env.tencent/v1", "TENCENT_API_KEY": "sk-env"}
     with patch(
-        "litellm.llms.tencent.chat.transformation.get_secret_str",
+        "embrouter.llms.tencent.chat.transformation.get_secret_str",
         side_effect=lambda key: secrets.get(key),
     ):
         api_base, api_key = config._get_openai_compatible_provider_info(api_base=None, api_key=None)

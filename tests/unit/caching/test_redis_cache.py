@@ -7,9 +7,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-import litellm
-from litellm._service_logger import ServiceLogging
-from litellm.caching.redis_cache import RedisCache, RedisCircuitBreakerOpenError
+import embrouter
+from embrouter._service_logger import ServiceLogging
+from embrouter.caching.redis_cache import RedisCache, RedisCircuitBreakerOpenError
 
 
 @pytest.fixture
@@ -24,7 +24,7 @@ def redis_no_ping():
 @pytest.fixture
 def sync_batch_redis_cache(redis_no_ping):
     with patch(  # test-quality-ok: RedisCache.__init__ builds its client eagerly, with no injection point
-        "litellm._redis.get_redis_client", return_value=MagicMock()
+        "embrouter._redis.get_redis_client", return_value=MagicMock()
     ) as get_client:
         cache = RedisCache(host="127.0.0.1", port=6379)
         cache.redis_client.mget.side_effect = OSError("redis unavailable")
@@ -35,36 +35,36 @@ def sync_batch_redis_cache(redis_no_ping):
 @pytest.mark.parametrize(
     ("namespace", "key", "expected"),
     [
-        ("litellm", "litellm_spend_update_buffer", "litellm:litellm_spend_update_buffer"),
-        ("litellm", "litellm_config:param:general_settings", "litellm:litellm_config:param:general_settings"),
-        ("litellm", "litellm:3997c4abcdef", "litellm:3997c4abcdef"),
-        ("litellm", "spend:key:3997c4abcdef", "litellm:spend:key:3997c4abcdef"),
-        (None, "litellm_spend_update_buffer", "litellm_spend_update_buffer"),
-        ("", "litellm_spend_update_buffer", "litellm_spend_update_buffer"),
+        ("embrouter", "embrouter_spend_update_buffer", "embrouter:embrouter_spend_update_buffer"),
+        ("embrouter", "embrouter_config:param:general_settings", "embrouter:embrouter_config:param:general_settings"),
+        ("embrouter", "embrouter:3997c4abcdef", "embrouter:3997c4abcdef"),
+        ("embrouter", "spend:key:3997c4abcdef", "embrouter:spend:key:3997c4abcdef"),
+        (None, "embrouter_spend_update_buffer", "embrouter_spend_update_buffer"),
+        ("", "embrouter_spend_update_buffer", "embrouter_spend_update_buffer"),
     ],
 )
 def test_check_and_fix_namespace_prefixes_keys_sharing_the_namespace_prefix(
     namespace, key, expected, monkeypatch, redis_no_ping
 ):
     """A key whose name merely begins with the namespace string (e.g.
-    litellm_spend_update_buffer under namespace "litellm") is not namespaced
+    embrouter_spend_update_buffer under namespace "embrouter") is not namespaced
     yet and must still get the "namespace:" prefix; only a key already carrying
     the delimited prefix is left alone. Without this, spend update buffers and
-    litellm_config:param:* keys reach Redis unprefixed and NOPERM under an ACL
+    embrouter_config:param:* keys reach Redis unprefixed and NOPERM under an ACL
     scoped to the namespace pattern."""
     monkeypatch.setenv("REDIS_HOST", "https://my-test-host")
     redis_cache = RedisCache(namespace=namespace)
     assert redis_cache.check_and_fix_namespace(key=key) == expected
 
 
-@pytest.mark.parametrize("namespace", [None, "litellm"])
+@pytest.mark.parametrize("namespace", [None, "embrouter"])
 @pytest.mark.asyncio
 async def test_async_delete_cache_applies_namespace(
     namespace, monkeypatch, redis_no_ping
 ):
     """async_delete_cache must prefix keys with the namespace, matching every
     other cache operation. Without this, Redis NOPERM errors occur when an
-    ACL restricts DEL to the litellm:* pattern."""
+    ACL restricts DEL to the embrouter:* pattern."""
     monkeypatch.setenv("REDIS_HOST", "https://my-test-host")
     redis_cache = RedisCache(namespace=namespace)
     mock_redis_instance = AsyncMock()
@@ -74,11 +74,11 @@ async def test_async_delete_cache_applies_namespace(
     ):
         await redis_cache.async_delete_cache(key="3997c4abcdef")
 
-    expected_key = "litellm:3997c4abcdef" if namespace else "3997c4abcdef"
+    expected_key = "embrouter:3997c4abcdef" if namespace else "3997c4abcdef"
     mock_redis_instance.delete.assert_awaited_once_with(expected_key)
 
 
-@pytest.mark.parametrize("namespace", [None, "litellm"])
+@pytest.mark.parametrize("namespace", [None, "embrouter"])
 def test_delete_cache_applies_namespace(namespace, monkeypatch, redis_no_ping):
     """delete_cache must prefix keys with the namespace, matching every other
     cache operation."""
@@ -89,7 +89,7 @@ def test_delete_cache_applies_namespace(namespace, monkeypatch, redis_no_ping):
 
     redis_cache.delete_cache(key="3997c4abcdef")
 
-    expected_key = "litellm:3997c4abcdef" if namespace else "3997c4abcdef"
+    expected_key = "embrouter:3997c4abcdef" if namespace else "3997c4abcdef"
     mock_redis_client.delete.assert_called_once_with(expected_key)
 
 
@@ -191,9 +191,9 @@ async def test_async_lpop_pipeline_empty_list(monkeypatch, redis_no_ping):
     [
         (None, ["{k:v}:tokens", "{k:v}:requests"], ["{k:v}:tokens", "{k:v}:requests"]),
         (
-            "litellm_sandbox",
+            "embrouter_sandbox",
             ["{k:v}:tokens", "{k:v}:requests"],
-            ["litellm_sandbox:{k:v}:tokens", "litellm_sandbox:{k:v}:requests"],
+            ["embrouter_sandbox:{k:v}:tokens", "embrouter_sandbox:{k:v}:requests"],
         ),
     ],
 )
@@ -232,7 +232,7 @@ async def test_async_register_script_namespaces_keys(
 # lazily against the calling loop's client and cached per loop.
 
 
-@pytest.mark.parametrize("namespace", [None, "litellm_sandbox"])
+@pytest.mark.parametrize("namespace", [None, "embrouter_sandbox"])
 def test_async_register_script_binds_per_event_loop(namespace, monkeypatch):
     monkeypatch.setenv("REDIS_HOST", "https://my-test-host")
     redis_cache = RedisCache(namespace=namespace)
@@ -508,7 +508,7 @@ async def test_circuit_breaker_opens_when_method_swallows_redis_failure(call_met
     breaker could never open. An unreachable Redis then stayed in the pool and every
     request kept paying the full socket timeout on it.
     """
-    from litellm.constants import REDIS_CIRCUIT_BREAKER_FAILURE_THRESHOLD
+    from embrouter.constants import REDIS_CIRCUIT_BREAKER_FAILURE_THRESHOLD
 
     cache = await asyncio.to_thread(RedisCache, host="127.0.0.1", port=_closed_port(), socket_timeout=0.5)
 
@@ -526,7 +526,7 @@ def test_circuit_breaker_open_makes_sync_batch_get_cache_fast_fail(sync_batch_re
     log and a service failure event per call, and the DualCache caller could not tell the
     refusal from a dead Redis, so it dropped its in-memory hits too.
     """
-    from litellm.constants import REDIS_CIRCUIT_BREAKER_FAILURE_THRESHOLD
+    from embrouter.constants import REDIS_CIRCUIT_BREAKER_FAILURE_THRESHOLD
 
     for _ in range(REDIS_CIRCUIT_BREAKER_FAILURE_THRESHOLD):
         assert sync_batch_redis_cache.batch_get_cache(key_list=["lit6729"]) == {}
@@ -546,7 +546,7 @@ def test_sync_get_cache_failure_feeds_the_breaker_and_logs_a_well_formed_record(
     with no placeholder, so the record carried no error text. Nothing fed the breaker either,
     so a dead Redis read through this path never opened it.
     """
-    from litellm.constants import REDIS_CIRCUIT_BREAKER_FAILURE_THRESHOLD
+    from embrouter.constants import REDIS_CIRCUIT_BREAKER_FAILURE_THRESHOLD
 
     sync_batch_redis_cache.redis_client.get.side_effect = OSError("redis unavailable")
 
@@ -580,7 +580,7 @@ async def test_async_batch_get_counts_raises_where_async_batch_get_cache_reports
     failing_client = AsyncMock()
     failing_client.mget.side_effect = OSError("redis unavailable")
     with patch(  # test-quality-ok: RedisCache.__init__ builds its client eagerly, with no injection point
-        "litellm._redis.get_redis_client", return_value=MagicMock()
+        "embrouter._redis.get_redis_client", return_value=MagicMock()
     ):
         cache = RedisCache(host="127.0.0.1", port=6379)
 
@@ -597,7 +597,7 @@ def test_batch_get_counts_reads_counters_in_order_and_keeps_unset_keys_apart(sto
     rest of the row onto the wrong deployments, and a count has to survive whether the client
     hands it back as bytes or as text."""
     with patch(  # test-quality-ok: RedisCache.__init__ builds its client eagerly, with no injection point
-        "litellm._redis.get_redis_client", return_value=MagicMock()
+        "embrouter._redis.get_redis_client", return_value=MagicMock()
     ):
         cache = RedisCache(host="127.0.0.1", port=6379)
     cache.redis_client.mget.return_value = [stored, None, b"0"]
@@ -611,7 +611,7 @@ def sync_batch_cache_with_service_logger(redis_no_ping: None) -> Iterator[tuple[
     failing_client = MagicMock()
     failing_client.mget.side_effect = OSError("redis unavailable")
     with patch(  # test-quality-ok: RedisCache.__init__ builds its client eagerly, with no injection point
-        "litellm._redis.get_redis_client", return_value=failing_client
+        "embrouter._redis.get_redis_client", return_value=failing_client
     ):
         cache = RedisCache(host="127.0.0.1", port=6379, service_logger_obj=service_logger)
     yield cache, service_logger
@@ -625,7 +625,7 @@ async def test_sync_batch_get_cache_reports_a_failed_read_from_a_running_loop(
 
     The routing strategies call this blocking read from inside the request's event loop,
     and the read hides the Redis error by returning an empty dict. Without an emitted
-    failure event, litellm_redis_failed_requests_total stops moving during a Redis
+    failure event, embrouter_redis_failed_requests_total stops moving during a Redis
     outage while the success path keeps reporting, so the dashboards read healthy.
     """
     cache, service_logger = sync_batch_cache_with_service_logger
@@ -681,11 +681,11 @@ def test_sync_batch_get_cache_survives_a_service_callback_that_raises(
     """
     from concurrent.futures import ThreadPoolExecutor
 
-    import litellm
-    from litellm.constants import REDIS_CIRCUIT_BREAKER_FAILURE_THRESHOLD
+    import embrouter
+    from embrouter.constants import REDIS_CIRCUIT_BREAKER_FAILURE_THRESHOLD
 
     cache, service_logger = sync_batch_cache_with_service_logger
-    monkeypatch.setattr(litellm, "service_callback", ["prometheus_system"])
+    monkeypatch.setattr(embrouter, "service_callback", ["prometheus_system"])
     monkeypatch.setattr(
         service_logger,
         "init_prometheus_services_logger_if_none",
@@ -707,7 +707,7 @@ def test_call_stack_info_skips_breaker_guard_frames():
     without skipping them every guarded method logged the guard machinery instead of
     who actually issued the Redis call.
     """
-    from litellm.caching.redis_cache import (
+    from embrouter.caching.redis_cache import (
         RedisCircuitBreaker,
         _get_call_stack_info,
         _redis_circuit_breaker_guard_sync,
@@ -737,8 +737,8 @@ def test_call_stack_info_skips_guard_frames_when_deployed_without_sources(monkey
     check comparing those two paths stops skipping and the service log then names the guard
     machinery instead of the real caller.
     """
-    from litellm.caching import redis_cache as redis_cache_module
-    from litellm.caching.redis_cache import (
+    from embrouter.caching import redis_cache as redis_cache_module
+    from embrouter.caching.redis_cache import (
         RedisCircuitBreaker,
         _get_call_stack_info,
         _redis_circuit_breaker_guard_sync,
@@ -770,7 +770,7 @@ async def test_circuit_breaker_success_still_resets_the_failure_streak():
     pins the other half of that contract: a call that genuinely reaches Redis has to clear
     the streak, or a healthy Redis would eventually be evicted from the pool.
     """
-    from litellm.constants import REDIS_CIRCUIT_BREAKER_FAILURE_THRESHOLD
+    from embrouter.constants import REDIS_CIRCUIT_BREAKER_FAILURE_THRESHOLD
 
     cache = await asyncio.to_thread(RedisCache, host="127.0.0.1", port=_closed_port(), socket_timeout=0.5)
 
@@ -800,7 +800,7 @@ async def test_circuit_breaker_covers_lua_script_execution():
     """
     from redis.exceptions import ConnectionError as RedisConnectionError
 
-    from litellm.constants import REDIS_CIRCUIT_BREAKER_FAILURE_THRESHOLD
+    from embrouter.constants import REDIS_CIRCUIT_BREAKER_FAILURE_THRESHOLD
 
     cache = await asyncio.to_thread(RedisCache, host="127.0.0.1", port=_closed_port(), socket_timeout=0.5)
     run_script = cache.async_register_script("return 1")
@@ -824,7 +824,7 @@ async def test_concurrent_success_is_not_cancelled_by_another_calls_failure():
     """
     from redis.exceptions import ConnectionError as RedisConnectionError
 
-    from litellm.caching.redis_cache import (
+    from embrouter.caching.redis_cache import (
         RedisCircuitBreaker,
         _record_swallowed_redis_failure,
         _run_under_circuit_breaker,
@@ -878,7 +878,7 @@ async def test_only_connectivity_failures_open_the_breaker(error, opens_breaker)
     """
     import redis.exceptions
 
-    from litellm.caching.redis_cache import RedisCircuitBreaker, _run_under_circuit_breaker
+    from embrouter.caching.redis_cache import RedisCircuitBreaker, _run_under_circuit_breaker
 
     breaker = RedisCircuitBreaker(failure_threshold=3, recovery_timeout=60)
     raised = getattr(redis.exceptions, error)("boom")
@@ -913,7 +913,7 @@ async def test_event_loop_stall_timeout_burst_keeps_breaker_closed():
 
     from redis.exceptions import TimeoutError as RedisTimeoutError
 
-    from litellm.caching.redis_cache import RedisCircuitBreaker, _run_under_circuit_breaker
+    from embrouter.caching.redis_cache import RedisCircuitBreaker, _run_under_circuit_breaker
 
     breaker = RedisCircuitBreaker(failure_threshold=3, recovery_timeout=60, timeout_min_duration=5.0)
 
@@ -949,7 +949,7 @@ async def test_persistent_timeouts_still_open_the_breaker():
     """
     from redis.exceptions import TimeoutError as RedisTimeoutError
 
-    from litellm.caching.redis_cache import RedisCircuitBreaker, _run_under_circuit_breaker
+    from embrouter.caching.redis_cache import RedisCircuitBreaker, _run_under_circuit_breaker
 
     breaker = RedisCircuitBreaker(failure_threshold=3, recovery_timeout=60, timeout_min_duration=0.1)
 
@@ -979,7 +979,7 @@ async def test_stale_timeout_does_not_let_sub_threshold_hard_failures_open_the_b
     from redis.exceptions import ConnectionError as RedisConnectionError
     from redis.exceptions import TimeoutError as RedisTimeoutError
 
-    from litellm.caching.redis_cache import RedisCircuitBreaker, is_redis_timeout_failure
+    from embrouter.caching.redis_cache import RedisCircuitBreaker, is_redis_timeout_failure
 
     breaker = RedisCircuitBreaker(failure_threshold=3, recovery_timeout=60, timeout_min_duration=0.05)
 
@@ -1001,7 +1001,7 @@ async def test_hard_failure_resets_timeout_streak_so_a_later_burst_must_earn_its
     from redis.exceptions import ConnectionError as RedisConnectionError
     from redis.exceptions import TimeoutError as RedisTimeoutError
 
-    from litellm.caching.redis_cache import RedisCircuitBreaker, is_redis_timeout_failure
+    from embrouter.caching.redis_cache import RedisCircuitBreaker, is_redis_timeout_failure
 
     breaker = RedisCircuitBreaker(failure_threshold=3, recovery_timeout=60, timeout_min_duration=0.05)
 
@@ -1024,7 +1024,7 @@ async def test_breaker_metrics_track_state_and_failure_class():
     from redis.exceptions import ConnectionError as RedisConnectionError
     from redis.exceptions import TimeoutError as RedisTimeoutError
 
-    from litellm.caching.redis_cache import RedisCircuitBreaker, _breaker_metrics, is_redis_timeout_failure
+    from embrouter.caching.redis_cache import RedisCircuitBreaker, _breaker_metrics, is_redis_timeout_failure
 
     metrics: Final = _breaker_metrics()
     for collector in (metrics._state_gauge, metrics._transitions, metrics._failures):
@@ -1034,34 +1034,34 @@ async def test_breaker_metrics_track_state_and_failure_class():
     def sample(name, labels=None):
         return REGISTRY.get_sample_value(name, labels) or 0.0
 
-    timeout_before = sample("litellm_redis_circuit_breaker_failures_total", {"failure_class": "timeout"})
-    hard_before = sample("litellm_redis_circuit_breaker_failures_total", {"failure_class": "connectivity"})
-    opened_before = sample("litellm_redis_circuit_breaker_transitions_total", {"state": "open"})
-    open_gauge_before = sample("litellm_redis_circuit_breaker_state", {"state": "open"})
-    closed_gauge_before = sample("litellm_redis_circuit_breaker_state", {"state": "closed"})
+    timeout_before = sample("embrouter_redis_circuit_breaker_failures_total", {"failure_class": "timeout"})
+    hard_before = sample("embrouter_redis_circuit_breaker_failures_total", {"failure_class": "connectivity"})
+    opened_before = sample("embrouter_redis_circuit_breaker_transitions_total", {"state": "open"})
+    open_gauge_before = sample("embrouter_redis_circuit_breaker_state", {"state": "open"})
+    closed_gauge_before = sample("embrouter_redis_circuit_breaker_state", {"state": "closed"})
 
     breaker = RedisCircuitBreaker(failure_threshold=2, recovery_timeout=60, timeout_min_duration=5.0)
     breaker.record_failure(is_timeout=is_redis_timeout_failure(RedisTimeoutError("t")))
     breaker.record_failure(is_timeout=is_redis_timeout_failure(RedisConnectionError("refused")))
     breaker.record_failure(is_timeout=is_redis_timeout_failure(RedisConnectionError("refused")))
 
-    assert sample("litellm_redis_circuit_breaker_failures_total", {"failure_class": "timeout"}) == timeout_before + 1
-    assert sample("litellm_redis_circuit_breaker_failures_total", {"failure_class": "connectivity"}) == hard_before + 2
-    assert sample("litellm_redis_circuit_breaker_transitions_total", {"state": "open"}) == opened_before + 1
-    assert sample("litellm_redis_circuit_breaker_state", {"state": "open"}) == open_gauge_before + 1
-    assert sample("litellm_redis_circuit_breaker_state", {"state": "closed"}) == closed_gauge_before
+    assert sample("embrouter_redis_circuit_breaker_failures_total", {"failure_class": "timeout"}) == timeout_before + 1
+    assert sample("embrouter_redis_circuit_breaker_failures_total", {"failure_class": "connectivity"}) == hard_before + 2
+    assert sample("embrouter_redis_circuit_breaker_transitions_total", {"state": "open"}) == opened_before + 1
+    assert sample("embrouter_redis_circuit_breaker_state", {"state": "open"}) == open_gauge_before + 1
+    assert sample("embrouter_redis_circuit_breaker_state", {"state": "closed"}) == closed_gauge_before
 
     breaker._opened_at = time.time() - 9999
     assert breaker.is_open() is False
     breaker.record_success()
-    assert sample("litellm_redis_circuit_breaker_state", {"state": "open"}) == open_gauge_before
-    assert sample("litellm_redis_circuit_breaker_state", {"state": "closed"}) == closed_gauge_before + 1
+    assert sample("embrouter_redis_circuit_breaker_state", {"state": "open"}) == open_gauge_before
+    assert sample("embrouter_redis_circuit_breaker_state", {"state": "closed"}) == closed_gauge_before + 1
 
 
 def test_sync_guard_counts_a_timeout_as_a_timeout():
     from redis.exceptions import TimeoutError as RedisTimeoutError
 
-    from litellm.caching.redis_cache import RedisCircuitBreaker, _run_under_circuit_breaker_sync
+    from embrouter.caching.redis_cache import RedisCircuitBreaker, _run_under_circuit_breaker_sync
 
     breaker = RedisCircuitBreaker(failure_threshold=3, recovery_timeout=60, timeout_min_duration=5.0)
 
@@ -1083,7 +1083,7 @@ def test_success_admitted_before_the_breaker_opened_cannot_close_it():
     timeout and the single half-open probe, so the breaker flapped between open and closed
     on every straggler while Redis was still down.
     """
-    from litellm.caching.redis_cache import RedisCircuitBreaker
+    from embrouter.caching.redis_cache import RedisCircuitBreaker
 
     breaker = RedisCircuitBreaker(failure_threshold=3, recovery_timeout=60)
     for _ in range(3):
@@ -1097,7 +1097,7 @@ def test_success_admitted_before_the_breaker_opened_cannot_close_it():
 
 
 def test_recovery_probe_still_closes_the_breaker():
-    from litellm.caching.redis_cache import RedisCircuitBreaker
+    from embrouter.caching.redis_cache import RedisCircuitBreaker
 
     breaker = RedisCircuitBreaker(failure_threshold=3, recovery_timeout=60)
     for _ in range(3):
@@ -1120,7 +1120,7 @@ async def test_stale_success_during_the_recovery_probe_leaves_the_breaker_to_the
     outage, so closing on the straggler's success resumed full Redis traffic before the probe
     had proven anything.
     """
-    from litellm.caching.redis_cache import RedisCircuitBreaker, _run_under_circuit_breaker
+    from embrouter.caching.redis_cache import RedisCircuitBreaker, _run_under_circuit_breaker
 
     breaker = RedisCircuitBreaker(failure_threshold=3, recovery_timeout=60)
     stale_admitted = asyncio.Event()
@@ -1168,7 +1168,7 @@ async def test_a_probe_overtaken_by_a_later_outage_leaves_the_breaker_to_the_new
     Once the breaker has reopened, only the probe admitted after that outage has reached
     Redis, so the older probe's success no longer says anything about whether Redis recovered.
     """
-    from litellm.caching.redis_cache import RedisCircuitBreaker, _run_under_circuit_breaker
+    from embrouter.caching.redis_cache import RedisCircuitBreaker, _run_under_circuit_breaker
 
     breaker = RedisCircuitBreaker(failure_threshold=3, recovery_timeout=60)
     old_probe_admitted = asyncio.Event()
@@ -1217,8 +1217,8 @@ def test_timeouts_during_a_blip_log_once_per_interval_not_once_per_call(sync_bat
 
     from redis.exceptions import TimeoutError as RedisTimeoutError
 
-    from litellm.caching import redis_cache as redis_cache_module
-    from litellm.caching.redis_cache import _RedisTimeoutLogThrottle
+    from embrouter.caching import redis_cache as redis_cache_module
+    from embrouter.caching.redis_cache import _RedisTimeoutLogThrottle
 
     clock = MagicMock(return_value=1_000.0)
     monkeypatch.setattr(
@@ -1227,7 +1227,7 @@ def test_timeouts_during_a_blip_log_once_per_interval_not_once_per_call(sync_bat
     sync_batch_redis_cache.redis_client.get.side_effect = RedisTimeoutError("Timeout reading from 127.0.0.1:6379")
     sync_batch_redis_cache.redis_client.mget.side_effect = RedisTimeoutError("Timeout reading from 127.0.0.1:6379")
 
-    with caplog.at_level(logging.DEBUG, logger="LiteLLM"):
+    with caplog.at_level(logging.DEBUG, logger="EmbRouter"):
         for _ in range(200):
             assert sync_batch_redis_cache.get_cache("lit7520") is None
         assert sync_batch_redis_cache.batch_get_cache(key_list=["lit7520"]) == {}
@@ -1235,7 +1235,7 @@ def test_timeouts_during_a_blip_log_once_per_interval_not_once_per_call(sync_bat
     timeout_records = [r for r in caplog.records if "Timeout reading from" in r.getMessage()]
     assert len(timeout_records) == 201, "every timeout must stay visible at DEBUG"
     assert [r.getMessage() for r in timeout_records if r.levelno >= logging.WARNING] == [
-        "litellm.caching.caching: get() - Got exception from REDIS: Timeout reading from 127.0.0.1:6379"
+        "embrouter.caching.caching: get() - Got exception from REDIS: Timeout reading from 127.0.0.1:6379"
     ]
     assert timeout_records[0].levelno == logging.ERROR
     assert timeout_records[0].filename == "redis_cache.py"
@@ -1243,7 +1243,7 @@ def test_timeouts_during_a_blip_log_once_per_interval_not_once_per_call(sync_bat
 
     caplog.clear()
     clock.return_value += 5.0
-    with caplog.at_level(logging.DEBUG, logger="LiteLLM"):
+    with caplog.at_level(logging.DEBUG, logger="EmbRouter"):
         assert sync_batch_redis_cache.batch_get_cache(key_list=["lit7520"]) == {}
     assert [(r.levelno, r.getMessage()) for r in caplog.records] == [
         (
@@ -1255,7 +1255,7 @@ def test_timeouts_during_a_blip_log_once_per_interval_not_once_per_call(sync_bat
 
     caplog.clear()
     sync_batch_redis_cache.redis_client.get.side_effect = OSError("redis unavailable")
-    with caplog.at_level(logging.DEBUG, logger="LiteLLM"):
+    with caplog.at_level(logging.DEBUG, logger="EmbRouter"):
         for _ in range(3):
             assert sync_batch_redis_cache.get_cache("lit7520") is None
     assert [r.levelno for r in caplog.records if "redis unavailable" in r.getMessage()] == [logging.ERROR] * 3
@@ -1291,8 +1291,8 @@ async def test_write_path_timeouts_inside_the_interval_stay_at_debug(call_method
 
     from redis.exceptions import TimeoutError as RedisTimeoutError
 
-    from litellm.caching import redis_cache as redis_cache_module
-    from litellm.caching.redis_cache import _RedisTimeoutLogThrottle
+    from embrouter.caching import redis_cache as redis_cache_module
+    from embrouter.caching.redis_cache import _RedisTimeoutLogThrottle
 
     clock = MagicMock(return_value=1_000.0)
     throttle = _RedisTimeoutLogThrottle(interval=5.0, clock=clock)
@@ -1311,7 +1311,7 @@ async def test_write_path_timeouts_inside_the_interval_stay_at_debug(call_method
 
     with (
         patch.object(cache, "init_async_client", return_value=client),
-        caplog.at_level(logging.DEBUG, logger="LiteLLM"),
+        caplog.at_level(logging.DEBUG, logger="EmbRouter"),
     ):
         with contextlib.suppress(RedisTimeoutError):
             await call_method(cache)
@@ -1336,7 +1336,7 @@ async def test_pool_wait_timeout_is_a_timeout_failure_not_hard_connectivity():
     from redis.asyncio import BlockingConnectionPool, Redis
     from redis.exceptions import ConnectionError as RedisConnectionError
 
-    from litellm.caching.redis_cache import RedisCircuitBreaker, _run_under_circuit_breaker
+    from embrouter.caching.redis_cache import RedisCircuitBreaker, _run_under_circuit_breaker
 
     pool = BlockingConnectionPool(connection_class=FakeConnection, server=FakeServer(), max_connections=1, timeout=0.01)
     client = Redis(connection_pool=pool)
@@ -1358,7 +1358,7 @@ async def test_pool_wait_timeout_is_a_timeout_failure_not_hard_connectivity():
 def test_timeout_classification_follows_the_explicit_cause_chain_only():
     from redis.exceptions import ConnectionError as RedisConnectionError
 
-    from litellm.caching.redis_cache import is_redis_timeout_failure
+    from embrouter.caching.redis_cache import is_redis_timeout_failure
 
     def raise_chained_from_timeout() -> None:
         try:
@@ -1490,7 +1490,7 @@ class _SetRecordingPipeline:
 @pytest.mark.asyncio
 async def test_async_set_cache_pipeline_with_ttls_keeps_each_entry_ttl(monkeypatch, redis_no_ping):
     monkeypatch.setenv("REDIS_HOST", "https://my-test-host")
-    monkeypatch.setattr(litellm, "default_redis_ttl", 300)
+    monkeypatch.setattr(embrouter, "default_redis_ttl", 300)
     redis_cache = RedisCache(namespace="ns")
     pipe = _SetRecordingPipeline()
     client = MagicMock()

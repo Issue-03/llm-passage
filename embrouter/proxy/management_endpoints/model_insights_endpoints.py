@@ -7,12 +7,12 @@ from typing import Annotated, Final
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field, TypeAdapter
 
-from litellm.constants import MODEL_INSIGHTS_DEFAULT_TASK, MODEL_INSIGHTS_MAX_RANGE_DAYS, MODEL_INSIGHTS_TOP_MODELS
-from litellm.proxy._types import CommonProxyErrors, LitellmUserRoles, UserAPIKeyAuth
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.db.model_insights_tasks import load_model_insight_tasks
-from litellm.repositories.table_repositories import DailyModelUsageRepository
-from litellm.types.model_insights import (
+from embrouter.constants import MODEL_INSIGHTS_DEFAULT_TASK, MODEL_INSIGHTS_MAX_RANGE_DAYS, MODEL_INSIGHTS_TOP_MODELS
+from embrouter.proxy._types import CommonProxyErrors, EmbrouterUserRoles, UserAPIKeyAuth
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.db.model_insights_tasks import load_model_insight_tasks
+from embrouter.repositories.table_repositories import DailyModelUsageRepository
+from embrouter.types.model_insights import (
     ModelInsightDailyMetric,
     ModelInsightMetric,
     ModelInsightsMetric,
@@ -143,9 +143,9 @@ def _summarize_tasks(rows: list[_GroupedTask], metric: ModelInsightsMetric) -> l
 def _resolve_window(
     user_api_key_dict: UserAPIKeyAuth, start_date: str | None, end_date: str | None
 ) -> tuple[date, date, Mapping[str, object], DailyModelUsageRepository]:
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
-    if user_api_key_dict.user_role not in (LitellmUserRoles.PROXY_ADMIN, LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY):
+    if user_api_key_dict.user_role not in (EmbrouterUserRoles.PROXY_ADMIN, EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY):
         raise HTTPException(status_code=403, detail="Only proxy admins can view deployment-wide model insights")
     if prisma_client is None:
         raise HTTPException(status_code=500, detail=CommonProxyErrors.db_not_connected_error.value)

@@ -1,7 +1,7 @@
 """
 Google AI Studio Managed Agents API Proxy Endpoints.
 
-Exposes Gemini's /v1beta/agents surface through the LiteLLM proxy so that
+Exposes Gemini's /v1beta/agents surface through the EmbRouter proxy so that
 user curl commands transfer 1-to-1 by swapping the host + auth header.
 
 Routes:
@@ -20,10 +20,10 @@ from typing import Final
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import ORJSONResponse
 
-from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
-from litellm.proxy.common_utils.http_parsing_utils import (
+from embrouter.proxy._types import EmbrouterUserRoles, UserAPIKeyAuth
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+from embrouter.proxy.common_utils.http_parsing_utils import (
     _read_request_body,
     _safe_get_request_query_params,
 )
@@ -33,8 +33,8 @@ router: Final = APIRouter(tags=["gemini managed agents"])
 
 def _is_proxy_admin(user_api_key_dict: UserAPIKeyAuth) -> bool:
     return (
-        user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN
-        or user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN.value
+        user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN
+        or user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN.value
     )
 
 
@@ -49,7 +49,7 @@ def _enforce_caller_supplied_provider_key(
     These endpoints are part of ``llm_api_routes`` so any authenticated LLM key
     can reach them, but unlike ``/v1beta/models/...:generateContent`` they are
     *not* routed through ``model_list`` — the only credential source is either
-    the per-request ``litellm_params_template`` or the env var fallback. Without
+    the per-request ``embrouter_params_template`` or the env var fallback. Without
     this guard, any ordinary proxy user could list, create, or delete managed
     agents inside the operator's Gemini project using the operator's key.
 
@@ -63,7 +63,7 @@ def _enforce_caller_supplied_provider_key(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail=(
             "Gemini managed-agent endpoints require a caller-supplied "
-            "Gemini api_key (via 'litellm_params_template'). Falling back to "
+            "Gemini api_key (via 'embrouter_params_template'). Falling back to "
             "the proxy's GOOGLE_API_KEY / GEMINI_API_KEY env vars is only "
             "permitted for proxy admins."
         ),
@@ -73,30 +73,30 @@ def _enforce_caller_supplied_provider_key(
 def _merge_query_params_into_data(data: dict, request: Request) -> dict:
     """
     For GET/DELETE endpoints that cannot carry a JSON body, read a
-    JSON-encoded ``litellm_params_template`` query parameter and merge its
+    JSON-encoded ``embrouter_params_template`` query parameter and merge its
     contents into *data*, without overwriting keys that are already present
     (e.g. path params like ``name`` or the fixed ``custom_llm_provider``).
 
-    This mirrors the ``litellm_params_template`` handling in
+    This mirrors the ``embrouter_params_template`` handling in
     ``create_gemini_agent`` and is the supported way for multi-tenant
     callers to supply per-request credentials on non-POST endpoints:
 
     .. code-block:: bash
 
-        curl "http://localhost:4000/v1beta/agents?litellm_params_template=%7B%22api_key%22%3A%22AIza...%22%7D" \\
+        curl "http://localhost:4000/v1beta/agents?embrouter_params_template=%7B%22api_key%22%3A%22AIza...%22%7D" \\
             -H "Authorization: Bearer sk-..."
 
     Credentials MUST NOT be passed as plain flat query parameters (e.g.
     ``?api_key=AIza...``) because URL query strings appear verbatim in
     web-server access logs, CDN edge logs, browser history, and Referer
-    headers. Use the ``litellm_params_template`` JSON body field on POST
+    headers. Use the ``embrouter_params_template`` JSON body field on POST
     requests, or the JSON-encoded query parameter above for GET/DELETE.
     """
     query_params: Final = _safe_get_request_query_params(request)
     if not query_params:
         return data
 
-    raw_template: Final = query_params.get("litellm_params_template")
+    raw_template: Final = query_params.get("embrouter_params_template")
     if raw_template:
         try:
             template = json.loads(raw_template) if isinstance(raw_template, str) else raw_template
@@ -110,7 +110,7 @@ def _merge_query_params_into_data(data: dict, request: Request) -> dict:
 
 
 def _proxy_server_imports():
-    from litellm.proxy.proxy_server import (  # noqa: PLC0415
+    from embrouter.proxy.proxy_server import (  # noqa: PLC0415
         general_settings,
         llm_router,
         proxy_config,
@@ -173,10 +173,10 @@ async def create_gemini_agent(
     """
     srv: Final = _proxy_server_imports()
     data: Final = await _read_request_body(request=request)
-    # Merge litellm_params_template (e.g. custom_llm_provider, api_key) into the request
-    litellm_params_template: Final = data.pop("litellm_params_template", None) or {}
-    if isinstance(litellm_params_template, dict):
-        for key, value in litellm_params_template.items():
+    # Merge embrouter_params_template (e.g. custom_llm_provider, api_key) into the request
+    embrouter_params_template: Final = data.pop("embrouter_params_template", None) or {}
+    if isinstance(embrouter_params_template, dict):
+        for key, value in embrouter_params_template.items():
             if key not in data:
                 data[key] = value
     data.setdefault("custom_llm_provider", "gemini")
@@ -225,12 +225,12 @@ async def list_gemini_agents(
     List all custom agents on the Gemini side.
 
     Pass per-request Gemini credentials via the JSON-encoded
-    ``litellm_params_template`` query parameter. Flat query parameters
+    ``embrouter_params_template`` query parameter. Flat query parameters
     (e.g. ``?api_key=AIza...``) are intentionally ignored — see
     ``_merge_query_params_into_data`` for the rationale.
 
     ```bash
-    curl "http://localhost:4000/v1beta/agents?litellm_params_template=%7B%22api_key%22%3A%22AIza...%22%7D" \\
+    curl "http://localhost:4000/v1beta/agents?embrouter_params_template=%7B%22api_key%22%3A%22AIza...%22%7D" \\
         -H "Authorization: Bearer sk-..."
     ```
     """
@@ -283,12 +283,12 @@ async def get_gemini_agent(
     Get a specific custom agent by name.
 
     Pass per-request Gemini credentials via the JSON-encoded
-    ``litellm_params_template`` query parameter. Flat query parameters
+    ``embrouter_params_template`` query parameter. Flat query parameters
     (e.g. ``?api_key=AIza...``) are intentionally ignored — see
     ``_merge_query_params_into_data`` for the rationale.
 
     ```bash
-    curl "http://localhost:4000/v1beta/agents/my-custom-slides-agent?litellm_params_template=%7B%22api_key%22%3A%22AIza...%22%7D" \\
+    curl "http://localhost:4000/v1beta/agents/my-custom-slides-agent?embrouter_params_template=%7B%22api_key%22%3A%22AIza...%22%7D" \\
         -H "Authorization: Bearer sk-..."
     ```
     """
@@ -341,12 +341,12 @@ async def delete_gemini_agent(
     Delete a custom agent by name.
 
     Pass per-request Gemini credentials via the JSON-encoded
-    ``litellm_params_template`` query parameter. Flat query parameters
+    ``embrouter_params_template`` query parameter. Flat query parameters
     (e.g. ``?api_key=AIza...``) are intentionally ignored — see
     ``_merge_query_params_into_data`` for the rationale.
 
     ```bash
-    curl -X DELETE "http://localhost:4000/v1beta/agents/my-custom-slides-agent?litellm_params_template=%7B%22api_key%22%3A%22AIza...%22%7D" \\
+    curl -X DELETE "http://localhost:4000/v1beta/agents/my-custom-slides-agent?embrouter_params_template=%7B%22api_key%22%3A%22AIza...%22%7D" \\
         -H "Authorization: Bearer sk-..."
     ```
     """
@@ -399,12 +399,12 @@ async def list_gemini_agent_versions(
     List versions of a custom agent.
 
     Pass per-request Gemini credentials via the JSON-encoded
-    ``litellm_params_template`` query parameter. Flat query parameters
+    ``embrouter_params_template`` query parameter. Flat query parameters
     (e.g. ``?api_key=AIza...``) are intentionally ignored — see
     ``_merge_query_params_into_data`` for the rationale.
 
     ```bash
-    curl "http://localhost:4000/v1beta/agents/my-custom-slides-agent/versions?litellm_params_template=%7B%22api_key%22%3A%22AIza...%22%7D" \\
+    curl "http://localhost:4000/v1beta/agents/my-custom-slides-agent/versions?embrouter_params_template=%7B%22api_key%22%3A%22AIza...%22%7D" \\
         -H "Authorization: Bearer sk-..."
     ```
     """

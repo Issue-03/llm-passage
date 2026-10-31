@@ -5,16 +5,16 @@ import os
 import httpx
 import pytest
 
-import litellm
-from litellm.llms.vertex_ai.audio_transcription.gemini_transcribe_transformation import (
+import embrouter
+from embrouter.llms.vertex_ai.audio_transcription.gemini_transcribe_transformation import (
     VertexGeminiAudioTranscriptionConfig,
 )
-from litellm.llms.vertex_ai.audio_transcription.transformation import (
+from embrouter.llms.vertex_ai.audio_transcription.transformation import (
     VertexAIAudioTranscriptionConfig,
 )
-from litellm.llms.vertex_ai.common_utils import VertexAIError
-from litellm.types.utils import LlmProviders, TranscriptionUsageTokensObject
-from litellm.utils import ProviderConfigManager, get_optional_params_transcription
+from embrouter.llms.vertex_ai.common_utils import VertexAIError
+from embrouter.types.utils import LlmProviders, TranscriptionUsageTokensObject
+from embrouter.utils import ProviderConfigManager, get_optional_params_transcription
 
 AUDIO_BYTES = b"fake-audio-bytes"
 TRANSCRIPT_TEXT = (
@@ -95,7 +95,7 @@ class TestGetCompleteUrl:
             api_key=None,
             model="gemini-3.5-transcribe-preview",
             optional_params={},
-            litellm_params={"vertex_project": "test-project"},
+            embrouter_params={"vertex_project": "test-project"},
         )
         assert url == (
             "https://aiplatform.googleapis.com/v1/projects/test-project/locations/global"
@@ -108,7 +108,7 @@ class TestGetCompleteUrl:
             api_key=None,
             model="gemini-3.5-transcribe-preview",
             optional_params={},
-            litellm_params={"vertex_project": "test-project", "vertex_location": "us-central1"},
+            embrouter_params={"vertex_project": "test-project", "vertex_location": "us-central1"},
         )
         assert url == (
             "https://us-central1-aiplatform.googleapis.com/v1/projects/test-project/locations/us-central1"
@@ -121,7 +121,7 @@ class TestGetCompleteUrl:
             api_key=None,
             model="vertex_ai/gemini-3.5-transcribe-preview",
             optional_params={},
-            litellm_params={"vertex_project": "test-project"},
+            embrouter_params={"vertex_project": "test-project"},
         )
         assert "/models/gemini-3.5-transcribe-preview:generateContent" in url
         assert "vertex_ai/" not in url
@@ -132,7 +132,7 @@ class TestGetCompleteUrl:
             api_key=None,
             model="gemini-3.5-transcribe-preview",
             optional_params={},
-            litellm_params={"vertex_project": "test-project"},
+            embrouter_params={"vertex_project": "test-project"},
         )
         assert url == (
             "http://localhost:8080/v1/projects/test-project/locations/global"
@@ -147,7 +147,7 @@ class TestGetCompleteUrl:
                 api_key=None,
                 model="gemini-3.5-transcribe-preview",
                 optional_params={},
-                litellm_params={"vertex_project": "test-project", "vertex_location": malicious_location},
+                embrouter_params={"vertex_project": "test-project", "vertex_location": malicious_location},
             )
 
     @pytest.mark.parametrize("malicious_project", ["proj/../../locations", "proj#frag", "proj?a=b", "proj space"])
@@ -158,7 +158,7 @@ class TestGetCompleteUrl:
                 api_key=None,
                 model="gemini-3.5-transcribe-preview",
                 optional_params={},
-                litellm_params={"vertex_project": malicious_project},
+                embrouter_params={"vertex_project": malicious_project},
             )
 
 
@@ -168,7 +168,7 @@ class TestTransformRequest:
             model="gemini-3.5-transcribe-preview",
             audio_file=AUDIO_BYTES,
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
         )
         assert request_data.files is None
         assert request_data.data == {
@@ -201,7 +201,7 @@ class TestTransformRequest:
             model="gemini-3.5-transcribe-preview",
             audio_file=AUDIO_BYTES,
             optional_params={"language": language},
-            litellm_params={},
+            embrouter_params={},
         )
         audio_config = request_data.data["generationConfig"]["audioTranscriptionConfig"]
         assert audio_config["languageCodes"] == expected_language_codes
@@ -211,7 +211,7 @@ class TestTransformRequest:
             model="gemini-3.5-transcribe-preview",
             audio_file=AUDIO_BYTES,
             optional_params={"language": "en"},
-            litellm_params={},
+            embrouter_params={},
         )
         round_tripped = json.loads(json.dumps(request_data.data))
         assert round_tripped["generationConfig"] == {"audioTranscriptionConfig": {"languageCodes": ["en-US"]}}
@@ -267,7 +267,7 @@ class TestValidateEnvironment:
             model="gemini-3.5-transcribe-preview",
             messages=[],
             optional_params={},
-            litellm_params={"vertex_project": "resolved-project"},
+            embrouter_params={"vertex_project": "resolved-project"},
         )
         assert headers["Authorization"] == "Bearer fake-token"
         assert headers["x-goog-user-project"] == "resolved-project"
@@ -287,7 +287,7 @@ class TestOptionalParams:
 
     @pytest.mark.parametrize("response_format", ["verbose_json", "srt", "vtt"])
     def test_unsupported_response_format_raises(self, response_format):
-        with pytest.raises(litellm.utils.UnsupportedParamsError, match="response_format"):
+        with pytest.raises(embrouter.utils.UnsupportedParamsError, match="response_format"):
             get_optional_params_transcription(
                 model="gemini-3.5-transcribe-preview",
                 custom_llm_provider="vertex_ai",

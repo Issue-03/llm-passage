@@ -32,13 +32,13 @@ export const getIndexesTableColumns = ({
   },
   {
     id: "vector_store_name",
-    accessorFn: (row) => row.litellm_params.vector_store_name,
+    accessorFn: (row) => row.embrouter_params.vector_store_name,
     meta: { title: "Vector Store" },
     header: ({ column }) => <DataTableSortHeader column={column} title="Vector Store" />,
     size: 200,
     enableSorting: true,
     cell: ({ row }) => {
-      const name = row.original.litellm_params.vector_store_name;
+      const name = row.original.embrouter_params.vector_store_name;
       const vectorStoreId = name ? resolveVectorStoreId(name) : undefined;
       if (vectorStoreId) {
         return (
@@ -59,7 +59,7 @@ export const getIndexesTableColumns = ({
   },
   {
     id: "vector_store_index",
-    accessorFn: (row) => row.litellm_params.vector_store_index,
+    accessorFn: (row) => row.embrouter_params.vector_store_index,
     meta: { title: "Provider Index" },
     header: "Provider Index",
     size: 220,
@@ -67,9 +67,9 @@ export const getIndexesTableColumns = ({
     cell: ({ row }) => (
       <span
         className="block max-w-60 truncate font-mono text-xs"
-        title={row.original.litellm_params.vector_store_index}
+        title={row.original.embrouter_params.vector_store_index}
       >
-        {row.original.litellm_params.vector_store_index || "-"}
+        {row.original.embrouter_params.vector_store_index || "-"}
       </span>
     ),
   },

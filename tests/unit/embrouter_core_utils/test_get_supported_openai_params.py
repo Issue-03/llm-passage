@@ -1,6 +1,6 @@
 import pytest
 
-from litellm.litellm_core_utils.get_supported_openai_params import (
+from embrouter.embrouter_core_utils.get_supported_openai_params import (
     get_supported_openai_params,
 )
 
@@ -167,13 +167,13 @@ class TestDeclaredAuthenticatingProvider:
         ],
     )
     def test_names_only_the_providers_whose_resolution_authenticates(self, model, provider, expected):
-        from litellm.litellm_core_utils.get_llm_provider_logic import declared_authenticating_provider
+        from embrouter.embrouter_core_utils.get_llm_provider_logic import declared_authenticating_provider
 
         assert declared_authenticating_provider(model, provider) == expected
 
     @pytest.mark.parametrize("model", ["github_copilot/gpt-4o", "chatgpt/gpt-5"])
     def test_supported_params_never_resolve_an_authenticating_prefix(self, model, monkeypatch):
-        import litellm
+        import embrouter
 
         lookups: list = []
 
@@ -181,7 +181,7 @@ class TestDeclaredAuthenticatingProvider:
             lookups.append((args, kwargs))
             raise RuntimeError("provider resolution must not run for an authenticating provider")
 
-        monkeypatch.setattr(litellm, "get_llm_provider", _record)
+        monkeypatch.setattr(embrouter, "get_llm_provider", _record)
 
         params = get_supported_openai_params(model=model)
 

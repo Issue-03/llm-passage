@@ -20,32 +20,32 @@ from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field
 from typing_extensions import TypedDict
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.constants import (
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.constants import (
     COMPETITOR_LLM_TEMPERATURE,
     DEFAULT_COMPETITOR_DISCOVERY_MODEL,
     MAX_COMPETITOR_NAMES,
 )
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.llms.openai.chat.guardrail_translation.handler import (
+from embrouter.integrations.custom_guardrail import CustomGuardrail
+from embrouter.llms.openai.chat.guardrail_translation.handler import (
     OpenAIChatCompletionsHandler,
 )
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.common_utils.sse_keepalive import (
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.common_utils.sse_keepalive import (
     SSE_COMMENT_PING,
     wrap_sse_stream_with_keepalive_pings,
 )
-from litellm.proxy.guardrails.guardrail_hooks.custom_code import (
+from embrouter.proxy.guardrails.guardrail_hooks.custom_code import (
     RESPONSE_REJECTION_GUARDRAIL_CODE,
     CustomCodeGuardrail,
 )
-from litellm.proxy.guardrails.guardrail_registry import GuardrailRegistry
-from litellm.proxy.management_helpers.utils import management_endpoint_wrapper
-from litellm.proxy.policy_engine.policy_registry import get_policy_registry
-from litellm.proxy.policy_engine.policy_resolver import PolicyResolver
-from litellm.types.proxy.policy_engine import (
+from embrouter.proxy.guardrails.guardrail_registry import GuardrailRegistry
+from embrouter.proxy.management_helpers.utils import management_endpoint_wrapper
+from embrouter.proxy.policy_engine.policy_registry import get_policy_registry
+from embrouter.proxy.policy_engine.policy_resolver import PolicyResolver
+from embrouter.types.proxy.policy_engine import (
     PolicyGuardrailsResponse,
     PolicyInfoResponse,
     PolicyListResponse,
@@ -56,10 +56,10 @@ from litellm.types.proxy.policy_engine import (
     PolicyValidateRequest,
     PolicyValidationResponse,
 )
-from litellm.types.utils import GenericGuardrailAPIInputs, ModelResponse
+from embrouter.types.utils import GenericGuardrailAPIInputs, ModelResponse
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
 
 router: Final = APIRouter()
 
@@ -122,7 +122,7 @@ async def apply_policies(
     inputs: GenericGuardrailAPIInputs,
     request_data: dict,
     input_type: Literal["request", "response"],
-    proxy_logging_obj: "LiteLLMLoggingObj",
+    proxy_logging_obj: "EmbRouterLoggingObj",
     guardrail_names: list[str] | None = None,
 ) -> ApplyPoliciesResult:
     """
@@ -296,9 +296,9 @@ async def test_policies_and_guardrails(
 
     Use inputs for a single call (legacy).
     """
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.proxy.proxy_server import chat_completion, proxy_logging_obj
-    from litellm.proxy.utils import handle_exception_on_proxy
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.proxy.proxy_server import chat_completion, proxy_logging_obj
+    from embrouter.proxy.utils import handle_exception_on_proxy
 
     def _serialize_chat_response(response: object) -> object:
         if isinstance(response, BaseModel):
@@ -324,7 +324,7 @@ async def test_policies_and_guardrails(
         return _serialize_chat_response(result)
 
     try:
-        logging_obj: Final = cast(LiteLLMLoggingObj, proxy_logging_obj)
+        logging_obj: Final = cast(EmbRouterLoggingObj, proxy_logging_obj)
 
         results: Final[list[ApplyPoliciesPerItemResult]] = []
         for inp in data.inputs_list:
@@ -357,7 +357,7 @@ async def test_policies_and_guardrails(
                     await handler.process_output_response(
                         response=model_response,
                         guardrail_to_apply=response_rejection_guardrail,
-                        litellm_logging_obj=logging_obj,
+                        embrouter_logging_obj=logging_obj,
                         user_api_key_dict=user_api_key_dict,
                     )
                 except Exception as guardrail_err:
@@ -434,8 +434,8 @@ async def validate_policy(
     }
     ```
     """
-    from litellm.proxy.policy_engine.policy_validator import PolicyValidator
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.policy_engine.policy_validator import PolicyValidator
+    from embrouter.proxy.proxy_server import prisma_client
 
     verbose_proxy_logger.debug("Validating policy configuration with %s policies", len(data.policies))
 
@@ -470,7 +470,7 @@ async def list_policies(
     - Resolved guardrails (after inheritance)
     - Inheritance chain
     """
-    from litellm.proxy.policy_engine.init_policies import get_policies_summary
+    from embrouter.proxy.policy_engine.init_policies import get_policies_summary
 
     summary: Final = get_policies_summary()
     return PolicyListResponse(
@@ -508,8 +508,8 @@ async def get_policy_info(
     - Resolved guardrails (after inheritance)
     - Inheritance chain
     """
-    from litellm.proxy.policy_engine.policy_registry import get_policy_registry
-    from litellm.proxy.policy_engine.policy_resolver import PolicyResolver
+    from embrouter.proxy.policy_engine.policy_registry import get_policy_registry
+    from embrouter.proxy.policy_engine.policy_resolver import PolicyResolver
 
     registry: Final = get_policy_registry()
 
@@ -575,9 +575,9 @@ async def test_policy_matching(
     - matching_policies: List of policy names that match
     - resolved_guardrails: Final list of guardrails that would be applied
     """
-    from litellm.proxy.policy_engine.policy_matcher import PolicyMatcher
-    from litellm.proxy.policy_engine.policy_registry import get_policy_registry
-    from litellm.proxy.policy_engine.policy_resolver import PolicyResolver
+    from embrouter.proxy.policy_engine.policy_matcher import PolicyMatcher
+    from embrouter.proxy.policy_engine.policy_registry import get_policy_registry
+    from embrouter.proxy.policy_engine.policy_resolver import PolicyResolver
 
     registry: Final = get_policy_registry()
 
@@ -605,7 +605,7 @@ async def test_policy_matching(
 
 
 def _load_policy_templates_from_local_backup() -> list:
-    """Load policy templates from local backup file (litellm/policy_templates_backup.json)."""
+    """Load policy templates from local backup file (embrouter/policy_templates_backup.json)."""
     backup_path: Final = os.path.join(
         os.path.dirname(__file__),
         "..",
@@ -754,7 +754,7 @@ async def _stream_llm_competitor_names(
 
     Deduplicates against existing names (case-insensitive).
     """
-    from litellm.proxy.proxy_server import llm_router
+    from embrouter.proxy.proxy_server import llm_router
 
     if llm_router is None:
         raise ValueError("LLM router not initialized")
@@ -864,7 +864,7 @@ async def enrich_policy_template_stream(
     return StreamingResponse(
         wrap_sse_stream_with_keepalive_pings(
             _stream_competitor_events(data, template, llm_enrichment, brand_name, model),
-            ping_interval_seconds=litellm.sse_keepalive_ping_interval_seconds,
+            ping_interval_seconds=embrouter.sse_keepalive_ping_interval_seconds,
             ping_chunk=SSE_COMMENT_PING,
         ),
         media_type="text/event-stream",
@@ -897,7 +897,7 @@ async def _generate_competitor_variations(competitors: list, model: str = DEFAUL
     )
 
     try:
-        from litellm.proxy.proxy_server import llm_router
+        from embrouter.proxy.proxy_server import llm_router
 
         if llm_router is None:
             raise ValueError("LLM router not initialized")
@@ -937,7 +937,7 @@ def _parse_variations_response(raw: str, competitors: list) -> dict[str, list[st
 async def _discover_competitors_via_llm(prompt: str, model: str = DEFAULT_COMPETITOR_DISCOVERY_MODEL) -> list:
     """Call an onboarded LLM to discover competitor names."""
     try:
-        from litellm.proxy.proxy_server import llm_router
+        from embrouter.proxy.proxy_server import llm_router
 
         if llm_router is None:
             raise ValueError("LLM router not initialized")
@@ -993,7 +993,7 @@ def _build_competitor_guardrail_definitions(
     for defn in enriched:
         guardrail_name = defn.get("guardrail_name", "")
         if guardrail_name in blocked_words_map:
-            defn["litellm_params"]["blocked_words"] = blocked_words_map[guardrail_name]
+            defn["embrouter_params"]["blocked_words"] = blocked_words_map[guardrail_name]
 
     return enriched
 
@@ -1080,7 +1080,7 @@ async def suggest_policy_templates(
 
     Calls an LLM with tool calling to match user requirements to available templates.
     """
-    from litellm.proxy.management_endpoints.policy_endpoints.ai_policy_suggester import (
+    from embrouter.proxy.management_endpoints.policy_endpoints.ai_policy_suggester import (
         AiPolicySuggester,
     )
 
@@ -1129,7 +1129,7 @@ async def test_policy_template(
     against the provided text, and returns per-guardrail results so users can
     verify the template solves their problem before creating it.
     """
-    from litellm.proxy.utils import handle_exception_on_proxy
+    from embrouter.proxy.utils import handle_exception_on_proxy
 
     try:
         results: Final = await _test_guardrail_definitions(
@@ -1150,7 +1150,7 @@ async def _test_guardrail_definitions(
     text: str,
 ) -> list[GuardrailTestResultEntry]:
     """Instantiate and run each guardrail definition against the text."""
-    from litellm.proxy.guardrails.guardrail_hooks.litellm_content_filter.content_filter import (
+    from embrouter.proxy.guardrails.guardrail_hooks.embrouter_content_filter.content_filter import (
         ContentFilterGuardrail,
     )
 
@@ -1158,10 +1158,10 @@ async def _test_guardrail_definitions(
 
     for guardrail_def in guardrail_definitions:
         guardrail_name = guardrail_def.get("guardrail_name", "unknown")
-        litellm_params = guardrail_def.get("litellm_params", {})
-        guardrail_type = litellm_params.get("guardrail", "")
+        embrouter_params = guardrail_def.get("embrouter_params", {})
+        guardrail_type = embrouter_params.get("guardrail", "")
 
-        if guardrail_type != "litellm_content_filter":
+        if guardrail_type != "embrouter_content_filter":
             results.append(
                 GuardrailTestResultEntry(
                     guardrail_name=guardrail_name,
@@ -1175,11 +1175,11 @@ async def _test_guardrail_definitions(
         try:
             guardrail = ContentFilterGuardrail(
                 guardrail_name=guardrail_name,
-                patterns=litellm_params.get("patterns"),
-                blocked_words=litellm_params.get("blocked_words"),
-                categories=litellm_params.get("categories"),
-                pattern_redaction_format=litellm_params.get("pattern_redaction_format"),
-                default_on=litellm_params.get("default_on", False),
+                patterns=embrouter_params.get("patterns"),
+                blocked_words=embrouter_params.get("blocked_words"),
+                categories=embrouter_params.get("categories"),
+                pattern_redaction_format=embrouter_params.get("pattern_redaction_format"),
+                default_on=embrouter_params.get("default_on", False),
             )
 
             output = await guardrail.apply_guardrail(

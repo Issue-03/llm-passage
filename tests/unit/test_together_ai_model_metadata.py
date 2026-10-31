@@ -79,7 +79,7 @@ def test_together_chat_entries_never_carry_context_length_as_output_ceiling(cost
     inflated = sorted(
         model
         for model, info in cost_map.items()
-        if info.get("litellm_provider") == "together_ai"
+        if info.get("embrouter_provider") == "together_ai"
         and info.get("mode") == "chat"
         and "max_output_tokens" in info
         and info["max_output_tokens"] == info.get("max_input_tokens")
@@ -98,7 +98,7 @@ def _successor(info: dict[str, object]) -> str | None:
 
 
 def test_together_backup_cost_map_in_sync(cost_map: CostMap):
-    with open(REPO_ROOT / "litellm" / "model_prices_and_context_window_backup.json") as f:
+    with open(REPO_ROOT / "embrouter" / "model_prices_and_context_window_backup.json") as f:
         backup = COST_MAP_ADAPTER.validate_python(json.load(f))
     together_main = {k: v for k, v in cost_map.items() if k.startswith("together_ai/")}
     together_backup = {k: v for k, v in backup.items() if k.startswith("together_ai/")}

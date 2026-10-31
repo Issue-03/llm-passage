@@ -1,17 +1,17 @@
-import litellm
-from litellm.llms.anthropic.pass_through.messages.transformation import (
+import embrouter
+from embrouter.llms.anthropic.pass_through.messages.transformation import (
     AnthropicMessagesConfig,
 )
-from litellm.llms.tencent.messages.transformation import (
+from embrouter.llms.tencent.messages.transformation import (
     TencentAnthropicMessagesConfig,
 )
-from litellm.utils import ProviderConfigManager
+from embrouter.utils import ProviderConfigManager
 
 
 def test_tencent_provider_uses_anthropic_messages_config():
     config = ProviderConfigManager.get_provider_anthropic_messages_config(
         model="deepseek-v4-pro",
-        provider=litellm.LlmProviders.TENCENT,
+        provider=embrouter.LlmProviders.TENCENT,
     )
 
     assert isinstance(config, TencentAnthropicMessagesConfig)
@@ -21,7 +21,7 @@ def test_tencent_provider_uses_anthropic_messages_config():
 def test_anthropic_provider_keeps_default_config_for_tencent_named_model():
     config = ProviderConfigManager.get_provider_anthropic_messages_config(
         model="deepseek-v4-pro",
-        provider=litellm.LlmProviders.ANTHROPIC,
+        provider=embrouter.LlmProviders.ANTHROPIC,
     )
 
     assert isinstance(config, AnthropicMessagesConfig)
@@ -55,7 +55,7 @@ def test_messages_url_default():
             api_key=None,
             model="deepseek-v4-pro",
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
         )
         == "https://tokenhub-intl.tencentcloudmaas.com/v1/messages"
     )
@@ -70,7 +70,7 @@ def test_messages_url_with_base_ending_in_v1():
             api_key=None,
             model="deepseek-v4-pro",
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
         )
         == "https://tokenhub-intl.tencentcloudmaas.com/v1/messages"
     )
@@ -84,7 +84,7 @@ def test_messages_url_with_base_ending_in_v1_messages():
         api_key=None,
         model="deepseek-v4-pro",
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
     )
 
     assert url == "https://tokenhub-intl.tencentcloudmaas.com/v1/messages"
@@ -99,7 +99,7 @@ def test_messages_url_with_base_ending_in_v1_chat_completions():
             api_key=None,
             model="deepseek-v4-pro",
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
         )
         == "https://tokenhub-intl.tencentcloudmaas.com/v1/messages"
     )
@@ -114,7 +114,7 @@ def test_messages_url_with_custom_base_no_v1():
             api_key=None,
             model="deepseek-v4-pro",
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
         )
         == "https://tokenhub.tencentcloudmaas.com/v1/messages"
     )
@@ -128,7 +128,7 @@ def test_validate_environment_sets_headers():
         model="deepseek-v4-pro",
         messages=[],
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         api_key="sk-tencent-key",
         api_base="https://custom.test",
     )
@@ -147,7 +147,7 @@ def test_validate_environment_injects_anthropic_beta_headers():
         model="deepseek-v4-pro",
         messages=[],
         optional_params={"speed": "fast"},
-        litellm_params={},
+        embrouter_params={},
         api_key="sk-tencent-key",
         api_base=None,
     )
@@ -163,7 +163,7 @@ def test_validate_environment_preserves_existing_headers():
         model="deepseek-v4-pro",
         messages=[],
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         api_key="sk-tencent-key",
         api_base=None,
     )

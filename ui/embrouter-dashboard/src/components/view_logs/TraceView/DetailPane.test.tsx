@@ -27,7 +27,7 @@ const span = (overrides: Partial<Span> & Pick<Span, "span_id">): Span => ({
   model: null,
   input_tokens: 0,
   output_tokens: 0,
-  litellm_request_id: null,
+  embrouter_request_id: null,
   ...overrides,
 });
 
@@ -39,7 +39,7 @@ const llmFields: SpanFields = {
   model: "claude-sonnet-4-5",
   input_tokens: 659,
   output_tokens: 60,
-  litellm_request_id: "chatcmpl-abc",
+  embrouter_request_id: "chatcmpl-abc",
 };
 const failedToolFields: SpanFields = {
   span_id: "tool1",

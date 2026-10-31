@@ -5,13 +5,13 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Final, Literal, TypeAlias
 
-from litellm.proxy.config_resolvers._descriptors import FieldSource
+from embrouter.proxy.config_resolvers._descriptors import FieldSource
 
 JsonValue: TypeAlias = None | bool | int | float | str | list["JsonValue"] | dict[str, "JsonValue"]
 Section: TypeAlias = Literal[
     "general_settings",
     "router_settings",
-    "litellm_settings",
+    "embrouter_settings",
     "environment_variables",
     "ui_settings",
 ]
@@ -68,7 +68,7 @@ def _build_dual_source_keys() -> Mapping[tuple[Section, str], KeyRule]:
                 *_rules_for("general_settings", _UI_SETTINGS_FIELDS, "ui_settings"),
                 *(
                     ((section, "*"), KeyRule(db_row=section))
-                    for section in ("general_settings", "router_settings", "litellm_settings", "environment_variables")
+                    for section in ("general_settings", "router_settings", "embrouter_settings", "environment_variables")
                 ),
             )
         )

@@ -1,31 +1,31 @@
 import os
 from typing import Final
 
-from litellm._logging import verbose_logger
-from litellm._uuid import uuid
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.integrations.deepeval.api import Api, Endpoints, HttpMethods
-from litellm.integrations.deepeval.types import (
+from embrouter._logging import verbose_logger
+from embrouter._uuid import uuid
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.integrations.deepeval.api import Api, Endpoints, HttpMethods
+from embrouter.integrations.deepeval.types import (
     BaseApiSpan,
     SpanApiType,
     TraceApi,
     TraceSpanApiStatus,
 )
-from litellm.integrations.deepeval.utils import (
+from embrouter.integrations.deepeval.utils import (
     to_zod_compatible_iso,
     validate_environment,
 )
 
 
-# This file includes the custom callbacks for LiteLLM Proxy
+# This file includes the custom callbacks for EmbRouter Proxy
 # Once defined, these can be passed in proxy_config.yaml
 class DeepEvalLogger(CustomLogger):
-    """Logs litellm traces to DeepEval's platform."""
+    """Logs embrouter traces to DeepEval's platform."""
 
     def __init__(self, *args, **kwargs):
         api_key: Final = os.getenv("CONFIDENT_API_KEY")
-        self.litellm_environment = os.getenv("LITELM_ENVIRONMENT", "development")
-        validate_environment(self.litellm_environment)
+        self.embrouter_environment = os.getenv("LITELM_ENVIRONMENT", "development")
+        validate_environment(self.embrouter_environment)
         if not api_key:
             raise ValueError("Please set 'CONFIDENT_API_KEY=<>' in your environment variables.")
         self.api = Api(api_key=api_key)
@@ -63,7 +63,7 @@ class DeepEvalLogger(CustomLogger):
             standard_logging_object=_standard_logging_object,
             start_time=_start_time,
             end_time=_end_time,
-            litellm_environment=self.litellm_environment,
+            embrouter_environment=self.embrouter_environment,
         )
 
         body = {}
@@ -111,7 +111,7 @@ class DeepEvalLogger(CustomLogger):
             output = str(standard_logging_object.get("error_string", ""))
         return BaseApiSpan(
             uuid=standard_logging_object.get("id", uuid.uuid4()),
-            name=("litellm_success_callback" if is_success else "litellm_failure_callback"),
+            name=("embrouter_success_callback" if is_success else "embrouter_failure_callback"),
             status=(TraceSpanApiStatus.SUCCESS if is_success else TraceSpanApiStatus.ERRORED),
             type=SpanApiType.LLM,
             traceUuid=standard_logging_object.get("trace_id", uuid.uuid4()),
@@ -130,7 +130,7 @@ class DeepEvalLogger(CustomLogger):
         standard_logging_object,
         start_time,
         end_time,
-        litellm_environment,
+        embrouter_environment,
     ):
         return TraceApi(
             uuid=standard_logging_object.get("trace_id", uuid.uuid4()),
@@ -141,5 +141,5 @@ class DeepEvalLogger(CustomLogger):
             toolSpans=[],
             startTime=str(start_time),
             endTime=str(end_time),
-            environment=litellm_environment,
+            environment=embrouter_environment,
         )

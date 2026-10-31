@@ -4,13 +4,13 @@ from unittest.mock import patch
 import httpx
 import pytest
 
-import litellm
-from litellm.litellm_core_utils.llm_cost_calc.tool_call_cost_tracking import (
+import embrouter
+from embrouter.embrouter_core_utils.llm_cost_calc.tool_call_cost_tracking import (
     StandardBuiltInToolCostTracking,
 )
-from litellm.llms.custom_httpx.http_handler import HTTPHandler
-from litellm.llms.groq.chat.transformation import GroqChatConfig
-from litellm.utils import get_optional_params
+from embrouter.llms.custom_httpx.http_handler import HTTPHandler
+from embrouter.llms.groq.chat.transformation import GroqChatConfig
+from embrouter.utils import get_optional_params
 
 WEB_SEARCH_MODELS = (
     "openai/gpt-oss-120b",
@@ -75,7 +75,7 @@ class TestGroqWebSearchOptions:
         assert "tools" not in optional_params
 
     def test_unsupported_model_raises_without_drop_params(self):
-        with pytest.raises(litellm.UnsupportedParamsError):
+        with pytest.raises(embrouter.UnsupportedParamsError):
             get_optional_params(
                 model="llama-3.3-70b-versatile",
                 custom_llm_provider="groq",
@@ -94,7 +94,7 @@ class TestGroqWebSearchOptions:
         assert "tools" not in optional_params
 
     def test_ignored_fields_logged_as_info(self, caplog: pytest.LogCaptureFixture):
-        with caplog.at_level(logging.INFO, logger="LiteLLM"):
+        with caplog.at_level(logging.INFO, logger="EmbRouter"):
             get_optional_params(
                 model="openai/gpt-oss-20b",
                 custom_llm_provider="groq",
@@ -110,7 +110,7 @@ class TestGroqWebSearchOptions:
         assert "enabled" in ignored_fields_records[0].message
 
     def test_empty_options_log_nothing(self, caplog: pytest.LogCaptureFixture):
-        with caplog.at_level(logging.INFO, logger="LiteLLM"):
+        with caplog.at_level(logging.INFO, logger="EmbRouter"):
             get_optional_params(
                 model="openai/gpt-oss-20b",
                 custom_llm_provider="groq",
@@ -157,7 +157,7 @@ EXECUTED_TOOLS_OPENS_ONLY = [
 ]
 
 
-def _groq_completion_with_mocked_response(response_json: dict) -> litellm.ModelResponse:
+def _groq_completion_with_mocked_response(response_json: dict) -> embrouter.ModelResponse:
     client = HTTPHandler()
     fake_response = httpx.Response(
         status_code=200,
@@ -165,7 +165,7 @@ def _groq_completion_with_mocked_response(response_json: dict) -> litellm.ModelR
         request=httpx.Request("POST", "https://api.groq.com/openai/v1/chat/completions"),
     )
     with patch.object(client, "post", return_value=fake_response):
-        return litellm.completion(
+        return embrouter.completion(
             model="groq/openai/gpt-oss-20b",
             messages=[{"role": "user", "content": "hi"}],
             web_search_options={"search_context_size": "high"},
@@ -199,6 +199,6 @@ class TestGroqWebSearchUsageSignal:
         assert getattr(response.usage, "server_tool_use", None) is None
 
     def test_response_without_usage_is_left_untouched(self):
-        model_response = litellm.ModelResponse()
+        model_response = embrouter.ModelResponse()
         GroqChatConfig()._add_web_search_usage(model_response=model_response)
         assert getattr(model_response, "usage", None) is None

@@ -11,19 +11,19 @@ from unittest.mock import AsyncMock, MagicMock
 import httpx
 import pytest
 
-import litellm
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
-from litellm.llms.bedrock.chat.invoke_handler import (
+import embrouter
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.embrouter_core_utils.streaming_handler import CustomStreamWrapper
+from embrouter.llms.bedrock.chat.invoke_handler import (
     AmazonOpenAICompatibleStreamDecoder,
     AWSEventStreamDecoder,
     make_call,
     make_sync_call,
 )
-from litellm.exceptions import MidStreamFallbackError
-from litellm.llms.bedrock.common_utils import BedrockError
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-from litellm.types.utils import ModelResponseStream
+from embrouter.exceptions import MidStreamFallbackError
+from embrouter.llms.bedrock.common_utils import BedrockError
+from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from embrouter.types.utils import ModelResponseStream
 
 
 def test_transform_thinking_blocks_with_redacted_content():
@@ -345,13 +345,13 @@ def _converse_stream_wrapper(events, model=CONVERSE_MODEL):
         completion_stream=bedrock_stream(),
         model=model,
         custom_llm_provider="bedrock",
-        logging_obj=LiteLLMLoggingObj(
+        logging_obj=EmbRouterLoggingObj(
             model=model,
             messages=[{"role": "user", "content": "hi"}],
             stream=True,
             call_type="completion",
             start_time=datetime.datetime.now(),
-            litellm_call_id="1234",
+            embrouter_call_id="1234",
             function_id="1234",
         ),
     )
@@ -509,7 +509,7 @@ def test_invoke_streaming_forwards_bedrock_response_headers():
     client = HTTPHandler()
     client.post = MagicMock(return_value=response)
 
-    stream = litellm.completion(
+    stream = embrouter.completion(
         model="bedrock/invoke/anthropic.claude-haiku-4-5-20251001-v1:0",
         messages=[{"role": "user", "content": "hi"}],
         stream=True,
@@ -535,7 +535,7 @@ async def test_async_invoke_streaming_forwards_bedrock_response_headers():
     client = AsyncHTTPHandler()
     client.post = AsyncMock(return_value=response)
 
-    stream = await litellm.acompletion(
+    stream = await embrouter.acompletion(
         model="bedrock/invoke/anthropic.claude-haiku-4-5-20251001-v1:0",
         messages=[{"role": "user", "content": "hi"}],
         stream=True,
@@ -571,8 +571,8 @@ def test_invoke_streaming_error_forwards_bedrock_response_headers():
         )
     )
 
-    with pytest.raises(litellm.ServiceUnavailableError) as exc_info:
-        litellm.completion(
+    with pytest.raises(embrouter.ServiceUnavailableError) as exc_info:
+        embrouter.completion(
             model="bedrock/invoke/anthropic.claude-haiku-4-5-20251001-v1:0",
             messages=[{"role": "user", "content": "hi"}],
             stream=True,
@@ -597,8 +597,8 @@ async def test_async_invoke_streaming_error_forwards_bedrock_response_headers():
         )
     )
 
-    with pytest.raises(litellm.ServiceUnavailableError) as exc_info:
-        await litellm.acompletion(
+    with pytest.raises(embrouter.ServiceUnavailableError) as exc_info:
+        await embrouter.acompletion(
             model="bedrock/invoke/anthropic.claude-haiku-4-5-20251001-v1:0",
             messages=[{"role": "user", "content": "hi"}],
             stream=True,
@@ -636,8 +636,8 @@ def test_invoke_streaming_error_forwards_headers_when_body_was_never_read():
         )
     )
 
-    with pytest.raises(litellm.ServiceUnavailableError) as exc_info:
-        litellm.completion(
+    with pytest.raises(embrouter.ServiceUnavailableError) as exc_info:
+        embrouter.completion(
             model="bedrock/invoke/anthropic.claude-haiku-4-5-20251001-v1:0",
             messages=[{"role": "user", "content": "hi"}],
             stream=True,
@@ -662,8 +662,8 @@ async def test_async_invoke_streaming_error_forwards_headers_when_body_was_never
         )
     )
 
-    with pytest.raises(litellm.ServiceUnavailableError) as exc_info:
-        await litellm.acompletion(
+    with pytest.raises(embrouter.ServiceUnavailableError) as exc_info:
+        await embrouter.acompletion(
             model="bedrock/invoke/anthropic.claude-haiku-4-5-20251001-v1:0",
             messages=[{"role": "user", "content": "hi"}],
             stream=True,
@@ -683,8 +683,8 @@ def test_invoke_streaming_non_200_forwards_bedrock_response_headers():
     client = HTTPHandler()
     client.post = MagicMock(return_value=error_response)
 
-    with pytest.raises(litellm.ServiceUnavailableError) as exc_info:
-        litellm.completion(
+    with pytest.raises(embrouter.ServiceUnavailableError) as exc_info:
+        embrouter.completion(
             model="bedrock/invoke/anthropic.claude-haiku-4-5-20251001-v1:0",
             messages=[{"role": "user", "content": "hi"}],
             stream=True,
@@ -703,8 +703,8 @@ async def test_async_invoke_streaming_non_200_forwards_bedrock_response_headers(
     client = AsyncHTTPHandler()
     client.post = AsyncMock(return_value=error_response)
 
-    with pytest.raises(litellm.ServiceUnavailableError) as exc_info:
-        await litellm.acompletion(
+    with pytest.raises(embrouter.ServiceUnavailableError) as exc_info:
+        await embrouter.acompletion(
             model="bedrock/invoke/anthropic.claude-haiku-4-5-20251001-v1:0",
             messages=[{"role": "user", "content": "hi"}],
             stream=True,
@@ -774,7 +774,7 @@ def test_moonshot_invoke_stream_yields_openai_shaped_chunks(
     client: Final = HTTPHandler()
     client.post = MagicMock(return_value=response)
 
-    stream: Final = litellm.completion(
+    stream: Final = embrouter.completion(
         model="bedrock/invoke/moonshot.kimi-k2-thinking",
         messages=[{"role": "user", "content": "weather as json"}],
         stream=True,
@@ -794,7 +794,7 @@ async def test_moonshot_invoke_async_stream_yields_openai_shaped_chunks(_aws_tes
     client: Final = AsyncHTTPHandler()
     client.post = AsyncMock(return_value=response)
 
-    stream: Final = await litellm.acompletion(
+    stream: Final = await embrouter.acompletion(
         model="bedrock/invoke/moonshot.kimi-k2-thinking",
         messages=[{"role": "user", "content": "weather as json"}],
         stream=True,
@@ -879,7 +879,7 @@ def test_iter_bytes_yields_a_complete_stream_without_raising() -> None:
 def _assert_empty_stream_surfaced_as_bad_gateway(error: MidStreamFallbackError) -> None:
     assert error.status_code == 502
     assert error.is_pre_first_chunk is True
-    assert isinstance(error.original_exception, litellm.BadGatewayError)
+    assert isinstance(error.original_exception, embrouter.BadGatewayError)
     assert "decoded to no events" in str(error)
     assert "req-empty-1" in str(error)
 
@@ -892,7 +892,7 @@ def test_converse_stream_with_an_empty_200_body_raises_instead_of_an_empty_turn(
 
     with pytest.raises(MidStreamFallbackError) as exc_info:
         list(
-            litellm.completion(
+            embrouter.completion(
                 model="bedrock/us.moonshotai.kimi-k3",
                 messages=[{"role": "user", "content": "hi"}],
                 stream=True,
@@ -915,7 +915,7 @@ async def test_async_converse_stream_with_an_empty_200_body_raises_instead_of_an
     client: Final = AsyncHTTPHandler()
     client.post = AsyncMock(return_value=response)
 
-    stream: Final = await litellm.acompletion(
+    stream: Final = await embrouter.acompletion(
         model="bedrock/us.moonshotai.kimi-k3",
         messages=[{"role": "user", "content": "hi"}],
         stream=True,

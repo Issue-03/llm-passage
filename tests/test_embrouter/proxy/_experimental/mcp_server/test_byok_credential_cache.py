@@ -2,15 +2,15 @@ import json
 
 import pytest
 
-from litellm.proxy._experimental.mcp_server.byok_credential_cache import (
+from embrouter.proxy._experimental.mcp_server.byok_credential_cache import (
     CachedByokCredential,
     byok_credential_cache,
     byok_credential_cache_key,
     cache_byok_credential,
     get_cached_byok_credential,
 )
-from litellm.proxy.common_utils.auth_cache_invalidation_pubsub import AuthCacheInvalidationSubscriber
-from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+from embrouter.proxy.common_utils.auth_cache_invalidation_pubsub import AuthCacheInvalidationSubscriber
+from embrouter.proxy.common_utils.user_api_key_cache import UserApiKeyCache
 
 
 class _FakeRedisCache:

@@ -5,7 +5,7 @@ Calling logic for Databricks embeddings
 import os
 from typing import Final
 
-from litellm.utils import EmbeddingResponse
+from embrouter.utils import EmbeddingResponse
 
 from ...openai_like.embedding.handler import OpenAILikeEmbeddingHandler
 from ..common_utils import DatabricksBase
@@ -28,12 +28,12 @@ class DatabricksEmbeddingHandler(OpenAILikeEmbeddingHandler, DatabricksBase):
         headers: dict | None = None,
     ) -> EmbeddingResponse:
         # Check for custom user agent in optional_params or environment
-        # This allows partners building on LiteLLM to set their own telemetry
+        # This allows partners building on EmbRouter to set their own telemetry
         # Use pop() to remove these keys so they don't get sent to the API
         custom_user_agent: Final = (
             optional_params.pop("user_agent", None)
             or optional_params.pop("databricks_user_agent", None)
-            or os.getenv("LITELLM_USER_AGENT")
+            or os.getenv("EMBROUTER_USER_AGENT")
             or os.getenv("DATABRICKS_USER_AGENT")
         )
 

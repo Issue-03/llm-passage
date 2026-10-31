@@ -5,11 +5,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from litellm_enterprise.proxy.audit_logging_endpoints import router as audit_router
-from litellm_enterprise.types.proxy.audit_logging_endpoints import AuditLogResponse
+from embrouter_enterprise.proxy.audit_logging_endpoints import router as audit_router
+from embrouter_enterprise.types.proxy.audit_logging_endpoints import AuditLogResponse
 
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
 
 # Create an app with just the audit router for testing
 app = FastAPI()
@@ -33,10 +33,10 @@ MOCK_AUDIT_LOG = {
 
 @pytest.fixture
 def mock_prisma_client():
-    with patch("litellm.proxy.proxy_server.prisma_client") as mock:
-        mock.db.litellm_auditlog.find_many = AsyncMock()
-        mock.db.litellm_auditlog.find_unique = AsyncMock()
-        mock.db.litellm_auditlog.count = AsyncMock()
+    with patch("embrouter.proxy.proxy_server.prisma_client") as mock:
+        mock.db.embrouter_auditlog.find_many = AsyncMock()
+        mock.db.embrouter_auditlog.find_unique = AsyncMock()
+        mock.db.embrouter_auditlog.count = AsyncMock()
         yield mock
 
 
@@ -44,13 +44,13 @@ def mock_prisma_client():
 async def test_get_audit_logs(mock_prisma_client):
     """Test successful retrieval of audit logs with pagination"""
     # Mock the database responses
-    mock_prisma_client.db.litellm_auditlog.find_many.return_value = [
+    mock_prisma_client.db.embrouter_auditlog.find_many.return_value = [
         AuditLogResponse(**MOCK_AUDIT_LOG)
     ]
-    mock_prisma_client.db.litellm_auditlog.count.return_value = 1
+    mock_prisma_client.db.embrouter_auditlog.count.return_value = 1
 
     # Mock the auth dependency
-    with patch("litellm.proxy.auth.user_api_key_auth.user_api_key_auth") as mock_auth:
+    with patch("embrouter.proxy.auth.user_api_key_auth.user_api_key_auth") as mock_auth:
         mock_auth.return_value = UserAPIKeyAuth(
             api_key="test-key",
             user_id="test-user",
@@ -83,12 +83,12 @@ async def test_get_audit_logs(mock_prisma_client):
 async def test_get_audit_log_by_id(mock_prisma_client):
     """Test successful retrieval of a specific audit log by ID"""
     # Mock the database response
-    mock_prisma_client.db.litellm_auditlog.find_unique.return_value = AuditLogResponse(
+    mock_prisma_client.db.embrouter_auditlog.find_unique.return_value = AuditLogResponse(
         **MOCK_AUDIT_LOG
     )
 
     # Mock the auth dependency
-    with patch("litellm.proxy.auth.user_api_key_auth.user_api_key_auth") as mock_auth:
+    with patch("embrouter.proxy.auth.user_api_key_auth.user_api_key_auth") as mock_auth:
         mock_auth.return_value = UserAPIKeyAuth(
             api_key="test-key",
             user_id="test-user",
@@ -113,10 +113,10 @@ async def test_get_audit_log_by_id(mock_prisma_client):
 async def test_get_audit_log_by_id_not_found(mock_prisma_client):
     """Test error handling when audit log is not found"""
     # Mock the database response to return None
-    mock_prisma_client.db.litellm_auditlog.find_unique.return_value = None
+    mock_prisma_client.db.embrouter_auditlog.find_unique.return_value = None
 
     # Mock the auth dependency
-    with patch("litellm.proxy.auth.user_api_key_auth.user_api_key_auth") as mock_auth:
+    with patch("embrouter.proxy.auth.user_api_key_auth.user_api_key_auth") as mock_auth:
         mock_auth.return_value = UserAPIKeyAuth(
             api_key="test-key",
             user_id="test-user",
@@ -136,14 +136,14 @@ async def test_get_audit_log_by_id_not_found(mock_prisma_client):
 
 
 def _list_audit_logs_where(mock_prisma_client: MagicMock, query: str) -> dict[str, object]:
-    mock_prisma_client.db.litellm_auditlog.find_many.return_value = []
-    mock_prisma_client.db.litellm_auditlog.count.return_value = 0
+    mock_prisma_client.db.embrouter_auditlog.find_many.return_value = []
+    mock_prisma_client.db.embrouter_auditlog.count.return_value = 0
 
     response: Final = client.get(f"/audit?{query}")
 
     assert response.status_code == 200, response.text
-    find_many_where: Final = mock_prisma_client.db.litellm_auditlog.find_many.call_args.kwargs["where"]
-    assert mock_prisma_client.db.litellm_auditlog.count.call_args.kwargs["where"] == find_many_where
+    find_many_where: Final = mock_prisma_client.db.embrouter_auditlog.find_many.call_args.kwargs["where"]
+    assert mock_prisma_client.db.embrouter_auditlog.count.call_args.kwargs["where"] == find_many_where
     return find_many_where
 
 

@@ -1,7 +1,7 @@
 """
 Tests for the declarative fallback-generalizations mechanism.
 
-Covers the pure module (litellm.litellm_core_utils.fallback_generalizations): the
+Covers the pure module (embrouter.embrouter_core_utils.fallback_generalizations): the
 routing/capability rule split, install-time validation, capability unioning; and
 its end-to-end wiring into provider routing (get_llm_provider) and model-info
 resolution (get_model_info) including the shipped rules in the bundled cost map.
@@ -11,9 +11,9 @@ import logging
 
 import pytest
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.litellm_core_utils.fallback_generalizations import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.embrouter_core_utils.fallback_generalizations import (
     get_fallback_generalization_rules,
     match_capability_generalizations,
     match_fill_missing_generalizations,
@@ -62,8 +62,8 @@ def warning_messages():
 def test_routing_inference_first_match_wins(restore_generalizations):
     restore_generalizations(
         [
-            {"name": "first", "pattern": r"^acme-", "model_info": {"litellm_provider": "openai"}},
-            {"name": "second", "pattern": r"^acme-pro-", "model_info": {"litellm_provider": "anthropic"}},
+            {"name": "first", "pattern": r"^acme-", "model_info": {"embrouter_provider": "openai"}},
+            {"name": "second", "pattern": r"^acme-pro-", "model_info": {"embrouter_provider": "anthropic"}},
         ]
     )
     assert match_routing_generalization("acme-pro-1") == "openai"
@@ -78,7 +78,7 @@ def test_capability_rules_do_not_route(restore_generalizations):
 
 def test_routing_match_is_case_insensitive(restore_generalizations):
     restore_generalizations(
-        [{"name": "r", "pattern": r"^claude-opus", "model_info": {"litellm_provider": "anthropic"}}]
+        [{"name": "r", "pattern": r"^claude-opus", "model_info": {"embrouter_provider": "anthropic"}}]
     )
     assert match_routing_generalization("CLAUDE-OPUS-9-9") == "anthropic"
 
@@ -144,7 +144,7 @@ def test_fill_missing_requires_per_rule_opt_in(restore_generalizations):
                 "name": "mixed",
                 "pattern": r"^acme-",
                 "fill_missing_for_providers": ["openai"],
-                "model_info": {"litellm_provider": "openai", "supports_vision": True},
+                "model_info": {"embrouter_provider": "openai", "supports_vision": True},
             }
         ]
     )
@@ -156,7 +156,7 @@ def test_fill_missing_requires_per_rule_opt_in(restore_generalizations):
                 "name": "route",
                 "pattern": r"^acme-",
                 "fill_missing_for_providers": ["openai"],
-                "model_info": {"litellm_provider": "openai"},
+                "model_info": {"embrouter_provider": "openai"},
             }
         ]
     )
@@ -178,7 +178,7 @@ def test_fill_missing_requires_per_rule_opt_in(restore_generalizations):
 def test_routing_rules_are_excluded_from_capability_results(restore_generalizations):
     restore_generalizations(
         [
-            {"name": "route", "pattern": r"^acme-", "model_info": {"litellm_provider": "openai"}},
+            {"name": "route", "pattern": r"^acme-", "model_info": {"embrouter_provider": "openai"}},
             {"name": "caps", "pattern": r"^acme-pro-", "model_info": {"supports_vision": True}},
         ]
     )
@@ -208,21 +208,21 @@ def test_reinstalling_rules_replaces_compiled_rules(restore_generalizations):
 
 
 def test_legacy_mixed_rule_acts_as_both_kinds(restore_generalizations):
-    """A legacy rule mixing ``litellm_provider`` with capability keys routes AND
+    """A legacy rule mixing ``embrouter_provider`` with capability keys routes AND
     contributes its full model_info (provider included) to the capability union."""
     restore_generalizations(
         [
             {
                 "name": "legacy-mixed",
                 "pattern": r"^acme-",
-                "model_info": {"litellm_provider": "anthropic", "supports_vision": True},
+                "model_info": {"embrouter_provider": "anthropic", "supports_vision": True},
             },
             {"name": "new-caps", "pattern": r"^acme-pro-", "model_info": {"supports_reasoning": True}},
         ]
     )
     assert match_routing_generalization("acme-pro-1") == "anthropic"
     assert match_capability_generalizations("acme-pro-1") == {
-        "litellm_provider": "anthropic",
+        "embrouter_provider": "anthropic",
         "supports_vision": True,
         "supports_reasoning": True,
     }
@@ -241,7 +241,7 @@ LEGACY_MAIN_RULES = [
         "pattern": "^claude-[a-z]+-\\d+[-.]\\d+(?:-\\d{8})?$",
         "description": "Any Claude family-major-minor id, optionally with an 8-digit date suffix, anchored to the whole name. Version-neutral fallback that gives an unmapped Claude provider routing and baseline capabilities; it carries no pricing, so cost stays on the standard unpriced behavior rather than a guessed number.",
         "model_info": {
-            "litellm_provider": "anthropic",
+            "embrouter_provider": "anthropic",
             "mode": "chat",
             "max_input_tokens": 200000,
             "max_output_tokens": 64000,
@@ -267,26 +267,26 @@ def test_legacy_main_schema_keeps_unmapped_claude_working(restore_generalization
     copied verbatim above) must keep unmapped-Claude inference and info resolution
     working until the new-schema JSON reaches main."""
     restore_generalizations([dict(rule) for rule in LEGACY_MAIN_RULES])
-    litellm.get_model_info.cache_clear()
+    embrouter.get_model_info.cache_clear()
 
-    _, provider, _, _ = litellm.get_llm_provider(model="claude-opus-9-9")
+    _, provider, _, _ = embrouter.get_llm_provider(model="claude-opus-9-9")
     assert provider == "anthropic"
 
-    info = litellm.get_model_info("claude-opus-9-9")
-    assert info["litellm_provider"] == "anthropic"
+    info = embrouter.get_model_info("claude-opus-9-9")
+    assert info["embrouter_provider"] == "anthropic"
     assert info["supports_adaptive_thinking"] is True
     assert info["supports_function_calling"] is True
     assert info["max_input_tokens"] == 200000
     assert not info.get("input_cost_per_token")
 
-    low = litellm.get_model_info("claude-opus-4-0")
-    assert low["litellm_provider"] == "anthropic"
+    low = embrouter.get_model_info("claude-opus-4-0")
+    assert low["embrouter_provider"] == "anthropic"
     assert low["supports_function_calling"] is True
     assert low.get("supports_adaptive_thinking") is None
 
 
 def test_non_string_provider_rule_warns_and_is_skipped(restore_generalizations, warning_messages):
-    restore_generalizations([{"name": "bad-provider", "pattern": r"^acme-", "model_info": {"litellm_provider": 42}}])
+    restore_generalizations([{"name": "bad-provider", "pattern": r"^acme-", "model_info": {"embrouter_provider": 42}}])
     assert any("bad-provider" in message for message in warning_messages)
     assert match_routing_generalization("acme-1") is None
     assert match_capability_generalizations("acme-1") is None
@@ -312,8 +312,8 @@ def test_malformed_rules_are_skipped_not_fatal(restore_generalizations):
 
 
 def test_unknown_model_routes_via_routing_rule(restore_generalizations):
-    restore_generalizations([{"name": "myco", "pattern": r"^myco-", "model_info": {"litellm_provider": "openai"}}])
-    _, provider, _, _ = litellm.get_llm_provider(model="myco-fast-1")
+    restore_generalizations([{"name": "myco", "pattern": r"^myco-", "model_info": {"embrouter_provider": "openai"}}])
+    _, provider, _, _ = embrouter.get_llm_provider(model="myco-fast-1")
     assert provider == "openai"
 
 
@@ -332,42 +332,42 @@ def test_capability_info_backfills_requested_provider(restore_generalizations):
             }
         ]
     )
-    litellm.get_model_info.cache_clear()
-    info = litellm.get_model_info("beeco-fast-1", custom_llm_provider="groq")
-    assert info["litellm_provider"] == "groq"
+    embrouter.get_model_info.cache_clear()
+    info = embrouter.get_model_info("beeco-fast-1", custom_llm_provider="groq")
+    assert info["embrouter_provider"] == "groq"
     assert info["max_input_tokens"] == 12345
     assert info["supports_vision"] is True
-    other = litellm.get_model_info("beeco-fast-1", custom_llm_provider="openai")
-    assert other["litellm_provider"] == "openai"
+    other = embrouter.get_model_info("beeco-fast-1", custom_llm_provider="openai")
+    assert other["embrouter_provider"] == "openai"
 
 
 def test_routing_only_match_does_not_resolve_model_info(restore_generalizations):
-    restore_generalizations([{"name": "route", "pattern": r"^ceeco-", "model_info": {"litellm_provider": "openai"}}])
-    litellm.get_model_info.cache_clear()
+    restore_generalizations([{"name": "route", "pattern": r"^ceeco-", "model_info": {"embrouter_provider": "openai"}}])
+    embrouter.get_model_info.cache_clear()
     with pytest.raises(Exception, match="This model isn't mapped yet"):
-        litellm.get_model_info("ceeco-fast-1", custom_llm_provider="openai")
+        embrouter.get_model_info("ceeco-fast-1", custom_llm_provider="openai")
 
 
 def test_exact_entry_takes_precedence_over_rule(restore_generalizations):
     restore_generalizations(
         [{"name": "shadow-gpt4o", "pattern": r"^gpt-4o$", "model_info": {"input_cost_per_token": 999.0}}]
     )
-    litellm.get_model_info.cache_clear()
-    info = litellm.get_model_info("gpt-4o")
-    assert info["litellm_provider"] == "openai"
+    embrouter.get_model_info.cache_clear()
+    info = embrouter.get_model_info("gpt-4o")
+    assert info["embrouter_provider"] == "openai"
     assert info["input_cost_per_token"] != 999.0
 
 
 def test_exact_entries_fill_only_missing_fields(restore_generalizations, monkeypatch):
     monkeypatch.setattr(
-        litellm,
+        embrouter,
         "model_cost",
         {
-            **litellm.model_cost,
+            **embrouter.model_cost,
             "acme-full": {
                 "input_cost_per_token": 1e-6,
                 "output_cost_per_token": 2e-6,
-                "litellm_provider": "openai",
+                "embrouter_provider": "openai",
                 "mode": "chat",
                 "max_tokens": 7,
                 "supports_reasoning": False,
@@ -375,19 +375,19 @@ def test_exact_entries_fill_only_missing_fields(restore_generalizations, monkeyp
             "acme-bare": {
                 "input_cost_per_token": 3e-6,
                 "output_cost_per_token": 4e-6,
-                "litellm_provider": "openai",
+                "embrouter_provider": "openai",
                 "mode": "chat",
             },
             "acme-image": {
                 "input_cost_per_token": 5e-6,
                 "output_cost_per_token": 6e-6,
-                "litellm_provider": "openai",
+                "embrouter_provider": "openai",
                 "mode": "image_generation",
             },
             "acme-other": {
                 "input_cost_per_token": 7e-6,
                 "output_cost_per_token": 8e-6,
-                "litellm_provider": "openrouter",
+                "embrouter_provider": "openrouter",
                 "mode": "chat",
             },
         },
@@ -402,29 +402,29 @@ def test_exact_entries_fill_only_missing_fields(restore_generalizations, monkeyp
             }
         ]
     )
-    litellm.get_model_info.cache_clear()
+    embrouter.get_model_info.cache_clear()
 
-    full = litellm.get_model_info("acme-full", custom_llm_provider="openai")
+    full = embrouter.get_model_info("acme-full", custom_llm_provider="openai")
     assert full["supports_reasoning"] is False
     assert full["max_tokens"] == 7
 
-    bare = litellm.get_model_info("acme-bare", custom_llm_provider="openai")
+    bare = embrouter.get_model_info("acme-bare", custom_llm_provider="openai")
     assert bare["supports_reasoning"] is True
     assert bare["max_tokens"] == 5
     assert bare["input_cost_per_token"] == 3e-6
     assert bare["key"] == "acme-bare"
 
-    other = litellm.get_model_info("acme-other", custom_llm_provider="openrouter")
+    other = embrouter.get_model_info("acme-other", custom_llm_provider="openrouter")
     assert other.get("supports_reasoning") is None
 
-    image = litellm.get_model_info("acme-image", custom_llm_provider="openai")
+    image = embrouter.get_model_info("acme-image", custom_llm_provider="openai")
     assert image.get("supports_reasoning") is None
 
     restore_generalizations(
         [{"name": "acme-backfill", "pattern": r"^acme-", "model_info": {"supports_reasoning": True, "max_tokens": 5}}]
     )
-    litellm.get_model_info.cache_clear()
-    unflagged = litellm.get_model_info("acme-bare", custom_llm_provider="openai")
+    embrouter.get_model_info.cache_clear()
+    unflagged = embrouter.get_model_info("acme-bare", custom_llm_provider="openai")
     assert unflagged.get("supports_reasoning") is None
 
 
@@ -436,16 +436,16 @@ def test_exact_entries_fill_only_missing_fields(restore_generalizations, monkeyp
 @pytest.fixture
 def shipped_cost_map(monkeypatch):
     """Activate the bundled cost map so the shipped rules are installed."""
-    original_cost = litellm.model_cost
+    original_cost = embrouter.model_cost
     previous_rules = list(get_fallback_generalization_rules())
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    litellm.model_cost = litellm.get_model_cost_map(url="")
-    litellm.get_model_info.cache_clear()
+    monkeypatch.setenv("EMBROUTER_LOCAL_MODEL_COST_MAP", "True")
+    embrouter.model_cost = embrouter.get_model_cost_map(url="")
+    embrouter.get_model_info.cache_clear()
     try:
         yield
     finally:
-        litellm.model_cost = original_cost
-        litellm.get_model_info.cache_clear()
+        embrouter.model_cost = original_cost
+        embrouter.get_model_info.cache_clear()
         set_fallback_generalizations(previous_rules)
 
 
@@ -465,14 +465,14 @@ def shipped_cost_map(monkeypatch):
     ],
 )
 def test_shipped_gemini_chat_baseline_resolves_unmapped_ids(shipped_cost_map, model, provider):
-    assert model not in litellm.model_cost
+    assert model not in embrouter.model_cost
     if provider == "gemini":
-        assert f"gemini/{model}" not in litellm.model_cost
+        assert f"gemini/{model}" not in embrouter.model_cost
     elif provider in {"openrouter", "deepinfra", "vercel_ai_gateway", "oci", "databricks"}:
-        assert f"{provider}/{model}" not in litellm.model_cost
+        assert f"{provider}/{model}" not in embrouter.model_cost
 
-    info = litellm.get_model_info(model, custom_llm_provider=provider)
-    assert info["litellm_provider"] == (provider or model.split("/")[0])
+    info = embrouter.get_model_info(model, custom_llm_provider=provider)
+    assert info["embrouter_provider"] == (provider or model.split("/")[0])
     assert info["mode"] == "chat"
     assert not info.get("max_input_tokens")
     assert info["supports_reasoning"] is True
@@ -508,9 +508,9 @@ def test_shipped_gemini_chat_baseline_skips_non_chat_and_pre_2_5_ids(shipped_cos
 
 
 def test_shipped_gemini_chat_baseline_keeps_reasoning_effort_on_unmapped_model(shipped_cost_map):
-    assert litellm.supports_reasoning(model="gemini-4-pro", custom_llm_provider="gemini") is True
+    assert embrouter.supports_reasoning(model="gemini-4-pro", custom_llm_provider="gemini") is True
 
-    optional_params = litellm.utils.get_optional_params(
+    optional_params = embrouter.utils.get_optional_params(
         model="gemini-4-pro",
         custom_llm_provider="gemini",
         reasoning_effort="medium",
@@ -523,15 +523,15 @@ def test_shipped_gemini_chat_baseline_keeps_reasoning_effort_on_unmapped_model(s
 
 def test_shipped_gemini_chat_baseline_loses_to_exact_entries(shipped_cost_map):
     model = "gemini-2.5-flash-lite"
-    info = litellm.get_model_info(model, custom_llm_provider="gemini")
-    entry = litellm.model_cost["gemini/gemini-2.5-flash-lite"]
+    info = embrouter.get_model_info(model, custom_llm_provider="gemini")
+    entry = embrouter.model_cost["gemini/gemini-2.5-flash-lite"]
     assert info["max_tokens"] == entry["max_tokens"]
     assert info["input_cost_per_token"] == entry["input_cost_per_token"]
     assert entry["input_cost_per_token"] > 0
 
 
 def test_shipped_bare_claude_id_routes_to_anthropic(shipped_cost_map):
-    _, provider, _, _ = litellm.get_llm_provider(model="claude-haiku-4-6")
+    _, provider, _, _ = embrouter.get_llm_provider(model="claude-haiku-4-6")
     assert provider == "anthropic"
 
 
@@ -545,16 +545,16 @@ def test_shipped_bedrock_syntax_claude_id_routes_to_bedrock(shipped_cost_map):
         "anthropic.claude-haiku-4-6",
         "eu.anthropic.claude-opus-5-0",
     ]:
-        assert model not in litellm.model_cost
-        _, provider, _, _ = litellm.get_llm_provider(model=model)
+        assert model not in embrouter.model_cost
+        _, provider, _, _ = embrouter.get_llm_provider(model=model)
         assert provider == "bedrock", model
 
 
 def test_shipped_rules_resolve_unmapped_bedrock_claude_with_bedrock_provider(shipped_cost_map):
     model = "us.anthropic.claude-haiku-4-6"
-    assert model not in litellm.model_cost
-    info = litellm.get_model_info(model, custom_llm_provider="bedrock")
-    assert info["litellm_provider"] == "bedrock"
+    assert model not in embrouter.model_cost
+    info = embrouter.get_model_info(model, custom_llm_provider="bedrock")
+    assert info["embrouter_provider"] == "bedrock"
     assert info["supports_adaptive_thinking"] is True
     assert info["supports_function_calling"] is True
     assert info["max_input_tokens"] == 200000
@@ -565,9 +565,9 @@ def test_shipped_rules_resolve_unmapped_bedrock_claude_with_bedrock_provider(shi
 
 def test_shipped_rules_stack_adaptive_and_mid_conversation_flags(shipped_cost_map):
     model = "claude-opus-4-9"
-    assert model not in litellm.model_cost
-    info = litellm.get_model_info(model, custom_llm_provider="anthropic")
-    assert info["litellm_provider"] == "anthropic"
+    assert model not in embrouter.model_cost
+    info = embrouter.get_model_info(model, custom_llm_provider="anthropic")
+    assert info["embrouter_provider"] == "anthropic"
     assert info["supports_adaptive_thinking"] is True
     assert info["supports_mid_conversation_system"] is True
     assert info["supports_function_calling"] is True
@@ -577,10 +577,10 @@ def test_shipped_rules_flag_unmapped_fable_as_always_on_thinking(shipped_cost_ma
     """An unmapped Fable/Mythos id picks up ``thinking_always_on`` from the
     claude-always-on-thinking rule, while other unmapped Claudes stay unflagged."""
     model = "claude-fable-6-1"
-    assert model not in litellm.model_cost
-    info = litellm.get_model_info(model, custom_llm_provider="anthropic")
+    assert model not in embrouter.model_cost
+    info = embrouter.get_model_info(model, custom_llm_provider="anthropic")
     assert info["thinking_always_on"] is True
-    other = litellm.get_model_info("claude-opus-4-9", custom_llm_provider="anthropic")
+    other = embrouter.get_model_info("claude-opus-4-9", custom_llm_provider="anthropic")
     assert other.get("thinking_always_on") is None
 
 
@@ -592,9 +592,9 @@ def test_shipped_rules_flag_unmapped_fable_as_always_on_thinking(shipped_cost_ma
     ],
 )
 def test_shipped_rules_are_provider_neutral_for_unmapped_ids(shipped_cost_map, model, provider):
-    assert model not in litellm.model_cost
-    info = litellm.get_model_info(model, custom_llm_provider=provider)
-    assert info["litellm_provider"] == provider
+    assert model not in embrouter.model_cost
+    info = embrouter.get_model_info(model, custom_llm_provider=provider)
+    assert info["embrouter_provider"] == provider
     assert info["supports_adaptive_thinking"] is True
     assert info["supports_mid_conversation_system"] is True
     assert info["supports_function_calling"] is True
@@ -616,9 +616,9 @@ def test_shipped_rules_are_provider_neutral_for_unmapped_ids(shipped_cost_map, m
     ],
 )
 def test_shipped_version_boundaries(shipped_cost_map, model, provider, adaptive, mid_conversation):
-    assert model not in litellm.model_cost
-    info = litellm.get_model_info(model, custom_llm_provider=provider)
-    assert info["litellm_provider"] == provider
+    assert model not in embrouter.model_cost
+    info = embrouter.get_model_info(model, custom_llm_provider=provider)
+    assert info["embrouter_provider"] == provider
     assert info["supports_function_calling"] is True
     assert not info.get("input_cost_per_token")
     assert info.get("supports_adaptive_thinking") is adaptive, model
@@ -642,8 +642,8 @@ def test_shipped_rules_cover_new_families_like_fable_at_5_plus(shipped_cost_map)
     major or major-minor, so a new family shaped like claude-fable-5 gets adaptive
     thinking and mid-conversation system support without a cost-map entry."""
     model = "claude-fable-6-1"
-    assert model not in litellm.model_cost
-    info = litellm.get_model_info(model, custom_llm_provider="anthropic")
+    assert model not in embrouter.model_cost
+    info = embrouter.get_model_info(model, custom_llm_provider="anthropic")
     assert info["supports_mid_conversation_system"] is True
     assert info["supports_adaptive_thinking"] is True
     assert info["supports_function_calling"] is True
@@ -664,12 +664,12 @@ def test_shipped_version_gates_are_family_agnostic_at_4x(shipped_cost_map):
     family at 4.9 gets adaptive and mid-conversation, while the same family at 4.5
     gets baseline only. Only opus/sonnet/haiku ever shipped 4.x ids, so the
     family-agnostic 4.6+ gate changes nothing for real models."""
-    high = litellm.get_model_info("claude-newfam-4-9", custom_llm_provider="anthropic")
+    high = embrouter.get_model_info("claude-newfam-4-9", custom_llm_provider="anthropic")
     assert high["supports_adaptive_thinking"] is True
     assert high["supports_mid_conversation_system"] is True
     assert high["supports_function_calling"] is True
 
-    low = litellm.get_model_info("claude-newfam-4-5", custom_llm_provider="anthropic")
+    low = embrouter.get_model_info("claude-newfam-4-5", custom_llm_provider="anthropic")
     assert low.get("supports_adaptive_thinking") is None
     assert low.get("supports_mid_conversation_system") is None
     assert low["supports_function_calling"] is True
@@ -680,9 +680,9 @@ def test_shipped_rules_give_bare_majors_the_full_baseline_union(shipped_cost_map
     major-minor sibling: the baseline pattern's minor is optional, so claude-newt-5
     is not left with version flags but no mode, token limits, or capability facts."""
     model = "anthropic/claude-newt-5"
-    assert model not in litellm.model_cost
-    info = litellm.get_model_info(model)
-    assert info["litellm_provider"] == "anthropic"
+    assert model not in embrouter.model_cost
+    info = embrouter.get_model_info(model)
+    assert info["embrouter_provider"] == "anthropic"
     assert info["mode"] == "chat"
     assert info["max_tokens"] == 64000
     assert info["supports_function_calling"] is True
@@ -691,7 +691,7 @@ def test_shipped_rules_give_bare_majors_the_full_baseline_union(shipped_cost_map
 
 
 def test_shipped_routing_rule_covers_bare_majors(shipped_cost_map):
-    _, provider, _, _ = litellm.get_llm_provider(model="claude-newt-5")
+    _, provider, _, _ = embrouter.get_llm_provider(model="claude-newt-5")
     assert provider == "anthropic"
 
 
@@ -700,10 +700,10 @@ def test_shipped_adaptive_rule_requires_claude_prefix(shipped_cost_map):
     resolve from the rules; serving it a zero-priced rule entry would silently
     swallow cost tracking for arbitrary custom deployment names."""
     model = "openai/team-sonnet-5-1-alias"
-    assert model not in litellm.model_cost
+    assert model not in embrouter.model_cost
     assert match_capability_generalizations("team-sonnet-5-1-alias") is None
     with pytest.raises(Exception, match="This model isn't mapped yet"):
-        litellm.get_model_info(model)
+        embrouter.get_model_info(model)
 
 
 def test_shipped_rules_lose_to_exact_entries_across_cost_ladder_variants(shipped_cost_map):
@@ -713,14 +713,14 @@ def test_shipped_rules_lose_to_exact_entries_across_cost_ladder_variants(shipped
     whose bare form is exactly mapped under anthropic) would zero out the bill even
     though the exact priced bedrock entry is one variant later. An exactly-mapped id
     under a mismatched provider raises instead of resolving from rules."""
-    from litellm import completion_cost
-    from litellm.types.utils import ModelResponse, Usage
+    from embrouter import completion_cost
+    from embrouter.types.utils import ModelResponse, Usage
 
-    assert "claude-haiku-4-5-20251001" in litellm.model_cost
+    assert "claude-haiku-4-5-20251001" in embrouter.model_cost
     with pytest.raises(Exception, match="This model isn't mapped yet"):
-        litellm.get_model_info("claude-haiku-4-5-20251001", custom_llm_provider="bedrock")
+        embrouter.get_model_info("claude-haiku-4-5-20251001", custom_llm_provider="bedrock")
 
-    entry = litellm.model_cost["us.anthropic.claude-haiku-4-5-20251001-v1:0"]
+    entry = embrouter.model_cost["us.anthropic.claude-haiku-4-5-20251001-v1:0"]
     response = ModelResponse(model="claude-haiku-4-5-20251001", usage=Usage(prompt_tokens=100, completion_tokens=50))
     cost = completion_cost(
         completion_response=response,
@@ -735,12 +735,12 @@ def test_shipped_adaptive_rule_gates_on_version_not_pricing(shipped_cost_map):
     """The version-gated adaptive-thinking capability rule marks an unmapped Claude
     adaptive only from >= 4.6, including provider-prefixed ids the anchored routing
     rule cannot match, while leaving the dated Opus 4.0 form non-adaptive."""
-    from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+    from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
     adaptive = "us.anthropic.claude-opus-4-9"
     non_adaptive = "us.anthropic.claude-opus-4-20250514"
-    assert adaptive not in litellm.model_cost
-    assert non_adaptive not in litellm.model_cost
+    assert adaptive not in embrouter.model_cost
+    assert non_adaptive not in embrouter.model_cost
     assert AnthropicModelInfo._is_adaptive_thinking_model(adaptive, "anthropic") is True
     assert AnthropicModelInfo._is_adaptive_thinking_model(non_adaptive, "anthropic") is False
 
@@ -750,9 +750,9 @@ def test_shipped_rules_resolve_unmapped_future_bedrock_claude_with_both_flags(sh
     baseline capabilities, both version-gated flags, the bedrock provider backfilled, and
     no fabricated pricing."""
     model = "us.anthropic.claude-opus-4-9"
-    assert model not in litellm.model_cost
-    info = litellm.get_model_info(model, custom_llm_provider="bedrock")
-    assert info["litellm_provider"] == "bedrock"
+    assert model not in embrouter.model_cost
+    info = embrouter.get_model_info(model, custom_llm_provider="bedrock")
+    assert info["embrouter_provider"] == "bedrock"
     assert info["supports_mid_conversation_system"] is True
     assert info["supports_adaptive_thinking"] is True
     assert info["supports_function_calling"] is True
@@ -790,16 +790,16 @@ def test_shipped_rules_flag_unmapped_wandb_ids_as_reasoning(shipped_cost_map):
     being dropped. The rule carries no mode and no pricing, so cost stays on the standard
     unpriced behavior and the deployment does not read as catalog-mapped."""
     model = "wandb/zai-org/GLM-6-Turbo"
-    assert model not in litellm.model_cost
+    assert model not in embrouter.model_cost
 
-    info = litellm.get_model_info(model, custom_llm_provider="wandb")
-    assert info["litellm_provider"] == "wandb"
+    info = embrouter.get_model_info(model, custom_llm_provider="wandb")
+    assert info["embrouter_provider"] == "wandb"
     assert info["supports_reasoning"] is True
     assert info.get("mode") is None
     assert not info.get("input_cost_per_token")
     assert not info.get("output_cost_per_token")
 
-    assert litellm.supports_reasoning(model="zai-org/GLM-6-Turbo", custom_llm_provider="wandb") is True
+    assert embrouter.supports_reasoning(model="zai-org/GLM-6-Turbo", custom_llm_provider="wandb") is True
 
 
 def test_shipped_wandb_rule_does_not_fill_missing_mapped_entries(shipped_cost_map):
@@ -819,13 +819,13 @@ def test_shipped_wandb_rule_keeps_reasoning_effort_on_an_unmapped_model(shipped_
     rule, so reasoning_effort is advertised and survives get_optional_params rather than
     raising UnsupportedParamsError."""
     model = "zai-org/GLM-6-Turbo"
-    assert f"wandb/{model}" not in litellm.model_cost
+    assert f"wandb/{model}" not in embrouter.model_cost
 
-    supported = litellm.get_supported_openai_params(model=f"wandb/{model}")
+    supported = embrouter.get_supported_openai_params(model=f"wandb/{model}")
     assert supported is not None
     assert "reasoning_effort" in supported
 
-    optional_params = litellm.utils.get_optional_params(
+    optional_params = embrouter.utils.get_optional_params(
         model=model,
         custom_llm_provider="wandb",
         reasoning_effort="medium",
@@ -835,49 +835,49 @@ def test_shipped_wandb_rule_keeps_reasoning_effort_on_an_unmapped_model(shipped_
 
 
 def test_router_registration_does_not_shadow_shipped_rules(shipped_cost_map):
-    """Regression: Router writes every configured deployment into ``litellm.model_cost``,
+    """Regression: Router writes every configured deployment into ``embrouter.model_cost``,
     and an exact entry ends the lookup ladder before the rules are consulted. Registering
     an unmapped model has to carry the rule defaults forward, or configuring a model on a
     proxy silently strips the capabilities the same model resolves to off-proxy."""
-    from litellm import Router
+    from embrouter import Router
 
     unmapped_wandb = "wandb/zai-org/GLM-6-Turbo"
     unmapped_claude = "anthropic/claude-opus-9"
-    assert unmapped_wandb not in litellm.model_cost
-    assert unmapped_claude not in litellm.model_cost
+    assert unmapped_wandb not in embrouter.model_cost
+    assert unmapped_claude not in embrouter.model_cost
 
     Router(
         model_list=[
-            {"model_name": name, "litellm_params": {"model": name, "api_key": "fake"}}
+            {"model_name": name, "embrouter_params": {"model": name, "api_key": "fake"}}
             for name in (unmapped_wandb, unmapped_claude)
         ]
     )
 
-    assert unmapped_wandb in litellm.model_cost
-    assert unmapped_claude in litellm.model_cost
-    assert litellm.supports_reasoning(model="zai-org/GLM-6-Turbo", custom_llm_provider="wandb") is True
-    assert litellm.supports_reasoning(model="claude-opus-9", custom_llm_provider="anthropic") is True
+    assert unmapped_wandb in embrouter.model_cost
+    assert unmapped_claude in embrouter.model_cost
+    assert embrouter.supports_reasoning(model="zai-org/GLM-6-Turbo", custom_llm_provider="wandb") is True
+    assert embrouter.supports_reasoning(model="claude-opus-9", custom_llm_provider="anthropic") is True
 
 
 def test_deployment_model_info_beats_the_seeded_rule_defaults(shipped_cost_map):
     """Seeding a registration from the rules is a floor, not an override: an explicit
     model_info on the deployment still wins, so a non-reasoning model can be configured
     under a reasoning-first namespace."""
-    from litellm import Router
+    from embrouter import Router
 
     model = "wandb/some-org/NoThink-1"
     Router(
         model_list=[
             {
                 "model_name": model,
-                "litellm_params": {"model": model, "api_key": "fake"},
+                "embrouter_params": {"model": model, "api_key": "fake"},
                 "model_info": {"supports_reasoning": False},
             }
         ]
     )
 
-    assert litellm.model_cost[model]["supports_reasoning"] is False
-    assert litellm.supports_reasoning(model="some-org/NoThink-1", custom_llm_provider="wandb") is False
+    assert embrouter.model_cost[model]["supports_reasoning"] is False
+    assert embrouter.supports_reasoning(model="some-org/NoThink-1", custom_llm_provider="wandb") is False
 
 
 def test_shipped_rules_flag_unmapped_openai_reasoning_families(shipped_cost_map):
@@ -892,14 +892,14 @@ def test_shipped_rules_flag_unmapped_openai_reasoning_families(shipped_cost_map)
         "azure/gpt-5.7-cyber",
         "openai/codex-mini-latest-2027",
     ):
-        assert model not in litellm.model_cost, model
+        assert model not in embrouter.model_cost, model
         assert match_capability_generalizations(model) == {"supports_reasoning": True}, model
-    info = litellm.get_model_info("gpt-5.7-nova", custom_llm_provider="openai")
-    assert info["litellm_provider"] == "openai"
+    info = embrouter.get_model_info("gpt-5.7-nova", custom_llm_provider="openai")
+    assert info["embrouter_provider"] == "openai"
     assert info["supports_reasoning"] is True
     assert info.get("mode") is None
     assert not info.get("input_cost_per_token")
-    assert litellm.supports_reasoning(model="gpt-5.7-nova", custom_llm_provider="openai") is True
+    assert embrouter.supports_reasoning(model="gpt-5.7-nova", custom_llm_provider="openai") is True
 
 
 def test_shipped_openai_reasoning_rule_skips_non_reasoning_gpt_ids(shipped_cost_map):
@@ -927,12 +927,12 @@ def test_shipped_openai_reasoning_rule_matches_only_openai(shipped_cost_map):
 
 def test_shipped_claude_thinking_rules_backfill_only_anthropic(shipped_cost_map):
     model = "perplexity/anthropic/claude-sonnet-4-6"
-    assert model in litellm.model_cost
-    raw_entry = litellm.model_cost[model]
+    assert model in embrouter.model_cost
+    raw_entry = embrouter.model_cost[model]
     assert "supports_adaptive_thinking" not in raw_entry
     assert "max_input_tokens" not in raw_entry
 
-    info = litellm.get_model_info(model="anthropic/claude-sonnet-4-6", custom_llm_provider="perplexity")
+    info = embrouter.get_model_info(model="anthropic/claude-sonnet-4-6", custom_llm_provider="perplexity")
     assert info.get("supports_adaptive_thinking") is None
     assert info.get("supports_legacy_thinking") is None
     assert info.get("max_input_tokens") is None
@@ -963,8 +963,8 @@ def test_shipped_tool_search_rule_version_boundaries(shipped_cost_map, model, pr
     """The claude-tool-search rule flags Claude 4.5 and newer in any family, bare major
     or major-minor with a dash, dot or underscore delimiter, and leaves 4.4 and
     date-suffixed 4.x ids without an opinion."""
-    assert model not in litellm.model_cost
-    info = litellm.get_model_info(model, custom_llm_provider=provider)
+    assert model not in embrouter.model_cost
+    info = embrouter.get_model_info(model, custom_llm_provider=provider)
     assert info.get("supports_tool_search") is tool_search, model
 
 
@@ -976,11 +976,11 @@ def test_shipped_tool_search_rule_fills_mapped_claude_entries_without_flag(shipp
         ("claude-opus-4-7", "claude-opus-4-7", "anthropic"),
         ("vertex_ai/claude-opus-5", "claude-opus-5", "vertex_ai"),
     ):
-        assert "supports_tool_search" not in litellm.model_cost[key]
-        assert litellm.get_model_info(model, custom_llm_provider=provider)["supports_tool_search"] is True
+        assert "supports_tool_search" not in embrouter.model_cost[key]
+        assert embrouter.get_model_info(model, custom_llm_provider=provider)["supports_tool_search"] is True
 
-    assert "supports_tool_search" not in litellm.model_cost["azure_ai/claude-opus-5"]
-    azure_opus_5_info = litellm.get_model_info("claude-opus-5", custom_llm_provider="azure_ai")
+    assert "supports_tool_search" not in embrouter.model_cost["azure_ai/claude-opus-5"]
+    azure_opus_5_info = embrouter.get_model_info("claude-opus-5", custom_llm_provider="azure_ai")
     assert azure_opus_5_info.get("supports_tool_search") is None
 
     assert match_fill_missing_generalizations("claude-opus-5", "bedrock")["supports_tool_search"] is True

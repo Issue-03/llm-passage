@@ -20,7 +20,7 @@ class _HiddenParamsHost(Protocol):
 
 _EMPTY_OBJECT_MAPPING: Final[Mapping[str, object]] = MappingProxyType({})
 _ROUTING_HEADER_MAPPING: Final = TypeAdapter(Mapping[str, object])
-_COMPLEXITY_ROUTER_HEADER_PREFIX: Final = "x-litellm-complexity-router-"
+_COMPLEXITY_ROUTER_HEADER_PREFIX: Final = "x-embrouter-complexity-router-"
 
 
 def _routing_header_mapping(value: object) -> Mapping[str, object]:
@@ -40,7 +40,7 @@ def _header_string(value: object) -> str | None:
 
 def complexity_router_decision_headers(request_kwargs: object) -> Mapping[str, str]:
     data: Final = _routing_header_mapping(request_kwargs)
-    metadata_key: Final = "litellm_metadata" if "litellm_metadata" in data else "metadata"
+    metadata_key: Final = "embrouter_metadata" if "embrouter_metadata" in data else "metadata"
     decision: Final = _routing_header_mapping(_routing_header_mapping(data.get(metadata_key)).get("routing_decision"))
     if decision.get("router_type") != "complexity":
         return MappingProxyType({})
@@ -56,7 +56,7 @@ def complexity_router_decision_headers(request_kwargs: object) -> Mapping[str, s
         ),
         (
             "reasoning-effort",
-            _routing_header_mapping(decision.get("tier_litellm_params")).get("reasoning_effort"),
+            _routing_header_mapping(decision.get("tier_embrouter_params")).get("reasoning_effort"),
         ),
     )
     return MappingProxyType(
@@ -153,11 +153,11 @@ def apply_quality_router_decision_headers(
     if not isinstance(decision, dict):
         return
     quality_header_fields: Final = (
-        ("routed_model", "x-litellm-quality-router-model"),
-        ("quality_tier", "x-litellm-quality-router-tier"),
-        ("routed_via", "x-litellm-quality-router-via"),
-        ("matched_keyword", "x-litellm-quality-router-keyword"),
-        ("complexity_tier", "x-litellm-quality-router-complexity"),
+        ("routed_model", "x-embrouter-quality-router-model"),
+        ("quality_tier", "x-embrouter-quality-router-tier"),
+        ("routed_via", "x-embrouter-quality-router-via"),
+        ("matched_keyword", "x-embrouter-quality-router-keyword"),
+        ("complexity_tier", "x-embrouter-quality-router-complexity"),
     )
     for field, header in quality_header_fields:
         if decision.get(field) is not None:
@@ -245,7 +245,7 @@ def _coerce_error_dicts(items: list[object]) -> list[dict[str, object]]:
 def get_fallback_errors_from_headers(
     additional_headers: dict[str, object],
 ) -> list[dict[str, object]]:
-    existing_errors: Final = additional_headers.get("x-litellm-fallback-errors")
+    existing_errors: Final = additional_headers.get("x-embrouter-fallback-errors")
     if isinstance(existing_errors, list):
         return _coerce_error_dicts(cast("list[object]", existing_errors))
     if isinstance(existing_errors, str):
@@ -290,10 +290,10 @@ def add_retry_headers_to_response(
     Add retry headers to the request
     """
     retry_headers: Final[dict[str, object]] = {
-        "x-litellm-attempted-retries": attempted_retries,
+        "x-embrouter-attempted-retries": attempted_retries,
     }
     if max_retries is not None:
-        retry_headers["x-litellm-max-retries"] = max_retries
+        retry_headers["x-embrouter-max-retries"] = max_retries
 
     return _add_headers_to_response(response, retry_headers)
 
@@ -317,7 +317,7 @@ def add_fallback_headers_to_response(
     Want to avoid bloat in the response headers for performance.
     """
     fallback_headers: Final[dict[str, object]] = {
-        "x-litellm-attempted-fallbacks": attempted_fallbacks,
+        "x-embrouter-attempted-fallbacks": attempted_fallbacks,
     }
     response = _add_headers_to_response(response, fallback_headers)
     if fallback_errors is None or response is None:
@@ -328,7 +328,7 @@ def add_fallback_headers_to_response(
     merged_errors: Final = get_fallback_errors_from_headers(additional_headers) + [
         cast("dict[str, object]", error) for error in fallback_errors
     ]
-    additional_headers["x-litellm-fallback-errors"] = json.dumps(merged_errors)
+    additional_headers["x-embrouter-fallback-errors"] = json.dumps(merged_errors)
     hidden_params["additional_headers"] = additional_headers
     _write_hidden_params(response, hidden_params)
     return response

@@ -21,10 +21,10 @@ from contextlib import suppress
 from dataclasses import dataclass, field
 from typing import Final, Protocol, TypeAlias
 
-KEYRING_SERVICE: Final = "litellm-cli"
+KEYRING_SERVICE: Final = "embrouter-cli"
 KEYRING_ACCOUNT: Final = "credential"
 KEYRING_PREFLIGHT_ACCOUNT: Final = "credential-preflight"
-DISABLE_KEYRING_ENV_VAR: Final = "LITELLM_CLI_DISABLE_KEYRING"
+DISABLE_KEYRING_ENV_VAR: Final = "EMBROUTER_CLI_DISABLE_KEYRING"
 
 _DISABLED_VALUES: Final = frozenset(("1", "true", "yes", "on"))
 _PREFLIGHT_VALUE: Final = "preflight"
@@ -136,7 +136,7 @@ def _answers_a_write(api: KeyringApi, timeout_seconds: float) -> bool:
             api.set_password(KEYRING_SERVICE, KEYRING_PREFLIGHT_ACCOUNT, _PREFLIGHT_VALUE)
         answered.set()
 
-    threading.Thread(target=ask, daemon=True, name="litellm-cli-keyring-preflight").start()
+    threading.Thread(target=ask, daemon=True, name="embrouter-cli-keyring-preflight").start()
     return answered.wait(timeout_seconds)
 
 

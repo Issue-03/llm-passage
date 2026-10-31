@@ -12,18 +12,18 @@ Like ``GenAIMapper``, each span kind declares its schema as a flat
 from collections.abc import Callable
 from typing import Final
 
-from litellm.integrations.otel.mappers.base import AttributeMap, AttrValue, SpanData
-from litellm.integrations.otel.mappers.utils import (
+from embrouter.integrations.otel.mappers.base import AttributeMap, AttrValue, SpanData
+from embrouter.integrations.otel.mappers.utils import (
     MAX_TOOL_DEFINITION_ATTRS_PER_SPAN,
     collect,
     tool_definition_attrs,
 )
-from litellm.integrations.otel.model.payloads import (
+from embrouter.integrations.otel.model.payloads import (
     LLMCallSpanData,
     ServiceSpanData,
     ToolDefinition,
 )
-from litellm.integrations.otel.model.semconv import Error
+from embrouter.integrations.otel.model.semconv import Error
 
 # Attribute keys in the semconv-ai / Traceloop vocabulary.
 _LEGACY_SYSTEM: Final = "gen_ai.system"

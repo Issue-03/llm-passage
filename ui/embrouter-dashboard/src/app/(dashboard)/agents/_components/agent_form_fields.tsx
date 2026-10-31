@@ -30,7 +30,7 @@ export const A2A_PANEL_FIELD_NAMES: Readonly<Record<string, readonly string[]>> 
   [AGENT_FORM_CONFIG.capabilities.key]: namesOf(AGENT_FORM_CONFIG.capabilities.fields),
   [AGENT_FORM_CONFIG.optional.key]: namesOf(AGENT_FORM_CONFIG.optional.fields),
   [AGENT_FORM_CONFIG.cost.key]: COST_FIELD_NAMES,
-  [AGENT_FORM_CONFIG.litellm.key]: namesOf(AGENT_FORM_CONFIG.litellm.fields),
+  [AGENT_FORM_CONFIG.embrouter.key]: namesOf(AGENT_FORM_CONFIG.embrouter.fields),
   [AUTH_HEADERS_PANEL_KEY]: ["static_headers", "extra_headers"],
   [KILL_SWITCH_PANEL_KEY]: ["kill_switch"],
 };
@@ -339,13 +339,13 @@ const AgentFormFields: React.FC<AgentFormFieldsProps> = ({ panels, showAgentName
           </AgentFormPanel>
         )}
 
-        {shouldShow(AGENT_FORM_CONFIG.litellm.key) && (
+        {shouldShow(AGENT_FORM_CONFIG.embrouter.key) && (
           <AgentFormPanel
-            panelKey={AGENT_FORM_CONFIG.litellm.key}
-            title={AGENT_FORM_CONFIG.litellm.title}
+            panelKey={AGENT_FORM_CONFIG.embrouter.key}
+            title={AGENT_FORM_CONFIG.embrouter.title}
             panels={panels}
           >
-            {AGENT_FORM_CONFIG.litellm.fields.map((field) => (
+            {AGENT_FORM_CONFIG.embrouter.fields.map((field) => (
               <AgentFormField key={field.name} name={field.name} label={field.label}>
                 {({ value, onChange, ref, ...control }) =>
                   field.type === "switch" ? (

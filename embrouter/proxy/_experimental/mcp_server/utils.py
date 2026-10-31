@@ -13,8 +13,8 @@ from collections.abc import Set as AbstractSet
 from typing import Any, Final, Protocol
 from urllib.parse import quote
 
-from litellm._logging import verbose_logger
-from litellm.types.mcp_server.mcp_server_manager import MCPServer
+from embrouter._logging import verbose_logger
+from embrouter.types.mcp_server.mcp_server_manager import MCPServer
 
 if typing.TYPE_CHECKING:
     from fastapi import Request
@@ -47,17 +47,17 @@ class McpServerPayloadLike(Protocol):
 # corresponding environment variables after import has no effect unless the
 # module is reloaded (e.g. ``importlib.reload``). Tests that override these
 # variables must reload this module — see
-# ``tests/test_litellm/proxy/_experimental/mcp_server/test_mcp_server_identity_env.py``.
-LITELLM_MCP_SERVER_NAME: Final = os.environ.get("LITELLM_MCP_SERVER_NAME", "litellm-mcp-server")
-LITELLM_MCP_SERVER_VERSION: Final = "1.0.0"
-LITELLM_MCP_SERVER_DESCRIPTION: Final = os.environ.get("LITELLM_MCP_SERVER_DESCRIPTION", "MCP Server for LiteLLM")
+# ``tests/test_embrouter/proxy/_experimental/mcp_server/test_mcp_server_identity_env.py``.
+EMBROUTER_MCP_SERVER_NAME: Final = os.environ.get("EMBROUTER_MCP_SERVER_NAME", "embrouter-mcp-server")
+EMBROUTER_MCP_SERVER_VERSION: Final = "1.0.0"
+EMBROUTER_MCP_SERVER_DESCRIPTION: Final = os.environ.get("EMBROUTER_MCP_SERVER_DESCRIPTION", "MCP Server for EmbRouter")
 MCP_TOOL_PREFIX_SEPARATOR: Final = os.environ.get("MCP_TOOL_PREFIX_SEPARATOR", "-")
 MCP_TOOL_PREFIX_FORMAT: Final = "{server_name}{separator}{tool_name}"
 
 # ---------------------------------------------------------------------------
 # Short-ID tool prefix (opt-in)
 # ---------------------------------------------------------------------------
-# When LITELLM_USE_SHORT_MCP_TOOL_PREFIX is truthy the prefix attached to MCP
+# When EMBROUTER_USE_SHORT_MCP_TOOL_PREFIX is truthy the prefix attached to MCP
 # tool / prompt / resource / resource-template names switches from the
 # (potentially long) human-readable server name to a deterministic three
 # character ID derived from the server's ``server_id``.
@@ -69,7 +69,7 @@ MCP_TOOL_PREFIX_FORMAT: Final = "{server_name}{separator}{tool_name}"
 #     with a digit so it remains a valid identifier for every model API
 #     (some providers historically required a leading alphabetic char).
 #   * 52 * 62 * 62 = 199_888 distinct IDs.  The chance of a real local
-#     tool name happening to begin with the exact prefix LiteLLM assigned
+#     tool name happening to begin with the exact prefix EmbRouter assigned
 #     to a given MCP server is negligible in practice.
 #   * The IDs are short enough that prefixed tool names stay well under
 #     the 60-character upper bound enforced by some model APIs (Anthropic
@@ -101,7 +101,7 @@ def is_short_mcp_tool_prefix_enabled() -> bool:
     Read at call time (not import time) so tests and runtime config changes
     take effect without reimporting the module.
     """
-    raw: Final = os.environ.get("LITELLM_USE_SHORT_MCP_TOOL_PREFIX", "")
+    raw: Final = os.environ.get("EMBROUTER_USE_SHORT_MCP_TOOL_PREFIX", "")
     return raw.strip().lower() in ("1", "true", "yes", "on")
 
 
@@ -163,7 +163,7 @@ def sanitize_mcp_alias_for_header(alias: str) -> str:
     """
     Sanitize an MCP server alias for x-mcp-{alias}-{header} HTTP headers.
 
-    Must stay in sync with ui/litellm-dashboard/src/utils/mcpHeaderUtils.ts.
+    Must stay in sync with ui/embrouter-dashboard/src/utils/mcpHeaderUtils.ts.
     """
     sanitized = _MCP_ALIAS_HEADER_INVALID_RE.sub("_", alias.lower().strip())
     sanitized = re.sub(r"_+", "_", sanitized)
@@ -311,7 +311,7 @@ def add_server_prefix_to_name(name: str, server_name: str) -> str:
 def get_server_prefix(server: object) -> str:
     """Return the prefix for a server.
 
-    When the short-prefix mode is enabled (``LITELLM_USE_SHORT_MCP_TOOL_PREFIX``)
+    When the short-prefix mode is enabled (``EMBROUTER_USE_SHORT_MCP_TOOL_PREFIX``)
     a three-character base62 ID is returned.  We prefer the cached
     ``server.short_prefix`` value when set — that field is populated at
     registration time by ``MCPServerManager._assign_unique_short_prefix``
@@ -374,7 +374,7 @@ def iter_known_tool_name_spellings(tool_name: str, server: MCPServer) -> Iterato
     """Yield every name that denotes the bare ``tool_name`` on ``server``: the bare name,
     then its wire spelling under each prefix ``iter_known_server_prefixes`` accepts.
     ``get_server_prefix`` covers only the currently published one, and that moves with the
-    alias and with ``LITELLM_USE_SHORT_MCP_TOOL_PREFIX``.
+    alias and with ``EMBROUTER_USE_SHORT_MCP_TOOL_PREFIX``.
     """
     yield tool_name
     for prefix in iter_known_server_prefixes(server):
@@ -788,8 +788,8 @@ def merge_mcp_headers(
     return merged or None
 
 
-# Local rather than litellm.constants: this module deliberately imports no litellm
-# package, so pulling one in for a single integer would drag in litellm/__init__.
+# Local rather than embrouter.constants: this module deliberately imports no embrouter
+# package, so pulling one in for a single integer would drag in embrouter/__init__.
 MAX_STRUCTURED_CONTENT_SCAN_DEPTH: Final = 100
 
 
@@ -919,14 +919,14 @@ _SYNTHETIC_REQUEST_SERVER: Final = ("127.0.0.1", 4000)
 _MCP_SERVER_AUTH_HEADER_PREFIX: Final = "x-mcp-"
 
 
-def _custom_litellm_key_header_name() -> str | None:
-    """``general_settings.litellm_key_header_name``, the deployment's custom header name for
+def _custom_embrouter_key_header_name() -> str | None:
+    """``general_settings.embrouter_key_header_name``, the deployment's custom header name for
     the proxy virtual key, so it is stripped from observability copies like the standard ones."""
     try:
-        from litellm.proxy.proxy_server import general_settings
+        from embrouter.proxy.proxy_server import general_settings
     except ImportError:
         return None
-    return general_settings.get("litellm_key_header_name") if general_settings else None
+    return general_settings.get("embrouter_key_header_name") if general_settings else None
 
 
 def _mcp_client_side_auth_header_name() -> str:
@@ -937,7 +937,7 @@ def _mcp_client_side_auth_header_name() -> str:
     try:
         return MCPRequestHandler.get_mcp_client_side_auth_header_name()
     except ImportError:
-        return MCPRequestHandler.LITELLM_MCP_AUTH_HEADER_NAME
+        return MCPRequestHandler.EMBROUTER_MCP_AUTH_HEADER_NAME
 
 
 def _identity_header_names() -> frozenset[str]:
@@ -951,7 +951,7 @@ def _identity_header_names() -> frozenset[str]:
     Iterating the bare form without normalizing yields its keys, which would silently exempt
     nothing."""
     try:
-        from litellm.proxy.proxy_server import general_settings
+        from embrouter.proxy.proxy_server import general_settings
     except ImportError:
         return frozenset()
     if not general_settings:
@@ -997,8 +997,8 @@ def upstream_credential_headers(header_names: Iterable[str]) -> frozenset[str]:
 
     non_credential: Final = frozenset(
         {
-            MCPRequestHandler.LITELLM_MCP_SERVERS_HEADER_NAME.lower(),
-            MCPRequestHandler.LITELLM_MCP_ACCESS_GROUPS_HEADER_NAME.lower(),
+            MCPRequestHandler.EMBROUTER_MCP_SERVERS_HEADER_NAME.lower(),
+            MCPRequestHandler.EMBROUTER_MCP_ACCESS_GROUPS_HEADER_NAME.lower(),
         }
     )
     client_side_auth: Final = _mcp_client_side_auth_header_name().lower()
@@ -1022,7 +1022,7 @@ def build_synthetic_mcp_request(
 
     The MCP protocol transports do not hand a per-call ``Request`` to the tool
     handlers, so one is reconstructed from the connection's ``raw_headers``. That
-    lets ``add_litellm_data_to_request`` derive ``metadata.headers``,
+    lets ``add_embrouter_data_to_request`` derive ``metadata.headers``,
     ``proxy_server_request``, header-based tags, guardrails and trace correlation
     exactly as on the chat completions path. Hop-by-hop headers describe the
     original HTTP framing rather than the logical request, so they are dropped, and
@@ -1030,12 +1030,12 @@ def build_synthetic_mcp_request(
     dropped for the same reason: it is what ``Request.url`` is built from, so forwarding it
     would let a caller choose the URL every logging callback records. Upstream
     MCP credentials and the deployment's proxy key header, including a custom
-    ``litellm_key_header_name``, are dropped so they cannot reach a callback or a guardrail
+    ``embrouter_key_header_name``, are dropped so they cannot reach a callback or a guardrail
     through the derived metadata even when a caller omits ``general_settings``.
     """
     from fastapi import Request
 
-    custom_key_header: Final = _custom_litellm_key_header_name()
+    custom_key_header: Final = _custom_embrouter_key_header_name()
     excluded: Final = (
         _SYNTHETIC_REQUEST_EXCLUDED_HEADERS
         | upstream_credential_headers(raw_headers.keys() if raw_headers else ())
@@ -1071,7 +1071,7 @@ def logging_safe_mcp_headers(raw_headers: Mapping[str, str] | None) -> Mapping[s
     headers stripped, including the custom key header name the deployment configured,
     upstream MCP credentials dropped, and credential-bearing values masked.
 
-    Client-controlled behaviour flags (``litellm-disable-message-redaction``) are dropped
+    Client-controlled behaviour flags (``embrouter-disable-message-redaction``) are dropped
     too: these headers are read back out of the metadata to change proxy behaviour, so
     leaving one in place would let any MCP client turn off the redaction an admin
     configured. This path carries no key or team object to authorize an opt-out with, so
@@ -1079,7 +1079,7 @@ def logging_safe_mcp_headers(raw_headers: Mapping[str, str] | None) -> Mapping[s
     the guardrail payload and the spend row the way it could once name the request URL."""
     from starlette.datastructures import Headers
 
-    from litellm.proxy.litellm_pre_call_utils import (
+    from embrouter.proxy.embrouter_pre_call_utils import (
         UNTRUSTED_REQUEST_HEADER_CONTROL_FIELDS,
         clean_headers,
         redact_credential_headers,
@@ -1092,6 +1092,6 @@ def logging_safe_mcp_headers(raw_headers: Mapping[str, str] | None) -> Mapping[s
     )
     cleaned: Final = clean_headers(
         Headers(raw_headers),
-        litellm_key_header_name=_custom_litellm_key_header_name(),
+        embrouter_key_header_name=_custom_embrouter_key_header_name(),
     )
     return redact_credential_headers({name: value for name, value in cleaned.items() if name.lower() not in excluded})

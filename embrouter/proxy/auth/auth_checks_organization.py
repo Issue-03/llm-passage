@@ -7,12 +7,12 @@ from typing import Final
 
 from fastapi import status
 
-from litellm.proxy._types import *
+from embrouter.proxy._types import *
 
 
 def organization_role_based_access_check(
     request_body: dict,
-    user_object: LiteLLM_UserTable | None,
+    user_object: EmbRouter_UserTable | None,
     route: str,
 ):
     """
@@ -22,7 +22,7 @@ def organization_role_based_access_check(
     ONLY RUN IF user_object.organization_memberships is not None
 
     1. Only Proxy Admins can access /organization/new
-    2. IF route is a LiteLLMRoutes.org_admin_only_routes, then check if user is an Org Admin for that organization
+    2. IF route is a EmbRouterRoutes.org_admin_only_routes, then check if user is an Org Admin for that organization
 
     """
 
@@ -32,7 +32,7 @@ def organization_role_based_access_check(
     passed_organization_id: Final[str | None] = request_body.get("organization_id", None)
 
     if route == "/organization/new":
-        if user_object.user_role != LitellmUserRoles.PROXY_ADMIN.value:
+        if user_object.user_role != EmbrouterUserRoles.PROXY_ADMIN.value:
             raise ProxyException(
                 message=f"Only proxy admins can create new organizations. You are {user_object.user_role}",
                 type=ProxyErrorTypes.auth_error.value,
@@ -40,11 +40,11 @@ def organization_role_based_access_check(
                 code=status.HTTP_401_UNAUTHORIZED,
             )
 
-    if user_object.user_role == LitellmUserRoles.PROXY_ADMIN.value:
+    if user_object.user_role == EmbrouterUserRoles.PROXY_ADMIN.value:
         return
 
     # Checks if route is an Org Admin Only Route
-    if route in LiteLLMRoutes.org_admin_only_routes.value:
+    if route in EmbRouterRoutes.org_admin_only_routes.value:
         (
             _user_organizations,
             _user_organization_role_mapping,
@@ -66,7 +66,7 @@ def organization_role_based_access_check(
                 code=status.HTTP_401_UNAUTHORIZED,
             )
 
-        user_role: Final[LitellmUserRoles | None] = _user_organization_role_mapping.get(passed_organization_id)
+        user_role: Final[EmbrouterUserRoles | None] = _user_organization_role_mapping.get(passed_organization_id)
         if user_role is None:
             raise ProxyException(
                 message=f"You do not have a role within the selected organization. Passed organization_id: {passed_organization_id}. Please contact the organization admin to request access.",
@@ -75,7 +75,7 @@ def organization_role_based_access_check(
                 code=status.HTTP_401_UNAUTHORIZED,
             )
 
-        if user_role != LitellmUserRoles.ORG_ADMIN.value:
+        if user_role != EmbrouterUserRoles.ORG_ADMIN.value:
             raise ProxyException(
                 message=f"You do not have the required role to perform {route} in Organization {passed_organization_id}. Your role is {user_role} in Organization {passed_organization_id}",
                 type=ProxyErrorTypes.auth_error.value,
@@ -98,7 +98,7 @@ def organization_role_based_access_check(
                 )
 
             _user_role_in_passed_org: Final = _user_organization_role_mapping.get(passed_organization_id)
-            if _user_role_in_passed_org != LitellmUserRoles.ORG_ADMIN.value:
+            if _user_role_in_passed_org != EmbrouterUserRoles.ORG_ADMIN.value:
                 raise ProxyException(
                     message=f"You do not have the required role to call {route}. Your role is {_user_role_in_passed_org} in Organization {passed_organization_id}",
                     type=ProxyErrorTypes.auth_error.value,
@@ -108,21 +108,21 @@ def organization_role_based_access_check(
 
 
 def get_user_organization_info(
-    user_object: LiteLLM_UserTable,
-) -> tuple[list[str], dict[str, LitellmUserRoles | None]]:
+    user_object: EmbRouter_UserTable,
+) -> tuple[list[str], dict[str, EmbrouterUserRoles | None]]:
     """
     Helper function to extract user organization information.
 
     Args:
-        user_object (LiteLLM_UserTable): The user object containing organization memberships.
+        user_object (EmbRouter_UserTable): The user object containing organization memberships.
 
     Returns:
-        Tuple[List[str], Dict[str, Optional[LitellmUserRoles]]]: A tuple containing:
+        Tuple[List[str], Dict[str, Optional[EmbrouterUserRoles]]]: A tuple containing:
             - List of organization IDs the user is a member of
             - Dictionary mapping organization IDs to user roles
     """
     _user_organizations: Final[list[str]] = []
-    _user_organization_role_mapping: Final[dict[str, LitellmUserRoles | None]] = {}
+    _user_organization_role_mapping: Final[dict[str, EmbrouterUserRoles | None]] = {}
 
     if user_object.organization_memberships is not None:
         for _membership in user_object.organization_memberships:
@@ -135,7 +135,7 @@ def get_user_organization_info(
 
 def _user_is_org_admin(
     request_data: dict,
-    user_object: LiteLLM_UserTable | None = None,
+    user_object: EmbRouter_UserTable | None = None,
 ) -> bool:
     """
     Helper function to check if user is an org admin for all of the passed organizations.
@@ -166,7 +166,7 @@ def _user_is_org_admin(
     admin_org_ids: Final = {
         _membership.organization_id
         for _membership in user_object.organization_memberships
-        if _membership.user_role == LitellmUserRoles.ORG_ADMIN.value and _membership.organization_id is not None
+        if _membership.user_role == EmbrouterUserRoles.ORG_ADMIN.value and _membership.organization_id is not None
     }
 
     # User must be admin of ALL requested orgs, not just any one

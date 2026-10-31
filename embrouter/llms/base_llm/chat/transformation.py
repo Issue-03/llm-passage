@@ -10,9 +10,9 @@ from typing import TYPE_CHECKING, Any, Final, Union
 import httpx
 from pydantic import BaseModel
 
-from litellm.constants import DEFAULT_MAX_TOKENS, RESPONSE_FORMAT_TOOL_NAME
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-from litellm.types.llms.openai import (
+from embrouter.constants import DEFAULT_MAX_TOKENS, RESPONSE_FORMAT_TOOL_NAME
+from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from embrouter.types.llms.openai import (
     AllMessageValues,
     ChatCompletionToolChoiceFunctionParam,
     ChatCompletionToolChoiceObjectParam,
@@ -21,9 +21,9 @@ from litellm.types.llms.openai import (
 )
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
-    from litellm.types.utils import ModelResponse
+    from embrouter.embrouter_core_utils.streaming_handler import CustomStreamWrapper
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.types.utils import ModelResponse
 
 from ..base_utils import (
     map_developer_role_to_system_role,
@@ -31,11 +31,11 @@ from ..base_utils import (
 )
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 
 class BaseLLMException(Exception):
@@ -158,7 +158,7 @@ class BaseConfig(ABC):
         return map_developer_role_to_system_role(messages=messages)
 
     def should_retry_llm_api_inside_llm_translation_on_http_error(
-        self, e: httpx.HTTPStatusError, litellm_params: dict
+        self, e: httpx.HTTPStatusError, embrouter_params: dict
     ) -> bool:
         """
         Returns True if the model/provider should retry the LLM API on UnprocessableEntityError
@@ -249,7 +249,7 @@ class BaseConfig(ABC):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
@@ -260,7 +260,7 @@ class BaseConfig(ABC):
         extra_body: Mapping[str, object],
         request: Mapping[str, object],
         model: str,
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
     ) -> Mapping[str, object]:
         return extra_body
 
@@ -295,7 +295,7 @@ class BaseConfig(ABC):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         """
@@ -315,7 +315,7 @@ class BaseConfig(ABC):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         pass
@@ -325,7 +325,7 @@ class BaseConfig(ABC):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         """
@@ -337,7 +337,7 @@ class BaseConfig(ABC):
             model=model,
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
@@ -347,11 +347,11 @@ class BaseConfig(ABC):
         model: str,
         raw_response: httpx.Response,
         model_response: "ModelResponse",
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         request_data: dict,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,
@@ -385,7 +385,7 @@ class BaseConfig(ABC):
         self,
         model: str,
         custom_llm_provider: str,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_base: str,
         headers: dict,
         data: dict,
@@ -394,7 +394,7 @@ class BaseConfig(ABC):
         json_mode: bool | None = None,
         signed_json_body: bytes | None = None,
         *,
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
     ) -> "CustomStreamWrapper":
         raise NotImplementedError
 
@@ -402,7 +402,7 @@ class BaseConfig(ABC):
         self,
         model: str,
         custom_llm_provider: str,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_base: str,
         headers: dict,
         data: dict,
@@ -411,7 +411,7 @@ class BaseConfig(ABC):
         json_mode: bool | None = None,
         signed_json_body: bytes | None = None,
         *,
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
     ) -> "CustomStreamWrapper":
         raise NotImplementedError
 

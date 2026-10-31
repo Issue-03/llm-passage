@@ -1,4 +1,4 @@
-# litellm/proxy/guardrails/guardrail_registry.py
+# embrouter/proxy/guardrails/guardrail_registry.py
 
 import asyncio
 import importlib
@@ -10,43 +10,43 @@ from typing import TYPE_CHECKING, Final, Literal, Optional, Protocol, TypeAlias,
 
 from pydantic import ValidationError
 
-import litellm
-from litellm import Router
-from litellm._logging import verbose_proxy_logger
-from litellm._uuid import uuid
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
-from litellm.llms.base_llm.guardrail_translation.utils import (
+import embrouter
+from embrouter import Router
+from embrouter._logging import verbose_proxy_logger
+from embrouter._uuid import uuid
+from embrouter.integrations.custom_guardrail import CustomGuardrail
+from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps
+from embrouter.llms.base_llm.guardrail_translation.utils import (
     effective_scan_only_tool_results_for_guardrail,
     effective_skip_tool_message_for_guardrail,
 )
-from litellm.proxy.guardrails.guardrail_hooks.bedrock_guardrails import (
+from embrouter.proxy.guardrails.guardrail_hooks.bedrock_guardrails import (
     BedrockGuardrail,
 )
-from litellm.proxy.guardrails.guardrail_hooks.grayswan import (
+from embrouter.proxy.guardrails.guardrail_hooks.grayswan import (
     GraySwanGuardrail,
 )
-from litellm.proxy.guardrails.guardrail_hooks.grayswan import (
+from embrouter.proxy.guardrails.guardrail_hooks.grayswan import (
     initialize_guardrail as initialize_grayswan,
 )
-from litellm.proxy.guardrails.guardrail_hooks.lakera_ai import lakeraAI_Moderation
-from litellm.proxy.guardrails.guardrail_hooks.lakera_ai_v2 import LakeraAIGuardrail
-from litellm.proxy.guardrails.guardrail_hooks.presidio import (
+from embrouter.proxy.guardrails.guardrail_hooks.lakera_ai import lakeraAI_Moderation
+from embrouter.proxy.guardrails.guardrail_hooks.lakera_ai_v2 import LakeraAIGuardrail
+from embrouter.proxy.guardrails.guardrail_hooks.presidio import (
     _OPTIONAL_PresidioPIIMasking,
 )
-from litellm.proxy.guardrails.guardrail_hooks.tool_permission import (
+from embrouter.proxy.guardrails.guardrail_hooks.tool_permission import (
     ToolPermissionGuardrail,
 )
-from litellm.proxy.types_utils.utils import get_instance_fn
-from litellm.proxy.utils import PrismaClient
-from litellm.repositories.prisma_protocols import TableActions
-from litellm.repositories.table_repositories import GuardrailsRepository
-from litellm.secret_managers.main import get_secret
-from litellm.types.guardrails import (
+from embrouter.proxy.types_utils.utils import get_instance_fn
+from embrouter.proxy.utils import PrismaClient
+from embrouter.repositories.prisma_protocols import TableActions
+from embrouter.repositories.table_repositories import GuardrailsRepository
+from embrouter.secret_managers.main import get_secret
+from embrouter.types.guardrails import (
     Guardrail,
     GuardrailEventHooks,
     LakeraCategoryThresholds,
-    LitellmParams,
+    EmbrouterParams,
     SupportedGuardrailIntegrations,
 )
 
@@ -72,7 +72,7 @@ class _GuardrailRowLike(Protocol):
     def __iter__(self) -> Iterator[tuple[str, object]]: ...
 
 
-def _guardrail_table(prisma_client: PrismaClient) -> "TableActions[prisma_models.LiteLLM_GuardrailsTable]":
+def _guardrail_table(prisma_client: PrismaClient) -> "TableActions[prisma_models.EmbRouter_GuardrailsTable]":
     """Typed view of the guardrails table actions exposed by the Prisma repository."""
     return GuardrailsRepository(prisma_client).table
 
@@ -136,7 +136,7 @@ def get_guardrail_initializer_from_hooks():
             if not os.path.exists(init_file):
                 continue
 
-            module_path = f"litellm.proxy.guardrails.guardrail_hooks.{item}"
+            module_path = f"embrouter.proxy.guardrails.guardrail_hooks.{item}"
             try:
                 # Import the module
                 verbose_proxy_logger.debug("Discovering guardrails in: %s", module_path)
@@ -218,7 +218,7 @@ def get_guardrail_class_from_hooks():
             if not os.path.exists(init_file):
                 continue
 
-            module_path = f"litellm.proxy.guardrails.guardrail_hooks.{item}"
+            module_path = f"embrouter.proxy.guardrails.guardrail_hooks.{item}"
 
             try:
                 # Import the module
@@ -273,7 +273,7 @@ class GuardrailRegistry:
         """
         Returns the initialized guardrail callback for a given guardrail name
         """
-        active_guardrails = litellm.logging_callback_manager.get_custom_loggers_for_type(callback_type=CustomGuardrail)
+        active_guardrails = embrouter.logging_callback_manager.get_custom_loggers_for_type(callback_type=CustomGuardrail)
         for active_guardrail in active_guardrails:
             if isinstance(active_guardrail, CustomGuardrail):
                 if active_guardrail.guardrail_name == guardrail_name:
@@ -289,20 +289,20 @@ class GuardrailRegistry:
         """
         try:
             guardrail_name: Final = guardrail.get("guardrail_name")
-            # Properly serialize LitellmParams Pydantic model to dict
-            litellm_params_obj: Final = guardrail.get("litellm_params", {})
-            if hasattr(litellm_params_obj, "model_dump"):
-                litellm_params_dict = litellm_params_obj.model_dump()
+            # Properly serialize EmbrouterParams Pydantic model to dict
+            embrouter_params_obj: Final = guardrail.get("embrouter_params", {})
+            if hasattr(embrouter_params_obj, "model_dump"):
+                embrouter_params_dict = embrouter_params_obj.model_dump()
             else:
-                litellm_params_dict = dict(litellm_params_obj) if litellm_params_obj else {}
-            litellm_params: Final[str] = safe_dumps(litellm_params_dict)
+                embrouter_params_dict = dict(embrouter_params_obj) if embrouter_params_obj else {}
+            embrouter_params: Final[str] = safe_dumps(embrouter_params_dict)
             guardrail_info: Final[str] = safe_dumps(guardrail.get("guardrail_info", {}))
 
             # Create guardrail in DB
             created_guardrail: Final[_GuardrailRowLike] = await _guardrail_table(prisma_client).create(
                 data={
                     "guardrail_name": guardrail_name,
-                    "litellm_params": litellm_params,
+                    "embrouter_params": embrouter_params,
                     "guardrail_info": guardrail_info,
                     "created_at": datetime.now(timezone.utc),
                     "updated_at": datetime.now(timezone.utc),
@@ -335,13 +335,13 @@ class GuardrailRegistry:
         """
         try:
             guardrail_name: Final = guardrail.get("guardrail_name")
-            # Properly serialize LitellmParams Pydantic model to dict
-            litellm_params_obj: Final = guardrail.get("litellm_params", {})
-            if hasattr(litellm_params_obj, "model_dump"):
-                litellm_params_dict = litellm_params_obj.model_dump()
+            # Properly serialize EmbrouterParams Pydantic model to dict
+            embrouter_params_obj: Final = guardrail.get("embrouter_params", {})
+            if hasattr(embrouter_params_obj, "model_dump"):
+                embrouter_params_dict = embrouter_params_obj.model_dump()
             else:
-                litellm_params_dict = dict(litellm_params_obj) if litellm_params_obj else {}
-            litellm_params: Final[str] = safe_dumps(litellm_params_dict)
+                embrouter_params_dict = dict(embrouter_params_obj) if embrouter_params_obj else {}
+            embrouter_params: Final[str] = safe_dumps(embrouter_params_dict)
             guardrail_info: Final[str] = safe_dumps(guardrail.get("guardrail_info", {}))
 
             # Update in DB
@@ -349,7 +349,7 @@ class GuardrailRegistry:
                 where={"guardrail_id": guardrail_id},
                 data={
                     "guardrail_name": guardrail_name,
-                    "litellm_params": litellm_params,
+                    "embrouter_params": embrouter_params,
                     "guardrail_info": guardrail_info,
                     "updated_at": datetime.now(timezone.utc),
                 },
@@ -415,15 +415,15 @@ class GuardrailRegistry:
             raise Exception(f"Error getting guardrail from DB: {e}")
 
 
-def _apply_configured_bool_overrides(instance: CustomGuardrail, litellm_params: LitellmParams) -> None:
-    """Override the parallel/raw-scan flags only when ``litellm_params`` explicitly
+def _apply_configured_bool_overrides(instance: CustomGuardrail, embrouter_params: EmbrouterParams) -> None:
+    """Override the parallel/raw-scan flags only when ``embrouter_params`` explicitly
     sets them, preserving whatever default the guardrail's own constructor chose
     otherwise (its constructor default may be True, so blindly copying an
     absent/None config value would silently clobber it back to False)."""
-    if litellm_params.run_in_parallel is not None:
-        instance.run_in_parallel = bool(litellm_params.run_in_parallel)
-    if litellm_params.scan_raw_request is not None:
-        instance.scan_raw_request = bool(litellm_params.scan_raw_request)
+    if embrouter_params.run_in_parallel is not None:
+        instance.run_in_parallel = bool(embrouter_params.run_in_parallel)
+    if embrouter_params.scan_raw_request is not None:
+        instance.scan_raw_request = bool(embrouter_params.scan_raw_request)
 
 
 def _as_callback_tuple(
@@ -437,14 +437,14 @@ def _as_callback_tuple(
 
 
 def _configure_callback_scoping(
-    custom_guardrail_callback: CustomGuardrail, guardrail_name: str, litellm_params: LitellmParams
+    custom_guardrail_callback: CustomGuardrail, guardrail_name: str, embrouter_params: EmbrouterParams
 ) -> None:
     for scoping_param in (
         "skip_system_message_in_guardrail",
         "skip_tool_message_in_guardrail",
         "scan_only_tool_results",
     ):
-        setattr(custom_guardrail_callback, scoping_param, getattr(litellm_params, scoping_param, None))
+        setattr(custom_guardrail_callback, scoping_param, getattr(embrouter_params, scoping_param, None))
     scan_only_tool_results_enabled: Final = effective_scan_only_tool_results_for_guardrail(custom_guardrail_callback)
     if scan_only_tool_results_enabled and not custom_guardrail_callback.supports_scan_only_tool_results():
         raise ValueError(
@@ -458,7 +458,7 @@ def _configure_callback_scoping(
             "skip_tool_message_in_guardrail are enabled together, which excludes every message from "
             "scanning, so no request content would ever be scanned. Remove one of the two."
         )
-    _apply_configured_bool_overrides(custom_guardrail_callback, litellm_params)
+    _apply_configured_bool_overrides(custom_guardrail_callback, embrouter_params)
 
 
 class InMemoryGuardrailHandler:
@@ -499,7 +499,7 @@ class InMemoryGuardrailHandler:
         source: Literal["db", "config"] = "config",
     ) -> Guardrail | None:
         """
-        Initialize a guardrail from a dictionary and add it to the litellm callback manager
+        Initialize a guardrail from a dictionary and add it to the embrouter callback manager
 
         Returns a Guardrail object if the guardrail is initialized successfully
         """
@@ -513,25 +513,25 @@ class InMemoryGuardrailHandler:
             self._sources[guardrail_id] = source
             return self.IN_MEMORY_GUARDRAILS[guardrail_id]
 
-        litellm_params_data: Final = guardrail["litellm_params"]
-        verbose_proxy_logger.debug("litellm_params= %s", litellm_params_data)
+        embrouter_params_data: Final = guardrail["embrouter_params"]
+        verbose_proxy_logger.debug("embrouter_params= %s", embrouter_params_data)
 
-        if isinstance(litellm_params_data, dict):
-            litellm_params = LitellmParams(**litellm_params_data)
+        if isinstance(embrouter_params_data, dict):
+            embrouter_params = EmbrouterParams(**embrouter_params_data)
         else:
-            litellm_params = litellm_params_data
+            embrouter_params = embrouter_params_data
 
-        if "category_thresholds" in litellm_params_data and litellm_params_data["category_thresholds"]:
-            lakera_category_thresholds: Final = LakeraCategoryThresholds(**litellm_params_data["category_thresholds"])
-            litellm_params.category_thresholds = lakera_category_thresholds
+        if "category_thresholds" in embrouter_params_data and embrouter_params_data["category_thresholds"]:
+            lakera_category_thresholds: Final = LakeraCategoryThresholds(**embrouter_params_data["category_thresholds"])
+            embrouter_params.category_thresholds = lakera_category_thresholds
 
-        if litellm_params.api_key and litellm_params.api_key.startswith("os.environ/"):
-            litellm_params.api_key = str(get_secret(litellm_params.api_key))
+        if embrouter_params.api_key and embrouter_params.api_key.startswith("os.environ/"):
+            embrouter_params.api_key = str(get_secret(embrouter_params.api_key))
 
-        if litellm_params.api_base and litellm_params.api_base.startswith("os.environ/"):
-            litellm_params.api_base = str(get_secret(litellm_params.api_base))
+        if embrouter_params.api_base and embrouter_params.api_base.startswith("os.environ/"):
+            embrouter_params.api_base = str(get_secret(embrouter_params.api_base))
 
-        guardrail_type: Final = litellm_params.guardrail
+        guardrail_type: Final = embrouter_params.guardrail
 
         if guardrail_type is None:
             raise ValueError("guardrail_type is required")
@@ -539,17 +539,17 @@ class InMemoryGuardrailHandler:
         created_callbacks: Final = self._create_callbacks(
             guardrail=guardrail,
             guardrail_type=guardrail_type,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             config_file_path=config_file_path,
             llm_router=llm_router,
         )
         for custom_guardrail_callback in created_callbacks:
-            _configure_callback_scoping(custom_guardrail_callback, guardrail["guardrail_name"], litellm_params)
+            _configure_callback_scoping(custom_guardrail_callback, guardrail["guardrail_name"], embrouter_params)
 
         parsed_guardrail: Final = Guardrail(
             guardrail_id=guardrail.get("guardrail_id"),
             guardrail_name=guardrail["guardrail_name"],
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             guardrail_info=guardrail.get("guardrail_info"),
         )
 
@@ -565,7 +565,7 @@ class InMemoryGuardrailHandler:
         self,
         guardrail: Guardrail,
         guardrail_type: str,
-        litellm_params: LitellmParams,
+        embrouter_params: EmbrouterParams,
         config_file_path: str | None,
         llm_router: Optional["Router"],
     ) -> GuardrailCallbacks:
@@ -575,14 +575,14 @@ class InMemoryGuardrailHandler:
 
             sig: Final = inspect.signature(initializer)
             if "llm_router" in sig.parameters:
-                return _as_callback_tuple(initializer(litellm_params, guardrail, llm_router))
-            return _as_callback_tuple(initializer(litellm_params, guardrail))
+                return _as_callback_tuple(initializer(embrouter_params, guardrail, llm_router))
+            return _as_callback_tuple(initializer(embrouter_params, guardrail))
         if isinstance(guardrail_type, str) and "." in guardrail_type:
             return _as_callback_tuple(
                 self.initialize_custom_guardrail(
                     guardrail=guardrail,
                     guardrail_type=guardrail_type,
-                    litellm_params=litellm_params,
+                    embrouter_params=embrouter_params,
                     config_file_path=config_file_path,
                 )
             )
@@ -597,13 +597,13 @@ class InMemoryGuardrailHandler:
         self,
         guardrail: Guardrail,
         guardrail_type: str,
-        litellm_params: LitellmParams,
+        embrouter_params: EmbrouterParams,
         config_file_path: str | None = None,
     ) -> CustomGuardrail | None:
         """
         Initialize a Custom Guardrail from a python file or module path
 
-        This initializes it by adding it to the litellm callback manager
+        This initializes it by adding it to the embrouter callback manager
         """
         if not config_file_path:
             raise Exception("GuardrailsAIException - Please pass the config_file_path to initialize_guardrails_v2")
@@ -617,21 +617,21 @@ class InMemoryGuardrailHandler:
             guardrail_type, config_file_path=config_file_path
         )
 
-        mode: Final = litellm_params.mode
+        mode: Final = embrouter_params.mode
         if mode is None:
             raise ValueError(
                 f"mode is required for guardrail {guardrail_type} please set mode to one of the following: {', '.join(GuardrailEventHooks)}"
             )
 
-        default_on: Final = litellm_params.default_on
+        default_on: Final = embrouter_params.default_on
 
-        # Extract additional params from litellm_params to pass to custom guardrail
+        # Extract additional params from embrouter_params to pass to custom guardrail
         # This matches the behavior of other guardrail initializers (e.g., initialize_lakera)
         # and aligns with the documented behavior for custom guardrails
-        if hasattr(litellm_params, "model_dump"):
-            extra_params = litellm_params.model_dump(exclude_none=True)
+        if hasattr(embrouter_params, "model_dump"):
+            extra_params = embrouter_params.model_dump(exclude_none=True)
         else:
-            extra_params = dict(litellm_params) if litellm_params else {}
+            extra_params = dict(embrouter_params) if embrouter_params else {}
 
         # Remove params that are handled explicitly or are internal
         for key in ["guardrail", "mode", "default_on"]:
@@ -643,7 +643,7 @@ class InMemoryGuardrailHandler:
             default_on=default_on,
             **extra_params,
         )
-        litellm.logging_callback_manager.add_litellm_callback(_guardrail_callback)
+        embrouter.logging_callback_manager.add_embrouter_callback(_guardrail_callback)
 
         return _guardrail_callback
 
@@ -654,7 +654,7 @@ class InMemoryGuardrailHandler:
         source: Literal["db", "config"] = "db",
     ) -> None:
         """
-        Update a guardrail in memory: a changed name or litellm_params rebuilds the
+        Update a guardrail in memory: a changed name or embrouter_params rebuilds the
         live callback from the new row (fail-closed: an invalid row keeps the
         previous instance and raises), anything else only refreshes the stored row
         """
@@ -667,11 +667,11 @@ class InMemoryGuardrailHandler:
 
     def delete_in_memory_guardrail(self, guardrail_id: str) -> None:
         """
-        Delete a guardrail in memory and remove from litellm callbacks.
+        Delete a guardrail in memory and remove from embrouter callbacks.
 
         The callback is purged from every callback list, not just
-        litellm.callbacks: request handling promotes guardrail callbacks into the
-        success/failure/async lists, so removing it from only litellm.callbacks
+        embrouter.callbacks: request handling promotes guardrail callbacks into the
+        success/failure/async lists, so removing it from only embrouter.callbacks
         leaves the old instance stranded in those lists on every re-initialization.
         """
         # Remove from in-memory storage
@@ -682,7 +682,7 @@ class InMemoryGuardrailHandler:
         self.guardrail_id_to_custom_guardrail.pop(guardrail_id, None)
         self.guardrail_id_to_sibling_callbacks.pop(guardrail_id, None)
         for custom_guardrail_callback in tracked_callbacks:
-            litellm.logging_callback_manager.remove_callback_from_all_lists(custom_guardrail_callback)
+            embrouter.logging_callback_manager.remove_callback_from_all_lists(custom_guardrail_callback)
 
     def list_in_memory_guardrails(self) -> list[Guardrail]:
         """
@@ -745,28 +745,28 @@ class InMemoryGuardrailHandler:
         return stale_ids
 
     @staticmethod
-    def _normalize_litellm_params_for_comparison(
-        params: LitellmParams | Mapping[str, object] | None,
+    def _normalize_embrouter_params_for_comparison(
+        params: EmbrouterParams | Mapping[str, object] | None,
     ) -> Mapping[str, object] | None:
         """
-        Render litellm_params to a canonical dict so an in-memory LitellmParams and
+        Render embrouter_params to a canonical dict so an in-memory EmbrouterParams and
         the raw dict loaded from the DB compare equal when they describe the same
-        config. The in-memory side is a LitellmParams whose model_dump() carries
+        config. The in-memory side is a EmbrouterParams whose model_dump() carries
         every field default and coerces enums, while the DB side is the raw stored
         dict holding only the keys originally provided. Comparing those two shapes
         directly never matches, so each DB poll would re-initialize the guardrail
-        forever; normalizing both through LitellmParams keeps the diff meaningful.
+        forever; normalizing both through EmbrouterParams keeps the diff meaningful.
         """
         if params is None:
             return None
-        if isinstance(params, LitellmParams):
+        if isinstance(params, EmbrouterParams):
             return params.model_dump()
         if isinstance(params, dict):
             try:
-                return LitellmParams(**params).model_dump()
+                return EmbrouterParams(**params).model_dump()
             except ValidationError as e:
                 verbose_proxy_logger.warning(
-                    "Could not normalize guardrail litellm_params for comparison; treating the guardrail as changed. Error: %s",
+                    "Could not normalize guardrail embrouter_params for comparison; treating the guardrail as changed. Error: %s",
                     e,
                 )
                 return params
@@ -785,9 +785,9 @@ class InMemoryGuardrailHandler:
         if existing.get("guardrail_name") != new_guardrail.get("guardrail_name"):
             return True
 
-        # Compare litellm_params
-        existing_dict: Final = self._normalize_litellm_params_for_comparison(existing.get("litellm_params"))
-        new_dict: Final = self._normalize_litellm_params_for_comparison(new_guardrail.get("litellm_params"))
+        # Compare embrouter_params
+        existing_dict: Final = self._normalize_embrouter_params_for_comparison(existing.get("embrouter_params"))
+        new_dict: Final = self._normalize_embrouter_params_for_comparison(new_guardrail.get("embrouter_params"))
 
         # Compare and identify specific differences
         changed_fields = {}
@@ -799,7 +799,7 @@ class InMemoryGuardrailHandler:
                 if old_val != new_val:
                     changed_fields[key] = {"old": old_val, "new": new_val}
         elif existing_dict != new_dict:
-            changed_fields = {"litellm_params": {"old": existing_dict, "new": new_dict}}
+            changed_fields = {"embrouter_params": {"old": existing_dict, "new": new_dict}}
 
         # Log differences if any found
         if changed_fields:
@@ -816,7 +816,7 @@ class InMemoryGuardrailHandler:
     ) -> Guardrail | None:
         """
         Force re-initialization of a guardrail even if it exists in memory.
-        Removes old callback from litellm.callbacks and creates fresh instance.
+        Removes old callback from embrouter.callbacks and creates fresh instance.
 
         If the new config fails to initialize (e.g. an invalid on_flagged
         combination or an invalid regex), the previous instance is restored
@@ -837,7 +837,7 @@ class InMemoryGuardrailHandler:
         if guardrail_id in self.IN_MEMORY_GUARDRAILS:
             self.delete_in_memory_guardrail(guardrail_id)
 
-        # Initialize fresh (will add new callback to litellm.callbacks). If the new
+        # Initialize fresh (will add new callback to embrouter.callbacks). If the new
         # params are invalid (a raising guardrail __init__), restore the previous
         # instance instead of leaving the guardrail silently removed: a guardrail
         # that was enforcing must never fail open because an update was bad.
@@ -886,7 +886,7 @@ class InMemoryGuardrailHandler:
 
 
 ########################################################
-# In Memory Guardrail Handler for LiteLLM Proxy
+# In Memory Guardrail Handler for EmbRouter Proxy
 ########################################################
 IN_MEMORY_GUARDRAIL_HANDLER: Final = InMemoryGuardrailHandler()
 

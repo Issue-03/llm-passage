@@ -7,19 +7,19 @@ from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 
-from litellm.proxy._types import (
-    LiteLLM_ObjectPermissionTable,
-    LiteLLM_TeamTable,
-    LitellmUserRoles,
+from embrouter.proxy._types import (
+    EmbRouter_ObjectPermissionTable,
+    EmbRouter_TeamTable,
+    EmbrouterUserRoles,
     UserAPIKeyAuth,
 )
 
 # Import proxy_server module first to ensure it's initialized
-import litellm.proxy.proxy_server as ps
+import embrouter.proxy.proxy_server as ps
 
 # Now we can safely import app
-from litellm.proxy.proxy_server import app
-from litellm.types.search import SearchToolInfoResponse
+from embrouter.proxy.proxy_server import app
+from embrouter.types.search import SearchToolInfoResponse
 
 client = TestClient(app)
 
@@ -32,7 +32,7 @@ async def test_list_search_tools_db_only(monkeypatch):
         {
             "search_tool_id": "test-id-1",
             "search_tool_name": "db-tool-1",
-            "litellm_params": {"search_provider": "perplexity", "api_key": "sk-test"},
+            "embrouter_params": {"search_provider": "perplexity", "api_key": "sk-test"},
             "search_tool_info": {"description": "DB tool 1"},
             "created_at": datetime(2023, 11, 9, 12, 34, 56),
             "updated_at": datetime(2023, 11, 9, 13, 45, 12),
@@ -43,22 +43,22 @@ async def test_list_search_tools_db_only(monkeypatch):
     mock_registry = MagicMock()
     mock_registry.get_all_search_tools_from_db = AsyncMock(return_value=db_tools)
     with patch(
-        "litellm.proxy.search_endpoints.search_tool_management.SEARCH_TOOL_REGISTRY",
+        "embrouter.proxy.search_endpoints.search_tool_management.SEARCH_TOOL_REGISTRY",
         mock_registry,
     ):
         # Mock prisma_client
         mock_prisma = MagicMock()
-        with patch("litellm.proxy.proxy_server.prisma_client", mock_prisma):
+        with patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma):
             # Mock proxy_config
             mock_proxy_config = MagicMock()
             mock_proxy_config.get_config = AsyncMock(return_value={})
             mock_proxy_config.parse_search_tools = MagicMock(return_value=None)
-            with patch("litellm.proxy.proxy_server.proxy_config", mock_proxy_config):
+            with patch("embrouter.proxy.proxy_server.proxy_config", mock_proxy_config):
                 # Mock auth
-                from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+                from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
 
                 app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(
-                    user_role=LitellmUserRoles.PROXY_ADMIN, user_id="admin_user"
+                    user_role=EmbrouterUserRoles.PROXY_ADMIN, user_id="admin_user"
                 )
 
                 try:
@@ -77,9 +77,9 @@ async def test_list_search_tools_db_only(monkeypatch):
                     assert tool["created_at"] == "2023-11-09T12:34:56"
                     assert tool["updated_at"] == "2023-11-09T13:45:12"
                     # Verify masking of sensitive values
-                    assert tool["litellm_params"]["api_key"] != "sk-test"
-                    assert "****" in tool["litellm_params"]["api_key"]
-                    assert tool["litellm_params"]["search_provider"] == "perplexity"
+                    assert tool["embrouter_params"]["api_key"] != "sk-test"
+                    assert "****" in tool["embrouter_params"]["api_key"]
+                    assert tool["embrouter_params"]["search_provider"] == "perplexity"
                 finally:
                     app.dependency_overrides.pop(user_api_key_auth, None)
 
@@ -94,7 +94,7 @@ async def test_list_search_tools_config_only(monkeypatch):
     config_tools = [
         {
             "search_tool_name": "config-tool-1",
-            "litellm_params": {
+            "embrouter_params": {
                 "search_provider": "tavily",
                 "api_key": "tvly-secret-key",
             },
@@ -106,24 +106,24 @@ async def test_list_search_tools_config_only(monkeypatch):
     mock_registry = MagicMock()
     mock_registry.get_all_search_tools_from_db = AsyncMock(return_value=db_tools)
     with patch(
-        "litellm.proxy.search_endpoints.search_tool_management.SEARCH_TOOL_REGISTRY",
+        "embrouter.proxy.search_endpoints.search_tool_management.SEARCH_TOOL_REGISTRY",
         mock_registry,
     ):
         # Mock prisma_client
         mock_prisma = MagicMock()
-        with patch("litellm.proxy.proxy_server.prisma_client", mock_prisma):
+        with patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma):
             # Mock proxy_config
             mock_proxy_config = MagicMock()
             mock_proxy_config.get_config = AsyncMock(
                 return_value={"search_tools": config_tools}
             )
             mock_proxy_config.parse_search_tools = MagicMock(return_value=config_tools)
-            with patch("litellm.proxy.proxy_server.proxy_config", mock_proxy_config):
+            with patch("embrouter.proxy.proxy_server.proxy_config", mock_proxy_config):
                 # Mock auth
-                from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+                from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
 
                 app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(
-                    user_role=LitellmUserRoles.PROXY_ADMIN, user_id="admin_user"
+                    user_role=EmbrouterUserRoles.PROXY_ADMIN, user_id="admin_user"
                 )
 
                 try:
@@ -141,7 +141,7 @@ async def test_list_search_tools_config_only(monkeypatch):
                     assert tool["created_at"] is None
                     assert tool["updated_at"] is None
                     # Verify masking
-                    assert "tv****ey" in tool["litellm_params"]["api_key"]
+                    assert "tv****ey" in tool["embrouter_params"]["api_key"]
                 finally:
                     app.dependency_overrides.pop(user_api_key_auth, None)
 
@@ -157,7 +157,7 @@ async def test_list_search_tools_filters_duplicate_config_tools(monkeypatch):
         {
             "search_tool_id": "db-id-1",
             "search_tool_name": "existing-tool",
-            "litellm_params": {"search_provider": "perplexity", "api_key": "sk-db"},
+            "embrouter_params": {"search_provider": "perplexity", "api_key": "sk-db"},
             "search_tool_info": {"description": "DB tool"},
             "created_at": datetime(2023, 11, 9, 12, 34, 56),
             "updated_at": datetime(2023, 11, 9, 13, 45, 12),
@@ -168,12 +168,12 @@ async def test_list_search_tools_filters_duplicate_config_tools(monkeypatch):
     config_tools = [
         {
             "search_tool_name": "existing-tool",  # Duplicate - should be filtered
-            "litellm_params": {"search_provider": "tavily", "api_key": "tvly-config"},
+            "embrouter_params": {"search_provider": "tavily", "api_key": "tvly-config"},
             "search_tool_info": {"description": "Config tool - duplicate"},
         },
         {
             "search_tool_name": "unique-config-tool",  # Unique - should be included
-            "litellm_params": {"search_provider": "tavily", "api_key": "tvly-unique"},
+            "embrouter_params": {"search_provider": "tavily", "api_key": "tvly-unique"},
             "search_tool_info": {"description": "Config tool - unique"},
         },
     ]
@@ -182,24 +182,24 @@ async def test_list_search_tools_filters_duplicate_config_tools(monkeypatch):
     mock_registry = MagicMock()
     mock_registry.get_all_search_tools_from_db = AsyncMock(return_value=db_tools)
     with patch(
-        "litellm.proxy.search_endpoints.search_tool_management.SEARCH_TOOL_REGISTRY",
+        "embrouter.proxy.search_endpoints.search_tool_management.SEARCH_TOOL_REGISTRY",
         mock_registry,
     ):
         # Mock prisma_client
         mock_prisma = MagicMock()
-        with patch("litellm.proxy.proxy_server.prisma_client", mock_prisma):
+        with patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma):
             # Mock proxy_config
             mock_proxy_config = MagicMock()
             mock_proxy_config.get_config = AsyncMock(
                 return_value={"search_tools": config_tools}
             )
             mock_proxy_config.parse_search_tools = MagicMock(return_value=config_tools)
-            with patch("litellm.proxy.proxy_server.proxy_config", mock_proxy_config):
+            with patch("embrouter.proxy.proxy_server.proxy_config", mock_proxy_config):
                 # Mock auth
-                from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+                from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
 
                 app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(
-                    user_role=LitellmUserRoles.PROXY_ADMIN, user_id="admin_user"
+                    user_role=EmbrouterUserRoles.PROXY_ADMIN, user_id="admin_user"
                 )
 
                 try:
@@ -224,9 +224,9 @@ async def test_list_search_tools_filters_duplicate_config_tools(monkeypatch):
                     assert db_tool["is_from_config"] is False
                     assert db_tool["search_tool_id"] == "db-id-1"
                     # Verify masking of sensitive values in DB tool
-                    assert db_tool["litellm_params"]["api_key"] != "sk-db"
-                    assert "****" in db_tool["litellm_params"]["api_key"]
-                    assert db_tool["litellm_params"]["search_provider"] == "perplexity"
+                    assert db_tool["embrouter_params"]["api_key"] != "sk-db"
+                    assert "****" in db_tool["embrouter_params"]["api_key"]
+                    assert db_tool["embrouter_params"]["search_provider"] == "perplexity"
 
                     # Verify unique config tool is present
                     config_tool = next(
@@ -266,7 +266,7 @@ async def test_list_search_tools_datetime_conversion(monkeypatch):
         {
             "search_tool_id": "test-id-1",
             "search_tool_name": "datetime-test-tool",
-            "litellm_params": {"search_provider": "perplexity", "api_key": "sk-test"},
+            "embrouter_params": {"search_provider": "perplexity", "api_key": "sk-test"},
             "search_tool_info": {"description": "Test tool"},
             "created_at": datetime(2024, 1, 15, 10, 30, 45, 123456),
             "updated_at": datetime(2024, 1, 16, 14, 20, 30, 789012),
@@ -274,7 +274,7 @@ async def test_list_search_tools_datetime_conversion(monkeypatch):
         {
             "search_tool_id": "test-id-2",
             "search_tool_name": "null-datetime-tool",
-            "litellm_params": {"search_provider": "tavily", "api_key": "tvly-test"},
+            "embrouter_params": {"search_provider": "tavily", "api_key": "tvly-test"},
             "search_tool_info": None,
             "created_at": None,
             "updated_at": None,
@@ -282,7 +282,7 @@ async def test_list_search_tools_datetime_conversion(monkeypatch):
         {
             "search_tool_id": "test-id-3",
             "search_tool_name": "string-datetime-tool",
-            "litellm_params": {"search_provider": "perplexity", "api_key": "sk-test"},
+            "embrouter_params": {"search_provider": "perplexity", "api_key": "sk-test"},
             "search_tool_info": {"description": "Already string"},
             "created_at": "2024-01-17T08:15:00",  # Already a string
             "updated_at": "2024-01-18T09:25:00",  # Already a string
@@ -293,22 +293,22 @@ async def test_list_search_tools_datetime_conversion(monkeypatch):
     mock_registry = MagicMock()
     mock_registry.get_all_search_tools_from_db = AsyncMock(return_value=db_tools)
     with patch(
-        "litellm.proxy.search_endpoints.search_tool_management.SEARCH_TOOL_REGISTRY",
+        "embrouter.proxy.search_endpoints.search_tool_management.SEARCH_TOOL_REGISTRY",
         mock_registry,
     ):
         # Mock prisma_client
         mock_prisma = MagicMock()
-        with patch("litellm.proxy.proxy_server.prisma_client", mock_prisma):
+        with patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma):
             # Mock proxy_config
             mock_proxy_config = MagicMock()
             mock_proxy_config.get_config = AsyncMock(return_value={})
             mock_proxy_config.parse_search_tools = MagicMock(return_value=None)
-            with patch("litellm.proxy.proxy_server.proxy_config", mock_proxy_config):
+            with patch("embrouter.proxy.proxy_server.proxy_config", mock_proxy_config):
                 # Mock auth
-                from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+                from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
 
                 app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(
-                    user_role=LitellmUserRoles.PROXY_ADMIN, user_id="admin_user"
+                    user_role=EmbrouterUserRoles.PROXY_ADMIN, user_id="admin_user"
                 )
 
                 try:
@@ -334,8 +334,8 @@ async def test_list_search_tools_datetime_conversion(monkeypatch):
                     assert isinstance(tool1["updated_at"], str)
                     assert tool1["updated_at"] == "2024-01-16T14:20:30.789012"
                     # Verify masking of sensitive values
-                    assert tool1["litellm_params"]["api_key"] != "sk-test"
-                    assert "****" in tool1["litellm_params"]["api_key"]
+                    assert tool1["embrouter_params"]["api_key"] != "sk-test"
+                    assert "****" in tool1["embrouter_params"]["api_key"]
 
                     # Test None handling for tool 2
                     tool2 = next(
@@ -350,8 +350,8 @@ async def test_list_search_tools_datetime_conversion(monkeypatch):
                     assert tool2["created_at"] is None
                     assert tool2["updated_at"] is None
                     # Verify masking of sensitive values
-                    assert tool2["litellm_params"]["api_key"] != "tvly-test"
-                    assert "****" in tool2["litellm_params"]["api_key"]
+                    assert tool2["embrouter_params"]["api_key"] != "tvly-test"
+                    assert "****" in tool2["embrouter_params"]["api_key"]
 
                     # Test string passthrough for tool 3
                     tool3 = next(
@@ -366,8 +366,8 @@ async def test_list_search_tools_datetime_conversion(monkeypatch):
                     assert tool3["created_at"] == "2024-01-17T08:15:00"
                     assert tool3["updated_at"] == "2024-01-18T09:25:00"
                     # Verify masking of sensitive values
-                    assert tool3["litellm_params"]["api_key"] != "sk-test"
-                    assert "****" in tool3["litellm_params"]["api_key"]
+                    assert tool3["embrouter_params"]["api_key"] != "sk-test"
+                    assert "****" in tool3["embrouter_params"]["api_key"]
                 finally:
                     app.dependency_overrides.pop(user_api_key_auth, None)
 
@@ -380,7 +380,7 @@ async def test_list_search_tools_config_error_handling(monkeypatch):
         {
             "search_tool_id": "test-id-1",
             "search_tool_name": "db-tool-1",
-            "litellm_params": {"search_provider": "perplexity", "api_key": "sk-test"},
+            "embrouter_params": {"search_provider": "perplexity", "api_key": "sk-test"},
             "search_tool_info": {"description": "DB tool"},
             "created_at": datetime(2023, 11, 9, 12, 34, 56),
             "updated_at": datetime(2023, 11, 9, 13, 45, 12),
@@ -391,23 +391,23 @@ async def test_list_search_tools_config_error_handling(monkeypatch):
     mock_registry = MagicMock()
     mock_registry.get_all_search_tools_from_db = AsyncMock(return_value=db_tools)
     with patch(
-        "litellm.proxy.search_endpoints.search_tool_management.SEARCH_TOOL_REGISTRY",
+        "embrouter.proxy.search_endpoints.search_tool_management.SEARCH_TOOL_REGISTRY",
         mock_registry,
     ):
         # Mock prisma_client
         mock_prisma = MagicMock()
-        with patch("litellm.proxy.proxy_server.prisma_client", mock_prisma):
+        with patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma):
             # Mock proxy_config to raise an error
             mock_proxy_config = MagicMock()
             mock_proxy_config.get_config = AsyncMock(
                 side_effect=Exception("Config error")
             )
-            with patch("litellm.proxy.proxy_server.proxy_config", mock_proxy_config):
+            with patch("embrouter.proxy.proxy_server.proxy_config", mock_proxy_config):
                 # Mock auth
-                from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+                from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
 
                 app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(
-                    user_role=LitellmUserRoles.PROXY_ADMIN, user_id="admin_user"
+                    user_role=EmbrouterUserRoles.PROXY_ADMIN, user_id="admin_user"
                 )
 
                 try:
@@ -421,11 +421,11 @@ async def test_list_search_tools_config_error_handling(monkeypatch):
                     assert data["search_tools"][0]["search_tool_name"] == "db-tool-1"
                     # Verify masking of sensitive values
                     assert (
-                        data["search_tools"][0]["litellm_params"]["api_key"]
+                        data["search_tools"][0]["embrouter_params"]["api_key"]
                         != "sk-test"
                     )
                     assert (
-                        "****" in data["search_tools"][0]["litellm_params"]["api_key"]
+                        "****" in data["search_tools"][0]["embrouter_params"]["api_key"]
                     )
                 finally:
                     app.dependency_overrides.pop(user_api_key_auth, None)
@@ -434,11 +434,11 @@ async def test_list_search_tools_config_error_handling(monkeypatch):
 @pytest.mark.asyncio
 async def test_list_search_tools_no_prisma_client(monkeypatch):
     """Test error handling when prisma_client is None"""
-    with patch("litellm.proxy.proxy_server.prisma_client", None):
-        from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+    with patch("embrouter.proxy.proxy_server.prisma_client", None):
+        from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
 
         app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(
-            user_role=LitellmUserRoles.PROXY_ADMIN, user_id="admin_user"
+            user_role=EmbrouterUserRoles.PROXY_ADMIN, user_id="admin_user"
         )
 
         try:
@@ -462,7 +462,7 @@ async def test_list_search_tools_db_masking_sensitive_values(monkeypatch):
         {
             "search_tool_id": "test-id-1",
             "search_tool_name": "perplexity-tool",
-            "litellm_params": {
+            "embrouter_params": {
                 "search_provider": "perplexity",
                 "api_key": "pplx-sk-1234567890abcdef",
                 "api_base": "https://api.perplexity.ai",
@@ -474,7 +474,7 @@ async def test_list_search_tools_db_masking_sensitive_values(monkeypatch):
         {
             "search_tool_id": "test-id-2",
             "search_tool_name": "tavily-tool",
-            "litellm_params": {
+            "embrouter_params": {
                 "search_provider": "tavily",
                 "api_key": "tvly-secret-key-12345",
                 "api_base": "https://api.tavily.com",
@@ -486,7 +486,7 @@ async def test_list_search_tools_db_masking_sensitive_values(monkeypatch):
         {
             "search_tool_id": "test-id-3",
             "search_tool_name": "tool-with-token",
-            "litellm_params": {
+            "embrouter_params": {
                 "search_provider": "custom",
                 "access_token": "token-abcdefghijklmnop",
                 "secret_key": "secret-xyz123",
@@ -498,7 +498,7 @@ async def test_list_search_tools_db_masking_sensitive_values(monkeypatch):
         {
             "search_tool_id": "test-id-4",
             "search_tool_name": "tool-with-non-sensitive",
-            "litellm_params": {
+            "embrouter_params": {
                 "search_provider": "custom",
                 "max_results": 10,
                 "timeout": 30,
@@ -513,22 +513,22 @@ async def test_list_search_tools_db_masking_sensitive_values(monkeypatch):
     mock_registry = MagicMock()
     mock_registry.get_all_search_tools_from_db = AsyncMock(return_value=db_tools)
     with patch(
-        "litellm.proxy.search_endpoints.search_tool_management.SEARCH_TOOL_REGISTRY",
+        "embrouter.proxy.search_endpoints.search_tool_management.SEARCH_TOOL_REGISTRY",
         mock_registry,
     ):
         # Mock prisma_client
         mock_prisma = MagicMock()
-        with patch("litellm.proxy.proxy_server.prisma_client", mock_prisma):
+        with patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma):
             # Mock proxy_config
             mock_proxy_config = MagicMock()
             mock_proxy_config.get_config = AsyncMock(return_value={})
             mock_proxy_config.parse_search_tools = MagicMock(return_value=None)
-            with patch("litellm.proxy.proxy_server.proxy_config", mock_proxy_config):
+            with patch("embrouter.proxy.proxy_server.proxy_config", mock_proxy_config):
                 # Mock auth
-                from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+                from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
 
                 app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(
-                    user_role=LitellmUserRoles.PROXY_ADMIN, user_id="admin_user"
+                    user_role=EmbrouterUserRoles.PROXY_ADMIN, user_id="admin_user"
                 )
 
                 try:
@@ -550,12 +550,12 @@ async def test_list_search_tools_db_masking_sensitive_values(monkeypatch):
                     )
                     assert tool1 is not None
                     assert (
-                        tool1["litellm_params"]["api_key"] != "pplx-sk-1234567890abcdef"
+                        tool1["embrouter_params"]["api_key"] != "pplx-sk-1234567890abcdef"
                     )
-                    assert "****" in tool1["litellm_params"]["api_key"]
-                    assert tool1["litellm_params"]["search_provider"] == "perplexity"
+                    assert "****" in tool1["embrouter_params"]["api_key"]
+                    assert tool1["embrouter_params"]["search_provider"] == "perplexity"
                     assert (
-                        tool1["litellm_params"]["api_base"]
+                        tool1["embrouter_params"]["api_base"]
                         == "https://api.perplexity.ai"
                     )
 
@@ -569,9 +569,9 @@ async def test_list_search_tools_db_masking_sensitive_values(monkeypatch):
                         None,
                     )
                     assert tool2 is not None
-                    assert tool2["litellm_params"]["api_key"] != "tvly-secret-key-12345"
-                    assert "****" in tool2["litellm_params"]["api_key"]
-                    assert tool2["litellm_params"]["search_provider"] == "tavily"
+                    assert tool2["embrouter_params"]["api_key"] != "tvly-secret-key-12345"
+                    assert "****" in tool2["embrouter_params"]["api_key"]
+                    assert tool2["embrouter_params"]["search_provider"] == "tavily"
 
                     # Test tool 3: access_token and secret_key should be masked
                     tool3 = next(
@@ -584,12 +584,12 @@ async def test_list_search_tools_db_masking_sensitive_values(monkeypatch):
                     )
                     assert tool3 is not None
                     assert (
-                        tool3["litellm_params"]["access_token"]
+                        tool3["embrouter_params"]["access_token"]
                         != "token-abcdefghijklmnop"
                     )
-                    assert "****" in tool3["litellm_params"]["access_token"]
-                    assert tool3["litellm_params"]["secret_key"] != "secret-xyz123"
-                    assert "****" in tool3["litellm_params"]["secret_key"]
+                    assert "****" in tool3["embrouter_params"]["access_token"]
+                    assert tool3["embrouter_params"]["secret_key"] != "secret-xyz123"
+                    assert "****" in tool3["embrouter_params"]["secret_key"]
 
                     # Test tool 4: non-sensitive fields should remain unmasked
                     tool4 = next(
@@ -601,9 +601,9 @@ async def test_list_search_tools_db_masking_sensitive_values(monkeypatch):
                         None,
                     )
                     assert tool4 is not None
-                    assert tool4["litellm_params"]["max_results"] == 10
-                    assert tool4["litellm_params"]["timeout"] == 30
-                    assert tool4["litellm_params"]["search_provider"] == "custom"
+                    assert tool4["embrouter_params"]["max_results"] == 10
+                    assert tool4["embrouter_params"]["timeout"] == 30
+                    assert tool4["embrouter_params"]["search_provider"] == "custom"
                 finally:
                     app.dependency_overrides.pop(user_api_key_auth, None)
 
@@ -613,7 +613,7 @@ async def test_get_all_search_tools_from_db_retries_on_transport_error():
     """`SearchToolRegistry.get_all_search_tools_from_db` self-heals across one
     ClientNotConnectedError via call_with_db_reconnect_retry."""
     import prisma
-    from litellm.proxy.search_endpoints.search_tool_registry import (
+    from embrouter.proxy.search_endpoints.search_tool_registry import (
         SearchToolRegistry,
     )
 
@@ -626,7 +626,7 @@ async def test_get_all_search_tools_from_db_retries_on_transport_error():
         return []
 
     mock_prisma_client = MagicMock()
-    mock_prisma_client.db.litellm_searchtoolstable.find_many = AsyncMock(
+    mock_prisma_client.db.embrouter_searchtoolstable.find_many = AsyncMock(
         side_effect=_flaky_find_many
     )
     mock_prisma_client.attempt_db_reconnect = AsyncMock(return_value=True)
@@ -658,11 +658,11 @@ def _mock_search_tool_backend(db_tools):
     mock_proxy_config.parse_search_tools = MagicMock(return_value=None)
     with (
         patch(
-            "litellm.proxy.search_endpoints.search_tool_management.SEARCH_TOOL_REGISTRY",
+            "embrouter.proxy.search_endpoints.search_tool_management.SEARCH_TOOL_REGISTRY",
             mock_registry,
         ),
-        patch("litellm.proxy.proxy_server.prisma_client", MagicMock()),
-        patch("litellm.proxy.proxy_server.proxy_config", mock_proxy_config),
+        patch("embrouter.proxy.proxy_server.prisma_client", MagicMock()),
+        patch("embrouter.proxy.proxy_server.proxy_config", mock_proxy_config),
     ):
         yield
 
@@ -672,7 +672,7 @@ def _scoping_db_tools():
         {
             "search_tool_id": "db-id-1",
             "search_tool_name": "db-tool-1",
-            "litellm_params": {
+            "embrouter_params": {
                 "search_provider": "perplexity",
                 "api_key": "pplx-secret-1",
                 "api_base": "https://api.perplexity.ai",
@@ -684,7 +684,7 @@ def _scoping_db_tools():
         {
             "search_tool_id": "db-id-2",
             "search_tool_name": "db-tool-2",
-            "litellm_params": {
+            "embrouter_params": {
                 "search_provider": "tavily",
                 "api_key": "tvly-secret-2",
                 "api_base": "https://api.tavily.com",
@@ -696,7 +696,7 @@ def _scoping_db_tools():
         {
             "search_tool_id": "db-id-3",
             "search_tool_name": "db-tool-3",
-            "litellm_params": {"search_provider": "exa", "api_key": "exa-secret-3"},
+            "embrouter_params": {"search_provider": "exa", "api_key": "exa-secret-3"},
             "search_tool_info": {"description": "Exa"},
             "created_at": datetime(2024, 1, 1),
             "updated_at": datetime(2024, 1, 1),
@@ -706,7 +706,7 @@ def _scoping_db_tools():
 
 @contextlib.contextmanager
 def _override_auth(user):
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+    from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
 
     app.dependency_overrides[user_api_key_auth] = lambda: user
     try:
@@ -723,9 +723,9 @@ async def test_list_search_tools_scoped_to_key_object_permission():
     configured tool, leaking ids, api_base, and metadata for tools it cannot call.
     """
     restricted_user = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=EmbrouterUserRoles.INTERNAL_USER,
         user_id="internal_user",
-        object_permission=LiteLLM_ObjectPermissionTable(
+        object_permission=EmbRouter_ObjectPermissionTable(
             object_permission_id="op-key",
             search_tools=["db-tool-1"],
         ),
@@ -740,7 +740,7 @@ async def test_list_search_tools_scoped_to_key_object_permission():
     assert response.status_code == 200
     tools = response.json()["search_tools"]
     assert [t["search_tool_name"] for t in tools] == ["db-tool-1"]
-    leaked = {t["litellm_params"].get("api_base") for t in tools}
+    leaked = {t["embrouter_params"].get("api_base") for t in tools}
     assert "https://api.tavily.com" not in leaked
 
 
@@ -748,7 +748,7 @@ async def test_list_search_tools_scoped_to_key_object_permission():
 async def test_list_search_tools_unrestricted_internal_user_sees_all():
     """An internal user with no search_tools allowlist is unrestricted and sees every tool."""
     unrestricted_user = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER, user_id="internal_user"
+        user_role=EmbrouterUserRoles.INTERNAL_USER, user_id="internal_user"
     )
 
     with (
@@ -766,13 +766,13 @@ async def test_list_search_tools_unrestricted_internal_user_sees_all():
 async def test_list_search_tools_scoped_to_team_object_permission():
     """A team-level search_tools allowlist also scopes the listing for a non-admin caller."""
     team_member = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=EmbrouterUserRoles.INTERNAL_USER,
         user_id="internal_user",
         team_id="team-1",
     )
-    team_object = LiteLLM_TeamTable(
+    team_object = EmbRouter_TeamTable(
         team_id="team-1",
-        object_permission=LiteLLM_ObjectPermissionTable(
+        object_permission=EmbRouter_ObjectPermissionTable(
             object_permission_id="op-team",
             search_tools=["db-tool-2"],
         ),
@@ -781,7 +781,7 @@ async def test_list_search_tools_scoped_to_team_object_permission():
     with (
         _mock_search_tool_backend(_scoping_db_tools()),
         patch(
-            "litellm.proxy.auth.auth_checks.get_team_object",
+            "embrouter.proxy.auth.auth_checks.get_team_object",
             AsyncMock(return_value=team_object),
         ),
         _override_auth(team_member),
@@ -798,9 +798,9 @@ async def test_list_search_tools_scoped_to_team_object_permission():
 async def test_list_search_tools_admin_with_restricted_key_still_sees_all():
     """Proxy admins bypass search-tool scoping even if their key carries an allowlist."""
     admin_user = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN,
         user_id="admin_user",
-        object_permission=LiteLLM_ObjectPermissionTable(
+        object_permission=EmbRouter_ObjectPermissionTable(
             object_permission_id="op-admin",
             search_tools=["db-tool-1"],
         ),
@@ -819,7 +819,7 @@ def _search_tool_responses(*names: str) -> list[SearchToolInfoResponse]:
         SearchToolInfoResponse(
             search_tool_id=f"id-{name}",
             search_tool_name=name,
-            litellm_params={"search_provider": "perplexity"},
+            embrouter_params={"search_provider": "perplexity"},
             search_tool_info=None,
             created_at=None,
             updated_at=None,
@@ -837,14 +837,14 @@ def _team_ids_looked_up(lookup: AsyncMock) -> list[str]:
 async def test_list_search_tools_dashboard_session_key_does_not_look_up_the_ui_team():
     """
     Regression: the Admin UI session key is stamped with the reserved team id
-    ``litellm-dashboard``, which has no row in LiteLLM_TeamTable. Resolving it as a real team
+    ``embrouter-dashboard``, which has no row in EmbRouter_TeamTable. Resolving it as a real team
     raised 404, which the endpoint reported as a 500, so the Search Tools page was broken for
     every non-admin browsing the dashboard.
     """
-    from litellm.constants import UI_SESSION_TOKEN_TEAM_ID
+    from embrouter.constants import UI_SESSION_TOKEN_TEAM_ID
 
     dashboard_session_user = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=EmbrouterUserRoles.INTERNAL_USER,
         user_id="internal_user",
         team_id=UI_SESSION_TOKEN_TEAM_ID,
     )
@@ -858,7 +858,7 @@ async def test_list_search_tools_dashboard_session_key_does_not_look_up_the_ui_t
     with (
         _mock_search_tool_backend(_scoping_db_tools()),
         patch(
-            "litellm.proxy.auth.auth_checks.get_team_object",
+            "embrouter.proxy.auth.auth_checks.get_team_object",
             ui_team_is_not_a_real_team,
         ),
         _override_auth(dashboard_session_user),
@@ -877,16 +877,16 @@ async def test_filter_visible_search_tools_dashboard_session_still_honors_key_al
     Skipping the synthetic team must not widen visibility: a dashboard session whose key
     carries a search_tools allowlist stays scoped to it.
     """
-    from litellm.constants import UI_SESSION_TOKEN_TEAM_ID
-    from litellm.proxy.search_endpoints.search_tool_management import (
+    from embrouter.constants import UI_SESSION_TOKEN_TEAM_ID
+    from embrouter.proxy.search_endpoints.search_tool_management import (
         _filter_visible_search_tools,
     )
 
     restricted_dashboard_session = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=EmbrouterUserRoles.INTERNAL_USER,
         user_id="internal_user",
         team_id=UI_SESSION_TOKEN_TEAM_ID,
-        object_permission=LiteLLM_ObjectPermissionTable(
+        object_permission=EmbRouter_ObjectPermissionTable(
             object_permission_id="op-key",
             search_tools=["db-tool-3"],
         ),
@@ -906,19 +906,19 @@ async def test_filter_visible_search_tools_dashboard_session_still_honors_key_al
 @pytest.mark.asyncio
 async def test_filter_visible_search_tools_still_applies_a_real_team_allowlist():
     """A caller with a real team is still resolved and scoped by that team's allowlist."""
-    from litellm.proxy.search_endpoints.search_tool_management import (
+    from embrouter.proxy.search_endpoints.search_tool_management import (
         _filter_visible_search_tools,
     )
 
     team_member = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=EmbrouterUserRoles.INTERNAL_USER,
         user_id="internal_user",
         team_id="team-1",
     )
     lookup = AsyncMock(
-        return_value=LiteLLM_TeamTable(
+        return_value=EmbRouter_TeamTable(
             team_id="team-1",
-            object_permission=LiteLLM_ObjectPermissionTable(
+            object_permission=EmbRouter_ObjectPermissionTable(
                 object_permission_id="op-team",
                 search_tools=["db-tool-2"],
             ),
@@ -941,12 +941,12 @@ async def test_filter_visible_search_tools_propagates_a_real_team_lookup_failure
     A caller whose real team cannot be resolved must not fall through to "no team", which
     would drop that team's allowlist and show tools the caller may not call.
     """
-    from litellm.proxy.search_endpoints.search_tool_management import (
+    from embrouter.proxy.search_endpoints.search_tool_management import (
         _filter_visible_search_tools,
     )
 
     team_member = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=EmbrouterUserRoles.INTERNAL_USER,
         user_id="internal_user",
         team_id="deleted-team",
     )
@@ -970,7 +970,7 @@ async def test_list_search_tools_reports_a_missing_real_team_as_404():
     masking it as a 500 or quietly returning an unscoped list.
     """
     team_member = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=EmbrouterUserRoles.INTERNAL_USER,
         user_id="internal_user",
         team_id="deleted-team",
     )
@@ -978,7 +978,7 @@ async def test_list_search_tools_reports_a_missing_real_team_as_404():
     with (
         _mock_search_tool_backend(_scoping_db_tools()),
         patch(
-            "litellm.proxy.auth.auth_checks.get_team_object",
+            "embrouter.proxy.auth.auth_checks.get_team_object",
             AsyncMock(
                 side_effect=HTTPException(
                     status_code=404,
@@ -998,7 +998,7 @@ async def test_list_search_tools_reports_a_missing_real_team_as_404():
 # Router sync on management writes (LIT-3379)
 #
 # The proxy resolves prisma_client / proxy_config / llm_router from
-# litellm.proxy.proxy_server module globals at call time and reaches its DB layer through a
+# embrouter.proxy.proxy_server module globals at call time and reaches its DB layer through a
 # module-level registry singleton, so there is no constructor or parameter to inject through.
 # Patching those globals is the only seam that exercises the endpoint end to end.
 # ---------------------------------------------------------------------------
@@ -1008,7 +1008,7 @@ def _search_tool_row(name: str, provider: str = "tavily") -> dict:
     return {
         "search_tool_id": f"{name}-id",
         "search_tool_name": name,
-        "litellm_params": {"search_provider": provider, "api_key": "sk-test"},
+        "embrouter_params": {"search_provider": provider, "api_key": "sk-test"},
         "search_tool_info": {"description": name},
     }
 
@@ -1019,7 +1019,7 @@ def _fake_registry(db_rows: list) -> MagicMock:
     async def _add(search_tool, **_):
         row = _search_tool_row(
             search_tool["search_tool_name"],
-            provider=search_tool.get("litellm_params", {}).get("search_provider", "tavily"),
+            provider=search_tool.get("embrouter_params", {}).get("search_provider", "tavily"),
         )
         db_rows.append(row)
         return row
@@ -1027,7 +1027,7 @@ def _fake_registry(db_rows: list) -> MagicMock:
     async def _update(search_tool_id, search_tool, **_):
         row = _search_tool_row(
             search_tool["search_tool_name"],
-            provider=search_tool.get("litellm_params", {}).get("search_provider", "tavily"),
+            provider=search_tool.get("embrouter_params", {}).get("search_provider", "tavily"),
         )
         db_rows[:] = [row if existing["search_tool_id"] == search_tool_id else existing for existing in db_rows]
         return row
@@ -1050,8 +1050,8 @@ def _fake_registry(db_rows: list) -> MagicMock:
 @contextlib.contextmanager
 def _live_router_and_db(db_rows: list):
     """Drive the endpoints against a real ProxyConfig so the router refresh actually runs."""
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-    from litellm.proxy.proxy_server import ProxyConfig
+    from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+    from embrouter.proxy.proxy_server import ProxyConfig
 
     proxy_config = ProxyConfig()
     proxy_config.update_config_state({})
@@ -1059,23 +1059,23 @@ def _live_router_and_db(db_rows: list):
     fake_router.search_tools = list(db_rows)
 
     with contextlib.ExitStack() as stack:
-        stack.enter_context(patch("litellm.proxy.proxy_server.prisma_client", MagicMock()))  # test-quality-ok: proxy globals are the only seam; see the module note above
-        stack.enter_context(patch("litellm.proxy.proxy_server.proxy_config", proxy_config))  # test-quality-ok: proxy globals are the only seam; see the module note above
-        stack.enter_context(patch("litellm.proxy.proxy_server.llm_router", fake_router))  # test-quality-ok: proxy globals are the only seam; see the module note above
+        stack.enter_context(patch("embrouter.proxy.proxy_server.prisma_client", MagicMock()))  # test-quality-ok: proxy globals are the only seam; see the module note above
+        stack.enter_context(patch("embrouter.proxy.proxy_server.proxy_config", proxy_config))  # test-quality-ok: proxy globals are the only seam; see the module note above
+        stack.enter_context(patch("embrouter.proxy.proxy_server.llm_router", fake_router))  # test-quality-ok: proxy globals are the only seam; see the module note above
         stack.enter_context(
             patch(  # test-quality-ok: proxy globals are the only seam; see the module note above
-                "litellm.proxy.search_endpoints.search_tool_management.SEARCH_TOOL_REGISTRY",
+                "embrouter.proxy.search_endpoints.search_tool_management.SEARCH_TOOL_REGISTRY",
                 _fake_registry(db_rows),
             )
         )
         stack.enter_context(
             patch(  # test-quality-ok: proxy globals are the only seam; see the module note above
-                "litellm.proxy.search_endpoints.search_tool_registry.SearchToolRegistry.get_all_search_tools_from_db",
+                "embrouter.proxy.search_endpoints.search_tool_registry.SearchToolRegistry.get_all_search_tools_from_db",
                 AsyncMock(side_effect=lambda **_: list(db_rows)),
             )
         )
         app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(
-            user_role=LitellmUserRoles.PROXY_ADMIN, user_id="admin_user"
+            user_role=EmbrouterUserRoles.PROXY_ADMIN, user_id="admin_user"
         )
         try:
             yield fake_router
@@ -1092,7 +1092,7 @@ async def test_create_search_tool_reaches_the_router_before_the_response():
             json={
                 "search_tool": {
                     "search_tool_name": "tavily-search",
-                    "litellm_params": {"search_provider": "tavily"},
+                    "embrouter_params": {"search_provider": "tavily"},
                 }
             },
         )
@@ -1109,13 +1109,13 @@ async def test_update_search_tool_reaches_the_router_before_the_response():
             json={
                 "search_tool": {
                     "search_tool_name": "tavily-search",
-                    "litellm_params": {"search_provider": "exa_ai"},
+                    "embrouter_params": {"search_provider": "exa_ai"},
                 }
             },
         )
 
     assert response.status_code == 200
-    assert fake_router.search_tools[0]["litellm_params"]["search_provider"] == "exa_ai"
+    assert fake_router.search_tools[0]["embrouter_params"]["search_provider"] == "exa_ai"
 
 
 @pytest.mark.asyncio
@@ -1133,7 +1133,7 @@ async def test_create_search_tool_survives_a_failing_router_refresh():
     """The row is already committed, so a refresh failure must not turn into a 500."""
     with _live_router_and_db([]):
         with patch(  # test-quality-ok: forcing the refresh to fail needs the refresh itself replaced
-            "litellm.proxy.proxy_server.ProxyConfig.reload_search_tools_from_db",
+            "embrouter.proxy.proxy_server.ProxyConfig.reload_search_tools_from_db",
             AsyncMock(side_effect=RuntimeError("registry boom")),
         ):
             response = TestClient(app).post(
@@ -1141,7 +1141,7 @@ async def test_create_search_tool_survives_a_failing_router_refresh():
                 json={
                     "search_tool": {
                         "search_tool_name": "tavily-search",
-                        "litellm_params": {"search_provider": "tavily"},
+                        "embrouter_params": {"search_provider": "tavily"},
                     }
                 },
             )

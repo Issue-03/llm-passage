@@ -50,12 +50,12 @@ describe("AutoRouterConnectionTest", () => {
     expect(screen.getByText("MEDIUM, COMPLEX")).toBeInTheDocument();
   });
 
-  it("renders the provider error message (litellm prefix stripped) for a failing target while others pass", async () => {
+  it("renders the provider error message (embrouter prefix stripped) for a failing target while others pass", async () => {
     const mock = await getMock();
     mock.mockImplementation((_token, modelGroup) =>
       Promise.resolve(
         modelGroup === "claude-sonnet-4"
-          ? { status: "error", error: "litellm.AuthenticationError: invalid api key" }
+          ? { status: "error", error: "embrouter.AuthenticationError: invalid api key" }
           : { status: "success" },
       ),
     );
@@ -64,11 +64,11 @@ describe("AutoRouterConnectionTest", () => {
 
     expect(await screen.findByTestId("test-error-message")).toBeInTheDocument();
     expect(screen.getByTestId("test-error-message")).toHaveTextContent("invalid api key");
-    expect(screen.getByTestId("test-error-message")).not.toHaveTextContent("litellm.AuthenticationError");
+    expect(screen.getByTestId("test-error-message")).not.toHaveTextContent("embrouter.AuthenticationError");
     expect(screen.getAllByTestId("test-status-success")).toHaveLength(3);
   });
 
-  it("renders a non-litellm error string verbatim", async () => {
+  it("renders a non-embrouter error string verbatim", async () => {
     const mock = await getMock();
     mock.mockResolvedValue({ status: "error", error: "Connection test failed: 404 Not Found" });
 

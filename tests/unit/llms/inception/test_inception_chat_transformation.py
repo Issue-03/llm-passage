@@ -8,8 +8,8 @@ from unittest import mock
 
 import httpx
 
-import litellm
-from litellm.llms.inception.chat.transformation import InceptionChatConfig
+import embrouter
+from embrouter.llms.inception.chat.transformation import InceptionChatConfig
 
 
 def test_inception_config_initialization():
@@ -67,7 +67,7 @@ def test_inception_chat_sends_diffusion_params_in_body():
         )
 
     with mock.patch("httpx.Client.send", new=fake_send):
-        litellm.completion(
+        embrouter.completion(
             model="inception/mercury-2",
             messages=[{"role": "user", "content": "hi"}],
             api_key="sk-x",
@@ -126,7 +126,7 @@ def test_inception_chat_response_surfaces_reasoning_and_usage():
         )
 
     with mock.patch("httpx.Client.send", new=fake_send):
-        r = litellm.completion(
+        r = embrouter.completion(
             model="inception/mercury-2",
             messages=[{"role": "user", "content": "hi"}],
             api_key="sk-x",
@@ -142,7 +142,7 @@ def test_inception_get_openai_compatible_provider_info():
     config = InceptionChatConfig()
 
     with mock.patch.dict(os.environ, {}, clear=True):
-        with mock.patch.object(litellm, "inception_key", None):
+        with mock.patch.object(embrouter, "inception_key", None):
             api_base, api_key = config._get_openai_compatible_provider_info(None, None)
             assert api_base == "https://api.inceptionlabs.ai/v1"
             assert api_key is None
@@ -173,10 +173,10 @@ def test_inception_get_openai_compatible_provider_info():
 
 
 def test_inception_key_module_attr_fallback():
-    """litellm.inception_key is used when no param/env key is provided"""
+    """embrouter.inception_key is used when no param/env key is provided"""
     config = InceptionChatConfig()
     with mock.patch.dict(os.environ, {}, clear=True):
-        with mock.patch.object(litellm, "inception_key", "module-attr-key"):
+        with mock.patch.object(embrouter, "inception_key", "module-attr-key"):
             _, api_key = config._get_openai_compatible_provider_info(None, None)
             assert api_key == "module-attr-key"
 
@@ -189,7 +189,7 @@ def test_inception_does_not_leak_key_to_caller_api_base():
     """
     config = InceptionChatConfig()
     with mock.patch.dict(os.environ, {"INCEPTION_API_KEY": "server-secret"}, clear=True):
-        with mock.patch.object(litellm, "inception_key", "module-secret"):
+        with mock.patch.object(embrouter, "inception_key", "module-secret"):
             # caller overrides api_base without a key -> server key withheld
             api_base, api_key = config._get_openai_compatible_provider_info("https://attacker.example/v1", None)
             assert api_base == "https://attacker.example/v1"
@@ -205,7 +205,7 @@ def test_inception_does_not_leak_key_to_caller_api_base():
 
 
 def test_get_llm_provider_inception():
-    from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
+    from embrouter.embrouter_core_utils.get_llm_provider_logic import get_llm_provider
 
     model, provider, _, _ = get_llm_provider("inception/mercury-2")
     assert model == "mercury-2"
@@ -218,9 +218,9 @@ def test_get_llm_provider_inception():
 
 
 def test_inception_in_provider_lists():
-    assert "inception" in litellm.openai_compatible_providers
-    assert "inception" in litellm.provider_list
-    assert "https://api.inceptionlabs.ai/v1" in litellm.openai_compatible_endpoints
+    assert "inception" in embrouter.openai_compatible_providers
+    assert "inception" in embrouter.provider_list
+    assert "https://api.inceptionlabs.ai/v1" in embrouter.openai_compatible_endpoints
 
 
 def test_inception_completion_targets_inception_endpoint():
@@ -272,7 +272,7 @@ def test_inception_completion_targets_inception_endpoint():
         }
     ]
     with mock.patch("httpx.Client.send", new=fake_send):
-        response = litellm.completion(
+        response = embrouter.completion(
             model="inception/mercury-2",
             messages=[{"role": "user", "content": "hello"}],
             api_key="sk-test-fake-123",

@@ -11,13 +11,13 @@ from redis.asyncio.cluster import ClusterNode
 from redis.asyncio.connection import SSLConnection
 
 
-from litellm.caching.redis_cache import RedisCache
-from litellm.caching.redis_cluster_cache import RedisClusterCache
-from litellm.caching.evicted_client_closer import EvictedClientCloser
-from litellm.caching.llm_caching_handler import LLMClientCache
+from embrouter.caching.redis_cache import RedisCache
+from embrouter.caching.redis_cluster_cache import RedisClusterCache
+from embrouter.caching.evicted_client_closer import EvictedClientCloser
+from embrouter.caching.llm_caching_handler import LLMClientCache
 
 
-@patch("litellm._redis.init_redis_cluster")
+@patch("embrouter._redis.init_redis_cluster")
 def test_redis_cluster_batch_get(mock_init_redis_cluster):
     """
     Test that RedisClusterCache uses mget_nonatomic instead of mget for batch operations
@@ -43,7 +43,7 @@ def test_redis_cluster_batch_get(mock_init_redis_cluster):
 
 
 @pytest.mark.asyncio
-@patch("litellm._redis.init_redis_cluster")
+@patch("embrouter._redis.init_redis_cluster")
 async def test_redis_cluster_async_batch_get(mock_init_redis_cluster):
     """
     Test that RedisClusterCache uses mget_nonatomic instead of mget for async batch operations
@@ -70,9 +70,9 @@ async def test_redis_cluster_async_batch_get(mock_init_redis_cluster):
     assert not mock_redis.mget.called
 
 
-@patch("litellm._redis.get_redis_connection_pool")
-@patch("litellm._redis.get_redis_client")
-@patch.object(import_module("litellm.caching.redis_cache").RedisCache, "_setup_health_pings")
+@patch("embrouter._redis.get_redis_connection_pool")
+@patch("embrouter._redis.get_redis_client")
+@patch.object(import_module("embrouter.caching.redis_cache").RedisCache, "_setup_health_pings")
 def test_cache_init_creates_cluster_cache_from_env_var(
     mock_health, mock_get_client, mock_get_pool, monkeypatch
 ):
@@ -81,7 +81,7 @@ def test_cache_init_creates_cluster_cache_from_env_var(
 
 
     """
-    from litellm.caching.caching import Cache
+    from embrouter.caching.caching import Cache
 
     startup_nodes = [{"host": "127.0.0.1", "port": "7001"}]
     monkeypatch.setenv("REDIS_CLUSTER_NODES", json.dumps(startup_nodes))
@@ -97,9 +97,9 @@ def test_cache_init_creates_cluster_cache_from_env_var(
     assert isinstance(cache.cache, RedisClusterCache)
 
 
-@patch("litellm._redis.get_redis_connection_pool")
-@patch("litellm._redis.get_redis_client")
-@patch.object(import_module("litellm.caching.redis_cache").RedisCache, "_setup_health_pings")
+@patch("embrouter._redis.get_redis_connection_pool")
+@patch("embrouter._redis.get_redis_client")
+@patch.object(import_module("embrouter.caching.redis_cache").RedisCache, "_setup_health_pings")
 def test_cache_init_creates_redis_cache_without_cluster_config(
     mock_health, mock_get_client, mock_get_pool, monkeypatch
 ):
@@ -109,7 +109,7 @@ def test_cache_init_creates_redis_cache_without_cluster_config(
     Ensures backward compatibility: without REDIS_CLUSTER_NODES or
     redis_startup_nodes, the standard RedisCache is still used.
     """
-    from litellm.caching.caching import Cache
+    from embrouter.caching.caching import Cache
 
     monkeypatch.delenv("REDIS_CLUSTER_NODES", raising=False)
     monkeypatch.setenv("REDIS_HOST", "localhost")
@@ -163,7 +163,7 @@ def test_router_create_redis_cache_cluster_detection(
 
 
     """
-    from litellm import Router
+    from embrouter import Router
 
     cache_config = dict(
         host="mockhost",
@@ -187,8 +187,8 @@ def test_router_create_redis_cache_cluster_detection(
 def _isolated_redis_cache(host: str) -> RedisCache:
     """RedisCache whose sync client and pool are stubbed out."""
     with (
-        patch("litellm._redis.get_redis_client", return_value=MagicMock()),
-        patch("litellm._redis.get_redis_connection_pool", return_value=MagicMock()),
+        patch("embrouter._redis.get_redis_client", return_value=MagicMock()),
+        patch("embrouter._redis.get_redis_connection_pool", return_value=MagicMock()),
     ):
         return RedisCache(host=host, port=6379)
 
@@ -344,5 +344,5 @@ def test_expired_pubsub_client_closes_connections_after_eviction() -> None:
         assert replacement is not client
         connection.disconnect.assert_awaited_once()
 
-    with patch("litellm.in_memory_llm_clients_cache", clients):
+    with patch("embrouter.in_memory_llm_clients_cache", clients):
         asyncio.run(exercise())

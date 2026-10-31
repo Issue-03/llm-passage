@@ -1,5 +1,5 @@
 """
-Manages native Postgres range partitions for the LiteLLM_SpendLogs table.
+Manages native Postgres range partitions for the EmbRouter_SpendLogs table.
 
 At high request volume, retention via batched DELETE leaves dead tuples that
 autovacuum cannot reclaim fast enough, so the table keeps growing on disk. When
@@ -23,8 +23,8 @@ from typing import (
     cast,  # noqa: TID251  # db.tx is reached through untyped __getattr__ delegation
 )
 
-from litellm._logging import verbose_proxy_logger
-from litellm.constants import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.constants import (
     SPEND_LOG_PARTITION_INTERVAL,
     SPEND_LOG_PARTITION_PRECREATE_AHEAD,
 )
@@ -32,9 +32,9 @@ from litellm.constants import (
 if TYPE_CHECKING:
     from prisma.client import TransactionManager
 
-    from litellm.proxy.utils import PrismaClient
+    from embrouter.proxy.utils import PrismaClient
 
-SPEND_LOGS_TABLE: Final = "LiteLLM_SpendLogs"
+SPEND_LOGS_TABLE: Final = "EmbRouter_SpendLogs"
 
 RemainingTimeoutMs: TypeAlias = Callable[[], "int | None"]
 """

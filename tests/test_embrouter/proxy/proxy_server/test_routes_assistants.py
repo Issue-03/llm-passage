@@ -15,7 +15,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from litellm.proxy import proxy_server
+from embrouter.proxy import proxy_server
 
 from .conftest import normalize  # type: ignore[import-not-found]
 
@@ -65,7 +65,7 @@ def patched_assistants(monkeypatch):
     async def _add_data(data, **kwargs):
         return data
 
-    monkeypatch.setattr(proxy_server, "add_litellm_data_to_request", _add_data)
+    monkeypatch.setattr(proxy_server, "add_embrouter_data_to_request", _add_data)
     return router
 
 
@@ -83,7 +83,7 @@ def no_router(monkeypatch):
     async def _add_data(data, **kwargs):
         return data
 
-    monkeypatch.setattr(proxy_server, "add_litellm_data_to_request", _add_data)
+    monkeypatch.setattr(proxy_server, "add_embrouter_data_to_request", _add_data)
     yield
 
 

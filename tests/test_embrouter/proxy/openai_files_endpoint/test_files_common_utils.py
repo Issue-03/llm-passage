@@ -4,15 +4,15 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from litellm.proxy.openai_files_endpoints.common_utils import (
+from embrouter.proxy.openai_files_endpoints.common_utils import (
     apply_unified_file_ids,
     get_credentials_for_model,
-    is_litellm_executed_batch,
+    is_embrouter_executed_batch,
     map_raw_file_ids_to_unified,
 )
-from litellm.proxy.route_llm_request import ProxyModelNotFoundError
-from litellm.proxy.utils import handle_exception_on_proxy
-from litellm.types.utils import LiteLLMBatch
+from embrouter.proxy.route_llm_request import ProxyModelNotFoundError
+from embrouter.proxy.utils import handle_exception_on_proxy
+from embrouter.types.utils import EmbRouterBatch
 
 _RAW_MODEL_WITH_PROMPT: Final = "opus-4.6 Please summarize my medical records\nPatient has diabetes"
 
@@ -33,8 +33,8 @@ def test_get_credentials_for_model_rejects_an_unknown_model_without_persisting_t
     assert "medical records" not in raised.value.spend_log_error_message
 
 
-def _batch(input_file_id, output_file_id, error_file_id) -> LiteLLMBatch:
-    return LiteLLMBatch(
+def _batch(input_file_id, output_file_id, error_file_id) -> EmbRouterBatch:
+    return EmbRouterBatch(
         id="batch-1",
         completion_window="24h",
         created_at=1234567890,
@@ -53,7 +53,7 @@ async def test_map_raw_file_ids_to_unified_empty_ids_skips_db():
 
     assert await map_raw_file_ids_to_unified(frozenset(), prisma_client) == {}
 
-    prisma_client.db.litellm_managedfiletable.find_many.assert_not_called()
+    prisma_client.db.embrouter_managedfiletable.find_many.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -69,13 +69,13 @@ async def test_map_raw_file_ids_to_unified_bulk_queries_and_filters_to_requested
     )
     row_b = MagicMock(unified_file_id="unified-b", flat_model_file_ids=["file-raw-b"])
     prisma_client = MagicMock()
-    prisma_client.db.litellm_managedfiletable.find_many = AsyncMock(return_value=[row_a, row_b])
+    prisma_client.db.embrouter_managedfiletable.find_many = AsyncMock(return_value=[row_a, row_b])
 
     mapping = await map_raw_file_ids_to_unified(
         frozenset({"file-raw-b", "file-raw-a", "file-raw-missing"}), prisma_client
     )
 
-    prisma_client.db.litellm_managedfiletable.find_many.assert_awaited_once_with(
+    prisma_client.db.embrouter_managedfiletable.find_many.assert_awaited_once_with(
         where={"flat_model_file_ids": {"hasSome": ["file-raw-a", "file-raw-b", "file-raw-missing"]}}
     )
     assert dict(mapping) == {"file-raw-a": "unified-a", "file-raw-b": "unified-b"}
@@ -157,33 +157,33 @@ def _job_for(poller):
     ],
 )
 def test_batch_cost_poller_is_active(monkeypatch, polling_enabled, job, expected):
-    import litellm.constants
-    import litellm.proxy.proxy_server as proxy_server_module
-    from litellm.proxy.openai_files_endpoints.common_utils import (
+    import embrouter.constants
+    import embrouter.proxy.proxy_server as proxy_server_module
+    from embrouter.proxy.openai_files_endpoints.common_utils import (
         batch_cost_poller_is_active,
     )
 
-    monkeypatch.setattr(litellm.constants, "PROXY_BATCH_POLLING_ENABLED", polling_enabled, raising=False)
+    monkeypatch.setattr(embrouter.constants, "PROXY_BATCH_POLLING_ENABLED", polling_enabled, raising=False)
     monkeypatch.setattr(proxy_server_module, "scheduler", _FakeScheduler(job), raising=False)
 
     assert batch_cost_poller_is_active() is expected
 
 
 def test_batch_cost_poller_is_active_is_false_when_no_scheduler_exists(monkeypatch):
-    import litellm.constants
-    import litellm.proxy.proxy_server as proxy_server_module
-    from litellm.proxy.openai_files_endpoints.common_utils import (
+    import embrouter.constants
+    import embrouter.proxy.proxy_server as proxy_server_module
+    from embrouter.proxy.openai_files_endpoints.common_utils import (
         batch_cost_poller_is_active,
     )
 
-    monkeypatch.setattr(litellm.constants, "PROXY_BATCH_POLLING_ENABLED", True, raising=False)
+    monkeypatch.setattr(embrouter.constants, "PROXY_BATCH_POLLING_ENABLED", True, raising=False)
     monkeypatch.setattr(proxy_server_module, "scheduler", None, raising=False)
 
     assert batch_cost_poller_is_active() is False
 
 
-def _completed_batch() -> LiteLLMBatch:
-    return LiteLLMBatch(
+def _completed_batch() -> EmbRouterBatch:
+    return EmbRouterBatch(
         id="batch-done",
         completion_window="24h",
         created_at=1234567890,
@@ -196,14 +196,14 @@ def _completed_batch() -> LiteLLMBatch:
 
 
 async def _run_update(monkeypatch, poller_active: bool) -> dict:
-    import litellm.proxy.openai_files_endpoints.common_utils as cu
+    import embrouter.proxy.openai_files_endpoints.common_utils as cu
 
     monkeypatch.setattr(cu, "batch_cost_poller_is_active", lambda: poller_active)
     monkeypatch.setattr(cu, "ensure_batch_response_managed_file_ids", AsyncMock())
 
     prisma_client = MagicMock()
     update_mock = AsyncMock()
-    prisma_client.db.litellm_managedobjecttable.update = update_mock
+    prisma_client.db.embrouter_managedobjecttable.update = update_mock
 
     db_batch_object = MagicMock()
     db_batch_object.status = "in_progress"
@@ -240,9 +240,9 @@ async def test_retrieving_a_completed_batch_still_marks_processed_without_a_cost
 
 
 def test_batch_cost_poller_is_active_is_false_when_the_job_has_no_bound_poller(monkeypatch):
-    import litellm.constants
-    import litellm.proxy.proxy_server as proxy_server_module
-    from litellm.proxy.openai_files_endpoints.common_utils import (
+    import embrouter.constants
+    import embrouter.proxy.proxy_server as proxy_server_module
+    from embrouter.proxy.openai_files_endpoints.common_utils import (
         batch_cost_poller_is_active,
     )
 
@@ -252,16 +252,16 @@ def test_batch_cost_poller_is_active_is_false_when_the_job_has_no_bound_poller(m
     job = MagicMock()
     job.func = unbound_check_batch_cost
 
-    monkeypatch.setattr(litellm.constants, "PROXY_BATCH_POLLING_ENABLED", True, raising=False)
+    monkeypatch.setattr(embrouter.constants, "PROXY_BATCH_POLLING_ENABLED", True, raising=False)
     monkeypatch.setattr(proxy_server_module, "scheduler", _FakeScheduler(job), raising=False)
 
     assert batch_cost_poller_is_active() is False
 
 
 def test_batch_cost_poller_is_active_is_false_when_get_job_raises(monkeypatch):
-    import litellm.constants
-    import litellm.proxy.proxy_server as proxy_server_module
-    from litellm.proxy.openai_files_endpoints.common_utils import (
+    import embrouter.constants
+    import embrouter.proxy.proxy_server as proxy_server_module
+    from embrouter.proxy.openai_files_endpoints.common_utils import (
         batch_cost_poller_is_active,
     )
 
@@ -269,7 +269,7 @@ def test_batch_cost_poller_is_active_is_false_when_get_job_raises(monkeypatch):
         def get_job(self, job_id):
             raise RuntimeError("scheduler not started")
 
-    monkeypatch.setattr(litellm.constants, "PROXY_BATCH_POLLING_ENABLED", True, raising=False)
+    monkeypatch.setattr(embrouter.constants, "PROXY_BATCH_POLLING_ENABLED", True, raising=False)
     monkeypatch.setattr(proxy_server_module, "scheduler", _ExplodingScheduler(), raising=False)
 
     assert batch_cost_poller_is_active() is False
@@ -277,14 +277,14 @@ def test_batch_cost_poller_is_active_is_false_when_get_job_raises(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_retrieving_a_batch_whose_status_is_unchanged_writes_nothing(monkeypatch):
-    import litellm.proxy.openai_files_endpoints.common_utils as cu
+    import embrouter.proxy.openai_files_endpoints.common_utils as cu
 
     monkeypatch.setattr(cu, "batch_cost_poller_is_active", lambda: False)
     monkeypatch.setattr(cu, "ensure_batch_response_managed_file_ids", AsyncMock())
 
     prisma_client = MagicMock()
     update_mock = AsyncMock()
-    prisma_client.db.litellm_managedobjecttable.update = update_mock
+    prisma_client.db.embrouter_managedobjecttable.update = update_mock
 
     db_batch_object = MagicMock()
     db_batch_object.status = "completed"
@@ -305,11 +305,11 @@ async def test_retrieving_a_batch_whose_status_is_unchanged_writes_nothing(monke
 
 @pytest.mark.asyncio
 async def test_update_batch_in_database_is_a_noop_for_unmanaged_batches(monkeypatch):
-    import litellm.proxy.openai_files_endpoints.common_utils as cu
+    import embrouter.proxy.openai_files_endpoints.common_utils as cu
 
     prisma_client = MagicMock()
     update_mock = AsyncMock()
-    prisma_client.db.litellm_managedobjecttable.update = update_mock
+    prisma_client.db.embrouter_managedobjecttable.update = update_mock
 
     await cu.update_batch_in_database(
         batch_id="batch-raw-xyz",
@@ -326,14 +326,14 @@ async def test_update_batch_in_database_is_a_noop_for_unmanaged_batches(monkeypa
 
 @pytest.mark.asyncio
 async def test_the_caller_s_accounting_decision_wins_over_a_later_poller_transition(monkeypatch):
-    import litellm.proxy.openai_files_endpoints.common_utils as cu
+    import embrouter.proxy.openai_files_endpoints.common_utils as cu
 
     monkeypatch.setattr(cu, "batch_cost_poller_is_active", lambda: True)
     monkeypatch.setattr(cu, "ensure_batch_response_managed_file_ids", AsyncMock())
 
     prisma_client = MagicMock()
     update_mock = AsyncMock()
-    prisma_client.db.litellm_managedobjecttable.update = update_mock
+    prisma_client.db.embrouter_managedobjecttable.update = update_mock
     db_batch_object = MagicMock()
     db_batch_object.status = "in_progress"
 
@@ -356,14 +356,14 @@ async def test_the_caller_s_accounting_decision_wins_over_a_later_poller_transit
 
 @pytest.mark.asyncio
 async def test_a_caller_that_handed_off_accounting_still_leaves_the_marker_alone(monkeypatch):
-    import litellm.proxy.openai_files_endpoints.common_utils as cu
+    import embrouter.proxy.openai_files_endpoints.common_utils as cu
 
     monkeypatch.setattr(cu, "batch_cost_poller_is_active", lambda: False)
     monkeypatch.setattr(cu, "ensure_batch_response_managed_file_ids", AsyncMock())
 
     prisma_client = MagicMock()
     update_mock = AsyncMock()
-    prisma_client.db.litellm_managedobjecttable.update = update_mock
+    prisma_client.db.embrouter_managedobjecttable.update = update_mock
     db_batch_object = MagicMock()
     db_batch_object.status = "in_progress"
 
@@ -394,7 +394,7 @@ def test_add_internal_model_credentials_attaches_an_immutable_snapshot():
     """Cost accounting for a completed batch reads its output file, and Bedrock resolves
     that bucket only from this snapshot. It must be immutable so nothing downstream can
     redirect the bucket that managed file ids are validated against."""
-    from litellm.proxy.openai_files_endpoints.common_utils import (
+    from embrouter.proxy.openai_files_endpoints.common_utils import (
         add_internal_model_credentials,
     )
 
@@ -406,7 +406,7 @@ def test_add_internal_model_credentials_attaches_an_immutable_snapshot():
 
     add_internal_model_credentials(data=data, llm_router=router, model_id="deployment-1")
 
-    snapshot = data["_litellm_internal_model_credentials"]
+    snapshot = data["_embrouter_internal_model_credentials"]
     assert snapshot["s3_bucket_name"] == "configured-bucket"
     assert isinstance(snapshot, MappingProxyType)
     with pytest.raises(TypeError):
@@ -422,7 +422,7 @@ def test_add_internal_model_credentials_attaches_an_immutable_snapshot():
 def test_add_internal_model_credentials_is_a_noop_without_a_resolvable_deployment(model_id, credentials):
     """An unroutable batch must be left alone rather than given an empty snapshot, which
     would look like a configured bucket of nothing."""
-    from litellm.proxy.openai_files_endpoints.common_utils import (
+    from embrouter.proxy.openai_files_endpoints.common_utils import (
         add_internal_model_credentials,
     )
 
@@ -432,14 +432,14 @@ def test_add_internal_model_credentials_is_a_noop_without_a_resolvable_deploymen
 
     add_internal_model_credentials(data=data, llm_router=router, model_id=model_id)
 
-    assert "_litellm_internal_model_credentials" not in data
+    assert "_embrouter_internal_model_credentials" not in data
 
 
 def test_add_internal_model_credentials_survives_a_failing_deployment_lookup():
     """The snapshot only enables cost accounting, so a batch whose deployment no longer
     resolves, which happens when a model group is removed while batches are in flight,
     must still be retrievable rather than failing the request on the lookup."""
-    from litellm.proxy.openai_files_endpoints.common_utils import (
+    from embrouter.proxy.openai_files_endpoints.common_utils import (
         add_internal_model_credentials,
     )
 
@@ -454,14 +454,14 @@ def test_add_internal_model_credentials_survives_a_failing_deployment_lookup():
 
 from openai.types.batch import BatchRequestCounts
 
-from litellm.proxy.openai_files_endpoints.common_utils import (
+from embrouter.proxy.openai_files_endpoints.common_utils import (
     _completed_batch_safe_to_retire,
 )
 
 
 def _completed_batch_for_retire(
     output_file_id: str | None, counts: BatchRequestCounts | None = None
-) -> LiteLLMBatch:
+) -> EmbRouterBatch:
     kwargs = dict(
         id="batch-1",
         completion_window="24h",
@@ -475,7 +475,7 @@ def _completed_batch_for_retire(
     )
     if counts is not None:
         kwargs["request_counts"] = counts
-    return LiteLLMBatch(**kwargs)
+    return EmbRouterBatch(**kwargs)
 
 
 class TestCompletedBatchSafeToRetire:
@@ -505,12 +505,12 @@ class TestCompletedBatchSafeToRetire:
 @pytest.mark.parametrize(
     "decoded_unified_batch_id, executed",
     [
-        ("litellm_proxy;model_id:my-vllm;llm_batch_id:litellm_batch_0123abcd", True),
-        ("litellm_proxy;model_id:my-vllm;llm_batch_id:batch_0123abcd", False),
-        ("litellm_proxy;model_id:my-vllm;generic_response_id:resp_0123abcd", False),
-        ("litellm_proxy;model_id:my-vllm;llm_output_file_id:file-0123abcd", False),
+        ("embrouter_proxy;model_id:my-vllm;llm_batch_id:embrouter_batch_0123abcd", True),
+        ("embrouter_proxy;model_id:my-vllm;llm_batch_id:batch_0123abcd", False),
+        ("embrouter_proxy;model_id:my-vllm;generic_response_id:resp_0123abcd", False),
+        ("embrouter_proxy;model_id:my-vllm;llm_output_file_id:file-0123abcd", False),
         ("batch_0123abcd", False),
     ],
 )
-def test_is_litellm_executed_batch_reads_the_llm_batch_id_prefix(decoded_unified_batch_id: str, executed: bool):
-    assert is_litellm_executed_batch(decoded_unified_batch_id) is executed
+def test_is_embrouter_executed_batch_reads_the_llm_batch_id_prefix(decoded_unified_batch_id: str, executed: bool):
+    assert is_embrouter_executed_batch(decoded_unified_batch_id) is executed

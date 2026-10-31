@@ -11,12 +11,12 @@ from typing import Final
 
 from httpx import Response
 
-import litellm
-from litellm import verbose_logger
-from litellm.caching.caching import InMemoryCache
-from litellm.constants import MAX_IMAGE_URL_DOWNLOAD_SIZE_MB
-from litellm.litellm_core_utils.url_utils import SSRFError, async_safe_get, safe_get
-from litellm.types.llms.openai import AllMessageValues
+import embrouter
+from embrouter import verbose_logger
+from embrouter.caching.caching import InMemoryCache
+from embrouter.constants import MAX_IMAGE_URL_DOWNLOAD_SIZE_MB
+from embrouter.embrouter_core_utils.url_utils import SSRFError, async_safe_get, safe_get
+from embrouter.types.llms.openai import AllMessageValues
 
 MAX_IMGS_IN_MEMORY: Final = 10
 MAX_CONCURRENT_REMOTE_MEDIA_FETCHES: Final = 20
@@ -26,7 +26,7 @@ in_memory_cache: Final = InMemoryCache(max_size_in_memory=MAX_IMGS_IN_MEMORY)
 
 def _process_image_response(response: Response, url: str) -> str:
     if response.status_code != 200:
-        raise litellm.ImageFetchError(
+        raise embrouter.ImageFetchError(
             f"Error: Unable to fetch image from URL. Status code: {response.status_code}, url={url}"
         )
 
@@ -35,7 +35,7 @@ def _process_image_response(response: Response, url: str) -> str:
     if content_length is not None:
         size_mb = int(content_length) / (1024 * 1024)
         if size_mb > MAX_IMAGE_URL_DOWNLOAD_SIZE_MB:
-            raise litellm.ImageFetchError(
+            raise embrouter.ImageFetchError(
                 f"Error: Image size ({size_mb:.2f}MB) exceeds maximum allowed size ({MAX_IMAGE_URL_DOWNLOAD_SIZE_MB}MB). url={url}"
             )
 
@@ -48,7 +48,7 @@ def _process_image_response(response: Response, url: str) -> str:
         bytes_downloaded += len(chunk)
         if bytes_downloaded > max_bytes:
             size_mb = bytes_downloaded / (1024 * 1024)
-            raise litellm.ImageFetchError(
+            raise embrouter.ImageFetchError(
                 f"Error: Image size ({size_mb:.2f}MB) exceeds maximum allowed size ({MAX_IMAGE_URL_DOWNLOAD_SIZE_MB}MB). url={url}"
             )
         image_bytes.extend(chunk)
@@ -78,11 +78,11 @@ def _process_image_response(response: Response, url: str) -> str:
     return result
 
 
-def _rejected_image_fetch(url: str, verdict: SSRFError) -> "litellm.ImageFetchError":
+def _rejected_image_fetch(url: str, verdict: SSRFError) -> "embrouter.ImageFetchError":
     verbose_logger.warning("Image fetch of %s rejected before any request went out: %s", url, verdict)
-    return litellm.ImageFetchError(
+    return embrouter.ImageFetchError(
         "Error: Unable to fetch image from URL. The proxy could not resolve this host or its URL policy rejected it; "
-        f"an admin can check the proxy log and `user_url_allowed_hosts` in litellm_settings. url={url}"
+        f"an admin can check the proxy log and `user_url_allowed_hosts` in embrouter_settings. url={url}"
     )
 
 
@@ -92,7 +92,7 @@ async def async_convert_url_to_base64(url: str) -> str:
 
     # If MAX_IMAGE_URL_DOWNLOAD_SIZE_MB is 0, block all image downloads
     if MAX_IMAGE_URL_DOWNLOAD_SIZE_MB == 0:
-        raise litellm.ImageFetchError(
+        raise embrouter.ImageFetchError(
             f"Error: Image URL download is disabled (MAX_IMAGE_URL_DOWNLOAD_SIZE_MB=0). url={url}"
         )
 
@@ -100,18 +100,18 @@ async def async_convert_url_to_base64(url: str) -> str:
     if cached_result:
         return cached_result
 
-    client: Final = litellm.module_level_aclient
+    client: Final = embrouter.module_level_aclient
     for _ in range(3):
         try:
             response = await async_safe_get(client, url)
             return _process_image_response(response, url)
-        except litellm.ImageFetchError:
+        except embrouter.ImageFetchError:
             raise
         except SSRFError as e:
             raise _rejected_image_fetch(url, e) from e
         except Exception:
             pass
-    raise litellm.ImageFetchError(f"Error: Unable to fetch image from URL after 3 attempts. url={url}")
+    raise embrouter.ImageFetchError(f"Error: Unable to fetch image from URL after 3 attempts. url={url}")
 
 
 def convert_url_to_base64(url: str) -> str:
@@ -120,7 +120,7 @@ def convert_url_to_base64(url: str) -> str:
 
     # If MAX_IMAGE_URL_DOWNLOAD_SIZE_MB is 0, block all image downloads
     if MAX_IMAGE_URL_DOWNLOAD_SIZE_MB == 0:
-        raise litellm.ImageFetchError(
+        raise embrouter.ImageFetchError(
             f"Error: Image URL download is disabled (MAX_IMAGE_URL_DOWNLOAD_SIZE_MB=0). url={url}"
         )
 
@@ -128,18 +128,18 @@ def convert_url_to_base64(url: str) -> str:
     if cached_result:
         return cached_result
 
-    client: Final = litellm.module_level_client
+    client: Final = embrouter.module_level_client
     for _ in range(3):
         try:
             response = safe_get(client, url)
             return _process_image_response(response, url)
-        except litellm.ImageFetchError:
+        except embrouter.ImageFetchError:
             raise
         except SSRFError as e:
             raise _rejected_image_fetch(url, e) from e
         except Exception as e:
             verbose_logger.exception(e)
-    raise litellm.ImageFetchError(
+    raise embrouter.ImageFetchError(
         f"Error: Unable to fetch image from URL after 3 attempts. url={url}",
     )
 

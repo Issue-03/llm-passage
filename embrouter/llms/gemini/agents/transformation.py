@@ -14,22 +14,22 @@ from typing import Any, Final
 
 import httpx
 
-from litellm._logging import verbose_logger
-from litellm.llms.base_llm.agents.transformation import BaseAgentsAPIConfig
-from litellm.llms.gemini.common_utils import GeminiError, GeminiModelInfo
-from litellm.types.agents import (
+from embrouter._logging import verbose_logger
+from embrouter.llms.base_llm.agents.transformation import BaseAgentsAPIConfig
+from embrouter.llms.gemini.common_utils import GeminiError, GeminiModelInfo
+from embrouter.types.agents import (
     AgentCreateResponse,
     AgentDeleteResult,
     AgentListResponse,
     AgentVersionsResponse,
 )
 
-# Keys inside litellm_params that should be forwarded to the Gemini
+# Keys inside embrouter_params that should be forwarded to the Gemini
 # create-agent body verbatim.
 _GEMINI_AGENT_BODY_KEYS: Final = ("base_agent", "instructions", "base_environment")
 
-# LiteLLM-internal keys that must never be forwarded to Gemini.
-_LITELLM_INTERNAL_KEYS: Final = frozenset(
+# EmbRouter-internal keys that must never be forwarded to Gemini.
+_EMBROUTER_INTERNAL_KEYS: Final = frozenset(
     {
         "custom_llm_provider",
         "api_key",
@@ -57,7 +57,7 @@ class GeminiAgentsConfig(BaseAgentsAPIConfig):
     Configuration for the Google AI Studio (Gemini) native Agents API.
 
     Authentication uses x-goog-api-key, resolved from (in order):
-      1. litellm_params["api_key"]
+      1. embrouter_params["api_key"]
       2. GOOGLE_API_KEY env var
       3. GEMINI_API_KEY env var
     """
@@ -88,24 +88,24 @@ class GeminiAgentsConfig(BaseAgentsAPIConfig):
     def get_complete_url(
         self,
         api_base: str | None,
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
     ) -> str:
         return f"{self._base_url(api_base)}/agents"
 
     def validate_environment(
         self,
         headers: dict[str, str],
-        litellm_params: dict[str, Any],
+        embrouter_params: dict[str, Any],
     ) -> dict[str, str]:
         headers = dict(headers)
         headers["Content-Type"] = "application/json"
-        explicit_api_key: Final = litellm_params.get("api_key")
+        explicit_api_key: Final = embrouter_params.get("api_key")
         # SECURITY: when the caller overrides ``api_base``, refuse to fall back
         # to the process-wide GOOGLE_API_KEY / GEMINI_API_KEY env vars. Otherwise
         # an authenticated proxy user could set ``api_base`` to an attacker-
         # controlled host and have the proxy ship its shared Gemini key in the
         # ``x-goog-api-key`` header.
-        if litellm_params.get("api_base") and not explicit_api_key:
+        if embrouter_params.get("api_base") and not explicit_api_key:
             raise ValueError(
                 "When overriding api_base for Gemini agents, you must also "
                 "supply an explicit api_key. Falling back to GOOGLE_API_KEY / "
@@ -133,11 +133,11 @@ class GeminiAgentsConfig(BaseAgentsAPIConfig):
     def transform_create_request(
         self,
         name: str,
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
     ) -> dict[str, object]:
         body: Final[dict[str, object]] = {"name": name}
         for key in _GEMINI_AGENT_BODY_KEYS:
-            value = litellm_params.get(key)
+            value = embrouter_params.get(key)
             if value is not None:
                 body[key] = value
         verbose_logger.debug("GeminiAgentsConfig create body: %s", body)
@@ -175,14 +175,14 @@ class GeminiAgentsConfig(BaseAgentsAPIConfig):
     def transform_list_request(
         self,
         api_base: str | None,
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
     ) -> tuple[str, dict[str, object]]:
         url: Final = f"{self._base_url(api_base)}/agents"
         params: Final[dict[str, object]] = {}
-        if litellm_params.get("page_size"):
-            params["pageSize"] = litellm_params["page_size"]
-        if litellm_params.get("page_token"):
-            params["pageToken"] = litellm_params["page_token"]
+        if embrouter_params.get("page_size"):
+            params["pageSize"] = embrouter_params["page_size"]
+        if embrouter_params.get("page_token"):
+            params["pageToken"] = embrouter_params["page_token"]
         return url, params
 
     def transform_list_response(
@@ -208,7 +208,7 @@ class GeminiAgentsConfig(BaseAgentsAPIConfig):
         self,
         name: str,
         api_base: str | None,
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
     ) -> tuple[str, dict[str, object]]:
         url: Final = f"{self._base_url(api_base)}/agents/{name}"
         return url, {}
@@ -237,7 +237,7 @@ class GeminiAgentsConfig(BaseAgentsAPIConfig):
         self,
         name: str,
         api_base: str | None,
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
     ) -> str:
         return f"{self._base_url(api_base)}/agents/{name}"
 
@@ -263,14 +263,14 @@ class GeminiAgentsConfig(BaseAgentsAPIConfig):
         self,
         name: str,
         api_base: str | None,
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
     ) -> tuple[str, dict[str, object]]:
         url: Final = f"{self._base_url(api_base)}/agents/{name}/versions"
         params: Final[dict[str, object]] = {}
-        if litellm_params.get("page_size"):
-            params["pageSize"] = litellm_params["page_size"]
-        if litellm_params.get("page_token"):
-            params["pageToken"] = litellm_params["page_token"]
+        if embrouter_params.get("page_size"):
+            params["pageSize"] = embrouter_params["page_size"]
+        if embrouter_params.get("page_token"):
+            params["pageToken"] = embrouter_params["page_token"]
         return url, params
 
     def transform_list_versions_response(

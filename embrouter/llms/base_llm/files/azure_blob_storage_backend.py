@@ -11,10 +11,10 @@ from pathlib import Path
 from typing import Final
 from urllib.parse import quote, urlparse
 
-from litellm._logging import verbose_logger
-from litellm._uuid import uuid
-from litellm.integrations.azure_storage.azure_storage import AzureBlobStorageLogger
-from litellm.proxy.common_utils.path_utils import safe_filename
+from embrouter._logging import verbose_logger
+from embrouter._uuid import uuid
+from embrouter.integrations.azure_storage.azure_storage import AzureBlobStorageLogger
+from embrouter.proxy.common_utils.path_utils import safe_filename
 
 from .storage_backend import BaseFileStorageBackend
 
@@ -201,7 +201,7 @@ class AzureBlobStorageBackend(BaseFileStorageBackend, AzureBlobStorageLogger):
         # Reuse the logger's token management
         await self.set_valid_azure_ad_token()
 
-        from litellm.llms.custom_httpx.http_handler import (
+        from embrouter.llms.custom_httpx.http_handler import (
             get_async_httpx_client,
             httpxSpecialProvider,
         )
@@ -224,7 +224,7 @@ class AzureBlobStorageBackend(BaseFileStorageBackend, AzureBlobStorageLogger):
 
     async def _append_data_bytes(self, client, base_url: str, file_content: bytes):
         """Append binary data to file using REST API."""
-        from litellm.constants import AZURE_STORAGE_MSFT_VERSION
+        from embrouter.constants import AZURE_STORAGE_MSFT_VERSION
 
         headers: Final = {
             "x-ms-version": AZURE_STORAGE_MSFT_VERSION,
@@ -290,8 +290,8 @@ class AzureBlobStorageBackend(BaseFileStorageBackend, AzureBlobStorageLogger):
         # Reuse the logger's token management
         await self.set_valid_azure_ad_token()
 
-        from litellm.constants import AZURE_STORAGE_MSFT_VERSION
-        from litellm.llms.custom_httpx.http_handler import (
+        from embrouter.constants import AZURE_STORAGE_MSFT_VERSION
+        from embrouter.llms.custom_httpx.http_handler import (
             get_async_httpx_client,
             httpxSpecialProvider,
         )

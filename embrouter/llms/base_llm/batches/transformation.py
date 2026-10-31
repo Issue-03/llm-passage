@@ -5,21 +5,21 @@ from typing import TYPE_CHECKING, Any
 import httpx
 from httpx import Headers
 
-from litellm.types.llms.openai import (
+from embrouter.types.llms.openai import (
     AllMessageValues,
     CreateBatchRequest,
 )
-from litellm.types.utils import LiteLLMBatch, LlmProviders
+from embrouter.types.utils import EmbRouterBatch, LlmProviders
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
 
     from ..chat.transformation import BaseLLMException as _BaseLLMException
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
     BaseLLMException = _BaseLLMException
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
     BaseLLMException = Any
 
 
@@ -28,7 +28,7 @@ class BaseBatchesConfig(ABC):
     Abstract base class for batch processing configurations across different LLM providers.
 
     This class defines the interface that all provider-specific batch configurations
-    must implement to work with LiteLLM's unified batch processing system.
+    must implement to work with EmbRouter's unified batch processing system.
     """
 
     def __init__(self):
@@ -66,7 +66,7 @@ class BaseBatchesConfig(ABC):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
@@ -78,7 +78,7 @@ class BaseBatchesConfig(ABC):
             model: Model name
             messages: List of messages
             optional_params: Optional parameters
-            litellm_params: LiteLLM parameters
+            embrouter_params: EmbRouter parameters
             api_key: API key
             api_base: API base URL
 
@@ -93,7 +93,7 @@ class BaseBatchesConfig(ABC):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         data: CreateBatchRequest,
     ) -> str:
         """
@@ -104,7 +104,7 @@ class BaseBatchesConfig(ABC):
             api_key: API key
             model: Model name
             optional_params: Optional parameters
-            litellm_params: LiteLLM parameters
+            embrouter_params: EmbRouter parameters
             data: Batch creation request data
 
         Returns:
@@ -117,7 +117,7 @@ class BaseBatchesConfig(ABC):
         model: str,
         create_batch_data: CreateBatchRequest,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> bytes | str | dict[str, Any]:
         """
         Transform the batch creation request to provider-specific format.
@@ -126,7 +126,7 @@ class BaseBatchesConfig(ABC):
             model: Model name
             create_batch_data: Batch creation request data
             optional_params: Optional parameters
-            litellm_params: LiteLLM parameters
+            embrouter_params: EmbRouter parameters
 
         Returns:
             Transformed request data
@@ -137,20 +137,20 @@ class BaseBatchesConfig(ABC):
         self,
         model: str | None,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
-        litellm_params: dict,
-    ) -> LiteLLMBatch:
+        logging_obj: EmbRouterLoggingObj,
+        embrouter_params: dict,
+    ) -> EmbRouterBatch:
         """
-        Transform provider-specific batch response to LiteLLM format.
+        Transform provider-specific batch response to EmbRouter format.
 
         Args:
             model: Model name
             raw_response: Raw HTTP response
             logging_obj: Logging object
-            litellm_params: LiteLLM parameters
+            embrouter_params: EmbRouter parameters
 
         Returns:
-            LiteLLM batch object
+            EmbRouter batch object
         """
 
     @abstractmethod
@@ -158,7 +158,7 @@ class BaseBatchesConfig(ABC):
         self,
         batch_id: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> bytes | str | dict[str, Any]:
         """
         Transform the batch retrieval request to provider-specific format.
@@ -166,7 +166,7 @@ class BaseBatchesConfig(ABC):
         Args:
             batch_id: Batch ID to retrieve
             optional_params: Optional parameters
-            litellm_params: LiteLLM parameters
+            embrouter_params: EmbRouter parameters
 
         Returns:
             Transformed request data
@@ -177,20 +177,20 @@ class BaseBatchesConfig(ABC):
         self,
         model: str | None,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
-        litellm_params: dict,
-    ) -> LiteLLMBatch:
+        logging_obj: EmbRouterLoggingObj,
+        embrouter_params: dict,
+    ) -> EmbRouterBatch:
         """
-        Transform provider-specific batch retrieval response to LiteLLM format.
+        Transform provider-specific batch retrieval response to EmbRouter format.
 
         Args:
             model: Model name
             raw_response: Raw HTTP response
             logging_obj: Logging object
-            litellm_params: LiteLLM parameters
+            embrouter_params: EmbRouter parameters
 
         Returns:
-            LiteLLM batch object
+            EmbRouter batch object
         """
 
     @abstractmethod

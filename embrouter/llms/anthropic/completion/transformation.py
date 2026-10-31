@@ -1,7 +1,7 @@
 """
 Translation logic for anthropic's `/v1/complete` endpoint
 
-Litellm provider slug: `anthropic_text/<model_name>`
+Embrouter provider slug: `anthropic_text/<model_name>`
 """
 
 import json
@@ -11,20 +11,20 @@ from typing import TYPE_CHECKING, Final
 
 import httpx
 
-import litellm
-from litellm.constants import DEFAULT_MAX_TOKENS
-from litellm.litellm_core_utils.prompt_templates.factory import (
+import embrouter
+from embrouter.constants import DEFAULT_MAX_TOKENS
+from embrouter.embrouter_core_utils.prompt_templates.factory import (
     custom_prompt,
     prompt_factory,
 )
-from litellm.llms.base_llm.base_model_iterator import BaseModelResponseIterator
-from litellm.llms.base_llm.chat.transformation import (
+from embrouter.llms.base_llm.base_model_iterator import BaseModelResponseIterator
+from embrouter.llms.base_llm.chat.transformation import (
     BaseConfig,
     BaseLLMException,
-    LiteLLMLoggingObj,
+    EmbRouterLoggingObj,
 )
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.utils import (
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.utils import (
     ChatCompletionToolCallChunk,
     ChatCompletionUsageBlock,
     GenericStreamingChunk,
@@ -33,7 +33,7 @@ from litellm.types.utils import (
 )
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
 
 
 class AnthropicTextError(BaseLLMException):
@@ -57,7 +57,7 @@ class AnthropicTextConfig(BaseConfig):
     to pass metadata to anthropic, it's {"user_id": "any-relevant-information"}
     """
 
-    max_tokens_to_sample: int | None = litellm.max_tokens  # anthropic requires a default
+    max_tokens_to_sample: int | None = embrouter.max_tokens  # anthropic requires a default
     stop_sequences: list | None = None
     temperature: int | None = None
     top_p: int | None = None
@@ -85,7 +85,7 @@ class AnthropicTextConfig(BaseConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
@@ -107,12 +107,12 @@ class AnthropicTextConfig(BaseConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         prompt: Final = self._get_anthropic_text_prompt_from_messages(messages=messages, model=model)
         ## Load Config
-        config: Final = litellm.AnthropicTextConfig.get_config()
+        config: Final = embrouter.AnthropicTextConfig.get_config()
         for k, v in config.items():
             if (
                 k not in optional_params
@@ -163,7 +163,7 @@ class AnthropicTextConfig(BaseConfig):
             if param == "stream" and value is True:
                 optional_params["stream"] = value
             if param == "stop" and (isinstance(value, str) or isinstance(value, list)):
-                _value = litellm.AnthropicConfig()._map_stop_sequences(value)
+                _value = embrouter.AnthropicConfig()._map_stop_sequences(value)
                 if _value is not None:
                     optional_params["stop_sequences"] = _value
             if param == "temperature":
@@ -180,11 +180,11 @@ class AnthropicTextConfig(BaseConfig):
         model: str,
         raw_response: httpx.Response,
         model_response: ModelResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         request_data: dict,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,
@@ -205,7 +205,7 @@ class AnthropicTextConfig(BaseConfig):
             model_response.choices[0].finish_reason = completion_response["stop_reason"]
 
         ## CALCULATING USAGE
-        tokenizer: Final = encoding if encoding is not None else litellm.encoding
+        tokenizer: Final = encoding if encoding is not None else embrouter.encoding
         prompt_tokens: Final = len(tokenizer.encode(prompt))  ##[TODO] use the anthropic tokenizer here
         completion_tokens: Final = len(
             tokenizer.encode(model_response["choices"][0]["message"].get("content", ""))
@@ -233,7 +233,7 @@ class AnthropicTextConfig(BaseConfig):
         return model == "claude-2" or model == "claude-instant-1"
 
     def _get_anthropic_text_prompt_from_messages(self, messages: list[AllMessageValues], model: str) -> str:
-        custom_prompt_dict: Final = litellm.custom_prompt_dict
+        custom_prompt_dict: Final = embrouter.custom_prompt_dict
         if model in custom_prompt_dict:
             # check if the model has a registered custom prompt
             model_prompt_details: Final = custom_prompt_dict[model]

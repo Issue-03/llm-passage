@@ -4,7 +4,7 @@ from typing import Final
 import pytest
 from pydantic import TypeAdapter
 
-from litellm.litellm_core_utils.initialize_dynamic_callback_params import (
+from embrouter.embrouter_core_utils.initialize_dynamic_callback_params import (
     inherit_message_logging_privacy,
     initialize_standard_callback_dynamic_params,
     iter_client_callback_metadata_dicts,
@@ -19,15 +19,15 @@ def test_iter_client_callback_metadata_dicts_covers_all_read_paths():
         iter_client_callback_metadata_dicts(
             {
                 "metadata": md,
-                "litellm_metadata": lm,
-                "litellm_params": {"metadata": lp_md},
+                "embrouter_metadata": lm,
+                "embrouter_params": {"metadata": lp_md},
             }
         )
     )
     assert slots == {
         "metadata": md,
-        "litellm_metadata": lm,
-        "litellm_params.metadata": lp_md,
+        "embrouter_metadata": lm,
+        "embrouter_params.metadata": lp_md,
     }
 
 
@@ -36,8 +36,8 @@ def test_iter_client_callback_metadata_dicts_skips_non_dict_slots():
         iter_client_callback_metadata_dicts(
             {
                 "metadata": "not-a-dict",
-                "litellm_metadata": None,
-                "litellm_params": {"metadata": []},
+                "embrouter_metadata": None,
+                "embrouter_params": {"metadata": []},
             }
         )
     )
@@ -47,8 +47,8 @@ def test_iter_client_callback_metadata_dicts_skips_non_dict_slots():
 def test_extractor_reads_turn_off_message_logging_from_every_slot():
     for kwargs in (
         {"metadata": {"turn_off_message_logging": True}},
-        {"litellm_metadata": {"turn_off_message_logging": True}},
-        {"litellm_params": {"metadata": {"turn_off_message_logging": True}}},
+        {"embrouter_metadata": {"turn_off_message_logging": True}},
+        {"embrouter_params": {"metadata": {"turn_off_message_logging": True}}},
     ):
         params = initialize_standard_callback_dynamic_params(kwargs)
         assert params.get("turn_off_message_logging") is True, kwargs
@@ -80,28 +80,28 @@ def test_resolves_plain_values_from_metadata():
     assert params.get("langfuse_host") == "https://test.langfuse.com"
 
 
-def test_litellm_params_metadata_overrides_metadata():
+def test_embrouter_params_metadata_overrides_metadata():
     kwargs = {
         "metadata": {
             "langfuse_public_key": "pk-meta",
         },
-        "litellm_params": {
+        "embrouter_params": {
             "metadata": {
-                "langfuse_public_key": "pk-litellm-params",
+                "langfuse_public_key": "pk-embrouter-params",
             }
         },
     }
 
     params = initialize_standard_callback_dynamic_params(kwargs)
 
-    assert params.get("langfuse_public_key") == "pk-litellm-params"
+    assert params.get("langfuse_public_key") == "pk-embrouter-params"
 
 
 def test_top_level_kwargs_overrides_metadata_slots():
     kwargs = {
         "langfuse_public_key": "from-top-level",
         "metadata": {"langfuse_public_key": "from-metadata"},
-        "litellm_params": {"metadata": {"langfuse_public_key": "from-litellm-params"}},
+        "embrouter_params": {"metadata": {"langfuse_public_key": "from-embrouter-params"}},
     }
     params = initialize_standard_callback_dynamic_params(kwargs)
     assert params.get("langfuse_public_key") == "from-top-level"
@@ -135,9 +135,9 @@ def test_env_reference_in_metadata_raises_with_guidance():
     assert "metadata" in message
 
 
-def test_gcs_bucket_name_in_litellm_params_metadata_is_ignored():
+def test_gcs_bucket_name_in_embrouter_params_metadata_is_ignored():
     kwargs = {
-        "litellm_params": {
+        "embrouter_params": {
             "metadata": {
                 "gcs_bucket_name": "os.environ/GCS_BUCKET",
             }
@@ -210,7 +210,7 @@ def test_newrelic_callback_params_are_not_extracted_from_request_kwargs():
     kwargs = {
         "newrelic_api_key": "caller-key",
         "metadata": {"newrelic_api_key": "caller-key-2", "newrelic_region": "eu"},
-        "litellm_params": {"metadata": {"newrelic_region": "eu"}},
+        "embrouter_params": {"metadata": {"newrelic_region": "eu"}},
     }
 
     params = initialize_standard_callback_dynamic_params(kwargs)
@@ -220,7 +220,7 @@ def test_newrelic_callback_params_are_not_extracted_from_request_kwargs():
 
 
 def test_newrelic_trusted_vars_overlay_reaches_standard_params():
-    from litellm.types.utils import TRUSTED_CALLBACK_VARS_FIELD
+    from embrouter.types.utils import TRUSTED_CALLBACK_VARS_FIELD
 
     kwargs = {
         # A caller-supplied copy must lose to the proxy-stamped trusted value.
@@ -243,7 +243,7 @@ def test_newrelic_trusted_vars_overlay_reaches_standard_params():
 def test_trusted_vars_overlay_uses_shared_parser_semantics():
     # The overlay rides get_trusted_callback_params, the same parser the
     # datadog handler consumes, so values are str()-coerced identically.
-    from litellm.types.utils import TRUSTED_CALLBACK_VARS_FIELD
+    from embrouter.types.utils import TRUSTED_CALLBACK_VARS_FIELD
 
     params = initialize_standard_callback_dynamic_params({TRUSTED_CALLBACK_VARS_FIELD: {"newrelic_api_key": 12345}})
 
@@ -253,7 +253,7 @@ def test_trusted_vars_overlay_uses_shared_parser_semantics():
 def test_validate_langfuse_environment_value():
     import pytest
 
-    from litellm.litellm_core_utils.initialize_dynamic_callback_params import (
+    from embrouter.embrouter_core_utils.initialize_dynamic_callback_params import (
         validate_langfuse_environment_value,
     )
 
@@ -267,7 +267,7 @@ def test_validate_langfuse_environment_value():
 
 def test_arize_sampling_rates_are_picked_up_from_metadata():
     kwargs = {
-        "litellm_params": {
+        "embrouter_params": {
             "metadata": {
                 "arize_success_sampling_rate": "0.5",
                 "arize_error_sampling_rate": "0.1",

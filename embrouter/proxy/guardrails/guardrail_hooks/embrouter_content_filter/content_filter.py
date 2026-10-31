@@ -1,5 +1,5 @@
 """
-Content Filter Guardrail for LiteLLM.
+Content Filter Guardrail for EmbRouter.
 
 This guardrail provides regex pattern matching and keyword filtering
 to detect and block/mask sensitive content.
@@ -19,16 +19,16 @@ from typing import TYPE_CHECKING, Any, Final, Literal, Optional, TypedDict, cast
 import yaml
 from fastapi import HTTPException
 
-from litellm import Router
-from litellm._logging import verbose_proxy_logger
-from litellm.constants import (
+from embrouter import Router
+from embrouter._logging import verbose_proxy_logger
+from embrouter.constants import (
     CONTENT_FILTER_STREAMING_HOLDBACK_CHARS,
     CONTENT_FILTER_STREAMING_SCAN_CONTEXT_CHARS,
     DEFAULT_MAX_RECURSE_DEPTH,
 )
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.types.utils import (
+from embrouter.integrations.custom_guardrail import CustomGuardrail
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.types.utils import (
     CallTypes,
     Function,
     GenericGuardrailAPIInputs,
@@ -39,16 +39,16 @@ from litellm.types.utils import (
 )
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
 
-from litellm.types.guardrails import (
+from embrouter.types.guardrails import (
     BlockedWord,
     ContentFilterAction,
     ContentFilterPattern,
     GuardrailEventHooks,
     Mode,
 )
-from litellm.types.proxy.guardrails.guardrail_hooks.litellm_content_filter import (
+from embrouter.types.proxy.guardrails.guardrail_hooks.embrouter_content_filter import (
     BlockedWordDetection,
     CategoryKeywordDetection,
     CompetitorIntentDetection,
@@ -242,7 +242,7 @@ class ContentFilterGuardrail(CustomGuardrail):
             **kwargs,
         )
 
-        self.guardrail_provider = "litellm_content_filter"
+        self.guardrail_provider = "embrouter_content_filter"
         self.config_guardrail_id = guardrail_id
         self.config_policy_template = policy_template
         self.pattern_redaction_format = pattern_redaction_format or self.PATTERN_REDACTION_FORMAT
@@ -384,7 +384,7 @@ class ContentFilterGuardrail(CustomGuardrail):
         Resolve a category file path that may be relative.
 
         Paths in policy templates (e.g. category_file) are often stored as
-        relative paths like "litellm/proxy/.../policy_templates/file.yaml".
+        relative paths like "embrouter/proxy/.../policy_templates/file.yaml".
         These only work when the CWD is the project root. In production
         (Docker, installed packages, etc.) the CWD is different, so the
         file isn't found.
@@ -398,7 +398,7 @@ class ContentFilterGuardrail(CustomGuardrail):
         The directory jail can be disabled for deployments that legitimately
         store category files outside the package (e.g. mounted volumes) by
         setting the environment variable
-        ``LITELLM_CONTENT_FILTER_ALLOW_EXTERNAL_PATHS=true``.  Use only in
+        ``EMBROUTER_CONTENT_FILTER_ALLOW_EXTERNAL_PATHS=true``.  Use only in
         trusted environments where the proxy configuration cannot be influenced
         by untrusted input.
 
@@ -411,17 +411,17 @@ class ContentFilterGuardrail(CustomGuardrail):
 
         Raises:
             ValueError: If the resolved path escapes the module directory
-                and ``LITELLM_CONTENT_FILTER_ALLOW_EXTERNAL_PATHS`` is not set.
+                and ``EMBROUTER_CONTENT_FILTER_ALLOW_EXTERNAL_PATHS`` is not set.
         """
         module_dir: Final = os.path.dirname(__file__)
-        allow_external: Final = os.environ.get("LITELLM_CONTENT_FILTER_ALLOW_EXTERNAL_PATHS", "").lower() == "true"
+        allow_external: Final = os.environ.get("EMBROUTER_CONTENT_FILTER_ALLOW_EXTERNAL_PATHS", "").lower() == "true"
 
         if os.path.isabs(file_path) or os.path.exists(file_path):
             if not allow_external:
                 self._assert_within_categories_dir(file_path, module_dir)
             else:
                 verbose_proxy_logger.warning(
-                    "LITELLM_CONTENT_FILTER_ALLOW_EXTERNAL_PATHS is set — "
+                    "EMBROUTER_CONTENT_FILTER_ALLOW_EXTERNAL_PATHS is set — "
                     "skipping directory jail for category_file '%s'",
                     file_path,
                 )
@@ -1824,7 +1824,7 @@ class ContentFilterGuardrail(CustomGuardrail):
         self,
         request_data: dict,
         detections: list[ContentFilterDetection],
-        logging_obj: Optional["LiteLLMLoggingObj"] = None,
+        logging_obj: Optional["EmbRouterLoggingObj"] = None,
     ) -> None:
         if not self._event_hook_is_event_type(GuardrailEventHooks.pre_mcp_call):
             return
@@ -1894,7 +1894,7 @@ class ContentFilterGuardrail(CustomGuardrail):
         inputs: "GenericGuardrailAPIInputs",
         request_data: dict,
         input_type: Literal["request", "response"],
-        logging_obj: Optional["LiteLLMLoggingObj"] = None,
+        logging_obj: Optional["EmbRouterLoggingObj"] = None,
     ) -> "GenericGuardrailAPIInputs":
         """
         Apply content filtering guardrail to a batch of texts.
@@ -2172,11 +2172,11 @@ class ContentFilterGuardrail(CustomGuardrail):
 
     @staticmethod
     def get_config_model():
-        from litellm.types.proxy.guardrails.guardrail_hooks.litellm_content_filter import (
-            LitellmContentFilterGuardrailConfigModel,
+        from embrouter.types.proxy.guardrails.guardrail_hooks.embrouter_content_filter import (
+            EmbrouterContentFilterGuardrailConfigModel,
         )
 
-        return LitellmContentFilterGuardrailConfigModel
+        return EmbrouterContentFilterGuardrailConfigModel
 
     @classmethod
     def get_supported_event_hooks(cls) -> list[GuardrailEventHooks]:

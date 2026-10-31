@@ -29,7 +29,7 @@ describe("MyUserTab", () => {
         role: "admin",
         spend: 12.5,
         total_spend: 30,
-        litellm_budget_table: {
+        embrouter_budget_table: {
           max_budget: 100,
           tpm_limit: 1000,
           rpm_limit: 10,

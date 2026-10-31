@@ -1,12 +1,12 @@
 model_list:
   - model_name: claude-3-5-sonnet
-    litellm_params:
+    embrouter_params:
       model: anthropic/claude-3-5-sonnet-20241022
       api_key: os.environ/ANTHROPIC_API_KEY
 
 guardrails:
   - guardrail_name: "tool-permission-guardrail"
-    litellm_params:
+    embrouter_params:
       guardrail: tool_permission
       mode: "post_call"
       default_on: true  # Apply to all requests by default
@@ -29,9 +29,9 @@ guardrails:
 
 # Optional: Configure general settings
 general_settings:
-  master_key: os.environ/LITELLM_MASTER_KEY
+  master_key: os.environ/EMBROUTER_MASTER_KEY
   
 # Optional: Add logging configuration
-litellm_settings:
+embrouter_settings:
   success_callback: ["langfuse"]
   failure_callback: ["langfuse"]

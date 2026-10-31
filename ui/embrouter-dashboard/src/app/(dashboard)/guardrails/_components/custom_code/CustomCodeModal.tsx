@@ -173,7 +173,7 @@ const MODE_OPTION_BY_VALUE: Record<string, ModeOption> = Object.fromEntries(
 export interface EditGuardrailData {
   guardrail_id: string;
   guardrail_name: string;
-  litellm_params: {
+  embrouter_params: {
     mode?: string | string[];
     default_on?: boolean;
     custom_code?: string;
@@ -318,9 +318,9 @@ const CustomCodeModal: React.FC<CustomCodeModalProps> = ({ visible, onClose, onS
       if (editData) {
         // Edit mode: populate with existing data
         setGuardrailName(editData.guardrail_name || "");
-        setMode(normalizeMode(editData.litellm_params?.mode));
-        setDefaultOn(editData.litellm_params?.default_on || false);
-        setCode(editData.litellm_params?.custom_code || CODE_TEMPLATES.empty.code);
+        setMode(normalizeMode(editData.embrouter_params?.mode));
+        setDefaultOn(editData.embrouter_params?.default_on || false);
+        setCode(editData.embrouter_params?.custom_code || CODE_TEMPLATES.empty.code);
         setSelectedTemplate(""); // No template selected in edit mode
       } else {
         // Create mode: reset to defaults
@@ -381,7 +381,7 @@ const CustomCodeModal: React.FC<CustomCodeModalProps> = ({ visible, onClose, onS
       if (isEditMode && editData) {
         // Update existing guardrail
         const updateData: any = {
-          litellm_params: {
+          embrouter_params: {
             custom_code: code,
           },
         };
@@ -390,13 +390,13 @@ const CustomCodeModal: React.FC<CustomCodeModalProps> = ({ visible, onClose, onS
         if (guardrailName !== editData.guardrail_name) {
           updateData.guardrail_name = guardrailName;
         }
-        const existingMode = normalizeMode(editData.litellm_params?.mode);
+        const existingMode = normalizeMode(editData.embrouter_params?.mode);
         const modeChanged = mode.length !== existingMode.length || mode.some((m, i) => m !== existingMode[i]);
         if (modeChanged) {
-          updateData.litellm_params.mode = mode;
+          updateData.embrouter_params.mode = mode;
         }
-        if (defaultOn !== editData.litellm_params?.default_on) {
-          updateData.litellm_params.default_on = defaultOn;
+        if (defaultOn !== editData.embrouter_params?.default_on) {
+          updateData.embrouter_params.default_on = defaultOn;
         }
 
         await updateGuardrailCall(accessToken, editData.guardrail_id, updateData);
@@ -405,7 +405,7 @@ const CustomCodeModal: React.FC<CustomCodeModalProps> = ({ visible, onClose, onS
         // Create new guardrail
         const guardrailData = {
           guardrail_name: guardrailName,
-          litellm_params: {
+          embrouter_params: {
             guardrail: "custom_code",
             mode: mode,
             default_on: defaultOn,

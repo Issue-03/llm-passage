@@ -1,5 +1,5 @@
 -- CreateTable
-CREATE TABLE IF NOT EXISTS "LiteLLM_DailyUserSpend" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_DailyUserSpend" (
     "id" TEXT NOT NULL,
     "user_id" TEXT NOT NULL,
     "date" TEXT NOT NULL,
@@ -13,21 +13,21 @@ CREATE TABLE IF NOT EXISTS "LiteLLM_DailyUserSpend" (
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
 
-    CONSTRAINT "LiteLLM_DailyUserSpend_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "EmbRouter_DailyUserSpend_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "LiteLLM_DailyUserSpend_date_idx" ON "LiteLLM_DailyUserSpend"("date");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyUserSpend_date_idx" ON "EmbRouter_DailyUserSpend"("date");
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "LiteLLM_DailyUserSpend_user_id_idx" ON "LiteLLM_DailyUserSpend"("user_id");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyUserSpend_user_id_idx" ON "EmbRouter_DailyUserSpend"("user_id");
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "LiteLLM_DailyUserSpend_api_key_idx" ON "LiteLLM_DailyUserSpend"("api_key");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyUserSpend_api_key_idx" ON "EmbRouter_DailyUserSpend"("api_key");
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "LiteLLM_DailyUserSpend_model_idx" ON "LiteLLM_DailyUserSpend"("model");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyUserSpend_model_idx" ON "EmbRouter_DailyUserSpend"("model");
 
 -- CreateIndex
-CREATE UNIQUE INDEX IF NOT EXISTS "LiteLLM_DailyUserSpend_user_id_date_api_key_model_custom_ll_key" ON "LiteLLM_DailyUserSpend"("user_id", "date", "api_key", "model", "custom_llm_provider");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_DailyUserSpend_user_id_date_api_key_model_custom_ll_key" ON "EmbRouter_DailyUserSpend"("user_id", "date", "api_key", "model", "custom_llm_provider");
 

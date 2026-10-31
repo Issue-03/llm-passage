@@ -1,4 +1,4 @@
-"""Contract machinery shared by every LiteLLM-defined list route, on any surface."""
+"""Contract machinery shared by every EmbRouter-defined list route, on any surface."""
 
 from collections.abc import Sequence
 from typing import Final
@@ -9,8 +9,8 @@ from fastapi.dependencies.utils import get_flat_params
 from fastapi.params import ParamTypes
 from fastapi.responses import JSONResponse
 
-from litellm.proxy.common_utils.validation_error_body import ValidationErrorDetail
-from litellm.types.proxy.management_endpoints.management_v1 import (
+from embrouter.proxy.common_utils.validation_error_body import ValidationErrorDetail
+from embrouter.types.proxy.management_endpoints.management_v1 import (
     ListLinks,
     PageLinks,
     ProblemDetail,
@@ -20,7 +20,7 @@ PROBLEM_CONTENT_TYPE: Final = "application/problem+json"
 # A URN, not an https URL: RFC 9457 only asks that `type` identify the problem
 # type, and an https URI promises documentation at that address. Switch to an
 # https base only when pages actually exist to serve.
-PROBLEM_TYPE_BASE: Final = "urn:litellm:error:"
+PROBLEM_TYPE_BASE: Final = "urn:embrouter:error:"
 
 
 class ManagementProblem(Exception):

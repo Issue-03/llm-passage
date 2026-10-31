@@ -12,7 +12,7 @@ into the response output items that carry ``encrypted_content``. Two encoding st
 
 1. **Items with IDs**: Encode model_id into the item ID itself (e.g., ``encitem_...``)
 2. **Items without IDs** (Codex): Wrap the encrypted_content with model_id metadata
-   (e.g., ``litellm_enc:{base64_metadata};{original_encrypted_content}``)
+   (e.g., ``embrouter_enc:{base64_metadata};{original_encrypted_content}``)
 
 The encoded model_id is decoded on the next request so the router can pin to the correct
 deployment without any cache lookup.
@@ -40,20 +40,20 @@ from collections.abc import Iterator, Mapping, Sequence
 from functools import cache
 from typing import TYPE_CHECKING, Final, Optional, cast
 
-from litellm._logging import verbose_router_logger
-from litellm.integrations.custom_logger import CustomLogger, Span
-from litellm.litellm_core_utils.credential_accessor import CredentialAccessor
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+from embrouter._logging import verbose_router_logger
+from embrouter.integrations.custom_logger import CustomLogger, Span
+from embrouter.embrouter_core_utils.credential_accessor import CredentialAccessor
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
     anthropic_content_lists,
     encrypted_content_of_block,
     strip_encrypted_reasoning_from_messages,
 )
-from litellm.responses.utils import ResponsesAPIRequestUtils
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.router import Deployment
+from embrouter.responses.utils import ResponsesAPIRequestUtils
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.router import Deployment
 
 if TYPE_CHECKING:
-    from litellm.router import Router
+    from embrouter.router import Router
 
 
 class EncryptedContentAffinityCheck(CustomLogger):
@@ -61,7 +61,7 @@ class EncryptedContentAffinityCheck(CustomLogger):
     Routes follow-up Responses API requests to the deployment that produced
     the encrypted output items they reference.
 
-    The ``model_id`` is decoded directly from the litellm-encoded item IDs –
+    The ``model_id`` is decoded directly from the embrouter-encoded item IDs –
     no caching or TTL management needed.
 
     Wired via ``Router(optional_pre_call_checks=["encrypted_content_affinity"])`` or
@@ -101,12 +101,12 @@ class EncryptedContentAffinityCheck(CustomLogger):
     @staticmethod
     def _extract_model_id_from_input(request_input: object) -> str | None:
         """
-        Scan ``input`` items for litellm-encoded encrypted-content markers and
+        Scan ``input`` items for embrouter-encoded encrypted-content markers and
         return the ``model_id`` embedded in the first one found.
 
         Checks both:
         1. Encoded item IDs (encitem_...) - for clients that send IDs
-        2. Wrapped encrypted_content (litellm_enc:...) - for clients like Codex that don't send IDs
+        2. Wrapped encrypted_content (embrouter_enc:...) - for clients like Codex that don't send IDs
 
         ``input`` can be:
         - a plain string  -> no encoded markers
@@ -190,7 +190,7 @@ class EncryptedContentAffinityCheck(CustomLogger):
 
     @staticmethod
     def _encryption_boundary_key(
-        litellm_params: object,
+        embrouter_params: object,
     ) -> tuple[object, object] | None:
         """
         ``(api_base, api_key)`` identifies an upstream encryption boundary.
@@ -199,18 +199,18 @@ class EncryptedContentAffinityCheck(CustomLogger):
 
         Accepts any object exposing dict-style ``.get(key, default)``: plain
         dicts (the common case in ``healthy_deployments``) as well as
-        ``LiteLLM_Params``-style Pydantic instances, which define a custom
+        ``EmbRouter_Params``-style Pydantic instances, which define a custom
         ``.get()``. A stricter ``isinstance(dict)`` guard would silently drop
         the latter from boundary matching and fall back to the full pool —
         i.e. trigger the exact ``invalid_encrypted_content`` failure this
         check exists to prevent.
         """
-        getter: Final = getattr(litellm_params, "get", None)
+        getter: Final = getattr(embrouter_params, "get", None)
         if not callable(getter):
             return None
         api_base: Final = getter("api_base")
         api_key: Final = getter("api_key")
-        credential_name: Final = getter("litellm_credential_name")
+        credential_name: Final = getter("embrouter_credential_name")
         credential_values: Final[Mapping[str, object] | None] = (
             CredentialAccessor.get_credential_values(credential_name)
             if isinstance(credential_name, str) and credential_name
@@ -245,11 +245,11 @@ class EncryptedContentAffinityCheck(CustomLogger):
         originating: Final = self.router.get_deployment(model_id=model_id)
         if originating is None:
             return [], None
-        boundary: Final = self._encryption_boundary_key(originating.litellm_params.model_dump(exclude_none=True))
+        boundary: Final = self._encryption_boundary_key(originating.embrouter_params.model_dump(exclude_none=True))
         if boundary is None:
             return [], originating
         matches: Final = [
-            d for d in healthy_deployments if self._encryption_boundary_key(d.get("litellm_params", {})) == boundary
+            d for d in healthy_deployments if self._encryption_boundary_key(d.get("embrouter_params", {})) == boundary
         ]
         return matches, originating
 
@@ -267,7 +267,7 @@ class EncryptedContentAffinityCheck(CustomLogger):
         target_boundaries: Final = frozenset(
             boundary
             for target in target_deployments
-            if (boundary := self._encryption_boundary_key(target.get("litellm_params"))) is not None
+            if (boundary := self._encryption_boundary_key(target.get("embrouter_params"))) is not None
         )
 
         @cache
@@ -278,7 +278,7 @@ class EncryptedContentAffinityCheck(CustomLogger):
                 return False
             origin: Final = self.router.get_deployment(model_id=origin_model_id)
             origin_boundary: Final = (
-                self._encryption_boundary_key(origin.litellm_params.model_dump(exclude_none=True))
+                self._encryption_boundary_key(origin.embrouter_params.model_dump(exclude_none=True))
                 if origin is not None
                 else None
             )
@@ -310,7 +310,7 @@ class EncryptedContentAffinityCheck(CustomLogger):
         parent_otel_span: Span | None = None,
     ) -> list[dict]:
         """
-        If the request ``input`` contains litellm-encoded item IDs, or its Anthropic
+        If the request ``input`` contains embrouter-encoded item IDs, or its Anthropic
         ``messages`` replay a bridge-tagged thinking block, decode the embedded
         ``model_id`` and pin the request to that deployment. When the origin cannot
         serve this turn and no encryption-boundary peer is configured (it is
@@ -326,13 +326,13 @@ class EncryptedContentAffinityCheck(CustomLogger):
 
         # Signal to the response post-processor that encrypted item IDs should be
         # encoded in the output of this request.  Only set the flag when
-        # litellm_metadata already exists (Responses API path).  Using
-        # setdefault would create an empty litellm_metadata dict for chat
+        # embrouter_metadata already exists (Responses API path).  Using
+        # setdefault would create an empty embrouter_metadata dict for chat
         # completions / embeddings, which breaks tag-based routing because
-        # _get_metadata_variable_name_from_kwargs would pick "litellm_metadata"
+        # _get_metadata_variable_name_from_kwargs would pick "embrouter_metadata"
         # over "metadata" where tags are actually stored.
-        if "litellm_metadata" in request_kwargs:
-            request_kwargs["litellm_metadata"]["encrypted_content_affinity_enabled"] = True
+        if "embrouter_metadata" in request_kwargs:
+            request_kwargs["embrouter_metadata"]["encrypted_content_affinity_enabled"] = True
 
         request_input: Final = request_kwargs.get("input")
         anthropic_messages: Final = messages or request_kwargs.get("messages")

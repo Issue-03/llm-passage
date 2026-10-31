@@ -12,13 +12,13 @@ import httpx
 import pytest
 from unittest.mock import Mock, patch
 
-from litellm.llms.anthropic.files.transformation import (
+from embrouter.llms.anthropic.files.transformation import (
     AnthropicFilesConfig,
     ANTHROPIC_FILES_API_BASE,
     ANTHROPIC_FILES_BETA_HEADER,
 )
-from litellm.types.llms.openai import OpenAIFileObject
-from litellm.types.utils import LlmProviders
+from embrouter.types.llms.openai import OpenAIFileObject
+from embrouter.types.utils import LlmProviders
 
 
 class TestAnthropicFilesConfig:
@@ -36,7 +36,7 @@ class TestAnthropicFilesConfig:
             api_key="test-key",
             model="",
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
         )
         assert url == f"{ANTHROPIC_FILES_API_BASE}/v1/files"
 
@@ -46,7 +46,7 @@ class TestAnthropicFilesConfig:
             api_key="test-key",
             model="",
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
         )
         assert url == "https://custom.api.com/v1/files"
 
@@ -56,7 +56,7 @@ class TestAnthropicFilesConfig:
             api_key="test-key",
             model="",
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
         )
         assert url == "https://custom.api.com/v1/files"
 
@@ -67,7 +67,7 @@ class TestAnthropicFilesConfig:
             model="",
             messages=[],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             api_key="sk-ant-test-key",
         )
         assert result["x-api-key"] == "sk-ant-test-key"
@@ -76,7 +76,7 @@ class TestAnthropicFilesConfig:
 
     @patch.dict("os.environ", {}, clear=True)
     @patch(
-        "litellm.llms.anthropic.common_utils.AnthropicModelInfo.get_api_key",
+        "embrouter.llms.anthropic.common_utils.AnthropicModelInfo.get_api_key",
         return_value=None,
     )
     def test_validate_environment_missing_api_key(self, mock_get_key):
@@ -86,7 +86,7 @@ class TestAnthropicFilesConfig:
                 model="",
                 messages=[],
                 optional_params={},
-                litellm_params={},
+                embrouter_params={},
                 api_key=None,
             )
 
@@ -105,7 +105,7 @@ class TestAnthropicFilesConfig:
                 "purpose": "messages",
             },
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
         )
 
         assert "file" in result
@@ -123,7 +123,7 @@ class TestAnthropicFilesConfig:
                 model="",
                 create_file_data={"purpose": "messages"},
                 optional_params={},
-                litellm_params={},
+                embrouter_params={},
             )
 
     def test_transform_create_file_request_default_purpose(self):
@@ -132,7 +132,7 @@ class TestAnthropicFilesConfig:
             model="",
             create_file_data={"file": file_tuple},
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
         )
         assert result["purpose"] == (None, "messages")
 
@@ -151,7 +151,7 @@ class TestAnthropicFilesConfig:
             model=None,
             raw_response=mock_response,
             logging_obj=Mock(),
-            litellm_params={},
+            embrouter_params={},
         )
 
         assert isinstance(result, OpenAIFileObject)
@@ -166,7 +166,7 @@ class TestAnthropicFilesConfig:
         url, params = self.config.transform_retrieve_file_request(
             file_id="file-abc123",
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
         )
         assert url == f"{ANTHROPIC_FILES_API_BASE}/v1/files/file-abc123"
         assert params == {}
@@ -175,7 +175,7 @@ class TestAnthropicFilesConfig:
         url, params = self.config.transform_retrieve_file_request(
             file_id="file-abc123",
             optional_params={},
-            litellm_params={"api_base": "https://custom.api.com"},
+            embrouter_params={"api_base": "https://custom.api.com"},
         )
         assert url == "https://custom.api.com/v1/files/file-abc123"
         assert params == {}
@@ -184,7 +184,7 @@ class TestAnthropicFilesConfig:
         url, params = self.config.transform_retrieve_file_request(
             file_id="../../v1/messages/batches?limit=1#frag",
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
         )
 
         assert (
@@ -207,7 +207,7 @@ class TestAnthropicFilesConfig:
         result = self.config.transform_retrieve_file_response(
             raw_response=mock_response,
             logging_obj=Mock(),
-            litellm_params={},
+            embrouter_params={},
         )
 
         assert isinstance(result, OpenAIFileObject)
@@ -218,7 +218,7 @@ class TestAnthropicFilesConfig:
         url, params = self.config.transform_delete_file_request(
             file_id="file-abc123",
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
         )
         assert url == f"{ANTHROPIC_FILES_API_BASE}/v1/files/file-abc123"
         assert params == {}
@@ -233,7 +233,7 @@ class TestAnthropicFilesConfig:
         result = self.config.transform_delete_file_response(
             raw_response=mock_response,
             logging_obj=Mock(),
-            litellm_params={},
+            embrouter_params={},
         )
 
         assert result.id == "file-abc123"
@@ -244,7 +244,7 @@ class TestAnthropicFilesConfig:
         url, params = self.config.transform_list_files_request(
             purpose=None,
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
         )
         assert url == f"{ANTHROPIC_FILES_API_BASE}/v1/files"
         assert params == {}
@@ -253,7 +253,7 @@ class TestAnthropicFilesConfig:
         url, params = self.config.transform_list_files_request(
             purpose="messages",
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
         )
         assert url == f"{ANTHROPIC_FILES_API_BASE}/v1/files"
         assert params == {"purpose": "messages"}
@@ -281,7 +281,7 @@ class TestAnthropicFilesConfig:
         result = self.config.transform_list_files_response(
             raw_response=mock_response,
             logging_obj=Mock(),
-            litellm_params={},
+            embrouter_params={},
         )
 
         assert len(result) == 2
@@ -296,7 +296,7 @@ class TestAnthropicFilesConfig:
         result = self.config.transform_list_files_response(
             raw_response=mock_response,
             logging_obj=Mock(),
-            litellm_params={},
+            embrouter_params={},
         )
         assert result == []
 
@@ -304,7 +304,7 @@ class TestAnthropicFilesConfig:
         url, params = self.config.transform_file_content_request(
             file_content_request={"file_id": "file-abc123"},
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
         )
         assert url == f"{ANTHROPIC_FILES_API_BASE}/v1/files/file-abc123/content"
         assert params == {}
@@ -321,7 +321,7 @@ class TestAnthropicFilesConfig:
         url, params = self.config.transform_file_content_request(
             file_content_request={"file_id": "msgbatch_01WA5hdsa2Xx8w4zyPjV1frs"},
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
         )
         assert url == f"{ANTHROPIC_FILES_API_BASE}/v1/messages/batches/msgbatch_01WA5hdsa2Xx8w4zyPjV1frs/results"
         assert params == {}
@@ -330,7 +330,7 @@ class TestAnthropicFilesConfig:
         url, _ = self.config.transform_file_content_request(
             file_content_request={"file_id": "msgbatch_abc"},
             optional_params={},
-            litellm_params={"api_base": "https://custom.example.com/"},
+            embrouter_params={"api_base": "https://custom.example.com/"},
         )
         assert url == "https://custom.example.com/v1/messages/batches/msgbatch_abc/results"
 
@@ -339,7 +339,7 @@ class TestAnthropicFilesConfig:
             self.config.transform_file_content_request(
                 file_content_request={"file_id": ".."},
                 optional_params={},
-                litellm_params={},
+                embrouter_params={},
             )
 
     def test_transform_file_content_response(self):
@@ -347,7 +347,7 @@ class TestAnthropicFilesConfig:
         result = self.config.transform_file_content_response(
             raw_response=mock_response,
             logging_obj=Mock(),
-            litellm_params={},
+            embrouter_params={},
         )
         assert result.response == mock_response
 
@@ -415,7 +415,7 @@ class TestProviderConfigRegistration:
     """Test that AnthropicFilesConfig is properly registered."""
 
     def test_provider_config_returns_anthropic_files_config(self):
-        from litellm.utils import ProviderConfigManager
+        from embrouter.utils import ProviderConfigManager
 
         config = ProviderConfigManager.get_provider_files_config(
             model="",

@@ -6,28 +6,28 @@ from typing import TYPE_CHECKING, Any, Final
 import httpx
 from typing_extensions import ReadOnly, TypedDict
 
-from litellm._logging import verbose_logger
-from litellm.constants import (
+from embrouter._logging import verbose_logger
+from embrouter.constants import (
     RUNWAYML_DEFAULT_API_VERSION,
     RUNWAYML_POLLING_TIMEOUT,
 )
-from litellm.llms.base_llm.image_generation.transformation import (
+from embrouter.llms.base_llm.image_generation.transformation import (
     BaseImageGenerationConfig,
 )
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.openai import (
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.openai import (
     AllMessageValues,
     OpenAIImageGenerationOptionalParams,
 )
-from litellm.types.utils import ImageObject, ImageResponse
+from embrouter.types.utils import ImageObject, ImageResponse
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 
 class _RunwayMLTask(TypedDict, total=False):
@@ -54,7 +54,7 @@ class RunwayMLImageGenerationConfig(BaseImageGenerationConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         """
@@ -75,7 +75,7 @@ class RunwayMLImageGenerationConfig(BaseImageGenerationConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
@@ -220,7 +220,7 @@ class RunwayMLImageGenerationConfig(BaseImageGenerationConfig):
         Returns:
             Final response with completed task
         """
-        from litellm.llms.custom_httpx.http_handler import _get_httpx_client
+        from embrouter.llms.custom_httpx.http_handler import _get_httpx_client
 
         client: Final = _get_httpx_client()
         start_time: Final = time.time()
@@ -268,10 +268,10 @@ class RunwayMLImageGenerationConfig(BaseImageGenerationConfig):
         Returns:
             Final response with completed task
         """
-        import litellm
-        from litellm.llms.custom_httpx.http_handler import get_async_httpx_client
+        import embrouter
+        from embrouter.llms.custom_httpx.http_handler import get_async_httpx_client
 
-        client: Final = get_async_httpx_client(llm_provider=litellm.LlmProviders.RUNWAYML)
+        client: Final = get_async_httpx_client(llm_provider=embrouter.LlmProviders.RUNWAYML)
         start_time: Final = time.time()
 
         # Build task status URL
@@ -303,16 +303,16 @@ class RunwayMLImageGenerationConfig(BaseImageGenerationConfig):
         model: str,
         raw_response: httpx.Response,
         model_response: ImageResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         request_data: dict,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,
     ) -> ImageResponse:
         """
-        Transform the image generation response to the litellm image response.
+        Transform the image generation response to the embrouter image response.
 
         RunwayML returns a task immediately with status PENDING/RUNNING.
         We need to poll the task until it completes (status SUCCEEDED).
@@ -378,16 +378,16 @@ class RunwayMLImageGenerationConfig(BaseImageGenerationConfig):
         model: str,
         raw_response: httpx.Response,
         model_response: ImageResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         request_data: dict,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,
     ) -> ImageResponse:
         """
-        Async transform the image generation response to the litellm image response.
+        Async transform the image generation response to the embrouter image response.
 
         RunwayML returns a task immediately with status PENDING/RUNNING.
         We need to poll the task until it completes (status SUCCEEDED) using async polling.
@@ -481,7 +481,7 @@ class RunwayMLImageGenerationConfig(BaseImageGenerationConfig):
         model: str,
         prompt: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         """

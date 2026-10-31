@@ -4,7 +4,7 @@ from typing import Final
 
 from pydantic import TypeAdapter, ValidationError
 
-from litellm.utils import get_model_info
+from embrouter.utils import get_model_info
 
 PARALLEL_AI_DEFAULT_RESULTS: Final = 10
 PARALLEL_AI_ADDITIONAL_RESULT_COST: Final = 0.001

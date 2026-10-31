@@ -21,23 +21,23 @@ from pydantic import (
 )
 from typing_extensions import NotRequired, ReadOnly, Required, TypedDict
 
-from litellm._uuid import uuid
-from litellm.constants import DEFAULT_STAGGER_WINDOW_SECONDS, MCP_STDIO_ALLOWED_COMMANDS
-from litellm.litellm_core_utils.initialize_dynamic_callback_params import (
+from embrouter._uuid import uuid
+from embrouter.constants import DEFAULT_STAGGER_WINDOW_SECONDS, MCP_STDIO_ALLOWED_COMMANDS
+from embrouter.embrouter_core_utils.initialize_dynamic_callback_params import (
     validate_langfuse_environment_value,
     validate_langfuse_span_scope_value,
     validate_no_callback_env_reference,
 )
-from litellm.types.agents import AgentCaller, AgentResponse
-from litellm.types.integrations.compression_interception import (
+from embrouter.types.agents import AgentCaller, AgentResponse
+from embrouter.types.integrations.compression_interception import (
     CompressionSavingsMetadata,
 )
-from litellm.types.integrations.slack_alerting import AlertType
-from litellm.types.llms.openai import (
+from embrouter.types.integrations.slack_alerting import AlertType
+from embrouter.types.llms.openai import (
     AllMessageValues,
     ResponsesAPIResponse,
 )
-from litellm.types.mcp import (
+from embrouter.types.mcp import (
     MCPAdvertisedVersions,
     MCPAllowedClient,
     MCPAuth,
@@ -46,19 +46,19 @@ from litellm.types.mcp import (
     MCPTransport,
     MCPTransportType,
 )
-from litellm.types.mcp_server.mcp_server_manager import MCPInfo
-from litellm.types.proxy.agent_identity import ManagedAgentContext
-from litellm.types.proxy.carried_budget_state import (
+from embrouter.types.mcp_server.mcp_server_manager import MCPInfo
+from embrouter.types.proxy.agent_identity import ManagedAgentContext
+from embrouter.types.proxy.carried_budget_state import (
     OrgBudgetSnapshot,
     TeamBudgetSnapshot,
     UserBudgetSnapshot,
 )
-from litellm.types.proxy.control_plane_endpoints import WorkerRegistryEntry
-from litellm.types.proxy.spend_capture_rate import SpendCaptureRateCheckSettings
-from litellm.types.router import RouterErrors, UpdateRouterConfig
-from litellm.types.router_weights import validate_router_settings_dict
-from litellm.types.secret_managers.main import KeyManagementSystem
-from litellm.types.utils import (
+from embrouter.types.proxy.control_plane_endpoints import WorkerRegistryEntry
+from embrouter.types.proxy.spend_capture_rate import SpendCaptureRateCheckSettings
+from embrouter.types.router import RouterErrors, UpdateRouterConfig
+from embrouter.types.router_weights import validate_router_settings_dict
+from embrouter.types.secret_managers.main import KeyManagementSystem
+from embrouter.types.utils import (
     AzureSpillover,
     CallTypes,
     CostBreakdown,
@@ -66,7 +66,7 @@ from litellm.types.utils import (
     GenericBudgetConfigType,
     ImageResponse,
     InternalCallOrigin,
-    LiteLLMPydanticObjectBase,
+    EmbRouterPydanticObjectBase,
     ModelResponse,
     ProviderField,
     StandardCallbackDynamicParams,
@@ -81,7 +81,7 @@ from litellm.types.utils import (
     TextCompletionResponse,
     TranscriptionResponse,
 )
-from litellm.types.videos.main import VideoObject
+from embrouter.types.videos.main import VideoObject
 
 from .types_utils.utils import get_instance_fn, validate_custom_validate_return_type
 
@@ -136,14 +136,14 @@ class SupportedDBObjectType(str, enum.Enum):
         return str(self.value)
 
 
-class LiteLLMTeamRoles(enum.Enum):
+class EmbRouterTeamRoles(enum.Enum):
     # team admin
     TEAM_ADMIN = "admin"
     # team member
     TEAM_MEMBER = "user"
 
 
-class LitellmUserRoles(str, enum.Enum):
+class EmbrouterUserRoles(str, enum.Enum):
     """
     Admin Roles:
     PROXY_ADMIN: admin over the platform
@@ -193,7 +193,7 @@ class LitellmUserRoles(str, enum.Enum):
         Descriptions for the enum values
         """
         descriptions: Final = {
-            "proxy_admin": "admin over litellm proxy, has all permissions",
+            "proxy_admin": "admin over embrouter proxy, has all permissions",
             "proxy_admin_viewer": "view all keys, view all spend",
             "internal_user": "view/create/delete their own keys, view their own spend",
             "internal_user_viewer": "view their own keys, view their own spend",
@@ -226,28 +226,28 @@ class LitellmUserRoles(str, enum.Enum):
         ]
 
 
-class LitellmTableNames(str, enum.Enum):
+class EmbrouterTableNames(str, enum.Enum):
     """
-    Enum for Table Names used by LiteLLM
+    Enum for Table Names used by EmbRouter
     """
 
-    TEAM_TABLE_NAME = "LiteLLM_TeamTable"
-    USER_TABLE_NAME = "LiteLLM_UserTable"
-    KEY_TABLE_NAME = "LiteLLM_VerificationToken"
-    PROXY_MODEL_TABLE_NAME = "LiteLLM_ProxyModelTable"
-    MANAGED_FILE_TABLE_NAME = "LiteLLM_ManagedFileTable"
-    TOOL_TABLE_NAME = "LiteLLM_ToolTable"
-    CACHE_CONFIG_TABLE_NAME = "LiteLLM_CacheConfig"
-    CONFIG_OVERRIDES_TABLE_NAME = "LiteLLM_ConfigOverrides"
-    CONFIG_TABLE_NAME = "LiteLLM_Config"
-    SSO_CONFIG_TABLE_NAME = "LiteLLM_SSOConfig"
-    UI_SETTINGS_TABLE_NAME = "LiteLLM_UISettings"
-    AGENT_TABLE_NAME = "LiteLLM_AgentsTable"
+    TEAM_TABLE_NAME = "EmbRouter_TeamTable"
+    USER_TABLE_NAME = "EmbRouter_UserTable"
+    KEY_TABLE_NAME = "EmbRouter_VerificationToken"
+    PROXY_MODEL_TABLE_NAME = "EmbRouter_ProxyModelTable"
+    MANAGED_FILE_TABLE_NAME = "EmbRouter_ManagedFileTable"
+    TOOL_TABLE_NAME = "EmbRouter_ToolTable"
+    CACHE_CONFIG_TABLE_NAME = "EmbRouter_CacheConfig"
+    CONFIG_OVERRIDES_TABLE_NAME = "EmbRouter_ConfigOverrides"
+    CONFIG_TABLE_NAME = "EmbRouter_Config"
+    SSO_CONFIG_TABLE_NAME = "EmbRouter_SSOConfig"
+    UI_SETTINGS_TABLE_NAME = "EmbRouter_UISettings"
+    AGENT_TABLE_NAME = "EmbRouter_AgentsTable"
 
 
-class Litellm_EntityType(enum.Enum):
+class Embrouter_EntityType(enum.Enum):
     """
-    Enum for types of entities on litellm
+    Enum for types of entities on embrouter
 
     This enum allows specifying the type of entity that is being tracked in the database.
     """
@@ -318,7 +318,7 @@ class KeyManagementRoutes(str, enum.Enum):
     SPEND_LOGS_V2 = "/spend/logs/v2"
 
 
-class LiteLLMRoutes(enum.Enum):
+class EmbRouterRoutes(enum.Enum):
     openai_route_names = [
         "chat_completion",
         "completion",
@@ -515,7 +515,7 @@ class LiteLLMRoutes(enum.Enum):
     #########################################################
     passthrough_routes_wildcard = [f"{route}/*" for route in mapped_pass_through_routes]
 
-    litellm_native_routes = [
+    embrouter_native_routes = [
         "/rag/ingest",
         "/v1/rag/ingest",
         "/rag/query",
@@ -627,7 +627,7 @@ class LiteLLMRoutes(enum.Enum):
         + passthrough_routes_wildcard
         + apply_guardrail_routes
         + mcp_inference_routes
-        + litellm_native_routes
+        + embrouter_native_routes
         + list(agent_inference_routes)
         + model_info_routes
     )
@@ -788,8 +788,8 @@ class LiteLLMRoutes(enum.Enum):
             "/health/liveness",
             "/test",
             "/config/yaml",
-            "/litellm/.well-known/litellm-ui-config",
-            "/.well-known/litellm-ui-config",
+            "/embrouter/.well-known/embrouter-ui-config",
+            "/.well-known/embrouter-ui-config",
             "/public/model_hub",
             "/public/v1/model_hub",
             "/public/v1/model_hub/providers",
@@ -799,7 +799,7 @@ class LiteLLMRoutes(enum.Enum):
             "/public/agent_hub",
             "/public/mcp_hub",
             "/public/skill_hub",
-            "/public/litellm_model_cost_map",
+            "/public/embrouter_model_cost_map",
         )
     )
 
@@ -1050,7 +1050,7 @@ class LiteLLMRoutes(enum.Enum):
     org_admin_allowed_routes = org_admin_only_routes + management_routes + self_managed_routes + admin_viewer_routes
 
 
-class LiteLLMPromptInjectionParams(LiteLLMPydanticObjectBase):
+class EmbRouterPromptInjectionParams(EmbRouterPydanticObjectBase):
     heuristics_check: bool = False
     vector_db_check: bool = False
     llm_api_check: bool = False
@@ -1077,10 +1077,10 @@ class LiteLLMPromptInjectionParams(LiteLLMPydanticObjectBase):
 
 
 ######### Request Class Definition ######
-class ProxyChatCompletionRequest(LiteLLMPydanticObjectBase):
+class ProxyChatCompletionRequest(EmbRouterPydanticObjectBase):
     """
     Pydantic model for chat completion requests that includes both OpenAI standard fields
-    and LiteLLM-specific parameters. This replaces the previous TypedDict version.
+    and EmbRouter-specific parameters. This replaces the previous TypedDict version.
     """
 
     # Required fields (from ChatCompletionRequest)
@@ -1110,10 +1110,10 @@ class ProxyChatCompletionRequest(LiteLLMPydanticObjectBase):
     user: str | None = None
     stream: bool | None = None
 
-    # LiteLLM-specific metadata param (from original ChatCompletionRequest)
+    # EmbRouter-specific metadata param (from original ChatCompletionRequest)
     metadata: dict[str, Any] | None = None
 
-    # Optional LiteLLM params
+    # Optional EmbRouter params
     guardrails: list[str] | None = None
     caching: bool | None = None
     num_retries: int | None = None
@@ -1121,11 +1121,11 @@ class ProxyChatCompletionRequest(LiteLLMPydanticObjectBase):
     fallbacks: list[str] | None = None
 
 
-class ModelInfoDelete(LiteLLMPydanticObjectBase):
+class ModelInfoDelete(EmbRouterPydanticObjectBase):
     id: str
 
 
-class ModelInfo(LiteLLMPydanticObjectBase):
+class ModelInfo(EmbRouterPydanticObjectBase):
     id: str | None
     mode: Literal["embedding", "chat", "completion"] | None
     input_cost_per_token: float | None = 0.0
@@ -1162,18 +1162,18 @@ class ModelInfo(LiteLLMPydanticObjectBase):
         return values
 
 
-class ProviderInfo(LiteLLMPydanticObjectBase):
+class ProviderInfo(EmbRouterPydanticObjectBase):
     name: str
     fields: list[ProviderField]
 
 
-class BlockUsers(LiteLLMPydanticObjectBase):
+class BlockUsers(EmbRouterPydanticObjectBase):
     user_ids: list[str]  # required
 
 
-class ModelParams(LiteLLMPydanticObjectBase):
+class ModelParams(EmbRouterPydanticObjectBase):
     model_name: str
-    litellm_params: dict
+    embrouter_params: dict
     model_info: ModelInfo
 
     model_config = ConfigDict(protected_namespaces=())
@@ -1186,7 +1186,7 @@ class ModelParams(LiteLLMPydanticObjectBase):
         return values
 
 
-class LiteLLM_ObjectPermissionBase(LiteLLMPydanticObjectBase):
+class EmbRouter_ObjectPermissionBase(EmbRouterPydanticObjectBase):
     mcp_servers: list[str] | None = None
     mcp_access_groups: list[str] | None = None
     mcp_tool_permissions: dict[str, list[str]] | None = None
@@ -1201,13 +1201,13 @@ class LiteLLM_ObjectPermissionBase(LiteLLMPydanticObjectBase):
     skills: list[str] | None = None
 
 
-from litellm.models.team import BudgetLimitEntry as BudgetLimitEntry  # noqa: E402
-from litellm.types.object_permission import (  # noqa: E402
+from embrouter.models.team import BudgetLimitEntry as BudgetLimitEntry  # noqa: E402
+from embrouter.types.object_permission import (  # noqa: E402
     ObjectPermissionDict as ObjectPermissionDict,
 )
 
 
-class GenerateRequestBase(LiteLLMPydanticObjectBase):
+class GenerateRequestBase(EmbRouterPydanticObjectBase):
     """
     Overlapping schema between key and user generate/update requests
     """
@@ -1243,7 +1243,7 @@ class GenerateRequestBase(LiteLLMPydanticObjectBase):
     prompts: list[str] | None = None
     blocked: bool | None = None
     aliases: dict | None = {}
-    object_permission: LiteLLM_ObjectPermissionBase | None = None
+    object_permission: EmbRouter_ObjectPermissionBase | None = None
 
     @field_validator("max_budget", mode="before")
     @classmethod
@@ -1253,7 +1253,7 @@ class GenerateRequestBase(LiteLLMPydanticObjectBase):
         return v
 
 
-class AllowedVectorStoreIndexItem(LiteLLMPydanticObjectBase):
+class AllowedVectorStoreIndexItem(EmbRouterPydanticObjectBase):
     index_name: str
     index_permissions: list[Literal["read", "write"]]
 
@@ -1283,7 +1283,7 @@ class KeyRequestBase(GenerateRequestBase):
     access_group_ids: list[str] | None = None
 
 
-class LiteLLMKeyType(str, enum.Enum):
+class EmbRouterKeyType(str, enum.Enum):
     """
     Enum for key types that determine what routes a key can access
     """
@@ -1297,8 +1297,8 @@ class LiteLLMKeyType(str, enum.Enum):
 class GenerateKeyRequest(KeyRequestBase):
     soft_budget: float | None = None
     send_invite_email: bool | None = None
-    key_type: LiteLLMKeyType | None = Field(
-        default=LiteLLMKeyType.DEFAULT,
+    key_type: EmbRouterKeyType | None = Field(
+        default=EmbRouterKeyType.DEFAULT,
         description="Type of key that determines default allowed routes.",
     )
     auto_rotate: bool | None = Field(default=False, description="Whether this key should be automatically rotated")
@@ -1326,7 +1326,7 @@ class GenerateKeyResponse(KeyRequestBase):
     token_id: str | None = None
     organization_id: str | None = None
     project_id: str | None = None
-    litellm_budget_table: Any | None = None
+    embrouter_budget_table: Any | None = None
     token: str | None = None
     created_by: str | None = None
     updated_by: str | None = None
@@ -1416,7 +1416,7 @@ class RegenerateKeyRequest(GenerateKeyRequest):
     grace_period: str | None = None  # Duration to keep old key valid (e.g. "24h", "2d"); None = immediate revoke
 
 
-class ResetSpendRequest(LiteLLMPydanticObjectBase):
+class ResetSpendRequest(EmbRouterPydanticObjectBase):
     reset_to: float
 
     @field_validator("reset_to", mode="before")
@@ -1430,7 +1430,7 @@ class ResetSpendRequest(LiteLLMPydanticObjectBase):
         return v
 
 
-class KeyRequest(LiteLLMPydanticObjectBase):
+class KeyRequest(EmbRouterPydanticObjectBase):
     keys: list[str] | None = None
     key_aliases: list[str] | None = None
 
@@ -1442,10 +1442,10 @@ class KeyRequest(LiteLLMPydanticObjectBase):
         return values
 
 
-from litellm.models.model import (  # noqa: E402
-    LiteLLM_ProxyModelTable as LiteLLM_ProxyModelTable,
+from embrouter.models.model import (  # noqa: E402
+    EmbRouter_ProxyModelTable as EmbRouter_ProxyModelTable,
 )
-from litellm.models.team import LiteLLM_ModelTable as LiteLLM_ModelTable  # noqa: E402
+from embrouter.models.team import EmbRouter_ModelTable as EmbRouter_ModelTable  # noqa: E402
 
 
 # MCP Types
@@ -1463,10 +1463,10 @@ class MCPApprovalStatus(str, enum.Enum):
     draft = "draft"
 
 
-from litellm.models.mcp_server import (  # noqa: E402
+from embrouter.models.mcp_server import (  # noqa: E402
     MCPEnvVar as MCPEnvVar,
 )
-from litellm.models.mcp_server import (  # noqa: E402
+from embrouter.models.mcp_server import (  # noqa: E402
     MCPEnvVarScope as MCPEnvVarScope,
 )
 
@@ -1509,7 +1509,7 @@ def _reject_unsupported_per_server_oauth_discovery(values: object, require_auth_
     raise _per_server_oauth_discovery_error()
 
 
-class NewMCPServerRequest(LiteLLMPydanticObjectBase):
+class NewMCPServerRequest(EmbRouterPydanticObjectBase):
     server_id: str | None = None
     server_name: str | None = None
     alias: str | None = None
@@ -1622,7 +1622,7 @@ class NewMCPServerRequest(LiteLLMPydanticObjectBase):
         return values
 
 
-class UpdateMCPServerRequest(LiteLLMPydanticObjectBase):
+class UpdateMCPServerRequest(EmbRouterPydanticObjectBase):
     server_id: str
     server_name: str | None = None
     alias: str | None = None
@@ -1715,26 +1715,26 @@ class UpdateMCPServerRequest(LiteLLMPydanticObjectBase):
         return values
 
 
-from litellm.models.mcp_server import (  # noqa: E402
-    LiteLLM_MCPServerTable as LiteLLM_MCPServerTable,
+from embrouter.models.mcp_server import (  # noqa: E402
+    EmbRouter_MCPServerTable as EmbRouter_MCPServerTable,
 )
 
 
-class MakeMCPServersPublicRequest(LiteLLMPydanticObjectBase):
+class MakeMCPServersPublicRequest(EmbRouterPydanticObjectBase):
     mcp_server_ids: list[str]
 
 
-class MCPUserCredentialRequest(LiteLLMPydanticObjectBase):
+class MCPUserCredentialRequest(EmbRouterPydanticObjectBase):
     credential: str
     save: bool = True
 
 
-class MCPUserCredentialResponse(LiteLLMPydanticObjectBase):
+class MCPUserCredentialResponse(EmbRouterPydanticObjectBase):
     server_id: str
     has_credential: bool
 
 
-class MCPOAuthUserCredentialRequest(LiteLLMPydanticObjectBase):
+class MCPOAuthUserCredentialRequest(EmbRouterPydanticObjectBase):
     """Stores a user's OAuth2 token for an OpenAPI MCP server."""
 
     access_token: str
@@ -1743,7 +1743,7 @@ class MCPOAuthUserCredentialRequest(LiteLLMPydanticObjectBase):
     scopes: list[str] | None = None
 
 
-class MCPOAuthUserCredentialStatus(LiteLLMPydanticObjectBase):
+class MCPOAuthUserCredentialStatus(EmbRouterPydanticObjectBase):
     """Describes whether the calling user has a stored OAuth credential."""
 
     server_id: str
@@ -1753,7 +1753,7 @@ class MCPOAuthUserCredentialStatus(LiteLLMPydanticObjectBase):
     connected_at: str | None = None  # ISO-8601
 
 
-class MCPUserCredentialListItem(LiteLLMPydanticObjectBase):
+class MCPUserCredentialListItem(EmbRouterPydanticObjectBase):
     """One entry in the /user-credentials list."""
 
     server_id: str
@@ -1765,7 +1765,7 @@ class MCPUserCredentialListItem(LiteLLMPydanticObjectBase):
     connected_at: str | None = None  # ISO-8601
 
 
-class MCPServerUserCredentialListItem(LiteLLMPydanticObjectBase):
+class MCPServerUserCredentialListItem(EmbRouterPydanticObjectBase):
     """One user's stored credential for an MCP server, as an admin sees it. Never carries the secret."""
 
     user_id: str
@@ -1775,13 +1775,13 @@ class MCPServerUserCredentialListItem(LiteLLMPydanticObjectBase):
     updated_at: str
 
 
-class MCPUserEnvVarsRequest(LiteLLMPydanticObjectBase):
+class MCPUserEnvVarsRequest(EmbRouterPydanticObjectBase):
     """Payload for storing the calling user's per-user env var values."""
 
     values: dict[str, str]
 
 
-class MCPUserEnvVarSpec(LiteLLMPydanticObjectBase):
+class MCPUserEnvVarSpec(EmbRouterPydanticObjectBase):
     """Describes one per-user env var slot for the calling user.
 
     Stored values are write-only: the status only reports whether a value
@@ -1793,7 +1793,7 @@ class MCPUserEnvVarSpec(LiteLLMPydanticObjectBase):
     is_set: bool = False
 
 
-class MCPUserEnvVarsStatus(LiteLLMPydanticObjectBase):
+class MCPUserEnvVarsStatus(EmbRouterPydanticObjectBase):
     """Per-user env var status for a single MCP server."""
 
     server_id: str
@@ -1804,23 +1804,23 @@ class MCPUserEnvVarsStatus(LiteLLMPydanticObjectBase):
     setup_url: str | None = None  # frontend URL where the user can fill these in
 
 
-class RejectMCPServerRequest(LiteLLMPydanticObjectBase):
+class RejectMCPServerRequest(EmbRouterPydanticObjectBase):
     review_notes: str | None = None
 
 
-class MCPSubmissionsSummary(LiteLLMPydanticObjectBase):
+class MCPSubmissionsSummary(EmbRouterPydanticObjectBase):
     total: int
     pending_review: int
     active: int
     rejected: int
-    items: list["LiteLLM_MCPServerTable"]
+    items: list["EmbRouter_MCPServerTable"]
 
 
 ######## Skills API Types ########
 
 
-class NewSkillRequest(LiteLLMPydanticObjectBase):
-    """Request to create a new skill in LiteLLM database"""
+class NewSkillRequest(EmbRouterPydanticObjectBase):
+    """Request to create a new skill in EmbRouter database"""
 
     display_title: str | None = None
     description: str | None = None
@@ -1834,7 +1834,7 @@ class NewSkillRequest(LiteLLMPydanticObjectBase):
     registration_url: str | None = None
 
 
-class UpdateSkillRequest(LiteLLMPydanticObjectBase):
+class UpdateSkillRequest(EmbRouterPydanticObjectBase):
     """Request to update an existing skill"""
 
     skill_id: str
@@ -1847,19 +1847,19 @@ class UpdateSkillRequest(LiteLLMPydanticObjectBase):
     metadata: dict[str, Any] | None = None
 
 
-from litellm.models.skills import (  # noqa: E402
-    LiteLLM_SkillsTable as LiteLLM_SkillsTable,
+from embrouter.models.skills import (  # noqa: E402
+    EmbRouter_SkillsTable as EmbRouter_SkillsTable,
 )
 
 
-class ListSkillsRequest(LiteLLMPydanticObjectBase):
-    """Request to list skills from LiteLLM database"""
+class ListSkillsRequest(EmbRouterPydanticObjectBase):
+    """Request to list skills from EmbRouter database"""
 
     limit: int | None = 20
     offset: int | None = 0
 
 
-class NewUserRequestTeam(LiteLLMPydanticObjectBase):
+class NewUserRequestTeam(EmbRouterPydanticObjectBase):
     team_id: str
     max_budget_in_team: float | None = None
     user_role: Literal["user", "admin"] = "user"
@@ -1871,10 +1871,10 @@ class NewUserRequest(GenerateRequestBase):
     user_alias: str | None = None
     user_role: (
         Literal[
-            LitellmUserRoles.PROXY_ADMIN,
-            LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY,
-            LitellmUserRoles.INTERNAL_USER,
-            LitellmUserRoles.INTERNAL_USER_VIEW_ONLY,
+            EmbrouterUserRoles.PROXY_ADMIN,
+            EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY,
+            EmbrouterUserRoles.INTERNAL_USER,
+            EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY,
         ]
         | None
     ) = None
@@ -1901,10 +1901,10 @@ class NewUserResponse(GenerateKeyResponse):
     user_email: str | None = None
     user_role: (
         Literal[
-            LitellmUserRoles.PROXY_ADMIN,
-            LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY,
-            LitellmUserRoles.INTERNAL_USER,
-            LitellmUserRoles.INTERNAL_USER_VIEW_ONLY,
+            EmbrouterUserRoles.PROXY_ADMIN,
+            EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY,
+            EmbrouterUserRoles.INTERNAL_USER,
+            EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY,
         ]
         | None
     ) = None
@@ -1923,10 +1923,10 @@ class UpdateUserRequestNoUserIDorEmail(GenerateRequestBase):  # shared with Bulk
     user_alias: str | None = None
     user_role: (
         Literal[
-            LitellmUserRoles.PROXY_ADMIN,
-            LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY,
-            LitellmUserRoles.INTERNAL_USER,
-            LitellmUserRoles.INTERNAL_USER_VIEW_ONLY,
+            EmbrouterUserRoles.PROXY_ADMIN,
+            EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY,
+            EmbrouterUserRoles.INTERNAL_USER,
+            EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY,
         ]
         | None
     ) = None
@@ -1947,28 +1947,28 @@ class UpdateUserRequest(UpdateUserRequestNoUserIDorEmail):
         return values
 
 
-class ChangePasswordRequest(LiteLLMPydanticObjectBase):
+class ChangePasswordRequest(EmbRouterPydanticObjectBase):
     current_password: str = Field(repr=False)
     new_password: str = Field(repr=False)
 
 
-class ChangePasswordResponse(LiteLLMPydanticObjectBase):
+class ChangePasswordResponse(EmbRouterPydanticObjectBase):
     user_id: str
     message: str
 
 
-class SessionLogoutResponse(LiteLLMPydanticObjectBase):
+class SessionLogoutResponse(EmbRouterPydanticObjectBase):
     message: str
 
 
-class DeleteUserRequest(LiteLLMPydanticObjectBase):
+class DeleteUserRequest(EmbRouterPydanticObjectBase):
     user_ids: list[str]  # required
 
 
 AllowedModelRegion = Literal["eu", "us"]
 
 
-class BudgetNewRequest(LiteLLMPydanticObjectBase):
+class BudgetNewRequest(EmbRouterPydanticObjectBase):
     budget_id: str | None = Field(default=None, description="The unique budget id.")
     max_budget: float | None = Field(
         default=None,
@@ -2000,22 +2000,22 @@ class BudgetNewRequest(LiteLLMPydanticObjectBase):
     )
 
 
-class BudgetRequest(LiteLLMPydanticObjectBase):
+class BudgetRequest(EmbRouterPydanticObjectBase):
     budgets: list[str]
 
 
-class BudgetDeleteRequest(LiteLLMPydanticObjectBase):
+class BudgetDeleteRequest(EmbRouterPydanticObjectBase):
     id: str
 
 
-class CustomerBase(LiteLLMPydanticObjectBase):
+class CustomerBase(EmbRouterPydanticObjectBase):
     user_id: str
     alias: str | None = None
     spend: float = 0.0
     allowed_model_region: AllowedModelRegion | None = None
     default_model: str | None = None
     budget_id: str | None = None
-    litellm_budget_table: BudgetNewRequest | None = None
+    embrouter_budget_table: BudgetNewRequest | None = None
     blocked: bool = False
 
 
@@ -2033,7 +2033,7 @@ class NewCustomerRequest(BudgetNewRequest):
         None  # require all user requests to use models in this specific region
     )
     default_model: str | None = None  # if no equivalent model in allowed region - default all requests to this model
-    object_permission: LiteLLM_ObjectPermissionBase | None = None
+    object_permission: EmbRouter_ObjectPermissionBase | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -2044,7 +2044,7 @@ class NewCustomerRequest(BudgetNewRequest):
         return values
 
 
-class UpdateCustomerRequest(LiteLLMPydanticObjectBase):
+class UpdateCustomerRequest(EmbRouterPydanticObjectBase):
     """
     Update a Customer, use this to update customer budgets etc
 
@@ -2059,10 +2059,10 @@ class UpdateCustomerRequest(LiteLLMPydanticObjectBase):
         None  # require all user requests to use models in this specific region
     )
     default_model: str | None = None  # if no equivalent model in allowed region - default all requests to this model
-    object_permission: LiteLLM_ObjectPermissionBase | None = None
+    object_permission: EmbRouter_ObjectPermissionBase | None = None
 
 
-class DeleteCustomerRequest(LiteLLMPydanticObjectBase):
+class DeleteCustomerRequest(EmbRouterPydanticObjectBase):
     """
     Delete multiple Customers
     """
@@ -2070,19 +2070,19 @@ class DeleteCustomerRequest(LiteLLMPydanticObjectBase):
     user_ids: list[str]
 
 
-from litellm.models.team import Member as Member  # noqa: E402
-from litellm.models.team import MemberBase as MemberBase  # noqa: E402
+from embrouter.models.team import Member as Member  # noqa: E402
+from embrouter.models.team import MemberBase as MemberBase  # noqa: E402
 
 
 class OrgMember(MemberBase):
     role: Literal[
-        LitellmUserRoles.ORG_ADMIN,
-        LitellmUserRoles.INTERNAL_USER,
-        LitellmUserRoles.INTERNAL_USER_VIEW_ONLY,
+        EmbrouterUserRoles.ORG_ADMIN,
+        EmbrouterUserRoles.INTERNAL_USER,
+        EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY,
     ]
 
 
-from litellm.models.team import TeamBase as TeamBase  # noqa: E402
+from embrouter.models.team import TeamBase as TeamBase  # noqa: E402
 
 RouterSettingsDict = Annotated[
     dict[str, object],
@@ -2104,7 +2104,7 @@ class NewTeamRequest(TeamBase):
     guardrails: list[str] | None = None
     policies: list[str] | None = None
     prompts: list[str] | None = None
-    object_permission: LiteLLM_ObjectPermissionBase | None = None
+    object_permission: EmbRouter_ObjectPermissionBase | None = None
     allowed_passthrough_routes: list | None = None
     disable_global_guardrails: bool | None = None
     secret_manager_settings: dict | None = None
@@ -2139,13 +2139,13 @@ class NewTeamRequest(TeamBase):
         return v
 
 
-class GlobalEndUsersSpend(LiteLLMPydanticObjectBase):
+class GlobalEndUsersSpend(EmbRouterPydanticObjectBase):
     api_key: str | None = None
     startTime: datetime | None = None
     endTime: datetime | None = None
 
 
-class UpdateTeamRequest(LiteLLMPydanticObjectBase):
+class UpdateTeamRequest(EmbRouterPydanticObjectBase):
     """
     UpdateTeamRequest, used by /team/update when you need to update a team
 
@@ -2179,7 +2179,7 @@ class UpdateTeamRequest(LiteLLMPydanticObjectBase):
     model_aliases: dict | None = None
     guardrails: list[str] | None = None
     policies: list[str] | None = None
-    object_permission: LiteLLM_ObjectPermissionBase | None = None
+    object_permission: EmbRouter_ObjectPermissionBase | None = None
     disable_global_guardrails: bool | None = None
     team_member_budget: float | None = None
     team_member_budget_duration: str | None = None
@@ -2221,7 +2221,7 @@ class PatchTeamRequest(UpdateTeamRequest):
     team_id: str | None = None
 
 
-class ResetTeamBudgetRequest(LiteLLMPydanticObjectBase):
+class ResetTeamBudgetRequest(EmbRouterPydanticObjectBase):
     """
     internal type used to reset the budget on a team
     used by reset_budget()
@@ -2237,23 +2237,23 @@ class ResetTeamBudgetRequest(LiteLLMPydanticObjectBase):
     updated_at: datetime
 
 
-class DeleteTeamRequest(LiteLLMPydanticObjectBase):
+class DeleteTeamRequest(EmbRouterPydanticObjectBase):
     team_ids: list[str]  # required
 
 
-class BlockTeamRequest(LiteLLMPydanticObjectBase):
+class BlockTeamRequest(EmbRouterPydanticObjectBase):
     team_id: str  # required
 
 
-class BlockKeyRequest(LiteLLMPydanticObjectBase):
+class BlockKeyRequest(EmbRouterPydanticObjectBase):
     key: str  # required
 
 
-class BlockModelRequest(LiteLLMPydanticObjectBase):
+class BlockModelRequest(EmbRouterPydanticObjectBase):
     model_id: str  # required
 
 
-class AddTeamCallback(LiteLLMPydanticObjectBase):
+class AddTeamCallback(EmbRouterPydanticObjectBase):
     callback_name: str
     callback_type: Literal["success", "failure", "success_and_failure"] | None = "success_and_failure"
     callback_vars: dict[str, str]
@@ -2275,19 +2275,19 @@ class AddTeamCallback(LiteLLMPydanticObjectBase):
         return values
 
 
-class TeamCallbackDeleteResponseData(LiteLLMPydanticObjectBase):
+class TeamCallbackDeleteResponseData(EmbRouterPydanticObjectBase):
     team_id: str
     success_callbacks: tuple[str, ...]
     failure_callbacks: tuple[str, ...]
 
 
-class TeamCallbackDeleteResponse(LiteLLMPydanticObjectBase):
+class TeamCallbackDeleteResponse(EmbRouterPydanticObjectBase):
     status: Literal["success"]
     message: str
     data: TeamCallbackDeleteResponseData
 
 
-class TeamCallbackMetadata(LiteLLMPydanticObjectBase):
+class TeamCallbackMetadata(EmbRouterPydanticObjectBase):
     success_callback: list[str] | None = []
     failure_callback: list[str] | None = []
     callbacks: list[str] | None = []
@@ -2325,34 +2325,34 @@ class TeamCallbackMetadata(LiteLLMPydanticObjectBase):
         return values
 
 
-from litellm.models.object_permission import (  # noqa: E402
-    LiteLLM_ObjectPermissionTable as LiteLLM_ObjectPermissionTable,
+from embrouter.models.object_permission import (  # noqa: E402
+    EmbRouter_ObjectPermissionTable as EmbRouter_ObjectPermissionTable,
 )
-from litellm.models.team import (  # noqa: E402
-    LiteLLM_DeletedTeamTable as LiteLLM_DeletedTeamTable,
+from embrouter.models.team import (  # noqa: E402
+    EmbRouter_DeletedTeamTable as EmbRouter_DeletedTeamTable,
 )
-from litellm.models.team import LiteLLM_TeamTable as LiteLLM_TeamTable  # noqa: E402
-from litellm.models.team import (  # noqa: E402
-    LiteLLM_TeamTableCachedObj as LiteLLM_TeamTableCachedObj,
+from embrouter.models.team import EmbRouter_TeamTable as EmbRouter_TeamTable  # noqa: E402
+from embrouter.models.team import (  # noqa: E402
+    EmbRouter_TeamTableCachedObj as EmbRouter_TeamTableCachedObj,
 )
 
 
-class TeamRequest(LiteLLMPydanticObjectBase):
+class TeamRequest(EmbRouterPydanticObjectBase):
     teams: list[str]
 
 
-from litellm.models.budget import (  # noqa: E402
-    LiteLLM_BudgetTable as LiteLLM_BudgetTable,
+from embrouter.models.budget import (  # noqa: E402
+    EmbRouter_BudgetTable as EmbRouter_BudgetTable,
 )
-from litellm.models.budget import (  # noqa: E402
-    LiteLLM_BudgetTableFull as LiteLLM_BudgetTableFull,
+from embrouter.models.budget import (  # noqa: E402
+    EmbRouter_BudgetTableFull as EmbRouter_BudgetTableFull,
 )
-from litellm.models.budget import (  # noqa: E402
-    LiteLLM_TeamMemberTable as LiteLLM_TeamMemberTable,
+from embrouter.models.budget import (  # noqa: E402
+    EmbRouter_TeamMemberTable as EmbRouter_TeamMemberTable,
 )
 
 
-class NewOrganizationRequest(LiteLLM_BudgetTable):
+class NewOrganizationRequest(EmbRouter_BudgetTable):
     organization_id: str | None = None
     organization_alias: str
     models: list = []
@@ -2364,35 +2364,35 @@ class NewOrganizationRequest(LiteLLM_BudgetTable):
     #########################################################
     # Object Permission - MCP, Vector Stores etc.
     #########################################################
-    object_permission: LiteLLM_ObjectPermissionBase | None = None
+    object_permission: EmbRouter_ObjectPermissionBase | None = None
 
 
-class OrganizationRequest(LiteLLMPydanticObjectBase):
+class OrganizationRequest(EmbRouterPydanticObjectBase):
     organizations: list[str]
 
 
-class DeleteOrganizationRequest(LiteLLMPydanticObjectBase):
+class DeleteOrganizationRequest(EmbRouterPydanticObjectBase):
     organization_ids: list[str]  # required
 
 
-class TeamDefaultSettings(LiteLLMPydanticObjectBase):
+class TeamDefaultSettings(EmbRouterPydanticObjectBase):
     team_id: str
 
     model_config = ConfigDict(
         extra="allow"
-    )  # allow params not defined here, these fall in litellm.completion(**kwargs)
+    )  # allow params not defined here, these fall in embrouter.completion(**kwargs)
 
 
-class DynamoDBArgs(LiteLLMPydanticObjectBase):
+class DynamoDBArgs(EmbRouterPydanticObjectBase):
     billing_mode: Literal["PROVISIONED_THROUGHPUT", "PAY_PER_REQUEST"]
     read_capacity_units: int | None = None
     write_capacity_units: int | None = None
     ssl_verify: bool | None = None
     region_name: str
-    user_table_name: str = "LiteLLM_UserTable"
-    key_table_name: str = "LiteLLM_VerificationToken"
-    config_table_name: str = "LiteLLM_Config"
-    spend_table_name: str = "LiteLLM_SpendLogs"
+    user_table_name: str = "EmbRouter_UserTable"
+    key_table_name: str = "EmbRouter_VerificationToken"
+    config_table_name: str = "EmbRouter_Config"
+    spend_table_name: str = "EmbRouter_SpendLogs"
     aws_role_name: str | None = None
     aws_session_name: str | None = None
     aws_web_identity_token: str | None = None
@@ -2404,7 +2404,7 @@ class DynamoDBArgs(LiteLLMPydanticObjectBase):
     assume_role_aws_session_name: str | None = None
 
 
-class PassThroughGuardrailSettings(LiteLLMPydanticObjectBase):
+class PassThroughGuardrailSettings(EmbRouterPydanticObjectBase):
     """
     Settings for a specific guardrail on a passthrough endpoint.
 
@@ -2425,12 +2425,12 @@ class PassThroughGuardrailSettings(LiteLLMPydanticObjectBase):
 PassThroughGuardrailsConfig = dict[str, PassThroughGuardrailSettings | None]
 
 
-class PassThroughGenericEndpoint(LiteLLMPydanticObjectBase):
+class PassThroughGenericEndpoint(EmbRouterPydanticObjectBase):
     id: str | None = Field(
         default=None,
         description="Optional unique identifier for the pass-through endpoint. If not provided, endpoints will be identified by path for backwards compatibility.",
     )
-    path: str = Field(description="The route to be added to the LiteLLM Proxy Server.")
+    path: str = Field(description="The route to be added to the EmbRouter Proxy Server.")
     target: str = Field(description="The URL to which requests for this path should be forwarded.")
     headers: dict = Field(
         default={},
@@ -2454,7 +2454,7 @@ class PassThroughGenericEndpoint(LiteLLMPydanticObjectBase):
     )
     auth: bool = Field(
         default=True,
-        description="Whether authentication is required for the pass-through endpoint. Defaults to True so a pass-through silently created without an explicit value still requires a valid LiteLLM API key — set to False only if the endpoint is meant to be a public forwarder (e.g. an unauthenticated webhook target).",
+        description="Whether authentication is required for the pass-through endpoint. Defaults to True so a pass-through silently created without an explicit value still requires a valid EmbRouter API key — set to False only if the endpoint is meant to be a public forwarder (e.g. an unauthenticated webhook target).",
     )
     guardrails: PassThroughGuardrailsConfig | None = Field(
         default=None,
@@ -2470,22 +2470,22 @@ class PassThroughGenericEndpoint(LiteLLMPydanticObjectBase):
     )
 
 
-class PassThroughEndpointResponse(LiteLLMPydanticObjectBase):
+class PassThroughEndpointResponse(EmbRouterPydanticObjectBase):
     endpoints: list[PassThroughGenericEndpoint]
 
 
-class ConfigFieldUpdate(LiteLLMPydanticObjectBase):
+class ConfigFieldUpdate(EmbRouterPydanticObjectBase):
     field_name: str
     field_value: Any
     config_type: Literal["general_settings"]
 
 
-class ConfigFieldDelete(LiteLLMPydanticObjectBase):
+class ConfigFieldDelete(EmbRouterPydanticObjectBase):
     config_type: Literal["general_settings"]
     field_name: str
 
 
-class CallbackDelete(LiteLLMPydanticObjectBase):
+class CallbackDelete(EmbRouterPydanticObjectBase):
     callback_name: str
 
 
@@ -2497,7 +2497,7 @@ class FieldDetail(BaseModel):
     stored_in_db: bool | None
 
 
-class ConfigList(LiteLLMPydanticObjectBase):
+class ConfigList(EmbRouterPydanticObjectBase):
     field_name: str
     field_type: str
     field_description: str
@@ -2512,15 +2512,15 @@ class ConfigList(LiteLLMPydanticObjectBase):
     editable: bool = True
 
 
-class UserHeaderMapping(LiteLLMPydanticObjectBase):
+class UserHeaderMapping(EmbRouterPydanticObjectBase):
     """
-    Map an incoming HTTP header to a LiteLLM user role.
+    Map an incoming HTTP header to a EmbRouter user role.
     """
 
     header_name: str
-    litellm_user_role: Literal[
-        LitellmUserRoles.INTERNAL_USER,
-        LitellmUserRoles.CUSTOMER,
+    embrouter_user_role: Literal[
+        EmbrouterUserRoles.INTERNAL_USER,
+        EmbrouterUserRoles.CUSTOMER,
     ]
 
     model_config = {
@@ -2531,7 +2531,7 @@ class UserHeaderMapping(LiteLLMPydanticObjectBase):
 UserMCPManagementMode = Literal["restricted", "view_all"]
 
 
-class PluginConfig(LiteLLMPydanticObjectBase):
+class PluginConfig(EmbRouterPydanticObjectBase):
     """A single external service registered as an embeddable UI plugin."""
 
     name: str = Field(description="unique plugin identifier (kebab-case)")
@@ -2543,18 +2543,18 @@ class PluginConfig(LiteLLMPydanticObjectBase):
     )
 
 
-class CoordinationRedisNode(LiteLLMPydanticObjectBase):
+class CoordinationRedisNode(EmbRouterPydanticObjectBase):
     """A single startup node of a cluster-mode Redis used for proxy coordination."""
 
     host: str = Field(description="hostname of the cluster node")
     port: int = Field(description="port of the cluster node")
 
 
-class CoordinationRedisParams(LiteLLMPydanticObjectBase):
+class CoordinationRedisParams(EmbRouterPydanticObjectBase):
     """
     Connection params for the proxy's coordination Redis (cross-pod tpm/rpm rate
     limits, spend tracking, pod lock manager, shared health checks), configured
-    independently of the response-cache backend in `litellm_settings.cache_params`.
+    independently of the response-cache backend in `embrouter_settings.cache_params`.
     """
 
     model_config = ConfigDict(extra="allow", protected_namespaces=())
@@ -2585,7 +2585,7 @@ class CoordinationRedisParams(LiteLLMPydanticObjectBase):
         return any(value is not None for value in (self.host, self.url, self.startup_nodes, self.sentinel_nodes))
 
 
-class ScheduledJobStaggerSettings(LiteLLMPydanticObjectBase):
+class ScheduledJobStaggerSettings(EmbRouterPydanticObjectBase):
     """
     Spreads the proxy's scheduled background jobs across a window instead of firing them
     all on one instant, on every replica, forever.
@@ -2618,7 +2618,7 @@ class ScheduledJobStaggerSettings(LiteLLMPydanticObjectBase):
     )
 
 
-class ConfigGeneralSettings(LiteLLMPydanticObjectBase):
+class ConfigGeneralSettings(EmbRouterPydanticObjectBase):
     """
     Documents all the fields supported by `general_settings` in config.yaml
     """
@@ -2678,7 +2678,7 @@ class ConfigGeneralSettings(LiteLLMPydanticObjectBase):
     )
     include_call_id_in_error_body: bool | None = Field(
         None,
-        description="opt-in to copy the x-litellm-call-id response header's value into JSON error bodies, as error.litellm_call_id on the OpenAI-shaped and /v1/messages routes and as a top-level litellm_call_id on pass-through routes, so an error a client prints names the request to look up. Off by default",
+        description="opt-in to copy the x-embrouter-call-id response header's value into JSON error bodies, as error.embrouter_call_id on the OpenAI-shaped and /v1/messages routes and as a top-level embrouter_call_id on pass-through routes, so an error a client prints names the request to look up. Off by default",
     )
     enable_claude_code_gateway: bool | None = Field(
         None,
@@ -2733,7 +2733,7 @@ class ConfigGeneralSettings(LiteLLMPydanticObjectBase):
         description=(
             "Escape hatch: extra key/value pairs appended verbatim to the Prisma "
             "DATABASE_URL / DIRECT_URL query string (e.g. `sslmode`, `pgbouncer`, "
-            "`statement_cache_size`). Keys here override any default LiteLLM sets."
+            "`statement_cache_size`). Keys here override any default EmbRouter sets."
         ),
     )
     database_disable_prepared_statements: bool | None = Field(
@@ -2872,7 +2872,7 @@ class ConfigGeneralSettings(LiteLLMPydanticObjectBase):
     max_failed_login_attempts_per_source: int | None = Field(
         None,
         ge=1,
-        description="Failed Admin UI sign-in attempts allowed from one source address, across every username, within `failed_login_window_seconds`. One more blocks that address for `failed_login_block_seconds`. Half this value, rounded down but at least 1, is the allowance for one username from that address; one more blocks that address for that username only, and its further failures stop counting toward the address limit, so a script stuck on one account does not block everyone behind a shared address. The per-address limit is only enforced when `trusted_proxy_ranges` is set: to the proxies in front of LiteLLM, or to an empty list when clients connect directly. Left unset, the peer address may be a shared ingress and only the per-username half runs. IPv6 addresses are grouped by /64. Set under `general_settings` in config.yaml. Defaults to 10",
+        description="Failed Admin UI sign-in attempts allowed from one source address, across every username, within `failed_login_window_seconds`. One more blocks that address for `failed_login_block_seconds`. Half this value, rounded down but at least 1, is the allowance for one username from that address; one more blocks that address for that username only, and its further failures stop counting toward the address limit, so a script stuck on one account does not block everyone behind a shared address. The per-address limit is only enforced when `trusted_proxy_ranges` is set: to the proxies in front of EmbRouter, or to an empty list when clients connect directly. Left unset, the peer address may be a shared ingress and only the per-username half runs. IPv6 addresses are grouped by /64. Set under `general_settings` in config.yaml. Defaults to 10",
     )
     max_failed_login_attempts_per_source_overrides: dict[str, int] | None = Field(
         None,
@@ -2895,7 +2895,7 @@ class ConfigGeneralSettings(LiteLLMPydanticObjectBase):
     )
     missing_session_id: Literal["generate", "reject", "omit"] | None = Field(
         None,
-        description="What to do with LLM API requests that carry no session id (x-litellm-session-id header, metadata.session_id, etc.). 'generate' stamps one id into litellm_session_id, litellm_trace_id and metadata.session_id so SpendLogs and logging callbacks agree; 'reject' returns 400; 'omit' leaves SpendLogs.session_id null, matching callbacks such as Langfuse that only record a client-established metadata.session_id. Unset keeps the legacy behavior where SpendLogs falls back to the trace id while callbacks get no session id.",
+        description="What to do with LLM API requests that carry no session id (x-embrouter-session-id header, metadata.session_id, etc.). 'generate' stamps one id into embrouter_session_id, embrouter_trace_id and metadata.session_id so SpendLogs and logging callbacks agree; 'reject' returns 400; 'omit' leaves SpendLogs.session_id null, matching callbacks such as Langfuse that only record a client-established metadata.session_id. Unset keeps the legacy behavior where SpendLogs falls back to the trace id while callbacks get no session id.",
     )
     enable_public_model_hub: bool = Field(
         default=False,
@@ -2953,8 +2953,8 @@ class ConfigGeneralSettings(LiteLLMPydanticObjectBase):
     spend_capture_rate_check: SpendCaptureRateCheckSettings | None = Field(
         None,
         description=(
-            "Daily check of the spend LiteLLM captured against the provider's own bill (OpenAI via OPENAI_ADMIN_KEY). "
-            "Publishes litellm_spend_capture_rate per provider and alerts when the ratio over the lookback window "
+            "Daily check of the spend EmbRouter captured against the provider's own bill (OpenAI via OPENAI_ADMIN_KEY). "
+            "Publishes embrouter_spend_capture_rate per provider and alerts when the ratio over the lookback window "
             "falls under the threshold (default 0.9). Off unless set."
         ),
     )
@@ -2984,7 +2984,7 @@ class ConfigGeneralSettings(LiteLLMPydanticObjectBase):
     )
     use_spend_logs_partitioning: bool | None = Field(
         None,
-        description="If True and LiteLLM_SpendLogs has been converted to a range-partitioned table (db_scripts/partition_spend_logs.sql), retention cleanup drops expired partitions instead of deleting rows, and pre-creates upcoming partitions. Default is False.",
+        description="If True and EmbRouter_SpendLogs has been converted to a range-partitioned table (db_scripts/partition_spend_logs.sql), retention cleanup drops expired partitions instead of deleting rows, and pre-creates upcoming partitions. Default is False.",
     )
     maximum_spend_logs_cleanup_batch_size: int | None = Field(
         None,
@@ -3013,11 +3013,11 @@ class ConfigGeneralSettings(LiteLLMPydanticObjectBase):
     )
     mcp_allowed_clients: list[MCPAllowedClient] | None = Field(
         None,
-        description="MCP client applications admitted by the gateway, each an {alias, value} pair where alias is the name shown in the dashboard and logs and value is the identity that must match exactly. When set, every MCP request must carry a client identity equal to one of the values: a JWT caller is identified by the claim named in litellm_jwtauth.mcp_client_id_jwt_field, any other caller by the header named in mcp_client_id_header. A request with no resolvable identity, or an unlisted one, is rejected with 403. Unset means every client is admitted.",
+        description="MCP client applications admitted by the gateway, each an {alias, value} pair where alias is the name shown in the dashboard and logs and value is the identity that must match exactly. When set, every MCP request must carry a client identity equal to one of the values: a JWT caller is identified by the claim named in embrouter_jwtauth.mcp_client_id_jwt_field, any other caller by the header named in mcp_client_id_header. A request with no resolvable identity, or an unlisted one, is rejected with 403. Unset means every client is admitted.",
     )
     mcp_client_id_header: str | None = Field(
         None,
-        description="Request header whose value names the calling MCP client application (for example 'x-mcp-client') for callers that did not authenticate with a JWT, used only while mcp_allowed_clients is set. The client picks this value itself, so it is a policy control rather than a security boundary; prefer litellm_jwtauth.mcp_client_id_jwt_field where callers use JWTs.",
+        description="Request header whose value names the calling MCP client application (for example 'x-mcp-client') for callers that did not authenticate with a JWT, used only while mcp_allowed_clients is set. The client picks this value itself, so it is a policy control rather than a security boundary; prefer embrouter_jwtauth.mcp_client_id_jwt_field where callers use JWTs.",
     )
     mcp_trusted_proxy_ranges: list[str] | None = Field(
         None,
@@ -3161,7 +3161,7 @@ class ConfigGeneralSettings(LiteLLMPydanticObjectBase):
     )
 
 
-class ConfigYAML(LiteLLMPydanticObjectBase):
+class ConfigYAML(EmbRouterPydanticObjectBase):
     """
     Documents all the fields supported by the config.yaml
     """
@@ -3174,9 +3174,9 @@ class ConfigYAML(LiteLLMPydanticObjectBase):
         None,
         description="List of supported models on the server, with model-specific configs",
     )
-    litellm_settings: dict | None = Field(
+    embrouter_settings: dict | None = Field(
         None,
-        description="litellm Module settings. See __init__.py for all, example litellm.drop_params=True, litellm.set_verbose=True, litellm.api_base, litellm.cache",
+        description="embrouter Module settings. See __init__.py for all, example embrouter.drop_params=True, embrouter.set_verbose=True, embrouter.api_base, embrouter.cache",
     )
     general_settings: ConfigGeneralSettings | None = None
     worker_registry: list[WorkerRegistryEntry] | None = Field(
@@ -3189,23 +3189,23 @@ class ConfigYAML(LiteLLMPydanticObjectBase):
     )
     router_settings: UpdateRouterConfig | None = Field(
         None,
-        description="litellm router object settings. See router.py __init__ for all, example router.num_retries=5, router.timeout=5, router.max_retries=5, router.retry_after=5",
+        description="embrouter router object settings. See router.py __init__ for all, example router.num_retries=5, router.timeout=5, router.max_retries=5, router.retry_after=5",
     )
 
     model_config = ConfigDict(protected_namespaces=())
 
 
-from litellm.models.verification_token import (  # noqa: E402
-    LiteLLM_DeletedVerificationToken as LiteLLM_DeletedVerificationToken,
+from embrouter.models.verification_token import (  # noqa: E402
+    EmbRouter_DeletedVerificationToken as EmbRouter_DeletedVerificationToken,
 )
-from litellm.models.verification_token import (  # noqa: E402
-    LiteLLM_VerificationToken as LiteLLM_VerificationToken,
+from embrouter.models.verification_token import (  # noqa: E402
+    EmbRouter_VerificationToken as EmbRouter_VerificationToken,
 )
 
 
-class LiteLLM_VerificationTokenView(LiteLLM_VerificationToken):
+class EmbRouter_VerificationTokenView(EmbRouter_VerificationToken):
     """
-    Combined view of litellm verification token + litellm team table (select values)
+    Combined view of embrouter verification token + embrouter team table (select values)
     """
 
     team_spend: float | None = None
@@ -3252,11 +3252,11 @@ class LiteLLM_VerificationTokenView(LiteLLM_VerificationToken):
     last_refreshed_at: float | None = None  # last time joint view was pulled from db
 
     def __init__(self, **kwargs):
-        # Handle litellm_budget_table_* keys (budget table overrides when key value is None or empty)
+        # Handle embrouter_budget_table_* keys (budget table overrides when key value is None or empty)
         for key, value in list(kwargs.items()):
-            if key.startswith("litellm_budget_table_") and value is not None:
+            if key.startswith("embrouter_budget_table_") and value is not None:
                 # Extract the corresponding attribute name
-                attr_name = key.replace("litellm_budget_table_", "")
+                attr_name = key.replace("embrouter_budget_table_", "")
                 # Use key's value from kwargs (from DB view), not class default
                 current = kwargs.get(attr_name)
                 if current is None:
@@ -3276,13 +3276,13 @@ class LiteLLM_VerificationTokenView(LiteLLM_VerificationToken):
         super().__init__(**kwargs)
 
 
-class UserAPIKeyAuth(LiteLLM_VerificationTokenView):  # the expected response object for user api key auth
+class UserAPIKeyAuth(EmbRouter_VerificationTokenView):  # the expected response object for user api key auth
     """
     Return the row in the db
     """
 
     api_key: str | None = None
-    user_role: LitellmUserRoles | None = None
+    user_role: EmbrouterUserRoles | None = None
     allowed_model_region: AllowedModelRegion | None = None
     parent_otel_span: Span | None = None
     rpm_limit_per_model: dict[str, int] | None = None
@@ -3342,7 +3342,7 @@ class UserAPIKeyAuth(LiteLLM_VerificationTokenView):  # the expected response ob
         default=None,
         exclude=True,
         description=(
-            "Set per request from the x-litellm-user-id / x-litellm-team-id headers an agent echoes back on "
+            "Set per request from the x-embrouter-user-id / x-embrouter-team-id headers an agent echoes back on "
             "calls made with its own key. Every check treats it as a ceiling, so a forged value can only "
             "narrow the agent's access."
         ),
@@ -3355,10 +3355,10 @@ class UserAPIKeyAuth(LiteLLM_VerificationTokenView):  # the expected response ob
     budget_throttle_pct: float | None = Field(default=None, exclude=True)
     user: Any | None = None  # Expanded user object when expand=user is used
     created_by_user: Any | None = None  # Expanded created_by user when expand=user is used
-    end_user_object_permission: LiteLLM_ObjectPermissionTable | None = None
+    end_user_object_permission: EmbRouter_ObjectPermissionTable | None = None
     # Team object_permission preloaded in auth (e.g. get_team_object) to avoid
     # per-request object_permission fetches in downstream checks (vector stores, etc.)
-    team_object_permission: LiteLLM_ObjectPermissionTable | None = None
+    team_object_permission: EmbRouter_ObjectPermissionTable | None = None
     # Decoded upstream IdP claims (groups, roles, etc.) propagated by JWT auth machinery
     # and forwarded into outbound tokens by guardrails such as MCPJWTSigner.
     jwt_claims: dict | None = None
@@ -3390,78 +3390,78 @@ class UserAPIKeyAuth(LiteLLM_VerificationTokenView):  # the expected response ob
         values.pop("agent_invocation_cost", None)
         values.pop("billing_agent_policy", None)
         if values.get("api_key") is not None:
-            values.update({"token": cls._safe_hash_litellm_api_key(values.get("api_key"))})
+            values.update({"token": cls._safe_hash_embrouter_api_key(values.get("api_key"))})
             if isinstance(values.get("api_key"), str):
-                values.update({"api_key": cls._safe_hash_litellm_api_key(values.get("api_key"))})
+                values.update({"api_key": cls._safe_hash_embrouter_api_key(values.get("api_key"))})
         return values
 
     @classmethod
-    def _safe_hash_litellm_api_key(cls, api_key: str) -> str:
+    def _safe_hash_embrouter_api_key(cls, api_key: str) -> str:
         """
         Helper to ensure all logged keys are hashed
         Covers:
-        1. Regular API keys from LiteLLM DB
-        2. JWT tokens used for connecting to LiteLLM API
+        1. Regular API keys from EmbRouter DB
+        2. JWT tokens used for connecting to EmbRouter API
         """
         normalized = api_key
         if normalized[:7].lower() == "bearer ":
             normalized = normalized[7:]
         if normalized.startswith("sk-"):
             return hash_token(normalized)
-        from litellm.proxy.auth.handle_jwt import JWTHandler
+        from embrouter.proxy.auth.handle_jwt import JWTHandler
 
         if JWTHandler.is_jwt(token=normalized):
             return f"hashed-jwt-{hash_token(token=normalized)}"
         return normalized
 
     @classmethod
-    def get_litellm_internal_health_check_user_api_key_auth(cls) -> "UserAPIKeyAuth":
+    def get_embrouter_internal_health_check_user_api_key_auth(cls) -> "UserAPIKeyAuth":
         """
-        Returns a `UserAPIKeyAuth` object for the litellm internal health check service account.
+        Returns a `UserAPIKeyAuth` object for the embrouter internal health check service account.
 
         This is used to track number of requests/spend for health check calls.
         """
-        from litellm.constants import LITTELM_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME
+        from embrouter.constants import EMBROUTER_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME
 
         return cls(
-            api_key=LITTELM_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME,
-            team_id=LITTELM_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME,
-            key_alias=LITTELM_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME,
-            team_alias=LITTELM_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME,
+            api_key=EMBROUTER_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME,
+            team_id=EMBROUTER_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME,
+            key_alias=EMBROUTER_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME,
+            team_alias=EMBROUTER_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME,
         )
 
     @classmethod
-    def get_litellm_cli_user_api_key_auth(cls) -> "UserAPIKeyAuth":
+    def get_embrouter_cli_user_api_key_auth(cls) -> "UserAPIKeyAuth":
         """
-        Returns a `UserAPIKeyAuth` object for the litellm internal health check service account.
+        Returns a `UserAPIKeyAuth` object for the embrouter internal health check service account.
 
         This is used to track number of requests/spend for health check calls.
         """
-        from litellm.constants import LITTELM_CLI_SERVICE_ACCOUNT_NAME
+        from embrouter.constants import EMBROUTER_CLI_SERVICE_ACCOUNT_NAME
 
         return cls(
-            api_key=LITTELM_CLI_SERVICE_ACCOUNT_NAME,
-            team_id=LITTELM_CLI_SERVICE_ACCOUNT_NAME,
-            key_alias=LITTELM_CLI_SERVICE_ACCOUNT_NAME,
-            team_alias=LITTELM_CLI_SERVICE_ACCOUNT_NAME,
+            api_key=EMBROUTER_CLI_SERVICE_ACCOUNT_NAME,
+            team_id=EMBROUTER_CLI_SERVICE_ACCOUNT_NAME,
+            key_alias=EMBROUTER_CLI_SERVICE_ACCOUNT_NAME,
+            team_alias=EMBROUTER_CLI_SERVICE_ACCOUNT_NAME,
         )
 
     @classmethod
-    def get_litellm_internal_jobs_user_api_key_auth(cls) -> "UserAPIKeyAuth":
+    def get_embrouter_internal_jobs_user_api_key_auth(cls) -> "UserAPIKeyAuth":
         """
-        Returns a `UserAPIKeyAuth` object for internal LiteLLM jobs like key rotation.
+        Returns a `UserAPIKeyAuth` object for internal EmbRouter jobs like key rotation.
 
         This is used to track actions performed by automated system jobs.
         """
-        from litellm.constants import LITELLM_INTERNAL_JOBS_SERVICE_ACCOUNT_NAME
+        from embrouter.constants import EMBROUTER_INTERNAL_JOBS_SERVICE_ACCOUNT_NAME
 
         return cls(
-            api_key=LITELLM_INTERNAL_JOBS_SERVICE_ACCOUNT_NAME,
+            api_key=EMBROUTER_INTERNAL_JOBS_SERVICE_ACCOUNT_NAME,
             team_id="system",
-            key_alias=LITELLM_INTERNAL_JOBS_SERVICE_ACCOUNT_NAME,
+            key_alias=EMBROUTER_INTERNAL_JOBS_SERVICE_ACCOUNT_NAME,
             team_alias="system",
             user_id="system",
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=EmbrouterUserRoles.PROXY_ADMIN,
         )
 
     @property
@@ -3478,23 +3478,23 @@ def user_api_key_has_admin_view(user_api_key_dict: UserAPIKeyAuth) -> bool:
     """Return True if the caller's role grants unscoped read access to all
     tenant resources (managed files, batches, vector stores, spend rows, etc).
 
-    Lives on _types.py so leaf modules (e.g. litellm.llms.base_llm.managed_resources)
-    can use it without pulling in litellm.proxy.utils via management_endpoints.
+    Lives on _types.py so leaf modules (e.g. embrouter.llms.base_llm.managed_resources)
+    can use it without pulling in embrouter.proxy.utils via management_endpoints.
     """
     return user_api_key_dict.user_role in (
-        LitellmUserRoles.PROXY_ADMIN,
-        LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY,
+        EmbrouterUserRoles.PROXY_ADMIN,
+        EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY,
     )
 
 
-class UserInfoResponse(LiteLLMPydanticObjectBase):
+class UserInfoResponse(EmbRouterPydanticObjectBase):
     user_id: str | None
     user_info: dict | BaseModel | None
     keys: list
     teams: list
 
 
-class UserInfoV2Response(LiteLLMPydanticObjectBase):
+class UserInfoV2Response(EmbRouterPydanticObjectBase):
     """
     Response model for GET /v2/user/info
 
@@ -3516,19 +3516,19 @@ class UserInfoV2Response(LiteLLMPydanticObjectBase):
     updated_at: datetime | None = None
     sso_user_id: str | None = None
     teams: list[str] = []  # Just team IDs, not full team objects
-    object_permission: LiteLLM_ObjectPermissionTable | None = None
+    object_permission: EmbRouter_ObjectPermissionTable | None = None
     model_max_budget: Mapping[str, object] | None = None
     model_max_budget_usage: Mapping[str, Mapping[str, object]] | None = None
 
 
-from litellm.models.config import LiteLLM_Config as LiteLLM_Config  # noqa: E402
-from litellm.models.organization_membership import (  # noqa: E402
-    LiteLLM_OrganizationMembershipTable as LiteLLM_OrganizationMembershipTable,
+from embrouter.models.config import EmbRouter_Config as EmbRouter_Config  # noqa: E402
+from embrouter.models.organization_membership import (  # noqa: E402
+    EmbRouter_OrganizationMembershipTable as EmbRouter_OrganizationMembershipTable,
 )
 
 
-class LiteLLM_OrganizationTableUpdate(LiteLLM_BudgetTable):
-    """Represents user-controllable params for a LiteLLM_OrganizationTable record"""
+class EmbRouter_OrganizationTableUpdate(EmbRouter_BudgetTable):
+    """Represents user-controllable params for a EmbRouter_OrganizationTable record"""
 
     organization_id: str | None = None
     organization_alias: str | None = None
@@ -3537,14 +3537,14 @@ class LiteLLM_OrganizationTableUpdate(LiteLLM_BudgetTable):
     metadata: dict | None = None
     models: list[str] | None = None
     updated_by: str | None = None
-    object_permission: LiteLLM_ObjectPermissionBase | None = None
+    object_permission: EmbRouter_ObjectPermissionBase | None = None
     model_tpm_limit: dict[str, int] | None = None
     model_rpm_limit: dict[str, int] | None = None
 
     @model_validator(mode="before")
     @classmethod
     def set_model_info(cls, values):
-        for field in LiteLLM_ManagementEndpoint_MetadataFields:
+        for field in EmbRouter_ManagementEndpoint_MetadataFields:
             if values.get(field) is not None:
                 # add to metadata
                 if values.get("metadata") is None:
@@ -3554,7 +3554,7 @@ class LiteLLM_OrganizationTableUpdate(LiteLLM_BudgetTable):
         return values
 
 
-class OrganizationUpdateRequestV2(LiteLLMPydanticObjectBase):
+class OrganizationUpdateRequestV2(EmbRouterPydanticObjectBase):
     """
     Typed PATCH body for ``/v2/organization/{organization_id}`` (RFC 7396 merge-patch).
 
@@ -3575,26 +3575,26 @@ class OrganizationUpdateRequestV2(LiteLLMPydanticObjectBase):
     max_parallel_requests: int | None = None
     model_max_budget: dict | None = None
     budget_duration: str | None = None
-    object_permission: LiteLLM_ObjectPermissionBase | None = None
+    object_permission: EmbRouter_ObjectPermissionBase | None = None
 
 
-from litellm.models.organization import (  # noqa: E402
-    LiteLLM_OrganizationTable as LiteLLM_OrganizationTable,
+from embrouter.models.organization import (  # noqa: E402
+    EmbRouter_OrganizationTable as EmbRouter_OrganizationTable,
 )
-from litellm.models.user import LiteLLM_UserTable as LiteLLM_UserTable  # noqa: E402
+from embrouter.models.user import EmbRouter_UserTable as EmbRouter_UserTable  # noqa: E402
 
 
-class LiteLLM_OrganizationTableWithMembers(LiteLLM_OrganizationTable):
+class EmbRouter_OrganizationTableWithMembers(EmbRouter_OrganizationTable):
     """Returned by the /organization/info endpoint and /organization/list endpoint"""
 
-    members: list[LiteLLM_OrganizationMembershipTable] = []
-    teams: list[LiteLLM_TeamTable] = []
-    litellm_budget_table: LiteLLM_BudgetTable | None = None
+    members: list[EmbRouter_OrganizationMembershipTable] = []
+    teams: list[EmbRouter_TeamTable] = []
+    embrouter_budget_table: EmbRouter_BudgetTable | None = None
     created_at: datetime
     updated_at: datetime
 
 
-class NewOrganizationResponse(LiteLLM_OrganizationTable):
+class NewOrganizationResponse(EmbRouter_OrganizationTable):
     organization_id: str
     created_at: datetime
     updated_at: datetime
@@ -3603,7 +3603,7 @@ class NewOrganizationResponse(LiteLLM_OrganizationTable):
 ### PROJECT MANAGEMENT TYPES ###
 
 
-class ProjectBase(LiteLLMPydanticObjectBase):
+class ProjectBase(EmbRouterPydanticObjectBase):
     """Base fields shared by project create/update requests"""
 
     project_id: str | None = None
@@ -3614,7 +3614,7 @@ class ProjectBase(LiteLLMPydanticObjectBase):
     blocked: bool = False
 
 
-class NewProjectRequest(LiteLLM_BudgetTable):
+class NewProjectRequest(EmbRouter_BudgetTable):
     """Request model for POST /project/new"""
 
     project_id: str | None = None
@@ -3632,7 +3632,7 @@ class NewProjectRequest(LiteLLM_BudgetTable):
     model_itpm_limit: Mapping[str, int] | None = None
     model_otpm_limit: Mapping[str, int] | None = None
     blocked: bool = False
-    object_permission: LiteLLM_ObjectPermissionBase | None = None
+    object_permission: EmbRouter_ObjectPermissionBase | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -3640,7 +3640,7 @@ class NewProjectRequest(LiteLLM_BudgetTable):
         if "tags" in values and values["tags"] is not None:
             if not isinstance(values["tags"], list):
                 raise ValueError(f"tags must be a list of strings, got {type(values['tags']).__name__}")
-        for field in LiteLLM_ManagementEndpoint_MetadataFields:
+        for field in EmbRouter_ManagementEndpoint_MetadataFields:
             if values.get(field) is not None:
                 if values.get("metadata") is None:
                     values.update({"metadata": {}})
@@ -3649,7 +3649,7 @@ class NewProjectRequest(LiteLLM_BudgetTable):
         return values
 
 
-class UpdateProjectRequest(LiteLLM_BudgetTable):
+class UpdateProjectRequest(EmbRouter_BudgetTable):
     """Request model for POST /project/update"""
 
     project_id: str
@@ -3667,7 +3667,7 @@ class UpdateProjectRequest(LiteLLM_BudgetTable):
     model_otpm_limit: Mapping[str, int] | None = None
     blocked: bool | None = None
     budget_id: str | None = None
-    object_permission: LiteLLM_ObjectPermissionBase | None = None
+    object_permission: EmbRouter_ObjectPermissionBase | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -3675,7 +3675,7 @@ class UpdateProjectRequest(LiteLLM_BudgetTable):
         if "tags" in values and values["tags"] is not None:
             if not isinstance(values["tags"], list):
                 raise ValueError(f"tags must be a list of strings, got {type(values['tags']).__name__}")
-        for field in LiteLLM_ManagementEndpoint_MetadataFields:
+        for field in EmbRouter_ManagementEndpoint_MetadataFields:
             if values.get(field) is not None:
                 if values.get("metadata") is None:
                     values.update({"metadata": {}})
@@ -3684,18 +3684,18 @@ class UpdateProjectRequest(LiteLLM_BudgetTable):
         return values
 
 
-class DeleteProjectRequest(LiteLLMPydanticObjectBase):
+class DeleteProjectRequest(EmbRouterPydanticObjectBase):
     """Request model for DELETE /project/delete"""
 
     project_ids: list[str]
 
 
-from litellm.models.project import (  # noqa: E402
-    LiteLLM_ProjectTable as LiteLLM_ProjectTable,
+from embrouter.models.project import (  # noqa: E402
+    EmbRouter_ProjectTable as EmbRouter_ProjectTable,
 )
 
 
-class NewProjectResponse(LiteLLM_ProjectTable):
+class NewProjectResponse(EmbRouter_ProjectTable):
     """Response model for POST /project/new"""
 
     project_id: str
@@ -3703,45 +3703,45 @@ class NewProjectResponse(LiteLLM_ProjectTable):
     updated_at: datetime
 
 
-class LiteLLM_ProjectTableCachedObj(LiteLLM_ProjectTable):
-    """Cached version for auth checks. Mirrors LiteLLM_TeamTableCachedObj pattern."""
+class EmbRouter_ProjectTableCachedObj(EmbRouter_ProjectTable):
+    """Cached version for auth checks. Mirrors EmbRouter_TeamTableCachedObj pattern."""
 
     last_refreshed_at: float | None = None
 
 
-class LiteLLM_UserTableFiltered(BaseModel):  # done to avoid exposing sensitive data
+class EmbRouter_UserTableFiltered(BaseModel):  # done to avoid exposing sensitive data
     user_id: str
     user_email: str | None = None
 
 
-class LiteLLM_UserTableWithKeyCount(LiteLLM_UserTable):
+class EmbRouter_UserTableWithKeyCount(EmbRouter_UserTable):
     key_count: int = 0
 
 
-from litellm.models.access_group import (  # noqa: E402
-    LiteLLM_AccessGroupTable as LiteLLM_AccessGroupTable,
+from embrouter.models.access_group import (  # noqa: E402
+    EmbRouter_AccessGroupTable as EmbRouter_AccessGroupTable,
 )
-from litellm.models.end_user import (  # noqa: E402
-    LiteLLM_EndUserTable as LiteLLM_EndUserTable,
+from embrouter.models.end_user import (  # noqa: E402
+    EmbRouter_EndUserTable as EmbRouter_EndUserTable,
 )
-from litellm.models.spend_logs import (  # noqa: E402
-    LiteLLM_ErrorLogs as LiteLLM_ErrorLogs,
+from embrouter.models.spend_logs import (  # noqa: E402
+    EmbRouter_ErrorLogs as EmbRouter_ErrorLogs,
 )
-from litellm.models.spend_logs import (  # noqa: E402
-    LiteLLM_SpendLogs as LiteLLM_SpendLogs,
+from embrouter.models.spend_logs import (  # noqa: E402
+    EmbRouter_SpendLogs as EmbRouter_SpendLogs,
 )
-from litellm.models.tag import LiteLLM_TagTable as LiteLLM_TagTable  # noqa: E402
+from embrouter.models.tag import EmbRouter_TagTable as EmbRouter_TagTable  # noqa: E402
 
 AUDIT_ACTIONS = Literal["created", "updated", "deleted", "blocked", "unblocked", "rotated", "kill_switch_fired"]
 
 
-class LiteLLM_AuditLogs(LiteLLMPydanticObjectBase):
+class EmbRouter_AuditLogs(EmbRouterPydanticObjectBase):
     id: str
     updated_at: datetime
     changed_by: Any | None = None
     changed_by_api_key: str | None = None
     action: AUDIT_ACTIONS
-    table_name: LitellmTableNames
+    table_name: EmbrouterTableNames
     object_id: str
     before_value: Json | None = None
     updated_values: Json | None = None
@@ -3755,7 +3755,7 @@ class LiteLLM_AuditLogs(LiteLLMPydanticObjectBase):
 
     @model_validator(mode="after")
     def mask_api_keys(self):
-        from litellm.litellm_core_utils.sensitive_data_masker import SensitiveDataMasker
+        from embrouter.embrouter_core_utils.sensitive_data_masker import SensitiveDataMasker
 
         masker: Final = SensitiveDataMasker(sensitive_patterns={"key"})
 
@@ -3784,11 +3784,11 @@ class LiteLLM_AuditLogs(LiteLLMPydanticObjectBase):
         return self
 
 
-class LiteLLM_SpendLogs_ResponseObject(LiteLLMPydanticObjectBase):
-    response: list[LiteLLM_SpendLogs | Any] | None = None
+class EmbRouter_SpendLogs_ResponseObject(EmbRouterPydanticObjectBase):
+    response: list[EmbRouter_SpendLogs | Any] | None = None
 
 
-class TokenCountRequest(LiteLLMPydanticObjectBase):
+class TokenCountRequest(EmbRouterPydanticObjectBase):
     model: str
     prompt: str | None = None
     messages: list[dict] | None = None
@@ -3805,7 +3805,7 @@ class TokenCountRequest(LiteLLMPydanticObjectBase):
     system: Any | None = None
 
 
-class CallInfo(LiteLLMPydanticObjectBase):
+class CallInfo(EmbRouterPydanticObjectBase):
     """Used for slack budget alerting"""
 
     spend: float
@@ -3821,7 +3821,7 @@ class CallInfo(LiteLLMPydanticObjectBase):
     key_alias: str | None = None
     projected_exceeded_date: str | None = None
     projected_spend: float | None = None
-    event_group: Litellm_EntityType
+    event_group: Embrouter_EntityType
     alert_emails: list[str] | None = Field(
         default=None,
         description="Additional email addresses to send alerts to (e.g., from team metadata)",
@@ -3845,7 +3845,7 @@ class WebhookEvent(CallInfo):
         "spend_tracked",
     ]
     event_message: str  # human-readable description of event
-    event_group: Litellm_EntityType
+    event_group: Embrouter_EntityType
 
 
 class SpecialModelNames(enum.Enum):
@@ -3862,20 +3862,20 @@ class SpecialProxyStrings(enum.Enum):
     default_user_id = "default_user_id"  # global proxy admin
 
 
-class InvitationNew(LiteLLMPydanticObjectBase):
+class InvitationNew(EmbRouterPydanticObjectBase):
     user_id: str
 
 
-class InvitationUpdate(LiteLLMPydanticObjectBase):
+class InvitationUpdate(EmbRouterPydanticObjectBase):
     invitation_id: str
     is_accepted: bool
 
 
-class InvitationDelete(LiteLLMPydanticObjectBase):
+class InvitationDelete(EmbRouterPydanticObjectBase):
     invitation_id: str
 
 
-class InvitationModel(LiteLLMPydanticObjectBase):
+class InvitationModel(EmbRouterPydanticObjectBase):
     id: str
     user_id: str
     is_accepted: bool
@@ -3887,30 +3887,30 @@ class InvitationModel(LiteLLMPydanticObjectBase):
     updated_by: str
 
 
-class InvitationClaim(LiteLLMPydanticObjectBase):
+class InvitationClaim(EmbRouterPydanticObjectBase):
     invitation_link: str
     user_id: str
     password: str
 
 
-class ConfigFieldInfo(LiteLLMPydanticObjectBase):
+class ConfigFieldInfo(EmbRouterPydanticObjectBase):
     field_name: str
     field_value: Any
     source: Literal["config", "db", "env", "default", "unset"] = "unset"
     editable: bool = True
 
 
-class CallbackOnUI(LiteLLMPydanticObjectBase):
-    litellm_callback_name: str
-    litellm_callback_params: list | None
+class CallbackOnUI(EmbRouterPydanticObjectBase):
+    embrouter_callback_name: str
+    embrouter_callback_params: list | None
     ui_callback_name: str
 
 
-class AllCallbacks(LiteLLMPydanticObjectBase):
+class AllCallbacks(EmbRouterPydanticObjectBase):
     langfuse: CallbackOnUI = CallbackOnUI(
-        litellm_callback_name="langfuse",
+        embrouter_callback_name="langfuse",
         ui_callback_name="Langfuse",
-        litellm_callback_params=[
+        embrouter_callback_params=[
             "LANGFUSE_PUBLIC_KEY",
             "LANGFUSE_SECRET_KEY",
             "LANGFUSE_HOST",
@@ -3918,9 +3918,9 @@ class AllCallbacks(LiteLLMPydanticObjectBase):
     )
 
     otel: CallbackOnUI = CallbackOnUI(
-        litellm_callback_name="otel",
+        embrouter_callback_name="otel",
         ui_callback_name="OpenTelemetry",
-        litellm_callback_params=[
+        embrouter_callback_params=[
             "OTEL_EXPORTER",
             "OTEL_EXPORTER_OTLP_PROTOCOL",
             "OTEL_ENDPOINT",
@@ -3930,9 +3930,9 @@ class AllCallbacks(LiteLLMPydanticObjectBase):
     )
 
     s3: CallbackOnUI = CallbackOnUI(
-        litellm_callback_name="s3",
+        embrouter_callback_name="s3",
         ui_callback_name="s3 Bucket (AWS)",
-        litellm_callback_params=[
+        embrouter_callback_params=[
             "AWS_ACCESS_KEY_ID",
             "AWS_SECRET_ACCESS_KEY",
             "AWS_REGION_NAME",
@@ -3941,9 +3941,9 @@ class AllCallbacks(LiteLLMPydanticObjectBase):
     )
 
     azure_sentinel: CallbackOnUI = CallbackOnUI(
-        litellm_callback_name="azure_sentinel",
+        embrouter_callback_name="azure_sentinel",
         ui_callback_name="Azure Sentinel",
-        litellm_callback_params=[
+        embrouter_callback_params=[
             "AZURE_SENTINEL_DCR_IMMUTABLE_ID",
             "AZURE_SENTINEL_ENDPOINT",
             "AZURE_SENTINEL_TENANT_ID",
@@ -3954,41 +3954,41 @@ class AllCallbacks(LiteLLMPydanticObjectBase):
     )
 
     openmeter: CallbackOnUI = CallbackOnUI(
-        litellm_callback_name="openmeter",
+        embrouter_callback_name="openmeter",
         ui_callback_name="OpenMeter",
-        litellm_callback_params=[
+        embrouter_callback_params=[
             "OPENMETER_API_ENDPOINT",
             "OPENMETER_API_KEY",
         ],
     )
 
     custom_callback_api: CallbackOnUI = CallbackOnUI(
-        litellm_callback_name="custom_callback_api",
-        litellm_callback_params=["GENERIC_LOGGER_ENDPOINT", "GENERIC_LOGGER_HEADERS"],
+        embrouter_callback_name="custom_callback_api",
+        embrouter_callback_params=["GENERIC_LOGGER_ENDPOINT", "GENERIC_LOGGER_HEADERS"],
         ui_callback_name="Custom Callback API",
     )
 
     generic_api: CallbackOnUI = CallbackOnUI(
-        litellm_callback_name="generic_api",
-        litellm_callback_params=["GENERIC_LOGGER_ENDPOINT", "GENERIC_LOGGER_HEADERS"],
+        embrouter_callback_name="generic_api",
+        embrouter_callback_params=["GENERIC_LOGGER_ENDPOINT", "GENERIC_LOGGER_HEADERS"],
         ui_callback_name="Custom Callback API",
     )
 
     datadog: CallbackOnUI = CallbackOnUI(
-        litellm_callback_name="datadog",
-        litellm_callback_params=["DD_API_KEY", "DD_SITE"],
+        embrouter_callback_name="datadog",
+        embrouter_callback_params=["DD_API_KEY", "DD_SITE"],
         ui_callback_name="Datadog",
     )
 
     braintrust: CallbackOnUI = CallbackOnUI(
-        litellm_callback_name="braintrust",
-        litellm_callback_params=["BRAINTRUST_API_KEY", "BRAINTRUST_API_BASE"],
+        embrouter_callback_name="braintrust",
+        embrouter_callback_params=["BRAINTRUST_API_KEY", "BRAINTRUST_API_BASE"],
         ui_callback_name="Braintrust",
     )
 
     langsmith: CallbackOnUI = CallbackOnUI(
-        litellm_callback_name="langsmith",
-        litellm_callback_params=[
+        embrouter_callback_name="langsmith",
+        embrouter_callback_params=[
             "LANGSMITH_API_KEY",
             "LANGSMITH_PROJECT",
             "LANGSMITH_DEFAULT_RUN_NAME",
@@ -3997,8 +3997,8 @@ class AllCallbacks(LiteLLMPydanticObjectBase):
     )
 
     lago: CallbackOnUI = CallbackOnUI(
-        litellm_callback_name="lago",
-        litellm_callback_params=[
+        embrouter_callback_name="lago",
+        embrouter_callback_params=[
             "LAGO_API_BASE",
             "LAGO_API_KEY",
             "LAGO_API_EVENT_CODE",
@@ -4008,16 +4008,16 @@ class AllCallbacks(LiteLLMPydanticObjectBase):
     )
 
     traceloop: CallbackOnUI = CallbackOnUI(
-        litellm_callback_name="traceloop",
-        litellm_callback_params=[
+        embrouter_callback_name="traceloop",
+        embrouter_callback_params=[
             "TRACELOOP_API_KEY",
         ],
         ui_callback_name="Traceloop",
     )
 
     galileo: CallbackOnUI = CallbackOnUI(
-        litellm_callback_name="galileo",
-        litellm_callback_params=[
+        embrouter_callback_name="galileo",
+        embrouter_callback_params=[
             "GALILEO_API_KEY",
             "GALILEO_PROJECT_ID",
             "GALILEO_LOG_STREAM_ID",
@@ -4029,32 +4029,32 @@ class AllCallbacks(LiteLLMPydanticObjectBase):
     )
 
     newrelic: CallbackOnUI = CallbackOnUI(
-        litellm_callback_name="newrelic",
+        embrouter_callback_name="newrelic",
         ui_callback_name="New Relic",
-        litellm_callback_params=[
+        embrouter_callback_params=[
             "NEW_RELIC_AI_MONITORING_RECORD_CONTENT_ENABLED",
         ],
     )
 
     pointfive: CallbackOnUI = CallbackOnUI(
-        litellm_callback_name="pointfive",
+        embrouter_callback_name="pointfive",
         ui_callback_name="PointFive",
-        litellm_callback_params=[  # mutable-ok: the registry field is typed list
+        embrouter_callback_params=[  # mutable-ok: the registry field is typed list
             "POINTFIVE_API_KEY",
             "POINTFIVE_API_URL",
         ],
     )
 
     signoz: CallbackOnUI = CallbackOnUI(
-        litellm_callback_name="signoz",
+        embrouter_callback_name="signoz",
         ui_callback_name="SigNoz",
-        litellm_callback_params=("SIGNOZ_INGESTION_ENDPOINT", "SIGNOZ_INGESTION_KEY"),
+        embrouter_callback_params=("SIGNOZ_INGESTION_ENDPOINT", "SIGNOZ_INGESTION_KEY"),
     )
 
     zerobus: CallbackOnUI = CallbackOnUI(
-        litellm_callback_name="zerobus",
+        embrouter_callback_name="zerobus",
         ui_callback_name="Databricks Zerobus",
-        litellm_callback_params=[  # mutable-ok: the registry field is typed list
+        embrouter_callback_params=[  # mutable-ok: the registry field is typed list
             "ZEROBUS_WORKSPACE_URL",
             "ZEROBUS_SERVER_ENDPOINT",
             "ZEROBUS_CLIENT_ID",
@@ -4106,7 +4106,7 @@ class SpendLogsMetadata(TypedDict):
     spend_logs_metadata: dict | None  # special param to log k,v pairs to spendlogs for a call
     requester_ip_address: str | None
     user_agent: ReadOnly[str | None]
-    litellm_call_id: str | None
+    embrouter_call_id: str | None
     applied_guardrails: list[str] | None
     mcp_tool_call_metadata: StandardLoggingMCPToolCall | None
     vector_store_request_metadata: list[StandardLoggingVectorStoreRequest] | None
@@ -4123,7 +4123,7 @@ class SpendLogsMetadata(TypedDict):
     usage_object: dict | None
     model_map_information: StandardLoggingModelInformation | None
     cold_storage_object_key: str | None  # S3/GCS object key for cold storage retrieval
-    litellm_overhead_time_ms: float | None  # LiteLLM overhead time in milliseconds
+    embrouter_overhead_time_ms: float | None  # EmbRouter overhead time in milliseconds
     attempted_retries: int | None  # Number of retries attempted (0 = first attempt succeeded)
     max_retries: int | None  # Max retries configured for this request
     attempted_fallbacks: ReadOnly[int | None]  # Number of fallbacks attempted (0 = primary model group served)
@@ -4132,7 +4132,7 @@ class SpendLogsMetadata(TypedDict):
     compression_savings: CompressionSavingsMetadata | None
     autorouter_savings: ReadOnly[float | None]
     autorouter_savings_estimate: ReadOnly[Mapping[str, JsonValue] | None]
-    litellm_gateway_injected_cache: ReadOnly[str | None]
+    embrouter_gateway_injected_cache: ReadOnly[str | None]
     router_metadata: ReadOnly[SpendLogsRouterMetadata | None]  # None = deployment not flagged internal_router_model
     azure_spillover: ReadOnly[AzureSpillover | None]  # None = Azure did not report spillover
 
@@ -4171,12 +4171,12 @@ class SpendLogsPayload(TypedDict):
     session_id: str | None
     request_duration_ms: int | None
     status: Literal["success", "failure"]
-    litellm_call_id: ReadOnly[str | None]
+    embrouter_call_id: ReadOnly[str | None]
 
 
 class SpanAttributes(str, enum.Enum):
     # Note: We've taken this from opentelemetry-semantic-conventions-ai
-    # I chose to not add a new dependency to litellm for this
+    # I chose to not add a new dependency to embrouter for this
 
     # Semantic Conventions for LLM requests, this needs to be removed after
     # OpenTelemetry Semantic Conventions support Gen AI.
@@ -4234,7 +4234,7 @@ class SpanAttributes(str, enum.Enum):
     LLM_OPENAI_API_TYPE = "gen_ai.openai.api_type"
 
 
-class ManagementEndpointLoggingPayload(LiteLLMPydanticObjectBase):
+class ManagementEndpointLoggingPayload(EmbRouterPydanticObjectBase):
     route: str
     request_data: dict
     response: dict | None = None
@@ -4263,7 +4263,7 @@ class ProxyException(Exception):
         self.openai_code = openai_code or code
         # If we look on official python OpenAI lib, the code should be a string:
         # https://github.com/openai/openai-python/blob/195c05a64d39c87b2dfdf1eca2d339597f1fce03/src/openai/types/shared/error_object.py#L11
-        # Related LiteLLM
+        # Related EmbRouter
         self.code = str(code)
         if headers is not None:
             for k, v in headers.items():
@@ -4272,7 +4272,7 @@ class ProxyException(Exception):
         self.headers = headers or {}
         self.provider_specific_fields = provider_specific_fields
         # rules for proxyExceptions
-        # Litellm router.py returns "No healthy deployment available" when there are no deployments available
+        # Embrouter router.py returns "No healthy deployment available" when there are no deployments available
         # Should map to 429 errors
         if "No healthy deployment available" in self.message or "No deployments available" in self.message:
             self.code = "429"
@@ -4316,13 +4316,13 @@ class CommonProxyErrors(str, enum.Enum):
     )
     no_llm_router = "No models configured on proxy"
     not_allowed_access = "Admin-only endpoint. Not allowed to access this."
-    not_premium_user = "You must be a LiteLLM Enterprise user to use this feature. If you have a license please set `LITELLM_LICENSE` in your env."
+    not_premium_user = "You must be a EmbRouter Enterprise user to use this feature. If you have a license please set `EMBROUTER_LICENSE` in your env."
     max_parallel_request_limit_reached = "Crossed TPM / RPM / Max Parallel Request Limit"
-    missing_enterprise_package = "Missing litellm-enterprise package. Please install it to use this feature. Run `pip install litellm-enterprise`"
+    missing_enterprise_package = "Missing embrouter-enterprise package. Please install it to use this feature. Run `pip install embrouter-enterprise`"
     missing_enterprise_package_docker = "This uses the enterprise folder - only available on the Docker image."
 
 
-class SpendCalculateRequest(LiteLLMPydanticObjectBase):
+class SpendCalculateRequest(EmbRouterPydanticObjectBase):
     model: str | None = None
     messages: list | None = None
     completion_response: dict | None = None
@@ -4504,27 +4504,27 @@ class SSOUserDefinedValues(TypedDict):
     budget_duration: str | None
 
 
-class VirtualKeyEvent(LiteLLMPydanticObjectBase):
+class VirtualKeyEvent(EmbRouterPydanticObjectBase):
     created_by_user_id: str
     created_by_user_role: str
     created_by_key_alias: str | None
     request_kwargs: dict
 
 
-class CreatePassThroughEndpoint(LiteLLMPydanticObjectBase):
+class CreatePassThroughEndpoint(EmbRouterPydanticObjectBase):
     path: str
     target: str
     headers: dict
 
 
-from litellm.models.team_membership import (  # noqa: E402
-    LiteLLM_TeamMembership as LiteLLM_TeamMembership,
+from embrouter.models.team_membership import (  # noqa: E402
+    EmbRouter_TeamMembership as EmbRouter_TeamMembership,
 )
 
 #### Organization / Team Member Requests ####
 
 
-class MemberAddRequest(LiteLLMPydanticObjectBase):
+class MemberAddRequest(EmbRouterPydanticObjectBase):
     member: list[Member] | Member = Field(
         description="Member object or list of member objects to add. Each member must include either user_id or user_email, and a role"
     )
@@ -4545,7 +4545,7 @@ class MemberAddRequest(LiteLLMPydanticObjectBase):
         super().__init__(**data)
 
 
-class OrgMemberAddRequest(LiteLLMPydanticObjectBase):
+class OrgMemberAddRequest(EmbRouterPydanticObjectBase):
     member: list[OrgMember] | OrgMember
 
     def __init__(self, **data):
@@ -4567,18 +4567,18 @@ class OrgMemberAddRequest(LiteLLMPydanticObjectBase):
         super().__init__(**data)
 
 
-class TeamAddMemberResponse(LiteLLM_TeamTable):
-    updated_users: list[LiteLLM_UserTable]
-    updated_team_memberships: list[LiteLLM_TeamMembership]
+class TeamAddMemberResponse(EmbRouter_TeamTable):
+    updated_users: list[EmbRouter_UserTable]
+    updated_team_memberships: list[EmbRouter_TeamMembership]
 
 
-class OrganizationAddMemberResponse(LiteLLMPydanticObjectBase):
+class OrganizationAddMemberResponse(EmbRouterPydanticObjectBase):
     organization_id: str
-    updated_users: list[LiteLLM_UserTable]
-    updated_organization_memberships: list[LiteLLM_OrganizationMembershipTable]
+    updated_users: list[EmbRouter_UserTable]
+    updated_organization_memberships: list[EmbRouter_OrganizationMembershipTable]
 
 
-class MemberDeleteRequest(LiteLLMPydanticObjectBase):
+class MemberDeleteRequest(EmbRouterPydanticObjectBase):
     user_id: str | None = None
     user_email: str | None = None
 
@@ -4590,7 +4590,7 @@ class MemberDeleteRequest(LiteLLMPydanticObjectBase):
         return values
 
 
-class MemberUpdateResponse(LiteLLMPydanticObjectBase):
+class MemberUpdateResponse(EmbRouterPydanticObjectBase):
     user_id: str
     user_email: str | None = None
 
@@ -4700,18 +4700,18 @@ class OrganizationMemberDeleteRequest(MemberDeleteRequest):
 
 
 ROLES_WITHIN_ORG: Final = [
-    LitellmUserRoles.ORG_ADMIN,
-    LitellmUserRoles.INTERNAL_USER,
-    LitellmUserRoles.INTERNAL_USER_VIEW_ONLY,
+    EmbrouterUserRoles.ORG_ADMIN,
+    EmbrouterUserRoles.INTERNAL_USER,
+    EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY,
 ]
 
 
 class OrganizationMemberUpdateRequest(OrganizationMemberDeleteRequest):
     max_budget_in_organization: float | None = None
-    role: LitellmUserRoles | None = None
+    role: EmbrouterUserRoles | None = None
 
     @field_validator("role")
-    def validate_role(cls, value: LitellmUserRoles | None) -> LitellmUserRoles | None:
+    def validate_role(cls, value: EmbrouterUserRoles | None) -> EmbrouterUserRoles | None:
         if value is not None and value not in ROLES_WITHIN_ORG:
             raise ValueError(f"Invalid role. Must be one of: {[role.value for role in ROLES_WITHIN_ORG]}")
         return value
@@ -4725,7 +4725,7 @@ class OrganizationMemberUpdateResponse(MemberUpdateResponse):
 ##########################################
 
 
-class TeamAccessGroupModelGrant(LiteLLMPydanticObjectBase):
+class TeamAccessGroupModelGrant(EmbRouterPydanticObjectBase):
     access_group_id: str
     access_group_name: str
     models: tuple[str, ...]
@@ -4760,9 +4760,9 @@ TeamEditAccess = Annotated[
 ]
 
 
-class TeamInfoResponseObjectTeamTable(LiteLLM_TeamTable):
+class TeamInfoResponseObjectTeamTable(EmbRouter_TeamTable):
     members_with_roles: tuple[TeamInfoMember, ...] = ()
-    team_member_budget_table: LiteLLM_BudgetTableFull | None = None
+    team_member_budget_table: EmbRouter_BudgetTableFull | None = None
     # Resources inherited from access groups (separate from direct assignments)
     access_group_models: list[str] | None = None
     access_group_mcp_server_ids: list[str] | None = None
@@ -4778,7 +4778,7 @@ class TeamInfoResponseObjectTeamTable(LiteLLM_TeamTable):
 TeamMemberBudgetSource: TypeAlias = Literal["team_default", "custom", "none"]
 
 
-class TeamInfoMembership(LiteLLM_TeamMembership):
+class TeamInfoMembership(EmbRouter_TeamMembership):
     budget_source: TeamMemberBudgetSource
 
 
@@ -4797,13 +4797,13 @@ class TeamMemberResetBudgetResponse(BaseModel):
     budget_source: TeamMemberBudgetSource
 
 
-class TeamListResponseObject(LiteLLM_TeamTable):
-    team_memberships: list[LiteLLM_TeamMembership]
+class TeamListResponseObject(EmbRouter_TeamTable):
+    team_memberships: list[EmbRouter_TeamMembership]
     keys: list  # list of keys that belong to the team
 
 
 class KeyListResponseObject(TypedDict, total=False):
-    keys: list[str | UserAPIKeyAuth | LiteLLM_DeletedVerificationToken]
+    keys: list[str | UserAPIKeyAuth | EmbRouter_DeletedVerificationToken]
     total_count: int | None
     current_page: int | None
     total_pages: int | None
@@ -4826,7 +4826,7 @@ class KeyHealthResponse(TypedDict, total=False):
     logging_callbacks: LoggingCallbackStatus | None
 
 
-class CreateJWTKeyMappingRequest(LiteLLMPydanticObjectBase):
+class CreateJWTKeyMappingRequest(EmbRouterPydanticObjectBase):
     jwt_claim_name: str
     jwt_claim_value: str
     key: str | None = None
@@ -4835,7 +4835,7 @@ class CreateJWTKeyMappingRequest(LiteLLMPydanticObjectBase):
     description: str | None = None
 
 
-class UpdateJWTKeyMappingRequest(LiteLLMPydanticObjectBase):
+class UpdateJWTKeyMappingRequest(EmbRouterPydanticObjectBase):
     id: str
     key: str | None = None
     token: str | None = None
@@ -4844,11 +4844,11 @@ class UpdateJWTKeyMappingRequest(LiteLLMPydanticObjectBase):
     is_active: bool | None = None
 
 
-class DeleteJWTKeyMappingRequest(LiteLLMPydanticObjectBase):
+class DeleteJWTKeyMappingRequest(EmbRouterPydanticObjectBase):
     id: str
 
 
-class JWTKeyMappingResponse(LiteLLMPydanticObjectBase):
+class JWTKeyMappingResponse(EmbRouterPydanticObjectBase):
     id: str
     jwt_issuer: str | None = None
     jwt_claim_name: str
@@ -4862,26 +4862,26 @@ class JWTKeyMappingResponse(LiteLLMPydanticObjectBase):
 
 
 class SpecialHeaders(enum.Enum):
-    """Used by user_api_key_auth.py to get litellm key"""
+    """Used by user_api_key_auth.py to get embrouter key"""
 
     openai_authorization = "Authorization"
     azure_authorization = "API-Key"
     anthropic_authorization = "x-api-key"
     google_ai_studio_authorization = "x-goog-api-key"
     azure_apim_authorization = "Ocp-Apim-Subscription-Key"
-    custom_litellm_api_key = "x-litellm-api-key"
+    custom_embrouter_api_key = "x-embrouter-api-key"
     mcp_auth = "x-mcp-auth"
     mcp_servers = "x-mcp-servers"
     mcp_access_groups = "x-mcp-access-groups"
 
     @classmethod
-    def litellm_credential_header_names(cls) -> "frozenset[str]":
-        """Lowercased header names user_api_key_auth accepts as a litellm key.
+    def embrouter_credential_header_names(cls) -> "frozenset[str]":
+        """Lowercased header names user_api_key_auth accepts as a embrouter key.
 
         Every header here authenticates the caller, so any code that forwards a
         request onward (e.g. the plugin reverse proxy) must strip all of them to
-        avoid leaking the caller's litellm credential downstream. The static
-        custom-key header (general_settings.litellm_key_header_name) is runtime
+        avoid leaking the caller's embrouter credential downstream. The static
+        custom-key header (general_settings.embrouter_key_header_name) is runtime
         config and must be added on top of this set by the caller.
         """
         return frozenset(
@@ -4892,12 +4892,12 @@ class SpecialHeaders(enum.Enum):
                 cls.anthropic_authorization,
                 cls.google_ai_studio_authorization,
                 cls.azure_apim_authorization,
-                cls.custom_litellm_api_key,
+                cls.custom_embrouter_api_key,
             )
         )
 
 
-class LitellmDataForBackendLLMCall(TypedDict, total=False):
+class EmbrouterDataForBackendLLMCall(TypedDict, total=False):
     headers: dict
     organization: str
     timeout: float | None
@@ -4905,7 +4905,7 @@ class LitellmDataForBackendLLMCall(TypedDict, total=False):
     user: str | None
     num_retries: int | None
     # True when the effective timeout came from a caller-controlled source (the
-    # `x-litellm-timeout`/`x-litellm-stream-timeout` headers, or a `timeout`/`request_timeout`/
+    # `x-embrouter-timeout`/`x-embrouter-stream-timeout` headers, or a `timeout`/`request_timeout`/
     # `stream_timeout` field in the request body) rather than deployment config, so a
     # deliberately tiny value isn't treated as a deployment health signal (see
     # cooldown_handlers._trigger_cooldown_for_failed_deployment).
@@ -4913,9 +4913,9 @@ class LitellmDataForBackendLLMCall(TypedDict, total=False):
     keepalive_seconds: float | None
 
 
-class LitellmMetadataFromRequestHeaders(TypedDict, total=False):
+class EmbrouterMetadataFromRequestHeaders(TypedDict, total=False):
     """
-    Headers a user can pass that will get added to litellm metadata for the request
+    Headers a user can pass that will get added to embrouter metadata for the request
     """
 
     spend_logs_metadata: dict | None
@@ -4950,7 +4950,7 @@ class UserManagementEndpointParamDocStringEnums(str, enum.Enum):
     tpm_limit_doc_str = """Optional[int] - Specify tpm limit for a given user (Tokens per minute)"""
     rpm_limit_doc_str = """Optional[int] - Specify rpm limit for a given user (Requests per minute)"""
     auto_create_key_doc_str = """bool - Default=True. Flag used for returning a key as part of the /user/new response"""
-    aliases_doc_str = """Optional[dict] - Model aliases for the user - [Docs](https://litellm.vercel.app/docs/proxy/virtual_keys#model-aliases)"""
+    aliases_doc_str = """Optional[dict] - Model aliases for the user - [Docs](https://embrouter.vercel.app/docs/proxy/virtual_keys#model-aliases)"""
     config_doc_str = """Optional[dict] - [DEPRECATED PARAM] User-specific config."""
     allowed_cache_controls_doc_str = """Optional[list] - List of allowed cache control values. Example - ["no-cache", "no-store"]."""
     blocked_doc_str = """Optional[bool] - [Not Implemented Yet] Whether the user is blocked."""
@@ -4987,7 +4987,7 @@ class PassThroughEndpointLoggingTypedDict(TypedDict):
     kwargs: dict
 
 
-LiteLLM_ManagementEndpoint_MetadataFields: Final = [
+EmbRouter_ManagementEndpoint_MetadataFields: Final = [
     "model_rpm_limit",
     "model_tpm_limit",
     "model_itpm_limit",
@@ -5009,7 +5009,7 @@ LiteLLM_ManagementEndpoint_MetadataFields: Final = [
     "end_user_budget_id",
 ]
 
-LiteLLM_ManagementEndpoint_MetadataFields_Premium: Final = [
+EmbRouter_ManagementEndpoint_MetadataFields_Premium: Final = [
     "disable_global_guardrails",
     "guardrails",
     "policies",
@@ -5023,12 +5023,12 @@ LiteLLM_ManagementEndpoint_MetadataFields_Premium: Final = [
 
 # Metadata keys that are immutable once set: preserved when an update omits them,
 # and rejected (400) when an update tries to change them.
-LiteLLM_Reserved_Metadata_Fields: Final = [
+EmbRouter_Reserved_Metadata_Fields: Final = [
     "service_account_id",
 ]
 
 
-class ProviderBudgetResponseObject(LiteLLMPydanticObjectBase):
+class ProviderBudgetResponseObject(EmbRouterPydanticObjectBase):
     """
     Configuration for a single provider's budget settings
     """
@@ -5039,7 +5039,7 @@ class ProviderBudgetResponseObject(LiteLLMPydanticObjectBase):
     budget_reset_at: str | None = None  # When the current budget period resets
 
 
-class ProviderBudgetResponse(LiteLLMPydanticObjectBase):
+class ProviderBudgetResponse(EmbRouterPydanticObjectBase):
     """
     Complete provider budget configuration and status.
     Maps provider names to their budget configs.
@@ -5058,22 +5058,22 @@ class ProxyStateVariables(TypedDict):
     spend_logs_row_count: int
 
 
-UI_TEAM_ID = "litellm-dashboard"
+UI_TEAM_ID = "embrouter-dashboard"
 
 
 class JWTAuthBuilderResult(TypedDict):
     is_proxy_admin: bool
-    team_object: LiteLLM_TeamTable | None
-    user_object: LiteLLM_UserTable | None
-    end_user_object: LiteLLM_EndUserTable | None
-    org_object: LiteLLM_OrganizationTable | None
+    team_object: EmbRouter_TeamTable | None
+    user_object: EmbRouter_UserTable | None
+    end_user_object: EmbRouter_EndUserTable | None
+    org_object: EmbRouter_OrganizationTable | None
     token: str
     team_id: str | None
     user_id: str | None
     user_email: str | None
     end_user_id: str | None
     org_id: str | None
-    team_membership: LiteLLM_TeamMembership | None
+    team_membership: EmbRouter_TeamMembership | None
     jwt_claims: dict  # Decoded JWT token claims (avoids re-decoding)
     managed_agent_context: ReadOnly[NotRequired[ManagedAgentContext | None]]
     agent_id: ReadOnly[str | None]
@@ -5092,13 +5092,13 @@ ALL_FALLBACK_MODEL_VALUES = str | ClientSideFallbackModel
 
 
 RBAC_ROLES = Literal[
-    LitellmUserRoles.PROXY_ADMIN,
-    LitellmUserRoles.TEAM,
-    LitellmUserRoles.INTERNAL_USER,
+    EmbrouterUserRoles.PROXY_ADMIN,
+    EmbrouterUserRoles.TEAM,
+    EmbrouterUserRoles.INTERNAL_USER,
 ]
 
 
-class OIDCPermissions(LiteLLMPydanticObjectBase):
+class OIDCPermissions(EmbRouterPydanticObjectBase):
     models: list[str] | None = None
     routes: list[str] | None = None
 
@@ -5116,9 +5116,9 @@ class RoleMapping(BaseModel):
     internal_role: RBAC_ROLES
 
 
-class JWTLiteLLMRoleMap(BaseModel):
+class JWTEmbRouterRoleMap(BaseModel):
     jwt_role: str
-    litellm_role: LitellmUserRoles
+    embrouter_role: EmbrouterUserRoles
 
 
 class ScopeMapping(OIDCPermissions):
@@ -5156,7 +5156,7 @@ class JWTRoutingOverride(BaseModel):
 class UnregisteredJWTClientBehavior(str, enum.Enum):
     """
     Controls what happens when `virtual_key_claim_field` is configured but the
-    JWT claim value has no registered mapping in `litellm_jwtkeymapping`.
+    JWT claim value has no registered mapping in `embrouter_jwtkeymapping`.
 
     - fallback_team_mapping: Fall through to standard team-based JWT auth (default,
       backward-compatible).
@@ -5177,7 +5177,7 @@ class JWTIssuerConfig(BaseModel):
     Issuer-bound JWT validation configuration.
 
     When a token's unverified `iss` claim matches an entry in
-    ``LiteLLM_JWTAuth.issuers``, LiteLLM validates it only against that
+    ``EmbRouter_JWTAuth.issuers``, EmbRouter validates it only against that
     issuer's JWKS and audience. Tokens whose `iss` does not match any
     configured issuer fall back to the global JWT_AUDIENCE/JWT_ISSUER
     validation path; `issuers` is additive routing, not an allow-list.
@@ -5186,7 +5186,7 @@ class JWTIssuerConfig(BaseModel):
     issuer: str = Field(description="Exact expected JWT issuer (`iss`) value.")
     jwks_url: str | None = Field(
         default=None,
-        description="Issuer JWKS URL. If omitted, LiteLLM uses the issuer's OIDC discovery document.",
+        description="Issuer JWKS URL. If omitted, EmbRouter uses the issuer's OIDC discovery document.",
     )
     audience: str | list[str] | None = Field(
         default=None,
@@ -5194,31 +5194,31 @@ class JWTIssuerConfig(BaseModel):
     )
     disable_audience_validation: bool = Field(
         default=False,
-        description="Explicitly disable audience validation for this issuer. Use only when the issuer cannot provide an audience suitable for LiteLLM.",
+        description="Explicitly disable audience validation for this issuer. Use only when the issuer cannot provide an audience suitable for EmbRouter.",
     )
     user_id_jwt_field: str | None = Field(
         default=None,
-        description="Issuer-specific claim path to normalize into LiteLLM's user id.",
+        description="Issuer-specific claim path to normalize into EmbRouter's user id.",
     )
     user_email_jwt_field: str | None = Field(
         default=None,
-        description="Issuer-specific claim path to normalize into LiteLLM's user email.",
+        description="Issuer-specific claim path to normalize into EmbRouter's user email.",
     )
     team_id_jwt_field: str | None = Field(
         default=None,
-        description="Issuer-specific claim path to normalize into LiteLLM's team id.",
+        description="Issuer-specific claim path to normalize into EmbRouter's team id.",
     )
     team_ids_jwt_field: str | None = Field(
         default=None,
-        description="Issuer-specific claim path to normalize into LiteLLM's team ids.",
+        description="Issuer-specific claim path to normalize into EmbRouter's team ids.",
     )
     org_id_jwt_field: str | None = Field(
         default=None,
-        description="Issuer-specific claim path to normalize into LiteLLM's organization id.",
+        description="Issuer-specific claim path to normalize into EmbRouter's organization id.",
     )
     end_user_id_jwt_field: str | None = Field(
         default=None,
-        description="Issuer-specific claim path to normalize into LiteLLM's end-user id.",
+        description="Issuer-specific claim path to normalize into EmbRouter's end-user id.",
     )
     virtual_key_claim_field: str | None = Field(
         default=None,
@@ -5249,9 +5249,9 @@ class JWTIssuerConfig(BaseModel):
 DEFAULT_JWKS_STALE_TTL: Final = 3600
 
 
-class LiteLLM_JWTAuth(LiteLLMPydanticObjectBase):
+class EmbRouter_JWTAuth(EmbRouterPydanticObjectBase):
     """
-    A class to define the roles and permissions for a LiteLLM Proxy w/ JWT Auth.
+    A class to define the roles and permissions for a EmbRouter Proxy w/ JWT Auth.
 
     Attributes:
     - admin_jwt_scope: The JWT scope required for proxy admin roles.
@@ -5259,24 +5259,24 @@ class LiteLLM_JWTAuth(LiteLLMPydanticObjectBase):
     - team_jwt_scope: The JWT scope required for proxy team roles.
     - team_id_jwt_field: The field in the JWT token that stores the team ID. Default - `client_id`.
     - team_allowed_routes: list of allowed routes for proxy team roles.
-    - user_id_jwt_field: The field in the JWT token that stores the user id (maps to `LiteLLMUserTable`). Use this for internal employees.
-    - user_email_jwt_field: The field in the JWT token that stores the user email (maps to `LiteLLMUserTable`). Use this for internal employees.
+    - user_id_jwt_field: The field in the JWT token that stores the user id (maps to `EmbRouterUserTable`). Use this for internal employees.
+    - user_email_jwt_field: The field in the JWT token that stores the user email (maps to `EmbRouterUserTable`). Use this for internal employees.
     - user_allowed_email_subdomain: If specified, only emails from specified subdomain will be allowed to access proxy.
-    - end_user_id_jwt_field: The field in the JWT token that stores the end-user ID (maps to `LiteLLMEndUserTable`). Turn this off by setting to `None`. Enables end-user cost tracking. Use this for external customers.
+    - end_user_id_jwt_field: The field in the JWT token that stores the end-user ID (maps to `EmbRouterEndUserTable`). Turn this off by setting to `None`. Enables end-user cost tracking. Use this for external customers.
     - public_key_ttl: Default - 600s. TTL for caching public JWT keys.
     - public_key_stale_ttl: Default - 3600s. Extra time past `public_key_ttl` that the last-known-good JWKS response
         stays usable while the identity provider is unreachable. Set to 0 to fail closed instead.
-    - public_allowed_routes: list of allowed routes for authenticated but unknown litellm role jwt tokens.
+    - public_allowed_routes: list of allowed routes for authenticated but unknown embrouter role jwt tokens.
     - enforce_rbac: If true, enforce RBAC for all routes.
     - custom_validate: A custom function to validates the JWT token.
-    - oidc_userinfo_endpoint: OIDC UserInfo endpoint URL. When set along with oidc_userinfo_enabled, LiteLLM will call this endpoint with the access token to retrieve user identity information.
+    - oidc_userinfo_endpoint: OIDC UserInfo endpoint URL. When set along with oidc_userinfo_enabled, EmbRouter will call this endpoint with the access token to retrieve user identity information.
     - oidc_userinfo_enabled: Enable fetching user info from OIDC UserInfo endpoint instead of just decoding JWT token. Default: False.
     - oidc_userinfo_cache_ttl: TTL (in seconds) for caching UserInfo responses. Default: 300s (5 minutes).
 
     See `auth_checks.py` for the specific routes
     """
 
-    admin_jwt_scope: str = "litellm_proxy_admin"
+    admin_jwt_scope: str = "embrouter_proxy_admin"
     admin_allowed_routes: list[str] = [
         "management_routes",
         "spend_tracking_routes",
@@ -5353,14 +5353,14 @@ class LiteLLM_JWTAuth(LiteLLMPydanticObjectBase):
     custom_validate: Callable[..., Literal[True]] | None = None
     #########################################################
     # Fields for syncing user team membership and roles with IDP provider
-    jwt_litellm_role_map: list[JWTLiteLLMRoleMap] | None = None
+    jwt_embrouter_role_map: list[JWTEmbRouterRoleMap] | None = None
     sync_user_role_and_teams: bool = False
     #########################################################
     #########################################################
     # OIDC UserInfo Endpoint Configuration
     oidc_userinfo_endpoint: str | None = Field(
         default=None,
-        description="OIDC UserInfo endpoint URL. If set, LiteLLM will call this endpoint with the access token to retrieve user identity information.",
+        description="OIDC UserInfo endpoint URL. If set, EmbRouter will call this endpoint with the access token to retrieve user identity information.",
     )
     oidc_userinfo_enabled: bool = Field(
         default=False,
@@ -5408,7 +5408,7 @@ class LiteLLM_JWTAuth(LiteLLMPydanticObjectBase):
             "When True, users whose JWT contains no team claims are authenticated "
             "using their database team memberships instead of receiving HTTP 403, "
             "with usage attributed to the user's first resolvable DB team. Whether or "
-            "not the JWT carries team claims, the x-litellm-team-id request header may "
+            "not the JWT carries team claims, the x-embrouter-team-id request header may "
             "select any team the user is a member of in the database (validated against "
             "DB membership); without the header the JWT team stays the default. Requires "
             "user_id_upsert=True so that user records exist before the fallback runs."
@@ -5437,7 +5437,7 @@ class LiteLLM_JWTAuth(LiteLLMPydanticObjectBase):
                 kwargs.pop("jwt_client_id_field")
 
         # get the attribute names for this Pydantic model
-        allowed_keys: Final = LiteLLM_JWTAuth.__annotations__.keys()
+        allowed_keys: Final = EmbRouter_JWTAuth.__annotations__.keys()
 
         invalid_keys: Final = set(kwargs.keys()) - allowed_keys
         user_roles_jwt_field: Final = kwargs.get("user_roles_jwt_field")
@@ -5497,7 +5497,7 @@ class LiteLLM_JWTAuth(LiteLLMPydanticObjectBase):
 
 class PrismaCompatibleUpdateDBModel(TypedDict, total=False):
     model_name: str
-    litellm_params: str
+    embrouter_params: str
     model_info: str
     blocked: bool
     updated_at: str
@@ -5513,21 +5513,21 @@ class TransformRequestBody(BaseModel):
     request_body: dict
 
 
-class DefaultInternalUserParams(LiteLLMPydanticObjectBase):
+class DefaultInternalUserParams(EmbRouterPydanticObjectBase):
     """
     Default parameters to apply when a new user signs in via SSO or is created on the /user/new API endpoint
     """
 
     user_role: (
         Literal[
-            LitellmUserRoles.PROXY_ADMIN,
-            LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY,
-            LitellmUserRoles.INTERNAL_USER,
-            LitellmUserRoles.INTERNAL_USER_VIEW_ONLY,
+            EmbrouterUserRoles.PROXY_ADMIN,
+            EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY,
+            EmbrouterUserRoles.INTERNAL_USER,
+            EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY,
         ]
         | None
     ) = Field(
-        default=LitellmUserRoles.INTERNAL_USER_VIEW_ONLY,
+        default=EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY,
         description="Default role assigned to new users created",
     )
     max_budget: float | None = Field(
@@ -5625,7 +5625,7 @@ class DBSpendUpdateTransactions(TypedDict):
 
 
 class SpendUpdateQueueItem(TypedDict, total=False):
-    entity_type: Litellm_EntityType
+    entity_type: Embrouter_EntityType
     entity_id: str
     response_cost: float | None
 
@@ -5640,17 +5640,17 @@ class ToolDiscoveryQueueItem(TypedDict, total=False):
     user_agent: str | None  # HTTP User-Agent of the caller
 
 
-from litellm.models.managed_files import (  # noqa: E402
-    LiteLLM_ManagedFileTable as LiteLLM_ManagedFileTable,
+from embrouter.models.managed_files import (  # noqa: E402
+    EmbRouter_ManagedFileTable as EmbRouter_ManagedFileTable,
 )
-from litellm.models.managed_files import (  # noqa: E402
-    LiteLLM_ManagedObjectTable as LiteLLM_ManagedObjectTable,
+from embrouter.models.managed_files import (  # noqa: E402
+    EmbRouter_ManagedObjectTable as EmbRouter_ManagedObjectTable,
 )
-from litellm.models.managed_files import (  # noqa: E402
-    LiteLLM_ManagedVectorStoresTable as LiteLLM_ManagedVectorStoresTable,
+from embrouter.models.managed_files import (  # noqa: E402
+    EmbRouter_ManagedVectorStoresTable as EmbRouter_ManagedVectorStoresTable,
 )
-from litellm.models.managed_files import (  # noqa: E402
-    LiteLLM_ManagedVectorStoreTable as LiteLLM_ManagedVectorStoreTable,
+from embrouter.models.managed_files import (  # noqa: E402
+    EmbRouter_ManagedVectorStoreTable as EmbRouter_ManagedVectorStoreTable,
 )
 
 
@@ -5662,11 +5662,11 @@ class EnterpriseLicenseData(TypedDict, total=False):
     max_teams: int
 
 
-class ResponseLiteLLM_ManagedVectorStore(TypedDict, total=False):
-    vector_store: LiteLLM_ManagedVectorStoresTable
+class ResponseEmbRouter_ManagedVectorStore(TypedDict, total=False):
+    vector_store: EmbRouter_ManagedVectorStoresTable
 
 
-class CostEstimateRequest(LiteLLMPydanticObjectBase):
+class CostEstimateRequest(EmbRouterPydanticObjectBase):
     """Request body for /cost/estimate endpoint."""
 
     model: str = Field(description="Model name (from /model_group/info)")
@@ -5693,7 +5693,7 @@ class CostEstimateRequest(LiteLLMPydanticObjectBase):
         return self
 
 
-class CostEstimateResponse(LiteLLMPydanticObjectBase):
+class CostEstimateResponse(EmbRouterPydanticObjectBase):
     """Response body for /cost/estimate endpoint."""
 
     model: str

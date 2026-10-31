@@ -18,8 +18,8 @@ import pytest
 import respx
 from fastapi import HTTPException
 
-import litellm
-from litellm.proxy._types import InvitationClaim, ProxyException
+import embrouter
+from embrouter.proxy._types import InvitationClaim, ProxyException
 
 _POLICY_NO_BREACH_CHECK = {"password_policy_check_breached_passwords": False}
 
@@ -42,7 +42,7 @@ class _AsyncTx:
 def _make_invite(
     *, is_accepted: bool, expired: bool = False, claimed: bool = False
 ) -> MagicMock:
-    now = litellm.utils.get_utc_datetime()
+    now = embrouter.utils.get_utc_datetime()
     invite = MagicMock()
     invite.id = "invite-abc"
     invite.user_id = "user-123"
@@ -62,11 +62,11 @@ def _make_user() -> MagicMock:
 
 def _make_prisma(invite: MagicMock, user: MagicMock | None = None) -> MagicMock:
     prisma = MagicMock()
-    prisma.db.litellm_invitationlink.find_unique = AsyncMock(return_value=invite)
-    prisma.db.litellm_invitationlink.update = AsyncMock()
-    prisma.db.litellm_invitationlink.update_many = AsyncMock(return_value=1)
-    prisma.db.litellm_usertable.find_unique = AsyncMock(return_value=user)
-    prisma.db.litellm_usertable.update = AsyncMock(return_value=user)
+    prisma.db.embrouter_invitationlink.find_unique = AsyncMock(return_value=invite)
+    prisma.db.embrouter_invitationlink.update = AsyncMock()
+    prisma.db.embrouter_invitationlink.update_many = AsyncMock(return_value=1)
+    prisma.db.embrouter_usertable.find_unique = AsyncMock(return_value=user)
+    prisma.db.embrouter_usertable.update = AsyncMock(return_value=user)
     prisma.db.tx = MagicMock(return_value=_AsyncTx(prisma.db))
     return prisma
 
@@ -75,7 +75,7 @@ def _make_onboarding_token(
     *,
     invitation_link: str = "invite-abc",
     user_id: str = "user-123",
-    token_type: str = "litellm_onboarding",
+    token_type: str = "embrouter_onboarding",
     master_key: str = "sk-test",
 ) -> str:
     return jwt.encode(
@@ -83,7 +83,7 @@ def _make_onboarding_token(
             "token_type": token_type,
             "invitation_link": invitation_link,
             "user_id": user_id,
-            "exp": litellm.utils.get_utc_datetime() + timedelta(minutes=15),
+            "exp": embrouter.utils.get_utc_datetime() + timedelta(minutes=15),
         },
         master_key,
         algorithm="HS256",
@@ -108,15 +108,15 @@ async def test_get_token_rejects_already_used_link():
     If is_accepted is True the link was already claimed.
     The endpoint must raise 401 *before* returning any user data.
     """
-    from litellm.proxy.proxy_server import onboarding
+    from embrouter.proxy.proxy_server import onboarding
 
     invite = _make_invite(is_accepted=True)
     prisma = _make_prisma(invite)
     request = MagicMock()
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", prisma),
-        patch("litellm.proxy.proxy_server.master_key", "sk-test"),
+        patch("embrouter.proxy.proxy_server.prisma_client", prisma),
+        patch("embrouter.proxy.proxy_server.master_key", "sk-test"),
     ):
         with pytest.raises(HTTPException) as exc_info:
             await onboarding(invite_link="invite-abc", request=request)
@@ -124,21 +124,21 @@ async def test_get_token_rejects_already_used_link():
     assert exc_info.value.status_code == 401
     assert "already been used" in exc_info.value.detail["error"]
     # The user table must never have been queried
-    prisma.db.litellm_usertable.find_unique.assert_not_called()
+    prisma.db.embrouter_usertable.find_unique.assert_not_called()
 
 
 @pytest.mark.asyncio
 async def test_get_token_rejects_expired_link():
     """An expired link must raise 401 regardless of is_accepted."""
-    from litellm.proxy.proxy_server import onboarding
+    from embrouter.proxy.proxy_server import onboarding
 
     invite = _make_invite(is_accepted=False, expired=True)
     prisma = _make_prisma(invite)
     request = MagicMock()
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", prisma),
-        patch("litellm.proxy.proxy_server.master_key", "sk-test"),
+        patch("embrouter.proxy.proxy_server.prisma_client", prisma),
+        patch("embrouter.proxy.proxy_server.master_key", "sk-test"),
     ):
         with pytest.raises(HTTPException) as exc_info:
             await onboarding(invite_link="invite-abc", request=request)
@@ -150,14 +150,14 @@ async def test_get_token_rejects_expired_link():
 @pytest.mark.asyncio
 async def test_get_token_rejects_missing_link():
     """A link that does not exist in the DB must raise 401."""
-    from litellm.proxy.proxy_server import onboarding
+    from embrouter.proxy.proxy_server import onboarding
 
     prisma = _make_prisma(invite=None)  # type: ignore[arg-type]
     request = MagicMock()
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", prisma),
-        patch("litellm.proxy.proxy_server.master_key", "sk-test"),
+        patch("embrouter.proxy.proxy_server.prisma_client", prisma),
+        patch("embrouter.proxy.proxy_server.master_key", "sk-test"),
     ):
         with pytest.raises(HTTPException) as exc_info:
             await onboarding(invite_link="nonexistent", request=request)
@@ -172,7 +172,7 @@ async def test_get_token_returns_onboarding_token_without_minting_ui_key():
     A valid, unused link should return a short-lived onboarding token, but
     must not reserve the invite or mint a usable UI/API key on GET.
     """
-    from litellm.proxy.proxy_server import onboarding
+    from embrouter.proxy.proxy_server import onboarding
 
     invite = _make_invite(is_accepted=False)
     user = _make_user()
@@ -181,23 +181,23 @@ async def test_get_token_returns_onboarding_token_without_minting_ui_key():
     request.base_url = "http://localhost:4000/"
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", prisma),
-        patch("litellm.proxy.proxy_server.master_key", "sk-test"),
-        patch("litellm.proxy.proxy_server.general_settings", {}),
-        patch("litellm.proxy.proxy_server.premium_user", False),
+        patch("embrouter.proxy.proxy_server.prisma_client", prisma),
+        patch("embrouter.proxy.proxy_server.master_key", "sk-test"),
+        patch("embrouter.proxy.proxy_server.general_settings", {}),
+        patch("embrouter.proxy.proxy_server.premium_user", False),
         patch(
-            "litellm.proxy.proxy_server.generate_key_helper_fn",
+            "embrouter.proxy.proxy_server.generate_key_helper_fn",
             new_callable=AsyncMock,
         ) as mock_generate_key,
         patch(
-            "litellm.proxy.proxy_server.get_custom_url",
+            "embrouter.proxy.proxy_server.get_custom_url",
             return_value="http://localhost:4000/",
         ),
         patch(
-            "litellm.proxy.proxy_server.get_disabled_non_admin_personal_key_creation",
+            "embrouter.proxy.proxy_server.get_disabled_non_admin_personal_key_creation",
             return_value=False,
         ),
-        patch("litellm.proxy.proxy_server.get_server_root_path", return_value=""),
+        patch("embrouter.proxy.proxy_server.get_server_root_path", return_value=""),
     ):
         result = await onboarding(invite_link="invite-abc", request=request)
 
@@ -208,14 +208,14 @@ async def test_get_token_returns_onboarding_token_without_minting_ui_key():
     outer_claims = jwt.decode(result["token"], "sk-test", algorithms=["HS256"])
     onboarding_token = outer_claims["key"]
     onboarding_claims = jwt.decode(onboarding_token, "sk-test", algorithms=["HS256"])
-    assert onboarding_claims["token_type"] == "litellm_onboarding"
+    assert onboarding_claims["token_type"] == "embrouter_onboarding"
     assert onboarding_claims["invitation_link"] == "invite-abc"
     assert onboarding_claims["user_id"] == "user-123"
     assert not onboarding_token.startswith("sk-")
 
     mock_generate_key.assert_not_called()
-    prisma.db.litellm_invitationlink.update_many.assert_not_called()
-    prisma.db.litellm_invitationlink.update.assert_not_called()
+    prisma.db.embrouter_invitationlink.update_many.assert_not_called()
+    prisma.db.embrouter_invitationlink.update.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
@@ -229,7 +229,7 @@ async def test_claim_token_rejects_already_used_link():
     If is_accepted is True, the password has already been set.
     A second claim attempt must be rejected with 401.
     """
-    from litellm.proxy.proxy_server import claim_onboarding_link
+    from embrouter.proxy.proxy_server import claim_onboarding_link
 
     invite = _make_invite(is_accepted=True, claimed=True)
     prisma = _make_prisma(invite)
@@ -239,20 +239,20 @@ async def test_claim_token_rejects_already_used_link():
         password="NewP@ssw0rd123",
     )
 
-    with patch("litellm.proxy.proxy_server.prisma_client", prisma):
+    with patch("embrouter.proxy.proxy_server.prisma_client", prisma):
         with pytest.raises(HTTPException) as exc_info:
             await claim_onboarding_link(data=data, request=_make_claim_request())
 
     assert exc_info.value.status_code == 401
     assert "already been used" in exc_info.value.detail["error"]
     # Password must never have been written
-    prisma.db.litellm_usertable.update.assert_not_called()
+    prisma.db.embrouter_usertable.update.assert_not_called()
 
 
 @pytest.mark.asyncio
 async def test_claim_token_rejects_expired_link():
     """An expired link must be rejected even if is_accepted is False."""
-    from litellm.proxy.proxy_server import claim_onboarding_link
+    from embrouter.proxy.proxy_server import claim_onboarding_link
 
     invite = _make_invite(is_accepted=False, expired=True)
     prisma = _make_prisma(invite)
@@ -262,7 +262,7 @@ async def test_claim_token_rejects_expired_link():
         password="NewP@ssw0rd123",
     )
 
-    with patch("litellm.proxy.proxy_server.prisma_client", prisma):
+    with patch("embrouter.proxy.proxy_server.prisma_client", prisma):
         with pytest.raises(HTTPException) as exc_info:
             await claim_onboarding_link(data=data, request=_make_claim_request())
 
@@ -273,7 +273,7 @@ async def test_claim_token_rejects_expired_link():
 @pytest.mark.asyncio
 async def test_claim_token_rejects_mismatched_user_id():
     """The user_id in the request must match the one on the invite."""
-    from litellm.proxy.proxy_server import claim_onboarding_link
+    from embrouter.proxy.proxy_server import claim_onboarding_link
 
     invite = _make_invite(is_accepted=False)
     prisma = _make_prisma(invite)
@@ -283,7 +283,7 @@ async def test_claim_token_rejects_mismatched_user_id():
         password="NewP@ssw0rd123",
     )
 
-    with patch("litellm.proxy.proxy_server.prisma_client", prisma):
+    with patch("embrouter.proxy.proxy_server.prisma_client", prisma):
         with pytest.raises(HTTPException) as exc_info:
             await claim_onboarding_link(data=data, request=_make_claim_request())
 
@@ -294,7 +294,7 @@ async def test_claim_token_rejects_mismatched_user_id():
 @pytest.mark.asyncio
 async def test_claim_token_rejects_missing_onboarding_token():
     """The password endpoint must require the onboarding token returned by get_token."""
-    from litellm.proxy.proxy_server import claim_onboarding_link
+    from embrouter.proxy.proxy_server import claim_onboarding_link
 
     invite = _make_invite(is_accepted=False)
     prisma = _make_prisma(invite)
@@ -305,22 +305,22 @@ async def test_claim_token_rejects_missing_onboarding_token():
     )
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", prisma),
-        patch("litellm.proxy.proxy_server.master_key", "sk-test"),
-        patch("litellm.proxy.proxy_server.general_settings", {}),
+        patch("embrouter.proxy.proxy_server.prisma_client", prisma),
+        patch("embrouter.proxy.proxy_server.master_key", "sk-test"),
+        patch("embrouter.proxy.proxy_server.general_settings", {}),
     ):
         with pytest.raises(HTTPException) as exc_info:
             await claim_onboarding_link(data=data, request=_make_claim_request())
 
     assert exc_info.value.status_code == 401
     assert "Missing onboarding session" in exc_info.value.detail["error"]
-    prisma.db.litellm_usertable.update.assert_not_called()
+    prisma.db.embrouter_usertable.update.assert_not_called()
 
 
 @pytest.mark.asyncio
 async def test_claim_token_rejects_wrong_onboarding_session():
     """The onboarding token must be bound to the invite and user being claimed."""
-    from litellm.proxy.proxy_server import claim_onboarding_link
+    from embrouter.proxy.proxy_server import claim_onboarding_link
 
     invite = _make_invite(is_accepted=False)
     prisma = _make_prisma(invite)
@@ -334,22 +334,22 @@ async def test_claim_token_rejects_wrong_onboarding_session():
     )
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", prisma),
-        patch("litellm.proxy.proxy_server.master_key", "sk-test"),
-        patch("litellm.proxy.proxy_server.general_settings", {}),
+        patch("embrouter.proxy.proxy_server.prisma_client", prisma),
+        patch("embrouter.proxy.proxy_server.master_key", "sk-test"),
+        patch("embrouter.proxy.proxy_server.general_settings", {}),
     ):
         with pytest.raises(HTTPException) as exc_info:
             await claim_onboarding_link(data=data, request=request)
 
     assert exc_info.value.status_code == 401
     assert "Invalid onboarding session" in exc_info.value.detail["error"]
-    prisma.db.litellm_usertable.update.assert_not_called()
+    prisma.db.embrouter_usertable.update.assert_not_called()
 
 
 @pytest.mark.asyncio
 async def test_claim_token_rejects_invalid_bearer_token():
     """A regular API key must not be accepted as an onboarding token."""
-    from litellm.proxy.proxy_server import claim_onboarding_link
+    from embrouter.proxy.proxy_server import claim_onboarding_link
 
     invite = _make_invite(is_accepted=False)
     prisma = _make_prisma(invite)
@@ -361,26 +361,26 @@ async def test_claim_token_rejects_invalid_bearer_token():
     request = _make_claim_request("sk-regular-key")
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", prisma),
-        patch("litellm.proxy.proxy_server.master_key", "sk-test"),
-        patch("litellm.proxy.proxy_server.general_settings", {}),
+        patch("embrouter.proxy.proxy_server.prisma_client", prisma),
+        patch("embrouter.proxy.proxy_server.master_key", "sk-test"),
+        patch("embrouter.proxy.proxy_server.general_settings", {}),
     ):
         with pytest.raises(HTTPException) as exc_info:
             await claim_onboarding_link(data=data, request=request)
 
     assert exc_info.value.status_code == 401
     assert "Invalid onboarding session" in exc_info.value.detail["error"]
-    prisma.db.litellm_usertable.update.assert_not_called()
+    prisma.db.embrouter_usertable.update.assert_not_called()
 
 
 @pytest.mark.asyncio
 async def test_claim_token_rejects_concurrent_reuse_before_password_write():
     """Only the first valid claim may reserve the invitation."""
-    from litellm.proxy.proxy_server import claim_onboarding_link
+    from embrouter.proxy.proxy_server import claim_onboarding_link
 
     invite = _make_invite(is_accepted=False)
     prisma = _make_prisma(invite)
-    prisma.db.litellm_invitationlink.update_many = AsyncMock(return_value=0)
+    prisma.db.embrouter_invitationlink.update_many = AsyncMock(return_value=0)
     request = _make_claim_request(_make_onboarding_token())
     data = InvitationClaim(
         invitation_link="invite-abc",
@@ -389,13 +389,13 @@ async def test_claim_token_rejects_concurrent_reuse_before_password_write():
     )
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", prisma),
-        patch("litellm.proxy.proxy_server.master_key", "sk-test"),
+        patch("embrouter.proxy.proxy_server.prisma_client", prisma),
+        patch("embrouter.proxy.proxy_server.master_key", "sk-test"),
         patch(  # test-quality-ok: claim_onboarding_link reads proxy_server module globals; no injection seam
-            "litellm.proxy.proxy_server.general_settings", _POLICY_NO_BREACH_CHECK
+            "embrouter.proxy.proxy_server.general_settings", _POLICY_NO_BREACH_CHECK
         ),
         patch(
-            "litellm.proxy.proxy_server.generate_key_helper_fn",
+            "embrouter.proxy.proxy_server.generate_key_helper_fn",
             new_callable=AsyncMock,
         ) as mock_generate_key,
     ):
@@ -404,7 +404,7 @@ async def test_claim_token_rejects_concurrent_reuse_before_password_write():
 
     assert exc_info.value.status_code == 401
     assert "already been used" in exc_info.value.detail["error"]
-    prisma.db.litellm_usertable.update.assert_not_called()
+    prisma.db.embrouter_usertable.update.assert_not_called()
     mock_generate_key.assert_not_called()
 
 
@@ -415,7 +415,7 @@ async def test_claim_token_sets_accepted_at_after_password_written():
       1. Write the hashed password to the user table.
       2. Set accepted_at on the invitation link after the password write succeeds.
     """
-    from litellm.proxy.proxy_server import claim_onboarding_link
+    from embrouter.proxy.proxy_server import claim_onboarding_link
 
     invite = _make_invite(is_accepted=False)
     user = _make_user()
@@ -431,36 +431,36 @@ async def test_claim_token_sets_accepted_at_after_password_written():
     mock_token_response = {"token": "sk-generated-key", "user_id": "user-123"}
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", prisma),
-        patch("litellm.proxy.proxy_server.master_key", "sk-test"),
+        patch("embrouter.proxy.proxy_server.prisma_client", prisma),
+        patch("embrouter.proxy.proxy_server.master_key", "sk-test"),
         patch(  # test-quality-ok: claim_onboarding_link reads proxy_server module globals; no injection seam
-            "litellm.proxy.proxy_server.general_settings", _POLICY_NO_BREACH_CHECK
+            "embrouter.proxy.proxy_server.general_settings", _POLICY_NO_BREACH_CHECK
         ),
-        patch("litellm.proxy.proxy_server.premium_user", False),
+        patch("embrouter.proxy.proxy_server.premium_user", False),
         patch(
-            "litellm.proxy.proxy_server.generate_key_helper_fn",
+            "embrouter.proxy.proxy_server.generate_key_helper_fn",
             new_callable=AsyncMock,
             return_value=mock_token_response,
         ),
         patch(
-            "litellm.proxy.proxy_server.get_custom_url",
+            "embrouter.proxy.proxy_server.get_custom_url",
             return_value="http://localhost:4000/",
         ),
         patch(
-            "litellm.proxy.proxy_server.get_disabled_non_admin_personal_key_creation",
+            "embrouter.proxy.proxy_server.get_disabled_non_admin_personal_key_creation",
             return_value=False,
         ),
-        patch("litellm.proxy.proxy_server.get_server_root_path", return_value=""),
+        patch("embrouter.proxy.proxy_server.get_server_root_path", return_value=""),
     ):
         result = await claim_onboarding_link(data=data, request=request)
 
     # Password was written
-    prisma.db.litellm_invitationlink.update_many.assert_called_once()
-    reserve_kwargs = prisma.db.litellm_invitationlink.update_many.call_args.kwargs
+    prisma.db.embrouter_invitationlink.update_many.assert_called_once()
+    reserve_kwargs = prisma.db.embrouter_invitationlink.update_many.call_args.kwargs
     assert reserve_kwargs["where"] == {"id": "invite-abc", "is_accepted": False}
     assert reserve_kwargs["data"]["is_accepted"] is True
-    prisma.db.litellm_usertable.update.assert_called_once()
-    call_kwargs = prisma.db.litellm_usertable.update.call_args
+    prisma.db.embrouter_usertable.update.assert_called_once()
+    call_kwargs = prisma.db.embrouter_usertable.update.call_args
     assert call_kwargs.kwargs["where"] == {"user_id": "user-123"}
     assert "password" in call_kwargs.kwargs["data"]
     # A freshly claimed, policy-screened password lifts any pending forced
@@ -469,8 +469,8 @@ async def test_claim_token_sets_accepted_at_after_password_written():
     assert call_kwargs.kwargs["data"]["last_breach_check_at"] is None
 
     # is_accepted was flipped to True on the invitation link
-    prisma.db.litellm_invitationlink.update.assert_called_once()
-    link_update_data = prisma.db.litellm_invitationlink.update.call_args.kwargs["data"]
+    prisma.db.embrouter_invitationlink.update.assert_called_once()
+    link_update_data = prisma.db.embrouter_invitationlink.update.call_args.kwargs["data"]
     assert "is_accepted" not in link_update_data
     assert link_update_data["accepted_at"] is not None
     outer_claims = jwt.decode(result["token"], "sk-test", algorithms=["HS256"])
@@ -482,7 +482,7 @@ async def test_claim_token_revokes_existing_ui_sessions():
     """A claimed invite/reset link changes the password; any UI session minted
     under the old password may be in hostile hands and must be revoked. The
     sweep runs before the fresh session key is minted, so revoke-all is safe."""
-    from litellm.proxy.proxy_server import claim_onboarding_link
+    from embrouter.proxy.proxy_server import claim_onboarding_link
 
     invite = _make_invite(is_accepted=False)
     user = _make_user()
@@ -510,30 +510,30 @@ async def test_claim_token_revokes_existing_ui_sessions():
     revoke_mock.side_effect = _revoke
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", prisma),
-        patch("litellm.proxy.proxy_server.master_key", "sk-test"),
+        patch("embrouter.proxy.proxy_server.prisma_client", prisma),
+        patch("embrouter.proxy.proxy_server.master_key", "sk-test"),
         patch(  # test-quality-ok: claim_onboarding_link reads proxy_server module globals; no injection seam
-            "litellm.proxy.proxy_server.general_settings", _POLICY_NO_BREACH_CHECK
+            "embrouter.proxy.proxy_server.general_settings", _POLICY_NO_BREACH_CHECK
         ),
-        patch("litellm.proxy.proxy_server.premium_user", False),
+        patch("embrouter.proxy.proxy_server.premium_user", False),
         patch(
-            "litellm.proxy.proxy_server.generate_key_helper_fn",
+            "embrouter.proxy.proxy_server.generate_key_helper_fn",
             new_callable=AsyncMock,
             side_effect=_mint,
         ),
         patch(
-            "litellm.proxy.management_endpoints.session_endpoints.revoke_ui_session_keys",
+            "embrouter.proxy.management_endpoints.session_endpoints.revoke_ui_session_keys",
             revoke_mock,
         ),
         patch(
-            "litellm.proxy.proxy_server.get_custom_url",
+            "embrouter.proxy.proxy_server.get_custom_url",
             return_value="http://localhost:4000/",
         ),
         patch(
-            "litellm.proxy.proxy_server.get_disabled_non_admin_personal_key_creation",
+            "embrouter.proxy.proxy_server.get_disabled_non_admin_personal_key_creation",
             return_value=False,
         ),
-        patch("litellm.proxy.proxy_server.get_server_root_path", return_value=""),
+        patch("embrouter.proxy.proxy_server.get_server_root_path", return_value=""),
     ):
         await claim_onboarding_link(data=data, request=request)
 
@@ -546,7 +546,7 @@ async def test_claim_token_revokes_existing_ui_sessions():
 @pytest.mark.asyncio
 async def test_claim_token_rolls_back_invite_when_session_key_mint_fails():
     """A session key failure must not leave the invite permanently consumed."""
-    from litellm.proxy.proxy_server import claim_onboarding_link
+    from embrouter.proxy.proxy_server import claim_onboarding_link
 
     invite = _make_invite(is_accepted=False)
     user = _make_user()
@@ -560,13 +560,13 @@ async def test_claim_token_rolls_back_invite_when_session_key_mint_fails():
     )
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", prisma),
-        patch("litellm.proxy.proxy_server.master_key", "sk-test"),
+        patch("embrouter.proxy.proxy_server.prisma_client", prisma),
+        patch("embrouter.proxy.proxy_server.master_key", "sk-test"),
         patch(  # test-quality-ok: claim_onboarding_link reads proxy_server module globals; no injection seam
-            "litellm.proxy.proxy_server.general_settings", _POLICY_NO_BREACH_CHECK
+            "embrouter.proxy.proxy_server.general_settings", _POLICY_NO_BREACH_CHECK
         ),
         patch(
-            "litellm.proxy.proxy_server.generate_key_helper_fn",
+            "embrouter.proxy.proxy_server.generate_key_helper_fn",
             new_callable=AsyncMock,
             side_effect=Exception("key mint failed"),
         ),
@@ -576,8 +576,8 @@ async def test_claim_token_rolls_back_invite_when_session_key_mint_fails():
 
     assert exc_info.value.status_code == 500
     assert "Failed to create onboarding session" in exc_info.value.detail["error"]
-    assert prisma.db.litellm_invitationlink.update_many.call_count == 2
-    rollback_kwargs = prisma.db.litellm_invitationlink.update_many.call_args_list[
+    assert prisma.db.embrouter_invitationlink.update_many.call_count == 2
+    rollback_kwargs = prisma.db.embrouter_invitationlink.update_many.call_args_list[
         1
     ].kwargs
     assert rollback_kwargs["where"] == {
@@ -605,7 +605,7 @@ def _hibp_suffix_for(password: str) -> str:
 @pytest.mark.asyncio
 async def test_claim_token_rejects_short_password_before_consuming_invite():
     """Default policy requires 12 characters; the invite must stay claimable."""
-    from litellm.proxy.proxy_server import claim_onboarding_link
+    from embrouter.proxy.proxy_server import claim_onboarding_link
 
     invite = _make_invite(is_accepted=False)
     prisma = _make_prisma(invite, _make_user())
@@ -617,24 +617,24 @@ async def test_claim_token_rejects_short_password_before_consuming_invite():
     )
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", prisma),  # test-quality-ok: claim_onboarding_link reads proxy_server module globals; no injection seam
-        patch("litellm.proxy.proxy_server.master_key", "sk-test"),  # test-quality-ok: same as above
-        patch("litellm.proxy.proxy_server.general_settings", {}),  # test-quality-ok: same as above
+        patch("embrouter.proxy.proxy_server.prisma_client", prisma),  # test-quality-ok: claim_onboarding_link reads proxy_server module globals; no injection seam
+        patch("embrouter.proxy.proxy_server.master_key", "sk-test"),  # test-quality-ok: same as above
+        patch("embrouter.proxy.proxy_server.general_settings", {}),  # test-quality-ok: same as above
     ):
         with pytest.raises(ProxyException) as exc_info:
             await claim_onboarding_link(data=data, request=request)
 
     assert exc_info.value.code == "400"
     assert "at least 12 characters" in exc_info.value.message
-    prisma.db.litellm_invitationlink.update_many.assert_not_called()
-    prisma.db.litellm_usertable.update.assert_not_called()
+    prisma.db.embrouter_invitationlink.update_many.assert_not_called()
+    prisma.db.embrouter_usertable.update.assert_not_called()
 
 
 @pytest.mark.asyncio
 @respx.mock
 async def test_claim_token_rejects_breached_password_before_consuming_invite():
     """A password found in the HIBP corpus must be rejected and never stored."""
-    from litellm.proxy.proxy_server import claim_onboarding_link
+    from embrouter.proxy.proxy_server import claim_onboarding_link
 
     password = "P@ssword123456"
     respx.get(_hibp_url_for(password)).mock(
@@ -651,24 +651,24 @@ async def test_claim_token_rejects_breached_password_before_consuming_invite():
     )
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", prisma),  # test-quality-ok: claim_onboarding_link reads proxy_server module globals; no injection seam
-        patch("litellm.proxy.proxy_server.master_key", "sk-test"),  # test-quality-ok: same as above
-        patch("litellm.proxy.proxy_server.general_settings", {}),  # test-quality-ok: same as above
+        patch("embrouter.proxy.proxy_server.prisma_client", prisma),  # test-quality-ok: claim_onboarding_link reads proxy_server module globals; no injection seam
+        patch("embrouter.proxy.proxy_server.master_key", "sk-test"),  # test-quality-ok: same as above
+        patch("embrouter.proxy.proxy_server.general_settings", {}),  # test-quality-ok: same as above
     ):
         with pytest.raises(ProxyException) as exc_info:
             await claim_onboarding_link(data=data, request=request)
 
     assert exc_info.value.code == "400"
     assert "data breaches" in exc_info.value.message
-    prisma.db.litellm_invitationlink.update_many.assert_not_called()
-    prisma.db.litellm_usertable.update.assert_not_called()
+    prisma.db.embrouter_invitationlink.update_many.assert_not_called()
+    prisma.db.embrouter_usertable.update.assert_not_called()
 
 
 @pytest.mark.asyncio
 @respx.mock
 async def test_claim_token_fails_open_when_hibp_unreachable():
     """An HIBP outage must never block onboarding: the claim proceeds."""
-    from litellm.proxy.proxy_server import claim_onboarding_link
+    from embrouter.proxy.proxy_server import claim_onboarding_link
 
     password = "NewP@ssw0rd-2026"
     respx.get(_hibp_url_for(password)).mock(side_effect=httpx.ConnectError("no route to host"))
@@ -684,26 +684,26 @@ async def test_claim_token_fails_open_when_hibp_unreachable():
     )
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", prisma),  # test-quality-ok: claim_onboarding_link reads proxy_server module globals; no injection seam
-        patch("litellm.proxy.proxy_server.master_key", "sk-test"),  # test-quality-ok: same as above
-        patch("litellm.proxy.proxy_server.general_settings", {}),  # test-quality-ok: same as above
-        patch("litellm.proxy.proxy_server.premium_user", False),  # test-quality-ok: same as above
+        patch("embrouter.proxy.proxy_server.prisma_client", prisma),  # test-quality-ok: claim_onboarding_link reads proxy_server module globals; no injection seam
+        patch("embrouter.proxy.proxy_server.master_key", "sk-test"),  # test-quality-ok: same as above
+        patch("embrouter.proxy.proxy_server.general_settings", {}),  # test-quality-ok: same as above
+        patch("embrouter.proxy.proxy_server.premium_user", False),  # test-quality-ok: same as above
         patch(  # test-quality-ok: same as above
-            "litellm.proxy.proxy_server.generate_key_helper_fn",
+            "embrouter.proxy.proxy_server.generate_key_helper_fn",
             new_callable=AsyncMock,
             return_value={"token": "sk-generated-key", "user_id": "user-123"},
         ),
         patch(  # test-quality-ok: same as above
-            "litellm.proxy.proxy_server.get_custom_url",
+            "embrouter.proxy.proxy_server.get_custom_url",
             return_value="http://localhost:4000/",
         ),
         patch(  # test-quality-ok: same as above
-            "litellm.proxy.proxy_server.get_disabled_non_admin_personal_key_creation",
+            "embrouter.proxy.proxy_server.get_disabled_non_admin_personal_key_creation",
             return_value=False,
         ),
-        patch("litellm.proxy.proxy_server.get_server_root_path", return_value=""),  # test-quality-ok: same as above
+        patch("embrouter.proxy.proxy_server.get_server_root_path", return_value=""),  # test-quality-ok: same as above
     ):
         result = await claim_onboarding_link(data=data, request=request)
 
     assert "token" in result
-    prisma.db.litellm_usertable.update.assert_called_once()
+    prisma.db.embrouter_usertable.update.assert_called_once()

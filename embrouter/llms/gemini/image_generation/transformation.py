@@ -2,34 +2,34 @@ from typing import TYPE_CHECKING, Any, Final
 
 import httpx
 
-from litellm.llms.base_llm.image_generation.transformation import (
+from embrouter.llms.base_llm.image_generation.transformation import (
     BaseImageGenerationConfig,
 )
-from litellm.llms.gemini.common_utils import (
+from embrouter.llms.gemini.common_utils import (
     get_gemini_image_generation_config,
     get_gemini_image_web_search_requests,
     is_gemini_image_model,
     map_gemini_image_tools_params,
     map_openai_image_params_to_gemini,
 )
-from litellm.llms.gemini.image_usage_transformation import (
+from embrouter.llms.gemini.image_usage_transformation import (
     transform_gemini_image_usage,
 )
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.gemini import GeminiImageGenerationRequest
-from litellm.types.llms.openai import (
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.gemini import GeminiImageGenerationRequest
+from embrouter.types.llms.openai import (
     AllMessageValues,
     OpenAIImageGenerationOptionalParams,
 )
-from litellm.types.utils import ImageObject, ImageResponse
+from embrouter.types.utils import ImageObject, ImageResponse
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 
 class GoogleImageGenConfig(BaseImageGenerationConfig):
@@ -68,7 +68,7 @@ class GoogleImageGenConfig(BaseImageGenerationConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         """
@@ -96,7 +96,7 @@ class GoogleImageGenConfig(BaseImageGenerationConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
@@ -113,7 +113,7 @@ class GoogleImageGenConfig(BaseImageGenerationConfig):
         model: str,
         prompt: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         """
@@ -149,7 +149,7 @@ class GoogleImageGenConfig(BaseImageGenerationConfig):
             return request_body
         else:
             # For other Imagen models, use the original Imagen format
-            from litellm.types.llms.gemini import (
+            from embrouter.types.llms.gemini import (
                 GeminiImageGenerationInstance,
                 GeminiImageGenerationParameters,
             )
@@ -168,16 +168,16 @@ class GoogleImageGenConfig(BaseImageGenerationConfig):
         model: str,
         raw_response: httpx.Response,
         model_response: ImageResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         request_data: dict,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,
     ) -> ImageResponse:
         """
-        Transform Google AI Imagen response to litellm ImageResponse format
+        Transform Google AI Imagen response to embrouter ImageResponse format
         """
         try:
             response_data: Final = raw_response.json()

@@ -22,7 +22,7 @@ const showCompliance = !HIDDEN_PLAYGROUND_TABS.has("compliance");
 
 interface ProxySettings {
   PROXY_BASE_URL?: string;
-  LITELLM_UI_API_DOC_BASE_URL?: string | null;
+  EMBROUTER_UI_API_DOC_BASE_URL?: string | null;
 }
 
 export default function PlaygroundPage() {
@@ -37,7 +37,7 @@ export default function PlaygroundPage() {
         if (settings) {
           setProxySettings({
             PROXY_BASE_URL: settings.PROXY_BASE_URL,
-            LITELLM_UI_API_DOC_BASE_URL: settings.LITELLM_UI_API_DOC_BASE_URL,
+            EMBROUTER_UI_API_DOC_BASE_URL: settings.EMBROUTER_UI_API_DOC_BASE_URL,
           });
         }
       }
@@ -114,7 +114,7 @@ export default function PlaygroundPage() {
               userRole={userRole}
               disabledPersonalKeyCreation={disabledPersonalKeyCreation}
               proxySettings={proxySettings}
-              customProxyBaseUrl={proxySettings?.LITELLM_UI_API_DOC_BASE_URL ?? proxySettings?.PROXY_BASE_URL}
+              customProxyBaseUrl={proxySettings?.EMBROUTER_UI_API_DOC_BASE_URL ?? proxySettings?.PROXY_BASE_URL}
             />
           </TabsContent>
         )}

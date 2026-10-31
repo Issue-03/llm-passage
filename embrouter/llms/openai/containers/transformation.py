@@ -4,13 +4,13 @@ from typing import TYPE_CHECKING, Any, Final, Literal
 import httpx
 from typing_extensions import ReadOnly, TypedDict
 
-import litellm
-from litellm.litellm_core_utils.llm_cost_calc.tool_call_cost_tracking import (
+import embrouter
+from embrouter.embrouter_core_utils.llm_cost_calc.tool_call_cost_tracking import (
     StandardBuiltInToolCostTracking,
 )
-from litellm.litellm_core_utils.url_utils import encode_url_path_segment
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.containers.main import (
+from embrouter.embrouter_core_utils.url_utils import encode_url_path_segment
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.containers.main import (
     ContainerCreateOptionalRequestParams,
     ContainerFileListResponse,
     ContainerFileObject,
@@ -19,20 +19,20 @@ from litellm.types.containers.main import (
     DeleteContainerResult,
     ExpiresAfter,
 )
-from litellm.types.router import GenericLiteLLMParams
+from embrouter.types.router import GenericEmbRouterParams
 
 from ...base_llm.containers.transformation import BaseContainerConfig
 from .utils import join_container_api_base_path
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
 
     from ...base_llm.chat.transformation import BaseLLMException as _BaseLLMException
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
     BaseLLMException = _BaseLLMException
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
     BaseLLMException = Any
 
 
@@ -104,7 +104,7 @@ class OpenAIContainerConfig(BaseContainerConfig):
         headers: dict,
         api_key: str | None = None,
     ) -> dict:
-        api_key = api_key or litellm.api_key or litellm.openai_key or get_secret_str("OPENAI_API_KEY")
+        api_key = api_key or embrouter.api_key or embrouter.openai_key or get_secret_str("OPENAI_API_KEY")
         headers.update(
             {
                 "Authorization": f"Bearer {api_key}",
@@ -115,12 +115,12 @@ class OpenAIContainerConfig(BaseContainerConfig):
     def get_complete_url(
         self,
         api_base: str | None,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> str:
         """Get the complete URL for OpenAI container API."""
         api_base = (
             api_base
-            or litellm.api_base
+            or embrouter.api_base
             or get_secret_str("OPENAI_BASE_URL")
             or get_secret_str("OPENAI_API_BASE")
             or "https://api.openai.com/v1"
@@ -132,7 +132,7 @@ class OpenAIContainerConfig(BaseContainerConfig):
         self,
         name: str,
         container_create_optional_request_params: Mapping[str, object],
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> dict:
         """Transform the container creation request for OpenAI API."""
@@ -152,7 +152,7 @@ class OpenAIContainerConfig(BaseContainerConfig):
     def transform_container_create_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> ContainerObject:
         """Transform the OpenAI container creation response."""
         container_obj: Final = ContainerObject.model_validate(raw_response.json())
@@ -169,14 +169,14 @@ class OpenAIContainerConfig(BaseContainerConfig):
             container_obj._hidden_params = {}
         if "additional_headers" not in container_obj._hidden_params:
             container_obj._hidden_params["additional_headers"] = {}
-        container_obj._hidden_params["additional_headers"]["llm_provider-x-litellm-response-cost"] = container_cost
+        container_obj._hidden_params["additional_headers"]["llm_provider-x-embrouter-response-cost"] = container_cost
 
         return container_obj
 
     def transform_container_list_request(
         self,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
         after: str | None = None,
         limit: int | None = None,
@@ -209,7 +209,7 @@ class OpenAIContainerConfig(BaseContainerConfig):
     def transform_container_list_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> ContainerListResponse:
         """Transform the OpenAI container list response."""
         container_list: Final = ContainerListResponse.model_validate(raw_response.json())
@@ -220,7 +220,7 @@ class OpenAIContainerConfig(BaseContainerConfig):
         self,
         container_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict]:
         """Transform the OpenAI container retrieve request."""
@@ -236,7 +236,7 @@ class OpenAIContainerConfig(BaseContainerConfig):
     def transform_container_retrieve_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> ContainerObject:
         """Transform the OpenAI container retrieve response."""
         container_obj: Final = ContainerObject.model_validate(raw_response.json())
@@ -247,7 +247,7 @@ class OpenAIContainerConfig(BaseContainerConfig):
         self,
         container_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict]:
         """Transform the container delete request for OpenAI API.
@@ -267,7 +267,7 @@ class OpenAIContainerConfig(BaseContainerConfig):
     def transform_container_delete_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> DeleteContainerResult:
         """Transform the OpenAI container delete response."""
         delete_result: Final = DeleteContainerResult.model_validate(raw_response.json())
@@ -278,7 +278,7 @@ class OpenAIContainerConfig(BaseContainerConfig):
         self,
         container_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
         after: str | None = None,
         limit: int | None = None,
@@ -312,7 +312,7 @@ class OpenAIContainerConfig(BaseContainerConfig):
     def transform_container_file_list_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> ContainerFileListResponse:
         """Transform the OpenAI container file list response."""
         file_list: Final = ContainerFileListResponse.model_validate(raw_response.json())
@@ -324,7 +324,7 @@ class OpenAIContainerConfig(BaseContainerConfig):
         container_id: str,
         file_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict]:
         """Transform the container file content request for OpenAI API.
@@ -345,7 +345,7 @@ class OpenAIContainerConfig(BaseContainerConfig):
     def transform_container_file_content_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> bytes:
         """Transform the OpenAI container file content response.
 

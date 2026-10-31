@@ -7,7 +7,7 @@ Common utilities, constants, and error handling for Black Forest Labs API.
 from typing import Final
 from urllib.parse import urlparse
 
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
 
 
 class BlackForestLabsError(BaseLLMException):

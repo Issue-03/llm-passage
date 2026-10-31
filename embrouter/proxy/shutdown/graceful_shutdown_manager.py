@@ -1,8 +1,8 @@
 """
-Application-level graceful shutdown coordination for the LiteLLM proxy.
+Application-level graceful shutdown coordination for the EmbRouter proxy.
 
 Kubernetes terminates a pod by sending ``SIGTERM`` and, after
-``terminationGracePeriodSeconds``, ``SIGKILL``. By default LiteLLM delegates
+``terminationGracePeriodSeconds``, ``SIGKILL``. By default EmbRouter delegates
 the signal to uvicorn and tears down immediately, dropping any in-flight
 requests (streaming, batch inference, long-lived calls).
 
@@ -23,8 +23,8 @@ import time
 from collections.abc import Callable
 from typing import Final
 
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy.middleware.in_flight_requests_middleware import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy.middleware.in_flight_requests_middleware import (
     get_in_flight_requests,
 )
 

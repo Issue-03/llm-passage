@@ -13,15 +13,15 @@ from urllib.parse import urlencode
 import httpx
 from pydantic import TypeAdapter, ValidationError
 
-from litellm._logging import verbose_logger
-from litellm.litellm_core_utils.core_helpers import process_response_headers
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.base_llm.search.transformation import (
+from embrouter._logging import verbose_logger
+from embrouter.embrouter_core_utils.core_helpers import process_response_headers
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.base_llm.search.transformation import (
     BaseSearchConfig,
     SearchResponse,
 )
-from litellm.secret_managers.main import get_secret_str
+from embrouter.secret_managers.main import get_secret_str
 
 _UrlEncodableParams: Final = TypeAdapter(dict[str, str | int | float | bool])
 _StrList: Final = TypeAdapter(list[str])
@@ -88,9 +88,9 @@ class TinyfishSearchConfig(BaseSearchConfig):
         **kwargs: object,
     ) -> dict[str, object]:
         """
-        Transform a LiteLLM search request to TinyFish's querystring format.
+        Transform a EmbRouter search request to TinyFish's querystring format.
 
-        Maps LiteLLM's unified-spec params (see
+        Maps EmbRouter's unified-spec params (see
         ``BaseSearchConfig.get_supported_perplexity_optional_params``) to
         TinyFish equivalents:
         - ``query`` (str or list[str]) → ``query`` (list joined by spaces)
@@ -160,11 +160,11 @@ class TinyfishSearchConfig(BaseSearchConfig):
     def transform_search_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj | None,
+        logging_obj: EmbRouterLoggingObj | None,
         **kwargs: object,
     ) -> SearchResponse:
         """
-        Transform a TinyFish response to LiteLLM's unified ``SearchResponse``.
+        Transform a TinyFish response to EmbRouter's unified ``SearchResponse``.
 
         Per-result field handling:
         - ``title``, ``url``, ``snippet`` are declared on ``SearchResult`` and
@@ -232,7 +232,7 @@ class TinyfishSearchConfig(BaseSearchConfig):
             parsed: Final = SearchResponse.model_validate(raw_json)
         except ValidationError as e:
             raise self._wrap_error(
-                error_message=(f"Response shape does not match LiteLLM's SearchResponse schema: {e}"),
+                error_message=(f"Response shape does not match EmbRouter's SearchResponse schema: {e}"),
                 status_code=raw_response.status_code,
                 headers=dict(raw_response.headers),
             )
@@ -265,8 +265,8 @@ class TinyfishSearchConfig(BaseSearchConfig):
 
         Used for HTTP status errors and response transformation errors.
         Not an override of ``BaseSearchConfig.get_error_class``: that path is
-        left to inherit from the base so it auto-picks-up any future LiteLLM
-        improvements. Trade-off: network failures (routed through LiteLLM
+        left to inherit from the base so it auto-picks-up any future EmbRouter
+        improvements. Trade-off: network failures (routed through EmbRouter
         core's ``_handle_error`` → ``BaseSearchConfig.get_error_class``) won't
         carry the ``TinyFish Search:`` prefix — the bare error already names
         the host in the URL, so attribution is implicit there.

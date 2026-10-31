@@ -8,15 +8,15 @@ from typing import Final, Protocol, cast
 
 import httpx
 
-import litellm
-from litellm._logging import _ENABLE_SECRET_REDACTION, _redact_string, verbose_logger
-from litellm.litellm_core_utils.bug_report import (
+import embrouter
+from embrouter._logging import _ENABLE_SECRET_REDACTION, _redact_string, verbose_logger
+from embrouter.embrouter_core_utils.bug_report import (
     bug_report_notice,
     build_bug_report,
     should_report_bug,
 )
-from litellm.litellm_core_utils.secret_redaction import redact_string
-from litellm.types.utils import LlmProviders
+from embrouter.embrouter_core_utils.secret_redaction import redact_string
+from embrouter.types.utils import LlmProviders
 
 from ..exceptions import (
     APIConnectionError,
@@ -203,7 +203,7 @@ def _get_response_headers(original_exception: Exception) -> httpx.Headers | None
         if not _response_headers and error_response:
             _response_headers = getattr(error_response, "headers", None)
         if not _response_headers:
-            _response_headers = getattr(original_exception, "litellm_response_headers", None)
+            _response_headers = getattr(original_exception, "embrouter_response_headers", None)
     except Exception:
         return None
 
@@ -215,7 +215,7 @@ def _accepted_init_kwargs(exception_class: type[Exception], candidates: Mapping[
     return MappingProxyType({name: value for name, value in candidates.items() if name in accepted})
 
 
-def extract_and_raise_litellm_exception(
+def extract_and_raise_embrouter_exception(
     response: object | None,
     error_str: str,
     model: str,
@@ -223,18 +223,18 @@ def extract_and_raise_litellm_exception(
     body: object | None = None,
 ):
     """
-    Covers scenario where litellm sdk calling proxy.
+    Covers scenario where embrouter sdk calling proxy.
 
-    Enables raising the special errors raised by litellm, eg. ContextWindowExceededError.
+    Enables raising the special errors raised by embrouter, eg. ContextWindowExceededError.
 
 
     """
-    pattern: Final = r"litellm\.\w+Error"
+    pattern: Final = r"embrouter\.\w+Error"
     match: Final = re.search(pattern, error_str)
     if match is None:
         return
-    exception_name: Final = match.group(0).removeprefix("litellm.")
-    raised_exception_obj: Final = getattr(litellm, exception_name, None)
+    exception_name: Final = match.group(0).removeprefix("embrouter.")
+    raised_exception_obj: Final = getattr(embrouter, exception_name, None)
     if not raised_exception_obj:
         return
     raise raised_exception_obj(
@@ -255,11 +255,11 @@ class _ProviderHTTPException(Protocol):
     llm_provider: str
 
 
-def _litellm_proxy_response(
+def _embrouter_proxy_response(
     original_exception: _ProviderHTTPException, custom_llm_provider: str
 ) -> httpx.Response | None:
     response: Final = getattr(original_exception, "response", None)
-    if custom_llm_provider != "litellm_proxy" or not isinstance(response, httpx.Response) or response.headers:
+    if custom_llm_provider != "embrouter_proxy" or not isinstance(response, httpx.Response) or response.headers:
         return response
     headers: Final = getattr(original_exception, "headers", None)
     if not isinstance(headers, Mapping) or not headers:
@@ -282,7 +282,7 @@ def _map_openai_exception(
     exception_provider: str,
     extra_information: str,
 ) -> None:
-    response: Final = _litellm_proxy_response(original_exception, custom_llm_provider)
+    response: Final = _embrouter_proxy_response(original_exception, custom_llm_provider)
     # custom_llm_provider is openai, make it OpenAI
     message = get_error_message(error_obj=original_exception)
     if message is None:
@@ -320,7 +320,7 @@ def _map_openai_exception(
             llm_provider=custom_llm_provider,
             model=model,
             response=response,
-            litellm_debug_info=extra_information,
+            embrouter_debug_info=extra_information,
         )
     elif "invalid_request_error" in error_str and "model_not_found" in error_str:
         raise NotFoundError(
@@ -328,14 +328,14 @@ def _map_openai_exception(
             llm_provider=custom_llm_provider,
             model=model,
             response=response,
-            litellm_debug_info=extra_information,
+            embrouter_debug_info=extra_information,
         )
     elif "A timeout occurred" in error_str:
         raise Timeout(
             message=f"{exception_provider} - {message}",
             model=model,
             llm_provider=custom_llm_provider,
-            litellm_debug_info=extra_information,
+            embrouter_debug_info=extra_information,
         )
     elif (
         ("invalid_request_error" in error_str and "content_policy_violation" in error_str)
@@ -347,7 +347,7 @@ def _map_openai_exception(
             llm_provider=custom_llm_provider,
             model=model,
             response=response,
-            litellm_debug_info=extra_information,
+            embrouter_debug_info=extra_information,
             body=getattr(original_exception, "body", None),
         )
     elif "invalid_encrypted_content" in error_str or "could not be verified" in error_str:
@@ -367,7 +367,7 @@ def _map_openai_exception(
             llm_provider=custom_llm_provider,
             model=model,
             response=response,
-            litellm_debug_info=extra_information,
+            embrouter_debug_info=extra_information,
             body=getattr(original_exception, "body", None),
         )
     elif "invalid_request_error" in error_str and "Incorrect API key provided" not in error_str:
@@ -376,14 +376,14 @@ def _map_openai_exception(
             llm_provider=custom_llm_provider,
             model=model,
             response=response,
-            litellm_debug_info=extra_information,
+            embrouter_debug_info=extra_information,
             body=getattr(original_exception, "body", None),
         )
     elif (
         "Web server is returning an unknown error" in error_str
         or "The server had an error processing your request." in error_str
     ):
-        raise litellm.InternalServerError(
+        raise embrouter.InternalServerError(
             message=f"{exception_provider} - {message}",
             model=model,
             llm_provider=custom_llm_provider,
@@ -395,7 +395,7 @@ def _map_openai_exception(
             model=model,
             llm_provider=custom_llm_provider,
             response=response,
-            litellm_debug_info=extra_information,
+            embrouter_debug_info=extra_information,
             body=getattr(original_exception, "body", None),
         )
     elif (
@@ -407,7 +407,7 @@ def _map_openai_exception(
             llm_provider=custom_llm_provider,
             model=model,
             response=response,
-            litellm_debug_info=extra_information,
+            embrouter_debug_info=extra_information,
         )
     elif "Mistral API raised a streaming error" in error_str:
         _request: Final = httpx.Request(method="POST", url="https://api.openai.com/v1")
@@ -417,7 +417,7 @@ def _map_openai_exception(
             llm_provider=custom_llm_provider,
             model=model,
             request=_request,
-            litellm_debug_info=extra_information,
+            embrouter_debug_info=extra_information,
         )
     elif hasattr(original_exception, "status_code"):
         if original_exception.status_code == 400:
@@ -426,7 +426,7 @@ def _map_openai_exception(
                 llm_provider=custom_llm_provider,
                 model=model,
                 response=response,
-                litellm_debug_info=extra_information,
+                embrouter_debug_info=extra_information,
                 body=getattr(original_exception, "body", None),
             )
         elif original_exception.status_code == 401:
@@ -435,7 +435,7 @@ def _map_openai_exception(
                 llm_provider=custom_llm_provider,
                 model=model,
                 response=response,
-                litellm_debug_info=extra_information,
+                embrouter_debug_info=extra_information,
             )
         elif original_exception.status_code == 404:
             raise NotFoundError(
@@ -443,14 +443,14 @@ def _map_openai_exception(
                 model=model,
                 llm_provider=custom_llm_provider,
                 response=response,
-                litellm_debug_info=extra_information,
+                embrouter_debug_info=extra_information,
             )
         elif original_exception.status_code == 408:
             raise Timeout(
                 message=f"Timeout Error: {exception_provider} - {message}",
                 model=model,
                 llm_provider=custom_llm_provider,
-                litellm_debug_info=extra_information,
+                embrouter_debug_info=extra_information,
             )
         elif original_exception.status_code == 422:
             raise BadRequestError(
@@ -458,7 +458,7 @@ def _map_openai_exception(
                 model=model,
                 llm_provider=custom_llm_provider,
                 response=response,
-                litellm_debug_info=extra_information,
+                embrouter_debug_info=extra_information,
                 body=getattr(original_exception, "body", None),
             )
         elif original_exception.status_code == 429:
@@ -467,7 +467,7 @@ def _map_openai_exception(
                 model=model,
                 llm_provider=custom_llm_provider,
                 response=response,
-                litellm_debug_info=extra_information,
+                embrouter_debug_info=extra_information,
                 body=getattr(original_exception, "body", None),
             )
         elif original_exception.status_code == 500:
@@ -476,7 +476,7 @@ def _map_openai_exception(
                 model=model,
                 llm_provider=custom_llm_provider,
                 response=response,
-                litellm_debug_info=extra_information,
+                embrouter_debug_info=extra_information,
                 body=getattr(original_exception, "body", None),
             )
         elif original_exception.status_code == 502:
@@ -485,7 +485,7 @@ def _map_openai_exception(
                 model=model,
                 llm_provider=custom_llm_provider,
                 response=response,
-                litellm_debug_info=extra_information,
+                embrouter_debug_info=extra_information,
             )
         elif original_exception.status_code == 503:
             raise ServiceUnavailableError(
@@ -493,14 +493,14 @@ def _map_openai_exception(
                 model=model,
                 llm_provider=custom_llm_provider,
                 response=response,
-                litellm_debug_info=extra_information,
+                embrouter_debug_info=extra_information,
             )
         elif original_exception.status_code == 504:  # gateway timeout error
             raise Timeout(
                 message=f"Timeout Error: {exception_provider} - {message}",
                 model=model,
                 llm_provider=custom_llm_provider,
-                litellm_debug_info=extra_information,
+                embrouter_debug_info=extra_information,
                 exception_status_code=original_exception.status_code,
             )
         else:
@@ -510,7 +510,7 @@ def _map_openai_exception(
                 llm_provider=custom_llm_provider,
                 model=model,
                 request=getattr(original_exception, "request", None),
-                litellm_debug_info=extra_information,
+                embrouter_debug_info=extra_information,
             )
     else:
         # if no status code then it is an APIConnectionError: https://github.com/openai/openai-python#handling-errors
@@ -519,7 +519,7 @@ def _map_openai_exception(
             message=f"APIConnectionError: {exception_provider} - {message}",
             llm_provider=custom_llm_provider,
             model=model,
-            litellm_debug_info=extra_information,
+            embrouter_debug_info=extra_information,
             request=httpx.Request(method="POST", url="https://api.openai.com/v1/"),
         )
 
@@ -608,8 +608,8 @@ def _map_anthropic_exception(
                 model=model,
             )
         elif original_exception.status_code == 500 or original_exception.status_code == 529:
-            raise litellm.InternalServerError(
-                message=f"AnthropicException - {error_str}. Handle with `litellm.InternalServerError`.",
+            raise embrouter.InternalServerError(
+                message=f"AnthropicException - {error_str}. Handle with `embrouter.InternalServerError`.",
                 llm_provider="anthropic",
                 model=model,
                 response=getattr(original_exception, "response", None),
@@ -622,8 +622,8 @@ def _map_anthropic_exception(
                 response=getattr(original_exception, "response", None),
             )
         elif original_exception.status_code == 503:
-            raise litellm.ServiceUnavailableError(
-                message=f"AnthropicException - {error_str}. Handle with `litellm.ServiceUnavailableError`.",
+            raise embrouter.ServiceUnavailableError(
+                message=f"AnthropicException - {error_str}. Handle with `embrouter.ServiceUnavailableError`.",
                 llm_provider="anthropic",
                 model=model,
                 response=getattr(original_exception, "response", None),
@@ -752,7 +752,7 @@ def _map_openai_like_exception(
             llm_provider=custom_llm_provider,
             model=model,
             response=getattr(original_exception, "response", None),
-            litellm_debug_info=extra_information,
+            embrouter_debug_info=extra_information,
         )
     elif ExceptionCheckers.is_error_str_context_window_exceeded(error_str):
         raise ContextWindowExceededError(
@@ -760,7 +760,7 @@ def _map_openai_like_exception(
             model=model,
             llm_provider=custom_llm_provider,
             response=getattr(original_exception, "response", None),
-            litellm_debug_info=extra_information,
+            embrouter_debug_info=extra_information,
         )
     elif "token_quota_reached" in error_str:
         raise RateLimitError(
@@ -770,7 +770,7 @@ def _map_openai_like_exception(
             response=getattr(original_exception, "response", None),
         )
     elif "The server received an invalid response from an upstream server." in error_str:
-        raise litellm.InternalServerError(
+        raise embrouter.InternalServerError(
             message=f"{custom_llm_provider.capitalize()}Exception - {original_exception.message}",
             llm_provider=custom_llm_provider,
             model=model,
@@ -783,7 +783,7 @@ def _map_openai_like_exception(
         )
     elif hasattr(original_exception, "status_code"):
         if original_exception.status_code == 500:
-            raise litellm.InternalServerError(
+            raise embrouter.InternalServerError(
                 message=f"{custom_llm_provider.capitalize()}Exception - {original_exception.message}",
                 llm_provider=custom_llm_provider,
                 model=model,
@@ -818,35 +818,35 @@ def _map_openai_like_exception(
                 message=f"{custom_llm_provider.capitalize()}Exception - {original_exception.message}",
                 model=model,
                 llm_provider=custom_llm_provider,
-                litellm_debug_info=extra_information,
+                embrouter_debug_info=extra_information,
             )
         elif original_exception.status_code == 422 or original_exception.status_code == 424:
             raise BadRequestError(
                 message=f"{custom_llm_provider.capitalize()}Exception - {original_exception.message}",
                 model=model,
                 llm_provider=custom_llm_provider,
-                litellm_debug_info=extra_information,
+                embrouter_debug_info=extra_information,
             )
         elif original_exception.status_code == 429:
             raise RateLimitError(
                 message=f"{custom_llm_provider.capitalize()}Exception - {original_exception.message}",
                 model=model,
                 llm_provider=custom_llm_provider,
-                litellm_debug_info=extra_information,
+                embrouter_debug_info=extra_information,
             )
         elif original_exception.status_code == 503:
             raise ServiceUnavailableError(
                 message=f"{custom_llm_provider.capitalize()}Exception - {original_exception.message}",
                 model=model,
                 llm_provider=custom_llm_provider,
-                litellm_debug_info=extra_information,
+                embrouter_debug_info=extra_information,
             )
         elif original_exception.status_code == 504:  # gateway timeout error
             raise Timeout(
                 message=f"{custom_llm_provider.capitalize()}Exception - {original_exception.message}",
                 model=model,
                 llm_provider=custom_llm_provider,
-                litellm_debug_info=extra_information,
+                embrouter_debug_info=extra_information,
                 exception_status_code=original_exception.status_code,
             )
 
@@ -858,7 +858,7 @@ def _get_bedrock_mantle_context_window_message(error_str: str) -> str | None:
     """
     Mantle reports context overflow as a structured validation error rather than
     the plain-text patterns Bedrock itself uses, so it needs its own detection and a
-    message clients recognize as context overflow (litellm/litellm#36546).
+    message clients recognize as context overflow (embrouter/embrouter#36546).
     """
     if "invalid_request_error" not in error_str and "validation_error" not in error_str:
         return None
@@ -904,7 +904,7 @@ def _map_bedrock_exception(
         )
     elif "Conversation blocks and tool result blocks cannot be provided in the same turn." in error_str:
         raise BadRequestError(
-            message=f"BedrockException - {error_str}\n. Enable 'litellm.modify_params=True' (for PROXY do: `litellm_settings::modify_params: True`) to insert a dummy assistant message and fix this error.",
+            message=f"BedrockException - {error_str}\n. Enable 'embrouter.modify_params=True' (for PROXY do: `embrouter_settings::modify_params: True`) to insert a dummy assistant message and fix this error.",
             model=model,
             llm_provider="bedrock",
             response=getattr(original_exception, "response", None),
@@ -918,7 +918,7 @@ def _map_bedrock_exception(
         )
     elif "A conversation must start with a user message." in error_str:
         raise BadRequestError(
-            message=f"BedrockException - {error_str}\n. Pass in default user message via `completion(..,user_continue_message=)` or enable `litellm.modify_params=True`.\nFor Proxy: do via `litellm_settings::modify_params: True` or user_continue_message under `litellm_params`",
+            message=f"BedrockException - {error_str}\n. Pass in default user message via `completion(..,user_continue_message=)` or enable `embrouter.modify_params=True`.\nFor Proxy: do via `embrouter_settings::modify_params: True` or user_continue_message under `embrouter_params`",
             model=model,
             llm_provider="bedrock",
             response=getattr(original_exception, "response", None),
@@ -955,7 +955,7 @@ def _map_bedrock_exception(
             response=getattr(original_exception, "response", None),
         )
     elif "Could not process image" in error_str and getattr(original_exception, "status_code", 500) == 500:
-        raise litellm.InternalServerError(
+        raise embrouter.InternalServerError(
             message=f"BedrockException - {error_str}",
             model=model,
             llm_provider="bedrock",
@@ -995,7 +995,7 @@ def _map_bedrock_exception(
                 message=f"BedrockException - {original_exception.message}",
                 model=model,
                 llm_provider=custom_llm_provider,
-                litellm_debug_info=extra_information,
+                embrouter_debug_info=extra_information,
                 response=getattr(original_exception, "response", None),
             )
         elif original_exception.status_code == 422:
@@ -1004,7 +1004,7 @@ def _map_bedrock_exception(
                 model=model,
                 llm_provider=custom_llm_provider,
                 response=getattr(original_exception, "response", None),
-                litellm_debug_info=extra_information,
+                embrouter_debug_info=extra_information,
             )
         elif original_exception.status_code == 429:
             raise RateLimitError(
@@ -1012,7 +1012,7 @@ def _map_bedrock_exception(
                 model=model,
                 llm_provider=custom_llm_provider,
                 response=getattr(original_exception, "response", None),
-                litellm_debug_info=extra_information,
+                embrouter_debug_info=extra_information,
             )
         elif original_exception.status_code == 503:
             raise ServiceUnavailableError(
@@ -1020,14 +1020,14 @@ def _map_bedrock_exception(
                 model=model,
                 llm_provider=custom_llm_provider,
                 response=getattr(original_exception, "response", None),
-                litellm_debug_info=extra_information,
+                embrouter_debug_info=extra_information,
             )
         elif original_exception.status_code == 504:  # gateway timeout error
             raise Timeout(
                 message=f"BedrockException - {original_exception.message}",
                 model=model,
                 llm_provider=custom_llm_provider,
-                litellm_debug_info=extra_information,
+                embrouter_debug_info=extra_information,
                 exception_status_code=original_exception.status_code,
                 response=getattr(original_exception, "response", None),
             )
@@ -1045,7 +1045,7 @@ def _map_sagemaker_exception(
 ) -> None:
     if "Unable to locate credentials" in error_str:
         raise BadRequestError(
-            message=f"litellm.BadRequestError: SagemakerException - {error_str}",
+            message=f"embrouter.BadRequestError: SagemakerException - {error_str}",
             model=model,
             llm_provider="sagemaker",
             response=getattr(original_exception, "response", None),
@@ -1104,7 +1104,7 @@ def _map_sagemaker_exception(
                 message=f"SagemakerException - {original_exception.message}",
                 model=model,
                 llm_provider=custom_llm_provider,
-                litellm_debug_info=extra_information,
+                embrouter_debug_info=extra_information,
             )
         elif original_exception.status_code == 422 or original_exception.status_code == 424:
             raise BadRequestError(
@@ -1112,7 +1112,7 @@ def _map_sagemaker_exception(
                 model=model,
                 llm_provider=custom_llm_provider,
                 response=getattr(original_exception, "response", None),
-                litellm_debug_info=extra_information,
+                embrouter_debug_info=extra_information,
             )
         elif original_exception.status_code == 429:
             raise RateLimitError(
@@ -1120,7 +1120,7 @@ def _map_sagemaker_exception(
                 model=model,
                 llm_provider=custom_llm_provider,
                 response=getattr(original_exception, "response", None),
-                litellm_debug_info=extra_information,
+                embrouter_debug_info=extra_information,
             )
         elif original_exception.status_code == 503:
             raise ServiceUnavailableError(
@@ -1128,14 +1128,14 @@ def _map_sagemaker_exception(
                 model=model,
                 llm_provider=custom_llm_provider,
                 response=getattr(original_exception, "response", None),
-                litellm_debug_info=extra_information,
+                embrouter_debug_info=extra_information,
             )
         elif original_exception.status_code == 504:  # gateway timeout error
             raise Timeout(
                 message=f"SagemakerException - {original_exception.message}",
                 model=model,
                 llm_provider=custom_llm_provider,
-                litellm_debug_info=extra_information,
+                embrouter_debug_info=extra_information,
                 exception_status_code=original_exception.status_code,
             )
 
@@ -1152,7 +1152,7 @@ def _map_vertex_exception(
 ) -> None:
     if "Vertex AI API has not been used in project" in error_str or "Unable to find your project" in error_str:
         raise BadRequestError(
-            message=f"litellm.BadRequestError: {custom_llm_provider}Exception - {error_str}",
+            message=f"embrouter.BadRequestError: {custom_llm_provider}Exception - {error_str}",
             model=model,
             llm_provider=custom_llm_provider,
             response=httpx.Response(
@@ -1162,7 +1162,7 @@ def _map_vertex_exception(
                     url=" https://cloud.google.com/vertex-ai/",
                 ),
             ),
-            litellm_debug_info=extra_information,
+            embrouter_debug_info=extra_information,
         )
     if "400 Request payload size exceeds" in error_str:
         raise ContextWindowExceededError(
@@ -1175,11 +1175,11 @@ def _map_vertex_exception(
             message=f"ContextWindowExceededError: {custom_llm_provider.capitalize()}Exception - {error_str}",
             model=model,
             llm_provider=custom_llm_provider,
-            litellm_debug_info=extra_information,
+            embrouter_debug_info=extra_information,
         )
     elif "None Unknown Error." in error_str or "Content has no parts." in error_str:
-        raise litellm.InternalServerError(
-            message=f"litellm.InternalServerError: {custom_llm_provider}Exception - {error_str}",
+        raise embrouter.InternalServerError(
+            message=f"embrouter.InternalServerError: {custom_llm_provider}Exception - {error_str}",
             model=model,
             llm_provider=custom_llm_provider,
             response=httpx.Response(
@@ -1187,14 +1187,14 @@ def _map_vertex_exception(
                 content=str(original_exception),
                 request=httpx.Request(method="completion", url="http://localhost"),
             ),
-            litellm_debug_info=extra_information,
+            embrouter_debug_info=extra_information,
         )
     elif "API key not valid." in error_str:
         raise AuthenticationError(
             message=f"{custom_llm_provider.capitalize()}Exception - {error_str}",
             model=model,
             llm_provider=custom_llm_provider,
-            litellm_debug_info=extra_information,
+            embrouter_debug_info=extra_information,
         )
     elif "403" in error_str:
         raise BadRequestError(
@@ -1208,7 +1208,7 @@ def _map_vertex_exception(
                     url=" https://cloud.google.com/vertex-ai/",
                 ),
             ),
-            litellm_debug_info=extra_information,
+            embrouter_debug_info=extra_information,
         )
     elif (
         "The response was blocked." in error_str
@@ -1218,7 +1218,7 @@ def _map_vertex_exception(
             message=f"{custom_llm_provider.capitalize()}Exception ContentPolicyViolationError - {error_str}",
             model=model,
             llm_provider=custom_llm_provider,
-            litellm_debug_info=extra_information,
+            embrouter_debug_info=extra_information,
             response=httpx.Response(
                 status_code=400,
                 request=httpx.Request(
@@ -1235,10 +1235,10 @@ def _map_vertex_exception(
         or "429 Unable to submit request because the service is temporarily out of capacity." in error_str
     ):
         raise RateLimitError(
-            message=f"litellm.RateLimitError: {custom_llm_provider}Exception - {error_str}",
+            message=f"embrouter.RateLimitError: {custom_llm_provider}Exception - {error_str}",
             model=model,
             llm_provider=custom_llm_provider,
-            litellm_debug_info=extra_information,
+            embrouter_debug_info=extra_information,
             response=httpx.Response(
                 status_code=429,
                 request=httpx.Request(
@@ -1257,10 +1257,10 @@ def _map_vertex_exception(
         # Scoped to 5xx so HTTP 400/401 with body code:429
         # still maps to BadRequestError / AuthenticationError.
         raise RateLimitError(
-            message=f"litellm.RateLimitError: {custom_llm_provider}Exception - {error_str}",
+            message=f"embrouter.RateLimitError: {custom_llm_provider}Exception - {error_str}",
             model=model,
             llm_provider=custom_llm_provider,
-            litellm_debug_info=extra_information,
+            embrouter_debug_info=extra_information,
             response=httpx.Response(
                 status_code=429,
                 request=httpx.Request(
@@ -1270,11 +1270,11 @@ def _map_vertex_exception(
             ),
         )
     elif "500 Internal Server Error" in error_str or "The model is overloaded." in error_str:
-        raise litellm.InternalServerError(
-            message=f"litellm.InternalServerError: {custom_llm_provider}Exception - {error_str}",
+        raise embrouter.InternalServerError(
+            message=f"embrouter.InternalServerError: {custom_llm_provider}Exception - {error_str}",
             model=model,
             llm_provider=custom_llm_provider,
-            litellm_debug_info=extra_information,
+            embrouter_debug_info=extra_information,
         )
     if hasattr(original_exception, "status_code"):
         if original_exception.status_code == 400:
@@ -1282,7 +1282,7 @@ def _map_vertex_exception(
                 message=f"{custom_llm_provider.capitalize()}Exception BadRequestError - {error_str}",
                 model=model,
                 llm_provider=custom_llm_provider,
-                litellm_debug_info=extra_information,
+                embrouter_debug_info=extra_information,
                 response=httpx.Response(
                     status_code=400,
                     request=httpx.Request(
@@ -1325,10 +1325,10 @@ def _map_vertex_exception(
 
         if original_exception.status_code == 429:
             raise RateLimitError(
-                message=f"litellm.RateLimitError: {custom_llm_provider.capitalize()}Exception - {error_str}",
+                message=f"embrouter.RateLimitError: {custom_llm_provider.capitalize()}Exception - {error_str}",
                 model=model,
                 llm_provider=custom_llm_provider,
-                litellm_debug_info=extra_information,
+                embrouter_debug_info=extra_information,
                 response=httpx.Response(
                     status_code=429,
                     request=httpx.Request(
@@ -1338,11 +1338,11 @@ def _map_vertex_exception(
                 ),
             )
         if original_exception.status_code == 500:
-            raise litellm.InternalServerError(
+            raise embrouter.InternalServerError(
                 message=f"{custom_llm_provider.capitalize()}Exception InternalServerError - {error_str}",
                 model=model,
                 llm_provider=custom_llm_provider,
-                litellm_debug_info=extra_information,
+                embrouter_debug_info=extra_information,
                 response=httpx.Response(
                     status_code=500,
                     content=str(original_exception),
@@ -1963,11 +1963,11 @@ def _map_azure_exception(
         azure_error_code = None
 
     if "Internal server error" in error_str:
-        raise litellm.InternalServerError(
+        raise embrouter.InternalServerError(
             message=f"AzureException Internal server error - {message}",
             llm_provider="azure",
             model=model,
-            litellm_debug_info=extra_information,
+            embrouter_debug_info=extra_information,
             response=getattr(original_exception, "response", None),
         )
     elif "This model's maximum context length is" in error_str:
@@ -1975,7 +1975,7 @@ def _map_azure_exception(
             message=f"AzureException ContextWindowExceededError - {message}",
             llm_provider="azure",
             model=model,
-            litellm_debug_info=extra_information,
+            embrouter_debug_info=extra_information,
             response=getattr(original_exception, "response", None),
         )
     elif "DeploymentNotFound" in error_str:
@@ -1983,13 +1983,13 @@ def _map_azure_exception(
             message=f"AzureException NotFoundError - {message}",
             llm_provider="azure",
             model=model,
-            litellm_debug_info=extra_information,
+            embrouter_debug_info=extra_information,
             response=getattr(original_exception, "response", None),
         )
     elif azure_error_code == "content_policy_violation" or ExceptionCheckers.is_azure_content_policy_violation_error(
         error_str
     ):
-        from litellm.llms.azure.exception_mapping import (
+        from embrouter.llms.azure.exception_mapping import (
             AzureOpenAIExceptionMapping,
         )
 
@@ -2015,7 +2015,7 @@ def _map_azure_exception(
             message=helpful_message,
             llm_provider="azure",
             model=model,
-            litellm_debug_info=extra_information,
+            embrouter_debug_info=extra_information,
             response=getattr(original_exception, "response", None),
             body=getattr(original_exception, "body", None),
         )
@@ -2024,7 +2024,7 @@ def _map_azure_exception(
             message=f"AzureException BadRequestError - {message}",
             llm_provider="azure",
             model=model,
-            litellm_debug_info=extra_information,
+            embrouter_debug_info=extra_information,
             response=getattr(original_exception, "response", None),
             body=getattr(original_exception, "body", None),
         )
@@ -2033,7 +2033,7 @@ def _map_azure_exception(
             message=f"{exception_provider} AuthenticationError - {message}",
             llm_provider=custom_llm_provider,
             model=model,
-            litellm_debug_info=extra_information,
+            embrouter_debug_info=extra_information,
             response=getattr(original_exception, "response", None),
         )
     elif "Connection error" in error_str:
@@ -2041,7 +2041,7 @@ def _map_azure_exception(
             message=f"{exception_provider} APIConnectionError - {message}",
             llm_provider=custom_llm_provider,
             model=model,
-            litellm_debug_info=extra_information,
+            embrouter_debug_info=extra_information,
         )
     elif hasattr(original_exception, "status_code"):
         if original_exception.status_code == 400:
@@ -2049,7 +2049,7 @@ def _map_azure_exception(
                 message=f"AzureException - {message}",
                 llm_provider="azure",
                 model=model,
-                litellm_debug_info=extra_information,
+                embrouter_debug_info=extra_information,
                 response=getattr(original_exception, "response", None),
                 body=getattr(original_exception, "body", None),
             )
@@ -2058,7 +2058,7 @@ def _map_azure_exception(
                 message=f"AzureException AuthenticationError - {message}",
                 llm_provider="azure",
                 model=model,
-                litellm_debug_info=extra_information,
+                embrouter_debug_info=extra_information,
                 response=getattr(original_exception, "response", None),
             )
         elif original_exception.status_code == 404:
@@ -2066,14 +2066,14 @@ def _map_azure_exception(
                 message=f"AzureException NotFoundError - {message}",
                 llm_provider="azure",
                 model=model,
-                litellm_debug_info=extra_information,
+                embrouter_debug_info=extra_information,
                 response=getattr(original_exception, "response", None),
             )
         elif original_exception.status_code == 408:
             raise Timeout(
                 message=f"AzureException Timeout - {message}",
                 model=model,
-                litellm_debug_info=extra_information,
+                embrouter_debug_info=extra_information,
                 llm_provider="azure",
             )
         elif original_exception.status_code == 422:
@@ -2081,7 +2081,7 @@ def _map_azure_exception(
                 message=f"AzureException BadRequestError - {message}",
                 model=model,
                 llm_provider="azure",
-                litellm_debug_info=extra_information,
+                embrouter_debug_info=extra_information,
                 response=getattr(original_exception, "response", None),
             )
         elif original_exception.status_code == 429:
@@ -2089,7 +2089,7 @@ def _map_azure_exception(
                 message=f"AzureException RateLimitError - {message}",
                 model=model,
                 llm_provider="azure",
-                litellm_debug_info=extra_information,
+                embrouter_debug_info=extra_information,
                 response=getattr(original_exception, "response", None),
             )
         elif original_exception.status_code == 502:
@@ -2097,7 +2097,7 @@ def _map_azure_exception(
                 message=f"AzureException BadGatewayError - {message}",
                 model=model,
                 llm_provider="azure",
-                litellm_debug_info=extra_information,
+                embrouter_debug_info=extra_information,
                 response=getattr(original_exception, "response", None),
             )
         elif original_exception.status_code == 503:
@@ -2105,14 +2105,14 @@ def _map_azure_exception(
                 message=f"AzureException ServiceUnavailableError - {message}",
                 model=model,
                 llm_provider="azure",
-                litellm_debug_info=extra_information,
+                embrouter_debug_info=extra_information,
                 response=getattr(original_exception, "response", None),
             )
         elif original_exception.status_code == 504:  # gateway timeout error
             raise Timeout(
                 message=f"AzureException Timeout - {message}",
                 model=model,
-                litellm_debug_info=extra_information,
+                embrouter_debug_info=extra_information,
                 llm_provider="azure",
                 exception_status_code=original_exception.status_code,
             )
@@ -2121,7 +2121,7 @@ def _map_azure_exception(
                 status_code=original_exception.status_code,
                 message=f"AzureException APIError - {message}",
                 llm_provider="azure",
-                litellm_debug_info=extra_information,
+                embrouter_debug_info=extra_information,
                 model=model,
                 request=httpx.Request(method="POST", url="https://openai.com/"),
             )
@@ -2131,7 +2131,7 @@ def _map_azure_exception(
             message=f"{exception_provider} APIConnectionError - {message}\n{_redact_string(traceback.format_exc())}",
             llm_provider="azure",
             model=model,
-            litellm_debug_info=extra_information,
+            embrouter_debug_info=extra_information,
             request=httpx.Request(method="POST", url="https://openai.com/"),
         )
 
@@ -2153,7 +2153,7 @@ def _map_openrouter_exception(
                 llm_provider=custom_llm_provider,
                 model=model,
                 response=getattr(original_exception, "response", None),
-                litellm_debug_info=extra_information,
+                embrouter_debug_info=extra_information,
             )
         elif original_exception.status_code == 401:
             raise AuthenticationError(
@@ -2161,7 +2161,7 @@ def _map_openrouter_exception(
                 llm_provider=custom_llm_provider,
                 model=model,
                 response=getattr(original_exception, "response", None),
-                litellm_debug_info=extra_information,
+                embrouter_debug_info=extra_information,
             )
         elif original_exception.status_code == 404:
             raise NotFoundError(
@@ -2169,14 +2169,14 @@ def _map_openrouter_exception(
                 model=model,
                 llm_provider=custom_llm_provider,
                 response=getattr(original_exception, "response", None),
-                litellm_debug_info=extra_information,
+                embrouter_debug_info=extra_information,
             )
         elif original_exception.status_code == 408:
             raise Timeout(
                 message=f"Timeout Error: {exception_provider} - {error_str}",
                 model=model,
                 llm_provider=custom_llm_provider,
-                litellm_debug_info=extra_information,
+                embrouter_debug_info=extra_information,
             )
         elif original_exception.status_code == 422:
             raise BadRequestError(
@@ -2184,7 +2184,7 @@ def _map_openrouter_exception(
                 model=model,
                 llm_provider=custom_llm_provider,
                 response=getattr(original_exception, "response", None),
-                litellm_debug_info=extra_information,
+                embrouter_debug_info=extra_information,
             )
         elif original_exception.status_code == 429:
             raise RateLimitError(
@@ -2192,7 +2192,7 @@ def _map_openrouter_exception(
                 model=model,
                 llm_provider=custom_llm_provider,
                 response=getattr(original_exception, "response", None),
-                litellm_debug_info=extra_information,
+                embrouter_debug_info=extra_information,
             )
         elif original_exception.status_code == 503:
             raise ServiceUnavailableError(
@@ -2200,14 +2200,14 @@ def _map_openrouter_exception(
                 model=model,
                 llm_provider=custom_llm_provider,
                 response=getattr(original_exception, "response", None),
-                litellm_debug_info=extra_information,
+                embrouter_debug_info=extra_information,
             )
         elif original_exception.status_code == 504:  # gateway timeout error
             raise Timeout(
                 message=f"Timeout Error: {exception_provider} - {error_str}",
                 model=model,
                 llm_provider=custom_llm_provider,
-                litellm_debug_info=extra_information,
+                embrouter_debug_info=extra_information,
                 exception_status_code=original_exception.status_code,
             )
         else:
@@ -2217,7 +2217,7 @@ def _map_openrouter_exception(
                 llm_provider=custom_llm_provider,
                 model=model,
                 request=getattr(original_exception, "request", None),
-                litellm_debug_info=extra_information,
+                embrouter_debug_info=extra_information,
             )
     else:
         # if no status code then it is an APIConnectionError: https://github.com/openai/openai-python#handling-errors
@@ -2225,7 +2225,7 @@ def _map_openrouter_exception(
             message=f"APIConnectionError: {exception_provider} - {error_str}",
             llm_provider=custom_llm_provider,
             model=model,
-            litellm_debug_info=extra_information,
+            embrouter_debug_info=extra_information,
             request=httpx.Request(method="POST", url="https://api.openai.com/v1/"),
         )
 
@@ -2262,7 +2262,7 @@ def _map_exception_by_status(
                 llm_provider=custom_llm_provider,
                 model=model,
                 response=response,
-                litellm_debug_info=extra_information,
+                embrouter_debug_info=extra_information,
             )
         case 403:
             raise PermissionDeniedError(
@@ -2270,7 +2270,7 @@ def _map_exception_by_status(
                 llm_provider=custom_llm_provider,
                 model=model,
                 response=_response_or_stub(original_exception, status_code=status_code),
-                litellm_debug_info=extra_information,
+                embrouter_debug_info=extra_information,
             )
         case 404:
             raise NotFoundError(
@@ -2278,14 +2278,14 @@ def _map_exception_by_status(
                 model=model,
                 llm_provider=custom_llm_provider,
                 response=response,
-                litellm_debug_info=extra_information,
+                embrouter_debug_info=extra_information,
             )
         case 408:
             raise Timeout(
                 message=message,
                 model=model,
                 llm_provider=custom_llm_provider,
-                litellm_debug_info=extra_information,
+                embrouter_debug_info=extra_information,
             )
         case 429:
             raise RateLimitError(
@@ -2293,7 +2293,7 @@ def _map_exception_by_status(
                 model=model,
                 llm_provider=custom_llm_provider,
                 response=response,
-                litellm_debug_info=extra_information,
+                embrouter_debug_info=extra_information,
             )
         case 500:
             raise InternalServerError(
@@ -2301,7 +2301,7 @@ def _map_exception_by_status(
                 llm_provider=custom_llm_provider,
                 model=model,
                 response=response,
-                litellm_debug_info=extra_information,
+                embrouter_debug_info=extra_information,
             )
         case 502:
             raise BadGatewayError(
@@ -2309,7 +2309,7 @@ def _map_exception_by_status(
                 llm_provider=custom_llm_provider,
                 model=model,
                 response=response,
-                litellm_debug_info=extra_information,
+                embrouter_debug_info=extra_information,
             )
         case 503:
             raise ServiceUnavailableError(
@@ -2317,14 +2317,14 @@ def _map_exception_by_status(
                 llm_provider=custom_llm_provider,
                 model=model,
                 response=response,
-                litellm_debug_info=extra_information,
+                embrouter_debug_info=extra_information,
             )
         case 504:
             raise Timeout(
                 message=message,
                 model=model,
                 llm_provider=custom_llm_provider,
-                litellm_debug_info=extra_information,
+                embrouter_debug_info=extra_information,
                 exception_status_code=status_code,
             )
         case _ if status_code < 500:
@@ -2333,7 +2333,7 @@ def _map_exception_by_status(
                 model=model,
                 llm_provider=custom_llm_provider,
                 response=response,
-                litellm_debug_info=extra_information,
+                embrouter_debug_info=extra_information,
             )
         case _:
             raise APIError(
@@ -2342,12 +2342,12 @@ def _map_exception_by_status(
                 llm_provider=custom_llm_provider,
                 model=model,
                 request=original_exception.request if hasattr(original_exception, "request") else None,
-                litellm_debug_info=extra_information,
+                embrouter_debug_info=extra_information,
             )
 
 
 def _is_guardrail_block(original_exception: Exception) -> bool:
-    from litellm.integrations.custom_guardrail import is_guardrail_intervention
+    from embrouter.integrations.custom_guardrail import is_guardrail_intervention
 
     return is_guardrail_intervention(original_exception)
 
@@ -2360,21 +2360,21 @@ def exception_type(
     extra_kwargs={},
 ):
     """Maps an LLM Provider Exception to OpenAI Exception Format"""
-    if any(isinstance(original_exception, exc_type) for exc_type in litellm.LITELLM_EXCEPTION_TYPES):
+    if any(isinstance(original_exception, exc_type) for exc_type in embrouter.EMBROUTER_EXCEPTION_TYPES):
         return original_exception
     if _is_guardrail_block(original_exception):
         return original_exception
     exception_mapping_worked = False
     exception_provider = custom_llm_provider
     mappable_exception: Final[_ProviderHTTPException] = cast("_ProviderHTTPException", original_exception)
-    if litellm.suppress_debug_info is False:
+    if embrouter.suppress_debug_info is False:
         print()  # noqa: T201
         print(  # noqa: T201
-            "LiteLLM.Info: If you need to debug this error, use `litellm._turn_on_debug()'."
+            "EmbRouter.Info: If you need to debug this error, use `embrouter._turn_on_debug()'."
         )
         print()  # noqa: T201
 
-    litellm_response_headers: Final = _get_response_headers(original_exception=original_exception)
+    embrouter_response_headers: Final = _get_response_headers(original_exception=original_exception)
     try:
         error_str = redact_string(str(original_exception)) if _ENABLE_SECRET_REDACTION else str(original_exception)
         extra_information = ""
@@ -2395,8 +2395,8 @@ def exception_type(
             # We pass num retries, api_base, vertex_deployment etc to the exception here
             ################################################################################
             try:
-                _api_base: Final = litellm.get_api_base(model=model, optional_params=extra_kwargs)
-                messages: Final = litellm.get_first_chars_messages(kwargs=completion_kwargs)
+                _api_base: Final = embrouter.get_api_base(model=model, optional_params=extra_kwargs)
+                messages: Final = embrouter.get_first_chars_messages(kwargs=completion_kwargs)
                 _vertex_project: Final = extra_kwargs.get("vertex_project")
                 _vertex_location: Final = extra_kwargs.get("vertex_location")
                 _metadata: Final = extra_kwargs.get("metadata", {}) or {}
@@ -2409,7 +2409,7 @@ def exception_type(
 
                 if _api_base:
                     extra_information += f"\nAPI Base: `{_api_base}`"
-                if messages and len(messages) > 0 and litellm.redact_messages_in_exceptions is False:
+                if messages and len(messages) > 0 and embrouter.redact_messages_in_exceptions is False:
                     extra_information += f"\nMessages: `{messages}`"
 
                 if _model_group is not None:
@@ -2421,7 +2421,7 @@ def exception_type(
                 if _vertex_location is not None:
                     extra_information += f"\nvertex_location: `{_vertex_location}`\n"
 
-                # on litellm proxy add key name + team to exceptions
+                # on embrouter proxy add key name + team to exceptions
                 extra_information = _add_key_name_and_team_to_alert(request_info=extra_information, metadata=_metadata)
             except Exception:
                 # DO NOT LET this Block raising the original exception
@@ -2447,14 +2447,14 @@ def exception_type(
                     message=f"APITimeoutError - Request timed out. Error_str: {error_str}",
                     model=model,
                     llm_provider=custom_llm_provider,
-                    litellm_debug_info=extra_information,
+                    embrouter_debug_info=extra_information,
                 )
 
             if (
-                custom_llm_provider == "litellm_proxy"
-            ):  # handle special case where calling litellm proxy + exception str contains error message
-                extract_and_raise_litellm_exception(
-                    response=_litellm_proxy_response(mappable_exception, custom_llm_provider),
+                custom_llm_provider == "embrouter_proxy"
+            ):  # handle special case where calling embrouter proxy + exception str contains error message
+                extract_and_raise_embrouter_exception(
+                    response=_embrouter_proxy_response(mappable_exception, custom_llm_provider),
                     error_str=error_str,
                     model=model,
                     custom_llm_provider=custom_llm_provider,
@@ -2464,7 +2464,7 @@ def exception_type(
                 custom_llm_provider == "openai"
                 or custom_llm_provider == "text-completion-openai"
                 or custom_llm_provider == "custom_openai"
-                or custom_llm_provider in litellm.openai_compatible_providers
+                or custom_llm_provider in embrouter.openai_compatible_providers
                 or custom_llm_provider == "mistral"
                 or custom_llm_provider == "runwayml"
             ):
@@ -2497,7 +2497,7 @@ def exception_type(
                     exception_provider=exception_provider,
                     extra_information=extra_information,
                 )
-            elif custom_llm_provider in litellm._openai_like_providers:
+            elif custom_llm_provider in embrouter._openai_like_providers:
                 _map_openai_like_exception(
                     model=model,
                     original_exception=mappable_exception,
@@ -2715,19 +2715,19 @@ def exception_type(
 
         # don't let an error with mapping interrupt the user from receiving an error from the llm api calls
         if exception_mapping_worked:
-            setattr(e, "litellm_response_headers", litellm_response_headers)
+            setattr(e, "embrouter_response_headers", embrouter_response_headers)
             raise e
         else:
-            for error_type in litellm.LITELLM_EXCEPTION_TYPES:
+            for error_type in embrouter.EMBROUTER_EXCEPTION_TYPES:
                 if isinstance(e, error_type):
-                    setattr(e, "litellm_response_headers", litellm_response_headers)
+                    setattr(e, "embrouter_response_headers", embrouter_response_headers)
                     raise e  # it's already mapped
             raised_exc: Final = APIConnectionError(
                 message=f"{original_exception}\n{_redact_string(traceback.format_exc())}",
                 llm_provider="",
                 model="",
             )
-            setattr(raised_exc, "litellm_response_headers", litellm_response_headers)
+            setattr(raised_exc, "embrouter_response_headers", embrouter_response_headers)
             raise raised_exc
 
 
@@ -2755,17 +2755,17 @@ def exception_logging(
                 )  # Expectation: any logger function passed in by the user should accept a dict object
             except Exception:
                 verbose_logger.debug(
-                    "LiteLLM.LoggingError: [Non-Blocking] Exception occurred while logging %s", traceback.format_exc()
+                    "EmbRouter.LoggingError: [Non-Blocking] Exception occurred while logging %s", traceback.format_exc()
                 )
     except Exception:
         verbose_logger.debug(
-            "LiteLLM.LoggingError: [Non-Blocking] Exception occurred while logging %s", traceback.format_exc()
+            "EmbRouter.LoggingError: [Non-Blocking] Exception occurred while logging %s", traceback.format_exc()
         )
 
 
 def _add_key_name_and_team_to_alert(request_info: str, metadata: dict) -> str:
     """
-    Internal helper function for litellm proxy
+    Internal helper function for embrouter proxy
     Add the Key Name + Team Name to the error
     Only gets added if the metadata contains the user_api_key_alias and user_api_key_team_alias
 

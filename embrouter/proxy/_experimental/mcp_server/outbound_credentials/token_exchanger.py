@@ -26,23 +26,23 @@ from typing import Final, Literal, Protocol
 
 from typing_extensions import assert_never
 
-from litellm._logging import verbose_logger
-from litellm.proxy._experimental.mcp_server.auth.token_endpoint_auth import (
+from embrouter._logging import verbose_logger
+from embrouter.proxy._experimental.mcp_server.auth.token_endpoint_auth import (
     build_token_endpoint_client_auth,
 )
-from litellm.proxy._experimental.mcp_server.outbound_credentials.oauth_token_store import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.oauth_token_store import (
     InMemoryTokenCacheBackend,
     InProcessRefreshCoordinator,
     OAuthToken,
     RefreshCoordinator,
     TokenCacheBackend,
 )
-from litellm.proxy._experimental.mcp_server.outbound_credentials.result import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.result import (
     Error,
     Ok,
     Result,
 )
-from litellm.proxy._experimental.mcp_server.outbound_credentials.types import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.types import (
     CredError,
     ServerSpec,
     TokenExchangeConfig,

@@ -1,5 +1,5 @@
 -- CreateTable
-CREATE TABLE IF NOT EXISTS "LiteLLM_HealthCheckTable" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_HealthCheckTable" (
     "health_check_id" TEXT NOT NULL,
     "model_name" TEXT NOT NULL,
     "model_id" TEXT,
@@ -14,15 +14,15 @@ CREATE TABLE IF NOT EXISTS "LiteLLM_HealthCheckTable" (
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
 
-    CONSTRAINT "LiteLLM_HealthCheckTable_pkey" PRIMARY KEY ("health_check_id")
+    CONSTRAINT "EmbRouter_HealthCheckTable_pkey" PRIMARY KEY ("health_check_id")
 );
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "LiteLLM_HealthCheckTable_model_name_idx" ON "LiteLLM_HealthCheckTable"("model_name");
+CREATE INDEX IF NOT EXISTS "EmbRouter_HealthCheckTable_model_name_idx" ON "EmbRouter_HealthCheckTable"("model_name");
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "LiteLLM_HealthCheckTable_checked_at_idx" ON "LiteLLM_HealthCheckTable"("checked_at");
+CREATE INDEX IF NOT EXISTS "EmbRouter_HealthCheckTable_checked_at_idx" ON "EmbRouter_HealthCheckTable"("checked_at");
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "LiteLLM_HealthCheckTable_status_idx" ON "LiteLLM_HealthCheckTable"("status");
+CREATE INDEX IF NOT EXISTS "EmbRouter_HealthCheckTable_status_idx" ON "EmbRouter_HealthCheckTable"("status");
 

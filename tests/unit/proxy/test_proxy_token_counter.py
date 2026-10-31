@@ -11,23 +11,23 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# this file is to test litellm/proxy
+# this file is to test embrouter/proxy
 
 
 from fastapi import HTTPException, Request
 
-import litellm
-from litellm import Router
-from litellm._logging import verbose_proxy_logger
-from litellm.llms.bedrock.common_utils import BedrockError
-from litellm.llms.bedrock.count_tokens.bedrock_token_counter import BedrockTokenCounter
-from litellm.llms.bedrock.count_tokens.handler import BedrockCountTokensHandler
-from litellm.proxy._types import ProxyException, TokenCountRequest
-from litellm.proxy.anthropic_endpoints.endpoints import (
+import embrouter
+from embrouter import Router
+from embrouter._logging import verbose_proxy_logger
+from embrouter.llms.bedrock.common_utils import BedrockError
+from embrouter.llms.bedrock.count_tokens.bedrock_token_counter import BedrockTokenCounter
+from embrouter.llms.bedrock.count_tokens.handler import BedrockCountTokensHandler
+from embrouter.proxy._types import ProxyException, TokenCountRequest
+from embrouter.proxy.anthropic_endpoints.endpoints import (
     count_tokens as anthropic_count_tokens,
 )
-from litellm.proxy.proxy_server import token_counter
-from litellm.types.utils import TokenCountResponse
+from embrouter.proxy.proxy_server import token_counter
+from embrouter.types.utils import TokenCountResponse
 
 verbose_proxy_logger.setLevel(level=logging.DEBUG)
 
@@ -45,7 +45,7 @@ async def test_vLLM_token_counting():
         model_list=[
             {
                 "model_name": "special-alias",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/wolfram/miquliz-120b-v2.0",
                     "api_base": "https://exampleopenaiendpoint-production.up.railway.app/",
                 },
@@ -53,7 +53,7 @@ async def test_vLLM_token_counting():
         ]
     )
 
-    setattr(litellm.proxy.proxy_server, "llm_router", llm_router)
+    setattr(embrouter.proxy.proxy_server, "llm_router", llm_router)
 
     response = await token_counter(
         request=TokenCountRequest(
@@ -81,14 +81,14 @@ async def test_token_counting_model_not_in_model_list():
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4",
                 },
             }
         ]
     )
 
-    setattr(litellm.proxy.proxy_server, "llm_router", llm_router)
+    setattr(embrouter.proxy.proxy_server, "llm_router", llm_router)
 
     response = await token_counter(
         request=TokenCountRequest(
@@ -116,14 +116,14 @@ async def test_gpt_token_counting():
         model_list=[
             {
                 "model_name": "gpt-4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4",
                 },
             }
         ]
     )
 
-    setattr(litellm.proxy.proxy_server, "llm_router", llm_router)
+    setattr(embrouter.proxy.proxy_server, "llm_router", llm_router)
 
     response = await token_counter(
         request=TokenCountRequest(
@@ -151,7 +151,7 @@ async def test_anthropic_messages_count_tokens_endpoint():
 
     from fastapi import Request
 
-    from litellm.proxy.anthropic_endpoints.endpoints import count_tokens
+    from embrouter.proxy.anthropic_endpoints.endpoints import count_tokens
 
     # Mock request object
     mock_request = MagicMock(spec=Request)
@@ -168,7 +168,7 @@ async def test_anthropic_messages_count_tokens_endpoint():
     mock_user_api_key_dict = MagicMock()
 
     # Patch the _read_request_body function
-    import litellm.proxy.anthropic_endpoints.endpoints as anthropic_endpoints
+    import embrouter.proxy.anthropic_endpoints.endpoints as anthropic_endpoints
 
     original_read_request_body = anthropic_endpoints._read_request_body
     anthropic_endpoints._read_request_body = mock_read_request_body
@@ -181,7 +181,7 @@ async def test_anthropic_messages_count_tokens_endpoint():
         assert request.model == "claude-3-sonnet-20240229"
         assert request.messages == [{"role": "user", "content": "Hello Claude!"}]
 
-        from litellm.types.utils import TokenCountResponse
+        from embrouter.types.utils import TokenCountResponse
 
         return TokenCountResponse(
             total_tokens=15,
@@ -191,7 +191,7 @@ async def test_anthropic_messages_count_tokens_endpoint():
         )
 
     # Patch the imported token_counter function from proxy_server
-    import litellm.proxy.proxy_server as proxy_server
+    import embrouter.proxy.proxy_server as proxy_server
 
     original_token_counter = proxy_server.token_counter
     proxy_server.token_counter = mock_token_counter
@@ -225,7 +225,7 @@ async def test_anthropic_messages_count_tokens_with_non_anthropic_model():
 
     from fastapi import Request
 
-    from litellm.proxy.anthropic_endpoints.endpoints import count_tokens
+    from embrouter.proxy.anthropic_endpoints.endpoints import count_tokens
 
     # Mock request object
     mock_request = MagicMock(spec=Request)
@@ -242,7 +242,7 @@ async def test_anthropic_messages_count_tokens_with_non_anthropic_model():
     mock_user_api_key_dict = MagicMock()
 
     # Patch the _read_request_body function
-    import litellm.proxy.anthropic_endpoints.endpoints as anthropic_endpoints
+    import embrouter.proxy.anthropic_endpoints.endpoints as anthropic_endpoints
 
     original_read_request_body = anthropic_endpoints._read_request_body
     anthropic_endpoints._read_request_body = mock_read_request_body
@@ -255,7 +255,7 @@ async def test_anthropic_messages_count_tokens_with_non_anthropic_model():
         assert request.model == "gpt-4"
         assert request.messages == [{"role": "user", "content": "Hello GPT!"}]
 
-        from litellm.types.utils import TokenCountResponse
+        from embrouter.types.utils import TokenCountResponse
 
         return TokenCountResponse(
             total_tokens=12,
@@ -265,7 +265,7 @@ async def test_anthropic_messages_count_tokens_with_non_anthropic_model():
         )
 
     # Patch the imported token_counter function from proxy_server
-    import litellm.proxy.proxy_server as proxy_server
+    import embrouter.proxy.proxy_server as proxy_server
 
     original_token_counter = proxy_server.token_counter
     proxy_server.token_counter = mock_token_counter
@@ -300,7 +300,7 @@ async def test_internal_token_counter_anthropic_provider_detection():
         model_list=[
             {
                 "model_name": "claude-test",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "anthropic/claude-3-sonnet-20240229",
                     "api_key": "test-key",
                 },
@@ -308,7 +308,7 @@ async def test_internal_token_counter_anthropic_provider_detection():
         ]
     )
 
-    setattr(litellm.proxy.proxy_server, "llm_router", llm_router)
+    setattr(embrouter.proxy.proxy_server, "llm_router", llm_router)
 
     # Test with is_direct_request=False (simulating call from Anthropic endpoint)
     response = await token_counter(
@@ -331,14 +331,14 @@ async def test_internal_token_counter_anthropic_provider_detection():
         model_list=[
             {
                 "model_name": "gpt-test",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4",
                 },
             }
         ]
     )
 
-    setattr(litellm.proxy.proxy_server, "llm_router", llm_router)
+    setattr(embrouter.proxy.proxy_server, "llm_router", llm_router)
 
     # Test with is_direct_request=False but non-Anthropic provider
     response = await token_counter(
@@ -355,7 +355,7 @@ async def test_internal_token_counter_anthropic_provider_detection():
     assert response.request_model == "gpt-test"
     assert response.model_used == "gpt-4"
     assert response.total_tokens > 0
-    assert response.tokenizer_type == "openai_tokenizer"  # Should use LiteLLM tokenizer
+    assert response.tokenizer_type == "openai_tokenizer"  # Should use EmbRouter tokenizer
 
 
 @pytest.mark.asyncio
@@ -367,7 +367,7 @@ async def test_anthropic_endpoint_error_handling():
 
     from fastapi import HTTPException, Request
 
-    from litellm.proxy.anthropic_endpoints.endpoints import count_tokens
+    from embrouter.proxy.anthropic_endpoints.endpoints import count_tokens
 
     # Mock request object
     mock_request = MagicMock(spec=Request)
@@ -382,7 +382,7 @@ async def test_anthropic_endpoint_error_handling():
     async def mock_read_request_body(request):
         return mock_request_data
 
-    import litellm.proxy.anthropic_endpoints.endpoints as anthropic_endpoints
+    import embrouter.proxy.anthropic_endpoints.endpoints as anthropic_endpoints
 
     original_read_request_body = anthropic_endpoints._read_request_body
     anthropic_endpoints._read_request_body = mock_read_request_body
@@ -408,7 +408,7 @@ async def test_factory_anthropic_endpoint_calls_anthropic_counter():
 
     from fastapi.testclient import TestClient
 
-    from litellm.proxy.proxy_server import app
+    from embrouter.proxy.proxy_server import app
 
     # Mock the global handler instance in token_counter module
     mock_handler = MagicMock()
@@ -417,15 +417,15 @@ async def test_factory_anthropic_endpoint_calls_anthropic_counter():
     )
 
     with patch(
-        "litellm.llms.anthropic.count_tokens.token_counter.anthropic_count_tokens_handler",
+        "embrouter.llms.anthropic.count_tokens.token_counter.anthropic_count_tokens_handler",
         mock_handler,
     ):
         # Mock router to return Anthropic deployment
-        with patch("litellm.proxy.proxy_server.llm_router") as mock_router:
+        with patch("embrouter.proxy.proxy_server.llm_router") as mock_router:
             mock_router.model_list = [
                 {
                     "model_name": "claude-3-5-sonnet",
-                    "litellm_params": {"model": "anthropic/claude-3-5-sonnet-20241022"},
+                    "embrouter_params": {"model": "anthropic/claude-3-5-sonnet-20241022"},
                     "model_info": {},
                 }
             ]
@@ -434,7 +434,7 @@ async def test_factory_anthropic_endpoint_calls_anthropic_counter():
             mock_router.async_get_available_deployment = AsyncMock(
                 return_value={
                     "model_name": "claude-3-5-sonnet",
-                    "litellm_params": {"model": "anthropic/claude-3-5-sonnet-20241022"},
+                    "embrouter_params": {"model": "anthropic/claude-3-5-sonnet-20241022"},
                     "model_info": {},
                 }
             )
@@ -467,7 +467,7 @@ async def test_factory_gpt4_endpoint_does_not_call_anthropic_counter():
 
     from fastapi.testclient import TestClient
 
-    from litellm.proxy.proxy_server import app
+    from embrouter.proxy.proxy_server import app
 
     # Mock the global handler instance in token_counter module
     mock_handler = MagicMock()
@@ -476,19 +476,19 @@ async def test_factory_gpt4_endpoint_does_not_call_anthropic_counter():
     )
 
     with patch(
-        "litellm.llms.anthropic.count_tokens.token_counter.anthropic_count_tokens_handler",
+        "embrouter.llms.anthropic.count_tokens.token_counter.anthropic_count_tokens_handler",
         mock_handler,
     ):
-        # Mock litellm token counter
-        with patch("litellm.token_counter") as mock_litellm_counter:
-            mock_litellm_counter.return_value = 50
+        # Mock embrouter token counter
+        with patch("embrouter.token_counter") as mock_embrouter_counter:
+            mock_embrouter_counter.return_value = 50
 
             # Mock router to return GPT-4 deployment
-            with patch("litellm.proxy.proxy_server.llm_router") as mock_router:
+            with patch("embrouter.proxy.proxy_server.llm_router") as mock_router:
                 mock_router.model_list = [
                     {
                         "model_name": "gpt-4",
-                        "litellm_params": {"model": "openai/gpt-4"},
+                        "embrouter_params": {"model": "openai/gpt-4"},
                         "model_info": {},
                     }
                 ]
@@ -497,7 +497,7 @@ async def test_factory_gpt4_endpoint_does_not_call_anthropic_counter():
                 mock_router.async_get_available_deployment = AsyncMock(
                     return_value={
                         "model_name": "gpt-4",
-                        "litellm_params": {"model": "openai/gpt-4"},
+                        "embrouter_params": {"model": "openai/gpt-4"},
                         "model_info": {},
                     }
                 )
@@ -528,7 +528,7 @@ async def test_factory_normal_token_counter_endpoint_does_not_call_anthropic():
 
     from fastapi.testclient import TestClient
 
-    from litellm.proxy.proxy_server import app
+    from embrouter.proxy.proxy_server import app
 
     # Mock the global handler instance in token_counter module
     mock_handler = MagicMock()
@@ -537,19 +537,19 @@ async def test_factory_normal_token_counter_endpoint_does_not_call_anthropic():
     )
 
     with patch(
-        "litellm.llms.anthropic.count_tokens.token_counter.anthropic_count_tokens_handler",
+        "embrouter.llms.anthropic.count_tokens.token_counter.anthropic_count_tokens_handler",
         mock_handler,
     ):
-        # Mock litellm token counter
-        with patch("litellm.token_counter") as mock_litellm_counter:
-            mock_litellm_counter.return_value = 35
+        # Mock embrouter token counter
+        with patch("embrouter.token_counter") as mock_embrouter_counter:
+            mock_embrouter_counter.return_value = 35
 
             # Mock router to return Anthropic deployment
-            with patch("litellm.proxy.proxy_server.llm_router") as mock_router:
+            with patch("embrouter.proxy.proxy_server.llm_router") as mock_router:
                 mock_router.model_list = [
                     {
                         "model_name": "claude-3-5-sonnet",
-                        "litellm_params": {
+                        "embrouter_params": {
                             "model": "anthropic/claude-3-5-sonnet-20241022"
                         },
                         "model_info": {},
@@ -560,7 +560,7 @@ async def test_factory_normal_token_counter_endpoint_does_not_call_anthropic():
                 mock_router.async_get_available_deployment = AsyncMock(
                     return_value={
                         "model_name": "claude-3-5-sonnet",
-                        "litellm_params": {
+                        "embrouter_params": {
                             "model": "anthropic/claude-3-5-sonnet-20241022"
                         },
                         "model_info": {},
@@ -589,7 +589,7 @@ async def test_factory_normal_token_counter_endpoint_does_not_call_anthropic():
 @pytest.mark.asyncio
 async def test_factory_registration():
     """Test that the new factory pattern correctly provides counters."""
-    from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+    from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
     # Test Anthropic ModelInfo provides token counter
     anthropic_model_info = AnthropicModelInfo()
@@ -598,10 +598,10 @@ async def test_factory_registration():
 
     # Create test deployments
     anthropic_deployment = {
-        "litellm_params": {"model": "anthropic/claude-3-5-sonnet-20241022"}
+        "embrouter_params": {"model": "anthropic/claude-3-5-sonnet-20241022"}
     }
 
-    non_anthropic_deployment = {"litellm_params": {"model": "openai/gpt-4"}}
+    non_anthropic_deployment = {"embrouter_params": {"model": "openai/gpt-4"}}
 
     # Test Anthropic counter supports provider
     assert counter.should_use_token_counting_api(custom_llm_provider="anthropic")
@@ -619,10 +619,10 @@ async def test_bedrock_count_tokens_endpoint():
     """
     Test that Bedrock CountTokens endpoint correctly extracts model from request body.
     """
-    from litellm.router import Router
+    from embrouter.router import Router
 
     # Mock the Bedrock CountTokens handler
-    async def mock_count_tokens_handler(request_data, litellm_params, resolved_model):
+    async def mock_count_tokens_handler(request_data, embrouter_params, resolved_model):
         # Verify the correct model was resolved
         assert resolved_model == "anthropic.claude-3-sonnet-20240229-v1:0"
         assert request_data["model"] == "anthropic.claude-3-sonnet-20240229-v1:0"
@@ -635,14 +635,14 @@ async def test_bedrock_count_tokens_endpoint():
         model_list=[
             {
                 "model_name": "claude-bedrock",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "bedrock/anthropic.claude-3-sonnet-20240229-v1:0"
                 },
             }
         ]
     )
 
-    setattr(litellm.proxy.proxy_server, "llm_router", llm_router)
+    setattr(embrouter.proxy.proxy_server, "llm_router", llm_router)
 
     # Test the mock handler directly to verify correct parameter extraction
     request_data = {
@@ -676,7 +676,7 @@ async def test_vertex_ai_anthropic_token_counting():
         model_list=[
             {
                 "model_name": "vertex_ai/claude-3-5-sonnet-20241022",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "vertex_ai/claude-3-5-sonnet-20241022",
                     "vertex_project": "test-project",
                     "vertex_location": "us-east5",
@@ -685,11 +685,11 @@ async def test_vertex_ai_anthropic_token_counting():
         ]
     )
 
-    setattr(litellm.proxy.proxy_server, "llm_router", llm_router)
+    setattr(embrouter.proxy.proxy_server, "llm_router", llm_router)
 
     # Mock the lower level handler method
     with patch(
-        "litellm.llms.vertex_ai.vertex_ai_partner_models.count_tokens.handler.VertexAIPartnerModelsTokenCounter.handle_count_tokens_request"
+        "embrouter.llms.vertex_ai.vertex_ai_partner_models.count_tokens.handler.VertexAIPartnerModelsTokenCounter.handle_count_tokens_request"
     ) as mock_handle_count_tokens:
         mock_handle_count_tokens.return_value = mock_token_response
 
@@ -738,7 +738,7 @@ def test_vertex_ai_partner_models_token_counting_endpoint(vertex_location):
     Test that the VertexAIPartnerModelsTokenCounter builds the correct endpoint URL
     for different vertex locations, including the special 'global' location.
     """
-    from litellm.llms.vertex_ai.vertex_ai_partner_models.count_tokens.handler import (
+    from embrouter.llms.vertex_ai.vertex_ai_partner_models.count_tokens.handler import (
         VertexAIPartnerModelsTokenCounter,
     )
 
@@ -770,7 +770,7 @@ async def test_bedrock_token_counter_error_propagation_bedrock_error():
     ) as mock_count:
         # We need to patch at the handler level
         with patch(
-            "litellm.llms.bedrock.count_tokens.bedrock_token_counter.BedrockCountTokensHandler"
+            "embrouter.llms.bedrock.count_tokens.bedrock_token_counter.BedrockCountTokensHandler"
         ) as MockHandler:
             mock_handler_instance = MockHandler.return_value
             mock_handler_instance.handle_count_tokens_request = AsyncMock(
@@ -781,7 +781,7 @@ async def test_bedrock_token_counter_error_propagation_bedrock_error():
                 model_to_use="anthropic.claude-3-sonnet",
                 messages=[{"role": "user", "content": "hello"}],
                 contents=None,
-                deployment={"litellm_params": {}},
+                deployment={"embrouter_params": {}},
                 request_model="bedrock/anthropic.claude-3-sonnet",
             )
 
@@ -801,7 +801,7 @@ async def test_bedrock_token_counter_error_propagation_generic_exception():
     counter = BedrockTokenCounter()
 
     with patch(
-        "litellm.llms.bedrock.count_tokens.bedrock_token_counter.BedrockCountTokensHandler"
+        "embrouter.llms.bedrock.count_tokens.bedrock_token_counter.BedrockCountTokensHandler"
     ) as MockHandler:
         mock_handler_instance = MockHandler.return_value
         mock_handler_instance.handle_count_tokens_request = AsyncMock(
@@ -812,7 +812,7 @@ async def test_bedrock_token_counter_error_propagation_generic_exception():
             model_to_use="anthropic.claude-3-sonnet",
             messages=[{"role": "user", "content": "hello"}],
             contents=None,
-            deployment={"litellm_params": {}},
+            deployment={"embrouter_params": {}},
             request_model="bedrock/anthropic.claude-3-sonnet",
         )
 
@@ -855,7 +855,7 @@ async def test_bedrock_handler_httpx_error_status_code_propagation():
                         handler, "_sign_request", return_value=({}, "{}")
                     ):
                         with patch(
-                            "litellm.llms.bedrock.count_tokens.handler.get_async_httpx_client"
+                            "embrouter.llms.bedrock.count_tokens.handler.get_async_httpx_client"
                         ) as mock_client:
                             mock_async_client = AsyncMock()
                             mock_async_client.post = AsyncMock(side_effect=http_error)
@@ -869,7 +869,7 @@ async def test_bedrock_handler_httpx_error_status_code_propagation():
                                             {"role": "user", "content": "hello"}
                                         ],
                                     },
-                                    litellm_params={},
+                                    embrouter_params={},
                                     resolved_model="anthropic.claude-3-sonnet",
                                 )
 
@@ -907,30 +907,30 @@ async def test_token_counter_httpx_status_error_raises_proxy_exception():
 
     # Save originals
     original_get_provider_token_counter = (
-        litellm.proxy.proxy_server._get_provider_token_counter
+        embrouter.proxy.proxy_server._get_provider_token_counter
     )
-    original_router = litellm.proxy.proxy_server.llm_router
+    original_router = embrouter.proxy.proxy_server.llm_router
 
     try:
 
         def mock_get_provider_token_counter(deployment, model_to_use):
             return (mock_counter, "claude-4-6-sonnet", "vertex_ai")
 
-        litellm.proxy.proxy_server._get_provider_token_counter = (
+        embrouter.proxy.proxy_server._get_provider_token_counter = (
             mock_get_provider_token_counter
         )
 
         mock_router = MagicMock()
         mock_router.async_get_available_deployment = AsyncMock(
             return_value={
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "vertex_ai/claude-4-6-sonnet",
                     "api_key": "fake-key",
                 },
                 "model_info": {},
             }
         )
-        litellm.proxy.proxy_server.llm_router = mock_router
+        embrouter.proxy.proxy_server.llm_router = mock_router
 
         with pytest.raises(ProxyException) as exc_info:
             await token_counter(
@@ -946,10 +946,10 @@ async def test_token_counter_httpx_status_error_raises_proxy_exception():
         assert exc_info.value.type == "token_counting_error"
         assert exc_info.value.param == "model"
     finally:
-        litellm.proxy.proxy_server._get_provider_token_counter = (
+        embrouter.proxy.proxy_server._get_provider_token_counter = (
             original_get_provider_token_counter
         )
-        litellm.proxy.proxy_server.llm_router = original_router
+        embrouter.proxy.proxy_server.llm_router = original_router
 
 
 @pytest.mark.asyncio
@@ -971,7 +971,7 @@ async def test_proxy_token_counter_error_raises_exception_when_disabled():
 
     # Create mock router that returns a deployment
     mock_deployment = {
-        "litellm_params": {
+        "embrouter_params": {
             "model": "bedrock/anthropic.claude-3-sonnet",
         },
         "model_info": {},
@@ -980,16 +980,16 @@ async def test_proxy_token_counter_error_raises_exception_when_disabled():
     mock_router = MagicMock()
     mock_router.async_get_available_deployment = AsyncMock(return_value=mock_deployment)
 
-    setattr(litellm.proxy.proxy_server, "llm_router", mock_router)
+    setattr(embrouter.proxy.proxy_server, "llm_router", mock_router)
 
     # Save original value and function
-    original_disable = litellm.disable_token_counter
+    original_disable = embrouter.disable_token_counter
     original_get_provider_token_counter = (
-        litellm.proxy.proxy_server._get_provider_token_counter
+        embrouter.proxy.proxy_server._get_provider_token_counter
     )
 
     try:
-        litellm.disable_token_counter = True
+        embrouter.disable_token_counter = True
 
         # Create a mock counter that returns an error response
         mock_counter = MagicMock(spec=BedrockTokenCounter)
@@ -1000,7 +1000,7 @@ async def test_proxy_token_counter_error_raises_exception_when_disabled():
         def mock_get_provider_token_counter(deployment, model_to_use):
             return (mock_counter, "anthropic.claude-3-sonnet", "bedrock")
 
-        litellm.proxy.proxy_server._get_provider_token_counter = (
+        embrouter.proxy.proxy_server._get_provider_token_counter = (
             mock_get_provider_token_counter
         )
 
@@ -1016,8 +1016,8 @@ async def test_proxy_token_counter_error_raises_exception_when_disabled():
         assert exc_info.value.code == "429"
         assert "Rate limit exceeded" in exc_info.value.message
     finally:
-        litellm.disable_token_counter = original_disable
-        litellm.proxy.proxy_server._get_provider_token_counter = (
+        embrouter.disable_token_counter = original_disable
+        embrouter.proxy.proxy_server._get_provider_token_counter = (
             original_get_provider_token_counter
         )
 
@@ -1041,7 +1041,7 @@ async def test_proxy_token_counter_error_falls_back_when_enabled():
 
     # Create mock router that returns a deployment
     mock_deployment = {
-        "litellm_params": {
+        "embrouter_params": {
             "model": "bedrock/anthropic.claude-3-sonnet",
         },
         "model_info": {},
@@ -1050,16 +1050,16 @@ async def test_proxy_token_counter_error_falls_back_when_enabled():
     mock_router = MagicMock()
     mock_router.async_get_available_deployment = AsyncMock(return_value=mock_deployment)
 
-    setattr(litellm.proxy.proxy_server, "llm_router", mock_router)
+    setattr(embrouter.proxy.proxy_server, "llm_router", mock_router)
 
     # Save original value and function
-    original_disable = litellm.disable_token_counter
+    original_disable = embrouter.disable_token_counter
     original_get_provider_token_counter = (
-        litellm.proxy.proxy_server._get_provider_token_counter
+        embrouter.proxy.proxy_server._get_provider_token_counter
     )
 
     try:
-        litellm.disable_token_counter = False
+        embrouter.disable_token_counter = False
 
         # Create a mock counter that returns an error response
         mock_counter = MagicMock(spec=BedrockTokenCounter)
@@ -1070,7 +1070,7 @@ async def test_proxy_token_counter_error_falls_back_when_enabled():
         def mock_get_provider_token_counter(deployment, model_to_use):
             return (mock_counter, "anthropic.claude-3-sonnet", "bedrock")
 
-        litellm.proxy.proxy_server._get_provider_token_counter = (
+        embrouter.proxy.proxy_server._get_provider_token_counter = (
             mock_get_provider_token_counter
         )
 
@@ -1088,8 +1088,8 @@ async def test_proxy_token_counter_error_falls_back_when_enabled():
         assert result.total_tokens > 0
         assert result.tokenizer_type != "bedrock_api"
     finally:
-        litellm.disable_token_counter = original_disable
-        litellm.proxy.proxy_server._get_provider_token_counter = (
+        embrouter.disable_token_counter = original_disable
+        embrouter.proxy.proxy_server._get_provider_token_counter = (
             original_get_provider_token_counter
         )
 
@@ -1099,8 +1099,8 @@ async def test_anthropic_endpoint_returns_anthropic_error_format():
     """
     Test that /v1/messages/count_tokens returns errors in Anthropic format.
     """
-    import litellm.proxy.anthropic_endpoints.endpoints as anthropic_endpoints
-    import litellm.proxy.proxy_server as proxy_server
+    import embrouter.proxy.anthropic_endpoints.endpoints as anthropic_endpoints
+    import embrouter.proxy.proxy_server as proxy_server
 
     # Mock request object
     mock_request = MagicMock(spec=Request)
@@ -1152,8 +1152,8 @@ async def test_anthropic_endpoint_403_permission_error_format():
     """
     Test that 403 errors are returned as permission_error in Anthropic format.
     """
-    import litellm.proxy.anthropic_endpoints.endpoints as anthropic_endpoints
-    import litellm.proxy.proxy_server as proxy_server
+    import embrouter.proxy.anthropic_endpoints.endpoints as anthropic_endpoints
+    import embrouter.proxy.proxy_server as proxy_server
 
     mock_request = MagicMock(spec=Request)
     mock_request_data = {
@@ -1202,8 +1202,8 @@ async def test_anthropic_endpoint_429_rate_limit_error_format():
     """
     Test that 429 errors are returned as rate_limit_error in Anthropic format.
     """
-    import litellm.proxy.anthropic_endpoints.endpoints as anthropic_endpoints
-    import litellm.proxy.proxy_server as proxy_server
+    import embrouter.proxy.anthropic_endpoints.endpoints as anthropic_endpoints
+    import embrouter.proxy.proxy_server as proxy_server
 
     mock_request = MagicMock(spec=Request)
     mock_request_data = {

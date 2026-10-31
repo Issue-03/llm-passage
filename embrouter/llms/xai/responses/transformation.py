@@ -5,14 +5,14 @@ from typing import TYPE_CHECKING, Any, Final
 import httpx
 from pydantic import TypeAdapter
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.constants import XAI_API_BASE
-from litellm.exceptions import AuthenticationError
-from litellm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
-from litellm.llms.xai.common_utils import XAIModelInfo, xai_reported_cost_in_usd
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.openai import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.constants import XAI_API_BASE
+from embrouter.exceptions import AuthenticationError
+from embrouter.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
+from embrouter.llms.xai.common_utils import XAIModelInfo, xai_reported_cost_in_usd
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.openai import (
     ResponseAPIUsage,
     ResponseCompletedEvent,
     ResponseFailedEvent,
@@ -21,17 +21,17 @@ from litellm.types.llms.openai import (
     ResponsesAPIResponse,
     ResponsesAPIStreamingResponse,
 )
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import LlmProviders
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import LlmProviders
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import (
-        Logging as _LiteLLMLoggingObj,
+    from embrouter.embrouter_core_utils.embrouter_logging import (
+        Logging as _EmbRouterLoggingObj,
     )
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 _STR_MAPPING_ADAPTER: Final = TypeAdapter(Mapping[str, object])
 
@@ -191,23 +191,23 @@ class XAIResponsesAPIConfig(OpenAIResponsesAPIConfig):
 
         return params
 
-    def validate_environment(self, headers: dict, model: str, litellm_params: GenericLiteLLMParams | None) -> dict:
+    def validate_environment(self, headers: dict, model: str, embrouter_params: GenericEmbRouterParams | None) -> dict:
         """
         Validate environment and set up headers for XAI API.
 
         Uses the shared xAI key resolver with Responses API legacy precedence.
         """
-        litellm_params = litellm_params or GenericLiteLLMParams()
-        api_key = XAIModelInfo.get_api_key(litellm_params.api_key, legacy_generic_before_env=True)
+        embrouter_params = embrouter_params or GenericEmbRouterParams()
+        api_key = XAIModelInfo.get_api_key(embrouter_params.api_key, legacy_generic_before_env=True)
 
         if not api_key:
-            from litellm.llms.xai.oauth import (
+            from embrouter.llms.xai.oauth import (
                 XAIOAuthAuthenticator,
                 XAIOAuthError,
                 should_use_xai_oauth,
             )
 
-            if should_use_xai_oauth(litellm_params.model_dump()):
+            if should_use_xai_oauth(embrouter_params.model_dump()):
                 try:
                     api_key = XAIOAuthAuthenticator().get_access_token()
                 except XAIOAuthError as exc:
@@ -219,8 +219,8 @@ class XAIResponsesAPIConfig(OpenAIResponsesAPIConfig):
 
         if not api_key:
             raise ValueError(
-                "XAI API key is required. Set api_key, litellm.xai_key, "
-                "litellm.api_key, XAI_API_KEY, or use_xai_oauth=True."
+                "XAI API key is required. Set api_key, embrouter.xai_key, "
+                "embrouter.api_key, XAI_API_KEY, or use_xai_oauth=True."
             )
 
         headers.update(
@@ -233,7 +233,7 @@ class XAIResponsesAPIConfig(OpenAIResponsesAPIConfig):
     def get_complete_url(
         self,
         api_base: str | None,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> str:
         """
         Get the complete URL for XAI Responses API endpoint.
@@ -241,13 +241,13 @@ class XAIResponsesAPIConfig(OpenAIResponsesAPIConfig):
         Returns:
             str: The full URL for the XAI /responses endpoint
         """
-        from litellm.llms.xai.oauth import XAIOAuthAuthenticator, should_use_xai_oauth
+        from embrouter.llms.xai.oauth import XAIOAuthAuthenticator, should_use_xai_oauth
 
-        api_key: Final = XAIModelInfo.get_api_key(litellm_params.get("api_key"), legacy_generic_before_env=True)
-        if should_use_xai_oauth(litellm_params) and not api_key:
+        api_key: Final = XAIModelInfo.get_api_key(embrouter_params.get("api_key"), legacy_generic_before_env=True)
+        if should_use_xai_oauth(embrouter_params) and not api_key:
             api_base = XAIOAuthAuthenticator().get_api_base()
         else:
-            api_base = api_base or litellm.api_base or get_secret_str("XAI_API_BASE") or XAI_API_BASE
+            api_base = api_base or embrouter.api_base or get_secret_str("XAI_API_BASE") or XAI_API_BASE
 
         # Remove trailing slashes
         api_base = api_base.rstrip("/")
@@ -258,7 +258,7 @@ class XAIResponsesAPIConfig(OpenAIResponsesAPIConfig):
         self,
         model: str,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> ResponsesAPIResponse:
         response: Final = super().transform_response_api_response(
             model=model,
@@ -275,7 +275,7 @@ class XAIResponsesAPIConfig(OpenAIResponsesAPIConfig):
         self,
         model: str,
         parsed_chunk: dict,  # mutable-ok: overrides the base class signature
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> ResponsesAPIStreamingResponse:
         event: Final = super().transform_streaming_response(
             model=model,

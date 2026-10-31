@@ -9,7 +9,7 @@ from ._cli_context import cli_context_values
 
 @click.group()
 def users():
-    """Manage users on your LiteLLM proxy server"""
+    """Manage users on your EmbRouter proxy server"""
 
 
 @users.command("list")

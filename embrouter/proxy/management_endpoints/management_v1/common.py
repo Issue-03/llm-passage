@@ -1,6 +1,6 @@
 """Constants specific to the `/management/v1` control-plane surface.
 
-The contract machinery every list route shares lives in `litellm.proxy.list_api`.
+The contract machinery every list route shares lives in `embrouter.proxy.list_api`.
 """
 
 from typing import Final

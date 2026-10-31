@@ -1,7 +1,7 @@
 # ruff: noqa: T201
 # flake8: noqa: T201
 """
-LiteLLM Interactive Setup Wizard
+EmbRouter Interactive Setup Wizard
 
 Guides users through selecting LLM providers, entering API keys,
 and generating a proxy config file — mirroring the Claude Code onboarding UX.
@@ -28,7 +28,7 @@ except ImportError:
 
 from typing import Final
 
-from litellm.utils import check_valid_key
+from embrouter.utils import check_valid_key
 
 # ---------------------------------------------------------------------------
 # Provider definitions
@@ -198,7 +198,7 @@ def _yaml_escape(value: str) -> str:
 # Layout constants
 # ---------------------------------------------------------------------------
 
-LITELLM_ASCII: Final = r"""
+EMBROUTER_ASCII: Final = r"""
   ██╗     ██╗████████╗███████╗██╗     ██╗     ███╗   ███╗
   ██║     ██║╚══██╔══╝██╔════╝██║     ██║     ████╗ ████║
   ██║     ██║   ██║   █████╗  ██║     ██║     ██╔████╔██║
@@ -242,7 +242,7 @@ class SetupWizard:
         env_vars: Final = SetupWizard._collect_keys(providers)
         port, master_key = SetupWizard._proxy_settings()
 
-        config_path: Final = Path(os.getcwd()) / "litellm_config.yaml"
+        config_path: Final = Path(os.getcwd()) / "embrouter_config.yaml"
         try:
             config_path.write_text(SetupWizard._build_config(providers, env_vars, master_key))
         except OSError as exc:
@@ -258,12 +258,12 @@ class SetupWizard:
     @staticmethod
     def _print_welcome() -> None:
         try:
-            version = importlib.metadata.version("litellm")
+            version = importlib.metadata.version("embrouter")
         except Exception:
             version = "unknown"
         print()
-        print(orange(LITELLM_ASCII.rstrip("\n")))
-        print(f"  {orange('Welcome')} to {bold('LiteLLM')} {grey('v' + version)}")
+        print(orange(EMBROUTER_ASCII.rstrip("\n")))
+        print(f"  {orange('Welcome')} to {bold('EmbRouter')} {grey('v' + version)}")
         print()
         print(_divider())
         print()
@@ -395,7 +395,7 @@ class SetupWizard:
         print()
         print(f"  {bold('Enter your API keys')}")
         print(grey("  Keys are stored only in the generated config file."))
-        print(grey("  Tip: add litellm_config.yaml to .gitignore to avoid committing secrets."))
+        print(grey("  Tip: add embrouter_config.yaml to .gitignore to avoid committing secrets."))
         print()
 
         for p in providers:
@@ -415,10 +415,10 @@ class SetupWizard:
             if p.get("needs_api_base"):
                 api_base = _styled_input(f"  {blue('❯')} Azure endpoint URL {grey(p.get('api_base_hint', ''))}: ")
                 if api_base:
-                    env_vars[f"_LITELLM_AZURE_AI_API_BASE_{p['id'].upper()}"] = api_base
+                    env_vars[f"_EMBROUTER_AZURE_AI_API_BASE_{p['id'].upper()}"] = api_base
                 deployment = _styled_input(f"  {blue('❯')} Azure deployment name {grey('(e.g. my-gpt4o)')}: ")
                 if deployment:
-                    env_vars[f"_LITELLM_AZURE_DEPLOYMENT_{p['id'].upper()}"] = deployment
+                    env_vars[f"_EMBROUTER_AZURE_DEPLOYMENT_{p['id'].upper()}"] = deployment
 
             # Store the key returned by validation — may be a re-entered replacement
             env_vars[p["env_key"]] = SetupWizard._validate_and_report(p, key)
@@ -440,7 +440,7 @@ class SetupWizard:
     @staticmethod
     def _validate_and_report(provider: dict, api_key: str) -> str:
         """
-        Validate credentials using litellm.utils.check_valid_key and print result.
+        Validate credentials using embrouter.utils.check_valid_key and print result.
         Offers a re-entry loop on failure. Returns the final (possibly re-entered) key.
         """
         test_model: Final[str | None] = provider.get("test_model")
@@ -506,7 +506,7 @@ class SetupWizard:
                 continue
 
             if p["id"] == "azure":
-                deployment = env_copy.pop(f"_LITELLM_AZURE_DEPLOYMENT_{p['id'].upper()}", "")
+                deployment = env_copy.pop(f"_EMBROUTER_AZURE_DEPLOYMENT_{p['id'].upper()}", "")
                 if not deployment:
                     continue  # skip Azure entirely if no deployment name was provided
                 models = [f"azure/{deployment}"]
@@ -519,7 +519,7 @@ class SetupWizard:
                 display = f"azure-{raw_display}" if p["id"] == "azure" else raw_display
                 lines += [
                     f"  - model_name: {display}",
-                    "    litellm_params:",
+                    "    embrouter_params:",
                     f"      model: {model}",
                 ]
                 if p["env_key"] and p["env_key"] in env_copy:
@@ -527,7 +527,7 @@ class SetupWizard:
                 if p.get("api_base"):
                     lines.append(f'      api_base: "{_yaml_escape(str(p["api_base"]))}"')
                 elif p.get("needs_api_base"):
-                    azure_base_key = f"_LITELLM_AZURE_AI_API_BASE_{p['id'].upper()}"
+                    azure_base_key = f"_EMBROUTER_AZURE_AI_API_BASE_{p['id'].upper()}"
                     if azure_base_key in env_copy:
                         lines.append(f'      api_base: "{_yaml_escape(env_copy.pop(azure_base_key))}"')
                 if p.get("api_version"):
@@ -540,7 +540,7 @@ class SetupWizard:
             "",
         ]
 
-        real_vars: Final = {k: v for k, v in env_copy.items() if not k.startswith("_LITELLM_")}
+        real_vars: Final = {k: v for k, v in env_copy.items() if not k.startswith("_EMBROUTER_")}
         if real_vars:
             lines.append("environment_variables:")
             for k, v in real_vars.items():
@@ -560,7 +560,7 @@ class SetupWizard:
         print()
         print(f"  {bold('To start your proxy:')}")
         print()
-        print(f"    {grey('$')} litellm --config {config_path} --port {port}")
+        print(f"    {grey('$')} embrouter --config {config_path} --port {port}")
         print()
         print(f"  {bold('Then set your client:')}")
         print()
@@ -575,7 +575,7 @@ class SetupWizard:
         start: Final = _styled_input(f"  {blue('❯')} Start the proxy now? {grey('(Y/n)')}: ").lower()
         if start not in ("", "y", "yes"):
             print()
-            print(f"  Run {bold(f'litellm --config {config_path}')} whenever you're ready.")
+            print(f"  Run {bold(f'embrouter --config {config_path}')} whenever you're ready.")
             print()
             print(grey(f"  Quick test once running:  curl http://localhost:{port}/health"))
             print()
@@ -605,11 +605,11 @@ class SetupWizard:
         print()
 
         scripts_dir: Final = sysconfig.get_path("scripts")
-        litellm_bin: Final = os.path.join(scripts_dir or "", "litellm")
+        embrouter_bin: Final = os.path.join(scripts_dir or "", "embrouter")
         try:
             os.execlp(
-                litellm_bin,
-                litellm_bin,
+                embrouter_bin,
+                embrouter_bin,
                 "--config",
                 str(config_path),
                 "--port",
@@ -617,7 +617,7 @@ class SetupWizard:
             )  # noqa: S606
         except OSError as exc:
             print(f"\n  {bold(_CROSS + ' Could not start proxy:')} {exc}")
-            print(f"  Run manually:  litellm --config {config_path} --port {port}\n")
+            print(f"  Run manually:  embrouter --config {config_path} --port {port}\n")
 
 
 # ---------------------------------------------------------------------------
@@ -626,5 +626,5 @@ class SetupWizard:
 
 
 def run_setup_wizard() -> None:
-    """Run the interactive setup wizard. Called by `litellm --setup`."""
+    """Run the interactive setup wizard. Called by `embrouter --setup`."""
     SetupWizard.run()

@@ -10,14 +10,14 @@ import { Providers } from "../provider_info_helpers";
 
 interface ModelMapping {
   public_name: string;
-  litellm_model: string;
+  embrouter_model: string;
 }
 
 const sameMappings = (left: readonly ModelMapping[], right: readonly ModelMapping[]): boolean =>
   left.length === right.length &&
   left.every(
     (mapping, index) =>
-      mapping.public_name === right[index].public_name && mapping.litellm_model === right[index].litellm_model,
+      mapping.public_name === right[index].public_name && mapping.embrouter_model === right[index].embrouter_model,
   );
 
 const modelMappingsRule = {
@@ -62,12 +62,12 @@ const PublicNameInput: React.FC<{ readonly index: number; readonly value: string
 
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const typed = event.target.value;
-    const litellmParams = form.getValues("litellm_extra_params") as string | undefined;
+    const embrouterParams = form.getValues("embrouter_extra_params") as string | undefined;
     const wantsAnthropic1m =
-      selectedProvider === Providers.Anthropic && typed.endsWith("-1m") && (litellmParams ?? "").trim() === "";
+      selectedProvider === Providers.Anthropic && typed.endsWith("-1m") && (embrouterParams ?? "").trim() === "";
 
     if (wantsAnthropic1m) {
-      form.setValue("litellm_extra_params", ANTHROPIC_1M_HEADERS);
+      form.setValue("embrouter_extra_params", ANTHROPIC_1M_HEADERS);
     }
 
     const publicName = wantsAnthropic1m ? typed.slice(0, -"-1m".length) : typed;
@@ -101,8 +101,8 @@ const columns: ColumnDef<ModelMapping>[] = [
     cell: ({ row }) => <PublicNameInput index={row.index} value={row.original.public_name} />,
   },
   {
-    id: "litellm_model",
-    accessorKey: "litellm_model",
+    id: "embrouter_model",
+    accessorKey: "embrouter_model",
     header: () => (
       <span className="flex items-center">
         EmbRouter Model Name
@@ -126,16 +126,16 @@ const ConditionalPublicModelName: React.FC = () => {
     if (customModelName && selectedModels.includes("custom")) {
       const currentMappings = (form.getValues("model_mappings") as ModelMapping[]) || [];
       const updatedMappings = currentMappings.map((mapping) => {
-        if (mapping.public_name === "custom" || mapping.litellm_model === "custom") {
+        if (mapping.public_name === "custom" || mapping.embrouter_model === "custom") {
           if (selectedProvider === Providers.Azure) {
             return {
               public_name: customModelName,
-              litellm_model: `azure/${customModelName}`,
+              embrouter_model: `azure/${customModelName}`,
             };
           }
           return {
             public_name: customModelName,
-            litellm_model: customModelName,
+            embrouter_model: customModelName,
           };
         }
         return mapping;
@@ -158,12 +158,12 @@ const ConditionalPublicModelName: React.FC = () => {
         !selectedModels.every((model) =>
           currentMappings.some((mapping) => {
             if (model === "custom") {
-              return mapping.litellm_model === "custom" || mapping.litellm_model === customModelName;
+              return mapping.embrouter_model === "custom" || mapping.embrouter_model === customModelName;
             }
             if (selectedProvider === Providers.Azure) {
-              return mapping.litellm_model === `azure/${model}`;
+              return mapping.embrouter_model === `azure/${model}`;
             }
-            return mapping.litellm_model === model;
+            return mapping.embrouter_model === model;
           }),
         );
 
@@ -173,23 +173,23 @@ const ConditionalPublicModelName: React.FC = () => {
             if (selectedProvider === Providers.Azure) {
               return {
                 public_name: customModelName,
-                litellm_model: `azure/${customModelName}`,
+                embrouter_model: `azure/${customModelName}`,
               };
             }
             return {
               public_name: customModelName,
-              litellm_model: customModelName,
+              embrouter_model: customModelName,
             };
           }
           if (selectedProvider === Providers.Azure) {
             return {
               public_name: model,
-              litellm_model: `azure/${model}`,
+              embrouter_model: `azure/${model}`,
             };
           }
           return {
             public_name: model,
-            litellm_model: model,
+            embrouter_model: model,
           };
         });
 
@@ -217,7 +217,7 @@ const ConditionalPublicModelName: React.FC = () => {
         <DataTable
           data={(control.value as ModelMapping[] | undefined) ?? []}
           columns={columns}
-          getRowId={(row) => row.litellm_model}
+          getRowId={(row) => row.embrouter_model}
           size="compact"
         />
       )}

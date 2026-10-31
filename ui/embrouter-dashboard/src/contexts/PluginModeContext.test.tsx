@@ -32,7 +32,7 @@ const renderWithPlugins = (plugins: Plugin[]) => {
 describe("PluginModeProvider effectiveMode fallback", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    localStorage.setItem("litellm_plugin_mode", "my-plugin");
+    localStorage.setItem("embrouter_plugin_mode", "my-plugin");
   });
 
   it("falls back to ai-gateway once an empty plugins list loads", async () => {

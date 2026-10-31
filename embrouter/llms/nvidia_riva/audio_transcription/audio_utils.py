@@ -18,11 +18,11 @@ import tempfile
 from dataclasses import dataclass
 from typing import Final, Protocol, cast
 
-from litellm.llms.nvidia_riva.audio_transcription.transformation import (
+from embrouter.llms.nvidia_riva.audio_transcription.transformation import (
     RIVA_TARGET_NUM_CHANNELS,
     RIVA_TARGET_SAMPLE_RATE_HZ,
 )
-from litellm.llms.nvidia_riva.common_utils import NvidiaRivaException
+from embrouter.llms.nvidia_riva.common_utils import NvidiaRivaException
 
 
 class FloatArray(Protocol):
@@ -50,7 +50,7 @@ class FloatArray(Protocol):
     def __mul__(self, other: float) -> "FloatArray": ...
 
 
-_INSTALL_HINT = "Install Riva STT extras to enable automatic audio resampling: `pip install 'litellm[stt-nvidia-riva]'`"
+_INSTALL_HINT = "Install Riva STT extras to enable automatic audio resampling: `pip install 'embrouter[stt-nvidia-riva]'`"
 
 
 @dataclass
@@ -136,7 +136,7 @@ def _decode_to_float32(file_bytes: bytes) -> tuple["FloatArray", int]:
             status_code=400,
             message=(
                 "Could not decode audio for Riva STT. Install audio extras "
-                f"(`pip install 'litellm[stt-nvidia-riva]'`) or convert your "
+                f"(`pip install 'embrouter[stt-nvidia-riva]'`) or convert your "
                 f"audio to wav/flac/ogg before calling the API. "
                 f"Underlying error: {sf_error}"
             ),

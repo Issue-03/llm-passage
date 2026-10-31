@@ -581,7 +581,7 @@ describe("ChatUI", () => {
     expect(screen.queryByText("Use Advanced Parameters")).not.toBeInTheDocument();
   });
 
-  it("should show Fill button and populate customProxyBaseUrl when proxySettings.LITELLM_UI_API_DOC_BASE_URL is provided", async () => {
+  it("should show Fill button and populate customProxyBaseUrl when proxySettings.EMBROUTER_UI_API_DOC_BASE_URL is provided", async () => {
     const testProxyUrl = "http://localhost:5000";
 
     render(
@@ -592,7 +592,7 @@ describe("ChatUI", () => {
         userID="1234567890"
         disabledPersonalKeyCreation={false}
         proxySettings={{
-          LITELLM_UI_API_DOC_BASE_URL: testProxyUrl,
+          EMBROUTER_UI_API_DOC_BASE_URL: testProxyUrl,
         }}
       />,
     );

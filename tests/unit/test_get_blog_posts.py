@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from litellm.litellm_core_utils.get_blog_posts import (
+from embrouter.embrouter_core_utils.get_blog_posts import (
     BlogPost,
     BlogPostsResponse,
     GetBlogPosts,
@@ -19,7 +19,7 @@ SAMPLE_RSS = """\
 <?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0">
   <channel>
-    <title>LiteLLM Blog</title>
+    <title>EmbRouter Blog</title>
     <item>
       <title>Test Post</title>
       <link></link>
@@ -104,7 +104,7 @@ def test_get_blog_posts_success():
     mock_response.raise_for_status = MagicMock()
 
     with patch(
-        "litellm.litellm_core_utils.get_blog_posts.httpx.get",
+        "embrouter.embrouter_core_utils.get_blog_posts.httpx.get",
         return_value=mock_response,
     ):
         posts = get_blog_posts(url=EXAMPLE_FEED_URL)
@@ -116,7 +116,7 @@ def test_get_blog_posts_success():
 def test_get_blog_posts_network_error_falls_back_to_local():
     """Falls back to local backup on network error."""
     with patch(
-        "litellm.litellm_core_utils.get_blog_posts.httpx.get",
+        "embrouter.embrouter_core_utils.get_blog_posts.httpx.get",
         side_effect=Exception("Network error"),
     ):
         posts = get_blog_posts(url=EXAMPLE_FEED_URL)
@@ -132,7 +132,7 @@ def test_get_blog_posts_invalid_xml_falls_back_to_local():
     mock_response.raise_for_status = MagicMock()
 
     with patch(
-        "litellm.litellm_core_utils.get_blog_posts.httpx.get",
+        "embrouter.embrouter_core_utils.get_blog_posts.httpx.get",
         return_value=mock_response,
     ):
         posts = get_blog_posts(url=EXAMPLE_FEED_URL)
@@ -165,7 +165,7 @@ def test_get_blog_posts_ttl_cache_not_refetched():
         return m
 
     with patch(
-        "litellm.litellm_core_utils.get_blog_posts.httpx.get", side_effect=mock_get
+        "embrouter.embrouter_core_utils.get_blog_posts.httpx.get", side_effect=mock_get
     ):
         posts = get_blog_posts(url=EXAMPLE_FEED_URL)
 
@@ -191,7 +191,7 @@ def test_get_blog_posts_ttl_expired_refetches():
     mock_response.raise_for_status = MagicMock()
 
     with patch(
-        "litellm.litellm_core_utils.get_blog_posts.httpx.get",
+        "embrouter.embrouter_core_utils.get_blog_posts.httpx.get",
         return_value=mock_response,
     ) as mock_get:
         posts = get_blog_posts(url=EXAMPLE_FEED_URL)
@@ -201,8 +201,8 @@ def test_get_blog_posts_ttl_expired_refetches():
 
 
 def test_get_blog_posts_local_env_var_skips_remote(monkeypatch):
-    monkeypatch.setenv("LITELLM_LOCAL_BLOG_POSTS", "true")
-    with patch("litellm.litellm_core_utils.get_blog_posts.httpx.get") as mock_get:
+    monkeypatch.setenv("EMBROUTER_LOCAL_BLOG_POSTS", "true")
+    with patch("embrouter.embrouter_core_utils.get_blog_posts.httpx.get") as mock_get:
         posts = get_blog_posts(url=EXAMPLE_FEED_URL)
     mock_get.assert_not_called()
     assert isinstance(posts, list)
@@ -230,7 +230,7 @@ def test_blog_posts_response_pydantic_model():
 
 def test_get_blog_posts_without_a_feed_url_uses_local_copy_without_fetching():
     """The default feed URL is empty, so nothing is fetched and the bundled posts are served."""
-    with patch("litellm.litellm_core_utils.get_blog_posts.httpx.get") as mock_get:
+    with patch("embrouter.embrouter_core_utils.get_blog_posts.httpx.get") as mock_get:
         posts = get_blog_posts(url="")
 
     mock_get.assert_not_called()

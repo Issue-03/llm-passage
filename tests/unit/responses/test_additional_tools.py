@@ -1,4 +1,4 @@
-from litellm.responses.additional_tools import hoist_additional_tools
+from embrouter.responses.additional_tools import hoist_additional_tools
 
 _EXEC_TOOL = {"type": "custom", "name": "exec", "format": {"type": "grammar", "syntax": "lark", "definition": "start: /.+/"}}
 _WAIT_TOOL = {"type": "function", "name": "wait", "parameters": {"type": "object", "properties": {}}}

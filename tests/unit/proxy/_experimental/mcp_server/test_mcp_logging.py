@@ -9,17 +9,17 @@ import pytest
 from mcp.types import CallToolResult, TextContent
 from mcp.types import Tool as MCPTool
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+import embrouter
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
     MCPServerManager,
 )
-from litellm.proxy._experimental.mcp_server.server import (
+from embrouter.proxy._experimental.mcp_server.server import (
     mcp_server_tool_call,
     set_auth_context,
 )
-from litellm.proxy._types import LiteLLM_ObjectPermissionTable, UserAPIKeyAuth
-from litellm.types.mcp import MCPPostCallResponseObject
+from embrouter.proxy._types import EmbRouter_ObjectPermissionTable, UserAPIKeyAuth
+from embrouter.types.mcp import MCPPostCallResponseObject
 
 
 def _mcp_request_ctx(**overrides):
@@ -71,7 +71,7 @@ def _set_authorized_user(server_ids):
     user_auth = UserAPIKeyAuth(
         api_key="test",
         user_id="test_user",
-        object_permission=LiteLLM_ObjectPermissionTable(
+        object_permission=EmbRouter_ObjectPermissionTable(
             object_permission_id="mcp-test-permissions",
             mcp_servers=server_list,
         ),
@@ -82,7 +82,7 @@ def _set_authorized_user(server_ids):
 @pytest.mark.asyncio
 async def test_mcp_cost_tracking():
     # Create a mock tool call result
-    litellm.logging_callback_manager._reset_all_callbacks()
+    embrouter.logging_callback_manager._reset_all_callbacks()
     mock_result = CallToolResult(
         content=[TextContent(type="text", text="Test response")], isError=False
     )
@@ -111,7 +111,7 @@ async def test_mcp_cost_tracking():
     local_mcp_server_manager = MCPServerManager()
 
     with patch(
-        "litellm.proxy._experimental.mcp_server.mcp_server_manager.MCPClient",
+        "embrouter.proxy._experimental.mcp_server.mcp_server_manager.MCPClient",
         mock_client_constructor,
     ):
         # Load the server config
@@ -130,7 +130,7 @@ async def test_mcp_cost_tracking():
 
         # Set up the test logger
         test_logger = TestMCPLogger()
-        litellm.callbacks = [test_logger]
+        embrouter.callbacks = [test_logger]
 
         # Initialize the tool mapping
         await local_mcp_server_manager._initialize_tool_name_to_mcp_server_name_mapping()
@@ -138,11 +138,11 @@ async def test_mcp_cost_tracking():
         # Patch the global manager in both modules where it's used
         with (
             patch(
-                "litellm.proxy._experimental.mcp_server.mcp_server_manager.global_mcp_server_manager",
+                "embrouter.proxy._experimental.mcp_server.mcp_server_manager.global_mcp_server_manager",
                 local_mcp_server_manager,
             ),
             patch(
-                "litellm.proxy._experimental.mcp_server.operations.global_mcp_server_manager",
+                "embrouter.proxy._experimental.mcp_server.operations.global_mcp_server_manager",
                 local_mcp_server_manager,
             ),
         ):
@@ -207,7 +207,7 @@ async def test_mcp_cost_tracking():
 async def test_mcp_cost_tracking_per_tool():
     """Test that individual tool costs are tracked correctly when tool_name_to_cost_per_query is configured"""
     # Create a mock tool call result
-    litellm.logging_callback_manager._reset_all_callbacks()
+    embrouter.logging_callback_manager._reset_all_callbacks()
     mock_result = CallToolResult(
         content=[TextContent(type="text", text="Test response")], isError=False
     )
@@ -244,7 +244,7 @@ async def test_mcp_cost_tracking_per_tool():
     local_mcp_server_manager = MCPServerManager()
 
     with patch(
-        "litellm.proxy._experimental.mcp_server.mcp_server_manager.MCPClient",
+        "embrouter.proxy._experimental.mcp_server.mcp_server_manager.MCPClient",
         mock_client_constructor,
     ):
         # Load the server config with per-tool costs
@@ -267,7 +267,7 @@ async def test_mcp_cost_tracking_per_tool():
 
         # Set up the test logger
         test_logger = TestMCPLogger()
-        litellm.callbacks = [test_logger]
+        embrouter.callbacks = [test_logger]
 
         # Initialize the tool mapping
         await local_mcp_server_manager._initialize_tool_name_to_mcp_server_name_mapping()
@@ -289,11 +289,11 @@ async def test_mcp_cost_tracking_per_tool():
         # Patch the global manager in both modules where it's used
         with (
             patch(
-                "litellm.proxy._experimental.mcp_server.mcp_server_manager.global_mcp_server_manager",
+                "embrouter.proxy._experimental.mcp_server.mcp_server_manager.global_mcp_server_manager",
                 local_mcp_server_manager,
             ),
             patch(
-                "litellm.proxy._experimental.mcp_server.operations.global_mcp_server_manager",
+                "embrouter.proxy._experimental.mcp_server.operations.global_mcp_server_manager",
                 local_mcp_server_manager,
             ),
         ):
@@ -388,7 +388,7 @@ class MCPLoggerHook(TestMCPLogger):
 @pytest.mark.asyncio
 async def test_mcp_tool_call_hook():
     # Create a mock tool call result
-    litellm.logging_callback_manager._reset_all_callbacks()
+    embrouter.logging_callback_manager._reset_all_callbacks()
     mock_result = CallToolResult(
         content=[TextContent(type="text", text="Test response")], isError=False
     )
@@ -417,7 +417,7 @@ async def test_mcp_tool_call_hook():
     local_mcp_server_manager = MCPServerManager()
 
     with patch(
-        "litellm.proxy._experimental.mcp_server.mcp_server_manager.MCPClient",
+        "embrouter.proxy._experimental.mcp_server.mcp_server_manager.MCPClient",
         mock_client_constructor,
     ):
         # Load the server config
@@ -431,7 +431,7 @@ async def test_mcp_tool_call_hook():
 
         # Set up the test logger
         test_logger = MCPLoggerHook()
-        litellm.callbacks = [test_logger]
+        embrouter.callbacks = [test_logger]
 
         # Initialize the tool mapping
         await local_mcp_server_manager._initialize_tool_name_to_mcp_server_name_mapping()
@@ -447,11 +447,11 @@ async def test_mcp_tool_call_hook():
         # Patch the global manager in both modules where it's used
         with (
             patch(
-                "litellm.proxy._experimental.mcp_server.mcp_server_manager.global_mcp_server_manager",
+                "embrouter.proxy._experimental.mcp_server.mcp_server_manager.global_mcp_server_manager",
                 local_mcp_server_manager,
             ),
             patch(
-                "litellm.proxy._experimental.mcp_server.operations.global_mcp_server_manager",
+                "embrouter.proxy._experimental.mcp_server.operations.global_mcp_server_manager",
                 local_mcp_server_manager,
             ),
         ):
@@ -488,7 +488,7 @@ async def test_mcp_tool_call_hook():
 _QUEUED_LOGGING_OUTLIVES_TEST = '''
 import time
 
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from embrouter.embrouter_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
 
 ran_at = []
 

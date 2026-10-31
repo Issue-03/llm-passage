@@ -8,7 +8,7 @@ import {
   setLocalStorageItem,
 } from "@/utils/localStorageUtils";
 
-const STORAGE_KEY_PREFIX = "litellm_table_columns_";
+const STORAGE_KEY_PREFIX = "embrouter_table_columns_";
 
 const EMPTY_VISIBILITY: VisibilityState = {};
 

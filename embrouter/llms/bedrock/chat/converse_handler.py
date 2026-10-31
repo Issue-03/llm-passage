@@ -3,20 +3,20 @@ from typing import Any, Final
 
 import httpx
 
-import litellm
-from litellm.anthropic_beta_headers_manager import (
+import embrouter
+from embrouter.anthropic_beta_headers_manager import (
     update_headers_with_filtered_beta,
 )
-from litellm.litellm_core_utils.get_litellm_params import stored_control_options
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObject
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.embrouter_core_utils.get_embrouter_params import stored_control_options
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObject
+from embrouter.llms.custom_httpx.http_handler import (
     AsyncHTTPHandler,
     HTTPHandler,
     _get_httpx_client,
     get_async_httpx_client,
 )
-from litellm.types.utils import ModelResponse
-from litellm.utils import CustomStreamWrapper
+from embrouter.types.utils import ModelResponse
+from embrouter.utils import CustomStreamWrapper
 
 from ..base_aws_llm import BaseAWSLLM, Credentials, bedrock_bearer_token, pop_aws_auth_params, run_aws_signing
 from ..common_utils import BedrockError, _get_all_bedrock_regions, error_response_text
@@ -30,7 +30,7 @@ def make_sync_call(
     data: str,
     model: str,
     messages: list,
-    logging_obj: LiteLLMLoggingObject,
+    logging_obj: EmbRouterLoggingObject,
     json_mode: bool | None = False,
     fake_stream: bool = False,
     stream_chunk_size: int | None = None,
@@ -55,17 +55,17 @@ def make_sync_call(
         )
 
     if fake_stream:
-        model_response: Final[ModelResponse] = litellm.AmazonConverseConfig()._transform_response(
+        model_response: Final[ModelResponse] = embrouter.AmazonConverseConfig()._transform_response(
             model=model,
             response=response,
-            model_response=litellm.ModelResponse(),
+            model_response=embrouter.ModelResponse(),
             stream=True,
             logging_obj=logging_obj,
             optional_params={},
             api_key="",
             data=data,
             messages=messages,
-            encoding=litellm.encoding,
+            encoding=embrouter.encoding,
         )
         completion_stream: Any = MockResponseIterator(model_response=model_response, json_mode=json_mode)
     else:
@@ -97,10 +97,10 @@ class BedrockConverseLLM(BaseAWSLLM):
         model_response: ModelResponse,
         timeout: float | httpx.Timeout | None,
         encoding,
-        logging_obj: LiteLLMLoggingObject,
+        logging_obj: EmbRouterLoggingObject,
         stream,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         credentials: Credentials | None,
         logger_fn=None,
         headers={},
@@ -110,11 +110,11 @@ class BedrockConverseLLM(BaseAWSLLM):
         api_key: str | None = None,
         stream_chunk_size: int | None = None,
     ) -> CustomStreamWrapper:
-        request_data: Final = await litellm.AmazonConverseConfig()._async_transform_request(
+        request_data: Final = await embrouter.AmazonConverseConfig()._async_transform_request(
             model=model,
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
         data: Final = json.dumps(request_data)
@@ -122,7 +122,7 @@ class BedrockConverseLLM(BaseAWSLLM):
         prepped: Final = await run_aws_signing(
             self.get_request_headers,
             credentials=credentials,
-            aws_region_name=litellm_params.get("aws_region_name") or "us-west-2",
+            aws_region_name=embrouter_params.get("aws_region_name") or "us-west-2",
             extra_headers=headers,
             endpoint_url=api_base,
             data=data,
@@ -170,10 +170,10 @@ class BedrockConverseLLM(BaseAWSLLM):
         model_response: ModelResponse,
         timeout: float | httpx.Timeout | None,
         encoding,
-        logging_obj: LiteLLMLoggingObject,
+        logging_obj: EmbRouterLoggingObject,
         stream,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         credentials: Credentials | None,
         logger_fn=None,
         headers: dict = {},
@@ -181,11 +181,11 @@ class BedrockConverseLLM(BaseAWSLLM):
         api_key: str | None = None,
         skip_pre_call_logging: bool = False,
     ) -> ModelResponse | CustomStreamWrapper:
-        request_data: Final = await litellm.AmazonConverseConfig()._async_transform_request(
+        request_data: Final = await embrouter.AmazonConverseConfig()._async_transform_request(
             model=model,
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
         data: Final = json.dumps(request_data)
@@ -193,7 +193,7 @@ class BedrockConverseLLM(BaseAWSLLM):
         prepped: Final = await run_aws_signing(
             self.get_request_headers,
             credentials=credentials,
-            aws_region_name=litellm_params.get("aws_region_name") or "us-west-2",
+            aws_region_name=embrouter_params.get("aws_region_name") or "us-west-2",
             extra_headers=headers,
             endpoint_url=api_base,
             data=data,
@@ -223,7 +223,7 @@ class BedrockConverseLLM(BaseAWSLLM):
                 if isinstance(timeout, float) or isinstance(timeout, int):
                     timeout = httpx.Timeout(timeout)
                 _params["timeout"] = timeout
-            client = get_async_httpx_client(params=_params, llm_provider=litellm.LlmProviders.BEDROCK)
+            client = get_async_httpx_client(params=_params, llm_provider=embrouter.LlmProviders.BEDROCK)
         else:
             client = client
 
@@ -246,7 +246,7 @@ class BedrockConverseLLM(BaseAWSLLM):
         except httpx.TimeoutException:
             raise BedrockError(status_code=408, message="Timeout error occurred.")
 
-        transformed_response: Final = litellm.AmazonConverseConfig()._transform_response(
+        transformed_response: Final = embrouter.AmazonConverseConfig()._transform_response(
             model=model,
             response=response,
             model_response=model_response,
@@ -269,11 +269,11 @@ class BedrockConverseLLM(BaseAWSLLM):
         custom_prompt_dict: dict,
         model_response: ModelResponse,
         encoding,
-        logging_obj: LiteLLMLoggingObject,
+        logging_obj: EmbRouterLoggingObject,
         optional_params: dict,
         acompletion: bool,
         timeout: float | httpx.Timeout | None,
-        litellm_params: dict,
+        embrouter_params: dict,
         logger_fn=None,
         extra_headers: dict | None = None,
         client: AsyncHTTPHandler | HTTPHandler | None = None,
@@ -281,7 +281,7 @@ class BedrockConverseLLM(BaseAWSLLM):
     ):
         ## SETUP ##
         stream: Final = optional_params.pop("stream", None)
-        stream_chunk_size: Final = stored_control_options(litellm_params).stream_chunk_size if stream is True else None
+        stream_chunk_size: Final = stored_control_options(embrouter_params).stream_chunk_size if stream is True else None
         unencoded_model_id: Final = optional_params.pop("model_id", None)
         fake_stream = optional_params.pop("fake_stream", False)
         json_mode: Final = optional_params.get("json_mode", False)
@@ -312,7 +312,7 @@ class BedrockConverseLLM(BaseAWSLLM):
             if _region_from_model is not None and "aws_region_name" not in optional_params:
                 optional_params["aws_region_name"] = _region_from_model
 
-        fake_stream = litellm.AmazonConverseConfig().should_fake_stream(
+        fake_stream = embrouter.AmazonConverseConfig().should_fake_stream(
             fake_stream=fake_stream,
             model=model,
             stream=stream,
@@ -330,7 +330,7 @@ class BedrockConverseLLM(BaseAWSLLM):
         aws_bedrock_runtime_endpoint: Final = optional_params.pop("aws_bedrock_runtime_endpoint", None)
         optional_params.pop("aws_region_name", None)
 
-        litellm_params["aws_region_name"] = aws_region_name  # [DO NOT DELETE] important for async calls
+        embrouter_params["aws_region_name"] = aws_region_name  # [DO NOT DELETE] important for async calls
 
         credentials: Final[Credentials | None] = (
             None
@@ -373,7 +373,7 @@ class BedrockConverseLLM(BaseAWSLLM):
                     logging_obj=logging_obj,
                     optional_params=optional_params,
                     stream=True,
-                    litellm_params=litellm_params,
+                    embrouter_params=embrouter_params,
                     logger_fn=logger_fn,
                     headers=headers,
                     timeout=timeout,
@@ -394,7 +394,7 @@ class BedrockConverseLLM(BaseAWSLLM):
                 logging_obj=logging_obj,
                 optional_params=optional_params,
                 stream=stream,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logger_fn=logger_fn,
                 headers=headers,
                 timeout=timeout,
@@ -405,11 +405,11 @@ class BedrockConverseLLM(BaseAWSLLM):
 
         ## TRANSFORMATION ##
 
-        _data: Final = litellm.AmazonConverseConfig()._transform_request(
+        _data: Final = embrouter.AmazonConverseConfig()._transform_request(
             model=model,
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=extra_headers,
         )
         data: Final = json.dumps(_data)
@@ -488,7 +488,7 @@ class BedrockConverseLLM(BaseAWSLLM):
         except httpx.TimeoutException:
             raise BedrockError(status_code=408, message="Timeout error occurred.")
 
-        sync_transformed_response: Final = litellm.AmazonConverseConfig()._transform_response(
+        sync_transformed_response: Final = embrouter.AmazonConverseConfig()._transform_response(
             model=model,
             response=response,
             model_response=model_response,

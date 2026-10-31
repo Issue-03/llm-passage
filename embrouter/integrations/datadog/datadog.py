@@ -3,8 +3,8 @@ DataDog Integration - sends logs to /api/v2/log
 
 DD Reference API: https://docs.datadoghq.com/api/latest/logs
 
-`async_log_success_event` - used by litellm proxy to send logs to datadog
-`log_success_event` - sync version of logging to DataDog, only used on litellm Python SDK, if user opts in to using sync functions
+`async_log_success_event` - used by embrouter proxy to send logs to datadog
+`log_success_event` - sync version of logging to DataDog, only used on embrouter Python SDK, if user opts in to using sync functions
 
 async_log_success_event:  will store batch of DD_MAX_BATCH_SIZE in memory and flush to Datadog once it reaches DD_MAX_BATCH_SIZE or every 5 seconds
 
@@ -26,30 +26,30 @@ import httpx
 from httpx import Response
 from typing_extensions import ReadOnly, TypedDict
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm._uuid import uuid
-from litellm.integrations.batch_utils import BatchSendCancelled, requeue_after_http_error, send_batch_with_413_split
-from litellm.integrations.custom_batch_logger import CustomBatchLogger
-from litellm.integrations.datadog.datadog_handler import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter._uuid import uuid
+from embrouter.integrations.batch_utils import BatchSendCancelled, requeue_after_http_error, send_batch_with_413_split
+from embrouter.integrations.custom_batch_logger import CustomBatchLogger
+from embrouter.integrations.datadog.datadog_handler import (
     get_datadog_base_url_from_env,
     get_datadog_hostname,
     get_datadog_service,
     get_datadog_source,
     get_datadog_tags,
 )
-from litellm.integrations.datadog.datadog_mock_client import (
+from embrouter.integrations.datadog.datadog_mock_client import (
     create_mock_datadog_client,
     should_use_datadog_mock,
 )
-from litellm.litellm_core_utils.dd_tracing import tracer
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.embrouter_core_utils.dd_tracing import tracer
+from embrouter.llms.custom_httpx.http_handler import (
     _get_httpx_client,
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.types.integrations.base_health_check import IntegrationHealthCheckStatus
-from litellm.types.integrations.datadog import (
+from embrouter.types.integrations.base_health_check import IntegrationHealthCheckStatus
+from embrouter.types.integrations.datadog import (
     DD_ERRORS,
     DD_MAX_BATCH_SIZE,
     DD_MAX_PAYLOAD_SIZE_BYTES,
@@ -58,15 +58,15 @@ from litellm.types.integrations.datadog import (
     DatadogProxyFailureHookJsonMessage,
     DataDogStatus,
 )
-from litellm.types.services import ServiceLoggerPayload, ServiceTypes
-from litellm.types.utils import StandardLoggingPayload
+from embrouter.types.services import ServiceLoggerPayload, ServiceTypes
+from embrouter.types.utils import StandardLoggingPayload
 
 from ..additional_logging_utils import AdditionalLoggingUtils
 
 if TYPE_CHECKING:
     from fastapi import HTTPException
 
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
 
 class _DatadogLoggingKwargs(TypedDict, total=False):
@@ -125,8 +125,8 @@ class DataDogLogger(
         Args:
             dd_api_key: Datadog API key. Falls back to DD_API_KEY env var when allow_env_credentials is True.
             dd_site: Datadog site (e.g. "us5.datadoghq.com"). Falls back to DD_SITE env var.
-            dd_agent_host: Hostname or IP of DataDog agent. Falls back to LITELLM_DD_AGENT_HOST env var.
-            dd_agent_port: Port of DataDog agent (default: 10518). Falls back to LITELLM_DD_AGENT_PORT env var.
+            dd_agent_host: Hostname or IP of DataDog agent. Falls back to EMBROUTER_DD_AGENT_HOST env var.
+            dd_agent_port: Port of DataDog agent (default: 10518). Falls back to EMBROUTER_DD_AGENT_PORT env var.
             allow_env_credentials: When False, the API key is never read from DD_API_KEY env var. Set to
                 False for team/key-scoped loggers whose destination (dd_agent_host/dd_site) is caller-supplied,
                 so the proxy's global DD_API_KEY is never sent to an untrusted host.
@@ -136,10 +136,10 @@ class DataDogLogger(
         `DD_SITE` - your datadog site, example = `"us5.datadoghq.com"`
 
         Optional environment variables (DataDog Agent):
-        `LITELLM_DD_AGENT_HOST` - hostname or IP of DataDog agent, example = `"localhost"`
-        `LITELLM_DD_AGENT_PORT` - port of DataDog agent (default: 10518 for logs)
+        `EMBROUTER_DD_AGENT_HOST` - hostname or IP of DataDog agent, example = `"localhost"`
+        `EMBROUTER_DD_AGENT_PORT` - port of DataDog agent (default: 10518 for logs)
 
-        Note: We use LITELLM_DD_AGENT_HOST instead of DD_AGENT_HOST to avoid conflicts
+        Note: We use EMBROUTER_DD_AGENT_HOST instead of DD_AGENT_HOST to avoid conflicts
         with ddtrace which automatically sets DD_AGENT_HOST for APM tracing.
         """
         try:
@@ -152,7 +152,7 @@ class DataDogLogger(
                 verbose_logger.debug("[DATADOG MOCK] Datadog logger initialized in mock mode")
 
             #########################################################
-            # Handle datadog_params set as litellm.datadog_params
+            # Handle datadog_params set as embrouter.datadog_params
             #########################################################
             dict_datadog_params: Final = self._get_datadog_params()
             kwargs.update(dict_datadog_params)
@@ -161,7 +161,7 @@ class DataDogLogger(
 
             # Configure DataDog endpoint (Agent or Direct API)
             # Prefer explicit kwargs, then fall back to env vars
-            resolved_agent_host: Final = dd_agent_host or os.getenv("LITELLM_DD_AGENT_HOST")
+            resolved_agent_host: Final = dd_agent_host or os.getenv("EMBROUTER_DD_AGENT_HOST")
             if resolved_agent_host:
                 self._configure_dd_agent(
                     dd_agent_host=resolved_agent_host,
@@ -194,17 +194,17 @@ class DataDogLogger(
 
     def _get_datadog_params(self) -> dict:
         """
-        Get the datadog_params from litellm.datadog_params
+        Get the datadog_params from embrouter.datadog_params
 
         These are params specific to initializing the DataDogLogger e.g. turn_off_message_logging
         """
         dict_datadog_params: dict = {}
-        if litellm.datadog_params is not None:
-            if isinstance(litellm.datadog_params, DatadogInitParams):
-                dict_datadog_params = litellm.datadog_params.model_dump()
-            elif isinstance(litellm.datadog_params, dict):
+        if embrouter.datadog_params is not None:
+            if isinstance(embrouter.datadog_params, DatadogInitParams):
+                dict_datadog_params = embrouter.datadog_params.model_dump()
+            elif isinstance(embrouter.datadog_params, dict):
                 # only allow params that are of DatadogInitParams
-                dict_datadog_params = DatadogInitParams(**litellm.datadog_params).model_dump()
+                dict_datadog_params = DatadogInitParams(**embrouter.datadog_params).model_dump()
         return dict_datadog_params
 
     def _configure_dd_agent(
@@ -219,11 +219,11 @@ class DataDogLogger(
 
         Args:
             dd_agent_host: Hostname or IP of DataDog agent
-            dd_agent_port: Port of DataDog agent. Falls back to LITELLM_DD_AGENT_PORT env var (default: 10518).
+            dd_agent_port: Port of DataDog agent. Falls back to EMBROUTER_DD_AGENT_PORT env var (default: 10518).
             dd_api_key: Datadog API key. Falls back to DD_API_KEY env var when allow_env_credentials is True. Optional when using agent.
             allow_env_credentials: When False, never read the API key from DD_API_KEY env var.
         """
-        resolved_port: Final = dd_agent_port or os.getenv("LITELLM_DD_AGENT_PORT", "10518")  # default port for logs
+        resolved_port: Final = dd_agent_port or os.getenv("EMBROUTER_DD_AGENT_PORT", "10518")  # default port for logs
         self.intake_url = f"http://{dd_agent_host}:{resolved_port}/api/v2/logs"
         self.DD_API_KEY = dd_api_key or (
             os.getenv("DD_API_KEY") if allow_env_credentials else None
@@ -300,10 +300,10 @@ class DataDogLogger(
         alongside Prometheus.
         """
         try:
-            from litellm.litellm_core_utils.litellm_logging import (
+            from embrouter.embrouter_core_utils.embrouter_logging import (
                 StandardLoggingPayloadSetup,
             )
-            from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
+            from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps
 
             error_information: Final = StandardLoggingPayloadSetup.get_error_information(
                 original_exception=original_exception,
@@ -317,11 +317,11 @@ class DataDogLogger(
             # Use project-standard sanitized user context when running in proxy
             user_context: dict[str, object] = {}
             try:
-                from litellm.proxy.litellm_pre_call_utils import (
-                    LiteLLMProxyRequestSetup,
+                from embrouter.proxy.embrouter_pre_call_utils import (
+                    EmbRouterProxyRequestSetup,
                 )
 
-                _meta: Final = LiteLLMProxyRequestSetup.get_sanitized_user_information_from_key(
+                _meta: Final = EmbRouterProxyRequestSetup.get_sanitized_user_information_from_key(
                     user_api_key_dict=user_api_key_dict
                 )
                 user_context = dict(_meta) if isinstance(_meta, dict) else _meta
@@ -435,7 +435,7 @@ class DataDogLogger(
         DD_MAX_PAYLOAD_SIZE_BYTES (held under Datadog's 5MB uncompressed cap so
         the batch is split before the intake rejects it with a 413).
         """
-        from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
+        from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps
 
         if len(chunk) > DD_MAX_BATCH_SIZE:
             return True
@@ -461,7 +461,7 @@ class DataDogLogger(
         - instantly logs it on DD API
         """
         try:
-            if litellm.datadog_use_v1 is True:
+            if embrouter.datadog_use_v1 is True:
                 dd_payload = self._create_v0_logging_payload(
                     kwargs=kwargs,
                     response_obj=response_obj,
@@ -520,7 +520,7 @@ class DataDogLogger(
         standard_logging_object: StandardLoggingPayload,
         status: DataDogStatus,
     ) -> DatadogPayload:
-        from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
+        from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps
 
         json_payload: Final = safe_dumps(standard_logging_object)
         verbose_logger.debug("Datadog: Logger - Logging payload = %s", json_payload)
@@ -583,7 +583,7 @@ class DataDogLogger(
 
         import gzip
 
-        from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
+        from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps
 
         compressed_data: Final = gzip.compress(safe_dumps(data).encode("utf-8"))
 
@@ -621,7 +621,7 @@ class DataDogLogger(
         try:
             _payload_dict: Final = payload.model_dump()
             _payload_dict.update(event_metadata or {})
-            from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
+            from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps
 
             _dd_message_str: Final = safe_dumps(_payload_dict)
             _dd_payload: Final = DatadogPayload(
@@ -660,7 +660,7 @@ class DataDogLogger(
             _payload_dict: Final = payload.model_dump()
             _payload_dict.update(event_metadata or {})
 
-            from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
+            from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps
 
             _dd_message_str: Final = safe_dumps(_payload_dict)
             _dd_payload: Final = DatadogPayload(
@@ -688,14 +688,14 @@ class DataDogLogger(
         Note: This is our V1 Version of DataDog Logging Payload
 
 
-        (Not Recommended) If you want this to get logged set `litellm.datadog_use_v1 = True`
+        (Not Recommended) If you want this to get logged set `embrouter.datadog_use_v1 = True`
         """
 
-        litellm_params: Final = kwargs.get("litellm_params", {})
-        metadata: Final = litellm_params.get("metadata", {}) or {}  # if litellm_params['metadata'] == None
+        embrouter_params: Final = kwargs.get("embrouter_params", {})
+        metadata: Final = embrouter_params.get("metadata", {}) or {}  # if embrouter_params['metadata'] == None
         messages: Final = kwargs.get("messages")
         optional_params: Final = kwargs.get("optional_params", {})
-        call_type: Final = kwargs.get("call_type", "litellm.completion")
+        call_type: Final = kwargs.get("call_type", "embrouter.completion")
         cache_hit: Final = kwargs.get("cache_hit", False)
         usage = response_obj["usage"]
         id: Final = response_obj.get("id", str(uuid.uuid4()))
@@ -712,11 +712,11 @@ class DataDogLogger(
 
         # Clean Metadata before logging - never log raw metadata
         # the raw metadata can contain circular references which leads to infinite recursion
-        # we clean out all extra litellm metadata params before logging
+        # we clean out all extra embrouter metadata params before logging
         clean_metadata: Final = {}
         if isinstance(metadata, dict):
             for key, value in metadata.items():
-                # clean litellm metadata before logging
+                # clean embrouter metadata before logging
                 if key in [
                     "endpoint",
                     "caching_groups",
@@ -744,7 +744,7 @@ class DataDogLogger(
             "metadata": clean_metadata,
         }
 
-        from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
+        from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps
 
         json_payload: Final = safe_dumps(payload)
 
@@ -810,7 +810,7 @@ class DataDogLogger(
         """
         Check if the service is healthy
         """
-        from litellm.litellm_core_utils.litellm_logging import (
+        from embrouter.embrouter_core_utils.embrouter_logging import (
             create_dummy_standard_logging_payload,
         )
 

@@ -3,12 +3,12 @@ from typing import Final
 
 from openai.types.image import Image
 
-from litellm.llms.bedrock.common_utils import BedrockError, get_cached_model_info
-from litellm.types.llms.bedrock import (
+from embrouter.llms.bedrock.common_utils import BedrockError, get_cached_model_info
+from embrouter.types.llms.bedrock import (
     AmazonStability3TextToImageRequest,
     AmazonStability3TextToImageResponse,
 )
-from litellm.types.utils import ImageResponse
+from embrouter.types.utils import ImageResponse
 
 
 class AmazonStability3Config:

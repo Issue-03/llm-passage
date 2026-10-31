@@ -11,8 +11,8 @@ from typing import Final
 
 from typing_extensions import TypedDict
 
-from litellm._logging import verbose_logger
-from litellm.constants import (
+from embrouter._logging import verbose_logger
+from embrouter.constants import (
     LOGGING_WORKER_AGGRESSIVE_CLEAR_COOLDOWN_SECONDS,
     LOGGING_WORKER_CLEAR_PERCENTAGE,
     LOGGING_WORKER_CONCURRENCY,
@@ -43,7 +43,7 @@ class LoggingWorker:
     A simple, async logging worker that processes log coroutines in the background.
     Designed to be best-effort with bounded queues to prevent backpressure.
 
-    This leads to a +200 RPS performance improvement when using LiteLLM Python SDK or Proxy Server.
+    This leads to a +200 RPS performance improvement when using EmbRouter Python SDK or Proxy Server.
     - Use this to queue coroutine tasks that are not critical to the main flow of the application. e.g Success/Error callbacks, logging, etc.
     """
 

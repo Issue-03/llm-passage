@@ -6,17 +6,17 @@ E.g. Route to VLLM's `/classify` endpoint:
 ## SDK (Basic)
 
 ```python
-import litellm
+import embrouter
 
 
-response = litellm.llm_passthrough_route(
+response = embrouter.llm_passthrough_route(
     model="hosted_vllm/papluca/xlm-roberta-base-language-detection",
     method="POST",
     endpoint="classify",
     api_base="http://localhost:8090",
     api_key=None,
     json={
-        "model": "swapped-for-litellm-model",
+        "model": "swapped-for-embrouter-model",
         "input": "Hello, world!",
     }
 )
@@ -28,13 +28,13 @@ print(response)
 
 ```python
 import asyncio
-from litellm import Router
+from embrouter import Router
 
 router = Router(
     model_list=[
         {
             "model_name": "roberta-base-language-detection",
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "hosted_vllm/papluca/xlm-roberta-base-language-detection",
                 "api_base": "http://localhost:8090", 
             }
@@ -69,7 +69,7 @@ if __name__ == "__main__":
 ```yaml
 model_list:
   - model_name: roberta-base-language-detection
-    litellm_params:
+    embrouter_params:
       model: hosted_vllm/papluca/xlm-roberta-base-language-detection
       api_base: http://localhost:8090
 ```
@@ -77,7 +77,7 @@ model_list:
 2. Run the proxy
 
 ```bash
-litellm proxy --config config.yaml
+embrouter proxy --config config.yaml
 
 # RUNNING on http://localhost:4000
 ```
@@ -98,7 +98,7 @@ See VLLMModelInfo for an example.
 1. Inherit from BaseModelInfo
 
 ```python
-from litellm.llms.base_llm.base_utils import BaseLLMModelInfo
+from embrouter.llms.base_llm.base_utils import BaseLLMModelInfo
 
 class VLLMModelInfo(BaseLLMModelInfo):
     pass
@@ -107,8 +107,8 @@ class VLLMModelInfo(BaseLLMModelInfo):
 2. Register the provider in the ProviderConfigManager.get_provider_model_info
 
 ```python
-from litellm.utils import ProviderConfigManager
-from litellm.types.utils import LlmProviders
+from embrouter.utils import ProviderConfigManager
+from embrouter.types.utils import LlmProviders
 
 provider_config = ProviderConfigManager.get_provider_model_info(
     model="my-test-model", provider=LlmProviders.VLLM

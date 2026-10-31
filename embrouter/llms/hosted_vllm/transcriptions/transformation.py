@@ -6,14 +6,14 @@ from typing import Final
 
 import httpx
 
-from litellm.llms.base_llm.audio_transcription.transformation import (
+from embrouter.llms.base_llm.audio_transcription.transformation import (
     AudioTranscriptionRequestData,
 )
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.openai.transcriptions.whisper_transformation import (
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.openai.transcriptions.whisper_transformation import (
     OpenAIWhisperAudioTranscriptionConfig,
 )
-from litellm.types.utils import FileTypes
+from embrouter.types.utils import FileTypes
 
 
 class HostedVLLMAudioTranscriptionError(BaseLLMException):
@@ -36,7 +36,7 @@ class HostedVLLMAudioTranscriptionConfig(OpenAIWhisperAudioTranscriptionConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         if api_base:
@@ -52,7 +52,7 @@ class HostedVLLMAudioTranscriptionConfig(OpenAIWhisperAudioTranscriptionConfig):
         model: str,
         audio_file: FileTypes,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> AudioTranscriptionRequestData:
         """
         Transform the audio transcription request

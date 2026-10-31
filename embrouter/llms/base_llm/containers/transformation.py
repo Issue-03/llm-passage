@@ -6,32 +6,32 @@ from typing import TYPE_CHECKING, Any, Final
 
 import httpx
 
-from litellm.types.containers.main import ContainerCreateOptionalRequestParams
-from litellm.types.router import GenericLiteLLMParams
+from embrouter.types.containers.main import ContainerCreateOptionalRequestParams
+from embrouter.types.router import GenericEmbRouterParams
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
-    from litellm.types.containers.main import (
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
+    from embrouter.types.containers.main import (
         ContainerFileListResponse as _ContainerFileListResponse,
     )
-    from litellm.types.containers.main import (
+    from embrouter.types.containers.main import (
         ContainerListResponse as _ContainerListResponse,
     )
-    from litellm.types.containers.main import ContainerObject as _ContainerObject
-    from litellm.types.containers.main import (
+    from embrouter.types.containers.main import ContainerObject as _ContainerObject
+    from embrouter.types.containers.main import (
         DeleteContainerResult as _DeleteContainerResult,
     )
 
     from ..chat.transformation import BaseLLMException as _BaseLLMException
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
     BaseLLMException = _BaseLLMException
     ContainerObject = _ContainerObject
     DeleteContainerResult = _DeleteContainerResult
     ContainerListResponse = _ContainerListResponse
     ContainerFileListResponse = _ContainerFileListResponse
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
     BaseLLMException = Any
     ContainerObject = Any
     DeleteContainerResult = Any
@@ -86,7 +86,7 @@ class BaseContainerConfig(ABC):
     def get_complete_url(
         self,
         api_base: str | None,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> str:
         """Get the complete url for the request.
 
@@ -102,7 +102,7 @@ class BaseContainerConfig(ABC):
         self,
         name: str,
         container_create_optional_request_params: dict,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> dict:
         """Transform the container creation request.
@@ -116,7 +116,7 @@ class BaseContainerConfig(ABC):
     def transform_container_create_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> ContainerObject:
         """Transform the container creation response."""
         ...
@@ -125,7 +125,7 @@ class BaseContainerConfig(ABC):
     def transform_container_list_request(
         self,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
         after: str | None = None,
         limit: int | None = None,
@@ -143,7 +143,7 @@ class BaseContainerConfig(ABC):
     def transform_container_list_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> ContainerListResponse:
         """Transform the container list response."""
         ...
@@ -153,7 +153,7 @@ class BaseContainerConfig(ABC):
         self,
         container_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict]:
         """Transform the container retrieve request into a URL and data/params.
@@ -167,7 +167,7 @@ class BaseContainerConfig(ABC):
     def transform_container_retrieve_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> ContainerObject:
         """Transform the container retrieve response."""
         ...
@@ -177,7 +177,7 @@ class BaseContainerConfig(ABC):
         self,
         container_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict]:
         """Transform the container delete request into a URL and data.
@@ -191,7 +191,7 @@ class BaseContainerConfig(ABC):
     def transform_container_delete_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> DeleteContainerResult:
         """Transform the container delete response."""
         ...
@@ -201,7 +201,7 @@ class BaseContainerConfig(ABC):
         self,
         container_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
         after: str | None = None,
         limit: int | None = None,
@@ -219,7 +219,7 @@ class BaseContainerConfig(ABC):
     def transform_container_file_list_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> ContainerFileListResponse:
         """Transform the container file list response."""
         ...
@@ -230,7 +230,7 @@ class BaseContainerConfig(ABC):
         container_id: str,
         file_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict]:
         """Transform the container file content request into a URL and params.
@@ -244,7 +244,7 @@ class BaseContainerConfig(ABC):
     def transform_container_file_content_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> bytes:
         """Transform the container file content response.
 

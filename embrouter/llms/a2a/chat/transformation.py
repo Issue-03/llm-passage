@@ -1,5 +1,5 @@
 """
-A2A Protocol Transformation for LiteLLM
+A2A Protocol Transformation for EmbRouter
 """
 
 import uuid
@@ -8,11 +8,11 @@ from typing import TYPE_CHECKING, Any, Final
 
 import httpx
 
-from litellm.llms.azure_ai.common_utils import AZURE_ENTRA_LITELLM_PARAM_KEYS, get_azure_ai_agent_entra_token
-from litellm.llms.base_llm.base_model_iterator import BaseModelResponseIterator
-from litellm.llms.base_llm.chat.transformation import BaseConfig, BaseLLMException
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.utils import Choices, Message, ModelResponse, Usage
+from embrouter.llms.azure_ai.common_utils import AZURE_ENTRA_EMBROUTER_PARAM_KEYS, get_azure_ai_agent_entra_token
+from embrouter.llms.base_llm.base_model_iterator import BaseModelResponseIterator
+from embrouter.llms.base_llm.chat.transformation import BaseConfig, BaseLLMException
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.utils import Choices, Message, ModelResponse, Usage
 
 from ..common_utils import (
     A2AError,
@@ -23,12 +23,12 @@ from ..common_utils import (
 from .streaming_iterator import A2AModelResponseIterator
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
 
 
 _REGISTRY_PARAMS_KEPT_OUT_OF_OPTIONAL_PARAMS: Final = (
-    frozenset({"api_key", "api_base", "headers", "model"}) | AZURE_ENTRA_LITELLM_PARAM_KEYS
+    frozenset({"api_key", "api_base", "headers", "model"}) | AZURE_ENTRA_EMBROUTER_PARAM_KEYS
 )
 
 
@@ -37,22 +37,22 @@ def _card_declares_no_streaming(agent_card_params: Mapping[str, object]) -> bool
     return isinstance(capabilities, Mapping) and not capabilities.get("streaming")
 
 
-def _agent_authenticates_with_entra(agent_litellm_params: Mapping[str, object]) -> bool:
-    return a2a_hop_uses_entra(agent_litellm_params, agent_litellm_params.get("custom_llm_provider"))
+def _agent_authenticates_with_entra(agent_embrouter_params: Mapping[str, object]) -> bool:
+    return a2a_hop_uses_entra(agent_embrouter_params, agent_embrouter_params.get("custom_llm_provider"))
 
 
-def _registry_api_key(agent_litellm_params: Mapping[str, object]) -> str | None:
-    if _agent_authenticates_with_entra(agent_litellm_params):
-        return get_azure_ai_agent_entra_token(agent_litellm_params)
-    configured_api_key: Final = agent_litellm_params.get("api_key")
+def _registry_api_key(agent_embrouter_params: Mapping[str, object]) -> str | None:
+    if _agent_authenticates_with_entra(agent_embrouter_params):
+        return get_azure_ai_agent_entra_token(agent_embrouter_params)
+    configured_api_key: Final = agent_embrouter_params.get("api_key")
     return configured_api_key if isinstance(configured_api_key, str) else None
 
 
-def _registry_headers(agent_litellm_params: Mapping[str, object]) -> dict[str, object] | None:
-    stored_headers: Final = agent_litellm_params.get("headers")
+def _registry_headers(agent_embrouter_params: Mapping[str, object]) -> dict[str, object] | None:
+    stored_headers: Final = agent_embrouter_params.get("headers")
     if not isinstance(stored_headers, Mapping):
         return None
-    entra_owns_authorization: Final = _agent_authenticates_with_entra(agent_litellm_params)
+    entra_owns_authorization: Final = _agent_authenticates_with_entra(agent_embrouter_params)
     return {  # mutable-ok: completion() and httpx take the request headers as a dict
         name: value
         for name, value in stored_headers.items()
@@ -85,7 +85,7 @@ class A2AConfig(BaseConfig):
             api_base: Explicit api_base (takes precedence over registry)
             api_key: Explicit api_key (takes precedence over registry)
             headers: Explicit headers (takes precedence over registry)
-            optional_params: Dict to merge additional litellm_params into
+            optional_params: Dict to merge additional embrouter_params into
 
         Returns:
             Tuple of (api_base, api_key, headers) with registry values filled in
@@ -95,7 +95,7 @@ class A2AConfig(BaseConfig):
 
         # Try registry lookup (only available in proxy context)
         try:
-            from litellm.proxy.agent_endpoints.agent_registry import (
+            from embrouter.proxy.agent_endpoints.agent_registry import (
                 global_agent_registry,
             )
 
@@ -105,18 +105,18 @@ class A2AConfig(BaseConfig):
                 if api_base is None and agent.agent_card_params:
                     api_base = agent.agent_card_params.get("url")
 
-                # Get api_key, headers, and other params from litellm_params
-                if agent.litellm_params:
+                # Get api_key, headers, and other params from embrouter_params
+                if agent.embrouter_params:
                     if api_key is None:
-                        api_key = _registry_api_key(agent.litellm_params)
+                        api_key = _registry_api_key(agent.embrouter_params)
 
                     if not headers:
-                        headers = _registry_headers(agent.litellm_params) or headers
+                        headers = _registry_headers(agent.embrouter_params) or headers
 
-                # Merge other litellm_params (timeout, max_retries, etc.)
+                # Merge other embrouter_params (timeout, max_retries, etc.)
                 registry_params: Final = tuple(
                     (key, value)
-                    for key, value in (agent.litellm_params.items() if agent.litellm_params else ())
+                    for key, value in (agent.embrouter_params.items() if agent.embrouter_params else ())
                     if key not in _REGISTRY_PARAMS_KEPT_OUT_OF_OPTIONAL_PARAMS and key not in optional_params
                 )
                 streaming_fallback: Final = (
@@ -165,7 +165,7 @@ class A2AConfig(BaseConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
@@ -177,7 +177,7 @@ class A2AConfig(BaseConfig):
             model: Model name
             messages: Messages list
             optional_params: Optional parameters
-            litellm_params: LiteLLM parameters
+            embrouter_params: EmbRouter parameters
             api_key: API key (optional for A2A)
             api_base: API base URL
 
@@ -196,7 +196,7 @@ class A2AConfig(BaseConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         """
@@ -211,7 +211,7 @@ class A2AConfig(BaseConfig):
             api_key: API key (not used for URL construction)
             model: Model name (not used for A2A, agent determined by api_base)
             optional_params: Optional parameters
-            litellm_params: LiteLLM parameters
+            embrouter_params: EmbRouter parameters
             stream: Whether this is a streaming request (affects JSON-RPC method)
 
         Returns:
@@ -229,7 +229,7 @@ class A2AConfig(BaseConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         """
@@ -239,7 +239,7 @@ class A2AConfig(BaseConfig):
             model: Model name
             messages: List of OpenAI messages
             optional_params: Optional parameters
-            litellm_params: LiteLLM parameters
+            embrouter_params: EmbRouter parameters
             headers: Request headers
 
         Returns:
@@ -286,11 +286,11 @@ class A2AConfig(BaseConfig):
         model: str,
         raw_response: httpx.Response,
         model_response: ModelResponse,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
         request_data: dict,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,
@@ -306,7 +306,7 @@ class A2AConfig(BaseConfig):
             request_data: Original request data
             messages: Original messages
             optional_params: Optional parameters
-            litellm_params: LiteLLM parameters
+            embrouter_params: EmbRouter parameters
             encoding: Encoding object
             api_key: API key
             json_mode: JSON mode flag
@@ -356,7 +356,7 @@ class A2AConfig(BaseConfig):
         # A2A agents don't return token usage; estimate it so per-token pricing
         # produces real cost and callers don't receive usage of 0/0/0.
         try:
-            from litellm.utils import token_counter
+            from embrouter.utils import token_counter
 
             prompt_tokens: Final = token_counter(model="gpt-3.5-turbo", messages=messages)
             completion_tokens: Final = token_counter(model="gpt-3.5-turbo", text=text, count_response_tokens=True)

@@ -10,21 +10,21 @@ from typing import Final, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy._types import *
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
-from litellm.proxy.openai_files_endpoints.common_utils import (
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy._types import *
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+from embrouter.proxy.openai_files_endpoints.common_utils import (
     _is_base64_encoded_unified_file_id,
     validate_managed_id_requirement,
 )
-from litellm.proxy.utils import handle_exception_on_proxy
-from litellm.types.utils import LiteLLMFineTuningJob
+from embrouter.proxy.utils import handle_exception_on_proxy
+from embrouter.types.utils import EmbRouterFineTuningJob
 
 router: Final = APIRouter()
 
-from litellm.types.llms.openai import LiteLLMFineTuningJobCreate
+from embrouter.types.llms.openai import EmbRouterFineTuningJobCreate
 
 fine_tuning_config = None
 
@@ -41,7 +41,7 @@ def set_fine_tuning_config(config):
         if isinstance(element, dict):
             for key, value in element.items():
                 if isinstance(value, str) and value.startswith("os.environ/"):
-                    element[key] = litellm.get_secret(value)
+                    element[key] = embrouter.get_secret(value)
 
     fine_tuning_config = config
 
@@ -74,7 +74,7 @@ def get_fine_tuning_provider_config(
 async def create_fine_tuning_job(
     request: Request,
     fastapi_response: Response,
-    fine_tuning_request: LiteLLMFineTuningJobCreate,
+    fine_tuning_request: EmbRouterFineTuningJobCreate,
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
 ):
     """
@@ -97,7 +97,7 @@ async def create_fine_tuning_job(
       }'
     ```
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         premium_user,
@@ -113,7 +113,7 @@ async def create_fine_tuning_job(
         # Convert Pydantic model to dict
 
         verbose_proxy_logger.debug(
-            "Request received by LiteLLM:\n%s",
+            "Request received by EmbRouter:\n%s",
             json.dumps(data, indent=4),
         )
 
@@ -121,7 +121,7 @@ async def create_fine_tuning_job(
         base_llm_response_processor: Final = ProxyBaseLLMRequestProcessing(data=data)
         (
             data,
-            litellm_logging_obj,
+            embrouter_logging_obj,
         ) = await base_llm_response_processor.common_processing_pre_call_logic(
             request=request,
             general_settings=general_settings,
@@ -147,7 +147,7 @@ async def create_fine_tuning_job(
             user_api_key_dict=user_api_key_dict,
             managed_files_obj=proxy_logging_obj.get_proxy_hook("managed_files"),
         )
-        response: LiteLLMFineTuningJob | None = None
+        response: EmbRouterFineTuningJob | None = None
         if training_file:
             unified_file_id = _is_base64_encoded_unified_file_id(training_file)
         ## IF SO, Route based on that
@@ -159,7 +159,7 @@ async def create_fine_tuning_job(
                     detail={"error": "LLM Router not initialized. Ensure models added to proxy."},
                 )
 
-            response = cast(LiteLLMFineTuningJob, await llm_router.acreate_fine_tuning_job(**data))
+            response = cast(EmbRouterFineTuningJob, await llm_router.acreate_fine_tuning_job(**data))
             response.training_file = unified_file_id
             response._hidden_params["unified_file_id"] = unified_file_id
         ## ELSE, Route based on custom_llm_provider
@@ -172,10 +172,10 @@ async def create_fine_tuning_job(
             if llm_provider_config is not None:
                 data.update(llm_provider_config)
 
-            response = await litellm.acreate_fine_tuning_job(**data)
+            response = await embrouter.acreate_fine_tuning_job(**data)
 
         if response is None:
-            raise ValueError("Invalid request, No litellm managed file id or custom_llm_provider provided.")
+            raise ValueError("Invalid request, No embrouter managed file id or custom_llm_provider provided.")
 
         ### CALL HOOKS ### - modify outgoing data
         _response: Final = await proxy_logging_obj.post_call_success_hook(
@@ -183,12 +183,12 @@ async def create_fine_tuning_job(
             user_api_key_dict=user_api_key_dict,
             response=response,
         )
-        if _response is not None and isinstance(_response, LiteLLMFineTuningJob):
+        if _response is not None and isinstance(_response, EmbRouterFineTuningJob):
             response = _response
 
         ### ALERTING ###
         asyncio.create_task(
-            proxy_logging_obj.update_request_status(litellm_call_id=data.get("litellm_call_id", ""), status="success")
+            proxy_logging_obj.update_request_status(embrouter_call_id=data.get("embrouter_call_id", ""), status="success")
         )
 
         ### RESPONSE HEADERS ###
@@ -214,7 +214,7 @@ async def create_fine_tuning_job(
             user_api_key_dict=user_api_key_dict, original_exception=e, request_data=data
         )
         verbose_proxy_logger.exception(
-            "litellm.proxy.proxy_server.create_fine_tuning_job(): Exception occurred - %s", e
+            "embrouter.proxy.proxy_server.create_fine_tuning_job(): Exception occurred - %s", e
         )
         raise handle_exception_on_proxy(e)
 
@@ -243,10 +243,10 @@ async def retrieve_fine_tuning_job(
     This is the equivalent of GET https://api.openai.com/v1/fine_tuning/jobs/{fine_tuning_job_id}
 
     Supported Query Params:
-    - `custom_llm_provider`: Name of the LiteLLM provider
+    - `custom_llm_provider`: Name of the EmbRouter provider
     - `fine_tuning_job_id`: The ID of the fine-tuning job to retrieve.
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         premium_user,
@@ -269,7 +269,7 @@ async def retrieve_fine_tuning_job(
         base_llm_response_processor: Final = ProxyBaseLLMRequestProcessing(data=data)
         (
             data,
-            litellm_logging_obj,
+            embrouter_logging_obj,
         ) = await base_llm_response_processor.common_processing_pre_call_logic(
             request=request,
             general_settings=general_settings,
@@ -289,7 +289,7 @@ async def retrieve_fine_tuning_job(
 
         ## CHECK IF MANAGED FILE ID
         unified_finetuning_job_id: str | Literal[False] = False
-        response: LiteLLMFineTuningJob | None = None
+        response: EmbRouterFineTuningJob | None = None
         if fine_tuning_job_id:
             unified_finetuning_job_id = _is_base64_encoded_unified_file_id(fine_tuning_job_id)
         if unified_finetuning_job_id:
@@ -299,7 +299,7 @@ async def retrieve_fine_tuning_job(
                     detail={"error": "LLM Router not initialized. Ensure models added to proxy."},
                 )
             response = cast(
-                LiteLLMFineTuningJob,
+                EmbRouterFineTuningJob,
                 await llm_router.aretrieve_fine_tuning_job(
                     **data,
                 ),
@@ -312,14 +312,14 @@ async def retrieve_fine_tuning_job(
             if llm_provider_config is not None:
                 data.update(llm_provider_config)
 
-            response = await litellm.aretrieve_fine_tuning_job(
+            response = await embrouter.aretrieve_fine_tuning_job(
                 **data,
             )
 
         if response is None:
             raise HTTPException(
                 status_code=400,
-                detail="Invalid request, No litellm managed file id or custom_llm_provider provided.",
+                detail="Invalid request, No embrouter managed file id or custom_llm_provider provided.",
             )
 
         ### CALL HOOKS ### - modify outgoing data
@@ -328,12 +328,12 @@ async def retrieve_fine_tuning_job(
             user_api_key_dict=user_api_key_dict,
             response=response,
         )
-        if _response is not None and isinstance(_response, LiteLLMFineTuningJob):
+        if _response is not None and isinstance(_response, EmbRouterFineTuningJob):
             response = _response
 
         ### ALERTING ###
         asyncio.create_task(
-            proxy_logging_obj.update_request_status(litellm_call_id=data.get("litellm_call_id", ""), status="success")
+            proxy_logging_obj.update_request_status(embrouter_call_id=data.get("embrouter_call_id", ""), status="success")
         )
 
         ### RESPONSE HEADERS ###
@@ -360,7 +360,7 @@ async def retrieve_fine_tuning_job(
             user_api_key_dict=user_api_key_dict, original_exception=e, request_data=data
         )
         verbose_proxy_logger.exception(
-            "litellm.proxy.proxy_server.retrieve_fine_tuning_job(): Exception occurred - %s", e
+            "embrouter.proxy.proxy_server.retrieve_fine_tuning_job(): Exception occurred - %s", e
         )
         raise handle_exception_on_proxy(e)
 
@@ -394,11 +394,11 @@ async def list_fine_tuning_jobs(
     This is the equivalent of GET https://api.openai.com/v1/fine_tuning/jobs
 
     Supported Query Params:
-    - `custom_llm_provider`: Name of the LiteLLM provider
+    - `custom_llm_provider`: Name of the EmbRouter provider
     - `after`: Identifier for the last job from the previous pagination request.
     - `limit`: Number of fine-tuning jobs to retrieve (default is 20).
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         premium_user,
@@ -415,7 +415,7 @@ async def list_fine_tuning_jobs(
         base_llm_response_processor: Final = ProxyBaseLLMRequestProcessing(data=data)
         (
             data,
-            litellm_logging_obj,
+            embrouter_logging_obj,
         ) = await base_llm_response_processor.common_processing_pre_call_logic(
             request=request,
             general_settings=general_settings,
@@ -454,7 +454,7 @@ async def list_fine_tuning_jobs(
             if llm_provider_config is not None:
                 data.update(llm_provider_config)
 
-            response = await litellm.alist_fine_tuning_jobs(
+            response = await embrouter.alist_fine_tuning_jobs(
                 **data,
                 after=after,
                 limit=limit,
@@ -462,7 +462,7 @@ async def list_fine_tuning_jobs(
         if response is None:
             raise HTTPException(
                 status_code=400,
-                detail="Invalid request, No litellm managed file id or custom_llm_provider provided.",
+                detail="Invalid request, No embrouter managed file id or custom_llm_provider provided.",
             )
 
         ### RESPONSE HEADERS ###
@@ -488,7 +488,7 @@ async def list_fine_tuning_jobs(
         await proxy_logging_obj.post_call_failure_hook(
             user_api_key_dict=user_api_key_dict, original_exception=e, request_data=data
         )
-        verbose_proxy_logger.exception("litellm.proxy.proxy_server.list_fine_tuning_jobs(): Exception occurred - %s", e)
+        verbose_proxy_logger.exception("embrouter.proxy.proxy_server.list_fine_tuning_jobs(): Exception occurred - %s", e)
         raise handle_exception_on_proxy(e)
 
 
@@ -516,10 +516,10 @@ async def cancel_fine_tuning_job(
     This is the equivalent of POST https://api.openai.com/v1/fine_tuning/jobs/{fine_tuning_job_id}/cancel
 
     Supported Query Params:
-    - `custom_llm_provider`: Name of the LiteLLM provider
+    - `custom_llm_provider`: Name of the EmbRouter provider
     - `fine_tuning_job_id`: The ID of the fine-tuning job to cancel.
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         premium_user,
@@ -542,7 +542,7 @@ async def cancel_fine_tuning_job(
         base_llm_response_processor: Final = ProxyBaseLLMRequestProcessing(data=data)
         (
             data,
-            litellm_logging_obj,
+            embrouter_logging_obj,
         ) = await base_llm_response_processor.common_processing_pre_call_logic(
             request=request,
             general_settings=general_settings,
@@ -562,7 +562,7 @@ async def cancel_fine_tuning_job(
 
         ## CHECK IF MANAGED FILE ID
         unified_finetuning_job_id: str | Literal[False] = False
-        response: LiteLLMFineTuningJob | None = None
+        response: EmbRouterFineTuningJob | None = None
         if fine_tuning_job_id:
             unified_finetuning_job_id = _is_base64_encoded_unified_file_id(fine_tuning_job_id)
         if unified_finetuning_job_id:
@@ -572,7 +572,7 @@ async def cancel_fine_tuning_job(
                     detail={"error": "LLM Router not initialized. Ensure models added to proxy."},
                 )
             response = cast(
-                LiteLLMFineTuningJob,
+                EmbRouterFineTuningJob,
                 await llm_router.acancel_fine_tuning_job(
                     **data,
                 ),
@@ -585,14 +585,14 @@ async def cancel_fine_tuning_job(
             if llm_provider_config is not None:
                 data.update(llm_provider_config)
 
-            response = await litellm.acancel_fine_tuning_job(
+            response = await embrouter.acancel_fine_tuning_job(
                 **data,
             )
 
         if response is None:
             raise HTTPException(
                 status_code=400,
-                detail="Invalid request, No litellm managed file id or custom_llm_provider provided.",
+                detail="Invalid request, No embrouter managed file id or custom_llm_provider provided.",
             )
 
         ### CALL HOOKS ### - modify outgoing data
@@ -601,12 +601,12 @@ async def cancel_fine_tuning_job(
             user_api_key_dict=user_api_key_dict,
             response=response,
         )
-        if _response is not None and isinstance(_response, LiteLLMFineTuningJob):
+        if _response is not None and isinstance(_response, EmbRouterFineTuningJob):
             response = _response
 
         ### ALERTING ###
         asyncio.create_task(
-            proxy_logging_obj.update_request_status(litellm_call_id=data.get("litellm_call_id", ""), status="success")
+            proxy_logging_obj.update_request_status(embrouter_call_id=data.get("embrouter_call_id", ""), status="success")
         )
 
         ### RESPONSE HEADERS ###
@@ -633,6 +633,6 @@ async def cancel_fine_tuning_job(
             user_api_key_dict=user_api_key_dict, original_exception=e, request_data=data
         )
         verbose_proxy_logger.exception(
-            "litellm.proxy.proxy_server.cancel_fine_tuning_job(): Exception occurred - %s", e
+            "embrouter.proxy.proxy_server.cancel_fine_tuning_job(): Exception occurred - %s", e
         )
         raise handle_exception_on_proxy(e)

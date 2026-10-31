@@ -14,28 +14,28 @@ from __future__ import annotations
 
 from typing import Final
 
-from litellm.proxy._experimental.mcp_server.outbound_credentials.oauth_token_store import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.oauth_token_store import (
     RefreshCoordinator,
 )
-from litellm.proxy._experimental.mcp_server.outbound_credentials.redis_distributed_lock import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.redis_distributed_lock import (
     RedisDistributedLock,
 )
-from litellm.proxy._experimental.mcp_server.outbound_credentials.redis_refresh_coordinator import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.redis_refresh_coordinator import (
     RedisRefreshCoordinator,
 )
 
 
 def runtime_refresh_coordinator() -> RefreshCoordinator | None:
-    from litellm.proxy.proxy_server import user_api_key_cache  # noqa: PLC0415  # runtime global
+    from embrouter.proxy.proxy_server import user_api_key_cache  # noqa: PLC0415  # runtime global
 
     redis_cache: Final = user_api_key_cache.redis_cache
     if redis_cache is None:
         return None
     # The Redis client from init_async_client() is only partially typed; the lock validates every
     # reply it depends on, so the untyped boundary is contained here.
-    redis_client: Final = redis_cache.init_async_client()  # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType]  # litellm redis wrapper is untyped
+    redis_client: Final = redis_cache.init_async_client()  # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType]  # embrouter redis wrapper is untyped
     lock: Final = RedisDistributedLock(
-        redis_client,  # pyright: ignore[reportArgumentType,reportUnknownArgumentType]  # litellm redis wrapper is untyped
+        redis_client,  # pyright: ignore[reportArgumentType,reportUnknownArgumentType]  # embrouter redis wrapper is untyped
         namespace_key=redis_cache.check_and_fix_namespace,
     )
     return RedisRefreshCoordinator(lock)

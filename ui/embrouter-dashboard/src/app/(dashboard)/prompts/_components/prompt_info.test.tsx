@@ -21,7 +21,7 @@ const promptWithoutTemplate = {
   prompt_spec: {
     prompt_id: "support-reply",
     version: 1,
-    litellm_params: { prompt_id: "support-reply" },
+    embrouter_params: { prompt_id: "support-reply" },
     prompt_info: { prompt_type: "dotprompt" },
     created_by: "admin",
     created_at: "2024-01-01T00:00:00Z",

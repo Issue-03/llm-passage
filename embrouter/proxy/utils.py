@@ -48,10 +48,10 @@ from typing import (
 
 from typing_extensions import ReadOnly, TypedDict
 
-from litellm import _custom_logger_compatible_callbacks_literal
-from litellm.constants import (
+from embrouter import _custom_logger_compatible_callbacks_literal
+from embrouter.constants import (
     DEFAULT_MODEL_CREATED_AT_TIME,
-    LITELLM_LOGGING_NO_UPSTREAM_LLM_CALL,
+    EMBROUTER_LOGGING_NO_UPSTREAM_LLM_CALL,
     MAX_TEAM_LIST_LIMIT,
     PROXY_REJECTED_BEFORE_ROUTING_KEY,
     REDIS_SPEND_LOGS_BUFFER_DEQUEUE_COUNT,
@@ -59,40 +59,40 @@ from litellm.constants import (
     SPEND_LOG_WRITE_BATCH_MAX_BYTES,
     SPEND_LOG_WRITE_BATCH_MAX_ROWS,
 )
-from litellm.litellm_core_utils.bug_report import (
+from embrouter.embrouter_core_utils.bug_report import (
     bug_report_notice,
     should_report_bug,
     strip_bug_report_notice,
 )
-from litellm.proxy._types import (
+from embrouter.proxy._types import (
     CommonProxyErrors,
     ProxyErrorTypes,
     ProxyException,
     SpendLogsMetadata,
     SpendLogsPayload,
 )
-from litellm.proxy.bug_report_config import build_proxy_bug_report
-from litellm.proxy.common_utils.openai_error_payload import (
-    litellm_call_id_headers,
+from embrouter.proxy.bug_report_config import build_proxy_bug_report
+from embrouter.proxy.common_utils.openai_error_payload import (
+    embrouter_call_id_headers,
     openai_error_param,
-    with_litellm_call_id,
+    with_embrouter_call_id,
 )
-from litellm.proxy.spend_tracking.spend_log_error_logger import spend_log_error
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.proxy.model_listing import ModelInfoResponse
-from litellm.types.utils import MCP_GUARDRAIL_CALL_TYPES, CallTypes, CallTypesLiteral, ModelInfo, Usage
+from embrouter.proxy.spend_tracking.spend_log_error_logger import spend_log_error
+from embrouter.types.guardrails import GuardrailEventHooks
+from embrouter.types.proxy.model_listing import ModelInfoResponse
+from embrouter.types.utils import MCP_GUARDRAIL_CALL_TYPES, CallTypes, CallTypesLiteral, ModelInfo, Usage
 
 try:
-    from litellm_enterprise.enterprise_callbacks.send_emails.base_email import (
+    from embrouter_enterprise.enterprise_callbacks.send_emails.base_email import (
         BaseEmailLogger,
     )
-    from litellm_enterprise.enterprise_callbacks.send_emails.resend_email import (
+    from embrouter_enterprise.enterprise_callbacks.send_emails.resend_email import (
         ResendEmailLogger,
     )
-    from litellm_enterprise.enterprise_callbacks.send_emails.sendgrid_email import (
+    from embrouter_enterprise.enterprise_callbacks.send_emails.sendgrid_email import (
         SendGridEmailLogger,
     )
-    from litellm_enterprise.enterprise_callbacks.send_emails.smtp_email import (
+    from embrouter_enterprise.enterprise_callbacks.send_emails.smtp_email import (
         SMTPEmailLogger,
     )
 except ImportError:
@@ -109,145 +109,145 @@ except ImportError:
 from fastapi import HTTPException, status
 from pydantic import TypeAdapter, ValidationError
 
-import litellm
-import litellm.litellm_core_utils
-import litellm.litellm_core_utils.litellm_logging
-from litellm import (
+import embrouter
+import embrouter.embrouter_core_utils
+import embrouter.embrouter_core_utils.embrouter_logging
+from embrouter import (
     EmbeddingResponse,
     ImageResponse,
     ModelResponse,
     ModelResponseStream,
     Router,
 )
-from litellm._logging import _redact_string, verbose_proxy_logger
-from litellm._service_logger import ServiceLogging, ServiceTypes
-from litellm.caching.caching import DualCache, RedisCache
-from litellm.caching.dual_cache import LimitedSizeOrderedDict
-from litellm.exceptions import (
+from embrouter._logging import _redact_string, verbose_proxy_logger
+from embrouter._service_logger import ServiceLogging, ServiceTypes
+from embrouter.caching.caching import DualCache, RedisCache
+from embrouter.caching.dual_cache import LimitedSizeOrderedDict
+from embrouter.exceptions import (
     GuardrailRaisedException,
     RejectedRequestError,
     SensitiveDataRouteException,
 )
-from litellm.integrations.custom_guardrail import (
+from embrouter.integrations.custom_guardrail import (
     CustomGuardrail,
     ModifyResponseException,
 )
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.integrations.prometheus import PrometheusLogger
-from litellm.integrations.SlackAlerting.slack_alerting import SlackAlerting
-from litellm.integrations.SlackAlerting.utils import _add_langfuse_trace_id_to_alert
-from litellm.litellm_core_utils.api_route_to_call_types import get_call_types_for_route
-from litellm.litellm_core_utils.core_helpers import (
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.integrations.prometheus import PrometheusLogger
+from embrouter.integrations.SlackAlerting.slack_alerting import SlackAlerting
+from embrouter.integrations.SlackAlerting.utils import _add_langfuse_trace_id_to_alert
+from embrouter.embrouter_core_utils.api_route_to_call_types import get_call_types_for_route
+from embrouter.embrouter_core_utils.core_helpers import (
     coerce_token_limit,
     get_or_create_metadata_bucket,
     independent_snapshot,
     is_expected_client_error,
 )
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
-from litellm.litellm_core_utils.safe_json_loads import safe_json_loads
-from litellm.litellm_core_utils.served_output_texts import (
+from embrouter.embrouter_core_utils.embrouter_logging import Logging
+from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps
+from embrouter.embrouter_core_utils.safe_json_loads import safe_json_loads
+from embrouter.embrouter_core_utils.served_output_texts import (
     record_served_output_texts,
     served_stream_output_texts,
 )
-from litellm.litellm_core_utils.token_counter import offload_token_count
-from litellm.llms import load_guardrail_translation_mappings
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.proxy._types import (
+from embrouter.embrouter_core_utils.token_counter import offload_token_count
+from embrouter.llms import load_guardrail_translation_mappings
+from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from embrouter.proxy._types import (
     AlertType,
     CallInfo,
-    LiteLLM_VerificationTokenView,
+    EmbRouter_VerificationTokenView,
     Member,
     UserAPIKeyAuth,
 )
-from litellm.proxy.agent_endpoints.auth.agent_access_groups import CeilingResolver, resolve_agent_access_group_ceiling
-from litellm.proxy.auth.route_checks import RouteChecks
-from litellm.proxy.common_utils.callback_utils import add_guardrail_to_applied_guardrails_header
-from litellm.proxy.common_utils.config_sync_pubsub import publish_config_param_change
-from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-from litellm.proxy.db.create_views import (
+from embrouter.proxy.agent_endpoints.auth.agent_access_groups import CeilingResolver, resolve_agent_access_group_ceiling
+from embrouter.proxy.auth.route_checks import RouteChecks
+from embrouter.proxy.common_utils.callback_utils import add_guardrail_to_applied_guardrails_header
+from embrouter.proxy.common_utils.config_sync_pubsub import publish_config_param_change
+from embrouter.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+from embrouter.proxy.db.create_views import (
     create_missing_views,
     create_view_tolerating_race,
     should_create_missing_views,
 )
-from litellm.proxy.db.db_spend_update_writer import DBSpendUpdateWriter
-from litellm.proxy.db.db_url_settings import (
+from embrouter.proxy.db.db_spend_update_writer import DBSpendUpdateWriter
+from embrouter.proxy.db.db_url_settings import (
     DatabaseURLSettings,
     add_missing_query_params,
     token_refresh_params_from_url,
 )
-from litellm.proxy.db.exception_handler import (
+from embrouter.proxy.db.exception_handler import (
     PrismaDBExceptionHandler,
     call_with_db_reconnect_retry,
 )
-from litellm.proxy.db.health_check_latest import (
+from embrouter.proxy.db.health_check_latest import (
     LatestHealthCheckRow,
     fetch_latest_health_checks,
     fetch_latest_health_checks_for_models,
 )
-from litellm.proxy.db.log_db_metrics import log_db_metrics
-from litellm.proxy.db.pgbouncer import database_url_is_pooled
-from litellm.proxy.db.prisma_client import (
+from embrouter.proxy.db.log_db_metrics import log_db_metrics
+from embrouter.proxy.db.pgbouncer import database_url_is_pooled
+from embrouter.proxy.db.prisma_client import (
     PrismaWrapper,
     parse_iam_endpoint_from_url,
 )
-from litellm.proxy.db.routing_prisma_wrapper import RoutingPrismaWrapper
-from litellm.proxy.db.spend_log_batching import (
+from embrouter.proxy.db.routing_prisma_wrapper import RoutingPrismaWrapper
+from embrouter.proxy.db.spend_log_batching import (
     spend_log_queue_within_budget,
     spend_log_row_bytes,
     spend_log_write_batches,
 )
-from litellm.proxy.db.token_auth import (
+from embrouter.proxy.db.token_auth import (
     DatabaseTokenAuth,
     mint_database_token,
     resolve_database_token_auth,
 )
-from litellm.proxy.guardrails.exception_utils import enrich_http_exception_with_guardrail_context
-from litellm.proxy.guardrails.guardrail_hooks.unified_guardrail.unified_guardrail import (
+from embrouter.proxy.guardrails.exception_utils import enrich_http_exception_with_guardrail_context
+from embrouter.proxy.guardrails.guardrail_hooks.unified_guardrail.unified_guardrail import (
     UnifiedLLMGuardrails,
     resolve_endpoint_translation,
 )
-from litellm.proxy.hooks import PROXY_HOOKS, get_proxy_hook
-from litellm.proxy.hooks.cache_control_check import _PROXY_CacheControlCheck
-from litellm.proxy.hooks.parallel_request_limiter import (
+from embrouter.proxy.hooks import PROXY_HOOKS, get_proxy_hook
+from embrouter.proxy.hooks.cache_control_check import _PROXY_CacheControlCheck
+from embrouter.proxy.hooks.parallel_request_limiter import (
     _PROXY_MaxParallelRequestsHandler,
 )
-from litellm.proxy.hooks.parallel_request_limiter_v3 import (
+from embrouter.proxy.hooks.parallel_request_limiter_v3 import (
     _PROXY_MaxParallelRequestsHandler_v3,
 )
-from litellm.proxy.hooks.sensitive_data_routing import (
+from embrouter.proxy.hooks.sensitive_data_routing import (
     _PROXY_SensitiveDataRoutingHandler,
 )
-from litellm.proxy.litellm_pre_call_utils import LiteLLMProxyRequestSetup, add_guardrails_from_auth_metadata
-from litellm.proxy.management_helpers.key_settings_audit import with_settings_updated_at
-from litellm.proxy.policy_engine.pipeline_executor import PipelineExecutor
-from litellm.proxy.policy_engine.policy_registry import get_policy_registry
-from litellm.proxy.policy_engine.policy_resolver import PolicyResolver
-from litellm.repositories.budget_repository import BudgetRepository
-from litellm.repositories.config_repository import ConfigRepository
-from litellm.repositories.table_repositories import (
+from embrouter.proxy.embrouter_pre_call_utils import EmbRouterProxyRequestSetup, add_guardrails_from_auth_metadata
+from embrouter.proxy.management_helpers.key_settings_audit import with_settings_updated_at
+from embrouter.proxy.policy_engine.pipeline_executor import PipelineExecutor
+from embrouter.proxy.policy_engine.policy_registry import get_policy_registry
+from embrouter.proxy.policy_engine.policy_resolver import PolicyResolver
+from embrouter.repositories.budget_repository import BudgetRepository
+from embrouter.repositories.config_repository import ConfigRepository
+from embrouter.repositories.table_repositories import (
     EndUserRepository,
     HealthCheckRepository,
     SpendLogsRepository,
     UserNotificationsRepository,
 )
-from litellm.repositories.team_repository import TeamRepository
-from litellm.repositories.user_repository import UserRepository
-from litellm.repositories.verification_token_repository import (
+from embrouter.repositories.team_repository import TeamRepository
+from embrouter.repositories.user_repository import UserRepository
+from embrouter.repositories.verification_token_repository import (
     VerificationTokenRepository,
 )
-from litellm.router_utils.common_utils import resolve_model_group_alias
-from litellm.secret_managers.main import str_to_bool
-from litellm.types.integrations.slack_alerting import DEFAULT_ALERT_TYPES
-from litellm.types.llms.openai import ResponsesAPIResponse
-from litellm.types.mcp import (
+from embrouter.router_utils.common_utils import resolve_model_group_alias
+from embrouter.secret_managers.main import str_to_bool
+from embrouter.types.integrations.slack_alerting import DEFAULT_ALERT_TYPES
+from embrouter.types.llms.openai import ResponsesAPIResponse
+from embrouter.types.mcp import (
     MCPDuringCallResponseObject,
     MCPPreCallRequestObject,
     MCPPreCallResponseObject,
 )
-from litellm.types.proxy.policy_engine.pipeline_types import PipelineExecutionResult
-from litellm.types.utils import LLMResponseTypes, LoggedLiteLLMParams
-from litellm.utils import (
+from embrouter.types.proxy.policy_engine.pipeline_types import PipelineExecutionResult
+from embrouter.types.utils import LLMResponseTypes, LoggedEmbRouterParams
+from embrouter.utils import (
     _add_custom_logger_callback_to_specific_event,  # pyright: ignore[reportPrivateUsage]  # only string-to-logger helper
 )
 
@@ -255,19 +255,19 @@ if TYPE_CHECKING:
     from mcp.types import CallToolResult
     from opentelemetry.trace import Span as _Span
     from prisma import models as prisma_models
-    from prisma.actions import LiteLLM_DeprecatedVerificationTokenActions
+    from prisma.actions import EmbRouter_DeprecatedVerificationTokenActions
     from prisma.client import TransactionManager
-    from prisma.models import LiteLLM_DeprecatedVerificationToken
-    from prisma.types import HttpConfig, LiteLLM_VerificationTokenInclude
+    from prisma.models import EmbRouter_DeprecatedVerificationToken
+    from prisma.types import HttpConfig, EmbRouter_VerificationTokenInclude
 
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.llms.base_llm.guardrail_translation.base_translation import BaseTranslation
-    from litellm.models.team import LiteLLM_TeamTableCachedObj
-    from litellm.proxy.db.autorouter_session_rollup import AutoRouterTurnTransaction
-    from litellm.proxy.db.baseline_accounting import BaselineAccountingRecord
-    from litellm.proxy.db.spend_log_tool_index import ToolUsageTransaction
-    from litellm.repositories.prisma_protocols import TableActions
-    from litellm.types.proxy.policy_engine.pipeline_types import GuardrailPipeline
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.llms.base_llm.guardrail_translation.base_translation import BaseTranslation
+    from embrouter.models.team import EmbRouter_TeamTableCachedObj
+    from embrouter.proxy.db.autorouter_session_rollup import AutoRouterTurnTransaction
+    from embrouter.proxy.db.baseline_accounting import BaselineAccountingRecord
+    from embrouter.proxy.db.spend_log_tool_index import ToolUsageTransaction
+    from embrouter.repositories.prisma_protocols import TableActions
+    from embrouter.types.proxy.policy_engine.pipeline_types import GuardrailPipeline
 
     Span = _Span | object
 else:
@@ -287,7 +287,7 @@ class _RelTuplesRow(TypedDict):
 
 _VIEW_SETUP_POLL_INTERVAL_SECONDS: Final = 5.0
 _VIEW_SETUP_DEADLINE_SECONDS: Final = 15 * 60.0
-_VIEW_SETUP_GATE_TABLE: Final = '"LiteLLM_SpendLogs"'
+_VIEW_SETUP_GATE_TABLE: Final = '"EmbRouter_SpendLogs"'
 _VIEW_SETUP_GATE_PROBE_ROWS: Final = TypeAdapter(tuple[Mapping[str, bool], ...])
 
 _ViewSetupOutcome: TypeAlias = Literal["ready", "timed_out"]
@@ -300,7 +300,7 @@ class _EndUserBatchTable(Protocol):
 
 class _EndUserSpendBatch(Protocol):
     @property
-    def litellm_endusertable(self) -> _EndUserBatchTable: ...
+    def embrouter_endusertable(self) -> _EndUserBatchTable: ...
 
 
 class _BatchUpdateTable(Protocol):
@@ -309,19 +309,19 @@ class _BatchUpdateTable(Protocol):
 
 class _UpdateManyBatch(Protocol):
     @property
-    def litellm_verificationtoken(self) -> _BatchUpdateTable: ...
+    def embrouter_verificationtoken(self) -> _BatchUpdateTable: ...
 
     @property
-    def litellm_usertable(self) -> _EndUserBatchTable: ...
+    def embrouter_usertable(self) -> _EndUserBatchTable: ...
 
     @property
-    def litellm_endusertable(self) -> _EndUserBatchTable: ...
+    def embrouter_endusertable(self) -> _EndUserBatchTable: ...
 
     @property
-    def litellm_budgettable(self) -> _EndUserBatchTable: ...
+    def embrouter_budgettable(self) -> _EndUserBatchTable: ...
 
     @property
-    def litellm_teamtable(self) -> _EndUserBatchTable: ...
+    def embrouter_teamtable(self) -> _EndUserBatchTable: ...
 
     async def commit(self) -> None: ...
 
@@ -333,7 +333,7 @@ NON_OPENAI_STREAM_GUARDRAIL_TRANSLATION_CALL_TYPES: "frozenset[CallTypes]" = fro
 
 def print_verbose(print_statement: object):
     """
-    Prints the given `print_statement` to the console if `litellm.set_verbose` is True.
+    Prints the given `print_statement` to the console if `embrouter.set_verbose` is True.
     Also logs the `print_statement` at the debug level using `verbose_proxy_logger`.
 
     :param print_statement: The statement to be printed and logged.
@@ -342,8 +342,8 @@ def print_verbose(print_statement: object):
     import traceback
 
     verbose_proxy_logger.debug("%s\n%s", print_statement, traceback.format_exc())
-    if litellm.set_verbose:
-        print(f"LiteLLM Proxy: {_redact_string(str(print_statement))}")  # noqa: T201
+    if embrouter.set_verbose:
+        print(f"EmbRouter Proxy: {_redact_string(str(print_statement))}")  # noqa: T201
 
 
 def _get_email_logger_class():
@@ -380,14 +380,14 @@ class InternalUsageCache:
     async def async_get_cache(
         self,
         key: str,
-        litellm_parent_otel_span: Span | None,
+        embrouter_parent_otel_span: Span | None,
         local_only: bool = False,
         **kwargs: object,
     ) -> Any:
         return await self.dual_cache.async_get_cache(
             key=key,
             local_only=local_only,
-            parent_otel_span=litellm_parent_otel_span,
+            parent_otel_span=embrouter_parent_otel_span,
             **kwargs,
         )
 
@@ -395,7 +395,7 @@ class InternalUsageCache:
         self,
         key: str,
         value: object,
-        litellm_parent_otel_span: Span | None,
+        embrouter_parent_otel_span: Span | None,
         local_only: bool = False,
         **kwargs: object,
     ) -> None:
@@ -403,21 +403,21 @@ class InternalUsageCache:
             key=key,
             value=value,
             local_only=local_only,
-            litellm_parent_otel_span=litellm_parent_otel_span,
+            embrouter_parent_otel_span=embrouter_parent_otel_span,
             **kwargs,
         )
 
     async def async_batch_set_cache(
         self,
         cache_list: list[tuple[str, object]],
-        litellm_parent_otel_span: Span | None,
+        embrouter_parent_otel_span: Span | None,
         local_only: bool = False,
         **kwargs: object,
     ) -> None:
         return await self.dual_cache.async_set_cache_pipeline(
             cache_list=cache_list,
             local_only=local_only,
-            litellm_parent_otel_span=litellm_parent_otel_span,
+            embrouter_parent_otel_span=embrouter_parent_otel_span,
             **kwargs,
         )
 
@@ -437,7 +437,7 @@ class InternalUsageCache:
         self,
         key: str,
         value: float,
-        litellm_parent_otel_span: Span | None,
+        embrouter_parent_otel_span: Span | None,
         local_only: bool = False,
         **kwargs,
     ):
@@ -445,7 +445,7 @@ class InternalUsageCache:
             key=key,
             value=value,
             local_only=local_only,
-            parent_otel_span=litellm_parent_otel_span,
+            parent_otel_span=embrouter_parent_otel_span,
             **kwargs,
         )
 
@@ -482,11 +482,11 @@ class InternalUsageCache:
 _CALLBACK_ACCEPTS_CALL_INFO: Final[dict[int, bool]] = {}
 
 
-def _accepts_litellm_call_info(cb: CustomLogger) -> bool:
+def _accepts_embrouter_call_info(cb: CustomLogger) -> bool:
     key: Final = id(type(cb))
     if key not in _CALLBACK_ACCEPTS_CALL_INFO:
         sig: Final = inspect.signature(cb.async_post_call_response_headers_hook)
-        _CALLBACK_ACCEPTS_CALL_INFO[key] = "litellm_call_info" in sig.parameters
+        _CALLBACK_ACCEPTS_CALL_INFO[key] = "embrouter_call_info" in sig.parameters
     return _CALLBACK_ACCEPTS_CALL_INFO[key]
 
 
@@ -546,17 +546,17 @@ def _policy_state_metadata(data: Mapping[str, object]) -> Mapping[str, object]:
     """
     Return the metadata bucket the policy engine wrote its pipeline state into.
 
-    The route decides the bucket (``litellm_metadata`` for ``/v1/messages``,
+    The route decides the bucket (``embrouter_metadata`` for ``/v1/messages``,
     responses, batches, files and bedrock, ``metadata`` everywhere else), and both
     buckets can be present at once because callers send their own provider-facing
     ``metadata`` (Claude Code sends ``metadata.user_id``) or their own
-    ``litellm_metadata``. Pipeline slots are stripped from caller input before the
+    ``embrouter_metadata``. Pipeline slots are stripped from caller input before the
     policy engine runs, so whichever bucket carries them is the proxy's own write.
     """
     return next(
         (
             bucket
-            for bucket in (data.get("metadata"), data.get("litellm_metadata"))
+            for bucket in (data.get("metadata"), data.get("embrouter_metadata"))
             if isinstance(bucket, dict)
             and ("_guardrail_pipelines" in bucket or "_pipeline_managed_guardrails" in bucket)
         ),
@@ -587,14 +587,14 @@ def pipeline_managed_guardrail_names(
 
 def _partition_post_call_callbacks() -> tuple[tuple[CustomGuardrail, ...], tuple[CustomLogger, ...]]:
     resolved: Final = tuple(
-        litellm.litellm_core_utils.litellm_logging.get_custom_logger_compatible_class(
+        embrouter.embrouter_core_utils.embrouter_logging.get_custom_logger_compatible_class(
             cast(  # cast-ok: the resolver returns None for unknown names, filtered below
                 _custom_logger_compatible_callbacks_literal, callback
             )
         )
         if isinstance(callback, str)
         else callback
-        for callback in litellm.callbacks
+        for callback in embrouter.callbacks
     )
     present: Final = tuple(callback for callback in resolved if callback is not None)
     guardrails: Final = tuple(callback for callback in present if isinstance(callback, CustomGuardrail))
@@ -630,7 +630,7 @@ def _merge_pipeline_metadata_writes(data: dict, modified_data: Mapping[str, obje
     The ``guardrails`` key is the executor's per-step activation flag for
     ``should_run_guardrail``, not a hook write, so it stays in the working copy.
     """
-    for bucket_key in ("metadata", "litellm_metadata"):
+    for bucket_key in ("metadata", "embrouter_metadata"):
         _merge_pipeline_metadata_bucket(data, bucket_key, modified_data.get(bucket_key))
 
 
@@ -670,7 +670,7 @@ def _guardrails_outside_pipeline(policy_name: str, pipeline: "GuardrailPipeline"
 def _guardrails_run_standalone_pre_call(data: Mapping[str, object]) -> frozenset[str]:
     return frozenset(
         callback.guardrail_name
-        for callback in litellm.callbacks
+        for callback in embrouter.callbacks
         if isinstance(callback, CustomGuardrail)
         and callback.guardrail_name is not None
         and callback.should_run_guardrail(data=data, event_type=GuardrailEventHooks.pre_call)
@@ -879,15 +879,15 @@ def _system_prompt_text(system_input: object) -> str:
 
 def _count_request_input_tokens(model: str, request_input: object, system_input: object) -> int:
     system_text: Final = _system_prompt_text(system_input)
-    system_tokens: Final = litellm.token_counter(model=model, text=system_text) if system_text else 0
+    system_tokens: Final = embrouter.token_counter(model=model, text=system_text) if system_text else 0
     if isinstance(request_input, str):
-        return system_tokens + litellm.token_counter(model=model, text=request_input)
+        return system_tokens + embrouter.token_counter(model=model, text=request_input)
     if not isinstance(request_input, list) or not request_input:
         return system_tokens
     text_entries: Final = tuple(entry for entry in request_input if isinstance(entry, str))
     if len(text_entries) == len(request_input):
-        return system_tokens + litellm.token_counter(model=model, text="".join(text_entries))
-    return system_tokens + litellm.token_counter(
+        return system_tokens + embrouter.token_counter(model=model, text="".join(text_entries))
+    return system_tokens + embrouter.token_counter(
         model=model, messages=request_input, use_default_image_token_count=True
     )
 
@@ -953,7 +953,7 @@ def _failure_usage_to_lift(
     recovered_usage: Final = model_call_details.get("combined_usage_object")
     if recovered_usage is not None:
         return recovered_usage, model_call_details.get("response_cost")
-    if not dispatched or model_call_details.get(LITELLM_LOGGING_NO_UPSTREAM_LLM_CALL):
+    if not dispatched or model_call_details.get(EMBROUTER_LOGGING_NO_UPSTREAM_LLM_CALL):
         return None
     if str(model_call_details.get("call_type")) not in _INPUT_ESTIMABLE_CALL_TYPES:
         return None
@@ -977,34 +977,34 @@ def _failure_usage_to_lift(
 _EMPTY_LIFT: Final = MappingProxyType({})
 
 
-def _reached_deployment(litellm_logging_obj: Logging) -> bool:
+def _reached_deployment(embrouter_logging_obj: Logging) -> bool:
     """A provider handoff or a cached response both mean the router selected a deployment."""
-    caching_details: Final = litellm_logging_obj.caching_details
-    return litellm_logging_obj.model_call_details.get("first_api_call_start_time") is not None or (
+    caching_details: Final = embrouter_logging_obj.caching_details
+    return embrouter_logging_obj.model_call_details.get("first_api_call_start_time") is not None or (
         caching_details is not None and caching_details.get("cache_hit") is True
     )
 
 
 def _stamp_deployment_attribution(
-    litellm_params: dict[str, object], model_group: str | None, team_id: str | None, dispatched: bool
+    embrouter_params: dict[str, object], model_group: str | None, team_id: str | None, dispatched: bool
 ) -> Mapping[str, object]:
-    """Stamp provider and logging-metadata attribution onto ``litellm_params`` and return it.
-    ``litellm_params["model_info"]`` stays unset: the router's cooldown and per-deployment rpm
+    """Stamp provider and logging-metadata attribution onto ``embrouter_params`` and return it.
+    ``embrouter_params["model_info"]`` stays unset: the router's cooldown and per-deployment rpm
     callbacks key off it and must not count a proxy-side reject against the deployment. A failure
     after the provider handoff keeps the metadata the router stamped; a request that never reached a
     provider is flagged ``PROXY_REJECTED_BEFORE_ROUTING_KEY`` (deployment metrics key off it) whatever
     its metadata says, since ``metadata.model_info`` can be caller supplied."""
     attribution: Final = _deployment_attribution_for_model_group(model_group, team_id)
     if "custom_llm_provider" in attribution:
-        litellm_params["custom_llm_provider"] = attribution["custom_llm_provider"]
+        embrouter_params["custom_llm_provider"] = attribution["custom_llm_provider"]
     if dispatched:
         return attribution
-    litellm_params[PROXY_REJECTED_BEFORE_ROUTING_KEY] = True
+    embrouter_params[PROXY_REJECTED_BEFORE_ROUTING_KEY] = True
     if "model_info" not in attribution:
         return attribution
-    if litellm_params.get("metadata") is None:
-        litellm_params["metadata"] = {}  # mutable-ok: legacy logging payload is populated in place
-    metadata: Final = litellm_params["metadata"]
+    if embrouter_params.get("metadata") is None:
+        embrouter_params["metadata"] = {}  # mutable-ok: legacy logging payload is populated in place
+    metadata: Final = embrouter_params["metadata"]
     if not isinstance(metadata, dict):
         return attribution
     metadata.setdefault("model_info", attribution["model_info"])
@@ -1022,7 +1022,7 @@ def _deployment_attribution_for_model_group(model_group: object, team_id: str | 
     if not isinstance(model_group, str):
         return _EMPTY_LIFT
 
-    from litellm.proxy.proxy_server import llm_router
+    from embrouter.proxy.proxy_server import llm_router
 
     if llm_router is None:
         return _EMPTY_LIFT
@@ -1031,14 +1031,14 @@ def _deployment_attribution_for_model_group(model_group: object, team_id: str | 
         return _EMPTY_LIFT
 
     def _provider_for_deployment(deployment: Mapping[str, object]) -> str | None:
-        litellm_params: Final = cast(  # cast-ok: router deployment parameters are mapping-shaped
-            Mapping[str, object], deployment["litellm_params"]
+        embrouter_params: Final = cast(  # cast-ok: router deployment parameters are mapping-shaped
+            Mapping[str, object], deployment["embrouter_params"]
         )
         try:
-            provider: Final = litellm.get_llm_provider(
-                model=cast(str, litellm_params["model"]),  # cast-ok: router deployment model is a string
+            provider: Final = embrouter.get_llm_provider(
+                model=cast(str, embrouter_params["model"]),  # cast-ok: router deployment model is a string
                 custom_llm_provider=cast(  # cast-ok: router deployment provider is optional
-                    str | None, litellm_params.get("custom_llm_provider")
+                    str | None, embrouter_params.get("custom_llm_provider")
                 ),
             )[1]
             return cast(str | None, provider)  # cast-ok: provider resolver returns an optional provider string
@@ -1050,7 +1050,7 @@ def _deployment_attribution_for_model_group(model_group: object, team_id: str | 
     single_deployment: Final = deployments[0] if len(deployments) == 1 else None
     single_deployment_params: Final = (
         cast(  # cast-ok: router deployment parameters are mapping-shaped
-            Mapping[str, object], single_deployment["litellm_params"]
+            Mapping[str, object], single_deployment["embrouter_params"]
         )
         if single_deployment is not None
         else None
@@ -1088,13 +1088,13 @@ _PROXY_ONLY_LLM_API_ERRORS: Final = (HTTPException, ProxyException, GuardrailRai
 
 
 def _failure_fields_to_lift(request_data: Mapping[str, object]) -> Mapping[str, object]:
-    """Failure-path callbacks run after ``litellm_logging_obj`` is popped from
+    """Failure-path callbacks run after ``embrouter_logging_obj`` is popped from
     request_data (it is not serialisable), so the caller merges these fields
     onto request_data first: the request start and first-handoff instants for
     duration and preprocessing latency, the call type, recovered or estimated
     usage for token counts, and the standard logging object for deployment
     attribution on failed-request spend logs."""
-    _logging_obj: Final = request_data.get("litellm_logging_obj")
+    _logging_obj: Final = request_data.get("embrouter_logging_obj")
     if _logging_obj is None:
         return _EMPTY_LIFT
     _model_call_details: Final = getattr(_logging_obj, "model_call_details", {})
@@ -1117,7 +1117,7 @@ def _failure_fields_to_lift(request_data: Mapping[str, object]) -> Mapping[str, 
 
 @dataclass(frozen=True)
 class _CallbackCapabilities:
-    """Cached per-hook capability flags derived from ``litellm.callbacks``.
+    """Cached per-hook capability flags derived from ``embrouter.callbacks``.
 
     Recomputing this per request walked the callback list and resolved every
     string entry via ``get_custom_logger_compatible_class`` — a measurable
@@ -1132,12 +1132,12 @@ class _CallbackCapabilities:
     has_content_enforcer: bool = False
     has_moderation_override: bool = False
     # Tuple[(resolved_callback, "override" | "apply_guardrail"), ...]
-    # Ordered the same as ``litellm.callbacks``; used to build the streaming
+    # Ordered the same as ``embrouter.callbacks``; used to build the streaming
     # iterator chain without re-scanning per request.
     iterator_overrides: tuple[tuple[CustomLogger, str], ...] = field(default_factory=tuple)
     # Resolved CustomLogger callbacks in original order. Pre-resolving once
     # avoids the per-request ``get_custom_logger_compatible_class`` walk for
-    # every string entry in ``litellm.callbacks``.
+    # every string entry in ``embrouter.callbacks``.
     resolved_callbacks: tuple[object, ...] = field(default_factory=tuple)
     listed_models_filters: tuple[CustomLogger, ...] = field(default_factory=tuple)
 
@@ -1200,7 +1200,7 @@ class ProxyLogging:
         user_api_key_cache: UserApiKeyCache,
         premium_user: bool = False,
     ):
-        ## INITIALIZE  LITELLM CALLBACKS ##
+        ## INITIALIZE  EMBROUTER CALLBACKS ##
         self.call_details: dict = {}
         self.call_details["user_api_key_cache"] = user_api_key_cache
         self.internal_usage_cache: InternalUsageCache = InternalUsageCache(
@@ -1249,9 +1249,9 @@ class ProxyLogging:
             redis_cache=redis_usage_cache
         )  # used by parallel request limiter for rate limiting keys across instances
 
-        self._init_litellm_callbacks(
+        self._init_embrouter_callbacks(
             llm_router=llm_router
-        )  # INITIALIZE LITELLM CALLBACKS ON SERVER STARTUP <- do this to catch any logging errors on startup, not when calls are being made
+        )  # INITIALIZE EMBROUTER CALLBACKS ON SERVER STARTUP <- do this to catch any logging errors on startup, not when calls are being made
 
         if (
             self.slack_alerting_instance is not None
@@ -1340,8 +1340,8 @@ class ProxyLogging:
                     or "outage_alerts" in self.alert_types
                     or "region_outage_alerts" in self.alert_types
                 ):
-                    litellm.logging_callback_manager.add_litellm_callback(self.slack_alerting_instance)
-                litellm.logging_callback_manager.add_litellm_success_callback(
+                    embrouter.logging_callback_manager.add_embrouter_callback(self.slack_alerting_instance)
+                embrouter.logging_callback_manager.add_embrouter_success_callback(
                     self.slack_alerting_instance.response_taking_too_long_callback
                 )
 
@@ -1352,9 +1352,9 @@ class ProxyLogging:
 
     def _add_proxy_hooks(self, llm_router: Router | None = None):
         """
-        Add proxy hooks to litellm.callbacks
+        Add proxy hooks to embrouter.callbacks
         """
-        from litellm.proxy.proxy_server import prisma_client
+        from embrouter.proxy.proxy_server import prisma_client
 
         for hook in PROXY_HOOKS:
             proxy_hook = get_proxy_hook(hook)
@@ -1370,7 +1370,7 @@ class ProxyLogging:
             if "prisma_client" in expected_args:
                 passed_in_args["prisma_client"] = prisma_client
             proxy_hook_obj = cast(CustomLogger, proxy_hook(**passed_in_args))
-            litellm.logging_callback_manager.add_litellm_callback(proxy_hook_obj)
+            embrouter.logging_callback_manager.add_embrouter_callback(proxy_hook_obj)
 
             self.proxy_hook_mapping[hook] = proxy_hook_obj
 
@@ -1380,18 +1380,18 @@ class ProxyLogging:
         """
         return self.proxy_hook_mapping.get(hook)
 
-    def _init_litellm_callbacks(self, llm_router: Router | None = None):
+    def _init_embrouter_callbacks(self, llm_router: Router | None = None):
         self._add_proxy_hooks(llm_router)
-        litellm.logging_callback_manager.add_litellm_callback(self.service_logging_obj)
+        embrouter.logging_callback_manager.add_embrouter_callback(self.service_logging_obj)
 
         # Track string callbacks and their initialized instances so we can
         # replace them in-place, preventing duplicates (string + instance) in
-        # litellm.callbacks which caused double-counting of metrics.
+        # embrouter.callbacks which caused double-counting of metrics.
         string_callbacks_to_replace: Final[dict[int, CustomLogger]] = {}
 
-        for idx, callback in enumerate(litellm.callbacks):
+        for idx, callback in enumerate(embrouter.callbacks):
             if isinstance(callback, str):
-                initialized_callback = litellm.litellm_core_utils.litellm_logging._init_custom_logger_compatible_class(
+                initialized_callback = embrouter.embrouter_core_utils.embrouter_logging._init_custom_logger_compatible_class(
                     cast(_custom_logger_compatible_callbacks_literal, callback),
                     internal_usage_cache=self.internal_usage_cache.dual_cache,
                     llm_router=llm_router,
@@ -1400,35 +1400,35 @@ class ProxyLogging:
                 if initialized_callback is not None:
                     string_callbacks_to_replace[idx] = initialized_callback
 
-        # Replace string entries in litellm.callbacks with initialized instances
+        # Replace string entries in embrouter.callbacks with initialized instances
         for idx, initialized_callback in string_callbacks_to_replace.items():
-            litellm.callbacks[idx] = initialized_callback
+            embrouter.callbacks[idx] = initialized_callback
 
-        # Fan ``litellm.callbacks`` (the "all events" registry) out into the
+        # Fan ``embrouter.callbacks`` (the "all events" registry) out into the
         # success/failure event lists eagerly, at startup. ``completion()`` does
         # this lazily in ``function_setup`` on the first call, but request paths
         # that build their own logging object and never run ``function_setup`` —
-        # notably pass-through endpoints — read ``litellm._async_success_callback``
+        # notably pass-through endpoints — read ``embrouter._async_success_callback``
         # directly. Without this, a config-registered logger (e.g. ``otel``) is
         # invisible to pass-through traffic until some other request warms the
         # global lists. The manager dedupes, so this is idempotent with
         # ``function_setup``.
-        for callback in litellm.callbacks:
+        for callback in embrouter.callbacks:
             if isinstance(callback, CustomLogger):
-                litellm.logging_callback_manager.add_litellm_success_callback(callback)
-                litellm.logging_callback_manager.add_litellm_failure_callback(callback)
-                litellm.logging_callback_manager.add_litellm_async_success_callback(callback)
-                litellm.logging_callback_manager.add_litellm_async_failure_callback(callback)
+                embrouter.logging_callback_manager.add_embrouter_success_callback(callback)
+                embrouter.logging_callback_manager.add_embrouter_failure_callback(callback)
+                embrouter.logging_callback_manager.add_embrouter_async_success_callback(callback)
+                embrouter.logging_callback_manager.add_embrouter_async_failure_callback(callback)
 
-        # Runs after load_config applied every litellm_settings key: logger __init__s read e.g. s3_callback_params
-        success_callbacks: Final = tuple(cb for cb in litellm.success_callback if isinstance(cb, str))
-        failure_callbacks: Final = tuple(cb for cb in litellm.failure_callback if isinstance(cb, str))
+        # Runs after load_config applied every embrouter_settings key: logger __init__s read e.g. s3_callback_params
+        success_callbacks: Final = tuple(cb for cb in embrouter.success_callback if isinstance(cb, str))
+        failure_callbacks: Final = tuple(cb for cb in embrouter.failure_callback if isinstance(cb, str))
         for callback in success_callbacks:
             _add_custom_logger_callback_to_specific_event(callback, "success")
         for callback in failure_callbacks:
             _add_custom_logger_callback_to_specific_event(callback, "failure")
 
-    async def update_request_status(self, litellm_call_id: str, status: Literal["success", "fail"]):
+    async def update_request_status(self, embrouter_call_id: str, status: Literal["success", "fail"]):
         # only use this if slack alerting is being used
         if self.alerting is None:
             return
@@ -1441,11 +1441,11 @@ class ProxyLogging:
         alerting_threshold += 100
 
         await self.internal_usage_cache.async_set_cache(
-            key=f"request_status:{litellm_call_id}",
+            key=f"request_status:{embrouter_call_id}",
             value=status,
             local_only=True,
             ttl=alerting_threshold,
-            litellm_parent_otel_span=None,
+            embrouter_parent_otel_span=None,
         )
 
     def _convert_user_api_key_auth_to_dict(self, user_api_key_auth_obj):
@@ -1466,7 +1466,7 @@ class ProxyLogging:
         """
         Convert MCP tool call to LLM message format for existing guardrail validation.
         """
-        from litellm.types.llms.openai import ChatCompletionUserMessage
+        from embrouter.types.llms.openai import ChatCompletionUserMessage
 
         guardrail_context: Final = TypeAdapter(Mapping[str, object]).validate_python(
             kwargs.get("guardrail_context") or MappingProxyType({})
@@ -1539,7 +1539,7 @@ class ProxyLogging:
         """
         Convert LLM guardrail result back to MCP response format.
         """
-        from litellm.types.mcp import MCPPreCallResponseObject
+        from embrouter.types.mcp import MCPPreCallResponseObject
 
         # If result is an exception, it means the guardrail blocked the request
         if isinstance(llm_result, Exception):
@@ -1727,8 +1727,8 @@ class ProxyLogging:
         """
         Helper function to create MCPPreCallRequestObject from kwargs for standard pre_call_hook.
         """
-        from litellm.types.llms.base import HiddenParams
-        from litellm.types.mcp import MCPPreCallRequestObject
+        from embrouter.types.llms.base import HiddenParams
+        from embrouter.types.mcp import MCPPreCallRequestObject
 
         user_api_key_auth_dict: Final = self._convert_user_api_key_auth_to_dict(kwargs.get("user_api_key_auth"))
 
@@ -1795,7 +1795,7 @@ class ProxyLogging:
 
         Returns True if the router has multiple deployments for this guardrail name.
         """
-        from litellm.proxy.proxy_server import llm_router
+        from embrouter.proxy.proxy_server import llm_router
 
         if llm_router is None or not hasattr(llm_router, "guardrail_list"):
             return False
@@ -1883,7 +1883,7 @@ class ProxyLogging:
         Returns:
             Result from the guardrail execution
         """
-        from litellm.proxy.proxy_server import llm_router
+        from embrouter.proxy.proxy_server import llm_router
 
         if llm_router is None:
             raise ValueError("Router not initialized")
@@ -1926,7 +1926,7 @@ class ProxyLogging:
         Returns:
             Updated data dictionary if guardrail passes, None if guardrail should be skipped
         """
-        from litellm.types.guardrails import GuardrailEventHooks
+        from embrouter.types.guardrails import GuardrailEventHooks
 
         # Determine the event type based on call type
         if event_type is GuardrailEventHooks.pre_call and call_type in MCP_GUARDRAIL_CALL_TYPES:
@@ -2083,16 +2083,16 @@ class ProxyLogging:
     async def _process_prompt_template(
         self,
         data: dict,
-        litellm_logging_obj: "LiteLLMLoggingObj",
+        embrouter_logging_obj: "EmbRouterLoggingObj",
         prompt_id: str,
         prompt_version: int | None,
         call_type: CallTypesLiteral,
     ) -> None:
         """Process prompt template if applicable."""
 
-        from litellm.proxy.prompts.prompt_registry import IN_MEMORY_PROMPT_REGISTRY
-        from litellm.responses.utils import ResponsesAPIRequestUtils
-        from litellm.utils import get_non_default_completion_params
+        from embrouter.proxy.prompts.prompt_registry import IN_MEMORY_PROMPT_REGISTRY
+        from embrouter.responses.utils import ResponsesAPIRequestUtils
+        from embrouter.utils import get_non_default_completion_params
 
         raw_prompt_environment: Final = data.get("prompt_environment", None)
         prompt_environment: Final = raw_prompt_environment if isinstance(raw_prompt_environment, str) else None
@@ -2106,9 +2106,9 @@ class ProxyLogging:
             if prompt_spec is not None
             else None
         )
-        litellm_prompt_id: str | None = None
+        embrouter_prompt_id: str | None = None
         if prompt_spec is not None:
-            litellm_prompt_id = prompt_spec.litellm_params.prompt_id
+            embrouter_prompt_id = prompt_spec.embrouter_params.prompt_id
             data.pop("prompt_id", None)
             data.pop("prompt_environment", None)
 
@@ -2124,11 +2124,11 @@ class ProxyLogging:
                 model,
                 messages,
                 optional_params,
-            ) = await litellm_logging_obj.async_get_chat_completion_prompt(
+            ) = await embrouter_logging_obj.async_get_chat_completion_prompt(
                 model=data.get("model", ""),
                 messages=client_messages,
                 non_default_params=get_non_default_completion_params(kwargs=data) or {},
-                prompt_id=litellm_prompt_id,
+                prompt_id=embrouter_prompt_id,
                 prompt_spec=prompt_spec,
                 prompt_management_logger=custom_logger,
                 prompt_variables=data.pop("prompt_variables", None) or {},
@@ -2157,25 +2157,25 @@ class ProxyLogging:
 
     def _process_guardrail_metadata(self, data: dict) -> None:
         """Process guardrails from metadata and add to applied_guardrails."""
-        from litellm.proxy.common_utils.callback_utils import (
+        from embrouter.proxy.common_utils.callback_utils import (
             add_guardrail_to_applied_guardrails_header,
         )
 
         metadata_standard: Final = data.get("metadata") or {}
-        metadata_litellm: Final = data.get("litellm_metadata") or {}
+        metadata_embrouter: Final = data.get("embrouter_metadata") or {}
 
         guardrails_in_metadata = []
         if isinstance(metadata_standard, dict) and "guardrails" in metadata_standard:
             guardrails_in_metadata = metadata_standard.get("guardrails", [])
-        elif isinstance(metadata_litellm, dict) and "guardrails" in metadata_litellm:
-            guardrails_in_metadata = metadata_litellm.get("guardrails", [])
+        elif isinstance(metadata_embrouter, dict) and "guardrails" in metadata_embrouter:
+            guardrails_in_metadata = metadata_embrouter.get("guardrails", [])
 
         if guardrails_in_metadata and isinstance(guardrails_in_metadata, list):
             applied_guardrails = []
             if isinstance(metadata_standard, dict) and "applied_guardrails" in metadata_standard:
                 applied_guardrails = metadata_standard.get("applied_guardrails", [])
-            elif isinstance(metadata_litellm, dict) and "applied_guardrails" in metadata_litellm:
-                applied_guardrails = metadata_litellm.get("applied_guardrails", [])
+            elif isinstance(metadata_embrouter, dict) and "applied_guardrails" in metadata_embrouter:
+                applied_guardrails = metadata_embrouter.get("applied_guardrails", [])
 
             if not isinstance(applied_guardrails, list):
                 applied_guardrails = []
@@ -2398,22 +2398,22 @@ class ProxyLogging:
         if data is None:
             return None
 
-        litellm_logging_obj: Final = cast(Optional["LiteLLMLoggingObj"], data.get("litellm_logging_obj", None))
+        embrouter_logging_obj: Final = cast(Optional["EmbRouterLoggingObj"], data.get("embrouter_logging_obj", None))
         prompt_id: Final[str | None] = data.get("prompt_id", None)
 
         ## PROMPT TEMPLATE CHECK ##
 
         if (
             not guardrails_only
-            and litellm_logging_obj is not None
+            and embrouter_logging_obj is not None
             and prompt_id is not None
             and (call_type == "completion" or call_type == "acompletion" or call_type == "aresponses")
         ):
-            from litellm.proxy.prompts.prompt_registry import parse_prompt_version
+            from embrouter.proxy.prompts.prompt_registry import parse_prompt_version
 
             await self._process_prompt_template(
                 data=data,
-                litellm_logging_obj=litellm_logging_obj,
+                embrouter_logging_obj=embrouter_logging_obj,
                 prompt_id=prompt_id,
                 prompt_version=parse_prompt_version(data.get("prompt_version", None)),
                 call_type=call_type,
@@ -2427,7 +2427,7 @@ class ProxyLogging:
         # one that opted into scanning the original request. Only computed
         # when at least one registered guardrail actually opted in, and via
         # independent_snapshot (not safe_deep_copy) since this isolation
-        # guarantee must hold even under litellm.safe_memory_mode, which
+        # guarantee must hold even under embrouter.safe_memory_mode, which
         # otherwise makes deep copies return the original object.
         needs_raw_request_snapshot: Final = any(
             isinstance(cb, CustomGuardrail) and cb.scan_raw_request
@@ -2454,7 +2454,7 @@ class ProxyLogging:
 
             caps: Final = ProxyLogging._callback_capabilities()
             # Skip the per-request callback walk entirely when nothing in
-            # ``litellm.callbacks`` overrides ``async_pre_call_hook`` and no
+            # ``embrouter.callbacks`` overrides ``async_pre_call_hook`` and no
             # CustomGuardrail is configured. Saves the loop overhead +
             # ``time.time()`` x2 per registered callback for the common
             # "callbacks=[]" case on small / dev deployments.
@@ -2695,7 +2695,7 @@ class ProxyLogging:
         error_type: str | None,
         hook_type: str,
     ) -> None:
-        for prom_callback in litellm.callbacks:
+        for prom_callback in embrouter.callbacks:
             if isinstance(prom_callback, PrometheusLogger):
                 prom_callback._record_guardrail_metrics(
                     guardrail_name=guardrail_name,
@@ -2715,7 +2715,7 @@ class ProxyLogging:
     ) -> _T:
         """
         Await `coro`, recording its latency and status to the
-        `litellm_guardrail_latency_seconds` metric under `hook_type`, and
+        `embrouter_guardrail_latency_seconds` metric under `hook_type`, and
         enriching any raised HTTPException with the originating callback's
         `guardrail_name`/`guardrail_mode` before re-raising.
         """
@@ -2761,22 +2761,22 @@ class ProxyLogging:
             raise
 
     # Cache for callback-capability detection. Keyed on a signature of
-    # litellm.callbacks (length + each item's id) so we recompute when the
+    # embrouter.callbacks (length + each item's id) so we recompute when the
     # callback list mutates (add/remove) without iterating every request.
     _callback_capabilities_cache: ClassVar[dict[tuple[int, tuple[int, ...]], "_CallbackCapabilities"]] = {}
 
     @staticmethod
     def _callback_capabilities() -> "_CallbackCapabilities":
         """
-        Inspect ``litellm.callbacks`` once and answer the per-hook capability
+        Inspect ``embrouter.callbacks`` once and answer the per-hook capability
         questions used to short-circuit no-op work on the chat-completions hot
-        path. Per-request callers iterated ``litellm.callbacks`` and called
+        path. Per-request callers iterated ``embrouter.callbacks`` and called
         ``get_custom_logger_compatible_class`` for every string entry — that
         scanning cost dominated the proxy overhead on low-config deployments.
 
         Cache invalidates whenever the list length or member identities change.
         """
-        callbacks: Final = litellm.callbacks
+        callbacks: Final = embrouter.callbacks
         sig: Final = (len(callbacks), tuple(id(c) for c in callbacks))
         cache: Final = ProxyLogging._callback_capabilities_cache
         cached: Final = cache.get(sig)
@@ -2795,7 +2795,7 @@ class ProxyLogging:
 
         for callback in callbacks:
             if isinstance(callback, str):
-                resolved = litellm.litellm_core_utils.litellm_logging.get_custom_logger_compatible_class(
+                resolved = embrouter.embrouter_core_utils.embrouter_logging.get_custom_logger_compatible_class(
                     cast(_custom_logger_compatible_callbacks_literal, callback)
                 )
             else:
@@ -2925,7 +2925,7 @@ class ProxyLogging:
         # Step 1: Collect all guardrail tasks to run in parallel
         guardrail_tasks: Final = []
 
-        for callback in litellm.callbacks:
+        for callback in embrouter.callbacks:
             if (
                 isinstance(callback, CustomLogger)
                 and not isinstance(callback, CustomGuardrail)
@@ -2950,7 +2950,7 @@ class ProxyLogging:
                         continue
                 else:
                     # Main - V2 Guardrails implementation
-                    from litellm.types.guardrails import GuardrailEventHooks
+                    from embrouter.types.guardrails import GuardrailEventHooks
 
                     event_type = GuardrailEventHooks.during_call
                     if call_type == CallTypes.call_mcp_tool.value:
@@ -3139,8 +3139,8 @@ class ProxyLogging:
             )
         for client in self.alerting:
             if client == "sentry":
-                if litellm.utils.sentry_sdk_instance is not None:
-                    litellm.utils.sentry_sdk_instance.capture_message(formatted_message)
+                if embrouter.utils.sentry_sdk_instance is not None:
+                    embrouter.utils.sentry_sdk_instance.capture_message(formatted_message)
                 else:
                     raise Exception("Missing SENTRY_DSN from environment")
 
@@ -3182,8 +3182,8 @@ class ProxyLogging:
                 call_type=call_type,
             )
 
-        if litellm.utils.capture_exception:
-            litellm.utils.capture_exception(error=original_exception)
+        if embrouter.utils.capture_exception:
+            embrouter.utils.capture_exception(error=original_exception)
 
     async def post_call_failure_hook(
         self,
@@ -3216,22 +3216,22 @@ class ProxyLogging:
                                       Otherwise, returns None and the original exception is used.
         """
 
-        logging_obj: Final[object] = request_data.get("litellm_logging_obj")  # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType]  # legacy request data is narrowed to Logging below
+        logging_obj: Final[object] = request_data.get("embrouter_logging_obj")  # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType]  # legacy request data is narrowed to Logging below
         if isinstance(logging_obj, Logging) and logging_obj.baseline_cache_context is not None:
             await logging_obj.invalidate_baseline_cache_estimate("failed_request", completed=True)
 
         ### ALERTING ###
-        await self.update_request_status(litellm_call_id=request_data.get("litellm_call_id", ""), status="fail")
+        await self.update_request_status(embrouter_call_id=request_data.get("embrouter_call_id", ""), status="fail")
         if AlertType.llm_exceptions in self.alert_types and not _is_client_error_exception(original_exception):
             """
             Just alert on LLM API exceptions. Do not alert on user errors
 
 
             """
-            litellm_debug_info: Final[str | None] = getattr(original_exception, "litellm_debug_info", None)
+            embrouter_debug_info: Final[str | None] = getattr(original_exception, "embrouter_debug_info", None)
             exception_str = str(original_exception)
-            if litellm_debug_info is not None:
-                exception_str += litellm_debug_info
+            if embrouter_debug_info is not None:
+                exception_str += embrouter_debug_info
 
             asyncio.create_task(
                 self.alerting_handler(
@@ -3263,18 +3263,18 @@ class ProxyLogging:
         request_data.update(await offload_token_count(_failure_fields_to_lift)(request_data))
 
         # Remove before callbacks iterate — not serialisable
-        request_data.pop("litellm_logging_obj", None)
+        request_data.pop("embrouter_logging_obj", None)
 
         redacted_traceback_str: Final = _redact_string(traceback_str) if traceback_str is not None else None
 
         # Track the first HTTPException returned or raised by any callback
         transformed_exception: HTTPException | None = None
 
-        for callback in litellm.callbacks:
+        for callback in embrouter.callbacks:
             try:
                 _callback: CustomLogger | None = None
                 if isinstance(callback, str):
-                    _callback = litellm.litellm_core_utils.litellm_logging.get_custom_logger_compatible_class(
+                    _callback = embrouter.embrouter_core_utils.embrouter_logging.get_custom_logger_compatible_class(
                         cast(_custom_logger_compatible_callbacks_literal, callback)
                     )
                 else:
@@ -3344,54 +3344,54 @@ class ProxyLogging:
         original_exception: Exception | None = None,
     ):
         """
-        Handle logging for proxy only errors by calling `litellm_logging_obj.async_failure_handler`
+        Handle logging for proxy only errors by calling `embrouter_logging_obj.async_failure_handler`
 
         Is triggered when self._is_proxy_only_error() returns True
         """
-        litellm_logging_obj: Logging | None = request_data.get("litellm_logging_obj", None)
-        if litellm_logging_obj is None:
-            from litellm._uuid import uuid
+        embrouter_logging_obj: Logging | None = request_data.get("embrouter_logging_obj", None)
+        if embrouter_logging_obj is None:
+            from embrouter._uuid import uuid
 
-            request_data.setdefault("litellm_call_id", str(uuid.uuid4()))
-            user_api_key_logged_metadata: Final = LiteLLMProxyRequestSetup.get_sanitized_user_information_from_key(
+            request_data.setdefault("embrouter_call_id", str(uuid.uuid4()))
+            user_api_key_logged_metadata: Final = EmbRouterProxyRequestSetup.get_sanitized_user_information_from_key(
                 user_api_key_dict=user_api_key_dict
             )
 
-            litellm_logging_obj, data = litellm.utils.function_setup(
+            embrouter_logging_obj, data = embrouter.utils.function_setup(
                 original_function=route or "IGNORE_THIS",
-                rules_obj=litellm.utils.Rules(),
+                rules_obj=embrouter.utils.Rules(),
                 start_time=datetime.now(),
                 **request_data,
             )
-            request_data["litellm_logging_obj"] = litellm_logging_obj  # rebind-ok: lifted then popped by the caller
+            request_data["embrouter_logging_obj"] = embrouter_logging_obj  # rebind-ok: lifted then popped by the caller
             if "metadata" not in request_data:
                 request_data["metadata"] = {}
             request_data["metadata"].update(user_api_key_logged_metadata)
 
-        if litellm_logging_obj is not None:
+        if embrouter_logging_obj is not None:
             ## UPDATE LOGGING INPUT
             _optional_params: Final = {}
-            _litellm_params: Final = {}
+            _embrouter_params: Final = {}
 
-            litellm_param_keys: Final = LoggedLiteLLMParams.__annotations__.keys()
+            embrouter_param_keys: Final = LoggedEmbRouterParams.__annotations__.keys()
             for k, v in request_data.items():
-                if k in litellm_param_keys:
-                    _litellm_params[k] = v
-                elif k not in ("model", "user", "litellm_logging_obj"):
+                if k in embrouter_param_keys:
+                    _embrouter_params[k] = v
+                elif k not in ("model", "user", "embrouter_logging_obj"):
                     _optional_params[k] = v
 
             attribution: Final = _stamp_deployment_attribution(
-                _litellm_params,
+                _embrouter_params,
                 request_data.get("model"),
                 user_api_key_dict.team_id,
-                dispatched=_reached_deployment(litellm_logging_obj),
+                dispatched=_reached_deployment(embrouter_logging_obj),
             )
 
-            litellm_logging_obj.update_environment_variables(
+            embrouter_logging_obj.update_environment_variables(
                 model=request_data.get("model", ""),
                 user=request_data.get("user", ""),
                 optional_params=_optional_params,
-                litellm_params=_litellm_params,
+                embrouter_params=_embrouter_params,
                 **(
                     {  # mutable-ok: frozen immediately by keyword expansion
                         "custom_llm_provider": attribution["custom_llm_provider"]
@@ -3405,23 +3405,23 @@ class ProxyLogging:
             body_shape_call_type: str | None = None
             if "messages" in request_data and isinstance(request_data["messages"], list):
                 input = request_data["messages"]
-                litellm_logging_obj.model_call_details["messages"] = input
+                embrouter_logging_obj.model_call_details["messages"] = input
                 body_shape_call_type = CallTypes.acompletion.value
             elif "prompt" in request_data and isinstance(request_data["prompt"], str):
                 input = request_data["prompt"]
-                litellm_logging_obj.model_call_details["prompt"] = input
+                embrouter_logging_obj.model_call_details["prompt"] = input
                 body_shape_call_type = CallTypes.atext_completion.value
             elif "input" in request_data and isinstance(request_data["input"], list):
                 input = request_data["input"]
-                litellm_logging_obj.model_call_details["input"] = input
+                embrouter_logging_obj.model_call_details["input"] = input
                 body_shape_call_type = CallTypes.aembedding.value
             resolved_call_type: Final = _call_type_for_route(route) or body_shape_call_type
-            if resolved_call_type is not None and litellm_logging_obj.call_type != CallTypes.pass_through.value:
-                litellm_logging_obj.call_type = resolved_call_type
-                litellm_logging_obj.model_call_details["call_type"] = resolved_call_type
+            if resolved_call_type is not None and embrouter_logging_obj.call_type != CallTypes.pass_through.value:
+                embrouter_logging_obj.call_type = resolved_call_type
+                embrouter_logging_obj.model_call_details["call_type"] = resolved_call_type
             # Pass-through endpoints are logged via the callback loop's
             # async_post_call_failure_hook — skip pre_call and failure handlers.
-            if litellm_logging_obj.call_type == CallTypes.pass_through.value:
+            if embrouter_logging_obj.call_type == CallTypes.pass_through.value:
                 return
             # This is a proxy-gate error (auth/rate-limit) for a request that never
             # reached a provider. ``pre_call`` below still fires every callback's
@@ -3429,36 +3429,36 @@ class ProxyLogging:
             # fabricate an LLM-call span for a call that did not happen (and, since
             # this runs inside the live ``auth`` phase span, would otherwise nest it
             # under auth). The marker tells them to skip span creation.
-            litellm_logging_obj.model_call_details[LITELLM_LOGGING_NO_UPSTREAM_LLM_CALL] = True
-            litellm_logging_obj.pre_call(
+            embrouter_logging_obj.model_call_details[EMBROUTER_LOGGING_NO_UPSTREAM_LLM_CALL] = True
+            embrouter_logging_obj.pre_call(
                 input=input,
                 api_key="",
             )
 
             await self._dispatch_proxy_only_failure_handlers(
-                litellm_logging_obj=litellm_logging_obj,
+                embrouter_logging_obj=embrouter_logging_obj,
                 original_exception=original_exception,
             )
 
     @staticmethod
     async def _dispatch_proxy_only_failure_handlers(
-        litellm_logging_obj: Logging,
+        embrouter_logging_obj: Logging,
         original_exception: Exception | None,
     ) -> None:
         """Runs the async failure handler plus the threaded sync handler. Expected
         client (4xx) errors skip traceback formatting unless
-        litellm.log_client_error_tracebacks is set."""
-        include_traceback: Final = litellm.log_client_error_tracebacks or not is_expected_client_error(
+        embrouter.log_client_error_tracebacks is set."""
+        include_traceback: Final = embrouter.log_client_error_tracebacks or not is_expected_client_error(
             original_exception
         )
         traceback_str: Final = traceback.format_exc() if include_traceback else ""
-        await litellm_logging_obj.async_failure_handler(
+        await embrouter_logging_obj.async_failure_handler(
             exception=original_exception,
             traceback_exception=traceback_str,
         )
 
         threading.Thread(
-            target=litellm_logging_obj.failure_handler,
+            target=embrouter_logging_obj.failure_handler,
             args=(
                 original_exception,
                 traceback_str,
@@ -3478,7 +3478,7 @@ class ProxyLogging:
         _, pipeline_response = await self._maybe_execute_pipelines(
             data=data,
             user_api_key_dict=user_api_key_dict,
-            call_type=getattr(data.get("litellm_logging_obj"), "call_type", None) or "acompletion",
+            call_type=getattr(data.get("embrouter_logging_obj"), "call_type", None) or "acompletion",
             event_hook="post_call",
             response=response,
         )
@@ -3500,8 +3500,8 @@ class ProxyLogging:
         4. /files
         """
 
-        from litellm.proxy.proxy_server import llm_router
-        from litellm.types.guardrails import GuardrailEventHooks
+        from embrouter.proxy.proxy_server import llm_router
+        from embrouter.types.guardrails import GuardrailEventHooks
 
         pipeline_response: Final = await self._run_post_call_pipelines(
             data=data,
@@ -3699,7 +3699,7 @@ class ProxyLogging:
                 handler_cls().process_output_response(
                     response=response,
                     guardrail_to_apply=callback,
-                    litellm_logging_obj=request_data.get("litellm_logging_obj"),
+                    embrouter_logging_obj=request_data.get("embrouter_logging_obj"),
                     user_api_key_dict=user_api_key_dict,
                     request_data=request_data,
                 ),
@@ -3732,29 +3732,29 @@ class ProxyLogging:
             return merged_headers
 
         try:
-            # Build litellm_call_info — normalized routing metadata for callbacks
-            litellm_call_info: Final = self._build_litellm_call_info(data=data, response=response)
+            # Build embrouter_call_info — normalized routing metadata for callbacks
+            embrouter_call_info: Final = self._build_embrouter_call_info(data=data, response=response)
 
-            for callback in litellm.callbacks:
+            for callback in embrouter.callbacks:
                 _callback: CustomLogger | None = None
                 if isinstance(callback, str):
-                    _callback = litellm.litellm_core_utils.litellm_logging.get_custom_logger_compatible_class(
+                    _callback = embrouter.embrouter_core_utils.embrouter_logging.get_custom_logger_compatible_class(
                         cast(_custom_logger_compatible_callbacks_literal, callback)
                     )
                 else:
                     _callback = callback
 
                 if _callback is not None and isinstance(_callback, CustomLogger):
-                    if _accepts_litellm_call_info(_callback):
+                    if _accepts_embrouter_call_info(_callback):
                         result = await _callback.async_post_call_response_headers_hook(
                             data=data,
                             user_api_key_dict=user_api_key_dict,
                             response=response,
                             request_headers=request_headers,
-                            litellm_call_info=litellm_call_info,
+                            embrouter_call_info=embrouter_call_info,
                         )
                     else:
-                        # Backwards compat: callback doesn't accept litellm_call_info
+                        # Backwards compat: callback doesn't accept embrouter_call_info
                         result = await _callback.async_post_call_response_headers_hook(
                             data=data,
                             user_api_key_dict=user_api_key_dict,
@@ -3780,17 +3780,17 @@ class ProxyLogging:
         return frozenset(candidates).difference(kept)
 
     @staticmethod
-    def _build_litellm_call_info(data: dict, response: object) -> dict[str, object]:
+    def _build_embrouter_call_info(data: dict, response: object) -> dict[str, object]:
         """
         Build a normalized dict of routing metadata from response._hidden_params
-        and data, abstracting away the metadata vs litellm_metadata split.
+        and data, abstracting away the metadata vs embrouter_metadata split.
         """
         hidden_params: Final = getattr(response, "_hidden_params", {}) or {}
 
-        # model_info: check both metadata keys (chat uses "metadata", responses uses "litellm_metadata")
+        # model_info: check both metadata keys (chat uses "metadata", responses uses "embrouter_metadata")
         model_info: Final = (
             (data.get("metadata") or {}).get("model_info")
-            or (data.get("litellm_metadata") or {}).get("model_info")
+            or (data.get("embrouter_metadata") or {}).get("model_info")
             or {}
         )
 
@@ -3829,13 +3829,13 @@ class ProxyLogging:
         if not caps.has_streaming_chunk_override and not caps.has_guardrail:
             return response
 
-        from litellm.proxy.proxy_server import llm_router
+        from embrouter.proxy.proxy_server import llm_router
 
         response_str: str | None = None
         if isinstance(response, (ModelResponse, ModelResponseStream)):
-            response_str = litellm.get_response_string(response_obj=response)
+            response_str = embrouter.get_response_string(response_obj=response)
         elif isinstance(response, dict) and self.is_a2a_streaming_response(response):
-            from litellm.llms.a2a.common_utils import extract_text_from_a2a_response
+            from embrouter.llms.a2a.common_utils import extract_text_from_a2a_response
 
             response_str = extract_text_from_a2a_response(response)
         if response_str is not None:
@@ -3847,14 +3847,14 @@ class ProxyLogging:
                 stream_gated_guardrail_names(data, user_api_key_dict) if caps.has_guardrail else frozenset()
             )
 
-            for callback in litellm.callbacks:
+            for callback in embrouter.callbacks:
                 try:
                     _callback: CustomLogger | None = None
                     if isinstance(callback, CustomGuardrail):
                         if callback.guardrail_name in pipeline_gated:
                             continue
                         # Main - V2 Guardrails implementation
-                        from litellm.types.guardrails import GuardrailEventHooks
+                        from embrouter.types.guardrails import GuardrailEventHooks
 
                         ## CHECK FOR MODEL-LEVEL GUARDRAILS (cached per-request)
                         if not _guardrail_data_computed:
@@ -3872,7 +3872,7 @@ class ProxyLogging:
                         ):
                             continue
                     if isinstance(callback, str):
-                        _callback = litellm.litellm_core_utils.litellm_logging.get_custom_logger_compatible_class(
+                        _callback = embrouter.embrouter_core_utils.embrouter_logging.get_custom_logger_compatible_class(
                             cast(_custom_logger_compatible_callbacks_literal, callback)
                         )
                     else:
@@ -3928,7 +3928,7 @@ class ProxyLogging:
             ProxyLogging._fire_deferred_stream_logging(request_data)
             return
 
-        from litellm.proxy.proxy_server import llm_router
+        from embrouter.proxy.proxy_server import llm_router
 
         # Merge model-level guardrails before checking which guardrails to run
         request_data = _check_and_merge_model_level_guardrails(data=request_data, llm_router=llm_router)
@@ -4080,7 +4080,7 @@ class ProxyLogging:
 
     @staticmethod
     def _record_served_stream_output(request_data: Mapping[str, object], served_chunks: Sequence[object]) -> None:
-        logging_obj: Final = request_data.get("litellm_logging_obj")
+        logging_obj: Final = request_data.get("embrouter_logging_obj")
         if not isinstance(logging_obj, Logging):
             return
         record_served_output_texts(logging_obj.model_call_details, served_stream_output_texts(served_chunks))
@@ -4095,7 +4095,7 @@ class ProxyLogging:
         scheduling via create_task (which would race with unified_guardrail's
         end-of-stream block).  This method retrieves and fires them.
         """
-        logging_obj: Final = request_data.get("litellm_logging_obj")
+        logging_obj: Final = request_data.get("embrouter_logging_obj")
         if logging_obj is None:
             return
         _deferred_cb: Final[Callable[..., Coroutine[object, object, object]] | None] = getattr(
@@ -4112,7 +4112,7 @@ class ProxyLogging:
         """Drop the parked success dispatch for an assembled chat stream that ends in an error
         ``post_call_failure_hook`` logs as a failure, billing its usage on the failure row instead.
         Returns False when the parked dispatch should still be flushed by the caller."""
-        logging_obj: Final = request_data.get("litellm_logging_obj")
+        logging_obj: Final = request_data.get("embrouter_logging_obj")
         if not isinstance(logging_obj, Logging):
             return False
         _args: Final[tuple[object, ...] | None] = getattr(logging_obj, "_deferred_stream_complete_args", None)
@@ -4216,8 +4216,8 @@ async def _lookup_deprecated_key(
 
     try:
         deprecated_keys_table: Final[
-            LiteLLM_DeprecatedVerificationTokenActions[LiteLLM_DeprecatedVerificationToken]
-        ] = db.litellm_deprecatedverificationtoken
+            EmbRouter_DeprecatedVerificationTokenActions[EmbRouter_DeprecatedVerificationToken]
+        ] = db.embrouter_deprecatedverificationtoken
         deprecated_row: Final = await deprecated_keys_table.find_first(
             where={
                 "token": hashed_token,
@@ -4240,19 +4240,19 @@ async def _lookup_deprecated_key(
     return None
 
 
-# DualCache for LiteLLM_Config param_name reads.
+# DualCache for EmbRouter_Config param_name reads.
 # Redis layer is attached in proxy_server._init_cache.
-LITELLM_CONFIG_CACHE_TTL_SECONDS: Final[int] = int(os.environ.get("LITELLM_CONFIG_PARAM_CACHE_TTL_SECONDS", "60"))
-_CONFIG_CACHE_MISS: Final[str] = "__litellm_config_param_miss__"
+EMBROUTER_CONFIG_CACHE_TTL_SECONDS: Final[int] = int(os.environ.get("EMBROUTER_CONFIG_PARAM_CACHE_TTL_SECONDS", "60"))
+_CONFIG_CACHE_MISS: Final[str] = "__embrouter_config_param_miss__"
 
-litellm_config_cache: Final[DualCache] = DualCache(
-    default_in_memory_ttl=LITELLM_CONFIG_CACHE_TTL_SECONDS,
-    default_redis_ttl=LITELLM_CONFIG_CACHE_TTL_SECONDS,
+embrouter_config_cache: Final[DualCache] = DualCache(
+    default_in_memory_ttl=EMBROUTER_CONFIG_CACHE_TTL_SECONDS,
+    default_redis_ttl=EMBROUTER_CONFIG_CACHE_TTL_SECONDS,
 )
 
 
 class _ConfigRow:
-    """Mimics the Prisma litellm_config row shape for cached entries."""
+    """Mimics the Prisma embrouter_config row shape for cached entries."""
 
     __slots__ = ("param_name", "param_value")
 
@@ -4262,7 +4262,7 @@ class _ConfigRow:
 
 
 def _config_cache_key(param_name: str) -> str:
-    return f"litellm_config:param:{param_name}"
+    return f"embrouter_config:param:{param_name}"
 
 
 def _pack_config_row(row: Any) -> dict[str, object]:
@@ -4278,35 +4278,35 @@ def _unpack_config_row(cached: object) -> _ConfigRow | None:
 
 
 async def get_config_param(prisma_client: "PrismaClient", param_name: str) -> Any | None:
-    """Cached read of a LiteLLM_Config row; returns row, _ConfigRow shim, or None."""
+    """Cached read of a EmbRouter_Config row; returns row, _ConfigRow shim, or None."""
     cache_key: Final = _config_cache_key(param_name)
-    cached: Final = await litellm_config_cache.async_get_cache(cache_key)
+    cached: Final = await embrouter_config_cache.async_get_cache(cache_key)
     if cached is not None:
         return _unpack_config_row(cached)
 
     row: Final = await prisma_client.get_generic_data(key="param_name", value=param_name, table_name="config")
     cache_value: Final[Mapping[str, object] | str] = _pack_config_row(row) if row is not None else _CONFIG_CACHE_MISS
-    await litellm_config_cache.async_set_cache(cache_key, cache_value, ttl=LITELLM_CONFIG_CACHE_TTL_SECONDS)
+    await embrouter_config_cache.async_set_cache(cache_key, cache_value, ttl=EMBROUTER_CONFIG_CACHE_TTL_SECONDS)
     return row
 
 
 async def evict_config_param(param_name: str) -> None:
-    await litellm_config_cache.async_delete_cache(_config_cache_key(param_name))
+    await embrouter_config_cache.async_delete_cache(_config_cache_key(param_name))
 
 
 async def invalidate_config_param(param_name: str) -> None:
-    """Evict from both cache layers; call after every LiteLLM_Config write."""
+    """Evict from both cache layers; call after every EmbRouter_Config write."""
     await evict_config_param(param_name)
     await publish_config_param_change(param_name)
 
 
 async def prefetch_config_params(prisma_client: "PrismaClient | None", param_names: list[str]) -> None:
-    """Batch-load LiteLLM_Config rows into the cache with one find_many."""
+    """Batch-load EmbRouter_Config rows into the cache with one find_many."""
     if not param_names:
         return
     try:
-        config_table: Final = cast(  # cast-ok: ConfigRepository.table is prisma's litellm_config actions object
-            "TableActions[prisma_models.LiteLLM_Config]", ConfigRepository(prisma_client).table
+        config_table: Final = cast(  # cast-ok: ConfigRepository.table is prisma's embrouter_config actions object
+            "TableActions[prisma_models.EmbRouter_Config]", ConfigRepository(prisma_client).table
         )
         rows: Final = await config_table.find_many(where={"param_name": {"in": param_names}})
     except Exception as e:
@@ -4319,8 +4319,8 @@ async def prefetch_config_params(prisma_client: "PrismaClient | None", param_nam
     for name in param_names:
         row = by_name.get(name)
         cache_value: Mapping[str, object] | str = _pack_config_row(row) if row is not None else _CONFIG_CACHE_MISS
-        await litellm_config_cache.async_set_cache(
-            _config_cache_key(name), cache_value, ttl=LITELLM_CONFIG_CACHE_TTL_SECONDS
+        await embrouter_config_cache.async_set_cache(
+            _config_cache_key(name), cache_value, ttl=EMBROUTER_CONFIG_CACHE_TTL_SECONDS
         )
 
 
@@ -4636,9 +4636,9 @@ class PrismaClient:
     )
     async def check_view_exists(self):
         """
-        Checks if the LiteLLM_VerificationTokenView and MonthlyGlobalSpend exists in the user's db.
+        Checks if the EmbRouter_VerificationTokenView and MonthlyGlobalSpend exists in the user's db.
 
-        LiteLLM_VerificationTokenView: This view is used for getting the token + team data in user_api_key_auth
+        EmbRouter_VerificationTokenView: This view is used for getting the token + team data in user_api_key_auth
 
         MonthlyGlobalSpend: This view is used for the admin view to see global spend for this month
 
@@ -4650,7 +4650,7 @@ class PrismaClient:
         # query instead of multiple queries.
         try:
             expected_views: Final = [
-                "LiteLLM_VerificationTokenView",
+                "EmbRouter_VerificationTokenView",
                 "MonthlyGlobalSpend",
                 "Last30dKeysBySpend",
                 "Last30dModelsBySpend",
@@ -4659,7 +4659,7 @@ class PrismaClient:
                 "Last30dTopEndUsersSpend",
                 "DailyTagSpend",
             ]
-            required_view: Final = "LiteLLM_VerificationTokenView"
+            required_view: Final = "EmbRouter_VerificationTokenView"
             expected_views_str: Final = ", ".join(f"'{view}'" for view in expected_views)
             pg_schema: Final = os.getenv("DATABASE_SCHEMA", "public")
             ret: Final[Sequence[_ViewCountRow]] = await self.db.query_raw(f"""
@@ -4685,9 +4685,9 @@ class PrismaClient:
                     await self.health_check()  # make sure we can connect to db
                     await create_view_tolerating_race(
                         self.db,
-                        "LiteLLM_VerificationTokenView",
+                        "EmbRouter_VerificationTokenView",
                         """
-                            CREATE VIEW "LiteLLM_VerificationTokenView" AS
+                            CREATE VIEW "EmbRouter_VerificationTokenView" AS
                             SELECT
                             v.*,
                             t.spend AS team_spend,
@@ -4696,8 +4696,8 @@ class PrismaClient:
                             t.tpm_limit AS team_tpm_limit,
                             t.rpm_limit AS team_rpm_limit,
                             t.tpd_limit AS team_tpd_limit
-                            FROM "LiteLLM_VerificationToken" v
-                            LEFT JOIN "LiteLLM_TeamTable" t ON v.team_id = t.team_id;
+                            FROM "EmbRouter_VerificationToken" v
+                            LEFT JOIN "EmbRouter_TeamTable" t ON v.team_id = t.team_id;
                         """,
                     )
                 else:
@@ -4752,8 +4752,8 @@ class PrismaClient:
             elif table_name == "keys":
                 return await VerificationTokenRepository(self).table.find_first(where={key: value})
             elif table_name == "config":
-                config_table: Final = cast(  # cast-ok: ConfigRepository.table is prisma's litellm_config actions object
-                    "TableActions[prisma_models.LiteLLM_Config]", ConfigRepository(self).table
+                config_table: Final = cast(  # cast-ok: ConfigRepository.table is prisma's embrouter_config actions object
+                    "TableActions[prisma_models.EmbRouter_Config]", ConfigRepository(self).table
                 )
                 return await config_table.find_first(where={key: value})
             elif table_name == "spend":
@@ -4767,7 +4767,7 @@ class PrismaClient:
                 reason=f"prisma_get_generic_data_{table_name}_lookup_failure",
             )
         except Exception as e:
-            error_msg = f"LiteLLM Prisma Client Exception get_generic_data: {e}"
+            error_msg = f"EmbRouter Prisma Client Exception get_generic_data: {e}"
             verbose_proxy_logger.error(error_msg)
             error_msg = error_msg + f"\nException Type: {type(e)}"
             error_traceback: Final = error_msg + "\n" + traceback.format_exc()
@@ -4896,7 +4896,7 @@ class PrismaClient:
                         )
                     response = await VerificationTokenRepository(self).table.find_unique(
                         where={"token": hashed_token},
-                        include={"litellm_budget_table": True},
+                        include={"embrouter_budget_table": True},
                     )
                     if response is not None:
                         # for prisma we need to cast the expires time to str
@@ -4911,7 +4911,7 @@ class PrismaClient:
                 elif query_type == "find_all" and user_id is not None:
                     response = await VerificationTokenRepository(self).table.find_many(
                         where={"user_id": user_id},
-                        include={"litellm_budget_table": True},
+                        include={"embrouter_budget_table": True},
                     )
                     if response is not None and len(response) > 0:
                         for r in response:
@@ -4921,7 +4921,7 @@ class PrismaClient:
                     response = await VerificationTokenRepository(self).table.find_many(
                         take=limit,
                         where={"team_id": team_id},
-                        include={"litellm_budget_table": True},
+                        include={"embrouter_budget_table": True},
                     )
                     if response is not None and len(response) > 0:
                         for r in response:
@@ -4963,7 +4963,7 @@ class PrismaClient:
                     response = await VerificationTokenRepository(self).table.find_many(
                         order={"spend": "desc"},
                         where=where_filter,
-                        include={"litellm_budget_table": True},
+                        include={"embrouter_budget_table": True},
                     )
                 if response is not None:
                     return response
@@ -5025,8 +5025,8 @@ class PrismaClient:
                             u.*,
                             json_agg(v.key_alias) AS key_aliases
                         FROM
-                            "LiteLLM_UserTable" u
-                        LEFT JOIN "LiteLLM_VerificationToken" v ON u.user_id = v.user_id
+                            "EmbRouter_UserTable" u
+                        LEFT JOIN "EmbRouter_VerificationToken" v ON u.user_id = v.user_id
                         GROUP BY
                             u.user_id
                         ORDER BY u.spend DESC
@@ -5080,7 +5080,7 @@ class PrismaClient:
                 if query_type == "find_unique":
                     response = await TeamRepository(self).table.find_unique(
                         where={"team_id": team_id},
-                        include={"litellm_model_table": True},
+                        include={"embrouter_model_table": True},
                     )
                 elif query_type == "find_all" and reset_at is not None:
                     response = await TeamRepository(self).table.find_many(
@@ -5101,7 +5101,7 @@ class PrismaClient:
                         where={
                             "members": {"has": user_id},
                         },
-                        include={"litellm_budget_table": True},
+                        include={"embrouter_budget_table": True},
                     )
                 elif query_type == "find_all" and team_id_list is not None:
                     response = await TeamRepository(self).table.find_many(where={"team_id": {"in": team_id_list}})
@@ -5151,26 +5151,26 @@ class PrismaClient:
                             b_tm.rpm_limit AS team_member_rpm_limit,
                             m.aliases AS team_model_aliases,
                             -- Added comma to separate b.* columns
-                            b.max_budget AS litellm_budget_table_max_budget,
-                            b.tpm_limit AS litellm_budget_table_tpm_limit,
-                            b.rpm_limit AS litellm_budget_table_rpm_limit,
-                            b.tpd_limit AS litellm_budget_table_tpd_limit,
-                            b.model_max_budget as litellm_budget_table_model_max_budget,
-                            b.soft_budget as litellm_budget_table_soft_budget,
+                            b.max_budget AS embrouter_budget_table_max_budget,
+                            b.tpm_limit AS embrouter_budget_table_tpm_limit,
+                            b.rpm_limit AS embrouter_budget_table_rpm_limit,
+                            b.tpd_limit AS embrouter_budget_table_tpd_limit,
+                            b.model_max_budget as embrouter_budget_table_model_max_budget,
+                            b.soft_budget as embrouter_budget_table_soft_budget,
                             o.metadata as organization_metadata,
                             o.organization_alias as organization_alias,
                             b2.max_budget as organization_max_budget,
                             b2.tpm_limit as organization_tpm_limit,
                             b2.rpm_limit as organization_rpm_limit
-                        FROM "LiteLLM_VerificationToken" AS v
-                        LEFT JOIN "LiteLLM_TeamTable" AS t ON v.team_id = t.team_id
-                        LEFT JOIN "LiteLLM_TeamMembership" AS tm ON v.team_id = tm.team_id AND tm.user_id = v.user_id
-                        LEFT JOIN "LiteLLM_BudgetTable" AS b_tm ON tm.budget_id = b_tm.budget_id
-                        LEFT JOIN "LiteLLM_ModelTable" m ON t.model_id = m.id
-                        LEFT JOIN "LiteLLM_BudgetTable" AS b ON v.budget_id = b.budget_id
-                        LEFT JOIN "LiteLLM_ProjectTable" AS p ON v.project_id = p.project_id
-                        LEFT JOIN "LiteLLM_OrganizationTable" AS o ON v.organization_id = o.organization_id
-                        LEFT JOIN "LiteLLM_BudgetTable" AS b2 ON o.budget_id = b2.budget_id
+                        FROM "EmbRouter_VerificationToken" AS v
+                        LEFT JOIN "EmbRouter_TeamTable" AS t ON v.team_id = t.team_id
+                        LEFT JOIN "EmbRouter_TeamMembership" AS tm ON v.team_id = tm.team_id AND tm.user_id = v.user_id
+                        LEFT JOIN "EmbRouter_BudgetTable" AS b_tm ON tm.budget_id = b_tm.budget_id
+                        LEFT JOIN "EmbRouter_ModelTable" m ON t.model_id = m.id
+                        LEFT JOIN "EmbRouter_BudgetTable" AS b ON v.budget_id = b.budget_id
+                        LEFT JOIN "EmbRouter_ProjectTable" AS p ON v.project_id = p.project_id
+                        LEFT JOIN "EmbRouter_OrganizationTable" AS o ON v.organization_id = o.organization_id
+                        LEFT JOIN "EmbRouter_BudgetTable" AS b2 ON o.budget_id = b2.budget_id
                         WHERE v.token = $1
                     """
 
@@ -5190,7 +5190,7 @@ class PrismaClient:
                         )
                         if active_token_id:
                             # The recursive call returns a finished
-                            # LiteLLM_VerificationTokenView; the dict
+                            # EmbRouter_VerificationTokenView; the dict
                             # normalization below would crash subscripting it.
                             deprecated_response: Final = await self.get_data(
                                 token=active_token_id,
@@ -5232,7 +5232,7 @@ class PrismaClient:
                                 if tm.get("user_id") is not None and response["user_id"] == tm.get("user_id"):
                                     team_member = Member(**tm)
                         response["team_member"] = team_member
-                        response = LiteLLM_VerificationTokenView(**response, last_refreshed_at=time.time())
+                        response = EmbRouter_VerificationTokenView(**response, last_refreshed_at=time.time())
                         # for prisma we need to cast the expires time to str
                         if response.expires is not None and isinstance(response.expires, datetime):
                             response.expires = response.expires.isoformat()
@@ -5241,7 +5241,7 @@ class PrismaClient:
             import traceback
 
             prisma_query_info: Final = (
-                f"LiteLLM Prisma Client Exception: Error with `get_data`. Args passed in: {args_passed_in}"
+                f"EmbRouter Prisma Client Exception: Error with `get_data`. Args passed in: {args_passed_in}"
             )
             error_msg: Final = prisma_query_info + str(e)
             print_verbose(error_msg)
@@ -5301,7 +5301,7 @@ class PrismaClient:
                 # Strip them so the DB stores NULL via the column's nullable constraint.
                 if db_data.get("budget_limits") is None:
                     db_data.pop("budget_limits", None)
-                print_verbose("PrismaClient: Before upsert into litellm_verificationtoken")
+                print_verbose("PrismaClient: Before upsert into embrouter_verificationtoken")
                 new_verification_token: Final = await VerificationTokenRepository(self).table.upsert(
                     where={
                         "token": hashed_token,
@@ -5310,7 +5310,7 @@ class PrismaClient:
                         "create": {**db_data},
                         "update": {},  # don't do anything if it already exists
                     },
-                    include={"litellm_budget_table": True},
+                    include={"embrouter_budget_table": True},
                 )
                 verbose_proxy_logger.info("Data Inserted into Keys Table")
                 return new_verification_token
@@ -5326,13 +5326,13 @@ class PrismaClient:
                     )
                 except Exception as e:
                     if (
-                        "Foreign key constraint failed on the field: `LiteLLM_UserTable_organization_id_fkey (index)`"
+                        "Foreign key constraint failed on the field: `EmbRouter_UserTable_organization_id_fkey (index)`"
                         in str(e)
                     ):
                         raise HTTPException(
                             status_code=400,
                             detail={
-                                "error": f"Foreign Key Constraint failed. Organization ID={db_data['organization_id']} does not exist in LiteLLM_OrganizationTable. Create via `/organization/new`."
+                                "error": f"Foreign Key Constraint failed. Organization ID={db_data['organization_id']} does not exist in EmbRouter_OrganizationTable. Create via `/organization/new`."
                             },
                         )
                     raise e
@@ -5402,7 +5402,7 @@ class PrismaClient:
         except Exception as e:
             import traceback
 
-            error_msg: Final = f"LiteLLM Prisma Client Exception in insert_data: {e}"
+            error_msg: Final = f"EmbRouter Prisma Client Exception in insert_data: {e}"
             print_verbose(error_msg)
             error_traceback: Final = error_msg + "\n" + traceback.format_exc()
             end_time: Final = time.time()
@@ -5451,7 +5451,7 @@ class PrismaClient:
                 # check if plain text or hash
                 token = _hash_token_if_needed(token=token)
                 db_data["token"] = token
-                include_object_permission: Final[LiteLLM_VerificationTokenInclude] = {"object_permission": True}
+                include_object_permission: Final[EmbRouter_VerificationTokenInclude] = {"object_permission": True}
                 response: Final = await VerificationTokenRepository(self).table.update(
                     where={"token": token},
                     data=with_settings_updated_at(db_data),
@@ -5533,7 +5533,7 @@ class PrismaClient:
                         data_json = self.jsonify_object(data=t.model_dump(exclude_none=True))
                     except Exception:
                         data_json = self.jsonify_object(data=t.dict(exclude_none=True))
-                    batcher.litellm_verificationtoken.update(
+                    batcher.embrouter_verificationtoken.update(
                         where={"token": t.token},
                         data={**data_json},
                     )
@@ -5555,7 +5555,7 @@ class PrismaClient:
                         data_json = self.jsonify_object(data=user.model_dump(exclude_none=True))
                     except Exception:
                         data_json = self.jsonify_object(data=user.dict())
-                    batcher.litellm_usertable.upsert(
+                    batcher.embrouter_usertable.upsert(
                         where={"user_id": user.user_id},
                         data={
                             "create": {**data_json},
@@ -5580,7 +5580,7 @@ class PrismaClient:
                         data_json = self.jsonify_object(data=enduser.model_dump(exclude_none=True))
                     except Exception:
                         data_json = self.jsonify_object(data=enduser.dict())
-                    batcher.litellm_endusertable.upsert(
+                    batcher.embrouter_endusertable.upsert(
                         where={"user_id": enduser.user_id},
                         data={
                             "create": {**data_json},
@@ -5605,7 +5605,7 @@ class PrismaClient:
                         data_json = self.jsonify_object(data=budget.model_dump(exclude_none=True))
                     except Exception:
                         data_json = self.jsonify_object(data=budget.dict())
-                    batcher.litellm_budgettable.upsert(
+                    batcher.embrouter_budgettable.upsert(
                         where={"budget_id": budget.budget_id},
                         data={
                             "create": {**data_json},
@@ -5628,7 +5628,7 @@ class PrismaClient:
                         data_json = self.jsonify_team_object(db_data=team.model_dump(exclude_none=True))
                     except Exception:
                         data_json = self.jsonify_object(data=team.dict(exclude_none=True))
-                    batcher.litellm_teamtable.upsert(
+                    batcher.embrouter_teamtable.upsert(
                         where={"team_id": team.team_id},
                         data={
                             "create": {**data_json},
@@ -5641,7 +5641,7 @@ class PrismaClient:
         except Exception as e:
             import traceback
 
-            error_msg: Final = f"LiteLLM Prisma Client Exception - update_data: {e}"
+            error_msg: Final = f"EmbRouter Prisma Client Exception - update_data: {e}"
             print_verbose(error_msg)
             error_traceback: Final = error_msg + "\n" + traceback.format_exc()
             end_time: Final = time.time()
@@ -5707,7 +5707,7 @@ class PrismaClient:
         except Exception as e:
             import traceback
 
-            error_msg: Final = f"LiteLLM Prisma Client Exception - delete_data: {e}"
+            error_msg: Final = f"EmbRouter Prisma Client Exception - delete_data: {e}"
             print_verbose(error_msg)
             error_traceback: Final = error_msg + "\n" + traceback.format_exc()
             end_time: Final = time.time()
@@ -5740,7 +5740,7 @@ class PrismaClient:
         except Exception as e:
             import traceback
 
-            error_msg: Final = f"LiteLLM Prisma Client Exception connect(): {e}"
+            error_msg: Final = f"EmbRouter Prisma Client Exception connect(): {e}"
             verbose_proxy_logger.warning(error_msg)
             error_traceback: Final = error_msg + "\n" + traceback.format_exc()
             end_time: Final = time.time()
@@ -5770,7 +5770,7 @@ class PrismaClient:
         except Exception as e:
             import traceback
 
-            error_msg: Final = f"LiteLLM Prisma Client Exception disconnect(): {e}"
+            error_msg: Final = f"EmbRouter Prisma Client Exception disconnect(): {e}"
             print_verbose(error_msg)
             error_traceback: Final = error_msg + "\n" + traceback.format_exc()
             end_time: Final = time.time()
@@ -6821,7 +6821,7 @@ class PrismaClient:
         except Exception as e:
             import traceback
 
-            error_msg: Final = f"LiteLLM Prisma Client Exception health_check(): {e}"
+            error_msg: Final = f"EmbRouter Prisma Client Exception health_check(): {e}"
             verbose_proxy_logger.warning(error_msg)
             error_traceback: Final = error_msg + "\n" + traceback.format_exc()
             end_time: Final = time.time()
@@ -6839,7 +6839,7 @@ class PrismaClient:
 
     async def _get_spend_logs_row_count(self) -> int:
         """
-        Get the row count from LiteLLM_SpendLogs table using PostgreSQL system statistics.
+        Get the row count from EmbRouter_SpendLogs table using PostgreSQL system statistics.
         """
 
         @backoff.on_exception(
@@ -6853,7 +6853,7 @@ class PrismaClient:
             sql_query: Final = """
             SELECT reltuples::BIGINT
             FROM pg_class
-            WHERE oid = '"LiteLLM_SpendLogs"'::regclass;
+            WHERE oid = '"EmbRouter_SpendLogs"'::regclass;
             """
             result: Final[Sequence[_RelTuplesRow]] = await self.db.query_raw(query=sql_query)
             return result[0]["reltuples"]
@@ -6861,7 +6861,7 @@ class PrismaClient:
         try:
             return await _fetch_row_count()
         except Exception as e:
-            verbose_proxy_logger.error("Error getting LiteLLM_SpendLogs row count: %s", e)
+            verbose_proxy_logger.error("Error getting EmbRouter_SpendLogs row count: %s", e)
             return 0
 
     @backoff.on_exception(
@@ -6873,11 +6873,11 @@ class PrismaClient:
     )
     async def _set_spend_logs_row_count_in_proxy_state(self) -> None:
         """
-        Set the `LiteLLM_SpendLogs`row count in proxy state.
+        Set the `EmbRouter_SpendLogs`row count in proxy state.
 
         This is used later to determine if we should run expensive UI Usage queries.
         """
-        from litellm.proxy.proxy_server import proxy_state
+        from embrouter.proxy.proxy_server import proxy_state
 
         _num_spend_logs_rows: Final = await self._get_spend_logs_row_count()
         proxy_state.set_proxy_state_variable(
@@ -6954,7 +6954,7 @@ class PrismaClient:
         limit: int = 100,
         offset: int = 0,
         status_filter: str | None = None,
-    ) -> "Sequence[prisma_models.LiteLLM_HealthCheckTable]":
+    ) -> "Sequence[prisma_models.EmbRouter_HealthCheckTable]":
         """
         Get health check history with optional filtering
         """
@@ -7279,9 +7279,9 @@ class ProxyUpdateSpend:
                     async with transaction.batch_() as batcher:
                         # Sort by end_user_id for consistent lock ordering across pods to prevent deadlocks.
                         for end_user_id, response_cost in sorted(end_user_list_transactions.items()):
-                            if litellm.max_end_user_budget is not None:
+                            if embrouter.max_end_user_budget is not None:
                                 pass
-                            batcher.litellm_endusertable.upsert(
+                            batcher.embrouter_endusertable.upsert(
                                 where={"user_id": end_user_id},
                                 data={
                                     "create": {
@@ -7401,7 +7401,7 @@ class ProxyUpdateSpend:
         returns True if should not update spend in db
         Skips writing spend logs and updates to key, team, user spend to DB
         """
-        from litellm.proxy.proxy_server import general_settings
+        from embrouter.proxy.proxy_server import general_settings
 
         if general_settings.get("disable_spend_updates") is True:
             return True
@@ -7508,7 +7508,7 @@ async def _total_queued_spend_transactions(prisma_client: PrismaClient) -> int:
         tool_queue_size: Final = len(prisma_client.tool_usage_transactions)
     async with prisma_client._autorouter_turn_transactions_lock:
         autorouter_queue_size: Final = len(prisma_client.autorouter_turn_transactions)
-    from litellm.proxy.db.shadow_eval_funnel import pending_shadow_eval_funnel_events
+    from embrouter.proxy.db.shadow_eval_funnel import pending_shadow_eval_funnel_events
 
     async with prisma_client.baseline_accounting_lock:
         baseline_queue_size: Final = len(prisma_client.baseline_accounting_transactions)
@@ -7577,7 +7577,7 @@ async def update_spend_logs_job(
     This job is triggered based on queue size rather than time.
     Pops the batch once, writes spend logs, then runs guardrail usage tracking.
     """
-    from litellm.proxy.db.baseline_accounting import flush_baseline_accounting
+    from embrouter.proxy.db.baseline_accounting import flush_baseline_accounting
 
     if await _total_queued_spend_transactions(prisma_client) == 0:
         await flush_baseline_accounting(prisma_client)
@@ -7591,7 +7591,7 @@ async def _run_spend_logs_job(
     db_writer_client: AsyncHTTPHandler | None,
     proxy_logging_obj: ProxyLogging,
 ) -> None:
-    from litellm.proxy.db.baseline_accounting import flush_baseline_accounting
+    from embrouter.proxy.db.baseline_accounting import flush_baseline_accounting
 
     n_retry_times: Final = 3
     MAX_LOGS_PER_INTERVAL: Final = 10000
@@ -7616,7 +7616,7 @@ async def _run_spend_logs_job(
 
     # Guardrail/policy usage tracking (same batch, outside spend-logs update)
     try:
-        from litellm.proxy.guardrails.usage_tracking import (
+        from embrouter.proxy.guardrails.usage_tracking import (
             process_spend_logs_guardrail_usage,
         )
 
@@ -7631,13 +7631,13 @@ async def _run_spend_logs_job(
         )
 
     # Tool usage tracking: drain the request-time queue into the tool index and the
-    # LiteLLM_DailyToolSpend rollup. Never retried; a dropped batch is permanently
+    # EmbRouter_DailyToolSpend rollup. Never retried; a dropped batch is permanently
     # absent from the rollup, so failures log at error.
     async with prisma_client._tool_usage_transactions_lock:
         tool_usage_to_process: Final = prisma_client.tool_usage_transactions[:MAX_LOGS_PER_INTERVAL]
         prisma_client.tool_usage_transactions = prisma_client.tool_usage_transactions[len(tool_usage_to_process) :]
     try:
-        from litellm.proxy.db.spend_log_tool_index import flush_tool_usage_transactions
+        from embrouter.proxy.db.spend_log_tool_index import flush_tool_usage_transactions
 
         await flush_tool_usage_transactions(
             prisma_client=prisma_client,
@@ -7659,7 +7659,7 @@ async def _run_spend_logs_job(
         ]
         prisma_client.autorouter_turn_transactions = remaining_autorouter_turns  # rebind-ok: drain under lock
     try:
-        from litellm.proxy.db.autorouter_session_rollup import flush_autorouter_turn_transactions
+        from embrouter.proxy.db.autorouter_session_rollup import flush_autorouter_turn_transactions
 
         await flush_autorouter_turn_transactions(
             prisma_client=prisma_client,
@@ -7673,7 +7673,7 @@ async def _run_spend_logs_job(
         )
 
     try:
-        from litellm.proxy.db.shadow_eval_funnel import flush_shadow_eval_funnel
+        from embrouter.proxy.db.shadow_eval_funnel import flush_shadow_eval_funnel
 
         await flush_shadow_eval_funnel(prisma_client)
     except Exception as funnel_err:  # noqa: BLE001  # a drain bug must not abort the spend job
@@ -7746,7 +7746,7 @@ async def _monitor_spend_logs_queue(
         db_writer_client: Optional HTTP handler for external spend logs endpoint
         proxy_logging_obj: Proxy logging object
     """
-    from litellm.constants import (
+    from embrouter.constants import (
         SPEND_LOG_QUEUE_POLL_INTERVAL,
         SPEND_LOG_QUEUE_SIZE_THRESHOLD,
     )
@@ -7794,7 +7794,7 @@ async def _monitor_spend_logs_queue(
                     proxy_logging_obj=proxy_logging_obj,
                 )
             else:
-                from litellm.proxy.db.baseline_accounting import flush_baseline_accounting
+                from embrouter.proxy.db.baseline_accounting import flush_baseline_accounting
 
                 await flush_baseline_accounting(prisma_client)
                 current_interval = min(current_interval * backoff_multiplier, max_backoff)
@@ -7890,7 +7890,7 @@ def _raise_failed_update_spend_exception(e: Exception, start_time: float, proxy_
     """
     import traceback
 
-    error_msg: Final = f"[Non-Blocking]LiteLLM Prisma Client Exception - update spend logs: {e}"
+    error_msg: Final = f"[Non-Blocking]EmbRouter Prisma Client Exception - update spend logs: {e}"
     error_traceback: Final = error_msg + "\n" + traceback.format_exc()
     end_time: Final = time.time()
     _duration: Final = end_time - start_time
@@ -8003,7 +8003,7 @@ def _check_and_merge_model_level_guardrails(
         model_alias: Resolve guardrails for this model group instead of data["model"]
         trust_client_model_info: If False, ignore metadata.model_info.id and
             resolve guardrails by alias-union only. Set to False on the
-            pre_call path because add_litellm_data_to_request preserves
+            pre_call path because add_embrouter_data_to_request preserves
             client-supplied model_info when allow_client_pricing_override is
             set, so a caller could spoof an unguarded model_info.id while
             requesting a guarded alias and bypass guardrails (veria-ai HIGH
@@ -8017,21 +8017,21 @@ def _check_and_merge_model_level_guardrails(
         return data
 
     metadata: Final = data.get("metadata") or {}
-    litellm_metadata: Final = data.get("litellm_metadata") or {}
+    embrouter_metadata: Final = data.get("embrouter_metadata") or {}
     model_info: Final = metadata.get("model_info") or {}
     model_id: Final = model_info.get("id") if trust_client_model_info else None
     # route_request resolves team-scoped public model names with the
     # server-populated team id; pre_call lookup must do the same so
     # team-scoped guardrails are not silently skipped (greptile/veria-ai
     # Medium on #29654).
-    team_id: Final = metadata.get("user_api_key_team_id") or litellm_metadata.get("user_api_key_team_id")
+    team_id: Final = metadata.get("user_api_key_team_id") or embrouter_metadata.get("user_api_key_team_id")
 
     model_level_guardrails: list[object] | None = None
     if model_id is not None:
         deployment: Final = llm_router.get_deployment(model_id=model_id)
         if deployment is None:
             return data
-        deployment_guardrails: Final = deployment.litellm_params.get("guardrails")
+        deployment_guardrails: Final = deployment.embrouter_params.get("guardrails")
         # Bare-string guardrail names were truthy-accepted before; preserve
         # that contract so post_call callers don't silently lose them.
         if isinstance(deployment_guardrails, list):
@@ -8040,7 +8040,7 @@ def _check_and_merge_model_level_guardrails(
             model_level_guardrails = [deployment_guardrails]
     else:
         # Pre_call paths run before route_request picks a deployment, so we
-        # don't know which deployment's litellm_params.guardrails will apply.
+        # don't know which deployment's embrouter_params.guardrails will apply.
         # Take the UNION across all deployments in the group so a guardrail
         # set on ANY eligible deployment still fires (#29652; addresses
         # veria-ai HIGH on the single-deployment fallback that would skip
@@ -8055,8 +8055,8 @@ def _check_and_merge_model_level_guardrails(
         seen: Final[set] = set()
         union: Final[list] = []
         for dep in deployments:
-            litellm_params_dep = dep.get("litellm_params") or {}
-            guardrails = litellm_params_dep.get("guardrails")
+            embrouter_params_dep = dep.get("embrouter_params") or {}
+            guardrails = embrouter_params_dep.get("guardrails")
             if isinstance(guardrails, str):
                 guardrails = [guardrails]
             elif not isinstance(guardrails, list):
@@ -8180,7 +8180,7 @@ def _recreate_writer_on_read_only_transaction(prisma_client: "PrismaClient | Non
     asyncio.create_task(prisma_client.recreate_read_only_writer(reason="postgres_read_only_transaction"))
 
 
-def handle_exception_on_proxy(e: Exception, litellm_call_id: str | None = None) -> ProxyException:
+def handle_exception_on_proxy(e: Exception, embrouter_call_id: str | None = None) -> ProxyException:
     """
     Returns an Exception as ProxyException, this ensures all exceptions are OpenAI API compatible
     """
@@ -8188,11 +8188,11 @@ def handle_exception_on_proxy(e: Exception, litellm_call_id: str | None = None) 
 
     verbose_proxy_logger.exception("Exception: %s", e)
     if PrismaDBExceptionHandler.is_read_only_transaction_error(e):
-        from litellm.proxy.proxy_server import prisma_client
+        from embrouter.proxy.proxy_server import prisma_client
 
         _recreate_writer_on_read_only_transaction(prisma_client)
 
-    headers: Final = litellm_call_id_headers(litellm_call_id)
+    headers: Final = embrouter_call_id_headers(embrouter_call_id)
     if isinstance(e, HTTPException):
         return ProxyException(
             message=getattr(e, "detail", f"error({e})"),
@@ -8202,7 +8202,7 @@ def handle_exception_on_proxy(e: Exception, litellm_call_id: str | None = None) 
             code=getattr(e, "status_code", status.HTTP_500_INTERNAL_SERVER_ERROR),
         )
     elif isinstance(e, ProxyException):
-        return with_litellm_call_id(e, litellm_call_id)
+        return with_embrouter_call_id(e, embrouter_call_id)
     _status_code: Final = getattr(e, "status_code", status.HTTP_500_INTERNAL_SERVER_ERROR)
     if should_report_bug(e):
         verbose_proxy_logger.error(bug_report_notice(build_proxy_bug_report(e)))
@@ -8219,13 +8219,13 @@ def _premium_user_check(feature: str | None = None):
     """
     Raises an HTTPException if the user is not a premium user
     """
-    from litellm.proxy.proxy_server import premium_user
+    from embrouter.proxy.proxy_server import premium_user
 
     if feature:
-        detail_msg = f"This feature is only available for LiteLLM Enterprise users: {feature}. {CommonProxyErrors.not_premium_user.value}"
+        detail_msg = f"This feature is only available for EmbRouter Enterprise users: {feature}. {CommonProxyErrors.not_premium_user.value}"
     else:
         detail_msg = (
-            f"This feature is only available for LiteLLM Enterprise users. {CommonProxyErrors.not_premium_user.value}"
+            f"This feature is only available for EmbRouter Enterprise users. {CommonProxyErrors.not_premium_user.value}"
         )
 
     if not premium_user:
@@ -8257,9 +8257,9 @@ def is_known_vector_store_index(index_name: str) -> bool:
     Returns True if the vector store index is in the llm_router vector store indexes
     """
 
-    if litellm.vector_store_index_registry is None:
+    if embrouter.vector_store_index_registry is None:
         return False
-    return index_name in litellm.vector_store_index_registry.get_vector_store_indexes()
+    return index_name in embrouter.vector_store_index_registry.get_vector_store_indexes()
 
 
 def join_paths(base_path: str, route: str) -> str:
@@ -8301,7 +8301,7 @@ def get_custom_url(request_base_url: str, route: str | None = None) -> str:
     # dynamic prefix (which would produce /tenant-a/legacy/... — a path that
     # doesn't exist). join_paths()'s tail-dedup then collapses the append when
     # base_url (i.e. request.base_url) already ends in the same prefix.
-    from litellm.proxy.middleware.per_request_root_path_middleware import (  # noqa: PLC0415  # lazy: middleware imports utils
+    from embrouter.proxy.middleware.per_request_root_path_middleware import (  # noqa: PLC0415  # lazy: middleware imports utils
         get_request_root_path,
     )
 
@@ -8345,7 +8345,7 @@ def normalize_route_for_root_path(route: str) -> str | None:
 
 
 def get_prisma_client_or_throw(message: str):
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(
@@ -8417,9 +8417,9 @@ async def _get_validated_team_object(
     prisma_client: "PrismaClient",
     user_api_key_cache: "UserApiKeyCache",
     proxy_logging_obj: "ProxyLogging",
-) -> "LiteLLM_TeamTableCachedObj":
-    from litellm.proxy.auth.auth_checks import get_team_object
-    from litellm.proxy.management_endpoints.team_endpoints import validate_membership
+) -> "EmbRouter_TeamTableCachedObj":
+    from embrouter.proxy.auth.auth_checks import get_team_object
+    from embrouter.proxy.management_endpoints.team_endpoints import validate_membership
 
     team_object: Final = await get_team_object(
         team_id=team_id,
@@ -8436,8 +8436,8 @@ async def _get_team_object_for_access_groups(
     prisma_client: Optional["PrismaClient"],
     user_api_key_cache: Optional["UserApiKeyCache"],
     proxy_logging_obj: Optional["ProxyLogging"],
-) -> Optional["LiteLLM_TeamTableCachedObj"]:
-    from litellm.proxy.auth.auth_checks import get_team_object
+) -> Optional["EmbRouter_TeamTableCachedObj"]:
+    from embrouter.proxy.auth.auth_checks import get_team_object
 
     if team_id is None or prisma_client is None or user_api_key_cache is None or proxy_logging_obj is None:
         return None
@@ -8455,12 +8455,12 @@ async def _get_team_object_for_access_groups(
 
 async def _get_access_group_models(
     user_api_key_dict: "UserAPIKeyAuth",
-    team_object: Optional["LiteLLM_TeamTableCachedObj"],
+    team_object: Optional["EmbRouter_TeamTableCachedObj"],
     prisma_client: Optional["PrismaClient"],
     user_api_key_cache: Optional["UserApiKeyCache"],
     proxy_logging_obj: Optional["ProxyLogging"],
 ) -> tuple[str, ...]:
-    from litellm.proxy.auth.auth_checks import (
+    from embrouter.proxy.auth.auth_checks import (
         _get_models_from_access_groups,
         get_authorized_resources_from_key_access_groups,
     )
@@ -8489,7 +8489,7 @@ async def _agent_access_group_visible_models(
 ) -> frozenset[str] | None:
     """Models an agent key may still list once its attached access groups cap it, ``None`` when
     nothing caps it, so ``/v1/models`` never advertises a model the same key would be denied on."""
-    from litellm.proxy.auth.model_checks import get_complete_model_list, get_team_models
+    from embrouter.proxy.auth.model_checks import get_complete_model_list, get_team_models
 
     if not user_api_key_dict.agent_id:
         return None
@@ -8543,7 +8543,7 @@ async def get_available_models_for_user(
 
     Args:
         user_api_key_dict: User API key authentication object
-        llm_router: LiteLLM router instance
+        llm_router: EmbRouter router instance
         general_settings: General settings from config
         user_model: User-specific model
         prisma_client: Prisma client for database operations
@@ -8556,7 +8556,7 @@ async def get_available_models_for_user(
     Returns:
         List of model names available to the user
     """
-    from litellm.proxy.auth.model_checks import (
+    from embrouter.proxy.auth.model_checks import (
         get_complete_model_list,
         get_key_models,
         get_team_models,
@@ -8698,7 +8698,7 @@ def _resolve_listing_model_info(
     if listed_info is None:
         return (deployment_info,)
 
-    from litellm.utils import is_generalized_model_info
+    from embrouter.utils import is_generalized_model_info
 
     # Both names resolved: the deployment's model leads unless it only generalized
     # while the listed name is an exact cost-map entry.
@@ -8742,7 +8742,7 @@ def create_model_info_response(
     include_metadata: bool = False,
     fallback_type: str | None = None,
     llm_router: Optional["Router"] = None,
-    get_model_info: Callable[[str], ModelInfo] = litellm.get_model_info,
+    get_model_info: Callable[[str], ModelInfo] = embrouter.get_model_info,
 ) -> ModelInfoResponse:
     """
     Create a standardized OpenAI-compatible model object.
@@ -8751,7 +8751,7 @@ def create_model_info_response(
     (resolved via the router under fallback_type, defaulting to "general").
     Raises HTTPException(400) for an unknown fallback_type.
     """
-    from litellm.proxy.auth.model_checks import get_all_fallbacks
+    from embrouter.proxy.auth.model_checks import get_all_fallbacks
 
     base: Final[ModelInfoResponse] = {
         "id": model_id,

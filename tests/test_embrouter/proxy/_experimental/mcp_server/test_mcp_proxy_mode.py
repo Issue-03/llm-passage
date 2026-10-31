@@ -1,4 +1,4 @@
-from litellm.proxy._experimental.mcp_server import operations as mcp_operations
+from embrouter.proxy._experimental.mcp_server import operations as mcp_operations
 import json
 from datetime import datetime
 
@@ -7,11 +7,11 @@ from fastapi import HTTPException
 from mcp.shared.exceptions import MCPError
 from pydantic import AnyUrl
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.proxy._experimental.mcp_server import server
-from litellm.proxy._experimental.mcp_server.mcp_context import _mcp_proxy_mode
-from litellm.proxy._types import LiteLLM_ObjectPermissionTable, UserAPIKeyAuth
+import embrouter
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.proxy._experimental.mcp_server import server
+from embrouter.proxy._experimental.mcp_server.mcp_context import _mcp_proxy_mode
+from embrouter.proxy._types import EmbRouter_ObjectPermissionTable, UserAPIKeyAuth
 
 AUTH = UserAPIKeyAuth(api_key="key")
 
@@ -98,10 +98,10 @@ class FailureRecorder(CustomLogger):
 @pytest.mark.usefixtures("proxy_mode")
 async def test_proxy_scope_exception_emits_failure_log(monkeypatch: pytest.MonkeyPatch) -> None:
     recorder = FailureRecorder()
-    monkeypatch.setattr(litellm, "callbacks", [recorder])
+    monkeypatch.setattr(embrouter, "callbacks", [recorder])
     auth = UserAPIKeyAuth(
         api_key="scope-denial-key-hash",
-        object_permission=LiteLLM_ObjectPermissionTable(object_permission_id="denied", mcp_servers=["no-mcp-servers"]),
+        object_permission=EmbRouter_ObjectPermissionTable(object_permission_id="denied", mcp_servers=["no-mcp-servers"]),
     )
     arguments = {"tool_id": "denied-scope", "arguments": {}}
 
@@ -113,7 +113,7 @@ async def test_proxy_scope_exception_emits_failure_log(monkeypatch: pytest.Monke
             client_ip=None,
             mcp_servers=["ungranted"],
             mcp_proxy_mode=True,
-            raw_headers={"authorization": "Bearer raw-scope-secret", "x-litellm-call-id": "scope-denial"},
+            raw_headers={"authorization": "Bearer raw-scope-secret", "x-embrouter-call-id": "scope-denial"},
         )
 
     assert denied.value.status_code == 403

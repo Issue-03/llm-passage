@@ -23,7 +23,7 @@ const makeProject = (index: number): ProjectResponse => ({
   created_by: "user-1",
   updated_at: "2024-01-01T00:00:00Z",
   updated_by: "user-1",
-  litellm_budget_table: null,
+  embrouter_budget_table: null,
 });
 
 const allProjects = Array.from({ length: 14 }, (_, index) => makeProject(index + 1));

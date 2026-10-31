@@ -2,9 +2,9 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from litellm.proxy.guardrails.guardrail_hooks.javelin.javelin import JavelinGuardrail
-from litellm.proxy.guardrails.guardrail_registry import InMemoryGuardrailHandler
-from litellm.types.guardrails import GuardrailEventHooks
+from embrouter.proxy.guardrails.guardrail_hooks.javelin.javelin import JavelinGuardrail
+from embrouter.proxy.guardrails.guardrail_registry import InMemoryGuardrailHandler
+from embrouter.types.guardrails import GuardrailEventHooks
 
 
 @pytest.mark.asyncio
@@ -13,7 +13,7 @@ async def test_config_without_api_version_calls_javelin_v1():
     registered = handler.initialize_guardrail(
         guardrail={
             "guardrail_name": "javelin-no-api-version",
-            "litellm_params": {
+            "embrouter_params": {
                 "guardrail": "javelin",
                 "mode": "pre_call",
                 "api_key": "javelin_api_key",

@@ -6,28 +6,28 @@ from typing import TYPE_CHECKING, Any, Final
 import httpx
 from pydantic import BaseModel
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.litellm_core_utils.litellm_logging import Logging as LitellmLogging
-from litellm.llms.bedrock.image_generation.amazon_nova_canvas_transformation import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbrouterLogging
+from embrouter.llms.bedrock.image_generation.amazon_nova_canvas_transformation import (
     AmazonNovaCanvasConfig,
 )
-from litellm.llms.bedrock.image_generation.amazon_stability1_transformation import (
+from embrouter.llms.bedrock.image_generation.amazon_stability1_transformation import (
     AmazonStabilityConfig,
 )
-from litellm.llms.bedrock.image_generation.amazon_stability3_transformation import (
+from embrouter.llms.bedrock.image_generation.amazon_stability3_transformation import (
     AmazonStability3Config,
 )
-from litellm.llms.bedrock.image_generation.amazon_titan_transformation import (
+from embrouter.llms.bedrock.image_generation.amazon_titan_transformation import (
     AmazonTitanImageGenerationConfig,
 )
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.llms.custom_httpx.http_handler import (
     AsyncHTTPHandler,
     HTTPHandler,
     _get_httpx_client,
     get_async_httpx_client,
 )
-from litellm.types.utils import ImageResponse
+from embrouter.types.utils import ImageResponse
 
 from ..base_aws_llm import BaseAWSLLM, bedrock_bearer_token
 from ..common_utils import BedrockError
@@ -71,7 +71,7 @@ class BedrockImageGeneration(BaseAWSLLM):
         elif AmazonStability3Config._is_stability_3_model(model):
             return AmazonStability3Config
         else:
-            return litellm.AmazonStabilityConfig
+            return embrouter.AmazonStabilityConfig
 
     def image_generation(
         self,
@@ -79,7 +79,7 @@ class BedrockImageGeneration(BaseAWSLLM):
         prompt: str,
         model_response: ImageResponse,
         optional_params: dict,
-        logging_obj: LitellmLogging,
+        logging_obj: EmbrouterLogging,
         timeout: float | httpx.Timeout | None,
         aimg_generation: bool = False,
         api_base: str | None = None,
@@ -143,7 +143,7 @@ class BedrockImageGeneration(BaseAWSLLM):
         prepared_request: BedrockImagePreparedRequest,
         timeout: float | httpx.Timeout | None,
         model: str,
-        logging_obj: LitellmLogging,
+        logging_obj: EmbrouterLogging,
         prompt: str,
         model_response: ImageResponse,
         client: AsyncHTTPHandler | None = None,
@@ -154,7 +154,7 @@ class BedrockImageGeneration(BaseAWSLLM):
         Awaits the response from the bedrock image generation endpoint
         """
         async_client: Final = client or get_async_httpx_client(
-            llm_provider=litellm.LlmProviders.BEDROCK,
+            llm_provider=embrouter.LlmProviders.BEDROCK,
             params={"timeout": timeout},
         )
 
@@ -208,7 +208,7 @@ class BedrockImageGeneration(BaseAWSLLM):
         optional_params: dict,
         api_base: str | None,
         extra_headers: dict | None,
-        logging_obj: LitellmLogging,
+        logging_obj: EmbrouterLogging,
         prompt: str,
         api_key: str | None,
     ) -> BedrockImagePreparedRequest:
@@ -220,7 +220,7 @@ class BedrockImageGeneration(BaseAWSLLM):
             optional_params (dict): The optional parameters for the image generation
             api_base (Optional[str]): The base URL for the Bedrock API
             extra_headers (Optional[dict]): The extra headers to include in the request
-            logging_obj (LitellmLogging): The logging object to use for logging
+            logging_obj (EmbrouterLogging): The logging object to use for logging
             prompt (str): The prompt to use for the image generation
         Returns:
             BedrockImagePreparedRequest: The prepared request object
@@ -313,7 +313,7 @@ class BedrockImageGeneration(BaseAWSLLM):
         self,
         model_response: ImageResponse,
         model: str,
-        logging_obj: LitellmLogging,
+        logging_obj: EmbrouterLogging,
         prompt: str,
         response: httpx.Response,
         data: dict,

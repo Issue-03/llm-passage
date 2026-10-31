@@ -5,22 +5,22 @@ from unittest import mock
 
 from dotenv import load_dotenv
 
-import litellm.proxy
-import litellm.proxy.proxy_server
+import embrouter.proxy
+import embrouter.proxy.proxy_server
 
 load_dotenv()
 import io
 import json
 
-# this file is to test litellm/proxy
+# this file is to test embrouter/proxy
 
 import asyncio
 import logging
 
 import pytest
 
-import litellm
-from litellm import RateLimitError, Timeout, completion, completion_cost, embedding
+import embrouter
+from embrouter import RateLimitError, Timeout, completion, completion_cost, embedding
 
 # Configure logging
 logging.basicConfig(
@@ -35,14 +35,14 @@ from fastapi import FastAPI
 # test /chat/completion request to the proxy
 from fastapi.testclient import TestClient
 
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-from litellm.proxy.proxy_server import (  # Replace with the actual module where your FastAPI router is defined
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+from embrouter.proxy.proxy_server import (  # Replace with the actual module where your FastAPI router is defined
     app,
     initialize,
     save_worker_config,
 )
-from litellm.proxy.utils import ProxyLogging
+from embrouter.proxy.utils import ProxyLogging
 
 # Your bearer token
 token = "sk-1234"
@@ -92,21 +92,21 @@ example_image_generation_result = {
 
 def mock_patch_acompletion():
     return mock.patch(
-        "litellm.proxy.proxy_server.llm_router.acompletion",
+        "embrouter.proxy.proxy_server.llm_router.acompletion",
         return_value=example_completion_result,
     )
 
 
 def mock_patch_aembedding():
     return mock.patch(
-        "litellm.proxy.proxy_server.llm_router.aembedding",
+        "embrouter.proxy.proxy_server.llm_router.aembedding",
         return_value=example_embedding_result,
     )
 
 
 def mock_patch_aimage_generation():
     return mock.patch(
-        "litellm.proxy.proxy_server.llm_router.aimage_generation",
+        "embrouter.proxy.proxy_server.llm_router.aimage_generation",
         return_value=example_image_generation_result,
     )
 
@@ -124,8 +124,8 @@ def fake_env_vars(monkeypatch):
 
 @pytest.fixture(scope="function")
 def client_no_auth(fake_env_vars):
-    # Assuming litellm.proxy.proxy_server is an object
-    from litellm.proxy.proxy_server import cleanup_router_config_variables
+    # Assuming embrouter.proxy.proxy_server is an object
+    from embrouter.proxy.proxy_server import cleanup_router_config_variables
 
     cleanup_router_config_variables()
     filepath = os.path.dirname(os.path.abspath(__file__))
@@ -156,8 +156,8 @@ def test_chat_completion(mock_acompletion, client_no_auth):
                 {"role": "user", "content": "hi"},
             ],
             max_tokens=10,
-            litellm_call_id=mock.ANY,
-            litellm_logging_obj=mock.ANY,
+            embrouter_call_id=mock.ANY,
+            embrouter_logging_obj=mock.ANY,
             request_timeout=mock.ANY,
             specific_deployment=True,
             metadata=mock.ANY,
@@ -169,7 +169,7 @@ def test_chat_completion(mock_acompletion, client_no_auth):
         result = response.json()
         print(f"Received response: {result}")
     except Exception as e:
-        pytest.fail(f"LiteLLM Proxy test failed. Exception - {str(e)}")
+        pytest.fail(f"EmbRouter Proxy test failed. Exception - {str(e)}")
 
 
 def test_chat_completion_malformed_messages_returns_400(client_no_auth):
@@ -177,7 +177,7 @@ def test_chat_completion_malformed_messages_returns_400(client_no_auth):
     Test that malformed messages (strings instead of dicts) return 400 instead of 500.
 
     This test verifies that when a client sends messages as raw strings instead of
-    {role, content} objects, LiteLLM returns a 400 invalid_request_error instead
+    {role, content} objects, EmbRouter returns a 400 invalid_request_error instead
     of a 500 Internal Server Error.
     """
     global headers
@@ -221,15 +221,15 @@ def test_chat_completion_malformed_messages_returns_400(client_no_auth):
         assert len(error_message) > 0, "Error message should not be empty"
 
     except Exception as e:
-        pytest.fail(f"LiteLLM Proxy test failed. Exception - {str(e)}")
+        pytest.fail(f"EmbRouter Proxy test failed. Exception - {str(e)}")
 
 
 def test_get_settings_request_timeout(client_no_auth):
     """
-    When no timeout is set, it should use the litellm.request_timeout value
+    When no timeout is set, it should use the embrouter.request_timeout value
     """
-    # Set a known value for litellm.request_timeout
-    import litellm
+    # Set a known value for embrouter.request_timeout
+    import embrouter
 
     # Make a GET request to /settings
     response = client_no_auth.get("/settings")
@@ -241,20 +241,20 @@ def test_get_settings_request_timeout(client_no_auth):
     settings = response.json()
     print("settings", settings)
 
-    assert settings["litellm.request_timeout"] == litellm.request_timeout
+    assert settings["embrouter.request_timeout"] == embrouter.request_timeout
 
 
 @pytest.mark.parametrize(
-    "litellm_key_header_name",
-    ["x-litellm-key", None],
+    "embrouter_key_header_name",
+    ["x-embrouter-key", None],
 )
-def test_add_headers_to_request(litellm_key_header_name):
+def test_add_headers_to_request(embrouter_key_header_name):
     from fastapi import Request
     from starlette.datastructures import URL
     import json
-    from litellm.proxy.litellm_pre_call_utils import (
+    from embrouter.proxy.embrouter_pre_call_utils import (
         clean_headers,
-        LiteLLMProxyRequestSetup,
+        EmbRouterProxyRequestSetup,
     )
 
     headers = {
@@ -266,8 +266,8 @@ def test_add_headers_to_request(litellm_key_header_name):
     request = Request(scope={"type": "http"})
     request._url = URL(url="/chat/completions")
     request._body = json.dumps({"model": "gpt-3.5-turbo"}).encode("utf-8")
-    request_headers = clean_headers(headers, litellm_key_header_name)
-    forwarded_headers = LiteLLMProxyRequestSetup._get_forwardable_headers(
+    request_headers = clean_headers(headers, embrouter_key_header_name)
+    forwarded_headers = EmbRouterProxyRequestSetup._get_forwardable_headers(
         request_headers
     )
     assert forwarded_headers == {
@@ -277,8 +277,8 @@ def test_add_headers_to_request(litellm_key_header_name):
 
 
 @pytest.mark.parametrize(
-    "litellm_key_header_name",
-    ["x-litellm-key", None],
+    "embrouter_key_header_name",
+    ["x-embrouter-key", None],
 )
 @pytest.mark.parametrize(
     "forward_headers",
@@ -286,18 +286,18 @@ def test_add_headers_to_request(litellm_key_header_name):
 )
 @mock_patch_acompletion()
 def test_chat_completion_forward_headers(
-    mock_acompletion, client_no_auth, litellm_key_header_name, forward_headers
+    mock_acompletion, client_no_auth, embrouter_key_header_name, forward_headers
 ):
     global headers
     try:
         if forward_headers:
-            gs = getattr(litellm.proxy.proxy_server, "general_settings")
+            gs = getattr(embrouter.proxy.proxy_server, "general_settings")
             gs["forward_client_headers_to_llm_api"] = True
-            setattr(litellm.proxy.proxy_server, "general_settings", gs)
-        if litellm_key_header_name is not None:
-            gs = getattr(litellm.proxy.proxy_server, "general_settings")
-            gs["litellm_key_header_name"] = litellm_key_header_name
-            setattr(litellm.proxy.proxy_server, "general_settings", gs)
+            setattr(embrouter.proxy.proxy_server, "general_settings", gs)
+        if embrouter_key_header_name is not None:
+            gs = getattr(embrouter.proxy.proxy_server, "general_settings")
+            gs["embrouter_key_header_name"] = embrouter_key_header_name
+            setattr(embrouter.proxy.proxy_server, "general_settings", gs)
         # Your test data
         test_data = {
             "model": "gpt-3.5-turbo",
@@ -312,8 +312,8 @@ def test_chat_completion_forward_headers(
             "X-Another-Header": "Another-Value",
         }
 
-        if litellm_key_header_name is not None:
-            headers_to_not_forward = {litellm_key_header_name: "Bearer 1234"}
+        if embrouter_key_header_name is not None:
+            headers_to_not_forward = {embrouter_key_header_name: "Bearer 1234"}
         else:
             headers_to_not_forward = {"Authorization": "Bearer 1234"}
 
@@ -336,7 +336,7 @@ def test_chat_completion_forward_headers(
         result = response.json()
         print(f"Received response: {result}")
     except Exception as e:
-        pytest.fail(f"LiteLLM Proxy test failed. Exception - {str(e)}")
+        pytest.fail(f"EmbRouter Proxy test failed. Exception - {str(e)}")
 
 
 @pytest.mark.parametrize("forward_llm_auth_headers", [True, False])
@@ -352,10 +352,10 @@ def test_chat_completion_forward_llm_provider_auth_headers(
     """
     try:
         # Configure general settings
-        gs = getattr(litellm.proxy.proxy_server, "general_settings")
+        gs = getattr(embrouter.proxy.proxy_server, "general_settings")
         gs["forward_client_headers_to_llm_api"] = True
         gs["forward_llm_provider_auth_headers"] = forward_llm_auth_headers
-        setattr(litellm.proxy.proxy_server, "general_settings", gs)
+        setattr(embrouter.proxy.proxy_server, "general_settings", gs)
 
         # Test data
         test_data = {
@@ -413,9 +413,9 @@ def test_chat_completion_forward_llm_provider_auth_headers(
         )
     finally:
         # Clean up
-        gs = getattr(litellm.proxy.proxy_server, "general_settings")
+        gs = getattr(embrouter.proxy.proxy_server, "general_settings")
         gs.pop("forward_llm_provider_auth_headers", None)
-        setattr(litellm.proxy.proxy_server, "general_settings", gs)
+        setattr(embrouter.proxy.proxy_server, "general_settings", gs)
 
 
 @mock_patch_acompletion()
@@ -433,14 +433,14 @@ async def test_team_disable_guardrails(mock_acompletion, client_no_auth, monkeyp
     from fastapi import HTTPException, Request
     from starlette.datastructures import URL
 
-    from litellm.proxy._types import (
-        LiteLLM_TeamTable,
-        LiteLLM_TeamTableCachedObj,
+    from embrouter.proxy._types import (
+        EmbRouter_TeamTable,
+        EmbRouter_TeamTableCachedObj,
         ProxyException,
         UserAPIKeyAuth,
     )
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-    from litellm.proxy.proxy_server import hash_token
+    from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+    from embrouter.proxy.proxy_server import hash_token
 
     user_api_key_cache: Final = UserApiKeyCache()
     _team_id = "1234"
@@ -453,7 +453,7 @@ async def test_team_disable_guardrails(mock_acompletion, client_no_auth, monkeyp
         last_refreshed_at=time.time(),
     )
     await asyncio.sleep(1)
-    team_obj = LiteLLM_TeamTableCachedObj(
+    team_obj = EmbRouter_TeamTableCachedObj(
         team_id=_team_id,
         blocked=False,
         last_refreshed_at=time.time(),
@@ -462,9 +462,9 @@ async def test_team_disable_guardrails(mock_acompletion, client_no_auth, monkeyp
     user_api_key_cache.set_cache(key=hash_token(user_key), value=valid_token)
     user_api_key_cache.set_cache(key="team_id:{}".format(_team_id), value=team_obj)
 
-    monkeypatch.setattr(litellm.proxy.proxy_server, "user_api_key_cache", user_api_key_cache)
-    setattr(litellm.proxy.proxy_server, "master_key", "sk-1234")
-    setattr(litellm.proxy.proxy_server, "prisma_client", "hello-world")
+    monkeypatch.setattr(embrouter.proxy.proxy_server, "user_api_key_cache", user_api_key_cache)
+    setattr(embrouter.proxy.proxy_server, "master_key", "sk-1234")
+    setattr(embrouter.proxy.proxy_server, "prisma_client", "hello-world")
 
     request = Request(scope={"type": "http"})
     request._url = URL(url="/chat/completions")
@@ -485,8 +485,8 @@ from tests.unit.proxy.test_custom_callback_input import CompletionCustomHandler
 
 @mock_patch_acompletion()
 def test_custom_logger_failure_handler(mock_acompletion, client_no_auth, monkeypatch):
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.proxy_server import hash_token
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy.proxy_server import hash_token
 
     user_api_key_cache: Final = UserApiKeyCache()
     rpm_limit = 0
@@ -499,16 +499,16 @@ def test_custom_logger_failure_handler(mock_acompletion, client_no_auth, monkeyp
     mock_logger = CustomLogger()
     mock_logger_unit_tests = CompletionCustomHandler()
     proxy_logging_obj: ProxyLogging = getattr(
-        litellm.proxy.proxy_server, "proxy_logging_obj"
+        embrouter.proxy.proxy_server, "proxy_logging_obj"
     )
 
-    litellm.callbacks = [mock_logger, mock_logger_unit_tests]
-    proxy_logging_obj._init_litellm_callbacks(llm_router=None)
+    embrouter.callbacks = [mock_logger, mock_logger_unit_tests]
+    proxy_logging_obj._init_embrouter_callbacks(llm_router=None)
 
-    monkeypatch.setattr(litellm.proxy.proxy_server, "user_api_key_cache", user_api_key_cache)
-    setattr(litellm.proxy.proxy_server, "master_key", "sk-1234")
-    setattr(litellm.proxy.proxy_server, "prisma_client", "FAKE-VAR")
-    setattr(litellm.proxy.proxy_server, "proxy_logging_obj", proxy_logging_obj)
+    monkeypatch.setattr(embrouter.proxy.proxy_server, "user_api_key_cache", user_api_key_cache)
+    setattr(embrouter.proxy.proxy_server, "master_key", "sk-1234")
+    setattr(embrouter.proxy.proxy_server, "prisma_client", "FAKE-VAR")
+    setattr(embrouter.proxy.proxy_server, "proxy_logging_obj", proxy_logging_obj)
 
     with patch.object(
         mock_logger, "async_log_failure_event", new=AsyncMock()
@@ -559,8 +559,8 @@ def test_engines_model_chat_completions(mock_acompletion, client_no_auth):
                 {"role": "user", "content": "hi"},
             ],
             max_tokens=10,
-            litellm_call_id=mock.ANY,
-            litellm_logging_obj=mock.ANY,
+            embrouter_call_id=mock.ANY,
+            embrouter_logging_obj=mock.ANY,
             request_timeout=mock.ANY,
             specific_deployment=True,
             metadata=mock.ANY,
@@ -572,7 +572,7 @@ def test_engines_model_chat_completions(mock_acompletion, client_no_auth):
         result = response.json()
         print(f"Received response: {result}")
     except Exception as e:
-        pytest.fail(f"LiteLLM Proxy test failed. Exception - {str(e)}")
+        pytest.fail(f"EmbRouter Proxy test failed. Exception - {str(e)}")
 
 
 @mock_patch_acompletion()
@@ -597,8 +597,8 @@ def test_chat_completion_azure(mock_acompletion, client_no_auth):
                 {"role": "user", "content": "write 1 sentence poem"},
             ],
             max_tokens=10,
-            litellm_call_id=mock.ANY,
-            litellm_logging_obj=mock.ANY,
+            embrouter_call_id=mock.ANY,
+            embrouter_logging_obj=mock.ANY,
             request_timeout=mock.ANY,
             specific_deployment=True,
             metadata=mock.ANY,
@@ -610,7 +610,7 @@ def test_chat_completion_azure(mock_acompletion, client_no_auth):
         print(f"Received response: {result}")
         assert len(result["choices"][0]["message"]["content"]) > 0
     except Exception as e:
-        pytest.fail(f"LiteLLM Proxy test failed. Exception - {str(e)}")
+        pytest.fail(f"EmbRouter Proxy test failed. Exception - {str(e)}")
 
 
 # Run the test
@@ -642,8 +642,8 @@ def test_openai_deployments_model_chat_completions_azure(
                 {"role": "user", "content": "write 1 sentence poem"},
             ],
             max_tokens=10,
-            litellm_call_id=mock.ANY,
-            litellm_logging_obj=mock.ANY,
+            embrouter_call_id=mock.ANY,
+            embrouter_logging_obj=mock.ANY,
             request_timeout=mock.ANY,
             specific_deployment=True,
             metadata=mock.ANY,
@@ -655,7 +655,7 @@ def test_openai_deployments_model_chat_completions_azure(
         print(f"Received response: {result}")
         assert len(result["choices"][0]["message"]["content"]) > 0
     except Exception as e:
-        pytest.fail(f"LiteLLM Proxy test failed. Exception - {str(e)}")
+        pytest.fail(f"EmbRouter Proxy test failed. Exception - {str(e)}")
 
 
 # Run the test
@@ -666,12 +666,12 @@ def test_openai_deployments_model_chat_completions_azure(
 @mock_patch_aembedding()
 def test_embedding(mock_aembedding, client_no_auth):
     global headers
-    from litellm.proxy.proxy_server import user_custom_auth
+    from embrouter.proxy.proxy_server import user_custom_auth
 
     try:
         test_data = {
             "model": "azure/text-embedding-ada-002",
-            "input": ["good morning from litellm"],
+            "input": ["good morning from embrouter"],
         }
 
         async def _pre_call_hook_side_effect(**kwargs):
@@ -688,17 +688,17 @@ def test_embedding(mock_aembedding, client_no_auth):
 
         with (
             patch.object(
-                litellm.proxy.proxy_server.proxy_logging_obj,
+                embrouter.proxy.proxy_server.proxy_logging_obj,
                 "pre_call_hook",
                 new=AsyncMock(side_effect=_pre_call_hook_side_effect),
             ) as mock_pre_call_hook,
             patch.object(
-                litellm.proxy.proxy_server.proxy_logging_obj,
+                embrouter.proxy.proxy_server.proxy_logging_obj,
                 "during_call_hook",
                 new=AsyncMock(return_value=None),
             ) as mock_during_hook,
             patch.object(
-                litellm.proxy.proxy_server.proxy_logging_obj,
+                embrouter.proxy.proxy_server.proxy_logging_obj,
                 "post_call_success_hook",
                 new=AsyncMock(side_effect=_post_call_success_side_effect),
             ),
@@ -707,10 +707,10 @@ def test_embedding(mock_aembedding, client_no_auth):
 
         mock_aembedding.assert_called_once_with(
             model="azure/text-embedding-ada-002",
-            input=["good morning from litellm"],
+            input=["good morning from embrouter"],
             specific_deployment=True,
-            litellm_call_id=mock.ANY,
-            litellm_logging_obj=mock.ANY,
+            embrouter_call_id=mock.ANY,
+            embrouter_logging_obj=mock.ANY,
             request_timeout=mock.ANY,
             metadata=mock.ANY,
             proxy_server_request=mock.ANY,
@@ -730,27 +730,27 @@ def test_embedding(mock_aembedding, client_no_auth):
         ), f"expected pre_call_hook to receive call_type='aembedding', got {pre_call_kwargs.get('call_type')}"
 
     except Exception as e:
-        pytest.fail(f"LiteLLM Proxy test failed. Exception - {str(e)}")
+        pytest.fail(f"EmbRouter Proxy test failed. Exception - {str(e)}")
 
 
 @mock_patch_aembedding()
 def test_bedrock_embedding(mock_aembedding, client_no_auth):
     global headers
-    from litellm.proxy.proxy_server import user_custom_auth
+    from embrouter.proxy.proxy_server import user_custom_auth
 
     try:
         test_data = {
             "model": "amazon-embeddings",
-            "input": ["good morning from litellm"],
+            "input": ["good morning from embrouter"],
         }
 
         response = client_no_auth.post("/v1/embeddings", json=test_data)
 
         mock_aembedding.assert_called_once_with(
             model="amazon-embeddings",
-            input=["good morning from litellm"],
-            litellm_call_id=mock.ANY,
-            litellm_logging_obj=mock.ANY,
+            input=["good morning from embrouter"],
+            embrouter_call_id=mock.ANY,
+            embrouter_logging_obj=mock.ANY,
             request_timeout=mock.ANY,
             metadata=mock.ANY,
             proxy_server_request=mock.ANY,
@@ -762,18 +762,18 @@ def test_bedrock_embedding(mock_aembedding, client_no_auth):
         print(len(result["data"][0]["embedding"]))
         assert len(result["data"][0]["embedding"]) > 10  # this usually has len==1536 so
     except Exception as e:
-        pytest.fail(f"LiteLLM Proxy test failed. Exception - {str(e)}")
+        pytest.fail(f"EmbRouter Proxy test failed. Exception - {str(e)}")
 
 
 @pytest.mark.skip(reason="AWS Suspended Account")
 def test_sagemaker_embedding(client_no_auth):
     global headers
-    from litellm.proxy.proxy_server import user_custom_auth
+    from embrouter.proxy.proxy_server import user_custom_auth
 
     try:
         test_data = {
             "model": "GPT-J 6B - Sagemaker Text Embedding (Internal)",
-            "input": ["good morning from litellm"],
+            "input": ["good morning from embrouter"],
         }
 
         response = client_no_auth.post("/v1/embeddings", json=test_data)
@@ -783,7 +783,7 @@ def test_sagemaker_embedding(client_no_auth):
         print(len(result["data"][0]["embedding"]))
         assert len(result["data"][0]["embedding"]) > 10  # this usually has len==1536 so
     except Exception as e:
-        pytest.fail(f"LiteLLM Proxy test failed. Exception - {str(e)}")
+        pytest.fail(f"EmbRouter Proxy test failed. Exception - {str(e)}")
 
 
 # Run the test
@@ -794,7 +794,7 @@ def test_sagemaker_embedding(client_no_auth):
 @mock_patch_aimage_generation()
 def test_img_gen(mock_aimage_generation, client_no_auth):
     global headers
-    from litellm.proxy.proxy_server import user_custom_auth
+    from embrouter.proxy.proxy_server import user_custom_auth
 
     try:
         test_data = {
@@ -813,7 +813,7 @@ def test_img_gen(mock_aimage_generation, client_no_auth):
             n=1,
             size="1024x1024",
             imageConfig={"aspectRatio": "9:16", "imageSize": "1K"},
-            litellm_call_id=mock.ANY,
+            embrouter_call_id=mock.ANY,
             metadata=mock.ANY,
             proxy_server_request=mock.ANY,
             secret_fields=mock.ANY,
@@ -823,7 +823,7 @@ def test_img_gen(mock_aimage_generation, client_no_auth):
         print(len(result["data"][0]["url"]))
         assert len(result["data"][0]["url"]) > 10
     except Exception as e:
-        pytest.fail(f"LiteLLM Proxy test failed. Exception - {str(e)}")
+        pytest.fail(f"EmbRouter Proxy test failed. Exception - {str(e)}")
 
 
 #### ADDITIONAL
@@ -833,7 +833,7 @@ def test_add_new_model(client_no_auth):
     try:
         test_data = {
             "model_name": "test_openai_models",
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "gpt-3.5-turbo",
             },
             "model_info": {"description": "this is a test openai model"},
@@ -849,7 +849,7 @@ def test_add_new_model(client_no_auth):
                 model_info = m["model_info"]
         assert model_info["description"] == "this is a test openai model"
     except Exception as e:
-        pytest.fail(f"LiteLLM Proxy test failed. Exception {str(e)}")
+        pytest.fail(f"EmbRouter Proxy test failed. Exception {str(e)}")
 
 
 @pytest.mark.xdist_group("proxy_heavy")
@@ -858,7 +858,7 @@ def test_health(client_no_auth):
     import logging
     import time
 
-    from litellm._logging import verbose_logger, verbose_proxy_logger
+    from embrouter._logging import verbose_logger, verbose_proxy_logger
 
     verbose_proxy_logger.setLevel(logging.DEBUG)
 
@@ -866,7 +866,7 @@ def test_health(client_no_auth):
         response = client_no_auth.get("/health")
         assert response.status_code == 200
     except Exception as e:
-        pytest.fail(f"LiteLLM Proxy test failed. Exception - {str(e)}")
+        pytest.fail(f"EmbRouter Proxy test failed. Exception - {str(e)}")
 
 
 # test_add_new_model()
@@ -890,10 +890,10 @@ customHandler = MyCustomHandler()
 @mock_patch_acompletion()
 def test_chat_completion_optional_params(mock_acompletion, client_no_auth):
     # [PROXY: PROD TEST] - DO NOT DELETE
-    # This tests if all the /chat/completion params are passed to litellm
+    # This tests if all the /chat/completion params are passed to embrouter
     try:
         # Your test data
-        litellm.set_verbose = True
+        embrouter.set_verbose = True
         test_data = {
             "model": "gpt-3.5-turbo",
             "messages": [
@@ -903,7 +903,7 @@ def test_chat_completion_optional_params(mock_acompletion, client_no_auth):
             "user": "proxy-user",
         }
 
-        litellm.callbacks = [customHandler]
+        embrouter.callbacks = [customHandler]
         print("testing proxy server: optional params")
         response = client_no_auth.post("/v1/chat/completions", json=test_data)
         mock_acompletion.assert_called_once_with(
@@ -913,8 +913,8 @@ def test_chat_completion_optional_params(mock_acompletion, client_no_auth):
             ],
             max_tokens=10,
             user="proxy-user",
-            litellm_call_id=mock.ANY,
-            litellm_logging_obj=mock.ANY,
+            embrouter_call_id=mock.ANY,
+            embrouter_logging_obj=mock.ANY,
             request_timeout=mock.ANY,
             specific_deployment=True,
             metadata=mock.ANY,
@@ -925,7 +925,7 @@ def test_chat_completion_optional_params(mock_acompletion, client_no_auth):
         result = response.json()
         print(f"Received response: {result}")
     except Exception as e:
-        pytest.fail("LiteLLM Proxy test failed. Exception", e)
+        pytest.fail("EmbRouter Proxy test failed. Exception", e)
 
 
 # Run the test
@@ -933,11 +933,11 @@ def test_chat_completion_optional_params(mock_acompletion, client_no_auth):
 
 
 # Test Reading config.yaml file
-from litellm.proxy.proxy_server import ProxyConfig
+from embrouter.proxy.proxy_server import ProxyConfig
 
 
 @pytest.mark.skip(reason="local variable conflicts. needs to be refactored.")
-@mock.patch("litellm.proxy.proxy_server.litellm.Cache")
+@mock.patch("embrouter.proxy.proxy_server.embrouter.Cache")
 def test_load_router_config(mock_cache, fake_env_vars):
     mock_cache.return_value.cache.__dict__ = {"redis_client": None}
     mock_cache.return_value.supported_call_types = [
@@ -985,20 +985,20 @@ def test_load_router_config(mock_cache, fake_env_vars):
         print(result)
         assert len(result[1]) == 2
 
-        # tests for litellm.cache set from config
+        # tests for embrouter.cache set from config
         print("testing reading proxy config for cache")
-        litellm.cache = None
+        embrouter.cache = None
         asyncio.run(
             proxy_config.load_config(
                 router=None,
                 config_file_path=f"{filepath}/example_config_yaml/cache_no_params.yaml",
             )
         )
-        assert litellm.cache is not None
+        assert embrouter.cache is not None
         assert "redis_client" in vars(
-            litellm.cache.cache
+            embrouter.cache.cache
         )  # it should default to redis on proxy
-        assert litellm.cache.supported_call_types == [
+        assert embrouter.cache.supported_call_types == [
             "completion",
             "acompletion",
             "embedding",
@@ -1007,7 +1007,7 @@ def test_load_router_config(mock_cache, fake_env_vars):
             "transcription",
         ]  # init with all call types
 
-        litellm.disable_cache()
+        embrouter.disable_cache()
 
         print("testing reading proxy config for cache with params")
         mock_cache.return_value.supported_call_types = [
@@ -1020,14 +1020,14 @@ def test_load_router_config(mock_cache, fake_env_vars):
                 config_file_path=f"{filepath}/example_config_yaml/cache_with_params.yaml",
             )
         )
-        assert litellm.cache is not None
-        print(litellm.cache)
-        print(litellm.cache.supported_call_types)
-        print(vars(litellm.cache.cache))
+        assert embrouter.cache is not None
+        print(embrouter.cache)
+        print(embrouter.cache.supported_call_types)
+        print(vars(embrouter.cache.cache))
         assert "redis_client" in vars(
-            litellm.cache.cache
+            embrouter.cache.cache
         )  # it should default to redis on proxy
-        assert litellm.cache.supported_call_types == [
+        assert embrouter.cache.supported_call_types == [
             "embedding",
             "aembedding",
         ]  # init with all call types
@@ -1046,12 +1046,12 @@ async def test_team_update_redis():
     """
     Tests if team update, updates the redis cache if set
     """
-    from litellm.caching.caching import DualCache, RedisCache
-    from litellm.proxy._types import LiteLLM_TeamTableCachedObj
-    from litellm.proxy.auth.auth_checks import _cache_team_object
+    from embrouter.caching.caching import DualCache, RedisCache
+    from embrouter.proxy._types import EmbRouter_TeamTableCachedObj
+    from embrouter.proxy.auth.auth_checks import _cache_team_object
 
     proxy_logging_obj: ProxyLogging = getattr(
-        litellm.proxy.proxy_server, "proxy_logging_obj"
+        embrouter.proxy.proxy_server, "proxy_logging_obj"
     )
 
     redis_cache = RedisCache(host="localhost")
@@ -1063,7 +1063,7 @@ async def test_team_update_redis():
     ) as mock_client:
         await _cache_team_object(
             team_id="1234",
-            team_table=LiteLLM_TeamTableCachedObj(team_id="1234"),
+            team_table=EmbRouter_TeamTableCachedObj(team_id="1234"),
             user_api_key_cache=DualCache(redis_cache=redis_cache),
             proxy_logging_obj=proxy_logging_obj,
         )
@@ -1076,11 +1076,11 @@ async def test_get_team_redis(client_no_auth):
     """
     Tests if get_team_object gets value from redis cache, if set
     """
-    from litellm.caching.caching import DualCache, RedisCache
-    from litellm.proxy.auth.auth_checks import get_team_object
+    from embrouter.caching.caching import DualCache, RedisCache
+    from embrouter.proxy.auth.auth_checks import get_team_object
 
     proxy_logging_obj: ProxyLogging = getattr(
-        litellm.proxy.proxy_server, "proxy_logging_obj"
+        embrouter.proxy.proxy_server, "proxy_logging_obj"
     )
 
     redis_cache = RedisCache()
@@ -1107,17 +1107,17 @@ async def test_get_team_redis(client_no_auth):
 
 
 import random
-from litellm._uuid import uuid
+from embrouter._uuid import uuid
 from unittest.mock import PropertyMock
 
-from litellm.proxy._types import (
-    LitellmUserRoles,
+from embrouter.proxy._types import (
+    EmbrouterUserRoles,
     NewUserRequest,
     TeamMemberAddRequest,
     UserAPIKeyAuth,
 )
-from litellm.proxy.management_endpoints.internal_user_endpoints import new_user
-from litellm.proxy.management_endpoints.team_endpoints import team_member_add
+from embrouter.proxy.management_endpoints.internal_user_endpoints import new_user
+from embrouter.proxy.management_endpoints.team_endpoints import team_member_add
 from tests.unit.proxy.management_endpoints.test_key_generate_prisma import prisma_client
 
 
@@ -1132,23 +1132,23 @@ def mock_prisma_client():
 @pytest.mark.skip(reason="Requires reliable external DB connection (prisma).")
 @pytest.mark.parametrize(
     "user_role",
-    [LitellmUserRoles.INTERNAL_USER.value, LitellmUserRoles.PROXY_ADMIN.value],
+    [EmbrouterUserRoles.INTERNAL_USER.value, EmbrouterUserRoles.PROXY_ADMIN.value],
 )
 @pytest.mark.asyncio
 @pytest.mark.skip(reason="Requires reliable external DB connection (prisma).")
 async def test_create_user_default_budget(prisma_client, user_role):  # noqa: F811  # pytest fixture, not a redefinition
 
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", "sk-1234")
-    setattr(litellm, "max_internal_user_budget", 10)
-    setattr(litellm, "internal_user_budget_duration", "5m")
-    await litellm.proxy.proxy_server.prisma_client.connect()
+    setattr(embrouter.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(embrouter.proxy.proxy_server, "master_key", "sk-1234")
+    setattr(embrouter, "max_internal_user_budget", 10)
+    setattr(embrouter, "internal_user_budget_duration", "5m")
+    await embrouter.proxy.proxy_server.prisma_client.connect()
     user = f"ishaan {uuid.uuid4().hex}"
     request = NewUserRequest(
         user_id=user, user_role=user_role
     )  # create a key with no budget
     with patch.object(
-        litellm.proxy.proxy_server.prisma_client, "insert_data", new=AsyncMock()
+        embrouter.proxy.proxy_server.prisma_client, "insert_data", new=AsyncMock()
     ) as mock_client:
         await new_user(
             request,
@@ -1159,14 +1159,14 @@ async def test_create_user_default_budget(prisma_client, user_role):  # noqa: F8
         print(f"mock_client.call_args: {mock_client.call_args}")
         print("mock_client.call_args.kwargs: {}".format(mock_client.call_args.kwargs))
 
-        if user_role == LitellmUserRoles.INTERNAL_USER.value:
+        if user_role == EmbrouterUserRoles.INTERNAL_USER.value:
             assert (
                 mock_client.call_args.kwargs["data"]["max_budget"]
-                == litellm.max_internal_user_budget
+                == embrouter.max_internal_user_budget
             )
             assert (
                 mock_client.call_args.kwargs["data"]["budget_duration"]
-                == litellm.internal_user_budget_duration
+                == embrouter.internal_user_budget_duration
             )
 
         else:
@@ -1179,10 +1179,10 @@ def _member_add_tx_cm(team_table):
 
     class _Tx:
         query_raw = AsyncMock(return_value=[{"members_with_roles": []}])
-        litellm_teamtable = team_table
+        embrouter_teamtable = team_table
 
         def __getattr__(self, table_name):
-            return getattr(litellm.proxy.proxy_server.prisma_client.db, table_name)
+            return getattr(embrouter.proxy.proxy_server.prisma_client.db, table_name)
 
     tx_cm = MagicMock()
     tx_cm.__aenter__ = AsyncMock(return_value=_Tx())
@@ -1198,17 +1198,17 @@ async def test_create_team_member_add(prisma_client, new_member_method):  # noqa
 
     from fastapi import Request
 
-    from litellm.proxy._types import LiteLLM_TeamTableCachedObj, LiteLLM_UserTable
-    from litellm.proxy.proxy_server import hash_token, user_api_key_cache
+    from embrouter.proxy._types import EmbRouter_TeamTableCachedObj, EmbRouter_UserTable
+    from embrouter.proxy.proxy_server import hash_token, user_api_key_cache
 
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", "sk-1234")
-    setattr(litellm, "max_internal_user_budget", 10)
-    setattr(litellm, "internal_user_budget_duration", "5m")
-    await litellm.proxy.proxy_server.prisma_client.connect()
+    setattr(embrouter.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(embrouter.proxy.proxy_server, "master_key", "sk-1234")
+    setattr(embrouter, "max_internal_user_budget", 10)
+    setattr(embrouter, "internal_user_budget_duration", "5m")
+    await embrouter.proxy.proxy_server.prisma_client.connect()
     user = f"ishaan {uuid.uuid4().hex}"
-    _team_id = "litellm-test-client-id-new"
-    team_obj = LiteLLM_TeamTableCachedObj(
+    _team_id = "embrouter-test-client-id-new"
+    team_obj = EmbRouter_TeamTableCachedObj(
         team_id=_team_id,
         blocked=False,
         last_refreshed_at=time.time(),
@@ -1217,7 +1217,7 @@ async def test_create_team_member_add(prisma_client, new_member_method):  # noqa
     # user_api_key_cache.set_cache(key=hash_token(user_key), value=valid_token)
     user_api_key_cache.set_cache(key="team_id:{}".format(_team_id), value=team_obj)
 
-    setattr(litellm.proxy.proxy_server, "user_api_key_cache", user_api_key_cache)
+    setattr(embrouter.proxy.proxy_server, "user_api_key_cache", user_api_key_cache)
     if new_member_method == "user_id":
         data = {
             "team_id": _team_id,
@@ -1232,43 +1232,43 @@ async def test_create_team_member_add(prisma_client, new_member_method):  # noqa
 
     with (
         patch(
-            "litellm.proxy.proxy_server.prisma_client.db.litellm_usertable",
+            "embrouter.proxy.proxy_server.prisma_client.db.embrouter_usertable",
             new_callable=AsyncMock,
-        ) as mock_litellm_usertable,
+        ) as mock_embrouter_usertable,
         patch(
-            "litellm.proxy.auth.auth_checks._get_team_object_from_user_api_key_cache",
+            "embrouter.proxy.auth.auth_checks._get_team_object_from_user_api_key_cache",
             new=AsyncMock(return_value=team_obj),
         ) as mock_team_obj,
         patch(
-            "litellm.proxy.proxy_server.prisma_client.get_data",
+            "embrouter.proxy.proxy_server.prisma_client.get_data",
             new=AsyncMock(return_value=[]),
         ) as mock_get_data,
     ):
 
         mock_client = AsyncMock(
-            return_value=LiteLLM_UserTable(
+            return_value=EmbRouter_UserTable(
                 user_id="1234", max_budget=100, user_email="1234"
             )
         )
-        mock_litellm_usertable.upsert = mock_client
-        mock_litellm_usertable.find_many = AsyncMock(return_value=[])
+        mock_embrouter_usertable.upsert = mock_client
+        mock_embrouter_usertable.find_many = AsyncMock(return_value=[])
         # Mock find_first for user_email validation (returns None for new users)
-        mock_litellm_usertable.find_first = AsyncMock(return_value=None)
+        mock_embrouter_usertable.find_first = AsyncMock(return_value=None)
         # Mock find_unique for user_id validation (returns None for new users)
-        mock_litellm_usertable.find_unique = AsyncMock(return_value=None)
+        mock_embrouter_usertable.find_unique = AsyncMock(return_value=None)
         team_mock_client = AsyncMock()
         original_val = getattr(
-            litellm.proxy.proxy_server.prisma_client.db, "litellm_teamtable"
+            embrouter.proxy.proxy_server.prisma_client.db, "embrouter_teamtable"
         )
-        litellm.proxy.proxy_server.prisma_client.db.litellm_teamtable = team_mock_client
+        embrouter.proxy.proxy_server.prisma_client.db.embrouter_teamtable = team_mock_client
 
         team_mock_client.update = AsyncMock(
-            return_value=LiteLLM_TeamTableCachedObj(team_id="1234")
+            return_value=EmbRouter_TeamTableCachedObj(team_id="1234")
         )
 
         tx_cm = _member_add_tx_cm(team_mock_client)
-        original_tx = litellm.proxy.proxy_server.prisma_client.tx
-        litellm.proxy.proxy_server.prisma_client.tx = MagicMock(
+        original_tx = embrouter.proxy.proxy_server.prisma_client.tx
+        embrouter.proxy.proxy_server.prisma_client.tx = MagicMock(
             return_value=tx_cm
         )
 
@@ -1285,15 +1285,15 @@ async def test_create_team_member_add(prisma_client, new_member_method):  # noqa
 
         assert (
             mock_client.call_args.kwargs["data"]["create"]["max_budget"]
-            == litellm.max_internal_user_budget
+            == embrouter.max_internal_user_budget
         )
         assert (
             mock_client.call_args.kwargs["data"]["create"]["budget_duration"]
-            == litellm.internal_user_budget_duration
+            == embrouter.internal_user_budget_duration
         )
 
-        litellm.proxy.proxy_server.prisma_client.db.litellm_teamtable = original_val
-        litellm.proxy.proxy_server.prisma_client.tx = original_tx
+        embrouter.proxy.proxy_server.prisma_client.db.embrouter_teamtable = original_val
+        embrouter.proxy.proxy_server.prisma_client.tx = original_tx
 
 
 @pytest.mark.parametrize("team_member_role", ["admin", "user"])
@@ -1306,8 +1306,8 @@ async def test_create_team_member_add_team_admin_user_api_key_auth(
 
     from fastapi import Request
 
-    from litellm.proxy._types import LiteLLM_TeamTableCachedObj, Member
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy._types import EmbRouter_TeamTableCachedObj, Member
+    from embrouter.proxy.proxy_server import (
         ProxyException,
         hash_token,
         user_api_key_auth,
@@ -1315,12 +1315,12 @@ async def test_create_team_member_add_team_admin_user_api_key_auth(
 
     user_api_key_cache: Final = UserApiKeyCache()
 
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", "sk-1234")
-    setattr(litellm, "max_internal_user_budget", 10)
-    setattr(litellm, "internal_user_budget_duration", "5m")
+    setattr(embrouter.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(embrouter.proxy.proxy_server, "master_key", "sk-1234")
+    setattr(embrouter, "max_internal_user_budget", 10)
+    setattr(embrouter, "internal_user_budget_duration", "5m")
     user = f"ishaan {uuid.uuid4().hex}"
-    _team_id = "litellm-test-client-id-new"
+    _team_id = "embrouter-test-client-id-new"
     user_key = "sk-12345678"
 
     valid_token = UserAPIKeyAuth(
@@ -1331,7 +1331,7 @@ async def test_create_team_member_add_team_admin_user_api_key_auth(
     )
     user_api_key_cache.set_cache(key=hash_token(user_key), value=valid_token)
 
-    team_obj = LiteLLM_TeamTableCachedObj(
+    team_obj = EmbRouter_TeamTableCachedObj(
         team_id=_team_id,
         blocked=False,
         last_refreshed_at=time.time(),
@@ -1340,7 +1340,7 @@ async def test_create_team_member_add_team_admin_user_api_key_auth(
 
     user_api_key_cache.set_cache(key="team_id:{}".format(_team_id), value=team_obj)
 
-    monkeypatch.setattr(litellm.proxy.proxy_server, "user_api_key_cache", user_api_key_cache)
+    monkeypatch.setattr(embrouter.proxy.proxy_server, "user_api_key_cache", user_api_key_cache)
 
     ## TEST IF TEAM ADMIN ALLOWED TO CALL /MEMBER_ADD ENDPOINT
     import json
@@ -1376,13 +1376,13 @@ async def test_create_team_member_add_team_admin(
 
     from fastapi import Request
 
-    from litellm.proxy._types import (
-        LiteLLM_TeamMembership,
-        LiteLLM_TeamTableCachedObj,
-        LiteLLM_UserTable,
+    from embrouter.proxy._types import (
+        EmbRouter_TeamMembership,
+        EmbRouter_TeamTableCachedObj,
+        EmbRouter_UserTable,
         Member,
     )
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         HTTPException,
         ProxyException,
         hash_token,
@@ -1390,12 +1390,12 @@ async def test_create_team_member_add_team_admin(
         user_api_key_cache,
     )
 
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", "sk-1234")
-    setattr(litellm, "max_internal_user_budget", 10)
-    setattr(litellm, "internal_user_budget_duration", "5m")
+    setattr(embrouter.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(embrouter.proxy.proxy_server, "master_key", "sk-1234")
+    setattr(embrouter, "max_internal_user_budget", 10)
+    setattr(embrouter, "internal_user_budget_duration", "5m")
     user = f"ishaan {uuid.uuid4().hex}"
-    _team_id = "litellm-test-client-id-new"
+    _team_id = "embrouter-test-client-id-new"
     user_key = "sk-12345678"
     team_admin = f"krrish {uuid.uuid4().hex}"
 
@@ -1407,7 +1407,7 @@ async def test_create_team_member_add_team_admin(
     )
     user_api_key_cache.set_cache(key=hash_token(user_key), value=valid_token)
 
-    team_obj = LiteLLM_TeamTableCachedObj(
+    team_obj = EmbRouter_TeamTableCachedObj(
         team_id=_team_id,
         blocked=False,
         last_refreshed_at=time.time(),
@@ -1417,7 +1417,7 @@ async def test_create_team_member_add_team_admin(
 
     user_api_key_cache.set_cache(key="team_id:{}".format(_team_id), value=team_obj)
 
-    setattr(litellm.proxy.proxy_server, "user_api_key_cache", user_api_key_cache)
+    setattr(embrouter.proxy.proxy_server, "user_api_key_cache", user_api_key_cache)
     if new_member_method == "user_id":
         data = {
             "team_id": _team_id,
@@ -1432,54 +1432,54 @@ async def test_create_team_member_add_team_admin(
 
     with (
         patch(
-            "litellm.proxy.proxy_server.prisma_client.db.litellm_usertable",
+            "embrouter.proxy.proxy_server.prisma_client.db.embrouter_usertable",
             new_callable=AsyncMock,
-        ) as mock_litellm_usertable,
+        ) as mock_embrouter_usertable,
         patch(
-            "litellm.proxy.auth.auth_checks._get_team_object_from_user_api_key_cache",
+            "embrouter.proxy.auth.auth_checks._get_team_object_from_user_api_key_cache",
             new=AsyncMock(return_value=team_obj),
         ) as mock_team_obj,
         patch(
-            "litellm.proxy.proxy_server.prisma_client.get_data",
+            "embrouter.proxy.proxy_server.prisma_client.get_data",
             new=AsyncMock(return_value=[]),
         ) as mock_get_data,
     ):
         mock_client = AsyncMock(
-            return_value=LiteLLM_UserTable(
+            return_value=EmbRouter_UserTable(
                 user_id="1234", max_budget=100, user_email="1234"
             )
         )
-        mock_litellm_usertable.upsert = mock_client
-        mock_litellm_usertable.find_many = AsyncMock(return_value=[])
+        mock_embrouter_usertable.upsert = mock_client
+        mock_embrouter_usertable.find_many = AsyncMock(return_value=[])
         # Mock find_first for user_email validation (returns None for new users)
-        mock_litellm_usertable.find_first = AsyncMock(return_value=None)
+        mock_embrouter_usertable.find_first = AsyncMock(return_value=None)
         # Mock find_unique for user_id validation (returns None for new users)
-        mock_litellm_usertable.find_unique = AsyncMock(return_value=None)
+        mock_embrouter_usertable.find_unique = AsyncMock(return_value=None)
 
         team_mock_client = AsyncMock()
         team_mock_client.update = AsyncMock(
-            return_value=LiteLLM_TeamTableCachedObj(team_id="1234")
+            return_value=EmbRouter_TeamTableCachedObj(team_id="1234")
         )
         membership_mock_client = AsyncMock()
         membership_mock_client.upsert = AsyncMock(
-            return_value=LiteLLM_TeamMembership(user_id="1234", team_id=_team_id)
+            return_value=EmbRouter_TeamMembership(user_id="1234", team_id=_team_id)
         )
 
         tx_cm = _member_add_tx_cm(team_mock_client)
 
         with (
             patch.object(
-                litellm.proxy.proxy_server.prisma_client.db,
-                "litellm_teamtable",
+                embrouter.proxy.proxy_server.prisma_client.db,
+                "embrouter_teamtable",
                 team_mock_client,
             ),
             patch.object(  # test-quality-ok: legacy test swaps the prisma table on the module-level client
-                litellm.proxy.proxy_server.prisma_client.db,
-                "litellm_teammembership",
+                embrouter.proxy.proxy_server.prisma_client.db,
+                "embrouter_teammembership",
                 membership_mock_client,
             ),
             patch.object(
-                litellm.proxy.proxy_server.prisma_client,
+                embrouter.proxy.proxy_server.prisma_client,
                 "tx",
                 MagicMock(return_value=tx_cm),
             ),
@@ -1502,11 +1502,11 @@ async def test_create_team_member_add_team_admin(
 
             assert (
                 mock_client.call_args.kwargs["data"]["create"]["max_budget"]
-                == litellm.max_internal_user_budget
+                == embrouter.max_internal_user_budget
             )
             assert (
                 mock_client.call_args.kwargs["data"]["create"]["budget_duration"]
-                == litellm.internal_user_budget_duration
+                == embrouter.internal_user_budget_duration
             )
 
 
@@ -1514,21 +1514,21 @@ async def test_create_team_member_add_team_admin(
 @pytest.mark.skip(reason="Requires reliable external DB connection (prisma).")
 async def test_user_info_team_list(prisma_client):  # noqa: F811  # pytest fixture, not a redefinition
     """Assert user_info for admin calls team_list function"""
-    from litellm.proxy._types import LiteLLM_UserTable
+    from embrouter.proxy._types import EmbRouter_UserTable
 
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", "sk-1234")
-    await litellm.proxy.proxy_server.prisma_client.connect()
+    setattr(embrouter.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(embrouter.proxy.proxy_server, "master_key", "sk-1234")
+    await embrouter.proxy.proxy_server.prisma_client.connect()
 
-    from litellm.proxy.management_endpoints.internal_user_endpoints import user_info
+    from embrouter.proxy.management_endpoints.internal_user_endpoints import user_info
 
     with patch(
-        "litellm.proxy.management_endpoints.team_endpoints.list_team",
+        "embrouter.proxy.management_endpoints.team_endpoints.list_team",
         new_callable=AsyncMock,
     ) as mock_client:
 
         prisma_client.get_data = AsyncMock(
-            return_value=LiteLLM_UserTable(
+            return_value=EmbRouter_UserTable(
                 user_role="proxy_admin",
                 user_id="default_user_id",
                 max_budget=None,
@@ -1562,13 +1562,13 @@ async def test_add_callback_via_key(prisma_client):  # noqa: F811  # pytest fixt
     from fastapi import HTTPException, Request, Response
     from starlette.datastructures import URL
 
-    from litellm.proxy.proxy_server import chat_completion
+    from embrouter.proxy.proxy_server import chat_completion
 
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", "sk-1234")
-    await litellm.proxy.proxy_server.prisma_client.connect()
+    setattr(embrouter.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(embrouter.proxy.proxy_server, "master_key", "sk-1234")
+    await embrouter.proxy.proxy_server.prisma_client.connect()
 
-    litellm.set_verbose = True
+    embrouter.set_verbose = True
 
     try:
         # Your test data
@@ -1590,7 +1590,7 @@ async def test_add_callback_via_key(prisma_client):  # noqa: F811  # pytest fixt
         request._body = json_bytes
 
         with patch.object(
-            litellm.litellm_core_utils.litellm_logging,
+            embrouter.embrouter_core_utils.embrouter_logging,
             "LangFuseLogger",
             new=MagicMock(),
         ) as mock_client:
@@ -1619,13 +1619,13 @@ async def test_add_callback_via_key(prisma_client):  # noqa: F811  # pytest fixt
             mock_client.return_value.log_event.assert_called()
             args, kwargs = mock_client.return_value.log_event.call_args
             kwargs = kwargs["kwargs"]
-            assert "user_api_key_metadata" in kwargs["litellm_params"]["metadata"]
+            assert "user_api_key_metadata" in kwargs["embrouter_params"]["metadata"]
             assert (
                 "logging"
-                in kwargs["litellm_params"]["metadata"]["user_api_key_metadata"]
+                in kwargs["embrouter_params"]["metadata"]["user_api_key_metadata"]
             )
             checked_keys = False
-            for item in kwargs["litellm_params"]["metadata"]["user_api_key_metadata"][
+            for item in kwargs["embrouter_params"]["metadata"]["user_api_key_metadata"][
                 "logging"
             ]:
                 for k, v in item["callback_vars"].items():
@@ -1636,7 +1636,7 @@ async def test_add_callback_via_key(prisma_client):  # noqa: F811  # pytest fixt
 
             assert checked_keys
     except Exception as e:
-        pytest.fail(f"LiteLLM Proxy test failed. Exception - {str(e)}")
+        pytest.fail(f"EmbRouter Proxy test failed. Exception - {str(e)}")
 
 
 @pytest.mark.asyncio
@@ -1648,7 +1648,7 @@ async def test_add_callback_via_key(prisma_client):  # noqa: F811  # pytest fixt
         ("success_and_failure", ["langfuse"], ["langfuse"]),
     ],
 )
-async def test_add_callback_via_key_litellm_pre_call_utils(
+async def test_add_callback_via_key_embrouter_pre_call_utils(
     mock_prisma_client,
     callback_type,
     expected_success_callbacks,
@@ -1659,12 +1659,12 @@ async def test_add_callback_via_key_litellm_pre_call_utils(
     from fastapi import HTTPException, Request, Response
     from starlette.datastructures import URL
 
-    from litellm.proxy.litellm_pre_call_utils import add_litellm_data_to_request
+    from embrouter.proxy.embrouter_pre_call_utils import add_embrouter_data_to_request
 
-    setattr(litellm.proxy.proxy_server, "prisma_client", mock_prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", "sk-1234")
+    setattr(embrouter.proxy.proxy_server, "prisma_client", mock_prisma_client)
+    setattr(embrouter.proxy.proxy_server, "master_key", "sk-1234")
 
-    proxy_config = getattr(litellm.proxy.proxy_server, "proxy_config")
+    proxy_config = getattr(embrouter.proxy.proxy_server, "proxy_config")
 
     request = Request(scope={"type": "http", "method": "POST", "headers": {}})
     request._url = URL(url="/chat/completions")
@@ -1728,7 +1728,7 @@ async def test_add_callback_via_key_litellm_pre_call_utils(
             model_spend={},
             model_max_budget={},
             soft_budget_cooldown=False,
-            litellm_budget_table=None,
+            embrouter_budget_table=None,
             org_id=None,
             team_spend=None,
             team_alias=None,
@@ -1756,7 +1756,7 @@ async def test_add_callback_via_key_litellm_pre_call_utils(
         "version": "0.0.0",
     }
 
-    new_data = await add_litellm_data_to_request(**data)
+    new_data = await add_embrouter_data_to_request(**data)
     print("NEW DATA: {}".format(new_data))
 
     assert "langfuse_public_key" in new_data
@@ -1782,14 +1782,14 @@ async def test_add_callback_via_key_litellm_pre_call_utils(
     ],
 )
 async def test_disable_fallbacks_by_key(disable_fallbacks_set):
-    from litellm.proxy.litellm_pre_call_utils import LiteLLMProxyRequestSetup
+    from embrouter.proxy.embrouter_pre_call_utils import EmbRouterProxyRequestSetup
 
     key_metadata = {"disable_fallbacks": disable_fallbacks_set}
     existing_data = {
         "model": "azure/gpt-4.1-mini",
         "messages": [{"role": "user", "content": "write 1 sentence poem"}],
     }
-    data = LiteLLMProxyRequestSetup.add_key_level_controls(
+    data = EmbRouterProxyRequestSetup.add_key_level_controls(
         key_metadata=key_metadata,
         data=existing_data,
         _metadata_variable_name="metadata",
@@ -1807,7 +1807,7 @@ async def test_disable_fallbacks_by_key(disable_fallbacks_set):
         ("success_and_failure", ["gcs_bucket"], ["gcs_bucket"]),
     ],
 )
-async def test_add_callback_via_key_litellm_pre_call_utils_gcs_bucket(
+async def test_add_callback_via_key_embrouter_pre_call_utils_gcs_bucket(
     mock_prisma_client,
     callback_type,
     expected_success_callbacks,
@@ -1818,12 +1818,12 @@ async def test_add_callback_via_key_litellm_pre_call_utils_gcs_bucket(
     from fastapi import HTTPException, Request, Response
     from starlette.datastructures import URL
 
-    from litellm.proxy.litellm_pre_call_utils import add_litellm_data_to_request
+    from embrouter.proxy.embrouter_pre_call_utils import add_embrouter_data_to_request
 
-    setattr(litellm.proxy.proxy_server, "prisma_client", mock_prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", "sk-1234")
+    setattr(embrouter.proxy.proxy_server, "prisma_client", mock_prisma_client)
+    setattr(embrouter.proxy.proxy_server, "master_key", "sk-1234")
 
-    proxy_config = getattr(litellm.proxy.proxy_server, "proxy_config")
+    proxy_config = getattr(embrouter.proxy.proxy_server, "proxy_config")
 
     request = Request(scope={"type": "http", "method": "POST", "headers": {}})
     request._url = URL(url="/chat/completions")
@@ -1886,7 +1886,7 @@ async def test_add_callback_via_key_litellm_pre_call_utils_gcs_bucket(
             model_spend={},
             model_max_budget={},
             soft_budget_cooldown=False,
-            litellm_budget_table=None,
+            embrouter_budget_table=None,
             org_id=None,
             team_spend=None,
             team_alias=None,
@@ -1914,7 +1914,7 @@ async def test_add_callback_via_key_litellm_pre_call_utils_gcs_bucket(
         "version": "0.0.0",
     }
 
-    new_data = await add_litellm_data_to_request(**data)
+    new_data = await add_embrouter_data_to_request(**data)
     print("NEW DATA: {}".format(new_data))
 
     assert "gcs_bucket_name" in new_data
@@ -1943,7 +1943,7 @@ async def test_add_callback_via_key_litellm_pre_call_utils_gcs_bucket(
         ("success_and_failure", ["langsmith"], ["langsmith"]),
     ],
 )
-async def test_add_callback_via_key_litellm_pre_call_utils_langsmith(
+async def test_add_callback_via_key_embrouter_pre_call_utils_langsmith(
     mock_prisma_client,
     callback_type,
     expected_success_callbacks,
@@ -1954,12 +1954,12 @@ async def test_add_callback_via_key_litellm_pre_call_utils_langsmith(
     from fastapi import HTTPException, Request, Response
     from starlette.datastructures import URL
 
-    from litellm.proxy.litellm_pre_call_utils import add_litellm_data_to_request
+    from embrouter.proxy.embrouter_pre_call_utils import add_embrouter_data_to_request
 
-    setattr(litellm.proxy.proxy_server, "prisma_client", mock_prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", "sk-1234")
+    setattr(embrouter.proxy.proxy_server, "prisma_client", mock_prisma_client)
+    setattr(embrouter.proxy.proxy_server, "master_key", "sk-1234")
 
-    proxy_config = getattr(litellm.proxy.proxy_server, "proxy_config")
+    proxy_config = getattr(embrouter.proxy.proxy_server, "proxy_config")
 
     request = Request(scope={"type": "http", "method": "POST", "headers": {}})
     request._url = URL(url="/chat/completions")
@@ -2023,7 +2023,7 @@ async def test_add_callback_via_key_litellm_pre_call_utils_langsmith(
             model_spend={},
             model_max_budget={},
             soft_budget_cooldown=False,
-            litellm_budget_table=None,
+            embrouter_budget_table=None,
             org_id=None,
             team_spend=None,
             team_alias=None,
@@ -2051,7 +2051,7 @@ async def test_add_callback_via_key_litellm_pre_call_utils_langsmith(
         "version": "0.0.0",
     }
 
-    new_data = await add_litellm_data_to_request(**data)
+    new_data = await add_embrouter_data_to_request(**data)
     print("NEW DATA: {}".format(new_data))
 
     assert "langsmith_api_key" in new_data
@@ -2073,18 +2073,18 @@ async def test_add_callback_via_key_litellm_pre_call_utils_langsmith(
 @pytest.mark.parametrize("hidden", [True, False])
 @pytest.mark.asyncio
 async def test_model_info_alias_without_prisma(hidden):
-    from litellm.proxy.proxy_server import model_info_v1
+    from embrouter.proxy.proxy_server import model_info_v1
 
     _model_list = [
         {
             "model_name": "gpt-3.5-turbo",
-            "litellm_params": {"model": "gpt-3.5-turbo"},
+            "embrouter_params": {"model": "gpt-3.5-turbo"},
         }
     ]
 
     model_alias = "gpt-4"
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=_model_list,
         model_group_alias={
             model_alias: {
@@ -2094,9 +2094,9 @@ async def test_model_info_alias_without_prisma(hidden):
         },
     )
 
-    setattr(litellm.proxy.proxy_server, "llm_router", router)
-    setattr(litellm.proxy.proxy_server, "llm_model_list", _model_list)
-    setattr(litellm.proxy.proxy_server, "prisma_client", None)
+    setattr(embrouter.proxy.proxy_server, "llm_router", router)
+    setattr(embrouter.proxy.proxy_server, "llm_model_list", _model_list)
+    setattr(embrouter.proxy.proxy_server, "prisma_client", None)
 
     resp = await model_info_v1(
         user_api_key_dict=UserAPIKeyAuth(models=[]),
@@ -2128,27 +2128,27 @@ async def test_proxy_model_group_alias_checks(prisma_client, hidden):  # noqa: F
     from fastapi import HTTPException, Request, Response
     from starlette.datastructures import URL
 
-    from litellm.proxy.proxy_server import model_group_info, model_info_v1, model_list
+    from embrouter.proxy.proxy_server import model_group_info, model_info_v1, model_list
 
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", "sk-1234")
-    await litellm.proxy.proxy_server.prisma_client.connect()
+    setattr(embrouter.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(embrouter.proxy.proxy_server, "master_key", "sk-1234")
+    await embrouter.proxy.proxy_server.prisma_client.connect()
 
-    proxy_config = getattr(litellm.proxy.proxy_server, "proxy_config")
+    proxy_config = getattr(embrouter.proxy.proxy_server, "proxy_config")
 
     _model_list = [
         {
             "model_name": "gpt-3.5-turbo",
-            "litellm_params": {"model": "gpt-3.5-turbo"},
+            "embrouter_params": {"model": "gpt-3.5-turbo"},
         }
     ]
     model_alias = "gpt-4"
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=_model_list,
         model_group_alias={model_alias: {"model": "gpt-3.5-turbo", "hidden": hidden}},
     )
-    setattr(litellm.proxy.proxy_server, "llm_router", router)
-    setattr(litellm.proxy.proxy_server, "llm_model_list", _model_list)
+    setattr(embrouter.proxy.proxy_server, "llm_router", router)
+    setattr(embrouter.proxy.proxy_server, "llm_model_list", _model_list)
 
     request = Request(scope={"type": "http", "method": "POST", "headers": {}})
     request._url = URL(url="/v1/models")
@@ -2209,26 +2209,26 @@ async def test_proxy_model_group_info_rerank(prisma_client):  # noqa: F811  # py
     from fastapi import HTTPException, Request, Response
     from starlette.datastructures import URL
 
-    from litellm.proxy.proxy_server import model_group_info, model_info_v1, model_list
+    from embrouter.proxy.proxy_server import model_group_info, model_info_v1, model_list
 
-    setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-    setattr(litellm.proxy.proxy_server, "master_key", "sk-1234")
-    await litellm.proxy.proxy_server.prisma_client.connect()
+    setattr(embrouter.proxy.proxy_server, "prisma_client", prisma_client)
+    setattr(embrouter.proxy.proxy_server, "master_key", "sk-1234")
+    await embrouter.proxy.proxy_server.prisma_client.connect()
 
-    proxy_config = getattr(litellm.proxy.proxy_server, "proxy_config")
+    proxy_config = getattr(embrouter.proxy.proxy_server, "proxy_config")
 
     _model_list = [
         {
             "model_name": "rerank-english-v3.0",
-            "litellm_params": {"model": "cohere/rerank-english-v3.0"},
+            "embrouter_params": {"model": "cohere/rerank-english-v3.0"},
             "model_info": {
                 "mode": "rerank",
             },
         }
     ]
-    router = litellm.Router(model_list=_model_list)
-    setattr(litellm.proxy.proxy_server, "llm_router", router)
-    setattr(litellm.proxy.proxy_server, "llm_model_list", _model_list)
+    router = embrouter.Router(model_list=_model_list)
+    setattr(embrouter.proxy.proxy_server, "llm_router", router)
+    setattr(embrouter.proxy.proxy_server, "llm_model_list", _model_list)
 
     request = Request(scope={"type": "http", "method": "POST", "headers": {}})
     request._url = URL(url="/v1/models")
@@ -2259,22 +2259,22 @@ async def test_proxy_model_group_info_rerank(prisma_client):  # noqa: F811  # py
 #     """
 #     Add 10 people to a team. Confirm all 10 are added.
 #     """
-#     from litellm.proxy.management_endpoints.team_endpoints import (
+#     from embrouter.proxy.management_endpoints.team_endpoints import (
 #         team_member_add,
 #         new_team,
 #     )
-#     from litellm.proxy._types import TeamMemberAddRequest, Member, NewTeamRequest
+#     from embrouter.proxy._types import TeamMemberAddRequest, Member, NewTeamRequest
 
-#     setattr(litellm.proxy.proxy_server, "prisma_client", prisma_client)
-#     setattr(litellm.proxy.proxy_server, "master_key", "sk-1234")
+#     setattr(embrouter.proxy.proxy_server, "prisma_client", prisma_client)
+#     setattr(embrouter.proxy.proxy_server, "master_key", "sk-1234")
 #     try:
 
 #         async def test():
-#             await litellm.proxy.proxy_server.prisma_client.connect()
-#             from litellm.proxy.proxy_server import user_api_key_cache
+#             await embrouter.proxy.proxy_server.prisma_client.connect()
+#             from embrouter.proxy.proxy_server import user_api_key_cache
 
 #             user_api_key_dict = UserAPIKeyAuth(
-#                 user_role=LitellmUserRoles.PROXY_ADMIN,
+#                 user_role=EmbrouterUserRoles.PROXY_ADMIN,
 #                 api_key="sk-1234",
 #                 user_id="1234",
 #             )
@@ -2285,7 +2285,7 @@ async def test_proxy_model_group_info_rerank(prisma_client):  # noqa: F811  # py
 #                     team_id="1234",
 #                     member=Member(
 #                         user_id="1234",
-#                         user_role=LitellmUserRoles.INTERNAL_USER,
+#                         user_role=EmbrouterUserRoles.INTERNAL_USER,
 #                     ),
 #                 )
 #                 key = await team_member_add(
@@ -2301,7 +2301,7 @@ async def test_proxy_model_group_info_rerank(prisma_client):  # noqa: F811  # py
 #             )
 #             new_user_info = new_user_info.user_info
 #             print("new_user_info=", new_user_info)
-#             assert new_user_info["user_role"] == LitellmUserRoles.INTERNAL_USER
+#             assert new_user_info["user_role"] == EmbrouterUserRoles.INTERNAL_USER
 #             assert new_user_info["user_id"] == user_id
 
 #             generated_key = key.key
@@ -2334,14 +2334,14 @@ async def test_proxy_model_group_info_rerank(prisma_client):  # noqa: F811  # py
 
 @pytest.mark.asyncio
 async def test_proxy_server_prisma_setup():
-    from litellm.proxy.proxy_server import ProxyStartupEvent
-    from litellm.proxy.utils import ProxyLogging
-    from litellm.caching import DualCache
+    from embrouter.proxy.proxy_server import ProxyStartupEvent
+    from embrouter.proxy.utils import ProxyLogging
+    from embrouter.caching import DualCache
 
     user_api_key_cache = DualCache()
 
     with patch.object(
-        litellm.proxy.proxy_server, "PrismaClient", new=MagicMock()
+        embrouter.proxy.proxy_server, "PrismaClient", new=MagicMock()
     ) as mock_prisma_client:
         mock_client = mock_prisma_client.return_value  # This is the mocked instance
         mock_client.connect = AsyncMock()  # Mock the connect method
@@ -2354,7 +2354,7 @@ async def test_proxy_server_prisma_setup():
         mock_client.db = mock_db
 
         prisma_client = await ProxyStartupEvent._setup_prisma_client(
-            database_url="postgresql://user:pass@localhost:5432/litellm",
+            database_url="postgresql://user:pass@localhost:5432/embrouter",
             proxy_logging_obj=ProxyLogging(user_api_key_cache=user_api_key_cache),
             user_api_key_cache=user_api_key_cache,
         )
@@ -2377,9 +2377,9 @@ async def test_proxy_server_prisma_setup_invalid_db(monkeypatch):
     """
     import httpx
 
-    from litellm.proxy.proxy_server import ProxyStartupEvent
-    from litellm.proxy.utils import ProxyLogging
-    from litellm.caching import DualCache
+    from embrouter.proxy.proxy_server import ProxyStartupEvent
+    from embrouter.proxy.utils import ProxyLogging
+    from embrouter.caching import DualCache
 
     user_api_key_cache = DualCache()
     invalid_db_url = "postgresql://invalid:invalid@localhost:5432/nonexistent"
@@ -2399,10 +2399,10 @@ async def test_get_ui_settings_spend_logs_threshold():
     """
     Test that get_ui_settings correctly sets DISABLE_EXPENSIVE_DB_QUERIES based on spend_logs_row_count threshold
     """
-    from litellm.proxy.management_endpoints.ui_sso import get_ui_settings
-    from litellm.proxy.proxy_server import proxy_state
+    from embrouter.proxy.management_endpoints.ui_sso import get_ui_settings
+    from embrouter.proxy.proxy_server import proxy_state
     from fastapi import Request
-    from litellm.constants import MAX_SPENDLOG_ROWS_TO_QUERY
+    from embrouter.constants import MAX_SPENDLOG_ROWS_TO_QUERY
 
     # Create a mock request
     mock_request = Request(
@@ -2453,7 +2453,7 @@ async def test_run_background_health_check_reflects_llm_model_list(monkeypatch):
     """
     Test that _run_background_health_check reflects changes to llm_model_list in each health check iteration.
     """
-    import litellm.proxy.proxy_server as proxy_server
+    import embrouter.proxy.proxy_server as proxy_server
     import copy
 
     test_model_list_1 = [{"model_name": "model-a"}]
@@ -2499,7 +2499,7 @@ async def test_run_background_health_check_reflects_llm_model_list(monkeypatch):
 @pytest.mark.asyncio
 async def test_background_health_check_skip_disabled_models(monkeypatch):
     """Ensure models with disable_background_health_check are skipped."""
-    import litellm.proxy.proxy_server as proxy_server
+    import embrouter.proxy.proxy_server as proxy_server
     import copy
 
     test_model_list = [
@@ -2541,7 +2541,7 @@ async def test_run_direct_health_check_with_instrumentation_legacy_three_arg_stu
     monkeypatch,
 ):
     """Monkeypatched perform_health_check with only base kwargs should still run."""
-    import litellm.proxy.proxy_server as proxy_server
+    import embrouter.proxy.proxy_server as proxy_server
 
     async def fake_perform_health_check(model_list, details, max_concurrency=None):
         return ([], [], {})
@@ -2561,7 +2561,7 @@ async def test_run_direct_health_check_with_instrumentation_accepts_instrumentat
     monkeypatch,
 ):
     """Stub that accepts instrumentation_context but not health_check filter kwargs."""
-    import litellm.proxy.proxy_server as proxy_server
+    import embrouter.proxy.proxy_server as proxy_server
 
     seen: list = []
 
@@ -2587,7 +2587,7 @@ async def test_run_direct_health_check_with_instrumentation_accepts_filter_only(
     monkeypatch,
 ):
     """Stub that accepts health_check_skip_disabled_background_models but not instrumentation."""
-    import litellm.proxy.proxy_server as proxy_server
+    import embrouter.proxy.proxy_server as proxy_server
 
     seen: list = []
 
@@ -2615,7 +2615,7 @@ async def test_run_direct_health_check_with_instrumentation_accepts_filter_only(
 async def test_run_direct_health_check_drops_only_the_rejected_kwarg(monkeypatch):
     """A callee that predates `router` must still get the skip-disabled filter: dropping the
     rejected argument alongside working ones would probe deployments the operator opted out."""
-    import litellm.proxy.proxy_server as proxy_server
+    import embrouter.proxy.proxy_server as proxy_server
 
     seen: list[tuple[dict[str, str] | None, bool]] = []
 
@@ -2644,7 +2644,7 @@ async def test_run_direct_health_check_drops_only_the_rejected_kwarg(monkeypatch
 async def test_run_direct_health_check_with_instrumentation_non_kw_typeerror_reraises(
     monkeypatch,
 ):
-    import litellm.proxy.proxy_server as proxy_server
+    import embrouter.proxy.proxy_server as proxy_server
 
     async def fake_perform_health_check(**kwargs):
         raise TypeError("unsupported operand type(s)")
@@ -2660,40 +2660,40 @@ async def test_run_direct_health_check_with_instrumentation_non_kw_typeerror_rer
 
 
 def test_get_timeout_from_request():
-    from litellm.proxy.litellm_pre_call_utils import LiteLLMProxyRequestSetup
+    from embrouter.proxy.embrouter_pre_call_utils import EmbRouterProxyRequestSetup
 
     headers = {
-        "x-litellm-timeout": "90",
+        "x-embrouter-timeout": "90",
     }
-    timeout = LiteLLMProxyRequestSetup._get_timeout_from_request(headers)
+    timeout = EmbRouterProxyRequestSetup._get_timeout_from_request(headers)
     assert timeout == 90
 
     headers = {
-        "x-litellm-timeout": "90.5",
+        "x-embrouter-timeout": "90.5",
     }
-    timeout = LiteLLMProxyRequestSetup._get_timeout_from_request(headers)
+    timeout = EmbRouterProxyRequestSetup._get_timeout_from_request(headers)
     assert timeout == 90.5
 
 
-def test_add_litellm_data_for_backend_llm_call_marks_client_side_timeout():
-    """A caller-supplied x-litellm-timeout must be marked with client_side_timeout=True,
+def test_add_embrouter_data_for_backend_llm_call_marks_client_side_timeout():
+    """A caller-supplied x-embrouter-timeout must be marked with client_side_timeout=True,
     so the router's fallback-cooldown trigger can tell it apart from a deployment
     actually timing out (a caller could otherwise force every deployment in a fallback
     chain to look unhealthy with a single near-zero timeout request)."""
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.litellm_pre_call_utils import LiteLLMProxyRequestSetup
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy.embrouter_pre_call_utils import EmbRouterProxyRequestSetup
 
     user_api_key_dict = UserAPIKeyAuth(api_key="test_api_key")
 
-    data = LiteLLMProxyRequestSetup.add_litellm_data_for_backend_llm_call(
-        headers={"x-litellm-timeout": "0.001"},
+    data = EmbRouterProxyRequestSetup.add_embrouter_data_for_backend_llm_call(
+        headers={"x-embrouter-timeout": "0.001"},
         request_data={},
         user_api_key_dict=user_api_key_dict,
     )
     assert data["timeout"] == 0.001
     assert data["client_side_timeout"] is True
 
-    data_without_header = LiteLLMProxyRequestSetup.add_litellm_data_for_backend_llm_call(
+    data_without_header = EmbRouterProxyRequestSetup.add_embrouter_data_for_backend_llm_call(
         headers={},
         request_data={},
         user_api_key_dict=user_api_key_dict,
@@ -2709,21 +2709,21 @@ def test_add_litellm_data_for_backend_llm_call_marks_client_side_timeout():
         {"stream_timeout": 0.001},
     ],
 )
-def test_add_litellm_data_for_backend_llm_call_marks_client_side_timeout_from_body(
+def test_add_embrouter_data_for_backend_llm_call_marks_client_side_timeout_from_body(
     request_data,
 ):
     """Router._get_timeout resolves the effective timeout from kwargs["timeout"],
     kwargs["request_timeout"], or kwargs["stream_timeout"], and a caller can supply any
-    of those directly in the request body, not just via the x-litellm-timeout header.
+    of those directly in the request body, not just via the x-embrouter-timeout header.
     Missing this would let a caller force a 408 on every deployment in a fallback chain
     without it being recognized as caller-controlled, cooling down deployments other
     tenants rely on."""
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.litellm_pre_call_utils import LiteLLMProxyRequestSetup
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy.embrouter_pre_call_utils import EmbRouterProxyRequestSetup
 
     user_api_key_dict = UserAPIKeyAuth(api_key="test_api_key")
 
-    data = LiteLLMProxyRequestSetup.add_litellm_data_for_backend_llm_call(
+    data = EmbRouterProxyRequestSetup.add_embrouter_data_for_backend_llm_call(
         headers={},
         request_data=request_data,
         user_api_key_dict=user_api_key_dict,
@@ -2731,16 +2731,16 @@ def test_add_litellm_data_for_backend_llm_call_marks_client_side_timeout_from_bo
     assert data["client_side_timeout"] is True
 
 
-def test_add_litellm_data_for_backend_llm_call_ignores_forged_client_side_timeout():
+def test_add_embrouter_data_for_backend_llm_call_ignores_forged_client_side_timeout():
     """The caller-supplied client_side_timeout key itself must never be trusted verbatim:
     the marker is always recomputed from the actual timeout sources, so a caller can't
     forge client_side_timeout=True to dodge cooldown on a real deployment failure."""
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.litellm_pre_call_utils import LiteLLMProxyRequestSetup
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy.embrouter_pre_call_utils import EmbRouterProxyRequestSetup
 
     user_api_key_dict = UserAPIKeyAuth(api_key="test_api_key")
 
-    data = LiteLLMProxyRequestSetup.add_litellm_data_for_backend_llm_call(
+    data = EmbRouterProxyRequestSetup.add_embrouter_data_for_backend_llm_call(
         headers={},
         request_data={"client_side_timeout": True},
         user_api_key_dict=user_api_key_dict,
@@ -2760,7 +2760,7 @@ def test_non_root_ui_path_logic(monkeypatch, tmp_path, ui_exists, ui_has_content
     """
     Test the non-root Docker UI path detection logic.
 
-    Tests that when LITELLM_NON_ROOT is set to "true":
+    Tests that when EMBROUTER_NON_ROOT is set to "true":
     - If UI path exists and has content, it should be used
     - If UI path doesn't exist or is empty, proper error logging occurs
     """
@@ -2768,8 +2768,8 @@ def test_non_root_ui_path_logic(monkeypatch, tmp_path, ui_exists, ui_has_content
     import shutil
     from unittest.mock import MagicMock
 
-    # Create a temporary directory to act as /tmp/litellm_ui
-    test_ui_path = tmp_path / "litellm_ui"
+    # Create a temporary directory to act as /tmp/embrouter_ui
+    test_ui_path = tmp_path / "embrouter_ui"
 
     if ui_exists:
         test_ui_path.mkdir(parents=True, exist_ok=True)
@@ -2779,7 +2779,7 @@ def test_non_root_ui_path_logic(monkeypatch, tmp_path, ui_exists, ui_has_content
             (test_ui_path / "app.js").write_text("console.log('test');")
 
     # Mock the environment variable and os.path operations
-    monkeypatch.setenv("LITELLM_NON_ROOT", "true")
+    monkeypatch.setenv("EMBROUTER_NON_ROOT", "true")
 
     # Create a mock logger to capture log messages
     mock_logger = MagicMock()
@@ -2790,7 +2790,7 @@ def test_non_root_ui_path_logic(monkeypatch, tmp_path, ui_exists, ui_has_content
     non_root_ui_path = str(test_ui_path)
 
     # Simulate the logic from proxy_server.py lines 909-920
-    if os.getenv("LITELLM_NON_ROOT", "").lower() == "true":
+    if os.getenv("EMBROUTER_NON_ROOT", "").lower() == "true":
         if os.path.exists(non_root_ui_path) and os.listdir(non_root_ui_path):
             mock_logger.info(
                 f"Using pre-built UI for non-root Docker: {non_root_ui_path}"
@@ -2840,11 +2840,11 @@ async def test_get_config_callbacks_with_all_types(client_no_auth):
     - failure_callback with type="failure"
     - callbacks (success_and_failure) with type="success_and_failure"
     """
-    from litellm.proxy.proxy_server import ProxyConfig
+    from embrouter.proxy.proxy_server import ProxyConfig
 
     # Create a mock config with all three callback types
     mock_config_data = {
-        "litellm_settings": {
+        "embrouter_settings": {
             "success_callback": ["langfuse", "braintrust"],
             "failure_callback": ["sentry"],
             "callbacks": ["otel", "langsmith"],
@@ -2861,7 +2861,7 @@ async def test_get_config_callbacks_with_all_types(client_no_auth):
         "general_settings": {},
     }
 
-    proxy_config = getattr(litellm.proxy.proxy_server, "proxy_config")
+    proxy_config = getattr(embrouter.proxy.proxy_server, "proxy_config")
 
     with patch.object(
         proxy_config, "get_config", new=AsyncMock(return_value=mock_config_data)
@@ -2920,11 +2920,11 @@ async def test_get_config_callbacks_environment_variables(client_no_auth):
     not ``PROXY_ADMIN``, so values matched by the redaction helper come back
     as ``"REDACTED"`` and other values pass through verbatim.
     """
-    from litellm.proxy.proxy_server import ProxyConfig
+    from embrouter.proxy.proxy_server import ProxyConfig
 
     # Create a mock config with callbacks and their env vars
     mock_config_data = {
-        "litellm_settings": {
+        "embrouter_settings": {
             "success_callback": ["langfuse"],
             "failure_callback": [],
             "callbacks": ["otel"],
@@ -2940,7 +2940,7 @@ async def test_get_config_callbacks_environment_variables(client_no_auth):
         "general_settings": {},
     }
 
-    proxy_config = getattr(litellm.proxy.proxy_server, "proxy_config")
+    proxy_config = getattr(embrouter.proxy.proxy_server, "proxy_config")
 
     with patch.object(
         proxy_config, "get_config", new=AsyncMock(return_value=mock_config_data)
@@ -2989,12 +2989,12 @@ async def test_update_config_success_callback_normalization(monkeypatch):
     Ensure success_callback values are normalized to lowercase when updating config.
     This prevents delete_callback (which searches lowercase) from failing on mixed case inputs like 'SQS'.
     """
-    import litellm.proxy.proxy_server as proxy_server
-    from litellm.proxy._types import ConfigYAML
+    import embrouter.proxy.proxy_server as proxy_server
+    from embrouter.proxy._types import ConfigYAML
 
     monkeypatch.setattr(proxy_server, "proxy_logging_obj", MagicMock())
 
-    existing_litellm_settings = {"success_callback": ["langfuse"]}
+    existing_embrouter_settings = {"success_callback": ["langfuse"]}
 
     class FakeRow:
         def __init__(self, name, value):
@@ -3004,8 +3004,8 @@ async def test_update_config_success_callback_normalization(monkeypatch):
     upserted = {}
 
     async def fake_find_first(where=None):
-        if where and where.get("param_name") == "litellm_settings":
-            return FakeRow("litellm_settings", existing_litellm_settings)
+        if where and where.get("param_name") == "embrouter_settings":
+            return FakeRow("embrouter_settings", existing_embrouter_settings)
         return None
 
     async def fake_upsert(where=None, data=None):
@@ -3014,9 +3014,9 @@ async def test_update_config_success_callback_normalization(monkeypatch):
     class MockPrisma:
         def __init__(self):
             self.db = MagicMock()
-            self.db.litellm_config = MagicMock()
-            self.db.litellm_config.find_first = AsyncMock(side_effect=fake_find_first)
-            self.db.litellm_config.upsert = AsyncMock(side_effect=fake_upsert)
+            self.db.embrouter_config = MagicMock()
+            self.db.embrouter_config.find_first = AsyncMock(side_effect=fake_find_first)
+            self.db.embrouter_config.upsert = AsyncMock(side_effect=fake_upsert)
 
     monkeypatch.setattr(proxy_server, "prisma_client", MockPrisma())
 
@@ -3029,20 +3029,20 @@ async def test_update_config_success_callback_normalization(monkeypatch):
 
     monkeypatch.setattr(proxy_server, "proxy_config", MockProxyConfig())
 
-    config_update = ConfigYAML(litellm_settings={"success_callback": ["SQS", "sQs"]})
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
+    config_update = ConfigYAML(embrouter_settings={"success_callback": ["SQS", "sQs"]})
+    from embrouter.proxy._types import EmbrouterUserRoles, UserAPIKeyAuth
 
     admin_user = UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN, api_key="sk-test"
+        user_role=EmbrouterUserRoles.PROXY_ADMIN, api_key="sk-test"
     )
     request = MagicMock()
-    request.json = AsyncMock(return_value={"litellm_settings": {"success_callback": ["SQS", "sQs"]}})
+    request.json = AsyncMock(return_value={"embrouter_settings": {"success_callback": ["SQS", "sQs"]}})
     await proxy_server.update_config(config_update, request=request, user_api_key_dict=admin_user)
 
     assert (
-        "litellm_settings" in upserted
-    ), "litellm_config.upsert was not called for litellm_settings"
-    callbacks = upserted["litellm_settings"]["success_callback"]
+        "embrouter_settings" in upserted
+    ), "embrouter_config.upsert was not called for embrouter_settings"
+    callbacks = upserted["embrouter_settings"]["success_callback"]
 
     # Deduped and normalized
     assert "sqs" in callbacks
@@ -3058,7 +3058,7 @@ async def test_update_config_success_callback_normalization(monkeypatch):
         {
             "model": {
                 "model_name": "azure/gpt-4.1-mini",
-                "litellm_params": {"model": "azure/gpt-4.1-mini"},
+                "embrouter_params": {"model": "azure/gpt-4.1-mini"},
                 "model_info": {"base_model": "gpt-4.1-mini"},
             },
             "expected": "gpt-4.1-mini",
@@ -3066,14 +3066,14 @@ async def test_update_config_success_callback_normalization(monkeypatch):
         {
             "model": {
                 "model_name": "openai/gpt-4.1-mini",
-                "litellm_params": {"model": "openai/gpt-4.1-mini"},
+                "embrouter_params": {"model": "openai/gpt-4.1-mini"},
             },
             "expected": "openai/gpt-4.1-mini",
         },
         {
             "model": {
                 "model_name": "openai/gpt-4.1-mini",
-                "litellm_params": {"model": "openai/gpt-4.1-mini"},
+                "embrouter_params": {"model": "openai/gpt-4.1-mini"},
                 "model_info": {"base_model": "gpt-4.1-mini"},
             },
             "expected": "gpt-4.1-mini",
@@ -3081,7 +3081,7 @@ async def test_update_config_success_callback_normalization(monkeypatch):
         {
             "model": {
                 "model_name": "claude-sonnet-4-5-20250929",
-                "litellm_params": {"model": "anthropic/claude-sonnet-4-5@20250929"},
+                "embrouter_params": {"model": "anthropic/claude-sonnet-4-5@20250929"},
                 "model_info": {"base_model": "anthropic/claude-sonnet-4-5-20250929"},
             },
             "expected": "anthropic/claude-sonnet-4-5-20250929",
@@ -3089,22 +3089,22 @@ async def test_update_config_success_callback_normalization(monkeypatch):
         {
             "model": {
                 "model_name": "gemini-2.5-flash-001",
-                "litellm_params": {"model": "gemini/gemini-2.5-flash@001"},
+                "embrouter_params": {"model": "gemini/gemini-2.5-flash@001"},
                 "model_info": {"base_model": "gemini-2.5-flash-001"},
             },
             "expected": "gemini-2.5-flash-001",
         },
     ],
 )
-def test_get_litellm_model_info(data):
-    from litellm.proxy.proxy_server import get_litellm_model_info
+def test_get_embrouter_model_info(data):
+    from embrouter.proxy.proxy_server import get_embrouter_model_info
 
     model = data["model"]
     get_info_mock = MagicMock()
 
     with mock.patch(
-        "litellm.get_model_info",
+        "embrouter.get_model_info",
         new=get_info_mock,
     ):
-        get_litellm_model_info(model=model)
+        get_embrouter_model_info(model=model)
         get_info_mock.assert_called_once_with(data["expected"])

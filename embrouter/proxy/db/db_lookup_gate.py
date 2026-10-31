@@ -3,7 +3,7 @@ import time
 from collections.abc import Awaitable, Callable
 from typing import Final, TypeVar
 
-from litellm.constants import (
+from embrouter.constants import (
     PROXY_DB_LOOKUP_DEADLINE_SECONDS,
     PROXY_DB_LOOKUP_MAX_CONCURRENCY,
 )

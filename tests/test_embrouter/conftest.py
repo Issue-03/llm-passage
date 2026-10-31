@@ -18,18 +18,18 @@ from pytest_socket import _remove_restrictions
 
 import asyncio
 
-import litellm
-from litellm import router as litellm_router_module
-from litellm import utils as litellm_utils_module
-from litellm._logging import ALL_LOGGERS
-from litellm.litellm_core_utils.prompt_templates import (
+import embrouter
+from embrouter import router as embrouter_router_module
+from embrouter import utils as embrouter_utils_module
+from embrouter._logging import ALL_LOGGERS
+from embrouter.embrouter_core_utils.prompt_templates import (
     image_handling as image_handling_module,
 )
-from litellm.llms.custom_httpx.async_client_cleanup import (
-    close_litellm_async_clients,
+from embrouter.llms.custom_httpx.async_client_cleanup import (
+    close_embrouter_async_clients,
 )
-from litellm.proxy.db import tool_registry_writer as tool_registry_writer_module
-from tests.unit.litellm_core_utils.fake_secret_vault import FakeSecretVault
+from embrouter.proxy.db import tool_registry_writer as tool_registry_writer_module
+from tests.unit.embrouter_core_utils.fake_secret_vault import FakeSecretVault
 
 
 
@@ -43,10 +43,10 @@ def _reset_module_level_aws_auth_caches():
     bypass their local monkeypatched env setup.
     """
     for module_name in (
-        "litellm.main",
-        "litellm.files.main",
-        "litellm.rerank_api.main",
-        "litellm.realtime_api.main",
+        "embrouter.main",
+        "embrouter.files.main",
+        "embrouter.rerank_api.main",
+        "embrouter.realtime_api.main",
     ):
         try:
             module = importlib.import_module(module_name)
@@ -114,7 +114,7 @@ def isolate_host_os_keychain(monkeypatch):
 
     Tests that exercise keychain behaviour inject their own vault instead.
     """
-    monkeypatch.setenv("LITELLM_CLI_DISABLE_KEYRING", "1")
+    monkeypatch.setenv("EMBROUTER_CLI_DISABLE_KEYRING", "1")
 
 
 @pytest.fixture
@@ -131,29 +131,29 @@ def local_model_cost_map(monkeypatch):
     ``get_model_info`` is lru_cached, so swapping ``model_cost`` is not enough on its
     own; clear on the way in and out so entries warmed against either map never leak
     across tests."""
-    original_model_cost = litellm.model_cost
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    litellm.model_cost = litellm.get_model_cost_map(url="")
-    litellm.get_model_info.cache_clear()
+    original_model_cost = embrouter.model_cost
+    monkeypatch.setenv("EMBROUTER_LOCAL_MODEL_COST_MAP", "True")
+    embrouter.model_cost = embrouter.get_model_cost_map(url="")
+    embrouter.get_model_info.cache_clear()
     try:
         yield
     finally:
-        litellm.model_cost = original_model_cost
-        litellm.get_model_info.cache_clear()
+        embrouter.model_cost = original_model_cost
+        embrouter.get_model_info.cache_clear()
 
 
 @pytest.fixture
 def local_beta_headers_config(monkeypatch):
     """Pin the bundled ``anthropic_beta_headers_config.json`` so beta header assertions
     do not depend on the network-fetched copy or on what earlier tests left cached."""
-    from litellm.anthropic_beta_headers_manager import reload_beta_headers_config
+    from embrouter.anthropic_beta_headers_manager import reload_beta_headers_config
 
-    monkeypatch.setenv("LITELLM_LOCAL_ANTHROPIC_BETA_HEADERS", "True")
+    monkeypatch.setenv("EMBROUTER_LOCAL_ANTHROPIC_BETA_HEADERS", "True")
     reload_beta_headers_config()
     try:
         yield
     finally:
-        monkeypatch.delenv("LITELLM_LOCAL_ANTHROPIC_BETA_HEADERS", raising=False)
+        monkeypatch.delenv("EMBROUTER_LOCAL_ANTHROPIC_BETA_HEADERS", raising=False)
         reload_beta_headers_config()
 
 
@@ -192,12 +192,12 @@ def _close_handler_if_needed(handler):
 
 
 @pytest.fixture(scope="function", autouse=True)
-def isolate_litellm_state():
+def isolate_embrouter_state():
     """
     Per-function isolation fixture (changed from module scope).
 
     This ensures better isolation when running tests in parallel:
-    - Each test function gets a clean litellm state
+    - Each test function gets a clean embrouter state
     - Cache is flushed before each test
     - No module reloading during parallel execution
 
@@ -209,57 +209,57 @@ def isolate_litellm_state():
 
     # Store original callback state (all callback lists)
     original_state = {}
-    if hasattr(litellm, "callbacks"):
+    if hasattr(embrouter, "callbacks"):
         original_state["callbacks"] = (
-            litellm.callbacks.copy() if litellm.callbacks else []
+            embrouter.callbacks.copy() if embrouter.callbacks else []
         )
-    if hasattr(litellm, "success_callback"):
+    if hasattr(embrouter, "success_callback"):
         original_state["success_callback"] = (
-            litellm.success_callback.copy() if litellm.success_callback else []
+            embrouter.success_callback.copy() if embrouter.success_callback else []
         )
-    if hasattr(litellm, "failure_callback"):
+    if hasattr(embrouter, "failure_callback"):
         original_state["failure_callback"] = (
-            litellm.failure_callback.copy() if litellm.failure_callback else []
+            embrouter.failure_callback.copy() if embrouter.failure_callback else []
         )
-    if hasattr(litellm, "input_callback"):
+    if hasattr(embrouter, "input_callback"):
         original_state["input_callback"] = (
-            litellm.input_callback.copy() if litellm.input_callback else []
+            embrouter.input_callback.copy() if embrouter.input_callback else []
         )
-    if hasattr(litellm, "_async_success_callback"):
+    if hasattr(embrouter, "_async_success_callback"):
         original_state["_async_success_callback"] = (
-            litellm._async_success_callback.copy()
-            if litellm._async_success_callback
+            embrouter._async_success_callback.copy()
+            if embrouter._async_success_callback
             else []
         )
-    if hasattr(litellm, "_async_failure_callback"):
+    if hasattr(embrouter, "_async_failure_callback"):
         original_state["_async_failure_callback"] = (
-            litellm._async_failure_callback.copy()
-            if litellm._async_failure_callback
+            embrouter._async_failure_callback.copy()
+            if embrouter._async_failure_callback
             else []
         )
-    if hasattr(litellm, "_async_input_callback"):
+    if hasattr(embrouter, "_async_input_callback"):
         original_state["_async_input_callback"] = (
-            litellm._async_input_callback.copy()
-            if litellm._async_input_callback
+            embrouter._async_input_callback.copy()
+            if embrouter._async_input_callback
             else []
         )
 
     # Store routing globals — leaked model_fallbacks causes tests to route
     # through async_completion_with_fallbacks / Router, bypassing HTTP mocks
-    if hasattr(litellm, "model_fallbacks"):
-        original_state["model_fallbacks"] = litellm.model_fallbacks
+    if hasattr(embrouter, "model_fallbacks"):
+        original_state["model_fallbacks"] = embrouter.model_fallbacks
 
     # Store transport/network globals — many tests set these without restoring,
     # causing subsequent tests to get None from _create_async_transport()
     for _attr in ("disable_aiohttp_transport", "force_ipv4"):
-        if hasattr(litellm, _attr):
-            original_state[_attr] = getattr(litellm, _attr)
+        if hasattr(embrouter, _attr):
+            original_state[_attr] = getattr(embrouter, _attr)
 
     # Store request-mapping globals that are frequently mutated in tests.
-    if hasattr(litellm, "drop_params"):
-        original_state["drop_params"] = litellm.drop_params
-    if hasattr(litellm, "cache"):
-        original_state["cache"] = litellm.cache
+    if hasattr(embrouter, "drop_params"):
+        original_state["drop_params"] = embrouter.drop_params
+    if hasattr(embrouter, "cache"):
+        original_state["cache"] = embrouter.cache
 
     # Store secret-manager globals. Several tests swap these out, which changes
     # get_secret() behavior for later env-driven tests (for example Redis config).
@@ -268,10 +268,10 @@ def isolate_litellm_state():
         "_key_management_system",
         "_key_management_settings",
     ):
-        if hasattr(litellm, _attr):
-            original_state[_attr] = getattr(litellm, _attr)
+        if hasattr(embrouter, _attr):
+            original_state[_attr] = getattr(embrouter, _attr)
 
-    # Store other commonly-mutated LiteLLM globals that affect provider routing,
+    # Store other commonly-mutated EmbRouter globals that affect provider routing,
     # auth, and request shaping during larger suite runs.
     for _attr in (
         "api_base",
@@ -294,17 +294,17 @@ def isolate_litellm_state():
         "token_counter",
         "initialized_langfuse_clients",
     ):
-        if hasattr(litellm, _attr):
-            original_state[_attr] = getattr(litellm, _attr)
+        if hasattr(embrouter, _attr):
+            original_state[_attr] = getattr(embrouter, _attr)
 
     original_runtime_registered_model_cost = {
         model_key: dict(model_value)
-        for model_key, model_value in litellm_utils_module._runtime_registered_model_cost.items()
+        for model_key, model_value in embrouter_utils_module._runtime_registered_model_cost.items()
     }
 
-    original_live_routers = set(litellm_router_module._live_routers)
+    original_live_routers = set(embrouter_router_module._live_routers)
 
-    # Store LiteLLM logger state. Some tests reconfigure handlers/propagation for
+    # Store EmbRouter logger state. Some tests reconfigure handlers/propagation for
     # JSON logging and do not restore them, which breaks later caplog-based tests.
     logger_state = {}
     for logger in ALL_LOGGERS:
@@ -319,68 +319,68 @@ def isolate_litellm_state():
     # Store singleton registries that are lazily initialized during tests and
     # can change endpoint behavior later in the suite.
     original_tool_policy_registry = tool_registry_writer_module._tool_policy_registry
-    had_module_level_client = "module_level_client" in litellm.__dict__
-    had_module_level_aclient = "module_level_aclient" in litellm.__dict__
-    original_module_level_client = litellm.__dict__.get("module_level_client")
-    original_module_level_aclient = litellm.__dict__.get("module_level_aclient")
+    had_module_level_client = "module_level_client" in embrouter.__dict__
+    had_module_level_aclient = "module_level_aclient" in embrouter.__dict__
+    original_module_level_client = embrouter.__dict__.get("module_level_client")
+    original_module_level_aclient = embrouter.__dict__.get("module_level_aclient")
 
     # Flush cache before test (critical for respx mocks)
-    if hasattr(litellm, "in_memory_llm_clients_cache"):
-        litellm.in_memory_llm_clients_cache.flush_cache()
+    if hasattr(embrouter, "in_memory_llm_clients_cache"):
+        embrouter.in_memory_llm_clients_cache.flush_cache()
     image_handling_module.in_memory_cache.flush_cache()
     _reset_module_level_aws_auth_caches()
-    # litellm.get_model_info() memoizes ModelInfo built from litellm.model_cost, so a
+    # embrouter.get_model_info() memoizes ModelInfo built from embrouter.model_cost, so a
     # test that rebinds the cost map leaves later tests pricing against the old map.
-    litellm_utils_module._invalidate_model_cost_lowercase_map()
+    embrouter_utils_module._invalidate_model_cost_lowercase_map()
 
     # Clear all callback lists to prevent cross-test contamination
-    if hasattr(litellm, "callbacks"):
-        litellm.callbacks = []
-    if hasattr(litellm, "success_callback"):
-        litellm.success_callback = []
-    if hasattr(litellm, "failure_callback"):
-        litellm.failure_callback = []
-    if hasattr(litellm, "input_callback"):
-        litellm.input_callback = []
-    if hasattr(litellm, "_async_success_callback"):
-        litellm._async_success_callback = []
-    if hasattr(litellm, "_async_failure_callback"):
-        litellm._async_failure_callback = []
-    if hasattr(litellm, "_async_input_callback"):
-        litellm._async_input_callback = []
+    if hasattr(embrouter, "callbacks"):
+        embrouter.callbacks = []
+    if hasattr(embrouter, "success_callback"):
+        embrouter.success_callback = []
+    if hasattr(embrouter, "failure_callback"):
+        embrouter.failure_callback = []
+    if hasattr(embrouter, "input_callback"):
+        embrouter.input_callback = []
+    if hasattr(embrouter, "_async_success_callback"):
+        embrouter._async_success_callback = []
+    if hasattr(embrouter, "_async_failure_callback"):
+        embrouter._async_failure_callback = []
+    if hasattr(embrouter, "_async_input_callback"):
+        embrouter._async_input_callback = []
 
     # Clear routing globals
-    if hasattr(litellm, "model_fallbacks"):
-        litellm.model_fallbacks = None
-    if hasattr(litellm, "cache"):
-        litellm.cache = None
-    litellm.__dict__.pop("module_level_client", None)
-    litellm.__dict__.pop("module_level_aclient", None)
+    if hasattr(embrouter, "model_fallbacks"):
+        embrouter.model_fallbacks = None
+    if hasattr(embrouter, "cache"):
+        embrouter.cache = None
+    embrouter.__dict__.pop("module_level_client", None)
+    embrouter.__dict__.pop("module_level_aclient", None)
     tool_registry_writer_module._tool_policy_registry = None
 
     yield
 
     # Cleanup after test
-    if hasattr(litellm, "in_memory_llm_clients_cache"):
-        litellm.in_memory_llm_clients_cache.flush_cache()
+    if hasattr(embrouter, "in_memory_llm_clients_cache"):
+        embrouter.in_memory_llm_clients_cache.flush_cache()
     image_handling_module.in_memory_cache.flush_cache()
     _reset_module_level_aws_auth_caches()
-    current_module_level_client = litellm.__dict__.get("module_level_client")
-    current_module_level_aclient = litellm.__dict__.get("module_level_aclient")
+    current_module_level_client = embrouter.__dict__.get("module_level_client")
+    current_module_level_aclient = embrouter.__dict__.get("module_level_aclient")
 
     # Restore all callback lists to original state
     for attr_name, original_value in original_state.items():
-        if hasattr(litellm, attr_name):
-            setattr(litellm, attr_name, original_value)
+        if hasattr(embrouter, attr_name):
+            setattr(embrouter, attr_name, original_value)
 
-    litellm_utils_module._runtime_registered_model_cost.clear()
-    litellm_utils_module._runtime_registered_model_cost.update(original_runtime_registered_model_cost)
-    litellm_utils_module._invalidate_model_cost_lowercase_map()
+    embrouter_utils_module._runtime_registered_model_cost.clear()
+    embrouter_utils_module._runtime_registered_model_cost.update(original_runtime_registered_model_cost)
+    embrouter_utils_module._invalidate_model_cost_lowercase_map()
 
-    for _router in tuple(litellm_router_module._live_routers):
-        litellm_router_module._live_routers.discard(_router)
+    for _router in tuple(embrouter_router_module._live_routers):
+        embrouter_router_module._live_routers.discard(_router)
     for _router in original_live_routers:
-        litellm_router_module._live_routers.add(_router)
+        embrouter_router_module._live_routers.add(_router)
 
     # Restore logger configuration mutated by logging-focused tests.
     for logger in ALL_LOGGERS:
@@ -399,13 +399,13 @@ def isolate_litellm_state():
     if current_module_level_aclient is not original_module_level_aclient:
         _close_handler_if_needed(current_module_level_aclient)
     if had_module_level_client:
-        litellm.__dict__["module_level_client"] = original_module_level_client
+        embrouter.__dict__["module_level_client"] = original_module_level_client
     else:
-        litellm.__dict__.pop("module_level_client", None)
+        embrouter.__dict__.pop("module_level_client", None)
     if had_module_level_aclient:
-        litellm.__dict__["module_level_aclient"] = original_module_level_aclient
+        embrouter.__dict__["module_level_aclient"] = original_module_level_aclient
     else:
-        litellm.__dict__.pop("module_level_aclient", None)
+        embrouter.__dict__.pop("module_level_aclient", None)
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -413,29 +413,29 @@ def setup_and_teardown():
     """
     Module-scoped setup/teardown for heavy initialization.
 
-    Use this sparingly - most state should be handled by isolate_litellm_state.
+    Use this sparingly - most state should be handled by isolate_embrouter_state.
     Only reload modules here if absolutely necessary.
     """
 
-    import litellm
+    import embrouter
 
     # Only reload if NOT running in parallel (module reload + parallel = bad)
     worker_id = os.environ.get("PYTEST_XDIST_WORKER", None)
     if worker_id is None:
         # Single process mode - safe to reload
-        importlib.reload(litellm)
+        importlib.reload(embrouter)
 
         try:
-            if hasattr(litellm, "proxy") and hasattr(litellm.proxy, "proxy_server"):
-                import litellm.proxy.proxy_server
+            if hasattr(embrouter, "proxy") and hasattr(embrouter.proxy, "proxy_server"):
+                import embrouter.proxy.proxy_server
 
-                importlib.reload(litellm.proxy.proxy_server)
+                importlib.reload(embrouter.proxy.proxy_server)
         except Exception as e:
-            print(f"Error reloading litellm.proxy.proxy_server: {e}")
+            print(f"Error reloading embrouter.proxy.proxy_server: {e}")
 
         # Flush cache after reload (prevents stale client instances)
-        if hasattr(litellm, "in_memory_llm_clients_cache"):
-            litellm.in_memory_llm_clients_cache.flush_cache()
+        if hasattr(embrouter, "in_memory_llm_clients_cache"):
+            embrouter.in_memory_llm_clients_cache.flush_cache()
 
     print(f"[conftest] Module setup complete (worker: {worker_id or 'master'})")
 
@@ -500,7 +500,7 @@ def pytest_configure(config):
     )
 
     # Detect if running in CI
-    is_ci = os.environ.get("CI") == "true" or os.environ.get("LITELLM_CI") == "true"
+    is_ci = os.environ.get("CI") == "true" or os.environ.get("EMBROUTER_CI") == "true"
     if is_ci:
         print("[conftest] Running in CI mode - enabling stricter test isolation")
 
@@ -517,19 +517,19 @@ def strict_isolation():
             pass
     """
     # Force flush all caches
-    if hasattr(litellm, "in_memory_llm_clients_cache"):
-        litellm.in_memory_llm_clients_cache.flush_cache()
+    if hasattr(embrouter, "in_memory_llm_clients_cache"):
+        embrouter.in_memory_llm_clients_cache.flush_cache()
 
     # Reset all global state
-    if hasattr(litellm, "disable_aiohttp_transport"):
-        original_aiohttp = litellm.disable_aiohttp_transport
-        litellm.disable_aiohttp_transport = False
+    if hasattr(embrouter, "disable_aiohttp_transport"):
+        original_aiohttp = embrouter.disable_aiohttp_transport
+        embrouter.disable_aiohttp_transport = False
     else:
         original_aiohttp = None
 
-    if hasattr(litellm, "set_verbose"):
-        original_verbose = litellm.set_verbose
-        litellm.set_verbose = False
+    if hasattr(embrouter, "set_verbose"):
+        original_verbose = embrouter.set_verbose
+        embrouter.set_verbose = False
     else:
         original_verbose = None
 
@@ -537,26 +537,26 @@ def strict_isolation():
 
     # Restore original state
     if original_aiohttp is not None:
-        litellm.disable_aiohttp_transport = original_aiohttp
+        embrouter.disable_aiohttp_transport = original_aiohttp
     if original_verbose is not None:
-        litellm.set_verbose = original_verbose
+        embrouter.set_verbose = original_verbose
 
     # Final cache flush
-    if hasattr(litellm, "in_memory_llm_clients_cache"):
-        litellm.in_memory_llm_clients_cache.flush_cache()
+    if hasattr(embrouter, "in_memory_llm_clients_cache"):
+        embrouter.in_memory_llm_clients_cache.flush_cache()
 
 
 def pytest_sessionfinish(session, exitstatus):
     """Close any globally cached HTTP clients so xdist workers exit cleanly."""
-    _close_handler_if_needed(litellm.__dict__.get("module_level_client"))
-    _close_handler_if_needed(litellm.__dict__.get("module_level_aclient"))
-    litellm.__dict__.pop("module_level_client", None)
-    litellm.__dict__.pop("module_level_aclient", None)
-    _close_handler_if_needed(getattr(litellm, "base_llm_aiohttp_handler", None))
-    _close_handler_if_needed(getattr(litellm, "httpx_client", None))
-    _close_handler_if_needed(getattr(litellm, "aclient", None))
-    _close_handler_if_needed(getattr(litellm, "client", None))
-    _run_coroutine_if_needed(close_litellm_async_clients())
+    _close_handler_if_needed(embrouter.__dict__.get("module_level_client"))
+    _close_handler_if_needed(embrouter.__dict__.get("module_level_aclient"))
+    embrouter.__dict__.pop("module_level_client", None)
+    embrouter.__dict__.pop("module_level_aclient", None)
+    _close_handler_if_needed(getattr(embrouter, "base_llm_aiohttp_handler", None))
+    _close_handler_if_needed(getattr(embrouter, "httpx_client", None))
+    _close_handler_if_needed(getattr(embrouter, "aclient", None))
+    _close_handler_if_needed(getattr(embrouter, "client", None))
+    _run_coroutine_if_needed(close_embrouter_async_clients())
 
 
 ONE_PIXEL_PNG = base64.b64decode(
@@ -566,8 +566,8 @@ ONE_PIXEL_PNG = base64.b64decode(
 
 @pytest.fixture
 def async_only_image_fetch(monkeypatch):
-    from litellm.litellm_core_utils.prompt_templates import factory, image_handling
-    from litellm.llms.gemini.chat import transformation as gemini_chat_transformation
+    from embrouter.embrouter_core_utils.prompt_templates import factory, image_handling
+    from embrouter.llms.gemini.chat import transformation as gemini_chat_transformation
 
     fetch = SimpleNamespace(
         fetched=[],
@@ -576,7 +576,7 @@ def async_only_image_fetch(monkeypatch):
     )
 
     def forbid_sync_fetch(client, url, **kwargs):
-        raise litellm.ImageFetchError(f"sync image fetch ran on the event loop: {url}")
+        raise embrouter.ImageFetchError(f"sync image fetch ran on the event loop: {url}")
 
     async def serve_png(client, url, **kwargs):
         fetch.fetched.append(url)
@@ -589,7 +589,7 @@ def async_only_image_fetch(monkeypatch):
 
     def forbid_sync_convert(url, *args, **kwargs):
         if url.startswith(("http://", "https://")):
-            raise litellm.ImageFetchError(f"sync convert_url_to_base64 ran on the request path: {url}")
+            raise embrouter.ImageFetchError(f"sync convert_url_to_base64 ran on the request path: {url}")
         return url
 
     monkeypatch.setattr(image_handling, "safe_get", forbid_sync_fetch)

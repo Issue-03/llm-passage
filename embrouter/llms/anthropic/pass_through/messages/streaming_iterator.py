@@ -8,21 +8,21 @@ import httpx
 from pydantic import TypeAdapter
 from typing_extensions import TypedDict
 
-from litellm.constants import (
+from embrouter.constants import (
     ANTHROPIC_MESSAGES_MAX_DETACHED_STREAM_DRAINS,
     ANTHROPIC_MESSAGES_STREAM_RELAY_QUEUE_MAXSIZE,
 )
-from litellm.litellm_core_utils.core_helpers import process_response_headers
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-from litellm.llms.anthropic.common_utils import ANTHROPIC_ERROR_STATUS_CODE_MAP
-from litellm.llms.anthropic.pass_through.messages.utils import INCOMPLETE_STREAM_ERROR_MESSAGE
-from litellm.proxy.pass_through_endpoints.success_handler import (
+from embrouter.embrouter_core_utils.core_helpers import process_response_headers
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.embrouter_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from embrouter.llms.anthropic.common_utils import ANTHROPIC_ERROR_STATUS_CODE_MAP
+from embrouter.llms.anthropic.pass_through.messages.utils import INCOMPLETE_STREAM_ERROR_MESSAGE
+from embrouter.proxy.pass_through_endpoints.success_handler import (
     PassThroughEndpointLogging,
 )
-from litellm.types.llms.anthropic_messages.anthropic_response import AnthropicMessagesResponse
-from litellm.types.passthrough_endpoints.pass_through_endpoints import EndpointType
-from litellm.types.utils import GenericStreamingChunk, ModelResponseStream
+from embrouter.types.llms.anthropic_messages.anthropic_response import AnthropicMessagesResponse
+from embrouter.types.passthrough_endpoints.pass_through_endpoints import EndpointType
+from embrouter.types.utils import GenericStreamingChunk, ModelResponseStream
 
 GLOBAL_PASS_THROUGH_SUCCESS_HANDLER_OBJ: Final = PassThroughEndpointLogging()
 
@@ -387,17 +387,17 @@ class BaseAnthropicMessagesStreamingIterator:
 
     def __init__(
         self,
-        litellm_logging_obj: LiteLLMLoggingObj,
+        embrouter_logging_obj: EmbRouterLoggingObj,
         request_body: dict,
     ):
-        self.litellm_logging_obj = litellm_logging_obj
+        self.embrouter_logging_obj = embrouter_logging_obj
         self.request_body = request_body
         self.start_time = datetime.now()
         self.completion_start_time: datetime | None = None
 
     async def _handle_streaming_logging(self, collected_chunks: list[bytes], *, stream_teardown: bool = False):
         """Handle the logging after all chunks have been collected."""
-        from litellm.proxy.pass_through_endpoints.streaming_handler import (
+        from embrouter.proxy.pass_through_endpoints.streaming_handler import (
             PassThroughStreamingHandler,
         )
 
@@ -405,10 +405,10 @@ class BaseAnthropicMessagesStreamingIterator:
         # Set completion_start_time so TTFT is calculated from the first
         # chunk rather than falling back to end_time in async_success_handler.
         if self.completion_start_time is not None:
-            self.litellm_logging_obj.completion_start_time = self.completion_start_time
-            self.litellm_logging_obj.model_call_details["completion_start_time"] = self.completion_start_time
+            self.embrouter_logging_obj.completion_start_time = self.completion_start_time
+            self.embrouter_logging_obj.model_call_details["completion_start_time"] = self.completion_start_time
         logging_coroutine: Final = PassThroughStreamingHandler._route_streaming_logging_to_handler(
-            litellm_logging_obj=self.litellm_logging_obj,
+            embrouter_logging_obj=self.embrouter_logging_obj,
             passthrough_success_handler_obj=GLOBAL_PASS_THROUGH_SUCCESS_HANDLER_OBJ,
             url_route="/v1/messages",
             request_body=self.request_body or {},
@@ -418,10 +418,10 @@ class BaseAnthropicMessagesStreamingIterator:
             end_time=end_time,
         )
         deferred_dispatch_armed: Final = (
-            getattr(self.litellm_logging_obj, "_on_deferred_stream_complete", None) is not None
+            getattr(self.embrouter_logging_obj, "_on_deferred_stream_complete", None) is not None
         )
         if deferred_dispatch_armed and not stream_teardown:
-            self.litellm_logging_obj._deferred_stream_complete_args = (logging_coroutine,)
+            self.embrouter_logging_obj._deferred_stream_complete_args = (logging_coroutine,)
             return
         # Enqueue on the rooted logging worker rather than asyncio.create_task:
         # this also runs during generator teardown after a client disconnect,
@@ -432,10 +432,10 @@ class BaseAnthropicMessagesStreamingIterator:
         self,
         httpx_response,
         request_body: dict,
-        litellm_logging_obj: LiteLLMLoggingObj,
+        embrouter_logging_obj: EmbRouterLoggingObj,
     ) -> AsyncIterator:
         """Helper function to handle Anthropic streaming responses using the existing logging handlers"""
-        from litellm.proxy.pass_through_endpoints.streaming_handler import (
+        from embrouter.proxy.pass_through_endpoints.streaming_handler import (
             PassThroughStreamingHandler,
         )
 
@@ -443,7 +443,7 @@ class BaseAnthropicMessagesStreamingIterator:
         return PassThroughStreamingHandler.chunk_processor(
             response=httpx_response,
             request_body=request_body,
-            litellm_logging_obj=litellm_logging_obj,
+            embrouter_logging_obj=embrouter_logging_obj,
             endpoint_type=EndpointType.ANTHROPIC,
             start_time=self.start_time,
             passthrough_success_handler_obj=GLOBAL_PASS_THROUGH_SUCCESS_HANDLER_OBJ,
@@ -533,12 +533,12 @@ class BaseAnthropicMessagesStreamingIterator:
         disconnect (GeneratorExit / CancelledError) re-raises past it. Without
         this dispatch that window loses the spend row entirely.
         """
-        deferred_cb: Final = getattr(self.litellm_logging_obj, "_on_deferred_stream_complete", None)
-        deferred_args: Final = getattr(self.litellm_logging_obj, "_deferred_stream_complete_args", None)
+        deferred_cb: Final = getattr(self.embrouter_logging_obj, "_on_deferred_stream_complete", None)
+        deferred_args: Final = getattr(self.embrouter_logging_obj, "_deferred_stream_complete_args", None)
         if deferred_cb is None or deferred_args is None:
             return
-        self.litellm_logging_obj._on_deferred_stream_complete = None
-        self.litellm_logging_obj._deferred_stream_complete_args = None
+        self.embrouter_logging_obj._on_deferred_stream_complete = None
+        self.embrouter_logging_obj._deferred_stream_complete_args = None
         GLOBAL_LOGGING_WORKER.ensure_initialized_and_enqueue(async_coroutine=deferred_cb(*deferred_args))
 
     async def _bill_collected_chunks(
@@ -547,7 +547,7 @@ class BaseAnthropicMessagesStreamingIterator:
         *,
         stream_teardown: bool,
     ) -> None:
-        from litellm._logging import verbose_proxy_logger
+        from embrouter._logging import verbose_proxy_logger
 
         try:
             await self._handle_streaming_logging(collected_chunks, stream_teardown=stream_teardown)
@@ -564,7 +564,7 @@ class BaseAnthropicMessagesStreamingIterator:
         completion_stream: AsyncIterator[bytes | GenericStreamingChunk | ModelResponseStream | Mapping[str, object]],
     ) -> None:
         """Close the upstream provider stream so it stops generating and billing."""
-        from litellm._logging import verbose_proxy_logger
+        from embrouter._logging import verbose_proxy_logger
 
         try:
             await aclose_if_supported(completion_stream)
@@ -623,7 +623,7 @@ class BaseAnthropicMessagesStreamingIterator:
         for a client disconnect, and a sentinel the client never consumes falls
         back to dispatching the parked billing here.
         """
-        from litellm._logging import verbose_proxy_logger
+        from embrouter._logging import verbose_proxy_logger
 
         collected_chunks: Final[list[bytes]] = []  # mutable-ok: SSE billing buffer appended to across the drain
         saw_terminal_event = False  # rebind-ok: accumulates across the upstream loop
@@ -681,10 +681,10 @@ class BaseAnthropicMessagesStreamingIterator:
         the queued exception, that handling never runs, so the detached-failure
         hook the proxy armed on the logging object fires here instead.
         """
-        from litellm.proxy.pass_through_endpoints.streaming_handler import PassThroughStreamingHandler
+        from embrouter.proxy.pass_through_endpoints.streaming_handler import PassThroughStreamingHandler
 
         await PassThroughStreamingHandler.schedule_stream_failure_logging(
-            litellm_logging_obj=self.litellm_logging_obj,
+            embrouter_logging_obj=self.embrouter_logging_obj,
             endpoint_type=EndpointType.ANTHROPIC,
             request_body=self.request_body,
             raw_bytes=collected_chunks,
@@ -697,9 +697,9 @@ class BaseAnthropicMessagesStreamingIterator:
         await self._fire_detached_failure_hook(exc)
 
     async def _fire_detached_failure_hook(self, exc: Exception) -> None:
-        from litellm._logging import verbose_proxy_logger
+        from embrouter._logging import verbose_proxy_logger
 
-        on_detached_failure: Final = getattr(self.litellm_logging_obj, "_on_detached_stream_failure", None)
+        on_detached_failure: Final = getattr(self.embrouter_logging_obj, "_on_detached_stream_failure", None)
         if on_detached_failure is None:
             return
         try:

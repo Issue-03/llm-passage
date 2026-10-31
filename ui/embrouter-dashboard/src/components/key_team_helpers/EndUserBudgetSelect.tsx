@@ -7,7 +7,7 @@ import type { budgetItem } from "@/app/(dashboard)/hooks/budgets/useBudgets";
 import { SearchSelect, type SearchSelectOption } from "@/components/shared/SearchSelect";
 
 export const END_USER_BUDGET_HINT =
-  "Reusable budget applied to every new customer (end user) this key creates via `user` or x-litellm-end-user-id. " +
+  "Reusable budget applied to every new customer (end user) this key creates via `user` or x-embrouter-end-user-id. " +
   "Overrides the proxy-wide max_end_user_budget_id; customers that already have their own budget keep it.";
 
 interface EndUserBudgetSelectProps {

@@ -8,36 +8,36 @@ from typing import TYPE_CHECKING, Any, Final, Optional
 
 from pydantic import BaseModel, ConfigDict
 
-from litellm._logging import verbose_router_logger
-from litellm.constants import DEFAULT_AUTO_ROUTER_MAX_INPUT_CHARS
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.internal_call_metadata import (
+from embrouter._logging import verbose_router_logger
+from embrouter.constants import DEFAULT_AUTO_ROUTER_MAX_INPUT_CHARS
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.embrouter_core_utils.internal_call_metadata import (
     effective_turn_off_message_logging,
     forwarded_internal_call_metadata,
     parent_session_kwargs,
 )
-from litellm.types.utils import AUTOROUTER_CLASSIFIER_CALL_ORIGIN
+from embrouter.types.utils import AUTOROUTER_CLASSIFIER_CALL_ORIGIN
 
 if TYPE_CHECKING:
     from semantic_router.routers import SemanticRouter
     from semantic_router.routers.base import Route
 
-    from litellm.router import Router
-    from litellm.router_strategy.auto_router.litellm_encoder import LiteLLMRouterEncoder
-    from litellm.types.router import PreRoutingHookResponse
+    from embrouter.router import Router
+    from embrouter.router_strategy.auto_router.embrouter_encoder import EmbRouterRouterEncoder
+    from embrouter.types.router import PreRoutingHookResponse
 else:
     Router = Any
     PreRoutingHookResponse = Any
     Route = Any
     SemanticRouter = Any
-    LiteLLMRouterEncoder = Any
+    EmbRouterRouterEncoder = Any
 
 
 class _CallerMetadata(BaseModel):
     model_config = ConfigDict(frozen=True, extra="ignore")
 
     metadata: Mapping[str, object] | None = None
-    litellm_metadata: Mapping[str, object] | None = None
+    embrouter_metadata: Mapping[str, object] | None = None
 
 
 class AutoRouter(CustomLogger):
@@ -48,7 +48,7 @@ class AutoRouter(CustomLogger):
         model_name: str,
         default_model: str,
         embedding_model: str,
-        litellm_router_instance: "Router",
+        embrouter_router_instance: "Router",
         auto_router_config_path: str | None = None,
         auto_router_config: str | None = None,
         max_input_chars: int = DEFAULT_AUTO_ROUTER_MAX_INPUT_CHARS,
@@ -62,14 +62,14 @@ class AutoRouter(CustomLogger):
             auto_router_config: The config to use for the auto-router. You can either use this or auto_router_config_path, not both.
             default_model: The default model to use if no route is found.
             embedding_model: The embedding model to use for the auto-router.
-            litellm_router_instance: The instance of the LiteLLM Router.
+            embrouter_router_instance: The instance of the EmbRouter Router.
             max_input_chars: Longest prompt, in characters, handed to the embedding model. Longer
                 prompts are cut to this length so an embedding context window far smaller than the
                 routed model's never fails the request.
         """
         from semantic_router.routers import SemanticRouter
 
-        from litellm.router_strategy.auto_router.litellm_encoder import LiteLLMRouterEncoder
+        from embrouter.router_strategy.auto_router.embrouter_encoder import EmbRouterRouterEncoder
 
         self.auto_router_config_path: str | None = auto_router_config_path
         self.auto_router_config: str | None = auto_router_config
@@ -81,9 +81,9 @@ class AutoRouter(CustomLogger):
         self.default_model = default_model
         self.embedding_model: str = embedding_model
         self.max_input_chars: int = max_input_chars
-        self.litellm_router_instance: Router = litellm_router_instance
-        self.encoder: LiteLLMRouterEncoder = LiteLLMRouterEncoder(
-            litellm_router_instance=litellm_router_instance,
+        self.embrouter_router_instance: Router = embrouter_router_instance
+        self.encoder: EmbRouterRouterEncoder = EmbRouterRouterEncoder(
+            embrouter_router_instance=embrouter_router_instance,
             model_name=embedding_model,
             max_input_chars=max_input_chars,
         )
@@ -191,10 +191,10 @@ class AutoRouter(CustomLogger):
         """
         This hook is called before the routing decision is made.
 
-        Used for the litellm auto-router to modify the request before the routing decision is made.
+        Used for the embrouter auto-router to modify the request before the routing decision is made.
         """
-        from litellm.litellm_core_utils.prompt_templates.factory import resolve_structured_messages
-        from litellm.types.router import PreRoutingHookResponse
+        from embrouter.embrouter_core_utils.prompt_templates.factory import resolve_structured_messages
+        from embrouter.types.router import PreRoutingHookResponse
 
         resolved_messages: Final = (
             messages
@@ -233,8 +233,8 @@ class AutoRouter(CustomLogger):
                 await self.encoder.aencode_queries(
                     [text],
                     metadata=forwarded_internal_call_metadata(caller.metadata, AUTOROUTER_CLASSIFIER_CALL_ORIGIN),
-                    litellm_metadata=forwarded_internal_call_metadata(
-                        caller.litellm_metadata, AUTOROUTER_CLASSIFIER_CALL_ORIGIN
+                    embrouter_metadata=forwarded_internal_call_metadata(
+                        caller.embrouter_metadata, AUTOROUTER_CLASSIFIER_CALL_ORIGIN
                     ),
                     proxy_server_request={"body": {"model": self.embedding_model, "input": [text]}},
                     turn_off_message_logging=effective_turn_off_message_logging(request_kwargs),

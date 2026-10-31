@@ -7,12 +7,12 @@ from typing import List, Optional, Tuple
 import pytest
 
 
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.llms import get_guardrail_translation_mapping
-from litellm.llms.openai.image_generation.guardrail_translation.handler import (
+from embrouter.integrations.custom_guardrail import CustomGuardrail
+from embrouter.llms import get_guardrail_translation_mapping
+from embrouter.llms.openai.image_generation.guardrail_translation.handler import (
     OpenAIImageGenerationHandler,
 )
-from litellm.types.utils import CallTypes, ImageObject, ImageResponse
+from embrouter.types.utils import CallTypes, ImageObject, ImageResponse
 
 
 class MockGuardrail(CustomGuardrail):

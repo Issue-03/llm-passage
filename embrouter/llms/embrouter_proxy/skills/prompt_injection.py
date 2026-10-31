@@ -1,5 +1,5 @@
 """
-Prompt Injection Handler for LiteLLM Skills
+Prompt Injection Handler for EmbRouter Skills
 
 Handles extraction of skill content (SKILL.md) from stored ZIP files
 and injection into the system prompt for non-Anthropic models.
@@ -10,8 +10,8 @@ import zipfile
 from io import BytesIO
 from typing import Any, Final
 
-from litellm._logging import verbose_logger
-from litellm.proxy._types import LiteLLM_SkillsTable
+from embrouter._logging import verbose_logger
+from embrouter.proxy._types import EmbRouter_SkillsTable
 
 
 class SkillPromptInjectionHandler:
@@ -25,7 +25,7 @@ class SkillPromptInjectionHandler:
     - Create execute_code tool definition
     """
 
-    def extract_skill_content(self, skill: LiteLLM_SkillsTable) -> str | None:
+    def extract_skill_content(self, skill: EmbRouter_SkillsTable) -> str | None:
         """
         Extract skill content from the stored zip file.
 
@@ -33,7 +33,7 @@ class SkillPromptInjectionHandler:
         This content describes the skill's capabilities and instructions.
 
         Args:
-            skill: The skill from LiteLLM database
+            skill: The skill from EmbRouter database
 
         Returns:
             The skill content as a string, or None if not available
@@ -71,7 +71,7 @@ class SkillPromptInjectionHandler:
 
         return skill.instructions
 
-    def extract_all_files(self, skill: LiteLLM_SkillsTable) -> dict[str, bytes]:
+    def extract_all_files(self, skill: EmbRouter_SkillsTable) -> dict[str, bytes]:
         """
         Extract ALL files from skill ZIP for code execution.
 
@@ -79,7 +79,7 @@ class SkillPromptInjectionHandler:
         The paths have the skill folder prefix removed (e.g., "slack-gif-creator/core/..." -> "core/...").
 
         Args:
-            skill: The skill from LiteLLM database
+            skill: The skill from EmbRouter database
 
         Returns:
             Dict mapping file paths to binary content
@@ -226,15 +226,15 @@ class SkillPromptInjectionHandler:
             },
         }
 
-    def convert_skill_to_tool(self, skill: LiteLLM_SkillsTable) -> dict[str, Any]:
+    def convert_skill_to_tool(self, skill: EmbRouter_SkillsTable) -> dict[str, Any]:
         """
-        Convert a LiteLLM skill to an OpenAI-style tool.
+        Convert a EmbRouter skill to an OpenAI-style tool.
 
         The skill's instructions are used as the function description,
         allowing the model to understand when and how to use the skill.
 
         Args:
-            skill: The skill from LiteLLM database
+            skill: The skill from EmbRouter database
 
         Returns:
             OpenAI-style tool definition
@@ -271,12 +271,12 @@ class SkillPromptInjectionHandler:
 
         return tool
 
-    def convert_skill_to_anthropic_tool(self, skill: LiteLLM_SkillsTable) -> dict[str, Any]:
+    def convert_skill_to_anthropic_tool(self, skill: EmbRouter_SkillsTable) -> dict[str, Any]:
         """
-        Convert a LiteLLM skill to an Anthropic-style tool (messages API format).
+        Convert a EmbRouter skill to an Anthropic-style tool (messages API format).
 
         Args:
-            skill: The skill from LiteLLM database
+            skill: The skill from EmbRouter database
 
         Returns:
             Anthropic-style tool definition with name, description, input_schema

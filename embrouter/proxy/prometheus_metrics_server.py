@@ -3,7 +3,7 @@
 Workers write their samples to `PROMETHEUS_MULTIPROC_DIR`; this process reads them back with a
 ``MultiProcessCollector`` and serves the aggregated output on a separate port. The proxy CLI starts
 it with ``--prometheus_metrics_port``. It can also run as a sidecar sharing the same directory:
-``python -m litellm.proxy.prometheus_metrics_server --host 0.0.0.0 --port 4001``.
+``python -m embrouter.proxy.prometheus_metrics_server --host 0.0.0.0 --port 4001``.
 """
 
 from __future__ import annotations
@@ -26,12 +26,12 @@ from prometheus_client import CollectorRegistry, multiprocess
 from pydantic import BaseModel, ConfigDict
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from litellm.integrations.prometheus_metrics_endpoint import make_metrics_asgi_app
-from litellm.llms.custom_httpx.http_handler import HTTPHandler
+from embrouter.integrations.prometheus_metrics_endpoint import make_metrics_asgi_app
+from embrouter.llms.custom_httpx.http_handler import HTTPHandler
 
 METRICS_PATH: Final = "/metrics"
 HEALTH_PATH: Final = "/health"
-PID_HEADER: Final = "x-litellm-metrics-pid"
+PID_HEADER: Final = "x-embrouter-metrics-pid"
 _PARENT_POLL_INTERVAL_SECONDS: Final = 1.0
 _STARTUP_TIMEOUT_SECONDS: Final = 30.0
 _STARTUP_POLL_INTERVAL_SECONDS: Final = 0.1
@@ -75,7 +75,7 @@ def _add_pid_header(app: ASGIApp) -> ASGIApp:
 def build_metrics_app(multiproc_dir: str) -> FastAPI:
     registry: Final = CollectorRegistry()
     multiprocess.MultiProcessCollector(registry, path=multiproc_dir)
-    app: Final = FastAPI(title="LiteLLM Prometheus metrics", docs_url=None, redoc_url=None, openapi_url=None)
+    app: Final = FastAPI(title="EmbRouter Prometheus metrics", docs_url=None, redoc_url=None, openapi_url=None)
     app.mount(METRICS_PATH, _add_pid_header(make_metrics_asgi_app(registry)))
 
     @app.get(HEALTH_PATH)
@@ -91,7 +91,7 @@ def _exit_when_parent_dies(parent_pid: int) -> None:
             time.sleep(_PARENT_POLL_INTERVAL_SECONDS)
         os._exit(0)
 
-    threading.Thread(target=watch, name="litellm-metrics-parent-watchdog", daemon=True).start()
+    threading.Thread(target=watch, name="embrouter-metrics-parent-watchdog", daemon=True).start()
 
 
 def run_metrics_server(host: str, port: int, multiproc_dir: str) -> None:
@@ -141,7 +141,7 @@ def start_metrics_server_process(host: str, port: int, multiproc_dir: str) -> su
         (
             sys.executable,
             "-m",
-            "litellm.proxy.prometheus_metrics_server",
+            "embrouter.proxy.prometheus_metrics_server",
             "--host",
             host,
             "--port",
@@ -157,7 +157,7 @@ def start_metrics_server_process(host: str, port: int, multiproc_dir: str) -> su
 
 def main(argv: Sequence[str] | None = None) -> None:
     parser: Final = argparse.ArgumentParser(
-        description="Serve LiteLLM Prometheus metrics from PROMETHEUS_MULTIPROC_DIR"
+        description="Serve EmbRouter Prometheus metrics from PROMETHEUS_MULTIPROC_DIR"
     )
     parser.add_argument("--host", default="0.0.0.0")
     parser.add_argument("--port", type=int, required=True)

@@ -6,17 +6,17 @@ from collections import deque
 from collections.abc import AsyncIterator, Iterator
 from typing import Any, Final, cast
 
-from litellm.responses.streaming_iterator import (
+from embrouter.responses.streaming_iterator import (
     BaseResponsesAPIStreamingIterator,
     ResponsesAPIStreamingIterator,
     SyncResponsesAPIStreamingIterator,
 )
-from litellm.types.interactions import (
+from embrouter.types.interactions import (
     InteractionInput,
     InteractionsAPIOptionalRequestParams,
     InteractionsAPIStreamingResponse,
 )
-from litellm.types.llms.openai import (
+from embrouter.types.llms.openai import (
     OutputTextDeltaEvent,
     ResponseCompletedEvent,
     ResponseCreatedEvent,
@@ -25,7 +25,7 @@ from litellm.types.llms.openai import (
 )
 
 
-class LiteLLMResponsesInteractionsStreamingIterator:
+class EmbRouterResponsesInteractionsStreamingIterator:
     """
     Iterator that wraps Responses API streaming and transforms chunks to Interactions API format.
 
@@ -40,18 +40,18 @@ class LiteLLMResponsesInteractionsStreamingIterator:
     def __init__(
         self,
         model: str,
-        litellm_custom_stream_wrapper: BaseResponsesAPIStreamingIterator,
+        embrouter_custom_stream_wrapper: BaseResponsesAPIStreamingIterator,
         request_input: InteractionInput | None,
         optional_params: InteractionsAPIOptionalRequestParams,
         custom_llm_provider: str | None = None,
-        litellm_metadata: dict[str, Any] | None = None,
+        embrouter_metadata: dict[str, Any] | None = None,
     ):
         self.model = model
-        self.responses_stream_iterator = litellm_custom_stream_wrapper
+        self.responses_stream_iterator = embrouter_custom_stream_wrapper
         self.request_input = request_input
         self.optional_params = optional_params
         self.custom_llm_provider = custom_llm_provider
-        self.litellm_metadata = litellm_metadata or {}
+        self.embrouter_metadata = embrouter_metadata or {}
         self.finished = False
         self.collected_text = ""
         self.sent_interaction_start = False

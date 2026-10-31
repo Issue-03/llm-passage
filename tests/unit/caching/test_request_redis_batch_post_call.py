@@ -13,31 +13,31 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-import litellm
-from litellm.caching.caching import Cache
-from litellm.caching.dual_cache import DualCache
-from litellm.caching.in_memory_cache import InMemoryCache
-from litellm.caching.redis_batch import (
+import embrouter
+from embrouter.caching.caching import Cache
+from embrouter.caching.dual_cache import DualCache
+from embrouter.caching.in_memory_cache import InMemoryCache
+from embrouter.caching.redis_batch import (
     active_post_call_redis_batch,
     active_request_redis_batches,
     drain_post_call_redis_batches,
     flush_post_call_redis_batches,
     request_redis_batch_scope,
 )
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.litellm_logging import Logging as LitellmLogging
-from litellm.proxy.hooks.parallel_request_limiter_v3 import (
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbrouterLogging
+from embrouter.proxy.hooks.parallel_request_limiter_v3 import (
     PARALLEL_RELEASE_SCRIPT,
     TOKEN_INCREMENT_SCRIPT,
     ParallelSlotAcquisition,
     RequestRateLimiterStash,
     _PROXY_MaxParallelRequestsHandler_v3,
 )
-from litellm.proxy.spend_tracking.spend_counter_batch import PendingSpendIncrement
-from litellm.proxy.utils import InternalUsageCache
-from litellm.router_strategy.lowest_tpm_rpm_v2 import LowestTPMLoggingHandler_v2
-from litellm.types.caching import RedisPipelineIncrementOperation
-from litellm.types.utils import ModelResponse
+from embrouter.proxy.spend_tracking.spend_counter_batch import PendingSpendIncrement
+from embrouter.proxy.utils import InternalUsageCache
+from embrouter.router_strategy.lowest_tpm_rpm_v2 import LowestTPMLoggingHandler_v2
+from embrouter.types.caching import RedisPipelineIncrementOperation
+from embrouter.types.utils import ModelResponse
 
 from .test_redis_batch import FakeClient, FakeRedisCache
 
@@ -128,10 +128,10 @@ def _tpm_kwargs() -> Mapping[str, object]:
         "standard_logging_object": {
             "model_group": "gpt",
             "model_id": "dep-a",
-            "hidden_params": {"litellm_model_name": "openai/gpt-4o-mini"},
+            "hidden_params": {"embrouter_model_name": "openai/gpt-4o-mini"},
             "total_tokens": 42,
         },
-        "litellm_params": {"metadata": {}},
+        "embrouter_params": {"metadata": {}},
     }
 
 
@@ -449,18 +449,18 @@ async def test_the_success_handler_closes_the_post_call_batch_after_the_last_cal
             await dual_cache.async_increment_cache_post_call("counted", 1, ttl=None)
             pipelines_seen_by_callbacks.append(len(client.pipelines))
 
-    monkeypatch.setattr(litellm, "_async_success_callback", [])
-    logging_obj = LitellmLogging(
+    monkeypatch.setattr(embrouter, "_async_success_callback", [])
+    logging_obj = EmbrouterLogging(
         model="test-model",
         messages=[],
         stream=False,
         call_type="completion",
         start_time=datetime.datetime.now(),
-        litellm_call_id="post-call",
+        embrouter_call_id="post-call",
         function_id="post-call",
         dynamic_async_success_callbacks=[Counter(), Counter()],
     )
-    logging_obj.update_environment_variables(litellm_params={"metadata": {}}, optional_params={})
+    logging_obj.update_environment_variables(embrouter_params={"metadata": {}}, optional_params={})
     payload = {
         "id": "post-call",
         "call_type": "completion",
@@ -478,7 +478,7 @@ async def test_the_success_handler_closes_the_post_call_batch_after_the_last_cal
 
 @pytest.mark.asyncio
 async def test_spend_counter_increments_ride_the_pipeline_and_settle_into_memory(monkeypatch):
-    from litellm.proxy import proxy_server
+    from embrouter.proxy import proxy_server
 
     client = FakeClient(_ok_replies)
     spend_cache = DualCache()
@@ -500,7 +500,7 @@ async def test_spend_counter_increments_ride_the_pipeline_and_settle_into_memory
 
 @pytest.mark.asyncio
 async def test_a_spend_counter_whose_increment_failed_is_invalidated_not_trusted(monkeypatch):
-    from litellm.proxy import proxy_server
+    from embrouter.proxy import proxy_server
 
     def replies(command: tuple[object, ...]) -> object:
         if command[0] == "INCRBYFLOAT" and command[1] == "spend:key:k1":
@@ -527,7 +527,7 @@ async def test_a_spend_counter_whose_increment_failed_is_invalidated_not_trusted
 
 @pytest.mark.asyncio
 async def test_a_cancelled_post_call_flush_keeps_the_shared_spend_counter_and_counts_the_spend_locally(monkeypatch):
-    from litellm.proxy import proxy_server
+    from embrouter.proxy import proxy_server
 
     redis_cache = PostCallFakeRedisCache(
         FakeClient(_ok_replies, fail=asyncio.CancelledError())  # pyright: ignore[reportArgumentType]  # a cancel raised mid-pipeline
@@ -551,7 +551,7 @@ async def test_a_cancelled_post_call_flush_keeps_the_shared_spend_counter_and_co
 
 @pytest.mark.asyncio
 async def test_the_update_cache_read_armed_before_accounting_rides_the_pipeline_of_the_reconcile_read():
-    from litellm.proxy.proxy_server import _read_update_cache_values, arm_update_cache_read
+    from embrouter.proxy.proxy_server import _read_update_cache_values, arm_update_cache_read
 
     client = FakeClient(_ok_replies)
     redis_cache = PostCallFakeRedisCache(client)
@@ -574,7 +574,7 @@ async def test_the_update_cache_read_armed_before_accounting_rides_the_pipeline_
 
 @pytest.mark.asyncio
 async def test_an_update_cache_read_armed_for_other_keys_is_ignored_and_the_read_happens_as_before():
-    from litellm.proxy.proxy_server import _read_update_cache_values, arm_update_cache_read
+    from embrouter.proxy.proxy_server import _read_update_cache_values, arm_update_cache_read
 
     redis_cache = PostCallFakeRedisCache(FakeClient(_ok_replies))
     redis_cache.store["team_id:t1"] = {"spend": 2.0}
@@ -591,8 +591,8 @@ async def test_an_update_cache_read_armed_for_other_keys_is_ignored_and_the_read
 
 @pytest.mark.asyncio
 async def test_the_update_cache_read_sees_a_cached_spend_written_while_the_spend_was_persisted(monkeypatch):
-    from litellm.proxy import proxy_server
-    from litellm.proxy.hooks.proxy_track_cost_callback import _update_database_and_spend_counters
+    from embrouter.proxy import proxy_server
+    from embrouter.proxy.hooks.proxy_track_cost_callback import _update_database_and_spend_counters
 
     cached_user_spend = {"user-1": 1.0}
 

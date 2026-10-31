@@ -1,6 +1,6 @@
 import type { components } from "@/lib/http/schema";
 
-export type SearchToolLiteLLMParams = components["schemas"]["SearchToolLiteLLMParams"];
+export type SearchToolEmbRouterParams = components["schemas"]["SearchToolEmbRouterParams"];
 
 export interface SearchToolInfo {
   description?: string | null;
@@ -9,7 +9,7 @@ export interface SearchToolInfo {
 export interface SearchTool {
   search_tool_id?: string;
   search_tool_name: string;
-  litellm_params: SearchToolLiteLLMParams;
+  embrouter_params: SearchToolEmbRouterParams;
   search_tool_info?: SearchToolInfo;
   created_at?: string;
   updated_at?: string;

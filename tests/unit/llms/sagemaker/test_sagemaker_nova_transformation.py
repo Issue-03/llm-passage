@@ -5,9 +5,9 @@ Unit tests for SageMaker Nova transformation config.
 import json
 import pytest
 
-from litellm.llms.sagemaker.nova.transformation import SagemakerNovaConfig
-from litellm.types.utils import ModelResponse
-from litellm.utils import convert_to_model_response_object
+from embrouter.llms.sagemaker.nova.transformation import SagemakerNovaConfig
+from embrouter.types.utils import ModelResponse
+from embrouter.utils import convert_to_model_response_object
 
 
 class TestSagemakerNovaConfig:
@@ -60,7 +60,7 @@ class TestSagemakerNovaConfig:
             api_key=None,
             model="my-nova-endpoint",
             optional_params={"aws_region_name": "us-east-1"},
-            litellm_params={},
+            embrouter_params={},
             stream=False,
         )
         assert (
@@ -75,7 +75,7 @@ class TestSagemakerNovaConfig:
             api_key=None,
             model="my-nova-endpoint",
             optional_params={"aws_region_name": "us-east-1"},
-            litellm_params={},
+            embrouter_params={},
             stream=True,
         )
         assert (
@@ -234,7 +234,7 @@ class TestSagemakerChatBackwardsCompatibility:
     """Verify that changes to SagemakerChatConfig don't break existing sagemaker_chat callers."""
 
     def setup_method(self):
-        from litellm.llms.sagemaker.chat.transformation import SagemakerChatConfig
+        from embrouter.llms.sagemaker.chat.transformation import SagemakerChatConfig
 
         self.config = SagemakerChatConfig()
 
@@ -249,7 +249,7 @@ class TestSagemakerChatBackwardsCompatibility:
             api_key=None,
             model="my-hf-endpoint",
             optional_params={"aws_region_name": "us-west-2"},
-            litellm_params={},
+            embrouter_params={},
             stream=False,
         )
         assert (
@@ -262,7 +262,7 @@ class TestSagemakerChatBackwardsCompatibility:
             api_key=None,
             model="my-hf-endpoint",
             optional_params={"aws_region_name": "us-west-2"},
-            litellm_params={},
+            embrouter_params={},
             stream=True,
         )
         assert (
@@ -305,11 +305,11 @@ class TestSagemakerChatBackwardsCompatibility:
         mock_client.post.return_value = mock_response
 
         with patch(
-            "litellm.llms.sagemaker.chat.transformation.CustomStreamWrapper"
+            "embrouter.llms.sagemaker.chat.transformation.CustomStreamWrapper"
         ) as mock_csw:
             mock_csw.return_value = MagicMock()
             self.config.get_sync_custom_stream_wrapper(
-                litellm_params={},
+                embrouter_params={},
                 model="my-hf-endpoint",
                 custom_llm_provider="sagemaker_chat",
                 logging_obj=MagicMock(),
@@ -344,12 +344,12 @@ class TestSagemakerChatBackwardsCompatibility:
         mock_client.post.return_value = mock_response
 
         with patch(
-            "litellm.llms.sagemaker.chat.transformation.CustomStreamWrapper"
+            "embrouter.llms.sagemaker.chat.transformation.CustomStreamWrapper"
         ) as mock_csw:
             mock_csw.return_value = MagicMock()
             asyncio.run(
                 self.config.get_async_custom_stream_wrapper(
-                    litellm_params={},
+                    embrouter_params={},
                     model="my-hf-endpoint",
                     custom_llm_provider="sagemaker_chat",
                     logging_obj=MagicMock(),
@@ -369,7 +369,7 @@ class TestSagemakerChatBackwardsCompatibility:
         Verify LlmProviders(custom_llm_provider) resolves correctly for
         "sagemaker_chat" and doesn't fall through to the ValueError fallback.
         """
-        from litellm.types.utils import LlmProviders
+        from embrouter.types.utils import LlmProviders
 
         provider = LlmProviders("sagemaker_chat")
         assert provider == LlmProviders.SAGEMAKER_CHAT
@@ -387,7 +387,7 @@ class TestSagemakerNovaTransformRequest:
             model="my-nova-endpoint",
             messages=[{"role": "user", "content": "Hello"}],
             optional_params={"temperature": 0.7},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
         assert "model" not in request
@@ -404,7 +404,7 @@ class TestSagemakerNovaTransformRequest:
                 "max_tokens": 512,
                 "reasoning_effort": "low",
             },
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
         assert "model" not in request

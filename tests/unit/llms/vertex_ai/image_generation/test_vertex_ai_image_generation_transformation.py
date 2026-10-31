@@ -3,13 +3,13 @@ from unittest.mock import MagicMock, patch
 import httpx
 
 
-from litellm.llms.vertex_ai.image_generation import (
+from embrouter.llms.vertex_ai.image_generation import (
     get_vertex_ai_image_generation_config,
 )
-from litellm.llms.vertex_ai.image_generation.vertex_gemini_transformation import (
+from embrouter.llms.vertex_ai.image_generation.vertex_gemini_transformation import (
     VertexAIGeminiImageGenerationConfig,
 )
-from litellm.llms.vertex_ai.image_generation.vertex_imagen_transformation import (
+from embrouter.llms.vertex_ai.image_generation.vertex_imagen_transformation import (
     VertexAIImagenImageGenerationConfig,
 )
 
@@ -112,7 +112,7 @@ class TestVertexAIGeminiImageGenerationConfig:
 
     def test_map_openai_params_image_config_non_dict_warns_and_drops(self):
         """Non-dict imageConfig is dropped with a warning, not silently discarded"""
-        with patch("litellm.llms.vertex_ai.image_generation.vertex_gemini_transformation.verbose_logger") as mock_log:
+        with patch("embrouter.llms.vertex_ai.image_generation.vertex_gemini_transformation.verbose_logger") as mock_log:
             result = self.config.map_openai_params(
                 {"imageConfig": "bad-string-value"}, {}, "gemini-3.1-flash-image", False
             )
@@ -137,7 +137,7 @@ class TestVertexAIGeminiImageGenerationConfig:
             model="gemini-3.1-flash-image",
             prompt="A nano banana on a desk",
             optional_params=mapped,
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
         assert request["generationConfig"]["imageConfig"] == full_config
@@ -151,7 +151,7 @@ class TestVertexAIGeminiImageGenerationConfig:
                 "imageConfig": {"aspectRatio": "1:1", "personGeneration": "DONT_ALLOW"},
                 "aspectRatio": "16:9",  # should win
             },
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
         assert request["generationConfig"]["imageConfig"]["aspectRatio"] == "16:9"
@@ -163,7 +163,7 @@ class TestVertexAIGeminiImageGenerationConfig:
             model="gemini-2.5-flash-image",
             prompt="A nano banana",
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
         assert "contents" in request
@@ -177,7 +177,7 @@ class TestVertexAIGeminiImageGenerationConfig:
             model="gemini-2.5-flash-image",
             prompt="A nano banana",
             optional_params={"aspectRatio": "16:9"},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
         assert request["generationConfig"]["imageConfig"]["aspectRatio"] == "16:9"
@@ -188,7 +188,7 @@ class TestVertexAIGeminiImageGenerationConfig:
             model="gemini-3-pro-image-preview",
             prompt="A nano banana",
             optional_params={"imageSize": "4K"},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
         assert request["generationConfig"]["imageConfig"]["imageSize"] == "4K"
@@ -204,7 +204,7 @@ class TestVertexAIGeminiImageGenerationConfig:
             model="gemini-3.1-flash-image-preview",
             prompt="Generate an image of the latest iPhone",
             optional_params={"tools": [{"googleSearch": {}}]},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
         assert request["tools"] == [{"googleSearch": {}}]
@@ -221,7 +221,7 @@ class TestVertexAIGeminiImageGenerationConfig:
             model="gemini-3.1-flash-image-preview",
             prompt="Generate an image of a coffee shop nearby",
             optional_params=mapped,
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
         assert request["tools"] == [{"googleMaps": {}}]
@@ -233,7 +233,7 @@ class TestVertexAIGeminiImageGenerationConfig:
             model="gemini-2.5-flash-image",
             prompt="A nano banana",
             optional_params={"candidate_count": 2},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
         assert request["generationConfig"]["candidateCount"] == 2
@@ -244,7 +244,7 @@ class TestVertexAIGeminiImageGenerationConfig:
             model="gemini-2.5-flash-image",
             prompt="A nano banana",
             optional_params={"n": 2},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
         assert request["generationConfig"]["candidateCount"] == 2
@@ -286,7 +286,7 @@ class TestVertexAIGeminiImageGenerationConfig:
         }
         mock_response.headers = {}
 
-        from litellm.types.utils import ImageResponse
+        from embrouter.types.utils import ImageResponse
 
         model_response = ImageResponse()
         result = self.config.transform_image_generation_response(
@@ -296,7 +296,7 @@ class TestVertexAIGeminiImageGenerationConfig:
             logging_obj=MagicMock(),
             request_data={},
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             encoding=None,
         )
 
@@ -337,7 +337,7 @@ class TestVertexAIGeminiImageGenerationConfig:
         }
         mock_response.headers = {}
 
-        from litellm.types.utils import ImageResponse
+        from embrouter.types.utils import ImageResponse
 
         model_response = ImageResponse()
         result = self.config.transform_image_generation_response(
@@ -347,7 +347,7 @@ class TestVertexAIGeminiImageGenerationConfig:
             logging_obj=MagicMock(),
             request_data={},
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             encoding=None,
         )
 
@@ -378,7 +378,7 @@ class TestVertexAIGeminiImageGenerationConfig:
         }
         mock_response.headers = {}
 
-        from litellm.types.utils import ImageResponse
+        from embrouter.types.utils import ImageResponse
 
         model_response = ImageResponse()
         result = self.config.transform_image_generation_response(
@@ -388,7 +388,7 @@ class TestVertexAIGeminiImageGenerationConfig:
             logging_obj=MagicMock(),
             request_data={},
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             encoding=None,
         )
 
@@ -424,7 +424,7 @@ class TestVertexAIGeminiImageGenerationConfig:
         }
         mock_response.headers = {}
 
-        from litellm.types.utils import ImageResponse
+        from embrouter.types.utils import ImageResponse
 
         result = self.config.transform_image_generation_response(
             model="gemini-2.5-flash-image",
@@ -433,7 +433,7 @@ class TestVertexAIGeminiImageGenerationConfig:
             logging_obj=MagicMock(),
             request_data={},
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             encoding=None,
         )
 
@@ -477,7 +477,7 @@ class TestVertexAIImagenImageGenerationConfig:
             model="imagegeneration@006",
             prompt="A cat",
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
         assert "instances" in request
@@ -491,19 +491,19 @@ class TestVertexAIImagenImageGenerationConfig:
             model="imagegeneration@006",
             prompt="A cat",
             optional_params={"sampleCount": 2, "aspectRatio": "16:9"},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
         assert request["parameters"]["sampleCount"] == 2
         assert request["parameters"]["aspectRatio"] == "16:9"
 
     def test_transform_image_generation_request_labels_from_metadata(self):
-        """Billing labels from litellm_params.metadata.requester_metadata on predict body."""
+        """Billing labels from embrouter_params.metadata.requester_metadata on predict body."""
         request = self.config.transform_image_generation_request(
             model="imagegeneration@006",
             prompt="A cat",
             optional_params={},
-            litellm_params={"metadata": {"requester_metadata": {"team": "platform", "env": "prod"}}},
+            embrouter_params={"metadata": {"requester_metadata": {"team": "platform", "env": "prod"}}},
             headers={},
         )
         assert request["labels"] == {"team": "platform", "env": "prod"}
@@ -516,7 +516,7 @@ class TestVertexAIImagenImageGenerationConfig:
         mock_response.json.return_value = {"predictions": [{"bytesBase64Encoded": "base64_encoded_image_data"}]}
         mock_response.headers = {}
 
-        from litellm.types.utils import ImageResponse
+        from embrouter.types.utils import ImageResponse
 
         model_response = ImageResponse()
         result = self.config.transform_image_generation_response(
@@ -526,7 +526,7 @@ class TestVertexAIImagenImageGenerationConfig:
             logging_obj=MagicMock(),
             request_data={},
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             encoding=None,
         )
 
@@ -546,7 +546,7 @@ class TestVertexAIImagenImageGenerationConfig:
         }
         mock_response.headers = {}
 
-        from litellm.types.utils import ImageResponse
+        from embrouter.types.utils import ImageResponse
 
         model_response = ImageResponse()
         result = self.config.transform_image_generation_response(
@@ -556,7 +556,7 @@ class TestVertexAIImagenImageGenerationConfig:
             logging_obj=MagicMock(),
             request_data={},
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             encoding=None,
         )
 
@@ -608,7 +608,7 @@ class TestVertexAIImageGenerationIntegration:
             api_key=None,
             model="gemini-2.5-flash-image",
             optional_params={},
-            litellm_params={
+            embrouter_params={
                 "vertex_project": "test-project",
                 "vertex_location": "us-central1",
             },
@@ -626,7 +626,7 @@ class TestVertexAIImageGenerationIntegration:
             api_key=None,
             model="imagegeneration@006",
             optional_params={},
-            litellm_params={
+            embrouter_params={
                 "vertex_project": "test-project",
                 "vertex_location": "us-central1",
             },

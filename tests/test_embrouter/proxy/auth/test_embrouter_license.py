@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
 
 
-from litellm.proxy.auth.litellm_license import LicenseCheck
+from embrouter.proxy.auth.embrouter_license import LicenseCheck
 
 
 def test_read_public_key_loads_successfully():

@@ -10,19 +10,19 @@ import pytest
 from fastapi import HTTPException
 
 
-import litellm
-from litellm.caching.caching import RedisCache
-from litellm.caching.redis_cluster_cache import RedisClusterCache
-from litellm.proxy._types import LitellmTableNames, LitellmUserRoles
-from litellm.proxy.auth.user_api_key_auth import UserAPIKeyAuth
-from litellm.proxy.management_endpoints.coordination_redis_endpoints import (
+import embrouter
+from embrouter.caching.caching import RedisCache
+from embrouter.caching.redis_cluster_cache import RedisClusterCache
+from embrouter.proxy._types import EmbrouterTableNames, EmbrouterUserRoles
+from embrouter.proxy.auth.user_api_key_auth import UserAPIKeyAuth
+from embrouter.proxy.management_endpoints.coordination_redis_endpoints import (
     _REDACTED_VALUE,
     CoordinationRedisSettingsRequest,
     get_coordination_redis_settings,
     check_coordination_redis_connection,
     update_coordination_redis_settings,
 )
-from litellm.types.management_endpoints.coordination_redis_endpoints import (
+from embrouter.types.management_endpoints.coordination_redis_endpoints import (
     COORDINATION_REDIS_SETTINGS_FIELDS,
 )
 
@@ -39,20 +39,20 @@ def _admin_auth() -> UserAPIKeyAuth:
     return UserAPIKeyAuth(
         api_key="hashed",
         user_id="admin-user",
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN,
     )
 
 
 def _prisma_with_general_settings(general_settings: dict | None) -> MagicMock:
-    """A prisma client whose LiteLLM_Config `general_settings` row holds ``general_settings``."""
+    """A prisma client whose EmbRouter_Config `general_settings` row holds ``general_settings``."""
     row = None
     if general_settings is not None:
         row = MagicMock()
         row.param_value = json.dumps(general_settings)
 
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_config.find_unique = AsyncMock(return_value=row)
-    mock_prisma.db.litellm_config.upsert = AsyncMock()
+    mock_prisma.db.embrouter_config.find_unique = AsyncMock(return_value=row)
+    mock_prisma.db.embrouter_config.upsert = AsyncMock()
     return mock_prisma
 
 
@@ -73,10 +73,10 @@ async def test_get_redacts_every_credential_field():
     server in plaintext; non-credential fields come back untouched."""
     with (
         patch(
-            "litellm.proxy.proxy_server.prisma_client",
+            "embrouter.proxy.proxy_server.prisma_client",
             _prisma_with_general_settings({"coordination_redis": _SAVED_SETTINGS}),
         ),
-        patch("litellm.proxy.proxy_server.proxy_config", _proxy_config()),
+        patch("embrouter.proxy.proxy_server.proxy_config", _proxy_config()),
     ):
         response = await get_coordination_redis_settings(user_api_key_dict=_admin_auth())
 
@@ -99,15 +99,15 @@ async def test_get_redacts_every_credential_field():
 @pytest.mark.asyncio
 async def test_get_source_is_coordination_redis_when_block_present(monkeypatch):
     """An explicit block wins even when a Redis cache backend and REDIS_* env both exist."""
-    monkeypatch.setattr(litellm, "cache", MagicMock(cache=MagicMock(spec=RedisCache)))
+    monkeypatch.setattr(embrouter, "cache", MagicMock(cache=MagicMock(spec=RedisCache)))
     monkeypatch.setenv("REDIS_HOST", "env-redis")
 
     with (
         patch(
-            "litellm.proxy.proxy_server.prisma_client",
+            "embrouter.proxy.proxy_server.prisma_client",
             _prisma_with_general_settings({"coordination_redis": _SAVED_SETTINGS}),
         ),
-        patch("litellm.proxy.proxy_server.proxy_config", _proxy_config()),
+        patch("embrouter.proxy.proxy_server.proxy_config", _proxy_config()),
     ):
         response = await get_coordination_redis_settings(user_api_key_dict=_admin_auth())
 
@@ -117,13 +117,13 @@ async def test_get_source_is_coordination_redis_when_block_present(monkeypatch):
 @pytest.mark.asyncio
 async def test_get_source_reads_block_from_yaml_config_when_db_row_absent(monkeypatch):
     """A block set in config.yaml (not the DB) still reports source=coordination_redis."""
-    monkeypatch.setattr(litellm, "cache", None)
+    monkeypatch.setattr(embrouter, "cache", None)
     monkeypatch.delenv("REDIS_HOST", raising=False)
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", _prisma_with_general_settings(None)),
+        patch("embrouter.proxy.proxy_server.prisma_client", _prisma_with_general_settings(None)),
         patch(
-            "litellm.proxy.proxy_server.proxy_config",
+            "embrouter.proxy.proxy_server.proxy_config",
             _proxy_config({"coordination_redis": {"host": "yaml-redis"}}),
         ),
     ):
@@ -138,12 +138,12 @@ async def test_get_source_reads_block_from_yaml_config_when_db_row_absent(monkey
 async def test_get_source_is_cache_backend_when_no_block(monkeypatch, cache_backend_cls):
     """With no explicit block, a plain-Redis response-cache backend is borrowed —
     which beats the REDIS_* env fallback."""
-    monkeypatch.setattr(litellm, "cache", MagicMock(cache=MagicMock(spec=cache_backend_cls)))
+    monkeypatch.setattr(embrouter, "cache", MagicMock(cache=MagicMock(spec=cache_backend_cls)))
     monkeypatch.setenv("REDIS_HOST", "env-redis")
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", _prisma_with_general_settings({})),
-        patch("litellm.proxy.proxy_server.proxy_config", _proxy_config()),
+        patch("embrouter.proxy.proxy_server.prisma_client", _prisma_with_general_settings({})),
+        patch("embrouter.proxy.proxy_server.proxy_config", _proxy_config()),
     ):
         response = await get_coordination_redis_settings(user_api_key_dict=_admin_auth())
 
@@ -154,12 +154,12 @@ async def test_get_source_is_cache_backend_when_no_block(monkeypatch, cache_back
 @pytest.mark.asyncio
 async def test_get_source_is_environment_when_no_block_and_non_redis_cache(monkeypatch):
     """A non-Redis cache backend falls through to the REDIS_* env fallback."""
-    monkeypatch.setattr(litellm, "cache", MagicMock(cache=MagicMock()))
+    monkeypatch.setattr(embrouter, "cache", MagicMock(cache=MagicMock()))
     monkeypatch.setenv("REDIS_HOST", "env-redis")
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", _prisma_with_general_settings({})),
-        patch("litellm.proxy.proxy_server.proxy_config", _proxy_config()),
+        patch("embrouter.proxy.proxy_server.prisma_client", _prisma_with_general_settings({})),
+        patch("embrouter.proxy.proxy_server.proxy_config", _proxy_config()),
     ):
         response = await get_coordination_redis_settings(user_api_key_dict=_admin_auth())
 
@@ -168,13 +168,13 @@ async def test_get_source_is_environment_when_no_block_and_non_redis_cache(monke
 
 @pytest.mark.asyncio
 async def test_get_source_is_none_when_nothing_configured(monkeypatch):
-    monkeypatch.setattr(litellm, "cache", None)
+    monkeypatch.setattr(embrouter, "cache", None)
     for env_var in ("REDIS_HOST", "REDIS_URL", "REDIS_CLUSTER_NODES", "REDIS_SENTINEL_NODES"):
         monkeypatch.delenv(env_var, raising=False)
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", _prisma_with_general_settings({})),
-        patch("litellm.proxy.proxy_server.proxy_config", _proxy_config()),
+        patch("embrouter.proxy.proxy_server.prisma_client", _prisma_with_general_settings({})),
+        patch("embrouter.proxy.proxy_server.proxy_config", _proxy_config()),
     ):
         response = await get_coordination_redis_settings(user_api_key_dict=_admin_auth())
 
@@ -184,13 +184,13 @@ async def test_get_source_is_none_when_nothing_configured(monkeypatch):
 @pytest.mark.asyncio
 async def test_get_source_does_not_build_a_client(monkeypatch):
     """The env-fallback probe is read-only: no Redis client is constructed on GET."""
-    monkeypatch.setattr(litellm, "cache", None)
+    monkeypatch.setattr(embrouter, "cache", None)
     monkeypatch.setenv("REDIS_HOST", "env-redis")
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", _prisma_with_general_settings({})),
-        patch("litellm.proxy.proxy_server.proxy_config", _proxy_config()),
-        patch("litellm.proxy.proxy_server._build_redis_usage_cache") as mock_build,
+        patch("embrouter.proxy.proxy_server.prisma_client", _prisma_with_general_settings({})),
+        patch("embrouter.proxy.proxy_server.proxy_config", _proxy_config()),
+        patch("embrouter.proxy.proxy_server._build_redis_usage_cache") as mock_build,
     ):
         response = await get_coordination_redis_settings(user_api_key_dict=_admin_auth())
 
@@ -202,7 +202,7 @@ async def test_get_source_does_not_build_a_client(monkeypatch):
 async def test_get_rejects_non_admin():
     with pytest.raises(HTTPException) as exc_info:
         await get_coordination_redis_settings(
-            user_api_key_dict=UserAPIKeyAuth(api_key="hashed", user_role=LitellmUserRoles.INTERNAL_USER)
+            user_api_key_dict=UserAPIKeyAuth(api_key="hashed", user_role=EmbrouterUserRoles.INTERNAL_USER)
         )
     assert exc_info.value.status_code == 403
 
@@ -212,14 +212,14 @@ async def test_get_allows_proxy_admin_viewer():
     """proxy_admin_viewer has READ parity with proxy_admin; credentials stay redacted."""
     with (
         patch(
-            "litellm.proxy.proxy_server.prisma_client",
+            "embrouter.proxy.proxy_server.prisma_client",
             _prisma_with_general_settings({"coordination_redis": _SAVED_SETTINGS}),
         ),
-        patch("litellm.proxy.proxy_server.proxy_config", _proxy_config()),
+        patch("embrouter.proxy.proxy_server.proxy_config", _proxy_config()),
     ):
         response = await get_coordination_redis_settings(
             user_api_key_dict=UserAPIKeyAuth(
-                api_key="hashed", user_role=LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY
+                api_key="hashed", user_role=EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY
             )
         )
 
@@ -231,7 +231,7 @@ async def test_get_allows_proxy_admin_viewer():
 def test_fields_cover_every_coordination_redis_param():
     """The declarative field list drives the Admin UI form; it must stay in sync
     with the model the backend validates against."""
-    from litellm.proxy._types import CoordinationRedisParams
+    from embrouter.proxy._types import CoordinationRedisParams
 
     assert {field.field_name for field in COORDINATION_REDIS_SETTINGS_FIELDS} == set(
         CoordinationRedisParams.model_fields.keys()
@@ -250,31 +250,31 @@ def test_fields_cover_every_coordination_redis_param():
 async def test_update_rejects_settings_without_a_connection_target(monkeypatch):
     """A block with no host/url/startup_nodes/sentinel_nodes would blow up at
     startup; reject it at write time and persist nothing."""
-    monkeypatch.setattr(litellm, "store_audit_logs", False)
+    monkeypatch.setattr(embrouter, "store_audit_logs", False)
     mock_prisma = _prisma_with_general_settings({})
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
-        patch("litellm.proxy.proxy_server.proxy_config", _proxy_config()),
-        patch("litellm.proxy.proxy_server.store_model_in_db", True),
+        patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("embrouter.proxy.proxy_server.proxy_config", _proxy_config()),
+        patch("embrouter.proxy.proxy_server.store_model_in_db", True),
     ):
         with pytest.raises(HTTPException) as exc_info:
             await update_coordination_redis_settings(
                 request=CoordinationRedisSettingsRequest(settings={"ssl": True, "service_name": "mymaster"}),
                 user_api_key_dict=_admin_auth(),
-                litellm_changed_by=None,
+                embrouter_changed_by=None,
             )
 
     assert exc_info.value.status_code == 400
-    mock_prisma.db.litellm_config.upsert.assert_not_called()
+    mock_prisma.db.embrouter_config.upsert.assert_not_called()
 
 
 @pytest.mark.asyncio
 async def test_update_persists_into_the_general_settings_config_row(monkeypatch):
-    """Settings land under `general_settings.coordination_redis` in LiteLLM_Config
+    """Settings land under `general_settings.coordination_redis` in EmbRouter_Config
     (the row startup merges over the yaml config), and sibling general_settings
     keys survive the write."""
-    monkeypatch.setattr(litellm, "store_audit_logs", False)
+    monkeypatch.setattr(embrouter, "store_audit_logs", False)
     mock_prisma = _prisma_with_general_settings({"master_key": "sk-1234"})
     invalidated: list[str] = []
 
@@ -282,11 +282,11 @@ async def test_update_persists_into_the_general_settings_config_row(monkeypatch)
         invalidated.append(param_name)
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
-        patch("litellm.proxy.proxy_server.proxy_config", _proxy_config()),
-        patch("litellm.proxy.proxy_server.store_model_in_db", True),
+        patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("embrouter.proxy.proxy_server.proxy_config", _proxy_config()),
+        patch("embrouter.proxy.proxy_server.store_model_in_db", True),
         patch(
-            "litellm.proxy.management_endpoints.coordination_redis_endpoints.invalidate_config_param",
+            "embrouter.proxy.management_endpoints.coordination_redis_endpoints.invalidate_config_param",
             new=_capture_invalidate,
         ),
     ):
@@ -295,10 +295,10 @@ async def test_update_persists_into_the_general_settings_config_row(monkeypatch)
                 settings={"host": "coord-redis.example.com", "port": 6379, "password": "pw"}
             ),
             user_api_key_dict=_admin_auth(),
-            litellm_changed_by=None,
+            embrouter_changed_by=None,
         )
 
-    upsert_kwargs = mock_prisma.db.litellm_config.upsert.call_args.kwargs
+    upsert_kwargs = mock_prisma.db.embrouter_config.upsert.call_args.kwargs
     assert upsert_kwargs["where"] == {"param_name": "general_settings"}
     persisted = json.loads(upsert_kwargs["data"]["update"]["param_value"])
     assert persisted["coordination_redis"] == {
@@ -318,26 +318,26 @@ async def test_update_persists_into_the_general_settings_config_row(monkeypatch)
 async def test_update_persists_os_environ_refs_verbatim(monkeypatch):
     """`os.environ/VAR` refs are resolved only to validate; the ref itself is what
     gets stored, so the credential never lands in the DB."""
-    monkeypatch.setattr(litellm, "store_audit_logs", False)
+    monkeypatch.setattr(embrouter, "store_audit_logs", False)
     monkeypatch.setenv("MY_REDIS_HOST", "resolved-host")
     mock_prisma = _prisma_with_general_settings({})
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
-        patch("litellm.proxy.proxy_server.proxy_config", _proxy_config()),
-        patch("litellm.proxy.proxy_server.store_model_in_db", True),
+        patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("embrouter.proxy.proxy_server.proxy_config", _proxy_config()),
+        patch("embrouter.proxy.proxy_server.store_model_in_db", True),
         patch(
-            "litellm.proxy.management_endpoints.coordination_redis_endpoints.invalidate_config_param",
+            "embrouter.proxy.management_endpoints.coordination_redis_endpoints.invalidate_config_param",
             new=AsyncMock(),
         ),
     ):
         await update_coordination_redis_settings(
             request=CoordinationRedisSettingsRequest(settings={"host": "os.environ/MY_REDIS_HOST"}),
             user_api_key_dict=_admin_auth(),
-            litellm_changed_by=None,
+            embrouter_changed_by=None,
         )
 
-    persisted = json.loads(mock_prisma.db.litellm_config.upsert.call_args.kwargs["data"]["update"]["param_value"])
+    persisted = json.loads(mock_prisma.db.embrouter_config.upsert.call_args.kwargs["data"]["update"]["param_value"])
     assert persisted["coordination_redis"] == {"host": "os.environ/MY_REDIS_HOST"}
 
 
@@ -345,15 +345,15 @@ async def test_update_persists_os_environ_refs_verbatim(monkeypatch):
 async def test_update_keeps_saved_credential_when_client_echoes_the_redaction_marker(monkeypatch):
     """The UI reads settings back redacted; re-submitting them must not persist
     `***REDACTED***` as the password."""
-    monkeypatch.setattr(litellm, "store_audit_logs", False)
+    monkeypatch.setattr(embrouter, "store_audit_logs", False)
     mock_prisma = _prisma_with_general_settings({"coordination_redis": _SAVED_SETTINGS})
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
-        patch("litellm.proxy.proxy_server.proxy_config", _proxy_config()),
-        patch("litellm.proxy.proxy_server.store_model_in_db", True),
+        patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("embrouter.proxy.proxy_server.proxy_config", _proxy_config()),
+        patch("embrouter.proxy.proxy_server.store_model_in_db", True),
         patch(
-            "litellm.proxy.management_endpoints.coordination_redis_endpoints.invalidate_config_param",
+            "embrouter.proxy.management_endpoints.coordination_redis_endpoints.invalidate_config_param",
             new=AsyncMock(),
         ),
     ):
@@ -362,17 +362,17 @@ async def test_update_keeps_saved_credential_when_client_echoes_the_redaction_ma
                 settings={"host": "new-host", "port": 6380, "password": _REDACTED_VALUE}
             ),
             user_api_key_dict=_admin_auth(),
-            litellm_changed_by=None,
+            embrouter_changed_by=None,
         )
 
-    persisted = json.loads(mock_prisma.db.litellm_config.upsert.call_args.kwargs["data"]["update"]["param_value"])
+    persisted = json.loads(mock_prisma.db.embrouter_config.upsert.call_args.kwargs["data"]["update"]["param_value"])
     assert persisted["coordination_redis"]["password"] == "super-secret-redis-pw"
     assert persisted["coordination_redis"]["host"] == "new-host"
 
 
 @pytest.mark.asyncio
 async def test_update_emits_audit_log_with_values_redacted(monkeypatch):
-    monkeypatch.setattr(litellm, "store_audit_logs", True)
+    monkeypatch.setattr(embrouter, "store_audit_logs", True)
     mock_prisma = _prisma_with_general_settings({})
     audit_calls = []
 
@@ -380,29 +380,29 @@ async def test_update_emits_audit_log_with_values_redacted(monkeypatch):
         audit_calls.append(request_data)
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
-        patch("litellm.proxy.proxy_server.proxy_config", _proxy_config()),
-        patch("litellm.proxy.proxy_server.store_model_in_db", True),
-        patch("litellm.proxy.proxy_server.litellm_proxy_admin_name", "admin"),
+        patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("embrouter.proxy.proxy_server.proxy_config", _proxy_config()),
+        patch("embrouter.proxy.proxy_server.store_model_in_db", True),
+        patch("embrouter.proxy.proxy_server.embrouter_proxy_admin_name", "admin"),
         patch(
-            "litellm.proxy.management_endpoints.coordination_redis_endpoints.invalidate_config_param",
+            "embrouter.proxy.management_endpoints.coordination_redis_endpoints.invalidate_config_param",
             new=AsyncMock(),
         ),
-        patch("litellm.proxy.management_helpers.audit_logs.create_audit_log_for_update", new=capture),
+        patch("embrouter.proxy.management_helpers.audit_logs.create_audit_log_for_update", new=capture),
     ):
         await update_coordination_redis_settings(
             request=CoordinationRedisSettingsRequest(
                 settings={"host": "coord-redis.example.com", "password": "super-secret-redis-pw"}
             ),
             user_api_key_dict=_admin_auth(),
-            litellm_changed_by=None,
+            embrouter_changed_by=None,
         )
         for _ in range(3):
             await asyncio.sleep(0)
 
     assert len(audit_calls) == 1
     log = audit_calls[0]
-    assert log.table_name == LitellmTableNames.CONFIG_TABLE_NAME
+    assert log.table_name == EmbrouterTableNames.CONFIG_TABLE_NAME
     assert log.object_id == "coordination_redis"
     assert log.action == "created"  # no prior block → create
 
@@ -414,7 +414,7 @@ async def test_update_emits_audit_log_with_values_redacted(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_update_audit_action_is_updated_when_a_block_already_exists(monkeypatch):
-    monkeypatch.setattr(litellm, "store_audit_logs", True)
+    monkeypatch.setattr(embrouter, "store_audit_logs", True)
     mock_prisma = _prisma_with_general_settings({"coordination_redis": {"host": "old-host"}})
     audit_calls = []
 
@@ -422,20 +422,20 @@ async def test_update_audit_action_is_updated_when_a_block_already_exists(monkey
         audit_calls.append(request_data)
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
-        patch("litellm.proxy.proxy_server.proxy_config", _proxy_config()),
-        patch("litellm.proxy.proxy_server.store_model_in_db", True),
-        patch("litellm.proxy.proxy_server.litellm_proxy_admin_name", "admin"),
+        patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("embrouter.proxy.proxy_server.proxy_config", _proxy_config()),
+        patch("embrouter.proxy.proxy_server.store_model_in_db", True),
+        patch("embrouter.proxy.proxy_server.embrouter_proxy_admin_name", "admin"),
         patch(
-            "litellm.proxy.management_endpoints.coordination_redis_endpoints.invalidate_config_param",
+            "embrouter.proxy.management_endpoints.coordination_redis_endpoints.invalidate_config_param",
             new=AsyncMock(),
         ),
-        patch("litellm.proxy.management_helpers.audit_logs.create_audit_log_for_update", new=capture),
+        patch("embrouter.proxy.management_helpers.audit_logs.create_audit_log_for_update", new=capture),
     ):
         await update_coordination_redis_settings(
             request=CoordinationRedisSettingsRequest(settings={"host": "new-host"}),
             user_api_key_dict=_admin_auth(),
-            litellm_changed_by=None,
+            embrouter_changed_by=None,
         )
         for _ in range(3):
             await asyncio.sleep(0)
@@ -449,8 +449,8 @@ async def test_update_rejects_non_admin():
     with pytest.raises(HTTPException) as exc_info:
         await update_coordination_redis_settings(
             request=CoordinationRedisSettingsRequest(settings={"host": "coord-redis.example.com"}),
-            user_api_key_dict=UserAPIKeyAuth(api_key="hashed", user_role=LitellmUserRoles.INTERNAL_USER),
-            litellm_changed_by=None,
+            user_api_key_dict=UserAPIKeyAuth(api_key="hashed", user_role=EmbrouterUserRoles.INTERNAL_USER),
+            embrouter_changed_by=None,
         )
     assert exc_info.value.status_code == 403
 
@@ -461,8 +461,8 @@ async def test_update_rejects_proxy_admin_viewer():
     with pytest.raises(HTTPException) as exc_info:
         await update_coordination_redis_settings(
             request=CoordinationRedisSettingsRequest(settings={"host": "coord-redis.example.com"}),
-            user_api_key_dict=UserAPIKeyAuth(api_key="hashed", user_role=LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY),
-            litellm_changed_by=None,
+            user_api_key_dict=UserAPIKeyAuth(api_key="hashed", user_role=EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY),
+            embrouter_changed_by=None,
         )
     assert exc_info.value.status_code == 403
 
@@ -477,9 +477,9 @@ async def test_connection_test_returns_healthy_on_successful_ping():
     mock_client.disconnect = AsyncMock()
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", _prisma_with_general_settings({})),
-        patch("litellm.proxy.proxy_server.proxy_config", _proxy_config()),
-        patch("litellm.proxy.proxy_server._build_redis_usage_cache", return_value=mock_client) as mock_build,
+        patch("embrouter.proxy.proxy_server.prisma_client", _prisma_with_general_settings({})),
+        patch("embrouter.proxy.proxy_server.proxy_config", _proxy_config()),
+        patch("embrouter.proxy.proxy_server._build_redis_usage_cache", return_value=mock_client) as mock_build,
     ):
         response = await check_coordination_redis_connection(
             request=CoordinationRedisSettingsRequest(
@@ -506,9 +506,9 @@ async def test_connection_test_reports_unhealthy_without_leaking_the_password():
     mock_client.disconnect = AsyncMock()
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", _prisma_with_general_settings({})),
-        patch("litellm.proxy.proxy_server.proxy_config", _proxy_config()),
-        patch("litellm.proxy.proxy_server._build_redis_usage_cache", return_value=mock_client),
+        patch("embrouter.proxy.proxy_server.prisma_client", _prisma_with_general_settings({})),
+        patch("embrouter.proxy.proxy_server.proxy_config", _proxy_config()),
+        patch("embrouter.proxy.proxy_server._build_redis_usage_cache", return_value=mock_client),
     ):
         response = await check_coordination_redis_connection(
             request=CoordinationRedisSettingsRequest(
@@ -538,11 +538,11 @@ async def test_connection_test_uses_the_saved_password_for_a_redacted_field():
 
     with (
         patch(
-            "litellm.proxy.proxy_server.prisma_client",
+            "embrouter.proxy.proxy_server.prisma_client",
             _prisma_with_general_settings({"coordination_redis": _SAVED_SETTINGS}),
         ),
-        patch("litellm.proxy.proxy_server.proxy_config", _proxy_config()),
-        patch("litellm.proxy.proxy_server._build_redis_usage_cache", return_value=mock_client) as mock_build,
+        patch("embrouter.proxy.proxy_server.proxy_config", _proxy_config()),
+        patch("embrouter.proxy.proxy_server._build_redis_usage_cache", return_value=mock_client) as mock_build,
     ):
         response = await check_coordination_redis_connection(
             request=CoordinationRedisSettingsRequest(
@@ -565,11 +565,11 @@ async def test_connection_test_times_out_instead_of_hanging():
     mock_client.disconnect = AsyncMock()
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", _prisma_with_general_settings({})),
-        patch("litellm.proxy.proxy_server.proxy_config", _proxy_config()),
-        patch("litellm.proxy.proxy_server._build_redis_usage_cache", return_value=mock_client),
+        patch("embrouter.proxy.proxy_server.prisma_client", _prisma_with_general_settings({})),
+        patch("embrouter.proxy.proxy_server.proxy_config", _proxy_config()),
+        patch("embrouter.proxy.proxy_server._build_redis_usage_cache", return_value=mock_client),
         patch(
-            "litellm.proxy.management_endpoints.coordination_redis_endpoints._PING_TIMEOUT_SECONDS",
+            "embrouter.proxy.management_endpoints.coordination_redis_endpoints._PING_TIMEOUT_SECONDS",
             0.01,
         ),
     ):
@@ -585,8 +585,8 @@ async def test_connection_test_times_out_instead_of_hanging():
 @pytest.mark.asyncio
 async def test_connection_test_rejects_settings_without_a_connection_target():
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", _prisma_with_general_settings({})),
-        patch("litellm.proxy.proxy_server.proxy_config", _proxy_config()),
+        patch("embrouter.proxy.proxy_server.prisma_client", _prisma_with_general_settings({})),
+        patch("embrouter.proxy.proxy_server.proxy_config", _proxy_config()),
     ):
         with pytest.raises(HTTPException) as exc_info:
             await check_coordination_redis_connection(
@@ -602,7 +602,7 @@ async def test_connection_test_rejects_non_admin():
     with pytest.raises(HTTPException) as exc_info:
         await check_coordination_redis_connection(
             request=CoordinationRedisSettingsRequest(settings={"host": "coord-redis.example.com"}),
-            user_api_key_dict=UserAPIKeyAuth(api_key="hashed", user_role=LitellmUserRoles.INTERNAL_USER),
+            user_api_key_dict=UserAPIKeyAuth(api_key="hashed", user_role=EmbrouterUserRoles.INTERNAL_USER),
         )
     assert exc_info.value.status_code == 403
 
@@ -613,13 +613,13 @@ async def test_connection_test_rejects_proxy_admin_viewer():
     with pytest.raises(HTTPException) as exc_info:
         await check_coordination_redis_connection(
             request=CoordinationRedisSettingsRequest(settings={"host": "coord-redis.example.com"}),
-            user_api_key_dict=UserAPIKeyAuth(api_key="hashed", user_role=LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY),
+            user_api_key_dict=UserAPIKeyAuth(api_key="hashed", user_role=EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY),
         )
     assert exc_info.value.status_code == 403
 
 
 def _real_proxy_config(file_general_settings: dict) -> "object":
-    from litellm.proxy.proxy_server import ProxyConfig
+    from embrouter.proxy.proxy_server import ProxyConfig
 
     proxy_config = ProxyConfig()
     proxy_config._load_yaml_settings_stores({"general_settings": file_general_settings})
@@ -631,49 +631,49 @@ def _real_proxy_config(file_general_settings: dict) -> "object":
 
 @pytest.mark.asyncio
 async def test_update_refuses_a_config_owned_coordination_redis_block(monkeypatch):
-    monkeypatch.setattr(litellm, "store_audit_logs", False)
+    monkeypatch.setattr(embrouter, "store_audit_logs", False)
     mock_prisma = _prisma_with_general_settings({"master_key": "sk-1234"})
     from_file = {"coordination_redis": {"host": "yaml-redis.example.com", "port": 6379}}
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),  # test-quality-ok: the endpoint reads these proxy_server module globals at call time; there is no injection seam
-        patch("litellm.proxy.proxy_server.proxy_config", _real_proxy_config(from_file)),  # test-quality-ok: the endpoint reads these proxy_server module globals at call time; there is no injection seam
-        patch("litellm.proxy.proxy_server.store_model_in_db", True),  # test-quality-ok: the endpoint reads these proxy_server module globals at call time; there is no injection seam
+        patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma),  # test-quality-ok: the endpoint reads these proxy_server module globals at call time; there is no injection seam
+        patch("embrouter.proxy.proxy_server.proxy_config", _real_proxy_config(from_file)),  # test-quality-ok: the endpoint reads these proxy_server module globals at call time; there is no injection seam
+        patch("embrouter.proxy.proxy_server.store_model_in_db", True),  # test-quality-ok: the endpoint reads these proxy_server module globals at call time; there is no injection seam
     ):
         with pytest.raises(HTTPException) as refused:
             await update_coordination_redis_settings(
                 request=CoordinationRedisSettingsRequest(settings={"host": "db-redis.example.com", "port": 6380}),
                 user_api_key_dict=_admin_auth(),
-                litellm_changed_by=None,
+                embrouter_changed_by=None,
             )
 
     assert refused.value.status_code == 400
     assert refused.value.detail["keys"] == ["coordination_redis"]
-    mock_prisma.db.litellm_config.upsert.assert_not_called()
+    mock_prisma.db.embrouter_config.upsert.assert_not_called()
 
 
 @pytest.mark.asyncio
 async def test_update_still_persists_when_the_config_file_declares_no_block(monkeypatch):
-    monkeypatch.setattr(litellm, "store_audit_logs", False)
+    monkeypatch.setattr(embrouter, "store_audit_logs", False)
     mock_prisma = _prisma_with_general_settings({"master_key": "sk-1234"})
 
     async def _capture_invalidate(param_name: str) -> None:
         return None
 
     with (
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),  # test-quality-ok: the endpoint reads these proxy_server module globals at call time; there is no injection seam
-        patch("litellm.proxy.proxy_server.proxy_config", _real_proxy_config({"master_key": "sk-1234"})),  # test-quality-ok: the endpoint reads these proxy_server module globals at call time; there is no injection seam
-        patch("litellm.proxy.proxy_server.store_model_in_db", True),  # test-quality-ok: the endpoint reads these proxy_server module globals at call time; there is no injection seam
+        patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma),  # test-quality-ok: the endpoint reads these proxy_server module globals at call time; there is no injection seam
+        patch("embrouter.proxy.proxy_server.proxy_config", _real_proxy_config({"master_key": "sk-1234"})),  # test-quality-ok: the endpoint reads these proxy_server module globals at call time; there is no injection seam
+        patch("embrouter.proxy.proxy_server.store_model_in_db", True),  # test-quality-ok: the endpoint reads these proxy_server module globals at call time; there is no injection seam
         patch(  # test-quality-ok: the endpoint reads these proxy_server module globals at call time; there is no injection seam
-            "litellm.proxy.management_endpoints.coordination_redis_endpoints.invalidate_config_param",
+            "embrouter.proxy.management_endpoints.coordination_redis_endpoints.invalidate_config_param",
             new=_capture_invalidate,
         ),
     ):
         await update_coordination_redis_settings(
             request=CoordinationRedisSettingsRequest(settings={"host": "db-redis.example.com", "port": 6380}),
             user_api_key_dict=_admin_auth(),
-            litellm_changed_by=None,
+            embrouter_changed_by=None,
         )
 
-    persisted = json.loads(mock_prisma.db.litellm_config.upsert.call_args.kwargs["data"]["update"]["param_value"])
+    persisted = json.loads(mock_prisma.db.embrouter_config.upsert.call_args.kwargs["data"]["update"]["param_value"])
     assert persisted["coordination_redis"] == {"host": "db-redis.example.com", "port": 6380}

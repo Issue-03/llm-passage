@@ -64,8 +64,8 @@ describe("GuardrailsMonitor LogViewer drawer", () => {
   it("opens the row whose request_id is the clicked log id even when a newer row carries that id as its call id", async () => {
     vi.mocked(uiSpendLogsCall).mockResolvedValue({
       data: [
-        spendLog({ request_id: "provider-attacker", litellm_call_id: "provider-victim" }),
-        spendLog({ request_id: "provider-victim", litellm_call_id: "call-victim" }),
+        spendLog({ request_id: "provider-attacker", embrouter_call_id: "provider-victim" }),
+        spendLog({ request_id: "provider-victim", embrouter_call_id: "call-victim" }),
       ],
       total: 2,
     });
@@ -83,7 +83,7 @@ describe("GuardrailsMonitor LogViewer drawer", () => {
 
   it("falls back to the first returned row when none carries the clicked id as its request_id", async () => {
     vi.mocked(uiSpendLogsCall).mockResolvedValue({
-      data: [spendLog({ request_id: "provider-other", litellm_call_id: "provider-victim" })],
+      data: [spendLog({ request_id: "provider-other", embrouter_call_id: "provider-victim" })],
       total: 1,
     });
 

@@ -5,17 +5,17 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from litellm.llms.vertex_ai.vertex_ai_partner_models.anthropic.experimental_pass_through.transformation import (
+from embrouter.llms.vertex_ai.vertex_ai_partner_models.anthropic.experimental_pass_through.transformation import (
     VertexAIPartnerModelsAnthropicMessagesConfig,
 )
-from litellm.llms.vertex_ai.vertex_ai_partner_models.main import VertexAIPartnerModels
-from litellm.types.router import GenericLiteLLMParams
+from embrouter.llms.vertex_ai.vertex_ai_partner_models.main import VertexAIPartnerModels
+from embrouter.types.router import GenericEmbRouterParams
 
 
 def test_validate_environment_uses_vertex_ai_location():
     config = VertexAIPartnerModelsAnthropicMessagesConfig()
     headers = {}
-    litellm_params = {
+    embrouter_params = {
         "vertex_ai_project": "test-project",
         "vertex_ai_location": "europe-west1",
         "vertex_credentials": "{}",
@@ -31,7 +31,7 @@ def test_validate_environment_uses_vertex_ai_location():
             model="claude-3-sonnet",
             messages=[],
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             api_base=None,
         )
         assert mock_get_url.call_args.kwargs["vertex_location"] == "europe-west1"
@@ -41,7 +41,7 @@ def test_web_search_header_added_for_messages_endpoint():
     """Test that web search tool adds the required beta header for Vertex AI /v1/messages requests"""
     config = VertexAIPartnerModelsAnthropicMessagesConfig()
     headers = {}
-    litellm_params = {
+    embrouter_params = {
         "vertex_ai_project": "test-project",
         "vertex_ai_location": "us-central1",
         "vertex_credentials": "{}",
@@ -58,7 +58,7 @@ def test_web_search_header_added_for_messages_endpoint():
             model="claude-sonnet-4",
             messages=[],
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             api_base=None,
         )
 
@@ -77,7 +77,7 @@ def test_web_search_header_added_for_messages_endpoint():
 def test_safeguards_add_dangerous_tool_use_beta_header(client_headers):
     """Vertex rejects `safeguards` without the dangerous-tool-use beta, so the beta rides along with the field the way the web search and context management betas do."""
     config = VertexAIPartnerModelsAnthropicMessagesConfig()
-    litellm_params = {
+    embrouter_params = {
         "vertex_ai_project": "test-project",
         "vertex_ai_location": "global",
         "vertex_credentials": "{}",
@@ -95,7 +95,7 @@ def test_safeguards_add_dangerous_tool_use_beta_header(client_headers):
             model="claude-sonnet-5",
             messages=[],
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             api_base=None,
         )
 
@@ -104,7 +104,7 @@ def test_safeguards_add_dangerous_tool_use_beta_header(client_headers):
 
 def test_no_safeguards_leaves_dangerous_tool_use_beta_header_out():
     config = VertexAIPartnerModelsAnthropicMessagesConfig()
-    litellm_params = {
+    embrouter_params = {
         "vertex_ai_project": "test-project",
         "vertex_ai_location": "global",
         "vertex_credentials": "{}",
@@ -119,7 +119,7 @@ def test_no_safeguards_leaves_dangerous_tool_use_beta_header_out():
             model="claude-sonnet-5",
             messages=[],
             optional_params={"max_tokens": 64},
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             api_base=None,
         )
 
@@ -128,7 +128,7 @@ def test_no_safeguards_leaves_dangerous_tool_use_beta_header_out():
 
 def _validate_vertex_headers(client_headers, messages):
     config = VertexAIPartnerModelsAnthropicMessagesConfig()
-    litellm_params = {
+    embrouter_params = {
         "vertex_ai_project": "test-project",
         "vertex_ai_location": "global",
         "vertex_credentials": "{}",
@@ -143,7 +143,7 @@ def _validate_vertex_headers(client_headers, messages):
             model="claude-opus-5-5",
             messages=messages,
             optional_params={"max_tokens": 64},
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             api_base=None,
         )
     return updated_headers
@@ -156,10 +156,10 @@ def _validate_vertex_headers(client_headers, messages):
 )
 def test_per_message_output_config_reaches_vertex_with_per_turn_control_beta(client_headers, monkeypatch):
     """Vertex rejects a message-level `output_config` as an extra input unless the per-turn-control beta is present, so the beta must survive the Vertex beta filter."""
-    from litellm import anthropic_beta_headers_manager
-    from litellm.anthropic_beta_headers_manager import update_headers_with_filtered_beta
+    from embrouter import anthropic_beta_headers_manager
+    from embrouter.anthropic_beta_headers_manager import update_headers_with_filtered_beta
 
-    monkeypatch.setenv("LITELLM_LOCAL_ANTHROPIC_BETA_HEADERS", "True")
+    monkeypatch.setenv("EMBROUTER_LOCAL_ANTHROPIC_BETA_HEADERS", "True")
     monkeypatch.setattr(anthropic_beta_headers_manager, "_BETA_HEADERS_CONFIG", None)
 
     messages = [
@@ -184,7 +184,7 @@ def test_web_search_header_not_added_without_tool():
     """Test that beta header is NOT added when web search tool is not present"""
     config = VertexAIPartnerModelsAnthropicMessagesConfig()
     headers = {}
-    litellm_params = {
+    embrouter_params = {
         "vertex_ai_project": "test-project",
         "vertex_ai_location": "us-central1",
         "vertex_credentials": "{}",
@@ -201,7 +201,7 @@ def test_web_search_header_not_added_without_tool():
             model="claude-sonnet-4",
             messages=[],
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             api_base=None,
         )
 
@@ -215,7 +215,7 @@ def test_compact_context_management_header_added():
     """Test that compact-2026-01-12 beta header is added when context_management with compact_20260112 is used"""
     config = VertexAIPartnerModelsAnthropicMessagesConfig()
     headers = {}
-    litellm_params = {
+    embrouter_params = {
         "vertex_ai_project": "test-project",
         "vertex_ai_location": "us-central1",
         "vertex_credentials": "{}",
@@ -232,7 +232,7 @@ def test_compact_context_management_header_added():
             model="claude-vertex-ai-opus-4-6",
             messages=[],
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             api_base=None,
         )
 
@@ -247,7 +247,7 @@ def test_context_management_header_added_for_other_edits():
     """Test that context-management-2025-06-27 beta header is added for non-compact edits"""
     config = VertexAIPartnerModelsAnthropicMessagesConfig()
     headers = {}
-    litellm_params = {
+    embrouter_params = {
         "vertex_ai_project": "test-project",
         "vertex_ai_location": "us-central1",
         "vertex_credentials": "{}",
@@ -264,7 +264,7 @@ def test_context_management_header_added_for_other_edits():
             model="claude-vertex-ai-opus-4-6",
             messages=[],
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             api_base=None,
         )
 
@@ -279,7 +279,7 @@ def test_both_compact_and_context_management_headers_added():
     """Test that both compact and context-management beta headers are added when both edit types are present"""
     config = VertexAIPartnerModelsAnthropicMessagesConfig()
     headers = {}
-    litellm_params = {
+    embrouter_params = {
         "vertex_ai_project": "test-project",
         "vertex_ai_location": "us-central1",
         "vertex_credentials": "{}",
@@ -296,7 +296,7 @@ def test_both_compact_and_context_management_headers_added():
             model="claude-vertex-ai-opus-4-6",
             messages=[],
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             api_base=None,
         )
 
@@ -315,7 +315,7 @@ def test_validate_environment_always_refreshes_token_ignoring_stale_bearer():
     skip token refresh on /v1/messages — _ensure_access_token is always called."""
     config = VertexAIPartnerModelsAnthropicMessagesConfig()
     headers = {"Authorization": "Bearer EXPIRED"}
-    litellm_params = {
+    embrouter_params = {
         "vertex_project": "test-project",
         "vertex_location": "us-central1",
     }
@@ -329,7 +329,7 @@ def test_validate_environment_always_refreshes_token_ignoring_stale_bearer():
             model="claude-sonnet-4",
             messages=[],
             optional_params={},
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             api_base=None,
         )
 
@@ -344,7 +344,7 @@ def test_validate_environment_appends_stream_raw_predict_with_custom_api_base():
     get_complete_vertex_url entirely, leaving the api_base without
     `:streamRawPredict`."""
     config = VertexAIPartnerModelsAnthropicMessagesConfig()
-    litellm_params = {
+    embrouter_params = {
         "vertex_ai_project": "test-project",
         "vertex_ai_location": "us-central1",
     }
@@ -362,7 +362,7 @@ def test_validate_environment_appends_stream_raw_predict_with_custom_api_base():
             model="claude-sonnet-4",
             messages=[],
             optional_params={"stream": True},
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             api_base="https://my-proxy.example.com",
         )
 
@@ -374,7 +374,7 @@ def test_validate_environment_appends_stream_raw_predict_with_custom_api_base():
 def test_validate_environment_appends_raw_predict_with_custom_api_base():
     """Regression: non-streaming custom api_base must end with `:rawPredict`."""
     config = VertexAIPartnerModelsAnthropicMessagesConfig()
-    litellm_params = {
+    embrouter_params = {
         "vertex_ai_project": "test-project",
         "vertex_ai_location": "us-central1",
     }
@@ -392,7 +392,7 @@ def test_validate_environment_appends_raw_predict_with_custom_api_base():
             model="claude-sonnet-4",
             messages=[],
             optional_params={},
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             api_base="https://my-proxy.example.com",
         )
 
@@ -432,7 +432,7 @@ def test_transform_anthropic_messages_request_removes_scope_from_cache_control()
         model="claude-sonnet-4-6",
         messages=messages,
         anthropic_messages_optional_request_params=anthropic_messages_optional_request_params,
-        litellm_params=GenericLiteLLMParams(),
+        embrouter_params=GenericEmbRouterParams(),
         headers={},
     )
 
@@ -461,7 +461,7 @@ def test_messages_request_strips_effort_for_haiku_45():
             "max_tokens": 1024,
             "output_config": {"effort": "high"},
         },
-        litellm_params=GenericLiteLLMParams(),
+        embrouter_params=GenericEmbRouterParams(),
         headers={},
     )
     assert "output_config" not in haiku_result
@@ -473,7 +473,7 @@ def test_messages_request_strips_effort_for_haiku_45():
             "max_tokens": 1024,
             "output_config": {"effort": "high"},
         },
-        litellm_params=GenericLiteLLMParams(),
+        embrouter_params=GenericEmbRouterParams(),
         headers={},
     )
     assert opus_result["output_config"] == {"effort": "high"}
@@ -484,18 +484,18 @@ def test_provider_config_manager_reuses_vertex_anthropic_messages_config_instanc
     Regression test: repeated provider config lookups for the same Vertex Claude model
     should return the same config instance (which preserves auth cache state).
     """
-    import litellm
-    from litellm.utils import ProviderConfigManager
+    import embrouter
+    from embrouter.utils import ProviderConfigManager
 
     ProviderConfigManager._get_provider_anthropic_messages_config_cached.cache_clear()
     try:
         first_config = ProviderConfigManager.get_provider_anthropic_messages_config(
             model="claude-opus-4-6",
-            provider=litellm.LlmProviders.VERTEX_AI,
+            provider=embrouter.LlmProviders.VERTEX_AI,
         )
         second_config = ProviderConfigManager.get_provider_anthropic_messages_config(
             model="claude-opus-4-6",
-            provider=litellm.LlmProviders.VERTEX_AI,
+            provider=embrouter.LlmProviders.VERTEX_AI,
         )
 
         assert isinstance(first_config, VertexAIPartnerModelsAnthropicMessagesConfig)
@@ -520,7 +520,7 @@ def test_validate_environment_does_not_mutate_caller_headers():
             model="claude-sonnet-4",
             messages=[],
             optional_params={"tools": [{"type": "web_search_20250305", "name": "web_search"}]},
-            litellm_params={
+            embrouter_params={
                 "vertex_ai_project": "p",
                 "vertex_ai_location": "us-central1",
             },
@@ -531,11 +531,11 @@ def test_validate_environment_does_not_mutate_caller_headers():
 
 
 def test_vertex_claude_completion_does_not_mutate_shared_extra_headers():
-    """Regression: router shallow-copies litellm_params so extra_headers is a shared
+    """Regression: router shallow-copies embrouter_params so extra_headers is a shared
     reference. Verify that the chat/completions path builds a new headers dict instead
     of calling .update() on the shared object."""
     handler = VertexAIPartnerModels()
-    shared_extra_headers = {}  # simulates deployment["litellm_params"]["extra_headers"]
+    shared_extra_headers = {}  # simulates deployment["embrouter_params"]["extra_headers"]
 
     mock_response = MagicMock()
 
@@ -543,7 +543,7 @@ def test_vertex_claude_completion_does_not_mutate_shared_extra_headers():
         patch.object(handler, "_ensure_access_token", return_value=("ya29.fresh", "proj")),
         patch.object(handler, "get_complete_vertex_url", return_value="https://mock-url"),
         patch(
-            "litellm.llms.anthropic.chat.AnthropicChatCompletion.completion",
+            "embrouter.llms.anthropic.chat.AnthropicChatCompletion.completion",
             return_value=mock_response,
         ),
     ):
@@ -559,7 +559,7 @@ def test_vertex_claude_completion_does_not_mutate_shared_extra_headers():
             custom_prompt_dict={},
             headers=shared_extra_headers,
             timeout=30,
-            litellm_params={},
+            embrouter_params={},
         )
 
     assert shared_extra_headers == {}, "extra_headers must not be mutated by completion()"
@@ -571,7 +571,7 @@ def test_messages_thinking_shape_follows_exact_vertex_entry_flag(local_model_cos
     ``vertex_ai/claude-opus-4-8`` entry beats the unmodified ``anthropic`` entry.
     With the inherited ``"anthropic"`` provider default the flip was ignored and
     the transform kept emitting ``thinking.type='adaptive'``."""
-    import litellm
+    import embrouter
 
     config = VertexAIPartnerModelsAnthropicMessagesConfig()
 
@@ -583,7 +583,7 @@ def test_messages_thinking_shape_follows_exact_vertex_entry_flag(local_model_cos
                 "max_tokens": 4096,
                 "reasoning_effort": "medium",
             },
-            litellm_params=GenericLiteLLMParams(),
+            embrouter_params=GenericEmbRouterParams(),
             headers={},
         )
 
@@ -591,9 +591,9 @@ def test_messages_thinking_shape_follows_exact_vertex_entry_flag(local_model_cos
     assert result.get("thinking") == {"type": "adaptive", "display": "summarized"}
     assert result.get("output_config") == {"effort": "medium"}
 
-    monkeypatch.setitem(litellm.model_cost["vertex_ai/claude-opus-4-8"], "supports_adaptive_thinking", False)
-    litellm.get_model_info.cache_clear()
-    assert litellm.model_cost["claude-opus-4-8"]["supports_adaptive_thinking"] is True
+    monkeypatch.setitem(embrouter.model_cost["vertex_ai/claude-opus-4-8"], "supports_adaptive_thinking", False)
+    embrouter.get_model_info.cache_clear()
+    assert embrouter.model_cost["claude-opus-4-8"]["supports_adaptive_thinking"] is True
 
     flipped = transform()
     thinking = flipped.get("thinking")
@@ -612,7 +612,7 @@ def _vertex_transform(model, messages, system=None):
         model=model,
         messages=copy.deepcopy(messages),
         anthropic_messages_optional_request_params=params,
-        litellm_params=GenericLiteLLMParams(),
+        embrouter_params=GenericEmbRouterParams(),
         headers={},
     )
 
@@ -704,9 +704,9 @@ def test_vertex_claude_4_8_plus_cost_map_entries_carry_mid_conversation_system_f
     cache. Every mapped vertex_ai entry the rule matches must carry the flag."""
     import re
 
-    import litellm
+    import embrouter
 
-    cost_map_path = os.path.join(os.path.dirname(litellm.__file__), "model_prices_and_context_window_backup.json")
+    cost_map_path = os.path.join(os.path.dirname(embrouter.__file__), "model_prices_and_context_window_backup.json")
     with open(cost_map_path) as f:
         cost_map = json.load(f)
     rules = cost_map["fallback_generalizations"]["rules"]
@@ -720,7 +720,7 @@ def test_vertex_claude_4_8_plus_cost_map_entries_carry_mid_conversation_system_f
         key
         for key, info in cost_map.items()
         if isinstance(info, dict)
-        and str(info.get("litellm_provider", "")).startswith("vertex_ai")
+        and str(info.get("embrouter_provider", "")).startswith("vertex_ai")
         and "claude" in key
         and pattern.search(key)
         and info.get("supports_mid_conversation_system") is not True

@@ -14,43 +14,43 @@ from typing import TYPE_CHECKING, Any, Final, Literal, Protocol, TypeAlias, Type
 
 from pydantic import ValidationError
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.llms.base_llm.sandbox.transformation import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.llms.base_llm.sandbox.transformation import (
     CodeExecutionResult,
     ContainerHandle,
 )
-from litellm.types.integrations.code_interpreter_interception import (
+from embrouter.types.integrations.code_interpreter_interception import (
     CodeInterpreterInterceptionConfig,
 )
-from litellm.types.integrations.custom_logger import (
+from embrouter.types.integrations.custom_logger import (
     CHAT_COMPLETION_AGENTIC_SURFACE,
     NON_CODE_INTERPRETER_INTERCEPTION_INTERNAL_PREFIXES,
     AgenticLoopPlan,
     AgenticLoopRequestPatch,
     is_interception_internal_key,
 )
-from litellm.types.llms.openai import (
+from embrouter.types.llms.openai import (
     ChatCompletionAssistantMessage,
     ChatCompletionAssistantToolCall,
     ChatCompletionToolMessage,
 )
-from litellm.types.utils import (
+from embrouter.types.utils import (
     CallTypes,
     ChatCompletionMessageToolCall,
     ModelResponse,
 )
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
 
-LITELLM_CODE_EXECUTION_TOOL_NAME: Final = "litellm_code_execution"
+EMBROUTER_CODE_EXECUTION_TOOL_NAME: Final = "embrouter_code_execution"
 _INTERCEPTION_ACTIVE_KEY: Final = "_code_interpreter_interception_active"
 _SANDBOX_KEY: Final = "_code_interpreter_interception_sandbox_key"
 _SESSION_SCOPED_KEY: Final = "_code_interpreter_interception_session_scoped"
 _CONVERTED_STREAM_KEY: Final = "_code_interpreter_interception_converted_stream"
-_LITELLM_METADATA_KEY: Final = "litellm_metadata"
+_EMBROUTER_METADATA_KEY: Final = "embrouter_metadata"
 _CACHE_TTL_SECONDS: Final = 15 * 60
 _SESSION_SCOPED_PER_IDENTITY_CAP: Final = 10
 
@@ -166,13 +166,13 @@ def _narrow_tool_call(tool_call: Mapping[str, object]) -> CodeExecutionToolCall:
         "id": tool_call_id if isinstance(tool_call_id, str) else None,
         "call_id": call_id if isinstance(call_id, str) else None,
         "type": "function",
-        "name": LITELLM_CODE_EXECUTION_TOOL_NAME,
+        "name": EMBROUTER_CODE_EXECUTION_TOOL_NAME,
         "arguments": _tool_call_arguments(tool_call.get("arguments")),
     }
 
 
 def _extract_session_id(kwargs: dict[str, object]) -> str | None:
-    for meta_key in ("metadata", "litellm_metadata"):
+    for meta_key in ("metadata", "embrouter_metadata"):
         meta = kwargs.get(meta_key)
         if isinstance(meta, dict):
             metadata: dict[str, object] = meta
@@ -191,7 +191,7 @@ def _resolve_sandbox_tool(sandbox_tool_name: str | None) -> SandboxToolParams | 
     if sandbox_tool_name is None:
         return None
     try:
-        from litellm.sandbox.sandbox_tools import resolve_sandbox_tool
+        from embrouter.sandbox.sandbox_tools import resolve_sandbox_tool
     except ImportError:
         return None
     resolved: Final[dict[str, object] | None] = resolve_sandbox_tool(sandbox_tool_name)
@@ -214,7 +214,7 @@ class CodeInterpreterInterceptionLogger(CustomLogger):
     Flow:
     1. Replace the native ``code_interpreter`` tool with a function tool in the
        pre-call hook so the model emits code as function-call arguments.
-    2. Detect ``litellm_code_execution`` function calls in the model response.
+    2. Detect ``embrouter_code_execution`` function calls in the model response.
     3. Run the emitted code in a sandbox (reused per request via a server-minted
        sandbox key) and build a typed rerun plan that appends the
        function_call_output.
@@ -244,12 +244,12 @@ class CodeInterpreterInterceptionLogger(CustomLogger):
 
     @staticmethod
     def initialize_from_proxy_config(
-        litellm_settings: dict[str, Any],
+        embrouter_settings: dict[str, Any],
         callback_specific_params: dict[str, Any],
     ) -> "CodeInterpreterInterceptionLogger":
         params: Final[CodeInterpreterInterceptionConfig] = (
-            litellm_settings["code_interpreter_interception_params"]
-            if "code_interpreter_interception_params" in litellm_settings
+            embrouter_settings["code_interpreter_interception_params"]
+            if "code_interpreter_interception_params" in embrouter_settings
             else callback_specific_params["code_interpreter_interception"]
             if isinstance(callback_specific_params.get("code_interpreter_interception"), dict)
             else {}
@@ -305,7 +305,7 @@ class CodeInterpreterInterceptionLogger(CustomLogger):
 
     @staticmethod
     def _strip_interception_metadata(kwargs: dict[str, object]) -> None:
-        metadata: Final = kwargs.get(_LITELLM_METADATA_KEY)
+        metadata: Final = kwargs.get(_EMBROUTER_METADATA_KEY)
         if not isinstance(metadata, dict):
             return
         current_metadata: Final[dict[str, object]] = metadata
@@ -318,18 +318,18 @@ class CodeInterpreterInterceptionLogger(CustomLogger):
             and key != _SESSION_SCOPED_KEY
         }
         if filtered_metadata:
-            kwargs[_LITELLM_METADATA_KEY] = filtered_metadata
+            kwargs[_EMBROUTER_METADATA_KEY] = filtered_metadata
         else:
-            kwargs.pop(_LITELLM_METADATA_KEY, None)
+            kwargs.pop(_EMBROUTER_METADATA_KEY, None)
 
     @staticmethod
     def _write_interception_metadata(kwargs: dict[str, object]) -> None:
-        existing: Final = kwargs.get(_LITELLM_METADATA_KEY)
+        existing: Final = kwargs.get(_EMBROUTER_METADATA_KEY)
         metadata: Final[dict[str, object]] = dict(existing) if isinstance(existing, dict) else {}
         for key in (_INTERCEPTION_ACTIVE_KEY, _SANDBOX_KEY, _SESSION_SCOPED_KEY, _CONVERTED_STREAM_KEY):
             if key in kwargs:
                 metadata[key] = kwargs[key]
-        kwargs[_LITELLM_METADATA_KEY] = metadata
+        kwargs[_EMBROUTER_METADATA_KEY] = metadata
 
     @staticmethod
     def _get_function_parameters() -> CodeExecutionFunctionParameters:
@@ -345,14 +345,14 @@ class CodeInterpreterInterceptionLogger(CustomLogger):
             return {
                 "type": "function",
                 "function": {
-                    "name": LITELLM_CODE_EXECUTION_TOOL_NAME,
+                    "name": EMBROUTER_CODE_EXECUTION_TOOL_NAME,
                     "description": description,
                     "parameters": self._get_function_parameters(),
                 },
             }
         return {
             "type": "function",
-            "name": LITELLM_CODE_EXECUTION_TOOL_NAME,
+            "name": EMBROUTER_CODE_EXECUTION_TOOL_NAME,
             "description": description,
             "parameters": self._get_function_parameters(),
         }
@@ -364,11 +364,11 @@ class CodeInterpreterInterceptionLogger(CustomLogger):
         if call_type in (CallTypes.completion, CallTypes.acompletion):
             return {
                 "type": "function",
-                "function": {"name": LITELLM_CODE_EXECUTION_TOOL_NAME},
+                "function": {"name": EMBROUTER_CODE_EXECUTION_TOOL_NAME},
             }
         return {
             "type": "function",
-            "name": LITELLM_CODE_EXECUTION_TOOL_NAME,
+            "name": EMBROUTER_CODE_EXECUTION_TOOL_NAME,
         }
 
     @staticmethod
@@ -380,8 +380,8 @@ class CodeInterpreterInterceptionLogger(CustomLogger):
         return (
             choice.get("type") == "code_interpreter"
             or choice.get("name") == "code_interpreter"
-            or choice.get("name") == LITELLM_CODE_EXECUTION_TOOL_NAME
-            or (isinstance(function, dict) and function.get("name") == LITELLM_CODE_EXECUTION_TOOL_NAME)
+            or choice.get("name") == EMBROUTER_CODE_EXECUTION_TOOL_NAME
+            or (isinstance(function, dict) and function.get("name") == EMBROUTER_CODE_EXECUTION_TOOL_NAME)
         )
 
     def _resolve_provider(self, kwargs: dict[str, object]) -> str | None:
@@ -392,7 +392,7 @@ class CodeInterpreterInterceptionLogger(CustomLogger):
         if not isinstance(model, str):
             return None
         try:
-            return litellm.get_llm_provider(model=model)[1]
+            return embrouter.get_llm_provider(model=model)[1]
         except Exception:
             return None
 
@@ -431,7 +431,7 @@ class CodeInterpreterInterceptionLogger(CustomLogger):
         response: object,
         anthropic_messages_provider_config: object,
         anthropic_messages_optional_request_params: dict[str, object],
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
         stream: bool,
         kwargs: dict[str, object],
     ) -> AgenticLoopPlan:
@@ -463,7 +463,7 @@ class CodeInterpreterInterceptionLogger(CustomLogger):
                     {
                         "type": "function_call",
                         "call_id": tool_call.get("call_id"),
-                        "name": LITELLM_CODE_EXECUTION_TOOL_NAME,
+                        "name": EMBROUTER_CODE_EXECUTION_TOOL_NAME,
                         "arguments": arguments,
                     }
                 )
@@ -627,7 +627,7 @@ class CodeInterpreterInterceptionLogger(CustomLogger):
         return {
             k: v
             for k, v in kwargs.items()
-            if k not in {"litellm_logging_obj", "acompletion"}
+            if k not in {"embrouter_logging_obj", "acompletion"}
             and not is_interception_internal_key(k, prefixes=NON_CODE_INTERPRETER_INTERCEPTION_INTERNAL_PREFIXES)
         }
 
@@ -742,7 +742,7 @@ class CodeInterpreterInterceptionLogger(CustomLogger):
                 "sandbox_config or configure a sandbox tool resolvable via "
                 "sandbox_tool_name."
             )
-        container: Final = await litellm.acreate_sandbox(
+        container: Final = await embrouter.acreate_sandbox(
             provider=params["sandbox_provider"],
             api_key=params.get("api_key"),
             api_base=params.get("api_base"),
@@ -756,7 +756,7 @@ class CodeInterpreterInterceptionLogger(CustomLogger):
             return await self.sandbox_config.arun_code(container=container, code=code)
         if params is None:
             raise ValueError("CodeInterpreterInterception: no sandbox available to run code.")
-        return await litellm.arun_code(
+        return await embrouter.arun_code(
             provider=params["sandbox_provider"],
             container=container,
             code=code,
@@ -770,7 +770,7 @@ class CodeInterpreterInterceptionLogger(CustomLogger):
                 return
             if params is None:
                 return
-            await litellm.adelete_sandbox(
+            await embrouter.adelete_sandbox(
                 provider=params["sandbox_provider"],
                 container=container,
                 api_key=params.get("api_key"),
@@ -802,7 +802,7 @@ class CodeInterpreterInterceptionLogger(CustomLogger):
         return [
             {
                 "call_id": (item.get("call_id") if isinstance(item, dict) else getattr(item, "call_id", None)),
-                "name": LITELLM_CODE_EXECUTION_TOOL_NAME,
+                "name": EMBROUTER_CODE_EXECUTION_TOOL_NAME,
                 "arguments": (item.get("arguments") if isinstance(item, dict) else getattr(item, "arguments", "")),
             }
             for item in output
@@ -829,7 +829,7 @@ class CodeInterpreterInterceptionLogger(CustomLogger):
     def _normalize_chat_completion_tool_call(
         tool_call: ChatCompletionMessageToolCall,
     ) -> CodeExecutionToolCall | None:
-        if tool_call.type != "function" or tool_call.function.name != LITELLM_CODE_EXECUTION_TOOL_NAME:
+        if tool_call.type != "function" or tool_call.function.name != EMBROUTER_CODE_EXECUTION_TOOL_NAME:
             return None
 
         arguments = tool_call.function.arguments
@@ -842,7 +842,7 @@ class CodeInterpreterInterceptionLogger(CustomLogger):
             "id": tool_call.id,
             "call_id": tool_call.id,
             "type": "function",
-            "name": LITELLM_CODE_EXECUTION_TOOL_NAME,
+            "name": EMBROUTER_CODE_EXECUTION_TOOL_NAME,
             "arguments": arguments,
         }
 
@@ -855,7 +855,7 @@ class CodeInterpreterInterceptionLogger(CustomLogger):
                 "id": tool_call.get("id"),
                 "type": "function",
                 "function": {
-                    "name": LITELLM_CODE_EXECUTION_TOOL_NAME,
+                    "name": EMBROUTER_CODE_EXECUTION_TOOL_NAME,
                     "arguments": tool_call.get("arguments", ""),
                 },
             }
@@ -883,11 +883,11 @@ class CodeInterpreterInterceptionLogger(CustomLogger):
             item_mapping: Final[dict[str, object]] = item
             return (
                 item_mapping.get("type") == "function_call"
-                and item_mapping.get("name") == LITELLM_CODE_EXECUTION_TOOL_NAME
+                and item_mapping.get("name") == EMBROUTER_CODE_EXECUTION_TOOL_NAME
             )
         item_type: Final[object] = getattr(item, "type", None)
         item_name: Final[object] = getattr(item, "name", None)
-        return item_type == "function_call" and item_name == LITELLM_CODE_EXECUTION_TOOL_NAME
+        return item_type == "function_call" and item_name == EMBROUTER_CODE_EXECUTION_TOOL_NAME
 
     async def _prune_expired_cache(self) -> None:
         now: Final = time.time()

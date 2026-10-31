@@ -4,7 +4,7 @@ async transcription API (https://soniox.com/docs/stt/async/async-transcription).
 
 This config covers parameter mapping, env validation and response shaping.
 The actual orchestration (file upload -> create -> poll -> fetch -> cleanup)
-lives in `litellm.llms.soniox.audio_transcription.handler`, because Soniox's
+lives in `embrouter.llms.soniox.audio_transcription.handler`, because Soniox's
 async API requires multiple HTTP calls and does not fit the single-request
 contract of `base_llm_http_handler.audio_transcriptions`.
 """
@@ -13,12 +13,12 @@ from typing import Any, Final
 
 from httpx import Headers, Response
 
-from litellm.llms.base_llm.audio_transcription.transformation import (
+from embrouter.llms.base_llm.audio_transcription.transformation import (
     AudioTranscriptionRequestData,
     BaseAudioTranscriptionConfig,
 )
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.soniox.common_utils import (
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.soniox.common_utils import (
     SonioxException,
     get_soniox_api_base,
     get_soniox_api_key,
@@ -26,13 +26,13 @@ from litellm.llms.soniox.common_utils import (
     render_soniox_tokens_as_srt,
     render_soniox_tokens_as_vtt,
 )
-from litellm.types.llms.openai import (
+from embrouter.types.llms.openai import (
     AllMessageValues,
     OpenAIAudioTranscriptionOptionalParams,
 )
-from litellm.types.utils import FileTypes, TranscriptionResponse
+from embrouter.types.utils import FileTypes, TranscriptionResponse
 
-# Soniox-native kwargs the user can pass through `litellm.transcription(..., **kwargs)`
+# Soniox-native kwargs the user can pass through `embrouter.transcription(..., **kwargs)`
 # in addition to the standard OpenAI params.
 SONIOX_PASSTHROUGH_PARAMS: Final[list[str]] = [
     "language_hints",
@@ -63,7 +63,7 @@ class SonioxAudioTranscriptionConfig(BaseAudioTranscriptionConfig):
 
     def get_supported_openai_params(self, model: str) -> list[OpenAIAudioTranscriptionOptionalParams]:
         # `language` is mapped onto Soniox's `language_hints`.
-        # `response_format` is handled by LiteLLM (Soniox doesn't support
+        # `response_format` is handled by EmbRouter (Soniox doesn't support
         # SRT/VTT natively but we synthesize them from token timestamps).
         return ["language", "response_format"]
 
@@ -103,7 +103,7 @@ class SonioxAudioTranscriptionConfig(BaseAudioTranscriptionConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
@@ -112,7 +112,7 @@ class SonioxAudioTranscriptionConfig(BaseAudioTranscriptionConfig):
             raise SonioxException(
                 message=(
                     "Missing Soniox API key. Set the SONIOX_API_KEY environment "
-                    "variable or pass api_key=... to litellm.transcription()."
+                    "variable or pass api_key=... to embrouter.transcription()."
                 ),
                 status_code=401,
                 headers=None,
@@ -131,7 +131,7 @@ class SonioxAudioTranscriptionConfig(BaseAudioTranscriptionConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         # The handler builds per-call URLs (uploads, create, poll, fetch, delete);
@@ -143,7 +143,7 @@ class SonioxAudioTranscriptionConfig(BaseAudioTranscriptionConfig):
         model: str,
         audio_file: FileTypes,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> AudioTranscriptionRequestData:
         """
         Build the JSON body for `POST /v1/transcriptions`.

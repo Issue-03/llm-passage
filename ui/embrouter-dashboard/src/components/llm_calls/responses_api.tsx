@@ -144,7 +144,7 @@ export async function makeOpenAIResponsesRequest(
         // All MCP Servers selected
         tools.push({
           type: "mcp",
-          server_label: "litellm",
+          server_label: "embrouter",
           server_url: `${proxyBaseUrl}/mcp`,
           require_approval: "never",
         });
@@ -192,7 +192,7 @@ export async function makeOpenAIResponsesRequest(
     const requestBody = {
       model: selectedModel,
       input: formattedInput,
-      litellm_trace_id: traceId,
+      embrouter_trace_id: traceId,
       ...(previousResponseId ? { previous_response_id: previousResponseId } : {}),
       ...(vector_store_ids ? { vector_store_ids } : {}),
       ...(guardrails ? { guardrails } : {}),
@@ -208,7 +208,7 @@ export async function makeOpenAIResponsesRequest(
           const nonStreamingResponse = await (client as any).responses
             .create({ ...requestBody, stream: false }, { signal })
             .withResponse();
-          servedFromResponseCache = nonStreamingResponse.response.headers.get("x-litellm-cache-key") !== null;
+          servedFromResponseCache = nonStreamingResponse.response.headers.get("x-embrouter-cache-key") !== null;
           return nonStreamingResponse.data;
         })();
     const events = streamingEnabled ? response : responseAsEvents(response);

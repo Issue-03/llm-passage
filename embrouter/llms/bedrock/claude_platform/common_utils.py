@@ -3,12 +3,12 @@ from typing import Final
 
 import httpx
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM
-from litellm.llms.bedrock.common_utils import BedrockError
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.router import GenericLiteLLMParams
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.llms.bedrock.base_aws_llm import BaseAWSLLM
+from embrouter.llms.bedrock.common_utils import BedrockError
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.router import GenericEmbRouterParams
 
 CLAUDE_PLATFORM_SERVICE_NAME: Final = "aws-external-anthropic"
 CLAUDE_PLATFORM_BEDROCK_ROUTE: Final = "claude_platform/"
@@ -49,7 +49,7 @@ def filter_claude_platform_request_body(
 
 
 def resolve_unsupported_override(
-    litellm_params: Mapping[str, object] | GenericLiteLLMParams,
+    embrouter_params: Mapping[str, object] | GenericEmbRouterParams,
     optional_params: Mapping[str, object] | None = None,
     log_invalid: bool = True,
 ) -> frozenset[str] | None:
@@ -57,7 +57,7 @@ def resolve_unsupported_override(
     raw: Final = (
         from_optional
         if from_optional is not None
-        else litellm_params.get(CLAUDE_PLATFORM_UNSUPPORTED_PARAMS_OVERRIDE_KEY)
+        else embrouter_params.get(CLAUDE_PLATFORM_UNSUPPORTED_PARAMS_OVERRIDE_KEY)
     )
     if raw is None:
         return None
@@ -88,17 +88,17 @@ class BedrockClaudePlatformMixin(BaseAWSLLM):
         return BedrockError(status_code=status_code, message=error_message, headers=headers)
 
     @staticmethod
-    def _get_workspace_id(optional_params: dict, litellm_params: dict) -> str | None:
+    def _get_workspace_id(optional_params: dict, embrouter_params: dict) -> str | None:
         workspace_id = (
             optional_params.get("workspace_id")
-            or litellm_params.get("workspace_id")
+            or embrouter_params.get("workspace_id")
             or optional_params.get("aws_workspace_id")
-            or litellm_params.get("aws_workspace_id")
+            or embrouter_params.get("aws_workspace_id")
             or optional_params.get("anthropic-workspace-id")
-            or litellm_params.get("anthropic-workspace-id")
+            or embrouter_params.get("anthropic-workspace-id")
         )
         if workspace_id is None:
-            workspace_id = optional_params.get("anthropic_workspace_id") or litellm_params.get("anthropic_workspace_id")
+            workspace_id = optional_params.get("anthropic_workspace_id") or embrouter_params.get("anthropic_workspace_id")
         if workspace_id is not None:
             return str(workspace_id)
         return get_secret_str("ANTHROPIC_AWS_WORKSPACE_ID") or get_secret_str("ANTHROPIC_WORKSPACE_ID")
@@ -111,7 +111,7 @@ class BedrockClaudePlatformMixin(BaseAWSLLM):
             or get_secret_str("AWS_DEFAULT_REGION")
         )
         if aws_region_name is None:
-            raise litellm.AuthenticationError(
+            raise embrouter.AuthenticationError(
                 message=(
                     "Missing AWS region for Claude Platform on AWS. Pass "
                     "`aws_region_name` or set a standard AWS region environment value."
@@ -128,12 +128,12 @@ class BedrockClaudePlatformMixin(BaseAWSLLM):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         api_base = (
             api_base
-            or litellm.api_base
+            or embrouter.api_base
             or get_secret_str("ANTHROPIC_AWS_BASE_URL")
             or get_secret_str("ANTHROPIC_AWS_API_BASE")
         )

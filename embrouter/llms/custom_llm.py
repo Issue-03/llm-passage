@@ -17,15 +17,15 @@ from typing import (
 
 import httpx
 
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-from litellm.types.utils import GenericStreamingChunk
-from litellm.utils import EmbeddingResponse, ImageResponse, ModelResponse
+from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from embrouter.types.utils import GenericStreamingChunk
+from embrouter.utils import EmbeddingResponse, ImageResponse, ModelResponse
 
 from .base import BaseLLM
 
 if TYPE_CHECKING:
-    from litellm import CustomStreamWrapper
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+    from embrouter import CustomStreamWrapper
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
 
 
 class CustomLLMError(Exception):  # use this for all your exceptions
@@ -56,7 +56,7 @@ class CustomLLM(BaseLLM):
         logging_obj,
         optional_params: dict,
         acompletion=None,
-        litellm_params=None,
+        embrouter_params=None,
         logger_fn=None,
         headers={},
         timeout: float | httpx.Timeout | None = None,
@@ -77,7 +77,7 @@ class CustomLLM(BaseLLM):
         logging_obj,
         optional_params: dict,
         acompletion=None,
-        litellm_params=None,
+        embrouter_params=None,
         logger_fn=None,
         headers={},
         timeout: float | httpx.Timeout | None = None,
@@ -98,7 +98,7 @@ class CustomLLM(BaseLLM):
         logging_obj,
         optional_params: dict,
         acompletion=None,
-        litellm_params=None,
+        embrouter_params=None,
         logger_fn=None,
         headers={},
         timeout: float | httpx.Timeout | None = None,
@@ -119,7 +119,7 @@ class CustomLLM(BaseLLM):
         logging_obj,
         optional_params: dict,
         acompletion=None,
-        litellm_params=None,
+        embrouter_params=None,
         logger_fn=None,
         headers={},
         timeout: float | httpx.Timeout | None = None,
@@ -135,7 +135,7 @@ class CustomLLM(BaseLLM):
         api_base: str | None,
         model_response: ImageResponse,
         optional_params: dict,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
         timeout: float | httpx.Timeout | None = None,
         client: HTTPHandler | None = None,
     ) -> ImageResponse:
@@ -149,7 +149,7 @@ class CustomLLM(BaseLLM):
         api_key: str | None,  # dynamically set api_key
         api_base: str | None,  # dynamically set api_base
         optional_params: dict,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
         timeout: float | httpx.Timeout | None = None,
         client: AsyncHTTPHandler | None = None,
     ) -> ImageResponse:
@@ -161,12 +161,12 @@ class CustomLLM(BaseLLM):
         input: list,
         model_response: EmbeddingResponse,
         print_verbose: Callable,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
         optional_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
         timeout: float | httpx.Timeout | None = None,
-        litellm_params=None,
+        embrouter_params=None,
     ) -> EmbeddingResponse:
         raise CustomLLMError(status_code=500, message="Not implemented yet!")
 
@@ -176,12 +176,12 @@ class CustomLLM(BaseLLM):
         input: list,
         model_response: EmbeddingResponse,
         print_verbose: Callable,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
         optional_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
         timeout: float | httpx.Timeout | None = None,
-        litellm_params=None,
+        embrouter_params=None,
     ) -> EmbeddingResponse:
         raise CustomLLMError(status_code=500, message="Not implemented yet!")
 
@@ -194,7 +194,7 @@ class CustomLLM(BaseLLM):
         api_key: str | None,
         api_base: str | None,
         optional_params: dict,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
         timeout: float | httpx.Timeout | None = None,
         client: HTTPHandler | None = None,
     ) -> ImageResponse:
@@ -209,7 +209,7 @@ class CustomLLM(BaseLLM):
         api_key: str | None,
         api_base: str | None,
         optional_params: dict,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
         timeout: float | httpx.Timeout | None = None,
         client: AsyncHTTPHandler | None = None,
     ) -> ImageResponse:

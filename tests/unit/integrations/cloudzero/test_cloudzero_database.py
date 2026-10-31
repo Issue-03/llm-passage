@@ -1,4 +1,4 @@
-"""Tests for LiteLLM CloudZero database helper."""
+"""Tests for EmbRouter CloudZero database helper."""
 
 from datetime import datetime, timezone
 from types import SimpleNamespace
@@ -6,14 +6,14 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from litellm.integrations.cloudzero.database import LiteLLMDatabase
+from embrouter.integrations.cloudzero.database import EmbRouterDatabase
 
 
 def _setup_db(monkeypatch: pytest.MonkeyPatch, query_return):
     """Return a database instance with prisma client mocked out."""
     query_mock = AsyncMock(return_value=query_return)
     mock_client = SimpleNamespace(db=SimpleNamespace(query_raw=query_mock))
-    db = LiteLLMDatabase()
+    db = EmbRouterDatabase()
     monkeypatch.setattr(db, "_ensure_prisma_client", lambda: mock_client)
     return db, query_mock
 

@@ -5,21 +5,21 @@ Use this to call LLMs in Anthropic /messages Request/Response format
 
 This is an __init__.py file to allow the following interface
 
-- litellm.messages.acreate
-- litellm.messages.create
+- embrouter.messages.acreate
+- embrouter.messages.create
 
 """
 
 from collections.abc import AsyncIterator, Coroutine, Iterator
 from typing import Any
 
-from litellm.messages import (
+from embrouter.messages import (
     anthropic_messages as _async_anthropic_messages,
 )
-from litellm.messages import (
+from embrouter.messages import (
     anthropic_messages_handler as _sync_anthropic_messages,
 )
-from litellm.types.llms.anthropic_messages.anthropic_response import (
+from embrouter.types.llms.anthropic_messages.anthropic_response import (
     AnthropicMessagesResponse,
 )
 

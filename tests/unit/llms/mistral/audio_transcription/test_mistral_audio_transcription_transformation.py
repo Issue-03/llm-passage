@@ -2,23 +2,23 @@ import os
 from unittest.mock import MagicMock
 
 import httpx
-import litellm
+import embrouter
 
-from litellm.llms.base_llm.audio_transcription.transformation import (
+from embrouter.llms.base_llm.audio_transcription.transformation import (
     BaseAudioTranscriptionConfig,
 )
-from litellm.llms.mistral.audio_transcription.transformation import (
+from embrouter.llms.mistral.audio_transcription.transformation import (
     MistralAudioTranscriptionConfig,
 )
-from litellm.types.utils import TranscriptionResponse
-from litellm.utils import ProviderConfigManager
+from embrouter.types.utils import TranscriptionResponse
+from embrouter.utils import ProviderConfigManager
 
 
 def test_mistral_audio_transcription_config_installed():
     """Ensure Mistral audio transcription config is registered with ProviderConfigManager."""
     config = ProviderConfigManager.get_provider_audio_transcription_config(
         model="mistral/voxtral-mini-latest",
-        provider=litellm.LlmProviders.MISTRAL,
+        provider=embrouter.LlmProviders.MISTRAL,
     )
     assert config is not None
     assert isinstance(config, BaseAudioTranscriptionConfig)
@@ -32,7 +32,7 @@ def test_mistral_audio_transcription_get_complete_url():
         api_key="fake-key",
         model="voxtral-mini-latest",
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
     )
     assert url == "https://api.mistral.ai/v1/audio/transcriptions"
 
@@ -44,7 +44,7 @@ def test_mistral_audio_transcription_get_complete_url_custom_base():
         api_key="fake-key",
         model="voxtral-mini-latest",
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
     )
     assert url == "https://custom.api.example.com/v1/audio/transcriptions"
 
@@ -56,7 +56,7 @@ def test_mistral_audio_transcription_validate_environment():
         model="voxtral-mini-latest",
         messages=[],
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         api_key="test-key-123",
     )
     assert headers["Authorization"] == "Bearer test-key-123"
@@ -88,7 +88,7 @@ def test_mistral_audio_transcription_request_transform():
         model="voxtral-mini-latest",
         audio_file=audio_file,
         optional_params={"language": "en", "temperature": 0.0},
-        litellm_params={},
+        embrouter_params={},
     )
 
     audio_file.close()
@@ -118,7 +118,7 @@ def test_mistral_audio_transcription_request_with_diarize():
         model="voxtral-mini-latest",
         audio_file=audio_file,
         optional_params={"diarize": True},
-        litellm_params={},
+        embrouter_params={},
     )
 
     audio_file.close()

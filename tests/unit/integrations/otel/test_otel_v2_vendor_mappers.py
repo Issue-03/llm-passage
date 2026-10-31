@@ -11,15 +11,15 @@ from typing import Final
 
 import pytest
 
-from litellm.integrations.otel import GenAIOperation
-from litellm.integrations.otel.mappers import (
+from embrouter.integrations.otel import GenAIOperation
+from embrouter.integrations.otel.mappers import (
     LangfuseMapper,
     LangtraceMapper,
     OpenInferenceMapper,
     WeaveMapper,
     resolve_mappers,
 )
-from litellm.integrations.otel.model.payloads import (
+from embrouter.integrations.otel.model.payloads import (
     EmbeddingOutput,
     LLMCallSpanData,
     LLMRequestParams,
@@ -28,7 +28,7 @@ from litellm.integrations.otel.model.payloads import (
     ServerInfo,
     ToolDefinition,
 )
-from litellm.integrations.otel.model.trace_controls import TraceControls
+from embrouter.integrations.otel.model.trace_controls import TraceControls
 
 
 def _llm_call(**overrides):
@@ -96,7 +96,7 @@ def test_openinference_mapper_input_output_messages():
 
 
 def test_openinference_mapper_skips_non_llm_roles():
-    from litellm.integrations.otel.model.payloads import GuardrailSpanData
+    from embrouter.integrations.otel.model.payloads import GuardrailSpanData
 
     assert OpenInferenceMapper().map(GuardrailSpanData("presidio")) == {}
 

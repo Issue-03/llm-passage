@@ -24,13 +24,13 @@ from typing import TYPE_CHECKING, Annotated, Final, Literal, Protocol, TypeAlias
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError, field_validator
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm._uuid import uuid
-from litellm.constants import LITELLM_PROXY_ADMIN_NAME
-from litellm.litellm_core_utils.credential_accessor import CredentialAccessor
-from litellm.litellm_core_utils.get_model_cost_map import GetModelCostMap
-from litellm.litellm_core_utils.ptu_pricing import (
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter._uuid import uuid
+from embrouter.constants import EMBROUTER_PROXY_ADMIN_NAME
+from embrouter.embrouter_core_utils.credential_accessor import CredentialAccessor
+from embrouter.embrouter_core_utils.get_model_cost_map import GetModelCostMap
+from embrouter.embrouter_core_utils.ptu_pricing import (
     CUSTOM_PRICING_FIELDS,
     PTU_EMPTIED_PRICING_FIELDS,
     PTU_MODEL_INFO_FIELDS,
@@ -39,13 +39,13 @@ from litellm.litellm_core_utils.ptu_pricing import (
     SEARCH_CONTEXT_SIZES,
     ptu_config_error,
 )
-from litellm.proxy._types import (
+from embrouter.proxy._types import (
     BlockModelRequest,
     CommonProxyErrors,
-    LiteLLM_ProxyModelTable,
-    LiteLLM_TeamTable,
-    LitellmTableNames,
-    LitellmUserRoles,
+    EmbRouter_ProxyModelTable,
+    EmbRouter_TeamTable,
+    EmbrouterTableNames,
+    EmbrouterUserRoles,
     ModelInfoDelete,
     PrismaCompatibleUpdateDBModel,
     ProxyErrorTypes,
@@ -55,54 +55,54 @@ from litellm.proxy._types import (
     TeamModelDeleteRequest,
     UserAPIKeyAuth,
 )
-from litellm.proxy.auth.litellm_license import AUTO_ROUTER_LICENSE_REMEDY
-from litellm.proxy.auth.team_grants import team_model_aliases
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.common_utils.config_sync_pubsub import (
+from embrouter.proxy.auth.embrouter_license import AUTO_ROUTER_LICENSE_REMEDY
+from embrouter.proxy.auth.team_grants import team_model_aliases
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.common_utils.config_sync_pubsub import (
     coordination_redis_cache,
     publish_config_change,
 )
-from litellm.proxy.common_utils.encrypt_decrypt_utils import (
+from embrouter.proxy.common_utils.encrypt_decrypt_utils import (
     decrypt_value_helper,
     encrypt_value_helper,
 )
-from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-from litellm.proxy.db.routing_prisma_wrapper import WriterPinnedClient
-from litellm.proxy.management_endpoints.common_utils import _is_user_team_admin
-from litellm.proxy.management_endpoints.team_endpoints import (
+from embrouter.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+from embrouter.proxy.db.routing_prisma_wrapper import WriterPinnedClient
+from embrouter.proxy.management_endpoints.common_utils import _is_user_team_admin
+from embrouter.proxy.management_endpoints.team_endpoints import (
     _refresh_cached_team,
     append_team_models,
     team_model_add,
     team_model_delete,
 )
-from litellm.proxy.management_endpoints.team_endpoints import (
+from embrouter.proxy.management_endpoints.team_endpoints import (
     update_team as _legacy_update_team,
 )
-from litellm.proxy.management_helpers.access_group_model_sync import (
+from embrouter.proxy.management_helpers.access_group_model_sync import (
     sync_access_groups_for_deleted_model,
     sync_access_groups_for_renamed_model,
 )
-from litellm.proxy.management_helpers.audit_logs import create_object_audit_log
-from litellm.proxy.management_helpers.auto_router_permissions import (
+from embrouter.proxy.management_helpers.audit_logs import create_object_audit_log
+from embrouter.proxy.management_helpers.auto_router_permissions import (
     MemberAutoRouterWrite,
     StoredAutoRouterIdentity,
     authorize_member_auto_router_dependencies,
     authorize_member_auto_router_team,
     authorize_member_auto_router_write,
 )
-from litellm.proxy.management_helpers.model_allowlist_rename_sync import sync_model_allowlists_for_renamed_model
-from litellm.proxy.spend_tracking.ptu_feature_flag import (
+from embrouter.proxy.management_helpers.model_allowlist_rename_sync import sync_model_allowlists_for_renamed_model
+from embrouter.proxy.spend_tracking.ptu_feature_flag import (
     PTU_COST_ATTRIBUTION_ENV_VAR,
     is_ptu_cost_attribution_enabled,
 )
-from litellm.proxy.utils import PrismaClient, ProxyLogging
-from litellm.repositories.credentials_repository import CredentialsRepository
-from litellm.repositories.model_repository import ModelRepository
-from litellm.repositories.prisma_protocols import TableActions
-from litellm.repositories.table_repositories import ModelTableRepository
-from litellm.repositories.team_repository import TeamRepository
-from litellm.router import Router
-from litellm.router_strategy.complexity_router import (
+from embrouter.proxy.utils import PrismaClient, ProxyLogging
+from embrouter.repositories.credentials_repository import CredentialsRepository
+from embrouter.repositories.model_repository import ModelRepository
+from embrouter.repositories.prisma_protocols import TableActions
+from embrouter.repositories.table_repositories import ModelTableRepository
+from embrouter.repositories.team_repository import TeamRepository
+from embrouter.router import Router
+from embrouter.router_strategy.complexity_router import (
     DEFAULT_CLASSIFIER_CONTEXT_WINDOW_SIZE,
     ClassificationRubric,
     ComplexityRouterConfig,
@@ -114,7 +114,7 @@ from litellm.router_strategy.complexity_router import (
     normalize_classification_examples,
     normalize_classification_prompt,
 )
-from litellm.router_utils.auto_router_model_naming import (
+from embrouter.router_utils.auto_router_model_naming import (
     GATED_AUTO_ROUTER_CAPABILITIES,
     STRATEGY_ROUTER_PARAM_FIELDS,
     capability_limit_violation,
@@ -126,35 +126,35 @@ from litellm.router_utils.auto_router_model_naming import (
     validate_complexity_router_config_write,
     validate_strategy_router_model_write,
 )
-from litellm.router_utils.auto_router_tuning_baseline import is_mutable_tuned_candidate, tuning_quota_violation
-from litellm.types.llms.bedrock import AwsSessionTag
-from litellm.types.proxy.management_endpoints.model_management_endpoints import (
+from embrouter.router_utils.auto_router_tuning_baseline import is_mutable_tuned_candidate, tuning_quota_violation
+from embrouter.types.llms.bedrock import AwsSessionTag
+from embrouter.types.proxy.management_endpoints.model_management_endpoints import (
     AutoRouterClassifierDefaultPromptResponse,
     UpdateUsefulLinksRequest,
 )
-from litellm.types.router import (
+from embrouter.types.router import (
     SPECIAL_MODEL_INFO_PARAMS,
     Deployment,
-    GenericLiteLLMParams,
+    GenericEmbRouterParams,
     ModelInfo,
     updateDeployment,
-    updateLiteLLMParams,
+    updateEmbRouterParams,
 )
-from litellm.types.utils import (
+from embrouter.types.utils import (
     COST_MAP_LOOKUP_KEY,
     echoed_cost_map_fields,
     echoed_cost_map_pricing_fields,
     without_server_derived_pricing,
 )
-from litellm.utils import get_utc_datetime
+from embrouter.utils import get_utc_datetime
 
 if TYPE_CHECKING:
     from prisma import models as prisma_models
     from prisma import types as prisma_types
 
 router: Final = APIRouter()
-CLEARABLE_LITELLM_PARAMS: Final = frozenset({"cache_control_injection_points", "litellm_credential_name"})
-NULL_CLEARABLE_LITELLM_PARAMS: Final = frozenset((*SPECIAL_MODEL_INFO_PARAMS, *CLEARABLE_LITELLM_PARAMS))
+CLEARABLE_EMBROUTER_PARAMS: Final = frozenset({"cache_control_injection_points", "embrouter_credential_name"})
+NULL_CLEARABLE_EMBROUTER_PARAMS: Final = frozenset((*SPECIAL_MODEL_INFO_PARAMS, *CLEARABLE_EMBROUTER_PARAMS))
 
 
 async def update_team(*args, **kwargs):
@@ -203,7 +203,7 @@ class _ProxyModelTable(Protocol):
 
 
 class _TxModelTables(Protocol):
-    litellm_proxymodeltable: _ProxyModelTable
+    embrouter_proxymodeltable: _ProxyModelTable
 
     async def query_raw(self, query: str, *args: object) -> Sequence[Mapping[str, object]]: ...
 
@@ -229,7 +229,7 @@ _RowT = TypeVar("_RowT")
 
 class _ExistingModelRow(Protocol):
     @property
-    def litellm_params(self) -> Mapping[str, object]: ...
+    def embrouter_params(self) -> Mapping[str, object]: ...
 
     def model_dump_json(self, *, exclude_none: bool = False) -> str: ...
 
@@ -248,7 +248,7 @@ class _TeamLookupTable(Protocol):
 class _TeamTable(_TeamLookupTable, Protocol):
     def update(
         self, *, where: Mapping[str, object], data: Mapping[str, object], include: Mapping[str, bool]
-    ) -> Awaitable[LiteLLM_TeamTable]: ...
+    ) -> Awaitable[EmbRouter_TeamTable]: ...
 
 
 def _proxy_model_table(prisma_client: PrismaClient) -> _ProxyModelTable:
@@ -260,10 +260,10 @@ def _repo_team_table(prisma_client: PrismaClient) -> _TeamLookupTable:
 
 
 def _db_team_table(prisma_client: PrismaClient) -> _TeamTable:
-    return prisma_client.db.litellm_teamtable
+    return prisma_client.db.embrouter_teamtable
 
 
-def _model_alias_table(prisma_client: PrismaClient) -> "TableActions[prisma_models.LiteLLM_ModelTable]":
+def _model_alias_table(prisma_client: PrismaClient) -> "TableActions[prisma_models.EmbRouter_ModelTable]":
     return ModelTableRepository(prisma_client).table
 
 
@@ -278,12 +278,12 @@ async def get_db_model(model_id: str, prisma_client: PrismaClient) -> Deployment
 
 
 def _strategy_router_write_violation(
-    incoming_params: GenericLiteLLMParams | None,
-    existing_params: GenericLiteLLMParams | None,
+    incoming_params: GenericEmbRouterParams | None,
+    existing_params: GenericEmbRouterParams | None,
 ) -> str | None:
     """Reject writes that would corrupt a strategy router's pseudo-model.
 
-    An auto-router deployment's ``litellm_params.model`` (``auto_router/...``) is
+    An auto-router deployment's ``embrouter_params.model`` (``auto_router/...``) is
     the discriminator the router loads it by; a write that mangles it makes the
     router drop the deployment silently under ``ignore_invalid_deployments``.
     A patch adding auto-router settings is judged against the effective model,
@@ -326,8 +326,8 @@ def _strategy_router_write_violation(
 
 
 def _raise_on_strategy_router_write_violation(
-    incoming_params: GenericLiteLLMParams | None,
-    existing_params: GenericLiteLLMParams | None,
+    incoming_params: GenericEmbRouterParams | None,
+    existing_params: GenericEmbRouterParams | None,
 ) -> None:
     violation = _strategy_router_write_violation(incoming_params=incoming_params, existing_params=existing_params)
     if violation is None:
@@ -336,39 +336,39 @@ def _raise_on_strategy_router_write_violation(
         message=violation,
         type=ProxyErrorTypes.validation_error.value,
         code=status.HTTP_400_BAD_REQUEST,
-        param="litellm_params.model",
+        param="embrouter_params.model",
     )
 
 
-def _stored_credential_name(existing_litellm_params: GenericLiteLLMParams | None) -> str | None:
-    if existing_litellm_params is None or existing_litellm_params.litellm_credential_name is None:
+def _stored_credential_name(existing_embrouter_params: GenericEmbRouterParams | None) -> str | None:
+    if existing_embrouter_params is None or existing_embrouter_params.embrouter_credential_name is None:
         return None
     return decrypt_value_helper(
-        value=existing_litellm_params.litellm_credential_name,
-        key="litellm_credential_name",
+        value=existing_embrouter_params.embrouter_credential_name,
+        key="embrouter_credential_name",
         exception_type="debug",
         return_original_value=True,
     )
 
 
 async def _raise_on_invalid_credential_name(
-    litellm_params: updateLiteLLMParams | None,
-    existing_litellm_params: GenericLiteLLMParams | None,
+    embrouter_params: updateEmbRouterParams | None,
+    existing_embrouter_params: GenericEmbRouterParams | None,
     prisma_client: PrismaClient,
 ) -> None:
-    if litellm_params is None or "litellm_credential_name" not in litellm_params.model_fields_set:
+    if embrouter_params is None or "embrouter_credential_name" not in embrouter_params.model_fields_set:
         return
-    credential_name: Final = litellm_params.litellm_credential_name
+    credential_name: Final = embrouter_params.embrouter_credential_name
     if credential_name is None:
         return
     if credential_name == "":
         raise ProxyException(
-            message="litellm_credential_name cannot be an empty string. Send null to detach the stored credential or omit the field to leave it unchanged.",
+            message="embrouter_credential_name cannot be an empty string. Send null to detach the stored credential or omit the field to leave it unchanged.",
             type=ProxyErrorTypes.validation_error.value,
             code=status.HTTP_400_BAD_REQUEST,
-            param="litellm_credential_name",
+            param="embrouter_credential_name",
         )
-    if credential_name == _stored_credential_name(existing_litellm_params):
+    if credential_name == _stored_credential_name(existing_embrouter_params):
         return
     if CredentialAccessor.find_credential(credential_name) is not None:
         return
@@ -381,21 +381,21 @@ async def _raise_on_invalid_credential_name(
         message=f"Credential '{credential_name}' not found. Create it via /credentials before attaching it to a model.",
         type=ProxyErrorTypes.validation_error.value,
         code=status.HTTP_400_BAD_REQUEST,
-        param="litellm_credential_name",
+        param="embrouter_credential_name",
     )
 
 
 AUTO_ROUTER_CAPABILITY_SLOT_LOCK_KEY: Final = 5_872_301
 _CAPABILITY_LOCK_SQL: Final = "SELECT 1 AS locked FROM pg_advisory_xact_lock($1)"
-_STORED_LITELLM_PARAMS_SQL: Final = (
-    "(CASE jsonb_typeof(litellm_params) WHEN 'string' THEN (litellm_params #>> '{}')::jsonb ELSE litellm_params END)"
+_STORED_EMBROUTER_PARAMS_SQL: Final = (
+    "(CASE jsonb_typeof(embrouter_params) WHEN 'string' THEN (embrouter_params #>> '{}')::jsonb ELSE embrouter_params END)"
 )
-_STORED_COMPLEXITY_CONFIG_SQL: Final = f"{_STORED_LITELLM_PARAMS_SQL} -> 'complexity_router_config'"
+_STORED_COMPLEXITY_CONFIG_SQL: Final = f"{_STORED_EMBROUTER_PARAMS_SQL} -> 'complexity_router_config'"
 _CAPABILITY_DB_ROWS_SQL: Final[Mapping[str, str]] = MappingProxyType(
     {
         capability.key: f"""
-SELECT {_STORED_LITELLM_PARAMS_SQL} ->> 'model' AS model
-FROM "LiteLLM_ProxyModelTable"
+SELECT {_STORED_EMBROUTER_PARAMS_SQL} ->> 'model' AS model
+FROM "EmbRouter_ProxyModelTable"
 WHERE model_id <> $1
   AND ({capability.sql_config_predicate.format(config=_STORED_COMPLEXITY_CONFIG_SQL)})
 """
@@ -405,7 +405,7 @@ WHERE model_id <> $1
 
 
 def _effective_complexity_router_config(
-    incoming_params: GenericLiteLLMParams | None, existing_params: GenericLiteLLMParams | None
+    incoming_params: GenericEmbRouterParams | None, existing_params: GenericEmbRouterParams | None
 ) -> object:
     incoming: Final = None if incoming_params is None else incoming_params.complexity_router_config
     existing: Final = None if existing_params is None else existing_params.complexity_router_config
@@ -437,7 +437,7 @@ def _effective_complexity_router_config(
 
 
 def _effective_model(
-    incoming_params: GenericLiteLLMParams | None, existing_params: GenericLiteLLMParams | None
+    incoming_params: GenericEmbRouterParams | None, existing_params: GenericEmbRouterParams | None
 ) -> str | None:
     """The model a write leaves on the row, decrypting an existing value only when the patch omits it."""
     incoming: Final = None if incoming_params is None else incoming_params.model
@@ -456,7 +456,7 @@ def _effective_model(
 
 
 def _effective_complexity_router_params(
-    incoming_params: GenericLiteLLMParams | None, existing_params: GenericLiteLLMParams | None
+    incoming_params: GenericEmbRouterParams | None, existing_params: GenericEmbRouterParams | None
 ) -> Mapping[str, object]:
     """The model and complexity config a write leaves, for placement and capability decisions."""
     return MappingProxyType(
@@ -469,7 +469,7 @@ def _effective_complexity_router_params(
 
 def _member_auto_router_marker_for_update(
     *,
-    incoming_params: updateLiteLLMParams | None,
+    incoming_params: updateEmbRouterParams | None,
     existing: Deployment,
     member_write: MemberAutoRouterWrite | None,
 ) -> bool | None:
@@ -481,7 +481,7 @@ def _member_auto_router_marker_for_update(
         return True
     if any(getattr(incoming_params, field, None) is not None for field in STRATEGY_ROUTER_PARAM_FIELDS):
         return False
-    if incoming_params.model is not None and incoming_params.model != _effective_model(None, existing.litellm_params):
+    if incoming_params.model is not None and incoming_params.model != _effective_model(None, existing.embrouter_params):
         return False
     return True
 
@@ -498,7 +498,7 @@ def _decrypted_model(stored_model: object) -> str | None:
 def _tuning_candidate(effective_params: Mapping[str, object], model_id: str | None) -> Mapping[str, object]:
     return MappingProxyType(
         {
-            "litellm_params": effective_params,
+            "embrouter_params": effective_params,
             "model_info": MappingProxyType({"id": model_id, "db_model": True}),
         }
     )
@@ -540,7 +540,7 @@ async def _auto_router_capability_slot(
     A heuristic-v1 router whose tuning has moved off its recorded baseline is judged the same
     way under the same lock, against the DB rows plus this proxy's config.yaml routers.
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         _license_check,  # pyright: ignore[reportPrivateUsage]  # existing capability slot reads the proxy license singleton
         heuristic_v1_tuning_baselines,
         llm_router,
@@ -568,24 +568,24 @@ async def _auto_router_capability_slot(
         if member_write is not None:
             if member_write.model_id is not None:
                 await tx_ctx.query_raw(
-                    'SELECT model_id FROM "LiteLLM_ProxyModelTable" WHERE model_id = $1 FOR UPDATE',
+                    'SELECT model_id FROM "EmbRouter_ProxyModelTable" WHERE model_id = $1 FOR UPDATE',
                     member_write.model_id,
                 )
             pinned_client: Final = _TransactionClient(tx_ctx)
-            team_where: Final[prisma_types.LiteLLM_TeamTableWhereUniqueInput] = {"team_id": member_write.team_id}
-            team_include: Final[prisma_types.LiteLLM_TeamTableInclude] = {"litellm_model_table": True}
+            team_where: Final[prisma_types.EmbRouter_TeamTableWhereUniqueInput] = {"team_id": member_write.team_id}
+            team_include: Final[prisma_types.EmbRouter_TeamTableInclude] = {"embrouter_model_table": True}
             team_row: Final = await TeamRepository(pinned_client).table.find_unique(
                 where=team_where, include=team_include
             )
             if team_row is None or llm_router is None:
                 raise HTTPException(status_code=403, detail="The auto router's team or model catalog is unavailable.")
-            team: Final = LiteLLM_TeamTable.model_validate(team_row.model_dump())
+            team: Final = EmbRouter_TeamTable.model_validate(team_row.model_dump())
             authorize_member_auto_router_team(
                 user_api_key_dict=member_write.actor, team=team, premium_user=premium_user
             )
             if member_write.model_id is not None:
-                model_where: Final[prisma_types.LiteLLM_ProxyModelTableWhereInput] = {"model_id": member_write.model_id}
-                current_row: Final = await tables.litellm_proxymodeltable.find_unique(where=model_where)
+                model_where: Final[prisma_types.EmbRouter_ProxyModelTableWhereInput] = {"model_id": member_write.model_id}
+                current_row: Final = await tables.embrouter_proxymodeltable.find_unique(where=model_where)
                 current_identity: Final = (
                     StoredAutoRouterIdentity.model_validate(current_row.model_dump())
                     if current_row is not None
@@ -604,8 +604,8 @@ async def _auto_router_capability_slot(
                 if current_identity.updated_at != member_write.updated_at:
                     raise HTTPException(status_code=409, detail="This auto router changed. Reload it before updating.")
             else:
-                all_models: Final[prisma_types.LiteLLM_ProxyModelTableWhereInput] = {}
-                rows_for_names: Final = await tables.litellm_proxymodeltable.find_many(where=all_models)
+                all_models: Final[prisma_types.EmbRouter_ProxyModelTableWhereInput] = {}
+                rows_for_names: Final = await tables.embrouter_proxymodeltable.find_many(where=all_models)
                 stored_names: Final = tuple(
                     (
                         row.model_name,
@@ -620,7 +620,7 @@ async def _auto_router_capability_slot(
                 team_aliases: Final = team_model_aliases(team)
                 aliases: Final = (
                     *(llm_router.model_group_alias or ()),
-                    *(litellm.model_alias_map or ()),
+                    *(embrouter.model_alias_map or ()),
                     *(team_aliases or ()),
                 )
                 if member_write.public_name in aliases or any(
@@ -660,7 +660,7 @@ async def _auto_router_capability_slot(
                 others=tuple(
                     MappingProxyType(
                         {
-                            "litellm_params": row.litellm_params,
+                            "embrouter_params": row.embrouter_params,
                             "model_info": MappingProxyType({"id": row.model_id, "db_model": True}),
                         }
                     )
@@ -670,14 +670,14 @@ async def _auto_router_capability_slot(
                 baselines=baselines,
                 limit=limit,
             )
-        yield tables.litellm_proxymodeltable
-    await publish_config_change(redis_cache=coordination_redis_cache(), object_type="litellm_proxymodeltable")
+        yield tables.embrouter_proxymodeltable
+    await publish_config_change(redis_cache=coordination_redis_cache(), object_type="embrouter_proxymodeltable")
 
 
 ENFORCE_RPM_TPM_ON_MODEL_ADD_SETTING: Final = "enforce_rpm_tpm_on_model_add"
 
 
-def _raise_if_rate_limits_required_but_missing(*, litellm_params: GenericLiteLLMParams, enforced: bool) -> None:
+def _raise_if_rate_limits_required_but_missing(*, embrouter_params: GenericEmbRouterParams, enforced: bool) -> None:
     """Require both rpm and tpm (each a positive value) when the operator opts in via config.yaml.
 
     Off by default, so deployments keep adding models without limits. When
@@ -689,7 +689,7 @@ def _raise_if_rate_limits_required_but_missing(*, litellm_params: GenericLiteLLM
         return
     missing: Final = tuple(
         field
-        for field, value in (("rpm", litellm_params.rpm), ("tpm", litellm_params.tpm))
+        for field, value in (("rpm", embrouter_params.rpm), ("tpm", embrouter_params.tpm))
         if value is None or value <= 0
     )
     if not missing:
@@ -701,7 +701,7 @@ def _raise_if_rate_limits_required_but_missing(*, litellm_params: GenericLiteLLM
         ),
         type=ProxyErrorTypes.validation_error.value,
         code=status.HTTP_400_BAD_REQUEST,
-        param=f"litellm_params.{missing[0]}",
+        param=f"embrouter_params.{missing[0]}",
     )
 
 
@@ -766,7 +766,7 @@ def _raise_if_ptu_cost_attribution_disabled(incoming_model_info: Mapping[str, ob
 def _validate_ptu_model_info(model_info: Mapping[str, object]) -> None:
     """Enforce the PTU cross-field invariant on the effective model_info.
 
-    The rules live in litellm_core_utils.ptu_pricing so that config.yaml registration
+    The rules live in embrouter_core_utils.ptu_pricing so that config.yaml registration
     refuses the same deployments this endpoint does, for the same reason. Per-field bounds
     (positive count, non-negative rate) are enforced by ModelInfo itself.
 
@@ -796,12 +796,12 @@ _PTU_ZEROED_PRICING: Final[Mapping[str, float | tuple[()]]] = MappingProxyType(
 )
 _NO_PRICING_OVERRIDE: Final[Mapping[str, float | tuple[()]]] = MappingProxyType({})
 _EMPTY_MODEL_INFO: Final[Mapping[str, object]] = _NO_PRICING_OVERRIDE
-# Rate fields only. CustomPricingLiteLLMParams also carries settings that are not charges
+# Rate fields only. CustomPricingEmbRouterParams also carries settings that are not charges
 # (an embedding's output_vector_size, the regional uplift multipliers), and zeroing one of
 # those would destroy the deployment's configuration rather than stop a charge.
 _CUSTOM_PRICING_FIELDS: Final = CUSTOM_PRICING_FIELDS
 # search_context_cost_per_query holds its rates in a table keyed by context size, and an absent
-# table means the provider's own default rate rather than free (litellm/llms/gemini/cost_calculator
+# table means the provider's own default rate rather than free (embrouter/llms/gemini/cost_calculator
 # falls back to $0.035), so it is zeroed in place rather than emptied like tiered_pricing, and
 # written on every PTU deployment rather than only where a table is already stored.
 _PTU_ZEROED_TABLE_FIELDS: Final = PTU_ZEROED_TABLE_FIELDS
@@ -857,7 +857,7 @@ def _raise_if_ptu_deployment_is_priced(*, model_info: Mapping[str, object], supp
 def _ptu_zeroed_pricing(
     *,
     model_info: Mapping[str, object],
-    litellm_params: Mapping[str, object],
+    embrouter_params: Mapping[str, object],
     supplied: Mapping[str, object],
 ) -> Mapping[str, float | tuple[()] | Mapping[str, float]]:
     """The pricing a PTU deployment must carry, empty unless one is being stored.
@@ -870,7 +870,7 @@ def _ptu_zeroed_pricing(
     instead, so a deployment priced through a path this rule does not cover heals on its next
     save rather than rejecting every later edit of a field that has nothing to do with pricing.
 
-    ``supplied`` is the caller's litellm_params alone, because that is the blob a price is
+    ``supplied`` is the caller's embrouter_params alone, because that is the blob a price is
     authored on. model_info's copy is written by the server, both by the mirror in
     ``Deployment.__init__`` and by the cost-map defaults /model/info fills in, so a client that
     round-trips a model_info blob sends back prices it never chose.
@@ -883,7 +883,7 @@ def _ptu_zeroed_pricing(
     stored: Final = frozenset(
         field
         for field in _CUSTOM_PRICING_FIELDS
-        if _is_nonzero_price(model_info.get(field)) or _is_nonzero_price(litellm_params.get(field))
+        if _is_nonzero_price(model_info.get(field)) or _is_nonzero_price(embrouter_params.get(field))
     )
     return MappingProxyType(
         {
@@ -898,7 +898,7 @@ def _ptu_pricing_delta(
     *,
     stored_model_info: Mapping[str, object],
     model_info: Mapping[str, object],
-    litellm_params: Mapping[str, object],
+    embrouter_params: Mapping[str, object],
     patch: updateDeployment,
 ) -> tuple[Mapping[str, float | tuple[()] | Mapping[str, float]], frozenset[str]]:
     """The pricing a patch must write into both blobs, and the pricing it must drop from them.
@@ -913,8 +913,8 @@ def _ptu_pricing_delta(
     The release spans every field the zeroing could have written, not just the mirrored ones, or
     a rate zeroed on the way in (per-second, per-character tiers) would bill nothing forever.
     """
-    supplied: Final = patch.litellm_params.model_dump(exclude_none=True) if patch.litellm_params else _EMPTY_MODEL_INFO
-    zeroed: Final = _ptu_zeroed_pricing(model_info=model_info, litellm_params=litellm_params, supplied=supplied)
+    supplied: Final = patch.embrouter_params.model_dump(exclude_none=True) if patch.embrouter_params else _EMPTY_MODEL_INFO
+    zeroed: Final = _ptu_zeroed_pricing(model_info=model_info, embrouter_params=embrouter_params, supplied=supplied)
     if zeroed:
         return zeroed, frozenset()
     was_ptu: Final = any(stored_model_info.get(field) is not None for field in _PTU_PRICED_PAIR)
@@ -923,15 +923,15 @@ def _ptu_pricing_delta(
     return _NO_PRICING_OVERRIDE, frozenset(
         field
         for field in _CUSTOM_PRICING_FIELDS.union(_PTU_ZEROED_PRICING_FIELDS, _PTU_EMPTIED_PRICING_FIELDS)
-        if _is_zero_price(model_info.get(field)) or _is_zero_price(litellm_params.get(field))
+        if _is_zero_price(model_info.get(field)) or _is_zero_price(embrouter_params.get(field))
     )
 
 
 def _ptu_priced_deployment(model_params: Deployment) -> Deployment:
     """``model_params`` with PTU pricing applied, or itself when it configures no PTU."""
     model_info: Final = model_params.model_info.model_dump(exclude_none=True)
-    litellm_params: Final = model_params.litellm_params.model_dump(exclude_none=True)
-    override: Final = _ptu_zeroed_pricing(model_info=model_info, litellm_params=litellm_params, supplied=litellm_params)
+    embrouter_params: Final = model_params.embrouter_params.model_dump(exclude_none=True)
+    override: Final = _ptu_zeroed_pricing(model_info=model_info, embrouter_params=embrouter_params, supplied=embrouter_params)
     if not override:
         return model_params
     # model_copy validates nothing, so the emptied tier table has to arrive as the list the field
@@ -942,7 +942,7 @@ def _ptu_priced_deployment(model_params: Deployment) -> Deployment:
     return model_params.model_copy(
         update=MappingProxyType(
             {
-                "litellm_params": model_params.litellm_params.model_copy(update=stored),
+                "embrouter_params": model_params.embrouter_params.model_copy(update=stored),
                 "model_info": model_params.model_info.model_copy(update=stored),
             }
         )
@@ -951,11 +951,11 @@ def _ptu_priced_deployment(model_params: Deployment) -> Deployment:
 
 def _cost_map_entry(db_model: Deployment, incoming_model_info: Mapping[str, object]) -> Mapping[str, object]:
     base_model: Final = incoming_model_info.get("base_model")
-    lookup: Final = base_model if isinstance(base_model, str) else _decrypted_model(db_model.litellm_params.model)
+    lookup: Final = base_model if isinstance(base_model, str) else _decrypted_model(db_model.embrouter_params.model)
     if lookup is None:
         return MappingProxyType({})
     with suppress(Exception):
-        return MappingProxyType(dict(litellm.get_model_info(model=lookup)))
+        return MappingProxyType(dict(embrouter.get_model_info(model=lookup)))
     return MappingProxyType({})
 
 
@@ -979,26 +979,26 @@ def update_db_model(
     if updated_patch.model_info is not None:
         _raise_if_ptu_cost_attribution_disabled(updated_patch.model_info.model_dump(exclude_none=True))
     merged_model_name: Final = updated_patch.model_name or db_model.model_name
-    merged_litellm_params: Final = db_model.litellm_params.model_dump(exclude_none=True)
+    merged_embrouter_params: Final = db_model.embrouter_params.model_dump(exclude_none=True)
     stored_model_info: Final = db_model.model_info.model_dump(exclude_none=True)
     echoed_pricing: Final = echoed_cost_map_pricing_fields(stored_model_info)
     merged_model_info: Final[dict[str, object]] = {
         k: v for k, v in stored_model_info.items() if k not in echoed_pricing
     }
 
-    # update litellm params
-    if updated_patch.litellm_params:
+    # update embrouter params
+    if updated_patch.embrouter_params:
         # Encrypt any sensitive values
         encrypted_params: Final = {
             k: (
-                _effective_complexity_router_config(updated_patch.litellm_params, db_model.litellm_params)
+                _effective_complexity_router_config(updated_patch.embrouter_params, db_model.embrouter_params)
                 if k == "complexity_router_config"
                 else encrypt_value_helper(v)
             )
-            for k, v in updated_patch.litellm_params.model_dump(exclude_none=True).items()
+            for k, v in updated_patch.embrouter_params.model_dump(exclude_none=True).items()
         }
 
-        merged_litellm_params.update(encrypted_params)
+        merged_embrouter_params.update(encrypted_params)
 
     # update model info
     if updated_patch.model_info:
@@ -1022,17 +1022,17 @@ def update_db_model(
                 del merged_model_info[k]
 
     # Honor explicit-null clears LAST, after both merges, so a model_info blob a client
-    # passes through cannot silently undo a litellm_params clear via .update().
+    # passes through cannot silently undo a embrouter_params clear via .update().
     #
     # Restricted to SPECIAL_MODEL_INFO_PARAMS (input/output cost per token/character
     # and cache read/write costs) so this path cannot be used to null out privileged
     # model_info fields like team_id or access groups. SPECIAL_MODEL_INFO_PARAMS are
-    # mirrored between litellm_params and model_info by Deployment.__init__, so the
+    # mirrored between embrouter_params and model_info by Deployment.__init__, so the
     # clear propagates to both blobs.
-    if updated_patch.litellm_params:
-        for field in updated_patch.litellm_params.model_fields_set:
-            if getattr(updated_patch.litellm_params, field) is None and field in NULL_CLEARABLE_LITELLM_PARAMS:
-                merged_litellm_params.pop(field, None)
+    if updated_patch.embrouter_params:
+        for field in updated_patch.embrouter_params.model_fields_set:
+            if getattr(updated_patch.embrouter_params, field) is None and field in NULL_CLEARABLE_EMBROUTER_PARAMS:
+                merged_embrouter_params.pop(field, None)
                 merged_model_info.pop(field, None)
             elif (
                 field
@@ -1040,14 +1040,14 @@ def update_db_model(
                     "auto_router_routing_compression",
                     "auto_router_model_compression",
                 )
-                and getattr(updated_patch.litellm_params, field) is None
+                and getattr(updated_patch.embrouter_params, field) is None
             ):
-                merged_litellm_params.pop(field, None)
+                merged_embrouter_params.pop(field, None)
     if updated_patch.model_info:
         for field in updated_patch.model_info.model_fields_set:
             if field in SPECIAL_MODEL_INFO_PARAMS and getattr(updated_patch.model_info, field) is None:
                 merged_model_info.pop(field, None)
-                merged_litellm_params.pop(field, None)
+                merged_embrouter_params.pop(field, None)
         for field in _explicitly_cleared_ptu_fields(updated_patch.model_info):
             merged_model_info.pop(field, None)
 
@@ -1057,14 +1057,14 @@ def update_db_model(
         if db_model.model_info
         else _EMPTY_MODEL_INFO,
         model_info=merged_model_info,
-        litellm_params=merged_litellm_params,
+        embrouter_params=merged_embrouter_params,
         patch=updated_patch,
     )
     merged_model_info.update(ptu_pricing)
-    merged_litellm_params.update(ptu_pricing)
+    merged_embrouter_params.update(ptu_pricing)
     for field in ptu_released:
         merged_model_info.pop(field, None)
-        merged_litellm_params.pop(field, None)
+        merged_embrouter_params.pop(field, None)
 
     # convert to prisma compatible format
 
@@ -1074,7 +1074,7 @@ def update_db_model(
 
     prisma_compatible_model_dict: Final = PrismaCompatibleUpdateDBModel(
         model_name=merged_model_name,
-        litellm_params=json.dumps(merged_litellm_params),
+        embrouter_params=json.dumps(merged_embrouter_params),
         model_info=json.dumps(merged_model_info),
     )
 
@@ -1111,8 +1111,8 @@ async def patch_model(
     Raises:
         ProxyException: For various error conditions including authentication and database errors
     """
-    from litellm.proxy.proxy_server import (
-        litellm_proxy_admin_name,
+    from embrouter.proxy.proxy_server import (
+        embrouter_proxy_admin_name,
         llm_router,
         premium_user,
         prisma_client,
@@ -1165,7 +1165,7 @@ async def patch_model(
         )
         member_write: Final = write_authorization if isinstance(write_authorization, MemberAutoRouterWrite) else None
         member_marker: Final = _member_auto_router_marker_for_update(
-            incoming_params=patch_data.litellm_params, existing=db_model, member_write=member_write
+            incoming_params=patch_data.embrouter_params, existing=db_model, member_write=member_write
         )
         marker_info: Final = (
             ModelInfo(id=db_model.model_info.id)
@@ -1193,7 +1193,7 @@ async def patch_model(
         # Pause/resume (`blocked`) is a proxy-admin-only privilege. Team admins
         # passed the auth check above for team-scoped models, but they must not
         # be able to unblock (or block) a model their proxy admin has paused.
-        if patch_data.blocked is not None and user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+        if patch_data.blocked is not None and user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
             raise ProxyException(
                 message="Only proxy admins can change a model's blocked flag.",
                 type=ProxyErrorTypes.auth_error.value,
@@ -1202,26 +1202,26 @@ async def patch_model(
             )
 
         ModelManagementAuthChecks.can_user_attach_credential(
-            litellm_params=patch_data.litellm_params,
+            embrouter_params=patch_data.embrouter_params,
             user_api_key_dict=user_api_key_dict,
-            existing_litellm_params=db_model.litellm_params,
+            existing_embrouter_params=db_model.embrouter_params,
             null_detaches=True,
         )
-        await _raise_on_invalid_credential_name(patch_data.litellm_params, db_model.litellm_params, prisma_client)
+        await _raise_on_invalid_credential_name(patch_data.embrouter_params, db_model.embrouter_params, prisma_client)
 
         ModelManagementAuthChecks.can_user_set_aws_session_tags(
-            litellm_params=patch_data.litellm_params,
+            embrouter_params=patch_data.embrouter_params,
             user_api_key_dict=user_api_key_dict,
-            existing_litellm_params=db_model.litellm_params,
+            existing_embrouter_params=db_model.embrouter_params,
         )
 
         _raise_on_strategy_router_write_violation(
-            incoming_params=patch_data.litellm_params,
-            existing_params=db_model.litellm_params,
+            incoming_params=patch_data.embrouter_params,
+            existing_params=db_model.embrouter_params,
         )
 
         effective_params: Final = _effective_complexity_router_params(
-            patch_data.litellm_params, db_model.litellm_params
+            patch_data.embrouter_params, db_model.embrouter_params
         )
         requested_model_name: Final = patch_data.model_name
         stored_model_name: str | None = None
@@ -1229,7 +1229,7 @@ async def patch_model(
         async def write_row(update_data: PrismaCompatibleUpdateDBModel) -> _ProxyModelRow | None:
             nonlocal stored_model_name
             stored_model_name = update_data.get("model_name")
-            update_data["updated_by"] = user_api_key_dict.user_id or litellm_proxy_admin_name
+            update_data["updated_by"] = user_api_key_dict.user_id or embrouter_proxy_admin_name
             update_data["updated_at"] = cast(str, get_utc_datetime())
             async with _auto_router_capability_slot(
                 prisma_client,
@@ -1287,11 +1287,11 @@ async def patch_model(
                 object_id=model_id,
                 action="updated",
                 user_api_key_dict=user_api_key_dict,
-                table_name=LitellmTableNames.PROXY_MODEL_TABLE_NAME,
+                table_name=EmbrouterTableNames.PROXY_MODEL_TABLE_NAME,
                 before_value=db_model.model_dump_json(exclude_none=True),
                 after_value=updated_model.model_dump_json(exclude_none=True),
-                litellm_changed_by=user_api_key_dict.user_id,
-                litellm_proxy_admin_name=LITELLM_PROXY_ADMIN_NAME,
+                embrouter_changed_by=user_api_key_dict.user_id,
+                embrouter_proxy_admin_name=EMBROUTER_PROXY_ADMIN_NAME,
             )
         )
 
@@ -1324,10 +1324,10 @@ async def _set_model_blocked_status(
     user_api_key_dict: UserAPIKeyAuth,
     blocked: bool,
     action: Literal["blocked", "unblocked"],
-    litellm_changed_by: str | None,
-) -> LiteLLM_ProxyModelTable | None:
-    from litellm.proxy.proxy_server import (
-        litellm_proxy_admin_name,
+    embrouter_changed_by: str | None,
+) -> EmbRouter_ProxyModelTable | None:
+    from embrouter.proxy.proxy_server import (
+        embrouter_proxy_admin_name,
         llm_router,
         prisma_client,
         store_model_in_db,
@@ -1348,7 +1348,7 @@ async def _set_model_blocked_status(
                 param=None,
             )
 
-        if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+        if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
             raise ProxyException(
                 message="Only proxy admins can change a model's blocked flag.",
                 type=ProxyErrorTypes.auth_error.value,
@@ -1380,7 +1380,7 @@ async def _set_model_blocked_status(
             where={"model_id": data.model_id},
             data={
                 "blocked": blocked,
-                "updated_by": user_api_key_dict.user_id or litellm_proxy_admin_name,
+                "updated_by": user_api_key_dict.user_id or embrouter_proxy_admin_name,
                 "updated_at": cast(str, get_utc_datetime()),
             },
         )
@@ -1393,13 +1393,13 @@ async def _set_model_blocked_status(
                 object_id=data.model_id,
                 action=action,
                 user_api_key_dict=user_api_key_dict,
-                table_name=LitellmTableNames.PROXY_MODEL_TABLE_NAME,
+                table_name=EmbrouterTableNames.PROXY_MODEL_TABLE_NAME,
                 before_value=db_model.model_dump_json(exclude_none=True),
                 after_value=(
                     updated_model.model_dump_json(exclude_none=True) if isinstance(updated_model, BaseModel) else None
                 ),
-                litellm_changed_by=litellm_changed_by,
-                litellm_proxy_admin_name=litellm_proxy_admin_name,
+                embrouter_changed_by=embrouter_changed_by,
+                embrouter_proxy_admin_name=embrouter_proxy_admin_name,
             )
         )
 
@@ -1436,11 +1436,11 @@ async def block_model(
     data: BlockModelRequest,
     http_request: Request,
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
-    litellm_changed_by: str | None = Header(
+    embrouter_changed_by: str | None = Header(
         None,
-        description="The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability",
+        description="The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability",
     ),
-) -> LiteLLM_ProxyModelTable | None:
+) -> EmbRouter_ProxyModelTable | None:
     """
     Block a DB-stored model deployment from serving requests.
 
@@ -1452,7 +1452,7 @@ async def block_model(
         user_api_key_dict=user_api_key_dict,
         blocked=True,
         action="blocked",
-        litellm_changed_by=litellm_changed_by,
+        embrouter_changed_by=embrouter_changed_by,
     )
 
 
@@ -1465,11 +1465,11 @@ async def unblock_model(
     data: BlockModelRequest,
     http_request: Request,
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
-    litellm_changed_by: str | None = Header(
+    embrouter_changed_by: str | None = Header(
         None,
-        description="The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability",
+        description="The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability",
     ),
-) -> LiteLLM_ProxyModelTable | None:
+) -> EmbRouter_ProxyModelTable | None:
     """
     Unblock a DB-stored model deployment so it can serve requests again.
 
@@ -1481,7 +1481,7 @@ async def unblock_model(
         user_api_key_dict=user_api_key_dict,
         blocked=False,
         action="unblocked",
-        litellm_changed_by=litellm_changed_by,
+        embrouter_changed_by=embrouter_changed_by,
     )
 
 
@@ -1498,26 +1498,26 @@ async def _add_model_to_db(
     new_encryption_key: str | None = None,
     should_create_model_in_db: bool = True,
     slot: AbstractAsyncContextManager[_ProxyModelTable] | None = None,
-) -> "_ProxyModelRow | LiteLLM_ProxyModelTable":
-    # encrypt litellm params #
-    _litellm_params_dict: Final = model_params.litellm_params.dict(exclude_none=True)
-    _original_litellm_model_name: Final = model_params.litellm_params.model
-    for k, v in _litellm_params_dict.items():
+) -> "_ProxyModelRow | EmbRouter_ProxyModelTable":
+    # encrypt embrouter params #
+    _embrouter_params_dict: Final = model_params.embrouter_params.dict(exclude_none=True)
+    _original_embrouter_model_name: Final = model_params.embrouter_params.model
+    for k, v in _embrouter_params_dict.items():
         encrypted_value = encrypt_value_helper(value=v, new_encryption_key=new_encryption_key)
-        model_params.litellm_params[k] = encrypted_value
+        model_params.embrouter_params[k] = encrypted_value
     _data: Final[dict] = {
         "model_id": model_params.model_info.id,
         "model_name": model_params.model_name,
-        "litellm_params": model_params.litellm_params.model_dump_json(exclude_none=True),
+        "embrouter_params": model_params.embrouter_params.model_dump_json(exclude_none=True),
         "model_info": model_params.model_info.model_dump_json(exclude_none=True),
-        "created_by": user_api_key_dict.user_id or LITELLM_PROXY_ADMIN_NAME,
-        "updated_by": user_api_key_dict.user_id or LITELLM_PROXY_ADMIN_NAME,
+        "created_by": user_api_key_dict.user_id or EMBROUTER_PROXY_ADMIN_NAME,
+        "updated_by": user_api_key_dict.user_id or EMBROUTER_PROXY_ADMIN_NAME,
     }
     if model_params.model_info.id is not None:
         _data["model_id"] = model_params.model_info.id
     _create_data: Final = cast("Mapping[str, object]", _data)  # cast-ok: str-keyed json payload built just above
     if not should_create_model_in_db:
-        return LiteLLM_ProxyModelTable(**_data)
+        return EmbRouter_ProxyModelTable(**_data)
     if slot is None:
         return await _proxy_model_table(prisma_client).create(data=_create_data)
     async with slot as table:
@@ -1529,7 +1529,7 @@ async def _add_team_model_to_db(
     user_api_key_dict: UserAPIKeyAuth,
     prisma_client: PrismaClient,
     slot: AbstractAsyncContextManager[_ProxyModelTable] | None = None,
-) -> "_ProxyModelRow | LiteLLM_ProxyModelTable | None":
+) -> "_ProxyModelRow | EmbRouter_ProxyModelTable | None":
     """
     If 'team_id' is provided,
 
@@ -1537,7 +1537,7 @@ async def _add_team_model_to_db(
     - store the model in the db with the unique 'model_name'
     - add the public model name to the team's allowed models list
     """
-    from litellm.proxy.proxy_server import proxy_logging_obj, user_api_key_cache
+    from embrouter.proxy.proxy_server import proxy_logging_obj, user_api_key_cache
 
     _team_id: Final = model_params.model_info.team_id
     if _team_id is None:
@@ -1598,7 +1598,7 @@ async def _update_team_model_in_db(
     refused or failed write leaves the team as it was (the create path orders itself the same way).
     """
     # Validate team_id if present in patch_data
-    from litellm.proxy.proxy_server import premium_user
+    from embrouter.proxy.proxy_server import premium_user
 
     await ModelManagementAuthChecks.allow_team_model_action(
         model_params=patch_data,
@@ -1619,7 +1619,7 @@ async def _update_team_model_in_db(
     _raise_if_ptu_deployment_is_priced(
         model_info=_merged_ptu_model_info(db_model=db_model, patch_data=patch_data),
         supplied=(
-            patch_data.litellm_params.model_dump(exclude_none=True) if patch_data.litellm_params else _EMPTY_MODEL_INFO
+            patch_data.embrouter_params.model_dump(exclude_none=True) if patch_data.embrouter_params else _EMPTY_MODEL_INFO
         ),
     )
 
@@ -1637,7 +1637,7 @@ async def _update_team_model_in_db(
 
     # Ensure model_info exists and set team_public_model_name
     if patch_data.model_info is None:
-        from litellm.types.router import ModelInfo
+        from embrouter.types.router import ModelInfo
 
         patch_data.model_info = ModelInfo()
     patch_data.model_info.team_public_model_name = public_model_name
@@ -1785,19 +1785,19 @@ async def delete_team_models(
     async with prisma_client.db.tx() as tx_ctx:
         tx: Final[_TxModelTables] = tx_ctx
         for team_id in team_ids:
-            rows = await _get_team_deployments(team_id, prisma_client, table=tx.litellm_proxymodeltable)
+            rows = await _get_team_deployments(team_id, prisma_client, table=tx.embrouter_proxymodeltable)
             model_ids = [row.model_id for row in rows]
             if model_ids:
-                await tx.litellm_proxymodeltable.delete_many(where={"model_id": {"in": model_ids}})
+                await tx.embrouter_proxymodeltable.delete_many(where={"model_id": {"in": model_ids}})
                 deleted_model_ids.extend(model_ids)
 
     if deleted_model_ids:
-        await publish_config_change(redis_cache=coordination_redis_cache(), object_type="litellm_proxymodeltable")
+        await publish_config_change(redis_cache=coordination_redis_cache(), object_type="embrouter_proxymodeltable")
 
     # Under MODEL_RECONCILE_LOCK, for the same reason as delete_model: the rows are
     # gone, but a reconcile holding a pre-delete snapshot would upsert these ids back
     # onto this pod. The lock orders the eviction after any in-flight reconcile.
-    from litellm.proxy.proxy_server import MODEL_RECONCILE_LOCK, proxy_config
+    from embrouter.proxy.proxy_server import MODEL_RECONCILE_LOCK, proxy_config
 
     async with MODEL_RECONCILE_LOCK:
         proxy_config.remove_auto_router_catalog_entries(frozenset(deleted_model_ids))
@@ -1894,7 +1894,7 @@ async def _remove_unbacked_team_models(
     if existing_team_row is None:
         return
 
-    updated_team_row: Final[LiteLLM_TeamTable] = await _db_team_table(prisma_client).update(
+    updated_team_row: Final[EmbRouter_TeamTable] = await _db_team_table(prisma_client).update(
         where={"team_id": team_id},
         data={"models": [model for model in existing_team_row.models if model not in names_to_remove]},
         include={"object_permission": True},
@@ -1994,7 +1994,7 @@ class ModelManagementAuthChecks:
     def can_user_make_team_model_call(
         team_id: str,
         user_api_key_dict: UserAPIKeyAuth,
-        team_obj: LiteLLM_TeamTable | None = None,
+        team_obj: EmbRouter_TeamTable | None = None,
         premium_user: bool = False,
     ) -> Literal[True]:
         if premium_user is False:
@@ -2002,7 +2002,7 @@ class ModelManagementAuthChecks:
                 status_code=403,
                 detail={"error": CommonProxyErrors.not_premium_user.value},
             )
-        if user_api_key_dict.user_role and user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN:
+        if user_api_key_dict.user_role and user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN:
             return True
         elif team_obj is None or not _is_user_team_admin(user_api_key_dict=user_api_key_dict, team_obj=team_obj):
             raise HTTPException(
@@ -2015,44 +2015,44 @@ class ModelManagementAuthChecks:
 
     @staticmethod
     def can_user_attach_credential(
-        litellm_params: GenericLiteLLMParams | None,
+        embrouter_params: GenericEmbRouterParams | None,
         user_api_key_dict: UserAPIKeyAuth,
-        existing_litellm_params: GenericLiteLLMParams | None = None,
+        existing_embrouter_params: GenericEmbRouterParams | None = None,
         *,
         null_detaches: bool = False,
     ) -> Literal[True]:
-        if litellm_params is None:
+        if embrouter_params is None:
             return True
-        if "litellm_credential_name" not in litellm_params.model_fields_set:
+        if "embrouter_credential_name" not in embrouter_params.model_fields_set:
             return True
-        if litellm_params.litellm_credential_name is None and not null_detaches:
+        if embrouter_params.embrouter_credential_name is None and not null_detaches:
             return True
-        requested_credential_name: Final = litellm_params.litellm_credential_name
-        if requested_credential_name == _stored_credential_name(existing_litellm_params):
+        requested_credential_name: Final = embrouter_params.embrouter_credential_name
+        if requested_credential_name == _stored_credential_name(existing_embrouter_params):
             return True
-        if user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN:
+        if user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN:
             return True
         action: Final = "detach" if requested_credential_name is None else "attach"
         raise ProxyException(
-            message=f"Only a proxy admin can {action} a stored credential (litellm_credential_name) on a model. Your role={user_api_key_dict.user_role}.",
+            message=f"Only a proxy admin can {action} a stored credential (embrouter_credential_name) on a model. Your role={user_api_key_dict.user_role}.",
             type=ProxyErrorTypes.auth_error.value,
             code=status.HTTP_403_FORBIDDEN,
-            param="litellm_credential_name",
+            param="embrouter_credential_name",
         )
 
     @staticmethod
     def can_user_set_aws_session_tags(
-        litellm_params: GenericLiteLLMParams | None,
+        embrouter_params: GenericEmbRouterParams | None,
         user_api_key_dict: UserAPIKeyAuth,
-        existing_litellm_params: GenericLiteLLMParams | None = None,
+        existing_embrouter_params: GenericEmbRouterParams | None = None,
     ) -> Literal[True]:
-        if litellm_params is None or litellm_params.aws_session_tags is None:
+        if embrouter_params is None or embrouter_params.aws_session_tags is None:
             return True
-        if user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN:
+        if user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN:
             return True
-        existing_tags: Final = existing_litellm_params.aws_session_tags if existing_litellm_params is not None else None
+        existing_tags: Final = existing_embrouter_params.aws_session_tags if existing_embrouter_params is not None else None
         if existing_tags is not None and _canonical_session_tags(existing_tags) == _canonical_session_tags(
-            litellm_params.aws_session_tags
+            embrouter_params.aws_session_tags
         ):
             return True
         raise ProxyException(
@@ -2086,7 +2086,7 @@ class ModelManagementAuthChecks:
                 status_code=400,
                 detail={"error": f"Team id={model_params.model_info.team_id} does not exist in db"},
             )
-        existing_team_row: Final = LiteLLM_TeamTable.model_validate(_existing_team_row.model_dump())
+        existing_team_row: Final = EmbRouter_TeamTable.model_validate(_existing_team_row.model_dump())
 
         ModelManagementAuthChecks.can_user_make_team_model_call(
             team_id=model_params.model_info.team_id,
@@ -2107,8 +2107,8 @@ class ModelManagementAuthChecks:
         incoming_model_params: updateDeployment | None = None,
     ) -> Literal[True] | MemberAutoRouterWrite:
         if user_api_key_dict.user_role in (
-            LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY,
-            LitellmUserRoles.INTERNAL_USER_VIEW_ONLY,
+            EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY,
+            EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY,
         ):
             raise HTTPException(status_code=403, detail="View-only users cannot manage models.")
         ## Check team model auth
@@ -2121,7 +2121,7 @@ class ModelManagementAuthChecks:
                 # act on the orphaned model, but only as a proxy admin -- without the
                 # team there is no team-admin membership left to verify.
                 if allow_missing_team:
-                    if user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN:
+                    if user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN:
                         return True
                     raise HTTPException(
                         status_code=403,
@@ -2131,14 +2131,14 @@ class ModelManagementAuthChecks:
                     status_code=400,
                     detail={"error": f"Team id={model_params.model_info.team_id} does not exist in db"},
                 )
-            team_obj: Final = LiteLLM_TeamTable.model_validate(team_obj_row.model_dump())
+            team_obj: Final = EmbRouter_TeamTable.model_validate(team_obj_row.model_dump())
 
             if (
                 member_operation is not None
-                and user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN
+                and user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN
                 and not _is_user_team_admin(user_api_key_dict=user_api_key_dict, team_obj=team_obj)
             ):
-                from litellm.proxy.proxy_server import llm_router
+                from embrouter.proxy.proxy_server import llm_router
 
                 if llm_router is None or (member_operation == "update" and incoming_model_params is None):
                     raise HTTPException(
@@ -2161,7 +2161,7 @@ class ModelManagementAuthChecks:
                 premium_user=premium_user,
             )
         ## Check non-team model auth
-        elif user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+        elif user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
             raise HTTPException(
                 status_code=403,
                 detail={
@@ -2185,7 +2185,7 @@ async def delete_model(
     model_info: ModelInfoDelete,
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
 ):
-    from litellm.proxy.proxy_server import llm_router
+    from embrouter.proxy.proxy_server import llm_router
 
     try:
         """
@@ -2195,7 +2195,7 @@ async def delete_model(
         - Delete
         """
 
-        from litellm.proxy.proxy_server import (
+        from embrouter.proxy.proxy_server import (
             MODEL_RECONCILE_LOCK,
             llm_router,
             premium_user,
@@ -2236,7 +2236,7 @@ async def delete_model(
             - store model_list in db
             - store keys separately
             """
-            # encrypt litellm params #
+            # encrypt embrouter params #
             result: Final = await _proxy_model_table(prisma_client).delete(where={"model_id": model_info.id})
 
             if result is None:
@@ -2279,11 +2279,11 @@ async def delete_model(
                     object_id=model_info.id,
                     action="deleted",
                     user_api_key_dict=user_api_key_dict,
-                    table_name=LitellmTableNames.PROXY_MODEL_TABLE_NAME,
+                    table_name=EmbrouterTableNames.PROXY_MODEL_TABLE_NAME,
                     before_value=result.model_dump_json(exclude_none=True),
                     after_value=None,
-                    litellm_changed_by=user_api_key_dict.user_id,
-                    litellm_proxy_admin_name=LITELLM_PROXY_ADMIN_NAME,
+                    embrouter_changed_by=user_api_key_dict.user_id,
+                    embrouter_proxy_admin_name=EMBROUTER_PROXY_ADMIN_NAME,
                 )
             )
             return {"message": f"Model: {result.model_id} deleted successfully"}
@@ -2365,8 +2365,8 @@ async def add_new_model(
 
     Parameters:
     - model_name: str - The name users will use to call this model (required)
-    - litellm_params: dict - LiteLLM-specific parameters (required)
-        - model: str - The actual model identifier, e.g., "azure/my-deployment-name" (required - this is the only required field in litellm_params)
+    - embrouter_params: dict - EmbRouter-specific parameters (required)
+        - model: str - The actual model identifier, e.g., "azure/my-deployment-name" (required - this is the only required field in embrouter_params)
         - api_key: str - API key for the provider (optional)
         - api_base: str - API base URL (optional)
         - Other optional params: api_version, timeout, max_retries, etc.
@@ -2376,11 +2376,11 @@ async def add_new_model(
 
     ```bash
     curl -L -X POST 'http://0.0.0.0:4000/model/new' \
-    -H 'Authorization: Bearer LITELLM_VIRTUAL_KEY' \
+    -H 'Authorization: Bearer EMBROUTER_VIRTUAL_KEY' \
     -H 'Content-Type: application/json' \
     -d '{
       "model_name": "my-azure-model",
-      "litellm_params": {
+      "embrouter_params": {
         "model": "azure/my-deployment-name",
         "api_key": "my-azure-api-key",
         "api_base": "https://my-endpoint.openai.azure.com"
@@ -2394,7 +2394,7 @@ async def add_new_model(
     Returns:
     - The created model entry with model_id
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         premium_user,
         prisma_client,
@@ -2423,22 +2423,22 @@ async def add_new_model(
         member_write: Final = write_authorization if isinstance(write_authorization, MemberAutoRouterWrite) else None
 
         ModelManagementAuthChecks.can_user_attach_credential(
-            litellm_params=model_params.litellm_params,
+            embrouter_params=model_params.embrouter_params,
             user_api_key_dict=user_api_key_dict,
         )
 
         ModelManagementAuthChecks.can_user_set_aws_session_tags(
-            litellm_params=model_params.litellm_params,
+            embrouter_params=model_params.embrouter_params,
             user_api_key_dict=user_api_key_dict,
         )
 
         _raise_on_strategy_router_write_violation(
-            incoming_params=model_params.litellm_params,
+            incoming_params=model_params.embrouter_params,
             existing_params=None,
         )
 
         _raise_if_rate_limits_required_but_missing(
-            litellm_params=model_params.litellm_params,
+            embrouter_params=model_params.embrouter_params,
             enforced=bool(general_settings.get(ENFORCE_RPM_TPM_ON_MODEL_ADD_SETTING, False)),
         )
 
@@ -2451,7 +2451,7 @@ async def add_new_model(
             else clean_model_info
         )
 
-        model_response: prisma_models.LiteLLM_ProxyModelTable | LiteLLM_ProxyModelTable | None = None
+        model_response: prisma_models.EmbRouter_ProxyModelTable | EmbRouter_ProxyModelTable | None = None
         # update DB
         incoming_model_info: Final = model_params.model_info.model_dump(exclude_none=True)
         _raise_if_ptu_cost_attribution_disabled(incoming_model_info)
@@ -2467,7 +2467,7 @@ async def add_new_model(
             live_before_reload: Final = live_model_ids_snapshot()
             reload_outcome: ReconcileOutcome = ReconcileOutcome(still_desired=None, live_after=None)
             try:
-                _original_litellm_model_name: Final = model_params.model_name
+                _original_embrouter_model_name: Final = model_params.model_name
                 add_model: Final = (
                     _add_model_to_db if model_params.model_info.team_id is None else _add_team_model_to_db
                 )
@@ -2478,7 +2478,7 @@ async def add_new_model(
                     slot=_auto_router_capability_slot(
                         prisma_client,
                         effective_params=_effective_complexity_router_params(
-                            priced_model_params.litellm_params,
+                            priced_model_params.embrouter_params,
                             None,
                         ),
                         model_id=priced_model_params.model_info.id,
@@ -2494,7 +2494,7 @@ async def add_new_model(
                     # send notification - new model added
                     await proxy_logging_obj.slack_alerting_instance.model_added_alert(
                         model_name=priced_model_params.model_name,
-                        litellm_model_name=_original_litellm_model_name,
+                        embrouter_model_name=_original_embrouter_model_name,
                         passed_model_info=priced_model_params.model_info,
                     )
             except Exception as e:
@@ -2520,13 +2520,13 @@ async def add_new_model(
                 object_id=model_response.model_id,
                 action="created",
                 user_api_key_dict=user_api_key_dict,
-                table_name=LitellmTableNames.PROXY_MODEL_TABLE_NAME,
+                table_name=EmbrouterTableNames.PROXY_MODEL_TABLE_NAME,
                 before_value=None,
                 after_value=(
                     model_response.model_dump_json(exclude_none=True) if isinstance(model_response, BaseModel) else None
                 ),
-                litellm_changed_by=user_api_key_dict.user_id,
-                litellm_proxy_admin_name=LITELLM_PROXY_ADMIN_NAME,
+                embrouter_changed_by=user_api_key_dict.user_id,
+                embrouter_proxy_admin_name=EMBROUTER_PROXY_ADMIN_NAME,
             )
         )
 
@@ -2541,7 +2541,7 @@ async def add_new_model(
         return model_response
 
     except Exception as e:
-        verbose_proxy_logger.exception("litellm.proxy.proxy_server.add_new_model(): Exception occured - %s", e)
+        verbose_proxy_logger.exception("embrouter.proxy.proxy_server.add_new_model(): Exception occured - %s", e)
         if isinstance(e, HTTPException):
             raise ProxyException(
                 message=getattr(e, "detail", f"Authentication Error({e})"),
@@ -2575,8 +2575,8 @@ async def update_model(
 
     Use `/model/{model_id}/update` to PATCH the stored model in db.
     """
-    from litellm.proxy.proxy_server import (
-        LITELLM_PROXY_ADMIN_NAME,
+    from embrouter.proxy.proxy_server import (
+        EMBROUTER_PROXY_ADMIN_NAME,
         llm_router,
         premium_user,
         prisma_client,
@@ -2602,9 +2602,9 @@ async def update_model(
         if _model_id is None:
             raise Exception("model_info.id not provided")
 
-        _existing_litellm_params = await ModelRepository(prisma_client).table.find_unique(where={"model_id": _model_id})
+        _existing_embrouter_params = await ModelRepository(prisma_client).table.find_unique(where={"model_id": _model_id})
 
-        if _existing_litellm_params is None:
+        if _existing_embrouter_params is None:
             if llm_router is not None and llm_router.get_deployment(model_id=_model_id) is not None:
                 raise HTTPException(
                     status_code=400,
@@ -2612,7 +2612,7 @@ async def update_model(
                 )
             else:
                 raise Exception("model not found")
-        deployment: Final = Deployment(**_existing_litellm_params.model_dump())
+        deployment: Final = Deployment(**_existing_embrouter_params.model_dump())
 
         write_authorization: Final = await ModelManagementAuthChecks.can_user_make_model_call(
             model_params=deployment,
@@ -2625,58 +2625,58 @@ async def update_model(
         member_write: Final = write_authorization if isinstance(write_authorization, MemberAutoRouterWrite) else None
 
         ModelManagementAuthChecks.can_user_attach_credential(
-            litellm_params=model_params.litellm_params,
+            embrouter_params=model_params.embrouter_params,
             user_api_key_dict=user_api_key_dict,
-            existing_litellm_params=deployment.litellm_params,
+            existing_embrouter_params=deployment.embrouter_params,
         )
 
         ModelManagementAuthChecks.can_user_set_aws_session_tags(
-            litellm_params=model_params.litellm_params,
+            embrouter_params=model_params.embrouter_params,
             user_api_key_dict=user_api_key_dict,
-            existing_litellm_params=deployment.litellm_params,
+            existing_embrouter_params=deployment.embrouter_params,
         )
 
         _raise_on_strategy_router_write_violation(
-            incoming_params=model_params.litellm_params,
-            existing_params=deployment.litellm_params,
+            incoming_params=model_params.embrouter_params,
+            existing_params=deployment.embrouter_params,
         )
         effective_params: Final = _effective_complexity_router_params(
-            model_params.litellm_params, deployment.litellm_params
+            model_params.embrouter_params, deployment.embrouter_params
         )
         member_marker: Final = _member_auto_router_marker_for_update(
-            incoming_params=model_params.litellm_params, existing=deployment, member_write=member_write
+            incoming_params=model_params.embrouter_params, existing=deployment, member_write=member_write
         )
 
         # update DB
         if store_model_in_db is True:
             existing_model_row: Final = cast(  # cast-ok: prisma types Json columns as `str`; the driver parses them
-                "_ExistingModelRow", _existing_litellm_params
+                "_ExistingModelRow", _existing_embrouter_params
             )
-            _existing_litellm_params_dict: Final = dict(existing_model_row.litellm_params)
+            _existing_embrouter_params_dict: Final = dict(existing_model_row.embrouter_params)
 
-            if model_params.litellm_params is None:
-                raise Exception("litellm_params not provided")
+            if model_params.embrouter_params is None:
+                raise Exception("embrouter_params not provided")
 
-            _new_litellm_params_dict: Final = model_params.litellm_params.dict(exclude_none=True)
+            _new_embrouter_params_dict: Final = model_params.embrouter_params.dict(exclude_none=True)
 
             ### ENCRYPT PARAMS ###
             encrypted_params: Final = MappingProxyType(
                 {
                     k: (
-                        _effective_complexity_router_config(model_params.litellm_params, deployment.litellm_params)
+                        _effective_complexity_router_config(model_params.embrouter_params, deployment.embrouter_params)
                         if k == "complexity_router_config"
                         else encrypt_value_helper(value=v)
                     )
-                    for k, v in _new_litellm_params_dict.items()
+                    for k, v in _new_embrouter_params_dict.items()
                 }
             )
 
             ### MERGE WITH EXISTING DATA ###
-            _mp: Final[dict[str, object]] = model_params.litellm_params.dict()
+            _mp: Final[dict[str, object]] = model_params.embrouter_params.dict()
             merged_dictionary: Final = {
-                key: _existing_litellm_params_dict[key] if value is None else encrypted_params[key]
+                key: _existing_embrouter_params_dict[key] if value is None else encrypted_params[key]
                 for key, value in _mp.items()
-                if value is not None or _existing_litellm_params_dict.get(key) is not None
+                if value is not None or _existing_embrouter_params_dict.get(key) is not None
             }
 
             renamed_to: Final = (
@@ -2686,8 +2686,8 @@ async def update_model(
                 else None
             )
             base_update: Final[PrismaCompatibleUpdateDBModel] = {
-                "litellm_params": json.dumps(merged_dictionary),
-                "updated_by": user_api_key_dict.user_id or LITELLM_PROXY_ADMIN_NAME,
+                "embrouter_params": json.dumps(merged_dictionary),
+                "updated_by": user_api_key_dict.user_id or EMBROUTER_PROXY_ADMIN_NAME,
             }
             renamed_update: Final[PrismaCompatibleUpdateDBModel] = (
                 {**base_update, "model_name": renamed_to}  # mutable-ok: Prisma serializes only concrete update dicts
@@ -2740,7 +2740,7 @@ async def update_model(
                     object_id=_model_id,
                     action="updated",
                     user_api_key_dict=user_api_key_dict,
-                    table_name=LitellmTableNames.PROXY_MODEL_TABLE_NAME,
+                    table_name=EmbrouterTableNames.PROXY_MODEL_TABLE_NAME,
                     before_value=(
                         existing_model_row.model_dump_json(exclude_none=True)
                         if isinstance(existing_model_row, BaseModel)
@@ -2751,8 +2751,8 @@ async def update_model(
                         if isinstance(model_response, BaseModel)
                         else None
                     ),
-                    litellm_changed_by=user_api_key_dict.user_id,
-                    litellm_proxy_admin_name=LITELLM_PROXY_ADMIN_NAME,
+                    embrouter_changed_by=user_api_key_dict.user_id,
+                    embrouter_proxy_admin_name=EMBROUTER_PROXY_ADMIN_NAME,
                 )
             )
 
@@ -2766,7 +2766,7 @@ async def update_model(
 
             return model_response
     except Exception as e:
-        verbose_proxy_logger.exception("litellm.proxy.proxy_server.update_model(): Exception occured - %s", e)
+        verbose_proxy_logger.exception("embrouter.proxy.proxy_server.update_model(): Exception occured - %s", e)
         if isinstance(e, HTTPException):
             raise ProxyException(
                 message=getattr(e, "detail", f"Authentication Error({e})"),
@@ -2812,10 +2812,10 @@ async def update_public_model_groups(
     """
     try:
         # Update the public model groups
-        from litellm.proxy.proxy_server import proxy_config, store_model_in_db
+        from embrouter.proxy.proxy_server import proxy_config, store_model_in_db
 
         # Check if user has admin permissions
-        if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+        if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
             raise HTTPException(
                 status_code=403,
                 detail={
@@ -2830,22 +2830,22 @@ async def update_public_model_groups(
                 detail={"error": "Set `'STORE_MODEL_IN_DB='True'` in your env to enable this feature."},
             )
 
-        # Load existing config first (this may overwrite in-memory litellm settings
+        # Load existing config first (this may overwrite in-memory embrouter settings
         # from DB values via _update_config_from_db), so set the in-memory value AFTER
         config: Final = await proxy_config.get_config()
 
         # Update config with new settings
-        if "litellm_settings" not in config:
-            config["litellm_settings"] = {}
+        if "embrouter_settings" not in config:
+            config["embrouter_settings"] = {}
 
-        config["litellm_settings"]["public_model_groups"] = request.model_groups
+        config["embrouter_settings"]["public_model_groups"] = request.model_groups
 
         # Save the updated config
         await proxy_config.save_config(new_config=config)
 
         # Set in-memory value AFTER get_config() and save_config() to avoid
         # get_config() overwriting with stale DB value
-        litellm.public_model_groups = request.model_groups
+        embrouter.public_model_groups = request.model_groups
 
         verbose_proxy_logger.debug(
             "Updated public model groups to: %s by user: %s", request.model_groups, user_api_key_dict.user_id
@@ -2886,10 +2886,10 @@ async def update_useful_links(
     """
     try:
         # Update the public model groups
-        from litellm.proxy.proxy_server import proxy_config
+        from embrouter.proxy.proxy_server import proxy_config
 
         # Check if user has admin permissions
-        if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+        if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
             raise HTTPException(
                 status_code=403,
                 detail={
@@ -2897,22 +2897,22 @@ async def update_useful_links(
                 },
             )
 
-        # Load existing config first (this may overwrite in-memory litellm settings
+        # Load existing config first (this may overwrite in-memory embrouter settings
         # from DB values via _update_config_from_db), so set the in-memory value AFTER
         config: Final = await proxy_config.get_config()
 
         # Update config with new settings
-        if "litellm_settings" not in config:
-            config["litellm_settings"] = {}
+        if "embrouter_settings" not in config:
+            config["embrouter_settings"] = {}
 
-        config["litellm_settings"]["public_model_groups_links"] = request.useful_links
+        config["embrouter_settings"]["public_model_groups_links"] = request.useful_links
 
         # Save the updated config
         await proxy_config.save_config(new_config=config)
 
         # Set in-memory value AFTER get_config() and save_config() to avoid
         # get_config() overwriting with stale DB value
-        litellm.public_model_groups_links = request.useful_links
+        embrouter.public_model_groups_links = request.useful_links
 
         verbose_proxy_logger.debug(
             "Updated useful links to: %s by user: %s", request.useful_links, user_api_key_dict.user_id
@@ -3069,7 +3069,7 @@ async def get_auto_router_classifier_default_prompt(
     )
 
 
-def _deduplicate_litellm_router_models(models: list[dict]) -> list[dict]:
+def _deduplicate_embrouter_router_models(models: list[dict]) -> list[dict]:
     """
     Deduplicate models based on their model_info.id field.
     Returns a list of unique models keeping only the first occurrence of each model ID.
@@ -3107,7 +3107,7 @@ def model_info_as_mapping(model_info: object) -> Mapping[str, object] | None:
 
 
 def _expects_liveness_on_this_pod(model_info: object) -> bool:
-    from litellm.router import model_info_is_active_for_environment
+    from embrouter.router import model_info_is_active_for_environment
 
     try:
         return model_info_is_active_for_environment(model_info=model_info_as_mapping(model_info))
@@ -3119,7 +3119,7 @@ def live_model_ids_snapshot() -> frozenset[str]:
     """The ids this pod's router is currently serving, read fresh from the module global
     because a reload can rebind it. The empirical ground truth every verdict below is
     computed from; an absent router serves nothing."""
-    from litellm.proxy.proxy_server import llm_router
+    from embrouter.proxy.proxy_server import llm_router
 
     if llm_router is None:
         return frozenset()
@@ -3139,7 +3139,7 @@ def reload_serving_verdict(
     The full cell matrix, per id:
     - written, must-serve (the write's purpose is this model's serving state): live now
       is fine; not live is reported unless the row is deliberately inactive for this
-      pod's LITELLM_ENVIRONMENT; a row whose model_info cannot be read counts as
+      pod's EMBROUTER_ENVIRONMENT; a row whose model_info cannot be read counts as
       expecting to serve, so its drop is still reported
     - written, metadata-only (must_not_degrade): live before and gone now is reported;
       a row that was already not serving stays silent, because its deadness predates
@@ -3237,7 +3237,7 @@ async def clear_cache() -> ReconcileOutcome:
     to any other reconcile. The inner call is _add_deployment_locked because
     add_deployment would re-acquire the same non-reentrant lock and deadlock.
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         MODEL_RECONCILE_LOCK,
         llm_router,
         prisma_client,
@@ -3269,7 +3269,7 @@ async def clear_cache() -> ReconcileOutcome:
                     # Auto-router deployments (and only those) are wiped here, in the
                     # same pass, so the reload rebuilds them -- see the comment below.
                     model_name = model.get("model_name")
-                    if model_name is not None and str(model.get("litellm_params", {}).get("model", "")).startswith(
+                    if model_name is not None and str(model.get("embrouter_params", {}).get("model", "")).startswith(
                         "auto_router/"
                     ):
                         db_router_names.add(model_name)

@@ -27,7 +27,7 @@ vi.mock("@/components/common_components/DeleteResourceModal", () => ({ default: 
 const toolWithServerOnlyParams: SearchTool = {
   search_tool_id: "tool-1",
   search_tool_name: "Perplexity Search",
-  litellm_params: {
+  embrouter_params: {
     search_provider: "perplexity",
     api_key: "sk-test-key",
     api_base: "https://api.example.com",
@@ -41,7 +41,7 @@ const toolWithServerOnlyParams: SearchTool = {
 const toolWithNullServerFields: SearchTool = {
   search_tool_id: "tool-1",
   search_tool_name: "Perplexity Search",
-  litellm_params: {
+  embrouter_params: {
     search_provider: "perplexity",
     api_key: null,
   },
@@ -92,14 +92,14 @@ describe("SearchTools edit payload", () => {
     expect(toolId).toBe("tool-1");
     expect(payload).toStrictEqual({
       search_tool_name: "Perplexity Search",
-      litellm_params: {
+      embrouter_params: {
         search_provider: "perplexity",
         api_key: "sk-test-key",
       },
       search_tool_info: { description: "Test description" },
     });
     expect(JSON.stringify(payload)).toBe(
-      '{"search_tool_name":"Perplexity Search","litellm_params":{"search_provider":"perplexity","api_key":"sk-test-key"},"search_tool_info":{"description":"Test description"}}',
+      '{"search_tool_name":"Perplexity Search","embrouter_params":{"search_provider":"perplexity","api_key":"sk-test-key"},"search_tool_info":{"description":"Test description"}}',
     );
   });
 
@@ -130,7 +130,7 @@ describe("SearchTools edit payload", () => {
     const payload = vi.mocked(networking.updateSearchTool).mock.calls[0][2];
     expect(payload).toStrictEqual({
       search_tool_name: "Perplexity Search",
-      litellm_params: {
+      embrouter_params: {
         search_provider: "perplexity",
         api_key: "sk-test-key",
       },
@@ -172,7 +172,7 @@ describe("SearchTools edit payload", () => {
     const payload = vi.mocked(networking.updateSearchTool).mock.calls[0][2];
     expect(payload).toStrictEqual({
       search_tool_name: "Perplexity Search",
-      litellm_params: {
+      embrouter_params: {
         search_provider: "perplexity",
         api_key: null,
       },

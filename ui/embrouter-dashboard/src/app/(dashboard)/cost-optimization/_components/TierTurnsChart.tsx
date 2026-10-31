@@ -37,7 +37,7 @@ const isComplexityTier = (tier: string): tier is keyof ComplexityTiers =>
 export const tierDisplayLabel = (tier: string, tierLabels: ComplexityTierLabels | undefined): string =>
   isComplexityTier(tier) ? effectiveTierLabel(tier, tierLabels) : tier;
 
-const CONFIG_KEY_BY_ROUTER_TYPE: Record<string, keyof NonNullable<AutoRouterDeployment["litellm_params"]>> = {
+const CONFIG_KEY_BY_ROUTER_TYPE: Record<string, keyof NonNullable<AutoRouterDeployment["embrouter_params"]>> = {
   complexity: "complexity_router_config",
   quality: "quality_router_config",
   auto_router: "auto_router_config",
@@ -51,7 +51,7 @@ const deploymentFor = (
 ): AutoRouterDeployment | undefined => {
   const configKey = CONFIG_KEY_BY_ROUTER_TYPE[routerType];
   if (!configKey) return undefined;
-  return autoRouters.find((d) => d.model_name === routerName && d.litellm_params?.[configKey]);
+  return autoRouters.find((d) => d.model_name === routerName && d.embrouter_params?.[configKey]);
 };
 
 const tierLabelsFor = (
@@ -61,7 +61,7 @@ const tierLabelsFor = (
 ): ComplexityTierLabels | undefined => {
   const deployment = deploymentFor(routerName, routerType, autoRouters);
   if (!deployment) return undefined;
-  const config = asRecord(deployment.litellm_params?.complexity_router_config);
+  const config = asRecord(deployment.embrouter_params?.complexity_router_config);
   return hydrateTierLabels(config.tier_labels);
 };
 
@@ -73,7 +73,7 @@ const tierModelsFor = (
 ): string[] => {
   const deployment = deploymentFor(routerName, routerType, autoRouters);
   if (!deployment) return [];
-  const config = asRecord(deployment.litellm_params?.complexity_router_config);
+  const config = asRecord(deployment.embrouter_params?.complexity_router_config);
   const tiers = asRecord(config.tiers);
   return normalizeTierModels(tiers[tier]);
 };

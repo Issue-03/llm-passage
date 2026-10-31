@@ -1,12 +1,12 @@
 #### What this tests ####
-#    This tests litellm.token_counter() function
+#    This tests embrouter.token_counter() function
 
 import pytest
 
 
 # Use the same token_counter as the main test.
-from tests.unit.litellm_core_utils.test_token_counter import token_counter
-from tests.unit.litellm_core_utils.test_token_counter_tool_data import *
+from tests.unit.embrouter_core_utils.test_token_counter import token_counter
+from tests.unit.embrouter_core_utils.test_token_counter_tool_data import *
 
 
 @pytest.mark.parametrize(

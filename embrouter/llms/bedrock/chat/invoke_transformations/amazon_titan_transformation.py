@@ -2,9 +2,9 @@ import re
 import types
 from typing import Final
 
-import litellm
-from litellm.llms.base_llm.chat.transformation import BaseConfig
-from litellm.llms.bedrock.chat.invoke_transformations.base_invoke_transformation import (
+import embrouter
+from embrouter.llms.base_llm.chat.transformation import BaseConfig
+from embrouter.llms.bedrock.chat.invoke_transformations.base_invoke_transformation import (
     AmazonInvokeConfig,
 )
 
@@ -67,10 +67,10 @@ class AmazonTitanConfig(AmazonInvokeConfig, BaseConfig):
         stop: list[str] | str,
     ):
         """
-        filter params to fit the required provider format, drop those that don't fit if user sets `litellm.drop_params = True`.
+        filter params to fit the required provider format, drop those that don't fit if user sets `embrouter.drop_params = True`.
         """
         filtered_stop = None
-        if "stop" in supported_params and litellm.drop_params:
+        if "stop" in supported_params and embrouter.drop_params:
             if provider == "bedrock" and "amazon" in model:
                 filtered_stop = []
                 if isinstance(stop, list):

@@ -1,24 +1,24 @@
 """
-MCP Security Guardrail for LiteLLM.
+MCP Security Guardrail for EmbRouter.
 
 Validates that MCP servers referenced in request tools are registered
-on the LiteLLM gateway. Blocks or alerts when unregistered servers are found.
+on the EmbRouter gateway. Blocks or alerts when unregistered servers are found.
 """
 
 from typing import Any, Final, Literal
 
 from fastapi import HTTPException
 
-from litellm._logging import verbose_proxy_logger
-from litellm.integrations.custom_guardrail import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.integrations.custom_guardrail import (
     CustomGuardrail,
     log_guardrail_information,
 )
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.responses.mcp.litellm_proxy_mcp_handler import (
-    LITELLM_PROXY_MCP_SERVER_URL_PREFIX,
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.responses.mcp.embrouter_proxy_mcp_handler import (
+    EMBROUTER_PROXY_MCP_SERVER_URL_PREFIX,
 )
-from litellm.types.guardrails import GuardrailEventHooks
+from embrouter.types.guardrails import GuardrailEventHooks
 
 
 class MCPSecurityGuardrail(CustomGuardrail):
@@ -73,7 +73,7 @@ class MCPSecurityGuardrail(CustomGuardrail):
 
     @staticmethod
     def _extract_mcp_server_names_from_tools(tools: list[dict]) -> set[str]:
-        """Extract MCP server names from tools with type=mcp and litellm_proxy server_url."""
+        """Extract MCP server names from tools with type=mcp and embrouter_proxy server_url."""
         server_names: Final[set[str]] = set()
         for tool in tools:
             if not isinstance(tool, dict):
@@ -83,8 +83,8 @@ class MCPSecurityGuardrail(CustomGuardrail):
             server_url = tool.get("server_url", "")
             if not isinstance(server_url, str):
                 continue
-            if server_url.startswith(LITELLM_PROXY_MCP_SERVER_URL_PREFIX):
-                name = server_url[len(LITELLM_PROXY_MCP_SERVER_URL_PREFIX) :]
+            if server_url.startswith(EMBROUTER_PROXY_MCP_SERVER_URL_PREFIX):
+                name = server_url[len(EMBROUTER_PROXY_MCP_SERVER_URL_PREFIX) :]
                 if name:
                     server_names.add(name)
         return server_names
@@ -100,7 +100,7 @@ class MCPSecurityGuardrail(CustomGuardrail):
         if not requested_servers:
             return set()
 
-        from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+        from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
             global_mcp_server_manager,
         )
 

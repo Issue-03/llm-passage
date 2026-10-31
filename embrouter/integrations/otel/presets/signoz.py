@@ -5,16 +5,16 @@ from typing import Final
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.integrations.otel.model.config import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.integrations.otel.model.config import (
     ExporterOwner,
     ExporterSpec,
     OpenTelemetryV2Config,
 )
-from litellm.integrations.otel.presets.utils import ensure_mappers
-from litellm.litellm_core_utils.url_utils import is_url_destination_allowed_by_host
-from litellm.types.utils import StandardCallbackDynamicParams
+from embrouter.integrations.otel.presets.utils import ensure_mappers
+from embrouter.embrouter_core_utils.url_utils import is_url_destination_allowed_by_host
+from embrouter.types.utils import StandardCallbackDynamicParams
 
 SIGNOZ_INGESTION_ENDPOINT_ENV: Final = "SIGNOZ_INGESTION_ENDPOINT"
 
@@ -55,7 +55,7 @@ def signoz_preset(
 def _warn_host_not_allowlisted(endpoint: str) -> None:
     verbose_logger.warning(
         "SigNoz: not exporting to key/team endpoint '%s'. Add its host to "
-        "litellm_settings.provider_url_destination_allowed_hosts to permit it",
+        "embrouter_settings.provider_url_destination_allowed_hosts to permit it",
         endpoint,
     )
 
@@ -80,7 +80,7 @@ def signoz_dynamic_endpoint(params: StandardCallbackDynamicParams) -> str | None
     if not params.get("signoz_ingestion_key"):
         _warn_endpoint_without_key(endpoint)
         return None
-    if not is_url_destination_allowed_by_host(endpoint, litellm.provider_url_destination_allowed_hosts):
+    if not is_url_destination_allowed_by_host(endpoint, embrouter.provider_url_destination_allowed_hosts):
         _warn_host_not_allowlisted(endpoint)
         return None
     return endpoint

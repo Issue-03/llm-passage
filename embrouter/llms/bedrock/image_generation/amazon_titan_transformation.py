@@ -7,13 +7,13 @@ from typing import Final
 
 from openai.types.image import Image
 
-from litellm.types.llms.bedrock import (
+from embrouter.types.llms.bedrock import (
     AmazonNovaCanvasImageGenerationConfig,
     AmazonTitanImageGenerationRequestBody,
     AmazonTitanTextToImageParams,
 )
-from litellm.types.utils import ImageResponse
-from litellm.utils import get_model_info
+from embrouter.types.utils import ImageResponse
+from embrouter.utils import get_model_info
 
 
 class AmazonTitanImageGenerationConfig:

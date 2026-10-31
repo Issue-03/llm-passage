@@ -10,11 +10,11 @@ Docs: https://openrouter.ai/docs/api/reference/responses/overview
 
 from typing import Final
 
-import litellm
-from litellm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import LlmProviders
+import embrouter
+from embrouter.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import LlmProviders
 
 
 class OpenRouterResponsesAPIConfig(OpenAIResponsesAPIConfig):
@@ -37,12 +37,12 @@ class OpenRouterResponsesAPIConfig(OpenAIResponsesAPIConfig):
         self,
         headers: dict,
         model: str,
-        litellm_params: GenericLiteLLMParams | None,
+        embrouter_params: GenericEmbRouterParams | None,
     ) -> dict:
-        litellm_params = litellm_params or GenericLiteLLMParams()
+        embrouter_params = embrouter_params or GenericEmbRouterParams()
         api_key: Final = (
-            litellm_params.api_key
-            or litellm.api_key
+            embrouter_params.api_key
+            or embrouter.api_key
             or get_secret_str("OPENROUTER_API_KEY")
             or get_secret_str("OR_API_KEY")
         )
@@ -62,10 +62,10 @@ class OpenRouterResponsesAPIConfig(OpenAIResponsesAPIConfig):
     def get_complete_url(
         self,
         api_base: str | None,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> str:
         api_base = (
-            api_base or litellm.api_base or get_secret_str("OPENROUTER_API_BASE") or "https://openrouter.ai/api/v1"
+            api_base or embrouter.api_base or get_secret_str("OPENROUTER_API_BASE") or "https://openrouter.ai/api/v1"
         )
 
         api_base = api_base.rstrip("/")

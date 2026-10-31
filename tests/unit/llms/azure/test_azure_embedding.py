@@ -8,8 +8,8 @@ sys.path.insert(
     0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../.."))
 )
 
-from litellm.llms.azure.azure import AzureChatCompletion
-from litellm.types.utils import EmbeddingResponse, Usage
+from embrouter.llms.azure.azure import AzureChatCompletion
+from embrouter.types.utils import EmbeddingResponse, Usage
 
 
 def _make_embedding_response() -> EmbeddingResponse:
@@ -43,7 +43,7 @@ class TestAzureV1AsyncEmbedding:
                 optional_params={},
                 api_key="fake-key",
                 aembedding=True,
-                litellm_params={},
+                embrouter_params={},
             )
 
         mock_aembedding.assert_called_once()
@@ -59,7 +59,7 @@ class TestAzureV1AsyncEmbedding:
             api_base="https://my-endpoint.openai.azure.com",
             api_version="v1",
             _is_async=True,
-            litellm_params={},
+            embrouter_params={},
         )
 
         assert isinstance(client, AsyncOpenAI)
@@ -72,7 +72,7 @@ class TestAzureV1AsyncEmbedding:
             api_base="https://my-endpoint.openai.azure.com",
             api_version="v1",
             _is_async=True,
-            litellm_params={},
+            embrouter_params={},
         )
 
         assert client is not None
@@ -88,7 +88,7 @@ class TestAzureV1AsyncEmbedding:
             api_base="https://my-endpoint.openai.azure.com",
             api_version=api_version,
             _is_async=True,
-            litellm_params={},
+            embrouter_params={},
         )
 
         assert isinstance(client, AsyncOpenAI)

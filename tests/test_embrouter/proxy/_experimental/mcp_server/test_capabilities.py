@@ -7,14 +7,14 @@ from mcp.shared.exceptions import MCPError
 from mcp.types import PromptsCapability, ResourcesCapability, ServerCapabilities, ToolsCapability
 from mcp_types.version import HANDSHAKE_PROTOCOL_VERSIONS
 
-from litellm.proxy._experimental.mcp_server.capabilities import (
+from embrouter.proxy._experimental.mcp_server.capabilities import (
     GATEWAY_OPERATIONS,
     REVISION_SUPPORT,
     TRANSLATION_PAIRS,
     GatewayVersionPolicy,
     build_discovery,
 )
-from litellm.types.mcp import MCPTransport
+from embrouter.types.mcp import MCPTransport
 
 
 @pytest.mark.parametrize("revision", HANDSHAKE_PROTOCOL_VERSIONS)

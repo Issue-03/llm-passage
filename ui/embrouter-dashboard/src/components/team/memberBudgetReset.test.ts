@@ -11,7 +11,7 @@ describe("customBudgetMemberUserIds", () => {
   const customRow = (user_id: string, max_budget: number | null = 50) => ({
     user_id,
     budget_source: "custom" as const,
-    litellm_budget_table: { max_budget },
+    embrouter_budget_table: { max_budget },
   });
 
   it("returns only members whose budget_source is custom with a private cap", () => {
@@ -32,7 +32,7 @@ describe("customBudgetMemberUserIds", () => {
 
   it("skips a custom row that has no budget table at all", () => {
     const memberships = [
-      { user_id: "u-no-table", budget_source: "custom" as const, litellm_budget_table: null },
+      { user_id: "u-no-table", budget_source: "custom" as const, embrouter_budget_table: null },
       customRow("u-custom"),
     ];
 

@@ -1,6 +1,6 @@
 
 
-from litellm.litellm_core_utils.model_param_helper import ModelParamHelper
+from embrouter.embrouter_core_utils.model_param_helper import ModelParamHelper
 
 
 def test_get_all_llm_api_params_is_correct():

@@ -1,8 +1,8 @@
 """Python faces of the Rust text codecs.
 
 ``OpenAIEncoding`` mirrors ``tiktoken.Encoding`` and ``HuggingFaceTokenizer`` mirrors
-``tokenizers.Tokenizer``, so a caller holding ``litellm.encoding`` or the object returned by
-``litellm.create_tokenizer`` sees the same read-only surface whichever backend the Rust catalog
+``tokenizers.Tokenizer``, so a caller holding ``embrouter.encoding`` or the object returned by
+``embrouter.create_tokenizer`` sees the same read-only surface whichever backend the Rust catalog
 selected. Both wrappers are immutable: ``tokenizers`` mutators (``enable_padding``,
 ``enable_truncation``, ``add_tokens``) stay on the Python tokenizer.
 """
@@ -25,8 +25,8 @@ if TYPE_CHECKING:
     import numpy as np
     import numpy.typing as npt
 
-    from litellm.rust_bridge._native import HuggingFaceEncoding
-    from litellm.rust_bridge._native import Tokenizer as NativeTokenizer
+    from embrouter.rust_bridge._native import HuggingFaceEncoding
+    from embrouter.rust_bridge._native import Tokenizer as NativeTokenizer
 
 SpecialTokens: TypeAlias = Literal["all"] | Collection[str]
 AllowedSpecial: TypeAlias = Literal["all"] | Set[str]
@@ -47,7 +47,7 @@ class OpenAIEncoding:
 
     @staticmethod
     def from_tiktoken(encoding: str) -> OpenAIEncoding:
-        from litellm.rust_bridge._native import Tokenizer as NativeTokenizer
+        from embrouter.rust_bridge._native import Tokenizer as NativeTokenizer
 
         return OpenAIEncoding.wrap(NativeTokenizer.from_tiktoken(encoding))
 
@@ -235,7 +235,7 @@ class HuggingFaceTokenizer:
 
     @staticmethod
     def from_str(json: str) -> HuggingFaceTokenizer:
-        from litellm.rust_bridge._native import Tokenizer as NativeTokenizer
+        from embrouter.rust_bridge._native import Tokenizer as NativeTokenizer
 
         return HuggingFaceTokenizer(NativeTokenizer.from_json(json))
 
@@ -251,7 +251,7 @@ class HuggingFaceTokenizer:
 
     @staticmethod
     def from_pretrained(identifier: str, revision: str = "main", token: str | None = None) -> HuggingFaceTokenizer:
-        from litellm.rust_bridge._native import Tokenizer as NativeTokenizer
+        from embrouter.rust_bridge._native import Tokenizer as NativeTokenizer
 
         return HuggingFaceTokenizer(NativeTokenizer.from_pretrained(identifier, revision=revision, token=token))
 

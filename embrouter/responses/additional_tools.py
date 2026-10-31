@@ -4,8 +4,8 @@ from typing import Final, cast  # noqa: TID251  # validating the openai tool uni
 
 from pydantic import BaseModel, ValidationError
 
-from litellm._logging import verbose_logger
-from litellm.types.llms.openai import ALL_RESPONSES_API_TOOL_PARAMS, ResponseInputParam
+from embrouter._logging import verbose_logger
+from embrouter.types.llms.openai import ALL_RESPONSES_API_TOOL_PARAMS, ResponseInputParam
 
 ADDITIONAL_TOOLS_INPUT_ITEM_TYPE: Final = "additional_tools"
 

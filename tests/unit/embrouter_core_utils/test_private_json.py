@@ -4,7 +4,7 @@ import stat
 
 import pytest
 
-from litellm.litellm_core_utils.private_json import (
+from embrouter.embrouter_core_utils.private_json import (
     overwrite_private_json,
     write_private_bytes,
     write_private_json,

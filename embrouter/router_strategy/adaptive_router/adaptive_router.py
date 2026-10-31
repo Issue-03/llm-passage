@@ -20,25 +20,25 @@ from collections.abc import Mapping
 from dataclasses import asdict, dataclass
 from typing import Any, Final, cast
 
-from litellm._logging import verbose_router_logger
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+from embrouter._logging import verbose_router_logger
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
     get_last_user_message,
 )
-from litellm.router_strategy.adaptive_router.bandit import (
+from embrouter.router_strategy.adaptive_router.bandit import (
     BanditCell,
     apply_delta,
     initial_cell,
     pick_best,
 )
-from litellm.router_strategy.adaptive_router.classifier import classify_prompt
-from litellm.router_strategy.adaptive_router.config import (
+from embrouter.router_strategy.adaptive_router.classifier import classify_prompt
+from embrouter.router_strategy.adaptive_router.config import (
     ADAPTIVE_ROUTER_CHOSEN_MODEL_KEY,
     MIN_QUALITY_TIER_HEADER,
     MIN_QUALITY_TIER_METADATA_KEY,
     MIN_TURNS_FOR_CLEAN_CREDIT,
     OWNER_CACHE_TTL_SECONDS,
 )
-from litellm.router_strategy.adaptive_router.signals import (
+from embrouter.router_strategy.adaptive_router.signals import (
     SessionState,
     SignalDelta,
     Turn,
@@ -48,18 +48,18 @@ from litellm.router_strategy.adaptive_router.signals import (
     detect_user_feedback,
     merge_signal_deltas,
 )
-from litellm.router_strategy.adaptive_router.update_queue import (
+from embrouter.router_strategy.adaptive_router.update_queue import (
     AdaptiveRouterUpdateQueue,
 )
-from litellm.types.utils import StandardLoggingRoutingDecision
+from embrouter.types.utils import StandardLoggingRoutingDecision
 
 # Sweep session-state cache when it exceeds this many live entries. Expired
 # entries are dropped in bulk; amortizes to O(1) per insert.
 _SESSION_STATE_SWEEP_THRESHOLD: Final[int] = 1024
 _FEEDBACK_CONTEXT_MAX_ENTRIES: Final[int] = 1024
-from litellm.repositories.table_repositories import AdaptiveRouterStateRepository
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.router import (
+from embrouter.repositories.table_repositories import AdaptiveRouterStateRepository
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.router import (
     AdaptiveRouterConfig,
     AdaptiveRouterPreferences,
     PreRoutingHookResponse,
@@ -198,9 +198,9 @@ class AdaptiveRouter:
         )
 
         # Relay the chosen logical model to the post-call hook, which surfaces
-        # it as the `x-litellm-adaptive-router-model` response header. We use
+        # it as the `x-embrouter-adaptive-router-model` response header. We use
         # `metadata` (not a top-level kwarg) so the value doesn't leak into
-        # `litellm.acompletion(**input_kwargs)`.
+        # `embrouter.acompletion(**input_kwargs)`.
         kwargs_metadata: Final = request_kwargs.setdefault("metadata", {})
         if isinstance(kwargs_metadata, dict):
             kwargs_metadata[ADAPTIVE_ROUTER_CHOSEN_MODEL_KEY] = chosen_model
@@ -283,7 +283,7 @@ class AdaptiveRouter:
     ) -> int | None:
         """Pull `min_quality_tier` from request headers or metadata.
 
-        Precedence: headers (`x-litellm-min-quality-tier`) over metadata
+        Precedence: headers (`x-embrouter-min-quality-tier`) over metadata
         (`min_quality_tier`). Headers arrive lowercased from the proxy but we
         lookup case-insensitively to be safe. Unparseable values are ignored
         (treated as "not set") rather than raising — a bad header shouldn't

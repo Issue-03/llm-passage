@@ -19,24 +19,24 @@ from typing_extensions import NotRequired, TypedDict
 from websockets.asyncio.client import ClientConnection, connect
 from websockets.exceptions import ConnectionClosed
 
-from litellm import DualCache
-from litellm._logging import verbose_proxy_logger
-from litellm._version import version as litellm_version
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter import DualCache
+from embrouter._logging import verbose_proxy_logger
+from embrouter._version import version as embrouter_version
+from embrouter.integrations.custom_guardrail import CustomGuardrail
+from embrouter.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
     get_ssl_configuration,
     httpxSpecialProvider,
 )
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.guardrails._content_utils import (
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.guardrails._content_utils import (
     apply_redacted_messages_back,
     build_inspection_messages,
     is_non_conversational_call_type,
     is_string_batch_input,
 )
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.utils import (
+from embrouter.types.guardrails import GuardrailEventHooks
+from embrouter.types.utils import (
     CallTypesLiteral,
     Choices,
     LLMResponseTypes,
@@ -47,7 +47,7 @@ from litellm.types.utils import (
 )
 
 if TYPE_CHECKING:
-    from litellm.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
+    from embrouter.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
 
 
 class CatoNetworksGuardrailMissingSecrets(Exception):
@@ -294,12 +294,12 @@ class CatoNetworksGuardrail(CustomGuardrail):
         key_alias: str | None,
         user_email: str | None = None,
     ) -> dict:
-        call_id: Final = data.get("litellm_call_id")
+        call_id: Final = data.get("embrouter_call_id")
         headers: Final = self._build_cato_headers(
             hook=hook,
             key_alias=key_alias,
             user_email=user_email,
-            litellm_call_id=call_id,
+            embrouter_call_id=call_id,
         )
         response: Final = await self.async_handler.post(
             f"{self.api_base}/fw/v1/analyze",
@@ -433,7 +433,7 @@ class CatoNetworksGuardrail(CustomGuardrail):
         key_alias: str | None,
         user_email: str | None = None,
     ) -> _CatoOutputRedaction | None:
-        call_id: Final = request_data.get("litellm_call_id")
+        call_id: Final = request_data.get("embrouter_call_id")
         inspection_messages: Final = self._inspection_messages(request_data)
         assistant_index: Final = len(inspection_messages)
         response: Final = await self.async_handler.post(
@@ -442,7 +442,7 @@ class CatoNetworksGuardrail(CustomGuardrail):
                 hook=hook,
                 key_alias=key_alias,
                 user_email=user_email,
-                litellm_call_id=call_id,
+                embrouter_call_id=call_id,
             ),
             json={"messages": inspection_messages + [{"role": "assistant", "content": output}]},
         )
@@ -482,7 +482,7 @@ class CatoNetworksGuardrail(CustomGuardrail):
         hook: str,
         key_alias: str | None,
         user_email: str | None,
-        litellm_call_id: str | None,
+        embrouter_call_id: str | None,
     ):
         """
         A helper function to build the http headers that are required by Cato guardrails.
@@ -491,12 +491,12 @@ class CatoNetworksGuardrail(CustomGuardrail):
             {
                 "Authorization": f"Bearer {self.api_key}",
                 # Used by Cato Networks to apply only the guardrails that should be applied in a specific request phase.
-                "x-cato-litellm-hook": hook,
-                # Used by Cato Networks to track LiteLLM version and provide backward compatibility.
-                "x-cato-litellm-version": litellm_version,
+                "x-cato-embrouter-hook": hook,
+                # Used by Cato Networks to track EmbRouter version and provide backward compatibility.
+                "x-cato-embrouter-version": embrouter_version,
             }
             # Used by Cato Networks to track together single call input and output
-            | ({"x-cato-call-id": litellm_call_id} if litellm_call_id else {})
+            | ({"x-cato-call-id": embrouter_call_id} if embrouter_call_id else {})
             # Used by Cato Networks to track guardrails violations by user.
             | ({"x-cato-user-email": user_email} if user_email else {})
             | (
@@ -617,17 +617,17 @@ class CatoNetworksGuardrail(CustomGuardrail):
         response: AsyncIterable[object],
         request_data: dict,
     ) -> AsyncGenerator[ModelResponseStream, None]:
-        from litellm.proxy.proxy_server import StreamingCallbackError
+        from embrouter.proxy.proxy_server import StreamingCallbackError
 
         user_email: Final = self._resolve_cato_user_email(user_api_key_dict)
-        call_id: Final = request_data.get("litellm_call_id")
+        call_id: Final = request_data.get("embrouter_call_id")
         async with connect(
             f"{self.ws_api_base}/fw/v1/analyze/stream",
             additional_headers=self._build_cato_headers(
                 hook="output",
                 key_alias=user_api_key_dict.key_alias,
                 user_email=user_email,
-                litellm_call_id=call_id,
+                embrouter_call_id=call_id,
             ),
             **self._ws_connect_ssl_kwargs,
         ) as websocket:
@@ -650,7 +650,7 @@ class CatoNetworksGuardrail(CustomGuardrail):
 
     async def _await_cato_message(self, websocket: ClientConnection, sender: asyncio.Task[None]) -> str | bytes:
         """Wait for the next Cato message, surfacing a dead forwarding task instead of blocking."""
-        from litellm.proxy.proxy_server import StreamingCallbackError
+        from embrouter.proxy.proxy_server import StreamingCallbackError
 
         recv_task: Final = asyncio.ensure_future(websocket.recv())
         pending: Final = {recv_task, sender} if not sender.done() else {recv_task}
@@ -678,7 +678,7 @@ class CatoNetworksGuardrail(CustomGuardrail):
 
     @staticmethod
     def get_config_model() -> type["GuardrailConfigModel"] | None:
-        from litellm.types.proxy.guardrails.guardrail_hooks.cato_networks import (
+        from embrouter.types.proxy.guardrails.guardrail_hooks.cato_networks import (
             CatoNetworksGuardrailConfigModel,
         )
 

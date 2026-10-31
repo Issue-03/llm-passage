@@ -10,7 +10,7 @@ Signal order, strongest first:
 
 1. Per-user OAuth token rows exist for the server: only the interactive flow mints
    per-user tokens, so this is definitive and immune to the discovery trap. BYOK API
-   keys share the same table (``LiteLLM_MCPUserCredentials``), so only rows whose
+   keys share the same table (``EmbRouter_MCPUserCredentials``), so only rows whose
    payload decodes as a ``type: oauth2`` token count as proof; bare keys and
    undecodable rows prove nothing about the flow.
 2. ``authorization_url`` persisted: interactive needs a user-facing authorization
@@ -41,10 +41,10 @@ from typing import Final, Literal, Protocol
 
 from pydantic import JsonValue
 
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy._experimental.mcp_server.db import _decode_oauth_payload, decrypt_credentials
-from litellm.proxy.utils import PrismaClient
-from litellm.types.mcp import MCPCredentials
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy._experimental.mcp_server.db import _decode_oauth_payload, decrypt_credentials
+from embrouter.proxy.utils import PrismaClient
+from embrouter.types.mcp import MCPCredentials
 
 OAuth2Flow = Literal["client_credentials", "authorization_code"]
 BackfillRule = Literal[
@@ -59,7 +59,7 @@ _BACKFILL_AUDIT_ACTOR: Final = "oauth2_flow_backfill"
 
 
 class _MCPServerRow(Protocol):
-    """The ``LiteLLM_MCPServerTable`` columns this backfill reads."""
+    """The ``EmbRouter_MCPServerTable`` columns this backfill reads."""
 
     @property
     def server_id(self) -> str: ...
@@ -78,7 +78,7 @@ class _MCPServerRow(Protocol):
 
 
 class _MCPUserCredentialRow(Protocol):
-    """The ``LiteLLM_MCPUserCredentials`` columns this backfill reads."""
+    """The ``EmbRouter_MCPUserCredentials`` columns this backfill reads."""
 
     @property
     def server_id(self) -> str: ...
@@ -99,12 +99,12 @@ class _MCPUserCredentialsTable(Protocol):
 
 def _mcp_server_table(prisma_client: PrismaClient) -> _MCPServerTable:
     """The MCP server table, typed so the untyped prisma client surface stops here."""
-    return prisma_client.db.litellm_mcpservertable
+    return prisma_client.db.embrouter_mcpservertable
 
 
 def _mcp_user_credentials_table(prisma_client: PrismaClient) -> _MCPUserCredentialsTable:
     """The per-user MCP credential table, typed so the untyped prisma client surface stops here."""
-    return prisma_client.db.litellm_mcpusercredentials
+    return prisma_client.db.embrouter_mcpusercredentials
 
 
 def _decrypted_credentials(raw_credentials: str | Mapping[str, JsonValue] | None) -> MCPCredentials | None:

@@ -12,9 +12,9 @@ from typing import TYPE_CHECKING, Final
 
 import httpx
 
-from litellm._logging import verbose_logger
-from litellm.caching.in_memory_cache import InMemoryCache
-from litellm.constants import (
+from embrouter._logging import verbose_logger
+from embrouter.caching.in_memory_cache import InMemoryCache
+from embrouter.constants import (
     MCP_OAUTH2_TOKEN_CACHE_DEFAULT_TTL,
     MCP_OAUTH2_TOKEN_CACHE_MAX_SIZE,
     MCP_OAUTH2_TOKEN_CACHE_MIN_TTL,
@@ -23,21 +23,21 @@ from litellm.constants import (
     MCP_PER_USER_TOKEN_EXPIRY_BUFFER_SECONDS,
     MCP_PER_USER_TOKEN_REDIS_KEY_PREFIX,
 )
-from litellm.llms.custom_httpx.http_handler import get_async_httpx_client
-from litellm.proxy._experimental.mcp_server.oauth_utils import (
+from embrouter.llms.custom_httpx.http_handler import get_async_httpx_client
+from embrouter.proxy._experimental.mcp_server.oauth_utils import (
     build_upstream_oauth2_token_request,
     resolve_upstream_resource,
 )
-from litellm.proxy._experimental.mcp_server.outbound_credentials.oauth_token_store import OAuthToken
-from litellm.proxy._experimental.mcp_server.outbound_credentials.token_cache_codec import OAuthTokenCacheCodec
-from litellm.proxy.common_utils.encrypt_decrypt_utils import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.oauth_token_store import OAuthToken
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.token_cache_codec import OAuthTokenCacheCodec
+from embrouter.proxy.common_utils.encrypt_decrypt_utils import (
     decrypt_value_helper,
     encrypt_value_helper,
 )
-from litellm.types.llms.custom_http import httpxSpecialProvider
+from embrouter.types.llms.custom_http import httpxSpecialProvider
 
 if TYPE_CHECKING:
-    from litellm.types.mcp_server.mcp_server_manager import MCPServer
+    from embrouter.types.mcp_server.mcp_server_manager import MCPServer
 
 
 class MCPOAuth2TokenCache(InMemoryCache):
@@ -224,7 +224,7 @@ def _compute_per_user_token_ttl(server: "MCPServer", expires_in: int | None) -> 
 class MCPPerUserTokenCache:
     """Redis-backed cache for per-user OAuth2 access tokens.
 
-    Uses LiteLLM's existing ``user_api_key_cache`` (DualCache with optional
+    Uses EmbRouter's existing ``user_api_key_cache`` (DualCache with optional
     Redis backend).  Tokens are NaCl-encrypted with ``encrypt_value_helper``
     before storage so they are safe at rest in Redis.
 
@@ -247,7 +247,7 @@ class MCPPerUserTokenCache:
 
     async def get_token(self, user_id: str, server_id: str) -> OAuthToken | None:
         try:
-            from litellm.proxy.proxy_server import user_api_key_cache  # noqa: PLC0415
+            from embrouter.proxy.proxy_server import user_api_key_cache  # noqa: PLC0415
 
             key: Final = self._cache_key(user_id, server_id)
             encrypted: Final = await user_api_key_cache.async_get_cache(key)
@@ -273,7 +273,7 @@ class MCPPerUserTokenCache:
     ) -> None:
         """Store NaCl-encrypted access_token in Redis with the given TTL."""
         try:
-            from litellm.proxy.proxy_server import user_api_key_cache  # noqa: PLC0415
+            from embrouter.proxy.proxy_server import user_api_key_cache  # noqa: PLC0415
 
             key: Final = self._cache_key(user_id, server_id)
             encrypted: Final = self._codec().encode(
@@ -297,10 +297,10 @@ class MCPPerUserTokenCache:
     async def delete(self, user_id: str, server_id: str) -> None:
         """Invalidate the cached token in Redis, here, and in every peer worker's in-memory layer."""
         try:
-            from litellm.proxy.common_utils.auth_cache_invalidation_pubsub import (  # noqa: PLC0415  # proxy import cycle
+            from embrouter.proxy.common_utils.auth_cache_invalidation_pubsub import (  # noqa: PLC0415  # proxy import cycle
                 evict_and_broadcast,
             )
-            from litellm.proxy.proxy_server import user_api_key_cache  # noqa: PLC0415
+            from embrouter.proxy.proxy_server import user_api_key_cache  # noqa: PLC0415
 
             key: Final = self._cache_key(user_id, server_id)
             await evict_and_broadcast((key,), user_api_key_cache)

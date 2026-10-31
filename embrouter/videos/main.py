@@ -7,24 +7,24 @@ from typing import Final, Literal, overload
 
 from httpx._types import FileContent
 
-import litellm
-from litellm.constants import DEFAULT_VIDEO_ENDPOINT_MODEL
-from litellm.constants import request_timeout as DEFAULT_REQUEST_TIMEOUT
-from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.base_llm.videos.transformation import BaseVideoConfig
-from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
-from litellm.main import base_llm_http_handler
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import CallTypes, FileTypes
-from litellm.types.videos.main import (
+import embrouter
+from embrouter.constants import DEFAULT_VIDEO_ENDPOINT_MODEL
+from embrouter.constants import request_timeout as DEFAULT_REQUEST_TIMEOUT
+from embrouter.embrouter_core_utils.get_llm_provider_logic import get_llm_provider
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.base_llm.videos.transformation import BaseVideoConfig
+from embrouter.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+from embrouter.main import base_llm_http_handler
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import CallTypes, FileTypes
+from embrouter.types.videos.main import (
     CharacterObject,
     VideoCreateOptionalRequestParams,
     VideoObject,
 )
-from litellm.types.videos.utils import decode_video_id_with_provider
-from litellm.utils import ProviderConfigManager, client
-from litellm.videos.utils import VideoGenerationRequestUtils
+from embrouter.types.videos.utils import decode_video_id_with_provider
+from embrouter.utils import ProviderConfigManager, client
+from embrouter.videos.utils import VideoGenerationRequestUtils
 
 #################### Initialize provider clients ####################
 llm_http_handler: BaseLLMHTTPHandler = BaseLLMHTTPHandler()
@@ -75,7 +75,7 @@ async def avideo_generation(
 
         # get custom llm provider so we can use this for mapping exceptions
         if custom_llm_provider is None:
-            _, custom_llm_provider, _, _ = litellm.get_llm_provider(
+            _, custom_llm_provider, _, _ = embrouter.get_llm_provider(
                 model=model or DEFAULT_VIDEO_ENDPOINT_MODEL,
                 api_base=local_vars.get("api_base", None),
             )
@@ -107,7 +107,7 @@ async def avideo_generation(
 
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=model,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -185,8 +185,8 @@ def video_generation(
     """
     local_vars: Final = locals()
     try:
-        litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.pop("litellm_logging_obj")
-        litellm_call_id: Final[str | None] = kwargs.get("litellm_call_id", None)
+        embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.pop("embrouter_logging_obj")
+        embrouter_call_id: Final[str | None] = kwargs.get("embrouter_call_id", None)
         _is_async: Final = kwargs.pop("async_call", False) is True
 
         # Check for mock response first
@@ -199,7 +199,7 @@ def video_generation(
             return response
 
         # get llm provider logic
-        litellm_params: Final = GenericLiteLLMParams(**kwargs)
+        embrouter_params: Final = GenericEmbRouterParams(**kwargs)
         model, custom_llm_provider, _, _ = get_llm_provider(
             model=model or DEFAULT_VIDEO_ENDPOINT_MODEL,
             custom_llm_provider=custom_llm_provider,
@@ -208,7 +208,7 @@ def video_generation(
         # get provider config
         video_generation_provider_config: BaseVideoConfig | None = ProviderConfigManager.get_provider_video_config(
             model=model,
-            provider=litellm.LlmProviders(custom_llm_provider),
+            provider=embrouter.LlmProviders(custom_llm_provider),
         )
 
         if video_generation_provider_config is None:
@@ -228,20 +228,20 @@ def video_generation(
         )
 
         # Pre Call logging
-        litellm_logging_obj.update_from_kwargs(
+        embrouter_logging_obj.update_from_kwargs(
             kwargs=kwargs,
             model=model,
             user=user,
             optional_params=dict(video_generation_request_params),
-            litellm_params={
-                "litellm_call_id": litellm_call_id,
+            embrouter_params={
+                "embrouter_call_id": embrouter_call_id,
                 **video_generation_request_params,
             },
             custom_llm_provider=custom_llm_provider,
         )
 
         # Set the correct call type for video generation
-        litellm_logging_obj.call_type = CallTypes.create_video.value
+        embrouter_logging_obj.call_type = CallTypes.create_video.value
 
         # Call the handler with _is_async flag instead of directly calling the async handler
         return base_llm_http_handler.video_generation_handler(
@@ -250,8 +250,8 @@ def video_generation(
             video_generation_provider_config=video_generation_provider_config,
             video_generation_optional_request_params=video_generation_request_params,
             custom_llm_provider=custom_llm_provider,
-            litellm_params=litellm_params,
-            logging_obj=litellm_logging_obj,
+            embrouter_params=embrouter_params,
+            logging_obj=embrouter_logging_obj,
             extra_headers=extra_headers,
             extra_body=extra_body,
             timeout=timeout or DEFAULT_REQUEST_TIMEOUT,
@@ -260,7 +260,7 @@ def video_generation(
         )
 
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=model or DEFAULT_VIDEO_ENDPOINT_MODEL,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -301,9 +301,9 @@ def video_content(
 
     Example:
         ```python
-        import litellm
+        import embrouter
 
-        video_bytes = litellm.video_content(
+        video_bytes = embrouter.video_content(
             video_id="video_123"
         )
 
@@ -313,8 +313,8 @@ def video_content(
     """
     local_vars: Final = locals()
     try:
-        litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.get("litellm_logging_obj")
-        litellm_call_id: Final[str | None] = kwargs.get("litellm_call_id", None)
+        embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.get("embrouter_logging_obj")
+        embrouter_call_id: Final[str | None] = kwargs.get("embrouter_call_id", None)
         _is_async: Final = kwargs.pop("async_call", False) is True
 
         # Try to decode provider from video_id if not explicitly provided
@@ -323,12 +323,12 @@ def video_content(
             custom_llm_provider = decoded.get("custom_llm_provider") or "openai"
 
         # get llm provider logic
-        litellm_params: Final = GenericLiteLLMParams(**kwargs)
+        embrouter_params: Final = GenericEmbRouterParams(**kwargs)
 
         # get provider config
         video_provider_config: Final[BaseVideoConfig | None] = ProviderConfigManager.get_provider_video_config(
             model=None,
-            provider=litellm.LlmProviders(custom_llm_provider),
+            provider=embrouter.LlmProviders(custom_llm_provider),
         )
 
         if video_provider_config is None:
@@ -342,13 +342,13 @@ def video_content(
         }
 
         # Pre Call logging
-        litellm_logging_obj.update_from_kwargs(
+        embrouter_logging_obj.update_from_kwargs(
             kwargs=kwargs,
             model="",
             user=kwargs.get("user"),
             optional_params=dict(video_content_request_params),
-            litellm_params={
-                "litellm_call_id": litellm_call_id,
+            embrouter_params={
+                "embrouter_call_id": embrouter_call_id,
                 **video_content_request_params,
             },
             custom_llm_provider=custom_llm_provider,
@@ -359,8 +359,8 @@ def video_content(
             video_id=video_id,
             video_content_provider_config=video_provider_config,
             custom_llm_provider=custom_llm_provider,
-            litellm_params=litellm_params,
-            logging_obj=litellm_logging_obj,
+            embrouter_params=embrouter_params,
+            logging_obj=embrouter_logging_obj,
             timeout=timeout or DEFAULT_REQUEST_TIMEOUT,
             extra_headers=extra_headers,
             client=kwargs.get("client"),
@@ -369,7 +369,7 @@ def video_content(
         )
 
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model="",
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -440,7 +440,7 @@ async def avideo_content(
 
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model="",
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -507,7 +507,7 @@ async def avideo_remix(
 
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model="",
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -573,8 +573,8 @@ def video_remix(
     """
     local_vars: Final = locals()
     try:
-        litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.pop("litellm_logging_obj")
-        litellm_call_id: Final[str | None] = kwargs.get("litellm_call_id", None)
+        embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.pop("embrouter_logging_obj")
+        embrouter_call_id: Final[str | None] = kwargs.get("embrouter_call_id", None)
         _is_async: Final = kwargs.pop("async_call", False) is True
 
         # Check for mock response first
@@ -592,12 +592,12 @@ def video_remix(
             custom_llm_provider = decoded.get("custom_llm_provider") or "openai"
 
         # get llm provider logic
-        litellm_params: Final = GenericLiteLLMParams(**kwargs)
+        embrouter_params: Final = GenericEmbRouterParams(**kwargs)
 
         # get provider config
         video_remix_provider_config: Final[BaseVideoConfig | None] = ProviderConfigManager.get_provider_video_config(
             model=None,
-            provider=litellm.LlmProviders(custom_llm_provider),
+            provider=embrouter.LlmProviders(custom_llm_provider),
         )
 
         if video_remix_provider_config is None:
@@ -611,20 +611,20 @@ def video_remix(
         }
 
         # Pre Call logging
-        litellm_logging_obj.update_from_kwargs(
+        embrouter_logging_obj.update_from_kwargs(
             kwargs=kwargs,
             model="",
             user=kwargs.get("user"),
             optional_params=dict(video_remix_request_params),
-            litellm_params={
-                "litellm_call_id": litellm_call_id,
+            embrouter_params={
+                "embrouter_call_id": embrouter_call_id,
                 **video_remix_request_params,
             },
             custom_llm_provider=custom_llm_provider,
         )
 
         # Set the correct call type for video remix
-        litellm_logging_obj.call_type = CallTypes.video_remix.value
+        embrouter_logging_obj.call_type = CallTypes.video_remix.value
 
         # Call the handler with _is_async flag instead of directly calling the async handler
         return base_llm_http_handler.video_remix_handler(
@@ -632,8 +632,8 @@ def video_remix(
             prompt=prompt,
             video_remix_provider_config=video_remix_provider_config,
             custom_llm_provider=custom_llm_provider,
-            litellm_params=litellm_params,
-            logging_obj=litellm_logging_obj,
+            embrouter_params=embrouter_params,
+            logging_obj=embrouter_logging_obj,
             extra_headers=extra_headers,
             extra_body=extra_body,
             timeout=timeout or DEFAULT_REQUEST_TIMEOUT,
@@ -642,7 +642,7 @@ def video_remix(
         )
 
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model="",
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -692,7 +692,7 @@ async def avideo_list(
 
         # get custom llm provider so we can use this for mapping exceptions
         if custom_llm_provider is None:
-            _, custom_llm_provider, _, _ = litellm.get_llm_provider(model="", api_base=local_vars.get("api_base", None))
+            _, custom_llm_provider, _, _ = embrouter.get_llm_provider(model="", api_base=local_vars.get("api_base", None))
 
         func: Final = partial(
             video_list,
@@ -719,7 +719,7 @@ async def avideo_list(
 
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model="",
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -788,8 +788,8 @@ def video_list(
     """
     local_vars: Final = locals()
     try:
-        litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.get("litellm_logging_obj")
-        litellm_call_id: Final[str | None] = kwargs.get("litellm_call_id", None)
+        embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.get("embrouter_logging_obj")
+        embrouter_call_id: Final[str | None] = kwargs.get("embrouter_call_id", None)
         _is_async: Final = kwargs.pop("async_call", False) is True
 
         # Check for mock response first
@@ -804,12 +804,12 @@ def video_list(
             custom_llm_provider = "openai"
 
         # get llm provider logic
-        litellm_params: Final = GenericLiteLLMParams(**kwargs)
+        embrouter_params: Final = GenericEmbRouterParams(**kwargs)
 
         # get provider config
         video_list_provider_config: Final[BaseVideoConfig | None] = ProviderConfigManager.get_provider_video_config(
             model=None,
-            provider=litellm.LlmProviders(custom_llm_provider),
+            provider=embrouter.LlmProviders(custom_llm_provider),
         )
 
         if video_list_provider_config is None:
@@ -824,20 +824,20 @@ def video_list(
         }
 
         # Pre Call logging
-        litellm_logging_obj.update_from_kwargs(
+        embrouter_logging_obj.update_from_kwargs(
             kwargs=kwargs,
             model="",
             user=kwargs.get("user"),
             optional_params=dict(video_list_request_params),
-            litellm_params={
-                "litellm_call_id": litellm_call_id,
+            embrouter_params={
+                "embrouter_call_id": embrouter_call_id,
                 **video_list_request_params,
             },
             custom_llm_provider=custom_llm_provider,
         )
 
         # Set the correct call type for video list
-        litellm_logging_obj.call_type = CallTypes.video_list.value
+        embrouter_logging_obj.call_type = CallTypes.video_list.value
 
         # Call the handler with _is_async flag instead of directly calling the async handler
         return base_llm_http_handler.video_list_handler(
@@ -846,8 +846,8 @@ def video_list(
             order=order,
             video_list_provider_config=video_list_provider_config,
             custom_llm_provider=custom_llm_provider,
-            litellm_params=litellm_params,
-            logging_obj=litellm_logging_obj,
+            embrouter_params=embrouter_params,
+            logging_obj=embrouter_logging_obj,
             extra_headers=extra_headers,
             extra_query=extra_query,
             timeout=timeout or DEFAULT_REQUEST_TIMEOUT,
@@ -856,7 +856,7 @@ def video_list(
         )
 
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model="",
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -921,7 +921,7 @@ async def avideo_status(
 
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model="",
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -993,10 +993,10 @@ def video_status(
 
     Example:
         ```python
-        import litellm
+        import embrouter
 
         # Get video status
-        video_status = litellm.video_status(
+        video_status = embrouter.video_status(
             video_id="video_123"
         )
 
@@ -1006,8 +1006,8 @@ def video_status(
     """
     local_vars: Final = locals()
     try:
-        litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.get("litellm_logging_obj")
-        litellm_call_id: Final[str | None] = kwargs.get("litellm_call_id", None)
+        embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.get("embrouter_logging_obj")
+        embrouter_call_id: Final[str | None] = kwargs.get("embrouter_call_id", None)
         _is_async: Final = kwargs.pop("async_call", False) is True
 
         # Check for mock response first
@@ -1025,12 +1025,12 @@ def video_status(
             custom_llm_provider = decoded.get("custom_llm_provider") or "openai"
 
         # get llm provider logic
-        litellm_params: Final = GenericLiteLLMParams(**kwargs)
+        embrouter_params: Final = GenericEmbRouterParams(**kwargs)
 
         # get provider config
         video_status_provider_config: Final[BaseVideoConfig | None] = ProviderConfigManager.get_provider_video_config(
             model=None,
-            provider=litellm.LlmProviders(custom_llm_provider),
+            provider=embrouter.LlmProviders(custom_llm_provider),
         )
 
         if video_status_provider_config is None:
@@ -1043,28 +1043,28 @@ def video_status(
         }
 
         # Pre Call logging
-        litellm_logging_obj.update_from_kwargs(
+        embrouter_logging_obj.update_from_kwargs(
             kwargs=kwargs,
             model="",
             user=kwargs.get("user"),
             optional_params=dict(video_status_request_params),
-            litellm_params={
-                "litellm_call_id": litellm_call_id,
+            embrouter_params={
+                "embrouter_call_id": embrouter_call_id,
                 **video_status_request_params,
             },
             custom_llm_provider=custom_llm_provider,
         )
 
         # Set the correct call type for video status
-        litellm_logging_obj.call_type = CallTypes.video_retrieve.value
+        embrouter_logging_obj.call_type = CallTypes.video_retrieve.value
 
         # Call the handler with _is_async flag instead of directly calling the async handler
         return base_llm_http_handler.video_status_handler(
             video_id=video_id,
             video_status_provider_config=video_status_provider_config,
             custom_llm_provider=custom_llm_provider,
-            litellm_params=litellm_params,
-            logging_obj=litellm_logging_obj,
+            embrouter_params=embrouter_params,
+            logging_obj=embrouter_logging_obj,
             extra_headers=extra_headers,
             extra_body=extra_body,
             timeout=timeout or DEFAULT_REQUEST_TIMEOUT,
@@ -1073,7 +1073,7 @@ def video_status(
         )
 
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model="",
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -1128,7 +1128,7 @@ async def avideo_create_character(
 
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model="",
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -1154,8 +1154,8 @@ def video_create_character(
     """
     local_vars: Final = locals()
     try:
-        litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.pop("litellm_logging_obj")
-        litellm_call_id: Final[str | None] = kwargs.get("litellm_call_id", None)
+        embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.pop("embrouter_logging_obj")
+        embrouter_call_id: Final[str | None] = kwargs.get("embrouter_call_id", None)
         _is_async: Final = kwargs.pop("async_call", False) is True
 
         mock_response = kwargs.get("mock_response", None)
@@ -1167,11 +1167,11 @@ def video_create_character(
         if custom_llm_provider is None:
             custom_llm_provider = "openai"
 
-        litellm_params: Final = GenericLiteLLMParams(**kwargs)
+        embrouter_params: Final = GenericEmbRouterParams(**kwargs)
 
         provider_config: Final[BaseVideoConfig | None] = ProviderConfigManager.get_provider_video_config(
             model=None,
-            provider=litellm.LlmProviders(custom_llm_provider),
+            provider=embrouter.LlmProviders(custom_llm_provider),
         )
 
         if provider_config is None:
@@ -1180,23 +1180,23 @@ def video_create_character(
         local_vars.update(kwargs)
         request_params: Final[dict] = {"name": name}
 
-        litellm_logging_obj.update_environment_variables(
+        embrouter_logging_obj.update_environment_variables(
             model="",
             user=kwargs.get("user"),
             optional_params=dict(request_params),
-            litellm_params={"litellm_call_id": litellm_call_id, **request_params},
+            embrouter_params={"embrouter_call_id": embrouter_call_id, **request_params},
             custom_llm_provider=custom_llm_provider,
         )
 
-        litellm_logging_obj.call_type = CallTypes.video_create_character.value
+        embrouter_logging_obj.call_type = CallTypes.video_create_character.value
 
         return base_llm_http_handler.video_create_character_handler(
             name=name,
             video=video,
             video_provider_config=provider_config,
             custom_llm_provider=custom_llm_provider,
-            litellm_params=litellm_params,
-            logging_obj=litellm_logging_obj,
+            embrouter_params=embrouter_params,
+            logging_obj=embrouter_logging_obj,
             extra_headers=extra_headers,
             timeout=timeout or DEFAULT_REQUEST_TIMEOUT,
             _is_async=_is_async,
@@ -1204,7 +1204,7 @@ def video_create_character(
         )
 
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model="",
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -1254,7 +1254,7 @@ async def avideo_get_character(
 
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model="",
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -1279,8 +1279,8 @@ def video_get_character(
     """
     local_vars: Final = locals()
     try:
-        litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.pop("litellm_logging_obj")
-        litellm_call_id: Final[str | None] = kwargs.get("litellm_call_id", None)
+        embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.pop("embrouter_logging_obj")
+        embrouter_call_id: Final[str | None] = kwargs.get("embrouter_call_id", None)
         _is_async: Final = kwargs.pop("async_call", False) is True
 
         mock_response = kwargs.get("mock_response", None)
@@ -1292,11 +1292,11 @@ def video_get_character(
         if custom_llm_provider is None:
             custom_llm_provider = "openai"
 
-        litellm_params: Final = GenericLiteLLMParams(**kwargs)
+        embrouter_params: Final = GenericEmbRouterParams(**kwargs)
 
         provider_config: Final[BaseVideoConfig | None] = ProviderConfigManager.get_provider_video_config(
             model=None,
-            provider=litellm.LlmProviders(custom_llm_provider),
+            provider=embrouter.LlmProviders(custom_llm_provider),
         )
 
         if provider_config is None:
@@ -1305,22 +1305,22 @@ def video_get_character(
         local_vars.update(kwargs)
         request_params: Final[dict] = {"character_id": character_id}
 
-        litellm_logging_obj.update_environment_variables(
+        embrouter_logging_obj.update_environment_variables(
             model="",
             user=kwargs.get("user"),
             optional_params=dict(request_params),
-            litellm_params={"litellm_call_id": litellm_call_id, **request_params},
+            embrouter_params={"embrouter_call_id": embrouter_call_id, **request_params},
             custom_llm_provider=custom_llm_provider,
         )
 
-        litellm_logging_obj.call_type = CallTypes.video_get_character.value
+        embrouter_logging_obj.call_type = CallTypes.video_get_character.value
 
         return base_llm_http_handler.video_get_character_handler(
             character_id=character_id,
             video_provider_config=provider_config,
             custom_llm_provider=custom_llm_provider,
-            litellm_params=litellm_params,
-            logging_obj=litellm_logging_obj,
+            embrouter_params=embrouter_params,
+            logging_obj=embrouter_logging_obj,
             extra_headers=extra_headers,
             timeout=timeout or DEFAULT_REQUEST_TIMEOUT,
             _is_async=_is_async,
@@ -1328,7 +1328,7 @@ def video_get_character(
         )
 
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model="",
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -1383,7 +1383,7 @@ async def avideo_edit(
 
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model="",
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -1411,8 +1411,8 @@ def video_edit(
     """
     local_vars: Final = locals()
     try:
-        litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.pop("litellm_logging_obj")
-        litellm_call_id: Final[str | None] = kwargs.get("litellm_call_id", None)
+        embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.pop("embrouter_logging_obj")
+        embrouter_call_id: Final[str | None] = kwargs.get("embrouter_call_id", None)
         _is_async: Final = kwargs.pop("async_call", False) is True
 
         mock_response = kwargs.get("mock_response", None)
@@ -1425,11 +1425,11 @@ def video_edit(
             decoded: Final = decode_video_id_with_provider(video_id)
             custom_llm_provider = decoded.get("custom_llm_provider") or "openai"
 
-        litellm_params: Final = GenericLiteLLMParams(**kwargs)
+        embrouter_params: Final = GenericEmbRouterParams(**kwargs)
 
         provider_config: Final[BaseVideoConfig | None] = ProviderConfigManager.get_provider_video_config(
             model=None,
-            provider=litellm.LlmProviders(custom_llm_provider),
+            provider=embrouter.LlmProviders(custom_llm_provider),
         )
 
         if provider_config is None:
@@ -1438,15 +1438,15 @@ def video_edit(
         local_vars.update(kwargs)
         request_params: Final[dict] = {"video_id": video_id, "prompt": prompt}
 
-        litellm_logging_obj.update_environment_variables(
+        embrouter_logging_obj.update_environment_variables(
             model="",
             user=kwargs.get("user"),
             optional_params=dict(request_params),
-            litellm_params={"litellm_call_id": litellm_call_id, **request_params},
+            embrouter_params={"embrouter_call_id": embrouter_call_id, **request_params},
             custom_llm_provider=custom_llm_provider,
         )
 
-        litellm_logging_obj.call_type = CallTypes.video_edit.value
+        embrouter_logging_obj.call_type = CallTypes.video_edit.value
 
         return base_llm_http_handler.video_edit_handler(
             prompt=prompt,
@@ -1454,8 +1454,8 @@ def video_edit(
             video_file=video,
             video_provider_config=provider_config,
             custom_llm_provider=custom_llm_provider,
-            litellm_params=litellm_params,
-            logging_obj=litellm_logging_obj,
+            embrouter_params=embrouter_params,
+            logging_obj=embrouter_logging_obj,
             extra_headers=extra_headers,
             extra_body=extra_body,
             timeout=timeout or DEFAULT_REQUEST_TIMEOUT,
@@ -1464,7 +1464,7 @@ def video_edit(
         )
 
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model="",
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -1518,7 +1518,7 @@ async def avideo_extension(
 
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model="",
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -1545,8 +1545,8 @@ def video_extension(
     """
     local_vars: Final = locals()
     try:
-        litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.pop("litellm_logging_obj")
-        litellm_call_id: Final[str | None] = kwargs.get("litellm_call_id", None)
+        embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.pop("embrouter_logging_obj")
+        embrouter_call_id: Final[str | None] = kwargs.get("embrouter_call_id", None)
         _is_async: Final = kwargs.pop("async_call", False) is True
 
         mock_response = kwargs.get("mock_response", None)
@@ -1559,11 +1559,11 @@ def video_extension(
             decoded: Final = decode_video_id_with_provider(video_id)
             custom_llm_provider = decoded.get("custom_llm_provider") or "openai"
 
-        litellm_params: Final = GenericLiteLLMParams(**kwargs)
+        embrouter_params: Final = GenericEmbRouterParams(**kwargs)
 
         provider_config: Final[BaseVideoConfig | None] = ProviderConfigManager.get_provider_video_config(
             model=None,
-            provider=litellm.LlmProviders(custom_llm_provider),
+            provider=embrouter.LlmProviders(custom_llm_provider),
         )
 
         if provider_config is None:
@@ -1576,15 +1576,15 @@ def video_extension(
             "seconds": seconds,
         }
 
-        litellm_logging_obj.update_environment_variables(
+        embrouter_logging_obj.update_environment_variables(
             model="",
             user=kwargs.get("user"),
             optional_params=dict(request_params),
-            litellm_params={"litellm_call_id": litellm_call_id, **request_params},
+            embrouter_params={"embrouter_call_id": embrouter_call_id, **request_params},
             custom_llm_provider=custom_llm_provider,
         )
 
-        litellm_logging_obj.call_type = CallTypes.video_extension.value
+        embrouter_logging_obj.call_type = CallTypes.video_extension.value
 
         return base_llm_http_handler.video_extension_handler(
             prompt=prompt,
@@ -1592,8 +1592,8 @@ def video_extension(
             seconds=seconds,
             video_provider_config=provider_config,
             custom_llm_provider=custom_llm_provider,
-            litellm_params=litellm_params,
-            logging_obj=litellm_logging_obj,
+            embrouter_params=embrouter_params,
+            logging_obj=embrouter_logging_obj,
             extra_headers=extra_headers,
             extra_body=extra_body,
             timeout=timeout or DEFAULT_REQUEST_TIMEOUT,
@@ -1602,7 +1602,7 @@ def video_extension(
         )
 
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model="",
             custom_llm_provider=custom_llm_provider,
             original_exception=e,

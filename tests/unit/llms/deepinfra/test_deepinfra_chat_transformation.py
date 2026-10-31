@@ -5,19 +5,19 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-# Add litellm to path
-import litellm
+# Add embrouter to path
+import embrouter
 
 
 def test_deepseek_supported_openai_params(monkeypatch):
     """
     Test "reasoning_effort" is an openai param supported for the DeepSeek model on deepinfra
     """
-    from litellm.llms.deepinfra.chat.transformation import DeepInfraConfig
+    from embrouter.llms.deepinfra.chat.transformation import DeepInfraConfig
 
     # Ensure we're using the local model cost map
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    litellm.model_cost = litellm.get_model_cost_map(url="")
+    monkeypatch.setenv("EMBROUTER_LOCAL_MODEL_COST_MAP", "True")
+    embrouter.model_cost = embrouter.get_model_cost_map(url="")
 
     supported_openai_params = DeepInfraConfig().get_supported_openai_params(
         model="deepinfra/deepseek-ai/DeepSeek-V3.1"
@@ -38,7 +38,7 @@ def test_deepinfra_tool_message_content_transformation():
 
     Related to issue #13982
     """
-    from litellm.llms.deepinfra.chat.transformation import DeepInfraConfig
+    from embrouter.llms.deepinfra.chat.transformation import DeepInfraConfig
 
     config = DeepInfraConfig()
 
@@ -156,7 +156,7 @@ async def test_deepinfra_tool_message_content_transformation_async():
 
     Related to issue #13982
     """
-    from litellm.llms.deepinfra.chat.transformation import DeepInfraConfig
+    from embrouter.llms.deepinfra.chat.transformation import DeepInfraConfig
 
     config = DeepInfraConfig()
 

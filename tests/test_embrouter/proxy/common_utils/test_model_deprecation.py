@@ -9,8 +9,8 @@ from unittest.mock import MagicMock
 
 
 
-import litellm
-from litellm.proxy.common_utils.model_deprecation import (
+import embrouter
+from embrouter.proxy.common_utils.model_deprecation import (
     _classify,
     _parse_deprecation_date,
     collect_model_deprecations,
@@ -76,12 +76,12 @@ class TestCollectModelDeprecations:
         assert snapshot.upcoming == []
 
     def test_should_skip_models_without_deprecation_metadata(self, monkeypatch):
-        monkeypatch.setattr(litellm, "model_cost", {})
+        monkeypatch.setattr(embrouter, "model_cost", {})
         router = _make_router(
             [
                 {
                     "model_name": "gpt-4o",
-                    "litellm_params": {"model": "openai/gpt-4o"},
+                    "embrouter_params": {"model": "openai/gpt-4o"},
                     "model_info": {"id": "abc"},
                 }
             ]
@@ -94,20 +94,20 @@ class TestCollectModelDeprecations:
     def test_should_classify_into_three_buckets(self, monkeypatch):
         today = date(2026, 6, 1)
         monkeypatch.setattr(
-            litellm,
+            embrouter,
             "model_cost",
             {
                 "deprecated-model": {
                     "deprecation_date": "2026-01-01",
-                    "litellm_provider": "openai",
+                    "embrouter_provider": "openai",
                 },
                 "imminent-model": {
                     "deprecation_date": "2026-06-15",
-                    "litellm_provider": "openai",
+                    "embrouter_provider": "openai",
                 },
                 "upcoming-model": {
                     "deprecation_date": "2027-01-01",
-                    "litellm_provider": "openai",
+                    "embrouter_provider": "openai",
                 },
             },
         )
@@ -115,17 +115,17 @@ class TestCollectModelDeprecations:
             [
                 {
                     "model_name": "deprecated-alias",
-                    "litellm_params": {"model": "openai/deprecated-model"},
+                    "embrouter_params": {"model": "openai/deprecated-model"},
                     "model_info": {"id": "1"},
                 },
                 {
                     "model_name": "imminent-alias",
-                    "litellm_params": {"model": "imminent-model"},
+                    "embrouter_params": {"model": "imminent-model"},
                     "model_info": {"id": "2"},
                 },
                 {
                     "model_name": "upcoming-alias",
-                    "litellm_params": {"model": "openai/upcoming-model"},
+                    "embrouter_params": {"model": "openai/upcoming-model"},
                     "model_info": {"id": "3"},
                 },
             ]
@@ -146,7 +146,7 @@ class TestCollectModelDeprecations:
     def test_should_prefer_explicit_deployment_override(self, monkeypatch):
         today = date(2026, 6, 1)
         monkeypatch.setattr(
-            litellm,
+            embrouter,
             "model_cost",
             {"some-model": {"deprecation_date": "2030-01-01"}},
         )
@@ -154,7 +154,7 @@ class TestCollectModelDeprecations:
             [
                 {
                     "model_name": "my-alias",
-                    "litellm_params": {"model": "some-model"},
+                    "embrouter_params": {"model": "some-model"},
                     "model_info": {
                         "id": "x",
                         "deprecation_date": "2026-06-10",
@@ -173,7 +173,7 @@ class TestCollectModelDeprecations:
     def test_should_dedupe_duplicate_deployments_in_same_group(self, monkeypatch):
         today = date(2026, 6, 1)
         monkeypatch.setattr(
-            litellm,
+            embrouter,
             "model_cost",
             {"shared-model": {"deprecation_date": "2026-06-10"}},
         )
@@ -181,12 +181,12 @@ class TestCollectModelDeprecations:
             [
                 {
                     "model_name": "alias",
-                    "litellm_params": {"model": "shared-model"},
+                    "embrouter_params": {"model": "shared-model"},
                     "model_info": {"id": "1"},
                 },
                 {
                     "model_name": "alias",
-                    "litellm_params": {"model": "shared-model"},
+                    "embrouter_params": {"model": "shared-model"},
                     "model_info": {"id": "2"},
                 },
             ]
@@ -200,7 +200,7 @@ class TestCollectModelDeprecations:
 
     def test_should_resolve_via_unprefixed_model_name(self, monkeypatch):
         monkeypatch.setattr(
-            litellm,
+            embrouter,
             "model_cost",
             {"gpt-4o": {"deprecation_date": "2026-06-10"}},
         )
@@ -208,7 +208,7 @@ class TestCollectModelDeprecations:
             [
                 {
                     "model_name": "alias",
-                    "litellm_params": {"model": "openai/gpt-4o"},
+                    "embrouter_params": {"model": "openai/gpt-4o"},
                     "model_info": {"id": "1"},
                 }
             ]
@@ -218,11 +218,11 @@ class TestCollectModelDeprecations:
             llm_router=router, warn_within_days=30, today=date(2026, 6, 1)
         )
 
-        assert [m.litellm_model for m in snapshot.imminent] == ["gpt-4o"]
+        assert [m.embrouter_model for m in snapshot.imminent] == ["gpt-4o"]
 
     def test_should_keep_both_dates_when_group_has_conflicting_dates(self, monkeypatch):
         monkeypatch.setattr(
-            litellm,
+            embrouter,
             "model_cost",
             {"shared-model": {"deprecation_date": "2026-06-10"}},
         )
@@ -230,12 +230,12 @@ class TestCollectModelDeprecations:
             [
                 {
                     "model_name": "alias",
-                    "litellm_params": {"model": "shared-model"},
+                    "embrouter_params": {"model": "shared-model"},
                     "model_info": {"id": "1"},
                 },
                 {
                     "model_name": "alias",
-                    "litellm_params": {"model": "shared-model"},
+                    "embrouter_params": {"model": "shared-model"},
                     "model_info": {"id": "2", "deprecation_date": "2027-01-01"},
                 },
             ]
@@ -251,7 +251,7 @@ class TestCollectModelDeprecations:
     def test_should_resolve_via_base_model(self, monkeypatch):
         today = date(2026, 6, 1)
         monkeypatch.setattr(
-            litellm,
+            embrouter,
             "model_cost",
             {"base-thing": {"deprecation_date": "2026-06-10"}},
         )
@@ -259,7 +259,7 @@ class TestCollectModelDeprecations:
             [
                 {
                     "model_name": "alias",
-                    "litellm_params": {"model": "azure/some-deployment-name"},
+                    "embrouter_params": {"model": "azure/some-deployment-name"},
                     "model_info": {"id": "1", "base_model": "base-thing"},
                 }
             ]
@@ -270,7 +270,7 @@ class TestCollectModelDeprecations:
         )
 
         assert len(snapshot.imminent) == 1
-        assert snapshot.imminent[0].litellm_model == "base-thing"
+        assert snapshot.imminent[0].embrouter_model == "base-thing"
 
 
 class TestFormatDeprecationAlertMessage:
@@ -281,20 +281,20 @@ class TestFormatDeprecationAlertMessage:
     def test_should_render_imminent_and_deprecated_sections(self, monkeypatch):
         today = date(2026, 6, 1)
         monkeypatch.setattr(
-            litellm,
+            embrouter,
             "model_cost",
             {
                 "dead-model": {
                     "deprecation_date": "2026-01-01",
-                    "litellm_provider": "openai",
+                    "embrouter_provider": "openai",
                 },
                 "soon-model": {
                     "deprecation_date": "2026-06-15",
-                    "litellm_provider": "anthropic",
+                    "embrouter_provider": "anthropic",
                 },
                 "later-model": {
                     "deprecation_date": "2027-01-01",
-                    "litellm_provider": "anthropic",
+                    "embrouter_provider": "anthropic",
                 },
             },
         )
@@ -302,17 +302,17 @@ class TestFormatDeprecationAlertMessage:
             [
                 {
                     "model_name": "dead",
-                    "litellm_params": {"model": "dead-model"},
+                    "embrouter_params": {"model": "dead-model"},
                     "model_info": {"id": "1"},
                 },
                 {
                     "model_name": "soon",
-                    "litellm_params": {"model": "soon-model"},
+                    "embrouter_params": {"model": "soon-model"},
                     "model_info": {"id": "2"},
                 },
                 {
                     "model_name": "later",
-                    "litellm_params": {"model": "later-model"},
+                    "embrouter_params": {"model": "later-model"},
                     "model_info": {"id": "3"},
                 },
             ]
@@ -337,11 +337,11 @@ class TestFormatDeprecationAlertMessage:
             [
                 {
                     "model_name": "<!channel> pwned",
-                    "litellm_params": {"model": "openai/whatever"},
+                    "embrouter_params": {"model": "openai/whatever"},
                     "model_info": {
                         "id": "1",
                         "deprecation_date": "2026-06-10",
-                        "litellm_provider": "<https://evil.example|openai> & co",
+                        "embrouter_provider": "<https://evil.example|openai> & co",
                     },
                 }
             ]

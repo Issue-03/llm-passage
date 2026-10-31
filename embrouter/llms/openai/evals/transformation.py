@@ -7,13 +7,13 @@ from typing import Final
 
 import httpx
 
-from litellm._logging import verbose_logger
-from litellm.litellm_core_utils.url_utils import encode_url_path_segment
-from litellm.llms.base_llm.evals.transformation import (
+from embrouter._logging import verbose_logger
+from embrouter.embrouter_core_utils.url_utils import encode_url_path_segment
+from embrouter.llms.base_llm.evals.transformation import (
     BaseEvalsAPIConfig,
-    LiteLLMLoggingObj,
+    EmbRouterLoggingObj,
 )
-from litellm.types.llms.openai_evals import (
+from embrouter.types.llms.openai_evals import (
     CancelEvalResponse,
     CancelRunResponse,
     CreateEvalRequest,
@@ -28,8 +28,8 @@ from litellm.types.llms.openai_evals import (
     RunDeleteResponse,
     UpdateEvalRequest,
 )
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import LlmProviders
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import LlmProviders
 
 
 def _parsed_response_json(raw_response: httpx.Response) -> Mapping[str, object]:
@@ -43,17 +43,17 @@ class OpenAIEvalsConfig(BaseEvalsAPIConfig):
     def custom_llm_provider(self) -> LlmProviders:
         return LlmProviders.OPENAI
 
-    def validate_environment(self, headers: dict, litellm_params: GenericLiteLLMParams | None) -> dict:
+    def validate_environment(self, headers: dict, embrouter_params: GenericEmbRouterParams | None) -> dict:
         """Add OpenAI-specific headers"""
-        import litellm
-        from litellm.secret_managers.main import get_secret_str
+        import embrouter
+        from embrouter.secret_managers.main import get_secret_str
 
         # Get API key following OpenAI pattern
         api_key = None
-        if litellm_params:
-            api_key = litellm_params.api_key
+        if embrouter_params:
+            api_key = embrouter_params.api_key
 
-        api_key = api_key or litellm.api_key or litellm.openai_key or get_secret_str("OPENAI_API_KEY")
+        api_key = api_key or embrouter.api_key or embrouter.openai_key or get_secret_str("OPENAI_API_KEY")
 
         if not api_key:
             raise ValueError("OPENAI_API_KEY is required for Evals API")
@@ -82,7 +82,7 @@ class OpenAIEvalsConfig(BaseEvalsAPIConfig):
     def transform_create_eval_request(
         self,
         create_request: CreateEvalRequest,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> dict:
         """Transform create eval request for OpenAI"""
@@ -96,7 +96,7 @@ class OpenAIEvalsConfig(BaseEvalsAPIConfig):
     def transform_create_eval_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> Eval:
         """Transform OpenAI response to Eval object"""
         response_json: Final = _parsed_response_json(raw_response)
@@ -107,13 +107,13 @@ class OpenAIEvalsConfig(BaseEvalsAPIConfig):
     def transform_list_evals_request(
         self,
         list_params: ListEvalsParams,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict]:
         """Transform list evals request for OpenAI"""
         api_base = "https://api.openai.com"
-        if litellm_params and litellm_params.api_base:
-            api_base = litellm_params.api_base
+        if embrouter_params and embrouter_params.api_base:
+            api_base = embrouter_params.api_base
 
         url: Final = self.get_complete_url(api_base=api_base, endpoint="evals")
 
@@ -140,7 +140,7 @@ class OpenAIEvalsConfig(BaseEvalsAPIConfig):
     def transform_list_evals_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> ListEvalsResponse:
         """Transform OpenAI response to ListEvalsResponse"""
         response_json: Final = _parsed_response_json(raw_response)
@@ -152,7 +152,7 @@ class OpenAIEvalsConfig(BaseEvalsAPIConfig):
         self,
         eval_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict]:
         """Transform get eval request for OpenAI"""
@@ -165,7 +165,7 @@ class OpenAIEvalsConfig(BaseEvalsAPIConfig):
     def transform_get_eval_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> Eval:
         """Transform OpenAI response to Eval object"""
         response_json: Final = _parsed_response_json(raw_response)
@@ -178,7 +178,7 @@ class OpenAIEvalsConfig(BaseEvalsAPIConfig):
         eval_id: str,
         update_request: UpdateEvalRequest,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict, dict]:
         """Transform update eval request for OpenAI"""
@@ -194,7 +194,7 @@ class OpenAIEvalsConfig(BaseEvalsAPIConfig):
     def transform_update_eval_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> Eval:
         """Transform OpenAI response to Eval object"""
         response_json: Final = _parsed_response_json(raw_response)
@@ -206,7 +206,7 @@ class OpenAIEvalsConfig(BaseEvalsAPIConfig):
         self,
         eval_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict]:
         """Transform delete eval request for OpenAI"""
@@ -219,7 +219,7 @@ class OpenAIEvalsConfig(BaseEvalsAPIConfig):
     def transform_delete_eval_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> DeleteEvalResponse:
         """Transform OpenAI response to DeleteEvalResponse"""
         response_json: Final = _parsed_response_json(raw_response)
@@ -231,7 +231,7 @@ class OpenAIEvalsConfig(BaseEvalsAPIConfig):
         self,
         eval_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict, dict]:
         """Transform cancel eval request for OpenAI"""
@@ -247,7 +247,7 @@ class OpenAIEvalsConfig(BaseEvalsAPIConfig):
     def transform_cancel_eval_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> CancelEvalResponse:
         """Transform OpenAI response to CancelEvalResponse"""
         response_json: Final = _parsed_response_json(raw_response)
@@ -260,13 +260,13 @@ class OpenAIEvalsConfig(BaseEvalsAPIConfig):
         self,
         eval_id: str,
         create_request: CreateRunRequest,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict]:
         """Transform create run request for OpenAI"""
         api_base = "https://api.openai.com"
-        if litellm_params and litellm_params.api_base:
-            api_base = litellm_params.api_base
+        if embrouter_params and embrouter_params.api_base:
+            api_base = embrouter_params.api_base
 
         encoded_eval_id: Final = encode_url_path_segment(eval_id, field_name="eval_id")
         url: Final = f"{api_base}/v1/evals/{encoded_eval_id}/runs"
@@ -281,7 +281,7 @@ class OpenAIEvalsConfig(BaseEvalsAPIConfig):
     def transform_create_run_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> Run:
         """Transform OpenAI response to Run object"""
         response_json: Final = _parsed_response_json(raw_response)
@@ -293,13 +293,13 @@ class OpenAIEvalsConfig(BaseEvalsAPIConfig):
         self,
         eval_id: str,
         list_params: ListRunsParams,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict]:
         """Transform list runs request for OpenAI"""
         api_base = "https://api.openai.com"
-        if litellm_params and litellm_params.api_base:
-            api_base = litellm_params.api_base
+        if embrouter_params and embrouter_params.api_base:
+            api_base = embrouter_params.api_base
 
         encoded_eval_id: Final = encode_url_path_segment(eval_id, field_name="eval_id")
         url: Final = f"{api_base}/v1/evals/{encoded_eval_id}/runs"
@@ -325,7 +325,7 @@ class OpenAIEvalsConfig(BaseEvalsAPIConfig):
     def transform_list_runs_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> ListRunsResponse:
         """Transform OpenAI response to ListRunsResponse"""
         response_json: Final = _parsed_response_json(raw_response)
@@ -338,7 +338,7 @@ class OpenAIEvalsConfig(BaseEvalsAPIConfig):
         eval_id: str,
         run_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict]:
         """Transform get run request for OpenAI"""
@@ -353,7 +353,7 @@ class OpenAIEvalsConfig(BaseEvalsAPIConfig):
     def transform_get_run_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> Run:
         """Transform OpenAI response to Run object"""
         response_json: Final = _parsed_response_json(raw_response)
@@ -366,7 +366,7 @@ class OpenAIEvalsConfig(BaseEvalsAPIConfig):
         eval_id: str,
         run_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict, dict]:
         """Transform cancel run request for OpenAI"""
@@ -384,7 +384,7 @@ class OpenAIEvalsConfig(BaseEvalsAPIConfig):
     def transform_cancel_run_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> CancelRunResponse:
         """Transform OpenAI response to CancelRunResponse"""
         response_json: Final = _parsed_response_json(raw_response)
@@ -397,7 +397,7 @@ class OpenAIEvalsConfig(BaseEvalsAPIConfig):
         eval_id: str,
         run_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict, dict]:
         """Transform delete run request for OpenAI"""
@@ -415,7 +415,7 @@ class OpenAIEvalsConfig(BaseEvalsAPIConfig):
     def transform_delete_run_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> RunDeleteResponse:
         """Transform OpenAI response to RunDeleteResponse"""
         response_json: Final = _parsed_response_json(raw_response)

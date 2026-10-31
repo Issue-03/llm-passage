@@ -11,8 +11,8 @@ import asyncio
 import pytest
 
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
+import embrouter
+from embrouter.integrations.custom_logger import CustomLogger
 
 
 @pytest.mark.asyncio
@@ -40,20 +40,20 @@ async def test_async_no_duplicate_spend_logs():
             self, kwargs, response_obj, start_time, end_time
         ):
             # Only count logs for our specific test request
-            litellm_call_id = kwargs.get("litellm_call_id", "")
-            if litellm_call_id == self.tracking_id:
+            embrouter_call_id = kwargs.get("embrouter_call_id", "")
+            if embrouter_call_id == self.tracking_id:
                 self.log_count += 1
 
     spend_logger = SpendLogCounter(tracking_id=test_request_id)
 
     # Save original callbacks and append our logger (don't replace to avoid affecting other tests)
-    original_callbacks = litellm.callbacks.copy() if litellm.callbacks else []
-    litellm.callbacks = original_callbacks + [spend_logger]
+    original_callbacks = embrouter.callbacks.copy() if embrouter.callbacks else []
+    embrouter.callbacks = original_callbacks + [spend_logger]
 
     try:
         # Call responses API with Anthropic model using mock_response
-        # Pass our unique ID as litellm_call_id to track this specific request
-        response = await litellm.aresponses(
+        # Pass our unique ID as embrouter_call_id to track this specific request
+        response = await embrouter.aresponses(
             model="anthropic/claude-3-7-sonnet-latest",
             input=[
                 {
@@ -64,7 +64,7 @@ async def test_async_no_duplicate_spend_logs():
             ],
             instructions="You are a helpful assistant.",
             mock_response="Hello! I'm doing well.",
-            litellm_call_id=test_request_id,
+            embrouter_call_id=test_request_id,
         )
 
         # Yield to the event loop so the _client_async_logging_helper task
@@ -76,7 +76,7 @@ async def test_async_no_duplicate_spend_logs():
         # Wait for async logging to complete. Use a timeout so that if the
         # worker is on a stale event loop (common in CI), flush() doesn't hang
         # indefinitely — the queue.join() inside flush() would never resolve.
-        from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+        from embrouter.embrouter_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
 
         try:
             await asyncio.wait_for(GLOBAL_LOGGING_WORKER.flush(), timeout=10.0)
@@ -92,4 +92,4 @@ async def test_async_no_duplicate_spend_logs():
 
     finally:
         # Restore original callbacks
-        litellm.callbacks = original_callbacks
+        embrouter.callbacks = original_callbacks

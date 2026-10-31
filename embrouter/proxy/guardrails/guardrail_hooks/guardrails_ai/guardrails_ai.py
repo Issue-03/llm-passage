@@ -3,7 +3,7 @@
 #           Use GuardrailsAI for your LLM calls
 #
 # +-------------------------------------------------------------+
-#  Thank you for using Litellm! - Krrish & Ishaan
+#  Thank you for using Embrouter! - Krrish & Ishaan
 
 import json
 import os
@@ -11,20 +11,20 @@ from typing import TYPE_CHECKING, Final, Literal, TypedDict
 
 from fastapi import HTTPException
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.integrations.custom_guardrail import (
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.integrations.custom_guardrail import (
     CustomGuardrail,
     log_guardrail_information,
 )
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
     get_content_from_model_response,
 )
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.types.guardrails import GuardrailEventHooks
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.types.guardrails import GuardrailEventHooks
 
 if TYPE_CHECKING:
-    from litellm.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
+    from embrouter.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
 
 
 class GuardrailsAIResponse(TypedDict):
@@ -57,7 +57,7 @@ class GuardrailsAI(CustomGuardrail):
     ):
         if guard_name is None:
             raise Exception(
-                "GuardrailsAIException - Please pass the Guardrails AI guard name via 'litellm_params::guard_name'"
+                "GuardrailsAIException - Please pass the Guardrails AI guard name via 'embrouter_params::guard_name'"
             )
         # store kwargs as optional_params
         self.guardrails_ai_api_base = api_base or os.getenv("GUARDRAILS_AI_API_BASE") or "http://0.0.0.0:8000"
@@ -74,7 +74,7 @@ class GuardrailsAI(CustomGuardrail):
             **self.get_guardrail_dynamic_request_body_params(request_data=request_data),
         }
         _json_data: Final = json.dumps(data)
-        response: Final = await litellm.module_level_aclient.post(
+        response: Final = await embrouter.module_level_aclient.post(
             url=str(URL(self.guardrails_ai_api_base).join(f"guards/{self.guardrails_ai_guard_name}/validate")),
             data=_json_data,
             headers={
@@ -111,7 +111,7 @@ class GuardrailsAI(CustomGuardrail):
             ]
         }
         _json_data: Final = json.dumps(data)
-        response = await litellm.module_level_aclient.post(
+        response = await embrouter.module_level_aclient.post(
             url=str(URL(self.guardrails_ai_api_base).join(f"guards/{self.guardrails_ai_guard_name}/validate")),
             data=_json_data,
             headers={
@@ -133,7 +133,7 @@ class GuardrailsAI(CustomGuardrail):
         return response
 
     async def process_input(self, data: dict, call_type: str) -> dict:
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             get_last_user_message,
             set_last_user_message,
         )
@@ -163,7 +163,7 @@ class GuardrailsAI(CustomGuardrail):
     async def async_pre_call_hook(
         self,
         user_api_key_dict: UserAPIKeyAuth,
-        cache: litellm.DualCache,
+        cache: embrouter.DualCache,
         data: dict,
         call_type: Literal[
             "completion",
@@ -178,7 +178,7 @@ class GuardrailsAI(CustomGuardrail):
         ],
     ) -> (
         Exception | str | dict | None
-    ):  # raise exception if invalid, return a str for the user to receive - if rejected, or return a modified dictionary for passing into litellm
+    ):  # raise exception if invalid, return a str for the user to receive - if rejected, or return a modified dictionary for passing into embrouter
         return await self.process_input(data=data, call_type=call_type)
 
     async def async_logging_hook(self, kwargs: dict, result: object, call_type: str) -> tuple[dict, object]:
@@ -199,7 +199,7 @@ class GuardrailsAI(CustomGuardrail):
 
         It can be used to reject a response
         """
-        from litellm.proxy.common_utils.callback_utils import (
+        from embrouter.proxy.common_utils.callback_utils import (
             add_guardrail_to_applied_guardrails_header,
         )
 
@@ -207,7 +207,7 @@ class GuardrailsAI(CustomGuardrail):
         if self.should_run_guardrail(data=data, event_type=event_type) is not True:
             return
 
-        if not isinstance(response, litellm.ModelResponse):
+        if not isinstance(response, embrouter.ModelResponse):
             return
 
         response_str: Final[str] = get_content_from_model_response(response)
@@ -220,7 +220,7 @@ class GuardrailsAI(CustomGuardrail):
 
     @staticmethod
     def get_config_model() -> type["GuardrailConfigModel"] | None:
-        from litellm.types.proxy.guardrails.guardrail_hooks.guardrails_ai import (
+        from embrouter.types.proxy.guardrails.guardrail_hooks.guardrails_ai import (
             GuardrailsAIGuardrailConfigModel,
         )
 

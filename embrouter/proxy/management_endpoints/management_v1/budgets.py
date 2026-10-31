@@ -9,18 +9,18 @@ from typing import Annotated, Final
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, TypeAdapter
 
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy._types import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy._types import (
     CommonProxyErrors,
     UserAPIKeyAuth,
     user_api_key_has_admin_view,
 )
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.list_api.common import (
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.list_api.common import (
     PROBLEM_TYPE_BASE,
     ManagementProblem,
 )
-from litellm.proxy.list_api.list_framework import (
+from embrouter.proxy.list_api.list_framework import (
     FilterSpec,
     ListSpec,
     Predicate,
@@ -33,16 +33,16 @@ from litellm.proxy.list_api.list_framework import (
     order_by_sql,
     where_sql,
 )
-from litellm.proxy.management_endpoints.management_v1.common import MANAGEMENT_V1_PREFIX
-from litellm.proxy.utils import PrismaClient
-from litellm.types.proxy.management_endpoints.management_v1 import (
+from embrouter.proxy.management_endpoints.management_v1.common import MANAGEMENT_V1_PREFIX
+from embrouter.proxy.utils import PrismaClient
+from embrouter.types.proxy.management_endpoints.management_v1 import (
     ListResponse,
     ProblemDetail,
 )
 
 router: Final = APIRouter(prefix=MANAGEMENT_V1_PREFIX)
 
-BUDGET_TABLE: Final = '"LiteLLM_BudgetTable"'
+BUDGET_TABLE: Final = '"EmbRouter_BudgetTable"'
 
 
 class BudgetListItem(BaseModel):
@@ -169,7 +169,7 @@ async def list_budgets(
     ```
     """
     try:
-        from litellm.proxy.proxy_server import prisma_client
+        from embrouter.proxy.proxy_server import prisma_client
 
         if prisma_client is None:
             raise ManagementProblem(
@@ -192,7 +192,7 @@ async def list_budgets(
         raise
     except Exception as e:  # noqa: BLE001  # a driver error answers as a problem document, not the OpenAI error shape
         verbose_proxy_logger.exception(
-            "litellm.proxy.management_endpoints.management_v1.budgets.list_budgets(): Exception occured - %s", e
+            "embrouter.proxy.management_endpoints.management_v1.budgets.list_budgets(): Exception occured - %s", e
         )
         raise ManagementProblem(
             ProblemDetail(

@@ -11,8 +11,8 @@ from unittest.mock import Mock, patch
 import pytest
 
 
-import litellm
-from litellm.llms.hosted_vllm.embedding.transformation import (
+import embrouter
+from embrouter.llms.hosted_vllm.embedding.transformation import (
     HostedVLLMEmbeddingConfig,
 )
 
@@ -189,7 +189,7 @@ class TestHostedVLLMEmbeddingTransformation:
             api_key="test-key",
             model=self.model,
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
         )
 
         assert url == "https://test-vllm.example.com/v1/embeddings"
@@ -203,7 +203,7 @@ class TestHostedVLLMEmbeddingTransformation:
             api_key="test-key",
             model=self.model,
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
         )
 
         assert url == "https://test-vllm.example.com/embeddings"
@@ -217,7 +217,7 @@ class TestHostedVLLMEmbeddingTransformation:
             model=self.model,
             messages=[],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             api_key="test-api-key",
         )
 
@@ -233,7 +233,7 @@ class TestHostedVLLMEmbeddingTransformation:
         Patches HTTPHandler.post at the class level so the mock is used when
         base_llm_http_handler calls sync_httpx_client.post() with the passed client.
         """
-        from litellm.llms.custom_httpx.http_handler import HTTPHandler
+        from embrouter.llms.custom_httpx.http_handler import HTTPHandler
 
         client = HTTPHandler()
 
@@ -260,7 +260,7 @@ class TestHostedVLLMEmbeddingTransformation:
             mock_response.text = json.dumps(mock_response.json.return_value)
             mock_post.return_value = mock_response
 
-            litellm.embedding(
+            embrouter.embedding(
                 model=self.model,
                 input=["Hello world"],
                 api_base="https://test-vllm.example.com/v1",
@@ -288,7 +288,7 @@ class TestHostedVLLMEmbeddingTransformation:
         ],
     )
     def test_provider_params_are_sent_at_the_top_level_of_the_request(self, provider_params: dict[str, object]) -> None:
-        from litellm.llms.custom_httpx.http_handler import HTTPHandler
+        from embrouter.llms.custom_httpx.http_handler import HTTPHandler
 
         client = HTTPHandler()
 
@@ -305,7 +305,7 @@ class TestHostedVLLMEmbeddingTransformation:
             mock_response.text = json.dumps(mock_response.json.return_value)
             mock_post.return_value = mock_response
 
-            litellm.embedding(
+            embrouter.embedding(
                 model="hosted_vllm/nvidia/nv-embedqa-e5-v5",
                 input=["Hello world"],
                 api_base="https://integrate.api.nvidia.com/v1",

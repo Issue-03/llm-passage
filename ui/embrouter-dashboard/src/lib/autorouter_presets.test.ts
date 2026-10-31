@@ -45,7 +45,7 @@ describe("autorouter_presets", () => {
 
   // buildPresetPrefill resolves every model reference through normalizeModelName, so two spellings
   // of the same model in one tier (e.g. "claude-sonnet-4-5" and "claude-sonnet-4.5") collapse to one
-  // key. For tier_model_configs that silently drops one model's litellm_params; catch it in the
+  // key. For tier_model_configs that silently drops one model's embrouter_params; catch it in the
   // bundled data itself, since nothing else validates preset authoring.
   it("never spells the same model two ways within a single tier", () => {
     for (const preset of getAllPresets()) {
@@ -156,15 +156,15 @@ describe("autorouter_presets", () => {
     expect(config.tiers.COMPLEX).toEqual(["claude-opus-5-5"]);
     expect(config.tiers.REASONING).toEqual(["claude-fable-5-1"]);
     expect(config.tier_model_configs).toEqual({
-      REASONING: [{ model_name: "claude-fable-5-1", litellm_params: { reasoning_effort: "high" } }],
+      REASONING: [{ model_name: "claude-fable-5-1", embrouter_params: { reasoning_effort: "high" } }],
     });
   });
 
   // Kimi K3 at max needs the map to declare max for kimi-k3, which is the commit below this one.
   it("pins the lite preset's per-tier reasoning efforts", () => {
     expect(getPresetByKey("lite")!.complexity_router_config.tier_model_configs).toEqual({
-      MEDIUM: [{ model_name: "muse-spark-1.3", litellm_params: { reasoning_effort: "xhigh" } }],
-      COMPLEX: [{ model_name: "kimi-k3", litellm_params: { reasoning_effort: "max" } }],
+      MEDIUM: [{ model_name: "muse-spark-1.3", embrouter_params: { reasoning_effort: "xhigh" } }],
+      COMPLEX: [{ model_name: "kimi-k3", embrouter_params: { reasoning_effort: "max" } }],
     });
   });
 
@@ -238,7 +238,7 @@ describe("autorouter_presets", () => {
     };
     expect(preset.complexity_router_config.tiers).toEqual(expectedTiers);
     expect(preset.complexity_router_config.tier_model_configs).toEqual({
-      REASONING: [{ model_name: "gpt-6-astra", litellm_params: { reasoning_effort: "xhigh" } }],
+      REASONING: [{ model_name: "gpt-6-astra", embrouter_params: { reasoning_effort: "xhigh" } }],
     });
     const prefill = buildPresetPrefill(preset.complexity_router_config, groupsOnly(getRequiredModelsInPreset(preset)));
     expect(prefill.complexityRouterConfig.tier_model_params).toEqual({
@@ -257,7 +257,7 @@ describe("autorouter_presets", () => {
     expect(preset.complexity_router_config.classifier_type).toBe("heuristic_v2");
     expect(preset.complexity_router_config.tiers).toEqual(expectedTiers);
     expect(preset.complexity_router_config.tier_model_configs).toEqual({
-      REASONING: [{ model_name: "claude-opus-5-5", litellm_params: { reasoning_effort: "high" } }],
+      REASONING: [{ model_name: "claude-opus-5-5", embrouter_params: { reasoning_effort: "high" } }],
     });
     const prefill = buildPresetPrefill(preset.complexity_router_config, groupsOnly(getRequiredModelsInPreset(preset)));
     expect(prefill.complexityRouterConfig.tier_model_params).toEqual({
@@ -416,7 +416,7 @@ describe("autorouter_presets", () => {
         ];
         const config = {
           tiers: { SIMPLE: [model], MEDIUM: [], COMPLEX: [], REASONING: [] },
-          tier_model_configs: { SIMPLE: [{ model_name: model, litellm_params: { reasoning_effort: "high" } }] },
+          tier_model_configs: { SIMPLE: [{ model_name: model, embrouter_params: { reasoning_effort: "high" } }] },
           classifier_type: "llm" as const,
           classifier_llm_config: { model, timeout_ms: 3000 },
           classification_mode: "every_request" as const,
@@ -500,12 +500,12 @@ describe("autorouter_presets", () => {
     it.each([
       { model: "azure/opaque-deployment", base_model: "openai/gpt-6-sol" },
       { model: "openai/gpt-6-sol", custom_llm_provider: "openrouter" },
-    ])("keeps cloud routing authoritative over native-looking model metadata: %j", (litellmParams) => {
+    ])("keeps cloud routing authoritative over native-looking model metadata: %j", (embrouterParams) => {
       const availability = buildModelAvailability(
         ["a-cloud", "z-native"],
         deploymentRefsFromModelInfo([
-          { model_name: "a-cloud", litellm_params: litellmParams, model_info: { base_model: "openai/gpt-6-sol" } },
-          { model_name: "z-native", litellm_params: { model: "openai/gpt-6-sol" } },
+          { model_name: "a-cloud", embrouter_params: embrouterParams, model_info: { base_model: "openai/gpt-6-sol" } },
+          { model_name: "z-native", embrouter_params: { model: "openai/gpt-6-sol" } },
         ]),
       );
 
@@ -516,8 +516,8 @@ describe("autorouter_presets", () => {
       const availability = buildModelAvailability(
         ["a-cloud", "z-native"],
         deploymentRefsFromModelInfo([
-          { model_name: "a-cloud", litellm_params: { model: "openrouter/meta/muse-spark-1.3" } },
-          { model_name: "z-native", litellm_params: { model: "muse-spark-1.3", custom_llm_provider: "meta" } },
+          { model_name: "a-cloud", embrouter_params: { model: "openrouter/meta/muse-spark-1.3" } },
+          { model_name: "z-native", embrouter_params: { model: "muse-spark-1.3", custom_llm_provider: "meta" } },
         ]),
       );
 
@@ -769,28 +769,28 @@ describe("autorouter_presets", () => {
   });
 
   describe("deploymentRefsFromModelInfo", () => {
-    it("keeps litellm_params.model and model_info.base_model, drops rows with neither or no name", () => {
+    it("keeps embrouter_params.model and model_info.base_model, drops rows with neither or no name", () => {
       const refs = deploymentRefsFromModelInfo([
         {
           model_name: "azure-prod",
-          litellm_params: { model: "azure/my-deployment" },
+          embrouter_params: { model: "azure/my-deployment" },
           model_info: { base_model: "azure/gpt-5.4" },
         },
-        { model_name: "no-underlying", litellm_params: {}, model_info: {} },
-        { litellm_params: { model: "openai/gpt-5.4" } },
+        { model_name: "no-underlying", embrouter_params: {}, model_info: {} },
+        { embrouter_params: { model: "openai/gpt-5.4" } },
       ]);
       expect(refs).toEqual([
         { modelGroup: "azure-prod", underlyingModels: ["azure/my-deployment", "azure/gpt-5.4"], provider: "azure" },
       ]);
     });
 
-    it("lets an azure deployment resolve through base_model declared under litellm_params", () => {
+    it("lets an azure deployment resolve through base_model declared under embrouter_params", () => {
       const availability = buildModelAvailability(
         ["azure-lp"],
         deploymentRefsFromModelInfo([
           {
             model_name: "azure-lp",
-            litellm_params: { model: "azure/opaque-deployment-name", base_model: "azure/gpt-5.4" },
+            embrouter_params: { model: "azure/opaque-deployment-name", base_model: "azure/gpt-5.4" },
           },
         ]),
       );
@@ -804,7 +804,7 @@ describe("autorouter_presets", () => {
         deploymentRefsFromModelInfo([
           {
             model_name: "azure-prod",
-            litellm_params: { model: "azure/opaque-deployment-name" },
+            embrouter_params: { model: "azure/opaque-deployment-name" },
             model_info: { base_model: "azure/gpt-5.4" },
           },
         ]),
@@ -1005,11 +1005,11 @@ describe("autorouter_presets", () => {
       expect(prefill.complexityRouterConfig.tiers.SIMPLE).toEqual(["claude-sonnet-4.5"]);
     });
 
-    it("prefills the per-model litellm_params a preset carries in tier_model_configs", () => {
+    it("prefills the per-model embrouter_params a preset carries in tier_model_configs", () => {
       const config = {
         tiers: { SIMPLE: ["gpt-5-nano"], MEDIUM: [], COMPLEX: [], REASONING: ["o3"] },
         tier_model_configs: {
-          REASONING: [{ model_name: "o3", litellm_params: { reasoning_effort: "high" } }],
+          REASONING: [{ model_name: "o3", embrouter_params: { reasoning_effort: "high" } }],
         },
         classifier_type: "heuristic" as const,
         classification_mode: "every_request" as const,
@@ -1029,7 +1029,7 @@ describe("autorouter_presets", () => {
       const config = {
         tiers: { SIMPLE: [], MEDIUM: [], COMPLEX: [], REASONING: ["claude-sonnet-4-5"] },
         tier_model_configs: {
-          REASONING: [{ model_name: "claude-sonnet-4-5", litellm_params: { reasoning_effort: "high" } }],
+          REASONING: [{ model_name: "claude-sonnet-4-5", embrouter_params: { reasoning_effort: "high" } }],
         },
         classifier_type: "heuristic" as const,
         classification_mode: "every_request" as const,
@@ -1050,8 +1050,8 @@ describe("autorouter_presets", () => {
         tiers: { SIMPLE: [], MEDIUM: [], COMPLEX: [], REASONING: ["claude-sonnet-4-5", "claude-sonnet-4.5"] },
         tier_model_configs: {
           REASONING: [
-            { model_name: "claude-sonnet-4-5", litellm_params: { reasoning_effort: "high", temperature: 0.2 } },
-            { model_name: "claude-sonnet-4.5", litellm_params: { reasoning_effort: "low" } },
+            { model_name: "claude-sonnet-4-5", embrouter_params: { reasoning_effort: "high", temperature: 0.2 } },
+            { model_name: "claude-sonnet-4.5", embrouter_params: { reasoning_effort: "low" } },
           ],
         },
         classifier_type: "heuristic" as const,

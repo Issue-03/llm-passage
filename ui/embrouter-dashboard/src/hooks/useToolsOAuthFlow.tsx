@@ -6,7 +6,7 @@
  * Unlike useUserMcpOAuthFlow (used in the chat panel), this hook:
  * - stores the resulting token in sessionStorage via mcpTokenStore only
  * - does NOT call storeMCPOAuthUserCredential (no backend DB write)
- * - uses "litellm-tools-mcp-oauth-result" as its result key to avoid
+ * - uses "embrouter-tools-mcp-oauth-result" as its result key to avoid
  *   collisions with the admin and user flows
  *
  * The OAuth callback page (src/app/mcp/oauth/callback/page.tsx) writes
@@ -47,9 +47,9 @@ interface UseToolsOAuthFlowResult {
   error: string | null;
 }
 
-const FLOW_STATE_KEY = "litellm-tools-mcp-oauth-flow-state";
-const RESULT_KEY = "litellm-tools-mcp-oauth-result";
-const RETURN_URL_KEY = "litellm-mcp-oauth-return-url";
+const FLOW_STATE_KEY = "embrouter-tools-mcp-oauth-flow-state";
+const RESULT_KEY = "embrouter-tools-mcp-oauth-result";
+const RETURN_URL_KEY = "embrouter-mcp-oauth-return-url";
 
 type StoredFlowState = {
   state: string;

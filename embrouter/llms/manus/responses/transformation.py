@@ -3,30 +3,30 @@ from typing import TYPE_CHECKING, Any, Final
 
 import httpx
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.litellm_core_utils.core_helpers import process_response_headers
-from litellm.litellm_core_utils.llm_response_utils.convert_dict_to_response import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.embrouter_core_utils.core_helpers import process_response_headers
+from embrouter.embrouter_core_utils.llm_response_utils.convert_dict_to_response import (
     _safe_convert_created_field,
 )
-from litellm.litellm_core_utils.url_utils import encode_url_path_segment
-from litellm.llms.openai.common_utils import OpenAIError
-from litellm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.openai import (
+from embrouter.embrouter_core_utils.url_utils import encode_url_path_segment
+from embrouter.llms.openai.common_utils import OpenAIError
+from embrouter.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.openai import (
     ResponseAPIUsage,
     ResponseInputParam,
     ResponsesAPIResponse,
 )
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import LlmProviders
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import LlmProviders
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 MANUS_API_BASE: Final = "https://api.manus.im"
 
@@ -75,14 +75,14 @@ class ManusResponsesAPIConfig(OpenAIResponsesAPIConfig):
         # If no slash, assume the model name itself is the agent profile
         return model
 
-    def validate_environment(self, headers: dict, model: str, litellm_params: GenericLiteLLMParams | None) -> dict:
+    def validate_environment(self, headers: dict, model: str, embrouter_params: GenericEmbRouterParams | None) -> dict:
         """
         Validate environment and set up headers for Manus API.
 
         Manus uses `API_KEY` header instead of `Authorization: Bearer`.
         """
-        litellm_params = litellm_params or GenericLiteLLMParams()
-        api_key: Final = litellm_params.api_key or litellm.api_key or get_secret_str("MANUS_API_KEY")
+        embrouter_params = embrouter_params or GenericEmbRouterParams()
+        api_key: Final = embrouter_params.api_key or embrouter.api_key or get_secret_str("MANUS_API_KEY")
 
         if not api_key:
             raise ValueError(
@@ -102,7 +102,7 @@ class ManusResponsesAPIConfig(OpenAIResponsesAPIConfig):
     def get_complete_url(
         self,
         api_base: str | None,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> str:
         """
         Get the complete URL for Manus Responses API endpoint.
@@ -110,7 +110,7 @@ class ManusResponsesAPIConfig(OpenAIResponsesAPIConfig):
         Returns:
             str: The full URL for the Manus /v1/responses endpoint
         """
-        api_base = api_base or litellm.api_base or get_secret_str("MANUS_API_BASE") or MANUS_API_BASE
+        api_base = api_base or embrouter.api_base or get_secret_str("MANUS_API_BASE") or MANUS_API_BASE
 
         # Remove trailing slashes
         api_base = api_base.rstrip("/")
@@ -125,7 +125,7 @@ class ManusResponsesAPIConfig(OpenAIResponsesAPIConfig):
         model: str,
         input: str | ResponseInputParam,
         response_api_optional_request_params: dict,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> dict:
         """
@@ -140,7 +140,7 @@ class ManusResponsesAPIConfig(OpenAIResponsesAPIConfig):
             model=model,
             input=input,
             response_api_optional_request_params=response_api_optional_request_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
@@ -165,7 +165,7 @@ class ManusResponsesAPIConfig(OpenAIResponsesAPIConfig):
         self,
         model: str,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> ResponsesAPIResponse:
         """
         Transform Manus API response to OpenAI-compatible format.
@@ -237,7 +237,7 @@ class ManusResponsesAPIConfig(OpenAIResponsesAPIConfig):
         self,
         response_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict]:
         """
@@ -256,7 +256,7 @@ class ManusResponsesAPIConfig(OpenAIResponsesAPIConfig):
     def transform_get_response_api_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> ResponsesAPIResponse:
         """
         Transform Manus API GET response to OpenAI-compatible format.

@@ -1,11 +1,11 @@
-from litellm.litellm_core_utils.served_output_texts import (
+from embrouter.embrouter_core_utils.served_output_texts import (
     SERVED_OUTPUT_TEXTS_KEY,
     overlay_served_output_texts,
     record_served_output_texts,
     served_output_texts,
     served_stream_output_texts,
 )
-from litellm.types.utils import Choices, Delta, Message, ModelResponse, ModelResponseStream, StreamingChoices
+from embrouter.types.utils import Choices, Delta, Message, ModelResponse, ModelResponseStream, StreamingChoices
 
 RAW = "Card: 4111 1111 1111 1111"
 MASKED = "Card: <CREDIT_CARD>"

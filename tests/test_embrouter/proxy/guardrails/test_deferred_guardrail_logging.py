@@ -26,17 +26,17 @@ import pytest
 import respx
 
 
-import litellm
-from litellm.caching.caching import DualCache
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.types.utils import StandardLoggingPayload
-from litellm.utils import _dispatch_success_logging
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
-from litellm.proxy.utils import ProxyLogging
-from litellm.types.guardrails import GuardrailEventHooks
+import embrouter
+from embrouter.caching.caching import DualCache
+from embrouter.embrouter_core_utils.embrouter_logging import Logging
+from embrouter.types.utils import StandardLoggingPayload
+from embrouter.utils import _dispatch_success_logging
+from embrouter.integrations.custom_guardrail import CustomGuardrail
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+from embrouter.proxy.utils import ProxyLogging
+from embrouter.types.guardrails import GuardrailEventHooks
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -127,25 +127,25 @@ class AllEventsGuardrail(CustomGuardrail):
 
 class TestHasPostCallGuardrails:
     def test_returns_true_for_post_call_guardrail(self):
-        with patch("litellm.callbacks", [PostCallGuardrail()]):
+        with patch("embrouter.callbacks", [PostCallGuardrail()]):
             assert ProxyBaseLLMRequestProcessing._has_post_call_guardrails() is True
 
     def test_returns_false_for_event_hook_none(self):
         """event_hook=None is not an explicit post_call registration for deferral."""
-        with patch("litellm.callbacks", [AllEventsGuardrail()]):
+        with patch("embrouter.callbacks", [AllEventsGuardrail()]):
             assert ProxyBaseLLMRequestProcessing._has_post_call_guardrails() is False
 
     def test_returns_false_for_pre_call_only(self):
-        with patch("litellm.callbacks", [PreCallGuardrail()]):
+        with patch("embrouter.callbacks", [PreCallGuardrail()]):
             assert ProxyBaseLLMRequestProcessing._has_post_call_guardrails() is False
 
     def test_returns_false_for_no_callbacks(self):
-        with patch("litellm.callbacks", []):
+        with patch("embrouter.callbacks", []):
             assert ProxyBaseLLMRequestProcessing._has_post_call_guardrails() is False
 
     def test_ignores_non_guardrail_callbacks(self):
         """String callbacks and CustomLogger instances are not guardrails."""
-        with patch("litellm.callbacks", ["langfuse", CustomLogger()]):
+        with patch("embrouter.callbacks", ["langfuse", CustomLogger()]):
             assert ProxyBaseLLMRequestProcessing._has_post_call_guardrails() is False
 
     def test_returns_true_for_list_with_post_call(self):
@@ -162,7 +162,7 @@ class TestHasPostCallGuardrails:
                     ],
                 )
 
-        with patch("litellm.callbacks", [ListGuardrail()]):
+        with patch("embrouter.callbacks", [ListGuardrail()]):
             assert ProxyBaseLLMRequestProcessing._has_post_call_guardrails() is True
 
     def test_returns_false_for_list_without_post_call(self):
@@ -176,7 +176,7 @@ class TestHasPostCallGuardrails:
                     event_hook=[GuardrailEventHooks.pre_call],
                 )
 
-        with patch("litellm.callbacks", [ListGuardrail()]):
+        with patch("embrouter.callbacks", [ListGuardrail()]):
             assert ProxyBaseLLMRequestProcessing._has_post_call_guardrails() is False
 
 
@@ -197,23 +197,23 @@ class TestHasPostCallGuardrailsForPassthrough:
         )._has_post_call_guardrails_for_passthrough()
 
     def test_returns_true_for_event_hook_none(self):
-        with patch("litellm.callbacks", [AllEventsGuardrail()]):
+        with patch("embrouter.callbacks", [AllEventsGuardrail()]):
             assert self._has({}) is True
 
     def test_returns_true_for_post_call_guardrail(self):
-        with patch("litellm.callbacks", [PostCallGuardrail()]):
+        with patch("embrouter.callbacks", [PostCallGuardrail()]):
             assert self._has({}) is True
 
     def test_returns_false_for_pre_call_only(self):
-        with patch("litellm.callbacks", [PreCallGuardrail()]):
+        with patch("embrouter.callbacks", [PreCallGuardrail()]):
             assert self._has({}) is False
 
     def test_returns_false_for_no_callbacks(self):
-        with patch("litellm.callbacks", []):
+        with patch("embrouter.callbacks", []):
             assert self._has({}) is False
 
     def test_ignores_non_guardrail_callbacks(self):
-        with patch("litellm.callbacks", ["langfuse", CustomLogger()]):
+        with patch("embrouter.callbacks", ["langfuse", CustomLogger()]):
             assert self._has({}) is False
 
     def test_request_scoped_guardrail_not_configured_for_key(self):
@@ -228,7 +228,7 @@ class TestHasPostCallGuardrailsForPassthrough:
                     event_hook=GuardrailEventHooks.post_call,
                 )
 
-        with patch("litellm.callbacks", [OptInPostCall()]):
+        with patch("embrouter.callbacks", [OptInPostCall()]):
             assert self._has({"metadata": {"guardrails": []}}) is False
             assert self._has({"metadata": {"guardrails": ["opt-in-post"]}}) is True
 
@@ -250,11 +250,11 @@ async def test_deferred_flag_stores_and_executes_closure():
     mock_logging_obj._defer_async_logging = True
     mock_logging_obj._enqueue_deferred_logging = None
 
-    await litellm.acompletion(
+    await embrouter.acompletion(
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": "hi"}],
         mock_response="Hello!",
-        litellm_logging_obj=mock_logging_obj,
+        embrouter_logging_obj=mock_logging_obj,
     )
 
     # Closure was stored
@@ -307,7 +307,7 @@ async def test_deferred_slot_keeps_the_innermost_wrapper_result():
             start_time=datetime.now(),
             end_time=datetime.now(),
             is_completion_with_fallbacks=False,
-            is_litellm_internal_call=False,
+            is_embrouter_internal_call=False,
         )
 
     logging_obj._enqueue_deferred_logging()
@@ -328,9 +328,9 @@ async def test_deferred_anthropic_messages_bridged_to_the_responses_api_logs_the
     deferred for a post-call guardrail the stored closure must carry the innermost provider
     response: logging the Anthropic-shaped reply under Responses semantics books this
     7,336-token prompt as 3 tokens, since Anthropic's input_tokens excludes the cache hit."""
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
     monkeypatch.setenv("DISABLE_AIOHTTP_TRANSPORT", "True")
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    embrouter.in_memory_llm_clients_cache.flush_cache()
     respx_mock.post(url__regex=r"https://deferred-nested\.openai\.azure\.com/openai/.*responses.*").mock(
         return_value=httpx.Response(
             200,
@@ -366,13 +366,13 @@ async def test_deferred_anthropic_messages_bridged_to_the_responses_api_logs_the
         stream=False,
         call_type="anthropic_messages",
         start_time=datetime.now(),
-        litellm_call_id="deferred-nested-anthropic-messages",
+        embrouter_call_id="deferred-nested-anthropic-messages",
         function_id="deferred-nested-anthropic-messages",
         dynamic_async_success_callbacks=[recorder],
     )
     logging_obj._defer_async_logging = True
 
-    response: Final = await litellm.anthropic_messages(
+    response: Final = await embrouter.anthropic_messages(
         model="azure/gpt-5.4-nano",
         messages=[{"role": "user", "content": "hi"}],
         max_tokens=16,
@@ -386,7 +386,7 @@ async def test_deferred_anthropic_messages_bridged_to_the_responses_api_logs_the
         api_key="sk-deferred-nested",
         api_base="https://deferred-nested.openai.azure.com",
         api_version="2025-04-01-preview",
-        litellm_logging_obj=logging_obj,
+        embrouter_logging_obj=logging_obj,
     )
     assert response["content"] == [{"type": "text", "text": "Hello!"}]
     assert response["usage"]["input_tokens"] == 3
@@ -418,7 +418,7 @@ async def test_no_flag_fires_create_task_normally():
         return task
 
     with patch("asyncio.create_task", side_effect=tracking_create_task):
-        await litellm.acompletion(
+        await embrouter.acompletion(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "hi"}],
             mock_response="Hello!",
@@ -618,12 +618,12 @@ class TestDeferredStreamingClosure:
         mock_logging_obj = MagicMock()
         mock_logging_obj._on_deferred_stream_complete = MagicMock()
 
-        resp = await litellm.acompletion(
+        resp = await embrouter.acompletion(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "hi"}],
             mock_response="Hello!",
             stream=True,
-            litellm_logging_obj=mock_logging_obj,
+            embrouter_logging_obj=mock_logging_obj,
         )
         async for _ in resp:
             pass
@@ -646,7 +646,7 @@ class TestDeferredStreamingClosure:
             created_tasks.append(task)
             return task
 
-        resp = await litellm.acompletion(
+        resp = await embrouter.acompletion(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": "hi"}],
             mock_response="Hello!",
@@ -722,19 +722,19 @@ class TestDeferredStreamingClosure:
 
         mock_logging_obj._on_deferred_stream_complete = _on_deferred_stream_complete
 
-        with patch("litellm.callbacks", [tracking_guardrail, tracking_logger]):
-            resp = await litellm.acompletion(
+        with patch("embrouter.callbacks", [tracking_guardrail, tracking_logger]):
+            resp = await embrouter.acompletion(
                 model="gpt-3.5-turbo",
                 messages=[{"role": "user", "content": "hi"}],
                 mock_response="Hello!",
                 stream=True,
-                litellm_logging_obj=mock_logging_obj,
+                embrouter_logging_obj=mock_logging_obj,
             )
             async for _ in resp:
                 pass
 
             # CSW stored args; now simulate what ProxyLogging does
-            request_data = {"litellm_logging_obj": mock_logging_obj}
+            request_data = {"embrouter_logging_obj": mock_logging_obj}
             ProxyLogging._fire_deferred_stream_logging(request_data)
 
             await asyncio.sleep(0)
@@ -776,7 +776,7 @@ class TestDeferredStreamingClosure:
 
         guardrail = ModifyingGuardrail()
 
-        with patch("litellm.callbacks", [guardrail]):
+        with patch("embrouter.callbacks", [guardrail]):
             await ProxyBaseLLMRequestProcessing._run_deferred_stream_guardrails(
                 captured_data={"model": "gpt-4", "metadata": {}},
                 captured_user_api_key_dict=UserAPIKeyAuth(api_key="test"),
@@ -825,7 +825,7 @@ class TestDeferredStreamingClosure:
 
         guardrail = BlockingGuardrail()
 
-        with patch("litellm.callbacks", [guardrail]):
+        with patch("embrouter.callbacks", [guardrail]):
             await ProxyBaseLLMRequestProcessing._run_deferred_stream_guardrails(
                 captured_data={"model": "gpt-4", "metadata": {}},
                 captured_user_api_key_dict=UserAPIKeyAuth(api_key="test"),
@@ -873,7 +873,7 @@ class TestDeferredStreamingClosure:
 
         guardrail = TransientErrorGuardrail()
 
-        with patch("litellm.callbacks", [guardrail]):
+        with patch("embrouter.callbacks", [guardrail]):
             await ProxyBaseLLMRequestProcessing._run_deferred_stream_guardrails(
                 captured_data={"model": "gpt-4", "metadata": {}},
                 captured_user_api_key_dict=UserAPIKeyAuth(api_key="test"),
@@ -934,19 +934,19 @@ class TestDeferredStreamingClosure:
 
         mock_logging_obj._on_deferred_stream_complete = _on_deferred_stream_complete
 
-        with patch("litellm.callbacks", [guardrail]):
-            resp = await litellm.acompletion(
+        with patch("embrouter.callbacks", [guardrail]):
+            resp = await embrouter.acompletion(
                 model="gpt-3.5-turbo",
                 messages=[{"role": "user", "content": "hi"}],
                 mock_response="Hello!",
                 stream=True,
-                litellm_logging_obj=mock_logging_obj,
+                embrouter_logging_obj=mock_logging_obj,
             )
             async for _ in resp:
                 pass
 
             # CSW stored args; now simulate what ProxyLogging does
-            request_data = {"litellm_logging_obj": mock_logging_obj}
+            request_data = {"embrouter_logging_obj": mock_logging_obj}
             ProxyLogging._fire_deferred_stream_logging(request_data)
 
             await asyncio.sleep(0)
@@ -962,7 +962,7 @@ class TestDeferredStreamingClosure:
         """Guardrails that define apply_guardrail should be SKIPPED in
         _run_deferred_stream_guardrails (they already ran via unified_guardrail's
         streaming end-of-stream block)."""
-        from litellm.types.utils import GenericGuardrailAPIInputs
+        from embrouter.types.utils import GenericGuardrailAPIInputs
 
         apply_guardrail_called = False
 
@@ -991,7 +991,7 @@ class TestDeferredStreamingClosure:
 
         guardrail = ApplyGuardrailType()
 
-        with patch("litellm.callbacks", [guardrail]):
+        with patch("embrouter.callbacks", [guardrail]):
             await ProxyBaseLLMRequestProcessing._run_deferred_stream_guardrails(
                 captured_data={"model": "gpt-4", "metadata": {}},
                 captured_user_api_key_dict=UserAPIKeyAuth(api_key="test"),
@@ -1044,7 +1044,7 @@ class TestDeferredStreamingClosure:
 
         guardrail = IteratorHookGuardrail()
 
-        with patch("litellm.callbacks", [guardrail]):
+        with patch("embrouter.callbacks", [guardrail]):
             await ProxyBaseLLMRequestProcessing._run_deferred_stream_guardrails(
                 captured_data={"model": "gpt-4", "metadata": {}},
                 captured_user_api_key_dict=UserAPIKeyAuth(api_key="test"),
@@ -1112,9 +1112,9 @@ class TestDeferredStreamingClosure:
             return merged
 
         with (
-            patch("litellm.callbacks", [guardrail]),
+            patch("embrouter.callbacks", [guardrail]),
             patch(
-                "litellm.proxy.utils._check_and_merge_model_level_guardrails",
+                "embrouter.proxy.utils._check_and_merge_model_level_guardrails",
                 side_effect=mock_merge,
             ),
         ):
@@ -1176,9 +1176,9 @@ class TestDeferredStreamingClosure:
             return merged
 
         with (
-            patch("litellm.callbacks", [guardrail_a, guardrail_b]),
+            patch("embrouter.callbacks", [guardrail_a, guardrail_b]),
             patch(
-                "litellm.proxy.utils._check_and_merge_model_level_guardrails",
+                "embrouter.proxy.utils._check_and_merge_model_level_guardrails",
                 side_effect=mock_merge,
             ),
         ):
@@ -1216,7 +1216,7 @@ class TestDeferredStreamingClosure:
             raise RuntimeError("Simulated init failure")
 
         with patch(
-            "litellm.proxy.utils._check_and_merge_model_level_guardrails",
+            "embrouter.proxy.utils._check_and_merge_model_level_guardrails",
             side_effect=exploding_merge,
         ):
             await ProxyBaseLLMRequestProcessing._run_deferred_stream_guardrails(
@@ -1239,10 +1239,10 @@ class TestDeferredStreamingClosure:
         """
         Regression: proxy deferred streaming logging must reach the async success
         handler (which runs the async-only DB/spend logger) even when the call
-        type is classified as a sync SDK request by _is_sync_litellm_request.
+        type is classified as a sync SDK request by _is_sync_embrouter_request.
 
         Without prefer_async_handlers=True, an async proxy stream whose
-        litellm_params lacks a recognized async marker would enter the sync
+        embrouter_params lacks a recognized async marker would enter the sync
         branch of dispatch_success_handlers and silently skip spend tracking.
 
         Uses the real dispatch_success_handlers via the production
@@ -1250,22 +1250,22 @@ class TestDeferredStreamingClosure:
         """
         import time
 
-        from litellm.litellm_core_utils.litellm_logging import (
-            Logging as LiteLLMLoggingObj,
+        from embrouter.embrouter_core_utils.embrouter_logging import (
+            Logging as EmbRouterLoggingObj,
         )
 
-        logging_obj = LiteLLMLoggingObj(
+        logging_obj = EmbRouterLoggingObj(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": "hi"}],
             stream=True,
             call_type="completion",  # not pass_through_endpoint
             start_time=time.time(),
-            litellm_call_id="test-id",
+            embrouter_call_id="test-id",
             function_id="fn",
         )
-        # litellm_params with no recognized async marker -> classified sync.
-        logging_obj.model_call_details["litellm_params"] = {}
-        assert LiteLLMLoggingObj._is_sync_litellm_request({}) is True
+        # embrouter_params with no recognized async marker -> classified sync.
+        logging_obj.model_call_details["embrouter_params"] = {}
+        assert EmbRouterLoggingObj._is_sync_embrouter_request({}) is True
 
         with (
             patch.object(
@@ -1279,7 +1279,7 @@ class TestDeferredStreamingClosure:
                 "_should_run_sync_callbacks_for_async_calls",
                 return_value=False,
             ),
-            patch("litellm.callbacks", [PostCallGuardrail()]),
+            patch("embrouter.callbacks", [PostCallGuardrail()]),
         ):
             await ProxyBaseLLMRequestProcessing._run_deferred_stream_guardrails(
                 captured_data={"model": "gpt-4o-mini", "metadata": {}},
@@ -1318,7 +1318,7 @@ class TestFireDeferredStreamLogging:
         mock_logging_obj._on_deferred_stream_complete = mock_callback
         mock_logging_obj._deferred_stream_complete_args = ("test_response", True)
 
-        request_data = {"litellm_logging_obj": mock_logging_obj}
+        request_data = {"embrouter_logging_obj": mock_logging_obj}
         ProxyLogging._fire_deferred_stream_logging(request_data)
 
         await asyncio.sleep(0)
@@ -1337,14 +1337,14 @@ class TestFireDeferredStreamLogging:
         mock_logging_obj = MagicMock()
         mock_logging_obj._on_deferred_stream_complete = None
 
-        request_data = {"litellm_logging_obj": mock_logging_obj}
+        request_data = {"embrouter_logging_obj": mock_logging_obj}
         # Should not raise
         ProxyLogging._fire_deferred_stream_logging(request_data)
 
     @pytest.mark.asyncio
     async def test_noop_when_no_logging_obj(self):
         """_fire_deferred_stream_logging should be a no-op when
-        litellm_logging_obj is missing from request_data."""
+        embrouter_logging_obj is missing from request_data."""
         request_data = {}
         # Should not raise
         ProxyLogging._fire_deferred_stream_logging(request_data)
@@ -1387,7 +1387,7 @@ class TestFireDeferredStreamLogging:
         guardrail = InfoWritingGuardrail()
         captured_data = {"model": "gpt-4", "metadata": {}}
 
-        with patch("litellm.callbacks", [guardrail]):
+        with patch("embrouter.callbacks", [guardrail]):
             await ProxyBaseLLMRequestProcessing._run_deferred_stream_guardrails(
                 captured_data=captured_data,
                 captured_user_api_key_dict=UserAPIKeyAuth(api_key="test"),
@@ -1413,7 +1413,7 @@ class TestResponsesIteratorDeferredLogging:
     instead of dispatching immediately with a premature metadata snapshot."""
 
     def _iterator(self, logging_obj):
-        from litellm.responses.streaming_iterator import (
+        from embrouter.responses.streaming_iterator import (
             BaseResponsesAPIStreamingIterator,
         )
 
@@ -1477,7 +1477,7 @@ class TestResponsesIteratorDeferredLogging:
 class TestArmDeferredStreamDispatch:
     """Regression for PR #38722: the closure shape armed on logging_obj must
     match the args the stream's logging owner stores.  Bridged /v1/responses
-    (LiteLLMCompletionStreamingIterator) shares its inner CustomStreamWrapper's
+    (EmbRouterCompletionStreamingIterator) shares its inner CustomStreamWrapper's
     logging_obj, which stores (assembled_response, cache_hit); arming the
     single-coroutine native closure there made _fire_deferred_stream_logging
     raise TypeError inside the streaming hook, leaking an in-stream 500 error
@@ -1504,12 +1504,12 @@ class TestArmDeferredStreamDispatch:
 
     @pytest.mark.asyncio
     async def test_bridged_responses_iterator_gets_csw_arg_shape(self):
-        from litellm.responses.litellm_completion_transformation.streaming_iterator import (
-            LiteLLMCompletionStreamingIterator,
+        from embrouter.responses.embrouter_completion_transformation.streaming_iterator import (
+            EmbRouterCompletionStreamingIterator,
         )
 
         logging_obj, recorded = self._dispatch_recording_logging_obj()
-        bridged = object.__new__(LiteLLMCompletionStreamingIterator)
+        bridged = object.__new__(EmbRouterCompletionStreamingIterator)
 
         self._processor()._arm_deferred_stream_dispatch(
             response=bridged,
@@ -1520,7 +1520,7 @@ class TestArmDeferredStreamDispatch:
 
         assembled = object()
         logging_obj._deferred_stream_complete_args = (assembled, False)
-        ProxyLogging._fire_deferred_stream_logging({"litellm_logging_obj": logging_obj})
+        ProxyLogging._fire_deferred_stream_logging({"embrouter_logging_obj": logging_obj})
         await asyncio.sleep(0)
 
         assert recorded["result"] is assembled
@@ -1535,15 +1535,15 @@ class TestArmDeferredStreamDispatch:
         sniffing the wrapper instead of the inner iterator armed the 1-arg
         native closure against the CSW's 2-arg stored shape and leaked a
         TypeError 500 frame into the stream."""
-        from litellm.responses.litellm_completion_transformation.streaming_iterator import (
-            LiteLLMCompletionStreamingIterator,
+        from embrouter.responses.embrouter_completion_transformation.streaming_iterator import (
+            EmbRouterCompletionStreamingIterator,
         )
-        from litellm.router_utils.add_retry_fallback_headers import (
+        from embrouter.router_utils.add_retry_fallback_headers import (
             HiddenParamsAsyncIteratorWrapper,
         )
 
         logging_obj, recorded = self._dispatch_recording_logging_obj()
-        wrapped = HiddenParamsAsyncIteratorWrapper(object.__new__(LiteLLMCompletionStreamingIterator))
+        wrapped = HiddenParamsAsyncIteratorWrapper(object.__new__(EmbRouterCompletionStreamingIterator))
 
         self._processor()._arm_deferred_stream_dispatch(
             response=wrapped,
@@ -1554,7 +1554,7 @@ class TestArmDeferredStreamDispatch:
 
         assembled = object()
         logging_obj._deferred_stream_complete_args = (assembled, False)
-        ProxyLogging._fire_deferred_stream_logging({"litellm_logging_obj": logging_obj})
+        ProxyLogging._fire_deferred_stream_logging({"embrouter_logging_obj": logging_obj})
         await asyncio.sleep(0)
 
         assert recorded["result"] is assembled
@@ -1563,7 +1563,7 @@ class TestArmDeferredStreamDispatch:
 
     @pytest.mark.asyncio
     async def test_native_stream_closure_enqueues_single_coroutine(self):
-        from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+        from embrouter.embrouter_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
 
         logging_obj, recorded = self._dispatch_recording_logging_obj()
 
@@ -1586,7 +1586,7 @@ class TestArmDeferredStreamDispatch:
         with patch.object(  # test-quality-ok: GLOBAL_LOGGING_WORKER is a process-global singleton with no injection seam
             GLOBAL_LOGGING_WORKER, "ensure_initialized_and_enqueue"
         ) as mock_enqueue:
-            ProxyLogging._fire_deferred_stream_logging({"litellm_logging_obj": logging_obj})
+            ProxyLogging._fire_deferred_stream_logging({"embrouter_logging_obj": logging_obj})
             await asyncio.sleep(0)
         mock_enqueue.assert_called_once_with(async_coroutine=coro)
         assert recorded == {}
@@ -1600,7 +1600,7 @@ class TestArmDeferredStreamDispatch:
         so stores (assembled_response, cache_hit). The closure armed for a raw
         generator must accept that shape too, or _fire_deferred_stream_logging
         raises TypeError and the request loses its spend log and callbacks."""
-        from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+        from embrouter.embrouter_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
 
         logging_obj, recorded = self._dispatch_recording_logging_obj()
 
@@ -1619,7 +1619,7 @@ class TestArmDeferredStreamDispatch:
         with patch.object(  # test-quality-ok: GLOBAL_LOGGING_WORKER is a process-global singleton with no injection seam
             GLOBAL_LOGGING_WORKER, "ensure_initialized_and_enqueue"
         ) as mock_enqueue:
-            ProxyLogging._fire_deferred_stream_logging({"litellm_logging_obj": logging_obj})
+            ProxyLogging._fire_deferred_stream_logging({"embrouter_logging_obj": logging_obj})
             await asyncio.sleep(0)
 
         mock_enqueue.assert_not_called()
@@ -1630,7 +1630,7 @@ class TestArmDeferredStreamDispatch:
     @pytest.mark.asyncio
     @pytest.mark.parametrize("stored_args", [(object(),), (object(), object(), object())])
     async def test_raw_generator_stream_with_unknown_arg_shape_logs_and_drops(self, stored_args, caplog):
-        from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+        from embrouter.embrouter_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
 
         logging_obj, recorded = self._dispatch_recording_logging_obj()
 
@@ -1649,9 +1649,9 @@ class TestArmDeferredStreamDispatch:
             patch.object(  # test-quality-ok: GLOBAL_LOGGING_WORKER is a process-global singleton with no injection seam
                 GLOBAL_LOGGING_WORKER, "ensure_initialized_and_enqueue"
             ) as mock_enqueue,
-            caplog.at_level(logging.ERROR, logger="LiteLLM Proxy"),
+            caplog.at_level(logging.ERROR, logger="EmbRouter Proxy"),
         ):
-            ProxyLogging._fire_deferred_stream_logging({"litellm_logging_obj": logging_obj})
+            ProxyLogging._fire_deferred_stream_logging({"embrouter_logging_obj": logging_obj})
             await asyncio.sleep(0)
 
         mock_enqueue.assert_not_called()
@@ -1661,14 +1661,14 @@ class TestArmDeferredStreamDispatch:
 
     @pytest.mark.asyncio
     async def test_csw_closure_routes_through_deferred_stream_guardrails(self, monkeypatch):
-        from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
+        from embrouter.embrouter_core_utils.streaming_handler import CustomStreamWrapper
 
         logging_obj, recorded = self._dispatch_recording_logging_obj()
         csw = object.__new__(CustomStreamWrapper)
         processor = self._processor()
 
         monkeypatch.setattr(  # test-quality-ok: empty the process-global callback registry so no ambient guardrail runs
-            litellm, "callbacks", []
+            embrouter, "callbacks", []
         )
         processor._arm_deferred_stream_dispatch(
             response=csw,

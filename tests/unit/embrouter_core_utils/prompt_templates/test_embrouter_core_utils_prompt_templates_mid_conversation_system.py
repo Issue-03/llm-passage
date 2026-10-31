@@ -7,9 +7,9 @@ the pure placement rules on the OpenAI-format message list.
 
 import pytest
 
-import litellm
-from litellm.litellm_core_utils.prompt_templates.common_utils import encrypted_reasoning_signature
-from litellm.litellm_core_utils.prompt_templates.mid_conversation_system import (
+import embrouter
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import encrypted_reasoning_signature
+from embrouter.embrouter_core_utils.prompt_templates.mid_conversation_system import (
     CONVERTED_SYSTEM_NOTE,
     place_mid_conversation_system,
     split_leading_system_run,
@@ -104,10 +104,10 @@ def test_flagged_placement_drops_a_system_message_with_no_text():
 
 
 def test_placement_reads_roles_off_pydantic_messages_in_the_history():
-    """Callers routinely append the previous ``litellm.Message`` object straight
+    """Callers routinely append the previous ``embrouter.Message`` object straight
     into the history; placement must read its role without assuming a dict and
     hand the object through untouched."""
-    assistant = litellm.Message(role="assistant", content="a1")
+    assistant = embrouter.Message(role="assistant", content="a1")
     messages = [
         {"role": "user", "content": "q1"},
         assistant,
@@ -279,7 +279,7 @@ EMPTY_ASSISTANT = pytest.mark.parametrize(
             "content": [{"type": "redacted_thinking", "data": "x"}],
             "thinking_blocks": [{"type": "redacted_thinking", "data": "x"}],
         },
-        litellm.Message(role="assistant", content=None),
+        embrouter.Message(role="assistant", content=None),
     ],
     ids=[
         "none",
@@ -337,7 +337,7 @@ def test_flagged_placement_keeps_a_system_whose_empty_assistant_follower_ends_th
         {"role": "assistant", "content": None, "thinking_blocks": [{"type": "redacted_thinking", "data": "x"}]},
         {"role": "assistant", "content": [{"type": "thinking", "thinking": "hm", "signature": "s"}]},
         {"role": "assistant", "content": None, "function_call": {"name": "f", "arguments": "{}"}},
-        litellm.Message(
+        embrouter.Message(
             role="assistant",
             content="",
             tool_calls=[{"id": "toolu_1", "type": "function", "function": {"name": "f", "arguments": "{}"}}],
@@ -372,7 +372,7 @@ def test_flagged_placement_keeps_a_system_before_an_assistant_turn_that_renders_
         {"role": "assistant", "content": ""},
         {"role": "assistant", "content": "   "},
         {"role": "assistant", "content": [{"type": "text", "text": ""}]},
-        litellm.Message(role="assistant", content=""),
+        embrouter.Message(role="assistant", content=""),
     ],
     ids=["empty-string", "whitespace-string", "empty-text-part", "pydantic-empty-string"],
 )

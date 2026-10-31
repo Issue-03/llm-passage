@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { AssistantMessageUpdate, ChatMessage, Conversation } from "./types";
 
-const STORAGE_KEY_PREFIX = "litellm_chat_history_v1";
+const STORAGE_KEY_PREFIX = "embrouter_chat_history_v1";
 const MAX_CONVERSATIONS = 100;
 const TITLE_MAX_LENGTH = 40;
 

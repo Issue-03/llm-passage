@@ -6,8 +6,8 @@ from typing import Final, Protocol
 
 from apscheduler.executors.asyncio import AsyncIOExecutor
 
-from litellm._logging import verbose_proxy_logger
-from litellm.constants import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.constants import (
     SCHEDULED_JOB_SHUTDOWN_CANCEL_TIMEOUT_SECONDS,
     SCHEDULED_JOB_SHUTDOWN_FINISH_TIMEOUT_SECONDS,
 )

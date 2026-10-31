@@ -3,12 +3,12 @@
 Setting ``OTEL_SEMCONV_STABILITY_OPT_IN=gen_ai_latest_experimental`` switches the
 emitted traces to the experimental OTEL GenAI conventions
 (https://opentelemetry.io/docs/specs/semconv/gen-ai/). Concretely, versus the
-default LiteLLM output:
+default EmbRouter output:
 
 Request span:
 
 - name is ``{operation} {model}`` (e.g. ``chat gpt-4``) instead of
-  ``litellm_request``; span kind is ``CLIENT``.
+  ``embrouter_request``; span kind is ``CLIENT``.
 - ``gen_ai.operation.name`` is the actual operation (``chat`` /
   ``text_completion`` / ``embeddings``) instead of always ``chat``.
 - the provider is reported as ``gen_ai.provider.name``; the superseded
@@ -33,13 +33,13 @@ from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Final
 
-from litellm.integrations.otel.mappers.utils import drop_none
-from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
+from embrouter.integrations.otel.mappers.utils import drop_none
+from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps
 
 if TYPE_CHECKING:
     from opentelemetry.trace import Span as _Span
 
-    from litellm.integrations.opentelemetry import OpenTelemetryConfig
+    from embrouter.integrations.opentelemetry import OpenTelemetryConfig
 
     Span = _Span | Any
 else:
@@ -59,7 +59,7 @@ class OTELSemconvCategory(Enum):
 _SEMCONV_CATEGORY_BY_VALUE: Final = {category.value: category for category in OTELSemconvCategory}
 
 
-# LiteLLM optional_params key -> OTEL gen_ai semconv span attribute.
+# EmbRouter optional_params key -> OTEL gen_ai semconv span attribute.
 _SEMCONV_REQUEST_ATTRIBUTES: Final = {
     "frequency_penalty": "gen_ai.request.frequency_penalty",
     "presence_penalty": "gen_ai.request.presence_penalty",
@@ -101,7 +101,7 @@ class OTELGenAISemconvMixin:
 
     - ``_gen_ai_semconv_latest_experimental`` -- opt-in gate; guards every
       semconv code path in ``opentelemetry.py``.
-    - ``_gen_ai_operation_name`` -- LiteLLM ``call_type`` -> spec
+    - ``_gen_ai_operation_name`` -- EmbRouter ``call_type`` -> spec
       ``gen_ai.operation.name``.
     - ``_set_semconv_request_attributes`` /
       ``_set_semconv_cache_token_attributes`` -- add the ``gen_ai.request.*``
@@ -140,7 +140,7 @@ class OTELGenAISemconvMixin:
 
     @staticmethod
     def _gen_ai_operation_name(kwargs: dict) -> str:
-        """Map a LiteLLM ``call_type`` to spec ``gen_ai.operation.name``.
+        """Map a EmbRouter ``call_type`` to spec ``gen_ai.operation.name``.
 
         Substring match (e.g. ``aembedding`` -> ``embeddings``); defaults to
         ``chat``.

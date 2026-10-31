@@ -2,8 +2,8 @@ from dataclasses import FrozenInstanceError
 
 import pytest
 
-from litellm.proxy._experimental.mcp_server.operations import prepare_context
-from litellm.proxy._types import UserAPIKeyAuth
+from embrouter.proxy._experimental.mcp_server.operations import prepare_context
+from embrouter.proxy._types import UserAPIKeyAuth
 
 
 def test_operation_context_isolates_nested_headers_and_caller_permissions():

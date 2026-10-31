@@ -5,22 +5,22 @@ Functions for sending Email Alerts
 import os
 from typing import Final
 
-from litellm._logging import verbose_logger, verbose_proxy_logger
-from litellm.proxy._types import WebhookEvent
-from litellm.repositories.team_repository import TeamRepository
+from embrouter._logging import verbose_logger, verbose_proxy_logger
+from embrouter.proxy._types import WebhookEvent
+from embrouter.repositories.team_repository import TeamRepository
 
 # we use this for the email header, please send a test email if you change this. verify it looks good on email
 # No hosted default logo; set EMAIL_LOGO_URL to show one in alert emails.
-LITELLM_LOGO_URL: Final = ""
+EMBROUTER_LOGO_URL: Final = ""
 # No default support address; set EMAIL_SUPPORT_CONTACT to show one in alert emails.
-LITELLM_SUPPORT_CONTACT: Final = ""
+EMBROUTER_SUPPORT_CONTACT: Final = ""
 
 
 async def get_all_team_member_emails(team_id: str | None = None) -> list:
     verbose_logger.debug("Email Alerting: Getting all team members for team_id=%s", team_id)
     if team_id is None:
         return []
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise Exception("Not connected to DB!")
@@ -49,7 +49,7 @@ async def get_all_team_member_emails(team_id: str | None = None) -> list:
 
     sql_query: Final = """
         SELECT user_email
-        FROM "LiteLLM_UserTable"
+        FROM "EmbRouter_UserTable"
         WHERE user_id = ANY($1::TEXT[]);
     """
 
@@ -72,7 +72,7 @@ async def send_team_budget_alert(webhook_event: WebhookEvent) -> bool:
     Send an Email Alert to All Team Members when the Team Budget is crossed
     Returns -> True if sent, False if not.
     """
-    from litellm.proxy.utils import send_email
+    from embrouter.proxy.utils import send_email
 
     _team_id: Final = webhook_event.team_id
     team_alias: Final = webhook_event.team_alias
@@ -86,16 +86,16 @@ async def send_team_budget_alert(webhook_event: WebhookEvent) -> bool:
     # )
 
     if email_logo_url is None:
-        email_logo_url = LITELLM_LOGO_URL
+        email_logo_url = EMBROUTER_LOGO_URL
     if email_support_contact is None:
-        email_support_contact = LITELLM_SUPPORT_CONTACT
+        email_support_contact = EMBROUTER_SUPPORT_CONTACT
     recipient_emails: Final = await get_all_team_member_emails(_team_id)
     recipient_emails_str: Final[str] = ",".join(recipient_emails)
     verbose_logger.debug("Email Alerting: Sending team budget alert to %s", recipient_emails_str)
 
     event_name: Final = webhook_event.event_message
     max_budget: Final = webhook_event.max_budget
-    email_html_content = "Alert from LiteLLM Server"
+    email_html_content = "Alert from EmbRouter Server"
 
     if recipient_emails_str is None:
         verbose_proxy_logger.warning(
@@ -104,7 +104,7 @@ async def send_team_budget_alert(webhook_event: WebhookEvent) -> bool:
         )
 
     email_html_content = f"""
-    <img src="{email_logo_url}" alt="LiteLLM Logo" width="150" height="50" /> <br/><br/><br/>
+    <img src="{email_logo_url}" alt="EmbRouter Logo" width="150" height="50" /> <br/><br/><br/>
 
     Budget Crossed for Team <b> {team_alias} </b> <br/> <br/>
 
@@ -115,12 +115,12 @@ async def send_team_budget_alert(webhook_event: WebhookEvent) -> bool:
     If you have any questions, please send an email to {email_support_contact} <br /> <br />
 
     Best, <br />
-    The LiteLLM team <br />
+    The EmbRouter team <br />
     """
 
     email_event: Final = {
         "to": recipient_emails_str,
-        "subject": f"LiteLLM {event_name} for Team {team_alias}",
+        "subject": f"EmbRouter {event_name} for Team {team_alias}",
         "html": email_html_content,
     }
 

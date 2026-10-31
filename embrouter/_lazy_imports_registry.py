@@ -14,8 +14,8 @@ COST_CALCULATOR_NAMES: Final = (
     "response_cost_calculator",
 )
 
-# Litellm logging names that support lazy loading via _lazy_import_litellm_logging
-LITELLM_LOGGING_NAMES: Final = (
+# Embrouter logging names that support lazy loading via _lazy_import_embrouter_logging
+EMBROUTER_LOGGING_NAMES: Final = (
     "Logging",
     "modify_integration",
 )
@@ -38,7 +38,7 @@ UTILS_NAMES: Final = (
     "supports_audio_output",
     "supports_system_messages",
     "supports_reasoning",
-    "get_litellm_params",
+    "get_embrouter_params",
     "acreate",
     "get_max_tokens",
     "get_model_info",
@@ -79,13 +79,13 @@ LLM_CLIENT_CACHE_NAMES: Final = (
 # Bedrock type names that support lazy loading via _lazy_import_bedrock_types
 BEDROCK_TYPES_NAMES: Final = ("COHERE_EMBEDDING_INPUT_TYPES",)
 
-# Common types from litellm.types.utils that support lazy loading via
+# Common types from embrouter.types.utils that support lazy loading via
 # _lazy_import_types_utils
 TYPES_UTILS_NAMES: Final = (
     "ImageObject",
     "BudgetConfig",
-    "all_litellm_params",
-    "_litellm_completion_params",
+    "all_embrouter_params",
+    "_embrouter_completion_params",
     "CredentialItem",
     "PriorityReservationDict",
     "StandardKeyGenerationConfig",
@@ -238,7 +238,7 @@ LLM_CONFIG_NAMES: Final = (
     "AzureOpenAIOSeriesResponsesAPIConfig",
     "AzureAIResponsesAPIConfig",
     "XAIResponsesAPIConfig",
-    "LiteLLMProxyResponsesAPIConfig",
+    "EmbRouterProxyResponsesAPIConfig",
     "HostedVLLMResponsesAPIConfig",
     "FireworksAIResponsesAPIConfig",
     "VolcEngineResponsesAPIConfig",
@@ -291,7 +291,7 @@ LLM_CONFIG_NAMES: Final = (
     # Alias for backwards compatibility
     "VolcEngineConfig",  # Alias for VolcEngineChatConfig
     "LlamafileChatConfig",
-    "LiteLLMProxyChatConfig",
+    "EmbRouterProxyChatConfig",
     "VLLMConfig",
     "DeepSeekChatConfig",
     "TencentChatConfig",
@@ -353,7 +353,7 @@ LLM_CONFIG_NAMES: Final = (
 TYPES_NAMES: Final = (
     "GuardrailItem",
     "DefaultTeamSSOParams",
-    "LiteLLM_UpperboundKeyGenerateParams",
+    "EmbRouter_UpperboundKeyGenerateParams",
     "KeyManagementSystem",
     "PriorityReservationSettings",
     "CustomLogger",
@@ -372,7 +372,7 @@ LLM_PROVIDER_LOGIC_NAMES: Final = (
 )
 
 # Utils module names that support lazy loading via _lazy_import_utils_module
-# These are attributes accessed from litellm.utils module
+# These are attributes accessed from embrouter.utils module
 UTILS_MODULE_NAMES: Final = (
     "encoding",
     "BaseVectorStore",
@@ -383,7 +383,7 @@ UTILS_MODULE_NAMES: Final = (
     "get_llm_provider",
     "_is_non_openai_azure_model",
     "get_supported_openai_params",
-    "LiteLLMResponseObjectHandler",
+    "EmbRouterResponseObjectHandler",
     "_handle_invalid_parallel_tool_calls",
     "convert_to_model_response_object",
     "convert_to_streaming_response",
@@ -391,7 +391,7 @@ UTILS_MODULE_NAMES: Final = (
     "get_api_base",
     "ResponseMetadata",
     "_parse_content_for_reasoning",
-    "LiteLLMLoggingObject",
+    "EmbRouterLoggingObject",
     "redact_message_input_output_from_logging",
     "CustomStreamWrapper",
     "BaseGoogleGenAIGenerateContentConfig",
@@ -405,15 +405,15 @@ UTILS_MODULE_NAMES: Final = (
     "get_num_retries_from_retry_policy",
     "reset_retry_policy",
     "get_coroutine_checker",
-    "get_litellm_logging_class",
+    "get_embrouter_logging_class",
     "get_set_callbacks",
-    "get_litellm_metadata_from_kwargs",
+    "get_embrouter_metadata_from_kwargs",
     "map_finish_reason",
     "process_response_headers",
     "delete_nested_value",
     "is_nested_path",
-    "_get_base_model_from_litellm_call_metadata",
-    "get_litellm_params",
+    "_get_base_model_from_embrouter_call_metadata",
+    "get_embrouter_params",
     "_ensure_extra_body_is_safe",
     "get_formatted_prompt",
     "get_response_headers",
@@ -439,7 +439,7 @@ UTILS_MODULE_NAMES: Final = (
     "ChatCompletionDeltaToolCallChunk",
     "ChatCompletionToolCallChunk",
     "ChatCompletionToolCallFunctionChunk",
-    "LiteLLM_Params",
+    "EmbRouter_Params",
 )
 
 # Import maps for registry pattern - reduces repetition
@@ -463,7 +463,7 @@ _UTILS_IMPORT_MAP: Final = {
     "supports_audio_output": (".utils", "supports_audio_output"),
     "supports_system_messages": (".utils", "supports_system_messages"),
     "supports_reasoning": (".utils", "supports_reasoning"),
-    "get_litellm_params": (".utils", "get_litellm_params"),
+    "get_embrouter_params": (".utils", "get_embrouter_params"),
     "acreate": (".utils", "acreate"),
     "get_max_tokens": (".utils", "get_max_tokens"),
     "get_model_info": (".utils", "get_model_info"),
@@ -489,11 +489,11 @@ _UTILS_IMPORT_MAP: Final = {
     "get_valid_models": (".utils", "get_valid_models"),
     "timeout": (".timeout", "timeout"),
     "get_llm_provider": (
-        "litellm.litellm_core_utils.get_llm_provider_logic",
+        "embrouter.embrouter_core_utils.get_llm_provider_logic",
         "get_llm_provider",
     ),
     "remove_index_from_tool_calls": (
-        "litellm.litellm_core_utils.core_helpers",
+        "embrouter.embrouter_core_utils.core_helpers",
         "remove_index_from_tool_calls",
     ),
 }
@@ -507,8 +507,8 @@ _COST_CALCULATOR_IMPORT_MAP: Final = {
 _TYPES_UTILS_IMPORT_MAP: Final = {
     "ImageObject": (".types.utils", "ImageObject"),
     "BudgetConfig": (".types.utils", "BudgetConfig"),
-    "all_litellm_params": (".types.utils", "all_litellm_params"),
-    "_litellm_completion_params": (".types.utils", "all_litellm_params"),  # Alias
+    "all_embrouter_params": (".types.utils", "all_embrouter_params"),
+    "_embrouter_completion_params": (".types.utils", "all_embrouter_params"),  # Alias
     "CredentialItem": (".types.utils", "CredentialItem"),
     "PriorityReservationDict": (".types.utils", "PriorityReservationDict"),
     "StandardKeyGenerationConfig": (".types.utils", "StandardKeyGenerationConfig"),
@@ -518,84 +518,84 @@ _TYPES_UTILS_IMPORT_MAP: Final = {
 
 _TOKEN_COUNTER_IMPORT_MAP: Final = {
     "get_modified_max_tokens": (
-        "litellm.litellm_core_utils.token_counter",
+        "embrouter.embrouter_core_utils.token_counter",
         "get_modified_max_tokens",
     ),
 }
 
 _BEDROCK_TYPES_IMPORT_MAP: Final = {
     "COHERE_EMBEDDING_INPUT_TYPES": (
-        "litellm.types.llms.bedrock",
+        "embrouter.types.llms.bedrock",
         "COHERE_EMBEDDING_INPUT_TYPES",
     ),
 }
 
 _CACHING_IMPORT_MAP: Final = {
-    "Cache": ("litellm.caching.caching", "Cache"),
-    "DualCache": ("litellm.caching.caching", "DualCache"),
-    "RedisCache": ("litellm.caching.caching", "RedisCache"),
-    "InMemoryCache": ("litellm.caching.caching", "InMemoryCache"),
+    "Cache": ("embrouter.caching.caching", "Cache"),
+    "DualCache": ("embrouter.caching.caching", "DualCache"),
+    "RedisCache": ("embrouter.caching.caching", "RedisCache"),
+    "InMemoryCache": ("embrouter.caching.caching", "InMemoryCache"),
 }
 
-_LITELLM_LOGGING_IMPORT_MAP: Final = {
-    "Logging": ("litellm.litellm_core_utils.litellm_logging", "Logging"),
+_EMBROUTER_LOGGING_IMPORT_MAP: Final = {
+    "Logging": ("embrouter.embrouter_core_utils.embrouter_logging", "Logging"),
     "modify_integration": (
-        "litellm.litellm_core_utils.litellm_logging",
+        "embrouter.embrouter_core_utils.embrouter_logging",
         "modify_integration",
     ),
 }
 
 _DOTPROMPT_IMPORT_MAP: Final = {
     "global_prompt_manager": (
-        "litellm.integrations.dotprompt",
+        "embrouter.integrations.dotprompt",
         "global_prompt_manager",
     ),
     "global_prompt_directory": (
-        "litellm.integrations.dotprompt",
+        "embrouter.integrations.dotprompt",
         "global_prompt_directory",
     ),
     "set_global_prompt_directory": (
-        "litellm.integrations.dotprompt",
+        "embrouter.integrations.dotprompt",
         "set_global_prompt_directory",
     ),
 }
 
 _TYPES_IMPORT_MAP: Final = {
-    "GuardrailItem": ("litellm.types.guardrails", "GuardrailItem"),
+    "GuardrailItem": ("embrouter.types.guardrails", "GuardrailItem"),
     "DefaultTeamSSOParams": (
-        "litellm.types.proxy.management_endpoints.ui_sso",
+        "embrouter.types.proxy.management_endpoints.ui_sso",
         "DefaultTeamSSOParams",
     ),
-    "LiteLLM_UpperboundKeyGenerateParams": (
-        "litellm.types.proxy.management_endpoints.ui_sso",
-        "LiteLLM_UpperboundKeyGenerateParams",
+    "EmbRouter_UpperboundKeyGenerateParams": (
+        "embrouter.types.proxy.management_endpoints.ui_sso",
+        "EmbRouter_UpperboundKeyGenerateParams",
     ),
     "KeyManagementSystem": (
-        "litellm.types.secret_managers.main",
+        "embrouter.types.secret_managers.main",
         "KeyManagementSystem",
     ),
     "PriorityReservationSettings": (
-        "litellm.types.utils",
+        "embrouter.types.utils",
         "PriorityReservationSettings",
     ),
-    "CustomLogger": ("litellm.integrations.custom_logger", "CustomLogger"),
+    "CustomLogger": ("embrouter.integrations.custom_logger", "CustomLogger"),
     "LoggingCallbackManager": (
-        "litellm.litellm_core_utils.logging_callback_manager",
+        "embrouter.embrouter_core_utils.logging_callback_manager",
         "LoggingCallbackManager",
     ),
     "DatadogLLMObsInitParams": (
-        "litellm.types.integrations.datadog_llm_obs",
+        "embrouter.types.integrations.datadog_llm_obs",
         "DatadogLLMObsInitParams",
     ),
 }
 
 _LLM_PROVIDER_LOGIC_IMPORT_MAP: Final = {
     "get_llm_provider": (
-        "litellm.litellm_core_utils.get_llm_provider_logic",
+        "embrouter.embrouter_core_utils.get_llm_provider_logic",
         "get_llm_provider",
     ),
     "remove_index_from_tool_calls": (
-        "litellm.litellm_core_utils.core_helpers",
+        "embrouter.embrouter_core_utils.core_helpers",
         "remove_index_from_tool_calls",
     ),
 }
@@ -917,7 +917,7 @@ _LLM_CONFIGS_IMPORT_MAP: Final = {
         "TopazImageVariationConfig",
     ),
     "OpenAITextCompletionConfig": (
-        "litellm.llms.openai.completion.transformation",
+        "embrouter.llms.openai.completion.transformation",
         "OpenAITextCompletionConfig",
     ),
     "GroqChatConfig": (".llms.groq.chat.transformation", "GroqChatConfig"),
@@ -979,9 +979,9 @@ _LLM_CONFIGS_IMPORT_MAP: Final = {
         ".llms.xai.responses.transformation",
         "XAIResponsesAPIConfig",
     ),
-    "LiteLLMProxyResponsesAPIConfig": (
-        ".llms.litellm_proxy.responses.transformation",
-        "LiteLLMProxyResponsesAPIConfig",
+    "EmbRouterProxyResponsesAPIConfig": (
+        ".llms.embrouter_proxy.responses.transformation",
+        "EmbRouterProxyResponsesAPIConfig",
     ),
     "HostedVLLMResponsesAPIConfig": (
         ".llms.hosted_vllm.responses.transformation",
@@ -1140,9 +1140,9 @@ _LLM_CONFIGS_IMPORT_MAP: Final = {
         ".llms.llamafile.chat.transformation",
         "LlamafileChatConfig",
     ),
-    "LiteLLMProxyChatConfig": (
-        ".llms.litellm_proxy.chat.transformation",
-        "LiteLLMProxyChatConfig",
+    "EmbRouterProxyChatConfig": (
+        ".llms.embrouter_proxy.chat.transformation",
+        "EmbRouterProxyChatConfig",
     ),
     "VLLMConfig": (".llms.vllm.completion.transformation", "VLLMConfig"),
     "DeepSeekChatConfig": (".llms.deepseek.chat.transformation", "DeepSeekChatConfig"),
@@ -1286,243 +1286,243 @@ _LLM_CONFIGS_IMPORT_MAP: Final = {
 
 # Import map for utils module lazy imports
 _UTILS_MODULE_IMPORT_MAP: Final = {
-    "encoding": ("litellm.main", "encoding"),
+    "encoding": ("embrouter.main", "encoding"),
     "BaseVectorStore": (
-        "litellm.integrations.vector_store_integrations.base_vector_store",
+        "embrouter.integrations.vector_store_integrations.base_vector_store",
         "BaseVectorStore",
     ),
     "CredentialAccessor": (
-        "litellm.litellm_core_utils.credential_accessor",
+        "embrouter.embrouter_core_utils.credential_accessor",
         "CredentialAccessor",
     ),
     "exception_type": (
-        "litellm.litellm_core_utils.exception_mapping_utils",
+        "embrouter.embrouter_core_utils.exception_mapping_utils",
         "exception_type",
     ),
     "get_error_message": (
-        "litellm.litellm_core_utils.exception_mapping_utils",
+        "embrouter.embrouter_core_utils.exception_mapping_utils",
         "get_error_message",
     ),
     "_get_response_headers": (
-        "litellm.litellm_core_utils.exception_mapping_utils",
+        "embrouter.embrouter_core_utils.exception_mapping_utils",
         "_get_response_headers",
     ),
     "get_llm_provider": (
-        "litellm.litellm_core_utils.get_llm_provider_logic",
+        "embrouter.embrouter_core_utils.get_llm_provider_logic",
         "get_llm_provider",
     ),
     "_is_non_openai_azure_model": (
-        "litellm.litellm_core_utils.get_llm_provider_logic",
+        "embrouter.embrouter_core_utils.get_llm_provider_logic",
         "_is_non_openai_azure_model",
     ),
     "get_supported_openai_params": (
-        "litellm.litellm_core_utils.get_supported_openai_params",
+        "embrouter.embrouter_core_utils.get_supported_openai_params",
         "get_supported_openai_params",
     ),
-    "LiteLLMResponseObjectHandler": (
-        "litellm.litellm_core_utils.llm_response_utils.convert_dict_to_response",
-        "LiteLLMResponseObjectHandler",
+    "EmbRouterResponseObjectHandler": (
+        "embrouter.embrouter_core_utils.llm_response_utils.convert_dict_to_response",
+        "EmbRouterResponseObjectHandler",
     ),
     "_handle_invalid_parallel_tool_calls": (
-        "litellm.litellm_core_utils.llm_response_utils.convert_dict_to_response",
+        "embrouter.embrouter_core_utils.llm_response_utils.convert_dict_to_response",
         "_handle_invalid_parallel_tool_calls",
     ),
     "convert_to_model_response_object": (
-        "litellm.litellm_core_utils.llm_response_utils.convert_dict_to_response",
+        "embrouter.embrouter_core_utils.llm_response_utils.convert_dict_to_response",
         "convert_to_model_response_object",
     ),
     "convert_to_streaming_response": (
-        "litellm.litellm_core_utils.llm_response_utils.convert_dict_to_response",
+        "embrouter.embrouter_core_utils.llm_response_utils.convert_dict_to_response",
         "convert_to_streaming_response",
     ),
     "convert_to_streaming_response_async": (
-        "litellm.litellm_core_utils.llm_response_utils.convert_dict_to_response",
+        "embrouter.embrouter_core_utils.llm_response_utils.convert_dict_to_response",
         "convert_to_streaming_response_async",
     ),
     "get_api_base": (
-        "litellm.litellm_core_utils.llm_response_utils.get_api_base",
+        "embrouter.embrouter_core_utils.llm_response_utils.get_api_base",
         "get_api_base",
     ),
     "ResponseMetadata": (
-        "litellm.litellm_core_utils.llm_response_utils.response_metadata",
+        "embrouter.embrouter_core_utils.llm_response_utils.response_metadata",
         "ResponseMetadata",
     ),
     "_parse_content_for_reasoning": (
-        "litellm.litellm_core_utils.prompt_templates.common_utils",
+        "embrouter.embrouter_core_utils.prompt_templates.common_utils",
         "_parse_content_for_reasoning",
     ),
-    "LiteLLMLoggingObject": (
-        "litellm.litellm_core_utils.redact_messages",
-        "LiteLLMLoggingObject",
+    "EmbRouterLoggingObject": (
+        "embrouter.embrouter_core_utils.redact_messages",
+        "EmbRouterLoggingObject",
     ),
     "redact_message_input_output_from_logging": (
-        "litellm.litellm_core_utils.redact_messages",
+        "embrouter.embrouter_core_utils.redact_messages",
         "redact_message_input_output_from_logging",
     ),
     "CustomStreamWrapper": (
-        "litellm.litellm_core_utils.streaming_handler",
+        "embrouter.embrouter_core_utils.streaming_handler",
         "CustomStreamWrapper",
     ),
     "BaseGoogleGenAIGenerateContentConfig": (
-        "litellm.llms.base_llm.google_genai.transformation",
+        "embrouter.llms.base_llm.google_genai.transformation",
         "BaseGoogleGenAIGenerateContentConfig",
     ),
     "BaseSearchConfig": (
-        "litellm.llms.base_llm.search.transformation",
+        "embrouter.llms.base_llm.search.transformation",
         "BaseSearchConfig",
     ),
     "BaseTextToSpeechConfig": (
-        "litellm.llms.base_llm.text_to_speech.transformation",
+        "embrouter.llms.base_llm.text_to_speech.transformation",
         "BaseTextToSpeechConfig",
     ),
-    "BedrockModelInfo": ("litellm.llms.bedrock.common_utils", "BedrockModelInfo"),
-    "CohereModelInfo": ("litellm.llms.cohere.common_utils", "CohereModelInfo"),
-    "Rules": ("litellm.litellm_core_utils.rules", "Rules"),
-    "AsyncHTTPHandler": ("litellm.llms.custom_httpx.http_handler", "AsyncHTTPHandler"),
-    "HTTPHandler": ("litellm.llms.custom_httpx.http_handler", "HTTPHandler"),
+    "BedrockModelInfo": ("embrouter.llms.bedrock.common_utils", "BedrockModelInfo"),
+    "CohereModelInfo": ("embrouter.llms.cohere.common_utils", "CohereModelInfo"),
+    "Rules": ("embrouter.embrouter_core_utils.rules", "Rules"),
+    "AsyncHTTPHandler": ("embrouter.llms.custom_httpx.http_handler", "AsyncHTTPHandler"),
+    "HTTPHandler": ("embrouter.llms.custom_httpx.http_handler", "HTTPHandler"),
     "get_num_retries_from_retry_policy": (
-        "litellm.router_utils.get_retry_from_policy",
+        "embrouter.router_utils.get_retry_from_policy",
         "get_num_retries_from_retry_policy",
     ),
     "reset_retry_policy": (
-        "litellm.router_utils.get_retry_from_policy",
+        "embrouter.router_utils.get_retry_from_policy",
         "reset_retry_policy",
     ),
     "get_coroutine_checker": (
-        "litellm.litellm_core_utils.cached_imports",
+        "embrouter.embrouter_core_utils.cached_imports",
         "get_coroutine_checker",
     ),
-    "get_litellm_logging_class": (
-        "litellm.litellm_core_utils.cached_imports",
-        "get_litellm_logging_class",
+    "get_embrouter_logging_class": (
+        "embrouter.embrouter_core_utils.cached_imports",
+        "get_embrouter_logging_class",
     ),
     "get_set_callbacks": (
-        "litellm.litellm_core_utils.cached_imports",
+        "embrouter.embrouter_core_utils.cached_imports",
         "get_set_callbacks",
     ),
-    "get_litellm_metadata_from_kwargs": (
-        "litellm.litellm_core_utils.core_helpers",
-        "get_litellm_metadata_from_kwargs",
+    "get_embrouter_metadata_from_kwargs": (
+        "embrouter.embrouter_core_utils.core_helpers",
+        "get_embrouter_metadata_from_kwargs",
     ),
     "map_finish_reason": (
-        "litellm.litellm_core_utils.core_helpers",
+        "embrouter.embrouter_core_utils.core_helpers",
         "map_finish_reason",
     ),
     "process_response_headers": (
-        "litellm.litellm_core_utils.core_helpers",
+        "embrouter.embrouter_core_utils.core_helpers",
         "process_response_headers",
     ),
     "delete_nested_value": (
-        "litellm.litellm_core_utils.dot_notation_indexing",
+        "embrouter.embrouter_core_utils.dot_notation_indexing",
         "delete_nested_value",
     ),
     "is_nested_path": (
-        "litellm.litellm_core_utils.dot_notation_indexing",
+        "embrouter.embrouter_core_utils.dot_notation_indexing",
         "is_nested_path",
     ),
-    "_get_base_model_from_litellm_call_metadata": (
-        "litellm.litellm_core_utils.get_litellm_params",
-        "_get_base_model_from_litellm_call_metadata",
+    "_get_base_model_from_embrouter_call_metadata": (
+        "embrouter.embrouter_core_utils.get_embrouter_params",
+        "_get_base_model_from_embrouter_call_metadata",
     ),
-    "get_litellm_params": (
-        "litellm.litellm_core_utils.get_litellm_params",
-        "get_litellm_params",
+    "get_embrouter_params": (
+        "embrouter.embrouter_core_utils.get_embrouter_params",
+        "get_embrouter_params",
     ),
     "_ensure_extra_body_is_safe": (
-        "litellm.litellm_core_utils.llm_request_utils",
+        "embrouter.embrouter_core_utils.llm_request_utils",
         "_ensure_extra_body_is_safe",
     ),
     "get_formatted_prompt": (
-        "litellm.litellm_core_utils.llm_response_utils.get_formatted_prompt",
+        "embrouter.embrouter_core_utils.llm_response_utils.get_formatted_prompt",
         "get_formatted_prompt",
     ),
     "get_response_headers": (
-        "litellm.litellm_core_utils.llm_response_utils.get_headers",
+        "embrouter.embrouter_core_utils.llm_response_utils.get_headers",
         "get_response_headers",
     ),
     "update_response_metadata": (
-        "litellm.litellm_core_utils.llm_response_utils.response_metadata",
+        "embrouter.embrouter_core_utils.llm_response_utils.response_metadata",
         "update_response_metadata",
     ),
-    "executor": ("litellm.litellm_core_utils.thread_pool_executor", "executor"),
+    "executor": ("embrouter.embrouter_core_utils.thread_pool_executor", "executor"),
     "BaseAnthropicMessagesConfig": (
-        "litellm.llms.base_llm.anthropic_messages.transformation",
+        "embrouter.llms.base_llm.anthropic_messages.transformation",
         "BaseAnthropicMessagesConfig",
     ),
     "BaseAudioTranscriptionConfig": (
-        "litellm.llms.base_llm.audio_transcription.transformation",
+        "embrouter.llms.base_llm.audio_transcription.transformation",
         "BaseAudioTranscriptionConfig",
     ),
     "BaseBatchesConfig": (
-        "litellm.llms.base_llm.batches.transformation",
+        "embrouter.llms.base_llm.batches.transformation",
         "BaseBatchesConfig",
     ),
     "BaseContainerConfig": (
-        "litellm.llms.base_llm.containers.transformation",
+        "embrouter.llms.base_llm.containers.transformation",
         "BaseContainerConfig",
     ),
     "BaseEmbeddingConfig": (
-        "litellm.llms.base_llm.embedding.transformation",
+        "embrouter.llms.base_llm.embedding.transformation",
         "BaseEmbeddingConfig",
     ),
     "BaseImageEditConfig": (
-        "litellm.llms.base_llm.image_edit.transformation",
+        "embrouter.llms.base_llm.image_edit.transformation",
         "BaseImageEditConfig",
     ),
     "BaseImageGenerationConfig": (
-        "litellm.llms.base_llm.image_generation.transformation",
+        "embrouter.llms.base_llm.image_generation.transformation",
         "BaseImageGenerationConfig",
     ),
     "BaseImageVariationConfig": (
-        "litellm.llms.base_llm.image_variations.transformation",
+        "embrouter.llms.base_llm.image_variations.transformation",
         "BaseImageVariationConfig",
     ),
     "BasePassthroughConfig": (
-        "litellm.llms.base_llm.passthrough.transformation",
+        "embrouter.llms.base_llm.passthrough.transformation",
         "BasePassthroughConfig",
     ),
     "BaseRealtimeConfig": (
-        "litellm.llms.base_llm.realtime.transformation",
+        "embrouter.llms.base_llm.realtime.transformation",
         "BaseRealtimeConfig",
     ),
     "BaseRerankConfig": (
-        "litellm.llms.base_llm.rerank.transformation",
+        "embrouter.llms.base_llm.rerank.transformation",
         "BaseRerankConfig",
     ),
     "BaseVectorStoreConfig": (
-        "litellm.llms.base_llm.vector_store.transformation",
+        "embrouter.llms.base_llm.vector_store.transformation",
         "BaseVectorStoreConfig",
     ),
     "BaseVectorStoreFilesConfig": (
-        "litellm.llms.base_llm.vector_store_files.transformation",
+        "embrouter.llms.base_llm.vector_store_files.transformation",
         "BaseVectorStoreFilesConfig",
     ),
     "BaseVideoConfig": (
-        "litellm.llms.base_llm.videos.transformation",
+        "embrouter.llms.base_llm.videos.transformation",
         "BaseVideoConfig",
     ),
     "ANTHROPIC_API_ONLY_HEADERS": (
-        "litellm.types.llms.anthropic",
+        "embrouter.types.llms.anthropic",
         "ANTHROPIC_API_ONLY_HEADERS",
     ),
     "AnthropicThinkingParam": (
-        "litellm.types.llms.anthropic",
+        "embrouter.types.llms.anthropic",
         "AnthropicThinkingParam",
     ),
-    "RerankResponse": ("litellm.types.rerank", "RerankResponse"),
+    "RerankResponse": ("embrouter.types.rerank", "RerankResponse"),
     "ChatCompletionDeltaToolCallChunk": (
-        "litellm.types.llms.openai",
+        "embrouter.types.llms.openai",
         "ChatCompletionDeltaToolCallChunk",
     ),
     "ChatCompletionToolCallChunk": (
-        "litellm.types.llms.openai",
+        "embrouter.types.llms.openai",
         "ChatCompletionToolCallChunk",
     ),
     "ChatCompletionToolCallFunctionChunk": (
-        "litellm.types.llms.openai",
+        "embrouter.types.llms.openai",
         "ChatCompletionToolCallFunctionChunk",
     ),
-    "LiteLLM_Params": ("litellm.types.router", "LiteLLM_Params"),
+    "EmbRouter_Params": ("embrouter.types.router", "EmbRouter_Params"),
 }
 
 # Export all name tuples and import maps for use in _lazy_imports.py
@@ -1532,7 +1532,7 @@ __all__ = [
     "COST_CALCULATOR_NAMES",
     "DOTPROMPT_NAMES",
     "HTTP_HANDLER_NAMES",
-    "LITELLM_LOGGING_NAMES",
+    "EMBROUTER_LOGGING_NAMES",
     "LLM_CLIENT_CACHE_NAMES",
     "LLM_CONFIG_NAMES",
     "LLM_PROVIDER_LOGIC_NAMES",
@@ -1545,7 +1545,7 @@ __all__ = [
     "_CACHING_IMPORT_MAP",
     "_COST_CALCULATOR_IMPORT_MAP",
     "_DOTPROMPT_IMPORT_MAP",
-    "_LITELLM_LOGGING_IMPORT_MAP",
+    "_EMBROUTER_LOGGING_IMPORT_MAP",
     "_LLM_CONFIGS_IMPORT_MAP",
     "_LLM_PROVIDER_LOGIC_IMPORT_MAP",
     "_TOKEN_COUNTER_IMPORT_MAP",

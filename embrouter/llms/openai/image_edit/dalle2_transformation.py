@@ -3,20 +3,20 @@ from typing import TYPE_CHECKING, Any, Final, cast
 
 from httpx._types import RequestFiles
 
-import litellm
-from litellm.images.utils import ImageEditRequestUtils
-from litellm.types.images.main import ImageEditRequestParams
-from litellm.types.llms.openai import FileTypes
-from litellm.types.router import GenericLiteLLMParams
+import embrouter
+from embrouter.images.utils import ImageEditRequestUtils
+from embrouter.types.images.main import ImageEditRequestParams
+from embrouter.types.llms.openai import FileTypes
+from embrouter.types.router import GenericEmbRouterParams
 
 from .transformation import OpenAIImageEditConfig
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 
 class DallE2ImageEditConfig(OpenAIImageEditConfig):
@@ -33,7 +33,7 @@ class DallE2ImageEditConfig(OpenAIImageEditConfig):
         prompt: str | None,
         image: FileTypes | None,
         image_edit_optional_request_params: dict,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[dict, RequestFiles]:
         """
@@ -67,7 +67,7 @@ class DallE2ImageEditConfig(OpenAIImageEditConfig):
 
             # Validate only one image is provided
             if len(image_list) > 1:
-                raise litellm.BadRequestError(
+                raise embrouter.BadRequestError(
                     message="DALL-E-2 only supports editing a single image. Please provide one image.",
                     model=model,
                     llm_provider="openai",

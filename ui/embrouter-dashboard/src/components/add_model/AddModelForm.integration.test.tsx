@@ -39,7 +39,7 @@ vi.mock("../networking", async () => {
       {
         provider: "OpenAI",
         provider_display_name: "OpenAI",
-        litellm_provider: "openai",
+        embrouter_provider: "openai",
         default_model_placeholder: "gpt-3.5-turbo",
         credential_fields: [],
       },
@@ -53,7 +53,7 @@ vi.mock("@/app/(dashboard)/hooks/providers/useProviderFields", () => ({
       {
         provider: "OpenAI",
         provider_display_name: "OpenAI",
-        litellm_provider: "openai",
+        embrouter_provider: "openai",
         default_model_placeholder: "gpt-3.5-turbo",
         credential_fields: [],
       },

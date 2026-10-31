@@ -3,10 +3,10 @@ import threading
 from collections import OrderedDict
 from typing import TYPE_CHECKING, Any, Final
 
-from litellm._logging import verbose_logger
-from litellm.integrations.arize import _utils
-from litellm.integrations.arize._utils import ArizeOTELAttributes
-from litellm.types.integrations.arize_phoenix import ArizePhoenixConfig
+from embrouter._logging import verbose_logger
+from embrouter.integrations.arize import _utils
+from embrouter.integrations.arize._utils import ArizeOTELAttributes
+from embrouter.types.integrations.arize_phoenix import ArizePhoenixConfig
 
 if TYPE_CHECKING:
     from opentelemetry.sdk.trace import TracerProvider
@@ -14,17 +14,17 @@ if TYPE_CHECKING:
     from opentelemetry.trace import Span as _Span
     from opentelemetry.trace import SpanKind, Tracer
 
-    from litellm.integrations.opentelemetry import OpenTelemetry as _OpenTelemetry
-    from litellm.integrations.opentelemetry import (
+    from embrouter.integrations.opentelemetry import OpenTelemetry as _OpenTelemetry
+    from embrouter.integrations.opentelemetry import (
         OpenTelemetryConfig as _OpenTelemetryConfig,
     )
-    from litellm.types.integrations.arize import Protocol as _Protocol
+    from embrouter.types.integrations.arize import Protocol as _Protocol
 
     Protocol = _Protocol
     OpenTelemetryConfig = _OpenTelemetryConfig
     Span = _Span | Any
     OpenTelemetry = _OpenTelemetry
-    LITELLM_TRACER_NAME: str
+    EMBROUTER_TRACER_NAME: str
 else:
     Protocol = Any
     OpenTelemetryConfig = Any
@@ -34,12 +34,12 @@ else:
     SpanKind = Any
     SpanProcessor = Any
     try:
-        from litellm.integrations.opentelemetry import (
-            LITELLM_TRACER_NAME,
+        from embrouter.integrations.opentelemetry import (
+            EMBROUTER_TRACER_NAME,
             OpenTelemetry,
         )
     except ImportError:
-        LITELLM_TRACER_NAME = "litellm"
+        EMBROUTER_TRACER_NAME = "embrouter"
         OpenTelemetry = None
 
 
@@ -70,7 +70,7 @@ class ArizePhoenixLogger(OpenTelemetry):
         if tracer_provider is not None:
             self._use_injected_tracer_provider = True
             self._shared_span_processor = None
-            self.tracer = tracer_provider.get_tracer(LITELLM_TRACER_NAME)
+            self.tracer = tracer_provider.get_tracer(EMBROUTER_TRACER_NAME)
             self.span_kind = SpanKind
             return
 
@@ -119,7 +119,7 @@ class ArizePhoenixLogger(OpenTelemetry):
             except Exception as e:
                 verbose_logger.debug("ArizePhoenixLogger: TracerProvider force_flush failed: %s", e)
 
-    def _get_litellm_resource_for_project(self, project_name: str):
+    def _get_embrouter_resource_for_project(self, project_name: str):
         """
         Build an OTEL Resource with project routing attrs that win over env detector.
 
@@ -146,7 +146,7 @@ class ArizePhoenixLogger(OpenTelemetry):
         """Create a TracerProvider for *project_name* (caller holds no cache lock)."""
         from opentelemetry.sdk.trace import TracerProvider
 
-        provider: Final = TracerProvider(resource=self._get_litellm_resource_for_project(project_name))
+        provider: Final = TracerProvider(resource=self._get_embrouter_resource_for_project(project_name))
         provider.add_span_processor(self._shared_span_processor)
         return provider
 
@@ -158,7 +158,7 @@ class ArizePhoenixLogger(OpenTelemetry):
         with self._project_providers_lock:
             if project_name in self._project_providers:
                 self._project_providers.move_to_end(project_name)
-                return self._project_providers[project_name].get_tracer(LITELLM_TRACER_NAME)
+                return self._project_providers[project_name].get_tracer(EMBROUTER_TRACER_NAME)
 
         # OTELResourceDetector().detect() is synchronous; build outside the lock so
         # concurrent requests for other projects are not blocked on cache misses.
@@ -167,13 +167,13 @@ class ArizePhoenixLogger(OpenTelemetry):
         with self._project_providers_lock:
             if project_name in self._project_providers:
                 self._project_providers.move_to_end(project_name)
-                return self._project_providers[project_name].get_tracer(LITELLM_TRACER_NAME)
+                return self._project_providers[project_name].get_tracer(EMBROUTER_TRACER_NAME)
 
             if len(self._project_providers) >= _MAX_PROJECT_PROVIDERS:
                 self._project_providers.popitem(last=False)
 
             self._project_providers[project_name] = new_provider
-            return new_provider.get_tracer(LITELLM_TRACER_NAME)
+            return new_provider.get_tracer(EMBROUTER_TRACER_NAME)
 
     def _resolve_tracer_for_kwargs(self, kwargs: dict) -> tuple[str, Tracer]:
         """Resolve project name once and return the matching tracer."""
@@ -186,7 +186,7 @@ class ArizePhoenixLogger(OpenTelemetry):
             return self.tracer
         return self._resolve_tracer_for_kwargs(kwargs)[1]
 
-    def _init_otel_logger_on_litellm_proxy(self):
+    def _init_otel_logger_on_embrouter_proxy(self):
         """
         Override: Arize Phoenix should NOT overwrite the proxy's
         ``open_telemetry_logger``.  That attribute is reserved for the
@@ -209,8 +209,8 @@ class ArizePhoenixLogger(OpenTelemetry):
 
     @staticmethod
     def _iter_metadata_dicts_from_kwargs(kwargs: dict):
-        """Yield request metadata dicts; standard_logging_object before litellm_params."""
-        for key in ("standard_logging_object", "litellm_params"):
+        """Yield request metadata dicts; standard_logging_object before embrouter_params."""
+        for key in ("standard_logging_object", "embrouter_params"):
             found_key = kwargs.get(key)
             if not isinstance(found_key, dict):
                 continue
@@ -220,16 +220,16 @@ class ArizePhoenixLogger(OpenTelemetry):
 
     @staticmethod
     def _is_proxy_request(kwargs: dict) -> bool:
-        """True when the call is routed through the LiteLLM proxy.
+        """True when the call is routed through the EmbRouter proxy.
 
         Proxy mode is determined solely by the server-set ``proxy_server_request``
-        field in ``litellm_params``.  Checking request metadata for
+        field in ``embrouter_params``.  Checking request metadata for
         ``user_api_key_auth_metadata`` is intentionally avoided: that field is
         user-supplied and would let an authenticated caller fake proxy-mode
         detection to route their telemetry into arbitrary Arize/Phoenix projects.
         """
-        litellm_params: Final = kwargs.get("litellm_params")
-        return isinstance(litellm_params, dict) and bool(litellm_params.get("proxy_server_request"))
+        embrouter_params: Final = kwargs.get("embrouter_params")
+        return isinstance(embrouter_params, dict) and bool(embrouter_params.get("proxy_server_request"))
 
     @staticmethod
     def _project_from_metadata_dict(metadata: dict, metadata_key: str, *, proxy_mode: bool) -> str | None:
@@ -304,8 +304,8 @@ class ArizePhoenixLogger(OpenTelemetry):
         if tracer is None:
             tracer = self._resolve_tracer_for_kwargs(kwargs)[1]
 
-        litellm_params: Final = kwargs.get("litellm_params", {}) or {}
-        proxy_server_request: Final = litellm_params.get("proxy_server_request", {}) or {}
+        embrouter_params: Final = kwargs.get("embrouter_params", {}) or {}
+        proxy_server_request: Final = embrouter_params.get("proxy_server_request", {}) or {}
         headers: Final = proxy_server_request.get("headers", {}) or {}
 
         traceparent_ctx = self.get_traceparent_from_header(headers=headers) if headers.get("traceparent") else None
@@ -315,7 +315,7 @@ class ArizePhoenixLogger(OpenTelemetry):
         if is_proxy_mode:
             start_time_val: Final = kwargs.get("start_time", kwargs.get("api_call_start_time"))
             parent_span: Final = tracer.start_span(
-                name="litellm_proxy_request",
+                name="embrouter_proxy_request",
                 start_time=(self._to_ns(start_time_val) if start_time_val is not None else None),
                 context=traceparent_ctx,
                 kind=self.span_kind.SERVER,

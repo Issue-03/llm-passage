@@ -8,7 +8,7 @@ and file proxy endpoints.
 
 from types import MappingProxyType
 
-from litellm.proxy.openai_files_endpoints.common_utils import (
+from embrouter.proxy.openai_files_endpoints.common_utils import (
     decode_model_from_file_id,
     encode_file_id_with_model,
     get_original_file_id,
@@ -70,10 +70,10 @@ class TestPrepareDataWithCredentials:
         assert data["s3_bucket_name"] == "safe-bucket"
         assert "custom_llm_provider" not in data
         assert isinstance(
-            data["_litellm_internal_model_credentials"], type(MappingProxyType({}))
+            data["_embrouter_internal_model_credentials"], type(MappingProxyType({}))
         )
         assert (
-            data["_litellm_internal_model_credentials"]["s3_bucket_name"]
+            data["_embrouter_internal_model_credentials"]["s3_bucket_name"]
             == "safe-bucket"
         )
 
@@ -86,7 +86,7 @@ class TestPrepareDataWithCredentials:
 
         prepare_data_with_credentials(data=data, credentials=credentials)
 
-        assert "_litellm_internal_model_credentials" not in data
+        assert "_embrouter_internal_model_credentials" not in data
 
 
 class TestRoundTrip:
@@ -95,7 +95,7 @@ class TestRoundTrip:
     def test_roundtrip_openai_file_id(self):
         """Encode then decode an OpenAI file ID — model and original ID should be recovered."""
         original = "file-abc123"
-        model = "gpt-4o-litellm"
+        model = "gpt-4o-embrouter"
         encoded = encode_file_id_with_model(original, model)
 
         assert decode_model_from_file_id(encoded) == model
@@ -122,7 +122,7 @@ class TestRoundTrip:
 
     def test_roundtrip_vertex_gcs_uri_file_id(self):
         """Encode then decode a Vertex AI GCS URI (output file)."""
-        original = "gs://vertex-bucket/litellm-files/output.jsonl"
+        original = "gs://vertex-bucket/embrouter-files/output.jsonl"
         model = "gemini-2.5-pro"
         encoded = encode_file_id_with_model(original, model)
 

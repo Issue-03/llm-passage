@@ -1198,7 +1198,7 @@ class BedrockInvokeAnthropicMessagesRequest(TypedDict, total=False):
     """
     Top-level request body accepted by AWS Bedrock `InvokeModel` /
     `InvokeModelWithResponseStream` when calling an Anthropic Claude model with
-    the Messages API format. The LiteLLM /v1/messages → Bedrock Invoke
+    the Messages API format. The EmbRouter /v1/messages → Bedrock Invoke
     transformation filters outgoing requests to the keys of this TypedDict; any
     other field (Anthropic-only extension, internal metadata, future addition)
     is dropped before signing so Bedrock doesn't 400 with

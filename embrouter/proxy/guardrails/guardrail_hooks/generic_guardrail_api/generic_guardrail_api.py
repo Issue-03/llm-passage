@@ -12,34 +12,34 @@ from typing import TYPE_CHECKING, Any, Final, Literal, Optional
 
 import httpx
 
-from litellm._logging import verbose_proxy_logger
-from litellm._version import version as litellm_version
-from litellm.exceptions import GuardrailRaisedException, Timeout
-from litellm.integrations.custom_guardrail import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter._version import version as embrouter_version
+from embrouter.exceptions import GuardrailRaisedException, Timeout
+from embrouter.integrations.custom_guardrail import (
     CustomGuardrail,
     log_guardrail_information,
 )
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.llms.openai import AllMessageValues, ChatCompletionToolParam
-from litellm.types.proxy.guardrails.guardrail_hooks.generic_guardrail_api import (
+from embrouter.types.guardrails import GuardrailEventHooks
+from embrouter.types.llms.openai import AllMessageValues, ChatCompletionToolParam
+from embrouter.types.proxy.guardrails.guardrail_hooks.generic_guardrail_api import (
     GenericGuardrailAPIMetadata,
     GenericGuardrailAPIRequest,
     GenericGuardrailAPIResponse,
     GuardrailToolParam,
 )
-from litellm.types.utils import GenericGuardrailAPIInputs
+from embrouter.types.utils import GenericGuardrailAPIInputs
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
 
 GUARDRAIL_NAME: Final = "generic_guardrail_api"
 
-# Headers whose values are forwarded as-is (case-insensitive). Glob patterns supported (e.g. x-stainless-*, x-litellm*).
+# Headers whose values are forwarded as-is (case-insensitive). Glob patterns supported (e.g. x-stainless-*, x-embrouter*).
 _HEADER_VALUE_ALLOWLIST: Final = frozenset(
     {
         "host",
@@ -49,7 +49,7 @@ _HEADER_VALUE_ALLOWLIST: Final = frozenset(
         "content-type",
         "user-agent",
         "x-stainless-*",
-        "x-litellm-*",
+        "x-embrouter-*",
         "content-length",
     }
 )
@@ -81,7 +81,7 @@ def _sanitize_inbound_headers(
     """
     Sanitize inbound headers before passing them to a 3rd party guardrail service.
 
-    - Allowlist: default allowlist + extra_allowlist (from litellm_params.extra_headers); only these have values forwarded.
+    - Allowlist: default allowlist + extra_allowlist (from embrouter_params.extra_headers); only these have values forwarded.
     - All other headers are included with value "[present]" so the guardrail knows the header existed.
     - Coerces values to str (for JSON serialization).
     """
@@ -106,7 +106,7 @@ def _sanitize_inbound_headers(
 
 def _extract_inbound_headers(
     request_data: dict,
-    logging_obj: Optional["LiteLLMLoggingObj"],
+    logging_obj: Optional["EmbRouterLoggingObj"],
     extra_allowlist: set[str] | None = None,
 ) -> dict[str, str] | None:
     """
@@ -115,7 +115,7 @@ def _extract_inbound_headers(
     We try multiple locations to support different call paths:
     - proxy endpoints: request_data["proxy_server_request"]["headers"]
     - if the guardrail is passed the proxy_server_request object directly
-    - metadata headers captured in litellm_pre_call_utils
+    - metadata headers captured in embrouter_pre_call_utils
     - response hooks: fallback to logging_obj.model_call_details
     """
     # 1) Most common path (proxy): full request context in proxy_server_request
@@ -133,15 +133,15 @@ def _extract_inbound_headers(
     if metadata_headers:
         return _sanitize_inbound_headers(metadata_headers, extra_allowlist=extra_allowlist)
 
-    litellm_metadata_headers: Final = (request_data.get("litellm_metadata") or {}).get("headers")
-    if litellm_metadata_headers:
-        return _sanitize_inbound_headers(litellm_metadata_headers, extra_allowlist=extra_allowlist)
+    embrouter_metadata_headers: Final = (request_data.get("embrouter_metadata") or {}).get("headers")
+    if embrouter_metadata_headers:
+        return _sanitize_inbound_headers(embrouter_metadata_headers, extra_allowlist=extra_allowlist)
 
     # 4) Post-call: headers not present on response; fallback to logging object
     if logging_obj and getattr(logging_obj, "model_call_details", None):
         try:
             details: Final = logging_obj.model_call_details or {}
-            headers = details.get("litellm_params", {}).get("metadata", {}).get("headers", None)
+            headers = details.get("embrouter_params", {}).get("metadata", {}).get("headers", None)
             if headers:
                 return _sanitize_inbound_headers(headers, extra_allowlist=extra_allowlist)
         except Exception:
@@ -172,10 +172,10 @@ def _structured_rows_to_write_back(
 
 class GenericGuardrailAPI(CustomGuardrail):
     """
-    Generic Guardrail API integration for LiteLLM.
+    Generic Guardrail API integration for EmbRouter.
 
     This integration allows you to use any guardrail API that follows the
-    LiteLLM Basic Guardrail API spec without needing to write custom integration code.
+    EmbRouter Basic Guardrail API spec without needing to write custom integration code.
 
     The API should accept a POST request with:
     {
@@ -219,13 +219,13 @@ class GenericGuardrailAPI(CustomGuardrail):
         if not base_url:
             raise ValueError(
                 "api_base is required for Generic Guardrail API. "
-                "Set GENERIC_GUARDRAIL_API_BASE environment variable or pass it in litellm_params"
+                "Set GENERIC_GUARDRAIL_API_BASE environment variable or pass it in embrouter_params"
             )
 
         # Append the endpoint path if not already present
-        if not base_url.endswith("/beta/litellm_basic_guardrail_api"):
+        if not base_url.endswith("/beta/embrouter_basic_guardrail_api"):
             base_url = base_url.rstrip("/")
-            self.api_base = f"{base_url}/beta/litellm_basic_guardrail_api"
+            self.api_base = f"{base_url}/beta/embrouter_basic_guardrail_api"
         else:
             self.api_base = base_url
 
@@ -265,7 +265,7 @@ class GenericGuardrailAPI(CustomGuardrail):
         Args:
             request_data: Request data dictionary that may contain:
                 - metadata (for input requests) with user_api_key_* fields
-                - litellm_metadata (for output responses) with user_api_key_* fields
+                - embrouter_metadata (for output responses) with user_api_key_* fields
 
         Returns:
             GenericGuardrailAPIMetadata with extracted user information
@@ -273,13 +273,13 @@ class GenericGuardrailAPI(CustomGuardrail):
         result_metadata: Final = GenericGuardrailAPIMetadata()
 
         # Get the source of metadata - try both locations
-        # 1. For output responses: litellm_metadata (set by handlers with prefixed keys)
+        # 1. For output responses: embrouter_metadata (set by handlers with prefixed keys)
         # 2. For input requests: metadata (already present in request_data with prefixed keys)
-        litellm_metadata: Final = request_data.get("litellm_metadata", {})
+        embrouter_metadata: Final = request_data.get("embrouter_metadata", {})
         top_level_metadata: Final = request_data.get("metadata", {})
 
-        # Merge both sources, preferring litellm_metadata if both exist
-        metadata_dict: Final = {**top_level_metadata, **litellm_metadata}
+        # Merge both sources, preferring embrouter_metadata if both exist
+        metadata_dict: Final = {**top_level_metadata, **embrouter_metadata}
 
         if not metadata_dict:
             return result_metadata
@@ -308,20 +308,20 @@ class GenericGuardrailAPI(CustomGuardrail):
         *,
         inputs: GenericGuardrailAPIInputs,
         input_type: Literal["request", "response"],
-        logging_obj: Optional["LiteLLMLoggingObj"],
+        logging_obj: Optional["EmbRouterLoggingObj"],
         error: Exception,
         http_status_code: int | None = None,
     ) -> GenericGuardrailAPIInputs:
         status_suffix: Final = f" http_status_code={http_status_code}" if http_status_code else ""
         verbose_proxy_logger.critical(
             "Generic Guardrail API error (fail-open). Proceeding without guardrail.%s "
-            "guardrail_name=%s api_base=%s input_type=%s litellm_call_id=%s litellm_trace_id=%s",
+            "guardrail_name=%s api_base=%s input_type=%s embrouter_call_id=%s embrouter_trace_id=%s",
             status_suffix,
             getattr(self, "guardrail_name", None),
             getattr(self, "api_base", None),
             input_type,
-            getattr(logging_obj, "litellm_call_id", None) if logging_obj else None,
-            getattr(logging_obj, "litellm_trace_id", None) if logging_obj else None,
+            getattr(logging_obj, "embrouter_call_id", None) if logging_obj else None,
+            getattr(logging_obj, "embrouter_trace_id", None) if logging_obj else None,
             exc_info=error,
         )
         # Keep flow going - treat as action=NONE (no modifications)
@@ -374,7 +374,7 @@ class GenericGuardrailAPI(CustomGuardrail):
         error: Exception,
         inputs: GenericGuardrailAPIInputs,
         input_type: Literal["request", "response"],
-        logging_obj: Optional["LiteLLMLoggingObj"],
+        logging_obj: Optional["EmbRouterLoggingObj"],
         is_unreachable: bool = True,
     ) -> GenericGuardrailAPIInputs:
         unreachable_fail_open: Final = is_unreachable and self.unreachable_fallback == "fail_open"
@@ -396,7 +396,7 @@ class GenericGuardrailAPI(CustomGuardrail):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict,
         input_type: Literal["request", "response"],
-        logging_obj: Optional["LiteLLMLoggingObj"] = None,
+        logging_obj: Optional["EmbRouterLoggingObj"] = None,
     ) -> GenericGuardrailAPIInputs:
         """
         Apply the Generic Guardrail API to the given inputs.
@@ -454,12 +454,12 @@ class GenericGuardrailAPI(CustomGuardrail):
         try:
             # Create request payload
             guardrail_request: Final = GenericGuardrailAPIRequest(
-                litellm_call_id=logging_obj.litellm_call_id if logging_obj else None,
-                litellm_trace_id=logging_obj.litellm_trace_id if logging_obj else None,
+                embrouter_call_id=logging_obj.embrouter_call_id if logging_obj else None,
+                embrouter_trace_id=logging_obj.embrouter_trace_id if logging_obj else None,
                 texts=texts,
                 request_data=user_metadata,
                 request_headers=inbound_headers,
-                litellm_version=litellm_version,
+                embrouter_version=embrouter_version,
                 images=images,
                 tools=([GuardrailToolParam.model_validate(t) for t in tools] if tools else None),
                 structured_messages=structured_messages,
@@ -524,7 +524,7 @@ class GenericGuardrailAPI(CustomGuardrail):
 
     @staticmethod
     def get_config_model() -> type["GuardrailConfigModel"] | None:
-        from litellm.types.proxy.guardrails.guardrail_hooks.generic_guardrail_api import (
+        from embrouter.types.proxy.guardrails.guardrail_hooks.generic_guardrail_api import (
             GenericGuardrailAPIConfigModel,
         )
 

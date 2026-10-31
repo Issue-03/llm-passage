@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { usePersistedColumnVisibility } from "./usePersistedColumnVisibility";
 
-const keyFor = (tableId: string): string => `litellm_table_columns_${tableId}`;
+const keyFor = (tableId: string): string => `embrouter_table_columns_${tableId}`;
 
 const stored = (tableId: string): unknown => {
   const raw = localStorage.getItem(keyFor(tableId));

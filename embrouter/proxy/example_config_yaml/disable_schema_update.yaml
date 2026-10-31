@@ -1,16 +1,16 @@
 model_list:
   - model_name: fake-openai-endpoint
-    litellm_params:
+    embrouter_params:
       model: openai/fake
       api_key: fake-key
       api_base: os.environ/FAKE_OPENAI_API_BASE
   - model_name: gpt-4
-    litellm_params:
+    embrouter_params:
       model: openai/gpt-4
       api_key: fake-key
       api_base: os.environ/FAKE_OPENAI_API_BASE
 
-litellm_settings:
+embrouter_settings:
   callbacks: ["gcs_bucket"]
 
 general_settings:

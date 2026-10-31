@@ -1,20 +1,20 @@
 """
 End-user table model.
 
-Canonical definition for ``litellm_endusertable``. Re-exported from
-``litellm.proxy._types`` for backwards compatibility.
+Canonical definition for ``embrouter_endusertable``. Re-exported from
+``embrouter.proxy._types`` for backwards compatibility.
 """
 
 from typing import Literal
 
 from pydantic import ConfigDict, model_validator
 
-from litellm.models.budget import LiteLLM_BudgetTable
-from litellm.models.object_permission import LiteLLM_ObjectPermissionTable
-from litellm.types.llms.base import LiteLLMPydanticObjectBase
+from embrouter.models.budget import EmbRouter_BudgetTable
+from embrouter.models.object_permission import EmbRouter_ObjectPermissionTable
+from embrouter.types.llms.base import EmbRouterPydanticObjectBase
 
 
-class LiteLLM_EndUserTable(LiteLLMPydanticObjectBase):
+class EmbRouter_EndUserTable(EmbRouterPydanticObjectBase):
     user_id: str
     blocked: bool
     alias: str | None = None
@@ -22,9 +22,9 @@ class LiteLLM_EndUserTable(LiteLLMPydanticObjectBase):
     allowed_model_region: Literal["eu", "us"] | None = None
     default_model: str | None = None
     budget_id: str | None = None
-    litellm_budget_table: LiteLLM_BudgetTable | None = None
+    embrouter_budget_table: EmbRouter_BudgetTable | None = None
     object_permission_id: str | None = None
-    object_permission: LiteLLM_ObjectPermissionTable | None = None
+    object_permission: EmbRouter_ObjectPermissionTable | None = None
 
     @model_validator(mode="before")
     @classmethod

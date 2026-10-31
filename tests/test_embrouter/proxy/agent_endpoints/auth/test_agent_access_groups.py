@@ -3,12 +3,12 @@ from typing import Final
 import pytest
 from fastapi import HTTPException
 
-from litellm.models.access_group import LiteLLM_AccessGroupTable
-from litellm.proxy.agent_endpoints.auth.agent_access_groups import (
+from embrouter.models.access_group import EmbRouter_AccessGroupTable
+from embrouter.proxy.agent_endpoints.auth.agent_access_groups import (
     AgentAccessGroupCeiling,
     resolve_agent_access_group_ceiling,
 )
-from litellm.types.agents import AgentResponse
+from embrouter.types.agents import AgentResponse
 
 _CARD: Final = {"name": "agent", "url": "http://localhost:9999", "version": "1.0.0"}
 
@@ -24,8 +24,8 @@ def _group(
     models: tuple[str, ...] = (),
     mcp_servers: tuple[str, ...] = (),
     agents: tuple[str, ...] = (),
-) -> LiteLLM_AccessGroupTable:
-    return LiteLLM_AccessGroupTable(
+) -> EmbRouter_AccessGroupTable:
+    return EmbRouter_AccessGroupTable(
         access_group_id=group_id,
         access_group_name=group_id,
         access_model_names=list(models),
@@ -34,11 +34,11 @@ def _group(
     )
 
 
-def _loaders(agent: AgentResponse | None, groups: dict[str, LiteLLM_AccessGroupTable]):
+def _loaders(agent: AgentResponse | None, groups: dict[str, EmbRouter_AccessGroupTable]):
     async def load_agent(agent_id: str) -> tuple[str, ...]:
         return tuple(agent.access_group_ids or ()) if agent is not None else ()
 
-    async def load_group(group_id: str) -> LiteLLM_AccessGroupTable | None:
+    async def load_group(group_id: str) -> EmbRouter_AccessGroupTable | None:
         return groups.get(group_id)
 
     return load_agent, load_group
@@ -107,7 +107,7 @@ async def test_only_unloadable_groups_is_an_empty_ceiling_not_unrestricted():
 
 @pytest.mark.asyncio
 async def test_default_agent_loader_reads_the_attached_groups_from_the_registry():
-    from litellm.proxy.agent_endpoints.agent_registry import global_agent_registry
+    from embrouter.proxy.agent_endpoints.agent_registry import global_agent_registry
 
     _, load_group = _loaders(None, {"g1": _group("g1", models=("gpt-5",))})
     global_agent_registry.register_agent(_agent(["g1"]))
@@ -123,11 +123,11 @@ async def test_default_agent_loader_reads_the_attached_groups_from_the_registry(
 
 @pytest.mark.asyncio
 async def test_default_loader_treats_a_missing_group_as_unreadable(monkeypatch: pytest.MonkeyPatch):
-    from litellm.proxy import proxy_server
-    from litellm.proxy.agent_endpoints.auth.agent_access_groups import _load_access_group
-    from litellm.proxy.auth import auth_checks
+    from embrouter.proxy import proxy_server
+    from embrouter.proxy.agent_endpoints.auth.agent_access_groups import _load_access_group
+    from embrouter.proxy.auth import auth_checks
 
-    async def missing_group(**_: object) -> LiteLLM_AccessGroupTable:
+    async def missing_group(**_: object) -> EmbRouter_AccessGroupTable:
         raise HTTPException(status_code=404, detail={"error": "Access group doesn't exist in db."})
 
     monkeypatch.setattr(proxy_server, "prisma_client", object())
@@ -138,8 +138,8 @@ async def test_default_loader_treats_a_missing_group_as_unreadable(monkeypatch: 
 
 @pytest.mark.asyncio
 async def test_default_loader_returns_nothing_without_a_db(monkeypatch: pytest.MonkeyPatch):
-    from litellm.proxy import proxy_server
-    from litellm.proxy.agent_endpoints.auth.agent_access_groups import _load_access_group
+    from embrouter.proxy import proxy_server
+    from embrouter.proxy.agent_endpoints.auth.agent_access_groups import _load_access_group
 
     monkeypatch.setattr(proxy_server, "prisma_client", None)
 
@@ -153,13 +153,13 @@ async def test_authoritative_group_ceiling_propagates_policy_outages(
 ) -> None:
     from unittest.mock import AsyncMock, MagicMock
 
-    from litellm.proxy import proxy_server
-    from litellm.proxy.agent_endpoints.auth.agent_access_groups import _load_access_group
-    from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+    from embrouter.proxy import proxy_server
+    from embrouter.proxy.agent_endpoints.auth.agent_access_groups import _load_access_group
+    from embrouter.proxy.common_utils.user_api_key_cache import UserApiKeyCache
 
     database: Final = MagicMock()
-    database.db.litellm_accessgrouptable.find_unique = AsyncMock(side_effect=RuntimeError("database unavailable"))
-    database.writer_db.litellm_accessgrouptable.find_unique = AsyncMock(side_effect=RuntimeError("database unavailable"))
+    database.db.embrouter_accessgrouptable.find_unique = AsyncMock(side_effect=RuntimeError("database unavailable"))
+    database.writer_db.embrouter_accessgrouptable.find_unique = AsyncMock(side_effect=RuntimeError("database unavailable"))
     monkeypatch.setattr(proxy_server, "prisma_client", database)
     monkeypatch.setattr(proxy_server, "user_api_key_cache", UserApiKeyCache())
     if strict:

@@ -3,10 +3,10 @@ from typing import Final
 
 import pytest
 
-from litellm.caching.caching import DualCache
-from litellm.caching.in_memory_cache import InMemoryCache
-from litellm.caching.redis_cache import RedisCircuitBreakerOpenError
-from litellm.router_strategy.least_busy import IN_FLIGHT_COUNT_TTL_SECONDS, LeastBusyLoggingHandler
+from embrouter.caching.caching import DualCache
+from embrouter.caching.in_memory_cache import InMemoryCache
+from embrouter.caching.redis_cache import RedisCircuitBreakerOpenError
+from embrouter.router_strategy.least_busy import IN_FLIGHT_COUNT_TTL_SECONDS, LeastBusyLoggingHandler
 
 GROUP: Final = "least-busy-group"
 DEPLOYMENT_A: Final[dict[str, object]] = {"model_info": {"id": "dep-a"}}
@@ -15,7 +15,7 @@ HEALTHY: Final = [DEPLOYMENT_A, DEPLOYMENT_B]
 
 
 def _call_kwargs(deployment_id: str) -> dict[str, object]:
-    return {"litellm_params": {"metadata": {"model_group": GROUP}, "model_info": {"id": deployment_id}}}
+    return {"embrouter_params": {"metadata": {"model_group": GROUP}, "model_info": {"id": deployment_id}}}
 
 
 class SharedRedisCounters:
@@ -183,7 +183,7 @@ def test_calls_without_a_deployment_are_ignored() -> None:
     shared: Final = SharedRedisCounters()
     worker: Final = _worker(shared)
 
-    worker.log_pre_api_call(model="m", messages=[], kwargs={"litellm_params": {"metadata": None}})
+    worker.log_pre_api_call(model="m", messages=[], kwargs={"embrouter_params": {"metadata": None}})
     worker.log_pre_api_call(model="m", messages=[], kwargs={})
 
     assert shared.counts == {}
@@ -201,7 +201,7 @@ class OpenBreakerRedis(SharedRedisCounters):
 async def test_an_open_circuit_breaker_falls_back_without_a_warning_per_request(caplog: pytest.LogCaptureFixture) -> None:
     worker: Final = _worker(OpenBreakerRedis())
 
-    with caplog.at_level(logging.DEBUG, logger="LiteLLM Router"):
+    with caplog.at_level(logging.DEBUG, logger="EmbRouter Router"):
         worker.log_pre_api_call(model="m", messages=[], kwargs=_call_kwargs("dep-a"))
         picked: Final = worker.get_available_deployments(GROUP, HEALTHY)
 

@@ -1,4 +1,4 @@
-import { getProxyBaseUrl, getGlobalLitellmHeaderName } from "@/components/networking";
+import { getProxyBaseUrl, getGlobalEmbrouterHeaderName } from "@/components/networking";
 import { createApiClient } from "@/lib/http/client";
 
 export interface CyberArkFieldSchema {
@@ -19,7 +19,7 @@ export interface CyberArkStatusResponse {
 
 const apiClient = createApiClient({
   getBaseUrl: getProxyBaseUrl,
-  getAuthHeaderName: getGlobalLitellmHeaderName,
+  getAuthHeaderName: getGlobalEmbrouterHeaderName,
 });
 
 export const getCyberArkConfig = async (accessToken: string): Promise<CyberArkConfigResponse> =>

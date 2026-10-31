@@ -11,18 +11,18 @@ import httpx
 from openai import AsyncAzureOpenAI, AsyncOpenAI, AzureOpenAI, OpenAI
 from typing_extensions import ReadOnly, TypedDict
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.caching.caching import DualCache
-from litellm.constants import DEFAULT_MAX_RETRIES
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.openai.common_utils import BaseOpenAILLM
-from litellm.secret_managers.get_azure_ad_token_provider import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.caching.caching import DualCache
+from embrouter.constants import DEFAULT_MAX_RETRIES
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.openai.common_utils import BaseOpenAILLM
+from embrouter.secret_managers.get_azure_ad_token_provider import (
     get_azure_ad_token_provider,
 )
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.router import GenericLiteLLMParams
-from litellm.utils import _add_path_to_api_base
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.utils import _add_path_to_api_base
 
 azure_ad_cache: Final = DualCache()
 
@@ -246,7 +246,7 @@ def get_azure_ad_token_from_oidc(
     if azure_ad_token_access_token is not None:
         return azure_ad_token_access_token
 
-    client: Final = litellm.module_level_client
+    client: Final = embrouter.module_level_client
 
     req_token: Final = client.post(
         f"{azure_authority_host}/{azure_tenant_id}/oauth2/v2.0/token",
@@ -297,7 +297,7 @@ def select_azure_base_url_or_endpoint(azure_client_params: dict):
 
 
 def get_azure_ad_token(
-    litellm_params: GenericLiteLLMParams,
+    embrouter_params: GenericEmbRouterParams,
 ) -> str | None:
     """
     Get Azure AD token from various authentication methods.
@@ -311,7 +311,7 @@ def get_azure_ad_token(
     6. From DefaultAzureCredential
 
     Args:
-        litellm_params: Dictionary containing authentication parameters
+        embrouter_params: Dictionary containing authentication parameters
             - azure_ad_token_provider: Optional callable that returns a token
             - azure_ad_token: Optional existing token
             - tenant_id: Optional Azure tenant ID
@@ -325,14 +325,14 @@ def get_azure_ad_token(
     """
     # Extract parameters
     # Use `or` instead of default parameter to handle cases where key exists but value is None
-    azure_ad_token_provider = litellm_params.get("azure_ad_token_provider")
-    azure_ad_token = litellm_params.get("azure_ad_token") or get_secret_str("AZURE_AD_TOKEN")
-    tenant_id: Final = litellm_params.get("tenant_id") or os.getenv("AZURE_TENANT_ID")
-    client_id: Final = litellm_params.get("client_id") or os.getenv("AZURE_CLIENT_ID")
-    client_secret: Final = litellm_params.get("client_secret") or os.getenv("AZURE_CLIENT_SECRET")
-    azure_username: Final = litellm_params.get("azure_username") or os.getenv("AZURE_USERNAME")
-    azure_password: Final = litellm_params.get("azure_password") or os.getenv("AZURE_PASSWORD")
-    scope = litellm_params.get("azure_scope") or os.getenv(
+    azure_ad_token_provider = embrouter_params.get("azure_ad_token_provider")
+    azure_ad_token = embrouter_params.get("azure_ad_token") or get_secret_str("AZURE_AD_TOKEN")
+    tenant_id: Final = embrouter_params.get("tenant_id") or os.getenv("AZURE_TENANT_ID")
+    client_id: Final = embrouter_params.get("client_id") or os.getenv("AZURE_CLIENT_ID")
+    client_secret: Final = embrouter_params.get("client_secret") or os.getenv("AZURE_CLIENT_SECRET")
+    azure_username: Final = embrouter_params.get("azure_username") or os.getenv("AZURE_USERNAME")
+    azure_password: Final = embrouter_params.get("azure_password") or os.getenv("AZURE_PASSWORD")
+    scope = embrouter_params.get("azure_scope") or os.getenv(
         "AZURE_SCOPE", "https://cognitiveservices.azure.com/.default"
     )
     if scope is None:
@@ -368,7 +368,7 @@ def get_azure_ad_token(
             scope=scope,
         )
     # Try to get token provider from service principal or DefaultAzureCredential
-    elif azure_ad_token_provider is None and litellm.enable_azure_ad_token_refresh is True:
+    elif azure_ad_token_provider is None and embrouter.enable_azure_ad_token_refresh is True:
         verbose_logger.debug(
             "Using Azure AD token provider based on Service Principal with Secret workflow or DefaultAzureCredential for Azure Auth"
         )
@@ -384,7 +384,7 @@ def get_azure_ad_token(
             raise e
 
         #########################################################
-        # If litellm.enable_azure_ad_token_refresh is True and no other token provider is available,
+        # If embrouter.enable_azure_ad_token_refresh is True and no other token provider is available,
         # try to get DefaultAzureCredential provider
         #########################################################
         if azure_ad_token_provider is None and azure_ad_token is None:
@@ -460,7 +460,7 @@ class BaseAzureLLM(BaseOpenAILLM):
         Returns:
             Token provider callable if DefaultAzureCredential is enabled and available, None otherwise
         """
-        from litellm.types.secret_managers.get_azure_ad_token_provider import (
+        from embrouter.types.secret_managers.get_azure_ad_token_provider import (
             AzureCredentialType,
         )
 
@@ -483,14 +483,14 @@ class BaseAzureLLM(BaseOpenAILLM):
         api_base: str | None,
         api_version: str | None = None,
         client: AzureOpenAI | AsyncAzureOpenAI | OpenAI | AsyncOpenAI | None = None,
-        litellm_params: dict | None = None,
+        embrouter_params: dict | None = None,
         _is_async: bool = False,
         model: str | None = None,
     ) -> AzureOpenAI | AsyncAzureOpenAI | OpenAI | AsyncOpenAI | None:
         openai_client: AzureOpenAI | AsyncAzureOpenAI | OpenAI | AsyncOpenAI | None = None
         client_initialization_params: Final[dict] = locals()
         client_initialization_params["is_async"] = _is_async
-        _lp: Final = litellm_params or {}
+        _lp: Final = embrouter_params or {}
         _ad_provider: Final = _lp.get("azure_ad_token_provider")
         _ad_token: Final = _lp.get("azure_ad_token")
         _client_secret: Final = _lp.get("client_secret")
@@ -519,7 +519,7 @@ class BaseAzureLLM(BaseOpenAILLM):
                 openai_client=client,
                 client_initialization_params=client_initialization_params,
                 client_type="azure",
-                litellm_owned_client=False,
+                embrouter_owned_client=False,
             )
             return client
 
@@ -532,7 +532,7 @@ class BaseAzureLLM(BaseOpenAILLM):
                 return cached_client
 
         azure_client_params: Final = self.initialize_azure_sdk_client(
-            litellm_params=litellm_params or {},
+            embrouter_params=embrouter_params or {},
             api_key=api_key,
             api_base=api_base,
             model_name=model,
@@ -595,37 +595,37 @@ class BaseAzureLLM(BaseOpenAILLM):
             openai_client=openai_client,
             client_initialization_params=client_initialization_params,
             client_type="azure",
-            litellm_owned_client=self.owns_wrapped_http_client(azure_client_params.get("http_client")),
+            embrouter_owned_client=self.owns_wrapped_http_client(azure_client_params.get("http_client")),
         )
         return openai_client
 
     def initialize_azure_sdk_client(
         self,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None,
         api_base: str | None,
         model_name: str | None,
         api_version: str | None,
         is_async: bool,
     ) -> dict:
-        azure_ad_token_provider = litellm_params.get("azure_ad_token_provider")
+        azure_ad_token_provider = embrouter_params.get("azure_ad_token_provider")
         # If we have api_key, then we have higher priority
-        azure_ad_token = litellm_params.get("azure_ad_token")
+        azure_ad_token = embrouter_params.get("azure_ad_token")
 
-        # litellm_params sometimes contains the key, but the value is None
+        # embrouter_params sometimes contains the key, but the value is None
         # We should respect environment variables in this case
-        tenant_id: Final = self._resolve_env_var(litellm_params, "tenant_id", "AZURE_TENANT_ID")
-        client_id: Final = self._resolve_env_var(litellm_params, "client_id", "AZURE_CLIENT_ID")
-        client_secret: Final = self._resolve_env_var(litellm_params, "client_secret", "AZURE_CLIENT_SECRET")
-        azure_username: Final = self._resolve_env_var(litellm_params, "azure_username", "AZURE_USERNAME")
-        azure_password: Final = self._resolve_env_var(litellm_params, "azure_password", "AZURE_PASSWORD")
-        scope = self._resolve_env_var(litellm_params, "azure_scope", "AZURE_SCOPE")
+        tenant_id: Final = self._resolve_env_var(embrouter_params, "tenant_id", "AZURE_TENANT_ID")
+        client_id: Final = self._resolve_env_var(embrouter_params, "client_id", "AZURE_CLIENT_ID")
+        client_secret: Final = self._resolve_env_var(embrouter_params, "client_secret", "AZURE_CLIENT_SECRET")
+        azure_username: Final = self._resolve_env_var(embrouter_params, "azure_username", "AZURE_USERNAME")
+        azure_password: Final = self._resolve_env_var(embrouter_params, "azure_password", "AZURE_PASSWORD")
+        scope = self._resolve_env_var(embrouter_params, "azure_scope", "AZURE_SCOPE")
         if scope is None:
             scope = "https://cognitiveservices.azure.com/.default"
 
-        configured_max_retries: Final = litellm_params.get("max_retries")
+        configured_max_retries: Final = embrouter_params.get("max_retries")
         max_retries: Final = DEFAULT_MAX_RETRIES if configured_max_retries is None else configured_max_retries
-        timeout: Final = litellm_params.get("timeout")
+        timeout: Final = embrouter_params.get("timeout")
         if not api_key and azure_ad_token_provider is None and tenant_id and client_id and client_secret:
             verbose_logger.debug("Using Azure AD Token Provider from Entra ID for Azure Auth")
             azure_ad_token_provider = get_azure_ad_token_from_entra_id(
@@ -651,7 +651,7 @@ class BaseAzureLLM(BaseOpenAILLM):
                 azure_tenant_id=tenant_id,
                 scope=scope,
             )
-        elif not api_key and azure_ad_token_provider is None and litellm.enable_azure_ad_token_refresh is True:
+        elif not api_key and azure_ad_token_provider is None and embrouter.enable_azure_ad_token_refresh is True:
             verbose_logger.debug(
                 "Using Azure AD token provider based on Service Principal with Secret workflow for Azure Auth"
             )
@@ -660,7 +660,7 @@ class BaseAzureLLM(BaseOpenAILLM):
             except ValueError:
                 verbose_logger.debug("Azure AD Token Provider could not be used.")
         if api_version is None:
-            api_version = os.getenv("AZURE_API_VERSION", litellm.AZURE_DEFAULT_API_VERSION)
+            api_version = os.getenv("AZURE_API_VERSION", embrouter.AZURE_DEFAULT_API_VERSION)
 
         _api_key = api_key
         if _api_key is not None and isinstance(_api_key, str):
@@ -702,7 +702,7 @@ class BaseAzureLLM(BaseOpenAILLM):
         api_version: str,
         max_retries: int,
         timeout: float | httpx.Timeout,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None,
         azure_ad_token: str | None,
         azure_ad_token_provider: Callable[[], str] | None,
@@ -710,9 +710,9 @@ class BaseAzureLLM(BaseOpenAILLM):
         client: AzureOpenAI | AsyncAzureOpenAI | None = None,
     ) -> AzureOpenAI | AsyncAzureOpenAI:
         ## build base url - assume api base includes resource name
-        tenant_id: Final = litellm_params.get("tenant_id", os.getenv("AZURE_TENANT_ID"))
-        client_id: Final = litellm_params.get("client_id", os.getenv("AZURE_CLIENT_ID"))
-        scope: Final = litellm_params.get(
+        tenant_id: Final = embrouter_params.get("tenant_id", os.getenv("AZURE_TENANT_ID"))
+        client_id: Final = embrouter_params.get("client_id", os.getenv("AZURE_CLIENT_ID"))
+        scope: Final = embrouter_params.get(
             "azure_scope",
             os.getenv("AZURE_SCOPE", "https://cognitiveservices.azure.com/.default"),
         )
@@ -724,7 +724,7 @@ class BaseAzureLLM(BaseOpenAILLM):
             azure_client_params: Final[_AzureGatewayClientParams] = {
                 "api_version": api_version,
                 "base_url": f"{api_base}",
-                "http_client": litellm.client_session,
+                "http_client": embrouter.client_session,
                 "max_retries": max_retries,
                 "timeout": timeout,
             }
@@ -750,17 +750,17 @@ class BaseAzureLLM(BaseOpenAILLM):
         return client
 
     @staticmethod
-    def _base_validate_azure_environment(headers: dict, litellm_params: GenericLiteLLMParams | None) -> dict:
-        litellm_params = litellm_params or GenericLiteLLMParams()
+    def _base_validate_azure_environment(headers: dict, embrouter_params: GenericEmbRouterParams | None) -> dict:
+        embrouter_params = embrouter_params or GenericEmbRouterParams()
 
         # Check if api-key is already in headers; if so, use it
         if "api-key" in headers:
             return headers
 
         api_key: Final = (
-            litellm_params.api_key
-            or litellm.api_key
-            or litellm.azure_key
+            embrouter_params.api_key
+            or embrouter.api_key
+            or embrouter.azure_key
             or get_secret_str("AZURE_OPENAI_API_KEY")
             or get_secret_str("AZURE_API_KEY")
         )
@@ -771,7 +771,7 @@ class BaseAzureLLM(BaseOpenAILLM):
 
         ### Fallback to Azure AD token-based authentication if no API key is available
         ### Retrieves Azure AD token and adds it to the Authorization header
-        azure_ad_token: Final = get_azure_ad_token(litellm_params)
+        azure_ad_token: Final = get_azure_ad_token(embrouter_params)
         if azure_ad_token:
             headers["Authorization"] = f"Bearer {azure_ad_token}"
 
@@ -780,7 +780,7 @@ class BaseAzureLLM(BaseOpenAILLM):
     @staticmethod
     def _get_base_azure_url(
         api_base: str | None,
-        litellm_params: GenericLiteLLMParams | Mapping[str, object] | None,
+        embrouter_params: GenericEmbRouterParams | Mapping[str, object] | None,
         route: Literal["/openai/responses", "/openai/vector_stores"] | str,
         default_api_version: str | Literal["latest", "preview"] | None = None,
     ) -> str:
@@ -789,12 +789,12 @@ class BaseAzureLLM(BaseOpenAILLM):
 
         Args:
             api_base: The base URL of the Azure API.
-            litellm_params: The litellm parameters.
+            embrouter_params: The embrouter parameters.
             route: The route to the API.
             default_api_version: The default API version to use if no api_version is provided. If 'latest', it will use `openai/v1/...` route.
         """
 
-        api_base = api_base or litellm.api_base or get_secret_str("AZURE_API_BASE")
+        api_base = api_base or embrouter.api_base or get_secret_str("AZURE_API_BASE")
         if api_base is None:
             raise ValueError(
                 f"api_base is required for Azure AI Studio. Please set the api_base parameter. Passed `api_base={api_base}`"
@@ -802,8 +802,8 @@ class BaseAzureLLM(BaseOpenAILLM):
         original_url: Final = httpx.URL(api_base)
 
         # Extract api_version or use default
-        litellm_params = litellm_params or {}
-        api_version: Final = cast(str | None, litellm_params.get("api_version")) or default_api_version
+        embrouter_params = embrouter_params or {}
+        api_version: Final = cast(str | None, embrouter_params.get("api_version")) or default_api_version
 
         # Create a new dictionary with existing params
         query_params: Final = dict(original_url.params)
@@ -851,7 +851,7 @@ class BaseAzureLLM(BaseOpenAILLM):
         )
         return BaseAzureLLM._get_base_azure_url(
             api_base=resource_base,
-            litellm_params=MappingProxyType({"api_version": api_version}),
+            embrouter_params=MappingProxyType({"api_version": api_version}),
             route=route,
         )
 
@@ -862,15 +862,15 @@ class BaseAzureLLM(BaseOpenAILLM):
         return api_version in {"preview", "latest", "v1"}
 
     def _resolve_env_var(
-        self, litellm_params: Mapping[str, str | None], param_key: str, env_var_key: str
+        self, embrouter_params: Mapping[str, str | None], param_key: str, env_var_key: str
     ) -> str | None:
         """Resolve the environment variable for a given parameter key.
 
         The logic here is different from `params.get(key, os.getenv(env_var))` because
-        litellm_params may contain the key with a None value, in which case we want
+        embrouter_params may contain the key with a None value, in which case we want
         to fallback to the environment variable.
         """
-        param_value: Final = litellm_params.get(param_key)
+        param_value: Final = embrouter_params.get(param_key)
         if param_value is not None:
             return param_value
         return os.getenv(env_var_key)
@@ -887,13 +887,13 @@ def get_azure_credentials(
     api_key: str | None = None,
     api_version: str | None = None,
 ) -> AzureCredentials:
-    """Resolve Azure credentials from params, litellm globals, and env vars."""
-    resolved_api_base: Final = api_base or litellm.api_base or get_secret_str("AZURE_API_BASE")
-    resolved_api_version: Final = api_version or litellm.api_version or get_secret_str("AZURE_API_VERSION")
+    """Resolve Azure credentials from params, embrouter globals, and env vars."""
+    resolved_api_base: Final = api_base or embrouter.api_base or get_secret_str("AZURE_API_BASE")
+    resolved_api_version: Final = api_version or embrouter.api_version or get_secret_str("AZURE_API_VERSION")
     resolved_api_key: Final = (
         api_key
-        or litellm.api_key
-        or litellm.azure_key
+        or embrouter.api_key
+        or embrouter.azure_key
         or get_secret_str("AZURE_OPENAI_API_KEY")
         or get_secret_str("AZURE_API_KEY")
     )

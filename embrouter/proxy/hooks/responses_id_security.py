@@ -11,22 +11,22 @@ from typing import TYPE_CHECKING, Any, Final, cast
 from fastapi import HTTPException
 from pydantic import TypeAdapter, ValidationError
 
-from litellm._logging import verbose_proxy_logger
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.proxy._types import LitellmUserRoles
-from litellm.proxy.common_utils.encrypt_decrypt_utils import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.proxy._types import EmbrouterUserRoles
+from embrouter.proxy.common_utils.encrypt_decrypt_utils import (
     decrypt_value_helper,
     encrypt_value_helper,
 )
-from litellm.types.llms.openai import (
-    BaseLiteLLMOpenAIResponseObject,
+from embrouter.types.llms.openai import (
+    BaseEmbRouterOpenAIResponseObject,
     ResponsesAPIResponse,
 )
-from litellm.types.utils import ADDRESSED_RESPONSE_ID_FIELD, CallTypesLiteral, LLMResponseTypes, SpecialEnums
+from embrouter.types.utils import ADDRESSED_RESPONSE_ID_FIELD, CallTypesLiteral, LLMResponseTypes, SpecialEnums
 
 if TYPE_CHECKING:
-    from litellm.caching.caching import DualCache
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.caching.caching import DualCache
+    from embrouter.proxy._types import UserAPIKeyAuth
 
 
 _RESPONSES_API_PROVIDER_PREFIX: Final = "/openai"
@@ -37,11 +37,11 @@ _UNMANAGED_RESPONSE_ID_DETAIL: Final = (
     "To let keys address responses this proxy did not issue, set "
     "general_settings::allow_unmanaged_response_ids to True in the config.yaml file."
 )
-_PROXY_ADMIN_ROLES: Final = frozenset({LitellmUserRoles.PROXY_ADMIN, LitellmUserRoles.PROXY_ADMIN.value})
+_PROXY_ADMIN_ROLES: Final = frozenset({EmbrouterUserRoles.PROXY_ADMIN, EmbrouterUserRoles.PROXY_ADMIN.value})
 
 
 def _proxy_general_settings() -> Mapping[str, object]:
-    from litellm.proxy.proxy_server import general_settings
+    from embrouter.proxy.proxy_server import general_settings
 
     return general_settings
 
@@ -49,9 +49,9 @@ def _proxy_general_settings() -> Mapping[str, object]:
 def _proxy_signing_key() -> str | None:
     import os
 
-    from litellm.proxy.proxy_server import master_key
+    from embrouter.proxy.proxy_server import master_key
 
-    salt_key: Final = os.getenv("LITELLM_SALT_KEY", None)
+    salt_key: Final = os.getenv("EMBROUTER_SALT_KEY", None)
     return master_key if salt_key is None else salt_key
 
 
@@ -66,9 +66,9 @@ def _response_payload(response_obj: object) -> Mapping[str, object] | None:
 
 
 def _rewrite_advertised_id(
-    event: BaseLiteLLMOpenAIResponseObject,
+    event: BaseEmbRouterOpenAIResponseObject,
     rewrite: Callable[[str], str],
-) -> BaseLiteLLMOpenAIResponseObject:
+) -> BaseEmbRouterOpenAIResponseObject:
     event_id: Final = getattr(event, "id", None)
     if isinstance(event_id, str) and event_id.startswith("resp_"):
         setattr(event, "id", rewrite(event_id))
@@ -177,8 +177,8 @@ class ResponsesIDSecurity(CustomLogger):
         general_settings: Final = self._general_settings_reader()
 
         if (
-            user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN.value
-            or user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN
+            user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN.value
+            or user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN
         ):
             return True
 
@@ -244,11 +244,11 @@ class ResponsesIDSecurity(CustomLogger):
             return response_id, None, None
 
         if decrypted_value.startswith(SpecialEnums.LITELM_MANAGED_FILE_ID_PREFIX.value):
-            # Expected format: "litellm_proxy:responses_api:response_id:{response_id};user_id:{user_id}"
+            # Expected format: "embrouter_proxy:responses_api:response_id:{response_id};user_id:{user_id}"
             parts: Final = decrypted_value.split(";")
 
             if len(parts) >= 2:
-                # Extract response_id from "litellm_proxy:responses_api:response_id:{response_id}"
+                # Extract response_id from "embrouter_proxy:responses_api:response_id:{response_id}"
                 response_id_part: Final = parts[0]
                 original_response_id: Final = response_id_part.split("response_id:")[-1]
 
@@ -271,15 +271,15 @@ class ResponsesIDSecurity(CustomLogger):
 
     def _encrypt_response_id(
         self,
-        response: BaseLiteLLMOpenAIResponseObject,
+        response: BaseEmbRouterOpenAIResponseObject,
         user_api_key_dict: "UserAPIKeyAuth",
         request_cache: dict[str, str] | None = None,
-    ) -> BaseLiteLLMOpenAIResponseObject:
+    ) -> BaseEmbRouterOpenAIResponseObject:
         signing_key: Final = self._get_signing_key()
         if signing_key is None:
             verbose_proxy_logger.debug(
                 "Response ID encryption is enabled but no signing key is configured. "
-                "Please set LITELLM_SALT_KEY environment variable or configure a master_key. "
+                "Please set EMBROUTER_SALT_KEY environment variable or configure a master_key. "
                 "Skipping response ID encryption. "
                 ""
             )
@@ -290,7 +290,7 @@ class ResponsesIDSecurity(CustomLogger):
             if cached is not None:
                 return cached
 
-            managed_id: Final = SpecialEnums.LITELLM_MANAGED_RESPONSE_API_RESPONSE_ID_COMPLETE_STR.value.format(
+            managed_id: Final = SpecialEnums.EMBROUTER_MANAGED_RESPONSE_API_RESPONSE_ID_COMPLETE_STR.value.format(
                 original_id,
                 user_api_key_dict.user_id or "",
                 user_api_key_dict.team_id or "",
@@ -327,7 +327,7 @@ class ResponsesIDSecurity(CustomLogger):
 
     async def async_post_call_streaming_iterator_hook(
         self, user_api_key_dict: "UserAPIKeyAuth", response: Any, request_data: dict
-    ) -> AsyncGenerator[BaseLiteLLMOpenAIResponseObject, None]:
+    ) -> AsyncGenerator[BaseEmbRouterOpenAIResponseObject, None]:
         general_settings: Final = self._general_settings_reader()
 
         # Create a request-scoped cache for consistent encryption across streaming chunks.
@@ -335,7 +335,7 @@ class ResponsesIDSecurity(CustomLogger):
 
         async for chunk in response:
             if (
-                isinstance(chunk, BaseLiteLLMOpenAIResponseObject)
+                isinstance(chunk, BaseEmbRouterOpenAIResponseObject)
                 and _is_responses_api_create_route(user_api_key_dict.request_route)
                 and not general_settings.get("disable_responses_id_security", False)
             ):

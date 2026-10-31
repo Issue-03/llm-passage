@@ -8,7 +8,7 @@ from types import SimpleNamespace
 from typing import Final
 from unittest.mock import AsyncMock, MagicMock
 
-import litellm_proxy_extras
+import embrouter_proxy_extras
 import psycopg
 import pytest
 from prisma.errors import PrismaError
@@ -16,14 +16,14 @@ from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from pytest_postgresql import factories
 
-from litellm.caching.in_memory_cache import InMemoryCache
-from litellm.constants import (
+from embrouter.caching.in_memory_cache import InMemoryCache
+from embrouter.constants import (
     SPEND_LOG_KEY_METADATA_CACHE_TTL,
     SPEND_LOG_KEY_METADATA_MISS_CACHE_TTL,
     SPEND_LOG_KEY_METADATA_QUERY_TIMEOUT_MS,
     SPEND_LOG_KEY_METADATA_ROWS_PER_PROBE,
 )
-from litellm.proxy.spend_tracking.key_metadata_recovery import (
+from embrouter.proxy.spend_tracking.key_metadata_recovery import (
     attach_user_details,
     fill_missing_api_key_aliases,
     recover_cli_session_key_metadata,
@@ -31,7 +31,7 @@ from litellm.proxy.spend_tracking.key_metadata_recovery import (
     recover_key_metadata_from_spend_logs,
     recover_key_owner_from_daily_spend,
 )
-from litellm.proxy.utils import hash_token
+from embrouter.proxy.utils import hash_token
 
 
 def _digest_row(digest: str, key_alias: str | None, team_id: str | None, user_id: str | None) -> dict[str, str | None]:
@@ -40,7 +40,7 @@ def _digest_row(digest: str, key_alias: str | None, team_id: str | None, user_id
 
 def _query_raw_spend_logs(rows: Sequence[dict[str, str | None]]) -> AsyncMock:
     async def query_raw(sql: str, *params: object) -> list[dict[str, str | None]]:
-        if '"LiteLLM_SpendLogs"' in sql:
+        if '"EmbRouter_SpendLogs"' in sql:
             return list(rows)
         raise AssertionError(f"unexpected query: {sql}")
 
@@ -72,9 +72,9 @@ def _query_raw_by_table(
     deleted_rows: Sequence[dict[str, str | None]],
 ) -> AsyncMock:
     async def query_raw(sql: str, *params: object) -> list[dict[str, str | None]]:
-        if '"LiteLLM_VerificationToken"' in sql:
+        if '"EmbRouter_VerificationToken"' in sql:
             return list(active_rows)
-        if '"LiteLLM_DeletedVerificationToken"' in sql:
+        if '"EmbRouter_DeletedVerificationToken"' in sql:
             return list(deleted_rows)
         raise AssertionError(f"unexpected query: {sql}")
 
@@ -146,8 +146,8 @@ async def test_recover_permanent_miss_costs_two_digest_lookups_and_no_table_walk
 
     assert result == {}
     assert len(mock_prisma.db.query_raw.call_args_list) == 2
-    mock_prisma.db.litellm_verificationtoken.find_many.assert_not_called()
-    mock_prisma.db.litellm_deletedverificationtoken.find_many.assert_not_called()
+    mock_prisma.db.embrouter_verificationtoken.find_many.assert_not_called()
+    mock_prisma.db.embrouter_deletedverificationtoken.find_many.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -180,7 +180,7 @@ async def test_fill_missing_api_key_aliases_updates_null_alias_and_email_rows():
         active_rows=[_digest_row(double_hashed, "recovered-alias", "team-9", "bob")],
         deleted_rows=[],
     )
-    mock_prisma.db.litellm_usertable.find_many = AsyncMock(
+    mock_prisma.db.embrouter_usertable.find_many = AsyncMock(
         return_value=[SimpleNamespace(user_id="bob", user_email="bob@example.com")]
     )
 
@@ -208,7 +208,7 @@ async def test_fill_missing_api_key_aliases_updates_null_alias_and_email_rows():
     assert filled[0]["user_email"] == "bob@example.com"
     assert filled[0]["spend"] == 12.5
     assert filled[1]["api_key_alias"] == "named-key"
-    assert mock_prisma.db.litellm_usertable.find_many.call_args.kwargs["where"] == {"user_id": {"in": ["bob"]}}
+    assert mock_prisma.db.embrouter_usertable.find_many.call_args.kwargs["where"] == {"user_id": {"in": ["bob"]}}
 
 
 @pytest.mark.asyncio
@@ -231,7 +231,7 @@ async def test_fill_missing_api_key_aliases_keeps_spend_user_email_when_alias_is
         active_rows=[_digest_row(double_hashed, "team-key", "team-9", "key-owner")],
         deleted_rows=[],
     )
-    mock_prisma.db.litellm_usertable.find_many = AsyncMock(
+    mock_prisma.db.embrouter_usertable.find_many = AsyncMock(
         return_value=[SimpleNamespace(user_id="key-owner", user_email="owner@example.com")]
     )
 
@@ -457,7 +457,7 @@ async def test_recover_key_metadata_from_spend_logs_drops_the_owner_of_a_digest_
     query_raw = _spend_log_transaction(
         mock_prisma,
         _query_raw_spend_logs(
-            [{**_spend_log_row(shared_ui_digest, "ui-token", "litellm-dashboard", None), "first_owner": "alice", "last_owner": "bob"}]
+            [{**_spend_log_row(shared_ui_digest, "ui-token", "embrouter-dashboard", None), "first_owner": "alice", "last_owner": "bob"}]
         ),
     )
 
@@ -465,7 +465,7 @@ async def test_recover_key_metadata_from_spend_logs_drops_the_owner_of_a_digest_
         mock_prisma, {shared_ui_digest}, window, cache=InMemoryCache()
     )
 
-    assert result[shared_ui_digest] == {"key_alias": "ui-token", "team_id": "litellm-dashboard", "user_id": None}
+    assert result[shared_ui_digest] == {"key_alias": "ui-token", "team_id": "embrouter-dashboard", "user_id": None}
 
 
 @pytest.mark.asyncio
@@ -610,7 +610,7 @@ _spend_logs_postgresql_proc: Final = factories.postgresql_proc()
 _spend_logs_postgresql: Final = factories.postgresql("_spend_logs_postgresql_proc")
 
 _SPEND_LOGS_DDL: Final = """
-    CREATE TABLE "LiteLLM_SpendLogs" (
+    CREATE TABLE "EmbRouter_SpendLogs" (
         request_id TEXT PRIMARY KEY,
         api_key TEXT NOT NULL DEFAULT '',
         "startTime" TIMESTAMP(3) NOT NULL,
@@ -621,7 +621,7 @@ _SPEND_LOGS_DDL: Final = """
 """
 
 _API_KEY_START_TIME_INDEX_MIGRATION: Final = (
-    Path(litellm_proxy_extras.__file__).parent
+    Path(embrouter_proxy_extras.__file__).parent
     / "migrations"
     / "20260823000000_add_spend_logs_api_key_starttime_index"
     / "migration.sql"
@@ -630,7 +630,7 @@ _API_KEY_START_TIME_INDEX_MIGRATION: Final = (
 _SPEND_LOG_ROWS_READ_IN_THIS_TRANSACTION_SQL: Final = """
     SELECT COALESCE(seq_tup_read, 0) + COALESCE(idx_tup_fetch, 0) AS rows_read
     FROM pg_stat_xact_user_tables
-    WHERE relname = 'LiteLLM_SpendLogs'
+    WHERE relname = 'EmbRouter_SpendLogs'
 """
 
 
@@ -663,14 +663,14 @@ def _psycopg_prisma(conn: psycopg.Connection) -> MagicMock:
 def _commit_and_vacuum(conn: psycopg.Connection) -> None:
     conn.commit()
     conn.set_autocommit(True)
-    conn.execute('VACUUM (ANALYZE) "LiteLLM_SpendLogs"')
+    conn.execute('VACUUM (ANALYZE) "EmbRouter_SpendLogs"')
     conn.set_autocommit(False)
 
 
 def _insert_nameless_spend_logs(conn: psycopg.Connection, digest: str, rows: int) -> None:
     conn.execute(
         """
-        INSERT INTO "LiteLLM_SpendLogs" (request_id, api_key, "startTime")
+        INSERT INTO "EmbRouter_SpendLogs" (request_id, api_key, "startTime")
         SELECT %(digest)s || '-' || g, %(digest)s, %(start)s + g * interval '1 minute'
         FROM generate_series(1, %(rows)s) g
         """,
@@ -702,7 +702,7 @@ async def test_recover_key_metadata_from_spend_logs_names_a_key_by_its_oldest_an
     )
     with conn.cursor() as cur:
         cur.executemany(
-            'INSERT INTO "LiteLLM_SpendLogs" (request_id, api_key, "startTime", "user", team_id, metadata)'
+            'INSERT INTO "EmbRouter_SpendLogs" (request_id, api_key, "startTime", "user", team_id, metadata)'
             " VALUES (%s, %s, %s, %s, %s, %s)",
             (
                 _named_spend_log(unnamed_edges, datetime(2026, 9, 7, 1), None, None),
@@ -746,14 +746,14 @@ async def test_recover_key_metadata_from_spend_logs_reads_two_rows_per_key_howev
     for digest, owner in owners.items():
         conn.execute(
             """
-            INSERT INTO "LiteLLM_SpendLogs" (request_id, api_key, "startTime", "user", metadata)
+            INSERT INTO "EmbRouter_SpendLogs" (request_id, api_key, "startTime", "user", metadata)
             SELECT %(digest)s || '-' || g, %(digest)s, %(start)s + g * interval '1 minute', %(owner)s,
                 jsonb_build_object('user_api_key_alias', 'cli-session-' || %(owner)s)
             FROM generate_series(1, 2000) g
             """,
             {"digest": digest, "owner": owner, "start": datetime(2026, 9, 7)},
         )
-    conn.execute('ANALYZE "LiteLLM_SpendLogs"')
+    conn.execute('ANALYZE "EmbRouter_SpendLogs"')
     conn.commit()
 
     result = await recover_key_metadata_from_spend_logs(
@@ -778,13 +778,13 @@ async def test_recover_key_metadata_from_spend_logs_walks_a_bounded_number_of_na
     for digest, owner in named_late.items():
         conn.execute(
             """
-            INSERT INTO "LiteLLM_SpendLogs" (request_id, api_key, "startTime", "user", metadata)
+            INSERT INTO "EmbRouter_SpendLogs" (request_id, api_key, "startTime", "user", metadata)
             VALUES (%(digest)s || '-newest', %(digest)s, %(logged_at)s, %(owner)s,
                 jsonb_build_object('user_api_key_alias', 'cli-session-' || %(owner)s))
             """,
             {"digest": digest, "owner": owner, "logged_at": datetime(2026, 9, 9)},
         )
-    conn.execute('ANALYZE "LiteLLM_SpendLogs"')
+    conn.execute('ANALYZE "EmbRouter_SpendLogs"')
     conn.commit()
 
     result = await recover_key_metadata_from_spend_logs(
@@ -835,7 +835,7 @@ async def test_recover_key_metadata_from_spend_logs_bounds_a_busy_nameless_key_a
         )
     for digest in busy:
         _insert_nameless_spend_logs(conn, digest, 30 * SPEND_LOG_KEY_METADATA_ROWS_PER_PROBE)
-    conn.execute('ANALYZE "LiteLLM_SpendLogs"')
+    conn.execute('ANALYZE "EmbRouter_SpendLogs"')
     conn.commit()
 
     result = await recover_key_metadata_from_spend_logs(
@@ -861,7 +861,7 @@ async def test_recover_key_metadata_from_spend_logs_finds_a_name_logged_where_th
     )
     with conn.cursor() as cur:
         cur.executemany(
-            'INSERT INTO "LiteLLM_SpendLogs" (request_id, api_key, "startTime", "user", team_id, metadata)'
+            'INSERT INTO "EmbRouter_SpendLogs" (request_id, api_key, "startTime", "user", team_id, metadata)'
             " VALUES (%s, %s, %s, %s, %s, %s)",
             (
                 *(
@@ -907,7 +907,7 @@ async def test_recover_key_metadata_from_spend_logs_finds_a_name_logged_where_th
 @pytest.mark.asyncio
 async def test_recover_cli_session_key_metadata_names_the_owner_only_when_the_suffix_is_a_real_user():
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_usertable.find_many = AsyncMock(
+    mock_prisma.db.embrouter_usertable.find_many = AsyncMock(
         return_value=[SimpleNamespace(user_id="alice", user_email="alice@example.com", teams=[])]
     )
     raw_login_token = "cli-session-Qm7xJ2kP9sLw4vT1nR8yAa"
@@ -917,7 +917,7 @@ async def test_recover_cli_session_key_metadata_names_the_owner_only_when_the_su
     )
 
     assert dict(result) == {"cli-session-alice": {"key_alias": "cli-session-alice", "user_id": "alice"}}
-    assert sorted(mock_prisma.db.litellm_usertable.find_many.call_args.kwargs["where"]["user_id"]["in"]) == [
+    assert sorted(mock_prisma.db.embrouter_usertable.find_many.call_args.kwargs["where"]["user_id"]["in"]) == [
         "Qm7xJ2kP9sLw4vT1nR8yAa",
         "alice",
     ]
@@ -927,7 +927,7 @@ async def test_recover_cli_session_key_metadata_names_the_owner_only_when_the_su
 async def test_fill_missing_api_key_aliases_resolves_cli_session_keys_without_a_digest_lookup():
     mock_prisma = MagicMock()
     mock_prisma.db.query_raw = AsyncMock(side_effect=AssertionError("no reverse-hash lookup expected"))
-    mock_prisma.db.litellm_usertable.find_many = AsyncMock(
+    mock_prisma.db.embrouter_usertable.find_many = AsyncMock(
         return_value=[SimpleNamespace(user_id="alice", user_email="alice@example.com", teams=["team-a"])]
     )
     rows = ({"api_key": "cli-session-alice", "api_key_alias": None, "team_id": None, "user_email": None, "spend": 2.0},)
@@ -938,13 +938,13 @@ async def test_fill_missing_api_key_aliases_resolves_cli_session_keys_without_a_
     assert filled[0]["user_email"] == "alice@example.com"
     assert filled[0]["team_id"] == "team-a"
     assert filled[0]["spend"] == 2.0
-    assert mock_prisma.db.litellm_usertable.find_many.call_args.kwargs["where"] == {"user_id": {"in": ["alice"]}}
+    assert mock_prisma.db.embrouter_usertable.find_many.call_args.kwargs["where"] == {"user_id": {"in": ["alice"]}}
 
 
 @pytest.mark.asyncio
 async def test_attach_user_details_gives_the_login_team_only_to_cli_session_keys():
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_usertable.find_many = AsyncMock(
+    mock_prisma.db.embrouter_usertable.find_many = AsyncMock(
         return_value=[SimpleNamespace(user_id="alice", user_email="alice@example.com", teams=["team-a"])]
     )
     personal_key = hash_token("sk-personal")
@@ -966,7 +966,7 @@ async def test_attach_user_details_gives_the_login_team_only_to_cli_session_keys
 @pytest.mark.asyncio
 async def test_attach_user_details_claims_no_team_for_a_multi_team_user_session_key():
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_usertable.find_many = AsyncMock(
+    mock_prisma.db.embrouter_usertable.find_many = AsyncMock(
         return_value=[SimpleNamespace(user_id="bob", user_email="bob@example.com", teams=["team-a", "team-b"])]
     )
 
@@ -991,12 +991,12 @@ def _user_lookup_by_filter() -> AsyncMock:
 @pytest.mark.asyncio
 async def test_attach_user_details_chunks_more_than_5000_user_ids_and_merges_every_chunk():
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_usertable.find_many = _user_lookup_by_filter()
+    mock_prisma.db.embrouter_usertable.find_many = _user_lookup_by_filter()
     recovered = {f"key-{n}": {"key_alias": f"alias-{n}", "user_id": f"user-{n}"} for n in range(12_001)}
 
     attached = await attach_user_details(mock_prisma, recovered)
 
-    sent = [call.kwargs["where"]["user_id"]["in"] for call in mock_prisma.db.litellm_usertable.find_many.call_args_list]
+    sent = [call.kwargs["where"]["user_id"]["in"] for call in mock_prisma.db.embrouter_usertable.find_many.call_args_list]
     assert [len(chunk) for chunk in sent] == [5_000, 5_000, 2_001]
     assert sorted(user_id for chunk in sent for user_id in chunk) == sorted(f"user-{n}" for n in range(12_001))
     assert all(attached[f"key-{n}"]["user_email"] == f"user-{n}@example.com" for n in range(12_001))
@@ -1005,14 +1005,14 @@ async def test_attach_user_details_chunks_more_than_5000_user_ids_and_merges_eve
 @pytest.mark.asyncio
 async def test_attach_user_details_leaves_metadata_unchanged_when_a_later_chunk_fails():
     mock_prisma = MagicMock()
-    mock_prisma.db.litellm_usertable.find_many = AsyncMock(
+    mock_prisma.db.embrouter_usertable.find_many = AsyncMock(
         side_effect=[[SimpleNamespace(user_id="user-0", user_email="user-0@example.com", teams=[])], PrismaError()]
     )
     recovered = {f"key-{n}": {"key_alias": f"alias-{n}", "user_id": f"user-{n}"} for n in range(5_001)}
 
     attached = await attach_user_details(mock_prisma, recovered)
 
-    assert mock_prisma.db.litellm_usertable.find_many.call_count == 2
+    assert mock_prisma.db.embrouter_usertable.find_many.call_count == 2
     assert attached == recovered
 
 

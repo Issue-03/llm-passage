@@ -9,12 +9,12 @@ import httpx
 import pytest
 
 
-from litellm.llms.dashscope.common_utils import DashScopeError
-from litellm.llms.dashscope.embed.transformation import (
+from embrouter.llms.dashscope.common_utils import DashScopeError
+from embrouter.llms.dashscope.embed.transformation import (
     DEFAULT_API_BASE,
     DashScopeEmbeddingConfig,
 )
-from litellm.types.utils import EmbeddingResponse
+from embrouter.types.utils import EmbeddingResponse
 
 
 def test_validate_environment_and_url():
@@ -24,7 +24,7 @@ def test_validate_environment_and_url():
         model="text-embedding-v4",
         messages=[],
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         api_key="sk-test",
     )
     assert headers["Authorization"] == "Bearer sk-test"
@@ -34,7 +34,7 @@ def test_validate_environment_and_url():
         api_key="sk-test",
         model="text-embedding-v4",
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
     )
     assert url == f"{DEFAULT_API_BASE}/embeddings"
 
@@ -79,7 +79,7 @@ def test_transform_embedding_response_success():
         api_key="sk-x",
         request_data={"input": ["a"]},
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
     )
     assert result.model == "text-embedding-v4"
     assert len(result.data) == 1
@@ -132,7 +132,7 @@ def test_transform_embedding_response_error():
             api_key="sk-bad",
             request_data={"input": ["a"]},
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
         )
     assert exc.value.status_code == 401
     assert "Incorrect API key" in exc.value.message

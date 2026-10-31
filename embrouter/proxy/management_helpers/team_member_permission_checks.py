@@ -1,19 +1,19 @@
 from typing import Final, Literal
 
-from litellm.proxy._types import (
+from embrouter.proxy._types import (
     KeyManagementRoutes,
-    LiteLLM_TeamTableCachedObj,
-    LiteLLM_VerificationToken,
-    LiteLLMRoutes,
-    LitellmUserRoles,
+    EmbRouter_TeamTableCachedObj,
+    EmbRouter_VerificationToken,
+    EmbRouterRoutes,
+    EmbrouterUserRoles,
     ProxyErrorTypes,
     ProxyException,
     UserAPIKeyAuth,
 )
-from litellm.proxy.auth.auth_checks import get_team_object
-from litellm.proxy.auth.route_checks import RouteChecks
-from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-from litellm.proxy.utils import PrismaClient
+from embrouter.proxy.auth.auth_checks import get_team_object
+from embrouter.proxy.auth.route_checks import RouteChecks
+from embrouter.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+from embrouter.proxy.utils import PrismaClient
 
 BASELINE_TEAM_MEMBER_PERMISSIONS: Final = [
     KeyManagementRoutes.KEY_INFO,
@@ -26,7 +26,7 @@ DEFAULT_TEAM_MEMBER_PERMISSIONS: Final = BASELINE_TEAM_MEMBER_PERMISSIONS
 class TeamMemberPermissionChecks:
     @staticmethod
     def get_permissions_for_team_member(
-        team_table: LiteLLM_TeamTableCachedObj,
+        team_table: EmbRouter_TeamTableCachedObj,
     ) -> list[KeyManagementRoutes]:
         """
         Returns the permissions for a team member.
@@ -59,17 +59,17 @@ class TeamMemberPermissionChecks:
         route: KeyManagementRoutes,
         prisma_client: PrismaClient,
         user_api_key_cache: UserApiKeyCache,
-        existing_key_row: LiteLLM_VerificationToken,
+        existing_key_row: EmbRouter_VerificationToken,
     ):
         """
         Main handler for checking if a team member can update a key
         """
-        from litellm.proxy.management_endpoints.key_management_endpoints import (
+        from embrouter.proxy.management_endpoints.key_management_endpoints import (
             _get_caller_team_role,
         )
 
         # 1. Don't execute these checks if the user role is proxy admin
-        if user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN.value:
+        if user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN.value:
             return
 
         # 2. Check if the operation is being done on a team key
@@ -104,7 +104,7 @@ class TeamMemberPermissionChecks:
     @staticmethod
     def does_team_member_have_permissions_for_endpoint(
         team_member_role: Literal["admin", "user"] | None,
-        team_table: LiteLLM_TeamTableCachedObj,
+        team_table: EmbRouter_TeamTableCachedObj,
         route: str,
     ) -> bool | None:
         """
@@ -136,7 +136,7 @@ class TeamMemberPermissionChecks:
     @staticmethod
     def enforce_member_can_assign_access_groups(
         user_api_key_dict: UserAPIKeyAuth,
-        team_table: LiteLLM_TeamTableCachedObj | None,
+        team_table: EmbRouter_TeamTableCachedObj | None,
         access_group_ids: list[str] | None,
     ) -> None:
         """
@@ -151,7 +151,7 @@ class TeamMemberPermissionChecks:
         """
         from fastapi import HTTPException
 
-        from litellm.proxy.management_endpoints.key_management_endpoints import (
+        from embrouter.proxy.management_endpoints.key_management_endpoints import (
             _get_caller_team_role,
         )
 
@@ -160,7 +160,7 @@ class TeamMemberPermissionChecks:
             return
 
         # Proxy admins always bypass.
-        if user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN.value:
+        if user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN.value:
             return
 
         if team_table is None:
@@ -203,15 +203,15 @@ class TeamMemberPermissionChecks:
     @staticmethod
     async def user_belongs_to_keys_team(
         user_api_key_dict: UserAPIKeyAuth,
-        existing_key_row: LiteLLM_VerificationToken,
+        existing_key_row: EmbRouter_VerificationToken,
     ) -> bool:
         """
         Returns True if the user belongs to the team that the key is assigned to
         """
-        from litellm.proxy.management_endpoints.key_management_endpoints import (
+        from embrouter.proxy.management_endpoints.key_management_endpoints import (
             _get_caller_team_role,
         )
-        from litellm.proxy.proxy_server import prisma_client, user_api_key_cache
+        from embrouter.proxy.proxy_server import prisma_client, user_api_key_cache
 
         if existing_key_row.team_id is None:
             return False
@@ -232,7 +232,7 @@ class TeamMemberPermissionChecks:
         Returns all available team member permissions
         """
         all_available_permissions: Final = []
-        for route in LiteLLMRoutes.key_management_routes.value:
+        for route in EmbRouterRoutes.key_management_routes.value:
             all_available_permissions.append(route)
         return all_available_permissions
 

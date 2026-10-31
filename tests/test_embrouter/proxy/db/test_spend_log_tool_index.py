@@ -1,7 +1,7 @@
 """
 Tests for the tool usage writer: ToolUsageTransaction construction (invoked tools
-only) and the flush that writes LiteLLM_SpendLogToolIndex in bounded statements
-plus the LiteLLM_DailyToolSpend rollup in one transaction.
+only) and the flush that writes EmbRouter_SpendLogToolIndex in bounded statements
+plus the EmbRouter_DailyToolSpend rollup in one transaction.
 """
 
 from types import SimpleNamespace
@@ -11,8 +11,8 @@ from unittest.mock import AsyncMock, MagicMock
 import httpx
 import pytest
 
-from litellm.proxy.db import spend_log_tool_index
-from litellm.proxy.db.spend_log_tool_index import (
+from embrouter.proxy.db import spend_log_tool_index
+from embrouter.proxy.db.spend_log_tool_index import (
     ToolUsageTransaction,
     build_tool_usage_transaction,
     flush_tool_usage_transactions,
@@ -27,8 +27,8 @@ def _response_with_tool_calls(*names: str) -> SimpleNamespace:
 
 class _FakeBatcher:
     def __init__(self) -> None:
-        self.litellm_spendlogtoolindex = MagicMock()
-        self.litellm_dailytoolspend = MagicMock()
+        self.embrouter_spendlogtoolindex = MagicMock()
+        self.embrouter_dailytoolspend = MagicMock()
 
     async def __aenter__(self) -> "_FakeBatcher":
         return self
@@ -40,7 +40,7 @@ class _FakeBatcher:
 def _prisma(batch_: MagicMock) -> MagicMock:
     prisma = MagicMock()
     prisma.db.batch_ = batch_
-    prisma.db.litellm_spendlogtoolindex.create_many = AsyncMock()
+    prisma.db.embrouter_spendlogtoolindex.create_many = AsyncMock()
     return prisma
 
 
@@ -52,7 +52,7 @@ def _prisma_with_batcher() -> tuple[MagicMock, _FakeBatcher]:
 def _index_rows_written(prisma: MagicMock) -> list[tuple[str, str]]:
     return [
         (row["request_id"], row["tool_name"])
-        for call in prisma.db.litellm_spendlogtoolindex.create_many.call_args_list
+        for call in prisma.db.embrouter_spendlogtoolindex.create_many.call_args_list
         for row in call.kwargs["data"]
     ]
 
@@ -103,7 +103,7 @@ class TestBuildToolUsageTransaction:
         # payload["startTime"].split("T")[0] (db_spend_update_writer.py), i.e. the
         # timestamp's own calendar date, NOT the astimezone-UTC date. A non-UTC
         # isoformat pins the difference: 2026-07-25T22:00:00-07:00 is 2026-07-26
-        # in UTC but must bucket as 2026-07-25 to match LiteLLM_DailyUserSpend.
+        # in UTC but must bucket as 2026-07-25 to match EmbRouter_DailyUserSpend.
         start_time_iso = "2026-07-25T22:00:00-07:00"
         transaction = build_tool_usage_transaction(
             request_id="r1",
@@ -244,11 +244,11 @@ class TestFlushToolUsageTransactions:
             transactions=[_transaction("r1", tool_names=("tool_a", "tool_b"), spend=0.10, total_tokens=100)],
         )
         assert _index_rows_written(prisma) == [("r1", "tool_a"), ("r1", "tool_b")]
-        assert prisma.db.litellm_spendlogtoolindex.create_many.call_args.kwargs["skip_duplicates"] is True
+        assert prisma.db.embrouter_spendlogtoolindex.create_many.call_args.kwargs["skip_duplicates"] is True
 
         upserts = {
             c.kwargs["where"]["date_tool_name"]["tool_name"]: c.kwargs["data"]
-            for c in batcher.litellm_dailytoolspend.upsert.call_args_list
+            for c in batcher.embrouter_dailytoolspend.upsert.call_args_list
         }
         assert set(upserts) == {"tool_a", "tool_b"}
         for data in upserts.values():
@@ -267,8 +267,8 @@ class TestFlushToolUsageTransactions:
                 _transaction("r2", spend=0.30, total_tokens=200),
             ],
         )
-        assert batcher.litellm_dailytoolspend.upsert.call_count == 1
-        data = batcher.litellm_dailytoolspend.upsert.call_args.kwargs["data"]
+        assert batcher.embrouter_dailytoolspend.upsert.call_count == 1
+        data = batcher.embrouter_dailytoolspend.upsert.call_args.kwargs["data"]
         assert data["create"] == {
             "date": "2026-07-25",
             "tool_name": "tool_a",
@@ -288,37 +288,37 @@ class TestFlushToolUsageTransactions:
         transactions = [_transaction(f"r{i}", tool_names=tool_names) for i in range(5)]
         await flush_tool_usage_transactions(prisma_client=prisma, transactions=transactions)
 
-        statements = prisma.db.litellm_spendlogtoolindex.create_many.call_args_list
+        statements = prisma.db.embrouter_spendlogtoolindex.create_many.call_args_list
         assert [len(call.kwargs["data"]) for call in statements] == [100, 100, 50]
         assert all(call.kwargs["skip_duplicates"] is True for call in statements)
         assert _index_rows_written(prisma) == [
             (txn.request_id, tool_name) for txn in transactions for tool_name in tool_names
         ]
-        batcher.litellm_spendlogtoolindex.create_many.assert_not_called()
+        batcher.embrouter_spendlogtoolindex.create_many.assert_not_called()
         prisma.db.batch_.assert_called_once()
-        assert batcher.litellm_dailytoolspend.upsert.call_count == len(tool_names)
+        assert batcher.embrouter_dailytoolspend.upsert.call_count == len(tool_names)
 
     @pytest.mark.asyncio
     async def test_index_connection_error_is_retried_before_the_rollup_is_attempted(self, monkeypatch):
         prisma, batcher = _prisma_with_batcher()
-        prisma.db.litellm_spendlogtoolindex.create_many = AsyncMock(side_effect=[httpx.ConnectError("down"), None])
+        prisma.db.embrouter_spendlogtoolindex.create_many = AsyncMock(side_effect=[httpx.ConnectError("down"), None])
 
         async def fake_sleep(seconds: float) -> None:
             return None
 
-        monkeypatch.setattr("litellm.proxy.db.spend_log_tool_index.asyncio.sleep", fake_sleep)
+        monkeypatch.setattr("embrouter.proxy.db.spend_log_tool_index.asyncio.sleep", fake_sleep)
         await flush_tool_usage_transactions(prisma_client=prisma, transactions=[_transaction("r1")])
-        assert prisma.db.litellm_spendlogtoolindex.create_many.await_count == 2
+        assert prisma.db.embrouter_spendlogtoolindex.create_many.await_count == 2
         prisma.db.batch_.assert_called_once()
-        batcher.litellm_dailytoolspend.upsert.assert_called_once()
+        batcher.embrouter_dailytoolspend.upsert.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_ambiguous_index_error_drops_the_batch_without_touching_the_rollup(self):
         prisma, _ = _prisma_with_batcher()
-        prisma.db.litellm_spendlogtoolindex.create_many = AsyncMock(side_effect=httpx.ReadTimeout("ambiguous"))
+        prisma.db.embrouter_spendlogtoolindex.create_many = AsyncMock(side_effect=httpx.ReadTimeout("ambiguous"))
         with pytest.raises(httpx.ReadTimeout):
             await flush_tool_usage_transactions(prisma_client=prisma, transactions=[_transaction("r1")])
-        prisma.db.litellm_spendlogtoolindex.create_many.assert_awaited_once()
+        prisma.db.embrouter_spendlogtoolindex.create_many.assert_awaited_once()
         prisma.db.batch_.assert_not_called()
 
     @pytest.mark.asyncio
@@ -338,11 +338,11 @@ class TestFlushToolUsageTransactions:
         async def fake_sleep(seconds: float) -> None:
             sleeps.append(seconds)
 
-        monkeypatch.setattr("litellm.proxy.db.spend_log_tool_index.asyncio.sleep", fake_sleep)
+        monkeypatch.setattr("embrouter.proxy.db.spend_log_tool_index.asyncio.sleep", fake_sleep)
         await flush_tool_usage_transactions(prisma_client=prisma, transactions=[_transaction("r1")])
         assert prisma.db.batch_.call_count == 2
         assert len(sleeps) == 1
-        batcher.litellm_dailytoolspend.upsert.assert_called_once()
+        batcher.embrouter_dailytoolspend.upsert.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_connection_errors_exhaust_retries_then_raise(self, monkeypatch):
@@ -351,7 +351,7 @@ class TestFlushToolUsageTransactions:
         async def fake_sleep(seconds: float) -> None:
             return None
 
-        monkeypatch.setattr("litellm.proxy.db.spend_log_tool_index.asyncio.sleep", fake_sleep)
+        monkeypatch.setattr("embrouter.proxy.db.spend_log_tool_index.asyncio.sleep", fake_sleep)
         with pytest.raises(httpx.ConnectError):
             await flush_tool_usage_transactions(
                 prisma_client=prisma, transactions=[_transaction("r1")], n_retry_times=2

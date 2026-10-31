@@ -3,14 +3,14 @@ import logging
 import pytest
 from pydantic import ValidationError
 
-from litellm.types.router import (
+from embrouter.types.router import (
     SPECIAL_MODEL_INFO_PARAMS,
     Deployment,
-    GenericLiteLLMParams,
-    LiteLLM_Params,
+    GenericEmbRouterParams,
+    EmbRouter_Params,
     ModelInfo,
 )
-from litellm.types.utils import CustomPricingLiteLLMParams, MirroredPricingParams
+from embrouter.types.utils import CustomPricingEmbRouterParams, MirroredPricingParams
 
 
 def test_model_info_declares_mirrored_pricing_fields():
@@ -26,13 +26,13 @@ def test_model_info_declares_mirrored_pricing_fields():
 
 def test_special_model_info_params_cannot_drift_from_the_mirror():
     assert SPECIAL_MODEL_INFO_PARAMS == tuple(MirroredPricingParams.model_fields)
-    assert set(SPECIAL_MODEL_INFO_PARAMS) <= set(CustomPricingLiteLLMParams.model_fields)
-    assert set(SPECIAL_MODEL_INFO_PARAMS) <= set(LiteLLM_Params.model_fields)
+    assert set(SPECIAL_MODEL_INFO_PARAMS) <= set(CustomPricingEmbRouterParams.model_fields)
+    assert set(SPECIAL_MODEL_INFO_PARAMS) <= set(EmbRouter_Params.model_fields)
 
 
 def test_custom_pricing_params_keeps_every_field_it_had():
     """The mirrored fields moved to a base class; none of them may go missing from
-    CustomPricingLiteLLMParams, whose model_fields drive custom-pricing detection."""
+    CustomPricingEmbRouterParams, whose model_fields drive custom-pricing detection."""
     for field in (
         "input_cost_per_token",
         "output_cost_per_token",
@@ -46,15 +46,15 @@ def test_custom_pricing_params_keeps_every_field_it_had():
         "input_cost_per_character_above_128k_tokens",
         "output_cost_per_audio_token",
     ):
-        assert field in CustomPricingLiteLLMParams.model_fields
+        assert field in CustomPricingEmbRouterParams.model_fields
 
 
 @pytest.mark.parametrize("field", SPECIAL_MODEL_INFO_PARAMS)
-def test_deployment_mirrors_pricing_from_litellm_params_onto_model_info(field):
+def test_deployment_mirrors_pricing_from_embrouter_params_onto_model_info(field):
     value = [{"range": [0, 128000], "input_cost_per_token": 3e-06}] if field == "tiered_pricing" else 3e-06
     deployment = Deployment(
         model_name="my-model",
-        litellm_params=LiteLLM_Params(model="gpt-4o", **{field: value}),
+        embrouter_params=EmbRouter_Params(model="gpt-4o", **{field: value}),
     )
     assert getattr(deployment.model_info, field) == value
     assert deployment.model_info.model_dump(exclude_none=True)[field] == value
@@ -62,7 +62,7 @@ def test_deployment_mirrors_pricing_from_litellm_params_onto_model_info(field):
 
 def test_deployment_mirrors_tiered_pricing_onto_model_info():
     """
-    Regression: tiered_pricing set under a deployment's litellm_params was silently
+    Regression: tiered_pricing set under a deployment's embrouter_params was silently
     ignored at cost time because the Deployment mirror excluded it, so the logging
     path never flagged the deployment as custom-priced.
     """
@@ -72,7 +72,7 @@ def test_deployment_mirrors_tiered_pricing_onto_model_info():
     ]
     deployment = Deployment(
         model_name="my-model",
-        litellm_params=LiteLLM_Params(model="anthropic/claude-haiku-4-5", tiered_pricing=tiers),
+        embrouter_params=EmbRouter_Params(model="anthropic/claude-haiku-4-5", tiered_pricing=tiers),
     )
     assert deployment.model_info.tiered_pricing == tiers
 
@@ -109,13 +109,13 @@ def test_invalid_pricing_is_rejected():
     ],
 )
 def test_drop_params_coerces_flags_and_keeps_unresolved_strings(value, expected):
-    assert GenericLiteLLMParams(drop_params=value).drop_params == expected
+    assert GenericEmbRouterParams(drop_params=value).drop_params == expected
 
 
 @pytest.mark.parametrize("value", [2, 2.5, [], {}])
 def test_drop_params_ignores_non_flag_non_string_values_with_a_warning(value, caplog):
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
-        assert GenericLiteLLMParams(drop_params=value).drop_params is None
+    with caplog.at_level(logging.WARNING, logger="EmbRouter"):
+        assert GenericEmbRouterParams(drop_params=value).drop_params is None
     assert f"drop_params={value!r} is not a flag value" in caplog.text
 
 
@@ -123,14 +123,14 @@ def test_drop_params_ignores_non_flag_non_string_values_with_a_warning(value, ca
     "value", [True, "true", None, "os.environ/DROP_PARAMS", "v2:gcm:ciphertext-from-a-pre-fix-row"]
 )
 def test_drop_params_flags_and_strings_log_nothing(value, caplog):
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
-        GenericLiteLLMParams(drop_params=value)
+    with caplog.at_level(logging.WARNING, logger="EmbRouter"):
+        GenericEmbRouterParams(drop_params=value)
     assert caplog.text == ""
 
 
 def test_aws_session_tags_round_trip_as_sts_shaped_pairs():
     """The deployment field keeps the exact Key/Value shape STS AssumeRole expects."""
-    params = LiteLLM_Params(
+    params = EmbRouter_Params(
         model="bedrock/anthropic.claude-opus-5",
         aws_session_tags=[{"Key": "team", "Value": "genai"}, {"Key": "env", "Value": "prod"}],
     )
@@ -148,11 +148,11 @@ def test_aws_session_tags_round_trip_as_sts_shaped_pairs():
 )
 def test_aws_session_tags_reject_shapes_sts_would_refuse(aws_session_tags):
     with pytest.raises(ValidationError, match="aws_session_tags"):
-        LiteLLM_Params(model="bedrock/anthropic.claude-opus-5", aws_session_tags=aws_session_tags)
+        EmbRouter_Params(model="bedrock/anthropic.claude-opus-5", aws_session_tags=aws_session_tags)
 
 
 def test_provider_affinity_header_is_normalized():
-    params = LiteLLM_Params(
+    params = EmbRouter_Params(
         model="openai/gpt-4o-mini",
         provider_affinity_header="X-Conversation-Id",
     )
@@ -176,7 +176,7 @@ def test_provider_affinity_header_is_normalized():
 )
 def test_provider_affinity_header_rejects_sensitive_or_transport_headers(header: str):
     with pytest.raises(ValueError, match="provider_affinity_header"):
-        LiteLLM_Params(
+        EmbRouter_Params(
             model="openai/gpt-4o-mini",
             provider_affinity_header=header,
         )
@@ -185,7 +185,7 @@ def test_provider_affinity_header_rejects_sensitive_or_transport_headers(header:
 @pytest.mark.parametrize("header", ["", "X Conversation Id", "X-Conversation-Id\r\nInjected: true"])
 def test_provider_affinity_header_rejects_invalid_header_names(header: str):
     with pytest.raises(ValueError, match="provider_affinity_header"):
-        LiteLLM_Params(
+        EmbRouter_Params(
             model="openai/gpt-4o-mini",
             provider_affinity_header=header,
         )

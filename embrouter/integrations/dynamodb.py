@@ -6,8 +6,8 @@ import traceback
 from collections.abc import Mapping
 from typing import Final, Protocol
 
-import litellm
-from litellm._uuid import uuid
+import embrouter
+from embrouter._uuid import uuid
 
 
 class _DynamoTable(Protocol):
@@ -26,11 +26,11 @@ class DyanmoDBLogger:
         import boto3
 
         self.dynamodb: Final[_DynamoResource] = boto3.resource("dynamodb", region_name=os.environ["AWS_REGION_NAME"])
-        if litellm.dynamodb_table_name is None:
+        if embrouter.dynamodb_table_name is None:
             raise ValueError(
-                "LiteLLM Error, trying to use DynamoDB but not table name passed. Create a table and set `litellm.dynamodb_table_name=<your-table>`"
+                "EmbRouter Error, trying to use DynamoDB but not table name passed. Create a table and set `embrouter.dynamodb_table_name=<your-table>`"
             )
-        self.table_name = litellm.dynamodb_table_name
+        self.table_name = embrouter.dynamodb_table_name
 
     async def _async_log_event(self, kwargs, response_obj, start_time, end_time, print_verbose):
         self.log_event(kwargs, response_obj, start_time, end_time, print_verbose)
@@ -41,11 +41,11 @@ class DyanmoDBLogger:
 
             # construct payload to send to DynamoDB
             # follows the same params as langfuse.py
-            litellm_params: Final = kwargs.get("litellm_params", {})
-            metadata: Final = litellm_params.get("metadata", {}) or {}  # if litellm_params['metadata'] == None
+            embrouter_params: Final = kwargs.get("embrouter_params", {})
+            metadata: Final = embrouter_params.get("metadata", {}) or {}  # if embrouter_params['metadata'] == None
             messages: Final = kwargs.get("messages")
             optional_params: Final = kwargs.get("optional_params", {})
-            call_type: Final = kwargs.get("call_type", "litellm.completion")
+            call_type: Final = kwargs.get("call_type", "embrouter.completion")
             usage: Final = response_obj["usage"]
             id: Final = response_obj.get("id", str(uuid.uuid4()))
 

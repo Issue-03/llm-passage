@@ -6,8 +6,8 @@ from typing import Final
 
 from pydantic import TypeAdapter
 
-from litellm.llms.compaction import CompactionProtocol
-from litellm.types.llms.anthropic import ANTHROPIC_BETA_HEADER_VALUES, AnthropicCompaction
+from embrouter.llms.compaction import CompactionProtocol
+from embrouter.types.llms.anthropic import ANTHROPIC_BETA_HEADER_VALUES, AnthropicCompaction
 
 _MAPPING: Final = TypeAdapter(Mapping[str, object])
 _OBJECTS: Final = TypeAdapter(tuple[Mapping[str, object], ...])
@@ -17,7 +17,7 @@ _CONFLICTS: Final = ("context_management", "response_format", "stop", "stop_sequ
 
 
 def supports_native_compaction(params: Mapping[str, object]) -> bool:
-    from litellm.utils import get_model_info
+    from embrouter.utils import get_model_info
 
     if params.get("custom_llm_provider") not in (None, "anthropic", "openai"):
         return False

@@ -8,13 +8,13 @@ from typing import Final
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.policy_engine.attachment_registry import get_attachment_registry
-from litellm.proxy.policy_engine.pipeline_executor import PipelineExecutor
-from litellm.proxy.policy_engine.policy_registry import get_policy_registry
-from litellm.types.proxy.policy_engine import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.policy_engine.attachment_registry import get_attachment_registry
+from embrouter.proxy.policy_engine.pipeline_executor import PipelineExecutor
+from embrouter.proxy.policy_engine.policy_registry import get_policy_registry
+from embrouter.types.proxy.policy_engine import (
     GuardrailPipeline,
     PipelineTestRequest,
     Policy,
@@ -121,7 +121,7 @@ async def list_policies(version_status: str | None = None):
     }
     ```
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     try:
         registry: Final = get_policy_registry()
@@ -191,7 +191,7 @@ async def create_policy(
     }
     ```
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail="Database not connected")
@@ -229,7 +229,7 @@ async def list_policy_versions(policy_name: str):
     """
     List all versions of a policy by name, ordered by version_number descending.
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail="Database not connected")
@@ -259,7 +259,7 @@ async def create_policy_version(
     Create a new draft version of a policy. Copies all fields from the source.
     Source is current production if source_policy_id is not provided.
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail="Database not connected")
@@ -296,7 +296,7 @@ async def update_policy_version_status(
     - published -> production (demotes current production to published)
     - production -> published (demotes, policy becomes inactive)
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail="Database not connected")
@@ -333,7 +333,7 @@ async def compare_policy_versions(
     """
     Compare two policy versions. Query params: version_a, version_b (policy version IDs).
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail="Database not connected")
@@ -360,7 +360,7 @@ async def delete_all_policy_versions(policy_name: str):
     """
     Delete all versions of a policy. Also removes from in-memory registry.
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail="Database not connected")
@@ -396,7 +396,7 @@ async def get_policy(policy_id: str):
         -H "Authorization: Bearer <your_api_key>"
     ```
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail="Database not connected")
@@ -441,7 +441,7 @@ async def update_policy(
         }'
     ```
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail="Database not connected")
@@ -497,7 +497,7 @@ async def delete_policy(policy_id: str):
     }
     ```
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail="Database not connected")
@@ -551,7 +551,7 @@ async def get_resolved_guardrails(policy_id: str):
     }
     ```
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail="Database not connected")
@@ -691,7 +691,7 @@ async def list_policy_attachments():
     }
     ```
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     try:
         registry: Final = get_attachment_registry()
@@ -756,8 +756,8 @@ async def create_policy_attachment(
     }
     ```
     """
-    from litellm.proxy.policy_engine.policy_validator import PolicyValidator
-    from litellm.proxy.proxy_server import llm_router, prisma_client
+    from embrouter.proxy.policy_engine.policy_validator import PolicyValidator
+    from embrouter.proxy.proxy_server import llm_router, prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail="Database not connected")
@@ -815,7 +815,7 @@ async def get_policy_attachment(attachment_id: str):
         -H "Authorization: Bearer <your_api_key>"
     ```
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail="Database not connected")
@@ -860,7 +860,7 @@ async def delete_policy_attachment(attachment_id: str):
     }
     ```
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail="Database not connected")

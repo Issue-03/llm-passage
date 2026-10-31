@@ -423,18 +423,18 @@ describe("RoutingDecisionCard", () => {
 
   it("shows the escalation keyword", () => {
     render(
-      <RoutingDecisionCard decision={{ ...heuristic, escalated: true, escalation_keyword: "LITELLM ESCALATE" }} />,
+      <RoutingDecisionCard decision={{ ...heuristic, escalated: true, escalation_keyword: "EMBROUTER ESCALATE" }} />,
     );
-    expect(screen.getByText('Yes, keyword "LITELLM ESCALATE"')).toBeInTheDocument();
+    expect(screen.getByText('Yes, keyword "EMBROUTER ESCALATE"')).toBeInTheDocument();
   });
 
   it("still shows the ask when escalation had nowhere higher to go", () => {
     // The tier did not move, but the row must not read like a request that never
     // asked to escalate.
     render(
-      <RoutingDecisionCard decision={{ ...heuristic, escalated: false, escalation_keyword: "LITELLM ESCALATE" }} />,
+      <RoutingDecisionCard decision={{ ...heuristic, escalated: false, escalation_keyword: "EMBROUTER ESCALATE" }} />,
     );
-    expect(screen.getByText('Requested via "LITELLM ESCALATE"; already at the highest tier')).toBeInTheDocument();
+    expect(screen.getByText('Requested via "EMBROUTER ESCALATE"; already at the highest tier')).toBeInTheDocument();
   });
 
   it("omits the escalation row when no escalation was requested", () => {

@@ -2,10 +2,10 @@
 
 from typing import Final
 
-from litellm.llms.openai.videos.guardrail_translation.handler import (
+from embrouter.llms.openai.videos.guardrail_translation.handler import (
     OpenAIVideoGenerationHandler,
 )
-from litellm.types.utils import CallTypes
+from embrouter.types.utils import CallTypes
 
 guardrail_translation_mappings: Final = {  # mutable-ok: discover_guardrail_translation_mappings only accepts isinstance(mappings, dict)
     CallTypes.video_generation: OpenAIVideoGenerationHandler,

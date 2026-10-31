@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING, Final
 
-from litellm.types.guardrails import (
+from embrouter.types.guardrails import (
     GuardrailEventHooks,
     Mode,
     SupportedGuardrailIntegrations,
@@ -9,7 +9,7 @@ from litellm.types.guardrails import (
 from .repelloai import RepelloAIGuardrail
 
 if TYPE_CHECKING:
-    from litellm.types.guardrails import Guardrail, LitellmParams
+    from embrouter.types.guardrails import Guardrail, EmbrouterParams
 
 
 def _event_hook_from_mode(
@@ -22,19 +22,19 @@ def _event_hook_from_mode(
     return GuardrailEventHooks(mode)
 
 
-def initialize_guardrail(litellm_params: "LitellmParams", guardrail: "Guardrail") -> RepelloAIGuardrail:
-    import litellm
+def initialize_guardrail(embrouter_params: "EmbrouterParams", guardrail: "Guardrail") -> RepelloAIGuardrail:
+    import embrouter
 
     _repelloai_callback: Final = RepelloAIGuardrail(
         guardrail_name=guardrail["guardrail_name"],
-        api_key=litellm_params.api_key,
-        api_base=litellm_params.api_base,
-        asset_id=litellm_params.asset_id,
-        unreachable_fallback=litellm_params.unreachable_fallback,
-        event_hook=_event_hook_from_mode(litellm_params.mode),
-        default_on=litellm_params.default_on or False,
+        api_key=embrouter_params.api_key,
+        api_base=embrouter_params.api_base,
+        asset_id=embrouter_params.asset_id,
+        unreachable_fallback=embrouter_params.unreachable_fallback,
+        event_hook=_event_hook_from_mode(embrouter_params.mode),
+        default_on=embrouter_params.default_on or False,
     )
-    litellm.logging_callback_manager.add_litellm_callback(_repelloai_callback)
+    embrouter.logging_callback_manager.add_embrouter_callback(_repelloai_callback)
 
     return _repelloai_callback
 

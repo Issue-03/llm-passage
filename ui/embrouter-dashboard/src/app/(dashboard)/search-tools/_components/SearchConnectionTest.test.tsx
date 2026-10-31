@@ -10,7 +10,7 @@ vi.mock("@/components/networking", () => ({
 }));
 
 const defaultProps = {
-  litellmParams: { search_provider: "tavily" },
+  embrouterParams: { search_provider: "tavily" },
   accessToken: "test-token",
 };
 
@@ -30,7 +30,7 @@ describe("SearchConnectionTest", () => {
     await waitFor(() => {
       expect(networking.testSearchToolConnection).toHaveBeenCalledWith(
         defaultProps.accessToken,
-        defaultProps.litellmParams,
+        defaultProps.embrouterParams,
       );
     });
   });
@@ -76,7 +76,7 @@ describe("SearchConnectionTest", () => {
   it("renders a failure state with a cleaned error message and error type", async () => {
     vi.mocked(networking.testSearchToolConnection).mockResolvedValue({
       status: "error",
-      message: "litellm.AuthenticationError: Invalid API key\nstack trace: deep internals",
+      message: "embrouter.AuthenticationError: Invalid API key\nstack trace: deep internals",
       error_type: "AuthenticationError",
     });
 
@@ -92,7 +92,7 @@ describe("SearchConnectionTest", () => {
     const user = userEvent.setup();
     vi.mocked(networking.testSearchToolConnection).mockResolvedValue({
       status: "error",
-      message: "litellm.AuthenticationError: Invalid API key\nstack trace: deep internals",
+      message: "embrouter.AuthenticationError: Invalid API key\nstack trace: deep internals",
       error_type: "AuthenticationError",
     });
 

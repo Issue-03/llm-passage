@@ -5,12 +5,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-import litellm
-from litellm.caching.affinity_cache import claim_affinity_pin
-from litellm.caching.dual_cache import DualCache
-from litellm.caching.in_memory_cache import InMemoryCache
-from litellm.constants import SESSION_DEPLOYMENT_AFFINITY_TTL_METADATA_KEY, SESSION_ID_GENERATED_METADATA_KEY
-from litellm.router_utils.pre_call_checks.deployment_affinity_check import (
+import embrouter
+from embrouter.caching.affinity_cache import claim_affinity_pin
+from embrouter.caching.dual_cache import DualCache
+from embrouter.caching.in_memory_cache import InMemoryCache
+from embrouter.constants import SESSION_DEPLOYMENT_AFFINITY_TTL_METADATA_KEY, SESSION_ID_GENERATED_METADATA_KEY
+from embrouter.router_utils.pre_call_checks.deployment_affinity_check import (
     DeploymentAffinityCheck,
 )
 
@@ -59,11 +59,11 @@ async def test_async_session_id_affinity_routes_to_same_deployment():
         "previous_response_id": None,
     }
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "azure-computer-use-preview",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "azure/computer-use-preview-1",
                     "api_key": "mock-api-key-1",
                     "api_version": "mock-api-version",
@@ -73,7 +73,7 @@ async def test_async_session_id_affinity_routes_to_same_deployment():
             },
             {
                 "model_name": "azure-computer-use-preview",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "azure/computer-use-preview-2",
                     "api_key": "mock-api-key-2",
                     "api_version": "mock-api-version-2",
@@ -98,11 +98,11 @@ async def test_async_session_id_affinity_routes_to_same_deployment():
 
     with (
         patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "embrouter.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             new_callable=AsyncMock,
         ) as mock_post,
         patch(
-            "litellm.router_strategy.simple_shuffle.random.choice",
+            "embrouter.router_strategy.simple_shuffle.random.choice",
             side_effect=deterministic_choice,
         ),
     ):
@@ -112,7 +112,7 @@ async def test_async_session_id_affinity_routes_to_same_deployment():
             model=model_group,
             input="Hello, how are you?",
             truncation="auto",
-            litellm_metadata={"session_id": session_id},
+            embrouter_metadata={"session_id": session_id},
         )
         first_model_id = first_response._hidden_params["model_id"]
 
@@ -120,7 +120,7 @@ async def test_async_session_id_affinity_routes_to_same_deployment():
             model=model_group,
             input="Follow-up question",
             truncation="auto",
-            litellm_metadata={"session_id": session_id},
+            embrouter_metadata={"session_id": session_id},
         )
         assert second_response._hidden_params["model_id"] == first_model_id
 
@@ -144,12 +144,12 @@ async def test_async_session_id_affinity_priority_over_user_key():
     healthy_deployments = [
         {
             "model_name": "model_group",
-            "litellm_params": {"model": "model_1"},
+            "embrouter_params": {"model": "model_1"},
             "model_info": {"id": "deployment-1"},
         },
         {
             "model_name": "model_group",
-            "litellm_params": {"model": "model_2"},
+            "embrouter_params": {"model": "model_2"},
             "model_info": {"id": "deployment-2"},
         },
     ]
@@ -189,8 +189,8 @@ async def test_proxy_generated_session_id_does_not_pin_a_deployment():
         enable_session_id_affinity=True,
     )
     healthy_deployments = [
-        {"model_name": "model_group", "litellm_params": {"model": "model_1"}, "model_info": {"id": "deployment-1"}},
-        {"model_name": "model_group", "litellm_params": {"model": "model_2"}, "model_info": {"id": "deployment-2"}},
+        {"model_name": "model_group", "embrouter_params": {"model": "model_1"}, "model_info": {"id": "deployment-1"}},
+        {"model_name": "model_group", "embrouter_params": {"model": "model_2"}, "model_info": {"id": "deployment-2"}},
     ]
     await cache.async_set_cache(
         DeploymentAffinityCheck.get_session_affinity_cache_key("model_group", "generated-1", user_key="user1"),
@@ -234,11 +234,11 @@ MOCK_RESPONSES_API_RESPONSE = {
 
 
 def _smart_router(session_affinity=True, ttl_seconds=777, deployment_affinity=True):
-    return litellm.Router(
+    return embrouter.Router(
         model_list=[
             {
                 "model_name": "smart-router",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "auto_router/complexity_router",
                     "complexity_router_default_model": "target-group",
                     "complexity_router_config": {
@@ -256,7 +256,7 @@ def _smart_router(session_affinity=True, ttl_seconds=777, deployment_affinity=Tr
             },
             {
                 "model_name": "target-group",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "azure/computer-use-preview-1",
                     "api_key": "mock-api-key-1",
                     "api_version": "mock-api-version",
@@ -266,7 +266,7 @@ def _smart_router(session_affinity=True, ttl_seconds=777, deployment_affinity=Tr
             },
             {
                 "model_name": "target-group",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "azure/computer-use-preview-2",
                     "api_key": "mock-api-key-2",
                     "api_version": "mock-api-version-2",
@@ -286,7 +286,7 @@ def _session_pin_key(session_id, user_key):
 
 def _cleanup_router_callbacks(router):
     for callback in router.optional_callbacks or []:
-        litellm.logging_callback_manager.remove_callback_from_all_lists(callback)
+        embrouter.logging_callback_manager.remove_callback_from_all_lists(callback)
 
 
 async def _one_turn(router, model, session_id, key_hash):
@@ -294,11 +294,11 @@ async def _one_turn(router, model, session_id, key_hash):
     deployment can only come from a pin read."""
     with (
         patch(
-            "litellm.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
+            "embrouter.llms.custom_httpx.http_handler.AsyncHTTPHandler.post",
             new_callable=AsyncMock,
         ) as mock_post,
         patch(
-            "litellm.router_strategy.simple_shuffle.random.choice",
+            "embrouter.router_strategy.simple_shuffle.random.choice",
             side_effect=lambda seq: seq[0],
         ),
     ):
@@ -306,7 +306,7 @@ async def _one_turn(router, model, session_id, key_hash):
         response = await router.aresponses(
             model=model,
             input=f"turn for {session_id} {key_hash}",
-            litellm_metadata={"session_id": session_id, "user_api_key_hash": key_hash},
+            embrouter_metadata={"session_id": session_id, "user_api_key_hash": key_hash},
         )
     return response._hidden_params["model_id"]
 
@@ -700,7 +700,7 @@ async def test_marker_session_affinity_read_and_write_agree_for_wildcard_groups(
         healthy_deployments=[
             {
                 "model_name": "openai/*",
-                "litellm_params": {"model": "openai/gpt-4o"},
+                "embrouter_params": {"model": "openai/gpt-4o"},
                 "model_info": {"id": f"wild-deployment-{i}"},
             }
             for i in (1, 2)
@@ -739,7 +739,7 @@ async def test_pre_routing_hook_stamps_or_clears_the_marker_per_attempt(
     try:
         request_kwargs = {
             "metadata": {SESSION_DEPLOYMENT_AFFINITY_TTL_METADATA_KEY: 111},
-            "litellm_metadata": {SESSION_DEPLOYMENT_AFFINITY_TTL_METADATA_KEY: 111},
+            "embrouter_metadata": {SESSION_DEPLOYMENT_AFFINITY_TTL_METADATA_KEY: 111},
         }
         await router.async_pre_routing_hook(
             model=model,
@@ -747,10 +747,10 @@ async def test_pre_routing_hook_stamps_or_clears_the_marker_per_attempt(
             messages=[{"role": "user", "content": "Hello"}],
         )
         if expect_marker:
-            assert request_kwargs["litellm_metadata"][SESSION_DEPLOYMENT_AFFINITY_TTL_METADATA_KEY] == 777
+            assert request_kwargs["embrouter_metadata"][SESSION_DEPLOYMENT_AFFINITY_TTL_METADATA_KEY] == 777
         else:
             assert SESSION_DEPLOYMENT_AFFINITY_TTL_METADATA_KEY not in request_kwargs["metadata"]
-            assert SESSION_DEPLOYMENT_AFFINITY_TTL_METADATA_KEY not in request_kwargs["litellm_metadata"]
+            assert SESSION_DEPLOYMENT_AFFINITY_TTL_METADATA_KEY not in request_kwargs["embrouter_metadata"]
     finally:
         _cleanup_router_callbacks(router)
 

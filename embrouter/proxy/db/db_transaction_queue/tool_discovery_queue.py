@@ -9,8 +9,8 @@ increments in subsequent cycles rather than stopping after the first flush.
 
 from typing import Final
 
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy._types import ToolDiscoveryQueueItem
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy._types import ToolDiscoveryQueueItem
 
 
 class ToolDiscoveryQueue:

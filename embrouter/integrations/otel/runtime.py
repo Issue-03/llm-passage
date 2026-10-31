@@ -1,7 +1,7 @@
 """SDK-free entrypoints for proxy-core call sites (auth, …).
 
 Proxy code may run without the OpenTelemetry SDK installed, so it must not import
-``litellm.integrations.otel.logger`` (which imports the SDK at module scope) at
+``embrouter.integrations.otel.logger`` (which imports the SDK at module scope) at
 module load. These wrappers import it lazily and no-op when the SDK is absent or
 V2 is not the active logger — so a call site can wrap a request phase or seed
 identity unconditionally.
@@ -25,7 +25,7 @@ def _otel_runtime() -> "tuple[Callable[[str], AbstractContextManager[Span | None
     that re-scans ``sys.path`` and contends on the import lock on the hot path.
     """
     try:
-        from litellm.integrations.otel import logger
+        from embrouter.integrations.otel import logger
     except Exception:
         return None
     return (logger.phase_span, logger.seed_request_identity)

@@ -18,7 +18,7 @@ from typing import Final
 
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from litellm._logging import verbose_proxy_logger
+from embrouter._logging import verbose_proxy_logger
 
 SERVER_ROOT_PATHS_ENV: Final = "SERVER_ROOT_PATHS"
 
@@ -37,10 +37,10 @@ def get_request_root_path() -> str:
     """Return the effective ``root_path`` for the current request.
 
     Reads the value ``PerRequestRootPathMiddleware`` stashed for this request;
-    falls back through :func:`~litellm.proxy.utils.get_server_root_path` (i.e.
+    falls back through :func:`~embrouter.proxy.utils.get_server_root_path` (i.e.
     the ``SERVER_ROOT_PATH`` env) when the middleware did not run — the
     scalar-only deployment. Delegating to the existing helper keeps every
-    existing ``monkeypatch.setattr("litellm.proxy.utils.get_server_root_path"``
+    existing ``monkeypatch.setattr("embrouter.proxy.utils.get_server_root_path"``
     test override working, and keeps a single source of truth for the scalar.
     """
     value: Final = _request_root_path_var.get()
@@ -48,7 +48,7 @@ def get_request_root_path() -> str:
         return value
     # Lazy import: utils.py imports this module (via the lazy import inside
     # get_custom_url), so a top-level import would build a cycle at load time.
-    from litellm.proxy.utils import get_server_root_path  # noqa: PLC0415  # lazy import breaks a two-way dep
+    from embrouter.proxy.utils import get_server_root_path  # noqa: PLC0415  # lazy import breaks a two-way dep
 
     return get_server_root_path()
 

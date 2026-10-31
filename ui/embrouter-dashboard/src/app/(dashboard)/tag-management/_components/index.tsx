@@ -12,7 +12,7 @@ import CreateTagModal from "./components/CreateTagModal";
 
 interface ModelInfo {
   model_name: string;
-  litellm_params: {
+  embrouter_params: {
     model: string;
   };
   model_info: {

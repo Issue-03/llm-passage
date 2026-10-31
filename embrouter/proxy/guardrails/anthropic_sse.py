@@ -12,7 +12,7 @@ import json
 from collections.abc import Mapping, Sequence
 from typing import Final
 
-from litellm.types.utils import Choices, ModelResponse
+from embrouter.types.utils import Choices, ModelResponse
 
 _ANTHROPIC_EVENT_TYPES: Final = frozenset(
     {
@@ -45,7 +45,7 @@ def _joined_sse_stream(all_chunks: Sequence[object]) -> str | None:
 
 
 def _parsed_sse_events(sse_stream: str) -> tuple[Mapping[str, object], ...]:
-    from litellm.proxy.pass_through_endpoints.llm_provider_handlers.anthropic_passthrough_logging_handler import (
+    from embrouter.proxy.pass_through_endpoints.llm_provider_handlers.anthropic_passthrough_logging_handler import (
         AnthropicPassthroughLoggingHandler,
     )
 
@@ -91,7 +91,7 @@ def assemble_anthropic_sse_stream(
     response keep the wire shape they had before this helper was shared. The writes land on a
     freshly built object that is unreachable from caller state until returned.
     """
-    from litellm.proxy.pass_through_endpoints.llm_provider_handlers.anthropic_passthrough_logging_handler import (
+    from embrouter.proxy.pass_through_endpoints.llm_provider_handlers.anthropic_passthrough_logging_handler import (
         AnthropicPassthroughLoggingHandler,
     )
 
@@ -105,10 +105,10 @@ def assemble_anthropic_sse_stream(
     try:
         assembled: Final = AnthropicPassthroughLoggingHandler._build_complete_streaming_response(  # pyright: ignore[reportPrivateUsage]  # the only SSE-to-ModelResponse assembler; reimplementing it here would fork the parser
             all_chunks=(sse_stream,),
-            litellm_logging_obj=None,  # pyright: ignore[reportArgumentType]  # only forwarded to stream_chunk_builder, which accepts None
+            embrouter_logging_obj=None,  # pyright: ignore[reportArgumentType]  # only forwarded to stream_chunk_builder, which accepts None
             model=model if isinstance(model, str) else "",
         )
-    except Exception:  # noqa: BLE001  # stream_chunk_builder re-raises every assembly failure as litellm.APIError
+    except Exception:  # noqa: BLE001  # stream_chunk_builder re-raises every assembly failure as embrouter.APIError
         return None
     if not isinstance(assembled, ModelResponse):
         return None
@@ -167,14 +167,14 @@ def is_sse_error_stream(all_chunks: Sequence[object]) -> bool:
 
 
 def anthropic_sse_chunks_from_response(assembled: ModelResponse) -> tuple[bytes, ...]:
-    from litellm.llms.anthropic.pass_through.adapters.transformation import (
-        LiteLLMAnthropicMessagesAdapter,
+    from embrouter.llms.anthropic.pass_through.adapters.transformation import (
+        EmbRouterAnthropicMessagesAdapter,
     )
-    from litellm.llms.anthropic.pass_through.messages.fake_stream_iterator import (
+    from embrouter.llms.anthropic.pass_through.messages.fake_stream_iterator import (
         FakeAnthropicMessagesStreamIterator,
     )
 
-    anthropic_response: Final = LiteLLMAnthropicMessagesAdapter().translate_openai_response_to_anthropic(
+    anthropic_response: Final = EmbRouterAnthropicMessagesAdapter().translate_openai_response_to_anthropic(
         response=assembled
     )
     return tuple(FakeAnthropicMessagesStreamIterator(response=anthropic_response).chunks)

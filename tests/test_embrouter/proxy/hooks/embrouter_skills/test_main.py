@@ -6,17 +6,17 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from litellm.proxy.hooks.litellm_skills.main import SkillsInjectionHook
+from embrouter.proxy.hooks.embrouter_skills.main import SkillsInjectionHook
 
-SKILL_TOOL_NAME = "litellm_skill_e2b8dca8_031a_4481_b034_b9ec7d4eb7bf"
+SKILL_TOOL_NAME = "embrouter_skill_e2b8dca8_031a_4481_b034_b9ec7d4eb7bf"
 
 
 def _request_data():
     return {
         "model": "claude-sonnet-4-5",
         "messages": [{"role": "user", "content": "run the skill"}],
-        "litellm_metadata": {
-            "_litellm_code_execution_enabled": True,
+        "embrouter_metadata": {
+            "_embrouter_code_execution_enabled": True,
             "_skill_files": {SKILL_TOOL_NAME: {"main.py": b"print('hi')"}},
         },
     }
@@ -32,8 +32,8 @@ def _tool_use_response(tool_name):
 
 
 @pytest.mark.asyncio
-async def test_post_call_success_hook_executes_litellm_skill_tool():
-    """DB skill tool names carry the litellm_skill_ prefix and must trigger the execution loop."""
+async def test_post_call_success_hook_executes_embrouter_skill_tool():
+    """DB skill tool names carry the embrouter_skill_ prefix and must trigger the execution loop."""
     hook = SkillsInjectionHook()
     response = _tool_use_response(SKILL_TOOL_NAME)
 
@@ -49,8 +49,8 @@ async def test_post_call_success_hook_executes_litellm_skill_tool():
 
 
 @pytest.mark.asyncio
-async def test_execute_code_loop_dispatches_litellm_skill_tool():
-    """The agentic loop must route litellm_skill_ tool calls to _execute_skill_tool."""
+async def test_execute_code_loop_dispatches_embrouter_skill_tool():
+    """The agentic loop must route embrouter_skill_ tool calls to _execute_skill_tool."""
     hook = SkillsInjectionHook()
     final_response = {"stop_reason": "end_turn", "content": []}
 
@@ -58,7 +58,7 @@ async def test_execute_code_loop_dispatches_litellm_skill_tool():
         patch.object(
             hook, "_execute_skill_tool", new=AsyncMock(return_value="skill ran")
         ) as mock_exec,
-        patch("litellm.anthropic.acreate", new=AsyncMock(return_value=final_response)),
+        patch("embrouter.anthropic.acreate", new=AsyncMock(return_value=final_response)),
     ):
         result = await hook._execute_code_loop_messages_api(
             data=_request_data(),
@@ -71,17 +71,17 @@ async def test_execute_code_loop_dispatches_litellm_skill_tool():
     assert result is final_response
 
 
-def test_importing_proxy_hooks_does_not_mutate_litellm_callbacks():
+def test_importing_proxy_hooks_does_not_mutate_embrouter_callbacks():
     script: Final = (
-        "import litellm; "
-        "litellm.callbacks = []; "
-        "import litellm.proxy.hooks; "
-        "assert len(litellm.callbacks) == 0, f'mutated: {litellm.callbacks}'"
+        "import embrouter; "
+        "embrouter.callbacks = []; "
+        "import embrouter.proxy.hooks; "
+        "assert len(embrouter.callbacks) == 0, f'mutated: {embrouter.callbacks}'"
     )
     result: Final = subprocess.run(
         [sys.executable, "-c", script],
         capture_output=True,
         text=True,
-        env={**os.environ, "LITELLM_LOCAL_MODEL_COST_MAP": "True"},
+        env={**os.environ, "EMBROUTER_LOCAL_MODEL_COST_MAP": "True"},
     )
     assert result.returncode == 0, f"stdout: {result.stdout}\nstderr: {result.stderr}"

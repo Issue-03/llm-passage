@@ -6,33 +6,33 @@ from collections.abc import Mapping
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Final, Literal, cast
 
-import litellm
-from litellm.constants import (
+import embrouter
+from embrouter.constants import (
     AZURE_OPENAI_AUDIO_PROVIDERS,
     REALTIME_CREDENTIAL_RESOLUTION_TIMEOUT_SECONDS,
     REALTIME_WEBSOCKET_MAX_MESSAGE_SIZE_BYTES,
     request_timeout,
 )
-from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
-from litellm.llms.base_llm.realtime.transformation import BaseRealtimeConfig
-from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
-from litellm.llms.xai.common_utils import XAIModelInfo
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.vertex_ai import VERTEX_CREDENTIALS_TYPES, VertexAccessTokenResolver
-from litellm.types.realtime import (
+from embrouter.embrouter_core_utils.get_llm_provider_logic import get_llm_provider
+from embrouter.llms.base_llm.realtime.transformation import BaseRealtimeConfig
+from embrouter.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+from embrouter.llms.xai.common_utils import XAIModelInfo
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.vertex_ai import VERTEX_CREDENTIALS_TYPES, VertexAccessTokenResolver
+from embrouter.types.realtime import (
     RealtimeClientSecretRequest,
     RealtimeExpiresAfter,
     RealtimeQueryParams,
     RealtimeSessionConfig,
     RealtimeTranscriptionSessionRequest,
 )
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import CallTypes, LlmProviders
-from litellm.utils import ProviderConfigManager
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import CallTypes, LlmProviders
+from embrouter.utils import ProviderConfigManager
 
-from ..litellm_core_utils.credential_accessor import CredentialAccessor
-from ..litellm_core_utils.get_litellm_params import get_litellm_params
-from ..litellm_core_utils.litellm_logging import Logging as LiteLLMLogging
+from ..embrouter_core_utils.credential_accessor import CredentialAccessor
+from ..embrouter_core_utils.get_embrouter_params import get_embrouter_params
+from ..embrouter_core_utils.embrouter_logging import Logging as EmbRouterLogging
 from ..llms.azure.common_utils import get_azure_ad_token
 from ..llms.azure.realtime.handler import AzureOpenAIRealtime, azure_realtime_protocol_for_client
 from ..llms.bedrock.realtime.handler import BedrockRealtime
@@ -47,7 +47,7 @@ from ..utils import client as wrapper_client
 if TYPE_CHECKING:
     from fastapi import WebSocket
 
-    from litellm.llms.base_llm.realtime.http_transformation import BaseRealtimeHTTPConfig
+    from embrouter.llms.base_llm.realtime.http_transformation import BaseRealtimeHTTPConfig
 
 azure_realtime: Final = AzureOpenAIRealtime()
 openai_realtime: Final = OpenAIRealtime()
@@ -60,7 +60,7 @@ _EMPTY_AUTH_HEADERS: Final[Mapping[str, str]] = MappingProxyType({})
 
 
 def _model_params_with_stored_credentials(model_params: Mapping[str, object]) -> Mapping[str, object]:
-    credential_name: Final = model_params.get("litellm_credential_name")
+    credential_name: Final = model_params.get("embrouter_credential_name")
     credential_values: Final = (
         CredentialAccessor.get_credential_values(credential_name)
         if isinstance(credential_name, str)
@@ -75,9 +75,9 @@ def _with_resolved_session_model(session: dict[str, object], model_name: str) ->
     return {**session, "model": model_name}
 
 
-def _build_litellm_metadata(kwargs: dict) -> dict:
-    """Build the litellm_metadata dict for guardrail checking (internal only, not forwarded to provider)."""
-    metadata: Final[dict] = {**(kwargs.get("litellm_metadata") or {})}
+def _build_embrouter_metadata(kwargs: dict) -> dict:
+    """Build the embrouter_metadata dict for guardrail checking (internal only, not forwarded to provider)."""
+    metadata: Final[dict] = {**(kwargs.get("embrouter_metadata") or {})}
     guardrails: Final = (kwargs.get("metadata") or {}).get("guardrails") or kwargs.get("guardrails") or []
     if guardrails:
         metadata["guardrails"] = guardrails
@@ -88,7 +88,7 @@ def _get_realtime_http_provider_config(
     custom_llm_provider: str,
     dynamic_api_base: str | None,
     dynamic_api_key: str | None,
-    litellm_params: GenericLiteLLMParams,
+    embrouter_params: GenericEmbRouterParams,
 ) -> tuple["BaseRealtimeHTTPConfig | None", str, str]:
     """
     Return (provider_config, resolved_api_base, resolved_api_key) for the
@@ -97,7 +97,7 @@ def _get_realtime_http_provider_config(
     Uses ProviderConfigManager so each provider keeps its credential-resolution
     and URL-construction logic in its own transformation class.
     """
-    from litellm.llms.base_llm.realtime.http_transformation import (
+    from embrouter.llms.base_llm.realtime.http_transformation import (
         BaseRealtimeHTTPConfig,
     )
 
@@ -108,17 +108,17 @@ def _get_realtime_http_provider_config(
             provider=LlmProviders(custom_llm_provider),
         )
 
-    raw_api_base: Final = dynamic_api_base or litellm_params.api_base
-    raw_api_key: Final = dynamic_api_key or litellm_params.api_key
+    raw_api_base: Final = dynamic_api_base or embrouter_params.api_base
+    raw_api_key: Final = dynamic_api_key or embrouter_params.api_key
 
     if provider_config is not None:
         resolved_api_base = provider_config.get_api_base(api_base=raw_api_base)
         resolved_api_key = provider_config.get_api_key(api_key=raw_api_key)
     else:
         # Fallback for providers without a dedicated HTTP config (treated as OpenAI-compatible).
-        resolved_api_base = raw_api_base or litellm.api_base or "https://api.openai.com"
+        resolved_api_base = raw_api_base or embrouter.api_base or "https://api.openai.com"
         resolved_api_key = (
-            raw_api_key or litellm.api_key or litellm.openai_key or get_secret_str("OPENAI_API_KEY") or ""
+            raw_api_key or embrouter.api_key or embrouter.openai_key or get_secret_str("OPENAI_API_KEY") or ""
         )
 
     return provider_config, resolved_api_base.rstrip("/"), resolved_api_key
@@ -138,8 +138,8 @@ async def acreate_realtime_client_secret(
         expires_after=RealtimeExpiresAfter.model_validate(expires_after) if expires_after else None,
     )
     model_name = (req.session.model if req.session is not None else None) or req.model or "gpt-4o-realtime-preview"
-    litellm_logging_obj: Final[LiteLLMLogging] = kwargs.get("litellm_logging_obj")
-    litellm_params: Final = GenericLiteLLMParams(**kwargs)
+    embrouter_logging_obj: Final[EmbRouterLogging] = kwargs.get("embrouter_logging_obj")
+    embrouter_params: Final = GenericEmbRouterParams(**kwargs)
 
     (
         model_name,
@@ -148,8 +148,8 @@ async def acreate_realtime_client_secret(
         dynamic_api_base,
     ) = get_llm_provider(
         model=model_name,
-        api_base=litellm_params.api_base,
-        api_key=litellm_params.api_key,
+        api_base=embrouter_params.api_base,
+        api_key=embrouter_params.api_key,
     )
     (
         provider_config,
@@ -159,13 +159,13 @@ async def acreate_realtime_client_secret(
         custom_llm_provider=custom_llm_provider,
         dynamic_api_base=dynamic_api_base,
         dynamic_api_key=dynamic_api_key,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
     )
-    litellm_logging_obj.update_from_kwargs(
+    embrouter_logging_obj.update_from_kwargs(
         kwargs=kwargs,
         model=model_name,
         optional_params={"expires_after": expires_after, "session": session},
-        litellm_params={"api_base": resolved_api_base},
+        embrouter_params={"api_base": resolved_api_base},
         custom_llm_provider=custom_llm_provider,
     )
     request_data: Final = req.model_dump(exclude_none=True, exclude={"model"})
@@ -175,13 +175,13 @@ async def acreate_realtime_client_secret(
         api_base=resolved_api_base,
         api_key=resolved_api_key,
         request_data=request_data,
-        logging_obj=litellm_logging_obj,
+        logging_obj=embrouter_logging_obj,
         timeout=timeout or request_timeout,
         provider_config=provider_config,
         model=model_name,
         extra_headers=kwargs.get("extra_headers"),
         client=kwargs.get("client"),
-        api_version=litellm_params.api_version,
+        api_version=embrouter_params.api_version,
     )
 
 
@@ -197,7 +197,7 @@ async def acreate_realtime_transcription_session(
     /v1/realtime/transcription_sessions.
 
     ``transcription_session`` is the upstream request body (input_audio_format,
-    input_audio_transcription, turn_detection, …). ``model`` is a LiteLLM-only
+    input_audio_transcription, turn_detection, …). ``model`` is a EmbRouter-only
     routing hint; the provider model lives in
     ``transcription_session.input_audio_transcription.model``.
     """
@@ -206,8 +206,8 @@ async def acreate_realtime_transcription_session(
         **(transcription_session or {}),
     )
     model_name = req.resolved_model() or "gpt-realtime-whisper"
-    litellm_logging_obj: Final[LiteLLMLogging] = kwargs.get("litellm_logging_obj")
-    litellm_params: Final = GenericLiteLLMParams(**kwargs)
+    embrouter_logging_obj: Final[EmbRouterLogging] = kwargs.get("embrouter_logging_obj")
+    embrouter_params: Final = GenericEmbRouterParams(**kwargs)
 
     (
         model_name,
@@ -216,8 +216,8 @@ async def acreate_realtime_transcription_session(
         dynamic_api_base,
     ) = get_llm_provider(
         model=model_name,
-        api_base=litellm_params.api_base,
-        api_key=litellm_params.api_key,
+        api_base=embrouter_params.api_base,
+        api_key=embrouter_params.api_key,
     )
     (
         provider_config,
@@ -227,13 +227,13 @@ async def acreate_realtime_transcription_session(
         custom_llm_provider=custom_llm_provider,
         dynamic_api_base=dynamic_api_base,
         dynamic_api_key=dynamic_api_key,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
     )
-    litellm_logging_obj.update_from_kwargs(
+    embrouter_logging_obj.update_from_kwargs(
         kwargs=kwargs,
         model=model_name,
         optional_params={"transcription_session": transcription_session},
-        litellm_params={"api_base": resolved_api_base},
+        embrouter_params={"api_base": resolved_api_base},
         custom_llm_provider=custom_llm_provider,
     )
     request_data: Final = req.model_dump(exclude_none=True, exclude={"model"})
@@ -247,13 +247,13 @@ async def acreate_realtime_transcription_session(
         api_base=resolved_api_base,
         api_key=resolved_api_key,
         request_data=request_data,
-        logging_obj=litellm_logging_obj,
+        logging_obj=embrouter_logging_obj,
         timeout=timeout or request_timeout,
         provider_config=provider_config,
         model=model_name,
         extra_headers=kwargs.get("extra_headers"),
         client=kwargs.get("client"),
-        api_version=litellm_params.api_version,
+        api_version=embrouter_params.api_version,
     )
 
 
@@ -267,8 +267,8 @@ async def arealtime_calls(
     **kwargs,
 ):
     model_name = model or "gpt-4o-realtime-preview"
-    litellm_logging_obj: Final[LiteLLMLogging] = kwargs.get("litellm_logging_obj")
-    litellm_params: Final = GenericLiteLLMParams(**kwargs)
+    embrouter_logging_obj: Final[EmbRouterLogging] = kwargs.get("embrouter_logging_obj")
+    embrouter_params: Final = GenericEmbRouterParams(**kwargs)
 
     (
         model_name,
@@ -277,36 +277,36 @@ async def arealtime_calls(
         dynamic_api_base,
     ) = get_llm_provider(
         model=model_name,
-        api_base=litellm_params.api_base,
-        api_key=litellm_params.api_key,
+        api_base=embrouter_params.api_base,
+        api_key=embrouter_params.api_key,
     )
     provider_config, resolved_api_base, _ = _get_realtime_http_provider_config(
         custom_llm_provider=custom_llm_provider,
         dynamic_api_base=dynamic_api_base,
         dynamic_api_key=dynamic_api_key,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
     )
     if session is not None:
         session = _with_resolved_session_model(session, model_name)
-    litellm_logging_obj.update_from_kwargs(
+    embrouter_logging_obj.update_from_kwargs(
         kwargs=kwargs,
         model=model_name,
         optional_params={"realtime_calls": True, "session": session},
-        litellm_params={"api_base": resolved_api_base},
+        embrouter_params={"api_base": resolved_api_base},
         custom_llm_provider=custom_llm_provider,
     )
     return await base_llm_http_handler.async_realtime_calls_handler(
         api_base=resolved_api_base,
         openai_ephemeral_key=openai_ephemeral_key,
         sdp_body=sdp_body,
-        logging_obj=litellm_logging_obj,
+        logging_obj=embrouter_logging_obj,
         timeout=timeout or request_timeout,
         provider_config=provider_config,
         model=model_name,
         session_config=session,
         extra_headers=kwargs.get("extra_headers"),
         client=kwargs.get("client"),
-        api_version=litellm_params.api_version,
+        api_version=embrouter_params.api_version,
     )
 
 
@@ -369,11 +369,11 @@ async def _arealtime(
         headers = {}
     if extra_headers is not None:
         headers.update(extra_headers)
-    litellm_logging_obj: Final[LiteLLMLogging] = kwargs.get("litellm_logging_obj")
+    embrouter_logging_obj: Final[EmbRouterLogging] = kwargs.get("embrouter_logging_obj")
     user: Final = kwargs.get("user", None)
-    litellm_params: Final = GenericLiteLLMParams(**kwargs)
+    embrouter_params: Final = GenericEmbRouterParams(**kwargs)
 
-    litellm_params_dict: Final = {**get_litellm_params(**kwargs), CallTypes.arealtime.value: True}
+    embrouter_params_dict: Final = {**get_embrouter_params(**kwargs), CallTypes.arealtime.value: True}
 
     model, _custom_llm_provider, dynamic_api_key, dynamic_api_base = get_llm_provider(
         model=model,
@@ -389,12 +389,12 @@ async def _arealtime(
         if "model" in query_params:
             query_params["model"] = model
 
-    litellm_logging_obj.update_from_kwargs(
+    embrouter_logging_obj.update_from_kwargs(
         kwargs=kwargs,
         model=model,
         user=user,
         optional_params={},
-        litellm_params=litellm_params_dict,
+        embrouter_params=embrouter_params_dict,
         custom_llm_provider=_custom_llm_provider,
     )
 
@@ -408,7 +408,7 @@ async def _arealtime(
         await base_llm_http_handler.async_realtime(
             model=model,
             websocket=websocket,
-            logging_obj=litellm_logging_obj,
+            logging_obj=embrouter_logging_obj,
             provider_config=provider_config,
             api_base=api_base,
             api_key=api_key,
@@ -416,26 +416,26 @@ async def _arealtime(
             timeout=timeout,
             headers=headers,
             user_api_key_dict=kwargs.get("user_api_key_dict"),
-            litellm_metadata=_build_litellm_metadata(kwargs),
+            embrouter_metadata=_build_embrouter_metadata(kwargs),
             query_params=query_params,
         )
     elif _custom_llm_provider in AZURE_OPENAI_AUDIO_PROVIDERS:
-        api_base = dynamic_api_base or litellm_params.api_base or litellm.api_base or get_secret_str("AZURE_API_BASE")
+        api_base = dynamic_api_base or embrouter_params.api_base or embrouter.api_base or get_secret_str("AZURE_API_BASE")
         # set API KEY
-        api_key = dynamic_api_key or litellm.api_key or litellm.openai_key or get_secret_str("AZURE_API_KEY")
+        api_key = dynamic_api_key or embrouter.api_key or embrouter.openai_key or get_secret_str("AZURE_API_KEY")
 
-        api_version = api_version or litellm_params.api_version or "2024-10-01-preview"
+        api_version = api_version or embrouter_params.api_version or "2024-10-01-preview"
 
         configured_realtime_protocol: Final = (
             kwargs.get("realtime_protocol")
-            or litellm_params.get("realtime_protocol")
-            or os.environ.get("LITELLM_AZURE_REALTIME_PROTOCOL")
+            or embrouter_params.get("realtime_protocol")
+            or os.environ.get("EMBROUTER_AZURE_REALTIME_PROTOCOL")
         )
         realtime_protocol: Final = azure_realtime_protocol_for_client(
             configured_realtime_protocol, query_params=query_params, websocket=websocket
         )
         resolved_azure_ad_token: Final = (
-            None if api_key else get_azure_ad_token(GenericLiteLLMParams(**kwargs, azure_ad_token=azure_ad_token))
+            None if api_key else get_azure_ad_token(GenericEmbRouterParams(**kwargs, azure_ad_token=azure_ad_token))
         )
         await azure_realtime.async_realtime(
             model=model,
@@ -446,28 +446,28 @@ async def _arealtime(
             azure_ad_token=resolved_azure_ad_token,
             client=None,
             timeout=timeout,
-            logging_obj=litellm_logging_obj,
+            logging_obj=embrouter_logging_obj,
             realtime_protocol=realtime_protocol,
             query_params=query_params,
             user_api_key_dict=kwargs.get("user_api_key_dict"),
-            litellm_metadata=_build_litellm_metadata(kwargs),
+            embrouter_metadata=_build_embrouter_metadata(kwargs),
         )
     elif _custom_llm_provider == "openai":
-        api_base = dynamic_api_base or litellm_params.api_base or litellm.api_base or "https://api.openai.com/"
+        api_base = dynamic_api_base or embrouter_params.api_base or embrouter.api_base or "https://api.openai.com/"
         # set API KEY
-        api_key = dynamic_api_key or litellm.api_key or litellm.openai_key or get_secret_str("OPENAI_API_KEY")
+        api_key = dynamic_api_key or embrouter.api_key or embrouter.openai_key or get_secret_str("OPENAI_API_KEY")
 
         await openai_realtime.async_realtime(
             model=model,
             websocket=websocket,
-            logging_obj=litellm_logging_obj,
+            logging_obj=embrouter_logging_obj,
             api_base=api_base,
             api_key=api_key,
             client=None,
             timeout=timeout,
             query_params=query_params,
             user_api_key_dict=kwargs.get("user_api_key_dict"),
-            litellm_metadata=_build_litellm_metadata(kwargs),
+            embrouter_metadata=_build_embrouter_metadata(kwargs),
         )
     elif _custom_llm_provider == "bedrock":
         # Extract AWS parameters from kwargs
@@ -487,7 +487,7 @@ async def _arealtime(
         await bedrock_realtime.async_realtime(
             model=model,
             websocket=websocket,
-            logging_obj=litellm_logging_obj,
+            logging_obj=embrouter_logging_obj,
             api_base=dynamic_api_base or api_base,
             api_key=dynamic_api_key or api_key,
             timeout=timeout,
@@ -506,7 +506,7 @@ async def _arealtime(
         )
     elif _custom_llm_provider == "xai":
         api_base = (
-            dynamic_api_base or litellm_params.api_base or get_secret_str("XAI_API_BASE") or "https://api.x.ai/v1"
+            dynamic_api_base or embrouter_params.api_base or get_secret_str("XAI_API_BASE") or "https://api.x.ai/v1"
         )
         # set API KEY
         api_key = XAIModelInfo.get_api_key(dynamic_api_key, legacy_generic_before_env=True)
@@ -514,14 +514,14 @@ async def _arealtime(
         await xai_realtime.async_realtime(
             model=model,
             websocket=websocket,
-            logging_obj=litellm_logging_obj,
+            logging_obj=embrouter_logging_obj,
             api_base=api_base,
             api_key=api_key,
             client=None,
             timeout=timeout,
             query_params=query_params,
             user_api_key_dict=kwargs.get("user_api_key_dict"),
-            litellm_metadata=_build_litellm_metadata(kwargs),
+            embrouter_metadata=_build_embrouter_metadata(kwargs),
         )
     elif _custom_llm_provider == "vertex_ai":
         vertex_credentials: Final = (
@@ -532,13 +532,13 @@ async def _arealtime(
         vertex_project: Final = (
             kwargs.get("vertex_project")
             or kwargs.get("vertex_ai_project")
-            or litellm.vertex_project
+            or embrouter.vertex_project
             or get_secret_str("VERTEXAI_PROJECT")
         )
         vertex_location: Final = (
             kwargs.get("vertex_location")
             or kwargs.get("vertex_ai_location")
-            or litellm.vertex_location
+            or embrouter.vertex_location
             or get_secret_str("VERTEXAI_LOCATION")
         )
 
@@ -572,15 +572,15 @@ async def _arealtime(
         await base_llm_http_handler.async_realtime(
             model=model,
             websocket=websocket,
-            logging_obj=litellm_logging_obj,
+            logging_obj=embrouter_logging_obj,
             provider_config=vertex_provider_config,
-            api_base=dynamic_api_base or litellm_params.api_base,
+            api_base=dynamic_api_base or embrouter_params.api_base,
             api_key=None,
             client=client,
             timeout=timeout,
             headers=headers,
             user_api_key_dict=kwargs.get("user_api_key_dict"),
-            litellm_metadata=_build_litellm_metadata(kwargs),
+            embrouter_metadata=_build_embrouter_metadata(kwargs),
             query_params=query_params,
         )
     else:
@@ -589,7 +589,7 @@ async def _arealtime(
 
 def _is_transcription_only_realtime_model(model: str, custom_llm_provider: str) -> bool:
     try:
-        model_info: Final = litellm.get_model_info(model=model, custom_llm_provider=custom_llm_provider)
+        model_info: Final = embrouter.get_model_info(model=model, custom_llm_provider=custom_llm_provider)
     except Exception:  # noqa: BLE001  # get_model_info raises bare Exception for unmapped models
         return False
     if model_info.get("mode") == "audio_transcription":
@@ -605,7 +605,7 @@ def _azure_realtime_health_protocol(
 ) -> tuple[str, RealtimeQueryParams | None]:
     query_params: Final = _TRANSCRIPTION_QUERY_PARAMS if _is_transcription_only_realtime_model(model, "azure") else None
     configured_raw: Final = (
-        realtime_protocol or model_params.get("realtime_protocol") or os.environ.get("LITELLM_AZURE_REALTIME_PROTOCOL")
+        realtime_protocol or model_params.get("realtime_protocol") or os.environ.get("EMBROUTER_AZURE_REALTIME_PROTOCOL")
     )
     configured: Final = configured_raw if isinstance(configured_raw, str) else None
     if configured is not None:
@@ -620,7 +620,7 @@ def _realtime_health_check_auth_headers(
         return azure_realtime.get_auth_headers(
             api_key=api_key,
             azure_ad_token=(
-                None if api_key else get_azure_ad_token(GenericLiteLLMParams.model_validate(dict(model_params)))
+                None if api_key else get_azure_ad_token(GenericEmbRouterParams.model_validate(dict(model_params)))
             ),
         )
     if api_key is None:

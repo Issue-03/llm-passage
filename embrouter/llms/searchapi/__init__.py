@@ -1,1 +1,1 @@
-"""SearchAPI.io integration for LiteLLM."""
+"""SearchAPI.io integration for EmbRouter."""

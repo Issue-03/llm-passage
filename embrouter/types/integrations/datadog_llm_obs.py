@@ -9,7 +9,7 @@ from typing import Any, Literal
 
 from typing_extensions import ReadOnly, TypedDict
 
-from litellm.types.integrations.custom_logger import StandardCustomLoggerInitParams
+from embrouter.types.integrations.custom_logger import StandardCustomLoggerInitParams
 
 
 class ToolCall(TypedDict, total=False):
@@ -117,13 +117,13 @@ class DDIntakePayload(TypedDict):
 
 class DatadogLLMObsInitParams(StandardCustomLoggerInitParams):
     """
-    Params for initializing a DatadogLLMObs logger on litellm
+    Params for initializing a DatadogLLMObs logger on embrouter
     """
 
 
 class DDLLMObsLatencyMetrics(TypedDict, total=False):
     time_to_first_token_ms: float
-    litellm_overhead_time_ms: float
+    embrouter_overhead_time_ms: float
     guardrail_overhead_time_ms: float
 
 

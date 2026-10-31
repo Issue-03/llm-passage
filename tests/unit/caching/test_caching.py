@@ -6,20 +6,20 @@ from unittest.mock import MagicMock
 
 import pytest
 
-import litellm
-import litellm.caching.redis_cache as redis_cache_module
-from litellm.caching.caching import Cache
-from litellm.caching.caching_handler import _PENDING_CACHE_WRITES
-from litellm.caching.redis_cache import RedisCache, _RedisTimeoutLogThrottle
-from litellm.types.caching import EMBEDDING_CACHE_FORMAT_VERSION, LiteLLMCacheType, SemanticCacheScope
-from litellm.types.utils import Embedding, EmbeddingResponse, Usage
+import embrouter
+import embrouter.caching.redis_cache as redis_cache_module
+from embrouter.caching.caching import Cache
+from embrouter.caching.caching_handler import _PENDING_CACHE_WRITES
+from embrouter.caching.redis_cache import RedisCache, _RedisTimeoutLogThrottle
+from embrouter.types.caching import EMBEDDING_CACHE_FORMAT_VERSION, EmbRouterCacheType, SemanticCacheScope
+from embrouter.types.utils import Embedding, EmbeddingResponse, Usage
 
 
 def test_cache_key_debug_log_does_not_include_prompt_material(caplog):
-    cache = Cache(type=LiteLLMCacheType.LOCAL)
+    cache = Cache(type=EmbRouterCacheType.LOCAL)
     prompt_marker = "secret prompt material "
 
-    with caplog.at_level(logging.DEBUG, logger="LiteLLM"):
+    with caplog.at_level(logging.DEBUG, logger="EmbRouter"):
         cache_key = cache.get_cache_key(
             model="gpt-4.1-mini",
             messages=[
@@ -72,11 +72,11 @@ def test_add_cache_timeout_only_joins_redis_throttle_for_redis_backends(backend,
     assert throttle.admit() == 0
     monkeypatch.setattr(redis_cache_module, "_redis_timeout_log_throttle", throttle)
 
-    cache = Cache(type=LiteLLMCacheType.LOCAL)
+    cache = Cache(type=EmbRouterCacheType.LOCAL)
     backend.set_cache.side_effect = TimeoutError("lit7520 backend timed out")
     cache.cache = backend
 
-    with caplog.at_level(logging.DEBUG, logger="LiteLLM"):
+    with caplog.at_level(logging.DEBUG, logger="EmbRouter"):
         cache.add_cache("result", model="gpt-4.1-mini", messages=[{"role": "user", "content": "hi"}])
 
     records = [r for r in caplog.records if "lit7520 backend timed out" in r.getMessage()]
@@ -97,13 +97,13 @@ def _embedding_response(prompt_tokens, num_items):
 
 
 def test_get_per_item_prompt_tokens_single_item_returns_full_value():
-    cache = Cache(type=LiteLLMCacheType.LOCAL)
+    cache = Cache(type=EmbRouterCacheType.LOCAL)
     result = _embedding_response(prompt_tokens=0, num_items=1)
     assert cache._get_per_item_prompt_tokens(result, 0) == 0
 
 
 def test_get_per_item_prompt_tokens_distributes_with_remainder():
-    cache = Cache(type=LiteLLMCacheType.LOCAL)
+    cache = Cache(type=EmbRouterCacheType.LOCAL)
     result = _embedding_response(prompt_tokens=10, num_items=3)
     per_item = [cache._get_per_item_prompt_tokens(result, i) for i in range(3)]
     assert sum(per_item) == 10  # 4 + 3 + 3
@@ -112,7 +112,7 @@ def test_get_per_item_prompt_tokens_distributes_with_remainder():
 
 def _semantic_cache(**cache_kwargs):
     return Cache(
-        type=LiteLLMCacheType.VALKEY_SEMANTIC,
+        type=EmbRouterCacheType.VALKEY_SEMANTIC,
         host="localhost",
         port="6379",
         similarity_threshold=0.8,
@@ -122,7 +122,7 @@ def _semantic_cache(**cache_kwargs):
 
 @pytest.mark.parametrize(
     "cache_type",
-    [LiteLLMCacheType.REDIS_SEMANTIC, LiteLLMCacheType.VALKEY_SEMANTIC],
+    [EmbRouterCacheType.REDIS_SEMANTIC, EmbRouterCacheType.VALKEY_SEMANTIC],
 )
 def test_semantic_cache_embedding_max_input_tokens_reaches_backend(cache_type):
     cache = Cache(
@@ -187,13 +187,13 @@ def _end_user_keys(cache, metadata_field, *end_user_ids):
     ]
 
 
-@pytest.mark.parametrize("metadata_field", ["metadata", "litellm_metadata"])
+@pytest.mark.parametrize("metadata_field", ["metadata", "embrouter_metadata"])
 def test_semantic_cache_key_shares_bucket_across_end_users_by_default(metadata_field):
     key_alice, key_bob = _end_user_keys(_semantic_cache(), metadata_field, "alice", "bob")
     assert key_alice == key_bob
 
 
-@pytest.mark.parametrize("metadata_field", ["metadata", "litellm_metadata"])
+@pytest.mark.parametrize("metadata_field", ["metadata", "embrouter_metadata"])
 def test_semantic_cache_key_isolates_end_users_under_end_user_scope(metadata_field):
     cache = _semantic_cache(semantic_cache_scope="end_user")
     key_alice, key_bob = _end_user_keys(cache, metadata_field, "alice", "bob")
@@ -221,18 +221,18 @@ def test_semantic_cache_key_end_user_scope_without_end_user_falls_back_to_key_sc
     assert key_scope_only != key_alice
 
 
-def test_semantic_cache_key_reads_tenant_identity_from_litellm_metadata():
+def test_semantic_cache_key_reads_tenant_identity_from_embrouter_metadata():
     cache = _semantic_cache()
     messages = [{"role": "user", "content": "What color is the sky?"}]
-    key_a = cache.get_cache_key(model="gpt-4o-mini", messages=messages, litellm_metadata={"user_api_key": "hash-A"})
-    key_b = cache.get_cache_key(model="gpt-4o-mini", messages=messages, litellm_metadata={"user_api_key": "hash-B"})
-    key_a_in_litellm_params = cache.get_cache_key(
+    key_a = cache.get_cache_key(model="gpt-4o-mini", messages=messages, embrouter_metadata={"user_api_key": "hash-A"})
+    key_b = cache.get_cache_key(model="gpt-4o-mini", messages=messages, embrouter_metadata={"user_api_key": "hash-B"})
+    key_a_in_embrouter_params = cache.get_cache_key(
         model="gpt-4o-mini",
         messages=messages,
-        litellm_params={"litellm_metadata": {"user_api_key": "hash-A"}},
+        embrouter_params={"embrouter_metadata": {"user_api_key": "hash-A"}},
     )
     assert key_a != key_b
-    assert key_a == key_a_in_litellm_params
+    assert key_a == key_a_in_embrouter_params
 
 
 def test_semantic_cache_scope_rejects_unknown_value():
@@ -255,7 +255,7 @@ def test_semantic_cache_key_still_separates_models_and_params():
 
 
 def test_exact_cache_key_still_includes_prompt():
-    cache = Cache(type=LiteLLMCacheType.LOCAL)
+    cache = Cache(type=EmbRouterCacheType.LOCAL)
     key_a = cache.get_cache_key(
         model="gpt-4o-mini", messages=[{"role": "user", "content": "a"}]
     )
@@ -276,7 +276,7 @@ def test_exact_cache_key_still_includes_prompt():
 def test_exact_cache_key_includes_anthropic_messages_params(anthropic_param):
     """Anthropic /v1/messages params with no OpenAI equivalent must still key the
     cache; without them two requests that differ only by system prompt collide."""
-    cache = Cache(type=LiteLLMCacheType.LOCAL)
+    cache = Cache(type=EmbRouterCacheType.LOCAL)
     messages = [{"role": "user", "content": "which greek letter?"}]
     baseline = cache.get_cache_key(model="claude-sonnet-4-5", messages=messages)
     assert baseline != cache.get_cache_key(
@@ -288,8 +288,8 @@ def test_exact_cache_key_includes_anthropic_messages_params(anthropic_param):
 async def test_embedding_cache_skips_write_when_one_input_yields_many_embeddings(monkeypatch):
     """A cross-encoder behind /embeddings returns one score per document for a single
     input string; caching data[0] per input would make the second call return 1 score."""
-    import litellm
-    from litellm import CustomLLM
+    import embrouter
+    from embrouter import CustomLLM
 
     class ScoreEveryDocument(CustomLLM):
         provider_calls: int = 0
@@ -302,15 +302,15 @@ async def test_embedding_cache_skips_write_when_one_input_yields_many_embeddings
             )
 
     scorer = ScoreEveryDocument()
-    monkeypatch.setattr(litellm, "custom_provider_map", [{"provider": "score-every-doc", "custom_handler": scorer}])
-    monkeypatch.setattr(litellm, "provider_list", [*litellm.provider_list, "score-every-doc"])
-    monkeypatch.setattr(litellm, "_custom_providers", [*litellm._custom_providers, "score-every-doc"])
-    monkeypatch.setattr(litellm, "cache", Cache(type=LiteLLMCacheType.LOCAL))
+    monkeypatch.setattr(embrouter, "custom_provider_map", [{"provider": "score-every-doc", "custom_handler": scorer}])
+    monkeypatch.setattr(embrouter, "provider_list", [*embrouter.provider_list, "score-every-doc"])
+    monkeypatch.setattr(embrouter, "_custom_providers", [*embrouter._custom_providers, "score-every-doc"])
+    monkeypatch.setattr(embrouter, "cache", Cache(type=EmbRouterCacheType.LOCAL))
 
     batch = '{"query": "q", "documents": ["a", "b", "c", "d", "e"]}'
-    first = await litellm.aembedding(model="score-every-doc/m", input=[batch])
+    first = await embrouter.aembedding(model="score-every-doc/m", input=[batch])
     await asyncio.gather(*_PENDING_CACHE_WRITES)
-    second = await litellm.aembedding(model="score-every-doc/m", input=[batch])
+    second = await embrouter.aembedding(model="score-every-doc/m", input=[batch])
 
     assert scorer.provider_calls == 2
     assert [len(first.data), len(second.data)] == [5, 5]
@@ -318,8 +318,8 @@ async def test_embedding_cache_skips_write_when_one_input_yields_many_embeddings
 
 @pytest.mark.asyncio
 async def test_embedding_cache_refetches_entries_written_without_format_version(monkeypatch):
-    import litellm
-    from litellm import CustomLLM
+    import embrouter
+    from embrouter import CustomLLM
 
     class EmbedLength(CustomLLM):
         provider_calls: int = 0
@@ -335,14 +335,14 @@ async def test_embedding_cache_refetches_entries_written_without_format_version(
             )
 
     embedder = EmbedLength()
-    monkeypatch.setattr(litellm, "custom_provider_map", [{"provider": "embed-length", "custom_handler": embedder}])
-    monkeypatch.setattr(litellm, "provider_list", [*litellm.provider_list, "embed-length"])
-    monkeypatch.setattr(litellm, "_custom_providers", [*litellm._custom_providers, "embed-length"])
-    monkeypatch.setattr(litellm, "cache", Cache(type=LiteLLMCacheType.LOCAL))
+    monkeypatch.setattr(embrouter, "custom_provider_map", [{"provider": "embed-length", "custom_handler": embedder}])
+    monkeypatch.setattr(embrouter, "provider_list", [*embrouter.provider_list, "embed-length"])
+    monkeypatch.setattr(embrouter, "_custom_providers", [*embrouter._custom_providers, "embed-length"])
+    monkeypatch.setattr(embrouter, "cache", Cache(type=EmbRouterCacheType.LOCAL))
 
-    await litellm.aembedding(model="embed-length/m", input=["abcd"])
+    await embrouter.aembedding(model="embed-length/m", input=["abcd"])
     await asyncio.gather(*_PENDING_CACHE_WRITES)
-    store = litellm.cache.cache.cache_dict
+    store = embrouter.cache.cache.cache_dict
     stored = [entry["response"] for entry in store.values()]
     assert [entry["format_version"] for entry in stored] == [EMBEDDING_CACHE_FORMAT_VERSION], stored
     legacy_store = {
@@ -356,9 +356,9 @@ async def test_embedding_cache_refetches_entries_written_without_format_version(
         }
         for key, entry in store.items()
     }
-    monkeypatch.setattr(litellm.cache.cache, "cache_dict", legacy_store)
+    monkeypatch.setattr(embrouter.cache.cache, "cache_dict", legacy_store)
 
-    refetched = await litellm.aembedding(model="embed-length/m", input=["abcd"])
+    refetched = await embrouter.aembedding(model="embed-length/m", input=["abcd"])
 
     assert embedder.provider_calls == 2, "an entry written without format_version must be a cache miss"
     assert [item["embedding"] for item in refetched.data] == [[4.0]]
@@ -366,8 +366,8 @@ async def test_embedding_cache_refetches_entries_written_without_format_version(
 
 @pytest.mark.asyncio
 async def test_embedding_cache_serves_base64_string_embeddings_on_repeat(monkeypatch):
-    import litellm
-    from litellm import CustomLLM
+    import embrouter
+    from embrouter import CustomLLM
 
     class Base64Embedder(CustomLLM):
         provider_calls: int = 0
@@ -380,26 +380,26 @@ async def test_embedding_cache_serves_base64_string_embeddings_on_repeat(monkeyp
             )
 
     embedder = Base64Embedder()
-    monkeypatch.setattr(litellm, "custom_provider_map", [{"provider": "embed-b64", "custom_handler": embedder}])
-    monkeypatch.setattr(litellm, "provider_list", [*litellm.provider_list, "embed-b64"])
-    monkeypatch.setattr(litellm, "_custom_providers", [*litellm._custom_providers, "embed-b64"])
-    monkeypatch.setattr(litellm, "cache", Cache(type=LiteLLMCacheType.LOCAL))
+    monkeypatch.setattr(embrouter, "custom_provider_map", [{"provider": "embed-b64", "custom_handler": embedder}])
+    monkeypatch.setattr(embrouter, "provider_list", [*embrouter.provider_list, "embed-b64"])
+    monkeypatch.setattr(embrouter, "_custom_providers", [*embrouter._custom_providers, "embed-b64"])
+    monkeypatch.setattr(embrouter, "cache", Cache(type=EmbRouterCacheType.LOCAL))
 
-    first = await litellm.aembedding(model="embed-b64/m", input=["abcd"])
+    first = await embrouter.aembedding(model="embed-b64/m", input=["abcd"])
     await asyncio.gather(*_PENDING_CACHE_WRITES)
-    second = await litellm.aembedding(model="embed-b64/m", input=["abcd"])
+    second = await embrouter.aembedding(model="embed-b64/m", input=["abcd"])
 
     assert embedder.provider_calls == 1, "a string embedding written to the cache must be served on repeat"
     assert [item["embedding"] for item in second.data] == [item["embedding"] for item in first.data] == ["AACAPwAAAEA="]
 
 
-def test_provider_specific_cache_key_ignores_litellm_owned_kwargs(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "enable_caching_on_provider_specific_optional_params", True)
-    cache: Final = Cache(type=LiteLLMCacheType.LOCAL)
+def test_provider_specific_cache_key_ignores_embrouter_owned_kwargs(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(embrouter, "enable_caching_on_provider_specific_optional_params", True)
+    cache: Final = Cache(type=EmbRouterCacheType.LOCAL)
     request: Final = {"model": "gpt-4.1-mini", "messages": [{"role": "user", "content": "hi"}], "top_k": 5}
 
     base_key: Final = cache.get_cache_key(**request)
 
-    assert cache.get_cache_key(**request, _litellm_control={"stream_chunk_size": 64}) == base_key
-    assert cache.get_cache_key(**request, litellm_trace_id="trace-1") == base_key
+    assert cache.get_cache_key(**request, _embrouter_control={"stream_chunk_size": 64}) == base_key
+    assert cache.get_cache_key(**request, embrouter_trace_id="trace-1") == base_key
     assert cache.get_cache_key(**{**request, "top_k": 6}) != base_key

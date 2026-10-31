@@ -6,9 +6,9 @@ It allows fetching a dict of the proxy server request from s3 or GCS bucket.
 
 from typing import Final
 
-import litellm
-from litellm import _custom_logger_compatible_callbacks_literal
-from litellm.integrations.custom_logger import CustomLogger
+import embrouter
+from embrouter import _custom_logger_compatible_callbacks_literal
+from embrouter.integrations.custom_logger import CustomLogger
 
 
 class ColdStorageHandler:
@@ -18,7 +18,7 @@ class ColdStorageHandler:
     It allows fetching a dict of the proxy server request from s3 or GCS bucket.
 
     The cold storage logger can be injected for testing; when omitted it is
-    resolved from the configured ``litellm.cold_storage_custom_logger``.
+    resolved from the configured ``embrouter.cold_storage_custom_logger``.
     """
 
     def __init__(self, cold_storage_logger: CustomLogger | None = None):
@@ -49,13 +49,13 @@ class ColdStorageHandler:
         custom_logger_name: Final = self._select_custom_logger_for_cold_storage()
         if custom_logger_name is None:
             return None
-        return litellm.logging_callback_manager.get_active_custom_logger_for_callback_name(custom_logger_name)
+        return embrouter.logging_callback_manager.get_active_custom_logger_for_callback_name(custom_logger_name)
 
     def _select_custom_logger_for_cold_storage(
         self,
     ) -> _custom_logger_compatible_callbacks_literal | None:
         cold_storage_custom_logger: Final[_custom_logger_compatible_callbacks_literal | None] = (
-            litellm.cold_storage_custom_logger
+            embrouter.cold_storage_custom_logger
         )
 
         return cold_storage_custom_logger

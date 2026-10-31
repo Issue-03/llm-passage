@@ -1,4 +1,4 @@
-"""Skills API integration for LiteLLM"""
+"""Skills API integration for EmbRouter"""
 
 from .main import (
     acreate_skill,

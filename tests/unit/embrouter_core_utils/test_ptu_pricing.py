@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 import pytest
 
-from litellm.litellm_core_utils.ptu_pricing import (
+from embrouter.embrouter_core_utils.ptu_pricing import (
     CUSTOM_PRICING_FIELDS,
     PTU_EMPTIED_PRICING_FIELDS,
     PTU_ZEROED_PRICING_FIELDS,
@@ -19,7 +19,7 @@ from litellm.litellm_core_utils.ptu_pricing import (
     ptu_terms,
     zeroed_ptu_pricing,
 )
-from litellm.types.router import ModelInfo
+from embrouter.types.router import ModelInfo
 
 _VALID = {
     "team_id": "team-alpha",
@@ -30,7 +30,7 @@ _VALID = {
 
 
 def _with_flag(model_info, declared=None, enabled=True):
-    with patch.dict(os.environ, {"LITELLM_ENABLE_PTU_COST_ATTRIBUTION": "True" if enabled else ""}, clear=False):
+    with patch.dict(os.environ, {"EMBROUTER_ENABLE_PTU_COST_ATTRIBUTION": "True" if enabled else ""}, clear=False):
         return zeroed_ptu_pricing(model_info, declared or {})
 
 
@@ -168,7 +168,7 @@ def test_a_rate_the_deployment_declares_itself_is_zeroed_too():
 
 
 def test_a_setting_that_is_not_a_charge_is_left_alone():
-    """CustomPricingLiteLLMParams also carries configuration, and zeroing one of those
+    """CustomPricingEmbRouterParams also carries configuration, and zeroing one of those
     would break the deployment rather than stop a charge."""
     override = _with_flag(_VALID, declared={"output_vector_size": 1536})
 
@@ -299,7 +299,7 @@ def test_an_empty_id_is_no_id():
 
 
 def test_the_spillover_header_marks_the_request_as_pay_as_you_go():
-    with patch.dict(os.environ, {"LITELLM_ENABLE_PTU_COST_ATTRIBUTION": "True"}, clear=False):
+    with patch.dict(os.environ, {"EMBROUTER_ENABLE_PTU_COST_ATTRIBUTION": "True"}, clear=False):
         assert (
             is_spilled_over_ptu_request(
                 model_info=_VALID,
@@ -311,7 +311,7 @@ def test_the_spillover_header_marks_the_request_as_pay_as_you_go():
 
 
 def test_no_spillover_marker_keeps_the_zeroed_ptu_rates():
-    with patch.dict(os.environ, {"LITELLM_ENABLE_PTU_COST_ATTRIBUTION": "True"}, clear=False):
+    with patch.dict(os.environ, {"EMBROUTER_ENABLE_PTU_COST_ATTRIBUTION": "True"}, clear=False):
         assert (
             is_spilled_over_ptu_request(
                 model_info=_VALID,

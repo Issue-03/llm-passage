@@ -13,12 +13,12 @@
         "REASONING": [
           {
             "model_name": "claude-opus-5-5",
-            "litellm_params": { "reasoning_effort": "high" }
+            "embrouter_params": { "reasoning_effort": "high" }
           }
         ]
       },
       "classifier_type": "heuristic_v2",
-      "escalation_keywords": ["LITELLM ESCALATE"],
+      "escalation_keywords": ["EMBROUTER ESCALATE"],
       "classification_mode": "every_request",
       "session_affinity": false,
       "modality_routing": false,
@@ -40,12 +40,12 @@
         "REASONING": [
           {
             "model_name": "claude-fable-5-1",
-            "litellm_params": { "reasoning_effort": "high" }
+            "embrouter_params": { "reasoning_effort": "high" }
           }
         ]
       },
       "classifier_type": "heuristic",
-      "escalation_keywords": ["LITELLM ESCALATE"],
+      "escalation_keywords": ["EMBROUTER ESCALATE"],
       "classification_mode": "every_request",
       "session_affinity": false,
       "modality_routing": false,
@@ -64,7 +64,7 @@
         "REASONING": ["gemini-3.1-pro-preview"]
       },
       "classifier_type": "heuristic",
-      "escalation_keywords": ["LITELLM ESCALATE"],
+      "escalation_keywords": ["EMBROUTER ESCALATE"],
       "classification_mode": "every_request",
       "session_affinity": false,
       "modality_routing": false,
@@ -86,13 +86,13 @@
         "MEDIUM": [
           {
             "model_name": "muse-spark-1.3",
-            "litellm_params": { "reasoning_effort": "xhigh" }
+            "embrouter_params": { "reasoning_effort": "xhigh" }
           }
         ],
         "COMPLEX": [
           {
             "model_name": "kimi-k3",
-            "litellm_params": { "reasoning_effort": "max" }
+            "embrouter_params": { "reasoning_effort": "max" }
           }
         ]
       },
@@ -103,7 +103,7 @@
         "classification_rubric": "agentic"
       },
       "classifier_context_window_size": 0,
-      "escalation_keywords": ["LITELLM ESCALATE"],
+      "escalation_keywords": ["EMBROUTER ESCALATE"],
       "classification_mode": "every_request",
       "session_affinity": false,
       "modality_routing": false,
@@ -125,12 +125,12 @@
         "REASONING": [
           {
             "model_name": "gpt-6-astra",
-            "litellm_params": { "reasoning_effort": "xhigh" }
+            "embrouter_params": { "reasoning_effort": "xhigh" }
           }
         ]
       },
       "classifier_type": "heuristic",
-      "escalation_keywords": ["LITELLM ESCALATE"],
+      "escalation_keywords": ["EMBROUTER ESCALATE"],
       "classification_mode": "every_request",
       "session_affinity": false,
       "modality_routing": false,

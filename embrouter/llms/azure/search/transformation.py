@@ -19,7 +19,7 @@ Setup:
        DefaultAzureCredential source) and the token is minted automatically
 
 Usage:
-    response = litellm.search(
+    response = embrouter.search(
         query="latest AI developments",
         search_provider="bing_grounding",
         max_results=5,
@@ -35,16 +35,16 @@ from typing import TYPE_CHECKING, Final, Literal
 import httpx
 from pydantic import BaseModel, ConfigDict, ValidationError
 
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.base_llm.search.transformation import (
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.base_llm.search.transformation import (
     BaseSearchConfig,
     SearchResponse,
     SearchResult,
 )
-from litellm.secret_managers.main import get_secret_str
+from embrouter.secret_managers.main import get_secret_str
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
 
 _DOCS_URL: Final = "https://learn.microsoft.com/en-us/azure/ai-foundry/agents/how-to/tools/bing-grounding"
 
@@ -58,7 +58,7 @@ ENTRA_SCOPE: Final = "https://ai.azure.com/.default"
 _RESPONSES_PATH: Final = "/openai/v1/responses"
 _SNIPPET_FALLBACK_LENGTH: Final = 300
 _UPSTREAM_ERROR_STATUS: Final = 502
-_RESPONSE_COST_HEADER: Final = "llm_provider-x-litellm-response-cost"
+_RESPONSE_COST_HEADER: Final = "llm_provider-x-embrouter-response-cost"
 
 
 class _Annotation(BaseModel):
@@ -262,7 +262,7 @@ def _search_tool(optional_params: Mapping[str, object]) -> _BingGroundingTool | 
 
 
 def _default_entra_token_minter() -> str:
-    from litellm.secret_managers.get_azure_ad_token_provider import get_azure_ad_token_provider
+    from embrouter.secret_managers.get_azure_ad_token_provider import get_azure_ad_token_provider
 
     return get_azure_ad_token_provider(azure_scope=ENTRA_SCOPE)()
 
@@ -287,7 +287,7 @@ class BingGroundingSearchConfig(BaseSearchConfig):
         Validate environment and return headers.
 
         Returns a new dict rather than mutating ``headers``: the http handler calls this
-        a second time after ``litellm/search/main.py`` already did, so it has to be idempotent.
+        a second time after ``embrouter/search/main.py`` already did, so it has to be idempotent.
         """
         return {  # mutable-ok: httpx requires a plain dict of headers
             **headers,
@@ -378,7 +378,7 @@ class BingGroundingSearchConfig(BaseSearchConfig):
     def transform_search_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         **kwargs: object,  # kwargs-ok: BaseSearchConfig.transform_search_response signature
     ) -> SearchResponse:
         try:

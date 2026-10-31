@@ -93,7 +93,7 @@ describe("TeamGuardrailsTab submit payload", () => {
     expect(registeredPayload()).toStrictEqual({
       team_id: "team-1",
       guardrail_name: "pii-detection",
-      litellm_params: {
+      embrouter_params: {
         guardrail: "generic_guardrail_api",
         mode: "pre_call",
         api_base: "https://guard.example.com/v1/check",
@@ -121,7 +121,7 @@ describe("TeamGuardrailsTab submit payload", () => {
     expect(registeredPayload()).toStrictEqual({
       team_id: "team-1",
       guardrail_name: "pii-detection",
-      litellm_params: {
+      embrouter_params: {
         forward_api_key: true,
         api_base: "https://guard.example.com/v1/check",
         mode: "pre_call",
@@ -142,7 +142,7 @@ describe("TeamGuardrailsTab submit payload", () => {
     await submit(user);
 
     await vi.waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(1));
-    expect(registeredPayload().litellm_params.mode).toBe("during_call");
+    expect(registeredPayload().embrouter_params.mode).toBe("during_call");
   });
 
   it("shows the mode by its human label on the trigger", async () => {

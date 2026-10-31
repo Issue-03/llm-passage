@@ -10,9 +10,9 @@ from typing import Final
 
 import httpx
 
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.nvidia_nim.rerank.transformation import NvidiaNimRerankConfig
-from litellm.types.rerank import RerankResponse
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.nvidia_nim.rerank.transformation import NvidiaNimRerankConfig
+from embrouter.types.rerank import RerankResponse
 
 
 class NvidiaNimRankingConfig(NvidiaNimRerankConfig):
@@ -92,7 +92,7 @@ class NvidiaNimRankingConfig(NvidiaNimRerankConfig):
         max_chunks_per_doc: int | None = None,
         max_tokens_per_doc: int | None = None,
         instruction: str | None = None,
-    ) -> dict:  # mutable-ok: LiteLLM provider transforms return mutable request dictionaries
+    ) -> dict:  # mutable-ok: EmbRouter provider transforms return mutable request dictionaries
         """
         Keep Cohere's top_n as-is instead of mapping it to top_k.
 
@@ -124,7 +124,7 @@ class NvidiaNimRankingConfig(NvidiaNimRerankConfig):
         model: str,
         optional_rerank_params: dict,
         headers: dict,
-        litellm_params: dict | None = None,
+        embrouter_params: dict | None = None,
     ) -> dict:
         """
         Transform request, using clean model name without 'ranking/' prefix.
@@ -148,7 +148,7 @@ class NvidiaNimRankingConfig(NvidiaNimRerankConfig):
             model=clean_model,
             optional_rerank_params=filtered_params,
             headers=headers,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
     def transform_rerank_response(
@@ -156,11 +156,11 @@ class NvidiaNimRankingConfig(NvidiaNimRerankConfig):
         model: str,
         raw_response: httpx.Response,
         model_response: RerankResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_key: str | None = None,
         request_data: dict | None = None,  # mutable-ok: matches BaseRerankConfig's response contract
         optional_params: dict | None = None,  # mutable-ok: matches BaseRerankConfig's response contract
-        litellm_params: dict | None = None,  # mutable-ok: matches BaseRerankConfig's response contract
+        embrouter_params: dict | None = None,  # mutable-ok: matches BaseRerankConfig's response contract
     ) -> RerankResponse:
         """
         Convert the native ranking response, then apply top_n client-side.
@@ -170,7 +170,7 @@ class NvidiaNimRankingConfig(NvidiaNimRerankConfig):
         """
         resolved_request_data: Final = request_data or {}  # mutable-ok: the base transformer requires a dictionary
         resolved_optional_params: Final = optional_params or {}  # mutable-ok: response options are keyed lookups
-        resolved_litellm_params: Final = litellm_params or {}  # mutable-ok: the base transformer requires a dictionary
+        resolved_embrouter_params: Final = embrouter_params or {}  # mutable-ok: the base transformer requires a dictionary
 
         response: Final = super().transform_rerank_response(
             model=model,
@@ -180,7 +180,7 @@ class NvidiaNimRankingConfig(NvidiaNimRerankConfig):
             api_key=api_key,
             request_data=resolved_request_data,
             optional_params=resolved_optional_params,
-            litellm_params=resolved_litellm_params,
+            embrouter_params=resolved_embrouter_params,
         )
 
         top_n: Final = resolved_optional_params.get("top_n") or self._client_side_top_n

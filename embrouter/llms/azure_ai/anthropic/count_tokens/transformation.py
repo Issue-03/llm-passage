@@ -6,12 +6,12 @@ Extends the base Anthropic CountTokens transformation with Azure authentication.
 
 from typing import Final
 
-from litellm.constants import ANTHROPIC_TOKEN_COUNTING_BETA_VERSION
-from litellm.llms.anthropic.count_tokens.transformation import (
+from embrouter.constants import ANTHROPIC_TOKEN_COUNTING_BETA_VERSION
+from embrouter.llms.anthropic.count_tokens.transformation import (
     AnthropicCountTokensConfig,
 )
-from litellm.llms.azure.common_utils import BaseAzureLLM
-from litellm.types.router import GenericLiteLLMParams
+from embrouter.llms.azure.common_utils import BaseAzureLLM
+from embrouter.types.router import GenericEmbRouterParams
 
 
 class AzureAIAnthropicCountTokensConfig(AnthropicCountTokensConfig):
@@ -25,7 +25,7 @@ class AzureAIAnthropicCountTokensConfig(AnthropicCountTokensConfig):
     def get_required_headers(
         self,
         api_key: str,
-        litellm_params: dict[str, object] | None = None,
+        embrouter_params: dict[str, object] | None = None,
     ) -> dict[str, str]:
         """
         Get the required headers for the Azure AI Anthropic CountTokens API.
@@ -35,7 +35,7 @@ class AzureAIAnthropicCountTokensConfig(AnthropicCountTokensConfig):
 
         Args:
             api_key: The Azure AI API key
-            litellm_params: Optional LiteLLM parameters for additional auth config
+            embrouter_params: Optional EmbRouter parameters for additional auth config
 
         Returns:
             Dictionary of required headers with both x-api-key and Azure authentication
@@ -49,14 +49,14 @@ class AzureAIAnthropicCountTokensConfig(AnthropicCountTokensConfig):
         }
 
         # Also set up Azure auth headers for flexibility
-        litellm_params = litellm_params or {}
-        if "api_key" not in litellm_params:
-            litellm_params["api_key"] = api_key
+        embrouter_params = embrouter_params or {}
+        if "api_key" not in embrouter_params:
+            embrouter_params["api_key"] = api_key
 
-        litellm_params_obj: Final = GenericLiteLLMParams.model_validate(litellm_params)
+        embrouter_params_obj: Final = GenericEmbRouterParams.model_validate(embrouter_params)
 
         # Get Azure auth headers (api-key or Authorization)
-        azure_headers = BaseAzureLLM._base_validate_azure_environment(headers={}, litellm_params=litellm_params_obj)
+        azure_headers = BaseAzureLLM._base_validate_azure_environment(headers={}, embrouter_params=embrouter_params_obj)
 
         # Merge Azure auth headers
         headers.update(azure_headers)

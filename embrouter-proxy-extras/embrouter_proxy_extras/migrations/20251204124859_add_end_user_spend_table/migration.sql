@@ -1,5 +1,5 @@
 -- CreateTable
-CREATE TABLE IF NOT EXISTS "LiteLLM_DailyEndUserSpend" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_DailyEndUserSpend" (
     "id" TEXT NOT NULL,
     "end_user_id" TEXT,
     "date" TEXT NOT NULL,
@@ -19,24 +19,24 @@ CREATE TABLE IF NOT EXISTS "LiteLLM_DailyEndUserSpend" (
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
 
-    CONSTRAINT "LiteLLM_DailyEndUserSpend_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "EmbRouter_DailyEndUserSpend_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "LiteLLM_DailyEndUserSpend_date_idx" ON "LiteLLM_DailyEndUserSpend"("date");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyEndUserSpend_date_idx" ON "EmbRouter_DailyEndUserSpend"("date");
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "LiteLLM_DailyEndUserSpend_end_user_id_idx" ON "LiteLLM_DailyEndUserSpend"("end_user_id");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyEndUserSpend_end_user_id_idx" ON "EmbRouter_DailyEndUserSpend"("end_user_id");
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "LiteLLM_DailyEndUserSpend_api_key_idx" ON "LiteLLM_DailyEndUserSpend"("api_key");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyEndUserSpend_api_key_idx" ON "EmbRouter_DailyEndUserSpend"("api_key");
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "LiteLLM_DailyEndUserSpend_model_idx" ON "LiteLLM_DailyEndUserSpend"("model");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyEndUserSpend_model_idx" ON "EmbRouter_DailyEndUserSpend"("model");
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "LiteLLM_DailyEndUserSpend_mcp_namespaced_tool_name_idx" ON "LiteLLM_DailyEndUserSpend"("mcp_namespaced_tool_name");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DailyEndUserSpend_mcp_namespaced_tool_name_idx" ON "EmbRouter_DailyEndUserSpend"("mcp_namespaced_tool_name");
 
 -- CreateIndex
-CREATE UNIQUE INDEX IF NOT EXISTS "LiteLLM_DailyEndUserSpend_end_user_id_date_api_key_model_cu_key" ON "LiteLLM_DailyEndUserSpend"("end_user_id", "date", "api_key", "model", "custom_llm_provider", "mcp_namespaced_tool_name");
+CREATE UNIQUE INDEX IF NOT EXISTS "EmbRouter_DailyEndUserSpend_end_user_id_date_api_key_model_cu_key" ON "EmbRouter_DailyEndUserSpend"("end_user_id", "date", "api_key", "model", "custom_llm_provider", "mcp_namespaced_tool_name");
 

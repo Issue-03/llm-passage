@@ -1,4 +1,4 @@
-# LiteLLM Makefile
+# EmbRouter Makefile
 # Simple Makefile for running tests and basic development tasks
 
 .PHONY: help test test-unit test-unit-llms test-unit-proxy-guardrails test-unit-proxy-core test-unit-proxy-misc \
@@ -42,7 +42,7 @@ help:
 	@echo "  make check-circular-imports - Check for circular imports"
 	@echo "  make check-import-safety - Check import safety"
 	@echo "  make test               - Run all tests"
-	@echo "  make test-unit          - Run unit tests (tests/unit and tests/test_litellm)"
+	@echo "  make test-unit          - Run unit tests (tests/unit and tests/test_embrouter)"
 	@echo "  make test-unit-llms     - Run LLM provider tests (~225 files)"
 	@echo "  make test-unit-proxy-guardrails - Run proxy guardrails+mgmt tests (~51 files)"
 	@echo "  make test-unit-proxy-core - Run proxy auth+client+db+hooks tests (~52 files)"
@@ -56,9 +56,9 @@ help:
 	@echo "  make test-integration   - Run integration tests"
 	@echo "  make test-unit-helm     - Run helm unit tests"
 	@echo "  make test-rust-extension - Build the Rust extension and run its public Python tests"
-	@echo "  make rust-sqlx-prepare  - Refresh litellm-rust/crates/db/.sqlx against a migrated Postgres container"
+	@echo "  make rust-sqlx-prepare  - Refresh embrouter-rust/crates/db/.sqlx against a migrated Postgres container"
 	@echo ""
-	@echo "Heavy targets (check, lint) queue for LITELLM_GATE_SLOTS machine-wide"
+	@echo "Heavy targets (check, lint) queue for EMBROUTER_GATE_SLOTS machine-wide"
 	@echo "slots (default 2; 0 disables) so parallel sessions don't thrash one machine."
 
 UV := uv
@@ -93,7 +93,7 @@ install-dev:
 bootstrap:
 	$(UV) sync --inexact --frozen --extra proxy --group proxy-dev --group e2e-dev
 	$(UV_RUN) python scripts/prisma_generate_if_needed.py
-	cd ui/litellm-dashboard && ../../scripts/with_dashboard_node.sh npm install --no-audit --no-fund
+	cd ui/embrouter-dashboard && ../../scripts/with_dashboard_node.sh npm install --no-audit --no-fund
 	@main_root=$$(git worktree list --porcelain | head -1 | sed 's/^worktree //'); \
 	if [ "$$main_root" != "$$(git rev-parse --show-toplevel)" ] && [ -f "$$main_root/.env" ] && [ ! -f .env ]; then \
 		cp "$$main_root/.env" .env && echo "bootstrap: copied .env from $$main_root"; \
@@ -114,7 +114,7 @@ install-proxy-dev-ci:
 
 install-test-deps: install-proxy-dev
 	$(UV) sync --frozen --all-groups --all-extras
-	$(UV_RUN) prisma generate --schema litellm/proxy/schema.prisma
+	$(UV_RUN) prisma generate --schema embrouter/proxy/schema.prisma
 
 install-helm-unittest:
 	@helm plugin list | grep -qE '^unittest[[:space:]]+0\.8\.2([[:space:]]|$$)' || { \
@@ -131,10 +131,10 @@ install-hooks:
 # Wrap width is ruff.toml's single source of truth (line-length = 120), shared by the
 # formatter and the import sorter so there's no 88-vs-120 split to reconcile.
 format: install-dev
-	cd litellm && $(UV_RUN) ruff format --exclude '/enterprise/' . && cd ..
+	cd embrouter && $(UV_RUN) ruff format --exclude '/enterprise/' . && cd ..
 
 format-check: install-dev
-	cd litellm && $(UV_RUN) ruff format --check --exclude '/enterprise/' . && cd ..
+	cd embrouter && $(UV_RUN) ruff format --check --exclude '/enterprise/' . && cd ..
 
 lint-fetch-base:
 	@$(RESOLVE_BASE)
@@ -149,16 +149,16 @@ lint-install:
 	$(UV_RUN) python scripts/prisma_generate_if_needed.py
 
 # Diff-scoped format check, mirroring test-linting.yml's "Check ruff format" step:
-# only the litellm Python files changed vs the base are checked, so a pre-existing
+# only the embrouter Python files changed vs the base are checked, so a pre-existing
 # format issue elsewhere doesn't block an unrelated commit. Git pathspecs match
-# recursively, so 'litellm/*.py' covers top-level files and nested modules alike,
-# the same set CI's ':(glob)litellm/**/*.py' selects.
+# recursively, so 'embrouter/*.py' covers top-level files and nested modules alike,
+# the same set CI's ':(glob)embrouter/**/*.py' selects.
 lint-format-check-changed: $(LINT_DEP_INSTALL) $(LINT_DEP_BASE)
 	@base_ref=$$($(RESOLVE_BASE)) && \
-	changed=$$(git diff --name-only --diff-filter=ACMR "$$base_ref...HEAD" -- 'litellm/*.py') && \
-	files=$$(printf '%s\n' "$$changed" | grep -v '^litellm/enterprise/' || true) || exit $$?; \
+	changed=$$(git diff --name-only --diff-filter=ACMR "$$base_ref...HEAD" -- 'embrouter/*.py') && \
+	files=$$(printf '%s\n' "$$changed" | grep -v '^embrouter/enterprise/' || true) || exit $$?; \
 	if [ -z "$$files" ]; then \
-		echo "No changed litellm Python files to format-check."; \
+		echo "No changed embrouter Python files to format-check."; \
 	else \
 		echo "$$files" | xargs $(UV_RUN) ruff format --check --exclude '/enterprise/'; \
 	fi
@@ -166,7 +166,7 @@ lint-format-check-changed: $(LINT_DEP_INSTALL) $(LINT_DEP_BASE)
 # Linting targets
 lint-ruff: $(LINT_DEP_INSTALL)
 	$(UV_RUN) python scripts/check_mcp_operation_boundary.py
-	cd litellm && $(UV_RUN) ruff check . && cd ..
+	cd embrouter && $(UV_RUN) ruff check . && cd ..
 	$(UV_RUN) ruff check --config ruff-tests.toml tests
 
 # faster linter for developing ...
@@ -193,7 +193,7 @@ lint-format-changed: install-dev
 lint-ruff-dev: install-dev
 	@base_ref=$$($(RESOLVE_BASE)) || exit $$?; \
 	tmpfile=$$(mktemp /tmp/ruff-dev.XXXXXX) && \
-	cd litellm && \
+	cd embrouter && \
 	($(UV_RUN) ruff check . --output-format=pylint || true) > "$$tmpfile" && \
 	$(UV_RUN) diff-quality --violations=pylint "$$tmpfile" --compare-branch="$$base_ref" && \
 	cd .. ; \
@@ -217,7 +217,7 @@ lint-type-discipline: $(LINT_DEP_INSTALL) $(LINT_DEP_BASE)
 	$(UV_RUN) python scripts/type_discipline_gate.py --base "$(BASE_REF)"
 
 # Test-quality budget (zero-assert / mock-echo tests, sys.path.insert, raw env writes,
-# litellm module-global mutation, credential-gated skips, conftest snapshot
+# embrouter module-global mutation, credential-gated skips, conftest snapshot
 # inventory), counted across tests/ the same delta-vs-base way.
 lint-test-quality: $(LINT_DEP_INSTALL) $(LINT_DEP_BASE)
 	$(UV_RUN) python scripts/test_quality_gate.py --base "$(BASE_REF)"
@@ -250,10 +250,10 @@ lint-test-quality-budget-update: install-dev
 lint-budget-update: lint-ruff-budget-update lint-type-discipline-budget-update lint-test-quality-budget-update lint-basedpyright-budget-update
 
 check-circular-imports: $(LINT_DEP_INSTALL)
-	cd litellm && $(UV_RUN) python ../tests/documentation_tests/test_circular_imports.py && cd ..
+	cd embrouter && $(UV_RUN) python ../tests/documentation_tests/test_circular_imports.py && cd ..
 
 check-import-safety: $(LINT_DEP_INSTALL)
-	@$(UV_RUN) python -c "from litellm import *; print('[from litellm import *] OK! no issues!');" || (echo '🚨 import failed, this means you introduced unprotected imports! 🚨'; exit 1)
+	@$(UV_RUN) python -c "from embrouter import *; print('[from embrouter import *] OK! no issues!');" || (echo '🚨 import failed, this means you introduced unprotected imports! 🚨'; exit 1)
 
 # Combined linting, isomorphic to test-linting.yml's lint job so a local pass means a
 # green CI lint: it installs the same env (proxy-dev + generated Prisma client) and then
@@ -279,7 +279,7 @@ lint-dev: lint-format-changed check-circular-imports check-import-safety
 # is staged (warning about changed files left unstaged); with nothing staged it falls
 # back to the working tree's diff against the merge base with the base branch, so a
 # fresh merge commit or an unstaged working tree still gets checked. Mirrors
-# test-linting.yml (Python), test-litellm-ui-build.yml's frontend-lint (dashboard), and
+# test-linting.yml (Python), test-embrouter-ui-build.yml's frontend-lint (dashboard), and
 # check-ui-api-types.yml (API-type drift), skipping any whose files aren't in scope.
 # Not auto-installed as a git hook so it never slows an unrelated human commit.
 check:
@@ -303,43 +303,43 @@ test-rust-extension:
 	$(UV) pip install --python "$$temporary/venv/bin/python" --no-deps "$$1" && \
 	"$$temporary/venv/bin/python" -I -m mypy.stubtest \
 		--mypy-config-file tests/unit/rust_bridge/stubtest.ini \
-		litellm.rust_bridge._native && \
-	LITELLM_RUST=1 LITELLM_LOCAL_MODEL_COST_MAP=True \
-	"$$temporary/venv/bin/python" -I -m pytest --import-mode=importlib -m requires_rust_extension tests/test_litellm_rust
+		embrouter.rust_bridge._native && \
+	EMBROUTER_RUST=1 EMBROUTER_LOCAL_MODEL_COST_MAP=True \
+	"$$temporary/venv/bin/python" -I -m pytest --import-mode=importlib -m requires_rust_extension tests/test_embrouter_rust
 
 rust-sqlx-prepare:
-	cd litellm-rust && cargo run -p litellm-db-testing --bin sqlx-prepare
+	cd embrouter-rust && cargo run -p embrouter-db-testing --bin sqlx-prepare
 
 test: install-test-deps
 	$(UV_RUN) pytest tests/
 
 test-unit: install-test-deps
-	$(UV_RUN) pytest tests/unit tests/test_litellm -x -vv -n 4
+	$(UV_RUN) pytest tests/unit tests/test_embrouter -x -vv -n 4
 
 # Matrix test targets (matching CI workflow groups)
 test-unit-llms: install-test-deps
 	$(UV_RUN) pytest tests/unit/llms --tb=short -vv -n 4 --durations=20
 
 test-unit-proxy-guardrails: install-test-deps
-	$(UV_RUN) pytest tests/test_litellm/proxy/guardrails tests/test_litellm/proxy/management_endpoints tests/test_litellm/proxy/management_helpers --tb=short -vv -n 4 --durations=20
+	$(UV_RUN) pytest tests/test_embrouter/proxy/guardrails tests/test_embrouter/proxy/management_endpoints tests/test_embrouter/proxy/management_helpers --tb=short -vv -n 4 --durations=20
 
 test-unit-proxy-core: install-test-deps
-	$(UV_RUN) pytest tests/test_litellm/proxy/auth tests/test_litellm/proxy/client tests/test_litellm/proxy/db tests/test_litellm/proxy/hooks tests/test_litellm/proxy/policy_engine --tb=short -vv -n 4 --durations=20
+	$(UV_RUN) pytest tests/test_embrouter/proxy/auth tests/test_embrouter/proxy/client tests/test_embrouter/proxy/db tests/test_embrouter/proxy/hooks tests/test_embrouter/proxy/policy_engine --tb=short -vv -n 4 --durations=20
 
 test-unit-proxy-misc: install-test-deps
-	$(UV_RUN) pytest tests/test_litellm/proxy/_experimental tests/test_litellm/proxy/agent_endpoints tests/test_litellm/proxy/anthropic_endpoints tests/test_litellm/proxy/common_utils tests/test_litellm/proxy/discovery_endpoints tests/test_litellm/proxy/experimental tests/test_litellm/proxy/google_endpoints tests/test_litellm/proxy/health_endpoints tests/test_litellm/proxy/image_endpoints tests/test_litellm/proxy/middleware tests/test_litellm/proxy/openai_files_endpoint tests/test_litellm/proxy/pass_through_endpoints tests/test_litellm/proxy/prompts tests/test_litellm/proxy/public_endpoints tests/test_litellm/proxy/response_api_endpoints tests/test_litellm/proxy/shutdown tests/test_litellm/proxy/spend_tracking tests/test_litellm/proxy/ui_crud_endpoints tests/test_litellm/proxy/vector_store_endpoints tests/test_litellm/proxy/test_*.py --tb=short -vv -n 4 --durations=20
+	$(UV_RUN) pytest tests/test_embrouter/proxy/_experimental tests/test_embrouter/proxy/agent_endpoints tests/test_embrouter/proxy/anthropic_endpoints tests/test_embrouter/proxy/common_utils tests/test_embrouter/proxy/discovery_endpoints tests/test_embrouter/proxy/experimental tests/test_embrouter/proxy/google_endpoints tests/test_embrouter/proxy/health_endpoints tests/test_embrouter/proxy/image_endpoints tests/test_embrouter/proxy/middleware tests/test_embrouter/proxy/openai_files_endpoint tests/test_embrouter/proxy/pass_through_endpoints tests/test_embrouter/proxy/prompts tests/test_embrouter/proxy/public_endpoints tests/test_embrouter/proxy/response_api_endpoints tests/test_embrouter/proxy/shutdown tests/test_embrouter/proxy/spend_tracking tests/test_embrouter/proxy/ui_crud_endpoints tests/test_embrouter/proxy/vector_store_endpoints tests/test_embrouter/proxy/test_*.py --tb=short -vv -n 4 --durations=20
 
 test-unit-integrations: install-test-deps
 	$(UV_RUN) pytest tests/unit/integrations --tb=short -vv -n 4 --durations=20
 
 test-unit-core-utils: install-test-deps
-	$(UV_RUN) pytest tests/unit/litellm_core_utils --tb=short -vv -n 2 --durations=20
+	$(UV_RUN) pytest tests/unit/embrouter_core_utils --tb=short -vv -n 2 --durations=20
 
 test-unit-other: install-test-deps
 	$(UV_RUN) pytest tests/unit/caching tests/unit/responses tests/unit/secret_managers tests/unit/vector_stores tests/unit/a2a_protocol tests/unit/completion_extras tests/unit/containers tests/unit/enterprise tests/unit/experimental_mcp_client tests/unit/google_genai tests/unit/images tests/unit/interactions tests/unit/router_strategy tests/unit/router_utils tests/unit/types --tb=short -vv -n 4 --durations=20
 
 test-unit-root: install-test-deps
-	$(UV_RUN) pytest tests/unit/test_*.py tests/test_litellm/test_*.py --tb=short -vv -n 4 --durations=20
+	$(UV_RUN) pytest tests/unit/test_*.py tests/test_embrouter/test_*.py --tb=short -vv -n 4 --durations=20
 
 # Proxy unit tests (tests/unit/proxy split alphabetically)
 test-proxy-unit-a: install-test-deps
@@ -349,10 +349,10 @@ test-proxy-unit-b: install-test-deps
 	$(UV_RUN) pytest tests/unit/proxy/test_[p-z]*.py tests/unit/skills --tb=short -vv -n 2 --durations=20
 
 test-integration: install-test-deps
-	$(UV_RUN) pytest tests/ -k "not test_litellm"
+	$(UV_RUN) pytest tests/ -k "not test_embrouter"
 
 test-unit-helm: install-helm-unittest
-	helm unittest -f 'tests/*.yaml' helm/litellm-helm
+	helm unittest -f 'tests/*.yaml' helm/embrouter-helm
 
 # LLM Translation testing targets
 test-llm-translation: install-test-deps

@@ -2,17 +2,17 @@ from collections.abc import Iterable, Mapping, Sequence
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Final, cast, get_type_hints
 
-from litellm.types.llms.anthropic import (
+from embrouter.types.llms.anthropic import (
     AnthropicMessagesRequestOptionalParams,
     AnthropicStopDetails,
 )
-from litellm.types.llms.anthropic_messages.anthropic_response import (
+from embrouter.types.llms.anthropic_messages.anthropic_response import (
     AnthropicMessagesResponse,
 )
-from litellm.types.llms.openai import ChatCompletionSystemMessage
+from embrouter.types.llms.openai import ChatCompletionSystemMessage
 
 if TYPE_CHECKING:
-    from litellm.exceptions import ContentPolicyViolationError
+    from embrouter.exceptions import ContentPolicyViolationError
 
 
 INCOMPLETE_STREAM_ERROR_MESSAGE: Final = (
@@ -54,7 +54,7 @@ def _mapping_str_field(container: object, key: str) -> str | None:
 def openai_chat_refusal_text(message_or_delta: object) -> str | None:
     """
     Refusal text carried by an OpenAI Chat Completions message or streaming delta,
-    read from ``refusal`` or from the ``provider_specific_fields`` LiteLLM parks it
+    read from ``refusal`` or from the ``provider_specific_fields`` EmbRouter parks it
     in, or None when the turn is not a refusal.
     """
     refusal: Final = getattr(message_or_delta, "refusal", None)
@@ -100,7 +100,7 @@ def responses_output_refusal_text(output: Iterable[object]) -> str | None:
 def safeguard_refusal_error(model: str, stop_details: Mapping[str, object]) -> "ContentPolicyViolationError":
     """The exception a safeguard-refused Anthropic response converts into so the
     content-policy fallback chain can re-dispatch it."""
-    from litellm.exceptions import ContentPolicyViolationError
+    from embrouter.exceptions import ContentPolicyViolationError
 
     return ContentPolicyViolationError(
         message=f"Anthropic safeguard refusal (category: {stop_details.get('category')}).",
@@ -146,7 +146,7 @@ class AnthropicMessagesRequestUtils:
         Args:
             params: Dictionary of parameters to filter
             model: Resolved model id; when set, unsupported params may be dropped
-            drop_params: Per-request drop_params flag (also respects litellm.drop_params)
+            drop_params: Per-request drop_params flag (also respects embrouter.drop_params)
             custom_llm_provider: Routed provider; fast mode is gated to direct Anthropic
 
         Returns:
@@ -155,8 +155,8 @@ class AnthropicMessagesRequestUtils:
         valid_keys: Final = _anthropic_messages_optional_param_keys()
         filtered_params: Final = {k: v for k, v in params.items() if k in valid_keys and v is not None}
         if model is not None:
-            from litellm.llms.anthropic.chat.transformation import AnthropicConfig
-            from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+            from embrouter.llms.anthropic.chat.transformation import AnthropicConfig
+            from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
             AnthropicConfig._maybe_drop_speed_param(
                 model=model,
@@ -187,25 +187,25 @@ def mock_response(
     """
     Mock response for Anthropic messages
     """
-    from litellm.exceptions import (
+    from embrouter.exceptions import (
         ContextWindowExceededError,
         InternalServerError,
         RateLimitError,
     )
 
-    if mock_response == "litellm.InternalServerError":
+    if mock_response == "embrouter.InternalServerError":
         raise InternalServerError(
             message="this is a mock internal server error",
             llm_provider="anthropic",
             model=model,
         )
-    elif mock_response == "litellm.ContextWindowExceededError":
+    elif mock_response == "embrouter.ContextWindowExceededError":
         raise ContextWindowExceededError(
             message="this is a mock context window exceeded error",
             llm_provider="anthropic",
             model=model,
         )
-    elif mock_response == "litellm.RateLimitError":
+    elif mock_response == "embrouter.RateLimitError":
         raise RateLimitError(
             message="this is a mock rate limit error",
             llm_provider="anthropic",

@@ -11,18 +11,18 @@ from typing import TYPE_CHECKING, Final
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from litellm._logging import verbose_proxy_logger
-from litellm.constants import MAX_POLICY_ESTIMATE_IMPACT_ROWS
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.auth.route_checks import RouteChecks
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.policy_engine.attachment_registry import get_attachment_registry
-from litellm.proxy.policy_engine.policy_registry import get_policy_registry
-from litellm.repositories.team_repository import TeamRepository
-from litellm.repositories.verification_token_repository import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.constants import MAX_POLICY_ESTIMATE_IMPACT_ROWS
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.auth.route_checks import RouteChecks
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.policy_engine.attachment_registry import get_attachment_registry
+from embrouter.proxy.policy_engine.policy_registry import get_policy_registry
+from embrouter.repositories.team_repository import TeamRepository
+from embrouter.repositories.verification_token_repository import (
     VerificationTokenRepository,
 )
-from litellm.types.proxy.policy_engine import (
+from embrouter.types.proxy.policy_engine import (
     AttachmentImpactResponse,
     PolicyAttachmentCreateRequest,
     PolicyMatchContext,
@@ -83,7 +83,7 @@ def _get_tags_from_metadata(metadata: object, json_metadata: object = None) -> l
     return parsed.get("tags", []) or []
 
 
-async def _fetch_all_teams(prisma_client: object) -> "Sequence[prisma_models.LiteLLM_TeamTable]":
+async def _fetch_all_teams(prisma_client: object) -> "Sequence[prisma_models.EmbRouter_TeamTable]":
     """Fetch teams from DB once. Reuse the result across tag and alias lookups."""
     return await TeamRepository(prisma_client).table.find_many(
         where={},
@@ -93,7 +93,7 @@ async def _fetch_all_teams(prisma_client: object) -> "Sequence[prisma_models.Lit
 
 
 def _filter_keys_by_tags(
-    keys: "Sequence[prisma_models.LiteLLM_VerificationToken]", tag_patterns: Sequence[str]
+    keys: "Sequence[prisma_models.EmbRouter_VerificationToken]", tag_patterns: Sequence[str]
 ) -> tuple[list[str], int]:
     """Filter key rows whose metadata.tags match any of the given patterns.
 
@@ -118,7 +118,7 @@ def _filter_keys_by_tags(
 
 
 def _filter_teams_by_tags(
-    teams: "Sequence[prisma_models.LiteLLM_TeamTable]", tag_patterns: Sequence[str]
+    teams: "Sequence[prisma_models.EmbRouter_TeamTable]", tag_patterns: Sequence[str]
 ) -> tuple[list[str], int]:
     """Filter pre-fetched team rows whose metadata.tags match any patterns.
 
@@ -144,7 +144,7 @@ def _filter_teams_by_tags(
 
 async def _find_affected_by_team_patterns(
     prisma_client: object,
-    all_teams: "Sequence[prisma_models.LiteLLM_TeamTable]",
+    all_teams: "Sequence[prisma_models.EmbRouter_TeamTable]",
     team_patterns: Sequence[str],
     existing_teams: Sequence[str],
     existing_keys: Sequence[str],
@@ -243,9 +243,9 @@ async def resolve_policies_for_context(
         }'
     ```
     """
-    from litellm.proxy.policy_engine.policy_matcher import PolicyMatcher
-    from litellm.proxy.policy_engine.policy_resolver import PolicyResolver
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.policy_engine.policy_matcher import PolicyMatcher
+    from embrouter.proxy.policy_engine.policy_resolver import PolicyResolver
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail="Database not connected")
@@ -346,7 +346,7 @@ async def estimate_attachment_impact(
         }'
     ```
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail="Database not connected")
@@ -370,7 +370,7 @@ async def estimate_attachment_impact(
         team_patterns: Final = request.teams or []
 
         # Fetch teams once — reused by both tag-based and alias-based lookups
-        all_teams: Sequence[prisma_models.LiteLLM_TeamTable] = []
+        all_teams: Sequence[prisma_models.EmbRouter_TeamTable] = []
         if tag_patterns or team_patterns:
             all_teams = await _fetch_all_teams(prisma_client)
 

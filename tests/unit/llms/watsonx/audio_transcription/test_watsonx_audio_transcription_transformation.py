@@ -6,10 +6,10 @@ Validates the WatsonX transcription response transformation.
 
 from unittest.mock import MagicMock
 
-from litellm.llms.watsonx.audio_transcription.transformation import (
+from embrouter.llms.watsonx.audio_transcription.transformation import (
     IBMWatsonXAudioTranscriptionConfig,
 )
-from litellm.types.utils import TranscriptionResponse
+from embrouter.types.utils import TranscriptionResponse
 
 
 class TestWatsonXAudioTranscription:

@@ -11,12 +11,12 @@ from fastapi import HTTPException
 from pydantic import TypeAdapter, ValidationError
 from typing_extensions import assert_never
 
-from litellm._logging import verbose_proxy_logger
-from litellm.models.team import LiteLLM_TeamTable
-from litellm.models.verification_token import LiteLLM_VerificationToken
-from litellm.proxy._types import (
-    LiteLLM_ManagementEndpoint_MetadataFields,
-    LiteLLM_ManagementEndpoint_MetadataFields_Premium,
+from embrouter._logging import verbose_proxy_logger
+from embrouter.models.team import EmbRouter_TeamTable
+from embrouter.models.verification_token import EmbRouter_VerificationToken
+from embrouter.proxy._types import (
+    EmbRouter_ManagementEndpoint_MetadataFields,
+    EmbRouter_ManagementEndpoint_MetadataFields_Premium,
     UpdateKeyRequest,
     UpdateTeamRequest,
 )
@@ -42,7 +42,7 @@ _JSON_OBJECT: Final = TypeAdapter(dict[str, object])
 _WINDOW_LIST: Final = TypeAdapter(list[dict[str, object]])
 _EMPTY: Final[Mapping[str, object]] = MappingProxyType({})
 _METADATA_FOLDED_FIELDS: Final[frozenset[str]] = frozenset(
-    (*LiteLLM_ManagementEndpoint_MetadataFields, *LiteLLM_ManagementEndpoint_MetadataFields_Premium)
+    (*EmbRouter_ManagementEndpoint_MetadataFields, *EmbRouter_ManagementEndpoint_MetadataFields_Premium)
 )
 _SYSTEM_MANAGED_METADATA_KEYS: Final[frozenset[str]] = frozenset({"team_member_budget_id"})
 _NOT_COLUMNS: Final[frozenset[str]] = frozenset({"team_id", "metadata"})
@@ -140,22 +140,22 @@ def _metadata_changes(
     )
 
 
-def _stored_model_aliases(existing_row: LiteLLM_TeamTable) -> Mapping[str, object]:
-    table: Final = existing_row.litellm_model_table
+def _stored_model_aliases(existing_row: EmbRouter_TeamTable) -> Mapping[str, object]:
+    table: Final = existing_row.embrouter_model_table
     return _as_object(_JSON_OBJECT.validate_json(table.model_dump_json()).get("model_aliases")) if table else _EMPTY
 
 
 def _column_changed(
-    field: str, submitted: Mapping[str, object], existing: Mapping[str, object], existing_row: LiteLLM_TeamTable
+    field: str, submitted: Mapping[str, object], existing: Mapping[str, object], existing_row: EmbRouter_TeamTable
 ) -> bool:
     if field == "model_aliases":
         return _as_object(submitted.get(field)) != _stored_model_aliases(existing_row)
-    if field in LiteLLM_TeamTable.model_fields:
+    if field in EmbRouter_TeamTable.model_fields:
         return submitted.get(field) != existing.get(field)
     return True
 
 
-def changed_team_fields(data: UpdateTeamRequest, existing_row: LiteLLM_TeamTable) -> frozenset[str]:
+def changed_team_fields(data: UpdateTeamRequest, existing_row: EmbRouter_TeamTable) -> frozenset[str]:
     """Logical field names whose stored value the request would change.
 
     Request and stored row are compared as JSON values so both sides share one representation. Fields the
@@ -183,7 +183,7 @@ def _only_changes(data: UpdateTeamRequest, changed: frozenset[str]) -> UpdateTea
 
 def team_admin_edit_verdict(
     data: UpdateTeamRequest,
-    existing: LiteLLM_TeamTable,
+    existing: EmbRouter_TeamTable,
     permitted: frozenset[str],
 ) -> TeamAdminEditVerdict:
     if not permitted:
@@ -245,12 +245,12 @@ def _key_column_changed(field: str, submitted: Mapping[str, object], existing: M
         stored: Final = _budget_windows(existing.get(field))
         if sent is not None and stored is not None:
             return sent != stored
-    if field in LiteLLM_VerificationToken.model_fields:
+    if field in EmbRouter_VerificationToken.model_fields:
         return submitted.get(field) != existing.get(field)
     return True
 
 
-def changed_key_fields(data: UpdateKeyRequest, existing_row: LiteLLM_VerificationToken) -> frozenset[str]:
+def changed_key_fields(data: UpdateKeyRequest, existing_row: EmbRouter_VerificationToken) -> frozenset[str]:
     """Logical field names whose stored value the key-update request would change.
 
     Same JSON-value comparison as :func:`changed_team_fields`: columns compare against the stored row,
@@ -286,7 +286,7 @@ TeamAdminKeyEditVerdict: TypeAlias = (
 
 def team_admin_key_edit_verdict(
     data: UpdateKeyRequest,
-    existing: LiteLLM_VerificationToken,
+    existing: EmbRouter_VerificationToken,
     enabled: bool,
 ) -> TeamAdminKeyEditVerdict:
     if not enabled:

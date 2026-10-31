@@ -4,17 +4,17 @@ Translate from OpenAI's `/v1/chat/completions` to VLLM's `/v1/chat/completions`
 
 from typing import TYPE_CHECKING, Final
 
-from litellm.constants import OPENAI_CHAT_COMPLETION_PARAMS
-from litellm.secret_managers.main import get_secret_bool, get_secret_str
-from litellm.types.router import LiteLLM_Params
+from embrouter.constants import OPENAI_CHAT_COMPLETION_PARAMS
+from embrouter.secret_managers.main import get_secret_bool, get_secret_str
+from embrouter.types.router import EmbRouter_Params
 
 from ...openai.chat.gpt_transformation import OpenAIGPTConfig
 
 if TYPE_CHECKING:
-    from litellm.types.llms.openai import AllMessageValues
+    from embrouter.types.llms.openai import AllMessageValues
 
 
-class LiteLLMProxyChatConfig(OpenAIGPTConfig):
+class EmbRouterProxyChatConfig(OpenAIGPTConfig):
     def get_supported_openai_params(self, model: str) -> list:
         params_list: Final = super().get_supported_openai_params(model)
         params_list.extend(OPENAI_CHAT_COMPLETION_PARAMS)
@@ -38,76 +38,76 @@ class LiteLLMProxyChatConfig(OpenAIGPTConfig):
     def _get_openai_compatible_provider_info(
         self, api_base: str | None, api_key: str | None
     ) -> tuple[str | None, str | None]:
-        api_base = api_base or get_secret_str("LITELLM_PROXY_API_BASE")
-        dynamic_api_key: Final = api_key or get_secret_str("LITELLM_PROXY_API_KEY")
+        api_base = api_base or get_secret_str("EMBROUTER_PROXY_API_BASE")
+        dynamic_api_key: Final = api_key or get_secret_str("EMBROUTER_PROXY_API_KEY")
         return api_base, dynamic_api_key
 
     def get_models(self, api_key: str | None = None, api_base: str | None = None) -> list[str]:
         api_base, api_key = self._get_openai_compatible_provider_info(api_base, api_key)
         if api_base is None:
-            raise ValueError("api_base not set for LiteLLM Proxy route. Set in env via `LITELLM_PROXY_API_BASE`")
+            raise ValueError("api_base not set for EmbRouter Proxy route. Set in env via `EMBROUTER_PROXY_API_BASE`")
         models: Final = super().get_models(api_key=api_key, api_base=api_base)
-        return [f"litellm_proxy/{model}" for model in models]
+        return [f"embrouter_proxy/{model}" for model in models]
 
     @staticmethod
     def get_api_key(api_key: str | None = None) -> str | None:
-        return api_key or get_secret_str("LITELLM_PROXY_API_KEY")
+        return api_key or get_secret_str("EMBROUTER_PROXY_API_KEY")
 
     @staticmethod
-    def should_use_litellm_proxy_by_default(
-        litellm_params: LiteLLM_Params | None = None,
+    def should_use_embrouter_proxy_by_default(
+        embrouter_params: EmbRouter_Params | None = None,
     ):
         """
-        Returns True if litellm proxy should be used by default for a given request
+        Returns True if embrouter proxy should be used by default for a given request
 
 
 
         Use case:
-        - When using Google ADK, users want a flag to dynamically enable sending the request to litellm proxy or not
-        - Allow the model name to be passed in original format and still use litellm proxy:
+        - When using Google ADK, users want a flag to dynamically enable sending the request to embrouter proxy or not
+        - Allow the model name to be passed in original format and still use embrouter proxy:
         "gemini/gemini-1.5-pro", "openai/gpt-4", "mistral/llama-2-70b-chat" etc.
         """
-        import litellm
+        import embrouter
 
-        if get_secret_bool("USE_LITELLM_PROXY") is True:
+        if get_secret_bool("USE_EMBROUTER_PROXY") is True:
             return True
-        if litellm_params and litellm_params.use_litellm_proxy is True:
+        if embrouter_params and embrouter_params.use_embrouter_proxy is True:
             return True
-        if litellm.use_litellm_proxy is True:
+        if embrouter.use_embrouter_proxy is True:
             return True
         return False
 
     @staticmethod
-    def litellm_proxy_get_custom_llm_provider_info(
+    def embrouter_proxy_get_custom_llm_provider_info(
         model: str, api_base: str | None = None, api_key: str | None = None
     ) -> tuple[str, str, str | None, str | None]:
         """
-        Force use litellm proxy for all models
+        Force use embrouter proxy for all models
 
 
 
         Expected behavior:
-        - custom_llm_provider will be 'litellm_proxy'
-        - api_base = api_base OR LITELLM_PROXY_API_BASE
-        - api_key = api_key OR LITELLM_PROXY_API_KEY
+        - custom_llm_provider will be 'embrouter_proxy'
+        - api_base = api_base OR EMBROUTER_PROXY_API_BASE
+        - api_key = api_key OR EMBROUTER_PROXY_API_KEY
 
         Use case:
-        - When using Google ADK, users want a flag to dynamically enable sending the request to litellm proxy or not
-        -  Allow the model name to be passed in original format and still use litellm proxy:
+        - When using Google ADK, users want a flag to dynamically enable sending the request to embrouter proxy or not
+        -  Allow the model name to be passed in original format and still use embrouter proxy:
         "gemini/gemini-1.5-pro", "openai/gpt-4", "mistral/llama-2-70b-chat" etc.
 
         Return model, custom_llm_provider, dynamic_api_key, api_base
         """
-        import litellm
+        import embrouter
 
-        custom_llm_provider: Final = "litellm_proxy"
-        if model.startswith("litellm_proxy/"):
+        custom_llm_provider: Final = "embrouter_proxy"
+        if model.startswith("embrouter_proxy/"):
             model = model.split("/", 1)[1]
 
         (
             api_base,
             api_key,
-        ) = litellm.LiteLLMProxyChatConfig()._get_openai_compatible_provider_info(api_base=api_base, api_key=api_key)
+        ) = embrouter.EmbRouterProxyChatConfig()._get_openai_compatible_provider_info(api_base=api_base, api_key=api_key)
 
         return model, custom_llm_provider, api_key, api_base
 
@@ -116,7 +116,7 @@ class LiteLLMProxyChatConfig(OpenAIGPTConfig):
         model: str,
         messages: list["AllMessageValues"],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         # don't transform the request
@@ -131,7 +131,7 @@ class LiteLLMProxyChatConfig(OpenAIGPTConfig):
         model: str,
         messages: list["AllMessageValues"],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         # don't transform the request

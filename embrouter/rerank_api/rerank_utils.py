@@ -1,6 +1,6 @@
 from typing import Any, Final
 
-from litellm.llms.base_llm.rerank.transformation import BaseRerankConfig
+from embrouter.llms.base_llm.rerank.transformation import BaseRerankConfig
 
 
 def get_optional_rerank_params(

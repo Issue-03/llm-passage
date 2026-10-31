@@ -1,7 +1,7 @@
-"""Custom code guardrail integration for LiteLLM.
+"""Custom code guardrail integration for EmbRouter.
 
 This module allows users to write custom guardrail logic using Python-like code
-that runs in a sandboxed environment with access to LiteLLM-provided primitives.
+that runs in a sandboxed environment with access to EmbRouter-provided primitives.
 
 Pre-built custom code for common guardrails (e.g. response rejection detection)
 is available in response_rejection_code.py.
@@ -9,7 +9,7 @@ is available in response_rejection_code.py.
 
 from typing import TYPE_CHECKING, Final
 
-from litellm.types.guardrails import SupportedGuardrailIntegrations
+from embrouter.types.guardrails import SupportedGuardrailIntegrations
 
 from .custom_code_guardrail import CustomCodeGuardrail
 from .response_rejection_code import (
@@ -18,40 +18,40 @@ from .response_rejection_code import (
 )
 
 if TYPE_CHECKING:
-    from litellm.types.guardrails import Guardrail, LitellmParams
+    from embrouter.types.guardrails import Guardrail, EmbrouterParams
 
 
-def initialize_guardrail(litellm_params: "LitellmParams", guardrail: "Guardrail") -> CustomCodeGuardrail:
+def initialize_guardrail(embrouter_params: "EmbrouterParams", guardrail: "Guardrail") -> CustomCodeGuardrail:
     """
     Initialize a custom code guardrail.
 
     Args:
-        litellm_params: Configuration parameters including the custom code
+        embrouter_params: Configuration parameters including the custom code
         guardrail: The guardrail configuration dict
 
     Returns:
         CustomCodeGuardrail instance
     """
-    import litellm
+    import embrouter
 
     guardrail_name: Final = guardrail.get("guardrail_name")
     if not guardrail_name:
         raise ValueError("Custom code guardrail requires a guardrail_name")
 
-    # Get the custom code from litellm_params
-    custom_code: Final = getattr(litellm_params, "custom_code", None)
+    # Get the custom code from embrouter_params
+    custom_code: Final = getattr(embrouter_params, "custom_code", None)
     if not custom_code:
-        raise ValueError("Custom code guardrail requires 'custom_code' in litellm_params")
+        raise ValueError("Custom code guardrail requires 'custom_code' in embrouter_params")
 
     custom_code_guardrail: Final = CustomCodeGuardrail(
         guardrail_name=guardrail_name,
         custom_code=custom_code,
-        execution_timeout=litellm_params.timeout,
-        event_hook=litellm_params.mode,
-        default_on=litellm_params.default_on,
+        execution_timeout=embrouter_params.timeout,
+        event_hook=embrouter_params.mode,
+        default_on=embrouter_params.default_on,
     )
 
-    litellm.logging_callback_manager.add_litellm_callback(custom_code_guardrail)
+    embrouter.logging_callback_manager.add_embrouter_callback(custom_code_guardrail)
     return custom_code_guardrail
 
 

@@ -7,17 +7,17 @@ from typing import Annotated, Any, Final
 from pydantic import AliasChoices, BaseModel, Field, TypeAdapter, ValidationError, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
-from litellm._logging import verbose_logger
-from litellm.integrations.otel.model.baggage import (
+from embrouter._logging import verbose_logger
+from embrouter.integrations.otel.model.baggage import (
     BAGGAGE_PROMOTED_KEYS,
     DEFAULT_BAGGAGE_METADATA_KEYS,
     DEFAULT_BAGGAGE_TEAM_METADATA_KEYS,
 )
-from litellm.integrations.otel.model.spans import POSTGRESQL, db_system
-from litellm.types.utils import OtelSpanScope
+from embrouter.integrations.otel.model.spans import POSTGRESQL, db_system
+from embrouter.types.utils import OtelSpanScope
 
 #: Master feature-flag env var. The logger is inert until this is truthy.
-OTEL_V2_ENV: Final = "LITELLM_OTEL_V2"
+OTEL_V2_ENV: Final = "EMBROUTER_OTEL_V2"
 
 
 class CaptureMessageContent(str):
@@ -151,25 +151,25 @@ class OpenTelemetryV2Config(BaseSettings):
         default=None,
         validation_alias=AliasChoices("OTEL_HEADERS", "OTEL_EXPORTER_OTLP_HEADERS"),
     )
-    service_name: str = Field(default="litellm", validation_alias=AliasChoices("OTEL_SERVICE_NAME"))
+    service_name: str = Field(default="embrouter", validation_alias=AliasChoices("OTEL_SERVICE_NAME"))
     deployment_environment: str | None = Field(default=None, validation_alias=AliasChoices("OTEL_ENVIRONMENT_NAME"))
 
     enable_metrics: bool = Field(
         default=False,
-        validation_alias=AliasChoices("LITELLM_OTEL_INTEGRATION_ENABLE_METRICS"),
+        validation_alias=AliasChoices("EMBROUTER_OTEL_INTEGRATION_ENABLE_METRICS"),
     )
     enable_events: bool = Field(
         default=False,
-        validation_alias=AliasChoices("LITELLM_OTEL_INTEGRATION_ENABLE_EVENTS"),
+        validation_alias=AliasChoices("EMBROUTER_OTEL_INTEGRATION_ENABLE_EVENTS"),
     )
     capture_message_content: str = Field(
         default=CaptureMessageContent.NO_CONTENT,
         validation_alias=AliasChoices("OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT"),
     )
-    legacy_compat: bool = Field(default=True, validation_alias=AliasChoices("LITELLM_OTEL_LEGACY_COMPAT"))
+    legacy_compat: bool = Field(default=True, validation_alias=AliasChoices("EMBROUTER_OTEL_LEGACY_COMPAT"))
     langfuse_span_scope: OtelSpanScope = Field(
         default="full",
-        validation_alias=AliasChoices("langfuse_span_scope", "LITELLM_OTEL_LANGFUSE_SPAN_SCOPE"),
+        validation_alias=AliasChoices("langfuse_span_scope", "EMBROUTER_OTEL_LANGFUSE_SPAN_SCOPE"),
         description=(
             "``llm_only`` keeps just the model-call spans on the operator's own Langfuse "
             "exporter (the spec whose owner is ``langfuse_otel``). Other exporters and "
@@ -178,14 +178,14 @@ class OpenTelemetryV2Config(BaseSettings):
     )
     excluded_services: Annotated[frozenset[str], NoDecode] = Field(
         default_factory=frozenset,
-        validation_alias=AliasChoices("excluded_services", "LITELLM_OTEL_EXCLUDED_SERVICES"),
+        validation_alias=AliasChoices("excluded_services", "EMBROUTER_OTEL_EXCLUDED_SERVICES"),
         description=(
             "Datastore services whose spans are withheld from key/team ``callback_vars`` "
             "OTel destinations (the operator's own exporters still receive them). Accepted "
             "values are the datastore ``ServiceTypes`` names (``redis``, ``postgres``, "
             "``batch_write_to_db``, ``redis_*``) or their ``db.system.name`` spellings "
             "(``redis``, ``postgresql``); stored normalized to ``db.system.name`` values. "
-            "Configure via the ``LITELLM_OTEL_EXCLUDED_SERVICES`` env var (comma-separated) "
+            "Configure via the ``EMBROUTER_OTEL_EXCLUDED_SERVICES`` env var (comma-separated) "
             "or ``callback_settings.otel.excluded_services`` in config.yaml (a YAML list)."
         ),
     )
@@ -222,36 +222,36 @@ class OpenTelemetryV2Config(BaseSettings):
 
     baggage_promoted_keys: Annotated[list[str], NoDecode] = Field(
         default_factory=lambda: list(BAGGAGE_PROMOTED_KEYS),
-        validation_alias=AliasChoices("baggage_promoted_keys", "LITELLM_OTEL_BAGGAGE_PROMOTED_KEYS"),
+        validation_alias=AliasChoices("baggage_promoted_keys", "EMBROUTER_OTEL_BAGGAGE_PROMOTED_KEYS"),
         description=(
             "Identity attribute keys written into Baggage and stamped on every "
-            "child span (e.g. ``litellm.team.id``). Configure via the "
-            "``LITELLM_OTEL_BAGGAGE_PROMOTED_KEYS`` env var (comma-separated) or "
+            "child span (e.g. ``embrouter.team.id``). Configure via the "
+            "``EMBROUTER_OTEL_BAGGAGE_PROMOTED_KEYS`` env var (comma-separated) or "
             "``callback_settings.otel.baggage_promoted_keys`` in config.yaml (a "
             "YAML list)."
         ),
     )
     baggage_metadata_keys: Annotated[list[str], NoDecode] = Field(
         default_factory=lambda: list(DEFAULT_BAGGAGE_METADATA_KEYS),
-        validation_alias=AliasChoices("baggage_metadata_keys", "LITELLM_OTEL_BAGGAGE_METADATA_KEYS"),
+        validation_alias=AliasChoices("baggage_metadata_keys", "EMBROUTER_OTEL_BAGGAGE_METADATA_KEYS"),
         description=(
-            "Metadata sub-keys promoted under the ``litellm.metadata.*`` "
+            "Metadata sub-keys promoted under the ``embrouter.metadata.*`` "
             "namespace. A dotted path such as ``requester_metadata.trace_id`` "
             "reads the caller's nested ``metadata.trace_id`` and is promoted as "
-            "``litellm.metadata.trace_id``; other dotted keys keep their full path. "
-            "Configure via the ``LITELLM_OTEL_BAGGAGE_METADATA_KEYS`` "
+            "``embrouter.metadata.trace_id``; other dotted keys keep their full path. "
+            "Configure via the ``EMBROUTER_OTEL_BAGGAGE_METADATA_KEYS`` "
             "env var (comma-separated) or "
             "``callback_settings.otel.baggage_metadata_keys`` in config.yaml."
         ),
     )
     baggage_team_metadata_keys: Annotated[list[str], NoDecode] = Field(
         default_factory=lambda: list(DEFAULT_BAGGAGE_TEAM_METADATA_KEYS),
-        validation_alias=AliasChoices("baggage_team_metadata_keys", "LITELLM_OTEL_BAGGAGE_TEAM_METADATA_KEYS"),
+        validation_alias=AliasChoices("baggage_team_metadata_keys", "EMBROUTER_OTEL_BAGGAGE_TEAM_METADATA_KEYS"),
         description=(
             "Sub-keys of the team's free-form metadata promoted under "
-            "``litellm.team.metadata``. Empty by default so none of a team's "
+            "``embrouter.team.metadata``. Empty by default so none of a team's "
             "metadata leaves the process until explicitly allowlisted. Configure "
-            "via the ``LITELLM_OTEL_BAGGAGE_TEAM_METADATA_KEYS`` env var "
+            "via the ``EMBROUTER_OTEL_BAGGAGE_TEAM_METADATA_KEYS`` env var "
             "(comma-separated) or "
             "``callback_settings.otel.baggage_team_metadata_keys`` in config.yaml."
         ),
@@ -291,7 +291,7 @@ class OpenTelemetryV2Config(BaseSettings):
 
         Env vars are strings, but these fields are lists. Pydantic-settings would
         otherwise require JSON for a list env var; splitting on commas here lets
-        an operator write ``LITELLM_OTEL_BAGGAGE_PROMOTED_KEYS=litellm.team.id,litellm.api_key.hash``.
+        an operator write ``EMBROUTER_OTEL_BAGGAGE_PROMOTED_KEYS=embrouter.team.id,embrouter.api_key.hash``.
         YAML lists (from ``callback_settings.otel.*``) and real lists pass through
         unchanged.
         """

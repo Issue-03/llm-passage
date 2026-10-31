@@ -7,8 +7,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from litellm.google_genai.adapters.handler import GenerateContentToCompletionHandler
-from litellm.google_genai.adapters.transformation import GoogleGenAIAdapter
+from embrouter.google_genai.adapters.handler import GenerateContentToCompletionHandler
+from embrouter.google_genai.adapters.transformation import GoogleGenAIAdapter
 
 
 def test_stream_response_when_stream_requested_sync():
@@ -26,12 +26,12 @@ def test_stream_response_when_stream_requested_sync():
         "translate_completion_output_params_streaming",
         return_value=mock_stream,
     ) as mock_translate:
-        with patch("litellm.completion", return_value=mock_stream):
+        with patch("embrouter.completion", return_value=mock_stream):
             # Call the handler with stream=True
             result = GenerateContentToCompletionHandler.generate_content_handler(
                 model="gemini-pro",
                 contents=[{"role": "user", "parts": [{"text": "Hello"}]}],
-                litellm_params={},  # Empty dict for params
+                embrouter_params={},  # Empty dict for params
                 stream=True,
             )
 
@@ -57,12 +57,12 @@ async def test_stream_response_when_stream_requested_async():
         "translate_completion_output_params_streaming",
         return_value=mock_stream,
     ) as mock_translate:
-        with patch("litellm.acompletion", return_value=mock_stream):
+        with patch("embrouter.acompletion", return_value=mock_stream):
             # Call the handler with stream=True
             result = await GenerateContentToCompletionHandler.async_generate_content_handler(
                 model="gemini-pro",
                 contents=[{"role": "user", "parts": [{"text": "Hello"}]}],
-                litellm_params={},  # Empty dict for params
+                embrouter_params={},  # Empty dict for params
                 stream=True,
             )
 
@@ -86,14 +86,14 @@ def test_stream_transformation_error_sync():
         "translate_completion_output_params_streaming",
         return_value=None,
     ):
-        # Patch litellm.completion directly to prevent real API calls
-        with patch("litellm.completion", return_value=mock_stream):
+        # Patch embrouter.completion directly to prevent real API calls
+        with patch("embrouter.completion", return_value=mock_stream):
             # Call the handler with stream=True and expect a ValueError
             with pytest.raises(ValueError, match="Failed to transform streaming response"):
                 GenerateContentToCompletionHandler.generate_content_handler(
                     model="gemini-pro",
                     contents=[{"role": "user", "parts": [{"text": "Hello"}]}],
-                    litellm_params={},  # Empty dict for params
+                    embrouter_params={},  # Empty dict for params
                     stream=True,
                 )
 
@@ -113,17 +113,17 @@ async def test_stream_transformation_error_async():
         "translate_completion_output_params_streaming",
         return_value=None,
     ):
-        # Mock litellm.acompletion at the module level where it's imported
-        # We need to patch it in the handler module, not in litellm itself
-        with patch("litellm.google_genai.adapters.handler.litellm") as mock_litellm:
+        # Mock embrouter.acompletion at the module level where it's imported
+        # We need to patch it in the handler module, not in embrouter itself
+        with patch("embrouter.google_genai.adapters.handler.embrouter") as mock_embrouter:
             # Use AsyncMock for async function
-            mock_litellm.acompletion = AsyncMock(return_value=mock_stream)
+            mock_embrouter.acompletion = AsyncMock(return_value=mock_stream)
             # Call the handler with stream=True and expect a ValueError
             with pytest.raises(ValueError, match="Failed to transform streaming response"):
                 await GenerateContentToCompletionHandler.async_generate_content_handler(
                     model="gemini-pro",
                     contents=[{"role": "user", "parts": [{"text": "Hello"}]}],
-                    litellm_params={},  # Empty dict for params
+                    embrouter_params={},  # Empty dict for params
                     stream=True,
                 )
 
@@ -137,8 +137,8 @@ def test_citation_metadata_transformation():
 
     import httpx
 
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.llms.gemini.google_genai.transformation import GoogleGenAIConfig
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.llms.gemini.google_genai.transformation import GoogleGenAIConfig
 
     # Create a mock response with citationMetadata.citationSources (the problematic format)
     mock_response_data = {
@@ -188,13 +188,13 @@ def test_citation_metadata_transformation():
     mock_httpx_response.headers = {}
 
     # Create logging object
-    logging_obj = LiteLLMLoggingObj(
+    logging_obj = EmbRouterLoggingObj(
         model="gemini-2.5-flash",
         messages=[],
         stream=False,
         call_type="generate_content",
         start_time=1234567890,
-        litellm_call_id="test-call-123",
+        embrouter_call_id="test-call-123",
         function_id="test-function-123",
     )
 
@@ -240,8 +240,8 @@ async def test_generate_content_adapter_preserves_proxy_server_request():
     Ensure GenerateContentToCompletionHandler forwards proxy_server_request
     to the downstream completion call so proxy spend logging captures the request body.
     """
-    from litellm.types.router import GenericLiteLLMParams
-    from litellm.types.utils import Choices, Message, ModelResponse
+    from embrouter.types.router import GenericEmbRouterParams
+    from embrouter.types.utils import Choices, Message, ModelResponse
 
     handler = GenerateContentToCompletionHandler()
 
@@ -257,7 +257,7 @@ async def test_generate_content_adapter_preserves_proxy_server_request():
     mock_response = ModelResponse(choices=[Choices(message=Message(content="Hi!", role="assistant"))])
 
     with patch(
-        "litellm.google_genai.adapters.handler.litellm.acompletion",
+        "embrouter.google_genai.adapters.handler.embrouter.acompletion",
         new_callable=AsyncMock,
     ) as mock_acompletion:
         mock_acompletion.return_value = mock_response
@@ -265,7 +265,7 @@ async def test_generate_content_adapter_preserves_proxy_server_request():
         await handler.async_generate_content_handler(
             model="gemini-2.0-flash",
             contents=gemini_data,
-            litellm_params=GenericLiteLLMParams(),
+            embrouter_params=GenericEmbRouterParams(),
             proxy_server_request=dummy_proxy_request,
             metadata={"source": "unit_test"},
         )

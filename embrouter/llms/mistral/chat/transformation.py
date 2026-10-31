@@ -11,28 +11,28 @@ from typing import TYPE_CHECKING, Any, Final, Literal, cast, get_type_hints, ove
 
 import httpx
 
-from litellm._logging import verbose_logger
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+from embrouter._logging import verbose_logger
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
     handle_messages_with_content_list_to_str_conversion,
     strip_none_values_from_message,
 )
-from litellm.llms.openai.chat.gpt_transformation import (
+from embrouter.llms.openai.chat.gpt_transformation import (
     OpenAIChatCompletionStreamingHandler,
     OpenAIGPTConfig,
 )
-from litellm.router_utils.reasoning_effort_capability import (
+from embrouter.router_utils.reasoning_effort_capability import (
     declared_reasoning_efforts_for_model,
     nearest_declared_reasoning_effort,
 )
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.mistral import MistralThinkingBlock, MistralToolCallMessage
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.utils import ModelResponse, ModelResponseStream
-from litellm.utils import convert_to_model_response_object, supports_reasoning
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.mistral import MistralThinkingBlock, MistralToolCallMessage
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.utils import ModelResponse, ModelResponseStream
+from embrouter.utils import convert_to_model_response_object, supports_reasoning
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
 
 
 def _accepted_reasoning_effort(model: str, requested: str, custom_llm_provider: str) -> str:
@@ -393,8 +393,8 @@ class MistralConfig(OpenAIGPTConfig):
 
         import copy
 
-        from litellm.constants import DEFAULT_MAX_RECURSE_DEPTH
-        from litellm.utils import _remove_json_schema_refs
+        from embrouter.constants import DEFAULT_MAX_RECURSE_DEPTH
+        from embrouter.utils import _remove_json_schema_refs
 
         cleaned_tools = copy.deepcopy(tools)
 
@@ -407,7 +407,7 @@ class MistralConfig(OpenAIGPTConfig):
     def _strip_output_only_fields(cls, message: AllMessageValues) -> AllMessageValues:
         """
         ``reasoning_content`` and ``thinking_blocks`` are output-only fields that
-        LiteLLM attaches to assistant responses. Mistral's input schema forbids
+        EmbRouter attaches to assistant responses. Mistral's input schema forbids
         unknown fields, so replaying them verbatim in a follow-up turn triggers a
         422 ``extra_forbidden``. Drop them before the request is sent.
         """
@@ -458,7 +458,7 @@ class MistralConfig(OpenAIGPTConfig):
         """
         Mistral API does not support empty string in assistant content.
         """
-        from litellm.types.llms.openai import ChatCompletionAssistantMessage
+        from embrouter.types.llms.openai import ChatCompletionAssistantMessage
 
         set_keys: Final = get_type_hints(ChatCompletionAssistantMessage).keys()
 
@@ -545,7 +545,7 @@ class MistralConfig(OpenAIGPTConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         """
@@ -566,7 +566,7 @@ class MistralConfig(OpenAIGPTConfig):
             model=model,
             messages=messages,
             optional_params=upstream_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
@@ -575,11 +575,11 @@ class MistralConfig(OpenAIGPTConfig):
         model: str,
         raw_response: httpx.Response,
         model_response: ModelResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         request_data: dict,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,

@@ -5,7 +5,7 @@ from typing import Final, Literal, cast
 
 from pydantic import TypeAdapter, ValidationError
 
-from litellm._logging import verbose_proxy_logger
+from embrouter._logging import verbose_proxy_logger
 
 # Versioned ciphertext marker for AES-256-GCM values.
 # Format: "v2:gcm:" + base64url(nonce(12) || ciphertext || tag(16)).
@@ -24,9 +24,9 @@ _ALGO_XSALSA20: Final = "xsalsa20-poly1305"
 
 
 def _get_salt_key():
-    from litellm.proxy.proxy_server import master_key
+    from embrouter.proxy.proxy_server import master_key
 
-    salt_key = os.getenv("LITELLM_SALT_KEY", None)
+    salt_key = os.getenv("EMBROUTER_SALT_KEY", None)
 
     if salt_key is None:
         salt_key = master_key
@@ -43,7 +43,7 @@ def _get_encryption_algorithm() -> str:
     keep producing byte-for-byte identical ciphertext.
     """
     try:
-        from litellm.proxy.proxy_server import general_settings
+        from embrouter.proxy.proxy_server import general_settings
 
         algo: Final = general_settings.get(_ENCRYPTION_ALGORITHM_SETTING, _ALGO_XSALSA20)
     except Exception:
@@ -105,7 +105,7 @@ def encrypt_bearer_token(value: str, prefix: str) -> str:
     """AES-256-GCM as unpadded base64url behind ``prefix``, which is also the AAD so a token can't change kind."""
     salt_key: Final = _get_salt_key()
     if not isinstance(salt_key, str):
-        raise ValueError("Set LITELLM_SALT_KEY or a master key to mint bearer tokens")
+        raise ValueError("Set EMBROUTER_SALT_KEY or a master key to mint bearer tokens")
     sealed: Final = _seal_aes_gcm(value=value, signing_key=salt_key, aad=prefix.encode("utf-8"))
     return prefix + base64.urlsafe_b64encode(sealed).decode("ascii").rstrip("=")
 
@@ -286,4 +286,4 @@ def decode_secret_map(value: object, *, key: str) -> Mapping[str, str] | None:
         )
         return _SECRET_MAP.validate_json(decrypted, strict=True)
     except ValidationError:
-        raise SecretMapDecodeError(f"Cannot decode encrypted MCP {key}; check LITELLM_SALT_KEY") from None
+        raise SecretMapDecodeError(f"Cannot decode encrypted MCP {key}; check EMBROUTER_SALT_KEY") from None

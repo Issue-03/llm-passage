@@ -1,29 +1,29 @@
 from typing import TYPE_CHECKING, Final
 
-from litellm.types.guardrails import SupportedGuardrailIntegrations
+from embrouter.types.guardrails import SupportedGuardrailIntegrations
 
 from .cato_networks import CatoNetworksGuardrail
 
 if TYPE_CHECKING:
-    from litellm.types.guardrails import Guardrail, LitellmParams
+    from embrouter.types.guardrails import Guardrail, EmbrouterParams
 
 
-def initialize_guardrail(litellm_params: "LitellmParams", guardrail: "Guardrail"):
-    import litellm
-    from litellm.proxy.guardrails.guardrail_hooks.cato_networks import (
+def initialize_guardrail(embrouter_params: "EmbrouterParams", guardrail: "Guardrail"):
+    import embrouter
+    from embrouter.proxy.guardrails.guardrail_hooks.cato_networks import (
         CatoNetworksGuardrail,
     )
 
     _cato_callback: Final = CatoNetworksGuardrail(
-        api_base=litellm_params.api_base,
-        api_key=litellm_params.api_key,
+        api_base=embrouter_params.api_base,
+        api_key=embrouter_params.api_key,
         guardrail_name=guardrail.get("guardrail_name", ""),
-        event_hook=litellm_params.mode,
-        default_on=litellm_params.default_on,
-        inspect_embeddings=litellm_params.inspect_embeddings,
-        ssl_verify=getattr(litellm_params, "ssl_verify", None),
+        event_hook=embrouter_params.mode,
+        default_on=embrouter_params.default_on,
+        inspect_embeddings=embrouter_params.inspect_embeddings,
+        ssl_verify=getattr(embrouter_params, "ssl_verify", None),
     )
-    litellm.logging_callback_manager.add_litellm_callback(_cato_callback)
+    embrouter.logging_callback_manager.add_embrouter_callback(_cato_callback)
 
     return _cato_callback
 

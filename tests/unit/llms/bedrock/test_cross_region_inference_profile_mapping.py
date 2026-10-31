@@ -4,11 +4,11 @@ from typing import NamedTuple
 
 import pytest
 
-import litellm
-from litellm.cost_calculator import completion_cost
-from litellm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
-from litellm.llms.bedrock.common_utils import BedrockModelInfo
-from litellm.types.utils import (
+import embrouter
+from embrouter.cost_calculator import completion_cost
+from embrouter.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
+from embrouter.llms.bedrock.common_utils import BedrockModelInfo
+from embrouter.types.utils import (
     Choices,
     Message,
     ModelResponse,
@@ -21,21 +21,21 @@ from litellm.types.utils import (
 def local_model_cost_map(monkeypatch):
     """Resolve models against this checkout's cost map instead of the network-fetched
     ``main`` copy, which lags this branch until merge."""
-    original_converse_models = set(litellm.bedrock_converse_models)
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
-    litellm.get_model_info.cache_clear()
+    original_converse_models = set(embrouter.bedrock_converse_models)
+    monkeypatch.setenv("EMBROUTER_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setattr(embrouter, "model_cost", embrouter.get_model_cost_map(url=""))
+    embrouter.get_model_info.cache_clear()
     try:
-        litellm.bedrock_converse_models.update(
+        embrouter.bedrock_converse_models.update(
             key
-            for key, value in litellm.model_cost.items()
-            if isinstance(value, dict) and value.get("litellm_provider") == "bedrock_converse"
+            for key, value in embrouter.model_cost.items()
+            if isinstance(value, dict) and value.get("embrouter_provider") == "bedrock_converse"
         )
         yield
     finally:
-        litellm.bedrock_converse_models.clear()
-        litellm.bedrock_converse_models.update(original_converse_models)
-        litellm.get_model_info.cache_clear()
+        embrouter.bedrock_converse_models.clear()
+        embrouter.bedrock_converse_models.update(original_converse_models)
+        embrouter.get_model_info.cache_clear()
 
 
 class GptProfile(NamedTuple):

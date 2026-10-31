@@ -7,7 +7,7 @@ import { useHealthReadinessDetails } from "@/app/(dashboard)/hooks/healthReadine
 import { useAuth } from "@/contexts/AuthContext";
 import { isAdminRole } from "@/utils/roles";
 
-const DISMISS_STORAGE_KEY = "litellm:envCredentialLoginWarningDismissed";
+const DISMISS_STORAGE_KEY = "embrouter:envCredentialLoginWarningDismissed";
 
 export const EnvCredentialLoginWarningBanner: React.FC<{ accessToken: string | null }> = ({ accessToken }) => {
   const { userRole } = useAuth();

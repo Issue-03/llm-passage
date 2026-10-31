@@ -1,7 +1,7 @@
 """Renew the stored SSO identity assertion so an ID-JAG agent outlives one id_token.
 
 The ``oauth2_id_jag`` arm asserts the id_token captured at the user's last interactive sign-in, so
-without renewal an agent holding a brokered LiteLLM key can act for that user only until that token's
+without renewal an agent holding a brokered EmbRouter key can act for that user only until that token's
 ``exp``, typically an hour, and the sole recovery is another interactive login. The assertion already
 carries the IdP refresh token beside it; this module is what redeems it.
 
@@ -50,27 +50,27 @@ import httpx
 from pydantic import SecretStr, TypeAdapter, ValidationError
 from typing_extensions import assert_never
 
-from litellm._logging import verbose_proxy_logger
-from litellm.exceptions import Timeout
-from litellm.llms.custom_httpx.http_handler import (
-    get_async_httpx_client,  # pyright: ignore[reportUnknownVariableType]  # litellm http handler is untyped
+from embrouter._logging import verbose_proxy_logger
+from embrouter.exceptions import Timeout
+from embrouter.llms.custom_httpx.http_handler import (
+    get_async_httpx_client,  # pyright: ignore[reportUnknownVariableType]  # embrouter http handler is untyped
 )
-from litellm.proxy._experimental.mcp_server.auth.token_endpoint_auth import (
+from embrouter.proxy._experimental.mcp_server.auth.token_endpoint_auth import (
     build_token_endpoint_client_auth,
 )
-from litellm.proxy._experimental.mcp_server.outbound_credentials.oauth_token_store import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.oauth_token_store import (
     InProcessRefreshCoordinator,
     RefreshCoordinator,
 )
-from litellm.proxy._experimental.mcp_server.outbound_credentials.result import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.result import (
     Error,
     Ok,
     Result,
 )
-from litellm.proxy._experimental.mcp_server.outbound_credentials.runtime_refresh_coordinator import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.runtime_refresh_coordinator import (
     runtime_refresh_coordinator,
 )
-from litellm.proxy._experimental.mcp_server.outbound_credentials.sso_assertion_store import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.sso_assertion_store import (
     AssertionStoreUnavailable,
     DbSSOAssertionStore,
     SSOAssertionStore,
@@ -80,8 +80,8 @@ from litellm.proxy._experimental.mcp_server.outbound_credentials.sso_assertion_s
     fetch_sso_identity_assertion,
     persist_sso_identity_assertion,
 )
-from litellm.types.llms.custom_http import httpxSpecialProvider
-from litellm.types.mcp import MCPTokenEndpointAuthMethod
+from embrouter.types.llms.custom_http import httpxSpecialProvider
+from embrouter.types.mcp import MCPTokenEndpointAuthMethod
 
 _BODY_ADAPTER: Final[TypeAdapter[Mapping[str, object]]] = TypeAdapter(dict[str, object])
 
@@ -198,10 +198,10 @@ class TokenEndpointTransport(Protocol):
 
 
 async def post_form(url: str, form: Mapping[str, str], headers: Mapping[str, str]) -> httpx.Response | None:
-    # litellm's httpx handler is only partially typed; nothing but the response object crosses back,
+    # embrouter's httpx handler is only partially typed; nothing but the response object crosses back,
     # and the transport below validates its body, so the untyped boundary is contained here.
-    client: Final = get_async_httpx_client(llm_provider=httpxSpecialProvider.MCP)  # pyright: ignore[reportUnknownVariableType]  # litellm http handler is untyped
-    return await client.post(url, data=form, headers=headers)  # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType,reportReturnType,reportArgumentType]  # litellm http handler is untyped and its stub narrows data=/headers= to dict, which httpx itself does not require
+    client: Final = get_async_httpx_client(llm_provider=httpxSpecialProvider.MCP)  # pyright: ignore[reportUnknownVariableType]  # embrouter http handler is untyped
+    return await client.post(url, data=form, headers=headers)  # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType,reportReturnType,reportArgumentType]  # embrouter http handler is untyped and its stub narrows data=/headers= to dict, which httpx itself does not require
 
 
 class HttpxTokenEndpointTransport:

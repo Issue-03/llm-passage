@@ -6,14 +6,14 @@ These models use token-based pricing instead of pixel-based pricing like DALL-E.
 
 from typing import Final
 
-from litellm import verbose_logger
-from litellm.litellm_core_utils.llm_cost_calc.utils import (
+from embrouter import verbose_logger
+from embrouter.embrouter_core_utils.llm_cost_calc.utils import (
     calculate_image_response_cost_from_usage,
     flat_image_cost,
     generic_cost_per_token,
     resolve_image_model_info,
 )
-from litellm.types.utils import ImageResponse, ModelInfo, Usage
+from embrouter.types.utils import ImageResponse, ModelInfo, Usage
 
 
 def cost_calculator(

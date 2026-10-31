@@ -6,8 +6,8 @@ import httpx
 import pytest
 
 
-import litellm
-from litellm.containers.main import (
+import embrouter
+from embrouter.containers.main import (
     acreate_container,
     adelete_container,
     alist_containers,
@@ -17,12 +17,12 @@ from litellm.containers.main import (
     list_containers,
     retrieve_container,
 )
-from litellm.main import base_llm_http_handler
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLogging
-from litellm.llms.openai.containers.transformation import OpenAIContainerConfig
-from litellm.responses.utils import ResponsesAPIRequestUtils
-from litellm.router import Router
-from litellm.types.containers.main import (
+from embrouter.main import base_llm_http_handler
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLogging
+from embrouter.llms.openai.containers.transformation import OpenAIContainerConfig
+from embrouter.responses.utils import ResponsesAPIRequestUtils
+from embrouter.router import Router
+from embrouter.types.containers.main import (
     ContainerListResponse,
     ContainerObject,
     DeleteContainerResult,
@@ -35,7 +35,7 @@ def clear_client_cache():
     Clear the HTTP client cache before each test to ensure mocks are used.
     This prevents cached real clients from being reused across tests.
     """
-    cache = getattr(litellm, "in_memory_llm_clients_cache", None)
+    cache = getattr(embrouter, "in_memory_llm_clients_cache", None)
     if cache is not None:
         cache.flush_cache()
     yield
@@ -180,7 +180,7 @@ class TestContainerAPI:
             response = await acreate_container(
                 name="Routed Container",
                 custom_llm_provider="openai",
-                litellm_metadata={"model_info": {"id": "deployment-abc"}},
+                embrouter_metadata={"model_info": {"id": "deployment-abc"}},
             )
 
         decoded = ResponsesAPIRequestUtils._decode_container_id(response.id)
@@ -415,7 +415,7 @@ class TestContainerAPI:
             "container_create_handler",
             side_effect=Exception("API Error"),
         ):
-            with pytest.raises(litellm.APIConnectionError):
+            with pytest.raises(embrouter.APIConnectionError):
                 create_container(
                     name="Error Test Container", custom_llm_provider="openai"
                 )
@@ -433,7 +433,7 @@ class TestContainerAPI:
         )
 
         with patch(
-            "litellm.containers.main.ProviderConfigManager"
+            "embrouter.containers.main.ProviderConfigManager"
         ) as mock_config_manager:
             mock_config_manager.get_provider_container_config.return_value = (
                 OpenAIContainerConfig()

@@ -16,9 +16,9 @@ from typing import Final
 import httpx
 from pydantic import BaseModel, ValidationError
 
-import litellm
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.types.integrations.zerobus import (
+import embrouter
+from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from embrouter.types.integrations.zerobus import (
     RETRYABLE_INGEST_STATUS_CODES,
     TOKEN_REFRESH_LEEWAY_SECONDS,
     ZerobusAccessToken,
@@ -119,7 +119,7 @@ class ZerobusIngestClient:
                 self._token = None
                 return ZerobusIngestFailure(detail="insert returned 401, token discarded", retryable=True)
             return _status_failure("insert", error)
-        except (httpx.HTTPError, litellm.Timeout) as error:
+        except (httpx.HTTPError, embrouter.Timeout) as error:
             return ZerobusIngestFailure(detail=f"insert failed: {error}", retryable=True)
         return None
 
@@ -152,7 +152,7 @@ class ZerobusIngestClient:
             )
         except httpx.HTTPStatusError as error:
             return _status_failure("token request", error)
-        except (httpx.HTTPError, litellm.Timeout) as error:
+        except (httpx.HTTPError, embrouter.Timeout) as error:
             return ZerobusIngestFailure(detail=f"token request failed: {error}", retryable=True)
         try:
             parsed: Final = _TokenResponse.model_validate_json(response.text)

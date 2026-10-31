@@ -6,17 +6,17 @@ from datetime import datetime
 import httpx
 import pytest
 
-import litellm
-from litellm.caching.dual_cache import DualCache
-from litellm.llms.anthropic.chat.transformation import AnthropicConfig
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.llms.anthropic.prompt_cache_prediction import cache_scope, parse_prompt
-from litellm.proxy.hooks.prompt_cache_prediction import (
+import embrouter
+from embrouter.caching.dual_cache import DualCache
+from embrouter.llms.anthropic.chat.transformation import AnthropicConfig
+from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from embrouter.llms.anthropic.prompt_cache_prediction import cache_scope, parse_prompt
+from embrouter.proxy.hooks.prompt_cache_prediction import (
     PromptCacheObserver,
     lookup,
 )
-from litellm.proxy.utils import InternalUsageCache
-from litellm.types.utils import ModelResponse
+from embrouter.proxy.utils import InternalUsageCache
+from embrouter.types.utils import ModelResponse
 
 MODEL = "claude-sonnet-5"
 CALLER = "a" * 64
@@ -257,7 +257,7 @@ class TransportChunks(httpx.AsyncByteStream):
 async def test_native_production_callback_records_only_completed_wire_requests(stream, completed, provider_error, transport):
     cache = DualCache()
     observer = RecordingObserver(cache)
-    litellm.logging_callback_manager.add_litellm_callback(observer)
+    embrouter.logging_callback_manager.add_embrouter_callback(observer)
 
     def provider(request):
         if stream:
@@ -279,10 +279,10 @@ async def test_native_production_callback_records_only_completed_wire_requests(s
     try:
         request_body = body(ttl="1h")
         before = time.time()
-        result = await litellm.anthropic_messages(
+        result = await embrouter.anthropic_messages(
             **{**request_body, "model": f"anthropic/{MODEL}"},
             api_key=KEY, client=client, stream=stream, model_info={"id": DEPLOYMENT},
-            litellm_metadata={"user_api_key_hash": CALLER, "model_info": {"id": DEPLOYMENT}},
+            embrouter_metadata={"user_api_key_hash": CALLER, "model_info": {"id": DEPLOYMENT}},
         )
         if stream:
             async for _ in result:
@@ -296,5 +296,5 @@ async def test_native_production_callback_records_only_completed_wire_requests(s
         else:
             assert found is None
     finally:
-        litellm.logging_callback_manager.remove_callback_from_all_lists(observer)
+        embrouter.logging_callback_manager.remove_callback_from_all_lists(observer)
         await client.client.aclose()

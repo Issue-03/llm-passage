@@ -35,12 +35,12 @@ from expression import case, tag, tagged_union
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
 from typing_extensions import assert_never
 
-from litellm.proxy._experimental.mcp_server.outbound_credentials.result import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.result import (
     Error,
     Ok,
     Result,
 )
-from litellm.types.mcp import (
+from embrouter.types.mcp import (
     DEFAULT_CREDENTIAL_HEADER,
     DEFAULT_SUBJECT_TOKEN_TYPE,
     normalize_upstream_header_name,
@@ -204,7 +204,7 @@ class CredError:
 def validate_header_name(raw: str) -> Result[str, CredError]:
     """``normalize_upstream_header_name`` with this package's error-as-value policy.
 
-    The grammar itself lives in ``litellm.types.mcp`` so the v1 model, the management endpoint and
+    The grammar itself lives in ``embrouter.types.mcp`` so the v1 model, the management endpoint and
     this vocabulary all judge a header name the same way while each keeps its own failure shape.
     """
     normalized: Final = normalize_upstream_header_name(raw)
@@ -463,7 +463,7 @@ AuthConfig = Annotated[
 
 
 class Subject(BaseModel):
-    """The validated inbound principal. NOT the v1 request object and NOT the LiteLLM key."""
+    """The validated inbound principal. NOT the v1 request object and NOT the EmbRouter key."""
 
     model_config = ConfigDict(frozen=True)
 

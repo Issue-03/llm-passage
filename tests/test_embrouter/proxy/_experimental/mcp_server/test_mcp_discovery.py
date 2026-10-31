@@ -17,7 +17,7 @@ class TestMCPRegistryFile:
             "..",
             "..",
             "..",
-            "litellm",
+            "embrouter",
             "proxy",
             "mcp_registry.json",
         )

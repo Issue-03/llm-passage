@@ -28,7 +28,7 @@ import threading
 import time
 from typing import Final
 
-from litellm._logging import verbose_proxy_logger
+from embrouter._logging import verbose_proxy_logger
 
 QUERY_ENGINE_COMM_PREFIX: Final = "query-engine"
 REAPER_SCAN_INTERVAL_SECONDS: Final = 5.0
@@ -177,7 +177,7 @@ def _reaper_loop(parent_pid: int) -> None:
         time.sleep(REAPER_SCAN_INTERVAL_SECONDS)
 
 
-REAPER_THREAD_NAME: Final = "litellm-orphan-query-engine-reaper"
+REAPER_THREAD_NAME: Final = "embrouter-orphan-query-engine-reaper"
 
 
 def start_query_engine_reaper() -> threading.Thread | None:

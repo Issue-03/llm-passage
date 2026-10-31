@@ -38,18 +38,18 @@ import httpx2
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, TypeAdapter, ValidationError
 from typing_extensions import assert_never
 
-from litellm._logging import verbose_logger
-from litellm.proxy._experimental.mcp_server.outbound_credentials.oauth_token_store import (
+from embrouter._logging import verbose_logger
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.oauth_token_store import (
     InMemoryTokenCacheBackend,
     OAuthToken,
     TokenCacheBackend,
 )
-from litellm.proxy._experimental.mcp_server.outbound_credentials.result import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.result import (
     Error,
     Ok,
     Result,
 )
-from litellm.proxy._experimental.mcp_server.outbound_credentials.types import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.types import (
     ClientCredentialsConfig,
     CredError,
     HeaderCarrier,
@@ -97,18 +97,18 @@ async def post_client_credentials_grant(
 ) -> TokenEndpointOutcome:
     """POST the grant to the token endpoint and classify the transport outcome.
 
-    The httpx edge: litellm's handler raises ``HTTPStatusError`` itself on a 4xx/5xx, and every
+    The httpx edge: embrouter's handler raises ``HTTPStatusError`` itself on a 4xx/5xx, and every
     field the caller reads comes out of a validated ``TokenEndpointOutcome``.
     """
-    from litellm.llms.custom_httpx.http_handler import (  # noqa: PLC0415  # defer heavy handler import to call time
+    from embrouter.llms.custom_httpx.http_handler import (  # noqa: PLC0415  # defer heavy handler import to call time
         get_async_httpx_client,  # pyright: ignore[reportUnknownVariableType]  # handler factory params are coarsely typed
     )
-    from litellm.proxy._experimental.mcp_server.mcp_debug import (  # noqa: PLC0415  # diagnostics import credential enums through this package
+    from embrouter.proxy._experimental.mcp_server.mcp_debug import (  # noqa: PLC0415  # diagnostics import credential enums through this package
         describe_upstream_http_failure,
         describe_upstream_response,
         safe_upstream_url,
     )
-    from litellm.types.llms.custom_http import httpxSpecialProvider  # noqa: PLC0415  # deferred with the handler import
+    from embrouter.types.llms.custom_http import httpxSpecialProvider  # noqa: PLC0415  # deferred with the handler import
 
     try:
         client: Final = get_async_httpx_client(llm_provider=httpxSpecialProvider.Oauth2Check)
@@ -296,7 +296,7 @@ def _prepare_grant(config: ClientCredentialsConfig) -> Result[_PreparedGrant, Cr
         )
         return Error(CredError.of_misconfigured(f"client_credentials config is missing: {missing}"))
 
-    from litellm.proxy._experimental.mcp_server.auth.token_endpoint_auth import (  # noqa: PLC0415  # keep package v1-free at import time
+    from embrouter.proxy._experimental.mcp_server.auth.token_endpoint_auth import (  # noqa: PLC0415  # keep package v1-free at import time
         build_token_endpoint_client_auth,
     )
 

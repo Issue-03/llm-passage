@@ -355,9 +355,9 @@ const AgentInfoView: React.FC<AgentInfoViewProps> = ({ agentId, onClose, accessT
                 <DetailItem label="State Transition History">Yes</DetailItem>
               )}
               <DetailItem label="Skills">{agent.agent_card_params?.skills?.length || 0} configured</DetailItem>
-              {agent.litellm_params?.model && <DetailItem label="Model">{agent.litellm_params.model}</DetailItem>}
-              {agent.litellm_params?.make_public !== undefined && (
-                <DetailItem label="Make Public">{agent.litellm_params.make_public ? "Yes" : "No"}</DetailItem>
+              {agent.embrouter_params?.model && <DetailItem label="Model">{agent.embrouter_params.model}</DetailItem>}
+              {agent.embrouter_params?.make_public !== undefined && (
+                <DetailItem label="Make Public">{agent.embrouter_params.make_public ? "Yes" : "No"}</DetailItem>
               )}
               {agent.agent_card_params?.iconUrl && (
                 <DetailItem label="Icon URL">{agent.agent_card_params.iconUrl}</DetailItem>

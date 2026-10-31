@@ -15,16 +15,16 @@ from typing import Final, Literal
 
 import httpx
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm._uuid import uuid
-from litellm.integrations.custom_batch_logger import CustomBatchLogger
-from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
-from litellm.llms.custom_httpx.http_handler import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter._uuid import uuid
+from embrouter.integrations.custom_batch_logger import CustomBatchLogger
+from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps
+from embrouter.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.types.utils import StandardLoggingPayload
+from embrouter.types.utils import StandardLoggingPayload
 
 API_EVENT_TYPES = Literal["llm_api_success", "llm_api_failure"]
 LOG_FORMAT_TYPES = Literal["json_array", "ndjson", "single"]
@@ -221,9 +221,9 @@ class GenericAPILogger(CustomBatchLogger):
             except Exception as e:
                 verbose_logger.warning("Error parsing headers from environment variables: %s", e)
 
-        # 2. Update with litellm generic headers if available
-        if litellm.generic_logger_headers:
-            headers_dict.update(litellm.generic_logger_headers)
+        # 2. Update with embrouter generic headers if available
+        if embrouter.generic_logger_headers:
+            headers_dict.update(embrouter.generic_logger_headers)
 
         # 3. Override with directly provided headers if any
         if headers:
@@ -232,7 +232,7 @@ class GenericAPILogger(CustomBatchLogger):
         return headers_dict
 
     def _should_retry_exception(self, exception: Exception) -> bool:
-        if isinstance(exception, (litellm.Timeout, httpx.TransportError)):
+        if isinstance(exception, (embrouter.Timeout, httpx.TransportError)):
             return True
 
         if isinstance(exception, httpx.HTTPStatusError):
@@ -294,7 +294,7 @@ class GenericAPILogger(CustomBatchLogger):
             standard_logging_payload: Final = kwargs.get("standard_logging_object", None)
 
             # Backwards compatibility with old logging payload
-            if litellm.generic_api_use_v1 is True:
+            if embrouter.generic_api_use_v1 is True:
                 payload: Final = self._get_v1_logging_payload(
                     kwargs=kwargs,
                     response_obj=response_obj,
@@ -326,7 +326,7 @@ class GenericAPILogger(CustomBatchLogger):
             verbose_logger.debug("Generic API Logger - Enters logging function for model %s", kwargs)
             standard_logging_payload: Final = kwargs.get("standard_logging_object", None)
 
-            if litellm.generic_api_use_v1 is True:
+            if embrouter.generic_api_use_v1 is True:
                 payload: Final = self._get_v1_logging_payload(
                     kwargs=kwargs,
                     response_obj=response_obj,
@@ -415,12 +415,12 @@ class GenericAPILogger(CustomBatchLogger):
 
         # construct payload to send custom logger
         # follows the same params as langfuse.py
-        litellm_params: Final = kwargs.get("litellm_params", {})
-        metadata: Final = litellm_params.get("metadata", {}) or {}  # if litellm_params['metadata'] == None
+        embrouter_params: Final = kwargs.get("embrouter_params", {})
+        metadata: Final = embrouter_params.get("metadata", {}) or {}  # if embrouter_params['metadata'] == None
         messages: Final = kwargs.get("messages")
         cost: Final = kwargs.get("response_cost", 0.0)
         optional_params: Final = kwargs.get("optional_params", {})
-        call_type: Final = kwargs.get("call_type", "litellm.completion")
+        call_type: Final = kwargs.get("call_type", "embrouter.completion")
         cache_hit: Final = kwargs.get("cache_hit", False)
         usage: Final = response_obj["usage"]
         id: Final = response_obj.get("id", str(uuid.uuid4()))

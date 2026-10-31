@@ -1,8 +1,8 @@
 """
-Tests for litellm.llms.gigachat.chat.streaming
+Tests for embrouter.llms.gigachat.chat.streaming
 """
 
-from litellm.llms.gigachat.chat.streaming import GigaChatModelResponseIterator
+from embrouter.llms.gigachat.chat.streaming import GigaChatModelResponseIterator
 
 
 def _parse(chunk: dict) -> dict:

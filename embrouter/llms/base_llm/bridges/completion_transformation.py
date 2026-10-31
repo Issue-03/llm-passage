@@ -9,10 +9,10 @@ from typing import TYPE_CHECKING, Union
 if TYPE_CHECKING:
     from pydantic import BaseModel
 
-    from litellm import LiteLLMLoggingObj, ModelResponse
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
-    from litellm.llms.base_llm.base_model_iterator import BaseModelResponseIterator
-    from litellm.types.llms.openai import AllMessageValues
+    from embrouter import EmbRouterLoggingObj, ModelResponse
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.llms.base_llm.base_model_iterator import BaseModelResponseIterator
+    from embrouter.types.llms.openai import AllMessageValues
 
 
 class CompletionTransformationBridge(ABC):
@@ -22,9 +22,9 @@ class CompletionTransformationBridge(ABC):
         model: str,
         messages: list["AllMessageValues"],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
-        litellm_logging_obj: "LiteLLMLoggingObj",
+        embrouter_logging_obj: "EmbRouterLoggingObj",
     ) -> dict:
         """Transform /chat/completions api request to another request"""
 
@@ -34,11 +34,11 @@ class CompletionTransformationBridge(ABC):
         model: str,
         raw_response: "BaseModel",  # the response from the other API
         model_response: "ModelResponse",
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
         request_data: dict,
         messages: list["AllMessageValues"],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,

@@ -22,14 +22,14 @@ from datetime import timedelta
 from types import MappingProxyType, TracebackType
 from typing import Final, Generic, Protocol, TypeVar
 
-from litellm._logging import verbose_logger
-from litellm.caching.redis_cache import (
+from embrouter._logging import verbose_logger
+from embrouter.caching.redis_cache import (
     RedisCache,
     _run_under_circuit_breaker,  # pyright: ignore[reportPrivateUsage]  # same health signal as every RedisCache method
     log_redis_failure,
 )
-from litellm.caching.redis_cluster_cache import RedisClusterCache
-from litellm.types.services import ServiceTypes
+from embrouter.caching.redis_cluster_cache import RedisClusterCache
+from embrouter.types.services import ServiceTypes
 
 _T = TypeVar("_T")
 _ScriptArg = str | bytes | int | float
@@ -106,7 +106,7 @@ class _Op(Generic[_T]):
 
 
 def _is_missing_script(failure: Exception) -> bool:
-    """Imported lazily: this module is reachable from a base ``import litellm`` while redis is not a base dependency."""
+    """Imported lazily: this module is reachable from a base ``import embrouter`` while redis is not a base dependency."""
     from redis.exceptions import NoScriptError
 
     return isinstance(failure, NoScriptError)

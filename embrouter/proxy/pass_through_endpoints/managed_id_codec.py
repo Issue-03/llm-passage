@@ -1,16 +1,16 @@
 """
-Codec for LiteLLM passthrough-managed object IDs.
+Codec for EmbRouter passthrough-managed object IDs.
 
 Plaintext format (before urlsafe-base64 encoding):
-    litellm_proxy:passthrough;provider:{p};unified_id,{u};raw_id,{r}
+    embrouter_proxy:passthrough;provider:{p};unified_id,{u};raw_id,{r}
 
 Uses the same base64.urlsafe_b64encode / padding-restore convention as
 ``_is_base64_encoded_unified_file_id`` in
 ``openai_files_endpoints/common_utils.py``.
 
 The ``passthrough;`` discriminator distinguishes these rows from
-unified-endpoint rows that share the same LiteLLM_ManagedFileTable /
-LiteLLM_ManagedObjectTable.  ``_resolve_one`` in the rewriter module rejects
+unified-endpoint rows that share the same EmbRouter_ManagedFileTable /
+EmbRouter_ManagedObjectTable.  ``_resolve_one`` in the rewriter module rejects
 any row whose decoded plaintext lacks this discriminator, making cross-system
 replay safe.
 """
@@ -22,9 +22,9 @@ import uuid as _uuid_mod
 from dataclasses import dataclass
 from typing import Final
 
-from litellm.types.utils import SpecialEnums
+from embrouter.types.utils import SpecialEnums
 
-_PREFIX: Final = SpecialEnums.LITELM_MANAGED_FILE_ID_PREFIX.value  # "litellm_proxy"
+_PREFIX: Final = SpecialEnums.LITELM_MANAGED_FILE_ID_PREFIX.value  # "embrouter_proxy"
 _DISCRIMINATOR: Final = "passthrough"
 
 
@@ -39,7 +39,7 @@ class ManagedIdPayload:
 
 def encode(provider: str, unified_uuid: str, raw_provider_id: str) -> str:
     """Return a urlsafe-base64 managed ID string (trailing ``=`` stripped)."""
-    plaintext: Final = SpecialEnums.LITELLM_PASSTHROUGH_MANAGED_ID_COMPLETE_STR.value.format(
+    plaintext: Final = SpecialEnums.EMBROUTER_PASSTHROUGH_MANAGED_ID_COMPLETE_STR.value.format(
         provider, unified_uuid, raw_provider_id
     )
     return base64.urlsafe_b64encode(plaintext.encode()).decode().rstrip("=")
@@ -61,7 +61,7 @@ def decode(managed_id: str) -> ManagedIdPayload | None:
     except Exception:
         return None
 
-    # Must start with "litellm_proxy:passthrough;"
+    # Must start with "embrouter_proxy:passthrough;"
     expected_head: Final = f"{_PREFIX}:{_DISCRIMINATOR};"
     if not plaintext.startswith(expected_head):
         return None

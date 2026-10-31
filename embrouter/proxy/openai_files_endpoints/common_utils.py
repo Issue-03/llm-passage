@@ -15,30 +15,30 @@ from typing import (
     runtime_checkable,
 )
 
-from litellm.batches.batch_utils import batch_cost_is_final
-from litellm.constants import MAX_FILE_LIST_LIMIT
-from litellm.proxy._types import ProxyException
-from litellm.repositories.table_repositories import (
+from embrouter.batches.batch_utils import batch_cost_is_final
+from embrouter.constants import MAX_FILE_LIST_LIMIT
+from embrouter.proxy._types import ProxyException
+from embrouter.repositories.table_repositories import (
     ManagedFileRepository,
     ManagedObjectRepository,
 )
-from litellm.types.llms.openai import OpenAIFilesPurpose
-from litellm.types.utils import SpecialEnums
+from embrouter.types.llms.openai import OpenAIFilesPurpose
+from embrouter.types.utils import SpecialEnums
 
 if TYPE_CHECKING:
     from fastapi import Request
-    from prisma.models import LiteLLM_ManagedObjectTable
+    from prisma.models import EmbRouter_ManagedObjectTable
 
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.utils import PrismaClient
-    from litellm.router import Router
-    from litellm.types.utils import LiteLLMBatch
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy.utils import PrismaClient
+    from embrouter.router import Router
+    from embrouter.types.utils import EmbRouterBatch
 
 
 FILE_LIST_CONTINUATION_CHUNK_SIZE: Final = 500
 
 BATCH_CREATE_HIDDEN_PARAM: Final = "batch_create"
-LITELLM_EXECUTED_BATCH_ID_PREFIX: Final = "litellm_batch_"
+EMBROUTER_EXECUTED_BATCH_ID_PREFIX: Final = "embrouter_batch_"
 
 
 def validate_file_list_limit(limit: int | None) -> None:
@@ -136,7 +136,7 @@ def get_models_from_unified_file_id(unified_file_id: str) -> list[str]:
     Extract model names from unified file ID.
 
     Example:
-    unified_file_id = "litellm_proxy:application/octet-stream;unified_id,c4843482-b176-4901-8292-7523fd0f2c6e;target_model_names,gpt-4o-mini,gemini-2.0-flash"
+    unified_file_id = "embrouter_proxy:application/octet-stream;unified_id,c4843482-b176-4901-8292-7523fd0f2c6e;target_model_names,gpt-4o-mini,gemini-2.0-flash"
     returns: ["gpt-4o-mini", "gemini-2.0-flash"]
     """
     try:
@@ -156,7 +156,7 @@ def get_model_id_from_unified_batch_id(file_id: str) -> str | None:
     """
     Get the model_id from the file_id
 
-    Expected format: litellm_proxy;model_id:{};llm_batch_id:{};llm_output_file_id:{}
+    Expected format: embrouter_proxy;model_id:{};llm_batch_id:{};llm_output_file_id:{}
     """
     ## use regex to get the model_id from the file_id
     try:
@@ -180,21 +180,21 @@ def get_batch_id_from_unified_batch_id(file_id: str) -> str:
     return re.split(r"[;,]", batch_id, maxsplit=1)[0]
 
 
-def is_litellm_executed_batch(decoded_unified_batch_id: str) -> bool:
+def is_embrouter_executed_batch(decoded_unified_batch_id: str) -> bool:
     _, marker, batch_id = decoded_unified_batch_id.partition("llm_batch_id:")
-    return bool(marker) and batch_id.startswith(LITELLM_EXECUTED_BATCH_ID_PREFIX)
+    return bool(marker) and batch_id.startswith(EMBROUTER_EXECUTED_BATCH_ID_PREFIX)
 
 
 def encode_file_id_with_model(file_id: str, model: str, id_type: Literal["file", "batch"] = "file") -> str:
     """
     Encode a file/batch ID with model routing information.
 
-    Format: <prefix><base64(litellm:<original_id>;model,<model_name>)>
+    Format: <prefix><base64(embrouter:<original_id>;model,<model_name>)>
     The result preserves the original prefix (file-, batch_, etc.) for OpenAI compliance.
 
     Args:
         file_id: Original file/batch ID from the provider (e.g., "file-abc123", "batch_xyz")
-        model: Model name from model_list (e.g., "gpt-4o-litellm")
+        model: Model name from model_list (e.g., "gpt-4o-embrouter")
         id_type: Type of ID being encoded. Used to determine the correct prefix when
                  the raw ID lacks a recognizable prefix (e.g., Vertex AI numeric IDs).
                  Defaults to "file" for backward compatibility.
@@ -203,7 +203,7 @@ def encode_file_id_with_model(file_id: str, model: str, id_type: Literal["file",
         Encoded ID starting with appropriate prefix and containing routing information
 
     Examples:
-        encode_file_id_with_model("file-abc123", "gpt-4o-litellm")
+        encode_file_id_with_model("file-abc123", "gpt-4o-embrouter")
         -> "file-bGl0ZWxsbTpmaWxlLWFiYzEyMzttb2RlbCxncHQtNG8taWZvb2Q"
 
         encode_file_id_with_model("batch_abc123", "gpt-4o-test")
@@ -212,7 +212,7 @@ def encode_file_id_with_model(file_id: str, model: str, id_type: Literal["file",
         encode_file_id_with_model("3814889423749775360", "gemini-2.5-pro", id_type="batch")
         -> "batch_bGl0ZWxsbTozODE0ODg5NDIzNzQ5Nzc1MzYwO21vZGVsLGdlbWluaS0yLjUtcHJv"
     """
-    encoded_str: Final = f"litellm:{file_id};model,{model}"
+    encoded_str: Final = f"embrouter:{file_id};model,{model}"
     encoded_bytes: Final = base64.urlsafe_b64encode(encoded_str.encode())
     encoded_b64: Final = encoded_bytes.decode().rstrip("=")
 
@@ -262,7 +262,7 @@ def decode_model_from_file_id(encoded_id: str) -> str | None:
 
         padded: Final = b64_part + "=" * (-len(b64_part) % 4)
         decoded: Final = base64.urlsafe_b64decode(padded).decode()
-        if decoded.startswith("litellm:") and ";model," in decoded:
+        if decoded.startswith("embrouter:") and ";model," in decoded:
             match: Final = re.search(r";model,([^;]+)", decoded)
             if match:
                 return match.group(1).strip()
@@ -292,8 +292,8 @@ def get_original_file_id(encoded_id: str) -> str:
         padded: Final = b64_part + "=" * (-len(b64_part) % 4)
         decoded: Final = base64.urlsafe_b64decode(padded).decode()
 
-        if decoded.startswith("litellm:") and ";model," in decoded:
-            match: Final = re.search(r"litellm:([^;]+);model,", decoded)
+        if decoded.startswith("embrouter:") and ";model," in decoded:
+            match: Final = re.search(r"embrouter:([^;]+);model,", decoded)
             if match:
                 return match.group(1)
 
@@ -322,7 +322,7 @@ def extract_model_from_sources(
     """
     Extract model information from multiple sources in priority order:
     1. Embedded in file_id (highest priority)
-    2. Request headers (x-litellm-model)
+    2. Request headers (x-embrouter-model)
     3. Query parameters (?model=)
     4. Request body/data dict
 
@@ -343,7 +343,7 @@ def extract_model_from_sources(
     model_from_id: Final = decode_model_from_file_id(file_id)
 
     # Check other sources for model parameter
-    model_from_param = data.get("model") or request.query_params.get("model") or request.headers.get("x-litellm-model")
+    model_from_param = data.get("model") or request.query_params.get("model") or request.headers.get("x-embrouter-model")
 
     return model_from_id, model_from_param
 
@@ -361,7 +361,7 @@ def get_credentials_for_model(
     model name (request body, header, query param, or a model-encoded resource id).
 
     Args:
-        llm_router: LiteLLM Router instance
+        llm_router: EmbRouter Router instance
         model_id: Model name or deployment ID
         operation_context: Description for error messages (e.g., "file upload", "batch creation")
 
@@ -373,7 +373,7 @@ def get_credentials_for_model(
     """
     from fastapi import HTTPException
 
-    from litellm.proxy.route_llm_request import ProxyModelNotFoundError
+    from embrouter.proxy.route_llm_request import ProxyModelNotFoundError
 
     if llm_router is None:
         raise HTTPException(
@@ -408,7 +408,7 @@ async def authorize_model_for_key(
     Raises:
         ProxyException (403): the caller is not allowed to use ``model_id``
     """
-    from litellm.proxy.auth.auth_checks import can_key_call_resolved_model
+    from embrouter.proxy.auth.auth_checks import can_key_call_resolved_model
 
     await can_key_call_resolved_model(
         model=model_id,
@@ -462,8 +462,8 @@ def get_team_provider_credentials(
     if llm_router is None:
         return None
 
-    from litellm.proxy._types import SpecialModelNames
-    from litellm.proxy.auth.model_checks import get_complete_model_list, get_key_models
+    from embrouter.proxy._types import SpecialModelNames
+    from embrouter.proxy.auth.model_checks import get_complete_model_list, get_key_models
 
     team_id: Final = user_api_key_dict.team_id
     team_models: Final = user_api_key_dict.team_models or []
@@ -597,7 +597,7 @@ def add_internal_model_credentials(
         return
     if credentials is None:
         return
-    data["_litellm_internal_model_credentials"] = MappingProxyType(dict(credentials))
+    data["_embrouter_internal_model_credentials"] = MappingProxyType(dict(credentials))
 
 
 def add_deployment_model_info(
@@ -613,8 +613,8 @@ def add_deployment_model_info(
     deployment: Final = llm_router.get_credential_deployment(model_id=model_id) if llm_router is not None else None
     if deployment is None:
         return
-    data["litellm_metadata"] = {
-        **(data.get("litellm_metadata") or {}),
+    data["embrouter_metadata"] = {
+        **(data.get("embrouter_metadata") or {}),
         "model_info": deployment.model_info.model_dump(),
     }
 
@@ -637,7 +637,7 @@ def prepare_data_with_credentials(
     """
     data.update(credentials)
     if include_internal_credentials:
-        data["_litellm_internal_model_credentials"] = MappingProxyType(dict(credentials))
+        data["_embrouter_internal_model_credentials"] = MappingProxyType(dict(credentials))
     data.pop("custom_llm_provider", None)
 
     if file_id is not None:
@@ -662,7 +662,7 @@ async def handle_model_based_routing(
     Args:
         file_id: File ID (may contain embedded model info)
         request: FastAPI request object
-        llm_router: LiteLLM Router instance
+        llm_router: EmbRouter Router instance
         data: Request data dictionary
         user_api_key_dict: The authenticated caller
         check_file_id_encoding: Whether to check for embedded model in file_id
@@ -933,7 +933,7 @@ async def extract_file_creation_params(
     Returns:
         FileCreationParams: Structured parameters extracted from the request
     """
-    from litellm.proxy.common_utils.http_parsing_utils import _read_request_body
+    from embrouter.proxy.common_utils.http_parsing_utils import _read_request_body
 
     if request_body is None:
         request_body = await _read_request_body(request=request) or {}
@@ -1024,7 +1024,7 @@ def validate_managed_files_requirement(
     model: str | None = None,
 ) -> None:
     """
-    Enforce proxy-level managed files when litellm.require_managed_files is enabled.
+    Enforce proxy-level managed files when embrouter.require_managed_files is enabled.
 
     Raises:
         HTTPException: 400 if the upload would bypass the managed-files flow, i.e.
@@ -1033,9 +1033,9 @@ def validate_managed_files_requirement(
     """
     from fastapi import HTTPException
 
-    import litellm
+    import embrouter
 
-    if litellm.require_managed_files is not True:
+    if embrouter.require_managed_files is not True:
         return
 
     if not target_model_names:
@@ -1043,7 +1043,7 @@ def validate_managed_files_requirement(
             status_code=400,
             detail=(
                 "target_model_names is required when require_managed_files is enabled "
-                "in litellm_settings. Provide one or more model aliases via the "
+                "in embrouter_settings. Provide one or more model aliases via the "
                 "target_model_names form field (e.g. target_model_names=my-model-alias)."
             ),
         )
@@ -1053,7 +1053,7 @@ def validate_managed_files_requirement(
             status_code=400,
             detail=(
                 "model is not allowed when require_managed_files is enabled in "
-                "litellm_settings. Uploads must go through managed files using "
+                "embrouter_settings. Uploads must go through managed files using "
                 "target_model_names instead of the model parameter."
             ),
         )
@@ -1067,10 +1067,10 @@ async def validate_managed_id_requirement(
 ) -> None:
     """
     Enforce proxy-level managed resources on every route that accepts a provider-issued id
-    when ``litellm.require_managed_files`` is enabled, and authenticate managed ids against
+    when ``embrouter.require_managed_files`` is enabled, and authenticate managed ids against
     the caller's stored ownership record.
 
-    Ownership is only recorded for LiteLLM managed ids, so a raw provider id is forwarded to the
+    Ownership is only recorded for EmbRouter managed ids, so a raw provider id is forwarded to the
     provider under shared credentials without any tenant check; knowing another tenant's provider
     id would be enough to read, reuse, or destroy the object behind it.
 
@@ -1080,9 +1080,9 @@ async def validate_managed_id_requirement(
     """
     from fastapi import HTTPException
 
-    import litellm
+    import embrouter
 
-    if litellm.require_managed_files is not True:
+    if embrouter.require_managed_files is not True:
         return
 
     if not resource_id:
@@ -1093,7 +1093,7 @@ async def validate_managed_id_requirement(
             status_code=400,
             detail=(
                 f"Raw provider {resource_kind} ids cannot be used when require_managed_files is enabled in "
-                f"litellm_settings. Use the LiteLLM managed {resource_kind} id returned when the "
+                f"embrouter_settings. Use the EmbRouter managed {resource_kind} id returned when the "
                 f"{resource_kind} was created."
             ),
         )
@@ -1125,9 +1125,9 @@ def _extract_model_param(request: "Request", request_body: dict) -> str | None:
     Priority:
     1. request_body.model
     2. Query parameter (?model=)
-    3. Header (x-litellm-model)
+    3. Header (x-embrouter-model)
     """
-    return request_body.get("model") or request.query_params.get("model") or request.headers.get("x-litellm-model")
+    return request_body.get("model") or request.query_params.get("model") or request.headers.get("x-embrouter-model")
 
 
 # ============================================================================
@@ -1159,7 +1159,7 @@ def _batch_response_model_id_candidates(
 
 
 def _model_id_for_batch_response(
-    response: "LiteLLMBatch",
+    response: "EmbRouterBatch",
     unified_batch_id: str | Literal[False] | None,
 ) -> str | None:
     hidden_params: Final = getattr(response, "_hidden_params", None) or {}
@@ -1176,7 +1176,7 @@ def _model_id_for_batch_response(
     )
 
 
-def _model_name_for_batch_response(response: "LiteLLMBatch") -> str | None:
+def _model_name_for_batch_response(response: "EmbRouterBatch") -> str | None:
     hidden_params: Final = getattr(response, "_hidden_params", None) or {}
     unified_file_id: Final = hidden_params.get("unified_file_id")
     return resolve_managed_output_file_model_name(
@@ -1187,8 +1187,8 @@ def _model_name_for_batch_response(response: "LiteLLMBatch") -> str | None:
     )
 
 
-def _batch_owner_auth_from_db_object(db_batch_object: "LiteLLM_ManagedObjectTable") -> "UserAPIKeyAuth | None":
-    from litellm.proxy._types import UserAPIKeyAuth
+def _batch_owner_auth_from_db_object(db_batch_object: "EmbRouter_ManagedObjectTable") -> "UserAPIKeyAuth | None":
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     created_by: Final = getattr(db_batch_object, "created_by", None)
     if not isinstance(created_by, str) or not created_by:
@@ -1259,7 +1259,7 @@ async def map_raw_file_ids_to_unified(
     )
 
 
-def apply_unified_file_ids(response: "LiteLLMBatch", unified_id_by_raw_id: Mapping[str, str]) -> None:
+def apply_unified_file_ids(response: "EmbRouterBatch", unified_id_by_raw_id: Mapping[str, str]) -> None:
     for file_attr, raw_id in (
         ("input_file_id", getattr(response, "input_file_id", None)),
         ("output_file_id", getattr(response, "output_file_id", None)),
@@ -1275,7 +1275,7 @@ async def ensure_batch_response_managed_file_ids(
     prisma_client,
     verbose_proxy_logger,
     user_api_key_dict=None,
-    db_batch_object: "LiteLLM_ManagedObjectTable | None" = None,
+    db_batch_object: "EmbRouter_ManagedObjectTable | None" = None,
     unified_batch_id: str | Literal[False] | None = None,
 ) -> None:
     """Normalize batch file IDs to managed unified IDs before DB persistence."""
@@ -1309,7 +1309,7 @@ async def ensure_batch_response_managed_file_ids(
             await managed_files_obj.store_unified_file_id(
                 file_id=new_unified_file_id,
                 file_object=None,
-                litellm_parent_otel_span=getattr(effective_auth, "parent_otel_span", None),
+                embrouter_parent_otel_span=getattr(effective_auth, "parent_otel_span", None),
                 model_mappings={model_id: raw_file_id},
                 user_api_key_dict=effective_auth,
             )
@@ -1341,11 +1341,11 @@ async def get_batch_from_database(
     Returns:
         Tuple of (db_batch_object, response_batch)
         - db_batch_object: Raw database object (or None)
-        - response_batch: Parsed LiteLLMBatch object (or None)
+        - response_batch: Parsed EmbRouterBatch object (or None)
     """
     import json
 
-    from litellm.types.utils import LiteLLMBatch
+    from embrouter.types.utils import EmbRouterBatch
 
     if managed_files_obj is None or not unified_batch_id:
         return None, None
@@ -1366,7 +1366,7 @@ async def get_batch_from_database(
             "Mapping[str, object] | str", db_batch_object.file_object
         )
         batch_data: Final = json.loads(file_object) if isinstance(file_object, str) else file_object
-        response: Final = LiteLLMBatch.model_validate(batch_data)
+        response: Final = EmbRouterBatch.model_validate(batch_data)
         response.id = batch_id
 
         # The stored batch object may have raw provider file IDs. Register any missing
@@ -1406,12 +1406,12 @@ def batch_cost_poller_is_active() -> bool:
     invisible to it. Defaulting to False until the poller confirms support keeps the
     retrieve path accounting in exactly the cases the poller would drop the batch.
     """
-    from litellm.constants import PROXY_BATCH_POLLING_ENABLED
+    from embrouter.constants import PROXY_BATCH_POLLING_ENABLED
 
     if not PROXY_BATCH_POLLING_ENABLED:
         return False
     try:
-        import litellm.proxy.proxy_server as proxy_server_module
+        import embrouter.proxy.proxy_server as proxy_server_module
 
         scheduler = getattr(proxy_server_module, "scheduler", None)
         if scheduler is None:
@@ -1425,7 +1425,7 @@ def batch_cost_poller_is_active() -> bool:
         return False
 
 
-def _completed_batch_safe_to_retire(response: "LiteLLMBatch") -> bool:
+def _completed_batch_safe_to_retire(response: "EmbRouterBatch") -> bool:
     """Whether a "completed" batch may be retired from cost recovery.
 
     ``batch_processed=True`` is the sole re-pickup gate for CheckBatchCost's
@@ -1448,7 +1448,7 @@ async def update_batch_in_database(
     managed_files_obj,
     prisma_client,
     verbose_proxy_logger,
-    db_batch_object: "LiteLLM_ManagedObjectTable | None" = None,
+    db_batch_object: "EmbRouter_ManagedObjectTable | None" = None,
     operation: str = "update",
     user_api_key_dict=None,
     poller_owns_accounting: bool | None = None,
@@ -1473,7 +1473,7 @@ async def update_batch_in_database(
             unmarked after it was already accounted for, billing it twice. Left None by
             callers that record no cost themselves.
     """
-    import litellm.utils
+    import embrouter.utils
 
     if managed_files_obj is None or not unified_batch_id:
         return
@@ -1518,7 +1518,7 @@ async def update_batch_in_database(
         update_data: Final[dict[str, object]] = {
             "status": db_status,
             "file_object": response.model_dump_json(),
-            "updated_at": litellm.utils.get_utc_datetime(),
+            "updated_at": embrouter.utils.get_utc_datetime(),
         }
 
         poller_owns: Final = batch_cost_poller_is_active() if poller_owns_accounting is None else poller_owns_accounting

@@ -4,14 +4,14 @@ Similar to init_guardrails.py, but for prompts.
 
 from typing import Final
 
-from litellm._logging import verbose_proxy_logger
+from embrouter._logging import verbose_proxy_logger
 
 
 def init_prompts(
     all_prompts: list[dict],
     config_file_path: str | None = None,
 ):
-    from litellm.types.prompts.init_prompts import PromptSpec
+    from embrouter.types.prompts.init_prompts import PromptSpec
 
     from .prompt_registry import IN_MEMORY_PROMPT_REGISTRY
 

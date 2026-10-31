@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { useUserBanner } from "@/app/(dashboard)/hooks/userBanner/useUserBanner";
 import { UserBanner as UserBannerData, UserBannerSeverity } from "@/components/networking";
 
-const DISMISS_STORAGE_KEY = "litellm:userBannerDismissed";
+const DISMISS_STORAGE_KEY = "embrouter:userBannerDismissed";
 
 export const SEVERITY_ICONS: Record<UserBannerSeverity, React.ReactElement> = {
   info: <Info />,

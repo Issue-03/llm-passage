@@ -14,17 +14,17 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from pydantic import BaseModel, ConfigDict, Field, SecretStr, ValidationError
 
-from litellm._logging import verbose_logger
-from litellm.caching.in_memory_cache import InMemoryCache
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter._logging import verbose_logger
+from embrouter.caching.in_memory_cache import InMemoryCache
+from embrouter.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.proxy._experimental.mcp_server.auth.token_endpoint_auth import (
+from embrouter.proxy._experimental.mcp_server.auth.token_endpoint_auth import (
     TokenEndpointAuthConfigError,
     normalize_token_endpoint_auth_method,
 )
-from litellm.proxy._experimental.mcp_server.bridge_token_flow import (
+from embrouter.proxy._experimental.mcp_server.bridge_token_flow import (
     _bridge_mint_error_response,
     _BridgeMintReady,
     _BridgeRefreshReady,
@@ -37,7 +37,7 @@ from litellm.proxy._experimental.mcp_server.bridge_token_flow import (
     can_store_oauth_credential,
     oauth_authorization_uses_gateway_credential,
 )
-from litellm.proxy._experimental.mcp_server.faults import (
+from embrouter.proxy._experimental.mcp_server.faults import (
     CallerRejected,
     CredentialSource,
     UpstreamProtocolFault,
@@ -46,7 +46,7 @@ from litellm.proxy._experimental.mcp_server.faults import (
     dcr_fault_detail,
     render_token_fault,
 )
-from litellm.proxy._experimental.mcp_server.gateway_dcr_flow import (
+from embrouter.proxy._experimental.mcp_server.gateway_dcr_flow import (
     VendorCredentialState,
     aggregate_authorize,
     aggregate_token,
@@ -62,16 +62,16 @@ from litellm.proxy._experimental.mcp_server.gateway_dcr_flow import (
     revoke_refresh_token,
     supported_grant_types,
 )
-from litellm.proxy._experimental.mcp_server.idp_token_exchange import (
+from embrouter.proxy._experimental.mcp_server.idp_token_exchange import (
     exchange_idp_subject_token,
     token_exchange_available,
 )
-from litellm.proxy._experimental.mcp_server.oauth_identity_binding import (
+from embrouter.proxy._experimental.mcp_server.oauth_identity_binding import (
     RefreshOwnershipProven,
     RefreshTokenPresented,
     enforce_oauth_identity_binding,
 )
-from litellm.proxy._experimental.mcp_server.oauth_utils import (
+from embrouter.proxy._experimental.mcp_server.oauth_utils import (
     TOKEN_NO_CACHE_HEADERS,
     build_upstream_oauth2_token_request,
     get_request_base_url,
@@ -79,22 +79,22 @@ from litellm.proxy._experimental.mcp_server.oauth_utils import (
     validate_trusted_redirect_uri,
     well_known_root_suffix,
 )
-from litellm.proxy._experimental.mcp_server.proxy_api_credentials import (
+from embrouter.proxy._experimental.mcp_server.proxy_api_credentials import (
     lookup_consent_teams,
     mint_proxy_credential,
 )
-from litellm.proxy.auth.ip_address_utils import IPAddressUtils
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.common_utils.encrypt_decrypt_utils import (
+from embrouter.proxy.auth.ip_address_utils import IPAddressUtils
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.common_utils.encrypt_decrypt_utils import (
     decrypt_value_helper,
     encrypt_value_helper,
 )
-from litellm.proxy.common_utils.http_parsing_utils import _read_request_body
-from litellm.types.mcp import MCPAuth, MCPCredentials
-from litellm.types.mcp_server.mcp_server_manager import MCPServer, MCPTokenEndpointAuthMethod
+from embrouter.proxy.common_utils.http_parsing_utils import _read_request_body
+from embrouter.types.mcp import MCPAuth, MCPCredentials
+from embrouter.types.mcp_server.mcp_server_manager import MCPServer, MCPTokenEndpointAuthMethod
 
 if TYPE_CHECKING:
-    from litellm.proxy._types import LiteLLM_MCPServerTable
+    from embrouter.proxy._types import EmbRouter_MCPServerTable
 
 # TTL cache for upstream OAuth metadata fetched from pass-through MCP servers.
 # Keeps us from hammering the upstream IdP on each discovery request.
@@ -195,7 +195,7 @@ def encode_state_with_base_url(
     code_challenge: str | None = None,
     code_challenge_method: str | None = None,
     client_redirect_uri: str | None = None,
-    litellm_user_id: str | None = None,
+    embrouter_user_id: str | None = None,
     mcp_server_id: str | None = None,
     dcr_client_id: str | None = None,
     dcr_client_secret: str | None = None,
@@ -211,9 +211,9 @@ def encode_state_with_base_url(
         code_challenge: PKCE code challenge from client
         code_challenge_method: PKCE code challenge method from client
         client_redirect_uri: Original redirect_uri from client
-        litellm_user_id: The authenticated user captured for bridge or identity-bound per-user OAuth;
+        embrouter_user_id: The authenticated user captured for bridge or identity-bound per-user OAuth;
             the callback seals this credential owner into the authorization code
-        mcp_server_id: The server the flow targets, sealed alongside litellm_user_id (bridge) or
+        mcp_server_id: The server the flow targets, sealed alongside embrouter_user_id (bridge) or
             dcr_client_id (ephemeral mint) so the gateway code cannot be replayed against another
             server
         dcr_client_id: The ephemeral DCR client the gateway minted at authorize for a
@@ -236,7 +236,7 @@ def encode_state_with_base_url(
         "code_challenge": code_challenge,
         "code_challenge_method": code_challenge_method,
         "client_redirect_uri": client_redirect_uri,
-        "litellm_user_id": litellm_user_id,
+        "embrouter_user_id": embrouter_user_id,
         "mcp_server_id": mcp_server_id,
         "dcr_client_id": dcr_client_id,
         "dcr_client_secret": dcr_client_secret,
@@ -277,7 +277,7 @@ class _BridgeAuthorizationCode(BaseModel):
     model_config = ConfigDict(frozen=True)
     oauth_nonce: str | None = None
     upstream_code: str = Field(min_length=1)
-    litellm_user_id: str = Field(min_length=1)
+    embrouter_user_id: str = Field(min_length=1)
     mcp_server_id: str = Field(min_length=1)
 
 
@@ -289,21 +289,21 @@ def is_bridge_authorization_code(code: str) -> bool:
 
 def seal_bridge_authorization_code(
     upstream_code: str,
-    litellm_user_id: str,
+    embrouter_user_id: str,
     mcp_server_id: str,
     oauth_nonce: str | None = None,
 ) -> str:
-    """Seal the upstream authorization code and the SSO-captured litellm user into a gateway
+    """Seal the upstream authorization code and the SSO-captured embrouter user into a gateway
     authorization code. The DCR client only echoes this opaque value back at the token endpoint; the
     gateway decrypts it there to recover the user (to bind the envelope) and the upstream code (to
-    exchange with the upstream), so a litellm identity captured in the browser at authorize survives
+    exchange with the upstream), so a embrouter identity captured in the browser at authorize survives
     to the back-channel token call with nothing stored server-side. Encrypted with the repo's
     authenticated symmetric helper (the same family the OAuth state uses), so the client can neither
     read nor forge it."""
     payload: Final = json.dumps(
         {
             "upstream_code": upstream_code,
-            "litellm_user_id": litellm_user_id,
+            "embrouter_user_id": embrouter_user_id,
             "mcp_server_id": mcp_server_id,
             "oauth_nonce": oauth_nonce,
         },
@@ -418,18 +418,18 @@ def redeem_passthrough_authorization_code(
 
 
 def _session_cookie_user_id(request: Request) -> str | None:
-    """The signed-in litellm user for a browser request, or ``None``. Thin wrapper so the
+    """The signed-in embrouter user for a browser request, or ``None``. Thin wrapper so the
     aggregate DCR flow's verbs receive the identity as a plain value instead of parsing
     cookies themselves."""
-    from litellm.proxy._experimental.mcp_server.byok_oauth_endpoints import (  # noqa: PLC0415  # circular import at module load
+    from embrouter.proxy._experimental.mcp_server.byok_oauth_endpoints import (  # noqa: PLC0415  # circular import at module load
         _user_id_from_session_cookie,
     )
 
     return _user_id_from_session_cookie(request)
 
 
-def _redirect_to_litellm_login(request: Request) -> RedirectResponse:
-    """Send an unauthenticated browser through litellm login before the interactive bridge authorize
+def _redirect_to_embrouter_login(request: Request) -> RedirectResponse:
+    """Send an unauthenticated browser through embrouter login before the interactive bridge authorize
     can capture its identity. The bridge oauth_delegate flow seals the SSO user into the gateway code,
     so a session is required; without one there is nothing to bind. A same-origin relative
     ``return_to`` (honored by the SSO callback) brings the browser straight back to this authorize
@@ -523,7 +523,7 @@ def _append_query_params(url: str, params: dict[str, str]) -> str:
 
 
 def _resolve_mcp_server_by_name_or_id(lookup: str, client_ip: str | None) -> MCPServer | None:
-    from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+    from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
         global_mcp_server_manager,
     )
 
@@ -543,7 +543,7 @@ def _resolve_oauth2_server_for_root_endpoints(
     without a server name prefix, we try to find the right server automatically.
     Returns the server if exactly one OAuth2 server is configured, else None.
     """
-    from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+    from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
         global_mcp_server_manager,
     )
 
@@ -627,11 +627,11 @@ async def _store_per_user_token_server_side(
     Errors are logged but NOT re-raised — the token is always returned to the
     client even when server-side storage fails.
     """
-    from litellm.proxy._experimental.mcp_server.oauth2_token_cache import (  # noqa: PLC0415
+    from embrouter.proxy._experimental.mcp_server.oauth2_token_cache import (  # noqa: PLC0415
         _compute_per_user_token_ttl,
         mcp_per_user_token_cache,
     )
-    from litellm.proxy.utils import get_prisma_client_or_throw  # noqa: PLC0415
+    from embrouter.proxy.utils import get_prisma_client_or_throw  # noqa: PLC0415
 
     access_token: Final[str | None] = token_response.get("access_token")
     if not access_token:
@@ -649,7 +649,7 @@ async def _store_per_user_token_server_side(
 
     try:
         prisma_client: Final = get_prisma_client_or_throw("Database not connected. Cannot store per-user OAuth token.")
-        from litellm.proxy._experimental.mcp_server.db import (  # noqa: PLC0415
+        from embrouter.proxy._experimental.mcp_server.db import (  # noqa: PLC0415
             store_user_oauth_credential,
         )
 
@@ -677,7 +677,7 @@ async def _store_per_user_token_server_side(
         )
         return  # Don't warm Redis if DB write failed
 
-    from litellm.proxy._experimental.mcp_server.mcp_server_manager import (  # noqa: PLC0415
+    from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (  # noqa: PLC0415
         global_mcp_server_manager,
     )
 
@@ -704,7 +704,7 @@ def _raise_if_not_oauth2(mcp_server: MCPServer) -> None:
     modes (``_persist_dcr_client_registration`` skips them unconditionally, so even the admin
     Authorize path with ``persist_credentials`` enabled writes nothing to the server row).
     """
-    from litellm.proxy._experimental.mcp_server.mcp_server_manager import (  # noqa: PLC0415  # circular import with mcp_server_manager at module load
+    from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (  # noqa: PLC0415  # circular import with mcp_server_manager at module load
         _UPSTREAM_OAUTH_DISCOVERY_AUTH_TYPES,
     )
 
@@ -766,7 +766,7 @@ async def _server_with_oauth_endpoints(
     """
     if needed_endpoint(mcp_server) is not None:
         return mcp_server
-    from litellm.proxy._experimental.mcp_server.mcp_server_manager import (  # noqa: PLC0415  # circular import with mcp_server_manager at module load
+    from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (  # noqa: PLC0415  # circular import with mcp_server_manager at module load
         global_mcp_server_manager,
     )
 
@@ -876,10 +876,10 @@ def _bridge_access_denied_redirect(redirect_uri: str, state: str, mcp_server: MC
 
 
 async def _user_can_reach_mcp_server(user_id: str, server_id: str) -> bool:
-    from litellm.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import (
+    from embrouter.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import (
         MCPRequestHandler,
     )
-    from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+    from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
         global_mcp_server_manager,
     )
 
@@ -900,7 +900,7 @@ async def _resolve_oauth_authorization_user(
     enforce_binding: bool,
 ) -> str | RedirectResponse:
     """Resolve the authorization subject without replacing denied credentials with cookie grants."""
-    from litellm.proxy._experimental.mcp_server.byok_oauth_endpoints import (  # noqa: PLC0415  # proxy import cycle
+    from embrouter.proxy._experimental.mcp_server.byok_oauth_endpoints import (  # noqa: PLC0415  # proxy import cycle
         _user_id_from_session_cookie,
     )
 
@@ -912,7 +912,7 @@ async def _resolve_oauth_authorization_user(
         return _bridge_access_denied_redirect(redirect_uri, state, mcp_server)
     user_id: Final = request_user_id or _user_id_from_session_cookie(request)
     if user_id is None:
-        return _redirect_to_litellm_login(request)
+        return _redirect_to_embrouter_login(request)
     if not await _user_can_reach_mcp_server(user_id, mcp_server.server_id):
         return _bridge_access_denied_redirect(redirect_uri, state, mcp_server)
     return user_id
@@ -979,14 +979,14 @@ async def authorize_with_server(
     request_base_url: Final = get_request_base_url(request)
 
     # Seal the authenticated caller into state so the token exchange cannot select another credential owner.
-    litellm_user_id: str | None = None
+    embrouter_user_id: str | None = None
     if enforce_binding or (resolved_server.is_dcr_bridge and resolved_server.is_oauth_delegate):
         subject: Final = await _resolve_oauth_authorization_user(
             request, resolved_server, redirect_uri, state, enforce_binding
         )
         if isinstance(subject, RedirectResponse):
             return subject
-        litellm_user_id = subject
+        embrouter_user_id = subject
 
     oauth_nonce: Final = secrets.token_urlsafe(32) if enforce_binding else None
     encoded_state: Final = encode_state_with_base_url(
@@ -996,8 +996,8 @@ async def authorize_with_server(
         code_challenge=code_challenge,
         code_challenge_method=code_challenge_method,
         client_redirect_uri=redirect_uri,
-        litellm_user_id=litellm_user_id,
-        mcp_server_id=resolved_server.server_id if (litellm_user_id or ephemeral_dcr_client) else None,
+        embrouter_user_id=embrouter_user_id,
+        mcp_server_id=resolved_server.server_id if (embrouter_user_id or ephemeral_dcr_client) else None,
         dcr_client_id=ephemeral_dcr_client.client_id if ephemeral_dcr_client else None,
         dcr_client_secret=ephemeral_dcr_client.client_secret if ephemeral_dcr_client else None,
         dcr_token_endpoint_auth_method=ephemeral_dcr_client.token_endpoint_auth_method
@@ -1173,7 +1173,7 @@ async def exchange_token_with_server(
         if binding is not None and binding.mode == "enforce":
             if bridge_identity is None or not bridge_identity.oauth_nonce:
                 raise HTTPException(status_code=403, detail={"error": "oauth_identity_binding_failed"})
-            if request_user_id is not None and request_user_id != bridge_identity.litellm_user_id:
+            if request_user_id is not None and request_user_id != bridge_identity.embrouter_user_id:
                 raise HTTPException(status_code=403, detail={"error": "oauth_principal_mismatch"})
             if not code_verifier:
                 raise HTTPException(status_code=403, detail={"error": "oauth_identity_binding_failed"})
@@ -1197,7 +1197,7 @@ async def exchange_token_with_server(
         if code_verifier:
             token_data["code_verifier"] = code_verifier
         # Phase 1 for a bridge authorization_code mint: resolve identity (the SSO user recovered above, or
-        # the presented litellm key) and the envelope keys BEFORE the exchange consumes the single-use code.
+        # the presented embrouter key) and the envelope keys BEFORE the exchange consumes the single-use code.
         if is_bridge:
             prepared: Final = await _prepare_bridge_mint(request, resolved_server, bridge_identity)
             if not isinstance(prepared, _BridgeMintReady):
@@ -1209,7 +1209,7 @@ async def exchange_token_with_server(
         await enforce_oauth_identity_binding(
             server=resolved_server,
             token_response={},
-            litellm_user_id=request_user_id,
+            embrouter_user_id=request_user_id,
             grant_type=grant_type,
             refresh_ownership=refresh_ownership,
         )
@@ -1254,14 +1254,14 @@ async def exchange_token_with_server(
             server_id=resolved_server.server_id,
         )
 
-    # Bind the exchanged token to the LiteLLM caller BEFORE it is returned, stored, or cached, so a
+    # Bind the exchanged token to the EmbRouter caller BEFORE it is returned, stored, or cached, so a
     # token minted for a different upstream principal never becomes usable under the caller's user_id.
-    resolved_user_id: Final = bridge_identity.litellm_user_id if bridge_identity else request_user_id
+    resolved_user_id: Final = bridge_identity.embrouter_user_id if bridge_identity else request_user_id
     binding_proof: Final = (
         await enforce_oauth_identity_binding(
             server=resolved_server,
             token_response=token_response,
-            litellm_user_id=resolved_user_id,
+            embrouter_user_id=resolved_user_id,
             grant_type=grant_type,
             refresh_ownership=refresh_ownership,
             expected_nonce=bridge_identity.oauth_nonce if bridge_identity else None,
@@ -1271,7 +1271,7 @@ async def exchange_token_with_server(
     )
 
     # Store server-side when the server is configured for per-user OAuth and
-    # the calling client has provided a valid LiteLLM identity.
+    # the calling client has provided a valid EmbRouter identity.
     # Errors are non-fatal: the token is still returned to the client.
     if resolved_server.needs_user_oauth_token:
         user_id: Final = resolved_user_id
@@ -1279,7 +1279,7 @@ async def exchange_token_with_server(
             try:
                 # Identity binding above must retain the verified caller even when a write is
                 # denied. Authorize persistence separately, immediately before its side effect.
-                from litellm.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import MCPRequestHandler
+                from embrouter.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import MCPRequestHandler
 
                 # A sealed code delegates a verified user for this authorized server. Raw
                 # request credentials retain their own JWT/key restrictions during resolution.
@@ -1312,11 +1312,11 @@ async def exchange_token_with_server(
                 )
         else:
             verbose_logger.warning(
-                "exchange_token_with_server: could not resolve a LiteLLM user_id for the request, "
+                "exchange_token_with_server: could not resolve a EmbRouter user_id for the request, "
                 "so the per-user token for server=%s was NOT stored. The authorization_code egress "
                 "requires the stored token, so the client will be challenged with 401 on reconnect. "
-                "Ensure the request carries a valid LiteLLM key or enabled JWT identity "
-                "(x-litellm-api-key or Authorization), "
+                "Ensure the request carries a valid EmbRouter key or enabled JWT identity "
+                "(x-embrouter-api-key or Authorization), "
                 "or store it via POST /v1/mcp/server/{id}/oauth-user-credential.",
                 resolved_server.server_id,
             )
@@ -1421,12 +1421,12 @@ def _apply_persisted_dcr_credentials(mcp_server: MCPServer, credentials: _Persis
 
 async def _load_store_dcr_credentials(mcp_server: MCPServer) -> _PersistedDcrCredentials | None:
     """DCR client persisted in the server-scoped OAuth-client store for a config-declared server
-    (which has no LiteLLM_MCPServerTable row). Returns None when the store has no usable client_id
+    (which has no EmbRouter_MCPServerTable row). Returns None when the store has no usable client_id
     or the DB is unreachable."""
-    from litellm.proxy._experimental.mcp_server.db import (  # noqa: PLC0415  # avoids circular import
+    from embrouter.proxy._experimental.mcp_server.db import (  # noqa: PLC0415  # avoids circular import
         get_mcp_server_oauth_client_credentials,
     )
-    from litellm.proxy.utils import get_prisma_client_or_throw  # noqa: PLC0415  # avoids circular import
+    from embrouter.proxy.utils import get_prisma_client_or_throw  # noqa: PLC0415  # avoids circular import
 
     try:
         prisma_client = get_prisma_client_or_throw("Database not connected. Cannot read MCP OAuth client registration.")
@@ -1449,7 +1449,7 @@ async def _load_store_dcr_credentials(mcp_server: MCPServer) -> _PersistedDcrCre
 
 async def hydrate_config_server_dcr_client(mcp_server: MCPServer) -> bool:
     """Overlay a config-declared server's persisted DCR client onto its in-memory object so token
-    refresh can authenticate. Config.yaml servers have no LiteLLM_MCPServerTable row, so their
+    refresh can authenticate. Config.yaml servers have no EmbRouter_MCPServerTable row, so their
     minted client lives in the server-scoped store; without this overlay the in-memory server
     carries no client_id after a restart. An explicit client_id set in config.yaml wins and is never
     overwritten by a persisted store client."""
@@ -1463,9 +1463,9 @@ async def hydrate_config_server_dcr_client(mcp_server: MCPServer) -> bool:
 
 async def _resolve_persisted_dcr_client(
     mcp_server: MCPServer,
-) -> tuple[Optional["LiteLLM_MCPServerTable"], _PersistedDcrCredentials | None]:
+) -> tuple[Optional["EmbRouter_MCPServerTable"], _PersistedDcrCredentials | None]:
     """Resolve a server's persisted DCR client using the same two-level rule the write path uses, so
-    read and write always agree. First, whether the server HAS a LiteLLM_MCPServerTable row: a row is
+    read and write always agree. First, whether the server HAS a EmbRouter_MCPServerTable row: a row is
     always resolved to that row and the store is never consulted for a server that has a row, so a
     caller-chosen server_id colliding with a config-declared server cannot inherit that config
     server's client, and a row that exists but carries no usable client_id yields (row, None) rather
@@ -1473,11 +1473,11 @@ async def _resolve_persisted_dcr_client(
     the server-scoped store, while a rowless non-config server is a throwaway temp/session server with
     no persisted client. Returns (row_or_None, credentials_or_None); the row is only needed by the
     reuse path to refresh the registry for a DB-declared server."""
-    from litellm.proxy._experimental.mcp_server.db import get_mcp_server  # noqa: PLC0415  # avoids circular import
-    from litellm.proxy._experimental.mcp_server.mcp_server_manager import (  # noqa: PLC0415  # avoids circular import
+    from embrouter.proxy._experimental.mcp_server.db import get_mcp_server  # noqa: PLC0415  # avoids circular import
+    from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (  # noqa: PLC0415  # avoids circular import
         global_mcp_server_manager,
     )
-    from litellm.proxy.utils import get_prisma_client_or_throw  # noqa: PLC0415  # avoids circular import
+    from embrouter.proxy.utils import get_prisma_client_or_throw  # noqa: PLC0415  # avoids circular import
 
     try:
         prisma_client = get_prisma_client_or_throw("Database not connected. Cannot read MCP OAuth client registration.")
@@ -1520,7 +1520,7 @@ async def _reuse_persisted_dcr_client_if_available(
         return False
 
     if persisted_mcp_server is not None:
-        from litellm.proxy._experimental.mcp_server.mcp_server_manager import (  # noqa: PLC0415  # avoids circular import
+        from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (  # noqa: PLC0415  # avoids circular import
             global_mcp_server_manager,
         )
 
@@ -1566,7 +1566,7 @@ async def _persist_dcr_client_registration(
     mcp_server: MCPServer, registration_response: object, current_redirect_uri: str
 ) -> DcrRegistrationPersistenceResult:
     """Persist the dynamically registered OAuth client (RFC 7591) to its single home: the server's
-    ``LiteLLM_MCPServerTable`` row when it has one, otherwise the server-scoped store when the server
+    ``EmbRouter_MCPServerTable`` row when it has one, otherwise the server-scoped store when the server
     is config-declared. A rowless server that is not config-declared is a throwaway temp/session
     server, so its client is overlaid in memory only and not persisted.
 
@@ -1617,16 +1617,16 @@ async def _persist_dcr_client_registration(
         "redirect_uris": [current_redirect_uri],
     }
 
-    from litellm.proxy._experimental.mcp_server.db import (  # noqa: PLC0415  # avoids circular import
+    from embrouter.proxy._experimental.mcp_server.db import (  # noqa: PLC0415  # avoids circular import
         McpIdentifierConflict,
         update_mcp_server,
         upsert_mcp_server_oauth_client_credentials,
     )
-    from litellm.proxy._experimental.mcp_server.mcp_server_manager import (  # noqa: PLC0415
+    from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (  # noqa: PLC0415
         global_mcp_server_manager,
     )
-    from litellm.proxy._types import UpdateMCPServerRequest  # noqa: PLC0415
-    from litellm.proxy.utils import get_prisma_client_or_throw  # noqa: PLC0415
+    from embrouter.proxy._types import UpdateMCPServerRequest  # noqa: PLC0415
+    from embrouter.proxy.utils import get_prisma_client_or_throw  # noqa: PLC0415
 
     try:
         prisma_client: Final = get_prisma_client_or_throw(
@@ -2044,12 +2044,12 @@ async def token_endpoint(
     Supports PKCE flow by forwarding code_verifier to upstream provider.
 
     1. Call the token endpoint with PKCE parameters
-    2. Store the user's token in the db - and generate a LiteLLM virtual key
+    2. Store the user's token in the db - and generate a EmbRouter virtual key
     3. Return the token
     4. Return a virtual key in this response
     """
     if mcp_server_name is None and is_gateway_dcr_client_id(client_id):
-        from litellm.proxy.proxy_server import (  # noqa: PLC0415  # circular import at module load
+        from embrouter.proxy.proxy_server import (  # noqa: PLC0415  # circular import at module load
             master_key,
             user_api_key_cache,
         )
@@ -2100,11 +2100,11 @@ async def _vendor_credential_state(user_id: str, server_id: str) -> VendorCreden
     The one reading of "authorized" the connect page displays and the finish step enforces, so
     the button a user sees and the grant they get cannot disagree. A read fault is neither, and
     fails the scoped grant closed."""
-    from litellm.proxy._experimental.mcp_server.db import (  # noqa: PLC0415  # circular import at module load
+    from embrouter.proxy._experimental.mcp_server.db import (  # noqa: PLC0415  # circular import at module load
         get_user_oauth_credential,
         oauth_grant_state,
     )
-    from litellm.proxy.proxy_server import prisma_client  # noqa: PLC0415  # circular import at module load
+    from embrouter.proxy.proxy_server import prisma_client  # noqa: PLC0415  # circular import at module load
 
     if prisma_client is None:
         return "unavailable"
@@ -2140,7 +2140,7 @@ async def authorize_complete(
     (``delivery=manual``). POST plus the per-flow HttpOnly cookie set at /authorize; an
     anonymous or bad-flow request just 400s. The native-client consent page adds
     ``decision`` (approve or deny) and the ``team_id`` the credential is attributed to."""
-    from litellm.proxy.proxy_server import user_api_key_cache  # noqa: PLC0415  # circular import at module load
+    from embrouter.proxy.proxy_server import user_api_key_cache  # noqa: PLC0415  # circular import at module load
 
     return await complete_connect_flow(
         request=request,
@@ -2160,7 +2160,7 @@ async def revoke_endpoint(request: Request, token: str = Form(...), client_id: s
     """RFC 7009 revocation for the gateway's refresh tokens (``lite logout``): 200 for a known
     client whatever the token's state, 503 when the shared single-use record cannot be written;
     access tokens expire on their own."""
-    from litellm.proxy.proxy_server import (  # noqa: PLC0415  # circular import at module load
+    from embrouter.proxy.proxy_server import (  # noqa: PLC0415  # circular import at module load
         master_key,
         user_api_key_cache,
     )
@@ -2172,10 +2172,10 @@ async def revoke_endpoint(request: Request, token: str = Form(...), client_id: s
 async def introspect_endpoint(token: str = Form(...)) -> Response:
     """RFC 7662 introspection for gateway-issued session tokens (``llm_session_`` /
     ``llm_srefresh_``), so an external gateway can validate them without the signing
-    secret. The caller authenticates with a LiteLLM virtual key (section 2.1, enforced by
+    secret. The caller authenticates with a EmbRouter virtual key (section 2.1, enforced by
     the route dependency); any token the gateway cannot vouch for answers
     ``{"active": false}`` with no further detail."""
-    from litellm.proxy.proxy_server import (  # noqa: PLC0415  # circular import at module load
+    from embrouter.proxy.proxy_server import (  # noqa: PLC0415  # circular import at module load
         master_key,
         user_api_key_cache,
     )
@@ -2188,7 +2188,7 @@ async def introspect_endpoint(token: str = Form(...)) -> Response:
     )
 
 
-@router.get("/.well-known/litellm-cli-auth")
+@router.get("/.well-known/embrouter-cli-auth")
 async def native_client_auth_discovery(request: Request) -> JSONResponse:
     """The versioned contract a native client (``lite login --pkce``, or a CLI in any other
     language) reads to sign a user in through the browser and obtain a proxy credential."""
@@ -2311,20 +2311,20 @@ async def callback(
         # states while permitting same-origin / allowlisted clients.
         redirect_uri = _get_validated_client_redirect_uri(request, state_data)
 
-        # Interactive dcr_bridge oauth_delegate: the state carries the litellm user the authorize step
+        # Interactive dcr_bridge oauth_delegate: the state carries the embrouter user the authorize step
         # captured. Instead of forwarding the raw upstream code (which the client would present at the
         # token endpoint with no way to prove who signed in), seal the user and the upstream code into a
         # gateway authorization code and forward THAT. The token endpoint decrypts it to bind the
         # envelope to this user. Every other flow forwards the raw code unchanged.
-        litellm_user_id: Final = state_data.get("litellm_user_id")
+        embrouter_user_id: Final = state_data.get("embrouter_user_id")
         mcp_server_id: Final = state_data.get("mcp_server_id")
         dcr_client_id: Final = state_data.get("dcr_client_id")
         dcr_client_secret: Final = state_data.get("dcr_client_secret")
         forwarded_code = code
-        if isinstance(litellm_user_id, str) and litellm_user_id and isinstance(mcp_server_id, str) and mcp_server_id:
+        if isinstance(embrouter_user_id, str) and embrouter_user_id and isinstance(mcp_server_id, str) and mcp_server_id:
             forwarded_code = seal_bridge_authorization_code(
                 upstream_code=code,
-                litellm_user_id=litellm_user_id,
+                embrouter_user_id=embrouter_user_id,
                 mcp_server_id=mcp_server_id,
                 oauth_nonce=state_data.get("oauth_nonce"),
             )
@@ -2371,7 +2371,7 @@ async def callback(
 
     Dual Pattern Support:
     - Standard MCP pattern: /mcp/{server_name} (recommended, used by mcp-inspector, VSCode Copilot)
-    - LiteLLM legacy pattern: /{server_name}/mcp (backward compatibility)
+    - EmbRouter legacy pattern: /{server_name}/mcp (backward compatibility)
 
     The resource URL returned matches the pattern used in the discovery request.
 """
@@ -2531,7 +2531,7 @@ async def _build_oauth_protected_resource_response(
             # Standard MCP pattern: /mcp/{server_name}
             resource_url = f"{request_base_url}/mcp/{mcp_server_name}"
         else:
-            # LiteLLM legacy pattern: /{server_name}/mcp
+            # EmbRouter legacy pattern: /{server_name}/mcp
             resource_url = f"{request_base_url}/{mcp_server_name}/mcp"
     else:
         resource_url = f"{request_base_url}/mcp"
@@ -2606,8 +2606,8 @@ async def _build_oauth_protected_resource_response(
 def _obo_protected_resource_response(mcp_server: MCPServer | None, resource_url: str) -> dict | None:
     """The OBO (token_exchange) PRM, or None when this server is not OBO / no issuer is configured.
 
-    The client SSOs with the IdP to obtain a subject token, which LiteLLM then exchanges, so discovery
-    points at the JWT-auth issuer(s) LiteLLM trusts (the same IdP that issues and validates the
+    The client SSOs with the IdP to obtain a subject token, which EmbRouter then exchanges, so discovery
+    points at the JWT-auth issuer(s) EmbRouter trusts (the same IdP that issues and validates the
     subject), not the gateway. None falls the caller back to the gateway default so discovery still
     returns metadata; it just can't name the IdP.
     """
@@ -2624,22 +2624,22 @@ def _obo_protected_resource_response(mcp_server: MCPServer | None, resource_url:
 
 
 def _jwt_auth_issuers() -> list:
-    """The OAuth issuer identifier(s) LiteLLM's JWT auth trusts, for the OBO PRM authorization_servers.
+    """The OAuth issuer identifier(s) EmbRouter's JWT auth trusts, for the OBO PRM authorization_servers.
 
-    In token_exchange the IdP that issues the subject JWT is the same one LiteLLM validates it
+    In token_exchange the IdP that issues the subject JWT is the same one EmbRouter validates it
     against, so OBO discovery points clients at the JWT-auth issuer to obtain a subject token.
-    Sourced from ``JWT_ISSUER`` and any configured ``litellm_jwtauth.issuers``.
+    Sourced from ``JWT_ISSUER`` and any configured ``embrouter_jwtauth.issuers``.
     """
     import os  # noqa: PLC0415
 
-    from litellm.proxy.proxy_server import general_settings  # noqa: PLC0415
+    from embrouter.proxy.proxy_server import general_settings  # noqa: PLC0415
 
     issuers: Final[list] = []
     env_issuer: Final = os.getenv("JWT_ISSUER")
     if env_issuer:
         issuers.append(env_issuer)
 
-    jwtauth: Final = general_settings.get("litellm_jwtauth") if isinstance(general_settings, Mapping) else None
+    jwtauth: Final = general_settings.get("embrouter_jwtauth") if isinstance(general_settings, Mapping) else None
     raw_issuers: Final = jwtauth.get("issuers") if isinstance(jwtauth, dict) else getattr(jwtauth, "issuers", None)
     for cfg in raw_issuers or []:
         issuer = cfg.get("issuer") if isinstance(cfg, dict) else getattr(cfg, "issuer", None)
@@ -2761,12 +2761,12 @@ async def oauth_protected_resource_mcp_standard(request: Request, mcp_server_nam
     )
 
 
-# LiteLLM legacy pattern: /.well-known/oauth-protected-resource/{server_name}/mcp
+# EmbRouter legacy pattern: /.well-known/oauth-protected-resource/{server_name}/mcp
 # Kept for backward compatibility with existing deployments
 @router.get(f"/.well-known/oauth-protected-resource{well_known_root_suffix()}/{{mcp_server_name}}/mcp")
 async def oauth_protected_resource_mcp(request: Request, mcp_server_name: str | None = None):
     """
-    OAuth protected resource discovery endpoint using LiteLLM legacy URL pattern.
+    OAuth protected resource discovery endpoint using EmbRouter legacy URL pattern.
 
     Legacy pattern: /{server_name}/mcp
     Discovery path: /.well-known/oauth-protected-resource/{server_name}/mcp
@@ -2854,7 +2854,7 @@ async def oauth_authorization_server_mcp_standard(request: Request, mcp_server_n
     )
 
 
-# LiteLLM legacy pattern and root endpoint
+# EmbRouter legacy pattern and root endpoint
 @router.get(f"/.well-known/oauth-authorization-server{well_known_root_suffix()}/{{mcp_server_name}}")
 @router.get("/.well-known/oauth-authorization-server")
 async def oauth_authorization_server_mcp(request: Request, mcp_server_name: str | None = None):
@@ -2876,9 +2876,9 @@ async def openid_configuration(request: Request):
 
     # If MCPJWTSigner is active, augment the discovery doc with JWKS fields so
     # MCP servers and gateways (e.g. AWS Bedrock AgentCore Gateway) can resolve
-    # the signing keys and verify liteLLM-issued tokens.
+    # the signing keys and verify embRouter-issued tokens.
     try:
-        from litellm.proxy.guardrails.guardrail_hooks.mcp_jwt_signer.mcp_jwt_signer import (
+        from embrouter.proxy.guardrails.guardrail_hooks.mcp_jwt_signer.mcp_jwt_signer import (
             get_mcp_jwt_signer,
         )
 
@@ -2903,12 +2903,12 @@ async def jwks_json(request: Request):
     JSON Web Key Set endpoint.
 
     Returns the RSA public key used by MCPJWTSigner to sign outbound MCP tokens.
-    MCP servers and gateways use this endpoint to verify liteLLM-issued JWTs.
+    MCP servers and gateways use this endpoint to verify embRouter-issued JWTs.
 
     Returns an empty key set if MCPJWTSigner is not configured.
     """
     try:
-        from litellm.proxy.guardrails.guardrail_hooks.mcp_jwt_signer.mcp_jwt_signer import (
+        from embrouter.proxy.guardrails.guardrail_hooks.mcp_jwt_signer.mcp_jwt_signer import (
             get_mcp_jwt_signer,
         )
 

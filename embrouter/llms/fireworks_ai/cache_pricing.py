@@ -3,8 +3,8 @@ from typing import (
     cast,  # noqa: TID251  # the derived entry is a dict copy of a ReadOnly TypedDict; no cast-free way to retype it
 )
 
-from litellm.constants import FIREWORKS_AI_DEFAULT_CACHE_READ_RATE_RATIO
-from litellm.types.utils import ModelInfo
+from embrouter.constants import FIREWORKS_AI_DEFAULT_CACHE_READ_RATE_RATIO
+from embrouter.types.utils import ModelInfo
 
 
 def _as_rate(value: object) -> float | None:

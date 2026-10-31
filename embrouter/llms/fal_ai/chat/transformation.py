@@ -12,16 +12,16 @@ from typing import TYPE_CHECKING, Final
 import httpx
 from pydantic import BaseModel, ConfigDict, TypeAdapter
 
-from litellm.litellm_core_utils.core_helpers import map_finish_reason
-from litellm.llms.base_llm.chat.transformation import BaseConfig, BaseLLMException
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.utils import Message, ModelResponse, Usage
+from embrouter.embrouter_core_utils.core_helpers import map_finish_reason
+from embrouter.llms.base_llm.chat.transformation import BaseConfig, BaseLLMException
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.utils import Message, ModelResponse, Usage
 
 if TYPE_CHECKING:
     import tiktoken
 
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
 
 DEFAULT_BASE_URL: Final[str] = "https://fal.run"
 PROVIDER_PREFIX: Final[str] = "fal_ai/"
@@ -151,7 +151,7 @@ class FalAIChatConfig(BaseConfig):
         model: str,
         messages: list[AllMessageValues],  # mutable-ok: inherited contract
         optional_params: dict,  # mutable-ok: inherited contract
-        litellm_params: dict,  # mutable-ok: inherited contract
+        embrouter_params: dict,  # mutable-ok: inherited contract
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:  # mutable-ok: inherited contract returns a dict
@@ -170,7 +170,7 @@ class FalAIChatConfig(BaseConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,  # mutable-ok: inherited contract
-        litellm_params: dict,  # mutable-ok: inherited contract
+        embrouter_params: dict,  # mutable-ok: inherited contract
         stream: bool | None = None,
     ) -> str:
         return f"{self.get_api_base(api_base)}/{model.removeprefix(PROVIDER_PREFIX)}"
@@ -180,7 +180,7 @@ class FalAIChatConfig(BaseConfig):
         model: str,
         messages: list[AllMessageValues],  # mutable-ok: inherited contract
         optional_params: dict,  # mutable-ok: inherited contract
-        litellm_params: dict,  # mutable-ok: inherited contract
+        embrouter_params: dict,  # mutable-ok: inherited contract
         headers: dict,  # mutable-ok: inherited contract
     ) -> dict:  # mutable-ok: inherited contract returns a dict
         if optional_params.get("stream"):
@@ -199,11 +199,11 @@ class FalAIChatConfig(BaseConfig):
         model: str,
         raw_response: httpx.Response,
         model_response: ModelResponse,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
         request_data: dict,  # mutable-ok: inherited contract
         messages: list[AllMessageValues],  # mutable-ok: inherited contract
         optional_params: dict,  # mutable-ok: inherited contract
-        litellm_params: dict,  # mutable-ok: inherited contract
+        embrouter_params: dict,  # mutable-ok: inherited contract
         encoding: "tiktoken.Encoding | None",
         api_key: str | None = None,
         json_mode: bool | None = None,

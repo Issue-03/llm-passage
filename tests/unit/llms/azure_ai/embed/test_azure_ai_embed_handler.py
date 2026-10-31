@@ -2,8 +2,8 @@ import httpx
 import pytest
 import respx
 
-from litellm import embedding
-from litellm.llms.azure_ai.embed.handler import _foundry_models_route_base
+from embrouter import embedding
+from embrouter.llms.azure_ai.embed.handler import _foundry_models_route_base
 
 EMBEDDING_PAYLOAD = {
     "object": "list",

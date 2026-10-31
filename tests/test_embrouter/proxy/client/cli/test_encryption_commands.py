@@ -8,8 +8,8 @@ live proxy.
 import pytest
 from click.testing import CliRunner
 
-from litellm.proxy.client.cli import main as cli_main
-from litellm.proxy.client.cli.commands import encryption as enc_cli
+from embrouter.proxy.client.cli import main as cli_main
+from embrouter.proxy.client.cli.commands import encryption as enc_cli
 
 
 class _FakeHTTPClient:

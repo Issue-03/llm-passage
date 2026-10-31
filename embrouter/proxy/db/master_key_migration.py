@@ -7,11 +7,11 @@ from typing import Final
 from pydantic import JsonValue, TypeAdapter
 from typing_extensions import assert_never
 
-from litellm.constants import DEFAULT_MAX_RECURSE_DEPTH
-from litellm.proxy.auth.master_key_boot_check import MIGRATE_FROM_MASTER_KEY_ENV_VAR, SALT_KEY_ENV_VAR
-from litellm.proxy.common_utils.callback_utils import CALLBACK_VAR_ENCRYPTED_PREFIX
-from litellm.proxy.common_utils.encrypt_decrypt_utils import decrypt_if_encrypted_with, encrypt_value_helper
-from litellm.proxy.db.create_views import SupportsRawQueries
+from embrouter.constants import DEFAULT_MAX_RECURSE_DEPTH
+from embrouter.proxy.auth.master_key_boot_check import MIGRATE_FROM_MASTER_KEY_ENV_VAR, SALT_KEY_ENV_VAR
+from embrouter.proxy.common_utils.callback_utils import CALLBACK_VAR_ENCRYPTED_PREFIX
+from embrouter.proxy.common_utils.encrypt_decrypt_utils import decrypt_if_encrypted_with, encrypt_value_helper
+from embrouter.proxy.db.create_views import SupportsRawQueries
 
 
 @dataclass(frozen=True, slots=True)
@@ -24,25 +24,25 @@ class _SecretColumn:
 
 
 _SECRET_COLUMNS: Final = (
-    _SecretColumn("LiteLLM_ProxyModelTable", "model_id", "litellm_params"),
-    _SecretColumn("LiteLLM_CredentialsTable", "credential_id", "credential_values"),
-    _SecretColumn("LiteLLM_Config", "param_name", "param_value"),
-    _SecretColumn("LiteLLM_SSOConfig", "id", "sso_settings"),
-    _SecretColumn("LiteLLM_CacheConfig", "id", "cache_settings"),
-    _SecretColumn("LiteLLM_ConfigOverrides", "config_type", "config_value"),
-    _SecretColumn("LiteLLM_MCPServerTable", "server_id", "credentials"),
-    _SecretColumn("LiteLLM_MCPServerTable", "server_id", "static_headers"),
-    _SecretColumn("LiteLLM_MCPServerTable", "server_id", "env_vars"),
-    _SecretColumn("LiteLLM_MCPServerTable", "server_id", "env"),
-    _SecretColumn("LiteLLM_MCPServerOAuthClient", "server_id", "credentials"),
-    _SecretColumn("LiteLLM_MCPUserCredentials", "id", "credential_b64", is_json=False),
-    _SecretColumn("LiteLLM_MCPUserEnvVars", "id", "values_b64", is_json=False),
-    _SecretColumn("LiteLLM_SSOIdentityAssertion", "user_id", "assertion_b64", is_json=False),
-    _SecretColumn("LiteLLM_TeamTable", "team_id", "metadata", only_rows_with_marked_ciphertexts=True),
-    _SecretColumn("LiteLLM_VerificationToken", "token", "metadata", only_rows_with_marked_ciphertexts=True),
-    _SecretColumn("LiteLLM_UserTable", "user_id", "metadata", only_rows_with_marked_ciphertexts=True),
-    _SecretColumn("LiteLLM_DeletedTeamTable", "id", "metadata", only_rows_with_marked_ciphertexts=True),
-    _SecretColumn("LiteLLM_DeletedVerificationToken", "id", "metadata", only_rows_with_marked_ciphertexts=True),
+    _SecretColumn("EmbRouter_ProxyModelTable", "model_id", "embrouter_params"),
+    _SecretColumn("EmbRouter_CredentialsTable", "credential_id", "credential_values"),
+    _SecretColumn("EmbRouter_Config", "param_name", "param_value"),
+    _SecretColumn("EmbRouter_SSOConfig", "id", "sso_settings"),
+    _SecretColumn("EmbRouter_CacheConfig", "id", "cache_settings"),
+    _SecretColumn("EmbRouter_ConfigOverrides", "config_type", "config_value"),
+    _SecretColumn("EmbRouter_MCPServerTable", "server_id", "credentials"),
+    _SecretColumn("EmbRouter_MCPServerTable", "server_id", "static_headers"),
+    _SecretColumn("EmbRouter_MCPServerTable", "server_id", "env_vars"),
+    _SecretColumn("EmbRouter_MCPServerTable", "server_id", "env"),
+    _SecretColumn("EmbRouter_MCPServerOAuthClient", "server_id", "credentials"),
+    _SecretColumn("EmbRouter_MCPUserCredentials", "id", "credential_b64", is_json=False),
+    _SecretColumn("EmbRouter_MCPUserEnvVars", "id", "values_b64", is_json=False),
+    _SecretColumn("EmbRouter_SSOIdentityAssertion", "user_id", "assertion_b64", is_json=False),
+    _SecretColumn("EmbRouter_TeamTable", "team_id", "metadata", only_rows_with_marked_ciphertexts=True),
+    _SecretColumn("EmbRouter_VerificationToken", "token", "metadata", only_rows_with_marked_ciphertexts=True),
+    _SecretColumn("EmbRouter_UserTable", "user_id", "metadata", only_rows_with_marked_ciphertexts=True),
+    _SecretColumn("EmbRouter_DeletedTeamTable", "id", "metadata", only_rows_with_marked_ciphertexts=True),
+    _SecretColumn("EmbRouter_DeletedVerificationToken", "id", "metadata", only_rows_with_marked_ciphertexts=True),
 )
 
 _STORED_VALUE: Final[TypeAdapter[JsonValue]] = TypeAdapter(JsonValue)

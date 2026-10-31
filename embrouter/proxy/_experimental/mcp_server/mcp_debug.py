@@ -4,7 +4,7 @@ MCP OAuth2 Debug Headers
 
 Client-side debugging for MCP authentication flows.
 
-When a client sends the ``x-litellm-mcp-debug: true`` header, LiteLLM
+When a client sends the ``x-embrouter-mcp-debug: true`` header, EmbRouter
 returns masked diagnostic headers in the response so operators can
 troubleshoot OAuth2 issues without SSH access to the gateway.
 
@@ -12,12 +12,12 @@ Response headers returned (all values are masked for safety):
 
     x-mcp-debug-inbound-auth
         Which inbound auth headers were present and how they were classified.
-        Example: ``x-litellm-api-key=Bearer sk-12****1234``
+        Example: ``x-embrouter-api-key=Bearer sk-12****1234``
 
     x-mcp-debug-oauth2-token
         The OAuth2 token extracted from the Authorization header (masked).
-        Shows ``(none)`` if absent, or flags ``SAME_AS_LITELLM_KEY`` when
-        the LiteLLM API key is accidentally leaking to the MCP server.
+        Shows ``(none)`` if absent, or flags ``SAME_AS_EMBROUTER_KEY`` when
+        the EmbRouter API key is accidentally leaking to the MCP server.
 
     x-mcp-debug-auth-resolution
         Which auth priority was used for the outbound MCP call:
@@ -43,24 +43,24 @@ Response headers returned (all values are masked for safety):
 Debugging Guide
 ---------------
 
-**Common issue: LiteLLM API key leaking to the MCP server**
+**Common issue: EmbRouter API key leaking to the MCP server**
 
-Symptom: ``x-mcp-debug-oauth2-token`` shows ``SAME_AS_LITELLM_KEY``.
+Symptom: ``x-mcp-debug-oauth2-token`` shows ``SAME_AS_EMBROUTER_KEY``.
 
-This means the ``Authorization`` header carries the LiteLLM API key and
+This means the ``Authorization`` header carries the EmbRouter API key and
 it's being forwarded to the upstream MCP server instead of an OAuth2 token.
 
-Fix: Move the LiteLLM key to ``x-litellm-api-key`` so the ``Authorization``
+Fix: Move the EmbRouter key to ``x-embrouter-api-key`` so the ``Authorization``
 header is free for OAuth2 discovery::
 
     # WRONG — blocks OAuth2 discovery
     claude mcp add --transport http my_server http://proxy/mcp/server \\
         --header "Authorization: Bearer sk-..."
 
-    # CORRECT — LiteLLM key in dedicated header, Authorization free for OAuth2
+    # CORRECT — EmbRouter key in dedicated header, Authorization free for OAuth2
     claude mcp add --transport http my_server http://proxy/mcp/server \\
-        --header "x-litellm-api-key: Bearer sk-..." \\
-        --header "x-litellm-mcp-debug: true"
+        --header "x-embrouter-api-key: Bearer sk-..." \\
+        --header "x-embrouter-mcp-debug: true"
 
 **Common issue: No OAuth2 token present**
 
@@ -83,20 +83,20 @@ credential supplied by the gateway; it does not imply a caller-supplied token.
 Symptom: ``x-mcp-debug-auth-resolution`` shows ``m2m-client-credentials``.
 
 This means the server has ``client_id``/``client_secret``/``token_url``
-configured and LiteLLM is fetching a machine-to-machine token instead of
+configured and EmbRouter is fetching a machine-to-machine token instead of
 using the per-user OAuth2 token. For gateway-stored per-user tokens,
 configure ``oauth2_flow: authorization_code``.
 
 Usage from Claude Code::
 
     claude mcp add --transport http my_server http://proxy/mcp/server \\
-        --header "x-litellm-api-key: Bearer sk-..." \\
-        --header "x-litellm-mcp-debug: true"
+        --header "x-embrouter-api-key: Bearer sk-..." \\
+        --header "x-embrouter-mcp-debug: true"
 
 Usage with curl::
 
-    curl -H "x-litellm-mcp-debug: true" \\
-         -H "x-litellm-api-key: Bearer sk-..." \\
+    curl -H "x-embrouter-mcp-debug: true" \\
+         -H "x-embrouter-api-key: Bearer sk-..." \\
          http://localhost:4000/mcp/atlassian_mcp
 """
 
@@ -120,24 +120,24 @@ from pydantic import JsonValue, TypeAdapter
 from starlette.requests import HTTPConnection
 from starlette.types import Message, Send
 
-from litellm.litellm_core_utils.secret_redaction import REDACTED, redact_string
-from litellm.litellm_core_utils.sensitive_data_masker import SensitiveDataMasker
+from embrouter.embrouter_core_utils.secret_redaction import REDACTED, redact_string
+from embrouter.embrouter_core_utils.sensitive_data_masker import SensitiveDataMasker
 
 if TYPE_CHECKING:
-    from litellm.proxy._experimental.mcp_server.outbound_credentials.types import AuthResolution
+    from embrouter.proxy._experimental.mcp_server.outbound_credentials.types import AuthResolution
 
 # Header the client sends to opt into debug mode
-MCP_DEBUG_REQUEST_HEADER: Final = "x-litellm-mcp-debug"
+MCP_DEBUG_REQUEST_HEADER: Final = "x-embrouter-mcp-debug"
 
 # Prefix for all debug response headers
 _RESPONSE_HEADER_PREFIX: Final = "x-mcp-debug"
 
 
-MCP_AUTH_DIAGNOSTICS_SCOPE_KEY: Final = "litellm.mcp.auth_diagnostics"
+MCP_AUTH_DIAGNOSTICS_SCOPE_KEY: Final = "embrouter.mcp.auth_diagnostics"
 
 
 def record_auth_resolution(server_id: str, source: AuthResolution) -> None:
-    from litellm.proxy._experimental.mcp_server.mcp_context import get_active_mcp_request_ctx
+    from embrouter.proxy._experimental.mcp_server.mcp_context import get_active_mcp_request_ctx
 
     context: Final[object] = get_active_mcp_request_ctx()
     request: Final[object] = getattr(context, "request", None)
@@ -155,7 +155,7 @@ class MCPAuthDiagnostics:
         self._outcomes = tuple(item for item in self._outcomes if item[0] != server_id) + ((server_id, resolution),)
 
     def resolution(self) -> str:
-        from litellm.proxy._experimental.mcp_server.outbound_credentials.types import AuthResolution
+        from embrouter.proxy._experimental.mcp_server.outbound_credentials.types import AuthResolution
 
         match self._outcomes:
             case ():
@@ -166,7 +166,7 @@ class MCPAuthDiagnostics:
                 return AuthResolution.multiple.value
 
     def headers(self) -> Mapping[str, str]:
-        from litellm.proxy._experimental.mcp_server.outbound_credentials.types import AuthResolution
+        from embrouter.proxy._experimental.mcp_server.outbound_credentials.types import AuthResolution
 
         if len(self._outcomes) <= 1:
             return MappingProxyType({"x-mcp-debug-auth-resolution": self.resolution()})
@@ -251,7 +251,7 @@ class MCPDebug:
         """
         Check if the client opted into MCP debug mode.
 
-        Looks for ``x-litellm-mcp-debug: true`` (case-insensitive) in the
+        Looks for ``x-embrouter-mcp-debug: true`` (case-insensitive) in the
         request headers.
         """
         for key, val in headers.items():
@@ -264,7 +264,7 @@ class MCPDebug:
         *,
         inbound_headers: dict[str, str],
         oauth2_headers: dict[str, str] | None,
-        litellm_api_key: str | None,
+        embrouter_api_key: str | None,
         auth_resolution: str,
         server_url: str | None,
         server_auth_type: str | None,
@@ -278,8 +278,8 @@ class MCPDebug:
             Raw headers received from the MCP client.
         oauth2_headers : dict or None
             Extracted OAuth2 headers (``{"Authorization": "Bearer ..."}``).
-        litellm_api_key : str or None
-            The LiteLLM API key extracted from ``x-litellm-api-key`` or
+        embrouter_api_key : str or None
+            The EmbRouter API key extracted from ``x-embrouter-api-key`` or
             ``Authorization`` header.
         auth_resolution : str
             Which auth priority was selected for the outbound call.
@@ -297,7 +297,7 @@ class MCPDebug:
 
         # --- Inbound auth summary ---
         inbound_parts: Final = []
-        for hdr_name in ("x-litellm-api-key", "authorization", "x-mcp-auth"):
+        for hdr_name in ("x-embrouter-api-key", "authorization", "x-mcp-auth"):
             for k, v in inbound_headers.items():
                 if k.lower() == hdr_name:
                     inbound_parts.append(f"{hdr_name}={MCPDebug._mask(v)}")
@@ -306,12 +306,12 @@ class MCPDebug:
 
         # --- OAuth2 token ---
         oauth2_token: Final = (oauth2_headers or {}).get("Authorization")
-        if oauth2_token and litellm_api_key:
+        if oauth2_token and embrouter_api_key:
             oauth2_raw: Final = oauth2_token.removeprefix("Bearer ").strip()
-            litellm_raw: Final = litellm_api_key.removeprefix("Bearer ").strip()
-            if oauth2_raw == litellm_raw:
+            embrouter_raw: Final = embrouter_api_key.removeprefix("Bearer ").strip()
+            if oauth2_raw == embrouter_raw:
                 debug[f"{_RESPONSE_HEADER_PREFIX}-oauth2-token"] = (
-                    f"{MCPDebug._mask(oauth2_token)} (SAME_AS_LITELLM_KEY - likely misconfigured)"
+                    f"{MCPDebug._mask(oauth2_token)} (SAME_AS_EMBROUTER_KEY - likely misconfigured)"
                 )
             else:
                 debug[f"{_RESPONSE_HEADER_PREFIX}-oauth2-token"] = MCPDebug._mask(oauth2_token)
@@ -370,16 +370,16 @@ class MCPDebug:
         if not raw_headers or not MCPDebug.is_debug_enabled(raw_headers):
             return {}
 
-        from litellm.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import (
+        from embrouter.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import (
             MCPRequestHandler,
         )
-        from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+        from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
             global_mcp_server_manager,
         )
 
         server_url: str | None = None
         server_auth_type: str | None = None
-        from litellm.proxy._experimental.mcp_server.outbound_credentials.types import AuthResolution
+        from embrouter.proxy._experimental.mcp_server.outbound_credentials.types import AuthResolution
 
         auth_resolution: Final = AuthResolution.unresolved.value
 
@@ -391,12 +391,12 @@ class MCPDebug:
                 break
 
         scope_headers: Final = MCPRequestHandler._safe_get_headers_from_scope(scope)
-        litellm_key: Final = MCPRequestHandler.get_litellm_api_key_from_headers(scope_headers)
+        embrouter_key: Final = MCPRequestHandler.get_embrouter_api_key_from_headers(scope_headers)
 
         return MCPDebug.build_debug_headers(
             inbound_headers=raw_headers,
             oauth2_headers=oauth2_headers,
-            litellm_api_key=litellm_key,
+            embrouter_api_key=embrouter_key,
             auth_resolution=auth_resolution,
             server_url=server_url,
             server_auth_type=server_auth_type,
@@ -406,7 +406,7 @@ class MCPDebug:
 _BODY_PREVIEW_CHARS: Final = 512
 _BODY_CAPTURE_BYTES: Final = 16384
 _CAPTURE_TIMEOUT_SECONDS: Final = 1.0
-_CAPTURE_EXTENSION: Final = "litellm_mcp_error_preview"
+_CAPTURE_EXTENSION: Final = "embrouter_mcp_error_preview"
 _SAFE_HEADER_NAMES: Final = frozenset({"content-type", "content-length", "accept"})
 _PUBLIC_HEADER_NAMES: Final = _SAFE_HEADER_NAMES | frozenset(("host", "user-agent", "accept-encoding", "connection"))
 _JSON_BODY: Final = TypeAdapter(JsonValue)
@@ -473,7 +473,7 @@ def _body_secret_values(request: httpx.Request | httpx2.Request) -> tuple[str, .
         body: Final = _JSON_BODY.validate_json(raw)
     except ValueError:
         return None
-    from litellm.proxy._experimental.mcp_server.utils import (  # noqa: PLC0415  # MCP utils imports clients; inspect bodies only after initialization
+    from embrouter.proxy._experimental.mcp_server.utils import (  # noqa: PLC0415  # MCP utils imports clients; inspect bodies only after initialization
         json_string_leaves,
     )
 
@@ -615,7 +615,7 @@ def describe_upstream_response(response: httpx.Response | httpx2.Response) -> st
 
 
 def describe_upstream_http_failure(exc: BaseException) -> str | None:
-    from litellm.proxy._experimental.mcp_server.faults.traversal import (  # noqa: PLC0415  # fault package initialization imports the credential resolver
+    from embrouter.proxy._experimental.mcp_server.faults.traversal import (  # noqa: PLC0415  # fault package initialization imports the credential resolver
         iter_exception_tree,
     )
 

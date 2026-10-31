@@ -8,12 +8,12 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-import litellm
-import litellm.proxy.proxy_server as ps
-from litellm.caching.redis_cache import RedisCache
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.db.spend_counter_reseed import SpendCounterReseed
-from litellm.proxy.spend_tracking.spend_counter_batch import (
+import embrouter
+import embrouter.proxy.proxy_server as ps
+from embrouter.caching.redis_cache import RedisCache
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.db.spend_counter_reseed import SpendCounterReseed
+from embrouter.proxy.spend_tracking.spend_counter_batch import (
     SpendCounterBatch,
     active_spend_counter_batch,
     admission_counter_keys,
@@ -304,7 +304,7 @@ async def test_scope_is_per_task_so_concurrent_requests_do_not_share_a_batch():
 async def test_batch_reads_never_touch_a_prisma_client_when_redis_answers(monkeypatch):
     redis = CountingRedis({"spend:key:hashed": 3.0})
     prisma = MagicMock()
-    prisma.db.litellm_verificationtoken.find_unique = AsyncMock()
+    prisma.db.embrouter_verificationtoken.find_unique = AsyncMock()
     monkeypatch.setattr(ps, "spend_counter_cache", _spend_counter_cache(redis))
     monkeypatch.setattr(ps, "prisma_client", prisma)
 
@@ -317,7 +317,7 @@ async def test_batch_reads_never_touch_a_prisma_client_when_redis_answers(monkey
 
 def _reseed_prisma(spend: float) -> MagicMock:
     prisma = MagicMock()
-    prisma.db.litellm_verificationtoken.find_unique = AsyncMock(return_value=MagicMock(spend=spend))
+    prisma.db.embrouter_verificationtoken.find_unique = AsyncMock(return_value=MagicMock(spend=spend))
     return prisma
 
 
@@ -397,7 +397,7 @@ async def test_post_call_cold_counters_seed_from_the_mget_miss_without_a_second_
     redis = CountingRedis({"spend:key:hashed": 1.0})
     redis.async_set_cache = AsyncMock(return_value=True)
     prisma = MagicMock()
-    prisma.db.litellm_teamtable.find_unique = AsyncMock(return_value=MagicMock(spend=4.0))
+    prisma.db.embrouter_teamtable.find_unique = AsyncMock(return_value=MagicMock(spend=4.0))
     monkeypatch.setattr(ps, "spend_counter_cache", _spend_counter_cache(redis))
     monkeypatch.setattr(ps, "prisma_client", prisma)
 
@@ -475,12 +475,12 @@ async def test_a_stale_counter_repair_updates_the_open_batch_instead_of_forcing_
 
 @pytest.mark.asyncio
 async def test_reconcile_settles_a_flushed_counter_on_its_own_after_the_shared_pipeline(monkeypatch):
-    from litellm.proxy.spend_tracking.budget_reservation import reconcile_budget_reservation
+    from embrouter.proxy.spend_tracking.budget_reservation import reconcile_budget_reservation
 
     redis = CountingRedis({key: 1.0 for key in RESERVED_KEYS - {"spend:team:team"}})
     redis.async_set_max = AsyncMock(return_value=4.0)
     prisma = MagicMock()
-    prisma.db.litellm_teamtable.find_unique = AsyncMock(return_value=MagicMock(spend=4.0))
+    prisma.db.embrouter_teamtable.find_unique = AsyncMock(return_value=MagicMock(spend=4.0))
     monkeypatch.setattr(ps, "spend_counter_cache", _spend_counter_cache(redis))
     monkeypatch.setattr(ps, "prisma_client", prisma)
     reservation = _reservation(reserved_cost=0.4)
@@ -497,7 +497,7 @@ async def test_reconcile_settles_a_flushed_counter_on_its_own_after_the_shared_p
 
 @pytest.mark.asyncio
 async def test_pre_call_resize_against_an_inconsistent_counter_writes_nothing_and_denies(monkeypatch):
-    from litellm.proxy.spend_tracking.budget_reservation import _resize_applied_reservation
+    from embrouter.proxy.spend_tracking.budget_reservation import _resize_applied_reservation
 
     redis = CountingRedis({"spend:key:hashed": 1.0})
     monkeypatch.setattr(ps, "spend_counter_cache", _spend_counter_cache(redis))
@@ -564,15 +564,15 @@ def test_a_scope_opened_inside_an_open_scope_joins_its_batch_and_a_closed_one_ge
 
 @pytest.mark.asyncio
 async def test_reservation_inside_the_admission_scope_reuses_its_mget_and_reserves_in_one_pipeline(monkeypatch):
-    from litellm.caching.dual_cache import DualCache
-    from litellm.proxy._types import LiteLLM_TeamTableCachedObj
-    from litellm.proxy.spend_tracking.budget_reservation import reserve_budget_for_request
+    from embrouter.caching.dual_cache import DualCache
+    from embrouter.proxy._types import EmbRouter_TeamTableCachedObj
+    from embrouter.proxy.spend_tracking.budget_reservation import reserve_budget_for_request
 
     redis = CountingRedis({"spend:key:hashed": 1.0, "spend:team:team": 2.0})
     redis.default_ttl = 3600
     monkeypatch.setattr(ps, "spend_counter_cache", _spend_counter_cache(redis))
     monkeypatch.setattr(ps, "prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost", lambda **_: 0.5)
+    monkeypatch.setattr("embrouter.proxy.spend_tracking.budget_reservation.estimate_request_max_cost", lambda **_: 0.5)
     token = UserAPIKeyAuth(token="hashed", team_id="team", max_budget=10.0)
 
     with spend_counter_batch_scope(redis, counter_keys=admission_counter_keys(token, end_user_id=None)):
@@ -581,7 +581,7 @@ async def test_reservation_inside_the_admission_scope_reuses_its_mget_and_reserv
             route="/chat/completions",
             llm_router=None,
             valid_token=token,
-            team_object=LiteLLM_TeamTableCachedObj(team_id="team", max_budget=20.0),
+            team_object=EmbRouter_TeamTableCachedObj(team_id="team", max_budget=20.0),
             user_object=None,
             prisma_client=None,
             user_api_key_cache=DualCache(),
@@ -598,9 +598,9 @@ async def test_reservation_inside_the_admission_scope_reuses_its_mget_and_reserv
 
 @pytest.mark.asyncio
 async def test_a_failed_reservation_pipeline_drops_every_counter_and_reserves_nothing(monkeypatch):
-    from litellm.caching.dual_cache import DualCache
-    from litellm.proxy._types import LiteLLM_TeamTableCachedObj
-    from litellm.proxy.spend_tracking.budget_reservation import reserve_budget_for_request
+    from embrouter.caching.dual_cache import DualCache
+    from embrouter.proxy._types import EmbRouter_TeamTableCachedObj
+    from embrouter.proxy.spend_tracking.budget_reservation import reserve_budget_for_request
 
     redis = CountingRedis({"spend:key:hashed": 1.0, "spend:team:team": 2.0})
     redis.default_ttl = 3600
@@ -612,7 +612,7 @@ async def test_a_failed_reservation_pipeline_drops_every_counter_and_reserves_no
     redis.async_increment_pipeline = _pipeline  # pyright: ignore[reportAttributeAccessIssue]  # instance override
     monkeypatch.setattr(ps, "spend_counter_cache", _spend_counter_cache(redis))
     monkeypatch.setattr(ps, "prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost", lambda **_: 0.5)
+    monkeypatch.setattr("embrouter.proxy.spend_tracking.budget_reservation.estimate_request_max_cost", lambda **_: 0.5)
     token = UserAPIKeyAuth(token="hashed", team_id="team", max_budget=10.0)
 
     reservation = await reserve_budget_for_request(
@@ -620,7 +620,7 @@ async def test_a_failed_reservation_pipeline_drops_every_counter_and_reserves_no
         route="/chat/completions",
         llm_router=None,
         valid_token=token,
-        team_object=LiteLLM_TeamTableCachedObj(team_id="team", max_budget=20.0),
+        team_object=EmbRouter_TeamTableCachedObj(team_id="team", max_budget=20.0),
         user_object=None,
         prisma_client=None,
         user_api_key_cache=DualCache(),
@@ -637,7 +637,7 @@ async def test_a_failed_reservation_pipeline_drops_every_counter_and_reserves_no
 
 @pytest.mark.asyncio
 async def test_post_call_lifecycle_reads_the_counters_after_the_db_update_and_writes_one_pipeline(monkeypatch):
-    from litellm.proxy.hooks.proxy_track_cost_callback import _update_database_and_spend_counters
+    from embrouter.proxy.hooks.proxy_track_cost_callback import _update_database_and_spend_counters
 
     redis = CountingRedis({key: 1.0 for key in POST_CALL_KEYS})
     monkeypatch.setattr(ps, "spend_counter_cache", _spend_counter_cache(redis))
@@ -687,13 +687,13 @@ def _reservation_fixture(monkeypatch, redis: CountingRedis) -> None:
     redis.default_ttl = 3600
     monkeypatch.setattr(ps, "spend_counter_cache", _spend_counter_cache(redis))
     monkeypatch.setattr(ps, "prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.spend_tracking.budget_reservation.estimate_request_max_cost", lambda **_: 0.5)
+    monkeypatch.setattr("embrouter.proxy.spend_tracking.budget_reservation.estimate_request_max_cost", lambda **_: 0.5)
 
 
 async def _reserve(redis: CountingRedis, token: UserAPIKeyAuth, team_max_budget: float) -> dict | None:
-    from litellm.caching.dual_cache import DualCache
-    from litellm.proxy._types import LiteLLM_TeamTableCachedObj
-    from litellm.proxy.spend_tracking.budget_reservation import reserve_budget_for_request
+    from embrouter.caching.dual_cache import DualCache
+    from embrouter.proxy._types import EmbRouter_TeamTableCachedObj
+    from embrouter.proxy.spend_tracking.budget_reservation import reserve_budget_for_request
 
     with spend_counter_batch_scope(redis, counter_keys=admission_counter_keys(token, end_user_id=None)):
         return await reserve_budget_for_request(
@@ -701,7 +701,7 @@ async def _reserve(redis: CountingRedis, token: UserAPIKeyAuth, team_max_budget:
             route="/chat/completions",
             llm_router=None,
             valid_token=token,
-            team_object=LiteLLM_TeamTableCachedObj(team_id="team", max_budget=team_max_budget),
+            team_object=EmbRouter_TeamTableCachedObj(team_id="team", max_budget=team_max_budget),
             user_object=None,
             prisma_client=None,
             user_api_key_cache=DualCache(),
@@ -717,7 +717,7 @@ async def test_a_rejected_counter_is_charged_alone_so_the_counters_after_it_are_
     _reservation_fixture(monkeypatch, redis)
     token = UserAPIKeyAuth(token="hashed", team_id="team", max_budget=10.0)
 
-    with pytest.raises(litellm.BudgetExceededError):
+    with pytest.raises(embrouter.BudgetExceededError):
         await _reserve(redis, token, team_max_budget=20.0)
 
     writes = [c for c in redis.commands if not c.startswith("MGET")]
@@ -743,7 +743,7 @@ async def test_a_resized_reservation_is_carried_at_its_resized_cost_to_the_count
 async def test_update_cache_reads_an_object_redis_gained_right_after_a_batch_read_missed_it(monkeypatch):
     """DualCache throttles repeated batch reads of a key that just missed; the per-object GET update_cache used to
     issue never did, so its batched read must not either."""
-    from litellm.caching.dual_cache import DualCache
+    from embrouter.caching.dual_cache import DualCache
 
     redis = CountingRedis()
     cache = DualCache(redis_cache=redis)

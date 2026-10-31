@@ -7,18 +7,18 @@ import httpx
 import pytest
 
 
-import litellm
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.litellm_core_utils.token_counter import high_detail_image_token_upper_bound
-from litellm.proxy.pass_through_endpoints.llm_provider_handlers.openai_passthrough_logging_handler import (
+import embrouter
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.embrouter_core_utils.token_counter import high_detail_image_token_upper_bound
+from embrouter.proxy.pass_through_endpoints.llm_provider_handlers.openai_passthrough_logging_handler import (
     OpenAIPassthroughLoggingHandler,
     count_relayed_prompt_tokens,
 )
-from litellm.proxy.pass_through_endpoints.success_handler import (
+from embrouter.proxy.pass_through_endpoints.success_handler import (
     PassThroughEndpointLogging,
 )
-from litellm.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
-from litellm.types.passthrough_endpoints.pass_through_endpoints import (
+from embrouter.proxy.spend_tracking.spend_tracking_utils import get_logging_payload
+from embrouter.types.passthrough_endpoints.pass_through_endpoints import (
     PassthroughStandardLoggingPayload,
 )
 
@@ -51,7 +51,7 @@ class TestOpenAIPassthroughLoggingHandler:
             "usage": {"prompt_tokens": 20, "completion_tokens": 15, "total_tokens": 35},
         }
 
-    def _create_mock_logging_obj(self) -> LiteLLMLoggingObj:
+    def _create_mock_logging_obj(self) -> EmbRouterLoggingObj:
         """Create a mock logging object"""
         mock_logging_obj = MagicMock()
         mock_logging_obj.model_call_details = {}
@@ -271,8 +271,8 @@ class TestOpenAIPassthroughLoggingHandler:
         assert OpenAIPassthroughLoggingHandler.is_openai_responses_route(cognitive_chat) is False
         assert OpenAIPassthroughLoggingHandler.is_openai_embeddings_route(cognitive_chat) is False
 
-    @patch("litellm.completion_cost")
-    @patch("litellm.litellm_core_utils.litellm_logging.get_standard_logging_object_payload")
+    @patch("embrouter.completion_cost")
+    @patch("embrouter.embrouter_core_utils.embrouter_logging.get_standard_logging_object_payload")
     def test_openai_passthrough_handler_success(self, mock_get_standard_logging, mock_completion_cost):
         """Test successful cost tracking for OpenAI chat completions"""
         # Arrange
@@ -321,7 +321,7 @@ class TestOpenAIPassthroughLoggingHandler:
         assert mock_logging_obj.model_call_details["model"] == "gpt-4o"
         assert mock_logging_obj.model_call_details["custom_llm_provider"] == "openai"
 
-    @patch("litellm.completion_cost")
+    @patch("embrouter.completion_cost")
     def test_openai_passthrough_handler_non_chat_completions(self, mock_completion_cost):
         """Test that non-chat-completions routes fall back to base handler"""
         # Arrange
@@ -355,8 +355,8 @@ class TestOpenAIPassthroughLoggingHandler:
         # Cost calculation may be called by the base handler fallback
         # The important thing is that our specific OpenAI handler logic didn't run
 
-    @patch("litellm.completion_cost")
-    @patch("litellm.litellm_core_utils.litellm_logging.get_standard_logging_object_payload")
+    @patch("embrouter.completion_cost")
+    @patch("embrouter.embrouter_core_utils.embrouter_logging.get_standard_logging_object_payload")
     def test_openai_passthrough_handler_with_user_tracking(self, mock_get_standard_logging, mock_completion_cost):
         """Test cost tracking with user information"""
         # Arrange
@@ -406,13 +406,13 @@ class TestOpenAIPassthroughLoggingHandler:
         assert "kwargs" in result
         assert result["kwargs"]["response_cost"] == 0.000123
 
-        # Verify user information is included in litellm_params
-        assert "litellm_params" in result["kwargs"]
-        assert "proxy_server_request" in result["kwargs"]["litellm_params"]
-        assert "body" in result["kwargs"]["litellm_params"]["proxy_server_request"]
-        assert result["kwargs"]["litellm_params"]["proxy_server_request"]["body"]["user"] == "test_user_123"
+        # Verify user information is included in embrouter_params
+        assert "embrouter_params" in result["kwargs"]
+        assert "proxy_server_request" in result["kwargs"]["embrouter_params"]
+        assert "body" in result["kwargs"]["embrouter_params"]["proxy_server_request"]
+        assert result["kwargs"]["embrouter_params"]["proxy_server_request"]["body"]["user"] == "test_user_123"
 
-    @patch("litellm.completion_cost")
+    @patch("embrouter.completion_cost")
     def test_openai_passthrough_handler_cost_calculation_error(self, mock_completion_cost):
         """Test error handling in cost calculation"""
         # Arrange
@@ -454,14 +454,14 @@ class TestOpenAIPassthroughLoggingHandler:
         # This is a placeholder method that returns None for now
         result = self.handler._build_complete_streaming_response(
             all_chunks=["chunk1", "chunk2"],
-            litellm_logging_obj=self._create_mock_logging_obj(),
+            embrouter_logging_obj=self._create_mock_logging_obj(),
             model="gpt-4o",
         )
 
         assert result is None  # Placeholder implementation
 
     @patch(f"{OpenAIPassthroughLoggingHandler.__module__}.get_standard_logging_object_payload")
-    @patch("litellm.completion_cost", return_value=3.3e-06)
+    @patch("embrouter.completion_cost", return_value=3.3e-06)
     def test_streaming_responses_cost_uses_completed_response(self, mock_completion_cost, mock_get_standard_logging):
         response_id = "resp_PROOFSENTINEL0123456789abcdef"
         completed_event = {
@@ -509,7 +509,7 @@ class TestOpenAIPassthroughLoggingHandler:
         logging_obj = self._create_mock_logging_obj()
 
         result = OpenAIPassthroughLoggingHandler._handle_logging_openai_collected_chunks(
-            litellm_logging_obj=logging_obj,
+            embrouter_logging_obj=logging_obj,
             passthrough_success_handler_obj=MagicMock(),
             url_route="https://api.openai.com/v1/responses",
             request_body={"model": "gpt-4o-mini", "stream": True},
@@ -534,7 +534,7 @@ class TestOpenAIPassthroughLoggingHandler:
         )
 
     @patch(f"{OpenAIPassthroughLoggingHandler.__module__}.get_standard_logging_object_payload")
-    @patch("litellm.completion_cost", return_value=2.1e-06)
+    @patch("embrouter.completion_cost", return_value=2.1e-06)
     def test_streaming_responses_incomplete_event_is_billed(self, mock_completion_cost, mock_get_standard_logging):
         response_id = "resp_INCOMPLETESENTINEL0123456789ab"
         incomplete_event = {
@@ -582,7 +582,7 @@ class TestOpenAIPassthroughLoggingHandler:
         logging_obj = self._create_mock_logging_obj()
 
         result = OpenAIPassthroughLoggingHandler._handle_logging_openai_collected_chunks(
-            litellm_logging_obj=logging_obj,
+            embrouter_logging_obj=logging_obj,
             passthrough_success_handler_obj=MagicMock(),
             url_route="https://api.openai.com/v1/responses",
             request_body={"model": "gpt-4o-mini", "stream": True},
@@ -606,7 +606,7 @@ class TestOpenAIPassthroughLoggingHandler:
         )
 
     @patch(f"{OpenAIPassthroughLoggingHandler.__module__}.get_standard_logging_object_payload")
-    @patch("litellm.completion_cost", return_value=1.4e-06)
+    @patch("embrouter.completion_cost", return_value=1.4e-06)
     def test_streaming_responses_failed_event_is_billed(self, mock_completion_cost, mock_get_standard_logging):
         response_id = "resp_FAILEDSENTINEL0123456789abcd"
         failed_event = {
@@ -640,7 +640,7 @@ class TestOpenAIPassthroughLoggingHandler:
         logging_obj = self._create_mock_logging_obj()
 
         result = OpenAIPassthroughLoggingHandler._handle_logging_openai_collected_chunks(
-            litellm_logging_obj=logging_obj,
+            embrouter_logging_obj=logging_obj,
             passthrough_success_handler_obj=MagicMock(),
             url_route="https://api.openai.com/v1/responses",
             request_body={"model": "gpt-4o-mini", "stream": True},
@@ -664,7 +664,7 @@ class TestOpenAIPassthroughLoggingHandler:
         )
 
     @patch(f"{OpenAIPassthroughLoggingHandler.__module__}.get_standard_logging_object_payload", return_value=None)
-    @patch("litellm.completion_cost", return_value=3.3e-06)
+    @patch("embrouter.completion_cost", return_value=3.3e-06)
     def test_streaming_responses_none_payload_is_not_attached(self, mock_completion_cost, mock_get_standard_logging):
         completed_event = {
             "type": "response.completed",
@@ -697,7 +697,7 @@ class TestOpenAIPassthroughLoggingHandler:
         logging_obj = self._create_mock_logging_obj()
 
         result = OpenAIPassthroughLoggingHandler._handle_logging_openai_collected_chunks(
-            litellm_logging_obj=logging_obj,
+            embrouter_logging_obj=logging_obj,
             passthrough_success_handler_obj=MagicMock(),
             url_route="https://api.openai.com/v1/responses",
             request_body={"model": "gpt-4o-mini", "stream": True},
@@ -711,14 +711,14 @@ class TestOpenAIPassthroughLoggingHandler:
         assert result["kwargs"]["response_cost"] == 3.3e-06
 
     @patch(f"{OpenAIPassthroughLoggingHandler.__module__}.get_standard_logging_object_payload")
-    @patch("litellm.completion_cost")
+    @patch("embrouter.completion_cost")
     def test_streaming_responses_without_completed_event_returns_none(
         self, mock_completion_cost, mock_get_standard_logging
     ):
         logging_obj = self._create_mock_logging_obj()
 
         result = OpenAIPassthroughLoggingHandler._handle_logging_openai_collected_chunks(
-            litellm_logging_obj=logging_obj,
+            embrouter_logging_obj=logging_obj,
             passthrough_success_handler_obj=MagicMock(),
             url_route="https://api.openai.com/v1/responses",
             request_body={"model": "gpt-4o-mini", "stream": True},
@@ -734,8 +734,8 @@ class TestOpenAIPassthroughLoggingHandler:
         assert result == {"result": None, "kwargs": {}}
         mock_completion_cost.assert_not_called()
 
-    @patch("litellm.completion_cost")
-    @patch("litellm.litellm_core_utils.litellm_logging.get_standard_logging_object_payload")
+    @patch("embrouter.completion_cost")
+    @patch("embrouter.embrouter_core_utils.embrouter_logging.get_standard_logging_object_payload")
     def test_different_models_cost_tracking(self, mock_get_standard_logging, mock_completion_cost):
         """Test cost tracking for different OpenAI models"""
         # Arrange
@@ -802,8 +802,8 @@ class TestOpenAIPassthroughLoggingHandler:
         handler = OpenAIPassthroughLoggingHandler()
         assert handler.get_provider_config("gpt-4o") is not None
 
-    @patch("litellm.completion_cost")
-    @patch("litellm.litellm_core_utils.litellm_logging.get_standard_logging_object_payload")
+    @patch("embrouter.completion_cost")
+    @patch("embrouter.embrouter_core_utils.embrouter_logging.get_standard_logging_object_payload")
     def test_azure_passthrough_tags_metadata_model_provider(self, mock_get_standard_logging, mock_completion_cost):
         """Test that tags, metadata, model, and custom_llm_provider are preserved for Azure passthrough in UI"""
         # Arrange
@@ -823,12 +823,12 @@ class TestOpenAIPassthroughLoggingHandler:
             request_method="POST",
         )
 
-        # Set up kwargs with existing litellm_params containing metadata tags
+        # Set up kwargs with existing embrouter_params containing metadata tags
         kwargs = {
             "passthrough_logging_payload": passthrough_payload,
             "model": "gpt-4o",
             "custom_llm_provider": "azure",  # Azure passthrough
-            "litellm_params": {
+            "embrouter_params": {
                 "metadata": {
                     "tags": ["production", "azure-deployment"],
                     "user_id": "user_123",
@@ -863,15 +863,15 @@ class TestOpenAIPassthroughLoggingHandler:
         assert result["kwargs"]["custom_llm_provider"] == "azure"  # Should preserve Azure, not default to "openai"
         assert result["kwargs"]["response_cost"] == 0.000045
 
-        # Verify metadata tags are preserved in litellm_params
-        assert "litellm_params" in result["kwargs"]
-        assert "metadata" in result["kwargs"]["litellm_params"]
-        assert "tags" in result["kwargs"]["litellm_params"]["metadata"]
-        assert result["kwargs"]["litellm_params"]["metadata"]["tags"] == [
+        # Verify metadata tags are preserved in embrouter_params
+        assert "embrouter_params" in result["kwargs"]
+        assert "metadata" in result["kwargs"]["embrouter_params"]
+        assert "tags" in result["kwargs"]["embrouter_params"]["metadata"]
+        assert result["kwargs"]["embrouter_params"]["metadata"]["tags"] == [
             "production",
             "azure-deployment",
         ]
-        assert result["kwargs"]["litellm_params"]["metadata"]["user_id"] == "user_123"
+        assert result["kwargs"]["embrouter_params"]["metadata"]["user_id"] == "user_123"
 
         # Verify logging object has correct values for UI display
         assert mock_logging_obj.model_call_details["model"] == "gpt-4o"
@@ -883,9 +883,9 @@ class TestOpenAIPassthroughLoggingHandler:
         call_args = mock_completion_cost.call_args
         assert call_args[1]["custom_llm_provider"] == "azure"
 
-    @patch("litellm.completion_cost")
-    @patch("litellm.litellm_core_utils.litellm_logging.get_standard_logging_object_payload")
-    @patch("litellm.llms.openai.responses.transformation.OpenAIResponsesAPIConfig.transform_response_api_response")
+    @patch("embrouter.completion_cost")
+    @patch("embrouter.embrouter_core_utils.embrouter_logging.get_standard_logging_object_payload")
+    @patch("embrouter.llms.openai.responses.transformation.OpenAIResponsesAPIConfig.transform_response_api_response")
     def test_responses_api_cost_tracking(
         self,
         mock_transform_responses,
@@ -905,7 +905,7 @@ class TestOpenAIPassthroughLoggingHandler:
 
         # Mock the Responses transformer's return — a ResponsesAPIResponse
         # carrying the usage fields downstream cost-calc expects.
-        from litellm.types.llms.openai import ResponsesAPIResponse
+        from embrouter.types.llms.openai import ResponsesAPIResponse
 
         mock_responses_api_response = ResponsesAPIResponse.model_construct(
             id="resp_abc123",
@@ -976,8 +976,8 @@ class TestOpenAIPassthroughLoggingHandler:
         assert mock_logging_obj.model_call_details["model"] == "gpt-4o"
         assert mock_logging_obj.model_call_details["custom_llm_provider"] == "openai"
 
-    @patch("litellm.completion_cost")
-    @patch("litellm.litellm_core_utils.litellm_logging.get_standard_logging_object_payload")
+    @patch("embrouter.completion_cost")
+    @patch("embrouter.embrouter_core_utils.embrouter_logging.get_standard_logging_object_payload")
     def test_responses_api_uses_responses_transformer_not_chat_completions(
         self, mock_get_standard_logging, mock_completion_cost
     ):
@@ -1069,7 +1069,7 @@ class TestOpenAIPassthroughLoggingHandler:
         call_kwargs = mock_completion_cost.call_args[1]
         assert call_kwargs["call_type"] == "responses"
 
-        from litellm.types.llms.openai import ResponsesAPIResponse
+        from embrouter.types.llms.openai import ResponsesAPIResponse
 
         assert isinstance(call_kwargs["completion_response"], ResponsesAPIResponse), (
             "completion_response must be a ResponsesAPIResponse; passing a "
@@ -1087,7 +1087,7 @@ class TestOpenAIPassthroughIntegration:
         self.start_time = datetime.now()
         self.end_time = datetime.now()
 
-    def _create_mock_logging_obj(self) -> LiteLLMLoggingObj:
+    def _create_mock_logging_obj(self) -> EmbRouterLoggingObj:
         """Create a mock logging object"""
         mock_logging_obj = MagicMock()
         mock_logging_obj.model_call_details = {}
@@ -1160,7 +1160,7 @@ class TestOpenAIPassthroughIntegration:
         Responses API, calls to `/v1/responses` would fail the gate and the
         handler's `elif is_responses:` branch was unreachable in the live
         success-handler pipeline — every Responses-API call landed in
-        `LiteLLM_SpendLogs` with zero tokens / zero spend even though the
+        `EmbRouter_SpendLogs` with zero tokens / zero spend even though the
         handler had a Responses branch internally.
 
         This test exercises the dispatch decision directly so future
@@ -1194,8 +1194,8 @@ class TestOpenAIPassthroughIntegration:
         assert self.handler.is_cohere_route("https://api.cohere.com/v1/rerank") is False
         assert self.handler.is_cohere_route("http://localhost:4000/openai_passthrough/v1/embeddings") is False
 
-    @patch("litellm.completion_cost")
-    @patch("litellm.litellm_core_utils.litellm_logging.get_standard_logging_object_payload")
+    @patch("embrouter.completion_cost")
+    @patch("embrouter.embrouter_core_utils.embrouter_logging.get_standard_logging_object_payload")
     def test_openai_passthrough_handler_embeddings_sets_response_cost(
         self, mock_get_standard_logging, mock_completion_cost
     ):
@@ -1226,7 +1226,7 @@ class TestOpenAIPassthroughIntegration:
         )
         kwargs = {
             "passthrough_logging_payload": passthrough_payload,
-            "litellm_params": {},
+            "embrouter_params": {},
         }
 
         result = OpenAIPassthroughLoggingHandler.openai_passthrough_handler(
@@ -1255,9 +1255,9 @@ class TestOpenAIPassthroughIntegration:
         assert mock_logging_obj.model_call_details["response_cost"] == 2.8e-07
 
     @patch(
-        "litellm.proxy.pass_through_endpoints.llm_provider_handlers.openai_passthrough_logging_handler.OpenAIPassthroughLoggingHandler.passthrough_chat_handler"
+        "embrouter.proxy.pass_through_endpoints.llm_provider_handlers.openai_passthrough_logging_handler.OpenAIPassthroughLoggingHandler.passthrough_chat_handler"
     )
-    @patch("litellm.completion_cost")
+    @patch("embrouter.completion_cost")
     def test_openai_passthrough_handler_embeddings_without_model_falls_back(
         self, mock_completion_cost, mock_chat_handler
     ):
@@ -1316,7 +1316,7 @@ class TestOpenAIPassthroughIntegration:
                 },
                 request_method="POST",
             ),
-            litellm_params={},
+            embrouter_params={},
         )
 
         assert result["result"] is not None
@@ -1338,7 +1338,7 @@ class TestOpenAIPassthroughIntegration:
                 request_body={"model": "text-embedding-3-small", "input": "spend probe"},
                 request_method="POST",
             ),
-            "litellm_params": {},
+            "embrouter_params": {},
         }
         result = OpenAIPassthroughLoggingHandler.openai_passthrough_handler(
             httpx_response=self._create_mock_httpx_response(response_body),
@@ -1357,7 +1357,7 @@ class TestOpenAIPassthroughIntegration:
         assert result["kwargs"]["passthrough_logging_payload"] == kwargs_in["passthrough_logging_payload"]
 
     @patch(
-        "litellm.proxy.pass_through_endpoints.llm_provider_handlers.openai_passthrough_logging_handler.OpenAIPassthroughLoggingHandler.openai_passthrough_handler"
+        "embrouter.proxy.pass_through_endpoints.llm_provider_handlers.openai_passthrough_logging_handler.OpenAIPassthroughLoggingHandler.openai_passthrough_handler"
     )
     @pytest.mark.asyncio
     async def test_success_handler_dispatches_embeddings_to_openai_handler(self, mock_openai_handler):
@@ -1415,7 +1415,7 @@ class TestOpenAIPassthroughIntegration:
         assert mock_openai_handler.call_args.kwargs["url_route"] == "https://api.openai.com/v1/embeddings"
 
     @patch(
-        "litellm.proxy.pass_through_endpoints.llm_provider_handlers.openai_passthrough_logging_handler.OpenAIPassthroughLoggingHandler.openai_passthrough_handler"
+        "embrouter.proxy.pass_through_endpoints.llm_provider_handlers.openai_passthrough_logging_handler.OpenAIPassthroughLoggingHandler.openai_passthrough_handler"
     )
     @pytest.mark.asyncio
     async def test_success_handler_dispatches_responses_api_to_openai_handler(self, mock_openai_handler):
@@ -1478,7 +1478,7 @@ class TestOpenAIPassthroughIntegration:
         assert call_kwargs["url_route"] == "https://api.openai.com/v1/responses"
 
     @patch(
-        "litellm.proxy.pass_through_endpoints.llm_provider_handlers.openai_passthrough_logging_handler.OpenAIPassthroughLoggingHandler.openai_passthrough_handler"
+        "embrouter.proxy.pass_through_endpoints.llm_provider_handlers.openai_passthrough_logging_handler.OpenAIPassthroughLoggingHandler.openai_passthrough_handler"
     )
     @pytest.mark.asyncio
     async def test_success_handler_calls_openai_handler(self, mock_openai_handler):
@@ -1577,7 +1577,7 @@ class TestOpenAIPassthroughIntegration:
         # Assert - Should call the base handler, not our OpenAI handler
         self.handler._handle_logging.assert_called_once()
 
-    @patch("litellm.cost_calculator.default_image_cost_calculator")
+    @patch("embrouter.cost_calculator.default_image_cost_calculator")
     def test_calculate_image_generation_cost(self, mock_image_cost_calculator):
         """Test image generation cost calculation"""
         # Arrange
@@ -1617,7 +1617,7 @@ class TestOpenAIPassthroughIntegration:
             optional_params=request_body,
         )
 
-    @patch("litellm.cost_calculator.default_image_cost_calculator")
+    @patch("embrouter.cost_calculator.default_image_cost_calculator")
     def test_calculate_image_editing_cost(self, mock_image_cost_calculator):
         """Test image editing cost calculation"""
         # Arrange
@@ -1659,13 +1659,13 @@ class TestOpenAIPassthroughIntegration:
     def test_cost_calculation_preservation(self):
         """Test that manually calculated costs are preserved and not overridden."""
         # Create a logging object
-        logging_obj = LiteLLMLoggingObj(
+        logging_obj = EmbRouterLoggingObj(
             model="dall-e-3",
             messages=[{"role": "user", "content": "Generate an image"}],
             stream=False,
             call_type="pass_through_endpoint",
             start_time=self.start_time,
-            litellm_call_id="test_123",
+            embrouter_call_id="test_123",
             function_id="test_fn",
         )
 
@@ -1676,7 +1676,7 @@ class TestOpenAIPassthroughIntegration:
         logging_obj.model_call_details["custom_llm_provider"] = "openai"
 
         # Create an ImageResponse with cost in _hidden_params
-        from litellm.types.utils import ImageResponse
+        from embrouter.types.utils import ImageResponse
 
         image_response = ImageResponse(
             data=[{"url": "https://example.com/image.png"}],
@@ -1689,7 +1689,7 @@ class TestOpenAIPassthroughIntegration:
 
         assert calculated_cost == test_cost, f"Expected {test_cost}, got {calculated_cost}"
 
-    @patch("litellm.cost_calculator.default_image_cost_calculator")
+    @patch("embrouter.cost_calculator.default_image_cost_calculator")
     def test_openai_passthrough_handler_image_generation(self, mock_image_cost_calculator):
         """Test successful cost tracking for OpenAI image generation"""
         # Arrange
@@ -1751,7 +1751,7 @@ class TestOpenAIPassthroughIntegration:
         assert mock_logging_obj.model_call_details["model"] == "dall-e-3"
         assert mock_logging_obj.model_call_details["custom_llm_provider"] == "openai"
 
-    @patch("litellm.cost_calculator.default_image_cost_calculator")
+    @patch("embrouter.cost_calculator.default_image_cost_calculator")
     def test_openai_passthrough_handler_image_editing(self, mock_image_cost_calculator):
         """Test successful cost tracking for OpenAI image editing"""
         # Arrange
@@ -1834,7 +1834,7 @@ class TestOpenAIPassthroughResponsesStreamingSpendLog:
         self.end_time = datetime.now()
 
     def _expected_spend(self) -> float:
-        rates = litellm.model_cost[self.MODEL_MAP_KEY]
+        rates = embrouter.model_cost[self.MODEL_MAP_KEY]
         return (
             self.INPUT_TOKENS * rates["input_cost_per_token"]
             + self.OUTPUT_TOKENS * rates["output_cost_per_token"]
@@ -1903,14 +1903,14 @@ class TestOpenAIPassthroughResponsesStreamingSpendLog:
             "data: [DONE]",
         ]
 
-    def _logging_obj(self) -> LiteLLMLoggingObj:
-        logging_obj = LiteLLMLoggingObj(
+    def _logging_obj(self) -> EmbRouterLoggingObj:
+        logging_obj = EmbRouterLoggingObj(
             model="gpt-4o-mini",
             messages=[],
             stream=True,
             call_type="pass_through_endpoint",
             start_time=self.start_time,
-            litellm_call_id="323dfe4f-2741-4473-b6e2-000000000000",
+            embrouter_call_id="323dfe4f-2741-4473-b6e2-000000000000",
             function_id="1234",
         )
         logging_obj.model_call_details["custom_llm_provider"] = "openai"
@@ -1919,7 +1919,7 @@ class TestOpenAIPassthroughResponsesStreamingSpendLog:
     def test_streamed_responses_passthrough_spend_log_is_priced(self, local_model_cost_map):
         """The spend row books the same tokens, spend and `resp_` id as the buffered call."""
         result = OpenAIPassthroughLoggingHandler._handle_logging_openai_collected_chunks(
-            litellm_logging_obj=self._logging_obj(),
+            embrouter_logging_obj=self._logging_obj(),
             passthrough_success_handler_obj=None,
             url_route="https://api.openai.com/v1/responses",
             request_body={
@@ -1978,7 +1978,7 @@ class TestOpenAIPassthroughEmbeddingsSpendLog:
         self.request_body = {"model": self.MODEL, "input": "hello"}
 
     def _expected_spend(self) -> float:
-        return self.PROMPT_TOKENS * litellm.model_cost[self.MODEL]["input_cost_per_token"]
+        return self.PROMPT_TOKENS * embrouter.model_cost[self.MODEL]["input_cost_per_token"]
 
     def _create_mock_httpx_response(self) -> httpx.Response:
         mock_response = MagicMock(spec=httpx.Response)
@@ -1988,14 +1988,14 @@ class TestOpenAIPassthroughEmbeddingsSpendLog:
         mock_response.headers = {"content-type": "application/json"}
         return mock_response
 
-    def _logging_obj(self) -> LiteLLMLoggingObj:
-        logging_obj = LiteLLMLoggingObj(
+    def _logging_obj(self) -> EmbRouterLoggingObj:
+        logging_obj = EmbRouterLoggingObj(
             model=self.MODEL,
             messages=[],
             stream=False,
             call_type="pass_through_endpoint",
             start_time=self.start_time,
-            litellm_call_id=self.CALL_ID,
+            embrouter_call_id=self.CALL_ID,
             function_id="1234",
         )
         logging_obj.model_call_details["passthrough_logging_payload"] = PassthroughStandardLoggingPayload(
@@ -2018,8 +2018,8 @@ class TestOpenAIPassthroughEmbeddingsSpendLog:
             end_time=self.end_time,
             cache_hit=False,
             custom_llm_provider="openai",
-            litellm_call_id=self.CALL_ID,
-            litellm_params={},
+            embrouter_call_id=self.CALL_ID,
+            embrouter_params={},
             call_type="pass_through_endpoint",
         )
 
@@ -2067,7 +2067,7 @@ def _image_messages(url: str, detail: str) -> list[dict]:
 def test_count_relayed_prompt_tokens_counts_a_data_url_image_exactly():
     messages = _image_messages(ONE_PIXEL_PNG_DATA_URL, "high")
 
-    assert count_relayed_prompt_tokens("gpt-4.1-mini", messages) == litellm.token_counter(
+    assert count_relayed_prompt_tokens("gpt-4.1-mini", messages) == embrouter.token_counter(
         model="gpt-4.1-mini", messages=messages
     )
 
@@ -2075,7 +2075,7 @@ def test_count_relayed_prompt_tokens_counts_a_data_url_image_exactly():
 def test_count_relayed_prompt_tokens_keeps_a_low_detail_remote_image_at_the_base_count():
     messages = _image_messages(UNREACHABLE_IMAGE_URL, "low")
 
-    assert count_relayed_prompt_tokens("gpt-4.1-mini", messages) == litellm.token_counter(
+    assert count_relayed_prompt_tokens("gpt-4.1-mini", messages) == embrouter.token_counter(
         model="gpt-4.1-mini", messages=messages
     )
     assert count_relayed_prompt_tokens("gpt-4.1-mini", messages) < high_detail_image_token_upper_bound()
@@ -2085,7 +2085,7 @@ def test_count_relayed_prompt_tokens_charges_only_the_remote_high_detail_image_a
     messages = _image_messages(UNREACHABLE_IMAGE_URL, "high")
 
     assert count_relayed_prompt_tokens("gpt-4.1-mini", messages) == (
-        litellm.token_counter(model="gpt-4.1-mini", messages=TEXT_ONLY_MESSAGES) + high_detail_image_token_upper_bound()
+        embrouter.token_counter(model="gpt-4.1-mini", messages=TEXT_ONLY_MESSAGES) + high_detail_image_token_upper_bound()
     )
 
 
@@ -2094,5 +2094,5 @@ def test_count_relayed_prompt_tokens_charges_an_uppercase_scheme_remote_high_det
     messages = _image_messages(scheme + UNREACHABLE_IMAGE_URL.split("://", 1)[1], "high")
 
     assert count_relayed_prompt_tokens("gpt-4.1-mini", messages) == (
-        litellm.token_counter(model="gpt-4.1-mini", messages=TEXT_ONLY_MESSAGES) + high_detail_image_token_upper_bound()
+        embrouter.token_counter(model="gpt-4.1-mini", messages=TEXT_ONLY_MESSAGES) + high_detail_image_token_upper_bound()
     )

@@ -6,17 +6,17 @@ import json
 from datetime import datetime, timezone
 from typing import Any, Final
 
-from litellm._logging import verbose_proxy_logger
-from litellm._uuid import uuid4
-from litellm.caching.redis_cache import RedisCache
-from litellm.types.llms.openai import ResponsesAPIResponse, ResponsesAPIStatus
+from embrouter._logging import verbose_proxy_logger
+from embrouter._uuid import uuid4
+from embrouter.caching.redis_cache import RedisCache
+from embrouter.types.llms.openai import ResponsesAPIResponse, ResponsesAPIStatus
 
 
 class ResponsePollingHandler:
     """Handles polling-based responses with Redis cache"""
 
-    CACHE_KEY_PREFIX = "litellm:polling:response:"
-    POLLING_ID_PREFIX = "litellm_poll_"  # Clear prefix to identify polling IDs
+    CACHE_KEY_PREFIX = "embrouter:polling:response:"
+    POLLING_ID_PREFIX = "embrouter_poll_"  # Clear prefix to identify polling IDs
 
     def __init__(self, redis_cache: RedisCache | None = None, ttl: int = 3600):
         self.redis_cache = redis_cache
@@ -264,7 +264,7 @@ def should_use_polling_for_request(
         polling_via_cache_enabled: Config value - False, "all", or list of providers
         redis_cache: Redis cache instance (required for polling)
         model: Model name from the request (e.g., "gpt-5" or "openai/gpt-4o")
-        llm_router: LiteLLM router instance for looking up model deployments
+        llm_router: EmbRouter router instance for looking up model deployments
         native_background_mode: List of model names that should use native provider
             background mode instead of polling via cache
 
@@ -298,14 +298,14 @@ def should_use_polling_for_request(
                 indices: Final = llm_router.model_name_to_deployment_indices.get(model, [])
                 for idx in indices:
                     deployment_dict = llm_router.model_list[idx]
-                    litellm_params = deployment_dict.get("litellm_params", {})
+                    embrouter_params = deployment_dict.get("embrouter_params", {})
 
                     # Check custom_llm_provider first
-                    dep_provider = litellm_params.get("custom_llm_provider")
+                    dep_provider = embrouter_params.get("custom_llm_provider")
 
                     # Then try to extract from model (e.g., "openai/gpt-5")
                     if not dep_provider:
-                        dep_model = litellm_params.get("model", "")
+                        dep_model = embrouter_params.get("model", "")
                         if "/" in dep_model:
                             dep_provider = dep_model.split("/")[0]
 

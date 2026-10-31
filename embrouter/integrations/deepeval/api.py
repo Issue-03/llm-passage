@@ -5,7 +5,7 @@ from typing import Final
 
 import httpx
 
-from litellm._logging import verbose_logger
+from embrouter._logging import verbose_logger
 
 DEEPEVAL_BASE_URL: Final = "https://deepeval.confident-ai.com"
 DEEPEVAL_BASE_URL_EU: Final = "https://eu.deepeval.confident-ai.com"
@@ -13,7 +13,7 @@ API_BASE_URL: Final = "https://api.confident-ai.com"
 API_BASE_URL_EU: Final = "https://eu.api.confident-ai.com"
 retryable_exceptions: Final = httpx.HTTPError
 
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.llms.custom_httpx.http_handler import (
     HTTPHandler,
     get_async_httpx_client,
     httpxSpecialProvider,

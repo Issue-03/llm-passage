@@ -19,8 +19,8 @@ from mcp.types import (
     ErrorData,
 )
 
-from litellm.proxy._experimental.mcp_server import elicitation_handler
-from litellm.proxy._experimental.mcp_server.elicitation_handler import (
+from embrouter.proxy._experimental.mcp_server import elicitation_handler
+from embrouter.proxy._experimental.mcp_server.elicitation_handler import (
     _relay_elicitation_to_downstream,
     handle_elicitation_request,
 )

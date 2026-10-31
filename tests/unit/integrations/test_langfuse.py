@@ -10,20 +10,20 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import litellm
-from litellm.integrations.langfuse import langfuse as langfuse_module
-from litellm.integrations.langfuse.langfuse import LangFuseLogger
-from litellm.integrations.langfuse.langfuse_sdk import resolve_trace_id
+import embrouter
+from embrouter.integrations.langfuse import langfuse as langfuse_module
+from embrouter.integrations.langfuse.langfuse import LangFuseLogger
+from embrouter.integrations.langfuse.langfuse_sdk import resolve_trace_id
 
 
 # Import LangfuseUsageDetails directly from the module where it's defined
-from litellm.types.integrations.langfuse import *
+from embrouter.types.integrations.langfuse import *
 
 
 class TestLangfuseUsageDetails(unittest.TestCase):
     def setUp(self):
         # Save global Langfuse client counter to restore after test
-        self._original_langfuse_clients_count = litellm.initialized_langfuse_clients
+        self._original_langfuse_clients_count = embrouter.initialized_langfuse_clients
 
         # Set up environment variables for testing
         self.env_patcher = patch.dict(
@@ -64,8 +64,8 @@ class TestLangfuseUsageDetails(unittest.TestCase):
             # This implementation calls _log_langfuse_v2 directly
             return self._log_langfuse_v2(
                 user_id=user_id,
-                metadata=kwargs.get("litellm_params", {}).get("metadata", {}),
-                litellm_params=kwargs.get("litellm_params", {}),
+                metadata=kwargs.get("embrouter_params", {}).get("metadata", {}),
+                embrouter_params=kwargs.get("embrouter_params", {}),
                 output=None,
                 start_time=start_time,
                 end_time=end_time,
@@ -74,7 +74,7 @@ class TestLangfuseUsageDetails(unittest.TestCase):
                 input=None,
                 response_obj=response_obj,
                 level=level,
-                litellm_call_id=kwargs.get("litellm_call_id", None),
+                embrouter_call_id=kwargs.get("embrouter_call_id", None),
             )
 
         # Bind the method to the instance
@@ -86,7 +86,7 @@ class TestLangfuseUsageDetails(unittest.TestCase):
             del self.logger
 
         # Restore global Langfuse client counter to prevent cross-test pollution
-        litellm.initialized_langfuse_clients = self._original_langfuse_clients_count
+        embrouter.initialized_langfuse_clients = self._original_langfuse_clients_count
 
         self.env_patcher.stop()
 
@@ -96,7 +96,7 @@ class TestLangfuseUsageDetails(unittest.TestCase):
             InMemorySpanExporter,
         )
 
-        from litellm.integrations.langfuse.langfuse_sdk import build_langfuse_tracing
+        from embrouter.integrations.langfuse.langfuse_sdk import build_langfuse_tracing
 
         self.span_exporter = InMemorySpanExporter()
         self.logger.tracing = build_langfuse_tracing(
@@ -172,7 +172,7 @@ class TestLangfuseUsageDetails(unittest.TestCase):
         kwargs = {
             "model": "gpt-4",
             "messages": [{"role": "user", "content": "Hello"}],
-            "litellm_params": {"metadata": {}},
+            "embrouter_params": {"metadata": {}},
         }
 
         # Create start and end times
@@ -252,7 +252,7 @@ class TestLangfuseUsageDetails(unittest.TestCase):
 
         with (
             patch(
-                "litellm.integrations.langfuse.langfuse._add_prompt_to_generation_params",
+                "embrouter.integrations.langfuse.langfuse._add_prompt_to_generation_params",
                 side_effect=lambda generation_params, **kwargs: generation_params,
                 create=True,
             ) as mock_add_prompt_params,
@@ -276,9 +276,9 @@ class TestLangfuseUsageDetails(unittest.TestCase):
             kwargs = {
                 "model": "gpt-4-null-usage",
                 "messages": [{"role": "user", "content": "Test"}],
-                "litellm_params": {"metadata": {}},
+                "embrouter_params": {"metadata": {}},
                 "optional_params": {},
-                "litellm_call_id": "test-call-id-null-usage",
+                "embrouter_call_id": "test-call-id-null-usage",
                 "standard_logging_object": self._build_standard_logging_payload(),
                 "response_cost": 0.0,
             }
@@ -291,7 +291,7 @@ class TestLangfuseUsageDetails(unittest.TestCase):
                 self.logger._log_langfuse_v2(
                     user_id="test-user",
                     metadata={},
-                    litellm_params=kwargs["litellm_params"],
+                    embrouter_params=kwargs["embrouter_params"],
                     output={"role": "assistant", "content": "Response"},
                     start_time=fixed_time,
                     end_time=fixed_time + datetime.timedelta(seconds=1),
@@ -300,7 +300,7 @@ class TestLangfuseUsageDetails(unittest.TestCase):
                     input={"messages": kwargs["messages"]},
                     response_obj=response_obj,
                     level="DEFAULT",
-                    litellm_call_id=kwargs["litellm_call_id"],
+                    embrouter_call_id=kwargs["embrouter_call_id"],
                 )
             except Exception as e:
                 self.fail(f"_log_langfuse_v2 raised an exception: {e}")
@@ -366,14 +366,14 @@ class TestLangfuseUsageDetails(unittest.TestCase):
         self.use_real_langfuse_client()
 
         with patch(
-            "litellm.integrations.langfuse.langfuse._add_prompt_to_generation_params",
+            "embrouter.integrations.langfuse.langfuse._add_prompt_to_generation_params",
             side_effect=lambda generation_params, **kwargs: generation_params,
             create=True,
         ):
             self.logger._log_langfuse_v2(
                 user_id="user-1",
                 metadata={},
-                litellm_params={"metadata": {}},
+                embrouter_params={"metadata": {}},
                 output=None,
                 start_time=datetime.datetime.utcnow(),
                 end_time=datetime.datetime.utcnow(),
@@ -382,7 +382,7 @@ class TestLangfuseUsageDetails(unittest.TestCase):
                 input=None,
                 response_obj=None,
                 level="INFO",
-                litellm_call_id="call-id-xyz",
+                embrouter_call_id="call-id-xyz",
             )
 
         assert self.span_trace_id(self.exported_generation()) == resolve_trace_id("std-trace-id")
@@ -393,14 +393,14 @@ class TestLangfuseUsageDetails(unittest.TestCase):
         self.use_real_langfuse_client()
 
         with patch(
-            "litellm.integrations.langfuse.langfuse._add_prompt_to_generation_params",
+            "embrouter.integrations.langfuse.langfuse._add_prompt_to_generation_params",
             side_effect=lambda generation_params, **kwargs: generation_params,
             create=True,
         ):
             self.logger._log_langfuse_v2(
                 user_id="user-1",
                 metadata={},
-                litellm_params={"metadata": {}},
+                embrouter_params={"metadata": {}},
                 output=None,
                 start_time=datetime.datetime.utcnow(),
                 end_time=datetime.datetime.utcnow(),
@@ -409,32 +409,32 @@ class TestLangfuseUsageDetails(unittest.TestCase):
                 input=None,
                 response_obj=None,
                 level="INFO",
-                litellm_call_id="call-id-xyz",
+                embrouter_call_id="call-id-xyz",
             )
 
         assert self.span_trace_id(self.exported_generation()) == resolve_trace_id("call-id-xyz")
 
-    def test_log_langfuse_v2_uses_litellm_trace_id_fallback_over_call_id(self):
+    def test_log_langfuse_v2_uses_embrouter_trace_id_fallback_over_call_id(self):
         """
         When standard_logging_object has no trace_id, but kwargs contains
-        litellm_trace_id (the same ID the DB stores as Session ID), Langfuse
-        should use litellm_trace_id — NOT litellm_call_id. This ensures the
-        trace_id in Langfuse matches the Session ID shown in LiteLLM logs.
+        embrouter_trace_id (the same ID the DB stores as Session ID), Langfuse
+        should use embrouter_trace_id — NOT embrouter_call_id. This ensures the
+        trace_id in Langfuse matches the Session ID shown in EmbRouter logs.
         """
         payload = self._build_standard_logging_payload()  # no trace_id
         kwargs = self._build_langfuse_kwargs(payload)
-        kwargs["litellm_trace_id"] = "trace-id-from-kwargs"
+        kwargs["embrouter_trace_id"] = "trace-id-from-kwargs"
         self.use_real_langfuse_client()
 
         with patch(
-            "litellm.integrations.langfuse.langfuse._add_prompt_to_generation_params",
+            "embrouter.integrations.langfuse.langfuse._add_prompt_to_generation_params",
             side_effect=lambda generation_params, **kwargs: generation_params,
             create=True,
         ):
             self.logger._log_langfuse_v2(
                 user_id="user-1",
                 metadata={},
-                litellm_params={"metadata": {}},
+                embrouter_params={"metadata": {}},
                 output=None,
                 start_time=datetime.datetime.utcnow(),
                 end_time=datetime.datetime.utcnow(),
@@ -443,17 +443,17 @@ class TestLangfuseUsageDetails(unittest.TestCase):
                 input=None,
                 response_obj=None,
                 level="ERROR",
-                litellm_call_id="call-id-xyz",
+                embrouter_call_id="call-id-xyz",
             )
 
-        # litellm_trace_id should be preferred over litellm_call_id
+        # embrouter_trace_id should be preferred over embrouter_call_id
         assert self.span_trace_id(self.exported_generation()) == resolve_trace_id("trace-id-from-kwargs")
 
     CANARY = "sk-lf-canary-SECRET-d4e5f6"
 
     def _canary_request_metadata(self):
         """Raw request metadata shaped like the proxy builds it, credentials included."""
-        from litellm.proxy._types import UserAPIKeyAuth
+        from embrouter.proxy._types import UserAPIKeyAuth
 
         team_logging = [
             {
@@ -490,7 +490,7 @@ class TestLangfuseUsageDetails(unittest.TestCase):
         """The generation's metadata as langfuse receives it, one attribute per key.
 
         v4 serializes each value onto the span, so they are decoded back here to
-        keep these assertions about what litellm emitted rather than about the
+        keep these assertions about what embrouter emitted rather than about the
         SDK's wire encoding.
         """
         import json
@@ -524,14 +524,14 @@ class TestLangfuseUsageDetails(unittest.TestCase):
         self.use_real_langfuse_client()
 
         with patch(
-            "litellm.integrations.langfuse.langfuse._add_prompt_to_generation_params",
+            "embrouter.integrations.langfuse.langfuse._add_prompt_to_generation_params",
             side_effect=lambda generation_params, **kw: generation_params,
             create=True,
         ):
             self.logger._log_langfuse_v2(
                 user_id="user-1",
                 metadata=metadata,
-                litellm_params={"metadata": metadata},
+                embrouter_params={"metadata": metadata},
                 output=None,
                 start_time=datetime.datetime(2024, 1, 1, 12, 0, 0),
                 end_time=datetime.datetime(2024, 1, 1, 12, 0, 1),
@@ -540,7 +540,7 @@ class TestLangfuseUsageDetails(unittest.TestCase):
                 input=None,
                 response_obj=None,
                 level="INFO",
-                litellm_call_id="canary-call-id",
+                embrouter_call_id="canary-call-id",
             )
         return self.exported_generation_metadata()
 
@@ -569,7 +569,7 @@ class TestLangfuseUsageDetails(unittest.TestCase):
         import json
 
         self._drive_with_canary(extra_metadata={"debug_langfuse": True})
-        dumped = json.loads(self.exported_generation().attributes["langfuse.trace.metadata.metadata_passed_to_litellm"])
+        dumped = json.loads(self.exported_generation().attributes["langfuse.trace.metadata.metadata_passed_to_embrouter"])
 
         assert "user_api_key_auth" not in dumped
         assert dumped["first_custom"] == "keep-first"
@@ -577,7 +577,7 @@ class TestLangfuseUsageDetails(unittest.TestCase):
 
     def test_raw_request_metadata_reaches_the_emitted_blob_through_no_key(self):
         """
-        The emitted blob is the allowlist plus litellm enrichments, nothing else.
+        The emitted blob is the allowlist plus embrouter enrichments, nothing else.
         Nothing from raw request metadata is copied across, whatever its type, which
         is what makes the credential exclusion structural rather than a filter that
         has to be kept correct. Proxy callers keep their own metadata under the
@@ -624,7 +624,7 @@ class TestLangfuseUsageDetails(unittest.TestCase):
             ],
         )
 
-        [generation] = [span for span in self.span_exporter.get_finished_spans() if span.name.startswith("litellm-")]
+        [generation] = [span for span in self.span_exporter.get_finished_spans() if span.name.startswith("embrouter-")]
         [guardrail] = self.exported_spans_named("guardrail")
         [grounding] = self.exported_spans_named("vertex_ai_grounding_metadata")
         assert generation.parent is None
@@ -648,7 +648,7 @@ class TestLangfuseUsageDetails(unittest.TestCase):
             ],
         )
 
-        [generation] = [span for span in self.span_exporter.get_finished_spans() if span.name.startswith("litellm-")]
+        [generation] = [span for span in self.span_exporter.get_finished_spans() if span.name.startswith("embrouter-")]
         assert generation.attributes["langfuse.trace.name"] == "canary-trace"
         assert self.exported_spans_named("guardrail") == []
 
@@ -661,28 +661,28 @@ class TestLangfuseUsageDetails(unittest.TestCase):
 
         assert generation_metadata["user_api_key_alias"] == "canary-alias"
 
-    def test_caller_nested_metadata_cannot_erase_a_litellm_enrichment(self):
+    def test_caller_nested_metadata_cannot_erase_a_embrouter_enrichment(self):
         """
         log_requester_metadata drops any top-level key whose name also appears inside
         requester_metadata. Sourcing the blob from the allowlist populates that nested
-        dict for real, so a caller naming a key litellm_response_cost would otherwise
-        blank out the cost litellm computed. Enrichments are layered after the dedupe.
+        dict for real, so a caller naming a key embrouter_response_cost would otherwise
+        blank out the cost embrouter computed. Enrichments are layered after the dedupe.
         """
         payload = self._build_standard_logging_payload(trace_id="canary-trace-id")
-        payload["metadata"]["requester_metadata"] = {"litellm_response_cost": "caller-value", "api_base": "caller"}
+        payload["metadata"]["requester_metadata"] = {"embrouter_response_cost": "caller-value", "api_base": "caller"}
         kwargs = {**self._build_langfuse_kwargs(payload), "response_cost": 0.25}
         metadata = self._canary_request_metadata()
         self.use_real_langfuse_client()
 
         with patch(
-            "litellm.integrations.langfuse.langfuse._add_prompt_to_generation_params",
+            "embrouter.integrations.langfuse.langfuse._add_prompt_to_generation_params",
             side_effect=lambda generation_params, **kw: generation_params,
             create=True,
         ):
             self.logger._log_langfuse_v2(
                 user_id="user-1",
                 metadata=metadata,
-                litellm_params={"metadata": metadata, "api_base": "https://real-api-base"},
+                embrouter_params={"metadata": metadata, "api_base": "https://real-api-base"},
                 output=None,
                 start_time=datetime.datetime(2024, 1, 1, 12, 0, 0),
                 end_time=datetime.datetime(2024, 1, 1, 12, 0, 1),
@@ -691,11 +691,11 @@ class TestLangfuseUsageDetails(unittest.TestCase):
                 input=None,
                 response_obj=None,
                 level="INFO",
-                litellm_call_id="canary-call-id",
+                embrouter_call_id="canary-call-id",
             )
 
         generation_metadata = self.exported_generation_metadata()
-        assert generation_metadata["litellm_response_cost"] == 0.25
+        assert generation_metadata["embrouter_response_cost"] == 0.25
         assert generation_metadata["api_base"] == "https://real-api-base"
 
     def test_generation_metadata_carries_the_call_id_and_response_id(self):
@@ -710,29 +710,29 @@ class TestLangfuseUsageDetails(unittest.TestCase):
         self.use_real_langfuse_client()
 
         with patch(
-            "litellm.integrations.langfuse.langfuse._add_prompt_to_generation_params",
+            "embrouter.integrations.langfuse.langfuse._add_prompt_to_generation_params",
             side_effect=lambda generation_params, **kw: generation_params,
             create=True,
         ):
             self.logger._log_langfuse_v2(
                 user_id="user-1",
                 metadata=metadata,
-                litellm_params={"metadata": metadata},
+                embrouter_params={"metadata": metadata},
                 output=None,
                 start_time=datetime.datetime(2024, 1, 1, 12, 0, 0),
                 end_time=datetime.datetime(2024, 1, 1, 12, 0, 1),
                 kwargs=kwargs,
                 optional_params={},
                 input=None,
-                response_obj=litellm.ModelResponse(
+                response_obj=embrouter.ModelResponse(
                     id="chatcmpl-canary-response", choices=[{"message": {"role": "assistant", "content": "OK"}}]
                 ),
                 level="DEFAULT",
-                litellm_call_id="canary-call-id",
+                embrouter_call_id="canary-call-id",
             )
 
         generation_metadata = self.exported_generation_metadata()
-        assert generation_metadata["litellm_call_id"] == "canary-call-id"
+        assert generation_metadata["embrouter_call_id"] == "canary-call-id"
         assert generation_metadata["response_id"] == "chatcmpl-canary-response"
         assert "chatcmpl-canary-response" in self._emitted_payload_text()
 
@@ -740,13 +740,13 @@ class TestLangfuseUsageDetails(unittest.TestCase):
         """
         endpoint is a plain string, so without the deny-list it would ride the
         string re-injection straight into the emitted blob. The enrichments are
-        litellm-computed and must survive the move off clean_metadata.
+        embrouter-computed and must survive the move off clean_metadata.
         """
         generation_metadata = self._drive_with_canary()
 
         assert "endpoint" not in generation_metadata
         assert "headers" not in generation_metadata
-        assert generation_metadata["litellm_response_cost"] == 0.25
+        assert generation_metadata["embrouter_response_cost"] == 0.25
         assert "hidden_params" in generation_metadata
 
     def test_cache_hit_is_normalized_on_the_shared_kwargs(self):
@@ -761,14 +761,14 @@ class TestLangfuseUsageDetails(unittest.TestCase):
         kwargs = {**self._build_langfuse_kwargs(payload), "cache_hit": None}
 
         with patch(
-            "litellm.integrations.langfuse.langfuse._add_prompt_to_generation_params",
+            "embrouter.integrations.langfuse.langfuse._add_prompt_to_generation_params",
             side_effect=lambda generation_params, **kw: generation_params,
             create=True,
         ):
             self.logger._log_langfuse_v2(
                 user_id="user-1",
                 metadata=metadata,
-                litellm_params={"metadata": metadata},
+                embrouter_params={"metadata": metadata},
                 output=None,
                 start_time=datetime.datetime(2024, 1, 1, 12, 0, 0),
                 end_time=datetime.datetime(2024, 1, 1, 12, 0, 1),
@@ -777,7 +777,7 @@ class TestLangfuseUsageDetails(unittest.TestCase):
                 input=None,
                 response_obj=None,
                 level="INFO",
-                litellm_call_id="canary-call-id",
+                embrouter_call_id="canary-call-id",
             )
 
         assert kwargs["cache_hit"] is False
@@ -788,7 +788,7 @@ class TestLangfuseUsageDetails(unittest.TestCase):
         StandardLoggingPayload, which is where the user_api_key_* fields live, so the
         redaction has to run on the assembled payload or the flag silently stops working.
         """
-        with patch.object(litellm, "redact_user_api_key_info", True):
+        with patch.object(embrouter, "redact_user_api_key_info", True):
             generation_metadata = self._drive_with_canary()
 
         assert not [key for key in generation_metadata if key.startswith("user_api_key")]
@@ -808,7 +808,7 @@ class TestLangfuseUsageDetails(unittest.TestCase):
         """
         get_standard_logging_object_payload is fail-open and returns None on any
         exception, which is exactly the failed-request case Langfuse most needs to
-        show. The trace is still emitted with the litellm_trace_id fallback, and the
+        show. The trace is still emitted with the embrouter_trace_id fallback, and the
         blob degrades to caller strings plus enrichments rather than falling back to
         raw metadata, which would ship the UserAPIKeyAuth object.
         """
@@ -819,19 +819,19 @@ class TestLangfuseUsageDetails(unittest.TestCase):
             "call_type": "completion",
             "cache_hit": False,
             "messages": [],
-            "litellm_trace_id": "trace-id-failure",
+            "embrouter_trace_id": "trace-id-failure",
         }
         self.use_real_langfuse_client()
 
         with patch(
-            "litellm.integrations.langfuse.langfuse._add_prompt_to_generation_params",
+            "embrouter.integrations.langfuse.langfuse._add_prompt_to_generation_params",
             side_effect=lambda generation_params, **kwargs: generation_params,
             create=True,
         ):
             trace_id, _ = self.logger._log_langfuse_v2(
                 user_id="user-1",
                 metadata=metadata,
-                litellm_params={"metadata": metadata},
+                embrouter_params={"metadata": metadata},
                 output=None,
                 start_time=datetime.datetime.utcnow(),
                 end_time=datetime.datetime.utcnow(),
@@ -840,12 +840,12 @@ class TestLangfuseUsageDetails(unittest.TestCase):
                 input=None,
                 response_obj=None,
                 level="ERROR",
-                litellm_call_id="call-id-different",
+                embrouter_call_id="call-id-different",
             )
 
         import json
 
-        # Must use litellm_trace_id, not litellm_call_id. v4 addresses a trace by a
+        # Must use embrouter_trace_id, not embrouter_call_id. v4 addresses a trace by a
         # 32-hex id, so the callback returns the resolved form, which is what makes
         # the alerting deep link point at a trace langfuse can actually open
         assert trace_id == resolve_trace_id("trace-id-failure")
@@ -870,14 +870,14 @@ class TestLangfuseUsageDetails(unittest.TestCase):
         self.use_real_langfuse_client()
 
         with patch(
-            "litellm.integrations.langfuse.langfuse._add_prompt_to_generation_params",
+            "embrouter.integrations.langfuse.langfuse._add_prompt_to_generation_params",
             side_effect=lambda generation_params, **kwargs: generation_params,
             create=True,
         ):
             self.logger._log_langfuse_v2(
                 user_id="user-1",
                 metadata={"session_id": "my-session-abc"},
-                litellm_params={"metadata": {"session_id": "my-session-abc"}},
+                embrouter_params={"metadata": {"session_id": "my-session-abc"}},
                 output=None,
                 start_time=datetime.datetime.utcnow(),
                 end_time=datetime.datetime.utcnow(),
@@ -886,7 +886,7 @@ class TestLangfuseUsageDetails(unittest.TestCase):
                 input=None,
                 response_obj=None,
                 level="INFO",
-                litellm_call_id="call-id-456",
+                embrouter_call_id="call-id-456",
             )
 
         # session_id should be set for Langfuse session grouping
@@ -905,14 +905,14 @@ class TestLangfuseUsageDetails(unittest.TestCase):
         self.use_real_langfuse_client()
 
         with patch(
-            "litellm.integrations.langfuse.langfuse._add_prompt_to_generation_params",
+            "embrouter.integrations.langfuse.langfuse._add_prompt_to_generation_params",
             side_effect=lambda generation_params, **kwargs: generation_params,
             create=True,
         ):
             self.logger._log_langfuse_v2(
                 user_id="user-1",
                 metadata={"session_id": "error-session-xyz"},
-                litellm_params={"metadata": {"session_id": "error-session-xyz"}},
+                embrouter_params={"metadata": {"session_id": "error-session-xyz"}},
                 output="BadRequestError: model not found",
                 start_time=datetime.datetime.utcnow(),
                 end_time=datetime.datetime.utcnow(),
@@ -921,7 +921,7 @@ class TestLangfuseUsageDetails(unittest.TestCase):
                 input={"messages": [{"role": "user", "content": "test"}]},
                 response_obj=None,
                 level="ERROR",
-                litellm_call_id="call-id-err-789",
+                embrouter_call_id="call-id-err-789",
             )
 
         # session_id must be preserved even for ERROR level logs
@@ -941,7 +941,7 @@ class TestLangfuseUsageDetails(unittest.TestCase):
         self.use_real_langfuse_client()
 
         with patch(
-            "litellm.integrations.langfuse.langfuse._add_prompt_to_generation_params",
+            "embrouter.integrations.langfuse.langfuse._add_prompt_to_generation_params",
             side_effect=lambda generation_params, **kwargs: generation_params,
             create=True,
         ):
@@ -951,7 +951,7 @@ class TestLangfuseUsageDetails(unittest.TestCase):
                     "session_id": "session-999",
                     "trace_id": "explicit-trace-id-777",
                 },
-                litellm_params={
+                embrouter_params={
                     "metadata": {
                         "session_id": "session-999",
                         "trace_id": "explicit-trace-id-777",
@@ -965,7 +965,7 @@ class TestLangfuseUsageDetails(unittest.TestCase):
                 input=None,
                 response_obj=None,
                 level="DEFAULT",
-                litellm_call_id="call-id-aaa",
+                embrouter_call_id="call-id-aaa",
             )
 
         # Explicit trace_id must take priority
@@ -980,8 +980,8 @@ def test_failure_handler_langfuse_kwargs_excludes_original_response():
     'original_response' to the Langfuse logger. Exercises the real code path
     rather than simulating the filtering logic.
     """
-    import litellm
-    from litellm.litellm_core_utils.litellm_logging import Logging
+    import embrouter
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging
 
     # Create a Logging instance
     logging_obj = Logging(
@@ -990,16 +990,16 @@ def test_failure_handler_langfuse_kwargs_excludes_original_response():
         stream=False,
         call_type="completion",
         start_time=datetime.datetime.utcnow(),
-        litellm_call_id="test-call-id-failure",
+        embrouter_call_id="test-call-id-failure",
         function_id="test-function-id",
     )
 
     # Set up model_call_details with original_response (simulates a coroutine)
     mock_coroutine = MagicMock()
     logging_obj.model_call_details["original_response"] = mock_coroutine
-    logging_obj.model_call_details["litellm_params"] = {
+    logging_obj.model_call_details["embrouter_params"] = {
         "metadata": {"session_id": "test-session-failure"},
-        "litellm_session_id": None,
+        "embrouter_session_id": None,
     }
     logging_obj.model_call_details["optional_params"] = {}
 
@@ -1014,13 +1014,13 @@ def test_failure_handler_langfuse_kwargs_excludes_original_response():
     mock_langfuse_logger.log_event_on_langfuse.side_effect = capture_log_event
 
     # Set "langfuse" as a failure callback so the failure_handler processes it
-    original_failure_callback = litellm.failure_callback
-    litellm.failure_callback = ["langfuse"]
+    original_failure_callback = embrouter.failure_callback
+    embrouter.failure_callback = ["langfuse"]
 
     try:
         # Mock LangFuseHandler to return our capturing mock logger
         with (
-            patch("litellm.litellm_core_utils.litellm_logging.LangFuseHandler") as mock_handler_class
+            patch("embrouter.embrouter_core_utils.embrouter_logging.LangFuseHandler") as mock_handler_class
         ):  # test-quality-ok: route the request to the capturing logger; the real handler builds live clients
             mock_handler_class.get_langfuse_logger_for_request.return_value = mock_langfuse_logger
 
@@ -1043,7 +1043,7 @@ def test_failure_handler_langfuse_kwargs_excludes_original_response():
         )
 
         # Verify session_id metadata is preserved in the kwargs
-        langfuse_metadata = langfuse_kwargs.get("litellm_params", {}).get("metadata", {})
+        langfuse_metadata = langfuse_kwargs.get("embrouter_params", {}).get("metadata", {})
         assert langfuse_metadata.get("session_id") == "test-session-failure", (
             "session_id should be preserved in kwargs passed to Langfuse"
         )
@@ -1051,7 +1051,7 @@ def test_failure_handler_langfuse_kwargs_excludes_original_response():
         # Verify level is ERROR
         assert captured_kwargs.get("level") == "ERROR"
     finally:
-        litellm.failure_callback = original_failure_callback
+        embrouter.failure_callback = original_failure_callback
 
 
 @pytest.mark.asyncio
@@ -1061,7 +1061,7 @@ async def test_async_log_failure_event_logs_to_langfuse():
     log_event_on_langfuse with level=ERROR even when standard_logging_object
     is present. This is the code path the proxy uses for failed LLM calls.
     """
-    from litellm.integrations.langfuse.langfuse_prompt_management import (
+    from embrouter.integrations.langfuse.langfuse_prompt_management import (
         LangfusePromptManagement,
     )
 
@@ -1089,15 +1089,15 @@ async def test_async_log_failure_event_logs_to_langfuse():
         }
 
         with (
-            patch("litellm.integrations.langfuse.langfuse_prompt_management.LangFuseHandler") as mock_handler
+            patch("embrouter.integrations.langfuse.langfuse_prompt_management.LangFuseHandler") as mock_handler
         ):  # test-quality-ok: route the request to the capturing logger; the real handler builds live clients
             mock_handler.get_langfuse_logger_for_request.return_value = mock_logger
 
             kwargs = {
-                "litellm_params": {
+                "embrouter_params": {
                     "metadata": {"session_id": "test-session-fail"},
                 },
-                "litellm_call_id": "call-fail-123",
+                "embrouter_call_id": "call-fail-123",
                 "user": "test-user",
                 "exception": Exception("API error: model not found"),
                 "standard_logging_object": {
@@ -1129,7 +1129,7 @@ async def test_async_log_failure_event_works_without_standard_logging_object():
     standard_logging_object is None (e.g. when get_standard_logging_object_payload
     threw an exception). This is the critical fix — before, it silently returned.
     """
-    from litellm.integrations.langfuse.langfuse_prompt_management import (
+    from embrouter.integrations.langfuse.langfuse_prompt_management import (
         LangfusePromptManagement,
     )
 
@@ -1156,15 +1156,15 @@ async def test_async_log_failure_event_works_without_standard_logging_object():
         }
 
         with (
-            patch("litellm.integrations.langfuse.langfuse_prompt_management.LangFuseHandler") as mock_handler
+            patch("embrouter.integrations.langfuse.langfuse_prompt_management.LangFuseHandler") as mock_handler
         ):  # test-quality-ok: route the request to the capturing logger; the real handler builds live clients
             mock_handler.get_langfuse_logger_for_request.return_value = mock_logger
 
             kwargs = {
-                "litellm_params": {
+                "embrouter_params": {
                     "metadata": {"session_id": "test-session-no-slo"},
                 },
-                "litellm_call_id": "call-no-slo-456",
+                "embrouter_call_id": "call-no-slo-456",
                 "user": "test-user",
                 "exception": Exception("InternalServerError: something broke"),
                 "standard_logging_object": None,  # This is the key — it's None
@@ -1224,11 +1224,11 @@ def _log_one_completion(logger: LangFuseLogger) -> None:
     logger.log_event_on_langfuse(
         kwargs={
             "call_type": "completion",
-            "litellm_params": {"metadata": {}, "proxy_server_request": {"headers": {}}},
+            "embrouter_params": {"metadata": {}, "proxy_server_request": {"headers": {}}},
             "messages": [{"role": "user", "content": "hi"}],
             "optional_params": {},
         },
-        response_obj=litellm.ModelResponse(choices=[{"message": {"role": "assistant", "content": "yo"}}]),
+        response_obj=embrouter.ModelResponse(choices=[{"message": {"role": "assistant", "content": "yo"}}]),
         start_time=now,
         end_time=now,
     )
@@ -1269,13 +1269,13 @@ def test_max_langfuse_clients_limit():
     mock_langfuse = MagicMock()
     mock_langfuse.version.__version__ = "3.0.0"
     # Set max clients to 2 for testing
-    original_initialized_langfuse_clients = litellm.initialized_langfuse_clients
+    original_initialized_langfuse_clients = embrouter.initialized_langfuse_clients
     with (
         patch.dict("sys.modules", {"langfuse": mock_langfuse}),
         patch.object(langfuse_module, "MAX_LANGFUSE_INITIALIZED_CLIENTS", 2),
     ):
         # Reset the counter
-        litellm.initialized_langfuse_clients = 0
+        embrouter.initialized_langfuse_clients = 0
 
         # First client should succeed
         logger1 = LangFuseLogger(
@@ -1283,7 +1283,7 @@ def test_max_langfuse_clients_limit():
             langfuse_secret="test_secret_1",
             langfuse_host="https://test1.langfuse.com",
         )
-        assert litellm.initialized_langfuse_clients == 1
+        assert embrouter.initialized_langfuse_clients == 1
 
         # Second client should succeed
         logger2 = LangFuseLogger(
@@ -1291,7 +1291,7 @@ def test_max_langfuse_clients_limit():
             langfuse_secret="test_secret_2",
             langfuse_host="https://test2.langfuse.com",
         )
-        assert litellm.initialized_langfuse_clients == 2
+        assert embrouter.initialized_langfuse_clients == 2
 
         # Third client should fail with exception
         with pytest.raises(Exception, match="Max langfuse clients reached") as exc_info:
@@ -1305,9 +1305,9 @@ def test_max_langfuse_clients_limit():
         assert "Max langfuse clients reached" in str(exc_info.value)
 
         # Counter should still be 2 (third client failed to initialize)
-        assert litellm.initialized_langfuse_clients == 2
+        assert embrouter.initialized_langfuse_clients == 2
 
-    litellm.initialized_langfuse_clients = original_initialized_langfuse_clients
+    embrouter.initialized_langfuse_clients = original_initialized_langfuse_clients
 
 
 _UNREACHABLE_HOST: Final = "http://127.0.0.1:1"
@@ -1315,7 +1315,7 @@ _UNREACHABLE_HOST: Final = "http://127.0.0.1:1"
 
 def _build_langfuse_logger(monkeypatch, **overrides) -> LangFuseLogger:
     monkeypatch.setenv("LANGFUSE_MOCK", "false")
-    monkeypatch.setattr(litellm, "initialized_langfuse_clients", 0)
+    monkeypatch.setattr(embrouter, "initialized_langfuse_clients", 0)
     return LangFuseLogger(
         **{
             "langfuse_public_key": "pk-lit5228",
@@ -1356,7 +1356,7 @@ def _exported_release(logger: LangFuseLogger):
 def test_release_falls_back_to_the_deploy_platforms_commit_variable(monkeypatch, platform_var):
     """Deployments that never set ``LANGFUSE_RELEASE`` still got a release on every trace from the v2 SDK, which
     read the CI or hosting platform's commit variable; dropping that silently blanked their release filter."""
-    from litellm.integrations.langfuse.langfuse_sdk import _COMMON_RELEASE_ENVS
+    from embrouter.integrations.langfuse.langfuse_sdk import _COMMON_RELEASE_ENVS
 
     for name in ("LANGFUSE_RELEASE", *_COMMON_RELEASE_ENVS):
         monkeypatch.delenv(name, raising=False)
@@ -1383,8 +1383,8 @@ def test_non_string_generation_name_is_exported_as_its_text(monkeypatch):
 
 
 def test_dynamic_langfuse_environment_triggers_dynamic_logger():
-    from litellm.integrations.langfuse.langfuse_handler import LangFuseHandler
-    from litellm.types.utils import StandardCallbackDynamicParams
+    from embrouter.integrations.langfuse.langfuse_handler import LangFuseHandler
+    from embrouter.types.utils import StandardCallbackDynamicParams
 
     params = StandardCallbackDynamicParams(langfuse_environment="team-a-env")
 
@@ -1398,11 +1398,11 @@ def test_langfuse_rest_client_survives_httpx_cache_eviction(monkeypatch):
     import gc
     import weakref
 
-    from litellm.caching.llm_caching_handler import LLMClientCache
+    from embrouter.caching.llm_caching_handler import LLMClientCache
 
-    from litellm.llms.custom_httpx.http_handler import _get_httpx_client
+    from embrouter.llms.custom_httpx.http_handler import _get_httpx_client
 
-    monkeypatch.setattr(litellm, "in_memory_llm_clients_cache", LLMClientCache())
+    monkeypatch.setattr(embrouter, "in_memory_llm_clients_cache", LLMClientCache())
     logger = _build_langfuse_logger(monkeypatch)
 
     cached_handler = _get_httpx_client()
@@ -1410,11 +1410,11 @@ def test_langfuse_rest_client_survives_httpx_cache_eviction(monkeypatch):
 
     assert logger.langfuse_client is cached_handler.client
 
-    litellm.in_memory_llm_clients_cache = LLMClientCache()
+    embrouter.in_memory_llm_clients_cache = LLMClientCache()
     del cached_handler
     gc.collect()
 
-    assert litellm.in_memory_llm_clients_cache.get_cache("httpx_client") is None
+    assert embrouter.in_memory_llm_clients_cache.get_cache("httpx_client") is None
     assert handler_ref() is not None, "logger must keep the handler that owns the client behind its REST API"
     assert not logger.langfuse_client.is_closed
     assert logger.api_client.auth_check() is not None
@@ -1423,9 +1423,9 @@ def test_langfuse_rest_client_survives_httpx_cache_eviction(monkeypatch):
 def test_langfuse_logger_reuses_the_shared_cached_client(monkeypatch):
     import gc
 
-    from litellm.caching.llm_caching_handler import LLMClientCache
+    from embrouter.caching.llm_caching_handler import LLMClientCache
 
-    monkeypatch.setattr(litellm, "in_memory_llm_clients_cache", LLMClientCache())
+    monkeypatch.setattr(embrouter, "in_memory_llm_clients_cache", LLMClientCache())
 
     first = _build_langfuse_logger(monkeypatch)
     second = _build_langfuse_logger(monkeypatch)
@@ -1438,7 +1438,7 @@ def test_langfuse_logger_reuses_the_shared_cached_client(monkeypatch):
     assert not first.langfuse_client.is_closed
 
 
-_LANGFUSE_REDACTED = "redacted-by-litellm"
+_LANGFUSE_REDACTED = "redacted-by-embrouter"
 
 
 def _steering_logger():
@@ -1447,8 +1447,8 @@ def _steering_logger():
         InMemorySpanExporter,
     )
 
-    from litellm.integrations.langfuse.langfuse import installed_langfuse_version
-    from litellm.integrations.langfuse.langfuse_sdk import build_langfuse_client, build_langfuse_tracing
+    from embrouter.integrations.langfuse.langfuse import installed_langfuse_version
+    from embrouter.integrations.langfuse.langfuse_sdk import build_langfuse_client, build_langfuse_tracing
 
     exporter = InMemorySpanExporter()
     logger = LangFuseLogger.__new__(LangFuseLogger)
@@ -1468,29 +1468,29 @@ def test_log_event_keeps_exporting_after_the_dynamic_cache_evicts_the_logger():
     v2 lost that callback's events to a shut-down client; the export channel is shared per
     credential set and outlives any one logger, so the events still land.
     """
-    from litellm.litellm_core_utils.specialty_caches.dynamic_logging_cache import LangfuseInMemoryCache
+    from embrouter.embrouter_core_utils.specialty_caches.dynamic_logging_cache import LangfuseInMemoryCache
 
     logger, exporter = _steering_logger()
     cache = LangfuseInMemoryCache()
     cache.set_cache("langfuse-evicted", logger)
-    litellm.initialized_langfuse_clients += 1
-    before = litellm.initialized_langfuse_clients
+    embrouter.initialized_langfuse_clients += 1
+    before = embrouter.initialized_langfuse_clients
     cache._remove_key("langfuse-evicted")
 
     now = datetime.datetime.now()
     returned = logger.log_event_on_langfuse(
         kwargs={
             "call_type": "completion",
-            "litellm_params": {"metadata": {}},
+            "embrouter_params": {"metadata": {}},
             "messages": [{"role": "user", "content": "the-input"}],
             "optional_params": {},
         },
-        response_obj=litellm.ModelResponse(choices=[{"message": {"role": "assistant", "content": "the-output"}}]),
+        response_obj=embrouter.ModelResponse(choices=[{"message": {"role": "assistant", "content": "the-output"}}]),
         start_time=now,
         end_time=now,
     )
 
-    assert litellm.initialized_langfuse_clients == before - 1
+    assert embrouter.initialized_langfuse_clients == before - 1
     assert _span_trace_id(_exported_span(logger, exporter)) == returned["trace_id"]
 
 
@@ -1528,17 +1528,17 @@ def _span_trace_id(span):
 def _emit(rig, *, metadata=None, headers=None):
     """``log_event_on_langfuse`` is the entry point that folds ``langfuse_*`` headers into metadata.
 
-    Both the trace-level and the observation fields are read back off the span litellm exported.
+    Both the trace-level and the observation fields are read back off the span embrouter exported.
     """
     logger, exporter = rig
     exporter.clear()
 
     now = datetime.datetime.now()
-    response_obj = litellm.ModelResponse(choices=[{"message": {"role": "assistant", "content": "the-output"}}])
+    response_obj = embrouter.ModelResponse(choices=[{"message": {"role": "assistant", "content": "the-output"}}])
     logger.log_event_on_langfuse(
         kwargs={
             "call_type": "completion",
-            "litellm_params": {
+            "embrouter_params": {
                 "metadata": dict(metadata or {}),
                 "proxy_server_request": {"headers": dict(headers or {})},
             },
@@ -1563,42 +1563,42 @@ def _emit(rig, *, metadata=None, headers=None):
 @pytest.mark.parametrize(
     "headers,metadata,expected_id",
     [
-        ({"x-litellm-session-id": "session-7125"}, {}, "call"),
+        ({"x-embrouter-session-id": "session-7125"}, {}, "call"),
         ({"X-Claude-Code-Session-Id": "session-7125"}, {}, "call"),
         ({"x-session-id": "session-7125"}, {}, "call"),
         ({"session-id": "session-7125", "user-agent": "codex_cli_rs/1.0"}, {}, "call"),
         ({"thread-id": "session-7125", "user-agent": "codex-tui"}, {}, "call"),
         ({"session_id": "session-7125", "user-agent": "Codex 1.0"}, {}, "call"),
         ({"conversation_id": "session-7125", "user-agent": "codex_vscode/1.0"}, {}, "call"),
-        ({"x-litellm-session-id": "short"}, {}, "call"),
-        ({"x-litellm-trace-id": "session-7125"}, {}, "session-7125"),
+        ({"x-embrouter-session-id": "short"}, {}, "call"),
+        ({"x-embrouter-trace-id": "session-7125"}, {}, "session-7125"),
         (
-            {"X-LiteLLM-Trace-Id": "session-7125", "x-litellm-session-id": "session-7125"},
+            {"X-EmbRouter-Trace-Id": "session-7125", "x-embrouter-session-id": "session-7125"},
             {},
             "session-7125",
         ),
         (
-            {"x-litellm-session-id": "session-7125", "langfuse_trace_id": "session-7125"},
+            {"x-embrouter-session-id": "session-7125", "langfuse_trace_id": "session-7125"},
             {},
             "session-7125",
         ),
         (
-            {"x-litellm-session-id": "session-7125", "langfuse_trace_id": "explicit-trace"},
+            {"x-embrouter-session-id": "session-7125", "langfuse_trace_id": "explicit-trace"},
             {},
             "explicit-trace",
         ),
         (
-            {"x-litellm-session-id": "session-7125", "langfuse_existing_trace_id": "existing-trace"},
+            {"x-embrouter-session-id": "session-7125", "langfuse_existing_trace_id": "existing-trace"},
             {},
             "existing-trace",
         ),
         (
-            {"x-litellm-session-id": "session-7125", "langfuse_session_id": "custom-session"},
+            {"x-embrouter-session-id": "session-7125", "langfuse_session_id": "custom-session"},
             {},
             "call",
         ),
         (
-            {"x-litellm-session-id": "short", "langfuse_session_id": "custom-session"},
+            {"x-embrouter-session-id": "short", "langfuse_session_id": "custom-session"},
             {},
             "call",
         ),
@@ -1623,16 +1623,16 @@ def _emit(rig, *, metadata=None, headers=None):
         ),
         (
             {
-                "x-litellm-session-id": "session-7125",
+                "x-embrouter-session-id": "session-7125",
                 "langfuse_session_id": "custom-session",
-                "x-litellm-trace-id": "explicit-trace",
+                "x-embrouter-trace-id": "explicit-trace",
             },
             {},
             "explicit-trace",
         ),
         (
             {
-                "x-litellm-session-id": "session-7125",
+                "x-embrouter-session-id": "session-7125",
                 "langfuse_session_id": "custom-session",
                 "langfuse_trace_id": "explicit-trace",
             },
@@ -1641,7 +1641,7 @@ def _emit(rig, *, metadata=None, headers=None):
         ),
         (
             {
-                "x-litellm-session-id": "session-7125",
+                "x-embrouter-session-id": "session-7125",
                 "langfuse_session_id": "custom-session",
                 "langfuse_existing_trace_id": "existing-trace",
             },
@@ -1676,8 +1676,8 @@ def _emit(rig, *, metadata=None, headers=None):
 def test_session_header_trace_provenance(headers, metadata, expected_id, level):
     from starlette.datastructures import Headers
 
-    from litellm.proxy.litellm_pre_call_utils import (
-        LiteLLMProxyRequestSetup,
+    from embrouter.proxy.embrouter_pre_call_utils import (
+        EmbRouterProxyRequestSetup,
         clean_headers,
         redact_credential_headers,
     )
@@ -1687,7 +1687,7 @@ def test_session_header_trace_provenance(headers, metadata, expected_id, level):
         exporter.clear()
         call_id = f"call-{turn}"
         request_headers = Headers(headers)
-        data = LiteLLMProxyRequestSetup.add_litellm_metadata_from_request_headers(
+        data = EmbRouterProxyRequestSetup.add_embrouter_metadata_from_request_headers(
             headers=request_headers, data={"metadata": dict(metadata)}, _metadata_variable_name="metadata"
         )
         original_metadata = dict(data["metadata"])
@@ -1695,9 +1695,9 @@ def test_session_header_trace_provenance(headers, metadata, expected_id, level):
         result = logger.log_event_on_langfuse(
             kwargs={
                 "call_type": "completion",
-                "litellm_call_id": call_id,
-                "litellm_trace_id": data.get("litellm_trace_id"),
-                "litellm_params": {
+                "embrouter_call_id": call_id,
+                "embrouter_trace_id": data.get("embrouter_trace_id"),
+                "embrouter_params": {
                     "metadata": data["metadata"],
                     "proxy_server_request": {"headers": redact_credential_headers(clean_headers(request_headers))},
                 },
@@ -1707,7 +1707,7 @@ def test_session_header_trace_provenance(headers, metadata, expected_id, level):
             response_obj=(
                 None
                 if level == "ERROR"
-                else litellm.ModelResponse(choices=[{"message": {"role": "assistant", "content": "OK"}}])
+                else embrouter.ModelResponse(choices=[{"message": {"role": "assistant", "content": "OK"}}])
             ),
             start_time=now,
             end_time=now,
@@ -1732,15 +1732,15 @@ def test_session_header_trace_without_call_id_keeps_session_alias():
     result: Final = logger.log_event_on_langfuse(
         kwargs={
             "call_type": "completion",
-            "litellm_call_id": "",
-            "litellm_params": {
+            "embrouter_call_id": "",
+            "embrouter_params": {
                 "metadata": {"trace_id": "session-7125", "session_id": "session-7125"},
-                "proxy_server_request": {"headers": {"x-litellm-session-id": "session-7125"}},
+                "proxy_server_request": {"headers": {"x-embrouter-session-id": "session-7125"}},
             },
             "messages": [{"role": "user", "content": "no call id"}],
             "optional_params": {},
         },
-        response_obj=litellm.ModelResponse(choices=[{"message": {"role": "assistant", "content": "OK"}}]),
+        response_obj=embrouter.ModelResponse(choices=[{"message": {"role": "assistant", "content": "OK"}}]),
         start_time=now,
         end_time=now,
     )
@@ -1751,15 +1751,15 @@ def test_session_header_trace_without_call_id_keeps_session_alias():
 
 def test_every_proxy_session_header_shape_is_classified_as_a_session_alias():
     """The classifier must cover every header shape the proxy turns into a chain id."""
-    from litellm.integrations.langfuse.langfuse import _is_session_header_trace
-    from litellm.proxy.litellm_pre_call_utils import (
+    from embrouter.integrations.langfuse.langfuse import _is_session_header_trace
+    from embrouter.proxy.embrouter_pre_call_utils import (
         _CODEX_SESSION_ID_HEADERS,
         get_chain_id_from_headers,
     )
 
     session: Final = "session-7125-abcdef"
     session_shapes: Final = (
-        {"x-litellm-session-id": session},
+        {"x-embrouter-session-id": session},
         {"X-Claude-Code-Session-Id": session},
         {"x-session-id": session},
         *({header: session, "user-agent": "codex_cli_rs/1.0"} for header in _CODEX_SESSION_ID_HEADERS),
@@ -1768,7 +1768,7 @@ def test_every_proxy_session_header_shape_is_classified_as_a_session_alias():
         assert get_chain_id_from_headers(dict(headers)) == session, headers
         assert _is_session_header_trace(session, session, {"headers": headers}) is True, headers
 
-    explicit_trace: Final = {"x-litellm-trace-id": session, "x-litellm-session-id": session}
+    explicit_trace: Final = {"x-embrouter-trace-id": session, "x-embrouter-session-id": session}
     assert get_chain_id_from_headers(dict(explicit_trace)) == session
     assert _is_session_header_trace(session, session, {"headers": explicit_trace}) is False
 
@@ -1786,15 +1786,15 @@ def test_sdk_caller_without_request_headers_keeps_its_trace(proxy_server_request
     result: Final = logger.log_event_on_langfuse(
         kwargs={
             "call_type": "completion",
-            "litellm_call_id": "call-0",
-            "litellm_params": {
+            "embrouter_call_id": "call-0",
+            "embrouter_params": {
                 "metadata": {"trace_id": "session-7125", "session_id": "session-7125"},
                 "proxy_server_request": proxy_server_request,
             },
             "messages": [{"role": "user", "content": "sdk turn"}],
             "optional_params": {},
         },
-        response_obj=litellm.ModelResponse(choices=[{"message": {"role": "assistant", "content": "OK"}}]),
+        response_obj=embrouter.ModelResponse(choices=[{"message": {"role": "assistant", "content": "OK"}}]),
         start_time=now,
         end_time=now,
     )
@@ -1805,10 +1805,10 @@ def test_sdk_caller_without_request_headers_keeps_its_trace(proxy_server_request
 
 def test_session_header_classifier_survives_non_string_header_keys():
     """A non-string header key must not cost the caller its whole trace."""
-    from litellm.integrations.langfuse.langfuse import _is_session_header_trace
+    from embrouter.integrations.langfuse.langfuse import _is_session_header_trace
 
     session: Final = "session-7125-abcdef"
-    headers: Final = {7: "numeric key", "x-litellm-session-id": session}
+    headers: Final = {7: "numeric key", "x-embrouter-session-id": session}
     assert _is_session_header_trace(session, session, {"headers": headers}) is True
     assert _is_session_header_trace(session, session, {"headers": {7: "numeric key"}}) is False
 
@@ -1870,7 +1870,7 @@ def test_mask_input_from_the_request_body_is_unchanged(mask_input, expect_redact
 def test_update_trace_keys_header_applies_every_key_when_enabled(flag, monkeypatch):
     rig = _steering_logger()
 
-    monkeypatch.setattr(litellm, "langfuse_enable_update_trace_keys", flag)
+    monkeypatch.setattr(embrouter, "langfuse_enable_update_trace_keys", flag)
     trace_params, _, span = _emit(
         rig,
         headers={
@@ -1913,7 +1913,7 @@ def test_update_trace_keys_input_and_output_are_gated_too(monkeypatch):
     rig = _steering_logger()
 
     off, _, _ = _emit(rig, metadata={"existing_trace_id": "trace-1", "update_trace_keys": ["input", "output"]})
-    monkeypatch.setattr(litellm, "langfuse_enable_update_trace_keys", True)
+    monkeypatch.setattr(embrouter, "langfuse_enable_update_trace_keys", True)
     on, _, _ = _emit(rig, metadata={"existing_trace_id": "trace-1", "update_trace_keys": ["input", "output"]})
 
     assert "input" not in off and "output" not in off
@@ -1925,7 +1925,7 @@ def test_update_trace_keys_input_output_reach_the_trace_even_under_a_parent(monk
     I/O must be stamped explicitly; v2 updated the trace object directly."""
     rig = _steering_logger()
 
-    monkeypatch.setattr(litellm, "langfuse_enable_update_trace_keys", True)
+    monkeypatch.setattr(embrouter, "langfuse_enable_update_trace_keys", True)
     _, _, span = _emit(
         rig,
         metadata={
@@ -1960,7 +1960,7 @@ def test_a_failed_call_under_a_callers_parent_stamps_the_error_as_the_trace_outp
     logger.log_event_on_langfuse(
         kwargs={
             "call_type": "completion",
-            "litellm_params": {"metadata": {"parent_observation_id": "0123456789abcdef"}},
+            "embrouter_params": {"metadata": {"parent_observation_id": "0123456789abcdef"}},
             "messages": [{"role": "user", "content": "the-input"}],
             "optional_params": {},
         },
@@ -2011,7 +2011,7 @@ def test_a_fresh_trace_still_claims_root_so_its_generation_names_it():
 def test_trace_io_is_not_stamped_when_update_trace_keys_does_not_ask(monkeypatch):
     rig = _steering_logger()
 
-    monkeypatch.setattr(litellm, "langfuse_enable_update_trace_keys", True)
+    monkeypatch.setattr(embrouter, "langfuse_enable_update_trace_keys", True)
     _, _, span = _emit(
         rig,
         metadata={
@@ -2028,7 +2028,7 @@ def test_trace_io_is_not_stamped_when_update_trace_keys_does_not_ask(monkeypatch
 def test_update_trace_keys_from_the_request_body_list_applies_when_enabled(monkeypatch):
     rig = _steering_logger()
 
-    monkeypatch.setattr(litellm, "langfuse_enable_update_trace_keys", True)
+    monkeypatch.setattr(embrouter, "langfuse_enable_update_trace_keys", True)
     trace_params, _, span = _emit(
         rig,
         metadata={
@@ -2045,7 +2045,7 @@ def test_update_trace_keys_from_the_request_body_list_applies_when_enabled(monke
 def test_update_trace_keys_trace_metadata_reaches_the_trace_and_stays_off_the_generation(monkeypatch):
     rig = _steering_logger()
 
-    monkeypatch.setattr(litellm, "langfuse_enable_update_trace_keys", True)
+    monkeypatch.setattr(embrouter, "langfuse_enable_update_trace_keys", True)
     _, _, span = _emit(
         rig,
         metadata={
@@ -2068,7 +2068,7 @@ def test_non_mapping_trace_metadata_does_not_lose_the_event():
     trace_params, generation_params, span = _emit(rig, metadata={"trace_metadata": "just-a-note"})
 
     assert json.loads(generation_params["output"])["content"] == "the-output"
-    assert trace_params["name"] == "litellm-completion"
+    assert trace_params["name"] == "embrouter-completion"
     assert not any(key.startswith("langfuse.trace.metadata.") for key in span.attributes or {})
 
 
@@ -2101,8 +2101,8 @@ def test_langfuse_environment_is_coerced_and_validated(monkeypatch):
 
 
 def test_langfuse_empty_environment_falls_back_and_is_not_dynamic(monkeypatch):
-    from litellm.integrations.langfuse.langfuse_handler import LangFuseHandler
-    from litellm.types.utils import StandardCallbackDynamicParams
+    from embrouter.integrations.langfuse.langfuse_handler import LangFuseHandler
+    from embrouter.types.utils import StandardCallbackDynamicParams
 
     monkeypatch.setenv("LANGFUSE_TRACING_ENVIRONMENT", "production")
 
@@ -2143,7 +2143,7 @@ def test_langfuse_empty_environment_falls_back_and_is_not_dynamic(monkeypatch):
 def test_langfuse_deployment_environment_fallback_never_raises(monkeypatch, env_value, expected):
     monkeypatch.setenv("LANGFUSE_MOCK", "true")
     monkeypatch.setenv("LANGFUSE_TRACING_ENVIRONMENT", env_value)
-    monkeypatch.setattr(litellm, "initialized_langfuse_clients", 0)
+    monkeypatch.setattr(embrouter, "initialized_langfuse_clients", 0)
     logger: Final = LangFuseLogger(
         langfuse_public_key="pk-env",
         langfuse_secret="sk-env",
@@ -2173,7 +2173,7 @@ def test_new_trace_version_takes_precedence_over_the_generation_version():
 
 
 def test_log_event_returns_the_v2_dict_shape_for_the_alerting_trace_id_cache():
-    """litellm_logging only caches the langfuse trace id off a dict with a ``trace_id`` key.
+    """embrouter_logging only caches the langfuse trace id off a dict with a ``trace_id`` key.
 
     Slack alerting builds its trace URL from that cache, so a different return
     shape silently breaks alert links.
@@ -2184,11 +2184,11 @@ def test_log_event_returns_the_v2_dict_shape_for_the_alerting_trace_id_cache():
     returned = logger.log_event_on_langfuse(
         kwargs={
             "call_type": "completion",
-            "litellm_params": {"metadata": {"trace_id": "c" * 32}},
+            "embrouter_params": {"metadata": {"trace_id": "c" * 32}},
             "messages": [{"role": "user", "content": "the-input"}],
             "optional_params": {},
         },
-        response_obj=litellm.ModelResponse(choices=[{"message": {"role": "assistant", "content": "the-output"}}]),
+        response_obj=embrouter.ModelResponse(choices=[{"message": {"role": "assistant", "content": "the-output"}}]),
         start_time=datetime.datetime.now(),
         end_time=datetime.datetime.now(),
     )
@@ -2221,7 +2221,7 @@ def test_flush_interval_env_falls_back_instead_of_failing_the_first_request(monk
         monkeypatch.delenv("LANGFUSE_FLUSH_INTERVAL", raising=False)
     else:
         monkeypatch.setenv("LANGFUSE_FLUSH_INTERVAL", raw)
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    with caplog.at_level(logging.WARNING, logger="EmbRouter"):
         assert LangFuseLogger._get_langfuse_flush_interval(1) == expected  # pyright: ignore[reportPrivateUsage]  # the parser under test
     assert ("LANGFUSE_FLUSH_INTERVAL" in caplog.text) is (raw in ("0", "-5", "abc"))
 
@@ -2232,7 +2232,7 @@ def test_zero_flush_interval_still_builds_a_working_export_channel(monkeypatch):
     monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk-flush-zero-test")
     monkeypatch.delenv("LANGFUSE_MOCK", raising=False)
     monkeypatch.setenv("LANGFUSE_FLUSH_INTERVAL", "0")
-    monkeypatch.setattr(litellm, "initialized_langfuse_clients", litellm.initialized_langfuse_clients)
+    monkeypatch.setattr(embrouter, "initialized_langfuse_clients", embrouter.initialized_langfuse_clients)
 
     try:
         logger = LangFuseLogger(langfuse_host=receiver.url)
@@ -2253,7 +2253,7 @@ def test_langfuse_debug_env_string_false_stays_off(monkeypatch):
     monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk-debug-parse-test")
     monkeypatch.setenv("LANGFUSE_MOCK", "true")
     monkeypatch.setenv("LANGFUSE_DEBUG", "false")
-    monkeypatch.setattr(litellm, "initialized_langfuse_clients", litellm.initialized_langfuse_clients)
+    monkeypatch.setattr(embrouter, "initialized_langfuse_clients", embrouter.initialized_langfuse_clients)
 
     assert LangFuseLogger().langfuse_debug is False
 
@@ -2265,7 +2265,7 @@ def test_langfuse_debug_env_true_turns_on_the_langfuse_logger(monkeypatch):
     monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk-debug-wire-test")
     monkeypatch.setenv("LANGFUSE_MOCK", "true")
     monkeypatch.setenv("LANGFUSE_DEBUG", "true")
-    monkeypatch.setattr(litellm, "initialized_langfuse_clients", litellm.initialized_langfuse_clients)
+    monkeypatch.setattr(embrouter, "initialized_langfuse_clients", embrouter.initialized_langfuse_clients)
     langfuse_logger = logging.getLogger("langfuse")
     level_before = langfuse_logger.level
     langfuse_logger.setLevel(logging.WARNING)
@@ -2289,7 +2289,7 @@ def test_explicit_langfuse_host_beats_the_v4_base_url_env(monkeypatch):
     monkeypatch.delenv("LANGFUSE_MOCK", raising=False)
     monkeypatch.setenv("LANGFUSE_BASE_URL", "http://127.0.0.1:1")
     monkeypatch.setenv("LANGFUSE_FLUSH_INTERVAL", "1")
-    monkeypatch.setattr(litellm, "initialized_langfuse_clients", litellm.initialized_langfuse_clients)
+    monkeypatch.setattr(embrouter, "initialized_langfuse_clients", embrouter.initialized_langfuse_clients)
 
     try:
         logger = LangFuseLogger(langfuse_host=receiver.url)
@@ -2332,7 +2332,7 @@ def test_old_sdk_fails_with_the_upgrade_message_before_the_otel_module_is_import
     import sys
 
     monkeypatch.setattr(langfuse_module, "installed_langfuse_version", lambda: "2.59.7")
-    monkeypatch.setitem(sys.modules, "litellm.integrations.langfuse.langfuse_sdk", None)
+    monkeypatch.setitem(sys.modules, "embrouter.integrations.langfuse.langfuse_sdk", None)
 
     with pytest.raises(ImportError) as raised:
         _build_langfuse_logger(monkeypatch, langfuse_public_key="pk-old-sdk")
@@ -2361,7 +2361,7 @@ def test_prompt_cache_ttl_typo_is_named_before_the_sdk_is_imported(monkeypatch, 
     import sys
 
     monkeypatch.setenv("LANGFUSE_PROMPT_CACHE_DEFAULT_TTL_SECONDS", raw)
-    monkeypatch.setitem(sys.modules, "litellm.integrations.langfuse.langfuse_sdk", None)
+    monkeypatch.setitem(sys.modules, "embrouter.integrations.langfuse.langfuse_sdk", None)
 
     with pytest.raises(ValueError, match="LANGFUSE_PROMPT_CACHE_DEFAULT_TTL_SECONDS") as raised:
         _build_langfuse_logger(monkeypatch, langfuse_public_key="pk-ttl-typo")
@@ -2378,7 +2378,7 @@ def test_whole_second_prompt_cache_ttl_passes_the_gate(monkeypatch, raw):
 def test_stopped_logger_hands_its_export_channel_back(monkeypatch):
     """`DynamicLoggingCache` calls `stop()` on expiry; the channel must be retired once every
     logger that held it has stopped, or each credential rotation leaks a batch export thread."""
-    from litellm.integrations.langfuse.langfuse_sdk import acquire_langfuse_tracing, release_langfuse_tracing
+    from embrouter.integrations.langfuse.langfuse_sdk import acquire_langfuse_tracing, release_langfuse_tracing
 
     logger = _build_langfuse_logger(monkeypatch, langfuse_public_key="pk-stop-releases")
 
@@ -2404,7 +2404,7 @@ def test_stopped_logger_hands_its_export_channel_back(monkeypatch):
 def test_logger_that_fails_to_build_takes_no_slot_and_no_channel(monkeypatch):
     """Each failed retry for the same dynamic credentials would otherwise eat a client slot and a
     holder on the channel, so fixing the configuration could not bring Langfuse logging back."""
-    from litellm.integrations.langfuse.langfuse_sdk import acquire_langfuse_tracing, release_langfuse_tracing
+    from embrouter.integrations.langfuse.langfuse_sdk import acquire_langfuse_tracing, release_langfuse_tracing
 
     monkeypatch.setenv("LANGFUSE_TIMEOUT", "5.5")
     probe = _build_langfuse_logger(monkeypatch, langfuse_public_key="pk-failed-build")
@@ -2423,7 +2423,7 @@ def test_logger_that_fails_to_build_takes_no_slot_and_no_channel(monkeypatch):
     monkeypatch.setenv("LANGFUSE_TIMEOUT", "not-a-number")
     with pytest.raises(ValueError, match="not-a-number"):
         _build_langfuse_logger(monkeypatch, langfuse_public_key="pk-failed-build")
-    assert litellm.initialized_langfuse_clients == 0
+    assert embrouter.initialized_langfuse_clients == 0
 
     monkeypatch.setenv("LANGFUSE_TIMEOUT", "5.5")
     release_langfuse_tracing(probe.tracing, grace_seconds=0.0)
@@ -2442,7 +2442,7 @@ def test_int_steering_values_reach_langfuse_as_strings():
 
 
 def test_long_steering_values_are_neither_capped_nor_dropped():
-    """v2 sent ids of any length; the SDK's 200 character rule belongs to baggage propagation, which litellm no longer uses."""
+    """v2 sent ids of any length; the SDK's 200 character rule belongs to baggage propagation, which embrouter no longer uses."""
     rig = _steering_logger()
     long_user: Final = "u" * 250
 
@@ -2458,11 +2458,11 @@ def test_returned_generation_id_names_the_exported_observation():
     returned = logger.log_event_on_langfuse(
         kwargs={
             "call_type": "completion",
-            "litellm_params": {"metadata": {"trace_id": "d" * 32}},
+            "embrouter_params": {"metadata": {"trace_id": "d" * 32}},
             "messages": [{"role": "user", "content": "the-input"}],
             "optional_params": {},
         },
-        response_obj=litellm.ModelResponse(choices=[{"message": {"role": "assistant", "content": "the-output"}}]),
+        response_obj=embrouter.ModelResponse(choices=[{"message": {"role": "assistant", "content": "the-output"}}]),
         start_time=datetime.datetime.now(),
         end_time=datetime.datetime.now(),
     )

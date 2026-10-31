@@ -1,7 +1,7 @@
 """
-Automatic Code Execution Handler for LiteLLM Skills
+Automatic Code Execution Handler for EmbRouter Skills
 
-When `litellm_code_execution` tool is present, this handler automatically:
+When `embrouter_code_execution` tool is present, this handler automatically:
 1. Makes the LLM call
 2. Executes any code the model generates
 3. Continues the conversation with results
@@ -19,7 +19,7 @@ from typing import Any, Final, Protocol, TypedDict
 
 from typing_extensions import ReadOnly
 
-from litellm._logging import verbose_logger
+from embrouter._logging import verbose_logger
 
 
 class _ToolParameterSchema(TypedDict, total=False):
@@ -118,20 +118,20 @@ def _parse_code_execution_arguments(serialized_arguments: str) -> _CodeExecution
     return json.loads(serialized_arguments)
 
 
-class LiteLLMInternalTools(str, Enum):
+class EmbRouterInternalTools(str, Enum):
     """
-    Enum for internal LiteLLM tools that are injected into requests.
+    Enum for internal EmbRouter tools that are injected into requests.
 
-    These tools are handled automatically by LiteLLM hooks and are not
+    These tools are handled automatically by EmbRouter hooks and are not
     passed to the underlying LLM provider directly.
     """
 
-    CODE_EXECUTION = "litellm_code_execution"
+    CODE_EXECUTION = "embrouter_code_execution"
 
 
-def get_litellm_code_execution_tool() -> _OpenAIToolSpec:
+def get_embrouter_code_execution_tool() -> _OpenAIToolSpec:
     """
-    Returns the litellm_code_execution tool definition in OpenAI format.
+    Returns the embrouter_code_execution tool definition in OpenAI format.
 
     This tool enables automatic code execution in a sandboxed environment
     when skills include executable Python code.
@@ -139,7 +139,7 @@ def get_litellm_code_execution_tool() -> _OpenAIToolSpec:
     return {
         "type": "function",
         "function": {
-            "name": LiteLLMInternalTools.CODE_EXECUTION.value,
+            "name": EmbRouterInternalTools.CODE_EXECUTION.value,
             "description": "Execute Python code in a sandboxed environment. Use this to run code that generates files, processes data, or performs computations. Generated files will be returned directly.",
             "parameters": {
                 "type": "object",
@@ -150,15 +150,15 @@ def get_litellm_code_execution_tool() -> _OpenAIToolSpec:
     }
 
 
-def get_litellm_code_execution_tool_anthropic() -> _AnthropicToolSpec:
+def get_embrouter_code_execution_tool_anthropic() -> _AnthropicToolSpec:
     """
-    Returns the litellm_code_execution tool definition in Anthropic/messages API format.
+    Returns the embrouter_code_execution tool definition in Anthropic/messages API format.
 
     This tool enables automatic code execution in a sandboxed environment
     when skills include executable Python code.
     """
     return {
-        "name": LiteLLMInternalTools.CODE_EXECUTION.value,
+        "name": EmbRouterInternalTools.CODE_EXECUTION.value,
         "description": "Execute Python code in a sandboxed environment. Use this to run code that generates files, processes data, or performs computations. Generated files will be returned directly.",
         "input_schema": {
             "type": "object",
@@ -169,12 +169,12 @@ def get_litellm_code_execution_tool_anthropic() -> _AnthropicToolSpec:
 
 
 # Singleton tool definition for backwards compatibility
-LITELLM_CODE_EXECUTION_TOOL: Final = get_litellm_code_execution_tool()
+EMBROUTER_CODE_EXECUTION_TOOL: Final = get_embrouter_code_execution_tool()
 
 
 class CodeExecutionHandler:
     """
-    Handles automatic code execution for LiteLLM skills.
+    Handles automatic code execution for EmbRouter skills.
 
     When enabled, this handler intercepts LLM responses with code execution
     tool calls, executes them in a sandbox, and continues the conversation
@@ -186,7 +186,7 @@ class CodeExecutionHandler:
         max_iterations: int | None = None,
         sandbox_timeout: int | None = None,
     ):
-        from litellm.llms.litellm_proxy.skills.constants import (
+        from embrouter.llms.embrouter_proxy.skills.constants import (
             DEFAULT_MAX_ITERATIONS,
             DEFAULT_SANDBOX_TIMEOUT,
         )
@@ -208,7 +208,7 @@ class CodeExecutionHandler:
 
         This method:
         1. Makes the initial LLM call
-        2. If model calls litellm_code_execution, executes the code
+        2. If model calls embrouter_code_execution, executes the code
         3. Continues conversation with results
         4. Repeats until model stops calling tools
         5. Returns final response with generated files inline
@@ -216,10 +216,10 @@ class CodeExecutionHandler:
         Args:
             model: Model to use
             messages: Initial messages
-            tools: Tools including litellm_code_execution
+            tools: Tools including embrouter_code_execution
             skill_files: Dict of skill files for execution
             skill_id: Optional skill ID for tracking
-            **kwargs: Additional args for litellm.acompletion
+            **kwargs: Additional args for embrouter.acompletion
 
         Returns:
             Dict with:
@@ -227,8 +227,8 @@ class CodeExecutionHandler:
             - files: List of generated files with content (base64)
             - execution_results: List of code execution results
         """
-        import litellm
-        from litellm.llms.litellm_proxy.skills.sandbox_executor import (
+        import embrouter
+        from embrouter.llms.embrouter_proxy.skills.sandbox_executor import (
             SkillsSandboxExecutor,
         )
 
@@ -243,7 +243,7 @@ class CodeExecutionHandler:
             verbose_logger.debug("CodeExecutionHandler: Iteration %s/%s", iteration + 1, self.max_iterations)
 
             # Make LLM call
-            response = await litellm.acompletion(
+            response = await embrouter.acompletion(
                 model=model,
                 messages=current_messages,
                 tools=tools,
@@ -287,7 +287,7 @@ class CodeExecutionHandler:
             for tool_call in assistant_message.tool_calls:
                 tool_name = tool_call.function.name
 
-                if tool_name == LiteLLMInternalTools.CODE_EXECUTION.value:
+                if tool_name == EmbRouterInternalTools.CODE_EXECUTION.value:
                     # Execute code in sandbox
                     try:
                         args = _parse_code_execution_arguments(tool_call.function.arguments)
@@ -381,21 +381,21 @@ class CodeExecutionHandler:
 
 
 def has_code_execution_tool(tools: list[_OpenAIToolSpec] | None) -> bool:
-    """Check if litellm_code_execution tool is in the tools list."""
+    """Check if embrouter_code_execution tool is in the tools list."""
     if not tools:
         return False
     for tool in tools:
         func = tool.get("function", {})
-        if func.get("name") == LiteLLMInternalTools.CODE_EXECUTION.value:
+        if func.get("name") == EmbRouterInternalTools.CODE_EXECUTION.value:
             return True
     return False
 
 
 def add_code_execution_tool(tools: list[_OpenAIToolSpec] | None) -> list[_OpenAIToolSpec]:
-    """Add litellm_code_execution tool if not already present."""
+    """Add embrouter_code_execution tool if not already present."""
     tools = tools or []
     if not has_code_execution_tool(tools):
-        tools.append(LITELLM_CODE_EXECUTION_TOOL)
+        tools.append(EMBROUTER_CODE_EXECUTION_TOOL)
     return tools
 
 

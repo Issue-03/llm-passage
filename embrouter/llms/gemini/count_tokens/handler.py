@@ -2,12 +2,12 @@ from typing import TYPE_CHECKING, Any, Final
 
 import httpx
 
-import litellm
-from litellm.llms.custom_httpx.http_handler import get_async_httpx_client
-from litellm.types.utils import LlmProviders
+import embrouter
+from embrouter.llms.custom_httpx.http_handler import get_async_httpx_client
+from embrouter.types.utils import LlmProviders
 
 if TYPE_CHECKING:
-    from litellm.types.google_genai.main import GenerateContentContentListUnionDict
+    from embrouter.types.google_genai.main import GenerateContentContentListUnionDict
 else:
     GenerateContentContentListUnionDict = Any
 
@@ -60,18 +60,18 @@ class GoogleAIStudioTokenCounter:
         api_key: str | None = None,
         headers: dict[str, object] | None = None,
         model: str = "",
-        litellm_params: dict[str, object] | None = None,
+        embrouter_params: dict[str, object] | None = None,
     ) -> tuple[dict[str, Any], str]:
         """
         Returns a Tuple of headers and url for the Google Gen AI Studio countTokens endpoint.
         """
-        from litellm.llms.gemini.google_genai.transformation import GoogleGenAIConfig
+        from embrouter.llms.gemini.google_genai.transformation import GoogleGenAIConfig
 
         headers = GoogleGenAIConfig().validate_environment(
             api_key=api_key,
             headers=headers,
             model=model,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
         url: Final = self._construct_url(model=model, api_base=api_base)
@@ -114,8 +114,8 @@ class GoogleAIStudioTokenCounter:
 
         Raises:
             ValueError: If API key is missing
-            litellm.APIError: If the API call fails
-            litellm.APIConnectionError: If the connection fails
+            embrouter.APIError: If the API call fails
+            embrouter.APIConnectionError: If the connection fails
             Exception: For any other unexpected errors
         """
 
@@ -125,7 +125,7 @@ class GoogleAIStudioTokenCounter:
             api_base=api_base,
             headers={},
             model=model,
-            litellm_params=kwargs,
+            embrouter_params=kwargs,
         )
 
         # Prepare request body - clean up contents to remove unsupported fields
@@ -148,7 +148,7 @@ class GoogleAIStudioTokenCounter:
 
         except httpx.HTTPStatusError as e:
             error_msg = f"Google Gen AI Studio API error: {e.response.status_code} - {e.response.text}"
-            raise litellm.APIError(
+            raise embrouter.APIError(
                 message=error_msg,
                 llm_provider="gemini",
                 model=model,
@@ -156,7 +156,7 @@ class GoogleAIStudioTokenCounter:
             ) from e
         except httpx.RequestError as e:
             error_msg = f"Request to Google Gen AI Studio failed: {e}"
-            raise litellm.APIConnectionError(message=error_msg, llm_provider="gemini", model=model) from e
+            raise embrouter.APIConnectionError(message=error_msg, llm_provider="gemini", model=model) from e
         except Exception as e:
             error_msg = f"Unexpected error during token counting: {e}"
             raise Exception(error_msg) from e

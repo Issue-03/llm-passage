@@ -12,7 +12,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from litellm.proxy._experimental.mcp_server.sampling_handler import (
+from embrouter.proxy._experimental.mcp_server.sampling_handler import (
     _resolve_model_from_preferences,
 )
 
@@ -27,28 +27,28 @@ def _prefs(*, hints=None, cost=None, speed=None, intelligence=None):
 
 
 class TestHintMatching:
-    @patch("litellm.proxy.proxy_server.llm_router", None)
-    @patch("litellm.model_list", [{"model_name": "gpt-4o"}, {"model_name": "claude-3"}])
+    @patch("embrouter.proxy.proxy_server.llm_router", None)
+    @patch("embrouter.model_list", [{"model_name": "gpt-4o"}, {"model_name": "claude-3"}])
     def test_should_match_hint_as_substring(self):
         prefs = _prefs(hints=[SimpleNamespace(name="gpt-4")])
         assert _resolve_model_from_preferences(prefs) == "gpt-4o"
 
-    @patch("litellm.proxy.proxy_server.llm_router", None)
-    @patch("litellm.model_list", ["gpt-4o", "claude-3"])
+    @patch("embrouter.proxy.proxy_server.llm_router", None)
+    @patch("embrouter.model_list", ["gpt-4o", "claude-3"])
     def test_should_match_hint_against_string_model_list_entries(self):
         prefs = _prefs(hints=[SimpleNamespace(name="claude-3")])
         assert _resolve_model_from_preferences(prefs) == "claude-3"
 
-    @patch("litellm.model_list", None)
+    @patch("embrouter.model_list", None)
     def test_should_use_router_model_names(self):
         router = MagicMock()
         router.get_model_names.return_value = ["router-gpt", "router-claude"]
-        with patch("litellm.proxy.proxy_server.llm_router", router):
+        with patch("embrouter.proxy.proxy_server.llm_router", router):
             prefs = _prefs(hints=[SimpleNamespace(name="router-claude")])
             assert _resolve_model_from_preferences(prefs) == "router-claude"
 
-    @patch("litellm.proxy.proxy_server.llm_router", None)
-    @patch("litellm.model_list", [{"model_name": "gpt-4o"}])
+    @patch("embrouter.proxy.proxy_server.llm_router", None)
+    @patch("embrouter.model_list", [{"model_name": "gpt-4o"}])
     def test_should_skip_hint_without_name(self):
         prefs = _prefs(hints=[SimpleNamespace()])  # hint has no `.name`
         assert (
@@ -57,31 +57,31 @@ class TestHintMatching:
 
 
 class TestFallbackChain:
-    @patch("litellm.proxy.proxy_server.llm_router", None)
+    @patch("embrouter.proxy.proxy_server.llm_router", None)
     @patch(
-        "litellm.model_list", [{"model_name": "first-model"}, {"model_name": "second"}]
+        "embrouter.model_list", [{"model_name": "first-model"}, {"model_name": "second"}]
     )
     def test_should_fall_back_to_first_available_when_no_default(self):
         prefs = _prefs(hints=[SimpleNamespace(name="no-such")])
         assert _resolve_model_from_preferences(prefs) == "first-model"
 
-    @patch("litellm.proxy.proxy_server.llm_router", None)
-    @patch("litellm.model_list", [])
+    @patch("embrouter.proxy.proxy_server.llm_router", None)
+    @patch("embrouter.model_list", [])
     def test_should_use_configured_default_sampling_model(self, monkeypatch):
-        import litellm
+        import embrouter
 
         monkeypatch.setattr(
-            litellm, "default_mcp_sampling_model", "fallback-model", raising=False
+            embrouter, "default_mcp_sampling_model", "fallback-model", raising=False
         )
         prefs = _prefs()
         assert _resolve_model_from_preferences(prefs) == "fallback-model"
 
-    @patch("litellm.proxy.proxy_server.llm_router", None)
-    @patch("litellm.model_list", [])
+    @patch("embrouter.proxy.proxy_server.llm_router", None)
+    @patch("embrouter.model_list", [])
     def test_should_raise_when_nothing_resolvable(self, monkeypatch):
-        import litellm
+        import embrouter
 
-        monkeypatch.setattr(litellm, "default_mcp_sampling_model", None, raising=False)
+        monkeypatch.setattr(embrouter, "default_mcp_sampling_model", None, raising=False)
         prefs = _prefs()
         with pytest.raises(ValueError, match="No model could be resolved"):
             _resolve_model_from_preferences(prefs)

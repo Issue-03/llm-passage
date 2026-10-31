@@ -5,9 +5,9 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from litellm.proxy._types import ProxyException, UserAPIKeyAuth
-from litellm.proxy.pass_through_endpoints.managed_id_codec import decode, new_managed_id
-from litellm.proxy.pass_through_endpoints.managed_id_rewriter import (
+from embrouter.proxy._types import ProxyException, UserAPIKeyAuth
+from embrouter.proxy.pass_through_endpoints.managed_id_codec import decode, new_managed_id
+from embrouter.proxy.pass_through_endpoints.managed_id_rewriter import (
     list_passthrough_ids_from_db,
     rewrite_streamed_response_ids,
 )
@@ -20,17 +20,17 @@ def _user() -> UserAPIKeyAuth:
 def _prisma_client(file_rows=None, batch_rows=None) -> MagicMock:
     pc = MagicMock()
     pc.db = MagicMock()
-    pc.db.litellm_managedfiletable = MagicMock()
-    pc.db.litellm_managedfiletable.find_first = AsyncMock(return_value=None)
-    pc.db.litellm_managedfiletable.find_many = AsyncMock(
+    pc.db.embrouter_managedfiletable = MagicMock()
+    pc.db.embrouter_managedfiletable.find_first = AsyncMock(return_value=None)
+    pc.db.embrouter_managedfiletable.find_many = AsyncMock(
         side_effect=lambda *args, take=None, **kwargs: list(file_rows or [])[:take]
     )
-    pc.db.litellm_managedobjecttable = MagicMock()
-    pc.db.litellm_managedobjecttable.find_first = AsyncMock(return_value=None)
-    pc.db.litellm_managedobjecttable.find_many = AsyncMock(
+    pc.db.embrouter_managedobjecttable = MagicMock()
+    pc.db.embrouter_managedobjecttable.find_first = AsyncMock(return_value=None)
+    pc.db.embrouter_managedobjecttable.find_many = AsyncMock(
         side_effect=lambda *args, take=None, **kwargs: list(batch_rows or [])[:take]
     )
-    pc.db.litellm_managedobjecttable.upsert = AsyncMock(return_value=None)
+    pc.db.embrouter_managedobjecttable.upsert = AsyncMock(return_value=None)
     return pc
 
 
@@ -117,7 +117,7 @@ async def test_list_batches_out_of_range_limit_raises_400(limit, expected_messag
     assert exc.value.type == "invalid_request_error"
     assert exc.value.openai_code == expected_openai_code
     assert exc.value.message == expected_message
-    pc.db.litellm_managedobjecttable.find_many.assert_not_called()
+    pc.db.embrouter_managedobjecttable.find_many.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -139,7 +139,7 @@ async def test_list_batches_limit_zero_returns_empty_page_without_db_query():
         "last_id": None,
         "has_more": False,
     }
-    pc.db.litellm_managedobjecttable.find_many.assert_not_called()
+    pc.db.embrouter_managedobjecttable.find_many.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -164,7 +164,7 @@ async def test_list_files_drops_batch_guardrail_key_persisted_by_an_older_proxy(
     """Rows written before the response serializer dropped the key still carry an explicit null."""
     managed_id = new_managed_id("openai", "file-abc")
     row = _file_row(managed_id)
-    row.file_object = {**row.file_object, "litellm_batch_guardrail": None}
+    row.file_object = {**row.file_object, "embrouter_batch_guardrail": None}
     pc = _prisma_client(file_rows=[row])
 
     result = await list_passthrough_ids_from_db(
@@ -176,7 +176,7 @@ async def test_list_files_drops_batch_guardrail_key_persisted_by_an_older_proxy(
     )
 
     assert result is not None
-    assert "litellm_batch_guardrail" not in result["data"][0]
+    assert "embrouter_batch_guardrail" not in result["data"][0]
     assert result["data"][0]["filename"] == "test.jsonl"
 
 
@@ -198,8 +198,8 @@ async def test_streamed_response_is_owned_and_rewritten_across_chunk_boundaries(
         )
     )
 
-    pc.db.litellm_managedobjecttable.upsert.assert_awaited_once()
-    created = pc.db.litellm_managedobjecttable.upsert.await_args.kwargs["data"]["create"]
+    pc.db.embrouter_managedobjecttable.upsert.assert_awaited_once()
+    created = pc.db.embrouter_managedobjecttable.upsert.await_args.kwargs["data"]["create"]
     assert created["created_by"] == "user-1"
     assert created["team_id"] == "team-1"
     assert created["file_purpose"] == "response"
@@ -228,8 +228,8 @@ async def test_streamed_response_with_cr_only_frame_delimiters_is_still_owned_an
         )
     )
 
-    pc.db.litellm_managedobjecttable.upsert.assert_awaited_once()
-    managed_id = pc.db.litellm_managedobjecttable.upsert.await_args.kwargs["data"]["create"]["unified_object_id"]
+    pc.db.embrouter_managedobjecttable.upsert.assert_awaited_once()
+    managed_id = pc.db.embrouter_managedobjecttable.upsert.await_args.kwargs["data"]["create"]["unified_object_id"]
     assert RAW_RESPONSE_ID.encode() not in output
     assert output == _response_stream_bytes(managed_id).replace(b"\n", b"\r")
 
@@ -251,13 +251,13 @@ async def test_streamed_bytes_untouched_on_routes_without_a_response_id():
     )
 
     assert output == payload
-    pc.db.litellm_managedobjecttable.upsert.assert_not_awaited()
+    pc.db.embrouter_managedobjecttable.upsert.assert_not_awaited()
 
 
 @pytest.mark.asyncio
 async def test_streamed_response_stays_raw_and_intact_when_the_row_cannot_be_persisted():
     pc = _prisma_client()
-    pc.db.litellm_managedobjecttable.upsert = AsyncMock(side_effect=RuntimeError("db down"))
+    pc.db.embrouter_managedobjecttable.upsert = AsyncMock(side_effect=RuntimeError("db down"))
     payload = _response_stream_bytes()
 
     output = await _collect(
@@ -272,4 +272,4 @@ async def test_streamed_response_stays_raw_and_intact_when_the_row_cannot_be_per
     )
 
     assert output == payload
-    pc.db.litellm_managedobjecttable.upsert.assert_awaited_once()
+    pc.db.embrouter_managedobjecttable.upsert.assert_awaited_once()

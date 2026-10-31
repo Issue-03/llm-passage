@@ -27,33 +27,33 @@ from itertools import groupby
 from types import MappingProxyType
 from typing import Any, Final
 
-import litellm
-from litellm._logging import verbose_router_logger
-from litellm.caching.caching import DualCache
-from litellm.caching.redis_cache import RedisCache, RedisPipelineIncrementOperation, log_redis_failure
-from litellm.integrations.custom_logger import CustomLogger, Span
-from litellm.litellm_core_utils.core_helpers import (
+import embrouter
+from embrouter._logging import verbose_router_logger
+from embrouter.caching.caching import DualCache
+from embrouter.caching.redis_cache import RedisCache, RedisPipelineIncrementOperation, log_redis_failure
+from embrouter.integrations.custom_logger import CustomLogger, Span
+from embrouter.embrouter_core_utils.core_helpers import (
     get_metadata_variable_name_from_kwargs,
 )
-from litellm.litellm_core_utils.duration_parser import duration_in_seconds
-from litellm.router_strategy.tag_based_routing import _get_tags_from_request_kwargs
-from litellm.router_utils.cooldown_callbacks import (
+from embrouter.embrouter_core_utils.duration_parser import duration_in_seconds
+from embrouter.router_strategy.tag_based_routing import _get_tags_from_request_kwargs
+from embrouter.router_utils.cooldown_callbacks import (
     _get_prometheus_logger_from_callbacks,
 )
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.router import DeploymentTypedDict, LiteLLM_Params, RouterErrors
-from litellm.types.utils import BudgetConfig, GenericBudgetConfigType, StandardLoggingPayload
-from litellm.types.utils import BudgetConfig as GenericBudgetInfo
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.router import DeploymentTypedDict, EmbRouter_Params, RouterErrors
+from embrouter.types.utils import BudgetConfig, GenericBudgetConfigType, StandardLoggingPayload
+from embrouter.types.utils import BudgetConfig as GenericBudgetInfo
 
 DEFAULT_REDIS_SYNC_INTERVAL: Final = 1
 
 
-class _LiteLLMParamsDictView:
+class _EmbRouterParamsDictView:
     """
-    Lightweight attribute view over `litellm_params` dict.
+    Lightweight attribute view over `embrouter_params` dict.
 
     This avoids pydantic construction in request hot-path while preserving
-    attribute-style access used by `litellm.get_llm_provider(...)`.
+    attribute-style access used by `embrouter.get_llm_provider(...)`.
     """
 
     __slots__ = ("_params",)
@@ -123,9 +123,9 @@ class RouterBudgetLimiting(CustomLogger):
         self._init_deployment_budgets(model_list=model_list)
         self._init_tag_budgets()
 
-        # Add self to litellm callbacks if it's a list
-        if isinstance(litellm.callbacks, list):
-            litellm.logging_callback_manager.add_litellm_callback(self)
+        # Add self to embrouter callbacks if it's a list
+        if isinstance(embrouter.callbacks, list):
+            embrouter.logging_callback_manager.add_embrouter_callback(self)
 
     async def async_filter_deployments(
         self,
@@ -255,14 +255,14 @@ class RouterBudgetLimiting(CustomLogger):
             # Check deployment budget
             if self.deployment_budget_config and is_within_budget:
                 _model_name = deployment.get("model_name")
-                _litellm_params = deployment.get("litellm_params") or {}
-                _litellm_model_name = _litellm_params.get("model")
+                _embrouter_params = deployment.get("embrouter_params") or {}
+                _embrouter_model_name = _embrouter_params.get("model")
                 model_id = deployment.get("model_info", {}).get("id")
                 if model_id in deployment_configs:
                     config = deployment_configs[model_id]
                     current_spend = spend_map.get(f"deployment_spend:{model_id}:{config.budget_duration}", 0.0)
                     if config.max_budget and current_spend >= config.max_budget:
-                        debug_msg = f"Exceeded budget for deployment model_name: {_model_name}, litellm_params.model: {_litellm_model_name}, model_id: {model_id}: {current_spend} >= {config.budget_duration}"
+                        debug_msg = f"Exceeded budget for deployment model_name: {_model_name}, embrouter_params.model: {_embrouter_model_name}, model_id: {model_id}: {current_spend} >= {config.budget_duration}"
                         verbose_router_logger.debug(debug_msg)
                         deployment_above_budget_info += f"{debug_msg}\n"
                         is_within_budget = False
@@ -396,7 +396,7 @@ class RouterBudgetLimiting(CustomLogger):
         Runs once the budget start time exists in Redis Cache (on the 2nd and subsequent requests to the same provider)
 
         - Increments the spend in memory cache (so spend instantly updated in memory)
-        - Queues the increment operation to Redis Pipeline (using batched pipeline to optimize performance. Using Redis for multi instance environment of LiteLLM)
+        - Queues the increment operation to Redis Pipeline (using batched pipeline to optimize performance. Using Redis for multi instance environment of EmbRouter)
         """
         increment_op: Final = RedisPipelineIncrementOperation(
             key=spend_key,
@@ -716,21 +716,21 @@ class RouterBudgetLimiting(CustomLogger):
 
     def _get_llm_provider_for_deployment(self, deployment: dict) -> str | None:
         try:
-            deployment_litellm_params: Final = deployment.get("litellm_params") or {}
+            deployment_embrouter_params: Final = deployment.get("embrouter_params") or {}
 
-            if isinstance(deployment_litellm_params, LiteLLM_Params):
-                model = deployment_litellm_params.model or ""
-                provider_resolution_params: Any = deployment_litellm_params
-            elif isinstance(deployment_litellm_params, dict):
-                model = deployment_litellm_params.get("model") or ""
-                provider_resolution_params = _LiteLLMParamsDictView(deployment_litellm_params)
+            if isinstance(deployment_embrouter_params, EmbRouter_Params):
+                model = deployment_embrouter_params.model or ""
+                provider_resolution_params: Any = deployment_embrouter_params
+            elif isinstance(deployment_embrouter_params, dict):
+                model = deployment_embrouter_params.get("model") or ""
+                provider_resolution_params = _EmbRouterParamsDictView(deployment_embrouter_params)
             else:
                 model = ""
-                provider_resolution_params = _LiteLLMParamsDictView({})
+                provider_resolution_params = _EmbRouterParamsDictView({})
 
-            _, custom_llm_provider, _, _ = litellm.get_llm_provider(
+            _, custom_llm_provider, _, _ = embrouter.get_llm_provider(
                 model=str(model),
-                litellm_params=provider_resolution_params,
+                embrouter_params=provider_resolution_params,
             )
         except Exception:
             verbose_router_logger.error("Error getting LLM provider for deployment: %s", deployment)
@@ -833,15 +833,15 @@ class RouterBudgetLimiting(CustomLogger):
         if provider_budget_config is not None:
             return True
 
-        if litellm.tag_budget_config is not None:
+        if embrouter.tag_budget_config is not None:
             return True
 
         if model_list is None:
             return False
 
         for _model in model_list:
-            _litellm_params = _model.get("litellm_params", {})
-            if _litellm_params.get("max_budget") or _litellm_params.get("budget_duration") is not None:
+            _embrouter_params = _model.get("embrouter_params", {})
+            if _embrouter_params.get("max_budget") or _embrouter_params.get("budget_duration") is not None:
                 return True
         return False
 
@@ -875,11 +875,11 @@ class RouterBudgetLimiting(CustomLogger):
         if model_list is None:
             return
         for _model in model_list:
-            _litellm_params = _model.get("litellm_params", {})
+            _embrouter_params = _model.get("embrouter_params", {})
             _model_info: dict = _model.get("model_info") or {}
             _model_id = _model_info.get("id")
-            _max_budget = _litellm_params.get("max_budget")
-            _budget_duration = _litellm_params.get("budget_duration")
+            _max_budget = _embrouter_params.get("max_budget")
+            _budget_duration = _embrouter_params.get("budget_duration")
 
             verbose_router_logger.debug(
                 "Init Deployment Budget: max_budget: %s, budget_duration: %s, model_id: %s",
@@ -915,9 +915,9 @@ class RouterBudgetLimiting(CustomLogger):
             self.deployment_budget_config = None
 
     def _init_tag_budgets(self):
-        if litellm.tag_budget_config is None:
+        if embrouter.tag_budget_config is None:
             return
-        from litellm.proxy.proxy_server import CommonProxyErrors, premium_user
+        from embrouter.proxy.proxy_server import CommonProxyErrors, premium_user
 
         if premium_user is not True:
             raise ValueError(f"Tag budgets are an Enterprise only feature, {CommonProxyErrors.not_premium_user}")
@@ -925,7 +925,7 @@ class RouterBudgetLimiting(CustomLogger):
         if self.tag_budget_config is None:
             self.tag_budget_config = {}
 
-        for _tag, _tag_budget_config in litellm.tag_budget_config.items():
+        for _tag, _tag_budget_config in embrouter.tag_budget_config.items():
             if isinstance(_tag_budget_config, dict):
                 _tag_budget_config = BudgetConfig(**_tag_budget_config)
             _generic_budget_config = GenericBudgetInfo(

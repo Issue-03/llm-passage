@@ -506,7 +506,7 @@ describe("responses_api response cache", () => {
             input_tokens_details: { cached_tokens: 4695 },
           },
         },
-        { "x-litellm-cache-key": "cache-key-abc" },
+        { "x-embrouter-cache-key": "cache-key-abc" },
       ),
     );
 
@@ -651,7 +651,7 @@ describe("responses_api custom headers", () => {
     );
 
     expect(vi.mocked(openai.OpenAI).mock.calls[0][0]).toMatchObject({
-      defaultHeaders: { "x-litellm-tags": "team-a", "anthropic-beta": "context-1m-2025-08-07" },
+      defaultHeaders: { "x-embrouter-tags": "team-a", "anthropic-beta": "context-1m-2025-08-07" },
     });
   });
 });

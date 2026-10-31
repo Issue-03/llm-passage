@@ -5,35 +5,35 @@ from typing import TYPE_CHECKING, Any, Final
 import httpx
 from httpx._types import RequestFiles
 
-import litellm
-from litellm.constants import DEFAULT_GOOGLE_VIDEO_DURATION_SECONDS
-from litellm.images.utils import ImageEditRequestUtils
-from litellm.llms.base_llm.videos.transformation import BaseVideoConfig
-from litellm.llms.vertex_ai.videos.transformation import veo_video_count_from_parameters
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.gemini import (
+import embrouter
+from embrouter.constants import DEFAULT_GOOGLE_VIDEO_DURATION_SECONDS
+from embrouter.images.utils import ImageEditRequestUtils
+from embrouter.llms.base_llm.videos.transformation import BaseVideoConfig
+from embrouter.llms.vertex_ai.videos.transformation import veo_video_count_from_parameters
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.gemini import (
     GeminiLongRunningOperationResponse,
     GeminiVideoGenerationInstance,
     GeminiVideoGenerationParameters,
     GeminiVideoGenerationRequest,
 )
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.videos.main import VideoCreateOptionalRequestParams, VideoObject
-from litellm.types.videos.utils import (
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.videos.main import VideoCreateOptionalRequestParams, VideoObject
+from embrouter.types.videos.utils import (
     encode_video_id_with_provider,
     extract_original_video_id,
 )
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
+    from embrouter.llms.custom_httpx.http_handler import HTTPHandler
 
     from ...base_llm.chat.transformation import BaseLLMException as _BaseLLMException
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
     BaseLLMException = _BaseLLMException
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
     BaseLLMException = Any
 
 
@@ -197,17 +197,17 @@ class GeminiVideoConfig(BaseVideoConfig):
         headers: dict,
         model: str,
         api_key: str | None = None,
-        litellm_params: GenericLiteLLMParams | None = None,
+        embrouter_params: GenericEmbRouterParams | None = None,
     ) -> dict:
         """
         Validate environment and add Gemini API key to headers.
         Gemini uses x-goog-api-key header for authentication.
         """
-        # Use api_key from litellm_params if available, otherwise fall back to other sources
-        if litellm_params and litellm_params.api_key:
-            api_key = api_key or litellm_params.api_key
+        # Use api_key from embrouter_params if available, otherwise fall back to other sources
+        if embrouter_params and embrouter_params.api_key:
+            api_key = api_key or embrouter_params.api_key
 
-        api_key = api_key or litellm.api_key or get_secret_str("GOOGLE_API_KEY") or get_secret_str("GEMINI_API_KEY")
+        api_key = api_key or embrouter.api_key or get_secret_str("GOOGLE_API_KEY") or get_secret_str("GEMINI_API_KEY")
 
         if not api_key:
             raise ValueError(
@@ -227,7 +227,7 @@ class GeminiVideoConfig(BaseVideoConfig):
         self,
         model: str,
         api_base: str | None,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> str:
         """
         Get the complete URL for Veo video generation.
@@ -251,7 +251,7 @@ class GeminiVideoConfig(BaseVideoConfig):
         prompt: str,
         api_base: str,
         video_create_optional_request_params: dict,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[dict, RequestFiles, str]:
         """
@@ -300,7 +300,7 @@ class GeminiVideoConfig(BaseVideoConfig):
         self,
         model: str,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         custom_llm_provider: str | None = None,
         request_data: dict | None = None,
     ) -> VideoObject:
@@ -367,7 +367,7 @@ class GeminiVideoConfig(BaseVideoConfig):
         self,
         video_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict]:
         """
@@ -385,7 +385,7 @@ class GeminiVideoConfig(BaseVideoConfig):
     def transform_video_status_retrieve_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         custom_llm_provider: str | None = None,
         client: "HTTPHandler | None" = None,
     ) -> VideoObject:
@@ -438,7 +438,7 @@ class GeminiVideoConfig(BaseVideoConfig):
         self,
         video_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
         variant: str | None = None,
     ) -> tuple[str, dict]:
@@ -452,7 +452,7 @@ class GeminiVideoConfig(BaseVideoConfig):
         operation_name: Final = extract_original_video_id(video_id)
 
         status_url: Final = f"{api_base.rstrip('/')}/v1beta/{operation_name}"
-        client: Final = litellm.module_level_client
+        client: Final = embrouter.module_level_client
         status_response: Final = client.get(url=status_url, headers=headers)
         status_response.raise_for_status()
         response_data: Final = _json_payload(status_response)
@@ -477,7 +477,7 @@ class GeminiVideoConfig(BaseVideoConfig):
     def transform_video_content_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> bytes:
         """
         Transform the Veo video content download response.
@@ -490,7 +490,7 @@ class GeminiVideoConfig(BaseVideoConfig):
         video_id: str,
         prompt: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
         extra_body: Mapping[str, object] | None = None,
     ) -> tuple[str, dict]:
@@ -504,7 +504,7 @@ class GeminiVideoConfig(BaseVideoConfig):
     def transform_video_remix_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         custom_llm_provider: str | None = None,
     ) -> VideoObject:
         """Video remix is not supported."""
@@ -513,7 +513,7 @@ class GeminiVideoConfig(BaseVideoConfig):
     def transform_video_list_request(
         self,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
         after: str | None = None,
         limit: int | None = None,
@@ -531,7 +531,7 @@ class GeminiVideoConfig(BaseVideoConfig):
     def transform_video_list_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         custom_llm_provider: str | None = None,
     ) -> dict[str, str]:
         """Video list is not supported."""
@@ -541,7 +541,7 @@ class GeminiVideoConfig(BaseVideoConfig):
         self,
         video_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict]:
         """
@@ -554,18 +554,18 @@ class GeminiVideoConfig(BaseVideoConfig):
     def transform_video_delete_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> VideoObject:
         """Video delete is not supported."""
         raise NotImplementedError("Video delete is not supported by Google Veo.")
 
-    def transform_video_create_character_request(self, name, video: object, api_base, litellm_params, headers):
+    def transform_video_create_character_request(self, name, video: object, api_base, embrouter_params, headers):
         raise NotImplementedError("video create character is not supported for Gemini")
 
     def transform_video_create_character_response(self, raw_response, logging_obj):
         raise NotImplementedError("video create character is not supported for Gemini")
 
-    def transform_video_get_character_request(self, character_id, api_base, litellm_params, headers):
+    def transform_video_get_character_request(self, character_id, api_base, embrouter_params, headers):
         raise NotImplementedError("video get character is not supported for Gemini")
 
     def transform_video_get_character_response(self, raw_response, logging_obj):
@@ -576,7 +576,7 @@ class GeminiVideoConfig(BaseVideoConfig):
         prompt,
         video_id,
         api_base,
-        litellm_params,
+        embrouter_params,
         headers,
         video_file=None,
         extra_body=None,
@@ -599,7 +599,7 @@ class GeminiVideoConfig(BaseVideoConfig):
         video_id,
         seconds,
         api_base,
-        litellm_params,
+        embrouter_params,
         headers,
         extra_body=None,
     ):

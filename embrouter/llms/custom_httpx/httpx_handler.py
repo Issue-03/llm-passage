@@ -4,7 +4,7 @@ from typing import Final
 import httpx
 
 try:
-    from litellm._version import version
+    from embrouter._version import version
 except Exception:
     version = "0.0.0"
 
@@ -13,14 +13,14 @@ def get_default_headers() -> dict:
     """
     Get default headers for HTTP requests.
 
-    - Default: `User-Agent: litellm/{version}`
-    - Override: set `LITELLM_USER_AGENT` to fully override the header value.
+    - Default: `User-Agent: embrouter/{version}`
+    - Override: set `EMBROUTER_USER_AGENT` to fully override the header value.
     """
-    user_agent: Final = os.environ.get("LITELLM_USER_AGENT")
+    user_agent: Final = os.environ.get("EMBROUTER_USER_AGENT")
     if user_agent is not None:
         return {"User-Agent": user_agent}
 
-    return {"User-Agent": f"litellm/{version}"}
+    return {"User-Agent": f"embrouter/{version}"}
 
 
 class HTTPHandler:

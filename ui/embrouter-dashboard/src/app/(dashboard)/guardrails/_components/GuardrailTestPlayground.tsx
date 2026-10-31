@@ -12,7 +12,7 @@ import { formatGuardrailMode } from "./guardrail_info_helpers";
 interface GuardrailItem {
   guardrail_id?: string;
   guardrail_name: string | null;
-  litellm_params: {
+  embrouter_params: {
     guardrail: string;
     mode: GuardrailMode;
     default_on: boolean;
@@ -169,12 +169,12 @@ const GuardrailTestPlayground: React.FC<GuardrailTestPlaygroundProps> = ({
                         <div className="mt-1 space-y-1 text-xs">
                           <div>
                             <span className="font-medium">Type: </span>
-                            <span className="text-muted-foreground">{guardrail.litellm_params.guardrail}</span>
+                            <span className="text-muted-foreground">{guardrail.embrouter_params.guardrail}</span>
                           </div>
                           <div>
                             <span className="font-medium">Mode: </span>
                             <span className="text-muted-foreground">
-                              {formatGuardrailMode(guardrail.litellm_params.mode)}
+                              {formatGuardrailMode(guardrail.embrouter_params.mode)}
                             </span>
                           </div>
                         </div>

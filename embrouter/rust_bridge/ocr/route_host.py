@@ -6,11 +6,11 @@ from typing import Final
 
 from pydantic import TypeAdapter
 
-import litellm
-from litellm.llms.base_llm.ocr.transformation import PROVIDER_NATIVE_RESPONSE_KEY, OCRResponse
-from litellm.rust_bridge import failures
-from litellm.rust_bridge.failures import UpstreamFailure
-from litellm.rust_bridge.ocr.entrypoints import LiteLLMOcrRequest
+import embrouter
+from embrouter.llms.base_llm.ocr.transformation import PROVIDER_NATIVE_RESPONSE_KEY, OCRResponse
+from embrouter.rust_bridge import failures
+from embrouter.rust_bridge.failures import UpstreamFailure
+from embrouter.rust_bridge.ocr.entrypoints import EmbRouterOcrRequest
 
 __all__ = ("UpstreamFailure", "arguments", "map_failure", "response")
 
@@ -27,14 +27,14 @@ def response(value: Mapping[str, object]) -> OCRResponse:
     return normalized
 
 
-def arguments(request: LiteLLMOcrRequest) -> Mapping[str, object]:
+def arguments(request: EmbRouterOcrRequest) -> Mapping[str, object]:
     return request.kwargs
 
 
-def map_failure(error: Exception, request: LiteLLMOcrRequest, request_provider: str) -> Exception:
+def map_failure(error: Exception, request: EmbRouterOcrRequest, request_provider: str) -> Exception:
     if getattr(error, "ocr_request_format_error", False):
-        return litellm.UnsupportedParamsError(
-            message=f"Invalid `req_format`: {request.kwargs.get('req_format')!r}. Expected 'native' or 'litellm'.",
+        return embrouter.UnsupportedParamsError(
+            message=f"Invalid `req_format`: {request.kwargs.get('req_format')!r}. Expected 'native' or 'embrouter'.",
             model=request.model.removeprefix(f"{request_provider}/"),
             llm_provider=request_provider,
         )

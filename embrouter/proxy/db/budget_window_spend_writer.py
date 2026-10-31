@@ -1,13 +1,13 @@
 """
-Writer for LiteLLM_BudgetWindowSpend.
+Writer for EmbRouter_BudgetWindowSpend.
 
 The table holds one row per configured budget window whose window_start rolls
 forward in place, so budget enforcement can read a maintained running total
-instead of aggregating LiteLLM_SpendLogs every time a window counter goes cold
+instead of aggregating EmbRouter_SpendLogs every time a window counter goes cold
 (issue #35766). Raw SQL rather than the Prisma upsert helper because the
 conditional roll cannot be expressed through the query builder.
 
-Seeding a row that does not exist yet reads LiteLLM_SpendLogs once and takes
+Seeding a row that does not exist yet reads EmbRouter_SpendLogs once and takes
 off what the increments being flushed will add, so neither source counts the
 same request twice. A row therefore lags real spend by at most one flush
 interval of increments queued elsewhere: the same lag the SpendLogs aggregate
@@ -19,41 +19,41 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Final, Protocol
 
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy._types import Litellm_EntityType
-from litellm.proxy.db.db_transaction_queue.window_spend_update_queue import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy._types import Embrouter_EntityType
+from embrouter.proxy.db.db_transaction_queue.window_spend_update_queue import (
     WindowSpendTransaction,
     to_naive_utc,
     window_spend_group_key,
 )
 
 if TYPE_CHECKING:
-    from litellm.proxy.utils import PrismaClient
+    from embrouter.proxy.utils import PrismaClient
 
 
 _SELECT_EXISTING_ROWS_SQL: Final = (
-    'SELECT entity_type, entity_id, window_duration FROM "LiteLLM_BudgetWindowSpend" '
+    'SELECT entity_type, entity_id, window_duration FROM "EmbRouter_BudgetWindowSpend" '
     "WHERE (entity_type, entity_id, window_duration) "
     "IN (SELECT * FROM unnest($1::text[], $2::text[], $3::text[]))"
 )
 
 _UPSERT_WINDOW_SPEND_SQL: Final = (
-    'INSERT INTO "LiteLLM_BudgetWindowSpend" '
+    'INSERT INTO "EmbRouter_BudgetWindowSpend" '
     "(entity_type, entity_id, window_duration, window_start, spend, created_at, updated_at) "
     "VALUES ($1, $2, $3, ($4::timestamptz AT TIME ZONE 'UTC'), $5, "
     "($7::timestamptz AT TIME ZONE 'UTC'), ($7::timestamptz AT TIME ZONE 'UTC')) "
     "ON CONFLICT (entity_type, entity_id, window_duration) DO UPDATE SET "
     "spend = CASE "
-    'WHEN "LiteLLM_BudgetWindowSpend".window_start >= EXCLUDED.window_start '
-    'THEN "LiteLLM_BudgetWindowSpend".spend + $6 '
+    'WHEN "EmbRouter_BudgetWindowSpend".window_start >= EXCLUDED.window_start '
+    'THEN "EmbRouter_BudgetWindowSpend".spend + $6 '
     "ELSE EXCLUDED.spend "
     "END, "
-    'window_start = GREATEST("LiteLLM_BudgetWindowSpend".window_start, EXCLUDED.window_start), '
+    'window_start = GREATEST("EmbRouter_BudgetWindowSpend".window_start, EXCLUDED.window_start), '
     "updated_at = ($7::timestamptz AT TIME ZONE 'UTC')"
 )
 
 _ROLL_WINDOW_SPEND_SQL: Final = (
-    'UPDATE "LiteLLM_BudgetWindowSpend" SET '
+    'UPDATE "EmbRouter_BudgetWindowSpend" SET '
     "window_start = ($4::timestamptz AT TIME ZONE 'UTC'), "
     "spend = 0, "
     "updated_at = ($5::timestamptz AT TIME ZONE 'UTC') "
@@ -64,26 +64,26 @@ _ROLL_WINDOW_SPEND_SQL: Final = (
 _SEED_FROM_SPEND_LOGS_KEY_SQL: Final = (
     "SELECT COALESCE(SUM(spend), 0.0) AS total, "
     "COALESCE(SUM(spend) FILTER (WHERE \"startTime\" < ($3::timestamptz AT TIME ZONE 'UTC')), 0.0) AS before_batch "
-    'FROM "LiteLLM_SpendLogs" '
+    'FROM "EmbRouter_SpendLogs" '
     "WHERE api_key = $1 AND \"startTime\" >= ($2::timestamptz AT TIME ZONE 'UTC')"
 )
 
 _SEED_FROM_SPEND_LOGS_TEAM_SQL: Final = (
     "SELECT COALESCE(SUM(spend), 0.0) AS total, "
     "COALESCE(SUM(spend) FILTER (WHERE \"startTime\" < ($3::timestamptz AT TIME ZONE 'UTC')), 0.0) AS before_batch "
-    'FROM "LiteLLM_SpendLogs" '
+    'FROM "EmbRouter_SpendLogs" '
     "WHERE team_id = $1 AND \"startTime\" >= ($2::timestamptz AT TIME ZONE 'UTC')"
 )
 
 _SEED_FROM_SPEND_LOGS_KEY_UNBOUNDED_SQL: Final = (
     "SELECT COALESCE(SUM(spend), 0.0) AS total, COALESCE(SUM(spend), 0.0) AS before_batch "
-    'FROM "LiteLLM_SpendLogs" '
+    'FROM "EmbRouter_SpendLogs" '
     "WHERE api_key = $1 AND \"startTime\" >= ($2::timestamptz AT TIME ZONE 'UTC')"
 )
 
 _SEED_FROM_SPEND_LOGS_TEAM_UNBOUNDED_SQL: Final = (
     "SELECT COALESCE(SUM(spend), 0.0) AS total, COALESCE(SUM(spend), 0.0) AS before_batch "
-    'FROM "LiteLLM_SpendLogs" '
+    'FROM "EmbRouter_SpendLogs" '
     "WHERE team_id = $1 AND \"startTime\" >= ($2::timestamptz AT TIME ZONE 'UTC')"
 )
 
@@ -100,7 +100,7 @@ class WindowSeedTotals:
 
 
 class WindowSpendLogsAggregate(Protocol):
-    """Sums LiteLLM_SpendLogs for one entity since window_start, split at the
+    """Sums EmbRouter_SpendLogs for one entity since window_start, split at the
     batch's earliest request.
 
     Injected so the flush can be exercised without a database and so the
@@ -124,7 +124,7 @@ async def spend_logs_seed_totals(
     window_start: datetime,
     batch_started_at: datetime | None,
 ) -> WindowSeedTotals | None:
-    """LiteLLM_SpendLogs spend for one entity since window_start, both in full
+    """EmbRouter_SpendLogs spend for one entity since window_start, both in full
     and up to the start of the batch being flushed, in one scan.
 
     The spend log writer drains its own queue on a ~2s poll whenever anything
@@ -140,9 +140,9 @@ async def spend_logs_seed_totals(
     counts everything: that can only over-count once, which enforcement
     tolerates, whereas under-counting is a budget bypass.
     """
-    if entity_type == Litellm_EntityType.KEY.value:
+    if entity_type == Embrouter_EntityType.KEY.value:
         bounded_sql, unbounded_sql = _SEED_FROM_SPEND_LOGS_KEY_SQL, _SEED_FROM_SPEND_LOGS_KEY_UNBOUNDED_SQL
-    elif entity_type == Litellm_EntityType.TEAM.value:
+    elif entity_type == Embrouter_EntityType.TEAM.value:
         bounded_sql, unbounded_sql = _SEED_FROM_SPEND_LOGS_TEAM_SQL, _SEED_FROM_SPEND_LOGS_TEAM_UNBOUNDED_SQL
     else:
         return None
@@ -165,7 +165,7 @@ async def spend_logs_seed_totals(
 
 
 def _exclusion_upper_bound(started_at: datetime) -> datetime:
-    """LiteLLM_SpendLogs.startTime is TIMESTAMP(3); floor to the second so a
+    """EmbRouter_SpendLogs.startTime is TIMESTAMP(3); floor to the second so a
     millisecond rounding of the batch's own earliest row cannot slip under it."""
     return to_naive_utc(started_at).replace(microsecond=0)
 
@@ -199,7 +199,7 @@ async def _seed_base_for_missing_row(
 ) -> float:
     """Spend already recorded for a window that has no row yet.
 
-    This is the LiteLLM_SpendLogs aggregate the window counter reseed runs on
+    This is the EmbRouter_SpendLogs aggregate the window counter reseed runs on
     every cold counter today, but here it runs once per window lifetime and off
     the request path, and it discounts the queued increments so they are
     counted once.
@@ -263,7 +263,7 @@ async def commit_window_spend_updates(
     transactions: Sequence[WindowSpendTransaction],
     spend_logs_aggregate: WindowSpendLogsAggregate = spend_logs_seed_totals,
 ) -> None:
-    """Apply aggregated window increments to LiteLLM_BudgetWindowSpend.
+    """Apply aggregated window increments to EmbRouter_BudgetWindowSpend.
 
     An increment at or behind the row's window_start adds into the row (this is
     how in-flight requests that raced a reset carry into the new window); an

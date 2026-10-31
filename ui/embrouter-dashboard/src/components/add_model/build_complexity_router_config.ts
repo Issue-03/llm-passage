@@ -325,7 +325,7 @@ export interface ComplexityRouterConfigPayload {
   reasoning_override_min_score?: number;
   enable_context_window_escalation?: boolean;
   context_window_escalation_buffer?: number;
-  tier_model_configs?: Record<string, { model_name: string; litellm_params: TierModelParams }[]>;
+  tier_model_configs?: Record<string, { model_name: string; embrouter_params: TierModelParams }[]>;
   code_keywords?: string[];
   reasoning_keywords?: string[];
   technical_keywords?: string[];

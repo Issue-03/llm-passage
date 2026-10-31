@@ -12,7 +12,7 @@ describe("transformModelData", () => {
       data: [
         {
           model_name: "gpt-4",
-          litellm_params: {
+          embrouter_params: {
             model: "gpt-4",
             api_base: "https://api.openai.com",
             api_key: "sk-123",
@@ -35,10 +35,10 @@ describe("transformModelData", () => {
     expect(result.data[0]).toHaveProperty("max_tokens", 8192);
     expect(result.data[0]).toHaveProperty("max_input_tokens", 128000);
     expect(result.data[0]).toHaveProperty("api_base", "https://api.openai.com");
-    expect(result.data[0]).toHaveProperty("litellm_model_name", "gpt-4");
-    expect(result.data[0]).toHaveProperty("cleanedLitellmParams");
-    expect(result.data[0].cleanedLitellmParams).not.toHaveProperty("model");
-    expect(result.data[0].cleanedLitellmParams).not.toHaveProperty("api_base");
+    expect(result.data[0]).toHaveProperty("embrouter_model_name", "gpt-4");
+    expect(result.data[0]).toHaveProperty("cleanedEmbrouterParams");
+    expect(result.data[0].cleanedEmbrouterParams).not.toHaveProperty("model");
+    expect(result.data[0].cleanedEmbrouterParams).not.toHaveProperty("api_base");
   });
 
   it("should handle empty data", () => {
@@ -56,7 +56,7 @@ describe("transformModelData", () => {
       data: [
         {
           model_name: "gemini-2.5-flash",
-          litellm_params: {
+          embrouter_params: {
             model: "vertex_ai/gemini-2.5-flash",
           },
           model_info: {
@@ -81,7 +81,7 @@ describe("transformModelData", () => {
       data: [
         {
           model_name: "some-model",
-          litellm_params: {
+          embrouter_params: {
             model: "openai/some-model",
           },
           model_info: {
@@ -106,7 +106,7 @@ describe("transformModelData", () => {
       data: [
         {
           model_name: "veo-3.1-fast",
-          litellm_params: { model: "vertex_ai/veo-3.1-fast-generate-001" },
+          embrouter_params: { model: "vertex_ai/veo-3.1-fast-generate-001" },
           model_info: {
             input_cost_per_token: 0,
             output_cost_per_token: 0,
@@ -117,7 +117,7 @@ describe("transformModelData", () => {
         },
         {
           model_name: "gpt-4",
-          litellm_params: { model: "gpt-4" },
+          embrouter_params: { model: "gpt-4" },
           model_info: { input_cost_per_token: 0.0000015, output_cost_per_token: 0.000002 },
         },
       ],
@@ -134,12 +134,12 @@ describe("transformModelData", () => {
     expect(result.data[1].output_cost_per_second_tiers).toEqual([]);
   });
 
-  it("prefers a per-second override from litellm_params over model_info", () => {
+  it("prefers a per-second override from embrouter_params over model_info", () => {
     const rawData = {
       data: [
         {
           model_name: "veo-3.1",
-          litellm_params: { model: "vertex_ai/veo-3.1-generate-001", output_cost_per_second: 0.5 },
+          embrouter_params: { model: "vertex_ai/veo-3.1-generate-001", output_cost_per_second: 0.5 },
           model_info: { output_cost_per_second: 0.4 },
         },
       ],
@@ -153,7 +153,7 @@ describe("transformModelData", () => {
       data: [
         {
           model_name: "some-model",
-          litellm_params: {
+          embrouter_params: {
             model: "openai/some-model",
           },
         },

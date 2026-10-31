@@ -6,11 +6,11 @@ from functools import reduce
 import pytest
 from pydantic import JsonValue
 
-from litellm.constants import DEFAULT_MAX_RECURSE_DEPTH
-from litellm.proxy import proxy_server
-from litellm.proxy.auth.master_key_boot_check import MIGRATE_FROM_MASTER_KEY_ENV_VAR, SALT_KEY_ENV_VAR
-from litellm.proxy.common_utils.encrypt_decrypt_utils import decrypt_if_encrypted_with, encrypt_value_helper
-from litellm.proxy.db.master_key_migration import (
+from embrouter.constants import DEFAULT_MAX_RECURSE_DEPTH
+from embrouter.proxy import proxy_server
+from embrouter.proxy.auth.master_key_boot_check import MIGRATE_FROM_MASTER_KEY_ENV_VAR, SALT_KEY_ENV_VAR
+from embrouter.proxy.common_utils.encrypt_decrypt_utils import decrypt_if_encrypted_with, encrypt_value_helper
+from embrouter.proxy.db.master_key_migration import (
     _SECRET_COLUMNS,
     Migrated,
     MigrationFailed,
@@ -57,12 +57,12 @@ class _FakeDatabase:
         select = re.fullmatch(r'SELECT "(\w+)", "(\w+)" FROM "(\w+)" WHERE "\2" IS NOT NULL(.*)', query)
         assert select is not None, query
         primary_key, column, table, row_filter = select.groups()
-        assert row_filter in ("", f" AND \"{column}\"::text LIKE '%litellm_enc::%'")
+        assert row_filter in ("", f" AND \"{column}\"::text LIKE '%embrouter_enc::%'")
         assert table not in self.tables_missing_from_the_schema, f'relation "{table}" does not exist'
         return [
             {primary_key: row[primary_key], column: json.loads(json.dumps(row[column]))}
             for row in self.tables.get(table, [])
-            if row.get(column) is not None and (not row_filter or "litellm_enc::" in json.dumps(row[column]))
+            if row.get(column) is not None and (not row_filter or "embrouter_enc::" in json.dumps(row[column]))
         ]
 
     async def execute_raw(self, query: str, *args: object) -> int:
@@ -89,10 +89,10 @@ class _DatabaseThatMustNotBeTouched:
 
 def _seeded_tables() -> Tables:
     return {
-        "LiteLLM_ProxyModelTable": [
+        "EmbRouter_ProxyModelTable": [
             {
                 "model_id": "model-1",
-                "litellm_params": {
+                "embrouter_params": {
                     "api_key": _encrypted("provider-key"),
                     "model": _encrypted("openai/gpt-5.4-mini"),
                     "rpm": 10,
@@ -100,14 +100,14 @@ def _seeded_tables() -> Tables:
                     "api_base": None,
                 },
             },
-            {"model_id": "model-2", "litellm_params": {"api_key": _encrypted("other-deployment", UNRELATED_KEY)}},
+            {"model_id": "model-2", "embrouter_params": {"api_key": _encrypted("other-deployment", UNRELATED_KEY)}},
         ],
-        "LiteLLM_Config": [
+        "EmbRouter_Config": [
             {"param_name": "environment_variables", "param_value": {"LANGFUSE_SECRET_KEY": _encrypted("env-secret")}},
             {"param_name": "general_settings", "param_value": {"proxy_batch_write_at": 10, "ui_name": "plain text"}},
             {"param_name": "cleared", "param_value": None},
         ],
-        "LiteLLM_MCPServerTable": [
+        "EmbRouter_MCPServerTable": [
             {
                 "server_id": "mcp-1",
                 "credentials": {"auth_value": _encrypted("mcp-token"), "aws_region_name": "us-east-1"},
@@ -119,8 +119,8 @@ def _seeded_tables() -> Tables:
                 "env": {},
             }
         ],
-        "LiteLLM_MCPUserCredentials": [{"id": "cred-row-1", "credential_b64": _encrypted("byok-secret")}],
-        "LiteLLM_TeamTable": [
+        "EmbRouter_MCPUserCredentials": [{"id": "cred-row-1", "credential_b64": _encrypted("byok-secret")}],
+        "EmbRouter_TeamTable": [
             {
                 "team_id": "team-1",
                 "metadata": {
@@ -129,7 +129,7 @@ def _seeded_tables() -> Tables:
                             "callback_name": "langfuse",
                             "callback_vars": {
                                 "langfuse_host": "https://example.invalid",
-                                "langfuse_secret_key": "litellm_enc::" + _encrypted("team-callback-secret"),
+                                "langfuse_secret_key": "embrouter_enc::" + _encrypted("team-callback-secret"),
                             },
                         }
                     ]
@@ -147,31 +147,31 @@ _VALUES_UNDER_THE_PREVIOUS_KEY = 8
 async def test_reencryption_moves_every_stored_shape_to_the_new_key_and_nothing_else():
     tables = _seeded_tables()
     untouched_before = json.dumps(
-        [tables["LiteLLM_ProxyModelTable"][1], tables["LiteLLM_Config"][1:], tables["LiteLLM_TeamTable"][1]]
+        [tables["EmbRouter_ProxyModelTable"][1], tables["EmbRouter_Config"][1:], tables["EmbRouter_TeamTable"][1]]
     )
 
     migrated = await reencrypt_stored_values(_FakeDatabase(tables), from_key=PREVIOUS_KEY, to_key=NEW_KEY)
 
     assert migrated == _VALUES_UNDER_THE_PREVIOUS_KEY
-    model_params = tables["LiteLLM_ProxyModelTable"][0]["litellm_params"]
+    model_params = tables["EmbRouter_ProxyModelTable"][0]["embrouter_params"]
     assert isinstance(model_params, dict)
     assert decrypt_if_encrypted_with(model_params["api_key"], NEW_KEY) == "provider-key"
     assert decrypt_if_encrypted_with(model_params["model"], NEW_KEY) == "openai/gpt-5.4-mini"
     assert decrypt_if_encrypted_with(model_params["api_key"], PREVIOUS_KEY) is None
     assert (model_params["rpm"], model_params["use_in_pass_through"], model_params["api_base"]) == (10, False, None)
-    mcp_server = tables["LiteLLM_MCPServerTable"][0]
+    mcp_server = tables["EmbRouter_MCPServerTable"][0]
     assert decrypt_if_encrypted_with(mcp_server["static_headers"], NEW_KEY) == '{"X-Api-Key": "header-secret"}'
     assert mcp_server["credentials"]["aws_region_name"] == "us-east-1"
     assert decrypt_if_encrypted_with(mcp_server["env_vars"][0]["value"], NEW_KEY) == "global-env"
     assert mcp_server["env_vars"][1] == {"name": "PER_USER", "scope": "user", "value": ""}
     assert (
-        decrypt_if_encrypted_with(tables["LiteLLM_MCPUserCredentials"][0]["credential_b64"], NEW_KEY) == "byok-secret"
+        decrypt_if_encrypted_with(tables["EmbRouter_MCPUserCredentials"][0]["credential_b64"], NEW_KEY) == "byok-secret"
     )
-    callback_secret = tables["LiteLLM_TeamTable"][0]["metadata"]["logging"][0]["callback_vars"]["langfuse_secret_key"]
-    assert callback_secret.startswith("litellm_enc::")
-    assert decrypt_if_encrypted_with(callback_secret.removeprefix("litellm_enc::"), NEW_KEY) == "team-callback-secret"
+    callback_secret = tables["EmbRouter_TeamTable"][0]["metadata"]["logging"][0]["callback_vars"]["langfuse_secret_key"]
+    assert callback_secret.startswith("embrouter_enc::")
+    assert decrypt_if_encrypted_with(callback_secret.removeprefix("embrouter_enc::"), NEW_KEY) == "team-callback-secret"
     assert untouched_before == json.dumps(
-        [tables["LiteLLM_ProxyModelTable"][1], tables["LiteLLM_Config"][1:], tables["LiteLLM_TeamTable"][1]]
+        [tables["EmbRouter_ProxyModelTable"][1], tables["EmbRouter_Config"][1:], tables["EmbRouter_TeamTable"][1]]
     )
 
 
@@ -196,13 +196,13 @@ async def test_only_rows_holding_values_under_the_previous_key_are_written():
     await reencrypt_stored_values(database, from_key=PREVIOUS_KEY, to_key=NEW_KEY)
 
     assert sorted(database.writes) == [
-        ("LiteLLM_Config", "param_value", "environment_variables"),
-        ("LiteLLM_MCPServerTable", "credentials", "mcp-1"),
-        ("LiteLLM_MCPServerTable", "env_vars", "mcp-1"),
-        ("LiteLLM_MCPServerTable", "static_headers", "mcp-1"),
-        ("LiteLLM_MCPUserCredentials", "credential_b64", "cred-row-1"),
-        ("LiteLLM_ProxyModelTable", "litellm_params", "model-1"),
-        ("LiteLLM_TeamTable", "metadata", "team-1"),
+        ("EmbRouter_Config", "param_value", "environment_variables"),
+        ("EmbRouter_MCPServerTable", "credentials", "mcp-1"),
+        ("EmbRouter_MCPServerTable", "env_vars", "mcp-1"),
+        ("EmbRouter_MCPServerTable", "static_headers", "mcp-1"),
+        ("EmbRouter_MCPUserCredentials", "credential_b64", "cred-row-1"),
+        ("EmbRouter_ProxyModelTable", "embrouter_params", "model-1"),
+        ("EmbRouter_TeamTable", "metadata", "team-1"),
     ]
 
 
@@ -210,9 +210,9 @@ async def test_only_rows_holding_values_under_the_previous_key_are_written():
 async def test_plaintext_that_base64_decodes_to_nothing_is_neither_counted_nor_rewritten():
     settings = {"allowed_routes": ["*"], "ui_name": "-", "separator": "...", "blank": " ", "shape": "{}"}
     tables: Tables = {
-        "LiteLLM_Config": [{"param_name": "general_settings", "param_value": dict(settings)}],
-        "LiteLLM_VerificationToken": [
-            {"token": "hashed", "metadata": {"notes": "...", "secret": "litellm_enc::" + _encrypted("callback-secret")}}
+        "EmbRouter_Config": [{"param_name": "general_settings", "param_value": dict(settings)}],
+        "EmbRouter_VerificationToken": [
+            {"token": "hashed", "metadata": {"notes": "...", "secret": "embrouter_enc::" + _encrypted("callback-secret")}}
         ],
     }
     database = _FakeDatabase(tables)
@@ -221,14 +221,14 @@ async def test_plaintext_that_base64_decodes_to_nothing_is_neither_counted_nor_r
     migrated = await reencrypt_stored_values(database, from_key=PREVIOUS_KEY, to_key=NEW_KEY)
 
     assert found == migrated == 1
-    assert tables["LiteLLM_Config"][0]["param_value"] == settings
-    assert tables["LiteLLM_VerificationToken"][0]["metadata"]["notes"] == "..."
-    assert database.writes == [("LiteLLM_VerificationToken", "metadata", "hashed")]
+    assert tables["EmbRouter_Config"][0]["param_value"] == settings
+    assert tables["EmbRouter_VerificationToken"][0]["metadata"]["notes"] == "..."
+    assert database.writes == [("EmbRouter_VerificationToken", "metadata", "hashed")]
 
 
 @pytest.mark.asyncio
 async def test_schema_without_some_of_the_tables_is_migrated_for_the_tables_it_has():
-    missing = frozenset({"LiteLLM_MCPUserCredentials", "LiteLLM_SSOIdentityAssertion"})
+    missing = frozenset({"EmbRouter_MCPUserCredentials", "EmbRouter_SSOIdentityAssertion"})
     tables = _seeded_tables()
     database = _FakeDatabase(tables, tables_missing_from_the_schema=missing)
 
@@ -236,37 +236,37 @@ async def test_schema_without_some_of_the_tables_is_migrated_for_the_tables_it_h
     migrated = await reencrypt_stored_values(database, from_key=PREVIOUS_KEY, to_key=NEW_KEY)
 
     assert found == migrated == _VALUES_UNDER_THE_PREVIOUS_KEY - 1
-    assert decrypt_if_encrypted_with(str(tables["LiteLLM_MCPUserCredentials"][0]["credential_b64"]), PREVIOUS_KEY)
+    assert decrypt_if_encrypted_with(str(tables["EmbRouter_MCPUserCredentials"][0]["credential_b64"]), PREVIOUS_KEY)
 
 
 class _SomeoneEditsEachRowAfterItIsRead(_FakeDatabase):
     async def query_raw(self, query: str, *args: object) -> Sequence[Mapping[str, object]]:
         rows = await super().query_raw(query, *args)
-        for row in self.tables.get("LiteLLM_MCPUserCredentials", []):
+        for row in self.tables.get("EmbRouter_MCPUserCredentials", []):
             row["credential_b64"] = "edited-by-an-admin"
         return rows
 
 
 @pytest.mark.asyncio
 async def test_value_edited_while_the_migration_runs_is_not_overwritten():
-    tables: Tables = {"LiteLLM_MCPUserCredentials": [{"id": "cred-row-1", "credential_b64": _encrypted("byok-secret")}]}
+    tables: Tables = {"EmbRouter_MCPUserCredentials": [{"id": "cred-row-1", "credential_b64": _encrypted("byok-secret")}]}
 
     migrated = await reencrypt_stored_values(
         _SomeoneEditsEachRowAfterItIsRead(tables), from_key=PREVIOUS_KEY, to_key=NEW_KEY
     )
 
     assert migrated == 0
-    assert tables["LiteLLM_MCPUserCredentials"][0]["credential_b64"] == "edited-by-an-admin"
+    assert tables["EmbRouter_MCPUserCredentials"][0]["credential_b64"] == "edited-by-an-admin"
 
 
 def test_replacing_ciphertexts_keeps_structure_markers_and_non_strings():
-    value = {"keep": [1, True, None, "plain"], "swap": ["old", {"nested": "litellm_enc::old"}]}
+    value = {"keep": [1, True, None, "plain"], "swap": ["old", {"nested": "embrouter_enc::old"}]}
 
     replaced, count = replace_ciphertexts(value, lambda text: "new" if text == "old" else None)
 
-    assert replaced == {"keep": [1, True, None, "plain"], "swap": ["new", {"nested": "litellm_enc::new"}]}
+    assert replaced == {"keep": [1, True, None, "plain"], "swap": ["new", {"nested": "embrouter_enc::new"}]}
     assert count == 2
-    assert value["swap"] == ["old", {"nested": "litellm_enc::old"}]
+    assert value["swap"] == ["old", {"nested": "embrouter_enc::old"}]
 
 
 def _nested(levels: int, leaf: str) -> JsonValue:
@@ -333,13 +333,13 @@ async def test_variable_left_set_after_the_migration_is_a_no_op_with_one_notice(
 
 @pytest.mark.asyncio
 async def test_empty_previous_master_key_migrates_like_any_other():
-    tables: Tables = {"LiteLLM_CredentialsTable": [{"credential_id": "c1", "credential_values": {"api_key": "x"}}]}
-    tables["LiteLLM_CredentialsTable"][0]["credential_values"] = {"api_key": _encrypted_with_empty_key("cred-secret")}
+    tables: Tables = {"EmbRouter_CredentialsTable": [{"credential_id": "c1", "credential_values": {"api_key": "x"}}]}
+    tables["EmbRouter_CredentialsTable"][0]["credential_values"] = {"api_key": _encrypted_with_empty_key("cred-secret")}
 
     outcome, _ = await _run(_FakeDatabase(tables), previous_master_key="")
 
     assert outcome == Migrated(migrated=1, remaining=0)
-    stored = tables["LiteLLM_CredentialsTable"][0]["credential_values"]
+    stored = tables["EmbRouter_CredentialsTable"][0]["credential_values"]
     assert isinstance(stored, dict)
     assert decrypt_if_encrypted_with(stored["api_key"], NEW_KEY) == "cred-secret"
 
@@ -347,7 +347,7 @@ async def test_empty_previous_master_key_migrates_like_any_other():
 def _encrypted_with_empty_key(plaintext: str) -> str:
     import base64
 
-    from litellm.proxy.common_utils.encrypt_decrypt_utils import encrypt_value
+    from embrouter.proxy.common_utils.encrypt_decrypt_utils import encrypt_value
 
     return base64.urlsafe_b64encode(encrypt_value(value=plaintext, signing_key="")).decode()
 
@@ -400,7 +400,7 @@ async def test_worker_that_loses_the_race_reports_nothing_left_instead_of_zero_v
 
 @pytest.mark.asyncio
 async def test_values_that_could_not_be_written_keep_the_variable_in_place():
-    tables: Tables = {"LiteLLM_MCPUserCredentials": [{"id": "cred-row-1", "credential_b64": _encrypted("byok-secret")}]}
+    tables: Tables = {"EmbRouter_MCPUserCredentials": [{"id": "cred-row-1", "credential_b64": _encrypted("byok-secret")}]}
 
     class _EveryWriteLosesToACurrentEdit(_FakeDatabase):
         async def execute_raw(self, query: str, *args: object) -> int:
@@ -431,12 +431,12 @@ def test_salt_key_outcome_names_the_salt_key_as_the_reason():
 
 @pytest.mark.asyncio
 async def test_encrypted_empty_string_is_migrated_like_any_other_value():
-    tables: Tables = {"LiteLLM_MCPUserCredentials": [{"id": "cred-row-1", "credential_b64": _encrypted("")}]}
+    tables: Tables = {"EmbRouter_MCPUserCredentials": [{"id": "cred-row-1", "credential_b64": _encrypted("")}]}
 
     migrated = await reencrypt_stored_values(_FakeDatabase(tables), from_key=PREVIOUS_KEY, to_key=NEW_KEY)
 
     assert migrated == 1
-    assert decrypt_if_encrypted_with(str(tables["LiteLLM_MCPUserCredentials"][0]["credential_b64"]), NEW_KEY) == ""
+    assert decrypt_if_encrypted_with(str(tables["EmbRouter_MCPUserCredentials"][0]["credential_b64"]), NEW_KEY) == ""
 
 
 class _DatabaseIsDown(_FakeDatabase):
@@ -498,7 +498,7 @@ async def test_boot_continues_past_a_failed_migration_when_the_outage_is_tolerat
 @pytest.mark.parametrize("previous_master_key", [PREVIOUS_KEY, ""])
 async def test_boot_migrates_from_the_environment_variable_to_the_running_master_key(previous_master_key: str):
     tables: Tables = {
-        "LiteLLM_CredentialsTable": [
+        "EmbRouter_CredentialsTable": [
             {
                 "credential_id": "cred-1",
                 "credential_values": {
@@ -520,7 +520,7 @@ async def test_boot_migrates_from_the_environment_variable_to_the_running_master
     )
 
     assert outcome == Migrated(migrated=1, remaining=0)
-    stored = tables["LiteLLM_CredentialsTable"][0]["credential_values"]
+    stored = tables["EmbRouter_CredentialsTable"][0]["credential_values"]
     assert isinstance(stored, dict)
     assert decrypt_if_encrypted_with(stored["api_key"], NEW_KEY) == "sk-provider"
     assert "Done re-encrypting 1 stored value(s)" in logged[-1]

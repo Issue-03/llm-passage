@@ -8,7 +8,7 @@ S3 Vectors is AWS's native vector storage service that provides:
 
 This implementation:
 1. Auto-creates vector buckets and indexes if not provided
-2. Uses LiteLLM's embedding API (supports any provider)
+2. Uses EmbRouter's embedding API (supports any provider)
 3. Uses httpx + AWS SigV4 signing (no boto3 dependency for S3 Vectors APIs)
 4. Stores vectors with metadata using PutVectors API
 """
@@ -20,30 +20,30 @@ import uuid
 from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Any, Final, TypedDict
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.constants import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.constants import (
     S3_VECTORS_DEFAULT_DIMENSION,
     S3_VECTORS_DEFAULT_DISTANCE_METRIC,
     S3_VECTORS_DEFAULT_NON_FILTERABLE_METADATA_KEYS,
 )
-from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
-from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps
+from embrouter.llms.bedrock.base_aws_llm import BaseAWSLLM
+from embrouter.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.llms.s3_vectors.vector_stores.transformation import (
+from embrouter.llms.s3_vectors.vector_stores.transformation import (
     s3_vectors_ingest_embedding_options,
     s3_vectors_ingest_target,
 )
-from litellm.rag.ingestion.base_ingestion import BaseRAGIngestion
+from embrouter.rag.ingestion.base_ingestion import BaseRAGIngestion
 
 if TYPE_CHECKING:
     import httpx
 
-    from litellm import Router
-    from litellm.types.rag import RAGIngestOptions
+    from embrouter import Router
+    from embrouter.types.rag import RAGIngestOptions
 
 
 class S3VectorDataPayload(TypedDict):
@@ -73,7 +73,7 @@ class S3VectorsRAGIngestion(BaseRAGIngestion, BaseAWSLLM):
     Workflow:
     1. Auto-create vector bucket if needed (CreateVectorBucket API)
     2. Auto-create vector index if needed (CreateVectorIndex API)
-    3. Generate embeddings using LiteLLM (supports any provider)
+    3. Generate embeddings using EmbRouter (supports any provider)
     4. Store vectors with PutVectors API
 
     Configuration:
@@ -139,7 +139,7 @@ class S3VectorsRAGIngestion(BaseRAGIngestion, BaseAWSLLM):
             if self.router:
                 response = await self.router.aembedding(model=model_name, input=[test_input])
             else:
-                response = await litellm.aembedding(model=model_name, input=[test_input])
+                response = await embrouter.aembedding(model=model_name, input=[test_input])
 
             # Get dimension from the response
             if response.data and len(response.data) > 0:
@@ -182,7 +182,7 @@ class S3VectorsRAGIngestion(BaseRAGIngestion, BaseAWSLLM):
         if not self.index_name:
             # Auto-generate index name
             unique_id: Final = uuid.uuid4().hex[:8]
-            self.index_name = f"litellm-index-{unique_id}"
+            self.index_name = f"embrouter-index-{unique_id}"
 
         await self._ensure_vector_index_exists()
 
@@ -198,7 +198,7 @@ class S3VectorsRAGIngestion(BaseRAGIngestion, BaseAWSLLM):
         """
         Helper to sign and execute AWS API requests using httpx + SigV4.
 
-        Pattern from litellm/integrations/s3_v2.py
+        Pattern from embrouter/integrations/s3_v2.py
         """
         try:
             import requests
@@ -401,7 +401,7 @@ class S3VectorsRAGIngestion(BaseRAGIngestion, BaseAWSLLM):
         chunks: list[str],
     ) -> list[list[float]] | None:
         """
-        Generate embeddings using LiteLLM's embedding API.
+        Generate embeddings using EmbRouter's embedding API.
 
         Supports any embedding provider (OpenAI, Bedrock, Cohere, etc.)
         """
@@ -423,7 +423,7 @@ class S3VectorsRAGIngestion(BaseRAGIngestion, BaseAWSLLM):
         if self.router:
             response = await self.router.aembedding(model=embedding_model, input=input_chunks)
         else:
-            response = await litellm.aembedding(model=embedding_model, input=input_chunks)
+            response = await embrouter.aembedding(model=embedding_model, input=input_chunks)
 
         return [item["embedding"] for item in response.data]
 
@@ -514,7 +514,7 @@ class S3VectorsRAGIngestion(BaseRAGIngestion, BaseAWSLLM):
 
         embedding_model: Final = self.embedding_config.get("model", "text-embedding-3-small")
 
-        response = await litellm.aembedding(model=embedding_model, input=[query])
+        response = await embrouter.aembedding(model=embedding_model, input=[query])
         query_embedding: Final[Sequence[float]] = response.data[0]["embedding"]
 
         # Call QueryVectors API

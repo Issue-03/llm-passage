@@ -4,20 +4,20 @@ from unittest.mock import patch, MagicMock, AsyncMock
 from httpx import Response, Request
 
 
-import litellm
-from litellm.proxy.guardrails.guardrail_hooks.deepkeep.deepkeep import (
+import embrouter
+from embrouter.proxy.guardrails.guardrail_hooks.deepkeep.deepkeep import (
     DeepKeepGuardrail,
     DeepKeepGuardrailMissingSecrets,
     DeepKeepGuardrailAPIError,
     GUARDRAIL_NAME,
 )
-from litellm.proxy.guardrails.init_guardrails import init_guardrails_v2
-from litellm.exceptions import GuardrailRaisedException
+from embrouter.proxy.guardrails.init_guardrails import init_guardrails_v2
+from embrouter.exceptions import GuardrailRaisedException
 
 
 def test_deepkeep_guard_config(monkeypatch: pytest.MonkeyPatch):
     """Test DeepKeep guard configuration with init_guardrails_v2."""
-    monkeypatch.setattr(litellm, "guardrail_name_config_map", {})
+    monkeypatch.setattr(embrouter, "guardrail_name_config_map", {})
 
     monkeypatch.setenv("DEEPKEEP_API_KEY", "test-key")
     monkeypatch.setenv("DEEPKEEP_API_BASE", "https://test.deepkeep.ai")
@@ -27,7 +27,7 @@ def test_deepkeep_guard_config(monkeypatch: pytest.MonkeyPatch):
         all_guardrails=[
             {
                 "guardrail_name": "deepkeep-firewall",
-                "litellm_params": {
+                "embrouter_params": {
                     "guardrail": "deepkeep",
                     "mode": "pre_call",
                     "default_on": True,
@@ -99,7 +99,7 @@ class TestDeepKeepGuardrail:
         assert guardrail.firewall_id == "fw-123"
         assert (
             guardrail.api_base
-            == "https://test.deepkeep.ai/v3/openai/beta/litellm_basic_guardrail_api"
+            == "https://test.deepkeep.ai/v3/openai/beta/embrouter_basic_guardrail_api"
         )
 
     def test_initialization_with_env_vars(self, monkeypatch: pytest.MonkeyPatch):
@@ -120,14 +120,14 @@ class TestDeepKeepGuardrail:
         """should not double-append the endpoint path."""
         guardrail = DeepKeepGuardrail(
             api_key="test-key",
-            api_base="https://test.deepkeep.ai/v3/openai/beta/litellm_basic_guardrail_api",
+            api_base="https://test.deepkeep.ai/v3/openai/beta/embrouter_basic_guardrail_api",
             firewall_id="fw-123",
             guardrail_name="test",
             event_hook="pre_call",
         )
         assert (
             guardrail.api_base
-            == "https://test.deepkeep.ai/v3/openai/beta/litellm_basic_guardrail_api"
+            == "https://test.deepkeep.ai/v3/openai/beta/embrouter_basic_guardrail_api"
         )
 
     @pytest.mark.asyncio
@@ -151,7 +151,7 @@ class TestDeepKeepGuardrail:
             },
             request=Request(
                 "POST",
-                "https://test.deepkeep.ai/v3/openai/beta/litellm_basic_guardrail_api",
+                "https://test.deepkeep.ai/v3/openai/beta/embrouter_basic_guardrail_api",
             ),
         )
 
@@ -201,7 +201,7 @@ class TestDeepKeepGuardrail:
             },
             request=Request(
                 "POST",
-                "https://test.deepkeep.ai/v3/openai/beta/litellm_basic_guardrail_api",
+                "https://test.deepkeep.ai/v3/openai/beta/embrouter_basic_guardrail_api",
             ),
         )
 
@@ -241,7 +241,7 @@ class TestDeepKeepGuardrail:
             },
             request=Request(
                 "POST",
-                "https://test.deepkeep.ai/v3/openai/beta/litellm_basic_guardrail_api",
+                "https://test.deepkeep.ai/v3/openai/beta/embrouter_basic_guardrail_api",
             ),
         )
 
@@ -280,7 +280,7 @@ class TestDeepKeepGuardrail:
             },
             request=Request(
                 "POST",
-                "https://test.deepkeep.ai/v3/openai/beta/litellm_basic_guardrail_api",
+                "https://test.deepkeep.ai/v3/openai/beta/embrouter_basic_guardrail_api",
             ),
         )
 
@@ -523,7 +523,7 @@ class TestDeepKeepGuardrail:
             json={"action": "NONE", "blocked_reason": None, "texts": None, "images": None},
             request=Request(
                 "POST",
-                "https://test.deepkeep.ai/v3/openai/beta/litellm_basic_guardrail_api",
+                "https://test.deepkeep.ai/v3/openai/beta/embrouter_basic_guardrail_api",
             ),
         )
 
@@ -574,7 +574,7 @@ class TestDeepKeepGuardrail:
             },
             request=Request(
                 "POST",
-                "https://test.deepkeep.ai/v3/openai/beta/litellm_basic_guardrail_api",
+                "https://test.deepkeep.ai/v3/openai/beta/embrouter_basic_guardrail_api",
             ),
         )
 
@@ -614,7 +614,7 @@ class TestDeepKeepGuardrail:
             },
             request=Request(
                 "POST",
-                "https://test.deepkeep.ai/v3/openai/beta/litellm_basic_guardrail_api",
+                "https://test.deepkeep.ai/v3/openai/beta/embrouter_basic_guardrail_api",
             ),
         )
 
@@ -658,7 +658,7 @@ class TestDeepKeepGuardrail:
             },
             request=Request(
                 "POST",
-                "https://test.deepkeep.ai/v3/openai/beta/litellm_basic_guardrail_api",
+                "https://test.deepkeep.ai/v3/openai/beta/embrouter_basic_guardrail_api",
             ),
         )
 
@@ -711,7 +711,7 @@ class TestDeepKeepGuardrail:
             },
             request=Request(
                 "POST",
-                "https://test.deepkeep.ai/v3/openai/beta/litellm_basic_guardrail_api",
+                "https://test.deepkeep.ai/v3/openai/beta/embrouter_basic_guardrail_api",
             ),
         )
 
@@ -759,7 +759,7 @@ class TestDeepKeepGuardrail:
             },
             request=Request(
                 "POST",
-                "https://test.deepkeep.ai/v3/openai/beta/litellm_basic_guardrail_api",
+                "https://test.deepkeep.ai/v3/openai/beta/embrouter_basic_guardrail_api",
             ),
         )
 

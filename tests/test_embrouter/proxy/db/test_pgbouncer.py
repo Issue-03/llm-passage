@@ -20,8 +20,8 @@ from typing import Final, cast
 
 import pytest
 
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy.db.pgbouncer import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy.db.pgbouncer import (
     PGBOUNCER_POOLED_ENV_VAR,
     PgBouncerError,
     PgBouncerPlan,
@@ -39,10 +39,10 @@ from litellm.proxy.db.pgbouncer import (
     write_pgbouncer_ini,
     write_userlist,
 )
-from litellm.proxy.db.token_auth import AzureEntraTokenAuth, IAMEndpoint
+from embrouter.proxy.db.token_auth import AzureEntraTokenAuth, IAMEndpoint
 
 UPSTREAM: Final = (
-    "postgresql://app:p%40ss%27w@db.internal:5433/litellm"
+    "postgresql://app:p%40ss%27w@db.internal:5433/embrouter"
     "?schema=public&connection_limit=10&pool_timeout=20"
     "&sslmode=require&sslaccept=strict&sslcert=/certs/ca.pem"
     "&options=-c%20statement_timeout%3D7000%20-c%20lock_timeout%3D3000"
@@ -69,22 +69,22 @@ def _query(url: str) -> dict[str, str]:
 class TestPlanPgBouncer:
     def test_upstream_route_and_timeouts_move_into_the_pgbouncer_config_without_the_password(self):
         ini: Final = _ini(_plan())
-        assert ini["databases"]["litellm"] == (
-            "host='db.internal' port=5433 dbname='litellm' user='app' "
+        assert ini["databases"]["embrouter"] == (
+            "host='db.internal' port=5433 dbname='embrouter' user='app' "
             "connect_query='SET statement_timeout TO ''7000''; SET lock_timeout TO ''3000'''"
         )
 
     def test_the_auth_file_holds_the_upstream_password_and_the_pool_users_own(self):
         plan: Final = _plan()
         assert plan.upstream_password == "p@ss'w"
-        assert plan.userlist("p@ss'w") == f'"app" "p@ss\'w"\n"litellm_pgbouncer" "{plan.pool_password}"\n'
+        assert plan.userlist("p@ss'w") == f'"app" "p@ss\'w"\n"embrouter_pgbouncer" "{plan.pool_password}"\n'
 
     def test_a_token_with_quotes_is_escaped_the_way_pgbouncer_reads_it(self):
         assert _plan().userlist('to"ken').startswith('"app" "to""ken"\n')
 
     def test_an_upstream_without_a_port_is_reached_on_the_postgres_default(self):
-        ini: Final = _ini(_plan("postgresql://app:pw@db/litellm"))
-        assert ini["databases"]["litellm"] == "host='db' port=5432 dbname='litellm' user='app'"
+        ini: Final = _ini(_plan("postgresql://app:pw@db/embrouter"))
+        assert ini["databases"]["embrouter"] == "host='db' port=5432 dbname='embrouter' user='app'"
 
     def test_pool_is_sized_from_settings_in_transaction_mode(self):
         pgb: Final = _ini(_plan())["pgbouncer"]
@@ -99,20 +99,20 @@ class TestPlanPgBouncer:
         assert pgb["unix_socket_dir"] == "/run/pgb"
 
     def test_the_pool_user_can_read_the_pgbouncer_console(self):
-        assert _ini(_plan())["pgbouncer"]["stats_users"] == "litellm_pgbouncer"
+        assert _ini(_plan())["pgbouncer"]["stats_users"] == "embrouter_pgbouncer"
 
     def test_a_database_user_named_like_the_pool_user_is_refused(self):
         outcome: Final = plan_pgbouncer(
-            "postgresql://litellm_pgbouncer:pw@db/litellm", SETTINGS, Path("/run/pgb"), None
+            "postgresql://embrouter_pgbouncer:pw@db/embrouter", SETTINGS, Path("/run/pgb"), None
         )
         assert isinstance(outcome, PgBouncerError)
-        assert "litellm_pgbouncer" in outcome.reason
+        assert "embrouter_pgbouncer" in outcome.reason
 
     def test_pooled_url_points_prisma_at_loopback_as_the_pool_user_without_prepared_statements(self):
         plan: Final = _plan()
         pooled: Final = urllib.parse.urlsplit(plan.pooled_url)
-        assert (pooled.hostname, pooled.port, pooled.path) == ("127.0.0.1", 6543, "/litellm")
-        assert (pooled.username, pooled.password) == ("litellm_pgbouncer", plan.pool_password)
+        assert (pooled.hostname, pooled.port, pooled.path) == ("127.0.0.1", 6543, "/embrouter")
+        assert (pooled.username, pooled.password) == ("embrouter_pgbouncer", plan.pool_password)
         assert len(plan.pool_password) >= 32
         assert "p%40ss" not in plan.pooled_url
         assert _query(plan.pooled_url) == {
@@ -123,7 +123,7 @@ class TestPlanPgBouncer:
         }
 
     def test_an_upstream_that_already_disables_prepared_statements_gets_a_single_pgbouncer_flag(self):
-        pooled: Final = _plan("postgresql://app:pw@db/litellm?connection_limit=5&pgbouncer=true").pooled_url
+        pooled: Final = _plan("postgresql://app:pw@db/embrouter?connection_limit=5&pgbouncer=true").pooled_url
         assert urllib.parse.parse_qsl(urllib.parse.urlsplit(pooled).query) == [
             ("connection_limit", "5"),
             ("pgbouncer", "true"),
@@ -131,7 +131,7 @@ class TestPlanPgBouncer:
 
     @pytest.mark.parametrize("hop_param", ["channel_binding=require", "gssencmode=require"])
     def test_transport_params_for_the_postgres_hop_stay_off_the_plain_tcp_loopback_url(self, hop_param: str):
-        pooled: Final = _plan(f"postgresql://app:pw@db/litellm?connection_limit=5&{hop_param}").pooled_url
+        pooled: Final = _plan(f"postgresql://app:pw@db/embrouter?connection_limit=5&{hop_param}").pooled_url
         assert _query(pooled) == {"connection_limit": "5", "pgbouncer": "true"}
 
     def test_verified_tls_becomes_server_side_verify_full_with_a_ca_copy_in_the_runtime_dir(self):
@@ -142,7 +142,7 @@ class TestPlanPgBouncer:
         assert plan.ca_source == "/certs/ca.pem"
 
     def test_unverified_require_stays_require_without_a_ca_file(self):
-        plan: Final = _plan("postgresql://app:pw@db/litellm?sslmode=require")
+        plan: Final = _plan("postgresql://app:pw@db/embrouter?sslmode=require")
         pgb: Final = _ini(plan)["pgbouncer"]
         assert pgb["server_tls_sslmode"] == "require"
         assert "server_tls_ca_file" not in pgb
@@ -152,18 +152,18 @@ class TestPlanPgBouncer:
         assert _plan().pool_password != _plan().pool_password
 
     def test_no_tls_params_default_to_prefer(self):
-        assert _ini(_plan("postgresql://app:pw@db/litellm"))["pgbouncer"]["server_tls_sslmode"] == "prefer"
+        assert _ini(_plan("postgresql://app:pw@db/embrouter"))["pgbouncer"]["server_tls_sslmode"] == "prefer"
 
     def test_verification_without_a_ca_bundle_is_refused(self):
         outcome: Final = plan_pgbouncer(
-            "postgresql://app:pw@db/litellm?sslmode=require&sslaccept=strict", SETTINGS, Path("/run/pgb"), None
+            "postgresql://app:pw@db/embrouter?sslmode=require&sslaccept=strict", SETTINGS, Path("/run/pgb"), None
         )
         assert isinstance(outcome, PgBouncerError)
         assert "sslcert" in outcome.reason
 
     def test_client_certificates_are_refused(self):
         outcome: Final = plan_pgbouncer(
-            "postgresql://app:pw@db/litellm?sslidentity=/certs/client.p12", SETTINGS, Path("/run/pgb"), None
+            "postgresql://app:pw@db/embrouter?sslidentity=/certs/client.p12", SETTINGS, Path("/run/pgb"), None
         )
         assert isinstance(outcome, PgBouncerError)
         assert "sslidentity" in outcome.reason
@@ -172,8 +172,8 @@ class TestPlanPgBouncer:
         "url",
         [
             "postgresql://app:pw@db",
-            "postgresql://:pw@db/litellm",
-            "postgresql://app:pw@/litellm",
+            "postgresql://:pw@db/embrouter",
+            "postgresql://app:pw@/embrouter",
         ],
     )
     def test_urls_missing_a_route_are_refused(self, url: str):
@@ -181,18 +181,18 @@ class TestPlanPgBouncer:
         assert isinstance(outcome, PgBouncerError)
 
     def test_a_url_without_a_password_plans_for_a_token_to_be_installed_later(self):
-        plan: Final = _plan("postgresql://app@db/litellm")
+        plan: Final = _plan("postgresql://app@db/embrouter")
         assert plan.upstream_password is None
         assert plan.userlist("minted").startswith('"app" "minted"\n')
 
     def test_every_options_spelling_becomes_a_set_statement(self):
         options: Final = urllib.parse.quote("-c a=1 -cb=2 --c=3")
-        ini: Final = _ini(_plan(f"postgresql://app:pw@db/litellm?options={options}"))
-        assert ini["databases"]["litellm"].endswith("connect_query='SET a TO ''1''; SET b TO ''2''; SET c TO ''3'''")
+        ini: Final = _ini(_plan(f"postgresql://app:pw@db/embrouter?options={options}"))
+        assert ini["databases"]["embrouter"].endswith("connect_query='SET a TO ''1''; SET b TO ''2''; SET c TO ''3'''")
 
     def test_options_that_are_not_settings_are_refused(self):
         outcome: Final = plan_pgbouncer(
-            "postgresql://app:pw@db/litellm?options=-c%20search_path", SETTINGS, Path("/run/pgb"), None
+            "postgresql://app:pw@db/embrouter?options=-c%20search_path", SETTINGS, Path("/run/pgb"), None
         )
         assert isinstance(outcome, PgBouncerError)
         assert "options" in outcome.reason
@@ -204,7 +204,7 @@ class TestPlanPgBouncer:
 
 class TestWritePgBouncerFiles:
     def test_files_hold_the_plan_and_are_private_to_the_owner(self, tmp_path: Path):
-        plan: Final = _plan("postgresql://app:pw@db/litellm")
+        plan: Final = _plan("postgresql://app:pw@db/embrouter")
         ini_path: Final = write_pgbouncer_ini(plan, tmp_path, None)
         assert isinstance(ini_path, Path), ini_path
         userlist_path: Final = write_userlist(plan.userlist("pw"), tmp_path, None)
@@ -222,7 +222,7 @@ class TestWritePgBouncerFiles:
         runtime_dir: Final = tmp_path / "run"
         runtime_dir.mkdir()
         plan: Final = plan_pgbouncer(
-            f"postgresql://app:pw@db/litellm?sslmode=verify-full&sslcert={bundle}", SETTINGS, runtime_dir, None
+            f"postgresql://app:pw@db/embrouter?sslmode=verify-full&sslcert={bundle}", SETTINGS, runtime_dir, None
         )
         assert isinstance(plan, PgBouncerPlan), plan
         ini_path: Final = write_pgbouncer_ini(plan, runtime_dir, None)
@@ -233,7 +233,7 @@ class TestWritePgBouncerFiles:
 
     def test_an_unreadable_ca_bundle_is_reported(self, tmp_path: Path):
         plan: Final = plan_pgbouncer(
-            f"postgresql://app:pw@db/litellm?sslmode=verify-full&sslcert={tmp_path / 'missing.pem'}",
+            f"postgresql://app:pw@db/embrouter?sslmode=verify-full&sslcert={tmp_path / 'missing.pem'}",
             SETTINGS,
             tmp_path,
             None,
@@ -258,12 +258,12 @@ class TestPooledUrlMarker:
     def test_exporting_the_pooled_url_marks_it_for_the_workers(self, monkeypatch: pytest.MonkeyPatch):
         monkeypatch.setenv(PGBOUNCER_POOLED_ENV_VAR, "")
         monkeypatch.delenv(PGBOUNCER_POOLED_ENV_VAR)
-        monkeypatch.setenv("DATABASE_URL", "postgresql://app:token@db/litellm")
+        monkeypatch.setenv("DATABASE_URL", "postgresql://app:token@db/embrouter")
         assert not database_url_is_pooled()
-        export_pooled_database_url("postgresql://litellm_pgbouncer:pw@127.0.0.1:6432/litellm?pgbouncer=true")
-        assert os.environ["DATABASE_URL"] == "postgresql://litellm_pgbouncer:pw@127.0.0.1:6432/litellm?pgbouncer=true"
+        export_pooled_database_url("postgresql://embrouter_pgbouncer:pw@127.0.0.1:6432/embrouter?pgbouncer=true")
+        assert os.environ["DATABASE_URL"] == "postgresql://embrouter_pgbouncer:pw@127.0.0.1:6432/embrouter?pgbouncer=true"
         assert database_url_is_pooled()
-        assert PGBOUNCER_POOLED_ENV_VAR == "LITELLM_PGBOUNCER_POOLED_DATABASE_URL"
+        assert PGBOUNCER_POOLED_ENV_VAR == "EMBROUTER_PGBOUNCER_POOLED_DATABASE_URL"
 
 
 def _bound_port(sock: socket.socket) -> int:
@@ -582,7 +582,7 @@ class TestPgBouncerProcess:
 
 
 NOW: Final = datetime(2026, 9, 10, 12, 0, tzinfo=timezone.utc)
-ENDPOINT: Final = IAMEndpoint(host="db", port="5432", user="app", name="litellm")
+ENDPOINT: Final = IAMEndpoint(host="db", port="5432", user="app", name="embrouter")
 
 
 def _entra_jwt(expires_at: datetime) -> str:
@@ -696,7 +696,7 @@ class TestPgBouncerTokenRefresher:
 def _runtime_dir_listening_on(port: int) -> Path:
     matches: Final = tuple(
         ini.parent
-        for ini in Path(tempfile.gettempdir()).glob("litellm-pgbouncer-*/pgbouncer.ini")
+        for ini in Path(tempfile.gettempdir()).glob("embrouter-pgbouncer-*/pgbouncer.ini")
         if f"listen_port = {port}\n" in ini.read_text()
     )
     assert len(matches) == 1, matches
@@ -709,18 +709,18 @@ class TestStartInContainerPgBouncer:
         auth_log: Final = tmp_path / "auth.log"
         binary: Final = _fake_pooler(tmp_path, port, auth_log=auth_log)
         settings: Final = PgBouncerSettings(enabled=True, port=port, binary=str(binary))
-        pooled: Final = start_in_container_pgbouncer(settings, "postgresql://app:pw@db/litellm?connection_limit=5")
+        pooled: Final = start_in_container_pgbouncer(settings, "postgresql://app:pw@db/embrouter?connection_limit=5")
         assert isinstance(pooled, str), pooled
         parsed: Final = urllib.parse.urlsplit(pooled)
         assert (parsed.username, parsed.hostname, parsed.port, parsed.path) == (
-            "litellm_pgbouncer",
+            "embrouter_pgbouncer",
             "127.0.0.1",
             port,
-            "/litellm",
+            "/embrouter",
         )
         assert _query(pooled) == {"connection_limit": "5", "pgbouncer": "true"}
         assert _listening(port)
-        assert auth_log.read_text() == repr(f'"app" "pw"\n"litellm_pgbouncer" "{parsed.password}"\n') + "\n"
+        assert auth_log.read_text() == repr(f'"app" "pw"\n"embrouter_pgbouncer" "{parsed.password}"\n') + "\n"
 
     @pytest.mark.filterwarnings("ignore:This process .* is multi-threaded:DeprecationWarning")
     def test_a_forked_worker_exiting_leaves_the_pooler_and_its_files_to_the_parent(self, tmp_path: Path):
@@ -728,7 +728,7 @@ class TestStartInContainerPgBouncer:
         settings: Final = PgBouncerSettings(enabled=True, port=port, binary=str(_fake_pooler(tmp_path, port)))
         exit_hooks: Final[list[Callable[[], None]]] = []
         pooled: Final = start_in_container_pgbouncer(
-            settings, "postgresql://app:pw@db/litellm", register_exit_hook=exit_hooks.append
+            settings, "postgresql://app:pw@db/embrouter", register_exit_hook=exit_hooks.append
         )
         assert isinstance(pooled, str), pooled
         runtime_dir: Final = _runtime_dir_listening_on(port)
@@ -761,7 +761,7 @@ class TestStartInContainerPgBouncer:
     def test_a_passwordless_url_without_token_auth_is_refused_without_starting_anything(self, tmp_path: Path):
         port: Final = _free_port()
         settings: Final = PgBouncerSettings(enabled=True, port=port, binary=str(_fake_pooler(tmp_path, port)))
-        outcome: Final = start_in_container_pgbouncer(settings, "postgresql://app@db/litellm")
+        outcome: Final = start_in_container_pgbouncer(settings, "postgresql://app@db/embrouter")
         assert isinstance(outcome, PgBouncerError)
         assert "IAM_TOKEN_DB_AUTH" in outcome.reason
         assert not _listening(port)
@@ -774,15 +774,15 @@ class TestStartInContainerPgBouncer:
         token: Final = _entra_jwt(datetime.now(tz=timezone.utc) + timedelta(hours=1))
         pooled: Final = start_in_container_pgbouncer(
             settings,
-            "postgresql://app:stale-token@db/litellm",
+            "postgresql://app:stale-token@db/embrouter",
             token_auth=AzureEntraTokenAuth(token_provider=lambda: token),
         )
         assert isinstance(pooled, str), pooled
         parsed: Final = urllib.parse.urlsplit(pooled)
-        assert parsed.username == "litellm_pgbouncer"
+        assert parsed.username == "embrouter_pgbouncer"
         assert token not in pooled
         assert _listening(port)
-        assert auth_log.read_text() == repr(f'"app" "{token}"\n"litellm_pgbouncer" "{parsed.password}"\n') + "\n"
+        assert auth_log.read_text() == repr(f'"app" "{token}"\n"embrouter_pgbouncer" "{parsed.password}"\n') + "\n"
 
     def test_a_first_token_that_cannot_be_minted_is_reported_without_starting_anything(self, tmp_path: Path):
         port: Final = _free_port()
@@ -792,7 +792,7 @@ class TestStartInContainerPgBouncer:
             raise RuntimeError("no Azure credential")
 
         outcome: Final = start_in_container_pgbouncer(
-            settings, "postgresql://app@db/litellm", token_auth=AzureEntraTokenAuth(token_provider=fail)
+            settings, "postgresql://app@db/embrouter", token_auth=AzureEntraTokenAuth(token_provider=fail)
         )
         assert isinstance(outcome, PgBouncerError)
         assert "no Azure credential" in outcome.reason
@@ -802,7 +802,7 @@ class TestStartInContainerPgBouncer:
         port: Final = _free_port()
         auth_log: Final = tmp_path / "auth.log"
         plan: Final = plan_pgbouncer(
-            "postgresql://app@db/litellm", PgBouncerSettings(enabled=True, port=port), tmp_path, None
+            "postgresql://app@db/embrouter", PgBouncerSettings(enabled=True, port=port), tmp_path, None
         )
         assert isinstance(plan, PgBouncerPlan), plan
         ini_path: Final = write_pgbouncer_ini(plan, tmp_path, None)
@@ -831,7 +831,7 @@ class TestStartInContainerPgBouncer:
         port: Final = _free_port()
         binary: Final = _fake_pooler(tmp_path, port, version_banner="PgBouncer 1.18.1\nlibevent 2.1.12-stable")
         settings: Final = PgBouncerSettings(enabled=True, port=port, binary=str(binary))
-        outcome: Final = start_in_container_pgbouncer(settings, "postgresql://app:pw@db/litellm")
+        outcome: Final = start_in_container_pgbouncer(settings, "postgresql://app:pw@db/embrouter")
         assert isinstance(outcome, PgBouncerError)
         assert "PgBouncer 1.18" in outcome.reason
         assert "1.19" in outcome.reason
@@ -841,7 +841,7 @@ class TestStartInContainerPgBouncer:
         port: Final = _free_port()
         binary: Final = _fake_pooler(tmp_path, port, version_banner="PgBouncer 1.19.0")
         settings: Final = PgBouncerSettings(enabled=True, port=port, binary=str(binary))
-        pooled: Final = start_in_container_pgbouncer(settings, "postgresql://app:pw@db/litellm")
+        pooled: Final = start_in_container_pgbouncer(settings, "postgresql://app:pw@db/embrouter")
         assert isinstance(pooled, str), pooled
         assert urllib.parse.urlsplit(pooled).port == port
         assert _listening(port)
@@ -863,13 +863,13 @@ class TestPgBouncerVersion:
 
 
 class TestPgBouncerSettings:
-    def test_reads_the_litellm_pgbouncer_env_vars(self, monkeypatch: pytest.MonkeyPatch):
-        monkeypatch.setenv("LITELLM_PGBOUNCER_ENABLED", "true")
-        monkeypatch.setenv("LITELLM_PGBOUNCER_PORT", "7000")
-        monkeypatch.setenv("LITELLM_PGBOUNCER_MAX_DB_CONNECTIONS", "12")
+    def test_reads_the_embrouter_pgbouncer_env_vars(self, monkeypatch: pytest.MonkeyPatch):
+        monkeypatch.setenv("EMBROUTER_PGBOUNCER_ENABLED", "true")
+        monkeypatch.setenv("EMBROUTER_PGBOUNCER_PORT", "7000")
+        monkeypatch.setenv("EMBROUTER_PGBOUNCER_MAX_DB_CONNECTIONS", "12")
         settings: Final = PgBouncerSettings()
         assert (settings.enabled, settings.port, settings.max_db_connections) == (True, 7000, 12)
 
     def test_defaults_are_off(self, monkeypatch: pytest.MonkeyPatch):
-        monkeypatch.delenv("LITELLM_PGBOUNCER_ENABLED", raising=False)
+        monkeypatch.delenv("EMBROUTER_PGBOUNCER_ENABLED", raising=False)
         assert PgBouncerSettings().enabled is False

@@ -212,7 +212,7 @@ describe("KeyEditView", () => {
     model_max_budget: {},
     soft_budget_cooldown: false,
     blocked: false,
-    litellm_budget_table: {},
+    embrouter_budget_table: {},
     organization_id: null,
     created_at: "2025-10-29T01:26:41.613000Z",
     updated_at: "2025-10-29T01:47:33.980000Z",
@@ -461,8 +461,8 @@ describe("KeyEditView", () => {
     it("lists a prompt existing in several environments once in the dropdown", async () => {
       vi.mocked(getPromptsList).mockResolvedValueOnce({
         prompts: [
-          { prompt_id: "envgreet", litellm_params: {}, prompt_info: { prompt_type: "db" }, environment: "development" },
-          { prompt_id: "envgreet", litellm_params: {}, prompt_info: { prompt_type: "db" }, environment: "production" },
+          { prompt_id: "envgreet", embrouter_params: {}, prompt_info: { prompt_type: "db" }, environment: "development" },
+          { prompt_id: "envgreet", embrouter_params: {}, prompt_info: { prompt_type: "db" }, environment: "production" },
         ],
       });
 

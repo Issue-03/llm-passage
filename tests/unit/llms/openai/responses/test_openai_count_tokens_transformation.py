@@ -1,7 +1,7 @@
 
 import pytest
 
-from litellm.llms.openai.responses.count_tokens.transformation import (
+from embrouter.llms.openai.responses.count_tokens.transformation import (
     OpenAICountTokensConfig,
 )
 

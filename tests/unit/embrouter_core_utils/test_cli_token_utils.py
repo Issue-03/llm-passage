@@ -9,8 +9,8 @@ import time
 
 import pytest
 
-from litellm.constants import CLI_JWT_EXPIRATION_HOURS
-from litellm.litellm_core_utils.cli_keyring import (
+from embrouter.constants import CLI_JWT_EXPIRATION_HOURS
+from embrouter.embrouter_core_utils.cli_keyring import (
     DISABLE_KEYRING_ENV_VAR,
     KEYRING_ACCOUNT,
     KEYRING_PREFLIGHT_ACCOUNT,
@@ -26,14 +26,14 @@ from litellm.litellm_core_utils.cli_keyring import (
     SecretStored,
     SecretStranded,
 )
-from litellm.litellm_core_utils.cli_token_utils import (
+from embrouter.embrouter_core_utils.cli_token_utils import (
     CliTokenRecord,
     CredentialNotCleared,
     CredentialNotRecorded,
     CredentialNotSaved,
     clear_cli_token,
     get_cli_token_file_path,
-    get_litellm_gateway_api_key,
+    get_embrouter_gateway_api_key,
     is_cli_token_fresh,
     load_cli_token,
     save_cli_token,
@@ -51,7 +51,7 @@ def isolated_home(monkeypatch, tmp_path):
 
 
 def _token_file(home):
-    return home / ".litellm" / "token.json"
+    return home / ".embrouter" / "token.json"
 
 
 def _write_legacy_file(home, **overrides):
@@ -145,14 +145,14 @@ class _ReplaceThatStartsRefusing:
 
 class TestGetCliTokenFilePath:
     def test_points_at_the_home_config_file(self, isolated_home):
-        assert get_cli_token_file_path() == str(isolated_home / ".litellm" / "token.json")
+        assert get_cli_token_file_path() == str(isolated_home / ".embrouter" / "token.json")
 
     def test_does_not_create_the_directory(self, isolated_home):
         """Merely asking for the path must not leave a directory behind, so an SDK import that
-        never logs in cannot create a ~/.litellm on someone's machine."""
+        never logs in cannot create a ~/.embrouter on someone's machine."""
         get_cli_token_file_path()
 
-        assert not (isolated_home / ".litellm").exists()
+        assert not (isolated_home / ".embrouter").exists()
 
 
 class TestLoadCliToken:
@@ -389,18 +389,18 @@ class TestLoadCliToken:
         assert load_cli_token(vault=secret_vault_factory(blob=_blob())) is None
 
 
-class TestGetLitellmGatewayApiKey:
+class TestGetEmbrouterGatewayApiKey:
     def test_returns_the_vault_secret_when_the_origin_matches(self, isolated_home, secret_vault_factory):
         _write_metadata_only_file(isolated_home)
 
-        key = get_litellm_gateway_api_key(expected_base_url=SERVER, vault=secret_vault_factory(blob=_blob()))
+        key = get_embrouter_gateway_api_key(expected_base_url=SERVER, vault=secret_vault_factory(blob=_blob()))
 
         assert key == "sk-vault"
 
     def test_trailing_slash_on_the_expected_url_is_normalised(self, isolated_home, secret_vault_factory):
         _write_metadata_only_file(isolated_home)
 
-        key = get_litellm_gateway_api_key(expected_base_url=SERVER + "/", vault=secret_vault_factory(blob=_blob()))
+        key = get_embrouter_gateway_api_key(expected_base_url=SERVER + "/", vault=secret_vault_factory(blob=_blob()))
 
         assert key == "sk-vault"
 
@@ -410,11 +410,11 @@ class TestGetLitellmGatewayApiKey:
         _write_legacy_file(isolated_home)
         vault = secret_vault_factory(blob=_blob())
 
-        assert get_litellm_gateway_api_key(expected_base_url=OTHER_SERVER, vault=vault) is None
+        assert get_embrouter_gateway_api_key(expected_base_url=OTHER_SERVER, vault=vault) is None
         assert vault.reads == 0
 
     def test_no_token_file_returns_nothing(self, isolated_home, secret_vault_factory):
-        assert get_litellm_gateway_api_key(vault=secret_vault_factory(blob=_blob())) is None
+        assert get_embrouter_gateway_api_key(vault=secret_vault_factory(blob=_blob())) is None
 
 
 class TestSaveCliToken:
@@ -474,14 +474,14 @@ class TestSaveCliToken:
         assert list(path.parent.glob(".tmp-*")) == []
 
     def test_creates_the_config_directory_owner_only(self, isolated_home, secret_vault_factory):
-        """A 0755 ~/.litellm lets any local process list, and in the fallback case read, the
+        """A 0755 ~/.embrouter lets any local process list, and in the fallback case read, the
         credential's directory."""
         save_cli_token(CliTokenRecord(base_url=SERVER, key="sk-new"), vault=secret_vault_factory())
 
-        assert stat.S_IMODE((isolated_home / ".litellm").stat().st_mode) == 0o700
+        assert stat.S_IMODE((isolated_home / ".embrouter").stat().st_mode) == 0o700
 
     def test_tightens_a_directory_left_group_readable_by_an_older_cli(self, isolated_home, secret_vault_factory):
-        config_dir = isolated_home / ".litellm"
+        config_dir = isolated_home / ".embrouter"
         config_dir.mkdir(mode=0o755)
 
         save_cli_token(CliTokenRecord(base_url=SERVER, key="sk-new"), vault=secret_vault_factory())
@@ -498,7 +498,7 @@ class TestSaveCliToken:
         def _explode(*args, **kwargs):
             raise OSError("read-only file system")
 
-        monkeypatch.setattr("litellm.litellm_core_utils.private_json.json.dump", _explode)
+        monkeypatch.setattr("embrouter.embrouter_core_utils.private_json.json.dump", _explode)
 
         outcome = save_cli_token(CliTokenRecord(base_url=SERVER, key="sk-new"), vault=secret_vault_factory())
 
@@ -516,7 +516,7 @@ class TestSaveCliToken:
         def _explode(*args, **kwargs):
             raise OSError("read-only file system")
 
-        monkeypatch.setattr("litellm.litellm_core_utils.private_json.json.dump", _explode)
+        monkeypatch.setattr("embrouter.embrouter_core_utils.private_json.json.dump", _explode)
 
         save_cli_token(CliTokenRecord(base_url=SERVER, key="sk-new"), vault=vault)
 
@@ -526,7 +526,7 @@ class TestSaveCliToken:
     def test_a_login_that_cannot_be_saved_leaves_the_working_one_alone(
         self, isolated_home, secret_vault_factory
     ):
-        """Signing in again on a machine whose ~/.litellm has gone read-only must not cost the user
+        """Signing in again on a machine whose ~/.embrouter has gone read-only must not cost the user
         the credential they already had. Overwriting the keychain and then failing to record it, or
         undoing that write afterwards, would take a login that still works out from under them."""
         _write_legacy_file(isolated_home, key=None)
@@ -580,7 +580,7 @@ class TestSaveCliToken:
         def _explode(*args, **kwargs):
             raise TypeError("not serialisable")
 
-        monkeypatch.setattr("litellm.litellm_core_utils.private_json.json.dump", _explode)
+        monkeypatch.setattr("embrouter.embrouter_core_utils.private_json.json.dump", _explode)
 
         with pytest.raises(TypeError):
             save_cli_token(CliTokenRecord(base_url=SERVER, key="sk-new"), vault=secret_vault_factory(available=False))
@@ -652,7 +652,7 @@ class TestScrubFailure:
     ):
         """Handing the keychain a copy without taking the file's away leaves the credential live in
         two stores instead of one. A directory that permits neither the rewrite nor the delete, a
-        root-owned ~/.litellm left behind by a `sudo lite login`, must widen nothing."""
+        root-owned ~/.embrouter left behind by a `sudo lite login`, must widen nothing."""
         path = _write_legacy_file(isolated_home)
         vault = secret_vault_factory()
         path.parent.chmod(0o500)
@@ -676,7 +676,7 @@ class TestScrubFailure:
         def _explode(*args, **kwargs):
             raise OSError("no space left on device")
 
-        monkeypatch.setattr("litellm.litellm_core_utils.private_json.json.dump", _explode)
+        monkeypatch.setattr("embrouter.embrouter_core_utils.private_json.json.dump", _explode)
 
         record = load_cli_token(vault=vault)
 
@@ -694,7 +694,7 @@ class TestScrubFailure:
         back and leaving the cleartext where it was."""
         path = _write_legacy_file(isolated_home)
         vault = secret_vault_factory()
-        monkeypatch.setattr("litellm.litellm_core_utils.private_json.os.replace", _refuse_replace)
+        monkeypatch.setattr("embrouter.embrouter_core_utils.private_json.os.replace", _refuse_replace)
 
         record = load_cli_token(vault=vault)
 
@@ -714,7 +714,7 @@ class TestScrubFailure:
         path = _write_legacy_file(isolated_home)
         vault = secret_vault_factory(erasable=False)
         replace = _ReplaceThatStartsRefusing()
-        monkeypatch.setattr("litellm.litellm_core_utils.private_json.os.replace", replace)
+        monkeypatch.setattr("embrouter.embrouter_core_utils.private_json.os.replace", replace)
         path.chmod(0o400)
 
         assert load_cli_token(vault=vault).key == "sk-legacy"
@@ -737,7 +737,7 @@ class TestScrubFailure:
         rewritten. The duplicate refresh token stays until a later read can finish the move."""
         path = _write_key_only_keychain_file(isolated_home)
         vault = secret_vault_factory(blob=_blob(key="sk-live", timestamp=2000.0))
-        monkeypatch.setattr("litellm.litellm_core_utils.private_json.os.replace", _refuse_replace)
+        monkeypatch.setattr("embrouter.embrouter_core_utils.private_json.os.replace", _refuse_replace)
         path.chmod(0o400)
 
         record = load_cli_token(vault=vault)
@@ -896,7 +896,7 @@ class TestClearCliToken:
     def test_a_file_that_gives_up_neither_its_secret_nor_itself_is_reported_not_raised(
         self, isolated_home, secret_vault_factory
     ):
-        """A `~/.litellm` gone read-only refuses the staged rewrite and the removal, and a token file
+        """A `~/.embrouter` gone read-only refuses the staged rewrite and the removal, and a token file
         left read-only with it, as a `sudo lite login` leaves both, refuses the overwrite too. The
         credential is still readable on disk, which is the one thing logging out is for, so it has to
         come back as an answer rather than as a traceback the user has to read the code to
@@ -917,7 +917,7 @@ class TestClearCliToken:
     def test_a_directory_that_takes_no_new_file_still_gives_up_the_secret_in_the_old_one(
         self, isolated_home, secret_vault_factory
     ):
-        """A read-only `~/.litellm` accepts no replacement token file and no removal of the one it
+        """A read-only `~/.embrouter` accepts no replacement token file and no removal of the one it
         has, and still lets that one be shortened. The secret goes, the file stays as the note that
         the keychain went unchecked, and the logout after it warns again instead of reading the gap
         the removal would have left as a clean keychain.
@@ -949,7 +949,7 @@ class TestClearCliToken:
         path = _write_legacy_file(isolated_home)
         path.chmod(0o400)
         monkeypatch.setattr(
-            "litellm.litellm_core_utils.private_json.tempfile.mkstemp",
+            "embrouter.embrouter_core_utils.private_json.tempfile.mkstemp",
             _MkstempThatNeedsTheOldFileGone(path),
         )
         vault = secret_vault_factory(available=False, failure=KeyringUnreachable())
@@ -1090,7 +1090,7 @@ class TestKeyringVault:
         assert {call[2] for call in fake.calls} == {KEYRING_ACCOUNT, KEYRING_PREFLIGHT_ACCOUNT}
 
     def test_the_kill_switch_reports_no_keychain(self, monkeypatch):
-        """`LITELLM_CLI_DISABLE_KEYRING` has to work without importing keyring, because keyring
+        """`EMBROUTER_CLI_DISABLE_KEYRING` has to work without importing keyring, because keyring
         caches its backend on first use and cannot be reconfigured later. Erase still fails: a
         credential stored before the switch was set may be in the keychain, and with reads
         disabled `lite logout` cannot verify it is gone, so it must say so instead."""
@@ -1238,22 +1238,22 @@ class TestIsCliTokenFreshWithExpiresAt:
     over the age-based guess made from ``timestamp``."""
 
     def test_future_expiry_is_fresh(self):
-        from litellm.litellm_core_utils.cli_token_utils import is_cli_token_fresh
+        from embrouter.embrouter_core_utils.cli_token_utils import is_cli_token_fresh
 
         assert is_cli_token_fresh({"expires_at": time.time() + 3600, "timestamp": 0}) is True
 
     def test_expiry_inside_the_buffer_is_stale(self):
-        from litellm.litellm_core_utils.cli_token_utils import is_cli_token_fresh
+        from embrouter.embrouter_core_utils.cli_token_utils import is_cli_token_fresh
 
         assert is_cli_token_fresh({"expires_at": time.time() + 100}) is False
         assert is_cli_token_fresh({"expires_at": time.time() + 100}, buffer_hours=0) is True
 
     def test_past_expiry_is_stale_even_with_a_fresh_timestamp(self):
-        from litellm.litellm_core_utils.cli_token_utils import is_cli_token_fresh
+        from embrouter.embrouter_core_utils.cli_token_utils import is_cli_token_fresh
 
         assert is_cli_token_fresh({"expires_at": time.time() - 1, "timestamp": time.time()}) is False
 
     def test_non_numeric_expiry_falls_back_to_the_timestamp(self):
-        from litellm.litellm_core_utils.cli_token_utils import is_cli_token_fresh
+        from embrouter.embrouter_core_utils.cli_token_utils import is_cli_token_fresh
 
         assert is_cli_token_fresh({"expires_at": "soon", "timestamp": time.time()}) is True

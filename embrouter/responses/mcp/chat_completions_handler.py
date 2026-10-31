@@ -6,19 +6,19 @@ from typing import TYPE_CHECKING, Final, cast
 
 from typing_extensions import TypedDict, Unpack
 
-from litellm.responses.mcp.litellm_proxy_mcp_handler import (
-    LiteLLM_Proxy_MCP_Handler,
+from embrouter.responses.mcp.embrouter_proxy_mcp_handler import (
+    EmbRouter_Proxy_MCP_Handler,
 )
-from litellm.responses.mcp.request_context import MCPRequestContext
-from litellm.types.utils import Message, ModelResponse
-from litellm.utils import CustomStreamWrapper
+from embrouter.responses.mcp.request_context import MCPRequestContext
+from embrouter.types.utils import Message, ModelResponse
+from embrouter.utils import CustomStreamWrapper
 
 if TYPE_CHECKING:
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
 
 class _MCPCompletionKwargs(TypedDict, total=False, extra_items=object):
-    """Extra keywords forwarded verbatim to ``litellm.acompletion``, which owns their contract."""
+    """Extra keywords forwarded verbatim to ``embrouter.acompletion``, which owns their contract."""
 
 
 def _add_mcp_metadata_to_response(
@@ -86,7 +86,7 @@ async def acompletion_with_mcp(
     model: str,
     messages: list,
     tools: list | None = None,
-    **kwargs: Unpack[_MCPCompletionKwargs],  # kwargs-ok: forwarded verbatim to litellm.acompletion, which owns them
+    **kwargs: Unpack[_MCPCompletionKwargs],  # kwargs-ok: forwarded verbatim to embrouter.acompletion, which owns them
 ) -> ModelResponse | CustomStreamWrapper:
     """
     Async completion with MCP integration.
@@ -94,24 +94,24 @@ async def acompletion_with_mcp(
     This function handles MCP tool integration following the same pattern as aresponses_api_with_mcp.
     It's designed to be called from the synchronous completion() function and return a coroutine.
 
-    When MCP tools with server_url="litellm_proxy" are provided, this function will:
+    When MCP tools with server_url="embrouter_proxy" are provided, this function will:
     1. Get available tools from the MCP server manager
     2. Transform them to OpenAI format
     3. Call acompletion with the transformed tools
     4. If require_approval="never" and tool calls are returned, automatically execute them
     5. Make a follow-up call with the tool results
     """
-    from litellm import acompletion as litellm_acompletion
+    from embrouter import acompletion as embrouter_acompletion
 
     # Parse MCP tools and separate from other tools
     (
-        mcp_tools_with_litellm_proxy,
+        mcp_tools_with_embrouter_proxy,
         other_tools,
-    ) = await LiteLLM_Proxy_MCP_Handler._split_mcp_tools(tools)
+    ) = await EmbRouter_Proxy_MCP_Handler._split_mcp_tools(tools)
 
-    if not mcp_tools_with_litellm_proxy:
+    if not mcp_tools_with_embrouter_proxy:
         # No MCP tools, proceed with regular completion
-        return await litellm_acompletion(
+        return await embrouter_acompletion(
             model=model,
             messages=messages,
             tools=tools,
@@ -131,17 +131,17 @@ async def acompletion_with_mcp(
     (
         deduplicated_mcp_tools,
         tool_server_map,
-    ) = await LiteLLM_Proxy_MCP_Handler._process_mcp_tools_without_openai_transform(
+    ) = await EmbRouter_Proxy_MCP_Handler._process_mcp_tools_without_openai_transform(
         user_api_key_auth=user_api_key_auth,
-        mcp_tools_with_litellm_proxy=mcp_tools_with_litellm_proxy,
-        litellm_trace_id=context.litellm_trace_id,
+        mcp_tools_with_embrouter_proxy=mcp_tools_with_embrouter_proxy,
+        embrouter_trace_id=context.embrouter_trace_id,
         mcp_auth_header=mcp_auth_header,
         mcp_server_auth_headers=mcp_server_auth_headers,
         request_tags=request_tags,
         raw_headers=raw_headers,
     )
 
-    openai_tools: Final = LiteLLM_Proxy_MCP_Handler._transform_mcp_tools_to_openai(
+    openai_tools: Final = EmbRouter_Proxy_MCP_Handler._transform_mcp_tools_to_openai(
         deduplicated_mcp_tools,
         target_format="chat",
     )
@@ -150,8 +150,8 @@ async def acompletion_with_mcp(
     all_tools: Final = openai_tools + other_tools if (openai_tools or other_tools) else None
 
     # Determine if we should auto-execute tools
-    should_auto_execute: Final = LiteLLM_Proxy_MCP_Handler._should_auto_execute_tools(
-        mcp_tools_with_litellm_proxy=mcp_tools_with_litellm_proxy
+    should_auto_execute: Final = EmbRouter_Proxy_MCP_Handler._should_auto_execute_tools(
+        mcp_tools_with_embrouter_proxy=mcp_tools_with_embrouter_proxy
     )
 
     # Prepare call parameters
@@ -168,7 +168,7 @@ async def acompletion_with_mcp(
 
     # If not auto-executing, just make the call with transformed tools
     if not should_auto_execute:
-        response = await litellm_acompletion(**base_call_args)
+        response = await embrouter_acompletion(**base_call_args)
         if isinstance(response, (ModelResponse, CustomStreamWrapper)):
             _add_mcp_metadata_to_response(
                 response=response,
@@ -188,7 +188,7 @@ async def acompletion_with_mcp(
             initial_call_args["mock_tool_calls"] = mock_tool_calls
 
         # Make initial streaming call
-        initial_stream: Final = await litellm_acompletion(**initial_call_args)
+        initial_stream: Final = await embrouter_acompletion(**initial_call_args)
 
         if not isinstance(initial_stream, CustomStreamWrapper):
             # Not a stream, return as-is
@@ -200,8 +200,8 @@ async def acompletion_with_mcp(
             return initial_stream
 
         # Create a custom async generator that collects chunks and handles tool execution
-        from litellm.main import stream_chunk_builder
-        from litellm.types.utils import ModelResponseStream
+        from embrouter.main import stream_chunk_builder
+        from embrouter.types.utils import ModelResponseStream
 
         class MCPStreamingIterator:
             """Custom iterator that collects chunks, detects tool calls, and adds MCP metadata to final chunk."""
@@ -216,8 +216,8 @@ async def acompletion_with_mcp(
                 mcp_server_auth_headers,
                 oauth2_headers,
                 raw_headers,
-                litellm_call_id,
-                litellm_trace_id,
+                embrouter_call_id,
+                embrouter_trace_id,
                 openai_tools,
                 base_call_args,
                 request_tags,
@@ -230,8 +230,8 @@ async def acompletion_with_mcp(
                 self.mcp_server_auth_headers = mcp_server_auth_headers
                 self.oauth2_headers = oauth2_headers
                 self.raw_headers = raw_headers
-                self.litellm_call_id = litellm_call_id
-                self.litellm_trace_id = litellm_trace_id
+                self.embrouter_call_id = embrouter_call_id
+                self.embrouter_trace_id = embrouter_trace_id
                 self.openai_tools = openai_tools
                 self.base_call_args = base_call_args
                 self.request_tags = request_tags
@@ -250,7 +250,7 @@ async def acompletion_with_mcp(
 
             def _add_mcp_list_tools_to_chunk(self, chunk: ModelResponseStream) -> ModelResponseStream:
                 """Add mcp_list_tools to the first chunk."""
-                from litellm.types.utils import (
+                from embrouter.types.utils import (
                     StreamingChoices,
                     add_provider_specific_fields,
                 )
@@ -276,7 +276,7 @@ async def acompletion_with_mcp(
 
             def _add_mcp_tool_metadata_to_final_chunk(self, chunk: ModelResponseStream) -> ModelResponseStream:
                 """Add mcp_tool_calls and mcp_call_results to the final chunk."""
-                from litellm.types.utils import (
+                from embrouter.types.utils import (
                     StreamingChoices,
                     add_provider_specific_fields,
                 )
@@ -314,7 +314,7 @@ async def acompletion_with_mcp(
                 except StopAsyncIteration:
                     pass
                 except Exception:
-                    logging.getLogger("LiteLLM").exception(
+                    logging.getLogger("EmbRouter").exception(
                         "Error draining inner MCP stream after final chunk; spend logging may be incomplete"
                     )
 
@@ -354,7 +354,7 @@ async def acompletion_with_mcp(
                                 await self._prepare_follow_up_call()
                             # Drain inner stream so CustomStreamWrapper fires its
                             # end-of-stream handler (dispatch_success_handlers →
-                            # _ProxyDBLogger → LiteLLM_SpendLogs).  The CSW may
+                            # _ProxyDBLogger → EmbRouter_SpendLogs).  The CSW may
                             # yield one usage chunk before raising StopAsyncIteration.
                             await self._drain_inner_stream()
 
@@ -377,19 +377,19 @@ async def acompletion_with_mcp(
                 if self.follow_up_stream and not self.follow_up_exhausted:
                     if not self.follow_up_iterator:
                         self.follow_up_iterator = self.follow_up_stream.__aiter__()
-                        from litellm._logging import verbose_logger
+                        from embrouter._logging import verbose_logger
 
                         verbose_logger.debug("Follow-up stream iterator created")
 
                     try:
                         chunk = await self.follow_up_iterator.__anext__()
-                        from litellm._logging import verbose_logger
+                        from embrouter._logging import verbose_logger
 
                         verbose_logger.debug("Follow-up chunk yielded: %s", chunk)
                         return chunk
                     except StopAsyncIteration:
                         self.follow_up_exhausted = True
-                        from litellm._logging import verbose_logger
+                        from embrouter._logging import verbose_logger
 
                         verbose_logger.debug("Follow-up stream exhausted")
                         # After follow-up stream is exhausted, check if we need to raise StopAsyncIteration
@@ -402,7 +402,7 @@ async def acompletion_with_mcp(
                     and self.complete_response
                     and self.follow_up_stream is None
                 ):
-                    from litellm._logging import verbose_logger
+                    from embrouter._logging import verbose_logger
 
                     verbose_logger.warning("Follow-up stream was not created despite having tool results")
 
@@ -427,13 +427,13 @@ async def acompletion_with_mcp(
                 if isinstance(complete_response, ModelResponse):
                     self.complete_response = complete_response
                     # Extract tool calls from complete response
-                    self.tool_calls = LiteLLM_Proxy_MCP_Handler._extract_tool_calls_from_chat_response(
+                    self.tool_calls = EmbRouter_Proxy_MCP_Handler._extract_tool_calls_from_chat_response(
                         response=complete_response
                     )
 
                     if self.tool_calls:
                         # Execute tool calls
-                        self.tool_results = await LiteLLM_Proxy_MCP_Handler._execute_tool_calls(
+                        self.tool_results = await EmbRouter_Proxy_MCP_Handler._execute_tool_calls(
                             tool_server_map=self.tool_server_map,
                             tool_calls=self.tool_calls,
                             user_api_key_auth=self.user_api_key_auth,
@@ -441,8 +441,8 @@ async def acompletion_with_mcp(
                             mcp_server_auth_headers=self.mcp_server_auth_headers,
                             oauth2_headers=self.oauth2_headers,
                             raw_headers=self.raw_headers,
-                            litellm_call_id=self.litellm_call_id,
-                            litellm_trace_id=self.litellm_trace_id,
+                            embrouter_call_id=self.embrouter_call_id,
+                            embrouter_trace_id=self.embrouter_trace_id,
                             request_tags=self.request_tags,
                             guardrail_context=context.guardrail_context,
                         )
@@ -456,7 +456,7 @@ async def acompletion_with_mcp(
                     return
 
                 # Create follow-up messages with tool results
-                follow_up_messages: Final = LiteLLM_Proxy_MCP_Handler._create_follow_up_messages_for_chat(
+                follow_up_messages: Final = EmbRouter_Proxy_MCP_Handler._create_follow_up_messages_for_chat(
                     original_messages=self.messages,
                     response=self.complete_response,
                     tool_results=self.tool_results,
@@ -469,21 +469,21 @@ async def acompletion_with_mcp(
                 # Ensure follow-up call doesn't trigger MCP handler again
                 follow_up_call_args["_skip_mcp_handler"] = True
 
-                # Import litellm here to ensure we get the patched version
+                # Import embrouter here to ensure we get the patched version
                 # This ensures the patch works correctly in tests
-                import litellm
+                import embrouter
 
-                follow_up_response: Final = await litellm.acompletion(**follow_up_call_args)
+                follow_up_response: Final = await embrouter.acompletion(**follow_up_call_args)
 
                 # Ensure follow-up response is a CustomStreamWrapper
                 if isinstance(follow_up_response, CustomStreamWrapper):
                     self.follow_up_stream = follow_up_response
-                    from litellm._logging import verbose_logger
+                    from embrouter._logging import verbose_logger
 
                     verbose_logger.debug("Follow-up stream created successfully")
                 else:
                     # Unexpected response type - log and set to None
-                    from litellm._logging import verbose_logger
+                    from embrouter._logging import verbose_logger
 
                     verbose_logger.warning(
                         "Follow-up response is not a CustomStreamWrapper: %s", type(follow_up_response)
@@ -500,8 +500,8 @@ async def acompletion_with_mcp(
             mcp_server_auth_headers=mcp_server_auth_headers,
             oauth2_headers=oauth2_headers,
             raw_headers=raw_headers,
-            litellm_call_id=context.litellm_call_id,
-            litellm_trace_id=context.litellm_trace_id,
+            embrouter_call_id=context.embrouter_call_id,
+            embrouter_trace_id=context.embrouter_trace_id,
             openai_tools=openai_tools,
             base_call_args=base_call_args,
             request_tags=request_tags,
@@ -590,13 +590,13 @@ async def acompletion_with_mcp(
         initial_call_args["mock_tool_calls"] = mock_tool_calls
 
     # Make initial call
-    initial_response: Final = await litellm_acompletion(**initial_call_args)
+    initial_response: Final = await embrouter_acompletion(**initial_call_args)
 
     if not isinstance(initial_response, ModelResponse):
         return initial_response
 
     # Extract tool calls from response
-    tool_calls: Final = LiteLLM_Proxy_MCP_Handler._extract_tool_calls_from_chat_response(response=initial_response)
+    tool_calls: Final = EmbRouter_Proxy_MCP_Handler._extract_tool_calls_from_chat_response(response=initial_response)
 
     if not tool_calls:
         _add_mcp_metadata_to_response(
@@ -606,7 +606,7 @@ async def acompletion_with_mcp(
         return initial_response
 
     # Execute tool calls
-    tool_results: Final = await LiteLLM_Proxy_MCP_Handler._execute_tool_calls(
+    tool_results: Final = await EmbRouter_Proxy_MCP_Handler._execute_tool_calls(
         tool_server_map=tool_server_map,
         tool_calls=tool_calls,
         user_api_key_auth=user_api_key_auth,
@@ -614,8 +614,8 @@ async def acompletion_with_mcp(
         mcp_server_auth_headers=mcp_server_auth_headers,
         oauth2_headers=oauth2_headers,
         raw_headers=raw_headers,
-        litellm_call_id=context.litellm_call_id,
-        litellm_trace_id=context.litellm_trace_id,
+        embrouter_call_id=context.embrouter_call_id,
+        embrouter_trace_id=context.embrouter_trace_id,
         request_tags=request_tags,
         guardrail_context=context.guardrail_context,
     )
@@ -629,7 +629,7 @@ async def acompletion_with_mcp(
         return initial_response
 
     # Create follow-up messages with tool results
-    follow_up_messages: Final = LiteLLM_Proxy_MCP_Handler._create_follow_up_messages_for_chat(
+    follow_up_messages: Final = EmbRouter_Proxy_MCP_Handler._create_follow_up_messages_for_chat(
         original_messages=messages,
         response=initial_response,
         tool_results=tool_results,
@@ -640,7 +640,7 @@ async def acompletion_with_mcp(
     follow_up_call_args["messages"] = follow_up_messages
     follow_up_call_args["stream"] = stream
 
-    response = await litellm_acompletion(**follow_up_call_args)
+    response = await embrouter_acompletion(**follow_up_call_args)
     if isinstance(response, (ModelResponse, CustomStreamWrapper)):
         _add_mcp_metadata_to_response(
             response=response,

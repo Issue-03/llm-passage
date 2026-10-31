@@ -1,6 +1,6 @@
 """V2 entrypoint: the FastAPI instrumentation proxy_server mounts at app creation
-(gated by LITELLM_OTEL_V2). The mount logic lives in
-``litellm.integrations.otel.mount``; this exercises both that module's public
+(gated by EMBROUTER_OTEL_V2). The mount logic lives in
+``embrouter.integrations.otel.mount``; this exercises both that module's public
 surface and the server-span + shared-provider behavior it produces.
 """
 
@@ -23,17 +23,17 @@ from opentelemetry.sdk.trace.export.in_memory_span_exporter import (  # noqa: E4
 from opentelemetry import trace  # noqa: E402
 from opentelemetry.trace import SpanKind  # noqa: E402
 
-from litellm.integrations.otel.model.config import (  # noqa: E402
+from embrouter.integrations.otel.model.config import (  # noqa: E402
     OpenTelemetryV2Config,
     is_otel_v2_enabled,
 )
-from litellm.integrations.otel.logger import OpenTelemetryV2  # noqa: E402
-from litellm.integrations.otel.mount import (  # noqa: E402
+from embrouter.integrations.otel.logger import OpenTelemetryV2  # noqa: E402
+from embrouter.integrations.otel.mount import (  # noqa: E402
     PASSTHROUGH_PREFIXES,
     _passthrough_span_name_hook,
     instrument_fastapi_app,
 )
-from litellm.integrations.otel.plumbing.context import (  # noqa: E402
+from embrouter.integrations.otel.plumbing.context import (  # noqa: E402
     request_root_http_route,
     set_request_root_span,
 )
@@ -43,7 +43,7 @@ from litellm.integrations.otel.plumbing.context import (  # noqa: E402
 def _reset_request_root_span():
     """Clear the root-span anchor around every test. Production gets a fresh
     contextvar copy per request task; the test process shares one context."""
-    from litellm.integrations.otel.plumbing import context as _otel_context
+    from embrouter.integrations.otel.plumbing import context as _otel_context
 
     _otel_context._request_root_span.set(None)
     _otel_context._mcp_message_transport_span.set(None)
@@ -93,10 +93,10 @@ def _instrumented_app():
 
 def test_gate_toggles_with_env(monkeypatch):
     """The startup mount is guarded by this flag."""
-    monkeypatch.delenv("LITELLM_OTEL_V2", raising=False)
+    monkeypatch.delenv("EMBROUTER_OTEL_V2", raising=False)
     is_otel_v2_enabled.cache_clear()
     assert is_otel_v2_enabled() is False
-    monkeypatch.setenv("LITELLM_OTEL_V2", "1")
+    monkeypatch.setenv("EMBROUTER_OTEL_V2", "1")
     is_otel_v2_enabled.cache_clear()
     assert is_otel_v2_enabled() is True
 
@@ -152,15 +152,15 @@ def test_llm_span_route_is_read_off_the_server_span(monkeypatch):
     """``request_root_http_route`` answers with the SERVER span's own ``http.route``.
 
     Driven through ``instrument_fastapi_app`` and the same
-    ``create_litellm_proxy_request_started_span`` call the proxy makes per request,
+    ``create_embrouter_proxy_request_started_span`` call the proxy makes per request,
     so breaking either the mount or the anchor capture fails this."""
-    monkeypatch.setenv("LITELLM_OTEL_V2", "1")
+    monkeypatch.setenv("EMBROUTER_OTEL_V2", "1")
     is_otel_v2_enabled.cache_clear()
     app = fastapi.FastAPI()
     seen = {}
 
     def _anchor_then_read(key):
-        logger.create_litellm_proxy_request_started_span(start_time=datetime.now(timezone.utc), headers=None)
+        logger.create_embrouter_proxy_request_started_span(start_time=datetime.now(timezone.utc), headers=None)
         seen[key] = request_root_http_route()
 
     @app.post("/engines/{model:path}/chat/completions")
@@ -234,7 +234,7 @@ def test_known_passthrough_prefixes_present():
 
 def test_instrument_fastapi_app_noop_when_gate_off(monkeypatch):
     """With the gate off the mount is a no-op — no instrumentation attached."""
-    monkeypatch.delenv("LITELLM_OTEL_V2", raising=False)
+    monkeypatch.delenv("EMBROUTER_OTEL_V2", raising=False)
     app = fastapi.FastAPI()
     instrument_fastapi_app(app)
     assert getattr(app, "_is_instrumented_by_opentelemetry", False) is False
@@ -242,7 +242,7 @@ def test_instrument_fastapi_app_noop_when_gate_off(monkeypatch):
 
 def test_instrument_fastapi_app_attaches_when_gate_on(monkeypatch):
     """With the gate on the FastAPI app is instrumented for server spans."""
-    monkeypatch.setenv("LITELLM_OTEL_V2", "1")
+    monkeypatch.setenv("EMBROUTER_OTEL_V2", "1")
     app = fastapi.FastAPI()
 
     @app.get("/ping")

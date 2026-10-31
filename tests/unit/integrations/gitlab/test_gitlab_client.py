@@ -4,7 +4,7 @@ import json
 import pytest
 
 
-from litellm.integrations.gitlab.gitlab_client import GitLabClient
+from embrouter.integrations.gitlab.gitlab_client import GitLabClient
 
 
 # -----------------------------

@@ -6,37 +6,37 @@ from typing import TYPE_CHECKING, Any, Final, cast
 from httpx._models import Headers, Response
 from pydantic import BaseModel
 
-import litellm
-from litellm._uuid import uuid
-from litellm.litellm_core_utils.core_helpers import map_finish_reason
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+import embrouter
+from embrouter._uuid import uuid
+from embrouter.embrouter_core_utils.core_helpers import map_finish_reason
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
     _extract_reasoning_content,
     convert_content_list_to_str,
     extract_images_from_message,
 )
-from litellm.llms.base_llm.base_model_iterator import BaseModelResponseIterator
-from litellm.llms.base_llm.chat.transformation import BaseConfig, BaseLLMException
-from litellm.types.llms.ollama import (
+from embrouter.llms.base_llm.base_model_iterator import BaseModelResponseIterator
+from embrouter.llms.base_llm.chat.transformation import BaseConfig, BaseLLMException
+from embrouter.types.llms.ollama import (
     OllamaChatCompletionMessage,
     OllamaToolCall,
     OllamaToolCallFunction,
 )
-from litellm.types.llms.openai import (
+from embrouter.types.llms.openai import (
     AllMessageValues,
     ChatCompletionAssistantToolCall,
     ChatCompletionUsageBlock,
 )
-from litellm.types.utils import ModelResponse, ModelResponseStream
+from embrouter.types.utils import ModelResponse, ModelResponseStream
 
 from ..common_utils import OllamaError
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 
 class OllamaChatConfig(BaseConfig):
@@ -193,7 +193,7 @@ class OllamaChatConfig(BaseConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
@@ -207,7 +207,7 @@ class OllamaChatConfig(BaseConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         """
@@ -231,7 +231,7 @@ class OllamaChatConfig(BaseConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         stream: Final = optional_params.pop("stream", False)
@@ -239,7 +239,7 @@ class OllamaChatConfig(BaseConfig):
         keep_alive: Final = optional_params.pop("keep_alive", None)
         think: Final = optional_params.pop("think", None)
         function_name: Final = optional_params.pop("function_name", None)
-        litellm_params["function_name"] = function_name
+        embrouter_params["function_name"] = function_name
         tools: Final = optional_params.pop("tools", None)
 
         new_messages: Final = []
@@ -314,11 +314,11 @@ class OllamaChatConfig(BaseConfig):
         model: str,
         raw_response: Response,
         model_response: ModelResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         request_data: dict,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,
@@ -330,7 +330,7 @@ class OllamaChatConfig(BaseConfig):
             original_response=raw_response.text,
             additional_args={
                 "headers": None,
-                "api_base": litellm_params.get("api_base"),
+                "api_base": embrouter_params.get("api_base"),
             },
         )
 
@@ -347,7 +347,7 @@ class OllamaChatConfig(BaseConfig):
                 del response_json_message["thinking"]
             elif response_json_message.get("content") is not None:
                 # parse reasoning content from content
-                from litellm.litellm_core_utils.prompt_templates.common_utils import (
+                from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
                     _parse_content_for_reasoning,
                 )
 
@@ -357,17 +357,17 @@ class OllamaChatConfig(BaseConfig):
 
         if (
             request_data.get("format", "") == "json"
-            and litellm_params.get("function_name") is not None
+            and embrouter_params.get("function_name") is not None
             and response_json_message is not None
         ):
             function_call: Final = json.loads(response_json_message["content"])
-            message: Final = litellm.Message(
+            message: Final = embrouter.Message(
                 content=None,
                 tool_calls=[
                     {
                         "id": f"call_{uuid.uuid4()}",
                         "function": {
-                            "name": function_call.get("name", litellm_params.get("function_name")),
+                            "name": function_call.get("name", embrouter_params.get("function_name")),
                             "arguments": json.dumps(function_call.get("arguments", function_call)),
                         },
                         "type": "function",
@@ -378,22 +378,22 @@ class OllamaChatConfig(BaseConfig):
             model_response.choices[0].message = message
             model_response.choices[0].finish_reason = "tool_calls"
         else:
-            _message: Final = litellm.Message(**response_json_message)
+            _message: Final = embrouter.Message(**response_json_message)
             model_response.choices[0].message = _message
             # Set finish_reason to "tool_calls" when tool_calls are present
             if _message.tool_calls:
                 model_response.choices[0].finish_reason = "tool_calls"
         model_response.created = int(time.time())
         model_response.model = "ollama_chat/" + model
-        prompt_tokens = response_json.get("prompt_eval_count", litellm.token_counter(messages=messages))
+        prompt_tokens = response_json.get("prompt_eval_count", embrouter.token_counter(messages=messages))
         completion_tokens: Final = response_json.get(
             "eval_count",
-            litellm.token_counter(text=response_json["message"]["content"]),
+            embrouter.token_counter(text=response_json["message"]["content"]),
         )
         setattr(
             model_response,
             "usage",
-            litellm.Usage(
+            embrouter.Usage(
                 prompt_tokens=prompt_tokens,
                 completion_tokens=completion_tokens,
                 total_tokens=prompt_tokens + completion_tokens,
@@ -473,7 +473,7 @@ class OllamaChatCompletionResponseIterator(BaseModelResponseIterator):
             - return usage when done is true
 
             """
-            from litellm.types.utils import Delta, StreamingChoices
+            from embrouter.types.utils import Delta, StreamingChoices
 
             # process tool calls - if complete function arg - add id to tool call
             tool_calls: Final = chunk["message"].get("tool_calls")

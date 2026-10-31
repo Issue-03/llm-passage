@@ -21,7 +21,7 @@ const uiConfigResponse = {
 
 const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
   const url = typeof input === "string" ? input : input.toString();
-  if (!url.includes("/litellm/.well-known/litellm-ui-config")) {
+  if (!url.includes("/embrouter/.well-known/embrouter-ui-config")) {
     throw new Error(`unexpected fetch: ${url}`);
   }
   await new Promise((resolve) => setTimeout(resolve, UI_CONFIG_DELAY_MS));

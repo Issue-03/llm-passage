@@ -6,9 +6,9 @@ from typing import Any, Final
 
 import polars as pl
 
-from litellm._logging import verbose_logger
+from embrouter._logging import verbose_logger
 
-from .database import FocusLiteLLMDatabase
+from .database import FocusEmbRouterDatabase
 from .destinations import FocusDestinationFactory, FocusTimeWindow
 from .serializers import FocusCsvSerializer, FocusParquetSerializer, FocusSerializer
 from .transformer import FocusTransformer
@@ -35,7 +35,7 @@ class FocusExportEngine:
         )
         self._serializer = self._init_serializer()
         self._transformer = FocusTransformer()
-        self._database = FocusLiteLLMDatabase()
+        self._database = FocusEmbRouterDatabase()
 
     def _init_serializer(self) -> FocusSerializer:
         if self.export_format == "csv":

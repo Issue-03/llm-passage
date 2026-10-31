@@ -1,5 +1,5 @@
 """
-Main Search function for LiteLLM.
+Main Search function for EmbRouter.
 """
 
 import asyncio
@@ -10,14 +10,14 @@ from typing import Any, Final
 
 import httpx
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.constants import request_timeout
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.base_llm.search.transformation import BaseSearchConfig, SearchResponse
-from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
-from litellm.types.utils import SearchProviders
-from litellm.utils import ProviderConfigManager, client, filter_out_litellm_params
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.constants import request_timeout
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.base_llm.search.transformation import BaseSearchConfig, SearchResponse
+from embrouter.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+from embrouter.types.utils import SearchProviders
+from embrouter.utils import ProviderConfigManager, client, filter_out_embrouter_params
 
 ####### ENVIRONMENT VARIABLES ###################
 base_llm_http_handler = BaseLLMHTTPHandler()
@@ -91,16 +91,16 @@ async def asearch(
 
     Example:
         ```python
-        import litellm
+        import embrouter
 
         # Basic search
-        response = await litellm.asearch(
+        response = await embrouter.asearch(
             query="latest AI developments 2024",
             search_provider="perplexity"
         )
 
         # Search with options
-        response = await litellm.asearch(
+        response = await embrouter.asearch(
             query="AI developments",
             search_provider="perplexity",
             max_results=10,
@@ -150,7 +150,7 @@ async def asearch(
         return response
     except Exception as e:
         model_name: Final = f"{search_provider}/search"
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=model_name,
             custom_llm_provider=search_provider,
             original_exception=e,
@@ -194,16 +194,16 @@ def search(
 
     Example:
         ```python
-        import litellm
+        import embrouter
 
         # Basic search
-        response = litellm.search(
+        response = embrouter.search(
             query="latest AI developments 2024",
             search_provider="perplexity"
         )
 
         # Search with options
-        response = litellm.search(
+        response = embrouter.search(
             query="AI developments",
             search_provider="perplexity",
             max_results=10,
@@ -213,7 +213,7 @@ def search(
         )
 
         # Multi-query search
-        response = litellm.search(
+        response = embrouter.search(
             query=["AI developments", "machine learning trends"],
             search_provider="perplexity"
         )
@@ -228,8 +228,8 @@ def search(
     """
     local_vars: Final = locals()
     try:
-        litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.pop("litellm_logging_obj")
-        litellm_call_id: Final[str | None] = kwargs.get("litellm_call_id", None)
+        embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.pop("embrouter_logging_obj")
+        embrouter_call_id: Final[str | None] = kwargs.get("embrouter_call_id", None)
         _is_async: Final = kwargs.pop("asearch", False) is True
 
         # Validate query parameter
@@ -257,8 +257,8 @@ def search(
             country=country,
         )
 
-        # Filter out internal LiteLLM parameters from kwargs
-        filtered_kwargs: Final = filter_out_litellm_params(kwargs=kwargs)
+        # Filter out internal EmbRouter parameters from kwargs
+        filtered_kwargs: Final = filter_out_embrouter_params(kwargs=kwargs)
 
         # Add remaining kwargs to optional_params (for provider-specific params)
         for key, value in filtered_kwargs.items():
@@ -283,12 +283,12 @@ def search(
 
         # Pre Call logging
         model_name = f"{search_provider}/search"
-        litellm_logging_obj.update_from_kwargs(
+        embrouter_logging_obj.update_from_kwargs(
             kwargs=kwargs,
             model=model_name,
             optional_params=optional_params,
-            litellm_params={
-                "litellm_call_id": litellm_call_id,
+            embrouter_params={
+                "embrouter_call_id": embrouter_call_id,
                 "api_base": complete_url,
             },
             custom_llm_provider=search_provider,
@@ -299,7 +299,7 @@ def search(
             query=query,
             optional_params=optional_params,
             timeout=timeout or request_timeout,
-            logging_obj=litellm_logging_obj,
+            logging_obj=embrouter_logging_obj,
             api_key=api_key,
             api_base=complete_url,
             custom_llm_provider=search_provider,
@@ -311,7 +311,7 @@ def search(
         return response
     except Exception as e:
         model_name = f"{search_provider}/search"
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=model_name,
             custom_llm_provider=search_provider,
             original_exception=e,

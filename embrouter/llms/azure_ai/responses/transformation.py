@@ -2,14 +2,14 @@ from typing import Final
 
 import httpx
 
-from litellm.llms.azure.responses.transformation import AzureOpenAIResponsesAPIConfig
-from litellm.llms.azure_ai.common_utils import (
+from embrouter.llms.azure.responses.transformation import AzureOpenAIResponsesAPIConfig
+from embrouter.llms.azure_ai.common_utils import (
     AzureFoundryModelInfo,
     api_key_header_for_base,
     get_azure_ai_auth_headers,
 )
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import LlmProviders
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import LlmProviders
 
 _PROJECT_PATH_PREFIX: Final = ("api", "projects")
 _RESPONSES_PATH: Final = ("openai", "v1", "responses")
@@ -27,11 +27,11 @@ class AzureAIResponsesAPIConfig(AzureOpenAIResponsesAPIConfig):
     def custom_llm_provider(self) -> LlmProviders:
         return LlmProviders.AZURE_AI
 
-    def validate_environment(self, headers: dict, model: str, litellm_params: GenericLiteLLMParams | None) -> dict:
-        params: Final = litellm_params or GenericLiteLLMParams()
+    def validate_environment(self, headers: dict, model: str, embrouter_params: GenericEmbRouterParams | None) -> dict:
+        params: Final = embrouter_params or GenericEmbRouterParams()
         auth_headers: Final = get_azure_ai_auth_headers(
             api_key=AzureFoundryModelInfo.get_api_key(params.api_key),
-            litellm_params=params.model_dump(),
+            embrouter_params=params.model_dump(),
             api_key_header=api_key_header_for_base(AzureFoundryModelInfo.get_api_base(params.api_base)),
         )
         return {  # mutable-ok: the handler updates the returned headers in place per the dict contract
@@ -43,7 +43,7 @@ class AzureAIResponsesAPIConfig(AzureOpenAIResponsesAPIConfig):
     def supports_native_websocket(self) -> bool:
         return False
 
-    def get_complete_url(self, api_base: str | None, litellm_params: dict) -> str:
+    def get_complete_url(self, api_base: str | None, embrouter_params: dict) -> str:
         resolved_base: Final = AzureFoundryModelInfo.get_api_base(api_base)
         if resolved_base is None:
             raise ValueError(

@@ -3,14 +3,14 @@ from typing import TYPE_CHECKING, Any, Final
 
 import httpx
 
-from litellm.llms.base_llm.vector_store.transformation import (
+from embrouter.llms.base_llm.vector_store.transformation import (
     BaseQueryEmbeddingVectorStoreConfig,
     VectorStoreEmbeddingExecutor,
 )
-from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM
-from litellm.types.rag import RAGIngestEmbeddingOptions
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.vector_stores import (
+from embrouter.llms.bedrock.base_aws_llm import BaseAWSLLM
+from embrouter.types.rag import RAGIngestEmbeddingOptions
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.vector_stores import (
     VECTOR_STORE_OPENAI_PARAMS,
     BaseVectorStoreAuthCredentials,
     VectorStoreIndexEndpoints,
@@ -21,15 +21,15 @@ from litellm.types.vector_stores import (
 )
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 _DEFAULT_QUERY_EMBEDDING_MODEL: Final = "text-embedding-3-small"
 _DEFAULT_TOP_K: Final = 5
 S3_VECTORS_STORE_ID_ERROR: Final = (
     "vector_store_id must be in format 'bucket_name:index_name' for S3 Vectors, "
-    "or vector_bucket_name must be provided in litellm_params"
+    "or vector_bucket_name must be provided in embrouter_params"
 )
 
 
@@ -58,8 +58,8 @@ def s3_vectors_ingest_target(vector_store_config: Mapping[str, object]) -> tuple
     return explicit_bucket_name or derived_bucket_name, explicit_index_name or derived_index_name
 
 
-def s3_vectors_configured_embedding_model(litellm_params: Mapping[str, object]) -> str | None:
-    return _non_empty_str(litellm_params.get("litellm_embedding_model") or litellm_params.get("embedding_model"))
+def s3_vectors_configured_embedding_model(embrouter_params: Mapping[str, object]) -> str | None:
+    return _non_empty_str(embrouter_params.get("embrouter_embedding_model") or embrouter_params.get("embedding_model"))
 
 
 def s3_vectors_ingest_embedding_options(
@@ -80,7 +80,7 @@ class S3VectorsVectorStoreConfig(BaseQueryEmbeddingVectorStoreConfig, BaseAWSLLM
         BaseQueryEmbeddingVectorStoreConfig.__init__(self)
         BaseAWSLLM.__init__(self)
 
-    def get_auth_credentials(self, litellm_params: dict) -> BaseVectorStoreAuthCredentials:
+    def get_auth_credentials(self, embrouter_params: dict) -> BaseVectorStoreAuthCredentials:
         return {}
 
     def get_vector_store_endpoints_by_type(self) -> VectorStoreIndexEndpoints:
@@ -103,22 +103,22 @@ class S3VectorsVectorStoreConfig(BaseQueryEmbeddingVectorStoreConfig, BaseAWSLLM
                 optional_params["maxResults"] = value
         return optional_params
 
-    def validate_environment(self, headers: dict, litellm_params: GenericLiteLLMParams | None) -> dict:
+    def validate_environment(self, headers: dict, embrouter_params: GenericEmbRouterParams | None) -> dict:
         headers = headers or {}
         headers.setdefault("Content-Type", "application/json")
         return headers
 
-    def get_complete_url(self, api_base: str | None, litellm_params: dict) -> str:
-        aws_region_name: Final = self.get_aws_region_name_for_non_llm_api_calls(litellm_params.get("aws_region_name"))
+    def get_complete_url(self, api_base: str | None, embrouter_params: dict) -> str:
+        aws_region_name: Final = self.get_aws_region_name_for_non_llm_api_calls(embrouter_params.get("aws_region_name"))
         return f"https://s3vectors.{aws_region_name}.api.aws"
 
     @staticmethod
-    def query_embedding_model(litellm_params: Mapping[str, object]) -> str:
-        return s3_vectors_configured_embedding_model(litellm_params) or _DEFAULT_QUERY_EMBEDDING_MODEL
+    def query_embedding_model(embrouter_params: Mapping[str, object]) -> str:
+        return s3_vectors_configured_embedding_model(embrouter_params) or _DEFAULT_QUERY_EMBEDDING_MODEL
 
     @staticmethod
-    def _query_target(vector_store_id: str, litellm_params: Mapping[str, object]) -> tuple[str, str]:
-        return split_s3_vectors_store_id(vector_store_id, litellm_params.get("vector_bucket_name"))
+    def _query_target(vector_store_id: str, embrouter_params: Mapping[str, object]) -> tuple[str, str]:
+        return split_s3_vectors_store_id(vector_store_id, embrouter_params.get("vector_bucket_name"))
 
     @staticmethod
     def _query_request(
@@ -128,9 +128,9 @@ class S3VectorsVectorStoreConfig(BaseQueryEmbeddingVectorStoreConfig, BaseAWSLLM
         query_vector: Sequence[float],
         vector_store_search_optional_params: VectorStoreSearchOptionalRequestParams,
         api_base: str,
-        litellm_logging_obj: LiteLLMLoggingObj,
+        embrouter_logging_obj: EmbRouterLoggingObj,
     ) -> tuple[str, dict[str, object]]:
-        litellm_logging_obj.model_call_details["query"] = query_text
+        embrouter_logging_obj.model_call_details["query"] = query_text
         return f"{api_base}/QueryVectors", {
             "vectorBucketName": bucket_name,
             "indexName": index_name,
@@ -146,14 +146,14 @@ class S3VectorsVectorStoreConfig(BaseQueryEmbeddingVectorStoreConfig, BaseAWSLLM
         query: str | Sequence[str],
         vector_store_search_optional_params: VectorStoreSearchOptionalRequestParams,
         api_base: str,
-        litellm_logging_obj: LiteLLMLoggingObj,
-        litellm_params: Mapping[str, object],
+        embrouter_logging_obj: EmbRouterLoggingObj,
+        embrouter_params: Mapping[str, object],
         extra_body: Mapping[str, object] | None = None,
         embedding_executor: VectorStoreEmbeddingExecutor | None = None,
     ) -> tuple[str, dict[str, object]]:
-        bucket_name, index_name = self._query_target(vector_store_id, litellm_params)
+        bucket_name, index_name = self._query_target(vector_store_id, embrouter_params)
         query_text: Final = self.query_text(query)
-        query_vector: Final = self.embed_query(query_text, litellm_params, embedding_executor)
+        query_vector: Final = self.embed_query(query_text, embrouter_params, embedding_executor)
         return self._query_request(
             bucket_name,
             index_name,
@@ -161,7 +161,7 @@ class S3VectorsVectorStoreConfig(BaseQueryEmbeddingVectorStoreConfig, BaseAWSLLM
             query_vector,
             vector_store_search_optional_params,
             api_base,
-            litellm_logging_obj,
+            embrouter_logging_obj,
         )
 
     async def atransform_search_vector_store_request(
@@ -170,14 +170,14 @@ class S3VectorsVectorStoreConfig(BaseQueryEmbeddingVectorStoreConfig, BaseAWSLLM
         query: str | Sequence[str],
         vector_store_search_optional_params: VectorStoreSearchOptionalRequestParams,
         api_base: str,
-        litellm_logging_obj: LiteLLMLoggingObj,
-        litellm_params: Mapping[str, object],
+        embrouter_logging_obj: EmbRouterLoggingObj,
+        embrouter_params: Mapping[str, object],
         extra_body: Mapping[str, object] | None = None,
         embedding_executor: VectorStoreEmbeddingExecutor | None = None,
     ) -> tuple[str, dict[str, object]]:
-        bucket_name, index_name = self._query_target(vector_store_id, litellm_params)
+        bucket_name, index_name = self._query_target(vector_store_id, embrouter_params)
         query_text: Final = self.query_text(query)
-        query_vector: Final = await self.aembed_query(query_text, litellm_params, embedding_executor)
+        query_vector: Final = await self.aembed_query(query_text, embrouter_params, embedding_executor)
         return self._query_request(
             bucket_name,
             index_name,
@@ -185,7 +185,7 @@ class S3VectorsVectorStoreConfig(BaseQueryEmbeddingVectorStoreConfig, BaseAWSLLM
             query_vector,
             vector_store_search_optional_params,
             api_base,
-            litellm_logging_obj,
+            embrouter_logging_obj,
         )
 
     def sign_request(
@@ -206,7 +206,7 @@ class S3VectorsVectorStoreConfig(BaseQueryEmbeddingVectorStoreConfig, BaseAWSLLM
         )
 
     def transform_search_vector_store_response(
-        self, response: httpx.Response, litellm_logging_obj: LiteLLMLoggingObj
+        self, response: httpx.Response, embrouter_logging_obj: EmbRouterLoggingObj
     ) -> VectorStoreSearchResponse:
         try:
             response_data: Final = response.json()
@@ -240,7 +240,7 @@ class S3VectorsVectorStoreConfig(BaseQueryEmbeddingVectorStoreConfig, BaseAWSLLM
 
             return VectorStoreSearchResponse(
                 object="vector_store.search_results.page",
-                search_query=litellm_logging_obj.model_call_details.get("query", ""),
+                search_query=embrouter_logging_obj.model_call_details.get("query", ""),
                 data=results,
             )
         except Exception as e:

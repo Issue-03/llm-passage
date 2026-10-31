@@ -108,7 +108,7 @@ interface ChatUIProps {
   disabledPersonalKeyCreation: boolean;
   proxySettings?: {
     PROXY_BASE_URL?: string;
-    LITELLM_UI_API_DOC_BASE_URL?: string | null;
+    EMBROUTER_UI_API_DOC_BASE_URL?: string | null;
   };
   /** When true, hide configuration sidebar and use fixedModel only (e.g. embedded in Agent Builder). */
   simplified?: boolean;
@@ -917,7 +917,7 @@ const ChatUI: React.FC<ChatUIProps> = ({
 
           const requestProxyBaseUrl =
             simplified && proxySettings
-              ? proxySettings.LITELLM_UI_API_DOC_BASE_URL ?? proxySettings.PROXY_BASE_URL ?? undefined
+              ? proxySettings.EMBROUTER_UI_API_DOC_BASE_URL ?? proxySettings.PROXY_BASE_URL ?? undefined
               : customProxyBaseUrl || undefined;
           await makeOpenAIChatCompletionRequest(
             apiChatHistory,
@@ -1304,15 +1304,15 @@ const ChatUI: React.FC<ChatUIProps> = ({
                     <label className="flex items-center text-sm font-medium text-foreground">
                       <Settings className="mr-2 size-4" aria-hidden="true" /> Custom Proxy Base URL
                     </label>
-                    {proxySettings?.LITELLM_UI_API_DOC_BASE_URL && !customProxyBaseUrl && (
+                    {proxySettings?.EMBROUTER_UI_API_DOC_BASE_URL && !customProxyBaseUrl && (
                       <Button
                         type="button"
                         variant="link"
                         size="xs"
                         className="h-auto p-0 text-muted-foreground hover:text-foreground"
                         onClick={() => {
-                          setCustomProxyBaseUrl(proxySettings.LITELLM_UI_API_DOC_BASE_URL || "");
-                          sessionStorage.setItem("customProxyBaseUrl", proxySettings.LITELLM_UI_API_DOC_BASE_URL || "");
+                          setCustomProxyBaseUrl(proxySettings.EMBROUTER_UI_API_DOC_BASE_URL || "");
+                          sessionStorage.setItem("customProxyBaseUrl", proxySettings.EMBROUTER_UI_API_DOC_BASE_URL || "");
                         }}
                       >
                         <Link2 className="size-3" />

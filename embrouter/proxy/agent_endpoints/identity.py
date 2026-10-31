@@ -4,7 +4,7 @@ from typing import Final
 from fastapi import HTTPException
 
 LEGACY_IDENTITY_MESSAGE: Final = (
-    "litellm_params.identity is not supported: bind an Entra application through the top-level identity field"
+    "embrouter_params.identity is not supported: bind an Entra application through the top-level identity field"
 )
 
 

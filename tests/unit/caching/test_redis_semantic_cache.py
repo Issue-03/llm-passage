@@ -20,7 +20,7 @@ def test_redis_semantic_cache_initialization(monkeypatch):
     # Mock the redisvl import
     semantic_cache_mock = MagicMock()
     with _fake_redisvl_modules(semantic_cache_mock, MagicMock()):
-        from litellm.caching.redis_semantic_cache import RedisSemanticCache
+        from embrouter.caching.redis_semantic_cache import RedisSemanticCache
 
         # Set environment variables
         monkeypatch.setenv("REDIS_HOST", "localhost")
@@ -48,7 +48,7 @@ def test_redis_semantic_cache_get_cache(monkeypatch):
     custom_vectorizer_mock = MagicMock()
 
     with _fake_redisvl_modules(semantic_cache_mock, custom_vectorizer_mock):
-        from litellm.caching.redis_semantic_cache import RedisSemanticCache
+        from embrouter.caching.redis_semantic_cache import RedisSemanticCache
 
         # Set environment variables
         monkeypatch.setenv("REDIS_HOST", "localhost")
@@ -72,7 +72,7 @@ def test_redis_semantic_cache_get_cache(monkeypatch):
         # Mock the embedding function
         with (
             patch(
-                "litellm.embedding",
+                "embrouter.embedding",
                 return_value={"data": [{"embedding": [0.1, 0.2, 0.3]}]},
             ),
             patch.object(
@@ -106,7 +106,7 @@ def test_redis_semantic_cache_rejects_unscoped_cache_hit(monkeypatch):
     custom_vectorizer_mock = MagicMock()
 
     with _fake_redisvl_modules(semantic_cache_mock, custom_vectorizer_mock):
-        from litellm.caching.redis_semantic_cache import RedisSemanticCache
+        from embrouter.caching.redis_semantic_cache import RedisSemanticCache
 
         monkeypatch.setenv("REDIS_HOST", "localhost")
         monkeypatch.setenv("REDIS_PORT", "6379")
@@ -125,7 +125,7 @@ def test_redis_semantic_cache_rejects_unscoped_cache_hit(monkeypatch):
 
         with (
             patch(
-                "litellm.embedding",
+                "embrouter.embedding",
                 return_value={"data": [{"embedding": [0.1, 0.2, 0.3]}]},
             ),
             patch.object(
@@ -150,7 +150,7 @@ def test_redis_semantic_cache_set_cache_stores_cache_key_filter(monkeypatch):
     custom_vectorizer_mock = MagicMock()
 
     with _fake_redisvl_modules(semantic_cache_mock, custom_vectorizer_mock):
-        from litellm.caching.redis_semantic_cache import RedisSemanticCache
+        from embrouter.caching.redis_semantic_cache import RedisSemanticCache
 
         monkeypatch.setenv("REDIS_HOST", "localhost")
         monkeypatch.setenv("REDIS_PORT", "6379")
@@ -160,7 +160,7 @@ def test_redis_semantic_cache_set_cache_stores_cache_key_filter(monkeypatch):
         redis_semantic_cache.llmcache.store = MagicMock()
 
         with patch(
-            "litellm.embedding",
+            "embrouter.embedding",
             return_value={"data": [{"embedding": [0.1, 0.2, 0.3]}]},
         ):
             redis_semantic_cache.set_cache(
@@ -190,7 +190,7 @@ def test_redis_semantic_cache_uses_isolated_index_for_old_schema(monkeypatch):
     custom_vectorizer_mock = MagicMock()
 
     with _fake_redisvl_modules(semantic_cache_mock, custom_vectorizer_mock):
-        from litellm.caching.redis_semantic_cache import RedisSemanticCache
+        from embrouter.caching.redis_semantic_cache import RedisSemanticCache
 
         monkeypatch.setenv("REDIS_HOST", "localhost")
         monkeypatch.setenv("REDIS_PORT", "6379")
@@ -224,7 +224,7 @@ def test_redis_semantic_cache_overwrites_stale_isolated_index(monkeypatch):
     custom_vectorizer_mock = MagicMock()
 
     with _fake_redisvl_modules(semantic_cache_mock, custom_vectorizer_mock):
-        from litellm.caching.redis_semantic_cache import RedisSemanticCache
+        from embrouter.caching.redis_semantic_cache import RedisSemanticCache
 
         monkeypatch.setenv("REDIS_HOST", "localhost")
         monkeypatch.setenv("REDIS_PORT", "6379")
@@ -256,7 +256,7 @@ def test_redis_semantic_cache_reraises_unexpected_isolated_index_error(monkeypat
     custom_vectorizer_mock = MagicMock()
 
     with _fake_redisvl_modules(semantic_cache_mock, custom_vectorizer_mock):
-        from litellm.caching.redis_semantic_cache import RedisSemanticCache
+        from embrouter.caching.redis_semantic_cache import RedisSemanticCache
 
         monkeypatch.setenv("REDIS_HOST", "localhost")
         monkeypatch.setenv("REDIS_PORT", "6379")
@@ -272,7 +272,7 @@ def test_redis_semantic_cache_reraises_unexpected_isolated_index_error(monkeypat
 
 
 def test_redis_semantic_cache_reraises_unexpected_index_error():
-    from litellm.caching.redis_semantic_cache import RedisSemanticCache
+    from embrouter.caching.redis_semantic_cache import RedisSemanticCache
 
     redis_semantic_cache = RedisSemanticCache.__new__(RedisSemanticCache)
     redis_semantic_cache.distance_threshold = 0.2
@@ -288,7 +288,7 @@ def test_redis_semantic_cache_reraises_unexpected_index_error():
 
 
 def test_redis_semantic_cache_matches_bytes_cache_key():
-    from litellm.caching.redis_semantic_cache import RedisSemanticCache
+    from embrouter.caching.redis_semantic_cache import RedisSemanticCache
 
     redis_semantic_cache = RedisSemanticCache.__new__(RedisSemanticCache)
 
@@ -301,7 +301,7 @@ def test_redis_semantic_cache_matches_bytes_cache_key():
 def test_redis_semantic_cache_rejects_pre_isolation_unscoped_hit():
     """Pre-isolation entries with no cache-key field cannot be safely
     reassigned to a caller's scope and are treated as misses."""
-    from litellm.caching.redis_semantic_cache import RedisSemanticCache
+    from embrouter.caching.redis_semantic_cache import RedisSemanticCache
 
     redis_semantic_cache = RedisSemanticCache.__new__(RedisSemanticCache)
 
@@ -325,7 +325,7 @@ def test_redis_semantic_cache_builds_filter_expression(monkeypatch):
             return (self.field_name, value)
 
     monkeypatch.setitem(sys.modules, "redisvl.query.filter", MagicMock(Tag=FakeTag))
-    from litellm.caching.redis_semantic_cache import RedisSemanticCache
+    from embrouter.caching.redis_semantic_cache import RedisSemanticCache
 
     redis_semantic_cache = RedisSemanticCache.__new__(RedisSemanticCache)
 
@@ -342,7 +342,7 @@ async def test_redis_semantic_cache_async_get_cache(monkeypatch):
     custom_vectorizer_mock = MagicMock()
 
     with _fake_redisvl_modules(semantic_cache_mock, custom_vectorizer_mock):
-        from litellm.caching.redis_semantic_cache import RedisSemanticCache
+        from embrouter.caching.redis_semantic_cache import RedisSemanticCache
 
         # Set environment variables
         monkeypatch.setenv("REDIS_HOST", "localhost")
@@ -397,7 +397,7 @@ async def test_redis_semantic_cache_async_get_cache_rejects_unscoped_hit(monkeyp
     custom_vectorizer_mock = MagicMock()
 
     with _fake_redisvl_modules(semantic_cache_mock, custom_vectorizer_mock):
-        from litellm.caching.redis_semantic_cache import RedisSemanticCache
+        from embrouter.caching.redis_semantic_cache import RedisSemanticCache
 
         monkeypatch.setenv("REDIS_HOST", "localhost")
         monkeypatch.setenv("REDIS_PORT", "6379")
@@ -439,7 +439,7 @@ async def test_redis_semantic_cache_async_set_cache_stores_cache_key_filter(
     custom_vectorizer_mock = MagicMock()
 
     with _fake_redisvl_modules(semantic_cache_mock, custom_vectorizer_mock):
-        from litellm.caching.redis_semantic_cache import RedisSemanticCache
+        from embrouter.caching.redis_semantic_cache import RedisSemanticCache
 
         monkeypatch.setenv("REDIS_HOST", "localhost")
         monkeypatch.setenv("REDIS_PORT", "6379")
@@ -468,7 +468,7 @@ async def test_redis_semantic_cache_async_set_cache_stores_cache_key_filter(
 
 
 def test_redis_semantic_cache_set_cache_uses_responses_string_input():
-    from litellm.caching.redis_semantic_cache import RedisSemanticCache
+    from embrouter.caching.redis_semantic_cache import RedisSemanticCache
 
     redis_semantic_cache = RedisSemanticCache.__new__(RedisSemanticCache)
     redis_semantic_cache.llmcache = MagicMock()
@@ -493,7 +493,7 @@ def test_redis_semantic_cache_set_cache_uses_responses_string_input():
 
 
 def test_redis_semantic_cache_get_cache_uses_responses_string_input():
-    from litellm.caching.redis_semantic_cache import RedisSemanticCache
+    from embrouter.caching.redis_semantic_cache import RedisSemanticCache
 
     redis_semantic_cache = RedisSemanticCache.__new__(RedisSemanticCache)
     redis_semantic_cache.similarity_threshold = 0.8
@@ -532,7 +532,7 @@ def test_redis_semantic_cache_get_cache_uses_responses_string_input():
 
 
 def test_redis_semantic_cache_set_cache_flattens_structured_responses_input():
-    from litellm.caching.redis_semantic_cache import RedisSemanticCache
+    from embrouter.caching.redis_semantic_cache import RedisSemanticCache
 
     redis_semantic_cache = RedisSemanticCache.__new__(RedisSemanticCache)
     redis_semantic_cache.llmcache = MagicMock()
@@ -569,7 +569,7 @@ def test_redis_semantic_cache_set_cache_flattens_structured_responses_input():
 
 
 def test_redis_semantic_cache_prompt_extraction_prefers_messages():
-    from litellm.caching.redis_semantic_cache import RedisSemanticCache
+    from embrouter.caching.redis_semantic_cache import RedisSemanticCache
 
     prompt = RedisSemanticCache._get_prompt_from_kwargs(
         messages=[{"content": "message prompt"}],
@@ -580,7 +580,7 @@ def test_redis_semantic_cache_prompt_extraction_prefers_messages():
 
 
 def test_redis_semantic_cache_prompt_extraction_handles_model_objects():
-    from litellm.caching.redis_semantic_cache import RedisSemanticCache
+    from embrouter.caching.redis_semantic_cache import RedisSemanticCache
 
     class ModelDumpInput:
         def model_dump(self):
@@ -603,7 +603,7 @@ def test_redis_semantic_cache_prompt_extraction_handles_model_objects():
 
 
 def test_redis_semantic_cache_prompt_extraction_returns_none_without_text():
-    from litellm.caching.redis_semantic_cache import RedisSemanticCache
+    from embrouter.caching.redis_semantic_cache import RedisSemanticCache
 
     assert RedisSemanticCache._get_prompt_from_kwargs() is None
     assert RedisSemanticCache._get_prompt_from_kwargs(input=None) is None
@@ -617,7 +617,7 @@ def test_redis_semantic_cache_prompt_extraction_returns_none_without_text():
 
 
 def test_redis_semantic_cache_prompt_extraction_skips_blank_dict_text_keys():
-    from litellm.caching.redis_semantic_cache import RedisSemanticCache
+    from embrouter.caching.redis_semantic_cache import RedisSemanticCache
 
     prompt = RedisSemanticCache._get_prompt_from_kwargs(
         input={"text": "   ", "input_text": "fallback prompt"}
@@ -627,7 +627,7 @@ def test_redis_semantic_cache_prompt_extraction_skips_blank_dict_text_keys():
 
 
 def test_redis_semantic_cache_prompt_extraction_skips_blank_object_text_keys():
-    from litellm.caching.redis_semantic_cache import RedisSemanticCache
+    from embrouter.caching.redis_semantic_cache import RedisSemanticCache
 
     class ResponseInput:
         text = "   "
@@ -639,7 +639,7 @@ def test_redis_semantic_cache_prompt_extraction_skips_blank_object_text_keys():
 
 
 def test_redis_semantic_cache_prompt_extraction_handles_object_content():
-    from litellm.caching.redis_semantic_cache import RedisSemanticCache
+    from embrouter.caching.redis_semantic_cache import RedisSemanticCache
 
     class ResponseInput:
         content = [{"text": "object content prompt"}]
@@ -650,7 +650,7 @@ def test_redis_semantic_cache_prompt_extraction_handles_object_content():
 
 
 def test_redis_semantic_cache_set_cache_skips_blank_responses_input():
-    from litellm.caching.redis_semantic_cache import RedisSemanticCache
+    from embrouter.caching.redis_semantic_cache import RedisSemanticCache
 
     redis_semantic_cache = RedisSemanticCache.__new__(RedisSemanticCache)
     redis_semantic_cache.llmcache = MagicMock()
@@ -665,7 +665,7 @@ def test_redis_semantic_cache_set_cache_skips_blank_responses_input():
 
 
 def test_redis_semantic_cache_get_cache_sets_similarity_on_blank_responses_input():
-    from litellm.caching.redis_semantic_cache import RedisSemanticCache
+    from embrouter.caching.redis_semantic_cache import RedisSemanticCache
 
     redis_semantic_cache = RedisSemanticCache.__new__(RedisSemanticCache)
     redis_semantic_cache.llmcache = MagicMock()
@@ -683,7 +683,7 @@ def test_redis_semantic_cache_get_cache_sets_similarity_on_blank_responses_input
 
 
 def test_redis_semantic_cache_get_cache_sets_similarity_when_no_results():
-    from litellm.caching.redis_semantic_cache import RedisSemanticCache
+    from embrouter.caching.redis_semantic_cache import RedisSemanticCache
 
     redis_semantic_cache = RedisSemanticCache.__new__(RedisSemanticCache)
     redis_semantic_cache.llmcache = MagicMock()
@@ -713,7 +713,7 @@ def test_redis_semantic_cache_get_cache_sets_similarity_when_no_results():
 
 @pytest.mark.asyncio
 async def test_redis_semantic_cache_async_paths_use_responses_string_input():
-    from litellm.caching.redis_semantic_cache import RedisSemanticCache
+    from embrouter.caching.redis_semantic_cache import RedisSemanticCache
 
     redis_semantic_cache = RedisSemanticCache.__new__(RedisSemanticCache)
     redis_semantic_cache.similarity_threshold = 0.8
@@ -770,7 +770,7 @@ async def test_redis_semantic_cache_async_paths_use_responses_string_input():
 
 @pytest.mark.asyncio
 async def test_redis_semantic_cache_async_paths_set_similarity_on_misses():
-    from litellm.caching.redis_semantic_cache import RedisSemanticCache
+    from embrouter.caching.redis_semantic_cache import RedisSemanticCache
 
     redis_semantic_cache = RedisSemanticCache.__new__(RedisSemanticCache)
     redis_semantic_cache.llmcache = MagicMock()
@@ -823,7 +823,7 @@ async def test_redis_semantic_cache_async_paths_set_similarity_on_misses():
 def test_redis_get_embedding_routes_through_router(monkeypatch):
     import types
 
-    from litellm.caching.redis_semantic_cache import RedisSemanticCache
+    from embrouter.caching.redis_semantic_cache import RedisSemanticCache
 
     cache = RedisSemanticCache.__new__(RedisSemanticCache)
     cache.embedding_model = "sem-embed"
@@ -831,12 +831,12 @@ def test_redis_get_embedding_routes_through_router(monkeypatch):
     router = MagicMock()
     router.get_configured_token_limits.return_value = (None, None)
     router.embedding = MagicMock(return_value={"data": [{"embedding": [0.5, 0.6]}]})
-    fake_proxy = types.ModuleType("litellm.proxy.proxy_server")
+    fake_proxy = types.ModuleType("embrouter.proxy.proxy_server")
     fake_proxy.llm_router = router
     fake_proxy.llm_model_list = [{"model_name": "sem-embed"}]
-    monkeypatch.setitem(sys.modules, "litellm.proxy.proxy_server", fake_proxy)
+    monkeypatch.setitem(sys.modules, "embrouter.proxy.proxy_server", fake_proxy)
 
-    with patch("litellm.embedding") as direct_embed:
+    with patch("embrouter.embedding") as direct_embed:
         vec = cache._get_embedding("hello", metadata={"user_api_key": "sk-x"})
 
     assert vec == [0.5, 0.6]
@@ -857,18 +857,18 @@ def test_redis_get_embedding_routes_through_router(monkeypatch):
 def test_redis_get_embedding_falls_back_to_direct(monkeypatch):
     import types
 
-    from litellm.caching.redis_semantic_cache import RedisSemanticCache
+    from embrouter.caching.redis_semantic_cache import RedisSemanticCache
 
     cache = RedisSemanticCache.__new__(RedisSemanticCache)
     cache.embedding_model = "text-embedding-ada-002"
 
-    fake_proxy = types.ModuleType("litellm.proxy.proxy_server")
+    fake_proxy = types.ModuleType("embrouter.proxy.proxy_server")
     fake_proxy.llm_router = None
     fake_proxy.llm_model_list = None
-    monkeypatch.setitem(sys.modules, "litellm.proxy.proxy_server", fake_proxy)
+    monkeypatch.setitem(sys.modules, "embrouter.proxy.proxy_server", fake_proxy)
 
     with patch(
-        "litellm.embedding", return_value={"data": [{"embedding": [0.1, 0.2]}]}
+        "embrouter.embedding", return_value={"data": [{"embedding": [0.1, 0.2]}]}
     ) as direct_embed:
         vec = cache._get_embedding("hello")
 
@@ -877,7 +877,7 @@ def test_redis_get_embedding_falls_back_to_direct(monkeypatch):
 
 
 def test_cache_get_cache_passes_responses_input_to_backend_cache():
-    from litellm.caching.caching import Cache
+    from embrouter.caching.caching import Cache
 
     cache = Cache.__new__(Cache)
     cache.cache = MagicMock()
@@ -900,7 +900,7 @@ def test_cache_get_cache_passes_responses_input_to_backend_cache():
 
 
 def test_cache_get_cache_filters_non_lookup_kwargs_from_backend_cache():
-    from litellm.caching.caching import Cache
+    from embrouter.caching.caching import Cache
 
     cache = Cache.__new__(Cache)
     cache.cache = MagicMock()
@@ -947,7 +947,7 @@ def test_cache_get_cache_filters_non_lookup_kwargs_from_backend_cache():
 
 
 def test_cache_get_cache_filters_sensitive_kwargs_without_metadata():
-    from litellm.caching.caching import Cache
+    from embrouter.caching.caching import Cache
 
     cache = Cache.__new__(Cache)
     cache.cache = MagicMock()
@@ -971,7 +971,7 @@ def test_cache_get_cache_filters_sensitive_kwargs_without_metadata():
 
 
 def test_cache_get_cache_passes_responses_input_to_dynamic_cache():
-    from litellm.caching.caching import Cache
+    from embrouter.caching.caching import Cache
 
     cache = Cache.__new__(Cache)
     cache.should_use_cache = MagicMock(return_value=True)
@@ -1001,7 +1001,7 @@ def test_cache_get_cache_passes_responses_input_to_dynamic_cache():
 
 
 def test_redis_sync_set_cache_passes_precomputed_vector():
-    from litellm.caching.redis_semantic_cache import RedisSemanticCache
+    from embrouter.caching.redis_semantic_cache import RedisSemanticCache
 
     cache = RedisSemanticCache.__new__(RedisSemanticCache)
     cache.llmcache = MagicMock()
@@ -1027,7 +1027,7 @@ def test_redis_sync_set_cache_passes_precomputed_vector():
 
 
 def test_redis_sync_get_cache_passes_precomputed_vector():
-    from litellm.caching.redis_semantic_cache import RedisSemanticCache
+    from embrouter.caching.redis_semantic_cache import RedisSemanticCache
 
     cache = RedisSemanticCache.__new__(RedisSemanticCache)
     cache.similarity_threshold = 0.8
@@ -1066,7 +1066,7 @@ def test_redis_sync_get_cache_passes_precomputed_vector():
 async def test_redis_async_embedding_forwards_full_metadata(monkeypatch):
     import types
 
-    from litellm.caching.redis_semantic_cache import RedisSemanticCache
+    from embrouter.caching.redis_semantic_cache import RedisSemanticCache
 
     cache = RedisSemanticCache.__new__(RedisSemanticCache)
     cache.embedding_model = "sem-embed"
@@ -1074,10 +1074,10 @@ async def test_redis_async_embedding_forwards_full_metadata(monkeypatch):
     router = MagicMock()
     router.get_configured_token_limits.return_value = (None, None)
     router.aembedding = AsyncMock(return_value={"data": [{"embedding": [0.1, 0.2]}]})
-    fake_proxy = types.ModuleType("litellm.proxy.proxy_server")
+    fake_proxy = types.ModuleType("embrouter.proxy.proxy_server")
     fake_proxy.llm_router = router
     fake_proxy.llm_model_list = [{"model_name": "sem-embed"}]
-    monkeypatch.setitem(sys.modules, "litellm.proxy.proxy_server", fake_proxy)
+    monkeypatch.setitem(sys.modules, "embrouter.proxy.proxy_server", fake_proxy)
 
     await cache._get_async_embedding(
         "hello",
@@ -1096,20 +1096,20 @@ LONG_PROMPT = " ".join(f"token{i}" for i in range(300))
 def _proxy_with_router(monkeypatch: pytest.MonkeyPatch, router: MagicMock, model_name: str) -> None:
     import types
 
-    fake_proxy = types.ModuleType("litellm.proxy.proxy_server")
+    fake_proxy = types.ModuleType("embrouter.proxy.proxy_server")
     fake_proxy.llm_router = router
     fake_proxy.llm_model_list = [{"model_name": model_name}]
-    monkeypatch.setitem(sys.modules, "litellm.proxy.proxy_server", fake_proxy)
+    monkeypatch.setitem(sys.modules, "embrouter.proxy.proxy_server", fake_proxy)
 
 
 def _token_count(model: str, text: str) -> int:
-    import litellm
+    import embrouter
 
-    return len(litellm.encode(model=model, text=text))
+    return len(embrouter.encode(model=model, text=text))
 
 
 def test_redis_get_embedding_truncates_to_deployment_max_input_tokens(monkeypatch):
-    from litellm.caching.redis_semantic_cache import RedisSemanticCache
+    from embrouter.caching.redis_semantic_cache import RedisSemanticCache
 
     cache = RedisSemanticCache.__new__(RedisSemanticCache)
     cache.embedding_model = "sem-embed"
@@ -1129,7 +1129,7 @@ def test_redis_get_embedding_truncates_to_deployment_max_input_tokens(monkeypatc
 
 @pytest.mark.asyncio
 async def test_redis_async_embedding_explicit_limit_beats_deployment_limit(monkeypatch):
-    from litellm.caching.redis_semantic_cache import RedisSemanticCache
+    from embrouter.caching.redis_semantic_cache import RedisSemanticCache
 
     cache = RedisSemanticCache.__new__(RedisSemanticCache)
     cache.embedding_model = "sem-embed"
@@ -1149,19 +1149,19 @@ async def test_redis_async_embedding_explicit_limit_beats_deployment_limit(monke
 def test_redis_get_embedding_truncates_direct_path_with_explicit_limit(monkeypatch):
     import types
 
-    from litellm.caching.redis_semantic_cache import RedisSemanticCache
+    from embrouter.caching.redis_semantic_cache import RedisSemanticCache
 
     cache = RedisSemanticCache.__new__(RedisSemanticCache)
     cache.embedding_model = "text-embedding-3-small"
     cache.embedding_max_input_tokens = 4
 
-    fake_proxy = types.ModuleType("litellm.proxy.proxy_server")
+    fake_proxy = types.ModuleType("embrouter.proxy.proxy_server")
     fake_proxy.llm_router = None
     fake_proxy.llm_model_list = None
-    monkeypatch.setitem(sys.modules, "litellm.proxy.proxy_server", fake_proxy)
+    monkeypatch.setitem(sys.modules, "embrouter.proxy.proxy_server", fake_proxy)
 
     with patch(
-        "litellm.embedding", return_value={"data": [{"embedding": [0.1, 0.2]}]}
+        "embrouter.embedding", return_value={"data": [{"embedding": [0.1, 0.2]}]}
     ) as direct_embed:
         cache._get_embedding(LONG_PROMPT)
 
@@ -1170,7 +1170,7 @@ def test_redis_get_embedding_truncates_direct_path_with_explicit_limit(monkeypat
 
 
 def test_redis_semantic_cache_init_stores_embedding_max_input_tokens(monkeypatch):
-    from litellm.caching.redis_semantic_cache import RedisSemanticCache
+    from embrouter.caching.redis_semantic_cache import RedisSemanticCache
 
     cache = RedisSemanticCache(
         redis_url="redis://localhost:6379",
@@ -1187,7 +1187,7 @@ def test_redis_init_defers_redisvl_construction(monkeypatch):
     custom_vectorizer_mock = MagicMock()
 
     with _fake_redisvl_modules(semantic_cache_mock, custom_vectorizer_mock):
-        from litellm.caching.redis_semantic_cache import RedisSemanticCache
+        from embrouter.caching.redis_semantic_cache import RedisSemanticCache
 
         monkeypatch.setenv("REDIS_HOST", "localhost")
         monkeypatch.setenv("REDIS_PORT", "6379")
@@ -1215,7 +1215,7 @@ def test_redis_failed_llmcache_build_is_not_memoized(monkeypatch):
     custom_vectorizer_mock = MagicMock()
 
     with _fake_redisvl_modules(semantic_cache_mock, custom_vectorizer_mock):
-        from litellm.caching.redis_semantic_cache import RedisSemanticCache
+        from embrouter.caching.redis_semantic_cache import RedisSemanticCache
 
         monkeypatch.setenv("REDIS_HOST", "localhost")
         monkeypatch.setenv("REDIS_PORT", "6379")
@@ -1231,7 +1231,7 @@ def test_redis_failed_llmcache_build_is_not_memoized(monkeypatch):
 
 
 def test_redis_llmcache_setter_supported():
-    from litellm.caching.redis_semantic_cache import RedisSemanticCache
+    from embrouter.caching.redis_semantic_cache import RedisSemanticCache
 
     cache = RedisSemanticCache.__new__(RedisSemanticCache)
     sentinel = MagicMock()
@@ -1242,7 +1242,7 @@ def test_redis_llmcache_setter_supported():
 def _router_proxy_module(router, model_name):
     import types
 
-    fake_proxy = types.ModuleType("litellm.proxy.proxy_server")
+    fake_proxy = types.ModuleType("embrouter.proxy.proxy_server")
     fake_proxy.llm_router = router
     fake_proxy.llm_model_list = [{"model_name": model_name}]
     return fake_proxy
@@ -1250,7 +1250,7 @@ def _router_proxy_module(router, model_name):
 
 def test_redis_sync_embedding_call_is_bounded(monkeypatch):
 
-    from litellm.caching.redis_semantic_cache import RedisSemanticCache
+    from embrouter.caching.redis_semantic_cache import RedisSemanticCache
 
     cache = RedisSemanticCache.__new__(RedisSemanticCache)
     cache.embedding_model = "sem-embed"
@@ -1261,7 +1261,7 @@ def test_redis_sync_embedding_call_is_bounded(monkeypatch):
     router.embedding = MagicMock(return_value={"data": [{"embedding": [0.5, 0.6]}]})
     monkeypatch.setitem(
         sys.modules,
-        "litellm.proxy.proxy_server",
+        "embrouter.proxy.proxy_server",
         _router_proxy_module(router, "sem-embed"),
     )
 
@@ -1273,7 +1273,7 @@ def test_redis_sync_embedding_call_is_bounded(monkeypatch):
 @pytest.mark.asyncio
 async def test_redis_async_embedding_call_is_bounded(monkeypatch):
 
-    from litellm.caching.redis_semantic_cache import RedisSemanticCache
+    from embrouter.caching.redis_semantic_cache import RedisSemanticCache
 
     cache = RedisSemanticCache.__new__(RedisSemanticCache)
     cache.embedding_model = "sem-embed"
@@ -1284,7 +1284,7 @@ async def test_redis_async_embedding_call_is_bounded(monkeypatch):
     router.aembedding = AsyncMock(return_value={"data": [{"embedding": [0.5, 0.6]}]})
     monkeypatch.setitem(
         sys.modules,
-        "litellm.proxy.proxy_server",
+        "embrouter.proxy.proxy_server",
         _router_proxy_module(router, "sem-embed"),
     )
 
@@ -1298,7 +1298,7 @@ async def test_redis_async_embedding_gives_up_on_unresponsive_endpoint(monkeypat
     import asyncio
     import time
 
-    from litellm.caching.redis_semantic_cache import RedisSemanticCache
+    from embrouter.caching.redis_semantic_cache import RedisSemanticCache
 
     cache = RedisSemanticCache.__new__(RedisSemanticCache)
     cache.embedding_model = "sem-embed"
@@ -1313,7 +1313,7 @@ async def test_redis_async_embedding_gives_up_on_unresponsive_endpoint(monkeypat
     router.aembedding = never_responds
     monkeypatch.setitem(
         sys.modules,
-        "litellm.proxy.proxy_server",
+        "embrouter.proxy.proxy_server",
         _router_proxy_module(router, "sem-embed"),
     )
 
@@ -1328,7 +1328,7 @@ async def test_redis_async_get_cache_fails_open_when_embedding_hangs(monkeypatch
     import asyncio
     import time
 
-    from litellm.caching.redis_semantic_cache import RedisSemanticCache
+    from embrouter.caching.redis_semantic_cache import RedisSemanticCache
 
     cache = RedisSemanticCache.__new__(RedisSemanticCache)
     cache.embedding_model = "sem-embed"
@@ -1346,7 +1346,7 @@ async def test_redis_async_get_cache_fails_open_when_embedding_hangs(monkeypatch
     router.aembedding = never_responds
     monkeypatch.setitem(
         sys.modules,
-        "litellm.proxy.proxy_server",
+        "embrouter.proxy.proxy_server",
         _router_proxy_module(router, "sem-embed"),
     )
 
@@ -1366,12 +1366,12 @@ async def test_redis_async_get_cache_fails_open_when_embedding_hangs(monkeypatch
 
 
 def test_cache_forwards_semantic_cache_embedding_timeout():
-    from litellm.caching.caching import Cache
-    from litellm.types.caching import LiteLLMCacheType
+    from embrouter.caching.caching import Cache
+    from embrouter.types.caching import EmbRouterCacheType
 
-    with patch.object(import_module("litellm.caching.caching"), "RedisSemanticCache") as backend:
+    with patch.object(import_module("embrouter.caching.caching"), "RedisSemanticCache") as backend:
         Cache(
-            type=LiteLLMCacheType.REDIS_SEMANTIC,
+            type=EmbRouterCacheType.REDIS_SEMANTIC,
             similarity_threshold=0.8,
             redis_url="redis://localhost:6379",
             semantic_cache_embedding_timeout=2.5,
@@ -1381,8 +1381,8 @@ def test_cache_forwards_semantic_cache_embedding_timeout():
 
 
 def test_redis_semantic_cache_defaults_embedding_timeout():
-    from litellm.caching.redis_semantic_cache import RedisSemanticCache
-    from litellm.constants import SEMANTIC_CACHE_EMBEDDING_TIMEOUT_SECONDS
+    from embrouter.caching.redis_semantic_cache import RedisSemanticCache
+    from embrouter.constants import SEMANTIC_CACHE_EMBEDDING_TIMEOUT_SECONDS
 
     cache = RedisSemanticCache.__new__(RedisSemanticCache)
     assert cache.embedding_timeout == SEMANTIC_CACHE_EMBEDDING_TIMEOUT_SECONDS
@@ -1392,13 +1392,13 @@ def test_redis_semantic_cache_defaults_embedding_timeout():
 @pytest.mark.asyncio
 async def test_redis_async_embedding_truncates_off_the_event_loop(monkeypatch):
     from tests.large_text import text
-    from tests.unit.litellm_core_utils.event_loop_lag import (
+    from tests.unit.embrouter_core_utils.event_loop_lag import (
         assert_loop_stayed_free,
         timed_with_loop_lags,
         warm_tokenizer,
     )
 
-    from litellm.caching.redis_semantic_cache import RedisSemanticCache
+    from embrouter.caching.redis_semantic_cache import RedisSemanticCache
 
     warm_tokenizer("sem-embed")
     cache = RedisSemanticCache.__new__(RedisSemanticCache)

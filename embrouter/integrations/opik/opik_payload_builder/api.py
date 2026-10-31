@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Any, Final
 
-from litellm.integrations.opik import utils
+from embrouter.integrations.opik import utils
 
 from . import extractors, payload_builders, types
 
@@ -16,17 +16,17 @@ def build_opik_payload(
     project_name: str,
 ) -> tuple[types.TracePayload | None, types.SpanPayload]:
     """
-    Build Opik trace and span payloads from LiteLLM completion data.
+    Build Opik trace and span payloads from EmbRouter completion data.
 
     This is the main public API for creating Opik payloads. It:
-    1. Extracts all necessary data from LiteLLM kwargs and response
+    1. Extracts all necessary data from EmbRouter kwargs and response
     2. Decides whether to create a new trace or attach to existing
     3. Builds trace payload (if new trace)
     4. Builds span payload (always)
 
     Args:
-        kwargs: LiteLLM kwargs containing request metadata and logging data
-        response_obj: LiteLLM response object containing model response
+        kwargs: EmbRouter kwargs containing request metadata and logging data
+        response_obj: EmbRouter response object containing model response
         start_time: Request start time
         end_time: Request end time
         project_name: Default Opik project name
@@ -38,13 +38,13 @@ def build_opik_payload(
     """
     standard_logging_object: Final = kwargs["standard_logging_object"]
 
-    # Extract litellm params and metadata
-    litellm_params: Final = kwargs.get("litellm_params", {}) or {}
-    litellm_metadata: Final = litellm_params.get("metadata", {}) or {}
+    # Extract embrouter params and metadata
+    embrouter_params: Final = kwargs.get("embrouter_params", {}) or {}
+    embrouter_metadata: Final = embrouter_params.get("metadata", {}) or {}
     standard_logging_metadata: Final = standard_logging_object.get("metadata", {}) or {}
 
     # Extract and merge Opik metadata
-    opik_metadata: Final = extractors.extract_opik_metadata(litellm_metadata, standard_logging_metadata)
+    opik_metadata: Final = extractors.extract_opik_metadata(embrouter_metadata, standard_logging_metadata)
 
     # Extract project name
     current_project_name = opik_metadata.get("project_name", project_name)
@@ -58,7 +58,7 @@ def build_opik_payload(
     thread_id = opik_metadata.get("thread_id")
 
     # Apply proxy header overrides
-    proxy_request: Final = litellm_params.get("proxy_server_request", {}) or {}
+    proxy_request: Final = embrouter_params.get("proxy_server_request", {}) or {}
     proxy_headers: Final = proxy_request.get("headers", {}) or {}
     current_project_name, tags, thread_id = extractors.apply_proxy_header_overrides(
         current_project_name, tags, thread_id, proxy_headers
@@ -69,7 +69,7 @@ def build_opik_payload(
         opik_metadata=opik_metadata,
         standard_logging_metadata=standard_logging_metadata,
         standard_logging_object=standard_logging_object,
-        litellm_kwargs=kwargs,
+        embrouter_kwargs=kwargs,
     )
 
     # Get input/output data

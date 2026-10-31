@@ -11,11 +11,11 @@ import json
 import pytest
 import respx
 
-import litellm
-from litellm.llms.anthropic.pass_through.adapters.handler import (
-    LiteLLMMessagesToCompletionTransformationHandler,
+import embrouter
+from embrouter.llms.anthropic.pass_through.adapters.handler import (
+    EmbRouterMessagesToCompletionTransformationHandler,
 )
-from litellm.llms.anthropic.pass_through.adapters.streaming_iterator import (
+from embrouter.llms.anthropic.pass_through.adapters.streaming_iterator import (
     AnthropicStreamWrapper,
 )
 
@@ -35,7 +35,7 @@ CHAT_SSE_BODY = (
 
 
 def _logging_obj(call_id: str):
-    from litellm.litellm_core_utils.litellm_logging import Logging
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging
 
     return Logging(
         model="kimi-k2",
@@ -43,7 +43,7 @@ def _logging_obj(call_id: str):
         stream=True,
         call_type="anthropic_messages",
         start_time=datetime.datetime.now(datetime.timezone.utc),
-        litellm_call_id=call_id,
+        embrouter_call_id=call_id,
         function_id="1234",
     )
 
@@ -58,7 +58,7 @@ def _streamed_message_id(raw_events: list[bytes]) -> str:
 def _intercept_groq(respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("GROQ_API_KEY", "gsk-lit6825-test")
     monkeypatch.setenv("DISABLE_AIOHTTP_TRANSPORT", "True")
-    litellm.in_memory_llm_clients_cache.flush_cache()
+    embrouter.in_memory_llm_clients_cache.flush_cache()
     respx_mock.post(GROQ_CHAT_URL).respond(
         status_code=200,
         headers={"Content-Type": "text/event-stream"},
@@ -70,13 +70,13 @@ def _intercept_groq(respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatc
 async def test_async_streaming_hands_the_logging_object_the_message_id_the_caller_is_streamed():
     logging_obj = _logging_obj("6825beef-0000-4000-8000-000000000010")
 
-    sse = await LiteLLMMessagesToCompletionTransformationHandler.async_anthropic_messages_handler(
+    sse = await EmbRouterMessagesToCompletionTransformationHandler.async_anthropic_messages_handler(
         max_tokens=1024,
         messages=MESSAGES,
         model="groq/kimi-k2",
         stream=True,
         custom_llm_provider="groq",
-        litellm_logging_obj=logging_obj,
+        embrouter_logging_obj=logging_obj,
     )
     streamed_id = _streamed_message_id([chunk async for chunk in sse])
 
@@ -87,13 +87,13 @@ async def test_async_streaming_hands_the_logging_object_the_message_id_the_calle
 def test_sync_streaming_hands_the_logging_object_the_message_id_the_caller_is_streamed():
     logging_obj = _logging_obj("6825beef-0000-4000-8000-000000000011")
 
-    sse = LiteLLMMessagesToCompletionTransformationHandler.anthropic_messages_handler(
+    sse = EmbRouterMessagesToCompletionTransformationHandler.anthropic_messages_handler(
         max_tokens=1024,
         messages=MESSAGES,
         model="groq/kimi-k2",
         stream=True,
         custom_llm_provider="groq",
-        litellm_logging_obj=logging_obj,
+        embrouter_logging_obj=logging_obj,
     )
     streamed_id = _streamed_message_id(list(sse))
 

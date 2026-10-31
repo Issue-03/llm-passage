@@ -10,18 +10,18 @@ from typing import TYPE_CHECKING, Any, Final, Literal, Protocol, TypedDict, cast
 from fastapi import HTTPException
 from typing_extensions import ReadOnly
 
-from litellm._logging import verbose_proxy_logger
-from litellm._uuid import uuid
-from litellm.constants import MCP_PER_USER_TOKEN_EXPIRY_BUFFER_SECONDS
-from litellm.llms.custom_httpx.http_handler import get_async_httpx_client
-from litellm.proxy._experimental.mcp_server.oauth_identity_binding import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter._uuid import uuid
+from embrouter.constants import MCP_PER_USER_TOKEN_EXPIRY_BUFFER_SECONDS
+from embrouter.llms.custom_httpx.http_handler import get_async_httpx_client
+from embrouter.proxy._experimental.mcp_server.oauth_identity_binding import (
     RefreshTokenPresented,
     credential_binding_matches,
     enforce_oauth_identity_binding,
 )
-from litellm.proxy._experimental.mcp_server.oauth_utils import build_upstream_oauth2_token_request
-from litellm.proxy._types import (
-    LiteLLM_MCPServerTable,
+from embrouter.proxy._experimental.mcp_server.oauth_utils import build_upstream_oauth2_token_request
+from embrouter.proxy._types import (
+    EmbRouter_MCPServerTable,
     MCPApprovalStatus,
     MCPEnvVar,
     MCPEnvVarScope,
@@ -30,7 +30,7 @@ from litellm.proxy._types import (
     NewMCPServerRequest,
     UpdateMCPServerRequest,
 )
-from litellm.proxy.common_utils.encrypt_decrypt_utils import (
+from embrouter.proxy.common_utils.encrypt_decrypt_utils import (
     SecretMapDecodeError,
     _get_salt_key,
     decode_secret_map,
@@ -38,33 +38,33 @@ from litellm.proxy.common_utils.encrypt_decrypt_utils import (
     encrypt_secret_map,
     encrypt_value_helper,
 )
-from litellm.proxy.utils import PrismaClient
-from litellm.repositories.object_permission_repository import ObjectPermissionRepository
-from litellm.repositories.prisma_protocols import TableActions
-from litellm.repositories.table_repositories import (
+from embrouter.proxy.utils import PrismaClient
+from embrouter.repositories.object_permission_repository import ObjectPermissionRepository
+from embrouter.repositories.prisma_protocols import TableActions
+from embrouter.repositories.table_repositories import (
     MCPServerOAuthClientRepository,
     MCPServerRepository,
     MCPUserCredentialsRepository,
     PrismaTableRepository,
 )
-from litellm.repositories.team_repository import TeamRepository
-from litellm.repositories.verification_token_repository import (
+from embrouter.repositories.team_repository import TeamRepository
+from embrouter.repositories.verification_token_repository import (
     VerificationTokenRepository,
 )
-from litellm.types.llms.custom_http import httpxSpecialProvider
-from litellm.types.mcp import MCPCredentials
-from litellm.types.mcp_server.mcp_server_manager import PinnedMCPTool
+from embrouter.types.llms.custom_http import httpxSpecialProvider
+from embrouter.types.mcp import MCPCredentials
+from embrouter.types.mcp_server.mcp_server_manager import PinnedMCPTool
 
 if TYPE_CHECKING:
     from prisma import models as prisma_db_models
     from prisma import types as prisma_db_types
 
-    from litellm.types.mcp_server.mcp_server_manager import MCPServer
+    from embrouter.types.mcp_server.mcp_server_manager import MCPServer
 
 
 class _UserEnvVarsTransactionClient(Protocol):
-    litellm_mcpuserenvvars: "TableActions[prisma_db_models.LiteLLM_MCPUserEnvVars]"
-    litellm_mcpservertable: "TableActions[prisma_db_models.LiteLLM_MCPServerTable]"
+    embrouter_mcpuserenvvars: "TableActions[prisma_db_models.EmbRouter_MCPUserEnvVars]"
+    embrouter_mcpservertable: "TableActions[prisma_db_models.EmbRouter_MCPServerTable]"
 
     async def execute_raw(self, query: str, *args: object) -> int: ...
 
@@ -204,7 +204,7 @@ def _encrypt_global_env_var_values(env_vars: Iterable[dict[str, str]]) -> None:
 def decrypt_global_env_var_values(env_vars: Iterable[MCPEnvVar | dict[str, str]] | None) -> None:
     """Decrypt ``scope="global"`` env var values in place after reading the DB.
 
-    Accepts ``MCPEnvVar`` models (``LiteLLM_MCPServerTable``) or plain dicts
+    Accepts ``MCPEnvVar`` models (``EmbRouter_MCPServerTable``) or plain dicts
     (raw rows / deserialized JSON). Global values are always stored encrypted,
     so a value that no longer decrypts (e.g. after a salt-key change) is dropped
     and a warning is logged rather than forwarding the ciphertext into upstream
@@ -229,7 +229,7 @@ def decrypt_global_env_var_values(env_vars: Iterable[MCPEnvVar | dict[str, str]]
         if decrypted is None:
             name = entry.get("name") if is_dict else getattr(entry, "name", None)
             verbose_proxy_logger.warning(
-                "MCP global env var %s failed to decrypt (LITELLM_SALT_KEY "
+                "MCP global env var %s failed to decrypt (EMBROUTER_SALT_KEY "
                 "changed?); dropping it so ciphertext is not sent upstream",
                 name,
             )
@@ -340,7 +340,7 @@ def _prepare_mcp_server_data(
     Returns:
         Dict with properly serialized JSON fields
     """
-    from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
+    from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps
 
     # Convert model to dict.
     # - Partial update (exclude_unset): only caller-provided keys are emitted, so
@@ -478,15 +478,15 @@ def _credentials_blob_to_mutable_dict(blob: str | Mapping[str, object]) -> dict[
 
 def _mcp_server_table_actions(
     prisma_client: PrismaClient,
-) -> "TableActions[prisma_db_models.LiteLLM_MCPServerTable]":
-    table: Final[TableActions[prisma_db_models.LiteLLM_MCPServerTable]] = MCPServerRepository(prisma_client).table
+) -> "TableActions[prisma_db_models.EmbRouter_MCPServerTable]":
+    table: Final[TableActions[prisma_db_models.EmbRouter_MCPServerTable]] = MCPServerRepository(prisma_client).table
     return table
 
 
 def _verification_token_table_actions(
     prisma_client: PrismaClient,
-) -> "TableActions[prisma_db_models.LiteLLM_VerificationToken]":
-    table: Final[TableActions[prisma_db_models.LiteLLM_VerificationToken]] = VerificationTokenRepository(
+) -> "TableActions[prisma_db_models.EmbRouter_VerificationToken]":
+    table: Final[TableActions[prisma_db_models.EmbRouter_VerificationToken]] = VerificationTokenRepository(
         prisma_client
     ).table
     return table
@@ -494,15 +494,15 @@ def _verification_token_table_actions(
 
 def _team_table_actions(
     prisma_client: PrismaClient,
-) -> "TableActions[prisma_db_models.LiteLLM_TeamTable]":
-    table: Final[TableActions[prisma_db_models.LiteLLM_TeamTable]] = TeamRepository(prisma_client).table
+) -> "TableActions[prisma_db_models.EmbRouter_TeamTable]":
+    table: Final[TableActions[prisma_db_models.EmbRouter_TeamTable]] = TeamRepository(prisma_client).table
     return table
 
 
 def _oauth_client_table_actions(
     prisma_client: PrismaClient,
-) -> "TableActions[prisma_db_models.LiteLLM_MCPServerOAuthClient]":
-    table: Final[TableActions[prisma_db_models.LiteLLM_MCPServerOAuthClient]] = MCPServerOAuthClientRepository(
+) -> "TableActions[prisma_db_models.EmbRouter_MCPServerOAuthClient]":
+    table: Final[TableActions[prisma_db_models.EmbRouter_MCPServerOAuthClient]] = MCPServerOAuthClientRepository(
         prisma_client
     ).table
     return table
@@ -513,13 +513,13 @@ def _db_transaction_manager(prisma_client: PrismaClient) -> _UserEnvVarsTransact
     return manager
 
 
-def _identifier_where(value: str, exclude_server_id: str | None) -> "prisma_db_types.LiteLLM_MCPServerTableWhereInput":
+def _identifier_where(value: str, exclude_server_id: str | None) -> "prisma_db_types.EmbRouter_MCPServerTableWhereInput":
     own_row_guard: Final = (
         ({"NOT": [{"server_id": exclude_server_id}]},)  # mutable-ok: prisma where-inputs must be plain dicts
         if exclude_server_id is not None
         else ()
     )
-    where: Final[prisma_db_types.LiteLLM_MCPServerTableWhereInput] = {
+    where: Final[prisma_db_types.EmbRouter_MCPServerTableWhereInput] = {
         "AND": [  # mutable-ok: prisma where-inputs must be plain dicts
             {
                 "OR": [  # mutable-ok: prisma where-inputs must be plain dicts
@@ -542,7 +542,7 @@ def _identifier_field(data_dict: "Mapping[str, object]", field: str) -> str | No
 
 
 async def _find_mcp_server_identifier_conflict(
-    table: "TableActions[prisma_db_models.LiteLLM_MCPServerTable]",
+    table: "TableActions[prisma_db_models.EmbRouter_MCPServerTable]",
     *,
     server_name: str | None,
     alias: str | None,
@@ -605,8 +605,8 @@ async def _mcp_server_write_if_identifier_free(
     server_name: str | None,
     alias: str | None,
     exclude_server_id: str | None,
-    write: "Callable[[TableActions[prisma_db_models.LiteLLM_MCPServerTable]], Awaitable[prisma_db_models.LiteLLM_MCPServerTable | None]]",
-) -> "prisma_db_models.LiteLLM_MCPServerTable | McpIdentifierConflict | None":
+    write: "Callable[[TableActions[prisma_db_models.EmbRouter_MCPServerTable]], Awaitable[prisma_db_models.EmbRouter_MCPServerTable | None]]",
+) -> "prisma_db_models.EmbRouter_MCPServerTable | McpIdentifierConflict | None":
     """Run ``write`` only when no other live row owns ``server_name``/``alias``.
 
     The conflict check and the write share a transaction guarded by per-identifier
@@ -618,35 +618,35 @@ async def _mcp_server_write_if_identifier_free(
         for lock_key in lock_keys:
             await tx.execute_raw("SELECT pg_advisory_xact_lock($1::bigint)", lock_key)
         conflict: Final = await _find_mcp_server_identifier_conflict(
-            tx.litellm_mcpservertable,
+            tx.embrouter_mcpservertable,
             server_name=server_name,
             alias=alias,
             exclude_server_id=exclude_server_id,
         )
         if conflict is not None:
             return conflict
-        return await write(tx.litellm_mcpservertable)
+        return await write(tx.embrouter_mcpservertable)
 
 
 async def _db_find_mcp_server_rows(
     prisma_client: PrismaClient,
-    where: "prisma_db_types.LiteLLM_MCPServerTableWhereInput | None" = None,
-) -> "Sequence[prisma_db_models.LiteLLM_MCPServerTable]":
+    where: "prisma_db_types.EmbRouter_MCPServerTableWhereInput | None" = None,
+) -> "Sequence[prisma_db_models.EmbRouter_MCPServerTable]":
     return await _mcp_server_table_actions(prisma_client).find_many(where=where)
 
 
 async def _db_find_mcp_server_row(
     prisma_client: PrismaClient, server_id: str
-) -> "prisma_db_models.LiteLLM_MCPServerTable | None":
+) -> "prisma_db_models.EmbRouter_MCPServerTable | None":
     return await _mcp_server_table_actions(prisma_client).find_unique(where={"server_id": server_id})
 
 
 async def _db_update_mcp_server_row(
     prisma_client: PrismaClient,
     server_id: str,
-    data: "prisma_db_types.LiteLLM_MCPServerTableUpdateInput",
-) -> "prisma_db_models.LiteLLM_MCPServerTable":
-    row: Final[prisma_db_models.LiteLLM_MCPServerTable | None] = await _mcp_server_table_actions(prisma_client).update(
+    data: "prisma_db_types.EmbRouter_MCPServerTableUpdateInput",
+) -> "prisma_db_models.EmbRouter_MCPServerTable":
+    row: Final[prisma_db_models.EmbRouter_MCPServerTable | None] = await _mcp_server_table_actions(prisma_client).update(
         where={"server_id": server_id},
         data=data,
     )
@@ -657,26 +657,26 @@ async def _db_update_mcp_server_row(
 
 def _user_credential_actions(
     prisma_client: PrismaClient,
-) -> "TableActions[prisma_db_models.LiteLLM_MCPUserCredentials]":
-    table: Final[TableActions[prisma_db_models.LiteLLM_MCPUserCredentials]] = MCPUserCredentialsRepository(
+) -> "TableActions[prisma_db_models.EmbRouter_MCPUserCredentials]":
+    table: Final[TableActions[prisma_db_models.EmbRouter_MCPUserCredentials]] = MCPUserCredentialsRepository(
         prisma_client
     ).table
     return table
 
 
-class _MCPUserEnvVarsRepository(PrismaTableRepository["prisma_db_models.LiteLLM_MCPUserEnvVars"]):
-    table_name = "litellm_mcpuserenvvars"
+class _MCPUserEnvVarsRepository(PrismaTableRepository["prisma_db_models.EmbRouter_MCPUserEnvVars"]):
+    table_name = "embrouter_mcpuserenvvars"
 
 
 def _user_env_var_actions(
     prisma_client: PrismaClient,
-) -> "TableActions[prisma_db_models.LiteLLM_MCPUserEnvVars]":
+) -> "TableActions[prisma_db_models.EmbRouter_MCPUserEnvVars]":
     return _MCPUserEnvVarsRepository(prisma_client).table
 
 
 async def _db_find_user_credential_row(
     prisma_client: PrismaClient, user_id: str, server_id: str
-) -> "prisma_db_models.LiteLLM_MCPUserCredentials | None":
+) -> "prisma_db_models.EmbRouter_MCPUserCredentials | None":
     return await _user_credential_actions(prisma_client).find_unique(
         where={"user_id_server_id": {"user_id": user_id, "server_id": server_id}}
     )
@@ -684,8 +684,8 @@ async def _db_find_user_credential_row(
 
 async def _db_find_user_credential_rows(
     prisma_client: PrismaClient,
-    where: "prisma_db_types.LiteLLM_MCPUserCredentialsWhereInput | None" = None,
-) -> "Sequence[prisma_db_models.LiteLLM_MCPUserCredentials]":
+    where: "prisma_db_types.EmbRouter_MCPUserCredentialsWhereInput | None" = None,
+) -> "Sequence[prisma_db_models.EmbRouter_MCPUserCredentials]":
     return await _user_credential_actions(prisma_client).find_many(where=where)
 
 
@@ -707,8 +707,8 @@ async def _db_upsert_user_credential_row(
 
 async def _db_find_user_env_var_rows(
     prisma_client: PrismaClient,
-    where: "prisma_db_types.LiteLLM_MCPUserEnvVarsWhereInput | None" = None,
-) -> "Sequence[prisma_db_models.LiteLLM_MCPUserEnvVars]":
+    where: "prisma_db_types.EmbRouter_MCPUserEnvVarsWhereInput | None" = None,
+) -> "Sequence[prisma_db_models.EmbRouter_MCPUserEnvVars]":
     return await _user_env_var_actions(prisma_client).find_many(where=where)
 
 
@@ -738,11 +738,11 @@ def decrypt_credentials(
 
 
 def _readable_mcp_servers(
-    rows: Iterable["prisma_db_models.LiteLLM_MCPServerTable"],
-) -> Iterable[LiteLLM_MCPServerTable]:
+    rows: Iterable["prisma_db_models.EmbRouter_MCPServerTable"],
+) -> Iterable[EmbRouter_MCPServerTable]:
     for row in rows:
         try:
-            table = LiteLLM_MCPServerTable.model_validate(row.model_dump())
+            table = EmbRouter_MCPServerTable.model_validate(row.model_dump())
         except SecretMapDecodeError:
             verbose_proxy_logger.warning("Skipping MCP server %s: cannot decrypt secret map", row.server_id)
             continue
@@ -753,7 +753,7 @@ def _readable_mcp_servers(
 async def get_all_mcp_servers(
     prisma_client: PrismaClient,
     approval_status: str | None = None,
-) -> list[LiteLLM_MCPServerTable]:
+) -> list[EmbRouter_MCPServerTable]:
     """
     Returns mcp servers from the db, optionally filtered by approval_status.
     Pass approval_status=None to return every server except drafts, which back the admin OAuth
@@ -761,7 +761,7 @@ async def get_all_mcp_servers(
     NULL approval_status predates the approval workflow, so those rows are kept explicitly rather
     than dropped by a bare inequality, which SQL evaluates as NULL and would silently hide them.
     """
-    where: Final[prisma_db_types.LiteLLM_MCPServerTableWhereInput] = (
+    where: Final[prisma_db_types.EmbRouter_MCPServerTableWhereInput] = (
         {"approval_status": approval_status}
         if approval_status is not None
         else {"OR": [{"approval_status": None}, {"approval_status": {"not": MCPApprovalStatus.draft}}]}
@@ -771,23 +771,23 @@ async def get_all_mcp_servers(
     return list(_readable_mcp_servers(mcp_servers))
 
 
-async def get_mcp_server(prisma_client: PrismaClient, server_id: str) -> LiteLLM_MCPServerTable | None:
+async def get_mcp_server(prisma_client: PrismaClient, server_id: str) -> EmbRouter_MCPServerTable | None:
     """
     Returns the matching mcp server from the db iff exists
     """
     mcp_server: Final = await _db_find_mcp_server_row(prisma_client, server_id)
     if mcp_server is None:
         return None
-    table: Final = LiteLLM_MCPServerTable.model_validate(mcp_server.model_dump())
+    table: Final = EmbRouter_MCPServerTable.model_validate(mcp_server.model_dump())
     decrypt_global_env_var_values(table.env_vars)
     return table
 
 
-async def get_mcp_servers(prisma_client: PrismaClient, server_ids: Iterable[str]) -> list[LiteLLM_MCPServerTable]:
+async def get_mcp_servers(prisma_client: PrismaClient, server_ids: Iterable[str]) -> list[EmbRouter_MCPServerTable]:
     """
     Returns the matching mcp servers from the db with the server_ids
     """
-    _mcp_servers: Final[Sequence[prisma_db_models.LiteLLM_MCPServerTable]] = await _mcp_server_table_actions(
+    _mcp_servers: Final[Sequence[prisma_db_models.EmbRouter_MCPServerTable]] = await _mcp_server_table_actions(
         prisma_client
     ).find_many(
         where={
@@ -802,7 +802,7 @@ async def get_mcp_servers_by_verificationtoken(prisma_client: PrismaClient, toke
     Returns the mcp servers from the db for the verification token
     """
     verification_token_record: (
-        prisma_db_models.LiteLLM_VerificationToken | None
+        prisma_db_models.EmbRouter_VerificationToken | None
     ) = await _verification_token_table_actions(prisma_client).find_unique(
         where={
             "token": token,
@@ -822,7 +822,7 @@ async def get_mcp_servers_by_team(prisma_client: PrismaClient, team_id: str) -> 
     """
     Returns the mcp servers from the db for the team id
     """
-    team_record: prisma_db_models.LiteLLM_TeamTable | None = await _team_table_actions(prisma_client).find_unique(
+    team_record: prisma_db_models.EmbRouter_TeamTable | None = await _team_table_actions(prisma_client).find_unique(
         where={
             "team_id": team_id,
         },
@@ -839,12 +839,12 @@ async def get_mcp_servers_by_team(prisma_client: PrismaClient, team_id: str) -> 
 
 async def get_objectpermissions_for_mcp_server(
     prisma_client: PrismaClient, mcp_server_id: str
-) -> "Sequence[prisma_db_models.LiteLLM_ObjectPermissionTable]":
+) -> "Sequence[prisma_db_models.EmbRouter_ObjectPermissionTable]":
     """
     Get all the object permissions records and the associated team and verficiationtoken records that have access to the mcp server
     """
     object_permission_records: Final[
-        Sequence[prisma_db_models.LiteLLM_ObjectPermissionTable]
+        Sequence[prisma_db_models.EmbRouter_ObjectPermissionTable]
     ] = await ObjectPermissionRepository(prisma_client).table.find_many(
         where={
             "mcp_servers": {"has": mcp_server_id},
@@ -860,12 +860,12 @@ async def get_objectpermissions_for_mcp_server(
 
 async def get_virtualkeys_for_mcp_server(
     prisma_client: PrismaClient, server_id: str
-) -> "Sequence[prisma_db_models.LiteLLM_VerificationToken]":
+) -> "Sequence[prisma_db_models.EmbRouter_VerificationToken]":
     """
     Get all the virtual keys that have access to the mcp server
     """
     virtual_keys: Final[
-        Sequence[prisma_db_models.LiteLLM_VerificationToken] | None
+        Sequence[prisma_db_models.EmbRouter_VerificationToken] | None
     ] = await VerificationTokenRepository(prisma_client).table.find_many(
         where={
             "mcp_servers": {"has": server_id},
@@ -893,7 +893,7 @@ async def delete_mcp_server(
     prisma_client: PrismaClient,
     server_id: str,
     invalidate_token_cache: Callable[[str, str], Awaitable[None]] | None = None,
-) -> LiteLLM_MCPServerTable | None:
+) -> EmbRouter_MCPServerTable | None:
     """
     Delete the mcp server from the db by server_id
 
@@ -920,7 +920,7 @@ async def delete_mcp_server(
     if deleted_server is not None:
         credential_user_ids: list[str] = []
         try:
-            credential_rows: Sequence[prisma_db_models.LiteLLM_MCPUserCredentials] = await _user_credential_actions(
+            credential_rows: Sequence[prisma_db_models.EmbRouter_MCPUserCredentials] = await _user_credential_actions(
                 prisma_client
             ).find_many(where={"server_id": server_id})
             credential_user_ids = [row.user_id for row in credential_rows]
@@ -947,19 +947,19 @@ async def delete_mcp_server(
                 )
         if credential_user_ids:
             if invalidate_token_cache is None:
-                from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+                from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
                     global_mcp_server_manager,
                 )
 
                 invalidate_token_cache = global_mcp_server_manager.invalidate_user_oauth_token_cache
             for user_id in credential_user_ids:
                 await invalidate_token_cache(user_id, server_id)
-    return deleted_server  # pyright: ignore[reportReturnType]  # prisma row, not domain LiteLLM_MCPServerTable
+    return deleted_server  # pyright: ignore[reportReturnType]  # prisma row, not domain EmbRouter_MCPServerTable
 
 
 async def create_mcp_server(
     prisma_client: PrismaClient, data: NewMCPServerRequest, touched_by: str
-) -> LiteLLM_MCPServerTable:
+) -> EmbRouter_MCPServerTable:
     """
     Create a new mcp server record in the db
     """
@@ -976,12 +976,12 @@ async def create_mcp_server(
     new_mcp_server: Final = await MCPServerRepository(prisma_client).table.create(data=data_dict)
 
     _decrypt_env_vars_on_returned_row(new_mcp_server)
-    return LiteLLM_MCPServerTable.model_validate(new_mcp_server.model_dump())
+    return EmbRouter_MCPServerTable.model_validate(new_mcp_server.model_dump())
 
 
 async def create_mcp_server_if_identifier_free(
     prisma_client: PrismaClient, data: NewMCPServerRequest, touched_by: str
-) -> LiteLLM_MCPServerTable | McpIdentifierConflict:
+) -> EmbRouter_MCPServerTable | McpIdentifierConflict:
     """Create the row only when no other live server owns ``server_name``/``alias``.
 
     Returns the McpIdentifierConflict instead of inserting when the collision
@@ -996,8 +996,8 @@ async def create_mcp_server_if_identifier_free(
     data_dict["updated_by"] = touched_by
 
     async def _create(
-        table: "TableActions[prisma_db_models.LiteLLM_MCPServerTable]",
-    ) -> "prisma_db_models.LiteLLM_MCPServerTable | None":
+        table: "TableActions[prisma_db_models.EmbRouter_MCPServerTable]",
+    ) -> "prisma_db_models.EmbRouter_MCPServerTable | None":
         return await table.create(data=data_dict)
 
     written: Final = await _mcp_server_write_if_identifier_free(
@@ -1013,7 +1013,7 @@ async def create_mcp_server_if_identifier_free(
         raise RuntimeError("inserted MCP server row missing")
 
     _decrypt_env_vars_on_returned_row(written)
-    return LiteLLM_MCPServerTable.model_validate(written.model_dump())
+    return EmbRouter_MCPServerTable.model_validate(written.model_dump())
 
 
 async def create_draft_mcp_server(
@@ -1022,7 +1022,7 @@ async def create_draft_mcp_server(
     touched_by: str,
     ttl_seconds: int,
     server_id: str | None = None,
-) -> LiteLLM_MCPServerTable:
+) -> EmbRouter_MCPServerTable:
     """
     Persist a short-lived draft row backing the admin OAuth "Authorize & Fetch Token" flow.
 
@@ -1043,7 +1043,7 @@ async def create_draft_mcp_server(
         # Already usable by every worker, whether it is a live draft for this same session or a
         # real server the edit form is re-authorizing. Either way there is nothing to write, and
         # not writing is what keeps concurrent callers for one server_id from racing each other.
-        return LiteLLM_MCPServerTable.model_validate(existing.model_dump())
+        return EmbRouter_MCPServerTable.model_validate(existing.model_dump())
 
     draft_payload: Final = data.model_copy(update={"server_id": draft_id, "approval_status": MCPApprovalStatus.draft})
     try:
@@ -1055,7 +1055,7 @@ async def create_draft_mcp_server(
         raced: Final = await _db_find_mcp_server_row(prisma_client, draft_id)
         if raced is None or raced.approval_status != MCPApprovalStatus.draft:
             raise
-        return LiteLLM_MCPServerTable.model_validate(raced.model_dump())
+        return EmbRouter_MCPServerTable.model_validate(raced.model_dump())
 
 
 async def _prune_expired_draft_mcp_servers(prisma_client: PrismaClient, ttl_seconds: int) -> None:
@@ -1082,7 +1082,7 @@ async def _prune_expired_draft_mcp_servers(prisma_client: PrismaClient, ttl_seco
 
 async def get_draft_mcp_server(
     prisma_client: PrismaClient, server_id: str, ttl_seconds: int
-) -> LiteLLM_MCPServerTable | None:
+) -> EmbRouter_MCPServerTable | None:
     """
     Return the draft row for ``server_id`` if it has not yet aged past ``ttl_seconds``, else None.
 
@@ -1101,7 +1101,7 @@ async def get_draft_mcp_server(
     if not draft_rows:
         return None
 
-    table: Final = LiteLLM_MCPServerTable.model_validate(draft_rows[0].model_dump())
+    table: Final = EmbRouter_MCPServerTable.model_validate(draft_rows[0].model_dump())
     decrypt_global_env_var_values(table.env_vars)
     return table
 
@@ -1111,12 +1111,12 @@ async def _update_mcp_server_row(
     *,
     server_id: str,
     data_dict: Mapping[str, object],
-) -> "prisma_db_models.LiteLLM_MCPServerTable | McpIdentifierConflict | None":
+) -> "prisma_db_models.EmbRouter_MCPServerTable | McpIdentifierConflict | None":
     identifier_write: Final = any(field in data_dict for field in ("server_name", "alias"))
 
     async def _update(
-        table: "TableActions[prisma_db_models.LiteLLM_MCPServerTable]",
-    ) -> "prisma_db_models.LiteLLM_MCPServerTable | None":
+        table: "TableActions[prisma_db_models.EmbRouter_MCPServerTable]",
+    ) -> "prisma_db_models.EmbRouter_MCPServerTable | None":
         return await table.update(
             where={"server_id": server_id},  # mutable-ok: prisma where-inputs must be plain dicts
             data=data_dict,
@@ -1151,14 +1151,14 @@ async def update_mcp_server(
     data: UpdateMCPServerRequest,
     touched_by: str,
     fields_set: set[str] | None = None,
-) -> LiteLLM_MCPServerTable | McpIdentifierConflict | None:
+) -> EmbRouter_MCPServerTable | McpIdentifierConflict | None:
     """
     Update a new mcp server record in the db
 
     Returns McpIdentifierConflict instead of writing when the update would put
     ``server_name``/``alias`` onto identifiers another live row already owns.
     """
-    from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
+    from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps
 
     # Use helper to prepare data with proper JSON serialization.
     # exclude_unset=True makes this a true partial update: fields the caller did
@@ -1274,16 +1274,16 @@ async def update_mcp_server(
     if isinstance(updated_mcp_server, McpIdentifierConflict):
         return updated_mcp_server
     _decrypt_env_vars_on_returned_row(updated_mcp_server)
-    return LiteLLM_MCPServerTable.model_validate(updated_mcp_server.model_dump()) if updated_mcp_server else None
+    return EmbRouter_MCPServerTable.model_validate(updated_mcp_server.model_dump()) if updated_mcp_server else None
 
 
 async def get_mcp_server_oauth_client_credentials(prisma_client: PrismaClient, server_id: str) -> object | None:
     """Read the persisted (encrypted) DCR OAuth client blob for a server from the
     server-scoped store, or None. Config.yaml-declared servers have no
-    LiteLLM_MCPServerTable row, so their dynamically registered client lives here keyed
+    EmbRouter_MCPServerTable row, so their dynamically registered client lives here keyed
     by server_id. The returned value is the raw credentials blob for
     ``_get_persisted_dcr_credentials`` to parse."""
-    row: Final[prisma_db_models.LiteLLM_MCPServerOAuthClient | None] = await _oauth_client_table_actions(
+    row: Final[prisma_db_models.EmbRouter_MCPServerOAuthClient | None] = await _oauth_client_table_actions(
         prisma_client
     ).find_unique(where={"server_id": server_id})
     if row is None:
@@ -1295,11 +1295,11 @@ async def upsert_mcp_server_oauth_client_credentials(
     prisma_client: PrismaClient, server_id: str, credentials: MCPCredentials
 ) -> None:
     """Persist a server's dynamically registered OAuth client (RFC 7591 DCR) in the
-    server-scoped store keyed by server_id, independent of any LiteLLM_MCPServerTable row.
+    server-scoped store keyed by server_id, independent of any EmbRouter_MCPServerTable row.
     client_id/client_secret are encrypted at rest with the same salt key used for the
     server row's credentials blob, so ``_apply_persisted_dcr_credentials`` decrypts them the
     same way regardless of which store a server's client came from."""
-    from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
+    from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps
 
     encrypted: Final = encrypt_credentials(credentials=MCPCredentials(**credentials), encryption_key=_get_salt_key())
     blob: Final = safe_dumps(encrypted)
@@ -1321,7 +1321,7 @@ def _reencrypt_mcp_credentials_blob(
     uniformly and cannot silently skip one."""
     if not credentials:
         return None
-    from litellm.litellm_core_utils.safe_json_dumps import safe_dumps  # noqa: PLC0415  # avoids circular import
+    from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps  # noqa: PLC0415  # avoids circular import
 
     creds_dict: Final = _credentials_blob_to_mutable_dict(credentials)
     decrypted: Final = decrypt_credentials(credentials=cast(MCPCredentials, creds_dict))
@@ -1330,7 +1330,7 @@ def _reencrypt_mcp_credentials_blob(
 
 
 async def rotate_mcp_server_credentials_master_key(prisma_client: PrismaClient, touched_by: str, new_master_key: str):
-    from litellm.litellm_core_utils.safe_json_dumps import safe_dumps  # noqa: PLC0415  # avoids circular import
+    from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps  # noqa: PLC0415  # avoids circular import
 
     mcp_servers: Final = await _db_find_mcp_server_rows(prisma_client)
 
@@ -1363,7 +1363,7 @@ async def rotate_mcp_server_credentials_master_key(prisma_client: PrismaClient, 
         )
         updated += 1
 
-    oauth_clients: Final[Sequence[prisma_db_models.LiteLLM_MCPServerOAuthClient]] = await _oauth_client_table_actions(
+    oauth_clients: Final[Sequence[prisma_db_models.EmbRouter_MCPServerOAuthClient]] = await _oauth_client_table_actions(
         prisma_client
     ).find_many()
     oauth_updated = 0
@@ -1385,7 +1385,7 @@ async def rotate_mcp_server_credentials_master_key(prisma_client: PrismaClient, 
 
 
 def _decode_user_credential(stored: str) -> str | None:
-    """Read back a value persisted in ``LiteLLM_MCPUserCredentials.credential_b64``.
+    """Read back a value persisted in ``EmbRouter_MCPUserCredentials.credential_b64``.
 
     Tries nacl decryption first (current write format).  Falls back to a
     plain ``urlsafe_b64decode`` for rows persisted by older code that wrote
@@ -1410,7 +1410,7 @@ def _warn_undecryptable_credential(user_id: str, server_id: str) -> None:
     """Log the one credential state that otherwise reads as "user never authorized"."""
     verbose_proxy_logger.warning(
         "MCP user credential for user=%s server=%s could not be decrypted (likely written under a "
-        "previous LITELLM_SALT_KEY); the user is treated as not connected and must re-authorize.",
+        "previous EMBROUTER_SALT_KEY); the user is treated as not connected and must re-authorize.",
         user_id,
         server_id,
     )
@@ -1446,7 +1446,7 @@ def _decode_oauth_payload(stored: str) -> OAuthCredentialPayload | None:
 
 
 async def rotate_mcp_user_credentials_master_key(prisma_client: PrismaClient, new_master_key: str):
-    """Re-encrypt every ``LiteLLM_MCPUserCredentials`` row with ``new_master_key``.
+    """Re-encrypt every ``EmbRouter_MCPUserCredentials`` row with ``new_master_key``.
 
     Reads each ``credential_b64`` with the current salt key (falling back to
     legacy plain base64 for unmigrated rows) and writes it back encrypted
@@ -1486,7 +1486,7 @@ async def rotate_mcp_user_credentials_master_key(prisma_client: PrismaClient, ne
 
 
 async def rotate_mcp_user_env_vars_master_key(prisma_client: PrismaClient, new_master_key: str):
-    """Re-encrypt every ``LiteLLM_MCPUserEnvVars`` row with ``new_master_key``.
+    """Re-encrypt every ``EmbRouter_MCPUserEnvVars`` row with ``new_master_key``.
 
     Reads each ``values_b64`` blob with the current salt key and writes it back
     encrypted under the new master key. Rows that fail to decrypt are logged and
@@ -1622,7 +1622,7 @@ async def store_user_oauth_credential(
         if existing is not None and _parse_oauth_payload(decoded) is None:
             # Refuse only while the row still holds readable content, which is a live BYOK
             # secret that overwriting would destroy.  A row that does not decode was written
-            # under a different LITELLM_SALT_KEY, and one that decodes to nothing holds no
+            # under a different EMBROUTER_SALT_KEY, and one that decodes to nothing holds no
             # secret at all; refusing either preserves nothing and instead wedges the user
             # out of the OAuth flow for good, since re-authorizing is their only recovery.
             if decoded:
@@ -1633,7 +1633,7 @@ async def store_user_oauth_credential(
                 )
             verbose_proxy_logger.warning(
                 "store_user_oauth_credential: existing credential for user=%s server=%s could not be "
-                "decrypted (likely written under a previous LITELLM_SALT_KEY); replacing it with the "
+                "decrypted (likely written under a previous EMBROUTER_SALT_KEY); replacing it with the "
                 "newly authorized OAuth2 token.",
                 user_id,
                 server_id,
@@ -1690,7 +1690,7 @@ async def get_user_oauth_credential(
 
 
 def _server_user_credential_item(
-    row: "prisma_db_models.LiteLLM_MCPUserCredentials",
+    row: "prisma_db_models.EmbRouter_MCPUserCredentials",
 ) -> MCPServerUserCredentialListItem:
     oauth_payload: Final = _decode_oauth_payload(row.credential_b64)
     if oauth_payload is None:
@@ -1802,7 +1802,7 @@ async def purge_user_oauth_credentials_for_server(
     update changes a mint-relevant field (see mcp_oauth_token_identity). Returns the number of rows
     removed.
 
-    LiteLLM_MCPUserCredentials also stores BYOK API keys in the same column; only rows whose payload
+    EmbRouter_MCPUserCredentials also stores BYOK API keys in the same column; only rows whose payload
     decodes as an OAuth2 credential (see _decode_oauth_payload) are deleted, because a config change
     only invalidates minted tokens, never a user's own stored key. Rows are therefore deleted per
     (user_id, server_id) pair rather than by a blanket server_id filter. An OAuth row inserted while
@@ -1820,7 +1820,7 @@ async def purge_user_oauth_credentials_for_server(
         where={"server_id": server_id, "user_id": {"in": [row.user_id for row in oauth_rows]}}
     )
     if invalidate_token_cache is None:
-        from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+        from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
             global_mcp_server_manager,
         )
 
@@ -1913,7 +1913,7 @@ async def refresh_user_oauth_token(
         binding_proof: Final = await enforce_oauth_identity_binding(
             server=server,
             token_response=body,
-            litellm_user_id=user_id,
+            embrouter_user_id=user_id,
             grant_type="refresh_token",
             refresh_ownership=RefreshTokenPresented(refresh_token),
         )
@@ -1995,7 +1995,7 @@ async def resolve_valid_user_oauth_token(
     if grant == "valid":
         return cred
     if prisma_client is None:
-        from litellm.proxy.utils import get_prisma_client_or_throw
+        from embrouter.proxy.utils import get_prisma_client_or_throw
 
         prisma_client = get_prisma_client_or_throw("Database not connected. Cannot refresh OAuth token.")
     refreshed: Final = await refresh_user_oauth_token(
@@ -2027,7 +2027,7 @@ async def resolve_user_oauth_access_token(
     if not user_id or not server_id:
         return None
     try:
-        from litellm.proxy._experimental.mcp_server.oauth2_token_cache import (
+        from embrouter.proxy._experimental.mcp_server.oauth2_token_cache import (
             _compute_per_user_token_ttl,
             mcp_per_user_token_cache,
         )
@@ -2051,7 +2051,7 @@ async def resolve_user_oauth_access_token(
         if prefetched_creds is not None:
             cred = prefetched_creds.get(server_id)
         else:
-            from litellm.proxy.utils import get_prisma_client_or_throw
+            from embrouter.proxy.utils import get_prisma_client_or_throw
 
             prisma_client = get_prisma_client_or_throw(
                 "Database not connected. Connect a database to use OAuth2 MCP tools."
@@ -2126,7 +2126,7 @@ async def approve_mcp_server(
     prisma_client: PrismaClient,
     server_id: str,
     touched_by: str,
-) -> LiteLLM_MCPServerTable:
+) -> EmbRouter_MCPServerTable:
     """Set approval_status=active and record reviewed_at."""
     now: Final = datetime.now(timezone.utc)
     updated: Final = await _db_update_mcp_server_row(
@@ -2138,7 +2138,7 @@ async def approve_mcp_server(
             "updated_by": touched_by,
         },
     )
-    table: Final = LiteLLM_MCPServerTable.model_validate(updated.model_dump())
+    table: Final = EmbRouter_MCPServerTable.model_validate(updated.model_dump())
     decrypt_global_env_var_values(table.env_vars)
     return table
 
@@ -2148,9 +2148,9 @@ async def set_mcp_server_pinned_tools(
     server_id: str,
     pinned_tools: Mapping[str, PinnedMCPTool] | None,
     touched_by: str,
-) -> LiteLLM_MCPServerTable | None:
+) -> EmbRouter_MCPServerTable | None:
     """Replace the server's pinned catalog; ``None`` unpins. Only this write path sets the pin."""
-    from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
+    from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps
 
     if await _db_find_mcp_server_row(prisma_client, server_id) is None:
         return None
@@ -2160,7 +2160,7 @@ async def set_mcp_server_pinned_tools(
         server_id,
         {"pinned_tools": safe_dumps(snapshot), "updated_by": touched_by},
     )
-    table: Final = LiteLLM_MCPServerTable.model_validate(updated.model_dump())
+    table: Final = EmbRouter_MCPServerTable.model_validate(updated.model_dump())
     decrypt_global_env_var_values(table.env_vars)
     return table
 
@@ -2170,10 +2170,10 @@ async def reject_mcp_server(
     server_id: str,
     touched_by: str,
     review_notes: str | None = None,
-) -> LiteLLM_MCPServerTable:
+) -> EmbRouter_MCPServerTable:
     """Set approval_status=rejected, record reviewed_at and review_notes."""
     now: Final = datetime.now(timezone.utc)
-    data: Final[prisma_db_types.LiteLLM_MCPServerTableUpdateInput] = {
+    data: Final[prisma_db_types.EmbRouter_MCPServerTableUpdateInput] = {
         "approval_status": MCPApprovalStatus.rejected,
         "reviewed_at": now,
         "updated_by": touched_by,
@@ -2181,7 +2181,7 @@ async def reject_mcp_server(
     if review_notes is not None:
         data["review_notes"] = review_notes
     updated: Final = await _db_update_mcp_server_row(prisma_client, server_id, data)
-    table: Final = LiteLLM_MCPServerTable.model_validate(updated.model_dump())
+    table: Final = EmbRouter_MCPServerTable.model_validate(updated.model_dump())
     decrypt_global_env_var_values(table.env_vars)
     return table
 
@@ -2194,7 +2194,7 @@ async def get_mcp_submissions(
     along with a summary count breakdown by approval_status.
     Mirrors get_guardrail_submissions() from guardrail_endpoints.py.
     """
-    rows: Final[Sequence[prisma_db_models.LiteLLM_MCPServerTable]] = await _mcp_server_table_actions(
+    rows: Final[Sequence[prisma_db_models.EmbRouter_MCPServerTable]] = await _mcp_server_table_actions(
         prisma_client
     ).find_many(
         where={"submitted_at": {"not": None}},
@@ -2230,7 +2230,7 @@ def _decode_user_env_vars(stored: str) -> dict[str, str]:
     if decrypted is None:
         if stored:
             verbose_proxy_logger.warning(
-                "MCP per-user env vars failed to decrypt (LITELLM_SALT_KEY "
+                "MCP per-user env vars failed to decrypt (EMBROUTER_SALT_KEY "
                 "changed?); treating as unset so the user is prompted to "
                 "re-enter them rather than silently forwarding ciphertext"
             )
@@ -2298,13 +2298,13 @@ async def merge_user_env_vars(
     )
     async with _db_transaction_manager(prisma_client) as tx:
         await tx.execute_raw("SELECT pg_advisory_xact_lock($1::bigint)", lock_key)
-        row: Final[prisma_db_models.LiteLLM_MCPUserEnvVars | None] = await tx.litellm_mcpuserenvvars.find_unique(
+        row: Final[prisma_db_models.EmbRouter_MCPUserEnvVars | None] = await tx.embrouter_mcpuserenvvars.find_unique(
             where={"user_id_server_id": {"user_id": user_id, "server_id": server_id}}
         )
         existing: Final = _decode_user_env_vars(row.values_b64) if row is not None else {}
         merged: Final = {k: v for k, v in {**existing, **updates}.items() if k in allowed}
         encoded: Final = encrypt_value_helper(json.dumps(merged))
-        await tx.litellm_mcpuserenvvars.upsert(
+        await tx.embrouter_mcpuserenvvars.upsert(
             where={"user_id_server_id": {"user_id": user_id, "server_id": server_id}},
             data={
                 "create": {

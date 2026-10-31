@@ -1,4 +1,4 @@
-"""HTTP client for making requests to the LiteLLM proxy server."""
+"""HTTP client for making requests to the EmbRouter proxy server."""
 
 from collections.abc import Mapping
 from typing import Any, Final
@@ -7,13 +7,13 @@ import requests
 
 
 class HTTPClient:
-    """HTTP client for making requests to the LiteLLM proxy server."""
+    """HTTP client for making requests to the EmbRouter proxy server."""
 
     def __init__(self, base_url: str, api_key: str | None = None, timeout: int = 30):
         """Initialize the HTTP client.
 
         Args:
-            base_url: Base URL of the LiteLLM proxy server
+            base_url: Base URL of the EmbRouter proxy server
             api_key: Optional API key for authentication
             timeout: Request timeout in seconds (default: 30)
         """
@@ -31,9 +31,9 @@ class HTTPClient:
         headers: dict[str, str] | None = None,
         **kwargs: Any,
     ) -> Any:
-        """Make an HTTP request to the LiteLLM proxy server.
+        """Make an HTTP request to the EmbRouter proxy server.
 
-        This method is used to make generic requests to the LiteLLM proxy
+        This method is used to make generic requests to the EmbRouter proxy
         server, when there is not a specific client or method for the request.
 
         Args:
@@ -55,19 +55,19 @@ class HTTPClient:
 
         Example:
             >>> client.http.request("POST", "/health/test_connection", json={
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-4",
                     "custom_llm_provider": "azure_ai",
-                    "litellm_credential_name": None,
+                    "embrouter_credential_name": None,
                     "api_key": "6xxxxxxx",
-                    "api_base": "https://litellm8397336933.openai.azure.com/openai/deployments/gpt-4o/chat/completions?api-version=2024-10-21",
+                    "api_base": "https://embrouter8397336933.openai.azure.com/openai/deployments/gpt-4o/chat/completions?api-version=2024-10-21",
                 },
                 "mode": "chat",
             })
             {'status': 'error',
              'result': {'model': 'gpt-4',
              'custom_llm_provider': 'azure_ai',
-             'litellm_credential_name': None,
+             'embrouter_credential_name': None,
              ...
         """
         # Build complete URL

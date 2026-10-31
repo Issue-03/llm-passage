@@ -20,18 +20,18 @@ from importlib import import_module
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import litellm
-from litellm import main as litellm_main
-from litellm.constants import CONTROL_OPTIONS_KEY
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.integrations.custom_prompt_management import CustomPromptManagement
-from litellm.litellm_core_utils.core_helpers import get_litellm_metadata_from_kwargs
-from litellm.litellm_core_utils.get_litellm_params import stored_control_options
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLogging
-from litellm.types.litellm_params import ControlOptions
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.prompts.init_prompts import PromptSpec
-from litellm.types.utils import Delta, ModelResponseStream, StandardCallbackDynamicParams, StreamingChoices, Usage
+import embrouter
+from embrouter import main as embrouter_main
+from embrouter.constants import CONTROL_OPTIONS_KEY
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.integrations.custom_prompt_management import CustomPromptManagement
+from embrouter.embrouter_core_utils.core_helpers import get_embrouter_metadata_from_kwargs
+from embrouter.embrouter_core_utils.get_embrouter_params import stored_control_options
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLogging
+from embrouter.types.embrouter_params import ControlOptions
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.prompts.init_prompts import PromptSpec
+from embrouter.types.utils import Delta, ModelResponseStream, StandardCallbackDynamicParams, StreamingChoices, Usage
 
 
 @pytest.fixture(autouse=True)
@@ -40,7 +40,7 @@ def clear_client_cache():
     Clear the HTTP client cache before each test to ensure mocks are used.
     This prevents cached real clients from being reused across tests.
     """
-    cache = getattr(litellm, "in_memory_llm_clients_cache", None)
+    cache = getattr(embrouter, "in_memory_llm_clients_cache", None)
     if cache is not None:
         cache.flush_cache()
     yield
@@ -110,7 +110,7 @@ def openai_api_response():
 def test_completion_missing_role(openai_api_response):
     from openai import OpenAI
 
-    from litellm.types.utils import ModelResponse
+    from embrouter.types.utils import ModelResponse
 
     client = OpenAI(api_key="test_api_key")
 
@@ -128,7 +128,7 @@ def test_completion_missing_role(openai_api_response):
     with patch.object(
         client.chat.completions.with_raw_response, "create", MagicMock(return_value=mock_raw_response)
     ) as mock_create:
-        litellm.completion(
+        embrouter.completion(
             model="gpt-4o-mini",
             messages=[
                 {"role": "user", "content": "Hey"},
@@ -177,7 +177,7 @@ def test_completion_missing_role(openai_api_response):
 async def test_url_with_format_param_openai(model, sync_mode):
     from openai import AsyncOpenAI, OpenAI
 
-    from litellm import acompletion, completion
+    from embrouter import acompletion, completion
 
     if sync_mode:
         client = OpenAI()
@@ -235,8 +235,8 @@ async def test_url_with_format_param_openai(model, sync_mode):
 @pytest.mark.parametrize("sync_mode", [True, False])
 @pytest.mark.asyncio
 async def test_url_with_format_param(model, sync_mode, monkeypatch):
-    from litellm import acompletion, completion
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+    from embrouter import acompletion, completion
+    from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
 
     if sync_mode:
         client = HTTPHandler()
@@ -267,9 +267,9 @@ async def test_url_with_format_param(model, sync_mode, monkeypatch):
     }
     if model.startswith("gemini/"):
         args["api_key"] = "test-api-key"
-    monkeypatch.setattr(litellm, "user_url_validation", False)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "module_level_aclient", AsyncHTTPHandler(transport=httpx.AsyncHTTPTransport()))
+    monkeypatch.setattr(embrouter, "user_url_validation", False)
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(embrouter, "module_level_aclient", AsyncHTTPHandler(transport=httpx.AsyncHTTPTransport()))
     with (
         respx.mock(assert_all_called=False) as image_host,
         patch.object(client, "post", new=MagicMock()) as mock_client,
@@ -320,12 +320,12 @@ async def test_url_with_format_param(model, sync_mode, monkeypatch):
 
 
 def test_bedrock_latency_optimized_inference():
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+    from embrouter.llms.custom_httpx.http_handler import HTTPHandler
 
     client = HTTPHandler()
     with patch.object(client, "post") as mock_post:
         try:
-            response = litellm.completion(
+            response = embrouter.completion(
                 model="bedrock/us.anthropic.claude-haiku-4-5-20251001-v1:0",
                 messages=[{"role": "user", "content": "Hello, how are you?"}],
                 performanceConfig={"latency": "optimized"},
@@ -355,7 +355,7 @@ def test_bedrock_latency_optimized_inference():
     ],
 )
 def test_is_claude_tool_target(custom_llm_provider: str, model: str, expected: bool):
-    assert litellm_main._is_claude_tool_target(custom_llm_provider=custom_llm_provider, model=model) is expected
+    assert embrouter_main._is_claude_tool_target(custom_llm_provider=custom_llm_provider, model=model) is expected
 
 
 @pytest.mark.parametrize("key", ["input_examples", "eager_input_streaming"])
@@ -365,7 +365,7 @@ def test_drop_anthropic_only_tool_keys_strips_tool_and_function_levels(key: str)
         "opaque_tool",
     ]
 
-    cleaned = litellm_main._drop_anthropic_only_tool_keys(tools=tools)
+    cleaned = embrouter_main._drop_anthropic_only_tool_keys(tools=tools)
 
     assert cleaned == [
         {"type": "function", "name": "example_tool", "function": {"name": "example_tool"}},
@@ -381,7 +381,7 @@ def test_completion_strips_eager_input_streaming_before_openai(respx_mock: respx
         return_value=httpx.Response(status_code=200, json=openai_api_response)
     )
 
-    litellm.completion(
+    embrouter.completion(
         model="openai/gpt-5.6",
         messages=[{"role": "user", "content": "Write the file"}],
         tools=[
@@ -415,26 +415,26 @@ def test_embedding_keeps_an_internal_prefixed_kwarg_out_of_the_provider_request(
         )
     )
 
-    litellm.embedding(
+    embrouter.embedding(
         model="openai/text-embedding-3-small",
         input="hi",
         api_base=api_base,
         api_key="fake_openai_api_key",
-        _litellm_undeclared_sentinel="internal",
+        _embrouter_undeclared_sentinel="internal",
     )
 
     assert mock_route.called
     sent: Final = json.loads(respx_mock.calls[0].request.content)
-    assert "_litellm_undeclared_sentinel" not in sent, sent
+    assert "_embrouter_undeclared_sentinel" not in sent, sent
     assert sent["model"] == "text-embedding-3-small"
 
 
 def test_custom_provider_with_extra_headers():
 
     with patch.object(
-        litellm.llms.custom_httpx.http_handler.HTTPHandler, "post"
+        embrouter.llms.custom_httpx.http_handler.HTTPHandler, "post"
     ) as mock_post:
-        response = litellm.completion(
+        response = embrouter.completion(
             model="custom/custom",
             messages=[{"role": "user", "content": "Hello, how are you?"}],
             headers={"X-Custom-Header": "custom-value"},
@@ -448,9 +448,9 @@ def test_custom_provider_with_extra_headers():
 def test_custom_provider_with_extra_body():
 
     with patch.object(
-        litellm.llms.custom_httpx.http_handler.HTTPHandler, "post"
+        embrouter.llms.custom_httpx.http_handler.HTTPHandler, "post"
     ) as mock_post:
-        response = litellm.completion(
+        response = embrouter.completion(
             model="custom/custom",
             messages=[{"role": "user", "content": "Hello, how are you?"}],
             extra_body={
@@ -477,9 +477,9 @@ def test_custom_provider_with_extra_body():
 
     # test that extra_body is not passed if not provided
     with patch.object(
-        litellm.llms.custom_httpx.http_handler.HTTPHandler, "post"
+        embrouter.llms.custom_httpx.http_handler.HTTPHandler, "post"
     ) as mock_post:
-        response = litellm.completion(
+        response = embrouter.completion(
             model="custom/custom",
             messages=[{"role": "user", "content": "Hello, how are you?"}],
             api_base="https://example.com/api/v1",
@@ -519,15 +519,15 @@ async def test_extra_body_with_fallback(
     """
 
     # Save original state to restore after test
-    original_disable_aiohttp = litellm.disable_aiohttp_transport
+    original_disable_aiohttp = embrouter.disable_aiohttp_transport
 
     try:
         # since this uses respx, we need to set use_aiohttp_transport to False
         # Set both the global variable and environment variable to ensure it takes effect
-        litellm.disable_aiohttp_transport = True
+        embrouter.disable_aiohttp_transport = True
         monkeypatch.setenv("DISABLE_AIOHTTP_TRANSPORT", "True")
         # Flush cache to ensure no stale aiohttp clients are used
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        embrouter.in_memory_llm_clients_cache.flush_cache()
 
         # Set up test parameters
         model = "openrouter/deepseek/deepseek-chat"
@@ -569,7 +569,7 @@ async def test_extra_body_with_fallback(
             },
         )
 
-        response = await litellm.acompletion(
+        response = await embrouter.acompletion(
             model=model,
             messages=messages,
             extra_body=extra_body,
@@ -598,8 +598,8 @@ async def test_extra_body_with_fallback(
         assert request_body["provider"]["require_parameters"] is True
     finally:
         # Restore original state to prevent test pollution
-        litellm.disable_aiohttp_transport = original_disable_aiohttp
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        embrouter.disable_aiohttp_transport = original_disable_aiohttp
+        embrouter.in_memory_llm_clients_cache.flush_cache()
 
 
 @pytest.mark.parametrize("env_base", ["OPENAI_BASE_URL", "OPENAI_API_BASE"])
@@ -610,7 +610,7 @@ async def test_openai_env_base(
 ):
     "This tests OpenAI env variables are honored, including legacy OPENAI_API_BASE"
     # Ensure aiohttp transport is disabled to use httpx which respx can mock
-    litellm.disable_aiohttp_transport = True
+    embrouter.disable_aiohttp_transport = True
 
     expected_base_url = "http://localhost:12345/v1"
 
@@ -652,7 +652,7 @@ async def test_openai_env_base(
     )
 
     try:
-        response = await litellm.acompletion(model=model, messages=messages)
+        response = await embrouter.acompletion(model=model, messages=messages)
 
         # verify we had a response
         assert response.choices[0].message.content == "Hello from mocked response!"
@@ -663,7 +663,7 @@ async def test_openai_env_base(
         ), "Mock route was not called - request may have bypassed respx"
     finally:
         # Clean up to avoid affecting other tests
-        litellm.disable_aiohttp_transport = False
+        embrouter.disable_aiohttp_transport = False
 
 
 def build_database_url(username, password, host, dbname):
@@ -679,9 +679,9 @@ def test_build_database_url():
 
 
 def test_bedrock_llama():
-    litellm._turn_on_debug()
-    from litellm.types.utils import CallTypes
-    from litellm.utils import return_raw_request
+    embrouter._turn_on_debug()
+    from embrouter.types.utils import CallTypes
+    from embrouter.utils import return_raw_request
 
     model = "bedrock/invoke/us.meta.llama4-scout-17b-instruct-v1:0"
 
@@ -736,8 +736,8 @@ def test_return_raw_request_does_not_call_provider(respx_mock: respx.MockRouter)
     provider rejecting it, which sent an unintended inference request and (in the async proxy
     route) blocked the event loop on provider I/O.
     """
-    from litellm.types.utils import CallTypes
-    from litellm.utils import return_raw_request
+    from embrouter.types.utils import CallTypes
+    from embrouter.utils import return_raw_request
 
     model = "gpt-4o"
     route = respx_mock.post("https://api.openai.com/v1/chat/completions").mock(
@@ -763,15 +763,15 @@ def test_return_raw_request_does_not_call_provider(respx_mock: respx.MockRouter)
 def test_return_raw_request_ignores_turn_off_message_logging(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ):
-    from litellm.types.utils import CallTypes
-    from litellm.utils import return_raw_request
+    from embrouter.types.utils import CallTypes
+    from embrouter.utils import return_raw_request
 
     model: Final = "gpt-4o"
     messages: Final = [{"role": "user", "content": "PRIVATE-PHRASE"}]
     route: Final = respx_mock.post("https://api.openai.com/v1/chat/completions").mock(
         return_value=_mocked_openai_chat_response(model)
     )
-    monkeypatch.setattr(litellm, "turn_off_message_logging", True)
+    monkeypatch.setattr(embrouter, "turn_off_message_logging", True)
 
     request: Final = return_raw_request(
         endpoint=CallTypes.completion,
@@ -785,8 +785,8 @@ def test_return_raw_request_ignores_turn_off_message_logging(
 
 def test_completion_forwards_verbosity_in_raw_request(respx_mock: respx.MockRouter):
     """Regression test: completion() must forward the verbosity param to the provider request body."""
-    from litellm.types.utils import CallTypes
-    from litellm.utils import return_raw_request
+    from embrouter.types.utils import CallTypes
+    from embrouter.utils import return_raw_request
 
     model = "gpt-5.2"
     messages = [{"role": "user", "content": "hi"}]
@@ -813,11 +813,11 @@ async def test_acompletion_forwards_verbosity_to_provider_request(
     respx_mock: respx.MockRouter, monkeypatch
 ):
     """Regression test: acompletion() must forward the verbosity param to the provider request body."""
-    original_disable_aiohttp = litellm.disable_aiohttp_transport
+    original_disable_aiohttp = embrouter.disable_aiohttp_transport
     try:
-        litellm.disable_aiohttp_transport = True
+        embrouter.disable_aiohttp_transport = True
         monkeypatch.setenv("DISABLE_AIOHTTP_TRANSPORT", "True")
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        embrouter.in_memory_llm_clients_cache.flush_cache()
 
         model = "gpt-5.2"
         messages = [{"role": "user", "content": "hi"}]
@@ -825,7 +825,7 @@ async def test_acompletion_forwards_verbosity_to_provider_request(
             return_value=_mocked_openai_chat_response(model)
         )
 
-        response = await litellm.acompletion(
+        response = await embrouter.acompletion(
             model=model,
             messages=messages,
             verbosity="low",
@@ -839,15 +839,15 @@ async def test_acompletion_forwards_verbosity_to_provider_request(
         assert request_body["model"] == model
         assert request_body["messages"] == messages
     finally:
-        litellm.disable_aiohttp_transport = original_disable_aiohttp
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        embrouter.disable_aiohttp_transport = original_disable_aiohttp
+        embrouter.in_memory_llm_clients_cache.flush_cache()
 
 
 def test_responses_api_bridge_check_strips_responses_prefix():
     """Test that responses_api_bridge_check strips 'responses/' prefix and sets mode."""
-    from litellm.main import responses_api_bridge_check
+    from embrouter.main import responses_api_bridge_check
 
-    with patch("litellm.main._get_model_info_helper") as mock_get_model_info:
+    with patch("embrouter.main._get_model_info_helper") as mock_get_model_info:
         mock_get_model_info.return_value = {"max_tokens": 4096}
 
         model_info, model = responses_api_bridge_check(
@@ -865,7 +865,7 @@ def test_responses_api_bridge_check_gpt_5_4_pro():
 
     gpt-5.4-pro is a responses-only model and must not be sent to /v1/chat/completions.
     """
-    from litellm.main import responses_api_bridge_check
+    from embrouter.main import responses_api_bridge_check
 
     for model_name in ["gpt-5.4-pro", "gpt-5.4-pro-2026-03-05"]:
         model_info, model = responses_api_bridge_check(
@@ -879,9 +879,9 @@ def test_responses_api_bridge_check_gpt_5_4_pro():
 
 def test_responses_api_bridge_check_gpt_5_4_tools_plus_reasoning_routes_to_responses():
     """gpt-5.4 with both tools and reasoning_effort should route to Responses API."""
-    from litellm.main import responses_api_bridge_check
+    from embrouter.main import responses_api_bridge_check
 
-    with patch("litellm.main._get_model_info_helper") as mock_get_model_info:
+    with patch("embrouter.main._get_model_info_helper") as mock_get_model_info:
         mock_get_model_info.return_value = {"max_tokens": 128000}
         model_info, model = responses_api_bridge_check(
             model="gpt-5.4",
@@ -895,7 +895,7 @@ def test_responses_api_bridge_check_gpt_5_4_tools_plus_reasoning_routes_to_respo
 
 
 def test_responses_api_bridge_check_gpt_6_astra_tools_with_default_reasoning_routes_to_responses():
-    from litellm.main import responses_api_bridge_check
+    from embrouter.main import responses_api_bridge_check
 
     model_info, model = responses_api_bridge_check(
         model="gpt-6-astra",
@@ -909,9 +909,9 @@ def test_responses_api_bridge_check_gpt_6_astra_tools_with_default_reasoning_rou
 
 def test_responses_api_bridge_check_gpt_5_5_tools_plus_reasoning_routes_to_responses():
     """gpt-5.5+ with both tools and reasoning_effort should route to Responses API."""
-    from litellm.main import responses_api_bridge_check
+    from embrouter.main import responses_api_bridge_check
 
-    with patch("litellm.main._get_model_info_helper") as mock_get_model_info:
+    with patch("embrouter.main._get_model_info_helper") as mock_get_model_info:
         mock_get_model_info.return_value = {"max_tokens": 128000}
         model_info, model = responses_api_bridge_check(
             model="gpt-5.5-pro",
@@ -926,9 +926,9 @@ def test_responses_api_bridge_check_gpt_5_5_tools_plus_reasoning_routes_to_respo
 
 def test_responses_api_bridge_check_azure_gpt_5_4_tools_plus_reasoning_routes_to_responses():
     """Azure gpt-5.4 with both tools and reasoning_effort should route to Responses API."""
-    from litellm.main import responses_api_bridge_check
+    from embrouter.main import responses_api_bridge_check
 
-    with patch("litellm.main._get_model_info_helper") as mock_get_model_info:
+    with patch("embrouter.main._get_model_info_helper") as mock_get_model_info:
         mock_get_model_info.return_value = {"max_tokens": 128000}
         model_info, model = responses_api_bridge_check(
             model="gpt-5.4",
@@ -947,9 +947,9 @@ def test_responses_api_bridge_check_azure_gpt_5_4_tools_with_default_reasoning_r
     reasoning by default for gpt-5.4+, and Chat Completions rejects function tools
     whenever reasoning is on.
     """
-    from litellm.main import responses_api_bridge_check
+    from embrouter.main import responses_api_bridge_check
 
-    with patch("litellm.main._get_model_info_helper") as mock_get_model_info:
+    with patch("embrouter.main._get_model_info_helper") as mock_get_model_info:
         mock_get_model_info.return_value = {"max_tokens": 128000}
         model_info, model = responses_api_bridge_check(
             model="gpt-5.4",
@@ -968,9 +968,9 @@ def test_responses_api_bridge_check_gpt_5_4_tools_with_default_reasoning_routes_
     by default for gpt-5.4+, and Chat Completions rejects function tools whenever
     reasoning is on ("use /v1/responses or set reasoning_effort to 'none'").
     """
-    from litellm.main import responses_api_bridge_check
+    from embrouter.main import responses_api_bridge_check
 
-    with patch("litellm.main._get_model_info_helper") as mock_get_model_info:
+    with patch("embrouter.main._get_model_info_helper") as mock_get_model_info:
         mock_get_model_info.return_value = {"max_tokens": 128000}
         model_info, model = responses_api_bridge_check(
             model="gpt-5.4",
@@ -1003,14 +1003,14 @@ def test_responses_api_bridge_check_gpt_5_6_tools_with_default_reasoning_routes_
     gate parses the version and drops any suffix, so the family members bridge
     identically and only the boundary distinguishes behaviour.
     """
-    import litellm
-    from litellm.main import responses_api_bridge_check
+    import embrouter
+    from embrouter.main import responses_api_bridge_check
 
     monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
     monkeypatch.delenv("OPENAI_API_BASE", raising=False)
-    monkeypatch.setattr(litellm, "api_base", None)
+    monkeypatch.setattr(embrouter, "api_base", None)
 
-    with patch("litellm.main._get_model_info_helper") as mock_get_model_info:
+    with patch("embrouter.main._get_model_info_helper") as mock_get_model_info:
         mock_get_model_info.return_value = {"max_tokens": 128000}
         model_info, model = responses_api_bridge_check(
             model=model_name,
@@ -1028,9 +1028,9 @@ def test_responses_api_bridge_check_gpt_5_4_tools_with_reasoning_none_stays_chat
     Explicit reasoning_effort "none" is OpenAI's documented escape hatch that keeps
     function tools servable on Chat Completions; the bridge must not fire.
     """
-    from litellm.main import responses_api_bridge_check
+    from embrouter.main import responses_api_bridge_check
 
-    with patch("litellm.main._get_model_info_helper") as mock_get_model_info:
+    with patch("embrouter.main._get_model_info_helper") as mock_get_model_info:
         mock_get_model_info.return_value = {"max_tokens": 128000}
         model_info, model = responses_api_bridge_check(
             model="gpt-5.4",
@@ -1045,9 +1045,9 @@ def test_responses_api_bridge_check_gpt_5_4_tools_with_reasoning_none_stays_chat
 
 def test_responses_api_bridge_check_reasoning_none_with_summary_still_routes_to_responses():
     """A reasoning summary is Responses-only regardless of effort value."""
-    from litellm.main import responses_api_bridge_check
+    from embrouter.main import responses_api_bridge_check
 
-    with patch("litellm.main._get_model_info_helper") as mock_get_model_info:
+    with patch("embrouter.main._get_model_info_helper") as mock_get_model_info:
         mock_get_model_info.return_value = {"max_tokens": 128000}
         model_info, model = responses_api_bridge_check(
             model="gpt-5.4",
@@ -1067,9 +1067,9 @@ def test_responses_api_bridge_check_gpt_5_4_custom_tools_only_stays_chat():
     so responses keep the native custom tool_call shape instead of the bridge's
     function-shaped mapping.
     """
-    from litellm.main import responses_api_bridge_check
+    from embrouter.main import responses_api_bridge_check
 
-    with patch("litellm.main._get_model_info_helper") as mock_get_model_info:
+    with patch("embrouter.main._get_model_info_helper") as mock_get_model_info:
         mock_get_model_info.return_value = {"max_tokens": 128000}
         model_info, model = responses_api_bridge_check(
             model="gpt-5.6",
@@ -1084,9 +1084,9 @@ def test_responses_api_bridge_check_gpt_5_4_custom_tools_only_stays_chat():
 
 def test_responses_api_bridge_check_gpt_5_4_mixed_function_and_custom_tools_routes_to_responses():
     """One function tool in the mix is enough to make chat unservable with reasoning on."""
-    from litellm.main import responses_api_bridge_check
+    from embrouter.main import responses_api_bridge_check
 
-    with patch("litellm.main._get_model_info_helper") as mock_get_model_info:
+    with patch("embrouter.main._get_model_info_helper") as mock_get_model_info:
         mock_get_model_info.return_value = {"max_tokens": 128000}
         model_info, model = responses_api_bridge_check(
             model="gpt-5.6",
@@ -1104,9 +1104,9 @@ def test_responses_api_bridge_check_gpt_5_4_mixed_function_and_custom_tools_rout
 
 def test_responses_api_bridge_check_gpt_5_4_flat_function_tool_routes_to_responses():
     """Responses-style flat function tool defs still count as function tools."""
-    from litellm.main import responses_api_bridge_check
+    from embrouter.main import responses_api_bridge_check
 
-    with patch("litellm.main._get_model_info_helper") as mock_get_model_info:
+    with patch("embrouter.main._get_model_info_helper") as mock_get_model_info:
         mock_get_model_info.return_value = {"max_tokens": 128000}
         model_info, model = responses_api_bridge_check(
             model="gpt-5.6",
@@ -1129,12 +1129,12 @@ def test_responses_api_bridge_check_gpt_5_4_flat_function_tool_routes_to_respons
 def test_responses_api_bridge_check_function_tool_without_body_stays_chat(
     monkeypatch, custom_llm_provider, model_name, api_base
 ):
-    import litellm
-    from litellm.main import responses_api_bridge_check
+    import embrouter
+    from embrouter.main import responses_api_bridge_check
 
     monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
     monkeypatch.delenv("OPENAI_API_BASE", raising=False)
-    monkeypatch.setattr(litellm, "api_base", None)
+    monkeypatch.setattr(embrouter, "api_base", None)
 
     model_info, model = responses_api_bridge_check(
         model=model_name,
@@ -1149,10 +1149,10 @@ def test_responses_api_bridge_check_function_tool_without_body_stays_chat(
 
 
 def test_responses_api_bridge_check_dict_effort_none_stays_chat():
-    """The escape hatch must honor litellm's dict form: {"effort": "none"} means reasoning off."""
-    from litellm.main import responses_api_bridge_check
+    """The escape hatch must honor embrouter's dict form: {"effort": "none"} means reasoning off."""
+    from embrouter.main import responses_api_bridge_check
 
-    with patch("litellm.main._get_model_info_helper") as mock_get_model_info:
+    with patch("embrouter.main._get_model_info_helper") as mock_get_model_info:
         mock_get_model_info.return_value = {"max_tokens": 128000}
         model_info, model = responses_api_bridge_check(
             model="gpt-5.6",
@@ -1166,9 +1166,9 @@ def test_responses_api_bridge_check_dict_effort_none_stays_chat():
 
 
 def test_responses_api_bridge_check_dict_effort_active_routes_to_responses():
-    from litellm.main import responses_api_bridge_check
+    from embrouter.main import responses_api_bridge_check
 
-    with patch("litellm.main._get_model_info_helper") as mock_get_model_info:
+    with patch("embrouter.main._get_model_info_helper") as mock_get_model_info:
         mock_get_model_info.return_value = {"max_tokens": 128000}
         model_info, model = responses_api_bridge_check(
             model="gpt-5.6",
@@ -1183,9 +1183,9 @@ def test_responses_api_bridge_check_dict_effort_active_routes_to_responses():
 
 def test_responses_api_bridge_check_dict_effort_none_with_summary_routes_to_responses():
     """A summary inside the dict form is Responses-only even when effort is none."""
-    from litellm.main import responses_api_bridge_check
+    from embrouter.main import responses_api_bridge_check
 
-    with patch("litellm.main._get_model_info_helper") as mock_get_model_info:
+    with patch("embrouter.main._get_model_info_helper") as mock_get_model_info:
         mock_get_model_info.return_value = {"max_tokens": 128000}
         model_info, model = responses_api_bridge_check(
             model="gpt-5.6",
@@ -1205,9 +1205,9 @@ def test_responses_api_bridge_check_blank_api_base_is_default_openai(blank_api_b
     endpoint downstream, which enforces the reasoning+tools constraint, so gpt-5.4+
     function-tool requests with unset reasoning_effort must still auto-bridge.
     """
-    from litellm.main import responses_api_bridge_check
+    from embrouter.main import responses_api_bridge_check
 
-    with patch("litellm.main._get_model_info_helper") as mock_get_model_info:
+    with patch("embrouter.main._get_model_info_helper") as mock_get_model_info:
         mock_get_model_info.return_value = {"max_tokens": 128000}
         model_info, model = responses_api_bridge_check(
             model="gpt-5.6",
@@ -1227,9 +1227,9 @@ def test_responses_api_bridge_check_custom_api_base_with_unset_effort_stays_chat
     custom api_base and gpt-5.4+ model names serve tools-without-reasoning fine and
     have no /responses route; the unset-effort arm must not reroute them.
     """
-    from litellm.main import responses_api_bridge_check
+    from embrouter.main import responses_api_bridge_check
 
-    with patch("litellm.main._get_model_info_helper") as mock_get_model_info:
+    with patch("embrouter.main._get_model_info_helper") as mock_get_model_info:
         mock_get_model_info.return_value = {"max_tokens": 128000}
         model_info, model = responses_api_bridge_check(
             model="gpt-5.6",
@@ -1245,16 +1245,16 @@ def test_responses_api_bridge_check_custom_api_base_with_unset_effort_stays_chat
 
 def test_responses_api_bridge_check_custom_api_base_via_global_with_unset_effort_stays_chat(monkeypatch):
     """
-    A custom base set through the litellm.api_base global (not the call arg) is resolved the
+    A custom base set through the embrouter.api_base global (not the call arg) is resolved the
     same way the chat handler resolves it, so the unset-effort arm must not reroute a chat-only
     backend to a /responses route it lacks. Regression guard: the gate previously inspected only
     the call-level api_base and bridged these requests.
     """
-    import litellm
-    from litellm.main import responses_api_bridge_check
+    import embrouter
+    from embrouter.main import responses_api_bridge_check
 
-    monkeypatch.setattr(litellm, "api_base", "http://vllm.internal:8000/v1")
-    with patch("litellm.main._get_model_info_helper") as mock_get_model_info:
+    monkeypatch.setattr(embrouter, "api_base", "http://vllm.internal:8000/v1")
+    with patch("embrouter.main._get_model_info_helper") as mock_get_model_info:
         mock_get_model_info.return_value = {"max_tokens": 128000}
         model_info, model = responses_api_bridge_check(
             model="gpt-5.6",
@@ -1274,14 +1274,14 @@ def test_responses_api_bridge_check_custom_api_base_via_env_with_unset_effort_st
     A custom base set via OPENAI_BASE_URL/OPENAI_API_BASE env is resolved identically to the chat
     handler, so the unset-effort arm leaves the request on chat instead of bridging it.
     """
-    import litellm
-    from litellm.main import responses_api_bridge_check
+    import embrouter
+    from embrouter.main import responses_api_bridge_check
 
-    monkeypatch.setattr(litellm, "api_base", None)
+    monkeypatch.setattr(embrouter, "api_base", None)
     monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
     monkeypatch.delenv("OPENAI_API_BASE", raising=False)
     monkeypatch.setenv(env_var, "http://vllm.internal:8000/v1")
-    with patch("litellm.main._get_model_info_helper") as mock_get_model_info:
+    with patch("embrouter.main._get_model_info_helper") as mock_get_model_info:
         mock_get_model_info.return_value = {"max_tokens": 128000}
         model_info, model = responses_api_bridge_check(
             model="gpt-5.6",
@@ -1312,7 +1312,7 @@ def test_responses_api_bridge_check_openai_backed_custom_api_base_with_unset_eff
     function tools with reasoning on Chat Completions, so the unset-effort arm must bridge exactly as
     it does for the literal default URL. Regression guard for GH #39353.
     """
-    from litellm.main import responses_api_bridge_check
+    from embrouter.main import responses_api_bridge_check
 
     model_info, model = responses_api_bridge_check(
         model="gpt-5.6",
@@ -1337,7 +1337,7 @@ def test_responses_api_bridge_check_openai_backed_custom_api_base_with_unset_eff
 )
 def test_responses_api_bridge_check_lookalike_custom_api_base_with_unset_effort_stays_chat(api_base):
     """Only the host decides: api.openai.com appearing elsewhere in the URL is still a foreign backend."""
-    from litellm.main import responses_api_bridge_check
+    from embrouter.main import responses_api_bridge_check
 
     model_info, model = responses_api_bridge_check(
         model="gpt-5.6",
@@ -1353,10 +1353,10 @@ def test_responses_api_bridge_check_lookalike_custom_api_base_with_unset_effort_
 
 def test_responses_api_bridge_check_privatelink_api_base_via_env_with_unset_effort_routes_to_responses(monkeypatch):
     """A PrivateLink base set through OPENAI_BASE_URL resolves the way the chat handler's does and still bridges."""
-    import litellm
-    from litellm.main import responses_api_bridge_check
+    import embrouter
+    from embrouter.main import responses_api_bridge_check
 
-    monkeypatch.setattr(litellm, "api_base", None)
+    monkeypatch.setattr(embrouter, "api_base", None)
     monkeypatch.delenv("OPENAI_API_BASE", raising=False)
     monkeypatch.setenv("OPENAI_BASE_URL", "https://southcentralus.privatelink.api.openai.com/v1")
     model_info, model = responses_api_bridge_check(
@@ -1373,9 +1373,9 @@ def test_responses_api_bridge_check_privatelink_api_base_via_env_with_unset_effo
 
 def test_responses_api_bridge_check_custom_api_base_with_explicit_effort_still_routes():
     """Explicit reasoning_effort keeps its pre-existing bridging behavior on any api_base."""
-    from litellm.main import responses_api_bridge_check
+    from embrouter.main import responses_api_bridge_check
 
-    with patch("litellm.main._get_model_info_helper") as mock_get_model_info:
+    with patch("embrouter.main._get_model_info_helper") as mock_get_model_info:
         mock_get_model_info.return_value = {"max_tokens": 128000}
         model_info, model = responses_api_bridge_check(
             model="gpt-5.6",
@@ -1391,9 +1391,9 @@ def test_responses_api_bridge_check_custom_api_base_with_explicit_effort_still_r
 
 def test_responses_api_bridge_check_azure_with_api_base_and_unset_effort_routes():
     """Azure OpenAI always sets api_base and does enforce the constraint; keep bridging."""
-    from litellm.main import responses_api_bridge_check
+    from embrouter.main import responses_api_bridge_check
 
-    with patch("litellm.main._get_model_info_helper") as mock_get_model_info:
+    with patch("embrouter.main._get_model_info_helper") as mock_get_model_info:
         mock_get_model_info.return_value = {"max_tokens": 128000}
         model_info, model = responses_api_bridge_check(
             model="gpt-5.4",
@@ -1424,7 +1424,7 @@ _FOUNDRY_FUNCTION_TOOL: Final = ({"type": "function", "function": {"name": "get_
 def test_responses_api_bridge_check_azure_ai_foundry_rejected_tools_route_to_responses(
     model_name, api_base, reasoning_effort
 ):
-    from litellm.main import responses_api_bridge_check
+    from embrouter.main import responses_api_bridge_check
 
     model_info, model = responses_api_bridge_check(
         model=model_name,
@@ -1455,7 +1455,7 @@ def test_responses_api_bridge_check_azure_ai_foundry_rejected_tools_route_to_res
 def test_responses_api_bridge_check_azure_ai_without_foundry_responses_route_stays_chat(
     model_name, api_base, reasoning_effort
 ):
-    from litellm.main import responses_api_bridge_check
+    from embrouter.main import responses_api_bridge_check
 
     model_info, model = responses_api_bridge_check(
         model=model_name,
@@ -1471,9 +1471,9 @@ def test_responses_api_bridge_check_azure_ai_without_foundry_responses_route_sta
 
 def test_responses_api_bridge_check_older_gpt_5_tools_without_reasoning_stays_chat():
     """Pre-5.4 GPT-5 names keep the old boundary: tools alone never bridge."""
-    from litellm.main import responses_api_bridge_check
+    from embrouter.main import responses_api_bridge_check
 
-    with patch("litellm.main._get_model_info_helper") as mock_get_model_info:
+    with patch("embrouter.main._get_model_info_helper") as mock_get_model_info:
         mock_get_model_info.return_value = {"max_tokens": 128000}
         model_info, model = responses_api_bridge_check(
             model="gpt-5.1",
@@ -1488,9 +1488,9 @@ def test_responses_api_bridge_check_older_gpt_5_tools_without_reasoning_stays_ch
 
 def test_responses_api_bridge_check_gpt_5_4_reasoning_summary_without_tools_routes_to_responses():
     """gpt-5.4+ with reasoning_effort + reasoningSummary but no tools should bridge (AI SDK)."""
-    from litellm.main import responses_api_bridge_check
+    from embrouter.main import responses_api_bridge_check
 
-    with patch("litellm.main._get_model_info_helper") as mock_get_model_info:
+    with patch("embrouter.main._get_model_info_helper") as mock_get_model_info:
         mock_get_model_info.return_value = {"max_tokens": 128000}
         model_info, model = responses_api_bridge_check(
             model="gpt-5.4",
@@ -1506,9 +1506,9 @@ def test_responses_api_bridge_check_gpt_5_4_reasoning_summary_without_tools_rout
 
 def test_responses_api_bridge_check_gpt_5_reasoning_summary_routes_to_responses():
     """Bare ``gpt-5`` with reasoning_effort + reasoningSummary should bridge (not 5.4+)."""
-    from litellm.main import responses_api_bridge_check
+    from embrouter.main import responses_api_bridge_check
 
-    with patch("litellm.main._get_model_info_helper") as mock_get_model_info:
+    with patch("embrouter.main._get_model_info_helper") as mock_get_model_info:
         mock_get_model_info.return_value = {"max_tokens": 128000}
         model_info, model = responses_api_bridge_check(
             model="gpt-5",
@@ -1524,9 +1524,9 @@ def test_responses_api_bridge_check_gpt_5_reasoning_summary_routes_to_responses(
 
 def test_responses_api_bridge_check_gpt_5_tools_without_summary_stays_chat():
     """gpt-5 with tools + reasoning_effort but no summary should stay on chat."""
-    from litellm.main import responses_api_bridge_check
+    from embrouter.main import responses_api_bridge_check
 
-    with patch("litellm.main._get_model_info_helper") as mock_get_model_info:
+    with patch("embrouter.main._get_model_info_helper") as mock_get_model_info:
         mock_get_model_info.return_value = {"max_tokens": 128000}
         model_info, model = responses_api_bridge_check(
             model="gpt-5",
@@ -1540,16 +1540,16 @@ def test_responses_api_bridge_check_gpt_5_tools_without_summary_stays_chat():
     assert model_info.get("mode") != "responses"
 
 
-@patch("litellm.completion_extras.responses_api_bridge.completion")
+@patch("embrouter.completion_extras.responses_api_bridge.completion")
 def test_gpt_5_4_responses_bridge_preserves_reasoning_summary_dict(
     mock_responses_completion,
 ):
     """When routed to Responses, preserve reasoning_effort summary dict."""
     mock_responses_completion.return_value = MagicMock()
 
-    import litellm
+    import embrouter
 
-    litellm.completion(
+    embrouter.completion(
         model="gpt-5.4",
         messages=[{"role": "user", "content": "What is the capital of France?"}],
         tools=[
@@ -1584,7 +1584,7 @@ def test_responses_bridge_preserves_reasoning_effort_with_drop_params(
     respx_mock: respx.MockRouter,
     monkeypatch: pytest.MonkeyPatch,
 ):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
     response_body: Final = {
         "id": "resp_test",
         "object": "response",
@@ -1623,10 +1623,10 @@ def test_responses_bridge_preserves_reasoning_effort_with_drop_params(
     }
     response_route: Final = respx_mock.post("https://api.perplexity.ai/v1/responses").respond(json=response_body)
     model: Final = "perplexity/test-responses-bridge"
-    litellm.register_model(
+    embrouter.register_model(
         {
             model: {
-                "litellm_provider": "perplexity",
+                "embrouter_provider": "perplexity",
                 "mode": "responses",
                 "supports_reasoning": False,
                 "input_cost_per_token": 0.0,
@@ -1636,7 +1636,7 @@ def test_responses_bridge_preserves_reasoning_effort_with_drop_params(
         persist_across_reloads=False,
     )
 
-    litellm.completion(
+    embrouter.completion(
         model=model,
         messages=[{"role": "user", "content": "hello"}],
         reasoning_effort=reasoning_effort,
@@ -1691,12 +1691,12 @@ _FOUNDRY_RESPONSES_FUNCTION_CALL_BODY: Final = {
 def test_completion_bridges_azure_ai_foundry_gpt_5_4_plus_function_tools_to_responses(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
     responses_route: Final = respx_mock.post(f"{_FOUNDRY_API_BASE}/openai/v1/responses").respond(
         json=_FOUNDRY_RESPONSES_FUNCTION_CALL_BODY
     )
 
-    response: Final = litellm.completion(
+    response: Final = embrouter.completion(
         model="azure_ai/gpt-6-astra",
         messages=[{"role": "user", "content": "What is the weather in Paris? Use the tool."}],
         tools=[
@@ -1747,10 +1747,10 @@ def test_completion_optional_params_base_model(
 
     Regression for #29618: overwriting ``model`` with a friendly ``base_model``
     label made Bedrock drop ``tools``/``tool_choice`` under ``drop_params``."""
-    with patch("litellm.main.get_optional_params") as mock_get_optional_params:
+    with patch("embrouter.main.get_optional_params") as mock_get_optional_params:
         mock_get_optional_params.return_value = MagicMock()
 
-        import litellm
+        import embrouter
 
         kwargs = {
             "model": model,
@@ -1761,7 +1761,7 @@ def test_completion_optional_params_base_model(
         if model_info is not None:
             kwargs["model_info"] = model_info
 
-        litellm.completion(**kwargs)
+        embrouter.completion(**kwargs)
 
         assert mock_get_optional_params.called is True
         call_kwargs = mock_get_optional_params.call_args.kwargs
@@ -1769,16 +1769,16 @@ def test_completion_optional_params_base_model(
         assert call_kwargs["base_model"] == expected_base_model_param
 
 
-@patch("litellm.completion_extras.responses_api_bridge.completion")
+@patch("embrouter.completion_extras.responses_api_bridge.completion")
 def test_gpt_5_4_responses_bridge_merges_reasoning_summary_kwarg_without_tools(
     mock_responses_completion,
 ):
     """reasoningSummary without tools should route and merge into reasoning_effort dict."""
     mock_responses_completion.return_value = MagicMock()
 
-    import litellm
+    import embrouter
 
-    litellm.completion(
+    embrouter.completion(
         model="gpt-5.4",
         messages=[{"role": "user", "content": "ok"}],
         reasoning_effort="medium",
@@ -1796,17 +1796,17 @@ def test_gpt_5_4_responses_bridge_merges_reasoning_summary_kwarg_without_tools(
     assert "reasoning_summary" not in optional_params
 
 
-@patch("litellm.completion_extras.responses_api_bridge.completion")
+@patch("embrouter.completion_extras.responses_api_bridge.completion")
 def test_responses_bridge_preserves_reasoning_summary_without_effort(
     mock_responses_completion,
 ):
     """Reasoning summary should survive responses routing even without effort."""
     mock_responses_completion.return_value = MagicMock()
 
-    import litellm
+    import embrouter
 
-    with patch.object(litellm, "route_all_chat_openai_to_responses", True):
-        litellm.completion(
+    with patch.object(embrouter, "route_all_chat_openai_to_responses", True):
+        embrouter.completion(
             model="gpt-4o",
             messages=[{"role": "user", "content": "ok"}],
             reasoningSummary="auto",
@@ -1820,16 +1820,16 @@ def test_responses_bridge_preserves_reasoning_summary_without_effort(
     assert "reasoning_summary" not in optional_params
 
 
-@patch("litellm.completion_extras.responses_api_bridge.completion")
+@patch("embrouter.completion_extras.responses_api_bridge.completion")
 def test_gpt_5_responses_bridge_tools_and_reasoning_summary(
     mock_responses_completion,
 ):
     """Bare gpt-5 with tools + reasoningSummary should bridge (OpenCode-style)."""
     mock_responses_completion.return_value = MagicMock()
 
-    import litellm
+    import embrouter
 
-    litellm.completion(
+    embrouter.completion(
         model="gpt-5",
         messages=[{"role": "user", "content": "ok"}],
         tools=[
@@ -1858,9 +1858,9 @@ def test_gpt_5_responses_bridge_tools_and_reasoning_summary(
 
 def test_responses_api_bridge_check_handles_exception():
     """Test that responses_api_bridge_check handles exceptions and still processes responses/ models."""
-    from litellm.main import responses_api_bridge_check
+    from embrouter.main import responses_api_bridge_check
 
-    with patch("litellm.main._get_model_info_helper") as mock_get_model_info:
+    with patch("embrouter.main._get_model_info_helper") as mock_get_model_info:
         mock_get_model_info.side_effect = Exception("Model not found")
 
         model_info, model = responses_api_bridge_check(
@@ -1873,9 +1873,9 @@ def test_responses_api_bridge_check_handles_exception():
 
 def test_responses_api_bridge_check_global_flag_routes_openai():
     """When route_all_chat_openai_to_responses is True, any OpenAI model routes to responses."""
-    from litellm.main import responses_api_bridge_check
+    from embrouter.main import responses_api_bridge_check
 
-    with patch.object(litellm, "route_all_chat_openai_to_responses", True):
+    with patch.object(embrouter, "route_all_chat_openai_to_responses", True):
         model_info, model = responses_api_bridge_check(
             model="gpt-4o",
             custom_llm_provider="openai",
@@ -1887,10 +1887,10 @@ def test_responses_api_bridge_check_global_flag_routes_openai():
 
 def test_responses_api_bridge_check_global_flag_does_not_affect_azure():
     """route_all_chat_openai_to_responses should not affect Azure models."""
-    from litellm.main import responses_api_bridge_check
+    from embrouter.main import responses_api_bridge_check
 
-    with patch.object(litellm, "route_all_chat_openai_to_responses", True):
-        with patch("litellm.main._get_model_info_helper") as mock_get_model_info:
+    with patch.object(embrouter, "route_all_chat_openai_to_responses", True):
+        with patch("embrouter.main._get_model_info_helper") as mock_get_model_info:
             mock_get_model_info.return_value = {"max_tokens": 4096}
             model_info, model = responses_api_bridge_check(
                 model="gpt-4o",
@@ -1902,10 +1902,10 @@ def test_responses_api_bridge_check_global_flag_does_not_affect_azure():
 
 def test_responses_api_bridge_check_global_flag_default_false():
     """By default, route_all_chat_openai_to_responses is False and doesn't affect routing."""
-    from litellm.main import responses_api_bridge_check
+    from embrouter.main import responses_api_bridge_check
 
-    with patch.object(litellm, "route_all_chat_openai_to_responses", False):
-        with patch("litellm.main._get_model_info_helper") as mock_get_model_info:
+    with patch.object(embrouter, "route_all_chat_openai_to_responses", False):
+        with patch("embrouter.main._get_model_info_helper") as mock_get_model_info:
             mock_get_model_info.return_value = {"max_tokens": 4096}
             model_info, model = responses_api_bridge_check(
                 model="gpt-4o",
@@ -1920,7 +1920,7 @@ async def test_async_mock_delay():
     """Use asyncio await for mock delay on acompletion"""
     import time
 
-    from litellm import acompletion
+    from embrouter import acompletion
 
     start_time = time.time()
     result = await acompletion(
@@ -1935,8 +1935,8 @@ async def test_async_mock_delay():
 
 
 def test_stream_chunk_builder_keeps_tool_calls_carried_only_by_a_later_choice_of_a_multi_choice_chunk():
-    from litellm import stream_chunk_builder
-    from litellm.types.utils import (
+    from embrouter import stream_chunk_builder
+    from embrouter.types.utils import (
         ChatCompletionDeltaToolCall,
         Delta,
         Function,
@@ -1997,8 +1997,8 @@ def test_stream_chunk_builder_keeps_tool_calls_carried_only_by_a_later_choice_of
 
 
 def test_stream_chunk_builder_thinking_blocks():
-    from litellm import stream_chunk_builder
-    from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices
+    from embrouter import stream_chunk_builder
+    from embrouter.types.utils import Delta, ModelResponseStream, StreamingChoices
 
     chunks = [
         ModelResponseStream(
@@ -2546,7 +2546,7 @@ def test_stream_chunk_builder_thinking_blocks():
     assert response.choices[0].message.thinking_blocks is not None
 
 
-from litellm.llms.openai.openai import OpenAIChatCompletion
+from embrouter.llms.openai.openai import OpenAIChatCompletion
 
 
 def throw_retryable_error(*_, **__):
@@ -2555,33 +2555,33 @@ def throw_retryable_error(*_, **__):
 
 @pytest.mark.asyncio
 async def test_retrying() -> None:
-    litellm.num_retries = 10
+    embrouter.num_retries = 10
     with (
         patch.object(
             OpenAIChatCompletion,
             "make_openai_chat_completion_request",
             side_effect=throw_retryable_error,
         ) as mock_request,
-        pytest.raises(litellm.InternalServerError, match="LiteLLM Retried: 10 times"),
+        pytest.raises(embrouter.InternalServerError, match="EmbRouter Retried: 10 times"),
     ):
-        await litellm.acompletion(
+        await embrouter.acompletion(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": "Hello"}],
         )
 
 
 def test_anthropic_disable_url_suffix_env_var():
-    """Test that LITELLM_ANTHROPIC_DISABLE_URL_SUFFIX prevents /v1/messages suffix."""
+    """Test that EMBROUTER_ANTHROPIC_DISABLE_URL_SUFFIX prevents /v1/messages suffix."""
     import os
     from unittest.mock import MagicMock, patch
 
-    from litellm import completion
+    from embrouter import completion
 
     # Test with environment variable disabled (default behavior)
     with patch.dict(os.environ, {"ANTHROPIC_API_BASE": "https://api.example.com"}):
         actual_api_base = None
 
-        with patch("litellm.main.anthropic_chat_completions") as mock_anthropic:
+        with patch("embrouter.main.anthropic_chat_completions") as mock_anthropic:
 
             def capture_completion(**kwargs):
                 nonlocal actual_api_base
@@ -2608,12 +2608,12 @@ def test_anthropic_disable_url_suffix_env_var():
         os.environ,
         {
             "ANTHROPIC_API_BASE": "https://api.example.com/custom/path",
-            "LITELLM_ANTHROPIC_DISABLE_URL_SUFFIX": "true",
+            "EMBROUTER_ANTHROPIC_DISABLE_URL_SUFFIX": "true",
         },
     ):
         actual_api_base = None
 
-        with patch("litellm.main.anthropic_chat_completions") as mock_anthropic:
+        with patch("embrouter.main.anthropic_chat_completions") as mock_anthropic:
 
             def capture_completion(**kwargs):
                 nonlocal actual_api_base
@@ -2637,17 +2637,17 @@ def test_anthropic_disable_url_suffix_env_var():
 
 
 def test_anthropic_text_disable_url_suffix_env_var():
-    """Test that LITELLM_ANTHROPIC_DISABLE_URL_SUFFIX prevents /v1/complete suffix for anthropic_text."""
+    """Test that EMBROUTER_ANTHROPIC_DISABLE_URL_SUFFIX prevents /v1/complete suffix for anthropic_text."""
     import os
     from unittest.mock import MagicMock, patch
 
-    from litellm import completion
+    from embrouter import completion
 
     # Test with environment variable disabled (default behavior)
     with patch.dict(os.environ, {"ANTHROPIC_API_BASE": "https://api.example.com"}):
         actual_api_base = None
 
-        with patch("litellm.main.base_llm_http_handler") as mock_handler:
+        with patch("embrouter.main.base_llm_http_handler") as mock_handler:
 
             def capture_completion(**kwargs):
                 nonlocal actual_api_base
@@ -2672,12 +2672,12 @@ def test_anthropic_text_disable_url_suffix_env_var():
         os.environ,
         {
             "ANTHROPIC_API_BASE": "https://api.example.com/custom/complete",
-            "LITELLM_ANTHROPIC_DISABLE_URL_SUFFIX": "true",
+            "EMBROUTER_ANTHROPIC_DISABLE_URL_SUFFIX": "true",
         },
     ):
         actual_api_base = None
 
-        with patch("litellm.main.base_llm_http_handler") as mock_handler:
+        with patch("embrouter.main.base_llm_http_handler") as mock_handler:
 
             def capture_completion(**kwargs):
                 nonlocal actual_api_base
@@ -2699,7 +2699,7 @@ def test_anthropic_text_disable_url_suffix_env_var():
 
 
 def test_image_edit_merges_headers_and_extra_headers():
-    from litellm.images.main import base_llm_http_handler
+    from embrouter.images.main import base_llm_http_handler
 
     combined_headers = {
         "x-test-header-one": "value-1",
@@ -2714,7 +2714,7 @@ def test_image_edit_merges_headers_and_extra_headers():
 
     with (
         patch(
-            "litellm.images.main.ProviderConfigManager.get_provider_image_edit_config",
+            "embrouter.images.main.ProviderConfigManager.get_provider_image_edit_config",
             return_value=mock_image_edit_config,
         ) as mock_config,
         patch.object(
@@ -2723,7 +2723,7 @@ def test_image_edit_merges_headers_and_extra_headers():
             return_value="ok",
         ) as mock_handler,
     ):
-        response = litellm.image_edit(
+        response = embrouter.image_edit(
             image=MagicMock(name="image"),
             prompt="test",
             model="azure/gpt-image-1",
@@ -2741,10 +2741,10 @@ def test_image_edit_merges_headers_and_extra_headers():
     assert "extra_headers" not in handler_kwargs["image_edit_optional_request_params"]
 
 
-@pytest.mark.parametrize("metadata_key", ("metadata", "litellm_metadata"))
+@pytest.mark.parametrize("metadata_key", ("metadata", "embrouter_metadata"))
 @pytest.mark.parametrize("input_tokens", (51234, 0))
 def test_mock_completion_usage_reports_admission_input_tokens(metadata_key: str, input_tokens: int):
-    response = litellm.completion(
+    response = embrouter.completion(
         model="anthropic/claude-sonnet-5",
         messages=[{"role": "user", "content": "hello"}],
         mock_response="ok",
@@ -2757,7 +2757,7 @@ def test_mock_completion_usage_reports_admission_input_tokens(metadata_key: str,
 
 
 def test_mock_completion_usage_falls_back_to_default_without_admission_count():
-    response = litellm.completion(
+    response = embrouter.completion(
         model="anthropic/claude-sonnet-5",
         messages=[{"role": "user", "content": "hello"}],
         mock_response="ok",
@@ -2765,12 +2765,12 @@ def test_mock_completion_usage_falls_back_to_default_without_admission_count():
         metadata={"user_api_key_budget_reservation": {"reserved_cost": 1.0}},
     )
 
-    assert response.usage.prompt_tokens == litellm_main.DEFAULT_MOCK_RESPONSE_PROMPT_TOKEN_COUNT
+    assert response.usage.prompt_tokens == embrouter_main.DEFAULT_MOCK_RESPONSE_PROMPT_TOKEN_COUNT
 
 
 _AZURE_AI_CUSTOM_PRICED_DEPLOYMENT: Final = {
     "model_name": "azure-ai-custom-priced",
-    "litellm_params": {
+    "embrouter_params": {
         "model": "azure_ai/gpt-5.6",
         "api_key": "mock",
         "api_base": "https://example.services.ai.azure.com",
@@ -2784,8 +2784,8 @@ _AZURE_AI_CUSTOM_PRICED_DEPLOYMENT: Final = {
 }
 
 
-def _expected_custom_price(response: litellm.ModelResponse) -> float:
-    params: Final = _AZURE_AI_CUSTOM_PRICED_DEPLOYMENT["litellm_params"]
+def _expected_custom_price(response: embrouter.ModelResponse) -> float:
+    params: Final = _AZURE_AI_CUSTOM_PRICED_DEPLOYMENT["embrouter_params"]
     return (
         response.usage.prompt_tokens * params["input_cost_per_token"]
         + response.usage.completion_tokens * params["output_cost_per_token"]
@@ -2795,7 +2795,7 @@ def _expected_custom_price(response: litellm.ModelResponse) -> float:
 @pytest.mark.asyncio
 @pytest.mark.parametrize("use_async", (False, True))
 async def test_mock_completion_prices_azure_ai_router_deployment_with_custom_pricing(use_async: bool):
-    router: Final = litellm.Router(model_list=[_AZURE_AI_CUSTOM_PRICED_DEPLOYMENT])
+    router: Final = embrouter.Router(model_list=[_AZURE_AI_CUSTOM_PRICED_DEPLOYMENT])
     messages: Final = [{"role": "user", "content": "hello"}]
 
     response: Final = (
@@ -2813,7 +2813,7 @@ async def test_mock_completion_prices_azure_ai_router_deployment_with_custom_pri
     (("anthropic/claude-sonnet-5", "anthropic"), ("no-such-provider-model", None)),
 )
 def test_mock_completion_infers_provider_when_called_directly_without_one(model: str, expected_provider: str | None):
-    response: Final = litellm.mock_completion(
+    response: Final = embrouter.mock_completion(
         model=model,
         messages=[{"role": "user", "content": "hello"}],
         mock_response="ok",
@@ -2832,7 +2832,7 @@ def _admission_metadata(input_tokens: int) -> dict[str, object]:  # mutable-ok: 
 
 _ADMISSION_METADATA: Final = _admission_metadata(_ADMISSION_INPUT_TOKENS)
 _MOCK_STREAM_MESSAGES: Final = [{"role": "user", "content": "hello " * 200}]
-_STREAM_CHUNK_BUILDER_TOKEN_COUNTER: Final = "litellm.litellm_core_utils.streaming_chunk_builder_utils.token_counter"
+_STREAM_CHUNK_BUILDER_TOKEN_COUNTER: Final = "embrouter.embrouter_core_utils.streaming_chunk_builder_utils.token_counter"
 
 
 def _prompt_token_counter_calls(token_counter: MagicMock) -> list[object]:
@@ -2845,9 +2845,9 @@ def _client_usage_chunks(chunks: list[ModelResponseStream]) -> list[Usage]:
 
 @pytest.mark.parametrize("n", (None, 2))
 def test_mock_completion_stream_usage_reports_admission_input_tokens_without_tokenizer_fallback(n: int | None):
-    with patch(_STREAM_CHUNK_BUILDER_TOKEN_COUNTER, wraps=litellm.token_counter) as token_counter:
+    with patch(_STREAM_CHUNK_BUILDER_TOKEN_COUNTER, wraps=embrouter.token_counter) as token_counter:
         chunks: Final = list(
-            litellm.completion(
+            embrouter.completion(
                 model="openai/gpt-5.4-mini",
                 messages=_MOCK_STREAM_MESSAGES,
                 mock_response="ok",
@@ -2862,7 +2862,7 @@ def test_mock_completion_stream_usage_reports_admission_input_tokens_without_tok
     usage_chunks: Final = _client_usage_chunks(chunks)
     assert len(usage_chunks) == 1
     assert usage_chunks[0].prompt_tokens == _ADMISSION_INPUT_TOKENS
-    assert usage_chunks[0].completion_tokens == litellm_main.DEFAULT_MOCK_RESPONSE_COMPLETION_TOKEN_COUNT
+    assert usage_chunks[0].completion_tokens == embrouter_main.DEFAULT_MOCK_RESPONSE_COMPLETION_TOKEN_COUNT
     assert usage_chunks[0].total_tokens == _ADMISSION_INPUT_TOKENS + usage_chunks[0].completion_tokens
     assert _prompt_token_counter_calls(token_counter) == []
     assert all(chunk.choices for chunk in chunks[:-1])
@@ -2874,8 +2874,8 @@ def test_mock_completion_stream_usage_reports_admission_input_tokens_without_tok
 async def test_mock_acompletion_stream_usage_reports_admission_input_tokens_without_tokenizer_fallback(
     n: int | None,
 ):
-    with patch(_STREAM_CHUNK_BUILDER_TOKEN_COUNTER, wraps=litellm.token_counter) as token_counter:
-        response: Final = await litellm.acompletion(
+    with patch(_STREAM_CHUNK_BUILDER_TOKEN_COUNTER, wraps=embrouter.token_counter) as token_counter:
+        response: Final = await embrouter.acompletion(
             model="openai/gpt-5.4-mini",
             messages=_MOCK_STREAM_MESSAGES,
             mock_response="ok",
@@ -2883,7 +2883,7 @@ async def test_mock_acompletion_stream_usage_reports_admission_input_tokens_with
             stream=True,
             n=n,
             stream_options={"include_usage": True},
-            litellm_metadata=_ADMISSION_METADATA,
+            embrouter_metadata=_ADMISSION_METADATA,
         )
         chunks: Final = [chunk async for chunk in response]
 
@@ -2897,9 +2897,9 @@ async def test_mock_acompletion_stream_usage_reports_admission_input_tokens_with
 
 
 def test_mock_completion_stream_without_include_usage_hides_usage_chunk_but_logs_admission_count():
-    with patch(_STREAM_CHUNK_BUILDER_TOKEN_COUNTER, wraps=litellm.token_counter) as token_counter:
+    with patch(_STREAM_CHUNK_BUILDER_TOKEN_COUNTER, wraps=embrouter.token_counter) as token_counter:
         chunks: Final = list(
-            litellm.completion(
+            embrouter.completion(
                 model="openai/gpt-5.4-mini",
                 messages=_MOCK_STREAM_MESSAGES,
                 mock_response="ok",
@@ -2916,9 +2916,9 @@ def test_mock_completion_stream_without_include_usage_hides_usage_chunk_but_logs
 
 
 def test_mock_completion_stream_with_empty_stream_options_completes_and_logs_admission_count():
-    with patch(_STREAM_CHUNK_BUILDER_TOKEN_COUNTER, wraps=litellm.token_counter) as token_counter:
+    with patch(_STREAM_CHUNK_BUILDER_TOKEN_COUNTER, wraps=embrouter.token_counter) as token_counter:
         chunks: Final = list(
-            litellm.completion(
+            embrouter.completion(
                 model="openai/gpt-5.4-mini",
                 messages=_MOCK_STREAM_MESSAGES,
                 mock_response="ok",
@@ -2936,15 +2936,15 @@ def test_mock_completion_stream_with_empty_stream_options_completes_and_logs_adm
 
 @pytest.mark.asyncio
 async def test_mock_acompletion_stream_with_empty_stream_options_completes_and_logs_admission_count():
-    with patch(_STREAM_CHUNK_BUILDER_TOKEN_COUNTER, wraps=litellm.token_counter) as token_counter:
-        response: Final = await litellm.acompletion(
+    with patch(_STREAM_CHUNK_BUILDER_TOKEN_COUNTER, wraps=embrouter.token_counter) as token_counter:
+        response: Final = await embrouter.acompletion(
             model="openai/gpt-5.4-mini",
             messages=_MOCK_STREAM_MESSAGES,
             mock_response="ok",
             api_key="mock",
             stream=True,
             stream_options={},
-            litellm_metadata=_ADMISSION_METADATA,
+            embrouter_metadata=_ADMISSION_METADATA,
         )
         chunks: Final = [chunk async for chunk in response]
 
@@ -2954,10 +2954,10 @@ async def test_mock_acompletion_stream_with_empty_stream_options_completes_and_l
 
 
 def test_mock_completion_stream_without_admission_count_falls_back_to_tokenizer():
-    expected_prompt_tokens: Final = litellm.token_counter(model="openai/gpt-5.4-mini", messages=_MOCK_STREAM_MESSAGES)
-    with patch(_STREAM_CHUNK_BUILDER_TOKEN_COUNTER, wraps=litellm.token_counter) as token_counter:
+    expected_prompt_tokens: Final = embrouter.token_counter(model="openai/gpt-5.4-mini", messages=_MOCK_STREAM_MESSAGES)
+    with patch(_STREAM_CHUNK_BUILDER_TOKEN_COUNTER, wraps=embrouter.token_counter) as token_counter:
         chunks: Final = list(
-            litellm.completion(
+            embrouter.completion(
                 model="openai/gpt-5.4-mini",
                 messages=_MOCK_STREAM_MESSAGES,
                 mock_response="ok",
@@ -2977,9 +2977,9 @@ def test_mock_completion_stream_without_admission_count_falls_back_to_tokenizer(
 
 @pytest.mark.asyncio
 async def test_mock_acompletion_stream_without_admission_count_falls_back_to_tokenizer():
-    expected_prompt_tokens: Final = litellm.token_counter(model="openai/gpt-5.4-mini", messages=_MOCK_STREAM_MESSAGES)
-    with patch(_STREAM_CHUNK_BUILDER_TOKEN_COUNTER, wraps=litellm.token_counter) as token_counter:
-        response: Final = await litellm.acompletion(
+    expected_prompt_tokens: Final = embrouter.token_counter(model="openai/gpt-5.4-mini", messages=_MOCK_STREAM_MESSAGES)
+    with patch(_STREAM_CHUNK_BUILDER_TOKEN_COUNTER, wraps=embrouter.token_counter) as token_counter:
+        response: Final = await embrouter.acompletion(
             model="openai/gpt-5.4-mini",
             messages=_MOCK_STREAM_MESSAGES,
             mock_response="ok",
@@ -3002,16 +3002,16 @@ def _usage_triple(usage: Usage) -> tuple[int, int, int]:
 @pytest.mark.parametrize("input_tokens", (_ADMISSION_INPUT_TOKENS, 0))
 def test_mock_completion_stream_and_non_stream_report_the_same_admission_usage(input_tokens: int):
     metadata: Final = _admission_metadata(input_tokens)
-    non_stream: Final = litellm.completion(
+    non_stream: Final = embrouter.completion(
         model="openai/gpt-5.4-mini",
         messages=_MOCK_STREAM_MESSAGES,
         mock_response="ok",
         api_key="mock",
         metadata=metadata,
     )
-    with patch(_STREAM_CHUNK_BUILDER_TOKEN_COUNTER, wraps=litellm.token_counter) as token_counter:
+    with patch(_STREAM_CHUNK_BUILDER_TOKEN_COUNTER, wraps=embrouter.token_counter) as token_counter:
         chunks: Final = list(
-            litellm.completion(
+            embrouter.completion(
                 model="openai/gpt-5.4-mini",
                 messages=_MOCK_STREAM_MESSAGES,
                 mock_response="ok",
@@ -3029,15 +3029,15 @@ def test_mock_completion_stream_and_non_stream_report_the_same_admission_usage(i
 
 @pytest.mark.asyncio
 async def test_mock_acompletion_stream_reports_zero_admission_input_tokens_without_tokenizer_fallback():
-    with patch(_STREAM_CHUNK_BUILDER_TOKEN_COUNTER, wraps=litellm.token_counter) as token_counter:
-        response: Final = await litellm.acompletion(
+    with patch(_STREAM_CHUNK_BUILDER_TOKEN_COUNTER, wraps=embrouter.token_counter) as token_counter:
+        response: Final = await embrouter.acompletion(
             model="openai/gpt-5.4-mini",
             messages=[{"role": "user", "content": ""}],
             mock_response="ok",
             api_key="mock",
             stream=True,
             stream_options={"include_usage": True},
-            litellm_metadata=_admission_metadata(0),
+            embrouter_metadata=_admission_metadata(0),
         )
         chunks: Final = [chunk async for chunk in response]
 
@@ -3049,11 +3049,11 @@ async def test_mock_acompletion_stream_reports_zero_admission_input_tokens_witho
 
 def test_mock_text_completion_stream_and_non_stream_report_the_same_zero_admission_usage():
     metadata: Final = _admission_metadata(0)
-    non_stream: Final = litellm.text_completion(
+    non_stream: Final = embrouter.text_completion(
         model="openai/gpt-5.4-mini", prompt="", mock_response="ok", api_key="mock", metadata=metadata
     )
     chunks: Final = list(
-        litellm.text_completion(
+        embrouter.text_completion(
             model="openai/gpt-5.4-mini",
             prompt="",
             mock_response="ok",
@@ -3072,8 +3072,8 @@ def test_mock_text_completion_stream_and_non_stream_report_the_same_zero_admissi
 
 def test_mock_completion_stream_with_model_response():
     """Test that mock_completion correctly handles stream=True with a ModelResponse as mock_response."""
-    from litellm import completion
-    from litellm.types.utils import Choices, Message, ModelResponse, Usage
+    from embrouter import completion
+    from embrouter.types.utils import Choices, Message, ModelResponse, Usage
 
     # Create a ModelResponse object
     mock_model_response = ModelResponse(
@@ -3133,8 +3133,8 @@ def test_mock_completion_stream_with_model_response():
 @pytest.mark.asyncio
 async def test_async_mock_completion_stream_with_model_response():
     """Test that async mock_completion correctly handles stream=True with a ModelResponse as mock_response."""
-    from litellm import acompletion
-    from litellm.types.utils import Choices, Message, ModelResponse, Usage
+    from embrouter import acompletion
+    from embrouter.types.utils import Choices, Message, ModelResponse, Usage
 
     # Create a ModelResponse object
     mock_model_response = ModelResponse(
@@ -3199,21 +3199,21 @@ class TestCallTypesOCR:
 
     def test_ocr_call_type_exists(self):
         """Test that CallTypes.ocr exists and has correct value."""
-        from litellm.types.utils import CallTypes
+        from embrouter.types.utils import CallTypes
 
         assert hasattr(CallTypes, "ocr")
         assert CallTypes.ocr.value == "ocr"
 
     def test_aocr_call_type_exists(self):
         """Test that CallTypes.aocr exists and has correct value."""
-        from litellm.types.utils import CallTypes
+        from embrouter.types.utils import CallTypes
 
         assert hasattr(CallTypes, "aocr")
         assert CallTypes.aocr.value == "aocr"
 
     def test_ocr_call_type_from_string(self):
         """Test that CallTypes can be constructed from 'ocr' string."""
-        from litellm.types.utils import CallTypes
+        from embrouter.types.utils import CallTypes
 
         call_type = CallTypes("ocr")
         assert call_type == CallTypes.ocr
@@ -3225,15 +3225,15 @@ class TestCallTypesOCR:
         uses route_type='aocr' and guardrails try to instantiate
         CallTypes('aocr').
         """
-        from litellm.types.utils import CallTypes
+        from embrouter.types.utils import CallTypes
 
         call_type = CallTypes("aocr")
         assert call_type == CallTypes.aocr
 
 
 def test_stream_chunk_builder_text_completion_combines_text_and_usage():
-    from litellm.main import stream_chunk_builder_text_completion
-    from litellm.types.utils import TextCompletionResponse
+    from embrouter.main import stream_chunk_builder_text_completion
+    from embrouter.types.utils import TextCompletionResponse
 
     chunks = [
         TextCompletionResponse(
@@ -3278,7 +3278,7 @@ def test_completion_forwards_store_and_prompt_cache_key_to_openai():
 
     with patch.object(client.chat.completions.with_raw_response, "create") as mock_client:
         try:
-            litellm.completion(
+            embrouter.completion(
                 model="openai/gpt-4o",
                 messages=[{"role": "user", "content": "Hello"}],
                 store=False,
@@ -3306,7 +3306,7 @@ async def test_acompletion_forwards_store_and_prompt_cache_key_to_openai():
 
     with patch.object(client.chat.completions.with_raw_response, "create") as mock_client:
         try:
-            await litellm.acompletion(
+            await embrouter.acompletion(
                 model="openai/gpt-4o",
                 messages=[{"role": "user", "content": "Hello"}],
                 store=False,
@@ -3333,7 +3333,7 @@ def test_completion_omits_store_and_prompt_cache_key_when_not_passed():
 
     with patch.object(client.chat.completions.with_raw_response, "create") as mock_client:
         try:
-            litellm.completion(
+            embrouter.completion(
                 model="openai/gpt-4o",
                 messages=[{"role": "user", "content": "Hello"}],
                 client=client,
@@ -3354,12 +3354,12 @@ def test_completion_forwards_store_and_prompt_cache_key_to_mcp_gateway():
     must be forwarded explicitly like safety_identifier and service_tier.
     """
     with patch.object(
-        import_module("litellm.responses.mcp.chat_completions_handler"), "acompletion_with_mcp"
+        import_module("embrouter.responses.mcp.chat_completions_handler"), "acompletion_with_mcp"
     ) as mock_mcp:
-        result = litellm.completion(
+        result = embrouter.completion(
             model="openai/gpt-4o",
             messages=[{"role": "user", "content": "Hello"}],
-            tools=[{"type": "mcp", "server_url": "litellm_proxy"}],
+            tools=[{"type": "mcp", "server_url": "embrouter_proxy"}],
             store=False,
             prompt_cache_key="test-cache-key",
         )
@@ -3376,8 +3376,8 @@ def test_completion_forwards_store_and_prompt_cache_key_to_mcp_gateway():
     "aws_credential_kwargs",
     [
         {
-            "aws_session_name": "litellm-gcp",
-            "aws_role_name": "arn:aws:iam::123456789012:role/litellm-bedrock-role",
+            "aws_session_name": "embrouter-gcp",
+            "aws_role_name": "arn:aws:iam::123456789012:role/embrouter-bedrock-role",
             "aws_web_identity_token": "oidc/google/108963886734710037768",
         },
         {
@@ -3393,13 +3393,13 @@ async def test_acompletion_forwards_aws_credentials_through_responses_bridge(
 ):
     from botocore.credentials import Credentials
 
-    from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM
+    from embrouter.llms.bedrock.base_aws_llm import BaseAWSLLM
 
-    original_disable_aiohttp = litellm.disable_aiohttp_transport
+    original_disable_aiohttp = embrouter.disable_aiohttp_transport
     try:
-        litellm.disable_aiohttp_transport = True
+        embrouter.disable_aiohttp_transport = True
         monkeypatch.setenv("DISABLE_AIOHTTP_TRANSPORT", "True")
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        embrouter.in_memory_llm_clients_cache.flush_cache()
         monkeypatch.delenv("AWS_BEARER_TOKEN_BEDROCK", raising=False)
         monkeypatch.delenv("BEDROCK_MANTLE_API_KEY", raising=False)
 
@@ -3425,7 +3425,7 @@ async def test_acompletion_forwards_aws_credentials_through_responses_bridge(
             }
         )
 
-        response = await litellm.acompletion(
+        response = await embrouter.acompletion(
             model="bedrock_mantle/openai.gpt-5.4",
             messages=[{"role": "user", "content": "hi"}],
             api_base="https://bedrock-mantle.us-east-2.api.aws/v1",
@@ -3443,8 +3443,8 @@ async def test_acompletion_forwards_aws_credentials_through_responses_bridge(
         assert authorization.startswith("AWS4-HMAC-SHA256")
         assert "fake-key" in authorization
     finally:
-        litellm.disable_aiohttp_transport = original_disable_aiohttp
-        litellm.in_memory_llm_clients_cache.flush_cache()
+        embrouter.disable_aiohttp_transport = original_disable_aiohttp
+        embrouter.in_memory_llm_clients_cache.flush_cache()
 
 
 _GEMINI_RESPONSE_BODY = {
@@ -3455,7 +3455,7 @@ _GEMINI_RESPONSE_BODY = {
 
 def _gemini_client_returning_a_reply():
     """An injected HTTP client whose post() answers like generativelanguage does."""
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+    from embrouter.llms.custom_httpx.http_handler import HTTPHandler
 
     client = HTTPHandler()
     request = httpx.Request("POST", "https://generativelanguage.googleapis.com/")
@@ -3465,31 +3465,31 @@ def _gemini_client_returning_a_reply():
 
 @pytest.fixture
 def restore_model_registry():
-    """litellm.model_cost and the provider name sets are module-global.
+    """embrouter.model_cost and the provider name sets are module-global.
 
     register_model merges into the existing entry in place, hence the deep copy.
     """
-    model_cost = copy.deepcopy(litellm.model_cost)
-    openai_models = set(litellm.open_ai_chat_completion_models)
+    model_cost = copy.deepcopy(embrouter.model_cost)
+    openai_models = set(embrouter.open_ai_chat_completion_models)
     yield
-    litellm.model_cost.clear()
-    litellm.model_cost.update(model_cost)
-    litellm.open_ai_chat_completion_models.clear()
-    litellm.open_ai_chat_completion_models.update(openai_models)
+    embrouter.model_cost.clear()
+    embrouter.model_cost.update(model_cost)
+    embrouter.open_ai_chat_completion_models.clear()
+    embrouter.open_ai_chat_completion_models.update(openai_models)
 
 
 def test_openai_model_name_does_not_outrank_explicit_provider():
-    """`gemini/gpt-4o` goes to Google, not to litellm's OpenAI handler.
+    """`gemini/gpt-4o` goes to Google, not to embrouter's OpenAI handler.
 
-    completion() checks `model in litellm.open_ai_chat_completion_models` ahead of
+    completion() checks `model in embrouter.open_ai_chat_completion_models` ahead of
     the gemini branch, so the call used to reach the OpenAI handler carrying
     VertexGeminiConfig, whose transform_request raises NotImplementedError.
     """
-    assert "gpt-4o" in litellm.open_ai_chat_completion_models
+    assert "gpt-4o" in embrouter.open_ai_chat_completion_models
     client, post = _gemini_client_returning_a_reply()
 
     with patch.object(client, "post", new=post):
-        response = litellm.completion(
+        response = embrouter.completion(
             model="gemini/gpt-4o",
             messages=[{"role": "user", "content": "hello"}],
             api_key="test-api-key",
@@ -3504,25 +3504,25 @@ def test_openai_model_name_does_not_outrank_explicit_provider():
 def test_mislabelled_pricing_entry_does_not_reroute_provider(restore_model_registry):
     """register_model is the other way into the same failure.
 
-    An entry claiming litellm_provider "openai" adds its name to
+    An entry claiming embrouter_provider "openai" adds its name to
     open_ai_chat_completion_models, so one mislabelled price reroutes every later
     call to that model in the process.
     """
-    litellm.register_model(
+    embrouter.register_model(
         {
             "gemini-2.5-pro": {
-                "litellm_provider": "openai",
+                "embrouter_provider": "openai",
                 "mode": "chat",
                 "input_cost_per_token": 1e-06,
                 "output_cost_per_token": 4e-06,
             }
         }
     )
-    assert "gemini-2.5-pro" in litellm.open_ai_chat_completion_models
+    assert "gemini-2.5-pro" in embrouter.open_ai_chat_completion_models
     client, post = _gemini_client_returning_a_reply()
 
     with patch.object(client, "post", new=post):
-        response = litellm.completion(
+        response = embrouter.completion(
             model="gemini/gemini-2.5-pro",
             messages=[{"role": "user", "content": "hello"}],
             api_key="test-api-key",
@@ -3539,7 +3539,7 @@ def test_openai_model_without_a_provider_still_routes_to_openai():
     client = OpenAI(api_key="fake-key")
     raw_response = client.chat.completions.with_raw_response
     with patch.object(raw_response, "create") as mock_create, contextlib.suppress(Exception):
-        litellm.completion(
+        embrouter.completion(
             model="gpt-4o",
             messages=[{"role": "user", "content": "hello"}],
             client=client,
@@ -3551,7 +3551,7 @@ def test_openai_model_without_a_provider_still_routes_to_openai():
 def _openai_chat_create_kwargs(client, **completion_kwargs):
     with patch.object(client.chat.completions.with_raw_response, "create") as mock_client:
         with contextlib.suppress(Exception):
-            litellm.completion(
+            embrouter.completion(
                 messages=[{"role": "system", "content": "sys"}, {"role": "user", "content": "hi"}],
                 cache_control_injection_points=[{"location": "message", "role": "system"}],
                 client=client,
@@ -3566,7 +3566,7 @@ def _openai_chat_create_kwargs(client, **completion_kwargs):
 def _no_openai_api_base_override(monkeypatch):
     monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
     monkeypatch.delenv("OPENAI_API_BASE", raising=False)
-    monkeypatch.setattr(litellm, "api_base", None)
+    monkeypatch.setattr(embrouter, "api_base", None)
 
 
 @pytest.mark.usefixtures("_no_openai_api_base_override")
@@ -3601,7 +3601,7 @@ async def test_acompletion_custom_base_url_sends_no_prompt_cache_breakpoint_for_
     client = AsyncOpenAI(api_key="fake-api-key", base_url="http://127.0.0.1:9/v1")
     with patch.object(client.chat.completions.with_raw_response, "create") as mock_create:
         with contextlib.suppress(Exception):
-            await litellm.acompletion(
+            await embrouter.acompletion(
                 model="gpt-5.6",
                 messages=[{"role": "system", "content": "sys"}, {"role": "user", "content": "hi"}],
                 cache_control_injection_points=[{"location": "message", "role": "system"}],
@@ -3634,7 +3634,7 @@ _SUBSCRIPTION_OAUTH_CREDENTIAL = "Bearer sk-ant-oat01-fake-subscription-token-fo
 
 
 def _scoped_headers_for_oauth_request():
-    from litellm.types.utils import ProviderSpecificHeader
+    from embrouter.types.utils import ProviderSpecificHeader
 
     return [
         ProviderSpecificHeader(
@@ -3649,7 +3649,7 @@ def _scoped_headers_for_oauth_request():
 
 
 def _run_anthropic_hop_with_shared_headers(shared_headers):
-    litellm.completion(
+    embrouter.completion(
         model="anthropic/claude-3-5-sonnet-20240620",
         messages=[{"role": "user", "content": "Say OK"}],
         extra_headers=shared_headers,
@@ -3701,7 +3701,7 @@ def _text_chunk(content, finish_reason=None, usage=None):
 
 
 def _priced_at(prompt_tokens, completion_tokens):
-    prices = litellm.model_cost[STREAM_COST_MODEL]
+    prices = embrouter.model_cost[STREAM_COST_MODEL]
     return (
         prompt_tokens * prices["input_cost_per_token"]
         + completion_tokens * prices["output_cost_per_token"]
@@ -3719,17 +3719,17 @@ def local_cost_map(monkeypatch):
     ``_invalidate_model_cost_lowercase_map`` clears both caches, where
     ``get_model_info.cache_clear`` reaches only one. Invalidate on the way in and out
     so entries never leak across tests in either direction."""
-    from litellm.utils import _invalidate_model_cost_lowercase_map
+    from embrouter.utils import _invalidate_model_cost_lowercase_map
 
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
+    monkeypatch.setenv("EMBROUTER_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setattr(embrouter, "model_cost", embrouter.get_model_cost_map(url=""))
     _invalidate_model_cost_lowercase_map()
     yield
     _invalidate_model_cost_lowercase_map()
 
 
 def test_a_streamed_response_bills_the_usage_the_provider_reported(local_cost_map):
-    rebuilt = litellm.stream_chunk_builder(
+    rebuilt = embrouter.stream_chunk_builder(
         chunks=[
             _text_chunk("Hello"),
             _text_chunk(" there"),
@@ -3742,13 +3742,13 @@ def test_a_streamed_response_bills_the_usage_the_provider_reported(local_cost_ma
     assert rebuilt.usage.prompt_tokens == STREAMED_USAGE["prompt_tokens"]
     assert rebuilt.usage.completion_tokens == STREAMED_USAGE["completion_tokens"]
 
-    cost = litellm.completion_cost(completion_response=rebuilt, model=STREAM_COST_MODEL)
+    cost = embrouter.completion_cost(completion_response=rebuilt, model=STREAM_COST_MODEL)
 
     assert cost == pytest.approx(_priced_at(137, 42))
 
 
 def test_streaming_and_not_streaming_bill_the_same_usage_the_same(local_cost_map):
-    rebuilt = litellm.stream_chunk_builder(
+    rebuilt = embrouter.stream_chunk_builder(
         chunks=[
             _text_chunk("Hello"),
             _text_chunk(" there"),
@@ -3756,7 +3756,7 @@ def test_streaming_and_not_streaming_bill_the_same_usage_the_same(local_cost_map
         ],
         messages=[{"role": "user", "content": "hi"}],
     )
-    whole = litellm.ModelResponse(
+    whole = embrouter.ModelResponse(
         id="chatcmpl-stream-cost",
         model=STREAM_COST_MODEL,
         object="chat.completion",
@@ -3771,13 +3771,13 @@ def test_streaming_and_not_streaming_bill_the_same_usage_the_same(local_cost_map
         usage=STREAMED_USAGE,
     )
 
-    assert litellm.completion_cost(
+    assert embrouter.completion_cost(
         completion_response=rebuilt, model=STREAM_COST_MODEL
-    ) == pytest.approx(litellm.completion_cost(completion_response=whole, model=STREAM_COST_MODEL))
+    ) == pytest.approx(embrouter.completion_cost(completion_response=whole, model=STREAM_COST_MODEL))
 
 
 def test_a_stream_that_reported_no_usage_is_still_billed(local_cost_map):
-    rebuilt = litellm.stream_chunk_builder(
+    rebuilt = embrouter.stream_chunk_builder(
         chunks=[
             _text_chunk("Hello"),
             _text_chunk(" there"),
@@ -3789,7 +3789,7 @@ def test_a_stream_that_reported_no_usage_is_still_billed(local_cost_map):
     assert rebuilt.usage.prompt_tokens > 0
     assert rebuilt.usage.completion_tokens > 0
 
-    cost = litellm.completion_cost(completion_response=rebuilt, model=STREAM_COST_MODEL)
+    cost = embrouter.completion_cost(completion_response=rebuilt, model=STREAM_COST_MODEL)
 
     assert cost > 0
     assert cost == pytest.approx(
@@ -3799,7 +3799,7 @@ def test_a_stream_that_reported_no_usage_is_still_billed(local_cost_map):
 
 @pytest.mark.asyncio
 async def test_acompletion_resolves_provider_from_api_base():
-    response = await litellm.acompletion(
+    response = await embrouter.acompletion(
         model="deepseek-chat",
         api_base="https://api.deepseek.com/v1",
         api_key="fake-key",
@@ -3825,7 +3825,7 @@ def _record_speech_success(payload: dict[str, object]) -> _RecordedSpeechSuccess
     logged_cost: Final = logging_payload.get("response_cost") if isinstance(logging_payload, dict) else None
     return _RecordedSpeechSuccess(
         call_type=call_type if isinstance(call_type, str) else None,
-        spend_metadata=get_litellm_metadata_from_kwargs(payload),
+        spend_metadata=get_embrouter_metadata_from_kwargs(payload),
         response_cost=response_cost if isinstance(response_cost, float) else None,
         logged_response_cost=logged_cost if isinstance(logged_cost, float) else None,
     )
@@ -3884,16 +3884,16 @@ def _gemini_tts_generate_content_response() -> dict[str, object]:
 async def test_aspeech_gemini_bridge_keeps_proxy_metadata_for_spend_tracking(
     respx_mock: respx.MockRouter, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
     recorder: Final = _SuccessEventRecorder()
-    monkeypatch.setattr(litellm, "callbacks", [recorder])
+    monkeypatch.setattr(embrouter, "callbacks", [recorder])
     mock_route: Final = respx_mock.post(
         url__regex=r"https://generativelanguage\.googleapis\.com/v1beta/models/gemini-2\.5-flash-preview-tts:generateContent.*"
     ).mock(return_value=httpx.Response(200, json=_gemini_tts_generate_content_response()))
 
-    await litellm.aspeech(
+    await embrouter.aspeech(
         model="gemini/gemini-2.5-flash-preview-tts",
         input="spend tracking check",
         voice="Kore",
@@ -3906,7 +3906,7 @@ async def test_aspeech_gemini_bridge_keeps_proxy_metadata_for_spend_tracking(
     speech_event: Final = await _wait_for_success_event(recorder, call_type="aspeech")
     assert speech_event.spend_metadata["user_api_key"] == "hashed-virtual-key"
     assert speech_event.spend_metadata["user_api_key_user_id"] == "user-1"
-    expected_prompt_cost, expected_completion_cost = litellm.cost_per_token(
+    expected_prompt_cost, expected_completion_cost = embrouter.cost_per_token(
         model="gemini/gemini-2.5-flash-preview-tts",
         usage_object=Usage(prompt_tokens=5, completion_tokens=60, total_tokens=65),
     )
@@ -3932,10 +3932,10 @@ def test_stream_chunk_builder_sets_hidden_response_cost_for_known_model():
         _stream_builder_text_chunk("gpt-4o", "world.", finish_reason="stop"),
     ]
 
-    response: Final = litellm.stream_chunk_builder(chunks=chunks, messages=[{"role": "user", "content": "hi"}])
+    response: Final = embrouter.stream_chunk_builder(chunks=chunks, messages=[{"role": "user", "content": "hi"}])
 
     assert response is not None
-    prompt_cost, completion_cost = litellm.cost_per_token(model="gpt-4o", usage_object=response.usage)
+    prompt_cost, completion_cost = embrouter.cost_per_token(model="gpt-4o", usage_object=response.usage)
     expected_cost: Final = prompt_cost + completion_cost
     assert expected_cost > 0
     assert response._hidden_params["response_cost"] == pytest.approx(expected_cost)
@@ -3947,7 +3947,7 @@ def test_stream_chunk_builder_unknown_model_leaves_response_cost_unset():
         _stream_builder_text_chunk("totally-unknown-model-xyz", "world.", finish_reason="stop"),
     ]
 
-    response: Final = litellm.stream_chunk_builder(chunks=chunks, messages=[{"role": "user", "content": "hi"}])
+    response: Final = embrouter.stream_chunk_builder(chunks=chunks, messages=[{"role": "user", "content": "hi"}])
 
     assert response is not None
     assert response._hidden_params.get("response_cost") is None
@@ -3962,44 +3962,44 @@ def test_stream_chunk_builder_prices_proxy_alias_via_model_map():
     for chunk in chunks:
         chunk._hidden_params = {"custom_llm_provider": "openai"}
 
-    response: Final = litellm.stream_chunk_builder(chunks=chunks, messages=[{"role": "user", "content": "hi"}])
+    response: Final = embrouter.stream_chunk_builder(chunks=chunks, messages=[{"role": "user", "content": "hi"}])
 
     assert response is not None
     assert response._hidden_params["custom_llm_provider"] == "openai"
-    prompt_cost, completion_cost = litellm.cost_per_token(model="claude-opus-5", usage_object=response.usage)
+    prompt_cost, completion_cost = embrouter.cost_per_token(model="claude-opus-5", usage_object=response.usage)
     expected_cost: Final = prompt_cost + completion_cost
     assert expected_cost > 0
     assert response._hidden_params["response_cost"] == pytest.approx(expected_cost)
 
 
-def _stream_builder_logging_obj(model: str = "gpt-4o", custom_llm_provider: str = "openai") -> LiteLLMLogging:
-    logging_obj: Final = LiteLLMLogging(
+def _stream_builder_logging_obj(model: str = "gpt-4o", custom_llm_provider: str = "openai") -> EmbRouterLogging:
+    logging_obj: Final = EmbRouterLogging(
         model=model,
         messages=[{"role": "user", "content": "hi"}],
         stream=True,
         call_type="completion",
         start_time=datetime.now(),
-        litellm_call_id="test-call-id",
+        embrouter_call_id="test-call-id",
         function_id="test-function-id",
     )
     logging_obj.update_environment_variables(
         model=model,
         user=None,
         optional_params={},
-        litellm_params={"custom_llm_provider": custom_llm_provider},
+        embrouter_params={"custom_llm_provider": custom_llm_provider},
         custom_llm_provider=custom_llm_provider,
     )
     return logging_obj
 
 
 def test_stream_chunk_builder_stamps_streaming_usage_cost_by_default(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(litellm, "include_cost_in_streaming_usage", False)
+    monkeypatch.setattr(embrouter, "include_cost_in_streaming_usage", False)
     chunks: Final = [
         _stream_builder_text_chunk("gpt-4o", "Hello "),
         _stream_builder_text_chunk("gpt-4o", "world.", finish_reason="stop"),
     ]
 
-    response: Final = litellm.stream_chunk_builder(
+    response: Final = embrouter.stream_chunk_builder(
         chunks=chunks, messages=[{"role": "user", "content": "hi"}], logging_obj=_stream_builder_logging_obj()
     )
 
@@ -4013,15 +4013,15 @@ def test_stream_chunk_builder_stamps_streaming_usage_cost_by_default(monkeypatch
 def test_stream_chunk_builder_skips_stamp_when_cost_is_unpriceable():
     import time as time_module
 
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLogging
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLogging
 
-    logging_obj: Final = LiteLLMLogging(
+    logging_obj: Final = EmbRouterLogging(
         model="us.anthropic.claude-opus-5",
         messages=[{"role": "user", "content": "hi"}],
         stream=True,
         call_type="completion",
         start_time=time_module.time(),
-        litellm_call_id="stream-builder-alias-unpriceable",
+        embrouter_call_id="stream-builder-alias-unpriceable",
         function_id="1",
     )
     logging_obj.model_call_details["custom_llm_provider"] = "bedrock"
@@ -4033,7 +4033,7 @@ def test_stream_chunk_builder_skips_stamp_when_cost_is_unpriceable():
         usage_chunk,
     ]
 
-    response: Final = litellm.stream_chunk_builder(
+    response: Final = embrouter.stream_chunk_builder(
         chunks=chunks, messages=[{"role": "user", "content": "hi"}], logging_obj=logging_obj
     )
 
@@ -4051,7 +4051,7 @@ def test_stream_chunk_builder_keeps_provider_reported_usage_cost():
         usage_chunk,
     ]
 
-    response: Final = litellm.stream_chunk_builder(
+    response: Final = embrouter.stream_chunk_builder(
         chunks=chunks, messages=[{"role": "user", "content": "hi"}], logging_obj=_stream_builder_logging_obj()
     )
 
@@ -4072,7 +4072,7 @@ def test_stream_chunk_builder_prices_alias_from_openai_sdk_usage_chunk():
         usage_chunk,
     ]
 
-    response: Final = litellm.stream_chunk_builder(chunks=chunks, messages=[{"role": "user", "content": "hi"}])
+    response: Final = embrouter.stream_chunk_builder(chunks=chunks, messages=[{"role": "user", "content": "hi"}])
 
     assert response is not None
     assert response.usage.prompt_tokens == 20
@@ -4082,7 +4082,7 @@ def test_stream_chunk_builder_prices_alias_from_openai_sdk_usage_chunk():
 
 
 def test_stream_chunk_builder_leaves_xai_reported_cost_to_the_calculator(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(litellm, "cost_margin_config", {"xai": 0.5})
+    monkeypatch.setattr(embrouter, "cost_margin_config", {"xai": 0.5})
     usage_chunk: Final = _stream_builder_text_chunk("grok-4", "")
     usage_chunk.usage = Usage(prompt_tokens=5, completion_tokens=2, total_tokens=7, cost=0.42)
     chunks: Final = [
@@ -4092,7 +4092,7 @@ def test_stream_chunk_builder_leaves_xai_reported_cost_to_the_calculator(monkeyp
     ]
     logging_obj: Final = _stream_builder_logging_obj(model="grok-4", custom_llm_provider="xai")
 
-    response: Final = litellm.stream_chunk_builder(
+    response: Final = embrouter.stream_chunk_builder(
         chunks=chunks, messages=[{"role": "user", "content": "hi"}], logging_obj=logging_obj
     )
 
@@ -4109,9 +4109,9 @@ def test_speech_mistral_dispatches_and_decodes_audio(respx_mock: respx.MockRoute
         return_value=httpx.Response(200, json={"audio_data": base64.b64encode(audio_bytes).decode()})
     )
 
-    response: Final = litellm.speech(
+    response: Final = embrouter.speech(
         model="mistral/voxtral-mini-tts-2603",
-        input="hello from litellm",
+        input="hello from embrouter",
         voice="en_paul_neutral",
         response_format="wav",
         speed=2,
@@ -4122,7 +4122,7 @@ def test_speech_mistral_dispatches_and_decodes_audio(respx_mock: respx.MockRoute
     request_body: Final = json.loads(mock_route.calls.last.request.content)
     assert request_body == {
         "model": "voxtral-mini-tts-2603",
-        "input": "hello from litellm",
+        "input": "hello from embrouter",
         "voice_id": "en_paul_neutral",
         "response_format": "wav",
     }
@@ -4137,9 +4137,9 @@ def test_speech_mistral_routes_to_configured_api_base(respx_mock: respx.MockRout
         return_value=httpx.Response(200, json={"audio_data": base64.b64encode(audio_bytes).decode()})
     )
 
-    response: Final = litellm.speech(
+    response: Final = embrouter.speech(
         model="mistral/voxtral-mini-tts-2603",
-        input="hello from litellm",
+        input="hello from embrouter",
         voice="en_paul_neutral",
         api_base="https://mistral.gateway.internal",
     )
@@ -4158,7 +4158,7 @@ def test_azure_ai_transcription_on_a_foundry_host_uses_the_azure_openai_deployme
         url__regex=r"https://my-project\.services\.ai\.azure\.com/openai/deployments/whisper-1/audio/transcriptions\?api-version=.+"
     ).mock(return_value=httpx.Response(200, json={"text": "hello"}))
 
-    response: Final = litellm.transcription(
+    response: Final = embrouter.transcription(
         model="azure_ai/whisper-1",
         file=("tone.wav", b"RIFF\x00\x00\x00\x00WAVE", "audio/wav"),
         api_base=FOUNDRY_HOST,
@@ -4176,7 +4176,7 @@ def test_azure_ai_speech_on_a_foundry_host_uses_the_azure_openai_deployment_rout
         url__regex=r"https://my-project\.services\.ai\.azure\.com/openai/deployments/tts-1/audio/speech\?api-version=.+"
     ).mock(return_value=httpx.Response(200, content=b"mp3-bytes"))
 
-    response: Final = litellm.speech(
+    response: Final = embrouter.speech(
         model="azure_ai/tts-1",
         input="hello",
         voice="alloy",
@@ -4224,7 +4224,7 @@ def test_bridged_responses_with_openai_http_handler_keeps_forwarded_headers_out_
         else httpx.Response(200, json=_chat_completion_json())
     )
 
-    response: Final = litellm.responses(
+    response: Final = embrouter.responses(
         model="openai/gpt-5.4",
         input="Reply with the single word ok",
         stream=stream,
@@ -4247,16 +4247,16 @@ def test_bridged_responses_with_openai_http_handler_keeps_forwarded_headers_out_
 def test_aiohttp_openai_warns_only_when_http2_enabled(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, http2_on: bool
 ):
-    from litellm.main import base_llm_aiohttp_handler
+    from embrouter.main import base_llm_aiohttp_handler
 
-    monkeypatch.setattr(litellm, "http2", http2_on)
-    monkeypatch.delenv("LITELLM_HTTP2", raising=False)
+    monkeypatch.setattr(embrouter, "http2", http2_on)
+    monkeypatch.delenv("EMBROUTER_HTTP2", raising=False)
 
     handler_completion: Final = MagicMock(return_value=MagicMock())
     monkeypatch.setattr(base_llm_aiohttp_handler, "completion", handler_completion)
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
-        litellm.completion(
+    with caplog.at_level(logging.WARNING, logger="EmbRouter"):
+        embrouter.completion(
             model="aiohttp_openai/gpt-4o",
             messages=[{"role": "user", "content": "hi"}],
             api_key="sk-test",
@@ -4269,8 +4269,8 @@ def test_aiohttp_openai_warns_only_when_http2_enabled(
 
 @pytest.mark.parametrize("tool_choice", [{"type": "bogus"}, {"name": "lookup_fruit"}, {"type": "file_search"}])
 def test_completion_rejects_untranslatable_tool_choice_with_a_400(tool_choice):
-    with pytest.raises(litellm.BadRequestError) as exc_info:
-        litellm.completion(
+    with pytest.raises(embrouter.BadRequestError) as exc_info:
+        embrouter.completion(
             model="anthropic/claude-haiku-4-5",
             messages=[{"role": "user", "content": "Which fruit is red?"}],
             tools=[{"type": "function", "function": {"name": "lookup_fruit", "parameters": {"type": "object"}}}],
@@ -4283,8 +4283,8 @@ def test_completion_rejects_untranslatable_tool_choice_with_a_400(tool_choice):
 
 @pytest.mark.parametrize("raw", ["sixty-four", 0, -1])
 def test_completion_rejects_an_invalid_stream_chunk_size_with_a_400_naming_the_param(raw: object) -> None:
-    with pytest.raises(litellm.BadRequestError) as exc_info:
-        litellm.completion(
+    with pytest.raises(embrouter.BadRequestError) as exc_info:
+        embrouter.completion(
             model="openai/gpt-4.1-mini",
             messages=[{"role": "user", "content": "hi"}],
             stream_chunk_size=raw,
@@ -4325,7 +4325,7 @@ class _PromptHookRecorder(CustomPromptManagement):
         prompt_id: str | None,
         prompt_variables: dict | None,
         dynamic_callback_params: StandardCallbackDynamicParams,
-        litellm_logging_obj: LiteLLMLogging,
+        embrouter_logging_obj: EmbRouterLogging,
         prompt_spec: PromptSpec | None = None,
         tools: list[dict] | None = None,
         prompt_label: str | None = None,
@@ -4339,9 +4339,9 @@ class _PromptHookRecorder(CustomPromptManagement):
 
 async def _call_completion(is_async: bool, **kwargs: object) -> None:
     if is_async:
-        await litellm.acompletion(**kwargs)
+        await embrouter.acompletion(**kwargs)
     else:
-        litellm.completion(**kwargs)
+        embrouter.completion(**kwargs)
 
 
 @pytest.mark.asyncio
@@ -4350,7 +4350,7 @@ async def test_the_prompt_hook_runs_when_stream_chunk_size_is_valid(
     monkeypatch: pytest.MonkeyPatch, is_async: bool, hook: str
 ) -> None:
     on_prompt: Final = MagicMock()
-    monkeypatch.setattr(litellm, "callbacks", [_PromptHookRecorder(on_prompt)])
+    monkeypatch.setattr(embrouter, "callbacks", [_PromptHookRecorder(on_prompt)])
 
     await _call_completion(
         is_async,
@@ -4370,9 +4370,9 @@ async def test_an_invalid_stream_chunk_size_is_rejected_before_any_prompt_hook_r
     monkeypatch: pytest.MonkeyPatch, is_async: bool
 ) -> None:
     on_prompt: Final = MagicMock()
-    monkeypatch.setattr(litellm, "callbacks", [_PromptHookRecorder(on_prompt)])
+    monkeypatch.setattr(embrouter, "callbacks", [_PromptHookRecorder(on_prompt)])
 
-    with pytest.raises(litellm.BadRequestError):
+    with pytest.raises(embrouter.BadRequestError):
         await _call_completion(
             is_async,
             model="openai/gpt-4.1-mini",
@@ -4385,54 +4385,54 @@ async def test_an_invalid_stream_chunk_size_is_rejected_before_any_prompt_hook_r
     on_prompt.assert_not_called()
 
 
-def _completion_logging_obj(call_id: str) -> LiteLLMLogging:
-    return LiteLLMLogging(
+def _completion_logging_obj(call_id: str) -> EmbRouterLogging:
+    return EmbRouterLogging(
         model="gpt-4.1-mini",
         messages=[{"role": "user", "content": "hi"}],
         stream=False,
         call_type="completion",
         start_time=datetime(2026, 1, 1),
-        litellm_call_id=call_id,
+        embrouter_call_id=call_id,
         function_id=f"{call_id}-function",
     )
 
 
-def test_completion_carries_the_control_options_into_the_logged_litellm_params() -> None:
+def test_completion_carries_the_control_options_into_the_logged_embrouter_params() -> None:
     logging_obj: Final = _completion_logging_obj("control-params")
-    litellm.completion(
+    embrouter.completion(
         model="openai/gpt-4.1-mini",
         messages=[{"role": "user", "content": "hi"}],
         stream_chunk_size=64,
         mock_response="hi",
-        litellm_logging_obj=logging_obj,
+        embrouter_logging_obj=logging_obj,
     )
-    assert stored_control_options(logging_obj.litellm_params) == ControlOptions(stream_chunk_size=64)
+    assert stored_control_options(logging_obj.embrouter_params) == ControlOptions(stream_chunk_size=64)
 
 
 def test_completion_ignores_a_caller_supplied_control_options_key() -> None:
     logging_obj: Final = _completion_logging_obj("control-params-injection")
-    litellm.completion(
+    embrouter.completion(
         model="openai/gpt-4.1-mini",
         messages=[{"role": "user", "content": "hi"}],
         mock_response="hi",
-        litellm_logging_obj=logging_obj,
+        embrouter_logging_obj=logging_obj,
         **{CONTROL_OPTIONS_KEY: {"stream_chunk_size": 1}},
     )
-    assert stored_control_options(logging_obj.litellm_params) == ControlOptions()
+    assert stored_control_options(logging_obj.embrouter_params) == ControlOptions()
 
 
 @pytest.mark.parametrize("drop_params", [True, "true"])
 def test_drop_params_drops_an_invalid_stream_chunk_size_instead_of_rejecting_it(drop_params: object) -> None:
     logging_obj: Final = _completion_logging_obj(f"drop-params-{drop_params}")
-    litellm.completion(
+    embrouter.completion(
         model="openai/gpt-4.1-mini",
         messages=[{"role": "user", "content": "hi"}],
         stream_chunk_size="sixty-four",
         drop_params=drop_params,
         mock_response="hi",
-        litellm_logging_obj=logging_obj,
+        embrouter_logging_obj=logging_obj,
     )
-    assert stored_control_options(logging_obj.litellm_params) == ControlOptions()
+    assert stored_control_options(logging_obj.embrouter_params) == ControlOptions()
 
 
 def test_drop_params_keeps_a_dropped_stream_chunk_size_out_of_the_provider_request(
@@ -4453,7 +4453,7 @@ def test_drop_params_keeps_a_dropped_stream_chunk_size_out_of_the_provider_reque
         )
     )
 
-    litellm.completion(
+    embrouter.completion(
         model="openai/gpt-4.1-mini",
         messages=[{"role": "user", "content": "hi"}],
         api_base=api_base,
@@ -4472,32 +4472,32 @@ def test_drop_params_keeps_a_dropped_stream_chunk_size_out_of_the_provider_reque
 async def test_global_drop_params_drops_an_invalid_stream_chunk_size_on_acompletion(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "drop_params", True)
+    monkeypatch.setattr(embrouter, "drop_params", True)
     logging_obj: Final = _completion_logging_obj("global-drop-params")
-    await litellm.acompletion(
+    await embrouter.acompletion(
         model="openai/gpt-4.1-mini",
         messages=[{"role": "user", "content": "hi"}],
         stream_chunk_size=0,
         mock_response="hi",
-        litellm_logging_obj=logging_obj,
+        embrouter_logging_obj=logging_obj,
     )
-    assert stored_control_options(logging_obj.litellm_params) == ControlOptions()
+    assert stored_control_options(logging_obj.embrouter_params) == ControlOptions()
 
 
 def test_completion_rejects_an_invalid_stream_chunk_size_before_the_mcp_gateway() -> None:
-    with pytest.raises(litellm.BadRequestError) as exc_info:
-        litellm.completion(
+    with pytest.raises(embrouter.BadRequestError) as exc_info:
+        embrouter.completion(
             model="openai/gpt-4.1-mini",
             messages=[{"role": "user", "content": "hi"}],
-            tools=[{"type": "mcp", "server_label": "gateway", "server_url": "litellm_proxy"}],
+            tools=[{"type": "mcp", "server_label": "gateway", "server_url": "embrouter_proxy"}],
             stream_chunk_size="sixty-four",
         )
     assert exc_info.value.param == "stream_chunk_size"
 
 
 def test_drop_params_false_still_rejects_an_invalid_stream_chunk_size() -> None:
-    with pytest.raises(litellm.BadRequestError):
-        litellm.completion(
+    with pytest.raises(embrouter.BadRequestError):
+        embrouter.completion(
             model="openai/gpt-4.1-mini",
             messages=[{"role": "user", "content": "hi"}],
             stream_chunk_size="sixty-four",

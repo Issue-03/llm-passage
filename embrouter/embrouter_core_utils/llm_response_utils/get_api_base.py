@@ -1,20 +1,20 @@
 from typing import Final
 
-import litellm
-from litellm import verbose_logger
+import embrouter
+from embrouter import verbose_logger
 
-from ...litellm_core_utils.get_llm_provider_logic import (
+from ...embrouter_core_utils.get_llm_provider_logic import (
     declared_authenticating_provider,
     get_llm_provider,
 )
-from ...types.router import LiteLLM_Params
+from ...types.router import EmbRouter_Params
 
 
 def _api_base_without_login(provider: str) -> str | None:
     if provider == "github_copilot":
-        return litellm.GithubCopilotConfig().api_base_without_login()
+        return embrouter.GithubCopilotConfig().api_base_without_login()
     if provider == "chatgpt":
-        return litellm.ChatGPTConfig().api_base_without_login()
+        return embrouter.ChatGPTConfig().api_base_without_login()
     return None
 
 
@@ -27,32 +27,32 @@ def _provider_default_api_base(model: str, custom_llm_provider: str | None, stre
     return None
 
 
-def get_api_base(model: str, optional_params: dict | LiteLLM_Params) -> str | None:
+def get_api_base(model: str, optional_params: dict | EmbRouter_Params) -> str | None:
     """
     Returns the api base used for calling the model.
 
     Parameters:
-    - model: str - the model passed to litellm.completion()
-    - optional_params - the 'litellm_params' in router.completion *OR* additional params passed to litellm.completion - eg. api_base, api_key, etc. See `LiteLLM_Params`
+    - model: str - the model passed to embrouter.completion()
+    - optional_params - the 'embrouter_params' in router.completion *OR* additional params passed to embrouter.completion - eg. api_base, api_key, etc. See `EmbRouter_Params`
 
     Returns:
     - string (api_base) or None
 
     Example:
     ```
-    from litellm import get_api_base
+    from embrouter import get_api_base
 
     get_api_base(model="gemini/gemini-pro")
     ```
     """
 
     try:
-        if isinstance(optional_params, LiteLLM_Params):
+        if isinstance(optional_params, EmbRouter_Params):
             _optional_params = optional_params
         elif "model" in optional_params:
-            _optional_params = LiteLLM_Params(**optional_params)
+            _optional_params = EmbRouter_Params(**optional_params)
         else:  # prevent needing to copy and pop the dict
-            _optional_params = LiteLLM_Params(model=model, **optional_params)  # convert to pydantic object
+            _optional_params = EmbRouter_Params(model=model, **optional_params)  # convert to pydantic object
     except Exception:
         return None
     # get llm provider
@@ -60,8 +60,8 @@ def get_api_base(model: str, optional_params: dict | LiteLLM_Params) -> str | No
     if _optional_params.api_base is not None:
         return _optional_params.api_base
 
-    if litellm.model_alias_map and model in litellm.model_alias_map:
-        model = litellm.model_alias_map[model]
+    if embrouter.model_alias_map and model in embrouter.model_alias_map:
+        model = embrouter.model_alias_map[model]
     declared: Final = declared_authenticating_provider(model, _optional_params.custom_llm_provider)
     if declared is not None:
         return _api_base_without_login(declared)
@@ -88,8 +88,8 @@ def get_api_base(model: str, optional_params: dict | LiteLLM_Params) -> str | No
     stream: Final[bool] = getattr(optional_params, "stream", False)
 
     if _optional_params.vertex_location is not None and _optional_params.vertex_project is not None:
-        from litellm.llms.vertex_ai.vertex_llm_base import VertexBase
-        from litellm.types.llms.vertex_ai import VertexPartnerProvider
+        from embrouter.llms.vertex_ai.vertex_llm_base import VertexBase
+        from embrouter.types.llms.vertex_ai import VertexPartnerProvider
 
         if "claude" in model:
             _api_base = VertexBase.create_vertex_url(

@@ -3,6 +3,6 @@ def post_response_rule(input):  # receives the model response
     if len(input) < 200:
         return {
             "decision": False,
-            "message": "This violates LiteLLM Proxy Rules. Response too short",
+            "message": "This violates EmbRouter Proxy Rules. Response too short",
         }
     return {"decision": True}  # message not required since, request will pass

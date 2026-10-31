@@ -14,8 +14,8 @@ when the feature gate is off.
 import os
 from typing import TYPE_CHECKING, Final, Protocol
 
-from litellm._logging import verbose_logger
-from litellm.integrations.otel.model.config import is_otel_v2_enabled
+from embrouter._logging import verbose_logger
+from embrouter.integrations.otel.model.config import is_otel_v2_enabled
 
 if TYPE_CHECKING:
     from fastapi import FastAPI
@@ -29,7 +29,7 @@ if TYPE_CHECKING:
 _DEFAULT_EXCLUDED_ROUTES: Final = (
     "/health",  # load-balancer liveness/readiness polling
     "/metrics",  # Prometheus scrape (also drops the /model/metrics admin analytics)
-    "/litellm-asset-prefix",  # hashed UI asset bundles
+    "/embrouter-asset-prefix",  # hashed UI asset bundles
     "/_next",  # Next.js static JS/CSS chunks (root-level mount)
     "/ui",  # admin UI single-page app
     "/swagger",  # static Swagger UI assets
@@ -118,7 +118,7 @@ def instrument_fastapi_app(app: "FastAPI") -> None:
 
         # Lazy: only the V2-enabled path needs the optional
         # ``opentelemetry-instrumentation-fastapi`` package, which is not part of the
-        # base ``litellm[proxy]`` install. Importing it at module top would make
+        # base ``embrouter[proxy]`` install. Importing it at module top would make
         # ``proxy_server``'s unconditional ``import`` of this module crash when the
         # package is absent, even with the gate off.
         from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor

@@ -9,15 +9,15 @@ from unittest.mock import create_autospec
 import httpx
 import pytest
 
-import litellm
-from litellm._logging import verbose_router_logger
-from litellm.constants import INTERNAL_CALL_ORIGIN_METADATA_KEY
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.router_strategy.complexity_router.complexity_router import ComplexityRouter
-from litellm.router_strategy.complexity_router.config import ComplexityRouterConfig, JevClassifierConfig
-from litellm.router_strategy.complexity_router.jev_classifier import (
+import embrouter
+from embrouter._logging import verbose_router_logger
+from embrouter.constants import INTERNAL_CALL_ORIGIN_METADATA_KEY
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.embrouter_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from embrouter.router_strategy.complexity_router.complexity_router import ComplexityRouter
+from embrouter.router_strategy.complexity_router.config import ComplexityRouterConfig, JevClassifierConfig
+from embrouter.router_strategy.complexity_router.jev_classifier import (
     DEFAULT_JEV_INSTRUCTIONS,
     HttpJevClassifierClient,
     JevChoiceAnswer,
@@ -26,7 +26,7 @@ from litellm.router_strategy.complexity_router.jev_classifier import (
     build_jev_request,
     jev_classifier_cost,
 )
-from litellm.types.utils import AUTOROUTER_CLASSIFIER_CALL_ORIGIN
+from embrouter.types.utils import AUTOROUTER_CLASSIFIER_CALL_ORIGIN
 
 
 class _UsageRecorder(CustomLogger):
@@ -80,7 +80,7 @@ async def test_jev_logging_failure_preserves_verdict_and_keeps_circuit_closed(
     handler.client = httpx.AsyncClient(transport=httpx.MockTransport(respond))
     router: Final = ComplexityRouter(
         "jev-logging-failure",
-        litellm.Router(model_list=[]),
+        embrouter.Router(model_list=[]),
         {"classifier_type": "jev", "jev_classifier_config": {}, "tiers": {"SIMPLE": "cheap"}},
         jev_client=HttpJevClassifierClient("test", "https://typesafe.test", handler),
         derive_savings_baseline=False,
@@ -108,7 +108,7 @@ async def test_jev_http_errors_do_not_dispatch_successful_usage(
     monkeypatch: pytest.MonkeyPatch, status_code: int
 ) -> None:
     recorder: Final = _UsageRecorder()
-    monkeypatch.setattr(litellm, "_async_success_callback", [recorder])
+    monkeypatch.setattr(embrouter, "_async_success_callback", [recorder])
     handler: Final = create_autospec(AsyncHTTPHandler, instance=True)
     handler.post.return_value = httpx.Response(
         status_code,
@@ -140,7 +140,7 @@ async def test_jev_invalid_usage_never_reaches_spend_callbacks(
     monkeypatch: pytest.MonkeyPatch, field: str, tokens: object
 ) -> None:
     recorder: Final = _UsageRecorder()
-    monkeypatch.setattr(litellm, "_async_success_callback", [recorder])
+    monkeypatch.setattr(embrouter, "_async_success_callback", [recorder])
     handler: Final = create_autospec(AsyncHTTPHandler, instance=True)
     handler.post.return_value = httpx.Response(
         200,
@@ -171,9 +171,9 @@ async def test_jev_accounts_once_with_parent_identity_even_when_the_verdict_fail
     monkeypatch: pytest.MonkeyPatch, answer: str, private: bool
 ) -> None:
     recorder: Final = _UsageRecorder()
-    monkeypatch.setattr(litellm, "_async_success_callback", [recorder])
+    monkeypatch.setattr(embrouter, "_async_success_callback", [recorder])
     monkeypatch.setitem(
-        litellm.model_cost,
+        embrouter.model_cost,
         "typesafe/jev-accounting",
         {"input_cost_per_token": 0.001, "output_cost_per_token": 0.002},
     )
@@ -195,7 +195,7 @@ async def test_jev_accounts_once_with_parent_identity_even_when_the_verdict_fail
     provider: Final = HttpJevClassifierClient("test", "https://typesafe.test", handler)
     router: Final = ComplexityRouter(
         "jev-router",
-        litellm.Router(model_list=[]),
+        embrouter.Router(model_list=[]),
         {"classifier_type": "jev", "jev_classifier_config": {}, "tiers": {"SIMPLE": "cheap"}},
         jev_client=provider,
         derive_savings_baseline=False,
@@ -213,8 +213,8 @@ async def test_jev_accounts_once_with_parent_identity_even_when_the_verdict_fail
         "private current ask",
         request_kwargs={
             "metadata": metadata,
-            "litellm_session_id": "session-a",
-            "litellm_trace_id": "trace-a",
+            "embrouter_session_id": "session-a",
+            "embrouter_trace_id": "trace-a",
             "turn_off_message_logging": private,
         },
     )
@@ -226,7 +226,7 @@ async def test_jev_accounts_once_with_parent_identity_even_when_the_verdict_fail
     event: Final = recorder.calls[0]
     assert event["response_cost"] == pytest.approx(0.007)
     assert event["model"] == "typesafe/jev-accounting"
-    params: Final = event["litellm_params"]
+    params: Final = event["embrouter_params"]
     assert isinstance(params, Mapping)
     logged_metadata: Final = params["metadata"]
     assert isinstance(logged_metadata, Mapping)
@@ -239,8 +239,8 @@ async def test_jev_accounts_once_with_parent_identity_even_when_the_verdict_fail
     assert "user_api_key_budget_reservation" not in logged_metadata
     assert logged_metadata["user_api_key_auth"] == {}
     assert metadata["user_api_key_budget_reservation"] == {"reservation_id": "parent-reservation"}
-    assert params["litellm_session_id"] == "session-a"
-    assert event["litellm_trace_id"] == "trace-a"
+    assert params["embrouter_session_id"] == "session-a"
+    assert event["embrouter_trace_id"] == "trace-a"
     assert ("private current ask" in str(event["messages"])) is not private
     standard: Final = event["standard_logging_object"]
     assert isinstance(standard, Mapping)
@@ -260,7 +260,7 @@ async def test_jev_uses_bounded_history_and_separates_operator_instructions(incl
     handler.client = httpx.AsyncClient(transport=httpx.MockTransport(respond))
     router: Final = ComplexityRouter(
         "jev-context",
-        litellm.Router(model_list=[]),
+        embrouter.Router(model_list=[]),
         {
             "classifier_type": "jev",
             "jev_classifier_config": {"instructions": "operator-only rubric"},
@@ -324,7 +324,7 @@ async def test_jev_encrypted_task_skips_provider_without_disabling_plaintext_cla
     handler.client = httpx.AsyncClient(transport=transport)
     router: Final = ComplexityRouter(
         "jev-encrypted",
-        litellm.Router(model_list=[]),
+        embrouter.Router(model_list=[]),
         {
             "classifier_type": "jev",
             "jev_classifier_config": {},
@@ -392,7 +392,7 @@ async def test_jev_cancellation_propagates_without_opening_timeout_breaker() -> 
     handler.client = httpx.AsyncClient(transport=httpx.MockTransport(respond))
     router: Final = ComplexityRouter(
         "jev-cancellation",
-        litellm.Router(model_list=[]),
+        embrouter.Router(model_list=[]),
         {"classifier_type": "jev", "jev_classifier_config": {}, "tiers": {"SIMPLE": "cheap"}},
         jev_client=HttpJevClassifierClient("test", "https://typesafe.test", handler),
         derive_savings_baseline=False,
@@ -494,7 +494,7 @@ def test_build_jev_request_includes_system_prompt_and_criteria() -> None:
 
 def test_jev_classifier_cost_uses_registry_pricing(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setitem(
-        litellm.model_cost,
+        embrouter.model_cost,
         "typesafe/jev-1.13.0",
         {"input_cost_per_token": 0.0001, "output_cost_per_token": 0.0002},
     )
@@ -507,7 +507,7 @@ def test_jev_classifier_cost_uses_registry_pricing(monkeypatch: pytest.MonkeyPat
 
 
 def test_jev_classifier_cost_is_none_without_registry_pricing() -> None:
-    assert "typesafe/jev-unpriced" not in litellm.model_cost
+    assert "typesafe/jev-unpriced" not in embrouter.model_cost
     response: Final = JevSystemOneResponse(
         answers={"tier": _answer()},
         usage=JevUsage(input_tokens=3, output_tokens=4),

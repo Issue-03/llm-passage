@@ -12,22 +12,22 @@ from typing import TYPE_CHECKING, Any, Final
 import httpx
 from pydantic import BaseModel
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.litellm_core_utils.litellm_logging import Logging as LitellmLogging
-from litellm.llms.bedrock.image_edit.amazon_nova_canvas_image_edit_transformation import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbrouterLogging
+from embrouter.llms.bedrock.image_edit.amazon_nova_canvas_image_edit_transformation import (
     BedrockAmazonNovaCanvasImageEditConfig,
 )
-from litellm.llms.bedrock.image_edit.stability_transformation import (
+from embrouter.llms.bedrock.image_edit.stability_transformation import (
     BedrockStabilityImageEditConfig,
 )
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.llms.custom_httpx.http_handler import (
     AsyncHTTPHandler,
     HTTPHandler,
     _get_httpx_client,
     get_async_httpx_client,
 )
-from litellm.types.utils import ImageResponse
+from embrouter.types.utils import ImageResponse
 
 from ..base_aws_llm import BaseAWSLLM, bedrock_bearer_token
 from ..common_utils import BedrockError
@@ -73,7 +73,7 @@ class BedrockImageEdit(BaseAWSLLM):
         prompt: str | None,
         model_response: ImageResponse,
         optional_params: dict,
-        logging_obj: LitellmLogging,
+        logging_obj: EmbrouterLogging,
         timeout: float | httpx.Timeout | None,
         aimage_edit: bool = False,
         api_base: str | None = None,
@@ -139,7 +139,7 @@ class BedrockImageEdit(BaseAWSLLM):
         prepared_request: BedrockImageEditPreparedRequest,
         timeout: float | httpx.Timeout | None,
         model: str,
-        logging_obj: LitellmLogging,
+        logging_obj: EmbrouterLogging,
         prompt: str | None,
         model_response: ImageResponse,
         client: AsyncHTTPHandler | None = None,
@@ -148,7 +148,7 @@ class BedrockImageEdit(BaseAWSLLM):
         Asynchronous handler for bedrock image edit
         """
         async_client: Final = client or get_async_httpx_client(
-            llm_provider=litellm.LlmProviders.BEDROCK,
+            llm_provider=embrouter.LlmProviders.BEDROCK,
             params={"timeout": timeout},
         )
 
@@ -189,7 +189,7 @@ class BedrockImageEdit(BaseAWSLLM):
         optional_params: dict,
         api_base: str | None,
         extra_headers: dict | None,
-        logging_obj: LitellmLogging,
+        logging_obj: EmbrouterLogging,
         api_key: str | None,
     ) -> BedrockImageEditPreparedRequest:
         """
@@ -202,7 +202,7 @@ class BedrockImageEdit(BaseAWSLLM):
             optional_params (dict): The optional parameters for the image edit
             api_base (Optional[str]): The base URL for the Bedrock API
             extra_headers (Optional[dict]): The extra headers to include in the request
-            logging_obj (LitellmLogging): The logging object to use for logging
+            logging_obj (EmbrouterLogging): The logging object to use for logging
             api_key (Optional[str]): The API key to use
 
         Returns:
@@ -288,7 +288,7 @@ class BedrockImageEdit(BaseAWSLLM):
             prompt=prompt,
             image=image[0] if image else None,
             image_edit_optional_request_params=optional_params,
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
         return dict(request_body)
@@ -297,7 +297,7 @@ class BedrockImageEdit(BaseAWSLLM):
         self,
         model_response: ImageResponse,
         model: str,
-        logging_obj: LitellmLogging,
+        logging_obj: EmbrouterLogging,
         prompt: str | None,
         response: httpx.Response,
         data: dict,

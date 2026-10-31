@@ -1,7 +1,7 @@
 """
 Reverse sync for the key side of the key <-> access group relationship.
 
-`litellm_accessgrouptable.assigned_key_ids` and `litellm_verificationtoken.access_group_ids`
+`embrouter_accessgrouptable.assigned_key_ids` and `embrouter_verificationtoken.access_group_ids`
 are the two halves of one relationship and BOTH are read: the access group's
 attached-keys view reads the former, and so does the grant check in
 `auth_checks.get_authorized_resources_from_key_access_groups`, which authorizes a
@@ -30,16 +30,16 @@ from typing import Final, Protocol
 
 from pydantic import BaseModel
 
-from litellm.proxy._types import (
-    LiteLLM_VerificationToken,
+from embrouter.proxy._types import (
+    EmbRouter_VerificationToken,
     RegenerateKeyRequest,
     UpdateKeyRequest,
 )
-from litellm.proxy.auth.auth_checks import (
+from embrouter.proxy.auth.auth_checks import (
     _delete_cache_access_object,  # pyright: ignore[reportPrivateUsage]  # the access-group endpoints reach for this same cache primitive
 )
-from litellm.proxy.db.routing_prisma_wrapper import writer_wrapper
-from litellm.repositories.table_repositories import AccessGroupRepository
+from embrouter.proxy.db.routing_prisma_wrapper import writer_wrapper
+from embrouter.repositories.table_repositories import AccessGroupRepository
 
 
 class _MovedGroupRow(BaseModel):
@@ -51,21 +51,21 @@ class _RawExecutor(Protocol):
 
 
 _ATTACH_KEY_SQL: Final = (
-    'UPDATE "LiteLLM_AccessGroupTable" '
+    'UPDATE "EmbRouter_AccessGroupTable" '
     'SET "assigned_key_ids" = array_append("assigned_key_ids", $1) '
     'WHERE "access_group_id" = ANY($2::text[]) AND NOT ($1 = ANY("assigned_key_ids")) '
     'RETURNING "access_group_id"'
 )
 
 _DETACH_KEY_SQL: Final = (
-    'UPDATE "LiteLLM_AccessGroupTable" '
+    'UPDATE "EmbRouter_AccessGroupTable" '
     'SET "assigned_key_ids" = array_remove("assigned_key_ids", $1) '
     'WHERE "access_group_id" = ANY($2::text[]) AND $1 = ANY("assigned_key_ids") '
     'RETURNING "access_group_id"'
 )
 
 _REPOINT_KEY_SQL: Final = (
-    'UPDATE "LiteLLM_AccessGroupTable" '
+    'UPDATE "EmbRouter_AccessGroupTable" '
     'SET "assigned_key_ids" = array_append(array_remove(array_remove("assigned_key_ids", $1), $2), $2) '
     'WHERE $1 = ANY("assigned_key_ids") '
     'RETURNING "access_group_id"'
@@ -85,7 +85,7 @@ async def _invalidate_access_group_cache(access_group_id: str) -> None:
     Uses a lazy import of user_api_key_cache and proxy_logging_obj from proxy_server
     to avoid circular imports, following the same pattern as key_management_endpoints.
     """
-    from litellm.proxy.proxy_server import proxy_logging_obj, user_api_key_cache
+    from embrouter.proxy.proxy_server import proxy_logging_obj, user_api_key_cache
 
     await _delete_cache_access_object(
         access_group_id=access_group_id,
@@ -126,7 +126,7 @@ async def sync_key_update_access_group_membership(
     prisma_client: object,
     key_token: str,
     data: UpdateKeyRequest | RegenerateKeyRequest,
-    existing_key_row: LiteLLM_VerificationToken,
+    existing_key_row: EmbRouter_VerificationToken,
 ) -> None:
     """
     Mirror a key UPDATE onto the group side, honouring `exclude_unset` semantics.
@@ -151,7 +151,7 @@ async def sync_key_regeneration_access_group_membership(
     previous_key_token: str,
     new_key_token: str,
     data: RegenerateKeyRequest | None,
-    existing_key_row: LiteLLM_VerificationToken,
+    existing_key_row: EmbRouter_VerificationToken,
 ) -> None:
     """
     Re-point every group's copy from the old token to the regenerated one.

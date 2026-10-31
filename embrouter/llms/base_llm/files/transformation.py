@@ -5,10 +5,10 @@ from typing import TYPE_CHECKING, Any, Union
 import httpx
 from openai.types.file_deleted import FileDeleted
 
-from litellm.files.types import FileContentStreamingResult
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.types.files import TwoStepFileUploadConfig
-from litellm.types.llms.openai import (
+from embrouter.files.types import FileContentStreamingResult
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.types.files import TwoStepFileUploadConfig
+from embrouter.types.llms.openai import (
     AllMessageValues,
     CreateFileRequest,
     FileContentRequest,
@@ -16,21 +16,21 @@ from litellm.types.llms.openai import (
     OpenAICreateFileRequestOptionalParams,
     OpenAIFileObject,
 )
-from litellm.types.utils import LlmProviders, ModelResponse
+from embrouter.types.utils import LlmProviders, ModelResponse
 
 from ..chat.transformation import BaseConfig
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
-    from litellm.router import Router as _Router
-    from litellm.types.llms.openai import HttpxBinaryResponseContent
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.router import Router as _Router
+    from embrouter.types.llms.openai import HttpxBinaryResponseContent
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
     Span = Any
     Router = _Router
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
     Span = Any
     Router = Any
 
@@ -77,7 +77,7 @@ class BaseFilesConfig(BaseConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         data: CreateFileRequest,
     ):
         return self.get_complete_url(
@@ -85,7 +85,7 @@ class BaseFilesConfig(BaseConfig):
             api_key=api_key,
             model=model,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
     @abstractmethod
@@ -94,7 +94,7 @@ class BaseFilesConfig(BaseConfig):
         model: str,
         create_file_data: CreateFileRequest,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> Union[dict, str, bytes, "TwoStepFileUploadConfig"]:
         """
         Transform OpenAI-style file creation request into provider-specific format.
@@ -110,8 +110,8 @@ class BaseFilesConfig(BaseConfig):
         self,
         model: str | None,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
-        litellm_params: dict,
+        logging_obj: EmbRouterLoggingObj,
+        embrouter_params: dict,
     ) -> OpenAIFileObject:
         pass
 
@@ -120,7 +120,7 @@ class BaseFilesConfig(BaseConfig):
         self,
         file_id: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> tuple[str, dict]:
         """Transform file retrieve request into provider-specific format."""
 
@@ -128,8 +128,8 @@ class BaseFilesConfig(BaseConfig):
     def transform_retrieve_file_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
-        litellm_params: dict,
+        logging_obj: EmbRouterLoggingObj,
+        embrouter_params: dict,
     ) -> OpenAIFileObject:
         """Transform file retrieve response into OpenAI format."""
 
@@ -138,7 +138,7 @@ class BaseFilesConfig(BaseConfig):
         self,
         file_id: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> tuple[str, dict]:
         """Transform file delete request into provider-specific format."""
 
@@ -146,8 +146,8 @@ class BaseFilesConfig(BaseConfig):
     def transform_delete_file_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
-        litellm_params: dict,
+        logging_obj: EmbRouterLoggingObj,
+        embrouter_params: dict,
     ) -> "FileDeleted":
         """Transform file delete response into OpenAI format."""
 
@@ -156,7 +156,7 @@ class BaseFilesConfig(BaseConfig):
         self,
         purpose: str | None,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> tuple[str, dict]:
         """Transform file list request into provider-specific format."""
 
@@ -164,7 +164,7 @@ class BaseFilesConfig(BaseConfig):
         self,
         raw_response: httpx.Response,
         optional_params: Mapping[str, object],
-        litellm_params: dict,  # mutable-ok: carries provider stashes from the request transform to the response one
+        embrouter_params: dict,  # mutable-ok: carries provider stashes from the request transform to the response one
     ) -> tuple[str, dict[str, str]] | None:
         """Request for the page after `raw_response`, or None once the listing is complete."""
         return None
@@ -173,8 +173,8 @@ class BaseFilesConfig(BaseConfig):
     def transform_list_files_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
-        litellm_params: dict,
+        logging_obj: EmbRouterLoggingObj,
+        embrouter_params: dict,
     ) -> list[OpenAIFileObject]:
         """Transform file list response into OpenAI format."""
 
@@ -183,7 +183,7 @@ class BaseFilesConfig(BaseConfig):
         self,
         file_content_request: "FileContentRequest",
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> tuple[str, dict]:
         """Transform file content request into provider-specific format."""
 
@@ -191,8 +191,8 @@ class BaseFilesConfig(BaseConfig):
     def transform_file_content_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
-        litellm_params: dict,
+        logging_obj: EmbRouterLoggingObj,
+        embrouter_params: dict,
     ) -> "HttpxBinaryResponseContent":
         """Transform file content response into OpenAI format."""
 
@@ -202,8 +202,8 @@ class BaseFilesConfig(BaseConfig):
         stream_iterator: AsyncGenerator[bytes, None],
         headers: Mapping[str, str],
         request_url: str,
-        logging_obj: LiteLLMLoggingObj,
-        litellm_params: dict,
+        logging_obj: EmbRouterLoggingObj,
+        embrouter_params: dict,
     ) -> FileContentStreamingResult:
         """Transform a streamed file content body. Passes the upstream bytes and headers through by default."""
         return FileContentStreamingResult(stream_iterator=stream_iterator, headers=headers)
@@ -213,7 +213,7 @@ class BaseFilesConfig(BaseConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         raise NotImplementedError(
@@ -225,11 +225,11 @@ class BaseFilesConfig(BaseConfig):
         model: str,
         raw_response: httpx.Response,
         model_response: ModelResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         request_data: dict,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,
@@ -246,7 +246,7 @@ class BaseFileEndpoints(ABC):
         create_file_request: CreateFileRequest,
         llm_router: Router,
         target_model_names_list: list[str],
-        litellm_parent_otel_span: Span,
+        embrouter_parent_otel_span: Span,
         user_api_key_dict: UserAPIKeyAuth,
     ) -> OpenAIFileObject:
         pass
@@ -255,7 +255,7 @@ class BaseFileEndpoints(ABC):
     async def afile_retrieve(
         self,
         file_id: str,
-        litellm_parent_otel_span: Span | None,
+        embrouter_parent_otel_span: Span | None,
         llm_router: Router | None = None,
     ) -> OpenAIFileObject:
         pass
@@ -264,7 +264,7 @@ class BaseFileEndpoints(ABC):
     async def afile_list(
         self,
         purpose: str | None,
-        litellm_parent_otel_span: Span | None,
+        embrouter_parent_otel_span: Span | None,
         user_api_key_dict: UserAPIKeyAuth,
         limit: int | None = None,
         after: str | None = None,
@@ -276,7 +276,7 @@ class BaseFileEndpoints(ABC):
     async def afile_delete(
         self,
         file_id: str,
-        litellm_parent_otel_span: Span | None,
+        embrouter_parent_otel_span: Span | None,
         llm_router: Router,
         **data: dict,
     ) -> FileDeleted:
@@ -286,7 +286,7 @@ class BaseFileEndpoints(ABC):
     async def afile_content(
         self,
         file_id: str,
-        litellm_parent_otel_span: Span | None,
+        embrouter_parent_otel_span: Span | None,
         llm_router: Router,
         **data: dict,
     ) -> "HttpxBinaryResponseContent":

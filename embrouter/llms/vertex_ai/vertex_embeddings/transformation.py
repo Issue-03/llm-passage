@@ -3,8 +3,8 @@ from typing import Final, Literal
 
 from pydantic import BaseModel
 
-from litellm.llms.vertex_ai.common_utils import pop_vertex_request_labels
-from litellm.types.utils import EmbeddingResponse, Usage
+from embrouter.llms.vertex_ai.common_utils import pop_vertex_request_labels
+from embrouter.types.utils import EmbeddingResponse, Usage
 
 from .types import *
 
@@ -103,15 +103,15 @@ class VertexAITextEmbeddingConfig(BaseModel):
         input: list | str,
         optional_params: dict,
         model: str,
-        litellm_params: dict | None = None,
+        embrouter_params: dict | None = None,
     ) -> VertexEmbeddingRequest:
         """
         Transforms an openai request to a vertex embedding request.
         """
-        # Import here to avoid circular import issues with litellm.__init__
-        from litellm.llms.vertex_ai.vertex_embeddings.bge import VertexBGEConfig
+        # Import here to avoid circular import issues with embrouter.__init__
+        from embrouter.llms.vertex_ai.vertex_embeddings.bge import VertexBGEConfig
 
-        labels: Final = pop_vertex_request_labels(optional_params, litellm_params)
+        labels: Final = pop_vertex_request_labels(optional_params, embrouter_params)
 
         if model.isdigit():
             vertex_request = self._transform_openai_request_to_fine_tuned_embedding_request(
@@ -224,8 +224,8 @@ class VertexAITextEmbeddingConfig(BaseModel):
         if model.isdigit():
             return self._transform_vertex_response_to_openai_for_fine_tuned_models(response, model, model_response)
 
-        # Import here to avoid circular import issues with litellm.__init__
-        from litellm.llms.vertex_ai.vertex_embeddings.bge import VertexBGEConfig
+        # Import here to avoid circular import issues with embrouter.__init__
+        from embrouter.llms.vertex_ai.vertex_embeddings.bge import VertexBGEConfig
 
         if VertexBGEConfig.is_bge_model(model):
             return VertexBGEConfig.transform_response(response=response, model=model, model_response=model_response)

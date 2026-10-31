@@ -23,7 +23,7 @@ vi.mock("@/contexts/ThemeContext", () => ({
 
 vi.mock("@/components/networking", () => ({
   getProxyBaseUrl: () => "",
-  getGlobalLitellmHeaderName: () => "Authorization",
+  getGlobalEmbrouterHeaderName: () => "Authorization",
 }));
 
 const LOGO_PLACEHOLDER = "https://example.com/logo.png";

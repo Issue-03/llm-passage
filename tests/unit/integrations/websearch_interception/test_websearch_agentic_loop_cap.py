@@ -2,7 +2,7 @@
 Unit tests for what an intercepted request returns once a safety rail refuses
 another agentic loop.
 
-The web search interception loop injects an internal tool (litellm_web_search)
+The web search interception loop injects an internal tool (embrouter_web_search)
 that the client never declared. When the loop cap or the repeated-fingerprint
 guard trips, the turn has to end with a terminal response: leaking that internal
 tool_use block leaves the client holding a tool call it cannot answer.
@@ -16,38 +16,38 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import litellm
-from litellm.exceptions import AuthenticationError, RateLimitError
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.integrations.websearch_interception.handler import (
+import embrouter
+from embrouter.exceptions import AuthenticationError, RateLimitError
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.integrations.websearch_interception.handler import (
     WEBSEARCH_EMIT_NATIVE_BLOCKS_KEY,
     WebSearchInterceptionLogger,
 )
-from litellm.integrations.websearch_interception.tools import get_litellm_web_search_tool
-from litellm.litellm_core_utils.agentic_loop_settings import DEFAULT_MAX_AGENTIC_LOOPS
-from litellm.llms.anthropic.pass_through.messages.fake_stream_iterator import (
+from embrouter.integrations.websearch_interception.tools import get_embrouter_web_search_tool
+from embrouter.embrouter_core_utils.agentic_loop_settings import DEFAULT_MAX_AGENTIC_LOOPS
+from embrouter.llms.anthropic.pass_through.messages.fake_stream_iterator import (
     FakeAnthropicMessagesStreamIterator,
 )
-from litellm.llms.base_llm.search.transformation import SearchResponse, SearchResult
-from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
-from litellm.secret_managers.main import get_secret
-from litellm.types.integrations.custom_logger import (
+from embrouter.llms.base_llm.search.transformation import SearchResponse, SearchResult
+from embrouter.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+from embrouter.secret_managers.main import get_secret
+from embrouter.types.integrations.custom_logger import (
     AgenticLoopPlan,
     AgenticLoopRequestPatch,
     AgenticLoopSafetyError,
 )
 
-INTERNAL_TOOL_NAME = "litellm_web_search"
+INTERNAL_TOOL_NAME = "embrouter_web_search"
 
 
 @pytest.fixture(autouse=True)
 def only_the_callbacks_these_tests_register(monkeypatch):
     """
     These tests drive the hooks with a callback of their own on the logging
-    object, so a logger another test left on litellm.callbacks would join the
+    object, so a logger another test left on embrouter.callbacks would join the
     run and change what the hooks do.
     """
-    monkeypatch.setattr(litellm, "callbacks", [])
+    monkeypatch.setattr(embrouter, "callbacks", [])
 
 
 def _internal_tool_use_block(block_id: str = "toolu_internal_1") -> dict:
@@ -156,7 +156,7 @@ def _logging_obj(callback: CustomLogger, converted_stream: bool = False) -> Magi
     logging_obj = MagicMock()
     logging_obj.model_call_details = {"websearch_interception_converted_stream": converted_stream}
     logging_obj.dynamic_success_callbacks = [callback]
-    logging_obj.litellm_call_id = "call-abc"
+    logging_obj.embrouter_call_id = "call-abc"
     return logging_obj
 
 
@@ -479,7 +479,7 @@ class TestOuterFramePostHookStillRuns:
                 },
             )
 
-        monkeypatch.setattr("litellm.anthropic_interface.messages.acreate", fake_acreate)
+        monkeypatch.setattr("embrouter.anthropic_interface.messages.acreate", fake_acreate)
 
         result = await _run_hooks(
             handler,
@@ -543,7 +543,7 @@ class TestFailedSearchEndsTheTurn:
             model="claude-sonnet-4-5",
             messages=[{"role": "user", "content": "who won the world cup"}],
             anthropic_messages_provider_config=MagicMock(),
-            anthropic_messages_optional_request_params={"tools": [get_litellm_web_search_tool()]},
+            anthropic_messages_optional_request_params={"tools": [get_embrouter_web_search_tool()]},
             logging_obj=_logging_obj(self.logger, converted_stream=converted_stream),
             stream=False,
             custom_llm_provider="anthropic",
@@ -552,7 +552,7 @@ class TestFailedSearchEndsTheTurn:
 
     @pytest.mark.asyncio
     async def test_all_failed_iteration_ends_the_turn_without_a_follow_up_call(self, monkeypatch):
-        monkeypatch.setattr("litellm.anthropic_interface.messages.acreate", self._fake_acreate)
+        monkeypatch.setattr("embrouter.anthropic_interface.messages.acreate", self._fake_acreate)
 
         with patch.object(
             self.logger,
@@ -573,7 +573,7 @@ class TestFailedSearchEndsTheTurn:
 
     @pytest.mark.asyncio
     async def test_all_failed_iteration_streams_the_error_block(self, monkeypatch):
-        monkeypatch.setattr("litellm.anthropic_interface.messages.acreate", self._fake_acreate)
+        monkeypatch.setattr("embrouter.anthropic_interface.messages.acreate", self._fake_acreate)
 
         with patch.object(
             self.logger,
@@ -593,7 +593,7 @@ class TestFailedSearchEndsTheTurn:
 
     @pytest.mark.asyncio
     async def test_mixed_iteration_keeps_the_follow_up_call(self, monkeypatch):
-        monkeypatch.setattr("litellm.anthropic_interface.messages.acreate", self._fake_acreate)
+        monkeypatch.setattr("embrouter.anthropic_interface.messages.acreate", self._fake_acreate)
 
         async def search(query, kwargs=None, rich=None):
             if query == "fails":
@@ -607,7 +607,7 @@ class TestFailedSearchEndsTheTurn:
         assert len(self.followup_calls) == 1
         tool_results = self.followup_calls[0]["messages"][-1]["content"]
         assert [block["type"] for block in tool_results] == ["tool_result", "tool_result"]
-        assert tool_results[0]["content"] == "Search failed: litellm.RateLimitError: slow down"
+        assert tool_results[0]["content"] == "Search failed: embrouter.RateLimitError: slow down"
         assert tool_results[1]["content"] == "Title: Result\nURL: https://example.com"
         assert result["stop_reason"] == "end_turn"
         assert _block_types(result) == [
@@ -669,7 +669,7 @@ class TestMaxAgenticLoopsConfigKnob:
         )
         kwargs = {
             "tools": [{"type": "web_search_20250305", "name": "web_search", "max_uses": 5}],
-            "litellm_params": {"custom_llm_provider": "bedrock"},
+            "embrouter_params": {"custom_llm_provider": "bedrock"},
         }
 
         updated = await logger.async_pre_request_hook(model="claude-sonnet-4-5", messages=[], kwargs=kwargs)
@@ -684,7 +684,7 @@ class TestMaxAgenticLoopsConfigKnob:
         )
         kwargs = {
             "tools": [{"type": "web_search_20250305", "name": "web_search", "max_uses": 5}],
-            "litellm_params": {"custom_llm_provider": "bedrock"},
+            "embrouter_params": {"custom_llm_provider": "bedrock"},
             "max_agentic_loops": 2,
         }
 
@@ -698,7 +698,7 @@ class TestMaxAgenticLoopsConfigKnob:
         logger = WebSearchInterceptionLogger.from_config_yaml({"enabled_providers": ["bedrock"]})
         kwargs = {
             "tools": [{"type": "web_search_20250305", "name": "web_search", "max_uses": 5}],
-            "litellm_params": {"custom_llm_provider": "bedrock"},
+            "embrouter_params": {"custom_llm_provider": "bedrock"},
         }
 
         updated = await logger.async_pre_request_hook(model="claude-sonnet-4-5", messages=[], kwargs=kwargs)
@@ -730,7 +730,7 @@ class TestBothCeilingKnobsAreValidated:
             BaseLLMHTTPHandler._get_agentic_loop_settings(kwargs={"max_agentic_loops": 0})
 
     def test_a_per_deployment_non_integer_names_the_field_it_came_from(self):
-        with pytest.raises(TypeError, match=r"litellm_params\.max_agentic_loops must be an integer"):
+        with pytest.raises(TypeError, match=r"embrouter_params\.max_agentic_loops must be an integer"):
             BaseLLMHTTPHandler._get_agentic_loop_settings(kwargs={"max_agentic_loops": "three"})
 
     def test_a_per_deployment_true_is_not_read_as_a_ceiling_of_one(self):
@@ -762,7 +762,7 @@ class TestBothCeilingKnobsAreValidated:
     def test_each_knob_names_its_own_config_field(self):
         with pytest.raises(ValueError, match=r"websearch_interception_params\.max_agentic_loops"):
             WebSearchInterceptionLogger(max_agentic_loops=0)
-        with pytest.raises(ValueError, match=r"litellm_params\.max_agentic_loops"):
+        with pytest.raises(ValueError, match=r"embrouter_params\.max_agentic_loops"):
             BaseLLMHTTPHandler._get_agentic_loop_settings(kwargs={"max_agentic_loops": 0})
 
 
@@ -795,7 +795,7 @@ class TestACeilingThatSpellsAWholeNumberStillWorks:
             BaseLLMHTTPHandler._get_agentic_loop_settings(kwargs={"max_agentic_loops": "0"})
 
     def test_a_word_is_still_refused(self):
-        with pytest.raises(TypeError, match=r"litellm_params\.max_agentic_loops must be an integer"):
+        with pytest.raises(TypeError, match=r"embrouter_params\.max_agentic_loops must be an integer"):
             BaseLLMHTTPHandler._get_agentic_loop_settings(kwargs={"max_agentic_loops": "three"})
 
     def test_a_fractional_ceiling_is_refused_rather_than_truncated(self):

@@ -11,19 +11,19 @@ from typing import TYPE_CHECKING, Any, Final, Union
 
 import httpx
 
-from litellm.litellm_core_utils.aws_partition import get_aws_dns_suffix
-from litellm.llms.base_llm.text_to_speech.transformation import (
+from embrouter.embrouter_core_utils.aws_partition import get_aws_dns_suffix
+from embrouter.llms.base_llm.text_to_speech.transformation import (
     BaseTextToSpeechConfig,
     TextToSpeechRequestData,
 )
-from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM
+from embrouter.llms.bedrock.base_aws_llm import BaseAWSLLM
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
-    from litellm.types.llms.openai import HttpxBinaryResponseContent
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+    from embrouter.types.llms.openai import HttpxBinaryResponseContent
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
     HttpxBinaryResponseContent = Any
 
 
@@ -73,8 +73,8 @@ class AWSPollyTextToSpeechConfig(BaseTextToSpeechConfig, BaseAWSLLM):
         input: str,
         voice: str | dict | None,
         optional_params: dict,
-        litellm_params_dict: dict,
-        logging_obj: "LiteLLMLoggingObj",
+        embrouter_params_dict: dict,
+        logging_obj: "EmbRouterLoggingObj",
         timeout: float | httpx.Timeout,
         extra_headers: dict[str, object] | None,
         base_llm_http_handler: "BaseLLMHTTPHandler",
@@ -106,12 +106,12 @@ class AWSPollyTextToSpeechConfig(BaseTextToSpeechConfig, BaseAWSLLM):
         elif isinstance(voice, dict):
             voice_str = voice.get("name") if voice else None
 
-        # Update litellm_params with resolved values
+        # Update embrouter_params with resolved values
         # Note: AWS credentials (aws_access_key_id, aws_secret_access_key, etc.)
-        # are already in litellm_params_dict via get_litellm_params() in main.py
-        litellm_params_dict["aws_region_name"] = aws_region_name
-        litellm_params_dict["api_base"] = api_base
-        litellm_params_dict["api_key"] = api_key
+        # are already in embrouter_params_dict via get_embrouter_params() in main.py
+        embrouter_params_dict["aws_region_name"] = aws_region_name
+        embrouter_params_dict["api_base"] = api_base
+        embrouter_params_dict["api_key"] = api_key
 
         # Call the text_to_speech_handler
         response: Final = base_llm_http_handler.text_to_speech_handler(
@@ -121,7 +121,7 @@ class AWSPollyTextToSpeechConfig(BaseTextToSpeechConfig, BaseAWSLLM):
             text_to_speech_provider_config=self,
             text_to_speech_optional_params=optional_params,
             custom_llm_provider="aws_polly",
-            litellm_params=litellm_params_dict,
+            embrouter_params=embrouter_params_dict,
             logging_obj=logging_obj,
             timeout=timeout,
             extra_headers=extra_headers,
@@ -228,7 +228,7 @@ class AWSPollyTextToSpeechConfig(BaseTextToSpeechConfig, BaseAWSLLM):
         self,
         model: str,
         api_base: str | None,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> str:
         """
         Get the complete URL for AWS Polly SynthesizeSpeech request
@@ -239,7 +239,7 @@ class AWSPollyTextToSpeechConfig(BaseTextToSpeechConfig, BaseAWSLLM):
         if api_base is not None:
             return api_base.rstrip("/") + "/v1/speech"
 
-        aws_region_name: Final = litellm_params.get("aws_region_name", self.DEFAULT_REGION)
+        aws_region_name: Final = embrouter_params.get("aws_region_name", self.DEFAULT_REGION)
         return f"https://polly.{aws_region_name}.{get_aws_dns_suffix(aws_region_name)}/v1/speech"
 
     def is_ssml_input(self, input: str) -> bool:
@@ -254,7 +254,7 @@ class AWSPollyTextToSpeechConfig(BaseTextToSpeechConfig, BaseAWSLLM):
         self,
         request_body: dict[str, object],
         endpoint_url: str,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> tuple[dict[str, str], str]:
         """
         Sign the AWS Polly request using SigV4.
@@ -269,20 +269,20 @@ class AWSPollyTextToSpeechConfig(BaseTextToSpeechConfig, BaseAWSLLM):
             raise ImportError("Missing boto3 to call AWS Polly. Run 'pip install boto3'.")
 
         # Get AWS region
-        aws_region_name: Final = litellm_params.get("aws_region_name", self.DEFAULT_REGION)
+        aws_region_name: Final = embrouter_params.get("aws_region_name", self.DEFAULT_REGION)
 
         # Get AWS credentials
         credentials: Final = self.get_credentials(
-            aws_access_key_id=litellm_params.get("aws_access_key_id"),
-            aws_secret_access_key=litellm_params.get("aws_secret_access_key"),
-            aws_session_token=litellm_params.get("aws_session_token"),
+            aws_access_key_id=embrouter_params.get("aws_access_key_id"),
+            aws_secret_access_key=embrouter_params.get("aws_secret_access_key"),
+            aws_session_token=embrouter_params.get("aws_session_token"),
             aws_region_name=aws_region_name,
-            aws_session_name=litellm_params.get("aws_session_name"),
-            aws_profile_name=litellm_params.get("aws_profile_name"),
-            aws_role_name=litellm_params.get("aws_role_name"),
-            aws_web_identity_token=litellm_params.get("aws_web_identity_token"),
-            aws_sts_endpoint=litellm_params.get("aws_sts_endpoint"),
-            aws_external_id=litellm_params.get("aws_external_id"),
+            aws_session_name=embrouter_params.get("aws_session_name"),
+            aws_profile_name=embrouter_params.get("aws_profile_name"),
+            aws_role_name=embrouter_params.get("aws_role_name"),
+            aws_web_identity_token=embrouter_params.get("aws_web_identity_token"),
+            aws_sts_endpoint=embrouter_params.get("aws_sts_endpoint"),
+            aws_external_id=embrouter_params.get("aws_external_id"),
         )
 
         # Serialize request body to JSON
@@ -313,7 +313,7 @@ class AWSPollyTextToSpeechConfig(BaseTextToSpeechConfig, BaseAWSLLM):
         input: str,
         voice: str | None,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> TextToSpeechRequestData:
         """
@@ -359,15 +359,15 @@ class AWSPollyTextToSpeechConfig(BaseTextToSpeechConfig, BaseAWSLLM):
         # Get endpoint URL
         endpoint_url: Final = self.get_complete_url(
             model=model,
-            api_base=litellm_params.get("api_base"),
-            litellm_params=litellm_params,
+            api_base=embrouter_params.get("api_base"),
+            embrouter_params=embrouter_params,
         )
 
         # Sign the request with AWS SigV4
         signed_headers, json_body = self._sign_polly_request(
             request_body=request_body,
             endpoint_url=endpoint_url,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
         # Return as ssml_body so the handler uses data= instead of json=
@@ -381,13 +381,13 @@ class AWSPollyTextToSpeechConfig(BaseTextToSpeechConfig, BaseAWSLLM):
         self,
         model: str,
         raw_response: httpx.Response,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
     ) -> "HttpxBinaryResponseContent":
         """
         Transform AWS Polly response to standard format.
 
         Polly returns the audio data directly in the response body.
         """
-        from litellm.types.llms.openai import HttpxBinaryResponseContent
+        from embrouter.types.llms.openai import HttpxBinaryResponseContent
 
         return HttpxBinaryResponseContent(raw_response)

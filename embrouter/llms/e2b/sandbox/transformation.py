@@ -12,18 +12,18 @@ from typing import Final
 
 import httpx
 
-from litellm.llms.base_llm.sandbox.transformation import (
+from embrouter.llms.base_llm.sandbox.transformation import (
     SANDBOX_MAX_OUTPUT_BYTES,
     BaseSandboxConfig,
     CodeExecutionResult,
     ContainerHandle,
 )
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.llms.custom_httpx.http_handler import (
     AsyncHTTPHandler,
     get_async_httpx_client,
 )
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.custom_http import httpxSpecialProvider
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.custom_http import httpxSpecialProvider
 
 E2B_API_BASE: Final = "https://api.e2b.app"
 E2B_DEFAULT_TEMPLATE: Final = "code-interpreter-v1"

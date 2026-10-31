@@ -1,4 +1,4 @@
-from litellm.proxy._experimental.mcp_server import operations as mcp_operations
+from embrouter.proxy._experimental.mcp_server import operations as mcp_operations
 """Unit tests for MCP OAuth passthrough tool-fetch behavior."""
 
 import logging
@@ -13,14 +13,14 @@ if sys.version_info < (3, 11):
     from exceptiongroup import ExceptionGroup
 
 
-from litellm.proxy._experimental.mcp_server.exceptions import MCPServerListError, MCPUpstreamAuthError
-from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+from embrouter.proxy._experimental.mcp_server.exceptions import MCPServerListError, MCPUpstreamAuthError
+from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
     MCPServerManager,
     _extract_upstream_auth_failure,
 )
-from litellm.proxy._types import MCPTransport
-from litellm.types.mcp import MCPAuth
-from litellm.types.mcp_server.mcp_server_manager import MCPServer
+from embrouter.proxy._types import MCPTransport
+from embrouter.types.mcp import MCPAuth
+from embrouter.types.mcp_server.mcp_server_manager import MCPServer
 
 
 def test_extract_upstream_auth_failure_finds_401_in_http_status_error():
@@ -326,8 +326,8 @@ async def test_aggregate_list_tools_absorbs_one_unauthenticated_server():
 
     from mcp.types import Tool as MCPTool
 
-    from litellm.proxy._experimental.mcp_server import server as mcp_server
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._experimental.mcp_server import server as mcp_server
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     delegate = _http_server(
         "s1", "delegate_docs", auth_type=MCPAuth.oauth2, delegate_auth_to_upstream=True
@@ -369,9 +369,9 @@ async def test_single_server_route_also_absorbs_upstream_auth_error():
     re-auth surfacing is handled by a request-scope preemptive check, tracked separately."""
     from unittest.mock import patch
 
-    from litellm.proxy._experimental.mcp_server import server as mcp_server
-    from litellm.proxy._experimental.mcp_server.mcp_context import _mcp_gateway_server_name
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._experimental.mcp_server import server as mcp_server
+    from embrouter.proxy._experimental.mcp_server.mcp_context import _mcp_gateway_server_name
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     delegate = _http_server(
         "s1", "delegate_docs", auth_type=MCPAuth.oauth2, delegate_auth_to_upstream=True
@@ -410,8 +410,8 @@ async def test_aggregate_with_single_accessible_server_still_absorbs():
     permission sets."""
     from unittest.mock import patch
 
-    from litellm.proxy._experimental.mcp_server import server as mcp_server
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._experimental.mcp_server import server as mcp_server
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     delegate = _http_server(
         "s1", "delegate_docs", auth_type=MCPAuth.oauth2, delegate_auth_to_upstream=True
@@ -453,7 +453,7 @@ async def test_fetch_tools_logs_upstream_request_details_on_500(caplog):
         side_effect=httpx.HTTPStatusError("500", request=request, response=response)
     )
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    with caplog.at_level(logging.WARNING, logger="EmbRouter"):
         with pytest.raises(MCPServerListError):
             await manager._fetch_tools_with_timeout(mock_client, "sample_docs")
 
@@ -471,7 +471,7 @@ async def test_client_creation_failure_logs_sanitized_exchange(monkeypatch, capl
     response = httpx.Response(500, request=request, json={"error":"missing_scope"})
     error = httpx.HTTPStatusError("query-secret", request=request, response=response)
     monkeypatch.setattr(manager, "_create_mcp_client", AsyncMock(side_effect=error))
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    with caplog.at_level(logging.WARNING, logger="EmbRouter"):
         with pytest.raises(MCPServerListError):
             await manager._get_tools_from_server(server)
     assert "POST https://upstream/ -> HTTP 500" in caplog.text
@@ -492,9 +492,9 @@ async def test_client_creation_failure_logs_sanitized_exchange(monkeypatch, capl
     ],
 )
 def test_passthrough_admission_recognizes_only_matching_authorization(oauth_headers, server_headers, authorized):
-    from litellm.proxy._experimental.mcp_server.operations import _client_has_passthrough_authorization
-    from litellm.types.mcp import MCPTransport
-    from litellm.types.mcp_server.mcp_server_manager import MCPServer
+    from embrouter.proxy._experimental.mcp_server.operations import _client_has_passthrough_authorization
+    from embrouter.types.mcp import MCPTransport
+    from embrouter.types.mcp_server.mcp_server_manager import MCPServer
 
     server = MCPServer(server_id="catalog", name="catalog", alias="catalog", transport=MCPTransport.http)
     assert _client_has_passthrough_authorization(server, oauth_headers, server_headers) is authorized

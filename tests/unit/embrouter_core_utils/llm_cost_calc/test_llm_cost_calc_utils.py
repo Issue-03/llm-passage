@@ -5,9 +5,9 @@ from typing import Final, cast
 
 import pytest
 
-import litellm
-from litellm._internal_context import pinned_billing_time
-from litellm.litellm_core_utils.llm_cost_calc.utils import (
+import embrouter
+from embrouter._internal_context import pinned_billing_time
+from embrouter.embrouter_core_utils.llm_cost_calc.utils import (
     BilledTokenRates,
     CostCalculatorUtils,
     PromptTokensDetailsResult,
@@ -23,13 +23,13 @@ from litellm.litellm_core_utils.llm_cost_calc.utils import (
     get_billed_token_rates,
     get_token_type_cost_breakdown,
 )
-from litellm.llms.gemini.image_generation.cost_calculator import (
+from embrouter.llms.gemini.image_generation.cost_calculator import (
     cost_calculator as gemini_image_generation_cost_calculator,
 )
-from litellm.llms.vertex_ai.image_generation.cost_calculator import (
+from embrouter.llms.vertex_ai.image_generation.cost_calculator import (
     cost_calculator as vertex_image_generation_cost_calculator,
 )
-from litellm.types.utils import (
+from embrouter.types.utils import (
     CacheCreationTokenDetails,
     CompletionTokensDetailsWrapper,
     ImageObject,
@@ -44,8 +44,8 @@ from litellm.types.utils import (
 
 @pytest.fixture
 def _local_model_cost_map(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
+    monkeypatch.setenv("EMBROUTER_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setattr(embrouter, "model_cost", embrouter.get_model_cost_map(url=""))
 
 
 @pytest.mark.parametrize("prompt_tokens", [100, 200000, 200001])
@@ -77,7 +77,7 @@ def test_generic_cost_per_token_bills_cache_reads_at_input_rate_when_no_cache_re
         "max_output_tokens": None,
         "input_cost_per_token": 2.4e-7,
         "output_cost_per_token": 9.7e-7,
-        "litellm_provider": "bedrock",
+        "embrouter_provider": "bedrock",
         "mode": "chat",
         "supported_openai_params": None,
     }
@@ -122,7 +122,7 @@ def test_generic_cost_per_token_prefers_audio_per_second_rate() -> None:
         "input_cost_per_audio_token": 6.5e-6,
         "input_cost_per_audio_per_second": 0.00016,
         "output_cost_per_token": 0.0,
-        "litellm_provider": "vertex_ai",
+        "embrouter_provider": "vertex_ai",
         "mode": "embedding",
         "supported_openai_params": None,
     }
@@ -156,7 +156,7 @@ def test_generic_cost_per_token_prefers_image_per_image_rate() -> None:
         "input_cost_per_image_token": 4.5e-7,
         "input_cost_per_image": 0.00012,
         "output_cost_per_token": 0.0,
-        "litellm_provider": "vertex_ai",
+        "embrouter_provider": "vertex_ai",
         "mode": "embedding",
         "supported_openai_params": None,
     }
@@ -190,7 +190,7 @@ def test_generic_cost_per_token_prefers_video_per_second_rate() -> None:
         "input_cost_per_video_token": 1.2e-5,
         "input_cost_per_video_per_second": 0.00079,
         "output_cost_per_token": 0.0,
-        "litellm_provider": "vertex_ai",
+        "embrouter_provider": "vertex_ai",
         "mode": "embedding",
         "supported_openai_params": None,
     }
@@ -230,7 +230,7 @@ def test_reasoning_tokens_no_price_set(_local_model_cost_map):
     # Use o1 - o1-mini was deprecated/renamed; o1 has same reasoning-token semantics
     # (no separate output_cost_per_reasoning_token, so all completion tokens use output_cost_per_token)
     model = "o1"
-    model_cost_map = litellm.model_cost[model]
+    model_cost_map = embrouter.model_cost[model]
     usage = Usage(
         completion_tokens=1578,
         prompt_tokens=17,
@@ -281,7 +281,7 @@ def test_reasoning_tokens_gemini(_local_model_cost_map):
             audio_tokens=None, cached_tokens=None, text_tokens=17, image_tokens=None
         ),
     )
-    model_cost_map = litellm.model_cost[model]
+    model_cost_map = embrouter.model_cost[model]
     prompt_cost, completion_cost = generic_cost_per_token(
         model=model,
         usage=usage,
@@ -330,7 +330,7 @@ def test_image_tokens_with_custom_pricing():
     )
 
     with patch(
-        "litellm.litellm_core_utils.llm_cost_calc.utils.get_model_info",
+        "embrouter.embrouter_core_utils.llm_cost_calc.utils.get_model_info",
         return_value=mock_model_info,
     ):
         prompt_cost, completion_cost = generic_cost_per_token(
@@ -376,7 +376,7 @@ def test_image_tokens_fallback_to_base_cost():
     )
 
     with patch(
-        "litellm.litellm_core_utils.llm_cost_calc.utils.get_model_info",
+        "embrouter.embrouter_core_utils.llm_cost_calc.utils.get_model_info",
         return_value=mock_model_info,
     ):
         prompt_cost, completion_cost = generic_cost_per_token(
@@ -404,7 +404,7 @@ def test_video_input_tokens_gemini_omni_flash_preview(_local_model_cost_map):
         completion_tokens_details=CompletionTokensDetailsWrapper(text_tokens=10),
         prompt_tokens_details=PromptTokensDetailsWrapper(text_tokens=50, video_tokens=10000),
     )
-    model_cost_map = litellm.model_cost[f"gemini/{model}"]
+    model_cost_map = embrouter.model_cost[f"gemini/{model}"]
 
     prompt_cost, _ = generic_cost_per_token(
         model=model,
@@ -439,7 +439,7 @@ def test_video_tokens_fallback_to_base_cost():
     )
 
     with patch(
-        "litellm.litellm_core_utils.llm_cost_calc.utils.get_model_info",
+        "embrouter.embrouter_core_utils.llm_cost_calc.utils.get_model_info",
         return_value=mock_model_info,
     ):
         prompt_cost, completion_cost = generic_cost_per_token(
@@ -455,7 +455,7 @@ def test_generic_cost_per_token_above_200k_tokens(_local_model_cost_map):
     model = "gemini-2.5-pro"
     custom_llm_provider = "vertex_ai"
 
-    model_cost_map = litellm.model_cost[model]
+    model_cost_map = embrouter.model_cost[model]
     prompt_tokens = 220 * 1e6
     completion_tokens = 150
     usage = Usage(
@@ -672,7 +672,7 @@ def test_get_token_base_cost_weekend_only_off_peak_rate():
     from datetime import datetime, timezone
     from typing import cast
 
-    from litellm.types.utils import ModelInfo
+    from embrouter.types.utils import ModelInfo
 
     model_info = cast(
         ModelInfo,
@@ -706,7 +706,7 @@ def test_get_token_base_cost_applies_off_peak_pricing():
     from datetime import datetime, timezone
     from typing import cast
 
-    from litellm.types.utils import ModelInfo
+    from embrouter.types.utils import ModelInfo
 
     model_info = cast(
         ModelInfo,
@@ -743,7 +743,7 @@ def test_get_token_base_cost_non_mapping_off_peak_block_bills_standard_rates():
     from datetime import datetime, timezone
     from typing import cast
 
-    from litellm.types.utils import ModelInfo
+    from embrouter.types.utils import ModelInfo
 
     usage = Usage(prompt_tokens=100, completion_tokens=50, total_tokens=150)
     when = datetime(2026, 1, 1, 18, 0, tzinfo=timezone.utc)
@@ -766,7 +766,7 @@ def test_get_token_base_cost_off_peak_falls_back_to_standard_when_unset():
     from datetime import datetime, timezone
     from typing import cast
 
-    from litellm.types.utils import ModelInfo
+    from embrouter.types.utils import ModelInfo
 
     model_info = cast(
         ModelInfo,
@@ -787,7 +787,7 @@ def test_get_token_base_cost_off_peak_wins_over_threshold():
     from datetime import datetime, timezone
     from typing import cast
 
-    from litellm.types.utils import ModelInfo
+    from embrouter.types.utils import ModelInfo
 
     model_info = cast(
         ModelInfo,
@@ -822,10 +822,10 @@ def test_get_model_info_propagates_off_peak_fields():
         "output_cost_per_token": 1e-6,
         "cache_read_input_token_cost": 5e-8,
     }
-    litellm.register_model(
+    embrouter.register_model(
         {
             model_name: {
-                "litellm_provider": "openai",
+                "embrouter_provider": "openai",
                 "mode": "chat",
                 "input_cost_per_token": 1e-6,
                 "output_cost_per_token": 2e-6,
@@ -833,7 +833,7 @@ def test_get_model_info_propagates_off_peak_fields():
             }
         }
     )
-    info = litellm.get_model_info(model=model_name)
+    info = embrouter.get_model_info(model=model_name)
     assert info["off_peak_pricing"] == off_peak_pricing
 
 
@@ -842,11 +842,11 @@ def test_get_token_base_cost_off_peak_wins_over_tiered_pricing():
     be applied there too or a model carrying both would silently bill the tier rate all day."""
     from datetime import datetime, timezone
 
-    model_name = "litellm-test-off-peak-tiered"
-    litellm.register_model(
+    model_name = "embrouter-test-off-peak-tiered"
+    embrouter.register_model(
         {
             model_name: {
-                "litellm_provider": "openai",
+                "embrouter_provider": "openai",
                 "mode": "chat",
                 "tiered_pricing": [
                     {"range": [0, 128000], "input_cost_per_token": 3e-6, "output_cost_per_token": 6e-6},
@@ -859,7 +859,7 @@ def test_get_token_base_cost_off_peak_wins_over_tiered_pricing():
             }
         }
     )
-    info = litellm.get_model_info(model=model_name)
+    info = embrouter.get_model_info(model=model_name)
     usage = Usage(prompt_tokens=1_000, completion_tokens=100, total_tokens=1_100)
 
     inside = _get_token_base_cost(info, usage, current_time=datetime(2026, 1, 1, 18, 0, tzinfo=timezone.utc))
@@ -873,10 +873,10 @@ def _register_off_peak_reasoning_model(
     model_name: str, off_peak_pricing: dict, reasoning_rate: float | None = 4e-6, **service_tier_rates: float
 ) -> None:
     reasoning_entry = {} if reasoning_rate is None else {"output_cost_per_reasoning_token": reasoning_rate}
-    litellm.register_model(
+    embrouter.register_model(
         {
             model_name: {
-                "litellm_provider": "openai",
+                "embrouter_provider": "openai",
                 "mode": "chat",
                 "input_cost_per_token": 1e-6,
                 "output_cost_per_token": 2e-6,
@@ -902,7 +902,7 @@ def _off_peak_reasoning_usage() -> Usage:
 def test_generic_cost_per_token_off_peak_reasoning_rate():
     from datetime import datetime, timezone
 
-    model_name = "litellm-test-off-peak-reasoning"
+    model_name = "embrouter-test-off-peak-reasoning"
     _register_off_peak_reasoning_model(
         model_name,
         {"hours_utc": "16:30-00:30", "output_cost_per_token": 1e-6, "output_cost_per_reasoning_token": 5e-7},
@@ -931,18 +931,18 @@ def test_generic_cost_per_token_off_peak_block_without_reasoning_rate():
     inside_window = datetime(2026, 1, 1, 18, 0, tzinfo=timezone.utc)
     block = {"hours_utc": "16:30-00:30", "output_cost_per_token": 1e-6}
 
-    _register_off_peak_reasoning_model("litellm-test-off-peak-model-reasoning-rate", block)
+    _register_off_peak_reasoning_model("embrouter-test-off-peak-model-reasoning-rate", block)
     _, with_model_rate = generic_cost_per_token(
-        model="litellm-test-off-peak-model-reasoning-rate",
+        model="embrouter-test-off-peak-model-reasoning-rate",
         usage=_off_peak_reasoning_usage(),
         custom_llm_provider="openai",
         current_time=inside_window,
     )
     assert with_model_rate == pytest.approx(50 * 1e-6 + 30 * 4e-6)
 
-    _register_off_peak_reasoning_model("litellm-test-off-peak-no-reasoning-rate", block, reasoning_rate=None)
+    _register_off_peak_reasoning_model("embrouter-test-off-peak-no-reasoning-rate", block, reasoning_rate=None)
     _, without_model_rate = generic_cost_per_token(
-        model="litellm-test-off-peak-no-reasoning-rate",
+        model="embrouter-test-off-peak-no-reasoning-rate",
         usage=_off_peak_reasoning_usage(),
         custom_llm_provider="openai",
         current_time=inside_window,
@@ -953,11 +953,11 @@ def test_generic_cost_per_token_off_peak_block_without_reasoning_rate():
 def test_generic_cost_per_token_off_peak_reasoning_rate_wins_over_the_tier():
     from datetime import datetime, timezone
 
-    model_name = "litellm-test-off-peak-tiered-reasoning"
-    litellm.register_model(
+    model_name = "embrouter-test-off-peak-tiered-reasoning"
+    embrouter.register_model(
         {
             model_name: {
-                "litellm_provider": "openai",
+                "embrouter_provider": "openai",
                 "mode": "chat",
                 "tiered_pricing": [
                     {
@@ -996,7 +996,7 @@ def test_generic_cost_per_token_off_peak_reasoning_rate_wins_over_the_tier():
 def test_generic_cost_per_token_off_peak_reasoning_rate_wins_over_the_service_tier():
     from datetime import datetime, timezone
 
-    model_name = "litellm-test-off-peak-reasoning-service-tier"
+    model_name = "embrouter-test-off-peak-reasoning-service-tier"
     _register_off_peak_reasoning_model(
         model_name,
         {"hours_utc": "16:30-00:30", "output_cost_per_token": 1e-6, "output_cost_per_reasoning_token": 5e-7},
@@ -1026,7 +1026,7 @@ def test_generic_cost_per_token_off_peak_reasoning_rate_wins_over_the_service_ti
 def test_apply_off_peak_pricing_treats_bool_as_unset_and_parses_strings():
     from datetime import datetime, timezone
 
-    model_name = "litellm-test-off-peak-odd-values"
+    model_name = "embrouter-test-off-peak-odd-values"
     _register_off_peak_reasoning_model(
         model_name,
         {
@@ -1040,7 +1040,7 @@ def test_apply_off_peak_pricing_treats_bool_as_unset_and_parses_strings():
     )
 
     rates = apply_off_peak_pricing(
-        litellm.get_model_info(model_name, custom_llm_provider="openai"),
+        embrouter.get_model_info(model_name, custom_llm_provider="openai"),
         datetime(2026, 1, 1, 18, 0, tzinfo=timezone.utc),
         standard,
     )
@@ -1052,7 +1052,7 @@ def test_get_token_base_cost_off_peak_cache_creation_rate():
     from datetime import datetime, timezone
     from typing import cast
 
-    from litellm.types.utils import ModelInfo
+    from embrouter.types.utils import ModelInfo
 
     model_info = cast(
         ModelInfo,
@@ -1084,7 +1084,7 @@ def test_get_token_base_cost_off_peak_cache_creation_rate():
 def test_get_token_type_cost_breakdown_reflects_off_peak_reasoning_and_cache_creation_rates():
     from datetime import datetime, timezone
 
-    model_name = "litellm-test-off-peak-breakdown"
+    model_name = "embrouter-test-off-peak-breakdown"
     _register_off_peak_reasoning_model(
         model_name,
         {
@@ -1126,7 +1126,7 @@ def test_generic_cost_per_token_gpt54_above_272k_tokens(_local_model_cost_map):
     model = "gpt-5.4"
     custom_llm_provider = "openai"
 
-    model_cost_map = litellm.model_cost[model]
+    model_cost_map = embrouter.model_cost[model]
     prompt_tokens = 273000  # Above 272K threshold
     completion_tokens = 1000
     usage = Usage(
@@ -1179,7 +1179,7 @@ def test_generic_cost_per_token_minimax_m3_above_512k_tokens(_local_model_cost_m
     model = "minimax/MiniMax-M3"
     custom_llm_provider = "minimax"
 
-    model_cost_map = litellm.model_cost[model]
+    model_cost_map = embrouter.model_cost[model]
     prompt_tokens = 600000
     cached_tokens = 100000
     completion_tokens = 1000
@@ -1207,12 +1207,12 @@ def test_generic_cost_per_token_honors_non_standard_above_threshold():
     """Regression for #30344: get_model_info must keep arbitrary
     input/output_cost_per_token_above_<N>_tokens thresholds, not only the hard-coded
     128k/200k/272k/512k set, so a custom tier boundary is applied past its limit."""
-    model = "litellm-test-non-standard-tier"
+    model = "embrouter-test-non-standard-tier"
     custom_llm_provider = "openai"
-    litellm.register_model(
+    embrouter.register_model(
         {
             model: {
-                "litellm_provider": custom_llm_provider,
+                "embrouter_provider": custom_llm_provider,
                 "mode": "chat",
                 "input_cost_per_token": 1e-6,
                 "output_cost_per_token": 2e-6,
@@ -1238,18 +1238,18 @@ def test_generic_cost_per_token_honors_non_standard_above_threshold():
         assert round(prompt_cost, 10) == round(9e-6 * prompt_tokens, 10)
         assert round(completion_cost, 10) == round(18e-6 * completion_tokens, 10)
     finally:
-        litellm.model_cost.pop(model, None)
+        embrouter.model_cost.pop(model, None)
 
 
 def test_generic_cost_per_token_tiered_pricing_charges_cache_creation_at_tier_rate():
     """Regression for LIT-4375: a tier's cache_creation_input_token_cost must be billed
     on the generic (provider-agnostic) path, not silently dropped."""
-    model = "litellm-test-tiered-cache-creation"
+    model = "embrouter-test-tiered-cache-creation"
     custom_llm_provider = "openrouter"
-    litellm.register_model(
+    embrouter.register_model(
         {
             model: {
-                "litellm_provider": custom_llm_provider,
+                "embrouter_provider": custom_llm_provider,
                 "mode": "chat",
                 "tiered_pricing": [
                     {
@@ -1288,18 +1288,18 @@ def test_generic_cost_per_token_tiered_pricing_charges_cache_creation_at_tier_ra
         assert round(prompt_cost, 10) == round(expected_prompt, 10)
         assert round(completion_cost, 10) == round(1000 * 3.9e-06, 10)
     finally:
-        litellm.model_cost.pop(model, None)
+        embrouter.model_cost.pop(model, None)
 
 
 def test_generic_cost_per_token_tiered_pricing_is_all_or_nothing():
     """Tiered pricing bills the whole request at the tier picked from its input tokens,
     for any provider, and falls back to flat pricing when no tier matches."""
-    model = "litellm-test-tiered-all-or-nothing"
+    model = "embrouter-test-tiered-all-or-nothing"
     custom_llm_provider = "openrouter"
-    litellm.register_model(
+    embrouter.register_model(
         {
             model: {
-                "litellm_provider": custom_llm_provider,
+                "embrouter_provider": custom_llm_provider,
                 "mode": "chat",
                 "input_cost_per_token": 1e-06,
                 "output_cost_per_token": 2e-06,
@@ -1346,18 +1346,18 @@ def test_generic_cost_per_token_tiered_pricing_is_all_or_nothing():
         assert empty_prompt_cost == 0.0
         assert round(empty_completion_cost, 10) == round(100 * 2e-06, 10)
     finally:
-        litellm.model_cost.pop(model, None)
+        embrouter.model_cost.pop(model, None)
 
 
 def test_generic_cost_per_token_tier_without_an_output_rate_bills_the_model_rate():
     """Regression: a tier table that spells out only input rates served every completion for
     free, since a tier's missing output rate has no tier-level fallback to stand in for it."""
-    model = "litellm-test-tiered-input-only"
+    model = "embrouter-test-tiered-input-only"
     custom_llm_provider = "openrouter"
-    litellm.register_model(
+    embrouter.register_model(
         {
             model: {
-                "litellm_provider": custom_llm_provider,
+                "embrouter_provider": custom_llm_provider,
                 "mode": "chat",
                 "output_cost_per_token": 2e-06,
                 "output_cost_per_reasoning_token": 5e-06,
@@ -1381,16 +1381,16 @@ def test_generic_cost_per_token_tier_without_an_output_rate_bills_the_model_rate
         assert round(prompt_cost, 12) == round(13 * 1e-03, 12)
         assert round(completion_cost, 12) == round((82 * 2e-06) + (100 * 5e-06), 12)
     finally:
-        litellm.model_cost.pop(model, None)
+        embrouter.model_cost.pop(model, None)
 
 
 def test_generic_cost_per_token_tier_without_cache_rates_bills_cache_at_the_tier_input_rate():
-    model = "litellm-test-tiered-no-cache-rates"
+    model = "embrouter-test-tiered-no-cache-rates"
     custom_llm_provider = "openrouter"
-    litellm.register_model(
+    embrouter.register_model(
         {
             model: {
-                "litellm_provider": custom_llm_provider,
+                "embrouter_provider": custom_llm_provider,
                 "mode": "chat",
                 "cache_read_input_token_cost": 9e-09,
                 "cache_creation_input_token_cost": 9e-06,
@@ -1434,16 +1434,16 @@ def test_generic_cost_per_token_tier_without_cache_rates_bills_cache_at_the_tier
         assert round(cached_prompt_cost, 12) == round(uncached_prompt_cost, 12)
         assert round(cached_completion_cost, 12) == round(100 * 3.5e-06, 12)
     finally:
-        litellm.model_cost.pop(model, None)
+        embrouter.model_cost.pop(model, None)
 
 
 def test_generic_cost_per_token_tier_without_a_1hr_cache_rate_bills_the_tier_cache_creation_rate():
-    model = "litellm-test-tiered-no-1hr-cache-rate"
+    model = "embrouter-test-tiered-no-1hr-cache-rate"
     custom_llm_provider = "openrouter"
-    litellm.register_model(
+    embrouter.register_model(
         {
             model: {
-                "litellm_provider": custom_llm_provider,
+                "embrouter_provider": custom_llm_provider,
                 "mode": "chat",
                 "cache_creation_input_token_cost_above_1hr": 9e-05,
                 "tiered_pricing": [
@@ -1481,16 +1481,16 @@ def test_generic_cost_per_token_tier_without_a_1hr_cache_rate_bills_the_tier_cac
         assert round(prompt_cost, 12) == round(expected_prompt, 12)
         assert round(completion_cost, 12) == round(10 * 3.5e-06, 12)
     finally:
-        litellm.model_cost.pop(model, None)
+        embrouter.model_cost.pop(model, None)
 
 
 def test_generic_cost_per_token_tier_without_an_input_rate_is_not_a_priced_tier():
-    model = "litellm-test-tiered-no-input-rate"
+    model = "embrouter-test-tiered-no-input-rate"
     custom_llm_provider = "openrouter"
-    litellm.register_model(
+    embrouter.register_model(
         {
             model: {
-                "litellm_provider": custom_llm_provider,
+                "embrouter_provider": custom_llm_provider,
                 "mode": "chat",
                 "input_cost_per_token": 1e-06,
                 "output_cost_per_token": 2e-06,
@@ -1509,23 +1509,23 @@ def test_generic_cost_per_token_tier_without_an_input_rate_is_not_a_priced_tier(
         assert round(prompt_cost, 12) == round(1000 * 1e-06, 12)
         assert round(completion_cost, 12) == round(100 * 2e-06, 12)
     finally:
-        litellm.model_cost.pop(model, None)
+        embrouter.model_cost.pop(model, None)
 
 
 def test_router_deployment_with_input_only_tiers_bills_completions_at_the_backend_rate():
     """Regression: the router registers a deployment's custom pricing as a standalone
     model_cost entry holding only the supplied fields, so an input-only tier table left
     the output-rate fallback nothing to read and billed every completion at 0."""
-    from litellm import Router
+    from embrouter import Router
 
-    model_id = "litellm-test-router-tiered-input-only"
+    model_id = "embrouter-test-router-tiered-input-only"
     backend_model = "anthropic/claude-haiku-4-5"
-    backend_output_rate = litellm.get_model_info(backend_model)["output_cost_per_token"]
+    backend_output_rate = embrouter.get_model_info(backend_model)["output_cost_per_token"]
     Router(
         model_list=[
             {
                 "model_name": "tiered-input-only",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": backend_model,
                     "api_key": "sk-test",
                     "tiered_pricing": [
@@ -1549,18 +1549,18 @@ def test_router_deployment_with_input_only_tiers_bills_completions_at_the_backen
         assert round(completion_cost, 12) == round(4 * backend_output_rate, 12)
         assert backend_output_rate > 0
     finally:
-        litellm.model_cost.pop(model_id, None)
+        embrouter.model_cost.pop(model_id, None)
 
 
 def test_generic_cost_per_token_tiered_pricing_bills_reasoning_at_tier_rate():
     """Regression: a tier's output_cost_per_reasoning_token must price reasoning tokens
     on the generic path and in the logged breakdown, not the tier's plain output rate."""
-    model = "litellm-test-tiered-reasoning"
+    model = "embrouter-test-tiered-reasoning"
     custom_llm_provider = "openrouter"
-    litellm.register_model(
+    embrouter.register_model(
         {
             model: {
-                "litellm_provider": custom_llm_provider,
+                "embrouter_provider": custom_llm_provider,
                 "mode": "chat",
                 "tiered_pricing": [
                     {
@@ -1602,7 +1602,7 @@ def test_generic_cost_per_token_tiered_pricing_bills_reasoning_at_tier_rate():
         )
         assert round(breakdown.reasoning_cost, 12) == round(400 * 4e-06, 12)
     finally:
-        litellm.model_cost.pop(model, None)
+        embrouter.model_cost.pop(model, None)
 
 
 @pytest.mark.parametrize(
@@ -1623,8 +1623,8 @@ def test_gpt55_dated_variants_match_base_reasoning_effort_capabilities(_local_mo
     dated variant must never lose capabilities relative to the base alias.
     """
 
-    base = litellm.model_cost[base_model]
-    dated = litellm.model_cost[dated_model]
+    base = embrouter.model_cost[base_model]
+    dated = embrouter.model_cost[dated_model]
 
     for flag in (
         "supports_none_reasoning_effort",
@@ -1678,7 +1678,7 @@ def test_string_cost_values():
 
     # Mock get_model_info to return our mock model info
     with patch(
-        "litellm.litellm_core_utils.llm_cost_calc.utils.get_model_info",
+        "embrouter.embrouter_core_utils.llm_cost_calc.utils.get_model_info",
         return_value=mock_model_info,
     ):
         prompt_cost, completion_cost = generic_cost_per_token(
@@ -1706,11 +1706,11 @@ def test_generic_cost_per_token_overlapping_cached_and_image_tokens():
     """Some providers report cached_tokens and image_tokens as overlapping subsets of
     prompt_tokens. Billing each in full charged the overlap twice, once at the cache rate
     and again at the input rate."""
-    model = "litellm-test-overlapping-cached-image"
-    litellm.register_model(
+    model = "embrouter-test-overlapping-cached-image"
+    embrouter.register_model(
         {
             model: {
-                "litellm_provider": "openai",
+                "embrouter_provider": "openai",
                 "mode": "chat",
                 "input_cost_per_token": 1e-6,
                 "cache_read_input_token_cost": 1e-7,
@@ -1738,11 +1738,11 @@ def test_generic_cost_per_token_warm_prefix_cache_spanning_text_and_image_tokens
     Observed live on grok-4.6 (issue #37281): the image tokens were billed a second time at
     the full input rate on top of the cache-read bucket, 0.003500 in vs the provider's own
     0.001274 bill."""
-    model = "litellm-test-warm-prefix-cache-overlap"
-    litellm.register_model(
+    model = "embrouter-test-warm-prefix-cache-overlap"
+    embrouter.register_model(
         {
             model: {
-                "litellm_provider": "openai",
+                "embrouter_provider": "openai",
                 "mode": "chat",
                 "input_cost_per_token": 2e-6,
                 "cache_read_input_token_cost": 5e-7,
@@ -1766,7 +1766,7 @@ def test_generic_cost_per_token_warm_prefix_cache_spanning_text_and_image_tokens
 
 def test_calculate_cost_component_with_string_values():
     """Test the calculate_cost_component function directly with string cost values."""
-    from litellm.litellm_core_utils.llm_cost_calc.utils import calculate_cost_component
+    from embrouter.embrouter_core_utils.llm_cost_calc.utils import calculate_cost_component
 
     # Test with valid string scientific notation
     model_info = {"input_cost_per_token": "3e-7"}
@@ -1838,7 +1838,7 @@ def test_string_cost_values_edge_cases():
     )
 
     with patch(
-        "litellm.litellm_core_utils.llm_cost_calc.utils.get_model_info",
+        "embrouter.embrouter_core_utils.llm_cost_calc.utils.get_model_info",
         return_value=mock_model_info,
     ):
         prompt_cost, completion_cost = generic_cost_per_token(
@@ -1875,7 +1875,7 @@ def test_string_cost_values_with_threshold():
     )
 
     with patch(
-        "litellm.litellm_core_utils.llm_cost_calc.utils.get_model_info",
+        "embrouter.embrouter_core_utils.llm_cost_calc.utils.get_model_info",
         return_value=mock_model_info,
     ):
         prompt_cost, completion_cost = generic_cost_per_token(
@@ -2122,7 +2122,7 @@ def test_gemini_image_generation_cost_with_zero_text_tokens(_local_model_cost_ma
         ),
     )
 
-    model_cost_map = litellm.model_cost[model]
+    model_cost_map = embrouter.model_cost[model]
     prompt_cost, completion_cost = generic_cost_per_token(
         model=model,
         usage=usage,
@@ -2160,7 +2160,7 @@ def test_vertex_image_generation_cost_prefers_token_usage_metadata(_local_model_
     """
 
     model = "gemini-3.1-flash-image-preview"
-    model_info = litellm.get_model_info(model=model, custom_llm_provider="vertex_ai")
+    model_info = embrouter.get_model_info(model=model, custom_llm_provider="vertex_ai")
 
     input_text_tokens = 50
     input_image_tokens = 1120
@@ -2201,7 +2201,7 @@ def test_vertex_image_generation_cost_falls_back_to_flat_image_pricing(_local_mo
     """
 
     model = "gemini-3.1-flash-image-preview"
-    model_info = litellm.get_model_info(model=model, custom_llm_provider="vertex_ai")
+    model_info = embrouter.get_model_info(model=model, custom_llm_provider="vertex_ai")
 
     image_response = ImageResponse(data=[ImageObject(b64_json="img1"), ImageObject(b64_json="img2")])
 
@@ -2242,7 +2242,7 @@ def test_data_residency_applies_uplift(data_residency, model, _local_model_cost_
     """Models released on/after 2026-03-05 (gpt-5.4/5.5 and gpt-realtime-2.1
     series) apply the 10% regional processing uplift multiplier when
     data_residency is set; gpt-5 and older models do not."""
-    from litellm.types.utils import Usage
+    from embrouter.types.utils import Usage
 
     usage = Usage(prompt_tokens=1000, completion_tokens=500, total_tokens=1500)
 
@@ -2270,7 +2270,7 @@ def test_data_residency_applies_uplift(data_residency, model, _local_model_cost_
 @pytest.mark.parametrize("model", ["gpt-5", "gpt-5-mini", "gpt-5-nano", "gpt-5-pro", "gpt-4o", "gpt-4.1"])
 def test_data_residency_no_uplift_for_pre_march_2026_models(model, _local_model_cost_map):
     """Models released before 2026-03-05 must not have the regional uplift."""
-    from litellm.types.utils import Usage
+    from embrouter.types.utils import Usage
 
     usage = Usage(prompt_tokens=1000, completion_tokens=500, total_tokens=1500)
 
@@ -2283,7 +2283,7 @@ def test_data_residency_no_uplift_for_pre_march_2026_models(model, _local_model_
 def test_data_residency_no_uplift_for_unmarked_model(_local_model_cost_map):
     """A model without a regional_processing_uplift_multiplier_* entry should
     fall back to base pricing, not error."""
-    from litellm.types.utils import Usage
+    from embrouter.types.utils import Usage
 
     usage = Usage(prompt_tokens=1000, completion_tokens=500, total_tokens=1500)
 
@@ -2304,7 +2304,7 @@ def test_data_residency_no_uplift_for_unmarked_model(_local_model_cost_map):
 
 def test_data_residency_none_no_uplift(_local_model_cost_map):
     """data_residency=None should be a no-op even for models with a multiplier."""
-    from litellm.types.utils import Usage
+    from embrouter.types.utils import Usage
 
     usage = Usage(prompt_tokens=1000, completion_tokens=500, total_tokens=1500)
 
@@ -2325,7 +2325,7 @@ def test_data_residency_none_no_uplift(_local_model_cost_map):
 
 def test_data_residency_composes_with_service_tier(_local_model_cost_map):
     """The uplift multiplies the priority-tier cost, not the standard one."""
-    from litellm.types.utils import Usage
+    from embrouter.types.utils import Usage
 
     usage = Usage(prompt_tokens=1000, completion_tokens=500, total_tokens=1500)
 
@@ -2356,7 +2356,7 @@ def test_vertex_regional_location_applies_uplift(vertex_location, model, _local_
     """Google bills every non-global Vertex endpoint at 1.1x the global rate for GA
     Gemini 3+ and regional-pricing Claude models, so a request served from a regional
     location must cost 1.1x what the same usage costs on the global endpoint."""
-    from litellm.types.utils import Usage
+    from embrouter.types.utils import Usage
 
     usage = Usage(prompt_tokens=1000, completion_tokens=500, total_tokens=1500)
 
@@ -2381,7 +2381,7 @@ def test_vertex_regional_location_applies_uplift(vertex_location, model, _local_
 def test_vertex_global_or_absent_location_no_uplift(vertex_location, _local_model_cost_map):
     """The global endpoint prices at the base rate, whatever the casing, and an
     unresolved location must never uplift."""
-    from litellm.types.utils import Usage
+    from embrouter.types.utils import Usage
 
     usage = Usage(prompt_tokens=1000, completion_tokens=500, total_tokens=1500)
 
@@ -2400,7 +2400,7 @@ def test_vertex_global_or_absent_location_no_uplift(vertex_location, _local_mode
 
 def test_vertex_uplift_invalid_multiplier_defaults_to_one():
     """A malformed multiplier in the cost map degrades to base pricing, never raises."""
-    from litellm.litellm_core_utils.llm_cost_calc.utils import (
+    from embrouter.embrouter_core_utils.llm_cost_calc.utils import (
         get_vertex_regional_endpoint_uplift,
     )
 
@@ -2410,8 +2410,8 @@ def test_vertex_uplift_invalid_multiplier_defaults_to_one():
 
 
 def test_service_tier_suffixes_constant_in_sync_with_enum():
-    from litellm.litellm_core_utils.llm_cost_calc.utils import _SERVICE_TIER_SUFFIXES
-    from litellm.types.utils import ServiceTier
+    from embrouter.embrouter_core_utils.llm_cost_calc.utils import _SERVICE_TIER_SUFFIXES
+    from embrouter.types.utils import ServiceTier
 
     assert set(_SERVICE_TIER_SUFFIXES) == {f"_{st.value}" for st in ServiceTier}
     # longest-first so a substring match resolves "_ultrafast" before "_fast"
@@ -2419,7 +2419,7 @@ def test_service_tier_suffixes_constant_in_sync_with_enum():
 
 
 def test_get_cost_per_unit_falls_back_from_service_tier_key_to_base():
-    from litellm.litellm_core_utils.llm_cost_calc.utils import _get_cost_per_unit
+    from embrouter.embrouter_core_utils.llm_cost_calc.utils import _get_cost_per_unit
 
     model_info = {"input_cost_per_token": 2e-6}
     # service-tier key is absent -> falls back to the base key
@@ -2435,8 +2435,8 @@ def test_get_cost_per_unit_falls_back_from_service_tier_key_to_base():
 def test_threshold_keys_exclude_service_tier_variants():
     from typing import cast
 
-    from litellm.litellm_core_utils.llm_cost_calc.utils import _get_token_base_cost
-    from litellm.types.utils import ModelInfo, Usage
+    from embrouter.embrouter_core_utils.llm_cost_calc.utils import _get_token_base_cost
+    from embrouter.types.utils import ModelInfo, Usage
 
     # The service-tier-suffixed above-threshold key must be excluded from
     # threshold detection. The _priority variant has a higher threshold (300k),
@@ -2493,7 +2493,7 @@ def test_token_type_cost_breakdown_is_provider_agnostic(
 
     breakdown = get_token_type_cost_breakdown(model=model, custom_llm_provider=custom_llm_provider, usage=usage)
 
-    model_info = litellm.get_model_info(model=model, custom_llm_provider=custom_llm_provider)
+    model_info = embrouter.get_model_info(model=model, custom_llm_provider=custom_llm_provider)
     reasoning_rate = model_info.get("output_cost_per_reasoning_token") or model_info["output_cost_per_token"]
     cache_read_rate = model_info.get("cache_read_input_token_cost") or 0.0
 
@@ -2519,7 +2519,7 @@ def test_token_type_cost_breakdown_includes_cache_creation_from_top_level_usage(
 
     breakdown = get_token_type_cost_breakdown(model=model, custom_llm_provider="bedrock", usage=usage)
 
-    model_info = litellm.get_model_info(model=model, custom_llm_provider="bedrock")
+    model_info = embrouter.get_model_info(model=model, custom_llm_provider="bedrock")
     assert breakdown.cache_creation_cost == pytest.approx(300 * model_info["cache_creation_input_token_cost"])
     assert breakdown.cache_read_cost == pytest.approx(120 * model_info["cache_read_input_token_cost"])
 
@@ -2540,7 +2540,7 @@ def test_token_type_cost_breakdown_reads_cache_write_tokens(_local_model_cost_ma
     )
 
     breakdown = get_token_type_cost_breakdown(model=model, custom_llm_provider="bedrock", usage=usage)
-    model_info = litellm.get_model_info(model=model, custom_llm_provider="bedrock")
+    model_info = embrouter.get_model_info(model=model, custom_llm_provider="bedrock")
     assert breakdown.cache_creation_cost == pytest.approx(300 * model_info["cache_creation_input_token_cost"])
 
 
@@ -2566,7 +2566,7 @@ def test_generic_cost_per_token_openai_cache_write_tokens_gpt_5_6(_local_model_c
 
     prompt_cost, _ = generic_cost_per_token(model=model, usage=usage, custom_llm_provider="openai")
 
-    info = litellm.get_model_info(model=model, custom_llm_provider="openai")
+    info = embrouter.get_model_info(model=model, custom_llm_provider="openai")
     expected_prompt = (1000 - 800) * info["input_cost_per_token"] + 800 * info["cache_creation_input_token_cost"]
     assert prompt_cost == pytest.approx(expected_prompt)
     assert info["cache_creation_input_token_cost"] > info["input_cost_per_token"]
@@ -2590,7 +2590,7 @@ def test_generic_cost_per_token_backs_out_cache_write_tokens_from_text_tokens(_l
 
     prompt_cost, _ = generic_cost_per_token(model=model, usage=usage, custom_llm_provider="openai")
 
-    info = litellm.get_model_info(model=model, custom_llm_provider="openai")
+    info = embrouter.get_model_info(model=model, custom_llm_provider="openai")
     expected_prompt = 200 * info["input_cost_per_token"] + 800 * info["cache_creation_input_token_cost"]
     assert prompt_cost == pytest.approx(expected_prompt)
 
@@ -2618,7 +2618,7 @@ def test_token_type_cost_breakdown_reconciles_with_generic_total(_local_model_co
     )
     breakdown = get_token_type_cost_breakdown(model=model, custom_llm_provider=custom_llm_provider, usage=usage)
 
-    model_info = litellm.get_model_info(model=model, custom_llm_provider=custom_llm_provider)
+    model_info = embrouter.get_model_info(model=model, custom_llm_provider=custom_llm_provider)
     text_output_cost = 800 * model_info["output_cost_per_token"]
     text_input_cost = 700 * model_info["input_cost_per_token"]
 
@@ -2643,7 +2643,7 @@ def test_token_type_cost_breakdown_prices_custom_pricing_from_its_flat_rates():
     The lines must come from the same flat rates: a configured cache rate, else the input
     rate for cache tokens and the output rate for reasoning tokens.
     """
-    from litellm.types.utils import CostPerToken
+    from embrouter.types.utils import CostPerToken
 
     breakdown = get_token_type_cost_breakdown(
         model="openai/onprem-model",
@@ -2660,8 +2660,8 @@ def test_token_type_cost_breakdown_prices_custom_pricing_from_its_flat_rates():
 
 
 def test_token_type_cost_breakdown_reconciles_with_custom_pricing_totals():
-    from litellm.cost_calculator import cost_per_token
-    from litellm.types.utils import CostPerToken
+    from embrouter.cost_calculator import cost_per_token
+    from embrouter.types.utils import CostPerToken
 
     usage = _custom_priced_usage()
     custom_cost_per_token = CostPerToken(
@@ -2692,7 +2692,7 @@ def test_token_type_cost_breakdown_reconciles_with_custom_pricing_totals():
 
 def test_billed_token_rates_follow_the_token_tier_the_breakdown_bills_at(monkeypatch):
     monkeypatch.setitem(
-        litellm.model_cost,
+        embrouter.model_cost,
         "tiered-cache-model",
         {
             "input_cost_per_token": 3e-6,
@@ -2703,7 +2703,7 @@ def test_billed_token_rates_follow_the_token_tier_the_breakdown_bills_at(monkeyp
             "output_cost_per_token_above_200k_tokens": 3e-5,
             "cache_read_input_token_cost_above_200k_tokens": 6e-7,
             "cache_creation_input_token_cost_above_200k_tokens": 7.5e-6,
-            "litellm_provider": "openai",
+            "embrouter_provider": "openai",
             "mode": "chat",
         },
     )
@@ -2737,7 +2737,7 @@ def test_a_pinned_billing_time_prices_the_totals_and_the_reported_rates_at_one_m
     clock, so a window opening between the two reads used to leave them describing one request
     at two different prices. Pinned, both must answer for the pinned moment."""
     monkeypatch.setitem(
-        litellm.model_cost,
+        embrouter.model_cost,
         "off-peak-model",
         {
             "input_cost_per_token": 3e-6,
@@ -2747,7 +2747,7 @@ def test_a_pinned_billing_time_prices_the_totals_and_the_reported_rates_at_one_m
                 "input_cost_per_token": 1e-6,
                 "output_cost_per_token": 5e-6,
             },
-            "litellm_provider": "openai",
+            "embrouter_provider": "openai",
             "mode": "chat",
         },
     )
@@ -2776,7 +2776,7 @@ def test_the_token_type_breakdown_carries_the_rates_it_billed_at(monkeypatch):
     """Callers that report both the lines and the rates read the rates off the breakdown rather than
     resolving them a second time, so the breakdown has to hand back exactly what it billed at."""
     monkeypatch.setitem(
-        litellm.model_cost,
+        embrouter.model_cost,
         "xai/tiered-model",
         {
             "input_cost_per_token": 3e-6,
@@ -2785,7 +2785,7 @@ def test_the_token_type_breakdown_carries_the_rates_it_billed_at(monkeypatch):
             "input_cost_per_token_above_200k_tokens": 6e-6,
             "output_cost_per_token_above_200k_tokens": 3e-5,
             "cache_read_input_token_cost_above_200k_tokens": 6e-7,
-            "litellm_provider": "xai",
+            "embrouter_provider": "xai",
             "mode": "chat",
         },
     )
@@ -2857,14 +2857,14 @@ def test_token_type_cost_breakdown_openai_responses_api_cache_write_read(
     input_tokens_details.{cached_tokens, cache_write_tokens}, not the Anthropic-style
     top-level cache_creation_input_tokens. The itemized breakdown must still populate
     cache_read_cost / cache_creation_cost from the transformed usage."""
-    from litellm.responses.utils import ResponseAPILoggingUtils
+    from embrouter.responses.utils import ResponseAPILoggingUtils
 
     model = "gpt-5.6"
     usage = ResponseAPILoggingUtils._transform_response_api_usage_to_chat_usage(raw_usage)
 
     breakdown = get_token_type_cost_breakdown(model=model, custom_llm_provider="openai", usage=usage)
 
-    info = litellm.get_model_info(model=model, custom_llm_provider="openai")
+    info = embrouter.get_model_info(model=model, custom_llm_provider="openai")
     if expect_write:
         assert breakdown.cache_creation_cost == pytest.approx(4012 * info["cache_creation_input_token_cost"])
         assert breakdown.cache_creation_cost > 0
@@ -2908,7 +2908,7 @@ def test_token_type_cost_breakdown_applies_regional_uplift(_local_model_cost_map
         prompt_tokens_details=PromptTokensDetailsWrapper(cached_tokens=400, text_tokens=600),
     )
 
-    model_info = litellm.get_model_info(model=model, custom_llm_provider=custom_llm_provider)
+    model_info = embrouter.get_model_info(model=model, custom_llm_provider=custom_llm_provider)
     uplift = model_info["regional_processing_uplift_multiplier_eu"]
     assert uplift > 1.0
 
@@ -2953,7 +2953,7 @@ def test_token_type_cost_breakdown_applies_vertex_regional_uplift(_local_model_c
         prompt_tokens_details=PromptTokensDetailsWrapper(cached_tokens=400, text_tokens=600),
     )
 
-    model_info = litellm.get_model_info(model=model, custom_llm_provider=custom_llm_provider)
+    model_info = embrouter.get_model_info(model=model, custom_llm_provider=custom_llm_provider)
     uplift = model_info["regional_endpoint_uplift_multiplier"]
     assert uplift > 1.0
 
@@ -2987,21 +2987,21 @@ def test_token_type_cost_breakdown_applies_anthropic_geo_multiplier(_local_model
     cache costs stay at the base rate and the cache uplift is misattributed to
     plain input for exactly the cache-heavy regional traffic the uplift targets.
     """
-    from litellm.llms.anthropic.cost_calculation import (
+    from embrouter.llms.anthropic.cost_calculation import (
         cost_per_token as anthropic_cost_per_token,
     )
 
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setenv("EMBROUTER_LOCAL_MODEL_COST_MAP", "True")
 
     model = "claude-test-geo-breakdown-model"
-    litellm.register_model(
+    embrouter.register_model(
         model_cost={
             model: {
                 "input_cost_per_token": 5e-6,
                 "output_cost_per_token": 25e-6,
                 "cache_creation_input_token_cost": 6.25e-6,
                 "cache_read_input_token_cost": 0.5e-6,
-                "litellm_provider": "anthropic",
+                "embrouter_provider": "anthropic",
                 "max_tokens": 8192,
                 "provider_specific_entry": {"us": 1.1},
             }
@@ -3053,10 +3053,10 @@ def test_image_response_input_image_tokens_priced_at_image_rate(details_as_dict)
     """
     from unittest.mock import patch
 
-    from litellm.litellm_core_utils.llm_cost_calc.utils import (
+    from embrouter.embrouter_core_utils.llm_cost_calc.utils import (
         calculate_image_response_cost_from_usage,
     )
-    from litellm.types.utils import Usage
+    from embrouter.types.utils import Usage
 
     mock_model_info = {
         "input_cost_per_token": 5e-6,
@@ -3079,7 +3079,7 @@ def test_image_response_input_image_tokens_priced_at_image_rate(details_as_dict)
     )
 
     with patch(
-        "litellm.litellm_core_utils.llm_cost_calc.utils.get_model_info",
+        "embrouter.embrouter_core_utils.llm_cost_calc.utils.get_model_info",
         return_value=mock_model_info,
     ):
         cost = calculate_image_response_cost_from_usage(
@@ -3121,7 +3121,7 @@ GEMINI_35_FLASH_LITE_TIER_RATES_BY_SURFACE = [
 
 
 def test_fast_service_tier_is_case_insensitive(_local_model_cost_map):
-    from litellm.types.utils import Usage
+    from embrouter.types.utils import Usage
 
     usage = Usage(prompt_tokens=1_000, completion_tokens=500)
 
@@ -3134,7 +3134,7 @@ def test_priority_reasoning_tokens_bill_at_the_priority_output_rate(_local_model
     """Regression: gemini-3.5-flash publishes priority output pricing but no priority
     reasoning key, so reasoning tokens under priority/fast were billed at the standard
     output_cost_per_reasoning_token instead of following the tier's output rate."""
-    from litellm.types.utils import Usage
+    from embrouter.types.utils import Usage
 
     usage = Usage(
         prompt_tokens=1_000,
@@ -3142,7 +3142,7 @@ def test_priority_reasoning_tokens_bill_at_the_priority_output_rate(_local_model
         completion_tokens_details=CompletionTokensDetailsWrapper(reasoning_tokens=4_000),
     )
 
-    model_info = litellm.get_model_info(model="gemini-3.5-flash", custom_llm_provider="gemini")
+    model_info = embrouter.get_model_info(model="gemini-3.5-flash", custom_llm_provider="gemini")
     standard_output_rate = model_info["output_cost_per_token"]
     standard_reasoning_rate = model_info["output_cost_per_reasoning_token"]
     priority_output_rate = model_info["output_cost_per_token_priority"]
@@ -3165,7 +3165,7 @@ def test_priority_reasoning_tokens_bill_at_the_priority_output_rate(_local_model
 
 
 def test_explicit_tier_reasoning_key_wins_over_the_tier_output_rate():
-    from litellm.types.utils import Usage
+    from embrouter.types.utils import Usage
 
     model_info = {
         "input_cost_per_token": 1e-06,
@@ -3195,7 +3195,7 @@ def test_explicit_tier_reasoning_key_wins_over_the_tier_output_rate():
 def test_null_tier_reasoning_key_falls_back_to_the_tier_output_rate():
     """get_model_info dumps every ModelInfo field, so an unpublished tier reasoning key
     arrives as an explicit None and must not shadow the tier output rate."""
-    from litellm.types.utils import Usage
+    from embrouter.types.utils import Usage
 
     model_info = {
         "input_cost_per_token": 1e-06,
@@ -3223,7 +3223,7 @@ def test_null_tier_reasoning_key_falls_back_to_the_tier_output_rate():
 
 
 def test_tier_request_without_tier_pricing_keeps_the_standard_reasoning_rate():
-    from litellm.types.utils import Usage
+    from embrouter.types.utils import Usage
 
     model_info = {
         "input_cost_per_token": 1e-06,
@@ -3305,10 +3305,10 @@ def test_route_image_generation_cost_falls_back_to_requested_quality(
     monkeypatch, response_quality, requested_quality, expected_cost
 ):
     def tier(cost):
-        return {"litellm_provider": "xai", "mode": "image_generation", "input_cost_per_image": cost}
+        return {"embrouter_provider": "xai", "mode": "image_generation", "input_cost_per_image": cost}
 
     monkeypatch.setattr(
-        litellm,
+        embrouter,
         "model_cost",
         {
             "xai/grok-imagine-image-2.0": tier(0.06),
@@ -3341,10 +3341,10 @@ def test_route_image_generation_cost_falls_back_to_requested_quality(
 )
 def test_route_image_generation_cost_falls_back_to_requested_size(monkeypatch, requested_size, expected_cost):
     def tier(cost):
-        return {"litellm_provider": "xai", "mode": "image_generation", "input_cost_per_image": cost}
+        return {"embrouter_provider": "xai", "mode": "image_generation", "input_cost_per_image": cost}
 
     monkeypatch.setattr(
-        litellm,
+        embrouter,
         "model_cost",
         {
             "xai/grok-imagine-image-2.0": tier(0.06),
@@ -3386,7 +3386,7 @@ def test_generic_cost_per_token_bills_reasoning_nested_in_text_tokens_once(_loca
     prompt_cost, completion_cost = generic_cost_per_token(model=model, usage=usage, custom_llm_provider="openai")
     breakdown = get_token_type_cost_breakdown(model=model, custom_llm_provider="openai", usage=usage)
 
-    info = litellm.get_model_info(model=model, custom_llm_provider="openai")
+    info = embrouter.get_model_info(model=model, custom_llm_provider="openai")
     assert completion_cost == pytest.approx(29 * info["output_cost_per_token"])
     assert completion_cost - breakdown.reasoning_cost == pytest.approx(10 * info["output_cost_per_token"])
     assert prompt_cost == pytest.approx(
@@ -3411,7 +3411,7 @@ def test_generic_cost_per_token_keeps_billing_reasoning_reported_beside_text_tok
 
     _, completion_cost = generic_cost_per_token(model=model, usage=usage, custom_llm_provider="openai")
 
-    info = litellm.get_model_info(model=model, custom_llm_provider="openai")
+    info = embrouter.get_model_info(model=model, custom_llm_provider="openai")
     assert completion_cost == pytest.approx(44 * info["output_cost_per_token"])
 
 
@@ -3431,7 +3431,7 @@ def test_generic_cost_per_token_strips_only_the_reasoning_share_when_text_over_r
     _, completion_cost = generic_cost_per_token(model=model, usage=usage, custom_llm_provider="openai")
     breakdown = get_token_type_cost_breakdown(model=model, custom_llm_provider="openai", usage=usage)
 
-    info = litellm.get_model_info(model=model, custom_llm_provider="openai")
+    info = embrouter.get_model_info(model=model, custom_llm_provider="openai")
     assert breakdown.reasoning_cost == pytest.approx(10 * info["output_cost_per_token"])
     assert completion_cost == pytest.approx(
         100 * info["output_cost_per_token"] + 70 * info["output_cost_per_audio_token"]
@@ -3452,7 +3452,7 @@ def test_generic_cost_per_token_bills_nested_reasoning_once_beside_audio_output(
     _, completion_cost = generic_cost_per_token(model=model, usage=usage, custom_llm_provider="openai")
     breakdown = get_token_type_cost_breakdown(model=model, custom_llm_provider="openai", usage=usage)
 
-    info = litellm.get_model_info(model=model, custom_llm_provider="openai")
+    info = embrouter.get_model_info(model=model, custom_llm_provider="openai")
     assert breakdown.reasoning_cost == pytest.approx(20 * info["output_cost_per_token"])
     assert completion_cost == pytest.approx(
         30 * info["output_cost_per_token"] + 70 * info["output_cost_per_audio_token"]
@@ -3653,7 +3653,7 @@ def _batch_rates_model_info(**rates: object) -> ModelInfo:
 
 
 def test_get_batch_cost_rates_parses_string_rates():
-    from litellm.litellm_core_utils.llm_cost_calc.utils import get_batch_cost_rates
+    from embrouter.embrouter_core_utils.llm_cost_calc.utils import get_batch_cost_rates
 
     rates = get_batch_cost_rates(
         _batch_rates_model_info(
@@ -3672,7 +3672,7 @@ def test_get_batch_cost_rates_parses_string_rates():
 
 
 def test_get_batch_cost_rates_falls_back_to_the_flat_rates_when_tier_rates_are_unparsable():
-    from litellm.litellm_core_utils.llm_cost_calc.utils import get_batch_cost_rates
+    from embrouter.embrouter_core_utils.llm_cost_calc.utils import get_batch_cost_rates
 
     rates = get_batch_cost_rates(
         _batch_rates_model_info(
@@ -3693,7 +3693,7 @@ def test_get_batch_cost_rates_falls_back_to_the_flat_rates_when_tier_rates_are_u
 
 
 def test_get_batch_cost_rates_has_no_cached_rate_without_a_cached_batch_key():
-    from litellm.litellm_core_utils.llm_cost_calc.utils import get_batch_cost_rates
+    from embrouter.embrouter_core_utils.llm_cost_calc.utils import get_batch_cost_rates
 
     rates = get_batch_cost_rates(
         _batch_rates_model_info(
@@ -3711,7 +3711,7 @@ def test_get_batch_cost_rates_has_no_cached_rate_without_a_cached_batch_key():
 
 @pytest.mark.parametrize(("prompt_tokens", "expected"), [(1_000, 1.25e-7), (272_000, 1.25e-7), (300_000, 2.5e-7)])
 def test_get_batch_cost_rates_reads_the_batch_cache_write_rate_for_the_crossed_tier(prompt_tokens, expected):
-    from litellm.litellm_core_utils.llm_cost_calc.utils import get_batch_cost_rates
+    from embrouter.embrouter_core_utils.llm_cost_calc.utils import get_batch_cost_rates
 
     rates = get_batch_cost_rates(
         _batch_rates_model_info(
@@ -3736,7 +3736,7 @@ def test_get_batch_cost_rates_reads_the_batch_cache_write_rate_for_the_crossed_t
     ],
 )
 def test_get_batch_cost_rates_crosses_a_tier_declared_without_an_input_tier_key(tier_key, attribute):
-    from litellm.litellm_core_utils.llm_cost_calc.utils import get_batch_cost_rates
+    from embrouter.embrouter_core_utils.llm_cost_calc.utils import get_batch_cost_rates
 
     rates = get_batch_cost_rates(
         _batch_rates_model_info(
@@ -3759,7 +3759,7 @@ def test_get_batch_cost_rates_crosses_a_tier_declared_without_an_input_tier_key(
     [(200_000, 1e-6, 4e-6), (250_000, 1e-6, 5e-6), (300_000, 2e-6, 5e-6)],
 )
 def test_get_batch_cost_rates_crosses_each_components_own_tier(prompt_tokens, expected_input, expected_output):
-    from litellm.litellm_core_utils.llm_cost_calc.utils import get_batch_cost_rates
+    from embrouter.embrouter_core_utils.llm_cost_calc.utils import get_batch_cost_rates
 
     rates = get_batch_cost_rates(
         _batch_rates_model_info(
@@ -3776,7 +3776,7 @@ def test_get_batch_cost_rates_crosses_each_components_own_tier(prompt_tokens, ex
 
 
 def test_get_batch_cost_rates_has_no_cache_write_rate_without_a_cache_write_batch_key():
-    from litellm.litellm_core_utils.llm_cost_calc.utils import get_batch_cost_rates
+    from embrouter.embrouter_core_utils.llm_cost_calc.utils import get_batch_cost_rates
 
     rates = get_batch_cost_rates(
         _batch_rates_model_info(
@@ -3806,11 +3806,11 @@ def test_azure_gpt_6_foundry_price_sheet(_local_model_cost_map, model_base):
         "cache_creation_input_token_cost_above_272k_tokens",
         "output_cost_per_token_above_272k_tokens",
     )
-    openai_info = litellm.get_model_info(model=model_base, custom_llm_provider="openai")
-    azure_info = litellm.get_model_info(model=f"azure/{model_base}", custom_llm_provider="azure")
-    azure_us_info = litellm.get_model_info(model=f"azure/us/{model_base}", custom_llm_provider="azure")
-    azure_eu_info = litellm.get_model_info(model=f"azure/eu/{model_base}", custom_llm_provider="azure")
-    azure_ai_info = litellm.get_model_info(model=f"azure_ai/{model_base}", custom_llm_provider="azure_ai")
+    openai_info = embrouter.get_model_info(model=model_base, custom_llm_provider="openai")
+    azure_info = embrouter.get_model_info(model=f"azure/{model_base}", custom_llm_provider="azure")
+    azure_us_info = embrouter.get_model_info(model=f"azure/us/{model_base}", custom_llm_provider="azure")
+    azure_eu_info = embrouter.get_model_info(model=f"azure/eu/{model_base}", custom_llm_provider="azure")
+    azure_ai_info = embrouter.get_model_info(model=f"azure_ai/{model_base}", custom_llm_provider="azure_ai")
 
     for field in price_fields:
         base = openai_info[field]
@@ -3824,8 +3824,8 @@ def test_azure_gpt_6_foundry_price_sheet(_local_model_cost_map, model_base):
 def test_azure_gpt_5_6_alias_matches_sol_pricing(_local_model_cost_map, region_prefix):
     """The bare gpt-5.6 alias routes to GPT-5.6 Sol, so every Azure region must bill the
     alias exactly like the Sol entry (including the Sept 2026 $4/$20 promo)."""
-    alias = litellm.model_cost[f"{region_prefix}gpt-5.6"]
-    sol = litellm.model_cost[f"{region_prefix}gpt-5.6-sol"]
+    alias = embrouter.model_cost[f"{region_prefix}gpt-5.6"]
+    sol = embrouter.model_cost[f"{region_prefix}gpt-5.6-sol"]
     shared_cost_fields = [f for f in alias if "cost" in f and f in sol and not isinstance(alias[f], dict)]
     assert shared_cost_fields
     for field in shared_cost_fields:

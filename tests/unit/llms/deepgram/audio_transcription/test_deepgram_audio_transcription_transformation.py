@@ -6,19 +6,19 @@ from unittest.mock import MagicMock
 import pytest
 
 
-import litellm
-from litellm.llms.base_llm.audio_transcription.transformation import (
+import embrouter
+from embrouter.llms.base_llm.audio_transcription.transformation import (
     AudioTranscriptionRequestData,
 )
-from litellm.llms.deepgram.audio_transcription.transformation import (
+from embrouter.llms.deepgram.audio_transcription.transformation import (
     DeepgramAudioTranscriptionConfig,
 )
-from litellm.types.utils import TranscriptionResponse
+from embrouter.types.utils import TranscriptionResponse
 
 
 @pytest.fixture
 def test_bytes():
-    return b"litellm", b"litellm"
+    return b"embrouter", b"embrouter"
 
 
 @pytest.fixture
@@ -54,7 +54,7 @@ def test_audio_file_handling(fixture_name, request):
         model="deepseek-audio-transcription",
         audio_file=audio_file,
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
     )
 
     # Check that result is AudioTranscriptionRequestData
@@ -75,7 +75,7 @@ def test_get_complete_url_basic():
         api_key=None,
         model="nova-2",
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
     )
     expected_url = "https://api.deepgram.com/v1/listen?model=nova-2"
     assert url == expected_url
@@ -89,7 +89,7 @@ def test_get_complete_url_with_punctuate():
         api_key=None,
         model="nova-2",
         optional_params={"punctuate": True},
-        litellm_params={},
+        embrouter_params={},
     )
     expected_url = "https://api.deepgram.com/v1/listen?model=nova-2&punctuate=true"
     assert url == expected_url
@@ -103,7 +103,7 @@ def test_get_complete_url_with_diarize():
         api_key=None,
         model="nova-2",
         optional_params={"diarize": True},
-        litellm_params={},
+        embrouter_params={},
     )
     expected_url = "https://api.deepgram.com/v1/listen?model=nova-2&diarize=true"
     assert url == expected_url
@@ -117,7 +117,7 @@ def test_get_complete_url_with_measurements():
         api_key=None,
         model="nova-2",
         optional_params={"measurements": True},
-        litellm_params={},
+        embrouter_params={},
     )
     expected_url = "https://api.deepgram.com/v1/listen?model=nova-2&measurements=true"
     assert url == expected_url
@@ -136,7 +136,7 @@ def test_get_complete_url_with_multiple_params():
             "measurements": True,
             "smart_format": True,
         },
-        litellm_params={},
+        embrouter_params={},
     )
     # URL should contain all parameters
     assert "model=nova-2" in url
@@ -158,7 +158,7 @@ def test_get_complete_url_with_language_parameter():
             "language": "en",
             "punctuate": True,
         },
-        litellm_params={},
+        embrouter_params={},
     )
     expected_url = "https://api.deepgram.com/v1/listen?model=nova-2&punctuate=true"
     assert url == expected_url
@@ -174,7 +174,7 @@ def test_get_complete_url_with_custom_api_base():
         api_key=None,
         model="nova-2",
         optional_params={"punctuate": True},
-        litellm_params={},
+        embrouter_params={},
     )
     expected_url = "https://custom.deepgram.com/v2/listen?model=nova-2&punctuate=true"
     assert url == expected_url
@@ -192,7 +192,7 @@ def test_get_complete_url_with_string_values():
             "version": "latest",
             "punctuate": True,
         },
-        litellm_params={},
+        embrouter_params={},
     )
     # URL should contain all parameters
     assert "model=nova-2" in url
@@ -210,7 +210,7 @@ def test_get_complete_url_with_detect_language():
         api_key=None,
         model="nova-2",
         optional_params={"detect_language": True},
-        litellm_params={},
+        embrouter_params={},
     )
     expected_url = (
         "https://api.deepgram.com/v1/listen?model=nova-2&detect_language=true"
@@ -230,7 +230,7 @@ def test_get_complete_url_with_detect_language_and_other_params():
             "punctuate": True,
             "diarize": False,
         },
-        litellm_params={},
+        embrouter_params={},
     )
     # URL should contain all parameters
     assert "model=nova-2" in url

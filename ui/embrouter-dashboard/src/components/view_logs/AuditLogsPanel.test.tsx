@@ -73,7 +73,7 @@ const SELECT_FILTERS: {
   value: string;
 }[] = [
   { label: "Action", comboboxIndex: 0, option: "Created", paramKey: "action", value: "created" },
-  { label: "Table", comboboxIndex: 1, option: "Teams", paramKey: "table_name", value: "LiteLLM_TeamTable" },
+  { label: "Table", comboboxIndex: 1, option: "Teams", paramKey: "table_name", value: "EmbRouter_TeamTable" },
 ];
 
 describe("AuditLogsPanel", () => {

@@ -9,16 +9,16 @@ from typing import TYPE_CHECKING, Any, Final
 
 import httpx
 
-import litellm
-from litellm import token_counter
-from litellm._logging import verbose_logger, verbose_router_logger
-from litellm.caching.caching import DualCache
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.core_helpers import _get_parent_otel_span_from_kwargs
-from litellm.router_utils.batch_utils import is_batch_retrieve_call_type
-from litellm.types.router import RouterErrors
-from litellm.types.utils import LiteLLMPydanticObjectBase, StandardLoggingPayload
-from litellm.utils import get_utc_datetime, print_verbose
+import embrouter
+from embrouter import token_counter
+from embrouter._logging import verbose_logger, verbose_router_logger
+from embrouter.caching.caching import DualCache
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.embrouter_core_utils.core_helpers import _get_parent_otel_span_from_kwargs
+from embrouter.router_utils.batch_utils import is_batch_retrieve_call_type
+from embrouter.types.router import RouterErrors
+from embrouter.types.utils import EmbRouterPydanticObjectBase, StandardLoggingPayload
+from embrouter.utils import get_utc_datetime, print_verbose
 
 from .base_routing_strategy import BaseRoutingStrategy
 
@@ -30,7 +30,7 @@ else:
     Span = Any
 
 
-class RoutingArgs(LiteLLMPydanticObjectBase):
+class RoutingArgs(EmbRouterPydanticObjectBase):
     ttl: int = 1 * 60  # 1min (RPM/TPM expire key)
 
 
@@ -114,7 +114,7 @@ class LowestTPMLoggingHandler_v2(BaseRoutingStrategy, CustomLogger):
             dt: Final = get_utc_datetime()
             current_minute: Final = dt.strftime("%H-%M")
             model_id: Final = deployment.get("model_info", {}).get("id")
-            deployment_name: Final = deployment.get("litellm_params", {}).get("model")
+            deployment_name: Final = deployment.get("embrouter_params", {}).get("model")
             rpm_key: Final = f"{model_id}:{deployment_name}:rpm:{current_minute}"
 
             local_result: Final = self.router_cache.get_cache(key=rpm_key, local_only=True)  # check local result first
@@ -123,17 +123,17 @@ class LowestTPMLoggingHandler_v2(BaseRoutingStrategy, CustomLogger):
             if deployment_rpm is None:
                 deployment_rpm = deployment.get("rpm")
             if deployment_rpm is None:
-                deployment_rpm = deployment.get("litellm_params", {}).get("rpm")
+                deployment_rpm = deployment.get("embrouter_params", {}).get("rpm")
             if deployment_rpm is None:
                 deployment_rpm = deployment.get("model_info", {}).get("rpm")
             if deployment_rpm is None:
                 deployment_rpm = float("inf")
 
             if local_result is not None and local_result >= deployment_rpm:
-                raise litellm.RateLimitError(
+                raise embrouter.RateLimitError(
                     message=f"Deployment over defined rpm limit={deployment_rpm}. current usage={local_result}",
                     llm_provider="",
-                    model=deployment.get("litellm_params", {}).get("model"),
+                    model=deployment.get("embrouter_params", {}).get("model"),
                     response=httpx.Response(
                         status_code=429,
                         content="{} rpm limit={}. current usage={}. id={}, model_group={}. Get the model info by calling 'router.get_model_info(id)".format(
@@ -154,10 +154,10 @@ class LowestTPMLoggingHandler_v2(BaseRoutingStrategy, CustomLogger):
 
                 result: Final = self.router_cache.increment_cache(key=rpm_key, value=1, ttl=self.routing_args.ttl)
                 if result is not None and result > deployment_rpm:
-                    raise litellm.RateLimitError(
+                    raise embrouter.RateLimitError(
                         message=f"Deployment over defined rpm limit={deployment_rpm}. current usage={result}",
                         llm_provider="",
-                        model=deployment.get("litellm_params", {}).get("model"),
+                        model=deployment.get("embrouter_params", {}).get("model"),
                         response=httpx.Response(
                             status_code=429,
                             content=f"{RouterErrors.user_defined_ratelimit_error.value} rpm limit={deployment_rpm}. current usage={result}",
@@ -169,7 +169,7 @@ class LowestTPMLoggingHandler_v2(BaseRoutingStrategy, CustomLogger):
                     )
             return deployment
         except Exception as e:
-            if isinstance(e, litellm.RateLimitError):
+            if isinstance(e, embrouter.RateLimitError):
                 raise e
             return deployment  # don't fail calls if eg. redis fails to connect
 
@@ -192,7 +192,7 @@ class LowestTPMLoggingHandler_v2(BaseRoutingStrategy, CustomLogger):
             dt: Final = get_utc_datetime()
             current_minute: Final = dt.strftime("%H-%M")
             model_id: Final = deployment.get("model_info", {}).get("id")
-            deployment_name: Final = deployment.get("litellm_params", {}).get("model")
+            deployment_name: Final = deployment.get("embrouter_params", {}).get("model")
 
             rpm_key: Final = f"{model_id}:{deployment_name}:rpm:{current_minute}"
             local_result: Final = await self.router_cache.async_get_cache(
@@ -203,16 +203,16 @@ class LowestTPMLoggingHandler_v2(BaseRoutingStrategy, CustomLogger):
             if deployment_rpm is None:
                 deployment_rpm = deployment.get("rpm")
             if deployment_rpm is None:
-                deployment_rpm = deployment.get("litellm_params", {}).get("rpm")
+                deployment_rpm = deployment.get("embrouter_params", {}).get("rpm")
             if deployment_rpm is None:
                 deployment_rpm = deployment.get("model_info", {}).get("rpm")
             if deployment_rpm is None:
                 deployment_rpm = float("inf")
             if local_result is not None and local_result >= deployment_rpm:
-                raise litellm.RateLimitError(
+                raise embrouter.RateLimitError(
                     message=f"Deployment over defined rpm limit={deployment_rpm}. current usage={local_result}",
                     llm_provider="",
-                    model=deployment.get("litellm_params", {}).get("model"),
+                    model=deployment.get("embrouter_params", {}).get("model"),
                     response=httpx.Response(
                         status_code=429,
                         content=f"{RouterErrors.user_defined_ratelimit_error.value} rpm limit={deployment_rpm}. current usage={local_result}",
@@ -228,10 +228,10 @@ class LowestTPMLoggingHandler_v2(BaseRoutingStrategy, CustomLogger):
                 # if local result below limit, check redis ## prevent unnecessary redis checks
                 result = await self._increment_value_in_current_window(key=rpm_key, value=1, ttl=self.routing_args.ttl)
                 if result is not None and result > deployment_rpm:
-                    raise litellm.RateLimitError(
+                    raise embrouter.RateLimitError(
                         message=f"Deployment over defined rpm limit={deployment_rpm}. current usage={result}",
                         llm_provider="",
-                        model=deployment.get("litellm_params", {}).get("model"),
+                        model=deployment.get("embrouter_params", {}).get("model"),
                         response=httpx.Response(
                             status_code=429,
                             content=f"{RouterErrors.user_defined_ratelimit_error.value} rpm limit={deployment_rpm}. current usage={result}",
@@ -245,7 +245,7 @@ class LowestTPMLoggingHandler_v2(BaseRoutingStrategy, CustomLogger):
                     )
             return deployment
         except Exception as e:
-            if isinstance(e, litellm.RateLimitError):
+            if isinstance(e, embrouter.RateLimitError):
                 raise e
             return deployment  # don't fail calls if eg. redis fails to connect
 
@@ -260,7 +260,7 @@ class LowestTPMLoggingHandler_v2(BaseRoutingStrategy, CustomLogger):
             if standard_logging_object is None:
                 raise ValueError("standard_logging_object not passed in.")
             model_group: Final = standard_logging_object.get("model_group")
-            model: Final = standard_logging_object["hidden_params"].get("litellm_model_name")
+            model: Final = standard_logging_object["hidden_params"].get("embrouter_model_name")
             id = standard_logging_object.get("model_id")
             if model_group is None or id is None or model is None:
                 return
@@ -288,7 +288,7 @@ class LowestTPMLoggingHandler_v2(BaseRoutingStrategy, CustomLogger):
                 self.logged_success += 1
         except Exception as e:
             verbose_logger.exception(
-                "litellm.proxy.hooks.lowest_tpm_rpm_v2.py::log_success_event(): Exception occured - %s", e
+                "embrouter.proxy.hooks.lowest_tpm_rpm_v2.py::log_success_event(): Exception occured - %s", e
             )
 
     async def async_log_success_event(self, kwargs, response_obj, start_time, end_time):
@@ -302,7 +302,7 @@ class LowestTPMLoggingHandler_v2(BaseRoutingStrategy, CustomLogger):
             if standard_logging_object is None:
                 raise ValueError("standard_logging_object not passed in.")
             model_group: Final = standard_logging_object.get("model_group")
-            model: Final = standard_logging_object["hidden_params"]["litellm_model_name"]
+            model: Final = standard_logging_object["hidden_params"]["embrouter_model_name"]
             id = standard_logging_object.get("model_id")
             if model_group is None or id is None:
                 return
@@ -334,7 +334,7 @@ class LowestTPMLoggingHandler_v2(BaseRoutingStrategy, CustomLogger):
                 self.logged_success += 1
         except Exception as e:
             verbose_logger.exception(
-                "litellm.proxy.hooks.lowest_tpm_rpm_v2.py::async_log_success_event(): Exception occured - %s", e
+                "embrouter.proxy.hooks.lowest_tpm_rpm_v2.py::async_log_success_event(): Exception occured - %s", e
             )
 
     def _return_potential_deployments(
@@ -362,7 +362,7 @@ class LowestTPMLoggingHandler_v2(BaseRoutingStrategy, CustomLogger):
             if _deployment_tpm is None:
                 _deployment_tpm = _deployment.get("tpm")
             if _deployment_tpm is None:
-                _deployment_tpm = _deployment.get("litellm_params", {}).get("tpm")
+                _deployment_tpm = _deployment.get("embrouter_params", {}).get("tpm")
             if _deployment_tpm is None:
                 _deployment_tpm = _deployment.get("model_info", {}).get("tpm")
             if _deployment_tpm is None:
@@ -372,7 +372,7 @@ class LowestTPMLoggingHandler_v2(BaseRoutingStrategy, CustomLogger):
             if _deployment_rpm is None:
                 _deployment_rpm = _deployment.get("rpm")
             if _deployment_rpm is None:
-                _deployment_rpm = _deployment.get("litellm_params", {}).get("rpm")
+                _deployment_rpm = _deployment.get("embrouter_params", {}).get("rpm")
             if _deployment_rpm is None:
                 _deployment_rpm = _deployment.get("model_info", {}).get("rpm")
             if _deployment_rpm is None:
@@ -455,7 +455,7 @@ class LowestTPMLoggingHandler_v2(BaseRoutingStrategy, CustomLogger):
         """The `<id>:<model>:tpm:<HH-MM>` and `<id>:<model>:rpm:<HH-MM>` counter keys selection reads."""
         current_minute: Final = get_utc_datetime().strftime("%H-%M")
         prefixes: Final = tuple(
-            f"{m.get('model_info', {}).get('id')}:{m.get('litellm_params', {}).get('model')}"
+            f"{m.get('model_info', {}).get('id')}:{m.get('embrouter_params', {}).get('model')}"
             for m in healthy_deployments
             if isinstance(m, dict)
         )
@@ -528,7 +528,7 @@ class LowestTPMLoggingHandler_v2(BaseRoutingStrategy, CustomLogger):
                     if _deployment_tpm is None:
                         _deployment_tpm = _deployment.get("tpm", None)
                     if _deployment_tpm is None:
-                        _deployment_tpm = _deployment.get("litellm_params", {}).get("tpm", None)
+                        _deployment_tpm = _deployment.get("embrouter_params", {}).get("tpm", None)
                     if _deployment_tpm is None:
                         _deployment_tpm = _deployment.get("model_info", {}).get("tpm", None)
                     if _deployment_tpm is None:
@@ -542,7 +542,7 @@ class LowestTPMLoggingHandler_v2(BaseRoutingStrategy, CustomLogger):
                     if _deployment_rpm is None:
                         _deployment_rpm = _deployment.get("rpm", None)
                     if _deployment_rpm is None:
-                        _deployment_rpm = _deployment.get("litellm_params", {}).get("rpm", None)
+                        _deployment_rpm = _deployment.get("embrouter_params", {}).get("rpm", None)
                     if _deployment_rpm is None:
                         _deployment_rpm = _deployment.get("model_info", {}).get("rpm", None)
                     if _deployment_rpm is None:
@@ -557,7 +557,7 @@ class LowestTPMLoggingHandler_v2(BaseRoutingStrategy, CustomLogger):
                         "current_rpm": current_rpm,
                         "rpm_limit": _deployment_rpm,
                     }
-            raise litellm.RateLimitError(
+            raise embrouter.RateLimitError(
                 message=f"{RouterErrors.no_deployments_available.value}. Passed model={model_group}. Deployments={deployment_dict}",
                 llm_provider="",
                 model=model_group,
@@ -599,7 +599,7 @@ class LowestTPMLoggingHandler_v2(BaseRoutingStrategy, CustomLogger):
                 id = m.get("model_info", {}).get(
                     "id"
                 )  # a deployment should always have an 'id'. this is set in router.py
-                deployment_name = m.get("litellm_params", {}).get("model")
+                deployment_name = m.get("embrouter_params", {}).get("model")
                 tpm_key = f"{id}:{deployment_name}:tpm:{current_minute}"
                 rpm_key = f"{id}:{deployment_name}:rpm:{current_minute}"
 
@@ -638,7 +638,7 @@ class LowestTPMLoggingHandler_v2(BaseRoutingStrategy, CustomLogger):
                     if _deployment_tpm is None:
                         _deployment_tpm = _deployment.get("tpm", None)
                     if _deployment_tpm is None:
-                        _deployment_tpm = _deployment.get("litellm_params", {}).get("tpm", None)
+                        _deployment_tpm = _deployment.get("embrouter_params", {}).get("tpm", None)
                     if _deployment_tpm is None:
                         _deployment_tpm = _deployment.get("model_info", {}).get("tpm", None)
                     if _deployment_tpm is None:
@@ -652,7 +652,7 @@ class LowestTPMLoggingHandler_v2(BaseRoutingStrategy, CustomLogger):
                     if _deployment_rpm is None:
                         _deployment_rpm = _deployment.get("rpm", None)
                     if _deployment_rpm is None:
-                        _deployment_rpm = _deployment.get("litellm_params", {}).get("rpm", None)
+                        _deployment_rpm = _deployment.get("embrouter_params", {}).get("rpm", None)
                     if _deployment_rpm is None:
                         _deployment_rpm = _deployment.get("model_info", {}).get("rpm", None)
                     if _deployment_rpm is None:

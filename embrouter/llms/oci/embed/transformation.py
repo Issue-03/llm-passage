@@ -26,10 +26,10 @@ from typing import TYPE_CHECKING, Any, Final
 
 import httpx
 
-import litellm
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.base_llm.embedding.transformation import BaseEmbeddingConfig
-from litellm.llms.oci.common_utils import (
+import embrouter
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.base_llm.embedding.transformation import BaseEmbeddingConfig
+from embrouter.llms.oci.common_utils import (
     OCI_API_VERSION,
     OCIError,
     get_oci_base_url,
@@ -37,20 +37,20 @@ from litellm.llms.oci.common_utils import (
     sign_oci_request,
     validate_oci_environment,
 )
-from litellm.types.llms.oci import (
+from embrouter.types.llms.oci import (
     OCIEmbedRequest,
     OCIEmbedResponse,
     OCIServingMode,
 )
-from litellm.types.llms.openai import AllEmbeddingInputValues, AllMessageValues
-from litellm.types.utils import EmbeddingResponse, Usage
+from embrouter.types.llms.openai import AllEmbeddingInputValues, AllMessageValues
+from embrouter.types.utils import EmbeddingResponse, Usage
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 # OCI sends up to 96 texts per embedText request (Cohere limit).
 OCI_EMBED_BATCH_LIMIT: Final = 96
@@ -109,7 +109,7 @@ class OCIEmbedConfig(BaseEmbeddingConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
@@ -144,10 +144,10 @@ class OCIEmbedConfig(BaseEmbeddingConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
-        base: Final = get_oci_base_url(optional_params, api_base or litellm.api_base)
+        base: Final = get_oci_base_url(optional_params, api_base or embrouter.api_base)
         return f"{base}/{OCI_API_VERSION}/actions/embedText"
 
     def sign_request(
@@ -250,11 +250,11 @@ class OCIEmbedConfig(BaseEmbeddingConfig):
         model: str,
         raw_response: httpx.Response,
         model_response: EmbeddingResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_key: str | None,
         request_data: dict,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> EmbeddingResponse:
         if raw_response.status_code != 200:
             raise OCIError(

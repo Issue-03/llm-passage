@@ -8,7 +8,7 @@ class TestSAPTransformationIntegration:
 
     @pytest.fixture
     def mock_config(self):
-        from litellm.llms.sap.chat.transformation import GenAIHubOrchestrationConfig
+        from embrouter.llms.sap.chat.transformation import GenAIHubOrchestrationConfig
 
         config = GenAIHubOrchestrationConfig()
         config.token_creator = lambda: "Bearer TEST_TOKEN"
@@ -152,7 +152,7 @@ class TestSAPTransformationIntegration:
                 "response_format": {"type": "json_object"},
                 "deployment_url": "shouldn't be in results",
             },
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
         assert config == expected_dict
@@ -196,7 +196,7 @@ class TestSAPTransformationIntegration:
                 "response_format": expected_response_format,
                 "deployment_url": "shouldn't be in results",
             },
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
         assert (
@@ -239,7 +239,7 @@ class TestSAPTransformationIntegration:
                 "model_version": "latest",
                 "deployment_url": "shouldn't be in results",
             },
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -253,7 +253,7 @@ class TestSAPTransformationIntegration:
                 "deployment_url": "shouldn't be in results",
                 "placeholder_defaults": {"user_query": "default value"},
             },
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -271,7 +271,7 @@ class TestSAPTransformationIntegration:
                 "deployment_url": "shouldn't be in results",
                 "placeholder_values": placeholder_values,
             },
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -317,7 +317,7 @@ class TestSAPTransformationIntegration:
                 "grounding": grounding_config,
                 "placeholder_values": placeholder_values,
             },
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
         assert config["placeholder_values"] == placeholder_values
@@ -355,7 +355,7 @@ class TestSAPTransformationIntegration:
                         },
                     }
                 },
-                litellm_params={},
+                embrouter_params={},
                 headers={},
             )
 
@@ -413,7 +413,7 @@ class TestSAPTransformationIntegration:
                 "deployment_url": "shouldn't be in results",
                 "filtering": filtering_config_azure,
             },
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
         assert config["config"]["modules"]["filtering"] == filtering_config_azure
@@ -426,7 +426,7 @@ class TestSAPTransformationIntegration:
                 "deployment_url": "shouldn't be in results",
                 "filtering": filtering_config_llama,
             },
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
         assert config["config"]["modules"]["filtering"] == filtering_config_llama
@@ -438,7 +438,7 @@ class TestSAPTransformationIntegration:
                 model="gpt-4o",
                 messages=[{"role": "user", "content": "Hello"}],
                 optional_params={"filtering": {}},
-                litellm_params={},
+                embrouter_params={},
                 headers={},
             )
 
@@ -471,7 +471,7 @@ class TestSAPTransformationIntegration:
                 "deployment_url": "shouldn't be in results",
                 "masking": masking_config,
             },
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
         assert config["config"]["modules"]["masking"] == masking_config
@@ -505,7 +505,7 @@ class TestSAPTransformationIntegration:
                 model="gpt-4o",
                 messages=[{"role": "user", "content": "Hello"}],
                 optional_params={"masking": masking_config},
-                litellm_params={},
+                embrouter_params={},
                 headers={},
             )
 
@@ -529,7 +529,7 @@ class TestSAPTransformationIntegration:
                 model="gpt-4o",
                 messages=[{"role": "user", "content": "Hi"}],
                 optional_params={"masking": masking_config},
-                litellm_params={},
+                embrouter_params={},
                 headers={},
             )
         assert any(
@@ -557,7 +557,7 @@ class TestSAPTransformationIntegration:
                 "deployment_url": "shouldn't be in results",
                 "translation": translation_config,
             },
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
         assert config["config"]["modules"]["translation"] == translation_config
@@ -569,7 +569,7 @@ class TestSAPTransformationIntegration:
                 model="gpt-4o",
                 messages=[{"role": "user", "content": "Hello"}],
                 optional_params={"translation": {}},
-                litellm_params={},
+                embrouter_params={},
                 headers={},
             )
 
@@ -603,7 +603,7 @@ class TestSAPTransformationIntegration:
                         }
                     ],
                 },
-                litellm_params={},
+                embrouter_params={},
                 headers={},
             )
             assert "translation" not in config["config"]["modules"][0]

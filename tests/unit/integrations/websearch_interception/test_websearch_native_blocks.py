@@ -10,31 +10,31 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from litellm.exceptions import (
+from embrouter.exceptions import (
     APIConnectionError,
     AuthenticationError,
     BadRequestError,
     RateLimitError,
     Timeout,
 )
-from litellm.integrations.websearch_interception.handler import (
+from embrouter.integrations.websearch_interception.handler import (
     WEBSEARCH_EMIT_NATIVE_BLOCKS_KEY,
     WEBSEARCH_NATIVE_BLOCKS_METADATA_KEY,
     WebSearchInterceptionLogger,
 )
-from litellm.integrations.websearch_interception.tools import (
+from embrouter.integrations.websearch_interception.tools import (
     is_anthropic_native_web_search_tool,
     is_web_search_tool,
 )
-from litellm.integrations.websearch_interception.transformation import (
+from embrouter.integrations.websearch_interception.transformation import (
     WebSearchTransformation,
 )
-from litellm.llms.base_llm.search.transformation import SearchResponse, SearchResult
-from litellm.types.integrations.custom_logger import (
+from embrouter.llms.base_llm.search.transformation import SearchResponse, SearchResult
+from embrouter.types.integrations.custom_logger import (
     AgenticLoopPlan,
     AgenticLoopRequestPatch,
 )
-from litellm.types.integrations.websearch_interception import (
+from embrouter.types.integrations.websearch_interception import (
     SearchFailed,
     SearchSucceeded,
 )
@@ -44,7 +44,7 @@ def _make_search_response() -> SearchResponse:
     return SearchResponse(
         results=[
             SearchResult(
-                title="LiteLLM Docs",
+                title="EmbRouter Docs",
                 url="",
                 snippet="Unified interface for LLMs.",
                 date="2025-01-15",
@@ -60,7 +60,7 @@ def _make_search_response() -> SearchResponse:
 
 
 def _succeeded_outcome() -> SearchSucceeded:
-    return SearchSucceeded(text="Title: LiteLLM Docs\nURL:", response=_make_search_response())
+    return SearchSucceeded(text="Title: EmbRouter Docs\nURL:", response=_make_search_response())
 
 
 class TestIsAnthropicNativeWebSearchTool:
@@ -76,14 +76,14 @@ class TestIsAnthropicNativeWebSearchTool:
             {"type": "web_search_20260101", "name": "web_search"}
         )
 
-    def test_rejects_litellm_standard(self):
+    def test_rejects_embrouter_standard(self):
         assert not is_anthropic_native_web_search_tool(
-            {"name": "litellm_web_search", "input_schema": {}}
+            {"name": "embrouter_web_search", "input_schema": {}}
         )
 
     def test_rejects_openai_function_shape(self):
         assert not is_anthropic_native_web_search_tool(
-            {"type": "function", "function": {"name": "litellm_web_search"}}
+            {"type": "function", "function": {"name": "embrouter_web_search"}}
         )
 
     def test_rejects_claude_desktop_builtin(self):
@@ -146,7 +146,7 @@ class TestBuildWebSearchToolResultBlock:
         first = block["content"][0]
         assert first["type"] == "web_search_result"
         assert first["url"] == ""
-        assert first["title"] == "LiteLLM Docs"
+        assert first["title"] == "EmbRouter Docs"
         assert first["page_age"] == "2025-01-15"
         assert first["encrypted_content"] == ""
         assert first["snippet"] == "Unified interface for LLMs."
@@ -201,7 +201,7 @@ class TestPreRequestHookFlagsNativeTools:
             "tools": [
                 {"type": "web_search_20250305", "name": "web_search", "max_uses": 5}
             ],
-            "litellm_params": {"custom_llm_provider": "bedrock"},
+            "embrouter_params": {"custom_llm_provider": "bedrock"},
         }
         out = await logger.async_pre_request_hook(
             model="bedrock/claude", messages=[], kwargs=kwargs
@@ -210,11 +210,11 @@ class TestPreRequestHookFlagsNativeTools:
         assert out.get(WEBSEARCH_EMIT_NATIVE_BLOCKS_KEY) is True
 
     @pytest.mark.asyncio
-    async def test_litellm_standard_tool_does_not_set_flag(self):
+    async def test_embrouter_standard_tool_does_not_set_flag(self):
         logger = WebSearchInterceptionLogger(enabled_providers=["bedrock"])
         kwargs = {
-            "tools": [{"name": "litellm_web_search", "input_schema": {}}],
-            "litellm_params": {"custom_llm_provider": "bedrock"},
+            "tools": [{"name": "embrouter_web_search", "input_schema": {}}],
+            "embrouter_params": {"custom_llm_provider": "bedrock"},
         }
         out = await logger.async_pre_request_hook(
             model="bedrock/claude", messages=[], kwargs=kwargs
@@ -233,8 +233,8 @@ class TestBuildPlanAttachesBlocks:
             {
                 "id": "toolu_one",
                 "type": "tool_use",
-                "name": "litellm_web_search",
-                "input": {"query": "what is litellm"},
+                "name": "embrouter_web_search",
+                "input": {"query": "what is embrouter"},
             }
         ]
         patch_obj = AgenticLoopRequestPatch(
@@ -266,7 +266,7 @@ class TestBuildPlanAttachesBlocks:
             "web_search_tool_result",
         ]
         assert blocks[0]["id"].startswith("srvtoolu_")
-        assert blocks[0]["input"] == {"query": "what is litellm"}
+        assert blocks[0]["input"] == {"query": "what is embrouter"}
         assert blocks[1]["tool_use_id"] == blocks[0]["id"]
         assert blocks[1]["content"][0]["url"] == ""
 
@@ -277,8 +277,8 @@ class TestBuildPlanAttachesBlocks:
             {
                 "id": "toolu_one",
                 "type": "tool_use",
-                "name": "litellm_web_search",
-                "input": {"query": "what is litellm"},
+                "name": "embrouter_web_search",
+                "input": {"query": "what is embrouter"},
             }
         ]
         patch_obj = AgenticLoopRequestPatch(
@@ -345,8 +345,8 @@ class TestFailedSearchOutcome:
     async def test_all_failed_iteration_terminates_when_native_blocks_are_emitted(self):
         logger = WebSearchInterceptionLogger(enabled_providers=["bedrock"])
         tool_calls = [
-            {"id": "toolu_one", "type": "tool_use", "name": "litellm_web_search", "input": {"query": "q1"}},
-            {"id": "toolu_two", "type": "tool_use", "name": "litellm_web_search", "input": {"query": "q2"}},
+            {"id": "toolu_one", "type": "tool_use", "name": "embrouter_web_search", "input": {"query": "q1"}},
+            {"id": "toolu_two", "type": "tool_use", "name": "embrouter_web_search", "input": {"query": "q2"}},
         ]
 
         with patch.object(
@@ -385,7 +385,7 @@ class TestFailedSearchOutcome:
     async def test_all_failed_iteration_keeps_the_follow_up_without_native_blocks(self):
         logger = WebSearchInterceptionLogger(enabled_providers=["bedrock"])
         tool_calls = [
-            {"id": "toolu_one", "type": "tool_use", "name": "litellm_web_search", "input": {"query": "q1"}},
+            {"id": "toolu_one", "type": "tool_use", "name": "embrouter_web_search", "input": {"query": "q1"}},
         ]
 
         with patch.object(
@@ -409,14 +409,14 @@ class TestFailedSearchOutcome:
         assert plan.terminate is False
         assert plan.request_patch is not None
         tool_results = plan.request_patch.messages[-1]["content"]
-        assert "Search failed: litellm.AuthenticationError: 401 Unauthorized" in tool_results[0]["content"]
+        assert "Search failed: embrouter.AuthenticationError: 401 Unauthorized" in tool_results[0]["content"]
 
     @pytest.mark.asyncio
     async def test_mixed_iteration_keeps_the_follow_up_and_pairs_each_block(self):
         logger = WebSearchInterceptionLogger(enabled_providers=["bedrock"])
         tool_calls = [
-            {"id": "toolu_one", "type": "tool_use", "name": "litellm_web_search", "input": {"query": "fails"}},
-            {"id": "toolu_two", "type": "tool_use", "name": "litellm_web_search", "input": {"query": "works"}},
+            {"id": "toolu_one", "type": "tool_use", "name": "embrouter_web_search", "input": {"query": "fails"}},
+            {"id": "toolu_two", "type": "tool_use", "name": "embrouter_web_search", "input": {"query": "works"}},
         ]
 
         async def search(query, kwargs=None, rich=None):
@@ -559,7 +559,7 @@ class TestShortCircuitEmitsNativeBlocks:
         assert tool_result["content"][0]["url"] == ""
 
     @pytest.mark.asyncio
-    async def test_litellm_standard_tool_short_circuit_stays_text_only(self):
+    async def test_embrouter_standard_tool_short_circuit_stays_text_only(self):
         """Non-native tool → existing text-only short-circuit, no regression."""
         logger = WebSearchInterceptionLogger(enabled_providers=["github_copilot"])
 
@@ -573,7 +573,7 @@ class TestShortCircuitEmitsNativeBlocks:
                 messages=[{"role": "user", "content": "search query"}],
                 tools=[
                     {
-                        "name": "litellm_web_search",
+                        "name": "embrouter_web_search",
                         "input_schema": {
                             "type": "object",
                             "properties": {"query": {"type": "string"}},
@@ -614,7 +614,7 @@ class TestShortCircuitEmitsNativeBlocks:
         assert tool_result["tool_use_id"] == result["content"][0]["id"]
         assert tool_result["content"] == {"type": "web_search_tool_result_error", "error_code": "too_many_requests"}
         text_block = result["content"][2]
-        assert text_block["text"] == "Search failed: litellm.RateLimitError: slow down"
+        assert text_block["text"] == "Search failed: embrouter.RateLimitError: slow down"
 
 
 class TestLegacyPathMatchesNewPath:
@@ -627,7 +627,7 @@ class TestLegacyPathMatchesNewPath:
             {
                 "id": "toolu_legacy",
                 "type": "tool_use",
-                "name": "litellm_web_search",
+                "name": "embrouter_web_search",
                 "input": {"query": "q"},
             }
         ]
@@ -649,7 +649,7 @@ class TestLegacyPathMatchesNewPath:
                 new=AsyncMock(return_value=(patch_obj, (_succeeded_outcome(),))),
             ),
             patch(
-                "litellm.integrations.websearch_interception.handler.anthropic_messages.acreate",
+                "embrouter.integrations.websearch_interception.handler.anthropic_messages.acreate",
                 new=AsyncMock(return_value=followup_response),
             ),
         ):

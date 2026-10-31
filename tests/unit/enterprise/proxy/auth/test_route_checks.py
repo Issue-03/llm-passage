@@ -6,14 +6,14 @@ import pytest
 from fastapi import HTTPException
 
 # Import the enterprise route checks
-from litellm_enterprise.proxy.auth.route_checks import EnterpriseRouteChecks
+from embrouter_enterprise.proxy.auth.route_checks import EnterpriseRouteChecks
 
 
-@patch("litellm.proxy.proxy_server.premium_user", True)
+@patch("embrouter.proxy.proxy_server.premium_user", True)
 class TestEnterpriseRouteChecks:
 
     @patch.object(EnterpriseRouteChecks, "is_management_routes_disabled")
-    @patch("litellm.proxy.auth.route_checks.RouteChecks.is_management_route")
+    @patch("embrouter.proxy.auth.route_checks.RouteChecks.is_management_route")
     def test_should_call_route_management_disabled(
         self, mock_is_management_route, mock_is_management_disabled
     ):
@@ -35,8 +35,8 @@ class TestEnterpriseRouteChecks:
 
     @patch.object(EnterpriseRouteChecks, "is_llm_api_route_disabled")
     @patch.object(EnterpriseRouteChecks, "is_management_routes_disabled")
-    @patch("litellm.proxy.auth.route_checks.RouteChecks.is_llm_api_route")
-    @patch("litellm.proxy.auth.route_checks.RouteChecks.is_management_route")
+    @patch("embrouter.proxy.auth.route_checks.RouteChecks.is_llm_api_route")
+    @patch("embrouter.proxy.auth.route_checks.RouteChecks.is_management_route")
     def test_should_call_route_llm_api_disabled(
         self,
         mock_is_management_route,
@@ -64,8 +64,8 @@ class TestEnterpriseRouteChecks:
 
     @patch.object(EnterpriseRouteChecks, "is_llm_api_route_disabled")
     @patch.object(EnterpriseRouteChecks, "is_management_routes_disabled")
-    @patch("litellm.proxy.auth.route_checks.RouteChecks.is_llm_api_route")
-    @patch("litellm.proxy.auth.route_checks.RouteChecks.is_management_route")
+    @patch("embrouter.proxy.auth.route_checks.RouteChecks.is_llm_api_route")
+    @patch("embrouter.proxy.auth.route_checks.RouteChecks.is_management_route")
     def test_should_call_route_both_disabled_management_takes_priority(
         self,
         mock_is_management_route,
@@ -93,8 +93,8 @@ class TestEnterpriseRouteChecks:
 
     @patch.object(EnterpriseRouteChecks, "is_llm_api_route_disabled")
     @patch.object(EnterpriseRouteChecks, "is_management_routes_disabled")
-    @patch("litellm.proxy.auth.route_checks.RouteChecks.is_llm_api_route")
-    @patch("litellm.proxy.auth.route_checks.RouteChecks.is_management_route")
+    @patch("embrouter.proxy.auth.route_checks.RouteChecks.is_llm_api_route")
+    @patch("embrouter.proxy.auth.route_checks.RouteChecks.is_management_route")
     def test_should_call_route_enabled(
         self,
         mock_is_management_route,
@@ -135,8 +135,8 @@ class TestEnterpriseRouteChecks:
 
     @patch.object(EnterpriseRouteChecks, "is_llm_api_route_disabled")
     @patch.object(EnterpriseRouteChecks, "is_management_routes_disabled")
-    @patch("litellm.proxy.auth.route_checks.RouteChecks.is_llm_api_route")
-    @patch("litellm.proxy.auth.route_checks.RouteChecks.is_management_route")
+    @patch("embrouter.proxy.auth.route_checks.RouteChecks.is_llm_api_route")
+    @patch("embrouter.proxy.auth.route_checks.RouteChecks.is_management_route")
     def test_should_call_route_management_disabled_llm_enabled(
         self,
         mock_is_management_route,
@@ -157,8 +157,8 @@ class TestEnterpriseRouteChecks:
 
     @patch.object(EnterpriseRouteChecks, "is_llm_api_route_disabled")
     @patch.object(EnterpriseRouteChecks, "is_management_routes_disabled")
-    @patch("litellm.proxy.auth.route_checks.RouteChecks.is_llm_api_route")
-    @patch("litellm.proxy.auth.route_checks.RouteChecks.is_management_route")
+    @patch("embrouter.proxy.auth.route_checks.RouteChecks.is_llm_api_route")
+    @patch("embrouter.proxy.auth.route_checks.RouteChecks.is_management_route")
     def test_should_call_route_llm_disabled_management_enabled(
         self,
         mock_is_management_route,
@@ -178,14 +178,14 @@ class TestEnterpriseRouteChecks:
         EnterpriseRouteChecks.should_call_route("/config/update")
 
 
-@patch("litellm.proxy.proxy_server.premium_user", True)
+@patch("embrouter.proxy.proxy_server.premium_user", True)
 class TestEnterpriseRouteChecksModelListExemption:
     """Test that /models and /v1/models are exempt from DISABLE_LLM_API_ENDPOINTS"""
 
     @patch.object(EnterpriseRouteChecks, "is_llm_api_route_disabled")
     @patch.object(EnterpriseRouteChecks, "is_management_routes_disabled")
-    @patch("litellm.proxy.auth.route_checks.RouteChecks.is_llm_api_route")
-    @patch("litellm.proxy.auth.route_checks.RouteChecks.is_management_route")
+    @patch("embrouter.proxy.auth.route_checks.RouteChecks.is_llm_api_route")
+    @patch("embrouter.proxy.auth.route_checks.RouteChecks.is_management_route")
     def test_models_route_allowed_when_llm_api_disabled(
         self,
         mock_is_management_route,
@@ -204,8 +204,8 @@ class TestEnterpriseRouteChecksModelListExemption:
 
     @patch.object(EnterpriseRouteChecks, "is_llm_api_route_disabled")
     @patch.object(EnterpriseRouteChecks, "is_management_routes_disabled")
-    @patch("litellm.proxy.auth.route_checks.RouteChecks.is_llm_api_route")
-    @patch("litellm.proxy.auth.route_checks.RouteChecks.is_management_route")
+    @patch("embrouter.proxy.auth.route_checks.RouteChecks.is_llm_api_route")
+    @patch("embrouter.proxy.auth.route_checks.RouteChecks.is_management_route")
     def test_v1_models_route_allowed_when_llm_api_disabled(
         self,
         mock_is_management_route,
@@ -224,8 +224,8 @@ class TestEnterpriseRouteChecksModelListExemption:
 
     @patch.object(EnterpriseRouteChecks, "is_llm_api_route_disabled")
     @patch.object(EnterpriseRouteChecks, "is_management_routes_disabled")
-    @patch("litellm.proxy.auth.route_checks.RouteChecks.is_llm_api_route")
-    @patch("litellm.proxy.auth.route_checks.RouteChecks.is_management_route")
+    @patch("embrouter.proxy.auth.route_checks.RouteChecks.is_llm_api_route")
+    @patch("embrouter.proxy.auth.route_checks.RouteChecks.is_management_route")
     def test_chat_completions_still_blocked_when_llm_api_disabled(
         self,
         mock_is_management_route,
@@ -248,7 +248,7 @@ class TestEnterpriseRouteChecksModelListExemption:
         )
 
 
-@patch("litellm.proxy.proxy_server.premium_user", True)
+@patch("embrouter.proxy.proxy_server.premium_user", True)
 class TestEnterpriseRouteChecksMcpManagement:
     """Regression tests: MCP management routes (/v1/mcp/server*) must remain
     reachable when DISABLE_LLM_API_ENDPOINTS is set on admin nodes, but must be
@@ -309,8 +309,8 @@ class TestEnterpriseRouteChecksMcpManagement:
 class TestEnterpriseRouteChecksErrorMessages:
     """Test that error messages correctly identify which feature requires Enterprise license"""
 
-    @patch("litellm.secret_managers.main.get_secret_bool")
-    @patch("litellm.proxy.proxy_server.premium_user", False)
+    @patch("embrouter.secret_managers.main.get_secret_bool")
+    @patch("embrouter.proxy.proxy_server.premium_user", False)
     def test_disable_llm_api_endpoints_error_message(self, mock_get_secret_bool):
         """
         Test that when DISABLE_LLM_API_ENDPOINTS is set without Enterprise license,
@@ -325,8 +325,8 @@ class TestEnterpriseRouteChecksErrorMessages:
                 exc_info.value.detail
             )
 
-    @patch("litellm.secret_managers.main.get_secret_bool")
-    @patch("litellm.proxy.proxy_server.premium_user", False)
+    @patch("embrouter.secret_managers.main.get_secret_bool")
+    @patch("embrouter.proxy.proxy_server.premium_user", False)
     def test_disable_admin_endpoints_error_message(self, mock_get_secret_bool):
         """
         Test that when DISABLE_ADMIN_ENDPOINTS is set without Enterprise license,
@@ -346,8 +346,8 @@ class TestEnterpriseRouteChecksErrorMessages:
             # Ensure it does NOT mention LLM API ENDPOINTS (the old buggy message)
             assert "LLM API ENDPOINTS" not in str(exc_info.value.detail)
 
-    @patch("litellm.secret_managers.main.get_secret_bool")
-    @patch("litellm.proxy.proxy_server.premium_user", True)
+    @patch("embrouter.secret_managers.main.get_secret_bool")
+    @patch("embrouter.proxy.proxy_server.premium_user", True)
     def test_disable_llm_api_endpoints_with_premium_user(self, mock_get_secret_bool):
         """
         Test that premium users can use DISABLE_LLM_API_ENDPOINTS without error
@@ -358,8 +358,8 @@ class TestEnterpriseRouteChecksErrorMessages:
             result = EnterpriseRouteChecks.is_llm_api_route_disabled()
             assert result is True
 
-    @patch("litellm.secret_managers.main.get_secret_bool")
-    @patch("litellm.proxy.proxy_server.premium_user", True)
+    @patch("embrouter.secret_managers.main.get_secret_bool")
+    @patch("embrouter.proxy.proxy_server.premium_user", True)
     def test_disable_admin_endpoints_with_premium_user(self, mock_get_secret_bool):
         """
         Test that premium users can use DISABLE_ADMIN_ENDPOINTS without error
@@ -371,7 +371,7 @@ class TestEnterpriseRouteChecksErrorMessages:
             assert result is True
 
 
-@patch("litellm.proxy.proxy_server.premium_user", True)
+@patch("embrouter.proxy.proxy_server.premium_user", True)
 class TestEnterpriseRouteChecksAgentManagement:
     """Regression tests for LIT-2069: the Admin UI Agents tab could not create an
     external agent on nodes with DISABLE_LLM_API_ENDPOINTS set, because agent

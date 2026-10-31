@@ -2,7 +2,7 @@
 Custom code for a response guardrail that blocks when the model response
 indicates it is rejecting the user request (e.g. "That's not something I can help with").
 
-Use this with the Custom Code Guardrail (custom_code) by setting litellm_params.custom_code
+Use this with the Custom Code Guardrail (custom_code) by setting embrouter_params.custom_code
 to RESPONSE_REJECTION_GUARDRAIL_CODE. The guardrail runs only on input_type "response"
 and raises a block error if any response text matches known rejection phrases.
 """

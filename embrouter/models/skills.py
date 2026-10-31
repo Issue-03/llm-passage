@@ -1,18 +1,18 @@
 """
 Skills table model.
 
-Canonical definition for ``litellm_skillstable``. Re-exported from
-``litellm.proxy._types`` for backwards compatibility.
+Canonical definition for ``embrouter_skillstable``. Re-exported from
+``embrouter.proxy._types`` for backwards compatibility.
 """
 
 from datetime import datetime
 from typing import Any
 
-from litellm.types.llms.base import LiteLLMPydanticObjectBase
+from embrouter.types.llms.base import EmbRouterPydanticObjectBase
 
 
-class LiteLLM_SkillsTable(LiteLLMPydanticObjectBase):
-    """Represents a LiteLLM_SkillsTable record"""
+class EmbRouter_SkillsTable(EmbRouterPydanticObjectBase):
+    """Represents a EmbRouter_SkillsTable record"""
 
     skill_id: str
     display_title: str | None = None

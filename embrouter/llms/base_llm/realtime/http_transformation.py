@@ -33,7 +33,7 @@ class BaseRealtimeHTTPConfig(ABC):
         Resolve the provider API base URL.
 
         Resolution order (provider-specific):
-          explicit api_base → litellm.api_base → env var → hard-coded default
+          explicit api_base → embrouter.api_base → env var → hard-coded default
         """
 
     @abstractmethod
@@ -46,7 +46,7 @@ class BaseRealtimeHTTPConfig(ABC):
         Resolve the provider API key.
 
         Resolution order (provider-specific):
-          explicit api_key → litellm.api_key → env var → ""
+          explicit api_key → embrouter.api_key → env var → ""
         """
 
     # ------------------------------------------------------------------ #
@@ -103,12 +103,12 @@ class BaseRealtimeHTTPConfig(ABC):
 
     def get_error_class(self, error_message: str, status_code: int, headers: dict | httpx.Headers):
         """
-        Map HTTP errors to LiteLLM exception types.
+        Map HTTP errors to EmbRouter exception types.
 
         Default: generic exception. Override in subclasses for provider-specific
         error mapping (e.g., Azure uses different error codes).
         """
-        from litellm.llms.base_llm.chat.transformation import BaseLLMException
+        from embrouter.llms.base_llm.chat.transformation import BaseLLMException
 
         return BaseLLMException(
             status_code=status_code,

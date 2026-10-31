@@ -3,8 +3,8 @@ import importlib
 
 import pytest
 
-import litellm
-from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+import embrouter
+from embrouter.embrouter_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
 
 
 @pytest.fixture(scope="session")
@@ -20,9 +20,9 @@ def event_loop():
 @pytest.fixture(scope="function", autouse=True)
 def setup_and_teardown():
     """
-    This fixture reloads litellm before every function. To speed up testing by removing callbacks being chained.
+    This fixture reloads embrouter before every function. To speed up testing by removing callbacks being chained.
     """
-    importlib.reload(litellm)
+    importlib.reload(embrouter)
     import asyncio
 
     loop = asyncio.get_event_loop_policy().new_event_loop()
@@ -42,7 +42,7 @@ async def drain_logging_worker():
     The logging queue is bound to the running loop, so anything left queued when a test's loop
     goes away is carried onto the next test's loop and fires against its callbacks.
     """
-    from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+    from embrouter.embrouter_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
 
     yield
 
@@ -69,7 +69,7 @@ def pytest_collection_modifyitems(config, items):
 
 @pytest.fixture
 def config_only_mcp_manager_factory():
-    from litellm.proxy._experimental.mcp_server.mcp_server_manager import MCPServerManager
+    from embrouter.proxy._experimental.mcp_server.mcp_server_manager import MCPServerManager
 
     class ConfigOnlyManager(MCPServerManager):
         def initialize_tool_name_to_mcp_server_name_mapping(self):

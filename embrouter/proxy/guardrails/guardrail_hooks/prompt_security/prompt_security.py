@@ -9,24 +9,24 @@ import httpx
 from fastapi import HTTPException
 from typing_extensions import ReadOnly, TypedDict
 
-from litellm._logging import verbose_proxy_logger
-from litellm.exceptions import Timeout as LiteLLMTimeout
-from litellm.integrations.custom_guardrail import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.exceptions import Timeout as EmbRouterTimeout
+from embrouter.integrations.custom_guardrail import (
     CustomGuardrail,
     log_guardrail_information,
 )
-from litellm.llms.base_llm.guardrail_translation.utils import message_slot_texts, message_with_slot_texts
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.llms.base_llm.guardrail_translation.utils import message_slot_texts, message_with_slot_texts
+from embrouter.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.utils import GenericGuardrailAPIInputs
+from embrouter.types.guardrails import GuardrailEventHooks
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.utils import GenericGuardrailAPIInputs
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
 
 
 _SANITIZE_FILE_FAIL_OPEN_TIMEOUT_SECONDS: Final = 30.0
@@ -176,12 +176,12 @@ class PromptSecurityGuardrail(CustomGuardrail):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict,
         input_type: Literal["request", "response"],
-        logging_obj: Optional["LiteLLMLoggingObj"] = None,
+        logging_obj: Optional["EmbRouterLoggingObj"] = None,
     ) -> GenericGuardrailAPIInputs:
         """
         Apply Prompt Security guardrail to the given inputs.
 
-        This method is called by LiteLLM's guardrail framework for ALL endpoints:
+        This method is called by EmbRouter's guardrail framework for ALL endpoints:
         - /chat/completions
         - /responses
         - /messages (Anthropic)
@@ -446,10 +446,10 @@ class PromptSecurityGuardrail(CustomGuardrail):
     @staticmethod
     def _resolve_key_alias_from_request_data(request_data: dict) -> str | None:
         """Resolve user API key alias from request_data metadata."""
-        # Check litellm_metadata first (set by guardrail framework)
-        litellm_metadata: Final = request_data.get("litellm_metadata", {})
-        if litellm_metadata:
-            alias = litellm_metadata.get("user_api_key_alias")
+        # Check embrouter_metadata first (set by guardrail framework)
+        embrouter_metadata: Final = request_data.get("embrouter_metadata", {})
+        if embrouter_metadata:
+            alias = embrouter_metadata.get("user_api_key_alias")
             if alias:
                 return alias
 
@@ -477,7 +477,7 @@ class PromptSecurityGuardrail(CustomGuardrail):
                 self._sanitize_file_content(file_data, filename, user_api_key_alias),
                 timeout=self.file_sanitization_timeout,
             )
-        except (asyncio.TimeoutError, httpx.TimeoutException, LiteLLMTimeout) as exc:
+        except (asyncio.TimeoutError, httpx.TimeoutException, EmbRouterTimeout) as exc:
             if not self.file_sanitization_fail_open:
                 verbose_proxy_logger.error(
                     "Prompt Security Guardrail: file sanitization for %s timed out with %s; failing closed",
@@ -507,7 +507,7 @@ class PromptSecurityGuardrail(CustomGuardrail):
     ) -> _SanitizeResult:
         headers: Final = {"APP-ID": self.api_key}
         if user_api_key_alias:
-            headers["X-LiteLLM-Key-Alias"] = user_api_key_alias
+            headers["X-EmbRouter-Key-Alias"] = user_api_key_alias
 
         self._log_api_request(
             method="POST",
@@ -789,7 +789,7 @@ class PromptSecurityGuardrail(CustomGuardrail):
     def _build_headers(self, user_api_key_alias: str | None = None) -> dict:
         headers: Final = {"APP-ID": self.api_key, "Content-Type": "application/json"}
         if user_api_key_alias:
-            headers["X-LiteLLM-Key-Alias"] = user_api_key_alias
+            headers["X-EmbRouter-Key-Alias"] = user_api_key_alias
         return headers
 
     @staticmethod
@@ -826,7 +826,7 @@ class PromptSecurityGuardrail(CustomGuardrail):
 
     @staticmethod
     def get_config_model() -> type["GuardrailConfigModel"] | None:
-        from litellm.types.proxy.guardrails.guardrail_hooks.prompt_security import (
+        from embrouter.types.proxy.guardrails.guardrail_hooks.prompt_security import (
             PromptSecurityGuardrailConfigModel,
         )
 

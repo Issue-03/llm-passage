@@ -3,7 +3,7 @@
 import os
 from typing import Final
 
-from litellm._logging import verbose_proxy_logger
+from embrouter._logging import verbose_proxy_logger
 
 LOCAL_IMAGE_HEADER_BYTES: Final = 512
 

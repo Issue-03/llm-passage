@@ -13,17 +13,17 @@ from typing import TYPE_CHECKING, Final
 
 import httpx
 
-from litellm.litellm_core_utils.core_helpers import set_response_cost_in_hidden_params
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
-from litellm.types.llms.openai import ResponsesAPIResponse
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import LlmProviders
+from embrouter.embrouter_core_utils.core_helpers import set_response_cost_in_hidden_params
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
+from embrouter.types.llms.openai import ResponsesAPIResponse
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import LlmProviders
 
 from ..common_utils import EdenAIException, authorized_headers, resolve_api_base
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
 
 
 class EdenAIResponsesAPIConfig(OpenAIResponsesAPIConfig):
@@ -35,22 +35,22 @@ class EdenAIResponsesAPIConfig(OpenAIResponsesAPIConfig):
         self,
         headers: dict[str, object],  # mutable-ok: inherited contract
         model: str,
-        litellm_params: GenericLiteLLMParams | None,
+        embrouter_params: GenericEmbRouterParams | None,
     ) -> dict[str, object]:  # mutable-ok: inherited contract
-        return authorized_headers(headers, litellm_params.api_key if litellm_params else None, model)
+        return authorized_headers(headers, embrouter_params.api_key if embrouter_params else None, model)
 
     def get_complete_url(
         self,
         api_base: str | None,
-        litellm_params: dict[str, object],  # mutable-ok: inherited contract
+        embrouter_params: dict[str, object],  # mutable-ok: inherited contract
     ) -> str:
-        return super().get_complete_url(api_base=resolve_api_base(api_base), litellm_params=litellm_params)
+        return super().get_complete_url(api_base=resolve_api_base(api_base), embrouter_params=embrouter_params)
 
     def transform_response_api_response(
         self,
         model: str,
         raw_response: httpx.Response,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
     ) -> ResponsesAPIResponse:
         response: Final = super().transform_response_api_response(
             model=model, raw_response=raw_response, logging_obj=logging_obj

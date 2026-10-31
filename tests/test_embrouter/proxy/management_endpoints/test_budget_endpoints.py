@@ -8,9 +8,9 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock
 from fastapi.testclient import TestClient
 
-import litellm.proxy.proxy_server as ps
-from litellm.proxy.proxy_server import app
-from litellm.proxy._types import UserAPIKeyAuth, LitellmUserRoles, CommonProxyErrors
+import embrouter.proxy.proxy_server as ps
+from embrouter.proxy.proxy_server import app
+from embrouter.proxy._types import UserAPIKeyAuth, EmbrouterUserRoles, CommonProxyErrors
 
 
 
@@ -23,8 +23,8 @@ def client_and_mocks(monkeypatch):
     mock_table.update = AsyncMock(side_effect=lambda *, where, data: {**where, **data})
 
     mock_prisma.db = types.SimpleNamespace(
-        litellm_budgettable=mock_table,
-        litellm_dailyspend=mock_table,
+        embrouter_budgettable=mock_table,
+        embrouter_dailyspend=mock_table,
     )
 
     # Monkeypatch Mocked Prisma client into the server module
@@ -33,7 +33,7 @@ def client_and_mocks(monkeypatch):
     # override returned auth user
     fake_user = UserAPIKeyAuth(
         user_id="test_user",
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=EmbrouterUserRoles.INTERNAL_USER,
     )
     app.dependency_overrides[ps.user_api_key_auth] = lambda: fake_user
 
@@ -107,7 +107,7 @@ async def test_new_budget_db_not_connected(client_and_mocks, monkeypatch):
     client, mock_prisma, mock_table = client_and_mocks
 
     # override the prisma_client that the handler imports at runtime
-    import litellm.proxy.proxy_server as ps
+    import embrouter.proxy.proxy_server as ps
 
     monkeypatch.setattr(ps, "prisma_client", None)
 
@@ -167,7 +167,7 @@ async def test_update_budget_db_not_connected(client_and_mocks, monkeypatch):
     client, mock_prisma, mock_table = client_and_mocks
 
     # override the prisma_client that the handler imports at runtime
-    import litellm.proxy.proxy_server as ps
+    import embrouter.proxy.proxy_server as ps
 
     monkeypatch.setattr(ps, "prisma_client", None)
 
@@ -294,7 +294,7 @@ async def test_new_budget_invalid_model_max_budget(client_and_mocks, monkeypatch
     Test that /budget/new validates model_max_budget and returns 400 for invalid structure.
     Per-model budget implementation: validate_model_max_budget is called in new_budget.
     """
-    import litellm.proxy.proxy_server as ps
+    import embrouter.proxy.proxy_server as ps
 
     monkeypatch.setattr(ps, "premium_user", True)
 

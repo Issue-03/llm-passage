@@ -100,7 +100,7 @@ export default function ModelInfoView({
   const getProviderFromModel = (model: string) => {
     if (modelCostMapData !== null && modelCostMapData !== undefined) {
       if (typeof modelCostMapData == "object" && model in modelCostMapData) {
-        return modelCostMapData[model]["litellm_provider"];
+        return modelCostMapData[model]["embrouter_provider"];
       }
     }
     return "openai";
@@ -131,33 +131,33 @@ export default function ModelInfoView({
     teamId: modelData?.model_info?.team_id,
     isDbModel: modelData?.model_info?.db_model === true,
     createdBy: modelData?.model_info?.created_by,
-    model: modelData?.litellm_params?.model,
+    model: modelData?.embrouter_params?.model,
   };
   const canEditModel = canModifyModel(actor, teams ?? null, origin);
   const canEditRouter = canEditAutoRouter(actor, teams ?? null, origin);
   const assignableTeams = useMemo(() => teamsUserCanAssign(teams ?? null, userRole, userID), [teams, userRole, userID]);
   // Editor-aware on purpose: an adaptive or quality router must not offer Edit Auto Router.
-  const isAutoRouterModel = hasAutoRouterEditor(modelData?.litellm_params);
+  const isAutoRouterModel = hasAutoRouterEditor(modelData?.embrouter_params);
   // Broader than the editor check: adaptive and quality routers equally have no upstream
   // credential, so the credential actions are meaningless for every auto-router strategy.
-  const isAnyAutoRouter = isAutoRouterDeployment(modelData?.litellm_params);
+  const isAnyAutoRouter = isAutoRouterDeployment(modelData?.embrouter_params);
   const deleteLabel = isAnyAutoRouter ? "Delete Auto-Router" : "Delete Model";
-  const isComplexityRouterModel = isComplexityRouterParams(modelData?.litellm_params);
+  const isComplexityRouterModel = isComplexityRouterParams(modelData?.embrouter_params);
 
   const usingExistingCredential =
-    modelData?.litellm_params?.litellm_credential_name != null &&
-    modelData?.litellm_params?.litellm_credential_name != undefined;
+    modelData?.embrouter_params?.embrouter_credential_name != null &&
+    modelData?.embrouter_params?.embrouter_credential_name != undefined;
 
   // Initialize localModelData from modelData when available
   useEffect(() => {
     if (modelData && !localModelData) {
       let processedModelData = modelData;
-      if (!processedModelData.litellm_model_name) {
+      if (!processedModelData.embrouter_model_name) {
         processedModelData = {
           ...processedModelData,
-          litellm_model_name:
-            processedModelData?.litellm_params?.litellm_model_name ??
-            processedModelData?.litellm_params?.model ??
+          embrouter_model_name:
+            processedModelData?.embrouter_params?.embrouter_model_name ??
+            processedModelData?.embrouter_params?.model ??
             processedModelData?.model_info?.key ??
             null,
         };
@@ -165,7 +165,7 @@ export default function ModelInfoView({
       setLocalModelData(processedModelData);
 
       // Check if cache control is enabled
-      if (processedModelData?.litellm_params?.cache_control_injection_points) {
+      if (processedModelData?.embrouter_params?.cache_control_injection_points) {
         setShowCacheControl(true);
       }
     }
@@ -189,12 +189,12 @@ export default function ModelInfoView({
       if (modelData) return;
       let modelInfoResponse = await modelInfoV1Call(accessToken, modelId);
       let specificModelData = modelInfoResponse.data[0];
-      if (specificModelData && !specificModelData.litellm_model_name) {
+      if (specificModelData && !specificModelData.embrouter_model_name) {
         specificModelData = {
           ...specificModelData,
-          litellm_model_name:
-            specificModelData?.litellm_params?.litellm_model_name ??
-            specificModelData?.litellm_params?.model ??
+          embrouter_model_name:
+            specificModelData?.embrouter_params?.embrouter_model_name ??
+            specificModelData?.embrouter_params?.model ??
             specificModelData?.model_info?.key ??
             null,
         };
@@ -202,7 +202,7 @@ export default function ModelInfoView({
       setLocalModelData(specificModelData);
 
       // Check if cache control is enabled
-      if (specificModelData?.litellm_params?.cache_control_injection_points) {
+      if (specificModelData?.embrouter_params?.cache_control_injection_points) {
         setShowCacheControl(true);
       }
     };
@@ -251,7 +251,7 @@ export default function ModelInfoView({
       credential_name: values.credential_name,
       model_id: modelId,
       credential_info: {
-        custom_llm_provider: localModelData.litellm_params?.custom_llm_provider,
+        custom_llm_provider: localModelData.embrouter_params?.custom_llm_provider,
       },
     };
     toast.info("Storing credential..");
@@ -267,20 +267,20 @@ export default function ModelInfoView({
       if (!accessToken) return;
       setIsSaving(true);
 
-      // Parse LiteLLM extra params from JSON text area
+      // Parse EmbRouter extra params from JSON text area
       let parsedExtraParams: Record<string, any> = {};
       try {
-        parsedExtraParams = values.litellm_extra_params ? JSON.parse(values.litellm_extra_params) : {};
-        delete parsedExtraParams.litellm_credential_name;
+        parsedExtraParams = values.embrouter_extra_params ? JSON.parse(values.embrouter_extra_params) : {};
+        delete parsedExtraParams.embrouter_credential_name;
       } catch (e) {
         toast.fromError("Invalid JSON in EmbRouter Params");
         setIsSaving(false);
         return;
       }
 
-      let updatedLitellmParams: Record<string, any> = {
+      let updatedEmbrouterParams: Record<string, any> = {
         ...parsedExtraParams,
-        model: values.litellm_model_name,
+        model: values.embrouter_model_name,
         api_base: values.api_base,
         custom_llm_provider: values.custom_llm_provider,
         organization: values.organization,
@@ -294,17 +294,17 @@ export default function ModelInfoView({
 
       if (isFieldTouched("input_cost")) {
         if (values.input_cost !== undefined && values.input_cost !== null && values.input_cost !== "") {
-          updatedLitellmParams.input_cost_per_token = Number(values.input_cost) / 1_000_000;
+          updatedEmbrouterParams.input_cost_per_token = Number(values.input_cost) / 1_000_000;
         } else {
           // Explicit null signals the backend to remove the pricing override.
-          updatedLitellmParams.input_cost_per_token = null;
+          updatedEmbrouterParams.input_cost_per_token = null;
         }
       }
       if (isFieldTouched("output_cost")) {
         if (values.output_cost !== undefined && values.output_cost !== null && values.output_cost !== "") {
-          updatedLitellmParams.output_cost_per_token = Number(values.output_cost) / 1_000_000;
+          updatedEmbrouterParams.output_cost_per_token = Number(values.output_cost) / 1_000_000;
         } else {
-          updatedLitellmParams.output_cost_per_token = null;
+          updatedEmbrouterParams.output_cost_per_token = null;
         }
       }
 
@@ -314,14 +314,14 @@ export default function ModelInfoView({
       //   - only input_cost touched → fall back to input_cost (guarded against null)
       if (isFieldTouched("cache_read_cost") || isFieldTouched("input_cost")) {
         if (values.cache_read_cost !== undefined && values.cache_read_cost !== null && values.cache_read_cost !== "") {
-          updatedLitellmParams.cache_read_input_token_cost = Number(values.cache_read_cost) / 1_000_000;
+          updatedEmbrouterParams.cache_read_input_token_cost = Number(values.cache_read_cost) / 1_000_000;
         } else if (isFieldTouched("cache_read_cost")) {
-          updatedLitellmParams.cache_read_input_token_cost = null;
+          updatedEmbrouterParams.cache_read_input_token_cost = null;
         } else if (
-          updatedLitellmParams.input_cost_per_token !== undefined &&
-          updatedLitellmParams.input_cost_per_token !== null
+          updatedEmbrouterParams.input_cost_per_token !== undefined &&
+          updatedEmbrouterParams.input_cost_per_token !== null
         ) {
-          updatedLitellmParams.cache_read_input_token_cost = updatedLitellmParams.input_cost_per_token;
+          updatedEmbrouterParams.cache_read_input_token_cost = updatedEmbrouterParams.input_cost_per_token;
         }
       }
 
@@ -334,39 +334,39 @@ export default function ModelInfoView({
           values.cache_write_cost !== null &&
           values.cache_write_cost !== ""
         ) {
-          updatedLitellmParams.cache_creation_input_token_cost = Number(values.cache_write_cost) / 1_000_000;
+          updatedEmbrouterParams.cache_creation_input_token_cost = Number(values.cache_write_cost) / 1_000_000;
         } else {
-          updatedLitellmParams.cache_creation_input_token_cost = null;
+          updatedEmbrouterParams.cache_creation_input_token_cost = null;
         }
       }
 
-      const storedCredentialName: string | null = localModelData?.litellm_params?.litellm_credential_name ?? null;
-      const selectedCredentialName: string | null = values.litellm_credential_name ?? null;
+      const storedCredentialName: string | null = localModelData?.embrouter_params?.embrouter_credential_name ?? null;
+      const selectedCredentialName: string | null = values.embrouter_credential_name ?? null;
       if (selectedCredentialName !== storedCredentialName) {
-        updatedLitellmParams.litellm_credential_name = selectedCredentialName;
+        updatedEmbrouterParams.embrouter_credential_name = selectedCredentialName;
       } else {
-        delete updatedLitellmParams.litellm_credential_name;
+        delete updatedEmbrouterParams.embrouter_credential_name;
       }
       if (values.guardrails) {
-        updatedLitellmParams.guardrails = values.guardrails;
+        updatedEmbrouterParams.guardrails = values.guardrails;
       }
       if ((values.vector_store_ids?.length ?? 0) > 0) {
-        updatedLitellmParams.vector_store_ids = values.vector_store_ids;
+        updatedEmbrouterParams.vector_store_ids = values.vector_store_ids;
       } else if (values.vector_store_ids !== undefined) {
         // User explicitly cleared previously-set vector stores — send [] to clear on backend
-        updatedLitellmParams.vector_store_ids = [];
+        updatedEmbrouterParams.vector_store_ids = [];
       } else {
-        delete updatedLitellmParams.vector_store_ids;
+        delete updatedEmbrouterParams.vector_store_ids;
       }
 
       // Handle cache control settings
-      const hadInjectionPoints = Boolean(localModelData?.litellm_params?.cache_control_injection_points);
+      const hadInjectionPoints = Boolean(localModelData?.embrouter_params?.cache_control_injection_points);
       if (values.cache_control && (values.cache_control_injection_points?.length ?? 0) > 0) {
-        updatedLitellmParams.cache_control_injection_points = values.cache_control_injection_points;
+        updatedEmbrouterParams.cache_control_injection_points = values.cache_control_injection_points;
       } else if (hadInjectionPoints) {
-        updatedLitellmParams.cache_control_injection_points = null;
+        updatedEmbrouterParams.cache_control_injection_points = null;
       } else {
-        delete updatedLitellmParams.cache_control_injection_points;
+        delete updatedEmbrouterParams.cache_control_injection_points;
       }
 
       // Parse the model_info from the form values
@@ -398,12 +398,12 @@ export default function ModelInfoView({
       // seeds this form masks secrets, and any save re-sends the whole params blob;
       // without this strip a masked value would be re-encrypted over the real secret.
       // Credential rotation has its own dedicated path (UpdateModelCredentialsModal).
-      const safeLitellmParams = stripMaskedSecrets(updatedLitellmParams);
-      const { litellm_credential_name: _sentCredential, ...localLitellmParams } = safeLitellmParams;
+      const safeEmbrouterParams = stripMaskedSecrets(updatedEmbrouterParams);
+      const { embrouter_credential_name: _sentCredential, ...localEmbrouterParams } = safeEmbrouterParams;
 
       const updateData = {
         model_name: values.model_name,
-        litellm_params: safeLitellmParams,
+        embrouter_params: safeEmbrouterParams,
         model_info: updatedModelInfo,
       };
 
@@ -412,11 +412,11 @@ export default function ModelInfoView({
       const updatedModelData = {
         ...localModelData,
         model_name: values.model_name,
-        litellm_model_name: values.litellm_model_name,
-        litellm_params:
+        embrouter_model_name: values.embrouter_model_name,
+        embrouter_params:
           selectedCredentialName === null
-            ? localLitellmParams
-            : { ...localLitellmParams, litellm_credential_name: selectedCredentialName },
+            ? localEmbrouterParams
+            : { ...localEmbrouterParams, embrouter_credential_name: selectedCredentialName },
         model_info: updatedModelInfo,
       };
 
@@ -480,9 +480,9 @@ export default function ModelInfoView({
       const response = await testConnectionRequest(
         accessToken,
         {
-          custom_llm_provider: localModelData.litellm_params.custom_llm_provider,
-          litellm_credential_name: localModelData.litellm_params.litellm_credential_name,
-          model: localModelData.litellm_model_name,
+          custom_llm_provider: localModelData.embrouter_params.custom_llm_provider,
+          embrouter_credential_name: localModelData.embrouter_params.embrouter_credential_name,
+          model: localModelData.embrouter_model_name,
         },
         {
           // `id` is required to disambiguate when multiple deployments
@@ -550,13 +550,13 @@ export default function ModelInfoView({
       onModelUpdate(updatedModel);
     }
   };
-  const isWildcardModel = modelData.litellm_model_name.includes("*");
-  const wildcardProvider = modelData.litellm_model_name.split("/")[0];
+  const isWildcardModel = modelData.embrouter_model_name.includes("*");
+  const wildcardProvider = modelData.embrouter_model_name.split("/")[0];
   const healthCheckModelOptions =
     modelHubData?.data
       ?.filter(
         (model: any) =>
-          model.providers?.includes(wildcardProvider) && model.model_group !== modelData.litellm_model_name,
+          model.providers?.includes(wildcardProvider) && model.model_group !== modelData.embrouter_model_name,
       )
       .map((model: any) => ({ value: model.model_group, label: model.model_group })) || [];
 
@@ -661,9 +661,9 @@ export default function ModelInfoView({
               <Card className="block p-6">
                 <p className="text-sm">EmbRouter Model</p>
                 <div className="mt-2 overflow-hidden">
-                  <SimpleTooltip content={modelData.litellm_model_name || "Not Set"} className="w-full min-w-0">
+                  <SimpleTooltip content={modelData.embrouter_model_name || "Not Set"} className="w-full min-w-0">
                     <div className="break-all text-sm font-medium leading-relaxed cursor-pointer">
-                      {modelData.litellm_model_name || "Not Set"}
+                      {modelData.embrouter_model_name || "Not Set"}
                     </div>
                   </SimpleTooltip>
                 </div>
@@ -780,7 +780,7 @@ export default function ModelInfoView({
           },
           {
             label: "EmbRouter Model Name",
-            value: modelData?.litellm_model_name || "Not Set",
+            value: modelData?.embrouter_model_name || "Not Set",
           },
           {
             label: "Provider",
@@ -810,7 +810,7 @@ export default function ModelInfoView({
             <DialogHeader>
               <DialogTitle>Using Existing Credential</DialogTitle>
             </DialogHeader>
-            <p className="text-sm">{modelData.litellm_params.litellm_credential_name}</p>
+            <p className="text-sm">{modelData.embrouter_params.embrouter_credential_name}</p>
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsCredentialModalOpen(false)}>
                 Cancel
@@ -854,7 +854,7 @@ export default function ModelInfoView({
               accessToken={accessToken}
               targets={autoRouterTestTargets}
               jevRequest={buildSavedJevConnectionTestRequest(
-                (localModelData ?? modelData)?.litellm_params?.complexity_router_config,
+                (localModelData ?? modelData)?.embrouter_params?.complexity_router_config,
                 (localModelData ?? modelData)?.model_info?.id,
                 (localModelData ?? modelData)?.model_info?.team_id,
               )}

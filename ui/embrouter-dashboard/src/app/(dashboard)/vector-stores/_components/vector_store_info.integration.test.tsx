@@ -28,7 +28,7 @@ const serverRecord = {
   vector_store_metadata: { tier: "gold" },
   created_at: "2024-01-01T00:00:00Z",
   updated_at: "2024-02-02T00:00:00Z",
-  litellm_credential_name: "bedrock-prod",
+  embrouter_credential_name: "bedrock-prod",
 };
 
 const renderView = (editVectorStore: boolean) =>

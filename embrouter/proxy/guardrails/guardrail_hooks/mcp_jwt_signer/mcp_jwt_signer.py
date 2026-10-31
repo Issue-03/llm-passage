@@ -1,20 +1,20 @@
 """
-MCPJWTSigner — Built-in LiteLLM guardrail for zero trust MCP authentication.
+MCPJWTSigner — Built-in EmbRouter guardrail for zero trust MCP authentication.
 
-Signs outbound MCP requests with a LiteLLM-issued RS256 JWT so that MCP servers
-can trust a single signing authority (liteLLM) instead of every upstream IdP.
+Signs outbound MCP requests with a EmbRouter-issued RS256 JWT so that MCP servers
+can trust a single signing authority (embRouter) instead of every upstream IdP.
 
 Usage in config.yaml:
 
     guardrails:
       - guardrail_name: "mcp-jwt-signer"
-        litellm_params:
+        embrouter_params:
           guardrail: mcp_jwt_signer
           mode: "pre_mcp_call"
           default_on: true
 
           # Core signing config
-          issuer: "https://my-litellm.example.com"   # optional
+          issuer: "https://my-embrouter.example.com"   # optional
           audience: "mcp"                             # optional
           ttl_seconds: 300                            # optional
 
@@ -25,12 +25,12 @@ Usage in config.yaml:
           verify_audience: "api://my-app"             # expected aud in incoming JWT
 
           # FR-12: End-user identity mapping — ordered resolution chain
-          # Supported: token:<claim>, litellm:user_id, litellm:email,
-          #            litellm:end_user_id, litellm:team_id
+          # Supported: token:<claim>, embrouter:user_id, embrouter:email,
+          #            embrouter:end_user_id, embrouter:team_id
           end_user_claim_sources:
             - "token:sub"
             - "token:email"
-            - "litellm:user_id"
+            - "embrouter:user_id"
 
           # FR-13: Claim operations
           add_claims:             # add if key not already present in the JWT
@@ -53,7 +53,7 @@ Usage in config.yaml:
             - "roles"
 
           # FR-9: Debug headers
-          debug_headers: false    # emit x-litellm-mcp-debug header when true
+          debug_headers: false    # emit x-embrouter-mcp-debug header when true
 
           # FR-10: Configurable scopes — explicit list replaces auto-generation
           allowed_scopes:
@@ -82,16 +82,16 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey, RSAPublicKey
 from typing_extensions import NotRequired, ReadOnly, TypedDict
 
-from litellm._logging import verbose_proxy_logger
-from litellm.caching import DualCache
-from litellm.integrations.custom_guardrail import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.caching import DualCache
+from embrouter.integrations.custom_guardrail import (
     CustomGuardrail,
     log_guardrail_information,
 )
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.types.guardrail_base_init import GuardrailBaseInitKwargs
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.utils import CallTypesLiteral
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.types.guardrail_base_init import GuardrailBaseInitKwargs
+from embrouter.types.guardrails import GuardrailEventHooks
+from embrouter.types.utils import CallTypesLiteral
 
 if TYPE_CHECKING:
     from jwt.types import Options
@@ -186,7 +186,7 @@ async def _fetch_jwks(jwks_uri: str) -> Sequence[Mapping[str, object]]:
         if now - fetched_at < _JWKS_CACHE_TTL:
             return keys
 
-    from litellm.llms.custom_httpx.http_handler import (
+    from embrouter.llms.custom_httpx.http_handler import (
         get_async_httpx_client,
         httpxSpecialProvider,
     )
@@ -202,7 +202,7 @@ async def _fetch_jwks(jwks_uri: str) -> Sequence[Mapping[str, object]]:
 
 async def _fetch_oidc_discovery(discovery_uri: str) -> _OIDCDiscoveryDocument:
     """Fetch an OIDC discovery document and return its parsed JSON."""
-    from litellm.llms.custom_httpx.http_handler import (
+    from embrouter.llms.custom_httpx.http_handler import (
         get_async_httpx_client,
         httpxSpecialProvider,
     )
@@ -216,14 +216,14 @@ async def _fetch_oidc_discovery(discovery_uri: str) -> _OIDCDiscoveryDocument:
 
 class MCPJWTSigner(CustomGuardrail):
     """
-    Built-in LiteLLM guardrail that signs outbound MCP requests with a
-    LiteLLM-issued RS256 JWT, enabling zero trust authentication.
+    Built-in EmbRouter guardrail that signs outbound MCP requests with a
+    EmbRouter-issued RS256 JWT, enabling zero trust authentication.
 
-    MCP servers verify tokens using liteLLM's OIDC discovery endpoint and
+    MCP servers verify tokens using embRouter's OIDC discovery endpoint and
     JWKS endpoint rather than trusting each upstream IdP directly.
 
     The signed JWT carries:
-      - iss: LiteLLM issuer identifier
+      - iss: EmbRouter issuer identifier
       - aud: MCP audience (configurable)
       - sub: End-user identity (resolved via end_user_claim_sources, RFC 8693)
       - act: Actor/agent identity (team_id or org_id, RFC 8693 delegation)
@@ -301,7 +301,7 @@ class MCPJWTSigner(CustomGuardrail):
 
         # --- Core config ---
         self.issuer: str = (
-            issuer or os.environ.get("MCP_JWT_ISSUER") or os.environ.get("LITELLM_EXTERNAL_URL") or "litellm"
+            issuer or os.environ.get("MCP_JWT_ISSUER") or os.environ.get("EMBROUTER_EXTERNAL_URL") or "embrouter"
         )
         self.audience: str = audience or os.environ.get("MCP_JWT_AUDIENCE") or self.DEFAULT_AUDIENCE
         resolved_ttl: Final = int(
@@ -321,10 +321,10 @@ class MCPJWTSigner(CustomGuardrail):
         self._oidc_discovery_fetched_at: float = 0.0
 
         # --- FR-12: End-user identity mapping ---
-        # Default chain: try incoming JWT sub, fall back to litellm user_id
+        # Default chain: try incoming JWT sub, fall back to embrouter user_id
         self.end_user_claim_sources: list[str] = end_user_claim_sources or [
             "token:sub",
-            "litellm:user_id",
+            "embrouter:user_id",
         ]
 
         # --- FR-13: Claim operations ---
@@ -501,7 +501,7 @@ class MCPJWTSigner(CustomGuardrail):
                 "opaque token verification but is not configured."
             )
 
-        from litellm.llms.custom_httpx.http_handler import (
+        from embrouter.llms.custom_httpx.http_handler import (
             get_async_httpx_client,
             httpxSpecialProvider,
         )
@@ -563,10 +563,10 @@ class MCPJWTSigner(CustomGuardrail):
 
         Supported source prefixes:
           token:<claim>       — from verified incoming JWT / introspection claims
-          litellm:user_id     — from UserAPIKeyAuth.user_id
-          litellm:email       — from UserAPIKeyAuth.user_email
-          litellm:end_user_id — from UserAPIKeyAuth.end_user_id
-          litellm:team_id     — from UserAPIKeyAuth.team_id
+          embrouter:user_id     — from UserAPIKeyAuth.user_id
+          embrouter:email       — from UserAPIKeyAuth.user_email
+          embrouter:end_user_id — from UserAPIKeyAuth.end_user_id
+          embrouter:team_id     — from UserAPIKeyAuth.team_id
 
         Falls back to a stable hash of the API token for service-account callers.
         """
@@ -578,19 +578,19 @@ class MCPJWTSigner(CustomGuardrail):
                 raw = (jwt_claims or {}).get(claim_name)
                 value = str(raw) if raw else None
 
-            elif source == "litellm:user_id":
+            elif source == "embrouter:user_id":
                 uid = user_api_key_dict.user_id
                 value = str(uid) if uid else None
 
-            elif source == "litellm:email":
+            elif source == "embrouter:email":
                 email = user_api_key_dict.user_email
                 value = str(email) if email else None
 
-            elif source == "litellm:end_user_id":
+            elif source == "embrouter:end_user_id":
                 eid = user_api_key_dict.end_user_id
                 value = str(eid) if eid else None
 
-            elif source == "litellm:team_id":
+            elif source == "embrouter:team_id":
                 tid = user_api_key_dict.team_id
                 value = str(tid) if tid else None
 
@@ -605,7 +605,7 @@ class MCPJWTSigner(CustomGuardrail):
         token: Final = user_api_key_dict.token or user_api_key_dict.api_key
         if token:
             return "apikey:" + hashlib.sha256(str(token).encode()).hexdigest()[:16]
-        return "litellm-proxy"
+        return "embrouter-proxy"
 
     # ------------------------------------------------------------------
     # FR-10: Scope building
@@ -697,9 +697,9 @@ class MCPJWTSigner(CustomGuardrail):
         Build JWT claims for the outbound MCP access token.
 
         Args:
-            user_api_key_dict: LiteLLM auth context for the current request.
+            user_api_key_dict: EmbRouter auth context for the current request.
             data: Pre-call hook data dict (contains mcp_tool_name etc.).
-            jwt_claims: Verified incoming IdP claims (FR-5), or LiteLLM-decoded
+            jwt_claims: Verified incoming IdP claims (FR-5), or EmbRouter-decoded
                         jwt_claims if available.  None for pure API-key requests.
         """
         now: Final = int(time.time())
@@ -714,7 +714,7 @@ class MCPJWTSigner(CustomGuardrail):
         # sub — resolved via ordered claim sources (FR-12)
         claims["sub"] = self._resolve_end_user_identity(user_api_key_dict, jwt_claims)
 
-        # email passthrough when available from LiteLLM context
+        # email passthrough when available from EmbRouter context
         user_email: Final = user_api_key_dict.user_email
         if user_email:
             claims["email"] = user_email
@@ -722,7 +722,7 @@ class MCPJWTSigner(CustomGuardrail):
         # act — RFC 8693 delegation claim (team/org context)
         team_id: Final = user_api_key_dict.team_id
         org_id: Final = user_api_key_dict.org_id
-        act_sub: Final = team_id or org_id or "litellm-proxy"
+        act_sub: Final = team_id or org_id or "embrouter-proxy"
         claims["act"] = {"sub": act_sub}
 
         # end_user_id when set separately from user_id
@@ -769,7 +769,7 @@ class MCPJWTSigner(CustomGuardrail):
     @staticmethod
     def _build_debug_header(claims: _DebugHeaderClaims, kid: str) -> str:
         """
-        Build the x-litellm-mcp-debug header value.
+        Build the x-embrouter-mcp-debug header value.
 
         Format: v=1; kid=<kid>; sub=<sub>; iss=<iss>; exp=<exp>; scope=<scope>
         Scope is truncated to 80 chars for header safety.
@@ -844,7 +844,7 @@ class MCPJWTSigner(CustomGuardrail):
                 "token found in request (API-key auth request — skipping verification)."
             )
 
-        # Fall back to LiteLLM-decoded JWT claims (available when proxy uses JWT auth).
+        # Fall back to EmbRouter-decoded JWT claims (available when proxy uses JWT auth).
         if jwt_claims is None:
             jwt_claims = user_api_key_dict.jwt_claims
 
@@ -891,7 +891,7 @@ class MCPJWTSigner(CustomGuardrail):
         # ------------------------------------------------------------------
         if self.debug_headers:
             debug_claims: Final[_DebugHeaderClaims] = claims
-            new_headers["x-litellm-mcp-debug"] = self._build_debug_header(debug_claims, self._kid)
+            new_headers["x-embrouter-mcp-debug"] = self._build_debug_header(debug_claims, self._kid)
 
         hook_data["extra_headers"] = new_headers
 
@@ -941,7 +941,7 @@ async def inject_mcp_jwt_headers_for_upstream(
     }
     call_type: Final[CallTypesLiteral] = "list_mcp_tools" if for_list_tools else "call_mcp_tool"
     try:
-        from litellm.proxy.proxy_server import (  # noqa: PLC0415
+        from embrouter.proxy.proxy_server import (  # noqa: PLC0415
             proxy_logging_obj as _proxy_logging,
         )
 

@@ -3,7 +3,7 @@ import json
 import pytest
 
 
-from litellm.litellm_core_utils.safe_json_dumps import safe_dumps, safe_json_structure, strip_null_bytes
+from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps, safe_json_structure, strip_null_bytes
 
 
 def test_primitive_types():

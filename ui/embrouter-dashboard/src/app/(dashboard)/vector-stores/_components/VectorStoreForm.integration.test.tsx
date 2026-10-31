@@ -76,8 +76,8 @@ describe("VectorStoreForm submit payload", () => {
       vector_store_name: undefined,
       vector_store_description: undefined,
       vector_store_metadata: {},
-      litellm_credential_name: undefined,
-      litellm_params: {},
+      embrouter_credential_name: undefined,
+      embrouter_params: {},
     });
     expect(onSuccess).toHaveBeenCalledTimes(1);
   });
@@ -102,12 +102,12 @@ describe("VectorStoreForm submit payload", () => {
       vector_store_name: "Support docs",
       vector_store_description: "Docs for the support team",
       vector_store_metadata: { tier: "gold" },
-      litellm_credential_name: "bedrock-prod",
-      litellm_params: {},
+      embrouter_credential_name: "bedrock-prod",
+      embrouter_params: {},
     });
   });
 
-  it("renames the milvus embedding model to litellm_embedding_model inside litellm_params", async () => {
+  it("renames the milvus embedding model to embrouter_embedding_model inside embrouter_params", async () => {
     const user = setupUser();
     renderForm();
 
@@ -119,10 +119,10 @@ describe("VectorStoreForm submit payload", () => {
     await submit(user);
 
     await vi.waitFor(() => expect(mockCreate).toHaveBeenCalledTimes(1));
-    expect(createdPayload().litellm_params).toStrictEqual({
+    expect(createdPayload().embrouter_params).toStrictEqual({
       api_key: "user:pass",
       api_base: "https://milvus.example.com",
-      litellm_embedding_model: "text-embedding-3-small",
+      embrouter_embedding_model: "text-embedding-3-small",
     });
     expect(createdPayload().custom_llm_provider).toBe("milvus");
   });
@@ -140,7 +140,7 @@ describe("VectorStoreForm submit payload", () => {
     await submit(user);
 
     await vi.waitFor(() => expect(mockCreate).toHaveBeenCalledTimes(1));
-    expect(createdPayload().litellm_params).toStrictEqual({
+    expect(createdPayload().embrouter_params).toStrictEqual({
       vertex_project: "gcp-proj",
       vertex_location: "global",
       vertex_collection_id: undefined,
@@ -152,7 +152,7 @@ describe("VectorStoreForm submit payload", () => {
     const user = setupUser();
     renderForm();
 
-    await chooseProvider(user, "PostgreSQL pgvector (LiteLLM Connector)");
+    await chooseProvider(user, "PostgreSQL pgvector (EmbRouter Connector)");
     await user.type(screen.getByPlaceholderText("http://your-deployed-server:8000"), "http://pg:8000");
     await user.type(screen.getByPlaceholderText("your-deployed-api-key"), "pg-key");
     await chooseProvider(user, "Azure OpenAI");
@@ -160,7 +160,7 @@ describe("VectorStoreForm submit payload", () => {
     await submit(user);
 
     await vi.waitFor(() => expect(mockCreate).toHaveBeenCalledTimes(1));
-    expect(createdPayload().litellm_params).toStrictEqual({
+    expect(createdPayload().embrouter_params).toStrictEqual({
       api_key: "pg-key",
       api_base: "http://pg:8000",
     });

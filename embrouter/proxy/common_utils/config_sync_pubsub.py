@@ -6,11 +6,11 @@ from collections.abc import Awaitable, Callable
 from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Final, Protocol, cast  # noqa: TID251  # untyped prisma/redis boundary needs cast
 
-from litellm._logging import verbose_proxy_logger
-from litellm.repositories.prisma_protocols import RowT_co, TableActions
+from embrouter._logging import verbose_proxy_logger
+from embrouter.repositories.prisma_protocols import RowT_co, TableActions
 
 if TYPE_CHECKING:
-    from litellm.caching.redis_cache import RedisCache
+    from embrouter.caching.redis_cache import RedisCache
 
 
 class _ConfigSyncPubSub(Protocol):
@@ -27,7 +27,7 @@ class _ConfigSyncPubSubClient(Protocol):
     def pubsub(self) -> _ConfigSyncPubSub: ...
 
 
-CONFIG_SYNC_CHANNEL: Final = "litellm_proxy.config_change"
+CONFIG_SYNC_CHANNEL: Final = "embrouter_proxy.config_change"
 CONFIG_SYNC_DEBOUNCE_SECONDS: Final = 1.0
 CONFIG_SYNC_JITTER_MAX_SECONDS: Final = 5.0
 CONFIG_SYNC_MIN_RESYNC_INTERVAL_SECONDS: Final = 10.0
@@ -41,21 +41,21 @@ _WRITE_ACTION_NAMES: Final[frozenset[str]] = frozenset(
 
 _CONFIG_SYNCED_TABLE_NAMES: Final[frozenset[str]] = frozenset(
     {
-        "litellm_proxymodeltable",
-        "litellm_credentialstable",
-        "litellm_guardrailstable",
-        "litellm_policytable",
-        "litellm_policyattachmenttable",
-        "litellm_managedvectorstorestable",
-        "litellm_managedvectorstoreindextable",
-        "litellm_mcpservertable",
-        "litellm_agentstable",
-        "litellm_prompttable",
-        "litellm_searchtoolstable",
-        "litellm_ssoconfig",
-        "litellm_cacheconfig",
-        "litellm_configoverrides",
-        "litellm_uisettings",
+        "embrouter_proxymodeltable",
+        "embrouter_credentialstable",
+        "embrouter_guardrailstable",
+        "embrouter_policytable",
+        "embrouter_policyattachmenttable",
+        "embrouter_managedvectorstorestable",
+        "embrouter_managedvectorstoreindextable",
+        "embrouter_mcpservertable",
+        "embrouter_agentstable",
+        "embrouter_prompttable",
+        "embrouter_searchtoolstable",
+        "embrouter_ssoconfig",
+        "embrouter_cacheconfig",
+        "embrouter_configoverrides",
+        "embrouter_uisettings",
     }
 )
 
@@ -63,7 +63,7 @@ _RESYNC_APPLIED_CONFIG_PARAM_NAMES: Final[frozenset[str]] = frozenset(
     {
         "general_settings",
         "router_settings",
-        "litellm_settings",
+        "embrouter_settings",
         "model_cost_map_reload_config",
         "anthropic_beta_headers_reload_config",
     }
@@ -71,7 +71,7 @@ _RESYNC_APPLIED_CONFIG_PARAM_NAMES: Final[frozenset[str]] = frozenset(
 
 
 def coordination_redis_cache() -> "RedisCache | None":
-    from litellm.proxy.proxy_server import redis_usage_cache
+    from embrouter.proxy.proxy_server import redis_usage_cache
 
     return redis_usage_cache
 

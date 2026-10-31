@@ -4,19 +4,19 @@ from typing import TYPE_CHECKING, Any, Final
 
 import httpx
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.litellm_core_utils.litellm_logging import (
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.embrouter_core_utils.embrouter_logging import (
     get_standard_logging_object_payload,
 )
-from litellm.llms.base_llm.chat.transformation import BaseConfig
-from litellm.proxy._types import PassThroughEndpointLoggingTypedDict
-from litellm.proxy.auth.auth_utils import get_end_user_id_from_request_body
-from litellm.types.passthrough_endpoints.pass_through_endpoints import (
+from embrouter.llms.base_llm.chat.transformation import BaseConfig
+from embrouter.proxy._types import PassThroughEndpointLoggingTypedDict
+from embrouter.proxy.auth.auth_utils import get_end_user_id_from_request_body
+from embrouter.types.passthrough_endpoints.pass_through_endpoints import (
     PassthroughStandardLoggingPayload,
 )
-from litellm.types.utils import LlmProviders, ModelResponse, TextCompletionResponse
+from embrouter.types.utils import LlmProviders, ModelResponse, TextCompletionResponse
 
 if TYPE_CHECKING:
     from ..success_handler import PassThroughEndpointLogging
@@ -42,7 +42,7 @@ class BasePassthroughLoggingHandler(ABC):
         self,
         httpx_response: httpx.Response,
         response_body: dict,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         url_route: str,
         result: str,
         start_time: datetime,
@@ -56,22 +56,22 @@ class BasePassthroughLoggingHandler(ABC):
         """
         model: Final = request_body.get("model", response_body.get("model", ""))
         provider_config: Final = self.get_provider_config(model=model)
-        litellm_model_response: Final[ModelResponse] = provider_config.transform_response(
+        embrouter_model_response: Final[ModelResponse] = provider_config.transform_response(
             raw_response=httpx_response,
-            model_response=litellm.ModelResponse(),
+            model_response=embrouter.ModelResponse(),
             model=model,
             messages=[],
             logging_obj=logging_obj,
             optional_params={},
             api_key="",
             request_data={},
-            encoding=litellm.encoding,
+            encoding=embrouter.encoding,
             json_mode=False,
-            litellm_params={},
+            embrouter_params={},
         )
 
         kwargs = self._create_response_logging_payload(
-            litellm_model_response=litellm_model_response,
+            embrouter_model_response=embrouter_model_response,
             model=model,
             kwargs=kwargs,
             start_time=start_time,
@@ -80,7 +80,7 @@ class BasePassthroughLoggingHandler(ABC):
         )
 
         return {
-            "result": litellm_model_response,
+            "result": embrouter_model_response,
             "kwargs": kwargs,
         }
 
@@ -95,12 +95,12 @@ class BasePassthroughLoggingHandler(ABC):
 
     def _create_response_logging_payload(
         self,
-        litellm_model_response: ModelResponse | TextCompletionResponse,
+        embrouter_model_response: ModelResponse | TextCompletionResponse,
         model: str,
         kwargs: dict,
         start_time: datetime,
         end_time: datetime,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> dict:
         """
         Create the standard logging object for Generic LLM passthrough
@@ -109,8 +109,8 @@ class BasePassthroughLoggingHandler(ABC):
         """
 
         try:
-            response_cost: Final = litellm.completion_cost(
-                completion_response=litellm_model_response,
+            response_cost: Final = embrouter.completion_cost(
+                completion_response=embrouter_model_response,
                 model=model,
             )
 
@@ -127,13 +127,13 @@ class BasePassthroughLoggingHandler(ABC):
                     passthrough_logging_payload=passthrough_logging_payload,
                 )
                 if user:
-                    kwargs.setdefault("litellm_params", {})
-                    kwargs["litellm_params"].update({"proxy_server_request": {"body": {"user": user}}})
+                    kwargs.setdefault("embrouter_params", {})
+                    kwargs["embrouter_params"].update({"proxy_server_request": {"body": {"user": user}}})
 
             # Make standard logging object for Anthropic
             standard_logging_object: Final = get_standard_logging_object_payload(
                 kwargs=kwargs,
-                init_response_obj=litellm_model_response,
+                init_response_obj=embrouter_model_response,
                 start_time=start_time,
                 end_time=end_time,
                 logging_obj=logging_obj,
@@ -147,9 +147,9 @@ class BasePassthroughLoggingHandler(ABC):
             )
             kwargs["standard_logging_object"] = standard_logging_object
 
-            # set litellm_call_id to logging response object
-            litellm_model_response.id = logging_obj.litellm_call_id
-            litellm_model_response.model = model
+            # set embrouter_call_id to logging response object
+            embrouter_model_response.id = logging_obj.embrouter_call_id
+            embrouter_model_response.model = model
             logging_obj.model_call_details["model"] = model
             return kwargs
         except Exception as e:
@@ -160,20 +160,20 @@ class BasePassthroughLoggingHandler(ABC):
     def _build_complete_streaming_response(
         self,
         all_chunks: list[str],
-        litellm_logging_obj: LiteLLMLoggingObj,
+        embrouter_logging_obj: EmbRouterLoggingObj,
         model: str,
     ) -> ModelResponse | TextCompletionResponse | None:
         """
         Builds complete response from raw chunks
 
         - Converts str chunks to generic chunks
-        - Converts generic chunks to litellm chunks (OpenAI format)
-        - Builds complete response from litellm chunks
+        - Converts generic chunks to embrouter chunks (OpenAI format)
+        - Builds complete response from embrouter chunks
         """
 
     def _handle_logging_llm_collected_chunks(
         self,
-        litellm_logging_obj: LiteLLMLoggingObj,
+        embrouter_logging_obj: EmbRouterLoggingObj,
         passthrough_success_handler_obj: PassThroughEndpointLogging,
         url_route: str,
         request_body: dict,
@@ -183,17 +183,17 @@ class BasePassthroughLoggingHandler(ABC):
         end_time: datetime,
     ) -> PassThroughEndpointLoggingTypedDict:
         """
-        Takes raw chunks from Anthropic passthrough endpoint and logs them in litellm callbacks
+        Takes raw chunks from Anthropic passthrough endpoint and logs them in embrouter callbacks
 
         - Builds complete response from chunks
         - Creates standard logging object
-        - Logs in litellm callbacks
+        - Logs in embrouter callbacks
         """
 
         model: Final = request_body.get("model", "")
         complete_streaming_response: Final = self._build_complete_streaming_response(
             all_chunks=all_chunks,
-            litellm_logging_obj=litellm_logging_obj,
+            embrouter_logging_obj=embrouter_logging_obj,
             model=model,
         )
         if complete_streaming_response is None:
@@ -205,12 +205,12 @@ class BasePassthroughLoggingHandler(ABC):
                 "kwargs": {},
             }
         kwargs: Final = self._create_response_logging_payload(
-            litellm_model_response=complete_streaming_response,
+            embrouter_model_response=complete_streaming_response,
             model=model,
             kwargs={},
             start_time=start_time,
             end_time=end_time,
-            logging_obj=litellm_logging_obj,
+            logging_obj=embrouter_logging_obj,
         )
 
         return {

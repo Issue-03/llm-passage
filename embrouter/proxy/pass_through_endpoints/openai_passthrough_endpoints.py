@@ -6,8 +6,8 @@ from typing import Final
 
 from fastapi import APIRouter, Depends, Request, Response
 
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
 
 router: Final = APIRouter()
 
@@ -24,7 +24,7 @@ async def openai_passthrough_route(
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
 ) -> Response:
     """
-    Dedicated pass-through to the OpenAI API with no overlap with LiteLLM's native
+    Dedicated pass-through to the OpenAI API with no overlap with EmbRouter's native
     implementations (e.g. the Responses API at /v1/responses).
 
     Examples:
@@ -34,7 +34,7 @@ async def openai_passthrough_route(
 
 
     """
-    from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import openai_proxy_route
+    from embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints import openai_proxy_route
 
     return await openai_proxy_route(
         endpoint=endpoint,

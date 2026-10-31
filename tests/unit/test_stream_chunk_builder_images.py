@@ -7,8 +7,8 @@ rebuilding the response from streaming chunks.
 """
 
 import pytest
-import litellm
-from litellm import stream_chunk_builder
+import embrouter
+from embrouter import stream_chunk_builder
 
 
 def test_stream_chunk_builder_preserves_images():
@@ -73,7 +73,7 @@ def test_stream_chunk_builder_preserves_images():
 
     chunks = []
     for chunk in init_chunks:
-        chunks.append(litellm.ModelResponseStream(**chunk))
+        chunks.append(embrouter.ModelResponseStream(**chunk))
 
     response = stream_chunk_builder(chunks=chunks)
 
@@ -172,7 +172,7 @@ def test_stream_chunk_builder_preserves_multiple_images():
 
     chunks = []
     for chunk in init_chunks:
-        chunks.append(litellm.ModelResponseStream(**chunk))
+        chunks.append(embrouter.ModelResponseStream(**chunk))
 
     response = stream_chunk_builder(chunks=chunks)
 
@@ -239,7 +239,7 @@ def test_stream_chunk_builder_no_images():
 
     chunks = []
     for chunk in init_chunks:
-        chunks.append(litellm.ModelResponseStream(**chunk))
+        chunks.append(embrouter.ModelResponseStream(**chunk))
 
     response = stream_chunk_builder(chunks=chunks)
 

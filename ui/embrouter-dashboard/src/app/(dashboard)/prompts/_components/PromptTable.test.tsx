@@ -15,7 +15,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 const mockPrompts: PromptSpec[] = [
   {
     prompt_id: "prompt-newer",
-    litellm_params: { prompt_id: "prompt-newer" },
+    embrouter_params: { prompt_id: "prompt-newer" },
     prompt_info: { prompt_type: "dotprompt" },
     created_at: "2025-01-15T10:30:00Z",
     updated_at: "2025-01-15T11:00:00Z",
@@ -24,7 +24,7 @@ const mockPrompts: PromptSpec[] = [
   },
   {
     prompt_id: "prompt-older",
-    litellm_params: { prompt_id: "prompt-older" },
+    embrouter_params: { prompt_id: "prompt-older" },
     prompt_info: { prompt_type: "dotprompt" },
     created_at: "2024-01-10T09:15:00Z",
     updated_at: "2024-01-12T14:20:00Z",

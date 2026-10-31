@@ -1,42 +1,42 @@
-"""MCP JWT Signer guardrail — built-in LiteLLM guardrail for zero trust MCP auth."""
+"""MCP JWT Signer guardrail — built-in EmbRouter guardrail for zero trust MCP auth."""
 
 from typing import TYPE_CHECKING, Final
 
-from litellm.types.guardrails import SupportedGuardrailIntegrations
+from embrouter.types.guardrails import SupportedGuardrailIntegrations
 
 from .mcp_jwt_signer import MCPJWTSigner, get_mcp_jwt_signer
 
 if TYPE_CHECKING:
-    from litellm.types.guardrails import Guardrail, LitellmParams
+    from embrouter.types.guardrails import Guardrail, EmbrouterParams
 
 
-def initialize_guardrail(litellm_params: "LitellmParams", guardrail: "Guardrail") -> MCPJWTSigner:
-    import litellm
+def initialize_guardrail(embrouter_params: "EmbrouterParams", guardrail: "Guardrail") -> MCPJWTSigner:
+    import embrouter
 
     guardrail_name: Final = guardrail.get("guardrail_name")
     if not guardrail_name:
         raise ValueError("MCPJWTSigner guardrail requires a guardrail_name")
 
-    mode: Final = litellm_params.mode
+    mode: Final = embrouter_params.mode
     if mode != "pre_mcp_call":
         raise ValueError(
             f"MCPJWTSigner guardrail '{guardrail_name}' has mode='{mode}' but must use "
             "mode='pre_mcp_call'. JWT injection only fires for MCP tool calls."
         )
 
-    optional_params: Final = getattr(litellm_params, "optional_params", None)
+    optional_params: Final = getattr(embrouter_params, "optional_params", None)
 
     def _get(key):
         if optional_params is not None:
             v: Final = getattr(optional_params, key, None)
             if v is not None:
                 return v
-        return getattr(litellm_params, key, None)
+        return getattr(embrouter_params, key, None)
 
     signer: Final = MCPJWTSigner(
         guardrail_name=guardrail_name,
-        event_hook=litellm_params.mode,
-        default_on=litellm_params.default_on,
+        event_hook=embrouter_params.mode,
+        default_on=embrouter_params.default_on,
         # Core signing
         issuer=_get("issuer"),
         audience=_get("audience"),
@@ -63,7 +63,7 @@ def initialize_guardrail(litellm_params: "LitellmParams", guardrail: "Guardrail"
         # FR-10: configurable scopes
         allowed_scopes=_get("allowed_scopes"),
     )
-    litellm.logging_callback_manager.add_litellm_callback(signer)
+    embrouter.logging_callback_manager.add_embrouter_callback(signer)
     return signer
 
 

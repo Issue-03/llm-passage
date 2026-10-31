@@ -22,7 +22,7 @@ def test_enterprise_routes_all_imports_exist():
     enterprise_routes_path = os.path.join(
         os.path.dirname(__file__),
         "..", "..", "..", "..", 
-        "enterprise", "litellm_enterprise", "proxy", "enterprise_routes.py"
+        "enterprise", "embrouter_enterprise", "proxy", "enterprise_routes.py"
     )
     
     enterprise_routes_path = os.path.normpath(enterprise_routes_path)

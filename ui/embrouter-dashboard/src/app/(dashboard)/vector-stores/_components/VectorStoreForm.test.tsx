@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CredentialItem, vectorStoreCreateCall } from "@/components/networking";
 import { Providers, providerLogoMap } from "@/components/provider_info_helpers";
 import { VectorStoreProviders } from "@/components/vector_store_providers";
-import VectorStoreForm, { buildVectorStoreLitellmParams } from "./VectorStoreForm";
+import VectorStoreForm, { buildVectorStoreEmbrouterParams } from "./VectorStoreForm";
 
 vi.mock("@/components/networking");
 
@@ -79,8 +79,8 @@ const MONGODB_REQUIRED_FORM_VALUES = {
   embedding_model: "text-embedding-ada-002",
 };
 
-describe("buildVectorStoreLitellmParams", () => {
-  it("renames embedding_model to litellm_embedding_model for valkey", () => {
+describe("buildVectorStoreEmbrouterParams", () => {
+  it("renames embedding_model to embrouter_embedding_model for valkey", () => {
     const valkeyFormValues = {
       valkey_host: "my-valkey.example.com",
       valkey_port: "6379",
@@ -91,14 +91,14 @@ describe("buildVectorStoreLitellmParams", () => {
       valkey_embedding_field: "vector",
     };
 
-    const params = buildVectorStoreLitellmParams("valkey", valkeyFormValues);
+    const params = buildVectorStoreEmbrouterParams("valkey", valkeyFormValues);
 
     const expectedParams = {
       valkey_host: "my-valkey.example.com",
       valkey_port: "6379",
       valkey_password: "secret",
       valkey_ssl: "true",
-      litellm_embedding_model: "text-embedding-3-small",
+      embrouter_embedding_model: "text-embedding-3-small",
       valkey_text_field: "text",
       valkey_embedding_field: "vector",
     };
@@ -106,8 +106,8 @@ describe("buildVectorStoreLitellmParams", () => {
     expect(params).not.toHaveProperty("embedding_model");
   });
 
-  it("renames embedding_model to litellm_embedding_model for milvus", () => {
-    const params = buildVectorStoreLitellmParams("milvus", {
+  it("renames embedding_model to embrouter_embedding_model for milvus", () => {
+    const params = buildVectorStoreEmbrouterParams("milvus", {
       api_key: "user:pass",
       api_base: "https://my-milvus-endpoint.com/",
       embedding_model: "text-embedding-3-small",
@@ -116,11 +116,11 @@ describe("buildVectorStoreLitellmParams", () => {
     expect(params).toEqual({
       api_key: "user:pass",
       api_base: "https://my-milvus-endpoint.com/",
-      litellm_embedding_model: "text-embedding-3-small",
+      embrouter_embedding_model: "text-embedding-3-small",
     });
   });
 
-  it("renames embedding_model to litellm_embedding_model for mongodb", () => {
+  it("renames embedding_model to embrouter_embedding_model for mongodb", () => {
     const formValues = {
       ...MONGODB_REQUIRED_FORM_VALUES,
       mongodb_embedding_field: "plot_embedding",
@@ -135,10 +135,10 @@ describe("buildVectorStoreLitellmParams", () => {
       mongodb_embedding_field: "plot_embedding",
       mongodb_text_field: "plot",
       mongodb_num_candidates: "200",
-      litellm_embedding_model: "text-embedding-ada-002",
+      embrouter_embedding_model: "text-embedding-ada-002",
     };
 
-    expect(buildVectorStoreLitellmParams("mongodb", formValues)).toEqual(expected);
+    expect(buildVectorStoreEmbrouterParams("mongodb", formValues)).toEqual(expected);
   });
 
   it("sends only mongodb fields when an earlier provider left values in the form", () => {
@@ -150,7 +150,7 @@ describe("buildVectorStoreLitellmParams", () => {
       aws_region_name: "us-west-2",
     };
 
-    const params = buildVectorStoreLitellmParams("mongodb", formValues);
+    const params = buildVectorStoreEmbrouterParams("mongodb", formValues);
 
     expect(params).not.toHaveProperty("valkey_host");
     expect(params).not.toHaveProperty("valkey_port");
@@ -159,21 +159,21 @@ describe("buildVectorStoreLitellmParams", () => {
     expect(params).not.toHaveProperty("mongodb_connection_string");
   });
 
-  it("omits a blank mongodb_num_candidates so litellm picks its own candidate count", () => {
-    const params = buildVectorStoreLitellmParams("mongodb", MONGODB_REQUIRED_FORM_VALUES);
+  it("omits a blank mongodb_num_candidates so embrouter picks its own candidate count", () => {
+    const params = buildVectorStoreEmbrouterParams("mongodb", MONGODB_REQUIRED_FORM_VALUES);
 
     expect(params.mongodb_num_candidates).toBeUndefined();
     expect(JSON.parse(JSON.stringify(params))).not.toHaveProperty("mongodb_num_candidates");
   });
 
   it("keeps embedding_model as-is for providers outside the rename set", () => {
-    const params = buildVectorStoreLitellmParams("s3_vectors", {
+    const params = buildVectorStoreEmbrouterParams("s3_vectors", {
       vector_bucket_name: "my-vector-bucket",
       aws_region_name: "us-west-2",
       embedding_model: "text-embedding-3-small",
     });
 
     expect(params.embedding_model).toBe("text-embedding-3-small");
-    expect(params).not.toHaveProperty("litellm_embedding_model");
+    expect(params).not.toHaveProperty("embrouter_embedding_model");
   });
 });

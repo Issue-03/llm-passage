@@ -2,18 +2,18 @@ from typing import Final, Literal
 
 import httpx
 
-import litellm
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObject
-from litellm.llms.custom_httpx.http_handler import (
+import embrouter
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObject
+from embrouter.llms.custom_httpx.http_handler import (
     AsyncHTTPHandler,
     HTTPHandler,
     _get_httpx_client,
     get_async_httpx_client,
 )
-from litellm.llms.vertex_ai.vertex_ai_non_gemini import VertexAIError
-from litellm.llms.vertex_ai.vertex_llm_base import VertexBase
-from litellm.types.llms.vertex_ai import *
-from litellm.types.utils import EmbeddingResponse
+from embrouter.llms.vertex_ai.vertex_ai_non_gemini import VertexAIError
+from embrouter.llms.vertex_ai.vertex_llm_base import VertexBase
+from embrouter.types.llms.vertex_ai import *
+from embrouter.types.utils import EmbeddingResponse
 
 from .types import *
 
@@ -29,7 +29,7 @@ class VertexEmbedding(VertexBase):
         print_verbose,
         model_response: EmbeddingResponse,
         optional_params: dict,
-        logging_obj: LiteLLMLoggingObject,
+        logging_obj: EmbRouterLoggingObject,
         custom_llm_provider: Literal[
             "vertex_ai", "vertex_ai_beta", "gemini"
         ],  # if it's vertex_ai or gemini (google ai studio)
@@ -44,7 +44,7 @@ class VertexEmbedding(VertexBase):
         vertex_credentials: VERTEX_CREDENTIALS_TYPES | None = None,
         gemini_api_key: str | None = None,
         extra_headers: dict | None = None,
-        litellm_params: dict | None = None,
+        embrouter_params: dict | None = None,
     ) -> EmbeddingResponse:
         if aembedding is True:
             return self.async_embedding(
@@ -62,7 +62,7 @@ class VertexEmbedding(VertexBase):
                 vertex_credentials=vertex_credentials,
                 gemini_api_key=gemini_api_key,
                 extra_headers=extra_headers,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
             )
 
         _auth_header, vertex_project = self._ensure_access_token(
@@ -88,11 +88,11 @@ class VertexEmbedding(VertexBase):
         )
         headers: Final = self.set_headers(auth_header=auth_header, extra_headers=extra_headers)
         vertex_request: Final[VertexEmbeddingRequest] = (
-            litellm.vertexAITextEmbeddingConfig.transform_openai_request_to_vertex_embedding_request(
+            embrouter.vertexAITextEmbeddingConfig.transform_openai_request_to_vertex_embedding_request(
                 input=input,
                 optional_params=optional_params,
                 model=model,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
             )
         )
 
@@ -127,7 +127,7 @@ class VertexEmbedding(VertexBase):
         ## LOGGING POST-CALL
         logging_obj.post_call(input=input, api_key=None, original_response=_json_response)
 
-        model_response = litellm.vertexAITextEmbeddingConfig.transform_vertex_response_to_openai(
+        model_response = embrouter.vertexAITextEmbeddingConfig.transform_vertex_response_to_openai(
             response=_json_response, model=model, model_response=model_response
         )
 
@@ -138,7 +138,7 @@ class VertexEmbedding(VertexBase):
         model: str,
         input: list | str,
         model_response: EmbeddingResponse,
-        logging_obj: LiteLLMLoggingObject,
+        logging_obj: EmbRouterLoggingObject,
         optional_params: dict,
         custom_llm_provider: Literal[
             "vertex_ai", "vertex_ai_beta", "gemini"
@@ -152,7 +152,7 @@ class VertexEmbedding(VertexBase):
         gemini_api_key: str | None = None,
         extra_headers: dict | None = None,
         encoding=None,
-        litellm_params: dict | None = None,
+        embrouter_params: dict | None = None,
     ) -> EmbeddingResponse:
         """
         Async embedding implementation
@@ -180,11 +180,11 @@ class VertexEmbedding(VertexBase):
         )
         headers: Final = self.set_headers(auth_header=auth_header, extra_headers=extra_headers)
         vertex_request: Final[VertexEmbeddingRequest] = (
-            litellm.vertexAITextEmbeddingConfig.transform_openai_request_to_vertex_embedding_request(
+            embrouter.vertexAITextEmbeddingConfig.transform_openai_request_to_vertex_embedding_request(
                 input=input,
                 optional_params=optional_params,
                 model=model,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
             )
         )
 
@@ -192,7 +192,7 @@ class VertexEmbedding(VertexBase):
         if timeout:
             _async_client_params["timeout"] = timeout
         if client is None or not isinstance(client, AsyncHTTPHandler):
-            client = get_async_httpx_client(params=_async_client_params, llm_provider=litellm.LlmProviders.VERTEX_AI)
+            client = get_async_httpx_client(params=_async_client_params, llm_provider=embrouter.LlmProviders.VERTEX_AI)
         else:
             client = client
         ## LOGGING
@@ -219,7 +219,7 @@ class VertexEmbedding(VertexBase):
         ## LOGGING POST-CALL
         logging_obj.post_call(input=input, api_key=None, original_response=_json_response)
 
-        model_response = litellm.vertexAITextEmbeddingConfig.transform_vertex_response_to_openai(
+        model_response = embrouter.vertexAITextEmbeddingConfig.transform_vertex_response_to_openai(
             response=_json_response, model=model, model_response=model_response
         )
 

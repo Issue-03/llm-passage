@@ -5,8 +5,8 @@ from urllib.parse import urlparse
 
 import httpx
 
-from litellm._logging import verbose_proxy_logger
-from litellm.constants import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.constants import (
     AZURE_SPEECH_BATCH_MODEL,
     AZURE_SPEECH_BATCH_PATH_PREFIX,
     AZURE_SPEECH_CUSTOM_LLM_PROVIDER,
@@ -18,14 +18,14 @@ from litellm.constants import (
     AZURE_SPEECH_SHORT_AUDIO_PATH_PREFIX,
     AZURE_SPEECH_TICKS_PER_SECOND,
 )
-from litellm.cost_calculator import transcription_cost
-from litellm.litellm_core_utils.audio_utils.utils import calculate_request_duration
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.litellm_core_utils.litellm_logging import (
+from embrouter.cost_calculator import transcription_cost
+from embrouter.embrouter_core_utils.audio_utils.utils import calculate_request_duration
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.embrouter_core_utils.embrouter_logging import (
     get_standard_logging_object_payload,
 )
-from litellm.proxy._types import PassThroughEndpointLoggingTypedDict
-from litellm.types.utils import StandardPassThroughResponseObject
+from embrouter.proxy._types import PassThroughEndpointLoggingTypedDict
+from embrouter.types.utils import StandardPassThroughResponseObject
 
 
 class AzureSpeechPassthroughLoggingHandler:
@@ -122,7 +122,7 @@ class AzureSpeechPassthroughLoggingHandler:
     def azure_speech_passthrough_handler(
         httpx_response: httpx.Response,
         response_body: Mapping[str, object] | Sequence[object] | None,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         url_route: str,
         result: str,
         start_time: datetime,

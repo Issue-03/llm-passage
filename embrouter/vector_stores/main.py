@@ -1,5 +1,5 @@
 """
-LiteLLM SDK Functions for Creating and Searching Vector Stores
+EmbRouter SDK Functions for Creating and Searching Vector Stores
 """
 
 import asyncio
@@ -11,18 +11,18 @@ from typing import TYPE_CHECKING, Final
 
 import httpx
 
-import litellm
-from litellm.constants import request_timeout
-from litellm.litellm_core_utils.get_llm_provider_logic import get_llm_provider
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.base_llm.vector_store.transformation import (
+import embrouter
+from embrouter.constants import request_timeout
+from embrouter.embrouter_core_utils.get_llm_provider_logic import get_llm_provider
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.base_llm.vector_store.transformation import (
     BaseQueryEmbeddingVectorStoreConfig,
     VectorStoreEmbeddingExecutor,
     vector_store_request_metadata,
 )
-from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.vector_stores import (
+from embrouter.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.vector_stores import (
     VectorStoreCreateOptionalRequestParams,
     VectorStoreCreateResponse,
     VectorStoreFileCounts,
@@ -31,11 +31,11 @@ from litellm.types.vector_stores import (
     VectorStoreSearchResponse,
     VectorStoreSearchResult,
 )
-from litellm.utils import ProviderConfigManager, client
-from litellm.vector_stores.utils import VectorStoreRequestUtils
+from embrouter.utils import ProviderConfigManager, client
+from embrouter.vector_stores.utils import VectorStoreRequestUtils
 
 if TYPE_CHECKING:
-    from litellm.router import Router
+    from embrouter.router import Router
 
 ####### ENVIRONMENT VARIABLES ###################
 # Initialize any necessary instances or variables here
@@ -118,7 +118,7 @@ async def acreate(
     extra_query: dict[str, object] | None = None,
     extra_body: dict[str, object] | None = None,
     timeout: float | httpx.Timeout | None = None,
-    # LiteLLM specific params,
+    # EmbRouter specific params,
     custom_llm_provider: str | None = None,
     **kwargs,
 ) -> VectorStoreCreateResponse:
@@ -160,7 +160,7 @@ async def acreate(
 
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -182,7 +182,7 @@ def create(
     extra_query: dict[str, object] | None = None,
     extra_body: dict[str, object] | None = None,
     timeout: float | httpx.Timeout | None = None,
-    # LiteLLM specific params,
+    # EmbRouter specific params,
     custom_llm_provider: str | None = None,
     **kwargs,
 ) -> VectorStoreCreateResponse | Coroutine[object, object, VectorStoreCreateResponse]:
@@ -201,17 +201,17 @@ def create(
     """
     local_vars: Final = locals()
     try:
-        litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.get("litellm_logging_obj")
-        litellm_call_id: Final[str | None] = kwargs.get("litellm_call_id", None)
+        embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.get("embrouter_logging_obj")
+        embrouter_call_id: Final[str | None] = kwargs.get("embrouter_call_id", None)
         _is_async: Final = kwargs.pop("acreate", False) is True
 
         # get llm provider logic
-        litellm_params: Final = GenericLiteLLMParams(**kwargs)
+        embrouter_params: Final = GenericEmbRouterParams(**kwargs)
 
         ## MOCK RESPONSE LOGIC
-        if litellm_params.mock_response and isinstance(litellm_params.mock_response, dict):
+        if embrouter_params.mock_response and isinstance(embrouter_params.mock_response, dict):
             return mock_vector_store_create_response(
-                mock_response=VectorStoreCreateResponse(**litellm_params.mock_response)
+                mock_response=VectorStoreCreateResponse(**embrouter_params.mock_response)
             )
 
         # Default to OpenAI for vector stores
@@ -222,7 +222,7 @@ def create(
             api_type, custom_llm_provider, _, _ = get_llm_provider(
                 model=custom_llm_provider,
                 custom_llm_provider=None,
-                litellm_params=None,
+                embrouter_params=None,
             )
         else:
             api_type = None
@@ -230,7 +230,7 @@ def create(
 
         # get provider config - using vector store custom logger for now
         vector_store_provider_config: Final = ProviderConfigManager.get_provider_vector_stores_config(
-            provider=litellm.LlmProviders(custom_llm_provider),
+            provider=embrouter.LlmProviders(custom_llm_provider),
             api_type=api_type,
         )
 
@@ -245,15 +245,15 @@ def create(
         )
 
         # Pre Call logging
-        litellm_logging_obj.update_from_kwargs(
+        embrouter_logging_obj.update_from_kwargs(
             kwargs=kwargs,
             model=None,
             optional_params={
                 "name": name,
                 **vector_store_create_optional_params,
             },
-            litellm_params={
-                "litellm_call_id": litellm_call_id,
+            embrouter_params={
+                "embrouter_call_id": embrouter_call_id,
             },
             custom_llm_provider=custom_llm_provider,
         )
@@ -262,8 +262,8 @@ def create(
             vector_store_create_optional_params=vector_store_create_optional_params,
             vector_store_provider_config=vector_store_provider_config,
             custom_llm_provider=custom_llm_provider,
-            litellm_params=litellm_params,
-            logging_obj=litellm_logging_obj,
+            embrouter_params=embrouter_params,
+            logging_obj=embrouter_logging_obj,
             extra_headers=extra_headers,
             extra_body=extra_body,
             timeout=timeout or request_timeout,
@@ -273,7 +273,7 @@ def create(
 
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -296,7 +296,7 @@ async def asearch(
     extra_query: dict[str, object] | None = None,
     extra_body: dict[str, object] | None = None,
     timeout: float | httpx.Timeout | None = None,
-    # LiteLLM specific params,
+    # EmbRouter specific params,
     custom_llm_provider: str | None = None,
     router: "Router | None" = None,
     **kwargs,
@@ -348,7 +348,7 @@ async def asearch(
 
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -371,7 +371,7 @@ def search(
     extra_query: dict[str, object] | None = None,
     extra_body: dict[str, object] | None = None,
     timeout: float | httpx.Timeout | None = None,
-    # LiteLLM specific params,
+    # EmbRouter specific params,
     custom_llm_provider: str | None = None,
     router: "Router | None" = None,
     **kwargs,
@@ -397,25 +397,25 @@ def search(
         key: value for key, value in locals().items() if key != "embedding_executor"
     }
     try:
-        litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.get("litellm_logging_obj")
-        litellm_call_id: Final[str | None] = kwargs.get("litellm_call_id", None)
+        embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.get("embrouter_logging_obj")
+        embrouter_call_id: Final[str | None] = kwargs.get("embrouter_call_id", None)
         _is_async: Final = kwargs.pop("asearch", False) is True
         # pull credentials from registry if available
-        if litellm.vector_store_registry is not None and vector_store_id is not None:
+        if embrouter.vector_store_registry is not None and vector_store_id is not None:
             try:
-                registry_credentials = litellm.vector_store_registry.get_credentials_for_vector_store(vector_store_id)
+                registry_credentials = embrouter.vector_store_registry.get_credentials_for_vector_store(vector_store_id)
                 kwargs.update(registry_credentials)
             except Exception:
                 pass
 
         # get llm provider logic
-        litellm_params: Final = GenericLiteLLMParams(vector_store_id=vector_store_id, **kwargs)
+        embrouter_params: Final = GenericEmbRouterParams(vector_store_id=vector_store_id, **kwargs)
 
         ## MOCK RESPONSE LOGIC
-        if litellm_params.mock_response and isinstance(litellm_params.mock_response, (str, builtins.list)):
+        if embrouter_params.mock_response and isinstance(embrouter_params.mock_response, (str, builtins.list)):
             mock_results = None
-            if isinstance(litellm_params.mock_response, builtins.list):
-                mock_results = litellm_params.mock_response
+            if isinstance(embrouter_params.mock_response, builtins.list):
+                mock_results = embrouter_params.mock_response
             return mock_vector_store_search_response(mock_results=mock_results)
 
         # Default to OpenAI for vector stores
@@ -426,7 +426,7 @@ def search(
             api_type, custom_llm_provider, _, _ = get_llm_provider(
                 model=custom_llm_provider,
                 custom_llm_provider=None,
-                litellm_params=None,
+                embrouter_params=None,
             )
         else:
             api_type = None
@@ -434,7 +434,7 @@ def search(
 
         # get provider config - using vector store custom logger for now
         vector_store_provider_config: Final = ProviderConfigManager.get_provider_vector_stores_config(
-            provider=litellm.LlmProviders(custom_llm_provider),
+            provider=embrouter.LlmProviders(custom_llm_provider),
             api_type=api_type,
         )
 
@@ -452,7 +452,7 @@ def search(
         )
 
         # Pre Call logging
-        litellm_logging_obj.update_from_kwargs(
+        embrouter_logging_obj.update_from_kwargs(
             kwargs=kwargs,
             model=api_type,
             optional_params={
@@ -460,10 +460,10 @@ def search(
                 "query": query,
                 **vector_store_search_optional_params,
             },
-            litellm_params={
-                "litellm_call_id": litellm_call_id,
+            embrouter_params={
+                "embrouter_call_id": embrouter_call_id,
                 "vector_store_id": vector_store_id,
-                **litellm_params.model_dump(exclude_none=True),
+                **embrouter_params.model_dump(exclude_none=True),
             },
             custom_llm_provider=custom_llm_provider,
         )
@@ -474,8 +474,8 @@ def search(
             vector_store_search_optional_params=vector_store_search_optional_params,
             vector_store_provider_config=vector_store_provider_config,
             custom_llm_provider=custom_llm_provider,
-            litellm_params=litellm_params,
-            logging_obj=litellm_logging_obj,
+            embrouter_params=embrouter_params,
+            logging_obj=embrouter_logging_obj,
             embedding_executor=embedding_executor,
             extra_headers=extra_headers,
             extra_body=extra_body,
@@ -486,7 +486,7 @@ def search(
 
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -538,7 +538,7 @@ async def aretrieve(
 
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -568,11 +568,11 @@ def retrieve(
     """
     local_vars: Final = locals()
     try:
-        litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.get("litellm_logging_obj")
-        litellm_call_id: Final[str | None] = kwargs.get("litellm_call_id", None)
+        embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.get("embrouter_logging_obj")
+        embrouter_call_id: Final[str | None] = kwargs.get("embrouter_call_id", None)
         _is_async: Final = kwargs.pop("aretrieve", False) is True
 
-        litellm_params: Final = GenericLiteLLMParams(**kwargs)
+        embrouter_params: Final = GenericEmbRouterParams(**kwargs)
 
         if custom_llm_provider is None:
             custom_llm_provider = "openai"
@@ -581,25 +581,25 @@ def retrieve(
             api_type, custom_llm_provider, _, _ = get_llm_provider(
                 model=custom_llm_provider,
                 custom_llm_provider=None,
-                litellm_params=None,
+                embrouter_params=None,
             )
         else:
             api_type = None
             custom_llm_provider = custom_llm_provider
 
         vector_store_provider_config: Final = ProviderConfigManager.get_provider_vector_stores_config(
-            provider=litellm.LlmProviders(custom_llm_provider),
+            provider=embrouter.LlmProviders(custom_llm_provider),
             api_type=api_type,
         )
 
         if vector_store_provider_config is None:
             raise ValueError(f"Vector store retrieve is not supported for {custom_llm_provider}")
 
-        litellm_logging_obj.update_from_kwargs(
+        embrouter_logging_obj.update_from_kwargs(
             kwargs=kwargs,
             model=None,
             optional_params={"vector_store_id": vector_store_id},
-            litellm_params={"litellm_call_id": litellm_call_id},
+            embrouter_params={"embrouter_call_id": embrouter_call_id},
             custom_llm_provider=custom_llm_provider,
         )
 
@@ -607,8 +607,8 @@ def retrieve(
             vector_store_id=vector_store_id,
             vector_store_provider_config=vector_store_provider_config,
             custom_llm_provider=custom_llm_provider,
-            litellm_params=litellm_params,
-            logging_obj=litellm_logging_obj,
+            embrouter_params=embrouter_params,
+            logging_obj=embrouter_logging_obj,
             extra_headers=extra_headers,
             extra_body=extra_body,
             timeout=timeout or request_timeout,
@@ -618,7 +618,7 @@ def retrieve(
 
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -676,7 +676,7 @@ async def alist(
 
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -712,11 +712,11 @@ def list(
     """
     local_vars: Final = locals()
     try:
-        litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.get("litellm_logging_obj")
-        litellm_call_id: Final[str | None] = kwargs.get("litellm_call_id", None)
+        embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.get("embrouter_logging_obj")
+        embrouter_call_id: Final[str | None] = kwargs.get("embrouter_call_id", None)
         _is_async: Final = kwargs.pop("alist", False) is True
 
-        litellm_params: Final = GenericLiteLLMParams(**kwargs)
+        embrouter_params: Final = GenericEmbRouterParams(**kwargs)
 
         if custom_llm_provider is None:
             custom_llm_provider = "openai"
@@ -725,21 +725,21 @@ def list(
             api_type, custom_llm_provider, _, _ = get_llm_provider(
                 model=custom_llm_provider,
                 custom_llm_provider=None,
-                litellm_params=None,
+                embrouter_params=None,
             )
         else:
             api_type = None
             custom_llm_provider = custom_llm_provider
 
         vector_store_provider_config: Final = ProviderConfigManager.get_provider_vector_stores_config(
-            provider=litellm.LlmProviders(custom_llm_provider),
+            provider=embrouter.LlmProviders(custom_llm_provider),
             api_type=api_type,
         )
 
         if vector_store_provider_config is None:
             raise ValueError(f"Vector store list is not supported for {custom_llm_provider}")
 
-        litellm_logging_obj.update_from_kwargs(
+        embrouter_logging_obj.update_from_kwargs(
             kwargs=kwargs,
             model=None,
             optional_params={
@@ -748,7 +748,7 @@ def list(
                 "limit": limit,
                 "order": order,
             },
-            litellm_params={"litellm_call_id": litellm_call_id},
+            embrouter_params={"embrouter_call_id": embrouter_call_id},
             custom_llm_provider=custom_llm_provider,
         )
 
@@ -759,8 +759,8 @@ def list(
             order=order,
             vector_store_provider_config=vector_store_provider_config,
             custom_llm_provider=custom_llm_provider,
-            litellm_params=litellm_params,
-            logging_obj=litellm_logging_obj,
+            embrouter_params=embrouter_params,
+            logging_obj=embrouter_logging_obj,
             extra_headers=extra_headers,
             extra_body=extra_body,
             timeout=timeout or request_timeout,
@@ -770,7 +770,7 @@ def list(
 
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -828,7 +828,7 @@ async def aupdate(
 
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -864,11 +864,11 @@ def update(
     """
     local_vars: Final = locals()
     try:
-        litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.get("litellm_logging_obj")
-        litellm_call_id: Final[str | None] = kwargs.get("litellm_call_id", None)
+        embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.get("embrouter_logging_obj")
+        embrouter_call_id: Final[str | None] = kwargs.get("embrouter_call_id", None)
         _is_async: Final = kwargs.pop("aupdate", False) is True
 
-        litellm_params: Final = GenericLiteLLMParams(**kwargs)
+        embrouter_params: Final = GenericEmbRouterParams(**kwargs)
 
         if custom_llm_provider is None:
             custom_llm_provider = "openai"
@@ -877,14 +877,14 @@ def update(
             api_type, custom_llm_provider, _, _ = get_llm_provider(
                 model=custom_llm_provider,
                 custom_llm_provider=None,
-                litellm_params=None,
+                embrouter_params=None,
             )
         else:
             api_type = None
             custom_llm_provider = custom_llm_provider
 
         vector_store_provider_config: Final = ProviderConfigManager.get_provider_vector_stores_config(
-            provider=litellm.LlmProviders(custom_llm_provider),
+            provider=embrouter.LlmProviders(custom_llm_provider),
             api_type=api_type,
         )
 
@@ -897,7 +897,7 @@ def update(
             VectorStoreRequestUtils.get_requested_vector_store_create_optional_param(local_vars)
         )
 
-        litellm_logging_obj.update_from_kwargs(
+        embrouter_logging_obj.update_from_kwargs(
             kwargs=kwargs,
             model=None,
             optional_params={
@@ -905,7 +905,7 @@ def update(
                 "name": name,
                 **vector_store_update_optional_params,
             },
-            litellm_params={"litellm_call_id": litellm_call_id},
+            embrouter_params={"embrouter_call_id": embrouter_call_id},
             custom_llm_provider=custom_llm_provider,
         )
 
@@ -914,8 +914,8 @@ def update(
             vector_store_update_optional_params=vector_store_update_optional_params,
             vector_store_provider_config=vector_store_provider_config,
             custom_llm_provider=custom_llm_provider,
-            litellm_params=litellm_params,
-            logging_obj=litellm_logging_obj,
+            embrouter_params=embrouter_params,
+            logging_obj=embrouter_logging_obj,
             extra_headers=extra_headers,
             extra_body=extra_body,
             timeout=timeout or request_timeout,
@@ -925,7 +925,7 @@ def update(
 
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -977,7 +977,7 @@ async def adelete(
 
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -1007,11 +1007,11 @@ def delete(
     """
     local_vars: Final = locals()
     try:
-        litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.get("litellm_logging_obj")
-        litellm_call_id: Final[str | None] = kwargs.get("litellm_call_id", None)
+        embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.get("embrouter_logging_obj")
+        embrouter_call_id: Final[str | None] = kwargs.get("embrouter_call_id", None)
         _is_async: Final = kwargs.pop("adelete", False) is True
 
-        litellm_params: Final = GenericLiteLLMParams(**kwargs)
+        embrouter_params: Final = GenericEmbRouterParams(**kwargs)
 
         if custom_llm_provider is None:
             custom_llm_provider = "openai"
@@ -1020,25 +1020,25 @@ def delete(
             api_type, custom_llm_provider, _, _ = get_llm_provider(
                 model=custom_llm_provider,
                 custom_llm_provider=None,
-                litellm_params=None,
+                embrouter_params=None,
             )
         else:
             api_type = None
             custom_llm_provider = custom_llm_provider
 
         vector_store_provider_config: Final = ProviderConfigManager.get_provider_vector_stores_config(
-            provider=litellm.LlmProviders(custom_llm_provider),
+            provider=embrouter.LlmProviders(custom_llm_provider),
             api_type=api_type,
         )
 
         if vector_store_provider_config is None:
             raise ValueError(f"Vector store delete is not supported for {custom_llm_provider}")
 
-        litellm_logging_obj.update_from_kwargs(
+        embrouter_logging_obj.update_from_kwargs(
             kwargs=kwargs,
             model=None,
             optional_params={"vector_store_id": vector_store_id},
-            litellm_params={"litellm_call_id": litellm_call_id},
+            embrouter_params={"embrouter_call_id": embrouter_call_id},
             custom_llm_provider=custom_llm_provider,
         )
 
@@ -1046,8 +1046,8 @@ def delete(
             vector_store_id=vector_store_id,
             vector_store_provider_config=vector_store_provider_config,
             custom_llm_provider=custom_llm_provider,
-            litellm_params=litellm_params,
-            logging_obj=litellm_logging_obj,
+            embrouter_params=embrouter_params,
+            logging_obj=embrouter_logging_obj,
             extra_headers=extra_headers,
             extra_body=extra_body,
             timeout=timeout or request_timeout,
@@ -1057,7 +1057,7 @@ def delete(
 
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=None,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,

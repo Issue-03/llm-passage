@@ -7,11 +7,11 @@ from pathlib import Path
 import httpx
 import pytest
 
-from litellm.llms.fal_ai.image_edit import FalAIImageEditConfig
-from litellm.types.images.main import ImageEditOptionalRequestParams
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import ImageResponse, LlmProviders
-from litellm.utils import ProviderConfigManager
+from embrouter.llms.fal_ai.image_edit import FalAIImageEditConfig
+from embrouter.types.images.main import ImageEditOptionalRequestParams
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import ImageResponse, LlmProviders
+from embrouter.utils import ProviderConfigManager
 
 PNG_BYTES = b"\x89PNG\r\n\x1a\n" + b"\x00" * 16
 
@@ -32,12 +32,12 @@ def test_fal_ai_resolves_to_image_edit_config():
     ],
 )
 def test_get_complete_url_appends_edit_suffix_once(model, expected):
-    assert FalAIImageEditConfig().get_complete_url(model=model, api_base=None, litellm_params={}) == expected
+    assert FalAIImageEditConfig().get_complete_url(model=model, api_base=None, embrouter_params={}) == expected
 
 
 def test_get_complete_url_respects_api_base():
     url = FalAIImageEditConfig().get_complete_url(
-        model="openai/gpt-image-2.5/flare", api_base="https://proxy.internal/", litellm_params={}
+        model="openai/gpt-image-2.5/flare", api_base="https://proxy.internal/", embrouter_params={}
     )
     assert url == "https://proxy.internal/openai/gpt-image-2.5/flare/edit"
 
@@ -75,7 +75,7 @@ def test_transform_request_inlines_local_images_as_data_urls_and_keeps_remote_ur
         prompt="make it blue",
         image=[io.BytesIO(PNG_BYTES), "https://example.com/in.png"],
         image_edit_optional_request_params={"num_images": 1, "mask": io.BytesIO(PNG_BYTES)},
-        litellm_params=GenericLiteLLMParams(),
+        embrouter_params=GenericEmbRouterParams(),
         headers={},
     )
     expected_data_url = "data:image/png;base64," + base64.b64encode(PNG_BYTES).decode()
@@ -112,7 +112,7 @@ def test_transform_request_reads_every_file_types_input(tmp_path, image_factory)
         prompt="make it blue",
         image=image,
         image_edit_optional_request_params={},
-        litellm_params=GenericLiteLLMParams(),
+        embrouter_params=GenericEmbRouterParams(),
         headers={},
     )
     expected_data_url = "data:image/png;base64," + base64.b64encode(PNG_BYTES).decode()
@@ -153,6 +153,6 @@ def test_transform_request_requires_an_image(image):
             prompt="make it blue",
             image=image,
             image_edit_optional_request_params={},
-            litellm_params=GenericLiteLLMParams(),
+            embrouter_params=GenericEmbRouterParams(),
             headers={},
         )

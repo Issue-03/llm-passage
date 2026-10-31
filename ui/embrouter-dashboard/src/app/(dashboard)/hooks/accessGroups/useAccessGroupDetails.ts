@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { getProxyBaseUrl, getGlobalLitellmHeaderName, deriveErrorMessage, handleError } from "@/components/networking";
+import { getProxyBaseUrl, getGlobalEmbrouterHeaderName, deriveErrorMessage, handleError } from "@/components/networking";
 import { all_admin_roles } from "@/utils/roles";
 import useAuthorized from "@/app/(dashboard)/hooks/useAuthorized";
 import { AccessGroupResponse, accessGroupKeys } from "./useAccessGroups";
@@ -13,7 +13,7 @@ const fetchAccessGroupDetails = async (accessToken: string, accessGroupId: strin
   const response = await fetch(url, {
     method: "GET",
     headers: {
-      [getGlobalLitellmHeaderName()]: `Bearer ${accessToken}`,
+      [getGlobalEmbrouterHeaderName()]: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
   });

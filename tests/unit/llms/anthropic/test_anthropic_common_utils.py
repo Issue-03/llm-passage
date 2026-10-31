@@ -41,7 +41,7 @@ FAKE_AUTH_TOKEN = "sk-ant-aut01-fake-auth-token-for-testing-123456789"
     ],
 )
 def test_is_claude_code_one_shot_subagent_request(messages, system, expected):
-    from litellm.llms.anthropic.common_utils import is_claude_code_one_shot_subagent_request
+    from embrouter.llms.anthropic.common_utils import is_claude_code_one_shot_subagent_request
 
     assert (
         is_claude_code_one_shot_subagent_request(
@@ -60,7 +60,7 @@ class TestOptionallyHandleAnthropicOAuth:
     @pytest.mark.parametrize("header_name", ["authorization", "Authorization", "AUTHORIZATION"])
     def test_oauth_token_in_authorization_header(self, header_name):
         """OAuth token in Authorization header should be detected and headers set correctly."""
-        from litellm.llms.anthropic.common_utils import (
+        from embrouter.llms.anthropic.common_utils import (
             optionally_handle_anthropic_oauth,
         )
 
@@ -77,7 +77,7 @@ class TestOptionallyHandleAnthropicOAuth:
     @pytest.mark.parametrize("api_key_header_name", ["x-api-key", "X-Api-Key"])
     def test_oauth_removes_x_api_key_any_casing(self, api_key_header_name):
         """When OAuth wins, a client x-api-key header is removed whatever its casing."""
-        from litellm.llms.anthropic.common_utils import (
+        from embrouter.llms.anthropic.common_utils import (
             optionally_handle_anthropic_oauth,
         )
 
@@ -91,7 +91,7 @@ class TestOptionallyHandleAnthropicOAuth:
 
     def test_oauth_token_in_api_key_directly(self):
         """OAuth token passed as api_key should set Authorization: Bearer header."""
-        from litellm.llms.anthropic.common_utils import (
+        from embrouter.llms.anthropic.common_utils import (
             optionally_handle_anthropic_oauth,
         )
 
@@ -106,7 +106,7 @@ class TestOptionallyHandleAnthropicOAuth:
 
     def test_oauth_removes_existing_x_api_key(self):
         """When OAuth is detected, any existing x-api-key should be removed."""
-        from litellm.llms.anthropic.common_utils import (
+        from embrouter.llms.anthropic.common_utils import (
             optionally_handle_anthropic_oauth,
         )
 
@@ -118,7 +118,7 @@ class TestOptionallyHandleAnthropicOAuth:
 
     def test_regular_api_key_unchanged(self):
         """Regular API keys (non-OAuth) should pass through unmodified."""
-        from litellm.llms.anthropic.common_utils import (
+        from embrouter.llms.anthropic.common_utils import (
             optionally_handle_anthropic_oauth,
         )
 
@@ -132,7 +132,7 @@ class TestOptionallyHandleAnthropicOAuth:
 
     def test_regular_key_in_authorization_header(self):
         """Non-OAuth token in Authorization header should not trigger OAuth handling."""
-        from litellm.llms.anthropic.common_utils import (
+        from embrouter.llms.anthropic.common_utils import (
             optionally_handle_anthropic_oauth,
         )
 
@@ -144,7 +144,7 @@ class TestOptionallyHandleAnthropicOAuth:
 
     def test_none_api_key_no_error(self):
         """None api_key with empty headers should not raise errors."""
-        from litellm.llms.anthropic.common_utils import (
+        from embrouter.llms.anthropic.common_utils import (
             optionally_handle_anthropic_oauth,
         )
 
@@ -160,7 +160,7 @@ class TestGetAnthropicHeaders:
 
     def test_oauth_token_uses_authorization_bearer(self):
         """OAuth token should produce Authorization: Bearer header, not x-api-key."""
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
         config = AnthropicModelInfo()
         headers = config.get_anthropic_headers(
@@ -178,7 +178,7 @@ class TestGetAnthropicHeaders:
 
     def test_regular_key_uses_x_api_key(self):
         """Regular API key should produce x-api-key header, not Authorization."""
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
         config = AnthropicModelInfo()
         headers = config.get_anthropic_headers(
@@ -195,7 +195,7 @@ class TestGetAnthropicHeaders:
 
     def test_custom_api_base_uses_bearer_header(self):
         """Custom api_base and non-standard API key should produce Authorization: Bearer header when opted in."""
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
         config = AnthropicModelInfo()
         headers = config.get_anthropic_headers(
@@ -213,7 +213,7 @@ class TestGetAnthropicHeaders:
 
     def test_custom_api_base_uses_bearer_header_already_starts_with_bearer(self):
         """If the key already starts with Bearer and Bearer opt-in is enabled, use it directly."""
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
         config = AnthropicModelInfo()
         headers = config.get_anthropic_headers(
@@ -231,7 +231,7 @@ class TestGetAnthropicHeaders:
 
     def test_custom_api_base_uses_x_api_key_when_standard_key(self):
         """If the key is standard sk-ant- key, use x-api-key even with custom api_base."""
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
         config = AnthropicModelInfo()
         headers = config.get_anthropic_headers(
@@ -248,7 +248,7 @@ class TestGetAnthropicHeaders:
 
     def test_oauth_includes_standard_headers(self):
         """OAuth path should still include standard Anthropic headers."""
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
         config = AnthropicModelInfo()
         headers = config.get_anthropic_headers(
@@ -269,7 +269,7 @@ class TestValidateEnvironmentOAuth:
 
     def test_oauth_via_authorization_header(self):
         """validate_environment should produce correct headers for OAuth tokens."""
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
         config = AnthropicModelInfo()
         headers = {"authorization": f"Bearer {FAKE_OAUTH_TOKEN}"}
@@ -279,7 +279,7 @@ class TestValidateEnvironmentOAuth:
             model="claude-sonnet-4-5-20250929",
             messages=[{"role": "user", "content": "Hello"}],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             api_key=None,
             api_base=None,
         )
@@ -291,7 +291,7 @@ class TestValidateEnvironmentOAuth:
 
     def test_oauth_via_api_key_param(self):
         """validate_environment with OAuth token as api_key should use Bearer auth."""
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
         config = AnthropicModelInfo()
         headers = {}
@@ -301,7 +301,7 @@ class TestValidateEnvironmentOAuth:
             model="claude-sonnet-4-5-20250929",
             messages=[{"role": "user", "content": "Hello"}],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             api_key=FAKE_OAUTH_TOKEN,
             api_base=None,
         )
@@ -312,7 +312,7 @@ class TestValidateEnvironmentOAuth:
 
     def test_regular_key_via_api_key_param(self):
         """validate_environment with regular API key should use x-api-key."""
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
         config = AnthropicModelInfo()
         headers = {}
@@ -322,7 +322,7 @@ class TestValidateEnvironmentOAuth:
             model="claude-sonnet-4-5-20250929",
             messages=[{"role": "user", "content": "Hello"}],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             api_key=FAKE_REGULAR_KEY,
             api_base=None,
         )
@@ -331,8 +331,8 @@ class TestValidateEnvironmentOAuth:
         assert "authorization" not in updated_headers
 
     def test_custom_api_base_via_param(self):
-        """validate_environment uses Bearer when use_bearer_for_custom_base is set in litellm_params."""
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        """validate_environment uses Bearer when use_bearer_for_custom_base is set in embrouter_params."""
+        from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
         config = AnthropicModelInfo()
         headers = {}
@@ -342,7 +342,7 @@ class TestValidateEnvironmentOAuth:
             model="claude-sonnet-4-5-20250929",
             messages=[{"role": "user", "content": "Hello"}],
             optional_params={},
-            litellm_params={"use_bearer_for_custom_base": True},
+            embrouter_params={"use_bearer_for_custom_base": True},
             api_key="custom-api-key",
             api_base="https://custom-gateway.com",
         )
@@ -350,9 +350,9 @@ class TestValidateEnvironmentOAuth:
         assert updated_headers["authorization"] == "Bearer custom-api-key"
         assert "x-api-key" not in updated_headers
 
-    def test_custom_api_base_via_litellm_params(self):
-        """validate_environment uses Bearer when api_base and use_bearer_for_custom_base are in litellm_params."""
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+    def test_custom_api_base_via_embrouter_params(self):
+        """validate_environment uses Bearer when api_base and use_bearer_for_custom_base are in embrouter_params."""
+        from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
         config = AnthropicModelInfo()
         headers = {}
@@ -362,7 +362,7 @@ class TestValidateEnvironmentOAuth:
             model="claude-sonnet-4-5-20250929",
             messages=[{"role": "user", "content": "Hello"}],
             optional_params={},
-            litellm_params={"api_base": "https://custom-gateway.com", "use_bearer_for_custom_base": True},
+            embrouter_params={"api_base": "https://custom-gateway.com", "use_bearer_for_custom_base": True},
             api_key="custom-api-key",
             api_base=None,
         )
@@ -377,7 +377,7 @@ class TestPassthroughOAuth:
 
     def test_passthrough_oauth_no_x_api_key(self):
         """Passthrough endpoint should not add x-api-key for OAuth tokens."""
-        from litellm.llms.anthropic.pass_through.messages.transformation import (
+        from embrouter.llms.anthropic.pass_through.messages.transformation import (
             AnthropicMessagesConfig,
         )
 
@@ -389,7 +389,7 @@ class TestPassthroughOAuth:
             model="claude-sonnet-4-5-20250929",
             messages=[{"role": "user", "content": "Hello"}],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             api_key=None,
             api_base=None,
         )
@@ -400,7 +400,7 @@ class TestPassthroughOAuth:
 
     def test_passthrough_regular_key_uses_x_api_key(self):
         """Passthrough endpoint should still use x-api-key for regular API keys."""
-        from litellm.llms.anthropic.pass_through.messages.transformation import (
+        from embrouter.llms.anthropic.pass_through.messages.transformation import (
             AnthropicMessagesConfig,
         )
 
@@ -412,7 +412,7 @@ class TestPassthroughOAuth:
             model="claude-sonnet-4-5-20250929",
             messages=[{"role": "user", "content": "Hello"}],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             api_key=FAKE_REGULAR_KEY,
             api_base=None,
         )
@@ -426,21 +426,21 @@ class TestIsAnthropicOAuthKey:
 
     def test_oauth_token_raw(self):
         """Raw OAuth token should be detected."""
-        from litellm.llms.anthropic.common_utils import is_anthropic_oauth_key
+        from embrouter.llms.anthropic.common_utils import is_anthropic_oauth_key
 
         assert is_anthropic_oauth_key("sk-ant-oat01-abc123") is True
         assert is_anthropic_oauth_key("sk-ant-oat02-xyz789") is True
 
     def test_oauth_token_bearer_format(self):
         """Bearer-prefixed OAuth token should be detected."""
-        from litellm.llms.anthropic.common_utils import is_anthropic_oauth_key
+        from embrouter.llms.anthropic.common_utils import is_anthropic_oauth_key
 
         assert is_anthropic_oauth_key("Bearer sk-ant-oat01-abc123") is True
         assert is_anthropic_oauth_key("Bearer sk-ant-oat02-xyz789") is True
 
     def test_non_oauth_tokens(self):
         """Non-OAuth values should return False."""
-        from litellm.llms.anthropic.common_utils import is_anthropic_oauth_key
+        from embrouter.llms.anthropic.common_utils import is_anthropic_oauth_key
 
         assert is_anthropic_oauth_key(None) is False
         assert is_anthropic_oauth_key("") is False
@@ -449,14 +449,14 @@ class TestIsAnthropicOAuthKey:
 
     def test_case_sensitivity(self):
         """OAuth prefix matching should be case-sensitive."""
-        from litellm.llms.anthropic.common_utils import is_anthropic_oauth_key
+        from embrouter.llms.anthropic.common_utils import is_anthropic_oauth_key
 
         assert is_anthropic_oauth_key("sk-ant-OAT01-abc123") is False
         assert is_anthropic_oauth_key("SK-ANT-OAT01-abc123") is False
 
     def test_just_prefix(self):
         """Just the prefix with no suffix should still match."""
-        from litellm.llms.anthropic.common_utils import is_anthropic_oauth_key
+        from embrouter.llms.anthropic.common_utils import is_anthropic_oauth_key
 
         assert is_anthropic_oauth_key("sk-ant-oat") is True
 
@@ -468,7 +468,7 @@ class TestProxyOAuthHeaderForwarding:
         """clean_headers should preserve Authorization header with OAuth tokens."""
         from starlette.datastructures import Headers
 
-        from litellm.proxy.litellm_pre_call_utils import clean_headers
+        from embrouter.proxy.embrouter_pre_call_utils import clean_headers
 
         raw_headers = Headers(
             raw=[
@@ -486,7 +486,7 @@ class TestProxyOAuthHeaderForwarding:
         """clean_headers should strip Authorization header with regular API keys."""
         from starlette.datastructures import Headers
 
-        from litellm.proxy.litellm_pre_call_utils import clean_headers
+        from embrouter.proxy.embrouter_pre_call_utils import clean_headers
 
         raw_headers = Headers(
             raw=[
@@ -503,7 +503,7 @@ class TestProxyOAuthHeaderForwarding:
         """clean_headers should preserve x-api-key when forward_llm_provider_auth_headers=True."""
         from starlette.datastructures import Headers
 
-        from litellm.proxy.litellm_pre_call_utils import clean_headers
+        from embrouter.proxy.embrouter_pre_call_utils import clean_headers
 
         raw_headers = Headers(
             raw=[
@@ -525,7 +525,7 @@ class TestProxyOAuthHeaderForwarding:
         """clean_headers should strip x-api-key when forward_llm_provider_auth_headers=False (default)."""
         from starlette.datastructures import Headers
 
-        from litellm.proxy.litellm_pre_call_utils import clean_headers
+        from embrouter.proxy.embrouter_pre_call_utils import clean_headers
 
         raw_headers = Headers(
             raw=[
@@ -543,7 +543,7 @@ class TestProxyOAuthHeaderForwarding:
         """clean_headers should preserve x-goog-api-key when forward_llm_provider_auth_headers=True."""
         from starlette.datastructures import Headers
 
-        from litellm.proxy.litellm_pre_call_utils import clean_headers
+        from embrouter.proxy.embrouter_pre_call_utils import clean_headers
 
         raw_headers = Headers(
             raw=[
@@ -561,7 +561,7 @@ class TestProxyOAuthHeaderForwarding:
         """clean_headers should always preserve OAuth tokens regardless of forward_llm_provider_auth_headers."""
         from starlette.datastructures import Headers
 
-        from litellm.proxy.litellm_pre_call_utils import clean_headers
+        from embrouter.proxy.embrouter_pre_call_utils import clean_headers
 
         raw_headers = Headers(
             raw=[
@@ -583,7 +583,7 @@ class TestProxyOAuthHeaderForwarding:
     def test_add_provider_specific_headers_forwards_oauth(self):
         """add_provider_specific_headers_to_request should forward OAuth Authorization
         as a ProviderSpecificHeader scoped to Anthropic and nothing else."""
-        from litellm.proxy.litellm_pre_call_utils import (
+        from embrouter.proxy.embrouter_pre_call_utils import (
             add_provider_specific_headers_to_request,
         )
 
@@ -603,7 +603,7 @@ class TestProxyOAuthHeaderForwarding:
     def test_add_provider_specific_headers_ignores_non_oauth(self):
         """add_provider_specific_headers_to_request should not create a
         ProviderSpecificHeader for non-OAuth Authorization headers."""
-        from litellm.proxy.litellm_pre_call_utils import (
+        from embrouter.proxy.embrouter_pre_call_utils import (
             add_provider_specific_headers_to_request,
         )
 
@@ -620,10 +620,10 @@ class TestProxyOAuthHeaderForwarding:
     def test_add_provider_specific_headers_combines_anthropic_and_oauth(self):
         """When both anthropic-beta and OAuth Authorization are present, both
         reach Anthropic."""
-        from litellm.litellm_core_utils.get_provider_specific_headers import (
+        from embrouter.embrouter_core_utils.get_provider_specific_headers import (
             ProviderSpecificHeaderUtils,
         )
-        from litellm.proxy.litellm_pre_call_utils import (
+        from embrouter.proxy.embrouter_pre_call_utils import (
             add_provider_specific_headers_to_request,
         )
 
@@ -644,15 +644,15 @@ class TestProxyOAuthHeaderForwarding:
         assert anthropic_headers["authorization"] == f"Bearer {FAKE_OAUTH_TOKEN}"
         assert anthropic_headers["anthropic-beta"] == "oauth-2025-04-20"
 
-    def test_clean_headers_forwards_x_api_key_when_authenticated_with_litellm_key(self):
-        """clean_headers should forward x-api-key when user authenticated with x-litellm-api-key and forward_llm_provider_auth_headers=True."""
+    def test_clean_headers_forwards_x_api_key_when_authenticated_with_embrouter_key(self):
+        """clean_headers should forward x-api-key when user authenticated with x-embrouter-api-key and forward_llm_provider_auth_headers=True."""
         from starlette.datastructures import Headers
 
-        from litellm.proxy.litellm_pre_call_utils import clean_headers
+        from embrouter.proxy.embrouter_pre_call_utils import clean_headers
 
         raw_headers = Headers(
             raw=[
-                (b"x-litellm-api-key", b"sk-litellm-proxy-key"),
+                (b"x-embrouter-api-key", b"sk-embrouter-proxy-key"),
                 (b"x-api-key", b"sk-ant-api03-client-key"),
                 (b"content-type", b"application/json"),
             ]
@@ -660,31 +660,31 @@ class TestProxyOAuthHeaderForwarding:
         cleaned = clean_headers(
             raw_headers,
             forward_llm_provider_auth_headers=True,
-            authenticated_with_header="x-litellm-api-key",
+            authenticated_with_header="x-embrouter-api-key",
         )
 
         # x-api-key should be forwarded (it's a provider key, not used for auth)
         assert "x-api-key" in cleaned
         assert cleaned["x-api-key"] == "sk-ant-api03-client-key"
-        # x-litellm-api-key should be excluded (special header)
-        assert "x-litellm-api-key" not in cleaned
+        # x-embrouter-api-key should be excluded (special header)
+        assert "x-embrouter-api-key" not in cleaned
         assert cleaned["content-type"] == "application/json"
 
     def test_clean_headers_excludes_x_api_key_when_used_for_auth(self):
-        """clean_headers should exclude x-api-key when it was used for LiteLLM authentication."""
+        """clean_headers should exclude x-api-key when it was used for EmbRouter authentication."""
         from starlette.datastructures import Headers
 
-        from litellm.proxy.litellm_pre_call_utils import clean_headers
+        from embrouter.proxy.embrouter_pre_call_utils import clean_headers
 
         raw_headers = Headers(
             raw=[
-                (b"x-api-key", b"sk-litellm-proxy-key"),
+                (b"x-api-key", b"sk-embrouter-proxy-key"),
                 (b"content-type", b"application/json"),
             ]
         )
         cleaned = clean_headers(raw_headers, authenticated_with_header="x-api-key")
 
-        # x-api-key should be excluded (was used for LiteLLM auth)
+        # x-api-key should be excluded (was used for EmbRouter auth)
         assert "x-api-key" not in cleaned
         assert cleaned["content-type"] == "application/json"
 
@@ -694,11 +694,11 @@ class TestProxyOAuthHeaderForwarding:
         """clean_headers should forward x-api-key when user authenticated with Authorization header and forward_llm_provider_auth_headers=True."""
         from starlette.datastructures import Headers
 
-        from litellm.proxy.litellm_pre_call_utils import clean_headers
+        from embrouter.proxy.embrouter_pre_call_utils import clean_headers
 
         raw_headers = Headers(
             raw=[
-                (b"authorization", b"Bearer sk-litellm-proxy-key"),
+                (b"authorization", b"Bearer sk-embrouter-proxy-key"),
                 (b"x-api-key", b"sk-ant-api03-client-key"),
                 (b"content-type", b"application/json"),
             ]
@@ -720,7 +720,7 @@ class TestProxyOAuthHeaderForwarding:
         """clean_headers should exclude x-api-key when authenticated_with_header is None."""
         from starlette.datastructures import Headers
 
-        from litellm.proxy.litellm_pre_call_utils import clean_headers
+        from embrouter.proxy.embrouter_pre_call_utils import clean_headers
 
         raw_headers = Headers(
             raw=[
@@ -734,18 +734,18 @@ class TestProxyOAuthHeaderForwarding:
         assert "x-api-key" not in cleaned
         assert cleaned["content-type"] == "application/json"
 
-    def test_clean_headers_forwards_x_api_key_with_forward_flag_and_litellm_auth(
+    def test_clean_headers_forwards_x_api_key_with_forward_flag_and_embrouter_auth(
         self,
     ):
         """clean_headers should forward x-api-key when both forward_llm_provider_auth_headers=True
         and authenticated_with_header indicates different header was used for auth."""
         from starlette.datastructures import Headers
 
-        from litellm.proxy.litellm_pre_call_utils import clean_headers
+        from embrouter.proxy.embrouter_pre_call_utils import clean_headers
 
         raw_headers = Headers(
             raw=[
-                (b"x-litellm-api-key", b"sk-litellm-proxy-key"),
+                (b"x-embrouter-api-key", b"sk-embrouter-proxy-key"),
                 (b"x-api-key", b"sk-ant-api03-client-key"),
                 (b"x-goog-api-key", b"google-key-123"),
                 (b"content-type", b"application/json"),
@@ -754,7 +754,7 @@ class TestProxyOAuthHeaderForwarding:
         cleaned = clean_headers(
             raw_headers,
             forward_llm_provider_auth_headers=True,
-            authenticated_with_header="x-litellm-api-key",
+            authenticated_with_header="x-embrouter-api-key",
         )
 
         # x-api-key should be forwarded (provider key, not used for auth)
@@ -763,31 +763,31 @@ class TestProxyOAuthHeaderForwarding:
         # x-goog-api-key should also be forwarded (forward flag is True)
         assert "x-goog-api-key" in cleaned
         assert cleaned["x-goog-api-key"] == "google-key-123"
-        # x-litellm-api-key should be excluded (special header)
-        assert "x-litellm-api-key" not in cleaned
+        # x-embrouter-api-key should be excluded (special header)
+        assert "x-embrouter-api-key" not in cleaned
         assert cleaned["content-type"] == "application/json"
 
-    def test_clean_headers_authorization_not_forwarded_when_used_for_litellm_auth(
+    def test_clean_headers_authorization_not_forwarded_when_used_for_embrouter_auth(
         self,
     ):
-        """Authorization Bearer (LiteLLM key) must never be forwarded to the LLM provider.
+        """Authorization Bearer (EmbRouter key) must never be forwarded to the LLM provider.
 
-        When a user sends their LiteLLM key as 'Authorization: Bearer sk-1234' and
+        When a user sends their EmbRouter key as 'Authorization: Bearer sk-1234' and
         forward_llm_provider_auth_headers=True, the Authorization header must be stripped
         — not sent to Anthropic as if it were an Anthropic API key.
         """
         from starlette.datastructures import Headers
 
-        from litellm.proxy.litellm_pre_call_utils import clean_headers
+        from embrouter.proxy.embrouter_pre_call_utils import clean_headers
 
         raw_headers = Headers(
             raw=[
-                (b"authorization", b"Bearer sk-1234-litellm-proxy-key"),
+                (b"authorization", b"Bearer sk-1234-embrouter-proxy-key"),
                 (b"x-api-key", b"sk-ant-api03-real-anthropic-key"),
                 (b"content-type", b"application/json"),
             ]
         )
-        # Authorization was the header used for LiteLLM auth
+        # Authorization was the header used for EmbRouter auth
         cleaned = clean_headers(
             raw_headers,
             forward_llm_provider_auth_headers=True,
@@ -802,40 +802,40 @@ class TestProxyOAuthHeaderForwarding:
         assert cleaned["x-api-key"] == "sk-ant-api03-real-anthropic-key"
         assert cleaned["content-type"] == "application/json"
 
-    def test_clean_headers_oauth_authorization_forwarded_when_not_used_for_litellm_auth(
+    def test_clean_headers_oauth_authorization_forwarded_when_not_used_for_embrouter_auth(
         self,
     ):
-        """OAuth Authorization header IS forwarded when x-litellm-api-key was used for proxy auth."""
+        """OAuth Authorization header IS forwarded when x-embrouter-api-key was used for proxy auth."""
 
         from starlette.datastructures import Headers
 
-        from litellm.proxy.litellm_pre_call_utils import clean_headers
+        from embrouter.proxy.embrouter_pre_call_utils import clean_headers
 
         oauth_token = "Bearer claude-gODtUFO8RoSnClWTtHKFJg"
 
         raw_headers = Headers(
             raw=[
-                (b"x-litellm-api-key", b"sk-litellm-proxy-key"),
+                (b"x-embrouter-api-key", b"sk-embrouter-proxy-key"),
                 (b"authorization", oauth_token.encode()),
                 (b"content-type", b"application/json"),
             ]
         )
-        # x-litellm-api-key was used for LiteLLM auth; Authorization carries the Anthropic OAuth token
+        # x-embrouter-api-key was used for EmbRouter auth; Authorization carries the Anthropic OAuth token
         with patch(
-            "litellm.llms.anthropic.common_utils.is_anthropic_oauth_key",
+            "embrouter.llms.anthropic.common_utils.is_anthropic_oauth_key",
             return_value=True,
         ):
             cleaned = clean_headers(
                 raw_headers,
                 forward_llm_provider_auth_headers=True,
-                authenticated_with_header="x-litellm-api-key",
+                authenticated_with_header="x-embrouter-api-key",
             )
 
         # OAuth Authorization should be forwarded (not used for proxy auth)
         assert "authorization" in cleaned
         assert cleaned["authorization"] == oauth_token
         # Proxy key must be stripped
-        assert "x-litellm-api-key" not in cleaned
+        assert "x-embrouter-api-key" not in cleaned
 
 
 class TestGetAnthropicHeadersWithAuthToken:
@@ -843,7 +843,7 @@ class TestGetAnthropicHeadersWithAuthToken:
 
     def test_auth_token_uses_bearer_header(self):
         """auth_token should produce Authorization: Bearer header."""
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
         config = AnthropicModelInfo()
         headers = config.get_anthropic_headers(
@@ -862,7 +862,7 @@ class TestGetAnthropicHeadersWithAuthToken:
 
     def test_auth_token_includes_standard_headers(self):
         """auth_token path should include standard Anthropic headers."""
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
         config = AnthropicModelInfo()
         headers = config.get_anthropic_headers(
@@ -880,7 +880,7 @@ class TestGetAnthropicHeadersWithAuthToken:
 
     def test_api_key_takes_precedence_over_auth_token(self):
         """When both api_key and auth_token are provided, api_key wins."""
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
         config = AnthropicModelInfo()
         headers = config.get_anthropic_headers(
@@ -903,7 +903,7 @@ class TestValidateEnvironmentAuthToken:
         """validate_environment should use Bearer auth when only ANTHROPIC_AUTH_TOKEN is set."""
         from unittest.mock import patch as mock_patch
 
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
         config = AnthropicModelInfo()
         with mock_patch.dict(
@@ -916,7 +916,7 @@ class TestValidateEnvironmentAuthToken:
                 model="claude-sonnet-4-5-20250929",
                 messages=[{"role": "user", "content": "Hello"}],
                 optional_params={},
-                litellm_params={},
+                embrouter_params={},
                 api_key=None,
                 api_base=None,
             )
@@ -929,7 +929,7 @@ class TestValidateEnvironmentAuthToken:
         """validate_environment should prefer explicit api_key over ANTHROPIC_AUTH_TOKEN."""
         from unittest.mock import patch as mock_patch
 
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
         config = AnthropicModelInfo()
         with mock_patch.dict(
@@ -942,7 +942,7 @@ class TestValidateEnvironmentAuthToken:
                 model="claude-sonnet-4-5-20250929",
                 messages=[{"role": "user", "content": "Hello"}],
                 optional_params={},
-                litellm_params={},
+                embrouter_params={},
                 api_key=FAKE_REGULAR_KEY,
                 api_base=None,
             )
@@ -956,7 +956,7 @@ class TestValidateEnvironmentAuthToken:
 
         import pytest
 
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
         config = AnthropicModelInfo()
         with mock_patch.dict("os.environ", {}, clear=True):
@@ -966,7 +966,7 @@ class TestValidateEnvironmentAuthToken:
                     model="claude-sonnet-4-5-20250929",
                     messages=[{"role": "user", "content": "Hello"}],
                     optional_params={},
-                    litellm_params={},
+                    embrouter_params={},
                     api_key=None,
                     api_base=None,
                 )
@@ -975,7 +975,7 @@ class TestValidateEnvironmentAuthToken:
         """validate_environment should resolve ANTHROPIC_API_KEY from env when api_key param is None."""
         from unittest.mock import patch as mock_patch
 
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
         config = AnthropicModelInfo()
         with mock_patch.dict(
@@ -988,7 +988,7 @@ class TestValidateEnvironmentAuthToken:
                 model="claude-sonnet-4-5-20250929",
                 messages=[{"role": "user", "content": "Hello"}],
                 optional_params={},
-                litellm_params={},
+                embrouter_params={},
                 api_key=None,
                 api_base=None,
             )
@@ -1004,7 +1004,7 @@ class TestGetAuthToken:
         """get_auth_token returns the ANTHROPIC_AUTH_TOKEN env var value."""
         from unittest.mock import patch as mock_patch
 
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
         with mock_patch.dict("os.environ", {"ANTHROPIC_AUTH_TOKEN": FAKE_AUTH_TOKEN}, clear=True):
             assert AnthropicModelInfo.get_auth_token() == FAKE_AUTH_TOKEN
@@ -1013,14 +1013,14 @@ class TestGetAuthToken:
         """get_auth_token returns None when ANTHROPIC_AUTH_TOKEN is not set."""
         from unittest.mock import patch as mock_patch
 
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
         with mock_patch.dict("os.environ", {}, clear=True):
             assert AnthropicModelInfo.get_auth_token() is None
 
     def test_explicit_param_takes_precedence(self):
         """Explicit auth_token param takes precedence over env var."""
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
         explicit_token = "sk-ant-aut01-explicit-token-override-123456789"
         assert AnthropicModelInfo.get_auth_token(explicit_token) == explicit_token
@@ -1031,7 +1031,7 @@ class TestGetAuthHeader:
 
     def test_returns_x_api_key_when_api_key_provided(self):
         """Explicit api_key param should return x-api-key header."""
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
         result = AnthropicModelInfo.get_auth_header(api_key=FAKE_REGULAR_KEY)
         assert result == {"x-api-key": FAKE_REGULAR_KEY}
@@ -1040,7 +1040,7 @@ class TestGetAuthHeader:
         """ANTHROPIC_API_KEY env var should return x-api-key header."""
         from unittest.mock import patch as mock_patch
 
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
         with mock_patch.dict(
             "os.environ",
@@ -1054,7 +1054,7 @@ class TestGetAuthHeader:
         """ANTHROPIC_AUTH_TOKEN env var should return Authorization: Bearer header."""
         from unittest.mock import patch as mock_patch
 
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
         with mock_patch.dict(
             "os.environ",
@@ -1068,7 +1068,7 @@ class TestGetAuthHeader:
         """ANTHROPIC_API_KEY should take precedence over ANTHROPIC_AUTH_TOKEN."""
         from unittest.mock import patch as mock_patch
 
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
         with mock_patch.dict(
             "os.environ",
@@ -1085,7 +1085,7 @@ class TestGetAuthHeader:
         """Explicit api_key param should override ANTHROPIC_AUTH_TOKEN env var."""
         from unittest.mock import patch as mock_patch
 
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
         with mock_patch.dict(
             "os.environ",
@@ -1099,7 +1099,7 @@ class TestGetAuthHeader:
         """Should return None when neither api_key nor auth_token is available."""
         from unittest.mock import patch as mock_patch
 
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
         with mock_patch.dict("os.environ", {}, clear=True):
             result = AnthropicModelInfo.get_auth_header()
@@ -1107,7 +1107,7 @@ class TestGetAuthHeader:
 
     def test_oauth_token_uses_bearer_not_x_api_key(self):
         """OAuth token (sk-ant-oat*) should return Authorization: Bearer, not x-api-key."""
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
         result = AnthropicModelInfo.get_auth_header(api_key=FAKE_OAUTH_TOKEN)
         assert result == {"authorization": f"Bearer {FAKE_OAUTH_TOKEN}"}
@@ -1116,7 +1116,7 @@ class TestGetAuthHeader:
         """OAuth token in ANTHROPIC_API_KEY env var should return Authorization: Bearer."""
         from unittest.mock import patch as mock_patch
 
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
         with mock_patch.dict(
             "os.environ",
@@ -1128,7 +1128,7 @@ class TestGetAuthHeader:
 
     def test_custom_api_base_get_auth_header_uses_bearer(self):
         """Non-standard API key and custom api_base returns Bearer when use_bearer_for_custom_base=True."""
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
         result = AnthropicModelInfo.get_auth_header(
             api_key="my-custom-key", api_base="https://custom-gateway.com", use_bearer_for_custom_base=True
@@ -1137,7 +1137,7 @@ class TestGetAuthHeader:
 
     def test_custom_api_base_get_auth_header_uses_x_api_key_when_standard(self):
         """Standard sk-ant- key with custom api_base should still return x-api-key."""
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
         result = AnthropicModelInfo.get_auth_header(api_key=FAKE_REGULAR_KEY, api_base="https://custom-gateway.com")
         assert result == {"x-api-key": FAKE_REGULAR_KEY}
@@ -1148,7 +1148,7 @@ class TestGetApiBaseFallbackChain:
 
     def test_explicit_param_takes_precedence(self):
         """Explicit api_base param takes precedence over all env vars."""
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
         assert AnthropicModelInfo.get_api_base("https://explicit.example.com") == "https://explicit.example.com"
 
@@ -1156,7 +1156,7 @@ class TestGetApiBaseFallbackChain:
         """get_api_base returns the default Anthropic API base when no env vars are set."""
         from unittest.mock import patch as mock_patch
 
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
         with mock_patch.dict("os.environ", {}, clear=True):
             assert AnthropicModelInfo.get_api_base() == "https://api.anthropic.com"
@@ -1165,7 +1165,7 @@ class TestGetApiBaseFallbackChain:
         """ANTHROPIC_API_BASE takes precedence over ANTHROPIC_BASE_URL."""
         from unittest.mock import patch as mock_patch
 
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
         with mock_patch.dict(
             "os.environ",
@@ -1181,7 +1181,7 @@ class TestGetApiBaseFallbackChain:
         """get_api_base falls back to ANTHROPIC_BASE_URL when ANTHROPIC_API_BASE is not set."""
         from unittest.mock import patch as mock_patch
 
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
         with mock_patch.dict(
             "os.environ",
@@ -1198,7 +1198,7 @@ class TestPassthroughAuthToken:
         """Passthrough endpoint should use Bearer auth when only ANTHROPIC_AUTH_TOKEN is set."""
         from unittest.mock import patch as mock_patch
 
-        from litellm.llms.anthropic.pass_through.messages.transformation import (
+        from embrouter.llms.anthropic.pass_through.messages.transformation import (
             AnthropicMessagesConfig,
         )
 
@@ -1209,7 +1209,7 @@ class TestPassthroughAuthToken:
                 model="claude-sonnet-4-5-20250929",
                 messages=[{"role": "user", "content": "Hello"}],
                 optional_params={},
-                litellm_params={},
+                embrouter_params={},
                 api_key=None,
                 api_base=None,
             )
@@ -1222,7 +1222,7 @@ class TestPassthroughAuthToken:
         """Passthrough endpoint should prefer ANTHROPIC_API_KEY over ANTHROPIC_AUTH_TOKEN."""
         from unittest.mock import patch as mock_patch
 
-        from litellm.llms.anthropic.pass_through.messages.transformation import (
+        from embrouter.llms.anthropic.pass_through.messages.transformation import (
             AnthropicMessagesConfig,
         )
 
@@ -1240,7 +1240,7 @@ class TestPassthroughAuthToken:
                 model="claude-sonnet-4-5-20250929",
                 messages=[{"role": "user", "content": "Hello"}],
                 optional_params={},
-                litellm_params={},
+                embrouter_params={},
                 api_key=None,
                 api_base=None,
             )
@@ -1252,20 +1252,20 @@ class TestPassthroughAuthToken:
         """Passthrough endpoint should raise locally instead of forwarding an unauthenticated request."""
         from unittest.mock import patch as mock_patch
 
-        import litellm
-        from litellm.llms.anthropic.pass_through.messages.transformation import (
+        import embrouter
+        from embrouter.llms.anthropic.pass_through.messages.transformation import (
             AnthropicMessagesConfig,
         )
 
         config = AnthropicMessagesConfig()
         with mock_patch.dict("os.environ", {}, clear=True):
-            with pytest.raises(litellm.AuthenticationError, match="Missing Anthropic API Key"):
+            with pytest.raises(embrouter.AuthenticationError, match="Missing Anthropic API Key"):
                 config.validate_anthropic_messages_environment(
                     headers={},
                     model="claude-sonnet-4-5-20250929",
                     messages=[{"role": "user", "content": "Hello"}],
                     optional_params={},
-                    litellm_params={},
+                    embrouter_params={},
                     api_key=None,
                     api_base=None,
                 )
@@ -1275,7 +1275,7 @@ class TestPassthroughAuthToken:
         """A client-forwarded x-api-key header, whatever its casing, should satisfy validation without env credentials."""
         from unittest.mock import patch as mock_patch
 
-        from litellm.llms.anthropic.pass_through.messages.transformation import (
+        from embrouter.llms.anthropic.pass_through.messages.transformation import (
             AnthropicMessagesConfig,
         )
 
@@ -1286,7 +1286,7 @@ class TestPassthroughAuthToken:
                 model="claude-sonnet-4-5-20250929",
                 messages=[{"role": "user", "content": "Hello"}],
                 optional_params={},
-                litellm_params={},
+                embrouter_params={},
                 api_key=None,
                 api_base=None,
             )
@@ -1298,7 +1298,7 @@ class TestPassthroughAuthToken:
         """get_complete_url should use ANTHROPIC_BASE_URL when api_base is None."""
         from unittest.mock import patch as mock_patch
 
-        from litellm.llms.anthropic.pass_through.messages.transformation import (
+        from embrouter.llms.anthropic.pass_through.messages.transformation import (
             AnthropicMessagesConfig,
         )
 
@@ -1313,7 +1313,7 @@ class TestPassthroughAuthToken:
                 api_key=FAKE_REGULAR_KEY,
                 model="claude-sonnet-4-5-20250929",
                 optional_params={},
-                litellm_params={},
+                embrouter_params={},
             )
 
         assert url == "https://custom.example.com/v1/messages"
@@ -1324,7 +1324,7 @@ class TestAnthropicThinkingSignatureSelfHeal:
     invalid encrypted signatures, and blocks with empty thinking text."""
 
     def test_is_anthropic_invalid_thinking_block_error_positive(self):
-        from litellm.llms.anthropic.common_utils import (
+        from embrouter.llms.anthropic.common_utils import (
             is_anthropic_invalid_thinking_block_error,
         )
 
@@ -1336,7 +1336,7 @@ class TestAnthropicThinkingSignatureSelfHeal:
         assert is_anthropic_invalid_thinking_block_error(raw) is True
 
     def test_is_anthropic_invalid_thinking_block_error_positive_bedrock(self):
-        from litellm.llms.anthropic.common_utils import (
+        from embrouter.llms.anthropic.common_utils import (
             is_anthropic_invalid_thinking_block_error,
         )
 
@@ -1345,7 +1345,7 @@ class TestAnthropicThinkingSignatureSelfHeal:
         assert is_anthropic_invalid_thinking_block_error(raw) is True
 
     def test_is_anthropic_invalid_thinking_block_error_positive_vertex(self):
-        from litellm.llms.anthropic.common_utils import (
+        from embrouter.llms.anthropic.common_utils import (
             is_anthropic_invalid_thinking_block_error,
         )
 
@@ -1353,7 +1353,7 @@ class TestAnthropicThinkingSignatureSelfHeal:
         assert is_anthropic_invalid_thinking_block_error(raw) is True
 
     def test_is_anthropic_invalid_thinking_block_error_negative(self):
-        from litellm.llms.anthropic.common_utils import (
+        from embrouter.llms.anthropic.common_utils import (
             is_anthropic_invalid_thinking_block_error,
         )
 
@@ -1368,7 +1368,7 @@ class TestAnthropicThinkingSignatureSelfHeal:
         Anthropic surface with no reasoning text) 400s with a message that names
         no signature, so the pre-rename matcher missed it and the strip-and-retry
         never fired. Raw string captured live on 2026-08-27."""
-        from litellm.llms.anthropic.common_utils import (
+        from embrouter.llms.anthropic.common_utils import (
             is_anthropic_invalid_thinking_block_error,
         )
 
@@ -1380,7 +1380,7 @@ class TestAnthropicThinkingSignatureSelfHeal:
         assert is_anthropic_invalid_thinking_block_error(raw) is True
 
     def test_is_empty_thinking_block(self):
-        from litellm.llms.anthropic.common_utils import is_empty_thinking_block
+        from embrouter.llms.anthropic.common_utils import is_empty_thinking_block
 
         assert is_empty_thinking_block({"type": "thinking", "thinking": ""}) is True
         assert is_empty_thinking_block({"type": "thinking", "thinking": " \n\t "}) is True
@@ -1397,7 +1397,7 @@ class TestAnthropicThinkingSignatureSelfHeal:
         Converse adaptive thinking emits empty text with only a signature, and
         the client needs it to replay reasoning in tool-use turns); only an
         empty block with nothing to preserve is droppable."""
-        from litellm.llms.anthropic.common_utils import is_empty_unsigned_thinking_block
+        from embrouter.llms.anthropic.common_utils import is_empty_unsigned_thinking_block
 
         assert is_empty_unsigned_thinking_block({"type": "thinking", "thinking": ""}) is True
         assert is_empty_unsigned_thinking_block({"type": "thinking", "thinking": " \n\t "}) is True
@@ -1414,7 +1414,7 @@ class TestAnthropicThinkingSignatureSelfHeal:
         empty (even signed) thinking block keeps its tool_use blocks and loses
         the poison; whitespace-only counts as empty; a non-empty thinking block
         and redacted_thinking are untouched."""
-        from litellm.llms.anthropic.common_utils import (
+        from embrouter.llms.anthropic.common_utils import (
             strip_empty_content_blocks_from_anthropic_messages,
         )
 
@@ -1443,7 +1443,7 @@ class TestAnthropicThinkingSignatureSelfHeal:
         assert len(msgs[1]["content"]) == 2
 
     def test_strip_thinking_blocks_from_anthropic_messages(self):
-        from litellm.llms.anthropic.common_utils import (
+        from embrouter.llms.anthropic.common_utils import (
             strip_thinking_blocks_from_anthropic_messages,
         )
 
@@ -1465,7 +1465,7 @@ class TestAnthropicThinkingSignatureSelfHeal:
         assert messages[1]["content"][0]["type"] == "thinking"
 
     def test_strip_thinking_blocks_drops_message_when_only_thinking_blocks(self):
-        from litellm.llms.anthropic.common_utils import (
+        from embrouter.llms.anthropic.common_utils import (
             strip_thinking_blocks_from_anthropic_messages,
         )
 
@@ -1483,7 +1483,7 @@ class TestAnthropicThinkingSignatureSelfHeal:
         assert out[0]["role"] == "user"
 
     def test_strip_thinking_blocks_from_anthropic_messages_request_dict(self):
-        from litellm.llms.anthropic.common_utils import (
+        from embrouter.llms.anthropic.common_utils import (
             strip_thinking_blocks_from_anthropic_messages_request_dict,
         )
 
@@ -1513,7 +1513,7 @@ class TestAnthropicThinkingSignatureSelfHeal:
         and keeps the ``tool_use``; a whole message that reduces to no blocks
         is dropped; whitespace-only text counts as empty; the caller's list
         is never mutated."""
-        from litellm.llms.anthropic.common_utils import (
+        from embrouter.llms.anthropic.common_utils import (
             strip_empty_content_blocks_from_anthropic_messages,
         )
 
@@ -1529,7 +1529,7 @@ class TestAnthropicThinkingSignatureSelfHeal:
         assert len(msgs[1]["content"]) == 2  # caller's content unchanged
 
     def test_strip_empty_text_blocks_preserves_thinking_blocks(self):
-        from litellm.llms.anthropic.common_utils import (
+        from embrouter.llms.anthropic.common_utils import (
             strip_empty_content_blocks_from_anthropic_messages,
         )
 
@@ -1547,10 +1547,10 @@ class TestAnthropicThinkingSignatureSelfHeal:
 
     def test_strip_keeps_encrypted_reasoning_blocks_for_the_responses_bridge(self):
         """The /v1/messages handler runs this before dispatch, so the bridge must still see the replay."""
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             encrypted_reasoning_signature,
         )
-        from litellm.llms.anthropic.common_utils import (
+        from embrouter.llms.anthropic.common_utils import (
             strip_empty_content_blocks_from_anthropic_messages,
         )
 
@@ -1568,10 +1568,10 @@ class TestAnthropicThinkingSignatureSelfHeal:
 
     def test_strip_encrypted_reasoning_drops_only_the_bridge_tagged_blocks(self):
         """A session resumed on an Anthropic model replays reasoning only OpenAI can verify."""
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             encrypted_reasoning_signature,
         )
-        from litellm.llms.anthropic.common_utils import (
+        from embrouter.llms.anthropic.common_utils import (
             strip_encrypted_reasoning_blocks_from_anthropic_messages,
         )
 
@@ -1603,7 +1603,7 @@ class TestAnthropicThinkingSignatureSelfHeal:
 
     def test_strip_encrypted_reasoning_leaves_malformed_messages_for_the_provider_to_reject(self):
         """A bare string in messages must reach Anthropic as a 400, not die in the stripper as a 500."""
-        from litellm.llms.anthropic.common_utils import (
+        from embrouter.llms.anthropic.common_utils import (
             strip_encrypted_reasoning_blocks_from_anthropic_messages,
         )
 
@@ -1611,7 +1611,7 @@ class TestAnthropicThinkingSignatureSelfHeal:
         assert strip_encrypted_reasoning_blocks_from_anthropic_messages(msgs) == msgs
 
     def test_strip_empty_text_blocks_treats_null_text_as_empty(self):
-        from litellm.llms.anthropic.common_utils import (
+        from embrouter.llms.anthropic.common_utils import (
             strip_empty_content_blocks_from_anthropic_messages,
         )
 
@@ -1628,7 +1628,7 @@ class TestAnthropicThinkingSignatureSelfHeal:
         assert [b["type"] for b in out[0]["content"]] == ["tool_result"]
 
     def test_strip_empty_text_blocks_treats_missing_text_key_as_empty(self):
-        from litellm.llms.anthropic.common_utils import (
+        from embrouter.llms.anthropic.common_utils import (
             strip_empty_content_blocks_from_anthropic_messages,
         )
 
@@ -1645,7 +1645,7 @@ class TestAnthropicThinkingSignatureSelfHeal:
         assert [b["type"] for b in out[0]["content"]] == ["tool_result"]
 
     def test_strip_empty_text_blocks_leaves_non_empty_text_alone(self):
-        from litellm.llms.anthropic.common_utils import (
+        from embrouter.llms.anthropic.common_utils import (
             strip_empty_content_blocks_from_anthropic_messages,
         )
 
@@ -1654,7 +1654,7 @@ class TestAnthropicThinkingSignatureSelfHeal:
         assert out[0] is msgs[0]  # untouched messages keep identity
 
     def test_strip_empty_text_blocks_treats_non_string_text_value_as_empty(self):
-        from litellm.llms.anthropic.common_utils import (
+        from embrouter.llms.anthropic.common_utils import (
             strip_empty_content_blocks_from_anthropic_messages,
         )
 
@@ -1671,12 +1671,12 @@ class TestAnthropicThinkingSignatureSelfHeal:
         assert [b["type"] for b in out[0]["content"]] == ["tool_result"]
 
     def test_flatten_unencrypted_web_search_results_keeps_snippet_evidence(self):
-        from litellm.llms.anthropic.common_utils import (
+        from embrouter.llms.anthropic.common_utils import (
             flatten_unencrypted_web_search_results_in_anthropic_messages,
         )
 
         msgs = [
-            {"role": "user", "content": "latest litellm version?"},
+            {"role": "user", "content": "latest embrouter version?"},
             {
                 "role": "assistant",
                 "content": [
@@ -1684,7 +1684,7 @@ class TestAnthropicThinkingSignatureSelfHeal:
                         "type": "server_tool_use",
                         "id": "srvtoolu_1",
                         "name": "web_search",
-                        "input": {"query": "latest litellm version"},
+                        "input": {"query": "latest embrouter version"},
                     },
                     {
                         "type": "web_search_tool_result",
@@ -1710,7 +1710,7 @@ class TestAnthropicThinkingSignatureSelfHeal:
         assert out[0] is msgs[0]
         assert [b["type"] for b in out[1]["content"]] == ["text", "text"]
         flattened = out[1]["content"][0]["text"]
-        assert "Web search results for 'latest litellm version':" in flattened
+        assert "Web search results for 'latest embrouter version':" in flattened
         assert "URL: https://github.com/example-org/example-repo/releases" in flattened
         assert "Snippet: Latest release v1.95.0" in flattened
         assert msgs[1]["content"][0]["type"] == "server_tool_use"
@@ -1723,10 +1723,10 @@ class TestAnthropicThinkingSignatureSelfHeal:
         place ships an unsupported tag to Bedrock on the next turn just as surely
         as a populated one does.
         """
-        from litellm.integrations.websearch_interception.transformation import (
+        from embrouter.integrations.websearch_interception.transformation import (
             WebSearchTransformation,
         )
-        from litellm.llms.anthropic.common_utils import (
+        from embrouter.llms.anthropic.common_utils import (
             flatten_unencrypted_web_search_results_in_anthropic_messages,
         )
 
@@ -1766,10 +1766,10 @@ class TestAnthropicThinkingSignatureSelfHeal:
         messages once per iteration. A pass that appended instead of replacing
         would duplicate the evidence on every loop.
         """
-        from litellm.integrations.websearch_interception.transformation import (
+        from embrouter.integrations.websearch_interception.transformation import (
             WebSearchTransformation,
         )
-        from litellm.llms.anthropic.common_utils import (
+        from embrouter.llms.anthropic.common_utils import (
             flatten_unencrypted_web_search_results_in_anthropic_messages,
         )
 
@@ -1794,7 +1794,7 @@ class TestAnthropicThinkingSignatureSelfHeal:
         assert json.dumps(twice) == json.dumps(once)
 
     def test_flatten_unencrypted_web_search_results_preserves_real_anthropic_blocks(self):
-        from litellm.llms.anthropic.common_utils import (
+        from embrouter.llms.anthropic.common_utils import (
             flatten_unencrypted_web_search_results_in_anthropic_messages,
         )
 
@@ -1831,10 +1831,10 @@ class TestAnthropicThinkingSignatureSelfHeal:
 
     def test_flatten_unencrypted_web_search_results_flattens_error_blocks(self):
         """A failed intercepted search is replayed by the client as the error
-        object LiteLLM emitted. Anthropic rejects a replayed ``server_tool_use``
+        object EmbRouter emitted. Anthropic rejects a replayed ``server_tool_use``
         it never issued, so the pair is flattened to text the same way a
         successful unencrypted result is."""
-        from litellm.llms.anthropic.common_utils import (
+        from embrouter.llms.anthropic.common_utils import (
             flatten_unencrypted_web_search_results_in_anthropic_messages,
         )
 
@@ -1864,7 +1864,7 @@ class TestAnthropicThinkingSignatureSelfHeal:
         assert json.dumps(twice) == json.dumps(once)
 
     def test_sanitize_tool_use_ids_in_anthropic_messages(self):
-        from litellm.llms.anthropic.common_utils import (
+        from embrouter.llms.anthropic.common_utils import (
             sanitize_tool_use_ids_in_anthropic_messages,
         )
 
@@ -1897,10 +1897,10 @@ class TestAnthropicThinkingSignatureSelfHeal:
         assert msgs[0]["content"][0]["id"] == "functions.Bash:0"
 
     def test_normalize_anthropic_tool_use_id_strips_thought_signature(self):
-        from litellm.litellm_core_utils.prompt_templates.factory import (
+        from embrouter.embrouter_core_utils.prompt_templates.factory import (
             THOUGHT_SIGNATURE_SEPARATOR,
         )
-        from litellm.llms.anthropic.common_utils import normalize_anthropic_tool_use_id
+        from embrouter.llms.anthropic.common_utils import normalize_anthropic_tool_use_id
 
         base = "call_abc123"
         sig = "CiIBDDnWx+/a=="
@@ -1909,7 +1909,7 @@ class TestAnthropicThinkingSignatureSelfHeal:
     def test_anthropic_messages_config_http_retry_helpers(self):
         import httpx
 
-        from litellm.llms.anthropic.pass_through.messages.transformation import (
+        from embrouter.llms.anthropic.pass_through.messages.transformation import (
             AnthropicMessagesConfig,
         )
 
@@ -1980,7 +1980,7 @@ class TestClaudeOpus48AdaptiveThinking:
         ],
     )
     def test_adaptive_thinking_detected_for_opus_4_8(self, local_model_cost_map, model):
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
         assert AnthropicModelInfo._is_adaptive_thinking_model(model, "anthropic") is True
 
@@ -1996,7 +1996,7 @@ class TestClaudeOpus48AdaptiveThinking:
         ],
     )
     def test_adaptive_thinking_detected_for_fable_5(self, local_model_cost_map, model):
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
         assert AnthropicModelInfo._is_adaptive_thinking_model(model, "anthropic") is True
 
@@ -2029,7 +2029,7 @@ class TestClaudeOpus48AdaptiveThinking:
         for the 4.6 key), a dated release suffix (``-20260219``), a combined
         ``-<date>-v1:0`` suffix (the real Bedrock id shape), and a dotted family
         version (``4.6`` -> ``4-6``)."""
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
         assert AnthropicModelInfo._is_adaptive_thinking_model(model, "anthropic") is True
 
@@ -2046,10 +2046,10 @@ class TestClaudeOpus48AdaptiveThinking:
         without a major version matches neither the core-family 4.6+ gate nor the
         family-agnostic 5+ gate, so neither the cost map nor the declarative rule marks
         it adaptive."""
-        import litellm
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        import embrouter
+        from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
-        assert model not in litellm.model_cost
+        assert model not in embrouter.model_cost
         assert AnthropicModelInfo._is_adaptive_thinking_model(model, "anthropic") is False
 
     @pytest.mark.parametrize(
@@ -2072,10 +2072,10 @@ class TestClaudeOpus48AdaptiveThinking:
         or higher, bare 5+ majors included. The version gate is the declarative
         ``claude-adaptive-thinking`` rule, so 5.x, 6.x and any later family are covered
         with no code change."""
-        import litellm
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        import embrouter
+        from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
-        assert model not in litellm.model_cost
+        assert model not in embrouter.model_cost
         assert AnthropicModelInfo._is_adaptive_thinking_model(model, "anthropic") is True
 
     @pytest.mark.parametrize(
@@ -2093,10 +2093,10 @@ class TestClaudeOpus48AdaptiveThinking:
         version rule caps the minor at two digits, so the date is not misread as a >= 4.6
         minor. The anchored pricing rule still resolves these for cost, just without the
         adaptive flag."""
-        import litellm
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        import embrouter
+        from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
-        assert model not in litellm.model_cost
+        assert model not in embrouter.model_cost
         assert AnthropicModelInfo._is_adaptive_thinking_model(model, "anthropic") is False
 
     @pytest.mark.parametrize(
@@ -2104,7 +2104,7 @@ class TestClaudeOpus48AdaptiveThinking:
         ["claude-opus-4-5", "claude-3-7-sonnet", "claude-3-5-haiku-20241022"],
     )
     def test_non_adaptive_models_not_detected(self, local_model_cost_map, model):
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
         assert AnthropicModelInfo._is_adaptive_thinking_model(model, "anthropic") is False
 
@@ -2127,7 +2127,7 @@ class TestDefaultSuffixAdaptiveThinking:
         ],
     )
     def test_default_suffix_models_are_adaptive_thinking(self, local_model_cost_map, model: str) -> None:
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
         assert AnthropicModelInfo._is_adaptive_thinking_model(model, "anthropic") is True, (
             f"{model} not classified as adaptive thinking. Check _model_map_lookup_candidates strips @default suffix."
@@ -2141,7 +2141,7 @@ class TestDefaultSuffixAdaptiveThinking:
         ],
     )
     def test_lookup_candidates_include_bare_name(self, model: str, expected_bare: str) -> None:
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
         candidates = AnthropicModelInfo._model_map_lookup_candidates(model)
         assert expected_bare in candidates, f"Expected '{expected_bare}' in candidates for '{model}', got: {candidates}"
@@ -2158,19 +2158,19 @@ class TestCapabilityProbeUsesCallerProvider:
     BEDROCK_MODEL = "global.anthropic.claude-opus-4-8"
 
     def test_exact_bedrock_entry_flag_is_authoritative_for_bedrock_caller(self, local_model_cost_map, monkeypatch):
-        import litellm
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        import embrouter
+        from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
         assert AnthropicModelInfo._is_adaptive_thinking_model(self.BEDROCK_MODEL, "bedrock") is True
 
-        monkeypatch.setitem(litellm.model_cost[self.BEDROCK_MODEL], "supports_adaptive_thinking", False)
-        litellm.get_model_info.cache_clear()
+        monkeypatch.setitem(embrouter.model_cost[self.BEDROCK_MODEL], "supports_adaptive_thinking", False)
+        embrouter.get_model_info.cache_clear()
 
         assert AnthropicModelInfo._is_adaptive_thinking_model(self.BEDROCK_MODEL, "bedrock") is False
 
 
 def test_create_anthropic_model_list_response_shape():
-    from litellm.llms.anthropic.common_utils import (
+    from embrouter.llms.anthropic.common_utils import (
         create_anthropic_model_list_response,
     )
 
@@ -2205,7 +2205,7 @@ def test_create_anthropic_model_list_response_carries_token_limits():
     """max_input_tokens and max_tokens are nullable in the Anthropic Models shape,
     not optional, so both keys are emitted for every entry and carry null when the
     limit is unknown."""
-    from litellm.llms.anthropic.common_utils import (
+    from embrouter.llms.anthropic.common_utils import (
         create_anthropic_model_list_response,
     )
 
@@ -2244,7 +2244,7 @@ def test_create_anthropic_model_list_response_carries_token_limits():
 
 
 def test_create_anthropic_model_list_response_empty():
-    from litellm.llms.anthropic.common_utils import (
+    from embrouter.llms.anthropic.common_utils import (
         create_anthropic_model_list_response,
     )
 
@@ -2259,7 +2259,7 @@ def test_create_anthropic_model_list_response_empty():
 def test_create_anthropic_model_list_response_lists_ids_as_told():
     """listed_ids renames an entry for the caller while display_name and every other field stay keyed to the served
     id, and the envelope's first/last ids follow the renamed entries."""
-    from litellm.llms.anthropic.common_utils import (
+    from embrouter.llms.anthropic.common_utils import (
         create_anthropic_model_list_response,
     )
 
@@ -2290,7 +2290,7 @@ class TestMalformedContentListItems:
         ],
     )
     def test_beta_headers_resolve_for_non_dict_content_items(self, content: list[object]) -> None:
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
         config: Final = AnthropicModelInfo()
         messages: Final = [{"role": "user", "content": content}]
@@ -2300,7 +2300,7 @@ class TestMalformedContentListItems:
             model="claude-sonnet-4-5",
             messages=messages,
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             api_key=FAKE_REGULAR_KEY,
         )
 
@@ -2309,7 +2309,7 @@ class TestMalformedContentListItems:
         assert config.is_pdf_used(messages) is False
 
     def test_real_content_parts_still_set_their_beta_headers(self) -> None:
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
         config: Final = AnthropicModelInfo()
 
@@ -2328,18 +2328,18 @@ class TestMalformedContentListItems:
         )
 
     def test_mixed_list_keeps_detecting_the_valid_part(self) -> None:
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
         config: Final = AnthropicModelInfo()
         messages: Final = [{"role": "user", "content": ["what type of file is this?", {"type": "image", "source": {}}]}]
 
         assert config.is_pdf_used(messages) is True
 
-    def test_litellm_completion_rejects_bare_string_content_item_as_bad_request(self) -> None:
-        import litellm
+    def test_embrouter_completion_rejects_bare_string_content_item_as_bad_request(self) -> None:
+        import embrouter
 
-        with pytest.raises(litellm.BadRequestError):
-            litellm.completion(
+        with pytest.raises(embrouter.BadRequestError):
+            embrouter.completion(
                 model="anthropic/claude-haiku-4-5-20251001",
                 messages=[{"role": "user", "content": ["what type of file is this?"]}],
                 api_key=FAKE_REGULAR_KEY,
@@ -2354,8 +2354,8 @@ class TestMalformedContentListItems:
 def test_validate_environment_adds_mid_conversation_output_config_beta(
     nested_output_config: bool, explicit_beta: bool, output_config: dict[str, object]
 ) -> None:
-    from litellm.llms.anthropic.common_utils import AnthropicModelInfo
-    from litellm.types.llms.anthropic import ANTHROPIC_MID_CONVERSATION_OUTPUT_CONFIG_BETA_HEADER
+    from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
+    from embrouter.types.llms.anthropic import ANTHROPIC_MID_CONVERSATION_OUTPUT_CONFIG_BETA_HEADER
 
     beta: Final = ANTHROPIC_MID_CONVERSATION_OUTPUT_CONFIG_BETA_HEADER
 
@@ -2370,7 +2370,7 @@ def test_validate_environment_adds_mid_conversation_output_config_beta(
         model="claude-fable-5-1",
         messages=messages,
         optional_params={"output_config": {"effort": "high"}},
-        litellm_params={},
+        embrouter_params={},
         api_key=FAKE_REGULAR_KEY,
     )
 

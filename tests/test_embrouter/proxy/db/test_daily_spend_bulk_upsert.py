@@ -6,13 +6,13 @@ from contextlib import AbstractAsyncContextManager, asynccontextmanager
 
 import pytest
 
-from litellm.proxy.db.daily_spend_bulk_upsert import (
+from embrouter.proxy.db.daily_spend_bulk_upsert import (
     DAILY_SPEND_TABLES,
     build_bulk_upsert,
     conflict_key,
     merge_by_conflict_key,
 )
-from litellm.proxy.db.db_spend_update_writer import DBSpendUpdateWriter
+from embrouter.proxy.db.db_spend_update_writer import DBSpendUpdateWriter
 
 TAG_TABLE = DAILY_SPEND_TABLES["tag"]
 USER_TABLE = DAILY_SPEND_TABLES["user"]
@@ -121,7 +121,7 @@ def test_counters_increment_rather_than_overwrite(column):
     """An overwrite would silently discard every earlier flush's spend for that row."""
     sql, _ = build_bulk_upsert(TAG_TABLE, merge_by_conflict_key(TAG_TABLE, (tag_txn(),)))
 
-    assert f'"{column}" = "LiteLLM_DailyTagSpend"."{column}" + EXCLUDED."{column}"' in sql
+    assert f'"{column}" = "EmbRouter_DailyTagSpend"."{column}" + EXCLUDED."{column}"' in sql
 
 
 def test_request_id_is_preserved_when_a_later_batch_carries_none():
@@ -129,7 +129,7 @@ def test_request_id_is_preserved_when_a_later_batch_carries_none():
         TAG_TABLE, merge_by_conflict_key(TAG_TABLE, (tag_txn(request_id=None),))
     )
 
-    assert '"request_id" = COALESCE(EXCLUDED."request_id", "LiteLLM_DailyTagSpend"."request_id")' in sql
+    assert '"request_id" = COALESCE(EXCLUDED."request_id", "EmbRouter_DailyTagSpend"."request_id")' in sql
     assert None in params
 
 

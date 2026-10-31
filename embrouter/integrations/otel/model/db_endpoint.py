@@ -1,9 +1,9 @@
-"""OTel ``db.*`` / ``server.*`` attributes naming the database litellm talks to.
+"""OTel ``db.*`` / ``server.*`` attributes naming the database embrouter talks to.
 
 Prisma reaches PostgreSQL through a query engine listening on loopback, so
 transport-level instrumentation attributes the work to ``localhost`` and an
 operator cannot tell it is a PostgreSQL call or correlate it with the database's
-own metrics. These attributes name the real server on litellm's DB spans.
+own metrics. These attributes name the real server on embrouter's DB spans.
 
 Only the host, port, database and schema of the DSN are read, so no credential
 can reach an exporter.
@@ -18,8 +18,8 @@ from types import MappingProxyType
 from typing import Final
 from urllib.parse import ParseResult, parse_qs, unquote, urlparse
 
-from litellm.integrations.otel.model.semconv import DB, Server
-from litellm.integrations.otel.model.spans import POSTGRESQL, db_system
+from embrouter.integrations.otel.model.semconv import DB, Server
+from embrouter.integrations.otel.model.spans import POSTGRESQL, db_system
 
 _DATABASE_URL_ENV: Final = "DATABASE_URL"
 _READ_REPLICA_ENV: Final = "DATABASE_URL_READ_REPLICA"

@@ -1,7 +1,7 @@
 import { MCPServerCostInfo, withoutMintedTokenCredentials } from "@/components/mcp_tools/types";
 import { getSecureItem, setSecureItem } from "@/utils/secureStorage";
 
-const CREATE_OAUTH_UI_STATE_KEY = "litellm-mcp-oauth-create-state";
+const CREATE_OAUTH_UI_STATE_KEY = "embrouter-mcp-oauth-create-state";
 
 // Everything the create modal needs to look untouched after the OAuth authorize redirect reloads the
 // page. `authorizedIdentity` is part of it so invalidation stays armed across the round trip: without

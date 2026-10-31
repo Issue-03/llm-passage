@@ -12,8 +12,8 @@ from typing import Final
 from pydantic import BaseModel, ConfigDict, TypeAdapter, ValidationError
 from typing_extensions import assert_never
 
-from litellm.llms.bedrock.common_utils import BedrockError
-from litellm.types.llms.bedrock import (
+from embrouter.llms.bedrock.common_utils import BedrockError
+from embrouter.types.llms.bedrock import (
     TWELVELABS_MARENGO_3_EMBEDDING_OPTIONS,
     TWELVELABS_MARENGO_3_EMBEDDING_SCOPES,
     TWELVELABS_MARENGO_3_EMBEDDING_TYPES,
@@ -33,7 +33,7 @@ from litellm.types.llms.bedrock import (
     TwelveLabsMediaSource,
     TwelveLabsS3Location,
 )
-from litellm.utils import get_base64_str
+from embrouter.utils import get_base64_str
 
 MARENGO_3_MODEL_MARKER: Final = "marengo-embed-3-"
 S3_URI_PREFIX: Final = "s3://"

@@ -19,36 +19,36 @@ from fastapi import (
 )
 from pydantic import BaseModel
 
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy._types import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy._types import (
     CommonProxyErrors,
-    LitellmUserRoles,
+    EmbrouterUserRoles,
     UserAPIKeyAuth,
     user_api_key_has_admin_view,
 )
-from litellm.proxy.auth.auth_utils import is_request_body_safe
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.common_utils.path_utils import safe_filename
-from litellm.proxy.prompts.prompt_registry import (
+from embrouter.proxy.auth.auth_utils import is_request_body_safe
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.common_utils.path_utils import safe_filename
+from embrouter.proxy.prompts.prompt_registry import (
     DEFAULT_PROMPT_ENVIRONMENT,
     get_base_prompt_id,
     get_version_number,
     prompt_environment_or_default,
 )
-from litellm.repositories.table_repositories import PromptRepository
-from litellm.types.prompts.init_prompts import (
+from embrouter.repositories.table_repositories import PromptRepository
+from embrouter.types.prompts.init_prompts import (
     ListPromptsResponse,
     PromptInfo,
     PromptInfoResponse,
-    PromptLiteLLMParams,
+    PromptEmbRouterParams,
     PromptSpec,
     PromptTemplateBase,
 )
-from litellm.types.proxy.prompt_endpoints import TestPromptRequest
+from embrouter.types.proxy.prompt_endpoints import TestPromptRequest
 
 if TYPE_CHECKING:
-    from litellm.proxy.prompts.prompt_registry import InMemoryPromptRegistry
-    from litellm.proxy.utils import PrismaClient
+    from embrouter.proxy.prompts.prompt_registry import InMemoryPromptRegistry
+    from embrouter.proxy.utils import PrismaClient
 
 router: Final = APIRouter()
 
@@ -69,7 +69,7 @@ class _PromptRow(Protocol):
     @property
     def updated_at(self) -> "datetime": ...
     @property
-    def litellm_params(self) -> str | Mapping[str, object]: ...
+    def embrouter_params(self) -> str | Mapping[str, object]: ...
     @property
     def prompt_info(self) -> str | Mapping[str, object] | None: ...
 
@@ -81,7 +81,7 @@ class _PromptRowData(BaseModel):
     version: int = 1
     environment: str = "development"
     created_by: str | None = None
-    litellm_params: str | Mapping[str, object] | None = None
+    embrouter_params: str | Mapping[str, object] | None = None
     prompt_info: str | Mapping[str, object] | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
@@ -157,15 +157,15 @@ def create_versioned_prompt_spec(db_prompt: _PromptRow) -> PromptSpec:
     """
     import json
 
-    from litellm.types.prompts.init_prompts import PromptLiteLLMParams
+    from embrouter.types.prompts.init_prompts import PromptEmbRouterParams
 
     row: Final = _PromptRowData.model_validate(db_prompt.model_dump())
 
-    litellm_params_data: Final = row.litellm_params
-    litellm_params_dict: Final[Mapping[str, object] | None] = (
-        json.loads(litellm_params_data) if isinstance(litellm_params_data, str) else litellm_params_data
+    embrouter_params_data: Final = row.embrouter_params
+    embrouter_params_dict: Final[Mapping[str, object] | None] = (
+        json.loads(embrouter_params_data) if isinstance(embrouter_params_data, str) else embrouter_params_data
     )
-    litellm_params: Final = PromptLiteLLMParams.model_validate(litellm_params_dict)
+    embrouter_params: Final = PromptEmbRouterParams.model_validate(embrouter_params_dict)
 
     prompt_info_data: Final = row.prompt_info
     if prompt_info_data:
@@ -180,7 +180,7 @@ def create_versioned_prompt_spec(db_prompt: _PromptRow) -> PromptSpec:
 
     return PromptSpec(
         prompt_id=versioned_prompt_id,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         prompt_info=prompt_info,
         created_at=row.created_at,
         updated_at=row.updated_at,
@@ -192,27 +192,27 @@ def create_versioned_prompt_spec(db_prompt: _PromptRow) -> PromptSpec:
 
 class Prompt(BaseModel):
     prompt_id: str
-    litellm_params: PromptLiteLLMParams
+    embrouter_params: PromptEmbRouterParams
     prompt_info: PromptInfo | None = None
 
 
 AMBIGUOUS_PROMPT_DATA_ERROR: Final = (
-    "litellm_params.prompt_id cannot be combined with prompt_data keyed by template name. "
-    'Send a flat template, prompt_data={"content": "...", "metadata": {...}}, together with litellm_params.prompt_id, '
-    'or send prompt_data={"<template_id>": {"content": "...", "metadata": {...}}} without litellm_params.prompt_id.'
+    "embrouter_params.prompt_id cannot be combined with prompt_data keyed by template name. "
+    'Send a flat template, prompt_data={"content": "...", "metadata": {...}}, together with embrouter_params.prompt_id, '
+    'or send prompt_data={"<template_id>": {"content": "...", "metadata": {...}}} without embrouter_params.prompt_id.'
 )
 
 
-def is_ambiguous_keyed_prompt_data(litellm_params: PromptLiteLLMParams) -> bool:
-    extra_fields: Final = litellm_params.model_extra or {}
+def is_ambiguous_keyed_prompt_data(embrouter_params: PromptEmbRouterParams) -> bool:
+    extra_fields: Final = embrouter_params.model_extra or {}
     prompt_data: Final = extra_fields.get("prompt_data")
-    if not litellm_params.prompt_id or not isinstance(prompt_data, dict):
+    if not embrouter_params.prompt_id or not isinstance(prompt_data, dict):
         return False
     return bool(prompt_data) and "content" not in prompt_data
 
 
 class PatchPromptRequest(BaseModel):
-    litellm_params: PromptLiteLLMParams | None = None
+    embrouter_params: PromptEmbRouterParams | None = None
     prompt_info: PromptInfo | None = None
 
 
@@ -242,7 +242,7 @@ async def list_prompts(
         "prompts": [
             {
                 "prompt_id": "my_prompt_id",
-                "litellm_params": {
+                "embrouter_params": {
                     "prompt_id": "my_prompt_id",
                     "prompt_integration": "dotprompt",
                     "prompt_directory": "/path/to/prompts"
@@ -257,7 +257,7 @@ async def list_prompts(
     }
     ```
     """
-    from litellm.proxy.prompts.prompt_registry import IN_MEMORY_PROMPT_REGISTRY
+    from embrouter.proxy.prompts.prompt_registry import IN_MEMORY_PROMPT_REGISTRY
 
     # check key metadata for prompts
     key_metadata: Final = user_api_key_dict.metadata
@@ -279,7 +279,7 @@ async def list_prompts(
                 # Create a copy with base prompt_id (without version suffix)
                 prompt_copy = PromptSpec(
                     prompt_id=get_base_prompt_id(prompt_id=original_prompt.prompt_id),
-                    litellm_params=original_prompt.litellm_params,
+                    embrouter_params=original_prompt.embrouter_params,
                     prompt_info=original_prompt.prompt_info,
                     created_at=original_prompt.created_at,
                     updated_at=original_prompt.updated_at,
@@ -300,7 +300,7 @@ async def list_prompts(
         for original_prompt in latest_prompts:
             prompt_copy = PromptSpec(
                 prompt_id=get_base_prompt_id(prompt_id=original_prompt.prompt_id),
-                litellm_params=original_prompt.litellm_params,
+                embrouter_params=original_prompt.embrouter_params,
                 prompt_info=original_prompt.prompt_info,
                 created_at=original_prompt.created_at,
                 updated_at=original_prompt.updated_at,
@@ -341,14 +341,14 @@ async def get_prompt_versions(
         "prompts": [
             {
                 "prompt_id": "jack_success.v1",
-                "litellm_params": {...},
+                "embrouter_params": {...},
                 "prompt_info": {"prompt_type": "db"},
                 "created_at": "2023-11-09T12:34:56.789Z",
                 "updated_at": "2023-11-09T12:34:56.789Z"
             },
             {
                 "prompt_id": "jack_success.v2",
-                "litellm_params": {...},
+                "embrouter_params": {...},
                 "prompt_info": {"prompt_type": "db"},
                 "created_at": "2023-11-09T13:45:12.345Z",
                 "updated_at": "2023-11-09T13:45:12.345Z"
@@ -357,8 +357,8 @@ async def get_prompt_versions(
     }
     ```
     """
-    from litellm.proxy.prompts.prompt_registry import IN_MEMORY_PROMPT_REGISTRY
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.prompts.prompt_registry import IN_MEMORY_PROMPT_REGISTRY
+    from embrouter.proxy.proxy_server import prisma_client
 
     # Only allow proxy admins to view version history
     if not user_api_key_has_admin_view(user_api_key_dict):
@@ -381,7 +381,7 @@ async def get_prompt_versions(
             versioned_prompts.append(
                 PromptSpec(
                     prompt_id=base_prompt_id,
-                    litellm_params=spec.litellm_params,
+                    embrouter_params=spec.embrouter_params,
                     prompt_info=spec.prompt_info,
                     created_at=spec.created_at,
                     updated_at=spec.updated_at,
@@ -404,7 +404,7 @@ async def get_prompt_versions(
             versioned_prompts.append(
                 PromptSpec(
                     prompt_id=base_prompt_id,
-                    litellm_params=prompt.litellm_params,
+                    embrouter_params=prompt.embrouter_params,
                     prompt_info=prompt.prompt_info,
                     created_at=prompt.created_at,
                     updated_at=prompt.updated_at,
@@ -423,19 +423,19 @@ async def get_prompt_versions(
 
 def _get_prompt_template(prompt_spec: PromptSpec, base_prompt_id: str) -> PromptTemplateBase | None:
     """Resolve the raw prompt template from dotprompt content or the in-memory registry."""
-    from litellm.proxy.prompts.prompt_registry import IN_MEMORY_PROMPT_REGISTRY
+    from embrouter.proxy.prompts.prompt_registry import IN_MEMORY_PROMPT_REGISTRY
 
     try:
-        dotprompt_content: Final = prompt_spec.litellm_params.dotprompt_content
+        dotprompt_content: Final = prompt_spec.embrouter_params.dotprompt_content
         if dotprompt_content:
-            from litellm.integrations.dotprompt import (
+            from embrouter.integrations.dotprompt import (
                 _get_prompt_data_from_dotprompt_content,
             )
 
             parsed: Final = _get_prompt_data_from_dotprompt_content(dotprompt_content)
             if parsed:
                 return PromptTemplateBase(
-                    litellm_prompt_id=base_prompt_id,
+                    embrouter_prompt_id=base_prompt_id,
                     content=parsed.get("content", ""),
                     metadata=parsed.get("metadata"),
                 )
@@ -444,7 +444,7 @@ def _get_prompt_template(prompt_spec: PromptSpec, base_prompt_id: str) -> Prompt
             if prompt_callback is not None:
                 integration_name: Final = prompt_callback.integration_name
                 if integration_name == "dotprompt":
-                    from litellm.integrations.dotprompt.dotprompt_manager import (
+                    from embrouter.integrations.dotprompt.dotprompt_manager import (
                         DotpromptManager,
                     )
 
@@ -453,7 +453,7 @@ def _get_prompt_template(prompt_spec: PromptSpec, base_prompt_id: str) -> Prompt
                         if template is not None and len(template) == 1:
                             template_id: Final = list(template.keys())[0]
                             return PromptTemplateBase(
-                                litellm_prompt_id=template_id,
+                                embrouter_prompt_id=template_id,
                                 content=template[template_id]["content"],
                                 metadata=template[template_id]["metadata"],
                             )
@@ -494,7 +494,7 @@ async def get_prompt_info(
     ```json
     {
         "prompt_id": "my_prompt_id",
-        "litellm_params": {
+        "embrouter_params": {
             "prompt_id": "my_prompt_id",
             "prompt_integration": "dotprompt",
             "prompt_directory": "/path/to/prompts"
@@ -508,8 +508,8 @@ async def get_prompt_info(
     }
     ```
     """
-    from litellm.proxy.prompts.prompt_registry import IN_MEMORY_PROMPT_REGISTRY
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.prompts.prompt_registry import IN_MEMORY_PROMPT_REGISTRY
+    from embrouter.proxy.proxy_server import prisma_client
 
     ## CHECK IF USER HAS ACCESS TO PROMPT
     prompts: list[str] | None = None
@@ -571,7 +571,7 @@ async def get_prompt_info(
     # Create a copy of the prompt spec with the base prompt ID (stripped of version)
     prompt_spec_response: Final = PromptSpec(
         prompt_id=get_base_prompt_id(prompt_id=prompt_spec.prompt_id),
-        litellm_params=prompt_spec.litellm_params,
+        embrouter_params=prompt_spec.embrouter_params,
         prompt_info=prompt_spec.prompt_info,
         created_at=prompt_spec.created_at,
         updated_at=prompt_spec.updated_at,
@@ -611,7 +611,7 @@ async def create_prompt(
         -H "Content-Type: application/json" \\
         -d '{
             "prompt_id": "my_prompt",
-            "litellm_params": {
+            "embrouter_params": {
                 "prompt_id": "my_prompt",
                 "prompt_integration": "dotprompt",
                 "prompt_data": {"content": "This is a prompt", "metadata": {"model": "gpt-4"}}
@@ -623,20 +623,20 @@ async def create_prompt(
     ```
     """
 
-    from litellm.proxy.prompts.prompt_registry import IN_MEMORY_PROMPT_REGISTRY
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.prompts.prompt_registry import IN_MEMORY_PROMPT_REGISTRY
+    from embrouter.proxy.proxy_server import prisma_client
 
     # Only allow proxy admins to create prompts
     if user_api_key_dict.user_role is None or (
-        user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN
-        and user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN.value
+        user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN
+        and user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN.value
     ):
         raise HTTPException(status_code=403, detail="Only proxy admins can create prompts")
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail=CommonProxyErrors.db_not_connected_error.value)
 
-    if is_ambiguous_keyed_prompt_data(request.litellm_params):
+    if is_ambiguous_keyed_prompt_data(request.embrouter_params):
         raise HTTPException(status_code=400, detail=AMBIGUOUS_PROMPT_DATA_ERROR)
 
     try:
@@ -661,7 +661,7 @@ async def create_prompt(
                 "version": new_version,
                 "environment": environment,
                 "created_by": user_api_key_dict.user_id,
-                "litellm_params": request.litellm_params.model_dump_json(),
+                "embrouter_params": request.embrouter_params.model_dump_json(),
                 "prompt_info": (
                     request.prompt_info.model_dump_json()
                     if request.prompt_info
@@ -708,7 +708,7 @@ async def update_prompt(
         -H "Content-Type: application/json" \\
         -d '{
             "prompt_id": "my_prompt",
-            "litellm_params": {
+            "embrouter_params": {
                 "prompt_id": "my_prompt",
                     "prompt_integration": "dotprompt",
                     "prompt_directory": "/path/to/prompts"
@@ -720,20 +720,20 @@ async def update_prompt(
         }'
     ```
     """
-    from litellm.proxy.prompts.prompt_registry import IN_MEMORY_PROMPT_REGISTRY
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.prompts.prompt_registry import IN_MEMORY_PROMPT_REGISTRY
+    from embrouter.proxy.proxy_server import prisma_client
 
     # Only allow proxy admins to update prompts
     if user_api_key_dict.user_role is None or (
-        user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN
-        and user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN.value
+        user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN
+        and user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN.value
     ):
         raise HTTPException(status_code=403, detail="Only proxy admins can update prompts")
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail=CommonProxyErrors.db_not_connected_error.value)
 
-    if is_ambiguous_keyed_prompt_data(request.litellm_params):
+    if is_ambiguous_keyed_prompt_data(request.embrouter_params):
         raise HTTPException(status_code=400, detail=AMBIGUOUS_PROMPT_DATA_ERROR)
 
     try:
@@ -776,7 +776,7 @@ async def update_prompt(
                 "version": new_version,
                 "environment": environment,
                 "created_by": user_api_key_dict.user_id,
-                "litellm_params": request.litellm_params.model_dump_json(),
+                "embrouter_params": request.embrouter_params.model_dump_json(),
                 "prompt_info": (
                     request.prompt_info.model_dump_json()
                     if request.prompt_info
@@ -831,13 +831,13 @@ async def delete_prompt(
     }
     ```
     """
-    from litellm.proxy.prompts.prompt_registry import IN_MEMORY_PROMPT_REGISTRY
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.prompts.prompt_registry import IN_MEMORY_PROMPT_REGISTRY
+    from embrouter.proxy.proxy_server import prisma_client
 
     # Only allow proxy admins to delete prompts
     if user_api_key_dict.user_role is None or (
-        user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN
-        and user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN.value
+        user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN
+        and user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN.value
     ):
         raise HTTPException(status_code=403, detail="Only proxy admins can delete prompts")
 
@@ -901,7 +901,7 @@ async def patch_prompt(
 
     This endpoint allows updating specific fields of a prompt without sending the entire object.
     Only the following fields can be updated:
-    - litellm_params: LiteLLM parameters for the prompt
+    - embrouter_params: EmbRouter parameters for the prompt
     - prompt_info: Additional information about the prompt
 
     Example Request:
@@ -917,20 +917,20 @@ async def patch_prompt(
     ```
     """
 
-    from litellm.proxy.prompts.prompt_registry import IN_MEMORY_PROMPT_REGISTRY
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.prompts.prompt_registry import IN_MEMORY_PROMPT_REGISTRY
+    from embrouter.proxy.proxy_server import prisma_client
 
     # Only allow proxy admins to patch prompts
     if user_api_key_dict.user_role is None or (
-        user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN
-        and user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN.value
+        user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN
+        and user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN.value
     ):
         raise HTTPException(status_code=403, detail="Only proxy admins can patch prompts")
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail=CommonProxyErrors.db_not_connected_error.value)
 
-    if request.litellm_params is not None and is_ambiguous_keyed_prompt_data(request.litellm_params):
+    if request.embrouter_params is not None and is_ambiguous_keyed_prompt_data(request.embrouter_params):
         raise HTTPException(status_code=400, detail=AMBIGUOUS_PROMPT_DATA_ERROR)
 
     try:
@@ -968,8 +968,8 @@ async def patch_prompt(
 
         current_spec: Final = create_versioned_prompt_spec(db_prompt=target_row)
 
-        updated_litellm_params: Final = (
-            request.litellm_params if request.litellm_params is not None else current_spec.litellm_params
+        updated_embrouter_params: Final = (
+            request.embrouter_params if request.embrouter_params is not None else current_spec.embrouter_params
         )
 
         updated_prompt_info: Final = (
@@ -978,7 +978,7 @@ async def patch_prompt(
 
         # Build update data dict
         update_data: Final[dict[str, str]] = {
-            "litellm_params": updated_litellm_params.model_dump_json(),
+            "embrouter_params": updated_embrouter_params.model_dump_json(),
             "prompt_info": updated_prompt_info.model_dump_json(),
         }
         if user_api_key_dict.user_id:
@@ -1041,13 +1041,13 @@ async def test_prompt(
     """
     from pydantic import BaseModel
 
-    from litellm.integrations.dotprompt.dotprompt_manager import DotpromptManager
-    from litellm.integrations.dotprompt.prompt_manager import (
+    from embrouter.integrations.dotprompt.dotprompt_manager import DotpromptManager
+    from embrouter.integrations.dotprompt.prompt_manager import (
         PromptManager,
         PromptTemplate,
     )
-    from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         proxy_config,
@@ -1166,7 +1166,7 @@ async def convert_prompt_file_to_json(
     Returns the JSON structure with 'content' and 'metadata' fields.
     """
     global general_settings
-    from litellm.integrations.dotprompt.prompt_manager import PromptManager
+    from embrouter.integrations.dotprompt.prompt_manager import PromptManager
 
     # Validate file extension
     if not file.filename or not file.filename.endswith(".prompt"):

@@ -166,7 +166,7 @@ def get_available_content_categories() -> list[dict[str, str]]:
                     )
             except Exception as e:
                 # Skip files that can't be loaded but log the error for debugging
-                from litellm._logging import verbose_proxy_logger
+                from embrouter._logging import verbose_proxy_logger
 
                 verbose_proxy_logger.warning("Failed to load category file %s: %s", filename, e)
                 continue

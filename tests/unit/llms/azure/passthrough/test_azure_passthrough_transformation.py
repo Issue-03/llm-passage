@@ -5,16 +5,16 @@ from unittest.mock import MagicMock
 import httpx
 import pytest
 
-import litellm
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.litellm_core_utils.token_counter import high_detail_image_token_upper_bound
-from litellm.llms.azure.passthrough.transformation import (
+import embrouter
+from embrouter.embrouter_core_utils.embrouter_logging import Logging
+from embrouter.embrouter_core_utils.token_counter import high_detail_image_token_upper_bound
+from embrouter.llms.azure.passthrough.transformation import (
     AzurePassthroughConfig,
     azure_router_model_in_endpoint,
     foreign_azure_deployment,
 )
-from litellm.types.llms.openai import ResponseCompletedEvent, ResponsesAPIResponse
-from litellm.types.utils import EmbeddingResponse, ModelResponse
+from embrouter.types.llms.openai import ResponseCompletedEvent, ResponsesAPIResponse
+from embrouter.types.utils import EmbeddingResponse, ModelResponse
 
 
 def _azure_chat_completion_body():
@@ -89,12 +89,12 @@ def _relay_logging_obj(model: str) -> Logging:
         stream=False,
         call_type="allm_passthrough_route",
         start_time=datetime.now(),
-        litellm_call_id="call-1",
+        embrouter_call_id="call-1",
         function_id="fn-1",
     )
     logging_obj.update_environment_variables(
         model=model,
-        litellm_params={"api_base": "https://my-resource.openai.azure.com", "custom_llm_provider": "azure"},
+        embrouter_params={"api_base": "https://my-resource.openai.azure.com", "custom_llm_provider": "azure"},
         optional_params={},
         custom_llm_provider="azure",
     )
@@ -152,7 +152,7 @@ def test_azure_passthrough_embeddings_relay_is_costed_per_input_token():
     result, logging_obj = _relay_logging_result(
         "text-embedding-3-small", "openai/deployments/text-embedding-3-small/embeddings", EMBEDDINGS_BODY
     )
-    per_token = litellm.get_model_info("azure/text-embedding-3-small")["input_cost_per_token"]
+    per_token = embrouter.get_model_info("azure/text-embedding-3-small")["input_cost_per_token"]
 
     assert isinstance(result, EmbeddingResponse)
     assert logging_obj.call_type == "aembedding"
@@ -162,7 +162,7 @@ def test_azure_passthrough_embeddings_relay_is_costed_per_input_token():
 
 def test_azure_passthrough_responses_relay_is_costed_per_token():
     result, logging_obj = _relay_logging_result("gpt-4.1-mini", "openai/responses", RESPONSES_BODY)
-    info = litellm.get_model_info("azure/gpt-4.1-mini")
+    info = embrouter.get_model_info("azure/gpt-4.1-mini")
 
     assert isinstance(result, ResponsesAPIResponse)
     assert logging_obj.call_type == "aresponses"
@@ -217,7 +217,7 @@ def _azure_chat_completion_chunks() -> list[str]:
 def test_azure_passthrough_streaming_chat_chunks_build_the_complete_response():
     response = AzurePassthroughConfig().handle_logging_collected_chunks(
         all_chunks=_azure_chat_completion_chunks(),
-        litellm_logging_obj=MagicMock(),
+        embrouter_logging_obj=MagicMock(),
         model="gpt-4.1-mini",
         custom_llm_provider="azure",
         endpoint="openai/deployments/gpt-4.1-mini/chat/completions",
@@ -236,7 +236,7 @@ def test_azure_passthrough_streaming_chunks_without_usage_count_prompt_tokens_fr
 
     response = AzurePassthroughConfig().handle_logging_collected_chunks(
         all_chunks=[chunk for chunk in _azure_chat_completion_chunks() if '"usage"' not in chunk],
-        litellm_logging_obj=logging_obj,
+        embrouter_logging_obj=logging_obj,
         model="gpt-4.1-mini",
         custom_llm_provider="azure",
         endpoint="openai/deployments/gpt-4.1-mini/chat/completions",
@@ -245,7 +245,7 @@ def test_azure_passthrough_streaming_chunks_without_usage_count_prompt_tokens_fr
     assert isinstance(response, ModelResponse)
     assert response.choices[0].message.content == "Hello! How can I assist?"
     assert response.usage.prompt_tokens > 0
-    assert response.usage.prompt_tokens == litellm.token_counter(model="gpt-4.1-mini", messages=messages)
+    assert response.usage.prompt_tokens == embrouter.token_counter(model="gpt-4.1-mini", messages=messages)
     assert response.usage.completion_tokens > 0
 
 
@@ -264,7 +264,7 @@ def test_azure_passthrough_streaming_chunks_count_remote_image_prompt_tokens_wit
 
     response = AzurePassthroughConfig().handle_logging_collected_chunks(
         all_chunks=[chunk for chunk in _azure_chat_completion_chunks() if '"usage"' not in chunk],
-        litellm_logging_obj=logging_obj,
+        embrouter_logging_obj=logging_obj,
         model="gpt-4.1-mini",
         custom_llm_provider="azure",
         endpoint="openai/deployments/gpt-4.1-mini/chat/completions",
@@ -273,14 +273,14 @@ def test_azure_passthrough_streaming_chunks_count_remote_image_prompt_tokens_wit
     text_only_messages = [{"role": "user", "content": [{"type": "text", "text": "Describe this"}]}]
     assert isinstance(response, ModelResponse)
     assert response.usage.prompt_tokens == (
-        litellm.token_counter(model="gpt-4.1-mini", messages=text_only_messages) + high_detail_image_token_upper_bound()
+        embrouter.token_counter(model="gpt-4.1-mini", messages=text_only_messages) + high_detail_image_token_upper_bound()
     )
 
 
 def test_azure_passthrough_streaming_chunks_for_unknown_endpoint_return_none():
     response = AzurePassthroughConfig().handle_logging_collected_chunks(
         all_chunks=_azure_chat_completion_chunks(),
-        litellm_logging_obj=MagicMock(),
+        embrouter_logging_obj=MagicMock(),
         model="gpt-4.1-mini",
         custom_llm_provider="azure",
         endpoint="openai/deployments/gpt-4.1-mini/embeddings",
@@ -310,12 +310,12 @@ def test_azure_passthrough_streaming_responses_chunks_are_costed_per_token():
 
     response = AzurePassthroughConfig().handle_logging_collected_chunks(
         all_chunks=_azure_responses_stream_chunks(),
-        litellm_logging_obj=logging_obj,
+        embrouter_logging_obj=logging_obj,
         model="gpt-4.1-mini",
         custom_llm_provider="azure",
         endpoint="openai/responses",
     )
-    info = litellm.get_model_info("azure/gpt-4.1-mini")
+    info = embrouter.get_model_info("azure/gpt-4.1-mini")
 
     assert isinstance(response, ResponseCompletedEvent)
     assert response.response.usage.input_tokens == 1000
@@ -330,7 +330,7 @@ def test_azure_passthrough_streaming_responses_without_a_terminal_event_are_not_
 
     response = AzurePassthroughConfig().handle_logging_collected_chunks(
         all_chunks=_azure_responses_stream_chunks(terminal_event=None),
-        litellm_logging_obj=logging_obj,
+        embrouter_logging_obj=logging_obj,
         model="gpt-4.1-mini",
         custom_llm_provider="azure",
         endpoint="openai/responses",
@@ -340,20 +340,20 @@ def test_azure_passthrough_streaming_responses_without_a_terminal_event_are_not_
     assert logging_obj.call_type == "allm_passthrough_route"
 
 
-def _complete_url(request_query_params: dict, litellm_params: dict) -> httpx.URL:
+def _complete_url(request_query_params: dict, embrouter_params: dict) -> httpx.URL:
     url, _ = AzurePassthroughConfig().get_complete_url(
         api_base="https://my-resource.openai.azure.com",
         api_key="key",
         model="gpt-4.1-mini",
         endpoint="openai/deployments/gpt-4.1-mini/chat/completions",
         request_query_params=request_query_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
     )
     return url
 
 
 def test_azure_passthrough_url_forwards_the_callers_api_version():
-    url = _complete_url(request_query_params={"api-version": "2025-04-01-preview"}, litellm_params={})
+    url = _complete_url(request_query_params={"api-version": "2025-04-01-preview"}, embrouter_params={})
 
     assert url.path == "/openai/deployments/gpt-4.1-mini/chat/completions"
     assert url.params["api-version"] == "2025-04-01-preview"
@@ -361,14 +361,14 @@ def test_azure_passthrough_url_forwards_the_callers_api_version():
 
 def test_azure_passthrough_url_prefers_the_callers_api_version_over_the_deployments():
     url = _complete_url(
-        request_query_params={"api-version": "2025-04-01-preview"}, litellm_params={"api_version": "2024-10-21"}
+        request_query_params={"api-version": "2025-04-01-preview"}, embrouter_params={"api_version": "2024-10-21"}
     )
 
     assert url.params["api-version"] == "2025-04-01-preview"
 
 
 def test_azure_passthrough_url_fills_in_the_deployments_api_version_when_the_caller_sends_none():
-    url = _complete_url(request_query_params={}, litellm_params={"api_version": "2024-10-21"})
+    url = _complete_url(request_query_params={}, embrouter_params={"api_version": "2024-10-21"})
 
     assert url.params["api-version"] == "2024-10-21"
 
@@ -385,7 +385,7 @@ def _full_url_complete_url(request_query_params: dict) -> httpx.URL:
         model="gpt-4.1-mini",
         endpoint="chat/completions",
         request_query_params=request_query_params,
-        litellm_params={},
+        embrouter_params={},
     )
     return url
 
@@ -412,7 +412,7 @@ def test_azure_passthrough_url_strips_the_leading_router_model_segment():
         model="gpt-4.1-mini",
         endpoint="gpt-4.1-mini/openai/deployments/gpt-4.1-mini/chat/completions",
         request_query_params={"api-version": "2024-10-21"},
-        litellm_params={},
+        embrouter_params={},
     )
 
     assert (
@@ -428,7 +428,7 @@ def test_azure_passthrough_url_rewrites_the_model_group_only_as_a_whole_segment(
         model="gpt-4.1-mini",
         endpoint="gpt/openai/deployments/gpt-4.1-mini/chat/completions",
         request_query_params={"api-version": "2024-10-21"},
-        litellm_params={"litellm_metadata": {"model_group": "gpt"}},
+        embrouter_params={"embrouter_metadata": {"model_group": "gpt"}},
     )
 
     assert (

@@ -8,10 +8,10 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from litellm.llms.gemini.google_genai.guardrail_translation.handler import (
+from embrouter.llms.gemini.google_genai.guardrail_translation.handler import (
     GoogleGenAIGenerateContentHandler,
 )
-from litellm.types.utils import CallTypes
+from embrouter.types.utils import CallTypes
 
 
 class GuardrailBlockedError(Exception):
@@ -213,7 +213,7 @@ async def test_streaming_without_text_skips_guardrail():
 
 
 def test_generate_content_call_types_are_registered():
-    from litellm.llms.gemini.google_genai.guardrail_translation import (
+    from embrouter.llms.gemini.google_genai.guardrail_translation import (
         guardrail_translation_mappings,
     )
 
@@ -227,7 +227,7 @@ def test_generate_content_call_types_are_registered():
 
 
 def test_discovery_finds_generate_content_handler():
-    from litellm.llms import load_guardrail_translation_mappings
+    from embrouter.llms import load_guardrail_translation_mappings
 
     mappings = load_guardrail_translation_mappings()
     assert mappings[CallTypes.agenerate_content] is GoogleGenAIGenerateContentHandler

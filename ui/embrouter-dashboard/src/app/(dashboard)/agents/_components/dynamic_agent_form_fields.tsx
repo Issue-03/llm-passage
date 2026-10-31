@@ -159,29 +159,29 @@ export const buildDynamicAgentData = (
   agentTypeInfo: AgentCreateInfo,
   existingAgent?: { kill_switch?: KillSwitchConfig | null },
 ): AgentRequestPayload => {
-  const litellmParams: Record<string, unknown> = {
-    ...(agentTypeInfo.litellm_params_template || {}),
+  const embrouterParams: Record<string, unknown> = {
+    ...(agentTypeInfo.embrouter_params_template || {}),
   };
 
   for (const field of agentTypeInfo.credential_fields) {
     const value = values[field.key];
-    if (value && field.include_in_litellm_params !== false) {
-      litellmParams[field.key] = value;
+    if (value && field.include_in_embrouter_params !== false) {
+      embrouterParams[field.key] = value;
     }
   }
 
   if (values.cost_per_query) {
-    litellmParams.cost_per_query = parseFloat(String(values.cost_per_query));
+    embrouterParams.cost_per_query = parseFloat(String(values.cost_per_query));
   }
   if (values.input_cost_per_token) {
-    litellmParams.input_cost_per_token = parseFloat(String(values.input_cost_per_token));
+    embrouterParams.input_cost_per_token = parseFloat(String(values.input_cost_per_token));
   }
   if (values.output_cost_per_token) {
-    litellmParams.output_cost_per_token = parseFloat(String(values.output_cost_per_token));
+    embrouterParams.output_cost_per_token = parseFloat(String(values.output_cost_per_token));
   }
 
   if (agentTypeInfo.model_template) {
-    litellmParams.model = agentTypeInfo.credential_fields.reduce((model, field) => {
+    embrouterParams.model = agentTypeInfo.credential_fields.reduce((model, field) => {
       const placeholder = `{${field.key}}`;
       const value = values[field.key];
       return model.includes(placeholder) && value ? model.replace(placeholder, String(value)) : model;
@@ -210,7 +210,7 @@ export const buildDynamicAgentData = (
         },
       ],
     },
-    litellm_params: litellmParams,
+    embrouter_params: embrouterParams,
   };
 
   if (values.tpm_limit != null) agentData.tpm_limit = values.tpm_limit;

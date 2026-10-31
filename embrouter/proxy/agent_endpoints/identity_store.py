@@ -3,17 +3,17 @@ from collections.abc import Mapping
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Final
 
-from litellm.proxy.agent_endpoints.managed_identity import classify_agent_subject
-from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache, get_management_object_ttl
-from litellm.repositories.table_repositories import (
+from embrouter.proxy.agent_endpoints.managed_identity import classify_agent_subject
+from embrouter.proxy.common_utils.user_api_key_cache import UserApiKeyCache, get_management_object_ttl
+from embrouter.repositories.table_repositories import (
     AgentIdentityRepository,
     AgentsRepository,
     RetiredAgentIdentityRepository,
     RetiredAgentRepository,
     VerifiedSubjectRepository,
 )
-from litellm.types.agents import AgentResponse
-from litellm.types.proxy.agent_identity import (
+from embrouter.types.agents import AgentResponse
+from embrouter.types.proxy.agent_identity import (
     AgentIdentityFailure,
     ManagedAgentContext,
     MicrosoftInteractiveSubject,
@@ -21,17 +21,17 @@ from litellm.types.proxy.agent_identity import (
 )
 
 if TYPE_CHECKING:
-    from prisma.models import LiteLLM_VerifiedSubject
+    from prisma.models import EmbRouter_VerifiedSubject
     from prisma.types import (
-        LiteLLM_AgentIdentityUpdateManyMutationInput,
-        LiteLLM_AgentIdentityWhereInput,
-        LiteLLM_AgentIdentityWhereUniqueInput,
-        LiteLLM_AgentsTableInclude,
-        LiteLLM_AgentsTableWhereUniqueInput,
-        LiteLLM_RetiredAgentWhereUniqueInput,
-        LiteLLM_VerifiedSubjectCreateInput,
-        LiteLLM_VerifiedSubjectUpsertInput,
-        LiteLLM_VerifiedSubjectWhereUniqueInput,
+        EmbRouter_AgentIdentityUpdateManyMutationInput,
+        EmbRouter_AgentIdentityWhereInput,
+        EmbRouter_AgentIdentityWhereUniqueInput,
+        EmbRouter_AgentsTableInclude,
+        EmbRouter_AgentsTableWhereUniqueInput,
+        EmbRouter_RetiredAgentWhereUniqueInput,
+        EmbRouter_VerifiedSubjectCreateInput,
+        EmbRouter_VerifiedSubjectUpsertInput,
+        EmbRouter_VerifiedSubjectWhereUniqueInput,
     )
 
 
@@ -66,8 +66,8 @@ class AgentIdentityStore:
 
     async def agent(self, agent_id: str) -> AgentResponse | AgentIdentityFailure | None:
         try:
-            where: Final[LiteLLM_AgentsTableWhereUniqueInput] = {"agent_id": agent_id}
-            include: Final[LiteLLM_AgentsTableInclude] = {
+            where: Final[EmbRouter_AgentsTableWhereUniqueInput] = {"agent_id": agent_id}
+            include: Final[EmbRouter_AgentsTableInclude] = {
                 "identity": True,
                 "object_permission": True,
             }
@@ -78,7 +78,7 @@ class AgentIdentityStore:
         except Exception:
             return AgentIdentityFailure(code="policy_unavailable", message="Agent policy could not be loaded")
 
-    async def unbound_client(self, where: "LiteLLM_AgentIdentityWhereUniqueInput") -> AgentIdentityFailure | None:
+    async def unbound_client(self, where: "EmbRouter_AgentIdentityWhereUniqueInput") -> AgentIdentityFailure | None:
         if self.retired is not None:
             try:
                 retired: Final = await self.retired.table.find_unique(where=where)
@@ -95,7 +95,7 @@ class AgentIdentityStore:
         cached: Final[object] = await self.cache.async_get_cache(key=cache_key) if self.cache is not None else None
         if isinstance(cached, str):
             return cached
-        where: Final[LiteLLM_AgentIdentityWhereUniqueInput] = {
+        where: Final[EmbRouter_AgentIdentityWhereUniqueInput] = {
             "provider_tenant_id_client_id": {
                 "provider": "microsoft_entra",
                 "tenant_id": tenant_id,
@@ -169,11 +169,11 @@ class AgentIdentityStore:
 
     async def subject(
         self, issuer: str, tenant_id: str, oid: object
-    ) -> "LiteLLM_VerifiedSubject | AgentIdentityFailure | None":
+    ) -> "EmbRouter_VerifiedSubject | AgentIdentityFailure | None":
         if not isinstance(oid, str):
             return None
         try:
-            where: Final[LiteLLM_VerifiedSubjectWhereUniqueInput] = {
+            where: Final[EmbRouter_VerifiedSubjectWhereUniqueInput] = {
                 "issuer_tenant_id_oid": {"issuer": issuer, "tenant_id": tenant_id, "oid": oid}
             }
             return await self.humans.table.find_unique(where=where)
@@ -184,7 +184,7 @@ class AgentIdentityStore:
         if self.retired_agents is None:
             return AgentIdentityFailure(code="policy_unavailable", message="Agent history is unavailable")
         try:
-            where: Final[LiteLLM_RetiredAgentWhereUniqueInput] = {"original_agent_id": agent_id}
+            where: Final[EmbRouter_RetiredAgentWhereUniqueInput] = {"original_agent_id": agent_id}
             return await self.retired_agents.table.find_unique(where=where) is not None
         except Exception:
             return AgentIdentityFailure(code="policy_unavailable", message="Agent history is unavailable")
@@ -193,13 +193,13 @@ class AgentIdentityStore:
         try:
             if context.binding_revision is None:
                 return AgentIdentityFailure(message="Agent authentication requires a binding revision")
-            where: Final[LiteLLM_AgentIdentityWhereInput] = {
+            where: Final[EmbRouter_AgentIdentityWhereInput] = {
                 "agent_id": context.agent_id,
                 "revision": context.binding_revision,
                 "active": True,
                 "agent": {"is": {"enabled": True, "identity_managed": True}},
             }
-            data: Final[LiteLLM_AgentIdentityUpdateManyMutationInput] = {
+            data: Final[EmbRouter_AgentIdentityUpdateManyMutationInput] = {
                 "last_authenticated_at": datetime.now(timezone.utc)
             }
             count: Final = await self.identities.table.update_many(where=where, data=data)
@@ -215,17 +215,17 @@ class AgentIdentityStore:
         user_id: str,
     ) -> AgentIdentityFailure | None:
         try:
-            where: Final[LiteLLM_VerifiedSubjectWhereUniqueInput] = {
+            where: Final[EmbRouter_VerifiedSubjectWhereUniqueInput] = {
                 "issuer_tenant_id_oid": {"issuer": subject.issuer, "tenant_id": subject.tenant_id, "oid": subject.oid}
             }
-            create_data: Final[LiteLLM_VerifiedSubjectCreateInput] = {
+            create_data: Final[EmbRouter_VerifiedSubjectCreateInput] = {
                 "issuer": subject.issuer,
                 "tenant_id": subject.tenant_id,
                 "oid": subject.oid,
                 "user_id": user_id,
                 "verified_via": "sso_interactive",
             }
-            data: Final[LiteLLM_VerifiedSubjectUpsertInput] = {"create": create_data, "update": {}}
+            data: Final[EmbRouter_VerifiedSubjectUpsertInput] = {"create": create_data, "update": {}}
             row: Final = await self.humans.table.upsert(where=where, data=data)
             if row.kind != "human" or row.user_id != user_id or row.verified_via != "sso_interactive":
                 return AgentIdentityFailure(message="Microsoft subject is already bound to another local identity")
@@ -242,7 +242,7 @@ async def resolve_managed_agent(
     *,
     cache: UserApiKeyCache | None = None,
 ) -> ManagedAgentContext | None:
-    from litellm.proxy.agent_endpoints.managed_identity import raise_identity_failure
+    from embrouter.proxy.agent_endpoints.managed_identity import raise_identity_failure
 
     if client is None:
         return None

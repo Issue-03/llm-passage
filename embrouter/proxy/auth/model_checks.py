@@ -4,21 +4,21 @@ import copy
 from collections.abc import Sequence
 from typing import Any, Final
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.litellm_core_utils.credential_accessor import CredentialAccessor
-from litellm.proxy._types import SpecialModelNames, UserAPIKeyAuth
-from litellm.repositories.object_permission_repository import ObjectPermissionRepository
-from litellm.router import Router
-from litellm.router_utils.fallback_event_handlers import get_fallback_model_group
-from litellm.types.router import CredentialLiteLLMParams, LiteLLM_Params
-from litellm.types.utils import LlmProviders
-from litellm.utils import get_valid_models
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.embrouter_core_utils.credential_accessor import CredentialAccessor
+from embrouter.proxy._types import SpecialModelNames, UserAPIKeyAuth
+from embrouter.repositories.object_permission_repository import ObjectPermissionRepository
+from embrouter.router import Router
+from embrouter.router_utils.fallback_event_handlers import get_fallback_model_group
+from embrouter.types.router import CredentialEmbRouterParams, EmbRouter_Params
+from embrouter.types.utils import LlmProviders
+from embrouter.utils import get_valid_models
 
-_CREDENTIAL_LITELLM_PARAM_FIELDS = set(CredentialLiteLLMParams.model_fields)
+_CREDENTIAL_EMBROUTER_PARAM_FIELDS = set(CredentialEmbRouterParams.model_fields)
 
 
-_CREDENTIAL_LITELLM_PARAM_FIELDS = set(CredentialLiteLLMParams.model_fields)
+_CREDENTIAL_EMBROUTER_PARAM_FIELDS = set(CredentialEmbRouterParams.model_fields)
 
 
 def _check_wildcard_routing(model: str) -> bool:
@@ -35,15 +35,15 @@ def _check_wildcard_routing(model: str) -> bool:
     return False
 
 
-def get_provider_models(provider: str, litellm_params: LiteLLM_Params | None = None) -> list[str] | None:
+def get_provider_models(provider: str, embrouter_params: EmbRouter_Params | None = None) -> list[str] | None:
     """
     Returns the list of known models by provider
     """
     if provider == "*":
-        return get_valid_models(litellm_params=litellm_params)
+        return get_valid_models(embrouter_params=embrouter_params)
 
-    if provider in litellm.models_by_provider:
-        provider_models: Final = get_valid_models(custom_llm_provider=provider, litellm_params=litellm_params)
+    if provider in embrouter.models_by_provider:
+        provider_models: Final = get_valid_models(custom_llm_provider=provider, embrouter_params=embrouter_params)
         return provider_models
     return None
 
@@ -74,7 +74,7 @@ async def get_mcp_server_ids(
     """
     Returns the list of MCP server ids for a given key by querying the object_permission table
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         return []
@@ -244,31 +244,31 @@ def get_complete_model_list(
     return complete_model_list
 
 
-def _hydrate_litellm_credential_name(
-    litellm_params: LiteLLM_Params | None,
-) -> LiteLLM_Params | None:
-    if litellm_params is None or litellm_params.litellm_credential_name is None:
-        return litellm_params
+def _hydrate_embrouter_credential_name(
+    embrouter_params: EmbRouter_Params | None,
+) -> EmbRouter_Params | None:
+    if embrouter_params is None or embrouter_params.embrouter_credential_name is None:
+        return embrouter_params
 
-    credential_values: Final = CredentialAccessor.get_credential_values(litellm_params.litellm_credential_name)
+    credential_values: Final = CredentialAccessor.get_credential_values(embrouter_params.embrouter_credential_name)
     if not credential_values:
-        return litellm_params
+        return embrouter_params
 
-    litellm_params = litellm_params.model_copy()
+    embrouter_params = embrouter_params.model_copy()
     for key, value in credential_values.items():
-        if key in _CREDENTIAL_LITELLM_PARAM_FIELDS and getattr(litellm_params, key, None) is None:
-            setattr(litellm_params, key, value)
-    litellm_params.litellm_credential_name = None
-    return litellm_params
+        if key in _CREDENTIAL_EMBROUTER_PARAM_FIELDS and getattr(embrouter_params, key, None) is None:
+            setattr(embrouter_params, key, value)
+    embrouter_params.embrouter_credential_name = None
+    return embrouter_params
 
 
-def get_known_models_from_wildcard(wildcard_model: str, litellm_params: LiteLLM_Params | None = None) -> list[str]:
+def get_known_models_from_wildcard(wildcard_model: str, embrouter_params: EmbRouter_Params | None = None) -> list[str]:
     wildcard_model_to_expand: Final = (
-        litellm_params.model
+        embrouter_params.model
         if wildcard_model == "*"
-        and litellm_params is not None
-        and _check_wildcard_routing(litellm_params.model)
-        and "/" in litellm_params.model
+        and embrouter_params is not None
+        and _check_wildcard_routing(embrouter_params.model)
+        and "/" in embrouter_params.model
         else wildcard_model
     )
     try:
@@ -276,19 +276,19 @@ def get_known_models_from_wildcard(wildcard_model: str, litellm_params: LiteLLM_
     except ValueError:  # safely fail
         return []
 
-    # Use provider from litellm_params when available, otherwise from wildcard prefix
+    # Use provider from embrouter_params when available, otherwise from wildcard prefix
     # (e.g., "openai" from "openai/*" - needed for BYOK where wildcard isn't in router)
-    if litellm_params is not None:
+    if embrouter_params is not None:
         try:
-            provider = litellm_params.model.split("/", 1)[0]
+            provider = embrouter_params.model.split("/", 1)[0]
         except ValueError:
             provider = wildcard_provider_prefix
     else:
         provider = wildcard_provider_prefix
 
-    litellm_params = _hydrate_litellm_credential_name(litellm_params)
+    embrouter_params = _hydrate_embrouter_credential_name(embrouter_params)
 
-    wildcard_models = get_provider_models(provider=provider, litellm_params=litellm_params)
+    wildcard_models = get_provider_models(provider=provider, embrouter_params=embrouter_params)
 
     if wildcard_models is None:
         return []
@@ -330,23 +330,23 @@ def expand_wildcard_deployments_for_model_info(
 
     PR #30025 changed /model/info to read from llm_router.model_list (correct,
     so team-scoped rows are included). This function restores wildcard expansion
-    on top of that: a wildcard deployment like model_name="*" / litellm_params.model="openai/*"
+    on top of that: a wildcard deployment like model_name="*" / embrouter_params.model="openai/*"
     becomes one entry per known openai model, matching /v1/models behaviour.
     """
     expanded: Final[list[dict[str, Any]]] = []
     for deployment in deployments:
         model_name = str(deployment.get("model_name") or "")
-        raw_params = deployment.get("litellm_params")
-        litellm_params_dict: dict[str, Any] = raw_params if isinstance(raw_params, dict) else {}
-        litellm_model = str(litellm_params_dict.get("model") or "")
+        raw_params = deployment.get("embrouter_params")
+        embrouter_params_dict: dict[str, Any] = raw_params if isinstance(raw_params, dict) else {}
+        embrouter_model = str(embrouter_params_dict.get("model") or "")
 
         # Determine the wildcard pattern to expand.
-        # Branch order matters: only fall to litellm_model when model_name is
+        # Branch order matters: only fall to embrouter_model when model_name is
         # also a wildcard, so a concrete model_name is never overwritten.
         if _check_wildcard_routing(model_name) and "/" in model_name:
             wildcard_pattern = model_name
-        elif _check_wildcard_routing(model_name) and _check_wildcard_routing(litellm_model):
-            wildcard_pattern = litellm_model
+        elif _check_wildcard_routing(model_name) and _check_wildcard_routing(embrouter_model):
+            wildcard_pattern = embrouter_model
         elif _check_wildcard_routing(model_name):
             wildcard_pattern = model_name
         else:
@@ -354,13 +354,13 @@ def expand_wildcard_deployments_for_model_info(
             continue
 
         try:
-            litellm_params = LiteLLM_Params.model_validate(litellm_params_dict) if litellm_params_dict else None
+            embrouter_params = EmbRouter_Params.model_validate(embrouter_params_dict) if embrouter_params_dict else None
         except Exception:
             expanded.append(deployment)
             continue
         expanded_names = get_known_models_from_wildcard(
             wildcard_model=wildcard_pattern,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
         if not expanded_names:
             expanded.append(deployment)
@@ -369,7 +369,7 @@ def expand_wildcard_deployments_for_model_info(
         for name in expanded_names:
             row = copy.deepcopy(deployment)
             row["model_name"] = name
-            params = row.get("litellm_params")
+            params = row.get("embrouter_params")
             if isinstance(params, dict):
                 params["model"] = name
             expanded.append(row)
@@ -398,11 +398,11 @@ def _get_wildcard_models(
                     all_wildcard_models.extend(
                         get_known_models_from_wildcard(
                             wildcard_model=model,
-                            litellm_params=LiteLLM_Params(**router_model["litellm_params"]),
+                            embrouter_params=EmbRouter_Params(**router_model["embrouter_params"]),
                         )
                     )
             else:
-                all_wildcard_models.extend(get_known_models_from_wildcard(wildcard_model=model, litellm_params=None))
+                all_wildcard_models.extend(get_known_models_from_wildcard(wildcard_model=model, embrouter_params=None))
 
     for model in models_to_remove:
         unique_models.remove(model)
@@ -420,7 +420,7 @@ def get_all_fallbacks(
 
     Args:
         model: The model name to get fallbacks for
-        llm_router: The LiteLLM router instance
+        llm_router: The EmbRouter router instance
         fallback_type: Type of fallback ("general", "context_window", "content_policy")
 
     Returns:

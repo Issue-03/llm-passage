@@ -4,11 +4,11 @@ from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from typing import Final, Generic, TypeAlias, TypeVar
 
-from litellm.rust_bridge import catalog, runtime
-from litellm.rust_bridge.bindings import NativeBinding
-from litellm.rust_bridge.catalog import Route, RouteContext, RouteRule, Rules
-from litellm.rust_bridge.configuration import Decision
-from litellm.rust_bridge.configuration import decision as rollout_decision
+from embrouter.rust_bridge import catalog, runtime
+from embrouter.rust_bridge.bindings import NativeBinding
+from embrouter.rust_bridge.catalog import Route, RouteContext, RouteRule, Rules
+from embrouter.rust_bridge.configuration import Decision
+from embrouter.rust_bridge.configuration import decision as rollout_decision
 
 RequestT: Final = TypeVar("RequestT")
 NativeT: Final = TypeVar("NativeT")

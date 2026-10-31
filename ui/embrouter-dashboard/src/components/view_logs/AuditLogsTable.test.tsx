@@ -13,7 +13,7 @@ const ROWS: AuditLogEntry[] = [
     changed_by: "default_user_id",
     changed_by_api_key: "sk-hash-abc",
     action: "created",
-    table_name: "LiteLLM_TeamTable",
+    table_name: "EmbRouter_TeamTable",
     object_id: "team-obj-123",
     before_value: {},
     updated_values: { foo: "bar" },
@@ -24,7 +24,7 @@ const ROWS: AuditLogEntry[] = [
     changed_by: "user-42",
     changed_by_api_key: "sk-hash-def",
     action: "deleted",
-    table_name: "LiteLLM_UserTable",
+    table_name: "EmbRouter_UserTable",
     object_id: "user-obj-456",
     before_value: { a: 1 },
     updated_values: {},
@@ -178,7 +178,7 @@ describe("AuditLogsTable", () => {
     renderTable({
       columnFilters: [
         { id: "action", value: "created" },
-        { id: "table_name", value: "LiteLLM_TeamTable" },
+        { id: "table_name", value: "EmbRouter_TeamTable" },
       ],
     });
 

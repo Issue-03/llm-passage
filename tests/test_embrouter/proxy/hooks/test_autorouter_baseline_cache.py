@@ -13,14 +13,14 @@ import respx
 from pydantic import JsonValue, TypeAdapter
 from typing_extensions import NotRequired, ReadOnly, TypedDict
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.llms.anthropic.prompt_cache_prediction import NativePredictionTarget, TokenCounter
-from litellm.proxy.hooks.autorouter_baseline_cache import AutoRouterBaselineCache, CapturedBaselineObservation
-from litellm.router import Router
-from litellm.types.router import RetryPolicy
-from litellm.types.utils import CallTypes, StandardLoggingRoutingDecision
+import embrouter
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.embrouter_core_utils.embrouter_logging import Logging
+from embrouter.llms.anthropic.prompt_cache_prediction import NativePredictionTarget, TokenCounter
+from embrouter.proxy.hooks.autorouter_baseline_cache import AutoRouterBaselineCache, CapturedBaselineObservation
+from embrouter.router import Router
+from embrouter.types.router import RetryPolicy
+from embrouter.types.utils import CallTypes, StandardLoggingRoutingDecision
 
 pytestmark: Final = pytest.mark.asyncio
 
@@ -40,13 +40,13 @@ _MESSAGES_JSON: Final = """[{"role":"user","content":[
 
 
 _MODELS: Final = _MESSAGES.validate_json("""[
-    {"model_name":"test-router","litellm_params":{"model":"auto_router/complexity_router",
+    {"model_name":"test-router","embrouter_params":{"model":"auto_router/complexity_router",
       "complexity_router_config":{"tiers":{"SIMPLE":"sonnet","MEDIUM":"sonnet","COMPLEX":"sonnet",
       "REASONING":"opus"},"session_affinity":false,
       "keyword_tier_rules":[{"keywords":["USE_OPUS"],"tier":"REASONING"}]}}},
-    {"model_name":"sonnet","litellm_params":{"model":"anthropic/claude-sonnet-5","api_key":"test-selected"},
+    {"model_name":"sonnet","embrouter_params":{"model":"anthropic/claude-sonnet-5","api_key":"test-selected"},
       "model_info":{"id":"selected"}},
-    {"model_name":"opus","litellm_params":{"model":"anthropic/claude-opus-5","api_key":"test-selected"},
+    {"model_name":"opus","embrouter_params":{"model":"anthropic/claude-opus-5","api_key":"test-selected"},
       "model_info":{"id":"baseline"}}]""")
 
 
@@ -75,14 +75,14 @@ async def _count(model: str, api_key: str, body: Mapping[str, JsonValue]) -> int
 
 
 class _CallContext(TypedDict):
-    litellm_logging_obj: NotRequired[ReadOnly[Logging]]
-    litellm_call_id: ReadOnly[str]
-    litellm_metadata: ReadOnly[Mapping[str, object]]
-    litellm_session_id: ReadOnly[str]
+    embrouter_logging_obj: NotRequired[ReadOnly[Logging]]
+    embrouter_call_id: ReadOnly[str]
+    embrouter_metadata: ReadOnly[Mapping[str, object]]
+    embrouter_session_id: ReadOnly[str]
 
 
 def _kwargs(logging_obj: Logging, trusted: bool = True, *, explicit_logging: bool = True) -> _CallContext:
-    context: Final = _OBJECTS.validate_json('{"litellm_metadata":{"user_api_key_hash":"test-caller-hash"}}')
+    context: Final = _OBJECTS.validate_json('{"embrouter_metadata":{"user_api_key_hash":"test-caller-hash"}}')
     Router._record_routing_decision(  # pyright: ignore[reportUnknownMemberType, reportPrivateUsage]  # production trusted stamp owner
         context,
         StandardLoggingRoutingDecision(
@@ -95,17 +95,17 @@ def _kwargs(logging_obj: Logging, trusted: bool = True, *, explicit_logging: boo
             savings_baseline_deployment_id="baseline",
         ),
     )
-    metadata: Final = _OBJECTS.validate_python(context["litellm_metadata"])
+    metadata: Final = _OBJECTS.validate_python(context["embrouter_metadata"])
     if not trusted:
         metadata["_autorouter_baseline_route"] = _JSON_OBJECT.validate_json(
             '{"router_name":"test-router","baseline_model":"anthropic/claude-opus-5","baseline_deployment_id":"baseline"}'
         )
     envelope: Final[_CallContext] = {
-        "litellm_call_id": logging_obj.litellm_call_id,
-        "litellm_session_id": "baseline-session",
-        "litellm_metadata": metadata,
+        "embrouter_call_id": logging_obj.embrouter_call_id,
+        "embrouter_session_id": "baseline-session",
+        "embrouter_metadata": metadata,
     }
-    supplied: Final[_CallContext] = {**envelope, "litellm_logging_obj": logging_obj}
+    supplied: Final[_CallContext] = {**envelope, "embrouter_logging_obj": logging_obj}
     return supplied if explicit_logging else envelope
 
 
@@ -166,7 +166,7 @@ async def _call(
     messages: str = _MESSAGES_JSON,
     explicit_logging: bool = True,
 ) -> None:
-    invoke: Final = target.anthropic_messages if target else litellm.anthropic_messages  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]  # legacy native call signatures
+    invoke: Final = target.anthropic_messages if target else embrouter.anthropic_messages  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]  # legacy native call signatures
     options: Final = _NativeOptions() if target else _NativeOptions(api_key="test-selected", num_retries=0)
     response: Final[object] = await invoke(  # pyright: ignore[reportUnknownVariableType]  # native Router returns an opaque SDK result
         model="test-router" if target else "anthropic/claude-sonnet-5",
@@ -191,7 +191,7 @@ class _Capture(CustomLogger):
         self, kwargs: Mapping[str, object], response_obj: object, start_time: datetime, end_time: datetime
     ) -> None:
         payload: Final = _OBJECTS.validate_python(kwargs.get("standard_logging_object"))
-        if payload.get("litellm_call_id") == self.call_id:
+        if payload.get("embrouter_call_id") == self.call_id:
             self.payloads.put_nowait(payload)
 
     async def payload(self) -> Mapping[str, object]:
@@ -209,18 +209,18 @@ class _Rig:
         self.hook: Final = AutoRouterBaselineCache(None, router=router, token_counter=count)
         self.call_id: Final = uuid4().hex
         self.capture: Final = _Capture(self.call_id)
-        monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+        monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
         for name in ("ANTHROPIC_API_BASE", "ANTHROPIC_BASE_URL"):
             monkeypatch.delenv(name, raising=False)
-        monkeypatch.setattr(litellm, "callbacks", [self.hook])
+        monkeypatch.setattr(embrouter, "callbacks", [self.hook])
         for name in ("success_callback", "failure_callback", "_async_failure_callback"):
-            monkeypatch.setattr(litellm, name, [])
-        monkeypatch.setattr(litellm, "_async_success_callback", [self.capture])
+            monkeypatch.setattr(embrouter, name, [])
+        monkeypatch.setattr(embrouter, "_async_success_callback", [self.capture])
 
     def logging(self, stream: bool = False) -> Logging:
         return Logging(model="anthropic/claude-sonnet-5", messages=_MESSAGES.validate_json(_MESSAGES_JSON),
             stream=stream, call_type=CallTypes.anthropic_messages.value, start_time=datetime.now(),
-            litellm_call_id=self.call_id, function_id=self.call_id, kwargs={"litellm_session_id":"baseline-session"})
+            embrouter_call_id=self.call_id, function_id=self.call_id, kwargs={"embrouter_session_id":"baseline-session"})
 
 
 def _observation(payload: Mapping[str, object]) -> CapturedBaselineObservation:

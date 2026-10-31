@@ -14,29 +14,29 @@ from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
 from opentelemetry.trace import Status, StatusCode
 
-import litellm
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.integrations.otel import logger as otel_logger
-from litellm.integrations.otel.logger import (
+import embrouter
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.integrations.otel import logger as otel_logger
+from embrouter.integrations.otel.logger import (
     OpenTelemetryV2,
     build_otel_v2_logger,
     fan_out_provider,
     publish_global_otel_v2_provider,
 )
-from litellm.integrations.otel.model.config import (
+from embrouter.integrations.otel.model.config import (
     ExporterOwner,
     ExporterSpec,
     OpenTelemetryV2Config,
     is_otel_v2_enabled,
 )
-from litellm.integrations.otel.model.destination import OtelDestination
-from litellm.integrations.otel.plumbing import providers as otel_providers
-from litellm.integrations.otel.plumbing.context import (
+from embrouter.integrations.otel.model.destination import OtelDestination
+from embrouter.integrations.otel.plumbing import providers as otel_providers
+from embrouter.integrations.otel.plumbing.context import (
     destination_backends,
     request_destinations,
     set_request_destinations,
 )
-from litellm.integrations.otel.plumbing.providers import (
+from embrouter.integrations.otel.plumbing.providers import (
     TenantFanOutSpanProcessor,
     _OverriddenBackendFilter,
     _sink_key,
@@ -44,19 +44,19 @@ from litellm.integrations.otel.plumbing.providers import (
     deliverable_destinations,
     operator_sink_scopes,
 )
-from litellm.integrations.otel.plumbing.routing import TenantTracerCache, get_tracer
-from litellm.integrations.otel.presets.arize import arize_preset
-from litellm.integrations.otel.presets.destinations import (
+from embrouter.integrations.otel.plumbing.routing import TenantTracerCache, get_tracer
+from embrouter.integrations.otel.presets.arize import arize_preset
+from embrouter.integrations.otel.presets.destinations import (
     destination_capable_backends,
     destination_for,
 )
-from litellm.integrations.otel.presets.langfuse import langfuse_preset
-from litellm.proxy._types import AddTeamCallback, UserAPIKeyAuth
-from litellm.proxy.litellm_pre_call_utils import (
+from embrouter.integrations.otel.presets.langfuse import langfuse_preset
+from embrouter.proxy._types import AddTeamCallback, UserAPIKeyAuth
+from embrouter.proxy.embrouter_pre_call_utils import (
     convert_key_logging_metadata_to_callback,
     resolve_tenant_otel_destinations,
 )
-from litellm.types.utils import StandardCallbackDynamicParams
+from embrouter.types.utils import StandardCallbackDynamicParams
 
 LANGFUSE_DEST = OtelDestination(
     endpoint="http://tenant.local/api/public/otel",
@@ -71,7 +71,7 @@ def allow_test_hosts(monkeypatch):
     these fixtures name so the resolution tests stay about resolution;
     ``TestTenantHostSsrfGuard`` covers the guard itself."""
     monkeypatch.setattr(
-        litellm, "provider_url_destination_allowed_hosts", ["team.local", "key.local", "x"], raising=False
+        embrouter, "provider_url_destination_allowed_hosts", ["team.local", "key.local", "x"], raising=False
     )
 
 
@@ -94,7 +94,7 @@ def in_fresh_context(fn, *args):
 
 
 def emit(provider: TracerProvider, name: str = "chat gpt-4") -> None:
-    with get_tracer(provider, "litellm").start_as_current_span(name):
+    with get_tracer(provider, "embrouter").start_as_current_span(name):
         pass
 
 
@@ -162,11 +162,11 @@ class TestRoutingMode:
 
     @staticmethod
     def _additive(monkeypatch):
-        monkeypatch.setattr(litellm, "otel_tenant_destination_mode", "additive", raising=False)
+        monkeypatch.setattr(embrouter, "otel_tenant_destination_mode", "additive", raising=False)
 
     @staticmethod
     def _tree(provider):
-        tracer = get_tracer(provider, "litellm")
+        tracer = get_tracer(provider, "embrouter")
         with tracer.start_as_current_span("POST /v1/chat/completions"):
             with tracer.start_as_current_span("auth /v1/chat/completions"):
                 pass
@@ -317,8 +317,8 @@ class TestRoutingMode:
         assert len(global_exporter.get_finished_spans()) == (3 if additive else 0)
 
     def test_the_env_var_turns_additive_on_without_a_config_file(self, monkeypatch):
-        monkeypatch.setattr(litellm, "otel_tenant_destination_mode", None, raising=False)
-        monkeypatch.setenv("LITELLM_OTEL_TENANT_DESTINATION_MODE", "Additive")
+        monkeypatch.setattr(embrouter, "otel_tenant_destination_mode", None, raising=False)
+        monkeypatch.setenv("EMBROUTER_OTEL_TENANT_DESTINATION_MODE", "Additive")
         global_exporter, dest_exporter = InMemorySpanExporter(), InMemorySpanExporter()
         provider = wired_provider(dest_exporter, global_exporter)
 
@@ -328,7 +328,7 @@ class TestRoutingMode:
         assert len(dest_exporter.get_finished_spans()) == 3
 
     def test_an_unrecognized_mode_stays_on_override(self, monkeypatch):
-        monkeypatch.setattr(litellm, "otel_tenant_destination_mode", "both", raising=False)
+        monkeypatch.setattr(embrouter, "otel_tenant_destination_mode", "both", raising=False)
         global_exporter, dest_exporter = InMemorySpanExporter(), InMemorySpanExporter()
         provider = wired_provider(dest_exporter, global_exporter)
 
@@ -408,7 +408,7 @@ class TestRoutingMode:
         """Under additive the fan-out skips a destination the operator already writes
         to. An exporter the provider never built writes nothing, so skipping it would
         cost the team every span."""
-        monkeypatch.setenv("LITELLM_OTEL_TENANT_DESTINATION_MODE", "additive")
+        monkeypatch.setenv("EMBROUTER_OTEL_TENANT_DESTINATION_MODE", "additive")
         gated_endpoint = "http://gated.local/v1/traces"
         destination = OtelDestination(endpoint=gated_endpoint, callback_name="newrelic")
         config = OpenTelemetryV2Config(
@@ -437,7 +437,7 @@ class TestRoutingMode:
         monkeypatch.setenv("LANGFUSE_HOST", "https://lf.internal")
         monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk-op")
         monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk-op")
-        monkeypatch.setattr(litellm, "provider_url_destination_allowed_hosts", ["lf.internal"], raising=False)
+        monkeypatch.setattr(embrouter, "provider_url_destination_allowed_hosts", ["lf.internal"], raising=False)
         operator = operator_sink_scopes(langfuse_preset())
 
         def sink(public_key, secret_key):
@@ -494,7 +494,7 @@ class TestFanOut:
         provider.add_span_processor(
             TenantFanOutSpanProcessor(processor_factory=lambda _d: SimpleSpanProcessor(dest_exporter))
         )
-        tracer = get_tracer(provider, "litellm")
+        tracer = get_tracer(provider, "embrouter")
 
         def run():
             set_request_destinations((LANGFUSE_DEST,))
@@ -528,7 +528,7 @@ class TestFanOut:
                 excluded_db_systems=frozenset({"redis", "postgresql"}),
             )
         )
-        tracer = get_tracer(provider, "litellm")
+        tracer = get_tracer(provider, "embrouter")
 
         def run():
             set_request_destinations((LANGFUSE_DEST,))
@@ -618,7 +618,7 @@ class TestFanOut:
         provider.add_span_processor(
             TenantFanOutSpanProcessor(processor_factory=lambda _d: SimpleSpanProcessor(dest_exporter))
         )
-        tracer = get_tracer(provider, "litellm")
+        tracer = get_tracer(provider, "embrouter")
         unreachable = "Can't reach database server at db.internal.example:15400"
 
         def run():
@@ -631,11 +631,11 @@ class TestFanOut:
                         "db.operation.name": "get_data",
                         "server.address": "db.internal.example",
                         "server.port": 15400,
-                        "db.namespace": "litellm",
+                        "db.namespace": "embrouter",
                         "error.type": "PrismaError",
                         "error.message": unreachable,
                         "error": unreachable,
-                        "litellm.provider.error.stack_trace": f"Traceback: {unreachable}",
+                        "embrouter.provider.error.stack_trace": f"Traceback: {unreachable}",
                     }
                 )
                 db_span.add_event("exception", {"exception.message": unreachable})
@@ -665,7 +665,7 @@ class TestFanOut:
         operator_db = operator["postgres get_data"]
         assert operator_db.attributes["server.address"] == "db.internal.example"
         assert operator_db.attributes["server.port"] == 15400
-        assert operator_db.attributes["db.namespace"] == "litellm"
+        assert operator_db.attributes["db.namespace"] == "embrouter"
         assert operator_db.attributes["error.message"] == unreachable
         assert operator_db.attributes["error"] == unreachable
         assert operator_db.status.description == unreachable
@@ -679,7 +679,7 @@ class TestFanOut:
         provider.add_span_processor(
             TenantFanOutSpanProcessor(processor_factory=lambda _d: SimpleSpanProcessor(dest_exporter))
         )
-        tracer = get_tracer(provider, "litellm")
+        tracer = get_tracer(provider, "embrouter")
         unreachable = "Cannot connect to host guardrail.internal.example:9000"
         verdict = '{"action": "block", "categories": ["pii"]}'
 
@@ -689,17 +689,17 @@ class TestFanOut:
                 with tracer.start_as_current_span("execute_guardrail pii") as down:
                     down.set_attributes(
                         {
-                            "litellm.guardrail.name": "pii",
-                            "litellm.guardrail.status": failure_status,
-                            "litellm.guardrail.response": unreachable,
+                            "embrouter.guardrail.name": "pii",
+                            "embrouter.guardrail.status": failure_status,
+                            "embrouter.guardrail.response": unreachable,
                         }
                     )
                 with tracer.start_as_current_span("execute_guardrail toxicity") as up:
                     up.set_attributes(
                         {
-                            "litellm.guardrail.name": "toxicity",
-                            "litellm.guardrail.status": "guardrail_intervened",
-                            "litellm.guardrail.response": verdict,
+                            "embrouter.guardrail.name": "toxicity",
+                            "embrouter.guardrail.status": "guardrail_intervened",
+                            "embrouter.guardrail.response": verdict,
                         }
                     )
 
@@ -708,12 +708,12 @@ class TestFanOut:
         tenant = {s.name: s for s in dest_exporter.get_finished_spans()}
         operator = {s.name: s for s in operator_exporter.get_finished_spans()}
         assert dict(tenant["execute_guardrail pii"].attributes) == {
-            "litellm.guardrail.name": "pii",
-            "litellm.guardrail.status": failure_status,
+            "embrouter.guardrail.name": "pii",
+            "embrouter.guardrail.status": failure_status,
         }
         assert "guardrail.internal.example" not in tenant["execute_guardrail pii"].to_json()
-        assert tenant["execute_guardrail toxicity"].attributes["litellm.guardrail.response"] == verdict
-        assert operator["execute_guardrail pii"].attributes["litellm.guardrail.response"] == unreachable
+        assert tenant["execute_guardrail toxicity"].attributes["embrouter.guardrail.response"] == verdict
+        assert operator["execute_guardrail pii"].attributes["embrouter.guardrail.response"] == unreachable
 
     def test_the_callers_key_in_the_query_string_does_not_ride_along_to_the_tenant(self):
         """A Google AI Studio style request authenticates with ``?key=<virtual key>``,
@@ -726,7 +726,7 @@ class TestFanOut:
         provider.add_span_processor(
             TenantFanOutSpanProcessor(processor_factory=lambda _d: SimpleSpanProcessor(dest_exporter))
         )
-        tracer = get_tracer(provider, "litellm")
+        tracer = get_tracer(provider, "embrouter")
         path = "/v1beta/models/gemini-2.5-flash:generateContent"
         query = "key=sk-another-members-virtual-key&alt=sse"
 
@@ -783,7 +783,7 @@ class TestFanOut:
         provider.add_span_processor(
             TenantFanOutSpanProcessor(processor_factory=lambda _d: SimpleSpanProcessor(dest_exporter))
         )
-        tracer = get_tracer(provider, "litellm")
+        tracer = get_tracer(provider, "embrouter")
         bearer = "Bearer sk-another-members-virtual-key"
 
         def run():
@@ -794,7 +794,7 @@ class TestFanOut:
                         "http.request.method": "POST",
                         "http.route": "/v1/chat/completions",
                         "http.request.header.authorization": (bearer,),
-                        "http.request.header.x_litellm_api_key": (bearer,),
+                        "http.request.header.x_embrouter_api_key": (bearer,),
                         "http.response.header.set_cookie": ("session=abc",),
                     }
                 )
@@ -824,9 +824,9 @@ class TestFanOut:
         provider.add_span_processor(
             TenantFanOutSpanProcessor(processor_factory=lambda _d: SimpleSpanProcessor(dest_exporter))
         )
-        tracer = get_tracer(provider, "litellm")
+        tracer = get_tracer(provider, "embrouter")
         unreachable = "Authentication Error, Can't reach database server at db.internal.example:15400"
-        install = "/srv/litellm/.venv/lib/python3.13/site-packages/opentelemetry/trace/__init__.py"
+        install = "/srv/embrouter/.venv/lib/python3.13/site-packages/opentelemetry/trace/__init__.py"
         provider_error = "AnthropicException - invalid x-api-key"
 
         def fail(span, message: str) -> None:
@@ -834,8 +834,8 @@ class TestFanOut:
                 {
                     "error.type": "ProxyException",
                     "error.message": message,
-                    "litellm.provider.error.code": "500",
-                    "litellm.provider.error.stack_trace": f"Traceback\n  File {install}\n{message}",
+                    "embrouter.provider.error.code": "500",
+                    "embrouter.provider.error.stack_trace": f"Traceback\n  File {install}\n{message}",
                 }
             )
             span.add_event(
@@ -861,7 +861,7 @@ class TestFanOut:
         assert set(tenant) == {"POST /v1/chat/completions", "auth /v1/chat/completions", "chat claude-haiku"}
         for name in ("POST /v1/chat/completions", "auth /v1/chat/completions"):
             proxy_span = tenant[name]
-            assert dict(proxy_span.attributes) == {"error.type": "ProxyException", "litellm.provider.error.code": "500"}
+            assert dict(proxy_span.attributes) == {"error.type": "ProxyException", "embrouter.provider.error.code": "500"}
             assert list(proxy_span.events) == []
             assert proxy_span.status.status_code is StatusCode.ERROR
             assert proxy_span.status.description is None
@@ -869,7 +869,7 @@ class TestFanOut:
             assert install not in proxy_span.to_json()
         llm_span = tenant["chat claude-haiku"]
         assert llm_span.attributes["error.message"] == provider_error, "the tenant's own call keeps its error text"
-        assert "litellm.provider.error.stack_trace" not in llm_span.attributes
+        assert "embrouter.provider.error.stack_trace" not in llm_span.attributes
         assert llm_span.status.description == provider_error
         assert [dict(event.attributes) for event in llm_span.events] == [
             {"exception.type": "ProxyException", "exception.message": provider_error}
@@ -877,7 +877,7 @@ class TestFanOut:
         assert install not in llm_span.to_json()
         for name, message in (("auth /v1/chat/completions", unreachable), ("chat claude-haiku", provider_error)):
             assert operator[name].attributes["error.message"] == message
-            assert install in operator[name].attributes["litellm.provider.error.stack_trace"]
+            assert install in operator[name].attributes["embrouter.provider.error.stack_trace"]
             assert operator[name].events[0].attributes["exception.stacktrace"] == install
             assert operator[name].status.description == message
 
@@ -887,7 +887,7 @@ class TestFanOut:
         afresh per span, so no attribute the operator did not configure appears."""
         dest = InMemorySpanExporter()
         provider = TracerProvider(
-            resource=Resource({"service.name": "litellm-proxy", "deployment.environment.name": "prod"})
+            resource=Resource({"service.name": "embrouter-proxy", "deployment.environment.name": "prod"})
         )
         provider.add_span_processor(TenantFanOutSpanProcessor(processor_factory=lambda _d: SimpleSpanProcessor(dest)))
 
@@ -1081,7 +1081,7 @@ class TestProviderWiring:
         """A preset builds its config env-only, so the fan-out must read
         ``callback_settings.otel.excluded_services`` itself rather than the
         published logger's config, or the env value would win."""
-        monkeypatch.setattr(litellm, "callback_settings", {"otel": {"excluded_services": ["postgres"]}}, raising=False)
+        monkeypatch.setattr(embrouter, "callback_settings", {"otel": {"excluded_services": ["postgres"]}}, raising=False)
         preset = OpenTelemetryV2(
             config=OpenTelemetryV2Config(exporters=[ExporterSpec(kind="in_memory")], excluded_services=["redis"]),
             callback_name="langfuse_otel",
@@ -1098,15 +1098,15 @@ class TestProviderWiring:
             config=OpenTelemetryV2Config(exporters=[ExporterSpec(kind="in_memory")]),
             callback_name="langfuse_otel",
         )
-        monkeypatch.setenv("LITELLM_OTEL_LEGACY_COMPAT", "not-a-bool")
-        monkeypatch.setattr(litellm, "callback_settings", {"otel": {"excluded_services": ["postgres"]}}, raising=False)
+        monkeypatch.setenv("EMBROUTER_OTEL_LEGACY_COMPAT", "not-a-bool")
+        monkeypatch.setattr(embrouter, "callback_settings", {"otel": {"excluded_services": ["postgres"]}}, raising=False)
 
         publish_global_otel_v2_provider([], lambda _p: None, registered=preset)
 
         assert self._fan_out_of(preset)._excluded_db_systems == frozenset({"postgresql"})
 
     def test_excluded_services_fall_back_to_the_published_logger_config_without_callback_settings(self, monkeypatch):
-        monkeypatch.setattr(litellm, "callback_settings", {"otel": {"exporter": "in_memory"}}, raising=False)
+        monkeypatch.setattr(embrouter, "callback_settings", {"otel": {"exporter": "in_memory"}}, raising=False)
         preset = OpenTelemetryV2(
             config=OpenTelemetryV2Config(exporters=[ExporterSpec(kind="in_memory")], excluded_services=["redis"]),
             callback_name="langfuse_otel",
@@ -1120,15 +1120,15 @@ class TestProviderWiring:
         """``callbacks: [langfuse_otel, otel]`` keeps one v2 logger, exactly as
         before ``excluded_services`` existed, and the exclusion still comes from
         ``callback_settings.otel`` rather than the preset's env-only config."""
-        from litellm.litellm_core_utils import litellm_logging as logging_module
+        from embrouter.embrouter_core_utils import embrouter_logging as logging_module
 
         logging_module._in_memory_loggers.clear()
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+        monkeypatch.setenv("EMBROUTER_OTEL_V2", "true")
         monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk")
         monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk")
-        monkeypatch.setenv("LITELLM_OTEL_EXCLUDED_SERVICES", "redis")
+        monkeypatch.setenv("EMBROUTER_OTEL_EXCLUDED_SERVICES", "redis")
         is_otel_v2_enabled.cache_clear()
-        monkeypatch.setattr(litellm, "callback_settings", {"otel": {"excluded_services": ["postgres"]}}, raising=False)
+        monkeypatch.setattr(embrouter, "callback_settings", {"otel": {"excluded_services": ["postgres"]}}, raising=False)
         try:
 
             def init(name: str) -> CustomLogger | None:
@@ -1154,7 +1154,7 @@ class TestProviderWiring:
 
     @pytest.mark.parametrize("canonical", ["langfuse_otel", "arize"])
     def test_publishing_tells_the_fan_out_about_every_v2_loggers_account(self, monkeypatch, canonical):
-        monkeypatch.setenv("LITELLM_OTEL_TENANT_DESTINATION_MODE", "additive")
+        monkeypatch.setenv("EMBROUTER_OTEL_TENANT_DESTINATION_MODE", "additive")
         shared = InMemorySpanExporter()
         monkeypatch.setattr(otel_providers, "_destination_processor", lambda _d: SimpleSpanProcessor(shared))
         accounts = {
@@ -1215,7 +1215,7 @@ class TestProviderWiring:
         auto-instrumentation or a legacy logger claimed it before the proxy published,
         the OTel global carries no fan-out, so reading it there would refuse every
         destination the published provider delivers."""
-        from litellm.proxy import proxy_server
+        from embrouter.proxy import proxy_server
 
         config = OpenTelemetryV2Config(exporters=[ExporterSpec(kind="in_memory", owner=ExporterOwner.LANGFUSE_OTEL)])
         logger = OpenTelemetryV2(config=config, callback_name="langfuse_otel")
@@ -1233,8 +1233,8 @@ class TestProviderWiring:
         ``_in_memory_loggers``. Reading the registered slot finds no v2 logger there and
         the OTel global belongs to v1, so both detours refuse every destination the
         published provider delivers."""
-        from litellm.integrations.opentelemetry import OpenTelemetry
-        from litellm.proxy import proxy_server
+        from embrouter.integrations.opentelemetry import OpenTelemetry
+        from embrouter.proxy import proxy_server
 
         config = OpenTelemetryV2Config(exporters=[ExporterSpec(kind="in_memory", owner=ExporterOwner.LANGFUSE_OTEL)])
         v2 = OpenTelemetryV2(config=config, callback_name="langfuse_otel")
@@ -1245,7 +1245,7 @@ class TestProviderWiring:
         assert deliverable_destinations((LANGFUSE_DEST,), fan_out_provider()) == (LANGFUSE_DEST,)
 
     def test_without_a_publish_anchoring_attaches_fan_out_to_registered_v2_logger(self, monkeypatch):
-        from litellm.proxy import proxy_server
+        from embrouter.proxy import proxy_server
 
         config = OpenTelemetryV2Config(exporters=[ExporterSpec(kind="in_memory", owner=ExporterOwner.LANGFUSE_OTEL)])
         logger = OpenTelemetryV2(config=config, callback_name="langfuse_otel")
@@ -1259,7 +1259,7 @@ class TestProviderWiring:
         attached twice delivers every tenant span twice."""
         import threading
 
-        from litellm.integrations.otel.plumbing.providers import attach_tenant_fan_out
+        from embrouter.integrations.otel.plumbing.providers import attach_tenant_fan_out
 
         class SlowAttachProvider(TracerProvider):
             def add_span_processor(self, span_processor):
@@ -1286,7 +1286,7 @@ class TestProviderWiring:
     def test_without_a_publish_anchoring_falls_back_to_the_otel_global(self, monkeypatch):
         from opentelemetry import trace
 
-        from litellm.proxy import proxy_server
+        from embrouter.proxy import proxy_server
 
         monkeypatch.setattr(proxy_server, "open_telemetry_logger", None)
 
@@ -1295,10 +1295,10 @@ class TestProviderWiring:
     def test_auth_seeds_the_request_with_destinations_the_registered_logger_can_deliver(
         self, monkeypatch, allow_test_hosts
     ):
-        from litellm.proxy import proxy_server
-        from litellm.proxy.auth.user_api_key_auth import _seed_request_destinations
+        from embrouter.proxy import proxy_server
+        from embrouter.proxy.auth.user_api_key_auth import _seed_request_destinations
 
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+        monkeypatch.setenv("EMBROUTER_OTEL_V2", "true")
         is_otel_v2_enabled.cache_clear()
         config = OpenTelemetryV2Config(exporters=[ExporterSpec(kind="in_memory", owner=ExporterOwner.LANGFUSE_OTEL)])
         logger = OpenTelemetryV2(config=config, callback_name="langfuse_otel")
@@ -1335,8 +1335,8 @@ class TestRouting:
         config = OpenTelemetryV2Config(
             exporters=[ExporterSpec(kind="otlp_http", endpoint="http://op.local", owner=ExporterOwner.LANGFUSE_OTEL)]
         )
-        cache = TenantTracerCache(config, "langfuse_otel", "litellm")
-        default = get_tracer(TracerProvider(), "litellm")
+        cache = TenantTracerCache(config, "langfuse_otel", "embrouter")
+        default = get_tracer(TracerProvider(), "embrouter")
         params = {"langfuse_public_key": "pk", "langfuse_secret_key": "sk"}
 
         assert cache.route_for(default, params).detached is True
@@ -1356,8 +1356,8 @@ class TestRouting:
         config = OpenTelemetryV2Config(
             exporters=[ExporterSpec(kind="otlp_http", endpoint="http://op.local", owner=ExporterOwner.LANGFUSE_OTEL)]
         )
-        cache = TenantTracerCache(config, "langfuse_otel", "litellm")
-        default = get_tracer(TracerProvider(), "litellm")
+        cache = TenantTracerCache(config, "langfuse_otel", "embrouter")
+        default = get_tracer(TracerProvider(), "embrouter")
         auth_metadata = {"otel_service_name": "team-checkout"}
 
         assert cache.route_for(default, None, auth_metadata).detached is False
@@ -1379,8 +1379,8 @@ class TestRouting:
         config = OpenTelemetryV2Config(
             exporters=[ExporterSpec(kind="otlp_http", endpoint="http://op.local", owner=ExporterOwner.ARIZE_AX)]
         )
-        cache = TenantTracerCache(config, callback_name, "litellm")
-        default = get_tracer(TracerProvider(), "litellm")
+        cache = TenantTracerCache(config, callback_name, "embrouter")
+        default = get_tracer(TracerProvider(), "embrouter")
         auth_metadata = {"otel_service_name": "team-checkout"}
 
         relabelled = cache.route_for(default, None, auth_metadata)
@@ -1411,8 +1411,8 @@ class TestRouting:
         config = OpenTelemetryV2Config(
             exporters=[ExporterSpec(kind="otlp_http", endpoint="http://op.local", owner=owner)]
         )
-        cache = TenantTracerCache(config, owner.value, "litellm")
-        default = get_tracer(TracerProvider(), "litellm")
+        cache = TenantTracerCache(config, owner.value, "embrouter")
+        default = get_tracer(TracerProvider(), "embrouter")
 
         def run():
             set_request_destinations((LANGFUSE_DEST,))
@@ -1427,7 +1427,7 @@ class TestRouting:
 @pytest.mark.usefixtures("allow_test_hosts")
 class TestDestinationResolution:
     def test_a_langfuse_key_pair_and_host_become_a_destination(self, monkeypatch):
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+        monkeypatch.setenv("EMBROUTER_OTEL_V2", "true")
         is_otel_v2_enabled.cache_clear()
         auth = UserAPIKeyAuth(
             team_metadata={
@@ -1453,7 +1453,7 @@ class TestDestinationResolution:
     def test_a_keys_service_name_outranks_its_teams_on_the_destination(self, monkeypatch):
         """The key/team ``otel_service_name`` used to reach the backend through
         per-request tracer routing, which an overridden backend skips."""
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+        monkeypatch.setenv("EMBROUTER_OTEL_V2", "true")
         is_otel_v2_enabled.cache_clear()
         auth = UserAPIKeyAuth(
             metadata={"otel_service_name": "key-svc"},
@@ -1478,7 +1478,7 @@ class TestDestinationResolution:
         assert dict(destinations[0].resource_attributes) == {"service.name": "key-svc"}
 
     def test_a_team_that_named_no_service_name_gets_no_resource_override(self, monkeypatch):
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+        monkeypatch.setenv("EMBROUTER_OTEL_V2", "true")
         is_otel_v2_enabled.cache_clear()
         auth = UserAPIKeyAuth(
             team_metadata={
@@ -1502,7 +1502,7 @@ class TestDestinationResolution:
         assert dict(destinations[0].resource_attributes) == {}
 
     def test_the_key_wins_over_the_team_for_the_same_backend(self, monkeypatch):
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+        monkeypatch.setenv("EMBROUTER_OTEL_V2", "true")
         is_otel_v2_enabled.cache_clear()
 
         def entry(host: str) -> Mapping[str, object]:
@@ -1524,7 +1524,7 @@ class TestDestinationResolution:
         assert [d.endpoint for d in resolve_tenant_otel_destinations(auth)] == ["http://key.local/api/public/otel"]
 
     def test_nothing_resolves_while_otel_v2_is_off(self, monkeypatch):
-        monkeypatch.delenv("LITELLM_OTEL_V2", raising=False)
+        monkeypatch.delenv("EMBROUTER_OTEL_V2", raising=False)
         is_otel_v2_enabled.cache_clear()
         auth = UserAPIKeyAuth(
             team_metadata={
@@ -1548,7 +1548,7 @@ class TestDestinationResolution:
         assert destination_for("arize_phoenix", {"arize_api_key": "k"}) is None
 
     def test_the_destination_header_string_survives_the_exporter_round_trip(self):
-        from litellm.integrations.otel.plumbing.providers import parse_headers
+        from embrouter.integrations.otel.plumbing.providers import parse_headers
 
         destination = destination_for(
             "langfuse_otel",
@@ -1594,7 +1594,7 @@ TRACE_CONTROLS = MappingProxyType(
 
 
 def request_tree(provider: TracerProvider) -> None:
-    tracer = get_tracer(provider, "litellm")
+    tracer = get_tracer(provider, "embrouter")
     with tracer.start_as_current_span("POST /v1/chat/completions"):
         with tracer.start_as_current_span("auth /v1/chat/completions"):
             with tracer.start_as_current_span("postgres SELECT") as db:
@@ -1602,7 +1602,7 @@ def request_tree(provider: TracerProvider) -> None:
             with tracer.start_as_current_span("redis GET") as cache:
                 cache.set_attribute("db.system", "redis")
         with tracer.start_as_current_span("execute_guardrail pii") as guard:
-            guard.set_attributes({"litellm.guardrail.name": "pii", "litellm.guardrail.status": "success"})
+            guard.set_attributes({"embrouter.guardrail.name": "pii", "embrouter.guardrail.status": "success"})
         with tracer.start_as_current_span("tools/call get_weather") as tool:
             tool.set_attributes({"gen_ai.operation.name": "execute_tool", "mcp.method.name": "tools/call"})
         with tracer.start_as_current_span("chat gpt-4") as llm:
@@ -1620,7 +1620,7 @@ def names(exporter: InMemorySpanExporter) -> frozenset[str]:
 class TestSpanScope:
     @staticmethod
     def _additive(monkeypatch):
-        monkeypatch.setattr(litellm, "otel_tenant_destination_mode", "additive", raising=False)
+        monkeypatch.setattr(embrouter, "otel_tenant_destination_mode", "additive", raising=False)
 
     @staticmethod
     def _run(provider, destinations):
@@ -1924,12 +1924,12 @@ class TestSpanScope:
         assert names(exporters[ExporterOwner.LANGFUSE_OTEL]) == REQUEST_TREE
 
     def test_the_env_var_sets_the_operator_scope(self, monkeypatch):
-        monkeypatch.setenv("LITELLM_OTEL_LANGFUSE_SPAN_SCOPE", "llm_only")
+        monkeypatch.setenv("EMBROUTER_OTEL_LANGFUSE_SPAN_SCOPE", "llm_only")
 
         assert OpenTelemetryV2Config().langfuse_span_scope == "llm_only"
 
     def test_the_env_var_narrows_the_exporter_the_langfuse_preset_builds(self, monkeypatch):
-        monkeypatch.setenv("LITELLM_OTEL_LANGFUSE_SPAN_SCOPE", "llm_only")
+        monkeypatch.setenv("EMBROUTER_OTEL_LANGFUSE_SPAN_SCOPE", "llm_only")
         monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk")
         monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk")
         exporters = {}
@@ -1953,7 +1953,7 @@ class TestSpanScope:
     def test_the_env_var_is_read_case_and_whitespace_insensitively(self, monkeypatch, spelling):
         """A misspelt env var would otherwise fail validation inside the logger builder,
         which swallows the error and leaves the proxy up with OTel v2 silently off."""
-        monkeypatch.setenv("LITELLM_OTEL_LANGFUSE_SPAN_SCOPE", spelling)
+        monkeypatch.setenv("EMBROUTER_OTEL_LANGFUSE_SPAN_SCOPE", spelling)
 
         assert OpenTelemetryV2Config().langfuse_span_scope == "llm_only"
 
@@ -1967,9 +1967,9 @@ class TestSpanScope:
             langfuse_span_scope="llm_only",
             exporters=[ExporterSpec(kind="otlp_http", endpoint="http://op.local", owner=ExporterOwner.LANGFUSE_OTEL)],
         )
-        cache = TenantTracerCache(config, "langfuse_otel", "litellm")
+        cache = TenantTracerCache(config, "langfuse_otel", "embrouter")
         route = cache.route_for(
-            get_tracer(TracerProvider(), "litellm"), {"langfuse_public_key": "pk", "langfuse_secret_key": "sk"}
+            get_tracer(TracerProvider(), "embrouter"), {"langfuse_public_key": "pk", "langfuse_secret_key": "sk"}
         )
         assert route.provider is not None
 
@@ -1979,7 +1979,7 @@ class TestSpanScope:
         assert names(tenant) == REQUEST_TREE
 
     def test_a_team_callback_var_becomes_the_destinations_scope(self, monkeypatch, allow_test_hosts):
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+        monkeypatch.setenv("EMBROUTER_OTEL_V2", "true")
         is_otel_v2_enabled.cache_clear()
         auth = UserAPIKeyAuth(
             team_metadata={
@@ -2073,10 +2073,10 @@ class TestPresetDegradation:
             langfuse_preset()
 
     def test_a_credential_less_proxy_builds_the_gated_logger_beside_a_v2_carrier(self, monkeypatch):
-        from litellm.litellm_core_utils.litellm_logging import _maybe_construct_otel_v2
+        from embrouter.embrouter_core_utils.embrouter_logging import _maybe_construct_otel_v2
 
         credential_less_proxy(monkeypatch)
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+        monkeypatch.setenv("EMBROUTER_OTEL_V2", "true")
         carrier = build_otel_v2_logger(OpenTelemetryV2Config(exporter="in_memory"))
 
         def run():
@@ -2094,10 +2094,10 @@ class TestPresetDegradation:
         """Nothing can use a credential-less langfuse here, so the operator has to get
         the same story as before v2: the legacy integration, not a global provider
         that exports nowhere."""
-        from litellm.litellm_core_utils.litellm_logging import _maybe_construct_otel_v2
+        from embrouter.embrouter_core_utils.embrouter_logging import _maybe_construct_otel_v2
 
         credential_less_proxy(monkeypatch)
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+        monkeypatch.setenv("EMBROUTER_OTEL_V2", "true")
 
         is_otel_v2_enabled.cache_clear()
         logger = in_fresh_context(_maybe_construct_otel_v2, "langfuse_otel", [])
@@ -2106,11 +2106,11 @@ class TestPresetDegradation:
         assert logger is None
 
     def test_a_valid_newrelic_base_exporter_survives_without_a_license_key(self, monkeypatch):
-        from litellm.litellm_core_utils.litellm_logging import _maybe_construct_otel_v2
+        from embrouter.embrouter_core_utils.embrouter_logging import _maybe_construct_otel_v2
 
         monkeypatch.delenv("NEW_RELIC_LICENSE_KEY", raising=False)
         monkeypatch.setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://collector.local:4318")
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+        monkeypatch.setenv("EMBROUTER_OTEL_V2", "true")
 
         is_otel_v2_enabled.cache_clear()
         logger = in_fresh_context(_maybe_construct_otel_v2, "newrelic", [])
@@ -2123,12 +2123,12 @@ class TestPresetDegradation:
         ]
 
     def test_a_credentialless_newrelic_without_a_base_exporter_falls_back(self, monkeypatch):
-        from litellm.litellm_core_utils.litellm_logging import _maybe_construct_otel_v2
+        from embrouter.embrouter_core_utils.embrouter_logging import _maybe_construct_otel_v2
 
         monkeypatch.delenv("NEW_RELIC_LICENSE_KEY", raising=False)
         for name in _OTEL_SHORTHAND_ENV:
             monkeypatch.delenv(name, raising=False)
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+        monkeypatch.setenv("EMBROUTER_OTEL_V2", "true")
 
         is_otel_v2_enabled.cache_clear()
         logger = in_fresh_context(_maybe_construct_otel_v2, "newrelic", [])
@@ -2140,13 +2140,13 @@ class TestPresetDegradation:
         """``OTEL_EXPORTER=console`` reads exactly like the placeholder ``_normalize``
         folds in, but the operator asked for it, so a credential-less New Relic keeps
         the V2 logger and its spans reach stdout instead of the legacy path."""
-        from litellm.litellm_core_utils.litellm_logging import _maybe_construct_otel_v2
+        from embrouter.embrouter_core_utils.embrouter_logging import _maybe_construct_otel_v2
 
         monkeypatch.delenv("NEW_RELIC_LICENSE_KEY", raising=False)
         for name in _OTEL_SHORTHAND_ENV:
             monkeypatch.delenv(name, raising=False)
         monkeypatch.setenv("OTEL_EXPORTER", "console")
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+        monkeypatch.setenv("EMBROUTER_OTEL_V2", "true")
 
         is_otel_v2_enabled.cache_clear()
         logger = in_fresh_context(_maybe_construct_otel_v2, "newrelic", [])
@@ -2157,11 +2157,11 @@ class TestPresetDegradation:
         assert not logger.config.exporters[0].requires_headers
 
     def test_a_destination_for_one_backend_does_not_degrade_another(self, monkeypatch):
-        from litellm.litellm_core_utils.litellm_logging import _maybe_construct_otel_v2
+        from embrouter.embrouter_core_utils.embrouter_logging import _maybe_construct_otel_v2
 
         credential_less_proxy(monkeypatch)
         monkeypatch.delenv("WANDB_API_KEY", raising=False)
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+        monkeypatch.setenv("EMBROUTER_OTEL_V2", "true")
 
         def run():
             set_request_destinations((LANGFUSE_DEST,))
@@ -2176,10 +2176,10 @@ class TestPresetDegradation:
     def test_the_exporter_less_logger_is_not_reused_by_a_request_without_destinations(self, monkeypatch):
         """Reusing it would let one team's destination decide how every later request
         without one is logged, long after the degrade was justified."""
-        from litellm.litellm_core_utils.litellm_logging import _maybe_construct_otel_v2
+        from embrouter.embrouter_core_utils.embrouter_logging import _maybe_construct_otel_v2
 
         credential_less_proxy(monkeypatch)
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+        monkeypatch.setenv("EMBROUTER_OTEL_V2", "true")
         loggers = [build_otel_v2_logger(OpenTelemetryV2Config(exporter="in_memory"))]
 
         def with_destination():
@@ -2195,11 +2195,11 @@ class TestPresetDegradation:
         assert plain is None
 
     def test_a_credentialed_logger_is_still_reused_across_requests(self, monkeypatch):
-        from litellm.litellm_core_utils.litellm_logging import _maybe_construct_otel_v2
+        from embrouter.embrouter_core_utils.embrouter_logging import _maybe_construct_otel_v2
 
         monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk-lf-1")
         monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk-lf-1")
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+        monkeypatch.setenv("EMBROUTER_OTEL_V2", "true")
         loggers = []
 
         is_otel_v2_enabled.cache_clear()
@@ -2212,11 +2212,11 @@ class TestPresetDegradation:
 
     @staticmethod
     def _degraded_langfuse_beside(loggers, monkeypatch):
-        from litellm.litellm_core_utils.litellm_logging import _maybe_construct_otel_v2
+        from embrouter.embrouter_core_utils.embrouter_logging import _maybe_construct_otel_v2
 
         credential_less_proxy(monkeypatch)
         monkeypatch.setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://collector.local:4318")
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+        monkeypatch.setenv("EMBROUTER_OTEL_V2", "true")
 
         def run():
             set_request_destinations((LANGFUSE_DEST,))
@@ -2243,10 +2243,10 @@ class TestPresetDegradation:
         """Only a V2 logger publishes the provider the fan-out rides on, so a legacy
         callback beside this one leaves the destination just as unreachable as no
         callback at all, and the operator keeps the pre-V2 story."""
-        from litellm.litellm_core_utils.litellm_logging import _maybe_construct_otel_v2
+        from embrouter.embrouter_core_utils.embrouter_logging import _maybe_construct_otel_v2
 
         credential_less_proxy(monkeypatch)
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+        monkeypatch.setenv("EMBROUTER_OTEL_V2", "true")
 
         def run():
             set_request_destinations((LANGFUSE_DEST,))
@@ -2261,13 +2261,13 @@ class TestPresetDegradation:
     def test_a_credentialed_logger_beside_another_v2_logger_keeps_every_exporter(self, monkeypatch):
         """Only a degraded preset gives the collector up; an operator who configured
         both the backend and the collector still exports to both, as on base."""
-        from litellm.litellm_core_utils.litellm_logging import _maybe_construct_otel_v2
+        from embrouter.embrouter_core_utils.embrouter_logging import _maybe_construct_otel_v2
 
         monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk-lf-1")
         monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk-lf-1")
         monkeypatch.setenv("LANGFUSE_HOST", "https://cloud.langfuse.com")
         monkeypatch.setenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://collector.local:4318")
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+        monkeypatch.setenv("EMBROUTER_OTEL_V2", "true")
         collector_logger = build_otel_v2_logger(OpenTelemetryV2Config(exporter="in_memory"))
 
         is_otel_v2_enabled.cache_clear()
@@ -2398,13 +2398,13 @@ class TestCallbackTypeFilter:
 
     @pytest.mark.parametrize("callback_type", ["success", "success_and_failure", None])
     def test_an_entry_that_wants_success_traces_gets_the_whole_trace(self, monkeypatch, callback_type):
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+        monkeypatch.setenv("EMBROUTER_OTEL_V2", "true")
         is_otel_v2_enabled.cache_clear()
 
         assert resolve_tenant_otel_destinations(self._auth(callback_type)) != ()
 
     def test_a_failure_only_entry_does_not_take_over_the_trace(self, monkeypatch):
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+        monkeypatch.setenv("EMBROUTER_OTEL_V2", "true")
         is_otel_v2_enabled.cache_clear()
 
         assert resolve_tenant_otel_destinations(self._auth("failure")) == ()
@@ -2416,9 +2416,9 @@ class TestTenantConfigAgreement:
 
     @pytest.fixture(autouse=True)
     def _v2_on(self, monkeypatch):
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+        monkeypatch.setenv("EMBROUTER_OTEL_V2", "true")
         monkeypatch.setattr(
-            litellm, "provider_url_destination_allowed_hosts", ["team.local", "key.local"], raising=False
+            embrouter, "provider_url_destination_allowed_hosts", ["team.local", "key.local"], raising=False
         )
         is_otel_v2_enabled.cache_clear()
         yield
@@ -2477,17 +2477,17 @@ class TestTenantConfigAgreement:
 
     @pytest.fixture
     def premium(self, monkeypatch):
-        from litellm.proxy import proxy_server
+        from embrouter.proxy import proxy_server
 
         monkeypatch.setattr(proxy_server, "premium_user", True)
-        monkeypatch.setattr(litellm, "allow_dynamic_callback_disabling", True)
+        monkeypatch.setattr(embrouter, "allow_dynamic_callback_disabling", True)
 
     @pytest.mark.usefixtures("premium")
     def test_a_backend_the_key_disabled_resolves_to_no_destination(self):
-        """Dispatch skips a callback named in the key's ``litellm_disabled_callbacks``,
+        """Dispatch skips a callback named in the key's ``embrouter_disabled_callbacks``,
         so the fan-out must not deliver to it either."""
         auth = UserAPIKeyAuth(
-            metadata={"litellm_disabled_callbacks": ["Langfuse_OTEL"]},
+            metadata={"embrouter_disabled_callbacks": ["Langfuse_OTEL"]},
             team_metadata={"logging": [self._entry("http://team.local")]},
         )
 
@@ -2506,24 +2506,24 @@ class TestTenantConfigAgreement:
         """Same precedence as dispatch: a header that names other backends re-enables
         the one the key stored."""
         auth = UserAPIKeyAuth(
-            metadata={"litellm_disabled_callbacks": ["langfuse_otel"]},
+            metadata={"embrouter_disabled_callbacks": ["langfuse_otel"]},
             team_metadata={"logging": [self._entry("http://team.local")]},
         )
 
-        destinations = resolve_tenant_otel_destinations(auth, {"x-litellm-disable-callbacks": header})
+        destinations = resolve_tenant_otel_destinations(auth, {"x-embrouter-disable-callbacks": header})
 
         assert bool(destinations) is resolved
 
     def test_a_non_premium_proxy_ignores_the_disabled_list_like_dispatch_does(self, monkeypatch):
-        from litellm.proxy import proxy_server
+        from embrouter.proxy import proxy_server
 
         monkeypatch.setattr(proxy_server, "premium_user", False)
         auth = UserAPIKeyAuth(
-            metadata={"litellm_disabled_callbacks": ["langfuse_otel"]},
+            metadata={"embrouter_disabled_callbacks": ["langfuse_otel"]},
             team_metadata={"logging": [self._entry("http://team.local")]},
         )
 
-        assert resolve_tenant_otel_destinations(auth, {"x-litellm-disable-callbacks": "langfuse_otel"}) != ()
+        assert resolve_tenant_otel_destinations(auth, {"x-embrouter-disable-callbacks": "langfuse_otel"}) != ()
 
 
 class TestEvictionSafety:
@@ -2563,7 +2563,7 @@ class TestEvictionSafety:
     def test_a_processor_still_exporting_a_span_is_not_closed_under_it(self):
         """``on_end`` holds a processor across the export, so closing an evicted one
         there drops the span it is holding."""
-        from litellm.integrations.otel.plumbing.providers import _MAX_CACHED_DESTINATION_PROCESSORS
+        from embrouter.integrations.otel.plumbing.providers import _MAX_CACHED_DESTINATION_PROCESSORS
 
         fan_out, built = self._fan_out()
         held = fan_out._acquire(self._dest(0))
@@ -2582,7 +2582,7 @@ class TestEvictionSafety:
     def test_a_recently_used_destination_is_not_the_one_evicted(self):
         """Without the refresh the cache sheds by insertion order, so the busiest
         destination is the one whose exporter is rebuilt on every overflow."""
-        from litellm.integrations.otel.plumbing.providers import _MAX_CACHED_DESTINATION_PROCESSORS
+        from embrouter.integrations.otel.plumbing.providers import _MAX_CACHED_DESTINATION_PROCESSORS
 
         fan_out, built = self._fan_out()
         for index in range(_MAX_CACHED_DESTINATION_PROCESSORS):
@@ -2595,7 +2595,7 @@ class TestEvictionSafety:
         assert built[0].shutdown_calls == 0, "the destination used most recently was the one shed"
 
     def test_an_idle_evicted_processor_is_closed_off_the_export_path(self):
-        from litellm.integrations.otel.plumbing.providers import _MAX_CACHED_DESTINATION_PROCESSORS
+        from embrouter.integrations.otel.plumbing.providers import _MAX_CACHED_DESTINATION_PROCESSORS
 
         fan_out, built = self._fan_out()
         for index in range(_MAX_CACHED_DESTINATION_PROCESSORS + 1):
@@ -2610,7 +2610,7 @@ class TestEvictionSafety:
         """``shutdown`` flushes over the network and is reached from ``on_end``, so
         closing a shed processor inline lets one unreachable tenant collector stall
         every other tenant's spans."""
-        from litellm.integrations.otel.plumbing.providers import _MAX_CACHED_DESTINATION_PROCESSORS
+        from embrouter.integrations.otel.plumbing.providers import _MAX_CACHED_DESTINATION_PROCESSORS
 
         class Slow(self.Recording):
             def shutdown(self):
@@ -2637,7 +2637,7 @@ class TestEvictionSafety:
         collector."""
         import threading
 
-        from litellm.integrations.otel.plumbing.providers import _MAX_CACHED_DESTINATION_PROCESSORS
+        from embrouter.integrations.otel.plumbing.providers import _MAX_CACHED_DESTINATION_PROCESSORS
 
         release = threading.Event()
 
@@ -2671,7 +2671,7 @@ class TestEvictionSafety:
         and one more thread, per request for as long as the outage lasts."""
         import threading
 
-        from litellm.integrations.otel.plumbing.providers import _MAX_CACHED_DESTINATION_PROCESSORS
+        from embrouter.integrations.otel.plumbing.providers import _MAX_CACHED_DESTINATION_PROCESSORS
 
         release = threading.Event()
 
@@ -2713,7 +2713,7 @@ class TestEvictionSafety:
         the span outright."""
         import threading
 
-        from litellm.integrations.otel.plumbing.providers import _MAX_CACHED_DESTINATION_PROCESSORS
+        from embrouter.integrations.otel.plumbing.providers import _MAX_CACHED_DESTINATION_PROCESSORS
 
         release = threading.Event()
 
@@ -2733,7 +2733,7 @@ class TestEvictionSafety:
         )
         provider = TracerProvider()
         provider.add_span_processor(fan_out)
-        tracer = get_tracer(provider, "litellm")
+        tracer = get_tracer(provider, "embrouter")
         anchored = self._dest(0)
         try:
             for index in range(1, _MAX_CACHED_DESTINATION_PROCESSORS + 1):
@@ -2766,7 +2766,7 @@ class TestEvictionSafety:
         """
         import threading
 
-        from litellm.integrations.otel.plumbing.providers import _MAX_CACHED_DESTINATION_PROCESSORS
+        from embrouter.integrations.otel.plumbing.providers import _MAX_CACHED_DESTINATION_PROCESSORS
 
         release = threading.Event()
 
@@ -2793,7 +2793,7 @@ class TestEvictionSafety:
         next span rebuilds it in turn. With more destinations in flight than the cache
         holds, each span would then cost one more processor, one more batch thread and
         one more close queued behind a collector that never answers."""
-        from litellm.integrations.otel.plumbing.providers import _MAX_CACHED_DESTINATION_PROCESSORS
+        from embrouter.integrations.otel.plumbing.providers import _MAX_CACHED_DESTINATION_PROCESSORS
 
         fan_out, built, anchored, release = self._saturated_by_anchoring(pending_drains=4, extra=8)
         try:
@@ -2814,7 +2814,7 @@ class TestEvictionSafety:
     def test_the_cache_returns_to_its_cap_once_the_drain_has_room(self):
         """Holding above the cap is for the outage only: with the drain caught up, the
         entries kept for the destinations in flight are the ones to shed."""
-        from litellm.integrations.otel.plumbing.providers import _MAX_CACHED_DESTINATION_PROCESSORS
+        from embrouter.integrations.otel.plumbing.providers import _MAX_CACHED_DESTINATION_PROCESSORS
 
         fan_out, built, anchored, release = self._saturated_by_anchoring(pending_drains=4, extra=8)
         for destination in anchored:
@@ -2843,7 +2843,7 @@ class TestEvictionSafety:
         the drain, or concurrent churn can outrun the pending-drain limit."""
         import threading
 
-        from litellm.integrations.otel.plumbing.providers import (
+        from embrouter.integrations.otel.plumbing.providers import (
             _DrainPool,
             _MAX_CACHED_DESTINATION_PROCESSORS,
         )
@@ -2895,7 +2895,7 @@ class TestEvictionSafety:
         import threading
 
         self._fan_out()
-        workers = [t for t in threading.enumerate() if t.name.startswith("litellm-otel-destination-drain")]
+        workers = [t for t in threading.enumerate() if t.name.startswith("embrouter-otel-destination-drain")]
 
         assert workers, "no drain worker was started"
         assert all(t.daemon for t in workers), "a non-daemon drain worker blocks interpreter exit"
@@ -2906,7 +2906,7 @@ class TestEvictionSafety:
         workers blocked on a queue nothing will ever feed again."""
         import threading
 
-        from litellm.integrations.otel.plumbing.providers import (
+        from embrouter.integrations.otel.plumbing.providers import (
             _DRAIN_WORKERS,
             _MAX_CACHED_DESTINATION_PROCESSORS,
         )
@@ -2937,7 +2937,7 @@ class TestEvictionSafety:
     def _drain_workers():
         import threading
 
-        return len([t for t in threading.enumerate() if t.name.startswith("litellm-otel-destination-drain")])
+        return len([t for t in threading.enumerate() if t.name.startswith("embrouter-otel-destination-drain")])
 
     def test_shutdown_does_not_close_a_processor_under_an_in_flight_export(self):
         """``on_end`` runs on whichever thread ends a span, so it reaches the fan-out
@@ -2983,7 +2983,7 @@ class TestEvictionSafety:
     def test_shutdown_retires_the_drain_workers(self):
         """A proxy that rebuilds its telemetry builds another fan-out, so workers that
         outlive the one that started them are two more threads per reload."""
-        from litellm.integrations.otel.plumbing.providers import _DRAIN_WORKERS
+        from embrouter.integrations.otel.plumbing.providers import _DRAIN_WORKERS
 
         before = self._drain_workers()
         fan_out, _ = self._fan_out()
@@ -3166,7 +3166,7 @@ class TestEvictionSafety:
         import queue
         import threading
 
-        from litellm.integrations.otel.plumbing.providers import _DrainPool
+        from embrouter.integrations.otel.plumbing.providers import _DrainPool
 
         at_the_put, close_returned = threading.Event(), threading.Event()
 
@@ -3198,7 +3198,7 @@ class TestEvictionSafety:
     def test_a_retired_processor_is_still_closed_after_shutdown(self):
         """Eviction and shutdown can both land while a span is being forwarded, and the
         evicted processor still has to be closed once that export returns."""
-        from litellm.integrations.otel.plumbing.providers import _MAX_CACHED_DESTINATION_PROCESSORS
+        from embrouter.integrations.otel.plumbing.providers import _MAX_CACHED_DESTINATION_PROCESSORS
 
         fan_out, built = self._fan_out()
         held = fan_out._acquire(self._dest(0))
@@ -3220,7 +3220,7 @@ class TestCredentialGatedExporters:
         """``base.Preset`` advertises ``config_overrides`` layering, and the gated spec
         is itself a console exporter with no endpoint."""
         credential_less_proxy(monkeypatch)
-        from litellm.integrations.otel.presets.utils import credential_gated_exporters
+        from embrouter.integrations.otel.presets.utils import credential_gated_exporters
 
         once = credential_gated_exporters((), ExporterOwner.LANGFUSE_OTEL)
         twice = credential_gated_exporters(once, ExporterOwner.WEAVE_OTEL)
@@ -3228,7 +3228,7 @@ class TestCredentialGatedExporters:
         assert [spec.owner for spec in twice] == [ExporterOwner.LANGFUSE_OTEL, ExporterOwner.WEAVE_OTEL]
 
     def test_an_exporter_the_operator_configured_survives(self):
-        from litellm.integrations.otel.presets.utils import credential_gated_exporters
+        from embrouter.integrations.otel.presets.utils import credential_gated_exporters
 
         operator_console = ExporterSpec(kind="console", use_simple_processor=True)
 
@@ -3239,7 +3239,7 @@ class TestCredentialGatedExporters:
     def test_an_otlp_exporter_on_its_default_endpoint_survives(self):
         """``OTEL_EXPORTER=otlp_http`` with no endpoint is a real collector on the SDK's
         default port, not the placeholder, so the transport is what tells them apart."""
-        from litellm.integrations.otel.presets.utils import credential_gated_exporters
+        from embrouter.integrations.otel.presets.utils import credential_gated_exporters
 
         operator_otlp = ExporterSpec(kind="otlp_http", endpoint=None, headers=None)
 
@@ -3250,7 +3250,7 @@ class TestCredentialGatedExporters:
     def test_an_in_memory_exporter_the_operator_asked_for_survives(self):
         """``OTEL_EXPORTER=in_memory`` stores spans, so it is a destination the operator
         chose, not the placeholder that stands in for choosing nothing."""
-        from litellm.integrations.otel.presets.utils import credential_gated_exporters
+        from embrouter.integrations.otel.presets.utils import credential_gated_exporters
 
         operator_memory = ExporterSpec(kind="in_memory", endpoint=None, headers=None)
 
@@ -3259,7 +3259,7 @@ class TestCredentialGatedExporters:
         assert kept[0] == operator_memory
 
     def test_the_synthesized_stdout_placeholder_is_dropped(self, monkeypatch):
-        from litellm.integrations.otel.presets.utils import credential_gated_exporters
+        from embrouter.integrations.otel.presets.utils import credential_gated_exporters
 
         for name in _OTEL_SHORTHAND_ENV:
             monkeypatch.delenv(name, raising=False)
@@ -3272,7 +3272,7 @@ class TestCredentialGatedExporters:
     def test_a_console_exporter_the_operator_named_survives(self, monkeypatch):
         """Same kind, endpoint and headers as the placeholder; only the fact that the
         operator set ``OTEL_EXPORTER`` tells them apart."""
-        from litellm.integrations.otel.presets.utils import credential_gated_exporters
+        from embrouter.integrations.otel.presets.utils import credential_gated_exporters
 
         for name in _OTEL_SHORTHAND_ENV:
             monkeypatch.delenv(name, raising=False)
@@ -3290,9 +3290,9 @@ class TestTenantHostSsrfGuard:
 
     @pytest.fixture(autouse=True)
     def _guard_on(self, monkeypatch):
-        from litellm.integrations.otel.presets.destinations import _warn_host_not_allowlisted
+        from embrouter.integrations.otel.presets.destinations import _warn_host_not_allowlisted
 
-        monkeypatch.setattr(litellm, "provider_url_destination_allowed_hosts", [], raising=False)
+        monkeypatch.setattr(embrouter, "provider_url_destination_allowed_hosts", [], raising=False)
         _warn_host_not_allowlisted.cache_clear()
         yield
         _warn_host_not_allowlisted.cache_clear()
@@ -3318,16 +3318,16 @@ class TestTenantHostSsrfGuard:
     def test_userinfo_naming_an_allowlisted_host_does_not_smuggle_a_second_one(self, monkeypatch):
         """``https://allowed@10.0.0.5`` reads as the allowlisted host to the eye and
         posts to 10.0.0.5 on the wire."""
-        monkeypatch.setattr(litellm, "provider_url_destination_allowed_hosts", ["collector.example.com"], raising=False)
+        monkeypatch.setattr(embrouter, "provider_url_destination_allowed_hosts", ["collector.example.com"], raising=False)
 
         assert destination_for("langfuse_otel", self._langfuse("https://collector.example.com@10.0.0.5")) is None
 
     def test_a_malformed_host_does_not_take_the_other_backends_with_it(self, monkeypatch):
         """``urlparse(...).port`` raises a bare ValueError, which would escape
         ``destination_for`` and kill the whole resolution."""
-        monkeypatch.setenv("LITELLM_OTEL_V2", "true")
+        monkeypatch.setenv("EMBROUTER_OTEL_V2", "true")
         monkeypatch.setenv("NEW_RELIC_OTEL_ENDPOINT", "https://otlp.nr-data.net")
-        monkeypatch.setattr(litellm, "provider_url_destination_allowed_hosts", ["collector.example.com"], raising=False)
+        monkeypatch.setattr(embrouter, "provider_url_destination_allowed_hosts", ["collector.example.com"], raising=False)
         is_otel_v2_enabled.cache_clear()
         auth = UserAPIKeyAuth(
             token="hashed",
@@ -3342,7 +3342,7 @@ class TestTenantHostSsrfGuard:
         assert [d.callback_name for d in resolve_tenant_otel_destinations(auth)] == ["newrelic"]
 
     def test_the_operator_can_allowlist_its_teams_internal_langfuse(self, monkeypatch):
-        monkeypatch.setattr(litellm, "provider_url_destination_allowed_hosts", ["127.0.0.1:9111"], raising=False)
+        monkeypatch.setattr(embrouter, "provider_url_destination_allowed_hosts", ["127.0.0.1:9111"], raising=False)
 
         destination = destination_for("langfuse_otel", self._langfuse("http://127.0.0.1:9111"))
 
@@ -3360,14 +3360,14 @@ class TestTenantHostSsrfGuard:
     def test_an_allowlisted_host_is_taken_without_resolving_it(self, monkeypatch):
         """The check runs on the asyncio auth path, so it must not block on a name the
         caller chose. ``.invalid`` never resolves, and it is still accepted."""
-        monkeypatch.setattr(litellm, "provider_url_destination_allowed_hosts", ["lf.invalid"], raising=False)
+        monkeypatch.setattr(embrouter, "provider_url_destination_allowed_hosts", ["lf.invalid"], raising=False)
 
         destination = destination_for("langfuse_otel", self._langfuse("https://lf.invalid"))
 
         assert destination.endpoint == "https://lf.invalid/api/public/otel"
 
     def test_a_rejected_host_is_warned_about_once(self, caplog):
-        with caplog.at_level("WARNING", logger="LiteLLM"):
+        with caplog.at_level("WARNING", logger="EmbRouter"):
             for _ in range(3):
                 destination_for("langfuse_otel", self._langfuse("http://10.0.0.5:3000"))
 

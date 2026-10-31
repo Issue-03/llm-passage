@@ -16,8 +16,8 @@ import pytest
 
 from unittest.mock import MagicMock, Mock, patch
 
-import litellm
-from litellm.llms.bedrock.chat.agentcore.transformation import AmazonAgentCoreConfig
+import embrouter
+from embrouter.llms.bedrock.chat.agentcore.transformation import AmazonAgentCoreConfig
 
 
 class TestAgentCoreAcceptHeader:
@@ -66,13 +66,13 @@ class TestAgentCoreAcceptHeader:
     def test_accept_header_in_completion_request_jwt(self):
         """
         End-to-end test: verify Accept header appears in the final HTTP request
-        when using JWT auth through litellm.completion().
+        when using JWT auth through embrouter.completion().
 
         No exception swallowing: if completion() raises (for example because the
         injected client was silently ignored and a real network call was made),
         the test must fail with that error, not a misleading mock assertion.
         """
-        from litellm.llms.custom_httpx.http_handler import HTTPHandler
+        from embrouter.llms.custom_httpx.http_handler import HTTPHandler
 
         client = HTTPHandler()
         mock_response = Mock(spec=httpx.Response)
@@ -83,7 +83,7 @@ class TestAgentCoreAcceptHeader:
         }
 
         with patch.object(client, "post", return_value=mock_response) as mock_post:
-            response = litellm.completion(
+            response = embrouter.completion(
                 model="bedrock/agentcore/arn:aws:bedrock-agentcore:us-west-2:888602223428:runtime/test_runtime",
                 messages=[{"role": "user", "content": "test"}],
                 api_key="test-jwt-token",
@@ -273,9 +273,9 @@ class TestAgentCoreStreamingJsonFallback:
         """
         When stream=True but the agent returns Content-Type: application/json,
         content is extracted and returned instead of silently returning empty.
-        Exercises the full path through litellm.completion().
+        Exercises the full path through embrouter.completion().
         """
-        from litellm.llms.custom_httpx.http_handler import HTTPHandler
+        from embrouter.llms.custom_httpx.http_handler import HTTPHandler
 
         client = HTTPHandler()
         json_body = {"response": [{"text": "Strands sync response"}]}
@@ -286,7 +286,7 @@ class TestAgentCoreStreamingJsonFallback:
         mock_response.read.return_value = json.dumps(json_body).encode()
 
         with patch.object(client, "post", return_value=mock_response):
-            response = litellm.completion(
+            response = embrouter.completion(
                 model="bedrock/agentcore/arn:aws:bedrock-agentcore:us-west-2:888602223428:runtime/test_agent",
                 messages=[{"role": "user", "content": "test"}],
                 stream=True,
@@ -306,11 +306,11 @@ class TestAgentCoreStreamingJsonFallback:
     async def test_async_streaming_with_json_response(self):
         """
         Async streaming: same Content-Type: application/json fallback via
-        litellm.acompletion(stream=True).
+        embrouter.acompletion(stream=True).
         """
         from unittest.mock import AsyncMock
 
-        from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+        from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler
 
         client = AsyncHTTPHandler()
         json_body = {"response": [{"text": "Strands async response"}]}
@@ -323,7 +323,7 @@ class TestAgentCoreStreamingJsonFallback:
         with patch.object(
             client, "post", new_callable=AsyncMock, return_value=mock_response
         ):
-            response = await litellm.acompletion(
+            response = await embrouter.acompletion(
                 model="bedrock/agentcore/arn:aws:bedrock-agentcore:us-west-2:888602223428:runtime/test_agent",
                 messages=[{"role": "user", "content": "test"}],
                 stream=True,
@@ -345,7 +345,7 @@ class TestAgentCoreStreamingJsonFallback:
         is malformed JSON, an error is raised with a descriptive message
         (not a raw JSONDecodeError).
         """
-        from litellm.llms.custom_httpx.http_handler import HTTPHandler
+        from embrouter.llms.custom_httpx.http_handler import HTTPHandler
 
         client = HTTPHandler()
 
@@ -358,7 +358,7 @@ class TestAgentCoreStreamingJsonFallback:
             with pytest.raises(
                 Exception, match="Failed to read/parse JSON response body"
             ):
-                litellm.completion(
+                embrouter.completion(
                     model="bedrock/agentcore/arn:aws:bedrock-agentcore:us-west-2:888602223428:runtime/test_agent",
                     messages=[{"role": "user", "content": "test"}],
                     stream=True,
@@ -373,7 +373,7 @@ class TestAgentCoreStreamingJsonFallback:
         """
         from unittest.mock import AsyncMock
 
-        from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+        from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler
 
         client = AsyncHTTPHandler()
 
@@ -388,7 +388,7 @@ class TestAgentCoreStreamingJsonFallback:
             with pytest.raises(
                 Exception, match="Failed to read/parse JSON response body"
             ):
-                await litellm.acompletion(
+                await embrouter.acompletion(
                     model="bedrock/agentcore/arn:aws:bedrock-agentcore:us-west-2:888602223428:runtime/test_agent",
                     messages=[{"role": "user", "content": "test"}],
                     stream=True,
@@ -405,7 +405,7 @@ class TestAgentCoreMultimodalContent:
     only emits {"prompt": "<text>"} by default and drops image_url, file, and
     other non-text blocks.
 
-    When the ``forward_multimodal_content`` litellm param is set, the OpenAI
+    When the ``forward_multimodal_content`` embrouter param is set, the OpenAI
     content list is forwarded verbatim under a "content" field whenever the last
     message contains a non-text block. This is opt-in: an agent must be written
     to read payload["content"]. Without the flag, the payload is byte-identical
@@ -422,7 +422,7 @@ class TestAgentCoreMultimodalContent:
         return {
             "model": "bedrock/agentcore/arn:aws:bedrock-agentcore:us-west-2:111111111111:runtime/test_agent",
             "optional_params": {},
-            "litellm_params": {},
+            "embrouter_params": {},
             "headers": {},
         }
 
@@ -624,8 +624,8 @@ class TestAgentCoreMultimodalContent:
         payload = config.transform_request(messages=messages, **kwargs)
         assert "content" not in payload
 
-    def test_forward_flag_via_litellm_params(self, config, transform_kwargs):
-        """The opt-in flag is also honored when set in litellm_params."""
+    def test_forward_flag_via_embrouter_params(self, config, transform_kwargs):
+        """The opt-in flag is also honored when set in embrouter_params."""
         content = [
             {"type": "text", "text": "hi"},
             {
@@ -636,7 +636,7 @@ class TestAgentCoreMultimodalContent:
         messages = [{"role": "user", "content": content}]
         kwargs = {
             **transform_kwargs,
-            "litellm_params": {"forward_multimodal_content": True},
+            "embrouter_params": {"forward_multimodal_content": True},
         }
         payload = config.transform_request(messages=messages, **kwargs)
         assert payload["content"] == content

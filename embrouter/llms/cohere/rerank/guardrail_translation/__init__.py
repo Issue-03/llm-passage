@@ -2,8 +2,8 @@
 
 from typing import Final
 
-from litellm.llms.cohere.rerank.guardrail_translation.handler import CohereRerankHandler
-from litellm.types.utils import CallTypes
+from embrouter.llms.cohere.rerank.guardrail_translation.handler import CohereRerankHandler
+from embrouter.types.utils import CallTypes
 
 guardrail_translation_mappings: Final = {
     CallTypes.rerank: CohereRerankHandler,

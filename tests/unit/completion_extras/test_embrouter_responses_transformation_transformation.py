@@ -3,14 +3,14 @@ Test for response_format to text.format conversion in completion -> responses br
 """
 
 import pytest
-from litellm.completion_extras.litellm_responses_transformation.transformation import (
-    LiteLLMResponsesTransformationHandler,
+from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
+    EmbRouterResponsesTransformationHandler,
 )
 
 
 def test_transform_response_format_to_text_format_json_schema():
     """Test conversion of response_format with json_schema to text.format"""
-    handler = LiteLLMResponsesTransformationHandler()
+    handler = EmbRouterResponsesTransformationHandler()
 
     # Chat Completion format
     response_format = {
@@ -43,7 +43,7 @@ def test_transform_response_format_to_text_format_json_schema():
 
 def test_transform_response_format_to_text_format_json_object():
     """Test conversion of response_format with json_object to text.format"""
-    handler = LiteLLMResponsesTransformationHandler()
+    handler = EmbRouterResponsesTransformationHandler()
 
     response_format = {"type": "json_object"}
 
@@ -56,7 +56,7 @@ def test_transform_response_format_to_text_format_json_object():
 
 def test_transform_response_format_to_text_format_text():
     """Test conversion of response_format with text to text.format"""
-    handler = LiteLLMResponsesTransformationHandler()
+    handler = EmbRouterResponsesTransformationHandler()
 
     response_format = {"type": "text"}
 
@@ -69,7 +69,7 @@ def test_transform_response_format_to_text_format_text():
 
 def test_transform_response_format_to_text_format_none():
     """Test that None input returns None"""
-    handler = LiteLLMResponsesTransformationHandler()
+    handler = EmbRouterResponsesTransformationHandler()
 
     result = handler._transform_response_format_to_text_format(None)
 
@@ -78,7 +78,7 @@ def test_transform_response_format_to_text_format_none():
 
 def test_transform_request_with_response_format():
     """Test that transform_request correctly handles response_format parameter"""
-    handler = LiteLLMResponsesTransformationHandler()
+    handler = EmbRouterResponsesTransformationHandler()
 
     messages = [
         {"role": "user", "content": "Extract person info: John Doe, 30 years old"}
@@ -103,22 +103,22 @@ def test_transform_request_with_response_format():
         }
     }
 
-    litellm_params = {}
+    embrouter_params = {}
     headers = {}
 
     # Mock logging object
     class MockLoggingObj:
         pass
 
-    litellm_logging_obj = MockLoggingObj()
+    embrouter_logging_obj = MockLoggingObj()
 
     result = handler.transform_request(
         model="o3-pro",
         messages=messages,
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         headers=headers,
-        litellm_logging_obj=litellm_logging_obj,
+        embrouter_logging_obj=embrouter_logging_obj,
     )
 
     # Verify that text parameter was set with converted format
@@ -132,10 +132,10 @@ def test_transform_request_with_response_format():
 
 def test_transform_request_includes_extra_headers():
     """Test that transform_request forwards headers as extra_headers for upstream call."""
-    handler = LiteLLMResponsesTransformationHandler()
+    handler = EmbRouterResponsesTransformationHandler()
     messages = [{"role": "user", "content": "Hello"}]
     optional_params = {}
-    litellm_params = {}
+    embrouter_params = {}
 
     class MockLoggingObj:
         pass
@@ -145,20 +145,20 @@ def test_transform_request_includes_extra_headers():
         model="gpt-5-pro",
         messages=messages,
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         headers=headers,
-        litellm_logging_obj=MockLoggingObj(),
+        embrouter_logging_obj=MockLoggingObj(),
     )
     assert result.get("extra_headers") == headers
 
 
-def test_transform_request_strips_internal_metadata_to_litellm_metadata():
-    handler = LiteLLMResponsesTransformationHandler()
+def test_transform_request_strips_internal_metadata_to_embrouter_metadata():
+    handler = EmbRouterResponsesTransformationHandler()
     messages = [{"role": "user", "content": "Hello"}]
     optional_params = {}
-    litellm_params = {
+    embrouter_params = {
         "metadata": {"user_api_key_auth": {"id": "abc"}},
-        "litellm_metadata": {"trace_id": "trace-1"},
+        "embrouter_metadata": {"trace_id": "trace-1"},
         "api_key": "sk-test",
     }
 
@@ -169,21 +169,21 @@ def test_transform_request_strips_internal_metadata_to_litellm_metadata():
         model="gpt-5-pro",
         messages=messages,
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         headers={},
-        litellm_logging_obj=MockLoggingObj(),
+        embrouter_logging_obj=MockLoggingObj(),
     )
 
     assert "metadata" not in result
-    assert result["litellm_metadata"]["user_api_key_auth"]["id"] == "abc"
-    assert result["litellm_metadata"]["trace_id"] == "trace-1"
+    assert result["embrouter_metadata"]["user_api_key_auth"]["id"] == "abc"
+    assert result["embrouter_metadata"]["trace_id"] == "trace-1"
 
 
 def test_transform_request_preserves_user_metadata():
-    handler = LiteLLMResponsesTransformationHandler()
+    handler = EmbRouterResponsesTransformationHandler()
     messages = [{"role": "user", "content": "Hello"}]
     optional_params = {"metadata": {"customer_id": "cust-123"}}
-    litellm_params = {"metadata": {"internal_key": "secret"}}
+    embrouter_params = {"metadata": {"internal_key": "secret"}}
 
     class MockLoggingObj:
         pass
@@ -192,20 +192,20 @@ def test_transform_request_preserves_user_metadata():
         model="gpt-5-pro",
         messages=messages,
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         headers={},
-        litellm_logging_obj=MockLoggingObj(),
+        embrouter_logging_obj=MockLoggingObj(),
     )
 
     assert result["metadata"] == {"customer_id": "cust-123"}
     assert "internal_key" not in result["metadata"]
-    assert result["litellm_metadata"]["internal_key"] == "secret"
+    assert result["embrouter_metadata"]["internal_key"] == "secret"
 
 
 def test_transform_request_drops_user_metadata_with_additional_drop_params():
-    from litellm.utils import get_optional_params
+    from embrouter.utils import get_optional_params
 
-    handler = LiteLLMResponsesTransformationHandler()
+    handler = EmbRouterResponsesTransformationHandler()
     messages = [{"role": "user", "content": "Hello"}]
     optional_params = get_optional_params(
         model="gpt-4o",
@@ -214,7 +214,7 @@ def test_transform_request_drops_user_metadata_with_additional_drop_params():
         additional_drop_params=["metadata"],
         custom_llm_provider="openai",
     )
-    litellm_params = {"metadata": {"internal_key": "secret"}}
+    embrouter_params = {"metadata": {"internal_key": "secret"}}
 
     class MockLoggingObj:
         pass
@@ -223,17 +223,17 @@ def test_transform_request_drops_user_metadata_with_additional_drop_params():
         model="gpt-4o",
         messages=messages,
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         headers={},
-        litellm_logging_obj=MockLoggingObj(),
+        embrouter_logging_obj=MockLoggingObj(),
     )
 
     assert "metadata" not in result
-    assert result["litellm_metadata"]["internal_key"] == "secret"
+    assert result["embrouter_metadata"]["internal_key"] == "secret"
 
 
 def test_translate_responses_chunk_passthrough_chat_completion_chunk():
-    from litellm.completion_extras.litellm_responses_transformation.transformation import (
+    from embrouter.completion_extras.embrouter_responses_transformation.transformation import (
         OpenAiResponsesToChatCompletionStreamIterator,
     )
 

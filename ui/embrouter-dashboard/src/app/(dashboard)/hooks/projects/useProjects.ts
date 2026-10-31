@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { createQueryKeys } from "../common/queryKeysFactory";
-import { getProxyBaseUrl, getGlobalLitellmHeaderName, deriveErrorMessage, handleError } from "@/components/networking";
+import { getProxyBaseUrl, getGlobalEmbrouterHeaderName, deriveErrorMessage, handleError } from "@/components/networking";
 import useAuthorized from "@/app/(dashboard)/hooks/useAuthorized";
 import { all_admin_roles, internalUserRoles } from "@/utils/roles";
 
@@ -35,7 +35,7 @@ export interface ProjectResponse {
   created_by: string;
   updated_at: string;
   updated_by: string;
-  litellm_budget_table: ProjectBudget | null;
+  embrouter_budget_table: ProjectBudget | null;
 }
 
 // ── Query keys (shared across project hooks) ─────────────────────────────────
@@ -53,7 +53,7 @@ const fetchProjects = async (accessToken: string): Promise<ProjectResponse[]> =>
   const response = await fetch(url, {
     method: "GET",
     headers: {
-      [getGlobalLitellmHeaderName()]: `Bearer ${accessToken}`,
+      [getGlobalEmbrouterHeaderName()]: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
   });

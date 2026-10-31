@@ -5,13 +5,13 @@ from collections.abc import Mapping, Sequence
 
 import pytest
 
-from litellm.litellm_core_utils.internal_call_metadata import MODEL_ACCESS_GROUP_METADATA_KEY
-from litellm.proxy._types import DBSpendUpdateTransactions, Litellm_EntityType, SpendUpdateQueueItem
-from litellm.proxy.db.db_spend_update_writer import DBSpendUpdateWriter, debitable_model_access_groups
-from litellm.proxy.db.db_transaction_queue.daily_spend_update_queue import DailySpendUpdateQueue
-from litellm.proxy.db.db_transaction_queue.redis_update_buffer import RedisUpdateBuffer
-from litellm.proxy.db.db_transaction_queue.spend_update_queue import SpendUpdateQueue
-from litellm.proxy.spend_tracking.spend_tracking_utils import get_request_model_access_groups
+from embrouter.embrouter_core_utils.internal_call_metadata import MODEL_ACCESS_GROUP_METADATA_KEY
+from embrouter.proxy._types import DBSpendUpdateTransactions, Embrouter_EntityType, SpendUpdateQueueItem
+from embrouter.proxy.db.db_spend_update_writer import DBSpendUpdateWriter, debitable_model_access_groups
+from embrouter.proxy.db.db_transaction_queue.daily_spend_update_queue import DailySpendUpdateQueue
+from embrouter.proxy.db.db_transaction_queue.redis_update_buffer import RedisUpdateBuffer
+from embrouter.proxy.db.db_transaction_queue.spend_update_queue import SpendUpdateQueue
+from embrouter.proxy.spend_tracking.spend_tracking_utils import get_request_model_access_groups
 
 
 class _FakeRouter:
@@ -121,7 +121,7 @@ async def test_single_matched_group_enqueues_one_item_with_full_cost():
     updates = await _drain(writer.spend_update_queue)
     assert updates == [
         SpendUpdateQueueItem(
-            entity_type=Litellm_EntityType.MODEL_ACCESS_GROUP,
+            entity_type=Embrouter_EntityType.MODEL_ACCESS_GROUP,
             entity_id="premium-pool",
             response_cost=0.42,
         )
@@ -143,7 +143,7 @@ async def test_every_matched_group_is_charged_the_full_cost_not_a_split():
     updates = await _drain(writer.spend_update_queue)
     assert [update["entity_id"] for update in updates] == ["pool-a", "pool-b", "pool-c"]
     assert [update["response_cost"] for update in updates] == [0.30, 0.30, 0.30]
-    assert {update["entity_type"] for update in updates} == {Litellm_EntityType.MODEL_ACCESS_GROUP}
+    assert {update["entity_type"] for update in updates} == {Embrouter_EntityType.MODEL_ACCESS_GROUP}
 
 
 @pytest.mark.parametrize("attributed", [None, [], ()])
@@ -256,18 +256,18 @@ def test_only_real_group_names_ever_become_entity_ids():
 
 
 def test_access_groups_read_from_request_metadata():
-    kwargs = {"litellm_params": {"metadata": {MODEL_ACCESS_GROUP_METADATA_KEY: ["pool-a", "pool-b", "pool-a"]}}}
+    kwargs = {"embrouter_params": {"metadata": {MODEL_ACCESS_GROUP_METADATA_KEY: ["pool-a", "pool-b", "pool-a"]}}}
     assert get_request_model_access_groups(kwargs) == ("pool-a", "pool-b")
 
 
-def test_access_groups_read_from_litellm_metadata():
-    kwargs = {"litellm_params": {"litellm_metadata": {MODEL_ACCESS_GROUP_METADATA_KEY: ["pool-a"]}}}
+def test_access_groups_read_from_embrouter_metadata():
+    kwargs = {"embrouter_params": {"embrouter_metadata": {MODEL_ACCESS_GROUP_METADATA_KEY: ["pool-a"]}}}
     assert get_request_model_access_groups(kwargs) == ("pool-a",)
 
 
 def test_standard_logging_payload_wins_over_metadata():
     kwargs = {
-        "litellm_params": {"metadata": {MODEL_ACCESS_GROUP_METADATA_KEY: ["from-metadata"]}},
+        "embrouter_params": {"metadata": {MODEL_ACCESS_GROUP_METADATA_KEY: ["from-metadata"]}},
         "standard_logging_object": {"request_model_access_groups": ["from-payload"]},
     }
     assert get_request_model_access_groups(kwargs) == ("from-payload",)
@@ -275,7 +275,7 @@ def test_standard_logging_payload_wins_over_metadata():
 
 def test_metadata_is_used_when_the_logging_payload_carries_no_groups():
     kwargs = {
-        "litellm_params": {"metadata": {MODEL_ACCESS_GROUP_METADATA_KEY: ["from-metadata"]}},
+        "embrouter_params": {"metadata": {MODEL_ACCESS_GROUP_METADATA_KEY: ["from-metadata"]}},
         "standard_logging_object": {"request_model_access_groups": []},
     }
     assert get_request_model_access_groups(kwargs) == ("from-metadata",)
@@ -283,19 +283,19 @@ def test_metadata_is_used_when_the_logging_payload_carries_no_groups():
 
 @pytest.mark.parametrize("stamped", ["pool-a", 7, {"pool-a": 1}])
 def test_non_list_access_group_metadata_is_ignored(stamped):
-    kwargs = {"litellm_params": {"metadata": {MODEL_ACCESS_GROUP_METADATA_KEY: stamped}}}
+    kwargs = {"embrouter_params": {"metadata": {MODEL_ACCESS_GROUP_METADATA_KEY: stamped}}}
     assert get_request_model_access_groups(kwargs) == ()
 
 
 def test_key_absent_from_metadata_yields_no_groups():
     """The chat path only stamps the key when something matched, so absent must mean nothing to debit."""
-    kwargs = {"litellm_params": {"metadata": {"user_api_key_user_id": "u-1"}}}
+    kwargs = {"embrouter_params": {"metadata": {"user_api_key_user_id": "u-1"}}}
     assert get_request_model_access_groups(kwargs) == ()
 
 
 def test_explicit_none_yields_no_groups():
     """The pass-through path stamps the key unconditionally, so it can be present and None."""
-    kwargs = {"litellm_params": {"metadata": {MODEL_ACCESS_GROUP_METADATA_KEY: None}}}
+    kwargs = {"embrouter_params": {"metadata": {MODEL_ACCESS_GROUP_METADATA_KEY: None}}}
     assert get_request_model_access_groups(kwargs) == ()
 
 
@@ -313,7 +313,7 @@ async def test_neither_absent_nor_none_metadata_debits_anything(metadata):
 
     await writer._update_model_access_group_db(
         response_cost=0.5,
-        request_model_access_groups=get_request_model_access_groups({"litellm_params": {"metadata": metadata}}),
+        request_model_access_groups=get_request_model_access_groups({"embrouter_params": {"metadata": metadata}}),
         served_model_id="deployment-1",
         prisma_client=object(),
         router=_FakeRouter({"deployment-1": ["premium-pool"]}),
@@ -328,7 +328,7 @@ def test_detached_sub_call_falls_back_to_the_auth_object():
     class _Auth:
         matched_model_access_groups = ["premium-pool"]
 
-    kwargs = {"litellm_params": {"metadata": {"user_api_key_auth": _Auth()}}}
+    kwargs = {"embrouter_params": {"metadata": {"user_api_key_auth": _Auth()}}}
     assert get_request_model_access_groups(kwargs) == ("premium-pool",)
 
 
@@ -337,7 +337,7 @@ def test_stamped_metadata_wins_over_the_auth_object():
         matched_model_access_groups = ["stale-pool"]
 
     kwargs = {
-        "litellm_params": {
+        "embrouter_params": {
             "metadata": {
                 MODEL_ACCESS_GROUP_METADATA_KEY: ["fresh-pool"],
                 "user_api_key_auth": _Auth(),
@@ -351,19 +351,19 @@ def test_auth_object_without_matched_groups_yields_no_groups():
     class _Auth:
         matched_model_access_groups = None
 
-    kwargs = {"litellm_params": {"metadata": {"user_api_key_auth": _Auth()}}}
+    kwargs = {"embrouter_params": {"metadata": {"user_api_key_auth": _Auth()}}}
     assert get_request_model_access_groups(kwargs) == ()
 
 
 def test_non_string_entries_are_dropped():
-    kwargs = {"litellm_params": {"metadata": {MODEL_ACCESS_GROUP_METADATA_KEY: ["pool-a", None, "", 3]}}}
+    kwargs = {"embrouter_params": {"metadata": {MODEL_ACCESS_GROUP_METADATA_KEY: ["pool-a", None, "", 3]}}}
     assert get_request_model_access_groups(kwargs) == ("pool-a",)
 
 
 def test_missing_metadata_yields_no_groups():
     assert get_request_model_access_groups(None) == ()
     assert get_request_model_access_groups({}) == ()
-    assert get_request_model_access_groups({"litellm_params": {}}) == ()
+    assert get_request_model_access_groups({"embrouter_params": {}}) == ()
 
 
 # --- queue bucketing and redis round trip ----------------------------------
@@ -375,15 +375,15 @@ def test_access_group_updates_aggregate_into_their_own_bucket():
     transactions = queue.get_aggregated_db_spend_update_transactions(
         [
             SpendUpdateQueueItem(
-                entity_type=Litellm_EntityType.MODEL_ACCESS_GROUP, entity_id="pool-a", response_cost=0.1
+                entity_type=Embrouter_EntityType.MODEL_ACCESS_GROUP, entity_id="pool-a", response_cost=0.1
             ),
             SpendUpdateQueueItem(
-                entity_type=Litellm_EntityType.MODEL_ACCESS_GROUP, entity_id="pool-a", response_cost=0.2
+                entity_type=Embrouter_EntityType.MODEL_ACCESS_GROUP, entity_id="pool-a", response_cost=0.2
             ),
             SpendUpdateQueueItem(
-                entity_type=Litellm_EntityType.MODEL_ACCESS_GROUP, entity_id="pool-b", response_cost=0.5
+                entity_type=Embrouter_EntityType.MODEL_ACCESS_GROUP, entity_id="pool-b", response_cost=0.5
             ),
-            SpendUpdateQueueItem(entity_type=Litellm_EntityType.TAG, entity_id="pool-a", response_cost=9.0),
+            SpendUpdateQueueItem(entity_type=Embrouter_EntityType.TAG, entity_id="pool-a", response_cost=9.0),
         ]
     )
 
@@ -427,7 +427,7 @@ async def test_redis_buffer_requeues_access_group_transactions_as_queue_items():
     updates = await _drain(queue)
     assert updates == [
         SpendUpdateQueueItem(
-            entity_type=Litellm_EntityType.MODEL_ACCESS_GROUP,
+            entity_type=Embrouter_EntityType.MODEL_ACCESS_GROUP,
             entity_id="pool-a",
             response_cost=0.75,
         )
@@ -450,11 +450,11 @@ async def test_commit_increments_spend_on_the_model_access_group_budget_table():
         ),
     )
 
-    assert prisma_client.batcher.tables["litellm_modelaccessgroupbudgettable"].calls == [
+    assert prisma_client.batcher.tables["embrouter_modelaccessgroupbudgettable"].calls == [
         ({"access_group_name": "pool-a"}, {"spend": {"increment": 0.25}}),
         ({"access_group_name": "pool-b"}, {"spend": {"increment": 0.5}}),
     ]
-    assert "litellm_tagtable" not in prisma_client.batcher.tables
+    assert "embrouter_tagtable" not in prisma_client.batcher.tables
 
 
 # --- end-to-end through the batched fan-out --------------------------------
@@ -472,7 +472,7 @@ async def test_batch_database_updates_enqueues_access_group_spend():
         org_id=None,
         end_user_id=None,
         prisma_client=object(),
-        litellm_proxy_budget_name=None,
+        embrouter_proxy_budget_name=None,
         payload={"model_id": "deployment-1", "spend": 0.15},
         request_model_access_groups=("pool-a", "pool-b"),
     )
@@ -481,7 +481,7 @@ async def test_batch_database_updates_enqueues_access_group_spend():
     access_group_updates = [
         update
         for update in await _drain(writer.spend_update_queue)
-        if update["entity_type"] is Litellm_EntityType.MODEL_ACCESS_GROUP
+        if update["entity_type"] is Embrouter_EntityType.MODEL_ACCESS_GROUP
     ]
     assert [(update["entity_id"], update["response_cost"]) for update in access_group_updates] == [
         ("pool-a", 0.15),
@@ -501,10 +501,10 @@ async def test_batch_database_updates_enqueues_nothing_without_access_groups():
         org_id=None,
         end_user_id=None,
         prisma_client=object(),
-        litellm_proxy_budget_name=None,
+        embrouter_proxy_budget_name=None,
         payload={"model_id": "deployment-1", "spend": 0.15},
     )
     await asyncio.sleep(0)
 
     updates = await _drain(writer.spend_update_queue)
-    assert [update for update in updates if update["entity_type"] is Litellm_EntityType.MODEL_ACCESS_GROUP] == []
+    assert [update for update in updates if update["entity_type"] is Embrouter_EntityType.MODEL_ACCESS_GROUP] == []

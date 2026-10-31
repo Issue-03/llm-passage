@@ -10,8 +10,8 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from litellm.constants import LOGGING_WORKER_AGGRESSIVE_CLEAR_COOLDOWN_SECONDS
-from litellm.litellm_core_utils.logging_worker import LoggingWorker
+from embrouter.constants import LOGGING_WORKER_AGGRESSIVE_CLEAR_COOLDOWN_SECONDS
+from embrouter.embrouter_core_utils.logging_worker import LoggingWorker
 
 
 class _RecordCollector(logging.Handler):
@@ -285,7 +285,7 @@ class TestLoggingWorker:
     async def test_worker_handles_cancellation_gracefully(self, logging_worker):
         """Test that the worker handles cancellation without throwing exceptions."""
         # Mock verbose_logger to capture debug messages
-        with patch("litellm.litellm_core_utils.logging_worker.verbose_logger") as mock_logger:
+        with patch("embrouter.embrouter_core_utils.logging_worker.verbose_logger") as mock_logger:
             # Start the worker
             logging_worker.start()
 
@@ -352,7 +352,7 @@ class TestLoggingWorker:
         small_worker._ensure_queue()
 
         # Mock verbose_logger to capture exception messages
-        with patch("litellm.litellm_core_utils.logging_worker.verbose_logger") as mock_logger:
+        with patch("embrouter.embrouter_core_utils.logging_worker.verbose_logger") as mock_logger:
             # Fill the queue beyond capacity
             mock_coro = AsyncMock()
             for _ in range(5):  # More than max_queue_size of 2
@@ -619,7 +619,7 @@ class TestLoggingWorker:
         async def slow_callback() -> None:
             await asyncio.sleep(10)
 
-        logger = logging.getLogger("LiteLLM")
+        logger = logging.getLogger("EmbRouter")
         collector = _RecordCollector()
         previous_level = logger.level
         logger.addHandler(collector)
@@ -656,7 +656,7 @@ class TestLoggingWorker:
         async def failing_callback() -> None:
             raise ValueError("boom")
 
-        logger = logging.getLogger("LiteLLM")
+        logger = logging.getLogger("EmbRouter")
         collector = _RecordCollector()
         previous_level = logger.level
         logger.addHandler(collector)
@@ -689,7 +689,7 @@ class TestLoggingWorker:
         async def raises_own_timeout() -> None:
             raise asyncio.TimeoutError("callback's own downstream timeout")
 
-        logger = logging.getLogger("LiteLLM")
+        logger = logging.getLogger("EmbRouter")
         collector = _RecordCollector()
         previous_level = logger.level
         logger.addHandler(collector)
@@ -726,7 +726,7 @@ class TestLoggingWorker:
         async def slow_callback() -> None:
             await asyncio.sleep(10)
 
-        logger = logging.getLogger("LiteLLM")
+        logger = logging.getLogger("EmbRouter")
         collector = _RecordCollector()
         previous_level = logger.level
         logger.addHandler(collector)

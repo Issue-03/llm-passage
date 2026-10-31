@@ -278,7 +278,7 @@ describe("UsagePage", () => {
       created_by: "user-123",
       updated_at: "2025-01-02T00:00:00Z",
       updated_by: "user-123",
-      litellm_budget_table: null,
+      embrouter_budget_table: null,
       teams: null,
       users: null,
       members: null,
@@ -294,7 +294,7 @@ describe("UsagePage", () => {
       allowed_model_region: null,
       default_model: null,
       budget_id: null,
-      litellm_budget_table: null,
+      embrouter_budget_table: null,
     },
   ];
 
@@ -1275,13 +1275,13 @@ describe("UsagePage", () => {
         expect(mockUserDailyActivityAggregatedCall).toHaveBeenCalled();
       });
 
-      // Click the "Litellm Model Name" toggle
-      const litellmToggle = screen.getAllByText("EmbRouter Model Name")[0];
+      // Click the "Embrouter Model Name" toggle
+      const embrouterToggle = screen.getAllByText("EmbRouter Model Name")[0];
       act(() => {
-        fireEvent.click(litellmToggle);
+        fireEvent.click(embrouterToggle);
       });
 
-      // Title should change to "Top Litellm Models"
+      // Title should change to "Top Embrouter Models"
       await waitFor(() => {
         expect(screen.getByText("Top EmbRouter Models")).toBeInTheDocument();
       });
@@ -1295,9 +1295,9 @@ describe("UsagePage", () => {
       });
 
       // Switch to individual first
-      const litellmToggle = screen.getAllByText("EmbRouter Model Name")[0];
+      const embrouterToggle = screen.getAllByText("EmbRouter Model Name")[0];
       act(() => {
-        fireEvent.click(litellmToggle);
+        fireEvent.click(embrouterToggle);
       });
 
       await waitFor(() => {
@@ -1326,7 +1326,7 @@ describe("UsagePage", () => {
       expect(screen.queryByText("activity-source:models")).not.toBeInTheDocument();
     });
 
-    it("should switch the Model Activity tab to the litellm models breakdown on toggle click", async () => {
+    it("should switch the Model Activity tab to the embrouter models breakdown on toggle click", async () => {
       renderWithProviders(<UsagePage {...defaultProps} />);
 
       await waitFor(() => {

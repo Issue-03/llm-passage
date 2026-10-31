@@ -1,13 +1,13 @@
 from typing import Final
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm._uuid import uuid
-from litellm.litellm_core_utils.core_helpers import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter._uuid import uuid
+from embrouter.embrouter_core_utils.core_helpers import (
     filter_internal_params,
     safe_deep_copy,
 )
-from litellm.router_utils.add_retry_fallback_headers import (
+from embrouter.router_utils.add_retry_fallback_headers import (
     add_fallback_headers_to_response,
 )
 
@@ -36,12 +36,12 @@ async def async_completion_with_fallbacks(**kwargs):
     model = original_model
     fallbacks: Final = [original_model] + nested_kwargs.pop("fallbacks", [])
     kwargs.pop("acompletion", None)  # Remove to prevent keyword conflicts
-    litellm_call_id: Final = str(uuid.uuid4())
-    base_kwargs: Final = {**kwargs, **nested_kwargs, "litellm_call_id": litellm_call_id}
+    embrouter_call_id: Final = str(uuid.uuid4())
+    base_kwargs: Final = {**kwargs, **nested_kwargs, "embrouter_call_id": embrouter_call_id}
 
     # fields to remove
     base_kwargs.pop("model", None)  # Remove model as it will be set per fallback
-    litellm_logging_obj: Final = base_kwargs.pop("litellm_logging_obj", None)
+    embrouter_logging_obj: Final = base_kwargs.pop("embrouter_logging_obj", None)
 
     # Try each fallback model
     most_recent_exception_str: str | None = None
@@ -59,10 +59,10 @@ async def async_completion_with_fallbacks(**kwargs):
             # Filter out internal parameters that shouldn't be sent to provider APIs
             completion_kwargs = filter_internal_params(completion_kwargs)
 
-            response = await litellm.acompletion(
+            response = await embrouter.acompletion(
                 **completion_kwargs,
                 model=model,
-                litellm_logging_obj=litellm_logging_obj,
+                embrouter_logging_obj=embrouter_logging_obj,
             )
 
             if response is not None:
@@ -77,7 +77,7 @@ async def async_completion_with_fallbacks(**kwargs):
             continue
 
     raise Exception(
-        f"{most_recent_exception_str}. All fallback attempts failed. Enable verbose logging with `litellm.set_verbose=True` for details."
+        f"{most_recent_exception_str}. All fallback attempts failed. Enable verbose logging with `embrouter.set_verbose=True` for details."
     )
 
 

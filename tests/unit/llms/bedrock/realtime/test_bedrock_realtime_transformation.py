@@ -6,13 +6,13 @@ import pytest
 
 import base64
 
-from litellm.llms.bedrock.realtime.transformation import (
+from embrouter.llms.bedrock.realtime.transformation import (
     TRIGGER_LEADING_SILENCE,
     TRIGGER_TRAILING_SILENCE,
     BedrockRealtimeConfig,
 )
-from litellm.llms.bedrock.realtime.trigger_audio import ready_trigger_pcm
-from litellm.types.llms.openai import OpenAIRealtimeEventTypes
+from embrouter.llms.bedrock.realtime.trigger_audio import ready_trigger_pcm
+from embrouter.types.llms.openai import OpenAIRealtimeEventTypes
 
 
 class TestBedrockRealtimeConfig:
@@ -405,7 +405,7 @@ class TestBedrockRealtimeResponseTransformation:
         client; session.created is sent exactly once on connect (LIT-4655)"""
         config = BedrockRealtimeConfig()
         logging_obj = MagicMock()
-        logging_obj.litellm_trace_id = "trace_123"
+        logging_obj.embrouter_trace_id = "trace_123"
 
         bedrock_message = {
             "event": {"sessionStart": {"inferenceConfiguration": {"maxTokens": 1024, "temperature": 0.7}}}
@@ -433,7 +433,7 @@ class TestBedrockRealtimeResponseTransformation:
         """Test textOutput response transformation"""
         config = BedrockRealtimeConfig()
         logging_obj = MagicMock()
-        logging_obj.litellm_trace_id = "trace_123"
+        logging_obj.embrouter_trace_id = "trace_123"
 
         # First create a content start to initialize IDs
         content_start_message = {"event": {"contentStart": {"role": "ASSISTANT", "type": "TEXT"}}}
@@ -483,7 +483,7 @@ class TestBedrockRealtimeResponseTransformation:
         """Test audioOutput response transformation"""
         config = BedrockRealtimeConfig()
         logging_obj = MagicMock()
-        logging_obj.litellm_trace_id = "trace_123"
+        logging_obj.embrouter_trace_id = "trace_123"
 
         # First create a content start for audio
         content_start_message = {"event": {"contentStart": {"role": "ASSISTANT", "type": "AUDIO"}}}
@@ -530,7 +530,7 @@ class TestBedrockRealtimeResponseTransformation:
         """Test toolUse response transformation"""
         config = BedrockRealtimeConfig()
         logging_obj = MagicMock()
-        logging_obj.litellm_trace_id = "trace_123"
+        logging_obj.embrouter_trace_id = "trace_123"
 
         tool_use_message = {
             "event": {
@@ -572,7 +572,7 @@ class TestBedrockRealtimeResponseTransformation:
         """Test contentEnd for text response"""
         config = BedrockRealtimeConfig()
         logging_obj = MagicMock()
-        logging_obj.litellm_trace_id = "trace_123"
+        logging_obj.embrouter_trace_id = "trace_123"
 
         # Create some delta chunks first
         delta_chunks = [
@@ -610,7 +610,7 @@ class TestBedrockRealtimeResponseTransformation:
         """END_TURN contentEnd must produce response.done (LIT-2239 regression)"""
         config = BedrockRealtimeConfig()
         logging_obj = MagicMock()
-        logging_obj.litellm_trace_id = "trace_123"
+        logging_obj.embrouter_trace_id = "trace_123"
 
         content_end_message = {"event": {"contentEnd": {"stopReason": "END_TURN", "type": "AUDIO"}}}
 
@@ -639,7 +639,7 @@ class TestBedrockRealtimeResponseTransformation:
     def test_content_end_partial_turn_does_not_emit_response_done(self):
         config = BedrockRealtimeConfig()
         logging_obj = MagicMock()
-        logging_obj.litellm_trace_id = "trace_123"
+        logging_obj.embrouter_trace_id = "trace_123"
 
         content_end_message = {"event": {"contentEnd": {"stopReason": "PARTIAL_TURN", "type": "TEXT"}}}
 
@@ -665,7 +665,7 @@ class TestBedrockRealtimeResponseTransformation:
         """Test promptEnd response transformation"""
         config = BedrockRealtimeConfig()
         logging_obj = MagicMock()
-        logging_obj.litellm_trace_id = "trace_123"
+        logging_obj.embrouter_trace_id = "trace_123"
 
         prompt_end_message = {"event": {"promptEnd": {}}}
 
@@ -698,7 +698,7 @@ class TestBedrockRealtimeResponseTransformation:
         """Test that all event_ids are unique"""
         config = BedrockRealtimeConfig()
         logging_obj = MagicMock()
-        logging_obj.litellm_trace_id = "trace_123"
+        logging_obj.embrouter_trace_id = "trace_123"
 
         # Create a sequence of messages
         content_start = {"event": {"contentStart": {"role": "ASSISTANT", "type": "TEXT"}}}
@@ -744,7 +744,7 @@ class TestBedrockRealtimeResponseTransformation:
         """Test that response_id remains consistent across related events"""
         config = BedrockRealtimeConfig()
         logging_obj = MagicMock()
-        logging_obj.litellm_trace_id = "trace_123"
+        logging_obj.embrouter_trace_id = "trace_123"
 
         # Create a sequence of messages
         content_start = {"event": {"contentStart": {"role": "ASSISTANT", "type": "TEXT"}}}
@@ -792,7 +792,7 @@ class TestBedrockRealtimeSessionEvents:
     def _logging():
         from types import SimpleNamespace
 
-        return SimpleNamespace(litellm_trace_id="trace_123")
+        return SimpleNamespace(embrouter_trace_id="trace_123")
 
     def test_session_created_event_shape(self):
         event = BedrockRealtimeConfig().session_created_event("amazon.nova-sonic-v1:0", self._logging())
@@ -834,7 +834,7 @@ class TestBedrockRealtimeUserEventsAndUsage:
     @staticmethod
     def _run(config, messages):
         logging_obj = MagicMock()
-        logging_obj.litellm_trace_id = "trace_123"
+        logging_obj.embrouter_trace_id = "trace_123"
         state = {
             "session_configuration_request": json.dumps({"configured": True}),
             "current_output_item_id": None,

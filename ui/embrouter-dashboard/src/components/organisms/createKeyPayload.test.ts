@@ -193,7 +193,7 @@ describe("metadata", () => {
 
   it("maps disabled callbacks from display names to internal names", () => {
     expect(payloadOf(build({ key_alias: "my-key" }, { disabledCallbacks: ["Langfuse"] }))).toStrictEqual(
-      aliasOnly({ metadata: '{"litellm_disabled_callbacks":["langfuse"]}' }),
+      aliasOnly({ metadata: '{"embrouter_disabled_callbacks":["langfuse"]}' }),
     );
   });
 
@@ -223,7 +223,7 @@ describe("metadata", () => {
       key_alias: "svc-key",
       duration: null,
       metadata:
-        '{"team":"core","service_account_id":"svc-key","logging":[{"callback_name":"otel"}],"litellm_disabled_callbacks":["datadog"]}',
+        '{"team":"core","service_account_id":"svc-key","logging":[{"callback_name":"otel"}],"embrouter_disabled_callbacks":["datadog"]}',
     });
   });
 });

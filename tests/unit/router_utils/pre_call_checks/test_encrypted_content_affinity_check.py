@@ -4,10 +4,10 @@ Tests for encrypted_content_affinity pre-call check.
 The mechanism works without any cache and supports two encoding strategies:
 
 1. **Items with IDs**: item IDs for output items with `encrypted_content` are rewritten to
-   `encitem_{base64("litellm:model_id:{model_id};item_id:{original_id}")}`.
+   `encitem_{base64("embrouter:model_id:{model_id};item_id:{original_id}")}`.
 
 2. **Items without IDs** (Codex): encrypted_content itself is wrapped with model_id metadata:
-   `litellm_enc:{base64("model_id:{model_id}")};{original_encrypted_content}`.
+   `embrouter_enc:{base64("model_id:{model_id}")};{original_encrypted_content}`.
 
 - On routing: `EncryptedContentAffinityCheck` decodes from either item IDs or wrapped
   encrypted_content to extract `model_id` and pins the request to that deployment.
@@ -20,18 +20,18 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-import litellm
-from litellm.models.credentials import CredentialItem
-from litellm.responses.utils import ResponsesAPIRequestUtils
-from litellm.types.llms.openai import ResponsesAPIResponse
+import embrouter
+from embrouter.models.credentials import CredentialItem
+from embrouter.responses.utils import ResponsesAPIRequestUtils
+from embrouter.types.llms.openai import ResponsesAPIResponse
 
 
 @pytest.fixture(autouse=True)
-def isolate_litellm_router_state():
+def isolate_embrouter_router_state():
     saved = {
-        name: getattr(litellm, name).copy()
-        if isinstance(getattr(litellm, name, None), list)
-        else getattr(litellm, name, None)
+        name: getattr(embrouter, name).copy()
+        if isinstance(getattr(embrouter, name, None), list)
+        else getattr(embrouter, name, None)
         for name in (
             "callbacks",
             "input_callback",
@@ -43,11 +43,11 @@ def isolate_litellm_router_state():
             "model_fallbacks",
             "cache",
         )
-        if hasattr(litellm, name)
+        if hasattr(embrouter, name)
     }
     yield
     for name, value in saved.items():
-        setattr(litellm, name, value)
+        setattr(embrouter, name, value)
 
 
 # ---------------------------------------------------------------------------
@@ -158,7 +158,7 @@ class TestEncryptedContentWrapping:
         model_id = "deployment-1"
         original_content = "gAAAAABpnW_yEYmSNEyOG_original_encrypted_data"
         wrapped = ResponsesAPIRequestUtils._wrap_encrypted_content_with_model_id(original_content, model_id)
-        assert wrapped.startswith("litellm_enc:")
+        assert wrapped.startswith("embrouter_enc:")
         assert wrapped != original_content
 
         (
@@ -194,7 +194,7 @@ class TestEncryptedContentWrapping:
         result = ResponsesAPIRequestUtils._update_encrypted_content_item_ids_in_response(response, model_id)
         assert result["output"][0].get("encrypted_content") is None
         wrapped = result["output"][1]["encrypted_content"]
-        assert wrapped.startswith("litellm_enc:")
+        assert wrapped.startswith("embrouter_enc:")
 
         (
             model_id_extracted,
@@ -274,11 +274,11 @@ async def test_encrypted_content_affinity_tracks_and_routes():
         ],
     )
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "openai.gpt-5.1-codex",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-5.1-codex",
                     "api_key": "mock-api-key-1",
                 },
@@ -286,7 +286,7 @@ async def test_encrypted_content_affinity_tracks_and_routes():
             },
             {
                 "model_name": "openai.gpt-5.1-codex",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-5.1-codex",
                     "api_key": "mock-api-key-2",
                 },
@@ -306,12 +306,12 @@ async def test_encrypted_content_affinity_tracks_and_routes():
 
     with (
         patch(
-            "litellm.llms.custom_httpx.llm_http_handler.BaseLLMHTTPHandler.async_response_api_handler",
+            "embrouter.llms.custom_httpx.llm_http_handler.BaseLLMHTTPHandler.async_response_api_handler",
             new_callable=AsyncMock,
             return_value=mock_resp,
         ),
         patch(
-            "litellm.router_strategy.simple_shuffle.random.choice",
+            "embrouter.router_strategy.simple_shuffle.random.choice",
             side_effect=deterministic_choice,
         ),
     ):
@@ -359,11 +359,11 @@ async def test_encrypted_content_affinity_no_effect_on_chat_completions():
     """
     Encrypted content affinity should not affect regular chat completions.
     """
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gpt-3.5-turbo",
                     "api_key": "test-key",
                     "mock_response": "Hello from chat completion!",
@@ -405,11 +405,11 @@ async def test_encrypted_content_affinity_bypasses_rpm_limits():
         response_id="resp_mock-rpm-test",
     )
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "openai.gpt-5.1-codex",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-5.1-codex",
                     "api_key": "mock-api-key-1",
                 },
@@ -417,7 +417,7 @@ async def test_encrypted_content_affinity_bypasses_rpm_limits():
             },
             {
                 "model_name": "openai.gpt-5.1-codex",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-5.1-codex",
                     "api_key": "mock-api-key-2",
                 },
@@ -438,12 +438,12 @@ async def test_encrypted_content_affinity_bypasses_rpm_limits():
 
     with (
         patch(
-            "litellm.llms.custom_httpx.llm_http_handler.BaseLLMHTTPHandler.async_response_api_handler",
+            "embrouter.llms.custom_httpx.llm_http_handler.BaseLLMHTTPHandler.async_response_api_handler",
             new_callable=AsyncMock,
             return_value=mock_resp,
         ),
         patch(
-            "litellm.router_strategy.simple_shuffle.random.choice",
+            "embrouter.router_strategy.simple_shuffle.random.choice",
             side_effect=deterministic_choice,
         ),
     ):
@@ -493,11 +493,11 @@ async def test_encrypted_content_affinity_no_match_normal_routing():
         response_id="resp_mock-no-match",
     )
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "openai.gpt-5.1-codex",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-5.1-codex",
                     "api_key": "mock-api-key-1",
                 },
@@ -505,7 +505,7 @@ async def test_encrypted_content_affinity_no_match_normal_routing():
             },
             {
                 "model_name": "openai.gpt-5.1-codex",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-5.1-codex",
                     "api_key": "mock-api-key-2",
                 },
@@ -517,7 +517,7 @@ async def test_encrypted_content_affinity_no_match_normal_routing():
     )
 
     with patch(
-        "litellm.llms.custom_httpx.llm_http_handler.BaseLLMHTTPHandler.async_response_api_handler",
+        "embrouter.llms.custom_httpx.llm_http_handler.BaseLLMHTTPHandler.async_response_api_handler",
         new_callable=AsyncMock,
         return_value=mock_resp,
     ):
@@ -548,11 +548,11 @@ async def test_encrypted_content_affinity_with_wrapped_content_no_id():
         response_id="resp_mock-wrapped-content",
     )
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "openai.gpt-5.1-codex",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-5.1-codex",
                     "api_key": "mock-api-key-1",
                 },
@@ -560,7 +560,7 @@ async def test_encrypted_content_affinity_with_wrapped_content_no_id():
             },
             {
                 "model_name": "openai.gpt-5.1-codex",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-5.1-codex",
                     "api_key": "mock-api-key-2",
                 },
@@ -580,12 +580,12 @@ async def test_encrypted_content_affinity_with_wrapped_content_no_id():
 
     with (
         patch(
-            "litellm.llms.custom_httpx.llm_http_handler.BaseLLMHTTPHandler.async_response_api_handler",
+            "embrouter.llms.custom_httpx.llm_http_handler.BaseLLMHTTPHandler.async_response_api_handler",
             new_callable=AsyncMock,
             return_value=mock_resp,
         ),
         patch(
-            "litellm.router_strategy.simple_shuffle.random.choice",
+            "embrouter.router_strategy.simple_shuffle.random.choice",
             side_effect=deterministic_choice,
         ),
     ):
@@ -604,7 +604,7 @@ async def test_encrypted_content_affinity_with_wrapped_content_no_id():
             if hasattr(first_item, "encrypted_content")
             else first_item.get("encrypted_content")
         )
-        assert wrapped_content.startswith("litellm_enc:"), f"Expected wrapped content but got {wrapped_content[:50]}..."
+        assert wrapped_content.startswith("embrouter_enc:"), f"Expected wrapped content but got {wrapped_content[:50]}..."
 
         # Verify we can extract model_id from wrapped content
         (
@@ -640,7 +640,7 @@ def test_encrypted_content_wrapping_preserves_original_content():
 
     wrapped = ResponsesAPIRequestUtils._wrap_encrypted_content_with_model_id(original_encrypted_content, model_id)
 
-    assert wrapped.startswith("litellm_enc:")
+    assert wrapped.startswith("embrouter_enc:")
     assert wrapped != original_encrypted_content
 
     (
@@ -674,23 +674,23 @@ def test_encrypted_content_wrapping_with_multiple_semicolons():
 # Regression tests: affinity check must not break tag-based routing
 # ---------------------------------------------------------------------------
 
-from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+from embrouter.router_utils.pre_call_checks.encrypted_content_affinity_check import (
     EncryptedContentAffinityCheck,
 )
 
 
 @pytest.mark.asyncio
-async def test_encrypted_content_affinity_does_not_create_litellm_metadata_for_chat():
+async def test_encrypted_content_affinity_does_not_create_embrouter_metadata_for_chat():
     """
     For chat completions / embeddings, request_kwargs uses 'metadata' (not
-    'litellm_metadata').  The affinity check must NOT create a spurious
-    'litellm_metadata' key, because that would cause
-    _get_metadata_variable_name_from_kwargs to return 'litellm_metadata'
+    'embrouter_metadata').  The affinity check must NOT create a spurious
+    'embrouter_metadata' key, because that would cause
+    _get_metadata_variable_name_from_kwargs to return 'embrouter_metadata'
     and tag-based routing would look for tags in the wrong dict.
     """
     check = EncryptedContentAffinityCheck()
     deployments = [
-        {"model_info": {"id": "dep-1"}, "litellm_params": {"model": "gpt-4"}},
+        {"model_info": {"id": "dep-1"}, "embrouter_params": {"model": "gpt-4"}},
     ]
     request_kwargs = {"metadata": {"tags": ["prod"]}}
 
@@ -701,8 +701,8 @@ async def test_encrypted_content_affinity_does_not_create_litellm_metadata_for_c
         request_kwargs=request_kwargs,
     )
 
-    # Must not inject litellm_metadata
-    assert "litellm_metadata" not in request_kwargs
+    # Must not inject embrouter_metadata
+    assert "embrouter_metadata" not in request_kwargs
     # Tags must be untouched
     assert request_kwargs["metadata"]["tags"] == ["prod"]
     # All deployments returned (no pinning)
@@ -710,17 +710,17 @@ async def test_encrypted_content_affinity_does_not_create_litellm_metadata_for_c
 
 
 @pytest.mark.asyncio
-async def test_encrypted_content_affinity_preserves_litellm_metadata_for_responses():
+async def test_encrypted_content_affinity_preserves_embrouter_metadata_for_responses():
     """
-    For Responses API calls, litellm_metadata already exists.  The affinity
+    For Responses API calls, embrouter_metadata already exists.  The affinity
     check should set the flag there and preserve existing keys.
     """
     check = EncryptedContentAffinityCheck()
     deployments = [
-        {"model_info": {"id": "dep-1"}, "litellm_params": {"model": "gpt-5.1-codex"}},
+        {"model_info": {"id": "dep-1"}, "embrouter_params": {"model": "gpt-5.1-codex"}},
     ]
     request_kwargs = {
-        "litellm_metadata": {"model_info": {"id": "dep-1"}},
+        "embrouter_metadata": {"model_info": {"id": "dep-1"}},
     }
 
     await check.async_filter_deployments(
@@ -730,8 +730,8 @@ async def test_encrypted_content_affinity_preserves_litellm_metadata_for_respons
         request_kwargs=request_kwargs,
     )
 
-    assert request_kwargs["litellm_metadata"]["encrypted_content_affinity_enabled"] is True
-    assert request_kwargs["litellm_metadata"]["model_info"] == {"id": "dep-1"}
+    assert request_kwargs["embrouter_metadata"]["encrypted_content_affinity_enabled"] is True
+    assert request_kwargs["embrouter_metadata"]["model_info"] == {"id": "dep-1"}
 
 
 def test_encrypted_content_wrapping_empty_string():
@@ -743,7 +743,7 @@ def test_encrypted_content_wrapping_empty_string():
 
     wrapped = ResponsesAPIRequestUtils._wrap_encrypted_content_with_model_id(original_content, model_id)
 
-    assert wrapped.startswith("litellm_enc:")
+    assert wrapped.startswith("embrouter_enc:")
 
     (
         extracted_model_id,
@@ -796,11 +796,11 @@ async def test_affinity_falls_back_to_same_encryption_boundary_on_model_group_sw
     ACCOUNT_B_BASE = "https://account-b.openai.azure.com/"
     ACCOUNT_B_KEY = "key-b"
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-5.3-codex",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "azure/gpt-5.3-codex",
                     "api_base": ACCOUNT_A_BASE,
                     "api_key": ACCOUNT_A_KEY,
@@ -810,7 +810,7 @@ async def test_affinity_falls_back_to_same_encryption_boundary_on_model_group_sw
             },
             {
                 "model_name": "gpt-5.3-codex",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "azure/gpt-5.3-codex",
                     "api_base": ACCOUNT_B_BASE,
                     "api_key": ACCOUNT_B_KEY,
@@ -820,7 +820,7 @@ async def test_affinity_falls_back_to_same_encryption_boundary_on_model_group_sw
             },
             {
                 "model_name": "gpt-5.4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "azure/gpt-5.4",
                     "api_base": ACCOUNT_A_BASE,
                     "api_key": ACCOUNT_A_KEY,
@@ -830,7 +830,7 @@ async def test_affinity_falls_back_to_same_encryption_boundary_on_model_group_sw
             },
             {
                 "model_name": "gpt-5.4",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "azure/gpt-5.4",
                     "api_base": ACCOUNT_B_BASE,
                     "api_key": ACCOUNT_B_KEY,
@@ -851,12 +851,12 @@ async def test_affinity_falls_back_to_same_encryption_boundary_on_model_group_sw
 
     with (
         patch(
-            "litellm.llms.custom_httpx.llm_http_handler.BaseLLMHTTPHandler.async_response_api_handler",
+            "embrouter.llms.custom_httpx.llm_http_handler.BaseLLMHTTPHandler.async_response_api_handler",
             new_callable=AsyncMock,
             return_value=first_resp,
         ),
         patch(
-            "litellm.router_strategy.simple_shuffle.random.choice",
+            "embrouter.router_strategy.simple_shuffle.random.choice",
             side_effect=first_call_picks_account_a,
         ),
     ):
@@ -869,7 +869,7 @@ async def test_affinity_falls_back_to_same_encryption_boundary_on_model_group_sw
     # simple_shuffle.random.choice NOT patched: prove affinity narrows the
     # candidate pool to a single deployment regardless of which one shuffle picks.
     with patch(
-        "litellm.llms.custom_httpx.llm_http_handler.BaseLLMHTTPHandler.async_response_api_handler",
+        "embrouter.llms.custom_httpx.llm_http_handler.BaseLLMHTTPHandler.async_response_api_handler",
         new_callable=AsyncMock,
         return_value=second_resp,
     ):
@@ -890,7 +890,7 @@ async def test_affinity_falls_back_to_same_encryption_boundary_on_model_group_sw
 @pytest.mark.asyncio
 async def test_affinity_falls_back_to_same_boundary_on_alias_switch():
     """
-    LIT-2531 alias path: gpt-5.2-codex is a LiteLLM alias that points at the
+    LIT-2531 alias path: gpt-5.2-codex is a EmbRouter alias that points at the
     same underlying Azure model as gpt-5.3-codex. Different model_name groups
     in the router, so model_id-based pinning misses, but the encryption
     boundary (api_base + api_key) is identical -> follow-up must still pin.
@@ -924,11 +924,11 @@ async def test_affinity_falls_back_to_same_boundary_on_alias_switch():
     ACCOUNT_B_BASE = "https://account-b.openai.azure.com/"
     ACCOUNT_B_KEY = "key-b"
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-5.3-codex",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "azure/gpt-5.3-codex",
                     "api_base": ACCOUNT_A_BASE,
                     "api_key": ACCOUNT_A_KEY,
@@ -938,7 +938,7 @@ async def test_affinity_falls_back_to_same_boundary_on_alias_switch():
             },
             {
                 "model_name": "gpt-5.3-codex",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "azure/gpt-5.3-codex",
                     "api_base": ACCOUNT_B_BASE,
                     "api_key": ACCOUNT_B_KEY,
@@ -948,7 +948,7 @@ async def test_affinity_falls_back_to_same_boundary_on_alias_switch():
             },
             {
                 "model_name": "gpt-5.2-codex",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "azure/gpt-5.3-codex",
                     "api_base": ACCOUNT_A_BASE,
                     "api_key": ACCOUNT_A_KEY,
@@ -958,7 +958,7 @@ async def test_affinity_falls_back_to_same_boundary_on_alias_switch():
             },
             {
                 "model_name": "gpt-5.2-codex",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "azure/gpt-5.3-codex",
                     "api_base": ACCOUNT_B_BASE,
                     "api_key": ACCOUNT_B_KEY,
@@ -979,12 +979,12 @@ async def test_affinity_falls_back_to_same_boundary_on_alias_switch():
 
     with (
         patch(
-            "litellm.llms.custom_httpx.llm_http_handler.BaseLLMHTTPHandler.async_response_api_handler",
+            "embrouter.llms.custom_httpx.llm_http_handler.BaseLLMHTTPHandler.async_response_api_handler",
             new_callable=AsyncMock,
             return_value=first_resp,
         ),
         patch(
-            "litellm.router_strategy.simple_shuffle.random.choice",
+            "embrouter.router_strategy.simple_shuffle.random.choice",
             side_effect=pick_account_a,
         ),
     ):
@@ -994,7 +994,7 @@ async def test_affinity_falls_back_to_same_boundary_on_alias_switch():
     assert encoded_id.startswith("encitem_")
 
     with patch(
-        "litellm.llms.custom_httpx.llm_http_handler.BaseLLMHTTPHandler.async_response_api_handler",
+        "embrouter.llms.custom_httpx.llm_http_handler.BaseLLMHTTPHandler.async_response_api_handler",
         new_callable=AsyncMock,
         return_value=second_resp,
     ):
@@ -1017,7 +1017,7 @@ def test_boundary_fallback_no_router_ref_returns_empty():
     Standalone use (no router wired in) -> the boundary lookup short-circuits
     to ``[]`` instead of crashing on ``None.get_deployment``.
     """
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from embrouter.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
@@ -1025,7 +1025,7 @@ def test_boundary_fallback_no_router_ref_returns_empty():
     healthy = [
         {
             "model_info": {"id": "dep-1"},
-            "litellm_params": {"api_base": "https://x", "api_key": "k"},
+            "embrouter_params": {"api_base": "https://x", "api_key": "k"},
         }
     ]
     matches, originating = check._find_deployments_on_same_encryption_boundary(
@@ -1044,7 +1044,7 @@ def test_boundary_fallback_originating_deployment_removed_returns_empty():
     """
     from unittest.mock import MagicMock
 
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from embrouter.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
@@ -1055,7 +1055,7 @@ def test_boundary_fallback_originating_deployment_removed_returns_empty():
     healthy = [
         {
             "model_info": {"id": "dep-1"},
-            "litellm_params": {"api_base": "https://x", "api_key": "k"},
+            "embrouter_params": {"api_base": "https://x", "api_key": "k"},
         }
     ]
     matches, originating = check._find_deployments_on_same_encryption_boundary(
@@ -1067,23 +1067,23 @@ def test_boundary_fallback_originating_deployment_removed_returns_empty():
     mock_router.get_deployment.assert_called_once_with(model_id="dep-removed")
 
 
-def test_boundary_key_accepts_pydantic_litellm_params_instance():
+def test_boundary_key_accepts_pydantic_embrouter_params_instance():
     """
     Regression: ``_encryption_boundary_key`` must accept any object exposing
-    dict-style ``.get()`` (incl. ``LiteLLM_Params`` Pydantic instances) — not
+    dict-style ``.get()`` (incl. ``EmbRouter_Params`` Pydantic instances) — not
     just plain dicts.
 
     A stricter ``isinstance(dict)`` guard would silently return ``None`` for a
-    ``LiteLLM_Params`` value, drop the deployment from boundary matching, and
+    ``EmbRouter_Params`` value, drop the deployment from boundary matching, and
     fall back to the full pool — which is the exact ``invalid_encrypted_content``
     failure this check exists to prevent.
     """
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from embrouter.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
-    from litellm.types.router import LiteLLM_Params
+    from embrouter.types.router import EmbRouter_Params
 
-    pydantic_params = LiteLLM_Params(
+    pydantic_params = EmbRouter_Params(
         model="azure/gpt-5.3-codex",
         api_base="https://mateo-resource.openai.azure.com",
         api_key="fake-azure-resource-key-a",
@@ -1109,12 +1109,12 @@ def test_boundary_key_accepts_pydantic_litellm_params_instance():
 
 
 def test_boundary_key_resolves_missing_values_from_named_credential():
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from embrouter.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
     with patch.object(
-        litellm,
+        embrouter,
         "credential_list",
         [
             CredentialItem(
@@ -1127,18 +1127,18 @@ def test_boundary_key_resolves_missing_values_from_named_credential():
             )
         ],
     ):
-        boundary = EncryptedContentAffinityCheck._encryption_boundary_key({"litellm_credential_name": "account-a"})
+        boundary = EncryptedContentAffinityCheck._encryption_boundary_key({"embrouter_credential_name": "account-a"})
 
     assert boundary == ("https://account-a.example.com", "credential-key-a")
 
 
 def test_boundary_key_matches_named_credential_precedence():
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from embrouter.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
     with patch.object(
-        litellm,
+        embrouter,
         "credential_list",
         [
             CredentialItem(
@@ -1155,7 +1155,7 @@ def test_boundary_key_matches_named_credential_precedence():
             {
                 "api_base": "https://deployment.example.com",
                 "api_key": "deployment-key",
-                "litellm_credential_name": "account-a",
+                "embrouter_credential_name": "account-a",
             }
         )
 
@@ -1163,12 +1163,12 @@ def test_boundary_key_matches_named_credential_precedence():
 
 
 def test_boundary_key_resolves_credential_when_explicit_values_are_empty():
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from embrouter.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
     with patch.object(
-        litellm,
+        embrouter,
         "credential_list",
         [
             CredentialItem(
@@ -1185,7 +1185,7 @@ def test_boundary_key_resolves_credential_when_explicit_values_are_empty():
             {
                 "api_base": "",
                 "api_key": "",
-                "litellm_credential_name": "account-a",
+                "embrouter_credential_name": "account-a",
             }
         )
 
@@ -1193,12 +1193,12 @@ def test_boundary_key_resolves_credential_when_explicit_values_are_empty():
 
 
 def test_boundary_fallback_matches_deployments_with_same_named_credential_values():
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from embrouter.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
     with patch.object(
-        litellm,
+        embrouter,
         "credential_list",
         [
             CredentialItem(
@@ -1227,13 +1227,13 @@ def test_boundary_fallback_matches_deployments_with_same_named_credential_values
             ),
         ],
     ):
-        router = litellm.Router(
+        router = embrouter.Router(
             model_list=[
                 {
                     "model_name": "gpt-5.3-codex",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "azure/gpt-5.3-codex",
-                        "litellm_credential_name": "account-a",
+                        "embrouter_credential_name": "account-a",
                     },
                     "model_info": {"id": "origin"},
                 }
@@ -1244,16 +1244,16 @@ def test_boundary_fallback_matches_deployments_with_same_named_credential_values
         healthy_deployments = [
             {
                 "model_info": {"id": "peer-same-boundary"},
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "azure/gpt-5.4",
-                    "litellm_credential_name": "account-a-peer",
+                    "embrouter_credential_name": "account-a-peer",
                 },
             },
             {
                 "model_info": {"id": "peer-different-boundary"},
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "azure/gpt-5.4",
-                    "litellm_credential_name": "account-b",
+                    "embrouter_credential_name": "account-b",
                 },
             },
         ]
@@ -1273,7 +1273,7 @@ def test_boundary_key_rejects_non_dict_like_inputs():
     Guards against accidentally treating a stray non-dict-like value as a
     valid boundary.
     """
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from embrouter.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
@@ -1294,7 +1294,7 @@ def _make_originating_mock(api_base: str, api_key: str, model_name: str = "gpt-5
 
     originating = MagicMock()
     originating.model_name = model_name
-    originating.litellm_params.model_dump.return_value = {
+    originating.embrouter_params.model_dump.return_value = {
         "api_base": api_base,
         "api_key": api_key,
     }
@@ -1330,7 +1330,7 @@ async def test_affinity_strips_and_dispatches_when_origin_cooled_for_non_429():
     degrade: strip the encrypted reasoning and dispatch to the healthy pool
     rather than failing the request.
     """
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from embrouter.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
@@ -1357,7 +1357,7 @@ async def test_affinity_strips_and_dispatches_when_origin_cooled_for_non_429():
         {
             "model_info": {"id": "deployment-b"},
             "model_name": "gpt-5.4",
-            "litellm_params": {
+            "embrouter_params": {
                 "api_base": "https://account-b.openai.azure.com/",
                 "api_key": "key-b",
                 "model": "azure/gpt-5.4",
@@ -1395,7 +1395,7 @@ async def test_affinity_strips_and_dispatches_when_origin_cooled_for_429():
     encrypted reasoning and dispatch to the healthy pool rather than surfacing
     a rate-limit error to the caller.
     """
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from embrouter.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
@@ -1423,7 +1423,7 @@ async def test_affinity_strips_and_dispatches_when_origin_cooled_for_429():
         {
             "model_info": {"id": "deployment-b"},
             "model_name": "gpt-5.4",
-            "litellm_params": {
+            "embrouter_params": {
                 "api_base": "https://account-b.openai.azure.com/",
                 "api_key": "key-b",
                 "model": "azure/gpt-5.4",
@@ -1451,7 +1451,7 @@ async def test_affinity_strips_and_dispatches_when_origin_filtered_without_coold
     with no active cooldown entry and no boundary peer. The check degrades:
     strip the encrypted reasoning and dispatch to the healthy pool.
     """
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from embrouter.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
@@ -1466,7 +1466,7 @@ async def test_affinity_strips_and_dispatches_when_origin_filtered_without_coold
         {
             "model_info": {"id": "deployment-b"},
             "model_name": "gpt-5.4",
-            "litellm_params": {
+            "embrouter_params": {
                 "api_base": "https://account-b.openai.azure.com/",
                 "api_key": "key-b",
                 "model": "azure/gpt-5.4",
@@ -1495,7 +1495,7 @@ async def test_affinity_serves_sibling_when_candidate_origin_has_no_boundary_pee
     healthy_deployments, and no (api_base, api_key) peer exists. The turn must
     degrade on a sibling with its encrypted reasoning stripped, not fail.
     """
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from embrouter.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
@@ -1509,16 +1509,16 @@ async def test_affinity_serves_sibling_when_candidate_origin_has_no_boundary_pee
         {
             "model_info": {"id": "region-b"},
             "model_name": "gpt-5.4",
-            "litellm_params": {"api_base": "https://region-b.example.com/v1", "api_key": "shared-key"},
+            "embrouter_params": {"api_base": "https://region-b.example.com/v1", "api_key": "shared-key"},
         },
         {
             "model_info": {"id": "region-c"},
             "model_name": "gpt-5.4",
-            "litellm_params": {"api_base": "https://region-c.example.com/v1", "api_key": "shared-key"},
+            "embrouter_params": {"api_base": "https://region-c.example.com/v1", "api_key": "shared-key"},
         },
     ]
     request_kwargs = {
-        "litellm_metadata": {},
+        "embrouter_metadata": {},
         "input": [
             {"role": "user", "content": "why is the sky blue?"},
             {
@@ -1558,7 +1558,7 @@ async def test_affinity_strips_and_dispatches_when_origin_is_unknown_or_removed(
     """
     from unittest.mock import MagicMock
 
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from embrouter.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
@@ -1571,7 +1571,7 @@ async def test_affinity_strips_and_dispatches_when_origin_is_unknown_or_removed(
         {
             "model_info": {"id": "deployment-b"},
             "model_name": "gpt-5.4",
-            "litellm_params": {
+            "embrouter_params": {
                 "api_base": "https://account-b.openai.azure.com/",
                 "api_key": "key-b",
                 "model": "azure/gpt-5.4",
@@ -1579,7 +1579,7 @@ async def test_affinity_strips_and_dispatches_when_origin_is_unknown_or_removed(
         }
     ]
     request_kwargs = {
-        "litellm_metadata": {},
+        "embrouter_metadata": {},
         "input": [
             {"role": "user", "content": "why is the sky blue?"},
             {
@@ -1612,12 +1612,12 @@ async def test_affinity_does_not_raise_when_boundary_peer_available():
     """
     from unittest.mock import MagicMock
 
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from embrouter.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
     originating = MagicMock()
-    originating.litellm_params.model_dump.return_value = {
+    originating.embrouter_params.model_dump.return_value = {
         "api_base": "https://account-a.openai.azure.com/",
         "api_key": "key-a",
     }
@@ -1628,7 +1628,7 @@ async def test_affinity_does_not_raise_when_boundary_peer_available():
     encoded_id = ResponsesAPIRequestUtils._build_encrypted_item_id("deployment-a", "rs_test")
     peer = {
         "model_info": {"id": "deployment-a-peer"},
-        "litellm_params": {
+        "embrouter_params": {
             "api_base": "https://account-a.openai.azure.com/",
             "api_key": "key-a",
             "model": "azure/gpt-5.4",
@@ -1651,20 +1651,20 @@ async def test_affinity_does_not_raise_when_boundary_peer_available():
 
 @pytest.mark.asyncio
 async def test_model_group_affinity_config_enables_encrypted_content_affinity():
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from embrouter.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
     model_group = "openai.gpt-5.1-codex"
     target_deployment = {
         "model_name": model_group,
-        "litellm_params": {"model": "openai/gpt-5.1-codex"},
+        "embrouter_params": {"model": "openai/gpt-5.1-codex"},
         "model_info": {"id": "deployment-b"},
     }
     healthy_deployments = [
         {
             "model_name": model_group,
-            "litellm_params": {"model": "openai/gpt-5.1-codex"},
+            "embrouter_params": {"model": "openai/gpt-5.1-codex"},
             "model_info": {"id": "deployment-a"},
         },
         target_deployment,
@@ -1672,7 +1672,7 @@ async def test_model_group_affinity_config_enables_encrypted_content_affinity():
     encoded_id = ResponsesAPIRequestUtils._build_encrypted_item_id("deployment-b", "rs_test")
     request_kwargs = {
         "input": [{"type": "reasoning", "id": encoded_id}],
-        "litellm_metadata": {},
+        "embrouter_metadata": {},
     }
     check = EncryptedContentAffinityCheck(
         enable_global_affinity=False,
@@ -1689,26 +1689,26 @@ async def test_model_group_affinity_config_enables_encrypted_content_affinity():
     )
 
     assert filtered == [target_deployment]
-    assert request_kwargs["litellm_metadata"]["encrypted_content_affinity_enabled"]
+    assert request_kwargs["embrouter_metadata"]["encrypted_content_affinity_enabled"]
     assert request_kwargs.get("_encrypted_content_affinity_pinned") is True
 
 
 @pytest.mark.asyncio
 async def test_model_group_affinity_config_does_not_disable_global_encrypted_content_affinity():
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from embrouter.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
     model_group = "openai.gpt-5.1-codex"
     target_deployment = {
         "model_name": model_group,
-        "litellm_params": {"model": "openai/gpt-5.1-codex"},
+        "embrouter_params": {"model": "openai/gpt-5.1-codex"},
         "model_info": {"id": "deployment-b"},
     }
     healthy_deployments = [
         {
             "model_name": model_group,
-            "litellm_params": {"model": "openai/gpt-5.1-codex"},
+            "embrouter_params": {"model": "openai/gpt-5.1-codex"},
             "model_info": {"id": "deployment-a"},
         },
         target_deployment,
@@ -1716,7 +1716,7 @@ async def test_model_group_affinity_config_does_not_disable_global_encrypted_con
     encoded_id = ResponsesAPIRequestUtils._build_encrypted_item_id("deployment-b", "rs_test")
     request_kwargs = {
         "input": [{"type": "reasoning", "id": encoded_id}],
-        "litellm_metadata": {},
+        "embrouter_metadata": {},
     }
     check = EncryptedContentAffinityCheck(
         enable_global_affinity=True,
@@ -1733,16 +1733,16 @@ async def test_model_group_affinity_config_does_not_disable_global_encrypted_con
     )
 
     assert filtered == [target_deployment]
-    assert request_kwargs["litellm_metadata"]["encrypted_content_affinity_enabled"]
+    assert request_kwargs["embrouter_metadata"]["encrypted_content_affinity_enabled"]
     assert request_kwargs.get("_encrypted_content_affinity_pinned") is True
 
 
 @pytest.mark.asyncio
 async def test_model_group_encrypted_content_affinity_overrides_global_deployment_affinity():
-    from litellm.router_utils.pre_call_checks.deployment_affinity_check import (
+    from embrouter.router_utils.pre_call_checks.deployment_affinity_check import (
         DeploymentAffinityCheck,
     )
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from embrouter.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
@@ -1750,7 +1750,7 @@ async def test_model_group_encrypted_content_affinity_overrides_global_deploymen
     user_api_key_hash = "test-user-key"
     deployment_a = {
         "model_name": model_group,
-        "litellm_params": {
+        "embrouter_params": {
             "model": "openai/gpt-5.1-codex",
             "api_key": "mock-api-key-a",
         },
@@ -1758,13 +1758,13 @@ async def test_model_group_encrypted_content_affinity_overrides_global_deploymen
     }
     deployment_b = {
         "model_name": model_group,
-        "litellm_params": {
+        "embrouter_params": {
             "model": "openai/gpt-5.1-codex",
             "api_key": "mock-api-key-b",
         },
         "model_info": {"id": "deployment-b"},
     }
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[deployment_a, deployment_b],
         optional_pre_call_checks=["deployment_affinity"],
         model_group_affinity_config={
@@ -1799,7 +1799,7 @@ async def test_model_group_encrypted_content_affinity_overrides_global_deploymen
                 }
             ],
             "metadata": {"user_api_key_hash": user_api_key_hash},
-            "litellm_metadata": {},
+            "embrouter_metadata": {},
         }
 
         after_deployment_affinity = await deployment_callback.async_filter_deployments(
@@ -1833,8 +1833,8 @@ async def test_encrypted_content_affinity_pins_anthropic_messages_replayed_throu
     """
     check = EncryptedContentAffinityCheck()
     deployments = [
-        {"model_info": {"id": "openai-org-a"}, "litellm_params": {"model": "openai/gpt-5.1"}},
-        {"model_info": {"id": "openai-org-b"}, "litellm_params": {"model": "openai/gpt-5.1"}},
+        {"model_info": {"id": "openai-org-a"}, "embrouter_params": {"model": "openai/gpt-5.1"}},
+        {"model_info": {"id": "openai-org-b"}, "embrouter_params": {"model": "openai/gpt-5.1"}},
     ]
     request_kwargs = {"model": "gpt-5.1"}
 
@@ -1857,11 +1857,11 @@ def _bridge_replayed_anthropic_messages(minted_by: str) -> list:
             "role": "assistant",
             "content": [
                 {"type": "thinking", "thinking": "Anthropic minted this one", "signature": "ErcCCpIBCBEYAipA"},
-                {"type": "redacted_thinking", "data": f"litellm_encrypted_reasoning:{wrapped}"},
+                {"type": "redacted_thinking", "data": f"embrouter_encrypted_reasoning:{wrapped}"},
                 {
                     "type": "thinking",
                     "thinking": "The bridge packed this one",
-                    "signature": f"litellm_encrypted_reasoning:{wrapped}",
+                    "signature": f"embrouter_encrypted_reasoning:{wrapped}",
                 },
                 {"type": "text", "text": "The zebra owner lives in the green house."},
             ],
@@ -1884,7 +1884,7 @@ async def test_encrypted_content_affinity_strips_bridge_reasoning_from_messages_
         originating, cooldown_entries=[], routed_group_model_ids=["openai-org-b"]
     )
     check = EncryptedContentAffinityCheck(router=mock_router)
-    routed_pool = [{"model_info": {"id": "openai-org-b"}, "litellm_params": {"model": "openai/gpt-5-nano"}}]
+    routed_pool = [{"model_info": {"id": "openai-org-b"}, "embrouter_params": {"model": "openai/gpt-5-nano"}}]
     messages = _bridge_replayed_anthropic_messages(minted_by="openai-org-a")
     assistant_content = messages[1]["content"]
     request_kwargs = {"model": "gpt-5.1"}
@@ -1980,11 +1980,11 @@ class TestStripEncryptedReasoningFromInput:
 
 @pytest.mark.asyncio
 async def test_real_router_selection_keeps_origin_reasoning_and_strips_foreign_origin():
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "gpt-openai",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-5.1-codex",
                     "api_base": "https://api.openai.com/v1",
                     "api_key": "key-openai",
@@ -1993,7 +1993,7 @@ async def test_real_router_selection_keeps_origin_reasoning_and_strips_foreign_o
             },
             {
                 "model_name": "gpt-azure",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "azure/gpt-5.1-codex",
                     "api_base": "https://res-b.openai.azure.com/",
                     "api_key": "key-azure",
@@ -2036,8 +2036,8 @@ async def test_real_router_selection_keeps_origin_reasoning_and_strips_foreign_o
         )
 
         assert deployment["model_info"]["id"] == "dep-openai"
-        assert deployment["litellm_params"]["model"] == "openai/gpt-5.1-codex"
-        assert deployment["litellm_params"]["api_base"] == "https://api.openai.com/v1"
+        assert deployment["embrouter_params"]["model"] == "openai/gpt-5.1-codex"
+        assert deployment["embrouter_params"]["api_base"] == "https://api.openai.com/v1"
         assert request_kwargs["input"] == [
             {"type": "message", "role": "user", "content": "first question"},
             {
@@ -2061,7 +2061,7 @@ async def test_real_router_selection_keeps_origin_reasoning_and_strips_foreign_o
 
 @pytest.mark.asyncio
 async def test_affinity_keeps_mixed_origins_on_the_same_encryption_boundary():
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from embrouter.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
@@ -2071,11 +2071,11 @@ async def test_affinity_keeps_mixed_origins_on_the_same_encryption_boundary():
     mock_router = _make_router_mock_with_cooldown(origin_d2, cooldown_entries=[], routed_group_model_ids=["d1", "d2"])
     deployment_d1 = {
         "model_info": {"id": "d1"},
-        "litellm_params": {"api_base": shared_api_base, "api_key": shared_api_key},
+        "embrouter_params": {"api_base": shared_api_base, "api_key": shared_api_key},
     }
     deployment_d2 = {
         "model_info": {"id": "d2"},
-        "litellm_params": {"api_base": shared_api_base, "api_key": shared_api_key},
+        "embrouter_params": {"api_base": shared_api_base, "api_key": shared_api_key},
     }
     d2_item = {
         "type": "reasoning",
@@ -2108,7 +2108,7 @@ async def test_affinity_keeps_mixed_origins_on_the_same_encryption_boundary():
 
 @pytest.mark.asyncio
 async def test_boundary_pin_strips_reasoning_from_a_different_origin():
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from embrouter.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
@@ -2118,7 +2118,7 @@ async def test_boundary_pin_strips_reasoning_from_a_different_origin():
     mock_router.get_deployment.side_effect = lambda model_id: {"origin-a": origin_a, "origin-b": origin_b}.get(model_id)
     peer_a = {
         "model_info": {"id": "peer-a"},
-        "litellm_params": {"api_base": "https://account-a.openai.azure.com/", "api_key": "key-a"},
+        "embrouter_params": {"api_base": "https://account-a.openai.azure.com/", "api_key": "key-a"},
     }
     request_kwargs = {
         "input": [
@@ -2162,7 +2162,7 @@ async def test_boundary_pin_strips_reasoning_from_a_different_origin():
 
 @pytest.mark.asyncio
 async def test_affinity_keeps_only_anthropic_reasoning_from_the_pinned_origin():
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from embrouter.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
@@ -2172,11 +2172,11 @@ async def test_affinity_keeps_only_anthropic_reasoning_from_the_pinned_origin():
     mock_router.get_deployment.side_effect = lambda model_id: {"origin-a": origin_a, "origin-b": origin_b}.get(model_id)
     deployment_a = {
         "model_info": {"id": "origin-a"},
-        "litellm_params": {"api_base": "https://account-a.openai.azure.com/", "api_key": "key-a"},
+        "embrouter_params": {"api_base": "https://account-a.openai.azure.com/", "api_key": "key-a"},
     }
     deployment_b = {
         "model_info": {"id": "origin-b"},
-        "litellm_params": {"api_base": "https://account-b.openai.azure.com/", "api_key": "key-b"},
+        "embrouter_params": {"api_base": "https://account-b.openai.azure.com/", "api_key": "key-b"},
     }
     messages = _bridge_replayed_anthropic_messages(minted_by="origin-a")
     foreign_messages = _bridge_replayed_anthropic_messages(minted_by="origin-b")
@@ -2198,7 +2198,7 @@ async def test_affinity_keeps_only_anthropic_reasoning_from_the_pinned_origin():
         {
             "type": "redacted_thinking",
             "data": (
-                "litellm_encrypted_reasoning:"
+                "embrouter_encrypted_reasoning:"
                 f"{ResponsesAPIRequestUtils._wrap_encrypted_content_with_model_id('gAAAAA_turn_one', 'origin-a')}"
             ),
         },
@@ -2206,7 +2206,7 @@ async def test_affinity_keeps_only_anthropic_reasoning_from_the_pinned_origin():
             "type": "thinking",
             "thinking": "The bridge packed this one",
             "signature": (
-                "litellm_encrypted_reasoning:"
+                "embrouter_encrypted_reasoning:"
                 f"{ResponsesAPIRequestUtils._wrap_encrypted_content_with_model_id('gAAAAA_turn_one', 'origin-a')}"
             ),
         },
@@ -2218,7 +2218,7 @@ async def test_affinity_keeps_only_anthropic_reasoning_from_the_pinned_origin():
 async def test_affinity_strips_unknown_origins_but_leaves_unmarked_encrypted_content():
     from unittest.mock import MagicMock
 
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from embrouter.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
@@ -2226,7 +2226,7 @@ async def test_affinity_strips_unknown_origins_but_leaves_unmarked_encrypted_con
     mock_router.get_deployment.return_value = None
     deployment_a = {
         "model_info": {"id": "origin-a"},
-        "litellm_params": {"api_base": "https://account-a.openai.azure.com/", "api_key": "key-a"},
+        "embrouter_params": {"api_base": "https://account-a.openai.azure.com/", "api_key": "key-a"},
     }
     openai_item = {
         "type": "reasoning",
@@ -2274,7 +2274,7 @@ async def test_affinity_strips_unknown_origins_but_leaves_unmarked_encrypted_con
 def _cross_group_request_kwargs():
     wrapped = ResponsesAPIRequestUtils._wrap_encrypted_content_with_model_id("gAAAAA-blob", "deployment-a")
     return {
-        "litellm_metadata": {},
+        "embrouter_metadata": {},
         "input": [
             {"role": "user", "content": "ZEBRA: why is the sky blue?"},
             {
@@ -2296,7 +2296,7 @@ async def test_affinity_strips_encrypted_reasoning_when_routed_to_another_model_
     healthy, so a 503 would be wrong; the follow-up dispatches to the routed
     pool with the origin's encrypted reasoning stripped and its summary kept.
     """
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from embrouter.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
@@ -2309,7 +2309,7 @@ async def test_affinity_strips_encrypted_reasoning_when_routed_to_another_model_
         {
             "model_info": {"id": "deployment-b"},
             "model_name": "gpt-simple-tier",
-            "litellm_params": {
+            "embrouter_params": {
                 "api_base": "https://gateway.example/v1",
                 "api_key": "key-b",
                 "model": "openai/gpt-5-nano",
@@ -2328,7 +2328,7 @@ async def test_affinity_strips_encrypted_reasoning_when_routed_to_another_model_
 
     assert result is routed_pool
     assert "_encrypted_content_affinity_pinned" not in request_kwargs
-    assert request_kwargs["litellm_metadata"]["encrypted_content_affinity_enabled"] is True
+    assert request_kwargs["embrouter_metadata"]["encrypted_content_affinity_enabled"] is True
     assert request_kwargs["input"] is original_input
     assert [item.get("type") or item["role"] for item in original_input] == [
         "user",
@@ -2352,7 +2352,7 @@ async def test_affinity_degrades_within_the_origins_own_group():
     failing: the encrypted reasoning is stripped and the request dispatches
     to the sibling.
     """
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from embrouter.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
@@ -2367,7 +2367,7 @@ async def test_affinity_degrades_within_the_origins_own_group():
         {
             "model_info": {"id": "deployment-a2"},
             "model_name": "gpt-reasoning-tier",
-            "litellm_params": {
+            "embrouter_params": {
                 "api_base": "https://account-a2.openai.azure.com/",
                 "api_key": "key-a2",
                 "model": "azure/gpt-5.4",
@@ -2396,7 +2396,7 @@ async def test_affinity_strips_when_group_is_spelled_differently_but_same_by_id(
     boundary peer, so the check degrades: strip the encrypted reasoning and
     dispatch to the sibling pool.
     """
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from embrouter.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
@@ -2410,7 +2410,7 @@ async def test_affinity_strips_when_group_is_spelled_differently_but_same_by_id(
         {
             "model_info": {"id": "deployment-mini-b"},
             "model_name": "gpt-5.4-mini",
-            "litellm_params": {
+            "embrouter_params": {
                 "api_base": "https://gateway.example/v1",
                 "api_key": "key-b",
                 "model": "openai/gpt-5.4-mini",
@@ -2418,7 +2418,7 @@ async def test_affinity_strips_when_group_is_spelled_differently_but_same_by_id(
         }
     ]
     request_kwargs = {
-        "litellm_metadata": {},
+        "embrouter_metadata": {},
         "input": [
             {"role": "user", "content": "why is the sky blue?"},
             {
@@ -2448,7 +2448,7 @@ async def test_affinity_strips_for_team_and_pattern_routes():
     so an unavailable origin there also degrades rather than failing: the
     encrypted reasoning is stripped and the request dispatches to the sibling.
     """
-    from litellm.router_utils.pre_call_checks.encrypted_content_affinity_check import (
+    from embrouter.router_utils.pre_call_checks.encrypted_content_affinity_check import (
         EncryptedContentAffinityCheck,
     )
 
@@ -2462,7 +2462,7 @@ async def test_affinity_strips_for_team_and_pattern_routes():
         {
             "model_info": {"id": "deployment-team-b"},
             "model_name": "team-public-model",
-            "litellm_params": {
+            "embrouter_params": {
                 "api_base": "https://gateway.example/v1",
                 "api_key": "key-b",
                 "model": "openai/gpt-5.4-mini",
@@ -2470,7 +2470,7 @@ async def test_affinity_strips_for_team_and_pattern_routes():
         }
     ]
     request_kwargs = {
-        "litellm_metadata": {"user_api_key_team_id": "teamA"},
+        "embrouter_metadata": {"user_api_key_team_id": "teamA"},
         "input": [
             {"role": "user", "content": "why is the sky blue?"},
             {

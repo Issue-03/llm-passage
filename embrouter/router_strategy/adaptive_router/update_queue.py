@@ -22,8 +22,8 @@ import asyncio
 from collections.abc import Mapping
 from typing import Final
 
-from litellm._logging import verbose_router_logger
-from litellm.repositories.table_repositories import (
+from embrouter._logging import verbose_router_logger
+from embrouter.repositories.table_repositories import (
     AdaptiveRouterSessionRepository,
     AdaptiveRouterStateRepository,
 )
@@ -83,7 +83,7 @@ class AdaptiveRouterUpdateQueue:
         """
         Last-write-wins per session row. The state_dict is a snapshot of the
         SessionState (signals counts + bookkeeping fields). The flusher will
-        upsert this into LiteLLM_AdaptiveRouterSession.
+        upsert this into EmbRouter_AdaptiveRouterSession.
         """
         key: Final[SessionKey] = (session_id, router_name, model_name)
         async with self._lock:
@@ -94,7 +94,7 @@ class AdaptiveRouterUpdateQueue:
 
     async def flush_state_to_db(self, prisma_client: object) -> int:
         """
-        Drain state aggregator and apply to LiteLLM_AdaptiveRouterState.
+        Drain state aggregator and apply to EmbRouter_AdaptiveRouterState.
         Returns number of cells flushed.
         """
         async with self._lock:
@@ -150,7 +150,7 @@ class AdaptiveRouterUpdateQueue:
 
     async def flush_session_to_db(self, prisma_client: object) -> int:
         """
-        Drain session aggregator and upsert into LiteLLM_AdaptiveRouterSession.
+        Drain session aggregator and upsert into EmbRouter_AdaptiveRouterSession.
         Returns number of session rows flushed.
         """
         async with self._lock:
@@ -165,8 +165,8 @@ class AdaptiveRouterUpdateQueue:
             payload = batch[key]
             try:
                 # NOTE: Prisma client lower-cases model names, so
-                # `LiteLLM_AdaptiveRouterSession` -> `litellm_adaptiveroutersession`
-                # (single 's', not 'litellm_adaptiverouterssession').
+                # `EmbRouter_AdaptiveRouterSession` -> `embrouter_adaptiveroutersession`
+                # (single 's', not 'embrouter_adaptiverouterssession').
                 # Strip PK fields from the update payload — Prisma rejects
                 # writes to fields that are part of the @@id. asdict(state)
                 # always carries them, so build a separate update dict.

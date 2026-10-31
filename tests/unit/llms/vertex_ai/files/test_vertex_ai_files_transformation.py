@@ -13,13 +13,13 @@ import httpx
 import pytest
 from unittest.mock import MagicMock
 
-from litellm.llms.vertex_ai.files.transformation import (
+from embrouter.llms.vertex_ai.files.transformation import (
     VertexAIFilesConfig,
-    _get_litellm_batch_custom_id_from_labels,
+    _get_embrouter_batch_custom_id_from_labels,
     _openai_batch_jsonl_entry_to_vertex_rows,
     _sanitize_gcp_label_value,
 )
-from litellm.types.llms.openai import OpenAIFileObject, HttpxBinaryResponseContent
+from embrouter.types.llms.openai import OpenAIFileObject, HttpxBinaryResponseContent
 from openai.types.file_deleted import FileDeleted
 
 
@@ -32,47 +32,47 @@ class TestParseGcsUri:
     """Tests for the _parse_gcs_uri helper used by retrieve / content / delete."""
 
     def test_should_parse_standard_gs_uri(self, config):
-        file_id = "gs://my-bucket/litellm-vertex-files/path/to/object.jsonl"
-        bucket, encoded = config._parse_gcs_uri(file_id, litellm_params={"gcs_bucket_name": "my-bucket"})
+        file_id = "gs://my-bucket/embrouter-vertex-files/path/to/object.jsonl"
+        bucket, encoded = config._parse_gcs_uri(file_id, embrouter_params={"gcs_bucket_name": "my-bucket"})
         assert bucket == "my-bucket"
-        assert encoded == urllib.parse.quote("litellm-vertex-files/path/to/object.jsonl", safe="")
+        assert encoded == urllib.parse.quote("embrouter-vertex-files/path/to/object.jsonl", safe="")
 
     def test_should_parse_uri_with_nested_publisher_path(self, config):
-        uri = "gs://litellm-local/litellm-vertex-files/publishers/google/models/gemini-2.0-flash-001/abc-123"
-        bucket, encoded = config._parse_gcs_uri(uri, litellm_params={"gcs_bucket_name": "litellm-local"})
-        assert bucket == "litellm-local"
-        expected_path = "litellm-vertex-files/publishers/google/models/gemini-2.0-flash-001/abc-123"
+        uri = "gs://embrouter-local/embrouter-vertex-files/publishers/google/models/gemini-2.0-flash-001/abc-123"
+        bucket, encoded = config._parse_gcs_uri(uri, embrouter_params={"gcs_bucket_name": "embrouter-local"})
+        assert bucket == "embrouter-local"
+        expected_path = "embrouter-vertex-files/publishers/google/models/gemini-2.0-flash-001/abc-123"
         assert encoded == urllib.parse.quote(expected_path, safe="")
 
     def test_should_handle_url_encoded_input(self, config):
-        encoded_uri = urllib.parse.quote("gs://my-bucket/litellm-vertex-files/some/path", safe="")
-        bucket, encoded = config._parse_gcs_uri(encoded_uri, litellm_params={"gcs_bucket_name": "my-bucket"})
+        encoded_uri = urllib.parse.quote("gs://my-bucket/embrouter-vertex-files/some/path", safe="")
+        bucket, encoded = config._parse_gcs_uri(encoded_uri, embrouter_params={"gcs_bucket_name": "my-bucket"})
         assert bucket == "my-bucket"
-        assert encoded == urllib.parse.quote("litellm-vertex-files/some/path", safe="")
+        assert encoded == urllib.parse.quote("embrouter-vertex-files/some/path", safe="")
 
     def test_should_reject_bucket_only(self, config):
         with pytest.raises(ValueError, match="object name"):
-            config._parse_gcs_uri("gs://my-bucket", litellm_params={"gcs_bucket_name": "my-bucket"})
+            config._parse_gcs_uri("gs://my-bucket", embrouter_params={"gcs_bucket_name": "my-bucket"})
 
     def test_should_reject_no_gs_prefix(self, config):
         with pytest.raises(ValueError, match="gs://"):
             config._parse_gcs_uri(
-                "my-bucket/litellm-vertex-files/object.txt",
-                litellm_params={"gcs_bucket_name": "my-bucket"},
+                "my-bucket/embrouter-vertex-files/object.txt",
+                embrouter_params={"gcs_bucket_name": "my-bucket"},
             )
 
     def test_should_reject_unmanaged_object_path(self, config):
-        with pytest.raises(ValueError, match="LiteLLM-managed"):
+        with pytest.raises(ValueError, match="EmbRouter-managed"):
             config._parse_gcs_uri(
                 "gs://my-bucket/private/object.txt",
-                litellm_params={"gcs_bucket_name": "my-bucket"},
+                embrouter_params={"gcs_bucket_name": "my-bucket"},
             )
 
     def test_should_reject_request_supplied_legacy_flag(self, config):
-        with pytest.raises(ValueError, match="LiteLLM-managed"):
+        with pytest.raises(ValueError, match="EmbRouter-managed"):
             config._parse_gcs_uri(
                 "gs://my-bucket/private/object.txt",
-                litellm_params={
+                embrouter_params={
                     "gcs_bucket_name": "my-bucket",
                     "allow_legacy_cloud_file_ids": True,
                 },
@@ -82,9 +82,9 @@ class TestParseGcsUri:
         trusted_credentials = MappingProxyType({"allow_legacy_cloud_file_ids": True})
         bucket, encoded = config._parse_gcs_uri(
             "gs://my-bucket/private/object.txt",
-            litellm_params={
+            embrouter_params={
                 "gcs_bucket_name": "my-bucket",
-                "_litellm_internal_model_credentials": trusted_credentials,
+                "_embrouter_internal_model_credentials": trusted_credentials,
             },
         )
 
@@ -92,12 +92,12 @@ class TestParseGcsUri:
         assert encoded == urllib.parse.quote("private/object.txt", safe="")
 
     def test_should_reject_user_supplied_legacy_flag_snapshot(self, config):
-        with pytest.raises(ValueError, match="LiteLLM-managed"):
+        with pytest.raises(ValueError, match="EmbRouter-managed"):
             config._parse_gcs_uri(
                 "gs://my-bucket/private/object.txt",
-                litellm_params={
+                embrouter_params={
                     "gcs_bucket_name": "my-bucket",
-                    "_litellm_internal_model_credentials": {"allow_legacy_cloud_file_ids": True},
+                    "_embrouter_internal_model_credentials": {"allow_legacy_cloud_file_ids": True},
                 },
             )
 
@@ -105,9 +105,9 @@ class TestParseGcsUri:
         trusted_credentials = MappingProxyType({"allow_legacy_cloud_file_ids": True})
         bucket, encoded = config._parse_gcs_uri(
             "gs://my-bucket/team-a/private/object.txt",
-            litellm_params={
+            embrouter_params={
                 "gcs_bucket_name": "my-bucket/team-a",
-                "_litellm_internal_model_credentials": trusted_credentials,
+                "_embrouter_internal_model_credentials": trusted_credentials,
             },
         )
 
@@ -119,17 +119,17 @@ class TestParseGcsUri:
         with pytest.raises(ValueError, match="configured storage prefix"):
             config._parse_gcs_uri(
                 "gs://my-bucket/team-b/private/object.txt",
-                litellm_params={
+                embrouter_params={
                     "gcs_bucket_name": "my-bucket/team-a",
-                    "_litellm_internal_model_credentials": trusted_credentials,
+                    "_embrouter_internal_model_credentials": trusted_credentials,
                 },
             )
 
     def test_should_reject_unconfigured_bucket(self, config):
         with pytest.raises(ValueError, match="configured storage bucket"):
             config._parse_gcs_uri(
-                "gs://other-bucket/litellm-vertex-files/object.txt",
-                litellm_params={"gcs_bucket_name": "my-bucket"},
+                "gs://other-bucket/embrouter-vertex-files/object.txt",
+                embrouter_params={"gcs_bucket_name": "my-bucket"},
             )
 
 
@@ -140,9 +140,9 @@ class TestCreateFileUrl:
             api_key=None,
             model="",
             optional_params={},
-            litellm_params={
+            embrouter_params={
                 "gcs_bucket_name": "safe-bucket",
-                "litellm_metadata": {"gcs_bucket_name": "attacker-bucket"},
+                "embrouter_metadata": {"gcs_bucket_name": "attacker-bucket"},
             },
             data={
                 "file": ("../../owned.jsonl?alt=media", b"{}", "application/jsonl"),
@@ -154,7 +154,7 @@ class TestCreateFileUrl:
         object_name = parse_qs(parsed_url.query)["name"][0]
         assert "/b/safe-bucket/" in parsed_url.path
         assert "attacker-bucket" not in url
-        assert object_name.startswith("litellm-vertex-files/uploads/")
+        assert object_name.startswith("embrouter-vertex-files/uploads/")
         assert object_name.endswith("-owned.jsonl_alt_media")
         assert ".." not in object_name
         assert "?" not in object_name
@@ -163,7 +163,7 @@ class TestCreateFileUrl:
 class TestBatchObjectNaming:
     def test_should_store_publisher_model_under_publishers_path(self, config):
         object_name = config._get_gcs_object_name_from_batch_jsonl([{"body": {"model": "gemini-2.5-flash"}}])
-        assert object_name.startswith("litellm-vertex-files/publishers/google/models/gemini-2.5-flash/")
+        assert object_name.startswith("embrouter-vertex-files/publishers/google/models/gemini-2.5-flash/")
 
     def test_should_store_fine_tuned_endpoint_under_endpoints_path(self, config):
         """A numeric endpoint id must not be filed under publishers/google/models/gemini/<id>,
@@ -171,12 +171,12 @@ class TestBatchObjectNaming:
         object_name = config._get_gcs_object_name_from_batch_jsonl(
             [{"body": {"model": "gemini/7768560373388541952"}}]
         )
-        assert object_name.startswith("litellm-vertex-files/endpoints/7768560373388541952/")
+        assert object_name.startswith("embrouter-vertex-files/endpoints/7768560373388541952/")
         assert "publishers" not in object_name
 
     def test_should_store_bare_numeric_endpoint_under_endpoints_path(self, config):
         object_name = config._get_gcs_object_name_from_batch_jsonl([{"body": {"model": "7768560373388541952"}}])
-        assert object_name.startswith("litellm-vertex-files/endpoints/7768560373388541952/")
+        assert object_name.startswith("embrouter-vertex-files/endpoints/7768560373388541952/")
 
     def test_deployment_model_overrides_jsonl_body_model(self, config):
         """The stored path decides which Vertex model the batch later runs against with the
@@ -186,7 +186,7 @@ class TestBatchObjectNaming:
             [{"body": {"model": "9999999999999999999"}}],
             deployment_model="vertex_ai/gemini/7768560373388541952",
         )
-        assert object_name.startswith("litellm-vertex-files/endpoints/7768560373388541952/")
+        assert object_name.startswith("embrouter-vertex-files/endpoints/7768560373388541952/")
         assert "9999999999999999999" not in object_name
 
     def test_url_derives_object_path_from_configured_model(self, config):
@@ -195,7 +195,7 @@ class TestBatchObjectNaming:
             api_key=None,
             model="",
             optional_params={},
-            litellm_params={
+            embrouter_params={
                 "gcs_bucket_name": "my-bucket",
                 "model": "vertex_ai/gemini/7768560373388541952",
             },
@@ -205,7 +205,7 @@ class TestBatchObjectNaming:
             },
         )
         object_name = parse_qs(urlparse(url).query)["name"][0]
-        assert object_name.startswith("litellm-vertex-files/endpoints/7768560373388541952/")
+        assert object_name.startswith("embrouter-vertex-files/endpoints/7768560373388541952/")
         assert "9999999999999999999" not in object_name
 
 
@@ -213,7 +213,7 @@ class TestCustomEndpointBatchUpload:
     def test_should_reject_batch_upload_for_custom_endpoint_deployment(self, config):
         """custom_endpoint deployments have no Vertex batch surface; the upload must 400 instead
         of staging a file that can only produce a doomed batch job (LIT-6899)."""
-        from litellm.llms.vertex_ai.common_utils import VertexAIError
+        from embrouter.llms.vertex_ai.common_utils import VertexAIError
 
         with pytest.raises(VertexAIError) as exc_info:
             config.get_complete_file_url(
@@ -221,7 +221,7 @@ class TestCustomEndpointBatchUpload:
                 api_key=None,
                 model="",
                 optional_params={},
-                litellm_params={"gcs_bucket_name": "my-bucket", "custom_endpoint": True},
+                embrouter_params={"gcs_bucket_name": "my-bucket", "custom_endpoint": True},
                 data={
                     "file": ("batch.jsonl", b'{"body": {"model": "openai/gemma-2-2b-it"}}', "application/jsonl"),
                     "purpose": "batch",
@@ -236,7 +236,7 @@ class TestCustomEndpointBatchUpload:
             api_key=None,
             model="",
             optional_params={},
-            litellm_params={"gcs_bucket_name": "my-bucket", "custom_endpoint": True},
+            embrouter_params={"gcs_bucket_name": "my-bucket", "custom_endpoint": True},
             data={
                 "file": ("notes.txt", b"hello", "text/plain"),
                 "purpose": "assistants",
@@ -247,13 +247,13 @@ class TestCustomEndpointBatchUpload:
 
 class TestTransformRetrieveFile:
     def test_should_build_correct_gcs_metadata_url(self, config):
-        file_id = "gs://my-bucket/litellm-vertex-files/path/to/file.jsonl"
+        file_id = "gs://my-bucket/embrouter-vertex-files/path/to/file.jsonl"
         url, params = config.transform_retrieve_file_request(
             file_id=file_id,
             optional_params={},
-            litellm_params={"gcs_bucket_name": "my-bucket"},
+            embrouter_params={"gcs_bucket_name": "my-bucket"},
         )
-        expected_encoded = urllib.parse.quote("litellm-vertex-files/path/to/file.jsonl", safe="")
+        expected_encoded = urllib.parse.quote("embrouter-vertex-files/path/to/file.jsonl", safe="")
         assert url == f"https://storage.googleapis.com/storage/v1/b/my-bucket/o/{expected_encoded}"
         assert params == {}
 
@@ -271,7 +271,7 @@ class TestTransformRetrieveFile:
         result = config.transform_retrieve_file_response(
             raw_response=raw_response,
             logging_obj=MagicMock(),
-            litellm_params={},
+            embrouter_params={},
         )
 
         assert isinstance(result, OpenAIFileObject)
@@ -295,20 +295,20 @@ class TestTransformRetrieveFile:
         result = config.transform_retrieve_file_response(
             raw_response=raw_response,
             logging_obj=MagicMock(),
-            litellm_params={},
+            embrouter_params={},
         )
         assert result.purpose == "batch"
 
 
 class TestTransformFileContent:
     def test_should_build_gcs_media_download_url(self, config):
-        file_id = "gs://my-bucket/litellm-vertex-files/path/to/file.jsonl"
+        file_id = "gs://my-bucket/embrouter-vertex-files/path/to/file.jsonl"
         url, params = config.transform_file_content_request(
             file_content_request={"file_id": file_id},
             optional_params={},
-            litellm_params={"gcs_bucket_name": "my-bucket"},
+            embrouter_params={"gcs_bucket_name": "my-bucket"},
         )
-        encoded = urllib.parse.quote("litellm-vertex-files/path/to/file.jsonl", safe="")
+        encoded = urllib.parse.quote("embrouter-vertex-files/path/to/file.jsonl", safe="")
         assert url == f"https://storage.googleapis.com/storage/v1/b/my-bucket/o/{encoded}?alt=media"
         assert params == {}
 
@@ -323,7 +323,7 @@ class TestTransformFileContent:
         result = config.transform_file_content_response(
             raw_response=raw_response,
             logging_obj=MagicMock(),
-            litellm_params={},
+            embrouter_params={},
         )
 
         assert isinstance(result, HttpxBinaryResponseContent)
@@ -339,7 +339,7 @@ class TestTransformFileContent:
                 {
                     "status": "",
                     "processed_time": "2024-11-01T18:13:16.826+00:00",
-                    "request": {"labels": {"litellm_custom_id": "request-1"}},
+                    "request": {"labels": {"embrouter_custom_id": "request-1"}},
                     "response": {
                         "candidates": [{"content": {"parts": [{"text": "ok"}], "role": "model"}}],
                         "modelVersion": "gemini-2.0-flash-001@default",
@@ -364,7 +364,7 @@ class TestTransformFileContent:
             captured["logging_obj"] = logging_obj
             logging_obj.model = "gemini-2.0-flash-001"
             logging_obj.start_time = 789.0
-            return {"custom_id": vertex_output["request"]["labels"]["litellm_custom_id"]}
+            return {"custom_id": vertex_output["request"]["labels"]["embrouter_custom_id"]}
 
         monkeypatch.setattr(
             config,
@@ -375,7 +375,7 @@ class TestTransformFileContent:
         result = config.transform_file_content_response(
             raw_response=raw_response,
             logging_obj=logging_obj,
-            litellm_params={},
+            embrouter_params={},
         )
 
         assert captured["logging_obj"] is not logging_obj
@@ -385,16 +385,16 @@ class TestTransformFileContent:
         assert result.response is not raw_response
 
     def test_should_skip_batch_output_transformation_when_opt_out_flag_set(self, config, monkeypatch):
-        """When `litellm.disable_vertex_batch_output_transformation` is True the
+        """When `embrouter.disable_vertex_batch_output_transformation` is True the
         Vertex predictions.jsonl content must be returned untouched, so callers
         that parse raw `candidates`/`modelVersion` keep working."""
-        import litellm
+        import embrouter
 
         raw_jsonl = json.dumps(
             {
                 "status": "",
                 "processed_time": "2024-11-01T18:13:16.826+00:00",
-                "request": {"labels": {"litellm_custom_id": "request-1"}},
+                "request": {"labels": {"embrouter_custom_id": "request-1"}},
                 "response": {
                     "candidates": [{"content": {"parts": [{"text": "ok"}], "role": "model"}}],
                     "modelVersion": "gemini-2.0-flash-001@default",
@@ -408,12 +408,12 @@ class TestTransformFileContent:
             request=httpx.Request("GET", "https://example.com"),
         )
 
-        monkeypatch.setattr(litellm, "disable_vertex_batch_output_transformation", True, raising=False)
+        monkeypatch.setattr(embrouter, "disable_vertex_batch_output_transformation", True, raising=False)
 
         result = config.transform_file_content_response(
             raw_response=raw_response,
             logging_obj=MagicMock(),
-            litellm_params={},
+            embrouter_params={},
         )
 
         assert isinstance(result, HttpxBinaryResponseContent)
@@ -422,13 +422,13 @@ class TestTransformFileContent:
 
 class TestTransformDeleteFile:
     def test_should_build_correct_gcs_delete_url(self, config):
-        file_id = "gs://my-bucket/litellm-vertex-files/path/to/file.jsonl"
+        file_id = "gs://my-bucket/embrouter-vertex-files/path/to/file.jsonl"
         url, params = config.transform_delete_file_request(
             file_id=file_id,
             optional_params={},
-            litellm_params={"gcs_bucket_name": "my-bucket"},
+            embrouter_params={"gcs_bucket_name": "my-bucket"},
         )
-        encoded = urllib.parse.quote("litellm-vertex-files/path/to/file.jsonl", safe="")
+        encoded = urllib.parse.quote("embrouter-vertex-files/path/to/file.jsonl", safe="")
         assert url == f"https://storage.googleapis.com/storage/v1/b/my-bucket/o/{encoded}"
         assert params == {}
 
@@ -436,7 +436,7 @@ class TestTransformDeleteFile:
         raw_response = MagicMock(spec=httpx.Response)
         mock_request = MagicMock()
         encoded_name = urllib.parse.quote(
-            "litellm-vertex-files/publishers/google/models/gemini-2.0-flash-001/abc",
+            "embrouter-vertex-files/publishers/google/models/gemini-2.0-flash-001/abc",
             safe="",
         )
         mock_request.url = f"https://storage.googleapis.com/storage/v1/b/my-bucket/o/{encoded_name}"
@@ -445,13 +445,13 @@ class TestTransformDeleteFile:
         result = config.transform_delete_file_response(
             raw_response=raw_response,
             logging_obj=MagicMock(),
-            litellm_params={},
+            embrouter_params={},
         )
 
         assert isinstance(result, FileDeleted)
         assert result.deleted is True
         assert result.object == "file"
-        assert result.id == "gs://my-bucket/litellm-vertex-files/publishers/google/models/gemini-2.0-flash-001/abc"
+        assert result.id == "gs://my-bucket/embrouter-vertex-files/publishers/google/models/gemini-2.0-flash-001/abc"
 
     def test_should_fallback_to_deleted_id_when_no_request(self, config):
         raw_response = MagicMock(spec=httpx.Response)
@@ -460,7 +460,7 @@ class TestTransformDeleteFile:
         result = config.transform_delete_file_response(
             raw_response=raw_response,
             logging_obj=MagicMock(),
-            litellm_params={},
+            embrouter_params={},
         )
 
         assert isinstance(result, FileDeleted)
@@ -482,7 +482,7 @@ class TestTransformDeleteFile:
         result = config.transform_delete_file_response(
             raw_response=raw_response,
             logging_obj=MagicMock(),
-            litellm_params={},
+            embrouter_params={},
         )
 
         assert result.id == "gs://my-bucket/path/to/file.jsonl"
@@ -492,7 +492,7 @@ class TestTransformDeleteFile:
         raw_response = MagicMock(spec=httpx.Response)
         mock_request = MagicMock()
         encoded_object = urllib.parse.quote(
-            "litellm-vertex-files/publishers/google/models/gemini-2.0-flash-001/abc-123",
+            "embrouter-vertex-files/publishers/google/models/gemini-2.0-flash-001/abc-123",
             safe="",
         )
         mock_request.url = f"https://storage.googleapis.com/storage/v1/b/prod-bucket/o/{encoded_object}"
@@ -501,11 +501,11 @@ class TestTransformDeleteFile:
         result = config.transform_delete_file_response(
             raw_response=raw_response,
             logging_obj=MagicMock(),
-            litellm_params={},
+            embrouter_params={},
         )
 
         assert result.id == (
-            "gs://prod-bucket/litellm-vertex-files/publishers/google/models/gemini-2.0-flash-001/abc-123"
+            "gs://prod-bucket/embrouter-vertex-files/publishers/google/models/gemini-2.0-flash-001/abc-123"
         )
 
 
@@ -520,7 +520,7 @@ class TestVertexBatchOutputTransformation:
             "processed_time": "2024-11-01T18:13:16.826+00:00",
             "request": {
                 "contents": [{"role": "user", "parts": [{"text": "Hello world!"}]}],
-                "labels": {"litellm_custom_id": "request-1"},
+                "labels": {"embrouter_custom_id": "request-1"},
             },
             "response": {
                 "candidates": [
@@ -578,7 +578,7 @@ class TestVertexBatchOutputTransformation:
             "processed_time": "2024-11-01T18:13:16.826+00:00",
             "request": {
                 "contents": [{"role": "user", "parts": [{"text": "Hello world!"}]}],
-                "labels": {"litellm_custom_id": "request-error"},
+                "labels": {"embrouter_custom_id": "request-error"},
             },
             "response": {},
         }
@@ -603,7 +603,7 @@ class TestVertexBatchOutputTransformation:
         so this test invokes the single-line transformer directly with a vertex_gemini_config
         stub that raises during transformation.
         """
-        from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+        from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
             VertexGeminiConfig,
         )
 
@@ -612,7 +612,7 @@ class TestVertexBatchOutputTransformation:
             "processed_time": "2024-11-01T18:13:16.826+00:00",
             "request": {
                 "contents": [{"role": "user", "parts": [{"text": "Hello world!"}]}],
-                "labels": {"litellm_custom_id": "request-boom"},
+                "labels": {"embrouter_custom_id": "request-boom"},
             },
             "response": {"modelVersion": "gemini-2.0-flash-001@default"},
         }
@@ -641,13 +641,13 @@ class TestVertexBatchOutputTransformation:
         assert result["custom_id"] == "request-boom"
 
     def test_transform_vertex_batch_output_legacy_labels_only_sanitized(self, config):
-        """Older LiteLLM batches only stored litellm_custom_id (sanitized); read path still works."""
+        """Older EmbRouter batches only stored embrouter_custom_id (sanitized); read path still works."""
         vertex_output = {
             "status": "",
             "processed_time": "2024-11-01T18:13:16.826+00:00",
             "request": {
                 "contents": [{"role": "user", "parts": [{"text": "Hello world!"}]}],
-                "labels": {"litellm_custom_id": "myrequest-1"},
+                "labels": {"embrouter_custom_id": "myrequest-1"},
             },
             "response": {
                 "candidates": [
@@ -682,7 +682,7 @@ class TestVertexBatchOutputTransformation:
                 "processed_time": "2024-11-01T18:13:16.826+00:00",
                 "request": {
                     "contents": [{"role": "user", "parts": [{"text": "First request"}]}],
-                    "labels": {"litellm_custom_id": "request-1"},
+                    "labels": {"embrouter_custom_id": "request-1"},
                 },
                 "response": {
                     "candidates": [
@@ -707,7 +707,7 @@ class TestVertexBatchOutputTransformation:
                 "processed_time": "2024-11-01T18:13:17.826+00:00",
                 "request": {
                     "contents": [{"role": "user", "parts": [{"text": "Second request"}]}],
-                    "labels": {"litellm_custom_id": "request-2"},
+                    "labels": {"embrouter_custom_id": "request-2"},
                 },
                 "response": {
                     "candidates": [
@@ -751,7 +751,7 @@ class TestVertexBatchOutputTransformation:
             {
                 "status": "",
                 "processed_time": "2024-11-01T18:13:16.826+00:00",
-                "request": {"labels": {"litellm_custom_id": "blocked-request"}},
+                "request": {"labels": {"embrouter_custom_id": "blocked-request"}},
                 "response": {
                     "promptFeedback": {"blockReason": "SAFETY"},
                     "modelVersion": "gemini-2.0-flash-001@default",
@@ -760,7 +760,7 @@ class TestVertexBatchOutputTransformation:
             {
                 "status": "",
                 "processed_time": "2024-11-01T18:13:17.826+00:00",
-                "request": {"labels": {"litellm_custom_id": "request-2"}},
+                "request": {"labels": {"embrouter_custom_id": "request-2"}},
                 "response": {"candidates": [{"content": {"parts": [{"text": "ok"}]}}]},
             },
         ]
@@ -771,7 +771,7 @@ class TestVertexBatchOutputTransformation:
             logging_obj,
             mock_httpx_response,
         ):
-            return {"custom_id": vertex_output["request"]["labels"]["litellm_custom_id"]}
+            return {"custom_id": vertex_output["request"]["labels"]["embrouter_custom_id"]}
 
         monkeypatch.setattr(
             config,
@@ -808,7 +808,7 @@ class TestVertexBatchOutputTransformation:
             {
                 "status": "",
                 "processed_time": "2024-11-01T18:13:16.826+00:00",
-                "request": {"labels": {"litellm_custom_id": f"request-{i}"}},
+                "request": {"labels": {"embrouter_custom_id": f"request-{i}"}},
                 "response": {"candidates": [{"content": {"parts": [{"text": "ok"}]}}]},
             }
             for i in range(2)
@@ -828,7 +828,7 @@ class TestVertexBatchOutputTransformation:
                     id(mock_httpx_response),
                 )
             )
-            return {"custom_id": vertex_output["request"]["labels"]["litellm_custom_id"]}
+            return {"custom_id": vertex_output["request"]["labels"]["embrouter_custom_id"]}
 
         monkeypatch.setattr(
             config,
@@ -874,7 +874,7 @@ class TestTryTransformDoesNotMutateCallerLoggingObj:
                 "processed_time": "2024-11-01T18:13:16.826+00:00",
                 "request": {
                     "contents": [{"role": "user", "parts": [{"text": "Hello world!"}]}],
-                    "labels": {"litellm_custom_id": "request-1"},
+                    "labels": {"embrouter_custom_id": "request-1"},
                 },
                 "response": {
                     "candidates": [
@@ -998,9 +998,9 @@ class TestVertexBatchCustomIdLabels:
 
         # Verify labels were added
         assert "labels" in vertex_request["request"]
-        assert "litellm_custom_id" in vertex_request["request"]["labels"]
-        assert vertex_request["request"]["labels"]["litellm_custom_id"] == "request-1"
-        raw_label = vertex_request["request"]["labels"]["litellm_custom_id_raw"]
+        assert "embrouter_custom_id" in vertex_request["request"]["labels"]
+        assert vertex_request["request"]["labels"]["embrouter_custom_id"] == "request-1"
+        raw_label = vertex_request["request"]["labels"]["embrouter_custom_id_raw"]
         assert raw_label != "request-1"
         assert _sanitize_gcp_label_value(raw_label) == raw_label
 
@@ -1026,12 +1026,12 @@ class TestVertexBatchCustomIdLabels:
         labels_a = vertex_jsonl_content[0]["request"]["labels"]
         labels_b = vertex_jsonl_content[1]["request"]["labels"]
 
-        assert "litellm_custom_id_raw_1" in labels_a
-        assert "litellm_custom_id_raw_1" in labels_b
-        assert labels_a["litellm_custom_id_raw"] == labels_b["litellm_custom_id_raw"]
-        assert labels_a["litellm_custom_id_raw_1"] != labels_b["litellm_custom_id_raw_1"]
-        assert _get_litellm_batch_custom_id_from_labels(labels_a) == custom_id_a
-        assert _get_litellm_batch_custom_id_from_labels(labels_b) == custom_id_b
+        assert "embrouter_custom_id_raw_1" in labels_a
+        assert "embrouter_custom_id_raw_1" in labels_b
+        assert labels_a["embrouter_custom_id_raw"] == labels_b["embrouter_custom_id_raw"]
+        assert labels_a["embrouter_custom_id_raw_1"] != labels_b["embrouter_custom_id_raw_1"]
+        assert _get_embrouter_batch_custom_id_from_labels(labels_a) == custom_id_a
+        assert _get_embrouter_batch_custom_id_from_labels(labels_b) == custom_id_b
 
     def test_multiple_requests_each_get_their_own_label(self):
         """Test that multiple requests each get their own custom_id label"""
@@ -1055,8 +1055,8 @@ class TestVertexBatchCustomIdLabels:
 
         for i, vertex_request in enumerate(vertex_jsonl_content):
             expected_custom_id = f"request-{i + 1}"
-            assert vertex_request["request"]["labels"]["litellm_custom_id"] == expected_custom_id
-            raw_label = vertex_request["request"]["labels"]["litellm_custom_id_raw"]
+            assert vertex_request["request"]["labels"]["embrouter_custom_id"] == expected_custom_id
+            raw_label = vertex_request["request"]["labels"]["embrouter_custom_id_raw"]
             assert raw_label != expected_custom_id
             assert _sanitize_gcp_label_value(raw_label) == raw_label
 
@@ -1102,8 +1102,8 @@ class TestVertexBatchCustomIdLabels:
         vertex_input = _wrap_entries(openai_input)
 
         # Verify both labels are GCP-safe and encoded raw preserves round-trip.
-        assert vertex_input[0]["request"]["labels"]["litellm_custom_id"] == "myrequest-1"
-        raw_label = vertex_input[0]["request"]["labels"]["litellm_custom_id_raw"]
+        assert vertex_input[0]["request"]["labels"]["embrouter_custom_id"] == "myrequest-1"
+        raw_label = vertex_input[0]["request"]["labels"]["embrouter_custom_id_raw"]
         assert raw_label != "MyRequest-1"
         assert _sanitize_gcp_label_value(raw_label) == raw_label
 
@@ -1166,8 +1166,8 @@ class TestVertexBatchCustomIdLabels:
         vertex_input = _wrap_entries(openai_input)
 
         # Verify both labels are safe for GCP labels.
-        assert vertex_input[0]["request"]["labels"]["litellm_custom_id"] == "myrequest-1"
-        raw_label = vertex_input[0]["request"]["labels"]["litellm_custom_id_raw"]
+        assert vertex_input[0]["request"]["labels"]["embrouter_custom_id"] == "myrequest-1"
+        raw_label = vertex_input[0]["request"]["labels"]["embrouter_custom_id_raw"]
         assert raw_label != "MyRequest-1"
         assert _sanitize_gcp_label_value(raw_label) == raw_label
 
@@ -1195,7 +1195,7 @@ class TestConfiguredBucketNameResolution:
         monkeypatch.setenv("GCS_BUCKET_NAME", "logging-bucket")
         assert config._get_configured_bucket_name({}) == "batch-bucket"
 
-    def test_should_prefer_litellm_params_over_batch_env(self, config, monkeypatch):
+    def test_should_prefer_embrouter_params_over_batch_env(self, config, monkeypatch):
         monkeypatch.setenv("GCS_BATCH_BUCKET_NAME", "batch-bucket")
         assert config._get_configured_bucket_name({"gcs_bucket_name": "per-model-bucket"}) == "per-model-bucket"
 
@@ -1205,14 +1205,14 @@ class TestConfiguredBucketNameResolution:
         with pytest.raises(ValueError, match="GCS bucket_name is required"):
             config._get_configured_bucket_name({})
 
-    def test_legacy_kwarg_survives_get_litellm_params(self):
-        from litellm.litellm_core_utils.get_litellm_params import (
+    def test_legacy_kwarg_survives_get_embrouter_params(self):
+        from embrouter.embrouter_core_utils.get_embrouter_params import (
             OPTIONAL_KWARGS_KEYS,
-            get_litellm_params,
+            get_embrouter_params,
         )
 
         assert "bucket_name" in OPTIONAL_KWARGS_KEYS
-        params = get_litellm_params(bucket_name="my-legacy-bucket")
+        params = get_embrouter_params(bucket_name="my-legacy-bucket")
         assert params.get("bucket_name") == "my-legacy-bucket"
 
 
@@ -1421,11 +1421,11 @@ class TestVertexEmbeddingsBatchInputTranslation:
         )
 
         assert row["request"]["contents"] == [{"role": "user", "parts": [{"text": "Hello"}]}]
-        assert row["request"]["labels"]["litellm_custom_id"] == "request-1"
+        assert row["request"]["labels"]["embrouter_custom_id"] == "request-1"
         assert "key" not in row
 
     def test_should_keep_lines_without_a_url_on_generate_content_path(self):
-        """`url` is optional on a batch line, and chat is the shape LiteLLM has always assumed."""
+        """`url` is optional on a batch line, and chat is the shape EmbRouter has always assumed."""
         (row,) = _wrap_entries(
             [
                 {
@@ -1487,7 +1487,7 @@ class TestVertexResponsesBatchInputTranslation:
         assert row["request"]["contents"] == [
             {"role": "user", "parts": [{"text": "What was the top headline in world news yesterday?"}]}
         ]
-        assert row["request"]["labels"]["litellm_custom_id"] == "resp-1"
+        assert row["request"]["labels"]["embrouter_custom_id"] == "resp-1"
 
     def test_instructions_and_input_items_map_like_real_time(self):
         (row,) = _wrap_entries(
@@ -1636,7 +1636,7 @@ class TestVertexEmbeddingsBatchOutputTranslation:
                 request=httpx.Request("GET", url),
             ),
             logging_obj=MagicMock(),
-            litellm_params={},
+            embrouter_params={},
         )
         return [json.loads(line) for line in result.response.content.decode("utf-8").split("\n")]
 
@@ -1669,7 +1669,7 @@ class TestVertexEmbeddingsBatchOutputTranslation:
 
     def test_should_resolve_model_from_managed_gcs_object_path(self, config):
         object_path = urllib.parse.quote(
-            "litellm-vertex-files/publishers/google/models/gemini-embedding-2/"
+            "embrouter-vertex-files/publishers/google/models/gemini-embedding-2/"
             "prediction-model-2026-07-29T05:55:52Z/predictions.jsonl",
             safe="",
         )

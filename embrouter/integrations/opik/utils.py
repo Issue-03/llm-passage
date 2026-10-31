@@ -14,7 +14,7 @@ def create_uuid7() -> str:
     validates this embedded timestamp on ingestion (it must fall within a window
     around "now"), so the encoding has to be correct or trace/span batches are
     rejected with HTTP 400. Implemented with the standard library only, so no
-    extra dependency is added to litellm. See ``opik.id_helpers`` for the
+    extra dependency is added to embrouter. See ``opik.id_helpers`` for the
     reference implementation.
     """
     unix_ts_ms: Final = int(time.time() * 1000)

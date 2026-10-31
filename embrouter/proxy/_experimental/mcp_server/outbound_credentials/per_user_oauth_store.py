@@ -1,7 +1,7 @@
 """Composition root for the v2-native authorization_code per-user OAuth token store (step 1b).
 
 Assembles ``Cached(Refreshing(V2PerUserTokenStore))`` and replaces ``V1PerUserTokenStore`` in the
-resolver. The runtime collaborators (DB, HTTP, the shared cache, Redis) are LiteLLM globals not ready
+resolver. The runtime collaborators (DB, HTTP, the shared cache, Redis) are EmbRouter globals not ready
 at import time, so the chain is built lazily on first use. When Redis is wired it uses the
 cross-replica path (DualCache-backed cache + ``SET NX PX`` coordinator); otherwise it falls back to
 the foundation's in-process defaults (correct for a single replica). The DB read/refresh-grant/persist
@@ -15,16 +15,16 @@ from collections.abc import Callable, Mapping
 from functools import partial
 from typing import TYPE_CHECKING, Final
 
-from litellm._logging import verbose_logger
-from litellm.proxy._experimental.mcp_server.oauth_identity_binding import credential_binding_matches
-from litellm.proxy._experimental.mcp_server.outbound_credentials.authz_code_refresher import (
+from embrouter._logging import verbose_logger
+from embrouter.proxy._experimental.mcp_server.oauth_identity_binding import credential_binding_matches
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.authz_code_refresher import (
     AuthorizationCodeRefresher,
 )
-from litellm.proxy._experimental.mcp_server.outbound_credentials.dual_cache_token_backend import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.dual_cache_token_backend import (
     AsyncCache,
     DualCacheTokenCacheBackend,
 )
-from litellm.proxy._experimental.mcp_server.outbound_credentials.oauth_token_store import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.oauth_token_store import (
     CachedOAuthTokenStore,
     InvalidatableOAuthTokenStore,
     OAuthToken,
@@ -33,18 +33,18 @@ from litellm.proxy._experimental.mcp_server.outbound_credentials.oauth_token_sto
     TokenCacheBackend,
     TokenStoreUnavailable,
 )
-from litellm.proxy._experimental.mcp_server.outbound_credentials.runtime_refresh_coordinator import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.runtime_refresh_coordinator import (
     runtime_refresh_coordinator,
 )
-from litellm.proxy._experimental.mcp_server.outbound_credentials.token_cache_codec import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.token_cache_codec import (
     OAuthTokenCacheCodec,
 )
-from litellm.proxy._experimental.mcp_server.outbound_credentials.v2_token_store import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.v2_token_store import (
     V2PerUserTokenStore,
 )
 
 if TYPE_CHECKING:
-    from litellm.types.mcp_server.mcp_server_manager import MCPServer
+    from embrouter.types.mcp_server.mcp_server_manager import MCPServer
 
 # A token with no declared expiry is cached for this long; one with an expiry is cached until then.
 _DEFAULT_TTL_SECONDS: Final = 300.0
@@ -54,10 +54,10 @@ StoreBuilder = Callable[[ServerLookup], tuple[InvalidatableOAuthTokenStore, bool
 
 
 async def _read_credential(user_id: str, server_id: str) -> Mapping[str, object] | None:
-    from litellm.proxy._experimental.mcp_server.db import (  # noqa: PLC0415
+    from embrouter.proxy._experimental.mcp_server.db import (  # noqa: PLC0415
         get_user_oauth_credential,
     )
-    from litellm.proxy.proxy_server import prisma_client  # noqa: PLC0415
+    from embrouter.proxy.proxy_server import prisma_client  # noqa: PLC0415
 
     if prisma_client is None:
         raise TokenStoreUnavailable("Database not connected")
@@ -73,10 +73,10 @@ async def _persist_credential(
     scopes: tuple[str, ...] | None,
     identity_binding_proof: str | None = None,
 ) -> None:
-    from litellm.proxy._experimental.mcp_server.db import (  # noqa: PLC0415
+    from embrouter.proxy._experimental.mcp_server.db import (  # noqa: PLC0415
         store_user_oauth_credential,
     )
-    from litellm.proxy.proxy_server import prisma_client  # noqa: PLC0415
+    from embrouter.proxy.proxy_server import prisma_client  # noqa: PLC0415
 
     if prisma_client is None:
         return
@@ -94,12 +94,12 @@ async def _persist_credential(
 
 
 async def _post_token_endpoint(url: str, form: dict[str, str], headers: dict[str, str]) -> dict[str, object] | None:
-    from litellm.llms.custom_httpx.http_handler import (  # noqa: PLC0415
+    from embrouter.llms.custom_httpx.http_handler import (  # noqa: PLC0415
         get_async_httpx_client,  # pyright: ignore
     )
-    from litellm.types.llms.custom_http import httpxSpecialProvider  # noqa: PLC0415
+    from embrouter.types.llms.custom_http import httpxSpecialProvider  # noqa: PLC0415
 
-    # litellm's httpx handler and httpx.Response are only partially typed; the IdP returns a JSON
+    # embrouter's httpx handler and httpx.Response are only partially typed; the IdP returns a JSON
     # object and the refresher validates each field, so the untyped boundary is contained here.
     provider: Final = httpxSpecialProvider.Oauth2Check
     request_headers: Final = {"Accept": "application/json", **headers}
@@ -117,7 +117,7 @@ async def _post_token_endpoint(url: str, form: dict[str, str], headers: dict[str
 
 
 def _redis_cache_is_available() -> bool:
-    from litellm.proxy.proxy_server import user_api_key_cache  # noqa: PLC0415
+    from embrouter.proxy.proxy_server import user_api_key_cache  # noqa: PLC0415
 
     return user_api_key_cache.redis_cache is not None
 
@@ -126,11 +126,11 @@ def _runtime_backend_and_coordinator() -> tuple[TokenCacheBackend | None, Refres
     """The cross-replica cache + coordinator when Redis is wired, else ``(None, None, False)`` so the
     foundation's in-process defaults are used (a single replica needs no shared cache or lock).
     """
-    from litellm.proxy.common_utils.encrypt_decrypt_utils import (  # noqa: PLC0415
+    from embrouter.proxy.common_utils.encrypt_decrypt_utils import (  # noqa: PLC0415
         decrypt_value_helper,
         encrypt_value_helper,
     )
-    from litellm.proxy.proxy_server import user_api_key_cache  # noqa: PLC0415
+    from embrouter.proxy.proxy_server import user_api_key_cache  # noqa: PLC0415
 
     coordinator: Final = runtime_refresh_coordinator()
     if coordinator is None:
@@ -179,7 +179,7 @@ def build_per_user_oauth_token_store(
 class LazyPerUserOAuthTokenStore:
     """``OAuthTokenStore`` that builds the v2-native chain on first ``fetch``.
 
-    The chain's cache/lock collaborators are LiteLLM runtime globals not available when the resolver
+    The chain's cache/lock collaborators are EmbRouter runtime globals not available when the resolver
     is constructed at import time, so construction is deferred to the first request (by when they are
     wired). A no-Redis chain is replaced once Redis becomes available.
     """

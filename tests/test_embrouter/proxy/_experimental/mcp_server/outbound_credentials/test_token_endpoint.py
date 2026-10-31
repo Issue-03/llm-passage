@@ -13,23 +13,23 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import jwt
-import litellm
+import embrouter
 import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 
-from litellm.proxy._experimental.mcp_server.outbound_credentials.result import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.result import (
     Error,
     Ok,
     Result,
 )
-from litellm.proxy._experimental.mcp_server.outbound_credentials.token_endpoint import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.token_endpoint import (
     CLIENT_ASSERTION_TYPE,
     ExchangedToken,
     ExchangedTokenCache,
     TokenEndpointClient,
 )
-from litellm.proxy._experimental.mcp_server.outbound_credentials.types import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.types import (
     ClientSecretAuth,
     CredError,
     PrivateKeyJwtAuth,
@@ -37,12 +37,12 @@ from litellm.proxy._experimental.mcp_server.outbound_credentials.types import (
 from pydantic import SecretStr
 
 _PATCH_TARGET = (
-    "litellm.proxy._experimental.mcp_server.outbound_credentials."
+    "embrouter.proxy._experimental.mcp_server.outbound_credentials."
     "token_endpoint.get_async_httpx_client"
 )
 
 _ENDPOINT = "https://idp.example.com/oauth2/token"
-_CLIENT_ID = "litellm-client-id"
+_CLIENT_ID = "embrouter-client-id"
 
 _RSA_KEY = rsa.generate_private_key(public_exponent=65537, key_size=2048)
 _PRIVATE_PEM = _RSA_KEY.private_bytes(
@@ -156,10 +156,10 @@ async def test_fetch_http_error_maps_to_upstream_unavailable_with_status():
     [
         httpx.ConnectError("connection refused", request=MagicMock()),
         httpx.ReadTimeout("timed out", request=MagicMock()),
-        litellm.Timeout(
+        embrouter.Timeout(
             message="Connection timed out",
             model="default-model-name",
-            llm_provider="litellm-httpx-handler",
+            llm_provider="embrouter-httpx-handler",
         ),
     ],
 )

@@ -1,7 +1,7 @@
 from typing import Any, Final
 
-from litellm.exceptions import AuthenticationError
-from litellm.llms.anthropic.pass_through.messages.transformation import (
+from embrouter.exceptions import AuthenticationError
+from embrouter.llms.anthropic.pass_through.messages.transformation import (
     AnthropicMessagesConfig,
 )
 
@@ -53,7 +53,7 @@ class GithubCopilotAnthropicMessagesConfig(AnthropicMessagesConfig):
         model: str,
         messages: list[Any],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> tuple[dict, str | None]:
@@ -103,7 +103,7 @@ class GithubCopilotAnthropicMessagesConfig(AnthropicMessagesConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         """

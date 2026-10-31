@@ -7,16 +7,16 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm.cost_calculator import completion_cost
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.llms.azure_ai.cost_calculator import (
+import embrouter
+from embrouter.cost_calculator import completion_cost
+from embrouter.embrouter_core_utils.embrouter_logging import Logging
+from embrouter.llms.azure_ai.cost_calculator import (
     calculate_azure_model_router_flat_cost,
     cost_per_token,
     is_azure_model_router,
 )
-from litellm.types.utils import Choices, Message, ModelResponse, Usage
-from litellm.utils import get_model_info
+from embrouter.types.utils import Choices, Message, ModelResponse, Usage
+from embrouter.utils import get_model_info
 
 # Get the flat cost from model_prices_and_context_window.json
 _model_info = get_model_info(model="model_router", custom_llm_provider="azure_ai")
@@ -79,7 +79,7 @@ class TestAzureModelRouterPrefix:
         The pattern is: model_router/<deployment-name>
         where deployment-name is the Azure deployment (e.g., 'azure-model-router', 'prod-router')
         """
-        from litellm.llms.azure_ai.common_utils import AzureFoundryModelInfo
+        from embrouter.llms.azure_ai.common_utils import AzureFoundryModelInfo
 
         result = AzureFoundryModelInfo.strip_model_router_prefix(model)
         assert result == expected
@@ -98,12 +98,12 @@ def _router_logging(request_model: str) -> Logging:
         stream=False,
         call_type="completion",
         start_time=datetime.now(),
-        litellm_call_id="test-123",
+        embrouter_call_id="test-123",
         function_id="test-function",
     )
 
 
-def _azure_ai_response(response_model: str, litellm_model_name: str | None = None) -> ModelResponse:
+def _azure_ai_response(response_model: str, embrouter_model_name: str | None = None) -> ModelResponse:
     response: Final = ModelResponse(
         id="test-123",
         choices=[Choices(finish_reason="stop", index=0, message=Message(role="assistant", content="Hello"))],
@@ -114,8 +114,8 @@ def _azure_ai_response(response_model: str, litellm_model_name: str | None = Non
     )
     response._hidden_params = (
         {"custom_llm_provider": "azure_ai"}
-        if litellm_model_name is None
-        else {"custom_llm_provider": "azure_ai", "litellm_model_name": litellm_model_name}
+        if embrouter_model_name is None
+        else {"custom_llm_provider": "azure_ai", "embrouter_model_name": embrouter_model_name}
     )
     return response
 
@@ -194,7 +194,7 @@ class TestAzureModelRouterFlatCost:
 
     def test_public_cost_per_token_keeps_the_request_model_keyword(self) -> None:
         routed_prompt_cost, routed_completion_cost = _routed_model_cost()
-        prompt_cost, completion_cost_usd = litellm.cost_per_token(
+        prompt_cost, completion_cost_usd = embrouter.cost_per_token(
             model=ROUTED_MODEL,
             custom_llm_provider="azure_ai",
             usage_object=ROUTED_USAGE,
@@ -223,7 +223,7 @@ class TestAzureModelRouterCostBreakdown:
             completion_response=_azure_ai_response("azure-model-router"),
             model="azure-model-router",
             custom_llm_provider="azure_ai",
-            litellm_logging_obj=logging_obj,
+            embrouter_logging_obj=logging_obj,
         )
         breakdown = logging_obj.cost_breakdown
         assert breakdown is not None
@@ -238,7 +238,7 @@ class TestAzureModelRouterCostBreakdown:
             completion_response=_azure_ai_response(ROUTED_MODEL),
             model=ROUTED_MODEL,
             custom_llm_provider="azure_ai",
-            litellm_logging_obj=logging_obj,
+            embrouter_logging_obj=logging_obj,
         )
         breakdown = logging_obj.cost_breakdown
         assert breakdown is not None
@@ -253,10 +253,10 @@ class TestAzureModelRouterCostBreakdown:
         routed_prompt_cost, routed_completion_cost = _routed_model_cost()
         logging_obj = _router_logging(ROUTED_MODEL)
         cost = completion_cost(
-            completion_response=_azure_ai_response(ROUTED_MODEL, litellm_model_name="azure_ai/model-router"),
+            completion_response=_azure_ai_response(ROUTED_MODEL, embrouter_model_name="azure_ai/model-router"),
             model=ROUTED_MODEL,
             custom_llm_provider="azure_ai",
-            litellm_logging_obj=logging_obj,
+            embrouter_logging_obj=logging_obj,
         )
         breakdown = logging_obj.cost_breakdown
         assert breakdown is not None
@@ -273,7 +273,7 @@ class TestAzureModelRouterCostBreakdown:
             completion_response=_azure_ai_response(router_entry_name),
             model=router_entry_name,
             custom_llm_provider="azure_ai",
-            litellm_logging_obj=logging_obj,
+            embrouter_logging_obj=logging_obj,
         )
         breakdown = logging_obj.cost_breakdown
         assert breakdown is not None
@@ -287,9 +287,9 @@ class TestAzureAIServiceTierCostCalculation:
 
     @pytest.fixture(autouse=True)
     def register_test_model(self):
-        import litellm
+        import embrouter
 
-        litellm.register_model(
+        embrouter.register_model(
             model_cost={
                 "test-azure-ai-model": {
                     "input_cost_per_token": 0.001,
@@ -298,7 +298,7 @@ class TestAzureAIServiceTierCostCalculation:
                     "output_cost_per_token_priority": 0.02,
                     "input_cost_per_token_flex": 0.0005,
                     "output_cost_per_token_flex": 0.001,
-                    "litellm_provider": "azure_ai",
+                    "embrouter_provider": "azure_ai",
                     "max_tokens": 8192,
                 }
             }

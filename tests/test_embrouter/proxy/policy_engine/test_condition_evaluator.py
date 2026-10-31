@@ -9,8 +9,8 @@ Tests:
 
 import pytest
 
-from litellm.proxy.policy_engine.condition_evaluator import ConditionEvaluator
-from litellm.types.proxy.policy_engine import (
+from embrouter.proxy.policy_engine.condition_evaluator import ConditionEvaluator
+from embrouter.types.proxy.policy_engine import (
     PolicyCondition,
     PolicyMatchContext,
 )

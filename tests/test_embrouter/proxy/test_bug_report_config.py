@@ -4,14 +4,14 @@ from collections.abc import Iterator, Mapping
 
 import pytest
 
-from litellm.proxy import proxy_server
-from litellm.proxy.bug_report_config import build_proxy_bug_report, build_proxy_environment_report, safe_config_lines
+from embrouter.proxy import proxy_server
+from embrouter.proxy.bug_report_config import build_proxy_bug_report, build_proxy_environment_report, safe_config_lines
 
 
 @pytest.fixture(autouse=True)
 def _bug_report_issue_url(monkeypatch: pytest.MonkeyPatch) -> None:
     """Bug report links are off unless an issue URL is configured; turn them on for these tests."""
-    monkeypatch.setenv("LITELLM_BUG_REPORT_ISSUE_URL", "https://issues.example.com/new")
+    monkeypatch.setenv("EMBROUTER_BUG_REPORT_ISSUE_URL", "https://issues.example.com/new")
 
 
 CUSTOMER_STRINGS = (
@@ -26,7 +26,7 @@ CUSTOMER_CONFIG: Mapping[str, object] = {
     "model_list": [
         {
             "model_name": "acme-prod-gpt4",
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "azure/acme-gpt4o-deployment",
                 "api_base": "https://acme-eastus.openai.azure.com",
                 "api_key": "sk-live-secret-1",
@@ -36,15 +36,15 @@ CUSTOMER_CONFIG: Mapping[str, object] = {
         },
         {
             "model_name": "acme-mini",
-            "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-live-secret-2"},
+            "embrouter_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-live-secret-2"},
         },
         {
             "model_name": "acme-backup",
-            "litellm_params": {"model": "azure/acme-backup-deployment", "api_key": "sk-live-secret-3"},
+            "embrouter_params": {"model": "azure/acme-backup-deployment", "api_key": "sk-live-secret-3"},
         },
-        {"model_name": "acme-bare", "litellm_params": {"model": "acme-custom-model"}},
+        {"model_name": "acme-bare", "embrouter_params": {"model": "acme-custom-model"}},
     ],
-    "litellm_settings": {
+    "embrouter_settings": {
         "callbacks": ["langfuse", "acme_hooks.audit_logger"],
         "drop_params": True,
         "num_retries": 3,
@@ -64,10 +64,10 @@ CUSTOMER_CONFIG: Mapping[str, object] = {
         "acme_router_option": True,
     },
     "guardrails": [
-        {"guardrail_name": "acme-pii-mask", "litellm_params": {"guardrail": "presidio", "mode": "pre_call"}},
+        {"guardrail_name": "acme-pii-mask", "embrouter_params": {"guardrail": "presidio", "mode": "pre_call"}},
         {
             "guardrail_name": "acme-policy",
-            "litellm_params": {"guardrail": "acme_guardrails.PolicyCheck", "api_key": "sk-live-secret-4"},
+            "embrouter_params": {"guardrail": "acme_guardrails.PolicyCheck", "api_key": "sk-live-secret-4"},
         },
     ],
     "environment_variables": {"ACME_PROD_OPENAI_KEY": "sk-live-secret-5", "ACME_TENANT": "acme"},
@@ -75,7 +75,7 @@ CUSTOMER_CONFIG: Mapping[str, object] = {
 
 CUSTOMER_GENERAL_SETTINGS: Mapping[str, object] = {
     "master_key": "sk-live-secret-master",
-    "database_url": "postgres://user:hunter2@10.0.0.7/litellm",
+    "database_url": "postgres://user:hunter2@10.0.0.7/embrouter",
     "key_management_system": "aws_secret_manager",
     "store_model_in_db": True,
     "health_check_interval": 300,
@@ -83,19 +83,19 @@ CUSTOMER_GENERAL_SETTINGS: Mapping[str, object] = {
 }
 
 
-def test_safe_config_lines_keep_only_flags_and_litellm_defined_values():
+def test_safe_config_lines_keep_only_flags_and_embrouter_defined_values():
     lines = safe_config_lines(CUSTOMER_CONFIG, CUSTOMER_GENERAL_SETTINGS)
 
     assert lines == (
         "general_settings.key_management_system = aws_secret_manager",
         "general_settings.store_model_in_db = true",
-        "litellm_settings.callbacks = [langfuse]",
-        "litellm_settings.drop_params = true",
-        "litellm_settings.cache = true",
-        "litellm_settings.cache_params.type = redis",
+        "embrouter_settings.callbacks = [langfuse]",
+        "embrouter_settings.drop_params = true",
+        "embrouter_settings.cache = true",
+        "embrouter_settings.cache_params.type = redis",
         "router_settings.routing_strategy = latency-based-routing",
-        "guardrails[0].litellm_params.guardrail = presidio",
-        "guardrails[0].litellm_params.mode = pre_call",
+        "guardrails[0].embrouter_params.guardrail = presidio",
+        "guardrails[0].embrouter_params.mode = pre_call",
         "model_list[*].provider = [azure, openai]",
     )
     assert not any(customer_string in "\n".join(lines) for customer_string in CUSTOMER_STRINGS)
@@ -105,15 +105,15 @@ def test_safe_config_lines_keep_only_flags_and_litellm_defined_values():
     ("config", "expected_lines"),
     [
         ({"router_settings": {"routing_strategy": "acme-strategy"}}, ()),
-        ({"litellm_settings": {"cache_params": {"type": "acme-cache"}}}, ()),
+        ({"embrouter_settings": {"cache_params": {"type": "acme-cache"}}}, ()),
         (
-            {"litellm_settings": {"success_callback": ["acme_logger", "langsmith"]}},
-            ("litellm_settings.success_callback = [langsmith]",),
+            {"embrouter_settings": {"success_callback": ["acme_logger", "langsmith"]}},
+            ("embrouter_settings.success_callback = [langsmith]",),
         ),
-        ({"litellm_settings": {"callbacks": ["acme_hooks.audit_logger"]}}, ()),
+        ({"embrouter_settings": {"callbacks": ["acme_hooks.audit_logger"]}}, ()),
     ],
 )
-def test_string_values_show_only_when_litellm_defines_them(
+def test_string_values_show_only_when_embrouter_defines_them(
     config: Mapping[str, object], expected_lines: tuple[str, ...]
 ):
 
@@ -132,9 +132,9 @@ def test_secrets_numbers_and_unknown_values_leave_no_line():
     assert safe_config_lines({}, general_settings) == ("general_settings.background_health_checks = false",)
 
 
-def test_credential_keys_never_render_even_when_the_secret_equals_a_litellm_token():
+def test_credential_keys_never_render_even_when_the_secret_equals_a_embrouter_token():
     config: Mapping[str, object] = {
-        "litellm_settings": {
+        "embrouter_settings": {
             "openai_key": "openai",
             "token": "langfuse",
             "api_base": "azure",
@@ -148,7 +148,7 @@ def test_credential_keys_never_render_even_when_the_secret_equals_a_litellm_toke
         },
         "guardrails": [
             {
-                "litellm_params": {
+                "embrouter_params": {
                     "guardrail": "presidio",
                     "api_key": "presidio",
                     "auth_token": "pre_call",
@@ -169,18 +169,18 @@ def test_credential_keys_never_render_even_when_the_secret_equals_a_litellm_toke
     assert safe_config_lines(config, general_settings) == (
         "general_settings.key_management_system = aws_secret_manager",
         "general_settings.use_azure_key_vault = true",
-        "litellm_settings.callbacks = [langfuse]",
-        "litellm_settings.cache_params.type = redis",
+        "embrouter_settings.callbacks = [langfuse]",
+        "embrouter_settings.cache_params.type = redis",
         "router_settings.routing_strategy = simple-shuffle",
-        "guardrails[0].litellm_params.guardrail = presidio",
+        "guardrails[0].embrouter_params.guardrail = presidio",
     )
 
 
 def test_malformed_sections_produce_no_lines():
     config: Mapping[str, object] = {
-        "litellm_settings": "acme",
+        "embrouter_settings": "acme",
         "router_settings": ["acme"],
-        "guardrails": {"acme": {"litellm_params": {"guardrail": "presidio"}}},
+        "guardrails": {"acme": {"embrouter_params": {"guardrail": "presidio"}}},
         "model_list": "acme",
         "environment_variables": None,
     }

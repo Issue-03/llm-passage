@@ -3,7 +3,7 @@ CLI Token Utilities
 
 SDK-level utilities for reading the credential minted by `lite login`.
 
-Non-secret metadata lives in ~/.litellm/token.json. The secret material (the
+Non-secret metadata lives in ~/.embrouter/token.json. The secret material (the
 bearer key, the refresh token that renews it, and a JWT when one is issued)
 lives in the OS keychain when the machine has one, and in that same 0600 file
 otherwise. This module hides the split from callers, and migrates a plaintext
@@ -22,7 +22,7 @@ from typing import Final, TypeAlias
 
 from pydantic import BaseModel, ConfigDict, ValidationError
 
-from litellm.litellm_core_utils.cli_keyring import (
+from embrouter.embrouter_core_utils.cli_keyring import (
     SYSTEM_KEYRING,
     KeyringDisabled,
     KeyringNotInstalled,
@@ -36,7 +36,7 @@ from litellm.litellm_core_utils.cli_keyring import (
     SecretVault,
     SecretWrite,
 )
-from litellm.litellm_core_utils.private_json import (
+from embrouter.embrouter_core_utils.private_json import (
     commit_staged_json,
     discard_staged_json,
     ensure_private_dir,
@@ -70,7 +70,7 @@ class CredentialNotRecorded:
 class CredentialNotCleared:
     """The token file still holds the secret, because it could not be removed or rewritten.
 
-    Logging out of the keychain is only half of it. A `~/.litellm` that refuses both the scrubbed
+    Logging out of the keychain is only half of it. A `~/.embrouter` that refuses both the scrubbed
     rewrite and the removal leaves the credential readable on disk, which is the one thing a logout
     is for, so it is reported instead of being counted as a clean sweep.
     """
@@ -134,7 +134,7 @@ CLI_TOKEN_FRESHNESS_BUFFER_SECONDS: Final = 360
 def get_cli_token_file_path() -> str:
     """Get the path to the CLI token file"""
     home_dir: Final = Path.home()
-    config_dir: Final = home_dir / ".litellm"
+    config_dir: Final = home_dir / ".embrouter"
     return str(config_dir / "token.json")
 
 
@@ -306,13 +306,13 @@ def _nothing_left_behind(outcome: SecretErase, record: CliTokenRecord | None) ->
             return record is None
 
 
-def get_litellm_gateway_api_key(
+def get_embrouter_gateway_api_key(
     expected_base_url: str | None = None,
     *,
     vault: SecretVault = SYSTEM_KEYRING,
 ) -> str | None:
     """
-    Get the stored CLI API key for use with LiteLLM SDK.
+    Get the stored CLI API key for use with EmbRouter SDK.
 
     This function reads the credential created by `lite login`
     and returns the API key for use in Python scripts.
@@ -328,10 +328,10 @@ def get_litellm_gateway_api_key(
         str: The API key if found (and origin matches), None otherwise
 
     Example:
-        >>> import litellm
-        >>> api_key = litellm.get_litellm_gateway_api_key()
+        >>> import embrouter
+        >>> api_key = embrouter.get_embrouter_gateway_api_key()
         >>> if api_key:
-        >>>     response = litellm.completion(
+        >>>     response = embrouter.completion(
         >>>         model="gpt-3.5-turbo",
         >>>         messages=[{"role": "user", "content": "Hello"}],
         >>>         api_key=api_key,
@@ -353,9 +353,9 @@ def is_cli_token_fresh(
 ) -> bool:
     """Check whether a cached CLI token is still within its expiration window.
     Used by `lite auth print-token` to fail fast, without a network round trip,
-    once the cached token is past `LITELLM_CLI_JWT_EXPIRATION_HOURS`. A `--pkce`
+    once the cached token is past `EMBROUTER_CLI_JWT_EXPIRATION_HOURS`. A `--pkce`
     credential carries its own `expires_at`, which is authoritative when present."""
-    from litellm.constants import CLI_JWT_EXPIRATION_HOURS
+    from embrouter.constants import CLI_JWT_EXPIRATION_HOURS
 
     expires_at: Final = (
         token_data.expires_at if isinstance(token_data, CliTokenRecord) else token_data.get("expires_at")
@@ -492,7 +492,7 @@ def _overwrite_file_secret(record: CliTokenRecord) -> bool:
     """Take the secret out of the token file where it lies, when no replacement can be put in place.
 
     The atomic rewrite wants room for a second file and a directory that will accept it. A full disk
-    refuses the first and a read-only `~/.litellm` the second, and neither stands in the way of
+    refuses the first and a read-only `~/.embrouter` the second, and neither stands in the way of
     shortening the file that is already there. It is worth the loss of atomicity because a partial
     write reads as no login at all, which is where the refused rewrite left the next run anyway.
     """

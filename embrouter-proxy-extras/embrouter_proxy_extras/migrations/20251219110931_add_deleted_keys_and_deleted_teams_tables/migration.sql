@@ -1,5 +1,5 @@
 -- CreateTable
-CREATE TABLE IF NOT EXISTS "LiteLLM_DeletedTeamTable" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_DeletedTeamTable" (
     "id" TEXT NOT NULL,
     "team_id" TEXT NOT NULL,
     "team_alias" TEXT,
@@ -27,13 +27,13 @@ CREATE TABLE IF NOT EXISTS "LiteLLM_DeletedTeamTable" (
     "deleted_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "deleted_by" TEXT,
     "deleted_by_api_key" TEXT,
-    "litellm_changed_by" TEXT,
+    "embrouter_changed_by" TEXT,
 
-    CONSTRAINT "LiteLLM_DeletedTeamTable_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "EmbRouter_DeletedTeamTable_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
-CREATE TABLE IF NOT EXISTS "LiteLLM_DeletedVerificationToken" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_DeletedVerificationToken" (
     "id" TEXT NOT NULL,
     "token" TEXT NOT NULL,
     "key_name" TEXT,
@@ -74,44 +74,44 @@ CREATE TABLE IF NOT EXISTS "LiteLLM_DeletedVerificationToken" (
     "deleted_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "deleted_by" TEXT,
     "deleted_by_api_key" TEXT,
-    "litellm_changed_by" TEXT,
+    "embrouter_changed_by" TEXT,
 
-    CONSTRAINT "LiteLLM_DeletedVerificationToken_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "EmbRouter_DeletedVerificationToken_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "LiteLLM_DeletedTeamTable_team_id_idx" ON "LiteLLM_DeletedTeamTable"("team_id");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DeletedTeamTable_team_id_idx" ON "EmbRouter_DeletedTeamTable"("team_id");
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "LiteLLM_DeletedTeamTable_deleted_at_idx" ON "LiteLLM_DeletedTeamTable"("deleted_at");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DeletedTeamTable_deleted_at_idx" ON "EmbRouter_DeletedTeamTable"("deleted_at");
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "LiteLLM_DeletedTeamTable_organization_id_idx" ON "LiteLLM_DeletedTeamTable"("organization_id");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DeletedTeamTable_organization_id_idx" ON "EmbRouter_DeletedTeamTable"("organization_id");
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "LiteLLM_DeletedTeamTable_team_alias_idx" ON "LiteLLM_DeletedTeamTable"("team_alias");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DeletedTeamTable_team_alias_idx" ON "EmbRouter_DeletedTeamTable"("team_alias");
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "LiteLLM_DeletedTeamTable_created_at_idx" ON "LiteLLM_DeletedTeamTable"("created_at");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DeletedTeamTable_created_at_idx" ON "EmbRouter_DeletedTeamTable"("created_at");
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "LiteLLM_DeletedVerificationToken_token_idx" ON "LiteLLM_DeletedVerificationToken"("token");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DeletedVerificationToken_token_idx" ON "EmbRouter_DeletedVerificationToken"("token");
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "LiteLLM_DeletedVerificationToken_deleted_at_idx" ON "LiteLLM_DeletedVerificationToken"("deleted_at");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DeletedVerificationToken_deleted_at_idx" ON "EmbRouter_DeletedVerificationToken"("deleted_at");
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "LiteLLM_DeletedVerificationToken_user_id_idx" ON "LiteLLM_DeletedVerificationToken"("user_id");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DeletedVerificationToken_user_id_idx" ON "EmbRouter_DeletedVerificationToken"("user_id");
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "LiteLLM_DeletedVerificationToken_team_id_idx" ON "LiteLLM_DeletedVerificationToken"("team_id");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DeletedVerificationToken_team_id_idx" ON "EmbRouter_DeletedVerificationToken"("team_id");
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "LiteLLM_DeletedVerificationToken_organization_id_idx" ON "LiteLLM_DeletedVerificationToken"("organization_id");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DeletedVerificationToken_organization_id_idx" ON "EmbRouter_DeletedVerificationToken"("organization_id");
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "LiteLLM_DeletedVerificationToken_key_alias_idx" ON "LiteLLM_DeletedVerificationToken"("key_alias");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DeletedVerificationToken_key_alias_idx" ON "EmbRouter_DeletedVerificationToken"("key_alias");
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "LiteLLM_DeletedVerificationToken_created_at_idx" ON "LiteLLM_DeletedVerificationToken"("created_at");
+CREATE INDEX IF NOT EXISTS "EmbRouter_DeletedVerificationToken_created_at_idx" ON "EmbRouter_DeletedVerificationToken"("created_at");
 

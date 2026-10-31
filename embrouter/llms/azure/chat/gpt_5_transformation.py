@@ -2,14 +2,14 @@
 
 from typing import Final
 
-import litellm
-from litellm.exceptions import UnsupportedParamsError
-from litellm.llms.openai.chat.gpt_5_transformation import (
+import embrouter
+from embrouter.exceptions import UnsupportedParamsError
+from embrouter.llms.openai.chat.gpt_5_transformation import (
     OpenAIGPT5Config,
     _get_effort_level,
     is_gpt_reasoning_series_name,
 )
-from litellm.types.llms.openai import AllMessageValues
+from embrouter.types.llms.openai import AllMessageValues
 
 from .gpt_transformation import AzureOpenAIConfig
 
@@ -83,7 +83,7 @@ class AzureOpenAIGPT5Config(AzureOpenAIConfig, OpenAIGPT5Config):
         supports_none: Final = self._supports_reasoning_effort_level(model, "none")
 
         if effective_effort == "none" and not supports_none:
-            if litellm.drop_params is True or (drop_params is not None and drop_params is True):
+            if embrouter.drop_params is True or (drop_params is not None and drop_params is True):
                 non_default_params = non_default_params.copy()
                 optional_params = optional_params.copy()
                 if _get_effort_level(non_default_params.get("reasoning_effort")) == "none":
@@ -96,8 +96,8 @@ class AzureOpenAIGPT5Config(AzureOpenAIConfig, OpenAIGPT5Config):
                     message=(
                         "Azure OpenAI does not support reasoning_effort='none' for this model. "
                         "Supported values are: 'low', 'medium', and 'high'. "
-                        "To drop this parameter, set `litellm.drop_params=True` or for proxy:\n\n"
-                        "`litellm_settings:\n drop_params: true`\n"
+                        "To drop this parameter, set `embrouter.drop_params=True` or for proxy:\n\n"
+                        "`embrouter_settings:\n drop_params: true`\n"
                         ""
                     ),
                 )
@@ -126,7 +126,7 @@ class AzureOpenAIGPT5Config(AzureOpenAIConfig, OpenAIGPT5Config):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         model = model.replace(self.GPT5_SERIES_ROUTE, "")
@@ -134,6 +134,6 @@ class AzureOpenAIGPT5Config(AzureOpenAIConfig, OpenAIGPT5Config):
             model=model,
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )

@@ -16,10 +16,10 @@ import pytest
 from botocore.credentials import Credentials
 from botocore.exceptions import ClientError
 
-from litellm.llms.bedrock.chat.converse_handler import BedrockConverseLLM
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-from litellm.rust_bridge import configuration
-from litellm.types.utils import ModelResponse
+from embrouter.llms.bedrock.chat.converse_handler import BedrockConverseLLM
+from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from embrouter.rust_bridge import configuration
+from embrouter.types.utils import ModelResponse
 from tests.unit.llms.bedrock.event_loop_probe import EventLoopProbe
 
 RESOLVED_CREDENTIALS = Credentials(
@@ -31,7 +31,7 @@ RESOLVED_CREDENTIALS = Credentials(
 
 @pytest.fixture(autouse=True)
 def reset_rust_configuration(monkeypatch):
-    monkeypatch.setenv("LITELLM_RUST", "1")
+    monkeypatch.setenv("EMBROUTER_RUST", "1")
     configuration.reset_rust_configuration()
     yield
     configuration.reset_rust_configuration()
@@ -49,7 +49,7 @@ def _completion_kwargs(**overrides):
         "optional_params": {"maxTokens": 16},
         "acompletion": False,
         "timeout": 30.0,
-        "litellm_params": {},
+        "embrouter_params": {},
         "extra_headers": None,
         "client": None,
         "api_key": None,
@@ -105,7 +105,7 @@ async def _drive_async_completion(
         logging_obj=logging_obj,
         stream=None,
         optional_params={"maxTokens": 16},
-        litellm_params={"aws_region_name": "us-west-2"},
+        embrouter_params={"aws_region_name": "us-west-2"},
         credentials=credentials,
         headers={},
         client=client,
@@ -151,7 +151,7 @@ async def test_python_only_async_dispatch_refreshes_credentials_off_the_event_lo
     monkeypatch: pytest.MonkeyPatch, rust_enabled: bool
 ) -> None:
     monkeypatch.delenv("AWS_BEARER_TOKEN_BEDROCK", raising=False)
-    monkeypatch.setenv("LITELLM_RUST", "1" if rust_enabled else "0")
+    monkeypatch.setenv("EMBROUTER_RUST", "1" if rust_enabled else "0")
     configuration.rust(rust_enabled)
     probe: Final = EventLoopProbe()
     release: Final = asyncio.create_task(probe.release_refresh_from_the_loop())
@@ -194,7 +194,7 @@ def test_bearer_token_auth_serves_when_boto3_resolves_no_sigv4_credentials(monke
     monkeypatch.setenv("AWS_BEARER_TOKEN_BEDROCK", "bedrock-bearer-token")
     client = _sync_client_returning_converse_response()
 
-    response = _run(credentials=None, litellm_params={}, client=client)
+    response = _run(credentials=None, embrouter_params={}, client=client)
 
     assert response.choices[0].message.content == "hi"
     sent_headers = client.post.call_args.kwargs["headers"]
@@ -214,8 +214,8 @@ def test_bearer_token_auth_never_runs_the_sigv4_credential_chain(monkeypatch, co
 
     response = BedrockConverseLLM().completion(
         **_completion_kwargs(
-            optional_params={"maxTokens": 16, "aws_profile_name": "litellm-no-such-aws-profile"},
-            litellm_params={},
+            optional_params={"maxTokens": 16, "aws_profile_name": "embrouter-no-such-aws-profile"},
+            embrouter_params={},
             client=client,
             api_key="bedrock-bearer-token" if configured_through == "api_key" else None,
         )
@@ -234,7 +234,7 @@ def test_session_tags_sign_the_request_and_stay_out_of_the_body(monkeypatch):
 
     class FakeSTSClient:
         def get_caller_identity(self):
-            return {"Arn": "arn:aws:iam::111111111111:user/litellm-proxy-pod"}
+            return {"Arn": "arn:aws:iam::111111111111:user/embrouter-proxy-pod"}
 
         def assume_role(self, **params):
             if list(params.get("Tags", ())) != tags:
@@ -260,11 +260,11 @@ def test_session_tags_sign_the_request_and_stay_out_of_the_body(monkeypatch):
                     "aws_region_name": "us-east-1",
                     "aws_access_key_id": "AKIACONVERSECALLER",
                     "aws_secret_access_key": "pod-caller-secret",
-                    "aws_role_name": "arn:aws:iam::999999999999:role/litellm-converse-role",
-                    "aws_session_name": "litellm-converse-session",
+                    "aws_role_name": "arn:aws:iam::999999999999:role/embrouter-converse-role",
+                    "aws_session_name": "embrouter-converse-session",
                     "aws_session_tags": tags,
                 },
-                litellm_params={},
+                embrouter_params={},
                 client=client,
             )
         )

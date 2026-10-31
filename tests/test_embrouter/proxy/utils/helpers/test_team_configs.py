@@ -1,6 +1,6 @@
 import pytest
 
-from litellm.proxy.utils import _is_valid_team_configs
+from embrouter.proxy.utils import _is_valid_team_configs
 
 
 def normalize(value):

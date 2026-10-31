@@ -1,11 +1,11 @@
 """
-Unit tests for ``VertexAIBatchPrediction`` (litellm/llms/vertex_ai/batches/handler.py).
+Unit tests for ``VertexAIBatchPrediction`` (embrouter/llms/vertex_ai/batches/handler.py).
 
 The handler is HTTP/auth glue around the (separately-tested) pure
 ``VertexAIBatchTransformation``. Each public method (create / retrieve / list /
 cancel) resolves a Vertex access token + URL, branches on ``_is_async``
 (returning the coroutine in the async case, doing the sync HTTP call otherwise),
-and parses the JSON into ``LiteLLMBatch`` (or the OpenAI list shape). POST-backed
+and parses the JSON into ``EmbRouterBatch`` (or the OpenAI list shape). POST-backed
 calls rely on the client's ``raise_for_status`` (non-2xx surfaces as
 ``httpx.HTTPStatusError``); GET-backed calls return without raising, so the
 handler checks their status codes itself.
@@ -19,7 +19,7 @@ We mock only true I/O / auth seams:
   * the httpx client factories (``_get_httpx_client`` /
     ``get_async_httpx_client``) and the SSRF wrappers (``safe_get`` /
     ``async_safe_get``) - the network calls. We assert which seam fired with
-    what URL/headers/body, and that the response is parsed into the litellm
+    what URL/headers/body, and that the response is parsed into the embrouter
     type. Sibling seams are asserted NOT called where relevant.
 
 The ``_is_async`` branch, the error paths, and the cancel
@@ -35,13 +35,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
-from litellm.llms.vertex_ai.batches.handler import (  # noqa: E402
+from embrouter.llms.vertex_ai.batches.handler import (  # noqa: E402
     VertexAIBatchPrediction,
 )
-from litellm.llms.vertex_ai.common_utils import VertexAIError  # noqa: E402
-from litellm.types.utils import LiteLLMBatch  # noqa: E402
+from embrouter.llms.vertex_ai.common_utils import VertexAIError  # noqa: E402
+from embrouter.types.utils import EmbRouterBatch  # noqa: E402
 
-HMOD = "litellm.llms.vertex_ai.batches.handler"
+HMOD = "embrouter.llms.vertex_ai.batches.handler"
 TOKEN = "ya29.fake-access-token"
 PROJECT = "my-project"
 LOCATION = "us-central1"
@@ -82,7 +82,7 @@ def _make_handler() -> VertexAIBatchPrediction:
     ``VertexLLM``; we patch them on the instance (DI-style) so the URL/auth
     plumbing is deterministic and we can assert what got forwarded downstream.
     """
-    h = VertexAIBatchPrediction(gcs_bucket_name="litellm-testing-bucket")
+    h = VertexAIBatchPrediction(gcs_bucket_name="embrouter-testing-bucket")
     h._ensure_access_token = MagicMock(return_value=(TOKEN, PROJECT))  # type: ignore[method-assign]
     # pass the computed default url straight through (no custom proxy)
     h._check_custom_proxy = MagicMock(  # type: ignore[method-assign]
@@ -131,7 +131,7 @@ def test_create_batch_sync_posts_and_parses():
             max_retries=None,
         )
 
-    assert isinstance(out, LiteLLMBatch)
+    assert isinstance(out, EmbRouterBatch)
     assert out.id == BATCH_ID
     assert out.status == "completed"
 
@@ -170,7 +170,7 @@ def test_create_batch_async_returns_coroutine_and_uses_async_client():
         assert asyncio.iscoroutine(coro)
         out = _run(coro)
 
-    assert isinstance(out, LiteLLMBatch)
+    assert isinstance(out, EmbRouterBatch)
     assert out.id == BATCH_ID
     async_client.post.assert_awaited_once()
     # the async branch must NOT use the sync client for the request
@@ -199,7 +199,7 @@ def test_create_batch_sync_does_not_resolve_publisher_models():
             max_retries=None,
         )
 
-    assert isinstance(out, LiteLLMBatch)
+    assert isinstance(out, EmbRouterBatch)
     sent = json.loads(client.post.call_args.kwargs["data"])
     assert sent["model"] == "publishers/google/models/gemini-1.5-flash-001"
     safe_get.assert_not_called()
@@ -207,7 +207,7 @@ def test_create_batch_sync_does_not_resolve_publisher_models():
 
 ENDPOINT_ID = "7768560373388541952"
 ENDPOINT_CREATE_DATA = {
-    "input_file_id": f"gs://bucket/litellm-vertex-files/endpoints/{ENDPOINT_ID}/file-uuid"
+    "input_file_id": f"gs://bucket/embrouter-vertex-files/endpoints/{ENDPOINT_ID}/file-uuid"
 }
 TUNED_MODEL_RESOURCE = f"projects/{PROJECT}/locations/{LOCATION}/models/1234509876"
 
@@ -246,7 +246,7 @@ def test_create_batch_sync_resolves_fine_tuned_endpoint_to_tuned_model():
             max_retries=None,
         )
 
-    assert isinstance(out, LiteLLMBatch)
+    assert isinstance(out, EmbRouterBatch)
     get_args, get_kwargs = safe_get.call_args
     assert get_args[1] == (
         f"https://{LOCATION}-aiplatform.googleapis.com/v1/projects/{PROJECT}"
@@ -440,7 +440,7 @@ def test_retrieve_batch_sync_uses_safe_get_with_batch_id_url():
             max_retries=None,
         )
 
-    assert isinstance(out, LiteLLMBatch)
+    assert isinstance(out, EmbRouterBatch)
     assert out.id == BATCH_ID
     # SSRF-wrapped fetch fired with the batch-id-appended url + bearer header
     args, kwargs = safe_get.call_args
@@ -476,7 +476,7 @@ def test_retrieve_batch_async_returns_coroutine_uses_async_safe_get():
         assert asyncio.iscoroutine(coro)
         out = _run(coro)
 
-    assert isinstance(out, LiteLLMBatch)
+    assert isinstance(out, EmbRouterBatch)
     async_safe_get.assert_awaited_once()
     args, _ = async_safe_get.await_args
     assert args[1].endswith(f"/batchPredictionJobs/{BATCH_ID}")
@@ -504,10 +504,10 @@ def test_retrieve_batch_sync_non_200_raises():
 def test_retrieve_batch_sync_invokes_logging_pre_call():
     """When a real ``Logging`` obj is passed, ``pre_call`` is invoked with the
     request url + headers (the curl-redaction branch)."""
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLogging
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLogging
 
     h = _make_handler()
-    logging_obj = MagicMock(spec=LiteLLMLogging)
+    logging_obj = MagicMock(spec=EmbRouterLogging)
 
     with (
         patch(f"{HMOD}._get_httpx_client", return_value=MagicMock()),
@@ -673,7 +673,7 @@ def test_cancel_batch_sync_posts_cancel_then_retrieves():
             max_retries=None,
         )
 
-    assert isinstance(out, LiteLLMBatch)
+    assert isinstance(out, EmbRouterBatch)
     assert out.status == "cancelled"
 
     # POST hit the :cancel url
@@ -852,10 +852,10 @@ def test_async_retrieve_batch_non_200_raises():
 
 
 def test_async_retrieve_batch_invokes_logging_pre_call():
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLogging
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLogging
 
     h = _make_handler()
-    logging_obj = MagicMock(spec=LiteLLMLogging)
+    logging_obj = MagicMock(spec=EmbRouterLogging)
 
     with (
         patch(f"{HMOD}._get_httpx_client", return_value=MagicMock()),

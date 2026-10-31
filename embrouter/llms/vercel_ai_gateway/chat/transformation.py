@@ -10,10 +10,10 @@ from typing import Final
 
 import httpx
 
-import litellm
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.openai import AllMessageValues
+import embrouter
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.openai import AllMessageValues
 
 from ...openai.chat.gpt_transformation import OpenAIGPTConfig
 from ..common_utils import VercelAIGatewayException
@@ -61,7 +61,7 @@ class VercelAIGatewayConfig(OpenAIGPTConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         """
@@ -70,7 +70,7 @@ class VercelAIGatewayConfig(OpenAIGPTConfig):
         Returns:
             dict: The transformed request. Sent as the body of the API call.
         """
-        return super().transform_request(model, messages, optional_params, litellm_params, headers)
+        return super().transform_request(model, messages, optional_params, embrouter_params, headers)
 
     def get_error_class(self, error_message: str, status_code: int, headers: dict | httpx.Headers) -> BaseLLMException:
         return VercelAIGatewayException(
@@ -86,7 +86,7 @@ class VercelAIGatewayConfig(OpenAIGPTConfig):
             api_base = "https://ai-gateway.vercel.sh/v1"
 
         models_url: Final = f"{api_base}/models"
-        response: Final = litellm.module_level_client.get(url=models_url)
+        response: Final = embrouter.module_level_client.get(url=models_url)
 
         if response.status_code != 200:
             raise Exception(f"Failed to get models: {response.text}")

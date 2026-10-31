@@ -1,5 +1,5 @@
 """
-DB helpers for LiteLLM_ToolTable — the global tool registry.
+DB helpers for EmbRouter_ToolTable — the global tool registry.
 
 Tools are auto-discovered from LLM responses and upserted here.
 Admins use the management endpoints to read and update input_policy / output_policy.
@@ -12,21 +12,21 @@ from typing import TYPE_CHECKING, Final, Protocol
 
 from pydantic import TypeAdapter
 
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy._types import ToolDiscoveryQueueItem
-from litellm.proxy.db.exception_handler import call_with_db_reconnect_retry
-from litellm.repositories.object_permission_repository import ObjectPermissionRepository
-from litellm.repositories.prisma_protocols import TableActions
-from litellm.repositories.table_repositories import ToolRepository
-from litellm.types.tool_management import (
-    LiteLLM_ToolTableRow,
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy._types import ToolDiscoveryQueueItem
+from embrouter.proxy.db.exception_handler import call_with_db_reconnect_retry
+from embrouter.repositories.object_permission_repository import ObjectPermissionRepository
+from embrouter.repositories.prisma_protocols import TableActions
+from embrouter.repositories.table_repositories import ToolRepository
+from embrouter.types.tool_management import (
+    EmbRouter_ToolTableRow,
     ToolPolicyOverrideRow,
 )
 
 if TYPE_CHECKING:
     from prisma import models as prisma_db_models
 
-    from litellm.proxy.utils import PrismaClient
+    from embrouter.proxy.utils import PrismaClient
 
 
 class _ModelDumpMethod(Protocol):
@@ -36,22 +36,22 @@ class _ModelDumpMethod(Protocol):
 _ROW_DICT: Final = TypeAdapter(dict)
 
 
-def _tool_table_actions(prisma_client: "PrismaClient") -> "TableActions[prisma_db_models.LiteLLM_ToolTable]":
-    table: Final[TableActions[prisma_db_models.LiteLLM_ToolTable]] = ToolRepository(prisma_client).table
+def _tool_table_actions(prisma_client: "PrismaClient") -> "TableActions[prisma_db_models.EmbRouter_ToolTable]":
+    table: Final[TableActions[prisma_db_models.EmbRouter_ToolTable]] = ToolRepository(prisma_client).table
     return table
 
 
 def _object_permission_table_actions(
     prisma_client: "PrismaClient",
-) -> "TableActions[prisma_db_models.LiteLLM_ObjectPermissionTable]":
-    table: Final[TableActions[prisma_db_models.LiteLLM_ObjectPermissionTable]] = ObjectPermissionRepository(
+) -> "TableActions[prisma_db_models.EmbRouter_ObjectPermissionTable]":
+    table: Final[TableActions[prisma_db_models.EmbRouter_ObjectPermissionTable]] = ObjectPermissionRepository(
         prisma_client
     ).table
     return table
 
 
-def _row_to_model(row: object) -> LiteLLM_ToolTableRow:
-    """Convert a Prisma model instance or dict to LiteLLM_ToolTableRow."""
+def _row_to_model(row: object) -> EmbRouter_ToolTableRow:
+    """Convert a Prisma model instance or dict to EmbRouter_ToolTableRow."""
     model_dump: Final[_ModelDumpMethod | None] = getattr(row, "model_dump", None)
     if callable(model_dump):
         row = model_dump()
@@ -79,7 +79,7 @@ def _row_to_model(row: object) -> LiteLLM_ToolTableRow:
                 )
             }
         )
-    return LiteLLM_ToolTableRow(
+    return EmbRouter_ToolTableRow(
         tool_id=row.get("tool_id", ""),
         tool_name=row.get("tool_name", ""),
         origin=row.get("origin"),
@@ -158,7 +158,7 @@ async def batch_upsert_tools(
 async def list_tools(
     prisma_client: "PrismaClient",
     input_policy: str | None = None,
-) -> list[LiteLLM_ToolTableRow]:
+) -> list[EmbRouter_ToolTableRow]:
     """Return all tools, optionally filtered by input_policy."""
     try:
         where: Final[Mapping[str, str]] = {"input_policy": input_policy} if input_policy is not None else {}
@@ -175,7 +175,7 @@ async def list_tools(
 async def get_tool(
     prisma_client: "PrismaClient",
     tool_name: str,
-) -> LiteLLM_ToolTableRow | None:
+) -> EmbRouter_ToolTableRow | None:
     """Return a single tool row by tool_name."""
     try:
         row: Final = await _tool_table_actions(prisma_client).find_unique(
@@ -195,7 +195,7 @@ async def update_tool_policy(
     updated_by: str | None,
     input_policy: str | None = None,
     output_policy: str | None = None,
-) -> LiteLLM_ToolTableRow | None:
+) -> EmbRouter_ToolTableRow | None:
     """Update input_policy and/or output_policy for a tool. Upserts the row if it does not exist yet."""
     try:
         _updated_by: Final = updated_by or "system"

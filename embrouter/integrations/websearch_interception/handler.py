@@ -3,7 +3,7 @@ WebSearch Interception Handler
 
 CustomLogger that intercepts WebSearch tool calls for models that don't
 natively support web search (e.g., Bedrock/Claude) and executes them
-server-side using litellm router's search tools.
+server-side using embrouter router's search tools.
 """
 
 import asyncio
@@ -16,34 +16,34 @@ from typing import TYPE_CHECKING, Any, Final, Literal, TypedDict, TypeVar, cast
 
 from typing_extensions import Never, ReadOnly
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.anthropic_interface import messages as anthropic_messages
-from litellm.constants import LITELLM_WEB_SEARCH_TOOL_NAME
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.integrations.websearch_interception.tools import (
-    get_litellm_web_search_tool,
-    get_litellm_web_search_tool_openai,
-    get_litellm_web_search_tool_responses,
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.anthropic_interface import messages as anthropic_messages
+from embrouter.constants import EMBROUTER_WEB_SEARCH_TOOL_NAME
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.integrations.websearch_interception.tools import (
+    get_embrouter_web_search_tool,
+    get_embrouter_web_search_tool_openai,
+    get_embrouter_web_search_tool_responses,
     is_anthropic_native_web_search_tool,
     is_web_search_tool,
     is_web_search_tool_chat_completion,
     is_web_search_tool_responses,
 )
-from litellm.integrations.websearch_interception.transformation import (
+from embrouter.integrations.websearch_interception.transformation import (
     WebSearchTransformation,
 )
-from litellm.litellm_core_utils.agentic_loop_settings import (
+from embrouter.embrouter_core_utils.agentic_loop_settings import (
     validated_max_agentic_loops,
 )
-from litellm.llms.base_llm.search.transformation import SearchResponse
-from litellm.types.integrations.custom_logger import (
+from embrouter.llms.base_llm.search.transformation import SearchResponse
+from embrouter.types.integrations.custom_logger import (
     CHAT_COMPLETION_AGENTIC_SURFACE,
     RESPONSES_AGENTIC_SURFACE,
     AgenticLoopPlan,
     AgenticLoopRequestPatch,
 )
-from litellm.types.integrations.websearch_interception import (
+from embrouter.types.integrations.websearch_interception import (
     AnthropicSearchQuery,
     AnthropicServerToolUseBlock,
     RichWebSearchInput,
@@ -51,34 +51,34 @@ from litellm.types.integrations.websearch_interception import (
     SearchOutcome,
     WebSearchInterceptionConfig,
 )
-from litellm.types.llms.anthropic import AnthropicThinkingParam
-from litellm.types.llms.openai import (
+from embrouter.types.llms.anthropic import AnthropicThinkingParam
+from embrouter.types.llms.openai import (
     AllMessageValues,
     ChatCompletionAudioParam,
     ChatCompletionPredictionContentParam,
     OpenAIWebSearchOptions,
 )
-from litellm.types.utils import (
+from embrouter.types.utils import (
     AgenticLoopParams,
     CallTypes,
     LlmProviders,
     StandardLoggingUserAPIKeyMetadata,
 )
-from litellm.utils import ProviderConfigManager
+from embrouter.utils import ProviderConfigManager
 
 if TYPE_CHECKING:
     from aiohttp import ClientSession
 
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.llms.base_llm.anthropic_messages.transformation import (
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.llms.base_llm.anthropic_messages.transformation import (
         BaseAnthropicMessagesConfig,
     )
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.types.llms.anthropic_messages.anthropic_response import (
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.types.llms.anthropic_messages.anthropic_response import (
         AnthropicMessagesResponse,
     )
-    from litellm.types.utils import ModelResponse
-    from litellm.utils import CustomStreamWrapper
+    from embrouter.types.utils import ModelResponse
+    from embrouter.utils import CustomStreamWrapper
 
 # Key used to flag, on per-request kwargs, that the originating client sent
 # an Anthropic-native ``web_search_*`` tool — meaning the final response
@@ -107,22 +107,22 @@ class _WebSearchSettingsView(TypedDict):
     websearch_interception_params: WebSearchInterceptionConfig
 
 
-class _SearchToolLitellmParams(TypedDict, total=False):
+class _SearchToolEmbrouterParams(TypedDict, total=False):
     search_provider: ReadOnly[str | None]
 
 
 class _SearchToolConfig(TypedDict, total=False):
     search_tool_name: str
-    litellm_params: ReadOnly[_SearchToolLitellmParams | None]
+    embrouter_params: ReadOnly[_SearchToolEmbrouterParams | None]
 
 
-class _LitellmParamsProviderView(TypedDict, total=False):
+class _EmbrouterParamsProviderView(TypedDict, total=False):
     custom_llm_provider: ReadOnly[str]
 
 
 class _DeploymentCallKwargsView(TypedDict):
     custom_llm_provider: ReadOnly[str]
-    litellm_params: ReadOnly[_LitellmParamsProviderView]
+    embrouter_params: ReadOnly[_EmbrouterParamsProviderView]
     model: ReadOnly[str]
 
 
@@ -222,7 +222,7 @@ class _ParentRequestCorrelation:
                     ("session_id", self.session_id),
                     ("trace_id", self.trace_id),
                     ("parent_request_id", self.parent_request_id),
-                    ("litellm_parent_otel_span", self.parent_otel_span),
+                    ("embrouter_parent_otel_span", self.parent_otel_span),
                 )
                 if value is not None
             }
@@ -232,7 +232,7 @@ class _ParentRequestCorrelation:
         return MappingProxyType(
             {
                 key: value
-                for key, value in (("litellm_session_id", self.session_id), ("litellm_trace_id", self.trace_id))
+                for key, value in (("embrouter_session_id", self.session_id), ("embrouter_trace_id", self.trace_id))
                 if value is not None
             }
         )
@@ -248,7 +248,7 @@ class WebSearchInterceptionLogger(CustomLogger):
 
     Implements agentic loop:
     1. Detects WebSearch tool_use in model response
-    2. Executes litellm.asearch() for each query using router's search tools
+    2. Executes embrouter.asearch() for each query using router's search tools
     3. Makes follow-up request with search results
     4. Returns final response
     """
@@ -269,7 +269,7 @@ class WebSearchInterceptionLogger(CustomLogger):
                              If None, will attempt to use first available search tool.
             max_agentic_loops: How many follow-up model calls one intercepted request
                               may chain before the loop is refused and the turn ends.
-                              If None, LiteLLM's default of 3 applies.
+                              If None, EmbRouter's default of 3 applies.
         """
         super().__init__()
         # Convert enum values to strings for comparison
@@ -354,7 +354,7 @@ class WebSearchInterceptionLogger(CustomLogger):
             return None
 
         # Extract search query from the last user message
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             get_last_user_message,
         )
 
@@ -428,18 +428,18 @@ class WebSearchInterceptionLogger(CustomLogger):
         that we can intercept and execute ourselves.
         """
         # Check if this is for an enabled provider
-        # Try top-level kwargs first, then nested litellm_params, then derive from model name
+        # Try top-level kwargs first, then nested embrouter_params, then derive from model name
         call_kwargs_view: Final[_DeploymentCallKwargsView] = {
             "custom_llm_provider": kwargs.get("custom_llm_provider", ""),
-            "litellm_params": kwargs.get("litellm_params", {}),
+            "embrouter_params": kwargs.get("embrouter_params", {}),
             "model": kwargs.get("model", ""),
         }
-        custom_llm_provider = call_kwargs_view["custom_llm_provider"] or call_kwargs_view["litellm_params"].get(
+        custom_llm_provider = call_kwargs_view["custom_llm_provider"] or call_kwargs_view["embrouter_params"].get(
             "custom_llm_provider", ""
         )
         if not custom_llm_provider:
             try:
-                _, custom_llm_provider, _, _ = litellm.get_llm_provider(model=call_kwargs_view["model"])
+                _, custom_llm_provider, _, _ = embrouter.get_llm_provider(model=call_kwargs_view["model"])
             except Exception:
                 custom_llm_provider = ""
         if custom_llm_provider not in self.enabled_providers:
@@ -458,7 +458,7 @@ class WebSearchInterceptionLogger(CustomLogger):
         if not has_websearch:
             return None
 
-        verbose_logger.debug("WebSearchInterception: Converting native web_search tools to LiteLLM standard")
+        verbose_logger.debug("WebSearchInterception: Converting native web_search tools to EmbRouter standard")
 
         # If the client sent an Anthropic-native web_search_* tool, mark the
         # request so the agentic loop emits native web_search_tool_result
@@ -468,18 +468,18 @@ class WebSearchInterceptionLogger(CustomLogger):
         if any(is_anthropic_native_web_search_tool(t) for t in tools):
             kwargs[WEBSEARCH_EMIT_NATIVE_BLOCKS_KEY] = True
 
-        # Convert native/custom web_search tools to LiteLLM standard
+        # Convert native/custom web_search tools to EmbRouter standard
         converted_tools: Final = []
         for tool in tools:
             if is_web_search_tool(tool):
-                # Convert to LiteLLM standard web search tool
-                converted_tool = get_litellm_web_search_tool_openai()
+                # Convert to EmbRouter standard web search tool
+                converted_tool = get_embrouter_web_search_tool_openai()
                 converted_tools.append(converted_tool)
                 verbose_logger.debug(
                     "WebSearchInterception: Converted %s (type=%s) to %s",
                     tool.get("name", "unknown"),
                     tool.get("type", "none"),
-                    LITELLM_WEB_SEARCH_TOOL_NAME,
+                    EMBROUTER_WEB_SEARCH_TOOL_NAME,
                 )
             else:
                 # Keep other tools as-is
@@ -497,14 +497,14 @@ class WebSearchInterceptionLogger(CustomLogger):
     def _convert_responses_tools(
         self, kwargs: Mapping[str, object], tools: Sequence[dict[str, object]]
     ) -> dict[str, object] | None:
-        """Convert Responses API web search tools to the LiteLLM standard function tool."""
+        """Convert Responses API web search tools to the EmbRouter standard function tool."""
         if not any(is_web_search_tool_responses(tool) for tool in tools):
             return None
 
-        verbose_logger.debug("WebSearchInterception: Converting Responses web_search tools to LiteLLM standard")
+        verbose_logger.debug("WebSearchInterception: Converting Responses web_search tools to EmbRouter standard")
 
         converted_tools: Final = [
-            get_litellm_web_search_tool_responses() if is_web_search_tool_responses(tool) else tool for tool in tools
+            get_embrouter_web_search_tool_responses() if is_web_search_tool_responses(tool) else tool for tool in tools
         ]
 
         converted_kwargs: Final = {**kwargs, "tools": converted_tools}
@@ -522,21 +522,21 @@ class WebSearchInterceptionLogger(CustomLogger):
         Initialize WebSearchInterceptionLogger from proxy config.yaml parameters.
 
         Args:
-            config: Configuration dictionary from litellm_settings.websearch_interception_params
+            config: Configuration dictionary from embrouter_settings.websearch_interception_params
 
         Returns:
             Configured WebSearchInterceptionLogger instance
 
         Example:
             From proxy_config.yaml:
-                litellm_settings:
+                embrouter_settings:
                   websearch_interception_params:
                     enabled_providers: ["bedrock"]
                     search_tool_name: "my-perplexity-search"
                     max_agentic_loops: 5
 
             Usage:
-                config = litellm_settings.get("websearch_interception_params", {})
+                config = embrouter_settings.get("websearch_interception_params", {})
                 logger = WebSearchInterceptionLogger.from_config_yaml(config)
         """
         # Extract parameters from config
@@ -573,12 +573,12 @@ class WebSearchInterceptionLogger(CustomLogger):
 
     @classmethod
     def _sync_forced_tool_choice(cls, tool_choice: object, converted_tools: Sequence[Mapping[str, object]]) -> object:
-        """Repoint a forced ``tool_choice`` at ``litellm_web_search`` when it
+        """Repoint a forced ``tool_choice`` at ``embrouter_web_search`` when it
         names a web-search tool that was just converted away.
 
         Native clients (e.g. Claude Code) force the search tool via
         ``tool_choice={"type": "tool", "name": "web_search"}``. Since the tool
-        definition gets renamed to ``litellm_web_search``, an unrewritten
+        definition gets renamed to ``embrouter_web_search``, an unrewritten
         ``tool_choice`` points at a tool that no longer exists, which Anthropic
         rejects with "Tool 'web_search' not found in provided tools".
         """
@@ -587,15 +587,15 @@ class WebSearchInterceptionLogger(CustomLogger):
         converted_names: Final = {cls._tool_name(t) for t in converted_tools}
         if tool_choice.get("name") in converted_names:
             return tool_choice
-        return {**tool_choice, "name": LITELLM_WEB_SEARCH_TOOL_NAME}
+        return {**tool_choice, "name": EMBROUTER_WEB_SEARCH_TOOL_NAME}
 
     async def async_pre_request_hook(self, model: str, messages: list[dict], kwargs: dict) -> dict | None:
         """
-        Pre-request hook to convert native web search tools to LiteLLM standard.
+        Pre-request hook to convert native web search tools to EmbRouter standard.
 
         This hook is called before the API request is made, allowing us to:
         1. Detect native web search tools (web_search_20250305, etc.)
-        2. Convert them to LiteLLM standard format (litellm_web_search)
+        2. Convert them to EmbRouter standard format (embrouter_web_search)
         3. Convert stream=True to stream=False for interception
 
         This prevents providers like Bedrock from trying to execute web search
@@ -605,7 +605,7 @@ class WebSearchInterceptionLogger(CustomLogger):
             Modified kwargs dict with converted tools, or None if no modifications needed
         """
         # Check if this request is for an enabled provider
-        custom_llm_provider: Final = kwargs.get("litellm_params", {}).get("custom_llm_provider", "")
+        custom_llm_provider: Final = kwargs.get("embrouter_params", {}).get("custom_llm_provider", "")
 
         verbose_logger.debug(
             "WebSearchInterception: Pre-request hook called - custom_llm_provider=%s - enabled_providers=%s",
@@ -643,17 +643,17 @@ class WebSearchInterceptionLogger(CustomLogger):
         if any(is_anthropic_native_web_search_tool(t) for t in tools):
             kwargs[WEBSEARCH_EMIT_NATIVE_BLOCKS_KEY] = True
 
-        # Convert native web search tools to LiteLLM standard
+        # Convert native web search tools to EmbRouter standard
         converted_tools: Final[list[dict[str, object]]] = []
         for tool in tools:
             if is_web_search_tool(tool):
-                standard_tool = get_litellm_web_search_tool()
+                standard_tool = get_embrouter_web_search_tool()
                 converted_tools.append(standard_tool)
                 verbose_logger.debug(
                     "WebSearchInterception: Converted %s (type=%s) to %s",
                     tool.get("name", "unknown"),
                     tool.get("type", "none"),
-                    LITELLM_WEB_SEARCH_TOOL_NAME,
+                    EMBROUTER_WEB_SEARCH_TOOL_NAME,
                 )
             else:
                 converted_tools.append(tool)
@@ -720,7 +720,7 @@ class WebSearchInterceptionLogger(CustomLogger):
             )
             return False, {}
 
-        # Check if tools include any web search tool (LiteLLM standard or native)
+        # Check if tools include any web search tool (EmbRouter standard or native)
         has_websearch_tool: Final = any(is_web_search_tool(t) for t in (tools or []))
         if not has_websearch_tool:
             verbose_logger.debug("WebSearchInterception: No web search tool in request")
@@ -819,7 +819,7 @@ class WebSearchInterceptionLogger(CustomLogger):
         # Check if tools include any web search tool (strict check for chat completions)
         has_websearch_tool: Final = any(is_web_search_tool_chat_completion(t) for t in (tools or []))
         if not has_websearch_tool:
-            verbose_logger.debug("WebSearchInterception: No litellm_web_search tool in request")
+            verbose_logger.debug("WebSearchInterception: No embrouter_web_search tool in request")
             return False, {}
 
         # Detect WebSearch tool_calls in response (OpenAI format)
@@ -871,7 +871,7 @@ class WebSearchInterceptionLogger(CustomLogger):
 
         has_websearch_tool: Final = any(is_web_search_tool_responses(t) for t in (tools or []))
         if not has_websearch_tool:
-            verbose_logger.debug("WebSearchInterception: No litellm_web_search tool in responses request")
+            verbose_logger.debug("WebSearchInterception: No embrouter_web_search tool in responses request")
             return False, {}
 
         should_intercept, tool_calls = WebSearchTransformation.transform_request(
@@ -904,7 +904,7 @@ class WebSearchInterceptionLogger(CustomLogger):
         response: object,
         anthropic_messages_provider_config: "BaseAnthropicMessagesConfig | None",
         anthropic_messages_optional_request_params: dict,
-        logging_obj: "LiteLLMLoggingObj | None",
+        logging_obj: "EmbRouterLoggingObj | None",
         stream: bool,
         kwargs: dict,
     ) -> "AnthropicMessagesResponse | AsyncIterator[object]":
@@ -938,7 +938,7 @@ class WebSearchInterceptionLogger(CustomLogger):
         response: object,
         anthropic_messages_provider_config: "BaseAnthropicMessagesConfig | None",
         anthropic_messages_optional_request_params: dict,
-        logging_obj: "LiteLLMLoggingObj | None",
+        logging_obj: "EmbRouterLoggingObj | None",
         stream: bool,
         kwargs: dict,
     ) -> AgenticLoopPlan:
@@ -1096,7 +1096,7 @@ class WebSearchInterceptionLogger(CustomLogger):
         messages: list[dict],
         response: object,
         optional_params: dict,
-        logging_obj: "LiteLLMLoggingObj | None",
+        logging_obj: "EmbRouterLoggingObj | None",
         stream: bool,
         kwargs: dict,
     ) -> "ModelResponse | CustomStreamWrapper":
@@ -1131,7 +1131,7 @@ class WebSearchInterceptionLogger(CustomLogger):
         messages: list[dict],
         response: object,
         optional_params: dict,
-        logging_obj: "LiteLLMLoggingObj | None",
+        logging_obj: "EmbRouterLoggingObj | None",
         stream: bool,
         kwargs: dict,
     ) -> AgenticLoopPlan:
@@ -1158,7 +1158,7 @@ class WebSearchInterceptionLogger(CustomLogger):
         messages: list[dict],
         response: object,
         optional_params: dict,
-        logging_obj: "LiteLLMLoggingObj | None",
+        logging_obj: "EmbRouterLoggingObj | None",
         stream: bool,
         kwargs: dict,
     ) -> AgenticLoopPlan:
@@ -1184,7 +1184,7 @@ class WebSearchInterceptionLogger(CustomLogger):
         optional_params: dict,
         kwargs: dict,
     ) -> AgenticLoopRequestPatch:
-        """Execute litellm.asearch() and build a Responses API rerun patch."""
+        """Execute embrouter.asearch() and build a Responses API rerun patch."""
         search_tasks: Final = [
             (
                 self._execute_search(
@@ -1208,7 +1208,7 @@ class WebSearchInterceptionLogger(CustomLogger):
                 {
                     "type": "function_call",
                     "call_id": tool_call.get("call_id"),
-                    "name": LITELLM_WEB_SEARCH_TOOL_NAME,
+                    "name": EMBROUTER_WEB_SEARCH_TOOL_NAME,
                     "arguments": tool_call.get("arguments", ""),
                 },
                 {
@@ -1235,7 +1235,7 @@ class WebSearchInterceptionLogger(CustomLogger):
             and k
             not in {
                 "_agentic_loop_api_surface",
-                "litellm_logging_obj",
+                "embrouter_logging_obj",
                 "acompletion",
                 "custom_llm_provider",
                 "model_alias_map",
@@ -1319,14 +1319,14 @@ class WebSearchInterceptionLogger(CustomLogger):
     def _prepare_followup_kwargs(kwargs: dict) -> dict:
         """Build kwargs for the follow-up call, excluding internal keys.
 
-        ``litellm_logging_obj`` MUST be excluded so the follow-up call creates
+        ``embrouter_logging_obj`` MUST be excluded so the follow-up call creates
         its own ``Logging`` instance via ``function_setup``.  Reusing the
         initial call's logging object triggers the dedup flag
         (``has_logged_async_success``) which silently prevents the initial
         call's spend from being recorded — the root cause of the
         SpendLog / AWS billing mismatch.
         """
-        _internal_keys: Final = {"litellm_logging_obj"}
+        _internal_keys: Final = {"embrouter_logging_obj"}
         return {
             k: v for k, v in kwargs.items() if not k.startswith("_websearch_interception") and k not in _internal_keys
         }
@@ -1338,7 +1338,7 @@ class WebSearchInterceptionLogger(CustomLogger):
         tool_calls: list[dict],
         thinking_blocks: list[dict],
         anthropic_messages_optional_request_params: Mapping[str, object],
-        logging_obj: "LiteLLMLoggingObj | None",
+        logging_obj: "EmbRouterLoggingObj | None",
         stream: bool,
         kwargs: Mapping[str, object],
     ) -> "AnthropicMessagesResponse | AsyncIterator[object]":
@@ -1394,11 +1394,11 @@ class WebSearchInterceptionLogger(CustomLogger):
         tool_calls: list[dict],
         thinking_blocks: list[dict],
         anthropic_messages_optional_request_params: dict,
-        logging_obj: "LiteLLMLoggingObj | None",
+        logging_obj: "EmbRouterLoggingObj | None",
         kwargs: dict,
     ) -> tuple[AgenticLoopRequestPatch, tuple[SearchOutcome, ...]]:
         """
-        Execute litellm.search() and build follow-up request patch.
+        Execute embrouter.search() and build follow-up request patch.
         """
 
         # Extract search queries from tool_use blocks
@@ -1433,7 +1433,7 @@ class WebSearchInterceptionLogger(CustomLogger):
         follow_up_messages: Final = messages + [assistant_message, cast(dict, user_message)]
 
         # Correlation context for structured logging
-        _call_id: Final = getattr(logging_obj, "litellm_call_id", None) or kwargs.get("litellm_call_id", "unknown")
+        _call_id: Final = getattr(logging_obj, "embrouter_call_id", None) or kwargs.get("embrouter_call_id", "unknown")
 
         full_model_name = model  # safe default before try block
 
@@ -1491,7 +1491,7 @@ class WebSearchInterceptionLogger(CustomLogger):
         objective = tool_input.get("objective")
         valid_objective = objective if isinstance(objective, str) and objective.strip() else None
         raw_queries = tool_input.get("search_queries")
-        valid_queries: list[str] | None = None  # mutable-ok: matches litellm.asearch's list[str] query parameter
+        valid_queries: list[str] | None = None  # mutable-ok: matches embrouter.asearch's list[str] query parameter
         if isinstance(raw_queries, Sequence) and not isinstance(raw_queries, str):
             queries = [q for q in raw_queries if isinstance(q, str) and q.strip()]
             if queries:
@@ -1512,7 +1512,7 @@ class WebSearchInterceptionLogger(CustomLogger):
         if not search_provider:
             return False
         try:
-            from litellm.utils import ProviderConfigManager
+            from embrouter.utils import ProviderConfigManager
         except ImportError:
             return False
         # SearchProviders is a str enum, so an unknown provider string simply
@@ -1539,22 +1539,22 @@ class WebSearchInterceptionLogger(CustomLogger):
         try:
             # Import router from proxy_server
             try:
-                from litellm.proxy.proxy_server import llm_router
+                from embrouter.proxy.proxy_server import llm_router
             except ImportError:
                 verbose_logger.debug(
                     "WebSearchInterception: Could not import llm_router from proxy_server, "
-                    "falling back to direct litellm.asearch() with perplexity"
+                    "falling back to direct embrouter.asearch() with perplexity"
                 )
                 llm_router = None
 
             search_tool: Final = self._select_search_tool_from_router(llm_router=llm_router)
             search_provider: str | None = None
-            search_litellm_params: Mapping[str, object] = {}
+            search_embrouter_params: Mapping[str, object] = {}
             search_tool_name: Final = self._selected_search_tool_name(search_tool=search_tool)
             if search_tool is not None:
                 await self._authorize_search_tool(search_tool=search_tool, kwargs=kwargs)
-                tool_params: Final[_SearchToolLitellmParams] = search_tool.get("litellm_params", {}) or {}
-                search_litellm_params = dict[str, object](tool_params)
+                tool_params: Final[_SearchToolEmbrouterParams] = search_tool.get("embrouter_params", {}) or {}
+                search_embrouter_params = dict[str, object](tool_params)
                 search_provider = tool_params.get("search_provider")
 
             # Fallback to perplexity if no router or no search tools configured
@@ -1581,13 +1581,13 @@ class WebSearchInterceptionLogger(CustomLogger):
             )
             configured_search_kwargs: Final = {
                 key: value
-                for key, value in search_litellm_params.items()
+                for key, value in search_embrouter_params.items()
                 if key != "search_provider" and value is not None
             }
             # Forward the model's richer shape (objective + keyword queries)
             # only to providers whose search API takes it natively; everyone
             # else keeps the single query string the model also provided.
-            query_arg: str | list[str] = query  # mutable-ok: litellm.asearch declares query as str | list[str]
+            query_arg: str | list[str] = query  # mutable-ok: embrouter.asearch declares query as str | list[str]
             if rich and self._provider_supports_rich_search(search_provider):
                 rich_queries = rich.get("search_queries")
                 if rich_queries:
@@ -1599,14 +1599,14 @@ class WebSearchInterceptionLogger(CustomLogger):
                 {**configured_search_kwargs, **parent_correlation.as_search_kwargs()}
             )
             result: Final = (
-                await litellm.asearch(
+                await embrouter.asearch(
                     query=query_arg, search_provider=search_provider, **_NO_ASEARCH_NAMED, **search_kwargs
                 )
                 if search_metadata is None
-                else await litellm.asearch(
+                else await embrouter.asearch(
                     query=query_arg,
                     search_provider=search_provider,
-                    litellm_metadata=search_metadata,
+                    embrouter_metadata=search_metadata,
                     **_NO_ASEARCH_NAMED,
                     **search_kwargs,
                 )
@@ -1636,7 +1636,7 @@ class WebSearchInterceptionLogger(CustomLogger):
         if user_api_key_auth is None:
             return
 
-        from litellm.proxy.auth.auth_checks import (
+        from embrouter.proxy.auth.auth_checks import (
             can_key_call_search_tool,
             can_team_call_search_tool,
             get_team_object,
@@ -1649,7 +1649,7 @@ class WebSearchInterceptionLogger(CustomLogger):
 
         team_id: Final[str | None] = getattr(user_api_key_auth, "team_id", None)
         if team_id:
-            from litellm.proxy.proxy_server import (
+            from embrouter.proxy.proxy_server import (
                 prisma_client,
                 proxy_logging_obj,
                 user_api_key_cache,
@@ -1678,16 +1678,16 @@ class WebSearchInterceptionLogger(CustomLogger):
         and billed against the key/user/team that made the originating LLM request instead
         of being dropped by the proxy's spend hook for lack of an owner.
         """
-        from litellm.proxy.litellm_pre_call_utils import LiteLLMProxyRequestSetup
+        from embrouter.proxy.embrouter_pre_call_utils import EmbRouterProxyRequestSetup
 
         user_api_key_metadata: Final[StandardLoggingUserAPIKeyMetadata] = (
-            LiteLLMProxyRequestSetup.get_sanitized_user_information_from_key(user_api_key_dict=user_api_key_auth)
+            EmbRouterProxyRequestSetup.get_sanitized_user_information_from_key(user_api_key_dict=user_api_key_auth)
         )
-        return {  # mutable-ok: litellm's metadata channel is a plain dict its logging path reads and enriches
+        return {  # mutable-ok: embrouter's metadata channel is a plain dict its logging path reads and enriches
             **user_api_key_metadata,
             **parent_correlation.as_search_metadata(),
             "model_group": search_tool_name,
-            "user_api_key": LiteLLMProxyRequestSetup.get_logged_api_key(user_api_key_auth),
+            "user_api_key": EmbRouterProxyRequestSetup.get_logged_api_key(user_api_key_auth),
             "user_api_key_auth": user_api_key_auth,
         }
 
@@ -1697,17 +1697,17 @@ class WebSearchInterceptionLogger(CustomLogger):
         user_api_key_auth: "UserAPIKeyAuth | None",
     ) -> _ParentRequestCorrelation:
         """Read the originating request's ids from the hook kwargs, which are either the raw call
-        kwargs (metadata/litellm_metadata at top level) or a logging payload (under litellm_params)."""
+        kwargs (metadata/embrouter_metadata at top level) or a logging payload (under embrouter_params)."""
         if not kwargs:
             return _ParentRequestCorrelation(None, None, None, None)
-        litellm_params: Final = _as_str_mapping(kwargs.get("litellm_params"))
+        embrouter_params: Final = _as_str_mapping(kwargs.get("embrouter_params"))
         scopes: Final[tuple[Mapping[str, object], ...]] = (
-            (kwargs,) if litellm_params is None else (kwargs, litellm_params)
+            (kwargs,) if embrouter_params is None else (kwargs, embrouter_params)
         )
         metadatas: Final[tuple[Mapping[str, object], ...]] = tuple(
             metadata
             for scope in scopes
-            for metadata_key in ("metadata", "litellm_metadata")
+            for metadata_key in ("metadata", "embrouter_metadata")
             if (metadata := _as_str_mapping(scope.get(metadata_key))) is not None
         )
 
@@ -1719,13 +1719,13 @@ class WebSearchInterceptionLogger(CustomLogger):
             return next((value for value in candidates if isinstance(value, str) and value), None)
 
         parent_otel_span: Final[object | None] = next(
-            (span for metadata in metadatas if (span := metadata.get("litellm_parent_otel_span")) is not None),
+            (span for metadata in metadatas if (span := metadata.get("embrouter_parent_otel_span")) is not None),
             None if user_api_key_auth is None else user_api_key_auth.parent_otel_span,
         )
         return _ParentRequestCorrelation(
-            session_id=first_str("litellm_session_id", "session_id"),
-            trace_id=first_str("litellm_trace_id", "trace_id"),
-            parent_request_id=first_str("litellm_call_id", None),
+            session_id=first_str("embrouter_session_id", "session_id"),
+            trace_id=first_str("embrouter_trace_id", "trace_id"),
+            parent_request_id=first_str("embrouter_call_id", None),
             parent_otel_span=parent_otel_span,
         )
 
@@ -1741,17 +1741,17 @@ class WebSearchInterceptionLogger(CustomLogger):
         if not kwargs:
             return None
 
-        for metadata_key in ("metadata", "litellm_metadata"):
+        for metadata_key in ("metadata", "embrouter_metadata"):
             metadata = kwargs.get(metadata_key)
             if isinstance(metadata, dict) and metadata.get("user_api_key_auth") is not None:
                 return metadata["user_api_key_auth"]
 
-        litellm_params: Final = kwargs.get("litellm_params")
-        if not isinstance(litellm_params, dict):
+        embrouter_params: Final = kwargs.get("embrouter_params")
+        if not isinstance(embrouter_params, dict):
             return None
 
-        for metadata_key in ("metadata", "litellm_metadata"):
-            metadata = litellm_params.get(metadata_key)
+        for metadata_key in ("metadata", "embrouter_metadata"):
+            metadata = embrouter_params.get(metadata_key)
             if isinstance(metadata, dict) and metadata.get("user_api_key_auth") is not None:
                 return metadata["user_api_key_auth"]
 
@@ -1773,7 +1773,7 @@ class WebSearchInterceptionLogger(CustomLogger):
                 tool for tool in search_tools if tool.get("search_tool_name") == self.search_tool_name
             )
             if matching_tools:
-                search_provider = (matching_tools[0].get("litellm_params", {}) or {}).get("search_provider")
+                search_provider = (matching_tools[0].get("embrouter_params", {}) or {}).get("search_provider")
                 verbose_logger.debug(
                     "WebSearchInterception: Found search tool '%s' from %s with provider '%s'",
                     self.search_tool_name,
@@ -1789,7 +1789,7 @@ class WebSearchInterceptionLogger(CustomLogger):
 
         if search_tools:
             first_tool: Final = search_tools[0]
-            search_provider = (first_tool.get("litellm_params", {}) or {}).get("search_provider")
+            search_provider = (first_tool.get("embrouter_params", {}) or {}).get("search_provider")
             verbose_logger.debug(
                 "WebSearchInterception: Using first available search tool from %s with provider '%s'",
                 source,
@@ -1805,7 +1805,7 @@ class WebSearchInterceptionLogger(CustomLogger):
         messages: list[dict],
         tool_calls: list[dict],
         optional_params: Mapping[str, object],
-        logging_obj: "LiteLLMLoggingObj | None",
+        logging_obj: "EmbRouterLoggingObj | None",
         stream: bool,
         kwargs: Mapping[str, object],
         response_format: str = "openai",
@@ -1825,7 +1825,7 @@ class WebSearchInterceptionLogger(CustomLogger):
         params.update(request_patch.optional_params)
         params.pop("tool_choice", None)
         patch_kwargs: Final = dict[str, object](request_patch.kwargs)
-        return await litellm.acompletion(
+        return await embrouter.acompletion(
             model=request_patch.model or model,
             messages=request_patch.messages,
             **_NO_ACOMPLETION_NAMED,
@@ -1842,7 +1842,7 @@ class WebSearchInterceptionLogger(CustomLogger):
         kwargs: dict,
         response_format: str = "openai",
     ) -> AgenticLoopRequestPatch:
-        """Execute litellm.search() and build chat-completion rerun patch."""
+        """Execute embrouter.search() and build chat-completion rerun patch."""
 
         # Extract search queries from tool_calls
         search_tasks: Final = []
@@ -1915,7 +1915,7 @@ class WebSearchInterceptionLogger(CustomLogger):
         internal_params: Final = {
             "_websearch_interception",
             "acompletion",
-            "litellm_logging_obj",
+            "embrouter_logging_obj",
             "custom_llm_provider",
             "model_alias_map",
             "stream_response",
@@ -1969,7 +1969,7 @@ class WebSearchInterceptionLogger(CustomLogger):
 
     @staticmethod
     def initialize_from_proxy_config(
-        litellm_settings: Mapping[str, WebSearchInterceptionConfig],
+        embrouter_settings: Mapping[str, WebSearchInterceptionConfig],
         callback_specific_params: Mapping[str, object],
     ) -> "WebSearchInterceptionLogger":
         """
@@ -1978,7 +1978,7 @@ class WebSearchInterceptionLogger(CustomLogger):
         Used in callback_utils.py to simplify initialization logic.
 
         Args:
-            litellm_settings: Dictionary containing litellm_settings from proxy_config.yaml
+            embrouter_settings: Dictionary containing embrouter_settings from proxy_config.yaml
             callback_specific_params: Dictionary containing callback-specific parameters
 
         Returns:
@@ -1987,15 +1987,15 @@ class WebSearchInterceptionLogger(CustomLogger):
         Example:
             From callback_utils.py:
                 websearch_obj = WebSearchInterceptionLogger.initialize_from_proxy_config(
-                    litellm_settings=litellm_settings,
+                    embrouter_settings=embrouter_settings,
                     callback_specific_params=callback_specific_params
                 )
         """
-        # Get websearch_interception_params from litellm_settings or callback_specific_params
+        # Get websearch_interception_params from embrouter_settings or callback_specific_params
         websearch_params: WebSearchInterceptionConfig = {}
-        if "websearch_interception_params" in litellm_settings:
+        if "websearch_interception_params" in embrouter_settings:
             settings_view: Final[_WebSearchSettingsView] = {
-                "websearch_interception_params": litellm_settings["websearch_interception_params"]
+                "websearch_interception_params": embrouter_settings["websearch_interception_params"]
             }
             websearch_params = settings_view["websearch_interception_params"]
         elif "websearch_interception" in callback_specific_params and isinstance(

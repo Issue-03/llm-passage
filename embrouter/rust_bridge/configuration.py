@@ -8,7 +8,7 @@ from typing import Final
 from pydantic import TypeAdapter, ValidationError
 from typing_extensions import assert_never
 
-_GLOBAL_ENV_NAME: Final = "LITELLM_RUST"
+_GLOBAL_ENV_NAME: Final = "EMBROUTER_RUST"
 _ENV_BOOL: Final = TypeAdapter(bool)
 
 
@@ -35,7 +35,7 @@ _CONFIGURATION: Final = _RustConfiguration()
 
 @lru_cache(maxsize=16)
 def _parse_env_bool(value: str | None) -> bool | None:
-    """`LITELLM_RUST` as a bool; cached by raw value because `decision` runs per tokenizer call."""
+    """`EMBROUTER_RUST` as a bool; cached by raw value because `decision` runs per tokenizer call."""
     if value is None:
         return None
     try:
@@ -88,6 +88,6 @@ def rust(enabled: bool | None) -> None:
     """Set the process override for optional Rust paths.
 
     ``PYTHON_ONLY`` and ``RUST_REQUIRED`` entries in the catalog ignore this switch,
-    and an explicit ``LITELLM_RUST`` environment value wins over it.
+    and an explicit ``EMBROUTER_RUST`` environment value wins over it.
     """
     _CONFIGURATION.override = enabled

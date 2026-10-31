@@ -1,5 +1,5 @@
 """
-Handler for transforming /chat/completions api requests to litellm.responses requests
+Handler for transforming /chat/completions api requests to embrouter.responses requests
 """
 
 from typing import TYPE_CHECKING, Final
@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING, Final
 from typing_extensions import TypedDict
 
 if TYPE_CHECKING:
-    from litellm import LiteLLMLoggingObj
-    from litellm.types.llms.openai import HttpxBinaryResponseContent
+    from embrouter import EmbRouterLoggingObj
+    from embrouter.types.llms.openai import HttpxBinaryResponseContent
 
 
 class SpeechToCompletionBridgeHandlerInputKwargs(TypedDict):
@@ -16,8 +16,8 @@ class SpeechToCompletionBridgeHandlerInputKwargs(TypedDict):
     input: str
     voice: str | dict | None
     optional_params: dict
-    litellm_params: dict
-    logging_obj: "LiteLLMLoggingObj"
+    embrouter_params: dict
+    logging_obj: "EmbRouterLoggingObj"
     headers: dict
     custom_llm_provider: str
 
@@ -30,7 +30,7 @@ class SpeechToCompletionBridgeHandler:
         self.transformation_handler = SpeechToCompletionBridgeTransformationHandler()
 
     def validate_input_kwargs(self, kwargs: dict) -> SpeechToCompletionBridgeHandlerInputKwargs:
-        from litellm import LiteLLMLoggingObj
+        from embrouter import EmbRouterLoggingObj
 
         model: Final = kwargs.get("model")
         if model is None or not isinstance(model, str):
@@ -48,9 +48,9 @@ class SpeechToCompletionBridgeHandler:
         if optional_params is None or not isinstance(optional_params, dict):
             raise ValueError("optional_params is required")
 
-        litellm_params: Final = kwargs.get("litellm_params")
-        if litellm_params is None or not isinstance(litellm_params, dict):
-            raise ValueError("litellm_params is required")
+        embrouter_params: Final = kwargs.get("embrouter_params")
+        if embrouter_params is None or not isinstance(embrouter_params, dict):
+            raise ValueError("embrouter_params is required")
 
         headers = kwargs.get("headers")
         if headers is None or not isinstance(headers, dict):
@@ -61,7 +61,7 @@ class SpeechToCompletionBridgeHandler:
             raise ValueError("headers is required")
 
         logging_obj: Final = kwargs.get("logging_obj")
-        if logging_obj is None or not isinstance(logging_obj, LiteLLMLoggingObj):
+        if logging_obj is None or not isinstance(logging_obj, EmbRouterLoggingObj):
             raise ValueError("logging_obj is required")
 
         return SpeechToCompletionBridgeHandlerInputKwargs(
@@ -69,7 +69,7 @@ class SpeechToCompletionBridgeHandler:
             input=input,
             voice=kwargs.get("voice"),
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             logging_obj=logging_obj,
             custom_llm_provider=custom_llm_provider,
             headers=headers,
@@ -81,20 +81,20 @@ class SpeechToCompletionBridgeHandler:
         input: str,
         voice: str | dict | None,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
         custom_llm_provider: str,
     ) -> "HttpxBinaryResponseContent":
         received_args: Final = locals()
-        from litellm import completion
-        from litellm.types.utils import ModelResponse
+        from embrouter import completion
+        from embrouter.types.utils import ModelResponse
 
         validated_kwargs: Final = self.validate_input_kwargs(received_args)
         model = validated_kwargs["model"]
         input = validated_kwargs["input"]
         optional_params = validated_kwargs["optional_params"]
-        litellm_params = validated_kwargs["litellm_params"]
+        embrouter_params = validated_kwargs["embrouter_params"]
         headers = validated_kwargs["headers"]
         logging_obj = validated_kwargs["logging_obj"]
         custom_llm_provider = validated_kwargs["custom_llm_provider"]
@@ -104,9 +104,9 @@ class SpeechToCompletionBridgeHandler:
             model=model,
             input=input,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
-            litellm_logging_obj=logging_obj,
+            embrouter_logging_obj=logging_obj,
             custom_llm_provider=custom_llm_provider,
             voice=voice,
         )

@@ -1,4 +1,4 @@
-"""Cross-replica ``TokenCacheBackend``: stores the token in LiteLLM's shared ``DualCache``.
+"""Cross-replica ``TokenCacheBackend``: stores the token in EmbRouter's shared ``DualCache``.
 
 Plugs into the foundation's ``CachedOAuthTokenStore`` via the ``TokenCacheBackend`` seam. The token is
 encrypted + serialized by the injected codec and written under a per-``(user, server)`` key with the
@@ -12,17 +12,17 @@ from __future__ import annotations
 from dataclasses import KW_ONLY, dataclass
 from typing import Final, Protocol
 
-from litellm._logging import verbose_logger
-from litellm.proxy._experimental.mcp_server.outbound_credentials.oauth_token_store import (
+from embrouter._logging import verbose_logger
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.oauth_token_store import (
     OAuthToken,
 )
-from litellm.proxy._experimental.mcp_server.outbound_credentials.token_cache_codec import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.token_cache_codec import (
     OAuthTokenCacheCodec,
 )
 
 
 class AsyncCache(Protocol):
-    """The slice of LiteLLM's ``DualCache`` this backend needs (Redis-backed, shared across workers)."""
+    """The slice of EmbRouter's ``DualCache`` this backend needs (Redis-backed, shared across workers)."""
 
     async def async_get_cache(self, key: str) -> object | None: ...
 

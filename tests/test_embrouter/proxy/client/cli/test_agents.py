@@ -11,7 +11,7 @@ import pytest
 import requests
 from click.testing import CliRunner
 
-from litellm.proxy.client.cli.commands.agents import (
+from embrouter.proxy.client.cli.commands.agents import (
     AgentRunError,
     ModelSyncArgs,
     ModelSyncSkipped,
@@ -29,8 +29,8 @@ from litellm.proxy.client.cli.commands.agents import (
     verify_proxy_key,
 )
 
-AGENTS_MODULE = "litellm.proxy.client.cli.commands.agents"
-CLAUDE_SETTINGS_MODULE = "litellm.proxy.client.cli.commands.claude_settings"
+AGENTS_MODULE = "embrouter.proxy.client.cli.commands.agents"
+CLAUDE_SETTINGS_MODULE = "embrouter.proxy.client.cli.commands.claude_settings"
 
 
 def _agent_command(name):
@@ -187,8 +187,8 @@ class TestAgentProfile:
         assert agent_profile("codex") == ("Codex", frozenset({"openai"}))
         assert agent_profile("opencode") == ("OpenCode", frozenset({"openai"}))
 
-    def test_pi_is_litellm(self):
-        assert agent_profile("pi") == ("pi", frozenset({"litellm"}))
+    def test_pi_is_embrouter(self):
+        assert agent_profile("pi") == ("pi", frozenset({"embrouter"}))
 
     def test_unknown_command_gets_both_profiles(self):
         name, profiles = agent_profile("mytool")
@@ -249,9 +249,9 @@ class TestBuildAgentEnv:
         assert env["OPENAI_API_KEY"] == "sk-key"
         assert env["ENABLE_TOOL_SEARCH"] == "true"
 
-    def test_litellm_profile_exports_only_the_proxy_key(self):
-        env = build_agent_env({}, "http://localhost:4000/", "sk-key", frozenset({"litellm"}))
-        assert env["LITELLM_PROXY_API_KEY"] == "sk-key"
+    def test_embrouter_profile_exports_only_the_proxy_key(self):
+        env = build_agent_env({}, "http://localhost:4000/", "sk-key", frozenset({"embrouter"}))
+        assert env["EMBROUTER_PROXY_API_KEY"] == "sk-key"
         assert "ANTHROPIC_BASE_URL" not in env
         assert "OPENAI_BASE_URL" not in env
         assert "OPENAI_API_KEY" not in env
@@ -274,13 +274,13 @@ class TestAgentLaunchArgs:
     def test_codex_points_provider_at_proxy_over_http(self):
         args = agent_launch_args("codex", "http://localhost:4000/")
         joined = " ".join(args)
-        assert 'model_provider="litellm"' in args
-        assert 'model_providers.litellm.base_url="http://localhost:4000/v1"' in args
-        assert 'model_providers.litellm.env_key="OPENAI_API_KEY"' in args
-        assert 'model_providers.litellm.wire_api="responses"' in args
-        assert "model_providers.litellm.supports_websockets=false" in args
-        assert "model_providers.litellm.requires_openai_auth=false" in args
-        assert "model_providers.litellm.http_headers={}" in args
+        assert 'model_provider="embrouter"' in args
+        assert 'model_providers.embrouter.base_url="http://localhost:4000/v1"' in args
+        assert 'model_providers.embrouter.env_key="OPENAI_API_KEY"' in args
+        assert 'model_providers.embrouter.wire_api="responses"' in args
+        assert "model_providers.embrouter.supports_websockets=false" in args
+        assert "model_providers.embrouter.requires_openai_auth=false" in args
+        assert "model_providers.embrouter.http_headers={}" in args
         assert joined.count("-c") == 8
 
     def test_codex_uses_basename(self):
@@ -346,7 +346,7 @@ class TestOpencodeModelSync:
         env = opencode_model_sync_env(base_env or {}, base_url, "sk-key", get=fake_get)
         return captured, env
 
-    def test_declares_proxy_as_litellm_provider_with_listed_models(self):
+    def test_declares_proxy_as_embrouter_provider_with_listed_models(self):
         listing = self._listing(
             {"id": "gpt-5.5", "object": "model", "created": 1, "owned_by": "openai", "mode": "chat"},
             {"id": "claude-opus-4-7", "object": "model", "created": 1, "owned_by": "openai"},
@@ -356,9 +356,9 @@ class TestOpencodeModelSync:
         assert captured["url"] == "http://localhost:4000/v1/models"
         assert captured["headers"] == {"Authorization": "Bearer sk-key"}
         config = json.loads(env["OPENCODE_CONFIG_CONTENT"])
-        provider = config["provider"]["litellm"]
+        provider = config["provider"]["embrouter"]
         assert provider["npm"] == "@ai-sdk/openai-compatible"
-        assert provider["name"] == "LiteLLM"
+        assert provider["name"] == "EmbRouter"
         assert provider["options"] == {
             "baseURL": "http://localhost:4000/v1",
             "apiKey": "{env:OPENAI_API_KEY}",
@@ -382,7 +382,7 @@ class TestOpencodeModelSync:
             {"id": "half", "object": "model", "created": 1, "owned_by": "openai", "max_input_tokens": 8192},
         )
         _, env = self._sync(listing)
-        models = json.loads(env["OPENCODE_CONFIG_CONTENT"])["provider"]["litellm"]["models"]
+        models = json.loads(env["OPENCODE_CONFIG_CONTENT"])["provider"]["embrouter"]["models"]
         assert models["gpt-5.5"]["limit"] == {"context": 400000, "output": 128000}
         assert "limit" not in models["half"]
 
@@ -394,7 +394,7 @@ class TestOpencodeModelSync:
             {"id": "img", "object": "model", "created": 1, "owned_by": "openai", "mode": "image_generation"},
         )
         _, env = self._sync(listing)
-        models = json.loads(env["OPENCODE_CONFIG_CONTENT"])["provider"]["litellm"]["models"]
+        models = json.loads(env["OPENCODE_CONFIG_CONTENT"])["provider"]["embrouter"]["models"]
         assert set(models) == {"chat", "resp"}
 
     def test_existing_config_content_is_left_alone(self):
@@ -456,7 +456,7 @@ class TestOpencodeModelSync:
             False,
             get=lambda *a, **k: _FakeResponse(200, listing),
         )
-        assert "m" in json.loads(env["OPENCODE_CONFIG_CONTENT"])["provider"]["litellm"]["models"]
+        assert "m" in json.loads(env["OPENCODE_CONFIG_CONTENT"])["provider"]["embrouter"]["models"]
 
     def test_default_http_client_is_requests_get(self):
         assert _default_of(agent_model_sync_env, "get") is requests.get
@@ -505,8 +505,8 @@ class TestCodexModelSync:
         assert captured["url"] == "http://localhost:4000/v1/models"
         assert captured["headers"] == {"Authorization": "Bearer sk-key"}
         path = self._catalog_path(result)
-        assert path == str(tmp_path / "codex" / "litellm-models.json")
-        text = (tmp_path / "codex" / "litellm-models.json").read_text()
+        assert path == str(tmp_path / "codex" / "embrouter-models.json")
+        text = (tmp_path / "codex" / "embrouter-models.json").read_text()
         assert "sk-key" not in text
         catalog = json.loads(text)
         assert [m["slug"] for m in catalog["models"]] == ["gpt-5.5", "claude-opus-4-7"]
@@ -514,7 +514,7 @@ class TestCodexModelSync:
         assert [m["priority"] for m in catalog["models"]] == [0, 1]
 
     def _entries(self, codex_home):
-        return {m["slug"]: m for m in json.loads((codex_home / "litellm-models.json").read_text())["models"]}
+        return {m["slug"]: m for m in json.loads((codex_home / "embrouter-models.json").read_text())["models"]}
 
     def test_known_model_keeps_the_installed_codex_entry(self, tmp_path):
         self._sync(self._listing(self._row("gpt-5.5", mode="chat")), tmp_path)
@@ -553,18 +553,18 @@ class TestCodexModelSync:
         _, result = self._sync(self._listing(self._row("gpt-5.5")), tmp_path, run=locale_bound_run)
 
         assert isinstance(result, ModelSyncArgs)
-        written = json.loads((tmp_path / "litellm-models.json").read_text(encoding="utf-8"))["models"]
+        written = json.loads((tmp_path / "embrouter-models.json").read_text(encoding="utf-8"))["models"]
         assert [m["description"] for m in written] == [description]
 
     def test_unparseable_stock_catalog_is_reported(self, tmp_path):
         _, result = self._sync(self._listing(self._row("m")), tmp_path, run=_FakeRun(stock="not json"))
         assert isinstance(result, ModelSyncSkipped)
         assert result.reason.startswith("`codex debug models` printed no model catalog: ")
-        assert not (tmp_path / "litellm-models.json").exists()
+        assert not (tmp_path / "embrouter-models.json").exists()
 
     def test_unknown_model_gets_the_fields_codex_requires(self, tmp_path):
         _, result = self._sync(self._listing(self._row("m")), tmp_path)
-        entry = json.loads((tmp_path / "litellm-models.json").read_text())["models"][0]
+        entry = json.loads((tmp_path / "embrouter-models.json").read_text())["models"][0]
 
         assert entry["visibility"] == "list"
         assert entry["supported_in_api"] is True
@@ -599,26 +599,26 @@ class TestCodexModelSync:
             self._row("img", mode="image_generation"),
         )
         self._sync(listing, tmp_path)
-        slugs = {m["slug"] for m in json.loads((tmp_path / "litellm-models.json").read_text())["models"]}
+        slugs = {m["slug"] for m in json.loads((tmp_path / "embrouter-models.json").read_text())["models"]}
         assert slugs == {"chat", "resp"}
 
     def test_listing_without_chat_models_is_skipped_and_writes_nothing(self, tmp_path):
         _, result = self._sync(self._listing(self._row("embed", mode="embedding")), tmp_path)
         assert isinstance(result, ModelSyncSkipped)
         assert "no chat models" in result.reason
-        assert not (tmp_path / "litellm-models.json").exists()
+        assert not (tmp_path / "embrouter-models.json").exists()
 
     def test_catalog_is_rewritten_on_every_launch(self, tmp_path):
         self._sync(self._listing(self._row("old")), tmp_path)
         self._sync(self._listing(self._row("new")), tmp_path)
-        slugs = [m["slug"] for m in json.loads((tmp_path / "litellm-models.json").read_text())["models"]]
+        slugs = [m["slug"] for m in json.loads((tmp_path / "embrouter-models.json").read_text())["models"]]
         assert slugs == ["new"]
 
     def test_catalog_is_replaced_whole_and_leaves_no_temp_files(self, tmp_path):
         self._sync(self._listing(*(self._row(f"m{i}") for i in range(50))), tmp_path)
         self._sync(self._listing(self._row("new")), tmp_path)
-        assert [p.name for p in tmp_path.iterdir()] == ["litellm-models.json"]
-        assert json.loads((tmp_path / "litellm-models.json").read_text())["models"][0]["slug"] == "new"
+        assert [p.name for p in tmp_path.iterdir()] == ["embrouter-models.json"]
+        assert json.loads((tmp_path / "embrouter-models.json").read_text())["models"][0]["slug"] == "new"
 
     def test_defaults_to_dot_codex_in_home(self, tmp_path):
         result = codex_model_sync_args(
@@ -629,7 +629,7 @@ class TestCodexModelSync:
             run=_FakeRun(),
             home=lambda: tmp_path,
         )
-        assert self._catalog_path(result) == str(tmp_path / ".codex" / "litellm-models.json")
+        assert self._catalog_path(result) == str(tmp_path / ".codex" / "embrouter-models.json")
 
     def test_default_home_is_the_users(self):
         assert _default_of(codex_model_sync_args, "home") == Path.home
@@ -644,7 +644,7 @@ class TestCodexModelSync:
         )
         assert isinstance(result, ModelSyncSkipped)
         assert "could not read" in result.reason
-        assert not (tmp_path / "litellm-models.json").exists()
+        assert not (tmp_path / "embrouter-models.json").exists()
 
     def test_unwritable_catalog_path_is_reported_not_raised(self, tmp_path):
         blocker = tmp_path / "file"
@@ -654,11 +654,11 @@ class TestCodexModelSync:
         assert "could not write" in result.reason
 
     def test_failed_replace_is_reported_and_leaves_no_temp_file(self, tmp_path):
-        (tmp_path / "litellm-models.json").mkdir()
+        (tmp_path / "embrouter-models.json").mkdir()
         _, result = self._sync(self._listing(self._row("m")), tmp_path)
         assert isinstance(result, ModelSyncSkipped)
         assert "could not write" in result.reason
-        assert [p.name for p in tmp_path.iterdir()] == ["litellm-models.json"]
+        assert [p.name for p in tmp_path.iterdir()] == ["embrouter-models.json"]
 
     def test_unreachable_proxy_is_reported_not_raised(self, tmp_path):
         def boom(*a, **k):
@@ -667,7 +667,7 @@ class TestCodexModelSync:
         result = codex_model_sync_args({"CODEX_HOME": str(tmp_path)}, "http://localhost:4000", "sk-key", get=boom)
         assert isinstance(result, ModelSyncSkipped)
         assert "refused" in result.reason
-        assert not (tmp_path / "litellm-models.json").exists()
+        assert not (tmp_path / "embrouter-models.json").exists()
 
     @pytest.mark.parametrize(
         ("response", "reason"),
@@ -692,7 +692,7 @@ class TestCodexModelSync:
             get=lambda *a, **k: _FakeResponse(200, self._listing(self._row("m"))),
             run=run,
         )
-        assert self._catalog_path(result) == str(tmp_path / "litellm-models.json")
+        assert self._catalog_path(result) == str(tmp_path / "embrouter-models.json")
         assert len(run.calls) == 2
         assert all(binary in command for command, _ in run.calls)
 
@@ -729,17 +729,17 @@ class TestCodexModelSync:
 
     def test_codex_rejecting_the_catalog_skips_the_sync_and_keeps_the_file(self, tmp_path):
         stderr = (
-            "Error: failed to parse model_catalog_json path `/home/me/.codex/litellm-models.json` as JSON: "
+            "Error: failed to parse model_catalog_json path `/home/me/.codex/embrouter-models.json` as JSON: "
             "missing field `supports_parallel_tool_calls` at line 1 column 21648\n"
         )
         _, result = self._sync(self._listing(self._row("m")), tmp_path, run=_FakeRun(1, stderr))
         assert isinstance(result, ModelSyncSkipped)
         assert result.reason == (
             "`codex debug models` exited 1: Error: failed to parse model_catalog_json path "
-            "`/home/me/.codex/litellm-models.json` as JSON: missing field `supports_parallel_tool_calls` "
+            "`/home/me/.codex/embrouter-models.json` as JSON: missing field `supports_parallel_tool_calls` "
             "at line 1 column 21648"
         )
-        assert (tmp_path / "litellm-models.json").exists()
+        assert (tmp_path / "embrouter-models.json").exists()
 
     def test_codex_without_debug_models_skips_the_sync(self, tmp_path):
         stderr = "error: unrecognized subcommand 'models'\n\nUsage: codex debug [OPTIONS] <COMMAND>\n"
@@ -748,7 +748,7 @@ class TestCodexModelSync:
         assert isinstance(result, ModelSyncSkipped)
         assert result.reason == "`codex debug models` exited 2: error: unrecognized subcommand 'models'"
         assert len(run.calls) == 1
-        assert not (tmp_path / "litellm-models.json").exists()
+        assert not (tmp_path / "embrouter-models.json").exists()
 
     def test_codex_failing_silently_is_reported(self, tmp_path):
         _, result = self._sync(self._listing(self._row("m")), tmp_path, run=_FakeRun(1))
@@ -821,7 +821,7 @@ class TestRunAgent:
         assert args[-2:] == ("exec", "hi")
         assert args[args.index('model_catalog_json="/tmp/c.json"') - 1] == "-c"
         assert (
-            args.index('model_provider="litellm"') < args.index('model_catalog_json="/tmp/c.json"') < args.index("exec")
+            args.index('model_provider="embrouter"') < args.index('model_catalog_json="/tmp/c.json"') < args.index("exec")
         )
         assert calls["env"]["OPENAI_API_KEY"] == "sk-key"
         assert "model_catalog_json" not in json.dumps(calls["env"])
@@ -850,7 +850,7 @@ class TestRunAgent:
         def fake_sync(command, base_env, base_url, api_key, skip_verify):
             order.append("sync")
             calls["args"] = (command, dict(base_env), base_url, api_key, skip_verify)
-            return {"OPENCODE_CONFIG_CONTENT": '{"provider":{"litellm":{}}}'}
+            return {"OPENCODE_CONFIG_CONTENT": '{"provider":{"embrouter":{}}}'}
 
         run_agent(
             "http://localhost:4000",
@@ -873,7 +873,7 @@ class TestRunAgent:
 
     def test_unreachable_proxy_is_not_asked_for_models(self):
         def failing_verify(*a):
-            raise AgentRunError("Could not reach the LiteLLM proxy")
+            raise AgentRunError("Could not reach the EmbRouter proxy")
 
         def boom(*a):
             raise AssertionError("a failed key check must not be followed by a model fetch")
@@ -912,7 +912,7 @@ class TestRunAgent:
         )
         assert calls["skip_verify"] is True
         assert "OPENCODE_CONFIG_CONTENT" not in calls["env"]
-        assert warnings == ["litellm: not syncing OpenCode models from the proxy: offline"]
+        assert warnings == ["embrouter: not syncing OpenCode models from the proxy: offline"]
 
     def test_skipped_sync_still_launches_with_plain_openai_env(self):
         calls = {}
@@ -1006,10 +1006,10 @@ class TestRunAgent:
         args = calls["args"]
         assert args[0] == "codex"
         assert args[-2:] == ("exec", "do a thing")
-        assert 'model_provider="litellm"' in args
-        assert 'model_providers.litellm.base_url="http://localhost:4000/v1"' in args
+        assert 'model_provider="embrouter"' in args
+        assert 'model_providers.embrouter.base_url="http://localhost:4000/v1"' in args
         # overrides must precede the codex subcommand so codex parses them
-        assert args.index('model_provider="litellm"') < args.index("exec")
+        assert args.index('model_provider="embrouter"') < args.index("exec")
 
     def test_pi_preparer_runs_after_verify_and_before_launch(self):
         order = []
@@ -1047,10 +1047,10 @@ class TestRunAgent:
             which=lambda name: "/usr/local/bin/pi",
             verify=lambda *a: None,
             launcher=lambda p, a, e: calls.update(args=tuple(a), env=dict(e)),
-            preparers={"pi": lambda *a: ["--model", "litellm/m-1"]},
+            preparers={"pi": lambda *a: ["--model", "embrouter/m-1"]},
         )
-        assert calls["args"] == ("pi", "--model", "litellm/m-1", "-p", "hello")
-        assert calls["env"]["LITELLM_PROXY_API_KEY"] == "sk-key"
+        assert calls["args"] == ("pi", "--model", "embrouter/m-1", "-p", "hello")
+        assert calls["env"]["EMBROUTER_PROXY_API_KEY"] == "sk-key"
         assert "OPENAI_API_KEY" not in calls["env"]
         assert "ANTHROPIC_BASE_URL" not in calls["env"]
 
@@ -1074,7 +1074,7 @@ class TestRunAgent:
         assert launched == []
 
     def test_prepare_pi_syncs_models_json_and_pins_first_model(self, tmp_path):
-        from litellm.proxy.client.cli.commands.agents import prepare_pi
+        from embrouter.proxy.client.cli.commands.agents import prepare_pi
 
         def fake_get(url, headers, timeout):
             if url.endswith("/model_group/info"):
@@ -1091,18 +1091,18 @@ class TestRunAgent:
             get=fake_get,
         )
 
-        assert pin == ("--model", "litellm/m-first")
+        assert pin == ("--model", "embrouter/m-first")
         import json
 
         written = json.loads((tmp_path / "models.json").read_text())
-        assert written["providers"]["litellm"]["apiKey"] == "$LITELLM_PROXY_API_KEY"
-        assert written["providers"]["litellm"]["models"] == [
+        assert written["providers"]["embrouter"]["apiKey"] == "$EMBROUTER_PROXY_API_KEY"
+        assert written["providers"]["embrouter"]["models"] == [
             {"id": "m-first", "contextWindow": 131072, "maxTokens": 8192},
             {"id": "m-second"},
         ]
 
     def test_prepare_pi_surfaces_fetch_failure_as_agent_error(self, tmp_path):
-        from litellm.proxy.client.cli.commands.agents import prepare_pi
+        from embrouter.proxy.client.cli.commands.agents import prepare_pi
 
         with pytest.raises(AgentRunError, match="HTTP 500"):
             prepare_pi(
@@ -1479,7 +1479,7 @@ class TestHandOff:
         shim = _WINDOWS_CLAUDE_CMD.replace("claude", "codex")
         assert command.startswith(f'{_CMD_PREFIX}""{shim}" ')
         assert command.endswith('"exec" "do a thing""')
-        assert '"model_provider=""litellm"""' in command
+        assert '"model_provider=""embrouter"""' in command
         assert env["OPENAI_API_KEY"] == "sk-key"
 
 
@@ -1573,7 +1573,7 @@ class TestAgentCommands:
                 obj={"base_url": "http://localhost:4000", "api_key": None},
             )
         assert result.exit_code != 0
-        assert "LITELLM_PROXY_API_KEY" in result.output
+        assert "EMBROUTER_PROXY_API_KEY" in result.output
         mock_run.assert_not_called()
 
     def test_interactive_without_key_logs_in_then_launches(self, secret_vault_factory):
@@ -1626,7 +1626,7 @@ class TestAgentCommands:
         assert "could not reach proxy" in result.output
 
     def test_interactive_session_reattaches_terminal_before_handoff(self):
-        from litellm.proxy.client.cli.commands.agents import (
+        from embrouter.proxy.client.cli.commands.agents import (
             _restore_controlling_terminal,
         )
 
@@ -1666,17 +1666,17 @@ class TestAgentCommands:
 
 class TestPrepareCodex:
     def test_registers_the_installed_script_as_a_session_scoped_stop_hook(self):
-        from litellm.proxy.client.cli.commands.agents import prepare_codex
+        from embrouter.proxy.client.cli.commands.agents import prepare_codex
 
-        args = prepare_codex("http://localhost:4000", "sk-key", {}, install=lambda: "/py /home/me/.litellm/statusline.py")
+        args = prepare_codex("http://localhost:4000", "sk-key", {}, install=lambda: "/py /home/me/.embrouter/statusline.py")
         assert args == (
             "-c",
-            'hooks.Stop=[{hooks=[{type="command",command="/py /home/me/.litellm/statusline.py"}]}]',
+            'hooks.Stop=[{hooks=[{type="command",command="/py /home/me/.embrouter/statusline.py"}]}]',
         )
 
     def test_a_failed_install_is_an_agent_error_not_a_crash(self):
-        from litellm.proxy.client.cli.commands.agents import AgentRunError, prepare_codex
-        from litellm.proxy.client.cli.commands.claude_settings import ClaudeSettingsError
+        from embrouter.proxy.client.cli.commands.agents import AgentRunError, prepare_codex
+        from embrouter.proxy.client.cli.commands.claude_settings import ClaudeSettingsError
 
         def boom():
             raise ClaudeSettingsError("disk full")
@@ -1685,7 +1685,7 @@ class TestPrepareCodex:
             prepare_codex("http://localhost:4000", "sk-key", {}, install=boom)
 
     def test_a_config_that_already_declares_hooks_keeps_them_and_skips_ours(self, tmp_path):
-        from litellm.proxy.client.cli.commands.agents import prepare_codex
+        from embrouter.proxy.client.cli.commands.agents import prepare_codex
 
         warnings = []
         env = {"CODEX_HOME": str(tmp_path)}
@@ -1699,7 +1699,7 @@ class TestPrepareCodex:
     def test_a_config_that_cannot_be_read_or_decoded_still_lets_codex_launch(self, tmp_path):
         # A UTF-16 config.toml (a Windows Notepad save) is Codex's problem to report at launch, not a reason
         # for the hook pre-check to abort `lite codex` with a traceback before Codex ever starts.
-        from litellm.proxy.client.cli.commands.agents import codex_declares_stop_hooks, prepare_codex
+        from embrouter.proxy.client.cli.commands.agents import codex_declares_stop_hooks, prepare_codex
 
         config = tmp_path / "config.toml"
         config.write_bytes('[[hooks.Stop]]\nhooks = [{ type = "command", command = "mine" }]\n'.encode("utf-16"))
@@ -1709,6 +1709,6 @@ class TestPrepareCodex:
         assert args[0] == "-c" and "hooks.Stop=" in args[1]
 
     def test_codex_is_wired_through_the_preparer_registry(self):
-        from litellm.proxy.client.cli.commands.agents import _PREPARERS, prepare_codex
+        from embrouter.proxy.client.cli.commands.agents import _PREPARERS, prepare_codex
 
         assert _PREPARERS["codex"] is prepare_codex

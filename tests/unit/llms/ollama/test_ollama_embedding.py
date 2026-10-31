@@ -2,8 +2,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from litellm.llms.ollama.completion.handler import ollama_aembeddings, ollama_embeddings
-from litellm.types.utils import EmbeddingResponse
+from embrouter.llms.ollama.completion.handler import ollama_aembeddings, ollama_embeddings
+from embrouter.types.utils import EmbeddingResponse
 
 
 @pytest.fixture
@@ -28,8 +28,8 @@ def mock_encoding():
 
 def test_ollama_embeddings(mock_response_data, mock_embedding_response, mock_encoding):
     with (
-        patch("litellm.module_level_client.post") as mock_post,
-        patch("litellm.OllamaConfig.get_config", return_value={"truncate": 512}),
+        patch("embrouter.module_level_client.post") as mock_post,
+        patch("embrouter.OllamaConfig.get_config", return_value={"truncate": 512}),
     ):
 
         mock_response = MagicMock()
@@ -61,9 +61,9 @@ async def test_ollama_aembeddings(
     mock_response.json = MagicMock(return_value=mock_response_data)
     with (
         patch(
-            "litellm.module_level_aclient.post", return_value=mock_response
+            "embrouter.module_level_aclient.post", return_value=mock_response
         ) as mock_post,
-        patch("litellm.OllamaConfig.get_config", return_value={"truncate": 512}),
+        patch("embrouter.OllamaConfig.get_config", return_value={"truncate": 512}),
     ):
 
         response = await ollama_aembeddings(
@@ -89,8 +89,8 @@ def test_prompt_eval_fallback_when_missing(mock_embedding_response, mock_encodin
     }
 
     with (
-        patch("litellm.module_level_client.post") as mock_post,
-        patch("litellm.OllamaConfig.get_config", return_value={}),
+        patch("embrouter.module_level_client.post") as mock_post,
+        patch("embrouter.OllamaConfig.get_config", return_value={}),
     ):
 
         mock_response = MagicMock()

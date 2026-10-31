@@ -7,12 +7,12 @@ import httpx
 import pytest
 
 
-from litellm.llms.openrouter.common_utils import OpenRouterException
-from litellm.llms.openrouter.image_edit.transformation import (
+from embrouter.llms.openrouter.common_utils import OpenRouterException
+from embrouter.llms.openrouter.image_edit.transformation import (
     OpenRouterImageEditConfig,
 )
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import ImageResponse
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import ImageResponse
 
 
 class TestOpenRouterImageEditTransformation:
@@ -135,7 +135,7 @@ class TestOpenRouterImageEditTransformation:
         result = self.config.get_complete_url(
             model=self.model,
             api_base=None,
-            litellm_params={},
+            embrouter_params={},
         )
 
         assert result == "https://openrouter.ai/api/v1/chat/completions"
@@ -145,7 +145,7 @@ class TestOpenRouterImageEditTransformation:
         result = self.config.get_complete_url(
             model=self.model,
             api_base="https://custom.openrouter.ai/api/v1",
-            litellm_params={},
+            embrouter_params={},
         )
 
         assert result == "https://custom.openrouter.ai/api/v1/chat/completions"
@@ -156,14 +156,14 @@ class TestOpenRouterImageEditTransformation:
         result = self.config.get_complete_url(
             model=self.model,
             api_base=url,
-            litellm_params={},
+            embrouter_params={},
         )
 
         assert result == url
 
     # Validate environment tests
 
-    @patch("litellm.llms.openrouter.image_edit.transformation.get_secret_str")
+    @patch("embrouter.llms.openrouter.image_edit.transformation.get_secret_str")
     def test_validate_environment_with_api_key(self, mock_get_secret):
         """Test that validate_environment sets authorization header with provided key."""
         headers = {}
@@ -176,7 +176,7 @@ class TestOpenRouterImageEditTransformation:
         assert result["Authorization"] == "Bearer test_api_key"
         mock_get_secret.assert_not_called()
 
-    @patch("litellm.llms.openrouter.image_edit.transformation.get_secret_str")
+    @patch("embrouter.llms.openrouter.image_edit.transformation.get_secret_str")
     def test_validate_environment_with_secret_key(self, mock_get_secret):
         """Test that validate_environment falls back to secret key."""
         mock_get_secret.return_value = "secret_api_key"
@@ -189,14 +189,14 @@ class TestOpenRouterImageEditTransformation:
 
         assert result["Authorization"] == "Bearer secret_api_key"
 
-    @patch("litellm.llms.openrouter.image_edit.transformation.litellm")
-    @patch("litellm.llms.openrouter.image_edit.transformation.get_secret_str")
+    @patch("embrouter.llms.openrouter.image_edit.transformation.embrouter")
+    @patch("embrouter.llms.openrouter.image_edit.transformation.get_secret_str")
     def test_validate_environment_missing_api_key_raises(
-        self, mock_get_secret, mock_litellm
+        self, mock_get_secret, mock_embrouter
     ):
         """Test that validate_environment raises ValueError when no API key is available."""
         mock_get_secret.return_value = None
-        mock_litellm.api_key = None
+        mock_embrouter.api_key = None
 
         with pytest.raises(ValueError, match="OPENROUTER_API_KEY is not set"):
             self.config.validate_environment(
@@ -214,7 +214,7 @@ class TestOpenRouterImageEditTransformation:
             prompt="Add a sunset to this image",
             image=self.sample_image_bytes,
             image_edit_optional_request_params={},
-            litellm_params=GenericLiteLLMParams(),
+            embrouter_params=GenericEmbRouterParams(),
             headers={},
         )
 
@@ -245,7 +245,7 @@ class TestOpenRouterImageEditTransformation:
             prompt="Edit this",
             image=image,
             image_edit_optional_request_params={},
-            litellm_params=GenericLiteLLMParams(),
+            embrouter_params=GenericEmbRouterParams(),
             headers={},
         )
 
@@ -261,7 +261,7 @@ class TestOpenRouterImageEditTransformation:
             prompt="Combine these images",
             image=images,
             image_edit_optional_request_params={},
-            litellm_params=GenericLiteLLMParams(),
+            embrouter_params=GenericEmbRouterParams(),
             headers={},
         )
 
@@ -282,7 +282,7 @@ class TestOpenRouterImageEditTransformation:
                 "image_config": {"aspect_ratio": "16:9"},
                 "n": 2,
             },
-            litellm_params=GenericLiteLLMParams(),
+            embrouter_params=GenericEmbRouterParams(),
             headers={},
         )
 
@@ -299,7 +299,7 @@ class TestOpenRouterImageEditTransformation:
             prompt="Edit",
             image=raw_bytes,
             image_edit_optional_request_params={},
-            litellm_params=GenericLiteLLMParams(),
+            embrouter_params=GenericEmbRouterParams(),
             headers={},
         )
 
@@ -315,7 +315,7 @@ class TestOpenRouterImageEditTransformation:
             prompt=None,
             image=self.sample_image_bytes,
             image_edit_optional_request_params={},
-            litellm_params=GenericLiteLLMParams(),
+            embrouter_params=GenericEmbRouterParams(),
             headers={},
         )
 
@@ -457,7 +457,7 @@ class TestOpenRouterImageEditTransformation:
         # Check cost
         assert (
             result._hidden_params["additional_headers"][
-                "llm_provider-x-litellm-response-cost"
+                "llm_provider-x-embrouter-response-cost"
             ]
             == 0.05
         )

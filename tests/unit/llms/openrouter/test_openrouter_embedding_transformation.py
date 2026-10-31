@@ -2,7 +2,7 @@
 Unit tests for OpenRouter embedding transformation logic.
 """
 
-from litellm.llms.openrouter.embedding.transformation import (
+from embrouter.llms.openrouter.embedding.transformation import (
     OpenrouterEmbeddingConfig,
 )
 
@@ -56,7 +56,7 @@ def test_openrouter_embedding_validate_environment():
         model="test-model",
         messages=[],
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         api_key="test-api-key",
     )
 
@@ -78,7 +78,7 @@ def test_openrouter_embedding_validate_environment():
         model="test-model",
         messages=[],
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         api_key=None,
     )
 
@@ -98,7 +98,7 @@ def test_openrouter_embedding_get_complete_url():
         api_key="test-key",
         model="test-model",
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
     )
 
     assert url == "https://openrouter.ai/api/v1/embeddings"
@@ -109,7 +109,7 @@ def test_openrouter_embedding_get_complete_url():
         api_key="test-key",
         model="test-model",
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
     )
 
     assert url == "https://openrouter.ai/api/v1/embeddings"

@@ -8,17 +8,17 @@ from urllib.parse import quote, urlsplit
 import httpx
 from pydantic import BaseModel, ConfigDict, TypeAdapter, ValidationError
 
-from litellm.exceptions import AuthenticationError, BadRequestError, ServiceUnavailableError, Timeout
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.base_llm.vector_store.transformation import (
+from embrouter.exceptions import AuthenticationError, BadRequestError, ServiceUnavailableError, Timeout
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.base_llm.vector_store.transformation import (
     BaseQueryEmbeddingVectorStoreConfig,
-    LiteLLMVectorStoreEmbeddingExecutor,
+    EmbRouterVectorStoreEmbeddingExecutor,
     VectorStoreEmbeddingExecutor,
 )
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import EmbeddingResponse
-from litellm.types.vector_stores import (
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import EmbeddingResponse
+from embrouter.types.vector_stores import (
     BaseVectorStoreAuthCredentials,
     VectorStoreCreateOptionalRequestParams,
     VectorStoreIndexEndpoints,
@@ -27,7 +27,7 @@ from litellm.types.vector_stores import (
 )
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
 
 DEFAULT_EMBEDDING_FIELD_NAME: Final = "embedding"
 DEFAULT_TEXT_FIELD_NAME: Final = "text"
@@ -71,12 +71,12 @@ class _SearchResponse(BaseModel):
 
 
 class _MongoDBSearchParams(BaseModel):
-    """Typed view over the vector store's litellm_params; unrelated keys are ignored."""
+    """Typed view over the vector store's embrouter_params; unrelated keys are ignored."""
 
     model_config = ConfigDict(frozen=True, extra="ignore")
 
-    litellm_embedding_model: str | None = None
-    litellm_embedding_config: Mapping[str, object] | None = None
+    embrouter_embedding_model: str | None = None
+    embrouter_embedding_config: Mapping[str, object] | None = None
     mongodb_database: str | None = None
     mongodb_collection: str | None = None
     mongodb_text_field: str | None = None
@@ -92,19 +92,19 @@ class _MongoDBSearchParams(BaseModel):
         return self.mongodb_embedding_field or DEFAULT_EMBEDDING_FIELD_NAME
 
     def require_embedding_model(self) -> str:
-        if not self.litellm_embedding_model:
+        if not self.embrouter_embedding_model:
             raise config_error(
-                "litellm_embedding_model is required in litellm_params for the MongoDB vector store. "
+                "embrouter_embedding_model is required in embrouter_params for the MongoDB vector store. "
                 "It must be the same model that produced the vectors stored in "
                 f"'{self.mongodb_collection or '<collection>'}.{self.embedding_field}', or search results "
-                "will be meaningless. Example: litellm_embedding_model: openai/text-embedding-3-small"
+                "will be meaningless. Example: embrouter_embedding_model: openai/text-embedding-3-small"
             )
-        return self.litellm_embedding_model
+        return self.embrouter_embedding_model
 
     def require_database(self) -> str:
         if not self.mongodb_database:
             raise config_error(
-                "mongodb_database is required in litellm_params for the MongoDB vector store. "
+                "mongodb_database is required in embrouter_params for the MongoDB vector store. "
                 "Example: mongodb_database: sample_mflix"
             )
         return self.mongodb_database
@@ -112,7 +112,7 @@ class _MongoDBSearchParams(BaseModel):
     def require_collection(self) -> str:
         if not self.mongodb_collection:
             raise config_error(
-                "mongodb_collection is required in litellm_params for the MongoDB vector store. "
+                "mongodb_collection is required in embrouter_params for the MongoDB vector store. "
                 "Example: mongodb_collection: embedded_movies"
             )
         return self.mongodb_collection
@@ -127,25 +127,25 @@ _RESPONSE_ADAPTER: Final = TypeAdapter(VectorStoreSearchResponse)
 
 class MongoDBVectorStoreConfig(BaseQueryEmbeddingVectorStoreConfig):
     def __init__(self, embedding_executor: VectorStoreEmbeddingExecutor | None = None) -> None:
-        self.embedding_executor: Final = embedding_executor or LiteLLMVectorStoreEmbeddingExecutor()
+        self.embedding_executor: Final = embedding_executor or EmbRouterVectorStoreEmbeddingExecutor()
 
-    def get_auth_credentials(self, litellm_params: Mapping[str, object]) -> BaseVectorStoreAuthCredentials:
+    def get_auth_credentials(self, embrouter_params: Mapping[str, object]) -> BaseVectorStoreAuthCredentials:
         return BaseVectorStoreAuthCredentials()
 
     def get_vector_store_endpoints_by_type(self) -> VectorStoreIndexEndpoints:
         return VectorStoreIndexEndpoints(read=[], write=[])  # mutable-ok: the TypedDict declares list fields
 
     @staticmethod
-    def _reject_unknown_params(litellm_params: Mapping[str, object]) -> None:
+    def _reject_unknown_params(embrouter_params: Mapping[str, object]) -> None:
         """Without this a mistyped mongodb_collection reads as 'mongodb_collection is required',
         naming a key the reader can see they have set."""
-        if litellm_params.get("mongodb_connection_string") is not None:
+        if embrouter_params.get("mongodb_connection_string") is not None:
             raise config_error(
                 "MongoDB vector stores now use the BETA sidecar. Move mongodb_connection_string to "
-                "MONGODB_CONNECTION_STRING in the sidecar, remove it from LiteLLM, and configure api_base and api_key."
+                "MONGODB_CONNECTION_STRING in the sidecar, remove it from EmbRouter, and configure api_base and api_key."
             )
         unknown: Final = sorted(
-            key for key in litellm_params if key.startswith(_MONGODB_PARAM_PREFIX) and key not in _KNOWN_MONGODB_PARAMS
+            key for key in embrouter_params if key.startswith(_MONGODB_PARAM_PREFIX) and key not in _KNOWN_MONGODB_PARAMS
         )
         if unknown:
             raise config_error(
@@ -185,12 +185,12 @@ class MongoDBVectorStoreConfig(BaseQueryEmbeddingVectorStoreConfig):
         return min(max(limit * NUM_CANDIDATES_MULTIPLIER, MIN_NUM_CANDIDATES), MAX_NUM_CANDIDATES)
 
     def validate_environment(
-        self, headers: Mapping[str, object], litellm_params: GenericLiteLLMParams | None
+        self, headers: Mapping[str, object], embrouter_params: GenericEmbRouterParams | None
     ) -> dict[str, object]:  # mutable-ok: the shared HTTP handler requires writable headers
-        if litellm_params is None:
+        if embrouter_params is None:
             raise config_error("Configure api_base and api_key for the MongoDB BETA sidecar.")
-        self._reject_unknown_params(MappingProxyType(dict(litellm_params)))
-        api_key: Final = litellm_params.api_key or get_secret_str("MONGODB_SIDECAR_API_KEY")
+        self._reject_unknown_params(MappingProxyType(dict(embrouter_params)))
+        api_key: Final = embrouter_params.api_key or get_secret_str("MONGODB_SIDECAR_API_KEY")
         if not api_key:
             raise config_error("MongoDB sidecar api_key is required. Set api_key or MONGODB_SIDECAR_API_KEY.")
         return {
@@ -199,7 +199,7 @@ class MongoDBVectorStoreConfig(BaseQueryEmbeddingVectorStoreConfig):
             "Content-Type": "application/json",
         }
 
-    def get_complete_url(self, api_base: str | None, litellm_params: Mapping[str, object]) -> str:
+    def get_complete_url(self, api_base: str | None, embrouter_params: Mapping[str, object]) -> str:
         if not api_base:
             raise config_error("MongoDB sidecar api_base is required, for example http://127.0.0.1:8080.")
         try:
@@ -239,18 +239,18 @@ class MongoDBVectorStoreConfig(BaseQueryEmbeddingVectorStoreConfig):
     @classmethod
     def _params(
         cls,
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
         optional_params: VectorStoreSearchOptionalRequestParams,
         extra_body: Mapping[str, object] | None,
     ) -> _MongoDBSearchParams:
-        cls._reject_unknown_params(litellm_params)
+        cls._reject_unknown_params(embrouter_params)
         if extra_body:
             raise config_error("MongoDB vector store does not support extra_body overrides.")
         for unsupported in ("filters", "ranking_options", "rewrite_query"):
             if optional_params.get(unsupported) is not None:
                 raise config_error(f"MongoDB vector store does not support the {unsupported} parameter.")
         try:
-            params: Final = _MongoDBSearchParams.model_validate(litellm_params)
+            params: Final = _MongoDBSearchParams.model_validate(embrouter_params)
         except ValidationError:
             raise config_error(
                 "Invalid MongoDB vector-store configuration. Check the database, collection, fields, and candidate count."
@@ -259,7 +259,7 @@ class MongoDBVectorStoreConfig(BaseQueryEmbeddingVectorStoreConfig):
         params.require_collection()
         params.require_embedding_model()
         cls._num_candidates(cls._limit(optional_params), params.mongodb_num_candidates)
-        cls._timeout_ms(litellm_params.get("timeout"))
+        cls._timeout_ms(embrouter_params.get("timeout"))
         return params
 
     @classmethod
@@ -275,7 +275,7 @@ class MongoDBVectorStoreConfig(BaseQueryEmbeddingVectorStoreConfig):
     ) -> tuple[str, dict[str, object]]:  # mutable-ok: the provider contract returns a writable JSON request body
         if not embedding_response.data:
             raise config_error(
-                "The embedding model returned no embedding for the search query. Check litellm_embedding_model."
+                "The embedding model returned no embedding for the search query. Check embrouter_embedding_model."
             )
         vector: Final = embedding_response.data[0]["embedding"]
         if not vector or any(not isinstance(value, (float, int)) or not isfinite(value) for value in vector):
@@ -302,15 +302,15 @@ class MongoDBVectorStoreConfig(BaseQueryEmbeddingVectorStoreConfig):
         query: str | Sequence[str],
         vector_store_search_optional_params: VectorStoreSearchOptionalRequestParams,
         api_base: str,
-        litellm_logging_obj: "LiteLLMLoggingObj",
-        litellm_params: Mapping[str, object],
+        embrouter_logging_obj: "EmbRouterLoggingObj",
+        embrouter_params: Mapping[str, object],
         extra_body: Mapping[str, object] | None = None,
         embedding_executor: VectorStoreEmbeddingExecutor | None = None,
     ) -> tuple[str, dict[str, object]]:  # mutable-ok: the provider contract returns a writable JSON request body
-        params: Final = self._params(litellm_params, vector_store_search_optional_params, extra_body)
+        params: Final = self._params(embrouter_params, vector_store_search_optional_params, extra_body)
         query_text: Final = self._query_text(query)
         response: Final = (embedding_executor or self.embedding_executor).embed(
-            params.require_embedding_model(), query_text, params.litellm_embedding_config or _EMPTY_EMBEDDING_CONFIG
+            params.require_embedding_model(), query_text, params.embrouter_embedding_config or _EMPTY_EMBEDDING_CONFIG
         )
         return self._request(
             vector_store_id,
@@ -319,7 +319,7 @@ class MongoDBVectorStoreConfig(BaseQueryEmbeddingVectorStoreConfig):
             vector_store_search_optional_params,
             api_base,
             response,
-            litellm_params.get("timeout"),
+            embrouter_params.get("timeout"),
         )
 
     async def atransform_search_vector_store_request(
@@ -328,15 +328,15 @@ class MongoDBVectorStoreConfig(BaseQueryEmbeddingVectorStoreConfig):
         query: str | Sequence[str],
         vector_store_search_optional_params: VectorStoreSearchOptionalRequestParams,
         api_base: str,
-        litellm_logging_obj: "LiteLLMLoggingObj",
-        litellm_params: Mapping[str, object],
+        embrouter_logging_obj: "EmbRouterLoggingObj",
+        embrouter_params: Mapping[str, object],
         extra_body: Mapping[str, object] | None = None,
         embedding_executor: VectorStoreEmbeddingExecutor | None = None,
     ) -> tuple[str, dict[str, object]]:  # mutable-ok: the provider contract returns a writable JSON request body
-        params: Final = self._params(litellm_params, vector_store_search_optional_params, extra_body)
+        params: Final = self._params(embrouter_params, vector_store_search_optional_params, extra_body)
         query_text: Final = self._query_text(query)
         response: Final = await (embedding_executor or self.embedding_executor).aembed(
-            params.require_embedding_model(), query_text, params.litellm_embedding_config or _EMPTY_EMBEDDING_CONFIG
+            params.require_embedding_model(), query_text, params.embrouter_embedding_config or _EMPTY_EMBEDDING_CONFIG
         )
         return self._request(
             vector_store_id,
@@ -345,11 +345,11 @@ class MongoDBVectorStoreConfig(BaseQueryEmbeddingVectorStoreConfig):
             vector_store_search_optional_params,
             api_base,
             response,
-            litellm_params.get("timeout"),
+            embrouter_params.get("timeout"),
         )
 
     def transform_search_vector_store_response(
-        self, response: httpx.Response, litellm_logging_obj: "LiteLLMLoggingObj"
+        self, response: httpx.Response, embrouter_logging_obj: "EmbRouterLoggingObj"
     ) -> VectorStoreSearchResponse:
         try:
             validated: Final = _SearchResponse.model_validate_json(response.content)

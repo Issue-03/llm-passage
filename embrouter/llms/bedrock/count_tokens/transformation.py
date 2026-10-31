@@ -11,8 +11,8 @@ from typing import Final, Literal
 
 from pydantic import JsonValue
 
-from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM
-from litellm.llms.bedrock.common_utils import get_bedrock_base_model
+from embrouter.llms.bedrock.base_aws_llm import BaseAWSLLM
+from embrouter.llms.bedrock.common_utils import get_bedrock_base_model
 
 # Placeholder satisfying the Anthropic InvokeModel schema's required
 # max_tokens field; CountTokens only counts input, so it has no effect
@@ -210,7 +210,7 @@ class BedrockCountTokensConfig(BaseAWSLLM):
         aws_bedrock_runtime_endpoint: str | None = None,
     ) -> str:
         """
-        Construct the AWS Bedrock CountTokens API endpoint using existing LiteLLM functions.
+        Construct the AWS Bedrock CountTokens API endpoint using existing EmbRouter functions.
 
         Args:
             model: The resolved model ID from router lookup
@@ -221,7 +221,7 @@ class BedrockCountTokensConfig(BaseAWSLLM):
         Returns:
             Complete endpoint URL for CountTokens API
         """
-        # Use existing LiteLLM function to get the base model ID (removes region prefix)
+        # Use existing EmbRouter function to get the base model ID (removes region prefix)
         model_id = get_bedrock_base_model(model)
 
         # Remove bedrock/ prefix if present

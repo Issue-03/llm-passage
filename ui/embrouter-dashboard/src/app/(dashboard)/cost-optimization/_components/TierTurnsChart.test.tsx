@@ -55,7 +55,7 @@ const groupView = (overrides: Partial<AutoRouterBenchmarkGroup> = {}): Benchmark
 
 const deployment = (config: unknown): AutoRouterDeployment => ({
   model_name: "claude-auto",
-  litellm_params: { model: "auto_router/claude-auto", complexity_router_config: config },
+  embrouter_params: { model: "auto_router/claude-auto", complexity_router_config: config },
 });
 
 describe("tierDisplayLabel", () => {
@@ -149,7 +149,7 @@ describe("TierTurnsChart", () => {
   it("ignores a same-named deployment of a different router type", () => {
     const qualityDeployment = {
       model_name: "claude-auto",
-      litellm_params: { model: "auto_router/claude-auto", quality_router_config: { available_models: ["gpt-4o"] } },
+      embrouter_params: { model: "auto_router/claude-auto", quality_router_config: { available_models: ["gpt-4o"] } },
     };
 
     render(

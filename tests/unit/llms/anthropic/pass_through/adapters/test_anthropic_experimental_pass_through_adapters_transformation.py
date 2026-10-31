@@ -4,35 +4,35 @@ from typing import Any, Final, cast
 
 import pytest
 
-import litellm
+import embrouter
 
 
 
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
     TOOL_RESULT_IMAGE_PLACEHOLDER,
     encrypted_reasoning_signature,
 )
-from litellm.litellm_core_utils.prompt_templates.factory import (
+from embrouter.embrouter_core_utils.prompt_templates.factory import (
     THOUGHT_SIGNATURE_SEPARATOR,
     _bedrock_converse_messages_pt,
 )
-from litellm.llms.anthropic.pass_through.adapters.transformation import (
+from embrouter.llms.anthropic.pass_through.adapters.transformation import (
     OPENAI_MAX_TOOL_NAME_LENGTH,
     AnthropicAdapter,
-    LiteLLMAnthropicMessagesAdapter,
+    EmbRouterAnthropicMessagesAdapter,
     create_tool_name_mapping,
     truncate_tool_name,
 )
-from litellm.llms.anthropic.pass_through.messages.mid_conversation_system import (
+from embrouter.llms.anthropic.pass_through.messages.mid_conversation_system import (
     CONVERTED_SYSTEM_NOTE,
 )
-from litellm.llms.openai.chat.gpt_transformation import OpenAIGPTConfig
-from litellm.types.llms.anthropic import (
+from embrouter.llms.openai.chat.gpt_transformation import OpenAIGPTConfig
+from embrouter.types.llms.anthropic import (
     AnthopicMessagesAssistantMessageParam,
     AnthropicMessagesUserMessageParam,
 )
-from litellm.types.llms.openai import ChatCompletionAssistantToolCall
-from litellm.types.utils import (
+from embrouter.types.llms.openai import ChatCompletionAssistantToolCall
+from embrouter.types.utils import (
     ChatCompletionDeltaToolCall,
     Choices,
     Delta,
@@ -53,7 +53,7 @@ def test_translate_openai_response_to_anthropic_empty_choices() -> None:
         usage=Usage(prompt_tokens=10, completion_tokens=0, total_tokens=10),
     )
 
-    result: Final = LiteLLMAnthropicMessagesAdapter().translate_openai_response_to_anthropic(response)
+    result: Final = EmbRouterAnthropicMessagesAdapter().translate_openai_response_to_anthropic(response)
 
     assert result["content"] == []
     assert result["stop_reason"] == "end_turn"
@@ -68,7 +68,7 @@ def test_native_compaction_response_roundtrip(text: str | None, count: int, expe
     block: Final = {"type": "compaction", "content": "Exact summary", "signature": "opaque-signature"}
     message: Final = Message(content=text, provider_specific_fields={"compaction_blocks": [block] * count})
     response: Final = ModelResponse(choices=[Choices(message=message, finish_reason="length")], usage=Usage())
-    result: Final = LiteLLMAnthropicMessagesAdapter().translate_openai_response_to_anthropic(response)
+    result: Final = EmbRouterAnthropicMessagesAdapter().translate_openai_response_to_anthropic(response)
     expected_text: Final = [{"type": "text", "text": text}] if text is not None and (text != "" or not count) else []
     assert result["content"] == [*([block] * count), *expected_text]
     assert result["stop_reason"] == expected_stop
@@ -88,7 +88,7 @@ def test_translate_chat_refusal_to_anthropic_response():
         usage=Usage(prompt_tokens=1, completion_tokens=1, total_tokens=2),
     )
 
-    result = LiteLLMAnthropicMessagesAdapter().translate_openai_response_to_anthropic(response)
+    result = EmbRouterAnthropicMessagesAdapter().translate_openai_response_to_anthropic(response)
 
     assert result["content"] == [{"type": "text", "text": "I cannot fulfill this request."}]
     assert result["stop_reason"] == "refusal"
@@ -113,7 +113,7 @@ def test_translate_chat_length_takes_precedence_over_refusal():
         usage=Usage(prompt_tokens=1, completion_tokens=1, total_tokens=2),
     )
 
-    result = LiteLLMAnthropicMessagesAdapter().translate_openai_response_to_anthropic(response)
+    result = EmbRouterAnthropicMessagesAdapter().translate_openai_response_to_anthropic(response)
 
     assert result["stop_reason"] == "max_tokens"
     assert result.get("stop_details") is None
@@ -133,7 +133,7 @@ def test_translate_chat_content_filter_to_anthropic_response():
         usage=Usage(prompt_tokens=1, completion_tokens=0, total_tokens=1),
     )
 
-    result = LiteLLMAnthropicMessagesAdapter().translate_openai_response_to_anthropic(response)
+    result = EmbRouterAnthropicMessagesAdapter().translate_openai_response_to_anthropic(response)
 
     assert result["content"] == []
     assert result["stop_reason"] == "refusal"
@@ -153,7 +153,7 @@ def test_translate_chat_refusal_finish_reason_to_anthropic_response():
         usage=Usage(prompt_tokens=1, completion_tokens=0, total_tokens=1),
     )
 
-    result = LiteLLMAnthropicMessagesAdapter().translate_openai_response_to_anthropic(response)
+    result = EmbRouterAnthropicMessagesAdapter().translate_openai_response_to_anthropic(response)
 
     assert result["content"] == []
     assert result["stop_reason"] == "refusal"
@@ -188,7 +188,7 @@ def test_translate_streaming_openai_chunk_to_anthropic_content_block():
     (
         block_type,
         content_block_start,
-    ) = LiteLLMAnthropicMessagesAdapter()._translate_streaming_openai_chunk_to_anthropic_content_block(
+    ) = EmbRouterAnthropicMessagesAdapter()._translate_streaming_openai_chunk_to_anthropic_content_block(
         choices=choices
     )
 
@@ -236,7 +236,7 @@ def test_translate_streaming_openai_chunk_strips_gemini_thought_from_tool_call_i
     (
         block_type,
         content_block_start,
-    ) = LiteLLMAnthropicMessagesAdapter()._translate_streaming_openai_chunk_to_anthropic_content_block(
+    ) = EmbRouterAnthropicMessagesAdapter()._translate_streaming_openai_chunk_to_anthropic_content_block(
         choices=choices
     )
 
@@ -283,7 +283,7 @@ def test_translate_streaming_openai_chunk_to_anthropic_thinking_content_block():
     (
         block_type,
         content_block_start,
-    ) = LiteLLMAnthropicMessagesAdapter()._translate_streaming_openai_chunk_to_anthropic_content_block(
+    ) = EmbRouterAnthropicMessagesAdapter()._translate_streaming_openai_chunk_to_anthropic_content_block(
         choices=choices
     )
 
@@ -321,7 +321,7 @@ def test_translate_streaming_openai_chunk_to_anthropic_reasoning_content_only_co
     (
         block_type,
         content_block_start,
-    ) = LiteLLMAnthropicMessagesAdapter()._translate_streaming_openai_chunk_to_anthropic_content_block(
+    ) = EmbRouterAnthropicMessagesAdapter()._translate_streaming_openai_chunk_to_anthropic_content_block(
         choices=choices
     )
 
@@ -369,7 +369,7 @@ def test_translate_streaming_openai_chunk_to_anthropic_thinking_signature_block(
     (
         block_type,
         content_block_start,
-    ) = LiteLLMAnthropicMessagesAdapter()._translate_streaming_openai_chunk_to_anthropic_content_block(
+    ) = EmbRouterAnthropicMessagesAdapter()._translate_streaming_openai_chunk_to_anthropic_content_block(
         choices=choices
     )
 
@@ -424,7 +424,7 @@ def test_translate_streaming_openai_chunk_to_anthropic_content_block_thinking_an
     (
         block_type,
         content_block_start,
-    ) = LiteLLMAnthropicMessagesAdapter()._translate_streaming_openai_chunk_to_anthropic_content_block(
+    ) = EmbRouterAnthropicMessagesAdapter()._translate_streaming_openai_chunk_to_anthropic_content_block(
         choices=choices
     )
 
@@ -461,7 +461,7 @@ def test_translate_anthropic_messages_to_openai_thinking_blocks():
         ),
     ]
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     result = adapter.translate_anthropic_messages_to_openai(messages=anthropic_messages)
 
     assert len(result) == 2
@@ -510,7 +510,7 @@ def test_translate_anthropic_messages_to_openai_drops_bridge_encrypted_reasoning
         ),
     ]
 
-    result = LiteLLMAnthropicMessagesAdapter().translate_anthropic_messages_to_openai(messages=anthropic_messages)
+    result = EmbRouterAnthropicMessagesAdapter().translate_anthropic_messages_to_openai(messages=anthropic_messages)
 
     assert [m["role"] for m in result] == ["user", "assistant", "assistant"]
     assert not result[1].get("thinking_blocks")
@@ -541,7 +541,7 @@ def test_translate_anthropic_messages_to_openai_sets_reasoning_content():
         ),
     ]
 
-    result = LiteLLMAnthropicMessagesAdapter().translate_anthropic_messages_to_openai(messages=anthropic_messages)
+    result = EmbRouterAnthropicMessagesAdapter().translate_anthropic_messages_to_openai(messages=anthropic_messages)
 
     assert result[1]["reasoning_content"] == "Denver is dry in August.\nSan Francisco is foggy."
     assert result[1]["content"] == "Denver."
@@ -555,7 +555,7 @@ def test_translate_anthropic_messages_to_openai_sets_no_reasoning_content_withou
         ),
     ]
 
-    result = LiteLLMAnthropicMessagesAdapter().translate_anthropic_messages_to_openai(messages=anthropic_messages)
+    result = EmbRouterAnthropicMessagesAdapter().translate_anthropic_messages_to_openai(messages=anthropic_messages)
 
     assert "reasoning_content" not in result[0]
 
@@ -592,7 +592,7 @@ def test_translate_anthropic_messages_to_openai_tool_message_placement():
         ),
     ]
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     result = adapter.translate_anthropic_messages_to_openai(messages=anthropic_messages)
 
     # find the indices of tool and user messages in the result
@@ -691,7 +691,7 @@ def test_translate_anthropic_messages_to_openai_converts_midturn_system_correcti
         {"role": "user", "content": "Continue."},
     ]
 
-    result = LiteLLMAnthropicMessagesAdapter().translate_anthropic_messages_to_openai(
+    result = EmbRouterAnthropicMessagesAdapter().translate_anthropic_messages_to_openai(
         messages=messages,
         model="claude-3-5-sonnet-20240620",
     )
@@ -740,7 +740,7 @@ def test_translate_anthropic_messages_to_openai_preserves_midturn_system_cache_c
         }
     ]
 
-    result = LiteLLMAnthropicMessagesAdapter().translate_anthropic_messages_to_openai(
+    result = EmbRouterAnthropicMessagesAdapter().translate_anthropic_messages_to_openai(
         messages=messages,
         model="claude-3-5-sonnet-20240620",
     )
@@ -780,7 +780,7 @@ def test_translate_anthropic_messages_to_openai_drops_midturn_system_cache_contr
         }
     ]
 
-    result = LiteLLMAnthropicMessagesAdapter().translate_anthropic_messages_to_openai(
+    result = EmbRouterAnthropicMessagesAdapter().translate_anthropic_messages_to_openai(
         messages=messages,
         model="gpt-4o",
     )
@@ -812,7 +812,7 @@ def test_translate_anthropic_messages_to_openai_drops_empty_midturn_system(
 ):
     messages = [{"role": "system", "content": system_content}]
 
-    result = LiteLLMAnthropicMessagesAdapter().translate_anthropic_messages_to_openai(
+    result = EmbRouterAnthropicMessagesAdapter().translate_anthropic_messages_to_openai(
         messages=messages,
         model="claude-3-5-sonnet-20240620",
     )
@@ -826,7 +826,7 @@ def test_translate_anthropic_to_openai_orders_top_level_and_midturn_system():
     in-sequence correction keeps its own position as a user turn prefixed with the operator
     note -- no duplication of either, and no reordering of the surrounding turns.
     """
-    openai_request, _ = LiteLLMAnthropicMessagesAdapter().translate_anthropic_to_openai(
+    openai_request, _ = EmbRouterAnthropicMessagesAdapter().translate_anthropic_to_openai(
         anthropic_message_request={
             "model": "claude-3-5-sonnet-20240620",
             "max_tokens": 100,
@@ -878,7 +878,7 @@ def test_translate_anthropic_to_openai_converts_claude_code_midturn_system_turn(
     map knows nothing about) the outbound request must have exactly one system message, at index 0,
     and the converted turn must carry the operator note first.
     """
-    openai_request, _ = LiteLLMAnthropicMessagesAdapter().translate_anthropic_to_openai(
+    openai_request, _ = EmbRouterAnthropicMessagesAdapter().translate_anthropic_to_openai(
         anthropic_message_request={"model": "qwen3.8-27B", **_CLAUDE_CODE_MIDTURN_SYSTEM_REQUEST},
         custom_llm_provider=custom_llm_provider,
     )
@@ -898,12 +898,12 @@ def test_translate_anthropic_to_openai_keeps_midturn_system_when_target_declares
     """
     model: Final = "system-role-anywhere-chat-model"
     monkeypatch.setitem(
-        litellm.model_cost,
+        embrouter.model_cost,
         model,
-        {"litellm_provider": "openai", "mode": "chat", "supports_mid_conversation_system": True},
+        {"embrouter_provider": "openai", "mode": "chat", "supports_mid_conversation_system": True},
     )
 
-    openai_request, _ = LiteLLMAnthropicMessagesAdapter().translate_anthropic_to_openai(
+    openai_request, _ = EmbRouterAnthropicMessagesAdapter().translate_anthropic_to_openai(
         anthropic_message_request={"model": model, **_CLAUDE_CODE_MIDTURN_SYSTEM_REQUEST},
         custom_llm_provider="openai",
     )
@@ -925,7 +925,7 @@ def test_translate_anthropic_to_openai_moves_midturn_system_after_tool_result():
     A system entry wedged between an assistant tool_use turn and its tool_result turn is
     emitted after the role: "tool" message, so the tool call stays paired with its result.
     """
-    result = LiteLLMAnthropicMessagesAdapter().translate_anthropic_messages_to_openai(
+    result = EmbRouterAnthropicMessagesAdapter().translate_anthropic_messages_to_openai(
         messages=[
             {
                 "role": "assistant",
@@ -958,7 +958,7 @@ def test_translate_anthropic_to_openai_moves_midturn_system_after_tool_result():
 
 
 def test_translate_anthropic_messages_to_openai_converts_string_midturn_system():
-    result = LiteLLMAnthropicMessagesAdapter().translate_anthropic_messages_to_openai(
+    result = EmbRouterAnthropicMessagesAdapter().translate_anthropic_messages_to_openai(
         messages=[
             {"role": "user", "content": "hi"},
             {"role": "system", "content": "Keep it short."},
@@ -986,7 +986,7 @@ CLAUDE_CODE_USER_ID: Final = _claude_code_user_id("session-abc")
 
 
 def _translate_with_metadata(model: str, metadata: dict[str, str], custom_llm_provider: str | None) -> dict[str, Any]:
-    openai_request, _ = LiteLLMAnthropicMessagesAdapter().translate_anthropic_to_openai(
+    openai_request, _ = EmbRouterAnthropicMessagesAdapter().translate_anthropic_to_openai(
         anthropic_message_request={
             "model": model,
             "max_tokens": 100,
@@ -1079,11 +1079,11 @@ def test_translate_anthropic_to_openai_skips_prompt_cache_key_when_provider_lack
     assert "prompt_cache_key" not in openai_request
 
 
-def test_translate_anthropic_to_openai_skips_prompt_cache_key_for_chained_litellm_proxy():
-    assert "prompt_cache_key" in litellm.get_supported_openai_params(
-        model="xai", custom_llm_provider="litellm_proxy"
+def test_translate_anthropic_to_openai_skips_prompt_cache_key_for_chained_embrouter_proxy():
+    assert "prompt_cache_key" in embrouter.get_supported_openai_params(
+        model="xai", custom_llm_provider="embrouter_proxy"
     )
-    openai_request = _translate_with_metadata("litellm_proxy/xai", {"user_id": CLAUDE_CODE_USER_ID}, "litellm_proxy")
+    openai_request = _translate_with_metadata("embrouter_proxy/xai", {"user_id": CLAUDE_CODE_USER_ID}, "embrouter_proxy")
     assert openai_request["user"] == CLAUDE_CODE_USER_ID
     assert "prompt_cache_key" not in openai_request
 
@@ -1102,7 +1102,7 @@ def test_translate_anthropic_to_openai_skips_prompt_cache_key_for_empty_or_null_
 
 
 def test_translate_anthropic_to_openai_without_metadata_sets_neither_user_nor_prompt_cache_key():
-    openai_request, _ = LiteLLMAnthropicMessagesAdapter().translate_anthropic_to_openai(
+    openai_request, _ = EmbRouterAnthropicMessagesAdapter().translate_anthropic_to_openai(
         anthropic_message_request={
             "model": "openai/gpt-5.6-luna",
             "max_tokens": 100,
@@ -1135,7 +1135,7 @@ def test_translate_openai_content_to_anthropic_empty_function_arguments():
         )
     ]
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     result = adapter._translate_openai_content_to_anthropic(choices=openai_choices)
 
     assert len(result) == 1
@@ -1169,7 +1169,7 @@ def test_translate_openai_content_to_anthropic_text_and_tool_calls():
         )
     ]
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     result = adapter._translate_openai_content_to_anthropic(choices=openai_choices)
 
     assert len(result) == 2
@@ -1212,7 +1212,7 @@ def test_translate_openai_content_to_anthropic_strips_gemini_thought_from_tool_c
         )
     ]
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     result = adapter._translate_openai_content_to_anthropic(choices=openai_choices)
 
     assert len(result) == 1
@@ -1245,7 +1245,7 @@ def test_translate_openai_content_to_anthropic_sanitizes_colon_dot_tool_call_ids
         )
     ]
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     result = adapter._translate_openai_content_to_anthropic(choices=openai_choices)
 
     assert len(result) == 1
@@ -1279,7 +1279,7 @@ def test_translate_openai_response_to_anthropic_text_and_tool_calls():
         usage=Usage(prompt_tokens=5, completion_tokens=2),
     )
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     anthropic_response = adapter.translate_openai_response_to_anthropic(
         response=openai_response
     )
@@ -1323,7 +1323,7 @@ def test_translate_streaming_openai_chunk_to_anthropic_with_partial_json():
     (
         type_of_content,
         content_block_delta,
-    ) = LiteLLMAnthropicMessagesAdapter()._translate_streaming_openai_chunk_to_anthropic(
+    ) = EmbRouterAnthropicMessagesAdapter()._translate_streaming_openai_chunk_to_anthropic(
         choices=choices
     )
 
@@ -1353,7 +1353,7 @@ def test_translate_openai_content_to_anthropic_thinking_and_redacted_thinking():
         )
     ]
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     result = adapter._translate_openai_content_to_anthropic(choices=openai_choices)
 
     assert len(result) == 2
@@ -1388,7 +1388,7 @@ def test_translate_openai_content_to_anthropic_drops_empty_unsigned_thinking_blo
         )
     ]
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     result = adapter._translate_openai_content_to_anthropic(choices=openai_choices)
 
     assert [b["type"] for b in result] == ["thinking", "thinking", "redacted_thinking", "text"]
@@ -1434,7 +1434,7 @@ def test_translate_streaming_openai_chunk_to_anthropic_thinking_delta():
     (
         type_of_content,
         content_block_delta,
-    ) = LiteLLMAnthropicMessagesAdapter()._translate_streaming_openai_chunk_to_anthropic(
+    ) = EmbRouterAnthropicMessagesAdapter()._translate_streaming_openai_chunk_to_anthropic(
         choices=choices
     )
 
@@ -1479,7 +1479,7 @@ def test_translate_streaming_openai_chunk_to_anthropic_with_thinking():
     (
         type_of_content,
         content_block_delta,
-    ) = LiteLLMAnthropicMessagesAdapter()._translate_streaming_openai_chunk_to_anthropic(
+    ) = EmbRouterAnthropicMessagesAdapter()._translate_streaming_openai_chunk_to_anthropic(
         choices=choices
     )
 
@@ -1492,7 +1492,7 @@ def test_translate_streaming_openai_chunk_to_anthropic_emits_signature_when_thin
     """A single streaming chunk carrying both ``thinking`` and ``signature`` must
     translate to a ``signature_delta``, not crash.
 
-    litellm's Anthropic streaming handler emits the ``signature_delta`` event as an
+    embrouter's Anthropic streaming handler emits the ``signature_delta`` event as an
     OpenAI chunk whose ``thinking_blocks`` entry re-states the full accumulated
     thinking text alongside the signature (see anthropic/chat/handler.py). That text
     was already streamed as ``thinking_delta`` chunks, so the signature must win and
@@ -1531,7 +1531,7 @@ def test_translate_streaming_openai_chunk_to_anthropic_emits_signature_when_thin
         )
     ]
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
 
     (
         type_of_content,
@@ -1572,7 +1572,7 @@ def test_translate_anthropic_messages_to_openai_user_message_with_base64_image()
         )
     ]
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     result = adapter.translate_anthropic_messages_to_openai(messages=anthropic_messages)
 
     assert len(result) == 1
@@ -1612,7 +1612,7 @@ def test_translate_anthropic_messages_to_openai_user_message_with_url_image():
         )
     ]
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     result = adapter.translate_anthropic_messages_to_openai(messages=anthropic_messages)
 
     assert len(result) == 1
@@ -1671,7 +1671,7 @@ def test_translate_anthropic_messages_to_openai_tool_result_with_base64_image():
         ),
     ]
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     result = adapter.translate_anthropic_messages_to_openai(messages=anthropic_messages)
 
     # Find the tool message in the result
@@ -1729,7 +1729,7 @@ def test_translate_anthropic_messages_to_openai_tool_result_with_url_image():
         ),
     ]
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     result = adapter.translate_anthropic_messages_to_openai(messages=anthropic_messages)
 
     # Find the tool message in the result
@@ -1776,7 +1776,7 @@ def test_translate_anthropic_messages_to_openai_mixed_content_with_image():
         )
     ]
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     result = adapter.translate_anthropic_messages_to_openai(messages=anthropic_messages)
 
     assert len(result) == 1
@@ -1835,7 +1835,7 @@ def test_translate_anthropic_messages_to_openai_tool_use_with_signature():
         ),
     ]
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     result = adapter.translate_anthropic_messages_to_openai(messages=anthropic_messages)
 
     assert len(result) == 2
@@ -1905,7 +1905,7 @@ def test_translate_anthropic_messages_to_openai_tool_result_with_multiple_conten
         ),
     ]
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     result = adapter.translate_anthropic_messages_to_openai(messages=anthropic_messages)
 
     # Count how many tool messages have the same tool_call_id
@@ -1978,7 +1978,7 @@ def test_translate_anthropic_messages_to_openai_tool_result_single_item_backward
         ),
     ]
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     result = adapter.translate_anthropic_messages_to_openai(messages=anthropic_messages)
 
     tool_messages = [
@@ -2008,7 +2008,7 @@ def test_streaming_chunk_with_both_text_and_tool_calls_issue_18238():
             index=0,
             delta=Delta(
                 provider_specific_fields=None,
-                content="Here is some text for litellm",
+                content="Here is some text for embrouter",
                 role=None,
                 function_call=None,
                 tool_calls=[
@@ -2025,7 +2025,7 @@ def test_streaming_chunk_with_both_text_and_tool_calls_issue_18238():
         )
     ]
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
 
     # When both text and tool_calls exist, tool_calls (input_json_delta) takes priority
     (
@@ -2072,7 +2072,7 @@ def test_streaming_chunk_with_text_and_empty_tool_calls_returns_text_delta():
         )
     ]
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
 
     (
         type_of_content,
@@ -2113,7 +2113,7 @@ CACHE_CONTROL_BEDROCK_ARN_MODEL = (
 
 def test_should_add_cache_control_for_anthropic_model():
     """Should add cache_control to target for Anthropic Claude models."""
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     cache_control = {"type": "ephemeral"}
 
     for model in [
@@ -2132,7 +2132,7 @@ def test_should_add_cache_control_for_anthropic_model():
 
 def test_should_not_add_cache_control_for_non_anthropic_model():
     """Should not add cache_control for non-Anthropic models."""
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     cache_control = {"type": "ephemeral"}
 
     for model in [
@@ -2147,7 +2147,7 @@ def test_should_not_add_cache_control_for_non_anthropic_model():
 
 
 def test_should_add_cache_control_for_gemini_model():
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     cache_control = {"type": "ephemeral", "ttl": "1h"}
 
     for model in [
@@ -2177,7 +2177,7 @@ def test_cache_control_preserved_in_text_content_for_gemini():
         )
     ]
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     result = adapter.translate_anthropic_messages_to_openai(
         messages=anthropic_messages, model="gemini/gemini-3.5-flash"
     )
@@ -2188,7 +2188,7 @@ def test_cache_control_preserved_in_text_content_for_gemini():
 
 def test_should_not_add_cache_control_when_none():
     """Should not add cache_control when source has None or empty cache_control."""
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
 
     for source in [
         {"cache_control": None},
@@ -2205,7 +2205,7 @@ def test_should_not_add_cache_control_when_none():
 
 def test_should_not_add_cache_control_when_model_none():
     """Should not add cache_control when model is None or empty."""
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     cache_control = {"type": "ephemeral"}
 
     for model in [None, ""]:
@@ -2231,7 +2231,7 @@ def test_cache_control_preserved_in_text_content_for_claude():
         )
     ]
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     result = adapter.translate_anthropic_messages_to_openai(
         messages=anthropic_messages, model=CACHE_CONTROL_BEDROCK_CONVERSE_MODEL
     )
@@ -2255,7 +2255,7 @@ def test_cache_control_not_preserved_for_non_claude_model():
         )
     ]
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     result = adapter.translate_anthropic_messages_to_openai(
         messages=anthropic_messages, model=CACHE_CONTROL_NON_ANTHROPIC_MODEL
     )
@@ -2280,7 +2280,7 @@ def test_cache_control_not_preserved_for_non_claude_model():
 )
 def test_is_bedrock_arn_model(model, expected):
     """is_bedrock_arn_model requires an ARN with bedrock in the service field, not just anywhere."""
-    assert LiteLLMAnthropicMessagesAdapter.is_bedrock_arn_model(model) is expected
+    assert EmbRouterAnthropicMessagesAdapter.is_bedrock_arn_model(model) is expected
 
 
 def test_cache_control_preserved_for_bedrock_arn_inference_profile():
@@ -2303,7 +2303,7 @@ def test_cache_control_preserved_for_bedrock_arn_inference_profile():
         )
     ]
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     result = adapter.translate_anthropic_messages_to_openai(
         messages=anthropic_messages, model=CACHE_CONTROL_BEDROCK_ARN_MODEL
     )
@@ -2319,7 +2319,7 @@ def test_cache_control_fix_does_not_broaden_claude_detection():
     thinking params through unmodified and break non-Claude Bedrock profiles.
     """
     assert (
-        LiteLLMAnthropicMessagesAdapter.is_anthropic_claude_model(
+        EmbRouterAnthropicMessagesAdapter.is_anthropic_claude_model(
             CACHE_CONTROL_BEDROCK_ARN_MODEL
         )
         is False
@@ -2334,7 +2334,7 @@ def test_thinking_preserved_for_bedrock_arn_inference_profile():
     ["thinking"]` runs after the rewrite and has nothing left to drop, and the Bedrock
     Converse body re-expands reasoning_effort back into additionalModelRequestFields.thinking.
     """
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     thinking = {"type": "enabled", "budget_tokens": 1024}
 
     new_kwargs = {"model": CACHE_CONTROL_BEDROCK_ARN_MODEL}
@@ -2343,7 +2343,7 @@ def test_thinking_preserved_for_bedrock_arn_inference_profile():
     assert new_kwargs["thinking"] == thinking
     assert "reasoning_effort" not in new_kwargs
 
-    assert LiteLLMAnthropicMessagesAdapter.translate_thinking_for_model(thinking, CACHE_CONTROL_BEDROCK_ARN_MODEL) == {
+    assert EmbRouterAnthropicMessagesAdapter.translate_thinking_for_model(thinking, CACHE_CONTROL_BEDROCK_ARN_MODEL) == {
         "thinking": thinking
     }
 
@@ -2354,7 +2354,7 @@ def test_thinking_still_translated_to_reasoning_effort_for_non_claude_model():
     still has `thinking` converted to `reasoning_effort` so it does not hit an
     UnsupportedParamsError downstream.
     """
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     thinking = {"type": "enabled", "budget_tokens": 1024}
 
     new_kwargs = {"model": CACHE_CONTROL_NON_ANTHROPIC_MODEL}
@@ -2365,7 +2365,7 @@ def test_thinking_still_translated_to_reasoning_effort_for_non_claude_model():
 
 
 def test_thinking_disabled_translated_to_reasoning_effort_none_for_non_claude_model():
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     thinking = {"type": "disabled"}
 
     new_kwargs = {"model": CACHE_CONTROL_NON_ANTHROPIC_MODEL}
@@ -2376,18 +2376,18 @@ def test_thinking_disabled_translated_to_reasoning_effort_none_for_non_claude_mo
 
 
 def test_thinking_disabled_stays_plain_string_when_auto_summary_enabled():
-    import litellm
+    import embrouter
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     thinking = {"type": "disabled"}
 
-    original = litellm.reasoning_auto_summary
+    original = embrouter.reasoning_auto_summary
     try:
-        litellm.reasoning_auto_summary = True
+        embrouter.reasoning_auto_summary = True
         new_kwargs = {"model": CACHE_CONTROL_NON_ANTHROPIC_MODEL}
         adapter._translate_thinking_to_openai(cast(Any, {"thinking": thinking}), cast(Any, new_kwargs))
     finally:
-        litellm.reasoning_auto_summary = original
+        embrouter.reasoning_auto_summary = original
 
     assert new_kwargs["reasoning_effort"] == "none"
 
@@ -2416,8 +2416,8 @@ def test_adaptive_thinking_output_config_effort_preserved_for_claude_model(model
     `thinking`. Driving the translated request through the provider's own param mapping is what
     makes the second half a claim about the wire rather than about an intermediate key.
     """
-    from litellm.types.llms.anthropic import AnthropicMessagesRequest
-    from litellm.utils import get_optional_params
+    from embrouter.types.llms.anthropic import AnthropicMessagesRequest
+    from embrouter.utils import get_optional_params
 
     anthropic_request = AnthropicMessagesRequest(
         model=model,
@@ -2430,7 +2430,7 @@ def test_adaptive_thinking_output_config_effort_preserved_for_claude_model(model
         },
     )
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     openai_request, _ = adapter.translate_anthropic_to_openai(anthropic_message_request=anthropic_request)
 
     assert openai_request["thinking"] == {"type": "adaptive"}
@@ -2451,7 +2451,7 @@ def test_adaptive_thinking_output_config_effort_preserved_for_claude_model(model
 def test_adaptive_thinking_format_only_output_config_not_forwarded_for_claude_model():
     """When `output_config` carries only `format`, nothing effort-bearing remains, so the
     translator must not forward an empty `output_config` dict."""
-    from litellm.types.llms.anthropic import AnthropicMessagesRequest
+    from embrouter.types.llms.anthropic import AnthropicMessagesRequest
 
     anthropic_request = AnthropicMessagesRequest(
         model="bedrock/converse/us.anthropic.claude-opus-4-7",
@@ -2461,7 +2461,7 @@ def test_adaptive_thinking_format_only_output_config_not_forwarded_for_claude_mo
         output_config={"format": {"type": "json_schema", "schema": {"type": "object", "properties": {}}}},
     )
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     openai_request, _ = adapter.translate_anthropic_to_openai(anthropic_message_request=anthropic_request)
 
     assert openai_request["thinking"] == {"type": "adaptive"}
@@ -2475,7 +2475,7 @@ def test_adaptive_thinking_output_config_not_forwarded_for_non_bedrock_claude_mo
     Regression: the tier used to be dropped along with it, so an openrouter Claude deployment got a
     bare adaptive `thinking` block and the caller's effort did nothing, byte-identical for `max` and
     `minimal`. It now travels as `reasoning_effort`, which that provider does accept."""
-    from litellm.types.llms.anthropic import AnthropicMessagesRequest
+    from embrouter.types.llms.anthropic import AnthropicMessagesRequest
 
     anthropic_request = AnthropicMessagesRequest(
         model="openrouter/anthropic/claude-opus-4.7",
@@ -2485,7 +2485,7 @@ def test_adaptive_thinking_output_config_not_forwarded_for_non_bedrock_claude_mo
         output_config={"effort": "max"},
     )
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     openai_request, _ = adapter.translate_anthropic_to_openai(
         anthropic_message_request=anthropic_request, custom_llm_provider="openrouter"
     )
@@ -2500,9 +2500,9 @@ def test_every_adaptive_effort_tier_reaches_a_bridged_claude_target(effort):
     """The tier the caller asked for is the tier the bridge carries, for every level. The bug was
     invisible per-request because each call returned 200; only comparing two tiers showed the
     upstream body was the same either way."""
-    from litellm.types.llms.anthropic import AnthropicMessagesRequest
+    from embrouter.types.llms.anthropic import AnthropicMessagesRequest
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     openai_request, _ = adapter.translate_anthropic_to_openai(
         anthropic_message_request=AnthropicMessagesRequest(
             model="openrouter/anthropic/claude-opus-4.7",
@@ -2520,9 +2520,9 @@ def test_every_adaptive_effort_tier_reaches_a_bridged_claude_target(effort):
 def test_adaptive_thinking_without_a_tier_leaves_a_claude_target_on_its_own_default():
     """Adaptive with no `output_config.effort` must stay bare, so the provider's own adaptive
     default still decides. Inventing a tier here would silently override it."""
-    from litellm.types.llms.anthropic import AnthropicMessagesRequest
+    from embrouter.types.llms.anthropic import AnthropicMessagesRequest
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     openai_request, _ = adapter.translate_anthropic_to_openai(
         anthropic_message_request=AnthropicMessagesRequest(
             model="openrouter/anthropic/claude-opus-4-7",
@@ -2540,9 +2540,9 @@ def test_adaptive_thinking_without_a_tier_leaves_a_claude_target_on_its_own_defa
 def test_budgeted_thinking_on_a_claude_target_keeps_its_budget_and_gains_no_tier():
     """`enabled` + `budget_tokens` is more precise than any tier, so the bridge must forward it
     untouched rather than coarsening it into a `reasoning_effort` bucket."""
-    from litellm.types.llms.anthropic import AnthropicMessagesRequest
+    from embrouter.types.llms.anthropic import AnthropicMessagesRequest
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     openai_request, _ = adapter.translate_anthropic_to_openai(
         anthropic_message_request=AnthropicMessagesRequest(
             model="openrouter/anthropic/claude-opus-4-7",
@@ -2558,7 +2558,7 @@ def test_budgeted_thinking_on_a_claude_target_keeps_its_budget_and_gains_no_tier
 
 
 def test_stop_sequences_translated_to_stop_for_non_claude_model():
-    from litellm.types.llms.anthropic import AnthropicMessagesRequest
+    from embrouter.types.llms.anthropic import AnthropicMessagesRequest
 
     anthropic_request = AnthropicMessagesRequest(
         model=CACHE_CONTROL_NON_ANTHROPIC_MODEL,
@@ -2567,7 +2567,7 @@ def test_stop_sequences_translated_to_stop_for_non_claude_model():
         stop_sequences=["</block>"],
     )
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     openai_request, _ = adapter.translate_anthropic_to_openai(anthropic_message_request=anthropic_request)
 
     assert openai_request["stop"] == ["</block>"]
@@ -2575,7 +2575,7 @@ def test_stop_sequences_translated_to_stop_for_non_claude_model():
 
 
 def test_empty_stop_sequences_does_not_set_stop():
-    from litellm.types.llms.anthropic import AnthropicMessagesRequest
+    from embrouter.types.llms.anthropic import AnthropicMessagesRequest
 
     anthropic_request = AnthropicMessagesRequest(
         model=CACHE_CONTROL_NON_ANTHROPIC_MODEL,
@@ -2584,7 +2584,7 @@ def test_empty_stop_sequences_does_not_set_stop():
         stop_sequences=[],
     )
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     openai_request, _ = adapter.translate_anthropic_to_openai(anthropic_message_request=anthropic_request)
 
     assert "stop" not in openai_request
@@ -2609,7 +2609,7 @@ def test_cache_control_preserved_in_image_content_for_claude():
         )
     ]
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     result = adapter.translate_anthropic_messages_to_openai(
         messages=anthropic_messages, model=CACHE_CONTROL_BEDROCK_CONVERSE_MODEL
     )
@@ -2637,7 +2637,7 @@ def test_cache_control_preserved_in_document_content_for_claude():
         )
     ]
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     result = adapter.translate_anthropic_messages_to_openai(
         messages=anthropic_messages, model=CACHE_CONTROL_BEDROCK_CONVERSE_MODEL
     )
@@ -2662,7 +2662,7 @@ def test_cache_control_preserved_in_tool_result_for_claude():
         )
     ]
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     result = adapter.translate_anthropic_messages_to_openai(
         messages=anthropic_messages, model=CACHE_CONTROL_BEDROCK_CONVERSE_MODEL
     )
@@ -2687,7 +2687,7 @@ def test_cache_control_not_preserved_in_tool_result_for_non_claude():
         )
     ]
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     result = adapter.translate_anthropic_messages_to_openai(
         messages=anthropic_messages, model=CACHE_CONTROL_NON_ANTHROPIC_MODEL
     )
@@ -2711,7 +2711,7 @@ def test_cache_control_preserved_in_assistant_text_for_claude():
         )
     ]
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     result = adapter.translate_anthropic_messages_to_openai(
         messages=anthropic_messages, model=CACHE_CONTROL_BEDROCK_CONVERSE_MODEL
     )
@@ -2740,7 +2740,7 @@ def test_cache_control_preserved_in_tool_use_for_claude():
         )
     ]
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     result = adapter.translate_anthropic_messages_to_openai(
         messages=anthropic_messages, model=CACHE_CONTROL_BEDROCK_CONVERSE_MODEL
     )
@@ -2764,7 +2764,7 @@ def test_cache_control_preserved_in_tools_for_claude():
         }
     ]
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     result, tool_name_mapping = adapter.translate_anthropic_tools_to_openai(
         tools=tools, model=CACHE_CONTROL_BEDROCK_CONVERSE_MODEL
     )
@@ -2788,7 +2788,7 @@ def test_cache_control_not_preserved_in_tools_for_non_claude():
         }
     ]
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     result, tool_name_mapping = adapter.translate_anthropic_tools_to_openai(
         tools=tools, model=CACHE_CONTROL_NON_ANTHROPIC_MODEL
     )
@@ -2809,10 +2809,10 @@ def test_translate_anthropic_tools_to_openai_fills_missing_tool_name():
         },
         {"name": "", "input_schema": {"type": "object", "properties": {}}},
     ]
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     result, _ = adapter.translate_anthropic_tools_to_openai(tools=tools, model=None)
-    assert result[0]["function"]["name"] == "litellm_unnamed_tool_0"
-    assert result[1]["function"]["name"] == "litellm_unnamed_tool_1"
+    assert result[0]["function"]["name"] == "embrouter_unnamed_tool_0"
+    assert result[1]["function"]["name"] == "embrouter_unnamed_tool_1"
 
 
 def test_translate_anthropic_tools_to_openai_passes_provider_native_tool_dicts_through():
@@ -2825,7 +2825,7 @@ def test_translate_anthropic_tools_to_openai_passes_provider_native_tool_dicts_t
             "input_schema": {"type": "object", "properties": {"location": {"type": "string"}}},
         },
     ]
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     result, tool_name_mapping = adapter.translate_anthropic_tools_to_openai(tools=tools, model=None)
     assert result[0] == {"googleMaps": {}}
     assert result[1] == {"googleSearch": {}}
@@ -2834,7 +2834,7 @@ def test_translate_anthropic_tools_to_openai_passes_provider_native_tool_dicts_t
 
 
 def test_translate_anthropic_tools_to_openai_passes_openai_function_tools_through():
-    """A tool already in OpenAI function format must pass through unchanged instead of becoming litellm_unnamed_tool_N."""
+    """A tool already in OpenAI function format must pass through unchanged instead of becoming embrouter_unnamed_tool_N."""
     openai_tool = {
         "type": "function",
         "function": {
@@ -2842,7 +2842,7 @@ def test_translate_anthropic_tools_to_openai_passes_openai_function_tools_throug
             "parameters": {"type": "object", "properties": {"location": {"type": "string"}}},
         },
     }
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     result, _ = adapter.translate_anthropic_tools_to_openai(tools=[openai_tool], model=None)
     assert result == [openai_tool]
 
@@ -2880,7 +2880,7 @@ def test_translate_openai_content_to_anthropic_reasoning_content_without_thinkin
         )
     ]
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     result = adapter._translate_openai_content_to_anthropic(choices=openai_choices)
 
     assert len(result) == 2
@@ -2921,7 +2921,7 @@ def test_translate_streaming_openai_chunk_to_anthropic_reasoning_content_without
     (
         type_of_content,
         content_block_delta,
-    ) = LiteLLMAnthropicMessagesAdapter()._translate_streaming_openai_chunk_to_anthropic(
+    ) = EmbRouterAnthropicMessagesAdapter()._translate_streaming_openai_chunk_to_anthropic(
         choices=choices
     )
 
@@ -2954,7 +2954,7 @@ def test_translate_openai_response_to_anthropic_with_reasoning_content_only():
         usage=Usage(prompt_tokens=13, completion_tokens=138),
     )
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     anthropic_response = adapter.translate_openai_response_to_anthropic(
         response=openai_response
     )
@@ -3072,7 +3072,7 @@ def test_translate_anthropic_tools_with_long_names():
         }
     ]
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     result, tool_name_mapping = adapter.translate_anthropic_tools_to_openai(
         tools=tools, model="gpt-4"
     )
@@ -3096,7 +3096,7 @@ def test_translate_anthropic_tools_mixed_names():
         {"name": long_name, "input_schema": {"type": "object"}},
     ]
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     result, tool_name_mapping = adapter.translate_anthropic_tools_to_openai(
         tools=tools, model="gpt-4"
     )
@@ -3146,7 +3146,7 @@ def test_translate_openai_response_restores_tool_names():
         usage=Usage(prompt_tokens=10, completion_tokens=5, total_tokens=15),
     )
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     result = adapter.translate_openai_response_to_anthropic(
         response=response, tool_name_mapping=tool_name_mapping
     )
@@ -3175,7 +3175,7 @@ def test_translate_openai_response_to_anthropic_input_tokens_excludes_cached_tok
 
     Expected: anthropic.input_tokens = openai.prompt_tokens - openai.prompt_tokens_details.cached_tokens
     """
-    from litellm.types.utils import PromptTokensDetailsWrapper
+    from embrouter.types.utils import PromptTokensDetailsWrapper
 
     # Create OpenAI format response with cached tokens
     # Scenario: 100 total prompt tokens, 30 of which are cached
@@ -3204,7 +3204,7 @@ def test_translate_openai_response_to_anthropic_input_tokens_excludes_cached_tok
     )
 
     # Convert to Anthropic format
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     anthropic_response = adapter.translate_openai_response_to_anthropic(
         response=response,
         tool_name_mapping=None,
@@ -3224,7 +3224,7 @@ def test_translate_openai_response_to_anthropic_input_tokens_no_cache():
     """
     Regression test: input_tokens should equal prompt_tokens when there are no cached tokens.
     """
-    from litellm.types.utils import PromptTokensDetailsWrapper
+    from embrouter.types.utils import PromptTokensDetailsWrapper
 
     # Create OpenAI format response without cached tokens
     usage = Usage(
@@ -3250,7 +3250,7 @@ def test_translate_openai_response_to_anthropic_input_tokens_no_cache():
     )
 
     # Convert to Anthropic format
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     anthropic_response = adapter.translate_openai_response_to_anthropic(
         response=response,
         tool_name_mapping=None,
@@ -3267,7 +3267,7 @@ def test_translate_openai_response_to_anthropic_cache_tokens_from_prompt_tokens_
     _cache_read_input_tokens.  The adapter should populate cache_read_input_tokens
     from prompt_tokens_details.cached_tokens directly.
     """
-    from litellm.types.utils import PromptTokensDetailsWrapper
+    from embrouter.types.utils import PromptTokensDetailsWrapper
 
     # OpenAI-style usage: only prompt_tokens_details, no cache_read_input_tokens kwarg
     usage = Usage(
@@ -3293,7 +3293,7 @@ def test_translate_openai_response_to_anthropic_cache_tokens_from_prompt_tokens_
         usage=usage,
     )
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     anthropic_response = adapter.translate_openai_response_to_anthropic(
         response=response,
         tool_name_mapping=None,
@@ -3315,7 +3315,7 @@ def test_translate_openai_usage_to_anthropic_cache_tokens_from_dict_details_with
         "cache_write_tokens": 20.0,
     }
 
-    anthropic_usage = LiteLLMAnthropicMessagesAdapter._translate_openai_usage_to_anthropic_usage_delta(
+    anthropic_usage = EmbRouterAnthropicMessagesAdapter._translate_openai_usage_to_anthropic_usage_delta(
         usage
     )
 
@@ -3336,7 +3336,7 @@ def test_translate_openai_usage_to_anthropic_ignores_fractional_cache_tokens():
         "cache_creation_tokens": 20.25,
     }
 
-    anthropic_usage = LiteLLMAnthropicMessagesAdapter._translate_openai_usage_to_anthropic_usage_delta(
+    anthropic_usage = EmbRouterAnthropicMessagesAdapter._translate_openai_usage_to_anthropic_usage_delta(
         usage
     )
 
@@ -3355,7 +3355,7 @@ def test_translate_openai_usage_to_anthropic_ignores_bool_cache_tokens():
     usage.cache_read_input_tokens = True
     usage.cache_creation_input_tokens = True
 
-    anthropic_usage = LiteLLMAnthropicMessagesAdapter._translate_openai_usage_to_anthropic_usage_delta(
+    anthropic_usage = EmbRouterAnthropicMessagesAdapter._translate_openai_usage_to_anthropic_usage_delta(
         usage
     )
 
@@ -3366,7 +3366,7 @@ def test_translate_openai_usage_to_anthropic_ignores_bool_cache_tokens():
 
 
 def test_translate_openai_response_to_anthropic_cache_creation_from_prompt_tokens_details():
-    from litellm.types.utils import PromptTokensDetailsWrapper
+    from embrouter.types.utils import PromptTokensDetailsWrapper
 
     usage = Usage(
         prompt_tokens=120,
@@ -3394,7 +3394,7 @@ def test_translate_openai_response_to_anthropic_cache_creation_from_prompt_token
         usage=usage,
     )
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     anthropic_response = adapter.translate_openai_response_to_anthropic(
         response=response,
         tool_name_mapping=None,
@@ -3427,7 +3427,7 @@ def test_translate_openai_response_to_anthropic_cache_tokens_from_usage_fields()
         usage=usage,
     )
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     anthropic_response = adapter.translate_openai_response_to_anthropic(
         response=response,
         tool_name_mapping=None,
@@ -3460,7 +3460,7 @@ def test_translate_openai_response_to_anthropic_cache_tokens_from_private_usage_
     response.usage._cache_read_input_tokens = 30
     response.usage._cache_creation_input_tokens = 20
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     anthropic_response = adapter.translate_openai_response_to_anthropic(
         response=response,
         tool_name_mapping=None,
@@ -3473,7 +3473,7 @@ def test_translate_openai_response_to_anthropic_cache_tokens_from_private_usage_
 
 
 def test_translate_streaming_openai_response_to_anthropic_cache_tokens_from_prompt_tokens_details():
-    from litellm.types.utils import PromptTokensDetailsWrapper
+    from embrouter.types.utils import PromptTokensDetailsWrapper
 
     usage = Usage(
         prompt_tokens=120,
@@ -3495,7 +3495,7 @@ def test_translate_streaming_openai_response_to_anthropic_cache_tokens_from_prom
         usage=usage,
     )
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     message_delta = adapter.translate_streaming_openai_response_to_anthropic(
         response=response,
         current_content_block_index=0,
@@ -3508,7 +3508,7 @@ def test_translate_streaming_openai_response_to_anthropic_cache_tokens_from_prom
 
 
 def test_translate_streaming_openai_response_to_anthropic_cache_tokens_from_hidden_params_usage():
-    from litellm.types.utils import PromptTokensDetailsWrapper
+    from embrouter.types.utils import PromptTokensDetailsWrapper
 
     usage = Usage(
         prompt_tokens=120,
@@ -3530,7 +3530,7 @@ def test_translate_streaming_openai_response_to_anthropic_cache_tokens_from_hidd
     )
     response._hidden_params = {"usage": usage}
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     message_delta = adapter.translate_streaming_openai_response_to_anthropic(
         response=response,
         current_content_block_index=0,
@@ -3543,7 +3543,7 @@ def test_translate_streaming_openai_response_to_anthropic_cache_tokens_from_hidd
 
 
 def test_translate_streaming_openai_response_to_anthropic_cache_tokens_with_applied_edits():
-    from litellm.types.utils import PromptTokensDetailsWrapper
+    from embrouter.types.utils import PromptTokensDetailsWrapper
 
     usage = Usage(
         prompt_tokens=120,
@@ -3565,7 +3565,7 @@ def test_translate_streaming_openai_response_to_anthropic_cache_tokens_with_appl
         usage=usage,
     )
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     message_delta = adapter.translate_streaming_openai_response_to_anthropic(
         response=response,
         current_content_block_index=0,
@@ -3588,7 +3588,7 @@ def test_translate_streaming_openai_response_to_anthropic_cache_tokens_with_appl
 
 def test_is_web_search_tool():
     """Test detection of Anthropic web search tools."""
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
 
     # Tool with type starting with "web_search" should be detected
     web_search_tool_with_type = {
@@ -3614,7 +3614,7 @@ def test_is_web_search_tool():
 
 @pytest.mark.parametrize("schema", [{}, {"type": "object", "properties": {"query": {"type": "string"}}}])
 def test_translate_anthropic_client_web_search_preserves_schema_and_choice(schema: dict[str, object]) -> None:
-    from litellm.types.llms.anthropic import AnthropicMessagesRequest
+    from embrouter.types.llms.anthropic import AnthropicMessagesRequest
 
     request: Final = AnthropicMessagesRequest(
         model="gpt-5.4-mini",
@@ -3624,7 +3624,7 @@ def test_translate_anthropic_client_web_search_preserves_schema_and_choice(schem
         tool_choice={"type": "tool", "name": "web_search"},
     )
 
-    translated, _ = LiteLLMAnthropicMessagesAdapter().translate_anthropic_to_openai(request)
+    translated, _ = EmbRouterAnthropicMessagesAdapter().translate_anthropic_to_openai(request)
 
     assert "web_search_options" not in translated
     assert translated["tools"] == [
@@ -3640,7 +3640,7 @@ def test_translate_anthropic_to_openai_with_web_search_tool():
     When a user sends an Anthropic /v1/messages request with {"type": "web_search_20260209"}
     tool, it should be transformed to OpenAI format with web_search_options: {} parameter.
     """
-    from litellm.types.llms.anthropic import AnthropicMessagesRequest
+    from embrouter.types.llms.anthropic import AnthropicMessagesRequest
 
     anthropic_request = AnthropicMessagesRequest(
         model="gemini-2.5-flash-lite",
@@ -3659,7 +3659,7 @@ def test_translate_anthropic_to_openai_with_web_search_tool():
         ],
     )
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     openai_request, tool_name_mapping = adapter.translate_anthropic_to_openai(
         anthropic_message_request=anthropic_request
     )
@@ -3683,7 +3683,7 @@ def test_translate_anthropic_to_openai_with_mixed_tools():
     only the regular tools should be in the tools array, and web_search_options
     should be added.
     """
-    from litellm.types.llms.anthropic import AnthropicMessagesRequest
+    from embrouter.types.llms.anthropic import AnthropicMessagesRequest
 
     anthropic_request = AnthropicMessagesRequest(
         model="gemini-2.5-flash-lite",
@@ -3710,7 +3710,7 @@ def test_translate_anthropic_to_openai_with_mixed_tools():
         ],
     )
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     openai_request, tool_name_mapping = adapter.translate_anthropic_to_openai(
         anthropic_message_request=anthropic_request
     )
@@ -3732,7 +3732,7 @@ class TestTranslateAnthropicOutputFormatToOpenAI:
     """Tests for translate_anthropic_output_format_to_openai adding additionalProperties: false."""
 
     def setup_method(self):
-        self.adapter = LiteLLMAnthropicMessagesAdapter()
+        self.adapter = EmbRouterAnthropicMessagesAdapter()
 
     def test_simple_object_adds_additional_properties_false(self):
         output_format = {
@@ -3944,7 +3944,7 @@ class TestAnthropicStreamWrapperToolArgs:
         return [text_chunk, tool_chunk, finish_chunk]
 
     def _make_stream_wrapper(self, chunks):
-        from litellm.llms.anthropic.pass_through.adapters.streaming_iterator import (
+        from embrouter.llms.anthropic.pass_through.adapters.streaming_iterator import (
             AnthropicStreamWrapper,
         )
 
@@ -4030,7 +4030,7 @@ def test_translate_anthropic_tool_choice_none():
     tool_choice={"type": "none"} should be translated to "none" for OpenAI format,
     not raise a ValueError.
     """
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
 
     result = adapter.translate_anthropic_tool_choice_to_openai({"type": "none"})
     assert result == "none"
@@ -4059,7 +4059,7 @@ def _make_simple_openai_response(
 
 def test_translate_openai_response_to_anthropic_with_polyfill_compaction_block():
     """compaction_block from PolyfillResult must be prepended to content at index 0."""
-    from litellm.llms.anthropic.pass_through.context_management.result import (
+    from embrouter.llms.anthropic.pass_through.context_management.result import (
         PolyfillResult,
     )
 
@@ -4072,7 +4072,7 @@ def test_translate_openai_response_to_anthropic_with_polyfill_compaction_block()
         iterations_usage=None,
     )
     response = _make_simple_openai_response(text="Hello after compaction.")
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     result = adapter.translate_openai_response_to_anthropic(
         response=response, polyfill_result=polyfill
     )
@@ -4092,7 +4092,7 @@ def test_translate_openai_response_to_anthropic_with_polyfill_compaction_block()
 
 def test_translate_openai_response_to_anthropic_with_polyfill_iterations_usage():
     """iterations_usage from PolyfillResult must produce usage['iterations'] with a message entry."""
-    from litellm.llms.anthropic.pass_through.context_management.result import (
+    from embrouter.llms.anthropic.pass_through.context_management.result import (
         PolyfillResult,
     )
 
@@ -4106,7 +4106,7 @@ def test_translate_openai_response_to_anthropic_with_polyfill_iterations_usage()
         ],
     )
     response = _make_simple_openai_response(prompt_tokens=100, completion_tokens=30)
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     result = adapter.translate_openai_response_to_anthropic(
         response=response, polyfill_result=polyfill
     )
@@ -4133,7 +4133,7 @@ def test_translate_openai_response_to_anthropic_with_polyfill_iterations_usage()
 def test_translate_openai_response_to_anthropic_no_polyfill_no_change():
     """Without a PolyfillResult the response must be unchanged (no compaction, no iterations)."""
     response = _make_simple_openai_response()
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     result = adapter.translate_openai_response_to_anthropic(response=response)
 
     content = result.get("content")
@@ -4147,7 +4147,7 @@ def test_translate_openai_response_to_anthropic_no_polyfill_no_change():
 
 def test_translate_openai_response_to_anthropic_with_polyfill_both_compaction_and_iterations():
     """Full summary path: compaction_block and iterations_usage both present simultaneously."""
-    from litellm.llms.anthropic.pass_through.context_management.result import (
+    from embrouter.llms.anthropic.pass_through.context_management.result import (
         PolyfillResult,
     )
 
@@ -4167,7 +4167,7 @@ def test_translate_openai_response_to_anthropic_with_polyfill_both_compaction_an
     response = _make_simple_openai_response(
         text="After compaction.", prompt_tokens=120, completion_tokens=40
     )
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     result = adapter.translate_openai_response_to_anthropic(
         response=response, polyfill_result=polyfill
     )
@@ -4208,7 +4208,7 @@ def test_translate_openai_response_to_anthropic_with_polyfill_both_compaction_an
 def test_translate_anthropic_tools_to_openai_preserves_parameters_type():
     """Regression for #30557: the Anthropic tool `type` ("custom") must not be
     merged into the OpenAI function `parameters`, overwriting parameters.type."""
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     tools = [
         {
             "type": "custom",
@@ -4227,7 +4227,7 @@ def test_translate_anthropic_tools_to_openai_preserves_parameters_type():
 
 def test_translate_anthropic_tools_to_openai_maps_strict_onto_function_not_parameters():
     """A tool-level `strict` lands on the OpenAI function, leaving the caller's `input_schema` untouched."""
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     input_schema = {
         "type": "object",
         "properties": {"city": {"type": "string"}},
@@ -4251,7 +4251,7 @@ def test_translate_anthropic_tools_to_openai_maps_strict_onto_function_not_param
 
 def test_translate_anthropic_tools_to_openai_omits_unset_strict():
     """Chat Completions already defaults to non-strict, so an unset `strict` stays unset."""
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     tools = [
         {
             "type": "custom",
@@ -4310,10 +4310,10 @@ def _url_image_block():
 def _run_chat_completions_pipeline(anthropic_messages):
     """Anthropic /v1/messages input -> chat adapter -> the OpenAI-compatible
     request transformation every OpenAIGPTConfig-based provider runs."""
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     translated = adapter.translate_anthropic_messages_to_openai(messages=anthropic_messages)
     request = OpenAIGPTConfig().transform_request(
-        model="gpt-5.4-mini", messages=translated, optional_params={}, litellm_params={}, headers={}
+        model="gpt-5.4-mini", messages=translated, optional_params={}, embrouter_params={}, headers={}
     )
     return request["messages"]
 
@@ -4423,7 +4423,7 @@ def test_tool_result_parallel_tool_calls_keep_tool_message_adjacency():
     ids=["untranslatable_source", "missing_source", "non_dict_source"],
 )
 def test_tool_result_malformed_image_source_keeps_empty_tool_content(image_block):
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     translated = adapter.translate_anthropic_messages_to_openai(
         messages=[
             _anthropic_tool_use_turn("toolu_01"),
@@ -4461,7 +4461,7 @@ def _base64_pdf_block():
 
 
 def test_tool_result_single_document_kept_as_pdf_data_url():
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     translated = adapter.translate_anthropic_messages_to_openai(
         messages=[
             _anthropic_tool_use_turn("toolu_01"),
@@ -4482,7 +4482,7 @@ def test_tool_result_single_document_kept_as_pdf_data_url():
 def test_tool_result_text_and_document_reach_bedrock_converse_tool_result():
     """Claude Code >= 2.1.245 sends Read-tool PDF output as a document block inside
     tool_result; dropping it left bedrock converse models blind to the PDF content."""
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     translated = adapter.translate_anthropic_messages_to_openai(
         messages=[
             AnthropicMessagesUserMessageParam(role="user", content="Read pong.pdf"),
@@ -4521,7 +4521,7 @@ def test_tool_result_text_and_document_reach_bedrock_converse_tool_result():
 
 def test_translate_anthropic_to_openai_carries_prompt_cache_breakpoint_on_system_and_user_blocks():
     explicit = {"mode": "explicit"}
-    openai_request, _ = LiteLLMAnthropicMessagesAdapter().translate_anthropic_to_openai(
+    openai_request, _ = EmbRouterAnthropicMessagesAdapter().translate_anthropic_to_openai(
         anthropic_message_request={
             "model": "gpt-5.6",
             "max_tokens": 64,
@@ -4552,7 +4552,7 @@ def test_translate_anthropic_to_openai_carries_prompt_cache_breakpoint_on_system
 
 
 def test_translate_anthropic_to_openai_without_prompt_cache_breakpoint_adds_nothing():
-    openai_request, _ = LiteLLMAnthropicMessagesAdapter().translate_anthropic_to_openai(
+    openai_request, _ = EmbRouterAnthropicMessagesAdapter().translate_anthropic_to_openai(
         anthropic_message_request={
             "model": "gpt-5.6",
             "max_tokens": 64,
@@ -4566,7 +4566,7 @@ def test_translate_anthropic_to_openai_without_prompt_cache_breakpoint_adds_noth
 
 def test_translate_anthropic_messages_to_openai_carries_midturn_system_prompt_cache_breakpoint():
     explicit = {"mode": "explicit"}
-    result = LiteLLMAnthropicMessagesAdapter().translate_anthropic_messages_to_openai(
+    result = EmbRouterAnthropicMessagesAdapter().translate_anthropic_messages_to_openai(
         messages=[{"role": "system", "content": [{"type": "text", "text": "fix", "prompt_cache_breakpoint": explicit}]}],
         model="gpt-5.6",
     )
@@ -4580,7 +4580,7 @@ def _tool_reference_block(tool_name="WebFetch"):
 
 
 def test_tool_result_tool_reference_is_carried_through_untouched():
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
 
     result = adapter.translate_anthropic_messages_to_openai(
         messages=[
@@ -4595,7 +4595,7 @@ def test_tool_result_tool_reference_is_carried_through_untouched():
 
 
 def test_tool_result_text_beside_tool_reference_keeps_both_parts_in_order():
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
 
     result = adapter.translate_anthropic_messages_to_openai(
         messages=[
@@ -4625,7 +4625,7 @@ def test_tool_result_text_beside_tool_reference_keeps_both_parts_in_order():
     ids=["empty_list", "null", "empty_string", "non_list", "unknown_block", "search_result_only"],
 )
 def test_tool_result_without_translatable_content_still_answers_its_tool_use(tool_result_content):
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
 
     result = adapter.translate_anthropic_messages_to_openai(
         messages=[
@@ -4660,7 +4660,7 @@ def _openai_response_with_usage(usage: Usage) -> ModelResponse:
 
 
 def test_translate_openai_response_to_anthropic_maps_gemini_web_search_usage():
-    from litellm.types.utils import PromptTokensDetailsWrapper
+    from embrouter.types.utils import PromptTokensDetailsWrapper
 
     usage = Usage(
         prompt_tokens=385,
@@ -4669,7 +4669,7 @@ def test_translate_openai_response_to_anthropic_maps_gemini_web_search_usage():
         prompt_tokens_details=PromptTokensDetailsWrapper(text_tokens=385, web_search_requests=2),
     )
 
-    anthropic_response = LiteLLMAnthropicMessagesAdapter().translate_openai_response_to_anthropic(
+    anthropic_response = EmbRouterAnthropicMessagesAdapter().translate_openai_response_to_anthropic(
         response=_openai_response_with_usage(usage)
     )
 
@@ -4677,7 +4677,7 @@ def test_translate_openai_response_to_anthropic_maps_gemini_web_search_usage():
 
 
 def test_translate_openai_response_to_anthropic_maps_server_tool_use_web_search_usage():
-    from litellm.types.utils import ServerToolUse
+    from embrouter.types.utils import ServerToolUse
 
     usage = Usage(
         prompt_tokens=100,
@@ -4686,7 +4686,7 @@ def test_translate_openai_response_to_anthropic_maps_server_tool_use_web_search_
         server_tool_use=ServerToolUse(web_search_requests=3),
     )
 
-    anthropic_response = LiteLLMAnthropicMessagesAdapter().translate_openai_response_to_anthropic(
+    anthropic_response = EmbRouterAnthropicMessagesAdapter().translate_openai_response_to_anthropic(
         response=_openai_response_with_usage(usage)
     )
 
@@ -4696,7 +4696,7 @@ def test_translate_openai_response_to_anthropic_maps_server_tool_use_web_search_
 def test_translate_openai_response_to_anthropic_omits_server_tool_use_without_web_search():
     usage = Usage(prompt_tokens=100, completion_tokens=40, total_tokens=140)
 
-    anthropic_response = LiteLLMAnthropicMessagesAdapter().translate_openai_response_to_anthropic(
+    anthropic_response = EmbRouterAnthropicMessagesAdapter().translate_openai_response_to_anthropic(
         response=_openai_response_with_usage(usage)
     )
 
@@ -4704,9 +4704,9 @@ def test_translate_openai_response_to_anthropic_omits_server_tool_use_without_we
 
 
 def test_completion_cost_on_translated_anthropic_response_includes_web_search():
-    from litellm.types.utils import PromptTokensDetailsWrapper
+    from embrouter.types.utils import PromptTokensDetailsWrapper
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     with_search = adapter.translate_openai_response_to_anthropic(
         response=_openai_response_with_usage(
             Usage(
@@ -4721,18 +4721,18 @@ def test_completion_cost_on_translated_anthropic_response_includes_web_search():
         response=_openai_response_with_usage(Usage(prompt_tokens=385, completion_tokens=566, total_tokens=951))
     )
 
-    cost_with_search = litellm.completion_cost(
+    cost_with_search = embrouter.completion_cost(
         completion_response=with_search,
         model="gemini/gemini-3-flash-preview",
         call_type="anthropic_messages",
     )
-    cost_without_search = litellm.completion_cost(
+    cost_without_search = embrouter.completion_cost(
         completion_response=without_search,
         model="gemini/gemini-3-flash-preview",
         call_type="anthropic_messages",
     )
 
-    per_query_cost = litellm.model_cost["gemini/gemini-3-flash-preview"]["search_context_cost_per_query"][
+    per_query_cost = embrouter.model_cost["gemini/gemini-3-flash-preview"]["search_context_cost_per_query"][
         "search_context_size_medium"
     ]
     assert per_query_cost > 0
@@ -4755,10 +4755,10 @@ def test_a_summary_bearing_adaptive_request_still_delivers_its_tier(model, provi
     Each case names the exact tier that provider ends up sending, not merely that something arrived:
     bedrock and databricks rebuild `output_config`, and openrouter applies its own max to xhigh
     remap, so asserting presence alone would pass on a mapping that silently changed the tier."""
-    from litellm.types.llms.anthropic import AnthropicMessagesRequest
-    from litellm.utils import get_optional_params
+    from embrouter.types.llms.anthropic import AnthropicMessagesRequest
+    from embrouter.utils import get_optional_params
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     openai_request, _ = adapter.translate_anthropic_to_openai(
         anthropic_message_request=AnthropicMessagesRequest(
             model=model,
@@ -4790,10 +4790,10 @@ def test_an_inference_profile_arn_keeps_taking_its_tier_as_output_config():
     """Regression: an ARN contains neither `anthropic` nor `claude`, so it reaches this branch only
     through `is_bedrock_arn_model`. Bedrock resolves no chat config for one, so `reasoning_effort`
     is dropped there and the tier vanishes; `output_config` is what survives."""
-    from litellm.types.llms.anthropic import AnthropicMessagesRequest
-    from litellm.utils import get_optional_params
+    from embrouter.types.llms.anthropic import AnthropicMessagesRequest
+    from embrouter.utils import get_optional_params
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     openai_request, _ = adapter.translate_anthropic_to_openai(
         anthropic_message_request=AnthropicMessagesRequest(
             model=ARN_MODEL,
@@ -4821,11 +4821,11 @@ def test_a_bedrock_target_keeps_a_caller_set_thinking_display():
     """`output_config` attaches the tier without touching `thinking`, so a caller who asked for
     `display: omitted` still gets it. Carrying the tier as `reasoning_effort` instead lets the
     provider mapping rewrite that block."""
-    from litellm.types.llms.anthropic import AnthropicMessagesRequest
-    from litellm.utils import get_optional_params
+    from embrouter.types.llms.anthropic import AnthropicMessagesRequest
+    from embrouter.utils import get_optional_params
 
     thinking = {"type": "adaptive", "display": "omitted"}
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     openai_request, _ = adapter.translate_anthropic_to_openai(
         anthropic_message_request=AnthropicMessagesRequest(
             model="bedrock/converse/us.anthropic.claude-opus-4-7",
@@ -4850,9 +4850,9 @@ def test_a_bedrock_target_keeps_a_caller_set_thinking_display():
 def test_a_non_claude_target_keeps_its_summary_wrapping():
     """The negative class: a target that gets no `thinking` block has nowhere else to put the
     summary, so the wrapped dict is still the right shape there."""
-    from litellm.types.llms.anthropic import AnthropicMessagesRequest
+    from embrouter.types.llms.anthropic import AnthropicMessagesRequest
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     openai_request, _ = adapter.translate_anthropic_to_openai(
         anthropic_message_request=AnthropicMessagesRequest(
             model="gpt-5-mini",
@@ -4870,13 +4870,13 @@ def test_a_non_claude_target_keeps_its_summary_wrapping():
 def test_a_databricks_target_trades_its_thinking_display_for_the_tier():
     """The one accepted cost of carrying the tier as `reasoning_effort`: databricks rebuilds the
     thinking block while mapping it, so a caller-set `display` is replaced. Pinned rather than left
-    silent. It only takes `output_config` when litellm sends one, which this bridge cannot do for a
+    silent. It only takes `output_config` when embrouter sends one, which this bridge cannot do for a
     provider whose own supported-params list omits it, so the tier is the thing worth keeping here.
     Bedrock avoids this entirely by taking `output_config` directly."""
-    from litellm.types.llms.anthropic import AnthropicMessagesRequest
-    from litellm.utils import get_optional_params
+    from embrouter.types.llms.anthropic import AnthropicMessagesRequest
+    from embrouter.utils import get_optional_params
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     openai_request, _ = adapter.translate_anthropic_to_openai(
         anthropic_message_request=AnthropicMessagesRequest(
             model="databricks/databricks-claude-opus-4-7",
@@ -4915,10 +4915,10 @@ def test_a_target_declaring_no_reasoning_effort_is_sent_none(thinking, output_co
 
     Being Claude-family is a fact about the model, not about the params the provider in front of
     it accepts. The tier stays behind and the caller's `thinking` block travels untouched."""
-    from litellm.types.llms.anthropic import AnthropicMessagesRequest
-    from litellm.utils import get_optional_params
+    from embrouter.types.llms.anthropic import AnthropicMessagesRequest
+    from embrouter.utils import get_optional_params
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     openai_request, _ = adapter.translate_anthropic_to_openai(
         anthropic_message_request=AnthropicMessagesRequest(
             model="snowflake/claude-sonnet-4-6",
@@ -4947,9 +4947,9 @@ def test_a_target_declaring_reasoning_effort_still_gets_its_tier():
     """The negative class for the gate. Same request shape, a provider that does declare the
     param, so the tier must still travel: the gate must drop it for snowflake alone, not for
     every Claude target, or it would undo the fix it is protecting."""
-    from litellm.types.llms.anthropic import AnthropicMessagesRequest
+    from embrouter.types.llms.anthropic import AnthropicMessagesRequest
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     openai_request, _ = adapter.translate_anthropic_to_openai(
         anthropic_message_request=AnthropicMessagesRequest(
             model="databricks/databricks-claude-opus-4-7",
@@ -4980,9 +4980,9 @@ def test_a_caller_that_names_no_provider_carries_no_tier(model):
     That resolution runs an OAuth device flow for copilot and chatgpt, which would block this
     call for minutes, and one of the two callers is a logging callback. A test asserting the
     absence here is also a test that this stays fast."""
-    from litellm.types.llms.anthropic import AnthropicMessagesRequest
+    from embrouter.types.llms.anthropic import AnthropicMessagesRequest
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     openai_request, _ = adapter.translate_anthropic_to_openai(
         anthropic_message_request=AnthropicMessagesRequest(
             model=model,
@@ -4997,23 +4997,23 @@ def test_a_caller_that_names_no_provider_carries_no_tier(model):
     assert "reasoning_effort" not in openai_request
 
 
-def test_a_chained_litellm_proxy_target_still_takes_the_tier():
+def test_a_chained_embrouter_proxy_target_still_takes_the_tier():
     """The one place this deliberately parts company with `_supports_prompt_cache_key`, which
     excludes a provider that proxies an unknown backend. That exclusion is right for a derived
     cache key and wrong here: the downstream proxy declares this param and resolves the real
     target itself, so excluding it would drop a tier that arrives perfectly well."""
-    from litellm.types.llms.anthropic import AnthropicMessagesRequest
+    from embrouter.types.llms.anthropic import AnthropicMessagesRequest
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     openai_request, _ = adapter.translate_anthropic_to_openai(
         anthropic_message_request=AnthropicMessagesRequest(
-            model="litellm_proxy/claude-sonnet-4-6",
+            model="embrouter_proxy/claude-sonnet-4-6",
             max_tokens=1024,
             messages=[{"role": "user", "content": "hi"}],
             thinking={"type": "adaptive"},
             output_config={"effort": "max"},
         ),
-        custom_llm_provider="litellm_proxy",
+        custom_llm_provider="embrouter_proxy",
     )
 
     assert openai_request["reasoning_effort"] == "max"
@@ -5024,9 +5024,9 @@ def test_a_bedrock_target_still_takes_output_config_not_the_declared_gate():
     """Bedrock declares both carriers, so the gate must not change which one it gets: the tier
     rides in `output_config`, which leaves `thinking` alone, and `reasoning_effort` is never
     stored alongside it."""
-    from litellm.types.llms.anthropic import AnthropicMessagesRequest
+    from embrouter.types.llms.anthropic import AnthropicMessagesRequest
 
-    adapter = LiteLLMAnthropicMessagesAdapter()
+    adapter = EmbRouterAnthropicMessagesAdapter()
     openai_request, _ = adapter.translate_anthropic_to_openai(
         anthropic_message_request=AnthropicMessagesRequest(
             model="bedrock/converse/us.anthropic.claude-opus-4-7",
@@ -5054,7 +5054,7 @@ def test_thinking_blocks_never_carry_cache_control_back_to_anthropic(client_cach
     """A cache_control surviving the round trip is a `messages.N.content.0.thinking.
     cache_control: Extra inputs are not permitted` 400 from Anthropic, whether the client
     sent one or the adapter invented an empty one."""
-    from litellm.llms.anthropic.chat.transformation import AnthropicConfig
+    from embrouter.llms.anthropic.chat.transformation import AnthropicConfig
 
     thinking_block: Final = {
         "type": "thinking",
@@ -5063,7 +5063,7 @@ def test_thinking_blocks_never_carry_cache_control_back_to_anthropic(client_cach
         **({"cache_control": client_cache_control} if client_cache_control is not None else {}),
     }
 
-    openai_request, _ = LiteLLMAnthropicMessagesAdapter().translate_anthropic_to_openai(
+    openai_request, _ = EmbRouterAnthropicMessagesAdapter().translate_anthropic_to_openai(
         {
             "model": "claude-sonnet-5",
             "max_tokens": 4096,
@@ -5083,7 +5083,7 @@ def test_thinking_blocks_never_carry_cache_control_back_to_anthropic(client_cach
         model="claude-sonnet-5",
         messages=openai_request["messages"],
         optional_params={"max_tokens": 4096},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -5095,9 +5095,9 @@ def test_thinking_blocks_never_carry_cache_control_back_to_anthropic(client_cach
 def test_redacted_thinking_blocks_never_carry_cache_control():
     """`redacted_thinking` carries no signature and is always replayed, so it hits the
     same Anthropic 400 as `thinking` if it picks up a cache_control on the way through."""
-    from litellm.llms.anthropic.chat.transformation import AnthropicConfig
+    from embrouter.llms.anthropic.chat.transformation import AnthropicConfig
 
-    openai_request, _ = LiteLLMAnthropicMessagesAdapter().translate_anthropic_to_openai(
+    openai_request, _ = EmbRouterAnthropicMessagesAdapter().translate_anthropic_to_openai(
         {
             "model": "claude-sonnet-5",
             "max_tokens": 4096,
@@ -5118,7 +5118,7 @@ def test_redacted_thinking_blocks_never_carry_cache_control():
         model="claude-sonnet-5",
         messages=openai_request["messages"],
         optional_params={"max_tokens": 4096},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -5135,7 +5135,7 @@ def test_translate_anthropic_tools_to_openai_carries_eager_input_streaming_onto_
     """The per-tool flag lands on the OpenAI tool object, never inside the JSON schema Bedrock sends as inputSchema."""
     tools: Final = [{"name": "write_file", "input_schema": EAGER_INPUT_SCHEMA, "eager_input_streaming": flag}]
 
-    new_tools, _ = LiteLLMAnthropicMessagesAdapter().translate_anthropic_tools_to_openai(tools=tools)
+    new_tools, _ = EmbRouterAnthropicMessagesAdapter().translate_anthropic_tools_to_openai(tools=tools)
 
     assert new_tools[0]["eager_input_streaming"] is flag
     assert new_tools[0]["function"]["parameters"] == EAGER_INPUT_SCHEMA
@@ -5145,7 +5145,7 @@ def test_translate_anthropic_tools_to_openai_carries_eager_input_streaming_onto_
 def test_translate_anthropic_tools_to_openai_omits_unset_eager_input_streaming():
     tools: Final = [{"name": "write_file", "input_schema": EAGER_INPUT_SCHEMA}]
 
-    new_tools, _ = LiteLLMAnthropicMessagesAdapter().translate_anthropic_tools_to_openai(tools=tools)
+    new_tools, _ = EmbRouterAnthropicMessagesAdapter().translate_anthropic_tools_to_openai(tools=tools)
 
     assert "eager_input_streaming" not in new_tools[0]
     assert "eager_input_streaming" not in new_tools[0]["function"]["parameters"]
@@ -5153,10 +5153,10 @@ def test_translate_anthropic_tools_to_openai_omits_unset_eager_input_streaming()
 
 def test_eager_input_streaming_tool_reaches_bedrock_converse_as_beta():
     """An Anthropic Messages request routed to bedrock/converse/ turns the flag into the fine-grained streaming beta."""
-    from litellm.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
+    from embrouter.llms.bedrock.chat.converse_transformation import AmazonConverseConfig
 
     tools: Final = [{"name": "write_file", "input_schema": EAGER_INPUT_SCHEMA, "eager_input_streaming": True}]
-    new_tools, _ = LiteLLMAnthropicMessagesAdapter().translate_anthropic_tools_to_openai(tools=tools)
+    new_tools, _ = EmbRouterAnthropicMessagesAdapter().translate_anthropic_tools_to_openai(tools=tools)
 
     data: Final = AmazonConverseConfig()._transform_request_helper(
         model="us.anthropic.claude-sonnet-4-5-20250929-v1:0",

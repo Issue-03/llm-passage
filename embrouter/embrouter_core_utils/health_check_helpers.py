@@ -6,14 +6,14 @@ import base64
 from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Final, Literal
 
-from litellm.llms.base_llm.ocr.transformation import DocumentType
-from litellm.rust_bridge import runtime
-from litellm.rust_bridge.ocr.entrypoints import NATIVE_OCR_HEALTH_CHECK_DOCUMENT
-from litellm.types.utils import LIST_BATCHES_SUPPORTED_PROVIDERS
+from embrouter.llms.base_llm.ocr.transformation import DocumentType
+from embrouter.rust_bridge import runtime
+from embrouter.rust_bridge.ocr.entrypoints import NATIVE_OCR_HEALTH_CHECK_DOCUMENT
+from embrouter.types.utils import LIST_BATCHES_SUPPORTED_PROVIDERS
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging
-    from litellm.types.utils import ImageResponse
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging
+    from embrouter.types.utils import ImageResponse
 
 
 # Minimal image for health checks - base64 encoded 512x512 blue circle on a white background PNG
@@ -45,10 +45,10 @@ class HealthCheckHelpers:
         model: str,
         custom_llm_provider: str,
         model_params: dict,
-        litellm_logging_obj: "Logging",
+        embrouter_logging_obj: "Logging",
     ) -> dict:
-        from litellm import acompletion
-        from litellm.litellm_core_utils.llm_request_utils import (
+        from embrouter import acompletion
+        from embrouter.embrouter_core_utils.llm_request_utils import (
             pick_cheapest_chat_models_from_llm_provider,
         )
 
@@ -63,7 +63,7 @@ class HealthCheckHelpers:
         else:
             fallback_models = None
         model_params["model"] = cheapest_models[0]
-        model_params["litellm_logging_obj"] = litellm_logging_obj
+        model_params["embrouter_logging_obj"] = embrouter_logging_obj
         model_params["fallbacks"] = fallback_models
         model_params["max_tokens"] = model_params.get("max_tokens", 16)  # GPT-5 models require max_output_tokens >= 16
         await acompletion(**model_params)
@@ -81,15 +81,15 @@ class HealthCheckHelpers:
             2. `user_api_key_auth`: This helps identify health check calls in the DB.
                 We need this since the DB requires an API Key to track a log in the SpendLogs Table
         """
-        from litellm.proxy._types import UserAPIKeyAuth
-        from litellm.proxy.litellm_pre_call_utils import LiteLLMProxyRequestSetup
+        from embrouter.proxy._types import UserAPIKeyAuth
+        from embrouter.proxy.embrouter_pre_call_utils import EmbRouterProxyRequestSetup
 
-        _metadata_variable_name: Final = "litellm_metadata"
-        litellm_metadata: Final = HealthCheckHelpers._get_metadata_for_health_check_call()
-        model_params[_metadata_variable_name] = litellm_metadata
-        model_params = LiteLLMProxyRequestSetup.add_user_api_key_auth_to_request_metadata(
+        _metadata_variable_name: Final = "embrouter_metadata"
+        embrouter_metadata: Final = HealthCheckHelpers._get_metadata_for_health_check_call()
+        model_params[_metadata_variable_name] = embrouter_metadata
+        model_params = EmbRouterProxyRequestSetup.add_user_api_key_auth_to_request_metadata(
             data=model_params,
-            user_api_key_dict=UserAPIKeyAuth.get_litellm_internal_health_check_user_api_key_auth(),
+            user_api_key_dict=UserAPIKeyAuth.get_embrouter_internal_health_check_user_api_key_auth(),
             _metadata_variable_name=_metadata_variable_name,
         )
         return model_params
@@ -99,10 +99,10 @@ class HealthCheckHelpers:
         """
         Returns the metadata for the health check call.
         """
-        from litellm.constants import LITTELM_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME
+        from embrouter.constants import EMBROUTER_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME
 
         return {
-            "tags": [LITTELM_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME],
+            "tags": [EMBROUTER_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME],
         }
 
     @staticmethod
@@ -118,9 +118,9 @@ class HealthCheckHelpers:
         the batch API surface doesn't include list_batches, so we fall back to acompletion to
         verify connectivity and credential validity instead.
         """
-        import litellm
+        import embrouter
 
-        logging_obj: Final = filtered_model_params.get("litellm_logging_obj")
+        logging_obj: Final = filtered_model_params.get("embrouter_logging_obj")
         if logging_obj is not None:
             api_base: Final = filtered_model_params.get("api_base")
             logging_obj.update_from_kwargs(
@@ -128,22 +128,22 @@ class HealthCheckHelpers:
                 model=filtered_model_params.get("model"),
                 user=None,
                 optional_params={},
-                litellm_params={"api_base": api_base} if api_base else None,
+                embrouter_params={"api_base": api_base} if api_base else None,
             )
 
         if custom_llm_provider not in LIST_BATCHES_SUPPORTED_PROVIDERS:
-            return await litellm.acompletion(**model_params)
-        return await litellm.alist_batches(**{**filtered_model_params, "custom_llm_provider": custom_llm_provider})
+            return await embrouter.acompletion(**model_params)
+        return await embrouter.alist_batches(**{**filtered_model_params, "custom_llm_provider": custom_llm_provider})
 
     @staticmethod
     async def _image_edit_health_check(edit_request: Callable[[], Awaitable["ImageResponse"]]) -> "ImageResponse":
-        import litellm
+        import embrouter
 
         try:
             return await edit_request()
-        except litellm.BadRequestError as e:
-            if isinstance(e, litellm.ContentPolicyViolationError) or "moderation_blocked" in str(e):
-                return litellm.ImageResponse()
+        except embrouter.BadRequestError as e:
+            if isinstance(e, embrouter.ContentPolicyViolationError) or "moderation_blocked" in str(e):
+                return embrouter.ImageResponse()
             raise
 
     @staticmethod
@@ -186,52 +186,52 @@ class HealthCheckHelpers:
         Returns:
             Dictionary mapping mode names to their handler functions
         """
-        import litellm
-        from litellm.litellm_core_utils.audio_utils.utils import (
+        import embrouter
+        from embrouter.embrouter_core_utils.audio_utils.utils import (
             get_audio_file_for_health_check,
         )
-        from litellm.litellm_core_utils.health_check_utils import _filter_model_params
-        from litellm.realtime_api.main import _realtime_health_check
+        from embrouter.embrouter_core_utils.health_check_utils import _filter_model_params
+        from embrouter.realtime_api.main import _realtime_health_check
 
         return {
-            "chat": lambda: litellm.acompletion(
+            "chat": lambda: embrouter.acompletion(
                 **model_params,
             ),
-            "completion": lambda: litellm.atext_completion(
+            "completion": lambda: embrouter.atext_completion(
                 **_filter_model_params(model_params=model_params),
                 prompt=prompt or "test",
             ),
-            "embedding": lambda: litellm.aembedding(
+            "embedding": lambda: embrouter.aembedding(
                 **_filter_model_params(model_params=model_params),
                 input=input or ["test"],
             ),
-            "audio_speech": lambda: litellm.aspeech(
+            "audio_speech": lambda: embrouter.aspeech(
                 **{
                     **_filter_model_params(model_params=model_params),
                     **({"voice": "alloy"} if "voice" not in _filter_model_params(model_params=model_params) else {}),
                 },
                 input=prompt or "test",
             ),
-            "audio_transcription": lambda: litellm.atranscription(
+            "audio_transcription": lambda: embrouter.atranscription(
                 **_filter_model_params(model_params=model_params),
                 file=get_audio_file_for_health_check(),
             ),
-            "image_generation": lambda: litellm.aimage_generation(
+            "image_generation": lambda: embrouter.aimage_generation(
                 **_filter_model_params(model_params=model_params),
                 prompt=prompt,
             ),
             "image_edit": lambda: HealthCheckHelpers._image_edit_health_check(
-                edit_request=lambda: litellm.aimage_edit(
+                edit_request=lambda: embrouter.aimage_edit(
                     **_filter_model_params(model_params=model_params),
                     image=get_image_file_for_health_check(),
                     prompt=IMAGE_EDIT_HEALTH_CHECK_PROMPT,
                 ),
             ),
-            "video_generation": lambda: litellm.avideo_generation(
+            "video_generation": lambda: embrouter.avideo_generation(
                 **_filter_model_params(model_params=model_params),
                 prompt=prompt or "test video generation",
             ),
-            "rerank": lambda: litellm.arerank(
+            "rerank": lambda: embrouter.arerank(
                 **_filter_model_params(model_params=model_params),
                 query=prompt or "",
                 documents=["my sample text"],
@@ -249,11 +249,11 @@ class HealthCheckHelpers:
                 model_params=model_params,
                 filtered_model_params=_filter_model_params(model_params=model_params),
             ),
-            "responses": lambda: litellm.aresponses(
+            "responses": lambda: embrouter.aresponses(
                 **_filter_model_params(model_params=model_params),
                 input=prompt or "test",
             ),
-            "ocr": lambda: litellm.aocr(
+            "ocr": lambda: embrouter.aocr(
                 **_filter_model_params(model_params=model_params),
                 document=_ocr_health_check_document(model=model, custom_llm_provider=custom_llm_provider),
             ),

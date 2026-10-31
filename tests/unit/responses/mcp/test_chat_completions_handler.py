@@ -7,17 +7,17 @@ import respx
 from httpx import Response
 from unittest.mock import AsyncMock, patch
 
-import litellm
-from litellm.types.utils import ModelResponse
+import embrouter
+from embrouter.types.utils import ModelResponse
 
-from litellm.responses.mcp import chat_completions_handler
-from litellm.responses.mcp.chat_completions_handler import (
+from embrouter.responses.mcp import chat_completions_handler
+from embrouter.responses.mcp.chat_completions_handler import (
     acompletion_with_mcp,
 )
-from litellm.responses.mcp.litellm_proxy_mcp_handler import (
-    LiteLLM_Proxy_MCP_Handler,
+from embrouter.responses.mcp.embrouter_proxy_mcp_handler import (
+    EmbRouter_Proxy_MCP_Handler,
 )
-from litellm.responses.utils import ResponsesAPIRequestUtils
+from embrouter.responses.utils import ResponsesAPIRequestUtils
 
 
 @pytest.mark.asyncio
@@ -26,7 +26,7 @@ async def test_acompletion_with_mcp_returns_normal_completion_without_tools(
 ):
     mock_acompletion = AsyncMock(return_value="normal_response")
 
-    with patch("litellm.acompletion", mock_acompletion):
+    with patch("embrouter.acompletion", mock_acompletion):
         result = await acompletion_with_mcp(
             model="test-model",
             messages=[],
@@ -43,12 +43,12 @@ async def test_acompletion_with_mcp_without_auto_execution_calls_model(monkeypat
     mock_acompletion = AsyncMock(return_value="ok")
 
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
-        "_should_use_litellm_mcp_gateway",
+        EmbRouter_Proxy_MCP_Handler,
+        "_should_use_embrouter_mcp_gateway",
         staticmethod(lambda tools: True),
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        EmbRouter_Proxy_MCP_Handler,
         "_parse_mcp_tools",
         staticmethod(lambda tools: (tools, [])),
     )
@@ -57,17 +57,17 @@ async def test_acompletion_with_mcp_without_auto_execution_calls_model(monkeypat
         return ([], {})
 
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        EmbRouter_Proxy_MCP_Handler,
         "_process_mcp_tools_without_openai_transform",
         mock_process,
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        EmbRouter_Proxy_MCP_Handler,
         "_transform_mcp_tools_to_openai",
         staticmethod(lambda *_, **__: ["openai-tool"]),
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        EmbRouter_Proxy_MCP_Handler,
         "_should_auto_execute_tools",
         staticmethod(lambda **_: False),
     )
@@ -83,7 +83,7 @@ async def test_acompletion_with_mcp_without_auto_execution_calls_model(monkeypat
         staticmethod(mock_extract),
     )
 
-    with patch("litellm.acompletion", mock_acompletion):
+    with patch("embrouter.acompletion", mock_acompletion):
         result = await acompletion_with_mcp(
             model="test-model",
             messages=[],
@@ -108,7 +108,7 @@ async def test_acompletion_with_mcp_passes_mcp_server_auth_headers_to_process_to
     Test that MCP auth headers extracted from secret_fields (e.g. x-mcp-linear_config-authorization)
     are passed to _process_mcp_tools_without_openai_transform for dynamic auth when fetching tools.
     """
-    tools = [{"type": "mcp", "server_url": "litellm_proxy"}]
+    tools = [{"type": "mcp", "server_url": "embrouter_proxy"}]
     mock_acompletion = AsyncMock(return_value="ok")
 
     captured_process_kwargs = {}
@@ -118,27 +118,27 @@ async def test_acompletion_with_mcp_passes_mcp_server_auth_headers_to_process_to
         return ([], {})
 
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
-        "_should_use_litellm_mcp_gateway",
+        EmbRouter_Proxy_MCP_Handler,
+        "_should_use_embrouter_mcp_gateway",
         staticmethod(lambda t: True),
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        EmbRouter_Proxy_MCP_Handler,
         "_parse_mcp_tools",
         staticmethod(lambda t: (t, [])),
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        EmbRouter_Proxy_MCP_Handler,
         "_process_mcp_tools_without_openai_transform",
         mock_process,
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        EmbRouter_Proxy_MCP_Handler,
         "_transform_mcp_tools_to_openai",
         staticmethod(lambda *_, **__: ["openai-tool"]),
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        EmbRouter_Proxy_MCP_Handler,
         "_should_auto_execute_tools",
         staticmethod(lambda **_: False),
     )
@@ -151,7 +151,7 @@ async def test_acompletion_with_mcp_passes_mcp_server_auth_headers_to_process_to
         },
     }
 
-    with patch("litellm.acompletion", mock_acompletion):
+    with patch("embrouter.acompletion", mock_acompletion):
         await acompletion_with_mcp(
             model="test-model",
             messages=[],
@@ -172,8 +172,8 @@ async def test_acompletion_with_mcp_passes_mcp_server_auth_headers_to_process_to
 
 @pytest.mark.asyncio
 async def test_acompletion_with_mcp_auto_exec_performs_follow_up(monkeypatch):
-    from litellm.utils import CustomStreamWrapper
-    from litellm.types.utils import (
+    from embrouter.utils import CustomStreamWrapper
+    from embrouter.types.utils import (
         ModelResponseStream,
         StreamingChoices,
         Delta,
@@ -291,12 +291,12 @@ async def test_acompletion_with_mcp_auto_exec_performs_follow_up(monkeypatch):
     mock_acompletion_func = AsyncMock(side_effect=mock_acompletion)
 
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
-        "_should_use_litellm_mcp_gateway",
+        EmbRouter_Proxy_MCP_Handler,
+        "_should_use_embrouter_mcp_gateway",
         staticmethod(lambda tools: True),
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        EmbRouter_Proxy_MCP_Handler,
         "_parse_mcp_tools",
         staticmethod(lambda tools: (tools, [])),
     )
@@ -305,22 +305,22 @@ async def test_acompletion_with_mcp_auto_exec_performs_follow_up(monkeypatch):
         return (tools, {"tool": "server"})
 
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        EmbRouter_Proxy_MCP_Handler,
         "_process_mcp_tools_without_openai_transform",
         mock_process,
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        EmbRouter_Proxy_MCP_Handler,
         "_transform_mcp_tools_to_openai",
         staticmethod(lambda *_, **__: tools),
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        EmbRouter_Proxy_MCP_Handler,
         "_should_auto_execute_tools",
         staticmethod(lambda **_: True),
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        EmbRouter_Proxy_MCP_Handler,
         "_extract_tool_calls_from_chat_response",
         staticmethod(
             lambda **_: [
@@ -337,12 +337,12 @@ async def test_acompletion_with_mcp_auto_exec_performs_follow_up(monkeypatch):
         return [{"tool_call_id": "call-1", "result": "executed"}]
 
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        EmbRouter_Proxy_MCP_Handler,
         "_execute_tool_calls",
         mock_execute,
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        EmbRouter_Proxy_MCP_Handler,
         "_create_follow_up_messages_for_chat",
         staticmethod(
             lambda **_: [
@@ -372,12 +372,12 @@ async def test_acompletion_with_mcp_auto_exec_performs_follow_up(monkeypatch):
         staticmethod(lambda **_: (None, None, None, None)),
     )
 
-    # Patch litellm.acompletion at module level to catch function-level imports
+    # Patch embrouter.acompletion at module level to catch function-level imports
     with (
-        patch("litellm.acompletion", mock_acompletion_func),
+        patch("embrouter.acompletion", mock_acompletion_func),
         patch.object(
             chat_completions_handler,
-            "litellm_acompletion",
+            "embrouter_acompletion",
             mock_acompletion_func,
             create=True,
         ),
@@ -423,11 +423,11 @@ async def test_acompletion_with_mcp_adds_metadata_to_streaming(monkeypatch):
     Test that acompletion_with_mcp adds MCP metadata to CustomStreamWrapper
     and it appears in the final chunk's delta.provider_specific_fields.
     """
-    from litellm.utils import CustomStreamWrapper
-    from litellm.types.utils import ModelResponseStream, StreamingChoices, Delta
-    from litellm.litellm_core_utils.litellm_logging import Logging
+    from embrouter.utils import CustomStreamWrapper
+    from embrouter.types.utils import ModelResponseStream, StreamingChoices, Delta
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging
 
-    tools = [{"type": "mcp", "server_url": "litellm_proxy/mcp/local"}]
+    tools = [{"type": "mcp", "server_url": "embrouter_proxy/mcp/local"}]
     openai_tools = [{"type": "function", "function": {"name": "local_search"}}]
     tool_calls = [
         {
@@ -498,12 +498,12 @@ async def test_acompletion_with_mcp_adds_metadata_to_streaming(monkeypatch):
     mock_acompletion = AsyncMock(return_value=MockStreamingResponse())
 
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
-        "_should_use_litellm_mcp_gateway",
+        EmbRouter_Proxy_MCP_Handler,
+        "_should_use_embrouter_mcp_gateway",
         staticmethod(lambda tools: True),
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        EmbRouter_Proxy_MCP_Handler,
         "_parse_mcp_tools",
         staticmethod(lambda tools: (tools, [])),
     )
@@ -512,17 +512,17 @@ async def test_acompletion_with_mcp_adds_metadata_to_streaming(monkeypatch):
         return (tools, {"local_search": "local"})
 
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        EmbRouter_Proxy_MCP_Handler,
         "_process_mcp_tools_without_openai_transform",
         mock_process,
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        EmbRouter_Proxy_MCP_Handler,
         "_transform_mcp_tools_to_openai",
         staticmethod(lambda *_, **__: openai_tools),
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        EmbRouter_Proxy_MCP_Handler,
         "_should_auto_execute_tools",
         staticmethod(lambda **_: False),
     )
@@ -532,7 +532,7 @@ async def test_acompletion_with_mcp_adds_metadata_to_streaming(monkeypatch):
         staticmethod(lambda **_: (None, None, None, None)),
     )
 
-    with patch("litellm.acompletion", mock_acompletion):
+    with patch("embrouter.acompletion", mock_acompletion):
         result = await acompletion_with_mcp(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": "hello"}],
@@ -579,10 +579,10 @@ async def test_acompletion_with_mcp_streaming_initial_call_is_streaming(monkeypa
     Test that acompletion_with_mcp makes the initial LLM call with streaming=True
     when stream=True is requested, instead of making a non-streaming call first.
     """
-    from litellm.utils import CustomStreamWrapper
-    from litellm.types.utils import ModelResponseStream, StreamingChoices, Delta
+    from embrouter.utils import CustomStreamWrapper
+    from embrouter.types.utils import ModelResponseStream, StreamingChoices, Delta
 
-    tools = [{"type": "mcp", "server_url": "litellm_proxy/mcp/local"}]
+    tools = [{"type": "mcp", "server_url": "embrouter_proxy/mcp/local"}]
     openai_tools = [{"type": "function", "function": {"name": "local_search"}}]
 
     # Create mock streaming chunks
@@ -637,12 +637,12 @@ async def test_acompletion_with_mcp_streaming_initial_call_is_streaming(monkeypa
     mock_acompletion = AsyncMock(return_value=MockStreamingResponse())
 
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
-        "_should_use_litellm_mcp_gateway",
+        EmbRouter_Proxy_MCP_Handler,
+        "_should_use_embrouter_mcp_gateway",
         staticmethod(lambda tools: True),
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        EmbRouter_Proxy_MCP_Handler,
         "_parse_mcp_tools",
         staticmethod(lambda tools: (tools, [])),
     )
@@ -651,22 +651,22 @@ async def test_acompletion_with_mcp_streaming_initial_call_is_streaming(monkeypa
         return (tools, {"local_search": "local"})
 
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        EmbRouter_Proxy_MCP_Handler,
         "_process_mcp_tools_without_openai_transform",
         mock_process,
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        EmbRouter_Proxy_MCP_Handler,
         "_transform_mcp_tools_to_openai",
         staticmethod(lambda *_, **__: openai_tools),
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        EmbRouter_Proxy_MCP_Handler,
         "_should_auto_execute_tools",
         staticmethod(lambda **_: True),
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        EmbRouter_Proxy_MCP_Handler,
         "_extract_tool_calls_from_chat_response",
         staticmethod(
             lambda **_: [
@@ -683,12 +683,12 @@ async def test_acompletion_with_mcp_streaming_initial_call_is_streaming(monkeypa
         return [{"tool_call_id": "call-1", "result": "executed"}]
 
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        EmbRouter_Proxy_MCP_Handler,
         "_execute_tool_calls",
         mock_execute,
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        EmbRouter_Proxy_MCP_Handler,
         "_create_follow_up_messages_for_chat",
         staticmethod(
             lambda **_: [
@@ -718,12 +718,12 @@ async def test_acompletion_with_mcp_streaming_initial_call_is_streaming(monkeypa
         staticmethod(lambda **_: (None, None, None, None)),
     )
 
-    # Patch litellm.acompletion at module level to catch function-level imports
+    # Patch embrouter.acompletion at module level to catch function-level imports
     with (
-        patch("litellm.acompletion", mock_acompletion),
+        patch("embrouter.acompletion", mock_acompletion),
         patch.object(
             chat_completions_handler,
-            "litellm_acompletion",
+            "embrouter_acompletion",
             mock_acompletion,
             create=True,
         ),
@@ -753,8 +753,8 @@ async def test_acompletion_with_mcp_streaming_metadata_in_correct_chunks(monkeyp
     - mcp_list_tools should be in the first chunk
     - mcp_tool_calls and mcp_call_results should be in the final chunk of initial response
     """
-    from litellm.utils import CustomStreamWrapper
-    from litellm.types.utils import (
+    from embrouter.utils import CustomStreamWrapper
+    from embrouter.types.utils import (
         ModelResponseStream,
         StreamingChoices,
         Delta,
@@ -762,7 +762,7 @@ async def test_acompletion_with_mcp_streaming_metadata_in_correct_chunks(monkeyp
         Function,
     )
 
-    tools = [{"type": "mcp", "server_url": "litellm_proxy/mcp/local"}]
+    tools = [{"type": "mcp", "server_url": "embrouter_proxy/mcp/local"}]
     openai_tools = [{"type": "function", "function": {"name": "local_search"}}]
     tool_calls = [
         {
@@ -879,12 +879,12 @@ async def test_acompletion_with_mcp_streaming_metadata_in_correct_chunks(monkeyp
     mock_acompletion_func = AsyncMock(side_effect=mock_acompletion)
 
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
-        "_should_use_litellm_mcp_gateway",
+        EmbRouter_Proxy_MCP_Handler,
+        "_should_use_embrouter_mcp_gateway",
         staticmethod(lambda tools: True),
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        EmbRouter_Proxy_MCP_Handler,
         "_parse_mcp_tools",
         staticmethod(lambda tools: (tools, [])),
     )
@@ -893,22 +893,22 @@ async def test_acompletion_with_mcp_streaming_metadata_in_correct_chunks(monkeyp
         return (tools, {"local_search": "local"})
 
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        EmbRouter_Proxy_MCP_Handler,
         "_process_mcp_tools_without_openai_transform",
         mock_process,
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        EmbRouter_Proxy_MCP_Handler,
         "_transform_mcp_tools_to_openai",
         staticmethod(lambda *_, **__: openai_tools),
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        EmbRouter_Proxy_MCP_Handler,
         "_should_auto_execute_tools",
         staticmethod(lambda **_: True),
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        EmbRouter_Proxy_MCP_Handler,
         "_extract_tool_calls_from_chat_response",
         staticmethod(lambda **_: tool_calls),
     )
@@ -917,12 +917,12 @@ async def test_acompletion_with_mcp_streaming_metadata_in_correct_chunks(monkeyp
         return tool_results
 
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        EmbRouter_Proxy_MCP_Handler,
         "_execute_tool_calls",
         mock_execute,
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        EmbRouter_Proxy_MCP_Handler,
         "_create_follow_up_messages_for_chat",
         staticmethod(
             lambda **_: [
@@ -952,12 +952,12 @@ async def test_acompletion_with_mcp_streaming_metadata_in_correct_chunks(monkeyp
         staticmethod(lambda **_: (None, None, None, None)),
     )
 
-    # Patch litellm.acompletion at module level to catch function-level imports
+    # Patch embrouter.acompletion at module level to catch function-level imports
     with (
-        patch("litellm.acompletion", mock_acompletion_func),
+        patch("embrouter.acompletion", mock_acompletion_func),
         patch.object(
             chat_completions_handler,
-            "litellm_acompletion",
+            "embrouter_acompletion",
             side_effect=mock_acompletion,
             create=True,
         ),
@@ -1066,15 +1066,15 @@ async def test_execute_tool_calls_sets_proxy_server_request_arguments(monkeypatc
     async def mock_call_tool(**kwargs):
         return mock_result
 
-    # NOTE: avoid monkeypatch string path here because `litellm.responses` is also
-    # exported as a function on the top-level `litellm` package, which can confuse
+    # NOTE: avoid monkeypatch string path here because `embrouter.responses` is also
+    # exported as a function on the top-level `embrouter` package, which can confuse
     # pytest's dotted-path resolver.
     mcp_handler_module = importlib.import_module(
-        "litellm.responses.mcp.litellm_proxy_mcp_handler"
+        "embrouter.responses.mcp.embrouter_proxy_mcp_handler"
     )
     monkeypatch.setattr(mcp_handler_module, "function_setup", mock_function_setup)
     monkeypatch.setattr(
-        "litellm.proxy._experimental.mcp_server.mcp_server_manager.global_mcp_server_manager.call_tool",
+        "embrouter.proxy._experimental.mcp_server.mcp_server_manager.global_mcp_server_manager.call_tool",
         mock_call_tool,
     )
 
@@ -1094,7 +1094,7 @@ async def test_execute_tool_calls_sets_proxy_server_request_arguments(monkeypatc
     user_api_key_auth.api_key = "test_key"
 
     # Call _execute_tool_calls
-    result = await LiteLLM_Proxy_MCP_Handler._execute_tool_calls(
+    result = await EmbRouter_Proxy_MCP_Handler._execute_tool_calls(
         tool_server_map=tool_server_map,
         tool_calls=tool_calls,
         user_api_key_auth=user_api_key_auth,
@@ -1126,10 +1126,10 @@ async def test_acompletion_with_mcp_streaming_drain_error_does_not_drop_final_ch
     """
     from unittest.mock import MagicMock
 
-    from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices
-    from litellm.utils import CustomStreamWrapper
+    from embrouter.types.utils import Delta, ModelResponseStream, StreamingChoices
+    from embrouter.utils import CustomStreamWrapper
 
-    tools = [{"type": "mcp", "server_url": "litellm_proxy/mcp/local"}]
+    tools = [{"type": "mcp", "server_url": "embrouter_proxy/mcp/local"}]
     openai_tools = [{"type": "function", "function": {"name": "local_search"}}]
 
     def create_chunk(content, finish_reason=None):
@@ -1181,12 +1181,12 @@ async def test_acompletion_with_mcp_streaming_drain_error_does_not_drop_final_ch
     mock_acompletion = AsyncMock(return_value=DrainErrorStreamingResponse())
 
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
-        "_should_use_litellm_mcp_gateway",
+        EmbRouter_Proxy_MCP_Handler,
+        "_should_use_embrouter_mcp_gateway",
         staticmethod(lambda tools: True),
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        EmbRouter_Proxy_MCP_Handler,
         "_parse_mcp_tools",
         staticmethod(lambda tools: (tools, [])),
     )
@@ -1195,22 +1195,22 @@ async def test_acompletion_with_mcp_streaming_drain_error_does_not_drop_final_ch
         return (tools, {"local_search": "local"})
 
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        EmbRouter_Proxy_MCP_Handler,
         "_process_mcp_tools_without_openai_transform",
         mock_process,
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        EmbRouter_Proxy_MCP_Handler,
         "_transform_mcp_tools_to_openai",
         staticmethod(lambda *_, **__: openai_tools),
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        EmbRouter_Proxy_MCP_Handler,
         "_should_auto_execute_tools",
         staticmethod(lambda **_: True),
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        EmbRouter_Proxy_MCP_Handler,
         "_extract_tool_calls_from_chat_response",
         staticmethod(lambda **_: []),
     )
@@ -1220,7 +1220,7 @@ async def test_acompletion_with_mcp_streaming_drain_error_does_not_drop_final_ch
         staticmethod(lambda **_: (None, None, None, None)),
     )
 
-    with patch("litellm.acompletion", mock_acompletion):
+    with patch("embrouter.acompletion", mock_acompletion):
         result = await acompletion_with_mcp(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": "hello"}],
@@ -1245,10 +1245,10 @@ async def test_acompletion_with_mcp_streaming_drain_error_does_not_drop_final_ch
 async def test_acompletion_with_mcp_streaming_drains_inner_stream_after_exhaustion(monkeypatch):
     from unittest.mock import MagicMock
 
-    from litellm.types.utils import Delta, ModelResponseStream, StreamingChoices
-    from litellm.utils import CustomStreamWrapper
+    from embrouter.types.utils import Delta, ModelResponseStream, StreamingChoices
+    from embrouter.utils import CustomStreamWrapper
 
-    tools = [{"type": "mcp", "server_url": "litellm_proxy/mcp/local"}]
+    tools = [{"type": "mcp", "server_url": "embrouter_proxy/mcp/local"}]
     openai_tools = [{"type": "function", "function": {"name": "local_search"}}]
 
     def create_chunk(content):
@@ -1299,12 +1299,12 @@ async def test_acompletion_with_mcp_streaming_drains_inner_stream_after_exhausti
     mock_acompletion = AsyncMock(return_value=initial_stream)
 
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
-        "_should_use_litellm_mcp_gateway",
+        EmbRouter_Proxy_MCP_Handler,
+        "_should_use_embrouter_mcp_gateway",
         staticmethod(lambda tools: True),
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        EmbRouter_Proxy_MCP_Handler,
         "_parse_mcp_tools",
         staticmethod(lambda tools: (tools, [])),
     )
@@ -1313,22 +1313,22 @@ async def test_acompletion_with_mcp_streaming_drains_inner_stream_after_exhausti
         return (tools, {"local_search": "local"})
 
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        EmbRouter_Proxy_MCP_Handler,
         "_process_mcp_tools_without_openai_transform",
         mock_process,
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        EmbRouter_Proxy_MCP_Handler,
         "_transform_mcp_tools_to_openai",
         staticmethod(lambda *_, **__: openai_tools),
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        EmbRouter_Proxy_MCP_Handler,
         "_should_auto_execute_tools",
         staticmethod(lambda **_: True),
     )
     monkeypatch.setattr(
-        LiteLLM_Proxy_MCP_Handler,
+        EmbRouter_Proxy_MCP_Handler,
         "_extract_tool_calls_from_chat_response",
         staticmethod(lambda **_: []),
     )
@@ -1338,7 +1338,7 @@ async def test_acompletion_with_mcp_streaming_drains_inner_stream_after_exhausti
         staticmethod(lambda **_: (None, None, None, None)),
     )
 
-    with patch("litellm.acompletion", mock_acompletion):
+    with patch("embrouter.acompletion", mock_acompletion):
         result = await acompletion_with_mcp(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": "hello"}],
@@ -1357,12 +1357,12 @@ async def test_acompletion_with_mcp_streaming_drains_inner_stream_after_exhausti
 @pytest.mark.asyncio
 @respx.mock
 async def test_acompletion_with_mcp_forwards_unserved_external_mcp_tool_to_the_provider(monkeypatch):
-    from litellm.proxy._experimental.mcp_server.mcp_server_manager import global_mcp_server_manager
+    from embrouter.proxy._experimental.mcp_server.mcp_server_manager import global_mcp_server_manager
 
     zapier_tool = {"type": "mcp", "server_label": "zapier", "server_url": "https://mcp.zapier.com/api/mcp/mcp"}
-    monkeypatch.setitem(sys.modules, "litellm.proxy.proxy_server", types.SimpleNamespace(prisma_client=None))
+    monkeypatch.setitem(sys.modules, "embrouter.proxy.proxy_server", types.SimpleNamespace(prisma_client=None))
     monkeypatch.setattr(global_mcp_server_manager, "get_registry", lambda: {})
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
     provider = respx.post("https://api.openai.com/v1/chat/completions").mock(
         return_value=Response(
             200,
@@ -1393,20 +1393,20 @@ async def test_acompletion_with_mcp_forwards_unserved_external_mcp_tool_to_the_p
 @pytest.mark.asyncio
 @pytest.mark.parametrize("selected", [False, True])
 @pytest.mark.parametrize("stream", [False, True])
-@pytest.mark.parametrize("selection_source", ["metadata", "litellm_metadata", "body"])
+@pytest.mark.parametrize("selection_source", ["metadata", "embrouter_metadata", "body"])
 @pytest.mark.parametrize("logging_failure", [False, True])
 async def test_request_selected_mcp_guardrail_blocks_before_upstream(monkeypatch, selected, stream, selection_source, logging_failure):
-    from litellm.exceptions import GuardrailRaisedException
+    from embrouter.exceptions import GuardrailRaisedException
     from mcp.types import Tool
-    from litellm.caching.caching import DualCache
-    from litellm.integrations.custom_guardrail import CustomGuardrail
-    from litellm.proxy import proxy_server
-    from litellm.proxy._types import UserAPIKeyAuth, LiteLLM_ObjectPermissionTable
-    from litellm.proxy._experimental.mcp_server import mcp_server_manager, server, tool_registry
-    from litellm.proxy._experimental.mcp_server.faults.list_outcomes import AggregateToolListing
-    from litellm.proxy.utils import ProxyLogging
-    from litellm.types.guardrails import GuardrailEventHooks
-    from litellm.types.mcp_server.mcp_server_manager import MCPServer
+    from embrouter.caching.caching import DualCache
+    from embrouter.integrations.custom_guardrail import CustomGuardrail
+    from embrouter.proxy import proxy_server
+    from embrouter.proxy._types import UserAPIKeyAuth, EmbRouter_ObjectPermissionTable
+    from embrouter.proxy._experimental.mcp_server import mcp_server_manager, server, tool_registry
+    from embrouter.proxy._experimental.mcp_server.faults.list_outcomes import AggregateToolListing
+    from embrouter.proxy.utils import ProxyLogging
+    from embrouter.types.guardrails import GuardrailEventHooks
+    from embrouter.types.mcp_server.mcp_server_manager import MCPServer
 
     class BlockSelected(CustomGuardrail):
         async def async_pre_call_hook(self, user_api_key_dict, cache, data, call_type):
@@ -1415,7 +1415,7 @@ async def test_request_selected_mcp_guardrail_blocks_before_upstream(monkeypatch
             return data
 
     guardrail = BlockSelected(guardrail_name="block-all", event_hook="pre_mcp_call", default_on=False)
-    monkeypatch.setattr(litellm, "callbacks", [guardrail])
+    monkeypatch.setattr(embrouter, "callbacks", [guardrail])
     manager = mcp_server_manager.MCPServerManager()
     manager.registry = {"observer": MCPServer(
         server_id="observer", name="observer", server_name="observer", transport="http",
@@ -1438,9 +1438,9 @@ async def test_request_selected_mcp_guardrail_blocks_before_upstream(monkeypatch
         ModelResponse(choices=[{"message": {"role": "assistant", "content": "done"}}]),
     ]
     if stream:
-        from litellm.types.utils import ModelResponseStream
+        from embrouter.types.utils import ModelResponseStream
         responses = [
-            await litellm.acompletion(
+            await embrouter.acompletion(
                 model="openai/gpt-5", messages=[{"role": "user", "content": "execute"}], stream=True,
                 mock_response=ModelResponseStream(choices=[{"index": 0, "delta": {
                     "role": "assistant", "content": None, "tool_calls": [{
@@ -1449,24 +1449,24 @@ async def test_request_selected_mcp_guardrail_blocks_before_upstream(monkeypatch
                     }],
                 }, "finish_reason": "tool_calls"}]),
             ),
-            await litellm.acompletion(
+            await embrouter.acompletion(
                 model="openai/gpt-5", messages=[{"role": "user", "content": "done"}],
                 stream=True, mock_response="done",
             ),
         ]
     if logging_failure:
-        from litellm.responses.mcp import litellm_proxy_mcp_handler
+        from embrouter.responses.mcp import embrouter_proxy_mcp_handler
         def fail_logging(*args, **kwargs):
             raise RuntimeError("logging initialization failed")
-        monkeypatch.setattr(litellm_proxy_mcp_handler, "function_setup", fail_logging)
+        monkeypatch.setattr(embrouter_proxy_mcp_handler, "function_setup", fail_logging)
     model_call = AsyncMock(side_effect=responses)
-    monkeypatch.setattr(litellm, "acompletion", model_call)
+    monkeypatch.setattr(embrouter, "acompletion", model_call)
     result = await acompletion_with_mcp(
         model="test-model", messages=[{"role": "user", "content": "execute"}],
-        tools=[{"type": "mcp", "server_url": "litellm_proxy/observer", "require_approval": "never"}],
+        tools=[{"type": "mcp", "server_url": "embrouter_proxy/observer", "require_approval": "never"}],
         stream=stream,
         user_api_key_auth=UserAPIKeyAuth(
-            object_permission=LiteLLM_ObjectPermissionTable(object_permission_id="test", mcp_servers=["observer"])
+            object_permission=EmbRouter_ObjectPermissionTable(object_permission_id="test", mcp_servers=["observer"])
         ),
         **({"guardrails": ["block-all"] if selected else []} if selection_source == "body" else {
             selection_source: {"guardrails": ["block-all"] if selected else []}

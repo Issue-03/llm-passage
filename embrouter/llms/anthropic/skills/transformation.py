@@ -7,21 +7,21 @@ from typing import Final
 import httpx
 from pydantic import TypeAdapter
 
-from litellm._logging import verbose_logger
-from litellm.litellm_core_utils.url_utils import encode_url_path_segment
-from litellm.llms.base_llm.skills.transformation import (
+from embrouter._logging import verbose_logger
+from embrouter.embrouter_core_utils.url_utils import encode_url_path_segment
+from embrouter.llms.base_llm.skills.transformation import (
     BaseSkillsAPIConfig,
-    LiteLLMLoggingObj,
+    EmbRouterLoggingObj,
 )
-from litellm.types.llms.anthropic_skills import (
+from embrouter.types.llms.anthropic_skills import (
     CreateSkillRequest,
     DeleteSkillResponse,
     ListSkillsParams,
     ListSkillsResponse,
     Skill,
 )
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import LlmProviders
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import LlmProviders
 
 _RAW_JSON_PAYLOAD: Final = TypeAdapter(object)
 
@@ -33,16 +33,16 @@ class AnthropicSkillsConfig(BaseSkillsAPIConfig):
     def custom_llm_provider(self) -> LlmProviders:
         return LlmProviders.ANTHROPIC
 
-    def validate_environment(self, headers: dict, litellm_params: GenericLiteLLMParams | None) -> dict:
+    def validate_environment(self, headers: dict, embrouter_params: GenericEmbRouterParams | None) -> dict:
         """Add Anthropic-specific headers"""
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
-        # Get API key from litellm_params if available
+        # Get API key from embrouter_params if available
         api_key = None
         api_base = None
-        if litellm_params is not None:
-            api_key = litellm_params.api_key
-            api_base = litellm_params.api_base
+        if embrouter_params is not None:
+            api_key = embrouter_params.api_key
+            api_base = embrouter_params.api_base
 
         auth_header: Final = AnthropicModelInfo.get_auth_header(api_key, api_base)
         if auth_header is None:
@@ -52,7 +52,7 @@ class AnthropicSkillsConfig(BaseSkillsAPIConfig):
         headers["anthropic-version"] = "2023-06-01"
 
         # Add beta header for skills API
-        from litellm.constants import ANTHROPIC_SKILLS_API_BETA_VERSION
+        from embrouter.constants import ANTHROPIC_SKILLS_API_BETA_VERSION
 
         if "anthropic-beta" not in headers:
             headers["anthropic-beta"] = ANTHROPIC_SKILLS_API_BETA_VERSION
@@ -77,7 +77,7 @@ class AnthropicSkillsConfig(BaseSkillsAPIConfig):
         skill_id: str | None = None,
     ) -> str:
         """Get complete URL for Anthropic Skills API"""
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
         if api_base is None:
             api_base = AnthropicModelInfo.get_api_base()
@@ -90,7 +90,7 @@ class AnthropicSkillsConfig(BaseSkillsAPIConfig):
     def transform_create_skill_request(
         self,
         create_request: CreateSkillRequest,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> dict:
         """Transform create skill request for Anthropic"""
@@ -104,7 +104,7 @@ class AnthropicSkillsConfig(BaseSkillsAPIConfig):
     def transform_create_skill_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> Skill:
         """Transform Anthropic response to Skill object"""
         response_json: Final = _RAW_JSON_PAYLOAD.validate_python(raw_response.json())
@@ -115,13 +115,13 @@ class AnthropicSkillsConfig(BaseSkillsAPIConfig):
     def transform_list_skills_request(
         self,
         list_params: ListSkillsParams,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict]:
         """Transform list skills request for Anthropic"""
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
-        api_base: Final = AnthropicModelInfo.get_api_base(litellm_params.api_base if litellm_params else None)
+        api_base: Final = AnthropicModelInfo.get_api_base(embrouter_params.api_base if embrouter_params else None)
         url: Final = self.get_complete_url(api_base=api_base, endpoint="skills")
 
         # Build query parameters
@@ -142,7 +142,7 @@ class AnthropicSkillsConfig(BaseSkillsAPIConfig):
     def transform_list_skills_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> ListSkillsResponse:
         """Transform Anthropic response to ListSkillsResponse"""
         response_json: Final = _RAW_JSON_PAYLOAD.validate_python(raw_response.json())
@@ -154,7 +154,7 @@ class AnthropicSkillsConfig(BaseSkillsAPIConfig):
         self,
         skill_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict]:
         """Transform get skill request for Anthropic"""
@@ -167,7 +167,7 @@ class AnthropicSkillsConfig(BaseSkillsAPIConfig):
     def transform_get_skill_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> Skill:
         """Transform Anthropic response to Skill object"""
         response_json: Final = _RAW_JSON_PAYLOAD.validate_python(raw_response.json())
@@ -179,7 +179,7 @@ class AnthropicSkillsConfig(BaseSkillsAPIConfig):
         self,
         skill_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict]:
         """Transform delete skill request for Anthropic"""
@@ -192,7 +192,7 @@ class AnthropicSkillsConfig(BaseSkillsAPIConfig):
     def transform_delete_skill_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> DeleteSkillResponse:
         """Transform Anthropic response to DeleteSkillResponse"""
         response_json: Final = _RAW_JSON_PAYLOAD.validate_python(raw_response.json())

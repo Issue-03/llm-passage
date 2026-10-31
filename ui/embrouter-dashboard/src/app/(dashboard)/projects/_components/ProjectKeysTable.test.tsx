@@ -50,7 +50,7 @@ function makeKey(overrides: Partial<KeyResponse> = {}): KeyResponse {
     model_max_budget: {},
     soft_budget_cooldown: false,
     blocked: false,
-    litellm_budget_table: {},
+    embrouter_budget_table: {},
     organization_id: null,
     created_at: "2024-03-01T00:00:00Z",
     updated_at: "2024-03-01T00:00:00Z",

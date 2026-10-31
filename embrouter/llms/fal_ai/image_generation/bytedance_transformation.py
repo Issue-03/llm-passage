@@ -8,7 +8,7 @@ class FalAIBytedanceBaseConfig(FalAIFluxProV11UltraConfig):
     Shared configuration for Fal AI ByteDance text-to-image models that follow
     the Flux Schnell style parameter mapping.
 
-    These models accept the OpenAI-compatible `size` parameter in LiteLLM
+    These models accept the OpenAI-compatible `size` parameter in EmbRouter
     requests but expect `image_size` enums or custom size objects on Fal AI.
     """
 

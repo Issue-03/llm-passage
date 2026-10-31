@@ -8,26 +8,26 @@ from typing import TYPE_CHECKING, Any, Final, Literal, cast, overload
 import httpx
 from pydantic import BaseModel, TypeAdapter, ValidationError
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.openai.chat.gpt_transformation import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.openai.chat.gpt_transformation import (
     OpenAIChatCompletionStreamingHandler,
 )
-from litellm.llms.openai.common_utils import OpenAIError
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.openai import (
+from embrouter.llms.openai.common_utils import OpenAIError
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.openai import (
     AllMessageValues,
     ChatCompletionAssistantMessage,
     ChatCompletionToolParam,
     ChatCompletionToolParamFunctionChunk,
 )
-from litellm.types.utils import ModelResponse, ModelResponseStream, ServerToolUse
+from embrouter.types.utils import ModelResponse, ModelResponseStream, ServerToolUse
 
 from ...openai_like.chat.transformation import OpenAILikeChatConfig
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
 
 GROQ_COMPOUND_MODELS: Final = frozenset({"compound", "compound-mini"})
 
@@ -105,12 +105,12 @@ class GroqChatConfig(OpenAILikeChatConfig):
 
         if not (
             self._is_compound_model(model)
-            or litellm.supports_web_search(model=model, custom_llm_provider=self.custom_llm_provider)
+            or embrouter.supports_web_search(model=model, custom_llm_provider=self.custom_llm_provider)
         ):
             base_params.remove("web_search_options")
 
         try:
-            if litellm.supports_reasoning(model=model, custom_llm_provider=self.custom_llm_provider):
+            if embrouter.supports_reasoning(model=model, custom_llm_provider=self.custom_llm_provider):
                 base_params.append("reasoning_effort")
         except Exception as e:
             verbose_logger.debug("Error checking if model supports reasoning: %s", e)
@@ -226,14 +226,14 @@ class GroqChatConfig(OpenAILikeChatConfig):
             """
             if json_schema is not None:
                 # Check if model supports native response_schema
-                if not litellm.supports_response_schema(model=model, custom_llm_provider="groq"):
+                if not embrouter.supports_response_schema(model=model, custom_llm_provider="groq"):
                     # Check if user is also passing tools - this combination won't work
                     # See: https://console.groq.com/docs/structured-outputs
                     # "Streaming and tool use are not currently supported with Structured Outputs"
                     if "tools" in non_default_params:
-                        raise litellm.BadRequestError(
+                        raise embrouter.BadRequestError(
                             message=f"Groq model '{model}' does not support native structured outputs. "
-                            "LiteLLM uses a tool-calling workaround for structured outputs on this model, "
+                            "EmbRouter uses a tool-calling workaround for structured outputs on this model, "
                             "which is incompatible with user-provided tools. "
                             "Either use a model that supports native structured outputs "
                             "(e.g., gpt-oss-120b, llama-4, kimi-k2), or remove the tools parameter. "
@@ -281,11 +281,11 @@ class GroqChatConfig(OpenAILikeChatConfig):
         model: str,
         raw_response: httpx.Response,
         model_response: ModelResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         request_data: dict,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,
@@ -298,7 +298,7 @@ class GroqChatConfig(OpenAILikeChatConfig):
             request_data=request_data,
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             encoding=encoding,
             api_key=api_key,
             json_mode=json_mode,
@@ -354,8 +354,8 @@ class GroqChatCompletionStreamingHandler(OpenAIChatCompletionStreamingHandler):
         if error:
             raise OpenAIError(status_code=error.get("code"), message=error.get("message"), body=error)
 
-        # Map Groq's 'reasoning' field to LiteLLM's 'reasoning_content' field
-        # Groq returns delta.reasoning, but LiteLLM expects delta.reasoning_content
+        # Map Groq's 'reasoning' field to EmbRouter's 'reasoning_content' field
+        # Groq returns delta.reasoning, but EmbRouter expects delta.reasoning_content
         choices: Final = chunk.get("choices", [])
         for choice in choices:
             delta = choice.get("delta", {})

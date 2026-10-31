@@ -11,23 +11,23 @@ from typing import TYPE_CHECKING, Final
 import httpx
 from typing_extensions import override
 
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.base_llm.image_generation.transformation import (
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.base_llm.image_generation.transformation import (
     BaseImageGenerationConfig,
 )
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.openai import (
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.openai import (
     AllMessageValues,
     OpenAIImageGenerationOptionalParams,
 )
-from litellm.types.utils import ImageObject, ImageResponse
+from embrouter.types.utils import ImageObject, ImageResponse
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = object
+    EmbRouterLoggingObj = object
 
 
 class ModelScopeImageGenerationConfig(BaseImageGenerationConfig):
@@ -79,7 +79,7 @@ class ModelScopeImageGenerationConfig(BaseImageGenerationConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         """
@@ -98,7 +98,7 @@ class ModelScopeImageGenerationConfig(BaseImageGenerationConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
@@ -125,7 +125,7 @@ class ModelScopeImageGenerationConfig(BaseImageGenerationConfig):
         model: str,
         prompt: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         """
@@ -153,10 +153,10 @@ class ModelScopeImageGenerationConfig(BaseImageGenerationConfig):
         model: str,
         raw_response: httpx.Response,
         model_response: ImageResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         request_data: dict,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: object,
         api_key: str | None = None,
         json_mode: bool | None = None,
@@ -207,7 +207,7 @@ class ModelScopeImageGenerationConfig(BaseImageGenerationConfig):
         headers: dict | httpx.Headers,
     ) -> BaseLLMException:
         """Return the appropriate error class for ModelScope."""
-        from litellm.exceptions import (
+        from embrouter.exceptions import (
             AuthenticationError,
             BadRequestError,
             InternalServerError,

@@ -15,18 +15,18 @@ import os
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Final, Protocol, cast
 
-import litellm
-from litellm._logging import print_verbose
-from litellm.constants import (
+import embrouter
+from embrouter._logging import print_verbose
+from embrouter.constants import (
     QDRANT_SCALAR_QUANTILE,
     QDRANT_VECTOR_SIZE,
     SEMANTIC_CACHE_EMBEDDING_TIMEOUT_SECONDS,
 )
-from litellm.litellm_core_utils.asyncify import asyncify
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+from embrouter.embrouter_core_utils.asyncify import asyncify
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
     get_str_from_messages,
 )
-from litellm.types.utils import EmbeddingResponse
+from embrouter.types.utils import EmbeddingResponse
 
 from ._embedding_router import (
     build_router_embedding_metadata,
@@ -40,7 +40,7 @@ from .base_cache import BaseCache
 _WAIT_FOR_INDEXING: Final = MappingProxyType({"wait": "true"})
 
 if TYPE_CHECKING:
-    from litellm.router import Router
+    from embrouter.router import Router
 
 
 class _QdrantCollectionDetailsResponse(Protocol):
@@ -50,7 +50,7 @@ class _QdrantCollectionDetailsResponse(Protocol):
 
 
 class QdrantSemanticCache(BaseCache):
-    CACHE_KEY_FIELD_NAME = "litellm_cache_key"
+    CACHE_KEY_FIELD_NAME = "embrouter_cache_key"
     embedding_max_input_tokens: int | None = None
     embedding_timeout: float = SEMANTIC_CACHE_EMBEDDING_TIMEOUT_SECONDS
 
@@ -67,12 +67,12 @@ class QdrantSemanticCache(BaseCache):
         embedding_max_input_tokens: int | None = None,
         embedding_timeout: float | None = None,
     ):
-        from litellm.llms.custom_httpx.http_handler import (
+        from embrouter.llms.custom_httpx.http_handler import (
             _get_httpx_client,
             get_async_httpx_client,
             httpxSpecialProvider,
         )
-        from litellm.secret_managers.main import get_secret_str
+        from embrouter.secret_managers.main import get_secret_str
 
         if collection_name is None:
             raise Exception("collection_name must be provided, passed None")
@@ -227,7 +227,7 @@ class QdrantSemanticCache(BaseCache):
     def _get_embedding(self, prompt: str, metadata: dict[str, object] | None = None) -> EmbeddingResponse:
         """Embed via the proxy Router when it serves the model, else direct."""
         try:
-            from litellm.proxy.proxy_server import llm_model_list, llm_router
+            from embrouter.proxy.proxy_server import llm_model_list, llm_router
         except ImportError:
             llm_model_list = None
             llm_router = None
@@ -243,7 +243,7 @@ class QdrantSemanticCache(BaseCache):
                 timeout=self.embedding_timeout,
                 num_retries=0,
             )
-        return litellm.embedding(
+        return embrouter.embedding(
             model=self.embedding_model,
             input=embedding_input,
             cache={"no-store": True, "no-cache": True},
@@ -253,7 +253,7 @@ class QdrantSemanticCache(BaseCache):
 
     async def _get_async_embedding(self, prompt: str, metadata: dict[str, object] | None = None) -> EmbeddingResponse:
         try:
-            from litellm.proxy.proxy_server import llm_model_list, llm_router
+            from embrouter.proxy.proxy_server import llm_model_list, llm_router
         except ImportError:
             llm_model_list = None
             llm_router = None
@@ -270,7 +270,7 @@ class QdrantSemanticCache(BaseCache):
                 num_retries=0,
             )
             if router is not None
-            else litellm.aembedding(
+            else embrouter.aembedding(
                 model=self.embedding_model,
                 input=embedding_input,
                 cache={"no-store": True, "no-cache": True},
@@ -282,7 +282,7 @@ class QdrantSemanticCache(BaseCache):
 
     def set_cache(self, key, value, **kwargs):
         print_verbose(f"qdrant semantic-cache set_cache, kwargs: {kwargs}")
-        from litellm._uuid import uuid
+        from embrouter._uuid import uuid
 
         # get the prompt
         messages: Final = kwargs["messages"]
@@ -394,7 +394,7 @@ class QdrantSemanticCache(BaseCache):
             return None
 
     async def async_set_cache(self, key, value, **kwargs):
-        from litellm._uuid import uuid
+        from embrouter._uuid import uuid
 
         print_verbose(f"async qdrant semantic-cache set_cache, kwargs: {kwargs}")
 

@@ -3,9 +3,9 @@ from typing import Any, Final
 
 from typing_extensions import NotRequired, ReadOnly, TypedDict
 
-from litellm.types.llms.openai import AllMessageValues, ChatCompletionUserMessage
-from litellm.types.utils import ModelResponse
-from litellm.types.vector_stores import VectorStoreSearchResponse
+from embrouter.types.llms.openai import AllMessageValues, ChatCompletionUserMessage
+from embrouter.types.utils import ModelResponse
+from embrouter.types.vector_stores import VectorStoreSearchResponse
 
 
 class _ResultContentView(TypedDict):

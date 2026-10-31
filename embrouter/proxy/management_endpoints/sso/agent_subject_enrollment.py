@@ -3,7 +3,7 @@ from types import MappingProxyType
 from typing import Final
 from uuid import UUID
 
-from litellm.types.proxy.agent_identity import MicrosoftInteractiveSubject
+from embrouter.types.proxy.agent_identity import MicrosoftInteractiveSubject
 
 
 def microsoft_interactive_subject(
@@ -38,9 +38,9 @@ def microsoft_interactive_subject(
 
 
 async def enroll_microsoft_subject(subject: object, user_id: object, client: object) -> None:
-    from litellm.proxy.agent_endpoints.identity_store import AgentIdentityStore
-    from litellm.proxy.agent_endpoints.managed_identity import raise_identity_failure
-    from litellm.types.proxy.agent_identity import AgentIdentityFailure
+    from embrouter.proxy.agent_endpoints.identity_store import AgentIdentityStore
+    from embrouter.proxy.agent_endpoints.managed_identity import raise_identity_failure
+    from embrouter.types.proxy.agent_identity import AgentIdentityFailure
 
     if not isinstance(subject, MicrosoftInteractiveSubject) or not isinstance(user_id, str) or not user_id:
         return

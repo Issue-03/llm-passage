@@ -19,9 +19,9 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Final
 
-from litellm.proxy.auth.auth_utils import is_request_body_safe
-from litellm.types.router import LiteLLM_Params, LiteLLMParamsTypedDict
-from litellm.types.utils import CustomPricingLiteLLMParams, StandardCallbackDynamicParams
+from embrouter.proxy.auth.auth_utils import is_request_body_safe
+from embrouter.types.router import EmbRouter_Params, EmbRouterParamsTypedDict
+from embrouter.types.utils import CustomPricingEmbRouterParams, StandardCallbackDynamicParams
 
 CANARY_SLOTS: Final[Mapping[str, str]] = MappingProxyType(
     {
@@ -42,7 +42,7 @@ CREDENTIAL_NAME: Final = re.compile(r"(?:^|_)(?:key|secret|token|password|creden
 """Matches a name segment that starts with a credential word. Anchoring on a segment start keeps
 ``valkey_host`` and the other ``valkey_*`` settings out, and still matches ``aws_access_key_id``."""
 
-PRICING_FIELDS: Final = frozenset(CustomPricingLiteLLMParams.model_fields)
+PRICING_FIELDS: Final = frozenset(CustomPricingEmbRouterParams.model_fields)
 """Excluded from the name match: in ``input_cost_per_token`` and friends, token is a billing unit."""
 
 
@@ -102,7 +102,7 @@ CALLBACK_PARAM_CLASSIFICATION: Final[Mapping[str, Classification]] = MappingProx
         "signoz_ingestion_key": Unplanted(),
         "signoz_ingestion_endpoint": NotSecret("sink endpoint URL"),
         "turn_off_message_logging": NotSecret("boolean logging switch"),
-        "litellm_disabled_callbacks": NotSecret("list of callback names"),
+        "embrouter_disabled_callbacks": NotSecret("list of callback names"),
     }
 )
 
@@ -120,7 +120,7 @@ DEPLOYMENT_PARAM_CLASSIFICATION: Final[Mapping[str, Classification]] = MappingPr
         "s3_access_key_id": Unplanted(),
         "s3_secret_access_key": Unplanted(),
         "s3_encryption_key_id": NotSecret("KMS key identifier, not key material"),
-        "litellm_credential_name": NotSecret("name of a credentials table entry, not a credential"),
+        "embrouter_credential_name": NotSecret("name of a credentials table entry, not a credential"),
         "default_api_key_tpm_limit": NotSecret("rate limit number"),
         "default_api_key_rpm_limit": NotSecret("rate limit number"),
         "valkey_password": Unplanted(),
@@ -139,7 +139,7 @@ REQUEST_BODY_PARAM_CLASSIFICATION: Final[Mapping[str, Classification]] = Mapping
         "s3_secret_access_key": Unplanted(),
         "valkey_password": Unplanted(),
         "s3_encryption_key_id": NotSecret("KMS key identifier, not key material"),
-        "litellm_credential_name": NotSecret("name of a credentials table entry, not a credential"),
+        "embrouter_credential_name": NotSecret("name of a credentials table entry, not a credential"),
         "default_api_key_tpm_limit": NotSecret("rate limit number"),
         "default_api_key_rpm_limit": NotSecret("rate limit number"),
     }
@@ -152,9 +152,9 @@ def _credential_named(names: Iterable[str]) -> frozenset[str]:
 
 def _deployment_param_names() -> frozenset[str]:
     return (
-        frozenset(LiteLLM_Params.model_fields)
-        | LiteLLMParamsTypedDict.__required_keys__
-        | LiteLLMParamsTypedDict.__optional_keys__
+        frozenset(EmbRouter_Params.model_fields)
+        | EmbRouterParamsTypedDict.__required_keys__
+        | EmbRouterParamsTypedDict.__optional_keys__
     )
 
 
@@ -195,7 +195,7 @@ def test_every_callback_dynamic_param_is_classified():
 
 def test_every_credential_named_deployment_param_is_classified():
     _assert_classified(
-        "LiteLLM_Params / LiteLLMParamsTypedDict",
+        "EmbRouter_Params / EmbRouterParamsTypedDict",
         _credential_named(_deployment_param_names()),
         DEPLOYMENT_PARAM_CLASSIFICATION,
         "DEPLOYMENT_PARAM_CLASSIFICATION",

@@ -2,7 +2,7 @@ import hashlib
 import io
 import zipfile
 
-from litellm.proxy.discovery_endpoints.agent_skills_archive import (
+from embrouter.proxy.discovery_endpoints.agent_skills_archive import (
     MAX_ARCHIVE_ENTRIES,
     build_skill_archive,
 )

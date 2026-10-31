@@ -1,14 +1,14 @@
 import json
 from typing import Final
 
-import litellm
-from litellm import verbose_logger
-from litellm.types.llms.openai import (
+import embrouter
+from embrouter import verbose_logger
+from embrouter.types.llms.openai import (
     ChatCompletionToolCallChunk,
     ChatCompletionToolCallFunctionChunk,
     ChatCompletionUsageBlock,
 )
-from litellm.types.utils import GenericStreamingChunk, Usage
+from embrouter.types.utils import GenericStreamingChunk, Usage
 
 
 class ModelResponseIterator:
@@ -17,7 +17,7 @@ class ModelResponseIterator:
 
     def chunk_parser(self, chunk: dict) -> GenericStreamingChunk:
         try:
-            processed_chunk: Final = litellm.ModelResponseStream(**chunk)
+            processed_chunk: Final = embrouter.ModelResponseStream(**chunk)
 
             text = ""
             tool_use: ChatCompletionToolCallChunk | None = None
@@ -105,7 +105,7 @@ class ModelResponseIterator:
             raise RuntimeError(f"Error receiving chunk from stream: {e}")
 
         try:
-            chunk = litellm.CustomStreamWrapper._strip_sse_data_from_chunk(chunk) or ""
+            chunk = embrouter.CustomStreamWrapper._strip_sse_data_from_chunk(chunk) or ""
             chunk = chunk.strip()
             if len(chunk) > 0:
                 json_chunk: Final = json.loads(chunk)
@@ -150,7 +150,7 @@ class ModelResponseIterator:
             raise RuntimeError(f"Error receiving chunk from stream: {e}")
 
         try:
-            chunk = litellm.CustomStreamWrapper._strip_sse_data_from_chunk(chunk) or ""
+            chunk = embrouter.CustomStreamWrapper._strip_sse_data_from_chunk(chunk) or ""
             chunk = chunk.strip()
             if chunk == "[DONE]":
                 raise StopAsyncIteration

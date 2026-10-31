@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Awaitable
 from typing import Final, Protocol, cast  # noqa: TID251  # validates dynamically loaded native callables
 
-from litellm.rust_bridge.bindings import NativeBinding
+from embrouter.rust_bridge.bindings import NativeBinding
 
 
 class RustTranscription(Protocol):

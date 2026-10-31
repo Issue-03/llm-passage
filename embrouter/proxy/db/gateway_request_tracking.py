@@ -1,6 +1,6 @@
 """
 Accumulates gateway request counts (SGR) recorded at the ASGI edge and commits
-them to ``LiteLLM_DailyGatewayRequests``.
+them to ``EmbRouter_DailyGatewayRequests``.
 
 Unlike the spend queues this keeps no per-request item. A count is a pure
 aggregate, so requests fold into an in-memory map as they finish. Every
@@ -28,22 +28,22 @@ from typing import TYPE_CHECKING, Final, TypeAlias
 
 from pydantic import TypeAdapter
 
-from litellm._logging import verbose_proxy_logger
-from litellm.caching import RedisCache
-from litellm.constants import MAX_REDIS_BUFFER_DEQUEUE_COUNT, REDIS_GATEWAY_REQUESTS_BUFFER_KEY
-from litellm.proxy.db.db_transaction_queue.pod_lock_manager import PodLockManager
-from litellm.proxy.middleware.billable_request_metrics_middleware import BillableCategory
-from litellm.types.proxy.gateway_requests import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.caching import RedisCache
+from embrouter.constants import MAX_REDIS_BUFFER_DEQUEUE_COUNT, REDIS_GATEWAY_REQUESTS_BUFFER_KEY
+from embrouter.proxy.db.db_transaction_queue.pod_lock_manager import PodLockManager
+from embrouter.proxy.middleware.billable_request_metrics_middleware import BillableCategory
+from embrouter.types.proxy.gateway_requests import (
     GatewayRequestCounts,
     GatewayRequestKey,
     GatewayRequestSnapshot,
 )
 
 if TYPE_CHECKING:
-    from litellm.proxy.utils import PrismaClient
+    from embrouter.proxy.utils import PrismaClient
 
 _EMPTY: Final = GatewayRequestCounts(successful_requests=0, failed_requests=0)
-_TABLE: Final = '"LiteLLM_DailyGatewayRequests"'
+_TABLE: Final = '"EmbRouter_DailyGatewayRequests"'
 _COLUMNS_PER_ROW: Final = 5
 _UTC_NOW: Final = "(NOW() AT TIME ZONE 'UTC')"
 GATEWAY_REQUESTS_JOB_NAME: Final = "update_gateway_requests_job"

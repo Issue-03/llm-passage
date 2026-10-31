@@ -185,16 +185,16 @@ describe("chat_completion", () => {
     // Check first tool
     const firstTool = callArgs.tools[0];
     expect(firstTool.type).toBe("mcp");
-    expect(firstTool.server_label).toBe("litellm");
-    expect(firstTool.server_url).toBe("litellm_proxy/mcp/alpha");
+    expect(firstTool.server_label).toBe("embrouter");
+    expect(firstTool.server_url).toBe("embrouter_proxy/mcp/alpha");
     expect(firstTool.require_approval).toBe("never");
     expect(firstTool.allowed_tools).toEqual(["toolA", "toolB"]);
 
     // Check second tool
     const secondTool = callArgs.tools[1];
     expect(secondTool.type).toBe("mcp");
-    expect(secondTool.server_label).toBe("litellm");
-    expect(secondTool.server_url).toBe("litellm_proxy/mcp/Beta");
+    expect(secondTool.server_label).toBe("embrouter");
+    expect(secondTool.server_url).toBe("embrouter_proxy/mcp/Beta");
     expect(secondTool.require_approval).toBe("never");
     expect(secondTool.allowed_tools).toEqual(["toolC"]);
   });
@@ -505,7 +505,7 @@ describe("chat_completion response cache", () => {
             prompt_tokens_details: { cached_tokens: 4695 },
           },
         },
-        { "x-litellm-cache-key": "cache-key-abc" },
+        { "x-embrouter-cache-key": "cache-key-abc" },
       ),
     );
 
@@ -652,11 +652,11 @@ describe("chat_completion custom headers", () => {
       undefined,
       undefined,
       false,
-      { "anthropic-beta": "context-1m-2025-08-07", "x-litellm-tags": "overridden" },
+      { "anthropic-beta": "context-1m-2025-08-07", "x-embrouter-tags": "overridden" },
     );
 
     expect(vi.mocked(openai.OpenAI).mock.calls[0][0]).toMatchObject({
-      defaultHeaders: { "anthropic-beta": "context-1m-2025-08-07", "x-litellm-tags": "overridden" },
+      defaultHeaders: { "anthropic-beta": "context-1m-2025-08-07", "x-embrouter-tags": "overridden" },
     });
   });
 });

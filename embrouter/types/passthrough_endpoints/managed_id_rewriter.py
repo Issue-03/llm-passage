@@ -1,7 +1,7 @@
 """
 Typed surfaces for the passthrough managed-ID rewriter.
 
-Prisma's generated client is untyped at the ``litellm`` boundary, so the row
+Prisma's generated client is untyped at the ``embrouter`` boundary, so the row
 shapes, table actions, and query fragments the rewriter touches are declared
 here as protocols instead of leaking ``Any`` through every call site.
 """
@@ -23,9 +23,9 @@ from typing import (
 from pydantic import JsonValue
 
 if TYPE_CHECKING:
-    from litellm.models.managed_files import LiteLLM_ManagedFileTable
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.types.llms.openai import OpenAIFileObject
+    from embrouter.models.managed_files import EmbRouter_ManagedFileTable
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.types.llms.openai import OpenAIFileObject
 
 SortOrder: TypeAlias = Literal["asc", "desc"]
 ResourceKind: TypeAlias = Literal["files", "batches"]
@@ -39,7 +39,7 @@ ManagedRowData: TypeAlias = "Mapping[str, str | None]"
 
 
 class ManagedResourceRow(Protocol):
-    """Columns shared by ``LiteLLM_ManagedFileTable`` and ``LiteLLM_ManagedObjectTable`` rows."""
+    """Columns shared by ``EmbRouter_ManagedFileTable`` and ``EmbRouter_ManagedObjectTable`` rows."""
 
     created_by: str | None
     team_id: str | None
@@ -95,8 +95,8 @@ class ManagedFileIdReader(Protocol):
     async def get_unified_file_id(
         self,
         file_id: str,
-        litellm_parent_otel_span: object = None,
-    ) -> LiteLLM_ManagedFileTable | None: ...
+        embrouter_parent_otel_span: object = None,
+    ) -> EmbRouter_ManagedFileTable | None: ...
 
 
 @runtime_checkable
@@ -107,7 +107,7 @@ class ManagedFileIdWriter(Protocol):
         self,
         file_id: str,
         file_object: OpenAIFileObject | None,
-        litellm_parent_otel_span: object,
+        embrouter_parent_otel_span: object,
         model_mappings: dict[str, str],
         user_api_key_dict: UserAPIKeyAuth,
     ) -> None: ...

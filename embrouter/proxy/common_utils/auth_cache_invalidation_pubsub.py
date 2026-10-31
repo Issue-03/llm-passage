@@ -4,19 +4,19 @@ from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Final
 
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy.common_utils.config_sync_pubsub import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy.common_utils.config_sync_pubsub import (
     _ConfigSyncPubSub,
     _pubsub_capable_client,
     coordination_redis_cache,
 )
 
 if TYPE_CHECKING:
-    from litellm.caching.in_memory_cache import InMemoryCache
-    from litellm.caching.redis_cache import RedisCache
-    from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+    from embrouter.caching.in_memory_cache import InMemoryCache
+    from embrouter.caching.redis_cache import RedisCache
+    from embrouter.proxy.common_utils.user_api_key_cache import UserApiKeyCache
 
-AUTH_CACHE_INVALIDATION_CHANNEL: Final = "litellm_proxy.auth_cache_invalidation"
+AUTH_CACHE_INVALIDATION_CHANNEL: Final = "embrouter_proxy.auth_cache_invalidation"
 _POLL_TIMEOUT_SECONDS: Final = 1.0
 _MAX_PENDING_PUBLISHES: Final = 1024
 _MAX_IN_FLIGHT_PUBLISHES: Final = 16

@@ -14,9 +14,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
-from litellm.llms.anthropic.batches.transformation import AnthropicBatchesConfig
-from litellm.llms.anthropic.files.handler import AnthropicFilesHandler
-from litellm.types.llms.openai import FileContentRequest, HttpxBinaryResponseContent
+from embrouter.llms.anthropic.batches.transformation import AnthropicBatchesConfig
+from embrouter.llms.anthropic.files.handler import AnthropicFilesHandler
+from embrouter.types.llms.openai import FileContentRequest, HttpxBinaryResponseContent
 
 
 class TestAnthropicFilesHandler:
@@ -136,7 +136,7 @@ class TestAnthropicFilesHandler:
         )
 
         with patch(
-            "litellm.llms.anthropic.files.handler.get_async_httpx_client"
+            "embrouter.llms.anthropic.files.handler.get_async_httpx_client"
         ) as mock_get_client:
             mock_client = AsyncMock()
             mock_client.get = AsyncMock(return_value=mock_response)
@@ -202,7 +202,7 @@ class TestAnthropicFilesHandler:
         )
 
         with patch(
-            "litellm.llms.anthropic.files.handler.get_async_httpx_client"
+            "embrouter.llms.anthropic.files.handler.get_async_httpx_client"
         ) as mock_get_client:
             mock_client = AsyncMock()
             mock_client.get = AsyncMock(return_value=mock_response)
@@ -249,7 +249,7 @@ class TestAnthropicFilesHandler:
         )
 
         with patch(
-            "litellm.llms.anthropic.files.handler.get_async_httpx_client"
+            "embrouter.llms.anthropic.files.handler.get_async_httpx_client"
         ) as mock_get_client:
             mock_client = AsyncMock()
             mock_client.get = AsyncMock(return_value=mock_response)
@@ -310,7 +310,7 @@ class TestAnthropicFilesHandler:
         )
 
         with patch(
-            "litellm.llms.anthropic.files.handler.get_async_httpx_client"
+            "embrouter.llms.anthropic.files.handler.get_async_httpx_client"
         ) as mock_get_client:
             mock_client = AsyncMock()
             mock_client.get = AsyncMock(return_value=mock_response)
@@ -365,7 +365,7 @@ class TestAnthropicFilesHandler:
         )
 
         with patch(
-            "litellm.llms.anthropic.files.handler.get_async_httpx_client"
+            "embrouter.llms.anthropic.files.handler.get_async_httpx_client"
         ) as mock_get_client:
             mock_client = AsyncMock()
             mock_client.get = AsyncMock(return_value=mock_response)
@@ -460,7 +460,7 @@ class TestAnthropicFilesHandler:
         )
 
         with patch(
-            "litellm.llms.anthropic.files.handler.get_async_httpx_client"
+            "embrouter.llms.anthropic.files.handler.get_async_httpx_client"
         ) as mock_get_client:
             mock_client = AsyncMock()
             mock_client.get = AsyncMock(return_value=mock_response)
@@ -549,7 +549,7 @@ class TestAnthropicBatchesConfig:
             api_base="https://api.anthropic.com",
             batch_id="batch_123",
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
         )
         assert url == "https://api.anthropic.com/v1/messages/batches/batch_123"
 
@@ -558,7 +558,7 @@ class TestAnthropicBatchesConfig:
             api_base="https://api.anthropic.com/",
             batch_id="batch_123",
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
         )
         assert url == "https://api.anthropic.com/v1/messages/batches/batch_123"
 
@@ -582,7 +582,7 @@ class TestAnthropicBatchesConfig:
             model="claude-3-5-sonnet-20241022",
             raw_response=mock_response,
             logging_obj=logging_obj,
-            litellm_params={},
+            embrouter_params={},
         )
 
         assert batch.id == "batch_123"
@@ -614,7 +614,7 @@ class TestAnthropicBatchesConfig:
             model="claude-3-5-sonnet-20241022",
             raw_response=mock_response,
             logging_obj=logging_obj,
-            litellm_params={},
+            embrouter_params={},
         )
 
         assert batch.id == "batch_456"
@@ -642,7 +642,7 @@ class TestAnthropicBatchesConfig:
             model="claude-3-5-sonnet-20241022",
             raw_response=mock_response,
             logging_obj=logging_obj,
-            litellm_params={},
+            embrouter_params={},
         )
 
         assert batch.id == "batch_789"
@@ -670,7 +670,7 @@ class TestAnthropicBatchesConfig:
                 model="claude-3-5-sonnet-20241022",
                 raw_response=mock_response,
                 logging_obj=logging_obj,
-                litellm_params={},
+                embrouter_params={},
             )
 
     def test_transform_retrieve_batch_response_timestamp_parsing(self, config):
@@ -705,7 +705,7 @@ class TestAnthropicBatchesConfig:
             model="claude-3-5-sonnet-20241022",
             raw_response=mock_response,
             logging_obj=logging_obj,
-            litellm_params={},
+            embrouter_params={},
         )
 
         # Verify timestamps are parsed correctly
@@ -748,7 +748,7 @@ class TestAnthropicBatchesConfig:
             model="claude-3-5-sonnet-20241022",
             raw_response=mock_response,
             logging_obj=logging_obj,
-            litellm_params={},
+            embrouter_params={},
         )
 
         # Should still work with missing optional fields

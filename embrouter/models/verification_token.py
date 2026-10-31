@@ -1,19 +1,19 @@
 """
 Verification token table model.
 
-Canonical definition for ``litellm_verificationtoken``. Re-exported from
-``litellm.proxy._types`` for backwards compatibility.
+Canonical definition for ``embrouter_verificationtoken``. Re-exported from
+``embrouter.proxy._types`` for backwards compatibility.
 """
 
 from datetime import datetime
 
 from pydantic import ConfigDict
 
-from litellm.models.object_permission import LiteLLM_ObjectPermissionTable
-from litellm.types.llms.base import LiteLLMPydanticObjectBase
+from embrouter.models.object_permission import EmbRouter_ObjectPermissionTable
+from embrouter.types.llms.base import EmbRouterPydanticObjectBase
 
 
-class LiteLLM_VerificationToken(LiteLLMPydanticObjectBase):
+class EmbRouter_VerificationToken(EmbRouterPydanticObjectBase):
     token: str | None = None
     key_name: str | None = None
     key_alias: str | None = None
@@ -44,7 +44,7 @@ class LiteLLM_VerificationToken(LiteLLMPydanticObjectBase):
     budget_fallbacks: dict[str, list[str]] = {}
     soft_budget_cooldown: bool = False
     blocked: bool | None = None
-    litellm_budget_table: dict | None = None
+    embrouter_budget_table: dict | None = None
     budget_id: str | None = None
     org_id: str | None = None  # org id for a given key
     created_at: datetime | None = None
@@ -54,7 +54,7 @@ class LiteLLM_VerificationToken(LiteLLMPydanticObjectBase):
     settings_updated_at: datetime | None = None
     last_active: datetime | None = None
     object_permission_id: str | None = None
-    object_permission: LiteLLM_ObjectPermissionTable | None = None
+    object_permission: EmbRouter_ObjectPermissionTable | None = None
     access_group_ids: list[str] | None = None
     rotation_count: int | None = 0
     auto_rotate: bool | None = False
@@ -66,7 +66,7 @@ class LiteLLM_VerificationToken(LiteLLMPydanticObjectBase):
     model_config = ConfigDict(protected_namespaces=())
 
 
-class LiteLLM_DeletedVerificationToken(LiteLLM_VerificationToken):
+class EmbRouter_DeletedVerificationToken(EmbRouter_VerificationToken):
     """Audit record for deleted keys; mirrors the token plus deletion metadata."""
 
     id: str | None = None
@@ -74,6 +74,6 @@ class LiteLLM_DeletedVerificationToken(LiteLLM_VerificationToken):
     deleted_at: datetime | None = None
     deleted_by: str | None = None
     deleted_by_api_key: str | None = None
-    litellm_changed_by: str | None = None
+    embrouter_changed_by: str | None = None
 
     model_config = ConfigDict(protected_namespaces=())

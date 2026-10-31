@@ -9,14 +9,14 @@ Configuration structure:
 from collections.abc import Mapping, Sequence
 from typing import TYPE_CHECKING, Any, Final, Optional
 
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy.policy_engine.attachment_registry import get_attachment_registry
-from litellm.proxy.policy_engine.policy_registry import get_policy_registry
-from litellm.proxy.policy_engine.policy_validator import PolicyValidator
-from litellm.types.proxy.policy_engine import PolicyValidationResponse
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy.policy_engine.attachment_registry import get_attachment_registry
+from embrouter.proxy.policy_engine.policy_registry import get_policy_registry
+from embrouter.proxy.policy_engine.policy_validator import PolicyValidator
+from embrouter.types.proxy.policy_engine import PolicyValidationResponse
 
 if TYPE_CHECKING:
-    from litellm.proxy.utils import PrismaClient
+    from embrouter.proxy.utils import PrismaClient
 
 # ANSI color codes for terminal output
 _green_color_code: Final = "\033[92m"
@@ -35,7 +35,7 @@ def _print_policies_on_startup(
     import sys
 
     print(  # noqa: T201
-        f"{_green_color_code}\nLiteLLM Policy Engine: Loaded {len(policies_config)} policies{_reset_color_code}\n"
+        f"{_green_color_code}\nEmbRouter Policy Engine: Loaded {len(policies_config)} policies{_reset_color_code}\n"
     )
     sys.stdout.flush()
 
@@ -225,7 +225,7 @@ def get_policies_summary() -> dict[str, Any]:
     Returns:
         Dictionary with policy information
     """
-    from litellm.proxy.policy_engine.policy_resolver import PolicyResolver
+    from embrouter.proxy.policy_engine.policy_resolver import PolicyResolver
 
     policy_registry: Final = get_policy_registry()
     attachment_registry: Final = get_attachment_registry()

@@ -10,25 +10,25 @@ from collections.abc import Iterable, Mapping
 from itertools import groupby
 from typing import Any, Final, cast
 
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
     TOOL_RESULT_IMAGE_BOUNDARY,
     TOOL_RESULT_IMAGE_PLACEHOLDER,
     encrypted_reasoning_signature,
     responses_reasoning_items_from_thinking_blocks,
     with_prompt_cache_breakpoint,
 )
-from litellm.litellm_core_utils.reasoning_effort_utils import (
+from embrouter.embrouter_core_utils.reasoning_effort_utils import (
     reasoning_effort_from_thinking_budget,
 )
-from litellm.llms.anthropic.pass_through.messages.utils import (
+from embrouter.llms.anthropic.pass_through.messages.utils import (
     refusal_stop_details,
     responses_output_refusal_text,
 )
-from litellm.llms.anthropic.pass_through.utils import (
+from embrouter.llms.anthropic.pass_through.utils import (
     is_reasoning_auto_summary_enabled,
     prompt_cache_key_from_user_id,
 )
-from litellm.types.llms.anthropic import (
+from embrouter.types.llms.anthropic import (
     AllAnthropicPassThroughMessageValues,
     AllAnthropicToolsValues,
     AnthropicFinishReason,
@@ -40,11 +40,11 @@ from litellm.types.llms.anthropic import (
     AnthropicResponseContentBlockToolUse,
     AnthropicSystemMessageContent,
 )
-from litellm.types.llms.anthropic_messages.anthropic_response import (
+from embrouter.types.llms.anthropic_messages.anthropic_response import (
     AnthropicMessagesResponse,
     AnthropicUsage,
 )
-from litellm.types.llms.openai import (
+from embrouter.types.llms.openai import (
     ResponseAPIUsage,
     ResponsesAPIResponse,
 )
@@ -53,7 +53,7 @@ REASONING_SUMMARY_PART_SEPARATOR: Final = "\n\n"
 RESPONSES_INCLUDE_ENCRYPTED_REASONING: Final = "reasoning.encrypted_content"
 
 
-class LiteLLMAnthropicToResponsesAPIAdapter:
+class EmbRouterAnthropicToResponsesAPIAdapter:
     """
     Converts Anthropic /v1/messages requests to OpenAI Responses API format and
     converts Responses API responses back to Anthropic format.
@@ -69,13 +69,13 @@ class LiteLLMAnthropicToResponsesAPIAdapter:
         if raw_usage is None:
             return AnthropicUsage(input_tokens=0, output_tokens=0)
 
-        from litellm.llms.anthropic.pass_through.adapters.transformation import (
-            LiteLLMAnthropicMessagesAdapter,
+        from embrouter.llms.anthropic.pass_through.adapters.transformation import (
+            EmbRouterAnthropicMessagesAdapter,
         )
-        from litellm.responses.utils import ResponseAPILoggingUtils
+        from embrouter.responses.utils import ResponseAPILoggingUtils
 
         chat_usage = ResponseAPILoggingUtils._transform_response_api_usage_to_chat_usage(raw_usage)
-        return LiteLLMAnthropicMessagesAdapter._translate_openai_usage_to_anthropic_usage(chat_usage)
+        return EmbRouterAnthropicMessagesAdapter._translate_openai_usage_to_anthropic_usage(chat_usage)
 
     # ------------------------------------------------------------------ #
     # Request translation: Anthropic -> Responses API                     #
@@ -507,7 +507,7 @@ class LiteLLMAnthropicToResponsesAPIAdapter:
     ) -> dict[str, Any]:
         """
         Translate a full Anthropic /v1/messages request dict to
-        litellm.responses() / litellm.aresponses() kwargs.
+        embrouter.responses() / embrouter.aresponses() kwargs.
 
         ``include_encrypted_reasoning`` asks the provider for ``reasoning.encrypted_content``
         on every call, so a reasoning model's items can be replayed intact next turn even

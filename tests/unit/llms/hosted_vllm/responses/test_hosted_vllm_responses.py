@@ -13,13 +13,13 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 
-import litellm
-from litellm.llms.hosted_vllm.responses.transformation import (
+import embrouter
+from embrouter.llms.hosted_vllm.responses.transformation import (
     HostedVLLMResponsesAPIConfig,
 )
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import LlmProviders
-from litellm.utils import ProviderConfigManager
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import LlmProviders
+from embrouter.utils import ProviderConfigManager
 
 
 def _make_mock_responses_api_response(content: str = "Hello! I'm doing well.") -> dict:
@@ -71,17 +71,17 @@ def test_hosted_vllm_responses_create_with_string_input():
     mock_client = _make_mock_http_client(_make_mock_responses_api_response("I'm doing well, thanks!"))
 
     with patch(
-        "litellm.llms.custom_httpx.llm_http_handler._get_httpx_client",
+        "embrouter.llms.custom_httpx.llm_http_handler._get_httpx_client",
         return_value=mock_client,
     ):
-        response = litellm.responses(
+        response = embrouter.responses(
             model="hosted_vllm/Qwen/Qwen3-8B",
             input="Hello, how are you?",
             api_base="https://test-vllm.example.com/v1",
             api_key="test-key",
         )
 
-    from litellm.types.llms.openai import ResponsesAPIResponse
+    from embrouter.types.llms.openai import ResponsesAPIResponse
 
     assert response is not None
     assert isinstance(response, ResponsesAPIResponse)
@@ -97,7 +97,7 @@ def test_hosted_vllm_responses_create_with_explicit_none_extra_body():
     Directly verify the fix in add_provider_specific_params_to_optional_params:
     extra_body=None must not crash when building optional_params.
     """
-    from litellm.utils import get_optional_params
+    from embrouter.utils import get_optional_params
 
     # This should not raise TypeError: 'NoneType' object is not a mapping
     optional_params = get_optional_params(
@@ -129,21 +129,21 @@ def test_hosted_vllm_responses_api_url():
     # api_base without /v1
     url = config.get_complete_url(
         api_base="http://localhost:8000",
-        litellm_params={},
+        embrouter_params={},
     )
     assert url == "http://localhost:8000/v1/responses"
 
     # api_base with /v1
     url_with_v1 = config.get_complete_url(
         api_base="http://localhost:8000/v1",
-        litellm_params={},
+        embrouter_params={},
     )
     assert url_with_v1 == "http://localhost:8000/v1/responses"
 
     # api_base with trailing slash
     url_with_slash = config.get_complete_url(
         api_base="http://localhost:8000/v1/",
-        litellm_params={},
+        embrouter_params={},
     )
     assert url_with_slash == "http://localhost:8000/v1/responses"
 
@@ -155,7 +155,7 @@ def test_hosted_vllm_responses_api_url_requires_api_base():
     with pytest.raises(ValueError, match="api_base not set"):
         config.get_complete_url(
             api_base=None,
-            litellm_params={},
+            embrouter_params={},
         )
 
 
@@ -166,7 +166,7 @@ def test_hosted_vllm_validate_environment_default_api_key():
     headers = config.validate_environment(
         headers={},
         model="Qwen/Qwen3-8B",
-        litellm_params=GenericLiteLLMParams(),
+        embrouter_params=GenericEmbRouterParams(),
     )
 
     assert headers.get("Authorization") == "Bearer fake-api-key"
@@ -179,7 +179,7 @@ def test_hosted_vllm_validate_environment_custom_api_key():
     headers = config.validate_environment(
         headers={},
         model="Qwen/Qwen3-8B",
-        litellm_params=GenericLiteLLMParams(api_key="my-custom-key"),
+        embrouter_params=GenericEmbRouterParams(api_key="my-custom-key"),
     )
 
     assert headers.get("Authorization") == "Bearer my-custom-key"

@@ -270,7 +270,7 @@ export interface TeamMembership {
   budget_source: TeamMemberBudgetSource;
   spend: number;
   total_spend: number | null;
-  litellm_budget_table: {
+  embrouter_budget_table: {
     budget_id: string;
     soft_budget: number | null;
     max_budget: number | null;
@@ -310,7 +310,7 @@ export interface TeamData {
     max_parallel_requests: number | null;
     budget_reset_at: string | null;
     model_id: string | null;
-    litellm_model_table: {
+    embrouter_model_table: {
       model_aliases: Record<string, string> | null;
     } | null;
     created_at: string;
@@ -1193,7 +1193,7 @@ const TeamInfoView: React.FC<TeamInfoProps> = ({
         updateData.default_team_member_models = values.default_team_member_models;
       }
 
-      const previousModelAliases = info.litellm_model_table?.model_aliases ?? {};
+      const previousModelAliases = info.embrouter_model_table?.model_aliases ?? {};
       if (Object.keys(teamModelAliases).length > 0 || Object.keys(previousModelAliases).length > 0) {
         updateData.model_aliases = teamModelAliases;
       }
@@ -1286,8 +1286,8 @@ const TeamInfoView: React.FC<TeamInfoProps> = ({
   const initialKillSwitchOn = info.metadata?.disable_global_guardrails === true;
 
   const allGuardrails: GuardrailListItem[] = guardrailsData?.guardrails ?? [];
-  const globalGuardrails = allGuardrails.filter((g) => g.litellm_params?.default_on);
-  const otherGuardrails = allGuardrails.filter((g) => !g.litellm_params?.default_on);
+  const globalGuardrails = allGuardrails.filter((g) => g.embrouter_params?.default_on);
+  const otherGuardrails = allGuardrails.filter((g) => !g.embrouter_params?.default_on);
 
   const copyToClipboard = async (text: string, key: string) => {
     const success = await utilCopyToClipboard(text);
@@ -1478,7 +1478,7 @@ const TeamInfoView: React.FC<TeamInfoProps> = ({
             {canEditTeam && !isEditing && (
               <Button
                 variant="outline"
-                onClick={() => openSettingsEditor(info.litellm_model_table?.model_aliases ?? {})}
+                onClick={() => openSettingsEditor(info.embrouter_model_table?.model_aliases ?? {})}
               >
                 <Pencil />
                 Edit Settings
@@ -2159,7 +2159,7 @@ const TeamInfoView: React.FC<TeamInfoProps> = ({
                         ref={ref}
                         value={value ?? ""}
                         rows={6}
-                        placeholder='{"namespace": "admin", "mount": "secret", "path_prefix": "litellm"}'
+                        placeholder='{"namespace": "admin", "mount": "secret", "path_prefix": "embrouter"}'
                         disabled={!premiumUser}
                       />
                     )}
@@ -2218,7 +2218,7 @@ const TeamInfoView: React.FC<TeamInfoProps> = ({
               <div>
                 <p className="font-medium">Model Aliases</p>
                 {(() => {
-                  const aliasEntries = Object.entries(info.litellm_model_table?.model_aliases ?? {});
+                  const aliasEntries = Object.entries(info.embrouter_model_table?.model_aliases ?? {});
                   if (aliasEntries.length === 0) {
                     return <div className="text-muted-foreground">No model aliases configured</div>;
                   }

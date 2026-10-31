@@ -3,12 +3,12 @@ import { AgentCreateInfo } from "@/components/networking";
 import { parseKillSwitchForForm } from "./kill_switch_config";
 
 /**
- * Detects the agent type from an agent's litellm_params.
+ * Detects the agent type from an agent's embrouter_params.
  * Returns the agent_type string (e.g., "langgraph", "azure_ai_foundry", "bedrock_agentcore", or "a2a")
  */
 export const detectAgentType = (agent: Agent): string => {
-  const model = agent.litellm_params?.model || "";
-  const customProvider = agent.litellm_params?.custom_llm_provider;
+  const model = agent.embrouter_params?.model || "";
+  const customProvider = agent.embrouter_params?.custom_llm_provider;
 
   // Check by custom_llm_provider first
   if (customProvider === "langflow") return "langflow";
@@ -51,7 +51,7 @@ export const extractModelTemplateValues = (template: string, model: string): Rec
 
 /**
  * Parses agent data for dynamic form fields (non-A2A agents).
- * Extracts values from litellm_params based on the agent type metadata.
+ * Extracts values from embrouter_params based on the agent type metadata.
  */
 export const parseDynamicAgentForForm = (agent: Agent, agentTypeInfo: AgentCreateInfo): Record<string, any> => {
   const values: Record<string, any> = {
@@ -60,24 +60,24 @@ export const parseDynamicAgentForForm = (agent: Agent, agentTypeInfo: AgentCreat
   };
 
   const templateValues =
-    agentTypeInfo.model_template && agent.litellm_params?.model
-      ? extractModelTemplateValues(agentTypeInfo.model_template, agent.litellm_params.model)
+    agentTypeInfo.model_template && agent.embrouter_params?.model
+      ? extractModelTemplateValues(agentTypeInfo.model_template, agent.embrouter_params.model)
       : {};
 
-  // Extract credential field values from litellm_params
+  // Extract credential field values from embrouter_params
   for (const field of agentTypeInfo.credential_fields) {
-    if (field.include_in_litellm_params !== false) {
-      values[field.key] = agent.litellm_params?.[field.key] || field.default_value || "";
+    if (field.include_in_embrouter_params !== false) {
+      values[field.key] = agent.embrouter_params?.[field.key] || field.default_value || "";
     } else if (templateValues[field.key] !== undefined) {
-      // For fields not in litellm_params (like agent_runtime_arn), recover from the model string
+      // For fields not in embrouter_params (like agent_runtime_arn), recover from the model string
       values[field.key] = templateValues[field.key];
     }
   }
 
   // Extract cost configuration
-  values.cost_per_query = agent.litellm_params?.cost_per_query;
-  values.input_cost_per_token = agent.litellm_params?.input_cost_per_token;
-  values.output_cost_per_token = agent.litellm_params?.output_cost_per_token;
+  values.cost_per_query = agent.embrouter_params?.cost_per_query;
+  values.input_cost_per_token = agent.embrouter_params?.input_cost_per_token;
+  values.output_cost_per_token = agent.embrouter_params?.output_cost_per_token;
   values.kill_switch = parseKillSwitchForForm(agent.kill_switch);
 
   return values;

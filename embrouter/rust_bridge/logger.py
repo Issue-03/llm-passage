@@ -5,7 +5,7 @@ from typing import Final
 
 from pydantic import JsonValue
 
-from litellm._logging import (
+from embrouter._logging import (
     CorrelationContextFilter,
     DiagnosticProcessingFilter,
     session_id_var,

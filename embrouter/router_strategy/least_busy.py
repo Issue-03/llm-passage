@@ -5,11 +5,11 @@ from typing import Final
 from pydantic import TypeAdapter, ValidationError
 from typing_extensions import ReadOnly, TypedDict
 
-from litellm._logging import verbose_router_logger
-from litellm.caching.caching import DualCache
-from litellm.caching.redis_cache import log_redis_failure
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.router_utils.batch_utils import is_batch_retrieve_call_type
+from embrouter._logging import verbose_router_logger
+from embrouter.caching.caching import DualCache
+from embrouter.caching.redis_cache import log_redis_failure
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.router_utils.batch_utils import is_batch_retrieve_call_type
 
 IN_FLIGHT_COUNT_TTL_SECONDS: Final = 60 * 60
 
@@ -22,13 +22,13 @@ class _Metadata(TypedDict, total=False):
     model_group: ReadOnly[str | None]
 
 
-class _LitellmParams(TypedDict, total=False):
+class _EmbrouterParams(TypedDict, total=False):
     metadata: ReadOnly[_Metadata | None]
     model_info: ReadOnly[_ModelInfo | None]
 
 
 class _CallKwargs(TypedDict, total=False):
-    litellm_params: ReadOnly[_LitellmParams | None]
+    embrouter_params: ReadOnly[_EmbrouterParams | None]
 
 
 class _DeploymentModelInfo(TypedDict):
@@ -55,9 +55,9 @@ def _deployment_ref(kwargs: Mapping[str, object]) -> tuple[str, str] | None:
         call: Final = _CALL_KWARGS.validate_python(kwargs)
     except ValidationError:
         return None
-    litellm_params: Final = call.get("litellm_params")
-    metadata: Final = litellm_params.get("metadata") if litellm_params else None
-    model_info: Final = litellm_params.get("model_info") if litellm_params else None
+    embrouter_params: Final = call.get("embrouter_params")
+    metadata: Final = embrouter_params.get("metadata") if embrouter_params else None
+    model_info: Final = embrouter_params.get("model_info") if embrouter_params else None
     model_group: Final = metadata.get("model_group") if metadata else None
     deployment_id: Final = model_info.get("id") if model_info else None
     if model_group is None or deployment_id is None:

@@ -12,33 +12,33 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from litellm.llms.azure.responses.transformation import AzureOpenAIResponsesAPIConfig
-from litellm.llms.chatgpt.responses.transformation import ChatGPTResponsesAPIConfig
-from litellm.llms.databricks.responses.transformation import (
+from embrouter.llms.azure.responses.transformation import AzureOpenAIResponsesAPIConfig
+from embrouter.llms.chatgpt.responses.transformation import ChatGPTResponsesAPIConfig
+from embrouter.llms.databricks.responses.transformation import (
     DatabricksResponsesAPIConfig,
 )
-from litellm.llms.fireworks_ai.responses.transformation import (
+from embrouter.llms.fireworks_ai.responses.transformation import (
     FireworksAIResponsesAPIConfig,
 )
-from litellm.llms.github_copilot.responses.transformation import (
+from embrouter.llms.github_copilot.responses.transformation import (
     GithubCopilotResponsesAPIConfig,
 )
-from litellm.llms.hosted_vllm.responses.transformation import (
+from embrouter.llms.hosted_vllm.responses.transformation import (
     HostedVLLMResponsesAPIConfig,
 )
-from litellm.llms.litellm_proxy.responses.transformation import (
-    LiteLLMProxyResponsesAPIConfig,
+from embrouter.llms.embrouter_proxy.responses.transformation import (
+    EmbRouterProxyResponsesAPIConfig,
 )
-from litellm.llms.manus.responses.transformation import ManusResponsesAPIConfig
-from litellm.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
-from litellm.llms.openrouter.responses.transformation import (
+from embrouter.llms.manus.responses.transformation import ManusResponsesAPIConfig
+from embrouter.llms.openai.responses.transformation import OpenAIResponsesAPIConfig
+from embrouter.llms.openrouter.responses.transformation import (
     OpenRouterResponsesAPIConfig,
 )
-from litellm.llms.perplexity.responses.transformation import PerplexityResponsesConfig
-from litellm.llms.volcengine.responses.transformation import (
+from embrouter.llms.perplexity.responses.transformation import PerplexityResponsesConfig
+from embrouter.llms.volcengine.responses.transformation import (
     VolcEngineResponsesAPIConfig,
 )
-from litellm.llms.xai.responses.transformation import XAIResponsesAPIConfig
+from embrouter.llms.xai.responses.transformation import XAIResponsesAPIConfig
 
 
 class TestResponsesAPIWebSocketSupport:
@@ -63,7 +63,7 @@ class TestResponsesAPIWebSocketSupport:
         config = AzureOpenAIResponsesAPIConfig()
         url = config.get_websocket_url(
             api_base="https://myresource.cognitiveservices.azure.com",
-            litellm_params={"api_version": "2025-04-01-preview"},
+            embrouter_params={"api_version": "2025-04-01-preview"},
         )
         assert url == "wss://myresource.cognitiveservices.azure.com/openai/v1/responses"
         assert "api-version" not in url
@@ -73,7 +73,7 @@ class TestResponsesAPIWebSocketSupport:
         config = AzureOpenAIResponsesAPIConfig()
         url = config.get_websocket_url(
             api_base="https://myresource.cognitiveservices.azure.com/openai/responses",
-            litellm_params={},
+            embrouter_params={},
         )
         assert url == "wss://myresource.cognitiveservices.azure.com/openai/v1/responses"
 
@@ -81,14 +81,14 @@ class TestResponsesAPIWebSocketSupport:
         config = AzureOpenAIResponsesAPIConfig()
         url = config.get_websocket_url(
             api_base="https://myresource.cognitiveservices.azure.com/openai/responses?api-version=2024-05-01-preview",
-            litellm_params={},
+            embrouter_params={},
         )
         assert url == "wss://myresource.cognitiveservices.azure.com/openai/v1/responses"
 
     def test_azure_websocket_url_requires_api_base(self):
         config = AzureOpenAIResponsesAPIConfig()
         with pytest.raises(ValueError, match='api_base is required for Azure WebSocket'):
-            config.get_websocket_url(api_base=None, litellm_params={})
+            config.get_websocket_url(api_base=None, embrouter_params={})
 
     def test_azure_model_not_in_websocket_url(self):
         """Azure sends the model in the body, so it must not be appended to the URL"""
@@ -98,7 +98,7 @@ class TestResponsesAPIWebSocketSupport:
         """The base get_websocket_url default converts the HTTP endpoint to wss://"""
         config = OpenAIResponsesAPIConfig()
         url = config.get_websocket_url(
-            api_base="https://api.openai.com/v1", litellm_params={}
+            api_base="https://api.openai.com/v1", embrouter_params={}
         )
         assert url == "wss://api.openai.com/v1/responses"
 
@@ -132,12 +132,12 @@ class TestResponsesAPIWebSocketSupport:
             config.supports_native_websocket() is False
         ), "ChatGPT should use managed websocket handler"
 
-    def test_litellm_proxy_uses_managed_websocket(self):
-        """LiteLLM Proxy should use managed websocket handler"""
-        config = LiteLLMProxyResponsesAPIConfig()
+    def test_embrouter_proxy_uses_managed_websocket(self):
+        """EmbRouter Proxy should use managed websocket handler"""
+        config = EmbRouterProxyResponsesAPIConfig()
         assert (
             config.supports_native_websocket() is False
-        ), "LiteLLM Proxy should use managed websocket handler"
+        ), "EmbRouter Proxy should use managed websocket handler"
 
     def test_volcengine_uses_managed_websocket(self):
         """VolcEngine should use managed websocket handler"""
@@ -190,8 +190,8 @@ class TestManagedWebSocketHandlerIntegration:
         """Test that ManagedResponsesWebSocketHandler can be instantiated"""
         from unittest.mock import MagicMock
 
-        from litellm.litellm_core_utils.litellm_logging import Logging
-        from litellm.responses.streaming_iterator import (
+        from embrouter.embrouter_core_utils.embrouter_logging import Logging
+        from embrouter.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -202,7 +202,7 @@ class TestManagedWebSocketHandlerIntegration:
             stream=True,
             call_type="aresponses",
             start_time=0,
-            litellm_call_id="test-id",
+            embrouter_call_id="test-id",
             function_id="test-func",
         )
 
@@ -211,7 +211,7 @@ class TestManagedWebSocketHandlerIntegration:
             model="test-model",
             logging_obj=mock_logging_obj,
             user_api_key_dict=None,
-            litellm_metadata={},
+            embrouter_metadata={},
             api_key="test-key",
             api_base="https://api.example.com",
             timeout=30.0,
@@ -228,16 +228,16 @@ class TestManagedWebSocketHandlerIntegration:
     async def test_frame_alias_resolves_to_connection_model(self, monkeypatch):
         """
         A response.create frame that repeats the public model alias must reach
-        litellm.aresponses with the router-resolved deployment model, not the
+        embrouter.aresponses with the router-resolved deployment model, not the
         raw alias (which fails in get_llm_provider). Regression for codex
         WebSocket sessions against managed providers like bedrock_mantle.
         """
         import json
         from unittest.mock import AsyncMock, MagicMock
 
-        import litellm
-        from litellm.litellm_core_utils.litellm_logging import Logging
-        from litellm.responses.streaming_iterator import (
+        import embrouter
+        from embrouter.embrouter_core_utils.embrouter_logging import Logging
+        from embrouter.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -252,7 +252,7 @@ class TestManagedWebSocketHandlerIntegration:
 
             return _empty()
 
-        monkeypatch.setattr(litellm, "aresponses", fake_aresponses)
+        monkeypatch.setattr(embrouter, "aresponses", fake_aresponses)
 
         mock_websocket = MagicMock()
         mock_websocket.send_text = AsyncMock()
@@ -266,10 +266,10 @@ class TestManagedWebSocketHandlerIntegration:
                 stream=True,
                 call_type="aresponses",
                 start_time=0,
-                litellm_call_id="test-id",
+                embrouter_call_id="test-id",
                 function_id="test-func",
             ),
-            litellm_metadata={"model_group": "gpt-5.5-mantle"},
+            embrouter_metadata={"model_group": "gpt-5.5-mantle"},
         )
 
         frame = json.dumps(
@@ -295,9 +295,9 @@ class TestManagedWebSocketHandlerIntegration:
         import json
         from unittest.mock import AsyncMock, MagicMock
 
-        import litellm
-        from litellm.litellm_core_utils.litellm_logging import Logging
-        from litellm.responses.streaming_iterator import (
+        import embrouter
+        from embrouter.embrouter_core_utils.embrouter_logging import Logging
+        from embrouter.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -308,7 +308,7 @@ class TestManagedWebSocketHandlerIntegration:
             called = True
             raise AssertionError("provider must not be called for a warmup frame")
 
-        monkeypatch.setattr(litellm, "aresponses", fail_aresponses)
+        monkeypatch.setattr(embrouter, "aresponses", fail_aresponses)
 
         mock_websocket = MagicMock()
         mock_websocket.send_text = AsyncMock()
@@ -322,10 +322,10 @@ class TestManagedWebSocketHandlerIntegration:
                 stream=True,
                 call_type="aresponses",
                 start_time=0,
-                litellm_call_id="test-id",
+                embrouter_call_id="test-id",
                 function_id="test-func",
             ),
-            litellm_metadata={"model_group": "gpt-5.5-mantle"},
+            embrouter_metadata={"model_group": "gpt-5.5-mantle"},
         )
 
         frame = json.dumps(
@@ -357,9 +357,9 @@ class TestManagedWebSocketHandlerIntegration:
         import json
         from unittest.mock import AsyncMock, MagicMock
 
-        import litellm
-        from litellm.litellm_core_utils.litellm_logging import Logging
-        from litellm.responses.streaming_iterator import (
+        import embrouter
+        from embrouter.embrouter_core_utils.embrouter_logging import Logging
+        from embrouter.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -374,7 +374,7 @@ class TestManagedWebSocketHandlerIntegration:
 
             return _empty()
 
-        monkeypatch.setattr(litellm, "aresponses", fake_aresponses)
+        monkeypatch.setattr(embrouter, "aresponses", fake_aresponses)
 
         mock_websocket = MagicMock()
         mock_websocket.send_text = AsyncMock()
@@ -388,10 +388,10 @@ class TestManagedWebSocketHandlerIntegration:
                 stream=True,
                 call_type="aresponses",
                 start_time=0,
-                litellm_call_id="test-id",
+                embrouter_call_id="test-id",
                 function_id="test-func",
             ),
-            litellm_metadata={"model_group": "gpt-5.5-mantle"},
+            embrouter_metadata={"model_group": "gpt-5.5-mantle"},
         )
 
         await handler._process_response_create(
@@ -433,7 +433,7 @@ class TestChunkTransformation:
 
     def test_serialize_chunk_with_dict(self):
         """Test serialization of dict chunks"""
-        from litellm.responses.streaming_iterator import (
+        from embrouter.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -449,7 +449,7 @@ class TestChunkTransformation:
 
     def test_serialize_chunk_handles_invalid_json(self):
         """Test that chunks with circular references are handled"""
-        from litellm.responses.streaming_iterator import (
+        from embrouter.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -462,7 +462,7 @@ class TestChunkTransformation:
 
     def test_extract_output_messages_with_text_content(self):
         """Test extraction of output messages with text content"""
-        from litellm.responses.streaming_iterator import (
+        from embrouter.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -490,7 +490,7 @@ class TestChunkTransformation:
 
     def test_extract_output_messages_with_multiple_content_parts(self):
         """Test extraction with multiple content parts"""
-        from litellm.responses.streaming_iterator import (
+        from embrouter.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -519,7 +519,7 @@ class TestChunkTransformation:
 
     def test_extract_output_messages_with_function_calls(self):
         """Test that function calls are preserved"""
-        from litellm.responses.streaming_iterator import (
+        from embrouter.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -548,7 +548,7 @@ class TestChunkTransformation:
 
     def test_extract_output_messages_filters_empty_text(self):
         """Test that messages with empty text are filtered out"""
-        from litellm.responses.streaming_iterator import (
+        from embrouter.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -579,7 +579,7 @@ class TestChunkTransformation:
 
     def test_extract_output_messages_handles_non_dict_items(self):
         """Test that non-dict items are skipped"""
-        from litellm.responses.streaming_iterator import (
+        from embrouter.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -608,7 +608,7 @@ class TestChunkTransformation:
 
     def test_input_to_messages_with_string(self):
         """Test conversion of string input to messages"""
-        from litellm.responses.streaming_iterator import (
+        from embrouter.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -621,7 +621,7 @@ class TestChunkTransformation:
 
     def test_input_to_messages_with_list(self):
         """Test conversion of list input to messages"""
-        from litellm.responses.streaming_iterator import (
+        from embrouter.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -640,7 +640,7 @@ class TestChunkTransformation:
 
     def test_input_to_messages_filters_non_dict_items(self):
         """Test that non-dict items in list input are filtered"""
-        from litellm.responses.streaming_iterator import (
+        from embrouter.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -660,7 +660,7 @@ class TestChunkTransformation:
 
     def test_input_to_messages_handles_empty_input(self):
         """Test that empty input returns empty list"""
-        from litellm.responses.streaming_iterator import (
+        from embrouter.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -672,24 +672,24 @@ class TestChunkTransformation:
 class TestUpdateProxyRequest:
     """Regression tests for ManagedResponsesWebSocketHandler._update_proxy_request.
 
-    The managed WebSocket path calls ``litellm.aresponses(model=..., **call_kwargs)``.
-    ``litellm_params`` is not a Responses API request field, so passing it as a
+    The managed WebSocket path calls ``embrouter.aresponses(model=..., **call_kwargs)``.
+    ``embrouter_params`` is not a Responses API request field, so passing it as a
     top-level kwarg leaks it into the provider request body and providers that
     forbid extra inputs (e.g. Anthropic) reject the call with
-    ``litellm_params: Extra inputs are not permitted``. The request-tracking data
-    must ride along as ``proxy_server_request`` instead, which litellm consumes
+    ``embrouter_params: Extra inputs are not permitted``. The request-tracking data
+    must ride along as ``proxy_server_request`` instead, which embrouter consumes
     internally and never forwards to the provider.
     """
 
-    def test_does_not_inject_litellm_params_kwarg(self):
-        from litellm.responses.streaming_iterator import (
+    def test_does_not_inject_embrouter_params_kwarg(self):
+        from embrouter.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
         call_kwargs = {
             "input": "hello",
             "store": True,
-            "litellm_metadata": {
+            "embrouter_metadata": {
                 "proxy_server_request": {"headers": {}, "body": {}},
             },
         }
@@ -698,27 +698,27 @@ class TestUpdateProxyRequest:
             call_kwargs, "anthropic/claude-sonnet-4-5"
         )
 
-        assert "litellm_params" not in call_kwargs
+        assert "embrouter_params" not in call_kwargs
         assert call_kwargs["proxy_server_request"]["body"]["model"] == (
             "anthropic/claude-sonnet-4-5"
         )
         assert call_kwargs["proxy_server_request"]["body"]["input"] == "hello"
 
     def test_proxy_server_request_matches_metadata(self):
-        from litellm.responses.streaming_iterator import (
+        from embrouter.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
         call_kwargs = {
             "input": "hi",
-            "litellm_metadata": {"proxy_server_request": {"body": {}}},
+            "embrouter_metadata": {"proxy_server_request": {"body": {}}},
         }
 
         ManagedResponsesWebSocketHandler._update_proxy_request(call_kwargs, "gpt-4o")
 
         assert (
             call_kwargs["proxy_server_request"]
-            == call_kwargs["litellm_metadata"]["proxy_server_request"]
+            == call_kwargs["embrouter_metadata"]["proxy_server_request"]
         )
 
 
@@ -727,7 +727,7 @@ class TestWebSocketEventTypes:
 
     def test_serialize_response_created_event_dict(self):
         """Test serialization of response.created event as dict"""
-        from litellm.responses.streaming_iterator import (
+        from embrouter.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -749,7 +749,7 @@ class TestWebSocketEventTypes:
 
     def test_serialize_response_in_progress_event_dict(self):
         """Test serialization of response.in_progress event as dict"""
-        from litellm.responses.streaming_iterator import (
+        from embrouter.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -761,7 +761,7 @@ class TestWebSocketEventTypes:
 
     def test_serialize_output_item_added_event_dict(self):
         """Test serialization of response.output_item.added event as dict"""
-        from litellm.responses.streaming_iterator import (
+        from embrouter.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -780,7 +780,7 @@ class TestWebSocketEventTypes:
 
     def test_serialize_output_text_delta_event_dict(self):
         """Test serialization of response.output_text.delta event as dict"""
-        from litellm.responses.streaming_iterator import (
+        from embrouter.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -800,7 +800,7 @@ class TestWebSocketEventTypes:
 
     def test_serialize_output_text_done_event_dict(self):
         """Test serialization of response.output_text.done event as dict"""
-        from litellm.responses.streaming_iterator import (
+        from embrouter.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -820,7 +820,7 @@ class TestWebSocketEventTypes:
 
     def test_serialize_content_part_done_event_dict(self):
         """Test serialization of response.content_part.done event as dict"""
-        from litellm.responses.streaming_iterator import (
+        from embrouter.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -839,7 +839,7 @@ class TestWebSocketEventTypes:
 
     def test_serialize_output_item_done_event_dict(self):
         """Test serialization of response.output_item.done event as dict"""
-        from litellm.responses.streaming_iterator import (
+        from embrouter.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -858,7 +858,7 @@ class TestWebSocketEventTypes:
 
     def test_serialize_response_completed_event_dict(self):
         """Test serialization of response.completed event as dict"""
-        from litellm.responses.streaming_iterator import (
+        from embrouter.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -884,7 +884,7 @@ class TestWebSocketEventTypes:
 
     def test_serialize_response_failed_event_dict(self):
         """Test serialization of response.failed event as dict"""
-        from litellm.responses.streaming_iterator import (
+        from embrouter.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -905,7 +905,7 @@ class TestWebSocketEventTypes:
 
     def test_serialize_response_incomplete_event_dict(self):
         """Test serialization of response.incomplete event as dict"""
-        from litellm.responses.streaming_iterator import (
+        from embrouter.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -930,7 +930,7 @@ class TestMultiTurnSessionHistory:
 
     def test_extract_output_messages_preserves_multiple_messages(self):
         """Test that multiple output messages are all preserved"""
-        from litellm.responses.streaming_iterator import (
+        from embrouter.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -969,7 +969,7 @@ class TestMultiTurnSessionHistory:
 
     def test_input_to_messages_with_mixed_content_types(self):
         """Test input conversion with mixed content types"""
-        from litellm.responses.streaming_iterator import (
+        from embrouter.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -992,7 +992,7 @@ class TestMultiTurnSessionHistory:
 
     def test_extract_output_messages_with_mixed_text_types(self):
         """Test that both 'output_text' and 'text' types are extracted"""
-        from litellm.responses.streaming_iterator import (
+        from embrouter.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -1021,7 +1021,7 @@ class TestMultiTurnSessionHistory:
 
     def test_extract_response_id_from_completed_event(self):
         """Test extraction of response ID from completed event"""
-        from litellm.responses.streaming_iterator import (
+        from embrouter.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -1037,7 +1037,7 @@ class TestMultiTurnSessionHistory:
 
     def test_extract_response_id_handles_missing_response(self):
         """Test that missing response dict returns None"""
-        from litellm.responses.streaming_iterator import (
+        from embrouter.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -1057,8 +1057,8 @@ class TestWebSocketErrorHandling:
         """Test that invalid JSON in response.create is handled gracefully"""
         from unittest.mock import AsyncMock, MagicMock
 
-        from litellm.litellm_core_utils.litellm_logging import Logging
-        from litellm.responses.streaming_iterator import (
+        from embrouter.embrouter_core_utils.embrouter_logging import Logging
+        from embrouter.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -1072,7 +1072,7 @@ class TestWebSocketErrorHandling:
             stream=True,
             call_type="aresponses",
             start_time=0,
-            litellm_call_id="test-id",
+            embrouter_call_id="test-id",
             function_id="test-func",
         )
 
@@ -1102,10 +1102,10 @@ class TestWebSocketProjectQuotaEnforcement:
     async def test_managed_handler_blocks_frame_rejected_by_quota_callback(self, monkeypatch):
         from unittest.mock import AsyncMock, MagicMock
 
-        import litellm
-        from litellm.exceptions import RateLimitError
-        from litellm.litellm_core_utils.litellm_logging import Logging
-        from litellm.responses.streaming_iterator import (
+        import embrouter
+        from embrouter.exceptions import RateLimitError
+        from embrouter.embrouter_core_utils.embrouter_logging import Logging
+        from embrouter.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -1115,7 +1115,7 @@ class TestWebSocketProjectQuotaEnforcement:
             nonlocal aresponses_called
             aresponses_called = True
 
-        monkeypatch.setattr(litellm, "aresponses", fake_aresponses)
+        monkeypatch.setattr(embrouter, "aresponses", fake_aresponses)
 
         quota_callback = MagicMock()
         quota_callback.enforce_project_io_token_quota_for_frame = AsyncMock(
@@ -1130,7 +1130,7 @@ class TestWebSocketProjectQuotaEnforcement:
             stream=True,
             call_type="aresponses",
             start_time=0,
-            litellm_call_id="test-id",
+            embrouter_call_id="test-id",
             function_id="test-func",
         )
         handler = ManagedResponsesWebSocketHandler(
@@ -1152,9 +1152,9 @@ class TestWebSocketProjectQuotaEnforcement:
     async def test_managed_handler_forwards_frame_allowed_by_quota_callback(self, monkeypatch):
         from unittest.mock import AsyncMock, MagicMock
 
-        import litellm
-        from litellm.litellm_core_utils.litellm_logging import Logging
-        from litellm.responses.streaming_iterator import (
+        import embrouter
+        from embrouter.embrouter_core_utils.embrouter_logging import Logging
+        from embrouter.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -1170,7 +1170,7 @@ class TestWebSocketProjectQuotaEnforcement:
 
             return _empty()
 
-        monkeypatch.setattr(litellm, "aresponses", fake_aresponses)
+        monkeypatch.setattr(embrouter, "aresponses", fake_aresponses)
 
         quota_callback = MagicMock()
         quota_callback.enforce_project_io_token_quota_for_frame = AsyncMock(return_value=None)
@@ -1183,7 +1183,7 @@ class TestWebSocketProjectQuotaEnforcement:
             stream=True,
             call_type="aresponses",
             start_time=0,
-            litellm_call_id="test-id",
+            embrouter_call_id="test-id",
             function_id="test-func",
         )
         handler = ManagedResponsesWebSocketHandler(
@@ -1202,8 +1202,8 @@ class TestWebSocketProjectQuotaEnforcement:
     async def test_native_handler_blocks_frame_rejected_by_quota_callback(self):
         from unittest.mock import AsyncMock, MagicMock
 
-        from litellm.exceptions import RateLimitError
-        from litellm.responses.streaming_iterator import ResponsesWebSocketStreaming
+        from embrouter.exceptions import RateLimitError
+        from embrouter.responses.streaming_iterator import ResponsesWebSocketStreaming
 
         quota_callback = MagicMock()
         quota_callback.enforce_project_io_token_quota_for_frame = AsyncMock(
@@ -1236,7 +1236,7 @@ class TestWebSocketProjectQuotaEnforcement:
     async def test_native_handler_forwards_frame_allowed_by_quota_callback(self):
         from unittest.mock import AsyncMock, MagicMock
 
-        from litellm.responses.streaming_iterator import ResponsesWebSocketStreaming
+        from embrouter.responses.streaming_iterator import ResponsesWebSocketStreaming
 
         quota_callback = MagicMock()
         quota_callback.enforce_project_io_token_quota_for_frame = AsyncMock(return_value=None)
@@ -1260,7 +1260,7 @@ class TestWebSocketProjectQuotaEnforcement:
 def _deployment_defaults():
     from types import MappingProxyType
 
-    from litellm.types.responses.streaming_websocket import ResponsesWebSocketRequestDefaults
+    from embrouter.types.responses.streaming_websocket import ResponsesWebSocketRequestDefaults
 
     return ResponsesWebSocketRequestDefaults(
         fill_missing=MappingProxyType({"reasoning": {"effort": "high"}, "service_tier": "priority"}),
@@ -1269,10 +1269,10 @@ def _deployment_defaults():
 
 
 class TestNativeWebSocketDeploymentDefaults:
-    """The native relay merges deployment litellm_params into every response.create like HTTP does."""
+    """The native relay merges deployment embrouter_params into every response.create like HTTP does."""
 
     def test_builder_maps_router_kwargs_like_the_http_path(self):
-        from litellm.responses.main import _build_responses_websocket_request_defaults
+        from embrouter.responses.main import _build_responses_websocket_request_defaults
 
         defaults = _build_responses_websocket_request_defaults(
             {
@@ -1285,9 +1285,9 @@ class TestNativeWebSocketDeploymentDefaults:
                 "max_retries": 2,
                 "caching": False,
                 "custom_llm_provider": "openai",
-                "litellm_metadata": {"user_api_key": "hashed"},
+                "embrouter_metadata": {"user_api_key": "hashed"},
                 "user_api_key_dict": MagicMock(),
-                "litellm_logging_obj": MagicMock(),
+                "embrouter_logging_obj": MagicMock(),
                 "websocket": MagicMock(),
             }
         )
@@ -1296,7 +1296,7 @@ class TestNativeWebSocketDeploymentDefaults:
         assert dict(defaults.overrides) == {"provider_default": "configured"}
 
     def test_builder_keeps_explicit_reasoning_over_reasoning_effort(self):
-        from litellm.responses.main import _build_responses_websocket_request_defaults
+        from embrouter.responses.main import _build_responses_websocket_request_defaults
 
         defaults = _build_responses_websocket_request_defaults(
             {"model": "gpt-5-pro", "reasoning": {"effort": "low"}, "reasoning_effort": "high"}
@@ -1306,7 +1306,7 @@ class TestNativeWebSocketDeploymentDefaults:
         assert dict(defaults.overrides) == {}
 
     def test_builder_copies_dict_valued_reasoning_effort_like_the_http_path(self):
-        from litellm.responses.main import _build_responses_websocket_request_defaults
+        from embrouter.responses.main import _build_responses_websocket_request_defaults
 
         defaults = _build_responses_websocket_request_defaults(
             {"model": "gpt-5-pro", "reasoning_effort": {"effort": "xhigh", "summary": "auto"}}
@@ -1318,7 +1318,7 @@ class TestNativeWebSocketDeploymentDefaults:
     def test_builder_forwards_non_enum_reasoning_effort_like_the_http_path(
         self, reasoning_effort: int | list[str] | str
     ):
-        from litellm.responses.main import _build_responses_websocket_request_defaults
+        from embrouter.responses.main import _build_responses_websocket_request_defaults
 
         defaults = _build_responses_websocket_request_defaults({"model": "gpt-5-pro", "reasoning_effort": reasoning_effort})
 
@@ -1328,7 +1328,7 @@ class TestNativeWebSocketDeploymentDefaults:
     async def test_extra_body_type_key_never_replaces_the_frame_type(self):
         from types import MappingProxyType
 
-        from litellm.types.responses.streaming_websocket import ResponsesWebSocketRequestDefaults
+        from embrouter.types.responses.streaming_websocket import ResponsesWebSocketRequestDefaults
 
         handler = _make_streaming(
             authorized_model="gpt-5-pro",
@@ -1422,7 +1422,7 @@ class TestNativeWebSocketDeploymentDefaults:
         import asyncio
         from unittest.mock import AsyncMock, patch
 
-        from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+        from embrouter.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
 
         class FakeBackend:
             def __init__(self):
@@ -1492,7 +1492,7 @@ class TestNativeWebSocketDeploymentDefaults:
         import importlib
         from unittest.mock import AsyncMock
 
-        responses_main = importlib.import_module("litellm.responses.main")
+        responses_main = importlib.import_module("embrouter.responses.main")
 
         stub = MagicMock()
         stub.async_responses_websocket = AsyncMock()
@@ -1502,7 +1502,7 @@ class TestNativeWebSocketDeploymentDefaults:
             model="openai/gpt-5-pro",
             websocket=MagicMock(),
             api_key="sk-test",
-            litellm_logging_obj=MagicMock(),
+            embrouter_logging_obj=MagicMock(),
             reasoning_effort="high",
             service_tier="priority",
             extra_body={"provider_default": "configured"},
@@ -1519,7 +1519,7 @@ class TestNativeWebSocketDeploymentDefaults:
         import importlib
         from unittest.mock import AsyncMock
 
-        responses_main = importlib.import_module("litellm.responses.main")
+        responses_main = importlib.import_module("embrouter.responses.main")
 
         stub = MagicMock()
         stub.async_responses_websocket = AsyncMock()
@@ -1529,9 +1529,9 @@ class TestNativeWebSocketDeploymentDefaults:
             model="openai/gpt-5-pro",
             websocket=MagicMock(),
             api_key="sk-test",
-            litellm_logging_obj=MagicMock(),
+            embrouter_logging_obj=MagicMock(),
             reasoning_effort="high",
-            input=[{"id": "encitem_abc", "type": "reasoning", "encrypted_content": "litellm_enc:abc"}],
+            input=[{"id": "encitem_abc", "type": "reasoning", "encrypted_content": "embrouter_enc:abc"}],
             previous_response_id="resp_first_turn",
         )
 
@@ -1547,7 +1547,7 @@ class TestNativeWebSocketGuardrails:
         import json
         from unittest.mock import MagicMock
 
-        from litellm.responses.streaming_iterator import ResponsesWebSocketStreaming
+        from embrouter.responses.streaming_iterator import ResponsesWebSocketStreaming
 
         handler = ResponsesWebSocketStreaming(
             websocket=MagicMock(),
@@ -1572,7 +1572,7 @@ class TestNativeWebSocketGuardrails:
     async def test_completed_event_with_null_response_passes_through(self):
         from unittest.mock import MagicMock
 
-        from litellm.responses.streaming_iterator import ResponsesWebSocketStreaming
+        from embrouter.responses.streaming_iterator import ResponsesWebSocketStreaming
 
         class Guardrail:
             def get_presidio_settings_from_request_data(self, request_data):
@@ -1602,7 +1602,7 @@ class TestNativeWebSocketGuardrails:
 
         import websockets.exceptions
 
-        from litellm.responses.streaming_iterator import ResponsesWebSocketStreaming
+        from embrouter.responses.streaming_iterator import ResponsesWebSocketStreaming
 
         class RecordingGuardrail:
             def __init__(self):
@@ -1676,7 +1676,7 @@ class TestNativeWebSocketGuardrails:
 
         import websockets.exceptions
 
-        from litellm.responses.streaming_iterator import ResponsesWebSocketStreaming
+        from embrouter.responses.streaming_iterator import ResponsesWebSocketStreaming
 
         class MaskingGuardrail:
             def __init__(self):
@@ -1804,7 +1804,7 @@ class _FakeWSGuardrail:
 def _make_streaming(**kwargs):
     from unittest.mock import MagicMock
 
-    from litellm.responses.streaming_iterator import ResponsesWebSocketStreaming
+    from embrouter.responses.streaming_iterator import ResponsesWebSocketStreaming
 
     kwargs.setdefault("websocket", MagicMock())
     kwargs.setdefault("backend_ws", MagicMock())
@@ -2619,7 +2619,7 @@ class TestWebSocketChunkTypes:
 
     def test_serialize_function_call_chunk(self):
         """Test serialization of function call chunks"""
-        from litellm.responses.streaming_iterator import (
+        from embrouter.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -2640,7 +2640,7 @@ class TestWebSocketChunkTypes:
 
     def test_serialize_function_call_arguments_delta(self):
         """Test serialization of function call arguments delta"""
-        from litellm.responses.streaming_iterator import (
+        from embrouter.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -2660,7 +2660,7 @@ class TestWebSocketChunkTypes:
 
     def test_serialize_function_call_arguments_done(self):
         """Test serialization of function call arguments done"""
-        from litellm.responses.streaming_iterator import (
+        from embrouter.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -2680,7 +2680,7 @@ class TestWebSocketChunkTypes:
 
     def test_serialize_reasoning_content_delta(self):
         """Test serialization of reasoning content delta"""
-        from litellm.responses.streaming_iterator import (
+        from embrouter.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -2700,7 +2700,7 @@ class TestWebSocketChunkTypes:
 
     def test_serialize_reasoning_content_done(self):
         """Test serialization of reasoning content done"""
-        from litellm.responses.streaming_iterator import (
+        from embrouter.responses.streaming_iterator import (
             ManagedResponsesWebSocketHandler,
         )
 
@@ -2752,7 +2752,7 @@ class TestNativeWebSocketUrlConstruction:
         mock_logging = MagicMock()
         mock_logging.pre_call = MagicMock()
 
-        from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+        from embrouter.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
 
         handler = BaseLLMHTTPHandler()
 
@@ -2803,7 +2803,7 @@ class TestNativeWebSocketUrlConstruction:
         mock_logging = MagicMock()
         mock_logging.pre_call = MagicMock()
 
-        from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+        from embrouter.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
 
         handler = BaseLLMHTTPHandler()
         mock_ws = MagicMock()
@@ -2830,7 +2830,7 @@ class TestNativeWebSocketUrlConstruction:
         ], f"existing param lost: {captured_urls[0]}"
 
     @pytest.mark.asyncio
-    async def test_ws_passes_litellm_params_to_get_websocket_url(self):
+    async def test_ws_passes_embrouter_params_to_get_websocket_url(self):
         """Deployment api_version must reach get_websocket_url (Azure WS URL)."""
         from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -2844,7 +2844,7 @@ class TestNativeWebSocketUrlConstruction:
         mock_logging = MagicMock()
         mock_logging.pre_call = MagicMock()
 
-        from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+        from embrouter.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
 
         handler = BaseLLMHTTPHandler()
         mock_ws = MagicMock()
@@ -2873,7 +2873,7 @@ class TestNativeWebSocketUrlConstruction:
 
         mock_config.get_websocket_url.assert_called_once()
         _, call_kwargs = mock_config.get_websocket_url.call_args
-        assert call_kwargs["litellm_params"]["api_version"] == "2025-04-01-preview"
+        assert call_kwargs["embrouter_params"]["api_version"] == "2025-04-01-preview"
 
 
 _AFFINITY_METADATA = {
@@ -2883,7 +2883,7 @@ _AFFINITY_METADATA = {
 
 
 def _wrapped_reasoning_item():
-    from litellm.responses.utils import ResponsesAPIRequestUtils
+    from embrouter.responses.utils import ResponsesAPIRequestUtils
 
     return {
         "type": "reasoning",
@@ -2900,7 +2900,7 @@ class TestNativeWebSocketEncryptedContentAffinity:
     async def test_client_to_backend_restores_wrapped_ids(self, nested: bool):
         from unittest.mock import AsyncMock
 
-        from litellm.responses.utils import ResponsesAPIRequestUtils
+        from embrouter.responses.utils import ResponsesAPIRequestUtils
 
         wrapped_previous = ResponsesAPIRequestUtils._build_responses_api_response_id(
             custom_llm_provider="openai", model_id="dep-1", response_id="resp_orig"
@@ -2947,7 +2947,7 @@ class TestNativeWebSocketEncryptedContentAffinity:
 
         import websockets.exceptions  # noqa: F401  (lazy submodule must be importable)
 
-        from litellm.responses.utils import ResponsesAPIRequestUtils
+        from embrouter.responses.utils import ResponsesAPIRequestUtils
 
         reasoning_item = {"type": "reasoning", "id": "rs_1", "encrypted_content": "gAAAA-blob", "summary": []}
         websocket = MagicMock()
@@ -2971,7 +2971,7 @@ class TestNativeWebSocketEncryptedContentAffinity:
             websocket=websocket,
             backend_ws=backend_ws,
             logging_obj=logging_obj,
-            request_data={"litellm_metadata": dict(_AFFINITY_METADATA)},
+            request_data={"embrouter_metadata": dict(_AFFINITY_METADATA)},
             custom_llm_provider="openai",
         )
 
@@ -2998,7 +2998,7 @@ class TestNativeWebSocketEncryptedContentAffinity:
 
         import websockets.exceptions  # noqa: F401  (lazy submodule must be importable)
 
-        from litellm.responses.utils import ResponsesAPIRequestUtils
+        from embrouter.responses.utils import ResponsesAPIRequestUtils
 
         reasoning_item = {"type": "reasoning", "id": "rs_1", "encrypted_content": "gAAAA-blob", "summary": []}
         websocket = MagicMock()
@@ -3017,7 +3017,7 @@ class TestNativeWebSocketEncryptedContentAffinity:
             websocket=websocket,
             backend_ws=backend_ws,
             logging_obj=logging_obj,
-            request_data={"litellm_metadata": {"model_info": {"id": "dep-1"}}},
+            request_data={"embrouter_metadata": {"model_info": {"id": "dep-1"}}},
             custom_llm_provider="openai",
         )
 

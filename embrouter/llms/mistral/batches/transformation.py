@@ -18,11 +18,11 @@ from openai.types.batch_error import BatchError
 from pydantic import BaseModel, ConfigDict
 from typing_extensions import NotRequired, ReadOnly, TypedDict
 
-from litellm.litellm_core_utils.url_utils import encode_url_path_segment
-from litellm.llms.base_llm.batches.transformation import BaseBatchesConfig
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.types.llms.openai import AllMessageValues, CreateBatchRequest
-from litellm.types.utils import LiteLLMBatch, LlmProviders
+from embrouter.embrouter_core_utils.url_utils import encode_url_path_segment
+from embrouter.llms.base_llm.batches.transformation import BaseBatchesConfig
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.types.llms.openai import AllMessageValues, CreateBatchRequest
+from embrouter.types.utils import EmbRouterBatch, LlmProviders
 
 from ..common_utils import get_mistral_api_base, get_mistral_auth_headers, mistral_error
 
@@ -89,7 +89,7 @@ class MistralBatchJob(BaseModel):
     output_file: str | None = None
     error_file: str | None = None
     errors: tuple[MistralBatchError, ...] = ()
-    metadata: dict[str, str] | None = None  # mutable-ok: LiteLLMBatch.metadata is typed as dict
+    metadata: dict[str, str] | None = None  # mutable-ok: EmbRouterBatch.metadata is typed as dict
 
 
 def _to_batch_errors(errors: Sequence[MistralBatchError]) -> BatchErrors | None:
@@ -103,10 +103,10 @@ def _to_batch_errors(errors: Sequence[MistralBatchError]) -> BatchErrors | None:
     )
 
 
-def _to_litellm_batch(job: MistralBatchJob) -> LiteLLMBatch:
+def _to_embrouter_batch(job: MistralBatchJob) -> EmbRouterBatch:
     status: Final = _STATUS_MAP[job.status]
     terminal_at: Final = job.completed_at
-    return LiteLLMBatch(
+    return EmbRouterBatch(
         id=job.id,
         object="batch",
         endpoint=job.endpoint,
@@ -142,7 +142,7 @@ class MistralBatchesConfig(BaseBatchesConfig):
         model: str,
         messages: Sequence[AllMessageValues],
         optional_params: Mapping[str, object],
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict[str, str]:  # mutable-ok: BaseBatchesConfig signature
@@ -154,7 +154,7 @@ class MistralBatchesConfig(BaseBatchesConfig):
         api_key: str | None,
         model: str,
         optional_params: Mapping[str, object],
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
         data: CreateBatchRequest,
     ) -> str:
         return f"{get_mistral_api_base(api_base)}/v1/batch/jobs"
@@ -164,7 +164,7 @@ class MistralBatchesConfig(BaseBatchesConfig):
         model: str,
         create_batch_data: CreateBatchRequest,
         optional_params: Mapping[str, object],
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
     ) -> dict[str, object]:  # mutable-ok: BaseBatchesConfig signature
         input_file_id: Final = create_batch_data.get("input_file_id")
         endpoint: Final = create_batch_data.get("endpoint")
@@ -185,19 +185,19 @@ class MistralBatchesConfig(BaseBatchesConfig):
         model: str | None,
         raw_response: httpx.Response,
         logging_obj: object,
-        litellm_params: Mapping[str, object],
-    ) -> LiteLLMBatch:
-        return _to_litellm_batch(MistralBatchJob.model_validate(raw_response.json()))
+        embrouter_params: Mapping[str, object],
+    ) -> EmbRouterBatch:
+        return _to_embrouter_batch(MistralBatchJob.model_validate(raw_response.json()))
 
     def transform_retrieve_batch_request(
         self,
         batch_id: str,
         optional_params: Mapping[str, object],
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
     ) -> dict[str, object]:  # mutable-ok: BaseBatchesConfig signature
         encoded_batch_id: Final = encode_url_path_segment(batch_id, field_name="batch_id")
-        api_base: Final = litellm_params.get("api_base")
-        api_key: Final = litellm_params.get("api_key")
+        api_base: Final = embrouter_params.get("api_base")
+        api_key: Final = embrouter_params.get("api_key")
         request: Final = MistralPresignedRequest(
             method="GET",
             url=f"{get_mistral_api_base(api_base if isinstance(api_base, str) else None)}/v1/batch/jobs/{encoded_batch_id}",
@@ -210,9 +210,9 @@ class MistralBatchesConfig(BaseBatchesConfig):
         model: str | None,
         raw_response: httpx.Response,
         logging_obj: object,
-        litellm_params: Mapping[str, object],
-    ) -> LiteLLMBatch:
-        return _to_litellm_batch(MistralBatchJob.model_validate(raw_response.json()))
+        embrouter_params: Mapping[str, object],
+    ) -> EmbRouterBatch:
+        return _to_embrouter_batch(MistralBatchJob.model_validate(raw_response.json()))
 
     def get_error_class(
         self, error_message: str, status_code: int, headers: Mapping[str, str] | httpx.Headers

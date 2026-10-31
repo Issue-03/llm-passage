@@ -82,8 +82,8 @@ from typing_extensions import (
     override,
 )
 
-from litellm.types.llms.base import BaseLiteLLMOpenAIResponseObject
-from litellm.types.responses.main import (
+from embrouter.types.llms.base import BaseEmbRouterOpenAIResponseObject
+from embrouter.types.responses.main import (
     CustomToolCallOutputItem,
     GenericResponseOutputItem,
     OutputCodeInterpreterCall,
@@ -356,7 +356,7 @@ _JsonValue: TypeAlias = object
 """Alias for ``object``, usable inside model bodies that declare a field named ``object``."""
 
 
-BATCH_GUARDRAIL_RESPONSE_FIELD: Final = "litellm_batch_guardrail"
+BATCH_GUARDRAIL_RESPONSE_FIELD: Final = "embrouter_batch_guardrail"
 
 
 class OpenAIFileObject(BaseModel):
@@ -399,7 +399,7 @@ class OpenAIFileObject(BaseModel):
     `error` field on `fine_tuning.job`.
     """
 
-    litellm_batch_guardrail: BatchGuardrailReport | None = None
+    embrouter_batch_guardrail: BatchGuardrailReport | None = None
     """Set by the proxy when guardrails acted on a `purpose=batch` upload.
 
     Absent on every other upload, so OpenAI-shaped clients see an unchanged response.
@@ -412,7 +412,7 @@ class OpenAIFileObject(BaseModel):
         self, handler: SerializerFunctionWrapHandler
     ):
         serialized: Final[Mapping[str, object]] = handler(self)
-        if self.litellm_batch_guardrail is not None:
+        if self.embrouter_batch_guardrail is not None:
             return serialized
         return {  # mutable-ok: pydantic's json serializer rejects a mapping that is not a dict
             key: value for key, value in serialized.items() if key != BATCH_GUARDRAIL_RESPONSE_FIELD
@@ -543,7 +543,7 @@ class CreateBatchRequest(TypedDict, total=False):
     timeout: float | None
 
 
-class LiteLLMBatchCreateRequest(CreateBatchRequest, total=False):
+class EmbRouterBatchCreateRequest(CreateBatchRequest, total=False):
     model: str
     disable_fallbacks: ReadOnly[bool]
 
@@ -748,7 +748,7 @@ class OpenAIChatCompletionTextObject(TypedDict):
 
 class ChatCompletionTextObject(
     OpenAIChatCompletionTextObject, total=False
-):  # litellm wrapper on top of openai object for handling cached content
+):  # embrouter wrapper on top of openai object for handling cached content
     cache_control: ChatCompletionCachedContent
 
 
@@ -1077,7 +1077,7 @@ class ChatCompletionRequest(TypedDict, total=False):
     function_call: str | dict
     functions: list
     user: str
-    metadata: dict  # litellm specific param
+    metadata: dict  # embrouter specific param
     reasoning_effort: str  # OpenAI o1/o3 reasoning parameter
     output_config: Mapping[str, object]  # Anthropic adaptive-thinking effort, bridged for Bedrock Claude
 
@@ -1156,7 +1156,7 @@ class FineTuningJobCreate(BaseModel):
     seed: int | None = None  # "The seed controls the reproducibility of the job."
 
 
-class LiteLLMFineTuningJobCreate(FineTuningJobCreate):
+class EmbRouterFineTuningJobCreate(FineTuningJobCreate):
     custom_llm_provider: Literal["openai", "azure", "vertex_ai"] | None = None
 
     model_config = {"extra": "allow"}  # This allows the model to accept additional fields
@@ -1317,7 +1317,7 @@ class ResponsesAPIRequestParams(ResponsesAPIOptionalRequestParams, total=False):
     model: Required[ReadOnly[str]]
 
 
-class OutputTokensDetails(BaseLiteLLMOpenAIResponseObject):
+class OutputTokensDetails(BaseEmbRouterOpenAIResponseObject):
     audio_tokens: int | None = None
 
     reasoning_tokens: int | None = None
@@ -1327,7 +1327,7 @@ class OutputTokensDetails(BaseLiteLLMOpenAIResponseObject):
     model_config = {"extra": "allow"}
 
 
-class InputTokensDetails(BaseLiteLLMOpenAIResponseObject):
+class InputTokensDetails(BaseEmbRouterOpenAIResponseObject):
     audio_tokens: int | None = None
     cached_tokens: int = 0
     cached_tokens_details: CachedTokensDetails | None = None
@@ -1338,7 +1338,7 @@ class InputTokensDetails(BaseLiteLLMOpenAIResponseObject):
     model_config = {"extra": "allow"}
 
 
-class ResponseAPIUsage(BaseLiteLLMOpenAIResponseObject):
+class ResponseAPIUsage(BaseEmbRouterOpenAIResponseObject):
     input_tokens: int
     """The number of input tokens."""
 
@@ -1387,7 +1387,7 @@ One of: completed, failed, in_progress, cancelled, queued, or incomplete.
 """
 
 
-class ResponsesAPIResponse(BaseLiteLLMOpenAIResponseObject):
+class ResponsesAPIResponse(BaseEmbRouterOpenAIResponseObject):
     id: str
     created_at: int
     error: dict | None = None
@@ -1585,28 +1585,28 @@ class ResponsesAPIStreamEvents(str, Enum):
     ERROR = "error"
 
 
-class ResponseCreatedEvent(BaseLiteLLMOpenAIResponseObject):
+class ResponseCreatedEvent(BaseEmbRouterOpenAIResponseObject):
     type: Literal[ResponsesAPIStreamEvents.RESPONSE_CREATED]
     response: ResponsesAPIResponse
 
 
-class ResponseInProgressEvent(BaseLiteLLMOpenAIResponseObject):
+class ResponseInProgressEvent(BaseEmbRouterOpenAIResponseObject):
     type: Literal[ResponsesAPIStreamEvents.RESPONSE_IN_PROGRESS]
     response: ResponsesAPIResponse
 
 
-class ResponseCompletedEvent(BaseLiteLLMOpenAIResponseObject):
+class ResponseCompletedEvent(BaseEmbRouterOpenAIResponseObject):
     type: Literal[ResponsesAPIStreamEvents.RESPONSE_COMPLETED]
     response: ResponsesAPIResponse
     _hidden_params: dict = PrivateAttr(default_factory=dict)
 
 
-class ResponseFailedEvent(BaseLiteLLMOpenAIResponseObject):
+class ResponseFailedEvent(BaseEmbRouterOpenAIResponseObject):
     type: Literal[ResponsesAPIStreamEvents.RESPONSE_FAILED]
     response: ResponsesAPIResponse
 
 
-class ResponseIncompleteEvent(BaseLiteLLMOpenAIResponseObject):
+class ResponseIncompleteEvent(BaseEmbRouterOpenAIResponseObject):
     type: Literal[ResponsesAPIStreamEvents.RESPONSE_INCOMPLETE]
     response: ResponsesAPIResponse
 
@@ -1614,14 +1614,14 @@ class ResponseIncompleteEvent(BaseLiteLLMOpenAIResponseObject):
 ResponsesTerminalEvent: TypeAlias = ResponseCompletedEvent | ResponseIncompleteEvent | ResponseFailedEvent
 
 
-class ResponsePartAddedEvent(BaseLiteLLMOpenAIResponseObject):
+class ResponsePartAddedEvent(BaseEmbRouterOpenAIResponseObject):
     type: Literal[ResponsesAPIStreamEvents.RESPONSE_PART_ADDED]
     item_id: str
     output_index: int
     part: dict
 
 
-class ReasoningSummaryTextDeltaEvent(BaseLiteLLMOpenAIResponseObject):
+class ReasoningSummaryTextDeltaEvent(BaseEmbRouterOpenAIResponseObject):
     type: Literal[ResponsesAPIStreamEvents.REASONING_SUMMARY_TEXT_DELTA]
     item_id: str
     output_index: int
@@ -1629,7 +1629,7 @@ class ReasoningSummaryTextDeltaEvent(BaseLiteLLMOpenAIResponseObject):
     delta: str
 
 
-class ReasoningSummaryTextDoneEvent(BaseLiteLLMOpenAIResponseObject):
+class ReasoningSummaryTextDoneEvent(BaseEmbRouterOpenAIResponseObject):
     type: Literal[ResponsesAPIStreamEvents.REASONING_SUMMARY_TEXT_DONE]
     item_id: str
     output_index: int
@@ -1638,26 +1638,26 @@ class ReasoningSummaryTextDoneEvent(BaseLiteLLMOpenAIResponseObject):
     text: str
 
 
-class ReasoningSummaryPartDoneEvent(BaseLiteLLMOpenAIResponseObject):
+class ReasoningSummaryPartDoneEvent(BaseEmbRouterOpenAIResponseObject):
     type: Literal[ResponsesAPIStreamEvents.REASONING_SUMMARY_PART_DONE]
     item_id: str
     output_index: int
     sequence_number: int
     summary_index: int = 0
-    part: BaseLiteLLMOpenAIResponseObject
+    part: BaseEmbRouterOpenAIResponseObject
 
 
-class OutputItemAddedEvent(BaseLiteLLMOpenAIResponseObject):
+class OutputItemAddedEvent(BaseEmbRouterOpenAIResponseObject):
     type: Literal[ResponsesAPIStreamEvents.OUTPUT_ITEM_ADDED]
     output_index: int
-    item: BaseLiteLLMOpenAIResponseObject | None
+    item: BaseEmbRouterOpenAIResponseObject | None
 
 
-class OutputItemDoneEvent(BaseLiteLLMOpenAIResponseObject):
+class OutputItemDoneEvent(BaseEmbRouterOpenAIResponseObject):
     type: Literal[ResponsesAPIStreamEvents.OUTPUT_ITEM_DONE]
     output_index: int
     sequence_number: int = 1
-    item: BaseLiteLLMOpenAIResponseObject
+    item: BaseEmbRouterOpenAIResponseObject
 
 
 class OpenAIChatCompletionLogprobsContentTopLogprobs(TypedDict, total=False):
@@ -1673,27 +1673,27 @@ class OpenAIChatCompletionLogprobsContent(TypedDict, total=False):
     top_logprobs: list[OpenAIChatCompletionLogprobsContentTopLogprobs]
 
 
-class ContentPartAddedEvent(BaseLiteLLMOpenAIResponseObject):
+class ContentPartAddedEvent(BaseEmbRouterOpenAIResponseObject):
     type: Literal[ResponsesAPIStreamEvents.CONTENT_PART_ADDED]
     item_id: str
     output_index: int
     content_index: int
-    part: BaseLiteLLMOpenAIResponseObject
+    part: BaseEmbRouterOpenAIResponseObject
 
 
-class ContentPartDonePartOutputText(BaseLiteLLMOpenAIResponseObject):
+class ContentPartDonePartOutputText(BaseEmbRouterOpenAIResponseObject):
     type: Literal["output_text"]
     text: str
-    annotations: list[BaseLiteLLMOpenAIResponseObject]
+    annotations: list[BaseEmbRouterOpenAIResponseObject]
     logprobs: list[OpenAIChatCompletionLogprobsContent] | None
 
 
-class ContentPartDonePartRefusal(BaseLiteLLMOpenAIResponseObject):
+class ContentPartDonePartRefusal(BaseEmbRouterOpenAIResponseObject):
     type: Literal["refusal"]
     refusal: str
 
 
-class ContentPartDonePartReasoningText(BaseLiteLLMOpenAIResponseObject):
+class ContentPartDonePartReasoningText(BaseEmbRouterOpenAIResponseObject):
     type: Literal["reasoning_text"]
     reasoning: str
 
@@ -1701,7 +1701,7 @@ class ContentPartDonePartReasoningText(BaseLiteLLMOpenAIResponseObject):
 PART_UNION_TYPES = ContentPartDonePartOutputText | ContentPartDonePartRefusal | ContentPartDonePartReasoningText
 
 
-class ContentPartDoneEvent(BaseLiteLLMOpenAIResponseObject):
+class ContentPartDoneEvent(BaseEmbRouterOpenAIResponseObject):
     type: Literal[ResponsesAPIStreamEvents.CONTENT_PART_DONE]
     item_id: str
     output_index: int
@@ -1709,7 +1709,7 @@ class ContentPartDoneEvent(BaseLiteLLMOpenAIResponseObject):
     part: PART_UNION_TYPES
 
 
-class OutputTextDeltaEvent(BaseLiteLLMOpenAIResponseObject):
+class OutputTextDeltaEvent(BaseEmbRouterOpenAIResponseObject):
     type: Literal[ResponsesAPIStreamEvents.OUTPUT_TEXT_DELTA]
     item_id: str
     output_index: int
@@ -1717,7 +1717,7 @@ class OutputTextDeltaEvent(BaseLiteLLMOpenAIResponseObject):
     delta: str
 
 
-class OutputTextAnnotationAddedEvent(BaseLiteLLMOpenAIResponseObject):
+class OutputTextAnnotationAddedEvent(BaseEmbRouterOpenAIResponseObject):
     type: Literal[ResponsesAPIStreamEvents.OUTPUT_TEXT_ANNOTATION_ADDED]
     item_id: str
     output_index: int
@@ -1726,7 +1726,7 @@ class OutputTextAnnotationAddedEvent(BaseLiteLLMOpenAIResponseObject):
     annotation: dict
 
 
-class OutputTextDoneEvent(BaseLiteLLMOpenAIResponseObject):
+class OutputTextDoneEvent(BaseEmbRouterOpenAIResponseObject):
     type: Literal[ResponsesAPIStreamEvents.OUTPUT_TEXT_DONE]
     item_id: str
     output_index: int
@@ -1734,7 +1734,7 @@ class OutputTextDoneEvent(BaseLiteLLMOpenAIResponseObject):
     text: str
 
 
-class RefusalDeltaEvent(BaseLiteLLMOpenAIResponseObject):
+class RefusalDeltaEvent(BaseEmbRouterOpenAIResponseObject):
     type: Literal[ResponsesAPIStreamEvents.REFUSAL_DELTA]
     item_id: str
     output_index: int
@@ -1742,7 +1742,7 @@ class RefusalDeltaEvent(BaseLiteLLMOpenAIResponseObject):
     delta: str
 
 
-class RefusalDoneEvent(BaseLiteLLMOpenAIResponseObject):
+class RefusalDoneEvent(BaseEmbRouterOpenAIResponseObject):
     type: Literal[ResponsesAPIStreamEvents.REFUSAL_DONE]
     item_id: str
     output_index: int
@@ -1750,72 +1750,72 @@ class RefusalDoneEvent(BaseLiteLLMOpenAIResponseObject):
     refusal: str
 
 
-class FunctionCallArgumentsDeltaEvent(BaseLiteLLMOpenAIResponseObject):
+class FunctionCallArgumentsDeltaEvent(BaseEmbRouterOpenAIResponseObject):
     type: Literal[ResponsesAPIStreamEvents.FUNCTION_CALL_ARGUMENTS_DELTA]
     item_id: str
     output_index: int
     delta: str
 
 
-class FunctionCallArgumentsDoneEvent(BaseLiteLLMOpenAIResponseObject):
+class FunctionCallArgumentsDoneEvent(BaseEmbRouterOpenAIResponseObject):
     type: Literal[ResponsesAPIStreamEvents.FUNCTION_CALL_ARGUMENTS_DONE]
     item_id: str
     output_index: int
     arguments: str
 
 
-class FileSearchCallInProgressEvent(BaseLiteLLMOpenAIResponseObject):
+class FileSearchCallInProgressEvent(BaseEmbRouterOpenAIResponseObject):
     type: Literal[ResponsesAPIStreamEvents.FILE_SEARCH_CALL_IN_PROGRESS]
     output_index: int
     item_id: str
 
 
-class FileSearchCallSearchingEvent(BaseLiteLLMOpenAIResponseObject):
+class FileSearchCallSearchingEvent(BaseEmbRouterOpenAIResponseObject):
     type: Literal[ResponsesAPIStreamEvents.FILE_SEARCH_CALL_SEARCHING]
     output_index: int
     item_id: str
 
 
-class FileSearchCallCompletedEvent(BaseLiteLLMOpenAIResponseObject):
+class FileSearchCallCompletedEvent(BaseEmbRouterOpenAIResponseObject):
     type: Literal[ResponsesAPIStreamEvents.FILE_SEARCH_CALL_COMPLETED]
     output_index: int
     item_id: str
 
 
-class WebSearchCallInProgressEvent(BaseLiteLLMOpenAIResponseObject):
+class WebSearchCallInProgressEvent(BaseEmbRouterOpenAIResponseObject):
     type: Literal[ResponsesAPIStreamEvents.WEB_SEARCH_CALL_IN_PROGRESS]
     output_index: int
     item_id: str
 
 
-class WebSearchCallSearchingEvent(BaseLiteLLMOpenAIResponseObject):
+class WebSearchCallSearchingEvent(BaseEmbRouterOpenAIResponseObject):
     type: Literal[ResponsesAPIStreamEvents.WEB_SEARCH_CALL_SEARCHING]
     output_index: int
     item_id: str
 
 
-class WebSearchCallCompletedEvent(BaseLiteLLMOpenAIResponseObject):
+class WebSearchCallCompletedEvent(BaseEmbRouterOpenAIResponseObject):
     type: Literal[ResponsesAPIStreamEvents.WEB_SEARCH_CALL_COMPLETED]
     output_index: int
     item_id: str
 
 
 # MCP List Tools Events
-class MCPListToolsInProgressEvent(BaseLiteLLMOpenAIResponseObject):
+class MCPListToolsInProgressEvent(BaseEmbRouterOpenAIResponseObject):
     type: Literal[ResponsesAPIStreamEvents.MCP_LIST_TOOLS_IN_PROGRESS]
     sequence_number: int
     output_index: int
     item_id: str
 
 
-class MCPListToolsCompletedEvent(BaseLiteLLMOpenAIResponseObject):
+class MCPListToolsCompletedEvent(BaseEmbRouterOpenAIResponseObject):
     type: Literal[ResponsesAPIStreamEvents.MCP_LIST_TOOLS_COMPLETED]
     sequence_number: int
     output_index: int
     item_id: str
 
 
-class MCPListToolsFailedEvent(BaseLiteLLMOpenAIResponseObject):
+class MCPListToolsFailedEvent(BaseEmbRouterOpenAIResponseObject):
     type: Literal[ResponsesAPIStreamEvents.MCP_LIST_TOOLS_FAILED]
     sequence_number: int
     output_index: int
@@ -1823,14 +1823,14 @@ class MCPListToolsFailedEvent(BaseLiteLLMOpenAIResponseObject):
 
 
 # MCP Call Events
-class MCPCallInProgressEvent(BaseLiteLLMOpenAIResponseObject):
+class MCPCallInProgressEvent(BaseEmbRouterOpenAIResponseObject):
     type: Literal[ResponsesAPIStreamEvents.MCP_CALL_IN_PROGRESS]
     sequence_number: int
     output_index: int
     item_id: str
 
 
-class MCPCallArgumentsDeltaEvent(BaseLiteLLMOpenAIResponseObject):
+class MCPCallArgumentsDeltaEvent(BaseEmbRouterOpenAIResponseObject):
     type: Literal[ResponsesAPIStreamEvents.MCP_CALL_ARGUMENTS_DELTA]
     output_index: int
     item_id: str
@@ -1838,7 +1838,7 @@ class MCPCallArgumentsDeltaEvent(BaseLiteLLMOpenAIResponseObject):
     sequence_number: int
 
 
-class MCPCallArgumentsDoneEvent(BaseLiteLLMOpenAIResponseObject):
+class MCPCallArgumentsDoneEvent(BaseEmbRouterOpenAIResponseObject):
     type: Literal[ResponsesAPIStreamEvents.MCP_CALL_ARGUMENTS_DONE]
     output_index: int
     item_id: str
@@ -1846,27 +1846,27 @@ class MCPCallArgumentsDoneEvent(BaseLiteLLMOpenAIResponseObject):
     sequence_number: int
 
 
-class MCPCallCompletedEvent(BaseLiteLLMOpenAIResponseObject):
+class MCPCallCompletedEvent(BaseEmbRouterOpenAIResponseObject):
     type: Literal[ResponsesAPIStreamEvents.MCP_CALL_COMPLETED]
     sequence_number: int
     item_id: str
     output_index: int
 
 
-class MCPCallFailedEvent(BaseLiteLLMOpenAIResponseObject):
+class MCPCallFailedEvent(BaseEmbRouterOpenAIResponseObject):
     type: Literal[ResponsesAPIStreamEvents.MCP_CALL_FAILED]
     sequence_number: int
     item_id: str
     output_index: int
 
 
-class ImageGenerationPartialImageEvent(BaseLiteLLMOpenAIResponseObject):
+class ImageGenerationPartialImageEvent(BaseEmbRouterOpenAIResponseObject):
     type: Literal[ResponsesAPIStreamEvents.IMAGE_GENERATION_PARTIAL_IMAGE]
     partial_image_index: int
     b64_json: str
 
 
-class ErrorEventError(BaseLiteLLMOpenAIResponseObject):
+class ErrorEventError(BaseEmbRouterOpenAIResponseObject):
     """Nested error object within ErrorEvent."""
 
     type: str  # e.g., 'invalid_request_error'
@@ -1875,13 +1875,13 @@ class ErrorEventError(BaseLiteLLMOpenAIResponseObject):
     param: str | dict[str, object] | None = None
 
 
-class ErrorEvent(BaseLiteLLMOpenAIResponseObject):
+class ErrorEvent(BaseEmbRouterOpenAIResponseObject):
     type: Literal[ResponsesAPIStreamEvents.ERROR]
     sequence_number: int
     error: ErrorEventError
 
 
-class GenericEvent(BaseLiteLLMOpenAIResponseObject):
+class GenericEvent(BaseEmbRouterOpenAIResponseObject):
     type: str
 
     model_config = ConfigDict(extra="allow", protected_namespaces=())
@@ -1926,7 +1926,7 @@ ResponsesAPIStreamingResponse = Annotated[
     | ImageGenerationPartialImageEvent
     | ErrorEvent
     | GenericEvent
-    | BaseLiteLLMOpenAIResponseObject,
+    | BaseEmbRouterOpenAIResponseObject,
     Discriminator("type"),
 ]
 
@@ -2376,14 +2376,14 @@ class ImageGenerationRequestQuality(str, Enum):
     HD = "hd"
 
 
-class OpenAIModerationResult(BaseLiteLLMOpenAIResponseObject):
+class OpenAIModerationResult(BaseEmbRouterOpenAIResponseObject):
     categories: dict | None
     category_applied_input_types: dict | None
     category_scores: dict | None
     flagged: bool | None
 
 
-class OpenAIModerationResponse(BaseLiteLLMOpenAIResponseObject):
+class OpenAIModerationResponse(BaseEmbRouterOpenAIResponseObject):
     """
     Response from the OpenAI Moderation API.
     """

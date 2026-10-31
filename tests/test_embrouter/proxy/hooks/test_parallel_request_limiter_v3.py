@@ -15,14 +15,14 @@ from typing import Any, Dict, Final, List, Optional
 import pytest
 from fastapi import HTTPException
 
-import litellm
-from litellm import Router
-from litellm.caching.caching import DualCache
-from litellm.caching.in_memory_cache import InMemoryCache
-from litellm.constants import INTERNAL_CALL_ORIGIN_METADATA_KEY
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
-from litellm.proxy.hooks.parallel_request_limiter_v3 import (
+import embrouter
+from embrouter import Router
+from embrouter.caching.caching import DualCache
+from embrouter.caching.in_memory_cache import InMemoryCache
+from embrouter.constants import INTERNAL_CALL_ORIGIN_METADATA_KEY
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
+from embrouter.proxy.hooks.parallel_request_limiter_v3 import (
     PARALLEL_REQUEST_SLOT_TTL_SECONDS,
     ParallelSlotAcquisition,
     RateLimitDescriptor,
@@ -34,13 +34,13 @@ from litellm.proxy.hooks.parallel_request_limiter_v3 import (
     get_or_create_request_stash,
     get_request_stash,
 )
-from litellm.proxy.hooks.parallel_request_limiter_v3 import (
+from embrouter.proxy.hooks.parallel_request_limiter_v3 import (
     _PROXY_MaxParallelRequestsHandler_v3 as _PROXY_MaxParallelRequestsHandler,
 )
-from litellm.proxy.utils import InternalUsageCache, ProxyLogging, hash_token
-from litellm.types.caching import RedisPipelineIncrementOperation
-from litellm.types.llms.openai import ResponsesAPIResponse
-from litellm.types.utils import (
+from embrouter.proxy.utils import InternalUsageCache, ProxyLogging, hash_token
+from embrouter.types.caching import RedisPipelineIncrementOperation
+from embrouter.types.llms.openai import ResponsesAPIResponse
+from embrouter.types.utils import (
     EmbeddingResponse,
     ModelResponse,
     TextCompletionResponse,
@@ -115,7 +115,7 @@ async def test_sliding_window_rate_limit_v3(monkeypatch, time_controller):
     """
     Test the sliding window rate limiting functionality
     """
-    monkeypatch.setenv("LITELLM_RATE_LIMIT_WINDOW_SIZE", "2")
+    monkeypatch.setenv("EMBROUTER_RATE_LIMIT_WINDOW_SIZE", "2")
     _api_key = "sk-12345"
     _api_key = hash_token(_api_key)
     user_api_key_dict = UserAPIKeyAuth(api_key=_api_key, rpm_limit=3)
@@ -208,7 +208,7 @@ async def test_rate_limiter_script_return_values_v3(monkeypatch, time_controller
     """
     Test that the rate limiter script returns both counter and window values correctly
     """
-    monkeypatch.setenv("LITELLM_RATE_LIMIT_WINDOW_SIZE", "2")
+    monkeypatch.setenv("EMBROUTER_RATE_LIMIT_WINDOW_SIZE", "2")
     _api_key = "sk-12345"
     _api_key = hash_token(_api_key)
     user_api_key_dict = UserAPIKeyAuth(api_key=_api_key, rpm_limit=3)
@@ -321,11 +321,11 @@ async def test_normal_router_call_tpm_v3(
     """
     Test normal router call with parallel request limiter v3 for TPM rate limiting
     """
-    monkeypatch.setenv("LITELLM_RATE_LIMIT_WINDOW_SIZE", "2")
+    monkeypatch.setenv("EMBROUTER_RATE_LIMIT_WINDOW_SIZE", "2")
     model_list = [
         {
             "model_name": "azure-model",
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "azure/gpt-turbo",
                 "api_key": "os.environ/AZURE_FRANCE_API_KEY",
                 "api_base": "https://openai-france-1234.openai.azure.com",
@@ -335,7 +335,7 @@ async def test_normal_router_call_tpm_v3(
         },
         {
             "model_name": "azure-model",
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "azure/gpt-35-turbo",
                 "api_key": "os.environ/AZURE_EUROPE_API_KEY",
                 "api_base": "https://my-endpoint-europe-berri-992.openai.azure.com",
@@ -410,7 +410,7 @@ async def test_normal_router_call_tpm_v3(
         return results
 
     parallel_request_handler.batch_rate_limiter_script = mock_batch_rate_limiter
-    monkeypatch.setattr(litellm, "callbacks", [parallel_request_handler])
+    monkeypatch.setattr(embrouter, "callbacks", [parallel_request_handler])
 
     # Helper to get the correct value for key construction
     def get_value_for_key(rate_limit_object, user_api_key_dict, model_name):
@@ -525,7 +525,7 @@ async def test_token_rate_limit_type_respected_v3(monkeypatch, token_rate_limit_
     Test that the token_rate_limit_type setting is respected when incrementing usage
     """
     # Set up environment and mock general_settings
-    monkeypatch.setenv("LITELLM_RATE_LIMIT_WINDOW_SIZE", "60")
+    monkeypatch.setenv("EMBROUTER_RATE_LIMIT_WINDOW_SIZE", "60")
 
     _api_key = "sk-12345"
     _api_key = hash_token(_api_key)
@@ -635,7 +635,7 @@ async def test_async_log_success_event_counts_non_chat_response_tokens(
     Embedding and text completion responses must increment the TPM counter,
     not just chat completion ModelResponse objects.
     """
-    monkeypatch.setenv("LITELLM_RATE_LIMIT_WINDOW_SIZE", "60")
+    monkeypatch.setenv("EMBROUTER_RATE_LIMIT_WINDOW_SIZE", "60")
 
     _api_key = hash_token("sk-12345")
     parallel_request_handler = _PROXY_MaxParallelRequestsHandler(
@@ -899,7 +899,7 @@ async def test_parallel_gauge_uses_atomic_redis_script_v3():
     ]
     assert (
         await handler.internal_usage_cache.async_get_cache(
-            key=counter_key, litellm_parent_otel_span=None, local_only=True
+            key=counter_key, embrouter_parent_otel_span=None, local_only=True
         )
         == 3
     )
@@ -1077,7 +1077,7 @@ async def test_model_specific_rate_limits_only_called_when_configured_v3():
     """
     Test that model-specific rate limits only trigger should_rate_limit when actually configured for the requested model.
     """
-    from litellm.proxy.auth.auth_utils import (
+    from embrouter.proxy.auth.auth_utils import (
         get_key_model_rpm_limit,
         get_key_model_tpm_limit,
     )
@@ -1585,8 +1585,8 @@ async def test_async_increment_tokens_with_ttl_preservation():
     """
     import time
 
-    from litellm.caching.redis_cache import RedisCache
-    from litellm.types.caching import RedisPipelineIncrementOperation
+    from embrouter.caching.redis_cache import RedisCache
+    from embrouter.types.caching import RedisPipelineIncrementOperation
 
     # Skip test if Redis environment variables are not set
     redis_host = os.getenv("REDIS_HOST")
@@ -1760,7 +1760,7 @@ async def test_async_increment_tokens_fallback_behavior():
     """
     Test fallback behavior when Lua script is not available.
     """
-    from litellm.types.caching import RedisPipelineIncrementOperation
+    from embrouter.types.caching import RedisPipelineIncrementOperation
 
     local_cache = DualCache()
     parallel_request_handler = _PROXY_MaxParallelRequestsHandler(
@@ -2131,7 +2131,7 @@ async def test_get_rate_limit_type_default_is_total(monkeypatch):
     )
 
     # Mock general_settings to return empty dict (no token_rate_limit_type set)
-    import litellm.proxy.proxy_server as proxy_server
+    import embrouter.proxy.proxy_server as proxy_server
 
     original_settings = getattr(proxy_server, "general_settings", {})
     monkeypatch.setattr(proxy_server, "general_settings", {})
@@ -2156,7 +2156,7 @@ async def test_get_rate_limit_type_invalid_falls_back_to_total(monkeypatch):
     )
 
     # Mock general_settings to return an invalid token_rate_limit_type
-    import litellm.proxy.proxy_server as proxy_server
+    import embrouter.proxy.proxy_server as proxy_server
 
     original_settings = getattr(proxy_server, "general_settings", {})
     monkeypatch.setattr(
@@ -2208,10 +2208,10 @@ async def test_async_log_success_event_with_dict_usage(
     )
 
     # Create a mock response object with usage as a dict (Responses API format)
-    from litellm.types.utils import BaseLiteLLMOpenAIResponseObject
+    from embrouter.types.utils import BaseEmbRouterOpenAIResponseObject
 
     # Use spec to make isinstance checks work correctly with MagicMock
-    mock_response = MagicMock(spec=BaseLiteLLMOpenAIResponseObject)
+    mock_response = MagicMock(spec=BaseEmbRouterOpenAIResponseObject)
     mock_response.usage = {
         "prompt_tokens": 25,
         "completion_tokens": 35,
@@ -2304,10 +2304,10 @@ async def test_async_log_success_event_with_dict_usage_missing_fields(monkeypatc
         # completion_tokens is missing
         # total_tokens is missing
     }
-    from litellm.types.utils import BaseLiteLLMOpenAIResponseObject
+    from embrouter.types.utils import BaseEmbRouterOpenAIResponseObject
 
     mock_response.__class__ = type(
-        "MockResponse", (BaseLiteLLMOpenAIResponseObject,), {}
+        "MockResponse", (BaseEmbRouterOpenAIResponseObject,), {}
     )
 
     # Create mock kwargs for the success event
@@ -2361,7 +2361,7 @@ async def test_execute_token_increment_script_cluster_compatibility():
     from typing import List
     from unittest.mock import AsyncMock, patch
 
-    from litellm.types.caching import RedisPipelineIncrementOperation
+    from embrouter.types.caching import RedisPipelineIncrementOperation
 
     local_cache = DualCache()
     handler = _PROXY_MaxParallelRequestsHandler(
@@ -2426,7 +2426,7 @@ async def test_agent_level_rate_limit_descriptors():
     """
     from unittest.mock import patch
 
-    from litellm.types.agents import AgentResponse
+    from embrouter.types.agents import AgentResponse
 
     _api_key = "sk-12345"
     _api_key = hash_token(_api_key)
@@ -2460,7 +2460,7 @@ async def test_agent_level_rate_limit_descriptors():
     parallel_request_handler.should_rate_limit = mock_should_rate_limit
 
     with patch(
-        "litellm.proxy.agent_endpoints.agent_registry.global_agent_registry.get_agent_by_id",
+        "embrouter.proxy.agent_endpoints.agent_registry.global_agent_registry.get_agent_by_id",
         return_value=mock_agent,
     ):
         await parallel_request_handler.async_pre_call_hook(
@@ -2492,7 +2492,7 @@ async def test_agent_session_rate_limit_descriptors():
     """
     from unittest.mock import patch
 
-    from litellm.types.agents import AgentResponse
+    from embrouter.types.agents import AgentResponse
 
     _api_key = "sk-12345"
     _api_key = hash_token(_api_key)
@@ -2527,7 +2527,7 @@ async def test_agent_session_rate_limit_descriptors():
     parallel_request_handler.should_rate_limit = mock_should_rate_limit
 
     with patch(
-        "litellm.proxy.agent_endpoints.agent_registry.global_agent_registry.get_agent_by_id",
+        "embrouter.proxy.agent_endpoints.agent_registry.global_agent_registry.get_agent_by_id",
         return_value=mock_agent,
     ):
         await parallel_request_handler.async_pre_call_hook(
@@ -2562,7 +2562,7 @@ async def test_agent_session_rate_limit_skipped_without_session_id():
     """
     from unittest.mock import patch
 
-    from litellm.types.agents import AgentResponse
+    from embrouter.types.agents import AgentResponse
 
     _api_key = "sk-12345"
     _api_key = hash_token(_api_key)
@@ -2596,7 +2596,7 @@ async def test_agent_session_rate_limit_skipped_without_session_id():
     parallel_request_handler.should_rate_limit = mock_should_rate_limit
 
     with patch(
-        "litellm.proxy.agent_endpoints.agent_registry.global_agent_registry.get_agent_by_id",
+        "embrouter.proxy.agent_endpoints.agent_registry.global_agent_registry.get_agent_by_id",
         return_value=mock_agent,
     ):
         await parallel_request_handler.async_pre_call_hook(
@@ -2622,7 +2622,7 @@ async def test_agent_rate_limit_from_metadata_agent_id():
     """
     from unittest.mock import patch
 
-    from litellm.types.agents import AgentResponse
+    from embrouter.types.agents import AgentResponse
 
     _api_key = "sk-12345"
     _api_key = hash_token(_api_key)
@@ -2655,7 +2655,7 @@ async def test_agent_rate_limit_from_metadata_agent_id():
     parallel_request_handler.should_rate_limit = mock_should_rate_limit
 
     with patch(
-        "litellm.proxy.agent_endpoints.agent_registry.global_agent_registry.get_agent_by_id",
+        "embrouter.proxy.agent_endpoints.agent_registry.global_agent_registry.get_agent_by_id",
         return_value=mock_agent,
     ):
         await parallel_request_handler.async_pre_call_hook(
@@ -2691,7 +2691,7 @@ async def test_agent_both_agent_and_session_rate_limits():
     """
     from unittest.mock import patch
 
-    from litellm.types.agents import AgentResponse
+    from embrouter.types.agents import AgentResponse
 
     _api_key = "sk-12345"
     _api_key = hash_token(_api_key)
@@ -2728,7 +2728,7 @@ async def test_agent_both_agent_and_session_rate_limits():
     parallel_request_handler.should_rate_limit = mock_should_rate_limit
 
     with patch(
-        "litellm.proxy.agent_endpoints.agent_registry.global_agent_registry.get_agent_by_id",
+        "embrouter.proxy.agent_endpoints.agent_registry.global_agent_registry.get_agent_by_id",
         return_value=mock_agent,
     ):
         await parallel_request_handler.async_pre_call_hook(
@@ -2850,9 +2850,9 @@ async def test_agent_rate_limit_429_on_over_limit(monkeypatch, time_controller):
     """
     from unittest.mock import patch
 
-    from litellm.types.agents import AgentResponse
+    from embrouter.types.agents import AgentResponse
 
-    monkeypatch.setenv("LITELLM_RATE_LIMIT_WINDOW_SIZE", "2")
+    monkeypatch.setenv("EMBROUTER_RATE_LIMIT_WINDOW_SIZE", "2")
     _api_key = "sk-12345"
     _api_key = hash_token(_api_key)
     _agent_id = "agent_429_test"
@@ -2912,7 +2912,7 @@ async def test_agent_rate_limit_429_on_over_limit(monkeypatch, time_controller):
     parallel_request_handler.batch_rate_limiter_script = mock_batch_rate_limiter
 
     with patch(
-        "litellm.proxy.agent_endpoints.agent_registry.global_agent_registry.get_agent_by_id",
+        "embrouter.proxy.agent_endpoints.agent_registry.global_agent_registry.get_agent_by_id",
         return_value=mock_agent,
     ):
         await parallel_request_handler.async_pre_call_hook(
@@ -2946,7 +2946,7 @@ class TestGetTotalTokensFromUsageCacheExclusion:
     Tests for _get_total_tokens_from_usage cache token exclusion.
 
     Issue: AWS Bedrock and similar providers exclude cache tokens from TPM calculation,
-    but LiteLLM was including them, causing up to 10x difference in rate limiting.
+    but EmbRouter was including them, causing up to 10x difference in rate limiting.
     """
 
     @pytest.fixture
@@ -2959,7 +2959,7 @@ class TestGetTotalTokensFromUsageCacheExclusion:
 
     def test_excludes_cached_tokens_from_total(self, handler):
         """Cached tokens should be excluded from total token count."""
-        from litellm.types.utils import PromptTokensDetailsWrapper
+        from embrouter.types.utils import PromptTokensDetailsWrapper
 
         usage = Usage(
             prompt_tokens=1000,
@@ -2974,7 +2974,7 @@ class TestGetTotalTokensFromUsageCacheExclusion:
 
     def test_excludes_cached_tokens_from_input(self, handler):
         """Cached tokens should be excluded from input token count."""
-        from litellm.types.utils import PromptTokensDetailsWrapper
+        from embrouter.types.utils import PromptTokensDetailsWrapper
 
         usage = Usage(
             prompt_tokens=1000,
@@ -2989,7 +2989,7 @@ class TestGetTotalTokensFromUsageCacheExclusion:
 
     def test_does_not_exclude_cached_tokens_from_output(self, handler):
         """Cached tokens should NOT affect output token count."""
-        from litellm.types.utils import PromptTokensDetailsWrapper
+        from embrouter.types.utils import PromptTokensDetailsWrapper
 
         usage = Usage(
             prompt_tokens=1000,
@@ -3313,7 +3313,7 @@ async def test_enforce_project_io_token_quota_for_frame_noop_without_project_lim
 async def test_pre_call_hook_keeps_internal_stash_out_of_request_body():
     """Regression for #27001 / #35197: the limiter's per-request bookkeeping
     must never touch the outgoing request body — no top-level keys and no
-    created or mutated ``metadata`` / ``litellm_metadata`` buckets. The
+    created or mutated ``metadata`` / ``embrouter_metadata`` buckets. The
     reservation must land on the ContextVar stash instead."""
     import copy
 
@@ -3379,7 +3379,7 @@ async def test_responses_route_body_untouched_by_pre_call_hook(caller_metadata):
     """Regression for #35197: on routes where ``metadata`` is a provider
     request parameter (Responses API), the pre-call hook must forward the
     body byte-identical — creating or adding to ``metadata`` /
-    ``litellm_metadata`` produced upstream HTTP 400s."""
+    ``embrouter_metadata`` produced upstream HTTP 400s."""
     import copy
 
     _api_key = hash_token("sk-responses-regression")
@@ -3413,7 +3413,7 @@ async def test_responses_route_body_untouched_by_pre_call_hook(caller_metadata):
         assert "metadata" not in data
     else:
         assert data["metadata"] == caller_metadata
-    assert "litellm_metadata" not in data
+    assert "embrouter_metadata" not in data
 
     stash = get_request_stash()
     assert stash is not None
@@ -3430,7 +3430,7 @@ async def test_chat_tpm_refund_and_slot_release_via_context_stash(monkeypatch):
     second failure callback for the same request must not double-refund the
     :tokens counter or double-release the gauge.
     """
-    monkeypatch.delenv("LITELLM_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
+    monkeypatch.delenv("EMBROUTER_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
     _api_key = hash_token("sk-refund-lifecycle")
     local_cache = DualCache()
     handler = _PROXY_MaxParallelRequestsHandler(
@@ -3503,14 +3503,14 @@ async def test_pre_call_hook_ignores_caller_supplied_stash_values():
         }
     ]
     injected = {
-        "_litellm_tpm_reserved_tokens": 9999,
-        "_litellm_rate_limit_descriptors": victim_descriptors,
+        "_embrouter_tpm_reserved_tokens": 9999,
+        "_embrouter_rate_limit_descriptors": victim_descriptors,
     }
     data: Dict[str, Any] = {
         "model": "gpt-4o-mini",
         "messages": [{"role": "user", "content": "hi"}],
         "metadata": dict(injected),
-        "litellm_metadata": dict(injected),
+        "embrouter_metadata": dict(injected),
     }
 
     await handler.async_pre_call_hook(
@@ -3544,13 +3544,13 @@ async def test_pre_call_hook_ignores_caller_supplied_stash_values():
 @pytest.mark.asyncio
 async def test_log_events_from_nested_calls_leave_owner_stash_alone(monkeypatch):
     """
-    A nested LiteLLM call made inside the request (LLM-judge guardrail,
+    A nested EmbRouter call made inside the request (LLM-judge guardrail,
     silent experiment) inherits the request context and fires the same global
-    logging callbacks with a fresh ``litellm_call_id``. Those callbacks must
+    logging callbacks with a fresh ``embrouter_call_id``. Those callbacks must
     not release the owning request's parallel slot or refund its TPM
     reservation; only events carrying the owner's call id may.
     """
-    monkeypatch.delenv("LITELLM_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
+    monkeypatch.delenv("EMBROUTER_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
     _api_key = hash_token("sk-nested-guard")
     local_cache = DualCache()
     handler = _PROXY_MaxParallelRequestsHandler(
@@ -3573,19 +3573,19 @@ async def test_log_events_from_nested_calls_leave_owner_stash_alone(monkeypatch)
             "model": "gpt-4o-mini",
             "messages": [{"role": "user", "content": "hello"}],
             "max_tokens": 50,
-            "litellm_call_id": "owner-call-id",
+            "embrouter_call_id": "owner-call-id",
         },
         call_type="completion",
     )
 
     stash = get_request_stash()
     assert stash is not None
-    assert stash.owner_litellm_call_id == "owner-call-id"
+    assert stash.owner_embrouter_call_id == "owner-call-id"
     reserved = stash.reserved_tokens
     assert reserved > 0
 
     nested_kwargs = {
-        "litellm_call_id": "nested-guardrail-call",
+        "embrouter_call_id": "nested-guardrail-call",
         "standard_logging_object": {"metadata": {"user_api_key_hash": _api_key}},
     }
     await handler.async_log_success_event(
@@ -3603,7 +3603,7 @@ async def test_log_events_from_nested_calls_leave_owner_stash_alone(monkeypatch)
     assert int(await local_cache.async_get_cache(key=tokens_key) or 0) == reserved
 
     owner_kwargs = {
-        "litellm_call_id": "owner-call-id",
+        "embrouter_call_id": "owner-call-id",
         "standard_logging_object": {"metadata": {"user_api_key_hash": _api_key}},
     }
     await handler.async_log_failure_event(
@@ -3625,7 +3625,7 @@ async def test_stash_applies_when_owner_or_callback_call_id_missing():
     by a pre-call hook (no owner id) must stay visible to any callback, and a
     claimed stash must stay visible to callbacks whose kwargs carry no call
     id — otherwise reservations and slots would strand on request paths that
-    do not thread ``litellm_call_id`` into their logging kwargs.
+    do not thread ``embrouter_call_id`` into their logging kwargs.
     """
     local_cache = DualCache()
     handler = _PROXY_MaxParallelRequestsHandler(
@@ -3635,7 +3635,7 @@ async def test_stash_applies_when_owner_or_callback_call_id_missing():
     unclaimed = get_or_create_request_stash()
     unclaimed.reserved_tokens = 42
     await handler.async_log_failure_event(
-        kwargs={"litellm_call_id": "any-id", "standard_logging_object": {}},
+        kwargs={"embrouter_call_id": "any-id", "standard_logging_object": {}},
         response_obj=None,
         start_time=None,
         end_time=None,
@@ -3643,7 +3643,7 @@ async def test_stash_applies_when_owner_or_callback_call_id_missing():
     assert unclaimed.reservation_released is True
 
     claimed = RequestRateLimiterStash(
-        owner_litellm_call_id="owner-1", reserved_tokens=42
+        owner_embrouter_call_id="owner-1", reserved_tokens=42
     )
     _request_stash.set(claimed)
     await handler.async_log_failure_event(
@@ -3663,7 +3663,7 @@ async def _reserve_tpm_for_owner_call(handler, local_cache, api_key: str, call_i
             "model": "gpt-4o-mini",
             "messages": [{"role": "user", "content": "hello"}],
             "max_tokens": 50,
-            "litellm_call_id": call_id,
+            "embrouter_call_id": call_id,
         },
         call_type="completion",
     )
@@ -3689,7 +3689,7 @@ async def test_failure_event_settles_tpm_reservation_at_recovered_partial_usage_
 
     await handler.async_log_failure_event(
         kwargs={
-            "litellm_call_id": "partial-call",
+            "embrouter_call_id": "partial-call",
             "standard_logging_object": {"metadata": {"user_api_key_hash": _api_key}},
             "combined_usage_object": Usage(prompt_tokens=20, completion_tokens=7, total_tokens=27),
         },
@@ -3718,7 +3718,7 @@ async def test_failure_event_refunds_reservation_for_input_only_estimate_v3():
 
     await handler.async_log_failure_event(
         kwargs={
-            "litellm_call_id": "estimate-call",
+            "embrouter_call_id": "estimate-call",
             "standard_logging_object": {"metadata": {"user_api_key_hash": _api_key}},
             "combined_usage_object": Usage(prompt_tokens=20, completion_tokens=0, total_tokens=20),
         },
@@ -3748,7 +3748,7 @@ async def test_post_call_failure_hook_settles_reservation_at_recovered_partial_u
     await handler.async_post_call_failure_hook(
         request_data={
             "model": "gpt-4o-mini",
-            "litellm_call_id": "post-call",
+            "embrouter_call_id": "post-call",
             "combined_usage_object": Usage(prompt_tokens=20, completion_tokens=7, total_tokens=27),
         },
         original_exception=Exception("upstream dropped the stream"),
@@ -3758,7 +3758,7 @@ async def test_post_call_failure_hook_settles_reservation_at_recovered_partial_u
 
     await handler.async_log_failure_event(
         kwargs={
-            "litellm_call_id": "post-call",
+            "embrouter_call_id": "post-call",
             "standard_logging_object": {"metadata": {"user_api_key_hash": _api_key}},
             "combined_usage_object": Usage(prompt_tokens=20, completion_tokens=7, total_tokens=27),
         },
@@ -3794,7 +3794,7 @@ async def test_failure_event_settles_project_itpm_otpm_at_recovered_partial_usag
             "model": "gpt-4o-mini",
             "messages": [{"role": "user", "content": "hello"}],
             "max_tokens": 50,
-            "litellm_call_id": "project-call",
+            "embrouter_call_id": "project-call",
         },
         call_type="completion",
     )
@@ -3809,7 +3809,7 @@ async def test_failure_event_settles_project_itpm_otpm_at_recovered_partial_usag
 
     await handler.async_log_failure_event(
         kwargs={
-            "litellm_call_id": "project-call",
+            "embrouter_call_id": "project-call",
             "standard_logging_object": {"metadata": {"user_api_key_hash": _api_key}},
             "combined_usage_object": Usage(prompt_tokens=20, completion_tokens=7, total_tokens=27),
         },
@@ -3953,7 +3953,7 @@ async def test_mcp_per_key_rpm_enforced_v3(monkeypatch):
     github MCP server within the window and reject the 3rd with a 429, while
     calls to a different MCP server are unaffected.
     """
-    monkeypatch.setenv("LITELLM_RATE_LIMIT_WINDOW_SIZE", "60")
+    monkeypatch.setenv("EMBROUTER_RATE_LIMIT_WINDOW_SIZE", "60")
     api_key = hash_token("sk-mcp-enforce")
     local_cache = DualCache()
     handler = _PROXY_MaxParallelRequestsHandler(
@@ -4022,7 +4022,7 @@ async def test_mcp_per_key_rpm_enforced_v3(monkeypatch):
 
 
 def test_get_key_mcp_rpm_limit_precedence():
-    from litellm.proxy.auth.auth_utils import (
+    from embrouter.proxy.auth.auth_utils import (
         get_key_mcp_rpm_limit,
         get_team_mcp_rpm_limit,
     )
@@ -4073,7 +4073,7 @@ async def test_completed_responses_post_call_releases_parallel_slot() -> None:
     data = {
         "model": "gpt-4o-mini",
         "input": "hello",
-        "litellm_call_id": "responses-owner",
+        "embrouter_call_id": "responses-owner",
     }
     parallel_key = f"{{api_key:{api_key}}}:max_parallel_requests"
 
@@ -4104,7 +4104,7 @@ async def test_completed_responses_post_call_releases_parallel_slot() -> None:
     ) == 0
 
     await handler.async_log_success_event(
-        kwargs={"litellm_call_id": data["litellm_call_id"]},
+        kwargs={"embrouter_call_id": data["embrouter_call_id"]},
         response_obj=None,
         start_time=None,
         end_time=None,
@@ -4140,12 +4140,12 @@ async def test_concurrent_success_callbacks_release_parallel_slot_once_when_redi
     handler.parallel_release_script = release_script
     await local_cache.async_set_cache(key=parallel_key, value=2, local_only=True)
     stash = get_or_create_request_stash()
-    stash.owner_litellm_call_id = call_id
+    stash.owner_embrouter_call_id = call_id
     stash.parallel_slot = ParallelSlotAcquisition(
         slot_id="slot-concurrent-release",
         counter_keys=[parallel_key],
     )
-    data = {"litellm_call_id": call_id}
+    data = {"embrouter_call_id": call_id}
 
     post_call_task = asyncio.create_task(
         handler.async_post_call_success_hook(
@@ -4195,14 +4195,14 @@ async def _build_seeded_limiter():
 
 
 @contextmanager
-def _override_litellm_callbacks(new_callbacks):
-    """Swap litellm.callbacks so _callback_capabilities recomputes deterministically."""
-    saved = litellm.callbacks
-    litellm.callbacks = new_callbacks
+def _override_embrouter_callbacks(new_callbacks):
+    """Swap embrouter.callbacks so _callback_capabilities recomputes deterministically."""
+    saved = embrouter.callbacks
+    embrouter.callbacks = new_callbacks
     try:
         yield
     finally:
-        litellm.callbacks = saved
+        embrouter.callbacks = saved
 
 
 async def _drain_release_task():
@@ -4485,7 +4485,7 @@ async def test_tpm_over_limit_rejection_releases_parallel_slot_v3(monkeypatch):
     before the 429 is raised; otherwise every TPM rejection would leak a
     slot until TTL pruning.
     """
-    monkeypatch.delenv("LITELLM_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
+    monkeypatch.delenv("EMBROUTER_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
     _api_key = hash_token("sk-12345")
     local_cache = DualCache()
     handler = _PROXY_MaxParallelRequestsHandler(
@@ -4619,7 +4619,7 @@ async def test_async_streaming_data_generator_releases_counter_on_disconnect_v3(
     Releasing inside the nested iterator hook does not work because that
     generator is only closed on garbage collection, which is non-deterministic.
     """
-    from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+    from embrouter.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
 
     limiter, cache, counter_key, user_api_key_dict = await _build_seeded_limiter()
     assert limiter._gauge_in_flight_from_cache_value(
@@ -4640,7 +4640,7 @@ async def test_async_streaming_data_generator_releases_counter_on_disconnect_v3(
         slot_id=_TEST_SLOT_ID,
         counter_keys=[counter_key],
     )
-    with _override_litellm_callbacks([]):
+    with _override_embrouter_callbacks([]):
         gen = ProxyBaseLLMRequestProcessing.async_sse_data_generator(
             response=upstream(),
             user_api_key_dict=user_api_key_dict,
@@ -4671,7 +4671,7 @@ async def test_async_data_generator_releases_counter_on_disconnect_v3(disconnect
     gap that let a disconnect leak the slot in the default limiter-only config.
     A mid-stream disconnect must still refund the pre-call +1.
     """
-    import litellm.proxy.proxy_server as proxy_server
+    import embrouter.proxy.proxy_server as proxy_server
 
     limiter, cache, counter_key, user_api_key_dict = await _build_seeded_limiter()
     proxy_logging_obj = proxy_server.proxy_logging_obj
@@ -4690,7 +4690,7 @@ async def test_async_data_generator_releases_counter_on_disconnect_v3(disconnect
         counter_keys=[counter_key],
     )
     try:
-        with _override_litellm_callbacks([]):
+        with _override_embrouter_callbacks([]):
             assert proxy_logging_obj.needs_iterator_wrap() is False
             gen = proxy_server.async_data_generator(
                 response=upstream(),
@@ -4725,8 +4725,8 @@ async def test_async_data_generator_releases_counter_when_wrapped_v3():
     from the outer generator: the counter returns to 0 (not -1), proving the
     nested hook does not also refund and there is no double decrement.
     """
-    from litellm.integrations.custom_logger import CustomLogger
-    import litellm.proxy.proxy_server as proxy_server
+    from embrouter.integrations.custom_logger import CustomLogger
+    import embrouter.proxy.proxy_server as proxy_server
 
     class _PassthroughIteratorOverride(CustomLogger):
         async def async_post_call_streaming_iterator_hook(
@@ -4749,7 +4749,7 @@ async def test_async_data_generator_releases_counter_when_wrapped_v3():
         counter_keys=[counter_key],
     )
     try:
-        with _override_litellm_callbacks([_PassthroughIteratorOverride()]):
+        with _override_embrouter_callbacks([_PassthroughIteratorOverride()]):
             assert proxy_logging_obj.needs_iterator_wrap() is True
             gen = proxy_server.async_data_generator(
                 response=upstream(),
@@ -4773,7 +4773,7 @@ async def test_async_data_generator_releases_counter_when_wrapped_v3():
 
 def test_tpm_reservation_enabled_by_default(monkeypatch):
     """Upfront TPM reservation is on unless explicitly disabled via env."""
-    monkeypatch.delenv("LITELLM_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
+    monkeypatch.delenv("EMBROUTER_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
     handler = _PROXY_MaxParallelRequestsHandler(
         internal_usage_cache=InternalUsageCache(DualCache())
     )
@@ -4782,7 +4782,7 @@ def test_tpm_reservation_enabled_by_default(monkeypatch):
 
 @pytest.mark.parametrize("value", ["false", "False", "FALSE"])
 def test_tpm_reservation_disabled_via_env(monkeypatch, value):
-    monkeypatch.setenv("LITELLM_TPM_TOKEN_RESERVATION_ENABLED", value)
+    monkeypatch.setenv("EMBROUTER_TPM_TOKEN_RESERVATION_ENABLED", value)
     handler = _PROXY_MaxParallelRequestsHandler(
         internal_usage_cache=InternalUsageCache(DualCache())
     )
@@ -4796,7 +4796,7 @@ async def test_pre_call_hook_reserves_tpm_when_enabled(monkeypatch):
     budget upfront and tells should_rate_limit to skip the :tokens counter so
     only the reservation path owns it.
     """
-    monkeypatch.delenv("LITELLM_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
+    monkeypatch.delenv("EMBROUTER_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
     handler = _PROXY_MaxParallelRequestsHandler(
         internal_usage_cache=InternalUsageCache(DualCache())
     )
@@ -4838,7 +4838,7 @@ async def test_pre_call_hook_skips_reservation_when_disabled(monkeypatch):
     and enforces TPM directly in should_rate_limit (skip_tpm_check=False), the
     pre-v1.82 post-call accounting behavior.
     """
-    monkeypatch.setenv("LITELLM_TPM_TOKEN_RESERVATION_ENABLED", "false")
+    monkeypatch.setenv("EMBROUTER_TPM_TOKEN_RESERVATION_ENABLED", "false")
     handler = _PROXY_MaxParallelRequestsHandler(
         internal_usage_cache=InternalUsageCache(DualCache())
     )
@@ -4881,7 +4881,7 @@ async def test_per_tag_rate_limit_independent_counters_v3(monkeypatch):
     at its limit returns 429 while a different (unlimited) tag keeps flowing,
     governed only by the generous key-level limit.
     """
-    monkeypatch.setenv("LITELLM_RATE_LIMIT_WINDOW_SIZE", "60")
+    monkeypatch.setenv("EMBROUTER_RATE_LIMIT_WINDOW_SIZE", "60")
     _api_key = hash_token("sk-per-tag-rpm")
     user_api_key_dict = UserAPIKeyAuth(
         api_key=_api_key,
@@ -4976,7 +4976,7 @@ async def test_per_tag_untagged_request_governed_by_key_limit_v3(monkeypatch):
     untagged-fallback behavior so a future "fail closed on missing tag" change
     would fail here instead of silently breaking it.
     """
-    monkeypatch.setenv("LITELLM_RATE_LIMIT_WINDOW_SIZE", "60")
+    monkeypatch.setenv("EMBROUTER_RATE_LIMIT_WINDOW_SIZE", "60")
     _api_key = hash_token("sk-untagged-fallback")
     user_api_key_dict = UserAPIKeyAuth(
         api_key=_api_key,
@@ -5019,7 +5019,7 @@ def _static_tag_limits(limits: dict[str, TagRateLimit]):
 
 @pytest.mark.asyncio
 async def test_tag_object_rpm_limit_enforced_v3(monkeypatch):
-    monkeypatch.setenv("LITELLM_RATE_LIMIT_WINDOW_SIZE", "60")
+    monkeypatch.setenv("EMBROUTER_RATE_LIMIT_WINDOW_SIZE", "60")
     _request_stash.set(None)
     resolver, calls = _static_tag_limits({"cell-1": TagRateLimit(rpm_limit=2, tpm_limit=None)})
     local_cache = DualCache()
@@ -5051,7 +5051,7 @@ async def test_tag_object_rpm_limit_enforced_v3(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_tag_429_names_the_tag_that_is_over_its_limit(monkeypatch):
-    monkeypatch.setenv("LITELLM_RATE_LIMIT_WINDOW_SIZE", "60")
+    monkeypatch.setenv("EMBROUTER_RATE_LIMIT_WINDOW_SIZE", "60")
     _request_stash.set(None)
     resolver, _ = _static_tag_limits(
         {
@@ -5083,8 +5083,8 @@ async def test_tag_429_names_the_tag_that_is_over_its_limit(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_tag_object_tpm_limit_enforced_v3(monkeypatch):
-    monkeypatch.setenv("LITELLM_RATE_LIMIT_WINDOW_SIZE", "60")
-    monkeypatch.setenv("LITELLM_TPM_TOKEN_RESERVATION_ENABLED", "false")
+    monkeypatch.setenv("EMBROUTER_RATE_LIMIT_WINDOW_SIZE", "60")
+    monkeypatch.setenv("EMBROUTER_TPM_TOKEN_RESERVATION_ENABLED", "false")
     _request_stash.set(None)
     resolver, _ = _static_tag_limits({"cell-1": TagRateLimit(rpm_limit=None, tpm_limit=100)})
     local_cache = DualCache()
@@ -5124,28 +5124,28 @@ async def test_tag_object_tpm_limit_enforced_v3(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_resolve_tag_rate_limits_from_db_reads_budget_row(monkeypatch):
-    from litellm.models.budget import LiteLLM_BudgetTable
-    from litellm.models.tag import LiteLLM_TagTable
-    from litellm.proxy import proxy_server
-    from litellm.proxy.auth import auth_checks
-    from litellm.proxy.hooks.parallel_request_limiter_v3 import resolve_tag_rate_limits_from_db
-    from litellm.proxy.utils import PrismaClient
+    from embrouter.models.budget import EmbRouter_BudgetTable
+    from embrouter.models.tag import EmbRouter_TagTable
+    from embrouter.proxy import proxy_server
+    from embrouter.proxy.auth import auth_checks
+    from embrouter.proxy.hooks.parallel_request_limiter_v3 import resolve_tag_rate_limits_from_db
+    from embrouter.proxy.utils import PrismaClient
 
     async def fake_batch(
         tag_names: Sequence[str],
         prisma_client: PrismaClient | None,
         user_api_key_cache: DualCache,
-    ) -> dict[str, LiteLLM_TagTable]:
+    ) -> dict[str, EmbRouter_TagTable]:
         return {
-            "limited": LiteLLM_TagTable(
+            "limited": EmbRouter_TagTable(
                 tag_name="limited",
-                litellm_budget_table=LiteLLM_BudgetTable(rpm_limit=3, tpm_limit=None),
+                embrouter_budget_table=EmbRouter_BudgetTable(rpm_limit=3, tpm_limit=None),
             ),
-            "spend-only": LiteLLM_TagTable(
+            "spend-only": EmbRouter_TagTable(
                 tag_name="spend-only",
-                litellm_budget_table=LiteLLM_BudgetTable(max_budget=5.0),
+                embrouter_budget_table=EmbRouter_BudgetTable(max_budget=5.0),
             ),
-            "bare": LiteLLM_TagTable(tag_name="bare"),
+            "bare": EmbRouter_TagTable(tag_name="bare"),
         }
 
     monkeypatch.setattr(proxy_server, "prisma_client", object())
@@ -5175,7 +5175,7 @@ async def test_streaming_end_to_end_populates_slp_ratelimit_headers(monkeypatch)
     remaining/limit values in
     ``kwargs["standard_logging_object"]["hidden_params"]["additional_headers"]``.
     """
-    monkeypatch.setenv("LITELLM_RATE_LIMIT_WINDOW_SIZE", "60")
+    monkeypatch.setenv("EMBROUTER_RATE_LIMIT_WINDOW_SIZE", "60")
     _api_key = hash_token("sk-stream-e2e")
     user_api_key_dict = UserAPIKeyAuth(
         api_key=_api_key,
@@ -5188,7 +5188,7 @@ async def test_streaming_end_to_end_populates_slp_ratelimit_headers(monkeypatch)
     )
 
     # Real pre-call: populates data and stashes the response into metadata
-    # so the success callback can find it via litellm_params.metadata.
+    # so the success callback can find it via embrouter_params.metadata.
     data: Dict[str, Any] = {
         "model": "gpt-4o-mini",
         "metadata": {},
@@ -5202,7 +5202,7 @@ async def test_streaming_end_to_end_populates_slp_ratelimit_headers(monkeypatch)
     )
 
     # Simulate the wrapper handing the pre-call metadata dict to the
-    # completion() call: it becomes kwargs["litellm_params"]["metadata"] by
+    # completion() call: it becomes kwargs["embrouter_params"]["metadata"] by
     # the time the success callback fires.
     mock_response = ModelResponse(
         id="mock-stream-e2e",
@@ -5221,7 +5221,7 @@ async def test_streaming_end_to_end_populates_slp_ratelimit_headers(monkeypatch)
                 "user_api_key_end_user_id": None,
             }
         },
-        "litellm_params": {"metadata": data["metadata"]},
+        "embrouter_params": {"metadata": data["metadata"]},
         "model": "gpt-4o-mini",
     }
 
@@ -5272,7 +5272,7 @@ async def test_streaming_populates_model_per_key_ratelimit_headers(monkeypatch):
     Streaming must land the per-(key, model) remaining/limit values in the
     SLP under ``x-ratelimit-model_per_key-{remaining|limit}-{requests,tokens}``.
     """
-    monkeypatch.setenv("LITELLM_RATE_LIMIT_WINDOW_SIZE", "60")
+    monkeypatch.setenv("EMBROUTER_RATE_LIMIT_WINDOW_SIZE", "60")
     _api_key = hash_token("sk-stream-mirror")
     user_api_key_dict = UserAPIKeyAuth(
         api_key=_api_key,
@@ -5321,7 +5321,7 @@ async def test_streaming_populates_model_per_key_ratelimit_headers(monkeypatch):
                 "user_api_key_end_user_id": None,
             }
         },
-        "litellm_params": {"metadata": data["metadata"]},
+        "embrouter_params": {"metadata": data["metadata"]},
         "model": "gpt-4o-mini",
     }
 
@@ -5351,7 +5351,7 @@ async def test_async_log_success_event_no_mirror_when_no_snapshot(monkeypatch):
     No pre-call snapshot (no descriptors matched) -> no fabricated
     ``x-ratelimit-*`` headers.
     """
-    monkeypatch.setenv("LITELLM_RATE_LIMIT_WINDOW_SIZE", "60")
+    monkeypatch.setenv("EMBROUTER_RATE_LIMIT_WINDOW_SIZE", "60")
     _api_key = hash_token("sk-stream-no-mirror")
     handler = _PROXY_MaxParallelRequestsHandler(
         internal_usage_cache=InternalUsageCache(DualCache())
@@ -5384,7 +5384,7 @@ async def test_async_log_success_event_no_mirror_when_no_snapshot(monkeypatch):
                 "user_api_key_end_user_id": None,
             }
         },
-        "litellm_params": {"metadata": {}},
+        "embrouter_params": {"metadata": {}},
         "model": "gpt-4o-mini",
     }
 
@@ -5409,7 +5409,7 @@ async def test_streaming_mirror_matches_non_streaming_header_shape(monkeypatch):
     the identical ``x-ratelimit-*`` key/value shape to their respective
     ``additional_headers`` slots.
     """
-    monkeypatch.setenv("LITELLM_RATE_LIMIT_WINDOW_SIZE", "60")
+    monkeypatch.setenv("EMBROUTER_RATE_LIMIT_WINDOW_SIZE", "60")
     _api_key = hash_token("sk-shape")
     user_api_key_dict = UserAPIKeyAuth(
         api_key=_api_key,
@@ -5465,7 +5465,7 @@ async def test_streaming_mirror_matches_non_streaming_header_shape(monkeypatch):
         "standard_logging_object": {
             "metadata": {"user_api_key_hash": _api_key}
         },
-        "litellm_params": {"metadata": data["metadata"]},
+        "embrouter_params": {"metadata": data["metadata"]},
         "model": "gpt-4o-mini",
     }
     stream_response = ModelResponse(
@@ -5505,7 +5505,7 @@ async def test_async_log_success_event_counts_passthrough_reported_tokens(monkey
     pass-through request never charged the TPM window and a team could exceed
     its shared token limit purely through pass-through traffic.
     """
-    monkeypatch.setenv("LITELLM_RATE_LIMIT_WINDOW_SIZE", "60")
+    monkeypatch.setenv("EMBROUTER_RATE_LIMIT_WINDOW_SIZE", "60")
 
     _api_key = hash_token("sk-passthrough")
     parallel_request_handler = _PROXY_MaxParallelRequestsHandler(
@@ -5558,7 +5558,7 @@ async def test_aggregate_only_usage_charges_tpm_under_every_limit_type(
     left the TPM window uncharged under input- or output-token limiting and let
     pass-through traffic run past a limit it is supposed to share.
     """
-    monkeypatch.setenv("LITELLM_RATE_LIMIT_WINDOW_SIZE", "60")
+    monkeypatch.setenv("EMBROUTER_RATE_LIMIT_WINDOW_SIZE", "60")
 
     _api_key = hash_token("sk-aggregate-only")
     parallel_request_handler = _PROXY_MaxParallelRequestsHandler(
@@ -5598,7 +5598,7 @@ async def test_aggregate_only_usage_charges_tpm_under_every_limit_type(
 @pytest.mark.asyncio
 async def test_split_usage_still_respects_the_configured_limit_type(monkeypatch):
     """The aggregate fallback must not hijack usage that does carry a split."""
-    monkeypatch.setenv("LITELLM_RATE_LIMIT_WINDOW_SIZE", "60")
+    monkeypatch.setenv("EMBROUTER_RATE_LIMIT_WINDOW_SIZE", "60")
 
     _api_key = hash_token("sk-split-usage")
     parallel_request_handler = _PROXY_MaxParallelRequestsHandler(
@@ -5643,7 +5643,7 @@ async def test_atomic_check_with_zero_increment_still_enforces_token_limit():
     TPM-only descriptor produced zero counters to evaluate and the call
     returned OK with empty statuses; TPM limits were never enforced at all.
     """
-    from litellm.proxy.hooks.parallel_request_limiter_v3 import RateLimitDescriptor
+    from embrouter.proxy.hooks.parallel_request_limiter_v3 import RateLimitDescriptor
 
     handler = _PROXY_MaxParallelRequestsHandler(
         internal_usage_cache=InternalUsageCache(DualCache())
@@ -5687,7 +5687,7 @@ async def test_atomic_check_with_zero_increment_still_enforces_token_limit():
 
     assert (
         await handler.internal_usage_cache.async_get_cache(
-            key=counter_key, litellm_parent_otel_span=None, local_only=True
+            key=counter_key, embrouter_parent_otel_span=None, local_only=True
         )
         == 100
     )
@@ -5701,7 +5701,7 @@ async def test_atomic_check_with_zero_increment_still_enforces_token_limit():
     assert refund_attempt["statuses"] == []
     assert (
         await handler.internal_usage_cache.async_get_cache(
-            key=counter_key, litellm_parent_otel_span=None, local_only=True
+            key=counter_key, embrouter_parent_otel_span=None, local_only=True
         )
         == 100
     )
@@ -5713,7 +5713,7 @@ async def test_reserve_tpm_tokens_never_evaluates_the_requests_dimension():
     should_rate_limit pass. Now that zero-increment counters are checked
     instead of skipped, reserve_tpm_tokens must strip requests_per_unit from
     its descriptors or an exhausted RPM budget would double-enforce here."""
-    from litellm.proxy.hooks.parallel_request_limiter_v3 import RateLimitDescriptor
+    from embrouter.proxy.hooks.parallel_request_limiter_v3 import RateLimitDescriptor
 
     handler = _PROXY_MaxParallelRequestsHandler(
         internal_usage_cache=InternalUsageCache(DualCache())
@@ -5762,7 +5762,7 @@ async def _reserved_tokens_for(
 
 @pytest.mark.asyncio
 async def test_tpm_reservation_resets_sibling_tokens_with_request_window(monkeypatch):
-    monkeypatch.setenv("LITELLM_TPM_TOKEN_RESERVATION_ENABLED", "true")
+    monkeypatch.setenv("EMBROUTER_TPM_TOKEN_RESERVATION_ENABLED", "true")
     time_controller = TimeController()
     local_cache = DualCache()
     handler = _PROXY_MaxParallelRequestsHandler(
@@ -5780,7 +5780,7 @@ async def test_tpm_reservation_resets_sibling_tokens_with_request_window(monkeyp
             "model": "gpt-4o",
             "messages": [{"role": "user", "content": "hi"}],
             "max_tokens": 200,
-            "litellm_call_id": call_id,
+            "embrouter_call_id": call_id,
             "metadata": {
                 "user_api_key": user_api_key_dict.api_key,
                 "user_api_key_user_id": user_api_key_dict.user_id,
@@ -5794,8 +5794,8 @@ async def test_tpm_reservation_resets_sibling_tokens_with_request_window(monkeyp
         )
         await handler.async_log_success_event(
             kwargs={
-                "litellm_call_id": call_id,
-                "litellm_params": {
+                "embrouter_call_id": call_id,
+                "embrouter_params": {
                     "metadata": {
                         "user_api_key": user_api_key_dict.api_key,
                         "user_api_key_user_id": user_api_key_dict.user_id,
@@ -5979,7 +5979,7 @@ async def test_estimated_output_tokens_resolution_precedence(
     from the input estimate, so the reserved amount identifies which tier the
     resolver picked.
     """
-    monkeypatch.delenv("LITELLM_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
+    monkeypatch.delenv("EMBROUTER_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
     local_cache = DualCache()
     handler = _PROXY_MaxParallelRequestsHandler(
         internal_usage_cache=InternalUsageCache(local_cache)
@@ -6004,7 +6004,7 @@ async def test_estimated_output_tokens_resolution_precedence(
 @pytest.mark.asyncio
 async def test_request_max_tokens_outranks_configured_estimate(monkeypatch):
     """An explicit request-level max_tokens stays the top of the precedence order."""
-    monkeypatch.delenv("LITELLM_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
+    monkeypatch.delenv("EMBROUTER_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
     local_cache = DualCache()
     handler = _PROXY_MaxParallelRequestsHandler(
         internal_usage_cache=InternalUsageCache(local_cache)
@@ -6028,7 +6028,7 @@ async def test_request_max_tokens_outranks_configured_estimate(monkeypatch):
 @pytest.mark.asyncio
 async def test_configured_estimate_does_not_apply_to_embeddings(monkeypatch):
     """Embeddings generate no output, so a declared output estimate must not be reserved."""
-    monkeypatch.delenv("LITELLM_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
+    monkeypatch.delenv("EMBROUTER_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
     local_cache = DualCache()
     handler = _PROXY_MaxParallelRequestsHandler(
         internal_usage_cache=InternalUsageCache(local_cache)
@@ -6057,7 +6057,7 @@ async def test_configured_estimate_applies_to_contentless_requests(monkeypatch):
     Without config such a request reserves the 1-token floor only; the
     declaration is what makes concurrent tool-call continuations countable.
     """
-    monkeypatch.delenv("LITELLM_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
+    monkeypatch.delenv("EMBROUTER_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
     local_cache = DualCache()
     handler = _PROXY_MaxParallelRequestsHandler(
         internal_usage_cache=InternalUsageCache(local_cache)
@@ -6098,7 +6098,7 @@ async def test_declared_estimate_never_tightens_the_small_tpm_clamp(monkeypatch)
     truncates the tail. The reservation tracks whatever the clamp settles on,
     so a small tenant can never generate more than was reserved.
     """
-    monkeypatch.delenv("LITELLM_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
+    monkeypatch.delenv("EMBROUTER_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
     local_cache = DualCache()
     handler = _PROXY_MaxParallelRequestsHandler(
         internal_usage_cache=InternalUsageCache(local_cache)
@@ -6152,7 +6152,7 @@ async def test_one_malformed_estimate_field_does_not_discard_the_other(monkeypat
     A per-model map with a bad entry must not take a valid global estimate
     down with it, and a bad global must not hide a valid per-model entry.
     """
-    monkeypatch.delenv("LITELLM_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
+    monkeypatch.delenv("EMBROUTER_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
     local_cache = DualCache()
     handler = _PROXY_MaxParallelRequestsHandler(
         internal_usage_cache=InternalUsageCache(local_cache)
@@ -6203,7 +6203,7 @@ async def test_declared_estimate_over_the_tpm_budget_is_honored_and_explained(mo
     over. Comparing the declaration against the limit rather than the
     reservation would refuse this request while saying nothing.
     """
-    monkeypatch.delenv("LITELLM_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
+    monkeypatch.delenv("EMBROUTER_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
     local_cache = DualCache()
     handler = _PROXY_MaxParallelRequestsHandler(
         internal_usage_cache=InternalUsageCache(local_cache)
@@ -6214,7 +6214,7 @@ async def test_declared_estimate_over_the_tpm_budget_is_honored_and_explained(mo
         metadata={"default_estimated_output_tokens": declared},
     )
 
-    with caplog.at_level(logging.DEBUG, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.DEBUG, logger="EmbRouter Proxy"):
         with pytest.raises(HTTPException) as exc_info:
             await handler.async_pre_call_hook(
                 user_api_key_dict=user_api_key_dict,
@@ -6244,13 +6244,13 @@ async def test_a_key_that_declared_nothing_is_never_blamed_for_a_declaration(mon
     anything. Blaming the declared field there would point an operator at a
     setting they never set, to fix a 429 whose real cause is prompt size.
     """
-    monkeypatch.delenv("LITELLM_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
+    monkeypatch.delenv("EMBROUTER_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
     local_cache = DualCache()
     handler = _PROXY_MaxParallelRequestsHandler(
         internal_usage_cache=InternalUsageCache(local_cache)
     )
 
-    with caplog.at_level(logging.DEBUG, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.DEBUG, logger="EmbRouter Proxy"):
         with pytest.raises(HTTPException) as exc_info:
             await handler.async_pre_call_hook(
                 user_api_key_dict=UserAPIKeyAuth(
@@ -6274,13 +6274,13 @@ async def test_declared_estimate_inside_the_tpm_budget_is_not_explained(monkeypa
 
     Without this, a correctly configured key would emit one line per call.
     """
-    monkeypatch.delenv("LITELLM_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
+    monkeypatch.delenv("EMBROUTER_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
     local_cache = DualCache()
     handler = _PROXY_MaxParallelRequestsHandler(
         internal_usage_cache=InternalUsageCache(local_cache)
     )
 
-    with caplog.at_level(logging.DEBUG, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.DEBUG, logger="EmbRouter Proxy"):
         await handler.async_pre_call_hook(
             user_api_key_dict=UserAPIKeyAuth(
                 api_key=hash_token("sk-estimate-within-budget"),
@@ -6307,7 +6307,7 @@ async def test_configured_estimate_blocks_the_overrun_the_static_floor_admits(mo
     against an 8000 limit. Declaring the real output size admits only the two
     requests the budget actually covers.
     """
-    monkeypatch.delenv("LITELLM_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
+    monkeypatch.delenv("EMBROUTER_TPM_TOKEN_RESERVATION_ENABLED", raising=False)
 
     async def admitted(metadata):
         local_cache = DualCache()
@@ -6362,7 +6362,7 @@ def test_internal_call_origin_success_ops_are_skipped(origin, rate_limit_type):
                     "user_api_key_project_id": "compaction-project",
                 }
             },
-            "litellm_params": {"metadata": metadata},
+            "embrouter_params": {"metadata": metadata},
             "model": "gpt-4o-mini",
         }
 
@@ -6411,7 +6411,7 @@ def test_conflicting_token_limits_reserve_the_larger_declared_budget():
 
 @pytest.mark.parametrize("declared", [10000, 10000.0, "10000"])
 def test_non_integer_output_budgets_still_reserve_their_declared_size(declared):
-    """A budget litellm cannot read is a budget it cannot reserve against.
+    """A budget embrouter cannot read is a budget it cannot reserve against.
 
     A float or numeric-string max_tokens is explicit enough to suppress the capped
     output floor, so dropping it from the estimate under-reserves and reopens the
@@ -6475,7 +6475,7 @@ def _batch_response(batch_id: str, status: str):
 
 @pytest.mark.asyncio
 async def test_success_hook_persists_batch_enqueued_reservation_and_refunds_on_completion():
-    from litellm.proxy.hooks.batch_enqueued_tokens import (
+    from embrouter.proxy.hooks.batch_enqueued_tokens import (
         BatchEnqueuedTokenOverLimit,
         BatchEnqueuedTokenReservation,
         BatchEnqueuedTokenScope,
@@ -6510,7 +6510,7 @@ async def test_success_hook_persists_batch_enqueued_reservation_and_refunds_on_c
 
 @pytest.mark.asyncio
 async def test_success_hook_refunds_batch_enqueued_reservation_on_cancellation():
-    from litellm.proxy.hooks.batch_enqueued_tokens import (
+    from embrouter.proxy.hooks.batch_enqueued_tokens import (
         BatchEnqueuedTokenReservation,
         BatchEnqueuedTokenScope,
     )
@@ -6535,7 +6535,7 @@ async def test_success_hook_refunds_batch_enqueued_reservation_on_cancellation()
 
 @pytest.mark.asyncio
 async def test_success_hook_refunds_on_provider_cased_terminal_status():
-    from litellm.proxy.hooks.batch_enqueued_tokens import (
+    from embrouter.proxy.hooks.batch_enqueued_tokens import (
         BatchEnqueuedTokenOverLimit,
         BatchEnqueuedTokenReservation,
         BatchEnqueuedTokenScope,
@@ -6562,7 +6562,7 @@ async def test_success_hook_refunds_on_provider_cased_terminal_status():
 
 @pytest.mark.asyncio
 async def test_failure_hook_refunds_stashed_batch_enqueued_reservation():
-    from litellm.proxy.hooks.batch_enqueued_tokens import (
+    from embrouter.proxy.hooks.batch_enqueued_tokens import (
         BatchEnqueuedTokenReservation,
         BatchEnqueuedTokenScope,
     )
@@ -6585,7 +6585,7 @@ async def test_failure_hook_refunds_stashed_batch_enqueued_reservation():
 
 @pytest.mark.asyncio
 async def test_success_hook_leaves_stash_untouched_for_non_batch_responses():
-    from litellm.proxy.hooks.batch_enqueued_tokens import (
+    from embrouter.proxy.hooks.batch_enqueued_tokens import (
         BatchEnqueuedTokenReservation,
         BatchEnqueuedTokenScope,
     )
@@ -6607,7 +6607,7 @@ async def test_success_hook_leaves_stash_untouched_for_non_batch_responses():
 
 @pytest.mark.asyncio
 async def test_post_call_success_hook_attaches_ratelimit_headers_to_dict_response():
-    from litellm.proxy.hooks.parallel_request_limiter_v3 import RateLimitResponse, RateLimitStatus
+    from embrouter.proxy.hooks.parallel_request_limiter_v3 import RateLimitResponse, RateLimitStatus
 
     handler = _PROXY_MaxParallelRequestsHandler(internal_usage_cache=InternalUsageCache(DualCache()))
     get_or_create_request_stash().rate_limit_response = RateLimitResponse(
@@ -6627,7 +6627,7 @@ async def test_post_call_success_hook_attaches_ratelimit_headers_to_dict_respons
         "type": "message",
         "role": "assistant",
         "content": [],
-        "_hidden_params": {"additional_headers": {"x-litellm-attempted-retries": 0}},
+        "_hidden_params": {"additional_headers": {"x-embrouter-attempted-retries": 0}},
     }
 
     await handler.async_post_call_success_hook(
@@ -6637,14 +6637,14 @@ async def test_post_call_success_hook_attaches_ratelimit_headers_to_dict_respons
     )
 
     additional_headers = response["_hidden_params"]["additional_headers"]
-    assert additional_headers["x-litellm-attempted-retries"] == 0
+    assert additional_headers["x-embrouter-attempted-retries"] == 0
     assert additional_headers["x-ratelimit-model_saturation_check-limit-requests"] == 100
     assert additional_headers["x-ratelimit-model_saturation_check-remaining-requests"] == 99
 
 
 @pytest.mark.asyncio
 async def test_post_call_success_hook_leaves_raw_provider_dict_untouched():
-    from litellm.proxy.hooks.parallel_request_limiter_v3 import RateLimitResponse, RateLimitStatus
+    from embrouter.proxy.hooks.parallel_request_limiter_v3 import RateLimitResponse, RateLimitStatus
 
     handler = _PROXY_MaxParallelRequestsHandler(internal_usage_cache=InternalUsageCache(DualCache()))
     get_or_create_request_stash().rate_limit_response = RateLimitResponse(
@@ -6673,27 +6673,27 @@ async def test_post_call_success_hook_leaves_raw_provider_dict_untouched():
 class _OpenBreakerRedis:
     def async_register_script(self, script: str):
         async def refused(keys, args):
-            from litellm.caching.redis_cache import RedisCircuitBreakerOpenError
+            from embrouter.caching.redis_cache import RedisCircuitBreakerOpenError
 
             raise RedisCircuitBreakerOpenError("Redis circuit breaker is open")
 
         return refused
 
     async def async_increment_pipeline(self, increment_list, **kwargs):
-        from litellm.caching.redis_cache import RedisCircuitBreakerOpenError
+        from embrouter.caching.redis_cache import RedisCircuitBreakerOpenError
 
         raise RedisCircuitBreakerOpenError("Redis circuit breaker is open")
 
 
 @pytest.mark.asyncio
 async def test_an_open_circuit_breaker_falls_back_to_the_pipeline_without_a_warning(caplog):
-    from litellm.types.caching import RedisPipelineIncrementOperation
+    from embrouter.types.caching import RedisPipelineIncrementOperation
 
     handler = _PROXY_MaxParallelRequestsHandler(
         internal_usage_cache=InternalUsageCache(DualCache(redis_cache=_OpenBreakerRedis()))  # pyright: ignore[reportArgumentType]  # duck-typed Redis double
     )
 
-    with caplog.at_level(logging.DEBUG, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.DEBUG, logger="EmbRouter Proxy"):
         await handler.async_increment_tokens_with_ttl_preservation(
             pipeline_operations=[RedisPipelineIncrementOperation(key="quiet_key", increment_value=10.0, ttl=60)]
         )
@@ -6708,7 +6708,7 @@ async def test_an_open_circuit_breaker_reads_the_sliding_window_locally_without_
         internal_usage_cache=InternalUsageCache(DualCache(redis_cache=_OpenBreakerRedis()))  # pyright: ignore[reportArgumentType]  # duck-typed Redis double
     )
 
-    with caplog.at_level(logging.DEBUG, logger="LiteLLM Proxy"):
+    with caplog.at_level(logging.DEBUG, logger="EmbRouter Proxy"):
         values = await handler._execute_redis_batch_rate_limiter_script(
             ["{quiet}:window", "{quiet}:counter"], now_int=int(time.time())
         )
@@ -6748,7 +6748,7 @@ class _ScriptedRedis:
         return value
 
     def async_register_script(self, script: str):
-        from litellm.proxy.hooks import parallel_request_limiter_v3 as v3
+        from embrouter.proxy.hooks import parallel_request_limiter_v3 as v3
 
         async def run(keys, args):
             if script == self.failing_script:
@@ -6853,7 +6853,7 @@ async def test_fail_closed_is_a_no_op_while_redis_answers():
 
 @pytest.mark.asyncio
 async def test_fail_closed_tpm_rejection_releases_the_parallel_slot_it_acquired():
-    from litellm.proxy.hooks import parallel_request_limiter_v3 as v3
+    from embrouter.proxy.hooks import parallel_request_limiter_v3 as v3
 
     redis = _ScriptedRedis(failing_script=v3.CHECK_AND_INCREMENT_BY_N_SCRIPT)
     handler = _handler_with_redis(redis, fail_closed=True)
@@ -6876,7 +6876,7 @@ async def test_fail_closed_tpm_rejection_releases_the_parallel_slot_it_acquired(
 
 @pytest.mark.asyncio
 async def test_fail_closed_rate_limit_enforcement_is_read_from_general_settings(monkeypatch):
-    import litellm.proxy.proxy_server as proxy_server
+    import embrouter.proxy.proxy_server as proxy_server
 
     auth = UserAPIKeyAuth(api_key=hash_token("sk-fail-closed-settings"), rpm_limit=2)
 
@@ -6898,7 +6898,7 @@ async def test_fail_closed_rate_limit_enforcement_is_read_from_general_settings(
 async def test_fail_closed_rate_limit_enforcement_coerces_the_general_settings_value(
     monkeypatch, configured_value, rejects
 ):
-    import litellm.proxy.proxy_server as proxy_server
+    import embrouter.proxy.proxy_server as proxy_server
 
     auth = UserAPIKeyAuth(api_key=hash_token("sk-fail-closed-coerced"), rpm_limit=2)
     monkeypatch.setitem(proxy_server.general_settings, "fail_closed_rate_limit_enforcement", configured_value)
@@ -7080,11 +7080,11 @@ async def test_request_capacity_enforces_shared_rpm_scopes(
 
 @pytest.mark.asyncio
 async def test_request_capacity_keeps_dynamic_rpm_policy(monkeypatch):
-    import litellm.proxy.proxy_server as proxy_server
+    import embrouter.proxy.proxy_server as proxy_server
 
     router = Router(model_list=[{
         "model_name": "test-model",
-        "litellm_params": {"model": "openai/gpt-test", "api_key": "test-key"},
+        "embrouter_params": {"model": "openai/gpt-test", "api_key": "test-key"},
         "model_info": {"id": "test-deployment"},
     }])
     monkeypatch.setattr(proxy_server, "llm_router", router)
@@ -7344,7 +7344,7 @@ def test_success_tpm_accounting_skips_team_model_pool_when_key_owns_model_tpm_li
     )
     kwargs = {
         "standard_logging_object": {"metadata": {"user_api_key_hash": hash_token("sk-pool"), "user_api_key_team_id": "t"}},
-        "litellm_params": {
+        "embrouter_params": {
             "metadata": {
                 "model_group": "test-model",
                 "user_api_key_metadata": key_metadata,
@@ -7423,13 +7423,13 @@ async def _rpm_request(handler: _PROXY_MaxParallelRequestsHandler, cache: DualCa
 async def test_model_group_alias_shares_deployment_default_rpm_bucket_with_its_target(
     monkeypatch: pytest.MonkeyPatch, first_name: str, second_name: str
 ) -> None:
-    import litellm.proxy.proxy_server as proxy_server
+    import embrouter.proxy.proxy_server as proxy_server
 
     router: Final = Router(
         model_list=[
             {
                 "model_name": "target",
-                "litellm_params": {"model": "openai/gpt-test", "api_key": "test-key", "default_api_key_rpm_limit": 2},
+                "embrouter_params": {"model": "openai/gpt-test", "api_key": "test-key", "default_api_key_rpm_limit": 2},
                 "model_info": {"id": "target-deployment"},
             }
         ],
@@ -7527,7 +7527,7 @@ def test_success_tpm_accounting_charges_the_alias_target_bucket(
         "standard_logging_object": {
             "metadata": {"user_api_key_hash": hash_token("sk-alias-tpm"), "user_api_key_team_id": "t"}
         },
-        "litellm_params": {
+        "embrouter_params": {
             "metadata": {
                 "model_group": "alias",
                 "user_api_key_metadata": key_metadata,
@@ -7580,7 +7580,7 @@ async def test_success_tpm_accounting_keeps_the_admission_target_after_an_alias_
     )
     kwargs: Final = {
         "standard_logging_object": {"metadata": {"user_api_key_hash": auth.api_key}},
-        "litellm_params": {"metadata": {"model_group": "alias", "user_api_key_metadata": key_metadata}},
+        "embrouter_params": {"metadata": {"model_group": "alias", "user_api_key_metadata": key_metadata}},
         "model": "alias",
     }
 
@@ -7598,7 +7598,7 @@ async def test_success_tpm_accounting_keeps_the_admission_target_after_an_alias_
 async def test_managed_invocations_enforce_actor_and_target_rate_policies(
     monkeypatch: pytest.MonkeyPatch, self_call: bool
 ) -> None:
-    from litellm.types.agents import AgentResponse
+    from embrouter.types.agents import AgentResponse
 
     actor: Final = AgentResponse(
         agent_id="actor", agent_name="Actor", agent_card_params={}, rpm_limit=10, tpm_limit=1000
@@ -7621,7 +7621,7 @@ async def test_managed_invocations_enforce_actor_and_target_rate_policies(
     monkeypatch.setattr(handler, "_get_agent_from_registry", lambda _: None)
     descriptors: Final = handler._create_rate_limit_descriptors(
         user_api_key_dict=auth,
-        data={"model": "a2a/target", "litellm_session_id": "session"},
+        data={"model": "a2a/target", "embrouter_session_id": "session"},
         rpm_limit_type=None,
         tpm_limit_type=None,
         model_has_failures=False,
@@ -7640,7 +7640,7 @@ async def test_managed_invocations_enforce_actor_and_target_rate_policies(
             "model": "gpt-4o-mini",
             "messages": [{"role": "user", "content": "hello"}],
             "max_tokens": 20,
-            "litellm_session_id": "session",
+            "embrouter_session_id": "session",
         },
         call_type="acompletion",
     )
@@ -7664,26 +7664,26 @@ async def test_a2a_url_target_owns_invocation_fee_and_request_limit(
 ) -> None:
     from unittest.mock import AsyncMock, MagicMock
 
-    from litellm.proxy import proxy_server
-    from litellm.proxy.agent_endpoints import agent_registry
-    from litellm.proxy.agent_endpoints.auth.managed_authorization import invocation_target, prepare_agent_invocation
-    from litellm.proxy.agent_endpoints.identity_store import AgentIdentityStore
-    from litellm.types.agents import AgentResponse
+    from embrouter.proxy import proxy_server
+    from embrouter.proxy.agent_endpoints import agent_registry
+    from embrouter.proxy.agent_endpoints.auth.managed_authorization import invocation_target, prepare_agent_invocation
+    from embrouter.proxy.agent_endpoints.identity_store import AgentIdentityStore
+    from embrouter.types.agents import AgentResponse
 
     expensive: Final = AgentResponse(
         agent_id="expensive", agent_name="Expensive", agent_card_params={}, rpm_limit=1,
-        litellm_params={"cost_per_query": 0.25},
+        embrouter_params={"cost_per_query": 0.25},
     )
     cheap: Final = AgentResponse(
         agent_id="cheap", agent_name="Cheap", agent_card_params={}, rpm_limit=100,
-        litellm_params={"cost_per_query": 0.01},
+        embrouter_params={"cost_per_query": 0.01},
     )
     registry: Final = agent_registry.AgentRegistry()
     registry.register_agent(expensive)
     registry.register_agent(cheap)
     monkeypatch.setattr(agent_registry, "global_agent_registry", registry)
     database: Final = MagicMock()
-    database.writer_db.litellm_agentstable.find_unique = AsyncMock(
+    database.writer_db.embrouter_agentstable.find_unique = AsyncMock(
         side_effect=lambda where, include: {"expensive": expensive, "cheap": cheap}[where["agent_id"]]
     )
     monkeypatch.setattr(proxy_server, "prisma_client", database)

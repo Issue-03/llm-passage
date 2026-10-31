@@ -12,23 +12,23 @@ from typing import Final, Literal, Protocol, TypeAlias
 
 from pydantic import BaseModel, TypeAdapter, ValidationError
 
-from litellm._logging import verbose_proxy_logger
-from litellm.caching.redis_batch import active_request_redis_batch
-from litellm.caching.redis_cache import RedisCache
-from litellm.constants import DEFAULT_IN_MEMORY_TTL, REGISTRY_ERROR_NEGATIVE_CACHE_TTL
-from litellm.models.organization import LiteLLM_OrganizationTable
-from litellm.models.team import LiteLLM_TeamTableCachedObj
-from litellm.models.team_membership import LiteLLM_TeamMembership
-from litellm.models.user import LiteLLM_UserTable
-from litellm.proxy._types import LiteLLM_ProjectTableCachedObj, UserAPIKeyAuth
-from litellm.proxy.common_utils.cache_pydantic_utils import CacheCodec
-from litellm.proxy.common_utils.user_api_key_cache import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.caching.redis_batch import active_request_redis_batch
+from embrouter.caching.redis_cache import RedisCache
+from embrouter.constants import DEFAULT_IN_MEMORY_TTL, REGISTRY_ERROR_NEGATIVE_CACHE_TTL
+from embrouter.models.organization import EmbRouter_OrganizationTable
+from embrouter.models.team import EmbRouter_TeamTableCachedObj
+from embrouter.models.team_membership import EmbRouter_TeamMembership
+from embrouter.models.user import EmbRouter_UserTable
+from embrouter.proxy._types import EmbRouter_ProjectTableCachedObj, UserAPIKeyAuth
+from embrouter.proxy.common_utils.cache_pydantic_utils import CacheCodec
+from embrouter.proxy.common_utils.user_api_key_cache import (
     UserApiKeyCache,
     get_management_object_ttl,
     team_membership_auth_cache_key,
     team_membership_reservation_cache_key,
 )
-from litellm.proxy.utils import PrismaClient
+from embrouter.proxy.utils import PrismaClient
 
 _RowKind: TypeAlias = Literal["user_row", "team_row", "membership_row", "organization_row", "project_row"]
 
@@ -80,14 +80,14 @@ _BUDGET_LISTS: Final = _lists_as_json("b", ("allowed_models",))
 def _budget_json(owner_alias: str) -> str:
     return (
         f"(SELECT to_jsonb(b) || jsonb_build_object({_BUDGET_LISTS}) "
-        f'FROM "LiteLLM_BudgetTable" b WHERE b.budget_id = {owner_alias}.budget_id)'
+        f'FROM "EmbRouter_BudgetTable" b WHERE b.budget_id = {owner_alias}.budget_id)'
     )
 
 
 def _permission_json(owner_alias: str) -> str:
     return (
         f"(SELECT to_jsonb(op) || jsonb_build_object({_PERMISSION_LISTS}) "
-        f'FROM "LiteLLM_ObjectPermissionTable" op WHERE op.object_permission_id = {owner_alias}.object_permission_id)'
+        f'FROM "EmbRouter_ObjectPermissionTable" op WHERE op.object_permission_id = {owner_alias}.object_permission_id)'
     )
 
 
@@ -98,41 +98,41 @@ SELECT
       {_USER_LISTS},
       'organization_memberships',
       COALESCE((
-        SELECT jsonb_agg(to_jsonb(om)) FROM "LiteLLM_OrganizationMembership" om WHERE om.user_id = u.user_id
+        SELECT jsonb_agg(to_jsonb(om)) FROM "EmbRouter_OrganizationMembership" om WHERE om.user_id = u.user_id
       ), '[]'::jsonb)
     )
-    FROM "LiteLLM_UserTable" u WHERE u.user_id = $1
+    FROM "EmbRouter_UserTable" u WHERE u.user_id = $1
   ) AS user_row,
   (
     SELECT to_jsonb(t) || jsonb_build_object(
       {_TEAM_LISTS},
-      'litellm_model_table', (
+      'embrouter_model_table', (
         SELECT (to_jsonb(m) - 'aliases') || jsonb_build_object('model_aliases', m.aliases)
-        FROM "LiteLLM_ModelTable" m WHERE m.id = t.model_id
+        FROM "EmbRouter_ModelTable" m WHERE m.id = t.model_id
       ),
       'object_permission', {_permission_json("t")}
     )
-    FROM "LiteLLM_TeamTable" t WHERE t.team_id = $2
+    FROM "EmbRouter_TeamTable" t WHERE t.team_id = $2
   ) AS team_row,
   (
-    SELECT to_jsonb(tm) || jsonb_build_object('litellm_budget_table', {_budget_json("tm")})
-    FROM "LiteLLM_TeamMembership" tm WHERE tm.user_id = $3 AND tm.team_id = $2
+    SELECT to_jsonb(tm) || jsonb_build_object('embrouter_budget_table', {_budget_json("tm")})
+    FROM "EmbRouter_TeamMembership" tm WHERE tm.user_id = $3 AND tm.team_id = $2
   ) AS membership_row,
   (
     SELECT to_jsonb(o) || jsonb_build_object(
       {_ORG_LISTS},
-      'litellm_budget_table', {_budget_json("o")},
+      'embrouter_budget_table', {_budget_json("o")},
       'object_permission', {_permission_json("o")}
     )
-    FROM "LiteLLM_OrganizationTable" o WHERE o.organization_id = $4
+    FROM "EmbRouter_OrganizationTable" o WHERE o.organization_id = $4
   ) AS organization_row,
   (
     SELECT to_jsonb(p) || jsonb_build_object(
       {_PROJECT_LISTS},
-      'litellm_budget_table', {_budget_json("p")},
+      'embrouter_budget_table', {_budget_json("p")},
       'object_permission', {_permission_json("p")}
     )
-    FROM "LiteLLM_ProjectTable" p WHERE p.project_id = $5
+    FROM "EmbRouter_ProjectTable" p WHERE p.project_id = $5
   ) AS project_row
 """
 
@@ -174,34 +174,34 @@ class _CacheEntry:
 
 def _iter_entries(refs: AuthObjectRefs, management_ttl: float) -> Iterator[_CacheEntry]:
     if refs.user_id is not None:
-        yield _CacheEntry(refs.user_id, "user_row", LiteLLM_UserTable, management_ttl)
+        yield _CacheEntry(refs.user_id, "user_row", EmbRouter_UserTable, management_ttl)
     if refs.team_id is not None:
-        yield _CacheEntry(f"team_id:{refs.team_id}", "team_row", LiteLLM_TeamTableCachedObj, management_ttl)
+        yield _CacheEntry(f"team_id:{refs.team_id}", "team_row", EmbRouter_TeamTableCachedObj, management_ttl)
     if refs.team_id is not None and refs.membership_user_id is not None:
         yield _CacheEntry(
             team_membership_auth_cache_key(team_id=refs.team_id, user_id=refs.membership_user_id),
             "membership_row",
-            LiteLLM_TeamMembership,
+            EmbRouter_TeamMembership,
             _TEAM_MEMBERSHIP_AUTH_TTL,
         )
         yield _CacheEntry(
             team_membership_reservation_cache_key(user_id=refs.membership_user_id, team_id=refs.team_id),
             "membership_row",
-            LiteLLM_TeamMembership,
+            EmbRouter_TeamMembership,
             None,
         )
     if refs.organization_id is not None:
         yield _CacheEntry(
-            f"org_id:{refs.organization_id}", "organization_row", LiteLLM_OrganizationTable, DEFAULT_IN_MEMORY_TTL
+            f"org_id:{refs.organization_id}", "organization_row", EmbRouter_OrganizationTable, DEFAULT_IN_MEMORY_TTL
         )
         yield _CacheEntry(
             f"org_id:{refs.organization_id}:with_budget",
             "organization_row",
-            LiteLLM_OrganizationTable,
+            EmbRouter_OrganizationTable,
             DEFAULT_IN_MEMORY_TTL,
         )
     if refs.project_id is not None:
-        yield _CacheEntry(f"project_id:{refs.project_id}", "project_row", LiteLLM_ProjectTableCachedObj, management_ttl)
+        yield _CacheEntry(f"project_id:{refs.project_id}", "project_row", EmbRouter_ProjectTableCachedObj, management_ttl)
 
 
 def _entries(refs: AuthObjectRefs, cache: UserApiKeyCache) -> tuple[_CacheEntry, ...]:

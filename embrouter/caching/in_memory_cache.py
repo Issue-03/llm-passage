@@ -17,11 +17,11 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Final
 
 if TYPE_CHECKING:
-    from litellm.types.caching import RedisPipelineIncrementOperation
+    from embrouter.types.caching import RedisPipelineIncrementOperation
 
 from pydantic import BaseModel
 
-from litellm.constants import MAX_SIZE_PER_ITEM_IN_MEMORY_CACHE_IN_KB
+from embrouter.constants import MAX_SIZE_PER_ITEM_IN_MEMORY_CACHE_IN_KB
 
 from .base_cache import BaseCache
 
@@ -33,7 +33,7 @@ class InMemoryCache(BaseCache):
         self,
         max_size_in_memory: int | None = DEFAULT_MAX_SIZE_IN_MEMORY,
         default_ttl: int
-        | None = 600,  # default ttl is 10 minutes. At maximum litellm rate limiting logic requires objects to be in memory for 1 minute
+        | None = 600,  # default ttl is 10 minutes. At maximum embrouter rate limiting logic requires objects to be in memory for 1 minute
         max_size_per_item: int | None = 1024,  # 1MB = 1024KB
         clock: Callable[[], float] | None = None,
     ):

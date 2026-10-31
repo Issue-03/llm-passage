@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
 import { getLocalStorageItem, LOCAL_STORAGE_EVENT } from "@/utils/localStorageUtils";
 
-export const HIDE_AUTO_ROUTER_ANNOUNCEMENT_KEY = "litellmHideAutoRouterAnnouncement";
+export const HIDE_AUTO_ROUTER_ANNOUNCEMENT_KEY = "embrouterHideAutoRouterAnnouncement";
 
 function subscribe(callback: () => void) {
   const onStorage = (e: StorageEvent) => {

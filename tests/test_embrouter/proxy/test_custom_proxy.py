@@ -11,11 +11,11 @@ load_dotenv()
 # Set the SERVER_ROOT_PATH environment variable to match the custom mount path
 os.environ["SERVER_ROOT_PATH"] = "/my-custom-path"
 
-from litellm.proxy.proxy_server import app as litellm_app
-from litellm.proxy.proxy_server import proxy_startup_event
+from embrouter.proxy.proxy_server import app as embrouter_app
+from embrouter.proxy.proxy_server import proxy_startup_event
 
 # Create main FastAPI app
-app = FastAPI(title="Custom LiteLLM Server", lifespan=proxy_startup_event)
+app = FastAPI(title="Custom EmbRouter Server", lifespan=proxy_startup_event)
 
 # Add CORS middleware
 app.add_middleware(
@@ -28,8 +28,8 @@ app.add_middleware(
 
 custom_path = "/my-custom-path"
 
-# Mount LiteLLM app at /litellm
-app.mount(custom_path, litellm_app)
+# Mount EmbRouter app at /embrouter
+app.mount(custom_path, embrouter_app)
 
 
 # Default route at /
@@ -37,7 +37,7 @@ app.mount(custom_path, litellm_app)
 async def root():
     return {
         "message": "Welcome to the API Gateway",
-        "litellm_endpoint": f"{custom_path}",
+        "embrouter_endpoint": f"{custom_path}",
     }
 
 

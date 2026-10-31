@@ -11,8 +11,8 @@ from typing import Final
 from fastapi.responses import JSONResponse
 from typing_extensions import assert_never
 
-from litellm.proxy._experimental.mcp_server.faults.types import CallerRejected, UpstreamOAuthFault
-from litellm.proxy._experimental.mcp_server.oauth_utils import TOKEN_NO_CACHE_HEADERS
+from embrouter.proxy._experimental.mcp_server.faults.types import CallerRejected, UpstreamOAuthFault
+from embrouter.proxy._experimental.mcp_server.oauth_utils import TOKEN_NO_CACHE_HEADERS
 
 
 def _gateway_rejected_description(code: str) -> str:

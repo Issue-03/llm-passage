@@ -16,14 +16,14 @@ import json
 import uuid
 from typing import TYPE_CHECKING, Final
 
-from litellm._logging import verbose_logger
-from litellm.litellm_core_utils.aws_partition import get_aws_arn_prefix
-from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM
-from litellm.rag.ingestion.base_ingestion import BaseRAGIngestion
+from embrouter._logging import verbose_logger
+from embrouter.embrouter_core_utils.aws_partition import get_aws_arn_prefix
+from embrouter.llms.bedrock.base_aws_llm import BaseAWSLLM
+from embrouter.rag.ingestion.base_ingestion import BaseRAGIngestion
 
 if TYPE_CHECKING:
-    from litellm import Router
-    from litellm.types.rag import RAGIngestOptions
+    from embrouter import Router
+    from embrouter.types.rag import RAGIngestOptions
 
 
 def _get_str_or_none(value: object) -> str | None:
@@ -193,7 +193,7 @@ class BedrockRAGIngestion(BaseRAGIngestion, BaseAWSLLM):
 
         # Generate unique names
         unique_id: Final = uuid.uuid4().hex[:8]
-        kb_name: Final = self.ingest_name or f"litellm-kb-{unique_id}"
+        kb_name: Final = self.ingest_name or f"embrouter-kb-{unique_id}"
 
         # Get AWS account ID and caller ARN (for data access policy)
         sts: Final = self._get_boto3_client("sts")
@@ -229,7 +229,7 @@ class BedrockRAGIngestion(BaseRAGIngestion, BaseAWSLLM):
     def _create_s3_bucket(self, unique_id: str) -> str:
         """Create S3 bucket for KB data source."""
         s3: Final = self._get_boto3_client("s3")
-        bucket_name: Final = f"litellm-kb-{unique_id}"
+        bucket_name: Final = f"embrouter-kb-{unique_id}"
 
         verbose_logger.debug("Creating S3 bucket: %s", bucket_name)
 
@@ -246,7 +246,7 @@ class BedrockRAGIngestion(BaseRAGIngestion, BaseAWSLLM):
     async def _create_opensearch_collection(self, unique_id: str, account_id: str, caller_arn: str) -> tuple[str, str]:
         """Create OpenSearch Serverless collection for vector storage."""
         oss: Final = self._get_boto3_client("opensearchserverless")
-        collection_name: Final = f"litellm-kb-{unique_id}"
+        collection_name: Final = f"embrouter-kb-{unique_id}"
 
         verbose_logger.debug("Creating OpenSearch Serverless collection: %s", collection_name)
 
@@ -442,7 +442,7 @@ class BedrockRAGIngestion(BaseRAGIngestion, BaseAWSLLM):
     async def _create_bedrock_role(self, unique_id: str, account_id: str, collection_arn: str) -> str:
         """Create IAM role for Bedrock KB."""
         iam: Final = self._get_boto3_client("iam")
-        role_name: Final = f"litellm-bedrock-kb-{unique_id}"
+        role_name: Final = f"embrouter-bedrock-kb-{unique_id}"
 
         verbose_logger.debug("Creating IAM role: %s", role_name)
 

@@ -13,7 +13,7 @@ interface GuardrailGardenProps {
 const GuardrailGarden: React.FC<GuardrailGardenProps> = ({ accessToken, onGuardrailCreated }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCard, setSelectedCard] = useState<GuardrailCardInfo | null>(null);
-  const [showAllLitellm, setShowAllLitellm] = useState(false);
+  const [showAllEmbrouter, setShowAllEmbrouter] = useState(false);
   const CARDS_PER_ROW = 5;
   const VISIBLE_ROWS = 2;
 
@@ -27,7 +27,7 @@ const GuardrailGarden: React.FC<GuardrailGardenProps> = ({ accessToken, onGuardr
     );
   });
 
-  const litellmCards = filteredCards.filter((c) => c.category === "litellm");
+  const embrouterCards = filteredCards.filter((c) => c.category === "embrouter");
   const partnerCards = filteredCards.filter((c) => c.category === "partner");
 
   if (selectedCard) {
@@ -58,17 +58,17 @@ const GuardrailGarden: React.FC<GuardrailGardenProps> = ({ accessToken, onGuardr
 
       <div className="mb-10">
         <div className="mb-1 flex items-center justify-between">
-          <h2 className="m-0 text-xl font-semibold text-foreground">LiteLLM Content Filter</h2>
+          <h2 className="m-0 text-xl font-semibold text-foreground">EmbRouter Content Filter</h2>
           <span
             className="inline-flex cursor-pointer items-center gap-1.5 text-sm text-primary"
-            onClick={() => setShowAllLitellm(!showAllLitellm)}
+            onClick={() => setShowAllEmbrouter(!showAllEmbrouter)}
           >
-            {showAllLitellm ? (
+            {showAllEmbrouter ? (
               <>Show less</>
             ) : (
               <>
                 <ArrowRight className="size-3" />
-                {`Show all (${litellmCards.length})`}
+                {`Show all (${embrouterCards.length})`}
               </>
             )}
           </span>
@@ -77,7 +77,7 @@ const GuardrailGarden: React.FC<GuardrailGardenProps> = ({ accessToken, onGuardr
           Built-in guardrails powered by EmbRouter. Zero latency, no external dependencies, no additional cost.
         </p>
         <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-4">
-          {(showAllLitellm ? litellmCards : litellmCards.slice(0, CARDS_PER_ROW * VISIBLE_ROWS)).map((card) => (
+          {(showAllEmbrouter ? embrouterCards : embrouterCards.slice(0, CARDS_PER_ROW * VISIBLE_ROWS)).map((card) => (
             <GuardrailCard key={card.id} card={card} onClick={() => setSelectedCard(card)} />
           ))}
         </div>

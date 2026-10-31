@@ -1,19 +1,19 @@
 """
 Re rank api
 
-LiteLLM supports the re rank API format, no paramter transformation occurs
+EmbRouter supports the re rank API format, no paramter transformation occurs
 """
 
 from typing import Any, Final
 
-import litellm
-from litellm.llms.base import BaseLLM
-from litellm.llms.custom_httpx.http_handler import (
+import embrouter
+from embrouter.llms.base import BaseLLM
+from embrouter.llms.custom_httpx.http_handler import (
     _get_httpx_client,
     get_async_httpx_client,
 )
-from litellm.llms.together_ai.rerank.transformation import TogetherAIRerankConfig
-from litellm.types.rerank import RerankRequest, RerankResponse
+from embrouter.llms.together_ai.rerank.transformation import TogetherAIRerankConfig
+from embrouter.types.rerank import RerankRequest, RerankResponse
 
 
 def _rerank_url(api_base: str) -> str:
@@ -76,7 +76,7 @@ class TogetherAIRerank(BaseLLM):
         api_key: str,
         api_base: str,
     ) -> RerankResponse:
-        client: Final = get_async_httpx_client(llm_provider=litellm.LlmProviders.TOGETHER_AI)  # Use async client
+        client: Final = get_async_httpx_client(llm_provider=embrouter.LlmProviders.TOGETHER_AI)  # Use async client
 
         response: Final = await client.post(
             _rerank_url(api_base),

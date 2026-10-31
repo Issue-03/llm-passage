@@ -11,9 +11,9 @@ if TYPE_CHECKING:
     import httpx
     from aiohttp import ClientSession
 
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.llms.base_llm import BaseConfig
-    from litellm.utils import CustomStreamWrapper, ModelResponse
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.llms.base_llm import BaseConfig
+    from embrouter.utils import CustomStreamWrapper, ModelResponse
 
 
 class ChatCompletionSystemMessageParam(TypedDict, total=False):
@@ -217,9 +217,9 @@ class _CompletionDispatchContext:
     headers: dict
     hf_model_name: str | None
     kwargs: dict
-    litellm_params: dict[str, object]
+    embrouter_params: dict[str, object]
     logger_fn: Callable | None
-    logging: LiteLLMLoggingObj
+    logging: EmbRouterLoggingObj
     max_retries: int | None
     max_tokens: int | None
     messages: list

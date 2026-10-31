@@ -39,7 +39,7 @@ const FRAMEWORKS: readonly FrameworkGuide[] = [
     quickstart: `from langchain.agents import create_agent
 from langchain_openai import ChatOpenAI
 
-llm = ChatOpenAI(model="claude-sonnet-4-5", base_url="{PROXY}/v1", api_key=os.environ["LITELLM_API_KEY"])
+llm = ChatOpenAI(model="claude-sonnet-4-5", base_url="{PROXY}/v1", api_key=os.environ["EMBROUTER_API_KEY"])
 agent = create_agent(model=llm, tools=[], name="my_agent")
 agent.invoke({"messages": [{"role": "user", "content": "What is EmbRouter?"}]})`,
   },
@@ -50,7 +50,7 @@ agent.invoke({"messages": [{"role": "user", "content": "What is EmbRouter?"}]})`
     packages: "langchain langchain-openai openinference-instrumentation-langchain",
     quickstart: `from langchain_openai import ChatOpenAI
 
-llm = ChatOpenAI(model="claude-sonnet-4-5", base_url="{PROXY}/v1", api_key=os.environ["LITELLM_API_KEY"])
+llm = ChatOpenAI(model="claude-sonnet-4-5", base_url="{PROXY}/v1", api_key=os.environ["EMBROUTER_API_KEY"])
 llm.invoke("What is EmbRouter?")`,
   },
   {
@@ -61,7 +61,7 @@ llm.invoke("What is EmbRouter?")`,
     quickstart: `from agents import Agent, OpenAIChatCompletionsModel, Runner
 from openai import AsyncOpenAI
 
-client = AsyncOpenAI(base_url="{PROXY}/v1", api_key=os.environ["LITELLM_API_KEY"])
+client = AsyncOpenAI(base_url="{PROXY}/v1", api_key=os.environ["EMBROUTER_API_KEY"])
 agent = Agent(name="my_agent", model=OpenAIChatCompletionsModel(model="claude-sonnet-4-5", openai_client=client))
 print(Runner.run_sync(agent, "What is EmbRouter?").final_output)`,
   },
@@ -72,7 +72,7 @@ print(Runner.run_sync(agent, "What is EmbRouter?").final_output)`,
     packages: "crewai openinference-instrumentation-crewai",
     quickstart: `from crewai import LLM, Agent, Crew, Task
 
-llm = LLM(model="openai/claude-sonnet-4-5", base_url="{PROXY}/v1", api_key=os.environ["LITELLM_API_KEY"])
+llm = LLM(model="openai/claude-sonnet-4-5", base_url="{PROXY}/v1", api_key=os.environ["EMBROUTER_API_KEY"])
 agent = Agent(role="Researcher", goal="Answer questions", backstory="", llm=llm)
 task = Task(description="What is EmbRouter?", expected_output="A short answer", agent=agent)
 Crew(agents=[agent], tasks=[task]).kickoff()`,
@@ -86,7 +86,7 @@ Crew(agents=[agent], tasks=[task]).kickoff()`,
 from pydantic_ai.models.openai import OpenAIModel
 from pydantic_ai.providers.openai import OpenAIProvider
 
-provider = OpenAIProvider(base_url="{PROXY}/v1", api_key=os.environ["LITELLM_API_KEY"])
+provider = OpenAIProvider(base_url="{PROXY}/v1", api_key=os.environ["EMBROUTER_API_KEY"])
 agent = Agent(OpenAIModel("claude-sonnet-4-5", provider=provider), name="my_agent", instrument=True)
 print(agent.run_sync("What is EmbRouter?").output)`,
   },
@@ -97,7 +97,7 @@ print(agent.run_sync("What is EmbRouter?").output)`,
     packages: "llama-index llama-index-llms-openai-like openinference-instrumentation-llama-index",
     quickstart: `from llama_index.llms.openai_like import OpenAILike
 
-llm = OpenAILike(model="claude-sonnet-4-5", api_base="{PROXY}/v1", api_key=os.environ["LITELLM_API_KEY"], is_chat_model=True)
+llm = OpenAILike(model="claude-sonnet-4-5", api_base="{PROXY}/v1", api_key=os.environ["EMBROUTER_API_KEY"], is_chat_model=True)
 print(llm.complete("What is EmbRouter?"))`,
   },
   {
@@ -130,7 +130,7 @@ const installPackages = (guide: Pick<FrameworkGuide, "packages">): string =>
 export const tracingEnvSnippet = (proxyUrl: string): string =>
   [
     `export OTEL_EXPORTER_OTLP_ENDPOINT=${proxyUrl}`,
-    'export OTEL_EXPORTER_OTLP_HEADERS="Authorization=Bearer $LITELLM_API_KEY"',
+    'export OTEL_EXPORTER_OTLP_HEADERS="Authorization=Bearer $EMBROUTER_API_KEY"',
     "export OTEL_SERVICE_NAME=my-agent",
   ].join("\n");
 
@@ -141,14 +141,14 @@ export const codingAgentPrompt = (proxyUrl: string, guide: Pick<FrameworkGuide, 
     `1. Add these dependencies: ${installPackages(guide)}`,
     "2. Set these env vars wherever the project loads config (.env, settings, deployment manifests):",
     `   OTEL_EXPORTER_OTLP_ENDPOINT=${proxyUrl}`,
-    '   OTEL_EXPORTER_OTLP_HEADERS="Authorization=Bearer $LITELLM_API_KEY"',
+    '   OTEL_EXPORTER_OTLP_HEADERS="Authorization=Bearer $EMBROUTER_API_KEY"',
     "   OTEL_SERVICE_NAME=<a short name for this agent>",
     "3. Start the app through OTEL auto-instrumentation: opentelemetry-instrument <existing start command>.",
-    `4. Point every LLM client at EmbRouter: base_url=${proxyUrl}/v1, api key from LITELLM_API_KEY.`,
+    `4. Point every LLM client at EmbRouter: base_url=${proxyUrl}/v1, api key from EMBROUTER_API_KEY.`,
     "5. Give each agent and subagent a name so runs are easy to read.",
     "6. Run the agent once and confirm the run shows up in the EmbRouter UI under Logs > Agent Traces.",
     "",
-    "Never hardcode the key. Read it from LITELLM_API_KEY.",
+    "Never hardcode the key. Read it from EMBROUTER_API_KEY.",
   ].join("\n");
 
 export const PROXY_CONFIG_SNIPPET = [

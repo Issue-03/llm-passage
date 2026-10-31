@@ -6,12 +6,12 @@ from typing import Final
 
 import pytest
 
-from litellm.caching.caching import DualCache
-from litellm.proxy.hooks.model_max_budget_limiter import (
+from embrouter.caching.caching import DualCache
+from embrouter.proxy.hooks.model_max_budget_limiter import (
     _PROXY_VirtualKeyModelMaxBudgetLimiter,
 )
-from litellm.types.caching import RedisPipelineIncrementOperation
-from litellm.types.utils import LiteLLMBatch, Usage
+from embrouter.types.caching import RedisPipelineIncrementOperation
+from embrouter.types.utils import EmbRouterBatch, Usage
 
 KEY_HASH: Final = "key-hash-batch"
 USER_ID: Final = "user-batch"
@@ -22,8 +22,8 @@ KEY_SPEND_KEY: Final = f"virtual_key_spend:{KEY_HASH}:{MODEL_GROUP}:1d"
 USER_SPEND_KEY: Final = f"user_model_spend:{USER_ID}:{MODEL_GROUP}:1d"
 
 
-def _batch(batch_id: str, status: str) -> LiteLLMBatch:
-    return LiteLLMBatch(
+def _batch(batch_id: str, status: str) -> EmbRouterBatch:
+    return EmbRouterBatch(
         id=batch_id,
         completion_window="24h",
         created_at=1,
@@ -45,7 +45,7 @@ def _event(call_type: str, response_cost: float) -> dict[str, object]:
             "model_group": MODEL_GROUP,
             "metadata": {"user_api_key_hash": KEY_HASH, "user_api_key_user_id": USER_ID},
         },
-        "litellm_params": {
+        "embrouter_params": {
             "metadata": {
                 "user_api_key_model_max_budget": {MODEL_GROUP: {"budget_limit": 0.0001, "time_period": "1d"}},
                 "user_api_key_user_model_max_budget": {MODEL_GROUP: {"budget_limit": 0.0001, "time_period": "1d"}},
@@ -54,7 +54,7 @@ def _event(call_type: str, response_cost: float) -> dict[str, object]:
     }
 
 
-async def _poll(limiter: _PROXY_VirtualKeyModelMaxBudgetLimiter, batch: LiteLLMBatch, response_cost: float) -> None:
+async def _poll(limiter: _PROXY_VirtualKeyModelMaxBudgetLimiter, batch: EmbRouterBatch, response_cost: float) -> None:
     await limiter.async_log_success_event(
         _event("aretrieve_batch", response_cost), response_obj=batch, start_time=None, end_time=None
     )

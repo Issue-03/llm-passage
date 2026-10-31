@@ -3,8 +3,8 @@ from typing import Any, Literal, TypedDict
 
 from pydantic import Field
 
-from litellm.types.llms.base import BaseLiteLLMOpenAIResponseObject
-from litellm.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
+from embrouter.types.llms.base import BaseEmbRouterOpenAIResponseObject
+from embrouter.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
 
 # --- Competitor intent blocker (generic, industry-agnostic) ---
 
@@ -83,7 +83,7 @@ class CompetitorIntentDetection(TypedDict):
 ContentFilterDetection = PatternDetection | BlockedWordDetection | CategoryKeywordDetection | CompetitorIntentDetection
 
 
-class ContentFilterCategoryConfig(BaseLiteLLMOpenAIResponseObject):
+class ContentFilterCategoryConfig(BaseEmbRouterOpenAIResponseObject):
     """
     category: "harmful_self_harm"
                   enabled: true
@@ -112,9 +112,9 @@ class ContentFilterCategoryConfig(BaseLiteLLMOpenAIResponseObject):
     )
 
 
-class LitellmContentFilterGuardrailConfigModel(GuardrailConfigModel):
+class EmbrouterContentFilterGuardrailConfigModel(GuardrailConfigModel):
     """
-    Configuration model for LiteLLM Content Filter guardrail.
+    Configuration model for EmbRouter Content Filter guardrail.
 
     Supports:
     - Traditional keyword and pattern matching
@@ -169,4 +169,4 @@ class LitellmContentFilterGuardrailConfigModel(GuardrailConfigModel):
 
     @staticmethod
     def ui_friendly_name() -> str:
-        return "LiteLLM Content Filter"
+        return "EmbRouter Content Filter"

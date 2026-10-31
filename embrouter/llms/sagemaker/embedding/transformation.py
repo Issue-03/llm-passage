@@ -7,15 +7,15 @@ In the Huggingface TGI format.
 from typing import TYPE_CHECKING, Any, Final
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.types.llms.openai import AllEmbeddingInputValues
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.types.llms.openai import AllEmbeddingInputValues
 
 from httpx._models import Headers, Response
 
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.base_llm.embedding.transformation import BaseEmbeddingConfig
-from litellm.llms.voyage.embedding.transformation import VoyageEmbeddingConfig
-from litellm.types.utils import EmbeddingResponse, Usage
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.base_llm.embedding.transformation import BaseEmbeddingConfig
+from embrouter.llms.voyage.embedding.transformation import VoyageEmbeddingConfig
+from embrouter.types.utils import EmbeddingResponse, Usage
 
 from ..common_utils import SagemakerError
 from .cohere_transformation import SagemakerCohereEmbeddingConfig
@@ -85,11 +85,11 @@ class SagemakerEmbeddingConfig(BaseEmbeddingConfig):
         model: str,
         raw_response: Response,
         model_response: "EmbeddingResponse",
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
         api_key: str | None = None,
         request_data: dict = {},
         optional_params: dict = {},
-        litellm_params: dict = {},
+        embrouter_params: dict = {},
     ) -> "EmbeddingResponse":
         """
         Transform embedding response for Hugging Face models on SageMaker
@@ -149,7 +149,7 @@ class SagemakerEmbeddingConfig(BaseEmbeddingConfig):
         model: str,
         messages: list[Any],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:

@@ -7,16 +7,16 @@ import orjson
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import ORJSONResponse
 
-from litellm.proxy._types import *
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.common_request_processing import (
+from embrouter.proxy._types import *
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.common_request_processing import (
     ProxyBaseLLMRequestProcessing,
     log_llm_api_exception,
-    resolve_litellm_call_id,
+    resolve_embrouter_call_id,
 )
-from litellm.proxy.common_utils.openai_error_payload import (
+from embrouter.proxy.common_utils.openai_error_payload import (
     error_status_code,
-    litellm_call_id_headers,
+    embrouter_call_id_headers,
     openai_error_param,
     openai_error_type,
 )
@@ -47,8 +47,8 @@ async def rerank(
     fastapi_response: Response,
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
 ):
-    from litellm.proxy.proxy_server import (
-        add_litellm_data_to_request,
+    from embrouter.proxy.proxy_server import (
+        add_embrouter_data_to_request,
         general_settings,
         llm_router,
         proxy_config,
@@ -58,14 +58,14 @@ async def rerank(
         version,
     )
 
-    litellm_call_id: Final = resolve_litellm_call_id(request.headers.get("x-litellm-call-id"))
-    data = {"litellm_call_id": litellm_call_id}
+    embrouter_call_id: Final = resolve_embrouter_call_id(request.headers.get("x-embrouter-call-id"))
+    data = {"embrouter_call_id": embrouter_call_id}
     try:
         body: Final = await request.body()
         data = orjson.loads(body) | data
 
         # Include original request and headers in the data
-        data = await add_litellm_data_to_request(
+        data = await add_embrouter_data_to_request(
             data=data,
             request=request,
             general_settings=general_settings,
@@ -87,7 +87,7 @@ async def rerank(
         response: Final = await llm_call
 
         ### ALERTING ###
-        asyncio.create_task(proxy_logging_obj.update_request_status(litellm_call_id=litellm_call_id, status="success"))
+        asyncio.create_task(proxy_logging_obj.update_request_status(embrouter_call_id=embrouter_call_id, status="success"))
 
         ### RESPONSE HEADERS ###
         hidden_params: Final = getattr(response, "_hidden_params", {}) or {}
@@ -98,7 +98,7 @@ async def rerank(
         fastapi_response.headers.update(
             ProxyBaseLLMRequestProcessing.get_custom_headers(
                 user_api_key_dict=user_api_key_dict,
-                call_id=hidden_params.get("litellm_call_id", None) or litellm_call_id,
+                call_id=hidden_params.get("embrouter_call_id", None) or embrouter_call_id,
                 model_id=model_id,
                 cache_key=cache_key,
                 api_base=api_base,
@@ -116,13 +116,13 @@ async def rerank(
         await proxy_logging_obj.post_call_failure_hook(
             user_api_key_dict=user_api_key_dict, original_exception=e, request_data=data
         )
-        log_llm_api_exception(e, litellm_call_id)
+        log_llm_api_exception(e, embrouter_call_id)
         if isinstance(e, HTTPException):
             raise ProxyException(
                 message=getattr(e, "message", str(e)),
                 type=openai_error_type(e, error_status_code(e, status.HTTP_400_BAD_REQUEST)),
                 param=openai_error_param(e),
-                headers=litellm_call_id_headers(litellm_call_id),
+                headers=embrouter_call_id_headers(embrouter_call_id),
                 code=error_status_code(e, status.HTTP_400_BAD_REQUEST),
             )
         else:
@@ -131,6 +131,6 @@ async def rerank(
                 message=getattr(e, "message", error_msg),
                 type=openai_error_type(e, error_status_code(e, 500)),
                 param=openai_error_param(e),
-                headers=litellm_call_id_headers(litellm_call_id),
+                headers=embrouter_call_id_headers(embrouter_call_id),
                 code=error_status_code(e, 500),
             )

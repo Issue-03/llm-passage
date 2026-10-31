@@ -11,31 +11,31 @@ from collections.abc import AsyncIterator, Coroutine, Iterator
 from functools import partial
 from typing import Any, Final, cast
 
-import litellm
-from litellm.litellm_core_utils.exception_mapping_utils import exception_type
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.anthropic.common_utils import (
+import embrouter
+from embrouter.embrouter_core_utils.exception_mapping_utils import exception_type
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.anthropic.common_utils import (
     flatten_unencrypted_web_search_results_in_anthropic_messages,
     sanitize_tool_use_ids_in_anthropic_messages,
     strip_empty_content_blocks_from_anthropic_messages,
     strip_provider_specific_fields_from_anthropic_messages,
 )
-from litellm.llms.base_llm.anthropic_messages.transformation import (
+from embrouter.llms.base_llm.anthropic_messages.transformation import (
     BaseAnthropicMessagesConfig,
 )
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
-from litellm.types.llms.anthropic_messages.anthropic_request import AnthropicMetadata
-from litellm.types.llms.anthropic_messages.anthropic_response import (
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from embrouter.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+from embrouter.types.llms.anthropic_messages.anthropic_request import AnthropicMetadata
+from embrouter.types.llms.anthropic_messages.anthropic_response import (
     AnthropicMessagesResponse,
 )
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import CallTypes
-from litellm.utils import ProviderConfigManager, client
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import CallTypes
+from embrouter.utils import ProviderConfigManager, client
 
-from ..adapters.handler import LiteLLMMessagesToCompletionTransformationHandler
-from ..responses_adapters.handler import LiteLLMMessagesToResponsesAPIHandler
+from ..adapters.handler import EmbRouterMessagesToCompletionTransformationHandler
+from ..responses_adapters.handler import EmbRouterMessagesToResponsesAPIHandler
 from ..utils import is_reasoning_auto_summary_enabled
 from .interceptors import get_messages_interceptors
 from .utils import AnthropicMessagesRequestUtils, mock_response
@@ -48,7 +48,7 @@ _RESPONSES_API_PROVIDERS: Final = frozenset({"openai"})
 
 
 def _bridges_to_responses_api(model: str, custom_llm_provider: str) -> bool:
-    from litellm.main import responses_api_bridge_check
+    from embrouter.main import responses_api_bridge_check
 
     model_info, _ = responses_api_bridge_check(model=model, custom_llm_provider=custom_llm_provider)
     return model_info.get("mode") == "responses"
@@ -59,7 +59,7 @@ def _responses_mode_is_lost_by_prefix_strip(
 ) -> bool:
     """Whether a Responses-only deployment stops looking like one once its provider prefix is stripped.
 
-    ``litellm.completion`` re-derives the Responses bridge from the stripped id alone, so a
+    ``embrouter.completion`` re-derives the Responses bridge from the stripped id alone, so a
     deployment id such as ``perplexity/perplexity/sonar`` (mode ``responses``) is shadowed by the
     chat entry ``perplexity/sonar`` and would otherwise be sent to chat/completions.
     """
@@ -77,10 +77,10 @@ def _should_route_to_responses_api(
 ) -> bool:
     """Return True when the request should use the Responses API path.
 
-    Set ``litellm.use_chat_completions_url_for_anthropic_messages = True`` to
+    Set ``embrouter.use_chat_completions_url_for_anthropic_messages = True`` to
     opt out and route OpenAI/Azure requests through chat/completions instead.
     """
-    if litellm.use_chat_completions_url_for_anthropic_messages:
+    if embrouter.use_chat_completions_url_for_anthropic_messages:
         return False
     if custom_llm_provider in _RESPONSES_API_PROVIDERS:
         return True
@@ -140,7 +140,7 @@ async def _execute_pre_request_hooks(
     # If custom_llm_provider not provided, extract from model
     if not custom_llm_provider:
         try:
-            _, custom_llm_provider, _, _ = litellm.get_llm_provider(model=model)
+            _, custom_llm_provider, _, _ = embrouter.get_llm_provider(model=model)
         except Exception:
             # If extraction fails, continue without provider
             pass
@@ -149,18 +149,18 @@ async def _execute_pre_request_hooks(
     request_kwargs = {
         "tools": tools,
         "stream": stream,
-        "litellm_params": {
+        "embrouter_params": {
             "custom_llm_provider": custom_llm_provider,
         },
         **kwargs,
     }
 
-    if not litellm.callbacks:
+    if not embrouter.callbacks:
         return request_kwargs
 
-    from litellm.integrations.custom_logger import CustomLogger as _CustomLogger
+    from embrouter.integrations.custom_logger import CustomLogger as _CustomLogger
 
-    for callback in litellm.callbacks:
+    for callback in embrouter.callbacks:
         if not isinstance(callback, _CustomLogger):
             continue
 
@@ -194,14 +194,14 @@ async def _try_websearch_short_circuit(
     Returns the synthetic response if short-circuited, or None to continue
     normal processing.
     """
-    if not litellm.callbacks:
+    if not embrouter.callbacks:
         return None
 
-    from litellm.integrations.websearch_interception.handler import (
+    from embrouter.integrations.websearch_interception.handler import (
         WebSearchInterceptionLogger,
     )
 
-    for callback in litellm.callbacks:
+    for callback in embrouter.callbacks:
         if not isinstance(callback, WebSearchInterceptionLogger):
             continue
 
@@ -215,7 +215,7 @@ async def _try_websearch_short_circuit(
         if response is not None:
             anthropic_response = cast(AnthropicMessagesResponse, response)
             if stream:
-                from litellm.llms.anthropic.pass_through.messages.fake_stream_iterator import (
+                from embrouter.llms.anthropic.pass_through.messages.fake_stream_iterator import (
                     FakeAnthropicMessagesStreamIterator,
                 )
 
@@ -268,7 +268,7 @@ async def anthropic_messages(
     messages = sanitize_tool_use_ids_in_anthropic_messages(messages)
     messages = flatten_unencrypted_web_search_results_in_anthropic_messages(messages)
 
-    from litellm.integrations.anthropic_cache_control_hook import (
+    from embrouter.integrations.anthropic_cache_control_hook import (
         AnthropicCacheControlHook,
     )
 
@@ -281,7 +281,7 @@ async def anthropic_messages(
     # Execute pre-request hooks to allow CustomLoggers to modify request.
     # tool_choice is forwarded explicitly (it is a named param, not in kwargs)
     # so hooks that rename tools — e.g. websearch_interception converting
-    # web_search -> litellm_web_search — can keep a forced tool_choice in sync.
+    # web_search -> embrouter_web_search — can keep a forced tool_choice in sync.
     request_kwargs: Final = await _execute_pre_request_hooks(
         model=model,
         messages=messages,
@@ -307,17 +307,17 @@ async def anthropic_messages(
     top_k = request_kwargs.pop("top_k", top_k)
     top_p = request_kwargs.pop("top_p", top_p)
     # Propagate the provider derived inside pre-request hooks, if not already set.
-    # The litellm_params dict may have been overwritten by **kwargs in
+    # The embrouter_params dict may have been overwritten by **kwargs in
     # _execute_pre_request_hooks, so fall back to get_llm_provider() if needed.
     if not custom_llm_provider:
-        custom_llm_provider = request_kwargs.get("litellm_params", {}).get("custom_llm_provider")
+        custom_llm_provider = request_kwargs.get("embrouter_params", {}).get("custom_llm_provider")
         if not custom_llm_provider:
             try:
-                _, custom_llm_provider, _, _ = litellm.get_llm_provider(model=model)
+                _, custom_llm_provider, _, _ = embrouter.get_llm_provider(model=model)
             except Exception:
                 pass
-    # Remove litellm_params from kwargs (only needed for hooks)
-    request_kwargs.pop("litellm_params", None)
+    # Remove embrouter_params from kwargs (only needed for hooks)
+    request_kwargs.pop("embrouter_params", None)
     # Merge back any other modifications
     kwargs.update(request_kwargs)
 
@@ -389,7 +389,7 @@ async def anthropic_messages(
         # can skip its (otherwise redundant) second full-messages scan. Passed
         # explicitly (not via **kwargs) so it only affects this direct
         # dispatch -- interceptor / sync entry points still sanitize.
-        _litellm_messages_presanitized=True,
+        _embrouter_messages_presanitized=True,
         **kwargs,
     )
     ctx: Final = contextvars.copy_context()
@@ -412,7 +412,7 @@ def validate_anthropic_api_metadata(metadata: dict | None = None) -> dict | None
     """
     Validate Anthropic API metadata - This is done to ensure only allowed `metadata` fields are passed to Anthropic API
 
-    If there are any litellm specific metadata fields, use `litellm_metadata` key to pass them.
+    If there are any embrouter specific metadata fields, use `embrouter_metadata` key to pass them.
     """
     if metadata is None:
         return None
@@ -452,20 +452,20 @@ def anthropic_messages_handler(
     Args:
         container: Container config with skills for code execution
     """
-    from litellm.types.utils import LlmProviders
+    from embrouter.types.utils import LlmProviders
 
     # Sanitize empty text blocks so the sync entry point
-    # (litellm.messages.create -> anthropic_messages_handler) gets the same
+    # (embrouter.messages.create -> anthropic_messages_handler) gets the same
     # protection as the async wrapper. The async wrapper already sanitized and
     # does not reassign messages before dispatch, so it sets
-    # ``_litellm_messages_presanitized`` to skip this redundant second
+    # ``_embrouter_messages_presanitized`` to skip this redundant second
     # full-messages scan. Pop it so it never leaks into provider params.
-    if not kwargs.pop("_litellm_messages_presanitized", False):
+    if not kwargs.pop("_embrouter_messages_presanitized", False):
         messages = strip_empty_content_blocks_from_anthropic_messages(messages)
         messages = sanitize_tool_use_ids_in_anthropic_messages(messages)
         messages = flatten_unencrypted_web_search_results_in_anthropic_messages(messages)
 
-    from litellm.integrations.anthropic_cache_control_hook import (
+    from embrouter.integrations.anthropic_cache_control_hook import (
         AnthropicCacheControlHook,
     )
 
@@ -478,13 +478,13 @@ def anthropic_messages_handler(
     local_vars: Final = locals()
     is_async: Final = kwargs.pop("is_async", False)
     # Use provided client or create a new one
-    litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.get("litellm_logging_obj")
+    embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.get("embrouter_logging_obj")
 
     # Store original model name before get_llm_provider strips the provider prefix
     # This is needed by agentic hooks (e.g., websearch_interception) to make follow-up requests
     original_model: Final = model
 
-    litellm_params: Final = GenericLiteLLMParams(
+    embrouter_params: Final = GenericEmbRouterParams(
         **kwargs,
         api_key=api_key,
         api_base=api_base,
@@ -495,50 +495,50 @@ def anthropic_messages_handler(
         custom_llm_provider,
         dynamic_api_key,
         dynamic_api_base,
-    ) = litellm.get_llm_provider(
+    ) = embrouter.get_llm_provider(
         model=model,
         custom_llm_provider=custom_llm_provider,
-        api_base=litellm_params.api_base,
-        api_key=litellm_params.api_key,
+        api_base=embrouter_params.api_base,
+        api_key=embrouter_params.api_key,
     )
 
     # Store agentic loop params in logging object for agentic hooks
     # This provides original request context needed for follow-up calls
-    if litellm_logging_obj is not None:
-        litellm_logging_obj.model_call_details["agentic_loop_params"] = {
+    if embrouter_logging_obj is not None:
+        embrouter_logging_obj.model_call_details["agentic_loop_params"] = {
             "model": original_model,
             "custom_llm_provider": custom_llm_provider,
         }
-        litellm_logging_obj.model_call_details.setdefault("litellm_params", {})[CallTypes.aanthropic_messages.value] = (
+        embrouter_logging_obj.model_call_details.setdefault("embrouter_params", {})[CallTypes.aanthropic_messages.value] = (
             is_async
         )
 
         # Check if stream was converted for WebSearch interception
         # This is set in the async wrapper above when stream=True is converted to stream=False
         if kwargs.get("_websearch_interception_converted_stream", False):
-            litellm_logging_obj.model_call_details["websearch_interception_converted_stream"] = True
+            embrouter_logging_obj.model_call_details["websearch_interception_converted_stream"] = True
 
-    if litellm_params.mock_response and isinstance(litellm_params.mock_response, str):
+    if embrouter_params.mock_response and isinstance(embrouter_params.mock_response, str):
         return mock_response(
             model=model,
             messages=messages,
             max_tokens=max_tokens,
-            mock_response=litellm_params.mock_response,
+            mock_response=embrouter_params.mock_response,
         )
 
-    # Expand litellm_proxy MCP references through the MCP gateway before dispatch, so every
+    # Expand embrouter_proxy MCP references through the MCP gateway before dispatch, so every
     # downstream path (native passthrough and both bridges) gets real tools rather than a
     # reference the provider cannot resolve. Popped from kwargs so it never reaches the provider.
     skip_mcp_handler: Final = kwargs.pop("_skip_mcp_handler", False)
     if not skip_mcp_handler and tools:
-        from litellm.llms.anthropic.pass_through.messages.mcp_handler import (
+        from embrouter.llms.anthropic.pass_through.messages.mcp_handler import (
             anthropic_messages_with_mcp,
         )
-        from litellm.responses.mcp.litellm_proxy_mcp_handler import (
-            LiteLLM_Proxy_MCP_Handler,
+        from embrouter.responses.mcp.embrouter_proxy_mcp_handler import (
+            EmbRouter_Proxy_MCP_Handler,
         )
 
-        if LiteLLM_Proxy_MCP_Handler._should_use_litellm_mcp_gateway(tools=tools):
+        if EmbRouter_Proxy_MCP_Handler._should_use_embrouter_mcp_gateway(tools=tools):
             return anthropic_messages_with_mcp(
                 max_tokens=max_tokens,
                 messages=messages,
@@ -566,12 +566,12 @@ def anthropic_messages_handler(
     if custom_llm_provider is not None and custom_llm_provider in [provider.value for provider in LlmProviders]:
         anthropic_messages_provider_config = ProviderConfigManager.get_provider_anthropic_messages_config(
             model=model,
-            provider=litellm.LlmProviders(custom_llm_provider),
+            provider=embrouter.LlmProviders(custom_llm_provider),
         )
     if anthropic_messages_provider_config is None and _deployment_passes_through_anthropic_messages(
         kwargs.get("model_info")
     ):
-        from litellm.llms.openai_like.messages.transformation import (
+        from embrouter.llms.openai_like.messages.transformation import (
             OpenAILikeAnthropicMessagesConfig,
         )
 
@@ -583,7 +583,7 @@ def anthropic_messages_handler(
         if kwargs.get("compaction") is None and _should_route_to_responses_api(
             custom_llm_provider, original_model, model
         ):
-            return LiteLLMMessagesToResponsesAPIHandler.anthropic_messages_handler(
+            return EmbRouterMessagesToResponsesAPIHandler.anthropic_messages_handler(
                 max_tokens=max_tokens,
                 messages=messages,
                 model=original_model,
@@ -609,7 +609,7 @@ def anthropic_messages_handler(
         # ``async_anthropic_messages_handler`` so it can ``await`` the
         # summarization model for ``compact_20260112``. ``context_management``
         # is passed through as a regular kwarg.
-        return LiteLLMMessagesToCompletionTransformationHandler.anthropic_messages_handler(
+        return EmbRouterMessagesToCompletionTransformationHandler.anthropic_messages_handler(
             max_tokens=max_tokens,
             messages=messages,
             model=original_model,
@@ -641,7 +641,7 @@ def anthropic_messages_handler(
         AnthropicMessagesRequestUtils.get_requested_anthropic_messages_optional_param(
             params=local_vars,
             model=model,
-            drop_params=litellm_params.get("drop_params") is True,
+            drop_params=embrouter_params.get("drop_params") is True,
             custom_llm_provider=custom_llm_provider,
         )
     )
@@ -666,8 +666,8 @@ def anthropic_messages_handler(
         _is_async=is_async,
         client=client,
         custom_llm_provider=custom_llm_provider,
-        litellm_params=litellm_params,
-        logging_obj=litellm_logging_obj,
+        embrouter_params=embrouter_params,
+        logging_obj=embrouter_logging_obj,
         api_key=api_key,
         api_base=resolved_api_base,
         stream=stream,

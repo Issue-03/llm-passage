@@ -15,7 +15,7 @@ vi.mock("../networking", async () => {
       {
         provider: "OpenAI",
         provider_display_name: Providers.OpenAI,
-        litellm_provider: "openai",
+        embrouter_provider: "openai",
         default_model_placeholder: "gpt-3.5-turbo",
         credential_fields: [
           {
@@ -43,7 +43,7 @@ vi.mock("../networking", async () => {
       {
         provider: "Vertex_AI",
         provider_display_name: Providers.Vertex_AI,
-        litellm_provider: "vertex_ai",
+        embrouter_provider: "vertex_ai",
         default_model_placeholder: "gemini-pro",
         credential_fields: [
           {
@@ -56,7 +56,7 @@ vi.mock("../networking", async () => {
       {
         provider: "Hosted_Vllm",
         provider_display_name: Providers.Hosted_Vllm,
-        litellm_provider: "hosted_vllm",
+        embrouter_provider: "hosted_vllm",
         default_model_placeholder: "vllm/any-model",
         credential_fields: [
           {
@@ -74,7 +74,7 @@ vi.mock("../networking", async () => {
       {
         provider: "Azure",
         provider_display_name: Providers.Azure,
-        litellm_provider: "azure",
+        embrouter_provider: "azure",
         default_model_placeholder: "azure/my-deployment",
         credential_fields: [
           {
@@ -88,7 +88,7 @@ vi.mock("../networking", async () => {
             label: "API Version",
             placeholder: "2023-07-01-preview",
             tooltip:
-              "By default litellm will use the latest version. If you want to use a different version, you can specify it here",
+              "By default embrouter will use the latest version. If you want to use a different version, you can specify it here",
           },
           {
             key: "base_model",

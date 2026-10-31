@@ -6,19 +6,19 @@ from typing import TYPE_CHECKING, Any, Final, cast
 import httpx
 from httpx._types import RequestFiles
 
-from litellm.images.utils import ImageEditRequestUtils
-from litellm.llms.base_llm.image_edit.transformation import BaseImageEditConfig
-from litellm.llms.gemini.common_utils import (
+from embrouter.images.utils import ImageEditRequestUtils
+from embrouter.llms.base_llm.image_edit.transformation import BaseImageEditConfig
+from embrouter.llms.gemini.common_utils import (
     get_gemini_image_generation_config,
     map_openai_image_params_to_gemini,
 )
-from litellm.llms.gemini.image_usage_transformation import (
+from embrouter.llms.gemini.image_usage_transformation import (
     transform_gemini_image_usage,
 )
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.images.main import ImageEditOptionalRequestParams
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import (
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.images.main import ImageEditOptionalRequestParams
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import (
     FileTypes,
     ImageObject,
     ImageResponse,
@@ -26,11 +26,11 @@ from litellm.types.utils import (
 )
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 
 class GeminiImageEditConfig(BaseImageEditConfig):
@@ -58,7 +58,7 @@ class GeminiImageEditConfig(BaseImageEditConfig):
         headers: dict,
         model: str,
         api_key: str | None = None,
-        litellm_params: dict | None = None,
+        embrouter_params: dict | None = None,
         api_base: str | None = None,
     ) -> dict:
         final_api_key: Final[str | None] = api_key or get_secret_str("GEMINI_API_KEY")
@@ -77,7 +77,7 @@ class GeminiImageEditConfig(BaseImageEditConfig):
         self,
         model: str,
         api_base: str | None,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> str:
         base_url = api_base or get_secret_str("GEMINI_API_BASE") or self.DEFAULT_BASE_URL
         base_url = base_url.rstrip("/")
@@ -89,7 +89,7 @@ class GeminiImageEditConfig(BaseImageEditConfig):
         prompt: str | None,
         image: FileTypes | None,
         image_edit_optional_request_params: Mapping[str, object],
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[dict[str, object], RequestFiles | None]:
         inline_parts: Final = self._prepare_inline_image_parts(image) if image else []
@@ -121,7 +121,7 @@ class GeminiImageEditConfig(BaseImageEditConfig):
         self,
         model: str,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> ImageResponse:
         model_response: Final = ImageResponse()
         try:

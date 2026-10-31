@@ -1,18 +1,18 @@
 from typing import Final
 
-import litellm
-from litellm.types.guardrails import Guardrail, LitellmParams
+import embrouter
+from embrouter.types.guardrails import Guardrail, EmbrouterParams
 
 
-def initialize_guardrail(litellm_params: LitellmParams, guardrail: Guardrail):
-    from litellm.proxy.guardrails.guardrail_hooks.tool_policy.tool_policy_guardrail import (
+def initialize_guardrail(embrouter_params: EmbrouterParams, guardrail: Guardrail):
+    from embrouter.proxy.guardrails.guardrail_hooks.tool_policy.tool_policy_guardrail import (
         ToolPolicyGuardrail,
     )
 
     _callback: Final = ToolPolicyGuardrail(
         guardrail_name=guardrail.get("guardrail_name", "tool_policy"),
-        event_hook=litellm_params.mode,
-        default_on=litellm_params.default_on,
+        event_hook=embrouter_params.mode,
+        default_on=embrouter_params.default_on,
     )
-    litellm.logging_callback_manager.add_litellm_callback(_callback)
+    embrouter.logging_callback_manager.add_embrouter_callback(_callback)
     return _callback

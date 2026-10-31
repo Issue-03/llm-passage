@@ -10,20 +10,20 @@ import httpx
 from pydantic import TypeAdapter, ValidationError
 from typing_extensions import NotRequired, ReadOnly, TypedDict
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.constants import DEFAULT_MAX_RECURSE_DEPTH
-from litellm.litellm_core_utils.prompt_templates.common_utils import unpack_defs
-from litellm.llms.base_llm.base_utils import BaseLLMModelInfo, BaseTokenCounter
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.llms.vertex_ai import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.constants import DEFAULT_MAX_RECURSE_DEPTH
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import unpack_defs
+from embrouter.llms.base_llm.base_utils import BaseLLMModelInfo, BaseTokenCounter
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.llms.vertex_ai import (
     VERTEX_AI_PROVIDER_METADATA_FIELDS,
     PartType,
     Schema,
 )
-from litellm.types.utils import TokenCountResponse
-from litellm.utils import supports_response_schema, supports_system_messages
+from embrouter.types.utils import TokenCountResponse
+from embrouter.utils import supports_response_schema, supports_system_messages
 
 VERTEX_SELF_DEPLOYED_ENDPOINT_UNSUPPORTED_PARAMS: Final = frozenset(
     {
@@ -61,7 +61,7 @@ def _validate_vertex_ai_lyria_model_info(raw_model_info: object) -> VertexAILyri
 
 @lru_cache(maxsize=1)
 def _bundled_vertex_ai_lyria_model_infos() -> Mapping[str, VertexAILyriaModelInfo]:
-    from litellm.litellm_core_utils.get_model_cost_map import GetModelCostMap
+    from embrouter.embrouter_core_utils.get_model_cost_map import GetModelCostMap
 
     return MappingProxyType(
         {
@@ -82,14 +82,14 @@ def _vertex_ai_lyria_generation_cost(model_info: VertexAILyriaModelInfo | None) 
 
 def get_vertex_ai_lyria_model_info(model: str) -> VertexAILyriaModelInfo | None:
     model_key: Final = _vertex_ai_lyria_model_key(model)
-    runtime_model_info: Final = _validate_vertex_ai_lyria_model_info(litellm.model_cost.get(model_key))
+    runtime_model_info: Final = _validate_vertex_ai_lyria_model_info(embrouter.model_cost.get(model_key))
     return runtime_model_info or _bundled_vertex_ai_lyria_model_infos().get(model_key)
 
 
 def get_vertex_ai_lyria_generation_cost(model: str) -> float | None:
     model_key: Final = _vertex_ai_lyria_model_key(model)
     runtime_cost: Final = _vertex_ai_lyria_generation_cost(
-        _validate_vertex_ai_lyria_model_info(litellm.model_cost.get(model_key))
+        _validate_vertex_ai_lyria_model_info(embrouter.model_cost.get(model_key))
     )
     if runtime_cost is not None:
         return runtime_cost
@@ -126,18 +126,18 @@ def redact_vertex_ai_metadata_from_logged_object(obj: object) -> None:
             hidden_params.pop(field, None)
 
 
-def redact_vertex_ai_metadata_from_litellm_params(model_call_details: dict) -> None:
+def redact_vertex_ai_metadata_from_embrouter_params(model_call_details: dict) -> None:
     """
     success_handler() merges response._hidden_params into
-    litellm_params.metadata['hidden_params'] before redaction runs, so the Vertex
+    embrouter_params.metadata['hidden_params'] before redaction runs, so the Vertex
     metadata must be scrubbed from that copy too.
     """
-    litellm_params: Final = model_call_details.get("litellm_params")
-    if not isinstance(litellm_params, dict):
+    embrouter_params: Final = model_call_details.get("embrouter_params")
+    if not isinstance(embrouter_params, dict):
         return
 
-    for metadata_key in ("metadata", "litellm_metadata"):
-        metadata = litellm_params.get(metadata_key)
+    for metadata_key in ("metadata", "embrouter_metadata"):
+        metadata = embrouter_params.get(metadata_key)
         if not isinstance(metadata, dict):
             continue
         hidden_params = metadata.get("hidden_params")
@@ -147,21 +147,21 @@ def redact_vertex_ai_metadata_from_litellm_params(model_call_details: dict) -> N
             hidden_params.pop(field, None)
 
 
-def vertex_request_labels_from_litellm_params(
-    litellm_params: dict | None,
+def vertex_request_labels_from_embrouter_params(
+    embrouter_params: dict | None,
 ) -> dict[str, str] | None:
     """
-    Build Vertex/GCP billing labels from LiteLLM user metadata on ``litellm_params``:
-    ``metadata`` (``completion(..., metadata=...)``) or ``litellm_metadata``,
+    Build Vertex/GCP billing labels from EmbRouter user metadata on ``embrouter_params``:
+    ``metadata`` (``completion(..., metadata=...)``) or ``embrouter_metadata``,
     using ``requester_metadata`` string key-value pairs (same convention as Gemini).
     ``metadata`` is tried first when both are present.
     """
-    if not litellm_params:
+    if not embrouter_params:
         return None
-    for key in ("metadata", "litellm_metadata"):
-        if key not in litellm_params:
+    for key in ("metadata", "embrouter_metadata"):
+        if key not in embrouter_params:
             continue
-        metadata = litellm_params[key]
+        metadata = embrouter_params[key]
         if metadata is None or not isinstance(metadata, dict):
             continue
         if "requester_metadata" not in metadata:
@@ -177,11 +177,11 @@ def vertex_request_labels_from_litellm_params(
 
 def pop_vertex_request_labels(
     optional_params: dict | None,
-    litellm_params: dict | None,
+    embrouter_params: dict | None,
 ) -> dict[str, str] | None:
     """
     Resolve labels from optional ``labels`` (Gemini-style) and/or
-    ``litellm_params["metadata"]`` / ``litellm_params["litellm_metadata"]``
+    ``embrouter_params["metadata"]`` / ``embrouter_params["embrouter_metadata"]``
     (``requester_metadata``). Pops ``labels`` from optional_params when present.
     """
     labels: dict[str, str] | None = None
@@ -190,7 +190,7 @@ def pop_vertex_request_labels(
         if isinstance(raw, dict):
             labels = {k: v for k, v in raw.items() if isinstance(v, str)}
     if not labels:
-        labels = vertex_request_labels_from_litellm_params(litellm_params)
+        labels = vertex_request_labels_from_embrouter_params(embrouter_params)
     return labels if labels else None
 
 
@@ -210,13 +210,13 @@ class VertexAIModelRoute(str, Enum):
 VERTEX_AI_MODEL_ROUTES: Final = [f"{route.value}/" for route in VertexAIModelRoute]
 
 
-def get_vertex_ai_model_route(model: str, litellm_params: dict | None = None) -> VertexAIModelRoute:
+def get_vertex_ai_model_route(model: str, embrouter_params: dict | None = None) -> VertexAIModelRoute:
     """
     Determine which handler to use for a Vertex AI model based on the model name.
 
     Args:
         model: The model name (e.g., "llama3-405b", "gemini-pro", "gemma/gemma-3-12b-it", "xai/grok-4.1-fast-non-reasoning")
-        litellm_params: Optional litellm parameters dict that may contain base_model for routing
+        embrouter_params: Optional embrouter parameters dict that may contain base_model for routing
 
     Returns:
         VertexAIModelRoute: The route enum indicating which handler should be used
@@ -237,13 +237,13 @@ def get_vertex_ai_model_route(model: str, litellm_params: dict | None = None) ->
         >>> get_vertex_ai_model_route("1234567890", {"api_base": "http://10.96.32.8"})
         VertexAIModelRoute.GEMINI  # Numeric endpoints with api_base use HTTP path
     """
-    from litellm.llms.vertex_ai.vertex_ai_partner_models.main import (
+    from embrouter.llms.vertex_ai.vertex_ai_partner_models.main import (
         VertexAIPartnerModels,
     )
 
-    # Check base_model in litellm_params for gemini override
-    if litellm_params and litellm_params.get("base_model") is not None:
-        if "gemini" in litellm_params["base_model"]:
+    # Check base_model in embrouter_params for gemini override
+    if embrouter_params and embrouter_params.get("base_model") is not None:
+        if "gemini" in embrouter_params["base_model"]:
             return VertexAIModelRoute.GEMINI
 
     # Check for agent_engine models (Reasoning Engines)
@@ -252,7 +252,7 @@ def get_vertex_ai_model_route(model: str, litellm_params: dict | None = None) ->
 
     # Check if numeric endpoint ID with custom api_base (PSC endpoint)
     # Route to GEMINI (HTTP path) to support PSC endpoints properly
-    if model.isdigit() and litellm_params and litellm_params.get("api_base"):
+    if model.isdigit() and embrouter_params and embrouter_params.get("api_base"):
         return VertexAIModelRoute.GEMINI
 
     # Check for partner models (llama, mistral, claude, etc.)
@@ -292,7 +292,7 @@ def get_supports_system_message(
         supports_system_message = supports_system_messages(model=model, custom_llm_provider=_custom_llm_provider)
 
         # Vertex Models called in the `/gemini` request/response format also support system messages
-        if litellm.VertexGeminiConfig._is_model_gemini_spec_model(model):
+        if embrouter.VertexGeminiConfig._is_model_gemini_spec_model(model):
             supports_system_message = True
     except Exception as e:
         verbose_logger.warning(
@@ -478,7 +478,7 @@ def _get_embedding_url(
     model = get_vertex_base_model_name(model=model)
 
     try:
-        model_info: Final = litellm.get_model_info(
+        model_info: Final = embrouter.get_model_info(
             model=original_model,
             custom_llm_provider="vertex_ai",
         )
@@ -509,7 +509,7 @@ def _get_vertex_url(
     url: str | None = None
     endpoint: str | None = None
 
-    model = litellm.VertexGeminiConfig.get_model_for_vertex_ai_url(model=model)
+    model = embrouter.VertexGeminiConfig.get_model_for_vertex_ai_url(model=model)
 
     if mode == "chat":
         ### SET RUNTIME ENDPOINT ###
@@ -567,7 +567,7 @@ def _get_gemini_url(
     ``x-goog-api-key`` header instead to avoid leaking credentials in
     error tracebacks.
     """
-    from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+    from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
         VertexGeminiConfig,
     )
 
@@ -592,7 +592,7 @@ def _get_gemini_url(
         url = f"https://generativelanguage.googleapis.com/v1beta/{_gemini_model_name}:{endpoint}"
     elif mode == "image_generation":
         raise ValueError(
-            "LiteLLM's `gemini/` route does not support image generation yet."
+            "EmbRouter's `gemini/` route does not support image generation yet."
         )
     else:
         raise ValueError(f"Unsupported mode: {mode}")
@@ -1183,7 +1183,7 @@ class VertexAIModelInfo(BaseLLMModelInfo):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
@@ -1223,7 +1223,7 @@ class VertexAITokenCounter(BaseTokenCounter):
         self,
         custom_llm_provider: str | None = None,
     ) -> bool:
-        from litellm.types.utils import LlmProviders
+        from embrouter.types.utils import LlmProviders
 
         return custom_llm_provider == LlmProviders.VERTEX_AI.value
 
@@ -1239,39 +1239,39 @@ class VertexAITokenCounter(BaseTokenCounter):
     ) -> TokenCountResponse | None:
         import copy
 
-        from litellm.llms.vertex_ai.vertex_ai_partner_models.main import (
+        from embrouter.llms.vertex_ai.vertex_ai_partner_models.main import (
             VertexAIPartnerModels,
         )
 
         deployment = deployment or {}
-        count_tokens_params_request: Final = copy.deepcopy(deployment.get("litellm_params", {}))
+        count_tokens_params_request: Final = copy.deepcopy(deployment.get("embrouter_params", {}))
 
         # Check if this is a partner model (Claude, Mistral, etc.)
         if VertexAIPartnerModels.is_vertex_partner_model(model_to_use):
             # Use partner models token counter
             partner_models_handler: Final = VertexAIPartnerModels()
 
-            # Extract vertex-specific params from litellm_params
-            partner_litellm_params: Final[dict[str, object]] = count_tokens_params_request
-            vertex_project = partner_litellm_params.get("vertex_project") or partner_litellm_params.get(
+            # Extract vertex-specific params from embrouter_params
+            partner_embrouter_params: Final[dict[str, object]] = count_tokens_params_request
+            vertex_project = partner_embrouter_params.get("vertex_project") or partner_embrouter_params.get(
                 "vertex_ai_project"
             )
 
-            vertex_location = partner_litellm_params.get("vertex_location") or partner_litellm_params.get(
+            vertex_location = partner_embrouter_params.get("vertex_location") or partner_embrouter_params.get(
                 "vertex_ai_location"
             )
 
             # Count tokens not available on global location: https://docs.cloud.google.com/vertex-ai/generative-ai/docs/partner-models/claude/count-tokens
-            vertex_location = partner_litellm_params.get("vertex_count_tokens_location") or vertex_location
+            vertex_location = partner_embrouter_params.get("vertex_count_tokens_location") or vertex_location
 
-            vertex_credentials: Final = partner_litellm_params.get("vertex_credentials") or partner_litellm_params.get(
+            vertex_credentials: Final = partner_embrouter_params.get("vertex_credentials") or partner_embrouter_params.get(
                 "vertex_ai_credentials"
             )
 
             result = await partner_models_handler.count_tokens(
                 model=model_to_use,
                 messages=messages or [],
-                litellm_params=partner_litellm_params,
+                embrouter_params=partner_embrouter_params,
                 vertex_project=vertex_project,
                 vertex_location=vertex_location,
                 vertex_credentials=vertex_credentials,
@@ -1286,8 +1286,8 @@ class VertexAITokenCounter(BaseTokenCounter):
                     original_response=result,
                 )
         else:
-            from litellm.llms.vertex_ai.count_tokens.handler import VertexAITokenCounter
-            from litellm.llms.vertex_ai.gemini.transformation import (
+            from embrouter.llms.vertex_ai.count_tokens.handler import VertexAITokenCounter
+            from embrouter.llms.vertex_ai.gemini.transformation import (
                 _gemini_convert_messages_with_history,  # pyright: ignore[reportPrivateUsage]  # shared helper already used by gemini/chat, context_caching, and vertex_and_google_ai_studio_gemini
             )
 

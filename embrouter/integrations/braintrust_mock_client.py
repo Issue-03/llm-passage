@@ -14,8 +14,8 @@ from collections.abc import AsyncIterable, Iterable
 from typing import Final
 from urllib.parse import urlparse
 
-from litellm._logging import verbose_logger
-from litellm.integrations.mock_client_factory import (
+from embrouter._logging import verbose_logger
+from embrouter.integrations.mock_client_factory import (
     MockClientConfig,
     MockResponse,
     create_mock_client_factory,
@@ -96,7 +96,7 @@ def _mock_http_handler_post(
         # Return appropriate mock response based on endpoint
         if "/project" in url:
             # Project creation/retrieval/register endpoint
-            project_name: Final = json.get("name", "litellm") if json else "litellm"
+            project_name: Final = json.get("name", "embrouter") if json else "embrouter"
             mock_data = {"id": f"mock-project-id-{project_name}", "name": project_name}
         elif "/project_logs" in url:
             # Log insertion endpoint
@@ -147,7 +147,7 @@ def create_mock_braintrust_client():
 
     verbose_logger.debug("[BRAINTRUST MOCK] Initializing Braintrust mock client...")
 
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+    from embrouter.llms.custom_httpx.http_handler import HTTPHandler
 
     if _original_http_handler_post is None:
         _original_http_handler_post = HTTPHandler.post

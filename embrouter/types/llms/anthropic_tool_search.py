@@ -8,7 +8,7 @@ from collections.abc import Mapping
 from types import MappingProxyType
 from typing import Final
 
-from litellm.types.utils import LlmProviders
+from embrouter.types.utils import LlmProviders
 
 # Tool search beta header values
 TOOL_SEARCH_BETA_HEADER_ANTHROPIC: Final = "advanced-tool-use-2025-11-20"

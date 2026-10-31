@@ -28,9 +28,9 @@ import { RequestLogsTable } from "./RequestLogsTable";
 
 const PAGE_SIZE = DEFAULT_PAGE_SIZE_OPTIONS[0];
 const DEFAULT_INTERVAL = { value: 24, unit: "hours" };
-const matchesLogId = (log: LogEntry, logId: string) => log.request_id === logId || log.litellm_call_id === logId;
+const matchesLogId = (log: LogEntry, logId: string) => log.request_id === logId || log.embrouter_call_id === logId;
 const findLogById = (logs: readonly LogEntry[], logId: string): LogEntry | null =>
-  logs.find((log) => log.request_id === logId) ?? logs.find((log) => log.litellm_call_id === logId) ?? null;
+  logs.find((log) => log.request_id === logId) ?? logs.find((log) => log.embrouter_call_id === logId) ?? null;
 
 interface RequestLogsPanelProps {
   accessToken: string;

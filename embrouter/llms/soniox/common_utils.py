@@ -5,12 +5,12 @@ Shared utilities for the Soniox provider (https://soniox.com).
 from collections.abc import Mapping, Sequence
 from typing import Final, TypeAlias
 
-from litellm.litellm_core_utils.audio_utils.subtitle_utils import (
+from embrouter.embrouter_core_utils.audio_utils.subtitle_utils import (
     SubtitleToken,
     render_subtitle_tokens_as_srt,
     render_subtitle_tokens_as_vtt,
 )
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
 
 SonioxToken: TypeAlias = Mapping[str, object]
 
@@ -56,16 +56,16 @@ class SonioxException(BaseLLMException):
 
 def get_soniox_api_key(api_key: str | None = None) -> str | None:
     """Resolve the Soniox API key from arg or env var."""
-    # Local import to avoid a circular import: litellm.secret_managers.main
-    # imports from litellm at top-level.
-    from litellm.secret_managers.main import get_secret_str
+    # Local import to avoid a circular import: embrouter.secret_managers.main
+    # imports from embrouter at top-level.
+    from embrouter.secret_managers.main import get_secret_str
 
     return api_key or get_secret_str("SONIOX_API_KEY")
 
 
 def get_soniox_api_base(api_base: str | None = None) -> str:
     """Resolve the Soniox API base URL from arg or env var (defaults to public API)."""
-    from litellm.secret_managers.main import get_secret_str
+    from embrouter.secret_managers.main import get_secret_str
 
     base: Final = api_base or get_secret_str("SONIOX_API_BASE") or SONIOX_API_BASE
     return base.rstrip("/")

@@ -1,23 +1,23 @@
 """
 This file contains the calling Azure OpenAI's `/openai/realtime` endpoint.
 
-This requires websockets, and is currently only supported on LiteLLM Proxy.
+This requires websockets, and is currently only supported on EmbRouter Proxy.
 """
 
 from collections.abc import Mapping
 from types import MappingProxyType
 from typing import Any, Final, Protocol, cast
 
-from litellm._logging import verbose_proxy_logger
-from litellm.constants import REALTIME_WEBSOCKET_MAX_MESSAGE_SIZE_BYTES
-from litellm.types.realtime import RealtimeQueryParams
+from embrouter._logging import verbose_proxy_logger
+from embrouter.constants import REALTIME_WEBSOCKET_MAX_MESSAGE_SIZE_BYTES
+from embrouter.types.realtime import RealtimeQueryParams
 
-from ....litellm_core_utils.litellm_logging import Logging as LiteLLMLogging
-from ....litellm_core_utils.realtime_errors import (
+from ....embrouter_core_utils.embrouter_logging import Logging as EmbRouterLogging
+from ....embrouter_core_utils.realtime_errors import (
     close_after_upstream_handshake_refusal,
     realtime_error_event,
 )
-from ....litellm_core_utils.realtime_streaming import (
+from ....embrouter_core_utils.realtime_streaming import (
     RealTimeStreaming,
     ScopedWebSocket,
     client_sent_openai_beta_realtime_header,
@@ -134,7 +134,7 @@ class AzureOpenAIRealtime(AzureChatCompletion):
         self,
         model: str,
         websocket: _ProxyClientWebSocket,
-        logging_obj: LiteLLMLogging,
+        logging_obj: EmbRouterLogging,
         api_base: str | None = None,
         api_key: str | None = None,
         api_version: str | None = None,
@@ -144,7 +144,7 @@ class AzureOpenAIRealtime(AzureChatCompletion):
         realtime_protocol: str | None = None,
         query_params: RealtimeQueryParams | None = None,
         user_api_key_dict: object | None = None,
-        litellm_metadata: dict | None = None,
+        embrouter_metadata: dict | None = None,
     ):
         import websockets
         from websockets.asyncio.client import ClientConnection
@@ -179,7 +179,7 @@ class AzureOpenAIRealtime(AzureChatCompletion):
                     logging_obj,
                     model=model,
                     user_api_key_dict=user_api_key_dict,
-                    request_data={"litellm_metadata": litellm_metadata or {}},
+                    request_data={"embrouter_metadata": embrouter_metadata or {}},
                     backend_uses_beta_protocol=backend_uses_beta_protocol,
                     force_transcription_model=(
                         model if (query_params or {}).get("intent") == "transcription" else None

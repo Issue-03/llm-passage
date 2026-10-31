@@ -9,7 +9,7 @@ from typing import Final, Literal
 
 from fastapi import HTTPException
 
-from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
+from embrouter.proxy._types import EmbrouterUserRoles, UserAPIKeyAuth
 
 FeatureName = Literal["agents", "vector_stores"]
 
@@ -28,14 +28,14 @@ async def check_feature_access_for_user(
     """
     # Proxy admins (and view-only admins) are never blocked.
     if user_api_key_dict.user_role in (
-        LitellmUserRoles.PROXY_ADMIN,
-        LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY,
-        LitellmUserRoles.PROXY_ADMIN.value,
-        LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
+        EmbrouterUserRoles.PROXY_ADMIN,
+        EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY,
+        EmbrouterUserRoles.PROXY_ADMIN.value,
+        EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY.value,
     ):
         return
 
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         prisma_client,
         user_api_key_cache,
@@ -50,7 +50,7 @@ async def check_feature_access_for_user(
 
     # Feature is disabled.  Check if team/org admins are exempted.
     if general_settings.get(allow_team_admins_flag, False):
-        from litellm.proxy.management_endpoints.common_utils import (
+        from embrouter.proxy.management_endpoints.common_utils import (
             _user_has_admin_privileges,
         )
 
@@ -80,12 +80,12 @@ async def check_org_admin_can_generate_keys(
     checks.
     """
     if user_api_key_dict.user_role not in (
-        LitellmUserRoles.ORG_ADMIN,
-        LitellmUserRoles.ORG_ADMIN.value,
+        EmbrouterUserRoles.ORG_ADMIN,
+        EmbrouterUserRoles.ORG_ADMIN.value,
     ):
         return
 
-    from litellm.proxy.proxy_server import general_settings
+    from embrouter.proxy.proxy_server import general_settings
 
     if not general_settings.get("disable_key_generate_for_org_admin", False):
         return

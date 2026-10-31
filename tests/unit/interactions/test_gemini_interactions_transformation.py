@@ -13,20 +13,20 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 
-from litellm.interactions.litellm_responses_transformation.streaming_iterator import (
-    LiteLLMResponsesInteractionsStreamingIterator,
+from embrouter.interactions.embrouter_responses_transformation.streaming_iterator import (
+    EmbRouterResponsesInteractionsStreamingIterator,
 )
-from litellm.llms.gemini.interactions.transformation import (
+from embrouter.llms.gemini.interactions.transformation import (
     GoogleAIStudioInteractionsConfig,
 )
-from litellm.types.llms.openai import (
+from embrouter.types.llms.openai import (
     OutputTextDeltaEvent,
     ResponseCompletedEvent,
     ResponseCreatedEvent,
 )
-from litellm.types.router import GenericLiteLLMParams
+from embrouter.types.router import GenericEmbRouterParams
 
-_PATCH_GET_API_KEY = "litellm.llms.gemini.common_utils.GeminiModelInfo.get_api_key"
+_PATCH_GET_API_KEY = "embrouter.llms.gemini.common_utils.GeminiModelInfo.get_api_key"
 
 
 @pytest.fixture
@@ -36,54 +36,54 @@ def config():
 
 class TestValidateEnvironment:
     def test_sets_x_goog_api_key_header(self, config):
-        litellm_params = GenericLiteLLMParams(api_key="test-api-key-123")
+        embrouter_params = GenericEmbRouterParams(api_key="test-api-key-123")
 
         headers = config.validate_environment(
             headers={},
             model="gemini-2.5-flash",
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
         assert headers["x-goog-api-key"] == "test-api-key-123"
         assert headers["Content-Type"] == "application/json"
 
     def test_no_api_key_skips_header(self, config):
-        litellm_params = GenericLiteLLMParams(api_key=None)
+        embrouter_params = GenericEmbRouterParams(api_key=None)
 
         with patch(_PATCH_GET_API_KEY, return_value=None):
             headers = config.validate_environment(
                 headers={},
                 model="gemini-2.5-flash",
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
             )
 
         assert "x-goog-api-key" not in headers
         assert headers["Content-Type"] == "application/json"
 
-    def test_no_litellm_params_skips_header(self, config):
+    def test_no_embrouter_params_skips_header(self, config):
         headers = config.validate_environment(
             headers={},
             model="gemini-2.5-flash",
-            litellm_params=None,
+            embrouter_params=None,
         )
 
         assert "x-goog-api-key" not in headers
         assert headers["Content-Type"] == "application/json"
 
     def test_preserves_existing_headers(self, config):
-        litellm_params = GenericLiteLLMParams(api_key="test-key")
+        embrouter_params = GenericEmbRouterParams(api_key="test-key")
 
         headers = config.validate_environment(
             headers={"X-Custom": "value"},
             model="gemini-2.5-flash",
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
         assert headers["X-Custom"] == "value"
         assert headers["x-goog-api-key"] == "test-key"
 
     def test_sets_api_revision_header(self, config):
-        headers = config.validate_environment(headers={}, model="gemini-2.5-flash", litellm_params=None)
+        headers = config.validate_environment(headers={}, model="gemini-2.5-flash", embrouter_params=None)
         assert headers["Api-Revision"] == "2026-05-20"
 
 
@@ -93,7 +93,7 @@ class TestGetCompleteUrl:
             url = config.get_complete_url(
                 api_base=None,
                 model="gemini-2.5-flash",
-                litellm_params={"api_key": "secret-key"},
+                embrouter_params={"api_key": "secret-key"},
             )
 
         assert "key=" not in url
@@ -105,7 +105,7 @@ class TestGetCompleteUrl:
             url = config.get_complete_url(
                 api_base=None,
                 model="gemini-2.5-flash",
-                litellm_params={"api_key": "secret-key"},
+                embrouter_params={"api_key": "secret-key"},
                 stream=True,
             )
 
@@ -119,7 +119,7 @@ class TestGetCompleteUrl:
                 config.get_complete_url(
                     api_base=None,
                     model="gemini-2.5-flash",
-                    litellm_params={"api_key": None},
+                    embrouter_params={"api_key": None},
                 )
 
 
@@ -138,7 +138,7 @@ class TestTransformRequest:
                 "environment": "remote",
                 "stream": False,
             },
-            litellm_params=GenericLiteLLMParams(api_key="test-api-key"),
+            embrouter_params=GenericEmbRouterParams(api_key="test-api-key"),
             headers={},
         )
 
@@ -158,7 +158,7 @@ class TestTransformRequest:
             agent="waverunner",
             input="What is 2 + 2?",
             optional_params={"environment": environment_config},
-            litellm_params=GenericLiteLLMParams(api_key="test-api-key"),
+            embrouter_params=GenericEmbRouterParams(api_key="test-api-key"),
             headers={},
         )
 
@@ -171,7 +171,7 @@ class TestTransformRequest:
             agent="my-custom-slides-agent",
             input="Continue the presentation.",
             optional_params={"environment": env_id},
-            litellm_params=GenericLiteLLMParams(api_key="test-api-key"),
+            embrouter_params=GenericEmbRouterParams(api_key="test-api-key"),
             headers={},
         )
 
@@ -185,7 +185,7 @@ class TestTransformRequest:
             agent=None,
             input="Hello",
             optional_params={"stream": True},
-            litellm_params=GenericLiteLLMParams(api_key="test-key"),
+            embrouter_params=GenericEmbRouterParams(api_key="test-key"),
             headers={},
         )
 
@@ -198,7 +198,7 @@ class TestTransformRequest:
             agent=None,
             input="Hello",
             optional_params={},
-            litellm_params=GenericLiteLLMParams(api_key="test-key"),
+            embrouter_params=GenericEmbRouterParams(api_key="test-key"),
             headers={},
         )
 
@@ -206,10 +206,10 @@ class TestTransformRequest:
 
 
 class TestStreamingIterator:
-    def _make_iterator(self) -> LiteLLMResponsesInteractionsStreamingIterator:
-        return LiteLLMResponsesInteractionsStreamingIterator(
+    def _make_iterator(self) -> EmbRouterResponsesInteractionsStreamingIterator:
+        return EmbRouterResponsesInteractionsStreamingIterator(
             model="gpt-5.4",
-            litellm_custom_stream_wrapper=MagicMock(),
+            embrouter_custom_stream_wrapper=MagicMock(),
             request_input="hi",
             optional_params={},
         )
@@ -330,9 +330,9 @@ class TestStreamingIterator:
         sync_iter.__iter__ = lambda self: self
         sync_iter.__next__ = MagicMock(side_effect=[text_event, StopIteration])
 
-        it = LiteLLMResponsesInteractionsStreamingIterator(
+        it = EmbRouterResponsesInteractionsStreamingIterator(
             model="gpt-5.4",
-            litellm_custom_stream_wrapper=sync_iter,
+            embrouter_custom_stream_wrapper=sync_iter,
             request_input="hi",
             optional_params={},
         )
@@ -374,9 +374,9 @@ class TestStreamingIterator:
         sync_iter.__iter__ = lambda self: self
         sync_iter.__next__ = MagicMock(side_effect=[text_event, completed])
 
-        it = LiteLLMResponsesInteractionsStreamingIterator(
+        it = EmbRouterResponsesInteractionsStreamingIterator(
             model="gpt-5.4",
-            litellm_custom_stream_wrapper=sync_iter,
+            embrouter_custom_stream_wrapper=sync_iter,
             request_input="hi",
             optional_params={},
         )
@@ -430,7 +430,7 @@ class TestInteractionOperationUrls:
             url, params = getattr(config, method_name)(
                 interaction_id=interaction_id,
                 api_base="https://generativelanguage.googleapis.com",
-                litellm_params=GenericLiteLLMParams(api_key="secret-key"),
+                embrouter_params=GenericEmbRouterParams(api_key="secret-key"),
                 headers={},
             )
 
@@ -443,7 +443,7 @@ class TestInteractionOperationUrls:
             url, params = config.transform_cancel_interaction_request(
                 interaction_id="../../interactions/other?x=1#frag",
                 api_base="https://generativelanguage.googleapis.com",
-                litellm_params=GenericLiteLLMParams(api_key="secret-key"),
+                embrouter_params=GenericEmbRouterParams(api_key="secret-key"),
                 headers={},
             )
 
@@ -459,7 +459,7 @@ class TestInteractionOperationUrls:
                 config.transform_get_interaction_request(
                     interaction_id="interaction-123",
                     api_base="https://generativelanguage.googleapis.com",
-                    litellm_params=GenericLiteLLMParams(api_key=None),
+                    embrouter_params=GenericEmbRouterParams(api_key=None),
                     headers={},
                 )
 
@@ -476,7 +476,7 @@ class TestTransformRequestSchemaCoalescing:
                 "response_mime_type": "application/json",
                 "response_format": {"type": "object", "properties": {}},
             },
-            litellm_params=GenericLiteLLMParams(),
+            embrouter_params=GenericEmbRouterParams(),
             headers={},
         )
 
@@ -498,7 +498,7 @@ class TestTransformRequestSchemaCoalescing:
                     "image_config": {"aspect_ratio": "1:1", "image_size": "1K"},
                 }
             },
-            litellm_params=GenericLiteLLMParams(),
+            embrouter_params=GenericEmbRouterParams(),
             headers={},
         )
 
@@ -523,7 +523,7 @@ class TestTransformRequestSchemaCoalescing:
                 "response_format": rf_list,
                 "response_mime_type": "application/json",
             },
-            litellm_params=GenericLiteLLMParams(),
+            embrouter_params=GenericEmbRouterParams(),
             headers={},
         )
 
@@ -549,7 +549,7 @@ class TestTransformRequestSchemaCoalescing:
             agent=None,
             input="draw and summarise",
             optional_params=optional_params,
-            litellm_params=GenericLiteLLMParams(),
+            embrouter_params=GenericEmbRouterParams(),
             headers={},
         )
 
@@ -566,7 +566,7 @@ class TestTransformRequestSchemaCoalescing:
             agent=None,
             input="draw and summarise",
             optional_params=optional_params,
-            litellm_params=GenericLiteLLMParams(),
+            embrouter_params=GenericEmbRouterParams(),
             headers={},
         )
         assert len(optional_params["response_format"]) == 1

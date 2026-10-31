@@ -4,17 +4,17 @@ Server-side WebSearch tool execution for models that don't natively support it (
 
 ## How It Works
 
-User makes **ONE** `litellm.messages.acreate()` call → Gets final answer with search results.
+User makes **ONE** `embrouter.messages.acreate()` call → Gets final answer with search results.
 The agentic loop happens transparently on the server.
 
-## LiteLLM Standard Web Search Tool
+## EmbRouter Standard Web Search Tool
 
-LiteLLM defines a standard web search tool format (`litellm_web_search`) that all native provider tools are converted to. This enables consistent interception across providers.
+EmbRouter defines a standard web search tool format (`embrouter_web_search`) that all native provider tools are converted to. This enables consistent interception across providers.
 
 **Standard Tool Definition** (defined in `tools.py`):
 ```python
 {
-    "name": "litellm_web_search",
+    "name": "embrouter_web_search",
     "description": "Search the web for information...",
     "input_schema": {
         "type": "object",
@@ -26,7 +26,7 @@ LiteLLM defines a standard web search tool format (`litellm_web_search`) that al
 }
 ```
 
-**Tool Name Constant**: `LITELLM_WEB_SEARCH_TOOL_NAME = "litellm_web_search"` (defined in `litellm/constants.py`)
+**Tool Name Constant**: `EMBROUTER_WEB_SEARCH_TOOL_NAME = "embrouter_web_search"` (defined in `embrouter/constants.py`)
 
 ### Supported Tool Formats
 
@@ -34,7 +34,7 @@ The interception system automatically detects and handles:
 
 | Tool Format | Example | Provider | Detection Method | Future-Proof |
 |-------------|---------|----------|------------------|-------------|
-| **LiteLLM Standard** | `name="litellm_web_search"` | Any | Direct name match | N/A |
+| **EmbRouter Standard** | `name="embrouter_web_search"` | Any | Direct name match | N/A |
 | **Anthropic Native** | `type="web_search_20250305"` | Bedrock, Claude API | Type prefix: `startswith("web_search_")` | ✅ Yes (web_search_2026, etc.) |
 | **Claude Code CLI** | `name="web_search"`, `type="web_search_20250305"` | Claude Code | Name + type check | ✅ Yes (version-agnostic) |
 | **Legacy** | `name="WebSearch"` | Custom | Name match | N/A (backwards compat) |
@@ -54,32 +54,32 @@ Claude Code (Anthropic's official CLI) sends web search requests using Anthropic
 ```
 
 **What Happens:**
-1. Claude Code sends native `web_search_20250305` tool to LiteLLM proxy
-2. LiteLLM intercepts and converts to `litellm_web_search` standard format
+1. Claude Code sends native `web_search_20250305` tool to EmbRouter proxy
+2. EmbRouter intercepts and converts to `embrouter_web_search` standard format
 3. Bedrock receives converted tool (NOT native format)
-4. Model returns `tool_use` block for `litellm_web_search` (not `server_tool_use`)
-5. LiteLLM's agentic loop intercepts the `tool_use`
-6. Executes `litellm.asearch()` using configured provider (Perplexity, Tavily, etc.)
+4. Model returns `tool_use` block for `embrouter_web_search` (not `server_tool_use`)
+5. EmbRouter's agentic loop intercepts the `tool_use`
+6. Executes `embrouter.asearch()` using configured provider (Perplexity, Tavily, etc.)
 7. Returns final answer to Claude Code user
 
 **Without Interception**: Bedrock would receive native tool → try to execute natively → return `web_search_tool_result_error` with `invalid_tool_input`
 
-**With Interception**: LiteLLM converts → Bedrock returns tool_use → LiteLLM executes search → Returns final answer ✅
+**With Interception**: EmbRouter converts → Bedrock returns tool_use → EmbRouter executes search → Returns final answer ✅
 
 ### Native Tool Conversion
 
-Native tools are converted to LiteLLM standard format **before** sending to the provider:
+Native tools are converted to EmbRouter standard format **before** sending to the provider:
 
-1. **Conversion Point** (`litellm/llms/anthropic/pass_through/messages/handler.py`):
+1. **Conversion Point** (`embrouter/llms/anthropic/pass_through/messages/handler.py`):
    - In `anthropic_messages()` function (lines 60-127)
    - Runs BEFORE the API request is made
    - Detects native web search tools using `is_web_search_tool()`
-   - Converts to `litellm_web_search` format using `get_litellm_web_search_tool()`
+   - Converts to `embrouter_web_search` format using `get_embrouter_web_search_tool()`
    - Prevents provider from executing search natively (avoids `web_search_tool_result_error`)
 
 2. **Response Detection** (`transformation.py`):
    - Detects `tool_use` blocks with any web search tool name
-   - Handles: `litellm_web_search`, `WebSearch`, `web_search`
+   - Handles: `embrouter_web_search`, `WebSearch`, `web_search`
    - Extracts search queries for execution
 
 **Example Conversion**:
@@ -91,9 +91,9 @@ Native tools are converted to LiteLLM standard format **before** sending to the 
     "max_uses": 8
 }
 
-# Output (LiteLLM standard)
+# Output (EmbRouter standard)
 {
-    "name": "litellm_web_search",
+    "name": "embrouter_web_search",
     "description": "Search the web for information...",
     "input_schema": {...}
 }
@@ -105,9 +105,9 @@ Native tools are converted to LiteLLM standard format **before** sending to the 
 
 ### Without Interception (Client-Side)
 User manually handles tool execution:
-1. User calls `litellm.messages.acreate()` → Gets `tool_use` response
-2. User executes `litellm.asearch()`
-3. User calls `litellm.messages.acreate()` again with results
+1. User calls `embrouter.messages.acreate()` → Gets `tool_use` response
+2. User executes `embrouter.asearch()`
+3. User calls `embrouter.messages.acreate()` again with results
 4. User gets final answer
 
 **Result**: 2 API calls, manual tool execution
@@ -118,11 +118,11 @@ Server handles tool execution automatically:
 ```mermaid
 sequenceDiagram
     participant User
-    participant Messages as litellm.messages.acreate()
+    participant Messages as embrouter.messages.acreate()
     participant Handler as llm_http_handler.py
     participant Logger as WebSearchInterceptionLogger
     participant Router as proxy_server.llm_router
-    participant Search as litellm.asearch()
+    participant Search as embrouter.asearch()
     participant Provider as Bedrock API
 
     User->>Messages: acreate(tools=[WebSearch])
@@ -156,8 +156,8 @@ sequenceDiagram
 |-----------|------|---------|
 | **WebSearchInterceptionLogger** | `handler.py` | CustomLogger that implements agentic loop hooks |
 | **Tool Standardization** | `tools.py` | Standard tool definition, detection, and utilities |
-| **Tool Name Constant** | `constants.py` | `LITELLM_WEB_SEARCH_TOOL_NAME = "litellm_web_search"` |
-| **Tool Conversion** | `anthropic/.../ handler.py` | Converts native tools to LiteLLM standard before API call |
+| **Tool Name Constant** | `constants.py` | `EMBROUTER_WEB_SEARCH_TOOL_NAME = "embrouter_web_search"` |
+| **Tool Conversion** | `anthropic/.../ handler.py` | Converts native tools to EmbRouter standard before API call |
 | **Transformation Logic** | `transformation.py` | Detect tool_use, build tool_result messages, format search responses |
 | **Agentic Loop Hooks** | `integrations/custom_logger.py` | Base hooks: `async_should_run_agentic_loop()`, `async_run_agentic_loop()` |
 | **Hook Orchestration** | `llms/custom_httpx/llm_http_handler.py` | `_call_agentic_completion_hooks()` - calls hooks after response |
@@ -169,33 +169,33 @@ sequenceDiagram
 ## Configuration
 
 ```python
-from litellm.integrations.websearch_interception import (
+from embrouter.integrations.websearch_interception import (
     WebSearchInterceptionLogger,
-    get_litellm_web_search_tool,
+    get_embrouter_web_search_tool,
 )
-from litellm.types.utils import LlmProviders
+from embrouter.types.utils import LlmProviders
 
 # Enable for Bedrock with specific search tool
-litellm.callbacks = [
+embrouter.callbacks = [
     WebSearchInterceptionLogger(
         enabled_providers=[LlmProviders.BEDROCK],
         search_tool_name="my-perplexity-tool"  # Optional: uses router's first tool if None
     )
 ]
 
-# Make request with LiteLLM standard tool (recommended)
-response = await litellm.messages.acreate(
+# Make request with EmbRouter standard tool (recommended)
+response = await embrouter.messages.acreate(
     model="bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0",
-    messages=[{"role": "user", "content": "What is LiteLLM?"}],
-    tools=[get_litellm_web_search_tool()],  # LiteLLM standard
+    messages=[{"role": "user", "content": "What is EmbRouter?"}],
+    tools=[get_embrouter_web_search_tool()],  # EmbRouter standard
     max_tokens=1024,
     stream=True  # Auto-converted to non-streaming
 )
 
-# OR send native tools - they're auto-converted to LiteLLM standard
-response = await litellm.messages.acreate(
+# OR send native tools - they're auto-converted to EmbRouter standard
+response = await embrouter.messages.acreate(
     model="bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0",
-    messages=[{"role": "user", "content": "What is LiteLLM?"}],
+    messages=[{"role": "user", "content": "What is EmbRouter?"}],
     tools=[{
         "type": "web_search_20250305",  # Native Anthropic format
         "name": "web_search",
@@ -211,12 +211,12 @@ response = await litellm.messages.acreate(
 
 One intercepted request can chain several follow-up model calls, since the model often searches again after
 reading the first set of results. `max_agentic_loops` caps how many of those follow-ups run, and it defaults
-to 3. LiteLLM also breaks the loop early when the model asks for the exact same tool call twice in a row.
+to 3. EmbRouter also breaks the loop early when the model asks for the exact same tool call twice in a row.
 
 Set the ceiling on the feature, which the interceptor applies to `/v1/messages` requests:
 
 ```yaml
-litellm_settings:
+embrouter_settings:
   websearch_interception_params:
     enabled_providers: ["bedrock"]
     max_agentic_loops: 5
@@ -227,7 +227,7 @@ Or per deployment, which wins over the feature-level setting:
 ```yaml
 model_list:
   - model_name: claude-sonnet-4-5
-    litellm_params:
+    embrouter_params:
       model: bedrock/us.anthropic.claude-sonnet-4-5-20250929-v1:0
       max_agentic_loops: 5
 ```
@@ -237,11 +237,11 @@ carries it is ignored and one request can never drive an unbounded number of ups
 
 Both places are validated at config load, and a value that is not an integer of at least 1 stops the proxy
 from starting rather than surfacing later. The per-deployment one is checked while the model list is read,
-not on `LiteLLM_Params`, because the proxy builds its router with `ignore_invalid_deployments=True` and a
+not on `EmbRouter_Params`, because the proxy builds its router with `ignore_invalid_deployments=True` and a
 validator down there would drop the deployment silently instead of refusing to start.
 
 When the ceiling is reached on a non-streaming `/v1/messages` request, the turn ends there and the client gets
-the last response back with the internal `litellm_web_search` tool call removed and `stop_reason: end_turn`.
+the last response back with the internal `embrouter_web_search` tool call removed and `stop_reason: end_turn`.
 The client never declared that tool, so leaving the block in would hand it a tool call it has no way to answer.
 The answer can be less complete than it would have been with more loops, which is the tradeoff the ceiling
 buys. Where the refused call was the only block left, the turn comes back with no text in it at all.
@@ -255,7 +255,7 @@ rather than as a replacement.
 
 Two other surfaces do not get that treatment yet. `/v1/responses` returns its own shape that the finalizer does
 not rewrite, so it still hands back the internal call. And `/v1/chat/completions` runs its own copy of these
-rails in `litellm_core_utils/chat_completion_agentic_loop.py`, which still raises rather than ending the turn.
+rails in `embrouter_core_utils/chat_completion_agentic_loop.py`, which still raises rather than ending the turn.
 Both are tracked separately
 
 ---
@@ -292,13 +292,13 @@ Example router config:
 ```yaml
 search_tools:
   - search_tool_name: "my-perplexity-tool"
-    litellm_params:
+    embrouter_params:
       search_provider: "perplexity"
   - search_tool_name: "my-tavily-tool"
-    litellm_params:
+    embrouter_params:
       search_provider: "tavily"
   - search_tool_name: "my-you-com-tool"
-    litellm_params:
+    embrouter_params:
       search_provider: "you_com"
 ```
 
@@ -308,23 +308,23 @@ search_tools:
 
 ### Initial Request
 ```python
-messages = [{"role": "user", "content": "What is LiteLLM?"}]
+messages = [{"role": "user", "content": "What is EmbRouter?"}]
 tools = [{"name": "WebSearch", ...}]
 ```
 
 ### First API Call (Internal)
-**Response**: `tool_use` with `name="WebSearch"`, `input={"query": "what is litellm"}`
+**Response**: `tool_use` with `name="WebSearch"`, `input={"query": "what is embrouter"}`
 
 ### Server Processing
 1. Logger detects WebSearch tool_use
 2. Looks up search provider from router
-3. Executes `litellm.asearch(query="what is litellm", search_provider="perplexity")`
-4. Gets results: `"Title: LiteLLM Docs\nURL: docs.example.com\n..."`
+3. Executes `embrouter.asearch(query="what is embrouter", search_provider="perplexity")`
+4. Gets results: `"Title: EmbRouter Docs\nURL: docs.example.com\n..."`
 
 ### Follow-Up Request (Internal)
 ```python
 messages = [
-    {"role": "user", "content": "What is LiteLLM?"},
+    {"role": "user", "content": "What is EmbRouter?"},
     {"role": "assistant", "content": [{"type": "tool_use", ...}]},
     {"role": "user", "content": [{"type": "tool_result", "content": "search results..."}]}
 ]
@@ -333,7 +333,7 @@ messages = [
 ### User Receives
 ```python
 response.content[0].text
-# "Based on the search results, LiteLLM is a unified interface..."
+# "Based on the search results, EmbRouter is a unified interface..."
 ```
 
 ---

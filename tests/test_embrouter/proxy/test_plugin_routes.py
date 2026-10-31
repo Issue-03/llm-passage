@@ -16,21 +16,21 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from litellm.proxy._types import (
+from embrouter.proxy._types import (
     ConfigGeneralSettings,
-    LitellmUserRoles,
+    EmbrouterUserRoles,
     PluginConfig,
     UserAPIKeyAuth,
 )
-from litellm.proxy.plugin_routes import list_plugins, register_plugins_from_config
+from embrouter.proxy.plugin_routes import list_plugins, register_plugins_from_config
 
 
 def _admin() -> UserAPIKeyAuth:
-    return UserAPIKeyAuth(api_key="sk-admin", user_role=LitellmUserRoles.PROXY_ADMIN)
+    return UserAPIKeyAuth(api_key="sk-admin", user_role=EmbrouterUserRoles.PROXY_ADMIN)
 
 
 def _non_admin() -> UserAPIKeyAuth:
-    return UserAPIKeyAuth(api_key="sk-user", user_role=LitellmUserRoles.INTERNAL_USER)
+    return UserAPIKeyAuth(api_key="sk-user", user_role=EmbrouterUserRoles.INTERNAL_USER)
 
 
 def test_plugins_is_a_valid_general_setting() -> None:
@@ -134,8 +134,8 @@ def test_plugin_key_is_never_returned_to_the_browser() -> None:
 
 
 def test_db_persisted_plugins_load_on_startup(monkeypatch: pytest.MonkeyPatch) -> None:
-    from litellm.proxy import proxy_server
-    from litellm.proxy.proxy_server import ProxyConfig
+    from embrouter.proxy import proxy_server
+    from embrouter.proxy.proxy_server import ProxyConfig
 
     register_plugins_from_config({})
     monkeypatch.setattr(proxy_server, "general_settings", {})
@@ -162,7 +162,7 @@ def test_db_persisted_plugins_load_on_startup(monkeypatch: pytest.MonkeyPatch) -
 
 def test_safe_response_headers_sandbox_and_strips_wire_headers() -> None:
     """Proxied plugin responses must be inert and shed wire/cookie headers."""
-    from litellm.proxy.plugin_routes import _safe_response_headers
+    from embrouter.proxy.plugin_routes import _safe_response_headers
 
     out = _safe_response_headers(
         {
@@ -181,35 +181,35 @@ def test_safe_response_headers_sandbox_and_strips_wire_headers() -> None:
         assert stripped not in out
 
 
-def test_litellm_credential_header_names_covers_every_auth_header() -> None:
+def test_embrouter_credential_header_names_covers_every_auth_header() -> None:
     """The canonical strip set must list every header user_api_key_auth accepts
-    as a litellm key, so a new auth header can't silently start leaking."""
-    from litellm.proxy._types import SpecialHeaders
+    as a embrouter key, so a new auth header can't silently start leaking."""
+    from embrouter.proxy._types import SpecialHeaders
 
-    assert SpecialHeaders.litellm_credential_header_names() == {
+    assert SpecialHeaders.embrouter_credential_header_names() == {
         "authorization",
         "api-key",
         "x-api-key",
         "x-goog-api-key",
         "ocp-apim-subscription-key",
-        "x-litellm-api-key",
+        "x-embrouter-api-key",
     }
 
 
-def test_every_litellm_auth_header_is_stripped_before_forwarding() -> None:
-    """A plugin must never receive any header that authenticates against litellm,
+def test_every_embrouter_auth_header_is_stripped_before_forwarding() -> None:
+    """A plugin must never receive any header that authenticates against embrouter,
     only the hop-by-hop set and benign headers are forwarded."""
-    from litellm.proxy.plugin_routes import _request_strip_headers
+    from embrouter.proxy.plugin_routes import _request_strip_headers
 
     strip = _request_strip_headers()
     incoming = {
-        "Authorization": "Bearer sk-litellm",
-        "API-Key": "sk-litellm",
-        "X-Api-Key": "sk-litellm",
-        "X-Goog-Api-Key": "sk-litellm",
-        "Ocp-Apim-Subscription-Key": "sk-litellm",
-        "X-Litellm-Api-Key": "sk-litellm",
-        "Cookie": "litellm_session=abc",
+        "Authorization": "Bearer sk-embrouter",
+        "API-Key": "sk-embrouter",
+        "X-Api-Key": "sk-embrouter",
+        "X-Goog-Api-Key": "sk-embrouter",
+        "Ocp-Apim-Subscription-Key": "sk-embrouter",
+        "X-Embrouter-Api-Key": "sk-embrouter",
+        "Cookie": "embrouter_session=abc",
         "Accept": "application/json",
         "X-Trace-Id": "t-1",
     }
@@ -219,13 +219,13 @@ def test_every_litellm_auth_header_is_stripped_before_forwarding() -> None:
 
 
 def test_configured_custom_key_header_is_stripped() -> None:
-    """A custom general_settings.litellm_key_header_name must also be stripped,
+    """A custom general_settings.embrouter_key_header_name must also be stripped,
     read live so config changes are honoured without a restart."""
-    from litellm.proxy import proxy_server
-    from litellm.proxy.plugin_routes import _request_strip_headers
+    from embrouter.proxy import proxy_server
+    from embrouter.proxy.plugin_routes import _request_strip_headers
 
     original = getattr(proxy_server, "general_settings", None)
-    proxy_server.general_settings = {"litellm_key_header_name": "X-My-Tenant-Key"}
+    proxy_server.general_settings = {"embrouter_key_header_name": "X-My-Tenant-Key"}
     try:
         assert "x-my-tenant-key" in _request_strip_headers()
     finally:

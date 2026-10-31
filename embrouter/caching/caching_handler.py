@@ -23,23 +23,23 @@ from typing import TYPE_CHECKING, Any, Final, Optional, TypeVar
 
 from pydantic import BaseModel, ConfigDict, ValidationError
 
-import litellm
-from litellm._internal_context import post_response_phase
-from litellm._logging import print_verbose, verbose_logger
-from litellm.caching import InMemoryCache
-from litellm.caching.caching import S3Cache
-from litellm.constants import CACHE_WRITE_SHUTDOWN_FLUSH_TIMEOUT_SECONDS
-from litellm.litellm_core_utils.llm_response_utils.response_metadata import (
+import embrouter
+from embrouter._internal_context import post_response_phase
+from embrouter._logging import print_verbose, verbose_logger
+from embrouter.caching import InMemoryCache
+from embrouter.caching.caching import S3Cache
+from embrouter.constants import CACHE_WRITE_SHUTDOWN_FLUSH_TIMEOUT_SECONDS
+from embrouter.embrouter_core_utils.llm_response_utils.response_metadata import (
     update_response_metadata,
 )
-from litellm.litellm_core_utils.logging_utils import (
+from embrouter.embrouter_core_utils.logging_utils import (
     _assemble_complete_response_from_streaming_chunks,
 )
-from litellm.types.caching import EMBEDDING_CACHE_FORMAT_VERSION, CachedEmbedding
-from litellm.types.integrations.custom_logger import converted_stream_requested
-from litellm.types.llms.openai import ResponsesAPIResponse
-from litellm.types.rerank import RerankResponse
-from litellm.types.utils import (
+from embrouter.types.caching import EMBEDDING_CACHE_FORMAT_VERSION, CachedEmbedding
+from embrouter.types.integrations.custom_logger import converted_stream_requested
+from embrouter.types.llms.openai import ResponsesAPIResponse
+from embrouter.types.rerank import RerankResponse
+from embrouter.types.utils import (
     CachingDetails,
     CallTypes,
     Embedding,
@@ -51,21 +51,21 @@ from litellm.types.utils import (
 )
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.llms.anthropic.pass_through.messages.response_cache import (
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.llms.anthropic.pass_through.messages.response_cache import (
         AnthropicMessagesStreamCacheWriter,
     )
-    from litellm.types.utils import PromptTokensDetailsWrapper
+    from embrouter.types.utils import PromptTokensDetailsWrapper
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 _StreamResultT = TypeVar("_StreamResultT")
 
 
-from litellm.litellm_core_utils.core_helpers import (
+from embrouter.embrouter_core_utils.core_helpers import (
     _get_parent_otel_span_from_kwargs,
 )
-from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
+from embrouter.embrouter_core_utils.streaming_handler import CustomStreamWrapper
 
 
 class CachingHandlerResponse(BaseModel):
@@ -87,17 +87,17 @@ in_memory_cache_obj: Final = InMemoryCache()
 def _drop_logging_obj_from_kwargs(request_kwargs: dict[str, object]) -> dict[str, object]:
     """
     The caching handler is stored on the Logging object
-    (``logging_obj._llm_caching_handler``), so keeping ``litellm_logging_obj``
+    (``logging_obj._llm_caching_handler``), so keeping ``embrouter_logging_obj``
     inside ``request_kwargs`` closes a reference cycle
     (Logging -> LLMCachingHandler -> kwargs -> Logging) that keeps the full
     request payload (messages included) alive until a generational GC pass
     instead of being freed by refcount when the request ends. Nothing in the
     caching layer reads the logging object from these kwargs; cache-key
-    generation ignores litellm-internal params.
+    generation ignores embrouter-internal params.
     """
-    if "litellm_logging_obj" not in request_kwargs:
+    if "embrouter_logging_obj" not in request_kwargs:
         return request_kwargs
-    return {k: v for k, v in request_kwargs.items() if k != "litellm_logging_obj"}
+    return {k: v for k, v in request_kwargs.items() if k != "embrouter_logging_obj"}
 
 
 def _is_chat_completion_cached_dict(cached_result: dict) -> bool:
@@ -127,10 +127,10 @@ def _should_defer_streaming_cache_hit_callbacks(*, cached_result: object) -> boo
     spend and callback records. A plain (non-stream) replay logs here, since nothing
     else will.
     """
-    from litellm.llms.anthropic.pass_through.messages.response_cache import (
+    from embrouter.llms.anthropic.pass_through.messages.response_cache import (
         CachedAnthropicMessagesStreamIterator,
     )
-    from litellm.responses.streaming_iterator import BaseResponsesAPIStreamingIterator
+    from embrouter.responses.streaming_iterator import BaseResponsesAPIStreamingIterator
 
     return isinstance(
         cached_result, (CustomStreamWrapper, BaseResponsesAPIStreamingIterator, CachedAnthropicMessagesStreamIterator)
@@ -153,7 +153,7 @@ async def _complete_cache_write_despite_cancellation(write_factory: Callable[[],
             await asyncio.wait_for(write_factory(), timeout=CACHE_WRITE_SHUTDOWN_FLUSH_TIMEOUT_SECONDS)
         except Exception as flush_error:  # noqa: BLE001  # shutdown flush failures are logged, never raised
             verbose_logger.warning(
-                "LiteLLM Cache: pending cache write failed during event loop shutdown: %s", flush_error
+                "EmbRouter Cache: pending cache write failed during event loop shutdown: %s", flush_error
             )
         raise
 
@@ -209,7 +209,7 @@ class LLMCachingHandler:
         request_kwargs: dict[str, object],
         start_time: datetime.datetime,
     ):
-        from litellm.caching import DualCache, RedisCache
+        from embrouter.caching import DualCache, RedisCache
 
         self.async_streaming_chunks: list[ModelResponse] = []
         self.sync_streaming_chunks: list[ModelResponse] = []
@@ -217,9 +217,9 @@ class LLMCachingHandler:
         self.preset_cache_key: str | None = None
         self.original_function = original_function
         self.start_time = start_time
-        if litellm.cache is not None and isinstance(litellm.cache.cache, RedisCache):
+        if embrouter.cache is not None and isinstance(embrouter.cache.cache, RedisCache):
             self.dual_cache: DualCache | None = DualCache(
-                redis_cache=litellm.cache.cache,
+                redis_cache=embrouter.cache.cache,
                 in_memory_cache=in_memory_cache_obj,
             )
         else:
@@ -229,7 +229,7 @@ class LLMCachingHandler:
         self,
         model: str,
         original_function: Callable,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         start_time: datetime.datetime,
         call_type: str,
         kwargs: dict[str, Any],
@@ -243,7 +243,7 @@ class LLMCachingHandler:
         Args:
             model: str:
             original_function: Callable:
-            logging_obj: LiteLLMLoggingObj:
+            logging_obj: EmbRouterLoggingObj:
             start_time: datetime.datetime:
             call_type: str:
             kwargs: Dict[str, Any]:
@@ -257,7 +257,7 @@ class LLMCachingHandler:
         """
         # Check if caching should be performed BEFORE doing expensive operations
         if (
-            (kwargs.get("caching", None) is None and litellm.cache is not None) or kwargs.get("caching", False) is True
+            (kwargs.get("caching", None) is None and embrouter.cache is not None) or kwargs.get("caching", False) is True
         ) and (
             kwargs.get("cache", {}).get("no-cache", False) is not True
         ):  # allow users to control returning cached responses from the completion function
@@ -275,7 +275,7 @@ class LLMCachingHandler:
             parent_otel_span: Final = _get_parent_otel_span_from_kwargs(kwargs)
             kwargs["parent_otel_span"] = parent_otel_span
 
-            if litellm.cache is not None and self._is_call_type_supported_by_cache(original_function=original_function):
+            if embrouter.cache is not None and self._is_call_type_supported_by_cache(original_function=original_function):
                 verbose_logger.debug("Checking Async Cache")
                 cached_result = await self._retrieve_from_cache(
                     call_type=call_type,
@@ -288,14 +288,14 @@ class LLMCachingHandler:
                     verbose_logger.debug("Cache Hit!")
                     cache_hit: Final = True
                     end_time: Final = datetime.datetime.now()
-                    model, custom_llm_provider, _, _ = litellm.get_llm_provider(
+                    model, custom_llm_provider, _, _ = embrouter.get_llm_provider(
                         model=model,
                         custom_llm_provider=kwargs.get("custom_llm_provider", None),
                         api_base=kwargs.get("api_base", None),
                         api_key=kwargs.get("api_key", None),
                     )
                     cache_duration_ms: Final = (cache_check_end_time - cache_check_start_time) * 1000
-                    self._update_litellm_logging_obj_environment(
+                    self._update_embrouter_logging_obj_environment(
                         logging_obj=logging_obj,
                         model=model,
                         kwargs=kwargs,
@@ -328,7 +328,7 @@ class LLMCachingHandler:
                     cache_key: Final = (
                         self.preset_cache_key
                         or self.request_kwargs.get("cache_key")
-                        or litellm.cache.get_cache_key(**self.request_kwargs)
+                        or embrouter.cache.get_cache_key(**self.request_kwargs)
                     )
                     if hasattr(cached_result, "_hidden_params"):
                         cached_result._hidden_params["cache_key"] = cache_key
@@ -337,8 +337,8 @@ class LLMCachingHandler:
                     call_type == CallTypes.aembedding.value
                     and cached_result is not None
                     and isinstance(cached_result, list)
-                    and litellm.cache is not None
-                    and not isinstance(litellm.cache.cache, S3Cache)  # s3 doesn't support bulk writing. Exclude.
+                    and embrouter.cache is not None
+                    and not isinstance(embrouter.cache.cache, S3Cache)  # s3 doesn't support bulk writing. Exclude.
                 ):
                     (
                         final_embedding_cached_response,
@@ -369,7 +369,7 @@ class LLMCachingHandler:
         self,
         model: str,
         original_function: Callable,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         start_time: datetime.datetime,
         call_type: str,
         kwargs: dict[str, Any],
@@ -378,7 +378,7 @@ class LLMCachingHandler:
         cached_result: Any | None = None
 
         # Check if caching should be performed BEFORE doing expensive kwargs copy
-        if litellm.cache is not None and self._is_call_type_supported_by_cache(original_function=original_function):
+        if embrouter.cache is not None and self._is_call_type_supported_by_cache(original_function=original_function):
             args = args or ()
             # Now that we confirmed caching will happen, prepare kwargs
             new_kwargs: Final = kwargs.copy()
@@ -391,10 +391,10 @@ class LLMCachingHandler:
             if new_kwargs.get("metadata") is None:
                 new_kwargs.pop("metadata", None)
             if new_kwargs.get("stream") is True and "cache_key" not in new_kwargs:
-                new_kwargs["cache_key"] = litellm.cache.get_cache_key(**new_kwargs)
+                new_kwargs["cache_key"] = embrouter.cache.get_cache_key(**new_kwargs)
             self.request_kwargs = _drop_logging_obj_from_kwargs(new_kwargs)
             print_verbose("Checking Sync Cache")
-            cached_result = litellm.cache.get_cache(**new_kwargs)
+            cached_result = embrouter.cache.get_cache(**new_kwargs)
             if cached_result is not None:
                 if "detail" in cached_result:
                     # implies an error occurred
@@ -419,13 +419,13 @@ class LLMCachingHandler:
                         custom_llm_provider,
                         dynamic_api_key,
                         api_base,
-                    ) = litellm.get_llm_provider(
+                    ) = embrouter.get_llm_provider(
                         model=model or "",
                         custom_llm_provider=kwargs.get("custom_llm_provider", None),
                         api_base=kwargs.get("api_base", None),
                         api_key=kwargs.get("api_key", None),
                     )
-                    self._update_litellm_logging_obj_environment(
+                    self._update_embrouter_logging_obj_environment(
                         logging_obj=logging_obj,
                         model=f"{custom_llm_provider}/{model}",
                         kwargs=kwargs,
@@ -444,7 +444,7 @@ class LLMCachingHandler:
                     cache_key: Final = (
                         self.preset_cache_key
                         or self.request_kwargs.get("cache_key")
-                        or litellm.cache.get_cache_key(**self.request_kwargs)
+                        or embrouter.cache.get_cache_key(**self.request_kwargs)
                     )
                     if hasattr(cached_result, "_hidden_params"):
                         cached_result._hidden_params["cache_key"] = cache_key
@@ -482,7 +482,7 @@ class LLMCachingHandler:
         final_embedding_cached_response: EmbeddingResponse | None,
         cached_result: list[CachedEmbedding | None],
         kwargs: dict[str, Any],
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         start_time: datetime.datetime,
         model: str,
     ) -> tuple[EmbeddingResponse | None, bool]:
@@ -496,7 +496,7 @@ class LLMCachingHandler:
             final_embedding_cached_response: Optional[EmbeddingResponse]:
             cached_result: List[Optional[Dict[str, Any]]]:
             kwargs: Dict[str, Any]:
-            logging_obj: LiteLLMLoggingObj:
+            logging_obj: EmbRouterLoggingObj:
             start_time: datetime.datetime:
             model: str:
 
@@ -543,7 +543,7 @@ class LLMCachingHandler:
                     if cached_prompt_tokens is not None:
                         prompt_tokens += cached_prompt_tokens
                     elif isinstance(kwargs_input_as_list[idx], str):
-                        from litellm.utils import token_counter
+                        from embrouter.utils import token_counter
 
                         prompt_tokens += token_counter(text=kwargs_input_as_list[idx], count_response_tokens=True)
                     # Aggregate prompt_tokens_details from cached items
@@ -558,7 +558,7 @@ class LLMCachingHandler:
                                 aggregated_details[key] = value
 
             ## USAGE
-            from litellm.types.utils import PromptTokensDetailsWrapper
+            from embrouter.types.utils import PromptTokensDetailsWrapper
 
             prompt_tokens_details: PromptTokensDetailsWrapper | None = None
             if aggregated_details:
@@ -583,14 +583,14 @@ class LLMCachingHandler:
                 custom_llm_provider,
                 dynamic_api_key,
                 api_base,
-            ) = litellm.get_llm_provider(
+            ) = embrouter.get_llm_provider(
                 model=model,
                 custom_llm_provider=kwargs.get("custom_llm_provider", None),
                 api_base=kwargs.get("api_base", None),
                 api_key=kwargs.get("api_key", None),
             )
 
-            self._update_litellm_logging_obj_environment(
+            self._update_embrouter_logging_obj_environment(
                 logging_obj=logging_obj,
                 model=model,
                 kwargs=kwargs,
@@ -663,7 +663,7 @@ class LLMCachingHandler:
         if not merged:
             return None
 
-        from litellm.types.utils import PromptTokensDetailsWrapper
+        from embrouter.types.utils import PromptTokensDetailsWrapper
 
         try:
             return PromptTokensDetailsWrapper(**merged)
@@ -720,7 +720,7 @@ class LLMCachingHandler:
 
     def _async_log_cache_hit_on_callbacks(
         self,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         cached_result: object,
         start_time: datetime.datetime,
         end_time: datetime.datetime,
@@ -730,13 +730,13 @@ class LLMCachingHandler:
         Helper function to log the success of a cached result on callbacks
 
         Args:
-            logging_obj (LiteLLMLoggingObj): The logging object.
+            logging_obj (EmbRouterLoggingObj): The logging object.
             cached_result: The cached result.
             start_time (datetime): The start time of the operation.
             end_time (datetime): The end time of the operation.
             cache_hit (bool): Whether it was a cache hit.
         """
-        from litellm.litellm_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
+        from embrouter.embrouter_core_utils.logging_worker import GLOBAL_LOGGING_WORKER
 
         GLOBAL_LOGGING_WORKER.ensure_initialized_and_enqueue(
             async_coroutine=logging_obj.async_success_handler(
@@ -774,7 +774,7 @@ class LLMCachingHandler:
         Raises:
             None
         """
-        if litellm.cache is None:
+        if embrouter.cache is None:
             return None
 
         new_kwargs: Final = kwargs.copy()
@@ -787,7 +787,7 @@ class LLMCachingHandler:
         if new_kwargs.get("metadata") is None:
             new_kwargs.pop("metadata", None)
         if new_kwargs.get("stream") is True and "cache_key" not in new_kwargs:
-            new_kwargs["cache_key"] = litellm.cache.get_cache_key(**new_kwargs)
+            new_kwargs["cache_key"] = embrouter.cache.get_cache_key(**new_kwargs)
         self.request_kwargs = _drop_logging_obj_from_kwargs(new_kwargs)
         cached_result: Any | None = None
         if call_type == CallTypes.aembedding.value:
@@ -797,9 +797,9 @@ class LLMCachingHandler:
                 raise ValueError("input must be a string or a list")
             tasks: Final = []
             for idx, i in enumerate(new_kwargs["input"]):
-                preset_cache_key = litellm.cache.get_cache_key(**{**new_kwargs, "input": i})
+                preset_cache_key = embrouter.cache.get_cache_key(**{**new_kwargs, "input": i})
                 tasks.append(
-                    litellm.cache.async_get_cache(
+                    embrouter.cache.async_get_cache(
                         cache_key=preset_cache_key,
                         dynamic_cache_object=self.dual_cache,
                     )
@@ -814,17 +814,17 @@ class LLMCachingHandler:
             request_kwargs: Final = new_kwargs.copy()
             request_cache_key: Final = _request_cache_key(request_kwargs)
             request_kwargs.pop("cache_key", None)
-            if litellm.cache._supports_async() is True:
+            if embrouter.cache._supports_async() is True:
                 ## check if dual cache is supported ##
-                self.preset_cache_key = request_cache_key or litellm.cache.get_cache_key(**request_kwargs)
-                cached_result = await litellm.cache.async_get_cache(
+                self.preset_cache_key = request_cache_key or embrouter.cache.get_cache_key(**request_kwargs)
+                cached_result = await embrouter.cache.async_get_cache(
                     dynamic_cache_object=self.dual_cache,
                     cache_key=self.preset_cache_key,
                     **request_kwargs,
                 )
             else:  # fallback for caches that don't support async
-                self.preset_cache_key = request_cache_key or litellm.cache.get_cache_key(**request_kwargs)
-                cached_result = litellm.cache.get_cache(
+                self.preset_cache_key = request_cache_key or embrouter.cache.get_cache_key(**request_kwargs)
+                cached_result = embrouter.cache.get_cache(
                     dynamic_cache_object=self.dual_cache,
                     cache_key=self.preset_cache_key,
                     **request_kwargs,
@@ -836,7 +836,7 @@ class LLMCachingHandler:
         cached_result: Any,
         call_type: str,
         kwargs: dict[str, object],
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         model: str,
         args: tuple[object, ...],
         custom_llm_provider: str | None = None,
@@ -859,7 +859,7 @@ class LLMCachingHandler:
             cached_result: Any:
             call_type: str:
             kwargs: Dict[str, Any]:
-            logging_obj: LiteLLMLoggingObj:
+            logging_obj: EmbRouterLoggingObj:
             model: str:
             custom_llm_provider: Optional[str] = None:
             args: Optional[Tuple[Any, ...]] = None:
@@ -867,7 +867,7 @@ class LLMCachingHandler:
         Returns:
             Optional[Any]:
         """
-        from litellm.utils import convert_to_model_response_object
+        from embrouter.utils import convert_to_model_response_object
 
         if (call_type == CallTypes.acompletion.value or call_type == CallTypes.completion.value) and isinstance(
             cached_result, dict
@@ -930,7 +930,7 @@ class LLMCachingHandler:
         elif (
             call_type == CallTypes.anthropic_messages.value or call_type == CallTypes.aanthropic_messages.value
         ) and isinstance(cached_result, dict):
-            from litellm.llms.anthropic.pass_through.messages.response_cache import (
+            from embrouter.llms.anthropic.pass_through.messages.response_cache import (
                 convert_cached_anthropic_messages_result,
             )
 
@@ -958,7 +958,7 @@ class LLMCachingHandler:
                         model_response_object=ModelResponse(),
                     )
             else:
-                from litellm.responses.streaming_iterator import (
+                from embrouter.responses.streaming_iterator import (
                     CachedResponsesAPIStreamingIterator,
                 )
 
@@ -1004,10 +1004,10 @@ class LLMCachingHandler:
         self,
         cached_result: dict[str, object],
         call_type: str,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         model: str,
     ) -> CustomStreamWrapper:
-        from litellm.utils import (
+        from embrouter.utils import (
             CustomStreamWrapper,
             convert_to_streaming_response,
             convert_to_streaming_response_async,
@@ -1050,13 +1050,13 @@ class LLMCachingHandler:
         Raises:
             None
         """
-        from litellm.litellm_core_utils.core_helpers import (
+        from embrouter.embrouter_core_utils.core_helpers import (
             _get_parent_otel_span_from_kwargs,
         )
 
-        if litellm.cache is None:
+        if embrouter.cache is None:
             return
-        cache: Final = litellm.cache
+        cache: Final = embrouter.cache
 
         new_kwargs: Final = kwargs.copy()
         new_kwargs.update(
@@ -1070,8 +1070,8 @@ class LLMCachingHandler:
         # [OPTIONAL] ADD TO CACHE
         if self._should_store_result_in_cache(original_function=original_function, kwargs=new_kwargs):
             if (
-                isinstance(result, litellm.ModelResponse)
-                or isinstance(result, litellm.EmbeddingResponse)
+                isinstance(result, embrouter.ModelResponse)
+                or isinstance(result, embrouter.EmbeddingResponse)
                 or isinstance(result, TranscriptionResponse)
                 or isinstance(result, RerankResponse)
                 or isinstance(result, ResponsesAPIResponse)
@@ -1114,11 +1114,11 @@ class LLMCachingHandler:
                 args,
             )
         )
-        if litellm.cache is None:
+        if embrouter.cache is None:
             return
 
         if self._should_store_result_in_cache(original_function=self.original_function, kwargs=new_kwargs):
-            litellm.cache.add_cache(result, **new_kwargs)
+            embrouter.cache.add_cache(result, **new_kwargs)
 
         return
 
@@ -1141,13 +1141,13 @@ class LLMCachingHandler:
             CallTypes.aanthropic_messages.value,
         ):
             return result
-        if litellm.cache is None or not self._should_store_result_in_cache(
+        if embrouter.cache is None or not self._should_store_result_in_cache(
             original_function=self.original_function, kwargs=self.request_kwargs
         ):
             return result
         if not isinstance(result, AsyncIterator):
             return result
-        from litellm.llms.anthropic.pass_through.messages.response_cache import (
+        from embrouter.llms.anthropic.pass_through.messages.response_cache import (
             AnthropicMessagesStreamCacheWriter,
         )
 
@@ -1162,23 +1162,23 @@ class LLMCachingHandler:
 
         call types are acompletion, aembedding, atext_completion, atranscription, arerank
 
-        Defined on `litellm.types.utils.CallTypes`
+        Defined on `embrouter.types.utils.CallTypes`
 
         Returns:
             bool: True if the call type is supported by the cache, False otherwise.
         """
-        if litellm.cache is None or litellm.cache.supported_call_types is None:
+        if embrouter.cache is None or embrouter.cache.supported_call_types is None:
             return False
         call_type: Final = str(original_function.__name__)
         covering_call_types: Final = ("aresponses", "responses") if call_type == "aresponses" else (call_type,)
-        return any(name in litellm.cache.supported_call_types for name in covering_call_types)
+        return any(name in embrouter.cache.supported_call_types for name in covering_call_types)
 
     async def _add_streaming_response_to_cache(self, processed_chunk: ModelResponse):
         """
         Internal method to add the streaming response to the cache
 
 
-        - If 'streaming_chunk' has a 'finish_reason' then assemble a litellm.ModelResponse object
+        - If 'streaming_chunk' has a 'finish_reason' then assemble a embrouter.ModelResponse object
         - Else append the chunk to self.async_streaming_chunks
 
         """
@@ -1223,9 +1223,9 @@ class LLMCachingHandler:
                 kwargs=self.request_kwargs,
             )
 
-    def _update_litellm_logging_obj_environment(
+    def _update_embrouter_logging_obj_environment(
         self,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         model: str,
         kwargs: dict[str, Any],
         cached_result: object,
@@ -1235,10 +1235,10 @@ class LLMCachingHandler:
         cache_duration_ms: float | None = None,
     ):
         """
-        Helper function to update the LiteLLMLoggingObj environment variables.
+        Helper function to update the EmbRouterLoggingObj environment variables.
 
         Args:
-            logging_obj (LiteLLMLoggingObj): The logging object to update.
+            logging_obj (EmbRouterLoggingObj): The logging object to update.
             model (str): The model being used.
             kwargs (Dict[str, Any]): The keyword arguments from the original function call.
             cached_result (Any): The cached result to log.
@@ -1249,7 +1249,7 @@ class LLMCachingHandler:
         Returns:
             None
         """
-        litellm_params: Final = {
+        embrouter_params: Final = {
             "logger_fn": kwargs.get("logger_fn", None),
             "acompletion": is_async,
             "api_base": kwargs.get("api_base", ""),
@@ -1260,18 +1260,18 @@ class LLMCachingHandler:
             "custom_llm_provider": custom_llm_provider,
         }
 
-        if litellm.cache is not None:
-            litellm_params["preset_cache_key"] = (
-                self.preset_cache_key or litellm.cache._get_preset_cache_key_from_kwargs(**kwargs)
+        if embrouter.cache is not None:
+            embrouter_params["preset_cache_key"] = (
+                self.preset_cache_key or embrouter.cache._get_preset_cache_key_from_kwargs(**kwargs)
             )
         else:
-            litellm_params["preset_cache_key"] = None
+            embrouter_params["preset_cache_key"] = None
 
         logging_obj.update_environment_variables(
             model=model,
             user=kwargs.get("user", None),
             optional_params={},
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             input=(kwargs.get("messages", "") if not is_embedding else kwargs.get("input", "")),
             api_key=kwargs.get("api_key", None),
             original_response=str(cached_result),

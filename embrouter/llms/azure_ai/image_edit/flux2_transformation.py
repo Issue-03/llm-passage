@@ -6,19 +6,19 @@ from typing import Any, Final
 
 from httpx._types import RequestFiles
 
-import litellm
-from litellm.llms.azure_ai.common_utils import (
+import embrouter
+from embrouter.llms.azure_ai.common_utils import (
     AzureFoundryModelInfo,
     get_azure_ai_auth_headers,
 )
-from litellm.llms.azure_ai.image_generation.flux_transformation import (
+from embrouter.llms.azure_ai.image_generation.flux_transformation import (
     AzureFoundryFluxImageGenerationConfig,
 )
-from litellm.llms.openai.image_edit.transformation import OpenAIImageEditConfig
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.images.main import ImageEditOptionalRequestParams
-from litellm.types.llms.openai import FileTypes
-from litellm.types.router import GenericLiteLLMParams
+from embrouter.llms.openai.image_edit.transformation import OpenAIImageEditConfig
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.images.main import ImageEditOptionalRequestParams
+from embrouter.types.llms.openai import FileTypes
+from embrouter.types.router import GenericEmbRouterParams
 
 
 class AzureFoundryFlux2ImageEditConfig(OpenAIImageEditConfig):
@@ -61,7 +61,7 @@ class AzureFoundryFlux2ImageEditConfig(OpenAIImageEditConfig):
         headers: dict,
         model: str,
         api_key: str | None = None,
-        litellm_params: dict | None = None,
+        embrouter_params: dict | None = None,
         api_base: str | None = None,
     ) -> dict:
         """
@@ -71,7 +71,7 @@ class AzureFoundryFlux2ImageEditConfig(OpenAIImageEditConfig):
             {
                 **get_azure_ai_auth_headers(
                     api_key=AzureFoundryModelInfo.get_api_key(api_key),
-                    litellm_params=litellm_params,
+                    embrouter_params=embrouter_params,
                     api_key_header="Api-Key",
                 ),
                 "Content-Type": "application/json",
@@ -85,7 +85,7 @@ class AzureFoundryFlux2ImageEditConfig(OpenAIImageEditConfig):
         prompt: str | None,
         image: FileTypes | Sequence[FileTypes] | None,
         image_edit_optional_request_params: dict,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[dict, RequestFiles]:
         """
@@ -139,7 +139,7 @@ class AzureFoundryFlux2ImageEditConfig(OpenAIImageEditConfig):
         self,
         model: str,
         api_base: str | None,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> str:
         """
         Constructs a complete URL for Azure AI Foundry FLUX 2 image edits.
@@ -154,8 +154,8 @@ class AzureFoundryFlux2ImageEditConfig(OpenAIImageEditConfig):
             )
 
         api_version: Final = (
-            litellm_params.get("api_version")
-            or litellm.api_version
+            embrouter_params.get("api_version")
+            or embrouter.api_version
             or get_secret_str("AZURE_AI_API_VERSION")
             or "preview"
         )

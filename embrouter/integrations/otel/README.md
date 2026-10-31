@@ -1,7 +1,7 @@
 # OpenTelemetry instrumentation
 
-This package produces OpenTelemetry traces for LiteLLM. It is enabled by the
-`LITELLM_OTEL_V2` environment variable (`is_otel_v2_enabled()` in
+This package produces OpenTelemetry traces for EmbRouter. It is enabled by the
+`EMBROUTER_OTEL_V2` environment variable (`is_otel_v2_enabled()` in
 [`config.py`](./model/config.py)); when unset, nothing in this package runs.
 
 ## What gets traced
@@ -35,7 +35,7 @@ span orphaned into its own trace). The anchor — a contextvar inherited by thos
 child tasks — gives a stable parent in both cases. DB/service spans keep ambient
 parenting so an auth DB lookup still nests under `auth`.
 
-The anchor is also what `litellm.request.route` is read from: `request_root_http_route`
+The anchor is also what `embrouter.request.route` is read from: `request_root_http_route`
 returns the server span's own `http.route`, so the LLM call span cannot disagree with
 its parent about which endpoint served the request. That means the route template on a
 normal route and the literal path on a passthrough prefix, because the passthrough hook
@@ -44,7 +44,7 @@ rewrote the attribute; an MCP call anchors the same server span, so it reports t
 callback reads the same value. Where no server span was anchored at all, the route the
 proxy recorded at auth (`metadata.user_api_key_request_route`) is the backstop.
 
-**Which service calls become spans (`spans.span_role_for_service`).** LiteLLM's
+**Which service calls become spans (`spans.span_role_for_service`).** EmbRouter's
 service-logging layer instruments many internal functions, but only some are
 traceable units of work:
 
@@ -61,10 +61,10 @@ traceable units of work:
 
 Spans are named `"{service} {call_type}"` (e.g. `"redis set"`) so repeated calls
 to one service stay distinguishable. `call_type` is the operation only; the
-litellm call chain that issued it (`async_set_cache <- async_add_cache`) travels
-as `ServiceLoggerPayload.caller` and lands on the `litellm.service.caller`
+embrouter call chain that issued it (`async_set_cache <- async_add_cache`) travels
+as `ServiceLoggerPayload.caller` and lands on the `embrouter.service.caller`
 attribute, so one operation is one span name. Like every other span they parent to the
-**ambient** context, falling back to the threaded `litellm_parent_otel_span` only
+**ambient** context, falling back to the threaded `embrouter_parent_otel_span` only
 when ambient has no live span; a background job with neither starts its own root
 trace.
 
@@ -74,7 +74,7 @@ add nothing to the request's latency. Parenting them under the (already ended)
 server span stretched the request trace past the request itself, which is what a
 viewer shows as trace duration. `context.resolve_service_span_context` detaches
 a call in two cases: it was logged from the post-response phase
-(`litellm._internal_context.post_response_phase`, entered by the success
+(`embrouter._internal_context.post_response_phase`, entered by the success
 handlers and by the response-cache write task, inherited by every task spawned
 inside), or it finished after the resolved parent ended. Either way it starts a
 **new root trace** carrying a **span link** back to the request span (the
@@ -107,7 +107,7 @@ matching the FastAPI server span); only a genuine error sets `ERROR`.
   and extracts inbound `traceparent` headers. This package does **not** create
   or modify server spans — request routes never touch spans.
 - **Gen-AI spans** (LLM calls, guardrails, internal service calls) are created
-  by this package from LiteLLM's logging callbacks. Request-level spans parent to
+  by this package from EmbRouter's logging callbacks. Request-level spans parent to
   the server span via the captured anchor; DB/service spans parent to the active
   span (ambient) so they nest under the request phase that triggered them.
 
@@ -129,7 +129,7 @@ becomes the global, so server spans export to that backend too.
    can't wait for startup). It binds to the OTel global `ProxyTracerProvider`. Noisy
    non-LLM routes are excluded by default (`mount._DEFAULT_EXCLUDED_ROUTES`): health
    checks (`/health*`), the Prometheus scrape (`/metrics`), and static UI/docs assets
-   (`/litellm-asset-prefix`, `/_next`, `/ui`, `/swagger`, `/docs`, `/redoc`,
+   (`/embrouter-asset-prefix`, `/_next`, `/ui`, `/swagger`, `/docs`, `/redoc`,
    `/openapi.json`, favicons, `/.well-known`) — so load-balancer polling, metric
    scrapes, and asset fetches don't flood traces. Entries are substring-matched, so
    `/metrics` also drops the `/model/metrics` admin-analytics spans. Set
@@ -143,7 +143,7 @@ becomes the global, so server spans export to that backend too.
    server spans and gen-ai spans share one provider and the same trace.
 3. **Request**: the FastAPI instrumentation starts the server span and makes it
    the active context for the request task. The proxy's first call into the V2
-   logger (`create_litellm_proxy_request_started_span`, at the auth boundary)
+   logger (`create_embrouter_proxy_request_started_span`, at the auth boundary)
    **captures it as the request anchor** (`set_request_root_span`), so every later
    request-level span has a stable explicit parent regardless of what is active
    when it emits.
@@ -151,10 +151,10 @@ becomes the global, so server spans export to that backend too.
    runs synchronously in the request task, just before the upstream call, and
    **opens** the LLM-call span there, parented to the anchored server span
    (`resolve_request_span_context`). The open span is held in a bounded cache keyed
-   by `litellm_call_id` (a primitive the callback kwargs carry at both `pre_call`
-   and close), so no live `Span` ever travels through a `litellm_params` metadata
+   by `embrouter_call_id` (a primitive the callback kwargs carry at both `pre_call`
+   and close), so no live `Span` ever travels through a `embrouter_params` metadata
    dict. For the boundary hook to fire at all, the logger is registered into
-   `litellm.input_callback` — the list `Logging.pre_call` iterates. The async
+   `embrouter.input_callback` — the list `Logging.pre_call` iterates. The async
    success/failure callback later
    **closes** it: it builds an `LLMCallSpanData` from the typed
    `standard_logging_object` (token usage and cost are computed only by then),
@@ -166,14 +166,14 @@ becomes the global, so server spans export to that backend too.
    enqueue and so still carries the anchor. **Pass-through** endpoints call
    `logging_obj.pre_call` in the request task too, then close from a detached
    `asyncio.create_task`; the anchor (not the by-then-inactive server span) keeps
-   their LLM-call span in the request's trace. `pre_call` is litellm's generic
+   their LLM-call span in the request's trace. `pre_call` is embrouter's generic
    "log the attempt" hook, so it also fires for synthetic proxy-gate error logs
-   (auth/rate-limit rejections); those carry `LITELLM_LOGGING_NO_UPSTREAM_LLM_CALL`
+   (auth/rate-limit rejections); those carry `EMBROUTER_LOGGING_NO_UPSTREAM_LLM_CALL`
    and are skipped, so a request rejected before reaching a provider never produces
    a phantom CLIENT span.
 5. **Guardrails / services**: the post-call and service hooks emit guardrail and
    service spans the same way — typed data → engine → span. Service spans
-   (Redis/Postgres) are dispatched by `litellm/_service_logger.py`, which
+   (Redis/Postgres) are dispatched by `embrouter/_service_logger.py`, which
    recognizes the V2 `OpenTelemetryV2` logger (a plain `CustomLogger`, not a
    subclass of the legacy `OpenTelemetry`). It hands every service call to the
    logger — including calls with no parent span — and the V2 adapter decides the
@@ -194,20 +194,20 @@ be imported anywhere. They live in [`model/`](./model) and form a closed set —
 nothing here imports outside it:
 
 - [`semconv.py`](./model/semconv.py) — attribute-key constants (`gen_ai.*`, `http.*`,
-  `litellm.*`), the GenAI operation/provider enums, and the functions that map
-  LiteLLM provider/call-type strings onto convention values.
+  `embrouter.*`), the GenAI operation/provider enums, and the functions that map
+  EmbRouter provider/call-type strings onto convention values.
 - [`spans.py`](./model/spans.py) — the span registry: every span role, its OTel span
   kind, its place in the hierarchy, and its name builder.
 - [`payloads.py`](./model/payloads.py) — frozen dataclasses (`LLMCallSpanData`,
   `GuardrailSpanData`, `ServiceSpanData`, …) built from heterogeneous logging
   payloads via `from_*` classmethods.
 - [`config.py`](./model/config.py) — `OpenTelemetryV2Config`, a pydantic-settings
-  model that reads `OTEL_*` / `LITELLM_OTEL_*` env vars, plus the feature gate.
+  model that reads `OTEL_*` / `EMBROUTER_OTEL_*` env vars, plus the feature gate.
   `capture_span_content` gates whether prompt/response bodies may be written as
   span attributes; it defaults **off** (`no_content`). The Baggage allowlists are
-  configurable, not hard-coded: set `LITELLM_OTEL_BAGGAGE_PROMOTED_KEYS` /
-  `LITELLM_OTEL_BAGGAGE_METADATA_KEYS` /
-  `LITELLM_OTEL_BAGGAGE_TEAM_METADATA_KEYS` (comma-separated) as env vars, or
+  configurable, not hard-coded: set `EMBROUTER_OTEL_BAGGAGE_PROMOTED_KEYS` /
+  `EMBROUTER_OTEL_BAGGAGE_METADATA_KEYS` /
+  `EMBROUTER_OTEL_BAGGAGE_TEAM_METADATA_KEYS` (comma-separated) as env vars, or
   `baggage_promoted_keys` / `baggage_metadata_keys` /
   `baggage_team_metadata_keys` (YAML lists) under `callback_settings.otel` in
   `config.yaml` — the latter reach the config through the logger's constructor
@@ -215,7 +215,7 @@ nothing here imports outside it:
   free-form metadata is promoted until each sub-key is explicitly allowlisted.
   `excluded_services` withholds datastore spans from key/team `callback_vars`
   destinations while the operator's own exporters keep them: set
-  `LITELLM_OTEL_EXCLUDED_SERVICES` (comma-separated) or `excluded_services`
+  `EMBROUTER_OTEL_EXCLUDED_SERVICES` (comma-separated) or `excluded_services`
   (a YAML list) under `callback_settings.otel`, naming the datastore services
   to withhold (`redis`, `postgres`, `batch_write_to_db`, `redis_*`, or their
   `db.system.name` spellings `redis` / `postgresql`). Unknown names are logged
@@ -289,7 +289,7 @@ lives in [`plumbing/`](./plumbing):
   filter that names a metric-ineligible one logs a warning once when the filter
   resolves rather than silently emitting nothing for it.
 - [`events.py`](./plumbing/events.py) — GenAI client events. Gated on
-  `enable_events` (`LITELLM_OTEL_INTEGRATION_ENABLE_EVENTS`), a failed LLM call
+  `enable_events` (`EMBROUTER_OTEL_INTEGRATION_ENABLE_EVENTS`), a failed LLM call
   records the semconv `gen_ai.client.operation.exception` log event at severity
   WARN, carrying `exception.type` / `exception.message` / `exception.stacktrace`
   and correlated to the failed span through the trace and span ids. The
@@ -301,12 +301,12 @@ lives in [`plumbing/`](./plumbing):
 ### Adapter
 
 - [`logger.py`](./logger.py) — `OpenTelemetryV2`, a `CustomLogger` that
-  translates LiteLLM's logging callbacks into typed span data and hands them to
+  translates EmbRouter's logging callbacks into typed span data and hands them to
   the engine. The LLM-call span is opened at the `log_pre_api_call` boundary
   (parented to the live server span via ambient context) and closed at the async
   success/failure callback; the open span is held in a bounded cache keyed by
-  `litellm_call_id`, never threaded through a metadata dict. The logger registers
-  itself into `litellm.input_callback` so `Logging.pre_call` fires the boundary
+  `embrouter_call_id`, never threaded through a metadata dict. The logger registers
+  itself into `embrouter.input_callback` so `Logging.pre_call` fires the boundary
   hook.
 - [`mount.py`](./mount.py) — `instrument_fastapi_app(app)`, the single call site
   that attaches `opentelemetry-instrumentation-fastapi` for SERVER spans. It owns

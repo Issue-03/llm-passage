@@ -6,23 +6,23 @@ import pytest
 
 pytest.importorskip("opentelemetry")
 
-from litellm.integrations.otel import (  # noqa: E402
+from embrouter.integrations.otel import (  # noqa: E402
     GenAI,
     HTTP,
-    LiteLLM,
+    EmbRouter,
     OpenTelemetryV2Config,
     promoted_baggage,
 )
-from litellm.integrations.otel.plumbing import context as ctx_mod  # noqa: E402
-from litellm.integrations.otel.plumbing import providers  # noqa: E402
-from litellm.integrations.otel.emitter import SpanEmitter  # noqa: E402
-from litellm.integrations.otel.model.payloads import (  # noqa: E402
+from embrouter.integrations.otel.plumbing import context as ctx_mod  # noqa: E402
+from embrouter.integrations.otel.plumbing import providers  # noqa: E402
+from embrouter.integrations.otel.emitter import SpanEmitter  # noqa: E402
+from embrouter.integrations.otel.model.payloads import (  # noqa: E402
     GuardrailSpanData,
     LLMCallSpanData,
     ServiceSpanData,
 )
-from litellm.integrations.otel.model.baggage import BAGGAGE_PROMOTED_KEYS  # noqa: E402
-from litellm.integrations.otel.model.spans import SpanRole  # noqa: E402
+from embrouter.integrations.otel.model.baggage import BAGGAGE_PROMOTED_KEYS  # noqa: E402
+from embrouter.integrations.otel.model.spans import SpanRole  # noqa: E402
 
 
 def _payload():
@@ -42,15 +42,15 @@ def _payload():
             "private_note": "do-not-promote",
         },
         "status": "success",
-        "litellm_call_id": "call_1",
-        "hidden_params": {"litellm_model_name": "azure/my-deployment"},
+        "embrouter_call_id": "call_1",
+        "hidden_params": {"embrouter_model_name": "azure/my-deployment"},
     }
 
 
 def _engine_and_exporter(config=None):
     cfg = config or OpenTelemetryV2Config(exporter="in_memory")
     provider, exporter = providers.in_memory_provider(cfg)
-    tracer = providers.get_tracer(provider, "litellm-baggage-test")
+    tracer = providers.get_tracer(provider, "embrouter-baggage-test")
     return SpanEmitter(tracer, cfg), exporter
 
 
@@ -72,8 +72,8 @@ def test_identity_promoted_onto_every_span():
     spans = exporter.get_finished_spans()
     assert len(spans) == 4
     for span in spans:
-        assert span.attributes.get(LiteLLM.TEAM_ID) == "t1"
-        assert span.attributes.get(LiteLLM.TEAM_ALIAS) == "team one"
+        assert span.attributes.get(EmbRouter.TEAM_ID) == "t1"
+        assert span.attributes.get(EmbRouter.TEAM_ALIAS) == "team one"
         assert span.attributes.get(GenAI.REQUEST_MODEL) == "gpt-4o"
 
 
@@ -96,9 +96,9 @@ def test_team_metadata_promoted_only_for_allowlisted_subkeys():
     (span,) = exporter.get_finished_spans()
 
     # only the allowlisted sub-key is promoted; ``cost_center`` is excluded
-    assert json.loads(span.attributes[LiteLLM.TEAM_METADATA]) == {"tier": "gold"}
+    assert json.loads(span.attributes[EmbRouter.TEAM_METADATA]) == {"tier": "gold"}
     # provider model is distinct from the user-facing request model
-    assert span.attributes.get(LiteLLM.PROVIDER_MODEL) == "azure/my-deployment"
+    assert span.attributes.get(EmbRouter.PROVIDER_MODEL) == "azure/my-deployment"
     assert span.attributes.get(GenAI.REQUEST_MODEL) == "gpt-4o"
 
 
@@ -109,7 +109,7 @@ def test_team_metadata_not_promoted_by_default():
     # raw dict is carried on the identity for promotion-time filtering
     assert data.identity.team_metadata == {"tier": "gold", "cost_center": "42"}
     bag = promoted_baggage(data.identity, data.request_model, BAGGAGE_PROMOTED_KEYS)
-    assert LiteLLM.TEAM_METADATA not in bag
+    assert EmbRouter.TEAM_METADATA not in bag
 
 
 def test_team_metadata_dropped_when_no_allowlisted_key_present():
@@ -122,20 +122,20 @@ def test_team_metadata_dropped_when_no_allowlisted_key_present():
         BAGGAGE_PROMOTED_KEYS,
         team_metadata_keys=("absent_key",),
     )
-    assert LiteLLM.TEAM_METADATA not in bag
+    assert EmbRouter.TEAM_METADATA not in bag
 
 
 def test_team_metadata_not_promoted_when_key_excluded_from_promoted_keys():
     """Even with sub-keys allowlisted, team_metadata stays off the wire when
-    ``litellm.team.metadata`` itself isn't in ``promoted_keys``."""
+    ``embrouter.team.metadata`` itself isn't in ``promoted_keys``."""
     data = LLMCallSpanData.from_standard_logging_payload(_payload())
     bag = promoted_baggage(
         data.identity,
         data.request_model,
-        (LiteLLM.TEAM_ID,),
+        (EmbRouter.TEAM_ID,),
         team_metadata_keys=("tier",),
     )
-    assert LiteLLM.TEAM_METADATA not in bag
+    assert EmbRouter.TEAM_METADATA not in bag
 
 
 def test_empty_team_metadata_is_dropped():
@@ -149,8 +149,8 @@ def test_empty_team_metadata_is_dropped():
     # provider model falls back to the call model — so it's present, not dropped.
     assert data.identity.provider_model == "gpt-4o"
     bag = promoted_baggage(data.identity, data.request_model, BAGGAGE_PROMOTED_KEYS)
-    assert LiteLLM.TEAM_METADATA not in bag
-    assert bag[LiteLLM.PROVIDER_MODEL] == "gpt-4o"
+    assert EmbRouter.TEAM_METADATA not in bag
+    assert bag[EmbRouter.PROVIDER_MODEL] == "gpt-4o"
 
 
 def test_allowlisted_metadata_subkey_promoted_blob_excluded():
@@ -162,7 +162,7 @@ def test_allowlisted_metadata_subkey_promoted_blob_excluded():
     (span,) = exporter.get_finished_spans()
     # allowlisted metadata sub-key is promoted
     assert (
-        span.attributes.get(f"{LiteLLM.METADATA_PREFIX}user_api_key_org_id") == "org1"
+        span.attributes.get(f"{EmbRouter.METADATA_PREFIX}user_api_key_org_id") == "org1"
     )
     # non-allowlisted metadata is NOT promoted (no full-blob dumping)
     assert all("private_note" not in k for k in span.attributes)
@@ -171,7 +171,7 @@ def test_allowlisted_metadata_subkey_promoted_blob_excluded():
 def test_nested_metadata_key_promoted_under_caller_path():
     """A dotted allowlist entry reads the nested caller metadata the proxy stores
     under ``requester_metadata`` and lands on the LLM-call span under the caller's
-    own path (``litellm.metadata.trace_id``, ``litellm.metadata.nested.deep``);
+    own path (``embrouter.metadata.trace_id``, ``embrouter.metadata.nested.deep``);
     a pre-existing flat dotted key keeps its full name, and unlisted siblings and
     the blob stay out."""
     engine, exporter = _engine_and_exporter()
@@ -198,14 +198,14 @@ def test_nested_metadata_key_promoted_under_caller_path():
     )
     engine.emit(SpanRole.LLM_CALL, data, ctx_mod.set_request_baggage(bag))
     (span,) = exporter.get_finished_spans()
-    assert span.attributes[f"{LiteLLM.METADATA_PREFIX}trace_id"] == "abc"
-    assert span.attributes[f"{LiteLLM.METADATA_PREFIX}attempt"] == "0"
-    assert span.attributes[f"{LiteLLM.METADATA_PREFIX}nested.deep"] == "x"
-    assert span.attributes[f"{LiteLLM.METADATA_PREFIX}a.b"] == "flat"
-    assert f"{LiteLLM.METADATA_PREFIX}empty" not in span.attributes
-    assert f"{LiteLLM.METADATA_PREFIX}deep" not in span.attributes
-    assert f"{LiteLLM.METADATA_PREFIX}nested.skipped" not in span.attributes
-    assert not any(k.startswith(f"{LiteLLM.METADATA_PREFIX}requester_metadata") for k in span.attributes)
+    assert span.attributes[f"{EmbRouter.METADATA_PREFIX}trace_id"] == "abc"
+    assert span.attributes[f"{EmbRouter.METADATA_PREFIX}attempt"] == "0"
+    assert span.attributes[f"{EmbRouter.METADATA_PREFIX}nested.deep"] == "x"
+    assert span.attributes[f"{EmbRouter.METADATA_PREFIX}a.b"] == "flat"
+    assert f"{EmbRouter.METADATA_PREFIX}empty" not in span.attributes
+    assert f"{EmbRouter.METADATA_PREFIX}deep" not in span.attributes
+    assert f"{EmbRouter.METADATA_PREFIX}nested.skipped" not in span.attributes
+    assert not any(k.startswith(f"{EmbRouter.METADATA_PREFIX}requester_metadata") for k in span.attributes)
 
 
 def test_http_attributes_never_promoted():
@@ -214,14 +214,14 @@ def test_http_attributes_never_promoted():
     engine, exporter = _engine_and_exporter()
     ctx = ctx_mod.set_request_baggage(
         {
-            LiteLLM.TEAM_ID: "t1",
+            EmbRouter.TEAM_ID: "t1",
             HTTP.ROUTE: "/chat/completions",
             HTTP.REQUEST_METHOD: "POST",
         }
     )
     engine.emit(SpanRole.SERVICE, ServiceSpanData("redis", call_type="set"), ctx)
     (span,) = exporter.get_finished_spans()
-    assert span.attributes.get(LiteLLM.TEAM_ID) == "t1"
+    assert span.attributes.get(EmbRouter.TEAM_ID) == "t1"
     assert HTTP.ROUTE not in span.attributes
     assert HTTP.REQUEST_METHOD not in span.attributes
 
@@ -229,23 +229,23 @@ def test_http_attributes_never_promoted():
 def test_arbitrary_upstream_baggage_not_promoted():
     engine, exporter = _engine_and_exporter()
     ctx = ctx_mod.set_request_baggage(
-        {LiteLLM.TEAM_ID: "t1", "some.upstream.key": "leak"}
+        {EmbRouter.TEAM_ID: "t1", "some.upstream.key": "leak"}
     )
     engine.emit(SpanRole.SERVICE, ServiceSpanData("redis", call_type="set"), ctx)
     (span,) = exporter.get_finished_spans()
-    assert span.attributes.get(LiteLLM.TEAM_ID) == "t1"
+    assert span.attributes.get(EmbRouter.TEAM_ID) == "t1"
     assert "some.upstream.key" not in span.attributes
 
 
 def test_baggage_processor_allowlist_can_be_widened():
     cfg = OpenTelemetryV2Config(
         exporter="in_memory",
-        baggage_promoted_keys=[LiteLLM.TEAM_ID, "custom.key"],
+        baggage_promoted_keys=[EmbRouter.TEAM_ID, "custom.key"],
     )
     engine, exporter = _engine_and_exporter(cfg)
-    ctx = ctx_mod.set_request_baggage({"custom.key": "v", LiteLLM.TEAM_ALIAS: "ta"})
+    ctx = ctx_mod.set_request_baggage({"custom.key": "v", EmbRouter.TEAM_ALIAS: "ta"})
     engine.emit(SpanRole.SERVICE, ServiceSpanData("redis"), ctx)
     (span,) = exporter.get_finished_spans()
     assert span.attributes.get("custom.key") == "v"
     # team_alias not in this config's allowlist -> not promoted
-    assert LiteLLM.TEAM_ALIAS not in span.attributes
+    assert EmbRouter.TEAM_ALIAS not in span.attributes

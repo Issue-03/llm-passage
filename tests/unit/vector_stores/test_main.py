@@ -1,9 +1,9 @@
 """
-Tests for litellm/vector_stores/main.py.
+Tests for embrouter/vector_stores/main.py.
 
 Pins the router threading contract for vector store search: the router is an
 explicit named parameter that reaches the HTTP handler wrapped in the embedding
-executor, and it must never leak into litellm_params/kwargs where logging would
+executor, and it must never leak into embrouter_params/kwargs where logging would
 model_dump() it (the #19550 serialization trap).
 """
 
@@ -12,12 +12,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import litellm.vector_stores.main as vector_stores_main
-from litellm.llms.base_llm.vector_store.transformation import (
+import embrouter.vector_stores.main as vector_stores_main
+from embrouter.llms.base_llm.vector_store.transformation import (
     RouterVectorStoreEmbeddingExecutor,
 )
-from litellm.llms.custom_httpx.http_handler import HTTPHandler
-from litellm.vector_stores.main import search
+from embrouter.llms.custom_httpx.http_handler import HTTPHandler
+from embrouter.vector_stores.main import search
 
 MOCK_SEARCH_RESPONSE = {
     "object": "vector_store.search_results.page",
@@ -35,7 +35,7 @@ def test_search_wraps_router_into_the_handler_embedding_executor(query: str | li
 
     with (
         patch(  # test-quality-ok: stubs provider config resolution; the seam under test is the executor threading
-            "litellm.vector_stores.main.ProviderConfigManager.get_provider_vector_stores_config",
+            "embrouter.vector_stores.main.ProviderConfigManager.get_provider_vector_stores_config",
             return_value=MagicMock(),
         ),
         patch.object(  # test-quality-ok: the handler call is the observable boundary for the executor contract
@@ -49,8 +49,8 @@ def test_search_wraps_router_into_the_handler_embedding_executor(query: str | li
             query=query,
             custom_llm_provider="s3_vectors",
             router=mock_router,
-            litellm_logging_obj=logger,
-            litellm_metadata={"user_api_key_team_id": "team-a"},
+            embrouter_logging_obj=logger,
+            embrouter_metadata={"user_api_key_team_id": "team-a"},
         )
 
     assert response == MOCK_SEARCH_RESPONSE
@@ -63,18 +63,18 @@ def test_search_wraps_router_into_the_handler_embedding_executor(query: str | li
     assert dict(executor.metadata) == {"user_api_key_team_id": "team-a"}
 
 
-def test_search_router_not_in_litellm_params():
-    """Regression (#19550 class): the router must stay out of GenericLiteLLMParams,
+def test_search_router_not_in_embrouter_params():
+    """Regression (#19550 class): the router must stay out of GenericEmbRouterParams,
     otherwise pre-call logging model_dump()s it and breaks serialization."""
     mock_router = MagicMock()
     logger = MagicMock()
 
     with (
-        patch(  # test-quality-ok: stubs provider config resolution; the seam under test is litellm_params contents
-            "litellm.vector_stores.main.ProviderConfigManager.get_provider_vector_stores_config",
+        patch(  # test-quality-ok: stubs provider config resolution; the seam under test is embrouter_params contents
+            "embrouter.vector_stores.main.ProviderConfigManager.get_provider_vector_stores_config",
             return_value=MagicMock(),
         ),
-        patch.object(  # test-quality-ok: the handler call is where a leaked router in litellm_params would surface
+        patch.object(  # test-quality-ok: the handler call is where a leaked router in embrouter_params would surface
             vector_stores_main.base_llm_http_handler,
             "vector_store_search_handler",
             return_value=MOCK_SEARCH_RESPONSE,
@@ -85,12 +85,12 @@ def test_search_router_not_in_litellm_params():
             query="q",
             custom_llm_provider="s3_vectors",
             router=mock_router,
-            litellm_logging_obj=logger,
+            embrouter_logging_obj=logger,
         )
 
-    litellm_params = mock_handler.call_args.kwargs["litellm_params"]
-    assert "router" not in litellm_params.model_dump(exclude_none=True)
-    assert getattr(litellm_params, "router", None) is None
+    embrouter_params = mock_handler.call_args.kwargs["embrouter_params"]
+    assert "router" not in embrouter_params.model_dump(exclude_none=True)
+    assert getattr(embrouter_params, "router", None) is None
 
 
 def test_search_forwards_top_level_user_context_to_bedrock_retrieve():
@@ -108,7 +108,7 @@ def test_search_forwards_top_level_user_context_to_bedrock_retrieve():
         aws_secret_access_key="test-secret-key",
         userContext={"userId": "alice@example.com"},
         client=client,
-        litellm_logging_obj=MagicMock(),
+        embrouter_logging_obj=MagicMock(),
     )
 
     posted = json.loads(client.post.call_args.kwargs["data"])

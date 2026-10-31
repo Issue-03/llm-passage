@@ -11,7 +11,7 @@ x-ms-region, rate limit headers, etc. should be available even when errors occur
 import httpx
 import pytest
 
-from litellm.exceptions import (
+from embrouter.exceptions import (
     BadRequestError,
     ContentPolicyViolationError,
     ContextWindowExceededError,
@@ -142,14 +142,14 @@ class TestExceptionMessageFormatting:
     """Test that exception messages are formatted correctly after refactoring."""
 
     def test_bad_request_error_message_format(self):
-        """BadRequestError should format message with litellm prefix."""
+        """BadRequestError should format message with embrouter prefix."""
         error = BadRequestError(
             message="test error",
             model="gpt-4",
             llm_provider="azure",
         )
 
-        assert "litellm.BadRequestError" in error.message
+        assert "embrouter.BadRequestError" in error.message
         assert "test error" in error.message
 
     def test_content_policy_violation_error_message_format(self):
@@ -160,7 +160,7 @@ class TestExceptionMessageFormatting:
             llm_provider="azure",
         )
 
-        assert "litellm.ContentPolicyViolationError" in error.message
+        assert "embrouter.ContentPolicyViolationError" in error.message
         assert "test error" in error.message
 
     def test_context_window_exceeded_error_message_format(self):
@@ -171,7 +171,7 @@ class TestExceptionMessageFormatting:
             llm_provider="azure",
         )
 
-        assert "litellm.ContextWindowExceededError" in error.message
+        assert "embrouter.ContextWindowExceededError" in error.message
         assert "test error" in error.message
 
 
@@ -201,14 +201,14 @@ class TestExceptionAttributes:
             message="test error",
             model="gpt-4",
             llm_provider="azure",
-            litellm_debug_info="debug info",
+            embrouter_debug_info="debug info",
             max_retries=3,
             num_retries=1,
         )
 
         assert error.model == "gpt-4"
         assert error.llm_provider == "azure"
-        assert error.litellm_debug_info == "debug info"
+        assert error.embrouter_debug_info == "debug info"
         assert error.max_retries == 3
         assert error.num_retries == 1
         assert error.status_code == 400
@@ -240,8 +240,8 @@ class TestExceptionAttributes:
         assert midstream_error.status_code == 429
         assert midstream_error.response.status_code == 429
         assert str(midstream_error.response.request.url) == "https://openai.com/v1/"
-        assert midstream_error.message == "litellm.MidStreamFallbackError: stream broke"
-        assert midstream_error.args == ("litellm.MidStreamFallbackError: stream broke",)
+        assert midstream_error.message == "embrouter.MidStreamFallbackError: stream broke"
+        assert midstream_error.args == ("embrouter.MidStreamFallbackError: stream broke",)
 
         # With no original exception, should default to 503.
         midstream_fallback = MidStreamFallbackError(
@@ -261,7 +261,7 @@ class TestProxyHeaderExtraction:
 
     def test_get_response_headers_adds_llm_provider_prefix(self):
         """get_response_headers should prefix non-OpenAI headers with llm_provider-."""
-        from litellm.litellm_core_utils.llm_response_utils.get_headers import (
+        from embrouter.embrouter_core_utils.llm_response_utils.get_headers import (
             get_response_headers,
         )
 
@@ -281,7 +281,7 @@ class TestProxyHeaderExtraction:
 
     def test_proxy_can_extract_headers_from_exception_response(self):
         """Simulate how proxy extracts headers from exception.response.headers."""
-        from litellm.litellm_core_utils.llm_response_utils.get_headers import (
+        from embrouter.embrouter_core_utils.llm_response_utils.get_headers import (
             get_response_headers,
         )
 
@@ -319,7 +319,7 @@ class TestBedrockErrorHeaders:
     """A BedrockError built with headers but no response still exposes them (LIT-5428)."""
 
     def test_synthesized_response_carries_headers(self):
-        from litellm.llms.bedrock.common_utils import BedrockError
+        from embrouter.llms.bedrock.common_utils import BedrockError
 
         error = BedrockError(
             status_code=500,
@@ -332,14 +332,14 @@ class TestBedrockErrorHeaders:
         assert str(error.response.request.url) == str(error.request.url)
 
     def test_synthesized_response_without_headers_stays_empty(self):
-        from litellm.llms.bedrock.common_utils import BedrockError
+        from embrouter.llms.bedrock.common_utils import BedrockError
 
         error = BedrockError(status_code=500, message="boom")
 
         assert dict(error.response.headers) == {}
 
     def test_explicit_response_is_kept(self):
-        from litellm.llms.bedrock.common_utils import BedrockError
+        from embrouter.llms.bedrock.common_utils import BedrockError
 
         provider_response = httpx.Response(
             status_code=500,
@@ -357,11 +357,11 @@ class TestBedrockErrorHeaders:
 
     def test_proxy_extraction_surfaces_bedrock_request_id(self):
         """End-to-end shape the proxy error handler returns to the caller."""
-        from litellm.litellm_core_utils.exception_mapping_utils import exception_type
-        from litellm.litellm_core_utils.llm_response_utils.get_headers import (
+        from embrouter.embrouter_core_utils.exception_mapping_utils import exception_type
+        from embrouter.embrouter_core_utils.llm_response_utils.get_headers import (
             get_response_headers,
         )
-        from litellm.llms.bedrock.common_utils import BedrockError
+        from embrouter.llms.bedrock.common_utils import BedrockError
 
         provider_response = httpx.Response(
             status_code=500,

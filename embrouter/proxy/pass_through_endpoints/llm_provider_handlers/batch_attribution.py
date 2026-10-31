@@ -9,8 +9,8 @@ import asyncio
 from collections.abc import Mapping, Sequence
 from typing import Final
 
-from litellm._logging import verbose_proxy_logger
-from litellm.litellm_core_utils.safe_json_dumps import strip_null_bytes
+from embrouter._logging import verbose_proxy_logger
+from embrouter.embrouter_core_utils.safe_json_dumps import strip_null_bytes
 
 
 def optional_str(value: object) -> str | None:

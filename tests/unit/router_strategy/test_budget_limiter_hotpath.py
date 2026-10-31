@@ -7,13 +7,13 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-import litellm
-from litellm.caching.caching import DualCache
-from litellm.caching.redis_cache import RedisCache, RedisCircuitBreakerOpenError
-from litellm.router_strategy.budget_limiter import RouterBudgetLimiting
-from litellm.types.caching import RedisPipelineIncrementOperation
-from litellm.types.router import LiteLLM_Params
-from litellm.types.utils import BudgetConfig
+import embrouter
+from embrouter.caching.caching import DualCache
+from embrouter.caching.redis_cache import RedisCache, RedisCircuitBreakerOpenError
+from embrouter.router_strategy.budget_limiter import RouterBudgetLimiting
+from embrouter.types.caching import RedisPipelineIncrementOperation
+from embrouter.types.router import EmbRouter_Params
+from embrouter.types.utils import BudgetConfig
 
 
 @pytest.fixture
@@ -22,21 +22,21 @@ def disable_budget_sync(monkeypatch):
         return None
 
     monkeypatch.setattr(
-        "litellm.router_strategy.budget_limiter.RouterBudgetLimiting.periodic_sync_in_memory_spend_with_redis",
+        "embrouter.router_strategy.budget_limiter.RouterBudgetLimiting.periodic_sync_in_memory_spend_with_redis",
         noop,
     )
 
 
 @pytest.mark.asyncio
-async def test_get_llm_provider_for_deployment_dict_does_not_require_litellm_params_instantiation(
+async def test_get_llm_provider_for_deployment_dict_does_not_require_embrouter_params_instantiation(
     disable_budget_sync, monkeypatch
 ):
     class RaiseOnInit:
         def __init__(self, *args, **kwargs):
-            raise AssertionError("LiteLLM_Params should not be instantiated in hot path")
+            raise AssertionError("EmbRouter_Params should not be instantiated in hot path")
 
     monkeypatch.setattr(
-        "litellm.router_strategy.budget_limiter.LiteLLM_Params",
+        "embrouter.router_strategy.budget_limiter.EmbRouter_Params",
         RaiseOnInit,
     )
 
@@ -45,7 +45,7 @@ async def test_get_llm_provider_for_deployment_dict_does_not_require_litellm_par
         provider_budget_config={},
     )
 
-    deployment = {"litellm_params": {"model": "openai/gpt-4o-mini"}}
+    deployment = {"embrouter_params": {"model": "openai/gpt-4o-mini"}}
     provider = provider_budget._get_llm_provider_for_deployment(deployment)
 
     assert provider == "openai"
@@ -62,18 +62,18 @@ async def test_get_llm_provider_for_deployment_dict_view_supports_mapping_and_at
         custom_llm_provider=None,
         api_base=None,
         api_key=None,
-        litellm_params=None,
+        embrouter_params=None,
     ):
-        assert litellm_params is not None
-        observed["model_attr"] = litellm_params.model
-        observed["provider_get"] = litellm_params.get("custom_llm_provider")
-        observed["api_base_item"] = litellm_params["api_base"]
-        observed["has_api_key"] = "api_key" in litellm_params
-        observed["model_dump"] = litellm_params.model_dump()
+        assert embrouter_params is not None
+        observed["model_attr"] = embrouter_params.model
+        observed["provider_get"] = embrouter_params.get("custom_llm_provider")
+        observed["api_base_item"] = embrouter_params["api_base"]
+        observed["has_api_key"] = "api_key" in embrouter_params
+        observed["model_dump"] = embrouter_params.model_dump()
         return model, "openai", None, None
 
     monkeypatch.setattr(
-        "litellm.router_strategy.budget_limiter.litellm.get_llm_provider",
+        "embrouter.router_strategy.budget_limiter.embrouter.get_llm_provider",
         _future_style_get_llm_provider,
     )
 
@@ -83,7 +83,7 @@ async def test_get_llm_provider_for_deployment_dict_view_supports_mapping_and_at
     )
 
     deployment = {
-        "litellm_params": {
+        "embrouter_params": {
             "model": "openai/gpt-4o-mini",
             "custom_llm_provider": "openai",
             "api_base": "https://api.openai.com/v1",
@@ -111,12 +111,12 @@ async def test_async_filter_deployments_resolves_provider_once_per_deployment(di
     healthy_deployments = [
         {
             "model_name": "gpt-4o-mini",
-            "litellm_params": {"model": "openai/gpt-4o-mini"},
+            "embrouter_params": {"model": "openai/gpt-4o-mini"},
             "model_info": {"id": "deployment-1"},
         },
         {
             "model_name": "gpt-4o-mini",
-            "litellm_params": {"model": "openai/gpt-4o-mini"},
+            "embrouter_params": {"model": "openai/gpt-4o-mini"},
             "model_info": {"id": "deployment-2"},
         },
     ]
@@ -158,7 +158,7 @@ async def test_async_filter_deployments_does_not_recompute_provider_when_resolve
         model_list=[
             {
                 "model_name": "gpt-4o-mini",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-4o-mini",
                     "max_budget": 100.0,
                     "budget_duration": "1d",
@@ -171,7 +171,7 @@ async def test_async_filter_deployments_does_not_recompute_provider_when_resolve
     healthy_deployments = [
         {
             "model_name": "gpt-4o-mini",
-            "litellm_params": {"model": "unknown-provider/model"},
+            "embrouter_params": {"model": "unknown-provider/model"},
             "model_info": {"id": "deployment-1"},
         }
     ]
@@ -206,10 +206,10 @@ def _legacy_provider_resolution(deployment):
     Reference implementation used before hot-path optimization.
     """
     try:
-        _litellm_params = LiteLLM_Params(**deployment.get("litellm_params", {"model": ""}))
-        _, custom_llm_provider, _, _ = litellm.get_llm_provider(
-            model=_litellm_params.model,
-            litellm_params=_litellm_params,
+        _embrouter_params = EmbRouter_Params(**deployment.get("embrouter_params", {"model": ""}))
+        _, custom_llm_provider, _, _ = embrouter.get_llm_provider(
+            model=_embrouter_params.model,
+            embrouter_params=_embrouter_params,
         )
     except Exception:
         return None
@@ -219,9 +219,9 @@ def _legacy_provider_resolution(deployment):
 @pytest.mark.parametrize(
     "deployment",
     [
-        {"litellm_params": {"model": "openai/gpt-4o-mini"}},
-        {"litellm_params": {"model": "gpt-4o-mini", "custom_llm_provider": "openai"}},
-        {"litellm_params": {"model": "unknown-provider/model"}},
+        {"embrouter_params": {"model": "openai/gpt-4o-mini"}},
+        {"embrouter_params": {"model": "gpt-4o-mini", "custom_llm_provider": "openai"}},
+        {"embrouter_params": {"model": "unknown-provider/model"}},
     ],
 )
 @pytest.mark.asyncio
@@ -249,7 +249,7 @@ def test_register_deployment_budget_for_runtime_added_deployment(disable_budget_
     budget_limiter.register_deployment_budget(
         deployment={
             "model_name": "dynamic-budget-model",
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "openai/gpt-4o-mini",
                 "max_budget": 0.000000000001,
                 "budget_duration": "1d",
@@ -270,8 +270,8 @@ def test_register_deployment_budget_for_runtime_added_deployment(disable_budget_
 def test_router_add_deployment_registers_deployment_budget(disable_budget_sync, monkeypatch):
     import asyncio
 
-    from litellm import Router
-    from litellm.types.router import Deployment, LiteLLM_Params, ModelInfo
+    from embrouter import Router
+    from embrouter.types.router import Deployment, EmbRouter_Params, ModelInfo
 
     monkeypatch.setattr(asyncio, "create_task", lambda coro: None)
 
@@ -283,7 +283,7 @@ def test_router_add_deployment_registers_deployment_budget(disable_budget_sync, 
     router.add_deployment(
         deployment=Deployment(
             model_name="dynamic-budget-model",
-            litellm_params=LiteLLM_Params(
+            embrouter_params=EmbRouter_Params(
                 model="openai/gpt-4o-mini",
                 api_key="fake-key",
                 max_budget=0.000000000001,

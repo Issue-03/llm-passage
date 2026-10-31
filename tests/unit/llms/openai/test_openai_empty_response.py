@@ -7,8 +7,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 
-from litellm.llms.openai.openai import OpenAIChatCompletion
-from litellm.llms.openai.common_utils import OpenAIError
+from embrouter.llms.openai.openai import OpenAIChatCompletion
+from embrouter.llms.openai.common_utils import OpenAIError
 
 
 class TestEmptyResponseHandling:

@@ -13,7 +13,7 @@ vi.mock("next/navigation", async () => ({
 const newerIndex: VectorStoreIndex = {
   id: "idx-newer",
   index_name: "newer-index",
-  litellm_params: { vector_store_index: "provider-newer", vector_store_name: "newer-store" },
+  embrouter_params: { vector_store_index: "provider-newer", vector_store_name: "newer-store" },
   created_by: "admin@example.com",
   created_at: "2024-02-20T10:30:00Z",
 };
@@ -21,7 +21,7 @@ const newerIndex: VectorStoreIndex = {
 const olderIndex: VectorStoreIndex = {
   id: "idx-older",
   index_name: "older-index",
-  litellm_params: { vector_store_index: "provider-older", vector_store_name: "older-store" },
+  embrouter_params: { vector_store_index: "provider-older", vector_store_name: "older-store" },
   created_by: "admin@example.com",
   created_at: "2024-01-10T09:15:00Z",
 };
@@ -29,7 +29,7 @@ const olderIndex: VectorStoreIndex = {
 const undatedIndex: VectorStoreIndex = {
   id: "idx-undated",
   index_name: "undated-index",
-  litellm_params: { vector_store_index: "provider-undated", vector_store_name: "undated-store" },
+  embrouter_params: { vector_store_index: "provider-undated", vector_store_name: "undated-store" },
   created_by: null,
   created_at: null,
 };

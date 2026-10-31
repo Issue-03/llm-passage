@@ -8,16 +8,16 @@ from typing import Final, Protocol, cast  # noqa: TID251  # narrows the parametr
 import httpx
 import pytest
 
-import litellm
-from litellm.integrations.custom_secret_manager import CustomSecretManager
-from litellm.llms.anthropic.pass_through.messages.handler import anthropic_messages
-from litellm.rust_bridge import settings
-from litellm.rust_bridge.messages.entrypoints import NATIVE_AMESSAGES, NATIVE_MESSAGES, LiteLLMMessagesRequest
-from litellm.types.secret_managers.main import KeyManagementSettings, KeyManagementSystem
-from tests.test_litellm_rust.support.recording_server import ResponseSpec, recording_service
-from tests.test_litellm_rust.support.requests import MESSAGES, MESSAGES_MODEL, MESSAGES_RESPONSE
+import embrouter
+from embrouter.integrations.custom_secret_manager import CustomSecretManager
+from embrouter.llms.anthropic.pass_through.messages.handler import anthropic_messages
+from embrouter.rust_bridge import settings
+from embrouter.rust_bridge.messages.entrypoints import NATIVE_AMESSAGES, NATIVE_MESSAGES, EmbRouterMessagesRequest
+from embrouter.types.secret_managers.main import KeyManagementSettings, KeyManagementSystem
+from tests.test_embrouter_rust.support.recording_server import ResponseSpec, recording_service
+from tests.test_embrouter_rust.support.requests import MESSAGES, MESSAGES_MODEL, MESSAGES_RESPONSE
 
-pytest.importorskip("litellm.rust_bridge._native")
+pytest.importorskip("embrouter.rust_bridge._native")
 
 pytestmark = pytest.mark.usefixtures("local_model_cost_map")
 
@@ -48,8 +48,8 @@ class _ManagedSecrets(CustomSecretManager):
         return self.values.get(secret_name)
 
 
-def _native_request() -> LiteLLMMessagesRequest:
-    return LiteLLMMessagesRequest(
+def _native_request() -> EmbRouterMessagesRequest:
+    return EmbRouterMessagesRequest(
         model=MESSAGES_MODEL,
         messages=MESSAGES,
         max_tokens=8,
@@ -96,12 +96,12 @@ async def test_secret_manager_supplies_the_anthropic_key_and_base(
     with recording_service() as server:
         server.default_response = ResponseSpec(body=MESSAGES_RESPONSE)
         monkeypatch.setattr(
-            litellm,
+            embrouter,
             "secret_manager_client",
             _ManagedSecrets({"ANTHROPIC_API_KEY": "vault-key", "ANTHROPIC_BASE_URL": server.base_url}),
         )
-        monkeypatch.setattr(litellm, "_key_management_system", KeyManagementSystem.CUSTOM)
-        monkeypatch.setattr(litellm, "_key_management_settings", KeyManagementSettings(access_mode="read_only"))
+        monkeypatch.setattr(embrouter, "_key_management_system", KeyManagementSystem.CUSTOM)
+        monkeypatch.setattr(embrouter, "_key_management_settings", KeyManagementSettings(access_mode="read_only"))
         configured: Final = settings.secret_manager
         monkeypatch.setattr(settings, "secret_manager", lambda: replace(configured(), native=True))
 

@@ -10,24 +10,24 @@ import httpx
 from httpx._types import FileContent, RequestFiles
 from pydantic import TypeAdapter
 
-from litellm.litellm_core_utils.url_utils import encode_url_path_segment
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.base_llm.videos.transformation import BaseVideoConfig
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.embrouter_core_utils.url_utils import encode_url_path_segment
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.base_llm.videos.transformation import BaseVideoConfig
+from embrouter.llms.custom_httpx.http_handler import (
     AsyncHTTPHandler,
     HTTPHandler,
     _get_httpx_client,  # pyright: ignore[reportPrivateUsage, reportUnknownVariableType]  # shared HTTP factory is private
     get_async_httpx_client,  # pyright: ignore[reportUnknownVariableType]  # shared HTTP factory lacks typed params
 )
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import LlmProviders
-from litellm.types.videos.main import (
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import LlmProviders
+from embrouter.types.videos.main import (
     CharacterObject,
     VideoCreateOptionalRequestParams,
     VideoObject,
 )
-from litellm.types.videos.utils import (
+from embrouter.types.videos.utils import (
     decode_video_id_with_provider,
     encode_video_id_with_provider,
 )
@@ -364,11 +364,11 @@ class FalAIVideoConfig(BaseVideoConfig):
         headers: _VideoHeaders,
         model: str,
         api_key: str | None = None,
-        litellm_params: GenericLiteLLMParams | None = None,
+        embrouter_params: GenericEmbRouterParams | None = None,
     ) -> _VideoHeaders:
         final_api_key: Final[str | None] = (
             api_key
-            or (litellm_params.api_key if litellm_params is not None else None)
+            or (embrouter_params.api_key if embrouter_params is not None else None)
             or get_secret_str("FAL_AI_API_KEY")
         )
         if not final_api_key:
@@ -384,7 +384,7 @@ class FalAIVideoConfig(BaseVideoConfig):
         self,
         model: str,
         api_base: str | None,
-        litellm_params: _VideoParams,
+        embrouter_params: _VideoParams,
     ) -> str:
         return (api_base or "https://queue.fal.run").rstrip("/")
 
@@ -394,7 +394,7 @@ class FalAIVideoConfig(BaseVideoConfig):
         prompt: str,
         api_base: str,
         video_create_optional_request_params: _VideoParams,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: _VideoHeaders,
     ) -> tuple[_VideoParams, RequestFiles, str]:
         request_data: Final[_VideoParams] = {
@@ -449,7 +449,7 @@ class FalAIVideoConfig(BaseVideoConfig):
         self,
         video_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: _VideoHeaders,
     ) -> tuple[str, _VideoParams]:
         request_id, model_id = self._decode_video_id(video_id)
@@ -537,14 +537,14 @@ class FalAIVideoConfig(BaseVideoConfig):
         request_id: Final[str] = decoded.get("video_id", video_id)
         model_id: Final[str | None] = decoded.get("model_id")
         if not model_id:
-            raise ValueError("fal.ai video ids must be created through litellm with a model")
+            raise ValueError("fal.ai video ids must be created through embrouter with a model")
         return request_id, model_id
 
     def transform_video_content_request(
         self,
         video_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: _VideoHeaders,
         variant: str | None = None,
     ) -> tuple[str, _VideoStringParams]:
@@ -613,7 +613,7 @@ class FalAIVideoConfig(BaseVideoConfig):
         video_id: str,
         prompt: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: _VideoHeaders,
         extra_body: Mapping[str, object] | None = None,
     ) -> tuple[str, _VideoParams]:
@@ -630,7 +630,7 @@ class FalAIVideoConfig(BaseVideoConfig):
     def transform_video_list_request(
         self,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: _VideoHeaders,
         after: str | None = None,
         limit: int | None = None,
@@ -651,7 +651,7 @@ class FalAIVideoConfig(BaseVideoConfig):
         self,
         video_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: _VideoHeaders,
     ) -> tuple[str, _VideoParams]:
         raise NotImplementedError("video delete is not supported for fal.ai")
@@ -664,7 +664,7 @@ class FalAIVideoConfig(BaseVideoConfig):
         name: str,
         video: object,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: _VideoHeaders,
     ) -> tuple[str, _VideoFiles]:
         raise NotImplementedError("video character creation is not supported for fal.ai")
@@ -680,7 +680,7 @@ class FalAIVideoConfig(BaseVideoConfig):
         self,
         character_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: _VideoHeaders,
     ) -> tuple[str, _VideoParams]:
         raise NotImplementedError("video character retrieval is not supported for fal.ai")
@@ -697,7 +697,7 @@ class FalAIVideoConfig(BaseVideoConfig):
         prompt: str,
         video_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: _VideoHeaders,
         video_file: FileContent | None = None,
         extra_body: Mapping[str, object] | None = None,
@@ -720,7 +720,7 @@ class FalAIVideoConfig(BaseVideoConfig):
         video_id: str,
         seconds: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: _VideoHeaders,
         extra_body: Mapping[str, object] | None = None,
     ) -> tuple[str, _VideoParams]:

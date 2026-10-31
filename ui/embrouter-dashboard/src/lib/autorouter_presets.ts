@@ -190,17 +190,17 @@ export const buildModelAvailability = (
 export const deploymentRefsFromModelInfo = (
   rows: readonly {
     model_name?: string | null;
-    litellm_params?: { model?: string | null; base_model?: string | null; custom_llm_provider?: string | null } | null;
+    embrouter_params?: { model?: string | null; base_model?: string | null; custom_llm_provider?: string | null } | null;
     model_info?: { base_model?: string | null } | null;
   }[],
 ): DeploymentModelRef[] =>
   rows.flatMap((row) => {
     const underlyingModels = [
-      row.litellm_params?.model,
-      row.litellm_params?.base_model,
+      row.embrouter_params?.model,
+      row.embrouter_params?.base_model,
       row.model_info?.base_model,
     ].filter((model): model is string => Boolean(model));
-    const provider = row.litellm_params?.custom_llm_provider || routingProvider(row.litellm_params?.model ?? "");
+    const provider = row.embrouter_params?.custom_llm_provider || routingProvider(row.embrouter_params?.model ?? "");
     return row.model_name && underlyingModels.length > 0
       ? [{ modelGroup: row.model_name, underlyingModels, provider }]
       : [];
@@ -317,9 +317,9 @@ export const buildPresetPrefill = (
     Object.fromEntries(
       Object.entries(params).map(([tier, byModel]) => [
         tier,
-        Object.entries(byModel).reduce<Record<string, TierModelParams>>((byResolved, [model, litellmParams]) => {
+        Object.entries(byModel).reduce<Record<string, TierModelParams>>((byResolved, [model, embrouterParams]) => {
           const resolved = resolve(model);
-          return { ...byResolved, [resolved]: { ...byResolved[resolved], ...litellmParams } };
+          return { ...byResolved, [resolved]: { ...byResolved[resolved], ...embrouterParams } };
         }, {}),
       ]),
     );

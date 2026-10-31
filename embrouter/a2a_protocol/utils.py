@@ -6,8 +6,8 @@ import hashlib
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, Final
 
-import litellm
-from litellm._logging import verbose_logger
+import embrouter
+from embrouter._logging import verbose_logger
 
 if TYPE_CHECKING:
     from a2a.types import SendMessageRequest, SendStreamingMessageRequest
@@ -92,7 +92,7 @@ class A2ARequestUtils:
     @staticmethod
     def count_tokens(text: str) -> int:
         """
-        Count tokens in text using litellm.token_counter.
+        Count tokens in text using embrouter.token_counter.
 
         Args:
             text: Text to count tokens for
@@ -103,7 +103,7 @@ class A2ARequestUtils:
         if not text:
             return 0
         try:
-            return litellm.token_counter(text=text)
+            return embrouter.token_counter(text=text)
         except Exception:
             verbose_logger.debug("Failed to count tokens")
             return 0

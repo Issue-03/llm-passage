@@ -1,13 +1,13 @@
 """Regression tests for the responses -> completion fallback bridge guard.
 
 When the Responses API falls back to chat completions (no native responses
-config), it must tag the forwarded ``litellm.completion`` / ``litellm.acompletion``
+config), it must tag the forwarded ``embrouter.completion`` / ``embrouter.acompletion``
 call with ``_skip_responses_api_bridge=True`` so ``completion()`` does not bridge
 the request straight back to the Responses API and mutually recurse forever.
 
 Both fallback paths are covered: the sync ``response_api_handler`` (``_is_async``
 False) and the async ``async_response_api_handler`` (``_is_async`` True). The
-module-level ``litellm.completion`` / ``litellm.acompletion`` are patched to
+module-level ``embrouter.completion`` / ``embrouter.acompletion`` are patched to
 capture the forwarded kwargs; if the flag-setting line is removed the captured
 kwargs lack the flag and these tests fail.
 """
@@ -20,13 +20,13 @@ from unittest.mock import patch
 import httpx
 import pytest
 
-import litellm
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.responses.litellm_completion_transformation.handler import (
-    LiteLLMCompletionTransformationHandler,
+import embrouter
+from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from embrouter.responses.embrouter_completion_transformation.handler import (
+    EmbRouterCompletionTransformationHandler,
 )
-from litellm.types.llms.openai import ResponsesAPIResponse
-from litellm.types.utils import ADDRESSED_RESPONSE_ID_FIELD
+from embrouter.types.llms.openai import ResponsesAPIResponse
+from embrouter.types.utils import ADDRESSED_RESPONSE_ID_FIELD
 
 
 class _StopForwarding(Exception):
@@ -34,14 +34,14 @@ class _StopForwarding(Exception):
 
 
 def test_sync_fallback_tags_skip_responses_api_bridge():
-    handler = LiteLLMCompletionTransformationHandler()
+    handler = EmbRouterCompletionTransformationHandler()
     captured: dict = {}
 
     def fake_completion(**kwargs):
         captured.update(kwargs)
         raise _StopForwarding()
 
-    with patch("litellm.completion", fake_completion):
+    with patch("embrouter.completion", fake_completion):
         with pytest.raises(_StopForwarding):
             handler.response_api_handler(
                 model="gpt-4o",
@@ -56,14 +56,14 @@ def test_sync_fallback_tags_skip_responses_api_bridge():
 
 @pytest.mark.asyncio
 async def test_async_fallback_tags_skip_responses_api_bridge():
-    handler = LiteLLMCompletionTransformationHandler()
+    handler = EmbRouterCompletionTransformationHandler()
     captured: dict = {}
 
     async def fake_acompletion(**kwargs):
         captured.update(kwargs)
         raise _StopForwarding()
 
-    with patch("litellm.acompletion", fake_acompletion):
+    with patch("embrouter.acompletion", fake_acompletion):
         coro = handler.response_api_handler(
             model="gpt-4o",
             input="hello",
@@ -107,14 +107,14 @@ _CODEX_INPUT = [_CODEX_ADDITIONAL_TOOLS_ITEM, {"type": "message", "role": "user"
 
 
 def test_sync_fallback_hoists_additional_tools_input_items_into_chat_tools():
-    handler = LiteLLMCompletionTransformationHandler()
+    handler = EmbRouterCompletionTransformationHandler()
     captured: dict = {}
 
     def fake_completion(**kwargs):
         captured.update(kwargs)
         raise _StopForwarding()
 
-    with patch("litellm.completion", fake_completion):  # test-quality-ok: no DI seam; the file stubs this same boundary
+    with patch("embrouter.completion", fake_completion):  # test-quality-ok: no DI seam; the file stubs this same boundary
         with pytest.raises(_StopForwarding):
             handler.response_api_handler(
                 model="bedrock/us.openai.gpt-5.6",
@@ -132,10 +132,10 @@ def test_sync_fallback_hoists_additional_tools_input_items_into_chat_tools():
 
 @pytest.mark.asyncio
 async def test_async_fallback_returns_hoisted_nested_custom_tool_call_as_custom_tool_call():
-    from litellm.responses.litellm_completion_transformation.transformation import TOOL_CALLS_CACHE
-    from litellm.types.utils import ChatCompletionMessageToolCall, Choices, Function, Message, ModelResponse
+    from embrouter.responses.embrouter_completion_transformation.transformation import TOOL_CALLS_CACHE
+    from embrouter.types.utils import ChatCompletionMessageToolCall, Choices, Function, Message, ModelResponse
 
-    handler = LiteLLMCompletionTransformationHandler()
+    handler = EmbRouterCompletionTransformationHandler()
     tool_call_id = "call_exec_hoisted"
 
     async def fake_acompletion(**kwargs):
@@ -164,7 +164,7 @@ async def test_async_fallback_returns_hoisted_nested_custom_tool_call_as_custom_
         )
 
     try:
-        with patch("litellm.acompletion", fake_acompletion):  # test-quality-ok: no DI seam; file stubs this boundary
+        with patch("embrouter.acompletion", fake_acompletion):  # test-quality-ok: no DI seam; file stubs this boundary
             response = await handler.response_api_handler(
                 model="bedrock/us.openai.gpt-5.6",
                 input=_CODEX_INPUT,
@@ -207,7 +207,7 @@ async def test_bridged_follow_up_turn_keeps_the_addressed_response_id_off_the_pr
     client: Final = AsyncHTTPHandler()
     client.client = httpx.AsyncClient(transport=httpx.MockTransport(provider))
 
-    response = await litellm.aresponses(
+    response = await embrouter.aresponses(
         model="azure_ai/claude-sonnet-4-6",
         api_base="https://fake-foundry-resource.services.ai.azure.com",
         api_key="fake-api-key",

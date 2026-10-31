@@ -17,47 +17,47 @@ from openai._streaming import SSEDecoder
 from pydantic import BaseModel, ValidationError
 from typing_extensions import TypeIs
 
-import litellm
-from litellm.constants import (
+import embrouter
+from embrouter.constants import (
     EMPTY_MAPPING,
-    LITELLM_MAX_STREAMING_DURATION_SECONDS,
+    EMBROUTER_MAX_STREAMING_DURATION_SECONDS,
     STREAM_SSE_DONE_STRING,
 )
-from litellm.exceptions import MidStreamFallbackError, RateLimitError
-from litellm.litellm_core_utils.asyncify import run_async_function
-from litellm.litellm_core_utils.core_helpers import process_response_headers
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.litellm_core_utils.llm_response_utils.get_api_base import get_api_base
-from litellm.litellm_core_utils.llm_response_utils.response_metadata import (
+from embrouter.exceptions import MidStreamFallbackError, RateLimitError
+from embrouter.embrouter_core_utils.asyncify import run_async_function
+from embrouter.embrouter_core_utils.core_helpers import process_response_headers
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.embrouter_core_utils.llm_response_utils.get_api_base import get_api_base
+from embrouter.embrouter_core_utils.llm_response_utils.response_metadata import (
     update_response_metadata,
 )
-from litellm.litellm_core_utils.thread_pool_executor import executor
-from litellm.llms.base_llm.responses.transformation import BaseResponsesAPIConfig
-from litellm.responses.litellm_completion_transformation.transformation import (
-    LiteLLMCompletionResponsesConfig,
+from embrouter.embrouter_core_utils.thread_pool_executor import executor
+from embrouter.llms.base_llm.responses.transformation import BaseResponsesAPIConfig
+from embrouter.responses.embrouter_completion_transformation.transformation import (
+    EmbRouterCompletionResponsesConfig,
 )
-from litellm.responses.utils import ResponseAPILoggingUtils, ResponsesAPIRequestUtils
-from litellm.types.integrations.custom_logger import converted_stream_requested
-from litellm.types.llms.openai import (
+from embrouter.responses.utils import ResponseAPILoggingUtils, ResponsesAPIRequestUtils
+from embrouter.types.integrations.custom_logger import converted_stream_requested
+from embrouter.types.llms.openai import (
     PART_UNION_TYPES,
     ResponseAPIUsage,
     ResponsesAPIResponse,
     ResponsesAPIStreamEvents,
     ResponsesAPIStreamingResponse,
 )
-from litellm.types.utils import CallTypes
-from litellm.utils import async_post_call_success_deployment_hook
+from embrouter.types.utils import CallTypes
+from embrouter.utils import async_post_call_success_deployment_hook
 
 if TYPE_CHECKING:
-    from litellm.caching.caching_handler import LLMCachingHandler
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.types.responses.streaming_websocket import (
+    from embrouter.caching.caching_handler import LLMCachingHandler
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.types.responses.streaming_websocket import (
         PresidioGuardrailCallback,
         ResponsesBackendWebSocket,
         ResponsesClientWebSocket,
         ResponsesWebSocketRequestDefaults,
     )
-    from litellm.types.router import LiteLLM_Params
+    from embrouter.types.router import EmbRouter_Params
 
 
 class ProjectQuotaCallback(Protocol):
@@ -72,7 +72,7 @@ class ProjectQuotaCallback(Protocol):
 
 @lru_cache(maxsize=1)
 def _get_openai_response_types():
-    from litellm.types.llms import openai as openai_types
+    from embrouter.types.llms import openai as openai_types
 
     return openai_types
 
@@ -110,8 +110,8 @@ class _MutableJsonObject(Protocol):
     def items(self) -> Iterable[tuple[str, object]]: ...
 
 
-class _GetsLitellmParams(Protocol):
-    def __call__(self, key: str, default: Mapping[str, object], /) -> LiteLLM_Params: ...
+class _GetsEmbrouterParams(Protocol):
+    def __call__(self, key: str, default: Mapping[str, object], /) -> EmbRouter_Params: ...
 
 
 class _UnmasksPiiText(Protocol):
@@ -137,7 +137,7 @@ class _HasPostStreamingDeploymentHook(Protocol):
     async_post_call_streaming_deployment_hook: _PostStreamingDeploymentHook
 
 
-def _typed_gets_litellm_params(fn: _GetsLitellmParams) -> _GetsLitellmParams:
+def _typed_gets_embrouter_params(fn: _GetsEmbrouterParams) -> _GetsEmbrouterParams:
     return fn
 
 
@@ -155,8 +155,8 @@ def _load_json_value(payload: str | bytes) -> object:
     return json.loads(payload)
 
 
-def _model_id_from_metadata(litellm_metadata: Mapping[str, object] | None) -> str | None:
-    model_info: Final = litellm_metadata.get("model_info") if litellm_metadata else None
+def _model_id_from_metadata(embrouter_metadata: Mapping[str, object] | None) -> str | None:
+    model_info: Final = embrouter_metadata.get("model_info") if embrouter_metadata else None
     model_id: Final = model_info.get("id") if _is_json_object(model_info) else None
     return model_id if isinstance(model_id, str) else None
 
@@ -256,7 +256,7 @@ def stream_error_status_and_message(error_obj: object) -> tuple[int, str]:
 
 
 def _map_stream_error_to_exception(error_obj: object, model: str, custom_llm_provider: str) -> Exception:
-    from litellm.llms.base_llm.chat.transformation import BaseLLMException
+    from embrouter.llms.base_llm.chat.transformation import BaseLLMException
 
     error_message, error_type, error_code = _error_event_fields(error_obj)
     status_code: Final = _status_code_for_error_fields(error_type, error_code)
@@ -267,7 +267,7 @@ def _map_stream_error_to_exception(error_obj: object, model: str, custom_llm_pro
         body=error_body,
     )
     try:
-        return litellm.exception_type(
+        return embrouter.exception_type(
             model=model,
             custom_llm_provider=custom_llm_provider,
             original_exception=provider_exception,
@@ -279,7 +279,7 @@ def _map_stream_error_to_exception(error_obj: object, model: str, custom_llm_pro
 
 
 def _mid_stream_fallback_eligible(mapped_exception: Exception) -> bool:
-    if isinstance(mapped_exception, litellm.ContentPolicyViolationError):
+    if isinstance(mapped_exception, embrouter.ContentPolicyViolationError):
         return True
     status_code: Final = getattr(mapped_exception, "status_code", None)
     return not isinstance(status_code, int) or status_code >= 500 or status_code == 429
@@ -302,8 +302,8 @@ class BaseResponsesAPIStreamingIterator:
         response: httpx.Response,
         model: str,
         responses_api_provider_config: BaseResponsesAPIConfig | None,
-        logging_obj: LiteLLMLoggingObj,
-        litellm_metadata: dict[str, object] | None = None,
+        logging_obj: EmbRouterLoggingObj,
+        embrouter_metadata: dict[str, object] | None = None,
         custom_llm_provider: str | None = None,
         request_data: dict[str, object] | None = None,
         call_type: str | None = None,
@@ -327,19 +327,19 @@ class BaseResponsesAPIStreamingIterator:
         self._stream_created_time: float = time.time()
 
         # track request context for hooks
-        self.litellm_metadata = litellm_metadata
+        self.embrouter_metadata = embrouter_metadata
         self.custom_llm_provider = custom_llm_provider
         self.request_data: dict[str, object] = request_data or {}
         self.call_type: str | None = call_type
 
-        # set hidden params for response headers (e.g., x-litellm-model-id)
-        # This matches the stream wrapper in litellm/litellm_core_utils/streaming_handler.py
+        # set hidden params for response headers (e.g., x-embrouter-model-id)
+        # This matches the stream wrapper in embrouter/embrouter_core_utils/streaming_handler.py
         _api_base: Final = get_api_base(
             model=model or "",
-            optional_params=_typed_gets_litellm_params(self.logging_obj.model_call_details.get)("litellm_params", {}),
+            optional_params=_typed_gets_embrouter_params(self.logging_obj.model_call_details.get)("embrouter_params", {}),
         )
         self._hidden_params: dict[str, object] = {
-            "model_id": _model_id_from_metadata(litellm_metadata),
+            "model_id": _model_id_from_metadata(embrouter_metadata),
             "api_base": _api_base,
             "custom_llm_provider": custom_llm_provider,
         }
@@ -351,13 +351,13 @@ class BaseResponsesAPIStreamingIterator:
         )
 
     def _check_max_streaming_duration(self) -> None:
-        """Raise litellm.Timeout if the stream has exceeded LITELLM_MAX_STREAMING_DURATION_SECONDS."""
-        if LITELLM_MAX_STREAMING_DURATION_SECONDS is None:
+        """Raise embrouter.Timeout if the stream has exceeded EMBROUTER_MAX_STREAMING_DURATION_SECONDS."""
+        if EMBROUTER_MAX_STREAMING_DURATION_SECONDS is None:
             return
         elapsed: Final = time.time() - self._stream_created_time
-        if elapsed > LITELLM_MAX_STREAMING_DURATION_SECONDS:
-            raise litellm.Timeout(
-                message=f"Stream exceeded max streaming duration of {LITELLM_MAX_STREAMING_DURATION_SECONDS}s (elapsed {elapsed:.1f}s)",
+        if elapsed > EMBROUTER_MAX_STREAMING_DURATION_SECONDS:
+            raise embrouter.Timeout(
+                message=f"Stream exceeded max streaming duration of {EMBROUTER_MAX_STREAMING_DURATION_SECONDS}s (elapsed {elapsed:.1f}s)",
                 model=self.model or "",
                 llm_provider=self.custom_llm_provider or "",
             )
@@ -404,7 +404,7 @@ class BaseResponsesAPIStreamingIterator:
                     if response_object is not None:
                         response: Final = ResponsesAPIRequestUtils._update_responses_api_response_id_with_model_id(
                             responses_api_response=response_object,
-                            litellm_metadata=self.litellm_metadata,
+                            embrouter_metadata=self.embrouter_metadata,
                             custom_llm_provider=self.custom_llm_provider,
                         )
                         setattr(openai_responses_api_chunk, "response", response)
@@ -419,7 +419,7 @@ class BaseResponsesAPIStreamingIterator:
                     _args_delta: Final = getattr(openai_responses_api_chunk, "delta", None)
                     if isinstance(_args_delta, str):
                         self._generated_tool_arguments += _args_delta
-                _stream_model_id: Final = _model_id_from_metadata(self.litellm_metadata)
+                _stream_model_id: Final = _model_id_from_metadata(self.embrouter_metadata)
                 if _event_type in (
                     ResponsesAPIStreamEvents.OUTPUT_ITEM_ADDED,
                     ResponsesAPIStreamEvents.OUTPUT_ITEM_DONE,
@@ -458,7 +458,7 @@ class BaseResponsesAPIStreamingIterator:
                             )
 
                 # Wrap encrypted_content in streaming events (output_item.added, output_item.done)
-                if self.litellm_metadata and self.litellm_metadata.get("encrypted_content_affinity_enabled"):
+                if self.embrouter_metadata and self.embrouter_metadata.get("encrypted_content_affinity_enabled"):
                     openai_types = _get_openai_response_types()
                     event_type: Final = getattr(openai_responses_api_chunk, "type", None)
                     if event_type in (
@@ -469,7 +469,7 @@ class BaseResponsesAPIStreamingIterator:
                         if item:
                             encrypted_content: Final = getattr(item, "encrypted_content", None)
                             if encrypted_content and isinstance(encrypted_content, str):
-                                model_id: Final = _model_id_from_metadata(self.litellm_metadata)
+                                model_id: Final = _model_id_from_metadata(self.embrouter_metadata)
                                 if model_id:
                                     wrapped_content: Final = (
                                         ResponsesAPIRequestUtils._wrap_encrypted_content_with_model_id(
@@ -726,7 +726,7 @@ class BaseResponsesAPIStreamingIterator:
         ):
             return
 
-        cache: Final = litellm.cache
+        cache: Final = embrouter.cache
         if cache is None:
             return
 
@@ -734,7 +734,7 @@ class BaseResponsesAPIStreamingIterator:
         if cached_response is None:
             return
         if is_async:
-            from litellm.caching.caching_handler import create_cache_write_task
+            from embrouter.caching.caching_handler import create_cache_write_task
 
             cache_write_task: Final = create_cache_write_task(
                 lambda: cache.async_add_cache(
@@ -779,7 +779,7 @@ class BaseResponsesAPIStreamingIterator:
                     typed_call_type = None
 
             request_data: Final = self.request_data or getattr(self.logging_obj, "model_call_details", {})
-            callbacks: Final[Sequence[object]] = getattr(litellm, "callbacks", None) or []
+            callbacks: Final[Sequence[object]] = getattr(embrouter, "callbacks", None) or []
             hooks_ran = False
             for callback in callbacks:
                 if isinstance(callback, _HasPostStreamingDeploymentHook):
@@ -823,13 +823,13 @@ class BaseResponsesAPIStreamingIterator:
                 request_payload.update(self.logging_obj.model_call_details)
         except Exception:
             pass
-        if "litellm_params" not in request_payload:
+        if "embrouter_params" not in request_payload:
             try:
-                request_payload["litellm_params"] = getattr(self.logging_obj, "model_call_details", {}).get(
-                    "litellm_params", {}
+                request_payload["embrouter_params"] = getattr(self.logging_obj, "model_call_details", {}).get(
+                    "embrouter_params", {}
                 )
             except Exception:
-                request_payload["litellm_params"] = {}
+                request_payload["embrouter_params"] = {}
 
         try:
             update_response_metadata(
@@ -968,8 +968,8 @@ class BaseResponsesAPIStreamingIterator:
             is_pre_first_chunk=not self._yielded_first_chunk,
         )
 
-    def _stream_ended_early_error(self) -> litellm.APIConnectionError:
-        return litellm.APIConnectionError(
+    def _stream_ended_early_error(self) -> embrouter.APIConnectionError:
+        return embrouter.APIConnectionError(
             message=(
                 f"{self.custom_llm_provider or 'provider'} closed the responses stream before any terminal event "
                 "(response.completed, response.incomplete or response.failed)"
@@ -1018,8 +1018,8 @@ class ResponsesAPIStreamingIterator(BaseResponsesAPIStreamingIterator):
         response: httpx.Response,
         model: str,
         responses_api_provider_config: BaseResponsesAPIConfig,
-        logging_obj: LiteLLMLoggingObj,
-        litellm_metadata: dict[str, object] | None = None,
+        logging_obj: EmbRouterLoggingObj,
+        embrouter_metadata: dict[str, object] | None = None,
         custom_llm_provider: str | None = None,
         request_data: dict[str, object] | None = None,
         call_type: str | None = None,
@@ -1029,7 +1029,7 @@ class ResponsesAPIStreamingIterator(BaseResponsesAPIStreamingIterator):
             model,
             responses_api_provider_config,
             logging_obj,
-            litellm_metadata,
+            embrouter_metadata,
             custom_llm_provider,
             request_data,
             call_type,
@@ -1108,8 +1108,8 @@ class SyncResponsesAPIStreamingIterator(BaseResponsesAPIStreamingIterator):
         response: httpx.Response,
         model: str,
         responses_api_provider_config: BaseResponsesAPIConfig,
-        logging_obj: LiteLLMLoggingObj,
-        litellm_metadata: dict[str, object] | None = None,
+        logging_obj: EmbRouterLoggingObj,
+        embrouter_metadata: dict[str, object] | None = None,
         custom_llm_provider: str | None = None,
         request_data: dict[str, object] | None = None,
         call_type: str | None = None,
@@ -1119,7 +1119,7 @@ class SyncResponsesAPIStreamingIterator(BaseResponsesAPIStreamingIterator):
             model,
             responses_api_provider_config,
             logging_obj,
-            litellm_metadata,
+            embrouter_metadata,
             custom_llm_provider,
             request_data,
             call_type,
@@ -1196,8 +1196,8 @@ class MockResponsesAPIStreamingIterator(BaseResponsesAPIStreamingIterator):
         response: httpx.Response,
         model: str,
         responses_api_provider_config: BaseResponsesAPIConfig,
-        logging_obj: LiteLLMLoggingObj,
-        litellm_metadata: dict[str, object] | None = None,
+        logging_obj: EmbRouterLoggingObj,
+        embrouter_metadata: dict[str, object] | None = None,
         custom_llm_provider: str | None = None,
         request_data: dict[str, object] | None = None,
         call_type: str | None = None,
@@ -1212,7 +1212,7 @@ class MockResponsesAPIStreamingIterator(BaseResponsesAPIStreamingIterator):
             model=model,
             responses_api_provider_config=None,
             logging_obj=logging_obj,
-            litellm_metadata=litellm_metadata,
+            embrouter_metadata=embrouter_metadata,
             custom_llm_provider=custom_llm_provider,
             request_data=request_data,
             call_type=call_type,
@@ -1222,7 +1222,7 @@ class MockResponsesAPIStreamingIterator(BaseResponsesAPIStreamingIterator):
     def _set_events_from_response(
         self,
         transformed: ResponsesAPIResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> None:
         self._events: Sequence[ResponsesAPIStreamingResponse] = build_synthetic_response_events(
             transformed=transformed,
@@ -1265,7 +1265,7 @@ class CachedResponsesAPIStreamingIterator(BaseResponsesAPIStreamingIterator):
     def __init__(
         self,
         response: ResponsesAPIResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         request_data: dict[str, object] | None = None,
         call_type: str | None = None,
     ):
@@ -1275,7 +1275,7 @@ class CachedResponsesAPIStreamingIterator(BaseResponsesAPIStreamingIterator):
             model=getattr(response, "model", ""),
             responses_api_provider_config=None,
             logging_obj=logging_obj,
-            litellm_metadata=None,
+            embrouter_metadata=None,
             custom_llm_provider="cached_response",
             request_data=request_data,
             call_type=call_type,
@@ -1289,7 +1289,7 @@ class CachedResponsesAPIStreamingIterator(BaseResponsesAPIStreamingIterator):
     def _set_events_from_response(
         self,
         transformed: ResponsesAPIResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> None:
         self._events = build_synthetic_response_events(
             transformed=transformed,
@@ -1546,14 +1546,14 @@ def _estimate_usage_from_text(
     responses_api_request: Mapping[str, object],
     generated_text: str,
 ) -> ResponseAPIUsage:
-    messages: Final = LiteLLMCompletionResponsesConfig.transform_responses_api_input_to_messages(  # pyright: ignore[reportUnknownMemberType]  # the transformer's signature is partially untyped
+    messages: Final = EmbRouterCompletionResponsesConfig.transform_responses_api_input_to_messages(  # pyright: ignore[reportUnknownMemberType]  # the transformer's signature is partially untyped
         input=request_input,  # pyright: ignore[reportArgumentType]  # the raw Responses API input is a str or ResponseInputParam list, matching the helper's declared union
         responses_api_request=dict(responses_api_request),
     )
-    input_tokens: Final = litellm.token_counter(  # pyright: ignore[reportUnknownMemberType]  # token_counter's public signature is untyped
+    input_tokens: Final = embrouter.token_counter(  # pyright: ignore[reportUnknownMemberType]  # token_counter's public signature is untyped
         model=model, messages=messages
     )
-    output_tokens: Final = litellm.token_counter(  # pyright: ignore[reportUnknownMemberType]  # token_counter's public signature is untyped
+    output_tokens: Final = embrouter.token_counter(  # pyright: ignore[reportUnknownMemberType]  # token_counter's public signature is untyped
         model=model, text=generated_text, count_response_tokens=True
     )
     return ResponseAPIUsage(
@@ -1582,7 +1582,7 @@ def _estimate_usage_safely(
 
 
 def _stamp_responses_usage_cost(
-    response_obj: ResponsesAPIResponse | None, logging_obj: LiteLLMLoggingObj | None
+    response_obj: ResponsesAPIResponse | None, logging_obj: EmbRouterLoggingObj | None
 ) -> None:
     if response_obj is None or logging_obj is None:
         return
@@ -1603,7 +1603,7 @@ def _stamp_responses_usage_cost(
 def build_synthetic_response_events(
     *,
     transformed: ResponsesAPIResponse,
-    logging_obj: LiteLLMLoggingObj | None,
+    logging_obj: EmbRouterLoggingObj | None,
     chunk_size: int,
 ) -> list[ResponsesAPIStreamingResponse]:
     openai_types: Final = _get_openai_response_types()
@@ -1625,7 +1625,7 @@ def build_synthetic_response_events(
             openai_types.OutputItemAddedEvent(
                 type=openai_types.ResponsesAPIStreamEvents.OUTPUT_ITEM_ADDED,
                 output_index=output_index,
-                item=openai_types.BaseLiteLLMOpenAIResponseObject(**output_item_payload),
+                item=openai_types.BaseEmbRouterOpenAIResponseObject(**output_item_payload),
             )
         )
 
@@ -1639,7 +1639,7 @@ def build_synthetic_response_events(
                         item_id=item_id,
                         output_index=output_index,
                         content_index=content_index,
-                        part=openai_types.BaseLiteLLMOpenAIResponseObject(**part_payload),
+                        part=openai_types.BaseEmbRouterOpenAIResponseObject(**part_payload),
                     )
                 )
                 _add_text_like_part_events(
@@ -1711,7 +1711,7 @@ def build_synthetic_response_events(
                         output_index=output_index,
                         sequence_number=sequence_number,
                         summary_index=summary_index,
-                        part=openai_types.BaseLiteLLMOpenAIResponseObject(**summary_payload),
+                        part=openai_types.BaseEmbRouterOpenAIResponseObject(**summary_payload),
                     )
                 )
 
@@ -1721,7 +1721,7 @@ def build_synthetic_response_events(
                 type=openai_types.ResponsesAPIStreamEvents.OUTPUT_ITEM_DONE,
                 output_index=output_index,
                 sequence_number=sequence_number,
-                item=openai_types.BaseLiteLLMOpenAIResponseObject(**output_item_payload),
+                item=openai_types.BaseEmbRouterOpenAIResponseObject(**output_item_payload),
             )
         )
 
@@ -1738,7 +1738,7 @@ def build_synthetic_response_events(
 # WebSocket mode streaming (bidirectional forwarding)
 # ---------------------------------------------------------------------------
 
-from litellm._logging import verbose_logger
+from embrouter._logging import verbose_logger
 
 # Conservative per-frame output-token floor used when a response.create
 # frame omits max_output_tokens, so a project OTPM quota can't be bypassed
@@ -1869,11 +1869,11 @@ def _restore_wrapped_ids_in_response_create(msg_obj: Mapping[str, object]) -> di
 
 
 def _wrap_output_item_encrypted_content(
-    event_obj: Mapping[str, object], litellm_metadata: Mapping[str, object]
+    event_obj: Mapping[str, object], embrouter_metadata: Mapping[str, object]
 ) -> dict[str, object] | None:
-    if not litellm_metadata.get("encrypted_content_affinity_enabled"):
+    if not embrouter_metadata.get("encrypted_content_affinity_enabled"):
         return None
-    model_id: Final = _model_id_from_metadata(litellm_metadata)
+    model_id: Final = _model_id_from_metadata(embrouter_metadata)
     item: Final = event_obj.get("item")
     if model_id is None or not _is_json_object(item):
         return None
@@ -1903,7 +1903,7 @@ class ResponsesWebSocketStreaming:
         self,
         websocket: ResponsesClientWebSocket,
         backend_ws: ResponsesBackendWebSocket,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         user_api_key_dict: UserAPIKeyAuth | None = None,
         request_data: dict[str, object] | None = None,
         first_message: str | None = None,
@@ -1919,8 +1919,8 @@ class ResponsesWebSocketStreaming:
         self.logging_obj = logging_obj
         self.user_api_key_dict = user_api_key_dict
         self.request_data: dict[str, object] = request_data or {}
-        litellm_metadata: Final = self.request_data.get("litellm_metadata")
-        self.litellm_metadata: dict[str, object] = litellm_metadata if _is_json_object(litellm_metadata) else {}
+        embrouter_metadata: Final = self.request_data.get("embrouter_metadata")
+        self.embrouter_metadata: dict[str, object] = embrouter_metadata if _is_json_object(embrouter_metadata) else {}
         self.custom_llm_provider: str | None = custom_llm_provider
         self.messages: list[_MutableJsonObject] = []
         self.input_messages: list[dict[str, object]] = []
@@ -2018,15 +2018,15 @@ class ResponsesWebSocketStreaming:
         )
 
     def _record_usage_for_failure(self) -> None:
-        from litellm.cost_calculator import ResponsesWebSocketTokenUsageProcessor
-        from litellm.types.utils import LiteLLMRealtimeStreamLoggingObject
+        from embrouter.cost_calculator import ResponsesWebSocketTokenUsageProcessor
+        from embrouter.types.utils import EmbRouterRealtimeStreamLoggingObject
 
         usage: Final = ResponsesWebSocketTokenUsageProcessor.collect_and_combine_usage_from_responses_ws_results(
             self.messages
         )
         tier_partition: Final = ResponsesWebSocketTokenUsageProcessor.partition_results_by_service_tier(self.messages)
         service_tier: Final = next(iter(tier_partition)) if len(tier_partition) == 1 else None
-        logging_result: Final = LiteLLMRealtimeStreamLoggingObject(
+        logging_result: Final = EmbRouterRealtimeStreamLoggingObject(
             usage=usage, results=self.messages, service_tier=service_tier
         )
         response_cost: Final = self.logging_obj._response_cost_calculator(result=logging_result) or 0.0  # pyright: ignore[reportPrivateUsage]  # as the HTTP streaming iterator does
@@ -2042,12 +2042,12 @@ class ResponsesWebSocketStreaming:
             wrapped_response: Final = ResponsesAPIRequestUtils._update_responses_api_response_id_with_model_id(  # pyright: ignore[reportPrivateUsage]  # same wrap the HTTP streaming path applies
                 responses_api_response=response,
                 custom_llm_provider=self.custom_llm_provider,
-                litellm_metadata=self.litellm_metadata,
+                embrouter_metadata=self.embrouter_metadata,
             )
             return json.dumps({**event_obj, "response": wrapped_response})
         if event_obj.get("type") not in _RESPONSES_WS_OUTPUT_ITEM_EVENT_TYPES:
             return response_str
-        wrapped_event: Final = _wrap_output_item_encrypted_content(event_obj, self.litellm_metadata)
+        wrapped_event: Final = _wrap_output_item_encrypted_content(event_obj, self.embrouter_metadata)
         return response_str if wrapped_event is None else json.dumps(wrapped_event)
 
     async def backend_to_client(self) -> None:
@@ -2141,7 +2141,7 @@ class ResponsesWebSocketStreaming:
         Presidio PII masking to a ``response.create`` message before it is
         forwarded to the upstream provider.
 
-        - Fills the deployment's ``litellm_params`` request defaults into the
+        - Fills the deployment's ``embrouter_params`` request defaults into the
           frame the way the HTTP ``/v1/responses`` path does: client-set keys
           win, ``extra_body`` entries override.
         - Overwrites any ``model`` field with the connection-authorized model
@@ -2490,8 +2490,8 @@ _RESPONSE_CREATE_PARAMS: Final[frozenset[str]] = (
 
 _MANAGED_WS_SKIP_KWARGS: Final[frozenset[str]] = frozenset(
     {
-        "litellm_logging_obj",
-        "litellm_call_id",
+        "embrouter_logging_obj",
+        "embrouter_call_id",
         "aresponses",
         "_aresponses_websocket",
         "user_api_key_dict",
@@ -2508,13 +2508,13 @@ class ManagedResponsesWebSocketHandler:
 
     Instead of proxying to a provider WebSocket, this handler:
     - Listens for ``response.create`` events from the client
-    - Makes HTTP streaming calls via ``litellm.aresponses(stream=True)``
+    - Makes HTTP streaming calls via ``embrouter.aresponses(stream=True)``
     - Serialises and forwards every streaming event back over the WebSocket
     - Supports ``previous_response_id`` for multi-turn conversations via
       in-memory session tracking (avoids async DB-write timing issues)
     - Supports sequential requests over a single persistent connection
 
-    This makes every provider that LiteLLM can reach over HTTP available on
+    This makes every provider that EmbRouter can reach over HTTP available on
     the WebSocket transport without any provider-specific changes.
     """
 
@@ -2522,9 +2522,9 @@ class ManagedResponsesWebSocketHandler:
         self,
         websocket: ResponsesClientWebSocket,
         model: str,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         user_api_key_dict: UserAPIKeyAuth | None = None,
-        litellm_metadata: Mapping[str, object] | None = None,
+        embrouter_metadata: Mapping[str, object] | None = None,
         api_key: str | None = None,
         api_base: str | None = None,
         timeout: float | None = None,
@@ -2537,8 +2537,8 @@ class ManagedResponsesWebSocketHandler:
         self.model = model
         self.logging_obj = logging_obj
         self.user_api_key_dict = user_api_key_dict
-        self.litellm_metadata: Mapping[str, object] = litellm_metadata or {}
-        raw_model_group: Final = self.litellm_metadata.get("model_group") or self.litellm_metadata.get(
+        self.embrouter_metadata: Mapping[str, object] = embrouter_metadata or {}
+        raw_model_group: Final = self.embrouter_metadata.get("model_group") or self.embrouter_metadata.get(
             "deployment_model_name"
         )
         self.model_group: str | None = raw_model_group if isinstance(raw_model_group, str) else None
@@ -2589,7 +2589,7 @@ class ManagedResponsesWebSocketHandler:
         Return accumulated message history for *previous_response_id*.
 
         The key is the *decoded* response ID (the raw provider response ID before
-        LiteLLM base64-encodes it into the ``resp_...`` format).
+        EmbRouter base64-encodes it into the ``resp_...`` format).
         """
         decoded: Final = ResponsesAPIRequestUtils._decode_responses_api_response_id(previous_response_id)
         raw_id: Final = decoded.get("response_id", previous_response_id)
@@ -2808,7 +2808,7 @@ class ManagedResponsesWebSocketHandler:
         if not model:
             return None
         try:
-            from litellm import get_llm_provider
+            from embrouter import get_llm_provider
 
             _, provider, _, _ = get_llm_provider(model=model)
             return provider
@@ -2834,18 +2834,18 @@ class ManagedResponsesWebSocketHandler:
             call_kwargs["timeout"] = self.timeout
         # Only force connection-level custom_llm_provider when the per-event model
         # uses the same provider as the connection model. If the provider differs
-        # (e.g., connection is vertex_ai but event says openai/gpt-4), let litellm
+        # (e.g., connection is vertex_ai but event says openai/gpt-4), let embrouter
         # re-resolve from the model string. Same-provider model variants (e.g.,
         # vertex_ai/gemini-2.0 -> vertex_ai/gemini-1.5) still inherit the provider.
         if self.custom_llm_provider is not None and self._same_provider(model):
             call_kwargs["custom_llm_provider"] = self.custom_llm_provider
-        if self.litellm_metadata:
-            call_kwargs["litellm_metadata"] = dict(self.litellm_metadata)
+        if self.embrouter_metadata:
+            call_kwargs["embrouter_metadata"] = dict(self.embrouter_metadata)
 
     @staticmethod
     def _update_proxy_request(call_kwargs: dict[str, Any], model: str) -> None:
         """Update proxy_server_request body so spend logs record the full request."""
-        proxy_server_request = (call_kwargs.get("litellm_metadata") or {}).get("proxy_server_request") or {}
+        proxy_server_request = (call_kwargs.get("embrouter_metadata") or {}).get("proxy_server_request") or {}
         if not isinstance(proxy_server_request, dict):
             return
         body: Final = dict(proxy_server_request.get("body") or {})
@@ -2856,21 +2856,21 @@ class ManagedResponsesWebSocketHandler:
             if k in call_kwargs and call_kwargs[k] is not None:
                 body[k] = call_kwargs[k]
         proxy_server_request = {**proxy_server_request, "body": body}
-        if "litellm_metadata" not in call_kwargs:
-            call_kwargs["litellm_metadata"] = {}
-        call_kwargs["litellm_metadata"]["proxy_server_request"] = proxy_server_request
+        if "embrouter_metadata" not in call_kwargs:
+            call_kwargs["embrouter_metadata"] = {}
+        call_kwargs["embrouter_metadata"]["proxy_server_request"] = proxy_server_request
         call_kwargs["proxy_server_request"] = proxy_server_request
 
     async def _stream_and_forward(self, model: str, call_kwargs: dict[str, Any]) -> _MutableJsonObject | None:
         """
-        Stream ``litellm.aresponses`` and forward every chunk over the WebSocket.
+        Stream ``embrouter.aresponses`` and forward every chunk over the WebSocket.
 
         Captures the ``response.completed`` event type from the chunk object
         directly (before serialization) to avoid a redundant JSON round-trip on
         every chunk.  Returns the completed event dict, or ``None``.
         """
         completed_event: _MutableJsonObject | None = None
-        stream_response: Final = await litellm.aresponses(model=model, **call_kwargs)
+        stream_response: Final = await embrouter.aresponses(model=model, **call_kwargs)
         async for chunk in stream_response:
             if chunk is None:
                 continue
@@ -2918,7 +2918,7 @@ class ManagedResponsesWebSocketHandler:
 
     async def _process_response_create(self, raw_message: str) -> None:
         """
-        Parse one ``response.create`` event, call ``litellm.aresponses(stream=True)``,
+        Parse one ``response.create`` event, call ``embrouter.aresponses(stream=True)``,
         and forward every streaming event to the client.
 
         Multi-turn support via in-memory session history
@@ -2964,7 +2964,7 @@ class ManagedResponsesWebSocketHandler:
 
         # A frame that repeats the connection's public alias (model_group) must
         # reuse the router-resolved self.model; passing the alias raw to
-        # litellm.aresponses fails in get_llm_provider. A genuinely different
+        # embrouter.aresponses fails in get_llm_provider. A genuinely different
         # provider-prefixed per-frame model is still honored.
         requested_model: Final[str | None] = _optional_str(call_kwargs.pop("model", None))
         model: Final[str] = (

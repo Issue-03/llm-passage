@@ -4,7 +4,7 @@ from typing import Final, Literal
 
 import httpx
 
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
 
 HF_HUB_URL: Final = "https://huggingface.co"
 

@@ -14,12 +14,12 @@ from typing import TYPE_CHECKING, Final
 
 from pydantic import ValidationError
 
-from litellm._logging import verbose_router_logger
-from litellm.router import CustomRoutingStrategyBase
-from litellm.types.lar1 import LAR1Metadata, LAR1Time
+from embrouter._logging import verbose_router_logger
+from embrouter.router import CustomRoutingStrategyBase
+from embrouter.types.lar1 import LAR1Metadata, LAR1Time
 
 if TYPE_CHECKING:
-    from litellm.router import Router
+    from embrouter.router import Router
 
 DEFAULT_THRESHOLDS: Final[dict[str, float]] = {"low": 0.3, "medium": 0.5, "high": 0.7}
 

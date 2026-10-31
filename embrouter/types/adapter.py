@@ -1,6 +1,6 @@
 from typing_extensions import TypedDict
 
-from litellm.integrations.custom_logger import CustomLogger
+from embrouter.integrations.custom_logger import CustomLogger
 
 
 class AdapterItem(TypedDict):

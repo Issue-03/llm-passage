@@ -9,7 +9,7 @@ from typing import Final, TypedDict
 
 from typing_extensions import NotRequired, ReadOnly
 
-from litellm.llms.custom_httpx.http_handler import HTTPHandler
+from embrouter.llms.custom_httpx.http_handler import HTTPHandler
 
 
 class BitBucketSrcEntry(TypedDict):

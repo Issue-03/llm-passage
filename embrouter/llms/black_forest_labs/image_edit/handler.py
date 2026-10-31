@@ -14,17 +14,17 @@ from typing import Final, Protocol
 import httpx
 from typing_extensions import ReadOnly, TypedDict
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.custom_httpx.http_handler import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.custom_httpx.http_handler import (
     AsyncHTTPHandler,
     HTTPHandler,
     _get_httpx_client,
     get_async_httpx_client,
 )
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import FileTypes, ImageResponse
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import FileTypes, ImageResponse
 
 from ..common_utils import (
     DEFAULT_MAX_POLLING_TIME,
@@ -88,8 +88,8 @@ class BlackForestLabsImageEdit:
         image: FileTypes | list[FileTypes],
         prompt: str | None,
         image_edit_optional_request_params: dict,
-        litellm_params: GenericLiteLLMParams | dict,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams | dict,
+        logging_obj: EmbRouterLoggingObj,
         timeout: float | httpx.Timeout | None,
         extra_headers: Mapping[str, object] | None = None,
         client: HTTPHandler | AsyncHTTPHandler | None = None,
@@ -103,7 +103,7 @@ class BlackForestLabsImageEdit:
             image: The image(s) to edit
             prompt: The edit instruction
             image_edit_optional_request_params: Optional parameters for the request
-            litellm_params: LiteLLM parameters including api_key, api_base
+            embrouter_params: EmbRouter parameters including api_key, api_base
             logging_obj: Logging object
             timeout: Request timeout
             extra_headers: Additional headers
@@ -113,15 +113,15 @@ class BlackForestLabsImageEdit:
         Returns:
             ImageResponse or coroutine if aimage_edit=True
         """
-        # Handle litellm_params as dict or object
-        if isinstance(litellm_params, dict):
-            api_key = litellm_params.get("api_key")
-            api_base = litellm_params.get("api_base")
-            litellm_params_dict = litellm_params
+        # Handle embrouter_params as dict or object
+        if isinstance(embrouter_params, dict):
+            api_key = embrouter_params.get("api_key")
+            api_base = embrouter_params.get("api_base")
+            embrouter_params_dict = embrouter_params
         else:
-            api_key = litellm_params.api_key
-            api_base = litellm_params.api_base
-            litellm_params_dict = dict(litellm_params)
+            api_key = embrouter_params.api_key
+            api_base = embrouter_params.api_base
+            embrouter_params_dict = dict(embrouter_params)
 
         if aimage_edit:
             return self.async_image_edit(
@@ -129,7 +129,7 @@ class BlackForestLabsImageEdit:
                 image=image,
                 prompt=prompt,
                 image_edit_optional_request_params=image_edit_optional_request_params,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logging_obj=logging_obj,
                 timeout=timeout,
                 extra_headers=extra_headers,
@@ -155,7 +155,7 @@ class BlackForestLabsImageEdit:
         complete_url: Final = self.config.get_complete_url(
             model=model,
             api_base=api_base,
-            litellm_params=litellm_params_dict,
+            embrouter_params=embrouter_params_dict,
         )
 
         # Transform request
@@ -171,7 +171,7 @@ class BlackForestLabsImageEdit:
             prompt=prompt or "",
             image=image_input,
             image_edit_optional_request_params=image_edit_optional_request_params,
-            litellm_params=litellm_params_dict,
+            embrouter_params=embrouter_params_dict,
             headers=headers,
         )
 
@@ -220,8 +220,8 @@ class BlackForestLabsImageEdit:
         image: FileTypes | list[FileTypes],
         prompt: str | None,
         image_edit_optional_request_params: dict,
-        litellm_params: GenericLiteLLMParams | dict,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: GenericEmbRouterParams | dict,
+        logging_obj: EmbRouterLoggingObj,
         timeout: float | httpx.Timeout | None,
         extra_headers: Mapping[str, object] | None = None,
         client: AsyncHTTPHandler | None = None,
@@ -229,19 +229,19 @@ class BlackForestLabsImageEdit:
         """
         Async version of image edit.
         """
-        # Handle litellm_params as dict or object
-        if isinstance(litellm_params, dict):
-            api_key = litellm_params.get("api_key")
-            api_base = litellm_params.get("api_base")
-            litellm_params_dict = litellm_params
+        # Handle embrouter_params as dict or object
+        if isinstance(embrouter_params, dict):
+            api_key = embrouter_params.get("api_key")
+            api_base = embrouter_params.get("api_base")
+            embrouter_params_dict = embrouter_params
         else:
-            api_key = litellm_params.api_key
-            api_base = litellm_params.api_base
-            litellm_params_dict = dict(litellm_params)
+            api_key = embrouter_params.api_key
+            api_base = embrouter_params.api_base
+            embrouter_params_dict = dict(embrouter_params)
 
         if client is None:
             async_client = get_async_httpx_client(
-                llm_provider=litellm.LlmProviders.BLACK_FOREST_LABS,
+                llm_provider=embrouter.LlmProviders.BLACK_FOREST_LABS,
             )
         else:
             async_client = client
@@ -259,7 +259,7 @@ class BlackForestLabsImageEdit:
         complete_url: Final = self.config.get_complete_url(
             model=model,
             api_base=api_base,
-            litellm_params=litellm_params_dict,
+            embrouter_params=embrouter_params_dict,
         )
 
         # Transform request
@@ -274,7 +274,7 @@ class BlackForestLabsImageEdit:
             prompt=prompt or "",
             image=image_input,
             image_edit_optional_request_params=image_edit_optional_request_params,
-            litellm_params=litellm_params_dict,
+            embrouter_params=embrouter_params_dict,
             headers=headers,
         )
 

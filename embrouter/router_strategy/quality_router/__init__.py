@@ -3,7 +3,7 @@ Quality-tier auto-router.
 
 Re-uses the ComplexityRouter's classification to decide a request's complexity,
 then maps that complexity to an admin-configured quality tier and resolves the
-target model from each candidate's `model_info.litellm_routing_preferences`.
+target model from each candidate's `model_info.embrouter_routing_preferences`.
 """
 
 from .config import (

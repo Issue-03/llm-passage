@@ -22,7 +22,7 @@ Setup:
        CUSTOM_JWT: set AGENTCORE_GATEWAY_TOKEN (or pass api_key)
 
 Usage:
-    response = litellm.search(
+    response = embrouter.search(
         query="latest AI developments",
         search_provider="agentcore",
         max_results=5,
@@ -38,15 +38,15 @@ from typing import Final
 
 import httpx
 
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.base_llm.search.transformation import (
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.base_llm.search.transformation import (
     BaseSearchConfig,
     SearchResponse,
     SearchResult,
 )
-from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM
-from litellm.llms.bedrock.common_utils import BedrockError
-from litellm.secret_managers.main import get_secret_str
+from embrouter.llms.bedrock.base_aws_llm import BaseAWSLLM
+from embrouter.llms.bedrock.common_utils import BedrockError
+from embrouter.secret_managers.main import get_secret_str
 
 # AgentCore web-search rejects queries longer than 200 characters
 AGENTCORE_MAX_QUERY_LENGTH: Final = 200
@@ -360,11 +360,11 @@ class AgentCoreSearchConfig(BaseSearchConfig, BaseAWSLLM):
     def transform_search_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         **kwargs: object,  # kwargs-ok: BaseSearchConfig.transform_search_response forwards provider-specific extras
     ) -> SearchResponse:
         """
-        Transform an MCP tools/call response to LiteLLM unified SearchResponse.
+        Transform an MCP tools/call response to EmbRouter unified SearchResponse.
 
         The gateway returns JSON-RPC (as plain JSON or a single-message SSE
         stream) whose result.content[] text blocks contain a JSON list of

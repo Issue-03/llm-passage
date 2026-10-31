@@ -8,36 +8,36 @@ import pytest
 from fastapi import Request, Response
 from fastapi.testclient import TestClient
 
-from litellm.passthrough.utils import CommonUtils
+from embrouter.passthrough.utils import CommonUtils
 
 
 from unittest.mock import Mock
 
-from litellm.proxy.pass_through_endpoints.common_utils import get_litellm_virtual_key
+from embrouter.proxy.pass_through_endpoints.common_utils import get_embrouter_virtual_key
 
 
 @pytest.mark.asyncio
-async def test_get_litellm_virtual_key():
+async def test_get_embrouter_virtual_key():
     """
-    Test that the get_litellm_virtual_key function correctly handles the API key authentication
+    Test that the get_embrouter_virtual_key function correctly handles the API key authentication
     """
-    # Test with x-litellm-api-key
+    # Test with x-embrouter-api-key
     mock_request = Mock()
-    mock_request.headers = {"x-litellm-api-key": "test-key-123"}
-    result = get_litellm_virtual_key(mock_request)
+    mock_request.headers = {"x-embrouter-api-key": "test-key-123"}
+    result = get_embrouter_virtual_key(mock_request)
     assert result == "Bearer test-key-123"
 
     # Test with Authorization header
     mock_request.headers = {"Authorization": "Bearer auth-key-456"}
-    result = get_litellm_virtual_key(mock_request)
+    result = get_embrouter_virtual_key(mock_request)
     assert result == "Bearer auth-key-456"
 
-    # Test with both headers (x-litellm-api-key should take precedence)
+    # Test with both headers (x-embrouter-api-key should take precedence)
     mock_request.headers = {
-        "x-litellm-api-key": "test-key-123",
+        "x-embrouter-api-key": "test-key-123",
         "Authorization": "Bearer auth-key-456",
     }
-    result = get_litellm_virtual_key(mock_request)
+    result = get_embrouter_virtual_key(mock_request)
     assert result == "Bearer test-key-123"
 
 

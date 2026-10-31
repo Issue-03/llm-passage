@@ -11,8 +11,8 @@ import respx
 from httpx import Response
 
 
-import litellm
-from litellm import atext_completion, text_completion
+import embrouter
+from embrouter import atext_completion, text_completion
 
 
 @pytest.fixture(autouse=True)
@@ -78,7 +78,7 @@ def test_completion_forwards_extra_headers_to_provider(mock_completions_endpoint
 async def test_acompletion_forwards_client_headers_to_provider(
     mock_completions_endpoint, monkeypatch
 ):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
     await atext_completion(
         model="gpt-3.5-turbo-instruct",
         prompt="hello",

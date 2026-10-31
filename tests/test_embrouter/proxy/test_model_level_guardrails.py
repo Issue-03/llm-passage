@@ -1,7 +1,7 @@
 """
 Unit tests for model-level guardrails in post_call paths.
 
-Tests verify that guardrails configured via litellm_params.guardrails on a
+Tests verify that guardrails configured via embrouter_params.guardrails on a
 deployment are merged into request metadata and trigger execution for both
 streaming and non-streaming post_call hooks.
 """
@@ -14,7 +14,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..")))
 
-from litellm.proxy.utils import (
+from embrouter.proxy.utils import (
     _check_and_merge_model_level_guardrails,
     _merge_guardrails_with_existing,
 )
@@ -35,7 +35,7 @@ class TestCheckAndMergeModelLevelGuardrails:
         }
         mock_router = MagicMock()
         mock_deployment = MagicMock()
-        mock_deployment.litellm_params.get.return_value = ["openai-moderation"]
+        mock_deployment.embrouter_params.get.return_value = ["openai-moderation"]
         mock_router.get_deployment.return_value = mock_deployment
 
         result = _check_and_merge_model_level_guardrails(data=data, llm_router=mock_router)
@@ -54,7 +54,7 @@ class TestCheckAndMergeModelLevelGuardrails:
         }
         mock_router = MagicMock()
         mock_deployment = MagicMock()
-        mock_deployment.litellm_params.get.return_value = ["model-guardrail"]
+        mock_deployment.embrouter_params.get.return_value = ["model-guardrail"]
         mock_router.get_deployment.return_value = mock_deployment
 
         result = _check_and_merge_model_level_guardrails(data=data, llm_router=mock_router)
@@ -73,7 +73,7 @@ class TestCheckAndMergeModelLevelGuardrails:
         }
         mock_router = MagicMock()
         mock_deployment = MagicMock()
-        mock_deployment.litellm_params.get.return_value = ["openai-moderation"]
+        mock_deployment.embrouter_params.get.return_value = ["openai-moderation"]
         mock_router.get_deployment.return_value = mock_deployment
 
         result = _check_and_merge_model_level_guardrails(data=data, llm_router=mock_router)
@@ -106,7 +106,7 @@ class TestCheckAndMergeModelLevelGuardrails:
         }
         mock_router = MagicMock()
         mock_deployment = MagicMock()
-        mock_deployment.litellm_params.get.return_value = None
+        mock_deployment.embrouter_params.get.return_value = None
         mock_router.get_deployment.return_value = mock_deployment
 
         result = _check_and_merge_model_level_guardrails(data=data, llm_router=mock_router)
@@ -137,7 +137,7 @@ class TestCheckAndMergeModelLevelGuardrails:
         }
         mock_router = MagicMock()
         mock_deployment = MagicMock()
-        mock_deployment.litellm_params.get.return_value = ["new-guardrail"]
+        mock_deployment.embrouter_params.get.return_value = ["new-guardrail"]
         mock_router.get_deployment.return_value = mock_deployment
 
         result = _check_and_merge_model_level_guardrails(data=data, llm_router=mock_router)
@@ -157,17 +157,17 @@ class TestCheckAndMergeModelLevelGuardrails:
 @pytest.mark.asyncio
 async def test_pre_call_hook_runs_once_with_model_level_guardrails():
     """
-    A guardrail attached at the model level (litellm_params.guardrails) is
+    A guardrail attached at the model level (embrouter_params.guardrails) is
     spread into the top-level request kwargs by the router. The proxy pre-call
     loop (async_pre_call_hook) and the deployment-level hook
     (async_pre_call_deployment_hook) must together invoke async_pre_call_hook
     exactly once, not twice.
     """
-    from litellm.caching.caching import DualCache
-    from litellm.integrations.custom_guardrail import CustomGuardrail
-    from litellm.proxy._types import CallTypes, UserAPIKeyAuth
-    from litellm.proxy.utils import ProxyLogging
-    from litellm.types.guardrails import GuardrailEventHooks
+    from embrouter.caching.caching import DualCache
+    from embrouter.integrations.custom_guardrail import CustomGuardrail
+    from embrouter.proxy._types import CallTypes, UserAPIKeyAuth
+    from embrouter.proxy.utils import ProxyLogging
+    from embrouter.types.guardrails import GuardrailEventHooks
 
     class CountingGuardrail(CustomGuardrail):
         def __init__(self):
@@ -184,7 +184,7 @@ async def test_pre_call_hook_runs_once_with_model_level_guardrails():
 
     guardrail = CountingGuardrail()
 
-    with patch("litellm.callbacks", [guardrail]):
+    with patch("embrouter.callbacks", [guardrail]):
         ProxyLogging._callback_capabilities_cache.clear()
         proxy_logging = ProxyLogging(user_api_key_cache=DualCache())
         user_api_key_dict = UserAPIKeyAuth(api_key="test-key")
@@ -203,7 +203,7 @@ async def test_pre_call_hook_runs_once_with_model_level_guardrails():
         )
 
         # Path B: the router spreads the deployment's model-level guardrails into
-        # the top-level kwargs, then litellm.acompletion fires the deployment hook
+        # the top-level kwargs, then embrouter.acompletion fires the deployment hook
         data["guardrails"] = ["counting-guardrail"]
         await guardrail.async_pre_call_deployment_hook(data, CallTypes.acompletion)
 
@@ -218,11 +218,11 @@ async def test_pre_call_hook_runs_once_when_hook_returns_fresh_dict():
     data that flows downstream, so the deployment hook still skips the guardrail
     even when the proxy loop swapped in a fresh dict that never carried it.
     """
-    from litellm.caching.caching import DualCache
-    from litellm.integrations.custom_guardrail import CustomGuardrail
-    from litellm.proxy._types import CallTypes, UserAPIKeyAuth
-    from litellm.proxy.utils import ProxyLogging
-    from litellm.types.guardrails import GuardrailEventHooks
+    from embrouter.caching.caching import DualCache
+    from embrouter.integrations.custom_guardrail import CustomGuardrail
+    from embrouter.proxy._types import CallTypes, UserAPIKeyAuth
+    from embrouter.proxy.utils import ProxyLogging
+    from embrouter.types.guardrails import GuardrailEventHooks
 
     class FreshDictGuardrail(CustomGuardrail):
         def __init__(self):
@@ -239,7 +239,7 @@ async def test_pre_call_hook_runs_once_when_hook_returns_fresh_dict():
 
     guardrail = FreshDictGuardrail()
 
-    with patch("litellm.callbacks", [guardrail]):
+    with patch("embrouter.callbacks", [guardrail]):
         ProxyLogging._callback_capabilities_cache.clear()
         proxy_logging = ProxyLogging(user_api_key_cache=DualCache())
         user_api_key_dict = UserAPIKeyAuth(api_key="test-key")
@@ -265,13 +265,13 @@ async def test_pre_call_hook_runs_once_when_hook_returns_fresh_dict():
 @pytest.mark.asyncio
 async def test_deployment_hook_runs_pre_call_without_proxy_loop():
     """
-    Direct-SDK usage (litellm.acompletion(..., guardrails=[...]) without the
+    Direct-SDK usage (embrouter.acompletion(..., guardrails=[...]) without the
     proxy) never runs the proxy pre-call loop, so the deployment hook is the
     only place the guardrail executes and it must still run exactly once.
     """
-    from litellm.integrations.custom_guardrail import CustomGuardrail
-    from litellm.proxy._types import CallTypes
-    from litellm.types.guardrails import GuardrailEventHooks
+    from embrouter.integrations.custom_guardrail import CustomGuardrail
+    from embrouter.proxy._types import CallTypes
+    from embrouter.types.guardrails import GuardrailEventHooks
 
     class CountingGuardrail(CustomGuardrail):
         def __init__(self):
@@ -311,12 +311,12 @@ async def test_post_call_success_hook_runs_model_level_guardrail():
     Model-level guardrails configured on a deployment should execute in
     post_call_success_hook (non-streaming path).
     """
-    from litellm.caching.caching import DualCache
-    from litellm.integrations.custom_guardrail import CustomGuardrail
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.utils import ProxyLogging
-    from litellm.types.guardrails import GuardrailEventHooks
-    from litellm.types.utils import Choices, Message, ModelResponse, Usage
+    from embrouter.caching.caching import DualCache
+    from embrouter.integrations.custom_guardrail import CustomGuardrail
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy.utils import ProxyLogging
+    from embrouter.types.guardrails import GuardrailEventHooks
+    from embrouter.types.utils import Choices, Message, ModelResponse, Usage
 
     class TestGuardrail(CustomGuardrail):
         def __init__(self):
@@ -335,12 +335,12 @@ async def test_post_call_success_hook_runs_model_level_guardrail():
     # Mock router that returns a deployment with guardrails configured
     mock_router = MagicMock()
     mock_deployment = MagicMock()
-    mock_deployment.litellm_params.get.return_value = ["test-model-guardrail"]
+    mock_deployment.embrouter_params.get.return_value = ["test-model-guardrail"]
     mock_router.get_deployment.return_value = mock_deployment
 
     with (
-        patch("litellm.callbacks", [guardrail]),
-        patch("litellm.proxy.proxy_server.llm_router", mock_router),
+        patch("embrouter.callbacks", [guardrail]),
+        patch("embrouter.proxy.proxy_server.llm_router", mock_router),
     ):
         proxy_logging = ProxyLogging(user_api_key_cache=DualCache())
 
@@ -377,12 +377,12 @@ async def test_post_call_success_hook_skips_guardrail_not_on_model():
     Guardrails NOT configured on the model should not execute when
     no other source (request body, key, team) enables them.
     """
-    from litellm.caching.caching import DualCache
-    from litellm.integrations.custom_guardrail import CustomGuardrail
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.utils import ProxyLogging
-    from litellm.types.guardrails import GuardrailEventHooks
-    from litellm.types.utils import Choices, Message, ModelResponse, Usage
+    from embrouter.caching.caching import DualCache
+    from embrouter.integrations.custom_guardrail import CustomGuardrail
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy.utils import ProxyLogging
+    from embrouter.types.guardrails import GuardrailEventHooks
+    from embrouter.types.utils import Choices, Message, ModelResponse, Usage
 
     class TestGuardrail(CustomGuardrail):
         def __init__(self):
@@ -401,12 +401,12 @@ async def test_post_call_success_hook_skips_guardrail_not_on_model():
     # Deployment has a DIFFERENT guardrail configured
     mock_router = MagicMock()
     mock_deployment = MagicMock()
-    mock_deployment.litellm_params.get.return_value = ["some-other-guardrail"]
+    mock_deployment.embrouter_params.get.return_value = ["some-other-guardrail"]
     mock_router.get_deployment.return_value = mock_deployment
 
     with (
-        patch("litellm.callbacks", [guardrail]),
-        patch("litellm.proxy.proxy_server.llm_router", mock_router),
+        patch("embrouter.callbacks", [guardrail]),
+        patch("embrouter.proxy.proxy_server.llm_router", mock_router),
     ):
         proxy_logging = ProxyLogging(user_api_key_cache=DualCache())
 
@@ -449,11 +449,11 @@ async def test_streaming_iterator_hook_runs_model_level_guardrail():
     async_post_call_streaming_iterator_hook (streaming path) — even when
     `default_on: false` and the guardrail is not in the request body.
     """
-    from litellm.caching.caching import DualCache
-    from litellm.integrations.custom_guardrail import CustomGuardrail
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.utils import ProxyLogging
-    from litellm.types.guardrails import GuardrailEventHooks
+    from embrouter.caching.caching import DualCache
+    from embrouter.integrations.custom_guardrail import CustomGuardrail
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy.utils import ProxyLogging
+    from embrouter.types.guardrails import GuardrailEventHooks
 
     class TestStreamingGuardrail(CustomGuardrail):
         def __init__(self):
@@ -472,7 +472,7 @@ async def test_streaming_iterator_hook_runs_model_level_guardrail():
 
     mock_router = MagicMock()
     mock_deployment = MagicMock()
-    mock_deployment.litellm_params.get.return_value = ["test-model-guardrail"]
+    mock_deployment.embrouter_params.get.return_value = ["test-model-guardrail"]
     mock_router.get_deployment.return_value = mock_deployment
 
     async def fake_response():
@@ -480,8 +480,8 @@ async def test_streaming_iterator_hook_runs_model_level_guardrail():
         yield "chunk-2"
 
     with (
-        patch("litellm.callbacks", [guardrail]),
-        patch("litellm.proxy.proxy_server.llm_router", mock_router),
+        patch("embrouter.callbacks", [guardrail]),
+        patch("embrouter.proxy.proxy_server.llm_router", mock_router),
     ):
         proxy_logging = ProxyLogging(user_api_key_cache=DualCache())
 
@@ -510,11 +510,11 @@ async def test_streaming_iterator_hook_skips_guardrail_not_on_model():
     body / key / team) should not execute, even after the dispatcher merge
     runs. Confirms the gate stays closed for unrelated guardrails.
     """
-    from litellm.caching.caching import DualCache
-    from litellm.integrations.custom_guardrail import CustomGuardrail
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.utils import ProxyLogging
-    from litellm.types.guardrails import GuardrailEventHooks
+    from embrouter.caching.caching import DualCache
+    from embrouter.integrations.custom_guardrail import CustomGuardrail
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy.utils import ProxyLogging
+    from embrouter.types.guardrails import GuardrailEventHooks
 
     class TestStreamingGuardrail(CustomGuardrail):
         def __init__(self):
@@ -534,15 +534,15 @@ async def test_streaming_iterator_hook_skips_guardrail_not_on_model():
     # Deployment has a DIFFERENT guardrail configured
     mock_router = MagicMock()
     mock_deployment = MagicMock()
-    mock_deployment.litellm_params.get.return_value = ["some-other-guardrail"]
+    mock_deployment.embrouter_params.get.return_value = ["some-other-guardrail"]
     mock_router.get_deployment.return_value = mock_deployment
 
     async def fake_response():
         yield "chunk-1"
 
     with (
-        patch("litellm.callbacks", [guardrail]),
-        patch("litellm.proxy.proxy_server.llm_router", mock_router),
+        patch("embrouter.callbacks", [guardrail]),
+        patch("embrouter.proxy.proxy_server.llm_router", mock_router),
     ):
         proxy_logging = ProxyLogging(user_api_key_cache=DualCache())
 
@@ -579,17 +579,17 @@ async def test_pre_call_merges_model_level_guardrails_before_pre_call_hook():
     pre_call guardrails (e.g. apply_guardrail event) never see the
     UI/DB-assigned guardrail name.
     """
-    from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+    from embrouter.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
 
     # Stub router that reports one deployment in the group with one
     # model-level guardrail. Mirrors the real proxy: at pre_call_hook time
-    # model_info has been stripped by add_litellm_data_to_request (see
+    # model_info has been stripped by add_embrouter_data_to_request (see
     # veria-ai review on PR #29654) and route_request hasn't yet populated
     # model_info.id — so the resolver has to fall back to the model alias
     # and union guardrails across all deployments in the group.
     mock_router = MagicMock()
     mock_router.get_deployment.return_value = None
-    mock_router.get_model_list.return_value = [{"litellm_params": {"guardrails": ["my-pre-call-guardrail"]}}]
+    mock_router.get_model_list.return_value = [{"embrouter_params": {"guardrails": ["my-pre-call-guardrail"]}}]
 
     processing = ProxyBaseLLMRequestProcessing(
         data={
@@ -615,7 +615,7 @@ async def test_pre_call_merges_model_level_guardrails_before_pre_call_hook():
     # Minimal stubs for the surrounding setup steps in
     # common_processing_pre_call_logic. We only care about the ordering
     # between _check_and_merge_model_level_guardrails and pre_call_hook.
-    async def passthrough_add_litellm_data(*, data, **kwargs):
+    async def passthrough_add_embrouter_data(*, data, **kwargs):
         return data
 
     proxy_config = MagicMock()
@@ -627,19 +627,19 @@ async def test_pre_call_merges_model_level_guardrails_before_pre_call_hook():
 
     with (
         patch(
-            "litellm.proxy.common_request_processing.add_litellm_data_to_request",
-            side_effect=passthrough_add_litellm_data,
+            "embrouter.proxy.common_request_processing.add_embrouter_data_to_request",
+            side_effect=passthrough_add_embrouter_data,
         ),
         patch(
-            "litellm.proxy.common_request_processing.litellm.utils.function_setup",
+            "embrouter.proxy.common_request_processing.embrouter.utils.function_setup",
             return_value=(MagicMock(), processing.data),
         ),
         patch(
-            "litellm.proxy.proxy_server.prisma_client",
+            "embrouter.proxy.proxy_server.prisma_client",
             None,
         ),
     ):
-        from litellm.proxy._types import UserAPIKeyAuth
+        from embrouter.proxy._types import UserAPIKeyAuth
 
         await processing.common_processing_pre_call_logic(
             request=MagicMock(headers={}, url=MagicMock(path="/v1/chat/completions")),

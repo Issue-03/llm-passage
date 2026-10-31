@@ -4,10 +4,10 @@ from unittest.mock import patch
 import pytest
 
 
-from litellm.llms.bedrock.chat.invoke_agent.transformation import (
+from embrouter.llms.bedrock.chat.invoke_agent.transformation import (
     AmazonInvokeAgentConfig,
 )
-from litellm.types.utils import ModelResponse
+from embrouter.types.utils import ModelResponse
 
 
 class TestAmazonInvokeAgentConfig:
@@ -86,7 +86,7 @@ class TestAmazonInvokeAgentConfig:
                 config._get_agent_id_and_alias_id(invalid_model)
 
     @patch(
-        "litellm.llms.bedrock.chat.invoke_agent.transformation.convert_content_list_to_str"
+        "embrouter.llms.bedrock.chat.invoke_agent.transformation.convert_content_list_to_str"
     )
     def test_transform_request(self, mock_convert, config, sample_messages):
         """Test transform_request method"""
@@ -94,11 +94,11 @@ class TestAmazonInvokeAgentConfig:
 
         model = "agent/TEST123/ALIAS456"
         optional_params = {}
-        litellm_params = {}
+        embrouter_params = {}
         headers = {}
 
         result = config.transform_request(
-            model, sample_messages, optional_params, litellm_params, headers
+            model, sample_messages, optional_params, embrouter_params, headers
         )
 
         expected = {
@@ -231,7 +231,7 @@ class TestAmazonInvokeAgentConfig:
         assert result.usage.total_tokens == 30
 
     @patch(
-        "litellm.llms.bedrock.chat.invoke_agent.transformation.convert_content_list_to_str"
+        "embrouter.llms.bedrock.chat.invoke_agent.transformation.convert_content_list_to_str"
     )
     @patch.object(AmazonInvokeAgentConfig, "get_runtime_endpoint")
     @patch.object(AmazonInvokeAgentConfig, "_get_aws_region_name")
@@ -247,10 +247,10 @@ class TestAmazonInvokeAgentConfig:
         api_key = None
         model = "agent/L1RT58GYRW/MFPSBCXYTW"
         optional_params = {}
-        litellm_params = {}
+        embrouter_params = {}
 
         result = config.get_complete_url(
-            api_base, api_key, model, optional_params, litellm_params
+            api_base, api_key, model, optional_params, embrouter_params
         )
 
         assert (
@@ -259,7 +259,7 @@ class TestAmazonInvokeAgentConfig:
         )
 
     @patch(
-        "litellm.llms.bedrock.chat.invoke_agent.transformation.convert_content_list_to_str"
+        "embrouter.llms.bedrock.chat.invoke_agent.transformation.convert_content_list_to_str"
     )
     @patch.object(AmazonInvokeAgentConfig, "get_runtime_endpoint")
     @patch.object(AmazonInvokeAgentConfig, "_get_aws_region_name")
@@ -278,7 +278,7 @@ class TestAmazonInvokeAgentConfig:
             api_key=None,
             model="agent/L1RT58GYRW/MFPSBCXYTW",
             optional_params={"sessionID": "../../sessions/other?x=1#frag"},
-            litellm_params={},
+            embrouter_params={},
         )
 
         assert "sessions/..%2F..%2Fsessions%2Fother%3Fx%3D1%23frag/text" in result

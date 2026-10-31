@@ -6,8 +6,8 @@ Why separate file? Make it easy to see how transformation works
 
 from typing import Final
 
-from litellm.llms.cohere.embed.transformation import CohereEmbeddingConfig
-from litellm.types.llms.bedrock import CohereEmbeddingRequest
+from embrouter.llms.cohere.embed.transformation import CohereEmbeddingConfig
+from embrouter.types.llms.bedrock import CohereEmbeddingRequest
 
 
 class BedrockCohereEmbeddingConfig:

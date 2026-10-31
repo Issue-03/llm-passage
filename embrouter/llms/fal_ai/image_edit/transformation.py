@@ -8,20 +8,20 @@ from typing import TYPE_CHECKING, Final, Protocol, runtime_checkable
 import httpx
 from httpx._types import RequestFiles
 
-from litellm.images.utils import ImageEditRequestUtils
-from litellm.llms.base_llm.image_edit.transformation import BaseImageEditConfig
-from litellm.llms.fal_ai.image_generation.gpt_image_2_transformation import (
+from embrouter.images.utils import ImageEditRequestUtils
+from embrouter.llms.base_llm.image_edit.transformation import BaseImageEditConfig
+from embrouter.llms.fal_ai.image_generation.gpt_image_2_transformation import (
     map_gpt_image_quality,
     map_gpt_image_size,
 )
-from litellm.llms.fal_ai.image_generation.transformation import fal_images_to_image_objects
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.images.main import ImageEditOptionalRequestParams
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import FileTypes, ImageResponse
+from embrouter.llms.fal_ai.image_generation.transformation import fal_images_to_image_objects
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.images.main import ImageEditOptionalRequestParams
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import FileTypes, ImageResponse
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
 
 DEFAULT_BASE_URL: Final[str] = "https://fal.run"
 EDIT_SUFFIX: Final[str] = "/edit"
@@ -108,7 +108,7 @@ class FalAIImageEditConfig(BaseImageEditConfig):
         headers: dict,
         model: str,
         api_key: str | None = None,
-        litellm_params: dict | None = None,
+        embrouter_params: dict | None = None,
         api_base: str | None = None,
     ) -> dict:
         final_api_key: Final = api_key or get_secret_str("FAL_AI_API_KEY")
@@ -123,7 +123,7 @@ class FalAIImageEditConfig(BaseImageEditConfig):
         self,
         model: str,
         api_base: str | None,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> str:
         base_url: Final = (api_base or get_secret_str("FAL_AI_API_BASE") or DEFAULT_BASE_URL).rstrip("/")
         endpoint: Final = model if model.endswith(EDIT_SUFFIX) else f"{model}{EDIT_SUFFIX}"
@@ -135,7 +135,7 @@ class FalAIImageEditConfig(BaseImageEditConfig):
         prompt: str | None,
         image: FileTypes | None,
         image_edit_optional_request_params: dict,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[dict, RequestFiles]:
         images: Final = tuple(img for img in (image if isinstance(image, list) else (image,)) if img is not None)
@@ -160,7 +160,7 @@ class FalAIImageEditConfig(BaseImageEditConfig):
         self,
         model: str,
         raw_response: httpx.Response,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
     ) -> ImageResponse:
         try:
             response_json: Final = raw_response.json()

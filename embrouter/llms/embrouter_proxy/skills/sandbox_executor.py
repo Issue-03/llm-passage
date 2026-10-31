@@ -1,5 +1,5 @@
 """
-Sandbox Executor for LiteLLM Skills
+Sandbox Executor for EmbRouter Skills
 
 Executes skill code in a sandboxed environment using llm-sandbox.
 Supports Docker, Podman, and Kubernetes backends.
@@ -11,7 +11,7 @@ from typing import Any, Final, Protocol, TypedDict
 
 from typing_extensions import ReadOnly
 
-from litellm._logging import verbose_logger
+from embrouter._logging import verbose_logger
 
 
 class _SandboxRunResult(Protocol):
@@ -152,10 +152,10 @@ class SkillsSandboxExecutor:
                         local_requirements_path: Final = f.name
                     session.copy_to_runtime(
                         local_requirements_path,
-                        "/sandbox/.litellm_requirements.txt",
+                        "/sandbox/.embrouter_requirements.txt",
                     )
                     os.unlink(local_requirements_path)
-                    requirements_filename = ".litellm_requirements.txt"
+                    requirements_filename = ".embrouter_requirements.txt"
                 elif "requirements.txt" in skill_files:
                     requirements_filename = "requirements.txt"
 

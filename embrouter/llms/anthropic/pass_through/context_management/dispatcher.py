@@ -4,17 +4,17 @@ import inspect
 from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Final, TypeAlias
 
-from litellm._logging import verbose_logger
-from litellm.litellm_core_utils.asyncify import asyncify
-from litellm.types.llms.anthropic import AppliedEdit
+from embrouter._logging import verbose_logger
+from embrouter.embrouter_core_utils.asyncify import asyncify
+from embrouter.types.llms.anthropic import AppliedEdit
 
 from .constants import CLEAR_TOOL_USES_EDIT_TYPE, COMPACT_EDIT_TYPE
 from .editors import apply_clear_tool_uses_20250919, apply_compact_20260112
 from .result import PolyfillResult
 
 if TYPE_CHECKING:
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.router import Router
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.router import Router
 
 EditorResult: TypeAlias = "PolyfillResult | tuple[list[dict[str, object]], AppliedEdit | None]"
 
@@ -39,7 +39,7 @@ def _normalize_spec(
     """Accept Anthropic-native dict form or OpenAI list form; return edits list."""
     if isinstance(spec, list):
         # Local import to avoid an import cycle at module load.
-        from litellm.llms.anthropic.chat.transformation import AnthropicConfig
+        from embrouter.llms.anthropic.chat.transformation import AnthropicConfig
 
         return _edits_from(AnthropicConfig.map_openai_context_management_to_anthropic(spec))
 
@@ -76,7 +76,7 @@ async def apply_context_management(
     tools: list[dict[str, object]] | None,
     system: str | list[dict[str, object]] | None,
     context_management_spec: dict[str, object] | list[dict[str, object]] | None,
-    litellm_metadata: dict[str, object] | None = None,
+    embrouter_metadata: dict[str, object] | None = None,
     llm_router: "Router | None" = None,
     user_api_key_auth: "UserAPIKeyAuth | None" = None,
 ) -> PolyfillResult:
@@ -117,7 +117,7 @@ async def apply_context_management(
                 tools=tools,
                 system=current_system,
                 edit_spec=edit_spec,
-                litellm_metadata=litellm_metadata,
+                embrouter_metadata=embrouter_metadata,
                 llm_router=llm_router,
                 user_api_key_auth=user_api_key_auth,
             )

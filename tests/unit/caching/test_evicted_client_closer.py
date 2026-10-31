@@ -4,7 +4,7 @@ Tests for EvictedClientCloser.
 An evicted client must stay open long enough for a request that already holds it
 to finish, and must then actually be closed, otherwise its connection pool is
 retained until a generational collection runs. A client the caller supplied is
-never closed, because litellm does not own its lifecycle.
+never closed, because embrouter does not own its lifecycle.
 """
 
 import asyncio
@@ -16,8 +16,8 @@ import httpx
 import pytest
 from redis.asyncio import ConnectionPool, Redis
 
-from litellm.caching.evicted_client_closer import EvictedClientCloser
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from embrouter.caching.evicted_client_closer import EvictedClientCloser
+from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler
 
 
 class FakeClock:
@@ -317,7 +317,7 @@ async def test_a_client_evicted_on_another_event_loop_is_left_alone():
 async def test_a_client_serving_a_request_is_not_closed_when_its_grace_window_ends():
     """The grace window on its own cannot promise that a request has finished.
 
-    ``litellm.request_timeout`` defaults to 6000 seconds and a streaming response
+    ``embrouter.request_timeout`` defaults to 6000 seconds and a streaming response
     is bounded only by how long the upstream keeps sending, so a client past its
     deadline is closed only once its own pool reports nothing in flight.
     """

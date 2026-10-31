@@ -14,24 +14,24 @@ from typing import TYPE_CHECKING, Any, Final, Optional, Union, cast
 
 import httpx
 
-from litellm._logging import verbose_logger
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+from embrouter._logging import verbose_logger
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
     convert_content_list_to_str,
 )
-from litellm.llms.base_llm.chat.transformation import BaseConfig, BaseLLMException
-from litellm.llms.langgraph.chat.sse_iterator import LangGraphSSEStreamIterator
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.utils import Choices, Message, ModelResponse, Usage
+from embrouter.llms.base_llm.chat.transformation import BaseConfig, BaseLLMException
+from embrouter.llms.langgraph.chat.sse_iterator import LangGraphSSEStreamIterator
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.utils import Choices, Message, ModelResponse, Usage
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-    from litellm.utils import CustomStreamWrapper
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+    from embrouter.utils import CustomStreamWrapper
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
     HTTPHandler = Any
     AsyncHTTPHandler = Any
     CustomStreamWrapper = Any
@@ -63,7 +63,7 @@ class LangGraphConfig(BaseConfig):
         Returns:
             Tuple of (api_base, api_key)
         """
-        from litellm.secret_managers.main import get_secret_str
+        from embrouter.secret_managers.main import get_secret_str
 
         api_base = api_base or get_secret_str("LANGGRAPH_API_BASE") or "http://localhost:2024"
 
@@ -95,7 +95,7 @@ class LangGraphConfig(BaseConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         """
@@ -184,7 +184,7 @@ class LangGraphConfig(BaseConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         """
@@ -208,7 +208,7 @@ class LangGraphConfig(BaseConfig):
         }
 
         # Add stream_mode for streaming requests
-        stream: Final = litellm_params.get("stream", False)
+        stream: Final = embrouter_params.get("stream", False)
         if stream:
             stream_mode: Final = optional_params.get("stream_mode", "messages-tuple")
             payload["stream_mode"] = stream_mode
@@ -278,7 +278,7 @@ class LangGraphConfig(BaseConfig):
         self,
         model: str,
         custom_llm_provider: str,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_base: str,
         headers: dict,
         data: dict,
@@ -287,16 +287,16 @@ class LangGraphConfig(BaseConfig):
         json_mode: bool | None = None,
         signed_json_body: bytes | None = None,
         *,
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
     ) -> CustomStreamWrapper:
         """
         Get a CustomStreamWrapper for synchronous streaming.
         """
-        from litellm.llms.custom_httpx.http_handler import (
+        from embrouter.llms.custom_httpx.http_handler import (
             HTTPHandler,
             _get_httpx_client,
         )
-        from litellm.utils import CustomStreamWrapper
+        from embrouter.utils import CustomStreamWrapper
 
         if client is None or not isinstance(client, HTTPHandler):
             client = _get_httpx_client(params={})
@@ -339,7 +339,7 @@ class LangGraphConfig(BaseConfig):
         self,
         model: str,
         custom_llm_provider: str,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_base: str,
         headers: dict,
         data: dict,
@@ -348,16 +348,16 @@ class LangGraphConfig(BaseConfig):
         json_mode: bool | None = None,
         signed_json_body: bytes | None = None,
         *,
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
     ) -> CustomStreamWrapper:
         """
         Get a CustomStreamWrapper for asynchronous streaming.
         """
-        from litellm.llms.custom_httpx.http_handler import (
+        from embrouter.llms.custom_httpx.http_handler import (
             AsyncHTTPHandler,
             get_async_httpx_client,
         )
-        from litellm.utils import CustomStreamWrapper
+        from embrouter.utils import CustomStreamWrapper
 
         if client is None or not isinstance(client, AsyncHTTPHandler):
             client = get_async_httpx_client(llm_provider=cast(Any, "langgraph"), params={})
@@ -414,17 +414,17 @@ class LangGraphConfig(BaseConfig):
         model: str,
         raw_response: httpx.Response,
         model_response: ModelResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         request_data: dict,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,
     ) -> ModelResponse:
         """
-        Transform the LangGraph response to LiteLLM ModelResponse format.
+        Transform the LangGraph response to EmbRouter ModelResponse format.
         """
         try:
             response_json: Final = raw_response.json()
@@ -444,7 +444,7 @@ class LangGraphConfig(BaseConfig):
 
             # LangGraph doesn't provide token usage, so we estimate it
             try:
-                from litellm.utils import token_counter
+                from embrouter.utils import token_counter
 
                 prompt_tokens: Final = token_counter(model="gpt-3.5-turbo", messages=messages)
                 completion_tokens = token_counter(model="gpt-3.5-turbo", text=content, count_response_tokens=True)
@@ -474,7 +474,7 @@ class LangGraphConfig(BaseConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:

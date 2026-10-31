@@ -2,26 +2,26 @@ import json
 import os
 from typing import TYPE_CHECKING, Any, Final
 
-from litellm._logging import verbose_logger
-from litellm.integrations.custom_batch_logger import CustomBatchLogger
-from litellm.integrations.gcs_bucket.gcs_bucket_mock_client import (
+from embrouter._logging import verbose_logger
+from embrouter.integrations.custom_batch_logger import CustomBatchLogger
+from embrouter.integrations.gcs_bucket.gcs_bucket_mock_client import (
     create_mock_gcs_client,
     mock_vertex_auth_methods,
     should_use_gcs_mock,
 )
-from litellm.litellm_core_utils.cloud_storage_security import (
+from embrouter.embrouter_core_utils.cloud_storage_security import (
     encode_gcs_object_name_for_url,
     split_configured_cloud_bucket_name,
 )
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.types.integrations.gcs_bucket import *
-from litellm.types.utils import StandardCallbackDynamicParams, StandardLoggingPayload
+from embrouter.types.integrations.gcs_bucket import *
+from embrouter.types.utils import StandardCallbackDynamicParams, StandardLoggingPayload
 
 if TYPE_CHECKING:
-    from litellm.llms.vertex_ai.vertex_llm_base import VertexBase
+    from embrouter.llms.vertex_ai.vertex_llm_base import VertexBase
 else:
     VertexBase = Any
 IAM_AUTH_KEY: Final = "IAM_AUTH"
@@ -48,7 +48,7 @@ class GCSBucketBase(CustomBatchLogger):
         service_account_json: str | None,
         vertex_instance: VertexBase | None = None,
     ) -> dict[str, str]:
-        from litellm import vertex_chat_completion
+        from embrouter import vertex_chat_completion
 
         if vertex_instance is None:
             vertex_instance = vertex_chat_completion
@@ -82,7 +82,7 @@ class GCSBucketBase(CustomBatchLogger):
         """
         Construct request headers for GCS API calls
         """
-        from litellm import vertex_chat_completion
+        from embrouter import vertex_chat_completion
 
         # Get project_id from environment if available, otherwise None
         # This helps support use of this library to auth to pull secrets
@@ -187,7 +187,7 @@ class GCSBucketBase(CustomBatchLogger):
         This function is used to get the Vertex instance for the GCS Bucket Logger.
         It checks if the Vertex instance is already created and cached, if not it creates a new instance and caches it.
         """
-        from litellm.llms.vertex_ai.vertex_llm_base import VertexBase
+        from embrouter.llms.vertex_ai.vertex_llm_base import VertexBase
 
         _in_memory_key: Final = self._get_in_memory_key_for_vertex_instance(credentials)
         if _in_memory_key not in self.vertex_instances:

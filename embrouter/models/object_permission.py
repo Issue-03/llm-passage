@@ -1,15 +1,15 @@
 """
 Object permission table model.
 
-Canonical definition for ``litellm_objectpermissiontable``. Re-exported from
-``litellm.proxy._types`` for backwards compatibility.
+Canonical definition for ``embrouter_objectpermissiontable``. Re-exported from
+``embrouter.proxy._types`` for backwards compatibility.
 """
 
-from litellm.types.llms.base import LiteLLMPydanticObjectBase
+from embrouter.types.llms.base import EmbRouterPydanticObjectBase
 
 
-class LiteLLM_ObjectPermissionTable(LiteLLMPydanticObjectBase):
-    """Represents a LiteLLM_ObjectPermissionTable record"""
+class EmbRouter_ObjectPermissionTable(EmbRouterPydanticObjectBase):
+    """Represents a EmbRouter_ObjectPermissionTable record"""
 
     object_permission_id: str
     mcp_servers: list[str] | None = []

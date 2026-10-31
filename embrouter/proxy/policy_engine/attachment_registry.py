@@ -10,9 +10,9 @@ from datetime import datetime, timezone
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Final, TypedDict
 
-from litellm._logging import verbose_proxy_logger
-from litellm.repositories.table_repositories import PolicyAttachmentRepository
-from litellm.types.proxy.policy_engine import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.repositories.table_repositories import PolicyAttachmentRepository
+from embrouter.types.proxy.policy_engine import (
     PolicyAttachment,
     PolicyAttachmentCreateRequest,
     PolicyAttachmentDBResponse,
@@ -22,9 +22,9 @@ from litellm.types.proxy.policy_engine import (
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from prisma.models import LiteLLM_PolicyAttachmentTable
+    from prisma.models import EmbRouter_PolicyAttachmentTable
 
-    from litellm.proxy.utils import PrismaClient
+    from embrouter.proxy.utils import PrismaClient
 
 
 class PolicyAttachmentMatch(TypedDict):
@@ -152,7 +152,7 @@ class AttachmentRegistry:
         The 'matched_via' describes which dimension caused the match.
         Attachments whose policy fails `policy_applies` are dropped before defaults are considered.
         """
-        from litellm.proxy.policy_engine.policy_matcher import PolicyMatcher
+        from embrouter.proxy.policy_engine.policy_matcher import PolicyMatcher
 
         in_scope: Final = tuple(
             attachment
@@ -189,7 +189,7 @@ class AttachmentRegistry:
 
     @staticmethod
     def _describe_scope_match(attachment: PolicyAttachment, context: PolicyMatchContext) -> str:
-        from litellm.proxy.policy_engine.policy_matcher import PolicyMatcher
+        from embrouter.proxy.policy_engine.policy_matcher import PolicyMatcher
 
         if attachment.is_global():
             return "scope:*"
@@ -333,7 +333,7 @@ class AttachmentRegistry:
             PolicyAttachmentDBResponse with the created attachment
         """
         try:
-            created_attachment: Final[LiteLLM_PolicyAttachmentTable] = await PolicyAttachmentRepository(
+            created_attachment: Final[EmbRouter_PolicyAttachmentTable] = await PolicyAttachmentRepository(
                 prisma_client
             ).table.create(
                 data={
@@ -401,7 +401,7 @@ class AttachmentRegistry:
         """
         try:
             # Get attachment before deleting
-            attachment: Final[LiteLLM_PolicyAttachmentTable | None] = await PolicyAttachmentRepository(
+            attachment: Final[EmbRouter_PolicyAttachmentTable | None] = await PolicyAttachmentRepository(
                 prisma_client
             ).table.find_unique(where={"attachment_id": attachment_id})
 
@@ -436,7 +436,7 @@ class AttachmentRegistry:
             PolicyAttachmentDBResponse if found, None otherwise
         """
         try:
-            attachment: Final[LiteLLM_PolicyAttachmentTable | None] = await PolicyAttachmentRepository(
+            attachment: Final[EmbRouter_PolicyAttachmentTable | None] = await PolicyAttachmentRepository(
                 prisma_client
             ).table.find_unique(where={"attachment_id": attachment_id})
 
@@ -476,7 +476,7 @@ class AttachmentRegistry:
             List of PolicyAttachmentDBResponse objects
         """
         try:
-            attachments: Final[Sequence[LiteLLM_PolicyAttachmentTable]] = await PolicyAttachmentRepository(
+            attachments: Final[Sequence[EmbRouter_PolicyAttachmentTable]] = await PolicyAttachmentRepository(
                 prisma_client
             ).table.find_many(
                 order={"created_at": "desc"},

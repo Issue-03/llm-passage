@@ -1,5 +1,5 @@
 -- CreateTable
-CREATE TABLE IF NOT EXISTS "LiteLLM_SkillsTable" (
+CREATE TABLE IF NOT EXISTS "EmbRouter_SkillsTable" (
     "skill_id" TEXT NOT NULL,
     "display_title" TEXT,
     "description" TEXT,
@@ -15,6 +15,6 @@ CREATE TABLE IF NOT EXISTS "LiteLLM_SkillsTable" (
     "updated_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_by" TEXT,
 
-    CONSTRAINT "LiteLLM_SkillsTable_pkey" PRIMARY KEY ("skill_id")
+    CONSTRAINT "EmbRouter_SkillsTable_pkey" PRIMARY KEY ("skill_id")
 );
 

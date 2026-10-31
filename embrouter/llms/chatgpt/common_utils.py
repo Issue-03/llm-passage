@@ -9,7 +9,7 @@ from uuid import uuid4
 
 import httpx
 
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
 
 # OAuth + API constants (derived from openai/codex)
 CHATGPT_AUTH_BASE: Final = "https://auth.openai.com"
@@ -196,11 +196,11 @@ def _terminal_user_agent() -> str:
     return "unknown"
 
 
-def _get_litellm_version() -> str:
+def _get_embrouter_version() -> str:
     try:
         from importlib.metadata import version
 
-        return version("litellm")
+        return version("embrouter")
     except Exception:
         return "0.0.0"
 
@@ -214,7 +214,7 @@ def get_chatgpt_user_agent(originator: str) -> str:
     override: Final = os.getenv("CHATGPT_USER_AGENT")
     if override:
         return _safe_header_value(override) or DEFAULT_USER_AGENT
-    version: Final = _get_litellm_version()
+    version: Final = _get_embrouter_version()
     os_type: Final = platform.system() or "Unknown"
     os_version: Final = platform.release() or "0"
     arch: Final = platform.machine() or "unknown"
@@ -250,27 +250,27 @@ def get_chatgpt_default_instructions() -> str:
     return os.getenv("CHATGPT_DEFAULT_INSTRUCTIONS") or CHATGPT_DEFAULT_INSTRUCTIONS
 
 
-def _normalize_litellm_params(litellm_params: Any | None) -> dict:
-    if litellm_params is None:
+def _normalize_embrouter_params(embrouter_params: Any | None) -> dict:
+    if embrouter_params is None:
         return {}
-    if isinstance(litellm_params, dict):
-        return litellm_params
-    if hasattr(litellm_params, "model_dump"):
+    if isinstance(embrouter_params, dict):
+        return embrouter_params
+    if hasattr(embrouter_params, "model_dump"):
         try:
-            return litellm_params.model_dump()
+            return embrouter_params.model_dump()
         except Exception:
             return {}
-    if hasattr(litellm_params, "dict"):
+    if hasattr(embrouter_params, "dict"):
         try:
-            return litellm_params.dict()
+            return embrouter_params.dict()
         except Exception:
             return {}
     return {}
 
 
-def get_chatgpt_session_id(litellm_params: object) -> str | None:
-    params: Final = _normalize_litellm_params(litellm_params)
-    for key in ("litellm_session_id", "session_id"):
+def get_chatgpt_session_id(embrouter_params: object) -> str | None:
+    params: Final = _normalize_embrouter_params(embrouter_params)
+    for key in ("embrouter_session_id", "session_id"):
         value = params.get(key)
         if value:
             return str(value)
@@ -279,12 +279,12 @@ def get_chatgpt_session_id(litellm_params: object) -> str | None:
         value = metadata.get("session_id")
         if value:
             return str(value)
-    for key in ("litellm_trace_id", "litellm_call_id"):
+    for key in ("embrouter_trace_id", "embrouter_call_id"):
         value = params.get(key)
         if value:
             return str(value)
     return None
 
 
-def ensure_chatgpt_session_id(litellm_params: object) -> str:
-    return get_chatgpt_session_id(litellm_params) or str(uuid4())
+def ensure_chatgpt_session_id(embrouter_params: object) -> str:
+    return get_chatgpt_session_id(embrouter_params) or str(uuid4())

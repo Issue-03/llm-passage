@@ -16,36 +16,36 @@ from typing import Any, Final, Literal
 
 import httpx
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm._uuid import uuid
-from litellm.constants import REDACTED_BY_LITELLM, REDACTED_BY_LITELM_STRING
-from litellm.integrations.custom_batch_logger import CustomBatchLogger
-from litellm.integrations.datadog.datadog_handler import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter._uuid import uuid
+from embrouter.constants import REDACTED_BY_EMBROUTER, REDACTED_BY_LITELM_STRING
+from embrouter.integrations.custom_batch_logger import CustomBatchLogger
+from embrouter.integrations.datadog.datadog_handler import (
     get_datadog_base_url_from_env,
     get_datadog_service,
     get_datadog_tags,
     normalize_datadog_tag_value,
 )
-from litellm.integrations.datadog.datadog_mock_client import (
+from embrouter.integrations.datadog.datadog_mock_client import (
     create_mock_datadog_client,
     should_use_datadog_mock,
 )
-from litellm.litellm_core_utils.dd_tracing import tracer
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+from embrouter.embrouter_core_utils.dd_tracing import tracer
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
     convert_content_list_to_str,
     handle_any_messages_to_chat_completion_str_messages_conversion,
 )
-from litellm.litellm_core_utils.redact_messages import should_redact_message_logging
-from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
-from litellm.litellm_core_utils.safe_json_loads import safe_json_loads
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.embrouter_core_utils.redact_messages import should_redact_message_logging
+from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps
+from embrouter.embrouter_core_utils.safe_json_loads import safe_json_loads
+from embrouter.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.proxy.spend_tracking.savings import extract_cache_creation_tokens, extract_cache_read_tokens
-from litellm.types.integrations.datadog_llm_obs import *
-from litellm.types.utils import (
+from embrouter.proxy.spend_tracking.savings import extract_cache_creation_tokens, extract_cache_read_tokens
+from embrouter.types.integrations.datadog_llm_obs import *
+from embrouter.types.utils import (
     AUDIT_GUARDRAIL_FIELDS,
     PROMPT_CARRYING_GUARDRAIL_FIELDS,
     PROMPT_QUOTING_ROUTING_DECISION_FIELDS,
@@ -172,7 +172,7 @@ def _safe_identifier(value: object) -> str:
 def _redact_tool_call(tool_call: ToolCall) -> ToolCall:
     return ToolCall(
         name=_safe_identifier(tool_call.get("name")),
-        arguments=REDACTED_BY_LITELLM,
+        arguments=REDACTED_BY_EMBROUTER,
         tool_id=_safe_identifier(tool_call.get("tool_id")),
         type=_safe_identifier(tool_call.get("type")),
     )
@@ -181,7 +181,7 @@ def _redact_tool_call(tool_call: ToolCall) -> ToolCall:
 def _redact_tool_result(tool_result: ToolResult) -> ToolResult:
     return ToolResult(
         name=_safe_identifier(tool_result.get("name")),
-        result=REDACTED_BY_LITELLM,
+        result=REDACTED_BY_EMBROUTER,
         tool_id=_safe_identifier(tool_result.get("tool_id")),
         type=_safe_identifier(tool_result.get("type")),
     )
@@ -193,7 +193,7 @@ def _redact_message(message: Message) -> Message:
     tool_results: Final = message.get("tool_results", ())
     redacted: Final[Message] = {
         "role": role if isinstance(role, str) and role in _SAFE_REDACTED_MESSAGE_ROLES else "",
-        "content": REDACTED_BY_LITELLM,
+        "content": REDACTED_BY_EMBROUTER,
         **({"tool_calls": tuple(_redact_tool_call(call) for call in tool_calls)} if tool_calls else {}),
         **({"tool_results": tuple(_redact_tool_result(result) for result in tool_results)} if tool_results else {}),
     }
@@ -210,7 +210,7 @@ def _tool_output_tokens(messages: Sequence[Message], model: str) -> float | None
     )
     if not results:
         return None
-    return float(sum(litellm.token_counter(model=model, text=result) for result in results))
+    return float(sum(embrouter.token_counter(model=model, text=result) for result in results))
 
 
 def _cost_dimension_tags(
@@ -449,9 +449,9 @@ class DataDogLLMObsLogger(CustomBatchLogger):
                 verbose_logger.debug("[DATADOG MOCK] DataDogLLMObs logger initialized in mock mode")
 
             # Configure DataDog endpoint (Agent or Direct API)
-            # Use LITELLM_DD_AGENT_HOST to avoid conflicts with ddtrace's DD_AGENT_HOST
+            # Use EMBROUTER_DD_AGENT_HOST to avoid conflicts with ddtrace's DD_AGENT_HOST
             # Check for agent mode FIRST - agent mode doesn't require DD_API_KEY or DD_SITE
-            dd_agent_host: Final = os.getenv("LITELLM_DD_AGENT_HOST")
+            dd_agent_host: Final = os.getenv("EMBROUTER_DD_AGENT_HOST")
 
             self.async_client = get_async_httpx_client(llm_provider=httpxSpecialProvider.LoggingCallback)
             self.DD_API_KEY = os.getenv("DD_API_KEY")
@@ -476,7 +476,7 @@ class DataDogLLMObsLogger(CustomBatchLogger):
             self.log_queue: list[LLMObsPayload] = []
 
             #########################################################
-            # Handle datadog_llm_observability_params set as litellm.datadog_llm_observability_params
+            # Handle datadog_llm_observability_params set as embrouter.datadog_llm_observability_params
             #########################################################
             dict_datadog_llm_obs_params: Final = self._get_datadog_llm_obs_params()
             kwargs.update(dict_datadog_llm_obs_params)
@@ -493,7 +493,7 @@ class DataDogLLMObsLogger(CustomBatchLogger):
         # Reference: https://docs.datadoghq.com/llm_observability/setup/sdk/#agent-setup
 
         # Use specific port for LLM Obs (Trace Agent) to avoid conflict with Logs Agent (10518)
-        agent_port: Final = os.getenv("LITELLM_DD_LLM_OBS_PORT", "8126")
+        agent_port: Final = os.getenv("EMBROUTER_DD_LLM_OBS_PORT", "8126")
         self.DD_SITE = "localhost"  # Not used for URL construction in agent mode
         self.intake_url = f"http://{dd_agent_host}:{agent_port}/api/intake/llm-obs/v1/trace/spans"
         verbose_logger.debug("DataDogLLMObs: Using DD Agent at %s", self.intake_url)
@@ -513,18 +513,18 @@ class DataDogLLMObsLogger(CustomBatchLogger):
 
     def _get_datadog_llm_obs_params(self) -> dict:
         """
-        Get the datadog_llm_observability_params from litellm.datadog_llm_observability_params
+        Get the datadog_llm_observability_params from embrouter.datadog_llm_observability_params
 
         These are params specific to initializing the DataDogLLMObsLogger e.g. turn_off_message_logging
         """
         dict_datadog_llm_obs_params: dict = {}
-        if litellm.datadog_llm_observability_params is not None:
-            if isinstance(litellm.datadog_llm_observability_params, DatadogLLMObsInitParams):
-                dict_datadog_llm_obs_params = litellm.datadog_llm_observability_params.model_dump(exclude_unset=True)
-            elif isinstance(litellm.datadog_llm_observability_params, dict):
+        if embrouter.datadog_llm_observability_params is not None:
+            if isinstance(embrouter.datadog_llm_observability_params, DatadogLLMObsInitParams):
+                dict_datadog_llm_obs_params = embrouter.datadog_llm_observability_params.model_dump(exclude_unset=True)
+            elif isinstance(embrouter.datadog_llm_observability_params, dict):
                 # only allow params that are of DatadogLLMObsInitParams
                 dict_datadog_llm_obs_params = DatadogLLMObsInitParams(
-                    **litellm.datadog_llm_observability_params
+                    **embrouter.datadog_llm_observability_params
                 ).model_dump(exclude_unset=True)
         return dict_datadog_llm_obs_params
 
@@ -575,7 +575,7 @@ class DataDogLLMObsLogger(CustomBatchLogger):
             }
 
             # serialize datetime objects - for budget reset time in spend metrics
-            from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
+            from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps
 
             try:
                 verbose_logger.debug("payload %s", safe_dumps(payload))
@@ -614,7 +614,7 @@ class DataDogLLMObsLogger(CustomBatchLogger):
         if standard_logging_payload is None:
             raise Exception("DataDogLLMObs: standard_logging_object is not set")
 
-        raw_metadata: Final = kwargs.get("litellm_params", {}).get("metadata", {})
+        raw_metadata: Final = kwargs.get("embrouter_params", {}).get("metadata", {})
         metadata: Final = raw_metadata if isinstance(raw_metadata, dict) else {}
         redact_payload: Final = self._payload_logging_is_off(kwargs)
 
@@ -665,7 +665,7 @@ class DataDogLLMObsLogger(CustomBatchLogger):
             parent_id=metadata_parent_id if metadata_parent_id else "undefined",
             trace_id=standard_logging_payload.get("trace_id", str(uuid.uuid4())),
             span_id=metadata.get("span_id", str(uuid.uuid4())),
-            name=metadata.get("name", "litellm_llm_call"),
+            name=metadata.get("name", "embrouter_llm_call"),
             meta=meta,
             start_ns=int(start_time.timestamp() * 1e9),
             duration=int((end_time - start_time).total_seconds() * 1e9),
@@ -735,7 +735,7 @@ class DataDogLLMObsLogger(CustomBatchLogger):
 
         Cache counts resolve through the same owners the savings dashboard uses, so every provider
         spelling is covered, and `non_cached_input_tokens` subtracts BOTH cache categories because
-        litellm's normalized prompt count includes both (the invariant the cost calculator's custom
+        embrouter's normalized prompt count includes both (the invariant the cost calculator's custom
         pricing helper documents). A zero residual on a fully cached request is real data and is
         emitted; a zero read or write count is absence and is not.
         """
@@ -843,7 +843,7 @@ class DataDogLLMObsLogger(CustomBatchLogger):
         self, call_type: str | None, parent_id: str | None = None
     ) -> Literal["llm", "tool", "task", "embedding", "retrieval"]:
         """
-        Map liteLLM call_type to appropriate DataDog LLM Observability span kind.
+        Map embRouter call_type to appropriate DataDog LLM Observability span kind.
 
         Available DataDog span kinds: "llm", "tool", "task", "embedding", "retrieval"
         see: https://docs.datadoghq.com/ja/llm_observability/terms/
@@ -950,7 +950,7 @@ class DataDogLLMObsLogger(CustomBatchLogger):
         redact_prompt_text: bool = False,
     ) -> dict[str, object]:
         """
-        Fields to track in DD LLM Observability metadata from litellm standard logging payload
+        Fields to track in DD LLM Observability metadata from embrouter standard logging payload
         """
         raw_metadata: Final = _metadata_of(standard_logging_payload)
         standard_logging_metadata: Final = (
@@ -992,11 +992,11 @@ class DataDogLLMObsLogger(CustomBatchLogger):
         if time_to_first_token_seconds > 0:
             latency_metrics["time_to_first_token_ms"] = time_to_first_token_seconds * 1000
 
-        # LiteLLM overhead time
+        # EmbRouter overhead time
         hidden_params: Final = standard_logging_payload.get("hidden_params", {})
-        litellm_overhead_ms: Final = hidden_params.get("litellm_overhead_time_ms")
-        if litellm_overhead_ms is not None:
-            latency_metrics["litellm_overhead_time_ms"] = litellm_overhead_ms
+        embrouter_overhead_ms: Final = hidden_params.get("embrouter_overhead_time_ms")
+        if embrouter_overhead_ms is not None:
+            latency_metrics["embrouter_overhead_time_ms"] = embrouter_overhead_ms
 
         # Guardrail overhead latency
         guardrail_info: Final = _guardrail_entries(standard_logging_payload.get("guardrail_information"))

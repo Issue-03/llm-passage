@@ -1,5 +1,5 @@
 """
-Semantic scoring via litellm.embedding().
+Semantic scoring via embrouter.embedding().
 
 Computes cosine similarity between the query embedding and each message embedding.
 """
@@ -8,7 +8,7 @@ import math
 from collections.abc import Mapping
 from typing import Any, Final
 
-from litellm.caching.dual_cache import DualCache
+from embrouter.caching.dual_cache import DualCache
 
 
 def _extract_content(message: dict) -> str:
@@ -61,12 +61,12 @@ def embedding_score_messages(
         model: The embedding model to use (e.g., "text-embedding-3-small").
         cache: Optional DualCache for cross-turn embedding caching.
         embedding_model_params: Optional additional kwargs forwarded to
-            ``litellm.embedding()``.
+            ``embrouter.embedding()``.
 
     Returns:
         List of float scores (cosine similarity), one per message.
     """
-    import litellm
+    import embrouter
 
     texts: Final = [_truncate_text(query)]
     for msg in messages:
@@ -83,7 +83,7 @@ def embedding_score_messages(
     if embedding_model_params:
         kwargs = {**kwargs, **embedding_model_params}
 
-    response: Final = litellm.embedding(**kwargs)
+    response: Final = embrouter.embedding(**kwargs)
 
     # Extract embedding vectors
     embeddings: Final = [item["embedding"] for item in response.data]

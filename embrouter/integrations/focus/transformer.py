@@ -41,7 +41,7 @@ def _build_tags_expr(available_keys: list[str]) -> pl.Expr:
 
 
 class FocusTransformer:
-    """Transforms LiteLLM DB rows into Focus-compatible schema."""
+    """Transforms EmbRouter DB rows into Focus-compatible schema."""
 
     schema = FOCUS_NORMALIZED_SCHEMA
 

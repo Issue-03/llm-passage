@@ -10,13 +10,13 @@ from typing import Final, cast
 
 import httpx
 
-from litellm.llms.base_llm.chat.transformation import LiteLLMLoggingObj
-from litellm.llms.base_llm.rerank.transformation import BaseRerankConfig
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.watsonx import (
+from embrouter.llms.base_llm.chat.transformation import EmbRouterLoggingObj
+from embrouter.llms.base_llm.rerank.transformation import BaseRerankConfig
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.watsonx import (
     WatsonXAIEndpoint,
 )
-from litellm.types.rerank import (
+from embrouter.types.rerank import (
     RerankResponse,
     RerankResponseMeta,
     RerankTokens,
@@ -61,7 +61,7 @@ class IBMWatsonXRerankConfig(IBMWatsonXMixin, BaseRerankConfig):
         model: str,
         api_key: str | None = None,
         optional_params: dict | None = None,
-        litellm_params: Mapping[str, object] | None = None,
+        embrouter_params: Mapping[str, object] | None = None,
     ) -> dict:
         optional_params = optional_params or {}
 
@@ -135,7 +135,7 @@ class IBMWatsonXRerankConfig(IBMWatsonXMixin, BaseRerankConfig):
         model: str,
         optional_rerank_params: dict,
         headers: dict,
-        litellm_params: dict | None = None,
+        embrouter_params: dict | None = None,
     ) -> dict:
         """
         Transform request to IBM watsonx.ai rerank format
@@ -153,14 +153,14 @@ class IBMWatsonXRerankConfig(IBMWatsonXMixin, BaseRerankConfig):
         model: str,
         raw_response: httpx.Response,
         model_response: RerankResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_key: str | None = None,
         request_data: dict = {},
         optional_params: dict = {},
-        litellm_params: dict = {},
+        embrouter_params: dict = {},
     ) -> RerankResponse:
         """
-        Transform IBM watsonx.ai rerank response to LiteLLM RerankResponse format
+        Transform IBM watsonx.ai rerank response to EmbRouter RerankResponse format
         """
         try:
             raw_response_json: Final = raw_response.json()

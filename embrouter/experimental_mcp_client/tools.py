@@ -11,14 +11,14 @@ from openai.types.chat import ChatCompletionToolParam
 from openai.types.responses.function_tool_param import FunctionToolParam
 from openai.types.shared_params.function_definition import FunctionDefinition
 
-from litellm._logging import verbose_logger
-from litellm.constants import (
+from embrouter._logging import verbose_logger
+from embrouter.constants import (
     MCP_CLIENT_TIMEOUT,
     MCP_TOOL_LISTING_MAX_PAGES,
     MCP_TOOL_LISTING_TIMEOUT,
 )
-from litellm.types.llms.anthropic import AnthropicMessagesTool
-from litellm.types.utils import ChatCompletionMessageToolCall
+from embrouter.types.llms.anthropic import AnthropicMessagesTool
+from embrouter.types.utils import ChatCompletionMessageToolCall
 
 
 ########################################################
@@ -86,7 +86,7 @@ def transform_mcp_tool_to_openai_responses_api_tool(
 
 def transform_mcp_tool_to_anthropic_tool(mcp_tool: MCPTool) -> AnthropicMessagesTool:
     """Convert an MCP tool to an Anthropic Messages API tool."""
-    from litellm.litellm_core_utils.prompt_templates.common_utils import (
+    from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
         sanitize_input_schema_for_anthropic,
     )
 

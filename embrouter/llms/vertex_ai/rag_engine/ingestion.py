@@ -2,11 +2,11 @@
 Vertex AI RAG Engine Ingestion implementation.
 
 Uses:
-- litellm.files.acreate_file for uploading files to GCS
+- embrouter.files.acreate_file for uploading files to GCS
 - Vertex AI RAG Engine REST API for importing files into corpus (via httpx)
 
 Key differences from OpenAI:
-- Files must be uploaded to GCS first (via litellm.files.acreate_file)
+- Files must be uploaded to GCS first (via embrouter.files.acreate_file)
 - Embedding is handled internally using text-embedding-005 by default
 - Chunking configured via unified chunking_strategy in ingest_options
 """
@@ -16,14 +16,14 @@ from __future__ import annotations
 import os
 from typing import TYPE_CHECKING, Final
 
-from litellm import get_secret_str
-from litellm._logging import verbose_logger
-from litellm.llms.vertex_ai.rag_engine.transformation import VertexAIRAGTransformation
-from litellm.rag.ingestion.base_ingestion import BaseRAGIngestion
+from embrouter import get_secret_str
+from embrouter._logging import verbose_logger
+from embrouter.llms.vertex_ai.rag_engine.transformation import VertexAIRAGTransformation
+from embrouter.rag.ingestion.base_ingestion import BaseRAGIngestion
 
 if TYPE_CHECKING:
-    from litellm import Router
-    from litellm.types.rag import RAGIngestOptions
+    from embrouter import Router
+    from embrouter.types.rag import RAGIngestOptions
 
 
 def _get_str_or_none(value: object) -> str | None:
@@ -42,7 +42,7 @@ class VertexAIRAGIngestion(BaseRAGIngestion):
     """
     Vertex AI RAG Engine ingestion.
 
-    Uses litellm.files.acreate_file for GCS upload, then imports into RAG corpus.
+    Uses embrouter.files.acreate_file for GCS upload, then imports into RAG corpus.
 
     Required config in vector_store:
     - vector_store_id: RAG corpus ID (required)
@@ -115,20 +115,20 @@ class VertexAIRAGIngestion(BaseRAGIngestion):
         content_type: str,
     ) -> str:
         """
-        Upload file to GCS using litellm.files.acreate_file.
+        Upload file to GCS using embrouter.files.acreate_file.
 
         Returns:
             GCS URI of the uploaded file (gs://bucket/path/file)
         """
-        import litellm
+        import embrouter
 
         file_tuple: Final = (filename, file_content, content_type)
 
         verbose_logger.debug(
-            "Uploading file to GCS via litellm.files.acreate_file: %s (bucket: %s)", filename, self.gcs_bucket
+            "Uploading file to GCS via embrouter.files.acreate_file: %s (bucket: %s)", filename, self.gcs_bucket
         )
 
-        response: Final = await litellm.acreate_file(
+        response: Final = await embrouter.acreate_file(
             file=file_tuple,
             purpose="assistants",
             custom_llm_provider="vertex_ai",
@@ -208,7 +208,7 @@ class VertexAIRAGIngestion(BaseRAGIngestion):
         # Get chunking config from ingest_options using transformation class
         from typing import cast
 
-        from litellm.types.rag import RAGChunkingStrategy
+        from embrouter.types.rag import RAGChunkingStrategy
 
         transformation: Final = VertexAIRAGTransformation()
         chunking_config: Final = transformation.transform_chunking_strategy_to_vertex_format(
@@ -250,7 +250,7 @@ class VertexAIRAGIngestion(BaseRAGIngestion):
         Store content in Vertex AI RAG corpus.
 
         Vertex AI workflow:
-        1. Upload file to GCS via litellm.files.acreate_file
+        1. Upload file to GCS via embrouter.files.acreate_file
         2. Import file into RAG corpus via SDK
         3. (Optional) Wait for import to complete
 

@@ -119,7 +119,7 @@ interface ComplianceUIProps {
   /** Used when backendMode is "chat_completions" for the request base URL. */
   proxySettings?: {
     PROXY_BASE_URL?: string;
-    LITELLM_UI_API_DOC_BASE_URL?: string | null;
+    EMBROUTER_UI_API_DOC_BASE_URL?: string | null;
   };
 }
 
@@ -176,7 +176,7 @@ export default function ComplianceUI({
           (guardrailsRes.guardrails || []).map((g: { guardrail_name: string }) => ({
             id: g.guardrail_name,
             name: g.guardrail_name,
-            type: "litellm_content_filter",
+            type: "embrouter_content_filter",
           })),
         );
       } catch {
@@ -433,7 +433,7 @@ export default function ComplianceUI({
     if (csvInputRef.current) csvInputRef.current.value = "";
   };
 
-  const requestProxyBaseUrl = proxySettings?.LITELLM_UI_API_DOC_BASE_URL ?? proxySettings?.PROXY_BASE_URL ?? undefined;
+  const requestProxyBaseUrl = proxySettings?.EMBROUTER_UI_API_DOC_BASE_URL ?? proxySettings?.PROXY_BASE_URL ?? undefined;
 
   const runQuickTest = useCallback(async () => {
     if (!quickTestInput.trim() || !accessToken) return;

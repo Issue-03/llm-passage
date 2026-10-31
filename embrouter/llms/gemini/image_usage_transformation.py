@@ -1,6 +1,6 @@
 from typing import Any, Final
 
-from litellm.types.utils import ImageUsage, ImageUsageInputTokensDetails
+from embrouter.types.utils import ImageUsage, ImageUsageInputTokensDetails
 
 
 def _get_token_count(details: dict) -> int:

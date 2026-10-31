@@ -1,6 +1,6 @@
 import pytest
 
-from litellm.llms.cloudflare.chat.transformation import CloudflareChatConfig
+from embrouter.llms.cloudflare.chat.transformation import CloudflareChatConfig
 
 
 def test_supported_params_include_tools_and_tool_choice():
@@ -23,7 +23,7 @@ def test_get_complete_url_defaults_to_openai_compatible_endpoint(monkeypatch):
         api_key="cf-key",
         model="@cf/meta/llama-2-7b-chat-int8",
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
     )
 
     assert (
@@ -41,7 +41,7 @@ def test_get_complete_url_appends_chat_completions_to_explicit_base():
         api_key="cf-key",
         model="@cf/meta/llama-2-7b-chat-int8",
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
     )
 
     assert (
@@ -59,7 +59,7 @@ def test_get_complete_url_is_idempotent_for_full_base():
         api_key="cf-key",
         model="@cf/meta/llama-2-7b-chat-int8",
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
     )
 
     assert (
@@ -77,7 +77,7 @@ def test_get_complete_url_falls_back_to_account_id_when_base_is_empty(monkeypatc
         api_key="cf-key",
         model="@cf/meta/llama-2-7b-chat-int8",
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
     )
 
     assert (
@@ -96,7 +96,7 @@ def test_get_complete_url_raises_when_account_id_and_base_missing(monkeypatch):
             api_key="cf-key",
             model="@cf/meta/llama-2-7b-chat-int8",
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
         )
 
 
@@ -110,7 +110,7 @@ def test_get_complete_url_raises_when_account_id_is_empty(monkeypatch):
             api_key="cf-key",
             model="@cf/meta/llama-2-7b-chat-int8",
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
         )
 
 
@@ -122,7 +122,7 @@ def test_get_complete_url_migrates_legacy_ai_run_base():
         api_key="cf-key",
         model="@cf/meta/llama-2-7b-chat-int8",
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
     )
 
     assert (
@@ -152,7 +152,7 @@ def test_transform_request_passes_tools_through_in_openai_format():
         model="@cf/meta/llama-2-7b-chat-int8",
         messages=messages,
         optional_params={"tools": tools, "tool_choice": "auto"},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -171,7 +171,7 @@ def test_validate_environment_requires_api_key():
             model="@cf/meta/llama-2-7b-chat-int8",
             messages=[],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             api_key=None,
         )
 
@@ -184,7 +184,7 @@ def test_validate_environment_sets_bearer_and_content_type():
         model="@cf/meta/llama-2-7b-chat-int8",
         messages=[],
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         api_key="cf-key",
     )
 

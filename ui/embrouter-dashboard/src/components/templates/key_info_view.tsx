@@ -65,8 +65,8 @@ interface KeyInfoViewProps {
   backButtonText?: string;
 }
 
-// Premium fields (from LiteLLM_ManagementEndpoint_MetadataFields_Premium in
-// litellm/proxy/_types.py) that the key-edit form submits as arrays/strings, where
+// Premium fields (from EmbRouter_ManagementEndpoint_MetadataFields_Premium in
+// embrouter/proxy/_types.py) that the key-edit form submits as arrays/strings, where
 // "empty" means "unset". The loop below drops them when they're empty-and-were-empty
 // so a non-premium edit of unrelated fields doesn't trip the server's premium gate.
 //
@@ -229,7 +229,7 @@ export default function KeyInfoView({
       // soft_budget is a budget change server-side (admin-gated); only send it when it changed
       // so a non-admin edit of unrelated fields isn't blocked by that gate.
       const previousSoftBudget =
-        (currentKeyData.litellm_budget_table as { soft_budget?: number | null } | null | undefined)?.soft_budget ??
+        (currentKeyData.embrouter_budget_table as { soft_budget?: number | null } | null | undefined)?.soft_budget ??
         null;
       const nextSoftBudget =
         formValues.soft_budget === "" || formValues.soft_budget == null ? null : Number(formValues.soft_budget);
@@ -316,7 +316,7 @@ export default function KeyInfoView({
               : {}),
             ...(formValues.disabled_callbacks?.length > 0
               ? {
-                  litellm_disabled_callbacks: mapDisplayToInternalNames(formValues.disabled_callbacks),
+                  embrouter_disabled_callbacks: mapDisplayToInternalNames(formValues.disabled_callbacks),
                 }
               : {}),
           };
@@ -337,7 +337,7 @@ export default function KeyInfoView({
             : {}),
           ...(formValues.disabled_callbacks?.length > 0
             ? {
-                litellm_disabled_callbacks: mapDisplayToInternalNames(formValues.disabled_callbacks),
+                embrouter_disabled_callbacks: mapDisplayToInternalNames(formValues.disabled_callbacks),
               }
             : {}),
         };
@@ -826,8 +826,8 @@ export default function KeyInfoView({
               <LoggingSettingsView
                 loggingConfigs={extractLoggingSettings(currentKeyData.metadata)}
                 disabledCallbacks={
-                  Array.isArray(currentKeyData.metadata?.litellm_disabled_callbacks)
-                    ? mapInternalToDisplayNames(currentKeyData.metadata.litellm_disabled_callbacks)
+                  Array.isArray(currentKeyData.metadata?.embrouter_disabled_callbacks)
+                    ? mapInternalToDisplayNames(currentKeyData.metadata.embrouter_disabled_callbacks)
                     : []
                 }
                 variant="card"
@@ -1179,8 +1179,8 @@ export default function KeyInfoView({
                   <LoggingSettingsView
                     loggingConfigs={extractLoggingSettings(currentKeyData.metadata)}
                     disabledCallbacks={
-                      Array.isArray(currentKeyData.metadata?.litellm_disabled_callbacks)
-                        ? mapInternalToDisplayNames(currentKeyData.metadata.litellm_disabled_callbacks)
+                      Array.isArray(currentKeyData.metadata?.embrouter_disabled_callbacks)
+                        ? mapInternalToDisplayNames(currentKeyData.metadata.embrouter_disabled_callbacks)
                         : []
                     }
                     variant="inline"

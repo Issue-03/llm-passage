@@ -9,10 +9,10 @@ from urllib.parse import urlparse
 
 from pydantic import BaseModel, JsonValue, TypeAdapter
 
-import litellm
-from litellm._internal_context import current_billing_time, pinned_billing_time
-from litellm.caching.dual_cache import DualCache
-from litellm.llms.anthropic.prompt_cache_prediction import (
+import embrouter
+from embrouter._internal_context import current_billing_time, pinned_billing_time
+from embrouter.caching.dual_cache import DualCache
+from embrouter.llms.anthropic.prompt_cache_prediction import (
     NativePredictionTarget,
     PromptPrefix,
     TokenCounter,
@@ -23,16 +23,16 @@ from litellm.llms.anthropic.prompt_cache_prediction import (
     resolve_prediction_target,
     supported_prediction_headers,
 )
-from litellm.proxy.common_utils.prompt_cache_pricing import price_cache_tokens
-from litellm.proxy.hooks.prompt_cache_prediction import lookup
-from litellm.types.management_endpoints.prompt_cache_prediction import (
+from embrouter.proxy.common_utils.prompt_cache_pricing import price_cache_tokens
+from embrouter.proxy.hooks.prompt_cache_prediction import lookup
+from embrouter.types.management_endpoints.prompt_cache_prediction import (
     CacheCostScenario,
     CacheEvidence,
     CachePredictionArm,
     CacheTokenBuckets,
 )
-from litellm.types.router import Deployment
-from litellm.utils import get_prompt_cache_min_tokens
+from embrouter.types.router import Deployment
+from embrouter.utils import get_prompt_cache_min_tokens
 
 __all__: Final = ("AnthropicCacheRouting", "TokenCounter", "predict_arm")
 
@@ -98,10 +98,10 @@ class AnthropicCacheRouting:
 
     @staticmethod
     def supports(deployment: Deployment) -> bool:
-        return isinstance(resolve_prediction_target(deployment.litellm_params), NativePredictionTarget)
+        return isinstance(resolve_prediction_target(deployment.embrouter_params), NativePredictionTarget)
 
     async def is_warm(self, deployment: Deployment, caller: str, cache: DualCache, now: float) -> bool:
-        target: Final = resolve_prediction_target(deployment.litellm_params)
+        target: Final = resolve_prediction_target(deployment.embrouter_params)
         if not isinstance(target, NativePredictionTarget):
             return False
         scope: Final = cache_scope(caller, deployment.model_info.id or "", target.api_key, target.model)
@@ -110,13 +110,13 @@ class AnthropicCacheRouting:
 
     @staticmethod
     def fits(deployment: Deployment, input_tokens: int, output_tokens: int) -> bool:
-        target: Final = resolve_prediction_target(deployment.litellm_params)
+        target: Final = resolve_prediction_target(deployment.embrouter_params)
         if not isinstance(target, NativePredictionTarget):
             return False
         limits: Final = _ModelLimits.model_validate(
             MappingProxyType(
                 {
-                    **litellm.get_model_info(target.model, custom_llm_provider="anthropic"),
+                    **embrouter.get_model_info(target.model, custom_llm_provider="anthropic"),
                     **deployment.model_info.model_dump(exclude_none=True),
                 }
             )
@@ -175,7 +175,7 @@ async def predict_arm(
     now: float | None = None,
 ) -> CachePredictionArm:
     deployment_id: Final = deployment.model_info.id or ""
-    params: Final = deployment.litellm_params
+    params: Final = deployment.embrouter_params
     unknown: Final = CachePredictionArm(deployment_id=deployment_id, model=params.model)
     if deployment.model_info.blocked:
         return unknown.model_copy(update=MappingProxyType({"reason": "unsupported_deployment_configuration"}))

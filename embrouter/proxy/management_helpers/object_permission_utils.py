@@ -13,22 +13,22 @@ from typing import TYPE_CHECKING, Final, Optional
 from fastapi import HTTPException, status
 from pydantic import TypeAdapter
 
-from litellm._logging import verbose_proxy_logger
-from litellm._uuid import uuid
-from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
-from litellm.proxy._types import ObjectPermissionDict, SpecialMCPServerName, SpecialMCPServerNames
-from litellm.proxy.common_utils.auth_cache_invalidation_pubsub import evict_and_broadcast
-from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache, object_permission_cache_key
-from litellm.proxy.utils import PrismaClient
-from litellm.repositories.object_permission_repository import ObjectPermissionRepository
-from litellm.repositories.table_repositories import MCPServerRepository
+from embrouter._logging import verbose_proxy_logger
+from embrouter._uuid import uuid
+from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps
+from embrouter.proxy._types import ObjectPermissionDict, SpecialMCPServerName, SpecialMCPServerNames
+from embrouter.proxy.common_utils.auth_cache_invalidation_pubsub import evict_and_broadcast
+from embrouter.proxy.common_utils.user_api_key_cache import UserApiKeyCache, object_permission_cache_key
+from embrouter.proxy.utils import PrismaClient
+from embrouter.repositories.object_permission_repository import ObjectPermissionRepository
+from embrouter.repositories.table_repositories import MCPServerRepository
 
 if TYPE_CHECKING:
     from prisma import models as prisma_models
 
-    from litellm.proxy._types import (
-        LiteLLM_ObjectPermissionTable,
-        LiteLLM_TeamTableCachedObj,
+    from embrouter.proxy._types import (
+        EmbRouter_ObjectPermissionTable,
+        EmbRouter_TeamTableCachedObj,
     )
 
 
@@ -141,7 +141,7 @@ async def handle_update_object_permission_common(
     1. Extracts `object_permission` from data_json
     2. Looks up existing object permission if it exists
     3. Merges new permissions with existing ones
-    4. Upserts to the LiteLLM_ObjectPermissionTable
+    4. Upserts to the EmbRouter_ObjectPermissionTable
     5. Returns the object_permission_id
 
     Args:
@@ -204,7 +204,7 @@ async def _set_object_permission(
     prisma_client: PrismaClient | None,
 ):
     """
-    Creates the LiteLLM_ObjectPermissionTable record for the key/team.
+    Creates the EmbRouter_ObjectPermissionTable record for the key/team.
     Handles permissions for vector stores and mcp servers.
     """
     if prisma_client is None or "object_permission" not in data_json:
@@ -260,7 +260,7 @@ def _mcp_server_identifier_matches(server: object, identifier: str) -> bool:
 async def _get_db_mcp_servers_by_identifiers(
     identifiers: AbstractSet[str],
     prisma_client: PrismaClient | None,
-) -> "Sequence[prisma_models.LiteLLM_MCPServerTable]":
+) -> "Sequence[prisma_models.EmbRouter_MCPServerTable]":
     if prisma_client is None or not identifiers:
         return []
 
@@ -290,7 +290,7 @@ async def _resolve_mcp_server_identifiers_to_ids(
     if not identifiers:
         return {}
 
-    from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+    from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
         global_mcp_server_manager,
     )
 
@@ -429,7 +429,7 @@ def _flatten_resolved_mcp_server_ids(
 
 
 async def _resolve_team_allowed_mcp_servers(
-    team_object_permission: "LiteLLM_ObjectPermissionTable",
+    team_object_permission: "EmbRouter_ObjectPermissionTable",
     prisma_client: PrismaClient | None = None,
 ) -> set[str]:
     """
@@ -440,7 +440,7 @@ async def _resolve_team_allowed_mcp_servers(
     - Servers from mcp_access_groups
     - Server IDs referenced in mcp_tool_permissions keys
     """
-    from litellm.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import (
+    from embrouter.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import (
         MCPRequestHandler,
     )
 
@@ -465,7 +465,7 @@ async def _resolve_team_allowed_mcp_servers(
 
 def _get_allow_all_keys_server_ids() -> set[str]:
     """Return the set of MCP server IDs marked with allow_all_keys=True."""
-    from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+    from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
         global_mcp_server_manager,
     )
 
@@ -474,7 +474,7 @@ def _get_allow_all_keys_server_ids() -> set[str]:
 
 def _get_all_mcp_server_ids() -> set[str]:
     """Return every MCP server id registered on the proxy (config + DB union)."""
-    from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+    from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
         global_mcp_server_manager,
     )
 
@@ -529,7 +529,7 @@ async def enforce_all_proxy_mcp_servers_grant_is_admin_only(
 
 
 async def _get_grandfathered_key_mcp_server_ids(
-    existing_object_permission: Optional["LiteLLM_ObjectPermissionTable"],
+    existing_object_permission: Optional["EmbRouter_ObjectPermissionTable"],
     prisma_client: PrismaClient | None,
 ) -> frozenset[str]:
     """
@@ -559,7 +559,7 @@ async def _get_grandfathered_key_mcp_server_ids(
 
 
 async def _get_team_allowed_mcp_servers(
-    team_obj: Optional["LiteLLM_TeamTableCachedObj"],
+    team_obj: Optional["EmbRouter_TeamTableCachedObj"],
     prisma_client: PrismaClient | None = None,
 ) -> set[str]:
     """
@@ -573,7 +573,7 @@ async def _get_team_allowed_mcp_servers(
     if team_obj is None:
         return set()
 
-    from litellm.proxy.auth.auth_checks import (
+    from embrouter.proxy.auth.auth_checks import (
         _get_mcp_server_ids_from_access_groups,  # pyright: ignore[reportPrivateUsage]  # same resolver runtime MCP auth calls
     )
 
@@ -653,10 +653,10 @@ def _extract_requested_mcp_toolsets(
 
 async def validate_key_mcp_servers_against_team(
     object_permission: ObjectPermissionDict | None,
-    team_obj: Optional["LiteLLM_TeamTableCachedObj"],
+    team_obj: Optional["EmbRouter_TeamTableCachedObj"],
     prisma_client: PrismaClient | None = None,
     is_proxy_admin: bool = False,
-    existing_key_object_permission: Optional["LiteLLM_ObjectPermissionTable"] = None,
+    existing_key_object_permission: Optional["EmbRouter_ObjectPermissionTable"] = None,
 ) -> ObjectPermissionDict | None:
     """
     Validate that MCP servers requested on a key are within the allowed scope.
@@ -796,7 +796,7 @@ async def validate_key_mcp_servers_against_team(
 
 def _validate_requested_toolsets(
     requested_toolsets: set[str],
-    team_obj: Optional["LiteLLM_TeamTableCachedObj"],
+    team_obj: Optional["EmbRouter_TeamTableCachedObj"],
     is_proxy_admin: bool,
 ) -> None:
     """
@@ -853,7 +853,7 @@ def _extract_requested_vector_stores(
 
 async def validate_key_vector_stores_against_team(
     object_permission: ObjectPermissionDict | None,
-    team_obj: Optional["LiteLLM_TeamTableCachedObj"],
+    team_obj: Optional["EmbRouter_TeamTableCachedObj"],
     is_proxy_admin: bool = False,
 ) -> None:
     """
@@ -893,7 +893,7 @@ def _extract_requested_search_tools(
 
 async def validate_key_search_tools_against_team(
     object_permission: ObjectPermissionDict | None,
-    team_obj: Optional["LiteLLM_TeamTableCachedObj"],
+    team_obj: Optional["EmbRouter_TeamTableCachedObj"],
     is_proxy_admin: bool = False,
 ) -> None:
     """

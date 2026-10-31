@@ -3,7 +3,7 @@ from functools import cache
 from types import MappingProxyType
 from typing import Final, cast, get_type_hints
 
-from litellm.types.llms.openai import ResponseInputParam, ResponsesAPIOptionalRequestParams
+from embrouter.types.llms.openai import ResponseInputParam, ResponsesAPIOptionalRequestParams
 
 
 def _frozen_mapping(items: Iterable[tuple[str, object]]) -> Mapping[str, object]:
@@ -29,8 +29,8 @@ def responses_batch_body_to_chat_body(
     record's fields are forwarded as sent instead of validated against the SDK TypedDicts,
     whose required keys (a function tool's `strict`, an image part's `detail`) clients omit.
     """
-    from litellm.responses.litellm_completion_transformation.transformation import (
-        LiteLLMCompletionResponsesConfig,
+    from embrouter.responses.embrouter_completion_transformation.transformation import (
+        EmbRouterCompletionResponsesConfig,
     )
 
     responses_input: Final = openai_request_body.get("input")
@@ -45,7 +45,7 @@ def responses_batch_body_to_chat_body(
         ResponsesAPIOptionalRequestParams,
         _frozen_mapping((key, value) for key, value in openai_request_body.items() if key in _responses_request_keys()),
     )
-    return LiteLLMCompletionResponsesConfig.transform_responses_api_request_to_chat_completion_request(  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]  # transformer declares a bare dict return
+    return EmbRouterCompletionResponsesConfig.transform_responses_api_request_to_chat_completion_request(  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]  # transformer declares a bare dict return
         model=model if isinstance(model, str) else "",
         input=chat_input,
         responses_api_request=responses_request,

@@ -8,24 +8,24 @@ from urllib.parse import unquote
 
 import httpx
 
-from litellm import LlmProviders
-from litellm.integrations.gcs_bucket.gcs_bucket_base import (
+from embrouter import LlmProviders
+from embrouter.integrations.gcs_bucket.gcs_bucket_base import (
     GCSBucketBase,
     GCSLoggingConfig,
 )
-from litellm.litellm_core_utils.cloud_storage_security import (
+from embrouter.embrouter_core_utils.cloud_storage_security import (
     VERTEX_AI_MANAGED_GCS_PREFIX,
     should_allow_legacy_cloud_file_ids,
     validate_managed_cloud_file_id,
 )
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.llms.custom_httpx.http_handler import get_async_httpx_client
-from litellm.types.llms.openai import (
+from embrouter.embrouter_core_utils.embrouter_logging import Logging
+from embrouter.llms.custom_httpx.http_handler import get_async_httpx_client
+from embrouter.types.llms.openai import (
     FileContentRequest,
     HttpxBinaryResponseContent,
 )
-from litellm.types.llms.vertex_ai import VERTEX_CREDENTIALS_TYPES
-from litellm.types.utils import StandardCallbackDynamicParams
+from embrouter.types.llms.vertex_ai import VERTEX_CREDENTIALS_TYPES
+from embrouter.types.utils import StandardCallbackDynamicParams
 
 from .transformation import VertexAIFilesConfig
 
@@ -45,20 +45,20 @@ class VertexAIFilesHandler(GCSBucketBase):
 
     def _resolve_read_gcs_config(
         self,
-        litellm_params: Mapping[str, object] | None,
+        embrouter_params: Mapping[str, object] | None,
         vertex_credentials: VERTEX_CREDENTIALS_TYPES | None,
     ) -> tuple[str | None, str | None]:
         """
         Resolve the GCS bucket and service-account credentials for the read/content path.
 
-        Sources them from the deployment's ``litellm_params`` (``gcs_bucket_name`` /
+        Sources them from the deployment's ``embrouter_params`` (``gcs_bucket_name`` /
         ``bucket_name`` and ``vertex_credentials``), mirroring the write path in
         ``VertexAIFilesConfig._get_configured_bucket_name``, and falls back to the
         ``GCS_BATCH_BUCKET_NAME`` then ``GCS_BUCKET_NAME`` / ``GCS_PATH_SERVICE_ACCOUNT``
         env vars. This lets Vertex batch run entirely at the model-group level, so output
         written to a per-model bucket is readable without setting the global env vars.
         """
-        params: Final[Mapping[str, object]] = litellm_params or {}
+        params: Final[Mapping[str, object]] = embrouter_params or {}
         bucket_candidate: Final = params.get("gcs_bucket_name") or params.get("bucket_name")
         configured_bucket_name = (
             bucket_candidate
@@ -80,24 +80,24 @@ class VertexAIFilesHandler(GCSBucketBase):
         self,
         file_id: str,
         configured_bucket_name: str,
-        litellm_params: dict | None = None,
+        embrouter_params: dict | None = None,
     ) -> tuple[str, str]:
         """
         Validate and extract bucket name and object path from file_id.
 
-        Expected format: gs://bucket-name/litellm-vertex-files/path/to/file
+        Expected format: gs://bucket-name/embrouter-vertex-files/path/to/file
 
         Returns:
             tuple: (bucket_name, object_path)
             - bucket_name: "bucket-name"
-            - object_path: "litellm-vertex-files/path/to/file"
+            - object_path: "embrouter-vertex-files/path/to/file"
         """
         return validate_managed_cloud_file_id(
             file_id=file_id,
             scheme="gs://",
             configured_bucket_name=configured_bucket_name,
             allowed_object_prefixes=(VERTEX_AI_MANAGED_GCS_PREFIX,),
-            allow_legacy_cloud_file_ids=should_allow_legacy_cloud_file_ids(litellm_params),
+            allow_legacy_cloud_file_ids=should_allow_legacy_cloud_file_ids(embrouter_params),
         )
 
     async def afile_content(
@@ -108,7 +108,7 @@ class VertexAIFilesHandler(GCSBucketBase):
         vertex_location: str | None,
         timeout: float | httpx.Timeout,
         max_retries: int | None,
-        litellm_params: dict | None = None,
+        embrouter_params: dict | None = None,
     ) -> HttpxBinaryResponseContent:
         """
         Download file content from GCS bucket for VertexAI files.
@@ -129,7 +129,7 @@ class VertexAIFilesHandler(GCSBucketBase):
             raise ValueError("file_id is required in file_content_request")
 
         configured_bucket_name, path_service_account = self._resolve_read_gcs_config(
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             vertex_credentials=vertex_credentials,
         )
         dynamic_params: Final = StandardCallbackDynamicParams(
@@ -142,7 +142,7 @@ class VertexAIFilesHandler(GCSBucketBase):
         bucket_name, object_path = self._extract_bucket_and_object_from_file_id(
             file_id=file_id,
             configured_bucket_name=gcs_logging_config["bucket_name"],
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
 
         download_kwargs: Final = {
@@ -178,12 +178,12 @@ class VertexAIFilesHandler(GCSBucketBase):
             stream=False,
             call_type="afile_content",
             start_time=time.time(),
-            litellm_call_id="",
+            embrouter_call_id="",
             function_id="",
         )
 
         return config.transform_file_content_response(
-            raw_response=mock_response, logging_obj=logging_obj, litellm_params={}
+            raw_response=mock_response, logging_obj=logging_obj, embrouter_params={}
         )
 
     def file_content(
@@ -196,7 +196,7 @@ class VertexAIFilesHandler(GCSBucketBase):
         vertex_location: str | None,
         timeout: float | httpx.Timeout,
         max_retries: int | None,
-        litellm_params: dict | None = None,
+        embrouter_params: dict | None = None,
     ) -> HttpxBinaryResponseContent | Coroutine[Any, Any, HttpxBinaryResponseContent]:
         """
         Download file content from GCS bucket for VertexAI files.
@@ -223,7 +223,7 @@ class VertexAIFilesHandler(GCSBucketBase):
                 vertex_location=vertex_location,
                 timeout=timeout,
                 max_retries=max_retries,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
             )
         else:
             return asyncio.run(
@@ -234,6 +234,6 @@ class VertexAIFilesHandler(GCSBucketBase):
                     vertex_location=vertex_location,
                     timeout=timeout,
                     max_retries=max_retries,
-                    litellm_params=litellm_params,
+                    embrouter_params=embrouter_params,
                 )
             )

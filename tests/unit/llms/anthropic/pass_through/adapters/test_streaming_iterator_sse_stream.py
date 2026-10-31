@@ -10,11 +10,11 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from litellm.llms.anthropic.pass_through.adapters.streaming_iterator import (
+from embrouter.llms.anthropic.pass_through.adapters.streaming_iterator import (
     AnthropicSSEStream,
     AnthropicStreamWrapper,
 )
-from litellm.types.utils import Delta, StreamingChoices
+from embrouter.types.utils import Delta, StreamingChoices
 
 
 def _make_chunk(delta: Delta, finish_reason: str | None = None) -> MagicMock:

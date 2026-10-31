@@ -15,25 +15,25 @@ from typing import TYPE_CHECKING, Any, Final, Literal
 
 from fastapi import HTTPException
 
-from litellm._logging import verbose_proxy_logger
-from litellm.integrations.custom_guardrail import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.integrations.custom_guardrail import (
     CustomGuardrail,
     log_guardrail_information,
 )
-from litellm.litellm_core_utils.logging_utils import (
-    convert_litellm_response_object_to_str,
+from embrouter.embrouter_core_utils.logging_utils import (
+    convert_embrouter_response_object_to_str,
 )
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.types.guardrails import GuardrailEventHooks
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.types.guardrails import GuardrailEventHooks
 
 GUARDRAIL_NAME: Final = "aporia"
 
 if TYPE_CHECKING:
-    from litellm.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
+    from embrouter.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
 
 
 class AporiaGuardrail(CustomGuardrail):
@@ -145,7 +145,7 @@ class AporiaGuardrail(CustomGuardrail):
         user_api_key_dict: UserAPIKeyAuth,
         response,
     ):
-        from litellm.proxy.common_utils.callback_utils import (
+        from embrouter.proxy.common_utils.callback_utils import (
             add_guardrail_to_applied_guardrails_header,
         )
 
@@ -156,7 +156,7 @@ class AporiaGuardrail(CustomGuardrail):
         if self.should_run_guardrail(data=data, event_type=event_type) is not True:
             return
 
-        response_str: Final[str | None] = convert_litellm_response_object_to_str(response)
+        response_str: Final[str | None] = convert_embrouter_response_object_to_str(response)
         if response_str is not None:
             await self.make_aporia_api_request(
                 request_data=data,
@@ -182,10 +182,10 @@ class AporiaGuardrail(CustomGuardrail):
             "anthropic_messages",
         ],
     ):
-        from litellm.proxy.common_utils.callback_utils import (
+        from embrouter.proxy.common_utils.callback_utils import (
             add_guardrail_to_applied_guardrails_header,
         )
-        from litellm.proxy.guardrails.guardrail_helpers import (
+        from embrouter.proxy.guardrails.guardrail_helpers import (
             should_proceed_based_on_metadata,
         )
 
@@ -219,7 +219,7 @@ class AporiaGuardrail(CustomGuardrail):
 
     @staticmethod
     def get_config_model() -> type["GuardrailConfigModel"] | None:
-        from litellm.types.proxy.guardrails.guardrail_hooks.aporia_ai import (
+        from embrouter.types.proxy.guardrails.guardrail_hooks.aporia_ai import (
             AporiaGuardrailConfigModel,
         )
 

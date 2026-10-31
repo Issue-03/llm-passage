@@ -4,7 +4,7 @@ Stability AI Image Edit Module
 Factory function for getting the appropriate config class.
 """
 
-from litellm.llms.base_llm.image_edit.transformation import (
+from embrouter.llms.base_llm.image_edit.transformation import (
     BaseImageEditConfig,
 )
 

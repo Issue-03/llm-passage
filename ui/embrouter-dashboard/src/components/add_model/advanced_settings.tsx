@@ -446,10 +446,10 @@ const AdvancedSettings: React.FC<AdvancedSettingsProps> = ({
               </MountedFormField>
             )}
             <MountedFormField
-              name="litellm_extra_params"
+              name="embrouter_extra_params"
               label={labelWithHint(
                 "EmbRouter Params",
-                "Optional litellm params used for making a litellm.completion() call.",
+                "Optional embrouter params used for making a embrouter.completion() call.",
               )}
               className="mb-4 mt-4"
               rules={{ validate: validatorRules({ validator: formItemValidateJSON }) }}

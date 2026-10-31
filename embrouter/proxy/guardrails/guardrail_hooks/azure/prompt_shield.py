@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Azure Prompt Shield Native Guardrail Integrationfor LiteLLM
+Azure Prompt Shield Native Guardrail Integrationfor EmbRouter
 """
 
 import math
@@ -10,18 +10,18 @@ from typing import TYPE_CHECKING, Any, ClassVar, Final, Literal, NoReturn, cast
 
 from fastapi import HTTPException
 
-from litellm._logging import verbose_proxy_logger
-from litellm.integrations.custom_guardrail import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.integrations.custom_guardrail import (
     CustomGuardrail,
     log_guardrail_information,
 )
-from litellm.litellm_core_utils.llm_cost_calc.guardrail_cost import (
+from embrouter.embrouter_core_utils.llm_cost_calc.guardrail_cost import (
     AZURE_PROMPT_SHIELD_TEXT_RECORD_UNIT,
     azure_prompt_shield_guardrail_cost,
 )
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.utils import (
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.guardrails import GuardrailEventHooks
+from embrouter.types.utils import (
     CallTypesLiteral,
     GenericGuardrailAPIInputs,
     GuardrailTracingDetail,
@@ -30,14 +30,14 @@ from litellm.types.utils import (
 from .base import AZURE_CONTENT_SAFETY_TEXT_RECORD_LENGTH, AzureGuardrailBase
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.types.guardrails import LitellmParams
-    from litellm.types.llms.openai import AllMessageValues
-    from litellm.types.proxy.guardrails.guardrail_hooks.azure.azure_prompt_shield import (
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.types.guardrails import EmbrouterParams
+    from embrouter.types.llms.openai import AllMessageValues
+    from embrouter.types.proxy.guardrails.guardrail_hooks.azure.azure_prompt_shield import (
         AzurePromptShieldGuardrailResponse,
     )
-    from litellm.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
+    from embrouter.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
 
 
 # Per-invocation billing counters. A ContextVar rather than request metadata: the
@@ -61,13 +61,13 @@ def _resolved_secret_value(value: object) -> object:
     return value
 
 
-def _updated_param(litellm_params: "LitellmParams | dict", key: str) -> object:  # mutable-ok: DB dict
+def _updated_param(embrouter_params: "EmbrouterParams | dict", key: str) -> object:  # mutable-ok: DB dict
     """Read one param from a Mapping or a pydantic object, including pydantic
     extras (cost_tier / price_per_1000_text_records live there), which the base
     class ``vars()`` loop never sees."""
-    if isinstance(litellm_params, Mapping):
-        return litellm_params.get(key)
-    return getattr(litellm_params, key, None)
+    if isinstance(embrouter_params, Mapping):
+        return embrouter_params.get(key)
+    return getattr(embrouter_params, key, None)
 
 
 def _resolved_cost_tier(raw: object) -> str | None:
@@ -113,7 +113,7 @@ def _price_from_value(value: object) -> float | None:
 
 class AzureContentSafetyPromptShieldGuardrail(AzureGuardrailBase, CustomGuardrail):
     """
-    LiteLLM Built-in Guardrail for Azure Content Safety Guardrail (Prompt Shield).
+    EmbRouter Built-in Guardrail for Azure Content Safety Guardrail (Prompt Shield).
 
     This guardrail scans prompts and responses using the Azure Prompt Shield API to detect
     malicious content, injection attempts, and policy violations.
@@ -145,7 +145,7 @@ class AzureContentSafetyPromptShieldGuardrail(AzureGuardrailBase, CustomGuardrai
             **kwargs,
         )
 
-        # Plain (non-Final) attributes: ``update_in_memory_litellm_params``
+        # Plain (non-Final) attributes: ``update_in_memory_embrouter_params``
         # re-resolves them when the guardrail is updated in place.
         self.cost_tier: str | None = _resolved_cost_tier(kwargs.get("cost_tier"))
         self.price_per_1000_text_records: float | None = _resolved_price(
@@ -174,7 +174,7 @@ class AzureContentSafetyPromptShieldGuardrail(AzureGuardrailBase, CustomGuardrai
         so it is counted before the block is raised; chunks after it are
         never submitted and never counted.
         """
-        from litellm.types.proxy.guardrails.guardrail_hooks.azure.azure_prompt_shield import (
+        from embrouter.types.proxy.guardrails.guardrail_hooks.azure.azure_prompt_shield import (
             AzurePromptShieldGuardrailRequestBody,
             AzurePromptShieldGuardrailResponse,
         )
@@ -220,7 +220,7 @@ class AzureContentSafetyPromptShieldGuardrail(AzureGuardrailBase, CustomGuardrai
         inputs: GenericGuardrailAPIInputs,
         request_data: dict,
         input_type: Literal["request", "response"],
-        logging_obj: "LiteLLMLoggingObj | None" = None,
+        logging_obj: "EmbRouterLoggingObj | None" = None,
     ) -> GenericGuardrailAPIInputs:
         _billing_usage_stash.set(None)
         usage: Final[dict[str, int]] = {}  # mutable-ok: per-invocation billing accumulator
@@ -270,7 +270,7 @@ class AzureContentSafetyPromptShieldGuardrail(AzureGuardrailBase, CustomGuardrai
             verbose_proxy_logger.warning("Azure Prompt Shield: No user prompt found")
         return None
 
-    def update_in_memory_litellm_params(self, litellm_params: "LitellmParams | dict") -> None:  # mutable-ok: DB dict
+    def update_in_memory_embrouter_params(self, embrouter_params: "EmbrouterParams | dict") -> None:  # mutable-ok: DB dict
         """Apply updated params in place, re-resolving billing and credentials.
 
         Pricing is read via ``_updated_param`` (the values are pydantic extras, and
@@ -279,18 +279,18 @@ class AzureContentSafetyPromptShieldGuardrail(AzureGuardrailBase, CustomGuardrai
         state is mutated, so an invalid update leaves the running guardrail
         untouched and a raw reference never overwrites a resolved credential.
         """
-        cost_tier: Final = _resolved_cost_tier(_updated_param(litellm_params, "cost_tier"))
-        price: Final = _resolved_price(_updated_param(litellm_params, "price_per_1000_text_records"), cost_tier)
+        cost_tier: Final = _resolved_cost_tier(_updated_param(embrouter_params, "cost_tier"))
+        price: Final = _resolved_price(_updated_param(embrouter_params, "price_per_1000_text_records"), cost_tier)
         resolved_credentials: dict[str, object] = {}  # mutable-ok: staged before mutation
         for cred_key in ("api_key", "api_base"):
-            cred_value = _updated_param(litellm_params, cred_key)
+            cred_value = _updated_param(embrouter_params, cred_key)
             if isinstance(cred_value, str) and cred_value.startswith("os.environ/"):
                 resolved_credentials[cred_key] = _resolved_secret_value(cred_value)
-        if isinstance(litellm_params, Mapping):
-            for key, value in litellm_params.items():
+        if isinstance(embrouter_params, Mapping):
+            for key, value in embrouter_params.items():
                 setattr(self, key, resolved_credentials.get(key, value))
         else:
-            super().update_in_memory_litellm_params(litellm_params)
+            super().update_in_memory_embrouter_params(embrouter_params)
             for cred_key, cred_value in resolved_credentials.items():
                 setattr(self, cred_key, cred_value)
         self.cost_tier = cost_tier
@@ -389,7 +389,7 @@ class AzureContentSafetyPromptShieldGuardrail(AzureGuardrailBase, CustomGuardrai
         """
         Get the config model for the Azure Prompt Shield guardrail.
         """
-        from litellm.types.proxy.guardrails.guardrail_hooks.azure.azure_prompt_shield import (
+        from embrouter.types.proxy.guardrails.guardrail_hooks.azure.azure_prompt_shield import (
             AzurePromptShieldGuardrailConfigModel,
         )
 

@@ -1,6 +1,6 @@
 """
 Tests for the gateway request (SGR) fold and its commit to
-LiteLLM_DailyGatewayRequests.
+EmbRouter_DailyGatewayRequests.
 """
 
 import asyncio
@@ -8,16 +8,16 @@ from datetime import datetime, timezone
 
 import pytest
 
-from litellm.constants import MAX_REDIS_BUFFER_DEQUEUE_COUNT, REDIS_GATEWAY_REQUESTS_BUFFER_KEY
-from litellm.proxy.db.gateway_request_tracking import (
+from embrouter.constants import MAX_REDIS_BUFFER_DEQUEUE_COUNT, REDIS_GATEWAY_REQUESTS_BUFFER_KEY
+from embrouter.proxy.db.gateway_request_tracking import (
     GATEWAY_REQUESTS_JOB_NAME,
     GatewayRequestAccumulator,
     GatewayRequestRedisBuffer,
     commit_gateway_requests_to_db,
     flush_gateway_requests,
 )
-from litellm.proxy.middleware.billable_request_metrics_middleware import BillableCategory
-from litellm.types.proxy.gateway_requests import GatewayRequestCounts, GatewayRequestKey
+from embrouter.proxy.middleware.billable_request_metrics_middleware import BillableCategory
+from embrouter.types.proxy.gateway_requests import GatewayRequestCounts, GatewayRequestKey
 
 
 def _today() -> str:
@@ -137,13 +137,13 @@ def test_commit_sql_adds_to_the_existing_row_instead_of_replacing_it():
     asyncio.run(commit_gateway_requests_to_db(prisma_client=client, snapshot=snapshot))
 
     sql, params = client.db.statements[0]
-    assert 'INSERT INTO "LiteLLM_DailyGatewayRequests"' in sql
+    assert 'INSERT INTO "EmbRouter_DailyGatewayRequests"' in sql
     assert 'ON CONFLICT ("date", "category", "route") DO UPDATE SET' in sql
     assert (
-        '"successful_requests" = "LiteLLM_DailyGatewayRequests"."successful_requests" + EXCLUDED."successful_requests"'
+        '"successful_requests" = "EmbRouter_DailyGatewayRequests"."successful_requests" + EXCLUDED."successful_requests"'
         in sql
     )
-    assert '"failed_requests" = "LiteLLM_DailyGatewayRequests"."failed_requests" + EXCLUDED."failed_requests"' in sql
+    assert '"failed_requests" = "EmbRouter_DailyGatewayRequests"."failed_requests" + EXCLUDED."failed_requests"' in sql
     assert params == ("2026-08-01", "llm", "/chat/completions", 7, 2)
 
 

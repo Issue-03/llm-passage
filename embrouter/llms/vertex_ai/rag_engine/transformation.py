@@ -1,16 +1,16 @@
 """
 Transformation utilities for Vertex AI RAG Engine.
 
-Handles transforming LiteLLM's unified formats to Vertex AI RAG Engine API format.
+Handles transforming EmbRouter's unified formats to Vertex AI RAG Engine API format.
 """
 
 from typing import Any, Final
 
-from litellm._logging import verbose_logger
-from litellm.constants import DEFAULT_CHUNK_OVERLAP, DEFAULT_CHUNK_SIZE
-from litellm.llms.vertex_ai.common_utils import get_vertex_base_url
-from litellm.llms.vertex_ai.vertex_llm_base import VertexBase
-from litellm.types.rag import RAGChunkingStrategy
+from embrouter._logging import verbose_logger
+from embrouter.constants import DEFAULT_CHUNK_OVERLAP, DEFAULT_CHUNK_SIZE
+from embrouter.llms.vertex_ai.common_utils import get_vertex_base_url
+from embrouter.llms.vertex_ai.vertex_llm_base import VertexBase
+from embrouter.types.rag import RAGChunkingStrategy
 
 
 class VertexAIRAGTransformation(VertexBase):
@@ -57,9 +57,9 @@ class VertexAIRAGTransformation(VertexBase):
         chunking_strategy: RAGChunkingStrategy | None,
     ) -> dict[str, Any]:
         """
-        Transform LiteLLM's unified chunking_strategy to Vertex AI RAG format.
+        Transform EmbRouter's unified chunking_strategy to Vertex AI RAG format.
 
-        LiteLLM format (RAGChunkingStrategy):
+        EmbRouter format (RAGChunkingStrategy):
             {
                 "chunk_size": 1000,
                 "chunk_overlap": 200,
@@ -111,7 +111,7 @@ class VertexAIRAGTransformation(VertexBase):
 
         Args:
             gcs_uri: GCS URI of the file to import (e.g., gs://bucket/path/file.txt)
-            chunking_strategy: LiteLLM unified chunking config
+            chunking_strategy: EmbRouter unified chunking config
 
         Returns:
             Request payload dict for importRagFiles API

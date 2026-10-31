@@ -20,7 +20,7 @@ const getDisplayModelName = (model: { model_name?: string }) => model.model_name
 const makeModel = (id: string, name = "gpt-4") => ({
   model_name: name,
   model_info: { id },
-  litellm_model_name: name,
+  embrouter_model_name: name,
 });
 
 interface HarnessProps {

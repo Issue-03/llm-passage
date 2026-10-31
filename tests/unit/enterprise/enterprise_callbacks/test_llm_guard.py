@@ -1,13 +1,13 @@
 from typing import Final, Literal
 
 import pytest
-from litellm_enterprise.enterprise_callbacks.llm_guard import _ENTERPRISE_LLMGuard
+from embrouter_enterprise.enterprise_callbacks.llm_guard import _ENTERPRISE_LLMGuard
 from starlette.exceptions import HTTPException
 
-import litellm
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.utils import hash_token
-from litellm.types.utils import CallTypesLiteral
+import embrouter
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.utils import hash_token
+from embrouter.types.utils import CallTypesLiteral
 
 
 @pytest.mark.parametrize(
@@ -32,7 +32,7 @@ async def test_llm_guard_call_type_aliases(
     is_valid: bool,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(litellm, "llm_guard_mode", "all")
+    monkeypatch.setattr(embrouter, "llm_guard_mode", "all")
     llm_guard: Final = _ENTERPRISE_LLMGuard(
         mock_testing=True,
         mock_redacted_text={
@@ -68,7 +68,7 @@ async def test_llm_guard_call_type_aliases(
 async def test_llm_guard_ignores_call_types_the_proxy_never_moderates(
     call_type: CallTypesLiteral, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "llm_guard_mode", "all")
+    monkeypatch.setattr(embrouter, "llm_guard_mode", "all")
     llm_guard: Final = _ENTERPRISE_LLMGuard(
         mock_testing=True,
         mock_redacted_text={"sanitized_prompt": "[REDACTED]", "is_valid": False},
@@ -87,7 +87,7 @@ async def test_llm_guard_ignores_call_types_the_proxy_never_moderates(
 async def test_llm_guard_scans_list_prompt(
     call_type: CallTypesLiteral, is_valid: bool, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "llm_guard_mode", "all")
+    monkeypatch.setattr(embrouter, "llm_guard_mode", "all")
     llm_guard: Final = _ENTERPRISE_LLMGuard(
         mock_testing=True,
         mock_redacted_text={"sanitized_prompt": "[REDACTED]", "is_valid": is_valid},
@@ -113,7 +113,7 @@ async def test_llm_guard_scans_list_prompt(
 async def test_llm_guard_scans_input_and_prompt_alongside_messages(
     call_type: CallTypesLiteral, is_valid: bool, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "llm_guard_mode", "all")
+    monkeypatch.setattr(embrouter, "llm_guard_mode", "all")
     llm_guard: Final = _ENTERPRISE_LLMGuard(
         mock_testing=True,
         mock_redacted_text={"sanitized_prompt": "[REDACTED]", "is_valid": is_valid},
@@ -155,7 +155,7 @@ async def test_llm_guard_scans_input_and_prompt_alongside_messages(
 async def test_llm_guard_skips_unsupported_call_types(
     call_type: CallTypesLiteral, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "llm_guard_mode", "all")
+    monkeypatch.setattr(embrouter, "llm_guard_mode", "all")
     llm_guard: Final = _ENTERPRISE_LLMGuard(
         mock_testing=True,
         mock_redacted_text={"is_valid": False},

@@ -55,7 +55,7 @@ describe("AdvancedSettings", () => {
     expect(screen.queryByText(/^Guardrails/)).not.toBeInTheDocument();
   });
 
-  it("should render the litellm params", async () => {
+  it("should render the embrouter params", async () => {
     renderAdvancedSettings();
     act(() => {
       fireEvent.click(screen.getByText("Advanced Settings"));

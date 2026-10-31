@@ -39,7 +39,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from pydantic import TypeAdapter
 
-from litellm.llms.bedrock.base_aws_llm import WebIdentitySessionPolicy, _SessionPolicyStatement
+from embrouter.llms.bedrock.base_aws_llm import WebIdentitySessionPolicy, _SessionPolicyStatement
 
 # Actions the Claude Platform on AWS service is documented to call.
 # Source: AWS IAM action reference + the #27678 surface area.
@@ -57,7 +57,7 @@ _CLAUDE_PLATFORM_ACTIONS = {
 def _captured_policy_document() -> str:
     """Run _auth_with_web_identity_token under mocks + return the Policy
     JSON document that was actually sent to STS."""
-    from litellm.llms.bedrock.base_aws_llm import BaseAWSLLM
+    from embrouter.llms.bedrock.base_aws_llm import BaseAWSLLM
 
     base = BaseAWSLLM()
 
@@ -75,13 +75,13 @@ def _captured_policy_document() -> str:
     with (
         patch("boto3.client", return_value=mock_sts),
         patch(
-            "litellm.llms.bedrock.base_aws_llm.get_secret",
+            "embrouter.llms.bedrock.base_aws_llm.get_secret",
             return_value="oidc-jwt-token",
         ),
     ):
         base._auth_with_web_identity_token(
             aws_web_identity_token="/path/to/token",
-            aws_role_name="arn:aws:iam::123456789012:role/litellm-bedrock-role",
+            aws_role_name="arn:aws:iam::123456789012:role/embrouter-bedrock-role",
             aws_session_name="test-session",
             aws_region_name="us-east-1",
             aws_sts_endpoint=None,
@@ -123,13 +123,13 @@ class TestWebIdentitySessionPolicyShape:
         """The original bedrock action set must still be granted —
         regression for the pre-existing bedrock/* routes."""
         policy = _captured_policy()
-        bedrock_stmt = _statement_by_sid(policy, "BedrockLiteLLM")
+        bedrock_stmt = _statement_by_sid(policy, "BedrockEmbRouter")
         actions = set(bedrock_stmt["Action"])
         for required in (
             "bedrock:InvokeModel",
             "bedrock:InvokeModelWithResponseStream",
         ):
-            assert required in actions, f"{required} missing from BedrockLiteLLM"
+            assert required in actions, f"{required} missing from BedrockEmbRouter"
 
     def test_bedrock_count_tokens_action_present(self):
         """Regression for #33142: the CountTokens handler authorizes
@@ -137,10 +137,10 @@ class TestWebIdentitySessionPolicyShape:
         must grant it or every count-tokens request via OIDC auth 403s
         even when the role's identity policy allows it."""
         policy = _captured_policy()
-        bedrock_stmt = _statement_by_sid(policy, "BedrockLiteLLM")
+        bedrock_stmt = _statement_by_sid(policy, "BedrockEmbRouter")
         actions = set(bedrock_stmt["Action"])
         assert "bedrock:CountTokens" in actions, (
-            "bedrock:CountTokens missing from BedrockLiteLLM — "
+            "bedrock:CountTokens missing from BedrockEmbRouter — "
             "count-tokens requests will 403 on OIDC auth"
         )
 
@@ -158,7 +158,7 @@ class TestClaudePlatformActionsCovered:
 
     def test_claude_platform_statement_allows(self):
         policy = _captured_policy()
-        stmt = _statement_by_sid(policy, "ClaudePlatformLiteLLM")
+        stmt = _statement_by_sid(policy, "ClaudePlatformEmbRouter")
         assert stmt["Effect"] == "Allow"
         assert stmt["Resource"] == "*"
 
@@ -166,7 +166,7 @@ class TestClaudePlatformActionsCovered:
         """Don't accidentally grant a `*` action that would broaden the
         ceiling beyond what the documented actions require."""
         policy = _captured_policy()
-        stmt = _statement_by_sid(policy, "ClaudePlatformLiteLLM")
+        stmt = _statement_by_sid(policy, "ClaudePlatformEmbRouter")
         actions = stmt["Action"]
         if isinstance(actions, str):
             actions = [actions]
@@ -191,13 +191,13 @@ class TestBedrockMantleActionsCovered:
 
     def test_bedrock_mantle_statement_allows(self):
         policy = _captured_policy()
-        stmt = _statement_by_sid(policy, "BedrockMantleLiteLLM")
+        stmt = _statement_by_sid(policy, "BedrockMantleEmbRouter")
         assert stmt["Effect"] == "Allow"
         assert stmt["Resource"] == "*"
 
     def test_no_bedrock_mantle_wildcard(self):
         policy = _captured_policy()
-        stmt = _statement_by_sid(policy, "BedrockMantleLiteLLM")
+        stmt = _statement_by_sid(policy, "BedrockMantleEmbRouter")
         actions = stmt["Action"]
         if isinstance(actions, str):
             actions = [actions]
@@ -208,10 +208,10 @@ class TestBedrockMantleActionsCovered:
 
     def test_bedrock_mantle_statement_carries_secure_transport_condition(self):
         policy = _captured_policy()
-        stmt = _statement_by_sid(policy, "BedrockMantleLiteLLM")
+        stmt = _statement_by_sid(policy, "BedrockMantleEmbRouter")
         cond = stmt.get("Condition") or {}
         assert cond.get("Bool", {}).get("aws:SecureTransport") == "true", (
-            "BedrockMantleLiteLLM must require aws:SecureTransport=true "
+            "BedrockMantleEmbRouter must require aws:SecureTransport=true "
             "to keep parity with the bedrock statement"
         )
 
@@ -227,7 +227,7 @@ class TestInvalidIdentityTokenSurfacesAudience:
     """LIT-4026: when STS rejects the web identity token with
     ``InvalidIdentityToken`` (the "Incorrect token audience" case), the raised
     error must name the ``aud``/``iss`` the token actually carries so an
-    operator can diagnose the mismatch without enabling LITELLM_LOG=DEBUG on a
+    operator can diagnose the mismatch without enabling EMBROUTER_LOG=DEBUG on a
     prod instance."""
 
     _AUD = "https://gateway.example.com"
@@ -238,7 +238,7 @@ class TestInvalidIdentityTokenSurfacesAudience:
     )
 
     def _raise_invalid_identity_token(self) -> Exception:
-        from litellm.llms.bedrock.base_aws_llm import AwsAuthError, BaseAWSLLM
+        from embrouter.llms.bedrock.base_aws_llm import AwsAuthError, BaseAWSLLM
 
         token = _make_jwt({"aud": self._AUD, "iss": self._ISS, "sub": "svc-account"})
 
@@ -257,14 +257,14 @@ class TestInvalidIdentityTokenSurfacesAudience:
         with (
             patch("boto3.client", return_value=mock_sts),
             patch(
-                "litellm.llms.bedrock.base_aws_llm.get_secret",
+                "embrouter.llms.bedrock.base_aws_llm.get_secret",
                 return_value=token,
             ),
             pytest.raises(AwsAuthError) as exc_info,
         ):
             BaseAWSLLM()._auth_with_web_identity_token(
                 aws_web_identity_token="oidc/google/" + self._AUD,
-                aws_role_name="arn:aws:iam::123456789012:role/litellm-bedrock-role",
+                aws_role_name="arn:aws:iam::123456789012:role/embrouter-bedrock-role",
                 aws_session_name="test-session",
                 aws_region_name="us-east-1",
                 aws_sts_endpoint=None,
@@ -291,7 +291,7 @@ class TestInvalidIdentityTokenSurfacesAudience:
 class TestPolicyTransportConditions:
     def test_bedrock_statement_keeps_secure_transport_condition(self):
         policy = _captured_policy()
-        bedrock_stmt = _statement_by_sid(policy, "BedrockLiteLLM")
+        bedrock_stmt = _statement_by_sid(policy, "BedrockEmbRouter")
         cond = bedrock_stmt.get("Condition") or {}
         assert cond.get("Bool", {}).get("aws:SecureTransport") == "true"
 
@@ -299,10 +299,10 @@ class TestPolicyTransportConditions:
         """The new statement should match the existing one's hardening
         posture — TLS-only, same as bedrock."""
         policy = _captured_policy()
-        stmt = _statement_by_sid(policy, "ClaudePlatformLiteLLM")
+        stmt = _statement_by_sid(policy, "ClaudePlatformEmbRouter")
         cond = stmt.get("Condition") or {}
         assert cond.get("Bool", {}).get("aws:SecureTransport") == "true", (
-            "ClaudePlatformLiteLLM must require aws:SecureTransport=true "
+            "ClaudePlatformEmbRouter must require aws:SecureTransport=true "
             "to keep parity with the bedrock statement"
         )
 

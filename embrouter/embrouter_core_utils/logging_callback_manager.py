@@ -1,16 +1,16 @@
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Final
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.constants import MAX_CALLBACKS
-from litellm.integrations.additional_logging_utils import AdditionalLoggingUtils
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.integrations.generic_api.generic_api_callback import GenericAPILogger
-from litellm.types.utils import CallbacksByType
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.constants import MAX_CALLBACKS
+from embrouter.integrations.additional_logging_utils import AdditionalLoggingUtils
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.integrations.generic_api.generic_api_callback import GenericAPILogger
+from embrouter.types.utils import CallbacksByType
 
 if TYPE_CHECKING:
-    from litellm import _custom_logger_compatible_callbacks_literal
+    from embrouter import _custom_logger_compatible_callbacks_literal
 else:
     _custom_logger_compatible_callbacks_literal = str
 
@@ -19,7 +19,7 @@ _generic_api_logger_cache: Final[dict[str, GenericAPILogger]] = {}
 
 class LoggingCallbackManager:
     """
-    A centralized class that allows easy add / remove callbacks for litellm.
+    A centralized class that allows easy add / remove callbacks for embrouter.
 
     Goals of this class:
     - Prevent adding duplicate callbacks / success_callback / failure_callback
@@ -32,43 +32,43 @@ class LoggingCallbackManager:
     def _is_async_callable(self, callback) -> bool:
         """Check if a callback is async. Used to auto-route callbacks to the correct list."""
         try:
-            from litellm.litellm_core_utils.coroutine_checker import coroutine_checker
+            from embrouter.embrouter_core_utils.coroutine_checker import coroutine_checker
 
             return coroutine_checker.is_async_callable(callback)
         except Exception:
             return False
 
-    def add_litellm_input_callback(self, callback: CustomLogger | str | Callable):
+    def add_embrouter_input_callback(self, callback: CustomLogger | str | Callable):
         """
-        Add a input callback to litellm.input_callback.
-        Auto-routes async callbacks to litellm._async_input_callback.
+        Add a input callback to embrouter.input_callback.
+        Auto-routes async callbacks to embrouter._async_input_callback.
         """
         if not isinstance(callback, str) and self._is_async_callable(callback):
-            self._safe_add_callback_to_list(callback=callback, parent_list=litellm._async_input_callback)
+            self._safe_add_callback_to_list(callback=callback, parent_list=embrouter._async_input_callback)
         else:
-            self._safe_add_callback_to_list(callback=callback, parent_list=litellm.input_callback)
+            self._safe_add_callback_to_list(callback=callback, parent_list=embrouter.input_callback)
 
-    def add_litellm_service_callback(self, callback: CustomLogger | str | Callable):
+    def add_embrouter_service_callback(self, callback: CustomLogger | str | Callable):
         """
-        Add a service callback to litellm.service_callback
+        Add a service callback to embrouter.service_callback
         """
-        self._safe_add_callback_to_list(callback=callback, parent_list=litellm.service_callback)
+        self._safe_add_callback_to_list(callback=callback, parent_list=embrouter.service_callback)
 
-    def add_litellm_callback(self, callback: CustomLogger | str | Callable):
+    def add_embrouter_callback(self, callback: CustomLogger | str | Callable):
         """
-        Add a callback to litellm.callbacks
+        Add a callback to embrouter.callbacks
 
         Ensures no duplicates are added.
         """
         self._safe_add_callback_to_list(
             callback=callback,
-            parent_list=litellm.callbacks,
+            parent_list=embrouter.callbacks,
         )
 
-    def add_litellm_success_callback(self, callback: CustomLogger | str | Callable):
+    def add_embrouter_success_callback(self, callback: CustomLogger | str | Callable):
         """
-        Add a success callback to `litellm.success_callback`.
-        Auto-routes async callbacks to litellm._async_success_callback.
+        Add a success callback to `embrouter.success_callback`.
+        Auto-routes async callbacks to embrouter._async_success_callback.
         Special-cases 'dynamodb' and 'openmeter' as async callbacks.
         """
         if (
@@ -77,31 +77,31 @@ class LoggingCallbackManager:
             or not isinstance(callback, str)
             and self._is_async_callable(callback)
         ):
-            self._safe_add_callback_to_list(callback=callback, parent_list=litellm._async_success_callback)
+            self._safe_add_callback_to_list(callback=callback, parent_list=embrouter._async_success_callback)
         else:
-            self._safe_add_callback_to_list(callback=callback, parent_list=litellm.success_callback)
+            self._safe_add_callback_to_list(callback=callback, parent_list=embrouter.success_callback)
 
-    def add_litellm_failure_callback(self, callback: CustomLogger | str | Callable):
+    def add_embrouter_failure_callback(self, callback: CustomLogger | str | Callable):
         """
-        Add a failure callback to `litellm.failure_callback`.
-        Auto-routes async callbacks to litellm._async_failure_callback.
+        Add a failure callback to `embrouter.failure_callback`.
+        Auto-routes async callbacks to embrouter._async_failure_callback.
         """
         if not isinstance(callback, str) and self._is_async_callable(callback):
-            self._safe_add_callback_to_list(callback=callback, parent_list=litellm._async_failure_callback)
+            self._safe_add_callback_to_list(callback=callback, parent_list=embrouter._async_failure_callback)
         else:
-            self._safe_add_callback_to_list(callback=callback, parent_list=litellm.failure_callback)
+            self._safe_add_callback_to_list(callback=callback, parent_list=embrouter.failure_callback)
 
-    def add_litellm_async_success_callback(self, callback: CustomLogger | Callable | str):
+    def add_embrouter_async_success_callback(self, callback: CustomLogger | Callable | str):
         """
-        Add a success callback to litellm._async_success_callback
+        Add a success callback to embrouter._async_success_callback
         """
-        self._safe_add_callback_to_list(callback=callback, parent_list=litellm._async_success_callback)
+        self._safe_add_callback_to_list(callback=callback, parent_list=embrouter._async_success_callback)
 
-    def add_litellm_async_failure_callback(self, callback: CustomLogger | Callable | str):
+    def add_embrouter_async_failure_callback(self, callback: CustomLogger | Callable | str):
         """
-        Add a failure callback to litellm._async_failure_callback
+        Add a failure callback to embrouter._async_failure_callback
         """
-        self._safe_add_callback_to_list(callback=callback, parent_list=litellm._async_failure_callback)
+        self._safe_add_callback_to_list(callback=callback, parent_list=embrouter._async_failure_callback)
 
     def remove_callback_from_list_by_object(self, callback_list, obj, require_self=True):
         """
@@ -123,12 +123,12 @@ class LoggingCallbackManager:
         Remove all callbacks of a specific type from a callback list.
 
         Args:
-            callback_list: The list to remove callbacks from (e.g., litellm.callbacks)
+            callback_list: The list to remove callbacks from (e.g., embrouter.callbacks)
             callback_type: The class type to match (e.g., SemanticToolFilterHook)
 
         Example:
-            litellm.logging_callback_manager.remove_callbacks_by_type(
-                litellm.callbacks, SemanticToolFilterHook
+            embrouter.logging_callback_manager.remove_callbacks_by_type(
+                embrouter.callbacks, SemanticToolFilterHook
             )
         """
         if not isinstance(callback_list, list):
@@ -167,7 +167,7 @@ class LoggingCallbackManager:
         callback: str,
     ) -> GenericAPILogger | str:
         """
-        litellm_settings:
+        embrouter_settings:
             success_callback: ["custom_callback_name"]
 
         callback_settings:
@@ -177,7 +177,7 @@ class LoggingCallbackManager:
                 headers:
                 Authorization: Bearer sk-1234
         """
-        callback_config: Final = litellm.callback_settings.get(callback)
+        callback_config: Final = embrouter.callback_settings.get(callback)
 
         # Check if callback is in callback_settings with callback_type: generic_api
         if isinstance(callback_config, dict) and callback_config.get("callback_type") == "generic_api":
@@ -226,7 +226,7 @@ class LoggingCallbackManager:
             return new_logger
 
         # Check if callback is in generic_api_compatible_callbacks.json
-        from litellm.integrations.generic_api.generic_api_callback import (
+        from embrouter.integrations.generic_api.generic_api_callback import (
             is_callback_compatible,
         )
 
@@ -334,23 +334,23 @@ class LoggingCallbackManager:
 
         Note: this is an internal function and should be used sparingly.
         """
-        litellm.input_callback = []
-        litellm.success_callback = []
-        litellm.failure_callback = []
-        litellm._async_success_callback = []
-        litellm._async_failure_callback = []
-        litellm.callbacks = []
+        embrouter.input_callback = []
+        embrouter.success_callback = []
+        embrouter.failure_callback = []
+        embrouter._async_success_callback = []
+        embrouter._async_failure_callback = []
+        embrouter.callbacks = []
 
     def _get_all_callbacks(self) -> list[CustomLogger | Callable | str]:
         """
-        Get all callbacks from litellm.callbacks, litellm.success_callback, litellm.failure_callback, litellm._async_success_callback, litellm._async_failure_callback
+        Get all callbacks from embrouter.callbacks, embrouter.success_callback, embrouter.failure_callback, embrouter._async_success_callback, embrouter._async_failure_callback
         """
         return (
-            litellm.callbacks
-            + litellm.success_callback
-            + litellm.failure_callback
-            + litellm._async_success_callback
-            + litellm._async_failure_callback
+            embrouter.callbacks
+            + embrouter.success_callback
+            + embrouter.failure_callback
+            + embrouter._async_success_callback
+            + embrouter._async_failure_callback
         )
 
     def remove_callback_from_all_lists(self, obj, require_self=False) -> None:
@@ -359,11 +359,11 @@ class LoggingCallbackManager:
         promoted into, so a re-initialized callback leaves no stale instance behind.
         """
         for callback_list in (
-            litellm.callbacks,
-            litellm.success_callback,
-            litellm.failure_callback,
-            litellm._async_success_callback,
-            litellm._async_failure_callback,
+            embrouter.callbacks,
+            embrouter.success_callback,
+            embrouter.failure_callback,
+            embrouter._async_success_callback,
+            embrouter._async_failure_callback,
         ):
             self.remove_callback_from_list_by_object(callback_list, obj, require_self=require_self)
 
@@ -411,9 +411,9 @@ class LoggingCallbackManager:
             CallbacksByType: Dict with keys 'success', 'failure', 'success_and_failure' containing lists of callback strings
         """
         # Get callback lists
-        success_callbacks: Final = set(litellm.success_callback + litellm._async_success_callback)
-        failure_callbacks: Final = set(litellm.failure_callback + litellm._async_failure_callback)
-        general_callbacks: Final = set(litellm.callbacks)
+        success_callbacks: Final = set(embrouter.success_callback + embrouter._async_success_callback)
+        failure_callbacks: Final = set(embrouter.failure_callback + embrouter._async_failure_callback)
+        general_callbacks: Final = set(embrouter.callbacks)
 
         # Get all unique callbacks
         all_callbacks: Final = success_callbacks | failure_callbacks | general_callbacks
@@ -449,8 +449,8 @@ class LoggingCallbackManager:
         )
 
     def _get_callback_string(self, callback: CustomLogger | Callable | str) -> str:
-        from litellm.integrations.opentelemetry import OpenTelemetry
-        from litellm.litellm_core_utils.custom_logger_registry import (
+        from embrouter.integrations.opentelemetry import OpenTelemetry
+        from embrouter.embrouter_core_utils.custom_logger_registry import (
             CustomLoggerRegistry,
         )
 
@@ -474,7 +474,7 @@ class LoggingCallbackManager:
         """
         Get the active custom logger for a given callback name
         """
-        from litellm.litellm_core_utils.custom_logger_registry import (
+        from embrouter.embrouter_core_utils.custom_logger_registry import (
             CustomLoggerRegistry,
         )
 

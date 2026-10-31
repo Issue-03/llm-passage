@@ -8,7 +8,7 @@ const baseCard: GuardrailCardInfo = {
   id: "test-guard",
   name: "Test Guardrail",
   description: "A guardrail for testing purposes",
-  category: "litellm",
+  category: "embrouter",
   logo: "/logos/test.svg",
   tags: ["safety"],
 };

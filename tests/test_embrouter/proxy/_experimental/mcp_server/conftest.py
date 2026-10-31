@@ -7,7 +7,7 @@ import pytest
 def _hermetic_mcp_server_registry():
     """Restore the singleton ``global_mcp_server_manager``'s registry state around every
     test, so entries seeded by one test never leak into another on a shared shard."""
-    from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+    from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
         global_mcp_server_manager,
     )
 
@@ -31,7 +31,7 @@ def _hermetic_mcp_server_registry():
 def _hermetic_server_root_path():
     """Isolate MCP discovery tests from a leaked ``SERVER_ROOT_PATH``.
 
-    ``tests/test_litellm/proxy/test_custom_proxy.py`` sets ``SERVER_ROOT_PATH`` at import time
+    ``tests/test_embrouter/proxy/test_custom_proxy.py`` sets ``SERVER_ROOT_PATH`` at import time
     (its app mounts under a custom path) and never restores it, so in a shared shard the value
     leaks into this process. The discovery routes and the 401 challenges read it, so a leaked
     value would silently rewrite every ``resource_metadata`` URL and make these tests depend on
@@ -48,7 +48,7 @@ def _hermetic_server_root_path():
 
 @pytest.fixture
 def config_only_mcp_manager_factory():
-    from litellm.proxy._experimental.mcp_server.mcp_server_manager import MCPServerManager
+    from embrouter.proxy._experimental.mcp_server.mcp_server_manager import MCPServerManager
 
     class ConfigOnlyManager(MCPServerManager):
         def initialize_tool_name_to_mcp_server_name_mapping(self):

@@ -1,4 +1,4 @@
-import { LiteLLMParams, ModelData, ModelInfo, PerSecondCostTier } from "@/components/model_dashboard/types";
+import { EmbRouterParams, ModelData, ModelInfo, PerSecondCostTier } from "@/components/model_dashboard/types";
 
 const PER_SECOND_TIER_KEY = /^output_cost_per_second_(.+)$/;
 
@@ -8,7 +8,7 @@ export const perSecondCostTiers = (modelInfo: Record<string, unknown> | null | u
     return resolution !== undefined && typeof value === "number" ? [{ resolution, cost: value }] : [];
   });
 
-interface RawLitellmParams extends LiteLLMParams {
+interface RawEmbrouterParams extends EmbRouterParams {
   output_cost_per_second?: number;
 }
 
@@ -23,7 +23,7 @@ interface RawModelInfo extends ModelInfo {
 
 export interface RawModel {
   model_name: string;
-  litellm_params: RawLitellmParams;
+  embrouter_params: RawEmbrouterParams;
   model_info: RawModelInfo;
   [key: string]: unknown;
 }
@@ -32,34 +32,34 @@ const costPerMillionTokens = (costPerToken: number | null | undefined): string |
   costPerToken == null ? null : (Number(costPerToken) * 1000000).toFixed(2);
 
 const resolveProvider = (
-  litellmModelName: string | null | undefined,
+  embrouterModelName: string | null | undefined,
   customLlmProvider: string | null | undefined,
   getProviderFromModel: (model: string) => string,
 ): string => {
-  if (!litellmModelName) return "-";
+  if (!embrouterModelName) return "-";
   if (customLlmProvider) return customLlmProvider;
-  const splitModel = litellmModelName.split("/");
-  return splitModel.length === 1 ? getProviderFromModel(litellmModelName) : splitModel[0];
+  const splitModel = embrouterModelName.split("/");
+  return splitModel.length === 1 ? getProviderFromModel(embrouterModelName) : splitModel[0];
 };
 
 const transformModel = (rawModel: RawModel, getProviderFromModel: (model: string) => string): ModelData => {
   const model: RawModel = JSON.parse(JSON.stringify(rawModel));
-  const litellmParams = model.litellm_params;
+  const embrouterParams = model.embrouter_params;
   const modelInfo = model.model_info;
 
   return {
     ...model,
-    provider: resolveProvider(litellmParams.model, litellmParams.custom_llm_provider, getProviderFromModel),
+    provider: resolveProvider(embrouterParams.model, embrouterParams.custom_llm_provider, getProviderFromModel),
     input_cost: costPerMillionTokens(modelInfo?.input_cost_per_token),
     output_cost: costPerMillionTokens(modelInfo?.output_cost_per_token),
-    output_cost_per_second: litellmParams.output_cost_per_second ?? modelInfo?.output_cost_per_second ?? null,
+    output_cost_per_second: embrouterParams.output_cost_per_second ?? modelInfo?.output_cost_per_second ?? null,
     output_cost_per_second_tiers: perSecondCostTiers(modelInfo),
-    litellm_model_name: litellmParams.model,
+    embrouter_model_name: embrouterParams.model,
     max_tokens: modelInfo?.max_tokens,
     max_input_tokens: modelInfo?.max_input_tokens,
-    api_base: litellmParams.api_base,
-    cleanedLitellmParams: Object.fromEntries(
-      Object.entries(litellmParams).filter(([key]) => key !== "model" && key !== "api_base"),
+    api_base: embrouterParams.api_base,
+    cleanedEmbrouterParams: Object.fromEntries(
+      Object.entries(embrouterParams).filter(([key]) => key !== "model" && key !== "api_base"),
     ),
   };
 };

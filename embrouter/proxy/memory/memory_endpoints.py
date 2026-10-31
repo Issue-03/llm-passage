@@ -24,19 +24,19 @@ from typing import TYPE_CHECKING, Final
 from fastapi import APIRouter, Depends, HTTPException, Query
 from typing_extensions import ReadOnly, TypedDict
 
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy._types import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy._types import (
     CommonProxyErrors,
-    LitellmUserRoles,
+    EmbrouterUserRoles,
     UserAPIKeyAuth,
     user_api_key_has_admin_view,
 )
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.repositories.prisma_protocols import TableActions
-from litellm.repositories.table_repositories import MemoryRepository
-from litellm.repositories.team_repository import TeamRepository
-from litellm.types.memory_management import (
-    LiteLLM_MemoryRow,
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.repositories.prisma_protocols import TableActions
+from embrouter.repositories.table_repositories import MemoryRepository
+from embrouter.repositories.team_repository import TeamRepository
+from embrouter.types.memory_management import (
+    EmbRouter_MemoryRow,
     MemoryCreateRequest,
     MemoryDeleteResponse,
     MemoryListResponse,
@@ -46,12 +46,12 @@ from litellm.types.memory_management import (
 if TYPE_CHECKING:
     from prisma import models as prisma_models
 
-    from litellm.proxy.utils import PrismaClient
+    from embrouter.proxy.utils import PrismaClient
 
 router: Final = APIRouter()
 
 
-def _memory_table(prisma_client: "PrismaClient") -> TableActions["prisma_models.LiteLLM_MemoryTable"]:
+def _memory_table(prisma_client: "PrismaClient") -> TableActions["prisma_models.EmbRouter_MemoryTable"]:
     return MemoryRepository(prisma_client).table
 
 
@@ -71,7 +71,7 @@ def _serialize_metadata_for_prisma(metadata: object) -> str:
 
 
 def _is_admin(user_api_key_dict: UserAPIKeyAuth) -> bool:
-    return user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN
+    return user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN
 
 
 def _visibility_filter(user_api_key_dict: UserAPIKeyAuth) -> Mapping[str, object] | None:
@@ -122,8 +122,8 @@ def _key_filter(search: str | None, key_prefix: str | None, key: str | None) -> 
     return None
 
 
-def _row_to_model(row: "prisma_models.LiteLLM_MemoryTable") -> LiteLLM_MemoryRow:
-    return LiteLLM_MemoryRow(
+def _row_to_model(row: "prisma_models.EmbRouter_MemoryTable") -> EmbRouter_MemoryRow:
+    return EmbRouter_MemoryRow(
         memory_id=row.memory_id,
         key=row.key,
         value=row.value,
@@ -138,7 +138,7 @@ def _row_to_model(row: "prisma_models.LiteLLM_MemoryTable") -> LiteLLM_MemoryRow
 
 
 def _require_prisma() -> "PrismaClient":
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail=CommonProxyErrors.db_not_connected_error.value)
@@ -156,7 +156,7 @@ def _internal_error(log_message: str, exc: Exception, default_detail: str) -> HT
 
 
 async def _assert_write_access(
-    prisma_client: "PrismaClient", row: "prisma_models.LiteLLM_MemoryTable", user_api_key_dict: UserAPIKeyAuth
+    prisma_client: "PrismaClient", row: "prisma_models.EmbRouter_MemoryTable", user_api_key_dict: UserAPIKeyAuth
 ) -> None:
     """
     Enforce ownership for mutations (PUT/DELETE).
@@ -206,7 +206,7 @@ async def _is_team_admin_for(prisma_client: "PrismaClient", user_api_key_dict: U
     Imported lazily to avoid a circular import with proxy_server during the
     memory router's module load.
     """
-    from litellm.proxy.management_endpoints.common_utils import (
+    from embrouter.proxy.management_endpoints.common_utils import (
         _is_user_org_admin_for_team,
         _is_user_team_admin,
     )
@@ -300,7 +300,7 @@ def _resolve_scope(
     "/v1/memory",
     tags=["memory management"],
     dependencies=[Depends(user_api_key_auth)],
-    response_model=LiteLLM_MemoryRow,
+    response_model=EmbRouter_MemoryRow,
 )
 async def create_memory(
     body: MemoryCreateRequest,
@@ -401,7 +401,7 @@ async def list_memory(
 
 async def _find_memory_for_caller(
     prisma_client: "PrismaClient", key: str, user_api_key_dict: UserAPIKeyAuth
-) -> "prisma_models.LiteLLM_MemoryTable":
+) -> "prisma_models.EmbRouter_MemoryTable":
     """Look up a memory row by key, scoped to the caller's visibility."""
     key_filter: Final[Mapping[str, object]] = {"key": key}
     vis: Final = _visibility_filter(user_api_key_dict)
@@ -414,7 +414,7 @@ async def _find_memory_for_caller(
 
 async def _find_visible_memory_or_none(
     prisma_client: "PrismaClient", key: str, user_api_key_dict: UserAPIKeyAuth
-) -> "prisma_models.LiteLLM_MemoryTable | None":
+) -> "prisma_models.EmbRouter_MemoryTable | None":
     """The caller-visible row for `key`, or None when nothing is visible to them."""
     try:
         return await _find_memory_for_caller(prisma_client, key, user_api_key_dict)
@@ -428,7 +428,7 @@ async def _find_visible_memory_or_none(
     "/v1/memory/{key:path}",
     tags=["memory management"],
     dependencies=[Depends(user_api_key_auth)],
-    response_model=LiteLLM_MemoryRow,
+    response_model=EmbRouter_MemoryRow,
 )
 async def get_memory(
     key: str,
@@ -444,7 +444,7 @@ async def get_memory(
     "/v1/memory/{key:path}",
     tags=["memory management"],
     dependencies=[Depends(user_api_key_auth)],
-    response_model=LiteLLM_MemoryRow,
+    response_model=EmbRouter_MemoryRow,
 )
 async def upsert_memory(
     key: str,

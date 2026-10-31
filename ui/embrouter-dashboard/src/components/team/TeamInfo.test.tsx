@@ -279,7 +279,7 @@ const createMockTeamData = (overrides = {}) => ({
     max_parallel_requests: null,
     budget_reset_at: null,
     model_id: null,
-    litellm_model_table: null,
+    embrouter_model_table: null,
     created_at: "2024-01-01T00:00:00Z",
     team_member_budget_table: null,
     guardrails: [],
@@ -967,7 +967,7 @@ describe("TeamInfoView", () => {
       await user.click(editButton);
 
       const secretField = await screen.findByPlaceholderText(
-        '{"namespace": "admin", "mount": "secret", "path_prefix": "litellm"}',
+        '{"namespace": "admin", "mount": "secret", "path_prefix": "embrouter"}',
       );
       expect(secretField).toBeDisabled();
     });
@@ -1001,7 +1001,7 @@ describe("TeamInfoView", () => {
       await user.click(editButton);
 
       const secretField = await screen.findByPlaceholderText(
-        '{"namespace": "admin", "mount": "secret", "path_prefix": "litellm"}',
+        '{"namespace": "admin", "mount": "secret", "path_prefix": "embrouter"}',
       );
       expect(secretField).toBeEnabled();
     });
@@ -1476,7 +1476,7 @@ describe("TeamInfoView", () => {
       const user = userEvent.setup({ delay: null });
       vi.mocked(networking.teamInfoCall).mockResolvedValue(
         createMockTeamData({
-          litellm_model_table: { model_aliases: { "my-smart-model": "gpt-4", "my-fast-model": "gpt-3.5-turbo" } },
+          embrouter_model_table: { model_aliases: { "my-smart-model": "gpt-4", "my-fast-model": "gpt-3.5-turbo" } },
         }),
       );
 
@@ -1530,7 +1530,7 @@ describe("TeamInfoView", () => {
 
     it("should show an empty state when the team has no model aliases", async () => {
       const user = userEvent.setup({ delay: null });
-      vi.mocked(networking.teamInfoCall).mockResolvedValue(createMockTeamData({ litellm_model_table: null }));
+      vi.mocked(networking.teamInfoCall).mockResolvedValue(createMockTeamData({ embrouter_model_table: null }));
 
       renderWithProviders(<TeamInfoView {...defaultProps} />);
 
@@ -1553,7 +1553,7 @@ describe("TeamInfoView", () => {
       vi.mocked(networking.teamInfoCall).mockResolvedValue(
         createMockTeamData({
           models: ["gpt-4"],
-          litellm_model_table: { model_aliases: { "my-smart-model": "gpt-4" } },
+          embrouter_model_table: { model_aliases: { "my-smart-model": "gpt-4" } },
         }),
       );
 
@@ -1594,7 +1594,7 @@ describe("TeamInfoView", () => {
       vi.mocked(networking.teamInfoCall).mockResolvedValue(
         createMockTeamData({
           models: ["gpt-4"],
-          litellm_model_table: { model_aliases: { "my-smart-model": "gpt-4" } },
+          embrouter_model_table: { model_aliases: { "my-smart-model": "gpt-4" } },
         }),
       );
       vi.mocked(networking.teamUpdateCall).mockResolvedValue({ data: {}, team_id: "123" } as any);
@@ -1617,7 +1617,7 @@ describe("TeamInfoView", () => {
     it("should not include model_aliases when the team has none and the editor is untouched", async () => {
       const user = userEvent.setup({ delay: null });
       vi.mocked(networking.teamInfoCall).mockResolvedValue(
-        createMockTeamData({ models: ["gpt-4"], litellm_model_table: null }),
+        createMockTeamData({ models: ["gpt-4"], embrouter_model_table: null }),
       );
       vi.mocked(networking.teamUpdateCall).mockResolvedValue({ data: {}, team_id: "123" } as any);
 
@@ -1761,7 +1761,7 @@ describe("TeamInfoView", () => {
   describe("guardrails dropdown grouping", () => {
     const guardrail = (name: string, defaultOn: boolean) => ({
       guardrail_name: name,
-      litellm_params: { default_on: defaultOn },
+      embrouter_params: { default_on: defaultOn },
     });
 
     const openGuardrailsDropdown = async (user: ReturnType<typeof userEvent.setup>) => {
@@ -2556,8 +2556,8 @@ describe("TeamInfoView - the exact bytes the update call sends", () => {
     testQueryClient.clear();
     vi.mocked(networking.getGuardrailsList).mockResolvedValue({
       guardrails: [
-        { guardrail_name: "always-on", litellm_params: { default_on: true } },
-        { guardrail_name: "opt-in", litellm_params: { default_on: false } },
+        { guardrail_name: "always-on", embrouter_params: { default_on: true } },
+        { guardrail_name: "opt-in", embrouter_params: { default_on: false } },
       ],
     });
     vi.mocked(networking.teamInfoCall).mockResolvedValue(

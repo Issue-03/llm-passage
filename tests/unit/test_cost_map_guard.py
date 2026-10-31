@@ -25,14 +25,14 @@ schema_module: Final = _load("generate_model_prices_schema")
 guard: Final = _load("cost_map_guard")
 
 MAP_FILES: Final = (guard.COST_MAP_PATH,)
-BOT_REF: Final = "litellm_cost_map_sync_2026-09-04T12-00Z"
+BOT_REF: Final = "embrouter_cost_map_sync_2026-09-04T12-00Z"
 
 
 def _entry(price: float = 1e-06, **extra: object) -> dict[str, object]:
     return {
         "input_cost_per_token": price,
         "output_cost_per_token": price * 2,
-        "litellm_provider": "openrouter",
+        "embrouter_provider": "openrouter",
         "mode": "chat",
         "max_tokens": 4096,
         **extra,
@@ -116,8 +116,8 @@ def test_unclassified_entry_key_is_reported() -> None:
 
 STALE_HEAD: Final = _snapshot(BASE_MAP, backup=_serialize({**BASE_MAP, "openrouter/b": _entry(3e-06)}), schema="{}")
 CODE_ONLY: Final = (
-    "litellm/utils.py",
-    "tests/test_litellm/test_utils.py",
+    "embrouter/utils.py",
+    "tests/test_embrouter/test_utils.py",
     "docs/model_prices_and_context_window.json",
 )
 
@@ -149,10 +149,10 @@ def test_contract_names_the_skip() -> None:
 
 
 def test_bot_may_only_touch_the_cost_map_files() -> None:
-    changed = (*guard.GUARDED_PATHS, "litellm/utils.py", ".github/workflows/cost-map-guard.yml")
+    changed = (*guard.GUARDED_PATHS, "embrouter/utils.py", ".github/workflows/cost-map-guard.yml")
     assert _failures(BASE, changed_files=changed, bot=False) == ()
     assert _failures(BASE, changed_files=changed) == (
-        "bot PRs may only change the cost map files, not litellm/utils.py",
+        "bot PRs may only change the cost map files, not embrouter/utils.py",
         "bot PRs may only change the cost map files, not .github/workflows/cost-map-guard.yml",
     )
 
@@ -185,8 +185,8 @@ def _commit(repo: Path, cost_map: dict[str, object], message: str) -> str:
 
 
 def _commit_code_only(repo: Path, message: str) -> str:
-    (repo / "litellm").mkdir(exist_ok=True)
-    (repo / "litellm" / "utils.py").write_text(f"print('{message}')\n")
+    (repo / "embrouter").mkdir(exist_ok=True)
+    (repo / "embrouter" / "utils.py").write_text(f"print('{message}')\n")
     return _git_commit(repo, message)
 
 
@@ -216,7 +216,7 @@ def _run_guard(repo: Path, base: str, head: str, head_ref: str) -> subprocess.Co
     ("head_ref", "expected_code", "expected_line"),
     [
         (BOT_REF, 1, "- bot PRs may not remove models: openrouter/b"),
-        ("litellm_fix_pricing", 0, "cost map guard passed (human PR, file checks only)"),
+        ("embrouter_fix_pricing", 0, "cost map guard passed (human PR, file checks only)"),
     ],
 )
 def test_main_reads_both_revisions_from_git(
@@ -237,7 +237,7 @@ def test_main_skips_the_file_checks_on_a_stale_base_the_pr_never_touched(tmp_pat
     (tmp_path / guard.SCHEMA_PATH).write_text("{}")
     stale_base: Final = _commit_code_only(tmp_path, "stale base with drifted backup and schema")
     head: Final = _commit_code_only(tmp_path, "code change on the stale base")
-    human: Final = _run_guard(tmp_path, stale_base, head, "litellm_fix_pricing")
+    human: Final = _run_guard(tmp_path, stale_base, head, "embrouter_fix_pricing")
     assert human.returncode == 0, human.stdout + human.stderr
     assert "cost map guard passed (human PR, cost map untouched)" in human.stdout.splitlines()
     bot: Final = _run_guard(tmp_path, stale_base, head, BOT_REF)
@@ -251,7 +251,7 @@ def test_main_keeps_the_file_checks_when_a_cost_map_file_is_renamed(tmp_path: Pa
     base: Final = _commit(tmp_path, BASE_MAP, "base")
     subprocess.run(("git", "mv", guard.COST_MAP_PATH, "renamed.json"), cwd=tmp_path, check=True)
     head: Final = _git_commit(tmp_path, "rename the cost map")
-    result: Final = _run_guard(tmp_path, base, head, "litellm_fix_pricing")
+    result: Final = _run_guard(tmp_path, base, head, "embrouter_fix_pricing")
     assert result.returncode == 1, result.stdout + result.stderr
     assert "cost map guard failed (human PR, file checks only):" in result.stdout.splitlines()
 
@@ -259,7 +259,7 @@ def test_main_keeps_the_file_checks_when_a_cost_map_file_is_renamed(tmp_path: Pa
 def test_main_fails_when_the_changed_files_cannot_be_read(tmp_path: Path) -> None:
     subprocess.run(("git", "init", "-q", str(tmp_path)), check=True)
     head: Final = _commit(tmp_path, BASE_MAP, "head")
-    result: Final = _run_guard(tmp_path, "0" * 40, head, "litellm_fix_pricing")
+    result: Final = _run_guard(tmp_path, "0" * 40, head, "embrouter_fix_pricing")
     assert result.returncode == 1, result.stdout + result.stderr
     assert result.stdout.startswith("cost map guard failed: git diff ")
 
@@ -267,7 +267,7 @@ def test_main_fails_when_the_changed_files_cannot_be_read(tmp_path: Path) -> Non
 def test_main_rejects_a_bot_pr_that_edits_code(tmp_path: Path) -> None:
     subprocess.run(("git", "init", "-q", str(tmp_path)), check=True)
     base = _commit(tmp_path, BASE_MAP, "base")
-    (tmp_path / "litellm" / "utils.py").write_text("print('hi')\n")
+    (tmp_path / "embrouter" / "utils.py").write_text("print('hi')\n")
     head = _commit(tmp_path, {**BASE_MAP, "openrouter/c": _entry()}, "head")
     assert _run_guard(tmp_path, base, head, BOT_REF).returncode == 1
-    assert _run_guard(tmp_path, base, head, "litellm_fix_pricing").returncode == 0
+    assert _run_guard(tmp_path, base, head, "embrouter_fix_pricing").returncode == 0

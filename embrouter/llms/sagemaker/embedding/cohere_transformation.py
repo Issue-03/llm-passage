@@ -13,19 +13,19 @@ Reference: https://docs.cohere.com/v2/reference/embed
 from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.types.llms.openai import AllEmbeddingInputValues
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.types.llms.openai import AllEmbeddingInputValues
 
 from httpx._models import Headers, Response
 
-import litellm
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.base_llm.embedding.transformation import BaseEmbeddingConfig
-from litellm.llms.bedrock.embed.cohere_transformation import (
+import embrouter
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.base_llm.embedding.transformation import BaseEmbeddingConfig
+from embrouter.llms.bedrock.embed.cohere_transformation import (
     BedrockCohereEmbeddingConfig,
 )
-from litellm.llms.cohere.embed.v1_transformation import CohereEmbeddingConfig
-from litellm.types.utils import EmbeddingResponse
+from embrouter.llms.cohere.embed.v1_transformation import CohereEmbeddingConfig
+from embrouter.types.utils import EmbeddingResponse
 
 from ..common_utils import SagemakerError
 
@@ -91,11 +91,11 @@ class SagemakerCohereEmbeddingConfig(BaseEmbeddingConfig):
         model: str,
         raw_response: Response,
         model_response: "EmbeddingResponse",
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
         api_key: str | None = None,
         request_data: dict = {},
         optional_params: dict = {},
-        litellm_params: dict = {},
+        embrouter_params: dict = {},
     ) -> "EmbeddingResponse":
         """
         Transform embedding response for Cohere models on SageMaker.
@@ -115,7 +115,7 @@ class SagemakerCohereEmbeddingConfig(BaseEmbeddingConfig):
             response_json=raw_response.json(),
             model_response=model_response,
             model=model,
-            encoding=litellm.encoding,
+            encoding=embrouter.encoding,
             input=input_value,
         )
 
@@ -125,7 +125,7 @@ class SagemakerCohereEmbeddingConfig(BaseEmbeddingConfig):
         model: str,
         messages: list[Any],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:

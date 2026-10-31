@@ -34,14 +34,14 @@ describe("MCPConnectPicker logos", () => {
   });
 
   it("resolves backend logo_url values through the Logo component", async () => {
-    setServerRootPath("/litellm");
+    setServerRootPath("/embrouter");
     vi.mocked(fetchMCPServers).mockResolvedValue(servers);
 
     render(<MCPConnectPicker accessToken="tok" selectedServers={[]} onChange={vi.fn()} />);
 
     expect(await screen.findByText("external_logo")).toBeInTheDocument();
     expect(screen.getByAltText("external_logo logo")).toHaveAttribute("src", "https://cdn.example.com/ext.png");
-    expect(screen.getByAltText("local_logo logo")).toHaveAttribute("src", "/litellm/ui/assets/logos/github.svg");
+    expect(screen.getByAltText("local_logo logo")).toHaveAttribute("src", "/embrouter/ui/assets/logos/github.svg");
   });
 
   it("renders no logo at all for servers without logo_url", async () => {

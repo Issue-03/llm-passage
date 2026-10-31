@@ -2,12 +2,12 @@ from typing import Final
 
 import httpx
 
-import litellm
-from litellm.llms.base_llm.base_utils import BaseLLMModelInfo
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.openai import AllMessageValues
-from litellm.utils import _add_path_to_api_base
+import embrouter
+from embrouter.llms.base_llm.base_utils import BaseLLMModelInfo
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.utils import _add_path_to_api_base
 
 
 class VLLMError(BaseLLMException):
@@ -35,7 +35,7 @@ class VLLMModelInfo(BaseLLMModelInfo):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
@@ -48,7 +48,7 @@ class VLLMModelInfo(BaseLLMModelInfo):
         api_base = api_base or get_secret_str("VLLM_API_BASE")
         if api_base is None:
             raise ValueError(
-                "VLLM_API_BASE is not set. Please set the environment variable, to use VLLM's pass-through - `{LITELLM_API_BASE}/vllm/{endpoint}`."
+                "VLLM_API_BASE is not set. Please set the environment variable, to use VLLM's pass-through - `{EMBROUTER_API_BASE}/vllm/{endpoint}`."
             )
         return api_base
 
@@ -70,7 +70,7 @@ class VLLMModelInfo(BaseLLMModelInfo):
             )
 
         url: Final = _add_path_to_api_base(api_base, endpoint)
-        response: Final = litellm.module_level_client.get(
+        response: Final = embrouter.module_level_client.get(
             url=url,
         )
 

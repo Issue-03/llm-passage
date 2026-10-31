@@ -49,8 +49,8 @@ const ModelConnectionTest: React.FC<ModelConnectionTestProps> = ({
         return;
       }
 
-      const { litellmParamsObj, modelInfoObj } = result[0];
-      const response = await testConnectionRequest(accessToken, litellmParamsObj, modelInfoObj, modelInfoObj?.mode);
+      const { embrouterParamsObj, modelInfoObj } = result[0];
+      const response = await testConnectionRequest(accessToken, embrouterParamsObj, modelInfoObj, modelInfoObj?.mode);
 
       if (response.status === "success") {
         toast.success("Connection test successful!");
@@ -86,7 +86,7 @@ const ModelConnectionTest: React.FC<ModelConnectionTestProps> = ({
     return errorMsg
       .split("stack trace:")[0]
       .trim()
-      .replace(/^litellm\.(.*?)Error: /, "");
+      .replace(/^embrouter\.(.*?)Error: /, "");
   };
 
   const errorMessage =

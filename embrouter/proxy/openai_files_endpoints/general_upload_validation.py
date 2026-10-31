@@ -12,8 +12,8 @@ from typing import BinaryIO, Final, NoReturn
 
 from typing_extensions import assert_never
 
-from litellm.proxy._types import ProxyException
-from litellm.proxy.common_utils.path_utils import safe_filename
+from embrouter.proxy._types import ProxyException
+from embrouter.proxy.common_utils.path_utils import safe_filename
 
 MB: Final = 1024 * 1024
 

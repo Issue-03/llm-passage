@@ -7,7 +7,7 @@ from typing import Final
 
 import pytest
 
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
     ENCRYPTED_REASONING_SIGNATURE_PREFIX,
     TOOL_RESULT_IMAGE_BOUNDARY,
     TOOL_RESULT_IMAGE_PLACEHOLDER,
@@ -33,7 +33,7 @@ _ARTIFACT_FIELD_PATTERN: Final = r'^(?!__.*__$)[^\p{Cc}\p{Cf}\p{Zl}\p{Zp}"\\./[\
 
 
 def test_get_format_from_file_id():
-    unified_file_id = "litellm_proxy:application/pdf;unified_id,cbbe3534-8bf8-4386-af00-f5f6b7e370bf"
+    unified_file_id = "embrouter_proxy:application/pdf;unified_id,cbbe3534-8bf8-4386-af00-f5f6b7e370bf"
 
     format = get_format_from_file_id(unified_file_id)
 
@@ -177,7 +177,7 @@ def test_add_system_prompt_to_messages_empty_list():
 
 
 def test_convert_prefix_message_to_non_prefix_messages():
-    from litellm.litellm_core_utils.prompt_templates.common_utils import (
+    from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
         convert_prefix_message_to_non_prefix_messages,
     )
 
@@ -431,7 +431,7 @@ def test_update_messages_with_model_file_ids_skips_non_openai_file_blocks():
     assert updated == messages
 
 
-# Reusable fixture (decodes to: litellm_proxy:application/pdf;unified_id,...;
+# Reusable fixture (decodes to: embrouter_proxy:application/pdf;unified_id,...;
 # target_model_names,gpt-4o;llm_output_file_id,file-ECBPW7ML9g7XHdwGgUPZaM;
 # llm_output_file_model_id,...)
 UNIFIED_FILE_ID_B64 = (
@@ -560,7 +560,7 @@ class TestExtractFileDataBareStr:
     fabricate."""
 
     def test_rejects_bare_str(self):
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             extract_file_data,
         )
 
@@ -571,7 +571,7 @@ class TestExtractFileDataBareStr:
         import tempfile
         from pathlib import Path
 
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             extract_file_data,
         )
 
@@ -587,7 +587,7 @@ class TestExtractFileDataBareStr:
             os.unlink(str(tmp_path))
 
     def test_accepts_bytes(self):
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             extract_file_data,
         )
 
@@ -595,7 +595,7 @@ class TestExtractFileDataBareStr:
         assert extracted.get("content") == b"raw bytes content"
 
     def test_accepts_tuple(self):
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             extract_file_data,
         )
 
@@ -615,7 +615,7 @@ class TestUnpackLegacyDefs:
         [None, [], "string-not-a-dict", 42, 1.5, True, set(), tuple()],
     )
     def test_non_dict_returns_unchanged_no_op(self, value):
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             unpack_legacy_defs,
         )
 
@@ -624,7 +624,7 @@ class TestUnpackLegacyDefs:
         assert unpack_legacy_defs(value, copy=True) is value
 
     def test_dict_without_legacy_defs_is_no_op(self):
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             unpack_legacy_defs,
         )
 
@@ -642,7 +642,7 @@ class TestUnpackLegacyDefs:
 
     def test_components_with_no_schemas_block_is_no_op(self):
         """``components`` without a ``schemas`` sub-key must not be popped."""
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             unpack_legacy_defs,
         )
 
@@ -661,7 +661,7 @@ class TestUnpackLegacyDefs:
         inline cleanly under the default budget -- the budget rejects bombs,
         not legitimately-shaped schemas.
         """
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             unpack_legacy_defs,
         )
 
@@ -685,7 +685,7 @@ class TestUnpackLegacyDefs:
     def test_rejects_fan_out_bomb(self):
         """Each level multiplies refs (cycle detection only stops re-entry
         along the *same* path). Must trip the byte budget."""
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             unpack_legacy_defs,
         )
 
@@ -710,7 +710,7 @@ class TestUnpackLegacyDefs:
     def test_rejects_target_amplification_bomb(self):
         """Few refs each deep-copying one large target -- bounded total
         expanded bytes catches it even though ref count is small."""
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             unpack_legacy_defs,
         )
 
@@ -733,7 +733,7 @@ class TestUnpackLegacyDefs:
         node-counter would treat this as 1 node per resolution and miss it;
         a byte budget catches the actual wire-size amplification.
         """
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             unpack_legacy_defs,
         )
 
@@ -752,7 +752,7 @@ class TestUnpackLegacyDefs:
     def test_budget_does_not_trip_for_legitimate_large_schema(self):
         """An OpenAPI-derived tool with ~50 small targets must inline cleanly
         under the default ``max_inlined_bytes`` budget."""
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             unpack_legacy_defs,
         )
 
@@ -779,14 +779,14 @@ class TestTextCompletionPromptToMessages:
     """`/v1/completions` prompt wrapping, shared by the real-time and batch paths."""
 
     def test_string_prompt_becomes_single_user_message(self):
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             text_completion_prompt_to_messages,
         )
 
         assert text_completion_prompt_to_messages("summarize this") == ({"role": "user", "content": "summarize this"},)
 
     def test_list_of_strings_becomes_one_message_each(self):
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             text_completion_prompt_to_messages,
         )
 
@@ -808,7 +808,7 @@ class TestTextCompletionPromptToMessages:
         ],
     )
     def test_unsupported_prompt_shapes_raise(self, prompt):
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             text_completion_prompt_to_messages,
         )
 
@@ -971,7 +971,7 @@ def test_hoist_images_from_tool_messages_earlier_tool_run_without_images_unchang
 
 class TestCustomToolFormatShapeConversion:
     def test_flat_grammar_to_chat_shape(self):
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             convert_custom_tool_format_to_chat_shape,
         )
 
@@ -980,7 +980,7 @@ class TestCustomToolFormatShapeConversion:
         ) == {"type": "grammar", "grammar": {"definition": "start: patch", "syntax": "lark"}}
 
     def test_nested_grammar_to_responses_shape(self):
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             convert_custom_tool_format_to_responses_shape,
         )
 
@@ -989,7 +989,7 @@ class TestCustomToolFormatShapeConversion:
         ) == {"type": "grammar", "definition": "start: patch", "syntax": "regex"}
 
     def test_both_directions_are_idempotent_and_pass_text_through(self):
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             convert_custom_tool_format_to_chat_shape,
             convert_custom_tool_format_to_responses_shape,
         )
@@ -1004,7 +1004,7 @@ class TestCustomToolFormatShapeConversion:
         assert convert_custom_tool_format_to_chat_shape(convert_custom_tool_format_to_responses_shape(nested)) == nested
 
     def test_unrecognized_formats_pass_through(self):
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             convert_custom_tool_format_to_chat_shape,
             convert_custom_tool_format_to_responses_shape,
         )
@@ -1014,23 +1014,23 @@ class TestCustomToolFormatShapeConversion:
             assert convert_custom_tool_format_to_responses_shape(dict(weird)) == weird
 
 
-# --- x-litellm-model upload-path decoding (litellm #29830) -------------------
+# --- x-embrouter-model upload-path decoding (embrouter #29830) -------------------
 
 
-def _xlitellm_encoded(raw_id: str, model: str) -> str:
-    from litellm.proxy.openai_files_endpoints.common_utils import (
+def _xembrouter_encoded(raw_id: str, model: str) -> str:
+    from embrouter.proxy.openai_files_endpoints.common_utils import (
         encode_file_id_with_model,
     )
 
     return encode_file_id_with_model(raw_id, model)
 
 
-def test_update_messages_with_model_file_ids_decodes_xlitellm_encoded_id():
-    """x-litellm-model upload returns `file-<b64(litellm:<raw>;model,<m>)>`.
+def test_update_messages_with_model_file_ids_decodes_xembrouter_encoded_id():
+    """x-embrouter-model upload returns `file-<b64(embrouter:<raw>;model,<m>)>`.
     Without decoding, the encoded id leaks to upstream OpenAI and errors as
     'Files [...] were not found'. Decode it back to raw provider id."""
     raw_id = "file-ExTuCawUqxEMjVFK6xwR9B"
-    encoded_id = _xlitellm_encoded(raw_id, "gpt-5.1")
+    encoded_id = _xembrouter_encoded(raw_id, "gpt-5.1")
     messages = [
         {
             "role": "user",
@@ -1046,16 +1046,16 @@ def test_update_messages_with_model_file_ids_decodes_xlitellm_encoded_id():
     assert updated[0]["content"][1]["file"]["file_id"] == raw_id
 
 
-def test_update_responses_input_with_model_file_ids_decodes_xlitellm_encoded_id():
+def test_update_responses_input_with_model_file_ids_decodes_xembrouter_encoded_id():
     """Same bug on /v1/responses path. Without decoding the encoded id (>64
     chars), OpenAI rejects with 'string too long. Expected ... maximum length
     64'."""
-    from litellm.litellm_core_utils.prompt_templates.common_utils import (
+    from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
         update_responses_input_with_model_file_ids,
     )
 
     raw_id = "file-ExTuCawUqxEMjVFK6xwR9B"
-    encoded_id = _xlitellm_encoded(raw_id, "gpt-5.1")
+    encoded_id = _xembrouter_encoded(raw_id, "gpt-5.1")
     input_items = [
         {
             "role": "user",
@@ -1071,11 +1071,11 @@ def test_update_responses_input_with_model_file_ids_decodes_xlitellm_encoded_id(
     assert updated[0]["content"][1]["file_id"] == raw_id
 
 
-def test_update_messages_xlitellm_decode_does_not_override_mapping():
+def test_update_messages_xembrouter_decode_does_not_override_mapping():
     """If the call-site already resolved a provider id via the mapping, that
     wins. The new decode fallback runs only when no mapping match."""
     raw_id = "file-ExTuCawUqxEMjVFK6xwR9B"
-    encoded_id = _xlitellm_encoded(raw_id, "gpt-5.1")
+    encoded_id = _xembrouter_encoded(raw_id, "gpt-5.1")
     mapping = {encoded_id: {"model-A": "provider-explicit-id"}}
     messages = [
         {
@@ -1092,7 +1092,7 @@ def test_update_messages_xlitellm_decode_does_not_override_mapping():
 
 
 def test_drop_tool_reference_parts_keeps_text_parts():
-    from litellm.litellm_core_utils.prompt_templates.common_utils import (
+    from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
         drop_tool_reference_parts_from_tool_messages,
     )
 
@@ -1113,7 +1113,7 @@ def test_drop_tool_reference_parts_keeps_text_parts():
 
 
 def test_drop_tool_reference_parts_reference_only_becomes_empty_text():
-    from litellm.litellm_core_utils.prompt_templates.common_utils import (
+    from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
         drop_tool_reference_parts_from_tool_messages,
     )
 
@@ -1128,7 +1128,7 @@ def test_drop_tool_reference_parts_reference_only_becomes_empty_text():
 
 
 def test_drop_tool_reference_parts_without_references_passes_through():
-    from litellm.litellm_core_utils.prompt_templates.common_utils import (
+    from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
         drop_tool_reference_parts_from_tool_messages,
     )
 
@@ -1141,7 +1141,7 @@ def test_drop_tool_reference_parts_without_references_passes_through():
 
 
 def test_drop_tool_reference_parts_leaves_non_tool_messages_alone():
-    from litellm.litellm_core_utils.prompt_templates.common_utils import (
+    from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
         drop_tool_reference_parts_from_tool_messages,
     )
 
@@ -1209,7 +1209,7 @@ class TestFlattenTopLevelSchemaCombinators:
         }
 
     def test_merges_anyof_branches_into_object_schema(self):
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             flatten_top_level_schema_combinators,
         )
 
@@ -1222,7 +1222,7 @@ class TestFlattenTopLevelSchemaCombinators:
         assert result["required"] == ["id"]
 
     def test_typeless_anyof_of_object_branches_gets_intersected_required(self):
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             flatten_top_level_schema_combinators,
         )
 
@@ -1246,7 +1246,7 @@ class TestFlattenTopLevelSchemaCombinators:
         assert result["required"] == ["id"]
 
     def test_allof_required_is_the_union_of_branches(self):
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             flatten_top_level_schema_combinators,
         )
 
@@ -1265,7 +1265,7 @@ class TestFlattenTopLevelSchemaCombinators:
         assert set(result["properties"]) == {"id", "enabled"}
 
     def test_top_level_schema_wins_property_collisions(self):
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             flatten_top_level_schema_combinators,
         )
 
@@ -1283,7 +1283,7 @@ class TestFlattenTopLevelSchemaCombinators:
         assert result["properties"]["id"] == {"type": "string"}
 
     def test_drops_openai_rejected_scalar_keys_on_object_schema(self):
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             flatten_top_level_schema_combinators,
         )
 
@@ -1303,7 +1303,7 @@ class TestFlattenTopLevelSchemaCombinators:
         assert result["properties"] == {"id": {"type": "string"}}
 
     def test_resolves_local_ref_branches_from_defs(self):
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             flatten_top_level_schema_combinators,
         )
 
@@ -1330,7 +1330,7 @@ class TestFlattenTopLevelSchemaCombinators:
         assert "$defs" in result
 
     def test_flattens_nested_combinator_branch_from_definitions(self):
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             flatten_top_level_schema_combinators,
         )
 
@@ -1350,7 +1350,7 @@ class TestFlattenTopLevelSchemaCombinators:
         assert "required" not in result
 
     def test_unresolvable_ref_branch_leaves_schema_untouched(self):
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             flatten_top_level_schema_combinators,
         )
 
@@ -1363,7 +1363,7 @@ class TestFlattenTopLevelSchemaCombinators:
         assert flatten_top_level_schema_combinators(schema) is schema
 
     def test_self_referencing_ref_branch_leaves_schema_untouched(self):
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             flatten_top_level_schema_combinators,
         )
 
@@ -1377,7 +1377,7 @@ class TestFlattenTopLevelSchemaCombinators:
 
     @pytest.mark.parametrize("boolean_branch", [True, False])
     def test_boolean_branch_leaves_schema_untouched(self, boolean_branch):
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             flatten_top_level_schema_combinators,
         )
 
@@ -1389,7 +1389,7 @@ class TestFlattenTopLevelSchemaCombinators:
         assert flatten_top_level_schema_combinators(schema) is schema
 
     def test_root_required_is_combined_with_branch_required(self):
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             flatten_top_level_schema_combinators,
         )
 
@@ -1415,7 +1415,7 @@ class TestFlattenTopLevelSchemaCombinators:
     def test_repeated_refs_are_expanded_once(self):
         import time
 
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             flatten_top_level_schema_combinators,
         )
 
@@ -1440,7 +1440,7 @@ class TestFlattenTopLevelSchemaCombinators:
         assert result["properties"] == {"id": {"type": "string"}}
 
     def test_nesting_past_the_depth_cap_leaves_schema_untouched(self):
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             flatten_top_level_schema_combinators,
         )
 
@@ -1461,7 +1461,7 @@ class TestFlattenTopLevelSchemaCombinators:
         ],
     )
     def test_typeless_root_with_properties_flattens_branches_without_properties(self, branches):
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             flatten_top_level_schema_combinators,
         )
 
@@ -1479,7 +1479,7 @@ class TestFlattenTopLevelSchemaCombinators:
         assert result["required"] == ["id"]
 
     def test_typeless_root_flattens_typed_object_branches_without_properties(self):
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             flatten_top_level_schema_combinators,
         )
 
@@ -1498,7 +1498,7 @@ class TestFlattenTopLevelSchemaCombinators:
         assert "required" not in result
 
     def test_non_object_union_passes_through_unchanged(self):
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             flatten_top_level_schema_combinators,
         )
 
@@ -1507,7 +1507,7 @@ class TestFlattenTopLevelSchemaCombinators:
         assert flatten_top_level_schema_combinators(schema) is schema
 
     def test_schema_without_rejected_keys_is_returned_as_is(self):
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             flatten_top_level_schema_combinators,
         )
 
@@ -1516,7 +1516,7 @@ class TestFlattenTopLevelSchemaCombinators:
         assert flatten_top_level_schema_combinators(schema) is schema
 
     def test_input_schema_is_never_mutated(self):
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             flatten_top_level_schema_combinators,
         )
 
@@ -1554,7 +1554,7 @@ class TestToolWithSanitizedParameters:
         }
 
     def test_flattens_anyof_parameters_into_new_tool(self):
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             flatten_combinators_and_drop_non_python_regex_patterns,
             tool_with_sanitized_parameters,
         )
@@ -1572,7 +1572,7 @@ class TestToolWithSanitizedParameters:
         assert tool == self._anyof_tool()
 
     def test_clean_parameters_return_the_same_tool_object(self):
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             flatten_combinators_and_drop_non_python_regex_patterns,
             tool_with_sanitized_parameters,
         )
@@ -1588,7 +1588,7 @@ class TestToolWithSanitizedParameters:
         assert tool_with_sanitized_parameters(tool, flatten_combinators_and_drop_non_python_regex_patterns) is tool
 
     def test_pattern_only_sanitizer_drops_the_regex_and_keeps_the_union(self):
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             drop_non_python_regex_patterns,
             tool_with_sanitized_parameters,
         )
@@ -1613,7 +1613,7 @@ class TestToolWithSanitizedParameters:
         ],
     )
     def test_non_dict_function_or_parameters_return_the_same_tool_object(self, tool):
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             flatten_combinators_and_drop_non_python_regex_patterns,
             tool_with_sanitized_parameters,
         )
@@ -1648,7 +1648,7 @@ class TestDropNonPythonRegexPatterns:
         }
 
     def test_drops_every_regex_python_re_rejects_from_every_schema_position(self):
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             drop_non_python_regex_patterns,
         )
 
@@ -1669,7 +1669,7 @@ class TestDropNonPythonRegexPatterns:
         assert schema == self._schema(_ARTIFACT_FIELD_PATTERN)
 
     def test_keeps_regexes_python_re_compiles_and_returns_the_same_object(self):
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             drop_non_python_regex_patterns,
         )
 
@@ -1678,7 +1678,7 @@ class TestDropNonPythonRegexPatterns:
         assert drop_non_python_regex_patterns(schema) is schema
 
     def test_pattern_keys_inside_data_positions_are_not_regexes(self):
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             drop_non_python_regex_patterns,
         )
 
@@ -1689,7 +1689,7 @@ class TestDropNonPythonRegexPatterns:
                 "template": {"type": "object", "default": {"pattern": _ARTIFACT_FIELD_PATTERN}},
                 "samples": {"type": "array", "examples": [{"pattern": _ARTIFACT_FIELD_PATTERN}]},
                 "fixed": {"const": {"pattern": _ARTIFACT_FIELD_PATTERN}},
-                "vendor": {"type": "string", "x-litellm": {"pattern": _ARTIFACT_FIELD_PATTERN}},
+                "vendor": {"type": "string", "x-embrouter": {"pattern": _ARTIFACT_FIELD_PATTERN}},
             },
             "required": ["pattern"],
         }
@@ -1697,7 +1697,7 @@ class TestDropNonPythonRegexPatterns:
         assert drop_non_python_regex_patterns(schema) is schema
 
     def test_regex_nested_past_what_python_re_can_parse_is_dropped_not_raised(self):
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             drop_non_python_regex_patterns,
         )
 
@@ -1709,7 +1709,7 @@ class TestDropNonPythonRegexPatterns:
         assert drop_non_python_regex_patterns(schema)["properties"]["deep"] == {"type": "string"}
 
     def test_walks_schemas_deeper_than_the_interpreter_recursion_limit(self):
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             drop_non_python_regex_patterns,
         )
 
@@ -1725,7 +1725,7 @@ class TestDropNonPythonRegexPatterns:
         assert functools.reduce(lambda node, _: node["properties"]["child"], range(depth), schema) is leaf
 
     def test_leaves_levels_past_the_json_nesting_limit_alone(self):
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             drop_non_python_regex_patterns,
         )
 
@@ -1754,7 +1754,7 @@ class TestRequestContainsImageContent:
         ],
     )
     def test_detects_every_image_dialect_including_tool_results(self, part):
-        from litellm.litellm_core_utils.prompt_templates.common_utils import request_contains_image_content
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import request_contains_image_content
 
         messages = [{"role": "user", "content": [{"type": "text", "text": "hi"}, part]}]
         assert request_contains_image_content(messages) is True
@@ -1771,12 +1771,12 @@ class TestRequestContainsImageContent:
         ],
     )
     def test_ignores_text_audio_and_degenerate_shapes(self, messages):
-        from litellm.litellm_core_utils.prompt_templates.common_utils import request_contains_image_content
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import request_contains_image_content
 
         assert request_contains_image_content(messages) is False
 
     def test_hostile_nesting_is_depth_bounded(self):
-        from litellm.litellm_core_utils.prompt_templates.common_utils import request_contains_image_content
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import request_contains_image_content
 
         nested: dict = {"type": "image", "source": {"type": "base64", "data": "aGk="}}
         for _ in range(50):
@@ -1791,7 +1791,7 @@ class TestEncryptedReasoningReplay:
         assert encrypted_content_from_signature(encrypted_reasoning_signature("gAAAA_bytes")) == "gAAAA_bytes"
 
     @pytest.mark.parametrize(
-        "signature", [None, "", "ErcBCkgIValidAnthropicSignature", "litellm_encrypted_reasoning:", 7]
+        "signature", [None, "", "ErcBCkgIValidAnthropicSignature", "embrouter_encrypted_reasoning:", 7]
     )
     def test_anything_else_is_not_encrypted_content(self, signature):
         assert encrypted_content_from_signature(signature) is None

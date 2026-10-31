@@ -1,20 +1,20 @@
 from collections.abc import AsyncGenerator, AsyncIterator, Callable, Mapping
 from typing import TYPE_CHECKING, Final
 
-from litellm._logging import verbose_logger
-from litellm.integrations.otel.logger import OpenTelemetryV2
-from litellm.integrations.otel.mappers.langfuse import (
+from embrouter._logging import verbose_logger
+from embrouter.integrations.otel.logger import OpenTelemetryV2
+from embrouter.integrations.otel.mappers.langfuse import (
     LANGFUSE_OBSERVATION_INPUT,
     LANGFUSE_OBSERVATION_OUTPUT,
     LangfuseMapper,
 )
-from litellm.integrations.otel.model.request_io import request_input, response_output, stream_output
-from litellm.integrations.otel.model.trace_controls import caller_trace_controls
-from litellm.integrations.otel.plumbing.context import request_root_span
+from embrouter.integrations.otel.model.request_io import request_input, response_output, stream_output
+from embrouter.integrations.otel.model.trace_controls import caller_trace_controls
+from embrouter.integrations.otel.plumbing.context import request_root_span
 
 if TYPE_CHECKING:
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.types.utils import ModelResponseStream
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.types.utils import ModelResponseStream
 
 
 class LangfuseOpenTelemetryV2(OpenTelemetryV2):

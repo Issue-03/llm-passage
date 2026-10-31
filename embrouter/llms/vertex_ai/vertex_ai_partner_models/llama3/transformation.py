@@ -4,13 +4,13 @@ from typing import TYPE_CHECKING, Final
 
 import httpx
 
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.openai.chat.gpt_transformation import (
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.openai.chat.gpt_transformation import (
     OpenAIChatCompletionStreamingHandler,
     OpenAIGPTConfig,
 )
-from litellm.types.llms.openai import AllMessageValues, OpenAIChatCompletionResponse
-from litellm.types.utils import (
+from embrouter.types.llms.openai import AllMessageValues, OpenAIChatCompletionResponse
+from embrouter.types.utils import (
     Delta,
     ModelResponse,
     ModelResponseStream,
@@ -25,7 +25,7 @@ from ...common_utils import (
 )
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
 
 
 class VertexAILlama3Config(OpenAIGPTConfig):
@@ -113,11 +113,11 @@ class VertexAILlama3Config(OpenAIGPTConfig):
         model: str,
         raw_response: httpx.Response,
         model_response: ModelResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         request_data: dict,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,

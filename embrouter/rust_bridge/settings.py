@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Final
 
 if TYPE_CHECKING:
-    from litellm.rust_bridge.catalog import Rules
+    from embrouter.rust_bridge.catalog import Rules
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,16 +63,16 @@ class SecretManagerBinding:
 
 
 def secret_manager(rules: Rules | None = None) -> SecretManager:
-    import litellm
-    from litellm.rust_bridge.catalog import SecretManagerContext, decision
-    from litellm.rust_bridge.configuration import Decision
-    from litellm.secret_managers.main import (
+    import embrouter
+    from embrouter.rust_bridge.catalog import SecretManagerContext, decision
+    from embrouter.rust_bridge.configuration import Decision
+    from embrouter.secret_managers.main import (
         _should_read_secret_from_secret_manager,  # pyright: ignore[reportPrivateUsage]  # canonical resolver is private
     )
 
     readable: Final = _should_read_secret_from_secret_manager()
     system: Final = (
-        litellm._key_management_system  # pyright: ignore[reportPrivateUsage]  # canonical key management globals are private
+        embrouter._key_management_system  # pyright: ignore[reportPrivateUsage]  # canonical key management globals are private
     )
     native: Final = (
         readable
@@ -83,18 +83,18 @@ def secret_manager(rules: Rules | None = None) -> SecretManager:
 
 
 def secret_manager_binding() -> SecretManagerBinding:
-    import litellm
-    from litellm.types.secret_managers.main import KeyManagementSettings
+    import embrouter
+    from embrouter.types.secret_managers.main import KeyManagementSettings
 
     configured_system: Final = (
-        litellm._key_management_system  # pyright: ignore[reportPrivateUsage]  # canonical key management globals are private
+        embrouter._key_management_system  # pyright: ignore[reportPrivateUsage]  # canonical key management globals are private
     )
     configured_settings: Final = (
-        litellm._key_management_settings  # pyright: ignore[reportPrivateUsage]  # canonical key management globals are private
+        embrouter._key_management_settings  # pyright: ignore[reportPrivateUsage]  # canonical key management globals are private
     )
     settings: Final = configured_settings or KeyManagementSettings()
     system: Final = (
-        configured_system.value if litellm.secret_manager_client is not None and configured_system is not None else None
+        configured_system.value if embrouter.secret_manager_client is not None and configured_system is not None else None
     )
     return SecretManagerBinding(
         system=system,
@@ -113,43 +113,43 @@ def secret_manager_binding() -> SecretManagerBinding:
         aws_web_identity_token=settings.aws_web_identity_token,
         aws_sts_endpoint=settings.aws_sts_endpoint,
         replica_regions=settings.replica_regions,
-        client=litellm.secret_manager_client,
+        client=embrouter.secret_manager_client,
         settings_object=configured_settings,
     )
 
 
 def provider_defaults() -> ProviderDefaults:
-    import litellm
+    import embrouter
 
     return ProviderDefaults(
-        vertex_project=litellm.vertex_project,
-        vertex_location=litellm.vertex_location,
-        enable_azure_ad_token_refresh=litellm.enable_azure_ad_token_refresh,
+        vertex_project=embrouter.vertex_project,
+        vertex_location=embrouter.vertex_location,
+        enable_azure_ad_token_refresh=embrouter.enable_azure_ad_token_refresh,
     )
 
 
 def url_policy() -> UrlPolicy:
-    import litellm
+    import embrouter
 
     return UrlPolicy(
-        user_url_validation=litellm.user_url_validation,
-        user_url_allowed_hosts=litellm.user_url_allowed_hosts,
+        user_url_validation=embrouter.user_url_validation,
+        user_url_allowed_hosts=embrouter.user_url_allowed_hosts,
     )
 
 
 def http_settings() -> HttpSettings:
-    import litellm
-    from litellm.llms.custom_httpx.http_handler import default_user_agent
+    import embrouter
+    from embrouter.llms.custom_httpx.http_handler import default_user_agent
 
     return HttpSettings(
-        ssl_verify=litellm.ssl_verify,
-        ssl_certificate=litellm.ssl_certificate,
-        ssl_security_level=litellm.ssl_security_level,
-        ssl_ecdh_curve=litellm.ssl_ecdh_curve,
-        force_ipv4=litellm.force_ipv4,
-        http2=litellm.http2,
-        aiohttp_trust_env=litellm.aiohttp_trust_env,
-        disable_aiohttp_trust_env=litellm.disable_aiohttp_trust_env,
-        disable_aiohttp_transport=litellm.disable_aiohttp_transport,
+        ssl_verify=embrouter.ssl_verify,
+        ssl_certificate=embrouter.ssl_certificate,
+        ssl_security_level=embrouter.ssl_security_level,
+        ssl_ecdh_curve=embrouter.ssl_ecdh_curve,
+        force_ipv4=embrouter.force_ipv4,
+        http2=embrouter.http2,
+        aiohttp_trust_env=embrouter.aiohttp_trust_env,
+        disable_aiohttp_trust_env=embrouter.disable_aiohttp_trust_env,
+        disable_aiohttp_transport=embrouter.disable_aiohttp_transport,
         user_agent=default_user_agent(),
     )

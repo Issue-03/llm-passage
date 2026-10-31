@@ -1,7 +1,7 @@
 from typing import Final
 
-import litellm
-from litellm.llms.openai.chat.gpt_transformation import OpenAIGPTConfig
+import embrouter
+from embrouter.llms.openai.chat.gpt_transformation import OpenAIGPTConfig
 
 
 class VertexAIGPTOSSTransformation(OpenAIGPTConfig):
@@ -22,7 +22,7 @@ class VertexAIGPTOSSTransformation(OpenAIGPTConfig):
         #########################################################
         # VertexAI - GPT-OSS does not support tool calls
         #########################################################
-        if litellm.supports_function_calling(model=model) is False:
+        if embrouter.supports_function_calling(model=model) is False:
             TOOL_CALLING_PARAMS_TO_REMOVE: Final = [
                 "tool",
                 "tool_choice",

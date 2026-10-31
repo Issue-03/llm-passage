@@ -1,7 +1,7 @@
 """
 Tool Policy Guardrail
 
-Reads input_policy / output_policy from LiteLLM_ToolTable and enforces them.
+Reads input_policy / output_policy from EmbRouter_ToolTable and enforces them.
 
 Input policy values:
   "untrusted" - allow through (default for newly discovered tools)
@@ -15,7 +15,7 @@ Output policy values:
 Configuration in proxy config YAML:
   guardrails:
     - guardrail_name: "tool_policy"
-      litellm_params:
+      embrouter_params:
         guardrail: tool_policy
         mode: post_call
 """
@@ -25,17 +25,17 @@ from typing import TYPE_CHECKING, Final, Literal, Optional
 from fastapi import HTTPException
 from typing_extensions import TypedDict, Unpack
 
-from litellm._logging import verbose_proxy_logger
-from litellm.integrations.custom_guardrail import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.integrations.custom_guardrail import (
     CustomGuardrail,
     log_guardrail_information,
 )
-from litellm.proxy.guardrails.tool_name_extraction import extract_request_tool_names
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.utils import GenericGuardrailAPIInputs
+from embrouter.proxy.guardrails.tool_name_extraction import extract_request_tool_names
+from embrouter.types.guardrails import GuardrailEventHooks
+from embrouter.types.utils import GenericGuardrailAPIInputs
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
 
 GUARDRAIL_NAME: Final = "tool_policy"
 
@@ -50,7 +50,7 @@ def _get_request_object_permission_ids(
     """Extract object_permission_id and team_object_permission_id from request_data."""
     if not request_data:
         return None, None
-    for key in ("litellm_metadata", "metadata"):
+    for key in ("embrouter_metadata", "metadata"):
         meta = request_data.get(key)
         if not isinstance(meta, dict):
             continue
@@ -78,7 +78,7 @@ def _get_request_route_from_data(request_data: dict) -> str | None:
     route: Final = request_data.get("user_api_key_request_route")
     if route:
         return route
-    meta: Final = request_data.get("metadata") or request_data.get("litellm_metadata") or {}
+    meta: Final = request_data.get("metadata") or request_data.get("embrouter_metadata") or {}
     return meta.get("user_api_key_request_route")
 
 
@@ -126,7 +126,7 @@ class ToolPolicyGuardrail(CustomGuardrail):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict,
         input_type: Literal["request", "response"],
-        logging_obj: Optional["LiteLLMLoggingObj"] = None,
+        logging_obj: Optional["EmbRouterLoggingObj"] = None,
     ) -> GenericGuardrailAPIInputs:
         """
         Enforce input_policy and output_policy trust chain on request tools / response tool_calls.
@@ -161,7 +161,7 @@ class ToolPolicyGuardrail(CustomGuardrail):
             object_permission_id,
             team_object_permission_id,
         ) = _get_request_object_permission_ids(request_data)
-        from litellm.proxy.db.tool_registry_writer import get_tool_policy_registry
+        from embrouter.proxy.db.tool_registry_writer import get_tool_policy_registry
 
         registry: Final = get_tool_policy_registry()
         if not registry.is_initialized():

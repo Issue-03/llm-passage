@@ -4,17 +4,17 @@ from unittest.mock import MagicMock
 import httpx
 import pytest
 
-import litellm
-from litellm.proxy.pass_through_endpoints.llm_provider_handlers.typesafe_passthrough_logging_handler import (
+import embrouter
+from embrouter.proxy.pass_through_endpoints.llm_provider_handlers.typesafe_passthrough_logging_handler import (
     TypeSafePassthroughLoggingHandler,
 )
-from litellm.proxy.pass_through_endpoints.success_handler import PassThroughEndpointLogging
+from embrouter.proxy.pass_through_endpoints.success_handler import PassThroughEndpointLogging
 
 
 @pytest.fixture(autouse=True)
 def local_model_cost_map(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-    monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
+    monkeypatch.setenv("EMBROUTER_LOCAL_MODEL_COST_MAP", "True")
+    monkeypatch.setattr(embrouter, "model_cost", embrouter.get_model_cost_map(url=""))
 
 
 def _response() -> httpx.Response:
@@ -49,7 +49,7 @@ def _handler_result(response_body: dict, request_body: dict) -> dict:
 def test_uses_registry_pricing_and_standard_usage():
     logging_obj = _logging_obj()
     model_key = "typesafe/jev-1.13.0"
-    model_cost = litellm.model_cost[model_key]
+    model_cost = embrouter.model_cost[model_key]
     response = TypeSafePassthroughLoggingHandler.typesafe_passthrough_handler(
         httpx_response=_response(),
         response_body={"model": "jev-1.13.0", "usage": {"input_tokens": 312, "output_tokens": 48}},
@@ -76,7 +76,7 @@ def test_falls_back_to_request_model_when_response_model_is_missing():
         {"model": "jev-latest"},
     )
 
-    model_cost = litellm.model_cost["typesafe/jev-latest"]
+    model_cost = embrouter.model_cost["typesafe/jev-latest"]
     expected_cost = 10 * model_cost["input_cost_per_token"] + 2 * model_cost["output_cost_per_token"]
     assert result["kwargs"]["model"] == "typesafe/jev-latest"
     assert result["kwargs"]["response_cost"] == pytest.approx(expected_cost)
@@ -139,7 +139,7 @@ def test_success_handler_dispatches_to_typesafe_handler():
 
 def test_openrouter_decisions_response_is_priced_from_request_model_registry_row():
     logging_obj = _logging_obj()
-    model_cost = litellm.model_cost["openrouter/typesafe/jev-1.13"]
+    model_cost = embrouter.model_cost["openrouter/typesafe/jev-1.13"]
     response = TypeSafePassthroughLoggingHandler.typesafe_passthrough_handler(
         httpx_response=_response(),
         response_body={

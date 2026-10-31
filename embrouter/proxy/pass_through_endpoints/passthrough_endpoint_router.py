@@ -2,23 +2,23 @@ import json
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Final
 
-import litellm
-from litellm._logging import verbose_router_logger
-from litellm.integrations.vector_store_integrations.vector_store_pre_call_hook import (
-    LiteLLM_ManagedVectorStore,
+import embrouter
+from embrouter._logging import verbose_router_logger
+from embrouter.integrations.vector_store_integrations.vector_store_pre_call_hook import (
+    EmbRouter_ManagedVectorStore,
 )
-from litellm.litellm_core_utils.credential_accessor import CredentialAccessor
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.vertex_ai import VERTEX_CREDENTIALS_TYPES
-from litellm.types.passthrough_endpoints.vertex_ai import VertexPassThroughCredentials
-from litellm.types.router import DeploymentTypedDict, LiteLLMParamsTypedDict
+from embrouter.embrouter_core_utils.credential_accessor import CredentialAccessor
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.vertex_ai import VERTEX_CREDENTIALS_TYPES
+from embrouter.types.passthrough_endpoints.vertex_ai import VertexPassThroughCredentials
+from embrouter.types.router import DeploymentTypedDict, EmbRouterParamsTypedDict
 
 if TYPE_CHECKING:
-    from litellm.router import Router
+    from embrouter.router import Router
 
 
 def _get_proxy_llm_router() -> "Router | None":
-    from litellm.proxy.proxy_server import llm_router
+    from embrouter.proxy.proxy_server import llm_router
 
     return llm_router
 
@@ -84,7 +84,7 @@ class PassthroughEndpointRouter:
                 for deployment in deployments
                 if (
                     api_key := self._resolve_matching_deployment_api_key(
-                        litellm_params=deployment["litellm_params"],
+                        embrouter_params=deployment["embrouter_params"],
                         custom_llm_provider=custom_llm_provider,
                         region_name=region_name,
                     )
@@ -96,37 +96,37 @@ class PassthroughEndpointRouter:
 
     def _resolve_matching_deployment_api_key(
         self,
-        litellm_params: LiteLLMParamsTypedDict,
+        embrouter_params: EmbRouterParamsTypedDict,
         custom_llm_provider: str,
         region_name: str | None,
     ) -> str | None:
-        if litellm_params.get("use_in_pass_through") is not True:
+        if embrouter_params.get("use_in_pass_through") is not True:
             return None
-        if self._get_deployment_provider(litellm_params) != custom_llm_provider:
+        if self._get_deployment_provider(embrouter_params) != custom_llm_provider:
             return None
-        credential_name: Final = litellm_params.get("litellm_credential_name")
+        credential_name: Final = embrouter_params.get("embrouter_credential_name")
         credential_values: Final = (
             CredentialAccessor.get_credential_values(credential_name) if credential_name is not None else None
         )
-        api_base: Final = _get_str_value(credential_values, "api_base") or litellm_params.get("api_base")
+        api_base: Final = _get_str_value(credential_values, "api_base") or embrouter_params.get("api_base")
         deployment_region: Final = self._get_region_name_from_api_base(
             custom_llm_provider=custom_llm_provider,
             api_base=api_base,
         )
         if deployment_region != region_name:
             return None
-        return _get_str_value(credential_values, "api_key") or litellm_params.get("api_key")
+        return _get_str_value(credential_values, "api_key") or embrouter_params.get("api_key")
 
-    def _get_deployment_provider(self, litellm_params: LiteLLMParamsTypedDict) -> str | None:
-        model: Final = litellm_params.get("model")
+    def _get_deployment_provider(self, embrouter_params: EmbRouterParamsTypedDict) -> str | None:
+        model: Final = embrouter_params.get("model")
         if model is None:
             return None
         try:
-            _, provider, _, _ = litellm.get_llm_provider(
+            _, provider, _, _ = embrouter.get_llm_provider(
                 model=model,
-                custom_llm_provider=litellm_params.get("custom_llm_provider"),
+                custom_llm_provider=embrouter_params.get("custom_llm_provider"),
             )
-        except litellm.exceptions.BadRequestError:
+        except embrouter.exceptions.BadRequestError:
             return None
         return provider
 
@@ -146,7 +146,7 @@ class PassthroughEndpointRouter:
         resolved: Final = tuple(
             (deployment, credentials)
             for deployment in (llm_router.get_model_list() or ())
-            if (credentials := self._resolve_vertex_deployment_credentials(deployment["litellm_params"])) is not None
+            if (credentials := self._resolve_vertex_deployment_credentials(deployment["embrouter_params"])) is not None
         )
         matched: Final = next(
             (
@@ -171,20 +171,20 @@ class PassthroughEndpointRouter:
         return resolved[0][1]
 
     def _resolve_vertex_deployment_credentials(
-        self, litellm_params: LiteLLMParamsTypedDict
+        self, embrouter_params: EmbRouterParamsTypedDict
     ) -> VertexPassThroughCredentials | None:
-        if litellm_params.get("use_in_pass_through") is not True:
+        if embrouter_params.get("use_in_pass_through") is not True:
             return None
-        if self._get_deployment_provider(litellm_params) != "vertex_ai":
+        if self._get_deployment_provider(embrouter_params) != "vertex_ai":
             return None
-        credential_name: Final = litellm_params.get("litellm_credential_name")
+        credential_name: Final = embrouter_params.get("embrouter_credential_name")
         credential_values: Final = (
             CredentialAccessor.get_credential_values(credential_name) if credential_name is not None else None
         )
-        vertex_project: Final = _get_str_value(credential_values, "vertex_project") or litellm_params.get(
+        vertex_project: Final = _get_str_value(credential_values, "vertex_project") or embrouter_params.get(
             "vertex_project"
         )
-        vertex_location: Final = _get_str_value(credential_values, "vertex_location") or litellm_params.get(
+        vertex_location: Final = _get_str_value(credential_values, "vertex_location") or embrouter_params.get(
             "vertex_location"
         )
         stored_credentials: Final = (
@@ -192,7 +192,7 @@ class PassthroughEndpointRouter:
         )
         vertex_credentials: Final = (
             stored_credentials if isinstance(stored_credentials, (str, dict)) else None
-        ) or litellm_params.get("vertex_credentials")
+        ) or embrouter_params.get("vertex_credentials")
         if vertex_project is None or vertex_location is None:
             return None
         return VertexPassThroughCredentials(
@@ -203,7 +203,7 @@ class PassthroughEndpointRouter:
 
     @staticmethod
     def _deployment_matches_model(deployment: DeploymentTypedDict, model: str) -> bool:
-        upstream_model: Final = deployment["litellm_params"].get("model")
+        upstream_model: Final = deployment["embrouter_params"].get("model")
         return model in (
             deployment.get("model_name"),
             upstream_model,
@@ -280,14 +280,14 @@ class PassthroughEndpointRouter:
             return None
         return f"{project_id}-{location}"
 
-    def get_vector_store_credentials(self, vector_store_id: str) -> LiteLLM_ManagedVectorStore | None:
+    def get_vector_store_credentials(self, vector_store_id: str) -> EmbRouter_ManagedVectorStore | None:
         """
         Get the vector store credentials for the given vector store id
         """
-        if litellm.vector_store_registry is None:
+        if embrouter.vector_store_registry is None:
             return None
-        vector_store_to_run: Final[LiteLLM_ManagedVectorStore | None] = (
-            litellm.vector_store_registry.get_litellm_managed_vector_store_from_registry(
+        vector_store_to_run: Final[EmbRouter_ManagedVectorStore | None] = (
+            embrouter.vector_store_registry.get_embrouter_managed_vector_store_from_registry(
                 vector_store_id=vector_store_id
             )
         )

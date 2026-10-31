@@ -16,17 +16,17 @@ from typing import TYPE_CHECKING, Any, Final, Optional
 
 from typing_extensions import ReadOnly, TypedDict
 
-from litellm._logging import verbose_proxy_logger
-from litellm.llms.base_llm.guardrail_translation.base_translation import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.llms.base_llm.guardrail_translation.base_translation import (
     BaseTranslation,
     StreamingScanKey,
 )
-from litellm.types.utils import GenericGuardrailAPIInputs
+from embrouter.types.utils import GenericGuardrailAPIInputs
 
 if TYPE_CHECKING:
-    from litellm.integrations.custom_guardrail import CustomGuardrail
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.integrations.custom_guardrail import CustomGuardrail
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.proxy._types import UserAPIKeyAuth
 
 
 class _A2ATextPart(TypedDict, total=False):
@@ -53,7 +53,7 @@ class A2AGuardrailHandler(BaseTranslation):
         self,
         data: dict,
         guardrail_to_apply: "CustomGuardrail",
-        litellm_logging_obj: Optional["LiteLLMLoggingObj"] = None,
+        embrouter_logging_obj: Optional["EmbRouterLoggingObj"] = None,
     ) -> dict:
         """
         Process A2A input messages by applying guardrails to text content.
@@ -63,7 +63,7 @@ class A2AGuardrailHandler(BaseTranslation):
         Args:
             data: The A2A JSON-RPC 2.0 request data
             guardrail_to_apply: The guardrail instance to apply
-            litellm_logging_obj: Optional logging object
+            embrouter_logging_obj: Optional logging object
 
         Returns:
             Modified data with guardrails applied to text content
@@ -104,7 +104,7 @@ class A2AGuardrailHandler(BaseTranslation):
                 inputs=inputs,
                 request_data=data,
                 input_type="request",
-                logging_obj=litellm_logging_obj,
+                logging_obj=embrouter_logging_obj,
             )
 
             guardrailed_texts: Final = guardrailed_inputs.get("texts", [])
@@ -122,7 +122,7 @@ class A2AGuardrailHandler(BaseTranslation):
         self,
         response: Any,
         guardrail_to_apply: "CustomGuardrail",
-        litellm_logging_obj: Optional["LiteLLMLoggingObj"] = None,
+        embrouter_logging_obj: Optional["EmbRouterLoggingObj"] = None,
         user_api_key_dict: Optional["UserAPIKeyAuth"] = None,
         request_data: dict | None = None,
     ) -> object:
@@ -138,7 +138,7 @@ class A2AGuardrailHandler(BaseTranslation):
         Args:
             response: A2A JSON-RPC 2.0 response dict or object
             guardrail_to_apply: The guardrail instance to apply
-            litellm_logging_obj: Optional logging object
+            embrouter_logging_obj: Optional logging object
             user_api_key_dict: User API key metadata
 
         Returns:
@@ -187,10 +187,10 @@ class A2AGuardrailHandler(BaseTranslation):
                 request_data["response"] = response_dict
 
         # Add user API key metadata with prefixed keys
-        if "litellm_metadata" not in request_data:
+        if "embrouter_metadata" not in request_data:
             user_metadata: Final = self.transform_user_api_key_dict_to_metadata(user_api_key_dict)
             if user_metadata:
-                request_data["litellm_metadata"] = user_metadata
+                request_data["embrouter_metadata"] = user_metadata
 
         inputs: Final = GenericGuardrailAPIInputs(texts=texts_to_check)
 
@@ -198,7 +198,7 @@ class A2AGuardrailHandler(BaseTranslation):
             inputs=inputs,
             request_data=request_data,
             input_type="response",
-            logging_obj=litellm_logging_obj,
+            logging_obj=embrouter_logging_obj,
         )
 
         guardrailed_texts: Final = guardrailed_inputs.get("texts", [])
@@ -229,7 +229,7 @@ class A2AGuardrailHandler(BaseTranslation):
         self,
         responses_so_far: list[object],
         guardrail_to_apply: "CustomGuardrail",
-        litellm_logging_obj: Optional["LiteLLMLoggingObj"] = None,
+        embrouter_logging_obj: Optional["EmbRouterLoggingObj"] = None,
         user_api_key_dict: Optional["UserAPIKeyAuth"] = None,
         request_data: dict | None = None,
     ) -> list[object]:
@@ -257,17 +257,17 @@ class A2AGuardrailHandler(BaseTranslation):
             if "responses_so_far" not in request_data:
                 request_data["responses_so_far"] = responses_so_far
 
-        if "litellm_metadata" not in request_data:
+        if "embrouter_metadata" not in request_data:
             user_metadata: Final = self.transform_user_api_key_dict_to_metadata(user_api_key_dict)
             if user_metadata:
-                request_data["litellm_metadata"] = user_metadata
+                request_data["embrouter_metadata"] = user_metadata
 
         inputs: Final = GenericGuardrailAPIInputs(texts=[combined_text])
         guardrailed_inputs: Final = await guardrail_to_apply.apply_guardrail(
             inputs=inputs,
             request_data=request_data,
             input_type="response",
-            logging_obj=litellm_logging_obj,
+            logging_obj=embrouter_logging_obj,
         )
         guardrailed_texts: Final = guardrailed_inputs.get("texts", [])
         if not guardrailed_texts:
@@ -348,7 +348,7 @@ class A2AGuardrailHandler(BaseTranslation):
         valid_parsed: list[tuple[int, dict[str, object]]],
     ) -> tuple[str, list[int]]:
         """Collect text from parsed chunks, returning combined text and indices."""
-        from litellm.llms.a2a.common_utils import extract_text_from_a2a_response
+        from embrouter.llms.a2a.common_utils import extract_text_from_a2a_response
 
         text_parts: Final[list[str]] = []
         chunk_indices_with_text: Final[list[int]] = []

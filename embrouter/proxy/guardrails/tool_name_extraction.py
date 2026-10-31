@@ -8,9 +8,9 @@ with standalone extractors for generate_content and MCP.
 
 from typing import Any, Final
 
-from litellm.litellm_core_utils.api_route_to_call_types import get_call_types_for_route
-from litellm.llms import load_guardrail_translation_mappings
-from litellm.types.utils import CallTypes
+from embrouter.embrouter_core_utils.api_route_to_call_types import get_call_types_for_route
+from embrouter.llms import load_guardrail_translation_mappings
+from embrouter.types.utils import CallTypes
 
 # Call types that have no guardrail translation handler; we use standalone extractors
 STANDALONE_EXTRACTORS: Final[dict[str, Any]] = {}

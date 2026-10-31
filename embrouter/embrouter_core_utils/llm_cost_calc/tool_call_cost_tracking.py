@@ -7,18 +7,18 @@ from typing import Final, Literal
 
 from pydantic import ValidationError
 
-import litellm
-from litellm.constants import OPENAI_FILE_SEARCH_COST_PER_1K_CALLS
-from litellm.litellm_core_utils.llm_cost_calc.utils import (
+import embrouter
+from embrouter.constants import OPENAI_FILE_SEARCH_COST_PER_1K_CALLS
+from embrouter.embrouter_core_utils.llm_cost_calc.utils import (
     get_web_search_requests_from_usage,
 )
-from litellm.types.llms.openai import (
+from embrouter.types.llms.openai import (
     FileSearchTool,
     ResponsesAPIResponse,
     ResponsesToolUsage,
     WebSearchOptions,
 )
-from litellm.types.utils import (
+from embrouter.types.utils import (
     ChatCompletionAnnotation,
     Message,
     ModelInfo,
@@ -120,13 +120,13 @@ class StandardBuiltInToolCostTracking:
             model=model, custom_llm_provider=custom_llm_provider
         )
         if direct is not None:
-            return direct, custom_llm_provider or direct["litellm_provider"]
+            return direct, custom_llm_provider or direct["embrouter_provider"]
         if "/" not in model:
             return None, custom_llm_provider
         by_prefix: Final = StandardBuiltInToolCostTracking._safe_get_model_info(model=model)
         if by_prefix is None:
             return None, custom_llm_provider
-        return by_prefix, by_prefix["litellm_provider"]
+        return by_prefix, by_prefix["embrouter_provider"]
 
     @staticmethod
     def _handle_google_maps_grounding_cost(
@@ -134,8 +134,8 @@ class StandardBuiltInToolCostTracking:
         custom_llm_provider: str | None,
         usage: Usage | None,
     ) -> float:
-        from litellm.llms import get_cost_for_google_maps_grounding_request
-        from litellm.llms.gemini.cost_calculator import google_maps_grounding_requests
+        from embrouter.llms import get_cost_for_google_maps_grounding_request
+        from embrouter.llms.gemini.cost_calculator import google_maps_grounding_requests
 
         if usage is None or google_maps_grounding_requests(usage) is None:
             return 0.0
@@ -160,7 +160,7 @@ class StandardBuiltInToolCostTracking:
         response_object: object = None,
     ) -> float:
         """Handle web search cost calculation."""
-        from litellm.llms import get_cost_for_web_search_request
+        from embrouter.llms import get_cost_for_web_search_request
 
         # A provider-prefixed model (e.g. gemini/gemini-3.1-flash-lite) may not map under the
         # request's custom_llm_provider. _resolve_model_info re-resolves from the prefix and adopts
@@ -384,7 +384,7 @@ class StandardBuiltInToolCostTracking:
         raw Anthropic /v1/messages response dict when the reconstructed Usage dropped
         it (or was never supplied). The original Usage is returned unchanged when it
         already exposes the field or the response is not an Anthropic dict."""
-        from litellm.llms.anthropic.cost_calculation import (
+        from embrouter.llms.anthropic.cost_calculation import (
             get_anthropic_web_search_requests_from_response,
         )
 
@@ -408,10 +408,10 @@ class StandardBuiltInToolCostTracking:
         - ResponsesAPIResponse (streaming + non-streaming)
         - Anthropic /v1/messages raw response dict
         """
-        from litellm.llms.anthropic.cost_calculation import (
+        from embrouter.llms.anthropic.cost_calculation import (
             get_anthropic_web_search_requests_from_response,
         )
-        from litellm.types.utils import PromptTokensDetailsWrapper
+        from embrouter.types.utils import PromptTokensDetailsWrapper
 
         if get_anthropic_web_search_requests_from_response(response_object) is not None:
             return True
@@ -524,7 +524,7 @@ class StandardBuiltInToolCostTracking:
     @staticmethod
     def _safe_get_model_info(model: str, custom_llm_provider: str | None = None) -> ModelInfo | None:
         try:
-            return litellm.get_model_info(model=model, custom_llm_provider=custom_llm_provider)
+            return embrouter.get_model_info(model=model, custom_llm_provider=custom_llm_provider)
         except Exception:
             return None
 
@@ -591,7 +591,7 @@ class StandardBuiltInToolCostTracking:
 
         # Azure has storage-based pricing for file search
         if provider == "azure":
-            from litellm.constants import AZURE_FILE_SEARCH_COST_PER_GB_PER_DAY
+            from embrouter.constants import AZURE_FILE_SEARCH_COST_PER_GB_PER_DAY
 
             if storage_gb and days:
                 return storage_gb * days * AZURE_FILE_SEARCH_COST_PER_GB_PER_DAY
@@ -624,7 +624,7 @@ class StandardBuiltInToolCostTracking:
 
         # Azure has different pricing structure for vector store
         if provider == "azure":
-            from litellm.constants import AZURE_VECTOR_STORE_COST_PER_GB_PER_DAY
+            from embrouter.constants import AZURE_VECTOR_STORE_COST_PER_GB_PER_DAY
 
             return storage_gb * days * AZURE_VECTOR_STORE_COST_PER_GB_PER_DAY
 
@@ -657,7 +657,7 @@ class StandardBuiltInToolCostTracking:
                     return total_cost
 
             # Azure default pricing
-            from litellm.constants import (
+            from embrouter.constants import (
                 AZURE_COMPUTER_USE_INPUT_COST_PER_1K_TOKENS,
                 AZURE_COMPUTER_USE_OUTPUT_COST_PER_1K_TOKENS,
             )
@@ -679,15 +679,15 @@ class StandardBuiltInToolCostTracking:
         """
         Get code interpreter cost per session from model cost map.
         """
-        import litellm
+        import embrouter
 
         try:
             container_model: Final = f"{provider}/container"
-            model_info: Final = litellm.get_model_info(model=container_model, custom_llm_provider=provider)
+            model_info: Final = embrouter.get_model_info(model=container_model, custom_llm_provider=provider)
             model_key = model_info.get("key") if isinstance(model_info, dict) else getattr(model_info, "key", None)
 
-            if model_key and model_key in litellm.model_cost:
-                return litellm.model_cost[model_key].get("code_interpreter_cost_per_session")
+            if model_key and model_key in embrouter.model_cost:
+                return embrouter.model_cost[model_key].get("code_interpreter_cost_per_session")
 
         except Exception:
             pass

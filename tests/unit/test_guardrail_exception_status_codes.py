@@ -7,7 +7,7 @@ GuardrailRaisedException and BlockedPiiEntityError must carry
 for intentional guardrail blocks.
 """
 
-from litellm.exceptions import BlockedPiiEntityError, GuardrailRaisedException
+from embrouter.exceptions import BlockedPiiEntityError, GuardrailRaisedException
 
 
 class TestGuardrailRaisedExceptionStatusCode:

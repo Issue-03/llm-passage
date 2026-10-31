@@ -3,7 +3,7 @@ recorder that builds attributes, applies the shared cardinality filter, and
 records a request's metrics on both the success and the failure path.
 
 The instrument names/units/descriptions and the recording + timing math mirror
-the v1 :mod:`litellm.integrations.opentelemetry` integration so both engines emit
+the v1 :mod:`embrouter.integrations.opentelemetry` integration so both engines emit
 identical metrics. The attribute cardinality filter is reused from v1 by import
 (no duplication of the valid-name set or its validation).
 """
@@ -16,32 +16,32 @@ from typing import Any, Final, Literal, Protocol, TypeAlias
 from opentelemetry.metrics import Histogram, Meter
 from typing_extensions import ReadOnly, TypedDict
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.integrations.opentelemetry import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.integrations.opentelemetry import (
     METRIC_METADATA_KEYS,
     TOKEN_TYPE_ATTRIBUTE,
     _build_metric_attribute_filter,
     _resolve_metric_attribute_filter,
 )
-from litellm.integrations.otel.model.metadata import time_to_first_chunk_seconds
-from litellm.integrations.otel.model.semconv import (
+from embrouter.integrations.otel.model.metadata import time_to_first_chunk_seconds
+from embrouter.integrations.otel.model.semconv import (
     Error,
     GenAI,
     Metric,
     resolve_operation,
     resolve_provider,
 )
-from litellm.integrations.otel.model.utils import to_seconds
-from litellm.litellm_core_utils.internal_call_metadata import is_unbilled_non_inference_call_from_params
-from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
+from embrouter.integrations.otel.model.utils import to_seconds
+from embrouter.embrouter_core_utils.internal_call_metadata import is_unbilled_non_inference_call_from_params
+from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps
 
 
 def _provider_attributes(custom_llm_provider: object) -> Mapping[str, str]:
     """The provider labels for one call's metrics.
 
     ``gen_ai.provider.name`` carries the semconv-mapped value; the deprecated
-    ``gen_ai.system`` spelling is dual-emitted with the raw litellm provider
+    ``gen_ai.system`` spelling is dual-emitted with the raw embrouter provider
     string it has always carried, so a dashboard already querying it keeps
     matching. A call with no provider gets neither label: a placeholder value
     would mint a permanent series that no operator can act on.
@@ -94,7 +94,7 @@ def create_genai_metrics(meter: Meter) -> GenAIMetrics:
         response_duration=meter.create_histogram(
             name=Metric.RESPONSE_DURATION,
             unit="s",
-            description="Total LLM API generation time (excludes LiteLLM overhead)",
+            description="Total LLM API generation time (excludes EmbRouter overhead)",
         ),
     )
 
@@ -140,7 +140,7 @@ METRIC_ATTRIBUTE_CEILING: Final[frozenset[str]] = frozenset(
 
 # The only ``hidden_params`` field that becomes part of the ``hidden_params`` label.
 # The object as a whole is per-request by construction -- ``response_cost``,
-# ``litellm_overhead_time_ms``, ``cache_key``, ``usage_object`` and the provider's
+# ``embrouter_overhead_time_ms``, ``cache_key``, ``usage_object`` and the provider's
 # ``additional_headers`` rate-limit counters all move on every call -- so dumping it
 # whole made one series per request out of every instrument.
 #
@@ -160,7 +160,7 @@ class _TokenUsage(TypedDict, total=False):
 
 
 class _ResponseView(Protocol):
-    """The one read the recorder makes on a litellm response object."""
+    """The one read the recorder makes on a embrouter response object."""
 
     def get(self, key: Literal["usage"], /) -> _TokenUsage | None: ...
 
@@ -169,7 +169,7 @@ class _MetricKwargs(TypedDict, total=False):
     """The logging kwargs the recorder reads directly."""
 
     call_type: ReadOnly[str | None]
-    litellm_params: ReadOnly[Mapping[str, object] | None]
+    embrouter_params: ReadOnly[Mapping[str, object] | None]
     response_cost: ReadOnly[float | None]
     completion_start_time: ReadOnly[datetime | float | str | None]
     api_call_start_time: ReadOnly[datetime | float | str | None]
@@ -224,7 +224,7 @@ class GenAIMetricRecorder:
         common_attrs: Final = self._filter_attributes(self._bounded_attributes(kwargs))
         duration_s: Final = (end_time - start_time).total_seconds()
         usage_is_replayed: Final = is_unbilled_non_inference_call_from_params(
-            kwargs.get("call_type"), kwargs.get("litellm_params"), response_obj
+            kwargs.get("call_type"), kwargs.get("embrouter_params"), response_obj
         )
 
         self._metrics.operation_duration.record(duration_s, attributes=common_attrs)
@@ -250,7 +250,7 @@ class GenAIMetricRecorder:
         operation's duration, tagged with ``error.type``.
 
         The other five instruments all describe a completed generation and have
-        nothing to measure here. litellm hands the failure callback no
+        nothing to measure here. embrouter hands the failure callback no
         ``response_obj`` at all, so there is no usage to split into input/output
         tokens and no completion-token count to divide generation time by; it also
         zeroes ``response_cost`` on failure. Recording them anyway would put a
@@ -277,12 +277,12 @@ class GenAIMetricRecorder:
     # ------------------------------------------------------------------ #
 
     def _common_attributes(self, kwargs: Mapping[str, Any]) -> dict:
-        params: Final = kwargs.get("litellm_params") or {}
+        params: Final = kwargs.get("embrouter_params") or {}
         common_attrs: Final[dict] = {
             GenAI.OPERATION_NAME: resolve_operation(kwargs.get("call_type")).value,
             **_provider_attributes(params.get("custom_llm_provider")),
             GenAI.REQUEST_MODEL: kwargs.get("model"),
-            "gen_ai.framework": "litellm",
+            "gen_ai.framework": "embrouter",
         }
 
         std_log: Final = kwargs.get("standard_logging_object")
@@ -321,7 +321,7 @@ class GenAIMetricRecorder:
             return
         attributes = None
         if self._callback_name in (None, "otel"):
-            otel_settings: Final = (litellm.callback_settings or {}).get("otel") or {}
+            otel_settings: Final = (embrouter.callback_settings or {}).get("otel") or {}
             raw: Final = otel_settings.get("attributes") if isinstance(otel_settings, dict) else None
             if raw is not None:
                 attributes = _build_metric_attribute_filter(raw)

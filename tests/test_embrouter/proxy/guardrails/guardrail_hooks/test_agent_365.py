@@ -8,26 +8,26 @@ import httpx
 import pytest
 from fastapi import HTTPException
 
-import litellm
-from litellm.caching.caching import DualCache
-from litellm.exceptions import Timeout as LitellmTimeout
-from litellm.integrations.custom_guardrail import CustomGuardrail
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.litellm_core_utils.secret_redaction import redact_string
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.guardrails.guardrail_hooks.agent_365 import (
+import embrouter
+from embrouter.caching.caching import DualCache
+from embrouter.exceptions import Timeout as EmbrouterTimeout
+from embrouter.integrations.custom_guardrail import CustomGuardrail
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.embrouter_core_utils.secret_redaction import redact_string
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.guardrails.guardrail_hooks.agent_365 import (
     Agent365Guardrail,
     guardrail_class_registry,
     guardrail_initializer_registry,
     initialize_guardrail,
 )
-from litellm.proxy.utils import ProxyLogging
-from litellm.types.guardrails import (
+from embrouter.proxy.utils import ProxyLogging
+from embrouter.types.guardrails import (
     GuardrailEventHooks,
-    LitellmParams,
+    EmbrouterParams,
     SupportedGuardrailIntegrations,
 )
-from litellm.types.proxy.guardrails.guardrail_hooks.agent_365 import (
+from embrouter.types.proxy.guardrails.guardrail_hooks.agent_365 import (
     AGENT_365_PROD_API_BASE,
     AGENT_365_PROD_RESOURCE_APP_ID,
     Agent365GuardrailConfigModel,
@@ -86,14 +86,14 @@ def _not_evaluated_response(status: str, correlation_id: str = "corr-3") -> http
     )
 
 
-def _logging_obj(litellm_call_id: str, mcp_session_id: str | None = None) -> LiteLLMLoggingObj:
-    logging_obj: Final = LiteLLMLoggingObj(
+def _logging_obj(embrouter_call_id: str, mcp_session_id: str | None = None) -> EmbRouterLoggingObj:
+    logging_obj: Final = EmbRouterLoggingObj(
         model="mcp",
         messages=[],
         stream=False,
         call_type="call_mcp_tool",
         start_time=None,
-        litellm_call_id=litellm_call_id,
+        embrouter_call_id=embrouter_call_id,
         function_id="fn-1",
     )
     if mcp_session_id is not None:
@@ -193,7 +193,7 @@ class TestRegistryWiring:
 class TestInitializeGuardrail:
     def test_requires_tenant_id(self, monkeypatch):
         monkeypatch.delenv("AGENT365_TENANT_ID", raising=False)
-        params: Final = LitellmParams(
+        params: Final = EmbrouterParams(
             guardrail="agent_365",
             mode="pre_mcp_call",
             client_id="client-xyz",
@@ -204,7 +204,7 @@ class TestInitializeGuardrail:
 
     def test_requires_client_secret(self, monkeypatch):
         monkeypatch.delenv("AGENT365_CLIENT_SECRET", raising=False)
-        params: Final = LitellmParams(
+        params: Final = EmbrouterParams(
             guardrail="agent_365",
             mode="pre_mcp_call",
             tenant_id="tenant-abc",
@@ -218,15 +218,15 @@ class TestInitializeGuardrail:
         monkeypatch.setenv("AGENT365_TENANT_ID", "env-tenant")
         monkeypatch.setenv("AGENT365_CLIENT_ID", "env-client")
         monkeypatch.setenv("AGENT365_CLIENT_SECRET", "env-secret")
-        params: Final = LitellmParams(guardrail="agent_365", mode="pre_mcp_call")
+        params: Final = EmbrouterParams(guardrail="agent_365", mode="pre_mcp_call")
         guardrail: Final = initialize_guardrail(params, {"guardrail_name": "a365-env"})
         assert guardrail.tenant_id == "env-tenant"
         assert guardrail.client_id == "env-client"
         assert guardrail.client_secret == "env-secret"
         assert guardrail.unreachable_fallback == "fail_closed"
 
-    def test_fail_open_is_opt_in_through_litellm_params(self):
-        params: Final = LitellmParams(
+    def test_fail_open_is_opt_in_through_embrouter_params(self):
+        params: Final = EmbrouterParams(
             guardrail="agent_365",
             mode="pre_mcp_call",
             tenant_id="t",
@@ -238,7 +238,7 @@ class TestInitializeGuardrail:
         assert guardrail.unreachable_fallback == "fail_open"
 
     def test_ui_form_offers_only_the_credentials_and_the_fallback(self):
-        from litellm.proxy.guardrails.guardrail_endpoints import _get_fields_from_model
+        from embrouter.proxy.guardrails.guardrail_endpoints import _get_fields_from_model
 
         fields: Final = _get_fields_from_model(Agent365GuardrailConfigModel)
         assert set(fields) == {"tenant_id", "client_id", "client_secret", "unreachable_fallback"}
@@ -246,7 +246,7 @@ class TestInitializeGuardrail:
 
     @pytest.mark.asyncio
     async def test_stale_yaml_overrides_are_ignored_and_logged(self, caplog):
-        params: Final = LitellmParams(
+        params: Final = EmbrouterParams(
             guardrail="agent_365",
             mode="pre_mcp_call",
             tenant_id="tenant-abc",
@@ -258,7 +258,7 @@ class TestInitializeGuardrail:
             agent_id="yaml-agent",
         )
         handler: Final = FakeHandler([_token_response(), _allow_response()])
-        with caplog.at_level(logging.WARNING, logger="LiteLLM Proxy"):
+        with caplog.at_level(logging.WARNING, logger="EmbRouter Proxy"):
             guardrail: Final = initialize_guardrail(params, {"guardrail_name": "a365-stale"}, async_handler=handler)
         assert "ignoring api_base, resource_app_id, agent_id" in caplog.text
         await _run(guardrail, _mcp_data())
@@ -270,7 +270,7 @@ class TestInitializeGuardrail:
 
     def test_explicit_params_win(self, monkeypatch):
         monkeypatch.setenv("AGENT365_TENANT_ID", "env-tenant")
-        params: Final = LitellmParams(
+        params: Final = EmbrouterParams(
             guardrail="agent_365",
             mode="pre_mcp_call",
             tenant_id="param-tenant",
@@ -286,7 +286,7 @@ class TestInitializeGuardrail:
         assert guardrail.request_timeout == 5.0
 
     def test_wrong_mode_rejected(self):
-        params: Final = LitellmParams(
+        params: Final = EmbrouterParams(
             guardrail="agent_365",
             mode="post_call",
             tenant_id="tenant-abc",
@@ -367,7 +367,7 @@ class TestConversationId:
         for call_id in ("call-1", "call-2"):
             await _run(
                 guardrail,
-                _mcp_data(litellm_call_id=call_id, litellm_logging_obj=_logging_obj(call_id, mcp_session_id="sess-A")),
+                _mcp_data(embrouter_call_id=call_id, embrouter_logging_obj=_logging_obj(call_id, mcp_session_id="sess-A")),
             )
         assert [call.json["conversationId"] for call in handler.calls[1:]] == ["sess-A", "sess-A"]
 
@@ -375,7 +375,7 @@ class TestConversationId:
     async def test_server_recorded_session_beats_the_client_header(self):
         handler: Final = FakeHandler([_token_response(), _allow_response()])
         guardrail: Final = _make_guardrail(handler)
-        data: Final = _mcp_data(litellm_logging_obj=_logging_obj("call-id-1", mcp_session_id="sess-from-logging"))
+        data: Final = _mcp_data(embrouter_logging_obj=_logging_obj("call-id-1", mcp_session_id="sess-from-logging"))
         await _run(guardrail, data)
         assert handler.calls[1].json["conversationId"] == "sess-from-logging"
 
@@ -385,8 +385,8 @@ class TestConversationId:
         guardrail: Final = _make_guardrail(handler)
         data: Final = _mcp_data(
             metadata={"headers": {}},
-            litellm_call_id="call-id-from-data",
-            litellm_logging_obj=_logging_obj("call-id-from-logging"),
+            embrouter_call_id="call-id-from-data",
+            embrouter_logging_obj=_logging_obj("call-id-from-logging"),
         )
         await _run(guardrail, data)
         assert handler.calls[1].json["conversationId"] == "call-id-from-data"
@@ -395,7 +395,7 @@ class TestConversationId:
     async def test_sessionless_call_without_request_call_id_uses_the_logging_call_id(self):
         handler: Final = FakeHandler([_token_response(), _allow_response()])
         guardrail: Final = _make_guardrail(handler)
-        data: Final = _mcp_data(metadata={"headers": {}}, litellm_logging_obj=_logging_obj("call-id-from-logging"))
+        data: Final = _mcp_data(metadata={"headers": {}}, embrouter_logging_obj=_logging_obj("call-id-from-logging"))
         await _run(guardrail, data)
         assert handler.calls[1].json["conversationId"] == "call-id-from-logging"
 
@@ -411,7 +411,7 @@ class TestConversationId:
     async def test_generates_uuid_when_no_identifier_available(self):
         handler: Final = FakeHandler([_token_response(), _allow_response()])
         guardrail: Final = _make_guardrail(handler)
-        await _run(guardrail, _mcp_data(metadata={"headers": {}}, litellm_logging_obj=_logging_obj("")))
+        await _run(guardrail, _mcp_data(metadata={"headers": {}}, embrouter_logging_obj=_logging_obj("")))
         conversation_id: Final = handler.calls[1].json["conversationId"]
         assert uuid.UUID(conversation_id).version == 4
 
@@ -543,7 +543,7 @@ class TestFailOpenOptIn:
     async def test_opted_in_fail_open_logs_the_unscanned_call_at_error_level(self, caplog):
         handler: Final = FakeHandler([_token_response(), httpx.ReadTimeout("timed out")])
         guardrail: Final = _make_guardrail(handler, unreachable_fallback="fail_open")
-        with caplog.at_level(logging.ERROR, logger="LiteLLM Proxy"):
+        with caplog.at_level(logging.ERROR, logger="EmbRouter Proxy"):
             await _run(guardrail, _mcp_data())
         fail_open_logs: Final = [r for r in caplog.records if "unreachable_fallback='fail_open'" in r.getMessage()]
         assert [r.levelno for r in fail_open_logs] == [logging.ERROR], caplog.text
@@ -559,11 +559,11 @@ class TestFailOpenOptIn:
 
 class TestUnreachableFallback:
     @pytest.mark.asyncio
-    async def test_evaluate_litellm_timeout_fail_closed(self):
+    async def test_evaluate_embrouter_timeout_fail_closed(self):
         handler: Final = FakeHandler(
             [
                 _token_response(),
-                LitellmTimeout(message="Connection timed out", model="default-model-name", llm_provider="httpx"),
+                EmbrouterTimeout(message="Connection timed out", model="default-model-name", llm_provider="httpx"),
             ]
         )
         guardrail: Final = _make_guardrail(handler)
@@ -614,7 +614,7 @@ class TestUnreachableFallback:
         handler: Final = FakeHandler([])
         guardrail: Final = _make_guardrail(handler)
         with pytest.raises(HTTPException) as exc_info:
-            await _run(guardrail, _mcp_data(incoming_bearer_token="sk-litellm-virtual-key"))
+            await _run(guardrail, _mcp_data(incoming_bearer_token="sk-embrouter-virtual-key"))
         assert exc_info.value.status_code == 401
 
     @pytest.mark.asyncio
@@ -801,7 +801,7 @@ class TestEarlyPhasePassthrough:
 
 class TestRegistryDiscovery:
     def test_auto_discovery_finds_agent_365(self):
-        from litellm.proxy.guardrails.guardrail_registry import (
+        from embrouter.proxy.guardrails.guardrail_registry import (
             get_guardrail_class_from_hooks,
             get_guardrail_initializer_from_hooks,
         )
@@ -904,9 +904,9 @@ class TestMalformedResponses:
         assert result is data
 
     @pytest.mark.asyncio
-    async def test_obo_litellm_timeout_fail_open(self):
+    async def test_obo_embrouter_timeout_fail_open(self):
         handler: Final = FakeHandler(
-            [LitellmTimeout(message="Connection timed out", model="default-model-name", llm_provider="httpx")]
+            [EmbrouterTimeout(message="Connection timed out", model="default-model-name", llm_provider="httpx")]
         )
         guardrail: Final = _make_guardrail(handler, unreachable_fallback="fail_open")
         data: Final = _mcp_data()
@@ -1081,7 +1081,7 @@ class TestFinalArgumentsEvaluated:
         masker: Final = _ArgumentMasker("arg-rewrite")
         registered: Final = (guardrail, masker) if agent_365_first else (masker, guardrail)
         for callback in registered:
-            litellm.logging_callback_manager.add_litellm_callback(callback)
+            embrouter.logging_callback_manager.add_embrouter_callback(callback)
         data: Final = _mcp_data(mcp_arguments={"turn": "please REWRITE_ME now"})
         try:
             result: Final = await ProxyLogging(user_api_key_cache=DualCache()).pre_call_hook(
@@ -1089,8 +1089,8 @@ class TestFinalArgumentsEvaluated:
             )
         finally:
             for callback in registered:
-                litellm.logging_callback_manager.remove_callback_from_list_by_object(
-                    litellm.callbacks, callback, require_self=False
+                embrouter.logging_callback_manager.remove_callback_from_list_by_object(
+                    embrouter.callbacks, callback, require_self=False
                 )
         assert result["modified_arguments"] == {"turn": "please [REWRITE_ME_REDACTED] now"}
         assert handler.calls[1].json["arguments"] == {"turn": "please [REWRITE_ME_REDACTED] now"}

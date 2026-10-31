@@ -1,4 +1,4 @@
-"""Shared fixtures for tests/test_litellm/proxy/utils/prisma_and_spend/.
+"""Shared fixtures for tests/test_embrouter/proxy/utils/prisma_and_spend/.
 
 All fixtures used by PR2 test files live here. Do NOT add fixtures inside
 individual test files; if a fixture is missing, add it here and update the
@@ -37,7 +37,7 @@ VOLATILE_KEYS = frozenset(
         "token",
         "expires",
         "expires_at",
-        "litellm_call_id",
+        "embrouter_call_id",
         "created",
         "spend",
         "last_refreshed_at",
@@ -61,36 +61,36 @@ def normalize(data: Any, volatile: frozenset = VOLATILE_KEYS) -> Any:
 
 
 _PRISMA_TABLES: List[str] = [
-    "litellm_verificationtoken",
-    "litellm_teamtable",
-    "litellm_usertable",
-    "litellm_endusertable",
-    "litellm_organizationtable",
-    "litellm_proxymodeltable",
-    "litellm_modeltable",
-    "litellm_budgettable",
-    "litellm_spendlogs",
-    "litellm_config",
-    "litellm_usernotifications",
-    "litellm_healthchecktable",
-    "litellm_dailyuserspend",
-    "litellm_dailyteamspend",
-    "litellm_dailytagspend",
-    "litellm_managed_object_table",
-    "litellm_credentialstable",
-    "litellm_mcpservertable",
-    "litellm_audit_log",
-    "litellm_invitationlink",
-    "litellm_session_token_table",
-    "litellm_passthrough_endpoint_table",
-    "litellm_cron_job",
-    "litellm_passthrough_logs",
-    "litellm_promptstable",
-    "litellm_guardrailstable",
-    "litellm_managed_files",
-    "litellm_mcpusercredentials",
-    "litellm_objectpermissiontable",
-    "litellm_organizationmembership",
+    "embrouter_verificationtoken",
+    "embrouter_teamtable",
+    "embrouter_usertable",
+    "embrouter_endusertable",
+    "embrouter_organizationtable",
+    "embrouter_proxymodeltable",
+    "embrouter_modeltable",
+    "embrouter_budgettable",
+    "embrouter_spendlogs",
+    "embrouter_config",
+    "embrouter_usernotifications",
+    "embrouter_healthchecktable",
+    "embrouter_dailyuserspend",
+    "embrouter_dailyteamspend",
+    "embrouter_dailytagspend",
+    "embrouter_managed_object_table",
+    "embrouter_credentialstable",
+    "embrouter_mcpservertable",
+    "embrouter_audit_log",
+    "embrouter_invitationlink",
+    "embrouter_session_token_table",
+    "embrouter_passthrough_endpoint_table",
+    "embrouter_cron_job",
+    "embrouter_passthrough_logs",
+    "embrouter_promptstable",
+    "embrouter_guardrailstable",
+    "embrouter_managed_files",
+    "embrouter_mcpusercredentials",
+    "embrouter_objectpermissiontable",
+    "embrouter_organizationmembership",
 ]
 
 
@@ -114,11 +114,11 @@ def _make_table_mock() -> MagicMock:
 
 @pytest.fixture
 def mock_prisma_client() -> MagicMock:
-    """Bare ``db`` mock with all common LiteLLM_* tables stubbed.
+    """Bare ``db`` mock with all common EmbRouter_* tables stubbed.
 
     Override individual return values in a test::
 
-        mock_prisma_client.db.litellm_usertable.find_unique.return_value = user
+        mock_prisma_client.db.embrouter_usertable.find_unique.return_value = user
     """
     client = MagicMock(name="MockPrismaClient")
     client.db = MagicMock(name="MockPrismaDB")
@@ -189,7 +189,7 @@ def patched_prisma_import(monkeypatch: pytest.MonkeyPatch) -> Iterator[MagicMock
     directly and restore in teardown.
     """
     import prisma as _prisma_pkg
-    import litellm.proxy.utils as _utils_mod
+    import embrouter.proxy.utils as _utils_mod
 
     fake_prisma = MagicMock(name="FakePrisma")
     fake_prisma.is_connected = MagicMock(return_value=False)
@@ -238,7 +238,7 @@ def prisma_client(
     """
     monkeypatch.delenv("DATABASE_URL_READ_REPLICA", raising=False)
     monkeypatch.delenv("IAM_TOKEN_DB_AUTH", raising=False)
-    from litellm.proxy.utils import PrismaClient
+    from embrouter.proxy.utils import PrismaClient
 
     proxy_logging_obj = MagicMock(name="MockProxyLogging")
     proxy_logging_obj.failure_handler = AsyncMock()
@@ -289,7 +289,7 @@ def fake_clock(monkeypatch: pytest.MonkeyPatch) -> FakeClock:
 
 @pytest.fixture
 def make_spend_log_row() -> Callable[..., Dict[str, Any]]:
-    """Factory for fake LiteLLM_SpendLogs rows."""
+    """Factory for fake EmbRouter_SpendLogs rows."""
 
     def _make(
         request_id: str = "req-1",
@@ -350,7 +350,7 @@ def fake_redis() -> FakeRedisList:
 
 @pytest.fixture
 def proxy_logging_with_redis(fake_redis: FakeRedisList) -> MagicMock:
-    from litellm.proxy.db.db_transaction_queue.redis_update_buffer import RedisUpdateBuffer
+    from embrouter.proxy.db.db_transaction_queue.redis_update_buffer import RedisUpdateBuffer
 
     proxy_logging = MagicMock()
     proxy_logging.failure_handler = AsyncMock()

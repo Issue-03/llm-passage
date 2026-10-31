@@ -1,6 +1,6 @@
 from typing import Final
 
-from litellm.llms.openai.chat.gpt_transformation import OpenAIGPTConfig
+from embrouter.llms.openai.chat.gpt_transformation import OpenAIGPTConfig
 
 
 class BasetenConfig(OpenAIGPTConfig):

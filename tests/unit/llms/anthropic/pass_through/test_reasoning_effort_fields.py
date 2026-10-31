@@ -13,14 +13,14 @@ from typing import Any, Dict
 
 import pytest
 
-import litellm
-from litellm.llms.anthropic.pass_through.utils import (
+import embrouter
+from embrouter.llms.anthropic.pass_through.utils import (
     normalize_reasoning_effort_value,
 )
-from litellm.router_utils.reasoning_effort_capability import (
+from embrouter.router_utils.reasoning_effort_capability import (
     resolve_supported_reasoning_efforts,
 )
-from litellm.utils import get_model_info
+from embrouter.utils import get_model_info
 
 
 def _load_model_registry() -> Dict[str, Any]:
@@ -54,7 +54,7 @@ class TestModelRegistryReasoningEffortFields:
 
     Claude models intentionally OMIT ``supports_minimal_reasoning_effort``:
     ``minimal`` is not a real Anthropic effort level (the API accepts only
-    low/medium/high/xhigh/max), so LiteLLM degrades ``minimal`` to ``low``
+    low/medium/high/xhigh/max), so EmbRouter degrades ``minimal`` to ``low``
     regardless of the flag. These tests guard against the flag being
     re-added to the Claude fleet."""
 
@@ -156,11 +156,11 @@ class TestAdapterAdaptiveThinking:
 
     def test_messages_adapter_adaptive_returns_medium_default(self):
         """Adaptive thinking returns 'medium' as default reasoning_effort."""
-        from litellm.llms.anthropic.pass_through.adapters.transformation import (
-            LiteLLMAnthropicMessagesAdapter,
+        from embrouter.llms.anthropic.pass_through.adapters.transformation import (
+            EmbRouterAnthropicMessagesAdapter,
         )
 
-        adapter = LiteLLMAnthropicMessagesAdapter()
+        adapter = EmbRouterAnthropicMessagesAdapter()
         result = adapter.translate_anthropic_thinking_to_reasoning_effort(
             {"type": "adaptive"}
         )
@@ -168,12 +168,12 @@ class TestAdapterAdaptiveThinking:
 
     def test_messages_adapter_adaptive_overridden_by_output_config(self):
         """For adaptive thinking, output_config.effort overrides reasoning_effort."""
-        from litellm.llms.anthropic.pass_through.adapters.transformation import (
-            LiteLLMAnthropicMessagesAdapter,
+        from embrouter.llms.anthropic.pass_through.adapters.transformation import (
+            EmbRouterAnthropicMessagesAdapter,
         )
-        from litellm.types.llms.anthropic import AnthropicMessagesRequest
+        from embrouter.types.llms.anthropic import AnthropicMessagesRequest
 
-        adapter = LiteLLMAnthropicMessagesAdapter()
+        adapter = EmbRouterAnthropicMessagesAdapter()
         request = AnthropicMessagesRequest(
             model="test-model",
             messages=[{"role": "user", "content": "hello"}],
@@ -191,11 +191,11 @@ class TestAdapterAdaptiveThinking:
 
     def test_responses_adapter_adaptive_with_output_config(self):
         """Responses adapter: adaptive thinking + output_config.effort."""
-        from litellm.llms.anthropic.pass_through.responses_adapters.transformation import (
-            LiteLLMAnthropicToResponsesAPIAdapter,
+        from embrouter.llms.anthropic.pass_through.responses_adapters.transformation import (
+            EmbRouterAnthropicToResponsesAPIAdapter,
         )
 
-        result = LiteLLMAnthropicToResponsesAPIAdapter.translate_thinking_to_reasoning(
+        result = EmbRouterAnthropicToResponsesAPIAdapter.translate_thinking_to_reasoning(
             thinking={"type": "adaptive"},
             output_config={"effort": "xhigh"},
         )
@@ -204,11 +204,11 @@ class TestAdapterAdaptiveThinking:
 
     def test_responses_adapter_adaptive_default_medium(self):
         """Responses adapter: adaptive thinking without output_config defaults to medium."""
-        from litellm.llms.anthropic.pass_through.responses_adapters.transformation import (
-            LiteLLMAnthropicToResponsesAPIAdapter,
+        from embrouter.llms.anthropic.pass_through.responses_adapters.transformation import (
+            EmbRouterAnthropicToResponsesAPIAdapter,
         )
 
-        result = LiteLLMAnthropicToResponsesAPIAdapter.translate_thinking_to_reasoning(
+        result = EmbRouterAnthropicToResponsesAPIAdapter.translate_thinking_to_reasoning(
             thinking={"type": "adaptive"},
         )
         assert result is not None
@@ -278,18 +278,18 @@ def declared_effort_entry(local_model_cost_map, request):
     disjoint and empty declarations can be exercised without waiting for a real model to ship one.
     An operator writing this key on a config.yaml model_info block produces exactly these shapes."""
     key = f"synthetic/{request.node.name}"
-    litellm.model_cost[key] = {
-        "litellm_provider": "synthetic",
+    embrouter.model_cost[key] = {
+        "embrouter_provider": "synthetic",
         "mode": "chat",
         "supports_reasoning": True,
         "reasoning_effort_levels": list(request.param),
     }
-    litellm.get_model_info.cache_clear()
+    embrouter.get_model_info.cache_clear()
     try:
         yield key.removeprefix("synthetic/")
     finally:
-        litellm.model_cost.pop(key, None)
-        litellm.get_model_info.cache_clear()
+        embrouter.model_cost.pop(key, None)
+        embrouter.get_model_info.cache_clear()
 
 
 class TestADeclarationDisjointFromTheChain:

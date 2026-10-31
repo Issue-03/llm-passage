@@ -1,9 +1,9 @@
 """
-Resolve AWS Bedrock ``requestMetadata`` from LiteLLM proxy identity and caller metadata.
+Resolve AWS Bedrock ``requestMetadata`` from EmbRouter proxy identity and caller metadata.
 
 Bedrock attaches request metadata to CloudTrail records and to the dimension AWS Cost
 Explorer groups on, so everything here is opt-in: nothing is forwarded unless the operator
-sets ``litellm.bedrock_request_metadata_fields`` (``litellm_settings`` on the proxy).
+sets ``embrouter.bedrock_request_metadata_fields`` (``embrouter_settings`` on the proxy).
 
 Two properties are load-bearing for that billing record and are asserted by the tests:
 proxy identity is resolved first so it can never be evicted by caller-supplied pairs, and the
@@ -20,14 +20,14 @@ import re
 from collections.abc import Mapping
 from typing import Final
 
-import litellm
+import embrouter
 
 BEDROCK_REQUEST_METADATA_HEADER: Final = "X-Amzn-Bedrock-Request-Metadata"
 BEDROCK_REQUEST_METADATA_MAX_PAIRS: Final = 16
 BEDROCK_REQUEST_METADATA_IDENTITY_PREFIX: Final = "user_api_key_"
 BEDROCK_REQUEST_METADATA_CLIENT_FIELD: Final = "spend_logs_metadata"
 
-_METADATA_PARAM_NAMES: Final[tuple[str, ...]] = ("metadata", "litellm_metadata")
+_METADATA_PARAM_NAMES: Final[tuple[str, ...]] = ("metadata", "embrouter_metadata")
 _KEY_PATTERN: Final = re.compile(r"^[a-zA-Z0-9\s:_@$#=/+,.-]{1,256}$")
 _VALUE_PATTERN: Final = re.compile(r"^[a-zA-Z0-9\s:_@$#=/+,.-]{0,256}$")
 _OWNED_HEADER_NAMES: Final[frozenset[str]] = frozenset((BEDROCK_REQUEST_METADATA_HEADER.lower(),))
@@ -49,21 +49,21 @@ def _allowed_fields() -> tuple[str, ...]:
     reserved slot and shrink the client budget for nothing. First occurrence wins, which keeps
     the operator's declared precedence intact.
     """
-    configured: Final[object] = litellm.bedrock_request_metadata_fields
+    configured: Final[object] = embrouter.bedrock_request_metadata_fields
     if not isinstance(configured, (list, tuple)):
         return ()
     fields: Final = tuple(str(field) for field in configured)
     return tuple(field for index, field in enumerate(fields) if field not in fields[:index])
 
 
-def _metadata_sources(litellm_params: Mapping[str, object] | None) -> tuple[Mapping[str, object], ...]:
-    """``metadata`` on /v1/chat/completions, ``litellm_metadata`` on the LITELLM_METADATA_ROUTES."""
-    if litellm_params is None:
+def _metadata_sources(embrouter_params: Mapping[str, object] | None) -> tuple[Mapping[str, object], ...]:
+    """``metadata`` on /v1/chat/completions, ``embrouter_metadata`` on the EMBROUTER_METADATA_ROUTES."""
+    if embrouter_params is None:
         return ()
     return tuple(
         source
         for name in _METADATA_PARAM_NAMES
-        for source in (litellm_params.get(name),)
+        for source in (embrouter_params.get(name),)
         if isinstance(source, Mapping)
     )
 
@@ -109,7 +109,7 @@ def _client_pairs(
 
 
 def resolve_bedrock_request_metadata(
-    litellm_params: Mapping[str, object] | None,
+    embrouter_params: Mapping[str, object] | None,
     caller_metadata: object = None,
 ) -> dict[str, str] | None:
     """
@@ -124,7 +124,7 @@ def resolve_bedrock_request_metadata(
     allowed_fields: Final = _allowed_fields()
     if not allowed_fields:
         return None
-    sources: Final = _metadata_sources(litellm_params)
+    sources: Final = _metadata_sources(embrouter_params)
     identity: Final = _identity_pairs(sources, allowed_fields)
     client: Final = _client_pairs(
         sources=sources,
@@ -150,7 +150,7 @@ def bedrock_request_metadata_is_owned() -> bool:
 
 
 def bedrock_request_metadata_headers(
-    litellm_params: Mapping[str, object] | None,
+    embrouter_params: Mapping[str, object] | None,
 ) -> tuple[frozenset[str], tuple[tuple[str, str], ...]]:
     """
     The signed ``X-Amzn-Bedrock-Request-Metadata`` header for the Invoke paths, which have no
@@ -164,7 +164,7 @@ def bedrock_request_metadata_headers(
     """
     if not bedrock_request_metadata_is_owned():
         return frozenset(), ()
-    resolved: Final = resolve_bedrock_request_metadata(litellm_params)
+    resolved: Final = resolve_bedrock_request_metadata(embrouter_params)
     if resolved is None:
         return _OWNED_HEADER_NAMES, ()
     return _OWNED_HEADER_NAMES, ((BEDROCK_REQUEST_METADATA_HEADER, json.dumps(resolved, separators=(",", ":"))),)

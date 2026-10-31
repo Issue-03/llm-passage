@@ -7,31 +7,31 @@ import httpx
 from httpx._types import RequestFiles
 from typing_extensions import ReadOnly, TypedDict
 
-import litellm
-from litellm.constants import RUNWAYML_DEFAULT_API_VERSION
-from litellm.litellm_core_utils.url_utils import encode_url_path_segment
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.base_llm.videos.transformation import BaseVideoConfig
-from litellm.llms.custom_httpx.http_handler import (
+import embrouter
+from embrouter.constants import RUNWAYML_DEFAULT_API_VERSION
+from embrouter.embrouter_core_utils.url_utils import encode_url_path_segment
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.base_llm.videos.transformation import BaseVideoConfig
+from embrouter.llms.custom_httpx.http_handler import (
     AsyncHTTPHandler,
     HTTPHandler,
     _get_httpx_client,
     get_async_httpx_client,
 )
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.videos.main import VideoCreateOptionalRequestParams, VideoObject
-from litellm.types.videos.utils import (
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.videos.main import VideoCreateOptionalRequestParams, VideoObject
+from embrouter.types.videos.utils import (
     encode_video_id_with_provider,
     extract_original_video_id,
 )
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 
 class RunwayMLError(BaseLLMException):
@@ -197,18 +197,18 @@ class RunwayMLVideoConfig(BaseVideoConfig):
         headers: dict,
         model: str,
         api_key: str | None = None,
-        litellm_params: GenericLiteLLMParams | None = None,
+        embrouter_params: GenericEmbRouterParams | None = None,
     ) -> dict:
         """
         Validate environment and set up authentication headers.
         RunwayML uses Bearer token authentication via RUNWAYML_API_SECRET.
         """
-        # Use api_key from litellm_params if available, otherwise fall back to other sources
-        if litellm_params and litellm_params.api_key:
-            api_key = api_key or litellm_params.api_key
+        # Use api_key from embrouter_params if available, otherwise fall back to other sources
+        if embrouter_params and embrouter_params.api_key:
+            api_key = api_key or embrouter_params.api_key
 
         api_key = (
-            api_key or litellm.api_key or get_secret_str("RUNWAYML_API_SECRET") or get_secret_str("RUNWAYML_API_KEY")
+            api_key or embrouter.api_key or get_secret_str("RUNWAYML_API_SECRET") or get_secret_str("RUNWAYML_API_KEY")
         )
 
         if api_key is None:
@@ -229,7 +229,7 @@ class RunwayMLVideoConfig(BaseVideoConfig):
         self,
         model: str,
         api_base: str | None,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> str:
         """
         Get the base URL for RunwayML API.
@@ -246,7 +246,7 @@ class RunwayMLVideoConfig(BaseVideoConfig):
         prompt: str,
         api_base: str,
         video_create_optional_request_params: dict[str, object],
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[dict, RequestFiles, str]:
         """
@@ -287,7 +287,7 @@ class RunwayMLVideoConfig(BaseVideoConfig):
         self,
         model: str,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         custom_llm_provider: str | None = None,
         request_data: dict | None = None,
     ) -> VideoObject:
@@ -398,7 +398,7 @@ class RunwayMLVideoConfig(BaseVideoConfig):
         self,
         video_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
         variant: str | None = None,
     ) -> tuple[str, dict]:
@@ -444,7 +444,7 @@ class RunwayMLVideoConfig(BaseVideoConfig):
     def transform_video_content_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> bytes:
         """
         Transform the RunwayML video content download response (synchronous).
@@ -473,7 +473,7 @@ class RunwayMLVideoConfig(BaseVideoConfig):
     async def async_transform_video_content_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> bytes:
         """
         Transform the RunwayML video content download response (asynchronous).
@@ -494,7 +494,7 @@ class RunwayMLVideoConfig(BaseVideoConfig):
 
         # Download the video from the CloudFront URL asynchronously
         async_httpx_client: Final[AsyncHTTPHandler] = get_async_httpx_client(
-            llm_provider=litellm.LlmProviders.RUNWAYML,
+            llm_provider=embrouter.LlmProviders.RUNWAYML,
         )
         video_response: Final = await async_httpx_client.get(video_url)
         video_response.raise_for_status()
@@ -506,7 +506,7 @@ class RunwayMLVideoConfig(BaseVideoConfig):
         video_id: str,
         prompt: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
         extra_body: Mapping[str, object] | None = None,
     ) -> tuple[str, dict]:
@@ -521,7 +521,7 @@ class RunwayMLVideoConfig(BaseVideoConfig):
     def transform_video_remix_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         custom_llm_provider: str | None = None,
     ) -> VideoObject:
         """Transform the RunwayML video remix response."""
@@ -530,7 +530,7 @@ class RunwayMLVideoConfig(BaseVideoConfig):
     def transform_video_list_request(
         self,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
         after: str | None = None,
         limit: int | None = None,
@@ -547,7 +547,7 @@ class RunwayMLVideoConfig(BaseVideoConfig):
     def transform_video_list_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         custom_llm_provider: str | None = None,
     ) -> dict[str, str]:
         """Transform the RunwayML video list response."""
@@ -557,7 +557,7 @@ class RunwayMLVideoConfig(BaseVideoConfig):
         self,
         video_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict]:
         """
@@ -576,7 +576,7 @@ class RunwayMLVideoConfig(BaseVideoConfig):
     def transform_video_delete_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> VideoObject:
         """Transform the RunwayML video delete/cancel response."""
         response_data: Final = _parse_runway_task_response(raw_response)
@@ -594,7 +594,7 @@ class RunwayMLVideoConfig(BaseVideoConfig):
         self,
         video_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict]:
         """
@@ -614,7 +614,7 @@ class RunwayMLVideoConfig(BaseVideoConfig):
     def transform_video_status_retrieve_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         custom_llm_provider: str | None = None,
         client: HTTPHandler | None = None,
     ) -> VideoObject:
@@ -657,13 +657,13 @@ class RunwayMLVideoConfig(BaseVideoConfig):
 
         return video_obj
 
-    def transform_video_create_character_request(self, name, video: object, api_base, litellm_params, headers):
+    def transform_video_create_character_request(self, name, video: object, api_base, embrouter_params, headers):
         raise NotImplementedError("video create character is not supported for RunwayML")
 
     def transform_video_create_character_response(self, raw_response, logging_obj):
         raise NotImplementedError("video create character is not supported for RunwayML")
 
-    def transform_video_get_character_request(self, character_id, api_base, litellm_params, headers):
+    def transform_video_get_character_request(self, character_id, api_base, embrouter_params, headers):
         raise NotImplementedError("video get character is not supported for RunwayML")
 
     def transform_video_get_character_response(self, raw_response, logging_obj):
@@ -674,7 +674,7 @@ class RunwayMLVideoConfig(BaseVideoConfig):
         prompt,
         video_id,
         api_base,
-        litellm_params,
+        embrouter_params,
         headers,
         video_file=None,
         extra_body=None,
@@ -697,7 +697,7 @@ class RunwayMLVideoConfig(BaseVideoConfig):
         video_id,
         seconds,
         api_base,
-        litellm_params,
+        embrouter_params,
         headers,
         extra_body=None,
     ):

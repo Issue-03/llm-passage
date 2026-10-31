@@ -1,8 +1,8 @@
 """
 MCP server table model.
 
-Canonical definition for ``litellm_mcpservertable``. Re-exported from
-``litellm.proxy._types`` for backwards compatibility.
+Canonical definition for ``embrouter_mcpservertable``. Re-exported from
+``embrouter.proxy._types`` for backwards compatibility.
 """
 
 import enum
@@ -13,9 +13,9 @@ from typing import Literal
 
 from pydantic import Field, ValidationInfo, field_validator
 
-from litellm.types.llms.base import LiteLLMPydanticObjectBase
-from litellm.types.mcp import MCPAuthType, MCPCredentials, MCPTransportType
-from litellm.types.mcp_server.mcp_server_manager import MCPInfo, PinnedMCPTool, parse_pinned_tools
+from embrouter.types.llms.base import EmbRouterPydanticObjectBase
+from embrouter.types.mcp import MCPAuthType, MCPCredentials, MCPTransportType
+from embrouter.types.mcp_server.mcp_server_manager import MCPInfo, PinnedMCPTool, parse_pinned_tools
 
 
 class MCPEnvVarScope(str, enum.Enum):
@@ -31,12 +31,12 @@ class MCPEnvVarScope(str, enum.Enum):
     user = "user"
 
 
-class MCPEnvVar(LiteLLMPydanticObjectBase):
+class MCPEnvVar(EmbRouterPydanticObjectBase):
     """One environment variable for an MCP server.
 
     Variables can be interpolated into ``static_headers`` using ``${NAME}``
     syntax. ``scope=global`` values are stored on the server. ``scope=user``
-    values are stored per-user in ``LiteLLM_MCPUserEnvVars`` and supplied by
+    values are stored per-user in ``EmbRouter_MCPUserEnvVars`` and supplied by
     each user.
     """
 
@@ -46,8 +46,8 @@ class MCPEnvVar(LiteLLMPydanticObjectBase):
     description: str | None = None
 
 
-class LiteLLM_MCPServerTable(LiteLLMPydanticObjectBase):
-    """Represents a LiteLLM_MCPServerTable record"""
+class EmbRouter_MCPServerTable(EmbRouterPydanticObjectBase):
+    """Represents a EmbRouter_MCPServerTable record"""
 
     server_id: str
     is_config: bool = Field(default=False, description="Whether this server is defined in config and is read-only.")
@@ -91,7 +91,7 @@ class LiteLLM_MCPServerTable(LiteLLMPydanticObjectBase):
     # Token Exchange (OBO) fields — RFC 8693. ``audience`` is named for the RFC's
     # request parameter (token-exchange only); RFC 8707 resource indicators are a
     # separate concept named ``resource`` in the v2 egress types. A null
-    # ``subject_token_type`` means DEFAULT_SUBJECT_TOKEN_TYPE (litellm.types.mcp),
+    # ``subject_token_type`` means DEFAULT_SUBJECT_TOKEN_TYPE (embrouter.types.mcp),
     # applied at the egress build sites.
     token_exchange_endpoint: str | None = None
     audience: str | None = None
@@ -128,7 +128,7 @@ class LiteLLM_MCPServerTable(LiteLLMPydanticObjectBase):
     @field_validator("static_headers", "env", mode="before")
     @classmethod
     def decode_stored_secret_map(cls, value: object, info: ValidationInfo) -> Mapping[str, str] | None:
-        from litellm.proxy.common_utils.encrypt_decrypt_utils import decode_secret_map
+        from embrouter.proxy.common_utils.encrypt_decrypt_utils import decode_secret_map
 
         if value is None and info.field_name == "env":
             return MappingProxyType({})

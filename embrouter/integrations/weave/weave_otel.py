@@ -9,19 +9,19 @@ from typing import TYPE_CHECKING, Any, Final
 from opentelemetry.trace import Status, StatusCode
 from typing_extensions import override
 
-from litellm._logging import verbose_logger
-from litellm.integrations._types.open_inference import (
+from embrouter._logging import verbose_logger
+from embrouter.integrations._types.open_inference import (
     SpanAttributes as OpenInferenceSpanAttributes,
 )
-from litellm.integrations.arize import _utils
-from litellm.integrations.opentelemetry import OpenTelemetry, OpenTelemetryConfig
-from litellm.integrations.opentelemetry_utils.base_otel_llm_obs_attributes import (
+from embrouter.integrations.arize import _utils
+from embrouter.integrations.opentelemetry import OpenTelemetry, OpenTelemetryConfig
+from embrouter.integrations.opentelemetry_utils.base_otel_llm_obs_attributes import (
     BaseLLMObsOTELAttributes,
     safe_set_attribute,
 )
-from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
-from litellm.types.integrations.weave_otel import WeaveOtelConfig, WeaveSpanAttributes
-from litellm.types.utils import StandardCallbackDynamicParams
+from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps
+from embrouter.types.integrations.weave_otel import WeaveOtelConfig, WeaveSpanAttributes
+from embrouter.types.utils import StandardCallbackDynamicParams
 
 if TYPE_CHECKING:
     from opentelemetry.trace import Span
@@ -69,11 +69,11 @@ def _set_weave_specific_attributes(span: Span, kwargs: Mapping[str, Any], respon
     """
 
     # Extract all needed data upfront
-    litellm_params: Final = kwargs.get("litellm_params") or {}
+    embrouter_params: Final = kwargs.get("embrouter_params") or {}
     # optional_params = kwargs.get("optional_params") or {}
     metadata: Final = kwargs.get("metadata") or {}
     model: Final = kwargs.get("model") or ""
-    custom_llm_provider: Final = litellm_params.get("custom_llm_provider") or ""
+    custom_llm_provider: Final = embrouter_params.get("custom_llm_provider") or ""
 
     # Weave supports a custom display name and will default to the model name if not provided.
     display_name = metadata.get("display_name")
@@ -181,7 +181,7 @@ def set_weave_otel_attributes(span: Span, kwargs: Mapping[str, object], response
 
 class WeaveOtelLogger(OpenTelemetry):
     """
-    Weave (W&B) OpenTelemetry Logger for LiteLLM.
+    Weave (W&B) OpenTelemetry Logger for EmbRouter.
 
     Sends LLM traces to Weave via the OpenTelemetry Protocol (OTLP).
 
@@ -191,12 +191,12 @@ class WeaveOtelLogger(OpenTelemetry):
         WANDB_HOST: Optional. Custom Weave host URL. Defaults to cloud endpoint.
 
     Usage:
-        litellm.callbacks = ["weave_otel"]
+        embrouter.callbacks = ["weave_otel"]
 
         Or manually:
-        from litellm.integrations.weave.weave_otel import WeaveOtelLogger
+        from embrouter.integrations.weave.weave_otel import WeaveOtelLogger
         weave_logger = WeaveOtelLogger(callback_name="weave_otel")
-        litellm.callbacks = [weave_logger]
+        embrouter.callbacks = [weave_logger]
 
     Reference:
         https://docs.wandb.ai/weave/guides/tracking/otel
@@ -248,7 +248,7 @@ class WeaveOtelLogger(OpenTelemetry):
         Override to always create a child span instead of reusing the parent span.
 
         This ensures that wrapper spans (like "B", "C", "D", "E") remain separate
-        from the LiteLLM LLM call spans, creating proper nesting in Weave.
+        from the EmbRouter LLM call spans, creating proper nesting in Weave.
         """
 
         otel_tracer: Final = self.get_tracer_to_use_for_request(kwargs)
@@ -269,7 +269,7 @@ class WeaveOtelLogger(OpenTelemetry):
         Override to prevent ending externally created parent spans.
 
         When wrapper spans (like "B", "C", "D", "E") are provided as parent spans,
-        they should be managed by the user code, not ended by LiteLLM.
+        they should be managed by the user code, not ended by EmbRouter.
         """
 
         verbose_logger.debug(

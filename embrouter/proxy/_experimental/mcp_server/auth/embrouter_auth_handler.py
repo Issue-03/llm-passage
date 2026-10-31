@@ -1,11 +1,11 @@
 from mcp.server.auth.middleware.bearer_auth import AuthenticatedUser
 
-from litellm.proxy._types import UserAPIKeyAuth
+from embrouter.proxy._types import UserAPIKeyAuth
 
 
 class MCPAuthenticatedUser(AuthenticatedUser):
     """
-    Wrapper class to make LiteLLM's authentication and configuration compatible with MCP's AuthenticatedUser.
+    Wrapper class to make EmbRouter's authentication and configuration compatible with MCP's AuthenticatedUser.
 
     This class handles:
     1. User API key authentication information

@@ -24,7 +24,7 @@ describe("buildMcpToolBlocks", () => {
       selectedMCPServers: ["id-1"],
       mcpServers: [server({})],
     });
-    expect(block.server_url).toBe("litellm_proxy/mcp/deepwiki");
+    expect(block.server_url).toBe("embrouter_proxy/mcp/deepwiki");
     expect(block.server_label).toBe("deepwiki");
   });
 
@@ -33,7 +33,7 @@ describe("buildMcpToolBlocks", () => {
       selectedMCPServers: ["id-1"],
       mcpServers: [server({ server_name: "my server" }) as any],
     });
-    expect(block.server_url).toBe("litellm_proxy/mcp/my server");
+    expect(block.server_url).toBe("embrouter_proxy/mcp/my server");
     expect(block.server_url).not.toContain("%20");
   });
 
@@ -48,7 +48,7 @@ describe("buildMcpToolBlocks", () => {
 
   it("collapses the all-servers sentinel to a single proxy-wide block", () => {
     expect(buildMcpToolBlocks({ selectedMCPServers: ["__all__", "id-1"] })).toEqual([
-      { type: "mcp", server_label: "litellm", server_url: "litellm_proxy/mcp", require_approval: "never" },
+      { type: "mcp", server_label: "embrouter", server_url: "embrouter_proxy/mcp", require_approval: "never" },
     ]);
   });
 
@@ -58,6 +58,6 @@ describe("buildMcpToolBlocks", () => {
       selectedMCPServers: ["toolset:ts-1"],
       mcpToolsets: [toolset],
     });
-    expect(block.server_url).toBe("litellm_proxy/mcp/docs");
+    expect(block.server_url).toBe("embrouter_proxy/mcp/docs");
   });
 });

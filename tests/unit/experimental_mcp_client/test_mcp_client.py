@@ -35,25 +35,25 @@ from mcp.types import (
 from mcp_types.version import LATEST_HANDSHAKE_VERSION
 from pydantic import TypeAdapter, ValidationError
 
-# Add the parent directory to the path so we can import litellm
-import litellm.experimental_mcp_client.client as mcp_client_module
-from litellm.experimental_mcp_client.client import (
+# Add the parent directory to the path so we can import embrouter
+import embrouter.experimental_mcp_client.client as mcp_client_module
+from embrouter.experimental_mcp_client.client import (
     MCPClient,
     _first_non_cancelled_cause,
     _TransportContext,
     as_mcp_read_timeout,
     strip_auth_scheme,
 )
-from litellm.proxy._experimental.mcp_server.faults.list_outcomes import (
+from embrouter.proxy._experimental.mcp_server.faults.list_outcomes import (
     classify_list_exception,
     list_fault_http_status,
 )
-from litellm.proxy._experimental.mcp_server.mcp_server_manager import (
+from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (
     _format_byok_openapi_auth_header,
 )
-from litellm.proxy._experimental.mcp_server.outbound_credentials.httpx_auth import StaticHeaderAuth
-from litellm.types.mcp import MCPAuth, MCPStdioConfig, MCPTransport
-from litellm.types.mcp_server.mcp_server_manager import MCPServer
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.httpx_auth import StaticHeaderAuth
+from embrouter.types.mcp import MCPAuth, MCPStdioConfig, MCPTransport
+from embrouter.types.mcp_server.mcp_server_manager import MCPServer
 
 _JSONRPC_MESSAGE_ADAPTER: Final = TypeAdapter(JSONRPCMessage)
 
@@ -122,8 +122,8 @@ class TestMCPClient:
             await client.run_with_session(_noop)
 
     @pytest.mark.asyncio
-    @patch("litellm.experimental_mcp_client.client.stdio_client")
-    @patch("litellm.experimental_mcp_client.client.ClientSession")
+    @patch("embrouter.experimental_mcp_client.client.stdio_client")
+    @patch("embrouter.experimental_mcp_client.client.ClientSession")
     async def test_mcp_client_stdio_connect_success(self, mock_session, mock_stdio_client):
         """Test successful stdio connection"""
         # Setup mocks - create proper async context manager
@@ -175,7 +175,7 @@ class TestMCPClient:
         mock_streamable_http_client.return_value = mock_http_ctx
 
         # Mock the session
-        with patch("litellm.experimental_mcp_client.client.ClientSession") as mock_session:
+        with patch("embrouter.experimental_mcp_client.client.ClientSession") as mock_session:
             mock_session_instance = AsyncMock()
             mock_session_instance.initialize = AsyncMock(return_value=_initialized())
             mock_session_ctx = AsyncMock()
@@ -221,7 +221,7 @@ class TestMCPClient:
         mock_sse_client.return_value = mock_sse_ctx
 
         # Mock the session
-        with patch("litellm.experimental_mcp_client.client.ClientSession") as mock_session:
+        with patch("embrouter.experimental_mcp_client.client.ClientSession") as mock_session:
             mock_session_instance = AsyncMock()
             mock_session_instance.initialize = AsyncMock(return_value=_initialized())
             mock_session_ctx = AsyncMock()
@@ -273,7 +273,7 @@ class TestMCPClient:
         mock_streamable_http_client.return_value = mock_http_ctx
 
         # Mock the session
-        with patch("litellm.experimental_mcp_client.client.ClientSession") as mock_session:
+        with patch("embrouter.experimental_mcp_client.client.ClientSession") as mock_session:
             mock_session_instance = AsyncMock()
             mock_session_instance.initialize = AsyncMock(return_value=_initialized())
             mock_session_ctx = AsyncMock()
@@ -413,7 +413,7 @@ class TestMCPClientInstructionsCapture:
         assert client._last_initialize_instructions is None
 
     @pytest.mark.asyncio
-    @patch("litellm.experimental_mcp_client.client.ClientSession")
+    @patch("embrouter.experimental_mcp_client.client.ClientSession")
     async def test_captures_instructions_from_initialize(self, mock_session_cls):
         """Instructions from upstream initialize() are captured and stripped."""
         client = MCPClient(
@@ -441,7 +441,7 @@ class TestMCPClientInstructionsCapture:
         assert client._last_initialize_instructions == "upstream says hello"
 
     @pytest.mark.asyncio
-    @patch("litellm.experimental_mcp_client.client.ClientSession")
+    @patch("embrouter.experimental_mcp_client.client.ClientSession")
     async def test_none_instructions_stays_none(self, mock_session_cls):
         """When upstream returns no instructions the field stays None."""
         client = MCPClient(
@@ -530,7 +530,7 @@ class TestExecuteSessionOperationSurfacesTransportError:
         return transport_ctx
 
     @pytest.mark.asyncio
-    @patch("litellm.experimental_mcp_client.client.ClientSession")
+    @patch("embrouter.experimental_mcp_client.client.ClientSession")
     async def test_surfaces_connect_error_over_cancelled(self, mock_session_cls):
         client = MCPClient(server_url="http://example.com/mcp", transport_type="http")
         self._make_session(
@@ -547,7 +547,7 @@ class TestExecuteSessionOperationSurfacesTransportError:
             await client._execute_session_operation(transport_ctx, _op)
 
     @pytest.mark.asyncio
-    @patch("litellm.experimental_mcp_client.client.ClientSession")
+    @patch("embrouter.experimental_mcp_client.client.ClientSession")
     async def test_genuine_cancellation_is_not_replaced(self, mock_session_cls):
         client = MCPClient(server_url="http://example.com/mcp", transport_type="http")
         self._make_session(mock_session_cls, AsyncMock(side_effect=asyncio.CancelledError()))
@@ -561,7 +561,7 @@ class TestExecuteSessionOperationSurfacesTransportError:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("failure_phase", ("early", "late", "mixed"))
-    @patch("litellm.experimental_mcp_client.client.ClientSession")
+    @patch("embrouter.experimental_mcp_client.client.ClientSession")
     async def test_response_close_preserves_cancellation_and_original_errors(self, session_class, failure_phase):
         closed: Final = asyncio.Event()
         close_error: Final = httpx2.ReadError("response close failed")
@@ -604,7 +604,7 @@ class TestExecuteSessionOperationSurfacesTransportError:
             assert closed.is_set()
 
     @pytest.mark.asyncio
-    @patch("litellm.experimental_mcp_client.client.ClientSession")
+    @patch("embrouter.experimental_mcp_client.client.ClientSession")
     async def test_cleanup_error_after_success_is_swallowed(self, mock_session_cls):
         client = MCPClient(server_url="http://example.com/mcp", transport_type="http")
         init_result = _initialized()
@@ -619,7 +619,7 @@ class TestExecuteSessionOperationSurfacesTransportError:
 
 
     @pytest.mark.asyncio
-    @patch("litellm.experimental_mcp_client.client.ClientSession")
+    @patch("embrouter.experimental_mcp_client.client.ClientSession")
     async def test_session_entry_failure_still_closes_transport(self, session_class):
         failure: Final = RuntimeError("session dispatcher did not start")
         session_class.return_value.__aenter__ = AsyncMock(side_effect=failure)
@@ -638,7 +638,7 @@ class TestExecuteSessionOperationSurfacesTransportError:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("original_error", (False, True))
-    @patch("litellm.experimental_mcp_client.client.ClientSession")
+    @patch("embrouter.experimental_mcp_client.client.ClientSession")
     async def test_session_exit_cancellation_preserves_original_failure(self, session_class, original_error):
         self._make_session(session_class, AsyncMock(return_value=_initialized()))
         cancelled: Final = asyncio.CancelledError("cancelled while closing session")
@@ -660,7 +660,7 @@ class TestExecuteSessionOperationSurfacesTransportError:
     @pytest.mark.asyncio
     @pytest.mark.parametrize("signal_type", (SystemExit, KeyboardInterrupt))
     @pytest.mark.parametrize("phase", ("session", "transport"))
-    @patch("litellm.experimental_mcp_client.client.ClientSession")
+    @patch("embrouter.experimental_mcp_client.client.ClientSession")
     async def test_cleanup_preserves_process_exit(self, session_class, phase, signal_type):
         self._make_session(session_class, AsyncMock(return_value=_initialized()))
         signal: Final = signal_type("process stopping")
@@ -674,7 +674,7 @@ class TestExecuteSessionOperationSurfacesTransportError:
         transport.__aexit__.assert_awaited_once()
 
     @pytest.mark.asyncio
-    @patch("litellm.experimental_mcp_client.client.ClientSession")
+    @patch("embrouter.experimental_mcp_client.client.ClientSession")
     async def test_session_and_termination_share_one_cleanup_deadline(self, session_class):
         self._make_session(session_class, AsyncMock(return_value=_initialized()))
         deleting: Final = asyncio.Event()
@@ -1457,7 +1457,7 @@ async def test_authorization_is_left_to_httpx_and_needs_no_guard():
     # The default slot is already protected by httpx, so the client must not install a guard for it
     # and must not interfere with the ordinary Authorization path.
     url = "https://upstream.example.com/mcp"
-    from litellm.types.mcp import credential_redirect_hook
+    from embrouter.types.mcp import credential_redirect_hook
 
     def guard_for(client: MCPClient):
         return credential_redirect_hook(client.server_url, client._credential_slot)
@@ -1577,7 +1577,7 @@ def test_a_differently_cased_injected_header_cannot_shadow_the_slot() -> None:
 async def test_invalid_http_response_surfaces_without_waiting_for_timeout(
     content_type: str, body: bytes, expected_type: type[Exception]
 ) -> None:
-    from litellm.proxy._experimental.mcp_server.rest_endpoints import _connection_error_message
+    from embrouter.proxy._experimental.mcp_server.rest_endpoints import _connection_error_message
 
     def respond(request: httpx2.Request) -> httpx2.Response:
         if expected_type is ValidationError:
@@ -1639,7 +1639,7 @@ async def test_http_response_handler_preserves_success_and_http_errors(status_co
 
 @pytest.mark.asyncio
 async def test_http_status_check_allows_auth_refresh_before_rejecting() -> None:
-    from litellm.proxy._experimental.mcp_server.outbound_credentials.client_credentials import ClientCredentialsBearerAuth
+    from embrouter.proxy._experimental.mcp_server.outbound_credentials.client_credentials import ClientCredentialsBearerAuth
 
     seen = []
 
@@ -1651,7 +1651,7 @@ async def test_http_status_check_allows_auth_refresh_before_rejecting() -> None:
         seen.append(request.headers["authorization"])
         return httpx2.Response(401 if len(seen) == 1 else 200, json={"ok": True})
 
-    from litellm.proxy._experimental.mcp_server.outbound_credentials.types import ClientCredentialsConfig
+    from embrouter.proxy._experimental.mcp_server.outbound_credentials.types import ClientCredentialsConfig
 
     auth = ClientCredentialsBearerAuth("stale", refresh, ClientCredentialsConfig())
     client = MCPClient(server_url="https://example.com/mcp", resolved_auth=auth)
@@ -1715,7 +1715,7 @@ async def test_http_response_handler_preserves_notifications_and_tool_listing() 
 
 @pytest.mark.asyncio
 async def test_invalid_tool_list_schema_is_identified_as_an_upstream_response() -> None:
-    from litellm.proxy._experimental.mcp_server.rest_endpoints import _connection_error_message
+    from embrouter.proxy._experimental.mcp_server.rest_endpoints import _connection_error_message
 
     def respond(request: httpx2.Request) -> httpx2.Response:
         if request.method == "DELETE":
@@ -1894,7 +1894,7 @@ async def test_sse_read_failure_is_preserved() -> None:
 @pytest.mark.parametrize("mode", ["ok", "closed", "silent"])
 async def test_transport_completion_and_normal_messages(transport: MCPTransport, mode: str, protocol_version: str) -> None:
     from mcp import ClientSession
-    from litellm.proxy._experimental.mcp_server.rest_endpoints import _connection_error_message
+    from embrouter.proxy._experimental.mcp_server.rest_endpoints import _connection_error_message
 
     logging_callback: Final = AsyncMock()
     read_timeout: Final = 0.2 if mode == "silent" else 30
@@ -2076,7 +2076,7 @@ async def test_optional_discovery_capabilities_and_errors(
         return httpx2.Response(200, json={"jsonrpc": "2.0", "id": payload.id, "result": {field: [entry]}})
 
     responder: Final = Mock(side_effect=respond)
-    caplog.set_level(logging.DEBUG, logger="LiteLLM")
+    caplog.set_level(logging.DEBUG, logger="EmbRouter")
     client: Final = _MockTransportClient(responder, server_url="https://example.com/mcp")
     operation: Final = {
         "prompts/list": client.list_prompts,
@@ -2099,7 +2099,7 @@ async def test_optional_discovery_capabilities_and_errors(
     )
     assert [item.name for item in result] == (["example"] if outcome == "supported" else [])
     failures: Final = tuple(
-        record for record in caplog.records if record.name == "LiteLLM" and record.levelno >= logging.WARNING
+        record for record in caplog.records if record.name == "EmbRouter" and record.levelno >= logging.WARNING
     )
     if outcome in ("internal_error", "unauthorized", "timeout", "initialize_not_found"):
         assert any(record.levelno == logging.ERROR and "failed" in record.message for record in failures)
@@ -2461,7 +2461,7 @@ def test_client_import_before_proxy_credentials_succeeds_in_fresh_process():
     import subprocess
 
     result = subprocess.run(
-        [sys.executable, "-c", "import litellm.experimental_mcp_client.client; from litellm.proxy._experimental.mcp_server.mcp_server_manager import MCPServerManager; print(MCPServerManager.__name__)"],
+        [sys.executable, "-c", "import embrouter.experimental_mcp_client.client; from embrouter.proxy._experimental.mcp_server.mcp_server_manager import MCPServerManager; print(MCPServerManager.__name__)"],
         capture_output=True, text=True, timeout=60, check=False,
     )
     assert result.returncode == 0, result.stderr
@@ -2471,7 +2471,7 @@ def test_client_import_before_proxy_credentials_succeeds_in_fresh_process():
 @pytest.mark.asyncio
 @pytest.mark.parametrize("resolved", (False, True))
 async def test_discovery_auth_fingerprint_tracks_effective_credentials(resolved: bool) -> None:
-    from litellm.proxy._experimental.mcp_server.outbound_credentials.httpx_auth import StaticHeaderAuth
+    from embrouter.proxy._experimental.mcp_server.outbound_credentials.httpx_auth import StaticHeaderAuth
 
     def client(token: str) -> MCPClient:
         return MCPClient(
@@ -2492,7 +2492,7 @@ async def test_discovery_auth_fingerprint_tracks_effective_credentials(resolved:
 
 @pytest.mark.asyncio
 async def test_request_auth_preview_uses_the_same_effective_headers_as_egress() -> None:
-    from litellm.proxy._experimental.mcp_server.outbound_credentials.httpx_auth import StaticHeaderAuth
+    from embrouter.proxy._experimental.mcp_server.outbound_credentials.httpx_auth import StaticHeaderAuth
 
     client: Final = MCPClient(
         server_url="https://upstream.example/mcp", auth_type=MCPAuth.bearer_token,
@@ -2569,35 +2569,35 @@ async def test_404_before_session_initialization_preserves_method_not_found() ->
 def test_public_mcp_import_missing_dependency(missing_module: str) -> None:
     with patch.dict(sys.modules):
         for name in tuple(sys.modules):
-            if name.startswith(("litellm.experimental_mcp_client", "mcp.", "mcp_types.")) or name == "mcp":
+            if name.startswith(("embrouter.experimental_mcp_client", "mcp.", "mcp_types.")) or name == "mcp":
                 del sys.modules[name]
         with patch.dict(sys.modules, {missing_module: None}):
             with pytest.raises(ImportError) as caught:
-                importlib.import_module("litellm.experimental_mcp_client.client")
+                importlib.import_module("embrouter.experimental_mcp_client.client")
 
     if missing_module in ("mcp", "httpx2"):
-        assert "pip install 'litellm[mcp]'" in str(caught.value)
+        assert "pip install 'embrouter[mcp]'" in str(caught.value)
         assert isinstance(caught.value.__cause__, ModuleNotFoundError)
         assert caught.value.__cause__.name == missing_module
     else:
         assert isinstance(caught.value, ModuleNotFoundError)
         assert caught.value.name == missing_module
         assert caught.value.__cause__ is None
-        assert "litellm[mcp]" not in str(caught.value)
+        assert "embrouter[mcp]" not in str(caught.value)
 
 
 def test_public_mcp_import_preserves_incompatible_sdk_error() -> None:
     with patch.dict(sys.modules):
         for name in tuple(sys.modules):
-            if name.startswith("litellm.experimental_mcp_client"):
+            if name.startswith("embrouter.experimental_mcp_client"):
                 del sys.modules[name]
         with patch.dict(sys.modules, {"mcp": ModuleType("mcp")}):
             with pytest.raises(ImportError, match="cannot import name 'ClientSession'") as caught:
-                importlib.import_module("litellm.experimental_mcp_client.client")
+                importlib.import_module("embrouter.experimental_mcp_client.client")
 
     assert not isinstance(caught.value, ModuleNotFoundError)
     assert caught.value.__cause__ is None
-    assert "litellm[mcp]" not in str(caught.value)
+    assert "embrouter[mcp]" not in str(caught.value)
 
 
 @pytest.mark.asyncio

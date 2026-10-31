@@ -5,27 +5,27 @@ __all__ = ["EnkryptAIGuardrails"]
 
 from typing import TYPE_CHECKING, Final
 
-from litellm.types.guardrails import SupportedGuardrailIntegrations
+from embrouter.types.guardrails import SupportedGuardrailIntegrations
 
 if TYPE_CHECKING:
-    from litellm.types.guardrails import Guardrail, LitellmParams
+    from embrouter.types.guardrails import Guardrail, EmbrouterParams
 
 
-def initialize_guardrail(litellm_params: "LitellmParams", guardrail: "Guardrail"):
-    import litellm
+def initialize_guardrail(embrouter_params: "EmbrouterParams", guardrail: "Guardrail"):
+    import embrouter
 
     _enkryptai_callback: Final = EnkryptAIGuardrails(
         guardrail_name=guardrail.get("guardrail_name", ""),
-        api_key=litellm_params.api_key,
-        api_base=litellm_params.api_base,
-        policy_name=litellm_params.policy_name,
-        deployment_name=litellm_params.deployment_name,
-        detectors=litellm_params.detectors,
-        block_on_violation=litellm_params.block_on_violation,
-        event_hook=litellm_params.mode,
-        default_on=litellm_params.default_on,
+        api_key=embrouter_params.api_key,
+        api_base=embrouter_params.api_base,
+        policy_name=embrouter_params.policy_name,
+        deployment_name=embrouter_params.deployment_name,
+        detectors=embrouter_params.detectors,
+        block_on_violation=embrouter_params.block_on_violation,
+        event_hook=embrouter_params.mode,
+        default_on=embrouter_params.default_on,
     )
-    litellm.logging_callback_manager.add_litellm_callback(_enkryptai_callback)
+    embrouter.logging_callback_manager.add_embrouter_callback(_enkryptai_callback)
 
     return _enkryptai_callback
 

@@ -9,26 +9,26 @@ from fastapi.testclient import TestClient
 from pytest_mock import MockerFixture
 
 
-import litellm
-from litellm import Router
-from litellm.files.types import FileContentStreamingResult
-from litellm.proxy._types import LiteLLM_UserTableFiltered, UserAPIKeyAuth
-from litellm.proxy.hooks import get_proxy_hook
-from litellm.proxy.management_endpoints.internal_user_endpoints import ui_view_users
-from litellm.proxy.openai_files_endpoints.file_content_streaming_handler import (
+import embrouter
+from embrouter import Router
+from embrouter.files.types import FileContentStreamingResult
+from embrouter.proxy._types import EmbRouter_UserTableFiltered, UserAPIKeyAuth
+from embrouter.proxy.hooks import get_proxy_hook
+from embrouter.proxy.management_endpoints.internal_user_endpoints import ui_view_users
+from embrouter.proxy.openai_files_endpoints.file_content_streaming_handler import (
     FileContentStreamingHandler,
 )
-from litellm.proxy.proxy_server import app
-from litellm.types.llms.openai import (
+from embrouter.proxy.proxy_server import app
+from embrouter.types.llms.openai import (
     FileListPage,
     HttpxBinaryResponseContent,
     OpenAIFileObject,
 )
 
 client = TestClient(app)
-from litellm.caching.caching import DualCache
-from litellm.proxy.proxy_server import hash_token
-from litellm.proxy.utils import ProxyLogging
+from embrouter.caching.caching import DualCache
+from embrouter.proxy.proxy_server import hash_token
+from embrouter.proxy.utils import ProxyLogging
 
 VALID_BATCH_LINE = (
     b'{"custom_id": "req-1", "method": "POST", "url": "/v1/chat/completions",'
@@ -42,7 +42,7 @@ def llm_router() -> Router:
         model_list=[
             {
                 "model_name": "azure-gpt-3-5-turbo",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "azure/chatgpt-v-2",
                     "api_key": "AZURE_AI_API_KEY",
                     "api_base": "AZURE_AI_API_BASE",
@@ -54,7 +54,7 @@ def llm_router() -> Router:
             },
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-3.5-turbo",
                     "api_key": "openai_api_key",
                 },
@@ -64,7 +64,7 @@ def llm_router() -> Router:
             },
             {
                 "model_name": "gemini-2.0-flash",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "gemini/gemini-2.0-flash",
                 },
                 "model_info": {
@@ -82,7 +82,7 @@ def setup_proxy_logging_object(monkeypatch, llm_router: Router) -> ProxyLogging:
     )
     proxy_logging_object._add_proxy_hooks(llm_router)
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.proxy_logging_obj", proxy_logging_object
+        "embrouter.proxy.proxy_server.proxy_logging_obj", proxy_logging_object
     )
     return proxy_logging_object
 
@@ -110,7 +110,7 @@ async def test_stream_file_content_with_logging_closes_inner_iterator_on_early_e
         stream_iterator=stream_iterator,
         proxy_logging_obj=proxy_logging_obj,
         user_api_key_dict=AsyncMock(),
-        data={"litellm_call_id": "call-123"},
+        data={"embrouter_call_id": "call-123"},
     )
 
     assert await generator.__anext__() == b"hello"
@@ -244,7 +244,7 @@ def test_get_file_content_rejects_raw_cloud_storage_uri(llm_router: Router):
     """
     from urllib.parse import quote
 
-    s3_file_id = "s3://my-bucket/litellm-batch-outputs/job-123/input.jsonl.out"
+    s3_file_id = "s3://my-bucket/embrouter-batch-outputs/job-123/input.jsonl.out"
     response = client.get(
         f"/v1/files/{quote(s3_file_id, safe='')}/content?provider=bedrock",
         headers={"Authorization": "Bearer test-key"},
@@ -258,18 +258,18 @@ def test_mock_create_audio_file(mocker: MockerFixture, monkeypatch, llm_router: 
     """
     Asserts 'create_file' is called with the correct arguments
     """
-    import litellm
-    import litellm.proxy.proxy_server as ps
-    from litellm import Router
-    from litellm.proxy._types import LitellmUserRoles
-    from litellm.proxy.utils import ProxyLogging
+    import embrouter
+    import embrouter.proxy.proxy_server as ps
+    from embrouter import Router
+    from embrouter.proxy._types import EmbrouterUserRoles
+    from embrouter.proxy.utils import ProxyLogging
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.master_key", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", None)
 
     # Mock create_file as an async function
     mock_create_file = mocker.patch(
-        "litellm.files.main.create_file", new=mocker.AsyncMock()
+        "embrouter.files.main.create_file", new=mocker.AsyncMock()
     )
 
     proxy_logging_obj = ProxyLogging(
@@ -279,7 +279,7 @@ def test_mock_create_audio_file(mocker: MockerFixture, monkeypatch, llm_router: 
     proxy_logging_obj._add_proxy_hooks(llm_router)
 
     # Add managed_files hook to ensure the test reaches the mocked function
-    from litellm.llms.base_llm.files.transformation import BaseFileEndpoints
+    from embrouter.llms.base_llm.files.transformation import BaseFileEndpoints
 
     class DummyManagedFiles(BaseFileEndpoints):
         async def acreate_file(
@@ -287,7 +287,7 @@ def test_mock_create_audio_file(mocker: MockerFixture, monkeypatch, llm_router: 
             llm_router,
             create_file_request,
             target_model_names_list,
-            litellm_parent_otel_span,
+            embrouter_parent_otel_span,
             user_api_key_dict,
         ):
             # Handle both dict and object forms of create_file_request
@@ -298,15 +298,15 @@ def test_mock_create_audio_file(mocker: MockerFixture, monkeypatch, llm_router: 
                 file_data = create_file_request.file
                 purpose_data = create_file_request.purpose
 
-            # Call the mocked litellm.files.main.create_file to ensure asserts work
-            await litellm.files.main.create_file(
+            # Call the mocked embrouter.files.main.create_file to ensure asserts work
+            await embrouter.files.main.create_file(
                 custom_llm_provider="azure",
                 model="azure/chatgpt-v-2",
                 api_key="AZURE_AI_API_KEY",
                 file=file_data[1],
                 purpose=purpose_data,
             )
-            await litellm.files.main.create_file(
+            await embrouter.files.main.create_file(
                 custom_llm_provider="openai",
                 model="openai/gpt-3.5-turbo",
                 api_key="openai_api_key",
@@ -314,7 +314,7 @@ def test_mock_create_audio_file(mocker: MockerFixture, monkeypatch, llm_router: 
                 purpose=purpose_data,
             )
             # Return a dummy response object as needed by the test
-            from litellm.types.llms.openai import OpenAIFileObject
+            from embrouter.types.llms.openai import OpenAIFileObject
 
             return OpenAIFileObject(
                 id="dummy-id",
@@ -326,13 +326,13 @@ def test_mock_create_audio_file(mocker: MockerFixture, monkeypatch, llm_router: 
                 status="uploaded",
             )
 
-        async def afile_retrieve(self, file_id, litellm_parent_otel_span, llm_router):
+        async def afile_retrieve(self, file_id, embrouter_parent_otel_span, llm_router):
             raise NotImplementedError("Not implemented for test")
 
         async def afile_list(
             self,
             purpose,
-            litellm_parent_otel_span,
+            embrouter_parent_otel_span,
             user_api_key_dict,
             limit=None,
             after=None,
@@ -341,25 +341,25 @@ def test_mock_create_audio_file(mocker: MockerFixture, monkeypatch, llm_router: 
             raise NotImplementedError("Not implemented for test")
 
         async def afile_delete(
-            self, file_id, litellm_parent_otel_span, llm_router, **data
+            self, file_id, embrouter_parent_otel_span, llm_router, **data
         ):
             raise NotImplementedError("Not implemented for test")
 
         async def afile_content(
-            self, file_id, litellm_parent_otel_span, llm_router, **data
+            self, file_id, embrouter_parent_otel_span, llm_router, **data
         ):
             raise NotImplementedError("Not implemented for test")
 
     # Manually add the hook to the proxy_hook_mapping
     proxy_logging_obj.proxy_hook_mapping["managed_files"] = DummyManagedFiles()
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", llm_router)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", llm_router)
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.proxy_logging_obj", proxy_logging_obj
+        "embrouter.proxy.proxy_server.proxy_logging_obj", proxy_logging_obj
     )
 
     app.dependency_overrides[ps.user_api_key_auth] = lambda: UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN, user_id="test-user"
+        user_role=EmbrouterUserRoles.PROXY_ADMIN, user_id="test-user"
     )
 
     try:
@@ -419,14 +419,14 @@ def test_create_file_batch_streams_from_upload_spool(monkeypatch, llm_router: Ro
     (Starlette's already-spooled file), not read into an in-memory bytes object, so
     the proxy never buffers the whole payload. Non-batch uploads keep the bytes path.
     """
-    import litellm.proxy.proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
-    from litellm.proxy.openai_files_endpoints import files_endpoints as fe
-    from litellm.types.llms.openai import OpenAIFileObject
+    import embrouter.proxy.proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
+    from embrouter.proxy.openai_files_endpoints import files_endpoints as fe
+    from embrouter.types.llms.openai import OpenAIFileObject
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", llm_router)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.master_key", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", llm_router)
     setup_proxy_logging_object(monkeypatch, llm_router)
 
     captured: dict = {}
@@ -449,7 +449,7 @@ def test_create_file_batch_streams_from_upload_spool(monkeypatch, llm_router: Ro
 
     monkeypatch.setattr(fe, "route_create_file", fake_route_create_file)
     app.dependency_overrides[ps.user_api_key_auth] = lambda: UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN, user_id="test-user"
+        user_role=EmbrouterUserRoles.PROXY_ADMIN, user_id="test-user"
     )
 
     content = (
@@ -497,16 +497,16 @@ def test_target_storage_invokes_storage_backend(
     """
     Ensure target_storage is parsed and invokes the storage backend service.
     """
-    import litellm.proxy.proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    import embrouter.proxy.proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", llm_router)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.master_key", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", llm_router)
     setup_proxy_logging_object(monkeypatch, llm_router)
 
     app.dependency_overrides[ps.user_api_key_auth] = lambda: UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN, user_id="test-user"
+        user_role=EmbrouterUserRoles.PROXY_ADMIN, user_id="test-user"
     )
 
     async_mock = mocker.AsyncMock(
@@ -521,7 +521,7 @@ def test_target_storage_invokes_storage_backend(
         )
     )
     mocker.patch(
-        "litellm.proxy.openai_files_endpoints.storage_backend_service.StorageBackendFileService.upload_file_to_storage_backend",
+        "embrouter.proxy.openai_files_endpoints.storage_backend_service.StorageBackendFileService.upload_file_to_storage_backend",
         new=async_mock,
     )
 
@@ -556,16 +556,16 @@ def test_target_storage_with_target_models(
     """
     Ensure target_storage and target_model_names are parsed and passed through.
     """
-    import litellm.proxy.proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    import embrouter.proxy.proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", llm_router)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.master_key", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", llm_router)
     setup_proxy_logging_object(monkeypatch, llm_router)
 
     app.dependency_overrides[ps.user_api_key_auth] = lambda: UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN, user_id="test-user"
+        user_role=EmbrouterUserRoles.PROXY_ADMIN, user_id="test-user"
     )
 
     async_mock = mocker.AsyncMock(
@@ -580,7 +580,7 @@ def test_target_storage_with_target_models(
         )
     )
     mocker.patch(
-        "litellm.proxy.openai_files_endpoints.storage_backend_service.StorageBackendFileService.upload_file_to_storage_backend",
+        "embrouter.proxy.openai_files_endpoints.storage_backend_service.StorageBackendFileService.upload_file_to_storage_backend",
         new=async_mock,
     )
 
@@ -620,7 +620,7 @@ def _router_with_executed_batch_model() -> Router:
         model_list=[
             {
                 "model_name": "my-vllm",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "hosted_vllm/qwen",
                     "api_key": "sk-vllm",
                     "api_base": "http://vllm.test/v1",
@@ -629,7 +629,7 @@ def _router_with_executed_batch_model() -> Router:
             },
             {
                 "model_name": "gemini-2.0-flash",
-                "litellm_params": {"model": "gemini/gemini-2.0-flash"},
+                "embrouter_params": {"model": "gemini/gemini-2.0-flash"},
                 "model_info": {"id": "gemini-2.0-flash-id"},
             },
         ]
@@ -638,17 +638,17 @@ def _router_with_executed_batch_model() -> Router:
 
 @pytest.fixture
 def batch_upload_seams(mocker: MockerFixture, monkeypatch):
-    import litellm.proxy.proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    import embrouter.proxy.proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
     llm_router = _router_with_executed_batch_model()
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", llm_router)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.master_key", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", llm_router)
     setup_proxy_logging_object(monkeypatch, llm_router)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
     app.dependency_overrides[ps.user_api_key_auth] = lambda: UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN, user_id="test-user"
+        user_role=EmbrouterUserRoles.PROXY_ADMIN, user_id="test-user"
     )
     uploaded = OpenAIFileObject(
         id="file-kept",
@@ -660,11 +660,11 @@ def batch_upload_seams(mocker: MockerFixture, monkeypatch):
         status="uploaded",
     )
     stored = mocker.patch(  # test-quality-ok: the route calls the storage service directly with no injection seam
-        "litellm.proxy.openai_files_endpoints.storage_backend_service.StorageBackendFileService.upload_file_to_storage_backend",
+        "embrouter.proxy.openai_files_endpoints.storage_backend_service.StorageBackendFileService.upload_file_to_storage_backend",
         new=mocker.AsyncMock(return_value=uploaded),
     )
-    provider_upload = mocker.patch(  # test-quality-ok: the route calls litellm.acreate_file directly with no injection seam
-        "litellm.acreate_file", new=mocker.AsyncMock(return_value=uploaded)
+    provider_upload = mocker.patch(  # test-quality-ok: the route calls embrouter.acreate_file directly with no injection seam
+        "embrouter.acreate_file", new=mocker.AsyncMock(return_value=uploaded)
     )
     try:
         with respx.mock(assert_all_called=False) as upstream:
@@ -687,10 +687,10 @@ def _upload_batch_file(headers: dict[str, str], form: dict[str, str]):
 
 @pytest.mark.parametrize(
     "headers, form",
-    [({"x-litellm-model": "my-vllm"}, {}), ({}, {"target_model_names": "my-vllm"})],
-    ids=["x-litellm-model header", "target_model_names form field"],
+    [({"x-embrouter-model": "my-vllm"}, {}), ({}, {"target_model_names": "my-vllm"})],
+    ids=["x-embrouter-model header", "target_model_names form field"],
 )
-def test_batch_upload_for_a_litellm_executed_model_is_kept_by_litellm(
+def test_batch_upload_for_a_embrouter_executed_model_is_kept_by_embrouter(
     batch_upload_seams, headers: dict[str, str], form: dict[str, str]
 ):
     stored, provider_upload, _ = batch_upload_seams
@@ -701,20 +701,20 @@ def test_batch_upload_for_a_litellm_executed_model_is_kept_by_litellm(
     provider_upload.assert_not_awaited()
     stored.assert_awaited_once()
     kwargs = stored.call_args.kwargs
-    assert kwargs["target_storage"] == "litellm_db"
+    assert kwargs["target_storage"] == "embrouter_db"
     assert tuple(kwargs["target_model_names"]) == ("my-vllm",)
     assert kwargs["purpose"] == "batch"
 
 
 @pytest.mark.parametrize(
     "headers, form",
-    [({"x-litellm-model": "my-vllm"}, {}), ({}, {"target_model_names": "my-vllm"})],
-    ids=["x-litellm-model header", "target_model_names form field"],
+    [({"x-embrouter-model": "my-vllm"}, {}), ({}, {"target_model_names": "my-vllm"})],
+    ids=["x-embrouter-model header", "target_model_names form field"],
 )
-def test_batch_upload_for_a_litellm_executed_model_the_key_cannot_call_is_refused_before_the_server_is_probed(
+def test_batch_upload_for_a_embrouter_executed_model_the_key_cannot_call_is_refused_before_the_server_is_probed(
     batch_upload_seams, headers: dict[str, str], form: dict[str, str]
 ):
-    import litellm.proxy.proxy_server as ps
+    import embrouter.proxy.proxy_server as ps
 
     stored, provider_upload, upstream_files_route = batch_upload_seams
     app.dependency_overrides[ps.user_api_key_auth] = lambda: UserAPIKeyAuth(
@@ -743,12 +743,12 @@ def test_batch_upload_naming_an_executed_and_a_provider_model_is_rejected(batch_
 
 
 @pytest.mark.parametrize("purpose", ["assistants", "user_data"])
-def test_non_batch_upload_for_a_litellm_executed_model_is_rejected_with_the_purpose_to_use(
+def test_non_batch_upload_for_a_embrouter_executed_model_is_rejected_with_the_purpose_to_use(
     batch_upload_seams, purpose: str
 ):
     stored, provider_upload, _ = batch_upload_seams
 
-    response = _upload_batch_file({"x-litellm-model": "my-vllm"}, {"purpose": purpose})
+    response = _upload_batch_file({"x-embrouter-model": "my-vllm"}, {"purpose": purpose})
 
     assert response.status_code == 400, response.text
     error = response.json()["error"]
@@ -766,13 +766,13 @@ def test_non_batch_upload_for_a_litellm_executed_model_is_rejected_with_the_purp
     [httpx.Response(200, json={"object": "list", "data": []}), httpx.Response(405), httpx.ConnectError("refused")],
     ids=["lists files", "files route without list", "unreachable"],
 )
-def test_upload_for_a_litellm_executed_model_goes_to_the_provider_unless_the_server_lacks_a_files_api(
+def test_upload_for_a_embrouter_executed_model_goes_to_the_provider_unless_the_server_lacks_a_files_api(
     batch_upload_seams, upstream_answer: httpx.Response | httpx.ConnectError, purpose: str
 ):
     stored, provider_upload, upstream_files_route = batch_upload_seams
     upstream_files_route.mock(side_effect=[upstream_answer])
 
-    response = _upload_batch_file({"x-litellm-model": "my-vllm"}, {"purpose": purpose})
+    response = _upload_batch_file({"x-embrouter-model": "my-vllm"}, {"purpose": purpose})
 
     assert response.status_code == 200, response.text
     stored.assert_not_awaited()
@@ -784,18 +784,18 @@ def test_upload_for_a_litellm_executed_model_goes_to_the_provider_unless_the_ser
 @pytest.mark.parametrize(
     "form",
     [{}, {"target_model_names": "my-vllm"}, {"target_model_names": "gemini-2.0-flash"}],
-    ids=["no model", "litellm-executed model", "provider model"],
+    ids=["no model", "embrouter-executed model", "provider model"],
 )
-def test_upload_naming_litellm_db_as_target_storage_is_rejected(batch_upload_seams, form: dict[str, str]):
+def test_upload_naming_embrouter_db_as_target_storage_is_rejected(batch_upload_seams, form: dict[str, str]):
     stored, provider_upload, upstream_files_route = batch_upload_seams
 
-    response = _upload_batch_file({}, {**form, "target_storage": "litellm_db"})
+    response = _upload_batch_file({}, {**form, "target_storage": "embrouter_db"})
 
     assert response.status_code == 400, response.text
     error = response.json()["error"]
     assert error["type"] == "invalid_request_error"
     assert error["param"] == "target_storage"
-    assert "litellm_db" in error["message"]
+    assert "embrouter_db" in error["message"]
     assert upstream_files_route.call_count == 0
     stored.assert_not_awaited()
     provider_upload.assert_not_awaited()
@@ -822,7 +822,7 @@ def test_upload_with_an_explicit_target_storage_goes_where_the_caller_said_witho
 
 
 def test_upload_with_an_explicit_target_storage_still_refuses_a_key_without_the_executed_model(batch_upload_seams):
-    import litellm.proxy.proxy_server as ps
+    import embrouter.proxy.proxy_server as ps
 
     stored, provider_upload, upstream_files_route = batch_upload_seams
     app.dependency_overrides[ps.user_api_key_auth] = lambda: UserAPIKeyAuth(
@@ -841,7 +841,7 @@ def test_upload_with_an_explicit_target_storage_still_refuses_a_key_without_the_
 def test_batch_upload_for_a_provider_model_still_goes_to_the_provider(batch_upload_seams):
     stored, provider_upload, _ = batch_upload_seams
 
-    response = _upload_batch_file({"x-litellm-model": "gemini-2.0-flash"}, {})
+    response = _upload_batch_file({"x-embrouter-model": "gemini-2.0-flash"}, {})
 
     assert response.status_code == 200, response.text
     stored.assert_not_awaited()
@@ -862,9 +862,9 @@ def test_create_file_and_call_chat_completion_e2e(
     mock = respx.mock()
     mock.start()
     try:
-        from litellm.types.llms.openai import OpenAIFileObject
+        from embrouter.types.llms.openai import OpenAIFileObject
 
-        monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", llm_router)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", llm_router)
         proxy_logging_object = setup_proxy_logging_object(monkeypatch, llm_router)
 
         # Create a simple test file content
@@ -997,7 +997,7 @@ def test_create_file_and_call_chat_completion_e2e(
         mock.stop()
 
 
-@pytest.mark.skip(reason="function migrated to litellm/proxy/hooks/managed_files.py")
+@pytest.mark.skip(reason="function migrated to embrouter/proxy/hooks/managed_files.py")
 def test_create_file_for_each_model(
     mocker: MockerFixture, monkeypatch, llm_router: Router
 ):
@@ -1006,13 +1006,13 @@ def test_create_file_for_each_model(
     """
     import asyncio
 
-    from litellm import CreateFileRequest
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
-    from litellm.proxy.openai_files_endpoints.files_endpoints import (
+    from embrouter import CreateFileRequest
+    from embrouter.proxy._types import EmbrouterUserRoles, UserAPIKeyAuth
+    from embrouter.proxy.openai_files_endpoints.files_endpoints import (
         create_file_for_each_model,
     )
-    from litellm.proxy.utils import ProxyLogging
-    from litellm.types.llms.openai import OpenAIFileObject, OpenAIFilesPurpose
+    from embrouter.proxy.utils import ProxyLogging
+    from embrouter.types.llms.openai import OpenAIFileObject, OpenAIFilesPurpose
 
     # Setup proxy logging
     proxy_logging_obj = ProxyLogging(
@@ -1020,13 +1020,13 @@ def test_create_file_for_each_model(
     )
     proxy_logging_obj._add_proxy_hooks(llm_router)
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.proxy_logging_obj", proxy_logging_obj
+        "embrouter.proxy.proxy_server.proxy_logging_obj", proxy_logging_obj
     )
 
     # Mock user API key dict
     user_api_key_dict = UserAPIKeyAuth(
         api_key="test-key",
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=EmbrouterUserRoles.INTERNAL_USER,
         user_id="test-user",
         team_id="test-team",
         team_alias="test-team-alias",
@@ -1109,8 +1109,8 @@ def test_create_file_with_expires_after(
     """
     Test that expires_after is properly parsed and passed through when creating a file
     """
-    from litellm.llms.base_llm.files.transformation import BaseFileEndpoints
-    from litellm.types.llms.openai import OpenAIFileObject
+    from embrouter.llms.base_llm.files.transformation import BaseFileEndpoints
+    from embrouter.types.llms.openai import OpenAIFileObject
 
     proxy_logging_obj = ProxyLogging(
         user_api_key_cache=DualCache(default_in_memory_ttl=1)
@@ -1123,7 +1123,7 @@ def test_create_file_with_expires_after(
             llm_router,
             create_file_request,
             target_model_names_list,
-            litellm_parent_otel_span,
+            embrouter_parent_otel_span,
             user_api_key_dict,
         ):
             # Verify expires_after is in the request
@@ -1148,13 +1148,13 @@ def test_create_file_with_expires_after(
                 status="uploaded",
             )
 
-        async def afile_retrieve(self, file_id, litellm_parent_otel_span, llm_router):
+        async def afile_retrieve(self, file_id, embrouter_parent_otel_span, llm_router):
             raise NotImplementedError("Not implemented for test")
 
         async def afile_list(
             self,
             purpose,
-            litellm_parent_otel_span,
+            embrouter_parent_otel_span,
             user_api_key_dict,
             limit=None,
             after=None,
@@ -1163,19 +1163,19 @@ def test_create_file_with_expires_after(
             raise NotImplementedError("Not implemented for test")
 
         async def afile_delete(
-            self, file_id, litellm_parent_otel_span, llm_router, **data
+            self, file_id, embrouter_parent_otel_span, llm_router, **data
         ):
             raise NotImplementedError("Not implemented for test")
 
         async def afile_content(
-            self, file_id, litellm_parent_otel_span, llm_router, **data
+            self, file_id, embrouter_parent_otel_span, llm_router, **data
         ):
             raise NotImplementedError("Not implemented for test")
 
     proxy_logging_obj.proxy_hook_mapping["managed_files"] = DummyManagedFiles()
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", llm_router)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", llm_router)
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.proxy_logging_obj", proxy_logging_obj
+        "embrouter.proxy.proxy_server.proxy_logging_obj", proxy_logging_obj
     )
 
     # Create test file content
@@ -1211,9 +1211,9 @@ def test_create_file_with_expires_after_missing_anchor(
         user_api_key_cache=DualCache(default_in_memory_ttl=1)
     )
     proxy_logging_obj._add_proxy_hooks(llm_router)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", llm_router)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", llm_router)
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.proxy_logging_obj", proxy_logging_obj
+        "embrouter.proxy.proxy_server.proxy_logging_obj", proxy_logging_obj
     )
 
     test_file_content = b'{"prompt": "Hello", "completion": "Hi"}'
@@ -1248,9 +1248,9 @@ def test_create_file_with_expires_after_missing_seconds(
         user_api_key_cache=DualCache(default_in_memory_ttl=1)
     )
     proxy_logging_obj._add_proxy_hooks(llm_router)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", llm_router)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", llm_router)
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.proxy_logging_obj", proxy_logging_obj
+        "embrouter.proxy.proxy_server.proxy_logging_obj", proxy_logging_obj
     )
 
     test_file_content = b'{"prompt": "Hello", "completion": "Hi"}'
@@ -1281,8 +1281,8 @@ def test_create_file_with_expires_after_valid_values(
     """
     Test that expires_after works with valid anchor and seconds values
     """
-    from litellm.llms.base_llm.files.transformation import BaseFileEndpoints
-    from litellm.types.llms.openai import OpenAIFileObject
+    from embrouter.llms.base_llm.files.transformation import BaseFileEndpoints
+    from embrouter.types.llms.openai import OpenAIFileObject
 
     proxy_logging_obj = ProxyLogging(
         user_api_key_cache=DualCache(default_in_memory_ttl=1)
@@ -1295,7 +1295,7 @@ def test_create_file_with_expires_after_valid_values(
             llm_router,
             create_file_request,
             target_model_names_list,
-            litellm_parent_otel_span,
+            embrouter_parent_otel_span,
             user_api_key_dict,
         ):
             # Verify expires_after is in the request
@@ -1319,13 +1319,13 @@ def test_create_file_with_expires_after_valid_values(
                 status="uploaded",
             )
 
-        async def afile_retrieve(self, file_id, litellm_parent_otel_span, llm_router):
+        async def afile_retrieve(self, file_id, embrouter_parent_otel_span, llm_router):
             raise NotImplementedError("Not implemented for test")
 
         async def afile_list(
             self,
             purpose,
-            litellm_parent_otel_span,
+            embrouter_parent_otel_span,
             user_api_key_dict,
             limit=None,
             after=None,
@@ -1334,19 +1334,19 @@ def test_create_file_with_expires_after_valid_values(
             raise NotImplementedError("Not implemented for test")
 
         async def afile_delete(
-            self, file_id, litellm_parent_otel_span, llm_router, **data
+            self, file_id, embrouter_parent_otel_span, llm_router, **data
         ):
             raise NotImplementedError("Not implemented for test")
 
         async def afile_content(
-            self, file_id, litellm_parent_otel_span, llm_router, **data
+            self, file_id, embrouter_parent_otel_span, llm_router, **data
         ):
             raise NotImplementedError("Not implemented for test")
 
     proxy_logging_obj.proxy_hook_mapping["managed_files"] = DummyManagedFiles()
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", llm_router)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", llm_router)
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.proxy_logging_obj", proxy_logging_obj
+        "embrouter.proxy.proxy_server.proxy_logging_obj", proxy_logging_obj
     )
 
     test_file_content = b'{"prompt": "Hello", "completion": "Hi"}'
@@ -1377,8 +1377,8 @@ def test_create_file_without_expires_after(
     """
     Test that file creation works normally without expires_after
     """
-    from litellm.llms.base_llm.files.transformation import BaseFileEndpoints
-    from litellm.types.llms.openai import OpenAIFileObject
+    from embrouter.llms.base_llm.files.transformation import BaseFileEndpoints
+    from embrouter.types.llms.openai import OpenAIFileObject
 
     proxy_logging_obj = ProxyLogging(
         user_api_key_cache=DualCache(default_in_memory_ttl=1)
@@ -1391,7 +1391,7 @@ def test_create_file_without_expires_after(
             llm_router,
             create_file_request,
             target_model_names_list,
-            litellm_parent_otel_span,
+            embrouter_parent_otel_span,
             user_api_key_dict,
         ):
             # Verify expires_after is None when not provided
@@ -1415,13 +1415,13 @@ def test_create_file_without_expires_after(
                 status="uploaded",
             )
 
-        async def afile_retrieve(self, file_id, litellm_parent_otel_span, llm_router):
+        async def afile_retrieve(self, file_id, embrouter_parent_otel_span, llm_router):
             raise NotImplementedError("Not implemented for test")
 
         async def afile_list(
             self,
             purpose,
-            litellm_parent_otel_span,
+            embrouter_parent_otel_span,
             user_api_key_dict,
             limit=None,
             after=None,
@@ -1430,19 +1430,19 @@ def test_create_file_without_expires_after(
             raise NotImplementedError("Not implemented for test")
 
         async def afile_delete(
-            self, file_id, litellm_parent_otel_span, llm_router, **data
+            self, file_id, embrouter_parent_otel_span, llm_router, **data
         ):
             raise NotImplementedError("Not implemented for test")
 
         async def afile_content(
-            self, file_id, litellm_parent_otel_span, llm_router, **data
+            self, file_id, embrouter_parent_otel_span, llm_router, **data
         ):
             raise NotImplementedError("Not implemented for test")
 
     proxy_logging_obj.proxy_hook_mapping["managed_files"] = DummyManagedFiles()
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", llm_router)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", llm_router)
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.proxy_logging_obj", proxy_logging_obj
+        "embrouter.proxy.proxy_server.proxy_logging_obj", proxy_logging_obj
     )
 
     test_file_content = b'{"prompt": "Hello", "completion": "Hi"}'
@@ -1476,11 +1476,11 @@ def test_managed_files_with_loadbalancing(
     - managed files should take precedence over deprecated loadbalancing
     - managed files internally use llm_router.acreate_file() which provides loadbalancing
     """
-    from litellm.llms.base_llm.files.transformation import BaseFileEndpoints
-    from litellm.types.llms.openai import OpenAIFileObject
+    from embrouter.llms.base_llm.files.transformation import BaseFileEndpoints
+    from embrouter.types.llms.openai import OpenAIFileObject
 
     # Enable loadbalancing on batch endpoints
-    monkeypatch.setattr("litellm.enable_loadbalancing_on_batch_endpoints", True)
+    monkeypatch.setattr("embrouter.enable_loadbalancing_on_batch_endpoints", True)
 
     proxy_logging_obj = ProxyLogging(
         user_api_key_cache=DualCache(default_in_memory_ttl=1)
@@ -1496,7 +1496,7 @@ def test_managed_files_with_loadbalancing(
             llm_router,
             create_file_request,
             target_model_names_list,
-            litellm_parent_otel_span,
+            embrouter_parent_otel_span,
             user_api_key_dict,
         ):
             # Verify we receive the target model names
@@ -1511,7 +1511,7 @@ def test_managed_files_with_loadbalancing(
 
             # Return a managed file ID (base64 encoded)
             return OpenAIFileObject(
-                id="litellm_managed_file_abc123",
+                id="embrouter_managed_file_abc123",
                 object="file",
                 bytes=100,
                 created_at=1234567890,
@@ -1520,13 +1520,13 @@ def test_managed_files_with_loadbalancing(
                 status="uploaded",
             )
 
-        async def afile_retrieve(self, file_id, litellm_parent_otel_span, llm_router):
+        async def afile_retrieve(self, file_id, embrouter_parent_otel_span, llm_router):
             raise NotImplementedError("Not implemented for test")
 
         async def afile_list(
             self,
             purpose,
-            litellm_parent_otel_span,
+            embrouter_parent_otel_span,
             user_api_key_dict,
             limit=None,
             after=None,
@@ -1535,30 +1535,30 @@ def test_managed_files_with_loadbalancing(
             raise NotImplementedError("Not implemented for test")
 
         async def afile_delete(
-            self, file_id, litellm_parent_otel_span, llm_router, **data
+            self, file_id, embrouter_parent_otel_span, llm_router, **data
         ):
             raise NotImplementedError("Not implemented for test")
 
         async def afile_content(
-            self, file_id, litellm_parent_otel_span, llm_router, **data
+            self, file_id, embrouter_parent_otel_span, llm_router, **data
         ):
             raise NotImplementedError("Not implemented for test")
 
-    import litellm.proxy.proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    import embrouter.proxy.proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
     proxy_logging_obj.proxy_hook_mapping["managed_files"] = (
         ManagedFilesWithLoadbalancing()
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", llm_router)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", llm_router)
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.proxy_logging_obj", proxy_logging_obj
+        "embrouter.proxy.proxy_server.proxy_logging_obj", proxy_logging_obj
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", None)
 
     # Override auth to avoid dependence on shared proxy state in parallel CI
     app.dependency_overrides[ps.user_api_key_auth] = lambda: UserAPIKeyAuth(
-        api_key="test-key", user_role=LitellmUserRoles.PROXY_ADMIN
+        api_key="test-key", user_role=EmbrouterUserRoles.PROXY_ADMIN
     )
 
     try:
@@ -1582,7 +1582,7 @@ def test_managed_files_with_loadbalancing(
     finally:
         app.dependency_overrides.pop(ps.user_api_key_auth, None)
     result = response.json()
-    assert result["id"] == "litellm_managed_file_abc123"
+    assert result["id"] == "embrouter_managed_file_abc123"
     assert result["purpose"] == "batch"
 
     # Verify that managed files was called (via router for loadbalancing)
@@ -1597,24 +1597,24 @@ def test_managed_files_with_loadbalancing(
     ), "All calls should go through router"
 
 
-def test_create_file_with_nested_litellm_metadata(
+def test_create_file_with_nested_embrouter_metadata(
     mocker: MockerFixture, monkeypatch, llm_router: Router
 ):
     """
-    Test that nested litellm_metadata is correctly parsed from form data in bracket notation.
+    Test that nested embrouter_metadata is correctly parsed from form data in bracket notation.
 
-    Regression test for: litellm_metadata[spend_logs_metadata][owner] format should be
+    Regression test for: embrouter_metadata[spend_logs_metadata][owner] format should be
     correctly parsed into nested dictionary structure.
     """
-    from litellm.llms.base_llm.files.transformation import BaseFileEndpoints
-    from litellm.types.llms.openai import OpenAIFileObject
+    from embrouter.llms.base_llm.files.transformation import BaseFileEndpoints
+    from embrouter.types.llms.openai import OpenAIFileObject
 
     proxy_logging_obj = ProxyLogging(
         user_api_key_cache=DualCache(default_in_memory_ttl=1)
     )
     proxy_logging_obj._add_proxy_hooks(llm_router)
 
-    captured_litellm_metadata = {}
+    captured_embrouter_metadata = {}
 
     class DummyManagedFiles(BaseFileEndpoints):
         async def acreate_file(
@@ -1622,17 +1622,17 @@ def test_create_file_with_nested_litellm_metadata(
             llm_router,
             create_file_request,
             target_model_names_list,
-            litellm_parent_otel_span,
+            embrouter_parent_otel_span,
             user_api_key_dict,
         ):
-            # Capture litellm_metadata for verification
+            # Capture embrouter_metadata for verification
             if isinstance(create_file_request, dict):
-                captured_litellm_metadata.update(
-                    create_file_request.get("litellm_metadata", {})
+                captured_embrouter_metadata.update(
+                    create_file_request.get("embrouter_metadata", {})
                 )
             else:
-                captured_litellm_metadata.update(
-                    getattr(create_file_request, "litellm_metadata", {})
+                captured_embrouter_metadata.update(
+                    getattr(create_file_request, "embrouter_metadata", {})
                 )
 
             return OpenAIFileObject(
@@ -1645,13 +1645,13 @@ def test_create_file_with_nested_litellm_metadata(
                 status="uploaded",
             )
 
-        async def afile_retrieve(self, file_id, litellm_parent_otel_span, llm_router):
+        async def afile_retrieve(self, file_id, embrouter_parent_otel_span, llm_router):
             raise NotImplementedError("Not implemented for test")
 
         async def afile_list(
             self,
             purpose,
-            litellm_parent_otel_span,
+            embrouter_parent_otel_span,
             user_api_key_dict,
             limit=None,
             after=None,
@@ -1660,34 +1660,34 @@ def test_create_file_with_nested_litellm_metadata(
             raise NotImplementedError("Not implemented for test")
 
         async def afile_delete(
-            self, file_id, litellm_parent_otel_span, llm_router, **data
+            self, file_id, embrouter_parent_otel_span, llm_router, **data
         ):
             raise NotImplementedError("Not implemented for test")
 
         async def afile_content(
-            self, file_id, litellm_parent_otel_span, llm_router, **data
+            self, file_id, embrouter_parent_otel_span, llm_router, **data
         ):
             raise NotImplementedError("Not implemented for test")
 
     proxy_logging_obj.proxy_hook_mapping["managed_files"] = DummyManagedFiles()
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", llm_router)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", llm_router)
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.proxy_logging_obj", proxy_logging_obj
+        "embrouter.proxy.proxy_server.proxy_logging_obj", proxy_logging_obj
     )
 
     test_file_content = b'{"prompt": "Hello", "completion": "Hi"}'
     test_file = ("test.jsonl", test_file_content, "application/jsonl")
 
-    # Test with nested litellm_metadata in bracket notation
+    # Test with nested embrouter_metadata in bracket notation
     response = client.post(
         "/v1/files",
         files={"file": test_file},
         data={
             "purpose": "fine-tune",
             "target_model_names": "gpt-3.5-turbo",
-            "litellm_metadata[spend_logs_metadata][owner]": "john_doe",
-            "litellm_metadata[spend_logs_metadata][team]": "engineering",
-            "litellm_metadata[environment]": "prod",
+            "embrouter_metadata[spend_logs_metadata][owner]": "john_doe",
+            "embrouter_metadata[spend_logs_metadata][team]": "engineering",
+            "embrouter_metadata[environment]": "prod",
         },
         headers={"Authorization": "Bearer test-key"},
     )
@@ -1700,34 +1700,34 @@ def test_create_file_with_nested_litellm_metadata(
     # Verify nested metadata was correctly parsed.
     # Note: caller-supplied `tags` is stripped by default; test removed
     # to keep the parsing test focused on parser correctness.
-    assert "spend_logs_metadata" in captured_litellm_metadata
-    assert captured_litellm_metadata["spend_logs_metadata"]["owner"] == "john_doe"
-    assert captured_litellm_metadata["spend_logs_metadata"]["team"] == "engineering"
-    assert captured_litellm_metadata["environment"] == "prod"
+    assert "spend_logs_metadata" in captured_embrouter_metadata
+    assert captured_embrouter_metadata["spend_logs_metadata"]["owner"] == "john_doe"
+    assert captured_embrouter_metadata["spend_logs_metadata"]["team"] == "engineering"
+    assert captured_embrouter_metadata["environment"] == "prod"
 
 
-def test_create_file_with_deep_nested_litellm_metadata(
+def test_create_file_with_deep_nested_embrouter_metadata(
     mocker: MockerFixture, monkeypatch, llm_router: Router
 ):
     """
-    Test that deeply nested litellm_metadata is correctly parsed from form data.
+    Test that deeply nested embrouter_metadata is correctly parsed from form data.
 
-    Regression test for: litellm_metadata[a][b][c] format should be correctly parsed.
+    Regression test for: embrouter_metadata[a][b][c] format should be correctly parsed.
     """
-    import litellm.proxy.proxy_server as ps
-    from litellm.llms.base_llm.files.transformation import BaseFileEndpoints
-    from litellm.proxy._types import LitellmUserRoles
-    from litellm.types.llms.openai import OpenAIFileObject
+    import embrouter.proxy.proxy_server as ps
+    from embrouter.llms.base_llm.files.transformation import BaseFileEndpoints
+    from embrouter.proxy._types import EmbrouterUserRoles
+    from embrouter.types.llms.openai import OpenAIFileObject
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.master_key", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", None)
 
     proxy_logging_obj = ProxyLogging(
         user_api_key_cache=DualCache(default_in_memory_ttl=1)
     )
     proxy_logging_obj._add_proxy_hooks(llm_router)
 
-    captured_litellm_metadata = {}
+    captured_embrouter_metadata = {}
 
     class DummyManagedFiles(BaseFileEndpoints):
         async def acreate_file(
@@ -1735,16 +1735,16 @@ def test_create_file_with_deep_nested_litellm_metadata(
             llm_router,
             create_file_request,
             target_model_names_list,
-            litellm_parent_otel_span,
+            embrouter_parent_otel_span,
             user_api_key_dict,
         ):
             if isinstance(create_file_request, dict):
-                captured_litellm_metadata.update(
-                    create_file_request.get("litellm_metadata", {})
+                captured_embrouter_metadata.update(
+                    create_file_request.get("embrouter_metadata", {})
                 )
             else:
-                captured_litellm_metadata.update(
-                    getattr(create_file_request, "litellm_metadata", {})
+                captured_embrouter_metadata.update(
+                    getattr(create_file_request, "embrouter_metadata", {})
                 )
 
             return OpenAIFileObject(
@@ -1757,13 +1757,13 @@ def test_create_file_with_deep_nested_litellm_metadata(
                 status="uploaded",
             )
 
-        async def afile_retrieve(self, file_id, litellm_parent_otel_span, llm_router):
+        async def afile_retrieve(self, file_id, embrouter_parent_otel_span, llm_router):
             raise NotImplementedError("Not implemented for test")
 
         async def afile_list(
             self,
             purpose,
-            litellm_parent_otel_span,
+            embrouter_parent_otel_span,
             user_api_key_dict,
             limit=None,
             after=None,
@@ -1772,23 +1772,23 @@ def test_create_file_with_deep_nested_litellm_metadata(
             raise NotImplementedError("Not implemented for test")
 
         async def afile_delete(
-            self, file_id, litellm_parent_otel_span, llm_router, **data
+            self, file_id, embrouter_parent_otel_span, llm_router, **data
         ):
             raise NotImplementedError("Not implemented for test")
 
         async def afile_content(
-            self, file_id, litellm_parent_otel_span, llm_router, **data
+            self, file_id, embrouter_parent_otel_span, llm_router, **data
         ):
             raise NotImplementedError("Not implemented for test")
 
     proxy_logging_obj.proxy_hook_mapping["managed_files"] = DummyManagedFiles()
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", llm_router)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", llm_router)
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.proxy_logging_obj", proxy_logging_obj
+        "embrouter.proxy.proxy_server.proxy_logging_obj", proxy_logging_obj
     )
 
     app.dependency_overrides[ps.user_api_key_auth] = lambda: UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN, user_id="test-user"
+        user_role=EmbrouterUserRoles.PROXY_ADMIN, user_id="test-user"
     )
 
     try:
@@ -1802,9 +1802,9 @@ def test_create_file_with_deep_nested_litellm_metadata(
             data={
                 "purpose": "batch",
                 "target_model_names": "gpt-3.5-turbo",
-                "litellm_metadata[config][database][host]": "localhost",
-                "litellm_metadata[config][database][port]": "5432",
-                "litellm_metadata[config][cache][enabled]": "true",
+                "embrouter_metadata[config][database][host]": "localhost",
+                "embrouter_metadata[config][database][port]": "5432",
+                "embrouter_metadata[config][cache][enabled]": "true",
             },
             headers={"Authorization": "Bearer test-key"},
         )
@@ -1815,12 +1815,12 @@ def test_create_file_with_deep_nested_litellm_metadata(
         assert result["id"] == "file-test-456"
 
         # Verify deeply nested metadata was correctly parsed
-        assert "config" in captured_litellm_metadata
-        assert "database" in captured_litellm_metadata["config"]
-        assert captured_litellm_metadata["config"]["database"]["host"] == "localhost"
-        assert captured_litellm_metadata["config"]["database"]["port"] == "5432"
-        assert "cache" in captured_litellm_metadata["config"]
-        assert captured_litellm_metadata["config"]["cache"]["enabled"] == "true"
+        assert "config" in captured_embrouter_metadata
+        assert "database" in captured_embrouter_metadata["config"]
+        assert captured_embrouter_metadata["config"]["database"]["host"] == "localhost"
+        assert captured_embrouter_metadata["config"]["database"]["port"] == "5432"
+        assert "cache" in captured_embrouter_metadata["config"]
+        assert captured_embrouter_metadata["config"]["cache"]["enabled"] == "true"
     finally:
         app.dependency_overrides.pop(ps.user_api_key_auth, None)
 
@@ -1832,7 +1832,7 @@ def test_create_file_with_deep_nested_litellm_metadata(
 
 def _make_capturing_managed_files():
     """Create a DummyManagedFiles that captures the expires_after from the request."""
-    from litellm.llms.base_llm.files.transformation import BaseFileEndpoints
+    from embrouter.llms.base_llm.files.transformation import BaseFileEndpoints
 
     captured = {}
 
@@ -1842,7 +1842,7 @@ def _make_capturing_managed_files():
             llm_router,
             create_file_request,
             target_model_names_list,
-            litellm_parent_otel_span,
+            embrouter_parent_otel_span,
             user_api_key_dict,
         ):
             if isinstance(create_file_request, dict):
@@ -1861,13 +1861,13 @@ def _make_capturing_managed_files():
                 status="uploaded",
             )
 
-        async def afile_retrieve(self, file_id, litellm_parent_otel_span, llm_router):
+        async def afile_retrieve(self, file_id, embrouter_parent_otel_span, llm_router):
             raise NotImplementedError
 
         async def afile_list(
             self,
             purpose,
-            litellm_parent_otel_span,
+            embrouter_parent_otel_span,
             user_api_key_dict,
             limit=None,
             after=None,
@@ -1876,12 +1876,12 @@ def _make_capturing_managed_files():
             raise NotImplementedError
 
         async def afile_delete(
-            self, file_id, litellm_parent_otel_span, llm_router, **data
+            self, file_id, embrouter_parent_otel_span, llm_router, **data
         ):
             raise NotImplementedError
 
         async def afile_content(
-            self, file_id, litellm_parent_otel_span, llm_router, **data
+            self, file_id, embrouter_parent_otel_span, llm_router, **data
         ):
             raise NotImplementedError
 
@@ -1895,16 +1895,16 @@ def _post_file_with_team_metadata(
     form_data: dict,
 ):
     """POST /v1/files with given team_metadata, return captured expires_after."""
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+    from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
 
     proxy_logging_obj = ProxyLogging(
         user_api_key_cache=DualCache(default_in_memory_ttl=1)
     )
     dummy, captured = _make_capturing_managed_files()
     proxy_logging_obj.proxy_hook_mapping["managed_files"] = dummy
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", llm_router)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", llm_router)
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.proxy_logging_obj", proxy_logging_obj
+        "embrouter.proxy.proxy_server.proxy_logging_obj", proxy_logging_obj
     )
 
     user_key = UserAPIKeyAuth(api_key="test-key", team_metadata=team_metadata)
@@ -1999,16 +1999,16 @@ def _post_file_raw(
     monkeypatch, llm_router: Router, team_metadata: dict, form_data: dict
 ):
     """POST /v1/files and return the raw response (no status assertion)."""
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+    from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
 
     proxy_logging_obj = ProxyLogging(
         user_api_key_cache=DualCache(default_in_memory_ttl=1)
     )
     dummy, _ = _make_capturing_managed_files()
     proxy_logging_obj.proxy_hook_mapping["managed_files"] = dummy
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", llm_router)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", llm_router)
     monkeypatch.setattr(
-        "litellm.proxy.proxy_server.proxy_logging_obj", proxy_logging_obj
+        "embrouter.proxy.proxy_server.proxy_logging_obj", proxy_logging_obj
     )
 
     user_key = UserAPIKeyAuth(api_key="test-key", team_metadata=team_metadata)
@@ -2091,12 +2091,12 @@ def test_file_invalid_anchor_returns_500(
 def test_get_file_content_streams_openai_direct_path(
     mocker: MockerFixture, monkeypatch, llm_router: Router
 ):
-    import litellm.proxy.proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    import embrouter.proxy.proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
     proxy_logging_obj = setup_proxy_logging_object(monkeypatch, llm_router)
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.master_key", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", None)
     proxy_logging_obj.update_request_status = mocker.AsyncMock()
     proxy_logging_obj.post_call_failure_hook = mocker.AsyncMock()
 
@@ -2114,15 +2114,15 @@ def test_get_file_content_streams_openai_direct_path(
             headers={"content-length": "11"},
         )
 
-    monkeypatch.setattr(litellm, "afile_content", _mock_afile_content)
+    monkeypatch.setattr(embrouter, "afile_content", _mock_afile_content)
     monkeypatch.setattr(
-        "litellm.proxy.openai_files_endpoints.files_endpoints.handle_model_based_routing",
+        "embrouter.proxy.openai_files_endpoints.files_endpoints.handle_model_based_routing",
         AsyncMock(return_value=(False, None, None, None)),
     )
 
     app.dependency_overrides[ps.user_api_key_auth] = lambda: UserAPIKeyAuth(
         api_key="test-key",
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN,
         user_id="test-user",
     )
 
@@ -2148,12 +2148,12 @@ def test_get_file_content_streams_openai_direct_path(
 def test_get_file_content_routed_provider_skips_streaming_when_resolved_provider_is_not_supported(
     mocker: MockerFixture, monkeypatch, llm_router: Router
 ):
-    import litellm.proxy.proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    import embrouter.proxy.proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
     proxy_logging_obj = setup_proxy_logging_object(monkeypatch, llm_router)
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.master_key", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", None)
     proxy_logging_obj.update_request_status = mocker.AsyncMock()
     proxy_logging_obj.post_call_failure_hook = mocker.AsyncMock()
 
@@ -2174,14 +2174,14 @@ def test_get_file_content_routed_provider_skips_streaming_when_resolved_provider
 
     mock_streaming_response = mocker.AsyncMock()
 
-    monkeypatch.setattr(litellm, "afile_content", _mock_afile_content)
+    monkeypatch.setattr(embrouter, "afile_content", _mock_afile_content)
     monkeypatch.setattr(
         FileContentStreamingHandler,
         "get_streaming_file_content_response",
         mock_streaming_response,
     )
     monkeypatch.setattr(
-        "litellm.proxy.openai_files_endpoints.files_endpoints.handle_model_based_routing",
+        "embrouter.proxy.openai_files_endpoints.files_endpoints.handle_model_based_routing",
         AsyncMock(
             return_value=(
                 True,
@@ -2198,7 +2198,7 @@ def test_get_file_content_routed_provider_skips_streaming_when_resolved_provider
 
     app.dependency_overrides[ps.user_api_key_auth] = lambda: UserAPIKeyAuth(
         api_key="test-key",
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN,
         user_id="test-user",
     )
 
@@ -2224,12 +2224,12 @@ def test_get_file_content_routed_provider_skips_streaming_when_resolved_provider
 def test_get_file_content_non_openai_provider_skips_streaming_handler(
     mocker: MockerFixture, monkeypatch, llm_router: Router
 ):
-    import litellm.proxy.proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    import embrouter.proxy.proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
     proxy_logging_obj = setup_proxy_logging_object(monkeypatch, llm_router)
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.master_key", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", None)
     proxy_logging_obj.post_call_failure_hook = mocker.AsyncMock()
 
     captured_kwargs = {}
@@ -2249,20 +2249,20 @@ def test_get_file_content_non_openai_provider_skips_streaming_handler(
 
     mock_streaming_response = mocker.AsyncMock()
 
-    monkeypatch.setattr(litellm, "afile_content", _mock_afile_content)
+    monkeypatch.setattr(embrouter, "afile_content", _mock_afile_content)
     monkeypatch.setattr(
         FileContentStreamingHandler,
         "get_streaming_file_content_response",
         mock_streaming_response,
     )
     monkeypatch.setattr(
-        "litellm.proxy.openai_files_endpoints.files_endpoints.handle_model_based_routing",
+        "embrouter.proxy.openai_files_endpoints.files_endpoints.handle_model_based_routing",
         AsyncMock(return_value=(False, None, None, None)),
     )
 
     app.dependency_overrides[ps.user_api_key_auth] = lambda: UserAPIKeyAuth(
         api_key="test-key",
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN,
         user_id="test-user",
     )
 
@@ -2288,19 +2288,19 @@ def test_get_file_content_non_openai_provider_skips_streaming_handler(
 def test_require_managed_files_rejects_missing_target_model_names(
     mocker: MockerFixture, monkeypatch, llm_router: Router
 ):
-    import litellm.proxy.proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    import embrouter.proxy.proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
-    monkeypatch.setattr("litellm.require_managed_files", True)
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", llm_router)
+    monkeypatch.setattr("embrouter.require_managed_files", True)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.master_key", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", llm_router)
     setup_proxy_logging_object(monkeypatch, llm_router)
 
-    mock_acreate_file = mocker.patch("litellm.acreate_file", new=mocker.AsyncMock())
+    mock_acreate_file = mocker.patch("embrouter.acreate_file", new=mocker.AsyncMock())
 
     app.dependency_overrides[ps.user_api_key_auth] = lambda: UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN, user_id="test-user"
+        user_role=EmbrouterUserRoles.PROXY_ADMIN, user_id="test-user"
     )
 
     try:
@@ -2312,7 +2312,7 @@ def test_require_managed_files_rejects_missing_target_model_names(
         )
     finally:
         app.dependency_overrides.pop(ps.user_api_key_auth, None)
-        monkeypatch.setattr("litellm.require_managed_files", False)
+        monkeypatch.setattr("embrouter.require_managed_files", False)
 
     assert response.status_code == 400, response.text
     error_message = response.json()["error"]["message"]
@@ -2324,14 +2324,14 @@ def test_require_managed_files_rejects_missing_target_model_names(
 def test_require_managed_files_allows_managed_file_upload(
     mocker: MockerFixture, monkeypatch, llm_router: Router
 ):
-    import litellm.proxy.proxy_server as ps
-    from litellm.llms.base_llm.files.transformation import BaseFileEndpoints
-    from litellm.proxy._types import LitellmUserRoles
+    import embrouter.proxy.proxy_server as ps
+    from embrouter.llms.base_llm.files.transformation import BaseFileEndpoints
+    from embrouter.proxy._types import EmbrouterUserRoles
 
-    monkeypatch.setattr("litellm.require_managed_files", True)
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", llm_router)
+    monkeypatch.setattr("embrouter.require_managed_files", True)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.master_key", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", llm_router)
 
     proxy_logging_obj = setup_proxy_logging_object(monkeypatch, llm_router)
 
@@ -2341,11 +2341,11 @@ def test_require_managed_files_allows_managed_file_upload(
             llm_router,
             create_file_request,
             target_model_names_list,
-            litellm_parent_otel_span,
+            embrouter_parent_otel_span,
             user_api_key_dict,
         ):
             return OpenAIFileObject(
-                id="litellm_managed_file_abc123",
+                id="embrouter_managed_file_abc123",
                 object="file",
                 bytes=3,
                 created_at=1234567890,
@@ -2354,13 +2354,13 @@ def test_require_managed_files_allows_managed_file_upload(
                 status="uploaded",
             )
 
-        async def afile_retrieve(self, file_id, litellm_parent_otel_span, llm_router):
+        async def afile_retrieve(self, file_id, embrouter_parent_otel_span, llm_router):
             raise NotImplementedError
 
         async def afile_list(
             self,
             purpose,
-            litellm_parent_otel_span,
+            embrouter_parent_otel_span,
             user_api_key_dict,
             limit=None,
             after=None,
@@ -2369,21 +2369,21 @@ def test_require_managed_files_allows_managed_file_upload(
             raise NotImplementedError
 
         async def afile_delete(
-            self, file_id, litellm_parent_otel_span, llm_router, **data
+            self, file_id, embrouter_parent_otel_span, llm_router, **data
         ):
             raise NotImplementedError
 
         async def afile_content(
-            self, file_id, litellm_parent_otel_span, llm_router, **data
+            self, file_id, embrouter_parent_otel_span, llm_router, **data
         ):
             raise NotImplementedError
 
     proxy_logging_obj.proxy_hook_mapping["managed_files"] = DummyManagedFiles()
 
-    mock_acreate_file = mocker.patch("litellm.acreate_file", new=mocker.AsyncMock())
+    mock_acreate_file = mocker.patch("embrouter.acreate_file", new=mocker.AsyncMock())
 
     app.dependency_overrides[ps.user_api_key_auth] = lambda: UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN, user_id="test-user"
+        user_role=EmbrouterUserRoles.PROXY_ADMIN, user_id="test-user"
     )
 
     try:
@@ -2398,10 +2398,10 @@ def test_require_managed_files_allows_managed_file_upload(
         )
     finally:
         app.dependency_overrides.pop(ps.user_api_key_auth, None)
-        monkeypatch.setattr("litellm.require_managed_files", False)
+        monkeypatch.setattr("embrouter.require_managed_files", False)
 
     assert response.status_code == 200, response.text
-    assert response.json()["id"] == "litellm_managed_file_abc123"
+    assert response.json()["id"] == "embrouter_managed_file_abc123"
     mock_acreate_file.assert_not_called()
 
 
@@ -2411,21 +2411,21 @@ def test_require_managed_files_rejects_model_param_bypass(
     """
     Supplying model alongside target_model_names must not bypass managed files:
     route_create_file would otherwise take the model branch and call
-    litellm.acreate_file directly instead of the managed-files hook.
+    embrouter.acreate_file directly instead of the managed-files hook.
     """
-    import litellm.proxy.proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    import embrouter.proxy.proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
-    monkeypatch.setattr("litellm.require_managed_files", True)
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", llm_router)
+    monkeypatch.setattr("embrouter.require_managed_files", True)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.master_key", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", llm_router)
     setup_proxy_logging_object(monkeypatch, llm_router)
 
-    mock_acreate_file = mocker.patch("litellm.acreate_file", new=mocker.AsyncMock())
+    mock_acreate_file = mocker.patch("embrouter.acreate_file", new=mocker.AsyncMock())
 
     app.dependency_overrides[ps.user_api_key_auth] = lambda: UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN, user_id="test-user"
+        user_role=EmbrouterUserRoles.PROXY_ADMIN, user_id="test-user"
     )
 
     try:
@@ -2441,7 +2441,7 @@ def test_require_managed_files_rejects_model_param_bypass(
         )
     finally:
         app.dependency_overrides.pop(ps.user_api_key_auth, None)
-        monkeypatch.setattr("litellm.require_managed_files", False)
+        monkeypatch.setattr("embrouter.require_managed_files", False)
 
     assert response.status_code == 400, response.text
     error_message = response.json()["error"]["message"]
@@ -2455,14 +2455,14 @@ def test_require_managed_files_accepts_target_model_names_bracket_form(
     """
     OpenAI SDK sends list extra_body as target_model_names[] in multipart form.
     """
-    import litellm.proxy.proxy_server as ps
-    from litellm.llms.base_llm.files.transformation import BaseFileEndpoints
-    from litellm.proxy._types import LitellmUserRoles
+    import embrouter.proxy.proxy_server as ps
+    from embrouter.llms.base_llm.files.transformation import BaseFileEndpoints
+    from embrouter.proxy._types import EmbrouterUserRoles
 
-    monkeypatch.setattr("litellm.require_managed_files", True)
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", llm_router)
+    monkeypatch.setattr("embrouter.require_managed_files", True)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.master_key", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", llm_router)
 
     proxy_logging_obj = setup_proxy_logging_object(monkeypatch, llm_router)
 
@@ -2472,12 +2472,12 @@ def test_require_managed_files_accepts_target_model_names_bracket_form(
             llm_router,
             create_file_request,
             target_model_names_list,
-            litellm_parent_otel_span,
+            embrouter_parent_otel_span,
             user_api_key_dict,
         ):
             assert target_model_names_list == ["gpt-3.5-turbo"]
             return OpenAIFileObject(
-                id="litellm_managed_file_bracket",
+                id="embrouter_managed_file_bracket",
                 object="file",
                 bytes=3,
                 created_at=1234567890,
@@ -2486,13 +2486,13 @@ def test_require_managed_files_accepts_target_model_names_bracket_form(
                 status="uploaded",
             )
 
-        async def afile_retrieve(self, file_id, litellm_parent_otel_span, llm_router):
+        async def afile_retrieve(self, file_id, embrouter_parent_otel_span, llm_router):
             raise NotImplementedError
 
         async def afile_list(
             self,
             purpose,
-            litellm_parent_otel_span,
+            embrouter_parent_otel_span,
             user_api_key_dict,
             limit=None,
             after=None,
@@ -2501,19 +2501,19 @@ def test_require_managed_files_accepts_target_model_names_bracket_form(
             raise NotImplementedError
 
         async def afile_delete(
-            self, file_id, litellm_parent_otel_span, llm_router, **data
+            self, file_id, embrouter_parent_otel_span, llm_router, **data
         ):
             raise NotImplementedError
 
         async def afile_content(
-            self, file_id, litellm_parent_otel_span, llm_router, **data
+            self, file_id, embrouter_parent_otel_span, llm_router, **data
         ):
             raise NotImplementedError
 
     proxy_logging_obj.proxy_hook_mapping["managed_files"] = DummyManagedFiles()
 
     app.dependency_overrides[ps.user_api_key_auth] = lambda: UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN, user_id="test-user"
+        user_role=EmbrouterUserRoles.PROXY_ADMIN, user_id="test-user"
     )
 
     try:
@@ -2528,10 +2528,10 @@ def test_require_managed_files_accepts_target_model_names_bracket_form(
         )
     finally:
         app.dependency_overrides.pop(ps.user_api_key_auth, None)
-        monkeypatch.setattr("litellm.require_managed_files", False)
+        monkeypatch.setattr("embrouter.require_managed_files", False)
 
     assert response.status_code == 200, response.text
-    assert response.json()["id"] == "litellm_managed_file_bracket"
+    assert response.json()["id"] == "embrouter_managed_file_bracket"
 
 
 def test_require_managed_files_accepts_repeated_target_model_names_bracket_form(
@@ -2541,14 +2541,14 @@ def test_require_managed_files_accepts_repeated_target_model_names_bracket_form(
     The OpenAI SDK serialises a list extra_body as repeated target_model_names[]
     fields. dict(form_data) keeps only the last one, so every value must survive.
     """
-    import litellm.proxy.proxy_server as ps
-    from litellm.llms.base_llm.files.transformation import BaseFileEndpoints
-    from litellm.proxy._types import LitellmUserRoles
+    import embrouter.proxy.proxy_server as ps
+    from embrouter.llms.base_llm.files.transformation import BaseFileEndpoints
+    from embrouter.proxy._types import EmbrouterUserRoles
 
-    monkeypatch.setattr("litellm.require_managed_files", True)
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", llm_router)
+    monkeypatch.setattr("embrouter.require_managed_files", True)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.master_key", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", llm_router)
 
     proxy_logging_obj = setup_proxy_logging_object(monkeypatch, llm_router)
 
@@ -2560,12 +2560,12 @@ def test_require_managed_files_accepts_repeated_target_model_names_bracket_form(
             llm_router,
             create_file_request,
             target_model_names_list,
-            litellm_parent_otel_span,
+            embrouter_parent_otel_span,
             user_api_key_dict,
         ):
             received_target_model_names.extend(target_model_names_list)
             return OpenAIFileObject(
-                id="litellm_managed_file_repeated",
+                id="embrouter_managed_file_repeated",
                 object="file",
                 bytes=3,
                 created_at=1234567890,
@@ -2574,13 +2574,13 @@ def test_require_managed_files_accepts_repeated_target_model_names_bracket_form(
                 status="uploaded",
             )
 
-        async def afile_retrieve(self, file_id, litellm_parent_otel_span, llm_router):
+        async def afile_retrieve(self, file_id, embrouter_parent_otel_span, llm_router):
             raise NotImplementedError
 
         async def afile_list(
             self,
             purpose,
-            litellm_parent_otel_span,
+            embrouter_parent_otel_span,
             user_api_key_dict,
             limit=None,
             after=None,
@@ -2589,19 +2589,19 @@ def test_require_managed_files_accepts_repeated_target_model_names_bracket_form(
             raise NotImplementedError
 
         async def afile_delete(
-            self, file_id, litellm_parent_otel_span, llm_router, **data
+            self, file_id, embrouter_parent_otel_span, llm_router, **data
         ):
             raise NotImplementedError
 
         async def afile_content(
-            self, file_id, litellm_parent_otel_span, llm_router, **data
+            self, file_id, embrouter_parent_otel_span, llm_router, **data
         ):
             raise NotImplementedError
 
     proxy_logging_obj.proxy_hook_mapping["managed_files"] = DummyManagedFiles()
 
     app.dependency_overrides[ps.user_api_key_auth] = lambda: UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN, user_id="test-user"
+        user_role=EmbrouterUserRoles.PROXY_ADMIN, user_id="test-user"
     )
 
     try:
@@ -2616,10 +2616,10 @@ def test_require_managed_files_accepts_repeated_target_model_names_bracket_form(
         )
     finally:
         app.dependency_overrides.pop(ps.user_api_key_auth, None)
-        monkeypatch.setattr("litellm.require_managed_files", False)
+        monkeypatch.setattr("embrouter.require_managed_files", False)
 
     assert response.status_code == 200, response.text
-    assert response.json()["id"] == "litellm_managed_file_repeated"
+    assert response.json()["id"] == "embrouter_managed_file_repeated"
     assert received_target_model_names == ["azure-gpt-3-5-turbo", "gpt-3.5-turbo"]
 
 
@@ -2632,14 +2632,14 @@ def test_list_files_resolves_wildcard_deployment_credentials(
     through llm_router.afile_list(model=...), which reached OpenAI without an
     api_key and failed with "api_key client option must be set".
     """
-    import litellm.proxy.proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    import embrouter.proxy.proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
     wildcard_router = Router(
         model_list=[
             {
                 "model_name": "*",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/*",
                     "api_key": "wildcard-openai-key",
                 },
@@ -2648,9 +2648,9 @@ def test_list_files_resolves_wildcard_deployment_credentials(
     )
 
     proxy_logging_obj = setup_proxy_logging_object(monkeypatch, wildcard_router)
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", wildcard_router)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.master_key", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", wildcard_router)
     proxy_logging_obj.update_request_status = mocker.AsyncMock()
     proxy_logging_obj.post_call_success_hook = mocker.AsyncMock(return_value=[])
     proxy_logging_obj.post_call_failure_hook = mocker.AsyncMock()
@@ -2661,11 +2661,11 @@ def test_list_files_resolves_wildcard_deployment_credentials(
         captured_kwargs.update(kwargs)
         return []
 
-    monkeypatch.setattr(litellm, "afile_list", _mock_afile_list)
+    monkeypatch.setattr(embrouter, "afile_list", _mock_afile_list)
 
     app.dependency_overrides[ps.user_api_key_auth] = lambda: UserAPIKeyAuth(
         api_key="test-key",
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN,
         user_id="test-user",
     )
 
@@ -2686,14 +2686,14 @@ def test_list_files_resolves_wildcard_deployment_credentials(
 def test_list_files_by_model_returns_an_openai_page_for_a_provider_listing(
     mocker: MockerFixture, monkeypatch, llm_router: Router
 ):
-    import litellm.proxy.proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
-    from litellm.types.llms.openai import FileListPage
+    import embrouter.proxy.proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
+    from embrouter.types.llms.openai import FileListPage
 
     proxy_logging_obj = setup_proxy_logging_object(monkeypatch, llm_router)
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", llm_router)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.master_key", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", llm_router)
     proxy_logging_obj.update_request_status = mocker.AsyncMock()
     proxy_logging_obj.post_call_success_hook = mocker.AsyncMock(return_value=None)
     proxy_logging_obj.post_call_failure_hook = mocker.AsyncMock()
@@ -2714,11 +2714,11 @@ def test_list_files_by_model_returns_an_openai_page_for_a_provider_listing(
     async def _mock_afile_list(**kwargs):
         return list(listed_files)
 
-    monkeypatch.setattr(litellm, "afile_list", _mock_afile_list)
+    monkeypatch.setattr(embrouter, "afile_list", _mock_afile_list)
 
     app.dependency_overrides[ps.user_api_key_auth] = lambda: UserAPIKeyAuth(
         api_key="test-key",
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN,
         user_id="test-user",
     )
 
@@ -2743,13 +2743,13 @@ def test_list_files_by_model_returns_an_openai_page_for_a_provider_listing(
 def test_list_files_model_routing_does_not_forward_custom_llm_provider_twice(
     mocker: MockerFixture, monkeypatch, llm_router: Router
 ):
-    import litellm.proxy.proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    import embrouter.proxy.proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
     proxy_logging_obj = setup_proxy_logging_object(monkeypatch, llm_router)
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", llm_router)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.master_key", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", llm_router)
     proxy_logging_obj.post_call_success_hook = mocker.AsyncMock(return_value=[])
     proxy_logging_obj.post_call_failure_hook = mocker.AsyncMock()
 
@@ -2759,9 +2759,9 @@ def test_list_files_model_routing_does_not_forward_custom_llm_provider_twice(
         captured_kwargs.update(kwargs)
         return []
 
-    monkeypatch.setattr(litellm, "afile_list", _mock_afile_list)
+    monkeypatch.setattr(embrouter, "afile_list", _mock_afile_list)
     monkeypatch.setattr(
-        "litellm.proxy.openai_files_endpoints.files_endpoints.handle_model_based_routing",
+        "embrouter.proxy.openai_files_endpoints.files_endpoints.handle_model_based_routing",
         AsyncMock(
             return_value=(
                 True,
@@ -2777,7 +2777,7 @@ def test_list_files_model_routing_does_not_forward_custom_llm_provider_twice(
 
     app.dependency_overrides[ps.user_api_key_auth] = lambda: UserAPIKeyAuth(
         api_key="test-key",
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN,
         user_id="test-user",
     )
 
@@ -2803,14 +2803,14 @@ def test_list_files_without_target_model_names_uses_team_openai_deployment(
     api_key from the team's openai deployment instead of falling through to a
     keyless OpenAI client. Regression for "api_key client option must be set".
     """
-    import litellm.proxy.proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    import embrouter.proxy.proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
     wildcard_router = Router(
         model_list=[
             {
                 "model_name": "openai/*",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/*",
                     "api_key": "team-openai-key",
                 },
@@ -2819,9 +2819,9 @@ def test_list_files_without_target_model_names_uses_team_openai_deployment(
     )
 
     proxy_logging_obj = setup_proxy_logging_object(monkeypatch, wildcard_router)
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", wildcard_router)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.master_key", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", wildcard_router)
     proxy_logging_obj.update_request_status = mocker.AsyncMock()
     proxy_logging_obj.post_call_success_hook = mocker.AsyncMock(return_value=[])
     proxy_logging_obj.post_call_failure_hook = mocker.AsyncMock()
@@ -2832,11 +2832,11 @@ def test_list_files_without_target_model_names_uses_team_openai_deployment(
         captured_kwargs.update(kwargs)
         return []
 
-    monkeypatch.setattr(litellm, "afile_list", _mock_afile_list)
+    monkeypatch.setattr(embrouter, "afile_list", _mock_afile_list)
 
     app.dependency_overrides[ps.user_api_key_auth] = lambda: UserAPIKeyAuth(
         api_key="test-key",
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=EmbrouterUserRoles.INTERNAL_USER,
         user_id="test-user",
         team_id="test-team",
         team_models=["openai/*"],
@@ -2859,9 +2859,9 @@ def test_list_files_without_target_model_names_uses_team_openai_deployment(
 def test_unscoped_list_files_uses_managed_file_store(
     mocker: MockerFixture, monkeypatch, llm_router: Router
 ):
-    import litellm.proxy.proxy_server as ps
-    from litellm.llms.base_llm.files.transformation import BaseFileEndpoints
-    from litellm.proxy._types import LitellmUserRoles
+    import embrouter.proxy.proxy_server as ps
+    from embrouter.llms.base_llm.files.transformation import BaseFileEndpoints
+    from embrouter.proxy._types import EmbrouterUserRoles
 
     managed_file = OpenAIFileObject(
         id="unified-file-id",
@@ -2888,14 +2888,14 @@ def test_unscoped_list_files_uses_managed_file_store(
     proxy_logging_obj.update_request_status = mocker.AsyncMock()
     proxy_logging_obj.post_call_success_hook = mocker.AsyncMock(return_value=None)
     proxy_logging_obj.post_call_failure_hook = mocker.AsyncMock()
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", llm_router)
-    provider_list = mocker.patch.object(litellm, "afile_list", new=mocker.AsyncMock())
+    monkeypatch.setattr("embrouter.proxy.proxy_server.master_key", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", llm_router)
+    provider_list = mocker.patch.object(embrouter, "afile_list", new=mocker.AsyncMock())
 
     app.dependency_overrides[ps.user_api_key_auth] = lambda: UserAPIKeyAuth(
         api_key="test-key",
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=EmbrouterUserRoles.INTERNAL_USER,
         user_id="test-user",
     )
 
@@ -2920,9 +2920,9 @@ def test_unscoped_list_files_uses_managed_file_store(
 def test_unscoped_list_files_forwards_limit_and_after_to_the_managed_file_store(
     mocker: MockerFixture, monkeypatch, llm_router: Router
 ):
-    import litellm.proxy.proxy_server as ps
-    from litellm.llms.base_llm.files.transformation import BaseFileEndpoints
-    from litellm.proxy._types import LitellmUserRoles
+    import embrouter.proxy.proxy_server as ps
+    from embrouter.llms.base_llm.files.transformation import BaseFileEndpoints
+    from embrouter.proxy._types import EmbrouterUserRoles
 
     second_page_file = OpenAIFileObject(
         id="unified-file-id-2",
@@ -2949,14 +2949,14 @@ def test_unscoped_list_files_forwards_limit_and_after_to_the_managed_file_store(
     proxy_logging_obj.update_request_status = mocker.AsyncMock()
     proxy_logging_obj.post_call_success_hook = mocker.AsyncMock(return_value=None)
     proxy_logging_obj.post_call_failure_hook = mocker.AsyncMock()
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", llm_router)
-    provider_list = mocker.patch.object(litellm, "afile_list", new=mocker.AsyncMock())
+    monkeypatch.setattr("embrouter.proxy.proxy_server.master_key", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", llm_router)
+    provider_list = mocker.patch.object(embrouter, "afile_list", new=mocker.AsyncMock())
 
     app.dependency_overrides[ps.user_api_key_auth] = lambda: UserAPIKeyAuth(
         api_key="test-key",
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=EmbrouterUserRoles.INTERNAL_USER,
         user_id="test-user",
     )
 
@@ -2981,9 +2981,9 @@ def test_unscoped_list_files_forwards_limit_and_after_to_the_managed_file_store(
 
 def _setup_unscoped_list_files_route(mocker, monkeypatch, llm_router: Router, afile_list):
     """Wire GET /v1/files to the managed file store, with afile_list as the store."""
-    import litellm.proxy.proxy_server as ps
-    from litellm.llms.base_llm.files.transformation import BaseFileEndpoints
-    from litellm.proxy._types import LitellmUserRoles
+    import embrouter.proxy.proxy_server as ps
+    from embrouter.llms.base_llm.files.transformation import BaseFileEndpoints
+    from embrouter.proxy._types import EmbrouterUserRoles
 
     proxy_logging_obj = setup_proxy_logging_object(monkeypatch, llm_router)
     managed_files = mocker.MagicMock(spec=BaseFileEndpoints)
@@ -2992,14 +2992,14 @@ def _setup_unscoped_list_files_route(mocker, monkeypatch, llm_router: Router, af
     proxy_logging_obj.update_request_status = mocker.AsyncMock()
     proxy_logging_obj.post_call_success_hook = mocker.AsyncMock(return_value=None)
     proxy_logging_obj.post_call_failure_hook = mocker.AsyncMock()
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", llm_router)
-    mocker.patch.object(litellm, "afile_list", new=mocker.AsyncMock())
+    monkeypatch.setattr("embrouter.proxy.proxy_server.master_key", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", llm_router)
+    mocker.patch.object(embrouter, "afile_list", new=mocker.AsyncMock())
 
     app.dependency_overrides[ps.user_api_key_auth] = lambda: UserAPIKeyAuth(
         api_key="test-key",
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=EmbrouterUserRoles.INTERNAL_USER,
         user_id="test-user",
     )
     return managed_files
@@ -3009,7 +3009,7 @@ def _get_list_files(path: str):
     try:
         return client.get(path, headers={"Authorization": "Bearer test-key"})
     finally:
-        import litellm.proxy.proxy_server as ps
+        import embrouter.proxy.proxy_server as ps
 
         app.dependency_overrides.pop(ps.user_api_key_auth, None)
 
@@ -3029,7 +3029,7 @@ _EMPTY_FILE_LIST_PAGE: Final = {
 
 async def _validating_afile_list(**kwargs):
     """Stand in for the managed file store, applying the real request validation."""
-    from litellm.proxy.openai_files_endpoints.common_utils import (
+    from embrouter.proxy.openai_files_endpoints.common_utils import (
         validate_file_list_limit,
         validate_file_list_purpose,
     )
@@ -3114,7 +3114,7 @@ def test_list_files_validates_the_limit_on_every_branch(
 def test_unscoped_list_files_returns_400_for_an_unknown_after_cursor(
     mocker: MockerFixture, monkeypatch, llm_router: Router
 ):
-    from litellm.proxy._types import ProxyException
+    from embrouter.proxy._types import ProxyException
 
     async def _unknown_cursor(**kwargs):
         raise ProxyException(
@@ -3158,7 +3158,7 @@ def test_unscoped_list_files_hands_post_call_hooks_a_page_object(
     """Logging callbacks read ``response.data`` off a listing, so the managed
     branch has to hand them the same page shape the provider branch does. A bare
     mapping turns every registered callback into a 500 on this route."""
-    import litellm.proxy.proxy_server as ps
+    import embrouter.proxy.proxy_server as ps
 
     seen_by_callback: list[list[str]] = []
 
@@ -3261,21 +3261,21 @@ def test_list_files_restricted_team_does_not_leak_global_openai_credentials(
     openai deployment's api_key for plain GET /v1/files. Regression for the
     last-resort scan that ignored team access control.
     """
-    import litellm.proxy.proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    import embrouter.proxy.proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
     router = Router(
         model_list=[
             {
                 "model_name": "openai/*",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/*",
                     "api_key": "global-openai-key",
                 },
             },
             {
                 "model_name": "claude-opus-4-6",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "anthropic/claude-opus-4-6",
                     "api_key": "anthropic-key",
                 },
@@ -3284,9 +3284,9 @@ def test_list_files_restricted_team_does_not_leak_global_openai_credentials(
     )
 
     proxy_logging_obj = setup_proxy_logging_object(monkeypatch, router)
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", router)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.master_key", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", router)
     proxy_logging_obj.update_request_status = mocker.AsyncMock()
     proxy_logging_obj.post_call_success_hook = mocker.AsyncMock(return_value=[])
     proxy_logging_obj.post_call_failure_hook = mocker.AsyncMock()
@@ -3297,11 +3297,11 @@ def test_list_files_restricted_team_does_not_leak_global_openai_credentials(
         captured_kwargs.update(kwargs)
         return []
 
-    monkeypatch.setattr(litellm, "afile_list", _mock_afile_list)
+    monkeypatch.setattr(embrouter, "afile_list", _mock_afile_list)
 
     app.dependency_overrides[ps.user_api_key_auth] = lambda: UserAPIKeyAuth(
         api_key="test-key",
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=EmbrouterUserRoles.INTERNAL_USER,
         user_id="test-user",
         team_id="anthropic-only-team",
         team_models=["claude-opus-4-6"],
@@ -3326,21 +3326,21 @@ def test_list_files_prefers_team_byok_over_global_openai_deployment(
     When a team has its own BYOK openai deployment (model_info.team_id set), plain
     GET /v1/files must use the team's key, not a shared/global openai deployment.
     """
-    import litellm.proxy.proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    import embrouter.proxy.proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
     router = Router(
         model_list=[
             {
                 "model_name": "openai/*",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/*",
                     "api_key": "global-openai-key",
                 },
             },
             {
                 "model_name": "team-gpt-4o",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-4o",
                     "api_key": "team-byok-openai-key",
                 },
@@ -3354,9 +3354,9 @@ def test_list_files_prefers_team_byok_over_global_openai_deployment(
     )
 
     proxy_logging_obj = setup_proxy_logging_object(monkeypatch, router)
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", router)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.master_key", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", router)
     proxy_logging_obj.update_request_status = mocker.AsyncMock()
     proxy_logging_obj.post_call_success_hook = mocker.AsyncMock(return_value=[])
     proxy_logging_obj.post_call_failure_hook = mocker.AsyncMock()
@@ -3367,11 +3367,11 @@ def test_list_files_prefers_team_byok_over_global_openai_deployment(
         captured_kwargs.update(kwargs)
         return []
 
-    monkeypatch.setattr(litellm, "afile_list", _mock_afile_list)
+    monkeypatch.setattr(embrouter, "afile_list", _mock_afile_list)
 
     app.dependency_overrides[ps.user_api_key_auth] = lambda: UserAPIKeyAuth(
         api_key="test-key",
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=EmbrouterUserRoles.INTERNAL_USER,
         user_id="test-user",
         team_id="test-team",
         team_models=["team-gpt-4o"],
@@ -3398,21 +3398,21 @@ def test_list_files_with_all_proxy_models_team_uses_openai_deployment(
     Teams with all-proxy-models (or empty models) must still resolve openai
     credentials for plain GET /v1/files.
     """
-    import litellm.proxy.proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles, SpecialModelNames
+    import embrouter.proxy.proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles, SpecialModelNames
 
     wildcard_router = Router(
         model_list=[
             {
                 "model_name": "openai/*",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/*",
                     "api_key": "team-openai-key",
                 },
             },
             {
                 "model_name": "claude-opus-4-6",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "anthropic/claude-opus-4-6",
                     "api_key": "anthropic-key",
                 },
@@ -3421,9 +3421,9 @@ def test_list_files_with_all_proxy_models_team_uses_openai_deployment(
     )
 
     proxy_logging_obj = setup_proxy_logging_object(monkeypatch, wildcard_router)
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", wildcard_router)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.master_key", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", wildcard_router)
     proxy_logging_obj.update_request_status = mocker.AsyncMock()
     proxy_logging_obj.post_call_success_hook = mocker.AsyncMock(return_value=[])
     proxy_logging_obj.post_call_failure_hook = mocker.AsyncMock()
@@ -3434,11 +3434,11 @@ def test_list_files_with_all_proxy_models_team_uses_openai_deployment(
         captured_kwargs.update(kwargs)
         return []
 
-    monkeypatch.setattr(litellm, "afile_list", _mock_afile_list)
+    monkeypatch.setattr(embrouter, "afile_list", _mock_afile_list)
 
     app.dependency_overrides[ps.user_api_key_auth] = lambda: UserAPIKeyAuth(
         api_key="test-key",
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=EmbrouterUserRoles.INTERNAL_USER,
         user_id="test-user",
         team_id="test-team",
         team_models=[SpecialModelNames.all_proxy_models.value],
@@ -3459,10 +3459,10 @@ def test_list_files_with_all_proxy_models_team_uses_openai_deployment(
 
 
 def _setup_vertex_named_credential_router(monkeypatch) -> Router:
-    from litellm.types.utils import CredentialItem
+    from embrouter.types.utils import CredentialItem
 
     monkeypatch.setattr(
-        litellm,
+        embrouter,
         "credential_list",
         [
             CredentialItem(
@@ -3480,9 +3480,9 @@ def _setup_vertex_named_credential_router(monkeypatch) -> Router:
         model_list=[
             {
                 "model_name": "gemini-2.5-pro",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "vertex_ai/gemini-2.5-pro",
-                    "litellm_credential_name": "vertex-named-cred",
+                    "embrouter_credential_name": "vertex-named-cred",
                 },
             }
         ]
@@ -3506,14 +3506,14 @@ def test_create_file_provider_only_resolves_named_vertex_credentials(
     the upstream call instead of falling through to google.auth.default(),
     which uploads into the hosting environment's GCP project.
     """
-    import litellm.proxy.proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    import embrouter.proxy.proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
     router = _setup_vertex_named_credential_router(monkeypatch)
     proxy_logging_obj = setup_proxy_logging_object(monkeypatch, router)
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", router)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.master_key", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", router)
     proxy_logging_obj.update_request_status = mocker.AsyncMock()
     proxy_logging_obj.post_call_failure_hook = mocker.AsyncMock()
 
@@ -3531,11 +3531,11 @@ def test_create_file_provider_only_resolves_named_vertex_credentials(
             status="uploaded",
         )
 
-    monkeypatch.setattr(litellm, "acreate_file", _mock_acreate_file)
+    monkeypatch.setattr(embrouter, "acreate_file", _mock_acreate_file)
 
     app.dependency_overrides[ps.user_api_key_auth] = lambda: UserAPIKeyAuth(
         api_key="test-key",
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN,
         user_id="test-user",
     )
 
@@ -3560,14 +3560,14 @@ def test_create_file_provider_only_resolves_named_vertex_credentials(
 def test_get_file_provider_only_resolves_named_vertex_credentials(
     mocker: MockerFixture, monkeypatch
 ):
-    import litellm.proxy.proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    import embrouter.proxy.proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
     router = _setup_vertex_named_credential_router(monkeypatch)
     proxy_logging_obj = setup_proxy_logging_object(monkeypatch, router)
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", router)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.master_key", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", router)
     proxy_logging_obj.update_request_status = mocker.AsyncMock()
     proxy_logging_obj.post_call_failure_hook = mocker.AsyncMock()
 
@@ -3585,11 +3585,11 @@ def test_get_file_provider_only_resolves_named_vertex_credentials(
             status="uploaded",
         )
 
-    monkeypatch.setattr(litellm, "afile_retrieve", _mock_afile_retrieve)
+    monkeypatch.setattr(embrouter, "afile_retrieve", _mock_afile_retrieve)
 
     app.dependency_overrides[ps.user_api_key_auth] = lambda: UserAPIKeyAuth(
         api_key="test-key",
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN,
         user_id="test-user",
     )
 
@@ -3613,14 +3613,14 @@ def test_get_file_provider_only_resolves_named_vertex_credentials(
 def test_get_file_content_provider_only_resolves_named_vertex_credentials(
     mocker: MockerFixture, monkeypatch
 ):
-    import litellm.proxy.proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    import embrouter.proxy.proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
     router = _setup_vertex_named_credential_router(monkeypatch)
     proxy_logging_obj = setup_proxy_logging_object(monkeypatch, router)
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", router)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.master_key", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", router)
     proxy_logging_obj.update_request_status = mocker.AsyncMock()
     proxy_logging_obj.post_call_failure_hook = mocker.AsyncMock()
 
@@ -3638,11 +3638,11 @@ def test_get_file_content_provider_only_resolves_named_vertex_credentials(
             headers={"content-type": "application/octet-stream"},
         )
 
-    monkeypatch.setattr(litellm, "afile_content", _mock_afile_content)
+    monkeypatch.setattr(embrouter, "afile_content", _mock_afile_content)
 
     app.dependency_overrides[ps.user_api_key_auth] = lambda: UserAPIKeyAuth(
         api_key="test-key",
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN,
         user_id="test-user",
     )
 
@@ -3668,14 +3668,14 @@ def test_get_file_content_provider_only_resolves_named_vertex_credentials(
 def test_delete_file_provider_only_resolves_named_vertex_credentials(
     mocker: MockerFixture, monkeypatch
 ):
-    import litellm.proxy.proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    import embrouter.proxy.proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
     router = _setup_vertex_named_credential_router(monkeypatch)
     proxy_logging_obj = setup_proxy_logging_object(monkeypatch, router)
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", router)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.master_key", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", router)
     proxy_logging_obj.update_request_status = mocker.AsyncMock()
     proxy_logging_obj.post_call_failure_hook = mocker.AsyncMock()
 
@@ -3693,11 +3693,11 @@ def test_delete_file_provider_only_resolves_named_vertex_credentials(
             status="uploaded",
         )
 
-    monkeypatch.setattr(litellm, "afile_delete", _mock_afile_delete)
+    monkeypatch.setattr(embrouter, "afile_delete", _mock_afile_delete)
 
     app.dependency_overrides[ps.user_api_key_auth] = lambda: UserAPIKeyAuth(
         api_key="test-key",
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN,
         user_id="test-user",
     )
 
@@ -3727,14 +3727,14 @@ def test_create_file_provider_only_skips_other_team_vertex_deployment(
     team must use the global deployment's credentials, never the other
     team's.
     """
-    import litellm.proxy.proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    import embrouter.proxy.proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
     router = Router(
         model_list=[
             {
                 "model_name": "gemini-2.5-pro",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "vertex_ai/gemini-2.5-pro",
                     "vertex_project": "team-b-project",
                 },
@@ -3746,7 +3746,7 @@ def test_create_file_provider_only_skips_other_team_vertex_deployment(
             },
             {
                 "model_name": "gemini-2.5-pro",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "vertex_ai/gemini-2.5-pro",
                     "vertex_project": "shared-project",
                 },
@@ -3754,9 +3754,9 @@ def test_create_file_provider_only_skips_other_team_vertex_deployment(
         ]
     )
     proxy_logging_obj = setup_proxy_logging_object(monkeypatch, router)
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", router)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.master_key", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", router)
     proxy_logging_obj.update_request_status = mocker.AsyncMock()
     proxy_logging_obj.post_call_failure_hook = mocker.AsyncMock()
 
@@ -3774,11 +3774,11 @@ def test_create_file_provider_only_skips_other_team_vertex_deployment(
             status="uploaded",
         )
 
-    monkeypatch.setattr(litellm, "acreate_file", _mock_acreate_file)
+    monkeypatch.setattr(embrouter, "acreate_file", _mock_acreate_file)
 
     app.dependency_overrides[ps.user_api_key_auth] = lambda: UserAPIKeyAuth(
         api_key="test-key",
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=EmbrouterUserRoles.INTERNAL_USER,
         user_id="test-user",
         team_id="team-a",
         team_models=["gemini-2.5-pro"],
@@ -3807,7 +3807,7 @@ def _team_openai_plus_global_anthropic_router() -> Router:
         model_list=[
             {
                 "model_name": "team-gpt",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-4o",
                     "api_key": "team-openai-key",
                 },
@@ -3819,7 +3819,7 @@ def _team_openai_plus_global_anthropic_router() -> Router:
             },
             {
                 "model_name": "claude-opus-4-6",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "anthropic/claude-opus-4-6",
                     "api_key": "anthropic-key",
                 },
@@ -3831,13 +3831,13 @@ def _team_openai_plus_global_anthropic_router() -> Router:
 def _list_files_captured_kwargs(
     mocker: MockerFixture, monkeypatch, router: Router, key_models: list
 ) -> dict:
-    import litellm.proxy.proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    import embrouter.proxy.proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
     proxy_logging_obj = setup_proxy_logging_object(monkeypatch, router)
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", router)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.master_key", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", router)
     proxy_logging_obj.update_request_status = mocker.AsyncMock()
     proxy_logging_obj.post_call_success_hook = mocker.AsyncMock(return_value=[])
     proxy_logging_obj.post_call_failure_hook = mocker.AsyncMock()
@@ -3848,11 +3848,11 @@ def _list_files_captured_kwargs(
         captured_kwargs.update(kwargs)
         return []
 
-    monkeypatch.setattr(litellm, "afile_list", _mock_afile_list)
+    monkeypatch.setattr(embrouter, "afile_list", _mock_afile_list)
 
     app.dependency_overrides[ps.user_api_key_auth] = lambda: UserAPIKeyAuth(
         api_key="test-key",
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=EmbrouterUserRoles.INTERNAL_USER,
         user_id="test-user",
         team_id="team-a",
         team_models=["team-gpt", "claude-opus-4-6"],
@@ -3903,11 +3903,11 @@ def test_list_files_key_allowed_openai_model_still_resolves_team_credentials(
 
 
 @pytest.mark.parametrize(
-    "http_method, url, patched_litellm_call",
+    "http_method, url, patched_embrouter_call",
     [
-        ("get", "/v1/files/file-victim-abc123", "litellm.afile_retrieve"),
-        ("get", "/v1/files/file-victim-abc123/content", "litellm.afile_content"),
-        ("delete", "/v1/files/file-victim-abc123", "litellm.afile_delete"),
+        ("get", "/v1/files/file-victim-abc123", "embrouter.afile_retrieve"),
+        ("get", "/v1/files/file-victim-abc123/content", "embrouter.afile_content"),
+        ("delete", "/v1/files/file-victim-abc123", "embrouter.afile_delete"),
     ],
 )
 def test_require_managed_files_rejects_raw_provider_file_id(
@@ -3916,21 +3916,21 @@ def test_require_managed_files_rejects_raw_provider_file_id(
     llm_router: Router,
     http_method: str,
     url: str,
-    patched_litellm_call: str,
+    patched_embrouter_call: str,
 ):
-    import litellm.proxy.proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    import embrouter.proxy.proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
-    monkeypatch.setattr("litellm.require_managed_files", True)
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", llm_router)
+    monkeypatch.setattr("embrouter.require_managed_files", True)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.master_key", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", llm_router)
     setup_proxy_logging_object(monkeypatch, llm_router)
 
-    mock_call = mocker.patch(patched_litellm_call, new=mocker.AsyncMock())
+    mock_call = mocker.patch(patched_embrouter_call, new=mocker.AsyncMock())
 
     app.dependency_overrides[ps.user_api_key_auth] = lambda: UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER, user_id="attacker-user"
+        user_role=EmbrouterUserRoles.INTERNAL_USER, user_id="attacker-user"
     )
 
     try:
@@ -3939,7 +3939,7 @@ def test_require_managed_files_rejects_raw_provider_file_id(
         )
     finally:
         app.dependency_overrides.pop(ps.user_api_key_auth, None)
-        monkeypatch.setattr("litellm.require_managed_files", False)
+        monkeypatch.setattr("embrouter.require_managed_files", False)
 
     assert response.status_code == 400, response.text
     mock_call.assert_not_called()
@@ -3951,21 +3951,21 @@ def test_get_file_content_model_routed_attaches_trusted_model_credentials(monkey
     The managed-files pre-call hook sets data["model"] for any id carrying
     llm_output_file_id, so batch output retrieval always takes the model-routed branch
     and never reaches managed_files_obj.afile_content. Bedrock resolves its output
-    bucket only from _litellm_internal_model_credentials, so without the snapshot every
+    bucket only from _embrouter_internal_model_credentials, so without the snapshot every
     Bedrock batch output retrieval fails with "S3 bucket_name is required".
     """
     import base64
     from types import MappingProxyType
 
-    import litellm.proxy.proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
-    from litellm.types.utils import SpecialEnums
+    import embrouter.proxy.proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
+    from embrouter.types.utils import SpecialEnums
 
     router = Router(
         model_list=[
             {
                 "model_name": "anthropic.batch.claude-4.5-haiku",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "bedrock/anthropic.claude-haiku-4-5-20251001-v1:0",
                     "aws_region_name": "us-east-1",
                     "s3_bucket_name": "configured-batch-bucket",
@@ -3983,12 +3983,12 @@ def test_get_file_content_model_routed_attaches_trusted_model_credentials(monkey
     managed_file_row.storage_backend = None
     managed_file_row.storage_url = None
     prisma_stub = MagicMock()
-    prisma_stub.db.litellm_managedfiletable.find_first = AsyncMock(return_value=managed_file_row)
+    prisma_stub.db.embrouter_managedfiletable.find_first = AsyncMock(return_value=managed_file_row)
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", prisma_stub)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", prisma_stub)
     setup_proxy_logging_object(monkeypatch, router)
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", router)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.master_key", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", router)
 
     # One frozen snapshot per call rather than one dict merged across calls, so a second
     # invocation is visible instead of silently overwriting the first.
@@ -4006,7 +4006,7 @@ def test_get_file_content_model_routed_attaches_trusted_model_credentials(monkey
 
     monkeypatch.setattr(router, "afile_content", _mock_router_afile_content)
 
-    unified_id = SpecialEnums.LITELLM_MANAGED_FILE_COMPLETE_STR.value.format(
+    unified_id = SpecialEnums.EMBROUTER_MANAGED_FILE_COMPLETE_STR.value.format(
         "application/jsonl",
         "unified-output-id",
         "anthropic.batch.claude-4.5-haiku",
@@ -4017,7 +4017,7 @@ def test_get_file_content_model_routed_attaches_trusted_model_credentials(monkey
 
     app.dependency_overrides[ps.user_api_key_auth] = lambda: UserAPIKeyAuth(
         api_key="test-key",
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN,
         user_id="test-user",
     )
     try:
@@ -4030,7 +4030,7 @@ def test_get_file_content_model_routed_attaches_trusted_model_credentials(monkey
 
     assert response.status_code == 200, response.text
     assert len(calls) == 1, f"expected exactly one routed retrieval, got {len(calls)}"
-    snapshot = calls[0].get("_litellm_internal_model_credentials")
+    snapshot = calls[0].get("_embrouter_internal_model_credentials")
     assert snapshot is not None, "model-routed branch must attach the trusted credential snapshot"
     assert isinstance(
         snapshot, MappingProxyType
@@ -4041,9 +4041,9 @@ def test_get_file_content_model_routed_attaches_trusted_model_credentials(monkey
 def _unified_managed_file_id() -> str:
     import base64
 
-    from litellm.types.utils import SpecialEnums
+    from embrouter.types.utils import SpecialEnums
 
-    unified_id = SpecialEnums.LITELLM_MANAGED_FILE_COMPLETE_STR.value.format(
+    unified_id = SpecialEnums.EMBROUTER_MANAGED_FILE_COMPLETE_STR.value.format(
         "application/json", "victim-unified-id", "gpt-3.5-turbo", "file-victim-abc123", "gpt-3.5-turbo-id"
     )
     return base64.urlsafe_b64encode(unified_id.encode()).decode().rstrip("=")
@@ -4067,11 +4067,11 @@ class _ManagedResourceAccessCheckerStub:
 
 @pytest.mark.asyncio
 async def test_require_managed_files_allows_owned_unified_managed_file_id(monkeypatch):
-    from litellm.proxy.openai_files_endpoints.common_utils import (
+    from embrouter.proxy.openai_files_endpoints.common_utils import (
         validate_managed_id_requirement,
     )
 
-    monkeypatch.setattr("litellm.require_managed_files", True)
+    monkeypatch.setattr("embrouter.require_managed_files", True)
 
     await validate_managed_id_requirement(
         resource_id=_unified_managed_file_id(),
@@ -4083,11 +4083,11 @@ async def test_require_managed_files_allows_owned_unified_managed_file_id(monkey
 
 @pytest.mark.asyncio
 async def test_managed_file_id_requirement_is_opt_in(monkeypatch):
-    from litellm.proxy.openai_files_endpoints.common_utils import (
+    from embrouter.proxy.openai_files_endpoints.common_utils import (
         validate_managed_id_requirement,
     )
 
-    monkeypatch.setattr("litellm.require_managed_files", False)
+    monkeypatch.setattr("embrouter.require_managed_files", False)
 
     await validate_managed_id_requirement(
         resource_id="file-victim-abc123",
@@ -4100,17 +4100,17 @@ async def test_managed_file_id_requirement_is_opt_in(monkeypatch):
 def test_raw_provider_file_id_retrieve_allowed_when_managed_files_not_required(
     mocker: MockerFixture, monkeypatch, llm_router: Router
 ):
-    import litellm.proxy.proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    import embrouter.proxy.proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
-    monkeypatch.setattr("litellm.require_managed_files", False)
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", llm_router)
+    monkeypatch.setattr("embrouter.require_managed_files", False)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.master_key", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", llm_router)
     setup_proxy_logging_object(monkeypatch, llm_router)
 
     mock_retrieve = mocker.patch(
-        "litellm.afile_retrieve",
+        "embrouter.afile_retrieve",
         new=mocker.AsyncMock(
             return_value=OpenAIFileObject(
                 id="file-victim-abc123",
@@ -4125,7 +4125,7 @@ def test_raw_provider_file_id_retrieve_allowed_when_managed_files_not_required(
     )
 
     app.dependency_overrides[ps.user_api_key_auth] = lambda: UserAPIKeyAuth(
-        user_role=LitellmUserRoles.INTERNAL_USER, user_id="some-user"
+        user_role=EmbrouterUserRoles.INTERNAL_USER, user_id="some-user"
     )
 
     try:
@@ -4140,13 +4140,13 @@ def test_raw_provider_file_id_retrieve_allowed_when_managed_files_not_required(
 
 
 def _setup_batch_upload_endpoint(monkeypatch, llm_router: Router) -> list:
-    import litellm.proxy.proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
-    from litellm.proxy.openai_files_endpoints import files_endpoints as fe
+    import embrouter.proxy.proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
+    from embrouter.proxy.openai_files_endpoints import files_endpoints as fe
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", llm_router)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.master_key", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", llm_router)
     setup_proxy_logging_object(monkeypatch, llm_router)
 
     forwarded_calls: list = []
@@ -4165,13 +4165,13 @@ def _setup_batch_upload_endpoint(monkeypatch, llm_router: Router) -> list:
 
     monkeypatch.setattr(fe, "route_create_file", fake_route_create_file)
     app.dependency_overrides[ps.user_api_key_auth] = lambda: UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN, user_id="test-user"
+        user_role=EmbrouterUserRoles.PROXY_ADMIN, user_id="test-user"
     )
     return forwarded_calls
 
 
 def _teardown_batch_upload_endpoint():
-    import litellm.proxy.proxy_server as ps
+    import embrouter.proxy.proxy_server as ps
 
     app.dependency_overrides.pop(ps.user_api_key_auth, None)
 
@@ -4179,7 +4179,7 @@ def _teardown_batch_upload_endpoint():
 def test_create_file_batch_over_max_batch_file_size_mb_rejected_before_forwarding(
     monkeypatch, llm_router: Router
 ):
-    import litellm.proxy.proxy_server as ps
+    import embrouter.proxy.proxy_server as ps
 
     forwarded_calls = _setup_batch_upload_endpoint(monkeypatch, llm_router)
     monkeypatch.setitem(ps.general_settings, "max_batch_file_size_mb", 1)
@@ -4205,7 +4205,7 @@ def test_create_file_batch_over_max_batch_file_size_mb_rejected_before_forwardin
 
 
 def test_create_file_batch_under_max_batch_file_size_mb_forwards(monkeypatch, llm_router: Router):
-    import litellm.proxy.proxy_server as ps
+    import embrouter.proxy.proxy_server as ps
 
     forwarded_calls = _setup_batch_upload_endpoint(monkeypatch, llm_router)
     monkeypatch.setitem(ps.general_settings, "max_batch_file_size_mb", 1)
@@ -4346,12 +4346,12 @@ def test_batch_upload_runs_guardrails_on_each_record(
     monkeypatch, llm_router: Router, content, purpose, expected_status, expected_fragment
 ):
     """POST /v1/files with purpose=batch must reach the guardrail chain; other purposes must not."""
-    import litellm
-    import litellm.proxy.openai_files_endpoints.files_endpoints as fe
-    import litellm.proxy.proxy_server as ps
-    from litellm.integrations.custom_guardrail import CustomGuardrail
-    from litellm.proxy._types import LitellmUserRoles
-    from litellm.proxy.utils import ProxyLogging
+    import embrouter
+    import embrouter.proxy.openai_files_endpoints.files_endpoints as fe
+    import embrouter.proxy.proxy_server as ps
+    from embrouter.integrations.custom_guardrail import CustomGuardrail
+    from embrouter.proxy._types import EmbrouterUserRoles
+    from embrouter.proxy.utils import ProxyLogging
 
     class _Redactor(CustomGuardrail):
         async def async_pre_call_hook(self, user_api_key_dict, cache, data, call_type):
@@ -4360,11 +4360,11 @@ def test_batch_upload_runs_guardrails_on_each_record(
                     message["content"] = "***"
             return data
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", llm_router)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.master_key", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", llm_router)
     setup_proxy_logging_object(monkeypatch, llm_router)
-    monkeypatch.setattr(litellm, "callbacks", [_Redactor(guardrail_name="g", default_on=True)])
+    monkeypatch.setattr(embrouter, "callbacks", [_Redactor(guardrail_name="g", default_on=True)])
     ProxyLogging._callback_capabilities_cache.clear()
 
     async def fake_route_create_file(**kwargs):
@@ -4380,7 +4380,7 @@ def test_batch_upload_runs_guardrails_on_each_record(
 
     monkeypatch.setattr(fe, "route_create_file", fake_route_create_file)
     app.dependency_overrides[ps.user_api_key_auth] = lambda: UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN, user_id="test-user"
+        user_role=EmbrouterUserRoles.PROXY_ADMIN, user_id="test-user"
     )
     try:
         resp = _batch_upload(client, content, purpose)
@@ -4397,12 +4397,12 @@ def test_batch_upload_redacts_per_record(monkeypatch, llm_router: Router):
     expected_custom_ids = ["keep-1", "dirty", "keep-2"]
     import json as _json
 
-    import litellm
-    import litellm.proxy.openai_files_endpoints.files_endpoints as fe
-    import litellm.proxy.proxy_server as ps
-    from litellm.integrations.custom_guardrail import CustomGuardrail
-    from litellm.proxy._types import LitellmUserRoles
-    from litellm.proxy.utils import ProxyLogging
+    import embrouter
+    import embrouter.proxy.openai_files_endpoints.files_endpoints as fe
+    import embrouter.proxy.proxy_server as ps
+    from embrouter.integrations.custom_guardrail import CustomGuardrail
+    from embrouter.proxy._types import EmbrouterUserRoles
+    from embrouter.proxy.utils import ProxyLogging
 
     class _Redactor(CustomGuardrail):
         async def async_pre_call_hook(self, user_api_key_dict, cache, data, call_type):
@@ -4411,11 +4411,11 @@ def test_batch_upload_redacts_per_record(monkeypatch, llm_router: Router):
                     message["content"] = message["content"].replace("leak", "***")
             return data
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", llm_router)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.master_key", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", llm_router)
     setup_proxy_logging_object(monkeypatch, llm_router)
-    monkeypatch.setattr(litellm, "callbacks", [_Redactor(guardrail_name="g", default_on=True)])
+    monkeypatch.setattr(embrouter, "callbacks", [_Redactor(guardrail_name="g", default_on=True)])
     ProxyLogging._callback_capabilities_cache.clear()
 
     uploaded = {}
@@ -4435,7 +4435,7 @@ def test_batch_upload_redacts_per_record(monkeypatch, llm_router: Router):
 
     monkeypatch.setattr(fe, "route_create_file", fake_route_create_file)
     app.dependency_overrides[ps.user_api_key_auth] = lambda: UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN, user_id="test-user"
+        user_role=EmbrouterUserRoles.PROXY_ADMIN, user_id="test-user"
     )
 
     def _row(custom_id, content):
@@ -4460,7 +4460,7 @@ def test_batch_upload_redacts_per_record(monkeypatch, llm_router: Router):
         rows = [_json.loads(line) for line in uploaded["body"].decode().splitlines()]
         assert [row["custom_id"] for row in rows] == expected_custom_ids
         assert rows[1]["body"]["messages"][0]["content"] == "please *** this"
-        report = resp.json()["litellm_batch_guardrail"]
+        report = resp.json()["embrouter_batch_guardrail"]
         assert report["submitted_records"] == 3
         assert report["modified_records"] == [
             {"line": 2, "custom_id": "dirty", "action": "redacted", "guardrail": None}
@@ -4503,16 +4503,16 @@ def test_create_file_omits_batch_guardrail_field_when_no_guardrail_configured(mo
 
 def test_create_file_omits_batch_guardrail_field_when_guardrail_made_no_changes(monkeypatch, llm_router: Router):
     """A guardrail that runs and changes nothing leaves the response the plain OpenAI file shape."""
-    import litellm
-    from litellm.integrations.custom_guardrail import CustomGuardrail
-    from litellm.proxy.utils import ProxyLogging
+    import embrouter
+    from embrouter.integrations.custom_guardrail import CustomGuardrail
+    from embrouter.proxy.utils import ProxyLogging
 
     class _Passthrough(CustomGuardrail):
         async def async_pre_call_hook(self, user_api_key_dict, cache, data, call_type):
             return data
 
     forwarded_calls = _setup_batch_upload_endpoint(monkeypatch, llm_router)
-    monkeypatch.setattr(litellm, "callbacks", [_Passthrough(guardrail_name="noop", default_on=True)])
+    monkeypatch.setattr(embrouter, "callbacks", [_Passthrough(guardrail_name="noop", default_on=True)])
     ProxyLogging._callback_capabilities_cache.clear()
     try:
         response = client.post(
@@ -4534,13 +4534,13 @@ def test_batch_upload_closes_the_spools_it_opened(monkeypatch, llm_router: Route
     """The scan and the rewrite each open a spool; the request owns both and must not leak them."""
     import json as _json
 
-    import litellm
-    import litellm.proxy.openai_files_endpoints.batch_guardrails as bg
-    import litellm.proxy.openai_files_endpoints.files_endpoints as fe
-    import litellm.proxy.proxy_server as ps
-    from litellm.integrations.custom_guardrail import CustomGuardrail
-    from litellm.proxy._types import LitellmUserRoles
-    from litellm.proxy.utils import ProxyLogging
+    import embrouter
+    import embrouter.proxy.openai_files_endpoints.batch_guardrails as bg
+    import embrouter.proxy.openai_files_endpoints.files_endpoints as fe
+    import embrouter.proxy.proxy_server as ps
+    from embrouter.integrations.custom_guardrail import CustomGuardrail
+    from embrouter.proxy._types import EmbrouterUserRoles
+    from embrouter.proxy.utils import ProxyLogging
 
     class _Redactor(CustomGuardrail):
         async def async_pre_call_hook(self, user_api_key_dict, cache, data, call_type):
@@ -4549,11 +4549,11 @@ def test_batch_upload_closes_the_spools_it_opened(monkeypatch, llm_router: Route
                     message["content"] = message["content"].replace("leak", "***")
             return data
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", llm_router)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.master_key", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", llm_router)
     setup_proxy_logging_object(monkeypatch, llm_router)
-    monkeypatch.setattr(litellm, "callbacks", [_Redactor(guardrail_name="g", default_on=True)])
+    monkeypatch.setattr(embrouter, "callbacks", [_Redactor(guardrail_name="g", default_on=True)])
     ProxyLogging._callback_capabilities_cache.clear()
 
     spools = []
@@ -4579,7 +4579,7 @@ def test_batch_upload_closes_the_spools_it_opened(monkeypatch, llm_router: Route
 
     monkeypatch.setattr(fe, "route_create_file", fake_route_create_file)
     app.dependency_overrides[ps.user_api_key_auth] = lambda: UserAPIKeyAuth(
-        user_role=LitellmUserRoles.PROXY_ADMIN, user_id="test-user"
+        user_role=EmbrouterUserRoles.PROXY_ADMIN, user_id="test-user"
     )
 
     def _row(custom_id, content):
@@ -4671,36 +4671,36 @@ def _setup_unscoped_list_files_route_over_real_hook(
     """Wire GET /v1/files to a real managed-files hook over `rows`, with no provider
     credentials in the process. The neighbouring setup stubs the hook with a
     MagicMock, so it cannot see anything past the route's argument plumbing."""
-    import litellm.proxy.proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
-    from litellm_enterprise.proxy.hooks.managed_files import (
-        _PROXY_LiteLLMManagedFiles,
+    import embrouter.proxy.proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
+    from embrouter_enterprise.proxy.hooks.managed_files import (
+        _PROXY_EmbRouterManagedFiles,
     )
 
     for env_var in ("OPENAI_API_KEY", "OPENAI_ADMIN_KEY", "OPENAI_ORGANIZATION"):
         monkeypatch.delenv(env_var, raising=False)
-    monkeypatch.setattr(litellm, "api_key", None, raising=False)
-    monkeypatch.setattr(litellm, "openai_key", None, raising=False)
+    monkeypatch.setattr(embrouter, "api_key", None, raising=False)
+    monkeypatch.setattr(embrouter, "openai_key", None, raising=False)
 
-    managed_files = _PROXY_LiteLLMManagedFiles(
+    managed_files = _PROXY_EmbRouterManagedFiles(
         internal_usage_cache=MagicMock(), prisma_client=MagicMock()
     )
-    managed_files.prisma_client.db.litellm_managedfiletable = _ManagedFileTableOverRows(rows)
+    managed_files.prisma_client.db.embrouter_managedfiletable = _ManagedFileTableOverRows(rows)
 
     proxy_logging_obj = setup_proxy_logging_object(monkeypatch, llm_router)
     proxy_logging_obj.proxy_hook_mapping["managed_files"] = managed_files
     proxy_logging_obj.update_request_status = mocker.AsyncMock()
     proxy_logging_obj.post_call_success_hook = mocker.AsyncMock(return_value=None)
     proxy_logging_obj.post_call_failure_hook = mocker.AsyncMock()
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", llm_router)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.master_key", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", llm_router)
 
-    provider_list = mocker.patch.object(litellm, "afile_list", new=mocker.AsyncMock())
+    provider_list = mocker.patch.object(embrouter, "afile_list", new=mocker.AsyncMock())
 
     app.dependency_overrides[ps.user_api_key_auth] = lambda: UserAPIKeyAuth(
         api_key="test-key",
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=EmbrouterUserRoles.INTERNAL_USER,
         user_id="test-user",
     )
     return proxy_logging_obj, provider_list
@@ -4793,10 +4793,10 @@ def _post_user_data_file() -> httpx.Response:
 
 def _setup_create_file_over_pre_call_hook(monkeypatch, llm_router, hook):
     setup_proxy_logging_object(monkeypatch, llm_router)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", llm_router)
-    monkeypatch.setattr(litellm, "callbacks", [hook])
+    monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", llm_router)
+    monkeypatch.setattr(embrouter, "callbacks", [hook])
     monkeypatch.setattr(
-        "litellm.proxy.openai_files_endpoints.files_endpoints.files_config",
+        "embrouter.proxy.openai_files_endpoints.files_endpoints.files_config",
         [{"custom_llm_provider": "openai", "api_key": "sk-test"}],
     )
     return respx.post("https://api.openai.com/v1/files").mock(
@@ -4819,7 +4819,7 @@ def _setup_create_file_over_pre_call_hook(monkeypatch, llm_router, hook):
 def test_create_file_triggers_async_pre_call_hook(monkeypatch, llm_router: Router):
     """`POST /v1/files` must run `async_pre_call_hook` so a hook can inspect the upload
     before it reaches the provider (LIT-5916)."""
-    from litellm.integrations.custom_logger import CustomLogger
+    from embrouter.integrations.custom_logger import CustomLogger
 
     recorded: dict = {}
 
@@ -4846,7 +4846,7 @@ def test_create_file_triggers_async_pre_call_hook(monkeypatch, llm_router: Route
 @respx.mock
 def test_create_file_async_pre_call_hook_rejection_blocks_upload(monkeypatch, llm_router: Router):
     """A hook rejecting the upload must 400 before the file reaches the provider."""
-    from litellm.integrations.custom_logger import CustomLogger
+    from embrouter.integrations.custom_logger import CustomLogger
 
     class RejectingHook(CustomLogger):
         async def async_pre_call_hook(self, user_api_key_dict, cache, data, call_type):
@@ -4863,7 +4863,7 @@ def test_create_file_async_pre_call_hook_rejection_blocks_upload(monkeypatch, ll
 
 def test_create_file_non_batch_over_max_file_size_mb_rejected_before_forwarding(monkeypatch, llm_router: Router):
     """max_file_size_mb applies to every purpose, unlike the batch-only max_batch_file_size_mb."""
-    import litellm.proxy.proxy_server as ps
+    import embrouter.proxy.proxy_server as ps
 
     forwarded_calls = _setup_batch_upload_endpoint(monkeypatch, llm_router)
     monkeypatch.setitem(ps.general_settings, "max_file_size_mb", 1)
@@ -4889,7 +4889,7 @@ def test_create_file_non_batch_over_max_file_size_mb_rejected_before_forwarding(
 
 
 def test_create_file_non_batch_under_max_file_size_mb_forwards(monkeypatch, llm_router: Router):
-    import litellm.proxy.proxy_server as ps
+    import embrouter.proxy.proxy_server as ps
 
     forwarded_calls = _setup_batch_upload_endpoint(monkeypatch, llm_router)
     monkeypatch.setitem(ps.general_settings, "max_file_size_mb", 1)
@@ -4909,7 +4909,7 @@ def test_create_file_non_batch_under_max_file_size_mb_forwards(monkeypatch, llm_
 
 
 def test_create_file_blocked_extension_rejected_before_forwarding(monkeypatch, llm_router: Router):
-    import litellm.proxy.proxy_server as ps
+    import embrouter.proxy.proxy_server as ps
 
     forwarded_calls = _setup_batch_upload_endpoint(monkeypatch, llm_router)
     monkeypatch.setitem(ps.general_settings, "blocked_file_extensions", [".exe", ".sh"])
@@ -4958,7 +4958,7 @@ def test_create_file_blocked_extension_unset_allows_everything(monkeypatch, llm_
 def test_create_file_extension_outside_allowlist_rejected_before_forwarding(
     monkeypatch, llm_router: Router, filename: str
 ):
-    import litellm.proxy.proxy_server as ps
+    import embrouter.proxy.proxy_server as ps
 
     forwarded_calls = _setup_batch_upload_endpoint(monkeypatch, llm_router)
     monkeypatch.setitem(ps.general_settings, "allowed_file_extensions", [".jsonl"])
@@ -4982,7 +4982,7 @@ def test_create_file_extension_outside_allowlist_rejected_before_forwarding(
 
 
 def test_create_file_allowed_extension_forwards_case_insensitively(monkeypatch, llm_router: Router):
-    import litellm.proxy.proxy_server as ps
+    import embrouter.proxy.proxy_server as ps
 
     forwarded_calls = _setup_batch_upload_endpoint(monkeypatch, llm_router)
     monkeypatch.setitem(ps.general_settings, "allowed_file_extensions", [".JSONL"])
@@ -5002,7 +5002,7 @@ def test_create_file_allowed_extension_forwards_case_insensitively(monkeypatch, 
 
 
 def test_create_file_empty_allowlist_rejects_every_upload(monkeypatch, llm_router: Router):
-    import litellm.proxy.proxy_server as ps
+    import embrouter.proxy.proxy_server as ps
 
     forwarded_calls = _setup_batch_upload_endpoint(monkeypatch, llm_router)
     monkeypatch.setitem(ps.general_settings, "allowed_file_extensions", [])
@@ -5023,7 +5023,7 @@ def test_create_file_empty_allowlist_rejects_every_upload(monkeypatch, llm_route
 
 
 def test_create_file_allowlist_runs_before_blocklist(monkeypatch, llm_router: Router):
-    import litellm.proxy.proxy_server as ps
+    import embrouter.proxy.proxy_server as ps
 
     forwarded_calls = _setup_batch_upload_endpoint(monkeypatch, llm_router)
     monkeypatch.setitem(ps.general_settings, "allowed_file_extensions", [".jsonl"])
@@ -5079,19 +5079,19 @@ def test_list_files_target_model_names_passes_trusted_bedrock_credentials(
 ):
     """
     GET /v1/files?target_model_names=<bedrock model> must hand the deployment's
-    immutable credential snapshot to litellm.afile_list, since Bedrock resolves
+    immutable credential snapshot to embrouter.afile_list, since Bedrock resolves
     the S3 bucket to list from that snapshot rather than from request params.
     """
     from types import MappingProxyType
 
-    import litellm.proxy.proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    import embrouter.proxy.proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
     bedrock_router = Router(
         model_list=[
             {
                 "model_name": "bedrock-claude",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "bedrock/anthropic.claude-3-5-sonnet-20240620-v1:0",
                     "aws_access_key_id": "AKIAEXAMPLE",
                     "aws_secret_access_key": "secret",
@@ -5103,9 +5103,9 @@ def test_list_files_target_model_names_passes_trusted_bedrock_credentials(
     )
 
     proxy_logging_obj = setup_proxy_logging_object(monkeypatch, bedrock_router)
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", bedrock_router)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.master_key", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", bedrock_router)
     proxy_logging_obj.update_request_status = mocker.AsyncMock()
     proxy_logging_obj.post_call_success_hook = mocker.AsyncMock(return_value=[])
     proxy_logging_obj.post_call_failure_hook = mocker.AsyncMock()
@@ -5116,11 +5116,11 @@ def test_list_files_target_model_names_passes_trusted_bedrock_credentials(
         captured_kwargs.update(kwargs)
         return []
 
-    monkeypatch.setattr(litellm, "afile_list", _mock_afile_list)
+    monkeypatch.setattr(embrouter, "afile_list", _mock_afile_list)
 
     app.dependency_overrides[ps.user_api_key_auth] = lambda: UserAPIKeyAuth(
         api_key="test-key",
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN,
         user_id="test-user",
     )
 
@@ -5135,7 +5135,7 @@ def test_list_files_target_model_names_passes_trusted_bedrock_credentials(
     assert response.status_code == 200, response.text
     assert captured_kwargs["custom_llm_provider"] == "bedrock"
     assert captured_kwargs["purpose"] == "batch"
-    trusted_credentials = captured_kwargs["_litellm_internal_model_credentials"]
+    trusted_credentials = captured_kwargs["_embrouter_internal_model_credentials"]
     assert isinstance(trusted_credentials, MappingProxyType)
     assert trusted_credentials["s3_bucket_name"] == "my-bucket"
     proxy_logging_obj.post_call_failure_hook.assert_not_called()
@@ -5144,14 +5144,14 @@ def test_list_files_target_model_names_passes_trusted_bedrock_credentials(
 def test_delete_file_answers_400_for_an_id_outside_the_configured_bucket(mocker: MockerFixture, monkeypatch):
     from urllib.parse import quote
 
-    import litellm.proxy.proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    import embrouter.proxy.proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
     bedrock_router = Router(
         model_list=[
             {
                 "model_name": "bedrock-claude",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "bedrock/anthropic.claude-3-5-sonnet-20240620-v1:0",
                     "aws_access_key_id": "AKIAEXAMPLE",
                     "aws_secret_access_key": "secret",
@@ -5163,19 +5163,19 @@ def test_delete_file_answers_400_for_an_id_outside_the_configured_bucket(mocker:
     )
 
     proxy_logging_obj = setup_proxy_logging_object(monkeypatch, bedrock_router)
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", bedrock_router)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.master_key", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", bedrock_router)
     proxy_logging_obj.update_request_status = mocker.AsyncMock()
     proxy_logging_obj.post_call_success_hook = mocker.AsyncMock(return_value=[])
     proxy_logging_obj.post_call_failure_hook = mocker.AsyncMock()
 
     app.dependency_overrides[ps.user_api_key_auth] = lambda: UserAPIKeyAuth(
         api_key="test-key",
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN,
         user_id="test-user",
     )
-    foreign_file_id: Final = quote("s3://other-bucket/litellm-bedrock-files/job-123/input.jsonl", safe="")
+    foreign_file_id: Final = quote("s3://other-bucket/embrouter-bedrock-files/job-123/input.jsonl", safe="")
 
     try:
         with respx.mock:
@@ -5195,7 +5195,7 @@ def _cloud_files_router() -> Router:
         model_list=[
             {
                 "model_name": "bedrock-claude",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "bedrock/anthropic.claude-3-5-sonnet-20240620-v1:0",
                     "aws_access_key_id": "AKIAEXAMPLE",
                     "aws_secret_access_key": "secret",
@@ -5205,7 +5205,7 @@ def _cloud_files_router() -> Router:
             },
             {
                 "model_name": "vertex-gemini",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "vertex_ai/gemini-3.8-flash",
                     "vertex_project": "my-project",
                     "vertex_location": "us-central1",
@@ -5216,8 +5216,8 @@ def _cloud_files_router() -> Router:
     )
 
 
-RAW_S3_FILE_ID: Final = "s3://my-bucket/litellm-batch-outputs/job-123/abc/input.jsonl.out"
-RAW_GCS_FILE_ID: Final = "gs://my-gcs-bucket/litellm-vertex-files/publishers/google/models/gemini-3.8-flash/abc123"
+RAW_S3_FILE_ID: Final = "s3://my-bucket/embrouter-batch-outputs/job-123/abc/input.jsonl.out"
+RAW_GCS_FILE_ID: Final = "gs://my-gcs-bucket/embrouter-vertex-files/publishers/google/models/gemini-3.8-flash/abc123"
 
 
 @pytest.mark.parametrize(
@@ -5234,22 +5234,22 @@ def test_delete_file_answers_403_for_a_raw_cloud_id_from_a_non_admin_key(
 ):
     from urllib.parse import quote
 
-    import litellm.proxy.proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    import embrouter.proxy.proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
     bedrock_router = _cloud_files_router()
     proxy_logging_obj = setup_proxy_logging_object(monkeypatch, bedrock_router)
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", bedrock_router)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.master_key", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", bedrock_router)
     proxy_logging_obj.update_request_status = mocker.AsyncMock()
     proxy_logging_obj.post_call_failure_hook = mocker.AsyncMock()
     afile_delete = mocker.AsyncMock()
-    monkeypatch.setattr(litellm, "afile_delete", afile_delete)
+    monkeypatch.setattr(embrouter, "afile_delete", afile_delete)
 
     app.dependency_overrides[ps.user_api_key_auth] = lambda: UserAPIKeyAuth(
         api_key="test-key",
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=EmbrouterUserRoles.INTERNAL_USER,
         user_id="test-user",
         models=["bedrock-claude", "vertex-gemini"],
     )
@@ -5270,14 +5270,14 @@ def test_delete_file_answers_403_for_a_raw_cloud_id_from_a_non_admin_key(
 def test_delete_file_forwards_a_raw_cloud_id_from_a_proxy_admin_key(mocker: MockerFixture, monkeypatch):
     from urllib.parse import quote
 
-    import litellm.proxy.proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
+    import embrouter.proxy.proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
 
     bedrock_router = _cloud_files_router()
     proxy_logging_obj = setup_proxy_logging_object(monkeypatch, bedrock_router)
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", bedrock_router)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.master_key", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", bedrock_router)
     proxy_logging_obj.update_request_status = mocker.AsyncMock()
     proxy_logging_obj.post_call_failure_hook = mocker.AsyncMock()
 
@@ -5295,11 +5295,11 @@ def test_delete_file_forwards_a_raw_cloud_id_from_a_proxy_admin_key(mocker: Mock
             status="processed",
         )
 
-    monkeypatch.setattr(litellm, "afile_delete", _mock_afile_delete)
+    monkeypatch.setattr(embrouter, "afile_delete", _mock_afile_delete)
 
     app.dependency_overrides[ps.user_api_key_auth] = lambda: UserAPIKeyAuth(
         api_key="test-key",
-        user_role=LitellmUserRoles.PROXY_ADMIN,
+        user_role=EmbrouterUserRoles.PROXY_ADMIN,
         user_id="test-user",
     )
 
@@ -5322,10 +5322,10 @@ def _setup_managed_file_route_answering_404(
 ) -> None:
     """Wire the single-file routes to a managed file store that knows no file, the way the
     managed files hook answers once a file has been deleted or was never the caller's."""
-    import litellm.proxy.proxy_server as ps
+    import embrouter.proxy.proxy_server as ps
     from fastapi import HTTPException
-    from litellm.llms.base_llm.files.transformation import BaseFileEndpoints
-    from litellm.proxy._types import LitellmUserRoles
+    from embrouter.llms.base_llm.files.transformation import BaseFileEndpoints
+    from embrouter.proxy._types import EmbrouterUserRoles
 
     async def _file_not_found(file_id: str, **kwargs: object) -> None:
         raise HTTPException(status_code=404, detail=f"File not found: {file_id}")
@@ -5336,11 +5336,11 @@ def _setup_managed_file_route_answering_404(
     managed_files.afile_delete = mocker.AsyncMock(side_effect=_file_not_found)
     managed_files.afile_content = mocker.AsyncMock(side_effect=_file_not_found)
     proxy_logging_obj.proxy_hook_mapping["managed_files"] = managed_files
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", llm_router)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", llm_router)
 
     app.dependency_overrides[ps.user_api_key_auth] = lambda: UserAPIKeyAuth(
         api_key="test-key",
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=EmbrouterUserRoles.INTERNAL_USER,
         user_id="test-user",
     )
 
@@ -5349,7 +5349,7 @@ def _call_managed_file_route(method: str, path: str) -> httpx.Response:
     try:
         return client.request(method, path, headers={"Authorization": "Bearer test-key"})
     finally:
-        import litellm.proxy.proxy_server as ps
+        import embrouter.proxy.proxy_server as ps
 
         app.dependency_overrides.pop(ps.user_api_key_auth, None)
 
@@ -5371,7 +5371,7 @@ def test_create_file_reports_a_half_specified_expires_after_as_a_400(
     """A 400 raised inside the route answers with the type a 400 stands for and a JSON null
     param, not the literal string "None" in both fields, so a client can classify it."""
     setup_proxy_logging_object(monkeypatch, llm_router)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", llm_router)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", llm_router)
 
     response = client.post(
         "/v1/files",
@@ -5431,9 +5431,9 @@ def _setup_managed_file_stored_in_an_unknown_storage_backend(
     factory does not know, which is the one in-route ProxyException on these routes."""
     from types import SimpleNamespace
 
-    import litellm.proxy.proxy_server as ps
-    from litellm.llms.base_llm.files.transformation import BaseFileEndpoints
-    from litellm.proxy._types import LitellmUserRoles
+    import embrouter.proxy.proxy_server as ps
+    from embrouter.llms.base_llm.files.transformation import BaseFileEndpoints
+    from embrouter.proxy._types import EmbrouterUserRoles
 
     proxy_logging_obj = setup_proxy_logging_object(monkeypatch, llm_router)
     managed_files = mocker.MagicMock(spec=BaseFileEndpoints)
@@ -5444,13 +5444,13 @@ def _setup_managed_file_stored_in_an_unknown_storage_backend(
         return_value=SimpleNamespace(storage_backend="ftp", storage_url="ftp://bucket/file")
     )
     monkeypatch.setattr(
-        "litellm.proxy.openai_files_endpoints.files_endpoints.ManagedFileRepository", lambda _prisma: repository
+        "embrouter.proxy.openai_files_endpoints.files_endpoints.ManagedFileRepository", lambda _prisma: repository
     )
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", llm_router)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", llm_router)
 
     app.dependency_overrides[ps.user_api_key_auth] = lambda: UserAPIKeyAuth(
         api_key="test-key",
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=EmbrouterUserRoles.INTERNAL_USER,
         user_id="test-user",
     )
 
@@ -5477,23 +5477,23 @@ def test_get_file_model_routed_id_forwards_deployment_provider(mocker: MockerFix
     forwarded the credentials and let ``custom_llm_provider`` default to openai, so a
     Mistral file id was sent to api.openai.com with the Mistral key and 401'd.
     """
-    import litellm.proxy.proxy_server as ps
-    from litellm.proxy._types import LitellmUserRoles
-    from litellm.proxy.openai_files_endpoints.common_utils import encode_file_id_with_model
+    import embrouter.proxy.proxy_server as ps
+    from embrouter.proxy._types import EmbrouterUserRoles
+    from embrouter.proxy.openai_files_endpoints.common_utils import encode_file_id_with_model
 
     router = Router(
         model_list=[
             {
                 "model_name": "mistral-ocr",
-                "litellm_params": {"model": "mistral/mistral-ocr-latest", "api_key": "mistral-key"},
+                "embrouter_params": {"model": "mistral/mistral-ocr-latest", "api_key": "mistral-key"},
                 "model_info": {"id": "mistral-ocr-id"},
             }
         ]
     )
     proxy_logging_obj = setup_proxy_logging_object(monkeypatch, router)
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", router)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.master_key", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", router)
     proxy_logging_obj.update_request_status = mocker.AsyncMock()
     proxy_logging_obj.post_call_failure_hook = mocker.AsyncMock()
 
@@ -5511,9 +5511,9 @@ def test_get_file_model_routed_id_forwards_deployment_provider(mocker: MockerFix
             status="uploaded",
         )
 
-    monkeypatch.setattr(litellm, "afile_retrieve", _mock_afile_retrieve)
+    monkeypatch.setattr(embrouter, "afile_retrieve", _mock_afile_retrieve)
     app.dependency_overrides[ps.user_api_key_auth] = lambda: UserAPIKeyAuth(
-        api_key="test-key", user_role=LitellmUserRoles.PROXY_ADMIN, user_id="test-user"
+        api_key="test-key", user_role=EmbrouterUserRoles.PROXY_ADMIN, user_id="test-user"
     )
     encoded_id = encode_file_id_with_model("7a13fa8e-fcf8-42c5-aa61-c93c10e2c7df", "mistral-ocr")
 
@@ -5534,12 +5534,12 @@ def _mistral_plus_anthropic_router() -> Router:
         model_list=[
             {
                 "model_name": "mistral-ocr",
-                "litellm_params": {"model": "mistral/mistral-ocr-latest", "api_key": "mistral-key"},
+                "embrouter_params": {"model": "mistral/mistral-ocr-latest", "api_key": "mistral-key"},
                 "model_info": {"id": "mistral-ocr-id"},
             },
             {
                 "model_name": "claude-opus-4-6",
-                "litellm_params": {"model": "anthropic/claude-opus-4-6", "api_key": "anthropic-key"},
+                "embrouter_params": {"model": "anthropic/claude-opus-4-6", "api_key": "anthropic-key"},
                 "model_info": {"id": "claude-id"},
             },
         ]
@@ -5547,11 +5547,11 @@ def _mistral_plus_anthropic_router() -> Router:
 
 
 def _restricted_key(key_models: list[str]) -> UserAPIKeyAuth:
-    from litellm.proxy._types import LitellmUserRoles
+    from embrouter.proxy._types import EmbrouterUserRoles
 
     return UserAPIKeyAuth(
         api_key="test-key",
-        user_role=LitellmUserRoles.INTERNAL_USER,
+        user_role=EmbrouterUserRoles.INTERNAL_USER,
         user_id="test-user",
         team_id="team-a",
         team_models=["claude-opus-4-6", "mistral-ocr"],
@@ -5560,7 +5560,7 @@ def _restricted_key(key_models: list[str]) -> UserAPIKeyAuth:
 
 
 @pytest.mark.parametrize(
-    "http_method, path_suffix, litellm_fn",
+    "http_method, path_suffix, embrouter_fn",
     [
         ("get", "", "afile_retrieve"),
         ("get", "/content", "afile_content"),
@@ -5568,27 +5568,27 @@ def _restricted_key(key_models: list[str]) -> UserAPIKeyAuth:
     ],
 )
 def test_model_routed_file_ops_reject_key_without_model_grant(
-    mocker: MockerFixture, monkeypatch, http_method: str, path_suffix: str, litellm_fn: str
+    mocker: MockerFixture, monkeypatch, http_method: str, path_suffix: str, embrouter_fn: str
 ):
     """
     Regression: a key whose allowlist does not include the deployment named in a
     model-encoded file id must be refused before that deployment's server-side
     credentials are resolved. Previously any key could name any deployment via the
-    id (or the x-litellm-model header) and act on that provider account's files.
+    id (or the x-embrouter-model header) and act on that provider account's files.
     """
-    import litellm.proxy.proxy_server as ps
-    from litellm.proxy.openai_files_endpoints.common_utils import encode_file_id_with_model
+    import embrouter.proxy.proxy_server as ps
+    from embrouter.proxy.openai_files_endpoints.common_utils import encode_file_id_with_model
 
     router = _mistral_plus_anthropic_router()
     proxy_logging_obj = setup_proxy_logging_object(monkeypatch, router)
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", router)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.master_key", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", router)
     proxy_logging_obj.update_request_status = mocker.AsyncMock()
     proxy_logging_obj.post_call_failure_hook = mocker.AsyncMock()
 
     upstream = mocker.AsyncMock(side_effect=AssertionError("provider must not be called"))
-    monkeypatch.setattr(litellm, litellm_fn, upstream)
+    monkeypatch.setattr(embrouter, embrouter_fn, upstream)
     app.dependency_overrides[ps.user_api_key_auth] = lambda: _restricted_key(["claude-opus-4-6"])
     encoded_id = encode_file_id_with_model("7a13fa8e-fcf8-42c5-aa61-c93c10e2c7df", "mistral-ocr")
 
@@ -5605,23 +5605,23 @@ def test_model_routed_file_ops_reject_key_without_model_grant(
 
 
 def test_list_files_header_model_rejects_key_without_model_grant(mocker: MockerFixture, monkeypatch):
-    import litellm.proxy.proxy_server as ps
+    import embrouter.proxy.proxy_server as ps
 
     router = _mistral_plus_anthropic_router()
     proxy_logging_obj = setup_proxy_logging_object(monkeypatch, router)
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", router)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.master_key", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", router)
     proxy_logging_obj.update_request_status = mocker.AsyncMock()
     proxy_logging_obj.post_call_failure_hook = mocker.AsyncMock()
 
     upstream = mocker.AsyncMock(side_effect=AssertionError("provider must not be called"))
-    monkeypatch.setattr(litellm, "afile_list", upstream)
+    monkeypatch.setattr(embrouter, "afile_list", upstream)
     app.dependency_overrides[ps.user_api_key_auth] = lambda: _restricted_key(["claude-opus-4-6"])
 
     try:
         response = client.get(
-            "/v1/files", headers={"Authorization": "Bearer test-key", "x-litellm-model": "mistral-ocr"}
+            "/v1/files", headers={"Authorization": "Bearer test-key", "x-embrouter-model": "mistral-ocr"}
         )
     finally:
         app.dependency_overrides.pop(ps.user_api_key_auth, None)
@@ -5632,14 +5632,14 @@ def test_list_files_header_model_rejects_key_without_model_grant(mocker: MockerF
 
 def test_model_routed_file_retrieve_allows_key_with_model_grant(mocker: MockerFixture, monkeypatch):
     """The grant check must not break the happy path: a key allowed the deployment still resolves its credentials."""
-    import litellm.proxy.proxy_server as ps
-    from litellm.proxy.openai_files_endpoints.common_utils import encode_file_id_with_model
+    import embrouter.proxy.proxy_server as ps
+    from embrouter.proxy.openai_files_endpoints.common_utils import encode_file_id_with_model
 
     router = _mistral_plus_anthropic_router()
     proxy_logging_obj = setup_proxy_logging_object(monkeypatch, router)
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
-    monkeypatch.setattr("litellm.proxy.proxy_server.llm_router", router)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.master_key", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", None)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.llm_router", router)
     proxy_logging_obj.update_request_status = mocker.AsyncMock()
     proxy_logging_obj.post_call_failure_hook = mocker.AsyncMock()
 
@@ -5657,7 +5657,7 @@ def test_model_routed_file_retrieve_allows_key_with_model_grant(mocker: MockerFi
             status="uploaded",
         )
 
-    monkeypatch.setattr(litellm, "afile_retrieve", _mock_afile_retrieve)
+    monkeypatch.setattr(embrouter, "afile_retrieve", _mock_afile_retrieve)
     app.dependency_overrides[ps.user_api_key_auth] = lambda: _restricted_key(["mistral-ocr"])
     encoded_id = encode_file_id_with_model("7a13fa8e-fcf8-42c5-aa61-c93c10e2c7df", "mistral-ocr")
 
@@ -5682,7 +5682,7 @@ def _passthrough_router() -> Router:
         model_list=[
             {
                 "model_name": "vertex-batch",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "vertex_ai/gemini-2.5-flash",
                     "vertex_project": "proj",
                     "vertex_location": "us-central1",
@@ -5691,7 +5691,7 @@ def _passthrough_router() -> Router:
             },
             {
                 "model_name": "gpt-3.5-turbo",
-                "litellm_params": {"model": "openai/gpt-3.5-turbo", "api_key": "openai_api_key"},
+                "embrouter_params": {"model": "openai/gpt-3.5-turbo", "api_key": "openai_api_key"},
                 "model_info": {"id": "gpt-3.5-turbo-id"},
             },
         ]
@@ -5700,7 +5700,7 @@ def _passthrough_router() -> Router:
 
 def _setup_passthrough_upload_endpoint(monkeypatch, llm_router: Router) -> list:
     """Like _setup_batch_upload_endpoint, but reads the forwarded file bytes while the spool is open."""
-    from litellm.proxy.openai_files_endpoints import files_endpoints as fe
+    from embrouter.proxy.openai_files_endpoints import files_endpoints as fe
 
     forwarded_calls = _setup_batch_upload_endpoint(monkeypatch, llm_router)
 
@@ -5850,7 +5850,7 @@ def test_create_file_passthrough_rejects_a_model_group_with_a_non_vertex_deploym
         model_list=[
             {
                 "model_name": "vertex-batch",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "vertex_ai/gemini-2.5-flash",
                     "vertex_project": "proj",
                     "vertex_location": "us-central1",
@@ -5859,7 +5859,7 @@ def test_create_file_passthrough_rejects_a_model_group_with_a_non_vertex_deploym
             },
             {
                 "model_name": "vertex-batch",
-                "litellm_params": {"model": "openai/gpt-4.1-mini", "api_key": "openai_api_key"},
+                "embrouter_params": {"model": "openai/gpt-4.1-mini", "api_key": "openai_api_key"},
                 "model_info": {"id": "vertex-batch-openai-id"},
             },
         ]
@@ -5883,15 +5883,15 @@ def test_create_file_passthrough_rejects_a_model_group_with_a_non_vertex_deploym
 def test_create_file_passthrough_fails_closed_when_guardrails_would_scan_the_batch(monkeypatch):
     """Batch guardrails read OpenAI-shaped rows, so a passthrough upload on a guardrailed
     key is refused rather than forwarded unscanned."""
-    from litellm.integrations.custom_guardrail import CustomGuardrail
-    from litellm.proxy.utils import ProxyLogging
+    from embrouter.integrations.custom_guardrail import CustomGuardrail
+    from embrouter.proxy.utils import ProxyLogging
 
     class _Redactor(CustomGuardrail):
         async def async_pre_call_hook(self, user_api_key_dict, cache, data, call_type):
             return data
 
     forwarded_calls = _setup_passthrough_upload_endpoint(monkeypatch, _passthrough_router())
-    monkeypatch.setattr(litellm, "callbacks", [_Redactor(guardrail_name="g", default_on=True)])
+    monkeypatch.setattr(embrouter, "callbacks", [_Redactor(guardrail_name="g", default_on=True)])
     ProxyLogging._callback_capabilities_cache.clear()
 
     try:

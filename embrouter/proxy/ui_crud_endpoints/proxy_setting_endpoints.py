@@ -19,40 +19,40 @@ from pydantic import BaseModel, ConfigDict, JsonValue, TypeAdapter, ValidationEr
 from pydantic.fields import FieldInfo, PydanticUndefined
 from typing_extensions import NotRequired, ReadOnly, TypedDict
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.litellm_core_utils.sensitive_data_masker import mask_sensitive_keys
-from litellm.proxy._experimental.mcp_server.tool_search import MCP_TOOL_SEARCH_SETTINGS_KEY
-from litellm.proxy._types import *
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.common_utils.validation_error_body import public_validation_errors
-from litellm.proxy.config_resolvers import FieldSource, SettingsStore, source_for
-from litellm.proxy.config_resolvers.settings_store import ConfigOwnedKeyError
-from litellm.proxy.config_resolvers.sso import (
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.embrouter_core_utils.sensitive_data_masker import mask_sensitive_keys
+from embrouter.proxy._experimental.mcp_server.tool_search import MCP_TOOL_SEARCH_SETTINGS_KEY
+from embrouter.proxy._types import *
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.common_utils.validation_error_body import public_validation_errors
+from embrouter.proxy.config_resolvers import FieldSource, SettingsStore, source_for
+from embrouter.proxy.config_resolvers.settings_store import ConfigOwnedKeyError
+from embrouter.proxy.config_resolvers.sso import (
     SSO_FIELD_ENV_VARS,
     SSO_SECRET_FIELDS,
     resolve_sso_config,
 )
-from litellm.proxy.management_endpoints.team_admin_field_permissions import (
+from embrouter.proxy.management_endpoints.team_admin_field_permissions import (
     SUPPORTED_TEAM_ADMIN_PERMISSIONS,
     TEAM_ADMIN_EDITABLE_TEAM_FIELDS_SETTING,
 )
-from litellm.proxy.spend_tracking.ptu_feature_flag import (
+from embrouter.proxy.spend_tracking.ptu_feature_flag import (
     PTU_COST_ATTRIBUTION_ENV_VAR,
     is_ptu_cost_attribution_enabled,
 )
-from litellm.proxy.utils import invalidate_config_param
-from litellm.repositories.config_repository import ConfigRepository
-from litellm.repositories.organization_repository import OrganizationRepository
-from litellm.repositories.prisma_protocols import TableActions
-from litellm.repositories.table_repositories import (
+from embrouter.proxy.utils import invalidate_config_param
+from embrouter.repositories.config_repository import ConfigRepository
+from embrouter.repositories.organization_repository import OrganizationRepository
+from embrouter.repositories.prisma_protocols import TableActions
+from embrouter.repositories.table_repositories import (
     SSOConfigRepository,
     UISettingsRepository,
 )
-from litellm.repositories.team_repository import TeamRepository
-from litellm.secret_managers.main import get_secret
-from litellm.types.mcp import MCPToolSearchSettings
-from litellm.types.proxy.management_endpoints.ui_sso import (
+from embrouter.repositories.team_repository import TeamRepository
+from embrouter.secret_managers.main import get_secret
+from embrouter.types.mcp import MCPToolSearchSettings
+from embrouter.types.proxy.management_endpoints.ui_sso import (
     DefaultTeamSSOParams,
     SSOConfig,
 )
@@ -122,7 +122,7 @@ class _ConfigParamRow(Protocol):
 
 
 def _config_param_db(repo: ConfigRepository) -> TableActions[_ConfigParamRow]:
-    return cast(  # cast-ok: prisma's LiteLLM_Config actions object, whose Json column parses to a mapping
+    return cast(  # cast-ok: prisma's EmbRouter_Config actions object, whose Json column parses to a mapping
         "TableActions[_ConfigParamRow]", repo.table
     )
 
@@ -134,7 +134,7 @@ def _config_param_db(repo: ConfigRepository) -> TableActions[_ConfigParamRow]:
 _UI_THEME_FIELD_ENV_VARS: Final[dict[str, str]] = {
     "logo_url": "UI_LOGO_PATH",
     "logo_url_dark": "UI_LOGO_PATH_DARK",
-    "favicon_url": "LITELLM_FAVICON_URL",
+    "favicon_url": "EMBROUTER_FAVICON_URL",
 }
 
 
@@ -391,7 +391,7 @@ def _derived_ui_setting_value(key: str) -> object:
     if key == ENABLE_PTU_COST_ATTRIBUTION_UI_SETTING:
         return is_ptu_cost_attribution_enabled()
     if key == APPLY_USER_BUDGET_TO_TEAM_KEYS_UI_SETTING:
-        from litellm.proxy.proxy_server import general_settings
+        from embrouter.proxy.proxy_server import general_settings
 
         return _apply_user_budget_to_team_keys_enabled(
             cast(Mapping[str, object], general_settings)  # cast-ok: proxy_server declares general_settings as bare dict
@@ -414,7 +414,7 @@ _RUNTIME_GENERAL_SETTINGS_FLAGS: Final = [
     TEAM_ADMIN_EDITABLE_TEAM_FIELDS_SETTING,
 ]
 
-# Extension point: packages outside OSS (e.g. litellm_enterprise) can
+# Extension point: packages outside OSS (e.g. embrouter_enterprise) can
 # contribute additional UI settings fields at import time. Each entry
 # maps a field name to a (annotation, FieldInfo) tuple in pydantic
 # create_model's field-definitions format. Registering a field also
@@ -429,7 +429,7 @@ _EXTRA_UI_SETTINGS_FIELDS: Final[dict[str, tuple[object, FieldInfo]]] = {}
 # Settings OSS knows about as enterprise-gated. If a caller sends one of
 # these keys and no extension package has registered it, the PATCH
 # endpoint returns 403 instead of silently dropping the value, so the
-# client gets a clear signal that the feature requires LiteLLM Enterprise.
+# client gets a clear signal that the feature requires EmbRouter Enterprise.
 _ENTERPRISE_ONLY_UI_SETTINGS: Final[set[str]] = {"enable_projects_ui"}
 
 # Memoized effective class; invalidated on registration.
@@ -554,27 +554,27 @@ def _with_websearch_enabled_resolved(config: Mapping[str, object]) -> dict[str, 
     is safe for the page to send back on save. Deriving the answer from this
     process instead would report off on a pod that has not polled yet, and the
     next save would persist that as a cluster-wide off. Without a stored flag the
-    only available answer is local: litellm_settings.callbacks activates
+    only available answer is local: embrouter_settings.callbacks activates
     interception without storing one, and a write through the generic config
     endpoint can drop the flag from a block that is still live. Reporting the
     field default there would claim the feature is off while it serves.
     """
-    from litellm.integrations.websearch_interception.handler import (
+    from embrouter.integrations.websearch_interception.handler import (
         WebSearchInterceptionLogger,
     )
 
-    litellm_settings: Final[Mapping[str, object]] = _as_settings_section(config.get("litellm_settings"))
-    stored: Final[Mapping[str, object]] = _as_settings_section(litellm_settings.get("websearch_interception_params"))
+    embrouter_settings: Final[Mapping[str, object]] = _as_settings_section(config.get("embrouter_settings"))
+    stored: Final[Mapping[str, object]] = _as_settings_section(embrouter_settings.get("websearch_interception_params"))
     if "enabled" in stored:
         return dict(config)
 
     resolved: Final = {
         **stored,
-        "enabled": bool(litellm.logging_callback_manager.get_custom_loggers_for_type(WebSearchInterceptionLogger)),
+        "enabled": bool(embrouter.logging_callback_manager.get_custom_loggers_for_type(WebSearchInterceptionLogger)),
     }
     return {
         **config,
-        "litellm_settings": {**litellm_settings, "websearch_interception_params": resolved},
+        "embrouter_settings": {**embrouter_settings, "websearch_interception_params": resolved},
     }
 
 
@@ -589,7 +589,7 @@ def _as_settings_section(value: object) -> Mapping[str, object]:
     include_in_schema=False,
 )
 async def get_allowed_ips():
-    from litellm.proxy.proxy_server import general_settings
+    from embrouter.proxy.proxy_server import general_settings
 
     _allowed_ip: Final = general_settings.get("allowed_ips")
     return {"data": _allowed_ip}
@@ -619,7 +619,7 @@ async def add_allowed_ip(
     ip_address: IPAddress,
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
 ):
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         create_config_audit_log,
         general_settings,
         prisma_client,
@@ -681,7 +681,7 @@ async def delete_allowed_ip(
     ip_address: IPAddress,
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
 ):
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         create_config_audit_log,
         general_settings,
         proxy_config,
@@ -806,12 +806,12 @@ async def _get_settings_with_schema(
     Common utility function to get settings with schema information.
 
     Args:
-        settings_key: The key in litellm_settings to get
+        settings_key: The key in embrouter_settings to get
         settings_class: The Pydantic class to use for schema
         config: The config dictionary
     """
-    litellm_settings: Final = config.get("litellm_settings", {}) or {}
-    settings_data: Final = litellm_settings.get(settings_key, {}) or {}
+    embrouter_settings: Final = config.get("embrouter_settings", {}) or {}
+    settings_data: Final = embrouter_settings.get(settings_key, {}) or {}
 
     # Create the settings object
     settings: Final = settings_class(**(settings_data))
@@ -857,10 +857,10 @@ async def _get_settings_with_schema(
 )
 async def get_internal_user_settings():
     """
-    Get all SSO settings from the litellm_settings configuration.
+    Get all SSO settings from the embrouter_settings configuration.
     Returns a structured object with values and descriptions for UI display.
     """
-    from litellm.proxy.proxy_server import proxy_config
+    from embrouter.proxy.proxy_server import proxy_config
 
     # Load existing config
     config: Final = await proxy_config.get_config()
@@ -880,10 +880,10 @@ async def get_internal_user_settings():
 )
 async def get_default_team_settings():
     """
-    Get the default team parameters (litellm_settings.default_team_params).
+    Get the default team parameters (embrouter_settings.default_team_params).
     Returns a structured object with values and descriptions for UI display.
     """
-    from litellm.proxy.proxy_server import proxy_config
+    from embrouter.proxy.proxy_server import proxy_config
 
     # Load existing config
     config: Final = await proxy_config.get_config()
@@ -919,7 +919,7 @@ async def _validate_default_teams_exist(teams: list[str] | list[NewUserRequestTe
             },
         )
 
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(
@@ -947,7 +947,7 @@ async def _validate_default_organization_exists(organization_id: str) -> None:
     organization id would fail every future team creation instead of here, where the
     admin who typed it can still fix it.
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(
@@ -976,7 +976,7 @@ async def update_default_team_member_budget(teams: list[NewUserRequestTeam], use
     """
     from fastapi import Request
 
-    from litellm.proxy.management_endpoints.team_endpoints import update_team
+    from embrouter.proxy.management_endpoints.team_endpoints import update_team
 
     for team in teams:
         team_id = team.team_id
@@ -1000,7 +1000,7 @@ async def update_default_team_member_budget(teams: list[NewUserRequestTeam], use
             continue
 
 
-async def _update_litellm_setting(
+async def _update_embrouter_setting(
     settings: (
         DefaultInternalUserParams
         | DefaultTeamSSOParams
@@ -1013,15 +1013,15 @@ async def _update_litellm_setting(
     user_api_key_dict: UserAPIKeyAuth,
 ):
     """
-    Common utility function to update `litellm_settings` in both memory and config.
+    Common utility function to update `embrouter_settings` in both memory and config.
 
     Args:
         settings: The settings object to update
-        settings_key: The key in litellm_settings to update
+        settings_key: The key in embrouter_settings to update
         success_message: Message to return on success
         user_api_key_dict: The acting admin, recorded as the audit-log actor.
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         create_config_audit_log,
         proxy_config,
         store_model_in_db,
@@ -1036,19 +1036,19 @@ async def _update_litellm_setting(
     in_memory_var: Final = settings.model_dump(mode="json", exclude_none=True)
 
     # Load existing config first, then set in-memory value after,
-    # because get_config() may overwrite litellm.<key> with stale DB values
-    # via LITELLM_SETTINGS_SAFE_DB_OVERRIDES.
+    # because get_config() may overwrite embrouter.<key> with stale DB values
+    # via EMBROUTER_SETTINGS_SAFE_DB_OVERRIDES.
     config: Final = await proxy_config.get_config()
-    before_value: Final = config.get("litellm_settings", {}).get(settings_key)
+    before_value: Final = config.get("embrouter_settings", {}).get(settings_key)
 
     # Update the in-memory settings (after get_config to avoid stale override)
-    setattr(litellm, settings_key, in_memory_var)
+    setattr(embrouter, settings_key, in_memory_var)
 
     # Update config with new settings
-    if "litellm_settings" not in config:
-        config["litellm_settings"] = {}
+    if "embrouter_settings" not in config:
+        config["embrouter_settings"] = {}
 
-    config["litellm_settings"][settings_key] = in_memory_var
+    config["embrouter_settings"][settings_key] = in_memory_var
 
     # Save the updated config
     await proxy_config.save_config(new_config=config)
@@ -1096,7 +1096,7 @@ async def update_internal_user_settings(
             user_api_key_dict=user_api_key_dict,
         )
 
-    return await _update_litellm_setting(
+    return await _update_embrouter_setting(
         settings=settings,
         settings_key="default_internal_user_params",
         success_message="Internal user settings updated successfully",
@@ -1114,14 +1114,14 @@ async def update_default_team_settings(
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
 ):
     """
-    Update the default team parameters (litellm_settings.default_team_params).
+    Update the default team parameters (embrouter_settings.default_team_params).
     Applied to every new team for fields not explicitly provided in the create request;
     `models` only applies to teams automatically created via SSO Groups.
     """
     if settings.organization_id is not None:
         await _validate_default_organization_exists(settings.organization_id)
 
-    return await _update_litellm_setting(
+    return await _update_embrouter_setting(
         settings=settings,
         settings_key="default_team_params",
         success_message="Default team settings updated successfully",
@@ -1141,7 +1141,7 @@ async def get_sso_settings():
     Returns a structured object with values and descriptions for UI display.
     """
 
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     if prisma_client is None:
         raise HTTPException(
@@ -1199,7 +1199,7 @@ async def update_sso_settings(
     import json
     import os
 
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         create_config_audit_log,
         prisma_client,
         proxy_config,
@@ -1279,7 +1279,7 @@ async def update_sso_settings(
             before_value=before_sso_data,
             after_value=sso_data,
             user_api_key_dict=user_api_key_dict,
-            table_name=LitellmTableNames.SSO_CONFIG_TABLE_NAME,
+            table_name=EmbrouterTableNames.SSO_CONFIG_TABLE_NAME,
         )
     )
 
@@ -1331,13 +1331,13 @@ async def update_sso_settings(
 )
 async def get_ui_theme_settings():
     """
-    Get UI theme configuration from the litellm_settings.
+    Get UI theme configuration from the embrouter_settings.
     Returns current logo settings for UI customization.
 
     Note: This endpoint is public (no authentication required) so all users can see custom branding.
     Only the /update/ui_theme_settings endpoint requires authentication for admins to change settings.
     """
-    from litellm.proxy.proxy_server import proxy_config
+    from embrouter.proxy.proxy_server import proxy_config
 
     # Load existing config
     config: Final = await proxy_config.get_config()
@@ -1394,7 +1394,7 @@ async def update_ui_theme_settings(
     """
     import os
 
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         create_config_audit_log,
         proxy_config,
         store_model_in_db,
@@ -1412,15 +1412,15 @@ async def update_ui_theme_settings(
 
     # Load existing config
     config: Final = await proxy_config.get_config()
-    before_theme: Final = config.get("litellm_settings", {}).get("ui_theme_config")
+    before_theme: Final = config.get("embrouter_settings", {}).get("ui_theme_config")
 
     # Convert theme config to dict
     theme_data: Final = theme_config.model_dump(exclude_none=True)
 
-    # Store UI theme config in litellm_settings (where it's retrieved from)
-    if "litellm_settings" not in config:
-        config["litellm_settings"] = {}
-    config["litellm_settings"]["ui_theme_config"] = theme_data
+    # Store UI theme config in embrouter_settings (where it's retrieved from)
+    if "embrouter_settings" not in config:
+        config["embrouter_settings"] = {}
+    config["embrouter_settings"]["ui_theme_config"] = theme_data
 
     # The vars below are the only environment variables this endpoint owns, and
     # they must stay in step with _UI_THEME_FIELD_ENV_VARS. A non-empty value
@@ -1434,7 +1434,7 @@ async def update_ui_theme_settings(
     env_updates: Final[dict[str, str | None]] = {
         "UI_LOGO_PATH": _clean(theme_config.logo_url),
         "UI_LOGO_PATH_DARK": _clean(theme_config.logo_url_dark),
-        "LITELLM_FAVICON_URL": _clean(theme_config.favicon_url),
+        "EMBROUTER_FAVICON_URL": _clean(theme_config.favicon_url),
     }
     for env_key, env_value in env_updates.items():
         if env_value is not None:
@@ -1442,7 +1442,7 @@ async def update_ui_theme_settings(
         else:
             os.environ.pop(env_key, None)
 
-    # Persist the theme config (litellm_settings). save_config defaults to
+    # Persist the theme config (embrouter_settings). save_config defaults to
     # include_env_vars=False, so it does not snapshot environment_variables.
     await proxy_config.save_config(new_config=config)
     # Persist only the two owned env vars, merged against the existing DB row.
@@ -1478,7 +1478,7 @@ async def get_mcp_semantic_filter_settings(
     Get MCP semantic filter configuration.
     Returns current settings for semantic tool filtering.
     """
-    from litellm.proxy.proxy_server import prisma_client, proxy_config
+    from embrouter.proxy.proxy_server import prisma_client, proxy_config
 
     if prisma_client is None:
         raise HTTPException(
@@ -1508,20 +1508,20 @@ async def update_mcp_semantic_filter_settings(
     Update MCP semantic filter settings in database.
     Settings will be picked up by all pods within approximately 10 seconds via background polling.
     """
-    if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+    if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
         raise HTTPException(
             status_code=403,
             detail="Only proxy admins can update MCP semantic filter settings.",
         )
 
-    result: Final = await _update_litellm_setting(
+    result: Final = await _update_embrouter_setting(
         settings=settings,
         settings_key="mcp_semantic_tool_filter",
         success_message="MCP Semantic Filter settings updated successfully. Changes will be applied across all pods within 10 seconds.",
         user_api_key_dict=user_api_key_dict,
     )
     try:
-        from litellm.proxy.proxy_server import prisma_client, proxy_config
+        from embrouter.proxy.proxy_server import prisma_client, proxy_config
 
         if prisma_client is not None:
             await proxy_config._init_semantic_filter_settings_in_db(prisma_client=prisma_client)
@@ -1545,7 +1545,7 @@ async def get_websearch_interception_settings(
 
     Returns the current settings plus their schema, for the Admin UI to render.
     """
-    from litellm.proxy.proxy_server import prisma_client, proxy_config
+    from embrouter.proxy.proxy_server import prisma_client, proxy_config
 
     if prisma_client is None:
         raise HTTPException(
@@ -1555,7 +1555,7 @@ async def get_websearch_interception_settings(
 
     config: Final = await proxy_config.get_config()
 
-    from litellm.integrations.websearch_interception.handler import (
+    from embrouter.integrations.websearch_interception.handler import (
         WebSearchInterceptionLogger,
     )
 
@@ -1568,7 +1568,7 @@ async def get_websearch_interception_settings(
         values=settings["values"],
         field_schema=settings["field_schema"],
         active_on_this_pod=bool(
-            litellm.logging_callback_manager.get_custom_loggers_for_type(WebSearchInterceptionLogger)
+            embrouter.logging_callback_manager.get_custom_loggers_for_type(WebSearchInterceptionLogger)
         ),
     )
 
@@ -1587,13 +1587,13 @@ async def update_websearch_interception_settings(
 
     Settings will be picked up by all pods within approximately 10 seconds via background polling.
     """
-    if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+    if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
         raise HTTPException(
             status_code=403,
             detail="Only proxy admins can update web search interception settings.",
         )
 
-    result: Final = await _update_litellm_setting(
+    result: Final = await _update_embrouter_setting(
         settings=settings,
         settings_key="websearch_interception_params",
         success_message=(
@@ -1603,7 +1603,7 @@ async def update_websearch_interception_settings(
         user_api_key_dict=user_api_key_dict,
     )
     try:
-        from litellm.proxy.proxy_server import prisma_client, proxy_config
+        from embrouter.proxy.proxy_server import prisma_client, proxy_config
 
         if prisma_client is not None:
             await proxy_config.init_websearch_interception_settings_in_db(prisma_client=prisma_client)
@@ -1623,9 +1623,9 @@ async def get_mcp_tool_search_settings(
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
 ) -> Mapping[str, object]:
     """
-    Get the `litellm_settings.mcp_tool_search` configuration used by the native `mcp_tool_search` virtual tool.
+    Get the `embrouter_settings.mcp_tool_search` configuration used by the native `mcp_tool_search` virtual tool.
     """
-    from litellm.proxy.proxy_server import prisma_client, proxy_config
+    from embrouter.proxy.proxy_server import prisma_client, proxy_config
 
     if prisma_client is None:
         raise HTTPException(status_code=500, detail="Database not connected. Please connect a database.")
@@ -1649,16 +1649,16 @@ async def update_mcp_tool_search_settings(
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
 ) -> Mapping[str, object]:
     """
-    Update `litellm_settings.mcp_tool_search` in the database.
+    Update `embrouter_settings.mcp_tool_search` in the database.
     Settings will be picked up by all pods within approximately 10 seconds via background polling.
     """
-    if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+    if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
         raise HTTPException(
             status_code=403,
             detail="Only proxy admins can update MCP tool search settings.",
         )
 
-    return await _update_litellm_setting(
+    return await _update_embrouter_setting(
         settings=settings,
         settings_key=MCP_TOOL_SEARCH_SETTINGS_KEY,
         success_message="MCP tool search settings updated successfully. Changes will be applied across all pods within 10 seconds.",
@@ -1677,7 +1677,7 @@ async def get_ui_settings_cached() -> dict[str, JsonValue]:
     Cache hit  → return cached dict immediately.
     Cache miss → read from DB, populate cache, return dict.
     """
-    from litellm.proxy.proxy_server import prisma_client, user_api_key_cache
+    from embrouter.proxy.proxy_server import prisma_client, user_api_key_cache
 
     # 1. Try cache
     cached: Final = await user_api_key_cache.async_get_cache(key=UI_SETTINGS_CACHE_KEY)
@@ -1710,8 +1710,8 @@ _UI_SETTINGS_OBJECT: Final = TypeAdapter(dict[str, JsonValue])
 
 def apply_runtime_general_settings_flags(ui_settings: Mapping[str, JsonValue]) -> Mapping[str, JsonValue]:
     """Copy the UI settings that gate runtime behavior into ``general_settings``. Returns what was applied."""
-    from litellm.proxy.config_resolvers import SettingsStore
-    from litellm.proxy.proxy_server import general_settings
+    from embrouter.proxy.config_resolvers import SettingsStore
+    from embrouter.proxy.proxy_server import general_settings
 
     flags: Final = {k: ui_settings[k] for k in _RUNTIME_GENERAL_SETTINGS_FLAGS if k in ui_settings}
     if isinstance(general_settings, SettingsStore):
@@ -1754,7 +1754,7 @@ async def get_ui_settings():
     Get UI-specific configuration flags.
     All authenticated users can fetch these settings for client-side behavior.
     """
-    from litellm.proxy.proxy_server import prisma_client, proxy_config
+    from embrouter.proxy.proxy_server import prisma_client, proxy_config
 
     if prisma_client is None:
         raise HTTPException(
@@ -1775,7 +1775,7 @@ async def get_ui_settings():
     apply_runtime_general_settings_flags(ui_settings)
 
     # Refresh DualCache so other code paths (e.g. /user/filter/ui) see fresh values
-    from litellm.proxy.proxy_server import user_api_key_cache
+    from embrouter.proxy.proxy_server import user_api_key_cache
 
     await user_api_key_cache.async_set_cache(key=UI_SETTINGS_CACHE_KEY, value=ui_settings, ttl=UI_SETTINGS_CACHE_TTL)
 
@@ -1786,7 +1786,7 @@ async def get_ui_settings():
         }
     )
     config: Final[Mapping[str, object]] = MappingProxyType(
-        {"litellm_settings": MappingProxyType({"ui_settings": effective_ui_settings})}
+        {"embrouter_settings": MappingProxyType({"ui_settings": effective_ui_settings})}
     )
     settings_class: Final = _get_effective_ui_settings_class()
     resolved_settings: Final = _SettingsWithSchema.model_validate(
@@ -1835,13 +1835,13 @@ async def update_ui_settings(
     Update UI-specific configuration flags.
     Only proxy admins are allowed to modify these settings.
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         create_config_audit_log,
         prisma_client,
         store_model_in_db,
     )
 
-    if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+    if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
         raise HTTPException(status_code=403, detail="Only proxy admins can update UI settings.")
 
     if prisma_client is None:
@@ -1903,7 +1903,7 @@ async def update_ui_settings(
             status_code=403,
             detail={
                 "error": (
-                    f"Setting(s) {blocked_enterprise_keys} are a LiteLLM "
+                    f"Setting(s) {blocked_enterprise_keys} are a EmbRouter "
                     "Enterprise feature and are not available on this build."
                 )
             },
@@ -1940,7 +1940,7 @@ async def update_ui_settings(
     apply_runtime_general_settings_flags(ui_settings)
 
     # Invalidate + set DualCache so subsequent reads see the new values immediately
-    from litellm.proxy.proxy_server import user_api_key_cache
+    from embrouter.proxy.proxy_server import user_api_key_cache
 
     sanitized: Final = {k: v for k, v in ui_settings.items() if k in ALLOWED_UI_SETTINGS_FIELDS}
     await user_api_key_cache.async_set_cache(key=UI_SETTINGS_CACHE_KEY, value=sanitized, ttl=UI_SETTINGS_CACHE_TTL)
@@ -1952,7 +1952,7 @@ async def update_ui_settings(
             before_value=existing,
             after_value=ui_settings,
             user_api_key_dict=user_api_key_dict,
-            table_name=LitellmTableNames.UI_SETTINGS_TABLE_NAME,
+            table_name=EmbrouterTableNames.UI_SETTINGS_TABLE_NAME,
         )
     )
 
@@ -1979,7 +1979,7 @@ async def upload_logo(
     import os
     from pathlib import Path
 
-    if user_api_key_dict.user_role != LitellmUserRoles.PROXY_ADMIN:
+    if user_api_key_dict.user_role != EmbrouterUserRoles.PROXY_ADMIN:
         raise HTTPException(
             status_code=403,
             detail="Only proxy admins can upload a UI logo.",
@@ -2008,7 +2008,7 @@ async def upload_logo(
     os.makedirs(upload_dir, exist_ok=True)
 
     # Generate unique filename
-    from litellm._uuid import uuid
+    from embrouter._uuid import uuid
 
     unique_filename: Final = f"logo_{uuid.uuid4().hex}{file_extension}"
     file_path: Final = os.path.join(upload_dir, unique_filename)

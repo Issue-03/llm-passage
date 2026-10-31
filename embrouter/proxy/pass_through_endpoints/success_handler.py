@@ -6,13 +6,13 @@ from urllib.parse import urlparse
 
 import httpx
 
-from litellm.constants import AZURE_SPEECH_CUSTOM_LLM_PROVIDER
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.proxy._types import PassThroughEndpointLoggingResultValues
-from litellm.types.passthrough_endpoints.pass_through_endpoints import (
+from embrouter.constants import AZURE_SPEECH_CUSTOM_LLM_PROVIDER
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.proxy._types import PassThroughEndpointLoggingResultValues
+from embrouter.types.passthrough_endpoints.pass_through_endpoints import (
     PassthroughStandardLoggingPayload,
 )
-from litellm.types.utils import StandardPassThroughResponseObject
+from embrouter.types.utils import StandardPassThroughResponseObject
 
 from .llm_provider_handlers.anthropic_passthrough_logging_handler import (
     AnthropicPassthroughLoggingHandler,
@@ -121,7 +121,7 @@ class PassThroughEndpointLogging:
 
     async def _handle_logging(
         self,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         standard_logging_response_object: StandardPassThroughResponseObject
         | PassThroughEndpointLoggingResultValues
         | dict,
@@ -153,7 +153,7 @@ class PassThroughEndpointLogging:
         httpx_response: httpx.Response,
         response_body: dict | list[dict[str, object]] | None,
         request_body: dict,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         url_route: str,
         result: str,
         start_time: datetime,
@@ -413,7 +413,7 @@ class PassThroughEndpointLogging:
         self,
         httpx_response: httpx.Response,
         response_body: dict | list[dict[str, object]] | None,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         url_route: str,
         result: str,
         start_time: datetime,
@@ -627,7 +627,7 @@ class PassThroughEndpointLogging:
         Responses-API on-the-wire shape. Without including it here, the
         outer dispatch filters Responses calls out before reaching the
         handler — the inner branch is then unreachable and Responses
-        calls land in `LiteLLM_SpendLogs` with zero tokens / zero spend.
+        calls land in `EmbRouter_SpendLogs` with zero tokens / zero spend.
         """
         from .llm_provider_handlers.openai_passthrough_logging_handler import (
             OpenAIPassthroughLoggingHandler,
@@ -643,7 +643,7 @@ class PassThroughEndpointLogging:
 
     def _set_cost_per_request(
         self,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         passthrough_logging_payload: PassthroughStandardLoggingPayload,
         kwargs: dict,
     ):
@@ -654,7 +654,7 @@ class PassThroughEndpointLogging:
         If it's not set, don't set it in the logging object.
 
         An upstream that prices its own requests always wins: ``cost_per_request``
-        is a flat per-request estimate for targets LiteLLM cannot price, and it
+        is a flat per-request estimate for targets EmbRouter cannot price, and it
         defaults to 0.0 on every config-defined endpoint, so honoring it here
         would zero out the real cost the upstream reported. That holds even when
         the reported value was unusable, where the contract records 0 rather

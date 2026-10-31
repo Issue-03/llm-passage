@@ -1,7 +1,7 @@
 from collections.abc import Collection
 from typing import Final
 
-from litellm.exceptions import GuardrailRaisedException
+from embrouter.exceptions import GuardrailRaisedException
 
 
 def is_fastapi_http_exception(e: Exception, block_status_codes: Collection[int]) -> bool:

@@ -4,35 +4,35 @@ Cost calculator for MCP tools.
 
 from typing import TYPE_CHECKING, Any, Final, cast
 
-from litellm.types.mcp import MCPServerCostInfo
-from litellm.types.utils import StandardLoggingMCPToolCall
+from embrouter.types.mcp import MCPServerCostInfo
+from embrouter.types.utils import StandardLoggingMCPToolCall
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import (
-        Logging as LitellmLoggingObject,
+    from embrouter.embrouter_core_utils.embrouter_logging import (
+        Logging as EmbrouterLoggingObject,
     )
 else:
-    LitellmLoggingObject = Any
+    EmbrouterLoggingObject = Any
 
 
 class MCPCostCalculator:
     @staticmethod
     def calculate_mcp_tool_call_cost(
-        litellm_logging_obj: LitellmLoggingObject | None,
+        embrouter_logging_obj: EmbrouterLoggingObject | None,
     ) -> float:
         """
         Calculate the cost of an MCP tool call.
 
         Default is 0.0, unless user specifies a custom cost per request for MCP tools.
         """
-        if litellm_logging_obj is None:
+        if embrouter_logging_obj is None:
             return 0.0
 
         #########################################################
         # Get the response cost from logging object model_call_details
         # This is set when a user modifies the response in a post_mcp_tool_call_hook
         #########################################################
-        response_cost: Final = litellm_logging_obj.model_call_details.get("response_cost", None)
+        response_cost: Final = embrouter_logging_obj.model_call_details.get("response_cost", None)
         if response_cost is not None:
             return response_cost
 
@@ -42,7 +42,7 @@ class MCPCostCalculator:
         mcp_tool_call_metadata: Final[StandardLoggingMCPToolCall] = (
             cast(
                 StandardLoggingMCPToolCall,
-                litellm_logging_obj.model_call_details.get("mcp_tool_call_metadata", {}),
+                embrouter_logging_obj.model_call_details.get("mcp_tool_call_metadata", {}),
             )
             or {}
         )

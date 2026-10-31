@@ -9,8 +9,8 @@ from typing import TYPE_CHECKING, Optional
 
 import httpx
 
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.types.utils import ModelResponse
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.types.utils import ModelResponse
 
 from ...openai.openai import OpenAIChatCompletion
 from ..common_utils import BaseAzureLLM
@@ -25,8 +25,8 @@ class AzureOpenAIO1ChatCompletion(BaseAzureLLM, OpenAIChatCompletion):
         model_response: ModelResponse,
         timeout: float | httpx.Timeout,
         optional_params: dict,
-        litellm_params: dict,
-        logging_obj: LiteLLMLoggingObj,
+        embrouter_params: dict,
+        logging_obj: EmbRouterLoggingObj,
         model: str | None = None,
         messages: list | None = None,
         print_verbose: Callable | None = None,
@@ -46,7 +46,7 @@ class AzureOpenAIO1ChatCompletion(BaseAzureLLM, OpenAIChatCompletion):
         shared_session: Optional["ClientSession"] = None,
     ):
         client = self.get_azure_openai_client(
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             api_key=api_key,
             api_base=api_base,
             api_version=api_version,
@@ -57,7 +57,7 @@ class AzureOpenAIO1ChatCompletion(BaseAzureLLM, OpenAIChatCompletion):
             model_response=model_response,
             timeout=timeout,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             logging_obj=logging_obj,
             model=model,
             messages=messages,

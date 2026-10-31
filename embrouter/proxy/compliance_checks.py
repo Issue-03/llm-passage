@@ -7,7 +7,7 @@ and execution results rather than specific guardrail names.
 
 from typing import Final
 
-from litellm.types.proxy.compliance_endpoints import (
+from embrouter.types.proxy.compliance_endpoints import (
     ComplianceCheckRequest,
     ComplianceCheckResult,
 )
@@ -44,7 +44,7 @@ class ComplianceChecker:
         ``g_mode`` is guaranteed to have run in ``mode`` for the audited request.
 
         ``guardrail_mode`` in a spend log can take several shapes because
-        ``LitellmParams.mode`` is typed ``Union[str, List[str], Mode]``, and
+        ``EmbrouterParams.mode`` is typed ``Union[str, List[str], Mode]``, and
         when the event type cannot be inferred at write time the raw config is
         logged verbatim. The spend log records the configured mode(s), not the
         concrete hook that fired for a given request; a match reports a mode

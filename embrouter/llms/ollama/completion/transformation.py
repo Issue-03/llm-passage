@@ -6,25 +6,25 @@ from typing import TYPE_CHECKING, Any, Final
 from httpx._models import Headers, Response
 from pydantic import BaseModel, ConfigDict, ValidationError
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm._uuid import uuid
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter._uuid import uuid
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
     get_str_from_messages,
 )
-from litellm.litellm_core_utils.prompt_templates.factory import (
+from embrouter.embrouter_core_utils.prompt_templates.factory import (
     convert_to_ollama_image,
     custom_prompt,
     ollama_pt,
 )
-from litellm.litellm_core_utils.prompt_templates.image_handling import (
+from embrouter.embrouter_core_utils.prompt_templates.image_handling import (
     async_inline_remote_media,
     inline_remote_image_urls,
 )
-from litellm.llms.base_llm.base_model_iterator import BaseModelResponseIterator
-from litellm.llms.base_llm.chat.transformation import BaseConfig, BaseLLMException
-from litellm.types.llms.openai import AllMessageValues, ChatCompletionUsageBlock
-from litellm.types.utils import (
+from embrouter.llms.base_llm.base_model_iterator import BaseModelResponseIterator
+from embrouter.llms.base_llm.chat.transformation import BaseConfig, BaseLLMException
+from embrouter.types.llms.openai import AllMessageValues, ChatCompletionUsageBlock
+from embrouter.types.utils import (
     Delta,
     GenericStreamingChunk,
     ModelResponse,
@@ -36,12 +36,12 @@ from litellm.types.utils import (
 from ..common_utils import OllamaError, OllamaModelInfo, _convert_image
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 
 class _OllamaGenerateReasoning(BaseModel):
@@ -64,7 +64,7 @@ class _OllamaGenerateReasoning(BaseModel):
     def split(self) -> tuple[str | None, str | None]:
         """Reasoning reaches `/api/generate` either in the top-level `thinking` field or
         inline in `<think>` tags, never both. The field wins, matching `ollama_chat`."""
-        from litellm.litellm_core_utils.prompt_templates.common_utils import (
+        from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
             _parse_content_for_reasoning,
         )
 
@@ -244,16 +244,16 @@ class OllamaConfig(BaseConfig):
 
     @staticmethod
     def get_api_key() -> str | None:
-        """Get API key from environment variables or litellm configuration"""
+        """Get API key from environment variables or embrouter configuration"""
         import os
 
-        import litellm
-        from litellm.secret_managers.main import get_secret_str
+        import embrouter
+        from embrouter.secret_managers.main import get_secret_str
 
         return (
             os.environ.get("OLLAMA_API_KEY")
-            or litellm.api_key
-            or litellm.openai_key
+            or embrouter.api_key
+            or embrouter.openai_key
             or get_secret_str("OLLAMA_API_KEY")
         )
 
@@ -278,11 +278,11 @@ class OllamaConfig(BaseConfig):
         model: str,
         raw_response: Response,
         model_response: ModelResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         request_data: dict,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,
@@ -297,7 +297,7 @@ class OllamaConfig(BaseConfig):
 
             if not response_text or not response_text.strip():
                 # Handle empty response gracefully - set empty content
-                message = litellm.Message(content="", reasoning_content=thinking)
+                message = embrouter.Message(content="", reasoning_content=thinking)
                 model_response.choices[0].message = message
                 model_response.choices[0].finish_reason = "stop"
             else:
@@ -312,7 +312,7 @@ class OllamaConfig(BaseConfig):
                     ):
                         # Handle as function call (original behavior)
                         function_call: Final = response_content
-                        message = litellm.Message(
+                        message = embrouter.Message(
                             content=None,
                             reasoning_content=thinking,
                             tool_calls=[
@@ -330,7 +330,7 @@ class OllamaConfig(BaseConfig):
                         model_response.choices[0].finish_reason = "tool_calls"
                     else:
                         # Handle as regular JSON (new behavior)
-                        message = litellm.Message(
+                        message = embrouter.Message(
                             content=json.dumps(response_content),
                             reasoning_content=thinking,
                         )
@@ -339,7 +339,7 @@ class OllamaConfig(BaseConfig):
                 except json.JSONDecodeError:
                     # If JSON parsing fails, treat as regular text response
                     reasoning_content, content = _OllamaGenerateReasoning.from_response(response_json).split()
-                    message = litellm.Message(content=content, reasoning_content=reasoning_content)
+                    message = embrouter.Message(content=content, reasoning_content=reasoning_content)
                     model_response.choices[0].message = message
                     model_response.choices[0].finish_reason = "stop"
         else:
@@ -349,7 +349,7 @@ class OllamaConfig(BaseConfig):
         model_response.created = int(time.time())
         model_response.model = "ollama/" + model
         _prompt: Final = request_data.get("prompt", "")
-        tokenizer: Final = encoding if encoding is not None else litellm.encoding
+        tokenizer: Final = encoding if encoding is not None else embrouter.encoding
         prompt_tokens: Final = response_json.get(
             "prompt_eval_count",
             len(tokenizer.encode(_prompt, disallowed_special=())),
@@ -360,7 +360,7 @@ class OllamaConfig(BaseConfig):
         setattr(
             model_response,
             "usage",
-            litellm.Usage(
+            embrouter.Usage(
                 prompt_tokens=prompt_tokens,
                 completion_tokens=completion_tokens,
                 total_tokens=prompt_tokens + completion_tokens,
@@ -377,14 +377,14 @@ class OllamaConfig(BaseConfig):
         model: str,
         messages: list[AllMessageValues],  # mutable-ok: BaseConfig signature
         optional_params: dict[str, object],  # mutable-ok: BaseConfig signature
-        litellm_params: dict[str, object],  # mutable-ok: BaseConfig signature
+        embrouter_params: dict[str, object],  # mutable-ok: BaseConfig signature
         headers: dict[str, object],  # mutable-ok: BaseConfig signature
     ) -> dict[str, object]:  # mutable-ok: BaseConfig signature
         return self.transform_request(
             model=model,
             messages=await async_inline_remote_media(messages, should_inline=inline_remote_image_urls),
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
@@ -393,12 +393,12 @@ class OllamaConfig(BaseConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
-        custom_prompt_dict: Final = litellm_params.get("custom_prompt_dict") or litellm.custom_prompt_dict
+        custom_prompt_dict: Final = embrouter_params.get("custom_prompt_dict") or embrouter.custom_prompt_dict
 
-        text_completion_request: Final = litellm_params.get("text_completion")
+        text_completion_request: Final = embrouter_params.get("text_completion")
         if model in custom_prompt_dict:
             # check if the model has a registered custom prompt
             model_prompt_details: Final = custom_prompt_dict[model]
@@ -446,7 +446,7 @@ class OllamaConfig(BaseConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
@@ -458,7 +458,7 @@ class OllamaConfig(BaseConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         """

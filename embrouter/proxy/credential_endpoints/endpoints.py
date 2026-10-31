@@ -12,18 +12,18 @@ from typing import (
 from fastapi import APIRouter, Depends, HTTPException, Path, Request, Response
 from pydantic import TypeAdapter
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.litellm_core_utils.credential_accessor import CredentialAccessor
-from litellm.litellm_core_utils.litellm_logging import _get_masked_values
-from litellm.models.credentials import UpdateCredentialItem
-from litellm.proxy._types import CommonProxyErrors, UserAPIKeyAuth
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.common_utils.encrypt_decrypt_utils import encrypt_value_helper
-from litellm.proxy.utils import handle_exception_on_proxy, jsonify_object
-from litellm.repositories.base_repository import is_unique_violation
-from litellm.repositories.credentials_repository import CredentialsRepository
-from litellm.types.utils import CreateCredentialItem, CredentialItem
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.embrouter_core_utils.credential_accessor import CredentialAccessor
+from embrouter.embrouter_core_utils.embrouter_logging import _get_masked_values
+from embrouter.models.credentials import UpdateCredentialItem
+from embrouter.proxy._types import CommonProxyErrors, UserAPIKeyAuth
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.common_utils.encrypt_decrypt_utils import encrypt_value_helper
+from embrouter.proxy.utils import handle_exception_on_proxy, jsonify_object
+from embrouter.repositories.base_repository import is_unique_violation
+from embrouter.repositories.credentials_repository import CredentialsRepository
+from embrouter.types.utils import CreateCredentialItem, CredentialItem
 
 router: Final = APIRouter()
 _CREDENTIAL_DICT_ADAPTER: Final = TypeAdapter(dict[str, object])
@@ -53,13 +53,13 @@ def _credential_exists_detail(credential_name: str) -> str:
     )
 
 
-def get_llm_router() -> litellm.Router | None:
-    from litellm.proxy.proxy_server import llm_router
+def get_llm_router() -> embrouter.Router | None:
+    from embrouter.proxy.proxy_server import llm_router
 
     return llm_router
 
 
-def _resolve_deployment_credentials(llm_router: litellm.Router | None, model_id: str) -> Mapping[str, object]:
+def _resolve_deployment_credentials(llm_router: embrouter.Router | None, model_id: str) -> Mapping[str, object]:
     if llm_router is None:
         raise HTTPException(
             status_code=500,
@@ -83,14 +83,14 @@ async def create_credential(
     fastapi_response: Response,
     credential: CreateCredentialItem,
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
-    llm_router: Annotated[litellm.Router | None, Depends(get_llm_router)] = None,
+    llm_router: Annotated[embrouter.Router | None, Depends(get_llm_router)] = None,
 ):
     """
     [BETA] endpoint. This might change unexpectedly.
     Stores credential in DB.
     Reloads credentials in memory.
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     try:
         if prisma_client is None:
@@ -131,7 +131,7 @@ async def create_credential(
                 raise
             raise HTTPException(status_code=409, detail=_credential_exists_detail(credential.credential_name))
 
-        ## ADD TO LITELLM ##
+        ## ADD TO EMBROUTER ##
         CredentialAccessor.upsert_credentials([processed_credential])
 
         return {"success": True, "message": "Credential created successfully"}
@@ -160,7 +160,7 @@ async def get_credentials(
                 "credential_values": _get_masked_values(credential.credential_values),
                 "credential_info": credential.credential_info,
             }
-            for credential in litellm.credential_list
+            for credential in embrouter.credential_list
         ]
         return {"success": True, "credentials": masked_credentials}
     except Exception as e:
@@ -183,7 +183,7 @@ async def get_credential_by_name(
     [BETA] endpoint. This might change unexpectedly.
     """
     try:
-        for credential in litellm.credential_list:
+        for credential in embrouter.credential_list:
             if credential.credential_name == credential_name:
                 masked_credential = CredentialItem(
                     credential_name=credential.credential_name,
@@ -219,7 +219,7 @@ async def get_credential_by_model(
     """
     [BETA] endpoint. This might change unexpectedly.
     """
-    from litellm.proxy.proxy_server import llm_router
+    from embrouter.proxy.proxy_server import llm_router
 
     try:
         if llm_router is None:
@@ -260,7 +260,7 @@ async def delete_credential(
     """
     [BETA] endpoint. This might change unexpectedly.
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     try:
         if prisma_client is None:
@@ -275,8 +275,8 @@ async def delete_credential(
                 detail="Credential not found. Got credential name: " + credential_name,
             )
 
-        ## DELETE FROM LITELLM ##
-        litellm.credential_list = [cred for cred in litellm.credential_list if cred.credential_name != credential_name]
+        ## DELETE FROM EMBROUTER ##
+        embrouter.credential_list = [cred for cred in embrouter.credential_list if cred.credential_name != credential_name]
         return {"success": True, "message": "Credential deleted successfully"}
     except Exception as e:
         raise handle_exception_on_proxy(e)
@@ -304,7 +304,7 @@ def update_db_credential(
     if encrypted_credential.credential_name:
         merged_credential.credential_name = encrypted_credential.credential_name
 
-    # update litellm params
+    # update embrouter params
     if encrypted_credential.credential_values:
         # Encrypt any sensitive values
         encrypted_params: Final = {k: v for k, v in encrypted_credential.credential_values.items()}
@@ -332,12 +332,12 @@ async def update_credential(
     credential: UpdateCredentialItem,
     credential_name: str = Path(..., description="The credential name, percent-decoded; may contain slashes"),
     user_api_key_dict: UserAPIKeyAuth = Depends(user_api_key_auth),
-    llm_router: Annotated[litellm.Router | None, Depends(get_llm_router)] = None,
+    llm_router: Annotated[embrouter.Router | None, Depends(get_llm_router)] = None,
 ):
     """
     [BETA] endpoint. This might change unexpectedly.
     """
-    from litellm.proxy.proxy_server import prisma_client
+    from embrouter.proxy.proxy_server import prisma_client
 
     try:
         if prisma_client is None:
@@ -373,7 +373,7 @@ async def update_credential(
         # Sync in-memory credential_list (skip if not in memory - e.g., proxy restarted)
         new_name: Final = merged_credential.credential_name
         existing_in_memory: CredentialItem | None = None
-        for cred in litellm.credential_list:
+        for cred in embrouter.credential_list:
             if cred.credential_name == credential_name:
                 existing_in_memory = cred
                 break
@@ -392,7 +392,7 @@ async def update_credential(
             )
             # Remove old entry if renamed, then use upsert_credentials to handle duplicates
             if new_name != credential_name:
-                litellm.credential_list = [c for c in litellm.credential_list if c.credential_name != credential_name]
+                embrouter.credential_list = [c for c in embrouter.credential_list if c.credential_name != credential_name]
             CredentialAccessor.upsert_credentials([updated_in_memory])
 
         return {"success": True, "message": "Credential updated successfully"}

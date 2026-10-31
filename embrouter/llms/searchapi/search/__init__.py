@@ -1,5 +1,5 @@
-"""SearchAPI.io search integration for LiteLLM."""
+"""SearchAPI.io search integration for EmbRouter."""
 
-from litellm.llms.searchapi.search.transformation import SearchAPIConfig
+from embrouter.llms.searchapi.search.transformation import SearchAPIConfig
 
 __all__ = ["SearchAPIConfig"]

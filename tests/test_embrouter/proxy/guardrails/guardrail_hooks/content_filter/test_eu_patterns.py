@@ -1,4 +1,4 @@
-from litellm.proxy.guardrails.guardrail_hooks.litellm_content_filter.patterns import (
+from embrouter.proxy.guardrails.guardrail_hooks.embrouter_content_filter.patterns import (
     get_compiled_pattern,
 )
 

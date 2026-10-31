@@ -16,10 +16,10 @@ from typing import TYPE_CHECKING, Final
 
 from pydantic import BaseModel, ConfigDict, JsonValue, TypeAdapter, field_validator
 
-from litellm._logging import verbose_proxy_logger
+from embrouter._logging import verbose_proxy_logger
 
 if TYPE_CHECKING:
-    from litellm.proxy.utils import PrismaClient
+    from embrouter.proxy.utils import PrismaClient
 
 LATEST_HEALTH_CHECKS_SQL: Final = """
 SELECT DISTINCT ON ("model_id", "model_name")
@@ -27,7 +27,7 @@ SELECT DISTINCT ON ("model_id", "model_name")
        "healthy_count", "unhealthy_count", "error_message",
        "response_time_ms", "details", "checked_by",
        "checked_at", "created_at", "updated_at"
-FROM "LiteLLM_HealthCheckTable"
+FROM "EmbRouter_HealthCheckTable"
 ORDER BY "model_id" ASC, "model_name" ASC, "checked_at" DESC
 """
 
@@ -37,7 +37,7 @@ SELECT DISTINCT ON ("model_id", "model_name")
        "healthy_count", "unhealthy_count", "error_message",
        "response_time_ms", "details", "checked_by",
        "checked_at", "created_at", "updated_at"
-FROM "LiteLLM_HealthCheckTable"
+FROM "EmbRouter_HealthCheckTable"
 WHERE "model_name" = ANY($1)
 ORDER BY "model_id" ASC, "model_name" ASC, "checked_at" DESC
 """

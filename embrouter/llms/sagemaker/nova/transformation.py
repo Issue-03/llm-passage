@@ -9,7 +9,7 @@ Docs: https://docs.aws.amazon.com/nova/latest/nova2-userguide/nova-sagemaker-inf
 
 from typing import Final
 
-from litellm.types.llms.openai import AllMessageValues
+from embrouter.types.llms.openai import AllMessageValues
 
 from ..chat.transformation import SagemakerChatConfig
 
@@ -50,7 +50,7 @@ class SagemakerNovaConfig(SagemakerChatConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         """
@@ -63,7 +63,7 @@ class SagemakerNovaConfig(SagemakerChatConfig):
             model=model,
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
         request_body.pop("model", None)

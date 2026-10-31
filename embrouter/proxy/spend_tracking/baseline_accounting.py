@@ -15,8 +15,8 @@ from typing import Final, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from litellm.llms.anthropic.prompt_cache_prediction import CountedBreakpoint, CountedPromptCachePlan
-from litellm.types.utils import CacheCreationTokenDetails, PromptTokensDetailsWrapper, Usage
+from embrouter.llms.anthropic.prompt_cache_prediction import CountedBreakpoint, CountedPromptCachePlan
+from embrouter.types.utils import CacheCreationTokenDetails, PromptTokensDetailsWrapper, Usage
 
 MAX_CACHE_TTL: Final = 3600
 MAX_CACHE_ENTRIES: Final = 1024

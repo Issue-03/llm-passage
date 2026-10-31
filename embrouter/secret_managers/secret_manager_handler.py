@@ -11,9 +11,9 @@ from typing import Any, Final, Generic, Protocol, TypeVar
 
 from typing_extensions import ReadOnly, TypedDict
 
-import litellm
-from litellm._logging import print_verbose
-from litellm.types.secret_managers.main import KeyManagementSettings, KeyManagementSystem
+import embrouter
+from embrouter._logging import print_verbose
+from embrouter.types.secret_managers.main import KeyManagementSettings, KeyManagementSystem
 
 _ClientT = TypeVar("_ClientT")
 
@@ -126,7 +126,7 @@ def get_secret_from_manager(
         google_kms_client: Final = google_kms_view["client"]
         google_kms_response: Final = google_kms_client.decrypt(
             request={
-                "name": litellm._google_kms_resource_name,
+                "name": embrouter._google_kms_resource_name,
                 "ciphertext": ciphertext,
             }
         )
@@ -154,7 +154,7 @@ def get_secret_from_manager(
             secret = secret.strip()
 
     elif key_manager == KeyManagementSystem.AWS_SECRET_MANAGER.value:
-        from litellm.secret_managers.aws_secret_manager_v2 import (
+        from embrouter.secret_managers.aws_secret_manager_v2 import (
             AWSSecretsManagerV2,
         )
 
@@ -205,7 +205,7 @@ def get_secret_from_manager(
 
     elif key_manager == KeyManagementSystem.CUSTOM.value:
         # Check if client is a CustomSecretManager instance
-        from litellm.integrations.custom_secret_manager import CustomSecretManager
+        from embrouter.integrations.custom_secret_manager import CustomSecretManager
 
         if isinstance(client, CustomSecretManager):
             secret = client.sync_read_secret(

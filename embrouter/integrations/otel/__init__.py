@@ -1,4 +1,4 @@
-"""Typed, semconv-aligned OpenTelemetry instrumentation for LiteLLM.
+"""Typed, semconv-aligned OpenTelemetry instrumentation for EmbRouter.
 
 The three sources of truth — attribute keys (:mod:`semconv`), the span and
 hierarchy registry (:mod:`spans`), and the typed span-data inputs
@@ -8,26 +8,26 @@ hierarchy registry (:mod:`spans`), and the typed span-data inputs
 reached via their submodule paths so that importing this package never
 requires the OTel SDK.
 
-The ``LITELLM_OTEL_V2`` env var gates whether the factory in
-``litellm_core_utils.litellm_logging`` constructs the ``OpenTelemetryV2``
+The ``EMBROUTER_OTEL_V2`` env var gates whether the factory in
+``embrouter_core_utils.embrouter_logging`` constructs the ``OpenTelemetryV2``
 class (from :mod:`logger`).
 """
 
-from litellm.integrations.otel.model.baggage import (
+from embrouter.integrations.otel.model.baggage import (
     BAGGAGE_PROMOTED_KEYS,
     DEFAULT_BAGGAGE_METADATA_KEYS,
     promoted_baggage,
 )
-from litellm.integrations.otel.model.config import (
+from embrouter.integrations.otel.model.config import (
     OTEL_V2_ENV,
     OpenTelemetryV2Config,
     is_otel_v2_enabled,
 )
-from litellm.integrations.otel.model.metadata import (
+from embrouter.integrations.otel.model.metadata import (
     RequestContext,
     RequestIdentity,
 )
-from litellm.integrations.otel.model.payloads import (
+from embrouter.integrations.otel.model.payloads import (
     GuardrailSpanData,
     LLMCallSpanData,
     LLMRequestParams,
@@ -41,7 +41,7 @@ from litellm.integrations.otel.model.payloads import (
     is_mcp_list_tools,
     is_mcp_tool_call,
 )
-from litellm.integrations.otel.model.semconv import (
+from embrouter.integrations.otel.model.semconv import (
     DB,
     HTTP,
     MCP,
@@ -52,8 +52,8 @@ from litellm.integrations.otel.model.semconv import (
     GenAIOutputType,
     GenAIProvider,
     JsonRpc,
-    LiteLLM,
-    LiteLLMError,
+    EmbRouter,
+    EmbRouterError,
     MCPMethod,
     Metric,
     Network,
@@ -64,9 +64,9 @@ from litellm.integrations.otel.model.semconv import (
     resolve_output_type,
     resolve_provider,
 )
-from litellm.integrations.otel.model.spans import (
+from embrouter.integrations.otel.model.spans import (
     SPAN_REGISTRY,
-    LiteLLMSpanKind,
+    EmbRouterSpanKind,
     SpanRole,
     SpanSpec,
     db_system,
@@ -93,9 +93,9 @@ __all__ = [
     "LLMCallSpanData",
     "LLMRequestParams",
     "LLMUsage",
-    "LiteLLM",
-    "LiteLLMError",
-    "LiteLLMSpanKind",
+    "EmbRouter",
+    "EmbRouterError",
+    "EmbRouterSpanKind",
     "MCPListToolsSpanData",
     "MCPMethod",
     "MCPToolCallSpanData",

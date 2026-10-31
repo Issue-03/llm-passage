@@ -18,24 +18,24 @@ from typing import TYPE_CHECKING, Any, Final
 
 import httpx
 
-from litellm._logging import verbose_logger
-from litellm.llms.base_llm.image_edit.transformation import BaseImageEditConfig
-from litellm.llms.bedrock.common_utils import BedrockError
-from litellm.types.images.main import ImageEditOptionalRequestParams
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import FileTypes, ImageObject, ImageResponse
-from litellm.utils import (
+from embrouter._logging import verbose_logger
+from embrouter.llms.base_llm.image_edit.transformation import BaseImageEditConfig
+from embrouter.llms.bedrock.common_utils import BedrockError
+from embrouter.types.images.main import ImageEditOptionalRequestParams
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import FileTypes, ImageObject, ImageResponse
+from embrouter.utils import (
     _get_model_cost_key,
     _get_potential_model_names,
     get_model_info,
 )
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 
 def _nova_canvas_task_body(
@@ -160,7 +160,7 @@ def _supports_nova_canvas_image_edit_from_model_cost(model: str) -> bool:
     get_model_info / ModelInfoBase omit arbitrary JSON keys, so we read model_cost
     directly (same idea as supports_* bare_entry fallback).
     """
-    import litellm as _litellm
+    import embrouter as _embrouter
 
     if not model:
         return False
@@ -182,7 +182,7 @@ def _supports_nova_canvas_image_edit_from_model_cost(model: str) -> bool:
     # Cross-region inference ids (e.g. us.amazon.nova-canvas-v1:0) share pricing with
     # the base model id (amazon.nova-canvas-v1:0) in model_cost.
     try:
-        from litellm.llms.bedrock.common_utils import BedrockModelInfo
+        from embrouter.llms.bedrock.common_utils import BedrockModelInfo
 
         base_model: Final = BedrockModelInfo.get_base_model(model)
         if base_model and base_model != model:
@@ -209,7 +209,7 @@ def _supports_nova_canvas_image_edit_from_model_cost(model: str) -> bool:
         key = _get_model_cost_key(name)
         if key is None:
             continue
-        entry = _litellm.model_cost.get(key) or {}
+        entry = _embrouter.model_cost.get(key) or {}
         if entry.get("supports_nova_canvas_image_edit") is True:
             return True
     return False
@@ -310,7 +310,7 @@ class BedrockAmazonNovaCanvasImageEditConfig(BaseImageEditConfig):
         prompt: str | None,
         image: FileTypes | None,
         image_edit_optional_request_params: dict,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[dict, Any]:
         op: Final = dict(image_edit_optional_request_params)
@@ -388,7 +388,7 @@ class BedrockAmazonNovaCanvasImageEditConfig(BaseImageEditConfig):
         self,
         model: str,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_key: str | None = None,
         json_mode: bool | None = None,
     ) -> ImageResponse:
@@ -457,7 +457,7 @@ class BedrockAmazonNovaCanvasImageEditConfig(BaseImageEditConfig):
             model_info: Final = get_model_info(model, custom_llm_provider="bedrock")
             cost_per_image: Final = model_info.get("output_cost_per_image", 0)
             if cost_per_image is not None and model_response.data:
-                model_response._hidden_params["additional_headers"]["llm_provider-x-litellm-response-cost"] = float(
+                model_response._hidden_params["additional_headers"]["llm_provider-x-embrouter-response-cost"] = float(
                     cost_per_image
                 ) * len(model_response.data)
         except Exception:
@@ -472,7 +472,7 @@ class BedrockAmazonNovaCanvasImageEditConfig(BaseImageEditConfig):
         self,
         model: str,
         api_base: str | None,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> str:
         raise NotImplementedError(
             "Nova Canvas image edit URLs are built in BedrockImageEdit._prepare_request "
@@ -485,7 +485,7 @@ class BedrockAmazonNovaCanvasImageEditConfig(BaseImageEditConfig):
         headers: dict,
         model: str,
         api_key: str | None = None,
-        litellm_params: dict | None = None,
+        embrouter_params: dict | None = None,
         api_base: str | None = None,
     ) -> dict:
         if headers is None:
@@ -504,7 +504,7 @@ def get_bedrock_image_edit_config_for_model(
     Same routing as ``BedrockImageEdit.get_config_class``: Stability edit models,
     Nova Canvas when marked in model_cost; otherwise raises ``ValueError``.
     """
-    from litellm.llms.bedrock.image_edit.stability_transformation import (
+    from embrouter.llms.bedrock.image_edit.stability_transformation import (
         BedrockStabilityImageEditConfig,
     )
 

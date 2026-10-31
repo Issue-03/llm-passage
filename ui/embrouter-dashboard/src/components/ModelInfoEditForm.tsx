@@ -78,7 +78,7 @@ const COST_SOURCES: Record<TouchedPricingField, { param: string; info: string }>
 
 export interface ModelEditFormValues {
   model_name?: string;
-  litellm_model_name?: string;
+  embrouter_model_name?: string;
   api_base?: string;
   custom_llm_provider?: string;
   organization?: string;
@@ -102,8 +102,8 @@ export interface ModelEditFormValues {
   vector_store_ids?: string[];
   tags?: string[];
   health_check_model?: string | null;
-  litellm_credential_name?: string | null;
-  litellm_extra_params?: string;
+  embrouter_credential_name?: string | null;
+  embrouter_extra_params?: string;
   model_info?: string;
   team_id?: string;
 }
@@ -115,7 +115,7 @@ const textish = z.string().optional();
 
 const modelEditShape = {
   model_name: textish,
-  litellm_model_name: textish,
+  embrouter_model_name: textish,
   api_base: textish,
   custom_llm_provider: textish,
   organization: textish,
@@ -139,8 +139,8 @@ const modelEditShape = {
   vector_store_ids: z.array(z.string()).optional(),
   tags: z.array(z.string()).optional(),
   health_check_model: z.string().nullish(),
-  litellm_credential_name: z.string().nullish(),
-  litellm_extra_params: textish,
+  embrouter_credential_name: z.string().nullish(),
+  embrouter_extra_params: textish,
   model_info: textish,
   team_id: textish,
 };
@@ -159,8 +159,8 @@ const buildSchema = (ptuEnabled: boolean, isFieldTouched: (field: TouchedPricing
     const reject = (path: ModelEditFieldName, message: string) =>
       ctx.addIssue({ code: "custom", path: [path], message });
 
-    if (values.litellm_extra_params && !isJson(values.litellm_extra_params)) {
-      reject("litellm_extra_params", "Please enter valid JSON");
+    if (values.embrouter_extra_params && !isJson(values.embrouter_extra_params)) {
+      reject("embrouter_extra_params", "Please enter valid JSON");
     }
 
     // antd validates only mounted fields, and the PTU block does not render when the flag is off.
@@ -211,21 +211,21 @@ const perMillionTokens = (...rates: (number | null | undefined)[]): number | nul
 
 export const toModelEditFormValues = (localModelData: any, isWildcardModel: boolean): ModelEditFormValues => ({
   model_name: localModelData.model_name,
-  litellm_model_name: localModelData.litellm_model_name,
-  api_base: localModelData.litellm_params.api_base,
-  custom_llm_provider: localModelData.litellm_params.custom_llm_provider,
-  organization: localModelData.litellm_params.organization,
-  tpm: localModelData.litellm_params.tpm,
-  rpm: localModelData.litellm_params.rpm,
-  max_retries: localModelData.litellm_params.max_retries,
-  timeout: localModelData.litellm_params.timeout,
-  stream_timeout: localModelData.litellm_params.stream_timeout,
+  embrouter_model_name: localModelData.embrouter_model_name,
+  api_base: localModelData.embrouter_params.api_base,
+  custom_llm_provider: localModelData.embrouter_params.custom_llm_provider,
+  organization: localModelData.embrouter_params.organization,
+  tpm: localModelData.embrouter_params.tpm,
+  rpm: localModelData.embrouter_params.rpm,
+  max_retries: localModelData.embrouter_params.max_retries,
+  timeout: localModelData.embrouter_params.timeout,
+  stream_timeout: localModelData.embrouter_params.stream_timeout,
   input_cost: perMillionTokens(
-    localModelData.litellm_params.input_cost_per_token,
+    localModelData.embrouter_params.input_cost_per_token,
     localModelData.model_info?.input_cost_per_token,
   ),
   output_cost: perMillionTokens(
-    localModelData.litellm_params?.output_cost_per_token,
+    localModelData.embrouter_params?.output_cost_per_token,
     localModelData.model_info?.output_cost_per_token,
   ),
   ptu_count: localModelData.model_info?.ptu_count ?? null,
@@ -233,32 +233,32 @@ export const toModelEditFormValues = (localModelData: any, isWildcardModel: bool
   ptu_effective_from: utcIsoToPickerValue(localModelData.model_info?.ptu_effective_from),
   ptu_effective_to: utcIsoToPickerValue(localModelData.model_info?.ptu_effective_to),
   cache_read_cost: perMillionTokens(
-    localModelData.litellm_params?.cache_read_input_token_cost,
+    localModelData.embrouter_params?.cache_read_input_token_cost,
     localModelData.model_info?.cache_read_input_token_cost,
   ),
   cache_write_cost: perMillionTokens(
-    localModelData.litellm_params?.cache_creation_input_token_cost,
+    localModelData.embrouter_params?.cache_creation_input_token_cost,
     localModelData.model_info?.cache_creation_input_token_cost,
   ),
-  cache_control: localModelData.litellm_params?.cache_control_injection_points ? true : false,
-  cache_control_injection_points: localModelData.litellm_params?.cache_control_injection_points || [],
+  cache_control: localModelData.embrouter_params?.cache_control_injection_points ? true : false,
+  cache_control_injection_points: localModelData.embrouter_params?.cache_control_injection_points || [],
   model_access_group: Array.isArray(localModelData.model_info?.access_groups)
     ? localModelData.model_info.access_groups
     : [],
-  guardrails: Array.isArray(localModelData.litellm_params?.guardrails) ? localModelData.litellm_params.guardrails : [],
+  guardrails: Array.isArray(localModelData.embrouter_params?.guardrails) ? localModelData.embrouter_params.guardrails : [],
   vector_store_ids:
-    Array.isArray(localModelData.litellm_params?.vector_store_ids) &&
-    localModelData.litellm_params.vector_store_ids.length > 0
-      ? localModelData.litellm_params.vector_store_ids
+    Array.isArray(localModelData.embrouter_params?.vector_store_ids) &&
+    localModelData.embrouter_params.vector_store_ids.length > 0
+      ? localModelData.embrouter_params.vector_store_ids
       : undefined,
-  tags: Array.isArray(localModelData.litellm_params?.tags) ? localModelData.litellm_params.tags : [],
+  tags: Array.isArray(localModelData.embrouter_params?.tags) ? localModelData.embrouter_params.tags : [],
   // antd never mounted this field for a non-wildcard model, so the key must be absent, not null.
   ...(isWildcardModel ? { health_check_model: localModelData.model_info?.health_check_model } : {}),
-  litellm_credential_name: localModelData.litellm_params?.litellm_credential_name ?? null,
-  litellm_extra_params: JSON.stringify(
+  embrouter_credential_name: localModelData.embrouter_params?.embrouter_credential_name ?? null,
+  embrouter_extra_params: JSON.stringify(
     Object.fromEntries(
-      Object.entries(localModelData.litellm_params || {}).filter(
-        ([key, value]) => key !== "litellm_credential_name" && !isMaskedSecret(value),
+      Object.entries(localModelData.embrouter_params || {}).filter(
+        ([key, value]) => key !== "embrouter_credential_name" && !isMaskedSecret(value),
       ),
     ),
     null,
@@ -269,7 +269,7 @@ export const toModelEditFormValues = (localModelData: any, isWildcardModel: bool
 
 const displayCost = (localModelData: any, field: TouchedPricingField): string => {
   const { param, info } = COST_SOURCES[field];
-  const rate = localModelData?.litellm_params?.[param] ?? localModelData?.model_info?.[info];
+  const rate = localModelData?.embrouter_params?.[param] ?? localModelData?.model_info?.[info];
   return rate != null ? (Number(rate) * 1_000_000).toFixed(4) : "Not Set";
 };
 
@@ -462,10 +462,10 @@ const ModelInfoEditForm: React.FC<ModelInfoEditFormProps> = ({
           <div className="space-y-4">
             {textField("model_name", "Model Name", "Enter model name", localModelData.model_name)}
             {textField(
-              "litellm_model_name",
+              "embrouter_model_name",
               "EmbRouter Model Name",
               "Enter EmbRouter model name",
-              localModelData.litellm_model_name,
+              localModelData.embrouter_model_name,
             )}
 
             {pricingField("input_cost", "Input Cost (per 1M tokens)", "Enter input cost")}
@@ -521,29 +521,29 @@ const ModelInfoEditForm: React.FC<ModelInfoEditFormProps> = ({
               "If left blank on save, defaults to Input Cost (backend falls back to input_cost_per_token).",
             )}
 
-            {textField("api_base", "API Base", "Enter API base", localModelData.litellm_params?.api_base)}
+            {textField("api_base", "API Base", "Enter API base", localModelData.embrouter_params?.api_base)}
             {textField(
               "custom_llm_provider",
               "Custom LLM Provider",
               "Enter custom LLM provider",
-              localModelData.litellm_params?.custom_llm_provider,
+              localModelData.embrouter_params?.custom_llm_provider,
             )}
             {textField(
               "organization",
               "Organization",
               "Enter organization",
-              localModelData.litellm_params?.organization,
+              localModelData.embrouter_params?.organization,
             )}
 
-            {numberField("tpm", "TPM (Tokens per Minute)", "Enter TPM", localModelData.litellm_params?.tpm)}
-            {numberField("rpm", "RPM (Requests per Minute)", "Enter RPM", localModelData.litellm_params?.rpm)}
-            {numberField("max_retries", "Max Retries", "Enter max retries", localModelData.litellm_params?.max_retries)}
-            {numberField("timeout", "Timeout (seconds)", "Enter timeout", localModelData.litellm_params?.timeout)}
+            {numberField("tpm", "TPM (Tokens per Minute)", "Enter TPM", localModelData.embrouter_params?.tpm)}
+            {numberField("rpm", "RPM (Requests per Minute)", "Enter RPM", localModelData.embrouter_params?.rpm)}
+            {numberField("max_retries", "Max Retries", "Enter max retries", localModelData.embrouter_params?.max_retries)}
+            {numberField("timeout", "Timeout (seconds)", "Enter timeout", localModelData.embrouter_params?.timeout)}
             {numberField(
               "stream_timeout",
               "Stream Timeout (seconds)",
               "Enter stream timeout",
-              localModelData.litellm_params?.stream_timeout,
+              localModelData.embrouter_params?.stream_timeout,
             )}
 
             <div>
@@ -574,7 +574,7 @@ const ModelInfoEditForm: React.FC<ModelInfoEditFormProps> = ({
                 )
               ) : (
                 <Display>
-                  <ChipList values={localModelData.litellm_params?.guardrails} emptyLabel="No guardrails assigned" />
+                  <ChipList values={localModelData.embrouter_params?.guardrails} emptyLabel="No guardrails assigned" />
                 </Display>
               )}
             </div>
@@ -598,7 +598,7 @@ const ModelInfoEditForm: React.FC<ModelInfoEditFormProps> = ({
               ) : (
                 <Display>
                   <ChipList
-                    values={localModelData.litellm_params?.vector_store_ids}
+                    values={localModelData.embrouter_params?.vector_store_ids}
                     emptyLabel="No knowledge bases attached"
                   />
                 </Display>
@@ -615,7 +615,7 @@ const ModelInfoEditForm: React.FC<ModelInfoEditFormProps> = ({
                 )
               ) : (
                 <Display>
-                  <ChipList values={localModelData.litellm_params?.tags} emptyLabel="No tags assigned" />
+                  <ChipList values={localModelData.embrouter_params?.tags} emptyLabel="No tags assigned" />
                 </Display>
               )}
             </div>
@@ -623,7 +623,7 @@ const ModelInfoEditForm: React.FC<ModelInfoEditFormProps> = ({
             <div>
               <FieldLabel>Existing Credentials</FieldLabel>
               {isEditing ? (
-                <FormField control={form.control} name="litellm_credential_name">
+                <FormField control={form.control} name="embrouter_credential_name">
                   {({ id, value, onChange, onBlur }) => {
                     const items: { value: string | null; label: string }[] = [
                       { value: null, label: "None" },
@@ -653,7 +653,7 @@ const ModelInfoEditForm: React.FC<ModelInfoEditFormProps> = ({
                   }}
                 </FormField>
               ) : (
-                <Display>{localModelData.litellm_params?.litellm_credential_name || "Manual"}</Display>
+                <Display>{localModelData.embrouter_params?.embrouter_credential_name || "Manual"}</Display>
               )}
             </div>
 
@@ -728,11 +728,11 @@ const ModelInfoEditForm: React.FC<ModelInfoEditFormProps> = ({
               <div>
                 <FieldLabel>Cache Control</FieldLabel>
                 <Display>
-                  {localModelData.litellm_params?.cache_control_injection_points ? (
+                  {localModelData.embrouter_params?.cache_control_injection_points ? (
                     <div>
                       <p>Enabled</p>
                       <div className="mt-2">
-                        {localModelData.litellm_params.cache_control_injection_points.map((point: any, i: number) => (
+                        {localModelData.embrouter_params.cache_control_injection_points.map((point: any, i: number) => (
                           <div key={i} className="mb-1 text-sm text-muted-foreground">
                             Location: {point.location},{point.role && <span> Role: {point.role}</span>}
                             {point.index !== undefined && <span> Index: {point.index}</span>}
@@ -772,10 +772,10 @@ const ModelInfoEditForm: React.FC<ModelInfoEditFormProps> = ({
             <div>
               <FieldLabel>
                 EmbRouter Params
-                <DocsHint text="Optional litellm params used for making a litellm.completion() call. Some params are automatically added by EmbRouter." />
+                <DocsHint text="Optional embrouter params used for making a embrouter.completion() call. Some params are automatically added by EmbRouter." />
               </FieldLabel>
               {isEditing ? (
-                <FormField control={form.control} name="litellm_extra_params">
+                <FormField control={form.control} name="embrouter_extra_params">
                   {({ value, ...control }) => (
                     <Textarea
                       {...control}
@@ -788,7 +788,7 @@ const ModelInfoEditForm: React.FC<ModelInfoEditFormProps> = ({
               ) : (
                 <Display>
                   <pre className="mt-1 overflow-auto rounded-sm bg-muted p-2 text-xs">
-                    {JSON.stringify(localModelData.litellm_params, null, 2)}
+                    {JSON.stringify(localModelData.embrouter_params, null, 2)}
                   </pre>
                 </Display>
               )}

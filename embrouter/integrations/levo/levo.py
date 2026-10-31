@@ -1,15 +1,15 @@
 import os
 from typing import TYPE_CHECKING, Any, Final
 
-from litellm.integrations.opentelemetry import OpenTelemetry
+from embrouter.integrations.opentelemetry import OpenTelemetry
 
 if TYPE_CHECKING:
     from opentelemetry.trace import Span as _Span
 
-    from litellm.integrations.opentelemetry import (
+    from embrouter.integrations.opentelemetry import (
         OpenTelemetryConfig as _OpenTelemetryConfig,
     )
-    from litellm.types.integrations.arize import Protocol as _Protocol
+    from embrouter.types.integrations.arize import Protocol as _Protocol
 
     Protocol = _Protocol
     OpenTelemetryConfig = _OpenTelemetryConfig

@@ -27,8 +27,8 @@ from filelock import FileLock
 from packaging.version import InvalidVersion, Version
 from pydantic import BaseModel, ConfigDict, JsonValue, TypeAdapter, ValidationError
 
-from litellm._version import version as litellm_version
-from litellm.litellm_core_utils.private_json import (
+from embrouter._version import version as embrouter_version
+from embrouter.embrouter_core_utils.private_json import (
     commit_staged_json,
     discard_staged_json,
     ensure_private_dir,
@@ -75,11 +75,11 @@ STARTING_MODEL_ROLE: Final = "the /model picker's default row, the model Claude 
 
 CLAUDE_SETTINGS_PATH: Final = Path.home() / ".claude" / "settings.json"
 CLAUDE_CONFIG_DIR_ENV: Final = "CLAUDE_CONFIG_DIR"
-BACKUP_PATH: Final = Path.home() / ".litellm" / "claude_settings_backup.json"
-AUTOROUTE_BACKUP_PATH: Final = Path.home() / ".litellm" / "autorouter" / "claude_settings_backup.json"
-CONFIGURE_STATE_PATH: Final = Path.home() / ".litellm" / "claude_configure_state.json"
-STATUSLINE_SCRIPT_PATH: Final = Path.home() / ".litellm" / "statusline.py"
-STATUSLINE_VERSION_PREFIX: Final = b"# litellm-statusline-version: "
+BACKUP_PATH: Final = Path.home() / ".embrouter" / "claude_settings_backup.json"
+AUTOROUTE_BACKUP_PATH: Final = Path.home() / ".embrouter" / "autorouter" / "claude_settings_backup.json"
+CONFIGURE_STATE_PATH: Final = Path.home() / ".embrouter" / "claude_configure_state.json"
+STATUSLINE_SCRIPT_PATH: Final = Path.home() / ".embrouter" / "statusline.py"
+STATUSLINE_VERSION_PREFIX: Final = b"# embrouter-statusline-version: "
 
 
 @dataclass(frozen=True, slots=True)
@@ -334,7 +334,7 @@ def _installed_statusline_version(target: Path) -> Version | None:
 def install_statusline_script(
     script_path: Path | None = None,
     *,
-    package_version: str = litellm_version,
+    package_version: str = embrouter_version,
     write: Callable[[str, bytes], None] = write_private_bytes,
 ) -> str:
     target: Final = script_path or STATUSLINE_SCRIPT_PATH
@@ -346,7 +346,7 @@ def install_statusline_script(
             if installed_version is not None and (bundled_version is None or installed_version > bundled_version):
                 cli_version: Final = str(bundled_version) if bundled_version is not None else "unknown"
                 click.echo(
-                    f"Keeping the status line from LiteLLM {installed_version}; this CLI is {cli_version}. "
+                    f"Keeping the status line from EmbRouter {installed_version}; this CLI is {cli_version}. "
                     "Upgrade the CLI to refresh it.",
                     err=True,
                 )

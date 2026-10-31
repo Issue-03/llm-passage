@@ -15,7 +15,7 @@ from datetime import datetime, timedelta, timezone
 from functools import partial
 from typing import Final
 
-from litellm._logging import print_verbose, verbose_logger
+from embrouter._logging import print_verbose, verbose_logger
 
 from .base_cache import BaseCache
 
@@ -62,7 +62,7 @@ class S3Cache(BaseCache):
 
     def set_cache(self, key, value, **kwargs):
         try:
-            print_verbose(f"LiteLLM SET Cache - S3. Key={key}. Value={value}")
+            print_verbose(f"EmbRouter SET Cache - S3. Key={key}. Value={value}")
             ttl: Final = kwargs.get("ttl", None)
             # Convert value to JSON before storing in S3
             serialized_value: Final = json.dumps(value)

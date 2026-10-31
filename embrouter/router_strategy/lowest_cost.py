@@ -3,12 +3,12 @@
 from datetime import datetime
 from typing import Final
 
-import litellm
-from litellm import ModelResponse, token_counter, verbose_logger
-from litellm._logging import verbose_router_logger
-from litellm.caching.caching import DualCache
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.router_utils.batch_utils import is_batch_retrieve_call_type
+import embrouter
+from embrouter import ModelResponse, token_counter, verbose_logger
+from embrouter._logging import verbose_router_logger
+from embrouter.caching.caching import DualCache
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.router_utils.batch_utils import is_batch_retrieve_call_type
 
 
 class LowestCostLoggingHandler(CustomLogger):
@@ -26,12 +26,12 @@ class LowestCostLoggingHandler(CustomLogger):
             """
             Update usage on success
             """
-            if kwargs["litellm_params"].get("metadata") is None:
+            if kwargs["embrouter_params"].get("metadata") is None:
                 pass
             else:
-                model_group: Final = kwargs["litellm_params"]["metadata"].get("model_group", None)
+                model_group: Final = kwargs["embrouter_params"]["metadata"].get("model_group", None)
 
-                id = kwargs["litellm_params"].get("model_info", {}).get("id", None)
+                id = kwargs["embrouter_params"].get("model_info", {}).get("id", None)
                 if model_group is None or id is None:
                     return
                 elif isinstance(id, int):
@@ -59,7 +59,7 @@ class LowestCostLoggingHandler(CustomLogger):
 
                 if isinstance(response_obj, ModelResponse):
                     _usage: Final = getattr(response_obj, "usage", None)
-                    if _usage is not None and isinstance(_usage, litellm.Usage):
+                    if _usage is not None and isinstance(_usage, embrouter.Usage):
                         total_tokens = _usage.total_tokens
 
                 # ------------
@@ -91,7 +91,7 @@ class LowestCostLoggingHandler(CustomLogger):
                     self.logged_success += 1
         except Exception as e:
             verbose_logger.exception(
-                "litellm.router_strategy.lowest_cost.py::log_success_event(): Exception occured - %s", e
+                "embrouter.router_strategy.lowest_cost.py::log_success_event(): Exception occured - %s", e
             )
 
     async def async_log_success_event(self, kwargs, response_obj, start_time, end_time):
@@ -101,12 +101,12 @@ class LowestCostLoggingHandler(CustomLogger):
             """
             Update cost usage on success
             """
-            if kwargs["litellm_params"].get("metadata") is None:
+            if kwargs["embrouter_params"].get("metadata") is None:
                 pass
             else:
-                model_group: Final = kwargs["litellm_params"]["metadata"].get("model_group", None)
+                model_group: Final = kwargs["embrouter_params"]["metadata"].get("model_group", None)
 
-                id = kwargs["litellm_params"].get("model_info", {}).get("id", None)
+                id = kwargs["embrouter_params"].get("model_info", {}).get("id", None)
                 if model_group is None or id is None:
                     return
                 elif isinstance(id, int):
@@ -135,7 +135,7 @@ class LowestCostLoggingHandler(CustomLogger):
 
                 if isinstance(response_obj, ModelResponse):
                     _usage: Final = getattr(response_obj, "usage", None)
-                    if _usage is not None and isinstance(_usage, litellm.Usage):
+                    if _usage is not None and isinstance(_usage, embrouter.Usage):
                         total_tokens = _usage.total_tokens
 
                 # ------------
@@ -166,7 +166,7 @@ class LowestCostLoggingHandler(CustomLogger):
                     self.logged_success += 1
         except Exception as e:
             verbose_logger.exception(
-                "litellm.proxy.hooks.prompt_injection_detection.py::async_pre_call_hook(): Exception occured - %s", e
+                "embrouter.proxy.hooks.prompt_injection_detection.py::async_pre_call_hook(): Exception occured - %s", e
             )
 
     async def async_get_available_deployments(
@@ -228,36 +228,36 @@ class LowestCostLoggingHandler(CustomLogger):
 
             _deployment_tpm = (
                 _deployment.get("tpm", None)
-                or _deployment.get("litellm_params", {}).get("tpm", None)
+                or _deployment.get("embrouter_params", {}).get("tpm", None)
                 or _deployment.get("model_info", {}).get("tpm", None)
                 or float("inf")
             )
 
             _deployment_rpm = (
                 _deployment.get("rpm", None)
-                or _deployment.get("litellm_params", {}).get("rpm", None)
+                or _deployment.get("embrouter_params", {}).get("rpm", None)
                 or _deployment.get("model_info", {}).get("rpm", None)
                 or float("inf")
             )
-            item_litellm_model_name = _deployment.get("litellm_params", {}).get("model")
-            item_litellm_model_cost_map = litellm.model_cost.get(item_litellm_model_name, {})
+            item_embrouter_model_name = _deployment.get("embrouter_params", {}).get("model")
+            item_embrouter_model_cost_map = embrouter.model_cost.get(item_embrouter_model_name, {})
 
-            # check if user provided input_cost_per_token and output_cost_per_token in litellm_params
+            # check if user provided input_cost_per_token and output_cost_per_token in embrouter_params
             item_input_cost = None
             item_output_cost = None
-            if _deployment.get("litellm_params", {}).get("input_cost_per_token", None):
-                item_input_cost = _deployment.get("litellm_params", {}).get("input_cost_per_token")
+            if _deployment.get("embrouter_params", {}).get("input_cost_per_token", None):
+                item_input_cost = _deployment.get("embrouter_params", {}).get("input_cost_per_token")
 
-            if _deployment.get("litellm_params", {}).get("output_cost_per_token", None):
-                item_output_cost = _deployment.get("litellm_params", {}).get("output_cost_per_token")
+            if _deployment.get("embrouter_params", {}).get("output_cost_per_token", None):
+                item_output_cost = _deployment.get("embrouter_params", {}).get("output_cost_per_token")
 
             if item_input_cost is None:
-                item_input_cost = item_litellm_model_cost_map.get("input_cost_per_token", 5.0)
+                item_input_cost = item_embrouter_model_cost_map.get("input_cost_per_token", 5.0)
 
             if item_output_cost is None:
-                item_output_cost = item_litellm_model_cost_map.get("output_cost_per_token", 5.0)
+                item_output_cost = item_embrouter_model_cost_map.get("output_cost_per_token", 5.0)
 
-            # if litellm["model"] is not in model_cost map -> use item_cost = $10
+            # if embrouter["model"] is not in model_cost map -> use item_cost = $10
 
             item_cost = item_input_cost + item_output_cost
 
@@ -277,7 +277,7 @@ class LowestCostLoggingHandler(CustomLogger):
             # -------------- #
             # We use _cost_per_deployment to log to langfuse, slack - this is not used to make a decision on routing
             # this helps a user to debug why the router picked a specfic deployment      #
-            _deployment_api_base = _deployment.get("litellm_params", {}).get("api_base", "")
+            _deployment_api_base = _deployment.get("embrouter_params", {}).get("api_base", "")
             if _deployment_api_base is not None:
                 _cost_per_deployment[_deployment_api_base] = item_cost
             # -------------- #

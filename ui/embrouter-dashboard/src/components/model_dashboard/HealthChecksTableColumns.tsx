@@ -26,7 +26,7 @@ export interface HealthCheckData {
     team_id?: string;
   };
   provider?: string;
-  litellm_model_name?: string;
+  embrouter_model_name?: string;
   health_status: string;
   last_check: string;
   last_success: string;

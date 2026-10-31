@@ -9,7 +9,7 @@ from click.testing import CliRunner
 
 import responses
 
-from litellm.proxy.client.cli.commands.http import http
+from embrouter.proxy.client.cli.commands.http import http
 
 
 @pytest.fixture

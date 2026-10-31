@@ -8,13 +8,13 @@ from typing import TYPE_CHECKING, Any, ClassVar, Final, Optional
 
 from pydantic import BaseModel
 
-from litellm._logging import verbose_logger
-from litellm.constants import DEFAULT_MAX_RECURSE_DEPTH_SENSITIVE_DATA_MASKER, EMPTY_MAPPING
-from litellm.types.integrations.argilla import ArgillaItem
-from litellm.types.integrations.custom_logger import AgenticLoopPlan
-from litellm.types.llms.openai import AllMessageValues, ChatCompletionRequest
-from litellm.types.prompts.init_prompts import PromptSpec
-from litellm.types.utils import (
+from embrouter._logging import verbose_logger
+from embrouter.constants import DEFAULT_MAX_RECURSE_DEPTH_SENSITIVE_DATA_MASKER, EMPTY_MAPPING
+from embrouter.types.integrations.argilla import ArgillaItem
+from embrouter.types.integrations.custom_logger import AgenticLoopPlan
+from embrouter.types.llms.openai import AllMessageValues, ChatCompletionRequest
+from embrouter.types.prompts.init_prompts import PromptSpec
+from embrouter.types.utils import (
     AdapterCompletionStreamWrapper,
     CallTypes,
     CallTypesLiteral,
@@ -30,23 +30,23 @@ if TYPE_CHECKING:
     from fastapi import HTTPException
     from opentelemetry.trace import Span as _Span
 
-    from litellm.caching.caching import DualCache
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.llms.base_llm.anthropic_messages.transformation import (
+    from embrouter.caching.caching import DualCache
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.llms.base_llm.anthropic_messages.transformation import (
         BaseAnthropicMessagesConfig,
     )
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.types.mcp import (
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.types.mcp import (
         MCPPostCallResponseObject,
         MCPPreCallRequestObject,
         MCPPreCallResponseObject,
     )
-    from litellm.types.router import PreRoutingHookResponse
+    from embrouter.types.router import PreRoutingHookResponse
 
     Span = _Span
 else:
     Span = Any
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
     UserAPIKeyAuth = Any
     MCPPostCallResponseObject = Any
     MCPPreCallRequestObject = Any
@@ -123,7 +123,7 @@ class CustomLogger:  #
         lookup_name: Final = alias_map.get(normalized_name, normalized_name)
 
         try:
-            from litellm.proxy._types import AllCallbacks
+            from embrouter.proxy._types import AllCallbacks
         except Exception:
             return []
 
@@ -132,7 +132,7 @@ class CustomLogger:  #
         if callback_info is None:
             return []
 
-        params: Final[Sequence[str] | None] = getattr(callback_info, "litellm_callback_params", None)
+        params: Final[Sequence[str] | None] = getattr(callback_info, "embrouter_callback_params", None)
         if not params:
             return []
 
@@ -205,7 +205,7 @@ class CustomLogger:  #
         prompt_id: str | None,
         prompt_variables: dict | None,
         dynamic_callback_params: StandardCallbackDynamicParams,
-        litellm_logging_obj: LiteLLMLoggingObj,
+        embrouter_logging_obj: EmbRouterLoggingObj,
         prompt_spec: PromptSpec | None = None,
         tools: list[dict] | None = None,
         prompt_label: str | None = None,
@@ -259,7 +259,7 @@ class CustomLogger:  #
         """
         This hook is called before the routing decision is made.
 
-        Used for the litellm auto-router to modify the request before the routing decision is made.
+        Used for the embrouter auto-router to modify the request before the routing decision is made.
         """
         return None
 
@@ -376,7 +376,7 @@ class CustomLogger:  #
 
     def translate_completion_input_params(self, kwargs) -> ChatCompletionRequest | None:
         """
-        Translates the input params, from the provider's native format to the litellm.completion() format.
+        Translates the input params, from the provider's native format to the embrouter.completion() format.
         """
 
     def translate_completion_output_params(self, response: ModelResponse) -> BaseModel | None:
@@ -418,7 +418,7 @@ class CustomLogger:  #
         call_type: CallTypesLiteral,
     ) -> (
         Exception | str | dict | None
-    ):  # raise exception if invalid, return a str for the user to receive - if rejected, or return a modified dictionary for passing into litellm
+    ):  # raise exception if invalid, return a str for the user to receive - if rejected, or return a modified dictionary for passing into embrouter
         pass
 
     async def async_filter_listed_models(
@@ -445,7 +445,7 @@ class CustomLogger:  #
         user_api_key_dict: UserAPIKeyAuth,
         response: object,
         request_headers: dict[str, str] | None = None,
-        litellm_call_info: dict[str, object] | None = None,
+        embrouter_call_info: dict[str, object] | None = None,
     ) -> dict[str, str] | None:
         """
         Called after an LLM API call (success or failure) to allow injecting custom HTTP response headers.
@@ -455,7 +455,7 @@ class CustomLogger:  #
             - user_api_key_dict: UserAPIKeyAuth - The user API key dictionary.
             - response: Any - The response object (None for failure cases).
             - request_headers: Optional[Dict[str, str]] - The original request headers.
-            - litellm_call_info: Optional[Dict[str, Any]] - Normalized routing metadata:
+            - embrouter_call_info: Optional[Dict[str, Any]] - Normalized routing metadata:
                 - custom_llm_provider: str - The LLM provider (e.g. "openai", "azure")
                 - model_info: dict - The model_info from router config
                 - api_base: str - The API base URL used
@@ -600,7 +600,7 @@ class CustomLogger:  #
         return None
 
     #########################################################
-    # AGENTIC LOOP HOOKS (for litellm.messages + future completion support)
+    # AGENTIC LOOP HOOKS (for embrouter.messages + future completion support)
     #########################################################
 
     async def async_should_run_agentic_loop(
@@ -624,13 +624,13 @@ class CustomLogger:  #
 
         Example use cases:
         - WebSearch: Intercept WebSearch tool calls for Bedrock/Claude, execute
-          litellm.search(), return final answer with search results
+          embrouter.search(), return final answer with search results
         - Code execution: Execute code in sandboxed environment, return results
         - Database queries: Execute queries server-side, return data to model
         - API calls: Make external API calls and inject responses back into context
 
         Flow:
-        1. User calls litellm.messages.acreate(tools=[...])
+        1. User calls embrouter.messages.acreate(tools=[...])
         2. Model responds with tool_use
         3. THIS HOOK checks if tool should run server-side
         4. If True, async_run_agentic_loop executes the tool
@@ -669,7 +669,7 @@ class CustomLogger:  #
         response: object,
         anthropic_messages_provider_config: "BaseAnthropicMessagesConfig | None",
         anthropic_messages_optional_request_params: dict,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
         stream: bool,
         kwargs: dict,
     ) -> Any:
@@ -683,10 +683,10 @@ class CustomLogger:  #
 
         What to do here:
         1. Extract tool calls from tools dict
-        2. Execute the tools (litellm.search, code execution, DB queries, etc.)
+        2. Execute the tools (embrouter.search, code execution, DB queries, etc.)
         3. Build assistant message with tool_use blocks
         4. Build user message with tool_result blocks containing results
-        5. Make follow-up litellm.messages.acreate() call with results
+        5. Make follow-up embrouter.messages.acreate() call with results
         6. Return the final response
 
         Args:
@@ -697,7 +697,7 @@ class CustomLogger:  #
             response: Original response from model (with tool_use)
             anthropic_messages_provider_config: Provider config for making requests
             anthropic_messages_optional_request_params: Request parameters (tools, etc.)
-            logging_obj: LiteLLM logging object
+            logging_obj: EmbRouter logging object
             stream: Whether response is streaming
             kwargs: Additional request parameters
 
@@ -711,7 +711,7 @@ class CustomLogger:  #
 
             # Execute searches in parallel
             search_results = await asyncio.gather(
-                *[litellm.asearch(tc["input"]["query"]) for tc in tool_calls]
+                *[embrouter.asearch(tc["input"]["query"]) for tc in tool_calls]
             )
 
             # Build messages with tool results
@@ -719,7 +719,7 @@ class CustomLogger:  #
             user_msg = {"role": "user", "content": [...tool_result blocks...]}
 
             # Make follow-up request
-            from litellm.anthropic_interface import messages
+            from embrouter.anthropic_interface import messages
             final_response = await messages.acreate(
                 model=model,
                 messages=messages + [assistant_msg, user_msg],
@@ -738,7 +738,7 @@ class CustomLogger:  #
         response: object,
         anthropic_messages_provider_config: "BaseAnthropicMessagesConfig | None",
         anthropic_messages_optional_request_params: dict,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
         stream: bool,
         kwargs: dict,
     ) -> AgenticLoopPlan:
@@ -811,7 +811,7 @@ class CustomLogger:  #
         messages: list[dict],
         response: object,
         optional_params: dict,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
         stream: bool,
         kwargs: dict,
     ) -> object:
@@ -826,7 +826,7 @@ class CustomLogger:  #
         messages: list[dict],
         response: object,
         optional_params: dict,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
         stream: bool,
         kwargs: dict,
     ) -> AgenticLoopPlan:
@@ -871,7 +871,7 @@ class CustomLogger:  #
     def _truncate_text(self, text: str, max_length: int) -> str:
         """Truncate text if it exceeds max_length"""
         return (
-            text[:max_length] + "...truncated by litellm, this logger does not support large content"
+            text[:max_length] + "...truncated by embrouter, this logger does not support large content"
             if len(text) > max_length
             else text
         )
@@ -880,16 +880,16 @@ class CustomLogger:  #
         """
         Select the metadata field to use for logging
 
-        1. If `litellm_metadata` is in the request kwargs, use it
+        1. If `embrouter_metadata` is in the request kwargs, use it
         2. Otherwise, use `metadata`
         """
-        from litellm.constants import LITELLM_METADATA_FIELD, OLD_LITELLM_METADATA_FIELD
+        from embrouter.constants import EMBROUTER_METADATA_FIELD, OLD_EMBROUTER_METADATA_FIELD
 
         if request_kwargs is None:
             return None
-        if LITELLM_METADATA_FIELD in request_kwargs:
-            return LITELLM_METADATA_FIELD
-        return OLD_LITELLM_METADATA_FIELD
+        if EMBROUTER_METADATA_FIELD in request_kwargs:
+            return EMBROUTER_METADATA_FIELD
+        return OLD_EMBROUTER_METADATA_FIELD
 
     def redacts_messages_itself(self) -> bool:
         return False
@@ -907,12 +907,12 @@ class CustomLogger:  #
 
         This is useful for logging payloads that contain sensitive information.
         """
-        import litellm
-        from litellm import Choices, Message, ModelResponse
-        from litellm.litellm_core_utils.classifier_logging import CLASSIFIER_AUDIT_FIELDS, without_classifier_audit
+        import embrouter
+        from embrouter import Choices, Message, ModelResponse
+        from embrouter.embrouter_core_utils.classifier_logging import CLASSIFIER_AUDIT_FIELDS, without_classifier_audit
 
         turn_off_message_logging: Final[bool] = getattr(self, "turn_off_message_logging", False)
-        excluded_fields: Final[list[str] | None] = getattr(litellm, "standard_logging_payload_excluded_fields", None)
+        excluded_fields: Final[list[str] | None] = getattr(embrouter, "standard_logging_payload_excluded_fields", None)
 
         # Early return if no processing needed
         if turn_off_message_logging is False and not excluded_fields:
@@ -931,7 +931,7 @@ class CustomLogger:  #
 
         # Handle turn_off_message_logging - redact messages and responses (if not already excluded)
         if turn_off_message_logging and not self.redacts_messages_itself():
-            redacted_str: Final = "redacted-by-litellm"
+            redacted_str: Final = "redacted-by-embrouter"
 
             if "messages" not in (excluded_fields or ()) and standard_logging_object_copy.get("messages") is not None:
                 standard_logging_object_copy["messages"] = [Message(content=redacted_str).model_dump()]
@@ -960,10 +960,10 @@ class CustomLogger:  #
                     model_response_dict: Final = model_response.model_dump()
                     standard_logging_object_copy["response"] = model_response_dict
 
-        params: Final = model_call_details.get("litellm_params")
+        params: Final = model_call_details.get("embrouter_params")
         request: Final = params.get("proxy_server_request") if isinstance(params, dict) else None
         redacted_params: Final = (
-            MappingProxyType({"litellm_params": {**params, "proxy_server_request": without_classifier_audit(request)}})
+            MappingProxyType({"embrouter_params": {**params, "proxy_server_request": without_classifier_audit(request)}})
             if turn_off_message_logging and isinstance(params, dict) and isinstance(request, dict)
             else EMPTY_MAPPING
         )
@@ -988,10 +988,10 @@ class CustomLogger:  #
         Call this method in exception handlers within your callback when logging fails.
         """
         try:
-            import litellm
-            from litellm._logging import verbose_logger
+            import embrouter
+            from embrouter._logging import verbose_logger
 
-            all_callbacks: Final = litellm.logging_callback_manager._get_all_callbacks()
+            all_callbacks: Final = embrouter.logging_callback_manager._get_all_callbacks()
 
             for callback_obj in all_callbacks:
                 if hasattr(callback_obj, "increment_callback_logging_failure"):
@@ -1005,7 +1005,7 @@ class CustomLogger:  #
             )
 
         except Exception as e:
-            from litellm._logging import verbose_logger
+            from embrouter._logging import verbose_logger
 
             verbose_logger.debug("Error in handle_callback_failure for %s: %s", callback_name, e)
 

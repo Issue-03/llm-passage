@@ -17,11 +17,11 @@ from httpx import Headers, Response
 from openai.types.file_deleted import FileDeleted
 from typing_extensions import ReadOnly, Required
 
-import litellm
-from litellm._uuid import uuid
-from litellm.files.types import FileContentStreamingResult
-from litellm.files.utils import FilesAPIUtils
-from litellm.litellm_core_utils.cloud_storage_security import (
+import embrouter
+from embrouter._uuid import uuid
+from embrouter.files.types import FileContentStreamingResult
+from embrouter.files.utils import FilesAPIUtils
+from embrouter.embrouter_core_utils.cloud_storage_security import (
     VERTEX_AI_MANAGED_GCS_PREFIX,
     build_managed_cloud_object_name,
     encode_gcs_object_name_for_url,
@@ -30,33 +30,33 @@ from litellm.litellm_core_utils.cloud_storage_security import (
     split_configured_cloud_bucket_name,
     validate_managed_cloud_file_id,
 )
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+from embrouter.embrouter_core_utils.embrouter_logging import Logging
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
     extract_file_data,
     extract_file_metadata,
 )
-from litellm.llms.base_llm.base_utils import map_developer_role_to_system_role
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.base_llm.files.batch_records import responses_batch_body_to_chat_body
-from litellm.llms.base_llm.files.transformation import (
+from embrouter.llms.base_llm.base_utils import map_developer_role_to_system_role
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.base_llm.files.batch_records import responses_batch_body_to_chat_body
+from embrouter.llms.base_llm.files.transformation import (
     BaseFilesConfig,
     BaseFileUploadStream,
-    LiteLLMLoggingObj,
+    EmbRouterLoggingObj,
 )
-from litellm.llms.vertex_ai.batches.transformation import vertex_embedding_prompt_token_count
-from litellm.llms.vertex_ai.common_utils import (
+from embrouter.llms.vertex_ai.batches.transformation import vertex_embedding_prompt_token_count
+from embrouter.llms.vertex_ai.common_utils import (
     _convert_vertex_datetime_to_openai_datetime,
     get_vertex_ai_fine_tuned_endpoint_id,
 )
-from litellm.llms.vertex_ai.gemini.transformation import _transform_request_body
-from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+from embrouter.llms.vertex_ai.gemini.transformation import _transform_request_body
+from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
     VertexGeminiConfig,
 )
-from litellm.llms.vertex_ai.gemini_embeddings.batch_embed_content_transformation import (
+from embrouter.llms.vertex_ai.gemini_embeddings.batch_embed_content_transformation import (
     transform_openai_input_gemini_embed_content,
 )
-from litellm.types.files import StreamingMediaUploadConfig
-from litellm.types.llms.openai import (
+from embrouter.types.files import StreamingMediaUploadConfig
+from embrouter.types.llms.openai import (
     AllMessageValues,
     CreateFileRequest,
     FileContent,
@@ -67,8 +67,8 @@ from litellm.types.llms.openai import (
     OpenAIFilesPurpose,
     PathLike,
 )
-from litellm.types.llms.vertex_ai import GcsBucketResponse, GeminiEmbeddingInput
-from litellm.types.utils import (
+from embrouter.types.llms.vertex_ai import GcsBucketResponse, GeminiEmbeddingInput
+from embrouter.types.utils import (
     Embedding,
     EmbeddingResponse,
     LlmProviders,
@@ -200,46 +200,46 @@ def _decode_gcp_label_value_chunks(values: list[str]) -> str | None:
         return None
 
 
-def _set_litellm_batch_custom_id_labels(labels: dict[str, str], custom_id: object) -> None:
+def _set_embrouter_batch_custom_id_labels(labels: dict[str, str], custom_id: object) -> None:
     """
     Store OpenAI batch custom_id for Vertex batch correlation.
 
-    ``litellm_custom_id`` is GCP-label-safe (may alter casing and characters).
-    ``litellm_custom_id_raw`` encodes the original string for
+    ``embrouter_custom_id`` is GCP-label-safe (may alter casing and characters).
+    ``embrouter_custom_id_raw`` encodes the original string for
     round-trip correlation in batch output transforms.
     """
     custom_id_str: Final = str(custom_id)
-    labels["litellm_custom_id"] = _sanitize_gcp_label_value(custom_id_str)
+    labels["embrouter_custom_id"] = _sanitize_gcp_label_value(custom_id_str)
     raw_label_chunks: Final = _encode_gcp_label_value_chunks(custom_id_str)
-    labels["litellm_custom_id_raw"] = raw_label_chunks[0]
+    labels["embrouter_custom_id_raw"] = raw_label_chunks[0]
     for index, raw_label_chunk in enumerate(raw_label_chunks[1:], start=1):
-        labels[f"litellm_custom_id_raw_{index}"] = raw_label_chunk
+        labels[f"embrouter_custom_id_raw_{index}"] = raw_label_chunk
 
 
-def _get_litellm_batch_custom_id(vertex_output_row: Mapping[str, object]) -> str:
+def _get_embrouter_batch_custom_id(vertex_output_row: Mapping[str, object]) -> str:
     """
     Resolve the OpenAI `custom_id` for a Vertex batch output row.
 
     Embedding rows carry it in the top-level `key` field that Vertex echoes back;
     `generateContent` rows have no such field, so it is smuggled through request
-    labels instead (see `_set_litellm_batch_custom_id_labels`).
+    labels instead (see `_set_embrouter_batch_custom_id_labels`).
     """
     key = vertex_output_row.get(_VERTEX_BATCH_KEY_FIELD)
     if key is not None:
         return unquote(str(key))
     request_data = vertex_output_row.get("request")
     labels = request_data.get("labels") if isinstance(request_data, Mapping) else None
-    return _get_litellm_batch_custom_id_from_labels(labels)
+    return _get_embrouter_batch_custom_id_from_labels(labels)
 
 
-def _get_litellm_batch_custom_id_from_labels(labels: Mapping[str, object] | None) -> str:
-    """Prefer encoded custom_id when present (see _set_litellm_batch_custom_id_labels)."""
+def _get_embrouter_batch_custom_id_from_labels(labels: Mapping[str, object] | None) -> str:
+    """Prefer encoded custom_id when present (see _set_embrouter_batch_custom_id_labels)."""
     if not labels:
         return "unknown"
-    raw: Final = labels.get("litellm_custom_id_raw")
+    raw: Final = labels.get("embrouter_custom_id_raw")
     if raw:
         raw_chunks: Final = [str(raw)]
-        chunk_prefix: Final = "litellm_custom_id_raw_"
+        chunk_prefix: Final = "embrouter_custom_id_raw_"
         indexed_chunks: Final = []
         for key, value in labels.items():
             if key.startswith(chunk_prefix) and key[len(chunk_prefix) :].isdigit():
@@ -249,7 +249,7 @@ def _get_litellm_batch_custom_id_from_labels(labels: Mapping[str, object] | None
         if decoded is not None:
             return decoded
         return str(raw)
-    return str(labels.get("litellm_custom_id", "unknown"))
+    return str(labels.get("embrouter_custom_id", "unknown"))
 
 
 def _is_vertex_embeddings_batch_output_row(vertex_output_row: Mapping[str, object]) -> bool:
@@ -366,7 +366,7 @@ def _new_vertex_batch_output_row_transform_context() -> _VertexBatchOutputRowTra
         stream=False,
         call_type="batch_transform",
         start_time=time.time(),
-        litellm_call_id="",
+        embrouter_call_id="",
         function_id="",
     )
     batch_transform_logging_obj.optional_params = {}
@@ -417,7 +417,7 @@ def _split_vertex_batch_key(vertex_output_row: Mapping[str, object]) -> tuple[st
     """
     key = vertex_output_row.get(_VERTEX_BATCH_KEY_FIELD)
     if key is None:
-        return _get_litellm_batch_custom_id(vertex_output_row), 0, 1
+        return _get_embrouter_batch_custom_id(vertex_output_row), 0, 1
     match = _VERTEX_BATCH_FANNED_OUT_KEY_PATTERN.fullmatch(str(key))
     if match is None:
         return unquote(str(key)), 0, 1
@@ -510,7 +510,7 @@ def _transform_vertex_embeddings_batch_output_to_openai(
 
 def _model_from_managed_gcs_url(url: str) -> str | None:
     """
-    Extracts the model from a LiteLLM-managed Vertex batch GCS url.
+    Extracts the model from a EmbRouter-managed Vertex batch GCS url.
 
     Batch inputs and their sibling outputs are stored under
     `.../publishers/google/models/<model>/...`, which is the only place the model of an
@@ -527,8 +527,8 @@ def is_passthrough_managed_gcs_url(url: str) -> bool:
     return managed_prefix_start >= 0 and decoded_url.startswith(_PASSTHROUGH_MANAGED_GCS_PREFIX, managed_prefix_start)
 
 
-def is_passthrough_batch_upload(create_file_data: Mapping[str, object], litellm_params: Mapping[str, object]) -> bool:
-    return create_file_data.get("purpose") == "batch" and litellm_params.get("passthrough") is True
+def is_passthrough_batch_upload(create_file_data: Mapping[str, object], embrouter_params: Mapping[str, object]) -> bool:
+    return create_file_data.get("purpose") == "batch" and embrouter_params.get("passthrough") is True
 
 
 def _batch_entry_route_path(openai_entry: Mapping[str, object]) -> str:
@@ -686,7 +686,7 @@ def _openai_batch_jsonl_entry_to_vertex_rows(
         model=chat_request_body.get("model", ""),
         optional_params=map_openai_to_vertex_params(chat_request_body),
         custom_llm_provider="vertex_ai",
-        litellm_params={},
+        embrouter_params={},
         cached_content=None,
     )
 
@@ -694,7 +694,7 @@ def _openai_batch_jsonl_entry_to_vertex_rows(
     if custom_id is not None:
         if "labels" not in vertex_request_body:
             vertex_request_body["labels"] = {}
-        _set_litellm_batch_custom_id_labels(vertex_request_body["labels"], custom_id)
+        _set_embrouter_batch_custom_id_labels(vertex_request_body["labels"], custom_id)
 
     return ({"request": vertex_request_body},)
 
@@ -878,14 +878,14 @@ class VertexAIFilesConfig(VertexBase, BaseFilesConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
         if not api_key:
             api_key, _ = self.get_access_token(
-                credentials=litellm_params.get("vertex_credentials"),
-                project_id=litellm_params.get("vertex_project"),
+                credentials=embrouter_params.get("vertex_credentials"),
+                project_id=embrouter_params.get("vertex_project"),
             )
             if not api_key:
                 raise ValueError("api_key is required")
@@ -900,7 +900,7 @@ class VertexAIFilesConfig(VertexBase, BaseFilesConfig):
         """
         Gets a unique GCS object name for the VertexAI batch prediction job
 
-        named as: litellm-vertex-{model}-{uuid}
+        named as: embrouter-vertex-{model}-{uuid}
 
         The stored model path decides which Vertex model the batch job later executes against, so
         `deployment_model` (the deployment's own configured model) wins over the user-supplied
@@ -959,10 +959,10 @@ class VertexAIFilesConfig(VertexBase, BaseFilesConfig):
             fallback_filename="file",
         )
 
-    def _get_configured_bucket_name(self, litellm_params: dict) -> str:
+    def _get_configured_bucket_name(self, embrouter_params: dict) -> str:
         bucket_name: Final = (
-            litellm_params.get("gcs_bucket_name")
-            or litellm_params.get("bucket_name")
+            embrouter_params.get("gcs_bucket_name")
+            or embrouter_params.get("bucket_name")
             or os.getenv("GCS_BATCH_BUCKET_NAME")
             or os.getenv("GCS_BUCKET_NAME")
         )
@@ -976,23 +976,23 @@ class VertexAIFilesConfig(VertexBase, BaseFilesConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         data: CreateFileRequest,
     ) -> str:
         """
         Get the complete url for the request
         """
-        if data.get("purpose") == "batch" and litellm_params.get("custom_endpoint"):
+        if data.get("purpose") == "batch" and embrouter_params.get("custom_endpoint"):
             raise VertexAIError(
                 status_code=400,
                 message=(
                     "Vertex AI batch prediction is not supported for `custom_endpoint` deployments. "
-                    "The OpenAI-compatible custom endpoint path has no batch surface in LiteLLM; "
+                    "The OpenAI-compatible custom endpoint path has no batch surface in EmbRouter; "
                     "remove this deployment from the batch request (e.g. `target_model_names`) or "
                     "use a publisher model / fine-tuned Gemini endpoint instead."
                 ),
             )
-        bucket_name = self._get_configured_bucket_name(litellm_params)
+        bucket_name = self._get_configured_bucket_name(embrouter_params)
         bucket_name, object_prefix = split_configured_cloud_bucket_name(bucket_name)
         file_data: Final = data.get("file")
         purpose: Final = data.get("purpose")
@@ -1000,12 +1000,12 @@ class VertexAIFilesConfig(VertexBase, BaseFilesConfig):
             raise ValueError("file is required")
         if purpose is None:
             raise ValueError("purpose is required")
-        configured_model: Final = litellm_params.get("model")
+        configured_model: Final = embrouter_params.get("model")
         object_name = self.get_object_name(
             file_data,
             purpose,
             deployment_model=configured_model if isinstance(configured_model, str) else None,
-            passthrough=is_passthrough_batch_upload(data, litellm_params),
+            passthrough=is_passthrough_batch_upload(data, embrouter_params),
         )
         if object_prefix:
             object_name = f"{object_prefix}/{object_name}"
@@ -1036,7 +1036,7 @@ class VertexAIFilesConfig(VertexBase, BaseFilesConfig):
         """
         wrapper to call VertexGeminiConfig.map_openai_params
         """
-        from litellm.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
+        from embrouter.llms.vertex_ai.gemini.vertex_and_google_ai_studio_gemini import (
             VertexGeminiConfig,
         )
 
@@ -1055,7 +1055,7 @@ class VertexAIFilesConfig(VertexBase, BaseFilesConfig):
         model: str,
         create_file_data: CreateFileRequest,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> bytes | str | dict:
         """
         2 Cases:
@@ -1068,7 +1068,7 @@ class VertexAIFilesConfig(VertexBase, BaseFilesConfig):
         if file_data is None:
             raise ValueError("file is required")
 
-        if is_passthrough_batch_upload(create_file_data, litellm_params):
+        if is_passthrough_batch_upload(create_file_data, embrouter_params):
             return {
                 "streaming_media_upload": StreamingMediaUploadConfig(
                     body_stream=_RawFileUploadStream(file_data),
@@ -1100,8 +1100,8 @@ class VertexAIFilesConfig(VertexBase, BaseFilesConfig):
         self,
         model: str | None,
         raw_response: Response,
-        logging_obj: LiteLLMLoggingObj,
-        litellm_params: dict,
+        logging_obj: EmbRouterLoggingObj,
+        embrouter_params: dict,
     ) -> OpenAIFileObject:
         """
         Transform VertexAI File upload response into OpenAI-style FileObject
@@ -1136,17 +1136,17 @@ class VertexAIFilesConfig(VertexBase, BaseFilesConfig):
     def get_error_class(self, error_message: str, status_code: int, headers: dict | Headers) -> BaseLLMException:
         return VertexAIError(status_code=status_code, message=error_message, headers=headers)
 
-    def _parse_gcs_uri(self, file_id: str, litellm_params: dict | None = None) -> tuple[str, str]:
+    def _parse_gcs_uri(self, file_id: str, embrouter_params: dict | None = None) -> tuple[str, str]:
         """
         Validate a managed GCS file_id and return (bucket, url-encoded-object-path).
         """
-        configured_bucket_name: Final = self._get_configured_bucket_name(litellm_params or {})
+        configured_bucket_name: Final = self._get_configured_bucket_name(embrouter_params or {})
         bucket_name, object_path = validate_managed_cloud_file_id(
             file_id=file_id,
             scheme="gs://",
             configured_bucket_name=configured_bucket_name,
             allowed_object_prefixes=(VERTEX_AI_MANAGED_GCS_PREFIX,),
-            allow_legacy_cloud_file_ids=should_allow_legacy_cloud_file_ids(litellm_params),
+            allow_legacy_cloud_file_ids=should_allow_legacy_cloud_file_ids(embrouter_params),
         )
         return bucket_name, encode_gcs_object_name_for_url(object_path)
 
@@ -1154,17 +1154,17 @@ class VertexAIFilesConfig(VertexBase, BaseFilesConfig):
         self,
         file_id: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> tuple[str, dict]:
-        bucket, encoded_object = self._parse_gcs_uri(file_id, litellm_params)
+        bucket, encoded_object = self._parse_gcs_uri(file_id, embrouter_params)
         url: Final = f"https://storage.googleapis.com/storage/v1/b/{bucket}/o/{encoded_object}"
         return url, {}
 
     def transform_retrieve_file_response(
         self,
         raw_response: Response,
-        logging_obj: LiteLLMLoggingObj,
-        litellm_params: dict,
+        logging_obj: EmbRouterLoggingObj,
+        embrouter_params: dict,
     ) -> OpenAIFileObject:
         response_json: Final[_GcsObjectJson] = raw_response.json()
         gcs_id = response_json.get("id", "")
@@ -1186,17 +1186,17 @@ class VertexAIFilesConfig(VertexBase, BaseFilesConfig):
         self,
         file_id: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> tuple[str, dict]:
-        bucket, encoded_object = self._parse_gcs_uri(file_id, litellm_params)
+        bucket, encoded_object = self._parse_gcs_uri(file_id, embrouter_params)
         url: Final = f"https://storage.googleapis.com/storage/v1/b/{bucket}/o/{encoded_object}"
         return url, {}
 
     def transform_delete_file_response(
         self,
         raw_response: Response,
-        logging_obj: LiteLLMLoggingObj,
-        litellm_params: dict,
+        logging_obj: EmbRouterLoggingObj,
+        embrouter_params: dict,
     ) -> FileDeleted:
         file_id = "deleted"
         if hasattr(raw_response, "request") and raw_response.request:
@@ -1213,15 +1213,15 @@ class VertexAIFilesConfig(VertexBase, BaseFilesConfig):
         self,
         purpose: str | None,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> tuple[str, dict]:
         raise NotImplementedError("VertexAIFilesConfig does not support file listing")
 
     def transform_list_files_response(
         self,
         raw_response: Response,
-        logging_obj: LiteLLMLoggingObj,
-        litellm_params: dict,
+        logging_obj: EmbRouterLoggingObj,
+        embrouter_params: dict,
     ) -> list[OpenAIFileObject]:
         raise NotImplementedError("VertexAIFilesConfig does not support file listing")
 
@@ -1229,18 +1229,18 @@ class VertexAIFilesConfig(VertexBase, BaseFilesConfig):
         self,
         file_content_request,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> tuple[str, dict]:
         file_id: Final = file_content_request.get("file_id", "")
-        bucket, encoded_object = self._parse_gcs_uri(file_id, litellm_params)
+        bucket, encoded_object = self._parse_gcs_uri(file_id, embrouter_params)
         url: Final = f"https://storage.googleapis.com/storage/v1/b/{bucket}/o/{encoded_object}?alt=media"
         return url, {}
 
     def transform_file_content_response(
         self,
         raw_response: Response,
-        logging_obj: LiteLLMLoggingObj,
-        litellm_params: dict,
+        logging_obj: EmbRouterLoggingObj,
+        embrouter_params: dict,
     ) -> HttpxBinaryResponseContent:
         """
         Transform file content response, converting Vertex AI batch output to OpenAI format if applicable.
@@ -1254,7 +1254,7 @@ class VertexAIFilesConfig(VertexBase, BaseFilesConfig):
         try:
             # Allow users to opt out of automatic Vertex batch output -> OpenAI
             # transformation, e.g. if they consume raw `predictions.jsonl` directly.
-            if getattr(litellm, "disable_vertex_batch_output_transformation", False):
+            if getattr(embrouter, "disable_vertex_batch_output_transformation", False):
                 return HttpxBinaryResponseContent(response=raw_response)
             if is_passthrough_managed_gcs_url(str(raw_response.request.url)):
                 return HttpxBinaryResponseContent(response=raw_response)
@@ -1292,8 +1292,8 @@ class VertexAIFilesConfig(VertexBase, BaseFilesConfig):
         stream_iterator: AsyncGenerator[bytes, None],
         headers: Mapping[str, str],
         request_url: str,
-        logging_obj: LiteLLMLoggingObj,
-        litellm_params: dict,
+        logging_obj: EmbRouterLoggingObj,
+        embrouter_params: dict,
     ) -> FileContentStreamingResult:
         """
         Streams file content, converting a Vertex AI batch output to OpenAI format row by
@@ -1303,7 +1303,7 @@ class VertexAIFilesConfig(VertexBase, BaseFilesConfig):
         Everything else is passed through unchanged, including a row that fails to
         transform mid-stream.
         """
-        if litellm.disable_vertex_batch_output_transformation or is_passthrough_managed_gcs_url(request_url):
+        if embrouter.disable_vertex_batch_output_transformation or is_passthrough_managed_gcs_url(request_url):
             return FileContentStreamingResult(stream_iterator=stream_iterator, headers=headers)
 
         first_line, buffered = await _peek_first_jsonl_line(
@@ -1367,7 +1367,7 @@ class VertexAIFilesConfig(VertexBase, BaseFilesConfig):
     def _try_transform_vertex_batch_output_to_openai(
         self,
         content: bytes,
-        logging_obj: LiteLLMLoggingObj | None = None,
+        logging_obj: EmbRouterLoggingObj | None = None,
         model: str | None = None,
     ) -> bytes:
         """
@@ -1376,7 +1376,7 @@ class VertexAIFilesConfig(VertexBase, BaseFilesConfig):
 
         Vertex AI batch output format (predictions.jsonl):
         {
-          "request": {"contents": [...], "labels": {"litellm_custom_id": "request-1", "litellm_custom_id_raw": "..."}},
+          "request": {"contents": [...], "labels": {"embrouter_custom_id": "request-1", "embrouter_custom_id_raw": "..."}},
           "status": "",
           "response": {"candidates": [...], "modelVersion": "gemini-2.5-flash", ...},
           "processed_time": "2026-04-13T10:18:18.102004+00:00"
@@ -1465,7 +1465,7 @@ class VertexAIFilesConfig(VertexBase, BaseFilesConfig):
         Transform a single Vertex AI batch output line to OpenAI format.
         Uses the existing VertexGeminiConfig transformation for the response.
         """
-        custom_id: Final = _get_litellm_batch_custom_id(vertex_output)
+        custom_id: Final = _get_embrouter_batch_custom_id(vertex_output)
 
         # Check if there's an error
         status: Final = vertex_output.get("status", "")

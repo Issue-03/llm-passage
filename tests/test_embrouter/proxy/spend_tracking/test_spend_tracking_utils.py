@@ -10,23 +10,23 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from typing_extensions import ReadOnly, TypedDict
 
-import litellm
-from litellm.constants import (
-    LITELLM_TRUNCATED_PAYLOAD_FIELD,
-    LITELLM_TRUNCATION_DB_SAFEGUARD_NOTE,
-    LITTELM_CLI_SERVICE_ACCOUNT_NAME,
-    LITTELM_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME,
+import embrouter
+from embrouter.constants import (
+    EMBROUTER_TRUNCATED_PAYLOAD_FIELD,
+    EMBROUTER_TRUNCATION_DB_SAFEGUARD_NOTE,
+    EMBROUTER_CLI_SERVICE_ACCOUNT_NAME,
+    EMBROUTER_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME,
     MAX_SPEND_LOG_MODEL_NAME_LENGTH,
     REDACTED_BY_LITELM_STRING,
     SESSION_ID_OMITTED_METADATA_KEY,
     UNKNOWN_MODEL_SPEND_LOG_MODEL,
 )
-from litellm.litellm_core_utils.litellm_logging import StandardLoggingPayloadSetup
-from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
-from litellm.proxy._types import SpendLogsPayload, UserAPIKeyAuth
-from litellm.proxy.litellm_pre_call_utils import LiteLLMProxyRequestSetup
-from litellm.proxy.route_llm_request import ProxyModelNotFoundError
-from litellm.proxy.spend_tracking.spend_tracking_utils import (
+from embrouter.embrouter_core_utils.embrouter_logging import StandardLoggingPayloadSetup
+from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps
+from embrouter.proxy._types import SpendLogsPayload, UserAPIKeyAuth
+from embrouter.proxy.embrouter_pre_call_utils import EmbRouterProxyRequestSetup
+from embrouter.proxy.route_llm_request import ProxyModelNotFoundError
+from embrouter.proxy.spend_tracking.spend_tracking_utils import (
     _get_messages_for_spend_logs_payload,
     _get_proxy_server_request_for_spend_logs_payload,
     _get_request_duration_ms,
@@ -45,9 +45,9 @@ from litellm.proxy.spend_tracking.spend_tracking_utils import (
     get_spend_logs_id,
     should_store_prompts_and_responses_in_spend_logs,
 )
-from litellm.proxy.utils import hash_token
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import (
+from embrouter.proxy.utils import hash_token
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import (
     StandardLoggingHiddenParams,
     StandardLoggingMetadata,
     StandardLoggingModelInformation,
@@ -56,13 +56,13 @@ from litellm.types.utils import (
 )
 
 
-def _get_additional_usage_values_for_usage(usage: litellm.Usage) -> dict:
+def _get_additional_usage_values_for_usage(usage: embrouter.Usage) -> dict:
     payload = get_logging_payload(
         kwargs={
             "model": "gpt-4o-mini",
-            "litellm_params": {"metadata": {"user_api_key": "test-key"}},
+            "embrouter_params": {"metadata": {"user_api_key": "test-key"}},
         },
-        response_obj=litellm.ModelResponse(
+        response_obj=embrouter.ModelResponse(
             id="chatcmpl-test",
             choices=[],
             usage=usage,
@@ -76,7 +76,7 @@ def _get_additional_usage_values_for_usage(usage: litellm.Usage) -> dict:
 
 @pytest.mark.parametrize("store_prompts,redact", [(True, False), (False, False), (True, True)])
 def test_classifier_audit_spend_storage_obeys_privacy_and_truncation(monkeypatch, store_prompts, redact):
-    from litellm.proxy import proxy_server
+    from embrouter.proxy import proxy_server
 
     monkeypatch.setattr(proxy_server, "general_settings", {"store_prompts_in_spend_logs": store_prompts})
     audit: Final = {
@@ -84,7 +84,7 @@ def test_classifier_audit_spend_storage_obeys_privacy_and_truncation(monkeypatch
         "originating_request_masked": {"input": "source-only", "api_key": "REDACTED"},
     }
     stored: Final = json.loads(_get_proxy_server_request_for_spend_logs_payload(
-        metadata={}, litellm_params={"proxy_server_request": {"body": {"model": "classifier"}}},
+        metadata={}, embrouter_params={"proxy_server_request": {"body": {"model": "classifier"}}},
         kwargs={"standard_logging_object": audit, "standard_callback_dynamic_params": {"turn_off_message_logging": redact}},
     ))
     if not store_prompts or redact:
@@ -92,7 +92,7 @@ def test_classifier_audit_spend_storage_obeys_privacy_and_truncation(monkeypatch
         assert "originating_request_masked" not in stored
     else:
         assert stored["classifier_input"]["messages"] == audit["classifier_input"]["messages"]
-        assert LITELLM_TRUNCATED_PAYLOAD_FIELD in json.dumps(stored["classifier_input"])
+        assert EMBROUTER_TRUNCATED_PAYLOAD_FIELD in json.dumps(stored["classifier_input"])
         assert stored["originating_request_masked"]["input"] == "source-only"
         assert stored["model"] == "classifier"
         assert audit["classifier_input"]["system"] == "rubric" * 1000
@@ -100,7 +100,7 @@ def test_classifier_audit_spend_storage_obeys_privacy_and_truncation(monkeypatch
 
 def test_get_logging_payload_maps_openai_cached_tokens_to_cache_read_input_tokens():
     additional_usage_values = _get_additional_usage_values_for_usage(
-        litellm.Usage(
+        embrouter.Usage(
             prompt_tokens=10,
             completion_tokens=2,
             total_tokens=12,
@@ -112,7 +112,7 @@ def test_get_logging_payload_maps_openai_cached_tokens_to_cache_read_input_token
     assert additional_usage_values["prompt_tokens_details"]["cached_tokens"] == 123
 
 
-class _HashingCache(litellm.Cache):
+class _HashingCache(embrouter.Cache):
     def __init__(self) -> None:
         pass
 
@@ -120,15 +120,15 @@ class _HashingCache(litellm.Cache):
         raise AssertionError("a preset cache key must be reused instead of hashing the request")
 
 
-def _cache_key_in_spend_log(monkeypatch: pytest.MonkeyPatch, cache: litellm.Cache | None, preset: str | None) -> str:
-    monkeypatch.setattr(litellm, "cache", cache)
+def _cache_key_in_spend_log(monkeypatch: pytest.MonkeyPatch, cache: embrouter.Cache | None, preset: str | None) -> str:
+    monkeypatch.setattr(embrouter, "cache", cache)
     payload: Final = get_logging_payload(
         kwargs={
             "model": "gpt-4o-mini",
             "messages": [{"role": "user", "content": "x" * 10_000}],
-            "litellm_params": {"metadata": {"user_api_key": "test-key"}, "preset_cache_key": preset},
+            "embrouter_params": {"metadata": {"user_api_key": "test-key"}, "preset_cache_key": preset},
         },
-        response_obj=litellm.ModelResponse(id="chatcmpl-test", choices=[], usage=litellm.Usage()),
+        response_obj=embrouter.ModelResponse(id="chatcmpl-test", choices=[], usage=embrouter.Usage()),
         start_time=datetime.datetime.now(timezone.utc),
         end_time=datetime.datetime.now(timezone.utc),
     )
@@ -144,7 +144,7 @@ def test_get_logging_payload_records_cache_off_without_hashing(monkeypatch):
 
 
 def test_get_logging_payload_still_hashes_when_caching_is_on_and_no_preset_key_exists(monkeypatch):
-    class _RecordingCache(litellm.Cache):
+    class _RecordingCache(embrouter.Cache):
         def __init__(self) -> None:
             pass
 
@@ -167,9 +167,9 @@ _TRACE_ONLY_STANDARD_LOGGING: Final = cast(
 
 
 def _trace_only_session_id(omit_when_missing: bool) -> str | None:
-    """get_litellm_params copies metadata.trace_id into litellm_session_id, so every field echoes the trace id."""
+    """get_embrouter_params copies metadata.trace_id into embrouter_session_id, so every field echoes the trace id."""
     return _get_session_id_for_spend_log(
-        kwargs={"litellm_trace_id": "trace-abc", "litellm_session_id": "trace-abc"},
+        kwargs={"embrouter_trace_id": "trace-abc", "embrouter_session_id": "trace-abc"},
         metadata={"trace_id": "trace-abc"},
         standard_logging_payload=_TRACE_ONLY_STANDARD_LOGGING,
         omit_when_missing=omit_when_missing,
@@ -189,7 +189,7 @@ def test_omit_leaves_session_id_none_without_any_ids():
 
 def test_omit_records_metadata_session_id():
     session_id: Final = _get_session_id_for_spend_log(
-        kwargs={"litellm_session_id": "chain-1"},
+        kwargs={"embrouter_session_id": "chain-1"},
         metadata={"trace_id": "chain-1", "session_id": "chain-1"},
         standard_logging_payload=_TRACE_ONLY_STANDARD_LOGGING,
         omit_when_missing=True,
@@ -209,7 +209,7 @@ def test_batch_lifecycle_rows_derive_the_same_session_from_the_batch_id():
     """The create call's request id IS the batch id and the poller's cost row appends
     _batch_cost to it, so deriving the session from the request id lands both rows in one
     trace on the logs UI even though the poller builds a fresh logging context per cycle."""
-    from litellm.proxy.spend_tracking.spend_tracking_utils import _get_batch_trace_session_id
+    from embrouter.proxy.spend_tracking.spend_tracking_utils import _get_batch_trace_session_id
 
     create_session: Final = _get_batch_trace_session_id(call_type="acreate_batch", request_id="batch-uid-1")
     cost_session: Final = _get_batch_trace_session_id(
@@ -219,7 +219,7 @@ def test_batch_lifecycle_rows_derive_the_same_session_from_the_batch_id():
 
 
 def test_non_batch_call_types_derive_no_batch_session():
-    from litellm.proxy.spend_tracking.spend_tracking_utils import _get_batch_trace_session_id
+    from embrouter.proxy.spend_tracking.spend_tracking_utils import _get_batch_trace_session_id
 
     assert _get_batch_trace_session_id(call_type="acompletion", request_id="chatcmpl-1") is None
 
@@ -228,7 +228,7 @@ def test_batch_session_outranks_the_per_request_trace_id():
     """Each batch lifecycle call carries its own auto-generated trace id, so letting the
     trace id win would scatter the rows across sessions again."""
     session_id: Final = _get_session_id_for_spend_log(
-        kwargs={"litellm_trace_id": "trace-abc"},
+        kwargs={"embrouter_trace_id": "trace-abc"},
         metadata={"trace_id": "trace-abc"},
         standard_logging_payload=_TRACE_ONLY_STANDARD_LOGGING,
         omit_when_missing=False,
@@ -254,9 +254,9 @@ def test_get_logging_payload_groups_batch_create_and_cost_rows_in_one_session():
             kwargs={
                 "call_type": call_type,
                 "model": "gpt-4o-mini",
-                "litellm_params": {"metadata": {"user_api_key": "test-key"}},
+                "embrouter_params": {"metadata": {"user_api_key": "test-key"}},
             },
-            response_obj=litellm.ModelResponse(id="batch-uid-1", choices=[], usage=litellm.Usage()),
+            response_obj=embrouter.ModelResponse(id="batch-uid-1", choices=[], usage=embrouter.Usage()),
             start_time=datetime.datetime.now(timezone.utc),
             end_time=datetime.datetime.now(timezone.utc),
         )
@@ -281,16 +281,16 @@ def test_get_logging_payload_reads_omit_decision_stamped_on_request(
     """The pre-call stamp, not the live general_settings, decides the policy, so a config reload between
     pre-call and spend logging cannot fabricate a session for a request accepted under `omit`."""
     with patch(  # test-quality-ok: proves log time ignores proxy config; general_settings is yaml, not an HTTP boundary
-        "litellm.proxy.proxy_server.general_settings", {"missing_session_id": "generate"}
+        "embrouter.proxy.proxy_server.general_settings", {"missing_session_id": "generate"}
     ):
         payload: SpendLogsPayload = get_logging_payload(
             kwargs={
                 "model": "gpt-4o-mini",
-                "litellm_trace_id": "trace-abc",
-                "litellm_params": {"litellm_session_id": "trace-abc", "metadata": request_metadata},
+                "embrouter_trace_id": "trace-abc",
+                "embrouter_params": {"embrouter_session_id": "trace-abc", "metadata": request_metadata},
                 "standard_logging_object": _TRACE_ONLY_STANDARD_LOGGING,
             },
-            response_obj=litellm.ModelResponse(id="chatcmpl-test", choices=[]),
+            response_obj=embrouter.ModelResponse(id="chatcmpl-test", choices=[]),
             start_time=datetime.datetime.now(timezone.utc),
             end_time=datetime.datetime.now(timezone.utc),
         )
@@ -304,16 +304,16 @@ def test_get_logging_payload_applies_omit_to_requests_that_carry_no_stamp(policy
     `missing_session_id: omit` would fabricate a uuid session id on every passthrough spend log while its Langfuse
     trace has none, which is the divergence the policy exists to remove."""
     with patch(  # test-quality-ok: general_settings is proxy config, loaded from yaml, not an HTTP boundary
-        "litellm.proxy.proxy_server.general_settings", {} if policy is None else {"missing_session_id": policy}
+        "embrouter.proxy.proxy_server.general_settings", {} if policy is None else {"missing_session_id": policy}
     ):
         payload: SpendLogsPayload = get_logging_payload(
             kwargs={
                 "model": "claude-opus-4",
-                "litellm_trace_id": "trace-abc",
-                "litellm_params": {"litellm_session_id": "trace-abc", "metadata": {"trace_id": "trace-abc"}},
+                "embrouter_trace_id": "trace-abc",
+                "embrouter_params": {"embrouter_session_id": "trace-abc", "metadata": {"trace_id": "trace-abc"}},
                 "standard_logging_object": _TRACE_ONLY_STANDARD_LOGGING,
             },
-            response_obj=litellm.ModelResponse(id="chatcmpl-test", choices=[]),
+            response_obj=embrouter.ModelResponse(id="chatcmpl-test", choices=[]),
             start_time=datetime.datetime.now(timezone.utc),
             end_time=datetime.datetime.now(timezone.utc),
         )
@@ -322,7 +322,7 @@ def test_get_logging_payload_applies_omit_to_requests_that_carry_no_stamp(policy
 
 def test_get_logging_payload_preserves_anthropic_cache_read_input_tokens():
     additional_usage_values = _get_additional_usage_values_for_usage(
-        litellm.Usage(
+        embrouter.Usage(
             prompt_tokens=10,
             completion_tokens=2,
             total_tokens=12,
@@ -340,7 +340,7 @@ def test_get_logging_payload_preserves_anthropic_cache_read_input_tokens():
 )
 def test_get_logging_payload_does_not_map_missing_or_zero_cached_tokens(prompt_tokens_details):
     additional_usage_values = _get_additional_usage_values_for_usage(
-        litellm.Usage(
+        embrouter.Usage(
             prompt_tokens=10,
             completion_tokens=2,
             total_tokens=12,
@@ -353,7 +353,7 @@ def test_get_logging_payload_does_not_map_missing_or_zero_cached_tokens(prompt_t
 
 def test_get_logging_payload_maps_openai_cache_write_tokens_to_cache_creation_input_tokens():
     additional_usage_values = _get_additional_usage_values_for_usage(
-        litellm.Usage(
+        embrouter.Usage(
             prompt_tokens=1000,
             completion_tokens=2,
             total_tokens=1002,
@@ -371,7 +371,7 @@ def test_get_logging_payload_maps_nested_cache_creation_input_tokens():
     prompt_tokens_details; SpendLogs must record it as cache_creation_input_tokens.
     """
     additional_usage_values: Final = _get_additional_usage_values_for_usage(
-        litellm.Usage(
+        embrouter.Usage(
             prompt_tokens=2059,
             completion_tokens=31,
             total_tokens=2090,
@@ -391,7 +391,7 @@ def test_get_logging_payload_maps_nested_cache_creation_input_tokens():
 
 def test_get_logging_payload_preserves_anthropic_cache_creation_input_tokens():
     additional_usage_values = _get_additional_usage_values_for_usage(
-        litellm.Usage(
+        embrouter.Usage(
             prompt_tokens=1000,
             completion_tokens=2,
             total_tokens=1002,
@@ -408,7 +408,7 @@ def test_get_logging_payload_preserves_anthropic_cache_creation_input_tokens():
 )
 def test_get_logging_payload_does_not_map_missing_or_zero_cache_write_tokens(prompt_tokens_details):
     additional_usage_values = _get_additional_usage_values_for_usage(
-        litellm.Usage(
+        embrouter.Usage(
             prompt_tokens=10,
             completion_tokens=2,
             total_tokens=12,
@@ -466,10 +466,10 @@ def _make_standard_logging_payload_with_usage_object(usage_object: dict) -> Stan
             cache_key=None,
             api_base="https://api.openai.com",
             response_cost="0.02",
-            litellm_overhead_time_ms=None,
+            embrouter_overhead_time_ms=None,
             additional_headers=None,
             batch_models=None,
-            litellm_model_name=None,
+            embrouter_model_name=None,
             usage_object=None,
         ),
     )
@@ -493,7 +493,7 @@ def test_get_logging_payload_maps_responses_api_cache_write_tokens_from_usage_ob
         kwargs={
             "model": "gpt-5.6",
             "call_type": "responses",
-            "litellm_params": {"metadata": {"user_api_key": "test-key"}},
+            "embrouter_params": {"metadata": {"user_api_key": "test-key"}},
             "standard_logging_object": standard_logging_payload,
         },
         response_obj={
@@ -520,7 +520,7 @@ def test_sanitize_request_body_for_spend_logs_payload_basic():
 
 
 def test_sanitize_request_body_for_spend_logs_payload_long_string():
-    from litellm.constants import MAX_STRING_LENGTH_PROMPT_IN_DB
+    from embrouter.constants import MAX_STRING_LENGTH_PROMPT_IN_DB
 
     # Create a string longer than MAX_STRING_LENGTH_PROMPT_IN_DB (2048)
     long_string = "a" * 3000  # Create a string longer than MAX_STRING_LENGTH_PROMPT_IN_DB
@@ -535,7 +535,7 @@ def test_sanitize_request_body_for_spend_logs_payload_long_string():
         end_chars = MAX_STRING_LENGTH_PROMPT_IN_DB - start_chars
 
     skipped_chars = len(long_string) - (start_chars + end_chars)
-    expected_truncation_message = f"... ({LITELLM_TRUNCATED_PAYLOAD_FIELD} skipped {skipped_chars} chars. {LITELLM_TRUNCATION_DB_SAFEGUARD_NOTE}) ..."
+    expected_truncation_message = f"... ({EMBROUTER_TRUNCATED_PAYLOAD_FIELD} skipped {skipped_chars} chars. {EMBROUTER_TRUNCATION_DB_SAFEGUARD_NOTE}) ..."
     expected_length = start_chars + len(expected_truncation_message) + end_chars
 
     assert len(sanitized["text"]) == expected_length
@@ -546,7 +546,7 @@ def test_sanitize_request_body_for_spend_logs_payload_long_string():
 
 
 def test_sanitize_request_body_for_spend_logs_payload_nested_dict():
-    from litellm.constants import MAX_STRING_LENGTH_PROMPT_IN_DB
+    from embrouter.constants import MAX_STRING_LENGTH_PROMPT_IN_DB
 
     # Create a string longer than MAX_STRING_LENGTH_PROMPT_IN_DB
     long_string = "a" * (MAX_STRING_LENGTH_PROMPT_IN_DB + 500)
@@ -561,7 +561,7 @@ def test_sanitize_request_body_for_spend_logs_payload_nested_dict():
         end_chars = MAX_STRING_LENGTH_PROMPT_IN_DB - start_chars
 
     skipped_chars = len(long_string) - total_keep
-    expected_truncation_message = f"... ({LITELLM_TRUNCATED_PAYLOAD_FIELD} skipped {skipped_chars} chars. {LITELLM_TRUNCATION_DB_SAFEGUARD_NOTE}) ..."
+    expected_truncation_message = f"... ({EMBROUTER_TRUNCATED_PAYLOAD_FIELD} skipped {skipped_chars} chars. {EMBROUTER_TRUNCATION_DB_SAFEGUARD_NOTE}) ..."
     expected_length = start_chars + len(expected_truncation_message) + end_chars
 
     assert len(sanitized["outer"]["inner"]["text"]) == expected_length
@@ -569,7 +569,7 @@ def test_sanitize_request_body_for_spend_logs_payload_nested_dict():
 
 
 def test_sanitize_request_body_for_spend_logs_payload_nested_list():
-    from litellm.constants import MAX_STRING_LENGTH_PROMPT_IN_DB
+    from embrouter.constants import MAX_STRING_LENGTH_PROMPT_IN_DB
 
     # Create a string longer than MAX_STRING_LENGTH_PROMPT_IN_DB
     long_string = "a" * (MAX_STRING_LENGTH_PROMPT_IN_DB + 500)
@@ -584,7 +584,7 @@ def test_sanitize_request_body_for_spend_logs_payload_nested_list():
         end_chars = MAX_STRING_LENGTH_PROMPT_IN_DB - start_chars
 
     skipped_chars = len(long_string) - total_keep
-    expected_truncation_message = f"... ({LITELLM_TRUNCATED_PAYLOAD_FIELD} skipped {skipped_chars} chars. {LITELLM_TRUNCATION_DB_SAFEGUARD_NOTE}) ..."
+    expected_truncation_message = f"... ({EMBROUTER_TRUNCATED_PAYLOAD_FIELD} skipped {skipped_chars} chars. {EMBROUTER_TRUNCATION_DB_SAFEGUARD_NOTE}) ..."
     expected_length = start_chars + len(expected_truncation_message) + end_chars
 
     assert len(sanitized["items"][0]["text"]) == expected_length
@@ -605,7 +605,7 @@ def test_sanitize_request_body_for_spend_logs_payload_empty():
 
 
 def test_sanitize_request_body_for_spend_logs_payload_mixed_types():
-    from litellm.constants import MAX_STRING_LENGTH_PROMPT_IN_DB
+    from embrouter.constants import MAX_STRING_LENGTH_PROMPT_IN_DB
 
     # Create a string longer than MAX_STRING_LENGTH_PROMPT_IN_DB
     long_string = "a" * (MAX_STRING_LENGTH_PROMPT_IN_DB + 500)
@@ -624,7 +624,7 @@ def test_sanitize_request_body_for_spend_logs_payload_mixed_types():
         end_chars = MAX_STRING_LENGTH_PROMPT_IN_DB - start_chars
 
     skipped_chars = len(long_string) - total_keep
-    expected_truncation_message = f"... ({LITELLM_TRUNCATED_PAYLOAD_FIELD} skipped {skipped_chars} chars. {LITELLM_TRUNCATION_DB_SAFEGUARD_NOTE}) ..."
+    expected_truncation_message = f"... ({EMBROUTER_TRUNCATED_PAYLOAD_FIELD} skipped {skipped_chars} chars. {EMBROUTER_TRUNCATION_DB_SAFEGUARD_NOTE}) ..."
     expected_length = start_chars + len(expected_truncation_message) + end_chars
 
     assert len(sanitized["text"]) == expected_length
@@ -637,7 +637,7 @@ def test_sanitize_request_body_for_spend_logs_payload_mixed_types():
 def test_sanitize_request_body_for_spend_logs_payload_uses_runtime_env_override(
     monkeypatch: pytest.MonkeyPatch,
 ):
-    from litellm.constants import MAX_STRING_LENGTH_PROMPT_IN_DB
+    from embrouter.constants import MAX_STRING_LENGTH_PROMPT_IN_DB
 
     override_max = max(MAX_STRING_LENGTH_PROMPT_IN_DB + 1000, 6000)
     test_string = "a" * (MAX_STRING_LENGTH_PROMPT_IN_DB + 500)
@@ -660,7 +660,7 @@ def test_sanitize_request_body_for_spend_logs_payload_circular_reference():
     assert sanitized == {"b": {"a": {}}}  # Should return empty dict for circular reference
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("embrouter.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_get_vector_store_request_for_spend_logs_payload_store_prompts_true(
     mock_should_store,
 ):
@@ -678,7 +678,7 @@ def test_get_vector_store_request_for_spend_logs_payload_store_prompts_true(
     assert result[0]["vector_store_search_response"]["data"][0]["content"][0]["text"] == "sensitive information"
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("embrouter.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_get_vector_store_request_for_spend_logs_payload_store_prompts_false(
     mock_should_store,
 ):
@@ -698,7 +698,7 @@ def test_get_vector_store_request_for_spend_logs_payload_store_prompts_false(
     assert result[0]["vector_store_search_response"]["data"][0]["content"][0]["type"] == "text"
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("embrouter.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_get_vector_store_request_for_spend_logs_payload_null_input(mock_should_store):
     # When input is None
     mock_should_store.return_value = False
@@ -706,7 +706,7 @@ def test_get_vector_store_request_for_spend_logs_payload_null_input(mock_should_
     assert result is None
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("embrouter.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_get_messages_for_spend_logs_realtime_returns_messages(mock_should_store):
     """
     Test that _get_messages_for_spend_logs_payload returns messages
@@ -733,7 +733,7 @@ def test_get_messages_for_spend_logs_realtime_returns_messages(mock_should_store
     assert parsed[1]["content"] == "What is the weather today?"
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("embrouter.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_get_messages_for_spend_logs_strips_null_bytes(mock_should_store):
     """Regression for PostgreSQL 22P05: NUL bytes must be stripped from messages."""
     mock_should_store.return_value = True
@@ -750,7 +750,7 @@ def test_get_messages_for_spend_logs_strips_null_bytes(mock_should_store):
     assert parsed[0]["content"] == "helloworld"
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("embrouter.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_get_messages_for_spend_logs_realtime_empty_when_disabled(mock_should_store):
     """
     Test that _get_messages_for_spend_logs_payload returns '{}' for realtime calls
@@ -768,7 +768,7 @@ def test_get_messages_for_spend_logs_realtime_empty_when_disabled(mock_should_st
     assert result == "{}"
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("embrouter.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_get_messages_for_spend_logs_non_realtime_returns_empty(mock_should_store):
     """
     Test that _get_messages_for_spend_logs_payload returns '{}' for non-realtime
@@ -786,9 +786,9 @@ def test_get_messages_for_spend_logs_non_realtime_returns_empty(mock_should_stor
     assert result == "{}"
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("embrouter.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_get_response_for_spend_logs_payload_truncates_large_base64(mock_should_store):
-    from litellm.constants import MAX_STRING_LENGTH_PROMPT_IN_DB
+    from embrouter.constants import MAX_STRING_LENGTH_PROMPT_IN_DB
 
     mock_should_store.return_value = True
     large_text = "A" * (MAX_STRING_LENGTH_PROMPT_IN_DB + 500)
@@ -810,11 +810,11 @@ def test_get_response_for_spend_logs_payload_truncates_large_base64(mock_should_
     parsed = json.loads(response_json)
     truncated_value = parsed["data"][0]["b64_json"]
     assert len(truncated_value) < len(large_text)
-    assert LITELLM_TRUNCATED_PAYLOAD_FIELD in truncated_value
+    assert EMBROUTER_TRUNCATED_PAYLOAD_FIELD in truncated_value
     assert parsed["data"][0]["other_field"] == "value"
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("embrouter.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_get_response_for_spend_logs_payload_strips_null_bytes(mock_should_store):
     """Regression for PostgreSQL 22P05: NUL bytes must be stripped from response."""
     mock_should_store.return_value = True
@@ -827,11 +827,11 @@ def test_get_response_for_spend_logs_payload_strips_null_bytes(mock_should_store
     assert json.loads(response_json)["content"] == "answerhere"
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("embrouter.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_get_response_for_spend_logs_payload_truncates_large_embedding(
     mock_should_store,
 ):
-    from litellm.constants import MAX_STRING_LENGTH_PROMPT_IN_DB
+    from embrouter.constants import MAX_STRING_LENGTH_PROMPT_IN_DB
 
     mock_should_store.return_value = True
     embedding_values = [round(i * 0.0001, 6) for i in range(MAX_STRING_LENGTH_PROMPT_IN_DB + 500)]
@@ -856,7 +856,7 @@ def test_get_response_for_spend_logs_payload_truncates_large_embedding(
 
     assert isinstance(truncated_value, str)
     assert len(truncated_value) < len(large_embedding)
-    assert LITELLM_TRUNCATED_PAYLOAD_FIELD in truncated_value
+    assert EMBROUTER_TRUNCATED_PAYLOAD_FIELD in truncated_value
     assert parsed["data"][0]["other_field"] == "value"
 
 
@@ -865,15 +865,15 @@ def test_truncation_includes_db_safeguard_note():
     Test that truncated content includes the DB safeguard note explaining
     that full data is available in OTEL/other logging integrations.
     """
-    from litellm.constants import MAX_STRING_LENGTH_PROMPT_IN_DB
+    from embrouter.constants import MAX_STRING_LENGTH_PROMPT_IN_DB
 
     large_error = "Error: " + "x" * (MAX_STRING_LENGTH_PROMPT_IN_DB + 1000)
     request_body = {"error_trace": large_error}
     sanitized = _sanitize_request_body_for_spend_logs_payload(request_body)
 
     truncated = sanitized["error_trace"]
-    assert LITELLM_TRUNCATED_PAYLOAD_FIELD in truncated
-    assert LITELLM_TRUNCATION_DB_SAFEGUARD_NOTE in truncated
+    assert EMBROUTER_TRUNCATED_PAYLOAD_FIELD in truncated
+    assert EMBROUTER_TRUNCATION_DB_SAFEGUARD_NOTE in truncated
     assert "DB storage safeguard" in truncated
     assert (
         "logging callbacks" in truncated.lower()
@@ -882,13 +882,13 @@ def test_truncation_includes_db_safeguard_note():
     )
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("embrouter.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_response_truncation_logs_info_message(mock_should_store):
     """
     Test that when response is truncated before DB storage, an info log is emitted
     noting that full data is available in OTEL/other integrations.
     """
-    from litellm.constants import MAX_STRING_LENGTH_PROMPT_IN_DB
+    from embrouter.constants import MAX_STRING_LENGTH_PROMPT_IN_DB
 
     mock_should_store.return_value = True
     large_text = "B" * (MAX_STRING_LENGTH_PROMPT_IN_DB + 500)
@@ -897,26 +897,26 @@ def test_response_truncation_logs_info_message(mock_should_store):
         {"response": {"data": [{"content": large_text}]}},
     )
 
-    with patch("litellm.proxy.spend_tracking.spend_tracking_utils.verbose_proxy_logger") as mock_logger:
+    with patch("embrouter.proxy.spend_tracking.spend_tracking_utils.verbose_proxy_logger") as mock_logger:
         _get_response_for_spend_logs_payload(payload)
         mock_logger.info.assert_called_once()
         log_msg = mock_logger.info.call_args[0][0]
         assert "response was truncated" in log_msg
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("embrouter.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_request_body_truncation_logs_info_message(mock_should_store):
     """
     Test that when request body is truncated before DB storage, an info log is emitted.
     """
-    from litellm.constants import MAX_STRING_LENGTH_PROMPT_IN_DB
+    from embrouter.constants import MAX_STRING_LENGTH_PROMPT_IN_DB
 
     mock_should_store.return_value = True
     large_prompt = "C" * (MAX_STRING_LENGTH_PROMPT_IN_DB + 500)
-    litellm_params = {"proxy_server_request": {"body": {"messages": [{"role": "user", "content": large_prompt}]}}}
+    embrouter_params = {"proxy_server_request": {"body": {"messages": [{"role": "user", "content": large_prompt}]}}}
 
-    with patch("litellm.proxy.spend_tracking.spend_tracking_utils.verbose_proxy_logger") as mock_logger:
-        _get_proxy_server_request_for_spend_logs_payload(metadata={}, litellm_params=litellm_params, kwargs={})
+    with patch("embrouter.proxy.spend_tracking.spend_tracking_utils.verbose_proxy_logger") as mock_logger:
+        _get_proxy_server_request_for_spend_logs_payload(metadata={}, embrouter_params=embrouter_params, kwargs={})
         mock_logger.info.assert_called_once()
         log_msg = mock_logger.info.call_args[0][0]
         assert "request body was truncated" in log_msg
@@ -1039,7 +1039,7 @@ def test_get_logging_payload_replaces_rejected_or_prompt_shaped_models_with_the_
         "model": requested_model,
         "messages": [{"role": "user", "content": "hi"}],
         "call_type": "acompletion",
-        "litellm_params": {"metadata": {"user_api_key": "sk-test", "status": "failure"}},
+        "embrouter_params": {"metadata": {"user_api_key": "sk-test", "status": "failure"}},
     }
 
     payload: Final = get_logging_payload(
@@ -1060,7 +1060,7 @@ def test_get_logging_payload_replaces_a_non_string_model_with_the_placeholder(
         "model": requested_model,
         "messages": [{"role": "user", "content": "hi"}],
         "call_type": "acompletion",
-        "litellm_params": {"metadata": {"user_api_key": "sk-test", "status": "failure"}},
+        "embrouter_params": {"metadata": {"user_api_key": "sk-test", "status": "failure"}},
     }
 
     payload: Final = get_logging_payload(
@@ -1076,7 +1076,7 @@ def test_get_logging_payload_replaces_a_non_string_model_with_the_placeholder(
 @pytest.mark.parametrize(
     ("metadata", "response_obj"),
     [
-        ({"user_api_key": "sk-test"}, litellm.ModelResponse(id="chatcmpl-test", choices=[])),
+        ({"user_api_key": "sk-test"}, embrouter.ModelResponse(id="chatcmpl-test", choices=[])),
         (
             {
                 "user_api_key": "sk-test",
@@ -1089,13 +1089,13 @@ def test_get_logging_payload_replaces_a_non_string_model_with_the_placeholder(
     ],
 )
 def test_get_logging_payload_keeps_a_whitespace_model_name_on_success_or_a_routed_failure(
-    metadata: dict[str, object], response_obj: litellm.ModelResponse | Exception
+    metadata: dict[str, object], response_obj: embrouter.ModelResponse | Exception
 ):
     kwargs: Final = {
         "model": _RAW_MODEL_WITH_PROMPT,
         "messages": [{"role": "user", "content": "hi"}],
         "call_type": "acompletion",
-        "litellm_params": {"metadata": metadata},
+        "embrouter_params": {"metadata": metadata},
     }
 
     payload: Final = get_logging_payload(
@@ -1125,14 +1125,14 @@ def test_get_logging_payload_placeholders_the_stored_request_body_model_only_whe
     expected_stored_model: str,
     redact_messages: bool,
 ):
-    from litellm.proxy import proxy_server
+    from embrouter.proxy import proxy_server
 
     monkeypatch.setattr(proxy_server, "general_settings", {"store_prompts_in_spend_logs": True})
     kwargs: Final = {
         "model": _RAW_MODEL_WITH_PROMPT,
         "call_type": "amoderation",
         "standard_callback_dynamic_params": {"turn_off_message_logging": redact_messages},
-        "litellm_params": {
+        "embrouter_params": {
             "metadata": metadata,
             "proxy_server_request": {
                 "url": "http://localhost:4000/v1/moderations",
@@ -1169,7 +1169,7 @@ def test_get_logging_payload_placeholders_the_metadata_copied_into_the_stored_re
     expected_stored_model_group: str,
     expected_stored_error_message: str,
 ):
-    from litellm.proxy import proxy_server
+    from embrouter.proxy import proxy_server
 
     monkeypatch.setattr(proxy_server, "general_settings", {"store_prompts_in_spend_logs": True})
     metadata: Final = {
@@ -1188,7 +1188,7 @@ def test_get_logging_payload_placeholders_the_metadata_copied_into_the_stored_re
     kwargs: Final = {
         "model": _RAW_MODEL_WITH_PROMPT,
         "call_type": "amoderation",
-        "litellm_params": {
+        "embrouter_params": {
             "metadata": metadata,
             "proxy_server_request": {
                 "url": "http://localhost:4000/v1/moderations",
@@ -1218,21 +1218,21 @@ _COOLDOWN_ERROR_MESSAGE: Final = (
 )
 
 
-def _router_serving_the_whitespace_model_group() -> litellm.Router:
-    return litellm.Router(
+def _router_serving_the_whitespace_model_group() -> embrouter.Router:
+    return embrouter.Router(
         model_list=[
             {
                 "model_name": _WHITESPACE_MODEL_GROUP,
-                "litellm_params": {"model": "openai/gpt-5.4-mini", "api_key": "sk-test"},
+                "embrouter_params": {"model": "openai/gpt-5.4-mini", "api_key": "sk-test"},
             }
         ],
         model_group_alias={_WHITESPACE_MODEL_GROUP_ALIAS: _WHITESPACE_MODEL_GROUP},
     )
 
 
-def _router_serving_only_a_wildcard() -> litellm.Router:
-    return litellm.Router(
-        model_list=[{"model_name": "*", "litellm_params": {"model": "openai/*", "api_key": "sk-test"}}]
+def _router_serving_only_a_wildcard() -> embrouter.Router:
+    return embrouter.Router(
+        model_list=[{"model_name": "*", "embrouter_params": {"model": "openai/*", "api_key": "sk-test"}}]
     )
 
 
@@ -1271,7 +1271,7 @@ def _router_serving_only_a_wildcard() -> litellm.Router:
 )
 def test_get_logging_payload_keeps_a_configured_whitespace_model_group_that_failed_before_a_deployment_was_picked(
     requested_model: str,
-    llm_router: litellm.Router | None,
+    llm_router: embrouter.Router | None,
     expected_model: str,
     expected_model_group: str,
     expected_error_message: str,
@@ -1280,7 +1280,7 @@ def test_get_logging_payload_keeps_a_configured_whitespace_model_group_that_fail
         "model": requested_model,
         "messages": [{"role": "user", "content": "hi"}],
         "call_type": "acompletion",
-        "litellm_params": {
+        "embrouter_params": {
             "metadata": {
                 "user_api_key": "sk-test",
                 "model_group": requested_model,
@@ -1292,7 +1292,7 @@ def test_get_logging_payload_keeps_a_configured_whitespace_model_group_that_fail
 
     payload: Final = get_logging_payload(
         kwargs=kwargs,
-        response_obj=litellm.RateLimitError(message=_COOLDOWN_ERROR_MESSAGE, model=requested_model, llm_provider=""),
+        response_obj=embrouter.RateLimitError(message=_COOLDOWN_ERROR_MESSAGE, model=requested_model, llm_provider=""),
         start_time=datetime.datetime.now(timezone.utc),
         end_time=datetime.datetime.now(timezone.utc),
         llm_router=llm_router,
@@ -1319,7 +1319,7 @@ def _openai_invalid_model_error_message(model: str) -> str:
 
 
 def test_get_logging_payload_persists_no_raw_model_for_a_prompt_shaped_moderation_rejected_by_the_provider():
-    provider_rejection: Final = litellm.BadRequestError(
+    provider_rejection: Final = embrouter.BadRequestError(
         message=_openai_invalid_model_error_message(_RAW_MODEL_WITH_PROMPT),
         model=_RAW_MODEL_WITH_PROMPT,
         llm_provider="openai",
@@ -1328,7 +1328,7 @@ def test_get_logging_payload_persists_no_raw_model_for_a_prompt_shaped_moderatio
         StandardLoggingPayloadSetup.get_error_information(
             original_exception=provider_rejection,
             traceback_str=(
-                f"Traceback (most recent call last):\n  ...\nlitellm.exceptions.BadRequestError: {provider_rejection}"
+                f"Traceback (most recent call last):\n  ...\nembrouter.exceptions.BadRequestError: {provider_rejection}"
             ),
         ),
         original_exception=provider_rejection,
@@ -1337,7 +1337,7 @@ def test_get_logging_payload_persists_no_raw_model_for_a_prompt_shaped_moderatio
         "model": _RAW_MODEL_WITH_PROMPT,
         "input": "hi",
         "call_type": "",
-        "litellm_params": {
+        "embrouter_params": {
             "metadata": {
                 "user_api_key": "sk-test",
                 "model_group": _RAW_MODEL_WITH_PROMPT,
@@ -1356,7 +1356,7 @@ def test_get_logging_payload_persists_no_raw_model_for_a_prompt_shaped_moderatio
 
     persisted_error: Final = json.loads(payload["metadata"])["error_information"]
     scrubbed_message: Final = (
-        f"litellm.BadRequestError: {_openai_invalid_model_error_message(UNKNOWN_MODEL_SPEND_LOG_MODEL)}"
+        f"embrouter.BadRequestError: {_openai_invalid_model_error_message(UNKNOWN_MODEL_SPEND_LOG_MODEL)}"
     )
     assert (payload["model"], payload["model_group"]) == (UNKNOWN_MODEL_SPEND_LOG_MODEL, "")
     assert persisted_error["error_message"] == scrubbed_message
@@ -1365,7 +1365,7 @@ def test_get_logging_payload_persists_no_raw_model_for_a_prompt_shaped_moderatio
 
 
 _TRUNCATION_MARKER_TEXT: Final = (
-    f"... ({LITELLM_TRUNCATED_PAYLOAD_FIELD} skipped 10 chars. {LITELLM_TRUNCATION_DB_SAFEGUARD_NOTE}) ..."
+    f"... ({EMBROUTER_TRUNCATED_PAYLOAD_FIELD} skipped 10 chars. {EMBROUTER_TRUNCATION_DB_SAFEGUARD_NOTE}) ..."
 )
 
 
@@ -1403,8 +1403,8 @@ def test_scrub_raw_model_from_error_information_covers_literal_escaped_and_trunc
     assert scrubbed == {"error_message": expected, "traceback": expected, "error_class": "BadRequestError"}
 
 
-@patch("litellm.proxy.proxy_server.master_key", None)
-@patch("litellm.proxy.proxy_server.general_settings", {})
+@patch("embrouter.proxy.proxy_server.master_key", None)
+@patch("embrouter.proxy.proxy_server.general_settings", {})
 def test_get_logging_payload_api_key_preserved_when_standard_logging_payload_is_none():
     """
     Critical - Product incident was caused by this bug.
@@ -1429,7 +1429,7 @@ def test_get_logging_payload_api_key_preserved_when_standard_logging_payload_is_
         "model": "openai/gpt-4.1",
         "messages": [{"role": "user", "content": "Hello"}],
         "call_type": "acompletion",
-        "litellm_params": {
+        "embrouter_params": {
             "metadata": {
                 "user_api_key": test_api_key,  # This is the key that should be preserved
                 "user_api_key_user_id": "test_user",
@@ -1472,8 +1472,8 @@ def test_get_logging_payload_api_key_preserved_when_standard_logging_payload_is_
 
 
 @pytest.mark.asyncio
-@patch("litellm.proxy.proxy_server.master_key", "sk-master-key")
-@patch("litellm.proxy.proxy_server.general_settings", {})
+@patch("embrouter.proxy.proxy_server.master_key", "sk-master-key")
+@patch("embrouter.proxy.proxy_server.general_settings", {})
 async def test_api_key_preserved_through_failure_hook_to_database():
     """
     CRITICAL E2E TEST: Validates the COMPLETE code path from failure hook to database.
@@ -1490,9 +1490,9 @@ async def test_api_key_preserved_through_failure_hook_to_database():
     This test validates the ENTIRE flow to ensure the bug cannot regress.
     If this test fails in CI/CD, the build MUST fail.
     """
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.hooks.proxy_track_cost_callback import _ProxyDBLogger
-    from litellm.proxy.utils import hash_token
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy.hooks.proxy_track_cost_callback import _ProxyDBLogger
+    from embrouter.proxy.utils import hash_token
 
     # Setup
     test_api_key = "sk-test-critical-e2e-key"
@@ -1515,7 +1515,7 @@ async def test_api_key_preserved_through_failure_hook_to_database():
         project_id=None,
     ):
         """Mock update_database and capture the payload it creates"""
-        from litellm.proxy.spend_tracking.spend_tracking_utils import (
+        from embrouter.proxy.spend_tracking.spend_tracking_utils import (
             get_logging_payload,
         )
 
@@ -1563,7 +1563,7 @@ async def test_api_key_preserved_through_failure_hook_to_database():
         "model": "gpt-3.5-turbo",
         "messages": [{"role": "user", "content": "test"}],
         "invalid_param": "causes_400_error",  # BAD PARAMETER
-        "litellm_params": {
+        "embrouter_params": {
             "metadata": {
                 "user_api_key": hashed_key,
                 "user_api_key_user_id": "test_user",
@@ -1577,7 +1577,7 @@ async def test_api_key_preserved_through_failure_hook_to_database():
     # Execute the ACTUAL failure hook code path
     logger = _ProxyDBLogger()
 
-    with patch("litellm.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging_obj):
+    with patch("embrouter.proxy.proxy_server.proxy_logging_obj", mock_proxy_logging_obj):
         await logger.async_post_call_failure_hook(
             request_data=request_data,
             original_exception=exception,
@@ -1617,8 +1617,8 @@ async def test_api_key_preserved_through_failure_hook_to_database():
     assert payload.get("user") == "test_user"
 
 
-@patch("litellm.proxy.proxy_server.master_key", None)
-@patch("litellm.proxy.proxy_server.general_settings", {})
+@patch("embrouter.proxy.proxy_server.master_key", None)
+@patch("embrouter.proxy.proxy_server.general_settings", {})
 def test_get_logging_payload_includes_agent_id_from_kwargs():
     """
     Test that get_logging_payload extracts agent_id from kwargs and includes it in the payload.
@@ -1629,7 +1629,7 @@ def test_get_logging_payload_includes_agent_id_from_kwargs():
         "model": "a2a_agent/test-agent",
         "custom_llm_provider": "a2a_agent",
         "agent_id": test_agent_id,
-        "litellm_params": {
+        "embrouter_params": {
             "metadata": {
                 "user_api_key": "sk-test-key",
             }
@@ -1655,38 +1655,38 @@ def test_get_logging_payload_includes_agent_id_from_kwargs():
     assert payload["agent_id"] == test_agent_id, f"Expected agent_id '{test_agent_id}', got '{payload.get('agent_id')}'"
 
 
-def test_get_logging_payload_populates_litellm_call_id_alongside_provider_request_id():
+def test_get_logging_payload_populates_embrouter_call_id_alongside_provider_request_id():
     """
     LIT-6302: request_id stays the provider response id, so clients holding the
-    x-litellm-call-id header value could never find their row. The payload now
-    also carries litellm_call_id as its own column for lookups by either id.
+    x-embrouter-call-id header value could never find their row. The payload now
+    also carries embrouter_call_id as its own column for lookups by either id.
     """
     call_id = "b980eea9-5cd9-4099-93cd-8291e46c76fd"
 
     payload = get_logging_payload(
         kwargs={
             "model": "gpt-4o-mini",
-            "litellm_call_id": call_id,
-            "litellm_params": {"metadata": {"user_api_key": "test-key"}},
+            "embrouter_call_id": call_id,
+            "embrouter_params": {"metadata": {"user_api_key": "test-key"}},
         },
-        response_obj=litellm.ModelResponse(
+        response_obj=embrouter.ModelResponse(
             id="chatcmpl-provider-id",
             choices=[],
-            usage=litellm.Usage(prompt_tokens=1, completion_tokens=1, total_tokens=2),
+            usage=embrouter.Usage(prompt_tokens=1, completion_tokens=1, total_tokens=2),
         ),
         start_time=datetime.datetime.now(timezone.utc),
         end_time=datetime.datetime.now(timezone.utc),
     )
 
     assert payload["request_id"] == "chatcmpl-provider-id"
-    assert payload["litellm_call_id"] == call_id
+    assert payload["embrouter_call_id"] == call_id
 
 
-@patch("litellm.proxy.proxy_server.master_key", None)
-@patch("litellm.proxy.proxy_server.general_settings", {})
+@patch("embrouter.proxy.proxy_server.master_key", None)
+@patch("embrouter.proxy.proxy_server.general_settings", {})
 def test_get_logging_payload_includes_overhead_in_spend_logs_metadata():
     """
-    Test that get_logging_payload extracts litellm_overhead_time_ms from hidden_params
+    Test that get_logging_payload extracts embrouter_overhead_time_ms from hidden_params
     and stores it in spend_logs_metadata within the metadata JSON.
     """
     test_overhead_ms = 123.45
@@ -1737,17 +1737,17 @@ def test_get_logging_payload_includes_overhead_in_spend_logs_metadata():
             cache_key=None,
             api_base="https://api.openai.com",
             response_cost="0.001",
-            litellm_overhead_time_ms=test_overhead_ms,
+            embrouter_overhead_time_ms=test_overhead_ms,
             additional_headers=None,
             batch_models=None,
-            litellm_model_name=None,
+            embrouter_model_name=None,
             usage_object=None,
         ),
     )
 
     kwargs = {
         "model": "gpt-3.5-turbo",
-        "litellm_params": {
+        "embrouter_params": {
             "metadata": {
                 "user_api_key": "sk-test-key",
             }
@@ -1782,18 +1782,18 @@ def test_get_logging_payload_includes_overhead_in_spend_logs_metadata():
     metadata = json.loads(metadata_json)
 
     # Verify overhead is stored directly in metadata
-    assert metadata.get("litellm_overhead_time_ms") == test_overhead_ms, (
-        f"Expected overhead '{test_overhead_ms}', got '{metadata.get('litellm_overhead_time_ms')}'"
+    assert metadata.get("embrouter_overhead_time_ms") == test_overhead_ms, (
+        f"Expected overhead '{test_overhead_ms}', got '{metadata.get('embrouter_overhead_time_ms')}'"
     )
 
 
-@patch("litellm.proxy.proxy_server.master_key", None)
-@patch("litellm.proxy.proxy_server.general_settings", {})
+@patch("embrouter.proxy.proxy_server.master_key", None)
+@patch("embrouter.proxy.proxy_server.general_settings", {})
 def test_get_logging_payload_strips_null_bytes_from_request_tags():
     """Regression for PostgreSQL 22P05: NUL bytes must be stripped from request_tags."""
     kwargs = {
         "model": "gpt-3.5-turbo",
-        "litellm_params": {
+        "embrouter_params": {
             "metadata": {
                 "user_api_key": "sk-test-key",
                 "tags": ["clean-tag", "bad\x00tag"],
@@ -1817,8 +1817,8 @@ def test_get_logging_payload_strips_null_bytes_from_request_tags():
     assert json.loads(request_tags) == ["clean-tag", "badtag"]
 
 
-@patch("litellm.proxy.proxy_server.master_key", None)
-@patch("litellm.proxy.proxy_server.general_settings", {})
+@patch("embrouter.proxy.proxy_server.master_key", None)
+@patch("embrouter.proxy.proxy_server.general_settings", {})
 def test_get_logging_payload_handles_missing_overhead_gracefully():
     """
     Test that get_logging_payload handles missing overhead gracefully
@@ -1870,17 +1870,17 @@ def test_get_logging_payload_handles_missing_overhead_gracefully():
             cache_key=None,
             api_base="https://api.openai.com",
             response_cost="0.001",
-            litellm_overhead_time_ms=None,  # No overhead
+            embrouter_overhead_time_ms=None,  # No overhead
             additional_headers=None,
             batch_models=None,
-            litellm_model_name=None,
+            embrouter_model_name=None,
             usage_object=None,
         ),
     )
 
     kwargs = {
         "model": "gpt-3.5-turbo",
-        "litellm_params": {
+        "embrouter_params": {
             "metadata": {
                 "user_api_key": "sk-test-key",
             }
@@ -1915,13 +1915,13 @@ def test_get_logging_payload_handles_missing_overhead_gracefully():
 
     metadata = json.loads(metadata_json)
 
-    # When overhead is None, litellm_overhead_time_ms should be None or not present
-    assert metadata.get("litellm_overhead_time_ms") is None, (
-        "litellm_overhead_time_ms should be None when overhead is not provided"
+    # When overhead is None, embrouter_overhead_time_ms should be None or not present
+    assert metadata.get("embrouter_overhead_time_ms") is None, (
+        "embrouter_overhead_time_ms should be None when overhead is not provided"
     )
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("embrouter.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_spend_logs_redacts_request_and_response_when_turn_off_message_logging_enabled(
     mock_should_store,
 ):
@@ -1931,7 +1931,7 @@ def test_spend_logs_redacts_request_and_response_when_turn_off_message_logging_e
     mock_should_store.return_value = True
 
     # Test request redaction
-    litellm_params = {
+    embrouter_params = {
         "proxy_server_request": {
             "body": {
                 "messages": [{"role": "user", "content": "secret message"}],
@@ -1941,18 +1941,18 @@ def test_spend_logs_redacts_request_and_response_when_turn_off_message_logging_e
     }
     metadata = {}
     kwargs = {
-        "litellm_params": litellm_params,
+        "embrouter_params": embrouter_params,
         "standard_callback_dynamic_params": {
             "turn_off_message_logging": True,
         },
     }
 
     request_result = _get_proxy_server_request_for_spend_logs_payload(
-        metadata=metadata, litellm_params=litellm_params, kwargs=kwargs
+        metadata=metadata, embrouter_params=embrouter_params, kwargs=kwargs
     )
 
     parsed_request = json.loads(request_result)
-    assert parsed_request["messages"] == [{"role": "user", "content": "redacted-by-litellm"}]
+    assert parsed_request["messages"] == [{"role": "user", "content": "redacted-by-embrouter"}]
     assert parsed_request["model"] == "gpt-4"
 
     # Test response redaction - use dict response to verify redaction
@@ -1976,11 +1976,11 @@ def test_spend_logs_redacts_request_and_response_when_turn_off_message_logging_e
     # When redaction is enabled and response is a dict (not ModelResponse),
     # perform_redaction redacts content in-place within the choices structure
     parsed_response = json.loads(response_result)
-    assert parsed_response["choices"][0]["message"]["content"] == "redacted-by-litellm"
+    assert parsed_response["choices"][0]["message"]["content"] == "redacted-by-embrouter"
     assert parsed_response["choices"][0]["message"]["role"] == "assistant"
 
 
-@patch("litellm.secret_managers.main.get_secret_bool")
+@patch("embrouter.secret_managers.main.get_secret_bool")
 def test_should_store_prompts_and_responses_in_spend_logs_case_insensitive_string(
     mock_get_secret_bool,
 ):
@@ -1991,7 +1991,7 @@ def test_should_store_prompts_and_responses_in_spend_logs_case_insensitive_strin
     # Test case-insensitive string "true" variations
     for true_value in ["true", "TRUE", "True", "TrUe"]:
         with patch(
-            "litellm.proxy.proxy_server.general_settings",
+            "embrouter.proxy.proxy_server.general_settings",
             {"store_prompts_in_spend_logs": true_value},
         ):
             mock_get_secret_bool.return_value = False  # Ensure env var is False
@@ -2000,7 +2000,7 @@ def test_should_store_prompts_and_responses_in_spend_logs_case_insensitive_strin
 
     # Test boolean True
     with patch(
-        "litellm.proxy.proxy_server.general_settings",
+        "embrouter.proxy.proxy_server.general_settings",
         {"store_prompts_in_spend_logs": True},
     ):
         mock_get_secret_bool.return_value = False
@@ -2010,7 +2010,7 @@ def test_should_store_prompts_and_responses_in_spend_logs_case_insensitive_strin
     # Test that non-true values fall back to environment variable
     for false_value in [False, None, "false", "FALSE", "False", "anything"]:
         with patch(
-            "litellm.proxy.proxy_server.general_settings",
+            "embrouter.proxy.proxy_server.general_settings",
             {"store_prompts_in_spend_logs": false_value},
         ):
             # When env var is True, should return True
@@ -2024,7 +2024,7 @@ def test_should_store_prompts_and_responses_in_spend_logs_case_insensitive_strin
             assert result is False, f"Expected False (from env var) for '{false_value}', got {result}"
 
     # Test when general_settings doesn't have the key at all
-    with patch("litellm.proxy.proxy_server.general_settings", {}):
+    with patch("embrouter.proxy.proxy_server.general_settings", {}):
         mock_get_secret_bool.return_value = True
         result = should_store_prompts_and_responses_in_spend_logs()
         assert result is True, "Expected True (from env var) when key missing, got False"
@@ -2043,7 +2043,7 @@ def test_get_spend_logs_metadata_guardrail_info_fallback_from_metadata():
     guardrail_info = [
         {
             "guardrail_name": "content_filter",
-            "guardrail_provider": "litellm",
+            "guardrail_provider": "embrouter",
             "guardrail_mode": "pre_call",
             "guardrail_status": "guardrail_intervened",
             "guardrail_response": "Content blocked",
@@ -2063,13 +2063,13 @@ def test_get_spend_logs_metadata_guardrail_info_fallback_from_metadata():
     assert result["guardrail_information"] is None
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("embrouter.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_sanitize_guardrail_information_redacts_all_prompt_carrying_fields_when_flag_false(
     mock_should_store,
 ):
     """
     match_details and classification are declared as structured metadata but
-    in-tree writers (litellm_content_filter, block_code_execution) inline
+    in-tree writers (embrouter_content_filter, block_code_execution) inline
     raw prompt content into them, so they leak the same way
     guardrail_request/guardrail_response do. Redaction must cover all four.
     """
@@ -2099,14 +2099,14 @@ def test_sanitize_guardrail_information_redacts_all_prompt_carrying_fields_when_
     assert entry["guardrail_action"] == "NONE"
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("embrouter.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_sanitize_guardrail_information_redacts_prompt_fields_when_flag_false(
     mock_should_store,
 ):
     """
     LIT-4314 Issue A regression: with store_prompts_in_spend_logs=False,
     guardrail_request and guardrail_response must be redacted before they
-    land in LiteLLM_SpendLogs.metadata, while every other field on the
+    land in EmbRouter_SpendLogs.metadata, while every other field on the
     entry is preserved bit-for-bit.
     """
     mock_should_store.return_value = False
@@ -2163,7 +2163,7 @@ def test_sanitize_guardrail_information_redacts_prompt_fields_when_flag_false(
     }
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("embrouter.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_sanitize_guardrail_information_preserves_guardrail_usage_when_flag_false(
     mock_should_store,
 ):
@@ -2195,7 +2195,7 @@ def test_sanitize_guardrail_information_preserves_guardrail_usage_when_flag_fals
     assert entry["guardrail_usage"] == {"topicPolicyUnits": 1, "contentPolicyUnits": 1, "wordPolicyUnits": 0}
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("embrouter.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_sanitize_guardrail_information_passthrough_when_flag_true(
     mock_should_store,
 ):
@@ -2218,13 +2218,13 @@ def test_sanitize_guardrail_information_passthrough_when_flag_true(
     assert result == guardrail_info
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("embrouter.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_sanitize_guardrail_information_none_passthrough(mock_should_store):
     mock_should_store.return_value = False
     assert _sanitize_guardrail_information_for_spend_logs(None) is None
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("embrouter.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_sanitize_guardrail_information_normalizes_bare_dict_input(mock_should_store):
     """
     Regression: xecguard (xecguard.py:246) assigns a bare dict to
@@ -2256,7 +2256,7 @@ def test_sanitize_guardrail_information_normalizes_bare_dict_input(mock_should_s
     assert entry["start_time"] == 1.0
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("embrouter.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_sanitize_guardrail_information_drops_non_dict_items_in_list(mock_should_store):
     """
     A stray non-dict item in the list (e.g. from a buggy caller that
@@ -2275,7 +2275,7 @@ def test_sanitize_guardrail_information_drops_non_dict_items_in_list(mock_should
     assert result == [{"guardrail_name": "x", "guardrail_response": REDACTED_BY_LITELM_STRING}]
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("embrouter.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_sanitize_guardrail_information_preserves_absent_prompt_fields(mock_should_store):
     """
     Entries that never carried guardrail_request or guardrail_response must
@@ -2302,9 +2302,9 @@ def test_sanitize_guardrail_information_preserves_absent_prompt_fields(mock_shou
     assert entry["guardrail_status"] == "success"
 
 
-@patch("litellm.proxy.proxy_server.master_key", "sk-master")
+@patch("embrouter.proxy.proxy_server.master_key", "sk-master")
 @patch(
-    "litellm.proxy.proxy_server.general_settings",
+    "embrouter.proxy.proxy_server.general_settings",
     {"store_prompts_in_spend_logs": False},
 )
 def test_get_logging_payload_redacts_guardrail_prompt_fields_when_flag_false():
@@ -2324,8 +2324,8 @@ def test_get_logging_payload_redacts_guardrail_prompt_fields_when_flag_false():
     ]
     kwargs = {
         "model": "gpt-4o-mini",
-        "litellm_call_id": "test-call-id",
-        "litellm_params": {
+        "embrouter_call_id": "test-call-id",
+        "embrouter_params": {
             "metadata": {
                 "user_api_key": "test-key",
                 "standard_logging_guardrail_information": guardrail_info,
@@ -2360,7 +2360,7 @@ def test_get_logging_payload_guardrail_info_when_no_standard_logging_payload():
     guardrail_info = [
         {
             "guardrail_name": "content_filter",
-            "guardrail_provider": "litellm",
+            "guardrail_provider": "embrouter",
             "guardrail_mode": "pre_call",
             "guardrail_status": "guardrail_intervened",
             "guardrail_response": "Content blocked",
@@ -2369,8 +2369,8 @@ def test_get_logging_payload_guardrail_info_when_no_standard_logging_payload():
     # Simulate request_data as it looks when a guardrail blocks before LLM call
     kwargs = {
         "model": "gpt-4",
-        "litellm_call_id": "test-call-id",
-        "litellm_params": {
+        "embrouter_call_id": "test-call-id",
+        "embrouter_params": {
             "metadata": {
                 "user_api_key": "test-key",
                 "standard_logging_guardrail_information": guardrail_info,
@@ -2380,9 +2380,9 @@ def test_get_logging_payload_guardrail_info_when_no_standard_logging_payload():
         # No "standard_logging_object" key - this is the failure case
     }
 
-    with patch("litellm.proxy.proxy_server.master_key", "sk-master"):
+    with patch("embrouter.proxy.proxy_server.master_key", "sk-master"):
         with patch(
-            "litellm.proxy.proxy_server.general_settings",
+            "embrouter.proxy.proxy_server.general_settings",
             {"store_prompts_in_spend_logs": True},
         ):
             payload = get_logging_payload(
@@ -2396,8 +2396,8 @@ def test_get_logging_payload_guardrail_info_when_no_standard_logging_payload():
     assert metadata_result["guardrail_information"] == guardrail_info
 
 
-@patch("litellm.proxy.proxy_server.master_key", None)
-@patch("litellm.proxy.proxy_server.general_settings", {})
+@patch("embrouter.proxy.proxy_server.master_key", None)
+@patch("embrouter.proxy.proxy_server.general_settings", {})
 def test_get_logging_payload_includes_retry_info_in_spend_logs_metadata():
     """
     Test that retry info (attempted_retries, max_retries) from metadata
@@ -2405,7 +2405,7 @@ def test_get_logging_payload_includes_retry_info_in_spend_logs_metadata():
     """
     kwargs = {
         "model": "gpt-3.5-turbo",
-        "litellm_params": {
+        "embrouter_params": {
             "metadata": {
                 "user_api_key": "sk-test-key",
                 "attempted_retries": 2,
@@ -2457,10 +2457,10 @@ def test_get_logging_payload_includes_retry_info_in_spend_logs_metadata():
                 cache_key=None,
                 api_base="https://api.openai.com",
                 response_cost="0.001",
-                litellm_overhead_time_ms=None,
+                embrouter_overhead_time_ms=None,
                 additional_headers=None,
                 batch_models=None,
-                litellm_model_name=None,
+                embrouter_model_name=None,
                 usage_object=None,
             ),
         ),
@@ -2494,15 +2494,15 @@ def test_get_logging_payload_includes_retry_info_in_spend_logs_metadata():
     assert metadata.get("max_retries") == 3, f"Expected max_retries=3, got {metadata.get('max_retries')}"
 
 
-@patch("litellm.proxy.proxy_server.master_key", None)
-@patch("litellm.proxy.proxy_server.general_settings", {})
+@patch("embrouter.proxy.proxy_server.master_key", None)
+@patch("embrouter.proxy.proxy_server.general_settings", {})
 def test_get_logging_payload_handles_missing_retry_info_gracefully():
     """
     Test that retry fields are None when not present in metadata (backward compatibility).
     """
     kwargs = {
         "model": "gpt-3.5-turbo",
-        "litellm_params": {
+        "embrouter_params": {
             "metadata": {
                 "user_api_key": "sk-test-key",
             }
@@ -2552,10 +2552,10 @@ def test_get_logging_payload_handles_missing_retry_info_gracefully():
                 cache_key=None,
                 api_base="https://api.openai.com",
                 response_cost="0.001",
-                litellm_overhead_time_ms=None,
+                embrouter_overhead_time_ms=None,
                 additional_headers=None,
                 batch_models=None,
-                litellm_model_name=None,
+                embrouter_model_name=None,
                 usage_object=None,
             ),
         ),
@@ -2617,14 +2617,14 @@ def test_get_logging_payload_includes_request_duration_ms():
 
     kwargs = {
         "model": "gpt-4",
-        "litellm_params": {"api_base": "https://api.openai.com"},
+        "embrouter_params": {"api_base": "https://api.openai.com"},
         "standard_logging_object": None,
     }
     response_obj = {"usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15}}
 
     with (
-        patch("litellm.proxy.proxy_server.master_key", None),
-        patch("litellm.proxy.proxy_server.general_settings", {}),
+        patch("embrouter.proxy.proxy_server.master_key", None),
+        patch("embrouter.proxy.proxy_server.general_settings", {}),
     ):
         payload = get_logging_payload(
             kwargs=kwargs,
@@ -2660,7 +2660,7 @@ class TestIsMasterKey:
         ``_is_master_key`` must not accept ``hash_token(master_key)`` as
         equivalent to the raw master key — only the raw value matches.
         """
-        from litellm.proxy.utils import hash_token
+        from embrouter.proxy.utils import hash_token
 
         master = "sk-master-key-123"
         hashed = hash_token(master)
@@ -2680,7 +2680,7 @@ def test_sanitize_request_body_strips_secret_fields():
             "raw_headers": {
                 "authorization": "Bearer sk-GjX--WwRQmiX2cvASbKf5Q",
                 "content-type": "application/json",
-                "host": "litellm.example.com",
+                "host": "embrouter.example.com",
             }
         },
     }
@@ -2691,7 +2691,7 @@ def test_sanitize_request_body_strips_secret_fields():
     assert sanitized["messages"] == [{"role": "user", "content": "hi"}]
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("embrouter.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_proxy_server_request_payload_strips_nested_aws_credentials(mock_should_store: MagicMock) -> None:
     mock_should_store.return_value = True
     credentials: Final = {
@@ -2701,7 +2701,7 @@ def test_proxy_server_request_payload_strips_nested_aws_credentials(mock_should_
         "aws_web_identity_token": "wit-canary",
     }
     tool_parameters: Final = {"type": "object", "properties": {"aws_secret_access_key": {"type": "string"}}}
-    litellm_params: Final = {
+    embrouter_params: Final = {
         "proxy_server_request": {
             "body": {
                 "model": "bedrock-claude",
@@ -2715,7 +2715,7 @@ def test_proxy_server_request_payload_strips_nested_aws_credentials(mock_should_
     }
 
     parsed: Final = json.loads(
-        _get_proxy_server_request_for_spend_logs_payload(metadata={}, litellm_params=litellm_params, kwargs={})
+        _get_proxy_server_request_for_spend_logs_payload(metadata={}, embrouter_params=embrouter_params, kwargs={})
     )
 
     assert "canary" not in json.dumps(parsed)
@@ -2727,7 +2727,7 @@ def test_proxy_server_request_payload_strips_nested_aws_credentials(mock_should_
     assert parsed["messages"] == [{"role": "user", "content": "hello"}]
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("embrouter.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_proxy_server_request_payload_redacts_provider_credentials(mock_should_store: MagicMock) -> None:
     mock_should_store.return_value = True
     credentials: Final = {
@@ -2745,7 +2745,7 @@ def test_proxy_server_request_payload_redacts_provider_credentials(mock_should_s
     }
     metadata: Final = {"user_api_key": "custom-auth-raw-key", "requester_ip_address": "10.0.0.1"}
     tool_parameters: Final = {"type": "object", "properties": {"client_secret": {"type": "string"}}}
-    litellm_params: Final = {
+    embrouter_params: Final = {
         "proxy_server_request": {
             "body": {
                 "model": "azure-gpt",
@@ -2766,7 +2766,7 @@ def test_proxy_server_request_payload_redacts_provider_credentials(mock_should_s
     }
 
     parsed: Final = json.loads(
-        _get_proxy_server_request_for_spend_logs_payload(metadata={}, litellm_params=litellm_params, kwargs={})
+        _get_proxy_server_request_for_spend_logs_payload(metadata={}, embrouter_params=embrouter_params, kwargs={})
     )
 
     assert "canary" not in json.dumps(parsed)
@@ -2789,7 +2789,7 @@ def test_sanitize_response_redacts_credential_named_fields() -> None:
     }
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("embrouter.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_proxy_server_request_payload_excludes_secret_fields(mock_should_store):
     """
     End-to-end test: when the proxy_server_request body contains
@@ -2798,7 +2798,7 @@ def test_proxy_server_request_payload_excludes_secret_fields(mock_should_store):
     """
     mock_should_store.return_value = True
 
-    litellm_params = {
+    embrouter_params = {
         "proxy_server_request": {
             "body": {
                 "model": "gpt-4",
@@ -2806,14 +2806,14 @@ def test_proxy_server_request_payload_excludes_secret_fields(mock_should_store):
                 "secret_fields": {
                     "raw_headers": {
                         "authorization": "Bearer sk-super-secret-token",
-                        "host": "litellm.example.com",
+                        "host": "embrouter.example.com",
                     }
                 },
             }
         }
     }
 
-    result = _get_proxy_server_request_for_spend_logs_payload(metadata={}, litellm_params=litellm_params, kwargs={})
+    result = _get_proxy_server_request_for_spend_logs_payload(metadata={}, embrouter_params=embrouter_params, kwargs={})
     parsed = json.loads(result)
 
     assert "secret_fields" not in parsed, "secret_fields must never appear in the spend-log proxy_server_request column"
@@ -2869,7 +2869,7 @@ def test_redact_prompt_leaks_empty_string():
     assert _redact_prompt_leaks_in_error_string("") == ""
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("embrouter.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_sanitize_error_information_redacts_when_not_storing_prompts(
     mock_should_store,
 ):
@@ -2897,7 +2897,7 @@ def test_sanitize_error_information_redacts_when_not_storing_prompts(
     assert sanitized["llm_provider"] == "openai"
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("embrouter.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_sanitize_error_information_skips_redaction_when_storing_prompts(
     mock_should_store,
 ):
@@ -2919,13 +2919,13 @@ def test_sanitize_error_information_skips_redaction_when_storing_prompts(
     assert REDACTED_BY_LITELM_STRING not in sanitized["error_message"]
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("embrouter.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_sanitize_error_information_caps_size_regardless_of_prompt_flag(
     mock_should_store,
 ):
     # The DB-storage cap must apply even when prompt storage is enabled, so a
     # provider error that echoes a multi-MB body can't blow up a single row.
-    from litellm.constants import MAX_STRING_LENGTH_PROMPT_IN_DB
+    from embrouter.constants import MAX_STRING_LENGTH_PROMPT_IN_DB
 
     mock_should_store.return_value = True
 
@@ -2942,15 +2942,15 @@ def test_sanitize_error_information_caps_size_regardless_of_prompt_flag(
 
     assert sanitized is not None
     assert len(sanitized["error_message"]) < len(huge_error)
-    assert LITELLM_TRUNCATED_PAYLOAD_FIELD in sanitized["error_message"]
-    assert LITELLM_TRUNCATED_PAYLOAD_FIELD in sanitized["traceback"]
+    assert EMBROUTER_TRUNCATED_PAYLOAD_FIELD in sanitized["error_message"]
+    assert EMBROUTER_TRUNCATED_PAYLOAD_FIELD in sanitized["traceback"]
 
 
 def test_sanitize_error_information_none_passthrough():
     assert _sanitize_error_information_for_spend_logs(None) is None
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("embrouter.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_sanitize_error_information_reproduces_lit_2992(mock_should_store):
     # Mirrors the reproduced row body from LIT-2992 — a RateLimitError whose
     # message embeds 178 pydantic validation errors, each carrying a full
@@ -2966,7 +2966,7 @@ def test_sanitize_error_information_reproduces_lit_2992(mock_should_store):
             f"'input': [{{'role': 'user', 'content': '{huge_conversation_blob}'}}]}}"
         )
     error_message = (
-        "litellm.RateLimitError: RateLimitError: OpenAIException - "
+        "embrouter.RateLimitError: RateLimitError: OpenAIException - "
         '{"error":{"message":"' + "\\n  ".join(validation_entries) + '"}}'
     )
 
@@ -3035,7 +3035,7 @@ def test_redact_prompt_leaks_handles_unterminated_value():
     assert REDACTED_BY_LITELM_STRING in redacted
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("embrouter.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_sanitize_error_information_redacts_traceback_when_not_storing_prompts(
     mock_should_store,
 ):
@@ -3067,7 +3067,7 @@ def test_sanitize_error_information_redacts_traceback_when_not_storing_prompts(
     assert "ValueError: invalid request" in sanitized["traceback"]
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("embrouter.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_sanitize_error_information_skips_traceback_redaction_when_storing_prompts(
     mock_should_store,
 ):
@@ -3175,7 +3175,7 @@ def test_redact_prompt_leaks_combined_quoted_key_and_pydantic_assignment():
     assert redacted.count(REDACTED_BY_LITELM_STRING) >= 2
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("embrouter.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_sanitize_error_information_redacts_pydantic_assignment_form(
     mock_should_store,
 ):
@@ -3333,34 +3333,34 @@ def test_redact_logged_api_key_hashed_jwt_short_suffix_is_hashed():
 
 
 def test_redact_logged_api_key_master_key_alias_passes_through():
-    from litellm.constants import LITELLM_PROXY_MASTER_KEY_ALIAS
+    from embrouter.constants import EMBROUTER_PROXY_MASTER_KEY_ALIAS
 
-    result = _redact_logged_api_key(LITELLM_PROXY_MASTER_KEY_ALIAS, already_redacted=True)
-    assert result == LITELLM_PROXY_MASTER_KEY_ALIAS
+    result = _redact_logged_api_key(EMBROUTER_PROXY_MASTER_KEY_ALIAS, already_redacted=True)
+    assert result == EMBROUTER_PROXY_MASTER_KEY_ALIAS
 
 
 def test_redact_logged_api_key_master_key_alias_without_provenance_is_hashed():
-    from litellm.constants import LITELLM_PROXY_MASTER_KEY_ALIAS
+    from embrouter.constants import EMBROUTER_PROXY_MASTER_KEY_ALIAS
 
-    result = _redact_logged_api_key(LITELLM_PROXY_MASTER_KEY_ALIAS)
-    assert result == hash_token(LITELLM_PROXY_MASTER_KEY_ALIAS)
-    assert result != LITELLM_PROXY_MASTER_KEY_ALIAS
+    result = _redact_logged_api_key(EMBROUTER_PROXY_MASTER_KEY_ALIAS)
+    assert result == hash_token(EMBROUTER_PROXY_MASTER_KEY_ALIAS)
+    assert result != EMBROUTER_PROXY_MASTER_KEY_ALIAS
 
 
 def test_get_spend_logs_metadata_keeps_master_key_alias_readable():
-    from litellm.constants import LITELLM_PROXY_MASTER_KEY_ALIAS
+    from embrouter.constants import EMBROUTER_PROXY_MASTER_KEY_ALIAS
 
     meta = _get_spend_logs_metadata(
         {
-            "user_api_key": LITELLM_PROXY_MASTER_KEY_ALIAS,
-            "user_api_key_hash": LITELLM_PROXY_MASTER_KEY_ALIAS,
+            "user_api_key": EMBROUTER_PROXY_MASTER_KEY_ALIAS,
+            "user_api_key_hash": EMBROUTER_PROXY_MASTER_KEY_ALIAS,
         }
     )
-    assert meta["user_api_key"] == LITELLM_PROXY_MASTER_KEY_ALIAS
+    assert meta["user_api_key"] == EMBROUTER_PROXY_MASTER_KEY_ALIAS
 
 
 def test_get_spend_logs_metadata_keeps_user_agent():
-    """`add_litellm_data_to_request` stamps the caller's User-Agent next to its IP, but
+    """`add_embrouter_data_to_request` stamps the caller's User-Agent next to its IP, but
     the spend log metadata dropped it, so an abusive client could not be identified
     from the Logs page."""
     meta = _get_spend_logs_metadata({"requester_ip_address": "203.0.113.9", "user_agent": "abusive-client/9.9"})
@@ -3424,14 +3424,14 @@ def test_get_logging_payload_batch_attribution_keeps_verification_token_hash():
     """
     Batch cost rebuilds metadata with the managed object's already-hashed api_key.
     That hash must land in SpendLogs.api_key unchanged so Usage/CloudZero can join
-    LiteLLM_VerificationToken for api_key_alias and user_email. Regression: without
+    EmbRouter_VerificationToken for api_key_alias and user_email. Regression: without
     user_api_key_hash provenance, v1.99+ re-hashed the token and broke the join.
     """
     token_hash = hash_token("sk-batch-creator-key")
     kwargs = {
         "model": "gpt-4o",
         "call_type": "aretrieve_batch",
-        "litellm_params": {
+        "embrouter_params": {
             "metadata": {
                 "user_api_key": token_hash,
                 "user_api_key_hash": token_hash,
@@ -3489,12 +3489,12 @@ def test_get_logging_payload_uses_recovered_combined_usage_on_failure():
     the failure hook surfaces it as ``combined_usage_object``. The spend-log
     payload must record those token counts instead of zero.
     """
-    from litellm.types.utils import Usage
+    from embrouter.types.utils import Usage
 
     kwargs = {
         "model": "anthropic/claude-haiku-4-5",
         "call_type": "acompletion",
-        "litellm_params": {"metadata": {"user_api_key": "sk-test"}},
+        "embrouter_params": {"metadata": {"user_api_key": "sk-test"}},
         "combined_usage_object": Usage(prompt_tokens=30, completion_tokens=1, total_tokens=31),
     }
     response_obj = Exception("MidStreamFallbackError: read timeout")
@@ -3514,7 +3514,7 @@ def test_get_logging_payload_failure_without_recovered_usage_is_zero():
     kwargs = {
         "model": "anthropic/claude-haiku-4-5",
         "call_type": "acompletion",
-        "litellm_params": {"metadata": {"user_api_key": "sk-test"}},
+        "embrouter_params": {"metadata": {"user_api_key": "sk-test"}},
     }
     response_obj = Exception("BadRequestError")
     now = datetime.datetime.now(timezone.utc)
@@ -3524,8 +3524,8 @@ def test_get_logging_payload_failure_without_recovered_usage_is_zero():
     assert payload["total_tokens"] == 0
 
 
-def test_get_logging_payload_sets_litellm_call_id_for_correlation():
-    """LIT-3868: a successful spend log must carry the x-litellm-call-id (the
+def test_get_logging_payload_sets_embrouter_call_id_for_correlation():
+    """LIT-3868: a successful spend log must carry the x-embrouter-call-id (the
     trace id) in its metadata, distinct from request_id, which stays the
     provider response id. Without this there is no way to correlate a DB row
     with its trace for a successful call.
@@ -3536,8 +3536,8 @@ def test_get_logging_payload_sets_litellm_call_id_for_correlation():
     kwargs = {
         "model": "openai/gpt-4o-mini",
         "call_type": "acompletion",
-        "litellm_call_id": trace_call_id,
-        "litellm_params": {"metadata": {"user_api_key": "sk-test"}},
+        "embrouter_call_id": trace_call_id,
+        "embrouter_params": {"metadata": {"user_api_key": "sk-test"}},
     }
     response_obj = {
         "id": provider_response_id,
@@ -3549,20 +3549,20 @@ def test_get_logging_payload_sets_litellm_call_id_for_correlation():
     metadata = json.loads(payload["metadata"])
 
     assert payload["request_id"] == provider_response_id
-    assert metadata["litellm_call_id"] == trace_call_id
-    assert metadata["litellm_call_id"] != payload["request_id"]
+    assert metadata["embrouter_call_id"] == trace_call_id
+    assert metadata["embrouter_call_id"] != payload["request_id"]
 
 
-def test_get_logging_payload_litellm_call_id_falls_back_to_litellm_params():
-    """litellm_call_id may only be present in litellm_params; it must still land
+def test_get_logging_payload_embrouter_call_id_falls_back_to_embrouter_params():
+    """embrouter_call_id may only be present in embrouter_params; it must still land
     in the spend log metadata so correlation works on that path too.
     """
     trace_call_id = "fallback-7a1c-42d9-9f0e-2b6c5d4e3f21"
     kwargs = {
         "model": "openai/gpt-4o-mini",
         "call_type": "acompletion",
-        "litellm_params": {
-            "litellm_call_id": trace_call_id,
+        "embrouter_params": {
+            "embrouter_call_id": trace_call_id,
             "metadata": {"user_api_key": "sk-test"},
         },
     }
@@ -3574,10 +3574,10 @@ def test_get_logging_payload_litellm_call_id_falls_back_to_litellm_params():
 
     payload = get_logging_payload(kwargs=kwargs, response_obj=response_obj, start_time=now, end_time=now)
 
-    assert json.loads(payload["metadata"])["litellm_call_id"] == trace_call_id
+    assert json.loads(payload["metadata"])["embrouter_call_id"] == trace_call_id
 
 
-def test_get_logging_payload_litellm_call_id_when_response_has_no_id():
+def test_get_logging_payload_embrouter_call_id_when_response_has_no_id():
     """When the provider returns no id, request_id falls back to the call id, so
     request_id and the metadata call id hold the same value and correlation
     still resolves.
@@ -3586,29 +3586,29 @@ def test_get_logging_payload_litellm_call_id_when_response_has_no_id():
     kwargs = {
         "model": "openai/gpt-4o-mini",
         "call_type": "acompletion",
-        "litellm_call_id": trace_call_id,
-        "litellm_params": {"metadata": {"user_api_key": "sk-test"}},
+        "embrouter_call_id": trace_call_id,
+        "embrouter_params": {"metadata": {"user_api_key": "sk-test"}},
     }
     response_obj = {"usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2}}
     now = datetime.datetime.now(timezone.utc)
 
     payload = get_logging_payload(kwargs=kwargs, response_obj=response_obj, start_time=now, end_time=now)
 
-    assert json.loads(payload["metadata"])["litellm_call_id"] == trace_call_id
+    assert json.loads(payload["metadata"])["embrouter_call_id"] == trace_call_id
     assert payload["request_id"] == trace_call_id
 
 
-def test_get_logging_payload_cache_hit_keeps_raw_litellm_call_id():
+def test_get_logging_payload_cache_hit_keeps_raw_embrouter_call_id():
     """On a cache hit request_id is suffixed to stay unique, but the metadata
-    litellm_call_id stays the raw trace id so the row still points at its trace.
+    embrouter_call_id stays the raw trace id so the row still points at its trace.
     """
     trace_call_id = "cache-9a1c-42d9-9f0e-2b6c5d4e3f21"
     kwargs = {
         "model": "openai/gpt-4o-mini",
         "call_type": "acompletion",
-        "litellm_call_id": trace_call_id,
+        "embrouter_call_id": trace_call_id,
         "cache_hit": True,
-        "litellm_params": {"metadata": {"user_api_key": "sk-test"}},
+        "embrouter_params": {"metadata": {"user_api_key": "sk-test"}},
     }
     response_obj = {
         "id": "chatcmpl-cache-src",
@@ -3618,9 +3618,9 @@ def test_get_logging_payload_cache_hit_keeps_raw_litellm_call_id():
 
     payload = get_logging_payload(kwargs=kwargs, response_obj=response_obj, start_time=now, end_time=now)
 
-    assert json.loads(payload["metadata"])["litellm_call_id"] == trace_call_id
+    assert json.loads(payload["metadata"])["embrouter_call_id"] == trace_call_id
     assert "_cache_hit" in payload["request_id"]
-    assert json.loads(payload["metadata"])["litellm_call_id"] != payload["request_id"]
+    assert json.loads(payload["metadata"])["embrouter_call_id"] != payload["request_id"]
 
 
 class TestSpendLogKeyRedaction:
@@ -3667,15 +3667,15 @@ class TestSpendLogKeyRedaction:
         assert _redact_logged_api_key(bare) == _redact_logged_api_key(bearer)
 
 
-@patch("litellm.proxy.proxy_server.master_key", None)
-@patch("litellm.proxy.proxy_server.general_settings", {})
+@patch("embrouter.proxy.proxy_server.master_key", None)
+@patch("embrouter.proxy.proxy_server.general_settings", {})
 def test_get_logging_payload_non_sk_raw_key_both_fields_hashed():
     raw = "anthropic-raw-key-xyz"
     kwargs = {
         "model": "openai/gpt-4.1",
         "messages": [{"role": "user", "content": "Hello"}],
         "call_type": "acompletion",
-        "litellm_params": {
+        "embrouter_params": {
             "metadata": {
                 "user_api_key": raw,
                 "user_api_key_user_id": "test_user",
@@ -3700,16 +3700,16 @@ def test_get_logging_payload_non_sk_raw_key_both_fields_hashed():
 
 
 def test_get_logging_payload_keeps_master_key_alias_readable():
-    from litellm.constants import LITELLM_PROXY_MASTER_KEY_ALIAS
+    from embrouter.constants import EMBROUTER_PROXY_MASTER_KEY_ALIAS
 
     kwargs = {
         "model": "openai/gpt-4.1",
         "messages": [{"role": "user", "content": "Hello"}],
         "call_type": "acompletion",
-        "litellm_params": {
+        "embrouter_params": {
             "metadata": {
-                "user_api_key": LITELLM_PROXY_MASTER_KEY_ALIAS,
-                "user_api_key_hash": LITELLM_PROXY_MASTER_KEY_ALIAS,
+                "user_api_key": EMBROUTER_PROXY_MASTER_KEY_ALIAS,
+                "user_api_key_hash": EMBROUTER_PROXY_MASTER_KEY_ALIAS,
                 "user_api_key_user_id": "test_user",
             }
         },
@@ -3721,17 +3721,17 @@ def test_get_logging_payload_keeps_master_key_alias_readable():
         end_time=datetime.datetime.now(timezone.utc),
     )
 
-    assert payload["api_key"] == LITELLM_PROXY_MASTER_KEY_ALIAS
+    assert payload["api_key"] == EMBROUTER_PROXY_MASTER_KEY_ALIAS
     parsed_meta = json.loads(payload["metadata"])
-    assert parsed_meta["user_api_key"] == LITELLM_PROXY_MASTER_KEY_ALIAS
+    assert parsed_meta["user_api_key"] == EMBROUTER_PROXY_MASTER_KEY_ALIAS
 
 
 @pytest.mark.parametrize(
     "service_account",
-    [LITTELM_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME, LITTELM_CLI_SERVICE_ACCOUNT_NAME],
+    [EMBROUTER_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME, EMBROUTER_CLI_SERVICE_ACCOUNT_NAME],
 )
 def test_get_logging_payload_keeps_internal_service_account_key_readable(service_account: str):
-    data = LiteLLMProxyRequestSetup.add_user_api_key_auth_to_request_metadata(
+    data = EmbRouterProxyRequestSetup.add_user_api_key_auth_to_request_metadata(
         data={"metadata": {}},
         user_api_key_dict=UserAPIKeyAuth(
             api_key=service_account,
@@ -3745,7 +3745,7 @@ def test_get_logging_payload_keeps_internal_service_account_key_readable(service
         "model": "openai/gpt-4.1",
         "messages": [{"role": "user", "content": "Hello"}],
         "call_type": "acompletion",
-        "litellm_params": {"metadata": data["metadata"]},
+        "embrouter_params": {"metadata": data["metadata"]},
     }
     payload = get_logging_payload(
         kwargs=kwargs,
@@ -3761,12 +3761,12 @@ def test_get_logging_payload_keeps_internal_service_account_key_readable(service
 
 
 def test_redact_logged_api_key_service_account_name_without_provenance_is_hashed():
-    result = _redact_logged_api_key(LITTELM_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME)
-    assert result == hash_token(LITTELM_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME)
+    result = _redact_logged_api_key(EMBROUTER_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME)
+    assert result == hash_token(EMBROUTER_INTERNAL_HEALTH_SERVICE_ACCOUNT_NAME)
 
 
-@patch("litellm.proxy.proxy_server.master_key", None)
-@patch("litellm.proxy.proxy_server.general_settings", {})
+@patch("embrouter.proxy.proxy_server.master_key", None)
+@patch("embrouter.proxy.proxy_server.general_settings", {})
 def test_get_logging_payload_hashes_bearer_prefixed_api_key():
     """Regression for LIT-4121: failed-request spend logs stored plaintext
     'Bearer sk-...' in both the api_key column and metadata.user_api_key"""
@@ -3775,7 +3775,7 @@ def test_get_logging_payload_hashes_bearer_prefixed_api_key():
     kwargs = {
         "model": "openai/gpt-4.1",
         "call_type": "acompletion",
-        "litellm_params": {
+        "embrouter_params": {
             "metadata": {
                 "user_api_key": raw_key,
                 "user_api_key_user_id": "test_user",
@@ -3806,7 +3806,7 @@ def test_get_logging_payload_hashes_bearer_prefixed_api_key():
     )
 
 
-@patch("litellm.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
+@patch("embrouter.proxy.spend_tracking.spend_tracking_utils.should_store_prompts_and_responses_in_spend_logs")
 def test_sanitize_guardrail_information_preserves_headroom_compression_token_stats(
     mock_should_store,
 ):
@@ -3857,19 +3857,19 @@ async def test_compression_savings_survive_to_spend_log_payload_metadata(monkeyp
     """
     End-to-end seam test for the native compression write path on
     /v1/messages: the pre-call deployment hook records savings into the call
-    kwargs' litellm_metadata, the logging object captures it via
+    kwargs' embrouter_metadata, the logging object captures it via
     update_from_kwargs (exactly as llm_http_handler does for
     anthropic_messages), and get_logging_payload lands it in
     SpendLogsPayload.metadata JSON under ``compression_savings``.
     """
-    from litellm.integrations.compression_interception.handler import (
+    from embrouter.integrations.compression_interception.handler import (
         CompressionInterceptionLogger,
     )
-    from litellm.litellm_core_utils.litellm_logging import Logging
-    from litellm.types.utils import CallTypes
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging
+    from embrouter.types.utils import CallTypes
 
     monkeypatch.setattr(
-        "litellm.integrations.compression_interception.handler.compress",
+        "embrouter.integrations.compression_interception.handler.compress",
         lambda **kwargs: {
             "messages": [{"role": "user", "content": "compressed"}],
             "original_tokens": 12000,
@@ -3884,8 +3884,8 @@ async def test_compression_savings_survive_to_spend_log_payload_metadata(monkeyp
         "model": "claude-sonnet-5",
         "messages": [{"role": "user", "content": "big context"}],
         "max_tokens": 512,
-        "litellm_call_id": "test-compression-call-id",
-        "litellm_metadata": {
+        "embrouter_call_id": "test-compression-call-id",
+        "embrouter_metadata": {
             "user_api_key": "88dc28d0f030c55ed4ab77ed8faf098196cb1c05df778539800c9f1243fe6b4b",
             "user_api_key_user_id": "u1",
             "user_api_key_team_id": "t1",
@@ -3901,14 +3901,14 @@ async def test_compression_savings_survive_to_spend_log_payload_metadata(monkeyp
         stream=False,
         call_type="anthropic_messages",
         start_time=start_time,
-        litellm_call_id="test-compression-call-id",
+        embrouter_call_id="test-compression-call-id",
         function_id="test",
     )
     logging_obj.update_from_kwargs(
         kwargs=hooked,
         model="claude-sonnet-5",
         optional_params={"max_tokens": 512},
-        litellm_params={
+        embrouter_params={
             "preset_cache_key": None,
             "stream_response": {},
             "model_info": hooked.get("model_info"),
@@ -3941,9 +3941,9 @@ def test_no_routing_decision_key_defaults_to_none_in_spend_log_metadata():
     payload = get_logging_payload(
         kwargs={
             "model": "gpt-4o-mini",
-            "litellm_params": {"metadata": {"user_api_key": "test-key"}},
+            "embrouter_params": {"metadata": {"user_api_key": "test-key"}},
         },
-        response_obj=litellm.ModelResponse(id="chatcmpl-no-routing-decision", choices=[], usage=litellm.Usage()),
+        response_obj=embrouter.ModelResponse(id="chatcmpl-no-routing-decision", choices=[], usage=embrouter.Usage()),
         start_time=datetime.datetime.now(timezone.utc),
         end_time=datetime.datetime.now(timezone.utc),
     )
@@ -3951,26 +3951,26 @@ def test_no_routing_decision_key_defaults_to_none_in_spend_log_metadata():
     assert metadata["routing_decision"] is None
 
 
-@pytest.mark.parametrize("bucket", ["metadata", "litellm_metadata"])
+@pytest.mark.parametrize("bucket", ["metadata", "embrouter_metadata"])
 def test_internal_call_origin_survives_into_spend_log_metadata(bucket):
     """The origin is only useful if it reaches the row the Logs UI reads.
 
     _get_spend_logs_metadata projects onto SpendLogsMetadata.__annotations__, so an
     undeclared key is dropped silently. Both buckets are covered because the resolver
-    returns litellm_metadata when present and metadata otherwise, and the classifier
+    returns embrouter_metadata when present and metadata otherwise, and the classifier
     sub-call populates whichever the parent route used.
     """
     payload = get_logging_payload(
         kwargs={
             "model": "gpt-4o-mini",
-            "litellm_params": {
+            "embrouter_params": {
                 bucket: {
                     "user_api_key": "test-key",
                     "internal_call_origin": "autorouter_classifier",
                 }
             },
         },
-        response_obj=litellm.ModelResponse(id="chatcmpl-classifier", choices=[], usage=litellm.Usage()),
+        response_obj=embrouter.ModelResponse(id="chatcmpl-classifier", choices=[], usage=embrouter.Usage()),
         start_time=datetime.datetime.now(timezone.utc),
         end_time=datetime.datetime.now(timezone.utc),
     )
@@ -3984,9 +3984,9 @@ def test_user_traffic_carries_no_internal_call_origin():
     payload = get_logging_payload(
         kwargs={
             "model": "gpt-4o-mini",
-            "litellm_params": {"metadata": {"user_api_key": "test-key"}},
+            "embrouter_params": {"metadata": {"user_api_key": "test-key"}},
         },
-        response_obj=litellm.ModelResponse(id="chatcmpl-user-traffic", choices=[], usage=litellm.Usage()),
+        response_obj=embrouter.ModelResponse(id="chatcmpl-user-traffic", choices=[], usage=embrouter.Usage()),
         start_time=datetime.datetime.now(timezone.utc),
         end_time=datetime.datetime.now(timezone.utc),
     )
@@ -3997,7 +3997,7 @@ def test_user_traffic_carries_no_internal_call_origin():
 def _spend_log_for_call_type(
     call_type: str, internal_call_origin: str | None = None, background: bool | None = None
 ) -> dict:
-    from litellm.types.llms.openai import ResponsesAPIResponse
+    from embrouter.types.llms.openai import ResponsesAPIResponse
 
     return cast(
         dict,
@@ -4006,7 +4006,7 @@ def _spend_log_for_call_type(
                 "model": "gpt-4o",
                 "call_type": call_type,
                 "response_cost": 0.0,
-                "litellm_params": {
+                "embrouter_params": {
                     "metadata": {
                         "user_api_key": "test-key",
                         "internal_call_origin": internal_call_origin,
@@ -4070,21 +4070,21 @@ def test_spend_log_for_response_creation_still_counts_tokens():
     assert payload["total_tokens"] == 6000
 
 
-REDACTED_RESPONSE_PLACEHOLDER: Final = {"text": "redacted-by-litellm"}
+REDACTED_RESPONSE_PLACEHOLDER: Final = {"text": "redacted-by-embrouter"}
 CONSTANT_ID_FROM_HASHED_PLACEHOLDER: Final = "00fcbef15a3b0097e14b0ca016ed30a0"
 
 
 @pytest.mark.parametrize("call_type", ["aretrieve_batch", "acreate_file"])
 def test_get_spend_logs_id_stays_unique_when_the_response_is_a_redaction_placeholder(call_type):
-    """request_id is the LiteLLM_SpendLogs primary key and the flush inserts with
+    """request_id is the EmbRouter_SpendLogs primary key and the flush inserts with
     skip_duplicates, so two calls must never derive the same id from identical response
     content. Message redaction replaces every body it cannot redact with one fixed
     placeholder, which is what a batch and a file body both become, so hashing the
     response collapsed all of them onto a single id and silently dropped every row
     after the first."""
     suffix = "_batch_cost" if call_type == "aretrieve_batch" else ""
-    first = get_spend_logs_id(call_type, dict(REDACTED_RESPONSE_PLACEHOLDER), {"litellm_call_id": "call-id-1"})
-    second = get_spend_logs_id(call_type, dict(REDACTED_RESPONSE_PLACEHOLDER), {"litellm_call_id": "call-id-2"})
+    first = get_spend_logs_id(call_type, dict(REDACTED_RESPONSE_PLACEHOLDER), {"embrouter_call_id": "call-id-1"})
+    second = get_spend_logs_id(call_type, dict(REDACTED_RESPONSE_PLACEHOLDER), {"embrouter_call_id": "call-id-2"})
 
     assert first == f"call-id-1{suffix}"
     assert second == f"call-id-2{suffix}"
@@ -4098,7 +4098,7 @@ def test_get_spend_logs_id_prefers_the_response_id_for_batch_and_file_calls(call
     """A batch or file response that survives redaction carries its own id, so the row
     keys off that rather than the per-call id."""
     expected = "batch_abc123_batch_cost" if call_type == "aretrieve_batch" else "batch_abc123"
-    assert get_spend_logs_id(call_type, {"id": "batch_abc123"}, {"litellm_call_id": "call-id-1"}) == expected
+    assert get_spend_logs_id(call_type, {"id": "batch_abc123"}, {"embrouter_call_id": "call-id-1"}) == expected
 
 
 def test_get_logging_payload_gives_redacted_batch_and_file_rows_distinct_request_ids():
@@ -4110,8 +4110,8 @@ def test_get_logging_payload_gives_redacted_batch_and_file_rows_distinct_request
             kwargs={
                 "call_type": call_type,
                 "model": model,
-                "litellm_call_id": call_id,
-                "litellm_params": {"metadata": {"user_api_key": "test-key"}},
+                "embrouter_call_id": call_id,
+                "embrouter_params": {"metadata": {"user_api_key": "test-key"}},
             },
             response_obj=dict(REDACTED_RESPONSE_PLACEHOLDER),
             start_time=datetime.datetime.now(timezone.utc),
@@ -4140,12 +4140,12 @@ def test_get_spend_logs_id_keys_off_batch_identity_when_the_body_was_redacted(ca
     first = get_spend_logs_id(
         call_type,
         dict(REDACTED_RESPONSE_PLACEHOLDER),
-        {"litellm_call_id": "call-id-1", "standard_logging_object": standard_logging_object},
+        {"embrouter_call_id": "call-id-1", "standard_logging_object": standard_logging_object},
     )
     second = get_spend_logs_id(
         call_type,
         dict(REDACTED_RESPONSE_PLACEHOLDER),
-        {"litellm_call_id": "call-id-2", "standard_logging_object": standard_logging_object},
+        {"embrouter_call_id": "call-id-2", "standard_logging_object": standard_logging_object},
     )
 
     expected = "batch_abc123_batch_cost" if call_type == "aretrieve_batch" else "batch_abc123"
@@ -4160,7 +4160,7 @@ def test_get_spend_logs_id_separates_distinct_batches_whose_bodies_were_both_red
         get_spend_logs_id(
             "aretrieve_batch",
             dict(REDACTED_RESPONSE_PLACEHOLDER),
-            {"litellm_call_id": f"call-id-{index}", "standard_logging_object": {"id": batch_id}},
+            {"embrouter_call_id": f"call-id-{index}", "standard_logging_object": {"id": batch_id}},
         )
         for index, batch_id in enumerate(("batch_first", "batch_second"))
     ]
@@ -4175,7 +4175,7 @@ def test_get_spend_logs_id_prefers_the_response_id_over_the_standard_logging_id(
         get_spend_logs_id(
             "acompletion",
             {"id": "chatcmpl-from-response"},
-            {"litellm_call_id": "call-id-1", "standard_logging_object": {"id": "id-from-standard-payload"}},
+            {"embrouter_call_id": "call-id-1", "standard_logging_object": {"id": "id-from-standard-payload"}},
         )
         == "chatcmpl-from-response"
     )
@@ -4186,11 +4186,11 @@ async def test_spend_log_request_id_is_the_message_id_a_bridged_streaming_caller
     """A streaming /v1/messages call against a non-Anthropic model is served a msg_ id the
     adapter mints itself, and it is the only request id that call ever shows the caller, so
     GET /spend/logs?request_id=msg_... has to land on the row."""
-    from litellm.litellm_core_utils.litellm_logging import Logging
-    from litellm.llms.anthropic.pass_through.responses_adapters.streaming_iterator import (
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging
+    from embrouter.llms.anthropic.pass_through.responses_adapters.streaming_iterator import (
         AnthropicResponsesStreamWrapper,
     )
-    from litellm.types.llms.openai import (
+    from embrouter.types.llms.openai import (
         ResponseAPIUsage,
         ResponseCompletedEvent,
         ResponsesAPIResponse,
@@ -4202,7 +4202,7 @@ async def test_spend_log_request_id_is_the_message_id_a_bridged_streaming_caller
         stream=True,
         call_type="anthropic_messages",
         start_time=datetime.datetime.now(timezone.utc),
-        litellm_call_id="6825cafe-0000-4000-8000-000000000001",
+        embrouter_call_id="6825cafe-0000-4000-8000-000000000001",
         function_id="1234",
     )
     logging_obj.optional_params = {}
@@ -4233,7 +4233,7 @@ async def test_spend_log_request_id_is_the_message_id_a_bridged_streaming_caller
     wrapper = AnthropicResponsesStreamWrapper(
         responses_stream=_responses_stream(),
         model="gpt-5.6",
-        litellm_logging_obj=logging_obj,
+        embrouter_logging_obj=logging_obj,
     )
     sse_frames = [frame.decode() async for frame in wrapper.async_anthropic_sse_wrapper()]
 
@@ -4253,8 +4253,8 @@ async def test_spend_log_request_id_is_the_message_id_a_bridged_streaming_caller
         kwargs={
             "call_type": "anthropic_messages",
             "model": "gpt-5.6",
-            "litellm_call_id": "6825cafe-0000-4000-8000-000000000001",
-            "litellm_params": {"metadata": {"user_api_key": "test-key"}},
+            "embrouter_call_id": "6825cafe-0000-4000-8000-000000000001",
+            "embrouter_params": {"metadata": {"user_api_key": "test-key"}},
         },
         response_obj=logged_response,
         start_time=datetime.datetime.now(timezone.utc),
@@ -4267,8 +4267,8 @@ async def test_spend_log_request_id_is_the_message_id_a_bridged_streaming_caller
 async def test_spend_log_request_id_is_untouched_when_no_message_id_was_streamed():
     """Only the bridged streaming adapter mints a msg_ id of its own, so every other
     /v1/messages call must keep the id its own response carried."""
-    from litellm.litellm_core_utils.litellm_logging import Logging
-    from litellm.types.llms.openai import (
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging
+    from embrouter.types.llms.openai import (
         ResponseAPIUsage,
         ResponseCompletedEvent,
         ResponsesAPIResponse,
@@ -4280,7 +4280,7 @@ async def test_spend_log_request_id_is_untouched_when_no_message_id_was_streamed
         stream=False,
         call_type="anthropic_messages",
         start_time=datetime.datetime.now(timezone.utc),
-        litellm_call_id="6825cafe-0000-4000-8000-000000000002",
+        embrouter_call_id="6825cafe-0000-4000-8000-000000000002",
         function_id="1234",
     )
     logging_obj.optional_params = {}
@@ -4322,11 +4322,11 @@ def test_batch_cost_row_does_not_collide_with_the_batch_creation_row():
     batch was submitted."""
     batch_id = "bGl0ZWxsbV9wcm94eTttb2RlbF9pZDphYmM7bGxtX2JhdGNoX2lkOnh5eg"
 
-    creation_row_id = get_spend_logs_id("acreate_batch", {"id": batch_id}, {"litellm_call_id": "call-create"})
+    creation_row_id = get_spend_logs_id("acreate_batch", {"id": batch_id}, {"embrouter_call_id": "call-create"})
     cost_row_id = get_spend_logs_id(
         "aretrieve_batch",
         dict(REDACTED_RESPONSE_PLACEHOLDER),
-        {"litellm_call_id": "call-poller", "standard_logging_object": {"id": batch_id}},
+        {"embrouter_call_id": "call-poller", "standard_logging_object": {"id": batch_id}},
     )
 
     assert creation_row_id == batch_id
@@ -4342,7 +4342,7 @@ def test_batch_cost_row_id_is_stable_across_repeated_accounting():
         get_spend_logs_id(
             "aretrieve_batch",
             dict(REDACTED_RESPONSE_PLACEHOLDER),
-            {"litellm_call_id": f"call-{index}", "standard_logging_object": standard_logging_object},
+            {"embrouter_call_id": f"call-{index}", "standard_logging_object": standard_logging_object},
         )
         for index in range(2)
     ]
@@ -4373,7 +4373,7 @@ def test_get_logging_payload_failed_request_falls_back_to_standard_logging_paylo
     payload = get_logging_payload(
         kwargs={
             "model": "group-x",
-            "litellm_params": {"metadata": {"user_api_key": "test-key", "status": "failure"}},
+            "embrouter_params": {"metadata": {"user_api_key": "test-key", "status": "failure"}},
             "standard_logging_object": _make_failed_request_standard_logging_payload(),
         },
         response_obj={},
@@ -4391,7 +4391,7 @@ def test_get_logging_payload_request_kwargs_win_over_standard_logging_payload():
         kwargs={
             "model": "group-y",
             "custom_llm_provider": "anthropic",
-            "litellm_params": {
+            "embrouter_params": {
                 "api_base": "https://kwargs.example.com",
                 "metadata": {
                     "user_api_key": "test-key",
@@ -4415,7 +4415,7 @@ def test_get_logging_payload_failed_request_without_standard_logging_payload_lea
     payload = get_logging_payload(
         kwargs={
             "model": "group-x",
-            "litellm_params": {"metadata": {"user_api_key": "test-key", "status": "failure"}},
+            "embrouter_params": {"metadata": {"user_api_key": "test-key", "status": "failure"}},
         },
         response_obj={},
         start_time=datetime.datetime.now(timezone.utc),
@@ -4427,11 +4427,11 @@ def test_get_logging_payload_failed_request_without_standard_logging_payload_lea
     assert payload["custom_llm_provider"] == ""
 
 
-def _router_rejected_failure_payload(model_group: str, llm_router: litellm.Router | None) -> SpendLogsPayload:
+def _router_rejected_failure_payload(model_group: str, llm_router: embrouter.Router | None) -> SpendLogsPayload:
     return get_logging_payload(
         kwargs={
             "model": model_group,
-            "litellm_params": {
+            "embrouter_params": {
                 "metadata": {"user_api_key": "test-key", "model_group": model_group, "status": "failure"}
             },
         },
@@ -4450,7 +4450,7 @@ def _router_init_provider_stub(
     custom_llm_provider: str | None = None,
     api_base: str | None = None,
     api_key: str | None = None,
-    litellm_params: GenericLiteLLMParams | None = None,
+    embrouter_params: GenericEmbRouterParams | None = None,
 ) -> _ProviderResolution:
     prefix, _, suffix = model.partition("/")
     return (suffix or model, custom_llm_provider or (prefix if suffix else "openai"), api_base, api_key)
@@ -4462,7 +4462,7 @@ def _oauth_tripwire(resolution_attempts: list[str]) -> Callable[..., _ProviderRe
         custom_llm_provider: str | None = None,
         api_base: str | None = None,
         api_key: str | None = None,
-        litellm_params: GenericLiteLLMParams | None = None,
+        embrouter_params: GenericEmbRouterParams | None = None,
     ) -> _ProviderResolution:
         resolution_attempts.append(model)
         raise AssertionError("get_llm_provider would run the OAuth device flow")
@@ -4470,15 +4470,15 @@ def _oauth_tripwire(resolution_attempts: list[str]) -> Callable[..., _ProviderRe
     return _trip
 
 
-def _openai_and_anthropic_router() -> litellm.Router:
-    return litellm.Router(
+def _openai_and_anthropic_router() -> embrouter.Router:
+    return embrouter.Router(
         model_list=[
-            {"model_name": "openai-group", "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-a"}},
-            {"model_name": "openai-group", "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-b"}},
-            {"model_name": "mixed-group", "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-a"}},
+            {"model_name": "openai-group", "embrouter_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-a"}},
+            {"model_name": "openai-group", "embrouter_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-b"}},
+            {"model_name": "mixed-group", "embrouter_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-a"}},
             {
                 "model_name": "mixed-group",
-                "litellm_params": {"model": "anthropic/claude-haiku-4-5", "api_key": "sk-c"},
+                "embrouter_params": {"model": "anthropic/claude-haiku-4-5", "api_key": "sk-c"},
             },
         ]
     )
@@ -4502,20 +4502,20 @@ def test_get_logging_payload_router_rejected_request_without_router_leaves_provi
 
 
 @pytest.mark.parametrize(
-    "litellm_params,expected_provider",
+    "embrouter_params,expected_provider",
     [
         ({"model": "github_copilot/gpt-4o"}, "github_copilot"),
         ({"model": "gpt-5", "custom_llm_provider": "chatgpt"}, "chatgpt"),
     ],
 )
 def test_get_logging_payload_inferred_provider_never_resolves_declared_authenticating_providers(
-    monkeypatch: pytest.MonkeyPatch, litellm_params: dict[str, str], expected_provider: str
+    monkeypatch: pytest.MonkeyPatch, embrouter_params: dict[str, str], expected_provider: str
 ):
     resolution_attempts: list[str] = []
 
-    monkeypatch.setattr(litellm, "get_llm_provider", _router_init_provider_stub)
-    llm_router = litellm.Router(model_list=[{"model_name": "oauth-group", "litellm_params": litellm_params}])
-    monkeypatch.setattr(litellm, "get_llm_provider", _oauth_tripwire(resolution_attempts))
+    monkeypatch.setattr(embrouter, "get_llm_provider", _router_init_provider_stub)
+    llm_router = embrouter.Router(model_list=[{"model_name": "oauth-group", "embrouter_params": embrouter_params}])
+    monkeypatch.setattr(embrouter, "get_llm_provider", _oauth_tripwire(resolution_attempts))
 
     payload = _router_rejected_failure_payload("oauth-group", llm_router)
 
@@ -4524,33 +4524,33 @@ def test_get_logging_payload_inferred_provider_never_resolves_declared_authentic
 
 
 @pytest.mark.parametrize(
-    "litellm_params",
+    "embrouter_params",
     [
         {"model": "github_copilot/gpt-4o"},
         {"model": "gpt-5", "custom_llm_provider": "chatgpt"},
         {"model": "openai/gpt-4o-mini", "api_key": "sk-a"},
     ],
 )
-def test_get_logging_payload_inferred_provider_honours_global_litellm_proxy_override(
-    monkeypatch: pytest.MonkeyPatch, litellm_params: dict[str, str]
+def test_get_logging_payload_inferred_provider_honours_global_embrouter_proxy_override(
+    monkeypatch: pytest.MonkeyPatch, embrouter_params: dict[str, str]
 ):
-    monkeypatch.setattr(litellm, "get_llm_provider", _router_init_provider_stub)
-    llm_router = litellm.Router(model_list=[{"model_name": "proxied-group", "litellm_params": litellm_params}])
-    monkeypatch.setattr(litellm, "get_llm_provider", _oauth_tripwire([]))
-    monkeypatch.setattr(litellm, "use_litellm_proxy", True)
+    monkeypatch.setattr(embrouter, "get_llm_provider", _router_init_provider_stub)
+    llm_router = embrouter.Router(model_list=[{"model_name": "proxied-group", "embrouter_params": embrouter_params}])
+    monkeypatch.setattr(embrouter, "get_llm_provider", _oauth_tripwire([]))
+    monkeypatch.setattr(embrouter, "use_embrouter_proxy", True)
 
     payload = _router_rejected_failure_payload("proxied-group", llm_router)
 
-    assert payload["custom_llm_provider"] == "litellm_proxy"
+    assert payload["custom_llm_provider"] == "embrouter_proxy"
 
 
 def test_get_logging_payload_router_rejected_request_for_unresolvable_deployment_leaves_provider_empty(
     monkeypatch: pytest.MonkeyPatch,
 ):
     with monkeypatch.context() as router_init:
-        router_init.setattr(litellm, "get_llm_provider", _router_init_provider_stub)
-        llm_router = litellm.Router(
-            model_list=[{"model_name": "opaque-group", "litellm_params": {"model": "my-unprefixed-model"}}]
+        router_init.setattr(embrouter, "get_llm_provider", _router_init_provider_stub)
+        llm_router = embrouter.Router(
+            model_list=[{"model_name": "opaque-group", "embrouter_params": {"model": "my-unprefixed-model"}}]
         )
 
     payload = _router_rejected_failure_payload("opaque-group", llm_router)
@@ -4560,18 +4560,18 @@ def test_get_logging_payload_router_rejected_request_for_unresolvable_deployment
 
 
 def test_get_logging_payload_inferred_provider_does_not_rewrite_spend_log_model():
-    llm_router = litellm.Router(
+    llm_router = embrouter.Router(
         model_list=[
             {
                 "model_name": "bedrock-group",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "bedrock/anthropic.claude-3-5-haiku-20241022-v1:0",
                     "aws_region_name": "us-east-1",
                 },
             },
             {
                 "model_name": "bedrock-group",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "bedrock/anthropic.claude-3-5-haiku-20241022-v1:0",
                     "aws_region_name": "us-west-2",
                 },
@@ -4589,7 +4589,7 @@ def test_get_logging_payload_logged_provider_wins_over_model_group_provider():
     payload = get_logging_payload(
         kwargs={
             "model": "openai-group",
-            "litellm_params": {"metadata": {"user_api_key": "test-key", "model_group": "openai-group"}},
+            "embrouter_params": {"metadata": {"user_api_key": "test-key", "model_group": "openai-group"}},
             "standard_logging_object": {
                 **_make_failed_request_standard_logging_payload(),
                 "model_group": "openai-group",
@@ -4607,7 +4607,7 @@ def test_get_logging_payload_logged_provider_wins_over_model_group_provider():
 
 class _ModelRouterSpendLogKwargs(TypedDict):
     model: ReadOnly[str]
-    litellm_params: ReadOnly[dict[str, dict[str, str]]]
+    embrouter_params: ReadOnly[dict[str, dict[str, str]]]
     standard_logging_object: ReadOnly[StandardLoggingPayload]
 
 
@@ -4624,7 +4624,7 @@ def _model_router_spend_log_kwargs(slp_model: str | None) -> _ModelRouterSpendLo
     )
     return {
         "model": "azure_ai/model_router/model-router",
-        "litellm_params": {"metadata": {"user_api_key": "sk-test-key"}},
+        "embrouter_params": {"metadata": {"user_api_key": "sk-test-key"}},
         "standard_logging_object": standard_logging_payload,
     }
 
@@ -4649,14 +4649,14 @@ def test_get_logging_payload_falls_back_to_kwargs_model_when_slp_model_missing()
     assert payload["model"] == "azure_ai/model_router/model-router"
 
 
-@patch("litellm.proxy.proxy_server.master_key", None)
-@patch("litellm.proxy.proxy_server.general_settings", {})
+@patch("embrouter.proxy.proxy_server.master_key", None)
+@patch("embrouter.proxy.proxy_server.general_settings", {})
 def test_get_logging_payload_empty_key_slp_none_is_empty_string_not_none_literal():
     kwargs = {
         "model": "openai/gpt-4.1",
         "messages": [{"role": "user", "content": "Hello"}],
         "call_type": "acompletion",
-        "litellm_params": {
+        "embrouter_params": {
             "metadata": {
                 "user_api_key_user_id": "test_user",
             }
@@ -4721,10 +4721,10 @@ def test_autorouter_savings_flow_from_logging_payload_into_spend_log_metadata():
     payload = get_logging_payload(
         kwargs={
             "model": "gpt-4o-mini",
-            "litellm_params": {"metadata": {"user_api_key": "test-key"}},
+            "embrouter_params": {"metadata": {"user_api_key": "test-key"}},
             "standard_logging_object": {"autorouter_savings": 0.42, "metadata": {}, "model_map_information": None},
         },
-        response_obj=litellm.ModelResponse(id="chatcmpl-ar-savings", choices=[], usage=litellm.Usage()),
+        response_obj=embrouter.ModelResponse(id="chatcmpl-ar-savings", choices=[], usage=embrouter.Usage()),
         start_time=datetime.datetime.now(timezone.utc),
         end_time=datetime.datetime.now(timezone.utc),
     )
@@ -4732,7 +4732,7 @@ def test_autorouter_savings_flow_from_logging_payload_into_spend_log_metadata():
     assert metadata["autorouter_savings"] == 0.42
 
 
-@pytest.mark.parametrize("bucket", ["metadata", "litellm_metadata"])
+@pytest.mark.parametrize("bucket", ["metadata", "embrouter_metadata"])
 def test_caller_forged_autorouter_savings_is_discarded(bucket):
     """The raw request bucket is client-writable and _get_spend_logs_metadata projects
     every SpendLogsMetadata key from it, so the logging payload's value must overwrite
@@ -4740,9 +4740,9 @@ def test_caller_forged_autorouter_savings_is_discarded(bucket):
     payload = get_logging_payload(
         kwargs={
             "model": "gpt-4o-mini",
-            "litellm_params": {bucket: {"user_api_key": "test-key", "autorouter_savings": 999.0}},
+            "embrouter_params": {bucket: {"user_api_key": "test-key", "autorouter_savings": 999.0}},
         },
-        response_obj=litellm.ModelResponse(id="chatcmpl-forged-savings", choices=[], usage=litellm.Usage()),
+        response_obj=embrouter.ModelResponse(id="chatcmpl-forged-savings", choices=[], usage=embrouter.Usage()),
         start_time=datetime.datetime.now(timezone.utc),
         end_time=datetime.datetime.now(timezone.utc),
     )
@@ -4757,7 +4757,7 @@ def test_get_logging_payload_includes_fallback_info_in_spend_logs_metadata():
     """
     kwargs = {
         "model": "gpt-3.5-turbo",
-        "litellm_params": {
+        "embrouter_params": {
             "metadata": {
                 "user_api_key": "sk-test-key",
                 "attempted_fallbacks": 2,
@@ -4809,10 +4809,10 @@ def test_get_logging_payload_includes_fallback_info_in_spend_logs_metadata():
                 cache_key=None,
                 api_base="https://api.openai.com",
                 response_cost="0.001",
-                litellm_overhead_time_ms=None,
+                embrouter_overhead_time_ms=None,
                 additional_headers=None,
                 batch_models=None,
-                litellm_model_name=None,
+                embrouter_model_name=None,
                 usage_object=None,
             ),
         ),
@@ -4854,7 +4854,7 @@ def test_get_logging_payload_handles_missing_fallback_info_gracefully():
     """
     kwargs = {
         "model": "gpt-3.5-turbo",
-        "litellm_params": {
+        "embrouter_params": {
             "metadata": {
                 "user_api_key": "sk-test-key",
             }
@@ -4904,10 +4904,10 @@ def test_get_logging_payload_handles_missing_fallback_info_gracefully():
                 cache_key=None,
                 api_base="https://api.openai.com",
                 response_cost="0.001",
-                litellm_overhead_time_ms=None,
+                embrouter_overhead_time_ms=None,
                 additional_headers=None,
                 batch_models=None,
-                litellm_model_name=None,
+                embrouter_model_name=None,
                 usage_object=None,
             ),
         ),
@@ -4939,31 +4939,31 @@ def test_get_logging_payload_handles_missing_fallback_info_gracefully():
     assert metadata.get("original_model_group") is None, "original_model_group should be None when not provided"
 
 
-@pytest.mark.parametrize("bucket", ["metadata", "litellm_metadata"])
+@pytest.mark.parametrize("bucket", ["metadata", "embrouter_metadata"])
 def test_injected_cache_breakpoints_survive_into_spend_log_metadata(bucket):
     """The injection marker only gates savings if it reaches the spend-log row.
 
     _get_spend_logs_metadata projects onto SpendLogsMetadata.__annotations__, so an
     undeclared key is dropped silently. Both buckets are covered because chat routes
-    stamp metadata while /v1/messages routes stamp litellm_metadata, and
+    stamp metadata while /v1/messages routes stamp embrouter_metadata, and
     record_gateway_injection writes into whichever the request carries.
     """
     payload = get_logging_payload(
         kwargs={
             "model": "claude-sonnet-5",
-            "litellm_params": {
+            "embrouter_params": {
                 bucket: {
                     "user_api_key": "test-key",
-                    "litellm_gateway_injected_cache": "dep-of-this-row",
+                    "embrouter_gateway_injected_cache": "dep-of-this-row",
                 }
             },
         },
-        response_obj=litellm.ModelResponse(id="chatcmpl-injected", choices=[], usage=litellm.Usage()),
+        response_obj=embrouter.ModelResponse(id="chatcmpl-injected", choices=[], usage=embrouter.Usage()),
         start_time=datetime.datetime.now(timezone.utc),
         end_time=datetime.datetime.now(timezone.utc),
     )
     metadata = json.loads(payload["metadata"])
-    assert metadata["litellm_gateway_injected_cache"] == "dep-of-this-row"
+    assert metadata["embrouter_gateway_injected_cache"] == "dep-of-this-row"
 
 
 def test_passthrough_caching_carries_no_injection_marker():
@@ -4972,22 +4972,22 @@ def test_passthrough_caching_carries_no_injection_marker():
     payload = get_logging_payload(
         kwargs={
             "model": "claude-sonnet-5",
-            "litellm_params": {"metadata": {"user_api_key": "test-key"}},
+            "embrouter_params": {"metadata": {"user_api_key": "test-key"}},
         },
-        response_obj=litellm.ModelResponse(id="chatcmpl-passthrough", choices=[], usage=litellm.Usage()),
+        response_obj=embrouter.ModelResponse(id="chatcmpl-passthrough", choices=[], usage=embrouter.Usage()),
         start_time=datetime.datetime.now(timezone.utc),
         end_time=datetime.datetime.now(timezone.utc),
     )
     metadata = json.loads(payload["metadata"])
-    assert metadata["litellm_gateway_injected_cache"] is None
+    assert metadata["embrouter_gateway_injected_cache"] is None
 
 
 def _routed_call_kwargs(model_info: Mapping[str, object]) -> dict[str, object]:
     return {
         "model": "claude-haiku-4-5",
         "custom_llm_provider": "azure_ai",
-        "litellm_call_id": "router-corr-123",
-        "litellm_params": {
+        "embrouter_call_id": "router-corr-123",
+        "embrouter_params": {
             "metadata": {
                 "user_api_key": "test-key",
                 "model_group": "internal-router/gpt-5.4",
@@ -5003,7 +5003,7 @@ def test_router_metadata_stamped_for_internal_router_model_deployment():
     block correlating the requested model group with the selected deployment."""
     payload = get_logging_payload(
         kwargs=_routed_call_kwargs({"id": "mi-1", "internal_router_model": True}),
-        response_obj=litellm.ModelResponse(id="chatcmpl-router-meta", choices=[], usage=litellm.Usage()),
+        response_obj=embrouter.ModelResponse(id="chatcmpl-router-meta", choices=[], usage=embrouter.Usage()),
         start_time=datetime.datetime.now(timezone.utc),
         end_time=datetime.datetime.now(timezone.utc),
     )
@@ -5019,7 +5019,7 @@ def test_router_metadata_stamped_for_internal_router_model_deployment():
 def test_router_metadata_absent_without_internal_router_model_flag():
     payload = get_logging_payload(
         kwargs=_routed_call_kwargs({"id": "mi-1"}),
-        response_obj=litellm.ModelResponse(id="chatcmpl-unflagged", choices=[], usage=litellm.Usage()),
+        response_obj=embrouter.ModelResponse(id="chatcmpl-unflagged", choices=[], usage=embrouter.Usage()),
         start_time=datetime.datetime.now(timezone.utc),
         end_time=datetime.datetime.now(timezone.utc),
     )
@@ -5027,7 +5027,7 @@ def test_router_metadata_absent_without_internal_router_model_flag():
     assert metadata["router_metadata"] is None
 
 
-@pytest.mark.parametrize("bucket", ["metadata", "litellm_metadata"])
+@pytest.mark.parametrize("bucket", ["metadata", "embrouter_metadata"])
 def test_caller_forged_router_metadata_is_discarded(bucket):
     """The raw request bucket is client-writable and _get_spend_logs_metadata projects
     every SpendLogsMetadata key from it, so the server-derived value must overwrite
@@ -5035,14 +5035,14 @@ def test_caller_forged_router_metadata_is_discarded(bucket):
     payload = get_logging_payload(
         kwargs={
             "model": "gpt-4o-mini",
-            "litellm_params": {
+            "embrouter_params": {
                 bucket: {
                     "user_api_key": "test-key",
                     "router_metadata": {"requested_model": "forged", "router_correlation_id": "forged-id"},
                 }
             },
         },
-        response_obj=litellm.ModelResponse(id="chatcmpl-forged-router-meta", choices=[], usage=litellm.Usage()),
+        response_obj=embrouter.ModelResponse(id="chatcmpl-forged-router-meta", choices=[], usage=embrouter.Usage()),
         start_time=datetime.datetime.now(timezone.utc),
         end_time=datetime.datetime.now(timezone.utc),
     )
@@ -5077,7 +5077,7 @@ ANTHROPIC_MESSAGES_SSE_CHUNKS: Final = (
 
 
 def _anthropic_messages_logging_obj(*, stream: bool) -> Any:
-    from litellm.litellm_core_utils.litellm_logging import Logging
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging
 
     logging_obj = Logging(
         model="claude-haiku-4-5",
@@ -5085,7 +5085,7 @@ def _anthropic_messages_logging_obj(*, stream: bool) -> Any:
         stream=stream,
         call_type="anthropic_messages",
         start_time=datetime.datetime.now(timezone.utc),
-        litellm_call_id="6806cafe-0000-4000-8000-000000000001",
+        embrouter_call_id="6806cafe-0000-4000-8000-000000000001",
         function_id="1234",
     )
     logging_obj.optional_params = {}
@@ -5121,8 +5121,8 @@ def test_spend_log_request_id_is_the_message_id_a_non_streaming_messages_caller_
             kwargs={
                 "call_type": "anthropic_messages",
                 "model": "claude-haiku-4-5",
-                "litellm_call_id": "6806cafe-0000-4000-8000-000000000001",
-                "litellm_params": {"metadata": {"user_api_key": "test-key"}},
+                "embrouter_call_id": "6806cafe-0000-4000-8000-000000000001",
+                "embrouter_params": {"metadata": {"user_api_key": "test-key"}},
             },
         )
         == "msg_01Lit6806NonStreaming"
@@ -5132,18 +5132,18 @@ def test_spend_log_request_id_is_the_message_id_a_non_streaming_messages_caller_
 def test_spend_log_request_id_is_the_message_id_a_streaming_messages_caller_received():
     """
     The streaming leg of /v1/messages logs through the Anthropic passthrough handler, which used
-    to stamp litellm_call_id over the msg_ id carried by the message_start event.
+    to stamp embrouter_call_id over the msg_ id carried by the message_start event.
     """
-    from litellm.proxy.pass_through_endpoints.llm_provider_handlers.anthropic_passthrough_logging_handler import (
+    from embrouter.proxy.pass_through_endpoints.llm_provider_handlers.anthropic_passthrough_logging_handler import (
         AnthropicPassthroughLoggingHandler,
     )
-    from litellm.types.passthrough_endpoints.pass_through_endpoints import EndpointType
+    from embrouter.types.passthrough_endpoints.pass_through_endpoints import EndpointType
 
     logging_obj = _anthropic_messages_logging_obj(stream=True)
     logging_obj.model_call_details["stream"] = True
 
     logged = AnthropicPassthroughLoggingHandler._handle_logging_anthropic_collected_chunks(
-        litellm_logging_obj=logging_obj,
+        embrouter_logging_obj=logging_obj,
         passthrough_success_handler_obj=MagicMock(),
         url_route="/v1/messages",
         request_body={"model": "claude-haiku-4-5"},
@@ -5160,28 +5160,28 @@ def test_spend_log_request_id_is_the_message_id_a_streaming_messages_caller_rece
             kwargs={
                 **logged["kwargs"],
                 "call_type": "anthropic_messages",
-                "litellm_call_id": "6806cafe-0000-4000-8000-000000000001",
-                "litellm_params": {"metadata": {"user_api_key": "test-key"}},
+                "embrouter_call_id": "6806cafe-0000-4000-8000-000000000001",
+                "embrouter_params": {"metadata": {"user_api_key": "test-key"}},
             },
         )
         == "msg_01Lit6806Streaming"
     )
 
 
-def test_spend_log_request_id_still_falls_back_to_litellm_call_id_without_a_provider_id():
+def test_spend_log_request_id_still_falls_back_to_embrouter_call_id_without_a_provider_id():
     """
-    Anthropic-compatible upstreams that omit `id` must keep landing on litellm_call_id rather
+    Anthropic-compatible upstreams that omit `id` must keep landing on embrouter_call_id rather
     than on a fresh chatcmpl- uuid nobody can look up.
     """
     logging_obj = _anthropic_messages_logging_obj(stream=True)
     logging_obj.model_call_details["stream"] = True
 
-    from litellm.proxy.pass_through_endpoints.llm_provider_handlers.anthropic_passthrough_logging_handler import (
+    from embrouter.proxy.pass_through_endpoints.llm_provider_handlers.anthropic_passthrough_logging_handler import (
         AnthropicPassthroughLoggingHandler,
     )
 
     AnthropicPassthroughLoggingHandler._create_anthropic_response_logging_payload(
-        litellm_model_response=litellm.ModelResponse(id="chatcmpl-generated"),
+        embrouter_model_response=embrouter.ModelResponse(id="chatcmpl-generated"),
         model="claude-haiku-4-5",
         kwargs={},
         start_time=datetime.datetime.now(timezone.utc),
@@ -5199,12 +5199,12 @@ def test_spend_log_request_id_for_chat_completions_is_untouched():
     """
     assert (
         _spend_log_request_id(
-            response_obj=litellm.ModelResponse(id="chatcmpl-EJvWIw3DAhuKYuwp3jJI4Pnhp2vjv", choices=[]),
+            response_obj=embrouter.ModelResponse(id="chatcmpl-EJvWIw3DAhuKYuwp3jJI4Pnhp2vjv", choices=[]),
             kwargs={
                 "call_type": "acompletion",
                 "model": "gpt-5.6",
-                "litellm_call_id": "6806cafe-0000-4000-8000-000000000002",
-                "litellm_params": {"metadata": {"user_api_key": "test-key"}},
+                "embrouter_call_id": "6806cafe-0000-4000-8000-000000000002",
+                "embrouter_params": {"metadata": {"user_api_key": "test-key"}},
             },
         )
         == "chatcmpl-EJvWIw3DAhuKYuwp3jJI4Pnhp2vjv"
@@ -5216,7 +5216,7 @@ def test_spend_log_request_id_is_the_response_id_a_bridged_messages_caller_recei
     /v1/messages against a non-Anthropic model answers with the Responses id the caller then
     looks their row up by, so the row must not fall back to a fresh chatcmpl- uuid.
     """
-    from litellm.types.llms.openai import ResponseAPIUsage, ResponsesAPIResponse
+    from embrouter.types.llms.openai import ResponseAPIUsage, ResponsesAPIResponse
 
     logging_obj = _anthropic_messages_logging_obj(stream=False)
     bridged_response = ResponsesAPIResponse(
@@ -5246,8 +5246,8 @@ def test_spend_log_request_id_is_the_response_id_a_bridged_messages_caller_recei
             kwargs={
                 "call_type": "anthropic_messages",
                 "model": "gpt-5.6",
-                "litellm_call_id": "6806cafe-0000-4000-8000-000000000003",
-                "litellm_params": {"metadata": {"user_api_key": "test-key"}},
+                "embrouter_call_id": "6806cafe-0000-4000-8000-000000000003",
+                "embrouter_params": {"metadata": {"user_api_key": "test-key"}},
             },
         )
         == "resp_01Lit6806Bridged"
@@ -5260,7 +5260,7 @@ def test_failed_agent_request_keeps_registered_display_name():
         kwargs={
             "model": agent_model,
             "call_type": "asend_message",
-            "litellm_params": {
+            "embrouter_params": {
                 "metadata": {"model_group": agent_model, "model_info": {"id": "registered-agent"}, "status": "failure"}
             },
         },
@@ -5292,9 +5292,9 @@ def test_get_logging_payload_attributes_a_cli_session_to_its_alias(call_type: st
             "call_type": call_type,
             "model": "gpt-5.4-nano",
             "response_cost": 0.00001,
-            "litellm_params": {"metadata": _cli_session_request_metadata(_CLI_SESSION_ALIAS)},
+            "embrouter_params": {"metadata": _cli_session_request_metadata(_CLI_SESSION_ALIAS)},
         },
-        response_obj=litellm.ModelResponse(id=f"{call_type}-1", choices=[], usage=litellm.Usage()),
+        response_obj=embrouter.ModelResponse(id=f"{call_type}-1", choices=[], usage=embrouter.Usage()),
         start_time=datetime.datetime.now(timezone.utc),
         end_time=datetime.datetime.now(timezone.utc),
     )
@@ -5310,9 +5310,9 @@ def test_get_logging_payload_never_lands_a_raw_cli_session_token(call_type: str)
         kwargs={
             "call_type": call_type,
             "model": "gpt-5.4-nano",
-            "litellm_params": {"metadata": _cli_session_request_metadata(_CLI_SESSION_TOKEN)},
+            "embrouter_params": {"metadata": _cli_session_request_metadata(_CLI_SESSION_TOKEN)},
         },
-        response_obj=litellm.ModelResponse(id=f"{call_type}-2", choices=[], usage=litellm.Usage()),
+        response_obj=embrouter.ModelResponse(id=f"{call_type}-2", choices=[], usage=embrouter.Usage()),
         start_time=datetime.datetime.now(timezone.utc),
         end_time=datetime.datetime.now(timezone.utc),
     )
@@ -5341,7 +5341,7 @@ def test_azure_spillover_stamped_from_response_headers():
     }
     payload = get_logging_payload(
         kwargs=kwargs,
-        response_obj=litellm.ModelResponse(id="chatcmpl-spill-raw", choices=[], usage=litellm.Usage()),
+        response_obj=embrouter.ModelResponse(id="chatcmpl-spill-raw", choices=[], usage=embrouter.Usage()),
         start_time=datetime.datetime.now(timezone.utc),
         end_time=datetime.datetime.now(timezone.utc),
     )
@@ -5366,7 +5366,7 @@ def test_azure_spillover_stamped_from_standard_logging_additional_headers():
     }
     payload = get_logging_payload(
         kwargs=kwargs,
-        response_obj=litellm.ModelResponse(id="chatcmpl-spill-sl", choices=[], usage=litellm.Usage()),
+        response_obj=embrouter.ModelResponse(id="chatcmpl-spill-sl", choices=[], usage=embrouter.Usage()),
         start_time=datetime.datetime.now(timezone.utc),
         end_time=datetime.datetime.now(timezone.utc),
     )
@@ -5377,7 +5377,7 @@ def test_azure_spillover_stamped_from_standard_logging_additional_headers():
 def test_azure_spillover_absent_without_spillover_headers():
     payload = get_logging_payload(
         kwargs=_routed_call_kwargs({"id": "mi-1"}),
-        response_obj=litellm.ModelResponse(id="chatcmpl-no-spill", choices=[], usage=litellm.Usage()),
+        response_obj=embrouter.ModelResponse(id="chatcmpl-no-spill", choices=[], usage=embrouter.Usage()),
         start_time=datetime.datetime.now(timezone.utc),
         end_time=datetime.datetime.now(timezone.utc),
     )
@@ -5403,7 +5403,7 @@ def test_baseline_estimate_metadata_comes_from_the_logging_stamp() -> None:
 def test_untrusted_agent_label_cannot_replace_verified_billing_identity(billing_agent: str | None) -> None:
     kwargs = {
         "model": "gpt-4",
-        "litellm_params": {"metadata": {
+        "embrouter_params": {"metadata": {
             "user_api_key": "test-key",
             "agent_id": "header-selected-agent",
             "billing_agent_id": billing_agent,

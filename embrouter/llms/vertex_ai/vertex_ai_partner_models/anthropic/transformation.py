@@ -4,17 +4,17 @@ from typing import TYPE_CHECKING, Final
 
 import httpx
 
-import litellm
-from litellm.litellm_core_utils.prompt_templates.image_handling import RemoteMedia, inline_remote_image_urls
-from litellm.llms.base_llm.chat.transformation import LiteLLMLoggingObj
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.utils import ModelResponse
+import embrouter
+from embrouter.embrouter_core_utils.prompt_templates.image_handling import RemoteMedia, inline_remote_image_urls
+from embrouter.llms.base_llm.chat.transformation import EmbRouterLoggingObj
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.utils import ModelResponse
 
 from ....anthropic.chat.transformation import AnthropicConfig
 from .output_params_utils import sanitize_vertex_anthropic_output_params
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
 
 
 class VertexAIError(Exception):
@@ -69,7 +69,7 @@ class VertexAIAnthropicConfig(AnthropicConfig):
             beta_set: Set of beta headers to modify in-place
             context_management: The context_management dict from optional_params
         """
-        from litellm.types.llms.anthropic import ANTHROPIC_BETA_HEADER_VALUES
+        from embrouter.types.llms.anthropic import ANTHROPIC_BETA_HEADER_VALUES
 
         edits: Final = context_management.get("edits", [])
         has_compact = False
@@ -95,14 +95,14 @@ class VertexAIAnthropicConfig(AnthropicConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         data: Final = super().transform_request(
             model=model,
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
@@ -161,7 +161,7 @@ class VertexAIAnthropicConfig(AnthropicConfig):
         unless the vertex map entry advertises native structured output
         (``output_format``, which Vertex AI Claude forwards for those models).
         """
-        from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+        from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
         original_model: Final = model
         native_structured_output: Final = AnthropicModelInfo._get_provider_resolved_capability(
@@ -192,11 +192,11 @@ class VertexAIAnthropicConfig(AnthropicConfig):
         model: str,
         raw_response: httpx.Response,
         model_response: ModelResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         request_data: dict,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,
@@ -209,7 +209,7 @@ class VertexAIAnthropicConfig(AnthropicConfig):
             request_data,
             messages,
             optional_params,
-            litellm_params,
+            embrouter_params,
             encoding,
             api_key,
             json_mode,
@@ -225,6 +225,6 @@ class VertexAIAnthropicConfig(AnthropicConfig):
         """
         if custom_llm_provider != "vertex_ai" and custom_llm_provider != "vertex_ai_beta":
             return False
-        if "claude" in model.lower() or model in litellm.vertex_anthropic_models:
+        if "claude" in model.lower() or model in embrouter.vertex_anthropic_models:
             return True
         return False

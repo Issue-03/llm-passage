@@ -3,8 +3,8 @@ from typing import Final
 
 import pytest
 
-import litellm
-from litellm._logging import (
+import embrouter
+from embrouter._logging import (
     DiagnosticProcessingFilter,
     _python_process_diagnostic,
     redact_secrets,
@@ -12,13 +12,13 @@ from litellm._logging import (
     trace_id_var,
     verbose_logger,
 )
-from litellm.constants import MINIMUM_CUSTOM_KEY_LENGTH
-from litellm.litellm_core_utils.secret_redaction import (
+from embrouter.constants import MINIMUM_CUSTOM_KEY_LENGTH
+from embrouter.embrouter_core_utils.secret_redaction import (
     _python_redact_internal_details,
     _python_redact_string,
     _python_redact_structured_value,
 )
-from litellm.rust_bridge import diagnostics, logger
+from embrouter.rust_bridge import diagnostics, logger
 
 
 def test_native_records_preserve_metadata_and_redact_before_custom_handlers(
@@ -27,16 +27,16 @@ def test_native_records_preserve_metadata_and_redact_before_custom_handlers(
     monkeypatch.setattr(verbose_logger, "handlers", [])
     secret: Final = "sk-" + "a" * 48
     message: Final = f"Authorization: Bearer {secret}"
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+    with caplog.at_level(logging.WARNING, logger="EmbRouter"):
         logger.emit(
-            logging.WARNING, message, "native.rs", 42, "litellm_http", {"retry": True, "api_key": secret}, ("", "")
+            logging.WARNING, message, "native.rs", 42, "embrouter_http", {"retry": True, "api_key": secret}, ("", "")
         )
 
     record: Final = caplog.records[0]
     assert len(caplog.records) == 1
     assert record.getMessage() == redact_secrets(message)
     assert secret not in record.getMessage()
-    assert (record.pathname, record.lineno, record.funcName) == ("native.rs", 42, "litellm_http")
+    assert (record.pathname, record.lineno, record.funcName) == ("native.rs", 42, "embrouter_http")
     assert record.__dict__["rust_fields"]["retry"] is True
     assert secret not in str(record.__dict__["rust_fields"])
 
@@ -44,12 +44,12 @@ def test_native_records_preserve_metadata_and_redact_before_custom_handlers(
 def test_native_context_is_scoped_and_respects_correlation_setting(
     caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "request_correlation_in_logs", True)
+    monkeypatch.setattr(embrouter, "request_correlation_in_logs", True)
     context_before: Final = logger.context()
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
-        logger.emit(logging.WARNING, "native", "native.rs", 1, "litellm_http", {}, ("session", "trace"))
-        monkeypatch.setattr(litellm, "request_correlation_in_logs", False)
-        logger.emit(logging.WARNING, "disabled", "native.rs", 2, "litellm_http", {}, ("hidden", "hidden"))
+    with caplog.at_level(logging.WARNING, logger="EmbRouter"):
+        logger.emit(logging.WARNING, "native", "native.rs", 1, "embrouter_http", {}, ("session", "trace"))
+        monkeypatch.setattr(embrouter, "request_correlation_in_logs", False)
+        logger.emit(logging.WARNING, "disabled", "native.rs", 2, "embrouter_http", {}, ("hidden", "hidden"))
 
     first, second = caplog.records
     assert (first.__dict__["session_id"], first.__dict__["trace_id"]) == ("session", "trace")
@@ -59,12 +59,12 @@ def test_native_context_is_scoped_and_respects_correlation_setting(
 
 
 def test_native_logging_observes_level_changes(caplog: pytest.LogCaptureFixture) -> None:
-    with caplog.at_level(logging.ERROR, logger="LiteLLM"):
+    with caplog.at_level(logging.ERROR, logger="EmbRouter"):
         assert not logger.enabled(logging.WARNING)
-        logger.emit(logging.WARNING, "filtered", "native.rs", 1, "litellm_http", {}, ("", ""))
-    with caplog.at_level(logging.WARNING, logger="LiteLLM"):
+        logger.emit(logging.WARNING, "filtered", "native.rs", 1, "embrouter_http", {}, ("", ""))
+    with caplog.at_level(logging.WARNING, logger="EmbRouter"):
         assert logger.enabled(logging.WARNING)
-        logger.emit(logging.WARNING, "visible", "native.rs", 1, "litellm_http", {}, ("", ""))
+        logger.emit(logging.WARNING, "visible", "native.rs", 1, "embrouter_http", {}, ("", ""))
 
     assert [record.getMessage() for record in caplog.records] == ["visible"]
 
@@ -80,8 +80,8 @@ def test_native_logging_observes_level_changes(caplog: pytest.LogCaptureFixture)
     ),
 )
 def test_native_credential_patterns_match_python(text: str) -> None:
-    pytest.importorskip("litellm.rust_bridge._native")
-    from litellm.rust_bridge._native import NativeDiagnosticProcessor
+    pytest.importorskip("embrouter.rust_bridge._native")
+    from embrouter.rust_bridge._native import NativeDiagnosticProcessor
 
     processor: Final = NativeDiagnosticProcessor(MINIMUM_CUSTOM_KEY_LENGTH)
     assert processor.redact_text(text) == _python_redact_string(text)
@@ -91,8 +91,8 @@ def test_native_credential_patterns_match_python(text: str) -> None:
 
 
 def test_native_client_redaction_matches_python() -> None:
-    pytest.importorskip("litellm.rust_bridge._native")
-    from litellm.rust_bridge._native import NativeDiagnosticProcessor
+    pytest.importorskip("embrouter.rust_bridge._native")
+    from embrouter.rust_bridge._native import NativeDiagnosticProcessor
 
     text: Final = "error at /etc/secrets/config on db.internal\nTraceback (most recent call last):\nsecret"
     processor: Final = NativeDiagnosticProcessor(MINIMUM_CUSTOM_KEY_LENGTH)
@@ -100,8 +100,8 @@ def test_native_client_redaction_matches_python() -> None:
 
 
 def test_native_diagnostic_batch_matches_python() -> None:
-    pytest.importorskip("litellm.rust_bridge._native")
-    from litellm.rust_bridge._native import NativeDiagnosticProcessor
+    pytest.importorskip("embrouter.rust_bridge._native")
+    from embrouter.rust_bridge._native import NativeDiagnosticProcessor
 
     message: Final = "é" * 110 + "sk-" + "q" * 48 + "界" * 1000
     exception: Final = "document=" + "Q" * 200
@@ -122,10 +122,10 @@ def test_native_diagnostic_batch_matches_python() -> None:
 def test_missing_native_diagnostic_processor_falls_back_before_record_mutation(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("LITELLM_RUST", "1")
+    monkeypatch.setenv("EMBROUTER_RUST", "1")
     diagnostics.PROCESSOR.override(None)
     try:
-        record: Final = logging.makeLogRecord({"name": "LiteLLM", "levelno": logging.INFO, "msg": "api_key=secret123"})
+        record: Final = logging.makeLogRecord({"name": "EmbRouter", "levelno": logging.INFO, "msg": "api_key=secret123"})
         assert DiagnosticProcessingFilter().filter(record) is True
         assert record.getMessage() == "REDACTED"
     finally:
@@ -133,5 +133,5 @@ def test_missing_native_diagnostic_processor_falls_back_before_record_mutation(
 
 
 def test_unsupported_unicode_uses_safe_python_redaction(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("LITELLM_RUST", "1")
+    monkeypatch.setenv("EMBROUTER_RUST", "1")
     assert redact_secrets("broken\ud800 api_key=secret123") == "broken\ud800 REDACTED"

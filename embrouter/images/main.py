@@ -6,35 +6,35 @@ from functools import partial
 from typing import TYPE_CHECKING, Final, Literal, Optional, cast, overload
 
 if TYPE_CHECKING:
-    from litellm.images.utils import ImageEditRequestUtils
+    from embrouter.images.utils import ImageEditRequestUtils
 
 import httpx
 
-import litellm
+import embrouter
 
-# client is imported from litellm as it's a decorator
-from litellm import client
-from litellm.constants import DEFAULT_IMAGE_ENDPOINT_MODEL
-from litellm.constants import request_timeout as DEFAULT_REQUEST_TIMEOUT
-from litellm.exceptions import LiteLLMUnknownProvider
-from litellm.litellm_core_utils.litellm_logging import Logging
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.litellm_core_utils.llm_request_utils import flatten_form_field_values
-from litellm.litellm_core_utils.mock_functions import mock_image_generation
-from litellm.llms.base_llm import BaseImageEditConfig, BaseImageGenerationConfig
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
-from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
-from litellm.llms.custom_llm import CustomLLM
-from litellm.utils import exception_type, filter_out_litellm_params, get_litellm_params
+# client is imported from embrouter as it's a decorator
+from embrouter import client
+from embrouter.constants import DEFAULT_IMAGE_ENDPOINT_MODEL
+from embrouter.constants import request_timeout as DEFAULT_REQUEST_TIMEOUT
+from embrouter.exceptions import EmbRouterUnknownProvider
+from embrouter.embrouter_core_utils.embrouter_logging import Logging
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.embrouter_core_utils.llm_request_utils import flatten_form_field_values
+from embrouter.embrouter_core_utils.mock_functions import mock_image_generation
+from embrouter.llms.base_llm import BaseImageEditConfig, BaseImageGenerationConfig
+from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler, HTTPHandler
+from embrouter.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+from embrouter.llms.custom_llm import CustomLLM
+from embrouter.utils import exception_type, filter_out_embrouter_params, get_embrouter_params
 
 #################### Initialize provider clients ####################
 llm_http_handler: BaseLLMHTTPHandler = BaseLLMHTTPHandler()
 from openai.types.audio.transcription_create_params import FileTypes
 
 # BFL handlers
-from litellm.llms.black_forest_labs.image_edit.handler import bfl_image_edit
-from litellm.llms.black_forest_labs.image_generation.handler import bfl_image_generation
-from litellm.main import (
+from embrouter.llms.black_forest_labs.image_edit.handler import bfl_image_edit
+from embrouter.llms.black_forest_labs.image_generation.handler import bfl_image_generation
+from embrouter.main import (
     azure_chat_completions,
     base_llm_aiohttp_handler,
     base_llm_http_handler,
@@ -45,15 +45,15 @@ from litellm.main import (
 )
 
 ###########################################
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.images.main import ImageEditOptionalRequestParams
-from litellm.types.llms.openai import ImageGenerationRequestQuality
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import (
-    LITELLM_IMAGE_VARIATION_PROVIDERS,
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.images.main import ImageEditOptionalRequestParams
+from embrouter.types.llms.openai import ImageGenerationRequestQuality
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import (
+    EMBROUTER_IMAGE_VARIATION_PROVIDERS,
     LlmProviders,
 )
-from litellm.utils import (
+from embrouter.utils import (
     ImageResponse,
     ProviderConfigManager,
     get_llm_provider,
@@ -205,21 +205,21 @@ def image_generation(
     try:
         args: Final = locals()
         aimg_generation: Final = kwargs.get("aimg_generation", False)
-        litellm_call_id: Final = kwargs.get("litellm_call_id", None)
+        embrouter_call_id: Final = kwargs.get("embrouter_call_id", None)
         logger_fn: Final = kwargs.get("logger_fn", None)
         mock_response: Final[str | None] = kwargs.get("mock_response", None)
         proxy_server_request: Final = kwargs.get("proxy_server_request", None)
         azure_ad_token_provider = kwargs.get("azure_ad_token_provider", None)
         model_info: Final = kwargs.get("model_info", None)
         metadata: Final = kwargs.get("metadata", {})
-        litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.get("litellm_logging_obj")
+        embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.get("embrouter_logging_obj")
         client: Final = kwargs.get("client", None)
         extra_headers: Final = kwargs.get("extra_headers", None)
         headers: Final[dict] = kwargs.get("headers", None) or {}
         base_model: Final = kwargs.get("base_model", None)
         if extra_headers is not None:
             headers.update(extra_headers)
-        model_response: ImageResponse = litellm.utils.ImageResponse()
+        model_response: ImageResponse = embrouter.utils.ImageResponse()
         dynamic_api_key: str | None = None
         if model is not None or custom_llm_provider is not None:
             model, custom_llm_provider, dynamic_api_key, api_base = get_llm_provider(
@@ -248,7 +248,7 @@ def image_generation(
             "size",
             "style",
         ]
-        non_default_params: Final = filter_out_litellm_params(kwargs, excluding=openai_params)
+        non_default_params: Final = filter_out_embrouter_params(kwargs, excluding=openai_params)
 
         image_generation_config: BaseImageGenerationConfig | None = None
         if custom_llm_provider is not None and custom_llm_provider in LlmProviders._member_map_.values():
@@ -270,18 +270,18 @@ def image_generation(
             **non_default_params,
         )
 
-        litellm_params_dict: Final = get_litellm_params(**kwargs)
+        embrouter_params_dict: Final = get_embrouter_params(**kwargs)
 
-        logging: Final[Logging] = litellm_logging_obj
+        logging: Final[Logging] = embrouter_logging_obj
         logging.update_from_kwargs(
             kwargs=kwargs,
             model=model,
             user=user,
             optional_params=optional_params,
-            litellm_params={
+            embrouter_params={
                 "timeout": timeout,
                 "azure": False,
-                "litellm_call_id": litellm_call_id,
+                "embrouter_call_id": embrouter_call_id,
                 "logger_fn": logger_fn,
                 "proxy_server_request": proxy_server_request,
                 "model_info": model_info,
@@ -299,14 +299,14 @@ def image_generation(
             # azure configs
             api_type: Final = get_secret_str("AZURE_API_TYPE") or "azure"
 
-            api_base = api_base or litellm.api_base or get_secret_str("AZURE_API_BASE")
+            api_base = api_base or embrouter.api_base or get_secret_str("AZURE_API_BASE")
 
-            api_version = api_version or litellm.api_version or get_secret_str("AZURE_API_VERSION")
+            api_version = api_version or embrouter.api_version or get_secret_str("AZURE_API_VERSION")
 
             api_key = (
                 api_key
-                or litellm.api_key
-                or litellm.azure_key
+                or embrouter.api_key
+                or embrouter.azure_key
                 or get_secret_str("AZURE_OPENAI_API_KEY")
                 or get_secret_str("AZURE_API_KEY")
             )
@@ -320,15 +320,15 @@ def image_generation(
 
             # Create azure_ad_token_provider from tenant_id, client_id, client_secret if not already provided
             if azure_ad_token_provider is None:
-                from litellm.llms.azure.common_utils import (
+                from embrouter.llms.azure.common_utils import (
                     get_azure_ad_token_from_entra_id,
                 )
 
-                # Extract Azure AD credentials from litellm_params
-                tenant_id: Final = litellm_params_dict.get("tenant_id")
-                client_id: Final = litellm_params_dict.get("client_id")
-                client_secret: Final = litellm_params_dict.get("client_secret")
-                azure_scope = litellm_params_dict.get("azure_scope") or "https://cognitiveservices.azure.com/.default"
+                # Extract Azure AD credentials from embrouter_params
+                tenant_id: Final = embrouter_params_dict.get("tenant_id")
+                client_id: Final = embrouter_params_dict.get("client_id")
+                client_secret: Final = embrouter_params_dict.get("client_secret")
+                azure_scope = embrouter_params_dict.get("azure_scope") or "https://cognitiveservices.azure.com/.default"
 
                 # Create token provider if credentials are available
                 if tenant_id and client_id and client_secret:
@@ -359,38 +359,38 @@ def image_generation(
                 api_base=api_base,
                 azure_ad_token=azure_ad_token,
                 azure_ad_token_provider=azure_ad_token_provider,
-                logging_obj=litellm_logging_obj,
+                logging_obj=embrouter_logging_obj,
                 optional_params=optional_params,
                 model_response=model_response,
                 api_version=api_version,
                 aimg_generation=aimg_generation,
                 client=client,
                 headers=headers,
-                litellm_params=litellm_params_dict,
+                embrouter_params=embrouter_params_dict,
             )
         #########################################################
         # Providers using llm_http_handler
         #########################################################
         elif custom_llm_provider in (
-            litellm.LlmProviders.RECRAFT,
-            litellm.LlmProviders.AIML,
-            litellm.LlmProviders.GEMINI,
-            litellm.LlmProviders.FAL_AI,
-            litellm.LlmProviders.STABILITY,
-            litellm.LlmProviders.RUNWAYML,
-            litellm.LlmProviders.VERTEX_AI,
-            litellm.LlmProviders.OPENROUTER,
-            litellm.LlmProviders.DASHSCOPE,
-            litellm.LlmProviders.QWENCLOUD,
-            litellm.LlmProviders.QWEN_AI_PLATFORM,
-            litellm.LlmProviders.EDENAI,
+            embrouter.LlmProviders.RECRAFT,
+            embrouter.LlmProviders.AIML,
+            embrouter.LlmProviders.GEMINI,
+            embrouter.LlmProviders.FAL_AI,
+            embrouter.LlmProviders.STABILITY,
+            embrouter.LlmProviders.RUNWAYML,
+            embrouter.LlmProviders.VERTEX_AI,
+            embrouter.LlmProviders.OPENROUTER,
+            embrouter.LlmProviders.DASHSCOPE,
+            embrouter.LlmProviders.QWENCLOUD,
+            embrouter.LlmProviders.QWEN_AI_PLATFORM,
+            embrouter.LlmProviders.EDENAI,
         ):
             if image_generation_config is None:
                 raise ValueError(f"image generation config is not supported for {custom_llm_provider}")
 
-            # Resolve api_base from litellm.api_base if not explicitly provided
-            _api_base: Final = api_base or litellm.api_base
-            litellm_params_dict["api_base"] = _api_base
+            # Resolve api_base from embrouter.api_base if not explicitly provided
+            _api_base: Final = api_base or embrouter.api_base
+            embrouter_params_dict["api_base"] = _api_base
 
             return llm_http_handler.image_generation_handler(
                 api_key=api_key,
@@ -399,8 +399,8 @@ def image_generation(
                 image_generation_provider_config=image_generation_config,
                 image_generation_optional_request_params=optional_params,
                 custom_llm_provider=custom_llm_provider,
-                litellm_params=litellm_params_dict,
-                logging_obj=litellm_logging_obj,
+                embrouter_params=embrouter_params_dict,
+                logging_obj=embrouter_logging_obj,
                 timeout=timeout,
                 client=client,
             )
@@ -413,15 +413,15 @@ def image_generation(
                 prompt=prompt,
                 model_response=model_response,
                 optional_params=optional_params,
-                litellm_params=litellm_params_dict,
-                logging_obj=litellm_logging_obj,
+                embrouter_params=embrouter_params_dict,
+                logging_obj=embrouter_logging_obj,
                 timeout=timeout,
                 extra_headers=extra_headers,
                 client=client,
                 aimg_generation=aimg_generation,
             )
         elif custom_llm_provider == "azure_ai":
-            from litellm.llms.azure_ai.common_utils import (
+            from embrouter.llms.azure_ai.common_utils import (
                 AzureFoundryModelInfo,
                 get_azure_ai_auth_headers,
             )
@@ -438,7 +438,7 @@ def image_generation(
                 if caller_set_auth
                 else get_azure_ai_auth_headers(
                     api_key=api_key,
-                    litellm_params=litellm_params_dict,
+                    embrouter_params=embrouter_params_dict,
                     api_key_header="api-key",
                 )
             )
@@ -456,19 +456,19 @@ def image_generation(
                 api_base=api_base,
                 azure_ad_token=None,
                 azure_ad_token_provider=azure_ad_token_provider,
-                logging_obj=litellm_logging_obj,
+                logging_obj=embrouter_logging_obj,
                 optional_params=optional_params,
                 model_response=model_response,
                 api_version=api_version,
                 aimg_generation=aimg_generation,
                 client=client,
                 headers=request_headers,
-                litellm_params=litellm_params_dict,
+                embrouter_params=embrouter_params_dict,
             )
         elif (
             custom_llm_provider == "openai"
-            or custom_llm_provider == LlmProviders.LITELLM_PROXY.value
-            or custom_llm_provider in litellm.openai_compatible_providers
+            or custom_llm_provider == LlmProviders.EMBROUTER_PROXY.value
+            or custom_llm_provider in embrouter.openai_compatible_providers
         ):
             if extra_headers is not None:
                 optional_params["extra_headers"] = extra_headers
@@ -480,7 +480,7 @@ def image_generation(
                 timeout=timeout,
                 api_key=api_key or dynamic_api_key,
                 api_base=api_base,
-                logging_obj=litellm_logging_obj,
+                logging_obj=embrouter_logging_obj,
                 optional_params=optional_params,
                 model_response=model_response,
                 organization=organization,
@@ -495,7 +495,7 @@ def image_generation(
                 model=model,
                 prompt=prompt,
                 timeout=timeout,
-                logging_obj=litellm_logging_obj,
+                logging_obj=embrouter_logging_obj,
                 optional_params=optional_params,
                 model_response=model_response,
                 aimg_generation=aimg_generation,
@@ -503,15 +503,15 @@ def image_generation(
                 api_base=api_base,
                 api_key=api_key,
             )
-        elif custom_llm_provider in litellm._custom_providers:  # Assume custom LLM provider
+        elif custom_llm_provider in embrouter._custom_providers:  # Assume custom LLM provider
             # Get the Custom Handler
             custom_handler: CustomLLM | None = None
-            for item in litellm.custom_provider_map:
+            for item in embrouter.custom_provider_map:
                 if item["provider"] == custom_llm_provider:
                     custom_handler = item["custom_handler"]
 
             if custom_handler is None:
-                raise LiteLLMUnknownProvider(model=model, custom_llm_provider=custom_llm_provider)
+                raise EmbRouterUnknownProvider(model=model, custom_llm_provider=custom_llm_provider)
 
             ## ROUTE LLM CALL ##
             if aimg_generation is True:
@@ -527,7 +527,7 @@ def image_generation(
                     api_base=api_base,
                     model_response=model_response,
                     optional_params=optional_params,
-                    logging_obj=litellm_logging_obj,
+                    logging_obj=embrouter_logging_obj,
                     timeout=timeout,
                     client=async_custom_client,
                 )
@@ -544,7 +544,7 @@ def image_generation(
                     api_base=api_base,
                     model_response=model_response,
                     optional_params=optional_params,
-                    logging_obj=litellm_logging_obj,
+                    logging_obj=embrouter_logging_obj,
                     timeout=timeout,
                     client=custom_client,
                 )
@@ -625,25 +625,25 @@ def image_variation(
     # get non-default params
     client: Final = kwargs.get("client", None)
     # get logging object
-    litellm_logging_obj: Final = cast(LiteLLMLoggingObj, kwargs.get("litellm_logging_obj"))
+    embrouter_logging_obj: Final = cast(EmbRouterLoggingObj, kwargs.get("embrouter_logging_obj"))
 
-    # get the litellm params
-    litellm_params: Final = get_litellm_params(**kwargs)
+    # get the embrouter params
+    embrouter_params: Final = get_embrouter_params(**kwargs)
     # get the custom llm provider
     model, custom_llm_provider, dynamic_api_key, api_base = get_llm_provider(
         model=model,
-        custom_llm_provider=litellm_params.get("custom_llm_provider", None),
-        api_base=litellm_params.get("api_base", None),
-        api_key=litellm_params.get("api_key", None),
+        custom_llm_provider=embrouter_params.get("custom_llm_provider", None),
+        api_base=embrouter_params.get("api_base", None),
+        api_key=embrouter_params.get("api_key", None),
     )
 
     # route to the correct provider w/ the params
     try:
         llm_provider: Final = LlmProviders(custom_llm_provider)
-        image_variation_provider: Final = LITELLM_IMAGE_VARIATION_PROVIDERS(llm_provider)
+        image_variation_provider: Final = EMBROUTER_IMAGE_VARIATION_PROVIDERS(llm_provider)
     except ValueError:
         raise ValueError(
-            f"Invalid image variation provider: {custom_llm_provider}. Supported providers are: {LITELLM_IMAGE_VARIATION_PROVIDERS}"
+            f"Invalid image variation provider: {custom_llm_provider}. Supported providers are: {EMBROUTER_IMAGE_VARIATION_PROVIDERS}"
         )
     model_response: Final = ImageResponse()
 
@@ -656,13 +656,13 @@ def image_variation(
 
     if provider_config is None:
         raise ValueError(
-            f"image variation provider has no known model info config - required for getting api keys, etc.: {custom_llm_provider}. Supported providers are: {LITELLM_IMAGE_VARIATION_PROVIDERS}"
+            f"image variation provider has no known model info config - required for getting api keys, etc.: {custom_llm_provider}. Supported providers are: {EMBROUTER_IMAGE_VARIATION_PROVIDERS}"
         )
 
-    api_key: Final = provider_config.get_api_key(litellm_params.get("api_key", None))
-    api_base = provider_config.get_api_base(litellm_params.get("api_base", None))
+    api_key: Final = provider_config.get_api_key(embrouter_params.get("api_key", None))
+    api_base = provider_config.get_api_base(embrouter_params.get("api_base", None))
 
-    if image_variation_provider == LITELLM_IMAGE_VARIATION_PROVIDERS.OPENAI:
+    if image_variation_provider == EMBROUTER_IMAGE_VARIATION_PROVIDERS.OPENAI:
         if api_key is None:
             raise ValueError("API key is required for OpenAI image variations")
         if api_base is None:
@@ -674,13 +674,13 @@ def image_variation(
             api_base=api_base,
             model=model,
             image=image,
-            timeout=litellm_params.get("timeout", None),
+            timeout=embrouter_params.get("timeout", None),
             custom_llm_provider=custom_llm_provider,
-            logging_obj=litellm_logging_obj,
+            logging_obj=embrouter_logging_obj,
             optional_params={},
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
         )
-    elif image_variation_provider == LITELLM_IMAGE_VARIATION_PROVIDERS.TOPAZ:
+    elif image_variation_provider == EMBROUTER_IMAGE_VARIATION_PROVIDERS.TOPAZ:
         if api_key is None:
             raise ValueError("API key is required for Topaz image variations")
         if api_base is None:
@@ -692,18 +692,18 @@ def image_variation(
             api_base=api_base,
             model=model,
             image=image,
-            timeout=litellm_params.get("timeout", None) or DEFAULT_REQUEST_TIMEOUT,
+            timeout=embrouter_params.get("timeout", None) or DEFAULT_REQUEST_TIMEOUT,
             custom_llm_provider=custom_llm_provider,
-            logging_obj=litellm_logging_obj,
+            logging_obj=embrouter_logging_obj,
             optional_params={},
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             client=client,
         )
 
     # return the response
     if response is None:
         raise ValueError(
-            f"Invalid image variation provider: {custom_llm_provider}. Supported providers are: {LITELLM_IMAGE_VARIATION_PROVIDERS}"
+            f"Invalid image variation provider: {custom_llm_provider}. Supported providers are: {EMBROUTER_IMAGE_VARIATION_PROVIDERS}"
         )
     return response
 
@@ -725,7 +725,7 @@ def image_edit(
     extra_query: dict[str, object] | None = None,
     extra_body: dict[str, object] | None = None,
     timeout: float | httpx.Timeout | None = None,
-    # LiteLLM specific params,
+    # EmbRouter specific params,
     custom_llm_provider: str | None = None,
     **kwargs,
 ) -> ImageResponse | Coroutine[object, object, ImageResponse]:
@@ -752,9 +752,9 @@ def image_edit(
             "style",
             "async_call",
         ]
-        non_default_params: Final = filter_out_litellm_params(kwargs, excluding=openai_params)
-        litellm_logging_obj: Final[LiteLLMLoggingObj] = kwargs.get("litellm_logging_obj")
-        litellm_call_id: Final[str | None] = kwargs.get("litellm_call_id", None)
+        non_default_params: Final = filter_out_embrouter_params(kwargs, excluding=openai_params)
+        embrouter_logging_obj: Final[EmbRouterLoggingObj] = kwargs.get("embrouter_logging_obj")
+        embrouter_call_id: Final[str | None] = kwargs.get("embrouter_call_id", None)
         model_info: Final = kwargs.get("model_info", None)
         metadata: Final = kwargs.get("metadata", {})
         _is_async: Final = kwargs.pop("async_call", False) is True
@@ -773,21 +773,21 @@ def image_edit(
             extra_headers = dict(merged_extra_headers)
 
         # get llm provider logic
-        litellm_params: Final = GenericLiteLLMParams(**kwargs)
+        embrouter_params: Final = GenericEmbRouterParams(**kwargs)
         model, custom_llm_provider, _, _ = get_llm_provider(
             model=model or DEFAULT_IMAGE_ENDPOINT_MODEL,
             custom_llm_provider=custom_llm_provider,
         )
 
         # Check for custom provider
-        if custom_llm_provider in litellm._custom_providers:
+        if custom_llm_provider in embrouter._custom_providers:
             custom_handler: CustomLLM | None = None
-            for item in litellm.custom_provider_map:
+            for item in embrouter.custom_provider_map:
                 if item["provider"] == custom_llm_provider:
                     custom_handler = item["custom_handler"]
 
             if custom_handler is None:
-                raise LiteLLMUnknownProvider(model=model, custom_llm_provider=custom_llm_provider)
+                raise EmbRouterUnknownProvider(model=model, custom_llm_provider=custom_llm_provider)
 
             model_response: Final = ImageResponse()
 
@@ -804,7 +804,7 @@ def image_edit(
                     api_key=kwargs.get("api_key"),
                     api_base=kwargs.get("api_base"),
                     optional_params=kwargs,
-                    logging_obj=litellm_logging_obj,
+                    logging_obj=embrouter_logging_obj,
                     timeout=timeout,
                     client=async_custom_client,
                 )
@@ -821,7 +821,7 @@ def image_edit(
                     api_key=kwargs.get("api_key"),
                     api_base=kwargs.get("api_base"),
                     optional_params=kwargs,
-                    logging_obj=litellm_logging_obj,
+                    logging_obj=embrouter_logging_obj,
                     timeout=timeout,
                     client=custom_client,
                 )
@@ -829,7 +829,7 @@ def image_edit(
         # get provider config
         image_edit_provider_config: BaseImageEditConfig | None = ProviderConfigManager.get_provider_image_edit_config(
             model=model,
-            provider=litellm.LlmProviders(custom_llm_provider),
+            provider=embrouter.LlmProviders(custom_llm_provider),
         )
 
         if image_edit_provider_config is None:
@@ -857,7 +857,7 @@ def image_edit(
         if image_edit_provider_config.use_multipart_form_data() and (
             custom_llm_provider == "openai"
             or custom_llm_provider == "azure"
-            or custom_llm_provider in litellm.openai_compatible_providers
+            or custom_llm_provider in embrouter.openai_compatible_providers
         ):
             image_edit_request_params.update(
                 flatten_form_field_values(
@@ -867,14 +867,14 @@ def image_edit(
             )
 
         # Pre Call logging
-        litellm_logging_obj.update_from_kwargs(
+        embrouter_logging_obj.update_from_kwargs(
             kwargs=kwargs,
             model=model,
             user=user,
             optional_params=dict(image_edit_request_params),
-            litellm_params={
+            embrouter_params={
                 **image_edit_request_params,
-                "litellm_call_id": litellm_call_id,
+                "embrouter_call_id": embrouter_call_id,
                 "model_info": model_info,
             },
             custom_llm_provider=custom_llm_provider,
@@ -890,7 +890,7 @@ def image_edit(
                 image=images,
                 prompt=prompt,
                 timeout=timeout,
-                logging_obj=litellm_logging_obj,
+                logging_obj=embrouter_logging_obj,
                 optional_params=image_edit_request_params,
                 model_response=ImageResponse(),
                 aimage_edit=_is_async,
@@ -908,8 +908,8 @@ def image_edit(
                 image_edit_provider_config=image_edit_provider_config,
                 image_edit_optional_request_params=image_edit_request_params,
                 custom_llm_provider=custom_llm_provider,
-                litellm_params=litellm_params,
-                logging_obj=litellm_logging_obj,
+                embrouter_params=embrouter_params,
+                logging_obj=embrouter_logging_obj,
                 extra_headers=extra_headers,
                 extra_body=extra_body,
                 timeout=timeout or DEFAULT_REQUEST_TIMEOUT,
@@ -926,8 +926,8 @@ def image_edit(
                 image=images,
                 prompt=prompt,
                 image_edit_optional_request_params=image_edit_request_params,
-                litellm_params=litellm_params,
-                logging_obj=litellm_logging_obj,
+                embrouter_params=embrouter_params,
+                logging_obj=embrouter_logging_obj,
                 timeout=timeout or DEFAULT_REQUEST_TIMEOUT,
                 extra_headers=extra_headers,
                 client=kwargs.get("client"),
@@ -941,8 +941,8 @@ def image_edit(
             image_edit_provider_config=image_edit_provider_config,
             image_edit_optional_request_params=image_edit_request_params,
             custom_llm_provider=custom_llm_provider,
-            litellm_params=litellm_params,
-            logging_obj=litellm_logging_obj,
+            embrouter_params=embrouter_params,
+            logging_obj=embrouter_logging_obj,
             extra_headers=extra_headers,
             extra_body=extra_body,
             timeout=timeout or DEFAULT_REQUEST_TIMEOUT,
@@ -951,7 +951,7 @@ def image_edit(
         )
 
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=model,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,
@@ -977,7 +977,7 @@ async def aimage_edit(
     extra_query: dict[str, object] | None = None,
     extra_body: dict[str, object] | None = None,
     timeout: float | httpx.Timeout | None = None,
-    # LiteLLM specific params,
+    # EmbRouter specific params,
     custom_llm_provider: str | None = None,
     **kwargs,
 ) -> ImageResponse:
@@ -998,7 +998,7 @@ async def aimage_edit(
 
         # get custom llm provider so we can use this for mapping exceptions
         if custom_llm_provider is None:
-            _, custom_llm_provider, _, _ = litellm.get_llm_provider(
+            _, custom_llm_provider, _, _ = embrouter.get_llm_provider(
                 model=model, api_base=local_vars.get("base_url", None)
             )
 
@@ -1034,7 +1034,7 @@ async def aimage_edit(
 
         return response
     except Exception as e:
-        raise litellm.exception_type(
+        raise embrouter.exception_type(
             model=model,
             custom_llm_provider=custom_llm_provider,
             original_exception=e,

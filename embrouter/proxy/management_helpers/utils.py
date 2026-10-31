@@ -9,19 +9,19 @@ from typing import Any, Final, Protocol
 from fastapi import HTTPException, Request
 from pydantic import BaseModel
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm._uuid import uuid
-from litellm.integrations.otel.model.config import is_otel_v2_enabled
-from litellm.proxy._types import (  # key request types; user request types; team request types; customer request types
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter._uuid import uuid
+from embrouter.integrations.otel.model.config import is_otel_v2_enabled
+from embrouter.proxy._types import (  # key request types; user request types; team request types; customer request types
     BudgetNewRequest,
     DeleteCustomerRequest,
     DeleteTeamRequest,
     DeleteUserRequest,
     KeyRequest,
-    LiteLLM_BudgetTable,
-    LiteLLM_TeamMembership,
-    LiteLLM_UserTable,
+    EmbRouter_BudgetTable,
+    EmbRouter_TeamMembership,
+    EmbRouter_UserTable,
     ManagementEndpointLoggingPayload,
     Member,
     Span,
@@ -33,12 +33,12 @@ from litellm.proxy._types import (  # key request types; user request types; tea
     UserAPIKeyAuth,
     VirtualKeyEvent,
 )
-from litellm.proxy.common_utils.http_parsing_utils import _read_request_body
-from litellm.proxy.common_utils.timezone_utils import get_budget_reset_time
-from litellm.proxy.utils import PrismaClient, jsonify_object
-from litellm.repositories.budget_repository import BudgetRepository
-from litellm.repositories.table_repositories import TeamMembershipRepository
-from litellm.repositories.user_repository import UserRepository
+from embrouter.proxy.common_utils.http_parsing_utils import _read_request_body
+from embrouter.proxy.common_utils.timezone_utils import get_budget_reset_time
+from embrouter.proxy.utils import PrismaClient, jsonify_object
+from embrouter.repositories.budget_repository import BudgetRepository
+from embrouter.repositories.table_repositories import TeamMembershipRepository
+from embrouter.repositories.user_repository import UserRepository
 
 
 class _PrismaRecord(Protocol):
@@ -100,32 +100,32 @@ class MemberWriteTx(Protocol):
     """
 
     @property
-    def litellm_usertable(self) -> _PrismaUserTable: ...
+    def embrouter_usertable(self) -> _PrismaUserTable: ...
 
     @property
-    def litellm_budgettable(self) -> _PrismaBudgetTable: ...
+    def embrouter_budgettable(self) -> _PrismaBudgetTable: ...
 
     @property
-    def litellm_teammembership(self) -> _PrismaTeamMembershipTable: ...
+    def embrouter_teammembership(self) -> _PrismaTeamMembershipTable: ...
 
 
 def _user_table(prisma_client: PrismaClient, tx: MemberWriteTx | None) -> _PrismaUserTable:
-    return tx.litellm_usertable if tx is not None else UserRepository(prisma_client).table
+    return tx.embrouter_usertable if tx is not None else UserRepository(prisma_client).table
 
 
 def _budget_table(prisma_client: PrismaClient, tx: MemberWriteTx | None) -> _PrismaBudgetTable:
-    return tx.litellm_budgettable if tx is not None else BudgetRepository(prisma_client).table
+    return tx.embrouter_budgettable if tx is not None else BudgetRepository(prisma_client).table
 
 
 def _team_membership_table(prisma_client: PrismaClient, tx: MemberWriteTx | None) -> _PrismaTeamMembershipTable:
-    return tx.litellm_teammembership if tx is not None else TeamMembershipRepository(prisma_client).table
+    return tx.embrouter_teammembership if tx is not None else TeamMembershipRepository(prisma_client).table
 
 
 async def _find_users_by_email(
     prisma_client: PrismaClient, tx: MemberWriteTx | None, user_email: str
 ) -> Sequence[_PrismaUserRecord]:
     if tx is not None:
-        return await tx.litellm_usertable.find_many(where={"user_email": user_email})
+        return await tx.embrouter_usertable.find_many(where={"user_email": user_email})
     rows: Final[Sequence[_PrismaUserRecord] | None] = await prisma_client.get_data(
         key_val={"user_email": user_email},
         table_name="user",
@@ -154,17 +154,17 @@ async def _create_user_row(
     prisma_client: PrismaClient, tx: MemberWriteTx | None, user_data: dict[str, object]
 ) -> _PrismaUserRecord | None:
     if tx is not None:
-        return await _upsert_user_row(tx.litellm_usertable, str(user_data["user_id"]), jsonify_object(user_data))
+        return await _upsert_user_row(tx.embrouter_usertable, str(user_data["user_id"]), jsonify_object(user_data))
     return await prisma_client.insert_data(data=user_data, table_name="user")
 
 
 def get_new_internal_user_defaults(user_id: str, user_email: str | None = None) -> dict[str, object]:
-    user_info: Final = litellm.default_internal_user_params or {}
+    user_info: Final = embrouter.default_internal_user_params or {}
 
     returned_dict: Final[SSOUserDefinedValues] = {
         "models": user_info.get("models") or [],
-        "max_budget": user_info.get("max_budget", litellm.max_internal_user_budget),
-        "budget_duration": user_info.get("budget_duration", litellm.internal_user_budget_duration),
+        "max_budget": user_info.get("max_budget", embrouter.max_internal_user_budget),
+        "budget_duration": user_info.get("budget_duration", embrouter.internal_user_budget_duration),
         "user_email": user_email or user_info.get("user_email", None),
         "user_id": user_id,
         "user_role": "internal_user",
@@ -182,7 +182,7 @@ async def handle_budget_for_entity(
     existing_budget_id: str | None,
     user_api_key_dict: UserAPIKeyAuth,
     prisma_client: PrismaClient,
-    litellm_proxy_admin_name: str,
+    embrouter_proxy_admin_name: str,
     budget_duration_cleared: bool = False,
 ) -> str | None:
     """
@@ -198,17 +198,17 @@ async def handle_budget_for_entity(
         existing_budget_id: The existing budget_id if updating an entity, None if creating new
         user_api_key_dict: User authentication info
         prisma_client: Database client
-        litellm_proxy_admin_name: Admin name for audit trail
+        embrouter_proxy_admin_name: Admin name for audit trail
 
     Returns:
         Optional[str]: The budget_id to use, or None if no budget was created/updated
     """
-    from litellm.proxy.management_endpoints.budget_management_endpoints import (
+    from embrouter.proxy.management_endpoints.budget_management_endpoints import (
         update_budget,
     )
 
     # Get all budget field names
-    budget_params: Final = LiteLLM_BudgetTable.model_fields.keys()
+    budget_params: Final = EmbRouter_BudgetTable.model_fields.keys()
 
     # Extract budget fields from data
     _json_data: Final = data.model_dump(exclude_none=True) if hasattr(data, "model_dump") else data
@@ -231,14 +231,14 @@ async def handle_budget_for_entity(
             return data_budget_id
         elif _budget_data:
             # Create a new budget with the provided fields
-            budget_row: Final = LiteLLM_BudgetTable(**_budget_data)
+            budget_row: Final = EmbRouter_BudgetTable(**_budget_data)
             new_budget_data: Final = prisma_client.jsonify_object(budget_row.model_dump(exclude_none=True))
 
             _budget: Final[_PrismaBudgetRecord] = await BudgetRepository(prisma_client).table.create(
                 data={
                     **new_budget_data,
-                    "created_by": user_api_key_dict.user_id or litellm_proxy_admin_name,
-                    "updated_by": user_api_key_dict.user_id or litellm_proxy_admin_name,
+                    "created_by": user_api_key_dict.user_id or embrouter_proxy_admin_name,
+                    "updated_by": user_api_key_dict.user_id or embrouter_proxy_admin_name,
                 }
             )
 
@@ -264,7 +264,7 @@ async def handle_budget_for_entity(
         return existing_budget_id
 
 
-# Fields on LiteLLM_BudgetTable that represent the budget's *configuration*
+# Fields on EmbRouter_BudgetTable that represent the budget's *configuration*
 # (i.e. the values an admin sets). We copy these when cloning a team's
 # default member-budget into an individual member-budget so that the new
 # row starts with the same limits as the default.
@@ -284,7 +284,7 @@ async def _clone_team_default_budget_for_member(
     prisma_client: PrismaClient,
     default_team_budget_id: str,
     user_api_key_dict: UserAPIKeyAuth,
-    litellm_proxy_admin_name: str,
+    embrouter_proxy_admin_name: str,
     budget_duration_override: str | None = None,
     tx: MemberWriteTx | None = None,
 ) -> str | None:
@@ -308,8 +308,8 @@ async def _clone_team_default_budget_for_member(
 
     default_budget_dict: Final = default_budget.model_dump()
     cloned_data: Final[dict] = {
-        "created_by": user_api_key_dict.user_id or litellm_proxy_admin_name,
-        "updated_by": user_api_key_dict.user_id or litellm_proxy_admin_name,
+        "created_by": user_api_key_dict.user_id or embrouter_proxy_admin_name,
+        "updated_by": user_api_key_dict.user_id or embrouter_proxy_admin_name,
     }
     for field in _CLONABLE_BUDGET_FIELDS:
         value = default_budget_dict.get(field)
@@ -336,7 +336,7 @@ async def _clone_team_default_budget_for_member(
 async def _resolve_member_budget_id(
     prisma_client: PrismaClient,
     user_api_key_dict: UserAPIKeyAuth,
-    litellm_proxy_admin_name: str,
+    embrouter_proxy_admin_name: str,
     max_budget_in_team: float | None,
     allowed_models: list[str] | None,
     budget_duration: str | None,
@@ -366,7 +366,7 @@ async def _resolve_member_budget_id(
             prisma_client=prisma_client,
             default_team_budget_id=default_team_budget_id,
             user_api_key_dict=user_api_key_dict,
-            litellm_proxy_admin_name=litellm_proxy_admin_name,
+            embrouter_proxy_admin_name=embrouter_proxy_admin_name,
             budget_duration_override=budget_duration,
             tx=tx,
         )
@@ -375,8 +375,8 @@ async def _resolve_member_budget_id(
         return None
 
     budget_data: Final[dict[str, object]] = {
-        "created_by": user_api_key_dict.user_id or litellm_proxy_admin_name,
-        "updated_by": user_api_key_dict.user_id or litellm_proxy_admin_name,
+        "created_by": user_api_key_dict.user_id or embrouter_proxy_admin_name,
+        "updated_by": user_api_key_dict.user_id or embrouter_proxy_admin_name,
     }
     if max_budget_in_team is not None:
         budget_data["max_budget"] = max_budget_in_team
@@ -414,12 +414,12 @@ async def add_new_member(
     prisma_client: PrismaClient,
     team_id: str,
     user_api_key_dict: UserAPIKeyAuth,
-    litellm_proxy_admin_name: str,
+    embrouter_proxy_admin_name: str,
     default_team_budget_id: str | None = None,
     allowed_models: list[str] | None = None,
     budget_duration: str | None = None,
     tx: MemberWriteTx | None = None,
-) -> tuple[LiteLLM_UserTable, LiteLLM_TeamMembership | None]:
+) -> tuple[EmbRouter_UserTable, EmbRouter_TeamMembership | None]:
     """
     Add a new member to a team
 
@@ -431,8 +431,8 @@ async def add_new_member(
     Callers already inside a transaction pass it as ``tx`` so every write here runs on that
     connection instead of borrowing more from the pool while the caller's locks are held.
     """
-    returned_user: LiteLLM_UserTable | None = None
-    returned_team_membership: LiteLLM_TeamMembership | None = None
+    returned_user: EmbRouter_UserTable | None = None
+    returned_team_membership: EmbRouter_TeamMembership | None = None
     ## ADD TEAM ID, to USER TABLE IF NEW ##
     if new_member.user_id is not None:
         new_user_defaults = get_new_internal_user_defaults(user_id=new_member.user_id)
@@ -445,7 +445,7 @@ async def add_new_member(
         )
         await _append_team_id_if_absent(prisma_client, new_member.user_id, team_id, tx)
         if _returned_user is not None:
-            returned_user = LiteLLM_UserTable.model_validate(_returned_user.model_dump())
+            returned_user = EmbRouter_UserTable.model_validate(_returned_user.model_dump())
     elif new_member.user_email is not None:
         new_user_defaults = get_new_internal_user_defaults(user_id=str(uuid.uuid4()), user_email=new_member.user_email)
         ## user email is not unique acc. to prisma schema -> future improvement
@@ -458,11 +458,11 @@ async def add_new_member(
             _returned_user = await _create_user_row(prisma_client, tx, new_user_defaults)
 
             if _returned_user is not None:
-                returned_user = LiteLLM_UserTable.model_validate(_returned_user.model_dump())
+                returned_user = EmbRouter_UserTable.model_validate(_returned_user.model_dump())
         elif len(existing_user_row) == 1:
             user_info: Final = existing_user_row[0]
             await _append_team_id_if_absent(prisma_client, user_info.user_id, team_id, tx)
-            returned_user = LiteLLM_UserTable.model_validate(user_info.model_dump())
+            returned_user = EmbRouter_UserTable.model_validate(user_info.model_dump())
         elif len(existing_user_row) > 1:
             raise HTTPException(
                 status_code=400,
@@ -472,7 +472,7 @@ async def add_new_member(
     _budget_id: Final = await _resolve_member_budget_id(
         prisma_client=prisma_client,
         user_api_key_dict=user_api_key_dict,
-        litellm_proxy_admin_name=litellm_proxy_admin_name,
+        embrouter_proxy_admin_name=embrouter_proxy_admin_name,
         max_budget_in_team=max_budget_in_team,
         allowed_models=allowed_models,
         budget_duration=budget_duration,
@@ -489,10 +489,10 @@ async def add_new_member(
         _returned_team_membership: Final = await membership_table.upsert(
             where={"user_id_team_id": membership_key},
             data={"create": {**membership_key, **budget_link}, "update": {}},
-            include={"litellm_budget_table": True},
+            include={"embrouter_budget_table": True},
         )
 
-        returned_team_membership = LiteLLM_TeamMembership.model_validate(_returned_team_membership.model_dump())
+        returned_team_membership = EmbRouter_TeamMembership.model_validate(_returned_team_membership.model_dump())
 
     if returned_user is None:
         raise Exception("Unable to update user table with membership information!")
@@ -501,7 +501,7 @@ async def add_new_member(
 
 
 def _delete_user_id_from_cache(kwargs):
-    from litellm.proxy.proxy_server import user_api_key_cache
+    from embrouter.proxy.proxy_server import user_api_key_cache
 
     if kwargs.get("data") is not None:
         update_user_request: Final = kwargs.get("data")
@@ -515,7 +515,7 @@ def _delete_user_id_from_cache(kwargs):
 
 
 def _delete_api_key_from_cache(kwargs):
-    from litellm.proxy.proxy_server import user_api_key_cache
+    from embrouter.proxy.proxy_server import user_api_key_cache
 
     if kwargs.get("data") is not None:
         update_request: Final = kwargs.get("data")
@@ -529,7 +529,7 @@ def _delete_api_key_from_cache(kwargs):
 
 
 def _delete_team_id_from_cache(kwargs):
-    from litellm.proxy.proxy_server import user_api_key_cache
+    from embrouter.proxy.proxy_server import user_api_key_cache
 
     if kwargs.get("data") is not None:
         update_request: Final = kwargs.get("data")
@@ -543,7 +543,7 @@ def _delete_team_id_from_cache(kwargs):
 
 
 def _delete_customer_id_from_cache(kwargs):
-    from litellm.proxy.proxy_server import user_api_key_cache
+    from embrouter.proxy.proxy_server import user_api_key_cache
 
     if kwargs.get("data") is not None:
         update_request: Final = kwargs.get("data")
@@ -567,8 +567,8 @@ async def send_management_endpoint_alert(
     - An internal user is created, updated, or deleted
     - A team is created, updated, or deleted
     """
-    from litellm.proxy.proxy_server import proxy_logging_obj
-    from litellm.types.integrations.slack_alerting import AlertType
+    from embrouter.proxy.proxy_server import proxy_logging_obj
+    from embrouter.types.integrations.slack_alerting import AlertType
 
     management_function_to_event_name: Final = {
         "generate_key_fn": AlertType.new_virtual_key_created,
@@ -684,7 +684,7 @@ async def _emit_management_endpoint_otel_span(
     ended → never exported). Always emitting keeps both success and failure
     paths consistent.
     """
-    from litellm.proxy.proxy_server import open_telemetry_logger
+    from embrouter.proxy.proxy_server import open_telemetry_logger
 
     if open_telemetry_logger is None:
         return
@@ -698,7 +698,7 @@ async def _emit_management_endpoint_otel_span(
     http_request: Final[Request | None] = kwargs.get("http_request")
     if http_request is not None:
         # Inline import — auth_utils participates in a proxy import cycle.
-        from litellm.proxy.auth.auth_utils import (  # noqa: PLC0415
+        from embrouter.proxy.auth.auth_utils import (  # noqa: PLC0415
             get_request_route,
         )
 

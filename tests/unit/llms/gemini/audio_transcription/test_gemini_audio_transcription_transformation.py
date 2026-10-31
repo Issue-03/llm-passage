@@ -4,13 +4,13 @@ import json
 import httpx
 import pytest
 
-import litellm
-from litellm.llms.gemini.audio_transcription.transformation import (
+import embrouter
+from embrouter.llms.gemini.audio_transcription.transformation import (
     GeminiAudioTranscriptionConfig,
 )
-from litellm.llms.gemini.common_utils import GeminiError
-from litellm.types.utils import LlmProviders
-from litellm.utils import ProviderConfigManager
+from embrouter.llms.gemini.common_utils import GeminiError
+from embrouter.types.utils import LlmProviders
+from embrouter.utils import ProviderConfigManager
 
 AUDIO_BYTES = b"RIFF....WAVEfmt fake-wav-bytes"
 
@@ -79,7 +79,7 @@ class TestValidateEnvironment:
             model="gemini-3.5-transcribe",
             messages=[],
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
             api_key="test-key",
         )
         assert headers["x-goog-api-key"] == "test-key"
@@ -95,7 +95,7 @@ class TestValidateEnvironment:
                 model="gemini-3.5-transcribe",
                 messages=[],
                 optional_params={},
-                litellm_params={},
+                embrouter_params={},
             )
         assert excinfo.value.status_code == 401
 
@@ -107,7 +107,7 @@ class TestGetCompleteUrl:
             api_key=None,
             model="gemini-3.5-transcribe",
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
         )
         assert url == "https://generativelanguage.googleapis.com/v1beta/interactions"
 
@@ -117,7 +117,7 @@ class TestGetCompleteUrl:
             api_key=None,
             model="gemini-3.5-transcribe",
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
         )
         assert url == "http://localhost:8080/v1beta/interactions"
 
@@ -128,7 +128,7 @@ class TestTransformRequest:
             model="gemini/gemini-3.5-transcribe",
             audio_file=("sample.wav", AUDIO_BYTES, "audio/wav"),
             optional_params={},
-            litellm_params={},
+            embrouter_params={},
         )
         assert request_data.files is None
         assert json.loads(json.dumps(request_data.data)) == {
@@ -147,7 +147,7 @@ class TestTransformRequest:
             model="gemini-3.5-transcribe",
             audio_file=("sample.wav", AUDIO_BYTES, "audio/wav"),
             optional_params={"language": "en"},
-            litellm_params={},
+            embrouter_params={},
         )
         transcription_config = request_data.data["generation_config"]["transcription_config"]
         assert json.loads(json.dumps(transcription_config)) == {"language_codes": ["en-US"]}
@@ -157,7 +157,7 @@ class TestTransformRequest:
             model="gemini-3.5-transcribe",
             audio_file=("sample.wav", AUDIO_BYTES, "audio/wav"),
             optional_params={"timestamp_granularities": ["word"]},
-            litellm_params={},
+            embrouter_params={},
         )
         transcription_config = request_data.data["generation_config"]["transcription_config"]
         assert json.loads(json.dumps(transcription_config)) == {
@@ -174,7 +174,7 @@ class TestTransformRequest:
             model="gemini-3.5-transcribe",
             audio_file=("sample.wav", AUDIO_BYTES, "audio/wav"),
             optional_params={"response_format": response_format},
-            litellm_params={},
+            embrouter_params={},
         )
         transcription_config = request_data.data["generation_config"]["transcription_config"]
         assert json.loads(json.dumps(transcription_config)) == {
@@ -191,7 +191,7 @@ class TestTransformRequest:
             model="gemini-3.5-transcribe",
             audio_file=("sample.wav", AUDIO_BYTES, "audio/wav"),
             optional_params={"response_format": response_format},
-            litellm_params={},
+            embrouter_params={},
         )
         assert "generation_config" not in request_data.data
 
@@ -200,7 +200,7 @@ class TestTransformRequest:
             model="gemini-3.5-transcribe",
             audio_file=("sample.wav", AUDIO_BYTES, "audio/wav"),
             optional_params={"response_format": {"type": "json_object"}},
-            litellm_params={},
+            embrouter_params={},
         )
         assert "generation_config" not in request_data.data
 
@@ -209,7 +209,7 @@ class TestTransformRequest:
             model="gemini-3.5-transcribe",
             audio_file=("sample.wav", AUDIO_BYTES, "audio/wav"),
             optional_params={"timestamp_granularities": ["segment"]},
-            litellm_params={},
+            embrouter_params={},
         )
         assert "generation_config" not in request_data.data
 
@@ -253,8 +253,8 @@ class TestSubtitleSynthesisThroughHandler:
     def _transform(self, config, response_format):
         from unittest.mock import Mock
 
-        from litellm.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
-        from litellm.types.utils import TranscriptionResponse
+        from embrouter.llms.custom_httpx.llm_http_handler import BaseLLMHTTPHandler
+        from embrouter.types.utils import TranscriptionResponse
 
         return BaseLLMHTTPHandler()._transform_audio_transcription_response(
             provider_config=config,
@@ -300,5 +300,5 @@ class TestSubtitleSynthesisThroughHandler:
 class TestCostRegression:
     @pytest.fixture
     def local_cost_map(self, monkeypatch):
-        monkeypatch.setenv("LITELLM_LOCAL_MODEL_COST_MAP", "True")
-        monkeypatch.setattr(litellm, "model_cost", litellm.get_model_cost_map(url=""))
+        monkeypatch.setenv("EMBROUTER_LOCAL_MODEL_COST_MAP", "True")
+        monkeypatch.setattr(embrouter, "model_cost", embrouter.get_model_cost_map(url=""))

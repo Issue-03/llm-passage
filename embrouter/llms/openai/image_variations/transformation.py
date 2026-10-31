@@ -3,16 +3,16 @@ from typing import TYPE_CHECKING
 from aiohttp import ClientResponse
 from httpx import Headers, Response
 
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.base_llm.image_variations.transformation import LiteLLMLoggingObj
-from litellm.types.llms.openai import OpenAIImageVariationOptionalParams
-from litellm.types.utils import FileTypes, HttpHandlerRequestFields, ImageResponse
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.base_llm.image_variations.transformation import EmbRouterLoggingObj
+from embrouter.types.llms.openai import OpenAIImageVariationOptionalParams
+from embrouter.types.utils import FileTypes, HttpHandlerRequestFields, ImageResponse
 
 from ...base_llm.image_variations.transformation import BaseImageVariationConfig
 from ..common_utils import OpenAIError
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
 
 
 class OpenAIImageVariationConfig(BaseImageVariationConfig):
@@ -48,11 +48,11 @@ class OpenAIImageVariationConfig(BaseImageVariationConfig):
         model: str | None,
         raw_response: ClientResponse,
         model_response: ImageResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         request_data: dict,
         image: FileTypes,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
     ) -> ImageResponse:
@@ -63,11 +63,11 @@ class OpenAIImageVariationConfig(BaseImageVariationConfig):
         model: str | None,
         raw_response: Response,
         model_response: ImageResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         request_data: dict,
         image: FileTypes,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
     ) -> ImageResponse:

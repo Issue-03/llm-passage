@@ -1,5 +1,5 @@
 {
-  "name": "litellm-dashboard",
+  "name": "embrouter-dashboard",
   "version": "0.1.0",
   "private": true,
   "scripts": {

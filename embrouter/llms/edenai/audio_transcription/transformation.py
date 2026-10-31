@@ -10,20 +10,20 @@ from typing import Final
 
 import httpx
 
-from litellm.litellm_core_utils.audio_utils.utils import process_audio_file
-from litellm.litellm_core_utils.core_helpers import set_response_cost_in_hidden_params
-from litellm.llms.base_llm.audio_transcription.transformation import AudioTranscriptionRequestData
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.openai.transcriptions.whisper_transformation import OpenAIWhisperAudioTranscriptionConfig
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.utils import FileTypes, TranscriptionResponse
-from litellm.utils import convert_to_model_response_object
+from embrouter.embrouter_core_utils.audio_utils.utils import process_audio_file
+from embrouter.embrouter_core_utils.core_helpers import set_response_cost_in_hidden_params
+from embrouter.llms.base_llm.audio_transcription.transformation import AudioTranscriptionRequestData
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.openai.transcriptions.whisper_transformation import OpenAIWhisperAudioTranscriptionConfig
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.utils import FileTypes, TranscriptionResponse
+from embrouter.utils import convert_to_model_response_object
 
 from ..common_utils import EdenAIException, authorized_headers, endpoint_url, reported_cost
 
 
 def _form_fields(model: str, optional_params: Mapping[str, object]) -> dict[str, object]:  # mutable-ok: httpx form data
-    """LiteLLM parks non-OpenAI params, `model` included, under `extra_body` for the OpenAI SDK; a
+    """EmbRouter parks non-OpenAI params, `model` included, under `extra_body` for the OpenAI SDK; a
     multipart body carries them as top-level text fields instead."""
     extras: Final = optional_params.get("extra_body")
     nested: Final = extras.items() if isinstance(extras, Mapping) else ()
@@ -42,7 +42,7 @@ class EdenAIAudioTranscriptionConfig(OpenAIWhisperAudioTranscriptionConfig):
         api_key: str | None,
         model: str,
         optional_params: dict[str, object],  # mutable-ok: inherited contract
-        litellm_params: dict[str, object],  # mutable-ok: inherited contract
+        embrouter_params: dict[str, object],  # mutable-ok: inherited contract
         stream: bool | None = None,
     ) -> str:
         return endpoint_url(api_base, "audio/transcriptions")
@@ -53,7 +53,7 @@ class EdenAIAudioTranscriptionConfig(OpenAIWhisperAudioTranscriptionConfig):
         model: str,
         messages: list[AllMessageValues],  # mutable-ok: inherited contract
         optional_params: dict[str, object],  # mutable-ok: inherited contract
-        litellm_params: dict[str, object],  # mutable-ok: inherited contract
+        embrouter_params: dict[str, object],  # mutable-ok: inherited contract
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict[str, object]:  # mutable-ok: inherited contract
@@ -64,7 +64,7 @@ class EdenAIAudioTranscriptionConfig(OpenAIWhisperAudioTranscriptionConfig):
         model: str,
         audio_file: FileTypes,
         optional_params: dict[str, object],  # mutable-ok: inherited contract
-        litellm_params: dict[str, object],  # mutable-ok: inherited contract
+        embrouter_params: dict[str, object],  # mutable-ok: inherited contract
     ) -> AudioTranscriptionRequestData:
         """Eden reports `duration` and `cost` on every body, so the Whisper default of `verbose_json`,
         which the gpt-4o-transcribe models reject, is not needed for cost tracking."""

@@ -7,8 +7,8 @@ import httpx
 import pytest
 import respx
 
-import litellm
-from litellm.constants import (
+import embrouter
+from embrouter.constants import (
     ANTHROPIC_MIN_THINKING_BUDGET_TOKENS,
     DEFAULT_REASONING_EFFORT_HIGH_THINKING_BUDGET,
     DEFAULT_REASONING_EFFORT_LOW_THINKING_BUDGET,
@@ -17,20 +17,20 @@ from litellm.constants import (
     DEFAULT_REASONING_EFFORT_XHIGH_THINKING_BUDGET,
     RESPONSE_FORMAT_TOOL_NAME,
 )
-from litellm.litellm_core_utils.prompt_templates.common_utils import encrypted_reasoning_signature
-from litellm.llms.anthropic.chat.transformation import AnthropicConfig
-from litellm.llms.anthropic.pass_through.messages.transformation import (
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import encrypted_reasoning_signature
+from embrouter.llms.anthropic.chat.transformation import AnthropicConfig
+from embrouter.llms.anthropic.pass_through.messages.transformation import (
     AnthropicMessagesConfig,
 )
-from litellm.llms.azure_ai.anthropic.transformation import AzureAnthropicConfig
-from litellm.llms.bedrock.chat.invoke_transformations.anthropic_claude3_transformation import (
+from embrouter.llms.azure_ai.anthropic.transformation import AzureAnthropicConfig
+from embrouter.llms.bedrock.chat.invoke_transformations.anthropic_claude3_transformation import (
     AmazonAnthropicClaudeConfig,
 )
-from litellm.llms.vertex_ai.vertex_ai_partner_models.anthropic.transformation import (
+from embrouter.llms.vertex_ai.vertex_ai_partner_models.anthropic.transformation import (
     VertexAIAnthropicConfig,
 )
-from litellm.types.llms.anthropic import ANTHROPIC_BETA_HEADER_VALUES
-from litellm.types.utils import ServerToolUse, Usage
+from embrouter.types.llms.anthropic import ANTHROPIC_BETA_HEADER_VALUES
+from embrouter.types.utils import ServerToolUse, Usage
 
 
 def test_response_format_transformation_unit_test():
@@ -140,7 +140,7 @@ def test_streaming_iterator_persists_cumulative_usage_across_partial_chunks(inpu
     Omitted input/cache/pricing fields retain their last cumulative values;
     explicit input updates, including zero, replace them.
     """
-    from litellm.llms.anthropic.chat.handler import ModelResponseIterator
+    from embrouter.llms.anthropic.chat.handler import ModelResponseIterator
 
     iterator = ModelResponseIterator(None, sync_stream=True, speed="fast")
 
@@ -176,7 +176,7 @@ def test_calculate_usage_aggregates_cache_creation_split_across_iterations():
 
     Regression for LIT-4868.
     """
-    from litellm.llms.anthropic.cost_calculation import cost_per_token
+    from embrouter.llms.anthropic.cost_calculation import cost_per_token
 
     config = AnthropicConfig()
     usage_object = {
@@ -210,7 +210,7 @@ def test_calculate_usage_aggregates_cache_creation_split_across_iterations():
     assert details.ephemeral_1h_input_tokens == 20000
     assert usage.prompt_tokens_details.cache_creation_tokens == 20000
 
-    info = litellm.get_model_info(model="claude-opus-4-8", custom_llm_provider="anthropic")
+    info = embrouter.get_model_info(model="claude-opus-4-8", custom_llm_provider="anthropic")
     rate_5m = info["cache_creation_input_token_cost"]
     rate_1h = info["cache_creation_input_token_cost_above_1hr"]
     assert rate_1h > rate_5m
@@ -228,7 +228,7 @@ def test_calculate_usage_bills_undetailed_iteration_cache_writes_at_5m_rate():
 
     Regression for the Cursor Bugbot finding on the LIT-4868 fix.
     """
-    from litellm.llms.anthropic.cost_calculation import cost_per_token
+    from embrouter.llms.anthropic.cost_calculation import cost_per_token
 
     config = AnthropicConfig()
     usage_object = {
@@ -261,7 +261,7 @@ def test_calculate_usage_bills_undetailed_iteration_cache_writes_at_5m_rate():
     assert details.ephemeral_1h_input_tokens == 10000
     assert usage.prompt_tokens_details.cache_creation_tokens == 17000
 
-    info = litellm.get_model_info(model="claude-opus-4-8", custom_llm_provider="anthropic")
+    info = embrouter.get_model_info(model="claude-opus-4-8", custom_llm_provider="anthropic")
     rate_5m = info["cache_creation_input_token_cost"]
     rate_1h = info["cache_creation_input_token_cost_above_1hr"]
 
@@ -629,7 +629,7 @@ def test_server_tool_use_usage():
 
 
 def test_web_search_tool_transformation():
-    from litellm.types.llms.openai import OpenAIWebSearchOptions
+    from embrouter.types.llms.openai import OpenAIWebSearchOptions
 
     config = AnthropicConfig()
 
@@ -651,7 +651,7 @@ def test_web_search_tool_transformation():
 
 @pytest.mark.parametrize("search_context_size, expected_max_uses", [("low", 1), ("medium", 5), ("high", 10)])
 def test_web_search_tool_transformation_with_search_context_size(search_context_size, expected_max_uses):
-    from litellm.types.llms.openai import OpenAIWebSearchOptions
+    from embrouter.types.llms.openai import OpenAIWebSearchOptions
 
     config = AnthropicConfig()
 
@@ -770,7 +770,7 @@ def test_web_search_tool_result_in_provider_specific_fields():
     """
     import httpx
 
-    from litellm.types.utils import ModelResponse
+    from embrouter.types.utils import ModelResponse
 
     config = AnthropicConfig()
 
@@ -1013,7 +1013,7 @@ def test_map_tool_choice_dict_type_function_without_name():
 def test_transform_response_with_prefix_prompt():
     import httpx
 
-    from litellm.types.utils import ModelResponse
+    from embrouter.types.utils import ModelResponse
 
     config = AnthropicConfig()
 
@@ -1060,7 +1060,7 @@ def test_get_supported_params_thinking():
 
 def test_anthropic_memory_tool_auto_adds_beta_header():
     """
-    Tests that LiteLLM automatically adds the required 'anthropic-beta' header
+    Tests that EmbRouter automatically adds the required 'anthropic-beta' header
     when the memory tool is present, and the user has NOT provided a beta header.
     """
 
@@ -1075,7 +1075,7 @@ def test_anthropic_memory_tool_auto_adds_beta_header():
         model="claude-3-5-sonnet-20240620",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers=headers,
     )
 
@@ -1105,7 +1105,7 @@ def test_anthropic_messages_validate_adds_beta_header():
         model="claude-sonnet-4-20250514",
         messages=[{"role": "user", "content": [{"type": "text", "text": "Hi"}]}],
         optional_params={"context_management": _sample_context_management_payload()},
-        litellm_params={},
+        embrouter_params={},
         api_key="fake-anthropic-key",
     )
     assert headers["anthropic-beta"] == "context-management-2025-06-27"
@@ -1126,7 +1126,7 @@ def test_anthropic_messages_transform_includes_context_management():
             "max_tokens": 512,
             "context_management": payload,
         },
-        litellm_params={},
+        embrouter_params={},
         headers=headers,
     )
     assert result["context_management"] == payload
@@ -1212,15 +1212,15 @@ def test_anthropic_chat_transform_request_includes_context_management():
             "context_management": _sample_context_management_payload(),
             "max_tokens": 256,
         },
-        litellm_params={},
+        embrouter_params={},
         headers=headers,
     )
     assert result["context_management"] == _sample_context_management_payload()
 
 
 def test_anthropic_structured_output_beta_header():
-    from litellm.types.utils import CallTypes
-    from litellm.utils import return_raw_request
+    from embrouter.types.utils import CallTypes
+    from embrouter.utils import return_raw_request
 
     response = return_raw_request(
         endpoint=CallTypes.completion,
@@ -1307,11 +1307,11 @@ def test_native_structured_output_uses_bundled_capability_when_remote_map_lags(
 ) -> None:
     model = "claude-opus-4-8"
     monkeypatch.setattr(
-        litellm,
+        embrouter,
         "model_cost",
         {model: {"supports_response_schema": True}},
     )
-    litellm.get_model_info.cache_clear()
+    embrouter.get_model_info.cache_clear()
 
     try:
         optional_params = AnthropicConfig().map_openai_params(
@@ -1333,7 +1333,7 @@ def test_native_structured_output_uses_bundled_capability_when_remote_map_lags(
             drop_params=False,
         )
     finally:
-        litellm.get_model_info.cache_clear()
+        embrouter.get_model_info.cache_clear()
 
     assert "output_format" in optional_params
     assert "tools" not in optional_params
@@ -1379,7 +1379,7 @@ def test_non_structured_output_model_uses_tool_workaround():
 
 def test_tool_search_regex_detection():
     """Test that tool search regex tools are properly detected"""
-    from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+    from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
     config = AnthropicModelInfo()
 
@@ -1394,7 +1394,7 @@ def test_tool_search_regex_detection():
 
 def test_tool_search_bm25_detection():
     """Test that tool search BM25 tools are properly detected"""
-    from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+    from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
     config = AnthropicModelInfo()
 
@@ -1405,7 +1405,7 @@ def test_tool_search_bm25_detection():
 
 def test_tool_search_beta_header():
     """Test that tool search beta header is automatically added"""
-    from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+    from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
     config = AnthropicModelInfo()
 
@@ -1672,7 +1672,7 @@ def test_allowed_callers_field_preservation():
 
 def test_programmatic_tool_calling_beta_header():
     """Test that beta header is automatically added when programmatic tool calling is detected."""
-    from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+    from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
     model_info = AnthropicModelInfo()
 
@@ -1817,7 +1817,7 @@ def test_input_examples_field_preservation():
 
 def test_input_examples_beta_header():
     """Test that beta header is automatically added when input_examples is detected."""
-    from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+    from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
     model_info = AnthropicModelInfo()
 
@@ -1941,7 +1941,7 @@ def test_effort_output_config_preservation():
         model="claude-opus-4-5-20251101",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -1962,7 +1962,7 @@ def test_output_config_format_preservation_and_beta_header():
         model="claude-opus-4-7",
         messages=[{"role": "user", "content": "Test"}],
         optional_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
     headers = config.update_headers_with_optional_anthropic_beta({}, optional_params)
@@ -1974,7 +1974,7 @@ def test_output_config_format_preservation_and_beta_header():
 
 def test_effort_beta_header_injection():
     """Test that effort beta header is automatically added when output_config is detected."""
-    from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+    from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
     model_info = AnthropicModelInfo()
 
@@ -2003,19 +2003,19 @@ def test_effort_validation():
             model="claude-opus-4-5-20251101",
             messages=messages,
             optional_params=optional_params,
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
         assert result["output_config"]["effort"] == effort
 
     optional_params = {"output_config": {"effort": "invalid"}}
 
-    with pytest.raises(litellm.exceptions.BadRequestError, match="Invalid effort value"):
+    with pytest.raises(embrouter.exceptions.BadRequestError, match="Invalid effort value"):
         config.transform_request(
             model="claude-opus-4-5-20251101",
             messages=messages,
             optional_params=optional_params,
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -2031,7 +2031,7 @@ def test_effort_with_claude_opus_45():
         model="claude-opus-4-5-20251101",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -2052,7 +2052,7 @@ def test_effort_validation_with_opus_46():
             model="claude-opus-4-6-20260205",
             messages=messages,
             optional_params=optional_params,
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
         assert result["output_config"]["effort"] == effort
@@ -2067,14 +2067,14 @@ def test_max_effort_rejected_for_opus_45():
     optional_params = {"output_config": {"effort": "max"}}
 
     with pytest.raises(
-        litellm.exceptions.BadRequestError,
+        embrouter.exceptions.BadRequestError,
         match="effort='max' is not supported by this model",
     ):
         config.transform_request(
             model="claude-opus-4-5-20251101",
             messages=messages,
             optional_params=optional_params,
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -2108,7 +2108,7 @@ def test_effort_with_other_features():
         model="claude-opus-4-5-20251101",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -2125,18 +2125,18 @@ def test_anthropic_drop_params_strips_output_config_for_pre_4_5_models():
     config = AnthropicConfig()
     messages = [{"role": "user", "content": "Hello"}]
 
-    original = litellm.drop_params
-    litellm.drop_params = True
+    original = embrouter.drop_params
+    embrouter.drop_params = True
     try:
         result = config.transform_request(
             model="claude-3-haiku-20240307",
             messages=messages,
             optional_params={"output_config": {"effort": "low"}},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
     finally:
-        litellm.drop_params = original
+        embrouter.drop_params = original
 
     assert "output_config" not in result
 
@@ -2146,18 +2146,18 @@ def test_anthropic_drop_params_keeps_output_config_for_supporting_models():
     config = AnthropicConfig()
     messages = [{"role": "user", "content": "Hello"}]
 
-    original = litellm.drop_params
-    litellm.drop_params = True
+    original = embrouter.drop_params
+    embrouter.drop_params = True
     try:
         result = config.transform_request(
             model="claude-opus-4-7",
             messages=messages,
             optional_params={"output_config": {"effort": "high"}},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
     finally:
-        litellm.drop_params = original
+        embrouter.drop_params = original
 
     assert result.get("output_config") == {"effort": "high"}
 
@@ -2167,18 +2167,18 @@ def test_anthropic_drop_params_false_forwards_to_unsupported_model():
     config = AnthropicConfig()
     messages = [{"role": "user", "content": "Hello"}]
 
-    original = litellm.drop_params
-    litellm.drop_params = False
+    original = embrouter.drop_params
+    embrouter.drop_params = False
     try:
         result = config.transform_request(
             model="claude-3-haiku-20240307",
             messages=messages,
             optional_params={"output_config": {"effort": "low"}},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
     finally:
-        litellm.drop_params = original
+        embrouter.drop_params = original
 
     assert result.get("output_config") == {"effort": "low"}
 
@@ -2253,16 +2253,16 @@ def test_anthropic_model_supports_speed_param_rejects_non_anthropic_providers(
 def test_vertex_anthropic_drops_speed_for_opus_with_drop_params(monkeypatch):
     """Regression: vertex_ai Opus must drop ``speed`` even though the prefix-stripped
     ``claude-opus-4-8`` maps to a fast-mode-capable direct-Anthropic entry."""
-    from litellm.llms.vertex_ai.vertex_ai_partner_models.anthropic.transformation import (
+    from embrouter.llms.vertex_ai.vertex_ai_partner_models.anthropic.transformation import (
         VertexAIAnthropicConfig,
     )
 
-    monkeypatch.setattr(litellm, "drop_params", True)
+    monkeypatch.setattr(embrouter, "drop_params", True)
     result = VertexAIAnthropicConfig().transform_request(
         model="claude-opus-4-8",
         messages=[{"role": "user", "content": "Hello"}],
         optional_params={"speed": "fast", "max_tokens": 1024},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -2272,12 +2272,12 @@ def test_vertex_anthropic_drops_speed_for_opus_with_drop_params(monkeypatch):
 def test_vertex_anthropic_raises_on_speed_without_drop_params(monkeypatch):
     """Regression: vertex_ai Opus raises rather than forwarding an unsupported
     ``speed`` when neither global nor per-request drop_params is set."""
-    from litellm.llms.vertex_ai.vertex_ai_partner_models.anthropic.transformation import (
+    from embrouter.llms.vertex_ai.vertex_ai_partner_models.anthropic.transformation import (
         VertexAIAnthropicConfig,
     )
 
-    monkeypatch.setattr(litellm, "drop_params", False)
-    with pytest.raises(litellm.utils.UnsupportedParamsError, match="drop_params"):
+    monkeypatch.setattr(embrouter, "drop_params", False)
+    with pytest.raises(embrouter.utils.UnsupportedParamsError, match="drop_params"):
         VertexAIAnthropicConfig().map_openai_params(
             non_default_params={"speed": "fast"},
             optional_params={},
@@ -2409,7 +2409,7 @@ def test_get_max_tokens_for_model_claude_35():
 
     # Claude 3.5 Sonnet should return 8192
     with patch(
-        "litellm.llms.anthropic.chat.transformation.get_max_tokens",
+        "embrouter.llms.anthropic.chat.transformation.get_max_tokens",
         return_value=8192,
     ):
         max_tokens = config.get_max_tokens_for_model("claude-3-5-sonnet-20241022")
@@ -2458,7 +2458,7 @@ def test_get_config_with_model_uses_dynamic_max_tokens():
         return result
 
     with patch(
-        "litellm.llms.anthropic.chat.transformation.get_max_tokens",
+        "embrouter.llms.anthropic.chat.transformation.get_max_tokens",
         side_effect=_mock_get_max_tokens,
     ):
         # Claude 3 model should get 4096
@@ -2544,11 +2544,11 @@ def test_validate_effort_for_model_centralises_per_model_gating(model, effort, e
 def test_transform_request_injects_dummy_tool_without_tools_param():
     """
     Anthropic rejects messages that contain tool turns when ``tools`` is omitted.
-    LiteLLM must inject a dummy tool without ``litellm.modify_params``.
+    EmbRouter must inject a dummy tool without ``embrouter.modify_params``.
     """
     config = AnthropicConfig()
-    prev_modify_params = litellm.modify_params
-    litellm.modify_params = False
+    prev_modify_params = embrouter.modify_params
+    embrouter.modify_params = False
     try:
         messages = [
             {"role": "user", "content": "Hello"},
@@ -2573,11 +2573,11 @@ def test_transform_request_injects_dummy_tool_without_tools_param():
             model="claude-3-5-haiku-20241022",
             messages=messages,
             optional_params={"max_tokens": 256},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
     finally:
-        litellm.modify_params = prev_modify_params
+        embrouter.modify_params = prev_modify_params
 
     assert "tools" in result
     names = [t.get("name") for t in result["tools"] if isinstance(t, dict) and t.get("name") is not None]
@@ -2598,7 +2598,7 @@ def test_transform_request_respects_user_max_tokens():
         model="claude-3-7-sonnet-20250219",
         messages=messages,
         optional_params={"max_tokens": 1000},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -2853,7 +2853,7 @@ def test_sonnet_4_6_reasoning_effort_to_transform_request_payload():
         model="claude-sonnet-4-6-20260219",
         messages=messages,
         optional_params=mapped_optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -3108,7 +3108,7 @@ def test_max_effort_accepted_for_sonnet_46_variants(model):
         model=model,
         messages=messages,
         optional_params={"output_config": {"effort": "max"}},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -3124,7 +3124,7 @@ def test_max_effort_accepted_for_opus_46():
         model="claude-opus-4-6-20250514",
         messages=messages,
         optional_params={"output_config": {"effort": "max"}},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -3140,7 +3140,7 @@ def test_max_effort_accepted_for_opus_47():
         model="claude-opus-4-7",
         messages=messages,
         optional_params={"output_config": {"effort": "max"}},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -3154,7 +3154,7 @@ def test_effort_beta_header_not_injected_for_46_models():
     Claude 4.6 models use output_config as a stable API feature —
     no beta header should be injected.
     """
-    from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+    from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
     model_info = AnthropicModelInfo()
 
@@ -3200,7 +3200,7 @@ def test_reasoning_effort_garbage_raises_bad_request(effort):
     """Unmapped reasoning_effort raises BadRequestError (clean 400, not a 500)."""
     config = AnthropicConfig()
 
-    with pytest.raises(litellm.exceptions.BadRequestError):
+    with pytest.raises(embrouter.exceptions.BadRequestError):
         config.map_openai_params(
             non_default_params={"reasoning_effort": effort},
             optional_params={},
@@ -3236,12 +3236,12 @@ def test_output_config_effort_empty_string_raises_bad_request():
     """``output_config={"effort": ""}`` is rejected with a 400."""
     config = AnthropicConfig()
 
-    with pytest.raises(litellm.exceptions.BadRequestError, match="Invalid effort"):
+    with pytest.raises(embrouter.exceptions.BadRequestError, match="Invalid effort"):
         config.transform_request(
             model="claude-opus-4-7",
             messages=[{"role": "user", "content": "hi"}],
             optional_params={"output_config": {"effort": ""}, "max_tokens": 32},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -3266,7 +3266,7 @@ def test_effort_beta_header_still_injected_for_older_models():
     Test that is_effort_used still returns True for pre-4.6 models
     when output_config is present.
     """
-    from litellm.llms.anthropic.common_utils import AnthropicModelInfo
+    from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
 
     model_info = AnthropicModelInfo()
 
@@ -3287,7 +3287,7 @@ def test_code_execution_tool_results_extraction():
     """
     import httpx
 
-    from litellm.types.utils import ModelResponse
+    from embrouter.types.utils import ModelResponse
 
     config = AnthropicConfig()
 
@@ -3404,7 +3404,7 @@ def test_code_execution_tool_results_in_hidden_params():
     """
     import httpx
 
-    from litellm.types.utils import ModelResponse
+    from embrouter.types.utils import ModelResponse
 
     config = AnthropicConfig()
 
@@ -3467,7 +3467,7 @@ def test_tool_search_tool_result_not_in_tool_results():
     """
     import httpx
 
-    from litellm.types.utils import ModelResponse
+    from embrouter.types.utils import ModelResponse
 
     config = AnthropicConfig()
 
@@ -3512,7 +3512,7 @@ def test_web_search_tool_result_backwards_compatibility():
     """
     import httpx
 
-    from litellm.types.utils import ModelResponse
+    from embrouter.types.utils import ModelResponse
 
     config = AnthropicConfig()
 
@@ -3616,7 +3616,7 @@ def test_compaction_block_in_provider_specific_fields():
     """
     import httpx
 
-    from litellm.types.utils import ModelResponse
+    from embrouter.types.utils import ModelResponse
 
     config = AnthropicConfig()
 
@@ -3706,9 +3706,9 @@ async def test_native_compaction_wire_roundtrip(
     respx_mock: respx.MockRouter,
 ) -> None:
     monkeypatch.setenv("DISABLE_AIOHTTP_TRANSPORT", "True")
-    monkeypatch.setenv("LITELLM_LOCAL_ANTHROPIC_BETA_HEADERS", "True")
-    monkeypatch.setattr(litellm.anthropic_beta_headers_manager, "_BETA_HEADERS_CONFIG", None)
-    monkeypatch.setattr(litellm, "use_chat_completions_url_for_anthropic_messages", False)
+    monkeypatch.setenv("EMBROUTER_LOCAL_ANTHROPIC_BETA_HEADERS", "True")
+    monkeypatch.setattr(embrouter.anthropic_beta_headers_manager, "_BETA_HEADERS_CONFIG", None)
+    monkeypatch.setattr(embrouter, "use_chat_completions_url_for_anthropic_messages", False)
     block: Final = {"type": "compaction", "content": "Exact summary", "signature": "opaque-signature"}
     operation: Final = {"type": "summarize", "instructions": "Keep identifiers"}
     usage: Final = {
@@ -3764,7 +3764,7 @@ async def test_native_compaction_wire_roundtrip(
         return httpx.Response(200, json=body)
 
     route.mock(side_effect=respond)
-    call: Final = litellm.anthropic.messages.acreate if messages_api else litellm.acompletion
+    call: Final = embrouter.anthropic.messages.acreate if messages_api else embrouter.acompletion
     params: Final = dict(
         model=f"{'openai/' if gateway else ''}anthropic/claude-sonnet-5",
         api_key="test",
@@ -3794,7 +3794,7 @@ def test_compaction_block_request_transformation():
     Test that compaction blocks from provider_specific_fields are correctly
     transformed back to Anthropic format in requests.
     """
-    from litellm.litellm_core_utils.prompt_templates.factory import (
+    from embrouter.embrouter_core_utils.prompt_templates.factory import (
         anthropic_messages_pt,
     )
 
@@ -3854,7 +3854,7 @@ def test_compaction_with_context_management():
         model="claude-opus-4-6",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -4061,7 +4061,7 @@ def test_transform_request_includes_cache_control():
         model="claude-sonnet-4-20250514",
         messages=messages,
         optional_params=optional_params,
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -4075,7 +4075,7 @@ def test_compaction_block_empty_list_not_added():
     """
     import httpx
 
-    from litellm.types.utils import ModelResponse
+    from embrouter.types.utils import ModelResponse
 
     config = AnthropicConfig()
 
@@ -4167,15 +4167,15 @@ def test_fast_mode_cost_calculation():
     on top of the base model cost (1.1x for claude-opus-4-6).
     """
 
-    from litellm.llms.anthropic.cost_calculation import cost_per_token
-    from litellm.types.utils import Usage
+    from embrouter.llms.anthropic.cost_calculation import cost_per_token
+    from embrouter.types.utils import Usage
 
     base_prompt = 0.005
     base_completion = 0.025
 
     with (
-        patch("litellm.llms.anthropic.cost_calculation.generic_cost_per_token") as mock_cost,
-        patch("litellm.get_model_info") as mock_info,
+        patch("embrouter.llms.anthropic.cost_calculation.generic_cost_per_token") as mock_cost,
+        patch("embrouter.get_model_info") as mock_info,
     ):
         mock_cost.return_value = (base_prompt, base_completion)
         mock_info.return_value = {"provider_specific_entry": {"fast": 1.1, "us": 1.1}}
@@ -4207,15 +4207,15 @@ def test_fast_mode_with_inference_geo():
     provider_specific_entry (1.1 * 1.1 = 1.21x for claude-opus-4-6).
     """
 
-    from litellm.llms.anthropic.cost_calculation import cost_per_token
-    from litellm.types.utils import Usage
+    from embrouter.llms.anthropic.cost_calculation import cost_per_token
+    from embrouter.types.utils import Usage
 
     base_prompt = 0.005
     base_completion = 0.025
 
     with (
-        patch("litellm.llms.anthropic.cost_calculation.generic_cost_per_token") as mock_cost,
-        patch("litellm.get_model_info") as mock_info,
+        patch("embrouter.llms.anthropic.cost_calculation.generic_cost_per_token") as mock_cost,
+        patch("embrouter.get_model_info") as mock_info,
     ):
         mock_cost.return_value = (base_prompt, base_completion)
         mock_info.return_value = {"provider_specific_entry": {"fast": 1.1, "us": 1.1}}
@@ -4312,18 +4312,18 @@ def test_anthropic_drop_params_strips_speed_for_unsupported_models():
     config = AnthropicConfig()
     messages = [{"role": "user", "content": "Hello"}]
 
-    original = litellm.drop_params
-    litellm.drop_params = True
+    original = embrouter.drop_params
+    embrouter.drop_params = True
     try:
         result = config.transform_request(
             model="claude-sonnet-4-6",
             messages=messages,
             optional_params={"speed": "fast", "max_tokens": 1024},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
     finally:
-        litellm.drop_params = original
+        embrouter.drop_params = original
 
     assert "speed" not in result
 
@@ -4333,27 +4333,27 @@ def test_anthropic_drop_params_keeps_speed_for_supporting_models():
     config = AnthropicConfig()
     messages = [{"role": "user", "content": "Hello"}]
 
-    original = litellm.drop_params
-    litellm.drop_params = True
+    original = embrouter.drop_params
+    embrouter.drop_params = True
     try:
         result = config.transform_request(
             model="claude-opus-4-6",
             messages=messages,
             optional_params={"speed": "fast", "max_tokens": 1024},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
     finally:
-        litellm.drop_params = original
+        embrouter.drop_params = original
 
     assert result.get("speed") == "fast"
 
 
 def test_speed_raises_clean_error_without_drop_params(monkeypatch):
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(embrouter, "drop_params", False)
     config = AnthropicConfig()
 
-    with pytest.raises(litellm.utils.UnsupportedParamsError, match="drop_params"):
+    with pytest.raises(embrouter.utils.UnsupportedParamsError, match="drop_params"):
         config.map_openai_params(
             non_default_params={"speed": "fast"},
             optional_params={},
@@ -4390,7 +4390,7 @@ def test_map_openai_params_max_tokens_normalized_to_int():
 def test_map_tool_helper_enforces_object_type_when_missing():
     """
     Anthropic requires input_schema.type to be "object". When an OpenAI tool
-    has parameters without a 'type' field (common with MCP servers), LiteLLM
+    has parameters without a 'type' field (common with MCP servers), EmbRouter
     should inject type:"object" before forwarding to Anthropic.
 
     Without this fix, Anthropic rejects with:
@@ -4426,7 +4426,7 @@ def test_map_tool_helper_enforces_object_type_when_missing():
 def test_map_tool_helper_enforces_object_type_when_wrong_type():
     """
     If a tool schema has type:"string" or type:"array" at the root level,
-    LiteLLM should normalize it to type:"object" for Anthropic compatibility.
+    EmbRouter should normalize it to type:"object" for Anthropic compatibility.
     """
     config = AnthropicConfig()
 
@@ -4683,7 +4683,7 @@ def test_strip_advisor_blocks_when_no_advisor_tool():
     Auto-strip removes server_tool_use(advisor) + advisor_tool_result blocks when
     advisor tool is absent, preventing Anthropic 400 on follow-up turns.
     """
-    from litellm.llms.anthropic.common_utils import strip_advisor_blocks_from_messages
+    from embrouter.llms.anthropic.common_utils import strip_advisor_blocks_from_messages
 
     messages = [
         {"role": "user", "content": "Build a worker pool."},
@@ -4717,7 +4717,7 @@ def test_strip_advisor_blocks_when_no_advisor_tool():
 
 def test_strip_advisor_blocks_no_op_when_no_advisor_blocks():
     """strip_advisor_blocks_from_messages is a no-op when no advisor blocks exist."""
-    from litellm.llms.anthropic.common_utils import strip_advisor_blocks_from_messages
+    from embrouter.llms.anthropic.common_utils import strip_advisor_blocks_from_messages
 
     messages = [
         {"role": "user", "content": "Hello"},
@@ -4748,7 +4748,7 @@ def test_strip_advisor_blocks_no_op_when_no_advisor_blocks():
 
 
 def test_basic_sanitize_anthropic_tool_name_replaces_invalid_chars():
-    from litellm.llms.anthropic.chat.transformation import (
+    from embrouter.llms.anthropic.chat.transformation import (
         _basic_sanitize_anthropic_tool_name,
     )
 
@@ -4770,7 +4770,7 @@ def test_basic_sanitize_anthropic_tool_name_replaces_invalid_chars():
 
 def test_build_anthropic_tool_name_maps_no_collisions():
     """Names that need rewriting go in the maps; valid names stay out."""
-    from litellm.llms.anthropic.chat.transformation import (
+    from embrouter.llms.anthropic.chat.transformation import (
         _build_anthropic_tool_name_maps,
     )
 
@@ -4795,7 +4795,7 @@ def test_build_anthropic_tool_name_maps_disambiguates_collision_with_existing_va
     """If `foo/bar` would collapse to `foo_bar` but `foo_bar` already exists,
     the rewritten one must get a unique suffix and only THAT one shows up in
     the reverse map. The legitimately-named `foo_bar` round-trips identically."""
-    from litellm.llms.anthropic.chat.transformation import (
+    from embrouter.llms.anthropic.chat.transformation import (
         _build_anthropic_tool_name_maps,
     )
 
@@ -4814,7 +4814,7 @@ def test_build_anthropic_tool_name_maps_disambiguates_collision_with_existing_va
 def test_build_anthropic_tool_name_maps_disambiguates_two_rewrites_to_same_target():
     """Two different invalid names that collapse to the same candidate must
     both end up with unique sanitized forms."""
-    from litellm.llms.anthropic.chat.transformation import (
+    from embrouter.llms.anthropic.chat.transformation import (
         _build_anthropic_tool_name_maps,
     )
 
@@ -4829,7 +4829,7 @@ def test_build_anthropic_tool_name_maps_disambiguates_two_rewrites_to_same_targe
 
 def test_build_anthropic_tool_name_maps_three_way_collision():
     """`foo/bar`, `foo.bar`, and an existing `foo_bar` must all coexist."""
-    from litellm.llms.anthropic.chat.transformation import (
+    from embrouter.llms.anthropic.chat.transformation import (
         _build_anthropic_tool_name_maps,
     )
 
@@ -4847,7 +4847,7 @@ def test_build_anthropic_tool_name_maps_reverse_order_collision():
     """REGRESSION: when the invalid name appears *before* the valid name that
     its sanitized form collides with, both must still end up with distinct
     names on the wire."""
-    from litellm.llms.anthropic.chat.transformation import (
+    from embrouter.llms.anthropic.chat.transformation import (
         _build_anthropic_tool_name_maps,
     )
 
@@ -4870,7 +4870,7 @@ def test_build_anthropic_tool_name_maps_duplicate_originals():
     map, *both* tool entries got the suffixed name and Anthropic 400'd
     on duplicates.
     """
-    from litellm.llms.anthropic.chat.transformation import (
+    from embrouter.llms.anthropic.chat.transformation import (
         _build_anthropic_tool_name_maps,
     )
 
@@ -4882,7 +4882,7 @@ def test_build_anthropic_tool_name_maps_duplicate_originals():
 
 def test_map_openai_params_does_not_pollute_optional_params_with_internal_keys():
     """REGRESSION: ``optional_params`` is what becomes the JSON body sent to
-    Anthropic (``data = {**optional_params}``). It MUST NOT carry LiteLLM-
+    Anthropic (``data = {**optional_params}``). It MUST NOT carry EmbRouter-
     internal coordination state like the per-request forward/reverse name
     maps, or Anthropic 400s with ``Extra inputs are not permitted``.
     Sanitization belongs in ``transform_request``, not here."""
@@ -5075,7 +5075,7 @@ def test_transform_parsed_response_reverse_maps_tool_names():
             }
         ],
     }
-    from litellm.types.utils import ModelResponse
+    from embrouter.types.utils import ModelResponse
 
     model_response = ModelResponse()
 
@@ -5121,7 +5121,7 @@ def test_transform_parsed_response_does_not_rewrite_unmapped_names():
             }
         ],
     }
-    from litellm.types.utils import ModelResponse
+    from embrouter.types.utils import ModelResponse
 
     model_response = ModelResponse()
     out = config.transform_parsed_response(
@@ -5155,7 +5155,7 @@ def test_transform_parsed_response_no_reverse_map_is_noop():
             }
         ],
     }
-    from litellm.types.utils import ModelResponse
+    from embrouter.types.utils import ModelResponse
 
     model_response = ModelResponse()
     out = config.transform_parsed_response(
@@ -5168,7 +5168,7 @@ def test_transform_parsed_response_no_reverse_map_is_noop():
 
 def test_streaming_iterator_reverse_maps_tool_use_name():
     """Streaming `content_block_start` for tool_use should reverse-map the name."""
-    from litellm.llms.anthropic.chat.handler import ModelResponseIterator
+    from embrouter.llms.anthropic.chat.handler import ModelResponseIterator
 
     iterator = ModelResponseIterator(
         streaming_response=iter([]),
@@ -5195,7 +5195,7 @@ def test_streaming_iterator_reverse_maps_tool_use_name():
 
 
 def test_streaming_iterator_passthrough_when_name_not_in_map():
-    from litellm.llms.anthropic.chat.handler import ModelResponseIterator
+    from embrouter.llms.anthropic.chat.handler import ModelResponseIterator
 
     iterator = ModelResponseIterator(
         streaming_response=iter([]),
@@ -5242,7 +5242,7 @@ def test_transform_request_does_not_leak_internal_keys_into_body():
     """REGRESSION for "_anthropic_tool_name_forward_map: Extra inputs are not
     permitted". The dict returned by ``transform_request`` is what becomes
     the JSON body POSTed to Anthropic. It must contain ONLY documented
-    Anthropic Messages fields -- no LiteLLM coordination state."""
+    Anthropic Messages fields -- no EmbRouter coordination state."""
     config = AnthropicConfig()
     tools = [
         {
@@ -5263,17 +5263,17 @@ def test_transform_request_does_not_leak_internal_keys_into_body():
         },
     ]
     optional_params = _build_optional_params_for_tools(tools)
-    litellm_params: dict = {}
+    embrouter_params: dict = {}
 
     data = config.transform_request(
         model="claude-sonnet-4",
         messages=[{"role": "user", "content": "go"}],
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         headers={},
     )
 
-    # Body must not contain any LiteLLM-internal keys.
+    # Body must not contain any EmbRouter-internal keys.
     for key in data.keys():
         assert not key.startswith("_"), (
             f"transformed request body leaked underscore-prefixed key {key!r}; "
@@ -5296,8 +5296,8 @@ def test_transform_request_does_not_leak_internal_keys_into_body():
     assert "github_openapi_mcp-actions_download-job-logs-for-workflow-run" in sent_names
     assert "plain_tool" in sent_names
 
-    # Reverse map landed on litellm_params (NOT optional_params, NOT body).
-    rmap = litellm_params["_anthropic_tool_name_map"]
+    # Reverse map landed on embrouter_params (NOT optional_params, NOT body).
+    rmap = embrouter_params["_anthropic_tool_name_map"]
     assert (
         rmap["github_openapi_mcp-actions_download-job-logs-for-workflow-run"]
         == "github_openapi_mcp-actions/download-job-logs-for-workflow-run"
@@ -5308,7 +5308,7 @@ def test_transform_request_does_not_leak_internal_keys_into_body():
 
 
 def test_transform_request_no_reverse_map_when_all_names_valid():
-    """If every name is already valid, ``litellm_params`` stays clean
+    """If every name is already valid, ``embrouter_params`` stays clean
     (no reverse map key) -- minimizes blast radius for the common case."""
     config = AnthropicConfig()
     tools = [
@@ -5322,17 +5322,17 @@ def test_transform_request_no_reverse_map_when_all_names_valid():
         },
     ]
     optional_params = _build_optional_params_for_tools(tools)
-    litellm_params: dict = {}
+    embrouter_params: dict = {}
 
     data = config.transform_request(
         model="claude-sonnet-4",
         messages=[{"role": "user", "content": "go"}],
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         headers={},
     )
     assert data["tools"][0]["name"] == "plain_tool"
-    assert "_anthropic_tool_name_map" not in litellm_params
+    assert "_anthropic_tool_name_map" not in embrouter_params
 
 
 def test_transform_request_sanitizes_tool_choice_named_tool():
@@ -5361,12 +5361,12 @@ def test_transform_request_sanitizes_tool_choice_named_tool():
         model="claude-sonnet-4",
         drop_params=False,
     )
-    litellm_params: dict = {}
+    embrouter_params: dict = {}
     data = config.transform_request(
         model="claude-sonnet-4",
         messages=[{"role": "user", "content": "go"}],
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         headers={},
     )
     assert data["tool_choice"]["type"] == "tool"
@@ -5408,12 +5408,12 @@ def test_transform_request_rewrites_tool_names_in_history():
         {"role": "tool", "tool_call_id": "toolu_old", "content": "..."},
         {"role": "user", "content": "again"},
     ]
-    litellm_params: dict = {}
+    embrouter_params: dict = {}
     data = config.transform_request(
         model="claude-sonnet-4",
         messages=messages,
         optional_params=optional_params,
-        litellm_params=litellm_params,
+        embrouter_params=embrouter_params,
         headers={},
     )
     # Find the assistant tool_use block in the Anthropic-shaped messages.
@@ -5696,7 +5696,7 @@ def test_translate_system_message_keeps_billing_header_for_first_party_anthropic
 
 
 def test_translate_system_message_strips_billing_header_for_bedrock():
-    from litellm.llms.bedrock.claude_platform.transformation import (
+    from embrouter.llms.bedrock.claude_platform.transformation import (
         BedrockClaudePlatformConfig,
     )
 
@@ -5711,7 +5711,7 @@ def test_translate_system_message_strips_billing_header_for_bedrock():
 
 
 def test_anthropic_messages_request_keeps_billing_header_for_first_party():
-    from litellm.types.router import GenericLiteLLMParams
+    from embrouter.types.router import GenericEmbRouterParams
 
     config = AnthropicMessagesConfig()
     assert config.should_strip_billing_metadata() is False
@@ -5727,7 +5727,7 @@ def test_anthropic_messages_request_keeps_billing_header_for_first_party():
         model="claude-3-5-sonnet-latest",
         messages=[{"role": "user", "content": "hi"}],
         anthropic_messages_optional_request_params=optional_params,
-        litellm_params=GenericLiteLLMParams(),
+        embrouter_params=GenericEmbRouterParams(),
         headers={},
     )
 
@@ -5736,8 +5736,8 @@ def test_anthropic_messages_request_keeps_billing_header_for_first_party():
 
 
 def test_anthropic_messages_request_strips_billing_header_for_minimax():
-    from litellm.llms.minimax.messages.transformation import MinimaxMessagesConfig
-    from litellm.types.router import GenericLiteLLMParams
+    from embrouter.llms.minimax.messages.transformation import MinimaxMessagesConfig
+    from embrouter.types.router import GenericEmbRouterParams
 
     config = MinimaxMessagesConfig()
     assert config.should_strip_billing_metadata() is True
@@ -5753,7 +5753,7 @@ def test_anthropic_messages_request_strips_billing_header_for_minimax():
         model="MiniMax-M2",
         messages=[{"role": "user", "content": "hi"}],
         anthropic_messages_optional_request_params=optional_params,
-        litellm_params=GenericLiteLLMParams(),
+        embrouter_params=GenericEmbRouterParams(),
         headers={},
     )
 
@@ -5762,7 +5762,7 @@ def test_anthropic_messages_request_strips_billing_header_for_minimax():
 
 
 def test_translate_system_message_strips_billing_header_for_bedrock_invoke():
-    from litellm.llms.bedrock.chat.invoke_transformations.anthropic_claude3_transformation import (
+    from embrouter.llms.bedrock.chat.invoke_transformations.anthropic_claude3_transformation import (
         AmazonAnthropicClaudeConfig,
     )
 
@@ -5779,45 +5779,45 @@ def test_translate_system_message_strips_billing_header_for_bedrock_invoke():
 @pytest.mark.parametrize(
     "module_path, class_name, expected_strip",
     [
-        ("litellm.llms.anthropic.chat.transformation", "AnthropicConfig", False),
+        ("embrouter.llms.anthropic.chat.transformation", "AnthropicConfig", False),
         (
-            "litellm.llms.anthropic.pass_through.messages.transformation",
+            "embrouter.llms.anthropic.pass_through.messages.transformation",
             "AnthropicMessagesConfig",
             False,
         ),
         (
-            "litellm.llms.bedrock.claude_platform.transformation",
+            "embrouter.llms.bedrock.claude_platform.transformation",
             "BedrockClaudePlatformConfig",
             True,
         ),
         (
-            "litellm.llms.bedrock.chat.invoke_transformations.anthropic_claude3_transformation",
+            "embrouter.llms.bedrock.chat.invoke_transformations.anthropic_claude3_transformation",
             "AmazonAnthropicClaudeConfig",
             True,
         ),
         (
-            "litellm.llms.vertex_ai.vertex_ai_partner_models.anthropic.transformation",
+            "embrouter.llms.vertex_ai.vertex_ai_partner_models.anthropic.transformation",
             "VertexAIAnthropicConfig",
             True,
         ),
         (
-            "litellm.llms.azure_ai.anthropic.transformation",
+            "embrouter.llms.azure_ai.anthropic.transformation",
             "AzureAnthropicConfig",
             True,
         ),
-        ("litellm.llms.minimax.messages.transformation", "MinimaxMessagesConfig", True),
+        ("embrouter.llms.minimax.messages.transformation", "MinimaxMessagesConfig", True),
         (
-            "litellm.llms.azure_ai.anthropic.messages_transformation",
+            "embrouter.llms.azure_ai.anthropic.messages_transformation",
             "AzureAnthropicMessagesConfig",
             True,
         ),
         (
-            "litellm.llms.deepseek.messages.transformation",
+            "embrouter.llms.deepseek.messages.transformation",
             "DeepSeekAnthropicMessagesConfig",
             True,
         ),
         (
-            "litellm.llms.vertex_ai.vertex_ai_partner_models.anthropic.experimental_pass_through.transformation",
+            "embrouter.llms.vertex_ai.vertex_ai_partner_models.anthropic.experimental_pass_through.transformation",
             "VertexAIPartnerModelsAnthropicMessagesConfig",
             True,
         ),
@@ -5922,7 +5922,7 @@ def test_client_metadata_stripped_from_anthropic_request():
         model="claude-3-5-haiku-20241022",
         messages=[{"role": "user", "content": "hello"}],
         optional_params={"max_tokens": 10, "client_metadata": {"originator": "codex"}},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
     assert "client_metadata" not in result
@@ -5950,10 +5950,10 @@ def test_sampling_params_dropped_for_models_that_removed_them(model):
 
 @pytest.mark.parametrize("params", [{"temperature": 0.5}, {"top_p": 0.9}, {"top_p": 1}])
 def test_sampling_params_raise_clean_error_without_drop_params(params, monkeypatch):
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(embrouter, "drop_params", False)
     config = AnthropicConfig()
 
-    with pytest.raises(litellm.utils.UnsupportedParamsError, match="drop_params"):
+    with pytest.raises(embrouter.utils.UnsupportedParamsError, match="drop_params"):
         config.map_openai_params(
             non_default_params=params,
             optional_params={},
@@ -5995,8 +5995,8 @@ def test_sampling_param_gating_driven_by_model_map_flag(monkeypatch):
     """The drop/raise decision must come from ``supports_sampling_params`` in
     the model map, not just name matching: a flagged entry gates a model whose
     name says nothing, and an explicit ``true`` overrides the name fallback."""
-    monkeypatch.setitem(litellm.model_cost, "claude-zeta-9", {"supports_sampling_params": False})
-    monkeypatch.setitem(litellm.model_cost, "claude-fable-5-test", {"supports_sampling_params": True})
+    monkeypatch.setitem(embrouter.model_cost, "claude-zeta-9", {"supports_sampling_params": False})
+    monkeypatch.setitem(embrouter.model_cost, "claude-fable-5-test", {"supports_sampling_params": True})
     config = AnthropicConfig()
 
     flagged_off = config.map_openai_params(
@@ -6026,7 +6026,7 @@ def test_top_k_dropped_at_transform_for_models_that_removed_it():
         model="claude-fable-5",
         messages=[{"role": "user", "content": "hello"}],
         optional_params={"max_tokens": 10, "top_k": 40},
-        litellm_params={"drop_params": True},
+        embrouter_params={"drop_params": True},
         headers={},
     )
 
@@ -6034,15 +6034,15 @@ def test_top_k_dropped_at_transform_for_models_that_removed_it():
 
 
 def test_top_k_raises_at_transform_without_drop_params(monkeypatch):
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(embrouter, "drop_params", False)
     config = AnthropicConfig()
 
-    with pytest.raises(litellm.utils.UnsupportedParamsError, match="drop_params"):
+    with pytest.raises(embrouter.utils.UnsupportedParamsError, match="drop_params"):
         config.transform_request(
             model="claude-fable-5",
             messages=[{"role": "user", "content": "hello"}],
             optional_params={"max_tokens": 10, "top_k": 40},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
 
@@ -6054,7 +6054,7 @@ def test_top_k_forwarded_at_transform_on_models_that_accept_it():
         model="claude-sonnet-4-6",
         messages=[{"role": "user", "content": "hello"}],
         optional_params={"max_tokens": 10, "top_k": 40},
-        litellm_params={"drop_params": True},
+        embrouter_params={"drop_params": True},
         headers={},
     )
 
@@ -6126,7 +6126,7 @@ def test_disabled_thinking_omitted_only_for_always_on_models(local_model_cost_ma
         model=model,
         messages=[{"role": "user", "content": "hi"}],
         optional_params={"max_tokens": 64, "thinking": {"type": "disabled"}},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -6146,10 +6146,10 @@ def test_forced_tool_choice_raises_clean_error_on_fable_5_1_without_drop_params(
     """Fable 5.1 400s on tool_choice type any/tool (thinking is always on and a
     forced call would skip it); without drop_params the caller gets a clean
     client-side 400 that explains the workaround, not a provider error."""
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(embrouter, "drop_params", False)
     config = AnthropicConfig()
 
-    with pytest.raises(litellm.utils.UnsupportedParamsError, match="forced tool use"):
+    with pytest.raises(embrouter.utils.UnsupportedParamsError, match="forced tool use"):
         config.map_openai_params(
             non_default_params={"tool_choice": tool_choice},
             optional_params={},
@@ -6190,7 +6190,7 @@ def test_forced_tool_choice_downgrade_keeps_parallel_tool_calls_flag(local_model
 
 @pytest.mark.parametrize("tool_choice, expected_type", [("auto", "auto"), ("none", "none")])
 def test_unforced_tool_choice_forwarded_on_fable_5_1(local_model_cost_map, tool_choice, expected_type, monkeypatch):
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(embrouter, "drop_params", False)
     config = AnthropicConfig()
 
     result = config.map_openai_params(
@@ -6205,7 +6205,7 @@ def test_unforced_tool_choice_forwarded_on_fable_5_1(local_model_cost_map, tool_
 
 @pytest.mark.parametrize("model", ["claude-fable-5", "claude-opus-5", "claude-sonnet-5"])
 def test_forced_tool_choice_forwarded_on_models_that_support_it(local_model_cost_map, model, monkeypatch):
-    monkeypatch.setattr(litellm, "drop_params", False)
+    monkeypatch.setattr(embrouter, "drop_params", False)
     config = AnthropicConfig()
 
     result = config.map_openai_params(
@@ -6221,7 +6221,7 @@ def test_forced_tool_choice_forwarded_on_models_that_support_it(local_model_cost
 def test_forced_tool_choice_gating_driven_by_model_map_flag(local_model_cost_map, monkeypatch):
     """The gate must read ``supports_forced_tool_use`` from the model map, not
     the model name: a flagged entry gates a model whose name says nothing."""
-    monkeypatch.setitem(litellm.model_cost, "claude-zeta-9", {"supports_forced_tool_use": False})
+    monkeypatch.setitem(embrouter.model_cost, "claude-zeta-9", {"supports_forced_tool_use": False})
     config = AnthropicConfig()
 
     result = config.map_openai_params(
@@ -6237,7 +6237,7 @@ def test_forced_tool_choice_gating_driven_by_model_map_flag(local_model_cost_map
 def test_anthropic_drop_params_keeps_format_only_output_config(monkeypatch):
     """``drop_params=True`` must not consume ``output_config.format``: the drop
     gate is an effort gate and ``format`` is a structured-output field."""
-    monkeypatch.setattr(litellm, "drop_params", True)
+    monkeypatch.setattr(embrouter, "drop_params", True)
     config = AnthropicConfig()
     schema_format = {
         "type": "json_schema",
@@ -6248,7 +6248,7 @@ def test_anthropic_drop_params_keeps_format_only_output_config(monkeypatch):
         model="claude-3-haiku-20240307",
         messages=[{"role": "user", "content": "Hello"}],
         optional_params={"output_config": {"format": schema_format}},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -6258,7 +6258,7 @@ def test_anthropic_drop_params_keeps_format_only_output_config(monkeypatch):
 def test_anthropic_drop_params_reduces_mixed_output_config_to_format(monkeypatch):
     """``drop_params=True`` drops the effort key on unsupported models but keeps
     ``format`` so structured outputs still reach the provider."""
-    monkeypatch.setattr(litellm, "drop_params", True)
+    monkeypatch.setattr(embrouter, "drop_params", True)
     config = AnthropicConfig()
     schema_format = {
         "type": "json_schema",
@@ -6269,7 +6269,7 @@ def test_anthropic_drop_params_reduces_mixed_output_config_to_format(monkeypatch
         model="claude-3-haiku-20240307",
         messages=[{"role": "user", "content": "Hello"}],
         optional_params={"output_config": {"effort": "low", "format": schema_format}},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -6281,9 +6281,9 @@ def test_response_format_tool_path_skips_forced_tool_choice_when_unsupported(loc
     ``supports_forced_tool_use: false`` must not get the forced response-format
     tool_choice the provider would 400 on."""
     monkeypatch.setitem(
-        litellm.model_cost,
+        embrouter.model_cost,
         "claude-test-no-forced-tools",
-        {"litellm_provider": "anthropic", "mode": "chat", "supports_forced_tool_use": False},
+        {"embrouter_provider": "anthropic", "mode": "chat", "supports_forced_tool_use": False},
     )
     config = AnthropicConfig()
 
@@ -6348,7 +6348,7 @@ def test_eager_input_streaming_absent_stays_absent():
 
 
 def test_eager_input_streaming_rejects_non_boolean():
-    with pytest.raises(litellm.BadRequestError, match="eager_input_streaming must be a boolean"):
+    with pytest.raises(embrouter.BadRequestError, match="eager_input_streaming must be a boolean"):
         AnthropicConfig()._map_tool_helper(_eager_chat_tool(eager_input_streaming="true"))
 
 
@@ -6402,7 +6402,7 @@ def _chat_request(config: AnthropicConfig, model: str, messages: list[dict]) -> 
         model=model,
         messages=messages,
         optional_params={},
-        litellm_params={},
+        embrouter_params={},
         headers={},
     )
 
@@ -6754,7 +6754,7 @@ def test_chat_flagged_model_replays_a_byte_identical_prefix_around_a_mid_convers
     request must be a byte-identical prefix of turn N+1's or the block is dropped."""
     requests = [
         AnthropicConfig().transform_request(
-            model="claude-fable-5-1", messages=copy.deepcopy(turn), optional_params={}, litellm_params={}, headers={}
+            model="claude-fable-5-1", messages=copy.deepcopy(turn), optional_params={}, embrouter_params={}, headers={}
         )
         for turn in _preserved_thinking_turns(reminder_after_user)
     ]
@@ -6767,7 +6767,7 @@ def test_chat_flagged_model_replays_a_byte_identical_prefix_around_a_mid_convers
 def test_chat_dummy_tool_result_for_an_orphaned_tool_call_replays_a_byte_identical_prefix(
     local_model_cost_map, monkeypatch
 ):
-    monkeypatch.setattr(litellm, "modify_params", True)
+    monkeypatch.setattr(embrouter, "modify_params", True)
     tools = [
         {"name": "lookup", "description": "Look something up", "input_schema": {"type": "object", "properties": {}}}
     ]
@@ -6787,7 +6787,7 @@ def test_chat_dummy_tool_result_for_an_orphaned_tool_call_replays_a_byte_identic
             model="claude-fable-5-1",
             messages=copy.deepcopy(turn),
             optional_params={"tools": copy.deepcopy(tools)},
-            litellm_params={},
+            embrouter_params={},
             headers={},
         )
         for turn in (turn_n, turn_n_plus_one)

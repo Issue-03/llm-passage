@@ -1,6 +1,6 @@
 import time
 import traceback
-from litellm._uuid import uuid
+from embrouter._uuid import uuid
 
 from dotenv import load_dotenv
 
@@ -11,16 +11,16 @@ import random
 
 import pytest
 
-import litellm
-from litellm import aembedding, completion, embedding
-from litellm.caching.caching import Cache
+import embrouter
+from embrouter import aembedding, completion, embedding
+from embrouter.caching.caching import Cache
 
 from unittest.mock import AsyncMock, patch, MagicMock
-from litellm.caching.caching_handler import LLMCachingHandler, CachingHandlerResponse
-from litellm.caching.caching import LiteLLMCacheType
-from litellm.types.utils import CallTypes
-from litellm.types.rerank import RerankResponse
-from litellm.types.utils import (
+from embrouter.caching.caching_handler import LLMCachingHandler, CachingHandlerResponse
+from embrouter.caching.caching import EmbRouterCacheType
+from embrouter.types.utils import CallTypes
+from embrouter.types.rerank import RerankResponse
+from embrouter.types.utils import (
     ModelResponse,
     EmbeddingResponse,
     TextCompletionResponse,
@@ -28,14 +28,14 @@ from litellm.types.utils import (
     Embedding,
 )
 from datetime import timedelta, datetime
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLogging
-from litellm.litellm_core_utils.model_param_helper import ModelParamHelper
-from litellm._logging import verbose_logger
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLogging
+from embrouter.embrouter_core_utils.model_param_helper import ModelParamHelper
+from embrouter._logging import verbose_logger
 import logging
 
 
 def test_get_kwargs_for_cache_key():
-    _cache = litellm.Cache()
+    _cache = embrouter.Cache()
     relevant_kwargs = ModelParamHelper._get_all_llm_api_params()
     print(relevant_kwargs)
 
@@ -253,14 +253,14 @@ def test_get_model_param_value():
 
 def test_preset_cache_key():
     """
-    Test that the preset cache key is used if it is set in kwargs["litellm_params"]
+    Test that the preset cache key is used if it is set in kwargs["embrouter_params"]
     """
     cache = Cache()
     kwargs = {
         "model": "gpt-3.5-turbo",
         "messages": [{"role": "user", "content": "Hello, world!"}],
         "temperature": 0.7,
-        "litellm_params": {"preset_cache_key": "preset-cache-key"},
+        "embrouter_params": {"preset_cache_key": "preset-cache-key"},
     }
 
     assert cache.get_cache_key(**kwargs) == "preset-cache-key"

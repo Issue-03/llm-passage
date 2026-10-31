@@ -65,7 +65,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -81,7 +81,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -97,7 +97,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -113,7 +113,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -129,7 +129,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -145,7 +145,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -161,7 +161,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -177,7 +177,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -193,7 +193,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -209,7 +209,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -225,7 +225,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -241,7 +241,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -257,7 +257,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -273,7 +273,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -289,7 +289,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -305,7 +305,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -321,7 +321,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -337,7 +337,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -353,7 +353,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -369,7 +369,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -385,7 +385,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -401,7 +401,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -417,7 +417,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -433,7 +433,7 @@
       "model": "claude-haiku-4-5",
       "input_tokens": 676,
       "output_tokens": 120,
-      "litellm_request_id": "chatcmpl-f4447165-878b-4bf3-ae07-0a43b98482e9",
+      "embrouter_request_id": "chatcmpl-f4447165-878b-4bf3-ae07-0a43b98482e9",
       "error": null
     },
     {
@@ -449,7 +449,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -465,7 +465,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -481,7 +481,7 @@
       "model": "claude-haiku-4-5",
       "input_tokens": 604,
       "output_tokens": 120,
-      "litellm_request_id": "chatcmpl-74c4de8a-56f5-41f9-8b61-ed64736ac886",
+      "embrouter_request_id": "chatcmpl-74c4de8a-56f5-41f9-8b61-ed64736ac886",
       "error": null
     },
     {
@@ -497,7 +497,7 @@
       "model": "claude-haiku-4-5",
       "input_tokens": 607,
       "output_tokens": 120,
-      "litellm_request_id": "chatcmpl-e987a212-12de-404f-bf30-db1db933c1bc",
+      "embrouter_request_id": "chatcmpl-e987a212-12de-404f-bf30-db1db933c1bc",
       "error": null
     },
     {
@@ -513,7 +513,7 @@
       "model": "claude-haiku-4-5",
       "input_tokens": 605,
       "output_tokens": 120,
-      "litellm_request_id": "chatcmpl-e7cb41a6-6020-4cdc-9d8e-1516de91bc11",
+      "embrouter_request_id": "chatcmpl-e7cb41a6-6020-4cdc-9d8e-1516de91bc11",
       "error": null
     },
     {
@@ -529,7 +529,7 @@
       "model": "claude-haiku-4-5",
       "input_tokens": 605,
       "output_tokens": 120,
-      "litellm_request_id": "chatcmpl-e7cb41a6-6020-4cdc-9d8e-1516de91bc11",
+      "embrouter_request_id": "chatcmpl-e7cb41a6-6020-4cdc-9d8e-1516de91bc11",
       "error": null
     },
     {
@@ -545,7 +545,7 @@
       "model": "claude-haiku-4-5",
       "input_tokens": 676,
       "output_tokens": 120,
-      "litellm_request_id": "chatcmpl-5891711d-025f-4e93-b2f7-240a3f6b0c84",
+      "embrouter_request_id": "chatcmpl-5891711d-025f-4e93-b2f7-240a3f6b0c84",
       "error": null
     },
     {
@@ -561,7 +561,7 @@
       "model": "claude-haiku-4-5",
       "input_tokens": 605,
       "output_tokens": 120,
-      "litellm_request_id": "chatcmpl-613f5748-76a7-4b30-ac6a-4003a58f9490",
+      "embrouter_request_id": "chatcmpl-613f5748-76a7-4b30-ac6a-4003a58f9490",
       "error": null
     },
     {
@@ -577,7 +577,7 @@
       "model": "claude-haiku-4-5",
       "input_tokens": 605,
       "output_tokens": 120,
-      "litellm_request_id": "chatcmpl-613f5748-76a7-4b30-ac6a-4003a58f9490",
+      "embrouter_request_id": "chatcmpl-613f5748-76a7-4b30-ac6a-4003a58f9490",
       "error": null
     },
     {
@@ -593,7 +593,7 @@
       "model": "claude-haiku-4-5",
       "input_tokens": 605,
       "output_tokens": 70,
-      "litellm_request_id": "chatcmpl-bb6a3f5d-8947-4b51-8bb0-4c8997e05bc1",
+      "embrouter_request_id": "chatcmpl-bb6a3f5d-8947-4b51-8bb0-4c8997e05bc1",
       "error": null
     },
     {
@@ -609,7 +609,7 @@
       "model": "claude-haiku-4-5",
       "input_tokens": 605,
       "output_tokens": 120,
-      "litellm_request_id": "chatcmpl-96f92920-92c9-4848-bf5c-30633117837c",
+      "embrouter_request_id": "chatcmpl-96f92920-92c9-4848-bf5c-30633117837c",
       "error": null
     },
     {
@@ -625,7 +625,7 @@
       "model": "claude-haiku-4-5",
       "input_tokens": 604,
       "output_tokens": 120,
-      "litellm_request_id": "chatcmpl-efb08407-99c5-41e5-affc-e7d3f7298f41",
+      "embrouter_request_id": "chatcmpl-efb08407-99c5-41e5-affc-e7d3f7298f41",
       "error": null
     },
     {
@@ -641,7 +641,7 @@
       "model": "claude-haiku-4-5",
       "input_tokens": 604,
       "output_tokens": 120,
-      "litellm_request_id": "chatcmpl-ec0d2784-5f4c-4b9f-b88e-50e3ca221f41",
+      "embrouter_request_id": "chatcmpl-ec0d2784-5f4c-4b9f-b88e-50e3ca221f41",
       "error": null
     },
     {
@@ -657,7 +657,7 @@
       "model": "claude-haiku-4-5",
       "input_tokens": 605,
       "output_tokens": 120,
-      "litellm_request_id": "chatcmpl-e72cb04b-a5c7-4975-84de-cb4f9ea55573",
+      "embrouter_request_id": "chatcmpl-e72cb04b-a5c7-4975-84de-cb4f9ea55573",
       "error": null
     },
     {
@@ -673,7 +673,7 @@
       "model": "claude-haiku-4-5",
       "input_tokens": 606,
       "output_tokens": 120,
-      "litellm_request_id": "chatcmpl-0e56e75e-8d08-4423-a7e5-003a81ef6046",
+      "embrouter_request_id": "chatcmpl-0e56e75e-8d08-4423-a7e5-003a81ef6046",
       "error": null
     },
     {
@@ -689,7 +689,7 @@
       "model": "claude-haiku-4-5",
       "input_tokens": 606,
       "output_tokens": 120,
-      "litellm_request_id": "chatcmpl-0e56e75e-8d08-4423-a7e5-003a81ef6046",
+      "embrouter_request_id": "chatcmpl-0e56e75e-8d08-4423-a7e5-003a81ef6046",
       "error": null
     },
     {
@@ -705,7 +705,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -721,7 +721,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -737,7 +737,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -753,7 +753,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -769,7 +769,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -785,7 +785,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -801,7 +801,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -817,7 +817,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -833,7 +833,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -849,7 +849,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -865,7 +865,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -881,7 +881,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -897,7 +897,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -913,7 +913,7 @@
       "model": "claude-haiku-4-5",
       "input_tokens": 831,
       "output_tokens": 86,
-      "litellm_request_id": "chatcmpl-95594677-f719-46bb-b5ac-4120df774a00",
+      "embrouter_request_id": "chatcmpl-95594677-f719-46bb-b5ac-4120df774a00",
       "error": null
     },
     {
@@ -929,7 +929,7 @@
       "model": "claude-haiku-4-5",
       "input_tokens": 831,
       "output_tokens": 86,
-      "litellm_request_id": "chatcmpl-95594677-f719-46bb-b5ac-4120df774a00",
+      "embrouter_request_id": "chatcmpl-95594677-f719-46bb-b5ac-4120df774a00",
       "error": null
     },
     {
@@ -945,7 +945,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -961,7 +961,7 @@
       "model": "claude-haiku-4-5",
       "input_tokens": 833,
       "output_tokens": 84,
-      "litellm_request_id": "chatcmpl-24edbb47-a7f5-403c-80c0-88ec1eac0dd7",
+      "embrouter_request_id": "chatcmpl-24edbb47-a7f5-403c-80c0-88ec1eac0dd7",
       "error": null
     },
     {
@@ -977,7 +977,7 @@
       "model": "claude-haiku-4-5",
       "input_tokens": 833,
       "output_tokens": 84,
-      "litellm_request_id": "chatcmpl-24edbb47-a7f5-403c-80c0-88ec1eac0dd7",
+      "embrouter_request_id": "chatcmpl-24edbb47-a7f5-403c-80c0-88ec1eac0dd7",
       "error": null
     },
     {
@@ -993,7 +993,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1009,7 +1009,7 @@
       "model": "claude-haiku-4-5",
       "input_tokens": 835,
       "output_tokens": 82,
-      "litellm_request_id": "chatcmpl-c4972857-6f99-4aba-9840-9a8eb8919371",
+      "embrouter_request_id": "chatcmpl-c4972857-6f99-4aba-9840-9a8eb8919371",
       "error": null
     },
     {
@@ -1025,7 +1025,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1041,7 +1041,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1057,7 +1057,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1073,7 +1073,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1089,7 +1089,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1105,7 +1105,7 @@
       "model": "claude-haiku-4-5",
       "input_tokens": 941,
       "output_tokens": 49,
-      "litellm_request_id": "chatcmpl-0990e3ad-175e-46df-bf19-68177c9e426a",
+      "embrouter_request_id": "chatcmpl-0990e3ad-175e-46df-bf19-68177c9e426a",
       "error": null
     },
     {
@@ -1121,7 +1121,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1137,7 +1137,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1153,7 +1153,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1169,7 +1169,7 @@
       "model": "claude-haiku-4-5",
       "input_tokens": 942,
       "output_tokens": 48,
-      "litellm_request_id": "chatcmpl-86ca494e-bc4a-4c54-ad78-b90745af11b0",
+      "embrouter_request_id": "chatcmpl-86ca494e-bc4a-4c54-ad78-b90745af11b0",
       "error": null
     },
     {
@@ -1185,7 +1185,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1201,7 +1201,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1217,7 +1217,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1233,7 +1233,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1249,7 +1249,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1265,7 +1265,7 @@
       "model": "claude-haiku-4-5",
       "input_tokens": 830,
       "output_tokens": 84,
-      "litellm_request_id": "chatcmpl-e2f2e18d-7b17-4c6f-8bd0-5acffbf7e3ef",
+      "embrouter_request_id": "chatcmpl-e2f2e18d-7b17-4c6f-8bd0-5acffbf7e3ef",
       "error": null
     },
     {
@@ -1281,7 +1281,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1297,7 +1297,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1313,7 +1313,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1329,7 +1329,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1345,7 +1345,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1361,7 +1361,7 @@
       "model": "claude-haiku-4-5",
       "input_tokens": 839,
       "output_tokens": 85,
-      "litellm_request_id": "chatcmpl-1c04a496-4e08-4531-8ae1-3751e17e97bf",
+      "embrouter_request_id": "chatcmpl-1c04a496-4e08-4531-8ae1-3751e17e97bf",
       "error": null
     },
     {
@@ -1377,7 +1377,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1393,7 +1393,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1409,7 +1409,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1425,7 +1425,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1441,7 +1441,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1457,7 +1457,7 @@
       "model": "claude-haiku-4-5",
       "input_tokens": 839,
       "output_tokens": 87,
-      "litellm_request_id": "chatcmpl-d78f00eb-0f7e-4b29-a1c1-91a709f357de",
+      "embrouter_request_id": "chatcmpl-d78f00eb-0f7e-4b29-a1c1-91a709f357de",
       "error": null
     },
     {
@@ -1473,7 +1473,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1489,7 +1489,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1505,7 +1505,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1521,7 +1521,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1537,7 +1537,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1553,7 +1553,7 @@
       "model": "claude-haiku-4-5",
       "input_tokens": 828,
       "output_tokens": 83,
-      "litellm_request_id": "chatcmpl-563f2658-f904-44af-875d-9a9643ea50ee",
+      "embrouter_request_id": "chatcmpl-563f2658-f904-44af-875d-9a9643ea50ee",
       "error": null
     },
     {
@@ -1569,7 +1569,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1585,7 +1585,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1601,7 +1601,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1617,7 +1617,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1633,7 +1633,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1649,7 +1649,7 @@
       "model": "claude-haiku-4-5",
       "input_tokens": 914,
       "output_tokens": 89,
-      "litellm_request_id": "chatcmpl-46e407e8-e0c7-45ad-96bc-8f61270a6640",
+      "embrouter_request_id": "chatcmpl-46e407e8-e0c7-45ad-96bc-8f61270a6640",
       "error": null
     },
     {
@@ -1665,7 +1665,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1681,7 +1681,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1697,7 +1697,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1713,7 +1713,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1729,7 +1729,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1745,7 +1745,7 @@
       "model": "claude-haiku-4-5",
       "input_tokens": 827,
       "output_tokens": 79,
-      "litellm_request_id": "chatcmpl-b710911c-5c59-4010-a305-eaa1f2567f31",
+      "embrouter_request_id": "chatcmpl-b710911c-5c59-4010-a305-eaa1f2567f31",
       "error": null
     },
     {
@@ -1761,7 +1761,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1777,7 +1777,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1793,7 +1793,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1809,7 +1809,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1825,7 +1825,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1841,7 +1841,7 @@
       "model": "claude-haiku-4-5",
       "input_tokens": 832,
       "output_tokens": 80,
-      "litellm_request_id": "chatcmpl-afe091b4-18b5-49c6-8092-4160d185abf2",
+      "embrouter_request_id": "chatcmpl-afe091b4-18b5-49c6-8092-4160d185abf2",
       "error": null
     },
     {
@@ -1857,7 +1857,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1873,7 +1873,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1889,7 +1889,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1905,7 +1905,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1921,7 +1921,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1937,7 +1937,7 @@
       "model": "claude-haiku-4-5",
       "input_tokens": 912,
       "output_tokens": 86,
-      "litellm_request_id": "chatcmpl-44ba88cc-2a57-4159-baf0-4ff9963f0c5c",
+      "embrouter_request_id": "chatcmpl-44ba88cc-2a57-4159-baf0-4ff9963f0c5c",
       "error": null
     },
     {
@@ -1953,7 +1953,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1969,7 +1969,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -1985,7 +1985,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -2001,7 +2001,7 @@
       "model": "claude-haiku-4-5",
       "input_tokens": 934,
       "output_tokens": 48,
-      "litellm_request_id": "chatcmpl-7a5abd7c-f49a-4f64-8d45-b2c839c1cbde",
+      "embrouter_request_id": "chatcmpl-7a5abd7c-f49a-4f64-8d45-b2c839c1cbde",
       "error": null
     },
     {
@@ -2017,7 +2017,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -2033,7 +2033,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -2049,7 +2049,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -2065,7 +2065,7 @@
       "model": "claude-haiku-4-5",
       "input_tokens": 929,
       "output_tokens": 46,
-      "litellm_request_id": "chatcmpl-5c9e8dbb-ecc2-429f-a9c0-a32a6dd21561",
+      "embrouter_request_id": "chatcmpl-5c9e8dbb-ecc2-429f-a9c0-a32a6dd21561",
       "error": null
     },
     {
@@ -2081,7 +2081,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -2097,7 +2097,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -2113,7 +2113,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -2129,7 +2129,7 @@
       "model": "claude-haiku-4-5",
       "input_tokens": 950,
       "output_tokens": 66,
-      "litellm_request_id": "chatcmpl-4c7b01ab-f44c-4b29-9a90-b3501daee307",
+      "embrouter_request_id": "chatcmpl-4c7b01ab-f44c-4b29-9a90-b3501daee307",
       "error": null
     },
     {
@@ -2145,7 +2145,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -2161,7 +2161,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -2177,7 +2177,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -2193,7 +2193,7 @@
       "model": "claude-haiku-4-5",
       "input_tokens": 936,
       "output_tokens": 47,
-      "litellm_request_id": "chatcmpl-c7e73498-e07d-4ee7-804a-8c8fcb518108",
+      "embrouter_request_id": "chatcmpl-c7e73498-e07d-4ee7-804a-8c8fcb518108",
       "error": null
     },
     {
@@ -2209,7 +2209,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -2225,7 +2225,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -2241,7 +2241,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -2257,7 +2257,7 @@
       "model": "claude-haiku-4-5",
       "input_tokens": 953,
       "output_tokens": 50,
-      "litellm_request_id": "chatcmpl-079b3671-6e0e-4296-abf7-e9e3e1c27fcf",
+      "embrouter_request_id": "chatcmpl-079b3671-6e0e-4296-abf7-e9e3e1c27fcf",
       "error": null
     },
     {
@@ -2273,7 +2273,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -2289,7 +2289,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -2305,7 +2305,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -2321,7 +2321,7 @@
       "model": "claude-haiku-4-5",
       "input_tokens": 1032,
       "output_tokens": 102,
-      "litellm_request_id": "chatcmpl-a6a337fb-ed87-4945-8d38-c2618dbf7bb5",
+      "embrouter_request_id": "chatcmpl-a6a337fb-ed87-4945-8d38-c2618dbf7bb5",
       "error": null
     },
     {
@@ -2337,7 +2337,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -2353,7 +2353,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -2369,7 +2369,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -2385,7 +2385,7 @@
       "model": "claude-haiku-4-5",
       "input_tokens": 938,
       "output_tokens": 23,
-      "litellm_request_id": "chatcmpl-c4edc774-323f-45e1-bc3a-8d0eb97d16f0",
+      "embrouter_request_id": "chatcmpl-c4edc774-323f-45e1-bc3a-8d0eb97d16f0",
       "error": null
     },
     {
@@ -2401,7 +2401,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -2417,7 +2417,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -2433,7 +2433,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -2449,7 +2449,7 @@
       "model": "claude-haiku-4-5",
       "input_tokens": 1024,
       "output_tokens": 90,
-      "litellm_request_id": "chatcmpl-35af2db3-6d09-48c8-8833-6343af4ba2fd",
+      "embrouter_request_id": "chatcmpl-35af2db3-6d09-48c8-8833-6343af4ba2fd",
       "error": null
     },
     {
@@ -2465,7 +2465,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -2481,7 +2481,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -2497,7 +2497,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -2513,7 +2513,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -2529,7 +2529,7 @@
       "model": "claude-haiku-4-5",
       "input_tokens": 627,
       "output_tokens": 60,
-      "litellm_request_id": "chatcmpl-edbca34e-9078-48c7-abd7-8a9f4582870f",
+      "embrouter_request_id": "chatcmpl-edbca34e-9078-48c7-abd7-8a9f4582870f",
       "error": null
     },
     {
@@ -2545,7 +2545,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -2561,7 +2561,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -2577,7 +2577,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -2593,7 +2593,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -2609,7 +2609,7 @@
       "model": "claude-haiku-4-5",
       "input_tokens": 615,
       "output_tokens": 60,
-      "litellm_request_id": "chatcmpl-855924db-53e0-4e18-8f06-8d2cb0b58007",
+      "embrouter_request_id": "chatcmpl-855924db-53e0-4e18-8f06-8d2cb0b58007",
       "error": null
     },
     {
@@ -2625,7 +2625,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -2641,7 +2641,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -2657,7 +2657,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -2673,7 +2673,7 @@
       "model": "claude-haiku-4-5",
       "input_tokens": 707,
       "output_tokens": 60,
-      "litellm_request_id": "chatcmpl-657fe258-62c2-44cd-b2fc-ac49db6fabe3",
+      "embrouter_request_id": "chatcmpl-657fe258-62c2-44cd-b2fc-ac49db6fabe3",
       "error": null
     },
     {
@@ -2689,7 +2689,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -2705,7 +2705,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -2721,7 +2721,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -2737,7 +2737,7 @@
       "model": "claude-haiku-4-5",
       "input_tokens": 695,
       "output_tokens": 60,
-      "litellm_request_id": "chatcmpl-3c2957fe-732d-4f5a-ba69-070abdcc38c0",
+      "embrouter_request_id": "chatcmpl-3c2957fe-732d-4f5a-ba69-070abdcc38c0",
       "error": null
     },
     {
@@ -2753,7 +2753,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -2769,7 +2769,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -2785,7 +2785,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -2801,7 +2801,7 @@
       "model": "claude-haiku-4-5",
       "input_tokens": 795,
       "output_tokens": 60,
-      "litellm_request_id": "chatcmpl-5911e772-31c2-4b17-b468-6a227c48ee6a",
+      "embrouter_request_id": "chatcmpl-5911e772-31c2-4b17-b468-6a227c48ee6a",
       "error": null
     },
     {
@@ -2817,7 +2817,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -2833,7 +2833,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -2849,7 +2849,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -2865,7 +2865,7 @@
       "model": "claude-haiku-4-5",
       "input_tokens": 783,
       "output_tokens": 60,
-      "litellm_request_id": "chatcmpl-e0aa7109-6024-4604-8a3b-48158cf4129f",
+      "embrouter_request_id": "chatcmpl-e0aa7109-6024-4604-8a3b-48158cf4129f",
       "error": null
     },
     {
@@ -2881,7 +2881,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -2897,7 +2897,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -2913,7 +2913,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -2929,7 +2929,7 @@
       "model": "claude-haiku-4-5",
       "input_tokens": 883,
       "output_tokens": 60,
-      "litellm_request_id": "chatcmpl-8740212c-796e-4bc0-b334-2f2be82819f5",
+      "embrouter_request_id": "chatcmpl-8740212c-796e-4bc0-b334-2f2be82819f5",
       "error": null
     },
     {
@@ -2945,7 +2945,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -2961,7 +2961,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -2977,7 +2977,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -2993,7 +2993,7 @@
       "model": "claude-haiku-4-5",
       "input_tokens": 883,
       "output_tokens": 60,
-      "litellm_request_id": "chatcmpl-ee1c82af-b979-47c0-a2fb-94e4f9b3b6ea",
+      "embrouter_request_id": "chatcmpl-ee1c82af-b979-47c0-a2fb-94e4f9b3b6ea",
       "error": null
     },
     {
@@ -3009,7 +3009,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -3025,7 +3025,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -3041,7 +3041,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -3057,7 +3057,7 @@
       "model": "claude-haiku-4-5",
       "input_tokens": 974,
       "output_tokens": 60,
-      "litellm_request_id": "chatcmpl-1ef874c3-55cd-4c60-8fc1-c1bccd2a4e88",
+      "embrouter_request_id": "chatcmpl-1ef874c3-55cd-4c60-8fc1-c1bccd2a4e88",
       "error": null
     },
     {
@@ -3073,7 +3073,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -3089,7 +3089,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -3105,7 +3105,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -3121,7 +3121,7 @@
       "model": "claude-haiku-4-5",
       "input_tokens": 969,
       "output_tokens": 60,
-      "litellm_request_id": "chatcmpl-1585a7bc-85cf-4948-ace7-8685141196e0",
+      "embrouter_request_id": "chatcmpl-1585a7bc-85cf-4948-ace7-8685141196e0",
       "error": null
     },
     {
@@ -3137,7 +3137,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -3153,7 +3153,7 @@
       "model": "claude-haiku-4-5",
       "input_tokens": 1206,
       "output_tokens": 49,
-      "litellm_request_id": "chatcmpl-733eeb0e-1466-486e-b7a8-c659a3e13fd4",
+      "embrouter_request_id": "chatcmpl-733eeb0e-1466-486e-b7a8-c659a3e13fd4",
       "error": null
     },
     {
@@ -3169,7 +3169,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -3185,7 +3185,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -3201,7 +3201,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -3217,7 +3217,7 @@
       "model": "claude-haiku-4-5",
       "input_tokens": 1060,
       "output_tokens": 60,
-      "litellm_request_id": "chatcmpl-1bc15649-313e-487d-bf02-ea93f63cc126",
+      "embrouter_request_id": "chatcmpl-1bc15649-313e-487d-bf02-ea93f63cc126",
       "error": null
     },
     {
@@ -3233,7 +3233,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -3249,7 +3249,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -3265,7 +3265,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -3281,7 +3281,7 @@
       "model": "claude-haiku-4-5",
       "input_tokens": 1149,
       "output_tokens": 60,
-      "litellm_request_id": "chatcmpl-ada1126b-e136-4cb4-92bd-b6d1419fdf09",
+      "embrouter_request_id": "chatcmpl-ada1126b-e136-4cb4-92bd-b6d1419fdf09",
       "error": null
     },
     {
@@ -3297,7 +3297,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -3313,7 +3313,7 @@
       "model": "claude-haiku-4-5",
       "input_tokens": 1186,
       "output_tokens": 48,
-      "litellm_request_id": "chatcmpl-dc15e33e-0526-4017-8359-1ed0a0b5bfb7",
+      "embrouter_request_id": "chatcmpl-dc15e33e-0526-4017-8359-1ed0a0b5bfb7",
       "error": null
     },
     {
@@ -3329,7 +3329,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -3345,7 +3345,7 @@
       "model": null,
       "input_tokens": 0,
       "output_tokens": 0,
-      "litellm_request_id": null,
+      "embrouter_request_id": null,
       "error": null
     },
     {
@@ -3361,7 +3361,7 @@
       "model": "claude-sonnet-4-5",
       "input_tokens": 38,
       "output_tokens": 125,
-      "litellm_request_id": "chatcmpl-0f035e16-9296-469a-b925-d00aed5a1fed",
+      "embrouter_request_id": "chatcmpl-0f035e16-9296-469a-b925-d00aed5a1fed",
       "error": null
     }
   ]

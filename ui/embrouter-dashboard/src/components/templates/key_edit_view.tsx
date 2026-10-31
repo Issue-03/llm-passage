@@ -111,8 +111,8 @@ export function KeyEditView({
   const team = teams?.find((team) => team.team_id === keyData.team_id);
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [disabledCallbacks, setDisabledCallbacks] = useState<string[]>(
-    Array.isArray(keyData.metadata?.litellm_disabled_callbacks)
-      ? mapInternalToDisplayNames(keyData.metadata.litellm_disabled_callbacks)
+    Array.isArray(keyData.metadata?.embrouter_disabled_callbacks)
+      ? mapInternalToDisplayNames(keyData.metadata.embrouter_disabled_callbacks)
       : [],
   );
   const [selectedOrganizationId, setSelectedOrganizationId] = useState<string | null>(keyData.organization_id || null);
@@ -521,7 +521,7 @@ export function KeyEditView({
             name="throttle_on_budget_exceeded"
             label={labelWithHint(
               "Throttle on budget exceeded",
-              "When this key exceeds its max budget, throttle its TPM/RPM to the globally configured percentage instead of blocking access entirely. Requires budget_exceeded_throttle_percentage in litellm_settings and a TPM/RPM limit on the key.",
+              "When this key exceeds its max budget, throttle its TPM/RPM to the globally configured percentage instead of blocking access entirely. Requires budget_exceeded_throttle_percentage in embrouter_settings and a TPM/RPM limit on the key.",
             )}
           >
             {({ value, onChange, ref: _ref, ...field }) => (

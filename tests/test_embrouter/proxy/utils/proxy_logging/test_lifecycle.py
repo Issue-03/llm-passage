@@ -1,6 +1,6 @@
 """Pin ProxyLogging lifecycle: ``__init__``, ``startup_event``,
 ``update_values``, ``_add_proxy_hooks``, ``get_proxy_hook``, and
-``_init_litellm_callbacks``.
+``_init_embrouter_callbacks``.
 
 Also covers ``update_request_status`` and ``_convert_user_api_key_auth_to_dict``
 because they are direct dependents on the lifecycle state.
@@ -14,9 +14,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-import litellm
-from litellm.proxy.common_utils.user_api_key_cache import UserApiKeyCache
-from litellm.proxy.utils import (
+import embrouter
+from embrouter.proxy.common_utils.user_api_key_cache import UserApiKeyCache
+from embrouter.proxy.utils import (
     ProxyLogging,
 )
 
@@ -114,13 +114,13 @@ def test_update_values_invalid_type_for_alerting_raises(proxy_logging):
 def test_startup_event_initializes_slack_and_callbacks(proxy_logging):
     proxy_logging.slack_alerting_instance = MagicMock()
     proxy_logging.slack_alerting_instance.alert_types = []
-    proxy_logging._init_litellm_callbacks = MagicMock()
+    proxy_logging._init_embrouter_callbacks = MagicMock()
     proxy_logging.update_values = MagicMock()
 
     proxy_logging.startup_event(llm_router=None, redis_usage_cache=None)
     snapshot = {
         "update_called": proxy_logging.update_values.called,
-        "init_called": proxy_logging._init_litellm_callbacks.called,
+        "init_called": proxy_logging._init_embrouter_callbacks.called,
         "slack_update_called": proxy_logging.slack_alerting_instance.update_values.called,
     }
     assert snapshot == {
@@ -137,7 +137,7 @@ async def test_startup_event_schedules_deprecation_check_before_its_alert_type_i
     proxy_logging.slack_alerting_instance = MagicMock()
     proxy_logging.slack_alerting_instance.alert_types = []
     proxy_logging.slack_alerting_instance.run_scheduled_deprecation_check = AsyncMock()
-    proxy_logging._init_litellm_callbacks = MagicMock()
+    proxy_logging._init_embrouter_callbacks = MagicMock()
 
     proxy_logging.startup_event(llm_router=None, redis_usage_cache=None)
 
@@ -153,7 +153,7 @@ async def test_update_values_schedules_deprecation_check_when_alerting_arrives_l
     proxy_logging.slack_alerting_instance = MagicMock()
     proxy_logging.slack_alerting_instance.alert_types = []
     proxy_logging.slack_alerting_instance.run_scheduled_deprecation_check = AsyncMock()
-    proxy_logging._init_litellm_callbacks = MagicMock()
+    proxy_logging._init_embrouter_callbacks = MagicMock()
 
     proxy_logging.startup_event(llm_router=None, redis_usage_cache=None)
     assert proxy_logging.deprecation_check_started is False
@@ -169,7 +169,7 @@ async def test_update_values_schedules_deprecation_check_when_alerting_arrives_l
 def test_startup_event_propagates_init_callbacks_failure_raises(proxy_logging):
     proxy_logging.slack_alerting_instance = MagicMock()
     proxy_logging.slack_alerting_instance.alert_types = []
-    proxy_logging._init_litellm_callbacks = MagicMock(side_effect=RuntimeError("boom"))
+    proxy_logging._init_embrouter_callbacks = MagicMock(side_effect=RuntimeError("boom"))
 
     with pytest.raises(RuntimeError, match="boom"):
         proxy_logging.startup_event(llm_router=None, redis_usage_cache=None)
@@ -183,7 +183,7 @@ async def test_startup_event_hands_the_daily_report_this_pods_lock_manager(proxy
     proxy_logging.slack_alerting_instance = MagicMock()
     proxy_logging.slack_alerting_instance.alert_types = ["daily_reports"]
     proxy_logging.slack_alerting_instance._run_scheduled_daily_report = AsyncMock()
-    proxy_logging._init_litellm_callbacks = MagicMock()
+    proxy_logging._init_embrouter_callbacks = MagicMock()
     proxy_logging.update_values = MagicMock()
     llm_router = MagicMock()
 
@@ -201,7 +201,7 @@ async def test_startup_event_skips_the_daily_report_when_it_is_not_an_alert_type
     proxy_logging.slack_alerting_instance = MagicMock()
     proxy_logging.slack_alerting_instance.alert_types = []
     proxy_logging.slack_alerting_instance._run_scheduled_daily_report = AsyncMock()
-    proxy_logging._init_litellm_callbacks = MagicMock()
+    proxy_logging._init_embrouter_callbacks = MagicMock()
     proxy_logging.update_values = MagicMock()
 
     proxy_logging.startup_event(llm_router=None, redis_usage_cache=None)
@@ -223,7 +223,7 @@ def test_add_proxy_hooks_registers_callbacks(proxy_logging, monkeypatch):
     hook_keys = ["cache_control_check", "max_iterations_limiter"]
     registered: List[Any] = []
 
-    from litellm.proxy import utils as utils_mod
+    from embrouter.proxy import utils as utils_mod
 
     def fake_get_proxy_hook(hook_name):
         class _Stub:
@@ -237,12 +237,12 @@ def test_add_proxy_hooks_registers_callbacks(proxy_logging, monkeypatch):
     monkeypatch.setattr(utils_mod, "PROXY_HOOKS", hook_keys)
     monkeypatch.setattr(utils_mod, "get_proxy_hook", fake_get_proxy_hook)
     monkeypatch.setattr(
-        litellm.logging_callback_manager,
-        "add_litellm_callback",
+        embrouter.logging_callback_manager,
+        "add_embrouter_callback",
         lambda cb: registered.append(cb),
     )
 
-    with patch("litellm.proxy.proxy_server.prisma_client", None):
+    with patch("embrouter.proxy.proxy_server.prisma_client", None):
         proxy_logging._add_proxy_hooks(llm_router=None)
 
     keys = list(proxy_logging.proxy_hook_mapping.keys())
@@ -283,17 +283,17 @@ def test_add_proxy_hooks_skips_prisma_requiring_hook_when_no_db(proxy_logging, m
     hook_classes = _stub_hook_classes()
     registered: List[Any] = []
 
-    from litellm.proxy import utils as utils_mod
+    from embrouter.proxy import utils as utils_mod
 
     monkeypatch.setattr(utils_mod, "PROXY_HOOKS", list(hook_classes.keys()))
     monkeypatch.setattr(utils_mod, "get_proxy_hook", hook_classes.__getitem__)
     monkeypatch.setattr(
-        litellm.logging_callback_manager,
-        "add_litellm_callback",
+        embrouter.logging_callback_manager,
+        "add_embrouter_callback",
         lambda cb: registered.append(cb),
     )
 
-    with patch("litellm.proxy.proxy_server.prisma_client", None):
+    with patch("embrouter.proxy.proxy_server.prisma_client", None):
         proxy_logging._add_proxy_hooks(llm_router=None)
 
     snapshot = {
@@ -315,17 +315,17 @@ def test_add_proxy_hooks_registers_prisma_requiring_hook_with_db(proxy_logging, 
     registered: List[Any] = []
     fake_prisma = MagicMock()
 
-    from litellm.proxy import utils as utils_mod
+    from embrouter.proxy import utils as utils_mod
 
     monkeypatch.setattr(utils_mod, "PROXY_HOOKS", list(hook_classes.keys()))
     monkeypatch.setattr(utils_mod, "get_proxy_hook", hook_classes.__getitem__)
     monkeypatch.setattr(
-        litellm.logging_callback_manager,
-        "add_litellm_callback",
+        embrouter.logging_callback_manager,
+        "add_embrouter_callback",
         lambda cb: registered.append(cb),
     )
 
-    with patch("litellm.proxy.proxy_server.prisma_client", fake_prisma):
+    with patch("embrouter.proxy.proxy_server.prisma_client", fake_prisma):
         proxy_logging._add_proxy_hooks(llm_router=None)
 
     snapshot = {
@@ -343,7 +343,7 @@ def test_add_proxy_hooks_registers_prisma_requiring_hook_with_db(proxy_logging, 
 
 
 def test_add_proxy_hooks_unknown_hook_raises(proxy_logging, monkeypatch):
-    from litellm.proxy import utils as utils_mod
+    from embrouter.proxy import utils as utils_mod
 
     monkeypatch.setattr(utils_mod, "PROXY_HOOKS", ["bogus_hook"])
 
@@ -397,29 +397,29 @@ def test_get_proxy_hook_non_string_key_raises(proxy_logging):
 
 
 # ---------------------------------------------------------------------------
-# _init_litellm_callbacks
+# _init_embrouter_callbacks
 # ---------------------------------------------------------------------------
 
 
-def test_init_litellm_callbacks_replaces_string_with_instance(proxy_logging, monkeypatch):
-    from litellm.proxy import utils as utils_mod
+def test_init_embrouter_callbacks_replaces_string_with_instance(proxy_logging, monkeypatch):
+    from embrouter.proxy import utils as utils_mod
 
-    sentinel_instance = MagicMock(spec=litellm.integrations.custom_logger.CustomLogger)
-    sentinel_instance.__class__ = litellm.integrations.custom_logger.CustomLogger
+    sentinel_instance = MagicMock(spec=embrouter.integrations.custom_logger.CustomLogger)
+    sentinel_instance.__class__ = embrouter.integrations.custom_logger.CustomLogger
 
-    monkeypatch.setattr(litellm, "callbacks", ["some-string-logger"])
+    monkeypatch.setattr(embrouter, "callbacks", ["some-string-logger"])
     monkeypatch.setattr(
-        litellm.litellm_core_utils.litellm_logging,
+        embrouter.embrouter_core_utils.embrouter_logging,
         "_init_custom_logger_compatible_class",
         lambda *a, **kw: sentinel_instance,
     )
 
     monkeypatch.setattr(utils_mod, "PROXY_HOOKS", [])
-    proxy_logging._init_litellm_callbacks(llm_router=None)
+    proxy_logging._init_embrouter_callbacks(llm_router=None)
     snapshot = {
-        "replaced_first_item": litellm.callbacks[0] is sentinel_instance,
-        "callbacks_grew_with_service": len(litellm.callbacks) >= 2,
-        "service_logging_appended": any("ServiceLogging" in type(c).__name__ for c in litellm.callbacks),
+        "replaced_first_item": embrouter.callbacks[0] is sentinel_instance,
+        "callbacks_grew_with_service": len(embrouter.callbacks) >= 2,
+        "service_logging_appended": any("ServiceLogging" in type(c).__name__ for c in embrouter.callbacks),
     }
     assert snapshot == {
         "replaced_first_item": True,
@@ -428,33 +428,33 @@ def test_init_litellm_callbacks_replaces_string_with_instance(proxy_logging, mon
     }
 
 
-def test_init_litellm_callbacks_string_resolution_failure_keeps_string(proxy_logging, monkeypatch):
-    from litellm.proxy import utils as utils_mod
+def test_init_embrouter_callbacks_string_resolution_failure_keeps_string(proxy_logging, monkeypatch):
+    from embrouter.proxy import utils as utils_mod
 
-    monkeypatch.setattr(litellm, "callbacks", ["unknown-logger"])
+    monkeypatch.setattr(embrouter, "callbacks", ["unknown-logger"])
     monkeypatch.setattr(
-        litellm.litellm_core_utils.litellm_logging,
+        embrouter.embrouter_core_utils.embrouter_logging,
         "_init_custom_logger_compatible_class",
         lambda *a, **kw: None,
     )
     monkeypatch.setattr(utils_mod, "PROXY_HOOKS", [])
-    proxy_logging._init_litellm_callbacks(llm_router=None)
+    proxy_logging._init_embrouter_callbacks(llm_router=None)
     # Resolver returned None — original string remains in place at idx 0.
-    assert litellm.callbacks[0] == "unknown-logger"
+    assert embrouter.callbacks[0] == "unknown-logger"
 
 
-def test_init_litellm_callbacks_propagates_resolver_error_raises(proxy_logging, monkeypatch):
-    from litellm.proxy import utils as utils_mod
+def test_init_embrouter_callbacks_propagates_resolver_error_raises(proxy_logging, monkeypatch):
+    from embrouter.proxy import utils as utils_mod
 
-    monkeypatch.setattr(litellm, "callbacks", ["raises-on-init"])
+    monkeypatch.setattr(embrouter, "callbacks", ["raises-on-init"])
     monkeypatch.setattr(
-        litellm.litellm_core_utils.litellm_logging,
+        embrouter.embrouter_core_utils.embrouter_logging,
         "_init_custom_logger_compatible_class",
         MagicMock(side_effect=RuntimeError("bad init")),
     )
     monkeypatch.setattr(utils_mod, "PROXY_HOOKS", [])
     with pytest.raises(RuntimeError):
-        proxy_logging._init_litellm_callbacks(llm_router=None)
+        proxy_logging._init_embrouter_callbacks(llm_router=None)
 
 
 # ---------------------------------------------------------------------------
@@ -472,7 +472,7 @@ async def test_update_request_status_when_alerting_set_writes_cache(proxy_loggin
         captured.update(kwargs)
 
     proxy_logging.internal_usage_cache.async_set_cache = fake_set_cache  # type: ignore[assignment]
-    await proxy_logging.update_request_status(litellm_call_id="call-1", status="success")
+    await proxy_logging.update_request_status(embrouter_call_id="call-1", status="success")
     snapshot = {
         "key": captured["key"],
         "value": captured["value"],
@@ -491,7 +491,7 @@ async def test_update_request_status_when_alerting_set_writes_cache(proxy_loggin
 async def test_update_request_status_no_alerting_skips_cache(proxy_logging):
     proxy_logging.alerting = None
     proxy_logging.internal_usage_cache.async_set_cache = AsyncMock()
-    await proxy_logging.update_request_status(litellm_call_id="call-1", status="success")
+    await proxy_logging.update_request_status(embrouter_call_id="call-1", status="success")
     proxy_logging.internal_usage_cache.async_set_cache.assert_not_called()
 
 
@@ -500,7 +500,7 @@ async def test_update_request_status_cache_error_raises(proxy_logging):
     proxy_logging.alerting = ["slack"]
     proxy_logging.internal_usage_cache.async_set_cache = AsyncMock(side_effect=ConnectionError("redis"))
     with pytest.raises(ConnectionError):
-        await proxy_logging.update_request_status(litellm_call_id="x", status="fail")
+        await proxy_logging.update_request_status(embrouter_call_id="x", status="fail")
 
 
 # ---------------------------------------------------------------------------

@@ -15,8 +15,8 @@ from google.cloud.speech_v2.types import (
 )
 from websockets.exceptions import ConnectionClosedError, ConnectionClosedOK
 
-from litellm.llms.vertex_ai.audio_transcription.realtime_backend import REQUEST_QUEUE_SIZE, SpeechStreamingBackend
-from litellm.llms.vertex_ai.audio_transcription.realtime_transformation import SpeechStreamingTarget
+from embrouter.llms.vertex_ai.audio_transcription.realtime_backend import REQUEST_QUEUE_SIZE, SpeechStreamingBackend
+from embrouter.llms.vertex_ai.audio_transcription.realtime_transformation import SpeechStreamingTarget
 
 
 async def _static_token() -> str:

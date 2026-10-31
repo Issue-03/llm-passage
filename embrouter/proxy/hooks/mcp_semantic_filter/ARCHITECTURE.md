@@ -72,15 +72,15 @@ The filter only runs when:
 
 ## Integration with semantic-router
 
-Reuses existing LiteLLM infrastructure:
+Reuses existing EmbRouter infrastructure:
 - `semantic-router` - Already an optional dependency
-- `LiteLLMRouterEncoder` - Wraps `Router.aembedding()` for embeddings
+- `EmbRouterRouterEncoder` - Wraps `Router.aembedding()` for embeddings
 - `SemanticRouter` - Handles similarity calculation and top-K selection
 
 ## Configuration
 
 ```yaml
-litellm_settings:
+embrouter_settings:
   mcp_semantic_tool_filter:
     enabled: true
     embedding_model: "openai/text-embedding-3-small"

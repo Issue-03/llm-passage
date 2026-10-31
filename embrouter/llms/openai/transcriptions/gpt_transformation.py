@@ -1,10 +1,10 @@
 from typing import Final
 
-from litellm.llms.base_llm.audio_transcription.transformation import (
+from embrouter.llms.base_llm.audio_transcription.transformation import (
     AudioTranscriptionRequestData,
 )
-from litellm.types.llms.openai import OpenAIAudioTranscriptionOptionalParams
-from litellm.types.utils import FileTypes
+from embrouter.types.llms.openai import OpenAIAudioTranscriptionOptionalParams
+from embrouter.types.utils import FileTypes
 
 from .whisper_transformation import OpenAIWhisperAudioTranscriptionConfig
 
@@ -27,7 +27,7 @@ class OpenAIGPTAudioTranscriptionConfig(OpenAIWhisperAudioTranscriptionConfig):
         model: str,
         audio_file: FileTypes,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> AudioTranscriptionRequestData:
         """
         Transform the audio transcription request

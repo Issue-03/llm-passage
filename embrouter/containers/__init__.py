@@ -1,4 +1,4 @@
-"""Container management functions for LiteLLM."""
+"""Container management functions for EmbRouter."""
 
 # Auto-generated container file functions from endpoints.json
 from .endpoint_factory import (

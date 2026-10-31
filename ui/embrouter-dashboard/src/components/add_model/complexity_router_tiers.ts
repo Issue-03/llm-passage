@@ -39,16 +39,16 @@ export const classifierEffortOptionsForModels = (
 const asRecord = (raw: unknown): Record<string, unknown> | undefined =>
   typeof raw === "object" && raw !== null && !Array.isArray(raw) ? (raw as Record<string, unknown>) : undefined;
 
-const asTierEntryObject = (entry: unknown): { model_name: string; litellm_params: TierModelParams } | undefined => {
+const asTierEntryObject = (entry: unknown): { model_name: string; embrouter_params: TierModelParams } | undefined => {
   const record = asRecord(entry);
   if (record === undefined || typeof record.model_name !== "string" || !record.model_name) return undefined;
-  return { model_name: record.model_name, litellm_params: asRecord(record.litellm_params) ?? {} };
+  return { model_name: record.model_name, embrouter_params: asRecord(record.embrouter_params) ?? {} };
 };
 
 /**
  * A complexity tier maps to `str | object | list[str | object]` on the backend
- * (litellm/router_strategy/complexity_router/config.py: string/object = pin; list = random pick;
- * an object is `{model_name, litellm_params}`), and the router widens a bare value to a list.
+ * (embrouter/router_strategy/complexity_router/config.py: string/object = pin; list = random pick;
+ * an object is `{model_name, embrouter_params}`), and the router widens a bare value to a list.
  *
  * Every UI reader of a STORED complexity_router_config must widen the same way, so this is the
  * single owner of that rule. Readers of in-memory ComplexityTiers state are already string[]
@@ -66,9 +66,9 @@ export const normalizeTierModels = (value: unknown): string[] => {
 const tierEntriesWithParams = (value: unknown): [string, TierModelParams][] =>
   (Array.isArray(value) ? value : [value])
     .map(asTierEntryObject)
-    .filter((entry): entry is { model_name: string; litellm_params: TierModelParams } => entry !== undefined)
-    .filter((entry) => Object.keys(entry.litellm_params).length > 0)
-    .map((entry) => [entry.model_name, entry.litellm_params]);
+    .filter((entry): entry is { model_name: string; embrouter_params: TierModelParams } => entry !== undefined)
+    .filter((entry) => Object.keys(entry.embrouter_params).length > 0)
+    .map((entry) => [entry.model_name, entry.embrouter_params]);
 
 /**
  * Params can be stored two ways: inline object entries in `tiers`, or the sibling
@@ -100,14 +100,14 @@ export const hydrateTierModelParams = (
 export const serializeTierModelConfigs = (
   tiers: Record<string, string[]>,
   tierModelParams: TierModelParamsByTier | undefined,
-): Record<string, { model_name: string; litellm_params: TierModelParams }[]> | undefined => {
+): Record<string, { model_name: string; embrouter_params: TierModelParams }[]> | undefined => {
   if (tierModelParams === undefined) return undefined;
   const serialized = Object.entries(tierModelParams)
     .map(([tier, byModel]) => {
       const selected = tier in tiers ? new Set(tiers[tier]) : undefined;
       const entries = Object.entries(byModel)
         .filter(([model, params]) => (selected === undefined || selected.has(model)) && Object.keys(params).length > 0)
-        .map(([model_name, litellm_params]) => ({ model_name, litellm_params }));
+        .map(([model_name, embrouter_params]) => ({ model_name, embrouter_params }));
       return [tier, entries] as const;
     })
     .filter(([, entries]) => entries.length > 0);

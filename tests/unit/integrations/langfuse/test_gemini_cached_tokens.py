@@ -4,7 +4,7 @@ Test for Langfuse integration with Gemini cached_tokens bug
 """
 
 import pytest
-from litellm.types.utils import PromptTokensDetailsWrapper, Usage
+from embrouter.types.utils import PromptTokensDetailsWrapper, Usage
 
 
 def test_cached_tokens_extraction():

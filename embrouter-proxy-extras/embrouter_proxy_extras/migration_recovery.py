@@ -6,9 +6,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Final
 from uuid import uuid4
 
-from litellm_proxy_extras import prisma_toolchain
-from litellm_proxy_extras._logging import logger
-from litellm_proxy_extras.migration_lock import MigrationCoordinator
+from embrouter_proxy_extras import prisma_toolchain
+from embrouter_proxy_extras._logging import logger
+from embrouter_proxy_extras.migration_lock import MigrationCoordinator
 
 if TYPE_CHECKING:
     import psycopg

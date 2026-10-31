@@ -9,18 +9,18 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi import HTTPException
 
-from litellm.proxy.hooks.responses_id_security import (
+from embrouter.proxy.hooks.responses_id_security import (
     ResponsesIDSecurity,
     _is_responses_api_create_route,
 )
-from litellm.types.llms.openai import (
+from embrouter.types.llms.openai import (
     GenericEvent,
     ResponseCompletedEvent,
     ResponseCreatedEvent,
     ResponsesAPIResponse,
     ResponsesAPIStreamEvents,
 )
-from litellm.types.utils import SpecialEnums
+from embrouter.types.utils import SpecialEnums
 
 
 @pytest.fixture
@@ -52,7 +52,7 @@ class TestIsEncryptedResponseId:
     def test_is_encrypted_response_id_valid(self, responses_id_security):
         """Test that a properly encrypted response ID is identified correctly"""
         # Patch at the module level where it's imported
-        import litellm.proxy.hooks.responses_id_security as responses_module
+        import embrouter.proxy.hooks.responses_id_security as responses_module
 
         with patch.object(responses_module, "decrypt_value_helper") as mock_decrypt:
             mock_decrypt.return_value = f"{SpecialEnums.LITELM_MANAGED_FILE_ID_PREFIX.value}response_id:resp_123;user_id:user-456"
@@ -67,7 +67,7 @@ class TestIsEncryptedResponseId:
     def test_is_encrypted_response_id_invalid(self, responses_id_security):
         """Test that an unencrypted response ID returns False"""
         # Patch at the module level where it's imported
-        import litellm.proxy.hooks.responses_id_security as responses_module
+        import embrouter.proxy.hooks.responses_id_security as responses_module
 
         with patch.object(responses_module, "decrypt_value_helper") as mock_decrypt:
             mock_decrypt.return_value = None
@@ -83,7 +83,7 @@ class TestDecryptResponseId:
     def test_decrypt_response_id_valid(self, responses_id_security):
         """Test decrypting a valid encrypted response ID"""
         # Patch at the module level where it's imported
-        import litellm.proxy.hooks.responses_id_security as responses_module
+        import embrouter.proxy.hooks.responses_id_security as responses_module
 
         with patch.object(responses_module, "decrypt_value_helper") as mock_decrypt:
             mock_decrypt.return_value = f"{SpecialEnums.LITELM_MANAGED_FILE_ID_PREFIX.value}response_id:resp_original_123;user_id:user-456;team_id:team-789"
@@ -99,7 +99,7 @@ class TestDecryptResponseId:
     def test_decrypt_response_id_no_encryption(self, responses_id_security):
         """Test decrypting a non-encrypted response ID"""
         # Patch at the module level where it's imported
-        import litellm.proxy.hooks.responses_id_security as responses_module
+        import embrouter.proxy.hooks.responses_id_security as responses_module
 
         with patch.object(responses_module, "decrypt_value_helper") as mock_decrypt:
             mock_decrypt.return_value = None
@@ -132,7 +132,7 @@ class TestCheckUserAccessToResponseId:
         self, responses_id_security, mock_user_api_key_dict
     ):
         """Test that different user is denied access to response ID"""
-        with patch("litellm.proxy.proxy_server.general_settings", {}):
+        with patch("embrouter.proxy.proxy_server.general_settings", {}):
             with pytest.raises(HTTPException) as exc_info:
                 responses_id_security.check_user_access_to_response_id(
                     response_id_user_id="different-user-456",
@@ -147,7 +147,7 @@ class TestCheckUserAccessToResponseId:
         self, responses_id_security, mock_user_api_key_dict
     ):
         """Test that different team is denied access to response ID"""
-        with patch("litellm.proxy.proxy_server.general_settings", {}):
+        with patch("embrouter.proxy.proxy_server.general_settings", {}):
             with pytest.raises(HTTPException) as exc_info:
                 responses_id_security.check_user_access_to_response_id(
                     response_id_user_id=None,
@@ -168,7 +168,7 @@ class TestCheckUserAccessToResponseId:
         mock_auth_team_a.team_id = "team-a"
         mock_auth_team_a.user_role = None
 
-        with patch("litellm.proxy.proxy_server.general_settings", {}):
+        with patch("embrouter.proxy.proxy_server.general_settings", {}):
             with pytest.raises(HTTPException) as exc_info:
                 responses_id_security.check_user_access_to_response_id(
                     response_id_user_id=None,
@@ -189,7 +189,7 @@ class TestCheckUserAccessToResponseId:
         mock_auth_team_a.team_id = "team-a"
         mock_auth_team_a.user_role = None
 
-        with patch("litellm.proxy.proxy_server.general_settings", {}):
+        with patch("embrouter.proxy.proxy_server.general_settings", {}):
             with pytest.raises(HTTPException) as exc_info:
                 responses_id_security.check_user_access_to_response_id(
                     response_id_user_id="user-from-team-b",
@@ -221,13 +221,13 @@ class TestCheckUserAccessToResponseId:
         self, responses_id_security
     ):
         """Test that proxy admin can access any response ID"""
-        from litellm.proxy._types import LitellmUserRoles
+        from embrouter.proxy._types import EmbrouterUserRoles
 
         # Create a mock admin user
         mock_admin_auth = MagicMock()
         mock_admin_auth.user_id = "admin-user"
         mock_admin_auth.team_id = "admin-team"
-        mock_admin_auth.user_role = LitellmUserRoles.PROXY_ADMIN.value
+        mock_admin_auth.user_role = EmbrouterUserRoles.PROXY_ADMIN.value
 
         # Admin should be able to access response from different team and different user
         result = responses_id_security.check_user_access_to_response_id(
@@ -243,7 +243,7 @@ class TestCheckUserAccessToResponseId:
     ):
         """Test that when security is disabled, any user can access any response"""
         with patch(
-            "litellm.proxy.proxy_server.general_settings",
+            "embrouter.proxy.proxy_server.general_settings",
             {"disable_responses_id_security": True},
         ):
             # User from team A should be able to access response from team B when security is disabled
@@ -328,7 +328,7 @@ class TestAsyncPreCallHook:
                 "_decrypt_response_id",
                 return_value=("resp_original_team_b", None, "team-b"),
             ):
-                with patch("litellm.proxy.proxy_server.general_settings", {}):
+                with patch("embrouter.proxy.proxy_server.general_settings", {}):
                     with pytest.raises(HTTPException) as exc_info:
                         await responses_id_security.async_pre_call_hook(
                             user_api_key_dict=mock_auth_team_a,
@@ -361,7 +361,7 @@ class TestAsyncPreCallHook:
                 "_decrypt_response_id",
                 return_value=("resp_original_team_b", "user-from-team-b", "team-b"),
             ):
-                with patch("litellm.proxy.proxy_server.general_settings", {}):
+                with patch("embrouter.proxy.proxy_server.general_settings", {}):
                     with pytest.raises(HTTPException) as exc_info:
                         await responses_id_security.async_pre_call_hook(
                             user_api_key_dict=mock_auth_team_a,
@@ -425,7 +425,7 @@ class TestAsyncPreCallHook:
                 "_decrypt_response_id",
                 return_value=("resp_original_team_b", None, "team-b"),
             ):
-                with patch("litellm.proxy.proxy_server.general_settings", {}):
+                with patch("embrouter.proxy.proxy_server.general_settings", {}):
                     with pytest.raises(HTTPException) as exc_info:
                         await responses_id_security.async_pre_call_hook(
                             user_api_key_dict=mock_auth_team_a,
@@ -458,7 +458,7 @@ class TestAsyncPreCallHook:
                 "_decrypt_response_id",
                 return_value=("resp_original_team_b", None, "team-b"),
             ):
-                with patch("litellm.proxy.proxy_server.general_settings", {}):
+                with patch("embrouter.proxy.proxy_server.general_settings", {}):
                     with pytest.raises(HTTPException) as exc_info:
                         await responses_id_security.async_pre_call_hook(
                             user_api_key_dict=mock_auth_team_a,
@@ -514,7 +514,7 @@ class TestAsyncPreCallHook:
                 "_decrypt_response_id",
                 return_value=("resp_original_team_b", None, "team-b"),
             ):
-                with patch("litellm.proxy.proxy_server.general_settings", {}):
+                with patch("embrouter.proxy.proxy_server.general_settings", {}):
                     with pytest.raises(HTTPException) as exc_info:
                         await responses_id_security.async_pre_call_hook(
                             user_api_key_dict=mock_auth_team_a,
@@ -588,7 +588,7 @@ class TestAsyncPostCallStreamingIteratorHook:
         )
 
     async def _drain_streamed_id(self, responses_id_security, route, monkeypatch):
-        monkeypatch.setenv("LITELLM_SALT_KEY", "sk-test-salt-key-abcdefghij")
+        monkeypatch.setenv("EMBROUTER_SALT_KEY", "sk-test-salt-key-abcdefghij")
         event = self._completed_event("resp_rawprovider123")
 
         mock_auth = MagicMock()
@@ -697,7 +697,7 @@ class TestStreamedGenericEventIdEncryption:
         ]
 
     async def _drain(self, responses_id_security, monkeypatch):
-        monkeypatch.setenv("LITELLM_SALT_KEY", "sk-test-salt-key-abcdefghij")
+        monkeypatch.setenv("EMBROUTER_SALT_KEY", "sk-test-salt-key-abcdefghij")
 
         mock_auth = MagicMock()
         mock_auth.user_id = "user-a"
@@ -815,7 +815,7 @@ _ADDRESSED_ID_FIELD_BY_CALL_TYPE = {
 @pytest.fixture
 def salt_key_env(monkeypatch):
     """Give the encrypt/decrypt helpers a real salt key so ids round-trip for real."""
-    monkeypatch.setenv("LITELLM_SALT_KEY", _UNIT_TEST_SALT_KEY)
+    monkeypatch.setenv("EMBROUTER_SALT_KEY", _UNIT_TEST_SALT_KEY)
     return _UNIT_TEST_SALT_KEY
 
 
@@ -828,7 +828,7 @@ def _hook(general_settings=None, signing_key=_UNIT_TEST_SALT_KEY):
 
 
 def _auth(user_id="owner-user", team_id="owner-team", user_role=None):
-    from litellm.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy._types import UserAPIKeyAuth
 
     return UserAPIKeyAuth(user_id=user_id, team_id=team_id, user_role=user_role)
 
@@ -951,7 +951,7 @@ class TestUnmanagedResponseIdEscapeHatches:
 
     @pytest.mark.asyncio
     async def test_proxy_without_a_signing_key_forwards_the_id_untouched(self, mock_cache, monkeypatch):
-        monkeypatch.delenv("LITELLM_SALT_KEY", raising=False)
+        monkeypatch.delenv("EMBROUTER_SALT_KEY", raising=False)
         data = {"response_id": _FABRICATED_UNMANAGED_ID}
 
         result = await _hook(signing_key=None).async_pre_call_hook(
@@ -965,12 +965,12 @@ class TestUnmanagedResponseIdEscapeHatches:
 
     @pytest.mark.asyncio
     async def test_proxy_admin_may_address_an_unmanaged_id(self, mock_cache, salt_key_env):
-        from litellm.proxy._types import LitellmUserRoles
+        from embrouter.proxy._types import EmbrouterUserRoles
 
         data = {"response_id": _FABRICATED_UNMANAGED_ID}
 
         result = await _hook().async_pre_call_hook(
-            user_api_key_dict=_auth(user_role=LitellmUserRoles.PROXY_ADMIN),
+            user_api_key_dict=_auth(user_role=EmbrouterUserRoles.PROXY_ADMIN),
             cache=mock_cache,
             data=data,
             call_type="aget_responses",
@@ -988,7 +988,7 @@ class TestClientSuppliedRetainedIdCannotBypassAuthorization:
         field = _ADDRESSED_ID_FIELD_BY_CALL_TYPE[call_type]
         data = {
             field: _FABRICATED_UNMANAGED_ID,
-            "_litellm_addressed_response_id": _FABRICATED_UNMANAGED_ID,
+            "_embrouter_addressed_response_id": _FABRICATED_UNMANAGED_ID,
         }
 
         with pytest.raises(HTTPException) as exc_info:
@@ -1005,7 +1005,7 @@ class TestClientSuppliedRetainedIdCannotBypassAuthorization:
     @pytest.mark.asyncio
     @pytest.mark.parametrize("forged", [{"nested": "value"}, ["list"], 42, "", None])
     async def test_non_string_retained_id_falls_back_to_the_addressed_field(self, mock_cache, salt_key_env, forged):
-        data = {"response_id": _FABRICATED_UNMANAGED_ID, "_litellm_addressed_response_id": forged}
+        data = {"response_id": _FABRICATED_UNMANAGED_ID, "_embrouter_addressed_response_id": forged}
 
         with pytest.raises(HTTPException) as exc_info:
             await _hook().async_pre_call_hook(
@@ -1025,7 +1025,7 @@ class TestClientSuppliedRetainedIdCannotBypassAuthorization:
         stranger = _auth(user_id="stranger-user", team_id="stranger-team")
         stranger_id = _issue_managed_id(hook, stranger, provider_response_id="resp_strangerownprovideridcccccccc")
         victim_provider_id = "resp_victimprovideriddddddddddddddddddddd"
-        data = {"response_id": victim_provider_id, "_litellm_addressed_response_id": stranger_id}
+        data = {"response_id": victim_provider_id, "_embrouter_addressed_response_id": stranger_id}
 
         result = await hook.async_pre_call_hook(
             user_api_key_dict=stranger,

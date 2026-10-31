@@ -5,7 +5,7 @@ import { toast } from "@/lib/toast";
 
 vi.mock("@/components/networking", () => ({
   getProxyBaseUrl: vi.fn(() => ""),
-  getGlobalLitellmHeaderName: vi.fn(() => "Authorization"),
+  getGlobalEmbrouterHeaderName: vi.fn(() => "Authorization"),
 }));
 
 vi.mock("./provider_display_helpers", () => ({

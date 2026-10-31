@@ -1,29 +1,29 @@
 """
-ProxyRateLimitError — a unified rate-limit exception used by litellm's
+ProxyRateLimitError — a unified rate-limit exception used by embrouter's
 proxy-side hooks.
 
 Background
 ----------
-LiteLLM previously surfaced rate-limit conditions through *several* unrelated
+EmbRouter previously surfaced rate-limit conditions through *several* unrelated
 exception types:
 
-* :class:`litellm.exceptions.RateLimitError` — raised by exception mapping when
+* :class:`embrouter.exceptions.RateLimitError` — raised by exception mapping when
   an upstream LLM provider returns 429.
 * :class:`fastapi.HTTPException` (status 429) — raised directly by proxy hooks
   such as ``parallel_request_limiter``, ``dynamic_rate_limiter``,
   ``batch_rate_limiter``, ``max_iterations_limiter``,
   etc.
-* :class:`litellm.llms.base_llm.chat.transformation.BaseLLMException` (status
+* :class:`embrouter.llms.base_llm.chat.transformation.BaseLLMException` (status
   429) — raised by some provider transports.
 
 This made it impossible for downstream code (and end users) to express
 "is this a rate limit?" with a single ``except`` clause, and impossible to
-distinguish *where* the rate limit originated (vendor vs. litellm, batch vs.
+distinguish *where* the rate limit originated (vendor vs. embrouter, batch vs.
 chat) without ad-hoc string-matching on the message.
 
 This module provides a single proxy-side error class that:
 
-1. Is a subclass of :class:`litellm.exceptions.RateLimitError`, so user code
+1. Is a subclass of :class:`embrouter.exceptions.RateLimitError`, so user code
    that catches ``RateLimitError`` works for *every* rate-limit source.
 2. Is also a subclass of :class:`fastapi.HTTPException`, so existing proxy
    plumbing (``isinstance(e, HTTPException)`` branches in route handlers and
@@ -31,7 +31,7 @@ This module provides a single proxy-side error class that:
    ``retry-after`` / ``rate_limit_type`` / ``reset_at`` headers are preserved
    on the wire.
 3. Carries a :attr:`category` field (one of
-   :class:`litellm.exceptions.RateLimitErrorCategory`) so callers can switch on
+   :class:`embrouter.exceptions.RateLimitErrorCategory`) so callers can switch on
    the rate limit source.
 """
 
@@ -41,7 +41,7 @@ from typing import Any, Final
 
 from fastapi import HTTPException
 
-from litellm.exceptions import RateLimitError, RateLimitErrorCategory, RateLimitType
+from embrouter.exceptions import RateLimitError, RateLimitErrorCategory, RateLimitType
 
 
 def map_v3_rate_limit_type(
@@ -100,10 +100,10 @@ def _coerce_message(detail: object) -> str:
 # silence the ATTR-overlap check rather than relax the annotations.
 class ProxyRateLimitError(HTTPException, RateLimitError):
     """
-    A 429 raised by litellm's proxy-side rate limiting hooks.
+    A 429 raised by embrouter's proxy-side rate limiting hooks.
 
     This class deliberately inherits from BOTH
-    :class:`litellm.exceptions.RateLimitError` and :class:`fastapi.HTTPException`
+    :class:`embrouter.exceptions.RateLimitError` and :class:`fastapi.HTTPException`
     so the same instance can flow through:
 
     * ``except RateLimitError`` (user / SDK code that wants a category-aware
@@ -113,7 +113,7 @@ class ProxyRateLimitError(HTTPException, RateLimitError):
       ``headers`` back to the client).
 
     Downstream code should prefer this class over
-    ``raise HTTPException(status_code=429, ...)`` for litellm-internal rate
+    ``raise HTTPException(status_code=429, ...)`` for embrouter-internal rate
     limits.
 
     Parameters
@@ -126,8 +126,8 @@ class ProxyRateLimitError(HTTPException, RateLimitError):
         to satisfy FastAPI's typing.
     category:
         One of :class:`RateLimitErrorCategory`. Defaults to
-        ``LITELLM_RATE_LIMIT`` since this class is only used by litellm's own
-        proxy-side limiters; pass ``LITELLM_BATCH_RATE_LIMIT`` for the batch
+        ``EMBROUTER_RATE_LIMIT`` since this class is only used by embrouter's own
+        proxy-side limiters; pass ``EMBROUTER_BATCH_RATE_LIMIT`` for the batch
         limiter, etc.
     model / llm_provider:
         Optional context, propagated to the inherited ``RateLimitError`` for
@@ -137,7 +137,7 @@ class ProxyRateLimitError(HTTPException, RateLimitError):
     # Prometheus' ``exception_class`` label is pinned to "HTTPException" for
     # this type: before the unified class existed, proxy-side 429s surfaced as
     # ``fastapi.HTTPException`` and existing dashboards/alerts key off that exact
-    # value. Distinguishing vendor vs. litellm 429s is now the job of the
+    # value. Distinguishing vendor vs. embrouter 429s is now the job of the
     # ``rate_limit_category`` / ``rate_limit_type`` labels.
     prometheus_exception_class_name = "HTTPException"
 
@@ -145,10 +145,10 @@ class ProxyRateLimitError(HTTPException, RateLimitError):
         self,
         detail: Any,
         headers: Mapping[str, object] | None = None,
-        category: str | RateLimitErrorCategory = RateLimitErrorCategory.LITELLM_RATE_LIMIT,
+        category: str | RateLimitErrorCategory = RateLimitErrorCategory.EMBROUTER_RATE_LIMIT,
         rate_limit_type: str | RateLimitType | None = None,
         model: str | None = None,
-        llm_provider: str | None = "litellm_proxy",
+        llm_provider: str | None = "embrouter_proxy",
     ):
         # Normalize None → safe defaults so callers (and the resolver helper
         # in `rate_limiter_utils`) can pass `None` without producing an
@@ -156,7 +156,7 @@ class ProxyRateLimitError(HTTPException, RateLimitError):
         # break Prometheus' `_get_exception_class_name` (it calls
         # `.capitalize()` on the provider string).
         model = model or ""
-        llm_provider = llm_provider or "litellm_proxy"
+        llm_provider = llm_provider or "embrouter_proxy"
         message: Final = _coerce_message(detail)
         stringified_headers: Final[dict[str, str] | None] = {k: str(v) for k, v in headers.items()} if headers else None
 
@@ -170,7 +170,7 @@ class ProxyRateLimitError(HTTPException, RateLimitError):
             headers=stringified_headers,
         )
 
-        # Now initialize the litellm RateLimitError portion. We deliberately
+        # Now initialize the embrouter RateLimitError portion. We deliberately
         # pass the structured detail through so RateLimitError preserves it as
         # its `.detail` attribute too — keeping both sides of the MRO
         # consistent.

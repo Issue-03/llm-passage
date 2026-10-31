@@ -6,10 +6,10 @@ from typing import Final
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
-from litellm._logging import redact_internal_details_from_client_message
-from litellm._uuid import uuid
-from litellm.exceptions import MidStreamFallbackError
-from litellm.types.llms.openai import ResponseFailedEvent, ResponsesAPIResponse, ResponsesAPIStreamEvents
+from embrouter._logging import redact_internal_details_from_client_message
+from embrouter._uuid import uuid
+from embrouter.exceptions import MidStreamFallbackError
+from embrouter.types.llms.openai import ResponseFailedEvent, ResponsesAPIResponse, ResponsesAPIStreamEvents
 
 
 class _ResponseIdentity(BaseModel):

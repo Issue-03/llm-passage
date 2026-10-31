@@ -6,10 +6,10 @@ from typing import Final, Protocol
 
 from pydantic import BaseModel, TypeAdapter
 
-from litellm.proxy._types import LiteLLMRoutes
+from embrouter.proxy._types import EmbRouterRoutes
 
 UNKNOWN_CALL_TYPE: Final = "Unknown"
-INFO_ROUTES_JSON: Final = json.dumps(LiteLLMRoutes.info_routes.value)
+INFO_ROUTES_JSON: Final = json.dumps(EmbRouterRoutes.info_routes.value)
 
 
 class _SupportsQueryRaw(Protocol):
@@ -73,8 +73,8 @@ GROUPS_SQL: Final = """
             AS cached_completion_tokens,
         SUM(CASE WHEN COALESCE(sl."cache_hit", '') != 'True' THEN sl."completion_tokens" ELSE 0 END)::int
             AS generated_completion_tokens
-    FROM "LiteLLM_SpendLogs" sl
-    LEFT JOIN "LiteLLM_VerificationToken" vt ON sl."api_key" = vt."token"
+    FROM "EmbRouter_SpendLogs" sl
+    LEFT JOIN "EmbRouter_VerificationToken" vt ON sl."api_key" = vt."token"
     WHERE
         sl."startTime" >= ($1::timestamptz AT TIME ZONE 'UTC')
         AND sl."startTime" <  (($2::timestamptz + INTERVAL '1 day') AT TIME ZONE 'UTC')
@@ -93,8 +93,8 @@ ERROR_BREAKDOWN_SQL: Final = """
         COALESCE(NULLIF(sl."metadata"->'error_information'->>'error_code', ''), 'Unknown') AS error_code,
         COALESCE(NULLIF(sl."metadata"->'error_information'->>'error_class', ''), 'Unknown') AS error_class,
         COUNT(*)::int AS count
-    FROM "LiteLLM_SpendLogs" sl
-    LEFT JOIN "LiteLLM_VerificationToken" vt ON sl."api_key" = vt."token"
+    FROM "EmbRouter_SpendLogs" sl
+    LEFT JOIN "EmbRouter_VerificationToken" vt ON sl."api_key" = vt."token"
     WHERE
         sl."status" = 'failure'
         AND sl."startTime" >= ($1::timestamptz AT TIME ZONE 'UTC')
@@ -110,8 +110,8 @@ ERROR_BREAKDOWN_SQL: Final = """
 
 KEY_ALIAS_OPTIONS_SQL: Final = """
     SELECT DISTINCT COALESCE(vt."key_alias", 'Unnamed Key') AS key_alias
-    FROM "LiteLLM_SpendLogs" sl
-    LEFT JOIN "LiteLLM_VerificationToken" vt ON sl."api_key" = vt."token"
+    FROM "EmbRouter_SpendLogs" sl
+    LEFT JOIN "EmbRouter_VerificationToken" vt ON sl."api_key" = vt."token"
     WHERE
         sl."startTime" >= ($1::timestamptz AT TIME ZONE 'UTC')
         AND sl."startTime" <  (($2::timestamptz + INTERVAL '1 day') AT TIME ZONE 'UTC')
@@ -121,7 +121,7 @@ KEY_ALIAS_OPTIONS_SQL: Final = """
 
 MODEL_OPTIONS_SQL: Final = """
     SELECT DISTINCT sl."model" AS model
-    FROM "LiteLLM_SpendLogs" sl
+    FROM "EmbRouter_SpendLogs" sl
     WHERE
         sl."startTime" >= ($1::timestamptz AT TIME ZONE 'UTC')
         AND sl."startTime" <  (($2::timestamptz + INTERVAL '1 day') AT TIME ZONE 'UTC')

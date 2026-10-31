@@ -1,10 +1,10 @@
 """
-Per-Session Budget Limiter for LiteLLM Proxy.
+Per-Session Budget Limiter for EmbRouter Proxy.
 
 Enforces a dollar-amount cap per session (identified by `session_id` /
-`x-litellm-trace-id`). After each successful LLM call the response cost is
+`x-embrouter-trace-id`). After each successful LLM call the response cost is
 accumulated against the session. When the accumulated spend exceeds
-`max_budget_per_session` (configured in agent litellm_params), subsequent
+`max_budget_per_session` (configured in agent embrouter_params), subsequent
 requests for that session receive a 429.
 
 Note: trace-id enforcement (require_trace_id_on_calls_by_agent) is handled
@@ -18,17 +18,17 @@ import logging
 import os
 from typing import TYPE_CHECKING, Any, Final
 
-from litellm import DualCache
-from litellm._logging import verbose_proxy_logger
-from litellm.caching.redis_cache import log_redis_failure
-from litellm.exceptions import RateLimitType
-from litellm.integrations.custom_logger import CustomLogger
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
-from litellm.proxy.hooks.rate_limiter_utils import resolve_llm_provider_for_rate_limit
+from embrouter import DualCache
+from embrouter._logging import verbose_proxy_logger
+from embrouter.caching.redis_cache import log_redis_failure
+from embrouter.exceptions import RateLimitType
+from embrouter.integrations.custom_logger import CustomLogger
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.common_utils.proxy_rate_limit_error import ProxyRateLimitError
+from embrouter.proxy.hooks.rate_limiter_utils import resolve_llm_provider_for_rate_limit
 
 if TYPE_CHECKING:
-    from litellm.proxy.utils import InternalUsageCache as _InternalUsageCache
+    from embrouter.proxy.utils import InternalUsageCache as _InternalUsageCache
 
     InternalUsageCache = _InternalUsageCache
 else:
@@ -60,7 +60,7 @@ class _PROXY_MaxBudgetPerSessionHandler(CustomLogger):
     """
     Pre-call hook that enforces max_budget_per_session.
 
-    Configuration (set in agent litellm_params):
+    Configuration (set in agent embrouter_params):
         - max_budget_per_session: dollar cap per session_id
 
     Cache key pattern:
@@ -71,7 +71,7 @@ class _PROXY_MaxBudgetPerSessionHandler(CustomLogger):
         self.internal_usage_cache = internal_usage_cache
         self.ttl = int(
             os.getenv(
-                "LITELLM_MAX_BUDGET_PER_SESSION_TTL",
+                "EMBROUTER_MAX_BUDGET_PER_SESSION_TTL",
                 DEFAULT_MAX_BUDGET_PER_SESSION_TTL,
             )
         )
@@ -132,8 +132,8 @@ class _PROXY_MaxBudgetPerSessionHandler(CustomLogger):
         After a successful LLM call, increment the session spend by the response cost.
         """
         try:
-            litellm_params: Final = kwargs.get("litellm_params") or {}
-            metadata: Final = litellm_params.get("metadata") or {}
+            embrouter_params: Final = kwargs.get("embrouter_params") or {}
+            metadata: Final = embrouter_params.get("metadata") or {}
             session_id: Final = metadata.get("session_id")
             if session_id is None:
                 return
@@ -142,7 +142,7 @@ class _PROXY_MaxBudgetPerSessionHandler(CustomLogger):
             if agent_id is None:
                 return
 
-            from litellm.proxy.agent_endpoints.agent_registry import (
+            from embrouter.proxy.agent_endpoints.agent_registry import (
                 global_agent_registry,
             )
 
@@ -150,8 +150,8 @@ class _PROXY_MaxBudgetPerSessionHandler(CustomLogger):
             if agent is None:
                 return
 
-            agent_litellm_params: Final = agent.litellm_params or {}
-            max_budget: Final = agent_litellm_params.get("max_budget_per_session")
+            agent_embrouter_params: Final = agent.embrouter_params or {}
+            max_budget: Final = agent_embrouter_params.get("max_budget_per_session")
             if max_budget is None:
                 return
 
@@ -180,27 +180,27 @@ class _PROXY_MaxBudgetPerSessionHandler(CustomLogger):
         if session_id is not None:
             return str(session_id)
 
-        litellm_metadata: Final = data.get("litellm_metadata") or {}
-        session_id = litellm_metadata.get("session_id")
+        embrouter_metadata: Final = data.get("embrouter_metadata") or {}
+        session_id = embrouter_metadata.get("session_id")
         if session_id is not None:
             return str(session_id)
 
         return None
 
     def _get_max_budget_per_session(self, user_api_key_dict: UserAPIKeyAuth) -> float | None:
-        """Extract max_budget_per_session from agent litellm_params."""
+        """Extract max_budget_per_session from agent embrouter_params."""
         agent_id: Final = user_api_key_dict.agent_id
         if agent_id is None:
             return None
 
-        from litellm.proxy.agent_endpoints.agent_registry import global_agent_registry
+        from embrouter.proxy.agent_endpoints.agent_registry import global_agent_registry
 
         agent: Final = global_agent_registry.get_agent_by_id(agent_id=agent_id)
         if agent is None:
             return None
 
-        litellm_params: Final = agent.litellm_params or {}
-        max_budget: Final = litellm_params.get("max_budget_per_session")
+        embrouter_params: Final = agent.embrouter_params or {}
+        max_budget: Final = embrouter_params.get("max_budget_per_session")
         if max_budget is not None:
             return float(max_budget)
         return None
@@ -226,7 +226,7 @@ class _PROXY_MaxBudgetPerSessionHandler(CustomLogger):
 
         result = await self.internal_usage_cache.async_get_cache(
             key=cache_key,
-            litellm_parent_otel_span=None,
+            embrouter_parent_otel_span=None,
             local_only=True,
         )
         if result is not None:
@@ -255,7 +255,7 @@ class _PROXY_MaxBudgetPerSessionHandler(CustomLogger):
     async def _in_memory_increment_spend(self, cache_key: str, amount: float) -> float:
         current: Final = await self.internal_usage_cache.async_get_cache(
             key=cache_key,
-            litellm_parent_otel_span=None,
+            embrouter_parent_otel_span=None,
             local_only=True,
         )
         new_value: Final = (float(current) if current is not None else 0.0) + amount
@@ -263,7 +263,7 @@ class _PROXY_MaxBudgetPerSessionHandler(CustomLogger):
             key=cache_key,
             value=new_value,
             ttl=self.ttl,
-            litellm_parent_otel_span=None,
+            embrouter_parent_otel_span=None,
             local_only=True,
         )
         return new_value

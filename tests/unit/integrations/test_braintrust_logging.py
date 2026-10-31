@@ -3,8 +3,8 @@ import unittest
 from datetime import datetime
 from unittest.mock import MagicMock, Mock, patch
 
-import litellm
-from litellm.integrations.braintrust_logging import BraintrustLogger
+import embrouter
+from embrouter.integrations.braintrust_logging import BraintrustLogger
 
 
 class TestBraintrustLogger(unittest.TestCase):
@@ -47,7 +47,7 @@ class TestBraintrustLogger(unittest.TestCase):
                 BraintrustLogger(api_key=None)
             self.assertIn("Missing keys=['BRAINTRUST_API_KEY']", str(context.exception))
 
-    @patch("litellm.integrations.braintrust_logging.HTTPHandler")
+    @patch("embrouter.integrations.braintrust_logging.HTTPHandler")
     def test_log_success_event_with_default_span_name(self, MockHTTPHandler):
         """Test log_success_event uses default span name when not provided."""
         # Mock HTTP response
@@ -71,18 +71,18 @@ class TestBraintrustLogger(unittest.TestCase):
         # Mock the __getitem__ to support response_obj["choices"][0]["message"]
         choice_mock.__getitem__ = Mock(return_value=message_mock)
 
-        response_obj = Mock(spec=litellm.ModelResponse)
+        response_obj = Mock(spec=embrouter.ModelResponse)
         response_obj.choices = [choice_mock]
         # Mock the __getitem__ to support response_obj["choices"]
         response_obj.__getitem__ = Mock(return_value=[choice_mock])
-        response_obj.usage = litellm.Usage(
+        response_obj.usage = embrouter.Usage(
             prompt_tokens=10, completion_tokens=20, total_tokens=30
         )
 
         kwargs = {
-            "litellm_call_id": "test-call-id",
+            "embrouter_call_id": "test-call-id",
             "messages": [{"role": "user", "content": "test"}],
-            "litellm_params": {"metadata": {}},
+            "embrouter_params": {"metadata": {}},
             "model": "gpt-3.5-turbo",
             "response_cost": 0.001,
         }
@@ -98,7 +98,7 @@ class TestBraintrustLogger(unittest.TestCase):
             json_data["events"][0]["span_attributes"]["name"], "Chat Completion"
         )
 
-    @patch("litellm.integrations.braintrust_logging.HTTPHandler")
+    @patch("embrouter.integrations.braintrust_logging.HTTPHandler")
     def test_log_success_event_with_custom_span_name(self, MockHTTPHandler):
         """Test log_success_event uses custom span name when provided."""
         # Mock HTTP response
@@ -121,17 +121,17 @@ class TestBraintrustLogger(unittest.TestCase):
         choice_mock.dict = Mock(return_value={"message": {"content": "test"}})
         choice_mock.__getitem__ = Mock(return_value=message_mock)
 
-        response_obj = Mock(spec=litellm.ModelResponse)
+        response_obj = Mock(spec=embrouter.ModelResponse)
         response_obj.choices = [choice_mock]
         response_obj.__getitem__ = Mock(return_value=[choice_mock])
-        response_obj.usage = litellm.Usage(
+        response_obj.usage = embrouter.Usage(
             prompt_tokens=10, completion_tokens=20, total_tokens=30
         )
 
         kwargs = {
-            "litellm_call_id": "test-call-id",
+            "embrouter_call_id": "test-call-id",
             "messages": [{"role": "user", "content": "test"}],
-            "litellm_params": {"metadata": {"span_name": "Custom Operation"}},
+            "embrouter_params": {"metadata": {"span_name": "Custom Operation"}},
             "model": "gpt-3.5-turbo",
             "response_cost": 0.001,
         }
@@ -147,7 +147,7 @@ class TestBraintrustLogger(unittest.TestCase):
             json_data["events"][0]["span_attributes"]["name"], "Custom Operation"
         )
 
-    @patch("litellm.integrations.braintrust_logging.get_async_httpx_client")
+    @patch("embrouter.integrations.braintrust_logging.get_async_httpx_client")
     async def test_async_log_success_event_with_default_span_name(
         self, mock_get_http_handler
     ):
@@ -172,17 +172,17 @@ class TestBraintrustLogger(unittest.TestCase):
         choice_mock.dict = Mock(return_value={"message": {"content": "test"}})
         choice_mock.__getitem__ = Mock(return_value=message_mock)
 
-        response_obj = Mock(spec=litellm.ModelResponse)
+        response_obj = Mock(spec=embrouter.ModelResponse)
         response_obj.choices = [choice_mock]
         response_obj.__getitem__ = Mock(return_value=[choice_mock])
-        response_obj.usage = litellm.Usage(
+        response_obj.usage = embrouter.Usage(
             prompt_tokens=10, completion_tokens=20, total_tokens=30
         )
 
         kwargs = {
-            "litellm_call_id": "test-call-id",
+            "embrouter_call_id": "test-call-id",
             "messages": [{"role": "user", "content": "test"}],
-            "litellm_params": {"metadata": {}},
+            "embrouter_params": {"metadata": {}},
             "model": "gpt-3.5-turbo",
             "response_cost": 0.001,
         }
@@ -200,7 +200,7 @@ class TestBraintrustLogger(unittest.TestCase):
             json_data["events"][0]["span_attributes"]["name"], "Chat Completion"
         )
 
-    @patch("litellm.integrations.braintrust_logging.get_async_httpx_client")
+    @patch("embrouter.integrations.braintrust_logging.get_async_httpx_client")
     async def test_async_log_success_event_with_custom_span_name(
         self, mock_get_http_handler
     ):
@@ -225,17 +225,17 @@ class TestBraintrustLogger(unittest.TestCase):
         choice_mock.dict = Mock(return_value={"message": {"content": "test"}})
         choice_mock.__getitem__ = Mock(return_value=message_mock)
 
-        response_obj = Mock(spec=litellm.ModelResponse)
+        response_obj = Mock(spec=embrouter.ModelResponse)
         response_obj.choices = [choice_mock]
         response_obj.__getitem__ = Mock(return_value=[choice_mock])
-        response_obj.usage = litellm.Usage(
+        response_obj.usage = embrouter.Usage(
             prompt_tokens=10, completion_tokens=20, total_tokens=30
         )
 
         kwargs = {
-            "litellm_call_id": "test-call-id",
+            "embrouter_call_id": "test-call-id",
             "messages": [{"role": "user", "content": "test"}],
-            "litellm_params": {"metadata": {"span_name": "Async Custom Operation"}},
+            "embrouter_params": {"metadata": {"span_name": "Async Custom Operation"}},
             "model": "gpt-3.5-turbo",
             "response_cost": 0.001,
         }
@@ -253,7 +253,7 @@ class TestBraintrustLogger(unittest.TestCase):
             json_data["events"][0]["span_attributes"]["name"], "Async Custom Operation"
         )
 
-    @patch("litellm.integrations.braintrust_logging.HTTPHandler")
+    @patch("embrouter.integrations.braintrust_logging.HTTPHandler")
     def test_span_name_with_multiple_metadata_fields(self, MockHTTPHandler):
         """Test that span_name works correctly alongside other metadata fields."""
         # Mock HTTP response
@@ -276,17 +276,17 @@ class TestBraintrustLogger(unittest.TestCase):
         choice_mock.dict = Mock(return_value={"message": {"content": "test"}})
         choice_mock.__getitem__ = Mock(return_value=message_mock)
 
-        response_obj = Mock(spec=litellm.ModelResponse)
+        response_obj = Mock(spec=embrouter.ModelResponse)
         response_obj.choices = [choice_mock]
         response_obj.__getitem__ = Mock(return_value=[choice_mock])
-        response_obj.usage = litellm.Usage(
+        response_obj.usage = embrouter.Usage(
             prompt_tokens=10, completion_tokens=20, total_tokens=30
         )
 
         kwargs = {
-            "litellm_call_id": "test-call-id",
+            "embrouter_call_id": "test-call-id",
             "messages": [{"role": "user", "content": "test"}],
-            "litellm_params": {
+            "embrouter_params": {
                 "metadata": {
                     "span_name": "Multi Metadata Test",
                     "project_id": "custom-project",

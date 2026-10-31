@@ -1,28 +1,28 @@
 """
-Handler for transforming responses api requests to litellm.completion requests
+Handler for transforming responses api requests to embrouter.completion requests
 """
 
 from collections.abc import Coroutine, Mapping
 from typing import Final
 
-import litellm
-from litellm.responses.additional_tools import hoist_additional_tools
-from litellm.responses.litellm_completion_transformation.streaming_iterator import (
-    LiteLLMCompletionStreamingIterator,
+import embrouter
+from embrouter.responses.additional_tools import hoist_additional_tools
+from embrouter.responses.embrouter_completion_transformation.streaming_iterator import (
+    EmbRouterCompletionStreamingIterator,
 )
-from litellm.responses.litellm_completion_transformation.transformation import (
-    LiteLLMCompletionResponsesConfig,
+from embrouter.responses.embrouter_completion_transformation.transformation import (
+    EmbRouterCompletionResponsesConfig,
 )
-from litellm.responses.streaming_iterator import BaseResponsesAPIStreamingIterator
-from litellm.types.llms.openai import (
+from embrouter.responses.streaming_iterator import BaseResponsesAPIStreamingIterator
+from embrouter.types.llms.openai import (
     ResponseInputParam,
     ResponsesAPIOptionalRequestParams,
     ResponsesAPIResponse,
 )
-from litellm.types.utils import ModelResponse
+from embrouter.types.utils import ModelResponse
 
 
-class LiteLLMCompletionTransformationHandler:
+class EmbRouterCompletionTransformationHandler:
     def response_api_handler(
         self,
         model: str,
@@ -43,8 +43,8 @@ class LiteLLMCompletionTransformationHandler:
         bridged_request: Final[ResponsesAPIOptionalRequestParams] = (
             {**responses_api_request, "tools": list(hoisted.tools)} if hoisted.hoisted else responses_api_request
         )
-        litellm_completion_request: Final[dict] = (
-            LiteLLMCompletionResponsesConfig.transform_responses_api_request_to_chat_completion_request(
+        embrouter_completion_request: Final[dict] = (
+            EmbRouterCompletionResponsesConfig.transform_responses_api_request_to_chat_completion_request(
                 model=model,
                 input=bridged_input,
                 responses_api_request=bridged_request,
@@ -57,7 +57,7 @@ class LiteLLMCompletionTransformationHandler:
 
         if _is_async:
             return self.async_response_api_handler(
-                litellm_completion_request=litellm_completion_request,
+                embrouter_completion_request=embrouter_completion_request,
                 request_input=bridged_input,
                 responses_api_request=bridged_request,
                 **kwargs,
@@ -65,17 +65,17 @@ class LiteLLMCompletionTransformationHandler:
 
         completion_args: Final = {}
         completion_args.update(kwargs)
-        completion_args.update(litellm_completion_request)
+        completion_args.update(embrouter_completion_request)
         completion_args["_skip_responses_api_bridge"] = True
 
-        litellm_completion_response: Final[ModelResponse | litellm.CustomStreamWrapper] = litellm.completion(
+        embrouter_completion_response: Final[ModelResponse | embrouter.CustomStreamWrapper] = embrouter.completion(
             **completion_args,
         )
 
-        if isinstance(litellm_completion_response, ModelResponse):
+        if isinstance(embrouter_completion_response, ModelResponse):
             responses_api_response: Final[ResponsesAPIResponse] = (
-                LiteLLMCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
-                    chat_completion_response=litellm_completion_response,
+                EmbRouterCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
+                    chat_completion_response=embrouter_completion_response,
                     request_input=bridged_input,
                     responses_api_request=bridged_request,
                 )
@@ -83,44 +83,44 @@ class LiteLLMCompletionTransformationHandler:
 
             return responses_api_response
 
-        elif isinstance(litellm_completion_response, litellm.CustomStreamWrapper):
-            return LiteLLMCompletionStreamingIterator(
+        elif isinstance(embrouter_completion_response, embrouter.CustomStreamWrapper):
+            return EmbRouterCompletionStreamingIterator(
                 model=model,
-                litellm_custom_stream_wrapper=litellm_completion_response,
+                embrouter_custom_stream_wrapper=embrouter_completion_response,
                 request_input=bridged_input,
                 responses_api_request=bridged_request,
                 custom_llm_provider=custom_llm_provider,
-                litellm_metadata=kwargs.get("litellm_metadata", {}),
+                embrouter_metadata=kwargs.get("embrouter_metadata", {}),
             )
-        raise ValueError(f"Unexpected response type: {type(litellm_completion_response)}")
+        raise ValueError(f"Unexpected response type: {type(embrouter_completion_response)}")
 
     async def async_response_api_handler(
         self,
-        litellm_completion_request: dict,
+        embrouter_completion_request: dict,
         request_input: str | ResponseInputParam,
         responses_api_request: ResponsesAPIOptionalRequestParams,
         **kwargs,
     ) -> ResponsesAPIResponse | BaseResponsesAPIStreamingIterator:
         previous_response_id: Final[str | None] = responses_api_request.get("previous_response_id")
         if previous_response_id:
-            litellm_completion_request = await LiteLLMCompletionResponsesConfig.async_responses_api_session_handler(
+            embrouter_completion_request = await EmbRouterCompletionResponsesConfig.async_responses_api_session_handler(
                 previous_response_id=previous_response_id,
-                litellm_completion_request=litellm_completion_request,
+                embrouter_completion_request=embrouter_completion_request,
             )
 
         acompletion_args: Final = {}
         acompletion_args.update(kwargs)
-        acompletion_args.update(litellm_completion_request)
+        acompletion_args.update(embrouter_completion_request)
         acompletion_args["_skip_responses_api_bridge"] = True
 
-        litellm_completion_response: Final[ModelResponse | litellm.CustomStreamWrapper] = await litellm.acompletion(
+        embrouter_completion_response: Final[ModelResponse | embrouter.CustomStreamWrapper] = await embrouter.acompletion(
             **acompletion_args,
         )
 
-        if isinstance(litellm_completion_response, ModelResponse):
+        if isinstance(embrouter_completion_response, ModelResponse):
             responses_api_response: Final[ResponsesAPIResponse] = (
-                LiteLLMCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
-                    chat_completion_response=litellm_completion_response,
+                EmbRouterCompletionResponsesConfig.transform_chat_completion_response_to_responses_api_response(
+                    chat_completion_response=embrouter_completion_response,
                     request_input=request_input,
                     responses_api_request=responses_api_request,
                 )
@@ -128,13 +128,13 @@ class LiteLLMCompletionTransformationHandler:
 
             return responses_api_response
 
-        elif isinstance(litellm_completion_response, litellm.CustomStreamWrapper):
-            return LiteLLMCompletionStreamingIterator(
-                model=litellm_completion_request.get("model") or "",
-                litellm_custom_stream_wrapper=litellm_completion_response,
+        elif isinstance(embrouter_completion_response, embrouter.CustomStreamWrapper):
+            return EmbRouterCompletionStreamingIterator(
+                model=embrouter_completion_request.get("model") or "",
+                embrouter_custom_stream_wrapper=embrouter_completion_response,
                 request_input=request_input,
                 responses_api_request=responses_api_request,
-                custom_llm_provider=litellm_completion_request.get("custom_llm_provider"),
-                litellm_metadata=kwargs.get("litellm_metadata", {}),
+                custom_llm_provider=embrouter_completion_request.get("custom_llm_provider"),
+                embrouter_metadata=kwargs.get("embrouter_metadata", {}),
             )
-        raise ValueError(f"Unexpected response type: {type(litellm_completion_response)}")
+        raise ValueError(f"Unexpected response type: {type(embrouter_completion_response)}")

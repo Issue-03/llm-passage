@@ -85,14 +85,14 @@ describe("AgentsPanel", () => {
         {
           agent_id: "agent-with-key",
           agent_name: "Keyed Agent",
-          litellm_params: { model: "gpt-4" },
+          embrouter_params: { model: "gpt-4" },
           spend: 0,
           keys: [{ token: "hash-aaa", key_alias: "primary", key_name: "sk-...aaa" }],
         },
         {
           agent_id: "agent-no-key",
           agent_name: "Keyless Agent",
-          litellm_params: { model: "gpt-4" },
+          embrouter_params: { model: "gpt-4" },
           spend: 0,
           keys: [],
         },
@@ -128,7 +128,7 @@ describe("AgentsPanel", () => {
         {
           agent_id: "agent-9",
           agent_name: "Doomed Agent",
-          litellm_params: { model: "gpt-4" },
+          embrouter_params: { model: "gpt-4" },
           spend: 0,
           keys: [],
         },
@@ -174,7 +174,7 @@ describe("AgentsPanel", () => {
     const agentFor = (name: string) => ({
       agent_id: `id-${name}`,
       agent_name: name,
-      litellm_params: { model: "gpt-4" },
+      embrouter_params: { model: "gpt-4" },
       spend: 0,
       keys: [],
     });
@@ -207,7 +207,7 @@ describe("AgentsPanel", () => {
     vi.mocked(networking.getAgentsList)
       .mockResolvedValueOnce({
         agents: [
-          { agent_id: "stale", agent_name: "Stale Agent", litellm_params: { model: "gpt-4" }, spend: 0, keys: [] },
+          { agent_id: "stale", agent_name: "Stale Agent", embrouter_params: { model: "gpt-4" }, spend: 0, keys: [] },
         ],
       })
       .mockRejectedValueOnce(new Error("unauthorized"));
@@ -225,7 +225,7 @@ describe("AgentsPanel", () => {
 
   it("should ignore a superseded response so it cannot overwrite the current token's rows", async () => {
     let resolveFirst: (value: {
-      agents: { agent_id: string; agent_name: string; litellm_params: { model: string }; spend: number; keys: [] }[];
+      agents: { agent_id: string; agent_name: string; embrouter_params: { model: string }; spend: number; keys: [] }[];
     }) => void = () => {};
     vi.mocked(networking.getAgentsList)
       .mockImplementationOnce(
@@ -236,7 +236,7 @@ describe("AgentsPanel", () => {
       )
       .mockResolvedValueOnce({
         agents: [
-          { agent_id: "current", agent_name: "Current Agent", litellm_params: { model: "gpt-4" }, spend: 0, keys: [] },
+          { agent_id: "current", agent_name: "Current Agent", embrouter_params: { model: "gpt-4" }, spend: 0, keys: [] },
         ],
       });
 
@@ -249,7 +249,7 @@ describe("AgentsPanel", () => {
     await act(async () => {
       resolveFirst({
         agents: [
-          { agent_id: "stale", agent_name: "Superseded Agent", litellm_params: { model: "gpt-4" }, spend: 0, keys: [] },
+          { agent_id: "stale", agent_name: "Superseded Agent", embrouter_params: { model: "gpt-4" }, spend: 0, keys: [] },
         ],
       });
     });
@@ -264,7 +264,7 @@ describe("AgentsPanel", () => {
       {
         agent_id: "agent-1",
         agent_name: "Stable Agent",
-        litellm_params: { model: "gpt-4" },
+        embrouter_params: { model: "gpt-4" },
         spend: 0,
         keys: [],
       },

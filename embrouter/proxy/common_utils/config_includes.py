@@ -3,7 +3,7 @@ from collections.abc import Awaitable, Mapping
 from types import MappingProxyType
 from typing import Final, Protocol
 
-from litellm._logging import verbose_proxy_logger
+from embrouter._logging import verbose_proxy_logger
 
 INCLUDE_KEY: Final = "include"
 

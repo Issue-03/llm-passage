@@ -6,16 +6,16 @@ import os
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Any, Final, cast
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.integrations.custom_logger import CustomLogger
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.integrations.custom_logger import CustomLogger
 
 from .destinations import FocusTimeWindow
 
 if TYPE_CHECKING:
     from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
-    from litellm.proxy.db.db_transaction_queue.pod_lock_manager import PodLockManager
+    from embrouter.proxy.db.db_transaction_queue.pod_lock_manager import PodLockManager
 
     from .export_engine import FocusExportEngine
 else:
@@ -111,7 +111,7 @@ class FocusLogger(CustomLogger):
 
     async def initialize_focus_export_job(self) -> None:
         """Entry point for scheduler jobs to run export cycle with locking."""
-        from litellm.proxy.proxy_server import proxy_logging_obj
+        from embrouter.proxy.proxy_server import proxy_logging_obj
 
         pod_lock_manager: PodLockManager | None = None
         if proxy_logging_obj is not None:
@@ -141,7 +141,7 @@ class FocusLogger(CustomLogger):
         # which have their own dedicated scheduling method.
         focus_loggers: Final[list[CustomLogger]] = [
             cb
-            for cb in litellm.logging_callback_manager.get_custom_loggers_for_type(callback_type=FocusLogger)
+            for cb in embrouter.logging_callback_manager.get_custom_loggers_for_type(callback_type=FocusLogger)
             if type(cb) is FocusLogger
         ]
         if not focus_loggers:

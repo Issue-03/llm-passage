@@ -9,17 +9,17 @@ from typing import TYPE_CHECKING, Final
 
 import httpx
 
-from litellm.litellm_core_utils.core_helpers import set_response_cost_in_hidden_params
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.base_llm.embedding.transformation import BaseEmbeddingConfig
-from litellm.types.llms.openai import AllEmbeddingInputValues, AllMessageValues
-from litellm.types.utils import EmbeddingResponse
-from litellm.utils import convert_to_model_response_object
+from embrouter.embrouter_core_utils.core_helpers import set_response_cost_in_hidden_params
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.base_llm.embedding.transformation import BaseEmbeddingConfig
+from embrouter.types.llms.openai import AllEmbeddingInputValues, AllMessageValues
+from embrouter.types.utils import EmbeddingResponse
+from embrouter.utils import convert_to_model_response_object
 
 from ..common_utils import EdenAIException, endpoint_url, json_headers, pick, reported_cost
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
 
 _SUPPORTED_PARAMS: Final = ("dimensions", "encoding_format", "user")
 
@@ -43,7 +43,7 @@ class EdenAIEmbeddingConfig(BaseEmbeddingConfig):
         model: str,
         messages: list[AllMessageValues],  # mutable-ok: inherited contract
         optional_params: dict[str, object],  # mutable-ok: inherited contract
-        litellm_params: dict[str, object],  # mutable-ok: inherited contract
+        embrouter_params: dict[str, object],  # mutable-ok: inherited contract
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict[str, object]:  # mutable-ok: inherited contract
@@ -55,7 +55,7 @@ class EdenAIEmbeddingConfig(BaseEmbeddingConfig):
         api_key: str | None,
         model: str,
         optional_params: dict[str, object],  # mutable-ok: inherited contract
-        litellm_params: dict[str, object],  # mutable-ok: inherited contract
+        embrouter_params: dict[str, object],  # mutable-ok: inherited contract
         stream: bool | None = None,
     ) -> str:
         return endpoint_url(api_base, "embeddings")
@@ -74,11 +74,11 @@ class EdenAIEmbeddingConfig(BaseEmbeddingConfig):
         model: str,
         raw_response: httpx.Response,
         model_response: EmbeddingResponse,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
         api_key: str | None,
         request_data: dict[str, object],  # mutable-ok: inherited contract
         optional_params: dict[str, object],  # mutable-ok: inherited contract
-        litellm_params: dict[str, object],  # mutable-ok: inherited contract
+        embrouter_params: dict[str, object],  # mutable-ok: inherited contract
     ) -> EmbeddingResponse:
         body: Final = raw_response.json()
         logging_obj.post_call(original_response=body)

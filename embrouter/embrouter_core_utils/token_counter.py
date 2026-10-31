@@ -12,10 +12,10 @@ import httpx
 import tiktoken
 from typing_extensions import ParamSpec, TypeVar
 
-import litellm
-from litellm import verbose_logger
-from litellm._lazy_imports import _get_default_encoding
-from litellm.constants import (
+import embrouter
+from embrouter import verbose_logger
+from embrouter._lazy_imports import _get_default_encoding
+from embrouter.constants import (
     DEFAULT_IMAGE_HEIGHT,
     DEFAULT_IMAGE_TOKEN_COUNT,
     DEFAULT_IMAGE_WIDTH,
@@ -28,12 +28,12 @@ from litellm.constants import (
     TOKEN_COUNTER_MAX_CONCURRENT_COUNTS,
     TOKEN_COUNTER_MAX_EXACT_CHARS,
 )
-from litellm.litellm_core_utils.asyncify import asyncify
-from litellm.litellm_core_utils.tokenizer import Encoding, HuggingFace, HuggingFaceTokenizer, OpenAIEncoding
-from litellm.litellm_core_utils.url_utils import safe_get
-from litellm.llms.custom_httpx.http_handler import _get_httpx_client
-from litellm.rust_bridge.tokenizer import get_encoding
-from litellm.types.llms.anthropic import (
+from embrouter.embrouter_core_utils.asyncify import asyncify
+from embrouter.embrouter_core_utils.tokenizer import Encoding, HuggingFace, HuggingFaceTokenizer, OpenAIEncoding
+from embrouter.embrouter_core_utils.url_utils import safe_get
+from embrouter.llms.custom_httpx.http_handler import _get_httpx_client
+from embrouter.rust_bridge.tokenizer import get_encoding
+from embrouter.types.llms.anthropic import (
     AnthropicContentParamSource,
     AnthropicContentParamSourceFileId,
     AnthropicContentParamSourceUrl,
@@ -43,7 +43,7 @@ from litellm.types.llms.anthropic import (
     AnthropicMessagesToolResultParam,
     AnthropicMessagesToolUseParam,
 )
-from litellm.types.llms.openai import (
+from embrouter.types.llms.openai import (
     AllMessageValues,
     ChatCompletionDocumentObject,
     ChatCompletionNamedToolChoiceParam,
@@ -52,7 +52,7 @@ from litellm.types.llms.openai import (
     ChatCompletionToolParam,
     OpenAIMessageContentListBlock,
 )
-from litellm.types.utils import Message, SelectTokenizerResponse
+from embrouter.types.utils import Message, SelectTokenizerResponse
 
 
 def get_modified_max_tokens(
@@ -75,15 +75,15 @@ def get_modified_max_tokens(
             return None
 
         ## MODEL INFO
-        _model_info: Final = litellm.get_model_info(model=model)
+        _model_info: Final = embrouter.get_model_info(model=model)
 
-        max_output_tokens: Final = litellm.get_max_tokens(model=base_model)  # assume min context window is 4k tokens
+        max_output_tokens: Final = embrouter.get_max_tokens(model=base_model)  # assume min context window is 4k tokens
 
         ## UNKNOWN MAX OUTPUT TOKENS - return user defined amount
         if max_output_tokens is None:
             return user_max_tokens
 
-        input_tokens = litellm.token_counter(model=base_model, messages=messages)
+        input_tokens = embrouter.token_counter(model=base_model, messages=messages)
 
         # token buffer
         if buffer_perc is None:
@@ -116,14 +116,14 @@ def get_modified_max_tokens(
             user_max_tokens = max_output_tokens
 
         verbose_logger.debug(
-            "litellm.litellm_core_utils.token_counter.py::get_modified_max_tokens() - user_max_tokens: %s",
+            "embrouter.embrouter_core_utils.token_counter.py::get_modified_max_tokens() - user_max_tokens: %s",
             user_max_tokens,
         )
 
         return user_max_tokens
     except Exception as e:
         verbose_logger.debug(
-            "litellm.litellm_core_utils.token_counter.py::get_modified_max_tokens() - Error while checking max token limit: %s\nmodel=%s, base_model=%s",
+            "embrouter.embrouter_core_utils.token_counter.py::get_modified_max_tokens() - Error while checking max token limit: %s\nmodel=%s, base_model=%s",
             e,
             model,
             base_model,
@@ -337,7 +337,7 @@ Type for a function that counts tokens in a string.
 EXTRAPOLATION_SAMPLES: Final = 16
 T_ParamSpec: Final = ParamSpec("T_ParamSpec")
 T_Retval = TypeVar("T_Retval")
-_COUNT_OFFLOAD_LIMITER: Final = anyio.lowlevel.RunVar[anyio.CapacityLimiter]("litellm_count_offload_limiter")
+_COUNT_OFFLOAD_LIMITER: Final = anyio.lowlevel.RunVar[anyio.CapacityLimiter]("embrouter_count_offload_limiter")
 
 
 def _count_offload_limiter_for_this_loop() -> anyio.CapacityLimiter:
@@ -381,13 +381,13 @@ class _MessageCountParams:
         model: str,
         custom_tokenizer: dict | SelectTokenizerResponse | None,
     ):
-        from litellm.utils import print_verbose
+        from embrouter.utils import print_verbose
 
         actual_model: Final = _fix_model_name(model)
         if uses_legacy_message_accounting(model):
             self.tokens_per_message = 4  # every message follows <|start|>{role/name}\n{content}<|end|>\n
             self.tokens_per_name = -1  # if there's a name, the role is omitted
-        elif actual_model in litellm.open_ai_chat_completion_models or actual_model in litellm.azure_llms:
+        elif actual_model in embrouter.open_ai_chat_completion_models or actual_model in embrouter.azure_llms:
             self.tokens_per_message = 3
             self.tokens_per_name = 1
         else:
@@ -425,7 +425,7 @@ def token_counter(
     Returns:
     int: The number of tokens in the text.
     """
-    from litellm.utils import convert_list_message_to_dict
+    from embrouter.utils import convert_list_message_to_dict
 
     #########################################################
     # Flag to disable token counter
@@ -433,7 +433,7 @@ def token_counter(
     # exposing this flag to allow users to disable
     # it to confirm if this is indeed the issue
     #########################################################
-    if litellm.disable_token_counter is True:
+    if embrouter.disable_token_counter is True:
         return 0
 
     verbose_logger.debug("messages in token_counter: %s, text in token_counter: %s", messages, text)
@@ -534,7 +534,7 @@ def _count_messages(
                     default_token_count,
                 )
             elif key == "search_results" and isinstance(value, list):
-                from litellm.litellm_core_utils.prompt_templates.common_utils import (
+                from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
                     extract_search_results_text,
                 )
 
@@ -618,7 +618,7 @@ def _get_exact_count_function(
 ) -> TokenCounterFunction:
     """
     Get the function to count tokens based on the model and custom tokenizer."""
-    from litellm.utils import _select_tokenizer
+    from embrouter.utils import _select_tokenizer
 
     if model is not None or custom_tokenizer is not None:
         tokenizer_json: Final = custom_tokenizer or _select_tokenizer(model)
@@ -662,7 +662,7 @@ def openai_tokenizer_encoding(model: str) -> Encoding:
 
 def openai_tokenizer_encoding_name(model: str) -> str:
     """The tiktoken encoding name for `model`, without loading the encoding."""
-    from litellm.utils import print_verbose
+    from embrouter.utils import print_verbose
 
     model_to_use: Final = _fix_model_name(model)
     if "gpt-4o" in model_to_use:
@@ -681,10 +681,10 @@ def uses_legacy_message_accounting(model: str) -> bool:
 
 def _fix_model_name(model: str) -> str:
     """We normalize some model names to others"""
-    if model in litellm.azure_llms:
+    if model in embrouter.azure_llms:
         # azure llms use gpt-35-turbo instead of gpt-3.5-turbo 🙃
         return model.replace("-35", "-3.5")
-    elif model in litellm.open_ai_chat_completion_models:
+    elif model in embrouter.open_ai_chat_completion_models:
         return model
     else:
         return "gpt-3.5-turbo"
@@ -826,7 +826,7 @@ def _count_anthropic_content(
     """
     Count tokens in Anthropic-specific content blocks (tool_use, tool_result, etc.).
 
-    Uses TypedDict definitions from litellm.types.llms.anthropic to determine
+    Uses TypedDict definitions from embrouter.types.llms.anthropic to determine
     what fields to count and how to handle nested structures.
 
     Dynamically infers which fields to count based on the TypedDict definition,

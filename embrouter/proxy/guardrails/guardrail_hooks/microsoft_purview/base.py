@@ -7,19 +7,19 @@ from typing import TYPE_CHECKING, Any, Final
 
 from typing_extensions import NotRequired, TypedDict
 
-from litellm._logging import verbose_proxy_logger
-from litellm.litellm_core_utils.prompt_templates.common_utils import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.embrouter_core_utils.prompt_templates.common_utils import (
     convert_content_list_to_str,
 )
-from litellm.litellm_core_utils.url_utils import encode_url_path_segment
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.embrouter_core_utils.url_utils import encode_url_path_segment
+from embrouter.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
     httpxSpecialProvider,
 )
 
 if TYPE_CHECKING:
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.types.llms.openai import AllMessageValues
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.types.llms.openai import AllMessageValues
 
 GRAPH_API_BASE: Final = "https://graph.microsoft.com/v1.0"
 TOKEN_ENDPOINT_TEMPLATE: Final = "https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token"
@@ -48,7 +48,7 @@ class PurviewGuardrailBase:
         tenant_id: str,
         client_id: str,
         client_secret: str,
-        purview_app_name: str = "LiteLLM",
+        purview_app_name: str = "EmbRouter",
         user_id_field: str = "user_id",
         **kwargs: object,
     ) -> None:
@@ -276,7 +276,7 @@ class PurviewGuardrailBase:
         Returns the strongest available identity walking down four sources, in
         decreasing trust order:
 
-            1. ``user_api_key_dict.user_id`` — LiteLLM key / JWT-bound user
+            1. ``user_api_key_dict.user_id`` — EmbRouter key / JWT-bound user
             2. ``user_api_key_dict.end_user_id`` — request-derived
             3. ``metadata["user_api_key_user_id"]`` — proxy-injected from the key
             4. ``metadata[user_id_field]`` — caller-supplied
@@ -293,7 +293,7 @@ class PurviewGuardrailBase:
         if hasattr(user_api_key_dict, "end_user_id") and user_api_key_dict.end_user_id:
             return str(user_api_key_dict.end_user_id)
 
-        metadata_value: Final[object] = data.get("metadata") or data.get("litellm_metadata") or {}
+        metadata_value: Final[object] = data.get("metadata") or data.get("embrouter_metadata") or {}
         if not isinstance(metadata_value, Mapping):
             return None
         metadata: Final[Mapping[str, object]] = metadata_value
@@ -310,16 +310,16 @@ class PurviewGuardrailBase:
     @staticmethod
     def _logging_kwargs_metadata(kwargs: Mapping[str, object]) -> Mapping[str, object]:
         """Metadata dict from ``model_call_details`` / logging kwargs."""
-        litellm_params: Final[object] = kwargs.get("litellm_params") or {}
-        if not isinstance(litellm_params, dict):
+        embrouter_params: Final[object] = kwargs.get("embrouter_params") or {}
+        if not isinstance(embrouter_params, dict):
             return {}
-        md: Final = litellm_params.get("metadata")
+        md: Final = embrouter_params.get("metadata")
         return md if isinstance(md, dict) else {}
 
     def _resolve_trusted_user_id(self, data: Mapping[str, object], user_api_key_dict: "UserAPIKeyAuth") -> str | None:
         """Resolve user ID from API-key/JWT-bound identity for blocking DLP.
 
-        Uses only ``UserAPIKeyAuth.user_id`` (bound on the LiteLLM key or JWT).
+        Uses only ``UserAPIKeyAuth.user_id`` (bound on the EmbRouter key or JWT).
         Intentionally omits ``UserAPIKeyAuth.end_user_id`` because the proxy sets
         it from caller-controlled request fields (``user``, ``metadata.user_id``,
         ``safety_identifier``, custom headers, etc.) via

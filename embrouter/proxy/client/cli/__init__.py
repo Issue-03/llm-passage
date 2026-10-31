@@ -1,5 +1,5 @@
-"""CLI package for LiteLLM Proxy Client."""
+"""CLI package for EmbRouter Proxy Client."""
 
-from .main import cli, litellm_proxy_cli
+from .main import cli, embrouter_proxy_cli
 
-__all__ = ["cli", "litellm_proxy_cli"]
+__all__ = ["cli", "embrouter_proxy_cli"]

@@ -10,10 +10,10 @@ Policies are matched via policy_attachments which define WHERE each policy appli
 from collections.abc import Callable, Sequence
 from typing import Final
 
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy.auth.route_checks import RouteChecks
-from litellm.proxy.policy_engine.policy_resolver import PolicyResolver
-from litellm.types.proxy.policy_engine import Policy, PolicyMatchContext, PolicyScope
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy.auth.route_checks import RouteChecks
+from embrouter.proxy.policy_engine.policy_resolver import PolicyResolver
+from embrouter.types.proxy.policy_engine import Policy, PolicyMatchContext, PolicyScope
 
 
 class PolicyMatcher:
@@ -106,7 +106,7 @@ class PolicyMatcher:
         Returns:
             List of policy names that match the context
         """
-        from litellm.proxy.policy_engine.attachment_registry import (
+        from embrouter.proxy.policy_engine.attachment_registry import (
             get_attachment_registry,
         )
 
@@ -169,7 +169,7 @@ class PolicyMatcher:
         context: PolicyMatchContext,
         policies: dict[str, Policy],
     ) -> tuple[str, ...]:
-        from litellm.proxy.policy_engine.condition_evaluator import ConditionEvaluator
+        from embrouter.proxy.policy_engine.condition_evaluator import ConditionEvaluator
 
         chain: Final = PolicyResolver.resolve_inheritance_chain(policy_name=policy_name, policies=policies)
         return tuple(
@@ -181,7 +181,7 @@ class PolicyMatcher:
 
     @staticmethod
     def _registry_policies() -> dict[str, Policy]:
-        from litellm.proxy.policy_engine.policy_registry import get_policy_registry
+        from embrouter.proxy.policy_engine.policy_registry import get_policy_registry
 
         registry: Final = get_policy_registry()
         return registry.get_all_policies() if registry.is_initialized() else {}

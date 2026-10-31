@@ -534,9 +534,9 @@ function MetricsSection({ logEntry, metadata }: { logEntry: LogEntry; metadata: 
               </DescriptionItem>
             )}
 
-            {metadata?.litellm_overhead_time_ms !== undefined && metadata.litellm_overhead_time_ms !== null && (
+            {metadata?.embrouter_overhead_time_ms !== undefined && metadata.embrouter_overhead_time_ms !== null && (
               <DescriptionItem label="EmbRouter Overhead">
-                {metadata.litellm_overhead_time_ms.toFixed(2)} ms
+                {metadata.embrouter_overhead_time_ms.toFixed(2)} ms
               </DescriptionItem>
             )}
 

@@ -4,9 +4,9 @@ from typing import Annotated, Final
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.types.utils import CostBreakdown
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.types.utils import CostBreakdown
 
 BEDROCK_GUARDRAIL_PRICING_KEY: Final = "bedrock/guardrails"
 
@@ -58,10 +58,10 @@ def billed_guardrail_cost_by_unit(raw: object) -> Mapping[str, float | None] | N
 def _bedrock_guardrail_pricing(aws_region_name: str | None) -> GuardrailPricing | None:
     regional_key: Final = f"bedrock/{aws_region_name}/guardrails" if aws_region_name else None
     for key in (regional_key, BEDROCK_GUARDRAIL_PRICING_KEY):
-        if key is None or key not in litellm.model_cost:
+        if key is None or key not in embrouter.model_cost:
             continue
         try:
-            return GuardrailPricing.model_validate(litellm.model_cost[key])
+            return GuardrailPricing.model_validate(embrouter.model_cost[key])
         except ValidationError as e:
             verbose_logger.warning("Ignoring malformed guardrail pricing entry %s: %s", key, e)
     return None

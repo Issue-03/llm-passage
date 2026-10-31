@@ -8,7 +8,7 @@ from unittest.mock import MagicMock
 
 from fastapi import HTTPException
 
-from litellm.proxy.route_llm_request import ProxyModelNotFoundError, route_request
+from embrouter.proxy.route_llm_request import ProxyModelNotFoundError, route_request
 
 
 @pytest.mark.parametrize(
@@ -45,15 +45,15 @@ async def test_route_request_dynamic_credentials(route_type, required_body_param
 
 @pytest.mark.asyncio
 async def test_route_request_proxy_admin_can_call_all_team_scoped_deployments_without_team_id():
-    import litellm
+    import embrouter
 
-    from litellm.proxy._types import LitellmUserRoles, UserAPIKeyAuth
+    from embrouter.proxy._types import EmbrouterUserRoles, UserAPIKeyAuth
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "internal-team-azure-east",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "azure/gpt-4o",
                     "api_key": "fake",
                     "api_base": "https://east.example.openai.azure.com",
@@ -68,7 +68,7 @@ async def test_route_request_proxy_admin_can_call_all_team_scoped_deployments_wi
             },
             {
                 "model_name": "internal-team-azure-west",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "azure/gpt-4o",
                     "api_key": "fake",
                     "api_base": "https://west.example.openai.azure.com",
@@ -83,7 +83,7 @@ async def test_route_request_proxy_admin_can_call_all_team_scoped_deployments_wi
             },
         ]
     )
-    admin_auth = UserAPIKeyAuth(user_role=LitellmUserRoles.PROXY_ADMIN)
+    admin_auth = UserAPIKeyAuth(user_role=EmbrouterUserRoles.PROXY_ADMIN)
     data = {
         "model": "team-azure",
         "messages": [{"role": "user", "content": "Hello"}],
@@ -109,7 +109,7 @@ async def test_route_request_proxy_admin_can_call_all_team_scoped_deployments_wi
         "team-azure-west",
     }
 
-    non_admin_auth = UserAPIKeyAuth(user_role=LitellmUserRoles.INTERNAL_USER)
+    non_admin_auth = UserAPIKeyAuth(user_role=EmbrouterUserRoles.INTERNAL_USER)
     with pytest.raises(ProxyModelNotFoundError):
         await route_request(
             data={
@@ -122,12 +122,12 @@ async def test_route_request_proxy_admin_can_call_all_team_scoped_deployments_wi
             user_api_key_dict=non_admin_auth,
         )
 
-    from litellm.types.router import Deployment
+    from embrouter.types.router import Deployment
 
     router.add_deployment(
         Deployment(
             model_name="internal-team-only",
-            litellm_params={
+            embrouter_params={
                 "model": "azure/gpt-4o",
                 "api_key": "fake",
                 "api_base": "https://internal.example.openai.azure.com",
@@ -152,7 +152,7 @@ async def test_route_request_proxy_admin_can_call_all_team_scoped_deployments_wi
     router.add_deployment(
         Deployment(
             model_name="internal-other-team-azure",
-            litellm_params={
+            embrouter_params={
                 "model": "azure/gpt-4o",
                 "api_key": "fake",
                 "api_base": "https://other.example.openai.azure.com",
@@ -177,13 +177,13 @@ async def test_route_request_proxy_admin_can_call_all_team_scoped_deployments_wi
         )
         await ambiguous_call
 
-    with pytest.raises(litellm.BadRequestError, match="multiple teams"):
+    with pytest.raises(embrouter.BadRequestError, match="multiple teams"):
         await _route_and_await()
 
     router.add_deployment(
         Deployment(
             model_name="team-azure",
-            litellm_params={
+            embrouter_params={
                 "model": "azure/gpt-4o",
                 "api_key": "fake",
                 "api_base": "https://legacy.example.openai.azure.com",
@@ -199,7 +199,7 @@ async def test_route_request_proxy_admin_can_call_all_team_scoped_deployments_wi
     router.add_deployment(
         Deployment(
             model_name="team-azure",
-            litellm_params={
+            embrouter_params={
                 "model": "azure/gpt-4o",
                 "api_key": "fake",
                 "api_base": "https://other-legacy.example.openai.azure.com",
@@ -213,7 +213,7 @@ async def test_route_request_proxy_admin_can_call_all_team_scoped_deployments_wi
         )
     )
 
-    with pytest.raises(litellm.BadRequestError, match="multiple teams"):
+    with pytest.raises(embrouter.BadRequestError, match="multiple teams"):
         await router.async_get_healthy_deployments(
             model="team-azure",
             request_kwargs=data,
@@ -222,7 +222,7 @@ async def test_route_request_proxy_admin_can_call_all_team_scoped_deployments_wi
     router.add_deployment(
         Deployment(
             model_name="team-azure",
-            litellm_params={
+            embrouter_params={
                 "model": "azure/gpt-4o",
                 "api_key": "fake",
                 "api_base": "https://global.example.openai.azure.com",
@@ -356,8 +356,8 @@ async def test_route_request_no_model_required_with_router_settings_and_no_route
     """Test route types that don't require model parameter with router settings and no router"""
     from unittest.mock import patch
 
-    import litellm
-    from litellm.proxy.route_llm_request import route_request
+    import embrouter
+    from embrouter.proxy.route_llm_request import route_request
 
     data = {
         "model": "my-model-id",
@@ -365,7 +365,7 @@ async def test_route_request_no_model_required_with_router_settings_and_no_route
         "messages": [{"role": "user", "content": "what llm are you"}],
     }
 
-    with patch.object(litellm, "acompletion", return_value="fake_response") as mock_completion:
+    with patch.object(embrouter, "acompletion", return_value="fake_response") as mock_completion:
         await route_request(data, None, "gpt-3.5-turbo", "acompletion")
 
         mock_completion.assert_called_once_with(**data)
@@ -415,9 +415,9 @@ async def test_route_request_with_router_settings_override():
 async def test_route_request_with_router_settings_override_no_router():
     """
     Test that router_settings_override works when no router is provided,
-    falling back to litellm module directly.
+    falling back to embrouter module directly.
     """
-    import litellm
+    import embrouter
 
     data = {
         "model": "gpt-3.5-turbo",
@@ -430,19 +430,19 @@ async def test_route_request_with_router_settings_override_no_router():
 
     # Use MagicMock explicitly to avoid auto-AsyncMock behavior in Python 3.12+
     mock_completion = MagicMock(return_value="success")
-    original_acompletion = litellm.acompletion
-    litellm.acompletion = mock_completion
+    original_acompletion = embrouter.acompletion
+    embrouter.acompletion = mock_completion
 
     try:
         response = await route_request(data, None, None, "acompletion")
 
         assert response == "success"
-        # Verify litellm.acompletion was called with merged settings
+        # Verify embrouter.acompletion was called with merged settings
         call_kwargs = mock_completion.call_args[1]
         assert call_kwargs["fallbacks"] == [{"gpt-3.5-turbo": ["gpt-4"]}]
         assert call_kwargs["num_retries"] == 3
     finally:
-        litellm.acompletion = original_acompletion
+        embrouter.acompletion = original_acompletion
 
 
 @pytest.mark.asyncio
@@ -476,14 +476,14 @@ async def test_route_request_with_router_settings_override_preserves_existing():
 
 def test_gated_mock_params_cover_mock_router_testing_params():
     """``GATED_MOCK_PARAM_NAMES`` is hardcoded to avoid a cyclic import
-    against ``litellm.types.router``. This test guards against drift — if a
+    against ``embrouter.types.router``. This test guards against drift — if a
     new ``mock_testing_*`` field is added to ``MockRouterTestingParams`` the
     gate must be updated to keep covering it. The gate is a superset: it also
     covers params consumed outside that dataclass."""
     from dataclasses import fields
 
-    from litellm.proxy.route_llm_request import GATED_MOCK_PARAM_NAMES
-    from litellm.types.router import MockRouterTestingParams
+    from embrouter.proxy.route_llm_request import GATED_MOCK_PARAM_NAMES
+    from embrouter.types.router import MockRouterTestingParams
 
     assert {f.name for f in fields(MockRouterTestingParams)} <= set(GATED_MOCK_PARAM_NAMES)
     assert {"mock_testing_rate_limit_error", "mock_timeout", "mock_delay"} <= set(GATED_MOCK_PARAM_NAMES)
@@ -501,7 +501,7 @@ def test_e2e_proxy_config_opts_in_to_the_mock_params_its_suite_sends():
 
     import yaml
 
-    from litellm.proxy.route_llm_request import (
+    from embrouter.proxy.route_llm_request import (
         GATED_MOCK_PARAM_NAMES,
         MOCK_TESTING_CONFIG_KEY,
     )
@@ -542,7 +542,7 @@ def test_e2e_proxy_config_opts_in_to_the_mock_params_its_suite_sends():
 def test_mock_params_rejected_when_not_allowed(mock_param):
     """Every gated param must be rejected by name when the proxy has not
     opted in, and the error must point the caller at the config key."""
-    from litellm.proxy.route_llm_request import (
+    from embrouter.proxy.route_llm_request import (
         MOCK_TESTING_CONFIG_KEY,
         raise_if_mock_testing_params_disallowed,
     )
@@ -572,7 +572,7 @@ def test_mock_params_rejected_when_not_allowed(mock_param):
 def test_mock_params_pass_through_when_allowed(mock_param):
     """With the opt-in set, gated params must survive untouched — a gate that
     rejects correctly but strips anyway would leave the feature unusable."""
-    from litellm.proxy.route_llm_request import raise_if_mock_testing_params_disallowed
+    from embrouter.proxy.route_llm_request import raise_if_mock_testing_params_disallowed
 
     data = {"model": "gpt-3.5-turbo", mock_param: True}
 
@@ -584,7 +584,7 @@ def test_mock_params_pass_through_when_allowed(mock_param):
 def test_mock_param_gate_reports_every_param_present():
     """A request carrying several gated params must name all of them, so a
     caller fixing one is not surprised by the next."""
-    from litellm.proxy.route_llm_request import raise_if_mock_testing_params_disallowed
+    from embrouter.proxy.route_llm_request import raise_if_mock_testing_params_disallowed
 
     data = {
         "model": "gpt-3.5-turbo",
@@ -602,7 +602,7 @@ def test_mock_param_gate_reports_every_param_present():
 
 def test_ordinary_request_is_not_rejected_by_the_mock_param_gate():
     """The gate must not fire on a request that carries no gated param."""
-    from litellm.proxy.route_llm_request import raise_if_mock_testing_params_disallowed
+    from embrouter.proxy.route_llm_request import raise_if_mock_testing_params_disallowed
 
     data = {
         "model": "gpt-3.5-turbo",
@@ -617,7 +617,7 @@ def test_ordinary_request_is_not_rejected_by_the_mock_param_gate():
 async def test_route_request_rejects_mock_params_by_default(monkeypatch):
     """End-to-end through ``route_request``: with no opt-in configured the
     request is rejected before it ever reaches the router."""
-    import litellm.proxy.proxy_server as proxy_server
+    import embrouter.proxy.proxy_server as proxy_server
 
     monkeypatch.setattr(proxy_server, "general_settings", {}, raising=False)
 
@@ -639,9 +639,9 @@ async def test_route_request_rejects_mock_params_by_default(monkeypatch):
 async def test_route_request_forwards_mock_params_when_opted_in(monkeypatch):
     """End-to-end through ``route_request``: with the opt-in set the param
     reaches the router, which is what makes a fallback drill possible."""
-    import litellm.proxy.proxy_server as proxy_server
+    import embrouter.proxy.proxy_server as proxy_server
 
-    from litellm.proxy.route_llm_request import MOCK_TESTING_CONFIG_KEY
+    from embrouter.proxy.route_llm_request import MOCK_TESTING_CONFIG_KEY
 
     monkeypatch.setattr(
         proxy_server,
@@ -723,10 +723,10 @@ async def _invoke_realtime_route(
 
 @pytest.fixture
 def openai_realtime_credential():
-    import litellm
-    from litellm.types.utils import CredentialItem
+    import embrouter
+    from embrouter.types.utils import CredentialItem
 
-    litellm.credential_list = [
+    embrouter.credential_list = [
         CredentialItem(
             credential_name="openai-realtime-cred",
             credential_info={"custom_llm_provider": "openai"},
@@ -734,7 +734,7 @@ def openai_realtime_credential():
         )
     ]
     yield
-    litellm.credential_list = []
+    embrouter.credential_list = []
 
 
 @pytest.mark.asyncio
@@ -746,16 +746,16 @@ async def test_route_request_realtime_wildcard_model_resolves_credentials(
     must match an openai/* deployment and forward its api_key upstream.
     """
     import httpx
-    import litellm
+    import embrouter
     from unittest.mock import AsyncMock, patch
 
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "openai/*",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/*",
                     "api_key": "wildcard-realtime-key",
                 },
@@ -763,7 +763,7 @@ async def test_route_request_realtime_wildcard_model_resolves_credentials(
         ]
     )
     with patch(
-        "litellm.realtime_api.main.base_llm_http_handler.async_realtime_client_secret_handler",
+        "embrouter.realtime_api.main.base_llm_http_handler.async_realtime_client_secret_handler",
         new_callable=AsyncMock,
     ) as mock_handler:
         mock_handler.return_value = httpx.Response(200, json={"value": "ephemeral"})
@@ -784,16 +784,16 @@ async def test_route_request_realtime_team_scoped_model_resolves_credentials(
     user_api_key_team_id is present, same as /chat/completions.
     """
     import httpx
-    import litellm
+    import embrouter
     from unittest.mock import AsyncMock, patch
 
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "internal-realtime",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-realtime",
                     "api_key": "team-realtime-key",
                 },
@@ -805,7 +805,7 @@ async def test_route_request_realtime_team_scoped_model_resolves_credentials(
         ]
     )
     with patch(
-        "litellm.realtime_api.main.base_llm_http_handler.async_realtime_client_secret_handler",
+        "embrouter.realtime_api.main.base_llm_http_handler.async_realtime_client_secret_handler",
         new_callable=AsyncMock,
     ) as mock_handler:
         mock_handler.return_value = httpx.Response(200, json={"value": "ephemeral"})
@@ -821,33 +821,33 @@ async def test_route_request_realtime_team_scoped_model_resolves_credentials(
 
 
 @pytest.mark.asyncio
-async def test_route_request_realtime_litellm_credential_name_resolves_api_key(
+async def test_route_request_realtime_embrouter_credential_name_resolves_api_key(
     openai_realtime_credential,
     monkeypatch,
 ):
     """
-    litellm_credential_name on a wildcard deployment must resolve to the stored
+    embrouter_credential_name on a wildcard deployment must resolve to the stored
     api_key when routing acreate_realtime_client_secret through the router.
     """
     import httpx
-    import litellm
+    import embrouter
     from unittest.mock import AsyncMock, patch
 
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "openai/*",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/*",
-                    "litellm_credential_name": "openai-realtime-cred",
+                    "embrouter_credential_name": "openai-realtime-cred",
                 },
             }
         ]
     )
     with patch(
-        "litellm.realtime_api.main.base_llm_http_handler.async_realtime_client_secret_handler",
+        "embrouter.realtime_api.main.base_llm_http_handler.async_realtime_client_secret_handler",
         new_callable=AsyncMock,
     ) as mock_handler:
         mock_handler.return_value = httpx.Response(200, json={"value": "ephemeral"})
@@ -861,26 +861,26 @@ async def test_route_request_realtime_unresolvable_model_raises_not_found(
     monkeypatch,
 ):
     """
-    An unknown model must not silently fall through to litellm with an empty
+    An unknown model must not silently fall through to embrouter with an empty
     OPENAI_API_KEY env var.
     """
-    import litellm
+    import embrouter
     from unittest.mock import AsyncMock, patch
 
-    from litellm.proxy.route_llm_request import ProxyModelNotFoundError
+    from embrouter.proxy.route_llm_request import ProxyModelNotFoundError
 
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "other-model",
-                "litellm_params": {"model": "openai/gpt-4", "api_key": "other-key"},
+                "embrouter_params": {"model": "openai/gpt-4", "api_key": "other-key"},
             }
         ]
     )
     with patch(
-        "litellm.realtime_api.main.base_llm_http_handler.async_realtime_client_secret_handler",
+        "embrouter.realtime_api.main.base_llm_http_handler.async_realtime_client_secret_handler",
         new_callable=AsyncMock,
     ) as mock_handler:
         with pytest.raises(ProxyModelNotFoundError):
@@ -897,17 +897,17 @@ async def test_route_request_realtime_calls_resolves_api_base(monkeypatch):
     defaulting to https://api.openai.com.
     """
     import httpx
-    import litellm
+    import embrouter
     from unittest.mock import AsyncMock, patch
 
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.delenv("OPENAI_API_BASE", raising=False)
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "my-realtime",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/gpt-realtime",
                     "api_key": "calls-key",
                     "api_base": "https://custom-realtime.example.com/v1",
@@ -916,7 +916,7 @@ async def test_route_request_realtime_calls_resolves_api_base(monkeypatch):
         ]
     )
     with patch(
-        "litellm.realtime_api.main.base_llm_http_handler.async_realtime_calls_handler",
+        "embrouter.realtime_api.main.base_llm_http_handler.async_realtime_calls_handler",
         new_callable=AsyncMock,
     ) as mock_handler:
         mock_handler.return_value = httpx.Response(200, content=b"v=0\r\n")
@@ -940,16 +940,16 @@ async def test_route_request_realtime_transcription_session_resolves_credentials
     (wildcard deployment) rather than falling back to an empty OPENAI_API_KEY.
     """
     import httpx
-    import litellm
+    import embrouter
     from unittest.mock import AsyncMock, patch
 
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
 
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "openai/*",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "openai/*",
                     "api_key": "transcription-key",
                 },
@@ -957,7 +957,7 @@ async def test_route_request_realtime_transcription_session_resolves_credentials
         ]
     )
     with patch(
-        "litellm.realtime_api.main.base_llm_http_handler.async_realtime_transcription_session_handler",
+        "embrouter.realtime_api.main.base_llm_http_handler.async_realtime_transcription_session_handler",
         new_callable=AsyncMock,
     ) as mock_handler:
         mock_handler.return_value = httpx.Response(200, json={"client_secret": {"value": "ephemeral"}})
@@ -1049,7 +1049,7 @@ async def test_route_request_override_enable_tag_filtering_beats_body_value():
 )
 @pytest.mark.parametrize("data_extra", [{}, {"messages": None, "input": None, "input_file_id": None}])
 def test_raise_if_required_body_param_missing_rejects_missing_param(route_type, param, route, data_extra):
-    from litellm.proxy.route_llm_request import (
+    from embrouter.proxy.route_llm_request import (
         ProxyMissingRequiredParamError,
         raise_if_required_body_param_missing,
     )
@@ -1073,7 +1073,7 @@ def test_raise_if_required_body_param_missing_rejects_missing_param(route_type, 
     ],
 )
 def test_raise_if_required_body_param_missing_names_first_missing_batch_param(data, param):
-    from litellm.proxy.route_llm_request import (
+    from embrouter.proxy.route_llm_request import (
         ProxyMissingRequiredParamError,
         raise_if_required_body_param_missing,
     )
@@ -1102,7 +1102,7 @@ def test_raise_if_required_body_param_missing_names_first_missing_batch_param(da
     ],
 )
 def test_raise_if_required_body_param_missing_allows_valid_requests(route_type, data):
-    from litellm.proxy.route_llm_request import raise_if_required_body_param_missing
+    from embrouter.proxy.route_llm_request import raise_if_required_body_param_missing
 
     raise_if_required_body_param_missing(route_type=route_type, data=data)
 
@@ -1111,7 +1111,7 @@ def test_raise_if_required_body_param_missing_allows_valid_requests(route_type, 
 async def test_route_request_rejects_chat_completion_without_messages():
     """A /chat/completions body without `messages` used to splat into
     Router.acompletion() and surface the resulting TypeError as a 500."""
-    from litellm.proxy.route_llm_request import ProxyMissingRequiredParamError
+    from embrouter.proxy.route_llm_request import ProxyMissingRequiredParamError
 
     llm_router = MagicMock()
 
@@ -1125,7 +1125,7 @@ async def test_route_request_rejects_chat_completion_without_messages():
 
 @pytest.mark.asyncio
 async def test_route_request_rejects_responses_without_input():
-    from litellm.proxy.route_llm_request import ProxyMissingRequiredParamError
+    from embrouter.proxy.route_llm_request import ProxyMissingRequiredParamError
 
     llm_router = MagicMock()
 
@@ -1151,7 +1151,7 @@ def _fake_prisma_client_with_models(rows):
     from types import SimpleNamespace
 
     table = FakeProxyModelTable(rows)
-    return SimpleNamespace(db=SimpleNamespace(litellm_proxymodeltable=table)), table
+    return SimpleNamespace(db=SimpleNamespace(embrouter_proxymodeltable=table)), table
 
 
 def _db_model_row(model_name: str, mock_response: str):
@@ -1160,7 +1160,7 @@ def _db_model_row(model_name: str, mock_response: str):
     return SimpleNamespace(
         model_id=f"{model_name}-id",
         model_name=model_name,
-        litellm_params={"model": "openai/gpt-4o", "api_key": "fake", "mock_response": mock_response},
+        embrouter_params={"model": "openai/gpt-4o", "api_key": "fake", "mock_response": mock_response},
         model_info={},
         blocked=False,
     )
@@ -1170,15 +1170,15 @@ def _db_model_row(model_name: str, mock_response: str):
 async def test_route_request_read_through_recovers_model_created_on_sibling_replica(monkeypatch):
     """Regression: a model written to the DB by another replica must be served on
     first request instead of 400ing until the periodic config reload."""
-    import litellm
-    import litellm.proxy.proxy_server as proxy_server
+    import embrouter
+    import embrouter.proxy.proxy_server as proxy_server
 
     model_name = "e2e-sibling-replica-model"
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "some-other-model",
-                "litellm_params": {"model": "openai/gpt-4o", "api_key": "fake"},
+                "embrouter_params": {"model": "openai/gpt-4o", "api_key": "fake"},
             }
         ]
     )
@@ -1202,15 +1202,15 @@ async def test_route_request_read_through_recovers_model_created_on_sibling_repl
 
 @pytest.mark.asyncio
 async def test_route_request_unknown_model_raises_and_hits_db_once_within_ttl(monkeypatch):
-    import litellm
-    import litellm.proxy.proxy_server as proxy_server
+    import embrouter
+    import embrouter.proxy.proxy_server as proxy_server
 
     model_name = "e2e-model-nobody-created"
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "some-other-model",
-                "litellm_params": {"model": "openai/gpt-4o", "api_key": "fake"},
+                "embrouter_params": {"model": "openai/gpt-4o", "api_key": "fake"},
             }
         ]
     )
@@ -1230,15 +1230,15 @@ async def test_route_request_unknown_model_raises_and_hits_db_once_within_ttl(mo
 
 @pytest.mark.asyncio
 async def test_route_request_read_through_disabled_without_store_model_in_db(monkeypatch):
-    import litellm
-    import litellm.proxy.proxy_server as proxy_server
+    import embrouter
+    import embrouter.proxy.proxy_server as proxy_server
 
     model_name = "e2e-config-only-proxy-model"
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "some-other-model",
-                "litellm_params": {"model": "openai/gpt-4o", "api_key": "fake"},
+                "embrouter_params": {"model": "openai/gpt-4o", "api_key": "fake"},
             }
         ]
     )
@@ -1261,12 +1261,12 @@ async def test_route_request_read_through_disabled_without_store_model_in_db(mon
 async def test_route_request_routing_group_name_passes_model_gate():
     from unittest.mock import AsyncMock, patch
 
-    from litellm import Router
+    from embrouter import Router
 
     router = Router(
         model_list=[
-            {"model_name": "member-a", "litellm_params": {"model": "openai/gpt-4o", "api_key": "sk-test"}},
-            {"model_name": "member-b", "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-test"}},
+            {"model_name": "member-a", "embrouter_params": {"model": "openai/gpt-4o", "api_key": "sk-test"}},
+            {"model_name": "member-b", "embrouter_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-test"}},
         ],
         routing_groups=[
             {"group_name": "grouped-quality", "models": ["member-a", "member-b"], "routing_strategy": "simple-shuffle"}
@@ -1286,21 +1286,21 @@ async def test_route_request_a2a_agent_miss_does_not_consume_model_read_through(
     from types import SimpleNamespace
     from unittest.mock import AsyncMock
 
-    import litellm
-    import litellm.proxy.proxy_server as proxy_server
+    import embrouter
+    import embrouter.proxy.proxy_server as proxy_server
 
     model_name = "a2a/agent-nobody-created"
-    router = litellm.Router(
+    router = embrouter.Router(
         model_list=[
             {
                 "model_name": "some-other-model",
-                "litellm_params": {"model": "openai/gpt-4o", "api_key": "fake"},
+                "embrouter_params": {"model": "openai/gpt-4o", "api_key": "fake"},
             }
         ]
     )
     fake_prisma, model_table = _fake_prisma_client_with_models([])
     agents_find_unique = AsyncMock(return_value=None)
-    fake_prisma.db.litellm_agentstable = SimpleNamespace(find_unique=agents_find_unique)
+    fake_prisma.db.embrouter_agentstable = SimpleNamespace(find_unique=agents_find_unique)
     monkeypatch.setattr(proxy_server, "prisma_client", fake_prisma)
     monkeypatch.setattr(proxy_server, "store_model_in_db", True)
     monkeypatch.setattr(proxy_server, "llm_router", router)

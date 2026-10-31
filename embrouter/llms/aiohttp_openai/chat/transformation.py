@@ -11,17 +11,17 @@ from typing import TYPE_CHECKING, Any, Final
 
 from aiohttp import ClientResponse
 
-from litellm.llms.openai_like.chat.transformation import OpenAILikeChatConfig
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.utils import Choices, ModelResponse
+from embrouter.llms.openai_like.chat.transformation import OpenAILikeChatConfig
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.utils import Choices, ModelResponse
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 
 class AiohttpOpenAIChatConfig(OpenAILikeChatConfig):
@@ -31,7 +31,7 @@ class AiohttpOpenAIChatConfig(OpenAILikeChatConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         """
@@ -51,7 +51,7 @@ class AiohttpOpenAIChatConfig(OpenAILikeChatConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
@@ -62,11 +62,11 @@ class AiohttpOpenAIChatConfig(OpenAILikeChatConfig):
         model: str,
         raw_response: ClientResponse,
         model_response: ModelResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         request_data: dict,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,

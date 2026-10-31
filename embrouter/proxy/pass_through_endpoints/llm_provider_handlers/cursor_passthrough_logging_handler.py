@@ -2,7 +2,7 @@
 Cursor Cloud Agents API - Pass-through Logging Handler
 
 Transforms Cursor API responses into standardized logging payloads
-so they appear cleanly in the LiteLLM Logs page.
+so they appear cleanly in the EmbRouter Logs page.
 """
 
 from datetime import datetime
@@ -10,13 +10,13 @@ from typing import Final
 
 import httpx
 
-from litellm._logging import verbose_proxy_logger
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.litellm_core_utils.litellm_logging import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.embrouter_core_utils.embrouter_logging import (
     get_standard_logging_object_payload,
 )
-from litellm.proxy._types import PassThroughEndpointLoggingTypedDict
-from litellm.types.utils import StandardPassThroughResponseObject
+from embrouter.proxy._types import PassThroughEndpointLoggingTypedDict
+from embrouter.types.utils import StandardPassThroughResponseObject
 
 CURSOR_AGENT_ENDPOINTS: Final[dict[str, str]] = {
     "POST /v0/agents": "cursor:agent:create",
@@ -67,7 +67,7 @@ class CursorPassthroughLoggingHandler:
     def cursor_passthrough_handler(
         httpx_response: httpx.Response,
         response_body: dict,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         url_route: str,
         result: str,
         start_time: datetime,

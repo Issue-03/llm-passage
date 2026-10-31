@@ -10,13 +10,13 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.public_endpoints import router
-from litellm.router_strategy.complexity_router.fuse_presets import get_fuse_presets
-from litellm.types.proxy.management_endpoints.model_management_endpoints import (
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.public_endpoints import router
+from embrouter.router_strategy.complexity_router.fuse_presets import get_fuse_presets
+from embrouter.types.proxy.management_endpoints.model_management_endpoints import (
     ModelGroupInfoProxy,
 )
-from litellm.types.utils import LlmProviders
+from embrouter.types.utils import LlmProviders
 
 
 def test_fuse_presets_route_serves_the_shared_catalog_without_authentication() -> None:
@@ -59,7 +59,7 @@ def test_get_provider_create_fields():
     first_provider = response_data[0]
     assert "provider" in first_provider
     assert "provider_display_name" in first_provider
-    assert "litellm_provider" in first_provider
+    assert "embrouter_provider" in first_provider
     assert "credential_fields" in first_provider
 
     assert isinstance(first_provider["credential_fields"], list)
@@ -74,12 +74,12 @@ def test_get_provider_create_fields():
     ), "Expected at least one provider to have detailed credential fields"
 
 
-def test_get_litellm_model_cost_map_returns_cost_map():
+def test_get_embrouter_model_cost_map_returns_cost_map():
     app = FastAPI()
     app.include_router(router)
     client = TestClient(app)
 
-    response = client.get("/public/litellm_model_cost_map")
+    response = client.get("/public/embrouter_model_cost_map")
 
     assert response.status_code == 200
     payload = response.json()
@@ -107,8 +107,8 @@ def test_public_ai_hub_info_is_public_by_default(monkeypatch):
     app.include_router(router)
     client = TestClient(app)
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
-    monkeypatch.setattr("litellm.proxy.proxy_server.master_key", "sk-master")
+    monkeypatch.setattr("embrouter.proxy.proxy_server.general_settings", {})
+    monkeypatch.setattr("embrouter.proxy.proxy_server.master_key", "sk-master")
 
     response = client.get("/public/model_hub/info")
 
@@ -233,9 +233,9 @@ def test_bedrock_mantle_provider_fields():
     assert mantle is not None, "Bedrock Mantle provider entry not found"
 
     # provider must equal the UI provider_map key so the model dropdown resolves
-    # bedrock_mantle models; litellm_provider must be the backend slug.
+    # bedrock_mantle models; embrouter_provider must be the backend slug.
     assert mantle["provider_display_name"] == "Amazon Bedrock Mantle"
-    assert mantle["litellm_provider"] == "bedrock_mantle"
+    assert mantle["embrouter_provider"] == "bedrock_mantle"
     assert mantle["default_model_placeholder"].startswith("bedrock_mantle/")
 
     fields_by_key = {f["key"]: f for f in mantle["credential_fields"]}
@@ -277,8 +277,8 @@ def test_vllm_provider_display_names_are_distinct():
     assert hosted["provider_display_name"] == "Hosted vLLM"
     assert local["provider_display_name"] == "Local vLLM"
     assert hosted["provider_display_name"].casefold() != local["provider_display_name"].casefold()
-    assert hosted["litellm_provider"] == "hosted_vllm"
-    assert local["litellm_provider"] == "vllm"
+    assert hosted["embrouter_provider"] == "hosted_vllm"
+    assert local["embrouter_provider"] == "vllm"
 
 
 def test_nvidia_riva_provider_fields():
@@ -294,7 +294,7 @@ def test_nvidia_riva_provider_fields():
     assert riva is not None, "NVIDIA Riva provider entry not found"
 
     assert riva["provider_display_name"] == "Nvidia Riva"
-    assert riva["litellm_provider"] == LlmProviders.NVIDIA_RIVA.value
+    assert riva["embrouter_provider"] == LlmProviders.NVIDIA_RIVA.value
     assert riva["default_model_placeholder"].startswith("nvidia_riva/")
 
     fields_by_key = {f["key"]: f for f in riva["credential_fields"]}
@@ -328,7 +328,7 @@ def test_cognition_provider_fields():
     assert cognition is not None, "Cognition provider entry not found"
 
     assert cognition["provider_display_name"] == "Cognition"
-    assert cognition["litellm_provider"] == "cognition"
+    assert cognition["embrouter_provider"] == "cognition"
     assert cognition["default_model_placeholder"].startswith("cognition/")
 
     fields_by_key = {f["key"]: f for f in cognition["credential_fields"]}
@@ -347,8 +347,8 @@ def test_qwen_mainland_provider_fields_carry_the_qianwen_brand():
 
     providers = test_client.get("/public/providers/fields").json()
 
-    mainland = next(p for p in providers if p["litellm_provider"] == "qwen_ai_platform")
-    international = next(p for p in providers if p["litellm_provider"] == "qwencloud")
+    mainland = next(p for p in providers if p["embrouter_provider"] == "qwen_ai_platform")
+    international = next(p for p in providers if p["embrouter_provider"] == "qwencloud")
 
     assert mainland["provider_display_name"] == "Qianwen AI Platform"
     assert international["provider_display_name"] == "QwenCloud"
@@ -372,7 +372,7 @@ def test_chatgpt_provider_fields():
     assert chatgpt is not None, "ChatGPT provider entry not found"
 
     assert chatgpt["provider_display_name"] == "ChatGPT Subscription"
-    assert chatgpt["litellm_provider"] == LlmProviders.CHATGPT.value
+    assert chatgpt["embrouter_provider"] == LlmProviders.CHATGPT.value
     assert chatgpt["default_model_placeholder"].startswith("chatgpt/")
     assert chatgpt["credential_fields"] == []
 
@@ -394,7 +394,7 @@ ADD_MODEL_UNLISTED_PROVIDERS: Final = frozenset(
         "langflow",
         "langgraph",
         "libertai",
-        "litellm_agent",
+        "embrouter_agent",
         "manus",
         "meta",
         "modelscope",
@@ -430,7 +430,7 @@ def test_every_backend_provider_is_listed_in_add_model_or_frozen_as_unlisted():
 
     response = test_client.get("/public/providers/fields")
     assert response.status_code == 200
-    listed = {p["litellm_provider"] for p in response.json()}
+    listed = {p["embrouter_provider"] for p in response.json()}
 
     unlisted = {provider.value for provider in LlmProviders} - listed
     assert unlisted == ADD_MODEL_UNLISTED_PROVIDERS, (
@@ -459,7 +459,7 @@ def test_google_ai_studio_provider_fields_expose_api_base():
         (p for p in providers if p["provider"] == "Google_AI_Studio"), None
     )
     assert google_ai is not None, "Google_AI_Studio provider entry not found"
-    assert google_ai["litellm_provider"] == "gemini"
+    assert google_ai["embrouter_provider"] == "gemini"
 
     fields_by_key = {f["key"]: f for f in google_ai["credential_fields"]}
     assert "api_key" in fields_by_key
@@ -521,12 +521,12 @@ def test_public_model_hub_with_healthy_model():
     )
 
     with (
-        patch("litellm.public_model_groups", ["gpt-3.5-turbo"]),
-        patch("litellm.proxy.proxy_server._get_model_group_info") as mock_get_info,
-        patch("litellm.proxy.proxy_server.llm_router", mock_llm_router),
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("embrouter.public_model_groups", ["gpt-3.5-turbo"]),
+        patch("embrouter.proxy.proxy_server._get_model_group_info") as mock_get_info,
+        patch("embrouter.proxy.proxy_server.llm_router", mock_llm_router),
+        patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma),
         patch(
-            "litellm.proxy.health_endpoints._health_endpoints._convert_health_check_to_dict"
+            "embrouter.proxy.health_endpoints._health_endpoints._convert_health_check_to_dict"
         ) as mock_convert,
     ):
 
@@ -579,12 +579,12 @@ def test_public_model_hub_with_unhealthy_model():
     )
 
     with (
-        patch("litellm.public_model_groups", ["gpt-4"]),
-        patch("litellm.proxy.proxy_server._get_model_group_info") as mock_get_info,
-        patch("litellm.proxy.proxy_server.llm_router", mock_llm_router),
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("embrouter.public_model_groups", ["gpt-4"]),
+        patch("embrouter.proxy.proxy_server._get_model_group_info") as mock_get_info,
+        patch("embrouter.proxy.proxy_server.llm_router", mock_llm_router),
+        patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma),
         patch(
-            "litellm.proxy.health_endpoints._health_endpoints._convert_health_check_to_dict"
+            "embrouter.proxy.health_endpoints._health_endpoints._convert_health_check_to_dict"
         ) as mock_convert,
     ):
 
@@ -628,10 +628,10 @@ def test_public_model_hub_without_health_check():
     mock_prisma.get_all_latest_health_checks = AsyncMock(return_value=[])
 
     with (
-        patch("litellm.public_model_groups", ["claude-3"]),
-        patch("litellm.proxy.proxy_server._get_model_group_info") as mock_get_info,
-        patch("litellm.proxy.proxy_server.llm_router", mock_llm_router),
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("embrouter.public_model_groups", ["claude-3"]),
+        patch("embrouter.proxy.proxy_server._get_model_group_info") as mock_get_info,
+        patch("embrouter.proxy.proxy_server.llm_router", mock_llm_router),
+        patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma),
     ):
 
         mock_get_info.return_value = [mock_model_group]
@@ -710,12 +710,12 @@ def test_public_model_hub_mixed_health_statuses():
         return {}
 
     with (
-        patch("litellm.public_model_groups", ["gpt-3.5-turbo", "gpt-4", "claude-3"]),
-        patch("litellm.proxy.proxy_server._get_model_group_info") as mock_get_info,
-        patch("litellm.proxy.proxy_server.llm_router", mock_llm_router),
-        patch("litellm.proxy.proxy_server.prisma_client", mock_prisma),
+        patch("embrouter.public_model_groups", ["gpt-3.5-turbo", "gpt-4", "claude-3"]),
+        patch("embrouter.proxy.proxy_server._get_model_group_info") as mock_get_info,
+        patch("embrouter.proxy.proxy_server.llm_router", mock_llm_router),
+        patch("embrouter.proxy.proxy_server.prisma_client", mock_prisma),
         patch(
-            "litellm.proxy.health_endpoints._health_endpoints._convert_health_check_to_dict"
+            "embrouter.proxy.health_endpoints._health_endpoints._convert_health_check_to_dict"
         ) as mock_convert,
     ):
 
@@ -763,7 +763,7 @@ def test_public_agent_hub_rewrites_upstream_url_to_proxy():
     stored card. The ``url`` field has to be overwritten with the proxy
     ``/a2a/{agent_id}`` entrypoint, matching the well-known card endpoint, so
     an unauthenticated client cannot call the backend directly."""
-    from litellm.types.agents import AgentResponse
+    from embrouter.types.agents import AgentResponse
 
     upstream_url = "https://upstream.internal.example.com/a2a"
     agent = AgentResponse(
@@ -781,9 +781,9 @@ def test_public_agent_hub_rewrites_upstream_url_to_proxy():
     mock_registry.ids_for_agent = MagicMock(side_effect=lambda agent_id: frozenset({agent_id}))
 
     with (
-        patch("litellm.public_agent_groups", ["agent-123"]),
+        patch("embrouter.public_agent_groups", ["agent-123"]),
         patch(
-            "litellm.proxy.agent_endpoints.agent_registry.global_agent_registry",
+            "embrouter.proxy.agent_endpoints.agent_registry.global_agent_registry",
             mock_registry,
         ),
     ):
@@ -799,12 +799,12 @@ def test_public_agent_hub_rewrites_upstream_url_to_proxy():
 
 def test_public_agent_hub_serializes_http_security_scheme_without_bearer_format():
     """Regression: agents created through the UI carry an auto-generated
-    ``securitySchemes.LiteLLMKey`` of ``{"type": "http", "scheme": "bearer"}``
+    ``securitySchemes.EmbRouterKey`` of ``{"type": "http", "scheme": "bearer"}``
     with no ``bearerFormat``. The endpoint response_model must accept this
     optional-field-omitted scheme; otherwise response validation raises and
     /public/agent_hub returns 500, which the frontend swallows into an empty
     list and hides the Agent Hub tab."""
-    from litellm.types.agents import AgentResponse
+    from embrouter.types.agents import AgentResponse
 
     agent = AgentResponse(
         agent_id="agent-123",
@@ -813,10 +813,10 @@ def test_public_agent_hub_serializes_http_security_scheme_without_bearer_format(
             "name": "public-agent",
             "url": "https://upstream.internal.example.com/a2a",
             "securitySchemes": {
-                "LiteLLMKey": {
+                "EmbRouterKey": {
                     "type": "http",
                     "scheme": "bearer",
-                    "description": "LiteLLM virtual key",
+                    "description": "EmbRouter virtual key",
                 }
             },
         },
@@ -831,9 +831,9 @@ def test_public_agent_hub_serializes_http_security_scheme_without_bearer_format(
     mock_registry.ids_for_agent = MagicMock(side_effect=lambda agent_id: frozenset({agent_id}))
 
     with (
-        patch("litellm.public_agent_groups", ["agent-123"]),
+        patch("embrouter.public_agent_groups", ["agent-123"]),
         patch(
-            "litellm.proxy.agent_endpoints.agent_registry.global_agent_registry",
+            "embrouter.proxy.agent_endpoints.agent_registry.global_agent_registry",
             mock_registry,
         ),
     ):
@@ -842,7 +842,7 @@ def test_public_agent_hub_serializes_http_security_scheme_without_bearer_format(
     assert response.status_code == 200, response.text
     payload = response.json()
     assert len(payload) == 1
-    scheme = payload[0]["securitySchemes"]["LiteLLMKey"]
+    scheme = payload[0]["securitySchemes"]["EmbRouterKey"]
     assert scheme["type"] == "http"
     assert scheme["scheme"] == "bearer"
     assert "bearerFormat" not in scheme
@@ -857,9 +857,9 @@ def test_public_agent_hub_returns_empty_when_no_public_groups():
     mock_registry.get_public_agent_list.return_value = []
 
     with (
-        patch("litellm.public_agent_groups", None),
+        patch("embrouter.public_agent_groups", None),
         patch(
-            "litellm.proxy.agent_endpoints.agent_registry.global_agent_registry",
+            "embrouter.proxy.agent_endpoints.agent_registry.global_agent_registry",
             mock_registry,
         ),
     ):
@@ -896,7 +896,7 @@ def test_bedrock_agentcore_runtime_arn_validation_pattern_accepts_full_resource_
     fields_by_key = {f["key"]: f for f in bedrock_agentcore["credential_fields"]}
     arn_field = fields_by_key["agent_runtime_arn"]
     assert arn_field["required"] is True
-    assert arn_field["include_in_litellm_params"] is False
+    assert arn_field["include_in_embrouter_params"] is False
 
     pattern = arn_field.get("validation_pattern")
     assert pattern, "agent_runtime_arn must ship a validation_pattern so the UI can reject a truncated ARN"
@@ -912,8 +912,8 @@ def test_bedrock_agentcore_runtime_arn_validation_pattern_accepts_full_resource_
 # /public/endpoints
 # ---------------------------------------------------------------------------
 
-import litellm.proxy.public_endpoints.public_endpoints as _pe_module
-from litellm.proxy.public_endpoints.public_endpoints import (
+import embrouter.proxy.public_endpoints.public_endpoints as _pe_module
+from embrouter.proxy.public_endpoints.public_endpoints import (
     _build_endpoints,
     _clean_display_name,
 )
@@ -1002,7 +1002,7 @@ def test_get_supported_endpoints_is_cached(reset_endpoints_cache):
     """`_load_endpoints` is called only once; subsequent requests use the cache."""
     client = _make_client()
     with patch(
-        "litellm.proxy.public_endpoints.public_endpoints._load_endpoints",
+        "embrouter.proxy.public_endpoints.public_endpoints._load_endpoints",
         wraps=_pe_module._load_endpoints,
     ) as mock_load:
         client.get("/public/endpoints")
@@ -1097,9 +1097,9 @@ def test_public_mcp_hub_derives_publication_metadata_without_mutating_registry(
     expected_listed: bool,
     stored_public: bool | None,
 ) -> None:
-    from litellm.proxy._experimental.mcp_server.mcp_server_manager import MCPServerManager
-    from litellm.types.mcp_server.mcp_server_manager import MCPServer
-    from litellm.proxy._types import MCPTransport
+    from embrouter.proxy._experimental.mcp_server.mcp_server_manager import MCPServerManager
+    from embrouter.types.mcp_server.mcp_server_manager import MCPServer
+    from embrouter.proxy._types import MCPTransport
 
     app: Final = FastAPI()
     app.include_router(router)
@@ -1134,10 +1134,10 @@ def test_public_mcp_hub_derives_publication_metadata_without_mutating_registry(
     original_registry: Final = {key: value.model_dump() for key, value in manager.get_registry().items()}
 
     with (
-        patch("litellm.public_mcp_servers", [server.server_id] if explicit else []),
-        patch("litellm.public_mcp_hub_strict_whitelist", strict),
+        patch("embrouter.public_mcp_servers", [server.server_id] if explicit else []),
+        patch("embrouter.public_mcp_hub_strict_whitelist", strict),
         patch(
-            "litellm.proxy._experimental.mcp_server.mcp_server_manager.global_mcp_server_manager",
+            "embrouter.proxy._experimental.mcp_server.mcp_server_manager.global_mcp_server_manager",
             manager,
         ),
     ):
@@ -1167,9 +1167,9 @@ def test_public_mcp_hub_returns_empty_when_whitelist_unset():
     mock_manager.get_public_mcp_servers.return_value = []
 
     with (
-        patch("litellm.public_mcp_servers", None),
+        patch("embrouter.public_mcp_servers", None),
         patch(
-            "litellm.proxy._experimental.mcp_server.mcp_server_manager.global_mcp_server_manager",
+            "embrouter.proxy._experimental.mcp_server.mcp_server_manager.global_mcp_server_manager",
             mock_manager,
         ),
     ):
@@ -1183,8 +1183,8 @@ def test_public_mcp_hub_returns_empty_when_whitelist_unset():
 def test_public_mcp_hub_does_not_expose_upstream_url():
     """Regression: /public/mcp_hub is unauthenticated, so the gateway-internal
     upstream url must never appear in its response even when the server has one."""
-    from litellm.types.mcp_server.mcp_server_manager import MCPServer
-    from litellm.proxy._types import MCPTransport
+    from embrouter.types.mcp_server.mcp_server_manager import MCPServer
+    from embrouter.proxy._types import MCPTransport
 
     app = FastAPI()
     app.include_router(router)
@@ -1205,9 +1205,9 @@ def test_public_mcp_hub_does_not_expose_upstream_url():
     mock_manager.get_public_mcp_servers.return_value = [server]
 
     with (
-        patch("litellm.public_mcp_servers", ["listed"]),
+        patch("embrouter.public_mcp_servers", ["listed"]),
         patch(
-            "litellm.proxy._experimental.mcp_server.mcp_server_manager.global_mcp_server_manager",
+            "embrouter.proxy._experimental.mcp_server.mcp_server_manager.global_mcp_server_manager",
             mock_manager,
         ),
     ):
@@ -1224,7 +1224,7 @@ def test_public_mcp_hub_does_not_expose_upstream_url():
 
 @pytest.fixture
 def reset_autorouter_presets_cache():
-    from litellm.proxy.public_endpoints.public_endpoints import _AutoRouterPresetsCache
+    from embrouter.proxy.public_endpoints.public_endpoints import _AutoRouterPresetsCache
 
     _AutoRouterPresetsCache.presets = None
     _AutoRouterPresetsCache.lock = None
@@ -1236,7 +1236,7 @@ def reset_autorouter_presets_cache():
 def test_get_autorouter_presets_local_mode_serves_bundled_catalog(
     monkeypatch, reset_autorouter_presets_cache
 ):
-    monkeypatch.setenv("LITELLM_LOCAL_AUTOROUTER_PRESETS", "True")
+    monkeypatch.setenv("EMBROUTER_LOCAL_AUTOROUTER_PRESETS", "True")
     app = FastAPI()
     app.include_router(router)
     client = TestClient(app)
@@ -1254,7 +1254,7 @@ def test_get_autorouter_presets_local_mode_serves_bundled_catalog(
         "REASONING": ["claude-opus-5-5"],
     }
     assert payload["1m_context"]["complexity_router_config"]["tier_model_configs"] == {
-        "REASONING": [{"model_name": "claude-opus-5-5", "litellm_params": {"reasoning_effort": "high"}}]
+        "REASONING": [{"model_name": "claude-opus-5-5", "embrouter_params": {"reasoning_effort": "high"}}]
     }
     for preset in payload.values():
         assert isinstance(preset["label"], str)
@@ -1266,12 +1266,12 @@ def test_get_autorouter_presets_local_mode_serves_bundled_catalog(
 async def test_get_autorouter_presets_fetches_once_per_process(
     monkeypatch, reset_autorouter_presets_cache
 ):
-    from litellm.proxy.public_endpoints.public_endpoints import (
+    from embrouter.proxy.public_endpoints.public_endpoints import (
         _AUTOROUTER_PRESETS_ADAPTER,
         get_autorouter_presets,
     )
 
-    monkeypatch.delenv("LITELLM_LOCAL_AUTOROUTER_PRESETS", raising=False)
+    monkeypatch.delenv("EMBROUTER_LOCAL_AUTOROUTER_PRESETS", raising=False)
     remote = _AUTOROUTER_PRESETS_ADAPTER.validate_python(
         {
             "remote_only": {
@@ -1301,12 +1301,12 @@ async def test_get_autorouter_presets_single_flight_on_concurrent_cold_start(
 ):
     import asyncio
 
-    from litellm.proxy.public_endpoints.public_endpoints import (
+    from embrouter.proxy.public_endpoints.public_endpoints import (
         _AUTOROUTER_PRESETS_ADAPTER,
         get_autorouter_presets,
     )
 
-    monkeypatch.delenv("LITELLM_LOCAL_AUTOROUTER_PRESETS", raising=False)
+    monkeypatch.delenv("EMBROUTER_LOCAL_AUTOROUTER_PRESETS", raising=False)
     remote = _AUTOROUTER_PRESETS_ADAPTER.validate_python(
         {
             "remote_only": {
@@ -1337,9 +1337,9 @@ async def test_get_autorouter_presets_single_flight_on_concurrent_cold_start(
 async def test_get_autorouter_presets_caches_bundled_fallback_on_remote_failure(
     monkeypatch, reset_autorouter_presets_cache
 ):
-    from litellm.proxy.public_endpoints.public_endpoints import get_autorouter_presets
+    from embrouter.proxy.public_endpoints.public_endpoints import get_autorouter_presets
 
-    monkeypatch.delenv("LITELLM_LOCAL_AUTOROUTER_PRESETS", raising=False)
+    monkeypatch.delenv("EMBROUTER_LOCAL_AUTOROUTER_PRESETS", raising=False)
     calls = []
 
     async def broken_fetch(url):
@@ -1358,7 +1358,7 @@ async def test_get_autorouter_presets_caches_bundled_fallback_on_remote_failure(
 async def test_autorouter_presets_adapter_rejects_wrong_shapes():
     from pydantic import ValidationError
 
-    from litellm.proxy.public_endpoints.public_endpoints import _AUTOROUTER_PRESETS_ADAPTER
+    from embrouter.proxy.public_endpoints.public_endpoints import _AUTOROUTER_PRESETS_ADAPTER
 
     with pytest.raises(ValidationError):
         _AUTOROUTER_PRESETS_ADAPTER.validate_python({"bad": {"label": "no description or config"}})
@@ -1411,12 +1411,12 @@ async def test_autorouter_presets_adapter_rejects_wrong_shapes():
 def test_get_autorouter_presets_passes_unknown_catalog_fields_through(
     monkeypatch, reset_autorouter_presets_cache
 ):
-    from litellm.proxy.public_endpoints.public_endpoints import (
+    from embrouter.proxy.public_endpoints.public_endpoints import (
         _AUTOROUTER_PRESETS_ADAPTER,
         _AutoRouterPresetsCache,
     )
 
-    monkeypatch.delenv("LITELLM_LOCAL_AUTOROUTER_PRESETS", raising=False)
+    monkeypatch.delenv("EMBROUTER_LOCAL_AUTOROUTER_PRESETS", raising=False)
     _AutoRouterPresetsCache.presets = _AUTOROUTER_PRESETS_ADAPTER.validate_python(
         {
             "future_preset": {
@@ -1445,8 +1445,8 @@ def test_get_autorouter_presets_passes_unknown_catalog_fields_through(
 
 @pytest.mark.asyncio
 async def test_fetch_remote_autorouter_presets_parses_and_rejects_empty(monkeypatch):
-    import litellm.llms.custom_httpx.http_handler as http_handler_module
-    from litellm.proxy.public_endpoints.public_endpoints import _fetch_remote_autorouter_presets
+    import embrouter.llms.custom_httpx.http_handler as http_handler_module
+    from embrouter.proxy.public_endpoints.public_endpoints import _fetch_remote_autorouter_presets
 
     catalog = {
         "remote_only": {

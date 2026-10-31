@@ -4,15 +4,15 @@ from typing import Final
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-import litellm
+import embrouter
 from pydantic import ValidationError
 
-from litellm import ModelResponse, Router
-from litellm.caching.dual_cache import DualCache
-from litellm.router_strategy.complexity_router.complexity_router import ComplexityRouter
-from litellm.router_strategy.complexity_router.config import ComplexityRouterConfig, ComplexityTier
-from litellm.router_strategy.complexity_router.fuse_presets import get_fuse_presets
-from litellm.router_strategy.complexity_router.llm_v2 import (
+from embrouter import ModelResponse, Router
+from embrouter.caching.dual_cache import DualCache
+from embrouter.router_strategy.complexity_router.complexity_router import ComplexityRouter
+from embrouter.router_strategy.complexity_router.config import ComplexityRouterConfig, ComplexityTier
+from embrouter.router_strategy.complexity_router.fuse_presets import get_fuse_presets
+from embrouter.router_strategy.complexity_router.llm_v2 import (
     LLM_V2_PROMPT_VERSION,
     LLM_V2_SYSTEM_PROMPT,
     LLMV2Calibration,
@@ -21,8 +21,8 @@ from litellm.router_strategy.complexity_router.llm_v2 import (
     LLMV2Verdict,
     llm_v2_response_format,
 )
-from litellm.router_utils.auto_router_model_naming import strategy_router_dependencies
-from litellm.types.llms.openai import ResponsesAPIResponse
+from embrouter.router_utils.auto_router_model_naming import strategy_router_dependencies
+from embrouter.types.llms.openai import ResponsesAPIResponse
 
 
 def _config(**overrides: object) -> ComplexityRouterConfig:
@@ -90,7 +90,7 @@ def _router(content: str, config: ComplexityRouterConfig | None = None) -> tuple
     client.acompletion = AsyncMock(return_value=_response(content))
     router: Final = ComplexityRouter(
         model_name="v2-router",
-        litellm_router_instance=client,
+        embrouter_router_instance=client,
         complexity_router_config=(config or _config()).model_dump(),
         derive_savings_baseline=False,
     )
@@ -373,7 +373,7 @@ async def test_wrapped_forecast_routes_by_validated_probabilities(mode: str, sha
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("user_agent", ("claude-cli/2.1.233", "curl/8.7.1"))
-@pytest.mark.parametrize("metadata_key", ("metadata", "litellm_metadata"))
+@pytest.mark.parametrize("metadata_key", ("metadata", "embrouter_metadata"))
 async def test_caller_constraints_respect_claude_code_prompt_policy(user_agent: str, metadata_key: str) -> None:
     router, client = _router(_verdict().model_dump_json())
     outcome: Final = await router.aclassify(
@@ -409,7 +409,7 @@ async def test_routing_metadata_preserves_exact_forecasts_and_redaction(
     assert result.model == ("capable" if calibrated else "efficient")
     decision: Final = result.routing_decision
     assert decision is not None
-    monkeypatch.setattr(litellm, "turn_off_message_logging", True)
+    monkeypatch.setattr(embrouter, "turn_off_message_logging", True)
     redacted: Final = Router._redact_prompt_text_if_needed(request_kwargs={}, routing_decision=decision)
     assert redacted is not None
     assert "signals" not in redacted
@@ -519,7 +519,7 @@ async def test_unparseable_reply_is_logged_with_its_text_unless_message_logging_
 
 _MESSAGE_LOGGING_OPT_OUTS: Final = (
     pytest.param({"turn_off_message_logging": "True"}, False, id="key-logging-settings-string"),
-    pytest.param({"metadata": {"headers": {"x-litellm-enable-message-redaction": "true"}}}, False, id="redaction-header"),
+    pytest.param({"metadata": {"headers": {"x-embrouter-enable-message-redaction": "true"}}}, False, id="redaction-header"),
     pytest.param({}, True, id="global-setting"),
     pytest.param({"metadata": {"headers": None}}, False, id="undecidable-headers-fail-closed"),
 )
@@ -533,7 +533,7 @@ async def test_unparseable_reply_text_is_withheld_under_every_message_logging_op
     request_kwargs: dict[str, object],
     global_off: bool,
 ) -> None:
-    monkeypatch.setattr(litellm, "turn_off_message_logging", global_off)
+    monkeypatch.setattr(embrouter, "turn_off_message_logging", global_off)
     reply: Final = "I cannot forecast this one, the task text is too {vague} to score."
     router, _ = _router(reply)
     outcome: Final = await router.aclassify("hi", request_kwargs=request_kwargs)
@@ -628,8 +628,8 @@ async def test_encrypted_task_uses_native_responses_and_preserves_logging_contro
         request_kwargs={
             "input": [task],
             "turn_off_message_logging": True,
-            "litellm_session_id": "parent",
-            "litellm_trace_id": "trace",
+            "embrouter_session_id": "parent",
+            "embrouter_trace_id": "trace",
         },
     )
     assert result is not None and result.model == "capable"
@@ -645,8 +645,8 @@ async def test_encrypted_task_uses_native_responses_and_preserves_logging_contro
     assert call["max_output_tokens"] == 1024
     assert call["text"]["format"]["schema"]["required"] == ["crux", "demands", "verification", "forecasts"]
     assert call["turn_off_message_logging"] is True
-    assert call["litellm_session_id"] == "parent"
-    assert call["litellm_trace_id"] == "trace"
+    assert call["embrouter_session_id"] == "parent"
+    assert call["embrouter_trace_id"] == "trace"
     assert call["reasoning"] == {"effort": "low"}
     assert call["store"] is False
 
@@ -671,7 +671,7 @@ async def test_v2_forwards_inline_images_only_when_vision_is_enabled(vision_enab
     config: Final = _config(classifier_llm_config={"model": "judge", "vision": {"enabled": vision_enabled}})
     router, client = _router(_verdict().model_dump_json(), config)
     client.get_model_list.return_value = [
-        {"model_name": "judge", "litellm_params": {"model": "judge"}, "model_info": {"supports_vision": True}}
+        {"model_name": "judge", "embrouter_params": {"model": "judge"}, "model_info": {"supports_vision": True}}
     ]
     image: Final = {"type": "image_url", "image_url": {"url": "data:image/png;base64,aGk="}}
     outcome: Final = await router.aclassify(

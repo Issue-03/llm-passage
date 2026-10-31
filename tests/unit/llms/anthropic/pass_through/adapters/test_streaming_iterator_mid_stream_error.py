@@ -24,13 +24,13 @@ import pytest
 
 sys.path.insert(0, os.path.abspath("../../../../.."))
 
-from litellm.exceptions import MidStreamFallbackError
-from litellm.llms.anthropic.pass_through.adapters.streaming_iterator import (
+from embrouter.exceptions import MidStreamFallbackError
+from embrouter.llms.anthropic.pass_through.adapters.streaming_iterator import (
     AnthropicStreamWrapper,
     _mid_stream_error_sse_event,
 )
-from litellm.llms.bedrock.common_utils import BedrockError
-from litellm.types.utils import Delta, StreamingChoices
+from embrouter.llms.bedrock.common_utils import BedrockError
+from embrouter.types.utils import Delta, StreamingChoices
 
 
 def _make_chunk(delta: Delta, finish_reason: Optional[str] = None) -> MagicMock:

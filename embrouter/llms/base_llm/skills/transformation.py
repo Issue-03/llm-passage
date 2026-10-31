@@ -7,23 +7,23 @@ from typing import TYPE_CHECKING, Any
 
 import httpx
 
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.types.llms.anthropic_skills import (
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.types.llms.anthropic_skills import (
     CreateSkillRequest,
     DeleteSkillResponse,
     ListSkillsParams,
     ListSkillsResponse,
     Skill,
 )
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.utils import LlmProviders
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.utils import LlmProviders
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 
 class BaseSkillsAPIConfig(ABC):
@@ -38,13 +38,13 @@ class BaseSkillsAPIConfig(ABC):
         pass
 
     @abstractmethod
-    def validate_environment(self, headers: dict, litellm_params: GenericLiteLLMParams | None) -> dict:
+    def validate_environment(self, headers: dict, embrouter_params: GenericEmbRouterParams | None) -> dict:
         """
         Validate and update headers with provider-specific requirements
 
         Args:
             headers: Base headers dictionary
-            litellm_params: LiteLLM parameters
+            embrouter_params: EmbRouter parameters
 
         Returns:
             Updated headers dictionary
@@ -77,7 +77,7 @@ class BaseSkillsAPIConfig(ABC):
     def transform_create_skill_request(
         self,
         create_request: CreateSkillRequest,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> dict:
         """
@@ -85,7 +85,7 @@ class BaseSkillsAPIConfig(ABC):
 
         Args:
             create_request: Skill creation parameters
-            litellm_params: LiteLLM parameters
+            embrouter_params: EmbRouter parameters
             headers: Request headers
 
         Returns:
@@ -96,7 +96,7 @@ class BaseSkillsAPIConfig(ABC):
     def transform_create_skill_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> Skill:
         """
         Transform provider response to Skill object
@@ -113,7 +113,7 @@ class BaseSkillsAPIConfig(ABC):
     def transform_list_skills_request(
         self,
         list_params: ListSkillsParams,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict]:
         """
@@ -121,7 +121,7 @@ class BaseSkillsAPIConfig(ABC):
 
         Args:
             list_params: List parameters (pagination, filters)
-            litellm_params: LiteLLM parameters
+            embrouter_params: EmbRouter parameters
             headers: Request headers
 
         Returns:
@@ -132,7 +132,7 @@ class BaseSkillsAPIConfig(ABC):
     def transform_list_skills_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> ListSkillsResponse:
         """
         Transform provider response to ListSkillsResponse
@@ -150,7 +150,7 @@ class BaseSkillsAPIConfig(ABC):
         self,
         skill_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict]:
         """
@@ -159,7 +159,7 @@ class BaseSkillsAPIConfig(ABC):
         Args:
             skill_id: Skill ID
             api_base: Base API URL
-            litellm_params: LiteLLM parameters
+            embrouter_params: EmbRouter parameters
             headers: Request headers
 
         Returns:
@@ -170,7 +170,7 @@ class BaseSkillsAPIConfig(ABC):
     def transform_get_skill_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> Skill:
         """
         Transform provider response to Skill object
@@ -188,7 +188,7 @@ class BaseSkillsAPIConfig(ABC):
         self,
         skill_id: str,
         api_base: str,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> tuple[str, dict]:
         """
@@ -197,7 +197,7 @@ class BaseSkillsAPIConfig(ABC):
         Args:
             skill_id: Skill ID
             api_base: Base API URL
-            litellm_params: LiteLLM parameters
+            embrouter_params: EmbRouter parameters
             headers: Request headers
 
         Returns:
@@ -208,7 +208,7 @@ class BaseSkillsAPIConfig(ABC):
     def transform_delete_skill_response(
         self,
         raw_response: httpx.Response,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> DeleteSkillResponse:
         """
         Transform provider response to DeleteSkillResponse

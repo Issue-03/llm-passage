@@ -9,8 +9,8 @@ from collections.abc import Callable
 from datetime import timedelta
 from typing import TYPE_CHECKING, Any, Final
 
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy.db.prisma_client import PrismaWrapper
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy.db.prisma_client import PrismaWrapper
 
 if TYPE_CHECKING:
     from prisma.types import HttpConfig

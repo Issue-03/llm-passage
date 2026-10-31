@@ -4,18 +4,18 @@ from typing import Annotated, Final
 
 from fastapi import APIRouter, Depends, Header
 
-from litellm._logging import verbose_proxy_logger
-from litellm.proxy._types import CommonProxyErrors, UserAPIKeyAuth
-from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-from litellm.proxy.list_api.common import PROBLEM_TYPE_BASE, ManagementProblem, reject_unknown_query_params
-from litellm.proxy.management_endpoints.management_v1.common import MANAGEMENT_V1_PREFIX
-from litellm.proxy.management_helpers.bulk_team_member_budgets import bulk_update_team_member_budgets
-from litellm.proxy.management_helpers.bulk_user_deletion import bulk_remove_team_members
-from litellm.proxy.management_helpers.utils import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.proxy._types import CommonProxyErrors, UserAPIKeyAuth
+from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+from embrouter.proxy.list_api.common import PROBLEM_TYPE_BASE, ManagementProblem, reject_unknown_query_params
+from embrouter.proxy.management_endpoints.management_v1.common import MANAGEMENT_V1_PREFIX
+from embrouter.proxy.management_helpers.bulk_team_member_budgets import bulk_update_team_member_budgets
+from embrouter.proxy.management_helpers.bulk_user_deletion import bulk_remove_team_members
+from embrouter.proxy.management_helpers.utils import (
     management_endpoint_wrapper,  # pyright: ignore[reportUnknownVariableType]  # legacy decorator is untyped
 )
-from litellm.types.proxy.management_endpoints.management_v1 import ProblemDetail
-from litellm.types.proxy.management_endpoints.team_endpoints import (
+from embrouter.types.proxy.management_endpoints.management_v1 import ProblemDetail
+from embrouter.types.proxy.management_endpoints.team_endpoints import (
     BulkTeamMemberBudgetUpdateRequest,
     BulkTeamMemberBudgetUpdateResponse,
     BulkTeamMemberDeleteRequest,
@@ -57,7 +57,7 @@ async def bulk_delete_team_members_action(
     ```
     """
     try:
-        from litellm.proxy.proxy_server import prisma_client, proxy_logging_obj, user_api_key_cache
+        from embrouter.proxy.proxy_server import prisma_client, proxy_logging_obj, user_api_key_cache
 
         if prisma_client is None:
             raise ManagementProblem(
@@ -83,7 +83,7 @@ async def bulk_delete_team_members_action(
         raise
     except Exception as e:  # noqa: BLE001  # a driver error answers as a problem document, not the OpenAI error shape
         verbose_proxy_logger.exception(
-            "litellm.proxy.management_endpoints.management_v1.teams.bulk_delete_team_members_action(): "
+            "embrouter.proxy.management_endpoints.management_v1.teams.bulk_delete_team_members_action(): "
             "Exception occured - %s",
             e,
         )
@@ -108,10 +108,10 @@ async def bulk_update_team_member_budgets_action(
     team_id: str,
     data: BulkTeamMemberBudgetUpdateRequest,
     user_api_key_dict: Annotated[UserAPIKeyAuth, Depends(user_api_key_auth)],
-    litellm_changed_by: Annotated[
+    embrouter_changed_by: Annotated[
         str | None,
         Header(
-            description="The litellm-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability",
+            description="The embrouter-changed-by header enables tracking of actions performed by authorized users on behalf of other users, providing an audit trail for accountability",
         ),
     ] = None,
 ) -> BulkTeamMemberBudgetUpdateResponse:
@@ -141,7 +141,7 @@ async def bulk_update_team_member_budgets_action(
     ```
     """
     try:
-        from litellm.proxy.proxy_server import litellm_proxy_admin_name, prisma_client, user_api_key_cache
+        from embrouter.proxy.proxy_server import embrouter_proxy_admin_name, prisma_client, user_api_key_cache
 
         if prisma_client is None:
             raise ManagementProblem(
@@ -159,8 +159,8 @@ async def bulk_update_team_member_budgets_action(
             user_api_key_dict=user_api_key_dict,
             prisma_client=prisma_client,
             user_api_key_cache=user_api_key_cache,
-            litellm_proxy_admin_name=litellm_proxy_admin_name,
-            litellm_changed_by=litellm_changed_by,
+            embrouter_proxy_admin_name=embrouter_proxy_admin_name,
+            embrouter_changed_by=embrouter_changed_by,
         )
         return BulkTeamMemberBudgetUpdateResponse(data=results)
 
@@ -168,7 +168,7 @@ async def bulk_update_team_member_budgets_action(
         raise
     except Exception as e:  # noqa: BLE001  # a driver error answers as a problem document, not the OpenAI error shape
         verbose_proxy_logger.exception(
-            "litellm.proxy.management_endpoints.management_v1.teams.bulk_update_team_member_budgets_action(): "
+            "embrouter.proxy.management_endpoints.management_v1.teams.bulk_update_team_member_budgets_action(): "
             "Exception occured - %s",
             e,
         )

@@ -9,7 +9,7 @@ import ModelConnectionTest from "./model_connection_test";
 vi.mock("../networking", () => ({ testConnectionRequest: vi.fn() }));
 vi.mock("./handle_add_model_submit", () => ({ prepareModelAddRequest: vi.fn() }));
 
-const preparedRequest = [{ litellmParamsObj: { model: "openai/gpt-4o-mini" }, modelInfoObj: { mode: "chat" } }];
+const preparedRequest = [{ embrouterParamsObj: { model: "openai/gpt-4o-mini" }, modelInfoObj: { mode: "chat" } }];
 
 const finishConnectionTest = async () => {
   await act(async () => {
@@ -63,7 +63,7 @@ describe("ModelConnectionTest", () => {
     vi.mocked(testConnectionRequest).mockResolvedValue({
       status: "error",
       result: {
-        error: "litellm.AuthenticationError: invalid api key stack trace: hidden",
+        error: "embrouter.AuthenticationError: invalid api key stack trace: hidden",
         raw_request_typed_dict: {
           raw_request_api_base: "https://api.example.test/v1/chat/completions",
           raw_request_body: { model: "gpt-4o-mini" },

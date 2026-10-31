@@ -4,10 +4,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 
-from litellm.integrations.galileo import GalileoObserve
-from litellm.types.llms.openai import HttpxBinaryResponseContent, ResponsesAPIResponse
-from litellm.types.rerank import RerankResponse
-from litellm.types.utils import (
+from embrouter.integrations.galileo import GalileoObserve
+from embrouter.types.llms.openai import HttpxBinaryResponseContent, ResponsesAPIResponse
+from embrouter.types.rerank import RerankResponse
+from embrouter.types.utils import (
     Choices,
     EmbeddingResponse,
     ImageObject,

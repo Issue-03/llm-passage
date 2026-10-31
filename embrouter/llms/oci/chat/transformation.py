@@ -2,11 +2,11 @@
 OCI Generative AI — chat transformation orchestrator.
 
 This module wires together the Cohere-specific and Generic-model helpers to
-implement the LiteLLM BaseConfig interface.  Heavy-lifting lives in:
+implement the EmbRouter BaseConfig interface.  Heavy-lifting lives in:
 
-  - :mod:`litellm.llms.oci.chat.cohere`  — Cohere message/tool/response logic
-  - :mod:`litellm.llms.oci.chat.generic` — Generic message/tool/response logic
-  - :mod:`litellm.llms.oci.common_utils` — auth, signing, schema utilities
+  - :mod:`embrouter.llms.oci.chat.cohere`  — Cohere message/tool/response logic
+  - :mod:`embrouter.llms.oci.chat.generic` — Generic message/tool/response logic
+  - :mod:`embrouter.llms.oci.common_utils` — auth, signing, schema utilities
 """
 
 import json
@@ -15,32 +15,32 @@ from typing import TYPE_CHECKING, Any, Final
 
 import httpx
 
-import litellm
-from litellm.constants import DEFAULT_OCI_CHAT_MAX_TOKENS
-from litellm.litellm_core_utils.logging_utils import track_llm_api_timing
-from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
-from litellm.llms.base_llm.chat.transformation import BaseConfig, BaseLLMException
-from litellm.llms.custom_httpx.http_handler import (
+import embrouter
+from embrouter.constants import DEFAULT_OCI_CHAT_MAX_TOKENS
+from embrouter.embrouter_core_utils.logging_utils import track_llm_api_timing
+from embrouter.embrouter_core_utils.streaming_handler import CustomStreamWrapper
+from embrouter.llms.base_llm.chat.transformation import BaseConfig, BaseLLMException
+from embrouter.llms.custom_httpx.http_handler import (
     AsyncHTTPHandler,
     HTTPHandler,
     _get_httpx_client,
     get_async_httpx_client,
     version,
 )
-from litellm.llms.oci.chat.cohere import (
+from embrouter.llms.oci.chat.cohere import (
     _extract_text_content,
     adapt_messages_to_cohere_standard,
     adapt_tool_definitions_to_cohere_standard,
     handle_cohere_response,
     handle_cohere_stream_chunk,
 )
-from litellm.llms.oci.chat.generic import (
+from embrouter.llms.oci.chat.generic import (
     adapt_messages_to_generic_oci_standard,
     adapt_tool_definition_to_oci_standard,
     handle_generic_response,
     handle_generic_stream_chunk,
 )
-from litellm.llms.oci.common_utils import (
+from embrouter.llms.oci.common_utils import (
     OCI_API_VERSION,
     OCIError,
     OCIRequestWrapper,  # re-exported for backwards compatibility
@@ -49,28 +49,28 @@ from litellm.llms.oci.common_utils import (
     sign_oci_request,
     validate_oci_environment,
 )
-from litellm.types.llms.oci import (
+from embrouter.types.llms.oci import (
     CohereChatRequest,
     OCIChatRequestPayload,
     OCICompletionPayload,
     OCIServingMode,
     OCIVendors,
 )
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.utils import (
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.utils import (
     LlmProviders,
     ModelResponse,
     ModelResponseStream,
 )
-from litellm.utils import supports_reasoning
+from embrouter.utils import supports_reasoning
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 
 # Streaming timeout — generous because OCI models may need to warm up on first request
@@ -245,7 +245,7 @@ def get_vendor_from_model(model: str) -> OCIVendors:
 
 
 class OCIChatConfig(BaseConfig):
-    """LiteLLM BaseConfig implementation for OCI Generative AI chat."""
+    """EmbRouter BaseConfig implementation for OCI Generative AI chat."""
 
     @property
     def has_custom_stream_wrapper(self) -> bool:
@@ -295,7 +295,7 @@ class OCIChatConfig(BaseConfig):
         self.openai_to_oci_cohere_param_map["tool_choice"] = False
         self.openai_to_oci_cohere_param_map["n"] = False
         # ``top_k`` is not a standard OpenAI param, but Cohere's chat request
-        # accepts ``topK`` and LiteLLM commonly forwards ``top_k`` as a
+        # accepts ``topK`` and EmbRouter commonly forwards ``top_k`` as a
         # passthrough param. Cohere-only — ``OCIChatRequestPayload`` (GENERIC)
         # has no ``topK`` field.
         self.openai_to_oci_cohere_param_map["top_k"] = "topK"
@@ -340,9 +340,9 @@ class OCIChatConfig(BaseConfig):
         for key, value in {**non_default_params, **optional_params}.items():
             alias = param_map.get(key)
             if alias is False:
-                # max_retries is a litellm-level control param (litellm applies
+                # max_retries is a embrouter-level control param (embrouter applies
                 # retries itself); it is never a generation param OCI accepts, so
-                # drop it silently. The litellm proxy injects it on every request,
+                # drop it silently. The embrouter proxy injects it on every request,
                 # which otherwise 500s OCI calls unless drop_params is set.
                 if key == "max_retries":
                     continue
@@ -353,7 +353,7 @@ class OCIChatConfig(BaseConfig):
                 # has no numGenerations field.
                 if key == "n" and (value is None or value == 1):
                     continue
-                if drop_params or litellm.drop_params:
+                if drop_params or embrouter.drop_params:
                     continue
                 raise OCIError(
                     status_code=400,
@@ -364,7 +364,7 @@ class OCIChatConfig(BaseConfig):
                 continue
             adapted_params[alias] = value
             # Preserve the original OpenAI ``response_format`` key alongside the
-            # OCI-mapped ``responseFormat`` so downstream litellm framework code
+            # OCI-mapped ``responseFormat`` so downstream embrouter framework code
             # (e.g. ``json_mode`` detection, logging) that inspects
             # ``optional_params["response_format"]`` continues to work.
             if alias == "responseFormat":
@@ -400,7 +400,7 @@ class OCIChatConfig(BaseConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:
@@ -440,10 +440,10 @@ class OCIChatConfig(BaseConfig):
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
-        base: Final = get_oci_base_url(optional_params, api_base or litellm.api_base)
+        base: Final = get_oci_base_url(optional_params, api_base or embrouter.api_base)
         return f"{base}/{OCI_API_VERSION}/actions/chat"
 
     def _get_optional_params(self, vendor: OCIVendors, optional_params: dict, model: str = "") -> dict:
@@ -484,7 +484,7 @@ class OCIChatConfig(BaseConfig):
         # OCI's server-side default token cap is tiny (~20 tokens), so an
         # omitted max_tokens silently truncates the response mid-string. Most
         # callers never send a limit (MLflow judges among them), so inject a
-        # sane default when one is absent, mirroring litellm's Anthropic config.
+        # sane default when one is absent, mirroring embrouter's Anthropic config.
         if max_tokens_key not in selected_params:
             selected_params[max_tokens_key] = DEFAULT_OCI_CHAT_MAX_TOKENS
 
@@ -521,7 +521,7 @@ class OCIChatConfig(BaseConfig):
         model: str,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> dict:
         creds: Final = resolve_oci_credentials(optional_params)
@@ -597,11 +597,11 @@ class OCIChatConfig(BaseConfig):
         model: str,
         raw_response: httpx.Response,
         model_response: ModelResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         request_data: dict,
         messages: list[AllMessageValues],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         json_mode: bool | None = None,
@@ -634,7 +634,7 @@ class OCIChatConfig(BaseConfig):
         self,
         model: str,
         custom_llm_provider: str,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_base: str,
         headers: dict,
         data: dict,
@@ -643,7 +643,7 @@ class OCIChatConfig(BaseConfig):
         json_mode: bool | None = None,
         signed_json_body: bytes | None = None,
         *,
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
     ) -> "OCIStreamWrapper":
         if client is None or isinstance(client, AsyncHTTPHandler):
             client = _get_httpx_client(params={})
@@ -675,7 +675,7 @@ class OCIChatConfig(BaseConfig):
         self,
         model: str,
         custom_llm_provider: str,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_base: str,
         headers: dict,
         data: dict,
@@ -684,7 +684,7 @@ class OCIChatConfig(BaseConfig):
         json_mode: bool | None = None,
         signed_json_body: bytes | None = None,
         *,
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
     ) -> "OCIStreamWrapper":
         if client is None or isinstance(client, HTTPHandler):
             client = get_async_httpx_client(llm_provider=LlmProviders.OCI, params={})
@@ -722,7 +722,7 @@ class OCIStreamWrapper(CustomStreamWrapper):
         self,
         completion_stream: object,
         model: str,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         custom_llm_provider: str | None = None,
         stream_options: object = None,
         make_call: Callable[..., object] | None = None,

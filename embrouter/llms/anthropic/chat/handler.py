@@ -10,41 +10,41 @@ from typing import TYPE_CHECKING, Any, Final, Literal, Union, cast
 
 import httpx
 
-import litellm
-import litellm.litellm_core_utils
-import litellm.types
-import litellm.types.utils
-from litellm.anthropic_beta_headers_manager import (
+import embrouter
+import embrouter.embrouter_core_utils
+import embrouter.types
+import embrouter.types.utils
+from embrouter.anthropic_beta_headers_manager import (
     update_request_with_filtered_beta,
 )
-from litellm.constants import RESPONSE_FORMAT_TOOL_NAME
-from litellm.litellm_core_utils.core_helpers import map_finish_reason
-from litellm.litellm_core_utils.json_fragment_accumulator import JSONFragmentAccumulator
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.constants import RESPONSE_FORMAT_TOOL_NAME
+from embrouter.embrouter_core_utils.core_helpers import map_finish_reason
+from embrouter.embrouter_core_utils.json_fragment_accumulator import JSONFragmentAccumulator
+from embrouter.llms.custom_httpx.http_handler import (
     AsyncHTTPHandler,
     HTTPHandler,
     _get_httpx_client,
     get_async_httpx_client,
 )
-from litellm.types.llms.anthropic import (
+from embrouter.types.llms.anthropic import (
     ContentBlockDelta,
     ContentBlockStart,
     ContentBlockStop,
     MessageBlockDelta,
     MessageStartBlock,
 )
-from litellm.types.llms.openai import (
+from embrouter.types.llms.openai import (
     ChatCompletionRedactedThinkingBlock,
     ChatCompletionThinkingBlock,
     ChatCompletionToolCallChunk,
     ChatCompletionToolCallFunctionChunk,
 )
-from litellm.types.responses.main import (
+from embrouter.types.responses.main import (
     OutputCodeInterpreterCall,
     build_code_interpreter_log_outputs,
     build_web_search_call,
 )
-from litellm.types.utils import (
+from embrouter.types.utils import (
     Delta,
     GenericStreamingChunk,
     LlmProviders,
@@ -60,9 +60,9 @@ from ..common_utils import AnthropicError, process_anthropic_headers
 from .transformation import ANTHROPIC_TOOL_NAME_REVERSE_MAP_KEY, AnthropicConfig
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
-    from litellm.llms.base_llm.chat.transformation import BaseConfig
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.embrouter_core_utils.streaming_handler import CustomStreamWrapper
+    from embrouter.llms.base_llm.chat.transformation import BaseConfig
 
 
 def _loads_stream_chunk(payload: str) -> dict[str, object]:
@@ -83,7 +83,7 @@ async def make_call(
     tool_name_reverse_map: dict[str, str] | None = None,
 ) -> tuple["ModelResponseIterator", httpx.Headers]:
     if client is None:
-        client = litellm.module_level_aclient
+        client = embrouter.module_level_aclient
 
     try:
         response: Final = await client.post(
@@ -105,7 +105,7 @@ async def make_call(
             headers=error_headers,
         )
     except Exception as e:
-        for exception in litellm.LITELLM_EXCEPTION_TYPES:
+        for exception in embrouter.EMBROUTER_EXCEPTION_TYPES:
             if isinstance(e, exception):
                 raise e
         raise AnthropicError(status_code=500, message=str(e))
@@ -143,7 +143,7 @@ def make_sync_call(
     tool_name_reverse_map: dict[str, str] | None = None,
 ) -> tuple["ModelResponseIterator", httpx.Headers]:
     if client is None:
-        client = litellm.module_level_client  # re-use a module level client
+        client = embrouter.module_level_client  # re-use a module level client
 
     try:
         response: Final = client.post(
@@ -165,7 +165,7 @@ def make_sync_call(
             headers=error_headers,
         )
     except Exception as e:
-        for exception in litellm.LITELLM_EXCEPTION_TYPES:
+        for exception in embrouter.EMBROUTER_EXCEPTION_TYPES:
             if isinstance(e, exception):
                 raise e
         raise AnthropicError(status_code=500, message=str(e))
@@ -213,17 +213,17 @@ class AnthropicChatCompletion(BaseLLM):
         client: AsyncHTTPHandler | None,
         encoding,
         api_key,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
         stream,
         _is_function_call,
         data: dict,
         json_mode: bool,
         optional_params=None,
-        litellm_params=None,
+        embrouter_params=None,
         logger_fn=None,
         headers={},
     ):
-        from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
+        from embrouter.embrouter_core_utils.streaming_handler import CustomStreamWrapper
 
         data["stream"] = True
 
@@ -239,7 +239,7 @@ class AnthropicChatCompletion(BaseLLM):
             json_mode=json_mode,
             speed=optional_params.get("speed") if optional_params else None,
             tool_name_reverse_map=(
-                litellm_params.get(ANTHROPIC_TOOL_NAME_REVERSE_MAP_KEY) if isinstance(litellm_params, dict) else None
+                embrouter_params.get(ANTHROPIC_TOOL_NAME_REVERSE_MAP_KEY) if isinstance(embrouter_params, dict) else None
             ),
         )
         streamwrapper: Final = CustomStreamWrapper(
@@ -268,13 +268,13 @@ class AnthropicChatCompletion(BaseLLM):
         data: dict,
         optional_params: dict,
         json_mode: bool,
-        litellm_params: dict,
+        embrouter_params: dict,
         provider_config: "BaseConfig",
         logger_fn=None,
         headers={},
         client: AsyncHTTPHandler | None = None,
     ) -> Union[ModelResponse, "CustomStreamWrapper"]:
-        async_handler: Final = client or get_async_httpx_client(llm_provider=litellm.LlmProviders.ANTHROPIC)
+        async_handler: Final = client or get_async_httpx_client(llm_provider=embrouter.LlmProviders.ANTHROPIC)
 
         try:
             response: Final = await async_handler.post(
@@ -315,7 +315,7 @@ class AnthropicChatCompletion(BaseLLM):
             request_data=data,
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             encoding=encoding,
             json_mode=json_mode,
         )
@@ -331,17 +331,17 @@ class AnthropicChatCompletion(BaseLLM):
         print_verbose: Callable,
         encoding,
         api_key,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
         optional_params: dict,
         timeout: float | httpx.Timeout,
-        litellm_params: dict,
+        embrouter_params: dict,
         acompletion=None,
         logger_fn=None,
         headers={},
         client=None,
     ):
-        from litellm.litellm_core_utils.streaming_handler import CustomStreamWrapper
-        from litellm.utils import ProviderConfigManager
+        from embrouter.embrouter_core_utils.streaming_handler import CustomStreamWrapper
+        from embrouter.utils import ProviderConfigManager
 
         optional_params = copy.deepcopy(optional_params)
         stream: Final = optional_params.pop("stream", None)
@@ -356,7 +356,7 @@ class AnthropicChatCompletion(BaseLLM):
             model=model,
             messages=messages,
             optional_params={**optional_params, "is_vertex_request": is_vertex_request},
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             api_base=api_base,
         )
 
@@ -399,7 +399,7 @@ class AnthropicChatCompletion(BaseLLM):
                     model=model,
                     messages=messages,
                     optional_params=transform_params,
-                    litellm_params=litellm_params,
+                    embrouter_params=embrouter_params,
                     headers=headers,
                 )
             )
@@ -423,7 +423,7 @@ class AnthropicChatCompletion(BaseLLM):
                     stream=stream,
                     _is_function_call=_is_function_call,
                     json_mode=json_mode,
-                    litellm_params=litellm_params,
+                    embrouter_params=embrouter_params,
                     logger_fn=logger_fn,
                     headers=request_headers,
                     timeout=timeout,
@@ -444,7 +444,7 @@ class AnthropicChatCompletion(BaseLLM):
                 optional_params=optional_params,
                 stream=stream,
                 _is_function_call=_is_function_call,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 logger_fn=logger_fn,
                 headers=request_headers,
                 client=client,
@@ -460,7 +460,7 @@ class AnthropicChatCompletion(BaseLLM):
                     model=model,
                     messages=messages,
                     optional_params=transform_params,
-                    litellm_params=litellm_params,
+                    embrouter_params=embrouter_params,
                     headers=headers,
                 )
             )
@@ -481,8 +481,8 @@ class AnthropicChatCompletion(BaseLLM):
                     json_mode=json_mode,
                     speed=optional_params.get("speed") if optional_params else None,
                     tool_name_reverse_map=(
-                        litellm_params.get(ANTHROPIC_TOOL_NAME_REVERSE_MAP_KEY)
-                        if isinstance(litellm_params, dict)
+                        embrouter_params.get(ANTHROPIC_TOOL_NAME_REVERSE_MAP_KEY)
+                        if isinstance(embrouter_params, dict)
                         else None
                     ),
                 )
@@ -532,7 +532,7 @@ class AnthropicChatCompletion(BaseLLM):
             request_data=data,
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             encoding=encoding,
             json_mode=json_mode,
         )
@@ -746,7 +746,7 @@ class ModelResponseIterator:
         return thinking_blocks, provider_specific_fields
 
     def get_content_block_start(self, chunk: dict) -> ContentBlockStart:
-        from litellm.types.llms.anthropic import (
+        from embrouter.types.llms.anthropic import (
             ContentBlockStartText,
             ContentBlockStartToolUse,
         )

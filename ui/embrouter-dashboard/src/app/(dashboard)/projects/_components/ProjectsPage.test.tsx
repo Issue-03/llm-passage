@@ -48,7 +48,7 @@ const mockProjects: ProjectResponse[] = [
     created_by: "user-1",
     updated_at: "2024-01-01T00:00:00Z",
     updated_by: "user-1",
-    litellm_budget_table: null,
+    embrouter_budget_table: null,
   },
   {
     project_id: "proj-2",
@@ -68,7 +68,7 @@ const mockProjects: ProjectResponse[] = [
     created_by: "user-2",
     updated_at: "2024-02-01T00:00:00Z",
     updated_by: "user-2",
-    litellm_budget_table: null,
+    embrouter_budget_table: null,
   },
 ];
 

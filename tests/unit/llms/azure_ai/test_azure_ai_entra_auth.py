@@ -9,8 +9,8 @@ from unittest.mock import patch
 
 import pytest
 
-import litellm
-from litellm.llms.azure_ai.common_utils import (
+import embrouter
+from embrouter.llms.azure_ai.common_utils import (
     get_azure_ai_agent_entra_token,
     get_azure_ai_auth_headers,
     has_azure_entra_params,
@@ -34,29 +34,29 @@ def clear_azure_env(monkeypatch):
         "AZURE_DOCUMENT_INTELLIGENCE_API_KEY",
     ):
         monkeypatch.delenv(env_var, raising=False)
-    monkeypatch.setattr(litellm, "api_key", None)
-    monkeypatch.setattr(litellm, "openai_key", None)
+    monkeypatch.setattr(embrouter, "api_key", None)
+    monkeypatch.setattr(embrouter, "openai_key", None)
 
 
 def test_api_key_wins_over_entra_credentials():
-    headers = get_azure_ai_auth_headers(api_key="my-key", litellm_params=ENTRA_PARAMS, api_key_header="Api-Key")
+    headers = get_azure_ai_auth_headers(api_key="my-key", embrouter_params=ENTRA_PARAMS, api_key_header="Api-Key")
 
     assert headers == {"Api-Key": "my-key"}
 
 
 def test_entra_token_used_when_no_api_key():
-    headers = get_azure_ai_auth_headers(api_key=None, litellm_params=ENTRA_PARAMS, api_key_header="Api-Key")
+    headers = get_azure_ai_auth_headers(api_key=None, embrouter_params=ENTRA_PARAMS, api_key_header="Api-Key")
 
     assert headers == {"Authorization": "Bearer entra-token"}
 
 
 def test_service_principal_token_is_requested_with_the_configured_scope():
-    with patch("litellm.llms.azure.common_utils.get_azure_ad_token_from_entra_id") as mock_entra_id:  # test-quality-ok: stubs the Entra token fetch to assert the SP credential+scope plumbing and the returned Bearer header; live SP path proven by the PR's Azure Foundry e2e QA
+    with patch("embrouter.llms.azure.common_utils.get_azure_ad_token_from_entra_id") as mock_entra_id:  # test-quality-ok: stubs the Entra token fetch to assert the SP credential+scope plumbing and the returned Bearer header; live SP path proven by the PR's Azure Foundry e2e QA
         mock_entra_id.return_value = lambda: "sp-token"
 
         headers = get_azure_ai_auth_headers(
             api_key=None,
-            litellm_params={
+            embrouter_params={
                 "tenant_id": "tenant",
                 "client_id": "client",
                 "client_secret": "secret",
@@ -75,7 +75,7 @@ def test_service_principal_token_is_requested_with_the_configured_scope():
 
 def test_error_mentions_both_credential_types_when_nothing_is_configured():
     with pytest.raises(ValueError, match="AZURE_AI_API_KEY") as exc_info:
-        get_azure_ai_auth_headers(api_key=None, litellm_params={})
+        get_azure_ai_auth_headers(api_key=None, embrouter_params={})
 
     message = str(exc_info.value)
     assert "AZURE_AI_API_KEY" in message
@@ -85,10 +85,10 @@ def test_error_mentions_both_credential_types_when_nothing_is_configured():
 def test_embedding_falls_back_to_entra_token_instead_of_openai_key(monkeypatch):  # test-quality-ok: asserts the embedding handler is authed with the Entra token, not the OpenAI key fallback; live path proven by the PR's Azure Foundry e2e QA
     monkeypatch.setenv("OPENAI_API_KEY", "sk-openai-key")
 
-    with patch.object(litellm.main.azure_ai_embedding, "embedding") as mock_embedding:  # test-quality-ok: no injection seam for the embedding handler through the public embedding() API; live path proven by the PR's Azure Foundry e2e QA
-        mock_embedding.return_value = litellm.EmbeddingResponse()
+    with patch.object(embrouter.main.azure_ai_embedding, "embedding") as mock_embedding:  # test-quality-ok: no injection seam for the embedding handler through the public embedding() API; live path proven by the PR's Azure Foundry e2e QA
+        mock_embedding.return_value = embrouter.EmbeddingResponse()
 
-        litellm.embedding(
+        embrouter.embedding(
             model="azure_ai/cohere-embed-v3-english",
             input=["hello"],
             api_base="https://my-resource.services.ai.azure.com",
@@ -99,10 +99,10 @@ def test_embedding_falls_back_to_entra_token_instead_of_openai_key(monkeypatch):
 
 
 def test_image_generation_authenticates_with_entra_token():
-    with patch.object(litellm.images.main.azure_chat_completions, "image_generation") as mock_image_generation:  # test-quality-ok: asserts image_generation forwards the computed Entra bearer header; no injection seam through the public API; live path proven by the PR's Azure Foundry e2e QA
-        mock_image_generation.return_value = litellm.ImageResponse()
+    with patch.object(embrouter.images.main.azure_chat_completions, "image_generation") as mock_image_generation:  # test-quality-ok: asserts image_generation forwards the computed Entra bearer header; no injection seam through the public API; live path proven by the PR's Azure Foundry e2e QA
+        mock_image_generation.return_value = embrouter.ImageResponse()
 
-        litellm.image_generation(
+        embrouter.image_generation(
             model="azure_ai/FLUX-1.1-pro",
             prompt="a red circle",
             api_base="https://my-resource.services.ai.azure.com",
@@ -116,10 +116,10 @@ def test_image_generation_authenticates_with_entra_token():
 
 @pytest.mark.parametrize("header_name", ["Authorization", "authorization", "api-key", "API-KEY"])
 def test_image_generation_keeps_caller_supplied_auth_header(header_name):
-    with patch.object(litellm.images.main.azure_chat_completions, "image_generation") as mock_image_generation:  # test-quality-ok: asserts a caller-supplied auth header is preserved over Entra; no injection seam through the public API; live path proven by the PR's Azure Foundry e2e QA
-        mock_image_generation.return_value = litellm.ImageResponse()
+    with patch.object(embrouter.images.main.azure_chat_completions, "image_generation") as mock_image_generation:  # test-quality-ok: asserts a caller-supplied auth header is preserved over Entra; no injection seam through the public API; live path proven by the PR's Azure Foundry e2e QA
+        mock_image_generation.return_value = embrouter.ImageResponse()
 
-        litellm.image_generation(
+        embrouter.image_generation(
             model="azure_ai/FLUX-1.1-pro",
             prompt="a red circle",
             api_base="https://my-resource.services.ai.azure.com",
@@ -132,10 +132,10 @@ def test_image_generation_keeps_caller_supplied_auth_header(header_name):
 
 
 def test_image_generation_still_uses_api_key_header():
-    with patch.object(litellm.images.main.azure_chat_completions, "image_generation") as mock_image_generation:  # test-quality-ok: asserts the api-key header path still works alongside Entra; no injection seam through the public API; live path proven by the PR's Azure Foundry e2e QA
-        mock_image_generation.return_value = litellm.ImageResponse()
+    with patch.object(embrouter.images.main.azure_chat_completions, "image_generation") as mock_image_generation:  # test-quality-ok: asserts the api-key header path still works alongside Entra; no injection seam through the public API; live path proven by the PR's Azure Foundry e2e QA
+        mock_image_generation.return_value = embrouter.ImageResponse()
 
-        litellm.image_generation(
+        embrouter.image_generation(
             model="azure_ai/FLUX-1.1-pro",
             prompt="a red circle",
             api_base="https://my-resource.services.ai.azure.com",
@@ -161,14 +161,14 @@ def test_agents_without_entra_credentials_are_not_treated_as_entra_agents():
 
 def test_agent_entra_token_ignores_the_process_wide_azure_credentials(monkeypatch):
     """The azure provider's token helper falls back to AZURE_* env vars. An agent's bearer must come
-    from that agent's own litellm_params only, or the host's service principal would authenticate to
+    from that agent's own embrouter_params only, or the host's service principal would authenticate to
     whatever URL an agent registers."""
     monkeypatch.setenv("AZURE_TENANT_ID", "host-tenant")
     monkeypatch.setenv("AZURE_CLIENT_ID", "host-client")
     monkeypatch.setenv("AZURE_CLIENT_SECRET", "host-secret")
     monkeypatch.setenv("AZURE_AD_TOKEN", "host-token")
 
-    with patch("litellm.llms.azure.common_utils.get_azure_ad_token_from_entra_id") as mock_entra_id:  # test-quality-ok: stubs the Entra token fetch so a host-credential leak would show up as a call instead of a network round trip
+    with patch("embrouter.llms.azure.common_utils.get_azure_ad_token_from_entra_id") as mock_entra_id:  # test-quality-ok: stubs the Entra token fetch so a host-credential leak would show up as a call instead of a network round trip
         mock_entra_id.return_value = lambda: "host-sp-token"
 
         with pytest.raises(ValueError, match="client_secret"):
@@ -183,7 +183,7 @@ def test_agent_service_principal_fields_resolve_os_environ_references(monkeypatc
     monkeypatch.setenv("FOUNDRY_AGENT_CLIENT_ID", "client-from-env")
     monkeypatch.setenv("FOUNDRY_AGENT_CLIENT_SECRET", "secret-from-env")
 
-    with patch("litellm.llms.azure.common_utils.get_azure_ad_token_from_entra_id") as mock_entra_id:  # test-quality-ok: stubs the Entra token fetch to assert the resolved secret values reach the credential; live SP path proven by the PR's Azure Foundry e2e QA
+    with patch("embrouter.llms.azure.common_utils.get_azure_ad_token_from_entra_id") as mock_entra_id:  # test-quality-ok: stubs the Entra token fetch to assert the resolved secret values reach the credential; live SP path proven by the PR's Azure Foundry e2e QA
         mock_entra_id.return_value = lambda: "sp-token"
 
         token = get_azure_ai_agent_entra_token(
@@ -204,7 +204,7 @@ def test_agent_service_principal_fields_resolve_os_environ_references(monkeypatc
 
 
 def test_agent_service_principal_wins_over_a_static_token_on_the_same_agent():
-    with patch("litellm.llms.azure.common_utils.get_azure_ad_token_from_entra_id") as mock_entra_id:  # test-quality-ok: stubs the Entra token fetch to pin the precedence between a refreshing credential and a static token
+    with patch("embrouter.llms.azure.common_utils.get_azure_ad_token_from_entra_id") as mock_entra_id:  # test-quality-ok: stubs the Entra token fetch to pin the precedence between a refreshing credential and a static token
         mock_entra_id.return_value = lambda: "sp-token"
 
         token = get_azure_ai_agent_entra_token(
@@ -215,7 +215,7 @@ def test_agent_service_principal_wins_over_a_static_token_on_the_same_agent():
 
 
 def test_agent_service_principal_token_defaults_to_the_foundry_agents_scope():
-    with patch("litellm.llms.azure.common_utils.get_azure_ad_token_from_entra_id") as mock_entra_id:  # test-quality-ok: stubs the Entra token fetch to assert the scope Foundry agents require reaches the credential; live SP path proven by the PR's Azure Foundry e2e QA
+    with patch("embrouter.llms.azure.common_utils.get_azure_ad_token_from_entra_id") as mock_entra_id:  # test-quality-ok: stubs the Entra token fetch to assert the scope Foundry agents require reaches the credential; live SP path proven by the PR's Azure Foundry e2e QA
         mock_entra_id.return_value = lambda: "sp-token"
 
         token = get_azure_ai_agent_entra_token({"tenant_id": "tenant", "client_id": "client", "client_secret": "secret"})
@@ -230,7 +230,7 @@ def test_agent_service_principal_token_defaults_to_the_foundry_agents_scope():
 
 
 def test_agent_azure_scope_overrides_the_foundry_agents_default():
-    with patch("litellm.llms.azure.common_utils.get_azure_ad_token_from_entra_id") as mock_entra_id:  # test-quality-ok: stubs the Entra token fetch to assert an explicit azure_scope wins over the agents default; live SP path proven by the PR's Azure Foundry e2e QA
+    with patch("embrouter.llms.azure.common_utils.get_azure_ad_token_from_entra_id") as mock_entra_id:  # test-quality-ok: stubs the Entra token fetch to assert an explicit azure_scope wins over the agents default; live SP path proven by the PR's Azure Foundry e2e QA
         mock_entra_id.return_value = lambda: "sp-token"
 
         get_azure_ai_agent_entra_token(
@@ -257,7 +257,7 @@ def test_agent_oidc_token_without_agent_ids_never_borrows_the_host_identity(monk
     monkeypatch.setenv("AZURE_TENANT_ID", "host-tenant")
     monkeypatch.setenv("AZURE_CLIENT_ID", "host-client")
 
-    with patch("litellm.llms.azure.common_utils.get_azure_ad_token_from_oidc") as mock_oidc:  # test-quality-ok: stubs the OIDC exchange so a host-identity leak would show up as a call instead of a network round trip
+    with patch("embrouter.llms.azure.common_utils.get_azure_ad_token_from_oidc") as mock_oidc:  # test-quality-ok: stubs the OIDC exchange so a host-identity leak would show up as a call instead of a network round trip
         mock_oidc.return_value = "host-minted-token"
 
         with pytest.raises(ValueError, match="oidc/"):
@@ -269,7 +269,7 @@ def test_agent_oidc_token_without_agent_ids_never_borrows_the_host_identity(monk
 
 
 def test_agent_oidc_token_exchanges_with_the_agent_ids_and_scope():
-    with patch("litellm.llms.azure.common_utils.get_azure_ad_token_from_oidc") as mock_oidc:  # test-quality-ok: stubs the OIDC exchange to assert the agent's own ids and the Foundry scope reach it
+    with patch("embrouter.llms.azure.common_utils.get_azure_ad_token_from_oidc") as mock_oidc:  # test-quality-ok: stubs the OIDC exchange to assert the agent's own ids and the Foundry scope reach it
         mock_oidc.return_value = "agent-minted-token"
 
         token = get_azure_ai_agent_entra_token(

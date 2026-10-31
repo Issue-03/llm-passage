@@ -21,8 +21,8 @@ export type CallbackRow = AlertingObject & {
 };
 
 export interface AvailableCallbackMeta {
-  litellm_callback_name: string;
-  litellm_callback_params: string[];
+  embrouter_callback_name: string;
+  embrouter_callback_params: string[];
   ui_callback_name: string;
 }
 

@@ -20,7 +20,7 @@ const exampleModel = (group: RoutingGroup): string =>
 const buildCurlSnippet = (group: RoutingGroup, baseUrl: string): string =>
   `curl -X POST '${baseUrl}/v1/chat/completions' \\
   -H 'Content-Type: application/json' \\
-  -H 'Authorization: Bearer $LITELLM_API_KEY' \\
+  -H 'Authorization: Bearer $EMBROUTER_API_KEY' \\
   -d '{
     "model": "${exampleModel(group)}",
     "messages": [{"role": "user", "content": "Hello!"}]
@@ -30,7 +30,7 @@ const buildPythonSnippet = (group: RoutingGroup, baseUrl: string): string =>
   `from openai import OpenAI
 
 client = OpenAI(
-    api_key="$LITELLM_API_KEY",
+    api_key="$EMBROUTER_API_KEY",
     base_url="${baseUrl}",
 )
 
@@ -45,7 +45,7 @@ const buildJsSnippet = (group: RoutingGroup, baseUrl: string): string =>
   `import OpenAI from "openai";
 
 const client = new OpenAI({
-  apiKey: process.env.LITELLM_API_KEY,
+  apiKey: process.env.EMBROUTER_API_KEY,
   baseURL: "${baseUrl}",
 });
 

@@ -2,7 +2,7 @@ from typing import Final, Literal
 
 import pytest
 
-from litellm.litellm_core_utils.llm_response_utils.get_formatted_prompt import (
+from embrouter.embrouter_core_utils.llm_response_utils.get_formatted_prompt import (
     get_formatted_prompt,
 )
 

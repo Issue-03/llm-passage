@@ -12,23 +12,23 @@ from typing import TYPE_CHECKING, Any, Final, TypedDict, Union
 import httpx
 from typing_extensions import ReadOnly
 
-import litellm
-from litellm._logging import verbose_logger
-from litellm.constants import (
+import embrouter
+from embrouter._logging import verbose_logger
+from embrouter.constants import (
     RUNWAYML_DEFAULT_API_VERSION,
     RUNWAYML_POLLING_TIMEOUT,
 )
-from litellm.llms.base_llm.text_to_speech.transformation import (
+from embrouter.llms.base_llm.text_to_speech.transformation import (
     BaseTextToSpeechConfig,
     TextToSpeechRequestData,
 )
-from litellm.secret_managers.main import get_secret_str
+from embrouter.secret_managers.main import get_secret_str
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.types.llms.openai import HttpxBinaryResponseContent
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.types.llms.openai import HttpxBinaryResponseContent
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
     HttpxBinaryResponseContent = Any
 
 
@@ -70,8 +70,8 @@ class RunwayMLTextToSpeechConfig(BaseTextToSpeechConfig):
         input: str,
         voice: str | dict | None,
         optional_params: dict,
-        litellm_params_dict: dict,
-        logging_obj: "LiteLLMLoggingObj",
+        embrouter_params_dict: dict,
+        logging_obj: "EmbRouterLoggingObj",
         timeout: float | httpx.Timeout,
         extra_headers: dict[str, object] | None,
         base_llm_http_handler: Any,
@@ -94,8 +94,8 @@ class RunwayMLTextToSpeechConfig(BaseTextToSpeechConfig):
         # Resolve api_base from multiple sources
         api_base = (
             api_base
-            or litellm_params_dict.get("api_base")
-            or litellm.api_base
+            or embrouter_params_dict.get("api_base")
+            or embrouter.api_base
             or get_secret_str("RUNWAYML_API_BASE")
             or self.DEFAULT_BASE_URL
         )
@@ -103,8 +103,8 @@ class RunwayMLTextToSpeechConfig(BaseTextToSpeechConfig):
         # Resolve api_key from multiple sources
         api_key = (
             api_key
-            or litellm_params_dict.get("api_key")
-            or litellm.api_key
+            or embrouter_params_dict.get("api_key")
+            or embrouter.api_key
             or get_secret_str("RUNWAYML_API_SECRET")
             or get_secret_str("RUNWAYML_API_KEY")
         )
@@ -118,7 +118,7 @@ class RunwayMLTextToSpeechConfig(BaseTextToSpeechConfig):
             # Already in dict format, pass through
             voice_param = voice
 
-        litellm_params_dict.update(
+        embrouter_params_dict.update(
             {
                 "api_key": api_key,
                 "api_base": api_base,
@@ -133,7 +133,7 @@ class RunwayMLTextToSpeechConfig(BaseTextToSpeechConfig):
             text_to_speech_provider_config=self,
             text_to_speech_optional_params=optional_params,
             custom_llm_provider="runwayml",
-            litellm_params=litellm_params_dict,
+            embrouter_params=embrouter_params_dict,
             logging_obj=logging_obj,
             timeout=timeout,
             extra_headers=extra_headers,
@@ -225,7 +225,7 @@ class RunwayMLTextToSpeechConfig(BaseTextToSpeechConfig):
         self,
         model: str,
         api_base: str | None,
-        litellm_params: dict,
+        embrouter_params: dict,
     ) -> str:
         """
         Get the complete URL for RunwayML TTS request
@@ -305,7 +305,7 @@ class RunwayMLTextToSpeechConfig(BaseTextToSpeechConfig):
         Returns:
             Final response with completed task
         """
-        from litellm.llms.custom_httpx.http_handler import _get_httpx_client
+        from embrouter.llms.custom_httpx.http_handler import _get_httpx_client
 
         client: Final = _get_httpx_client()
         start_time: Final = time.time()
@@ -353,9 +353,9 @@ class RunwayMLTextToSpeechConfig(BaseTextToSpeechConfig):
         Returns:
             Final response with completed task
         """
-        from litellm.llms.custom_httpx.http_handler import get_async_httpx_client
+        from embrouter.llms.custom_httpx.http_handler import get_async_httpx_client
 
-        client: Final = get_async_httpx_client(llm_provider=litellm.LlmProviders.RUNWAYML)
+        client: Final = get_async_httpx_client(llm_provider=embrouter.LlmProviders.RUNWAYML)
         start_time: Final = time.time()
 
         # Build task status URL
@@ -388,7 +388,7 @@ class RunwayMLTextToSpeechConfig(BaseTextToSpeechConfig):
         input: str,
         voice: str | dict | None,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         headers: dict,
     ) -> TextToSpeechRequestData:
         """
@@ -436,7 +436,7 @@ class RunwayMLTextToSpeechConfig(BaseTextToSpeechConfig):
         self,
         model: str,
         raw_response: httpx.Response,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
     ) -> "HttpxBinaryResponseContent":
         """
         Transform RunwayML TTS response to standard format
@@ -459,7 +459,7 @@ class RunwayMLTextToSpeechConfig(BaseTextToSpeechConfig):
             "completedAt": "2025-11-13T..."
         }
         """
-        from litellm.types.llms.openai import HttpxBinaryResponseContent
+        from embrouter.types.llms.openai import HttpxBinaryResponseContent
 
         try:
             response_data: Final[_RunwayTtsTaskResponse] = raw_response.json()
@@ -506,7 +506,7 @@ class RunwayMLTextToSpeechConfig(BaseTextToSpeechConfig):
             raise ValueError(f"RunwayML TTS audio URL is not a string: {audio_url}")
 
         # Download the audio file
-        from litellm.llms.custom_httpx.http_handler import _get_httpx_client
+        from embrouter.llms.custom_httpx.http_handler import _get_httpx_client
 
         client: Final = _get_httpx_client()
         audio_response: Final = client.get(url=audio_url)
@@ -521,14 +521,14 @@ class RunwayMLTextToSpeechConfig(BaseTextToSpeechConfig):
         self,
         model: str,
         raw_response: httpx.Response,
-        logging_obj: "LiteLLMLoggingObj",
+        logging_obj: "EmbRouterLoggingObj",
     ) -> "HttpxBinaryResponseContent":
         """
         Async transform RunwayML TTS response to standard format
 
         Same as sync version but uses async polling and download
         """
-        from litellm.types.llms.openai import HttpxBinaryResponseContent
+        from embrouter.types.llms.openai import HttpxBinaryResponseContent
 
         try:
             response_data: Final[_RunwayTtsTaskResponse] = raw_response.json()
@@ -575,9 +575,9 @@ class RunwayMLTextToSpeechConfig(BaseTextToSpeechConfig):
             raise ValueError(f"RunwayML TTS audio URL is not a string: {audio_url}")
 
         # Download the audio file (async)
-        from litellm.llms.custom_httpx.http_handler import get_async_httpx_client
+        from embrouter.llms.custom_httpx.http_handler import get_async_httpx_client
 
-        client: Final = get_async_httpx_client(llm_provider=litellm.LlmProviders.RUNWAYML)
+        client: Final = get_async_httpx_client(llm_provider=embrouter.LlmProviders.RUNWAYML)
         audio_response: Final = await client.get(url=audio_url)
         audio_response.raise_for_status()
 

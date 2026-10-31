@@ -1,6 +1,6 @@
 """
 Test that per-deployment custom pricing does not pollute the shared backend
-model key in litellm.model_cost.
+model key in embrouter.model_cost.
 
 When two deployments share the same backend model (e.g. vertex_ai/gemini-2.5-flash)
 and one has explicit zero-cost pricing in model_info, the other deployment
@@ -18,31 +18,31 @@ from unittest.mock import Mock, patch
 import httpx
 import pytest
 
-import litellm
-from litellm import Router
-from litellm.caching.in_memory_cache import InMemoryCache
-from litellm.constants import DEFAULT_MAX_LRU_CACHE_SIZE
-from litellm.litellm_core_utils.ptu_pricing import ptu_config_error
-from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
-from litellm.llms.openai_like.model_info import MODEL_INFO_REFRESH_SECONDS
-from litellm.types.router import Deployment, LiteLLM_Params, ModelInfo
-from litellm.utils import (
+import embrouter
+from embrouter import Router
+from embrouter.caching.in_memory_cache import InMemoryCache
+from embrouter.constants import DEFAULT_MAX_LRU_CACHE_SIZE
+from embrouter.embrouter_core_utils.ptu_pricing import ptu_config_error
+from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler
+from embrouter.llms.openai_like.model_info import MODEL_INFO_REFRESH_SECONDS
+from embrouter.types.router import Deployment, EmbRouter_Params, ModelInfo
+from embrouter.utils import (
     _invalidate_model_cost_lowercase_map,
     reapply_runtime_model_cost_registrations,
 )
 
 
 def _simulate_price_data_reload(fetched_catalog):
-    """Drive what a price data reload does to this process's litellm state.
+    """Drive what a price data reload does to this process's embrouter state.
 
-    Mirrors `litellm.proxy.proxy_server._swap_in_model_cost_map`, which is the
+    Mirrors `embrouter.proxy.proxy_server._swap_in_model_cost_map`, which is the
     one place both reload paths adopt a freshly fetched catalog; that wiring is
     covered in the proxy's own tests, so these exercise the replay itself
     without dragging the proxy in. The provider model sets that helper also
     repopulates are left alone, since nothing here reads them and rebuilding
     them from a two-entry catalog would outlive the test.
     """
-    litellm.model_cost = fetched_catalog
+    embrouter.model_cost = fetched_catalog
     _invalidate_model_cost_lowercase_map()
     reapply_runtime_model_cost_registrations()
 
@@ -60,9 +60,9 @@ def _nested_container_ids(value: object) -> frozenset[int]:
 def _restore_model_cost_entries(original_entries):
     for key, value in original_entries.items():
         if value is None:
-            litellm.model_cost.pop(key, None)
+            embrouter.model_cost.pop(key, None)
         else:
-            litellm.model_cost[key] = value
+            embrouter.model_cost[key] = value
     _invalidate_model_cost_lowercase_map()
 
 
@@ -70,11 +70,11 @@ def _restore_model_cost_entries(original_entries):
 async def test_discovered_limits_survive_deployment_growth_and_removal(
     initial_count: int, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "model_cost", copy.deepcopy(litellm.model_cost))
+    monkeypatch.setattr(embrouter, "model_cost", copy.deepcopy(embrouter.model_cost))
     deployments: Final = tuple(
         Deployment(
             model_name=f"local-{index}",
-            litellm_params=LiteLLM_Params(
+            embrouter_params=EmbRouter_Params(
                 model="hosted_vllm/local-model", api_base="https://capacity.test/v1", api_key="local-key"
             ),
             model_info=ModelInfo(id=f"capacity-{index}"),
@@ -111,10 +111,10 @@ async def test_discovered_limits_survive_deployment_growth_and_removal(
 
 
 async def test_discovery_discards_metadata_for_a_replaced_deployment(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "model_cost", copy.deepcopy(litellm.model_cost))
+    monkeypatch.setattr(embrouter, "model_cost", copy.deepcopy(embrouter.model_cost))
     router: Final = Router(model_list=[{
         "model_name": "local",
-        "litellm_params": {
+        "embrouter_params": {
             "model": "hosted_vllm/local-model",
             "api_base": "https://original.test/v1",
             "api_key": "local-key",
@@ -126,7 +126,7 @@ async def test_discovery_discards_metadata_for_a_replaced_deployment(monkeypatch
         if request.url.host == "original.test":
             router.upsert_deployment(Deployment(
                 model_name="local",
-                litellm_params=LiteLLM_Params(
+                embrouter_params=EmbRouter_Params(
                     model="hosted_vllm/local-model",
                     api_base="https://replacement.test/v1",
                     api_key="local-key",
@@ -149,11 +149,11 @@ async def test_discovery_discards_metadata_for_a_replaced_deployment(monkeypatch
 
 
 async def test_discovery_is_isolated_across_routers_and_reused_ids(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "model_cost", copy.deepcopy(litellm.model_cost))
+    monkeypatch.setattr(embrouter, "model_cost", copy.deepcopy(embrouter.model_cost))
     first, second = tuple(
         Router(model_list=[{
             "model_name": "local",
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "hosted_vllm/local-model",
                 "api_base": f"https://{host}.test/v1",
                 "api_key": "local-key",
@@ -179,10 +179,10 @@ async def test_discovery_is_isolated_across_routers_and_reused_ids(monkeypatch: 
         assert first.get_discovered_model_info("shared-discovery-id")["max_input_tokens"] == 8192
         assert first.get_configured_token_limits("local") == (8192, 8192)
         assert second.get_configured_token_limits("local") == (2048, 2048)
-        assert litellm.model_cost["shared-discovery-id"].get("max_input_tokens") is None
+        assert embrouter.model_cost["shared-discovery-id"].get("max_input_tokens") is None
         first.upsert_deployment(Deployment(
             model_name="local",
-            litellm_params=LiteLLM_Params(
+            embrouter_params=EmbRouter_Params(
                 model="hosted_vllm/local-model",
                 api_base="https://unavailable.test/v1",
                 api_key="local-key",
@@ -197,12 +197,12 @@ async def test_discovery_is_isolated_across_routers_and_reused_ids(monkeypatch: 
 
 
 async def test_discovery_refreshes_other_endpoints_while_one_is_pending(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "model_cost", copy.deepcopy(litellm.model_cost))
+    monkeypatch.setattr(embrouter, "model_cost", copy.deepcopy(embrouter.model_cost))
     second_started: Final = asyncio.Event()
     router: Final = Router(model_list=[
         {
             "model_name": host,
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "hosted_vllm/local-model",
                 "api_base": f"https://{host}.test/v1",
                 "api_key": "local-key",
@@ -231,11 +231,11 @@ async def test_discovery_refreshes_other_endpoints_while_one_is_pending(monkeypa
 
 
 async def test_discovered_limits_expire_after_the_last_successful_refresh(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "model_cost", copy.deepcopy(litellm.model_cost))
+    monkeypatch.setattr(embrouter, "model_cost", copy.deepcopy(embrouter.model_cost))
     clock: Final = Mock(return_value=0.0)
     router: Final = Router(model_list=[{
         "model_name": "local",
-        "litellm_params": {
+        "embrouter_params": {
             "model": "hosted_vllm/local-model",
             "api_base": "https://expiry.test/v1",
             "api_key": "local-key",
@@ -276,7 +276,7 @@ async def test_discovered_limits_expire_after_the_last_successful_refresh(monkey
 async def test_discovered_limits_are_isolated_overridable_and_refreshable(
     provider: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(litellm, "model_cost", copy.deepcopy(litellm.model_cost))
+    monkeypatch.setattr(embrouter, "model_cost", copy.deepcopy(embrouter.model_cost))
     upstream_limit: Final = iter((8192, 4096, 16384, 2048))
 
     def respond(request: httpx.Request) -> httpx.Response:
@@ -288,7 +288,7 @@ async def test_discovered_limits_are_isolated_overridable_and_refreshable(
         model_list=[
             {
                 "model_name": "local",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": f"{provider}/org/local-model",
                     "api_base": f"https://{host}.test/v1",
                     "api_key": "local-key",
@@ -321,7 +321,7 @@ async def test_discovered_limits_are_isolated_overridable_and_refreshable(
         )
         assert [deployment["model_info"]["id"] for deployment in allowed] == ["one"]
         assert router.model_list[0]["model_info"].get("max_input_tokens") is None
-        assert litellm.model_cost[f"{provider}/org/local-model"].get("max_input_tokens") is None
+        assert embrouter.model_cost[f"{provider}/org/local-model"].get("max_input_tokens") is None
         router.cache.in_memory_cache.flush_cache()
         await router.arefresh_model_info(client=handler)
         refreshed: Final = router.get_model_group_info("local")
@@ -335,7 +335,7 @@ async def test_discovered_limits_are_isolated_overridable_and_refreshable(
 
 
 async def test_discovery_preserves_input_overrides_and_survives_outages(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(litellm, "model_cost", copy.deepcopy(litellm.model_cost))
+    monkeypatch.setattr(embrouter, "model_cost", copy.deepcopy(embrouter.model_cost))
     responses: Final = iter((
         httpx.Response(200, json={"data": [{"id": "local-model", "max_model_len": 4096}]}),
         httpx.Response(503),
@@ -350,7 +350,7 @@ async def test_discovery_preserves_input_overrides_and_survives_outages(monkeypa
     router: Final = Router(model_list=[
         {
             "model_name": "configured",
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "hosted_vllm/local-model",
                 "api_base": "https://backend.test/v1",
                 "api_key": "unused-key",
@@ -360,13 +360,13 @@ async def test_discovery_preserves_input_overrides_and_survives_outages(monkeypa
         },
         {
             "model_name": "byok",
-            "litellm_params": {
+            "embrouter_params": {
                 "model": "openai/local-model",
                 "api_base": "https://caller.test/v1",
                 "use_clientside_credentials": True,
             },
         },
-        {"model_name": "default-openai", "litellm_params": {"model": "openai/local-model", "api_key": "unused"}},
+        {"model_name": "default-openai", "embrouter_params": {"model": "openai/local-model", "api_key": "unused"}},
     ])
     handler: Final = AsyncHTTPHandler()
     await handler.client.aclose()
@@ -393,7 +393,7 @@ def test_should_not_pollute_shared_key_with_zero_cost_pricing():
     backend_model = "vertex_ai/gemini-2.5-flash"
 
     # Grab built-in pricing before creating any router
-    builtin_info = litellm.get_model_info(model=backend_model)
+    builtin_info = embrouter.get_model_info(model=backend_model)
     builtin_input_cost = builtin_info["input_cost_per_token"]
     builtin_output_cost = builtin_info["output_cost_per_token"]
 
@@ -406,7 +406,7 @@ def test_should_not_pollute_shared_key_with_zero_cost_pricing():
             # Deployment A: explicit zero-cost pricing
             {
                 "model_name": "custom-zero-cost-model",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": backend_model,
                     "api_key": "fake-key-1",
                 },
@@ -419,7 +419,7 @@ def test_should_not_pollute_shared_key_with_zero_cost_pricing():
             # Deployment B: no custom pricing, relies on built-in
             {
                 "model_name": "standard-cost-model",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": backend_model,
                     "api_key": "fake-key-2",
                 },
@@ -460,7 +460,7 @@ def test_should_not_pollute_shared_key_with_custom_nonzero_pricing():
     """
     backend_model = "vertex_ai/gemini-2.5-flash"
 
-    builtin_info = litellm.get_model_info(model=backend_model)
+    builtin_info = embrouter.get_model_info(model=backend_model)
     builtin_input_cost = builtin_info["input_cost_per_token"]
 
     router = Router(
@@ -468,7 +468,7 @@ def test_should_not_pollute_shared_key_with_custom_nonzero_pricing():
             # Deployment with custom high pricing
             {
                 "model_name": "expensive-model",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": backend_model,
                     "api_key": "fake-key-3",
                 },
@@ -481,7 +481,7 @@ def test_should_not_pollute_shared_key_with_custom_nonzero_pricing():
             # Deployment relying on built-in pricing
             {
                 "model_name": "standard-model",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": backend_model,
                     "api_key": "fake-key-4",
                 },
@@ -516,7 +516,7 @@ def test_should_not_pollute_shared_key_with_custom_nonzero_pricing():
 def test_should_store_full_pricing_under_deployment_model_id():
     """
     Per-deployment pricing (including zero) should be stored and
-    retrievable via the unique model_id key in litellm.model_cost.
+    retrievable via the unique model_id key in embrouter.model_cost.
     """
     backend_model = "vertex_ai/gemini-2.5-flash"
 
@@ -524,7 +524,7 @@ def test_should_store_full_pricing_under_deployment_model_id():
         model_list=[
             {
                 "model_name": "zero-cost-model",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": backend_model,
                     "api_key": "fake-key-5",
                 },
@@ -538,7 +538,7 @@ def test_should_store_full_pricing_under_deployment_model_id():
     )
 
     # The model_id entry should exist and have the zero pricing
-    entry = litellm.model_cost.get("deployment-zero-check")
+    entry = embrouter.model_cost.get("deployment-zero-check")
     assert entry is not None, "Deployment should be registered by model_id"
     assert entry["input_cost_per_token"] == 0.0
     assert entry["output_cost_per_token"] == 0.0
@@ -551,7 +551,7 @@ def test_should_preserve_builtin_pricing_regardless_of_deployment_order():
     """
     backend_model = "vertex_ai/gemini-2.5-flash"
 
-    builtin_info = litellm.get_model_info(model=backend_model)
+    builtin_info = embrouter.get_model_info(model=backend_model)
     builtin_input_cost = builtin_info["input_cost_per_token"]
     builtin_output_cost = builtin_info["output_cost_per_token"]
 
@@ -560,7 +560,7 @@ def test_should_preserve_builtin_pricing_regardless_of_deployment_order():
         model_list=[
             {
                 "model_name": "standard-first",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": backend_model,
                     "api_key": "fake-key-6",
                 },
@@ -568,7 +568,7 @@ def test_should_preserve_builtin_pricing_regardless_of_deployment_order():
             },
             {
                 "model_name": "zero-cost-second",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": backend_model,
                     "api_key": "fake-key-7",
                 },
@@ -590,7 +590,7 @@ def test_should_preserve_builtin_pricing_regardless_of_deployment_order():
         model_list=[
             {
                 "model_name": "zero-cost-first",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": backend_model,
                     "api_key": "fake-key-8",
                 },
@@ -602,7 +602,7 @@ def test_should_preserve_builtin_pricing_regardless_of_deployment_order():
             },
             {
                 "model_name": "standard-second",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": backend_model,
                     "api_key": "fake-key-9",
                 },
@@ -622,7 +622,7 @@ def test_should_preserve_builtin_pricing_regardless_of_deployment_order():
 
 def test_responses_prefix_stripped_alias_registered_for_model_list():
     """
-    Register ``litellm.model_cost`` under the backend key with ``responses/`` and
+    Register ``embrouter.model_cost`` under the backend key with ``responses/`` and
     under the stripped key (``responses_api_bridge_check`` removes that segment).
     """
     uid = "responses-strip-alias-test-a1b2c3d4"
@@ -630,7 +630,7 @@ def test_responses_prefix_stripped_alias_registered_for_model_list():
         model_list=[
             {
                 "model_name": "azure-responses-strip-test",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "responses/gpt-strip-test-a1b2c3d4",
                     "custom_llm_provider": "azure",
                     "api_key": "fake-key-strip",
@@ -642,9 +642,9 @@ def test_responses_prefix_stripped_alias_registered_for_model_list():
             }
         ],
     )
-    assert "azure/responses/gpt-strip-test-a1b2c3d4" in litellm.model_cost
-    assert "azure/gpt-strip-test-a1b2c3d4" in litellm.model_cost
-    assert litellm.model_cost["azure/gpt-strip-test-a1b2c3d4"].get("supports_native_streaming") is True
+    assert "azure/responses/gpt-strip-test-a1b2c3d4" in embrouter.model_cost
+    assert "azure/gpt-strip-test-a1b2c3d4" in embrouter.model_cost
+    assert embrouter.model_cost["azure/gpt-strip-test-a1b2c3d4"].get("supports_native_streaming") is True
 
 
 def test_responses_prefix_stripped_alias_registered_for_add_deployment():
@@ -653,7 +653,7 @@ def test_responses_prefix_stripped_alias_registered_for_add_deployment():
     router = Router(model_list=[])
     deployment = Deployment(
         model_name="dyn-responses-strip",
-        litellm_params=LiteLLM_Params(
+        embrouter_params=EmbRouter_Params(
             model="responses/gpt-add-strip-e5f6a7b8",
             custom_llm_provider="azure",
             api_key="fake-key-add",
@@ -661,9 +661,9 @@ def test_responses_prefix_stripped_alias_registered_for_add_deployment():
         model_info=ModelInfo(id=uid, supports_native_streaming=True),
     )
     router.add_deployment(deployment=deployment)
-    assert "azure/responses/gpt-add-strip-e5f6a7b8" in litellm.model_cost
-    assert "azure/gpt-add-strip-e5f6a7b8" in litellm.model_cost
-    assert litellm.model_cost["azure/gpt-add-strip-e5f6a7b8"].get("supports_native_streaming") is True
+    assert "azure/responses/gpt-add-strip-e5f6a7b8" in embrouter.model_cost
+    assert "azure/gpt-add-strip-e5f6a7b8" in embrouter.model_cost
+    assert embrouter.model_cost["azure/gpt-add-strip-e5f6a7b8"].get("supports_native_streaming") is True
 
 
 def test_should_not_downgrade_chatgpt_shared_key_mode_with_alias_override():
@@ -671,20 +671,20 @@ def test_should_not_downgrade_chatgpt_shared_key_mode_with_alias_override():
     ChatGPT aliases that share the same backend model should not be able to
     downgrade the shared backend key from responses -> chat during router setup.
     """
-    from litellm.main import responses_api_bridge_check
+    from embrouter.main import responses_api_bridge_check
 
     backend_model = "chatgpt/gpt-5.4"
     model_keys = {
-        backend_model: copy.deepcopy(litellm.model_cost.get(backend_model)),
-        "chatgpt-shared-mode-base": copy.deepcopy(litellm.model_cost.get("chatgpt-shared-mode-base")),
-        "chatgpt-shared-mode-alias": copy.deepcopy(litellm.model_cost.get("chatgpt-shared-mode-alias")),
+        backend_model: copy.deepcopy(embrouter.model_cost.get(backend_model)),
+        "chatgpt-shared-mode-base": copy.deepcopy(embrouter.model_cost.get("chatgpt-shared-mode-base")),
+        "chatgpt-shared-mode-alias": copy.deepcopy(embrouter.model_cost.get("chatgpt-shared-mode-alias")),
     }
 
     try:
         backend_entry = copy.deepcopy(model_keys[backend_model]) or {}
-        backend_entry["litellm_provider"] = "chatgpt"
+        backend_entry["embrouter_provider"] = "chatgpt"
         backend_entry["mode"] = "responses"
-        litellm.model_cost[backend_model] = backend_entry
+        embrouter.model_cost[backend_model] = backend_entry
         _invalidate_model_cost_lowercase_map()
 
         router = Router(model_list=[])
@@ -692,7 +692,7 @@ def test_should_not_downgrade_chatgpt_shared_key_mode_with_alias_override():
             router._create_deployment(
                 deployment_info={},
                 _model_name="chatgpt/gpt-5.4",
-                _litellm_params={
+                _embrouter_params={
                     "model": "gpt-5.4",
                     "custom_llm_provider": "chatgpt",
                 },
@@ -704,7 +704,7 @@ def test_should_not_downgrade_chatgpt_shared_key_mode_with_alias_override():
             router._create_deployment(
                 deployment_info={},
                 _model_name="chatgpt/gpt-5.4-medium",
-                _litellm_params={
+                _embrouter_params={
                     "model": "gpt-5.4",
                     "custom_llm_provider": "chatgpt",
                 },
@@ -714,8 +714,8 @@ def test_should_not_downgrade_chatgpt_shared_key_mode_with_alias_override():
                 },
             )
 
-        assert litellm.model_cost[backend_model]["mode"] == "responses"
-        assert "mode" in litellm.model_cost[backend_model]
+        assert embrouter.model_cost[backend_model]["mode"] == "responses"
+        assert "mode" in embrouter.model_cost[backend_model]
 
         bridge_model_info, bridge_model = responses_api_bridge_check(
             model="gpt-5.4",
@@ -737,22 +737,22 @@ def test_partial_custom_pricing_inherits_builtin_cache_pricing():
     backend_model = "anthropic/claude-sonnet-4-5-20250929"
     deploy_id = "claude-deploy-partial-pricing"
 
-    builtin_info = litellm.get_model_info(model=backend_model)
+    builtin_info = embrouter.get_model_info(model=backend_model)
     builtin_cache_create = builtin_info["cache_creation_input_token_cost"]
     builtin_cache_read = builtin_info["cache_read_input_token_cost"]
     assert builtin_cache_create is not None and builtin_cache_create > 0
     assert builtin_cache_read is not None and builtin_cache_read > 0
 
     model_keys = {
-        deploy_id: litellm.model_cost.get(deploy_id),
-        backend_model: copy.deepcopy(litellm.model_cost.get(backend_model)),
+        deploy_id: embrouter.model_cost.get(deploy_id),
+        backend_model: copy.deepcopy(embrouter.model_cost.get(backend_model)),
     }
     try:
         Router(
             model_list=[
                 {
                     "model_name": "claude-custom",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": backend_model,
                         "api_key": "fake-key",
                     },
@@ -765,7 +765,7 @@ def test_partial_custom_pricing_inherits_builtin_cache_pricing():
             ],
         )
 
-        entry = litellm.model_cost[deploy_id]
+        entry = embrouter.model_cost[deploy_id]
         assert entry["input_cost_per_token"] == 0.000003
         assert entry["output_cost_per_token"] == 0.000015
         assert entry.get("cache_creation_input_token_cost") == builtin_cache_create
@@ -783,20 +783,20 @@ def test_partial_pricing_does_not_overwrite_explicit_cache_fields():
 
     explicit_cache_create = 0.00001
     explicit_cache_read = 0.0000005
-    builtin_info = litellm.get_model_info(model=backend_model)
+    builtin_info = embrouter.get_model_info(model=backend_model)
     assert builtin_info["cache_creation_input_token_cost"] != explicit_cache_create
     assert builtin_info["cache_read_input_token_cost"] != explicit_cache_read
 
     model_keys = {
-        deploy_id: litellm.model_cost.get(deploy_id),
-        backend_model: copy.deepcopy(litellm.model_cost.get(backend_model)),
+        deploy_id: embrouter.model_cost.get(deploy_id),
+        backend_model: copy.deepcopy(embrouter.model_cost.get(backend_model)),
     }
     try:
         Router(
             model_list=[
                 {
                     "model_name": "claude-custom-explicit",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": backend_model,
                         "api_key": "fake-key",
                     },
@@ -811,7 +811,7 @@ def test_partial_pricing_does_not_overwrite_explicit_cache_fields():
             ],
         )
 
-        entry = litellm.model_cost[deploy_id]
+        entry = embrouter.model_cost[deploy_id]
         assert entry.get("cache_creation_input_token_cost") == explicit_cache_create
         assert entry.get("cache_read_input_token_cost") == explicit_cache_read
     finally:
@@ -824,7 +824,7 @@ def test_inherit_builtin_cache_pricing_fills_only_missing_fields():
     user's input/output pricing are left untouched.
     """
     backend_model = "anthropic/claude-sonnet-4-5-20250929"
-    builtin_info = litellm.get_model_info(model=backend_model)
+    builtin_info = embrouter.get_model_info(model=backend_model)
     builtin_cache_create = builtin_info["cache_creation_input_token_cost"]
     builtin_cache_read = builtin_info["cache_read_input_token_cost"]
     assert builtin_cache_create is not None and builtin_cache_create > 0
@@ -869,7 +869,7 @@ def test_inherit_builtin_base_rates_for_off_peak_fills_missing_rates():
     outside the windows.
     """
     backend_model = "gpt-4o-mini"
-    builtin_info = litellm.get_model_info(model=backend_model, custom_llm_provider="openai")
+    builtin_info = embrouter.get_model_info(model=backend_model, custom_llm_provider="openai")
     off_peak_block = {
         "hours_utc": "00:00-00:00",
         "input_cost_per_token": 5e-07,
@@ -895,7 +895,7 @@ def test_inherit_builtin_base_rates_for_off_peak_carries_threshold_rates():
     rate.
     """
     backend_model = "gemini/gemini-2.5-pro"
-    builtin_info = litellm.get_model_info(model=backend_model)
+    builtin_info = embrouter.get_model_info(model=backend_model)
     assert builtin_info["input_cost_per_token_above_200k_tokens"] is not None
 
     model_info = {
@@ -926,7 +926,7 @@ def test_inherit_builtin_base_rates_for_off_peak_carries_companion_billing_field
     backend entry.
     """
     backend_model = "gemini-3-pro-image"
-    raw_entry = litellm.model_cost[backend_model]
+    raw_entry = embrouter.model_cost[backend_model]
     assert raw_entry.get("web_search_billing_unit") is not None
 
     model_info = {
@@ -950,7 +950,7 @@ def test_inherit_builtin_base_rates_for_off_peak_tiered_only_backend_stores_no_z
     mutating the deployment entry never touches the shared cost map.
     """
     backend_model = "dashscope/qwen-flash"
-    raw_tiers = litellm.model_cost[backend_model]["tiered_pricing"]
+    raw_tiers = embrouter.model_cost[backend_model]["tiered_pricing"]
 
     model_info = {
         "off_peak_pricing": {"hours_utc": "00:00-00:00", "input_cost_per_token": 5e-07},
@@ -1015,7 +1015,7 @@ def test_inherit_builtin_base_rates_for_off_peak_noop_without_block_or_backend()
 
 def test_custom_pricing_field_denylist_covers_all_builtin_pricing_fields():
     """The shared-backend-key stripping in Router relies on
-    CustomPricingLiteLLMParams enumerating every per-deployment pricing field.
+    CustomPricingEmbRouterParams enumerating every per-deployment pricing field.
     If a new pricing field is added to ModelInfoBase but not mirrored here, a
     deployment override on that field leaks into the shared backend key and
     every sibling deployment reads the wrong rate (LIT-3897). This guard fails
@@ -1023,17 +1023,17 @@ def test_custom_pricing_field_denylist_covers_all_builtin_pricing_fields():
     """
     import typing
 
-    from litellm.types.utils import CustomPricingLiteLLMParams, ModelInfoBase
+    from embrouter.types.utils import CustomPricingEmbRouterParams, ModelInfoBase
 
     pricing_markers = ("cost", "price", "uplift", "vector_size", "tiered_pricing")
     builtin_pricing_fields = {
         name for name in typing.get_type_hints(ModelInfoBase) if any(marker in name for marker in pricing_markers)
     }
-    denylisted_fields = set(CustomPricingLiteLLMParams.model_fields.keys())
+    denylisted_fields = set(CustomPricingEmbRouterParams.model_fields.keys())
 
     uncovered = sorted(builtin_pricing_fields - denylisted_fields)
     assert not uncovered, (
-        "ModelInfoBase pricing fields missing from CustomPricingLiteLLMParams; "
+        "ModelInfoBase pricing fields missing from CustomPricingEmbRouterParams; "
         f"these would leak into shared backend keys: {uncovered}"
     )
 
@@ -1042,26 +1042,26 @@ def test_tiered_pricing_override_isolated_from_sibling_via_model_info_lookup():
     """LIT-3897: a deployment that overrides a tiered pricing field
     (input_cost_per_token_above_272k_tokens) must not pollute the shared
     backend key, so a sibling sharing the same backend resolves its pricing
-    via litellm.get_model_info (the path /model/info uses) without seeing the
+    via embrouter.get_model_info (the path /model/info uses) without seeing the
     override.
     """
     backend_model = "gemini/gemini-2.5-flash"
     override = 0.000999
 
-    builtin_info = litellm.get_model_info(model=backend_model)
+    builtin_info = embrouter.get_model_info(model=backend_model)
     assert builtin_info.get("input_cost_per_token_above_272k_tokens") != override
 
     model_keys = {
-        "lit3897-tiered-custom": litellm.model_cost.get("lit3897-tiered-custom"),
-        "lit3897-tiered-sibling": litellm.model_cost.get("lit3897-tiered-sibling"),
-        backend_model: copy.deepcopy(litellm.model_cost.get(backend_model)),
+        "lit3897-tiered-custom": embrouter.model_cost.get("lit3897-tiered-custom"),
+        "lit3897-tiered-sibling": embrouter.model_cost.get("lit3897-tiered-sibling"),
+        backend_model: copy.deepcopy(embrouter.model_cost.get(backend_model)),
     }
     try:
         Router(
             model_list=[
                 {
                     "model_name": "custom-priced-flash",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": backend_model,
                         "api_key": "fake-key-tiered-1",
                     },
@@ -1073,7 +1073,7 @@ def test_tiered_pricing_override_isolated_from_sibling_via_model_info_lookup():
                 },
                 {
                     "model_name": "gemini-2.5-flash",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": backend_model,
                         "api_key": "fake-key-tiered-2",
                     },
@@ -1082,13 +1082,13 @@ def test_tiered_pricing_override_isolated_from_sibling_via_model_info_lookup():
             ],
         )
 
-        shared = litellm.get_model_info(model=backend_model)
+        shared = embrouter.get_model_info(model=backend_model)
         assert shared.get("input_cost_per_token_above_272k_tokens") != override, (
             "Tiered override leaked into the shared backend key; siblings read the wrong rate via /model/info"
         )
         assert shared.get("cache_read_input_token_cost_above_272k_tokens") != override
 
-        custom_entry = litellm.model_cost["lit3897-tiered-custom"]
+        custom_entry = embrouter.model_cost["lit3897-tiered-custom"]
         assert custom_entry["input_cost_per_token_above_272k_tokens"] == override
         assert custom_entry["cache_read_input_token_cost_above_272k_tokens"] == override
     finally:
@@ -1099,29 +1099,29 @@ def test_custom_pricing_isolated_from_sibling_via_proxy_model_info_path():
     """LIT-3897 end to end through the proxy resolution helper: the override
     deployment reports its custom input rate while the sibling keeps the
     canonical gemini rate when /model/info resolves each deployment. Mirrors the
-    ticket config where the override is set on litellm_params.
+    ticket config where the override is set on embrouter_params.
     """
-    from litellm.proxy.proxy_server import _get_proxy_model_info
+    from embrouter.proxy.proxy_server import _get_proxy_model_info
 
     backend_model = "gemini/gemini-2.5-flash"
     override_input = 5e-05
     override_output = 1e-04
 
-    builtin_info = litellm.get_model_info(model=backend_model)
+    builtin_info = embrouter.get_model_info(model=backend_model)
     builtin_input = builtin_info["input_cost_per_token"]
     assert builtin_input != override_input
 
     model_keys = {
-        "lit3897-proxy-custom": litellm.model_cost.get("lit3897-proxy-custom"),
-        "lit3897-proxy-sibling": litellm.model_cost.get("lit3897-proxy-sibling"),
-        backend_model: copy.deepcopy(litellm.model_cost.get(backend_model)),
+        "lit3897-proxy-custom": embrouter.model_cost.get("lit3897-proxy-custom"),
+        "lit3897-proxy-sibling": embrouter.model_cost.get("lit3897-proxy-sibling"),
+        backend_model: copy.deepcopy(embrouter.model_cost.get(backend_model)),
     }
     try:
         router = Router(
             model_list=[
                 {
                     "model_name": "custom-priced-flash",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": backend_model,
                         "api_key": "fake-key-proxy-1",
                         "input_cost_per_token": override_input,
@@ -1131,7 +1131,7 @@ def test_custom_pricing_isolated_from_sibling_via_proxy_model_info_path():
                 },
                 {
                     "model_name": "gemini-2.5-flash",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": backend_model,
                         "api_key": "fake-key-proxy-2",
                     },
@@ -1156,7 +1156,7 @@ def test_custom_model_info_metadata_not_leaked_to_shared_backend_key():
     """LIT-4544: two deployments share the same backend model but carry
     different custom model_info (arbitrary keys, access_via_team_ids, ids).
     None of that per-deployment metadata may land on the shared backend key in
-    litellm.model_cost (served raw by /public/litellm_model_cost_map);
+    embrouter.model_cost (served raw by /public/embrouter_model_cost_map);
     before the fix it was merged last-write-wins so values flipped randomly.
     """
     backend_model = "openai/gpt-4o-mini"
@@ -1164,7 +1164,7 @@ def test_custom_model_info_metadata_not_leaked_to_shared_backend_key():
     leak_fields = ("id", "additionalProp1", "access_via_team_ids", "db_model")
 
     model_keys = {
-        key: copy.deepcopy(litellm.model_cost.get(key))
+        key: copy.deepcopy(embrouter.model_cost.get(key))
         for key in (*shared_keys, "lit4544-deploy-a", "lit4544-deploy-b")
     }
     try:
@@ -1172,7 +1172,7 @@ def test_custom_model_info_metadata_not_leaked_to_shared_backend_key():
             model_list=[
                 {
                     "model_name": "alias-unrestricted",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": backend_model,
                         "api_key": "fake-key-a",
                     },
@@ -1183,7 +1183,7 @@ def test_custom_model_info_metadata_not_leaked_to_shared_backend_key():
                 },
                 {
                     "model_name": "alias-restricted",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": backend_model,
                         "api_key": "fake-key-b",
                     },
@@ -1197,13 +1197,13 @@ def test_custom_model_info_metadata_not_leaked_to_shared_backend_key():
         )
 
         for shared_key in shared_keys:
-            shared_entry = litellm.model_cost.get(shared_key) or {}
+            shared_entry = embrouter.model_cost.get(shared_key) or {}
             leaked = [field for field in leak_fields if field in shared_entry]
             assert not leaked, f"per-deployment metadata {leaked} leaked onto shared key {shared_key}: {shared_entry}"
 
-        entry_a = litellm.model_cost["lit4544-deploy-a"]
+        entry_a = embrouter.model_cost["lit4544-deploy-a"]
         assert entry_a["additionalProp1"] == {"restricted": False, "model_location": "EU"}
-        entry_b = litellm.model_cost["lit4544-deploy-b"]
+        entry_b = embrouter.model_cost["lit4544-deploy-b"]
         assert entry_b["additionalProp1"] == {"restricted": True, "model_location": "US"}
         assert entry_b["access_via_team_ids"] == ["team-b-only"]
     finally:
@@ -1219,13 +1219,13 @@ def test_add_deployment_does_not_leak_custom_metadata_to_shared_backend_key():
     shared_keys = ("gpt-4o-mini", backend_model)
     deploy_id = "lit4544-add-deployment"
 
-    model_keys = {key: copy.deepcopy(litellm.model_cost.get(key)) for key in (*shared_keys, deploy_id)}
+    model_keys = {key: copy.deepcopy(embrouter.model_cost.get(key)) for key in (*shared_keys, deploy_id)}
     try:
         router = Router(model_list=[])
         router.add_deployment(
             deployment=Deployment(
                 model_name="alias-dynamic",
-                litellm_params=LiteLLM_Params(
+                embrouter_params=EmbRouter_Params(
                     model=backend_model,
                     api_key="fake-key-dynamic",
                 ),
@@ -1238,13 +1238,13 @@ def test_add_deployment_does_not_leak_custom_metadata_to_shared_backend_key():
         )
 
         for shared_key in shared_keys:
-            shared_entry = litellm.model_cost.get(shared_key) or {}
+            shared_entry = embrouter.model_cost.get(shared_key) or {}
             leaked = [
                 field for field in ("id", "additionalProp1", "access_via_team_ids", "db_model") if field in shared_entry
             ]
             assert not leaked, f"per-deployment metadata {leaked} leaked onto shared key {shared_key}: {shared_entry}"
 
-        assert litellm.model_cost[deploy_id]["access_via_team_ids"] == ["team-dynamic"]
+        assert embrouter.model_cost[deploy_id]["access_via_team_ids"] == ["team-dynamic"]
     finally:
         _restore_model_cost_entries(model_keys)
 
@@ -1253,12 +1253,12 @@ def test_shared_backend_model_info_keeps_schema_fields_and_drops_the_rest():
     """Unit test of the whitelist helper: cost-map schema fields survive,
     custom pricing overrides and per-deployment metadata do not.
     """
-    from litellm.types.utils import shared_backend_model_info
+    from embrouter.types.utils import shared_backend_model_info
 
     filtered = shared_backend_model_info(
         {
             "mode": "chat",
-            "litellm_provider": "openai",
+            "embrouter_provider": "openai",
             "max_tokens": 128000,
             "supports_vision": True,
             "supported_endpoints": ["/v1/responses"],
@@ -1275,7 +1275,7 @@ def test_shared_backend_model_info_keeps_schema_fields_and_drops_the_rest():
 
     assert filtered == {
         "mode": "chat",
-        "litellm_provider": "openai",
+        "embrouter_provider": "openai",
         "max_tokens": 128000,
         "supports_vision": True,
         "supported_endpoints": ["/v1/responses"],
@@ -1287,10 +1287,10 @@ def test_capability_flags_propagate_from_deployment_model_info_to_shared_key():
     """Backend-model capability facts (supported_endpoints,
     use_openai_responses_path) declared in a deployment's model_info must reach
     the shared backend key: the Bedrock Mantle routing gates read them raw off
-    litellm.model_cost and document proxy model_info as an override path for
+    embrouter.model_cost and document proxy model_info as an override path for
     models missing from the built-in cost map.
     """
-    from litellm.llms.bedrock_mantle.common_utils import (
+    from embrouter.llms.bedrock_mantle.common_utils import (
         mantle_base_segment,
         mantle_supports_responses,
     )
@@ -1299,13 +1299,13 @@ def test_capability_flags_propagate_from_deployment_model_info_to_shared_key():
     backend_model = f"bedrock_mantle/{bare_model}"
     deploy_id = "lit4544-mantle-deploy"
 
-    model_keys = {key: copy.deepcopy(litellm.model_cost.get(key)) for key in (bare_model, backend_model, deploy_id)}
+    model_keys = {key: copy.deepcopy(embrouter.model_cost.get(key)) for key in (bare_model, backend_model, deploy_id)}
     try:
         Router(
             model_list=[
                 {
                     "model_name": "mantle-alias",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": backend_model,
                         "api_key": "fake-key",
                     },
@@ -1318,12 +1318,12 @@ def test_capability_flags_propagate_from_deployment_model_info_to_shared_key():
             ],
         )
 
-        shared_entry = litellm.model_cost.get(backend_model) or {}
+        shared_entry = embrouter.model_cost.get(backend_model) or {}
         assert shared_entry.get("supported_endpoints") == ["/v1/responses"]
         assert shared_entry.get("use_openai_responses_path") is True
         assert "id" not in shared_entry
-        assert mantle_supports_responses(bare_model, litellm.model_cost) is True
-        assert mantle_base_segment(bare_model, litellm.model_cost) == "openai/v1"
+        assert mantle_supports_responses(bare_model, embrouter.model_cost) is True
+        assert mantle_base_segment(bare_model, embrouter.model_cost) == "openai/v1"
     finally:
         _restore_model_cost_entries(model_keys)
 
@@ -1337,13 +1337,13 @@ def test_wildcard_zero_cost_request_does_not_poison_named_deployment_pricing():
     """
     shared_key = "openai/text-embedding-3-small"
     model_keys = {
-        shared_key: copy.deepcopy(litellm.model_cost.get(shared_key)),
-        "text-embedding-3-small": copy.deepcopy(litellm.model_cost.get("text-embedding-3-small")),
-        "openai/*": copy.deepcopy(litellm.model_cost.get("openai/*")),
-        "lit3991-named": litellm.model_cost.get("lit3991-named"),
-        "lit3991-wildcard": litellm.model_cost.get("lit3991-wildcard"),
+        shared_key: copy.deepcopy(embrouter.model_cost.get(shared_key)),
+        "text-embedding-3-small": copy.deepcopy(embrouter.model_cost.get("text-embedding-3-small")),
+        "openai/*": copy.deepcopy(embrouter.model_cost.get("openai/*")),
+        "lit3991-named": embrouter.model_cost.get("lit3991-named"),
+        "lit3991-wildcard": embrouter.model_cost.get("lit3991-wildcard"),
     }
-    builtin_input_cost = litellm.get_model_info(model=shared_key)["input_cost_per_token"]
+    builtin_input_cost = embrouter.get_model_info(model=shared_key)["input_cost_per_token"]
     assert builtin_input_cost > 0
 
     try:
@@ -1351,7 +1351,7 @@ def test_wildcard_zero_cost_request_does_not_poison_named_deployment_pricing():
             model_list=[
                 {
                     "model_name": "text-embedding-3-small",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "openai/text-embedding-3-small",
                         "api_key": "fake-key-named",
                     },
@@ -1359,7 +1359,7 @@ def test_wildcard_zero_cost_request_does_not_poison_named_deployment_pricing():
                 },
                 {
                     "model_name": "openai/*",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "openai/*",
                         "api_key": "fake-key-wildcard",
                         "input_cost_per_token": 0.0,
@@ -1376,7 +1376,7 @@ def test_wildcard_zero_cost_request_does_not_poison_named_deployment_pricing():
             mock_response=[0.1, 0.2],
         )
 
-        assert litellm.get_model_info(model=shared_key)["input_cost_per_token"] == builtin_input_cost, (
+        assert embrouter.get_model_info(model=shared_key)["input_cost_per_token"] == builtin_input_cost, (
             f"one call through the zero-cost wildcard poisoned the shared {shared_key} pricing for the named deployment"
         )
 
@@ -1385,7 +1385,7 @@ def test_wildcard_zero_cost_request_does_not_poison_named_deployment_pricing():
             input=["hello"],
             mock_response=[0.1, 0.2],
         )
-        named_cost = litellm.completion_cost(completion_response=named_response, call_type="embedding")
+        named_cost = embrouter.completion_cost(completion_response=named_response, call_type="embedding")
         assert named_cost == pytest.approx(10 * builtin_input_cost)
     finally:
         _restore_model_cost_entries(model_keys)
@@ -1393,25 +1393,25 @@ def test_wildcard_zero_cost_request_does_not_poison_named_deployment_pricing():
 
 def test_price_data_reload_preserves_router_registered_model_info(monkeypatch):
     """
-    A price-data reload replaces litellm.model_cost wholesale. Deployment
+    A price-data reload replaces embrouter.model_cost wholesale. Deployment
     model_info registered by the Router is not in the fetched catalog, so
     without a replay of runtime registrations the reload silently strips
     max_input_tokens / max_output_tokens from every custom model group and
     /model_group/info starts reporting nulls.
     """
-    from litellm import utils as litellm_utils
+    from embrouter import utils as embrouter_utils
 
     monkeypatch.setattr(
-        litellm_utils,
+        embrouter_utils,
         "_runtime_registered_model_cost",
-        dict(litellm_utils._runtime_registered_model_cost),
+        dict(embrouter_utils._runtime_registered_model_cost),
     )
 
     router = Router(
         model_list=[
             {
                 "model_name": "custom-alias",
-                "litellm_params": {"model": "hosted_vllm/not-in-the-catalog"},
+                "embrouter_params": {"model": "hosted_vllm/not-in-the-catalog"},
                 "model_info": {
                     "id": "custom-alias-id",
                     "max_input_tokens": 128000,
@@ -1426,10 +1426,10 @@ def test_price_data_reload_preserves_router_registered_model_info(monkeypatch):
     assert before.max_input_tokens == 128000
     assert before.max_output_tokens == 16384
 
-    saved_model_cost = litellm.model_cost
+    saved_model_cost = embrouter.model_cost
     try:
         _simulate_price_data_reload(
-            {"gpt-4o": {"litellm_provider": "openai", "mode": "chat"}},
+            {"gpt-4o": {"embrouter_provider": "openai", "mode": "chat"}},
         )
 
         after = router.get_model_group_info(model_group="custom-alias")
@@ -1437,7 +1437,7 @@ def test_price_data_reload_preserves_router_registered_model_info(monkeypatch):
         assert after.max_input_tokens == 128000
         assert after.max_output_tokens == 16384
     finally:
-        litellm.model_cost = saved_model_cost
+        embrouter.model_cost = saved_model_cost
         _invalidate_model_cost_lowercase_map()
 
 
@@ -1447,19 +1447,19 @@ def test_price_data_reload_preserves_custom_override_of_a_catalog_model(monkeypa
     the same bug: the reload does not blank the metadata, it reverts the
     operator's model_info override to the upstream catalog values.
     """
-    from litellm import utils as litellm_utils
+    from embrouter import utils as embrouter_utils
 
     monkeypatch.setattr(
-        litellm_utils,
+        embrouter_utils,
         "_runtime_registered_model_cost",
-        dict(litellm_utils._runtime_registered_model_cost),
+        dict(embrouter_utils._runtime_registered_model_cost),
     )
 
     router = Router(
         model_list=[
             {
                 "model_name": "capped-gpt-4o",
-                "litellm_params": {"model": "openai/gpt-4o"},
+                "embrouter_params": {"model": "openai/gpt-4o"},
                 "model_info": {
                     "id": "capped-gpt-4o-id",
                     "max_input_tokens": 12345,
@@ -1469,12 +1469,12 @@ def test_price_data_reload_preserves_custom_override_of_a_catalog_model(monkeypa
         ],
     )
 
-    saved_model_cost = litellm.model_cost
+    saved_model_cost = embrouter.model_cost
     try:
         _simulate_price_data_reload(
             {
                 "openai/gpt-4o": {
-                    "litellm_provider": "openai",
+                    "embrouter_provider": "openai",
                     "mode": "chat",
                     "max_input_tokens": 999999,
                     "max_output_tokens": 888888,
@@ -1487,7 +1487,7 @@ def test_price_data_reload_preserves_custom_override_of_a_catalog_model(monkeypa
         assert after.max_input_tokens == 12345
         assert after.max_output_tokens == 678
     finally:
-        litellm.model_cost = saved_model_cost
+        embrouter.model_cost = saved_model_cost
         _invalidate_model_cost_lowercase_map()
 
 
@@ -1499,52 +1499,52 @@ def test_deleted_deployments_are_not_replayed_onto_later_reloads(monkeypatch):
     key that another live deployment still points at must survive the same
     deletion.
     """
-    from litellm import utils as litellm_utils
+    from embrouter import utils as embrouter_utils
 
     monkeypatch.setattr(
-        litellm_utils,
+        embrouter_utils,
         "_runtime_registered_model_cost",
-        dict(litellm_utils._runtime_registered_model_cost),
+        dict(embrouter_utils._runtime_registered_model_cost),
     )
 
     router = Router(
         model_list=[
             {
                 "model_name": "doomed",
-                "litellm_params": {"model": "hosted_vllm/shared-backend"},
+                "embrouter_params": {"model": "hosted_vllm/shared-backend"},
                 "model_info": {"id": "doomed-id", "max_input_tokens": 111},
             },
             {
                 "model_name": "kept",
-                "litellm_params": {"model": "hosted_vllm/shared-backend"},
+                "embrouter_params": {"model": "hosted_vllm/shared-backend"},
                 "model_info": {"id": "kept-id", "max_input_tokens": 222},
             },
             {
                 "model_name": "solo",
-                "litellm_params": {"model": "hosted_vllm/solo-backend"},
+                "embrouter_params": {"model": "hosted_vllm/solo-backend"},
                 "model_info": {"id": "solo-id", "max_input_tokens": 333},
             },
         ],
     )
 
-    saved_model_cost = litellm.model_cost
+    saved_model_cost = embrouter.model_cost
     try:
         assert router.delete_deployment(id="doomed-id") is not None
         assert router.delete_deployment(id="solo-id") is not None
 
         _simulate_price_data_reload(
-            {"gpt-4o": {"litellm_provider": "openai", "mode": "chat"}},
+            {"gpt-4o": {"embrouter_provider": "openai", "mode": "chat"}},
         )
 
-        assert "doomed-id" not in litellm.model_cost
-        assert "solo-id" not in litellm.model_cost
-        assert "hosted_vllm/solo-backend" not in litellm.model_cost
+        assert "doomed-id" not in embrouter.model_cost
+        assert "solo-id" not in embrouter.model_cost
+        assert "hosted_vllm/solo-backend" not in embrouter.model_cost
 
-        surviving = litellm.model_cost["kept-id"]
+        surviving = embrouter.model_cost["kept-id"]
         assert surviving["max_input_tokens"] == 222
-        assert "hosted_vllm/shared-backend" in litellm.model_cost
+        assert "hosted_vllm/shared-backend" in embrouter.model_cost
     finally:
-        litellm.model_cost = saved_model_cost
+        embrouter.model_cost = saved_model_cost
         _invalidate_model_cost_lowercase_map()
 
 
@@ -1553,27 +1553,27 @@ def test_deleting_a_deployment_leaves_catalog_pricing_for_its_backend_model(monk
     A backend key is shared with the fetched catalog, so withdrawing the entries
     a deleted deployment owns must not take real upstream pricing down with it.
     """
-    from litellm import utils as litellm_utils
+    from embrouter import utils as embrouter_utils
 
     monkeypatch.setattr(
-        litellm_utils,
+        embrouter_utils,
         "_runtime_registered_model_cost",
-        dict(litellm_utils._runtime_registered_model_cost),
+        dict(embrouter_utils._runtime_registered_model_cost),
     )
 
     backend_model = "gemini/gemini-2.5-pro"
-    catalog_entry = litellm.get_model_info(model=backend_model)
+    catalog_entry = embrouter.get_model_info(model=backend_model)
     catalog_input_cost = catalog_entry["input_cost_per_token"]
     assert catalog_input_cost > 0, "Test requires a catalog model with non-zero pricing"
 
-    saved_catalog = litellm.model_cost
-    fetched_catalog = copy.deepcopy(litellm.model_cost)
+    saved_catalog = embrouter.model_cost
+    fetched_catalog = copy.deepcopy(embrouter.model_cost)
     try:
         router = Router(
             model_list=[
                 {
                     "model_name": "doomed-gemini",
-                    "litellm_params": {"model": backend_model, "api_key": "sk-fake"},
+                    "embrouter_params": {"model": backend_model, "api_key": "sk-fake"},
                     "model_info": {"id": "doomed-gemini-id"},
                 }
             ],
@@ -1585,10 +1585,10 @@ def test_deleting_a_deployment_leaves_catalog_pricing_for_its_backend_model(monk
             copy.deepcopy(fetched_catalog),
         )
 
-        assert "doomed-gemini-id" not in litellm.model_cost
-        assert litellm.model_cost[backend_model]["input_cost_per_token"] == catalog_input_cost
+        assert "doomed-gemini-id" not in embrouter.model_cost
+        assert embrouter.model_cost[backend_model]["input_cost_per_token"] == catalog_input_cost
     finally:
-        litellm.model_cost = saved_catalog
+        embrouter.model_cost = saved_catalog
         _invalidate_model_cost_lowercase_map()
 
 
@@ -1598,43 +1598,43 @@ def test_repointing_a_deployment_drops_its_previous_backend_key(monkeypatch):
     old backend key behind, and a replayed registry would re-assert it onto every
     later catalog for the life of the process.
     """
-    from litellm import utils as litellm_utils
+    from embrouter import utils as embrouter_utils
 
     monkeypatch.setattr(
-        litellm_utils,
+        embrouter_utils,
         "_runtime_registered_model_cost",
-        dict(litellm_utils._runtime_registered_model_cost),
+        dict(embrouter_utils._runtime_registered_model_cost),
     )
 
     router = Router(
         model_list=[
             {
                 "model_name": "moving-target",
-                "litellm_params": {"model": "hosted_vllm/old-backend"},
+                "embrouter_params": {"model": "hosted_vllm/old-backend"},
                 "model_info": {"id": "moving-target-id"},
             }
         ],
     )
 
-    saved_model_cost = litellm.model_cost
+    saved_model_cost = embrouter.model_cost
     try:
         router.upsert_deployment(
             deployment=Deployment(
                 model_name="moving-target",
-                litellm_params=LiteLLM_Params(model="hosted_vllm/new-backend"),
+                embrouter_params=EmbRouter_Params(model="hosted_vllm/new-backend"),
                 model_info=ModelInfo(id="moving-target-id"),
             )
         )
 
         _simulate_price_data_reload(
-            {"gpt-4o": {"litellm_provider": "openai", "mode": "chat"}},
+            {"gpt-4o": {"embrouter_provider": "openai", "mode": "chat"}},
         )
 
-        assert "hosted_vllm/old-backend" not in litellm.model_cost
-        assert "hosted_vllm/new-backend" in litellm.model_cost
-        assert "moving-target-id" in litellm.model_cost
+        assert "hosted_vllm/old-backend" not in embrouter.model_cost
+        assert "hosted_vllm/new-backend" in embrouter.model_cost
+        assert "moving-target-id" in embrouter.model_cost
     finally:
-        litellm.model_cost = saved_model_cost
+        embrouter.model_cost = saved_model_cost
         _invalidate_model_cost_lowercase_map()
 
 
@@ -1667,13 +1667,13 @@ def test_a_discarded_router_stops_contributing_to_later_reloads(monkeypatch):
     so a rebuild driven off live routers is what keeps a caller from growing the
     cost map one request at a time.
     """
-    saved_model_cost = litellm.model_cost
+    saved_model_cost = embrouter.model_cost
     try:
         kept = Router(
             model_list=[
                 {
                     "model_name": "kept",
-                    "litellm_params": {"model": "hosted_vllm/kept-backend"},
+                    "embrouter_params": {"model": "hosted_vllm/kept-backend"},
                     "model_info": {"id": "kept-router-id", "max_input_tokens": 4242},
                 }
             ],
@@ -1682,7 +1682,7 @@ def test_a_discarded_router_stops_contributing_to_later_reloads(monkeypatch):
             model_list=[
                 {
                     "model_name": "throwaway",
-                    "litellm_params": {"model": "hosted_vllm/throwaway-backend"},
+                    "embrouter_params": {"model": "hosted_vllm/throwaway-backend"},
                     "model_info": {"id": "throwaway-router-id", "max_input_tokens": 111},
                 }
             ],
@@ -1690,16 +1690,16 @@ def test_a_discarded_router_stops_contributing_to_later_reloads(monkeypatch):
         throwaway.discard()
 
         _simulate_price_data_reload(
-            {"gpt-4o": {"litellm_provider": "openai", "mode": "chat"}},
+            {"gpt-4o": {"embrouter_provider": "openai", "mode": "chat"}},
         )
 
-        assert "throwaway-router-id" not in litellm.model_cost
-        assert "hosted_vllm/throwaway-backend" not in litellm.model_cost
-        assert litellm.model_cost["kept-router-id"]["max_input_tokens"] == 4242
-        assert "hosted_vllm/kept-backend" in litellm.model_cost
+        assert "throwaway-router-id" not in embrouter.model_cost
+        assert "hosted_vllm/throwaway-backend" not in embrouter.model_cost
+        assert embrouter.model_cost["kept-router-id"]["max_input_tokens"] == 4242
+        assert "hosted_vllm/kept-backend" in embrouter.model_cost
         assert kept.model_list  # keep the live router referenced for the duration
     finally:
-        litellm.model_cost = saved_model_cost
+        embrouter.model_cost = saved_model_cost
         _invalidate_model_cost_lowercase_map()
 
 
@@ -1707,17 +1707,17 @@ def test_a_reload_rebuilds_exactly_what_a_fresh_boot_registered() -> None:
     """
     The rebuild is only correct if it reproduces the entries the original
     registration wrote, including the pieces that are derived rather than stored:
-    custom pricing carried on litellm_params, and the cache pricing inherited from
+    custom pricing carried on embrouter_params, and the cache pricing inherited from
     the built-in cost map.
     """
-    saved_catalog = litellm.model_cost
-    fetched_catalog = copy.deepcopy(litellm.model_cost)
+    saved_catalog = embrouter.model_cost
+    fetched_catalog = copy.deepcopy(embrouter.model_cost)
     try:
         router = Router(
             model_list=[
                 {
                     "model_name": "priced",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "openai/gpt-4o",
                         "api_key": "sk-fake",
                         "input_cost_per_token": 0.000123,
@@ -1727,16 +1727,16 @@ def test_a_reload_rebuilds_exactly_what_a_fresh_boot_registered() -> None:
                 }
             ],
         )
-        at_boot = copy.deepcopy(litellm.model_cost["priced-id"])
+        at_boot = copy.deepcopy(embrouter.model_cost["priced-id"])
         assert at_boot["input_cost_per_token"] == 0.000123
         assert at_boot["cache_read_input_token_cost"] is not None
-        assert "member_auto_router" not in litellm.model_cost["gpt-4o"]
+        assert "member_auto_router" not in embrouter.model_cost["gpt-4o"]
 
         _simulate_price_data_reload(
             copy.deepcopy(fetched_catalog),
         )
 
-        rebuilt = litellm.model_cost["priced-id"]
+        rebuilt = embrouter.model_cost["priced-id"]
         assert at_boot.items() <= rebuilt.items(), (
             f"the rebuild changed or dropped a field the boot registration wrote: "
             f"{ {k: (v, rebuilt.get(k)) for k, v in at_boot.items() if rebuilt.get(k) != v} }"
@@ -1745,10 +1745,10 @@ def test_a_reload_rebuilds_exactly_what_a_fresh_boot_registered() -> None:
             "db_model": False,
             "member_auto_router": False,
         }
-        assert "member_auto_router" not in litellm.model_cost["gpt-4o"]
+        assert "member_auto_router" not in embrouter.model_cost["gpt-4o"]
         assert router.model_list
     finally:
-        litellm.model_cost = saved_catalog
+        embrouter.model_cost = saved_catalog
         _invalidate_model_cost_lowercase_map()
 
 
@@ -1757,39 +1757,39 @@ def test_replay_model_cost_registrations_survives_a_malformed_deployment():
     The rebuild reads whatever dicts are sitting in model_list, so one entry that
     cannot be rebuilt into a Deployment must not stop the rest being restored.
     """
-    saved_model_cost = litellm.model_cost
+    saved_model_cost = embrouter.model_cost
     try:
         router = Router(
             model_list=[
                 {
                     "model_name": "healthy",
-                    "litellm_params": {"model": "hosted_vllm/healthy-backend"},
+                    "embrouter_params": {"model": "hosted_vllm/healthy-backend"},
                     "model_info": {"id": "healthy-id", "max_input_tokens": 777},
                 }
             ],
         )
-        router.model_list.insert(0, {"litellm_params": {}})
+        router.model_list.insert(0, {"embrouter_params": {}})
 
-        litellm.model_cost = {"gpt-4o": {"litellm_provider": "openai", "mode": "chat"}}
+        embrouter.model_cost = {"gpt-4o": {"embrouter_provider": "openai", "mode": "chat"}}
         _invalidate_model_cost_lowercase_map()
         router._replay_model_cost_registrations()
 
-        assert litellm.model_cost["healthy-id"]["max_input_tokens"] == 777
+        assert embrouter.model_cost["healthy-id"]["max_input_tokens"] == 777
     finally:
-        litellm.model_cost = saved_model_cost
+        embrouter.model_cost = saved_model_cost
         _invalidate_model_cost_lowercase_map()
 
 
-def test_deployment_model_cost_payload_folds_in_litellm_params_pricing():
+def test_deployment_model_cost_payload_folds_in_embrouter_params_pricing():
     """
-    Custom pricing is configured on litellm_params but has to land in the
+    Custom pricing is configured on embrouter_params but has to land in the
     cost-map entry, and setting it pulls in the built-in cache pricing for the
     backend model. Both are what make the entry reproducible from a deployment.
     """
     payload = Router._deployment_model_cost_payload(
         deployment=Deployment(
             model_name="priced",
-            litellm_params=LiteLLM_Params(
+            embrouter_params=EmbRouter_Params(
                 model="gemini/gemini-2.5-pro",
                 input_cost_per_token=0.000123,
             ),
@@ -1810,19 +1810,19 @@ def test_register_deployment_in_model_cost_writes_both_key_families():
     pick up the deployment's private metadata.
     """
     model_keys = {
-        "both-families-id": copy.deepcopy(litellm.model_cost.get("both-families-id")),
-        "hosted_vllm/both-families-backend": copy.deepcopy(litellm.model_cost.get("hosted_vllm/both-families-backend")),
+        "both-families-id": copy.deepcopy(embrouter.model_cost.get("both-families-id")),
+        "hosted_vllm/both-families-backend": copy.deepcopy(embrouter.model_cost.get("hosted_vllm/both-families-backend")),
     }
     try:
         Router._register_deployment_in_model_cost(
             model_id="both-families-id",
-            model_info={"id": "both-families-id", "max_input_tokens": 999, "litellm_provider": "hosted_vllm"},
+            model_info={"id": "both-families-id", "max_input_tokens": 999, "embrouter_provider": "hosted_vllm"},
             model="hosted_vllm/both-families-backend",
             custom_llm_provider=None,
         )
 
-        assert litellm.model_cost["both-families-id"]["max_input_tokens"] == 999
-        shared = litellm.model_cost["hosted_vllm/both-families-backend"]
+        assert embrouter.model_cost["both-families-id"]["max_input_tokens"] == 999
+        shared = embrouter.model_cost["hosted_vllm/both-families-backend"]
         assert shared["max_input_tokens"] == 999
         assert "id" not in shared
     finally:
@@ -1839,38 +1839,38 @@ def test_router_registration_keeps_ultrafast_long_context_deployment_pricing() -
         "cache_creation_input_token_cost_above_272k_tokens_ultrafast": 0.00015,
     }
     model_cost_entries: Final = {
-        key: copy.deepcopy(litellm.model_cost.get(key)) for key in (model_id, backend_key, "gpt-6-astra")
+        key: copy.deepcopy(embrouter.model_cost.get(key)) for key in (model_id, backend_key, "gpt-6-astra")
     }
     try:
         Router(
             model_list=[
                 {
                     "model_name": "ultrafast-long-context-pricing",
-                    "litellm_params": {"model": backend_key, **rates},
+                    "embrouter_params": {"model": backend_key, **rates},
                     "model_info": {"id": model_id},
                 }
             ]
         )
 
-        assert {key: litellm.model_cost[model_id][key] for key in rates} == rates
+        assert {key: embrouter.model_cost[model_id][key] for key in rates} == rates
     finally:
         _restore_model_cost_entries(model_cost_entries)
 
 
-def test_reload_keeps_custom_pricing_configured_on_litellm_params_for_a_db_model():
+def test_reload_keeps_custom_pricing_configured_on_embrouter_params_for_a_db_model():
     """
     A deployment added at runtime, which is what /model/new does, configures its
-    custom pricing on litellm_params rather than on model_info. A price data
+    custom pricing on embrouter_params rather than on model_info. A price data
     reload must not revert that to the catalog's pricing.
     """
-    saved_catalog = litellm.model_cost
-    fetched_catalog = copy.deepcopy(litellm.model_cost)
+    saved_catalog = embrouter.model_cost
+    fetched_catalog = copy.deepcopy(embrouter.model_cost)
     try:
         router = Router(model_list=[])
         router.add_deployment(
             deployment=Deployment(
                 model_name="db-priced",
-                litellm_params=LiteLLM_Params(
+                embrouter_params=EmbRouter_Params(
                     model="openai/gpt-4o",
                     api_key="sk-fake",
                     input_cost_per_token=0.000123,
@@ -1880,16 +1880,16 @@ def test_reload_keeps_custom_pricing_configured_on_litellm_params_for_a_db_model
             )
         )
 
-        assert litellm.model_cost["db-priced-id"]["input_cost_per_token"] == 0.000123
+        assert embrouter.model_cost["db-priced-id"]["input_cost_per_token"] == 0.000123
 
         _simulate_price_data_reload(
             copy.deepcopy(fetched_catalog),
         )
 
-        assert litellm.model_cost["db-priced-id"]["input_cost_per_token"] == 0.000123
-        assert litellm.model_cost["db-priced-id"]["output_cost_per_token"] == 0.000456
+        assert embrouter.model_cost["db-priced-id"]["input_cost_per_token"] == 0.000123
+        assert embrouter.model_cost["db-priced-id"]["output_cost_per_token"] == 0.000456
     finally:
-        litellm.model_cost = saved_catalog
+        embrouter.model_cost = saved_catalog
         _invalidate_model_cost_lowercase_map()
 
 
@@ -1898,15 +1898,15 @@ def test_replay_live_router_model_cost_rebuilds_every_live_router():
     A process can hold more than one Router, so the rebuild has to fan out across
     all of them rather than restoring whichever one happens to be reachable.
     """
-    from litellm.router import _replay_live_router_model_cost
+    from embrouter.router import _replay_live_router_model_cost
 
-    saved_model_cost = litellm.model_cost
+    saved_model_cost = embrouter.model_cost
     try:
         first = Router(
             model_list=[
                 {
                     "model_name": "first",
-                    "litellm_params": {"model": "hosted_vllm/first-backend"},
+                    "embrouter_params": {"model": "hosted_vllm/first-backend"},
                     "model_info": {"id": "first-id", "max_input_tokens": 111},
                 }
             ],
@@ -1915,21 +1915,21 @@ def test_replay_live_router_model_cost_rebuilds_every_live_router():
             model_list=[
                 {
                     "model_name": "second",
-                    "litellm_params": {"model": "hosted_vllm/second-backend"},
+                    "embrouter_params": {"model": "hosted_vllm/second-backend"},
                     "model_info": {"id": "second-id", "max_input_tokens": 222},
                 }
             ],
         )
 
-        litellm.model_cost = {"gpt-4o": {"litellm_provider": "openai", "mode": "chat"}}
+        embrouter.model_cost = {"gpt-4o": {"embrouter_provider": "openai", "mode": "chat"}}
         _invalidate_model_cost_lowercase_map()
         _replay_live_router_model_cost()
 
-        assert litellm.model_cost["first-id"]["max_input_tokens"] == 111
-        assert litellm.model_cost["second-id"]["max_input_tokens"] == 222
+        assert embrouter.model_cost["first-id"]["max_input_tokens"] == 111
+        assert embrouter.model_cost["second-id"]["max_input_tokens"] == 222
         assert first.model_list and second.model_list
     finally:
-        litellm.model_cost = saved_model_cost
+        embrouter.model_cost = saved_model_cost
         _invalidate_model_cost_lowercase_map()
 
 
@@ -1942,19 +1942,19 @@ def test_strategy_router_alias_pricing_never_enters_model_cost(monkeypatch):
     strip must also survive a price-data reload, which rebuilds entries by
     walking the live routers.
     """
-    from litellm import utils as litellm_utils
+    from embrouter import utils as embrouter_utils
 
     monkeypatch.setattr(
-        litellm_utils,
+        embrouter_utils,
         "_runtime_registered_model_cost",
-        dict(litellm_utils._runtime_registered_model_cost),
+        dict(embrouter_utils._runtime_registered_model_cost),
     )
 
     router = Router(
         model_list=[
             {
                 "model_name": "smart-router",
-                "litellm_params": {
+                "embrouter_params": {
                     "model": "auto_router/complexity_router/smart-router",
                     "complexity_router_default_model": "paid-model",
                     "input_cost_per_token": 0.0,
@@ -1965,14 +1965,14 @@ def test_strategy_router_alias_pricing_never_enters_model_cost(monkeypatch):
             },
             {
                 "model_name": "paid-model",
-                "litellm_params": {"model": "openai/gpt-4o", "api_key": "sk-fake"},
+                "embrouter_params": {"model": "openai/gpt-4o", "api_key": "sk-fake"},
                 "model_info": {"id": "strategy-alias-paid-id"},
             },
         ],
     )
 
     def _assert_alias_unpriced():
-        entry = litellm.model_cost.get("strategy-alias-id")
+        entry = embrouter.model_cost.get("strategy-alias-id")
         assert entry is not None, "Alias metadata should still be registered"
         assert entry["max_input_tokens"] == 128000
         assert "input_cost_per_token" not in entry
@@ -1980,15 +1980,15 @@ def test_strategy_router_alias_pricing_never_enters_model_cost(monkeypatch):
 
     _assert_alias_unpriced()
 
-    saved_model_cost = litellm.model_cost
+    saved_model_cost = embrouter.model_cost
     try:
         _simulate_price_data_reload(
-            {"gpt-4o": {"litellm_provider": "openai", "mode": "chat"}},
+            {"gpt-4o": {"embrouter_provider": "openai", "mode": "chat"}},
         )
         _assert_alias_unpriced()
         assert router.model_list
     finally:
-        litellm.model_cost = saved_model_cost
+        embrouter.model_cost = saved_model_cost
         _invalidate_model_cost_lowercase_map()
 
 
@@ -2006,7 +2006,7 @@ def test_inherit_builtin_tiered_output_rate_fills_the_backend_flat_rate():
         custom_llm_provider="anthropic",
     )
 
-    backend_rate = litellm.get_model_info(model="claude-haiku-4-5", custom_llm_provider="anthropic")[
+    backend_rate = embrouter.get_model_info(model="claude-haiku-4-5", custom_llm_provider="anthropic")[
         "output_cost_per_token"
     ]
     assert backend_rate > 0
@@ -2019,7 +2019,7 @@ def test_inherit_builtin_tiered_output_rate_never_stores_a_synthesized_zero():
     only publishes tiered rates (e.g. dashscope/qwen-flash), and storing that zero
     would mark the deployment as explicitly priced free.
     """
-    backend_info = litellm.get_model_info(model="qwen-flash", custom_llm_provider="dashscope")
+    backend_info = embrouter.get_model_info(model="qwen-flash", custom_llm_provider="dashscope")
     assert backend_info["output_cost_per_token"] == 0
 
     model_info = {"tiered_pricing": [{"range": [0, 3000], "input_cost_per_token": 3.25e-07}]}
@@ -2058,17 +2058,17 @@ _PTU_MODEL_INFO = {
 }
 
 
-def _ptu_router(model_info=None, litellm_params=None, ptu_enabled=True):
+def _ptu_router(model_info=None, embrouter_params=None, ptu_enabled=True):
     """A router built the way loading config.yaml builds one."""
-    with patch.dict(os.environ, {"LITELLM_ENABLE_PTU_COST_ATTRIBUTION": "True" if ptu_enabled else ""}, clear=False):
+    with patch.dict(os.environ, {"EMBROUTER_ENABLE_PTU_COST_ATTRIBUTION": "True" if ptu_enabled else ""}, clear=False):
         return Router(
             model_list=[
                 {
                     "model_name": "gpt-4o-ptu",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "anthropic/claude-sonnet-4-5-20250929",
                         "api_key": "sk-not-used",
-                        **(litellm_params or {}),
+                        **(embrouter_params or {}),
                     },
                     "model_info": dict(_PTU_MODEL_INFO if model_info is None else model_info),
                 }
@@ -2080,13 +2080,13 @@ def test_a_config_ptu_deployment_bills_nothing_per_token():
     """Reserved capacity is already billed by the hour, so charging its traffic bills the
     same tokens twice. Left unset the rate falls back to the public cost map, which makes
     the double charge the default rather than an opt-in."""
-    router = _ptu_router(litellm_params={"input_cost_per_token": 5e-06, "output_cost_per_token": 1.5e-05})
+    router = _ptu_router(embrouter_params={"input_cost_per_token": 5e-06, "output_cost_per_token": 1.5e-05})
     entry = router.model_list[0]
 
-    assert entry["litellm_params"]["input_cost_per_token"] == 0.0
-    assert entry["litellm_params"]["output_cost_per_token"] == 0.0
+    assert entry["embrouter_params"]["input_cost_per_token"] == 0.0
+    assert entry["embrouter_params"]["output_cost_per_token"] == 0.0
     assert entry["model_info"]["input_cost_per_token"] == 0.0
-    assert litellm.model_cost[entry["model_info"]["id"]]["input_cost_per_token"] == 0.0
+    assert embrouter.model_cost[entry["model_info"]["id"]]["input_cost_per_token"] == 0.0
 
 
 @pytest.mark.parametrize(
@@ -2105,11 +2105,11 @@ def test_a_config_ptu_deployment_imports_no_cache_rate_from_its_backend(backend)
         "cache_read_input_token_cost",
         "cache_read_input_token_cost_above_200k_tokens",
     )
-    builtin = litellm.get_model_info(model=backend)
+    builtin = embrouter.get_model_info(model=backend)
     assert any(builtin.get(field) for field in cache_fields), "backend publishes no cache pricing to leak"
 
-    router = _ptu_router(litellm_params={"model": backend})
-    priced = litellm.model_cost[router.model_list[0]["model_info"]["id"]]
+    router = _ptu_router(embrouter_params={"model": backend})
+    priced = embrouter.model_cost[router.model_list[0]["model_info"]["id"]]
 
     assert [field for field in cache_fields if priced.get(field)] == []
 
@@ -2117,12 +2117,12 @@ def test_a_config_ptu_deployment_imports_no_cache_rate_from_its_backend(backend)
 def test_zeroing_a_ptu_deployment_leaves_its_backend_model_priced():
     """A sibling deployment on the same backend must keep billing normally."""
     backend = "anthropic/claude-sonnet-4-5-20250929"
-    builtin = litellm.get_model_info(model=backend)["input_cost_per_token"]
+    builtin = embrouter.get_model_info(model=backend)["input_cost_per_token"]
     assert builtin > 0
 
-    _ptu_router(litellm_params={"model": backend})
+    _ptu_router(embrouter_params={"model": backend})
 
-    assert litellm.get_model_info(model=backend)["input_cost_per_token"] == builtin
+    assert embrouter.get_model_info(model=backend)["input_cost_per_token"] == builtin
 
 
 def test_the_registered_id_is_the_one_the_operator_declared():
@@ -2133,8 +2133,8 @@ def test_the_registered_id_is_the_one_the_operator_declared():
     A derived id is no longer reachable for a reservation: zeroing requires PTU terms and
     PTU terms now require a declared id, so the two never combine."""
     params = {"input_cost_per_token": 5e-06}
-    priced = _ptu_router(litellm_params=params, ptu_enabled=False).model_list[0]["model_info"]["id"]
-    zeroed = _ptu_router(litellm_params=params).model_list[0]["model_info"]["id"]
+    priced = _ptu_router(embrouter_params=params, ptu_enabled=False).model_list[0]["model_info"]["id"]
+    zeroed = _ptu_router(embrouter_params=params).model_list[0]["model_info"]["id"]
 
     assert priced == zeroed == "ptu-alpha-eastus"
 
@@ -2144,14 +2144,14 @@ def test_a_database_backed_deployment_is_left_alone():
     rewriting a rate the caller sent."""
     entry = _ptu_router(model_info={**_PTU_MODEL_INFO, "db_model": True}).model_list[0]
 
-    assert entry["litellm_params"].get("input_cost_per_token") is None
+    assert entry["embrouter_params"].get("input_cost_per_token") is None
 
 
 def test_nothing_is_zeroed_while_the_feature_is_off():
     """No flat cost accrues with the flag off, so zeroing would serve the traffic free."""
-    entry = _ptu_router(litellm_params={"input_cost_per_token": 5e-06}, ptu_enabled=False).model_list[0]
+    entry = _ptu_router(embrouter_params={"input_cost_per_token": 5e-06}, ptu_enabled=False).model_list[0]
 
-    assert entry["litellm_params"]["input_cost_per_token"] == 5e-06
+    assert entry["embrouter_params"]["input_cost_per_token"] == 5e-06
 
 
 @pytest.mark.parametrize("dropped", ["team_id", "ptu_effective_from"], ids=["no team_id", "no ptu_effective_from"])
@@ -2162,7 +2162,7 @@ def test_an_incomplete_reservation_is_refused_rather_than_served(dropped):
     incomplete = {k: v for k, v in _PTU_MODEL_INFO.items() if k != dropped}
 
     with pytest.raises(ValueError, match="PTU configuration on model 'gpt") as raised:
-        _ptu_router(model_info=incomplete, litellm_params={"input_cost_per_token": 5e-06})
+        _ptu_router(model_info=incomplete, embrouter_params={"input_cost_per_token": 5e-06})
 
     assert "gpt-4o-ptu" in str(raised.value)
 
@@ -2193,10 +2193,10 @@ def test_an_incomplete_reservation_is_left_alone_while_the_feature_is_off(droppe
     serving model away from an operator who never opted in."""
     incomplete = {k: v for k, v in _PTU_MODEL_INFO.items() if k != dropped}
     entry = _ptu_router(
-        model_info=incomplete, litellm_params={"input_cost_per_token": 5e-06}, ptu_enabled=False
+        model_info=incomplete, embrouter_params={"input_cost_per_token": 5e-06}, ptu_enabled=False
     ).model_list[0]
 
-    assert entry["litellm_params"]["input_cost_per_token"] == 5e-06
+    assert entry["embrouter_params"]["input_cost_per_token"] == 5e-06
 
 
 @pytest.mark.parametrize("dropped", ["team_id", "ptu_effective_from"], ids=["no team_id", "no ptu_effective_from"])
@@ -2204,17 +2204,17 @@ def test_the_proxy_drops_the_deployment_rather_than_failing_to_boot(dropped):
     """The proxy builds its router with ignore_invalid_deployments, so one bad entry must
     cost that entry and not the whole config."""
     incomplete = {k: v for k, v in _PTU_MODEL_INFO.items() if k != dropped}
-    with patch.dict(os.environ, {"LITELLM_ENABLE_PTU_COST_ATTRIBUTION": "True"}, clear=False):
+    with patch.dict(os.environ, {"EMBROUTER_ENABLE_PTU_COST_ATTRIBUTION": "True"}, clear=False):
         router = Router(
             model_list=[
                 {
                     "model_name": "gpt-4o-ptu",
-                    "litellm_params": {"model": "anthropic/claude-sonnet-4-5-20250929", "api_key": "sk-not-used"},
+                    "embrouter_params": {"model": "anthropic/claude-sonnet-4-5-20250929", "api_key": "sk-not-used"},
                     "model_info": dict(incomplete),
                 },
                 {
                     "model_name": "plain-sibling",
-                    "litellm_params": {"model": "anthropic/claude-sonnet-4-5-20250929", "api_key": "sk-not-used"},
+                    "embrouter_params": {"model": "anthropic/claude-sonnet-4-5-20250929", "api_key": "sk-not-used"},
                 },
             ],
             ignore_invalid_deployments=True,
@@ -2228,26 +2228,26 @@ def test_a_complete_reservation_still_registers():
     entry = _ptu_router().model_list[0]
 
     assert entry["model_name"] == "gpt-4o-ptu"
-    assert entry["litellm_params"]["input_cost_per_token"] == 0.0
+    assert entry["embrouter_params"]["input_cost_per_token"] == 0.0
 
 
 def test_nested_custom_model_info_does_not_pollute_shared_backend():
     backend_model = "gpt-4o-search-preview"
     custom_id = "lit5471-search-custom"
     sibling_id = "lit5471-search-sibling"
-    builtin_info = copy.deepcopy(litellm.get_model_info(model=backend_model))
+    builtin_info = copy.deepcopy(embrouter.get_model_info(model=backend_model))
     expected_nested = copy.deepcopy(builtin_info["search_context_cost_per_query"])
     model_keys = {
-        backend_model: copy.deepcopy(litellm.model_cost.get(backend_model)),
-        custom_id: copy.deepcopy(litellm.model_cost.get(custom_id)),
-        sibling_id: copy.deepcopy(litellm.model_cost.get(sibling_id)),
+        backend_model: copy.deepcopy(embrouter.model_cost.get(backend_model)),
+        custom_id: copy.deepcopy(embrouter.model_cost.get(custom_id)),
+        sibling_id: copy.deepcopy(embrouter.model_cost.get(sibling_id)),
     }
     try:
         router = Router(
             model_list=[
                 {
                     "model_name": "search-custom",
-                    "litellm_params": {"model": backend_model, "api_key": "fake-key"},
+                    "embrouter_params": {"model": backend_model, "api_key": "fake-key"},
                     "model_info": {
                         "id": custom_id,
                         "search_context_cost_per_query": {
@@ -2257,7 +2257,7 @@ def test_nested_custom_model_info_does_not_pollute_shared_backend():
                 },
                 {
                     "model_name": "search-sibling",
-                    "litellm_params": {"model": backend_model, "api_key": "fake-key"},
+                    "embrouter_params": {"model": backend_model, "api_key": "fake-key"},
                     "model_info": {"id": sibling_id},
                 },
             ],
@@ -2268,28 +2268,28 @@ def test_nested_custom_model_info_does_not_pollute_shared_backend():
 
         assert custom_info is not None
         assert custom_info["search_context_cost_per_query"]["search_context_size_low"] == 0.123
-        assert litellm.model_cost[backend_model]["search_context_cost_per_query"] == expected_nested
+        assert embrouter.model_cost[backend_model]["search_context_cost_per_query"] == expected_nested
         assert sibling_info is not None
         assert sibling_info["search_context_cost_per_query"] == expected_nested
     finally:
         _restore_model_cost_entries(model_keys)
-        litellm.get_model_info.cache_clear()
+        embrouter.get_model_info.cache_clear()
 
 
 def test_base_model_custom_info_does_not_pollute_cached_base_model():
     base_model = "azure/gpt-4o"
     deployment_id = "lit5471-base-model"
-    base_model_info = copy.deepcopy(litellm.get_model_info(model=base_model))
+    base_model_info = copy.deepcopy(embrouter.get_model_info(model=base_model))
     model_keys = {
-        "azure/gpt-4o": copy.deepcopy(litellm.model_cost.get("azure/gpt-4o")),
-        deployment_id: copy.deepcopy(litellm.model_cost.get(deployment_id)),
+        "azure/gpt-4o": copy.deepcopy(embrouter.model_cost.get("azure/gpt-4o")),
+        deployment_id: copy.deepcopy(embrouter.model_cost.get(deployment_id)),
     }
     try:
         router = Router(
             model_list=[
                 {
                     "model_name": "azure-custom",
-                    "litellm_params": {
+                    "embrouter_params": {
                         "model": "gpt-4o",
                         "custom_llm_provider": "azure",
                         "api_key": "fake-key",
@@ -2307,19 +2307,19 @@ def test_base_model_custom_info_does_not_pollute_cached_base_model():
 
         assert info is not None
         assert info["input_cost_per_token"] == 0.777
-        assert litellm.get_model_info(model=base_model) == base_model_info
+        assert embrouter.get_model_info(model=base_model) == base_model_info
     finally:
         _restore_model_cost_entries(model_keys)
-        litellm.get_model_info.cache_clear()
+        embrouter.get_model_info.cache_clear()
 
 
 def test_builtin_only_deployment_info_is_not_the_cached_object():
     backend_model = "gpt-4o-search-preview"
     deployment_id = "lit5471-builtin-only"
-    litellm.get_model_info.cache_clear()
-    model_keys = {deployment_id: copy.deepcopy(litellm.model_cost.get(deployment_id))}
+    embrouter.get_model_info.cache_clear()
+    model_keys = {deployment_id: copy.deepcopy(embrouter.model_cost.get(deployment_id))}
     try:
-        cached_info = litellm.get_model_info(model=backend_model)
+        cached_info = embrouter.get_model_info(model=backend_model)
         assert cached_info["search_context_cost_per_query"]
 
         info = Router(model_list=[]).get_deployment_model_info(model_id=deployment_id, model_name=backend_model)
@@ -2329,7 +2329,7 @@ def test_builtin_only_deployment_info_is_not_the_cached_object():
         assert _nested_container_ids(info).isdisjoint(_nested_container_ids(cached_info))
     finally:
         _restore_model_cost_entries(model_keys)
-        litellm.get_model_info.cache_clear()
+        embrouter.get_model_info.cache_clear()
 
 
 def test_custom_only_deployment_info_is_not_the_registry_entry():
@@ -2337,20 +2337,20 @@ def test_custom_only_deployment_info_is_not_the_registry_entry():
     deployment_id = "lit5471-custom-only"
     nested_pricing = {"search_context_size_low": 0.123}
     model_keys = {
-        unknown_backend: copy.deepcopy(litellm.model_cost.get(unknown_backend)),
-        deployment_id: copy.deepcopy(litellm.model_cost.get(deployment_id)),
+        unknown_backend: copy.deepcopy(embrouter.model_cost.get(unknown_backend)),
+        deployment_id: copy.deepcopy(embrouter.model_cost.get(deployment_id)),
     }
     try:
         router = Router(
             model_list=[
                 {
                     "model_name": "custom-only",
-                    "litellm_params": {"model": unknown_backend, "api_key": "fake-key"},
+                    "embrouter_params": {"model": unknown_backend, "api_key": "fake-key"},
                     "model_info": {"id": deployment_id, "search_context_cost_per_query": dict(nested_pricing)},
                 }
             ],
         )
-        registry_entry = litellm.model_cost[deployment_id]
+        registry_entry = embrouter.model_cost[deployment_id]
 
         info = router.get_deployment_model_info(model_id=deployment_id, model_name=unknown_backend)
 
@@ -2359,14 +2359,14 @@ def test_custom_only_deployment_info_is_not_the_registry_entry():
         assert _nested_container_ids(info).isdisjoint(_nested_container_ids(registry_entry))
     finally:
         _restore_model_cost_entries(model_keys)
-        litellm.get_model_info.cache_clear()
+        embrouter.get_model_info.cache_clear()
 
 
 def test_router_model_info_deep_copies_nested_cached_metadata():
     model = "openai/gpt-4o-search-preview"
-    litellm.get_model_info.cache_clear()
+    embrouter.get_model_info.cache_clear()
     try:
-        cached_info = litellm.get_model_info(model=model)
+        cached_info = embrouter.get_model_info(model=model)
         assert cached_info is not None
         expected_nested = copy.deepcopy(cached_info["search_context_cost_per_query"])
         assert expected_nested
@@ -2375,7 +2375,7 @@ def test_router_model_info_deep_copies_nested_cached_metadata():
         merged_info = router.get_router_model_info(
             deployment={
                 "model_name": "search",
-                "litellm_params": {"model": "gpt-4o-search-preview"},
+                "embrouter_params": {"model": "gpt-4o-search-preview"},
                 "model_info": {"id": "lit5471-router-model-info"},
             },
             received_model_name="search",
@@ -2383,16 +2383,16 @@ def test_router_model_info_deep_copies_nested_cached_metadata():
 
         assert merged_info["search_context_cost_per_query"] == expected_nested
         assert _nested_container_ids(merged_info).isdisjoint(_nested_container_ids(cached_info))
-        assert litellm.get_model_info(model=model)["search_context_cost_per_query"] == expected_nested
+        assert embrouter.get_model_info(model=model)["search_context_cost_per_query"] == expected_nested
     finally:
-        litellm.get_model_info.cache_clear()
+        embrouter.get_model_info.cache_clear()
 
 
 # --- a config.yaml reservation must carry an id its operator owns --------------------
 
 
 def test_a_reservation_without_a_declared_id_is_refused():
-    """Left underived the id is a hash of the resolved litellm_params, so rotating the
+    """Left underived the id is a hash of the resolved embrouter_params, so rotating the
     credential mints a second identity and the catch-up bills the window again under it.
     The flat cost is keyed by that id and a written charge is never retracted, so the
     duplicate is permanent."""
@@ -2419,18 +2419,18 @@ def test_a_reservation_is_left_alone_while_the_feature_is_off():
 def test_two_reservations_cannot_share_one_id():
     """Both would key the same sentinel row, so the second upsert overwrites the first and
     one reservation is billed at the other's rate."""
-    with patch.dict(os.environ, {"LITELLM_ENABLE_PTU_COST_ATTRIBUTION": "True"}, clear=False):
+    with patch.dict(os.environ, {"EMBROUTER_ENABLE_PTU_COST_ATTRIBUTION": "True"}, clear=False):
         with pytest.raises(ValueError, match="declared on more than one deployment"):
             Router(
                 model_list=[
                     {
                         "model_name": "azure-ptu",
-                        "litellm_params": {"model": "azure/gpt-4o", "api_key": "k", "api_base": "https://e.azure.com"},
+                        "embrouter_params": {"model": "azure/gpt-4o", "api_key": "k", "api_base": "https://e.azure.com"},
                         "model_info": dict(_PTU_MODEL_INFO),
                     },
                     {
                         "model_name": "azure-ptu-west",
-                        "litellm_params": {"model": "azure/gpt-4o", "api_key": "k", "api_base": "https://w.azure.com"},
+                        "embrouter_params": {"model": "azure/gpt-4o", "api_key": "k", "api_base": "https://w.azure.com"},
                         "model_info": dict(_PTU_MODEL_INFO),
                     },
                 ]
@@ -2439,17 +2439,17 @@ def test_two_reservations_cannot_share_one_id():
 
 def test_two_reservations_with_distinct_ids_both_register():
     """The refusal must be scoped to a collision, not to a team running two regions."""
-    with patch.dict(os.environ, {"LITELLM_ENABLE_PTU_COST_ATTRIBUTION": "True"}, clear=False):
+    with patch.dict(os.environ, {"EMBROUTER_ENABLE_PTU_COST_ATTRIBUTION": "True"}, clear=False):
         router = Router(
             model_list=[
                 {
                     "model_name": "azure-ptu",
-                    "litellm_params": {"model": "azure/gpt-4o", "api_key": "k", "api_base": "https://e.azure.com"},
+                    "embrouter_params": {"model": "azure/gpt-4o", "api_key": "k", "api_base": "https://e.azure.com"},
                     "model_info": dict(_PTU_MODEL_INFO),
                 },
                 {
                     "model_name": "azure-ptu-west",
-                    "litellm_params": {"model": "azure/gpt-4o", "api_key": "k", "api_base": "https://w.azure.com"},
+                    "embrouter_params": {"model": "azure/gpt-4o", "api_key": "k", "api_base": "https://w.azure.com"},
                     "model_info": {**_PTU_MODEL_INFO, "id": "ptu-alpha-westus"},
                 },
             ]
@@ -2466,11 +2466,11 @@ def test_a_duplicate_id_is_caught_whatever_yaml_parsed_it_as(declared):
     def entry(name, region):
         return {
             "model_name": name,
-            "litellm_params": {"model": "azure/gpt-4o", "api_key": "k", "api_base": f"https://{region}.azure.com"},
+            "embrouter_params": {"model": "azure/gpt-4o", "api_key": "k", "api_base": f"https://{region}.azure.com"},
             "model_info": {**_PTU_MODEL_INFO, "id": declared},
         }
 
-    with patch.dict(os.environ, {"LITELLM_ENABLE_PTU_COST_ATTRIBUTION": "True"}, clear=False):
+    with patch.dict(os.environ, {"EMBROUTER_ENABLE_PTU_COST_ATTRIBUTION": "True"}, clear=False):
         with pytest.raises(ValueError, match="declared on more than one deployment"):
             Router(model_list=[entry("a", "eastus"), entry("b", "westus")])
 
@@ -2496,18 +2496,18 @@ def test_a_reservation_declaring_id_zero_registers():
 def test_a_falsy_id_is_still_scanned_for_collisions():
     """The duplicate scan skipped falsy ids, so a reservation on '0' could share its key with
     an ordinary deployment and the id index would keep only the last one registered."""
-    with patch.dict(os.environ, {"LITELLM_ENABLE_PTU_COST_ATTRIBUTION": "True"}, clear=False):
+    with patch.dict(os.environ, {"EMBROUTER_ENABLE_PTU_COST_ATTRIBUTION": "True"}, clear=False):
         with pytest.raises(ValueError, match="declared on more than one deployment"):
             Router(
                 model_list=[
                     {
                         "model_name": "azure-ptu",
-                        "litellm_params": {"model": "azure/gpt-4o", "api_key": "k", "api_base": "https://e.azure.com"},
+                        "embrouter_params": {"model": "azure/gpt-4o", "api_key": "k", "api_base": "https://e.azure.com"},
                         "model_info": {**_PTU_MODEL_INFO, "id": "0"},
                     },
                     {
                         "model_name": "plain-sibling",
-                        "litellm_params": {"model": "azure/gpt-4o", "api_key": "k", "api_base": "https://w.azure.com"},
+                        "embrouter_params": {"model": "azure/gpt-4o", "api_key": "k", "api_base": "https://w.azure.com"},
                         "model_info": {"id": 0},
                     },
                 ]
@@ -2521,25 +2521,25 @@ def _ptu_warnings(caplog):
     return tuple(
         record.getMessage()
         for record in caplog.records
-        if record.name == "LiteLLM Router" and record.levelno == logging.WARNING and "PTU" in record.getMessage()
+        if record.name == "EmbRouter Router" and record.levelno == logging.WARNING and "PTU" in record.getMessage()
     )
 
 
 def test_a_reservation_declared_while_the_feature_is_off_is_warned_about(caplog):
     """The deployment serves and bills per token, so without this the operator believes they
     reserved capacity and sees no signal anywhere that nothing accrues."""
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Router"):
+    with caplog.at_level(logging.WARNING, logger="EmbRouter Router"):
         _ptu_router(ptu_enabled=False)
 
     warnings = _ptu_warnings(caplog)
 
     assert len(warnings) == 1
     assert "gpt-4o-ptu" in warnings[0]
-    assert "LITELLM_ENABLE_PTU_COST_ATTRIBUTION" in warnings[0]
+    assert "EMBROUTER_ENABLE_PTU_COST_ATTRIBUTION" in warnings[0]
 
 
 def test_a_reservation_is_not_warned_about_while_the_feature_is_on(caplog):
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Router"):
+    with caplog.at_level(logging.WARNING, logger="EmbRouter Router"):
         _ptu_router()
 
     assert _ptu_warnings(caplog) == ()
@@ -2547,7 +2547,7 @@ def test_a_reservation_is_not_warned_about_while_the_feature_is_on(caplog):
 
 def test_a_deployment_carrying_no_ptu_field_is_not_warned_about(caplog):
     """Most of every config.yaml, so warning here would fire on proxies that never asked."""
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Router"):
+    with caplog.at_level(logging.WARNING, logger="EmbRouter Router"):
         _ptu_router(model_info={"team_id": "team-alpha"}, ptu_enabled=False)
 
     assert _ptu_warnings(caplog) == ()
@@ -2558,7 +2558,7 @@ def test_a_half_written_reservation_is_warned_about(caplog):
     declare one, so what they wrote is what decides whether they hear about it."""
     half_written = {k: v for k, v in _PTU_MODEL_INFO.items() if k != "cost_per_ptu_per_hour"}
 
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Router"):
+    with caplog.at_level(logging.WARNING, logger="EmbRouter Router"):
         _ptu_router(model_info=half_written, ptu_enabled=False)
 
     assert len(_ptu_warnings(caplog)) == 1
@@ -2580,14 +2580,14 @@ def test_a_reservation_dropped_by_a_typo_is_warned_about(caplog, typo):
     Built the way proxy_server builds it, since dropping rather than raising is what
     ``ignore_invalid_deployments`` does and config.yaml is loaded with it on.
     """
-    with patch.dict(os.environ, {"LITELLM_ENABLE_PTU_COST_ATTRIBUTION": ""}, clear=False):
-        with caplog.at_level(logging.WARNING, logger="LiteLLM Router"):
+    with patch.dict(os.environ, {"EMBROUTER_ENABLE_PTU_COST_ATTRIBUTION": ""}, clear=False):
+        with caplog.at_level(logging.WARNING, logger="EmbRouter Router"):
             router = Router(
                 ignore_invalid_deployments=True,
                 model_list=[
                     {
                         "model_name": "gpt-4o-ptu",
-                        "litellm_params": {"model": "azure/gpt-4o", "api_key": "k", "api_base": "https://e.azure.com"},
+                        "embrouter_params": {"model": "azure/gpt-4o", "api_key": "k", "api_base": "https://e.azure.com"},
                         "model_info": {**_PTU_MODEL_INFO, **typo},
                     }
                 ],
@@ -2600,7 +2600,7 @@ def test_a_reservation_dropped_by_a_typo_is_warned_about(caplog, typo):
 def test_a_db_backed_reservation_is_not_warned_about(caplog):
     """/model/new already answered the caller with a 400, so repeating it on every reload
     would report the operator's own rejected write back to them as a standing problem."""
-    with caplog.at_level(logging.WARNING, logger="LiteLLM Router"):
+    with caplog.at_level(logging.WARNING, logger="EmbRouter Router"):
         _ptu_router(model_info={**_PTU_MODEL_INFO, "db_model": True}, ptu_enabled=False)
 
     assert _ptu_warnings(caplog) == ()
@@ -2608,23 +2608,23 @@ def test_a_db_backed_reservation_is_not_warned_about(caplog):
 
 def test_every_declaring_deployment_is_named(caplog):
     """One line naming all of them, so a reload does not bury the config in repeats."""
-    with patch.dict(os.environ, {"LITELLM_ENABLE_PTU_COST_ATTRIBUTION": ""}, clear=False):
-        with caplog.at_level(logging.WARNING, logger="LiteLLM Router"):
+    with patch.dict(os.environ, {"EMBROUTER_ENABLE_PTU_COST_ATTRIBUTION": ""}, clear=False):
+        with caplog.at_level(logging.WARNING, logger="EmbRouter Router"):
             Router(
                 model_list=[
                     {
                         "model_name": "azure-ptu-east",
-                        "litellm_params": {"model": "azure/gpt-4o", "api_key": "k", "api_base": "https://e.azure.com"},
+                        "embrouter_params": {"model": "azure/gpt-4o", "api_key": "k", "api_base": "https://e.azure.com"},
                         "model_info": dict(_PTU_MODEL_INFO),
                     },
                     {
                         "model_name": "azure-ptu-west",
-                        "litellm_params": {"model": "azure/gpt-4o", "api_key": "k", "api_base": "https://w.azure.com"},
+                        "embrouter_params": {"model": "azure/gpt-4o", "api_key": "k", "api_base": "https://w.azure.com"},
                         "model_info": {**_PTU_MODEL_INFO, "id": "ptu-alpha-westus"},
                     },
                     {
                         "model_name": "plain-gpt-4o",
-                        "litellm_params": {"model": "azure/gpt-4o", "api_key": "k", "api_base": "https://p.azure.com"},
+                        "embrouter_params": {"model": "azure/gpt-4o", "api_key": "k", "api_base": "https://p.azure.com"},
                         "model_info": {"id": "plain"},
                     },
                 ]
@@ -2641,9 +2641,9 @@ def test_every_declaring_deployment_is_named(caplog):
 def _simulate_price_data_reload_with_provider_sets(monkeypatch, fetched_catalog):
     """Like `_simulate_price_data_reload`, plus the provider model-set refresh the proxy's
     `_swap_in_model_cost_map` does before replaying, so bare names in the new catalog resolve."""
-    monkeypatch.setattr(litellm, "model_cost", fetched_catalog)
+    monkeypatch.setattr(embrouter, "model_cost", fetched_catalog)
     _invalidate_model_cost_lowercase_map()
-    litellm.add_known_models(model_cost_map=fetched_catalog)
+    embrouter.add_known_models(model_cost_map=fetched_catalog)
     reapply_runtime_model_cost_registrations()
 
 
@@ -2660,12 +2660,12 @@ def test_a_config_deployment_dropped_by_a_stale_cost_map_comes_back_on_reload(mo
             model_list=[
                 {
                     "model_name": "new-model",
-                    "litellm_params": {"model": backend, "api_key": "k"},
+                    "embrouter_params": {"model": backend, "api_key": "k"},
                     "model_info": {"id": "new-id", "access_groups": ["team-models"]},
                 },
                 {
                     "model_name": "control-model",
-                    "litellm_params": {"model": "hosted_vllm/control-backend", "api_key": "k"},
+                    "embrouter_params": {"model": "hosted_vllm/control-backend", "api_key": "k"},
                     "model_info": {"id": "control-id", "access_groups": ["team-models"]},
                 },
             ],
@@ -2674,17 +2674,17 @@ def test_a_config_deployment_dropped_by_a_stale_cost_map_comes_back_on_reload(mo
         assert router.get_model_names() == ["control-model"]
         assert router.get_model_access_groups(model_name="new-model") == {}
 
-        fresh_catalog = {**litellm.model_cost, backend: {"litellm_provider": "openai", "mode": "chat"}}
+        fresh_catalog = {**embrouter.model_cost, backend: {"embrouter_provider": "openai", "mode": "chat"}}
         _simulate_price_data_reload_with_provider_sets(monkeypatch, fresh_catalog)
         _simulate_price_data_reload_with_provider_sets(monkeypatch, fresh_catalog)
 
         assert sorted(router.get_model_names()) == ["control-model", "new-model"]
         assert router.get_model_access_groups(model_name="new-model") == {"team-models": ["new-model"]}
         assert [d["model_info"]["id"] for d in router.model_list] == ["control-id", "new-id"]
-        assert "new-id" in litellm.model_cost
+        assert "new-id" in embrouter.model_cost
     finally:
-        litellm.open_ai_chat_completion_models.discard(backend)
-        litellm.models_by_provider["openai"].discard(backend)
+        embrouter.open_ai_chat_completion_models.discard(backend)
+        embrouter.models_by_provider["openai"].discard(backend)
 
 
 def test_a_config_deployment_dropped_for_a_permanent_reason_is_not_retried_on_reload(monkeypatch):
@@ -2698,12 +2698,12 @@ def test_a_config_deployment_dropped_for_a_permanent_reason_is_not_retried_on_re
         model_list=[
             {
                 "model_name": "vertex-passthrough",
-                "litellm_params": {"model": "vertex_ai/gemini-2.5-flash", "use_in_pass_through": True},
+                "embrouter_params": {"model": "vertex_ai/gemini-2.5-flash", "use_in_pass_through": True},
                 "model_info": {"id": "vertex-id"},
             },
             {
                 "model_name": "control-model",
-                "litellm_params": {"model": "hosted_vllm/control-backend", "api_key": "k"},
+                "embrouter_params": {"model": "hosted_vllm/control-backend", "api_key": "k"},
                 "model_info": {"id": "control-id"},
             },
         ],
@@ -2712,7 +2712,7 @@ def test_a_config_deployment_dropped_for_a_permanent_reason_is_not_retried_on_re
     assert router.get_model_names() == ["control-model"]
     names_after_boot = list(router.deployment_names)
 
-    _simulate_price_data_reload_with_provider_sets(monkeypatch, dict(litellm.model_cost))
+    _simulate_price_data_reload_with_provider_sets(monkeypatch, dict(embrouter.model_cost))
 
     assert router.get_model_names() == ["control-model"]
     assert router.deployment_names == names_after_boot
@@ -2729,7 +2729,7 @@ def test_price_data_reload_refreshes_the_cached_model_group_and_deployment_info(
         model_list=[
             {
                 "model_name": "grp",
-                "litellm_params": {"model": "openai/gpt-4o", "api_key": "k"},
+                "embrouter_params": {"model": "openai/gpt-4o", "api_key": "k"},
                 "model_info": {"id": "dep-a"},
             }
         ]
@@ -2738,7 +2738,7 @@ def test_price_data_reload_refreshes_the_cached_model_group_and_deployment_info(
     assert router.cached_deployment_model_info("dep-a", "openai/gpt-4o")["input_cost_per_token"] == old_price
 
     new_price = old_price * 10
-    fresh_catalog = copy.deepcopy(litellm.model_cost)
+    fresh_catalog = copy.deepcopy(embrouter.model_cost)
     fresh_catalog["gpt-4o"]["input_cost_per_token"] = new_price
     _simulate_price_data_reload_with_provider_sets(monkeypatch, fresh_catalog)
 

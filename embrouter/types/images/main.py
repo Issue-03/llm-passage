@@ -2,7 +2,7 @@ from typing import Any, Literal
 
 from typing_extensions import TypedDict
 
-from litellm.types.utils import FileTypes
+from embrouter.types.utils import FileTypes
 
 
 class ImageEditOptionalRequestParams(TypedDict, total=False):

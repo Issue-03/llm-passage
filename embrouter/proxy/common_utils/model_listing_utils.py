@@ -20,11 +20,11 @@ from typing import TYPE_CHECKING, Final, cast
 
 from pydantic import TypeAdapter, ValidationError
 
-import litellm
+import embrouter
 
 if TYPE_CHECKING:
-    from litellm.router import Router
-    from litellm.types.proxy.model_listing import ModelInfoResponse
+    from embrouter.router import Router
+    from embrouter.types.proxy.model_listing import ModelInfoResponse
 
 CLAUDE_CODE_PICKER_PATTERN: Final = re.compile(r"claude|anthropic", re.IGNORECASE)
 GATEWAY_CLIENT_HEADER: Final = "x-gateway-client"
@@ -113,7 +113,7 @@ def claude_code_group_name(view_id: str, routing_names: Container[str]) -> str |
 
 def is_claude_code_client(headers: Mapping[str, str]) -> bool:
     """Claude Code itself, or a client asking for its view of the listing the way Ramp Router's does"""
-    from litellm.llms.anthropic.common_utils import is_claude_code_user_agent
+    from embrouter.llms.anthropic.common_utils import is_claude_code_user_agent
 
     return (
         is_claude_code_user_agent(headers.get("user-agent", ""))
@@ -145,7 +145,7 @@ class ClaudeCodeRoutingNames:
     def __contains__(self, name: object) -> bool:
         if not isinstance(name, str):
             return False
-        if name in litellm.model_alias_map or any(
+        if name in embrouter.model_alias_map or any(
             isinstance(aliases, Mapping) and name in aliases for aliases in self.alias_maps
         ):
             return True
@@ -162,7 +162,7 @@ class ClaudeCodeRoutingNames:
 class CallerAliases:
     """`own` are the caller's key and team alias maps, the names `/v1/models` lists for it.
     `rewrite` are the maps `/chat/completions` rewrites its model through, in the order it
-    applies them: the team's, the key's in `add_litellm_data_to_request`, then the global
+    applies them: the team's, the key's in `add_embrouter_data_to_request`, then the global
     `model_alias_map` and the key's again in `common_processing_pre_call_logic`."""
 
     own: tuple[object, ...]
@@ -177,8 +177,8 @@ def caller_alias_maps(
 ) -> CallerAliases:
     """Team aliases count only when listing the team the key authenticated as."""
     if listed_team_id is not None and listed_team_id != key_team_id:
-        return CallerAliases((key_aliases,), (key_aliases, litellm.model_alias_map, key_aliases))
-    return CallerAliases((team_aliases, key_aliases), (team_aliases, key_aliases, litellm.model_alias_map, key_aliases))
+        return CallerAliases((key_aliases,), (key_aliases, embrouter.model_alias_map, key_aliases))
+    return CallerAliases((team_aliases, key_aliases), (team_aliases, key_aliases, embrouter.model_alias_map, key_aliases))
 
 
 def alias_map(aliases: object) -> Mapping[str, str]:

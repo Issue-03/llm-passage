@@ -10,7 +10,7 @@ this track) and then walks the flow implemented here:
    client_id simply fails to open. Clients are always public (``token_endpoint_auth_method
    "none"``); PKCE S256 is what protects the code.
 2. ``GET /authorize``: validates the client and redirect URI, requires S256 PKCE, and
-   interposes LiteLLM sign-in. Without a session cookie the browser is sent through
+   interposes EmbRouter sign-in. Without a session cookie the browser is sent through
    ``/sso/key/generate`` with a same-origin ``return_to`` so it lands back here after
    login. With a session, the flow parameters and the SSO user are sealed into a per-flow
    HttpOnly cookie (the same pattern as the upstream OAuth state relay) and the browser is
@@ -23,7 +23,7 @@ this track) and then walks the flow implemented here:
    client's registered redirect URI.
 4. ``POST /token``: exchanges the code (PKCE-verified, client- and redirect-bound,
    single-use) for the identity-only session tokens of
-   :mod:`.outbound_credentials.session_token`, re-validating that the litellm user is
+   :mod:`.outbound_credentials.session_token`, re-validating that the embrouter user is
    still active first; the ``refresh_token`` grant rotates the pair the same way.
 
 Nothing here stores state server-side except the single-use code guard (a TTL cache
@@ -53,9 +53,9 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Resp
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from typing_extensions import NotRequired, ReadOnly, TypedDict, assert_never
 
-from litellm._logging import verbose_logger
-from litellm.caching.caching import DualCache
-from litellm.proxy._experimental.mcp_server.oauth_utils import (
+from embrouter._logging import verbose_logger
+from embrouter.caching.caching import DualCache
+from embrouter.proxy._experimental.mcp_server.oauth_utils import (
     TOKEN_NO_CACHE_HEADERS,
     canonical_resource_uri,
     canonicalize_url_identity,
@@ -63,13 +63,13 @@ from litellm.proxy._experimental.mcp_server.oauth_utils import (
     is_loopback_redirect_host,
     validate_redirect_uri_shape,
 )
-from litellm.proxy._experimental.mcp_server.outbound_credentials.session_credentials import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.session_credentials import (
     SessionRefreshOpened,
     SessionSigningConfigError,
     active_session_signing_keys,
     open_session_refresh_bearer,
 )
-from litellm.proxy._experimental.mcp_server.outbound_credentials.session_token import (
+from embrouter.proxy._experimental.mcp_server.outbound_credentials.session_token import (
     SESSION_ISSUER,
     SESSION_REFRESH_TTL_SECONDS,
     MintedSessionToken,
@@ -84,14 +84,14 @@ from litellm.proxy._experimental.mcp_server.outbound_credentials.session_token i
     open_session_refresh_token,
     open_session_token,
 )
-from litellm.proxy.common_utils.encrypt_decrypt_utils import (
+from embrouter.proxy.common_utils.encrypt_decrypt_utils import (
     decrypt_value_helper,
     encrypt_value_helper,
 )
-from litellm.proxy.common_utils.html_forms.native_client_consent import (
+from embrouter.proxy.common_utils.html_forms.native_client_consent import (
     render_native_client_consent_page,
 )
-from litellm.types.mcp_server.mcp_server_manager import MCPServer
+from embrouter.types.mcp_server.mcp_server_manager import MCPServer
 
 GATEWAY_DCR_CLIENT_ID_PREFIX: Final = "llm_dcrc_"
 """Marker prefix on every gateway-issued DCR client_id so the root authorize/token
@@ -227,7 +227,7 @@ class SubjectTokenRefusal(BaseModel):
 
 class ExchangeSubjectToken(Protocol):
     """Injected RFC 8693 subject-token verifier ``(subject_token, request)``: proves the
-    IdP token the way the proxy's own JWT auth does and names the litellm user and team it
+    IdP token the way the proxy's own JWT auth does and names the embrouter user and team it
     stands for, or says why this gateway will not take it."""
 
     def __call__(self, subject_token: str, request: Request, /) -> Awaitable[SubjectIdentity | SubjectTokenRefusal]: ...
@@ -486,10 +486,10 @@ def resolve_scoped_resource_server(request: Request, resource: str | None) -> MC
     base: Final = canonicalize_url_identity(get_request_base_url(request))
     if canonical == f"{base}/mcp" or not canonical.startswith(f"{base}/"):
         return None
-    from litellm.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import (  # noqa: PLC0415  # proxy import cycle
+    from embrouter.proxy._experimental.mcp_server.auth.user_api_key_auth_mcp import (  # noqa: PLC0415  # proxy import cycle
         MCPRequestHandler,
     )
-    from litellm.proxy._experimental.mcp_server.mcp_server_manager import (  # noqa: PLC0415  # proxy import cycle
+    from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (  # noqa: PLC0415  # proxy import cycle
         global_mcp_server_manager,
     )
 
@@ -514,7 +514,7 @@ def aggregate_authorize(
     resource: str | None = None,
 ) -> Response:
     """The aggregate authorize verb: validate the client, require S256 PKCE, interpose
-    LiteLLM sign-in, and hand the browser to the connect page with the flow sealed into a
+    EmbRouter sign-in, and hand the browser to the connect page with the flow sealed into a
     per-flow cookie.
 
     A per-server RFC 8707 ``resource`` naming a gateway-managed oauth2 server scopes the
@@ -635,8 +635,8 @@ class NativeClientAuthContract(TypedDict):
 
 
 def native_client_auth_contract(request: Request, token_exchange_available: bool) -> NativeClientAuthContract:
-    """The versioned discovery document at ``/.well-known/litellm-cli-auth``: everything a
-    native client (in any language) needs to run the sign-in without reading LiteLLM
+    """The versioned discovery document at ``/.well-known/embrouter-cli-auth``: everything a
+    native client (in any language) needs to run the sign-in without reading EmbRouter
     source. ``resource`` is the exact value to send as the RFC 8707 ``resource`` parameter
     on authorize and token requests so the grant is issued for the proxy API."""
     base_url: Final = get_request_base_url(request)
@@ -764,7 +764,7 @@ def _open_flow_for(
     if flow is None or now.timestamp() >= flow.exp:
         return _oauth_error(400, "invalid_request", "unknown or expired connect flow")
     if session_user_id is None:
-        return _oauth_error(401, "login_required", "sign in to LiteLLM to finish connecting")
+        return _oauth_error(401, "login_required", "sign in to EmbRouter to finish connecting")
     if session_user_id != flow.user_id:
         return _oauth_error(403, "access_denied", "the signed-in user does not match this connect flow")
     return flow
@@ -775,7 +775,7 @@ async def _flow_target(
 ) -> tuple[Literal["unscoped", "interactive", "m2m", "stale"], MCPServer | None]:
     if flow.resource_server_id is None:
         return "unscoped", None
-    from litellm.proxy._experimental.mcp_server.mcp_server_manager import (  # noqa: PLC0415  # import cycle
+    from embrouter.proxy._experimental.mcp_server.mcp_server_manager import (  # noqa: PLC0415  # import cycle
         MCPServerManager,
         global_mcp_server_manager,
     )
@@ -1021,7 +1021,7 @@ class _SingleUseGuard:
         """Atomically claim ``key``. ``"first"`` iff this caller is the first (increment to 1),
         ``"replayed"`` on a replay (>1), and ``"unavailable"`` when the claim could not be recorded in
         the shared backend, which every caller treats as a refusal (fail closed)."""
-        from litellm.proxy.proxy_server import redis_usage_cache  # noqa: PLC0415  # circular import at module load
+        from embrouter.proxy.proxy_server import redis_usage_cache  # noqa: PLC0415  # circular import at module load
 
         # Resolve the shared authority HERE rather than trusting the injected cache: callers pass
         # user_api_key_cache, which only carries a redis_cache when enable_redis_auth_cache is set
@@ -1049,7 +1049,7 @@ class _SingleUseGuard:
         """Read-only view of a single-use marker, resolved against the same shared authority as
         :meth:`claim` so introspection observes exactly the record redemption and revocation wrote.
         A backend fault is ``"unavailable"`` (fail closed) rather than a guess either way."""
-        from litellm.proxy.proxy_server import redis_usage_cache  # noqa: PLC0415  # circular import at module load
+        from embrouter.proxy.proxy_server import redis_usage_cache  # noqa: PLC0415  # circular import at module load
 
         redis_cache: Final = redis_usage_cache or getattr(self._cache, "redis_cache", None)
         if redis_cache is not None:
@@ -1197,7 +1197,7 @@ async def aggregate_token(
     """The aggregate token verb: authorization_code and refresh_token grants for the
     identity-only session pair, or for the proxy-API credential when the grant was issued
     with that audience, and the RFC 8693 token exchange that turns an IdP token straight
-    into the proxy-API credential. Every path re-validates the litellm user live before
+    into the proxy-API credential. Every path re-validates the embrouter user live before
     minting, so a deactivated user cannot obtain or renew a session."""
     if master_key is None:
         verbose_logger.error("mcp_gateway_dcr token grant rejected: no master_key configured")
@@ -1512,11 +1512,11 @@ async def introspect_gateway_token(
     cache: DualCache,
 ) -> Response:
     """RFC 7662 introspection for the gateway's session tokens, so an external gateway
-    (Kong, an API management layer) can validate a LiteLLM-issued MCP session credential
+    (Kong, an API management layer) can validate a EmbRouter-issued MCP session credential
     without holding the signing secret. The caller is already authenticated by the route
     (section 2.1). Active means everything admission itself would require: valid signature
     under the configured session signing keys, unexpired, not a revoked or rotated refresh
-    token, and a litellm user that is still live, so a deactivated user's outstanding
+    token, and a embrouter user that is still live, so a deactivated user's outstanding
     tokens introspect as inactive immediately. A shared-backend or DB outage answers 503
     rather than guessing in either direction."""
     if master_key is None:

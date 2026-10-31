@@ -3,17 +3,17 @@ from typing import TYPE_CHECKING, Any, Final, cast
 
 import httpx
 
-import litellm
-from litellm.litellm_core_utils.litellm_logging import Logging as LitellmLogging
-from litellm.llms.custom_httpx.http_handler import (
+import embrouter
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbrouterLogging
+from embrouter.llms.custom_httpx.http_handler import (
     AsyncHTTPHandler,
     HTTPHandler,
     _get_httpx_client,
     get_async_httpx_client,
 )
-from litellm.types.llms.bedrock import BedrockPreparedRequest
-from litellm.types.rerank import RerankRequest
-from litellm.types.utils import RerankResponse
+from embrouter.types.llms.bedrock import BedrockPreparedRequest
+from embrouter.types.rerank import RerankRequest
+from embrouter.types.utils import RerankResponse
 
 from ..base_aws_llm import BaseAWSLLM
 from ..common_utils import BedrockError
@@ -29,12 +29,12 @@ class BedrockRerankHandler(BaseAWSLLM):
     async def arerank(
         self,
         prepared_request: BedrockPreparedRequest,
-        logging_obj: LitellmLogging,
+        logging_obj: EmbrouterLogging,
         timeout: float | httpx.Timeout | None = None,
         client: AsyncHTTPHandler | None = None,
     ):
         if client is None:
-            client = get_async_httpx_client(llm_provider=litellm.LlmProviders.BEDROCK)
+            client = get_async_httpx_client(llm_provider=embrouter.LlmProviders.BEDROCK)
         try:
             response: Final = await client.post(
                 url=prepared_request["endpoint_url"],
@@ -63,7 +63,7 @@ class BedrockRerankHandler(BaseAWSLLM):
         query: str,
         documents: list[str | dict[str, Any]],
         optional_params: dict,
-        logging_obj: LitellmLogging,
+        logging_obj: EmbrouterLogging,
         top_n: int | None = None,
         rank_fields: list[str] | None = None,
         return_documents: bool | None = True,

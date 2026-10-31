@@ -12,13 +12,13 @@ from typing import Final, cast
 import httpx
 from pydantic import BaseModel
 
-from litellm._logging import verbose_logger
-from litellm._uuid import uuid
-from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-from litellm.llms.base_llm.realtime.transformation import BaseRealtimeConfig
-from litellm.llms.bedrock.common_utils import BedrockError
-from litellm.llms.bedrock.realtime.trigger_audio import ready_trigger_pcm
-from litellm.types.llms.openai import (
+from embrouter._logging import verbose_logger
+from embrouter._uuid import uuid
+from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+from embrouter.llms.base_llm.realtime.transformation import BaseRealtimeConfig
+from embrouter.llms.bedrock.common_utils import BedrockError
+from embrouter.llms.bedrock.realtime.trigger_audio import ready_trigger_pcm
+from embrouter.types.llms.openai import (
     OpenAIRealtimeContentPartDone,
     OpenAIRealtimeDoneEvent,
     OpenAIRealtimeEvents,
@@ -38,7 +38,7 @@ from litellm.types.llms.openai import (
     OpenAIRealtimeStreamSessionEvents,
     OpenAIRealtimeUsageTokenDetails,
 )
-from litellm.types.realtime import (
+from embrouter.types.realtime import (
     ALL_DELTA_TYPES,
     RealtimeResponseTransformInput,
     RealtimeResponseTypedDict,
@@ -670,11 +670,11 @@ class BedrockRealtimeConfig(BaseRealtimeConfig):
     def _session_object(
         self,
         model: str,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         modalities: list[str] | None = None,
     ) -> OpenAIRealtimeStreamSession:
         session: Final = OpenAIRealtimeStreamSession(
-            id=logging_obj.litellm_trace_id,
+            id=logging_obj.embrouter_trace_id,
             modalities=modalities if modalities is not None else ["text", "audio"],
         )
         if model is not None and isinstance(model, str):
@@ -684,7 +684,7 @@ class BedrockRealtimeConfig(BaseRealtimeConfig):
     def session_created_event(
         self,
         model: str,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
     ) -> OpenAIRealtimeStreamSessionEvents:
         """Build the OpenAI session.created event for this realtime session."""
         return OpenAIRealtimeStreamSessionEvents(
@@ -696,7 +696,7 @@ class BedrockRealtimeConfig(BaseRealtimeConfig):
     def session_updated_event(
         self,
         model: str,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         modalities: list[str] | None = None,
     ) -> OpenAIRealtimeStreamSessionEvents:
         """Build the OpenAI session.updated ack reflecting the client's requested modalities."""
@@ -1276,7 +1276,7 @@ class BedrockRealtimeConfig(BaseRealtimeConfig):
         self,
         message: str | bytes,
         model: str,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         realtime_response_transform_input: RealtimeResponseTransformInput,
     ) -> RealtimeResponseTypedDict:
         """

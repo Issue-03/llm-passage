@@ -9,16 +9,16 @@ import orjson
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, UploadFile
 from fastapi.responses import ORJSONResponse
 
-from litellm._logging import verbose_proxy_logger
-from litellm.llms.base_llm.ocr.transformation import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.llms.base_llm.ocr.transformation import (
     OCR_REQUEST_FORMAT_HEADER,
     OCR_REQUEST_FORMAT_PARAM,
     OCRResponse,
     parse_ocr_request_format,
 )
-from litellm.proxy._types import *
-from litellm.proxy.auth.user_api_key_auth import UserAPIKeyAuth, user_api_key_auth
-from litellm.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
+from embrouter.proxy._types import *
+from embrouter.proxy.auth.user_api_key_auth import UserAPIKeyAuth, user_api_key_auth
+from embrouter.proxy.common_request_processing import ProxyBaseLLMRequestProcessing
 
 router: Final = APIRouter()
 _MAX_FILE_BYTES: Final = 50 * 1024 * 1024
@@ -68,7 +68,7 @@ def _native_response(response: object, fastapi_response: Response) -> Response |
     """
     Return the provider's native payload when the caller asked for
     `req_format=native` and the provider config captured it, carrying over the
-    LiteLLM response headers (cost, call id, etc.) built for the normalized response.
+    EmbRouter response headers (cost, call id, etc.) built for the normalized response.
     """
     if not isinstance(response, OCRResponse):
         return None
@@ -227,7 +227,7 @@ async def _parse_ocr_request_body(request: Request) -> dict[str, object]:
         )
 
     # Security: reject provider-native file IDs (e.g. reducto://) received via
-    # JSON. These IDs are not scoped to the LiteLLM proxy user/key, so an
+    # JSON. These IDs are not scoped to the EmbRouter proxy user/key, so an
     # authenticated user who obtains another user's file ID could submit it
     # here and receive the OCR result using the proxy's shared provider
     # credentials. Force callers to upload fresh content per request via
@@ -291,12 +291,12 @@ async def ocr(
         -F "file=@document.pdf"
     ```
 
-    Response format is normalized to the LiteLLM OCR schema by default. Providers
+    Response format is normalized to the EmbRouter OCR schema by default. Providers
     that support it (Azure Document Intelligence) can return their own payload
     instead, with cost tracking unchanged, via `x-req-format: native` (or
     `"req_format": "native"` in the body).
     """
-    from litellm.proxy.proxy_server import (
+    from embrouter.proxy.proxy_server import (
         general_settings,
         llm_router,
         proxy_config,

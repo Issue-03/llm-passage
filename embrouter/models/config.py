@@ -1,13 +1,13 @@
 """
 Config table model.
 
-Canonical definition for ``litellm_config``. Re-exported from
-``litellm.proxy._types`` for backwards compatibility.
+Canonical definition for ``embrouter_config``. Re-exported from
+``embrouter.proxy._types`` for backwards compatibility.
 """
 
-from litellm.types.llms.base import LiteLLMPydanticObjectBase
+from embrouter.types.llms.base import EmbRouterPydanticObjectBase
 
 
-class LiteLLM_Config(LiteLLMPydanticObjectBase):
+class EmbRouter_Config(EmbRouterPydanticObjectBase):
     param_name: str
     param_value: dict

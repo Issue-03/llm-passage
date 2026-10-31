@@ -8,10 +8,10 @@ from typing import Final
 
 from fastapi import status
 
-from litellm.constants import STRINGIFIED_NONE
-from litellm.proxy._types import ProxyException
+from embrouter.constants import STRINGIFIED_NONE
+from embrouter.proxy._types import ProxyException
 
-LITELLM_CALL_ID_HEADER: Final = "x-litellm-call-id"
+EMBROUTER_CALL_ID_HEADER: Final = "x-embrouter-call-id"
 
 _OPENAI_ERROR_TYPE_BY_STATUS: Final[Mapping[int, str]] = MappingProxyType(
     {
@@ -57,21 +57,21 @@ def openai_error_param(exc: object) -> str | None:
     return carried if isinstance(carried, str) and carried != STRINGIFIED_NONE else None
 
 
-def litellm_call_id_headers(litellm_call_id: str | None) -> dict[str, str] | None:  # mutable-ok: ProxyException.headers
-    if litellm_call_id is None:
+def embrouter_call_id_headers(embrouter_call_id: str | None) -> dict[str, str] | None:  # mutable-ok: ProxyException.headers
+    if embrouter_call_id is None:
         return None
-    return {LITELLM_CALL_ID_HEADER: litellm_call_id}  # mutable-ok: ProxyException mutates its headers dict
+    return {EMBROUTER_CALL_ID_HEADER: embrouter_call_id}  # mutable-ok: ProxyException mutates its headers dict
 
 
-def with_litellm_call_id(exc: ProxyException, litellm_call_id: str | None) -> ProxyException:
-    """The same error object, answering with ``x-litellm-call-id`` when it was raised without one."""
-    if litellm_call_id is not None:
-        exc.headers.setdefault(LITELLM_CALL_ID_HEADER, litellm_call_id)
+def with_embrouter_call_id(exc: ProxyException, embrouter_call_id: str | None) -> ProxyException:
+    """The same error object, answering with ``x-embrouter-call-id`` when it was raised without one."""
+    if embrouter_call_id is not None:
+        exc.headers.setdefault(EMBROUTER_CALL_ID_HEADER, embrouter_call_id)
     return exc
 
 
-def headers_with_litellm_call_id(headers: Mapping[str, str] | None, litellm_call_id: str) -> Mapping[str, str]:
-    """``headers`` plus ``x-litellm-call-id``, keeping the value they already carry under that name."""
+def headers_with_embrouter_call_id(headers: Mapping[str, str] | None, embrouter_call_id: str) -> Mapping[str, str]:
+    """``headers`` plus ``x-embrouter-call-id``, keeping the value they already carry under that name."""
     if headers is None:
-        return MappingProxyType({LITELLM_CALL_ID_HEADER: litellm_call_id})
-    return MappingProxyType({LITELLM_CALL_ID_HEADER: litellm_call_id, **headers})
+        return MappingProxyType({EMBROUTER_CALL_ID_HEADER: embrouter_call_id})
+    return MappingProxyType({EMBROUTER_CALL_ID_HEADER: embrouter_call_id, **headers})

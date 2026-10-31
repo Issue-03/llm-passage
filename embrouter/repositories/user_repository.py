@@ -1,5 +1,5 @@
 """
-User repository for database operations on LiteLLM_UserTable.
+User repository for database operations on EmbRouter_UserTable.
 """
 
 import json
@@ -8,9 +8,9 @@ from typing import TYPE_CHECKING, Final
 
 from pydantic import TypeAdapter
 
-from litellm.models.user import LiteLLM_UserTable, SCIMPlaceholder
-from litellm.repositories.base_repository import BaseRepository, DbRecord, record_to_dict
-from litellm.repositories.prisma_protocols import TableActions
+from embrouter.models.user import EmbRouter_UserTable, SCIMPlaceholder
+from embrouter.repositories.base_repository import BaseRepository, DbRecord, record_to_dict
+from embrouter.repositories.prisma_protocols import TableActions
 
 if TYPE_CHECKING:
     from prisma import Prisma
@@ -22,12 +22,12 @@ _SHADOWING_PLACEHOLDERS_SQL: Final = """
 SELECT p.user_id AS placeholder_user_id,
        array_agg(r.user_id ORDER BY r.user_id) AS resolved_user_ids,
        p.teams AS team_ids
-FROM "LiteLLM_UserTable" p
-JOIN "LiteLLM_UserTable" r
+FROM "EmbRouter_UserTable" p
+JOIN "EmbRouter_UserTable" r
   ON r.user_id <> p.user_id
  AND (r.sso_user_id = p.user_id OR LOWER(r.user_email) = LOWER(p.user_id))
 WHERE p.sso_user_id IS NULL
-  AND NOT EXISTS (SELECT 1 FROM "LiteLLM_VerificationToken" k WHERE k.user_id = p.user_id)
+  AND NOT EXISTS (SELECT 1 FROM "EmbRouter_VerificationToken" k WHERE k.user_id = p.user_id)
 GROUP BY p.user_id, p.teams
 ORDER BY p.user_id
 """
@@ -35,7 +35,7 @@ ORDER BY p.user_id
 _PLACEHOLDER_ROWS_ADAPTER: Final = TypeAdapter(tuple[SCIMPlaceholder, ...])
 
 
-class UserRepository(BaseRepository[LiteLLM_UserTable]):
+class UserRepository(BaseRepository[EmbRouter_UserTable]):
     """Repository for user database operations."""
 
     def __init__(self, prisma_client: object, *, use_writer: bool = False) -> None:
@@ -43,43 +43,43 @@ class UserRepository(BaseRepository[LiteLLM_UserTable]):
         self._use_writer = use_writer
 
     @property
-    def table(self) -> TableActions["prisma_models.LiteLLM_UserTable"]:
+    def table(self) -> TableActions["prisma_models.EmbRouter_UserTable"]:
         database: Final = self.prisma_client.writer_db if self._use_writer else self.prisma_client.db
-        return database.litellm_usertable
+        return database.embrouter_usertable
 
     @property
-    def model_class(self) -> type[LiteLLM_UserTable]:
-        return LiteLLM_UserTable
+    def model_class(self) -> type[EmbRouter_UserTable]:
+        return EmbRouter_UserTable
 
-    def _to_model(self, record: DbRecord | None) -> LiteLLM_UserTable | None:
+    def _to_model(self, record: DbRecord | None) -> EmbRouter_UserTable | None:
         """Convert a database record to a User model."""
         if record is None:
             return None
 
-        return LiteLLM_UserTable.model_validate(
+        return EmbRouter_UserTable.model_validate(
             {
                 column: json.loads(value) if column in _JSON_ENCODED_COLUMNS and isinstance(value, str) else value
                 for column, value in record_to_dict(record).items()
             }
         )
 
-    async def find_by_id(self, id_value: str, id_field: str = "user_id") -> LiteLLM_UserTable | None:
+    async def find_by_id(self, id_value: str, id_field: str = "user_id") -> EmbRouter_UserTable | None:
         return await super().find_by_id(id_value, id_field)
 
-    async def find_by_email(self, user_email: str) -> LiteLLM_UserTable | None:
+    async def find_by_email(self, user_email: str) -> EmbRouter_UserTable | None:
         """Find a user by email."""
         records: Final = await self.find_many(where={"user_email": user_email})
         return records[0] if records else None
 
-    async def find_by_sso_id(self, sso_user_id: str) -> LiteLLM_UserTable | None:
+    async def find_by_sso_id(self, sso_user_id: str) -> EmbRouter_UserTable | None:
         """Find a user by SSO ID."""
         return await self.find_by_id(sso_user_id, id_field="sso_user_id")
 
-    async def find_by_organization_id(self, organization_id: str) -> list[LiteLLM_UserTable]:
+    async def find_by_organization_id(self, organization_id: str) -> list[EmbRouter_UserTable]:
         """Find all users in an organization."""
         return await self.find_many(where={"organization_id": organization_id})
 
-    async def find_by_team_id(self, team_id: str) -> list[LiteLLM_UserTable]:
+    async def find_by_team_id(self, team_id: str) -> list[EmbRouter_UserTable]:
         """Find all users in a team."""
         return await self.find_many(where={"teams": {"has": team_id}})
 
@@ -123,7 +123,7 @@ class UserRepository(BaseRepository[LiteLLM_UserTable]):
         allowed_cache_controls: list[str] | None = None,
         policies: list[str] | None = None,
         object_permission_id: str | None = None,
-    ) -> LiteLLM_UserTable:
+    ) -> EmbRouter_UserTable:
         """Create a new user."""
         data: Final[dict[str, object]] = {"user_id": user_id}
         if user_alias is not None:
@@ -186,7 +186,7 @@ class UserRepository(BaseRepository[LiteLLM_UserTable]):
         allowed_cache_controls: list[str] | None = None,
         policies: list[str] | None = None,
         object_permission_id: str | None = None,
-    ) -> LiteLLM_UserTable | None:
+    ) -> EmbRouter_UserTable | None:
         """Update a user."""
         data: Final[dict[str, object]] = {}
         if user_alias is not None:
@@ -239,22 +239,22 @@ class UserRepository(BaseRepository[LiteLLM_UserTable]):
         )
         return updated_count
 
-    async def delete_user(self, user_id: str) -> LiteLLM_UserTable | None:
+    async def delete_user(self, user_id: str) -> EmbRouter_UserTable | None:
         """Delete a user."""
         return await self.delete(user_id, id_field="user_id")
 
-    async def update_spend(self, user_id: str, spend: float) -> LiteLLM_UserTable | None:
+    async def update_spend(self, user_id: str, spend: float) -> EmbRouter_UserTable | None:
         """Update user spend."""
         return await self.update(user_id, {"spend": spend}, id_field="user_id")
 
-    async def add_to_team(self, user_id: str, team_id: str) -> LiteLLM_UserTable | None:
+    async def add_to_team(self, user_id: str, team_id: str) -> EmbRouter_UserTable | None:
         """Add a user to a team using atomic array push operation."""
         if not await self.exists(user_id, id_field="user_id"):
             return None
 
         return await self.update(user_id, {"teams": {"push": team_id}}, id_field="user_id")
 
-    async def remove_from_team(self, user_id: str, team_id: str) -> LiteLLM_UserTable | None:
+    async def remove_from_team(self, user_id: str, team_id: str) -> EmbRouter_UserTable | None:
         """Remove a user from a team.
 
         Note: Prisma doesn't support atomic array removal, so we use a

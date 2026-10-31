@@ -37,7 +37,7 @@ export const AGENT_FORM_CONFIG: {
   skills: SectionConfig;
   capabilities: SectionConfig;
   optional: SectionConfig;
-  litellm: SectionConfig;
+  embrouter: SectionConfig;
   cost: SectionConfig;
   tracing: SectionConfig;
 } = {
@@ -146,8 +146,8 @@ export const AGENT_FORM_CONFIG: {
       },
     ],
   },
-  litellm: {
-    key: "litellm",
+  embrouter: {
+    key: "embrouter",
     title: "EmbRouter Parameters",
     fields: [
       {
@@ -295,7 +295,7 @@ export const buildAgentDataFromForm = (values: any, existingAgent?: any) => {
   if (values.output_cost_per_token) params.output_cost_per_token = parseFloat(values.output_cost_per_token);
 
   if (Object.keys(params).length > 0) {
-    agentData.litellm_params = params;
+    agentData.embrouter_params = params;
   }
 
   if (values.tpm_limit != null) agentData.tpm_limit = values.tpm_limit;
@@ -384,11 +384,11 @@ export const parseAgentForForm = (agent: any) => {
     iconUrl: agent.agent_card_params?.iconUrl,
     documentationUrl: agent.agent_card_params?.documentationUrl,
     supportsAuthenticatedExtendedCard: agent.agent_card_params?.supportsAuthenticatedExtendedCard,
-    model: agent.litellm_params?.model,
-    make_public: agent.litellm_params?.make_public,
-    cost_per_query: agent.litellm_params?.cost_per_query,
-    input_cost_per_token: agent.litellm_params?.input_cost_per_token,
-    output_cost_per_token: agent.litellm_params?.output_cost_per_token,
+    model: agent.embrouter_params?.model,
+    make_public: agent.embrouter_params?.make_public,
+    cost_per_query: agent.embrouter_params?.cost_per_query,
+    input_cost_per_token: agent.embrouter_params?.input_cost_per_token,
+    output_cost_per_token: agent.embrouter_params?.output_cost_per_token,
     tpm_limit: agent.tpm_limit,
     rpm_limit: agent.rpm_limit,
     session_tpm_limit: agent.session_tpm_limit,

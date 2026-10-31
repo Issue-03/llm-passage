@@ -15,9 +15,9 @@ import httpx
 import pytest
 from aiohttp import ClientSession, TCPConnector
 
-import litellm
-from litellm.llms.custom_httpx.aiohttp_transport import LiteLLMAiohttpTransport
-from litellm.llms.custom_httpx.http_handler import (
+import embrouter
+from embrouter.llms.custom_httpx.aiohttp_transport import EmbRouterAiohttpTransport
+from embrouter.llms.custom_httpx.http_handler import (
     _CLIENT_REFCOUNT_WHEN_HANDLER_IS_SOLE_REFERRER,
     AsyncHTTPHandler,
     HTTPHandler,
@@ -25,7 +25,7 @@ from litellm.llms.custom_httpx.http_handler import (
     _get_httpx_client,
     get_ssl_configuration,
 )
-from litellm.types.llms.custom_http import VerifyTypes
+from embrouter.types.llms.custom_http import VerifyTypes
 
 
 @pytest.mark.asyncio
@@ -53,17 +53,17 @@ async def test_async_post_streaming_status_error_should_not_wait_forever_for_bod
         )
 
     monkeypatch.setattr(
-        "litellm.llms.custom_httpx.http_handler._STREAMING_ERROR_BODY_READ_TIMEOUT_SECONDS",
+        "embrouter.llms.custom_httpx.http_handler._STREAMING_ERROR_BODY_READ_TIMEOUT_SECONDS",
         0.01,
     )
 
-    litellm_handler = AsyncHTTPHandler()
-    await litellm_handler.client.aclose()
-    litellm_handler.client = httpx.AsyncClient(transport=httpx.MockTransport(mock_handler))
+    embrouter_handler = AsyncHTTPHandler()
+    await embrouter_handler.client.aclose()
+    embrouter_handler.client = httpx.AsyncClient(transport=httpx.MockTransport(mock_handler))
     try:
         with pytest.raises(MaskedHTTPStatusError) as exc_info:
             await asyncio.wait_for(
-                litellm_handler.post(
+                embrouter_handler.post(
                     "https://vertex.example/streamRawPredict",
                     stream=True,
                 ),
@@ -73,7 +73,7 @@ async def test_async_post_streaming_status_error_should_not_wait_forever_for_bod
         assert exc_info.value.status_code == 400
         assert exc_info.value.response.status_code == 400
     finally:
-        await litellm_handler.close()
+        await embrouter_handler.close()
 
 
 def test_sync_post_streaming_status_error_should_not_wait_forever_for_body(
@@ -105,16 +105,16 @@ def test_sync_post_streaming_status_error_should_not_wait_forever_for_body(
         )
 
     monkeypatch.setattr(
-        "litellm.llms.custom_httpx.http_handler._STREAMING_ERROR_BODY_READ_TIMEOUT_SECONDS",
+        "embrouter.llms.custom_httpx.http_handler._STREAMING_ERROR_BODY_READ_TIMEOUT_SECONDS",
         0.01,
     )
 
-    litellm_handler = HTTPHandler()
-    litellm_handler.client.close()
-    litellm_handler.client = httpx.Client(transport=httpx.MockTransport(mock_handler))
+    embrouter_handler = HTTPHandler()
+    embrouter_handler.client.close()
+    embrouter_handler.client = httpx.Client(transport=httpx.MockTransport(mock_handler))
     try:
         with pytest.raises(MaskedHTTPStatusError) as exc_info:
-            litellm_handler.post(
+            embrouter_handler.post(
                 "https://vertex.example/streamRawPredict",
                 stream=True,
             )
@@ -122,13 +122,13 @@ def test_sync_post_streaming_status_error_should_not_wait_forever_for_body(
         assert exc_info.value.status_code == 400
         assert exc_info.value.response.status_code == 400
     finally:
-        litellm_handler.close()
+        embrouter_handler.close()
 
 
 @pytest.mark.asyncio
 async def test_ssl_security_level(monkeypatch):
     # Ensure aiohttp transport is enabled for this test
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", False)
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", False)
 
     with patch.dict(os.environ, clear=True):
         # Set environment variable for SSL security level
@@ -138,9 +138,9 @@ async def test_ssl_security_level(monkeypatch):
         client = AsyncHTTPHandler()
 
         try:
-            # Get the transport (should be LiteLLMAiohttpTransport)
+            # Get the transport (should be EmbRouterAiohttpTransport)
             transport = client.client._transport
-            assert isinstance(transport, LiteLLMAiohttpTransport)
+            assert isinstance(transport, EmbRouterAiohttpTransport)
 
             # Get the aiohttp ClientSession
             client_session = transport._get_valid_client_session()
@@ -161,8 +161,8 @@ async def test_ssl_security_level(monkeypatch):
 @pytest.mark.asyncio
 async def test_force_ipv4_transport(monkeypatch: pytest.MonkeyPatch):
     """Test transport creation with force_ipv4 enabled"""
-    monkeypatch.setattr(litellm, "force_ipv4", True)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(embrouter, "force_ipv4", True)
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
 
     transport = AsyncHTTPHandler._create_async_transport()
 
@@ -173,8 +173,8 @@ async def test_force_ipv4_transport(monkeypatch: pytest.MonkeyPatch):
 @pytest.mark.asyncio
 async def test_aiohttp_disabled_transport(monkeypatch: pytest.MonkeyPatch):
     """Test transport creation with aiohttp disabled"""
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "force_ipv4", False)
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(embrouter, "force_ipv4", False)
 
     transport = AsyncHTTPHandler._create_async_transport()
 
@@ -187,19 +187,19 @@ async def test_ssl_verification_with_aiohttp_transport(monkeypatch: pytest.Monke
     """
     Test aiohttp respects ssl_verify=False
 
-    We validate that the ssl settings for a litellm transport match what a ssl verify=False aiohttp client would have.
+    We validate that the ssl settings for a embrouter transport match what a ssl verify=False aiohttp client would have.
 
     """
     import aiohttp
 
     # Ensure aiohttp transport is enabled for this test
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", False)
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", False)
 
-    litellm_async_client = AsyncHTTPHandler(ssl_verify=False)
+    embrouter_async_client = AsyncHTTPHandler(ssl_verify=False)
 
     try:
-        transport = litellm_async_client.client._transport
-        assert isinstance(transport, LiteLLMAiohttpTransport)
+        transport = embrouter_async_client.client._transport
+        assert isinstance(transport, EmbRouterAiohttpTransport)
         transport_connector = transport._get_valid_client_session().connector
         assert isinstance(transport_connector, TCPConnector)
 
@@ -208,12 +208,12 @@ async def test_ssl_verification_with_aiohttp_transport(monkeypatch: pytest.Monke
             aiohttp_connector = aiohttp_session.connector
             assert isinstance(aiohttp_connector, aiohttp.TCPConnector)
 
-            # assert both litellm transport and aiohttp session have ssl_verify=False
+            # assert both embrouter transport and aiohttp session have ssl_verify=False
             assert transport_connector._ssl == aiohttp_connector._ssl
         finally:
             await aiohttp_session.close()
     finally:
-        await litellm_async_client.close()
+        await embrouter_async_client.close()
 
 
 @pytest.mark.asyncio
@@ -223,14 +223,14 @@ async def test_ssl_verification_with_shared_session(monkeypatch: pytest.MonkeyPa
 
     This was a bug where shared sessions bypassed SSL configuration because
     _create_aiohttp_transport returned immediately without passing ssl_verify
-    to the LiteLLMAiohttpTransport constructor.
+    to the EmbRouterAiohttpTransport constructor.
 
     The fix stores ssl_verify in the transport and passes it per-request.
     """
     import aiohttp
 
     # Ensure aiohttp transport is enabled for this test
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", False)
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", False)
 
     shared_session = aiohttp.ClientSession()
 
@@ -258,7 +258,7 @@ async def test_ssl_context_with_shared_session(monkeypatch: pytest.MonkeyPatch):
     import aiohttp
 
     # Ensure aiohttp transport is enabled for this test
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", False)
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", False)
 
     custom_ssl_context = ssl.create_default_context()
 
@@ -284,7 +284,7 @@ async def test_ssl_context_with_shared_session(monkeypatch: pytest.MonkeyPatch):
 def test_get_ssl_configuration():
     """Test that get_ssl_configuration() returns a proper SSL context with certifi CA bundle
     when no environment variables are set."""
-    from litellm.llms.custom_httpx.http_handler import _ssl_context_cache
+    from embrouter.llms.custom_httpx.http_handler import _ssl_context_cache
 
     # Clear cache to ensure ssl.create_default_context is called
     _ssl_context_cache.clear()
@@ -332,7 +332,7 @@ class MockClientSession:
 @pytest.mark.asyncio
 async def test_create_aiohttp_transport_with_shared_session():
     """Test that _create_aiohttp_transport reuses shared session when provided"""
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+    from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler
 
     # Create a mock shared session that's not callable
     mock_session = MockClientSession()
@@ -350,7 +350,7 @@ async def test_create_aiohttp_transport_with_shared_session():
 @pytest.mark.asyncio
 async def test_async_handler_with_shared_session():
     """Test AsyncHTTPHandler initialization with shared session"""
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+    from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler
 
     # Create a mock shared session
     mock_session = MockClientSession()
@@ -366,11 +366,11 @@ async def test_async_handler_with_shared_session():
 @pytest.mark.asyncio
 async def test_get_async_httpx_client_with_shared_session():
     """Test get_async_httpx_client with shared session"""
-    from litellm.llms.custom_httpx.http_handler import (
+    from embrouter.llms.custom_httpx.http_handler import (
         get_async_httpx_client,
         AsyncHTTPHandler as AsyncHTTPHandlerReload,
     )
-    from litellm.types.utils import LlmProviders
+    from embrouter.types.utils import LlmProviders
 
     # Create a mock shared session
     mock_session = MockClientSession()
@@ -390,11 +390,11 @@ async def test_get_async_httpx_client_with_shared_session():
 @pytest.mark.asyncio
 async def test_get_async_httpx_client_without_shared_session():
     """Test get_async_httpx_client without shared session (backward compatibility)"""
-    from litellm.llms.custom_httpx.http_handler import (
+    from embrouter.llms.custom_httpx.http_handler import (
         get_async_httpx_client,
         AsyncHTTPHandler as AsyncHTTPHandlerReload,
     )
-    from litellm.types.utils import LlmProviders
+    from embrouter.types.utils import LlmProviders
 
     # Test without shared session
     client = get_async_httpx_client(llm_provider=LlmProviders.ANTHROPIC, shared_session=None)
@@ -408,7 +408,7 @@ async def test_get_async_httpx_client_without_shared_session():
 @pytest.mark.asyncio
 async def test_session_reuse_chain():
     """Test that session is properly passed through the entire call chain"""
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+    from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler
 
     # Create a mock shared session
     mock_session = MockClientSession()
@@ -429,7 +429,7 @@ async def test_session_reuse_chain():
 def test_shared_session_parameter_in_acompletion():
     """Test that acompletion function accepts shared_session parameter"""
     import inspect
-    from litellm.main import acompletion
+    from embrouter.main import acompletion
 
     # Get the function signature
     sig = inspect.signature(acompletion)
@@ -446,7 +446,7 @@ def test_shared_session_parameter_in_acompletion():
 def test_shared_session_parameter_in_completion():
     """Test that completion function accepts shared_session parameter"""
     import inspect
-    from litellm.main import completion
+    from embrouter.main import completion
 
     # Get the function signature
     sig = inspect.signature(completion)
@@ -463,11 +463,11 @@ def test_shared_session_parameter_in_completion():
 @pytest.mark.asyncio
 async def test_session_reuse_integration():
     """Integration test for session reuse functionality"""
-    from litellm.llms.custom_httpx.http_handler import (
+    from embrouter.llms.custom_httpx.http_handler import (
         get_async_httpx_client,
         AsyncHTTPHandler as AsyncHTTPHandlerReload,
     )
-    from litellm.types.utils import LlmProviders
+    from embrouter.types.utils import LlmProviders
 
     # Create a mock session
     mock_session = MockClientSession()
@@ -498,23 +498,23 @@ async def test_session_reuse_integration():
 
 
 @pytest.mark.parametrize(
-    "env_curve,litellm_curve,expected_curve,should_call",
+    "env_curve,embrouter_curve,expected_curve,should_call",
     [
-        # env_curve: SSL_ECDH_CURVE env var | litellm_curve: litellm.ssl_ecdh_curve variable
+        # env_curve: SSL_ECDH_CURVE env var | embrouter_curve: embrouter.ssl_ecdh_curve variable
         # expected_curve: curve that should be set | should_call: whether set_ecdh_curve() should be called
         # Valid configurations
         ("X25519", None, "X25519", True),  # Env var only
         ("prime256v1", None, "prime256v1", True),  # Different valid curve
-        (None, "secp384r1", "secp384r1", True),  # litellm variable only
+        (None, "secp384r1", "secp384r1", True),  # embrouter variable only
         ("X25519", "secp521r1", "X25519", True),  # Env var takes precedence
         # Empty/None configurations - should skip
         ("", None, None, False),  # Empty string - skip configuration
         (None, None, None, False),  # None value - skip configuration
     ],
 )
-def test_ssl_ecdh_curve(env_curve, litellm_curve, expected_curve, should_call, monkeypatch):
+def test_ssl_ecdh_curve(env_curve, embrouter_curve, expected_curve, should_call, monkeypatch):
     """Test SSL ECDH curve configuration with valid curves and precedence"""
-    from litellm.llms.custom_httpx.http_handler import _ssl_context_cache
+    from embrouter.llms.custom_httpx.http_handler import _ssl_context_cache
 
     # Clear cache to ensure fresh SSL context creation
     _ssl_context_cache.clear()
@@ -523,7 +523,7 @@ def test_ssl_ecdh_curve(env_curve, litellm_curve, expected_curve, should_call, m
         if env_curve:
             monkeypatch.setenv("SSL_ECDH_CURVE", env_curve)
 
-        monkeypatch.setattr(litellm, "ssl_ecdh_curve", litellm_curve)
+        monkeypatch.setattr(embrouter, "ssl_ecdh_curve", embrouter_curve)
 
         # Create a real SSL context and patch set_ecdh_curve on it
         # We need a real SSLContext instance (not a MagicMock) because _create_ssl_context
@@ -541,35 +541,35 @@ def test_ssl_ecdh_curve(env_curve, litellm_curve, expected_curve, should_call, m
                 assert isinstance(ssl_context, ssl.SSLContext)
 
 
-def test_default_user_agent_is_litellm_version(monkeypatch):
-    from litellm._version import version
-    from litellm.llms.custom_httpx.http_handler import get_default_headers
+def test_default_user_agent_is_embrouter_version(monkeypatch):
+    from embrouter._version import version
+    from embrouter.llms.custom_httpx.http_handler import get_default_headers
 
-    monkeypatch.delenv("LITELLM_USER_AGENT", raising=False)
+    monkeypatch.delenv("EMBROUTER_USER_AGENT", raising=False)
 
-    assert get_default_headers()["User-Agent"] == f"litellm/{version}"
+    assert get_default_headers()["User-Agent"] == f"embrouter/{version}"
 
 
 def test_user_agent_can_be_overridden_via_env_var(monkeypatch):
-    from litellm.llms.custom_httpx.http_handler import get_default_headers
+    from embrouter.llms.custom_httpx.http_handler import get_default_headers
 
-    monkeypatch.setenv("LITELLM_USER_AGENT", "Claude Code")
+    monkeypatch.setenv("EMBROUTER_USER_AGENT", "Claude Code")
 
     assert get_default_headers()["User-Agent"] == "Claude Code"
 
 
 def test_user_agent_env_var_can_be_empty_string(monkeypatch):
-    from litellm.llms.custom_httpx.http_handler import get_default_headers
+    from embrouter.llms.custom_httpx.http_handler import get_default_headers
 
-    monkeypatch.setenv("LITELLM_USER_AGENT", "")
+    monkeypatch.setenv("EMBROUTER_USER_AGENT", "")
 
     assert get_default_headers()["User-Agent"] == ""
 
 
 def test_user_agent_override_is_not_appended_to_default(monkeypatch):
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+    from embrouter.llms.custom_httpx.http_handler import HTTPHandler
 
-    monkeypatch.delenv("LITELLM_USER_AGENT", raising=False)
+    monkeypatch.delenv("EMBROUTER_USER_AGENT", raising=False)
 
     handler = HTTPHandler()
     try:
@@ -585,9 +585,9 @@ def test_user_agent_override_is_not_appended_to_default(monkeypatch):
 
 
 def test_sync_http_handler_uses_env_user_agent(monkeypatch):
-    from litellm.llms.custom_httpx.http_handler import HTTPHandler
+    from embrouter.llms.custom_httpx.http_handler import HTTPHandler
 
-    monkeypatch.setenv("LITELLM_USER_AGENT", "Claude Code")
+    monkeypatch.setenv("EMBROUTER_USER_AGENT", "Claude Code")
 
     handler = HTTPHandler()
     try:
@@ -599,9 +599,9 @@ def test_sync_http_handler_uses_env_user_agent(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_async_http_handler_uses_env_user_agent(monkeypatch):
-    from litellm.llms.custom_httpx.http_handler import AsyncHTTPHandler
+    from embrouter.llms.custom_httpx.http_handler import AsyncHTTPHandler
 
-    monkeypatch.setenv("LITELLM_USER_AGENT", "Claude Code")
+    monkeypatch.setenv("EMBROUTER_USER_AGENT", "Claude Code")
 
     handler = AsyncHTTPHandler()
     try:
@@ -613,9 +613,9 @@ async def test_async_http_handler_uses_env_user_agent(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_httpx_handler_uses_env_user_agent(monkeypatch):
-    from litellm.llms.custom_httpx.httpx_handler import HTTPHandler
+    from embrouter.llms.custom_httpx.httpx_handler import HTTPHandler
 
-    monkeypatch.setenv("LITELLM_USER_AGENT", "Claude Code")
+    monkeypatch.setenv("EMBROUTER_USER_AGENT", "Claude Code")
 
     handler = HTTPHandler()
     try:
@@ -702,42 +702,42 @@ async def test_async_get_forwards_per_request_timeout():
 
 
 class TestDefaultCachedClientTimeoutHonorsRequestTimeout:
-    """Cached default httpx clients must fall back to an explicit litellm.request_timeout.
+    """Cached default httpx clients must fall back to an explicit embrouter.request_timeout.
 
     Regression for LIT-2369: get_async_httpx_client / _get_httpx_client hardcoded a
-    600s default and never consulted litellm.request_timeout, so provider calls with
+    600s default and never consulted embrouter.request_timeout, so provider calls with
     no per-model timeout (e.g. Bedrock) hung for 600s.
     """
 
     def test_default_when_request_timeout_unset(self, monkeypatch: pytest.MonkeyPatch):
-        from litellm.llms.custom_httpx.http_handler import (
+        from embrouter.llms.custom_httpx.http_handler import (
             _DEFAULT_TIMEOUT,
             _default_cached_client_timeout,
         )
 
-        monkeypatch.setattr(litellm, "request_timeout", litellm.constants.DEFAULT_REQUEST_TIMEOUT_SECONDS)
-        monkeypatch.setattr(litellm, "request_timeout_explicitly_set", False)
+        monkeypatch.setattr(embrouter, "request_timeout", embrouter.constants.DEFAULT_REQUEST_TIMEOUT_SECONDS)
+        monkeypatch.setattr(embrouter, "request_timeout_explicitly_set", False)
         assert _default_cached_client_timeout() is _DEFAULT_TIMEOUT
 
     def test_uses_explicit_request_timeout(self, monkeypatch: pytest.MonkeyPatch):
-        from litellm.llms.custom_httpx.http_handler import (
+        from embrouter.llms.custom_httpx.http_handler import (
             _default_cached_client_timeout,
         )
 
-        monkeypatch.setattr(litellm, "request_timeout", 300)
-        monkeypatch.setattr(litellm, "request_timeout_explicitly_set", True)
+        monkeypatch.setattr(embrouter, "request_timeout", 300)
+        monkeypatch.setattr(embrouter, "request_timeout_explicitly_set", True)
         resolved = _default_cached_client_timeout()
         assert resolved.read == 300.0
         assert resolved.connect == 5.0
 
     def test_cached_async_client_built_with_explicit_request_timeout(self, monkeypatch: pytest.MonkeyPatch):
-        from litellm.caching.llm_caching_handler import LLMClientCache
-        from litellm.llms.custom_httpx.http_handler import get_async_httpx_client
-        from litellm.types.utils import LlmProviders
+        from embrouter.caching.llm_caching_handler import LLMClientCache
+        from embrouter.llms.custom_httpx.http_handler import get_async_httpx_client
+        from embrouter.types.utils import LlmProviders
 
-        monkeypatch.setattr(litellm, "request_timeout", 300)
-        monkeypatch.setattr(litellm, "request_timeout_explicitly_set", True)
-        litellm.in_memory_llm_clients_cache = LLMClientCache()
+        monkeypatch.setattr(embrouter, "request_timeout", 300)
+        monkeypatch.setattr(embrouter, "request_timeout_explicitly_set", True)
+        embrouter.in_memory_llm_clients_cache = LLMClientCache()
         client = get_async_httpx_client(llm_provider=LlmProviders.BEDROCK)
         assert client.timeout.read == 300.0
 
@@ -787,13 +787,13 @@ async def test_init_held_async_handler_survives_external_client_close():
 
 @pytest.mark.asyncio
 async def test_init_held_async_handler_survives_evicted_client_close():
-    from litellm.caching.evicted_client_closer import EvictedClientCloser
-    from litellm.caching.llm_caching_handler import LLMClientCache
+    from embrouter.caching.evicted_client_closer import EvictedClientCloser
+    from embrouter.caching.llm_caching_handler import LLMClientCache
 
     cache = LLMClientCache(evicted_client_closer=EvictedClientCloser(grace_seconds=0))
     handler = AsyncHTTPHandler(timeout=42.5)
     held_client = handler.client
-    cache.set_cache("init-held-handler", handler, litellm_owned_client=True, ttl=0)
+    cache.set_cache("init-held-handler", handler, embrouter_owned_client=True, ttl=0)
     await asyncio.sleep(0.02)
     assert cache.get_cache("init-held-handler") is None
     await asyncio.sleep(0.05)
@@ -909,18 +909,18 @@ def test_concurrent_sync_heal_creates_exactly_one_replacement():
 
 @pytest.fixture
 def fresh_llm_client_cache():
-    from litellm.caching.llm_caching_handler import LLMClientCache
+    from embrouter.caching.llm_caching_handler import LLMClientCache
 
-    previous = getattr(litellm, "in_memory_llm_clients_cache", None)
-    litellm.in_memory_llm_clients_cache = LLMClientCache()
+    previous = getattr(embrouter, "in_memory_llm_clients_cache", None)
+    embrouter.in_memory_llm_clients_cache = LLMClientCache()
     try:
         yield
     finally:
-        litellm.in_memory_llm_clients_cache = previous
+        embrouter.in_memory_llm_clients_cache = previous
 
 
 def test_sole_referrer_handler_may_close_but_a_sharing_one_may_not():
-    from litellm.llms.custom_httpx.http_handler import _handler_may_close_client
+    from embrouter.llms.custom_httpx.http_handler import _handler_may_close_client
 
     assert _handler_may_close_client(_CLIENT_REFCOUNT_WHEN_HANDLER_IS_SOLE_REFERRER, owns_client=True)
     assert not _handler_may_close_client(_CLIENT_REFCOUNT_WHEN_HANDLER_IS_SOLE_REFERRER + 1, owns_client=True)
@@ -975,8 +975,8 @@ def test_exclusively_owned_sync_client_pool_is_closed_when_handler_is_collected(
 
 @pytest.mark.asyncio
 async def test_exclusively_owned_async_client_pool_is_closed_when_handler_is_collected(keepalive_server, monkeypatch):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "force_ipv4", False)
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(embrouter, "force_ipv4", False)
 
     handler = AsyncHTTPHandler()
     pool = handler.client._transport._pool
@@ -993,8 +993,8 @@ async def test_exclusively_owned_async_client_pool_is_closed_when_handler_is_col
 
 @pytest.mark.asyncio
 async def test_handed_out_async_client_pool_survives_handler_collection(keepalive_server, monkeypatch):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "force_ipv4", False)
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(embrouter, "force_ipv4", False)
 
     handler = AsyncHTTPHandler()
     consumer_client = handler.client
@@ -1154,20 +1154,20 @@ async def test_async_close_leaves_assigned_client_open():
 
 
 def test_client_handed_out_by_sync_cache_survives_eviction_and_collection(fresh_llm_client_cache):
-    from litellm.caching.llm_caching_handler import LLMClientCache
+    from embrouter.caching.llm_caching_handler import LLMClientCache
 
     handler = _get_httpx_client()
     consumer_client = handler.client
     handler_ref = weakref.ref(handler)
 
     assert not consumer_client.is_closed
-    assert litellm.in_memory_llm_clients_cache.get_cache("httpx_client") is handler
+    assert embrouter.in_memory_llm_clients_cache.get_cache("httpx_client") is handler
 
-    litellm.in_memory_llm_clients_cache = LLMClientCache()
+    embrouter.in_memory_llm_clients_cache = LLMClientCache()
     del handler
     gc.collect()
 
-    assert litellm.in_memory_llm_clients_cache.get_cache("httpx_client") is None
+    assert embrouter.in_memory_llm_clients_cache.get_cache("httpx_client") is None
     assert handler_ref() is None
     assert not consumer_client.is_closed
 
@@ -1176,9 +1176,9 @@ def test_client_handed_out_by_sync_cache_survives_eviction_and_collection(fresh_
 
 @pytest.mark.asyncio
 async def test_client_handed_out_by_async_cache_survives_eviction_and_collection(fresh_llm_client_cache):
-    from litellm.caching.llm_caching_handler import LLMClientCache
-    from litellm.llms.custom_httpx.http_handler import get_async_httpx_client
-    from litellm.types.utils import LlmProviders
+    from embrouter.caching.llm_caching_handler import LLMClientCache
+    from embrouter.llms.custom_httpx.http_handler import get_async_httpx_client
+    from embrouter.types.utils import LlmProviders
 
     handler = get_async_httpx_client(llm_provider=LlmProviders.OPENAI)
     consumer_client = handler.client
@@ -1186,7 +1186,7 @@ async def test_client_handed_out_by_async_cache_survives_eviction_and_collection
 
     assert not consumer_client.is_closed
 
-    litellm.in_memory_llm_clients_cache = LLMClientCache()
+    embrouter.in_memory_llm_clients_cache = LLMClientCache()
     del handler
     gc.collect()
     await asyncio.sleep(0.1)
@@ -1215,7 +1215,7 @@ def _cookie_recorder():
 
 @pytest.mark.asyncio
 async def test_async_client_never_replays_one_upstreams_cookie_to_another():
-    """LiteLLM's async clients are pooled and shared by every caller, so a cookie one
+    """EmbRouter's async clients are pooled and shared by every caller, so a cookie one
     upstream sets would be attached to every later request on a matching domain, reaching
     a different tenant's upstream. The client must persist no response cookie."""
     handler, seen = _cookie_recorder()
@@ -1248,7 +1248,7 @@ def test_sync_client_never_replays_one_upstreams_cookie_to_another():
 
 @pytest.mark.asyncio
 async def test_aiohttp_session_never_replays_one_upstreams_cookie_to_another():
-    """The httpx jar is not the only one. AiohttpTransport is litellm's default transport
+    """The httpx jar is not the only one. AiohttpTransport is embrouter's default transport
     and the aiohttp ClientSession keeps its own cookie jar, which httpx-level assertions
     cannot see, so blocking only the httpx jar leaves the leak intact on the real path.
 
@@ -1259,7 +1259,7 @@ async def test_aiohttp_session_never_replays_one_upstreams_cookie_to_another():
 
     http_handler = AsyncHTTPHandler(timeout=61.0)
     transport = http_handler.client._transport
-    assert isinstance(transport, LiteLLMAiohttpTransport), "aiohttp is no longer the default transport"
+    assert isinstance(transport, EmbRouterAiohttpTransport), "aiohttp is no longer the default transport"
 
     session = transport.client() if callable(transport.client) else transport.client
     jar = session.cookie_jar
@@ -1279,7 +1279,7 @@ def _mint_session_on_dead_loop(handler: AsyncHTTPHandler) -> ClientSession:
     session outlives its loop and can only ever be disposed loop-lessly.
     """
     transport = handler.client._transport
-    assert isinstance(transport, LiteLLMAiohttpTransport)
+    assert isinstance(transport, EmbRouterAiohttpTransport)
     loop = asyncio.new_event_loop()
 
     async def _create() -> ClientSession:
@@ -1314,7 +1314,7 @@ async def test_finalizer_with_running_loop_schedules_close_and_holds_task_ref():
     result may be collected before it runs, leaving the session unclosed."""
     handler = AsyncHTTPHandler(timeout=61.0)
     transport = handler.client._transport
-    assert isinstance(transport, LiteLLMAiohttpTransport)
+    assert isinstance(transport, EmbRouterAiohttpTransport)
     session = transport._get_valid_client_session()
     assert not session.closed
     del transport
@@ -1337,19 +1337,19 @@ async def test_sync_close_helper_respects_session_ownership():
     shared session (e.g. the proxy's) must never be closed by a handler."""
     owned_handler = AsyncHTTPHandler(timeout=61.0)
     owned_transport = owned_handler.client._transport
-    assert isinstance(owned_transport, LiteLLMAiohttpTransport)
+    assert isinstance(owned_transport, EmbRouterAiohttpTransport)
     owned_session = owned_transport._get_valid_client_session()
 
-    baseline = set(LiteLLMAiohttpTransport._background_close_tasks)
+    baseline = set(EmbRouterAiohttpTransport._background_close_tasks)
     owned_handler._dispose_wrapped_aiohttp_session()
-    scheduled = LiteLLMAiohttpTransport._background_close_tasks - baseline
+    scheduled = EmbRouterAiohttpTransport._background_close_tasks - baseline
     await asyncio.gather(*scheduled)
     assert owned_session.closed
 
     shared_session = ClientSession()
     shared_handler = AsyncHTTPHandler(timeout=61.0, shared_session=shared_session)
     shared_transport = shared_handler.client._transport
-    assert isinstance(shared_transport, LiteLLMAiohttpTransport)
+    assert isinstance(shared_transport, EmbRouterAiohttpTransport)
     assert shared_transport._owns_session is False
 
     shared_handler._dispose_wrapped_aiohttp_session()
@@ -1489,8 +1489,8 @@ async def test_async_handler_honours_proxy_env_for_every_transport(
     monkeypatch.setenv("HTTP_PROXY", proxy_url)
     monkeypatch.delenv("NO_PROXY", raising=False)
     monkeypatch.delenv("no_proxy", raising=False)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", disable_aiohttp_transport)
-    monkeypatch.setattr(litellm, "force_ipv4", force_ipv4)
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", disable_aiohttp_transport)
+    monkeypatch.setattr(embrouter, "force_ipv4", force_ipv4)
 
     handler = AsyncHTTPHandler()
     try:
@@ -1508,7 +1508,7 @@ def test_sync_handler_honours_proxy_env(forward_proxy_server, monkeypatch: pytes
     monkeypatch.setenv("HTTP_PROXY", proxy_url)
     monkeypatch.delenv("NO_PROXY", raising=False)
     monkeypatch.delenv("no_proxy", raising=False)
-    monkeypatch.setattr(litellm, "force_ipv4", force_ipv4)
+    monkeypatch.setattr(embrouter, "force_ipv4", force_ipv4)
 
     handler = HTTPHandler()
     try:
@@ -1522,11 +1522,11 @@ def test_sync_handler_honours_proxy_env(forward_proxy_server, monkeypatch: pytes
 
 @pytest.mark.asyncio
 async def test_force_ipv4_httpx_transport_honours_no_proxy(keepalive_server, monkeypatch: pytest.MonkeyPatch):
-    """NO_PROXY hosts must still go direct when the proxy mounts are supplied by litellm instead of httpx."""
+    """NO_PROXY hosts must still go direct when the proxy mounts are supplied by embrouter instead of httpx."""
     monkeypatch.setenv("HTTP_PROXY", "http://proxy.invalid:3128")
     monkeypatch.setenv("NO_PROXY", "127.0.0.1")
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "force_ipv4", True)
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(embrouter, "force_ipv4", True)
 
     handler = AsyncHTTPHandler()
     try:
@@ -1643,8 +1643,8 @@ async def test_force_ipv4_https_proxy_mount_uses_handler_ca_bundle(
     monkeypatch.setenv("HTTPS_PROXY", proxy_url)
     monkeypatch.delenv("NO_PROXY", raising=False)
     monkeypatch.delenv("no_proxy", raising=False)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", True)
-    monkeypatch.setattr(litellm, "force_ipv4", True)
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", True)
+    monkeypatch.setattr(embrouter, "force_ipv4", True)
 
     handler = AsyncHTTPHandler(ssl_verify=ca_pem)
     try:
@@ -1662,7 +1662,7 @@ def test_sync_force_ipv4_https_proxy_mount_uses_handler_ca_bundle(
     monkeypatch.setenv("HTTPS_PROXY", proxy_url)
     monkeypatch.delenv("NO_PROXY", raising=False)
     monkeypatch.delenv("no_proxy", raising=False)
-    monkeypatch.setattr(litellm, "force_ipv4", True)
+    monkeypatch.setattr(embrouter, "force_ipv4", True)
 
     handler = HTTPHandler(ssl_verify=ca_pem)
     try:
@@ -1803,26 +1803,26 @@ async def test_bounded_get_closes_stream_on_cancellation(respx_mock, monkeypatch
 
 @pytest.mark.asyncio
 async def test_http2_flag_bypasses_aiohttp_transport(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", False)
-    monkeypatch.setattr(litellm, "force_ipv4", False)
-    monkeypatch.delenv("LITELLM_HTTP2", raising=False)
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", False)
+    monkeypatch.setattr(embrouter, "force_ipv4", False)
+    monkeypatch.delenv("EMBROUTER_HTTP2", raising=False)
     monkeypatch.delenv("DISABLE_AIOHTTP_TRANSPORT", raising=False)
 
-    monkeypatch.setattr(litellm, "http2", True)
+    monkeypatch.setattr(embrouter, "http2", True)
     assert AsyncHTTPHandler._should_use_aiohttp_transport() is False
     assert AsyncHTTPHandler._create_async_transport() is None
 
-    monkeypatch.setattr(litellm, "http2", False)
-    monkeypatch.setenv("LITELLM_HTTP2", "True")
+    monkeypatch.setattr(embrouter, "http2", False)
+    monkeypatch.setenv("EMBROUTER_HTTP2", "True")
     assert AsyncHTTPHandler._should_use_aiohttp_transport() is False
     assert AsyncHTTPHandler._create_async_transport() is None
 
 
 @pytest.mark.asyncio
 async def test_http2_disabled_by_default(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setattr(litellm, "http2", False)
-    monkeypatch.delenv("LITELLM_HTTP2", raising=False)
+    monkeypatch.setattr(embrouter, "http2", False)
+    monkeypatch.delenv("EMBROUTER_HTTP2", raising=False)
     monkeypatch.delenv("DISABLE_AIOHTTP_TRANSPORT", raising=False)
-    monkeypatch.setattr(litellm, "disable_aiohttp_transport", False)
+    monkeypatch.setattr(embrouter, "disable_aiohttp_transport", False)
 
     assert AsyncHTTPHandler._should_use_aiohttp_transport() is True

@@ -12,33 +12,33 @@ from typing import TYPE_CHECKING, Final, Literal, Optional, Protocol
 import httpx
 from typing_extensions import NotRequired, ReadOnly, TypedDict, Unpack
 
-from litellm._logging import verbose_proxy_logger
-from litellm._version import version as litellm_version
-from litellm.exceptions import GuardrailRaisedException, Timeout
-from litellm.integrations.custom_guardrail import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter._version import version as embrouter_version
+from embrouter.exceptions import GuardrailRaisedException, Timeout
+from embrouter.integrations.custom_guardrail import (
     CustomGuardrail,
     log_guardrail_information,
 )
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.utils import GenericGuardrailAPIInputs
+from embrouter.types.guardrails import GuardrailEventHooks
+from embrouter.types.utils import GenericGuardrailAPIInputs
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.types.llms.openai import (
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.types.llms.openai import (
         AllMessageValues,
         ChatCompletionToolCallChunk,
         ChatCompletionToolParam,
     )
-    from litellm.types.utils import ChatCompletionMessageToolCall
+    from embrouter.types.utils import ChatCompletionMessageToolCall
 
 GUARDRAIL_NAME: Final = "deepkeep"
 
 # Default DeepKeep API endpoint path
-_DEEPKEEP_GUARDRAIL_ENDPOINT: Final = "/v3/openai/beta/litellm_basic_guardrail_api"
+_DEEPKEEP_GUARDRAIL_ENDPOINT: Final = "/v3/openai/beta/embrouter_basic_guardrail_api"
 
 
 class DeepKeepFirewallResponse(TypedDict):
@@ -68,7 +68,7 @@ class _CustomGuardrailOptions(TypedDict, total=False, extra_items=object):
 class _DeepKeepMetadataSource(TypedDict, total=False):
     """Typed read of the two untyped metadata mappings this guardrail merges."""
 
-    litellm_metadata: ReadOnly[Mapping[str, object]]
+    embrouter_metadata: ReadOnly[Mapping[str, object]]
     metadata: ReadOnly[Mapping[str, object]]
 
 
@@ -90,7 +90,7 @@ class DeepKeepGuardrailAPIError(Exception):
 
 class DeepKeepGuardrail(CustomGuardrail):
     """
-    DeepKeep AI Firewall integration for LiteLLM.
+    DeepKeep AI Firewall integration for EmbRouter.
 
     Provides content moderation, prompt injection detection, PII protection,
     and policy enforcement through the DeepKeep AI Firewall API.
@@ -98,10 +98,10 @@ class DeepKeepGuardrail(CustomGuardrail):
     DeepKeep's firewall evaluates LLM inputs and outputs against a configurable
     set of guardrails (detectors + actions) managed via the DeepKeep platform.
 
-    Configuration example (litellm config YAML):
+    Configuration example (embrouter config YAML):
         guardrails:
           - guardrail_name: deepkeep-firewall
-            litellm_params:
+            embrouter_params:
               guardrail: deepkeep
               mode: pre_call
               api_key: os.environ/DEEPKEEP_API_KEY
@@ -156,7 +156,7 @@ class DeepKeepGuardrail(CustomGuardrail):
         if extra_headers is not None and not isinstance(extra_headers, Mapping):
             verbose_proxy_logger.warning(
                 "DeepKeep guardrail ignoring `extra_headers`: expected a mapping of header name to value, got %s. "
-                "`litellm_params.extra_headers` is a list of header names to forward and is not supported by this guardrail",
+                "`embrouter_params.extra_headers` is a list of header names to forward and is not supported by this guardrail",
                 type(extra_headers).__name__,
             )
         self.extra_headers: dict[str, str] = dict(extra_headers) if isinstance(extra_headers, Mapping) else {}
@@ -192,9 +192,9 @@ class DeepKeepGuardrail(CustomGuardrail):
         """
         result_metadata: Final[dict[str, object]] = {}
 
-        litellm_metadata: Final = request_data.get("litellm_metadata", {})
+        embrouter_metadata: Final = request_data.get("embrouter_metadata", {})
         top_level_metadata: Final = request_data.get("metadata", {})
-        metadata_dict: Final[Mapping[str, object]] = {**top_level_metadata, **litellm_metadata}
+        metadata_dict: Final[Mapping[str, object]] = {**top_level_metadata, **embrouter_metadata}
 
         if not metadata_dict:
             return result_metadata
@@ -236,7 +236,7 @@ class DeepKeepGuardrail(CustomGuardrail):
         *,
         inputs: GenericGuardrailAPIInputs,
         input_type: Literal["request", "response"],
-        logging_obj: Optional["LiteLLMLoggingObj"],
+        logging_obj: Optional["EmbRouterLoggingObj"],
         error: Exception,
         http_status_code: int | None = None,
     ) -> GenericGuardrailAPIInputs:
@@ -244,13 +244,13 @@ class DeepKeepGuardrail(CustomGuardrail):
         status_suffix: Final = f" http_status_code={http_status_code}" if http_status_code else ""
         verbose_proxy_logger.critical(
             "DeepKeep guardrail unreachable (fail-open). Proceeding without guardrail.%s "
-            "guardrail_name=%s api_base=%s input_type=%s litellm_call_id=%s litellm_trace_id=%s",
+            "guardrail_name=%s api_base=%s input_type=%s embrouter_call_id=%s embrouter_trace_id=%s",
             status_suffix,
             getattr(self, "guardrail_name", None),
             getattr(self, "api_base", None),
             input_type,
-            getattr(logging_obj, "litellm_call_id", None) if logging_obj else None,
-            getattr(logging_obj, "litellm_trace_id", None) if logging_obj else None,
+            getattr(logging_obj, "embrouter_call_id", None) if logging_obj else None,
+            getattr(logging_obj, "embrouter_trace_id", None) if logging_obj else None,
             exc_info=error,
         )
         return_inputs: Final[GenericGuardrailAPIInputs] = {}
@@ -262,7 +262,7 @@ class DeepKeepGuardrail(CustomGuardrail):
         error: Exception,
         inputs: GenericGuardrailAPIInputs,
         input_type: Literal["request", "response"],
-        logging_obj: Optional["LiteLLMLoggingObj"],
+        logging_obj: Optional["EmbRouterLoggingObj"],
         is_unreachable: bool = True,
     ) -> GenericGuardrailAPIInputs:
         """Handle errors from the DeepKeep API with fail-open/fail-closed logic."""
@@ -327,12 +327,12 @@ class DeepKeepGuardrail(CustomGuardrail):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict,
         input_type: Literal["request", "response"],
-        logging_obj: Optional["LiteLLMLoggingObj"] = None,
+        logging_obj: Optional["EmbRouterLoggingObj"] = None,
     ) -> GenericGuardrailAPIInputs:
         """
         Apply the DeepKeep AI Firewall guardrail to the given inputs.
 
-        This is the main method called by the LiteLLM framework for guardrail evaluation.
+        This is the main method called by the EmbRouter framework for guardrail evaluation.
 
         Args:
             inputs: Dictionary containing texts, images, tools, tool_calls, structured_messages.
@@ -372,11 +372,11 @@ class DeepKeepGuardrail(CustomGuardrail):
 
         # Build request payload
         guardrail_request: Final[dict[str, object]] = {
-            "litellm_call_id": (logging_obj.litellm_call_id if logging_obj else None),
-            "litellm_trace_id": (logging_obj.litellm_trace_id if logging_obj else None),
+            "embrouter_call_id": (logging_obj.embrouter_call_id if logging_obj else None),
+            "embrouter_trace_id": (logging_obj.embrouter_trace_id if logging_obj else None),
             "texts": texts,
             "request_data": user_metadata,
-            "litellm_version": litellm_version,
+            "embrouter_version": embrouter_version,
             "images": images,
             "tools": tools,
             "structured_messages": structured_messages,
@@ -438,7 +438,7 @@ class DeepKeepGuardrail(CustomGuardrail):
 
     @staticmethod
     def get_config_model() -> type | None:
-        from litellm.types.proxy.guardrails.guardrail_hooks.deepkeep import (
+        from embrouter.types.proxy.guardrails.guardrail_hooks.deepkeep import (
             DeepKeepGuardrailConfigModel,
         )
 

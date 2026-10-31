@@ -6,32 +6,32 @@ import aiohttp
 import httpx
 from aiohttp import ClientSession, FormData
 
-import litellm
-import litellm.litellm_core_utils
-import litellm.types
-import litellm.types.utils
-from litellm.llms.base_llm.chat.transformation import BaseConfig
-from litellm.llms.base_llm.image_variations.transformation import (
+import embrouter
+import embrouter.embrouter_core_utils
+import embrouter.types
+import embrouter.types.utils
+from embrouter.llms.base_llm.chat.transformation import BaseConfig
+from embrouter.llms.base_llm.image_variations.transformation import (
     BaseImageVariationConfig,
 )
-from litellm.llms.custom_httpx.aiohttp_transport import LiteLLMAiohttpTransport
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.llms.custom_httpx.aiohttp_transport import EmbRouterAiohttpTransport
+from embrouter.llms.custom_httpx.http_handler import (
     AsyncHTTPHandler,
     HTTPHandler,
     _get_httpx_client,
     get_ssl_configuration,
 )
-from litellm.types.llms.openai import FileTypes
-from litellm.types.utils import HttpHandlerRequestFields, ImageResponse, LlmProviders
-from litellm.utils import CustomStreamWrapper, ModelResponse, ProviderConfigManager
+from embrouter.types.llms.openai import FileTypes
+from embrouter.types.utils import HttpHandlerRequestFields, ImageResponse, LlmProviders
+from embrouter.utils import CustomStreamWrapper, ModelResponse, ProviderConfigManager
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
-    from litellm.litellm_core_utils.tokenizer import Encoding as Tokenizer
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
+    from embrouter.embrouter_core_utils.tokenizer import Encoding as Tokenizer
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
 
 DEFAULT_TIMEOUT: Final = 600
 
@@ -40,7 +40,7 @@ class BaseLLMAIOHTTPHandler:
     def __init__(
         self,
         client_session: aiohttp.ClientSession | None = None,
-        transport: LiteLLMAiohttpTransport | None = None,
+        transport: EmbRouterAiohttpTransport | None = None,
         connector: aiohttp.BaseConnector | None = None,
     ):
         self.client_session = client_session
@@ -52,7 +52,7 @@ class BaseLLMAIOHTTPHandler:
         self.connector = connector
         self._owns_connector = connector is None  # Track if we own the connector for cleanup
 
-    def _get_or_create_transport(self) -> LiteLLMAiohttpTransport | None:
+    def _get_or_create_transport(self) -> EmbRouterAiohttpTransport | None:
         """Get existing transport or create a new one if needed."""
         if self.transport:
             return self.transport
@@ -164,7 +164,7 @@ class BaseLLMAIOHTTPHandler:
         headers: dict,
         data: dict | None,
         timeout: float | httpx.Timeout,
-        litellm_params: dict,
+        embrouter_params: dict,
         form_data: FormData | None = None,
         stream: bool = False,
     ) -> aiohttp.ClientResponse:
@@ -208,7 +208,7 @@ class BaseLLMAIOHTTPHandler:
         headers: dict,
         data: dict,
         timeout: float | httpx.Timeout | None,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool = False,
         files: dict | None = None,
         content: str | bytes | Iterable[bytes] | AsyncIterable[bytes] | None = None,
@@ -233,7 +233,7 @@ class BaseLLMAIOHTTPHandler:
             except httpx.HTTPStatusError as e:
                 hit_max_retry = i + 1 == max_retry_on_unprocessable_entity_error
                 should_retry = provider_config.should_retry_llm_api_inside_llm_translation_on_http_error(
-                    e=e, litellm_params=litellm_params
+                    e=e, embrouter_params=embrouter_params
                 )
                 if should_retry and not hit_max_retry:
                     data = provider_config.transform_request_on_unprocessable_entity_error(e=e, request_data=data)
@@ -263,10 +263,10 @@ class BaseLLMAIOHTTPHandler:
         timeout: float | httpx.Timeout,
         model: str,
         model_response: ModelResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         messages: list,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         encoding: "Tokenizer | None",
         api_key: str | None = None,
         client: ClientSession | None = None,
@@ -278,7 +278,7 @@ class BaseLLMAIOHTTPHandler:
             headers=headers,
             data=data,
             timeout=timeout,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             stream=False,
         )
         _transformed_response: Final = await provider_config.transform_response(
@@ -290,7 +290,7 @@ class BaseLLMAIOHTTPHandler:
             request_data=data,
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             encoding=encoding,
         )
         return _transformed_response
@@ -303,10 +303,10 @@ class BaseLLMAIOHTTPHandler:
         custom_llm_provider: str,
         model_response: ModelResponse,
         encoding,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         optional_params: dict,
         timeout: float | httpx.Timeout,
-        litellm_params: dict,
+        embrouter_params: dict,
         acompletion: bool,
         stream: bool | None = False,
         fake_stream: bool = False,
@@ -315,7 +315,7 @@ class BaseLLMAIOHTTPHandler:
         client: HTTPHandler | AsyncHTTPHandler | ClientSession | None = None,
     ):
         provider_config: Final = ProviderConfigManager.get_provider_chat_config(
-            model=model, provider=litellm.LlmProviders(custom_llm_provider)
+            model=model, provider=embrouter.LlmProviders(custom_llm_provider)
         )
         if provider_config is None:
             raise ValueError(f"Provider config not found for model: {model} and provider: {custom_llm_provider}")
@@ -326,7 +326,7 @@ class BaseLLMAIOHTTPHandler:
             model=model,
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             api_base=api_base,
         )
 
@@ -335,7 +335,7 @@ class BaseLLMAIOHTTPHandler:
             api_key=api_key,
             model=model,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             stream=stream,
         )
 
@@ -343,7 +343,7 @@ class BaseLLMAIOHTTPHandler:
             model=model,
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 
@@ -372,7 +372,7 @@ class BaseLLMAIOHTTPHandler:
                 api_key=api_key,
                 messages=messages,
                 optional_params=optional_params,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 encoding=encoding,
                 client=(client if client is not None and isinstance(client, ClientSession) else None),
             )
@@ -391,7 +391,7 @@ class BaseLLMAIOHTTPHandler:
                 timeout=timeout,
                 fake_stream=fake_stream,
                 client=(client if client is not None and isinstance(client, HTTPHandler) else None),
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
             )
             return CustomStreamWrapper(
                 completion_stream=completion_stream,
@@ -411,7 +411,7 @@ class BaseLLMAIOHTTPHandler:
             api_base=api_base,
             headers=headers,
             timeout=timeout,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             data=data,
         )
         return provider_config.transform_response(
@@ -423,7 +423,7 @@ class BaseLLMAIOHTTPHandler:
             request_data=data,
             messages=messages,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             encoding=encoding,
         )
 
@@ -436,7 +436,7 @@ class BaseLLMAIOHTTPHandler:
         model: str,
         messages: list,
         logging_obj,
-        litellm_params: dict,
+        embrouter_params: dict,
         timeout: float | httpx.Timeout,
         fake_stream: bool = False,
         client: HTTPHandler | None = None,
@@ -456,7 +456,7 @@ class BaseLLMAIOHTTPHandler:
             headers=headers,
             data=data,
             timeout=timeout,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             stream=stream,
         )
 
@@ -487,9 +487,9 @@ class BaseLLMAIOHTTPHandler:
         headers: dict,
         data: HttpHandlerRequestFields,
         timeout: float,
-        litellm_params: dict,
+        embrouter_params: dict,
         model_response: ImageResponse,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         api_key: str,
         model: str | None,
         image: FileTypes,
@@ -513,7 +513,7 @@ class BaseLLMAIOHTTPHandler:
             data=None if form_data is not None else cast(dict, data),
             form_data=form_data,
             timeout=timeout,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             stream=False,
         )
 
@@ -536,7 +536,7 @@ class BaseLLMAIOHTTPHandler:
             request_data=cast(dict, data),
             image=image,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             encoding=None,
             api_key=api_key,
         )
@@ -549,9 +549,9 @@ class BaseLLMAIOHTTPHandler:
         image: FileTypes,
         timeout: float,
         custom_llm_provider: str,
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         print_verbose: Callable | None = None,
         api_base: str | None = None,
         aimage_variation: bool = False,
@@ -576,7 +576,7 @@ class BaseLLMAIOHTTPHandler:
             api_key=api_key,
             model=model,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             stream=False,
         )
 
@@ -586,7 +586,7 @@ class BaseLLMAIOHTTPHandler:
             model=model,
             messages=[{"role": "user", "content": "test"}],
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             api_base=api_base,
         )
 
@@ -608,7 +608,7 @@ class BaseLLMAIOHTTPHandler:
             },
         )
 
-        if litellm_params.get("async_call", False):
+        if embrouter_params.get("async_call", False):
             return self.async_image_variations(
                 api_base=api_base,
                 data=data,
@@ -619,7 +619,7 @@ class BaseLLMAIOHTTPHandler:
                 timeout=timeout,
                 client=client,
                 optional_params=optional_params,
-                litellm_params=litellm_params,
+                embrouter_params=embrouter_params,
                 image=image,
                 provider_config=provider_config,
             )
@@ -635,7 +635,7 @@ class BaseLLMAIOHTTPHandler:
             api_base=api_base,
             headers=headers,
             timeout=timeout,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             stream=False,
             data=data.get("data") or {},
             files=data.get("files"),
@@ -662,7 +662,7 @@ class BaseLLMAIOHTTPHandler:
             request_data=cast(dict, data),
             image=image,
             optional_params=optional_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             encoding=None,
             api_key=api_key,
         )

@@ -1,7 +1,7 @@
 import os
 import pytest
 from unittest.mock import patch
-from litellm.llms.baseten.chat import BasetenConfig
+from embrouter.llms.baseten.chat import BasetenConfig
 
 
 class TestBasetenRouting:

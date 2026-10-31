@@ -10,32 +10,32 @@ from typing import Any, Final, Protocol
 from fastapi import HTTPException, Request, status
 from pydantic import PositiveInt, TypeAdapter, ValidationError
 
-import litellm
-from litellm import Router, constants, provider_list
-from litellm._logging import verbose_proxy_logger
-from litellm.constants import (
+import embrouter
+from embrouter import Router, constants, provider_list
+from embrouter._logging import verbose_proxy_logger
+from embrouter.constants import (
     BATCH_ENQUEUED_TOKEN_LIMIT_METADATA_KEY,
     EMPTY_MAPPING,
     INVALID_VIRTUAL_KEY_ERROR_MARKER,
     MINIMUM_CUSTOM_KEY_LENGTH,
     STANDARD_CUSTOMER_ID_HEADERS,
 )
-from litellm.litellm_core_utils.safe_json_loads import safe_json_loads
-from litellm.litellm_core_utils.url_utils import (
+from embrouter.embrouter_core_utils.safe_json_loads import safe_json_loads
+from embrouter.embrouter_core_utils.url_utils import (
     SSRFError,
     is_url_destination_allowed_by_host,
     provider_url_destination_candidates,
     validate_url,
 )
-from litellm.llms.azure.passthrough.transformation import azure_router_model_in_endpoint
-from litellm.llms.nvidia_nim.passthrough.transformation import nvidia_nim_model_group_in_path
-from litellm.proxy._types import *
-from litellm.proxy.common_utils.http_parsing_utils import extract_nested_form_metadata
-from litellm.types.passthrough_endpoints.pass_through_endpoints import (
-    LITELLM_PASS_THROUGH_ENDPOINT_MARKER,
+from embrouter.llms.azure.passthrough.transformation import azure_router_model_in_endpoint
+from embrouter.llms.nvidia_nim.passthrough.transformation import nvidia_nim_model_group_in_path
+from embrouter.proxy._types import *
+from embrouter.proxy.common_utils.http_parsing_utils import extract_nested_form_metadata
+from embrouter.types.passthrough_endpoints.pass_through_endpoints import (
+    EMBROUTER_PASS_THROUGH_ENDPOINT_MARKER,
 )
-from litellm.types.router import CONFIGURABLE_CLIENTSIDE_AUTH_PARAMS, Deployment
-from litellm.types.utils import CustomPricingLiteLLMParams
+from embrouter.types.router import CONFIGURABLE_CLIENTSIDE_AUTH_PARAMS, Deployment
+from embrouter.types.utils import CustomPricingEmbRouterParams
 
 
 def is_invalid_virtual_key_error(exception: BaseException | None) -> bool:
@@ -141,7 +141,7 @@ def check_complete_credentials(request_body: dict) -> bool:
     # ``async_safe_get`` do. Mirror that here so admins who explicitly
     # disabled URL validation (e.g. for an internal Ollama endpoint they
     # accept the SSRF risk for) aren't blocked at the proxy boundary.
-    if getattr(litellm, "user_url_validation", False):
+    if getattr(embrouter, "user_url_validation", False):
         for url_field in ("api_base", "base_url"):
             url_value = request_body.get(url_field)
             if not url_value or not isinstance(url_value, str):
@@ -221,14 +221,14 @@ def _allow_model_level_clientside_configurable_parameters(
 
 
 # Config dicts whose entries are spread as ``**dict`` into outbound LLM
-# API calls. ``litellm_embedding_config`` is consumed by the Milvus
+# API calls. ``embrouter_embedding_config`` is consumed by the Milvus
 # vector store transformer. ``extra_body`` is the OpenAI-SDK passthrough
 # container: provider modules pull provider-auth fields out of it
 # (e.g. Azure's ``extra_body.azure_ad_token``, Bedrock's
 # ``extra_body.aws_web_identity_token``) without re-validating, so the
 # banned-key check has to descend into it the same way it descends into
-# ``litellm_embedding_config``.
-_NESTED_CONFIG_KEYS: Final[tuple[str, ...]] = ("litellm_embedding_config", "extra_body")
+# ``embrouter_embedding_config``.
+_NESTED_CONFIG_KEYS: Final[tuple[str, ...]] = ("embrouter_embedding_config", "extra_body")
 
 # Metadata containers that carry per-request configuration consumed by the
 # observability callbacks. The same banned-param list applies — a value
@@ -236,7 +236,7 @@ _NESTED_CONFIG_KEYS: Final[tuple[str, ...]] = ("litellm_embedding_config", "extr
 # leaks the same credentials as the root-level ``langfuse_host``, but the
 # original check only walked the request-body root, so the metadata path
 # was an unintentional bypass.
-_NESTED_METADATA_KEYS: Final[tuple[str, ...]] = ("metadata", "litellm_metadata")
+_NESTED_METADATA_KEYS: Final[tuple[str, ...]] = ("metadata", "embrouter_metadata")
 
 # Banned request-body params. The same list applies to every entry in
 # ``_NESTED_CONFIG_KEYS`` (dicts spread as ``**kwargs`` into outbound
@@ -282,7 +282,7 @@ def _build_banned_observability_params() -> frozenset[str]:
     """Derive the observability ban list from the canonical allowlist.
 
     ``_supported_callback_params`` and ``_request_blocked_callback_params`` in
-    ``litellm/litellm_core_utils/initialize_dynamic_callback_params.py`` is
+    ``embrouter/embrouter_core_utils/initialize_dynamic_callback_params.py`` is
     the single place that enumerates every observability field integrations
     resolve from kwargs/metadata, plus fields that integration code explicitly
     blocks from request-supplied callback params. Subtract the small set of
@@ -291,7 +291,7 @@ def _build_banned_observability_params() -> frozenset[str]:
     added to the canonical allowlist are banned by default, which is the safe
     failure mode.
     """
-    from litellm.litellm_core_utils.initialize_dynamic_callback_params import (
+    from embrouter.embrouter_core_utils.initialize_dynamic_callback_params import (
         _request_blocked_callback_params,
         _supported_callback_params,
     )
@@ -371,7 +371,7 @@ _BANNED_REQUEST_BODY_PARAMS: Final[tuple[str, ...]] = (
     # integrations are covered automatically. Sorted for stable iteration
     # order and reviewable diffs.
     *sorted(_build_banned_observability_params()),
-    *sorted(CustomPricingLiteLLMParams.model_fields.keys()),
+    *sorted(CustomPricingEmbRouterParams.model_fields.keys()),
 )
 
 
@@ -434,7 +434,7 @@ def _iter_fallback_field_values(request_body: Mapping[str, object]) -> Iterator[
 
 
 def _iter_fallback_targets(value: object, depth: int) -> Iterator[str | Mapping[str, object]]:
-    if depth > 2 * litellm.ROUTER_MAX_FALLBACKS:
+    if depth > 2 * embrouter.ROUTER_MAX_FALLBACKS:
         raise ValueError("Rejected Request: fallback nesting exceeds the allowed validation depth.")
     if not isinstance(value, list):
         return
@@ -459,7 +459,7 @@ def iter_request_fallback_targets(request_body: Mapping[str, object]) -> Iterato
 
 
 def _reject_url_valued_fallback_target(value: str) -> None:
-    allowed_hosts: Final = getattr(litellm, "provider_url_destination_allowed_hosts", []) or []
+    allowed_hosts: Final = getattr(embrouter, "provider_url_destination_allowed_hosts", []) or []
     for candidate in provider_url_destination_candidates(value):
         if not candidate.lower().startswith(("http://", "https://")):
             continue
@@ -468,7 +468,7 @@ def _reject_url_valued_fallback_target(value: str) -> None:
         raise ValueError(
             f"Rejected Request: URL-valued fallback destination '{value}' is not allowed. "
             "Configure custom endpoints with api_base instead, or add the destination host to "
-            "`provider_url_destination_allowed_hosts` in litellm_settings."
+            "`provider_url_destination_allowed_hosts` in embrouter_settings."
         )
 
 
@@ -495,7 +495,7 @@ def is_request_body_safe(request_body: dict, general_settings: dict, llm_router:
 
     Iterative single-level descent into ``_NESTED_CONFIG_KEYS`` (rather
     than recursion) covers nested-config attacks like Milvus's
-    ``litellm_embedding_config.api_base`` (VERIA-6) without exposing a
+    ``embrouter_embedding_config.api_base`` (VERIA-6) without exposing a
     recursion-depth DoS surface.
     """
     if "model_list" in request_body:
@@ -524,12 +524,12 @@ def is_request_body_safe(request_body: dict, general_settings: dict, llm_router:
                 _reject_url_valued_fallback_target(target_model)
         elif isinstance(target, str):
             _reject_url_valued_fallback_target(target)
-    litellm_params: Final = _coerce_metadata_to_dict(request_body.get("litellm_params"))
-    if litellm_params is not None:
-        litellm_params_metadata: Final = _coerce_metadata_to_dict(litellm_params.get("metadata"))
-        if litellm_params_metadata is not None:
+    embrouter_params: Final = _coerce_metadata_to_dict(request_body.get("embrouter_params"))
+    if embrouter_params is not None:
+        embrouter_params_metadata: Final = _coerce_metadata_to_dict(embrouter_params.get("metadata"))
+        if embrouter_params_metadata is not None:
             _check_banned_params(
-                litellm_params_metadata,
+                embrouter_params_metadata,
                 general_settings,
                 llm_router,
                 model,
@@ -540,16 +540,16 @@ def is_request_body_safe(request_body: dict, general_settings: dict, llm_router:
 def _coerce_metadata_to_dict(value: object) -> dict[str, object] | None:
     """Return ``value`` as a dict, parsing it from JSON if delivered as a string.
 
-    Multipart/form-data and ``extra_body`` callers send ``litellm_metadata``
+    Multipart/form-data and ``extra_body`` callers send ``embrouter_metadata``
     as a JSON-encoded string; the proxy parses it into a dict later in
-    ``add_litellm_data_to_request``, but the auth-time bouncer runs first
+    ``add_embrouter_data_to_request``, but the auth-time bouncer runs first
     and would otherwise miss the banned-param check on a still-stringified
     metadata blob.
     """
     if isinstance(value, dict):
         return value
     if isinstance(value, str):
-        from litellm.litellm_core_utils.safe_json_loads import safe_json_loads
+        from embrouter.embrouter_core_utils.safe_json_loads import safe_json_loads
 
         parsed: Final = safe_json_loads(value)
         if isinstance(parsed, dict):
@@ -574,7 +574,7 @@ async def pre_db_read_auth_checks(
     Raises:
     - HTTPException if request fails initial auth checks
     """
-    from litellm.proxy.proxy_server import general_settings, llm_router, premium_user
+    from embrouter.proxy.proxy_server import general_settings, llm_router, premium_user
 
     # Check 1. request size
     await check_if_request_size_is_safe(request=request)
@@ -629,16 +629,16 @@ def route_in_additonal_public_routes(current_route: str):
 
     Supports wildcard patterns (e.g., "/api/*" matches "/api/users", "/api/users/123")
 
-    In order to use this the litellm config.yaml should have the following in general_settings:
+    In order to use this the embrouter config.yaml should have the following in general_settings:
 
     ```yaml
     general_settings:
         master_key: sk-1234
-        public_routes: ["LiteLLMRoutes.public_routes", "/spend/calculate", "/api/*"]
+        public_routes: ["EmbRouterRoutes.public_routes", "/spend/calculate", "/api/*"]
     ```
     """
-    from litellm.proxy.auth.route_checks import RouteChecks
-    from litellm.proxy.proxy_server import general_settings, premium_user
+    from embrouter.proxy.auth.route_checks import RouteChecks
+    from embrouter.proxy.proxy_server import general_settings, premium_user
 
     try:
         if premium_user is not True:
@@ -850,7 +850,7 @@ async def check_if_request_size_is_safe(request: Request) -> bool:
         ProxyException: If the request size is too large
 
     """
-    from litellm.proxy.proxy_server import general_settings, premium_user
+    from embrouter.proxy.proxy_server import general_settings, premium_user
 
     max_request_size_mb: Final = general_settings.get("max_request_size_mb", None)
 
@@ -912,7 +912,7 @@ async def check_response_size_is_safe(response: object) -> bool:
 
     """
 
-    from litellm.proxy.proxy_server import general_settings, premium_user
+    from embrouter.proxy.proxy_server import general_settings, premium_user
 
     max_response_size_mb: Final = general_settings.get("max_response_size_mb", None)
     if max_response_size_mb is not None:
@@ -954,7 +954,7 @@ def _get_deployment_default_limit(model_name: str, field: str) -> int | None:
     the safest choice for load-balanced setups: it ensures no deployment is
     over-consumed regardless of which one actually serves a given request.
     """
-    from litellm.proxy.proxy_server import llm_router
+    from embrouter.proxy.proxy_server import llm_router
 
     if llm_router is None:
         return None
@@ -963,7 +963,7 @@ def _get_deployment_default_limit(model_name: str, field: str) -> int | None:
         return None
     limits: Final = []
     for deployment in deployments:
-        raw = deployment.get("litellm_params", {}).get(field)
+        raw = deployment.get("embrouter_params", {}).get(field)
         if raw is not None:
             try:
                 if isinstance(raw, (int, float, str, bytes, bytearray)):
@@ -1208,7 +1208,7 @@ def enforce_output_token_estimates_are_admin_only(
     that weakens a limit set above them. Gated on the resulting value rather
     than on presence, so a form resending the stored declaration stays a no-op.
     """
-    if user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN.value:
+    if user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN.value:
         return
     stored: Final[Mapping[str, object]] = existing_metadata or {}
     if _requested_output_token_estimates(data, stored) == (
@@ -1249,7 +1249,7 @@ def enforce_batch_enqueued_token_limit_is_admin_only(
     own batch quota. Gated on the resulting value rather than on presence, so a
     form resending the stored value stays a no-op.
     """
-    if user_api_key_dict.user_role == LitellmUserRoles.PROXY_ADMIN.value:
+    if user_api_key_dict.user_role == EmbrouterUserRoles.PROXY_ADMIN.value:
         return
     stored: Final[Mapping[str, object]] = existing_metadata or EMPTY_MAPPING
     requested: Final[Mapping[str, object]] = (
@@ -1515,11 +1515,11 @@ def get_customer_user_header_from_mapping(user_id_mapping) -> list | None:
     for item in items:
         if not isinstance(item, dict):
             continue
-        role = item.get("litellm_user_role")
+        role = item.get("embrouter_user_role")
         header_name = item.get("header_name")
         if role is None or not header_name:
             continue
-        if str(role).lower() == str(LitellmUserRoles.CUSTOMER).lower():
+        if str(role).lower() == str(EmbrouterUserRoles.CUSTOMER).lower():
             customer_headers_mappings.append(header_name.lower())
 
     if customer_headers_mappings:
@@ -1561,7 +1561,7 @@ def _coerce_user_id_to_str(value: object) -> str | None:
     Always drops non-string structured values (dict/list/tuple/set) because
     stringifying them produces garbage spend-log rows like
     ``"{'device_id': ...}"``. Strings that *decode* to a structured payload
-    are only rejected when ``litellm.validate_end_user_id_in_db`` is enabled
+    are only rejected when ``embrouter.validate_end_user_id_in_db`` is enabled
     — operators who currently pass JSON-encoded identifiers keep their
     existing behavior until they opt in. See
     auth_utils.py:get_end_user_id_from_request_body for the extraction chain.
@@ -1581,7 +1581,7 @@ def _coerce_user_id_to_str(value: object) -> str | None:
         # only when the operator has opted into end-user validation. Gating
         # behind the flag preserves backwards compatibility for deployments
         # that intentionally pass JSON-encoded user identifiers.
-        if litellm.validate_end_user_id_in_db and stripped[:1] in ("{", "["):
+        if embrouter.validate_end_user_id_in_db and stripped[:1] in ("{", "["):
             parsed: Final[object] = safe_json_loads(stripped)
             if isinstance(parsed, (dict, list)):
                 return None
@@ -1595,7 +1595,7 @@ def get_end_user_id_from_request_body(
 ) -> str | None:
     # Import general_settings here to avoid potential circular import issues at module level
     # and to ensure it's fetched at runtime.
-    from litellm.proxy.proxy_server import general_settings
+    from embrouter.proxy.proxy_server import general_settings
 
     # Check 1: Standard customer ID headers (always checked, no configuration required)
     customer_id: Final = _get_customer_id_from_standard_headers(request_headers=request_headers)
@@ -1642,7 +1642,7 @@ def get_end_user_id_from_request_body(
             return user_id_str
 
     def _as_dict(value: object) -> dict:
-        # metadata / litellm_metadata can arrive as JSON strings from
+        # metadata / embrouter_metadata can arrive as JSON strings from
         # multipart/form-data or extra_body; coerce so string-encoded
         # payloads can't evade end-user attribution.
         if isinstance(value, dict):
@@ -1652,9 +1652,9 @@ def get_end_user_id_from_request_body(
             return parsed if isinstance(parsed, dict) else {}
         return {}
 
-    # Check 4: 'litellm_metadata.user' in request_body (commonly Anthropic)
-    litellm_metadata: Final = _as_dict(request_body.get("litellm_metadata"))
-    user_id_str = _coerce_user_id_to_str(litellm_metadata.get("user"))
+    # Check 4: 'embrouter_metadata.user' in request_body (commonly Anthropic)
+    embrouter_metadata: Final = _as_dict(request_body.get("embrouter_metadata"))
+    user_id_str = _coerce_user_id_to_str(embrouter_metadata.get("user"))
     if user_id_str:
         return user_id_str
 
@@ -1676,7 +1676,7 @@ def get_end_user_id_from_request_body(
     return None
 
 
-MODEL_ROUTING_HEADER_NAME: Final = "x-litellm-model"
+MODEL_ROUTING_HEADER_NAME: Final = "x-embrouter-model"
 _MODEL_ROUTING_ROUTE_MARKERS: Final = (
     "/files",
     "/batches",
@@ -1781,7 +1781,7 @@ def _extract_models_from_managed_resource_id(
     candidates: Final[list[str]] = []
 
     try:
-        from litellm.proxy.openai_files_endpoints.common_utils import (
+        from embrouter.proxy.openai_files_endpoints.common_utils import (
             _is_base64_encoded_unified_file_id,
             decode_model_from_file_id,
             get_model_id_from_unified_batch_id,
@@ -1803,7 +1803,7 @@ def _extract_models_from_managed_resource_id(
         verbose_proxy_logger.debug("Unable to extract model from managed file/batch ID: %s", str(e))
 
     try:
-        from litellm.llms.base_llm.managed_resources.utils import parse_unified_id
+        from embrouter.llms.base_llm.managed_resources.utils import parse_unified_id
 
         parsed_id: Final = parse_unified_id(resource_id)
         if parsed_id:
@@ -1817,7 +1817,7 @@ def _extract_models_from_managed_resource_id(
 
     if resource_id_field in ("video_id", "character_id"):
         try:
-            from litellm.types.videos.utils import (
+            from embrouter.types.videos.utils import (
                 decode_character_id_with_provider,
                 decode_video_id_with_provider,
             )
@@ -1969,7 +1969,7 @@ def request_dispatched_to_pass_through_endpoint(request: Request | None) -> bool
     # Identity check against True (not truthiness): the marker is set to the literal
     # True, and this keeps a spec'd Mock request (whose attribute access yields truthy
     # child mocks) from being misread as a pass-through dispatch.
-    return getattr(endpoint, LITELLM_PASS_THROUGH_ENDPOINT_MARKER, False) is True
+    return getattr(endpoint, EMBROUTER_PASS_THROUGH_ENDPOINT_MARKER, False) is True
 
 
 def request_dispatched_to_provider_pass_through(request: Request) -> bool:
@@ -1990,7 +1990,7 @@ def get_model_from_request(
 
     Returns ``None`` when the request was dispatched to a user-defined pass-through
     endpoint: its body is forwarded verbatim to the configured upstream, so a
-    ``model`` field there names an upstream model, not a LiteLLM-managed one, and
+    ``model`` field there names an upstream model, not a EmbRouter-managed one, and
     enforcing key/team model allowlists against it would reject valid requests. The
     check reads the FastAPI-resolved endpoint (``request.scope["endpoint"]``), not the
     request path, so a custom path that collides with a built-in route never
@@ -2067,7 +2067,7 @@ def _router_model_from_azure_route(route: str, llm_router: Router | None) -> str
 
 
 def _model_from_bedrock_route(route: str) -> str | None:
-    from litellm.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
+    from embrouter.proxy.pass_through_endpoints.llm_passthrough_endpoints import (
         _extract_model_from_bedrock_endpoint,
         is_bedrock_count_tokens_endpoint,
     )

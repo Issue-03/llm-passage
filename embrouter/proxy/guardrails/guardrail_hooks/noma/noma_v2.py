@@ -1,6 +1,6 @@
 # +-------------------------------------------------------------+
 #
-#      Noma Security V2 Guardrail Integration for LiteLLM
+#      Noma Security V2 Guardrail Integration for EmbRouter
 #
 # +-------------------------------------------------------------+
 
@@ -12,29 +12,29 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any, Final, Literal, Optional, TypeAlias, cast
 from urllib.parse import urlparse
 
-from litellm._logging import verbose_proxy_logger
-from litellm.integrations.custom_guardrail import (
+from embrouter._logging import verbose_proxy_logger
+from embrouter.integrations.custom_guardrail import (
     CustomGuardrail,
     log_guardrail_information,
 )
-from litellm.litellm_core_utils.safe_json_dumps import safe_dumps
-from litellm.litellm_core_utils.safe_json_loads import safe_json_loads
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.embrouter_core_utils.safe_json_dumps import safe_dumps
+from embrouter.embrouter_core_utils.safe_json_loads import safe_json_loads
+from embrouter.llms.custom_httpx.http_handler import (
     get_async_httpx_client,
     httpxSpecialProvider,
 )
-from litellm.proxy.guardrails.guardrail_hooks.noma.noma import NomaBlockedMessage
-from litellm.types.guardrail_base_init import GuardrailBaseInitKwargs
-from litellm.types.guardrails import GuardrailEventHooks
-from litellm.types.utils import GenericGuardrailAPIInputs, GuardrailStatus
+from embrouter.proxy.guardrails.guardrail_hooks.noma.noma import NomaBlockedMessage
+from embrouter.types.guardrail_base_init import GuardrailBaseInitKwargs
+from embrouter.types.guardrails import GuardrailEventHooks
+from embrouter.types.utils import GenericGuardrailAPIInputs, GuardrailStatus
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.types.proxy.guardrails.guardrail_hooks.base import GuardrailConfigModel
 
 
 _DEFAULT_API_BASE: Final = "https://api.noma.security/"
-_AIDR_SCAN_ENDPOINT: Final = "/litellm/guardrail"
+_AIDR_SCAN_ENDPOINT: Final = "/embrouter/guardrail"
 _INTERVENED_INPUT_FIELDS: Final = ("texts", "images", "tools", "tool_calls")
 _DEFAULT_API_BASE_HOSTNAME: Final = urlparse(_DEFAULT_API_BASE).hostname
 
@@ -93,7 +93,7 @@ class NomaV2Guardrail(CustomGuardrail):
 
     @staticmethod
     def get_config_model() -> type["GuardrailConfigModel"] | None:
-        from litellm.types.proxy.guardrails.guardrail_hooks.noma import (
+        from embrouter.types.proxy.guardrails.guardrail_hooks.noma import (
             NomaV2GuardrailConfigModel,
         )
 
@@ -144,7 +144,7 @@ class NomaV2Guardrail(CustomGuardrail):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict,
         input_type: Literal["request", "response"],
-        logging_obj: Optional["LiteLLMLoggingObj"],
+        logging_obj: Optional["EmbRouterLoggingObj"],
         application_id: str | None,
     ) -> dict:
         payload_request_data: Final = self._sanitize_payload_for_transport(
@@ -152,7 +152,7 @@ class NomaV2Guardrail(CustomGuardrail):
         )
         if logging_obj is not None:
             model_call_details: Final = getattr(logging_obj, "model_call_details", None)
-            payload_request_data["litellm_logging_obj"] = (
+            payload_request_data["embrouter_logging_obj"] = (
                 {
                     key: value
                     for key, value in model_call_details.items()
@@ -278,7 +278,7 @@ class NomaV2Guardrail(CustomGuardrail):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict,
         input_type: Literal["request", "response"],
-        logging_obj: Optional["LiteLLMLoggingObj"] = None,
+        logging_obj: Optional["EmbRouterLoggingObj"] = None,
     ) -> GenericGuardrailAPIInputs:
         start_time: Final = datetime.now()
         guardrail_status: GuardrailStatus = "success"
@@ -298,7 +298,7 @@ class NomaV2Guardrail(CustomGuardrail):
         # (ports v1 fallback from PR #16832).
         if application_id is None:
             application_id = self._get_non_empty_str(
-                request_data.get("litellm_metadata", {}).get("user_api_key_alias")
+                request_data.get("embrouter_metadata", {}).get("user_api_key_alias")
             ) or self._get_non_empty_str(request_data.get("metadata", {}).get("user_api_key_alias"))
 
         try:

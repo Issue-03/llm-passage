@@ -6,7 +6,7 @@ from typing import Final
 
 import pytest
 
-from litellm.rust_bridge.lifecycle import Await, Complete, Execution, Open, Step, drive
+from embrouter.rust_bridge.lifecycle import Await, Complete, Execution, Open, Step, drive
 
 
 class ScriptedExecution:

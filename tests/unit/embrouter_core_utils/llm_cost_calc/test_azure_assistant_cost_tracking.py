@@ -10,16 +10,16 @@ Tests cost calculation for Azure's new assistant features:
 
 import os
 import pytest
-from litellm.litellm_core_utils.llm_cost_calc.tool_call_cost_tracking import (
+from embrouter.embrouter_core_utils.llm_cost_calc.tool_call_cost_tracking import (
     StandardBuiltInToolCostTracking,
 )
-from litellm.constants import (
+from embrouter.constants import (
     AZURE_FILE_SEARCH_COST_PER_GB_PER_DAY,
     AZURE_COMPUTER_USE_INPUT_COST_PER_1K_TOKENS,
     AZURE_COMPUTER_USE_OUTPUT_COST_PER_1K_TOKENS,
     AZURE_VECTOR_STORE_COST_PER_GB_PER_DAY,
 )
-import litellm
+import embrouter
 
 
 class TestAzureAssistantCostTracking:
@@ -29,8 +29,8 @@ class TestAzureAssistantCostTracking:
     def setup_method(self):
         """Set up test environment to use local model cost map."""
         # Force use of local model cost map for CI/CD consistency
-        os.environ["LITELLM_LOCAL_MODEL_COST_MAP"] = "True"
-        litellm.model_cost = litellm.get_model_cost_map(url="")
+        os.environ["EMBROUTER_LOCAL_MODEL_COST_MAP"] = "True"
+        embrouter.model_cost = embrouter.get_model_cost_map(url="")
 
         yield
 
@@ -59,7 +59,7 @@ class TestAzureAssistantCostTracking:
 
     def test_openai_file_search_unchanged(self):
         """Test OpenAI file search pricing remains unchanged."""
-        from litellm.constants import OPENAI_FILE_SEARCH_COST_PER_1K_CALLS
+        from embrouter.constants import OPENAI_FILE_SEARCH_COST_PER_1K_CALLS
 
         cost = StandardBuiltInToolCostTracking.get_cost_for_file_search(
             file_search={},
@@ -75,7 +75,7 @@ class TestAzureAssistantCostTracking:
             provider="azure",
         )
         # Read expected cost from model cost map (azure/container)
-        azure_container_info = litellm.model_cost.get("azure/container", {})
+        azure_container_info = embrouter.model_cost.get("azure/container", {})
         cost_per_session = azure_container_info.get(
             "code_interpreter_cost_per_session", 0.03
         )

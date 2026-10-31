@@ -11,7 +11,7 @@ from mcp_types.methods import CLIENT_REQUESTS
 from mcp_types.version import HANDSHAKE_PROTOCOL_VERSIONS, LATEST_HANDSHAKE_VERSION
 from pydantic import TypeAdapter
 
-from litellm.types.mcp import MCP_LEGACY_VERSIONS, MCPAdvertisedVersions, MCPLegacyVersion, MCPSpecVersion, MCPTransport
+from embrouter.types.mcp import MCP_LEGACY_VERSIONS, MCPAdvertisedVersions, MCPLegacyVersion, MCPSpecVersion, MCPTransport
 
 GATEWAY_OPERATIONS: Final = frozenset(
     {
@@ -57,7 +57,7 @@ _ADVERTISED_VERSIONS: Final[TypeAdapter[tuple[MCPLegacyVersion, ...]]] = TypeAda
 
 
 def configured_versions() -> tuple[str, ...]:
-    from litellm.proxy.proxy_server import general_settings_view
+    from embrouter.proxy.proxy_server import general_settings_view
 
     configured: Final = general_settings_view().get("mcp_advertised_versions")
     return _ADVERTISED_VERSIONS.validate_python(MCP_LEGACY_VERSIONS if configured is None else configured)

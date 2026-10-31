@@ -15,7 +15,7 @@ from typing import Final
 import httpx
 import pytest
 
-from litellm.proxy.db.autorouter_session_rollup import (
+from embrouter.proxy.db.autorouter_session_rollup import (
     UPSERT_AUTOROUTER_SESSION_SQL,
     AutoRouterTurnTransaction,
     build_autorouter_turn_transaction,
@@ -429,7 +429,7 @@ class TestEnqueueSeam:
     async def test_update_database_seam_enqueues_only_auto_routed_success(
         self, classifier_cost: float | None, estimate: dict[str, object] | None, covered: int, saved: float,
     ) -> None:
-        from litellm.proxy.db.db_spend_update_writer import DBSpendUpdateWriter
+        from embrouter.proxy.db.db_spend_update_writer import DBSpendUpdateWriter
 
         writer: Final = DBSpendUpdateWriter()
         fake_prisma: Final = SimpleNamespace(
@@ -461,7 +461,7 @@ class TestEnqueueSeam:
 def test_every_drain_trigger_reads_the_one_queue_census_owner():
     import inspect
 
-    from litellm.proxy import utils as proxy_utils
+    from embrouter.proxy import utils as proxy_utils
 
     owner_source = inspect.getsource(proxy_utils._total_queued_spend_transactions)
     for queue in (

@@ -6,19 +6,19 @@ from typing import TYPE_CHECKING, Final
 
 import httpx
 
-from litellm.llms.base_llm.passthrough.transformation import BasePassthroughConfig
-from litellm.llms.gigachat.authenticator import get_access_token
-from litellm.llms.gigachat.chat.streaming import GigaChatModelResponseIterator
-from litellm.llms.gigachat.utils import GIGACHAT_BASE_URL
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.openai import AllMessageValues
-from litellm.types.utils import EmbeddingResponse
+from embrouter.llms.base_llm.passthrough.transformation import BasePassthroughConfig
+from embrouter.llms.gigachat.authenticator import get_access_token
+from embrouter.llms.gigachat.chat.streaming import GigaChatModelResponseIterator
+from embrouter.llms.gigachat.utils import GIGACHAT_BASE_URL
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.openai import AllMessageValues
+from embrouter.types.utils import EmbeddingResponse
 
 if TYPE_CHECKING:
     from httpx import URL, Response
 
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.types.utils import CostResponseTypes
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.types.utils import CostResponseTypes
 
 
 class GigaChatPassthroughConfig(BasePassthroughConfig):
@@ -32,7 +32,7 @@ class GigaChatPassthroughConfig(BasePassthroughConfig):
         model: str,
         endpoint: str,
         request_query_params: Mapping[str, object] | None,
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
     ) -> tuple[URL, str]:
         """Get complete API URL for chat completions."""
         base_target_url: Final = self.get_api_base(api_base)
@@ -53,14 +53,14 @@ class GigaChatPassthroughConfig(BasePassthroughConfig):
         model: str,
         messages: Sequence[AllMessageValues],
         optional_params: Mapping[str, object],
-        litellm_params: Mapping[str, object],
+        embrouter_params: Mapping[str, object],
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> dict:  # mutable-ok: base class contract returns dict for httpx
         """
         Set up headers with OAuth token.
         """
-        access_token: Final = get_access_token(credentials=api_key, litellm_params=litellm_params)
+        access_token: Final = get_access_token(credentials=api_key, embrouter_params=embrouter_params)
 
         headers["Authorization"] = f"Bearer {access_token}"  # rebind-ok: mutating for OAuth setup
         headers["Content-Type"] = "application/json"  # rebind-ok: mutating for OAuth setup
@@ -74,12 +74,12 @@ class GigaChatPassthroughConfig(BasePassthroughConfig):
         custom_llm_provider: str,
         httpx_response: Response,
         request_data: Mapping[str, object],
-        logging_obj: LiteLLMLoggingObj,
+        logging_obj: EmbRouterLoggingObj,
         endpoint: str,
     ) -> CostResponseTypes | None:
-        from litellm import encoding
-        from litellm.types.utils import LlmProviders, ModelResponse
-        from litellm.utils import ProviderConfigManager
+        from embrouter import encoding
+        from embrouter.types.utils import LlmProviders, ModelResponse
+        from embrouter.utils import ProviderConfigManager
 
         if "completions" in endpoint:
             provider_chat_config: Final = ProviderConfigManager.get_provider_chat_config(
@@ -91,7 +91,7 @@ class GigaChatPassthroughConfig(BasePassthroughConfig):
                 raise ValueError(f"No provider config found for model: {model}")
 
             raw_messages: Final = request_data.get("messages")
-            litellm_model_response: Final = provider_chat_config.transform_response(
+            embrouter_model_response: Final = provider_chat_config.transform_response(
                 model=model,
                 messages=list(raw_messages)
                 if isinstance(raw_messages, list)
@@ -100,13 +100,13 @@ class GigaChatPassthroughConfig(BasePassthroughConfig):
                 model_response=ModelResponse(),
                 logging_obj=logging_obj,
                 optional_params={},  # mutable-ok: empty dict kwarg for transform_response
-                litellm_params={},  # mutable-ok: empty dict kwarg for transform_response
+                embrouter_params={},  # mutable-ok: empty dict kwarg for transform_response
                 api_key="",
                 request_data=dict(request_data),  # mutable-ok: transform_response wants a dict
                 encoding=encoding,
             )
 
-            return litellm_model_response
+            return embrouter_model_response
 
         if "embeddings" in endpoint:
             provider_embedding_config: Final = ProviderConfigManager.get_provider_embedding_config(
@@ -117,7 +117,7 @@ class GigaChatPassthroughConfig(BasePassthroughConfig):
             if provider_embedding_config is None:
                 raise ValueError(f"No provider config found for model: {model}")
 
-            litellm_embedding_response: Final[EmbeddingResponse] = (
+            embrouter_embedding_response: Final[EmbeddingResponse] = (
                 provider_embedding_config.transform_embedding_response(
                     model=model,
                     raw_response=httpx_response,
@@ -126,18 +126,18 @@ class GigaChatPassthroughConfig(BasePassthroughConfig):
                     optional_params={},  # mutable-ok: empty dict kwarg for transform_embedding_response
                     api_key="",
                     request_data=dict(request_data),  # mutable-ok: transform_embedding_response wants a dict
-                    litellm_params={},  # mutable-ok: empty dict kwarg for transform_embedding_response
+                    embrouter_params={},  # mutable-ok: empty dict kwarg for transform_embedding_response
                 )
             )
 
-            return litellm_embedding_response
+            return embrouter_embedding_response
 
         return None
 
     def handle_logging_collected_chunks(
         self,
         all_chunks: Sequence[str],
-        litellm_logging_obj: LiteLLMLoggingObj,
+        embrouter_logging_obj: EmbRouterLoggingObj,
         model: str,
         custom_llm_provider: str,
         endpoint: str,
@@ -148,12 +148,12 @@ class GigaChatPassthroughConfig(BasePassthroughConfig):
         3. Return the model_response
         """
 
-        from litellm.litellm_core_utils.streaming_handler import (
+        from embrouter.embrouter_core_utils.streaming_handler import (
             convert_generic_chunk_to_model_response_stream,
             generic_chunk_has_all_required_fields,
         )
-        from litellm.main import stream_chunk_builder
-        from litellm.types.utils import ModelResponseStream
+        from embrouter.main import stream_chunk_builder
+        from embrouter.types.utils import ModelResponseStream
 
         all_translated_chunks: Final[list[object]] = []  # mutable-ok: accumulator
 
@@ -189,7 +189,7 @@ class GigaChatPassthroughConfig(BasePassthroughConfig):
         if len(all_translated_chunks) > 0:
             return stream_chunk_builder(
                 chunks=all_translated_chunks,
-                logging_obj=litellm_logging_obj,
+                logging_obj=embrouter_logging_obj,
             )
         return None
 

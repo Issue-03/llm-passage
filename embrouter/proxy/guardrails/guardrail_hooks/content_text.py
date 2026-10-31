@@ -15,7 +15,7 @@ non-text part, which is what ``is_all_text_parts`` gates.
 from collections.abc import Sequence
 from typing import Final
 
-from litellm.litellm_core_utils.prompt_templates.factory import get_attribute_or_key
+from embrouter.embrouter_core_utils.prompt_templates.factory import get_attribute_or_key
 
 
 def content_to_text(content: object) -> str:

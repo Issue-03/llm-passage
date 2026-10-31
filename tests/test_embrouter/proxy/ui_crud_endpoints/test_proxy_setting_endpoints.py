@@ -6,9 +6,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 
-from litellm.proxy._types import DefaultInternalUserParams, LitellmUserRoles
-from litellm.proxy.proxy_server import app
-from litellm.types.proxy.management_endpoints.ui_sso import (
+from embrouter.proxy._types import DefaultInternalUserParams, EmbrouterUserRoles
+from embrouter.proxy.proxy_server import app
+from embrouter.types.proxy.management_endpoints.ui_sso import (
     DefaultTeamSSOParams,
     SSOConfig,
 )
@@ -20,9 +20,9 @@ client = TestClient(app)
 def mock_proxy_config(monkeypatch):
     """Mock the proxy_config to avoid actual file operations during tests"""
     mock_config = {
-        "litellm_settings": {
+        "embrouter_settings": {
             "default_internal_user_params": {
-                "user_role": LitellmUserRoles.INTERNAL_USER,
+                "user_role": EmbrouterUserRoles.INTERNAL_USER,
                 "max_budget": 100.0,
                 "budget_duration": "30d",
                 "models": ["gpt-3.5-turbo", "gpt-4"],
@@ -62,7 +62,7 @@ def mock_proxy_config(monkeypatch):
     async def mock_save_environment_variables(updates):
         saved_env_updates.append(updates)
 
-    from litellm.proxy.proxy_server import proxy_config
+    from embrouter.proxy.proxy_server import proxy_config
 
     monkeypatch.setattr(proxy_config, "get_config", mock_get_config)
     monkeypatch.setattr(proxy_config, "save_config", mock_save_config)
@@ -80,8 +80,8 @@ def mock_proxy_config(monkeypatch):
 @pytest.fixture
 def mock_auth():
     """Mock the authentication to bypass auth checks using FastAPI dependency overrides"""
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-    from litellm.proxy.proxy_server import app
+    from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+    from embrouter.proxy.proxy_server import app
 
     async def mock_user_api_key_auth():
         return {"user_id": "test_user"}
@@ -93,8 +93,8 @@ def mock_auth():
 
 @pytest.fixture(autouse=True)
 def fresh_settings_store(monkeypatch: pytest.MonkeyPatch) -> None:
-    from litellm.proxy import proxy_server
-    from litellm.proxy.config_resolvers.settings_store import SettingsStore
+    from embrouter.proxy import proxy_server
+    from embrouter.proxy.config_resolvers.settings_store import SettingsStore
 
     store: Final = SettingsStore("general_settings")
     monkeypatch.setattr(proxy_server.proxy_config, "settings", store)
@@ -115,7 +115,7 @@ class TestProxySettingEndpoints:
 
         # Check values match our mock config
         values = data["values"]
-        mock_params = mock_proxy_config["config"]["litellm_settings"][
+        mock_params = mock_proxy_config["config"]["embrouter_settings"][
             "default_internal_user_params"
         ]
         assert values["user_role"] == mock_params["user_role"]
@@ -138,12 +138,12 @@ class TestProxySettingEndpoints:
         """
         # Simulate fresh DB: no default_internal_user_params in config
         empty_config = {
-            "litellm_settings": {},
+            "embrouter_settings": {},
             "general_settings": {},
             "environment_variables": {},
         }
 
-        from litellm.proxy.proxy_server import proxy_config
+        from embrouter.proxy.proxy_server import proxy_config
 
         async def mock_get_config():
             return empty_config
@@ -154,7 +154,7 @@ class TestProxySettingEndpoints:
         assert response.status_code == 200
 
         values = response.json()["values"]
-        assert values["user_role"] == LitellmUserRoles.INTERNAL_USER_VIEW_ONLY, (
+        assert values["user_role"] == EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY, (
             f"Fresh DB should default to INTERNAL_USER_VIEW_ONLY, got {values['user_role']}. "
             "The Pydantic default must match the runtime fallback."
         )
@@ -163,16 +163,16 @@ class TestProxySettingEndpoints:
         self, mock_proxy_config, mock_auth, monkeypatch
     ):
         """Test updating the internal user settings"""
-        # Mock litellm.default_internal_user_params
+        # Mock embrouter.default_internal_user_params
 
-        import litellm
+        import embrouter
 
-        monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", True)
-        monkeypatch.setattr(litellm, "default_internal_user_params", {})
+        monkeypatch.setattr("embrouter.proxy.proxy_server.store_model_in_db", True)
+        monkeypatch.setattr(embrouter, "default_internal_user_params", {})
 
         # New settings to update
         new_settings = {
-            "user_role": LitellmUserRoles.PROXY_ADMIN,
+            "user_role": EmbrouterUserRoles.PROXY_ADMIN,
             "max_budget": 200.0,
             "budget_duration": "7d",
             "models": ["gpt-4", "claude-3"],
@@ -196,7 +196,7 @@ class TestProxySettingEndpoints:
         assert settings["models"] == new_settings["models"]
 
         # Verify the config was updated
-        updated_config = mock_proxy_config["config"]["litellm_settings"][
+        updated_config = mock_proxy_config["config"]["embrouter_settings"][
             "default_internal_user_params"
         ]
         assert updated_config["user_role"] == new_settings["user_role"]
@@ -218,7 +218,7 @@ class TestProxySettingEndpoints:
 
         # Check values match our mock config
         values = data["values"]
-        mock_params = mock_proxy_config["config"]["litellm_settings"][
+        mock_params = mock_proxy_config["config"]["embrouter_settings"][
             "default_team_params"
         ]
         assert values["models"] == mock_params["models"]
@@ -236,11 +236,11 @@ class TestProxySettingEndpoints:
         self, mock_proxy_config, mock_auth, monkeypatch
     ):
         """Test updating the default team settings"""
-        # Mock litellm.default_team_params
-        import litellm
+        # Mock embrouter.default_team_params
+        import embrouter
 
-        monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", True)
-        monkeypatch.setattr(litellm, "default_team_params", {})
+        monkeypatch.setattr("embrouter.proxy.proxy_server.store_model_in_db", True)
+        monkeypatch.setattr(embrouter, "default_team_params", {})
 
         # New settings to update
         new_settings = {
@@ -269,7 +269,7 @@ class TestProxySettingEndpoints:
         assert settings["rpm_limit"] == new_settings["rpm_limit"]
 
         # Verify the config was updated
-        updated_config = mock_proxy_config["config"]["litellm_settings"][
+        updated_config = mock_proxy_config["config"]["embrouter_settings"][
             "default_team_params"
         ]
         assert updated_config["models"] == new_settings["models"]
@@ -306,10 +306,10 @@ class TestProxySettingEndpoints:
         self, mock_proxy_config, mock_auth, monkeypatch
     ):
         """Test updating default team settings with team_member_permissions"""
-        import litellm
+        import embrouter
 
-        monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", True)
-        monkeypatch.setattr(litellm, "default_team_params", {})
+        monkeypatch.setattr("embrouter.proxy.proxy_server.store_model_in_db", True)
+        monkeypatch.setattr(embrouter, "default_team_params", {})
 
         new_settings = {
             "models": ["gpt-4"],
@@ -345,13 +345,13 @@ class TestProxySettingEndpoints:
             "proxy_base_url": "https://example.com",
             "user_email": "admin@example.com",
         }
-        mock_prisma.db.litellm_ssoconfig.find_unique = AsyncMock(
+        mock_prisma.db.embrouter_ssoconfig.find_unique = AsyncMock(
             return_value=mock_db_record
         )
-        monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", mock_prisma)
 
         # Mock decryption to return the values as-is (simulating decryption)
-        from litellm.proxy.proxy_server import proxy_config
+        from embrouter.proxy.proxy_server import proxy_config
 
         monkeypatch.setattr(
             proxy_config,
@@ -399,8 +399,8 @@ class TestProxySettingEndpoints:
         assert values["role_mappings"] is None
 
         # Verify find_unique was called with correct parameters
-        mock_prisma.db.litellm_ssoconfig.find_unique.assert_called_once()
-        call_args = mock_prisma.db.litellm_ssoconfig.find_unique.call_args
+        mock_prisma.db.embrouter_ssoconfig.find_unique.assert_called_once()
+        call_args = mock_prisma.db.embrouter_ssoconfig.find_unique.call_args
         assert call_args.kwargs["where"]["id"] == "sso_config"
 
     def _mock_sso_db_record(self, monkeypatch, sso_settings):
@@ -413,13 +413,13 @@ class TestProxySettingEndpoints:
         else:
             mock_db_record = MagicMock()
             mock_db_record.sso_settings = sso_settings
-        mock_prisma.db.litellm_ssoconfig.find_unique = AsyncMock(return_value=mock_db_record)
-        monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma)
+        mock_prisma.db.embrouter_ssoconfig.find_unique = AsyncMock(return_value=mock_db_record)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", mock_prisma)
 
         # The resolver decrypts stored values via decrypt_value_helper; make it an
         # identity so the plaintext fixtures round-trip.
         monkeypatch.setattr(
-            "litellm.proxy.config_resolvers.sso.decrypt_value_helper",
+            "embrouter.proxy.config_resolvers.sso.decrypt_value_helper",
             lambda value, key, exception_type="error", return_original_value=False: value,
         )
 
@@ -548,20 +548,20 @@ class TestProxySettingEndpoints:
         import json
         from unittest.mock import AsyncMock, MagicMock
 
-        monkeypatch.setenv("LITELLM_SALT_KEY", "test_salt_key")
-        monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", True)
+        monkeypatch.setenv("EMBROUTER_SALT_KEY", "test_salt_key")
+        monkeypatch.setattr("embrouter.proxy.proxy_server.store_model_in_db", True)
 
         # Mock the prisma client
         mock_prisma = MagicMock()
-        mock_prisma.db.litellm_ssoconfig.find_unique = AsyncMock(return_value=None)
-        mock_prisma.db.litellm_ssoconfig.upsert = AsyncMock()
-        mock_prisma.db.litellm_config = MagicMock()
-        mock_prisma.db.litellm_config.find_unique = AsyncMock(return_value=None)
-        mock_prisma.db.litellm_config.update = AsyncMock()
-        monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma)
+        mock_prisma.db.embrouter_ssoconfig.find_unique = AsyncMock(return_value=None)
+        mock_prisma.db.embrouter_ssoconfig.upsert = AsyncMock()
+        mock_prisma.db.embrouter_config = MagicMock()
+        mock_prisma.db.embrouter_config.find_unique = AsyncMock(return_value=None)
+        mock_prisma.db.embrouter_config.update = AsyncMock()
+        monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", mock_prisma)
 
         # Mock encryption to return values as-is
-        from litellm.proxy.proxy_server import proxy_config
+        from embrouter.proxy.proxy_server import proxy_config
 
         monkeypatch.setattr(
             proxy_config,
@@ -605,8 +605,8 @@ class TestProxySettingEndpoints:
         assert settings["user_email"] == new_sso_settings["user_email"]
 
         # Verify upsert was called with correct parameters
-        assert mock_prisma.db.litellm_ssoconfig.upsert.called
-        call_args = mock_prisma.db.litellm_ssoconfig.upsert.call_args
+        assert mock_prisma.db.embrouter_ssoconfig.upsert.called
+        call_args = mock_prisma.db.embrouter_ssoconfig.upsert.call_args
 
         # Verify the upsert is using the correct ID
         assert call_args.kwargs["where"]["id"] == "sso_config"
@@ -634,18 +634,18 @@ class TestProxySettingEndpoints:
         import os
         from unittest.mock import AsyncMock, MagicMock
 
-        monkeypatch.setenv("LITELLM_SALT_KEY", "test_salt_key")
-        monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", True)
+        monkeypatch.setenv("EMBROUTER_SALT_KEY", "test_salt_key")
+        monkeypatch.setattr("embrouter.proxy.proxy_server.store_model_in_db", True)
 
         mock_prisma = MagicMock()
-        mock_prisma.db.litellm_ssoconfig.find_unique = AsyncMock(return_value=None)
-        mock_prisma.db.litellm_ssoconfig.upsert = AsyncMock()
-        mock_prisma.db.litellm_config = MagicMock()
-        mock_prisma.db.litellm_config.find_unique = AsyncMock(return_value=None)
-        mock_prisma.db.litellm_config.update = AsyncMock()
-        monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma)
+        mock_prisma.db.embrouter_ssoconfig.find_unique = AsyncMock(return_value=None)
+        mock_prisma.db.embrouter_ssoconfig.upsert = AsyncMock()
+        mock_prisma.db.embrouter_config = MagicMock()
+        mock_prisma.db.embrouter_config.find_unique = AsyncMock(return_value=None)
+        mock_prisma.db.embrouter_config.update = AsyncMock()
+        monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", mock_prisma)
 
-        from litellm.proxy.proxy_server import proxy_config
+        from embrouter.proxy.proxy_server import proxy_config
 
         monkeypatch.setattr(
             proxy_config,
@@ -680,7 +680,7 @@ class TestProxySettingEndpoints:
             assert "SAML_IDP_METADATA_XML" not in os.environ
 
             stored = json.loads(
-                mock_prisma.db.litellm_ssoconfig.upsert.call_args.kwargs["data"]["create"]["sso_settings"]
+                mock_prisma.db.embrouter_ssoconfig.upsert.call_args.kwargs["data"]["create"]["sso_settings"]
             )
             assert stored["saml_idp_metadata_url"] == "https://idp.example.com/metadata"
             assert stored["saml_allow_unsolicited"] == "true"
@@ -699,20 +699,20 @@ class TestProxySettingEndpoints:
         import json
         from unittest.mock import AsyncMock, MagicMock
 
-        monkeypatch.setenv("LITELLM_SALT_KEY", "test_salt_key")
-        monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", True)
+        monkeypatch.setenv("EMBROUTER_SALT_KEY", "test_salt_key")
+        monkeypatch.setattr("embrouter.proxy.proxy_server.store_model_in_db", True)
 
         mock_prisma = MagicMock()
-        mock_prisma.db.litellm_ssoconfig.find_unique = AsyncMock(return_value=None)
-        mock_prisma.db.litellm_ssoconfig.upsert = AsyncMock()
-        mock_prisma.db.litellm_config = MagicMock()
-        mock_prisma.db.litellm_config.find_unique = AsyncMock(
+        mock_prisma.db.embrouter_ssoconfig.find_unique = AsyncMock(return_value=None)
+        mock_prisma.db.embrouter_ssoconfig.upsert = AsyncMock()
+        mock_prisma.db.embrouter_config = MagicMock()
+        mock_prisma.db.embrouter_config.find_unique = AsyncMock(
             side_effect=ValueError("cleanup failed")
         )
-        mock_prisma.db.litellm_config.update = AsyncMock()
-        monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma)
+        mock_prisma.db.embrouter_config.update = AsyncMock()
+        monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", mock_prisma)
 
-        from litellm.proxy.proxy_server import proxy_config
+        from embrouter.proxy.proxy_server import proxy_config
 
         monkeypatch.setattr(
             proxy_config,
@@ -722,7 +722,7 @@ class TestProxySettingEndpoints:
 
         create_config_audit_log = AsyncMock()
         monkeypatch.setattr(
-            "litellm.proxy.proxy_server.create_config_audit_log",
+            "embrouter.proxy.proxy_server.create_config_audit_log",
             create_config_audit_log,
         )
 
@@ -732,7 +732,7 @@ class TestProxySettingEndpoints:
         )
 
         assert response.status_code == 500
-        assert mock_prisma.db.litellm_ssoconfig.upsert.called
+        assert mock_prisma.db.embrouter_ssoconfig.upsert.called
         create_config_audit_log.assert_awaited_once()
         audit_log_kwargs = create_config_audit_log.await_args.kwargs
         assert audit_log_kwargs["param_name"] == "sso_config"
@@ -742,7 +742,7 @@ class TestProxySettingEndpoints:
         )
         assert (
             json.loads(
-                mock_prisma.db.litellm_ssoconfig.upsert.call_args.kwargs["data"][
+                mock_prisma.db.embrouter_ssoconfig.upsert.call_args.kwargs["data"][
                     "create"
                 ]["sso_settings"]
             )["google_client_id"]
@@ -756,14 +756,14 @@ class TestProxySettingEndpoints:
         import json
         from unittest.mock import AsyncMock, MagicMock
 
-        monkeypatch.setenv("LITELLM_SALT_KEY", "test_salt_key")
-        monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", True)
+        monkeypatch.setenv("EMBROUTER_SALT_KEY", "test_salt_key")
+        monkeypatch.setattr("embrouter.proxy.proxy_server.store_model_in_db", True)
 
         # Mock the prisma client
         mock_prisma = MagicMock()
-        mock_prisma.db.litellm_ssoconfig.find_unique = AsyncMock(return_value=None)
-        mock_prisma.db.litellm_ssoconfig.upsert = AsyncMock()
-        mock_prisma.db.litellm_config = MagicMock()
+        mock_prisma.db.embrouter_ssoconfig.find_unique = AsyncMock(return_value=None)
+        mock_prisma.db.embrouter_ssoconfig.upsert = AsyncMock()
+        mock_prisma.db.embrouter_config = MagicMock()
 
         env_var_entry = MagicMock()
         env_var_entry.param_value = json.dumps(
@@ -773,14 +773,14 @@ class TestProxySettingEndpoints:
                 "PROXY_BASE_URL": "old_proxy_url",
             }
         )
-        mock_prisma.db.litellm_config.find_unique = AsyncMock(
+        mock_prisma.db.embrouter_config.find_unique = AsyncMock(
             return_value=env_var_entry
         )
-        mock_prisma.db.litellm_config.update = AsyncMock()
-        monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma)
+        mock_prisma.db.embrouter_config.update = AsyncMock()
+        monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", mock_prisma)
 
         # Mock encryption to return values as-is
-        from litellm.proxy.proxy_server import proxy_config
+        from embrouter.proxy.proxy_server import proxy_config
 
         monkeypatch.setattr(
             proxy_config,
@@ -820,8 +820,8 @@ class TestProxySettingEndpoints:
         assert "MICROSOFT_CLIENT_ID" not in os.environ
 
         # Verify upsert was called with correct parameters
-        assert mock_prisma.db.litellm_ssoconfig.upsert.called
-        call_args = mock_prisma.db.litellm_ssoconfig.upsert.call_args
+        assert mock_prisma.db.embrouter_ssoconfig.upsert.called
+        call_args = mock_prisma.db.embrouter_ssoconfig.upsert.call_args
 
         # Verify null values are stored in database
         create_data = call_args.kwargs["data"]["create"]
@@ -836,14 +836,14 @@ class TestProxySettingEndpoints:
         import json
         from unittest.mock import AsyncMock, MagicMock
 
-        monkeypatch.setenv("LITELLM_SALT_KEY", "test_salt_key")
-        monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", True)
+        monkeypatch.setenv("EMBROUTER_SALT_KEY", "test_salt_key")
+        monkeypatch.setattr("embrouter.proxy.proxy_server.store_model_in_db", True)
 
         # Mock the prisma client
         mock_prisma = MagicMock()
-        mock_prisma.db.litellm_ssoconfig.find_unique = AsyncMock(return_value=None)
-        mock_prisma.db.litellm_ssoconfig.upsert = AsyncMock()
-        mock_prisma.db.litellm_config = MagicMock()
+        mock_prisma.db.embrouter_ssoconfig.find_unique = AsyncMock(return_value=None)
+        mock_prisma.db.embrouter_ssoconfig.upsert = AsyncMock()
+        mock_prisma.db.embrouter_config = MagicMock()
         env_var_entry = MagicMock()
         env_var_entry.param_value = json.dumps(
             {
@@ -852,14 +852,14 @@ class TestProxySettingEndpoints:
                 "PROXY_BASE_URL": "old_proxy_url",
             }
         )
-        mock_prisma.db.litellm_config.find_unique = AsyncMock(
+        mock_prisma.db.embrouter_config.find_unique = AsyncMock(
             return_value=env_var_entry
         )
-        mock_prisma.db.litellm_config.update = AsyncMock()
-        monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma)
+        mock_prisma.db.embrouter_config.update = AsyncMock()
+        monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", mock_prisma)
 
         # Mock encryption to return values as-is
-        from litellm.proxy.proxy_server import proxy_config
+        from embrouter.proxy.proxy_server import proxy_config
 
         monkeypatch.setattr(
             proxy_config,
@@ -891,8 +891,8 @@ class TestProxySettingEndpoints:
         assert "MICROSOFT_CLIENT_SECRET" not in os.environ
 
         # Verify upsert was called with correct parameters
-        assert mock_prisma.db.litellm_ssoconfig.upsert.called
-        call_args = mock_prisma.db.litellm_ssoconfig.upsert.call_args
+        assert mock_prisma.db.embrouter_ssoconfig.upsert.called
+        call_args = mock_prisma.db.embrouter_ssoconfig.upsert.call_args
 
         # Verify empty strings are stored in database
         create_data = call_args.kwargs["data"]["create"]
@@ -907,14 +907,14 @@ class TestProxySettingEndpoints:
         import json
         from unittest.mock import AsyncMock, MagicMock
 
-        monkeypatch.setenv("LITELLM_SALT_KEY", "test_salt_key")
-        monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", True)
+        monkeypatch.setenv("EMBROUTER_SALT_KEY", "test_salt_key")
+        monkeypatch.setattr("embrouter.proxy.proxy_server.store_model_in_db", True)
 
         # Mock the prisma client
         mock_prisma = MagicMock()
-        mock_prisma.db.litellm_ssoconfig.find_unique = AsyncMock(return_value=None)
-        mock_prisma.db.litellm_ssoconfig.upsert = AsyncMock()
-        mock_prisma.db.litellm_config = MagicMock()
+        mock_prisma.db.embrouter_ssoconfig.find_unique = AsyncMock(return_value=None)
+        mock_prisma.db.embrouter_ssoconfig.upsert = AsyncMock()
+        mock_prisma.db.embrouter_config = MagicMock()
 
         env_var_entry = MagicMock()
         env_var_entry.param_value = json.dumps(
@@ -923,14 +923,14 @@ class TestProxySettingEndpoints:
                 "MICROSOFT_CLIENT_SECRET": "test_existing_microsoft_secret",
             }
         )
-        mock_prisma.db.litellm_config.find_unique = AsyncMock(
+        mock_prisma.db.embrouter_config.find_unique = AsyncMock(
             return_value=env_var_entry
         )
-        mock_prisma.db.litellm_config.update = AsyncMock()
-        monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma)
+        mock_prisma.db.embrouter_config.update = AsyncMock()
+        monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", mock_prisma)
 
         # Mock encryption to return values as-is
-        from litellm.proxy.proxy_server import proxy_config
+        from embrouter.proxy.proxy_server import proxy_config
 
         monkeypatch.setattr(
             proxy_config,
@@ -966,8 +966,8 @@ class TestProxySettingEndpoints:
         assert "MICROSOFT_CLIENT_ID" not in os.environ
 
         # Verify upsert was called with correct parameters
-        assert mock_prisma.db.litellm_ssoconfig.upsert.called
-        call_args = mock_prisma.db.litellm_ssoconfig.upsert.call_args
+        assert mock_prisma.db.embrouter_ssoconfig.upsert.called
+        call_args = mock_prisma.db.embrouter_ssoconfig.upsert.call_args
 
         # Verify the mixed values are stored correctly in database
         create_data = call_args.kwargs["data"]["create"]
@@ -985,20 +985,20 @@ class TestProxySettingEndpoints:
         import json
         from unittest.mock import AsyncMock, MagicMock
 
-        monkeypatch.setenv("LITELLM_SALT_KEY", "test_salt_key")
-        monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", True)
+        monkeypatch.setenv("EMBROUTER_SALT_KEY", "test_salt_key")
+        monkeypatch.setattr("embrouter.proxy.proxy_server.store_model_in_db", True)
 
         # Mock the prisma client
         mock_prisma = MagicMock()
-        mock_prisma.db.litellm_ssoconfig.find_unique = AsyncMock(return_value=None)
-        mock_prisma.db.litellm_ssoconfig.upsert = AsyncMock()
-        mock_prisma.db.litellm_config = MagicMock()
-        mock_prisma.db.litellm_config.find_unique = AsyncMock(return_value=None)
-        mock_prisma.db.litellm_config.update = AsyncMock()
-        monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma)
+        mock_prisma.db.embrouter_ssoconfig.find_unique = AsyncMock(return_value=None)
+        mock_prisma.db.embrouter_ssoconfig.upsert = AsyncMock()
+        mock_prisma.db.embrouter_config = MagicMock()
+        mock_prisma.db.embrouter_config.find_unique = AsyncMock(return_value=None)
+        mock_prisma.db.embrouter_config.update = AsyncMock()
+        monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", mock_prisma)
 
         # Mock encryption to return values as-is
-        from litellm.proxy.proxy_server import proxy_config
+        from embrouter.proxy.proxy_server import proxy_config
 
         monkeypatch.setattr(
             proxy_config,
@@ -1019,8 +1019,8 @@ class TestProxySettingEndpoints:
         assert data["status"] == "success"
 
         # Verify upsert was called with correct data
-        assert mock_prisma.db.litellm_ssoconfig.upsert.called
-        call_args = mock_prisma.db.litellm_ssoconfig.upsert.call_args
+        assert mock_prisma.db.embrouter_ssoconfig.upsert.called
+        call_args = mock_prisma.db.embrouter_ssoconfig.upsert.call_args
         create_data = call_args.kwargs["data"]["create"]
         create_sso_settings = json.loads(create_data["sso_settings"])
         assert create_sso_settings["ui_access_mode"] == "admin_only"
@@ -1034,8 +1034,8 @@ class TestProxySettingEndpoints:
         assert response.status_code == 200
 
         # Verify upsert was called again with null values
-        assert mock_prisma.db.litellm_ssoconfig.upsert.call_count == 2
-        call_args = mock_prisma.db.litellm_ssoconfig.upsert.call_args
+        assert mock_prisma.db.embrouter_ssoconfig.upsert.call_count == 2
+        call_args = mock_prisma.db.embrouter_ssoconfig.upsert.call_args
         create_data = call_args.kwargs["data"]["create"]
         create_sso_settings = json.loads(create_data["sso_settings"])
         assert create_sso_settings["ui_access_mode"] is None
@@ -1053,8 +1053,8 @@ class TestProxySettingEndpoints:
 
     def test_update_ui_theme_settings(self, mock_proxy_config, mock_auth, monkeypatch):
         """Test updating UI theme settings"""
-        monkeypatch.setenv("LITELLM_SALT_KEY", "test_salt_key")
-        monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", True)
+        monkeypatch.setenv("EMBROUTER_SALT_KEY", "test_salt_key")
+        monkeypatch.setattr("embrouter.proxy.proxy_server.store_model_in_db", True)
 
         new_theme = {"logo_url": "https://example.com/new-logo.png"}
 
@@ -1078,7 +1078,7 @@ class TestProxySettingEndpoints:
             {
                 "UI_LOGO_PATH": "https://example.com/new-logo.png",
                 "UI_LOGO_PATH_DARK": None,
-                "LITELLM_FAVICON_URL": None,
+                "EMBROUTER_FAVICON_URL": None,
             }
         ]
 
@@ -1086,8 +1086,8 @@ class TestProxySettingEndpoints:
         self, mock_proxy_config, mock_auth, monkeypatch
     ):
         """Test updating UI theme settings with favicon_url"""
-        monkeypatch.setenv("LITELLM_SALT_KEY", "test_salt_key")
-        monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", True)
+        monkeypatch.setenv("EMBROUTER_SALT_KEY", "test_salt_key")
+        monkeypatch.setattr("embrouter.proxy.proxy_server.store_model_in_db", True)
 
         new_theme = {
             "logo_url": "https://example.com/new-logo.png",
@@ -1107,13 +1107,13 @@ class TestProxySettingEndpoints:
         )
 
         assert os.environ["UI_LOGO_PATH"] == "https://example.com/new-logo.png"
-        assert os.environ["LITELLM_FAVICON_URL"] == "https://example.com/custom-favicon.ico"
+        assert os.environ["EMBROUTER_FAVICON_URL"] == "https://example.com/custom-favicon.ico"
         # Only the owned keys are persisted, each with its new value
         assert mock_proxy_config["env_updates"]() == [
             {
                 "UI_LOGO_PATH": "https://example.com/new-logo.png",
                 "UI_LOGO_PATH_DARK": None,
-                "LITELLM_FAVICON_URL": "https://example.com/custom-favicon.ico",
+                "EMBROUTER_FAVICON_URL": "https://example.com/custom-favicon.ico",
             }
         ]
 
@@ -1121,8 +1121,8 @@ class TestProxySettingEndpoints:
         self, mock_proxy_config, mock_auth, monkeypatch
     ):
         """A dark-mode logo is stored and applied to the live process like the light one."""
-        monkeypatch.setenv("LITELLM_SALT_KEY", "test_salt_key")
-        monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", True)
+        monkeypatch.setenv("EMBROUTER_SALT_KEY", "test_salt_key")
+        monkeypatch.setattr("embrouter.proxy.proxy_server.store_model_in_db", True)
 
         new_theme = {
             "logo_url": "https://example.com/logo.png",
@@ -1138,7 +1138,7 @@ class TestProxySettingEndpoints:
             {
                 "UI_LOGO_PATH": "https://example.com/logo.png",
                 "UI_LOGO_PATH_DARK": "https://example.com/logo-dark.png",
-                "LITELLM_FAVICON_URL": None,
+                "EMBROUTER_FAVICON_URL": None,
             }
         ]
 
@@ -1147,8 +1147,8 @@ class TestProxySettingEndpoints:
     ):
         """The dark logo is served by the unauthenticated /get_image, so a local
         filesystem path must be refused exactly as it is for the light logo."""
-        monkeypatch.setenv("LITELLM_SALT_KEY", "test_salt_key")
-        monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", True)
+        monkeypatch.setenv("EMBROUTER_SALT_KEY", "test_salt_key")
+        monkeypatch.setattr("embrouter.proxy.proxy_server.store_model_in_db", True)
 
         response = client.patch(
             "/update/ui_theme_settings",
@@ -1167,12 +1167,12 @@ class TestProxySettingEndpoints:
         so a var missing from the update path would read back from an env value the
         save never cleared, and the settings page would show a field it cannot unset.
         """
-        from litellm.proxy.ui_crud_endpoints.proxy_setting_endpoints import (
+        from embrouter.proxy.ui_crud_endpoints.proxy_setting_endpoints import (
             _UI_THEME_FIELD_ENV_VARS,
         )
 
-        monkeypatch.setenv("LITELLM_SALT_KEY", "test_salt_key")
-        monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", True)
+        monkeypatch.setenv("EMBROUTER_SALT_KEY", "test_salt_key")
+        monkeypatch.setattr("embrouter.proxy.proxy_server.store_model_in_db", True)
 
         response = client.patch("/update/ui_theme_settings", json={})
 
@@ -1196,8 +1196,8 @@ class TestProxySettingEndpoints:
         self, mock_proxy_config, mock_auth, monkeypatch
     ):
         """Test clearing favicon_url from UI theme settings"""
-        monkeypatch.setenv("LITELLM_SALT_KEY", "test_salt_key")
-        monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", True)
+        monkeypatch.setenv("EMBROUTER_SALT_KEY", "test_salt_key")
+        monkeypatch.setattr("embrouter.proxy.proxy_server.store_model_in_db", True)
 
         new_theme = {
             "favicon_url": "https://example.com/custom-favicon.ico",
@@ -1210,7 +1210,7 @@ class TestProxySettingEndpoints:
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "success"
-        assert "LITELLM_FAVICON_URL" not in os.environ
+        assert "EMBROUTER_FAVICON_URL" not in os.environ
 
     def test_get_ui_theme_settings_includes_favicon_schema(self, mock_proxy_config):
         """Test UI theme settings includes favicon_url in schema"""
@@ -1227,7 +1227,7 @@ class TestProxySettingEndpoints:
 
     def test_get_ui_theme_settings_with_favicon_configured(self, mock_proxy_config):
         """Test getting UI theme settings when favicon is configured"""
-        mock_proxy_config["config"]["litellm_settings"]["ui_theme_config"] = {
+        mock_proxy_config["config"]["embrouter_settings"]["ui_theme_config"] = {
             "logo_url": "https://example.com/logo.png",
             "favicon_url": "https://example.com/favicon.ico",
         }
@@ -1245,14 +1245,14 @@ class TestProxySettingEndpoints:
     ):
         """Branding supplied only as process env vars must surface in the read.
 
-        A deployment that sets UI_LOGO_PATH / LITELLM_FAVICON_URL via IaC and
+        A deployment that sets UI_LOGO_PATH / EMBROUTER_FAVICON_URL via IaC and
         never touches the UI has no stored ui_theme_config, yet the branding is
         live, so the settings page must reflect it rather than reading blank.
         """
         monkeypatch.delenv("UI_LOGO_PATH", raising=False)
-        monkeypatch.delenv("LITELLM_FAVICON_URL", raising=False)
+        monkeypatch.delenv("EMBROUTER_FAVICON_URL", raising=False)
         monkeypatch.setenv("UI_LOGO_PATH", "https://cdn.example.com/logo.png")
-        monkeypatch.setenv("LITELLM_FAVICON_URL", "https://cdn.example.com/favicon.ico")
+        monkeypatch.setenv("EMBROUTER_FAVICON_URL", "https://cdn.example.com/favicon.ico")
 
         response = client.get("/get/ui_theme_settings")
 
@@ -1269,10 +1269,10 @@ class TestProxySettingEndpoints:
         The env fallback only fills fields the stored config leaves blank, so the
         UI-driven flow is unchanged while an unstored field still resolves.
         """
-        from litellm.proxy.proxy_server import proxy_config
+        from embrouter.proxy.proxy_server import proxy_config
 
         stored_config = {
-            "litellm_settings": {
+            "embrouter_settings": {
                 "ui_theme_config": {"logo_url": "https://db.example.com/logo.png"}
             }
         }
@@ -1282,7 +1282,7 @@ class TestProxySettingEndpoints:
 
         monkeypatch.setattr(proxy_config, "get_config", mock_get_config)
         monkeypatch.setenv("UI_LOGO_PATH", "https://env.example.com/logo.png")
-        monkeypatch.setenv("LITELLM_FAVICON_URL", "https://env.example.com/favicon.ico")
+        monkeypatch.setenv("EMBROUTER_FAVICON_URL", "https://env.example.com/favicon.ico")
 
         response = client.get("/get/ui_theme_settings")
 
@@ -1296,7 +1296,7 @@ class TestProxySettingEndpoints:
     ):
         """A field set in neither the stored config nor the env stays null."""
         monkeypatch.delenv("UI_LOGO_PATH", raising=False)
-        monkeypatch.delenv("LITELLM_FAVICON_URL", raising=False)
+        monkeypatch.delenv("EMBROUTER_FAVICON_URL", raising=False)
 
         response = client.get("/get/ui_theme_settings")
 
@@ -1312,7 +1312,7 @@ class TestProxySettingEndpoints:
         path must never be surfaced to anonymous callers; only public http(s) URLs.
         """
         monkeypatch.setenv("UI_LOGO_PATH", "/mnt/secret/internal/logo.png")
-        monkeypatch.setenv("LITELLM_FAVICON_URL", "file:///etc/favicon.ico")
+        monkeypatch.setenv("EMBROUTER_FAVICON_URL", "file:///etc/favicon.ico")
 
         response = client.get("/get/ui_theme_settings")
 
@@ -1333,10 +1333,10 @@ class TestProxySettingEndpoints:
             "require_auth_for_public_ai_hub": True,
             "unexpected_flag": True,
         }
-        mock_prisma.db.litellm_uisettings.find_unique = AsyncMock(
+        mock_prisma.db.embrouter_uisettings.find_unique = AsyncMock(
             return_value=mock_db_record
         )
-        monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", mock_prisma)
 
         response = client.get("/get/ui_settings")
 
@@ -1349,15 +1349,15 @@ class TestProxySettingEndpoints:
             "disable_model_add_for_internal_users" in data["field_schema"]["properties"]
         )
         assert "require_auth_for_public_ai_hub" in data["field_schema"]["properties"]
-        mock_prisma.db.litellm_uisettings.find_unique.assert_called_once_with(
+        mock_prisma.db.embrouter_uisettings.find_unique.assert_called_once_with(
             where={"id": "ui_settings"}
         )
 
     def test_get_ui_settings_reports_sources(self, monkeypatch: pytest.MonkeyPatch) -> None:
         from unittest.mock import AsyncMock, MagicMock
 
-        from litellm.proxy import proxy_server
-        from litellm.proxy.config_resolvers import SettingsStore
+        from embrouter.proxy import proxy_server
+        from embrouter.proxy.config_resolvers import SettingsStore
 
         mock_prisma = MagicMock()
         mock_db_record = MagicMock()
@@ -1365,7 +1365,7 @@ class TestProxySettingEndpoints:
             "disable_model_add_for_internal_users": True,
             "require_auth_for_public_ai_hub": True,
         }
-        mock_prisma.db.litellm_uisettings.find_unique = AsyncMock(
+        mock_prisma.db.embrouter_uisettings.find_unique = AsyncMock(
             return_value=mock_db_record
         )
         monkeypatch.setattr(proxy_server, "prisma_client", mock_prisma)
@@ -1406,8 +1406,8 @@ class TestProxySettingEndpoints:
 
         from pydantic.fields import FieldInfo
 
-        from litellm.proxy.ui_crud_endpoints import proxy_setting_endpoints
-        from litellm.proxy.ui_crud_endpoints.proxy_setting_endpoints import (
+        from embrouter.proxy.ui_crud_endpoints import proxy_setting_endpoints
+        from embrouter.proxy.ui_crud_endpoints.proxy_setting_endpoints import (
             _EXTRA_UI_SETTINGS_FIELDS,
             ALLOWED_UI_SETTINGS_FIELDS,
             register_extra_ui_setting,
@@ -1426,8 +1426,8 @@ class TestProxySettingEndpoints:
             )
 
             mock_prisma = MagicMock()
-            mock_prisma.db.litellm_uisettings.find_unique = AsyncMock(return_value=None)
-            monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma)
+            mock_prisma.db.embrouter_uisettings.find_unique = AsyncMock(return_value=None)
+            monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", mock_prisma)
 
             response = client.get("/get/ui_settings")
 
@@ -1447,28 +1447,28 @@ class TestProxySettingEndpoints:
     @pytest.mark.parametrize(
         "user_role",
         [
-            LitellmUserRoles.INTERNAL_USER,
-            LitellmUserRoles.INTERNAL_USER_VIEW_ONLY,
+            EmbrouterUserRoles.INTERNAL_USER,
+            EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY,
         ],
     )
     def test_get_ui_settings_allows_internal_roles(self, monkeypatch, user_role):
         """Ensure internal users and viewers can fetch UI settings"""
         from unittest.mock import AsyncMock, MagicMock
 
-        from litellm.proxy.ui_crud_endpoints import proxy_setting_endpoints
+        from embrouter.proxy.ui_crud_endpoints import proxy_setting_endpoints
 
         mock_prisma = MagicMock()
         mock_db_record = MagicMock()
         mock_db_record.ui_settings = {"disable_model_add_for_internal_users": False}
-        mock_prisma.db.litellm_uisettings.find_unique = AsyncMock(
+        mock_prisma.db.embrouter_uisettings.find_unique = AsyncMock(
             return_value=mock_db_record
         )
-        monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", mock_prisma)
 
         class MockUser:
             def __init__(self, role):
                 self.user_role = role
-                self.team_id = "litellm-dashboard"
+                self.team_id = "embrouter-dashboard"
                 self.allowed_routes = []
 
         async def mock_user_api_key_auth():
@@ -1488,7 +1488,7 @@ class TestProxySettingEndpoints:
         assert response.status_code == 200
         data = response.json()
         assert data["values"]["disable_model_add_for_internal_users"] is False
-        mock_prisma.db.litellm_uisettings.find_unique.assert_called_once_with(
+        mock_prisma.db.embrouter_uisettings.find_unique.assert_called_once_with(
             where={"id": "ui_settings"}
         )
 
@@ -1496,21 +1496,21 @@ class TestProxySettingEndpoints:
         """Test updating UI settings with an allowlisted field"""
         from unittest.mock import AsyncMock, MagicMock
 
-        from litellm.proxy._types import UserAPIKeyAuth
-        from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+        from embrouter.proxy._types import UserAPIKeyAuth
+        from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
 
         # Override the FastAPI dependency with a proper mock
         mock_user_auth = UserAPIKeyAuth(
             user_id="test-user-123",
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=EmbrouterUserRoles.PROXY_ADMIN,
         )
         app.dependency_overrides[user_api_key_auth] = lambda: mock_user_auth
 
-        monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", True)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.store_model_in_db", True)
         mock_prisma = MagicMock()
-        mock_prisma.db.litellm_uisettings.upsert = AsyncMock()
-        mock_prisma.db.litellm_uisettings.find_unique = AsyncMock(return_value=None)
-        monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma)
+        mock_prisma.db.embrouter_uisettings.upsert = AsyncMock()
+        mock_prisma.db.embrouter_uisettings.find_unique = AsyncMock(return_value=None)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", mock_prisma)
 
         payload = {"disable_model_add_for_internal_users": True}
 
@@ -1525,8 +1525,8 @@ class TestProxySettingEndpoints:
         assert data["status"] == "success"
         assert data["settings"]["disable_model_add_for_internal_users"] is True
 
-        assert mock_prisma.db.litellm_uisettings.upsert.called
-        call_args = mock_prisma.db.litellm_uisettings.upsert.call_args
+        assert mock_prisma.db.embrouter_uisettings.upsert.called
+        call_args = mock_prisma.db.embrouter_uisettings.upsert.call_args
         assert call_args.kwargs["where"]["id"] == "ui_settings"
         create_data = call_args.kwargs["data"]["create"]
         stored_settings = json.loads(create_data["ui_settings"])
@@ -1538,21 +1538,21 @@ class TestProxySettingEndpoints:
         """Test non-allowlisted UI settings are ignored on update"""
         from unittest.mock import AsyncMock, MagicMock
 
-        from litellm.proxy._types import UserAPIKeyAuth
-        from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+        from embrouter.proxy._types import UserAPIKeyAuth
+        from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
 
         # Override the FastAPI dependency with a proper mock
         mock_user_auth = UserAPIKeyAuth(
             user_id="test-user-123",
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=EmbrouterUserRoles.PROXY_ADMIN,
         )
         app.dependency_overrides[user_api_key_auth] = lambda: mock_user_auth
 
-        monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", True)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.store_model_in_db", True)
         mock_prisma = MagicMock()
-        mock_prisma.db.litellm_uisettings.upsert = AsyncMock()
-        mock_prisma.db.litellm_uisettings.find_unique = AsyncMock(return_value=None)
-        monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma)
+        mock_prisma.db.embrouter_uisettings.upsert = AsyncMock()
+        mock_prisma.db.embrouter_uisettings.find_unique = AsyncMock(return_value=None)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", mock_prisma)
 
         payload = {
             "disable_model_add_for_internal_users": False,
@@ -1571,8 +1571,8 @@ class TestProxySettingEndpoints:
         assert "unsupported_flag" not in data["settings"]
         assert data["settings"]["disable_model_add_for_internal_users"] is False
 
-        assert mock_prisma.db.litellm_uisettings.upsert.called
-        call_args = mock_prisma.db.litellm_uisettings.upsert.call_args
+        assert mock_prisma.db.embrouter_uisettings.upsert.called
+        call_args = mock_prisma.db.embrouter_uisettings.upsert.call_args
         stored_settings = json.loads(call_args.kwargs["data"]["create"]["ui_settings"])
         assert "unsupported_flag" not in stored_settings
         assert stored_settings["disable_model_add_for_internal_users"] is False
@@ -1583,20 +1583,20 @@ class TestProxySettingEndpoints:
         """Public AI Hub auth is an existing UI setting and must remain writable."""
         from unittest.mock import AsyncMock, MagicMock
 
-        from litellm.proxy._types import UserAPIKeyAuth
-        from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+        from embrouter.proxy._types import UserAPIKeyAuth
+        from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
 
         mock_user_auth = UserAPIKeyAuth(
             user_id="test-user-123",
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=EmbrouterUserRoles.PROXY_ADMIN,
         )
         app.dependency_overrides[user_api_key_auth] = lambda: mock_user_auth
 
-        monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", True)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.store_model_in_db", True)
         mock_prisma = MagicMock()
-        mock_prisma.db.litellm_uisettings.upsert = AsyncMock()
-        mock_prisma.db.litellm_uisettings.find_unique = AsyncMock(return_value=None)
-        monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma)
+        mock_prisma.db.embrouter_uisettings.upsert = AsyncMock()
+        mock_prisma.db.embrouter_uisettings.find_unique = AsyncMock(return_value=None)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", mock_prisma)
 
         payload = {"require_auth_for_public_ai_hub": True}
 
@@ -1610,30 +1610,30 @@ class TestProxySettingEndpoints:
         assert data["status"] == "success"
         assert data["settings"]["require_auth_for_public_ai_hub"] is True
 
-        call_args = mock_prisma.db.litellm_uisettings.upsert.call_args
+        call_args = mock_prisma.db.embrouter_uisettings.upsert.call_args
         stored_settings = json.loads(call_args.kwargs["data"]["create"]["ui_settings"])
         assert stored_settings["require_auth_for_public_ai_hub"] is True
 
     def test_update_ui_settings_persists_forward_llm_provider_auth_headers(
         self, mock_auth, monkeypatch
     ):
-        """BYOK flag must be allowlisted and persisted to litellm_uisettings."""
+        """BYOK flag must be allowlisted and persisted to embrouter_uisettings."""
         from unittest.mock import AsyncMock, MagicMock
 
-        from litellm.proxy._types import UserAPIKeyAuth
-        from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+        from embrouter.proxy._types import UserAPIKeyAuth
+        from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
 
         mock_user_auth = UserAPIKeyAuth(
             user_id="test-user-123",
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=EmbrouterUserRoles.PROXY_ADMIN,
         )
         app.dependency_overrides[user_api_key_auth] = lambda: mock_user_auth
 
-        monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", True)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.store_model_in_db", True)
         mock_prisma = MagicMock()
-        mock_prisma.db.litellm_uisettings.upsert = AsyncMock()
-        mock_prisma.db.litellm_uisettings.find_unique = AsyncMock(return_value=None)
-        monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma)
+        mock_prisma.db.embrouter_uisettings.upsert = AsyncMock()
+        mock_prisma.db.embrouter_uisettings.find_unique = AsyncMock(return_value=None)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", mock_prisma)
 
         payload = {"forward_llm_provider_auth_headers": True}
 
@@ -1647,8 +1647,8 @@ class TestProxySettingEndpoints:
         assert data["status"] == "success"
         assert data["settings"]["forward_llm_provider_auth_headers"] is True
 
-        assert mock_prisma.db.litellm_uisettings.upsert.called
-        call_args = mock_prisma.db.litellm_uisettings.upsert.call_args
+        assert mock_prisma.db.embrouter_uisettings.upsert.called
+        call_args = mock_prisma.db.embrouter_uisettings.upsert.call_args
         create_data = call_args.kwargs["data"]["create"]
         stored_settings = json.loads(create_data["ui_settings"])
         assert stored_settings["forward_llm_provider_auth_headers"] is True
@@ -1659,27 +1659,27 @@ class TestProxySettingEndpoints:
         """BYOK flag must be synced into general_settings dict so the request path sees it."""
         from unittest.mock import AsyncMock, MagicMock
 
-        from litellm.proxy._types import UserAPIKeyAuth
-        from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+        from embrouter.proxy._types import UserAPIKeyAuth
+        from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
 
         mock_user_auth = UserAPIKeyAuth(
             user_id="test-user-123",
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=EmbrouterUserRoles.PROXY_ADMIN,
         )
         app.dependency_overrides[user_api_key_auth] = lambda: mock_user_auth
 
-        monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", True)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.store_model_in_db", True)
 
         # Reset general_settings so the test is hermetic
         general_settings: dict = {}
         monkeypatch.setattr(
-            "litellm.proxy.proxy_server.general_settings", general_settings
+            "embrouter.proxy.proxy_server.general_settings", general_settings
         )
 
         mock_prisma = MagicMock()
-        mock_prisma.db.litellm_uisettings.upsert = AsyncMock()
-        mock_prisma.db.litellm_uisettings.find_unique = AsyncMock(return_value=None)
-        monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma)
+        mock_prisma.db.embrouter_uisettings.upsert = AsyncMock()
+        mock_prisma.db.embrouter_uisettings.find_unique = AsyncMock(return_value=None)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", mock_prisma)
 
         payload = {"forward_llm_provider_auth_headers": True}
 
@@ -1697,26 +1697,26 @@ class TestProxySettingEndpoints:
         """Public readiness details flag must be synced so the health route sees it."""
         from unittest.mock import AsyncMock, MagicMock
 
-        from litellm.proxy._types import UserAPIKeyAuth
-        from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+        from embrouter.proxy._types import UserAPIKeyAuth
+        from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
 
         mock_user_auth = UserAPIKeyAuth(
             user_id="test-user-123",
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=EmbrouterUserRoles.PROXY_ADMIN,
         )
         app.dependency_overrides[user_api_key_auth] = lambda: mock_user_auth
 
-        monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", True)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.store_model_in_db", True)
 
         general_settings: dict = {}
         monkeypatch.setattr(
-            "litellm.proxy.proxy_server.general_settings", general_settings
+            "embrouter.proxy.proxy_server.general_settings", general_settings
         )
 
         mock_prisma = MagicMock()
-        mock_prisma.db.litellm_uisettings.upsert = AsyncMock()
-        mock_prisma.db.litellm_uisettings.find_unique = AsyncMock(return_value=None)
-        monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma)
+        mock_prisma.db.embrouter_uisettings.upsert = AsyncMock()
+        mock_prisma.db.embrouter_uisettings.find_unique = AsyncMock(return_value=None)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", mock_prisma)
 
         payload = {"allow_public_health_readiness_details": True}
 
@@ -1734,26 +1734,26 @@ class TestProxySettingEndpoints:
         """disable_key_generate_for_org_admin must be allowlisted, persisted, and synced to general_settings."""
         from unittest.mock import AsyncMock, MagicMock
 
-        from litellm.proxy._types import UserAPIKeyAuth
-        from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+        from embrouter.proxy._types import UserAPIKeyAuth
+        from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
 
         mock_user_auth = UserAPIKeyAuth(
             user_id="test-user-123",
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=EmbrouterUserRoles.PROXY_ADMIN,
         )
         app.dependency_overrides[user_api_key_auth] = lambda: mock_user_auth
 
-        monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", True)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.store_model_in_db", True)
 
         general_settings: dict = {}
         monkeypatch.setattr(
-            "litellm.proxy.proxy_server.general_settings", general_settings
+            "embrouter.proxy.proxy_server.general_settings", general_settings
         )
 
         mock_prisma = MagicMock()
-        mock_prisma.db.litellm_uisettings.upsert = AsyncMock()
-        mock_prisma.db.litellm_uisettings.find_unique = AsyncMock(return_value=None)
-        monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma)
+        mock_prisma.db.embrouter_uisettings.upsert = AsyncMock()
+        mock_prisma.db.embrouter_uisettings.find_unique = AsyncMock(return_value=None)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", mock_prisma)
 
         flag_name = "disable_key_generate_for_org_admin"
         payload = {flag_name: True}
@@ -1768,7 +1768,7 @@ class TestProxySettingEndpoints:
         assert data["settings"][flag_name] is True
 
         # Persisted in DB
-        call_args = mock_prisma.db.litellm_uisettings.upsert.call_args
+        call_args = mock_prisma.db.embrouter_uisettings.upsert.call_args
         stored_settings = json.loads(call_args.kwargs["data"]["create"]["ui_settings"])
         assert stored_settings[flag_name] is True
 
@@ -1795,11 +1795,11 @@ class TestProxySettingEndpoints:
         }
 
         mock_db_record.sso_settings = mock_sso_settings
-        mock_prisma.db.litellm_ssoconfig.find_unique = AsyncMock(
+        mock_prisma.db.embrouter_ssoconfig.find_unique = AsyncMock(
             return_value=mock_db_record
         )
 
-        monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", mock_prisma)
 
         # The resolver decrypts each stored value via decrypt_value_helper; map
         # the ciphertext fixtures to their plaintext.
@@ -1814,7 +1814,7 @@ class TestProxySettingEndpoints:
             return decrypted_by_ciphertext.get(value, value)
 
         monkeypatch.setattr(
-            "litellm.proxy.config_resolvers.sso.decrypt_value_helper", mock_decrypt
+            "embrouter.proxy.config_resolvers.sso.decrypt_value_helper", mock_decrypt
         )
 
         response = client.get("/get/sso_settings")
@@ -1846,19 +1846,19 @@ class TestProxySettingEndpoints:
         import json
         from unittest.mock import AsyncMock, MagicMock
 
-        monkeypatch.setenv("LITELLM_SALT_KEY", "test_salt_key")
+        monkeypatch.setenv("EMBROUTER_SALT_KEY", "test_salt_key")
 
         # Mock the prisma client
         mock_prisma = MagicMock()
         upsert_mock = AsyncMock()
-        mock_prisma.db.litellm_ssoconfig.find_unique = AsyncMock(return_value=None)
-        mock_prisma.db.litellm_ssoconfig.upsert = upsert_mock
-        mock_prisma.db.litellm_config = MagicMock()
-        mock_prisma.db.litellm_config.find_unique = AsyncMock(return_value=None)
-        mock_prisma.db.litellm_config.update = AsyncMock()
+        mock_prisma.db.embrouter_ssoconfig.find_unique = AsyncMock(return_value=None)
+        mock_prisma.db.embrouter_ssoconfig.upsert = upsert_mock
+        mock_prisma.db.embrouter_config = MagicMock()
+        mock_prisma.db.embrouter_config.find_unique = AsyncMock(return_value=None)
+        mock_prisma.db.embrouter_config.update = AsyncMock()
 
-        monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma)
-        monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", True)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", mock_prisma)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.store_model_in_db", True)
 
         # Track what was encrypted
         encrypted_data = {}
@@ -1872,7 +1872,7 @@ class TestProxySettingEndpoints:
             encrypted_data.update(encrypted)
             return encrypted
 
-        from litellm.proxy.proxy_server import proxy_config
+        from embrouter.proxy.proxy_server import proxy_config
 
         monkeypatch.setattr(proxy_config, "_encrypt_env_variables", mock_encrypt)
 
@@ -1925,14 +1925,14 @@ class TestProxySettingEndpoints:
         import json
         from unittest.mock import AsyncMock, MagicMock
 
-        monkeypatch.setenv("LITELLM_SALT_KEY", "test_salt_key")
-        monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", True)
+        monkeypatch.setenv("EMBROUTER_SALT_KEY", "test_salt_key")
+        monkeypatch.setattr("embrouter.proxy.proxy_server.store_model_in_db", True)
 
         mock_prisma = MagicMock()
         mock_prisma.db = MagicMock()
-        mock_prisma.db.litellm_ssoconfig = MagicMock()
-        mock_prisma.db.litellm_ssoconfig.find_unique = AsyncMock(return_value=None)
-        mock_prisma.db.litellm_ssoconfig.upsert = AsyncMock()
+        mock_prisma.db.embrouter_ssoconfig = MagicMock()
+        mock_prisma.db.embrouter_ssoconfig.find_unique = AsyncMock(return_value=None)
+        mock_prisma.db.embrouter_ssoconfig.upsert = AsyncMock()
 
         env_var_entry = MagicMock()
         env_var_entry.param_value = json.dumps(
@@ -1942,14 +1942,14 @@ class TestProxySettingEndpoints:
                 "UNCHANGED_ENV": "keep_me",
             }
         )
-        mock_prisma.db.litellm_config = MagicMock()
-        mock_prisma.db.litellm_config.find_unique = AsyncMock(
+        mock_prisma.db.embrouter_config = MagicMock()
+        mock_prisma.db.embrouter_config.find_unique = AsyncMock(
             return_value=env_var_entry
         )
-        mock_prisma.db.litellm_config.update = AsyncMock()
-        monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma)
+        mock_prisma.db.embrouter_config.update = AsyncMock()
+        monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", mock_prisma)
 
-        from litellm.proxy.proxy_server import proxy_config
+        from embrouter.proxy.proxy_server import proxy_config
 
         monkeypatch.setattr(
             proxy_config,
@@ -1962,9 +1962,9 @@ class TestProxySettingEndpoints:
         )
 
         assert response.status_code == 200
-        mock_prisma.db.litellm_config.find_unique.assert_called_once()
-        mock_prisma.db.litellm_config.update.assert_called_once()
-        update_call = mock_prisma.db.litellm_config.update.call_args
+        mock_prisma.db.embrouter_config.find_unique.assert_called_once()
+        mock_prisma.db.embrouter_config.update.assert_called_once()
+        update_call = mock_prisma.db.embrouter_config.update.call_args
         updated_env_vars = json.loads(update_call.kwargs["data"]["param_value"])
         assert "GOOGLE_CLIENT_ID" not in updated_env_vars
         assert "GENERIC_TOKEN_ENDPOINT" not in updated_env_vars
@@ -1977,28 +1977,28 @@ class TestProxySettingEndpoints:
         import json
         from unittest.mock import AsyncMock, MagicMock
 
-        monkeypatch.setenv("LITELLM_SALT_KEY", "test_salt_key")
-        monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", True)
+        monkeypatch.setenv("EMBROUTER_SALT_KEY", "test_salt_key")
+        monkeypatch.setattr("embrouter.proxy.proxy_server.store_model_in_db", True)
 
         mock_prisma = MagicMock()
         mock_prisma.db = MagicMock()
-        mock_prisma.db.litellm_ssoconfig = MagicMock()
-        mock_prisma.db.litellm_ssoconfig.find_unique = AsyncMock(return_value=None)
-        mock_prisma.db.litellm_ssoconfig.upsert = AsyncMock()
+        mock_prisma.db.embrouter_ssoconfig = MagicMock()
+        mock_prisma.db.embrouter_ssoconfig.find_unique = AsyncMock(return_value=None)
+        mock_prisma.db.embrouter_ssoconfig.upsert = AsyncMock()
 
         env_var_entry = MagicMock()
         env_var_entry.param_value = {
             "UNRELATED_ENV": "keep_this",
             "ANOTHER_ENV": "also_keep",
         }
-        mock_prisma.db.litellm_config = MagicMock()
-        mock_prisma.db.litellm_config.find_unique = AsyncMock(
+        mock_prisma.db.embrouter_config = MagicMock()
+        mock_prisma.db.embrouter_config.find_unique = AsyncMock(
             return_value=env_var_entry
         )
-        mock_prisma.db.litellm_config.update = AsyncMock()
-        monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma)
+        mock_prisma.db.embrouter_config.update = AsyncMock()
+        monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", mock_prisma)
 
-        from litellm.proxy.proxy_server import proxy_config
+        from embrouter.proxy.proxy_server import proxy_config
 
         monkeypatch.setattr(
             proxy_config,
@@ -2011,9 +2011,9 @@ class TestProxySettingEndpoints:
         )
 
         assert response.status_code == 200
-        mock_prisma.db.litellm_config.find_unique.assert_called_once()
-        mock_prisma.db.litellm_config.update.assert_called_once()
-        update_call = mock_prisma.db.litellm_config.update.call_args
+        mock_prisma.db.embrouter_config.find_unique.assert_called_once()
+        mock_prisma.db.embrouter_config.update.assert_called_once()
+        update_call = mock_prisma.db.embrouter_config.update.call_args
         updated_env_vars = json.loads(update_call.kwargs["data"]["param_value"])
         assert updated_env_vars == env_var_entry.param_value
 
@@ -2025,16 +2025,16 @@ class TestProxySettingEndpoints:
 
         # Mock the prisma client to return None (no record found)
         mock_prisma = MagicMock()
-        mock_prisma.db.litellm_ssoconfig.find_unique = AsyncMock(return_value=None)
+        mock_prisma.db.embrouter_ssoconfig.find_unique = AsyncMock(return_value=None)
 
-        monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", mock_prisma)
 
         # Mock the decryption method
         def mock_decrypt_and_set(environment_variables):
             # Should receive empty dict
             return environment_variables
 
-        from litellm.proxy.proxy_server import proxy_config
+        from embrouter.proxy.proxy_server import proxy_config
 
         monkeypatch.setattr(
             proxy_config, "_decrypt_and_set_db_env_variables", mock_decrypt_and_set
@@ -2060,7 +2060,7 @@ class TestProxySettingEndpoints:
         self, mock_proxy_config, mock_auth, monkeypatch
     ):
         """Test updating SSO settings when database is not connected"""
-        monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", None)
 
         new_sso_settings = {
             "google_client_id": "new_google_id",
@@ -2077,7 +2077,7 @@ class TestProxySettingEndpoints:
         self, mock_proxy_config, mock_auth, monkeypatch
     ):
         """Test getting SSO settings when database is not connected"""
-        monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", None)
 
         response = client.get("/get/sso_settings")
 
@@ -2092,7 +2092,7 @@ class TestProxySettingEndpoints:
         """Test getting SSO settings when role_mappings is present in database"""
         from unittest.mock import AsyncMock, MagicMock
 
-        from litellm.proxy._types import LitellmUserRoles
+        from embrouter.proxy._types import EmbrouterUserRoles
 
         # Mock the prisma client with database record containing role_mappings
         mock_prisma = MagicMock()
@@ -2102,19 +2102,19 @@ class TestProxySettingEndpoints:
             "role_mappings": {
                 "provider": "google",
                 "group_claim": "groups",
-                "default_role": LitellmUserRoles.INTERNAL_USER,
+                "default_role": EmbrouterUserRoles.INTERNAL_USER,
                 "roles": {
-                    LitellmUserRoles.PROXY_ADMIN: ["admin-group"],
+                    EmbrouterUserRoles.PROXY_ADMIN: ["admin-group"],
                 },
             },
         }
-        mock_prisma.db.litellm_ssoconfig.find_unique = AsyncMock(
+        mock_prisma.db.embrouter_ssoconfig.find_unique = AsyncMock(
             return_value=mock_db_record
         )
-        monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", mock_prisma)
 
         # Mock decryption to return the values as-is (role_mappings should not be passed to decryption)
-        from litellm.proxy.proxy_server import proxy_config
+        from embrouter.proxy.proxy_server import proxy_config
 
         def mock_decrypt(environment_variables):
             # role_mappings should not be in environment_variables since it's extracted before decryption
@@ -2136,8 +2136,8 @@ class TestProxySettingEndpoints:
         assert values["role_mappings"] is not None
         assert values["role_mappings"]["provider"] == "google"
         assert values["role_mappings"]["group_claim"] == "groups"
-        assert values["role_mappings"]["default_role"] == LitellmUserRoles.INTERNAL_USER
-        assert values["role_mappings"]["roles"][LitellmUserRoles.PROXY_ADMIN] == [
+        assert values["role_mappings"]["default_role"] == EmbrouterUserRoles.INTERNAL_USER
+        assert values["role_mappings"]["roles"][EmbrouterUserRoles.PROXY_ADMIN] == [
             "admin-group"
         ]
 
@@ -2148,22 +2148,22 @@ class TestProxySettingEndpoints:
         import json
         from unittest.mock import AsyncMock, MagicMock
 
-        from litellm.proxy._types import LitellmUserRoles
+        from embrouter.proxy._types import EmbrouterUserRoles
 
-        monkeypatch.setenv("LITELLM_SALT_KEY", "test_salt_key")
-        monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", True)
+        monkeypatch.setenv("EMBROUTER_SALT_KEY", "test_salt_key")
+        monkeypatch.setattr("embrouter.proxy.proxy_server.store_model_in_db", True)
 
         # Mock the prisma client
         mock_prisma = MagicMock()
-        mock_prisma.db.litellm_ssoconfig.find_unique = AsyncMock(return_value=None)
-        mock_prisma.db.litellm_ssoconfig.upsert = AsyncMock()
-        mock_prisma.db.litellm_config = MagicMock()
-        mock_prisma.db.litellm_config.find_unique = AsyncMock(return_value=None)
-        mock_prisma.db.litellm_config.update = AsyncMock()
-        monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma)
+        mock_prisma.db.embrouter_ssoconfig.find_unique = AsyncMock(return_value=None)
+        mock_prisma.db.embrouter_ssoconfig.upsert = AsyncMock()
+        mock_prisma.db.embrouter_config = MagicMock()
+        mock_prisma.db.embrouter_config.find_unique = AsyncMock(return_value=None)
+        mock_prisma.db.embrouter_config.update = AsyncMock()
+        monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", mock_prisma)
 
         # Mock encryption to return values as-is
-        from litellm.proxy.proxy_server import proxy_config
+        from embrouter.proxy.proxy_server import proxy_config
 
         monkeypatch.setattr(
             proxy_config,
@@ -2175,10 +2175,10 @@ class TestProxySettingEndpoints:
         role_mappings_data = {
             "provider": "google",
             "group_claim": "groups",
-            "default_role": LitellmUserRoles.INTERNAL_USER,
+            "default_role": EmbrouterUserRoles.INTERNAL_USER,
             "roles": {
-                LitellmUserRoles.PROXY_ADMIN: ["admin-group"],
-                LitellmUserRoles.INTERNAL_USER: ["user-group"],
+                EmbrouterUserRoles.PROXY_ADMIN: ["admin-group"],
+                EmbrouterUserRoles.INTERNAL_USER: ["user-group"],
             },
         }
 
@@ -2198,14 +2198,14 @@ class TestProxySettingEndpoints:
         returned_role_mappings = data["settings"]["role_mappings"]
         assert returned_role_mappings["provider"] == "google"
         assert returned_role_mappings["group_claim"] == "groups"
-        assert returned_role_mappings["default_role"] == LitellmUserRoles.INTERNAL_USER
-        assert returned_role_mappings["roles"][LitellmUserRoles.PROXY_ADMIN] == [
+        assert returned_role_mappings["default_role"] == EmbrouterUserRoles.INTERNAL_USER
+        assert returned_role_mappings["roles"][EmbrouterUserRoles.PROXY_ADMIN] == [
             "admin-group"
         ]
 
         # Verify upsert was called with role_mappings in the data
-        assert mock_prisma.db.litellm_ssoconfig.upsert.called
-        call_args = mock_prisma.db.litellm_ssoconfig.upsert.call_args
+        assert mock_prisma.db.embrouter_ssoconfig.upsert.called
+        call_args = mock_prisma.db.embrouter_ssoconfig.upsert.call_args
         create_data = call_args.kwargs["data"]["create"]
         stored_sso_settings = json.loads(create_data["sso_settings"])
         assert "role_mappings" in stored_sso_settings
@@ -2214,7 +2214,7 @@ class TestProxySettingEndpoints:
         # Now test retrieving role_mappings
         mock_db_record = MagicMock()
         mock_db_record.sso_settings = stored_sso_settings
-        mock_prisma.db.litellm_ssoconfig.find_unique = AsyncMock(
+        mock_prisma.db.embrouter_ssoconfig.find_unique = AsyncMock(
             return_value=mock_db_record
         )
         monkeypatch.setattr(
@@ -2233,15 +2233,15 @@ class TestProxySettingEndpoints:
         assert retrieved_role_mappings is not None
         assert retrieved_role_mappings["provider"] == "google"
         assert retrieved_role_mappings["group_claim"] == "groups"
-        assert retrieved_role_mappings["default_role"] == LitellmUserRoles.INTERNAL_USER
+        assert retrieved_role_mappings["default_role"] == EmbrouterUserRoles.INTERNAL_USER
 
     def test_setup_role_mappings_custom_logic_with_env_vars(self, monkeypatch):
         """Test the _setup_role_mappings function directly with custom role mapping logic from environment variables"""
         import asyncio
         import os
 
-        from litellm.proxy._types import LitellmUserRoles
-        from litellm.proxy.management_endpoints.ui_sso import _setup_role_mappings
+        from embrouter.proxy._types import EmbrouterUserRoles
+        from embrouter.proxy.management_endpoints.ui_sso import _setup_role_mappings
 
         # Set up environment variables for custom role mappings using valid Python dict format
         monkeypatch.setenv(
@@ -2272,14 +2272,14 @@ class TestProxySettingEndpoints:
         assert role_mappings is not None
         assert role_mappings.provider == "generic"
         assert role_mappings.group_claim == "custom-groups"
-        assert role_mappings.default_role == LitellmUserRoles.INTERNAL_USER_VIEW_ONLY
-        assert role_mappings.roles[LitellmUserRoles.PROXY_ADMIN] == [
+        assert role_mappings.default_role == EmbrouterUserRoles.INTERNAL_USER_VIEW_ONLY
+        assert role_mappings.roles[EmbrouterUserRoles.PROXY_ADMIN] == [
             "custom-admin-group"
         ]
-        assert role_mappings.roles[LitellmUserRoles.INTERNAL_USER] == [
+        assert role_mappings.roles[EmbrouterUserRoles.INTERNAL_USER] == [
             "custom-user-group"
         ]
-        assert role_mappings.roles[LitellmUserRoles.PROXY_ADMIN_VIEW_ONLY] == [
+        assert role_mappings.roles[EmbrouterUserRoles.PROXY_ADMIN_VIEW_ONLY] == [
             "custom-viewer-group"
         ]
 
@@ -2288,7 +2288,7 @@ class TestProxySettingEndpoints:
         import asyncio
         from unittest.mock import AsyncMock, MagicMock
 
-        from litellm.proxy.management_endpoints.ui_sso import _setup_role_mappings
+        from embrouter.proxy.management_endpoints.ui_sso import _setup_role_mappings
 
         # Ensure environment variables are not set
         monkeypatch.delenv("GENERIC_ROLE_MAPPINGS_ROLES", raising=False)
@@ -2297,7 +2297,7 @@ class TestProxySettingEndpoints:
 
         # Mock the prisma client to return None (no database record)
         mock_prisma = MagicMock()
-        mock_prisma.db.litellm_ssoconfig.find_unique = AsyncMock(return_value=None)
+        mock_prisma.db.embrouter_ssoconfig.find_unique = AsyncMock(return_value=None)
         # Run the async function
         role_mappings = asyncio.run(_setup_role_mappings())
 
@@ -2310,7 +2310,7 @@ class TestProxySettingEndpoints:
         import json
         from unittest.mock import AsyncMock, MagicMock
 
-        from litellm.proxy._types import LitellmUserRoles
+        from embrouter.proxy._types import EmbrouterUserRoles
 
         monkeypatch.setenv(
             "GENERIC_ROLE_MAPPINGS_ROLES",
@@ -2332,12 +2332,12 @@ class TestProxySettingEndpoints:
                 },
             },
         }
-        mock_prisma.db.litellm_ssoconfig.find_unique = AsyncMock(
+        mock_prisma.db.embrouter_ssoconfig.find_unique = AsyncMock(
             return_value=mock_db_record
         )
-        monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", mock_prisma)
 
-        from litellm.proxy.proxy_server import proxy_config
+        from embrouter.proxy.proxy_server import proxy_config
 
         monkeypatch.setattr(
             proxy_config,
@@ -2357,13 +2357,13 @@ class TestProxySettingEndpoints:
         # The database values shoeld override the environment variables
         assert values["role_mappings"]["provider"] == "google"
         assert values["role_mappings"]["group_claim"] == "db-groups"
-        assert values["role_mappings"]["default_role"] == LitellmUserRoles.PROXY_ADMIN
-        assert values["role_mappings"]["roles"][LitellmUserRoles.PROXY_ADMIN] == [
+        assert values["role_mappings"]["default_role"] == EmbrouterUserRoles.PROXY_ADMIN
+        assert values["role_mappings"]["roles"][EmbrouterUserRoles.PROXY_ADMIN] == [
             "db-admin-group"
         ]
 
         # Verify that the database was checked but environment variables took priority
-        mock_prisma.db.litellm_ssoconfig.find_unique.assert_called_once_with(
+        mock_prisma.db.embrouter_ssoconfig.find_unique.assert_called_once_with(
             where={"id": "sso_config"}
         )
 
@@ -2383,26 +2383,26 @@ def test_update_internal_user_settings_writes_audit_log(mock_proxy_config, monke
     changed."""
     from unittest.mock import AsyncMock, MagicMock
 
-    import litellm
-    import litellm.proxy.proxy_server as proxy_server_module
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+    import embrouter
+    import embrouter.proxy.proxy_server as proxy_server_module
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
 
     audit_create = AsyncMock()
     fake_prisma = MagicMock()
-    fake_prisma.db.litellm_auditlog.create = audit_create
+    fake_prisma.db.embrouter_auditlog.create = audit_create
 
     monkeypatch.setattr(proxy_server_module, "prisma_client", fake_prisma)
     monkeypatch.setattr(proxy_server_module, "premium_user", True)
-    monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", True)
-    monkeypatch.setattr(litellm, "store_audit_logs", True)
-    monkeypatch.setattr(litellm, "default_internal_user_params", {})
+    monkeypatch.setattr("embrouter.proxy.proxy_server.store_model_in_db", True)
+    monkeypatch.setattr(embrouter, "store_audit_logs", True)
+    monkeypatch.setattr(embrouter, "default_internal_user_params", {})
 
     async def _admin_auth():
         return UserAPIKeyAuth(
             user_id="audit-admin",
             api_key="hashed-admin-key",
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=EmbrouterUserRoles.PROXY_ADMIN,
         )
 
     app.dependency_overrides[user_api_key_auth] = _admin_auth
@@ -2417,7 +2417,7 @@ def test_update_internal_user_settings_writes_audit_log(mock_proxy_config, monke
         written = audit_create.await_args.kwargs["data"]
         assert written["object_id"] == "default_internal_user_params"
         assert written["action"] == "updated"
-        assert written["table_name"] == "LiteLLM_Config"
+        assert written["table_name"] == "EmbRouter_Config"
         assert written["changed_by"] == "audit-admin"
         assert written["changed_by_api_key"] == "hashed-admin-key"
 
@@ -2436,13 +2436,13 @@ def test_update_internal_user_settings_returns_200_when_audit_write_raises(
     audit-log failure must never surface as a 500. Scheduling via
     asyncio.create_task keeps the audit call off the request path; this
     test asserts that contract by making the audit helper raise."""
-    import litellm
-    import litellm.proxy.proxy_server as proxy_server_module
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+    import embrouter
+    import embrouter.proxy.proxy_server as proxy_server_module
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", True)
-    monkeypatch.setattr(litellm, "default_internal_user_params", {})
+    monkeypatch.setattr("embrouter.proxy.proxy_server.store_model_in_db", True)
+    monkeypatch.setattr(embrouter, "default_internal_user_params", {})
 
     async def _raise(**_kwargs):
         raise RuntimeError("audit prisma blip")
@@ -2453,7 +2453,7 @@ def test_update_internal_user_settings_returns_200_when_audit_write_raises(
         return UserAPIKeyAuth(
             user_id="audit-admin",
             api_key="hashed-admin-key",
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=EmbrouterUserRoles.PROXY_ADMIN,
         )
 
     app.dependency_overrides[user_api_key_auth] = _admin_auth
@@ -2472,23 +2472,23 @@ def test_update_sso_settings_writes_redacted_audit_log(mock_proxy_config, monkey
     with the client secret redacted."""
     from unittest.mock import AsyncMock, MagicMock
 
-    import litellm
-    import litellm.proxy.proxy_server as proxy_server_module
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+    import embrouter
+    import embrouter.proxy.proxy_server as proxy_server_module
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
 
     audit_create = AsyncMock()
     fake_prisma = MagicMock()
-    fake_prisma.db.litellm_auditlog.create = audit_create
-    fake_prisma.db.litellm_ssoconfig.upsert = AsyncMock()
+    fake_prisma.db.embrouter_auditlog.create = audit_create
+    fake_prisma.db.embrouter_ssoconfig.upsert = AsyncMock()
     # No prior SSO row, so before_value resolves to None.
-    fake_prisma.db.litellm_ssoconfig.find_unique = AsyncMock(return_value=None)
-    fake_prisma.db.litellm_config.find_unique = AsyncMock(return_value=None)
+    fake_prisma.db.embrouter_ssoconfig.find_unique = AsyncMock(return_value=None)
+    fake_prisma.db.embrouter_config.find_unique = AsyncMock(return_value=None)
 
     monkeypatch.setattr(proxy_server_module, "prisma_client", fake_prisma)
     monkeypatch.setattr(proxy_server_module, "premium_user", True)
-    monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", True)
-    monkeypatch.setattr(litellm, "store_audit_logs", True)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.store_model_in_db", True)
+    monkeypatch.setattr(embrouter, "store_audit_logs", True)
     monkeypatch.setattr(
         proxy_server_module.proxy_config,
         "_encrypt_env_variables",
@@ -2499,7 +2499,7 @@ def test_update_sso_settings_writes_redacted_audit_log(mock_proxy_config, monkey
         return UserAPIKeyAuth(
             user_id="audit-admin",
             api_key="hashed-admin-key",
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=EmbrouterUserRoles.PROXY_ADMIN,
         )
 
     app.dependency_overrides[user_api_key_auth] = _admin_auth
@@ -2516,7 +2516,7 @@ def test_update_sso_settings_writes_redacted_audit_log(mock_proxy_config, monkey
         audit_create.assert_awaited_once()
         written = audit_create.await_args.kwargs["data"]
         assert written["object_id"] == "sso_config"
-        assert written["table_name"] == "LiteLLM_SSOConfig"
+        assert written["table_name"] == "EmbRouter_SSOConfig"
         assert written["changed_by"] == "audit-admin"
 
         after = json.loads(written["updated_values"])
@@ -2537,15 +2537,15 @@ def test_update_sso_settings_audit_captures_redacted_before_snapshot(
     the old nor the new plaintext secret is recorded."""
     from unittest.mock import AsyncMock, MagicMock
 
-    import litellm
-    import litellm.proxy.proxy_server as proxy_server_module
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+    import embrouter
+    import embrouter.proxy.proxy_server as proxy_server_module
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
 
     audit_create = AsyncMock()
     fake_prisma = MagicMock()
-    fake_prisma.db.litellm_auditlog.create = audit_create
-    fake_prisma.db.litellm_ssoconfig.upsert = AsyncMock()
+    fake_prisma.db.embrouter_auditlog.create = audit_create
+    fake_prisma.db.embrouter_ssoconfig.upsert = AsyncMock()
 
     # Pre-existing SSO row contains the *prior* secret (would be ciphertext in
     # production; the test patches _decrypt_db_variables to pass through).
@@ -2554,13 +2554,13 @@ def test_update_sso_settings_audit_captures_redacted_before_snapshot(
         "google_client_id": "old-client-id",
         "google_client_secret": "OLD-SUPER-SECRET",
     }
-    fake_prisma.db.litellm_ssoconfig.find_unique = AsyncMock(return_value=existing_record)
-    fake_prisma.db.litellm_config.find_unique = AsyncMock(return_value=None)
+    fake_prisma.db.embrouter_ssoconfig.find_unique = AsyncMock(return_value=existing_record)
+    fake_prisma.db.embrouter_config.find_unique = AsyncMock(return_value=None)
 
     monkeypatch.setattr(proxy_server_module, "prisma_client", fake_prisma)
     monkeypatch.setattr(proxy_server_module, "premium_user", True)
-    monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", True)
-    monkeypatch.setattr(litellm, "store_audit_logs", True)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.store_model_in_db", True)
+    monkeypatch.setattr(embrouter, "store_audit_logs", True)
     monkeypatch.setattr(
         proxy_server_module.proxy_config,
         "_encrypt_env_variables",
@@ -2578,7 +2578,7 @@ def test_update_sso_settings_audit_captures_redacted_before_snapshot(
         return UserAPIKeyAuth(
             user_id="audit-admin",
             api_key="hashed-admin-key",
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=EmbrouterUserRoles.PROXY_ADMIN,
         )
 
     app.dependency_overrides[user_api_key_auth] = _admin_auth
@@ -2616,26 +2616,26 @@ def test_add_allowed_ip_writes_audit_log(mock_proxy_config, monkeypatch):
     be audited with the before and after IP list."""
     from unittest.mock import AsyncMock, MagicMock
 
-    import litellm
-    import litellm.proxy.proxy_server as proxy_server_module
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+    import embrouter
+    import embrouter.proxy.proxy_server as proxy_server_module
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
 
     audit_create = AsyncMock()
     fake_prisma = MagicMock()
-    fake_prisma.db.litellm_auditlog.create = audit_create
+    fake_prisma.db.embrouter_auditlog.create = audit_create
 
     monkeypatch.setattr(proxy_server_module, "prisma_client", fake_prisma)
     monkeypatch.setattr(proxy_server_module, "premium_user", True)
     monkeypatch.setattr(proxy_server_module, "general_settings", {})
-    monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", True)
-    monkeypatch.setattr(litellm, "store_audit_logs", True)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.store_model_in_db", True)
+    monkeypatch.setattr(embrouter, "store_audit_logs", True)
 
     async def _admin_auth():
         return UserAPIKeyAuth(
             user_id="audit-admin",
             api_key="hashed-admin-key",
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=EmbrouterUserRoles.PROXY_ADMIN,
         )
 
     app.dependency_overrides[user_api_key_auth] = _admin_auth
@@ -2672,18 +2672,18 @@ def test_add_allowed_ip_hands_save_config_only_the_changed_general_setting(monke
     from typing import Final
     from unittest.mock import AsyncMock, MagicMock
 
-    import litellm.proxy.proxy_server as proxy_server_module
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-    from litellm.proxy.config_resolvers.changed_section_keys import changed_section_keys
-    from litellm.proxy.config_resolvers.settings_store import SettingsStore
+    import embrouter.proxy.proxy_server as proxy_server_module
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+    from embrouter.proxy.config_resolvers.changed_section_keys import changed_section_keys
+    from embrouter.proxy.config_resolvers.settings_store import SettingsStore
 
     file_settings: Final = MappingProxyType({"max_parallel_requests": 100, "proxy_config_reload_interval_seconds": 7})
     store: Final = SettingsStore("general_settings")
     store.load_yaml(file_settings)
 
     fake_prisma: Final = MagicMock()
-    fake_prisma.db.litellm_auditlog.create = AsyncMock()
+    fake_prisma.db.embrouter_auditlog.create = AsyncMock()
     save_config: Final = AsyncMock(side_effect=lambda new_config: new_config)
 
     async def _get_config():
@@ -2700,7 +2700,7 @@ def test_add_allowed_ip_hands_save_config_only_the_changed_general_setting(monke
         return UserAPIKeyAuth(
             user_id="config-admin",
             api_key="hashed-admin-key",
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=EmbrouterUserRoles.PROXY_ADMIN,
         )
 
     app.dependency_overrides[user_api_key_auth] = _admin_auth
@@ -2723,14 +2723,14 @@ def test_delete_allowed_ip_writes_deleted_audit_log(monkeypatch):
     add path."""
     from unittest.mock import AsyncMock, MagicMock
 
-    import litellm
-    import litellm.proxy.proxy_server as proxy_server_module
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+    import embrouter
+    import embrouter.proxy.proxy_server as proxy_server_module
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
 
     audit_create = AsyncMock()
     fake_prisma = MagicMock()
-    fake_prisma.db.litellm_auditlog.create = audit_create
+    fake_prisma.db.embrouter_auditlog.create = audit_create
 
     config = {"general_settings": {"allowed_ips": ["203.0.113.77", "198.51.100.1"]}}
 
@@ -2748,7 +2748,7 @@ def test_delete_allowed_ip_writes_deleted_audit_log(monkeypatch):
     monkeypatch.setattr(
         proxy_server_module, "general_settings", {"allowed_ips": ["203.0.113.77"]}
     )
-    monkeypatch.setattr(litellm, "store_audit_logs", True)
+    monkeypatch.setattr(embrouter, "store_audit_logs", True)
     monkeypatch.setattr(proxy_server_module.proxy_config, "get_config", _get_config)
     monkeypatch.setattr(proxy_server_module.proxy_config, "save_config", _save_config)
 
@@ -2756,7 +2756,7 @@ def test_delete_allowed_ip_writes_deleted_audit_log(monkeypatch):
         return UserAPIKeyAuth(
             user_id="audit-admin",
             api_key="hashed-admin-key",
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=EmbrouterUserRoles.PROXY_ADMIN,
         )
 
     app.dependency_overrides[user_api_key_auth] = _admin_auth
@@ -2780,17 +2780,17 @@ def test_delete_allowed_ip_writes_deleted_audit_log(monkeypatch):
 def test_allowed_ip_routes_refuse_a_config_owned_list_with_a_clear_400(route, monkeypatch):
     from unittest.mock import AsyncMock, MagicMock
 
-    import litellm.proxy.proxy_server as proxy_server_module
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-    from litellm.proxy.config_resolvers.settings_store import SettingsStore
+    import embrouter.proxy.proxy_server as proxy_server_module
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+    from embrouter.proxy.config_resolvers.settings_store import SettingsStore
 
     store = SettingsStore("general_settings")
     store.load_yaml({"allowed_ips": ["203.0.113.77"]})
     saved = []
 
     fake_prisma = MagicMock()
-    fake_prisma.db.litellm_auditlog.create = AsyncMock()
+    fake_prisma.db.embrouter_auditlog.create = AsyncMock()
 
     async def _get_config():
         return {"general_settings": {"allowed_ips": ["203.0.113.77"]}}
@@ -2809,7 +2809,7 @@ def test_allowed_ip_routes_refuse_a_config_owned_list_with_a_clear_400(route, mo
         return UserAPIKeyAuth(
             user_id="config-admin",
             api_key="hashed-admin-key",
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=EmbrouterUserRoles.PROXY_ADMIN,
         )
 
     app.dependency_overrides[user_api_key_auth] = _admin_auth
@@ -2829,19 +2829,19 @@ def test_update_ui_theme_settings_writes_audit_log(mock_proxy_config, monkeypatc
     """Updating the UI theme must be audited under ui_theme_config."""
     from unittest.mock import AsyncMock, MagicMock
 
-    import litellm
-    import litellm.proxy.proxy_server as proxy_server_module
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+    import embrouter
+    import embrouter.proxy.proxy_server as proxy_server_module
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
 
     audit_create = AsyncMock()
     fake_prisma = MagicMock()
-    fake_prisma.db.litellm_auditlog.create = audit_create
+    fake_prisma.db.embrouter_auditlog.create = audit_create
 
     monkeypatch.setattr(proxy_server_module, "prisma_client", fake_prisma)
     monkeypatch.setattr(proxy_server_module, "premium_user", True)
-    monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", True)
-    monkeypatch.setattr(litellm, "store_audit_logs", True)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.store_model_in_db", True)
+    monkeypatch.setattr(embrouter, "store_audit_logs", True)
     monkeypatch.setattr(
         proxy_server_module.proxy_config,
         "_encrypt_env_variables",
@@ -2852,7 +2852,7 @@ def test_update_ui_theme_settings_writes_audit_log(mock_proxy_config, monkeypatc
         return UserAPIKeyAuth(
             user_id="audit-admin",
             api_key="hashed-admin-key",
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=EmbrouterUserRoles.PROXY_ADMIN,
         )
 
     app.dependency_overrides[user_api_key_auth] = _admin_auth
@@ -2878,27 +2878,27 @@ def test_update_ui_settings_writes_audit_log(monkeypatch):
     """Updating UI settings must be audited under the UI settings table."""
     from unittest.mock import AsyncMock, MagicMock
 
-    import litellm
-    import litellm.proxy.proxy_server as proxy_server_module
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+    import embrouter
+    import embrouter.proxy.proxy_server as proxy_server_module
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
 
     audit_create = AsyncMock()
     fake_prisma = MagicMock()
-    fake_prisma.db.litellm_auditlog.create = audit_create
-    fake_prisma.db.litellm_uisettings.find_unique = AsyncMock(return_value=None)
-    fake_prisma.db.litellm_uisettings.upsert = AsyncMock()
+    fake_prisma.db.embrouter_auditlog.create = audit_create
+    fake_prisma.db.embrouter_uisettings.find_unique = AsyncMock(return_value=None)
+    fake_prisma.db.embrouter_uisettings.upsert = AsyncMock()
 
     monkeypatch.setattr(proxy_server_module, "prisma_client", fake_prisma)
     monkeypatch.setattr(proxy_server_module, "premium_user", True)
-    monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", True)
-    monkeypatch.setattr(litellm, "store_audit_logs", True)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.store_model_in_db", True)
+    monkeypatch.setattr(embrouter, "store_audit_logs", True)
 
     async def _admin_auth():
         return UserAPIKeyAuth(
             user_id="audit-admin",
             api_key="hashed-admin-key",
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=EmbrouterUserRoles.PROXY_ADMIN,
         )
 
     app.dependency_overrides[user_api_key_auth] = _admin_auth
@@ -2911,7 +2911,7 @@ def test_update_ui_settings_writes_audit_log(monkeypatch):
         audit_create.assert_awaited_once()
         written = audit_create.await_args.kwargs["data"]
         assert written["object_id"] == "ui_settings"
-        assert written["table_name"] == "LiteLLM_UISettings"
+        assert written["table_name"] == "EmbRouter_UISettings"
         assert written["changed_by"] == "audit-admin"
         after = json.loads(written["updated_values"])
         assert after["disable_custom_api_keys"] is True
@@ -2928,8 +2928,8 @@ def mock_team_lookup(monkeypatch):
     """
     from unittest.mock import AsyncMock, MagicMock
 
-    import litellm
-    import litellm.proxy.proxy_server as proxy_server_module
+    import embrouter
+    import embrouter.proxy.proxy_server as proxy_server_module
 
     existing_team_ids: set = set()
 
@@ -2939,15 +2939,15 @@ def mock_team_lookup(monkeypatch):
 
     find_many = AsyncMock(side_effect=_find_many)
     fake_prisma = MagicMock()
-    fake_prisma.db.litellm_teamtable.find_many = find_many
+    fake_prisma.db.embrouter_teamtable.find_many = find_many
 
     member_budget_update = AsyncMock()
 
     monkeypatch.setattr(proxy_server_module, "prisma_client", fake_prisma)
-    monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", True)
-    monkeypatch.setattr(litellm, "default_internal_user_params", {})
+    monkeypatch.setattr("embrouter.proxy.proxy_server.store_model_in_db", True)
+    monkeypatch.setattr(embrouter, "default_internal_user_params", {})
     monkeypatch.setattr(
-        "litellm.proxy.ui_crud_endpoints.proxy_setting_endpoints.update_default_team_member_budget",
+        "embrouter.proxy.ui_crud_endpoints.proxy_setting_endpoints.update_default_team_member_budget",
         member_budget_update,
     )
 
@@ -2982,9 +2982,9 @@ def test_update_internal_user_settings_rejects_unknown_team_object(mock_proxy_co
         "per-member budgets must not be written before the team ids are validated"
     )
 
-    import litellm
+    import embrouter
 
-    assert litellm.default_internal_user_params == {}
+    assert embrouter.default_internal_user_params == {}
 
 
 def test_update_internal_user_settings_rejects_unknown_team_string(mock_proxy_config, mock_auth, mock_team_lookup):
@@ -3063,8 +3063,8 @@ def mock_organization_lookup(monkeypatch):
     """
     from unittest.mock import AsyncMock, MagicMock
 
-    import litellm
-    import litellm.proxy.proxy_server as proxy_server_module
+    import embrouter
+    import embrouter.proxy.proxy_server as proxy_server_module
 
     existing_organization_ids: set = set()
 
@@ -3076,11 +3076,11 @@ def mock_organization_lookup(monkeypatch):
 
     find_unique = AsyncMock(side_effect=_find_unique)
     fake_prisma = MagicMock()
-    fake_prisma.db.litellm_organizationtable.find_unique = find_unique
+    fake_prisma.db.embrouter_organizationtable.find_unique = find_unique
 
     monkeypatch.setattr(proxy_server_module, "prisma_client", fake_prisma)
-    monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", True)
-    monkeypatch.setattr(litellm, "default_team_params", {})
+    monkeypatch.setattr("embrouter.proxy.proxy_server.store_model_in_db", True)
+    monkeypatch.setattr(embrouter, "default_team_params", {})
 
     return {
         "existing_organization_ids": existing_organization_ids,
@@ -3104,9 +3104,9 @@ def test_update_default_team_settings_rejects_unknown_organization(
     assert "ghost-org" in resp.json()["detail"]["error"]
     assert mock_proxy_config["save_call_count"]() == 0
 
-    import litellm
+    import embrouter
 
-    assert litellm.default_team_params == {}
+    assert embrouter.default_team_params == {}
 
 
 def test_update_default_team_settings_saves_when_organization_exists(
@@ -3124,9 +3124,9 @@ def test_update_default_team_settings_saves_when_organization_exists(
     assert resp.json()["settings"]["organization_id"] == "real-org"
     assert mock_proxy_config["save_call_count"]() == 1
 
-    import litellm
+    import embrouter
 
-    assert litellm.default_team_params["organization_id"] == "real-org"
+    assert embrouter.default_team_params["organization_id"] == "real-org"
 
 
 def test_update_default_team_settings_without_organization_skips_lookup(
@@ -3145,16 +3145,16 @@ def test_update_default_team_settings_without_organization_skips_lookup(
 
 def test_update_mcp_semantic_filter_settings_requires_proxy_admin(monkeypatch):
     """Non-admin callers must not mutate global MCP semantic filter settings."""
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
 
-    monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", True)
+    monkeypatch.setattr("embrouter.proxy.proxy_server.store_model_in_db", True)
 
     async def _internal_user_auth():
         return UserAPIKeyAuth(
             user_id="internal-user-1",
             api_key="hashed-internal-key",
-            user_role=LitellmUserRoles.INTERNAL_USER,
+            user_role=EmbrouterUserRoles.INTERNAL_USER,
         )
 
     app.dependency_overrides[user_api_key_auth] = _internal_user_auth
@@ -3170,20 +3170,20 @@ def test_update_mcp_semantic_filter_settings_requires_proxy_admin(monkeypatch):
 
 
 class TestMcpToolSearchSettingsEndpoints:
-    """`litellm_settings.mcp_tool_search` drives the native `mcp_tool_search` virtual tool, so the UI must round-trip it."""
+    """`embrouter_settings.mcp_tool_search` drives the native `mcp_tool_search` virtual tool, so the UI must round-trip it."""
 
     @staticmethod
-    def _override_auth(role: LitellmUserRoles):
-        from litellm.proxy._types import UserAPIKeyAuth
-        from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+    def _override_auth(role: EmbrouterUserRoles):
+        from embrouter.proxy._types import UserAPIKeyAuth
+        from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
 
         app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(
             user_id="u", api_key="hashed", user_role=role
         )
 
     def test_get_returns_stored_values_and_field_schema(self, mock_proxy_config, mock_auth, monkeypatch):
-        monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", object())
-        mock_proxy_config["config"]["litellm_settings"]["mcp_tool_search"] = {
+        monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", object())
+        mock_proxy_config["config"]["embrouter_settings"]["mcp_tool_search"] = {
             "embedding_model": "text-embedding-3-small",
             "core_tools": ["treasury-get_rates"],
         }
@@ -3200,8 +3200,8 @@ class TestMcpToolSearchSettingsEndpoints:
         assert resp.json()["field_schema"]["properties"]["core_tools"]["type"] == "array"
 
     def test_update_requires_proxy_admin(self, monkeypatch):
-        monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", True)
-        self._override_auth(LitellmUserRoles.INTERNAL_USER)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.store_model_in_db", True)
+        self._override_auth(EmbrouterUserRoles.INTERNAL_USER)
         try:
             resp = client.patch("/update/mcp_tool_search_settings", json={"top_k": 3})
         finally:
@@ -3209,11 +3209,11 @@ class TestMcpToolSearchSettingsEndpoints:
         assert resp.status_code == 403
 
     def test_update_persists_and_applies_in_memory(self, mock_proxy_config, monkeypatch):
-        import litellm
+        import embrouter
 
-        monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", True)
-        monkeypatch.setattr(litellm, "mcp_tool_search", None)
-        self._override_auth(LitellmUserRoles.PROXY_ADMIN)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.store_model_in_db", True)
+        monkeypatch.setattr(embrouter, "mcp_tool_search", None)
+        self._override_auth(EmbrouterUserRoles.PROXY_ADMIN)
         payload = {
             "embedding_model": "text-embedding-3-small",
             "top_k": 3,
@@ -3227,12 +3227,12 @@ class TestMcpToolSearchSettingsEndpoints:
 
         assert resp.status_code == 200, resp.text
         assert mock_proxy_config["save_call_count"]() == 1
-        assert litellm.mcp_tool_search == payload
-        assert mock_proxy_config["config"]["litellm_settings"]["mcp_tool_search"] == payload
+        assert embrouter.mcp_tool_search == payload
+        assert mock_proxy_config["config"]["embrouter_settings"]["mcp_tool_search"] == payload
 
     def test_update_rejects_out_of_range_top_k(self, mock_proxy_config, monkeypatch):
-        monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", True)
-        self._override_auth(LitellmUserRoles.PROXY_ADMIN)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.store_model_in_db", True)
+        self._override_auth(EmbrouterUserRoles.PROXY_ADMIN)
         try:
             resp = client.patch("/update/mcp_tool_search_settings", json={"top_k": 0})
         finally:
@@ -3243,23 +3243,23 @@ class TestMcpToolSearchSettingsEndpoints:
 
 class TestWebSearchInterceptionSettingsEndpoints:
     @staticmethod
-    def _override_auth(role: LitellmUserRoles):
-        from litellm.proxy._types import UserAPIKeyAuth
-        from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+    def _override_auth(role: EmbrouterUserRoles):
+        from embrouter.proxy._types import UserAPIKeyAuth
+        from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
 
         app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(
             user_id="u", api_key="hashed", user_role=role
         )
 
     def test_get_returns_stored_values_and_field_schema(self, mock_proxy_config, mock_auth, monkeypatch):
-        import litellm
-        from litellm.integrations.websearch_interception.handler import (
+        import embrouter
+        from embrouter.integrations.websearch_interception.handler import (
             WebSearchInterceptionLogger,
         )
 
-        monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", object())
-        monkeypatch.setattr(litellm, "callbacks", [WebSearchInterceptionLogger(search_tool_name="running")])
-        mock_proxy_config["config"]["litellm_settings"]["websearch_interception_params"] = {
+        monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", object())
+        monkeypatch.setattr(embrouter, "callbacks", [WebSearchInterceptionLogger(search_tool_name="running")])
+        mock_proxy_config["config"]["embrouter_settings"]["websearch_interception_params"] = {
             "enabled": True,
             "enabled_providers": ["bedrock", "vertex_ai"],
             "search_tool_name": "my-perplexity-search",
@@ -3277,8 +3277,8 @@ class TestWebSearchInterceptionSettingsEndpoints:
         assert resp.json()["field_schema"]["properties"]["enabled_providers"]["type"] == "array"
 
     def test_update_requires_proxy_admin(self, monkeypatch):
-        monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", True)
-        self._override_auth(LitellmUserRoles.INTERNAL_USER)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.store_model_in_db", True)
+        self._override_auth(EmbrouterUserRoles.INTERNAL_USER)
         try:
             resp = client.patch("/update/websearch_interception_settings", json={"enabled": True})
         finally:
@@ -3287,8 +3287,8 @@ class TestWebSearchInterceptionSettingsEndpoints:
         assert "proxy admin" in resp.json()["detail"].lower()
 
     def test_update_persists_settings(self, mock_proxy_config, monkeypatch):
-        monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", True)
-        self._override_auth(LitellmUserRoles.PROXY_ADMIN)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.store_model_in_db", True)
+        self._override_auth(EmbrouterUserRoles.PROXY_ADMIN)
         payload = {
             "enabled": True,
             "enabled_providers": ["bedrock"],
@@ -3302,19 +3302,19 @@ class TestWebSearchInterceptionSettingsEndpoints:
 
         assert resp.status_code == 200, resp.text
         assert mock_proxy_config["save_call_count"]() == 1
-        assert mock_proxy_config["config"]["litellm_settings"]["websearch_interception_params"] == payload
+        assert mock_proxy_config["config"]["embrouter_settings"]["websearch_interception_params"] == payload
 
     def test_get_reports_enabled_while_the_callback_is_running_without_a_stored_flag(
         self, mock_proxy_config, mock_auth, monkeypatch
     ):
-        import litellm
-        from litellm.integrations.websearch_interception.handler import (
+        import embrouter
+        from embrouter.integrations.websearch_interception.handler import (
             WebSearchInterceptionLogger,
         )
 
-        monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", object())
-        monkeypatch.setattr(litellm, "callbacks", [WebSearchInterceptionLogger(search_tool_name="from-config")])
-        mock_proxy_config["config"]["litellm_settings"]["websearch_interception_params"] = {
+        monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", object())
+        monkeypatch.setattr(embrouter, "callbacks", [WebSearchInterceptionLogger(search_tool_name="from-config")])
+        mock_proxy_config["config"]["embrouter_settings"]["websearch_interception_params"] = {
             "enabled_providers": ["bedrock"],
             "search_tool_name": "my-perplexity-search",
         }
@@ -3327,11 +3327,11 @@ class TestWebSearchInterceptionSettingsEndpoints:
     def test_get_reports_disabled_when_nothing_is_stored_and_nothing_is_running(
         self, mock_proxy_config, mock_auth, monkeypatch
     ):
-        import litellm
+        import embrouter
 
-        monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", object())
-        monkeypatch.setattr(litellm, "callbacks", [])
-        mock_proxy_config["config"]["litellm_settings"]["websearch_interception_params"] = {
+        monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", object())
+        monkeypatch.setattr(embrouter, "callbacks", [])
+        mock_proxy_config["config"]["embrouter_settings"]["websearch_interception_params"] = {
             "enabled_providers": ["bedrock"],
         }
 
@@ -3344,14 +3344,14 @@ class TestWebSearchInterceptionSettingsEndpoints:
     def test_update_reapplies_settings_to_the_running_proxy(self, mock_proxy_config, monkeypatch):
         from unittest.mock import AsyncMock
 
-        monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", True)
-        monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", object())
+        monkeypatch.setattr("embrouter.proxy.proxy_server.store_model_in_db", True)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", object())
         reapply = AsyncMock()
         monkeypatch.setattr(
-            "litellm.proxy.proxy_server.proxy_config.init_websearch_interception_settings_in_db",
+            "embrouter.proxy.proxy_server.proxy_config.init_websearch_interception_settings_in_db",
             reapply,
         )
-        self._override_auth(LitellmUserRoles.PROXY_ADMIN)
+        self._override_auth(EmbrouterUserRoles.PROXY_ADMIN)
         try:
             resp = client.patch("/update/websearch_interception_settings", json={"enabled": True})
         finally:
@@ -3363,11 +3363,11 @@ class TestWebSearchInterceptionSettingsEndpoints:
     def test_get_keeps_the_stored_flag_when_this_pod_has_not_reinitialized(
         self, mock_proxy_config, mock_auth, monkeypatch
     ):
-        import litellm
+        import embrouter
 
-        monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", object())
-        monkeypatch.setattr(litellm, "callbacks", [])
-        mock_proxy_config["config"]["litellm_settings"]["websearch_interception_params"] = {
+        monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", object())
+        monkeypatch.setattr(embrouter, "callbacks", [])
+        mock_proxy_config["config"]["embrouter_settings"]["websearch_interception_params"] = {
             "enabled": True,
             "search_tool_name": "cluster-search",
         }
@@ -3380,11 +3380,11 @@ class TestWebSearchInterceptionSettingsEndpoints:
     def test_get_flags_a_pod_that_has_not_applied_the_stored_setting(
         self, mock_proxy_config, mock_auth, monkeypatch
     ):
-        import litellm
+        import embrouter
 
-        monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", object())
-        monkeypatch.setattr(litellm, "callbacks", [])
-        mock_proxy_config["config"]["litellm_settings"]["websearch_interception_params"] = {"enabled": True}
+        monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", object())
+        monkeypatch.setattr(embrouter, "callbacks", [])
+        mock_proxy_config["config"]["embrouter_settings"]["websearch_interception_params"] = {"enabled": True}
 
         resp = client.get("/get/websearch_interception_settings")
 
@@ -3395,14 +3395,14 @@ class TestWebSearchInterceptionSettingsEndpoints:
     def test_get_reports_the_pod_as_active_once_the_callback_is_registered(
         self, mock_proxy_config, mock_auth, monkeypatch
     ):
-        import litellm
-        from litellm.integrations.websearch_interception.handler import (
+        import embrouter
+        from embrouter.integrations.websearch_interception.handler import (
             WebSearchInterceptionLogger,
         )
 
-        monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", object())
-        monkeypatch.setattr(litellm, "callbacks", [WebSearchInterceptionLogger(search_tool_name="running")])
-        mock_proxy_config["config"]["litellm_settings"]["websearch_interception_params"] = {"enabled": True}
+        monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", object())
+        monkeypatch.setattr(embrouter, "callbacks", [WebSearchInterceptionLogger(search_tool_name="running")])
+        mock_proxy_config["config"]["embrouter_settings"]["websearch_interception_params"] = {"enabled": True}
 
         resp = client.get("/get/websearch_interception_settings")
 
@@ -3410,7 +3410,7 @@ class TestWebSearchInterceptionSettingsEndpoints:
         assert resp.json()["active_on_this_pod"] is True
 
     def test_get_reports_no_database_instead_of_empty_settings(self, mock_proxy_config, mock_auth, monkeypatch):
-        monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", None)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", None)
 
         resp = client.get("/get/websearch_interception_settings")
 
@@ -3420,13 +3420,13 @@ class TestWebSearchInterceptionSettingsEndpoints:
     def test_update_still_saves_when_the_live_reinit_fails(self, mock_proxy_config, monkeypatch):
         from unittest.mock import AsyncMock
 
-        monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", True)
-        monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", object())
+        monkeypatch.setattr("embrouter.proxy.proxy_server.store_model_in_db", True)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", object())
         monkeypatch.setattr(
-            "litellm.proxy.proxy_server.proxy_config.init_websearch_interception_settings_in_db",
+            "embrouter.proxy.proxy_server.proxy_config.init_websearch_interception_settings_in_db",
             AsyncMock(side_effect=RuntimeError("callback blew up")),
         )
-        self._override_auth(LitellmUserRoles.PROXY_ADMIN)
+        self._override_auth(EmbrouterUserRoles.PROXY_ADMIN)
         try:
             resp = client.patch("/update/websearch_interception_settings", json={"enabled": True})
         finally:
@@ -3436,8 +3436,8 @@ class TestWebSearchInterceptionSettingsEndpoints:
         assert mock_proxy_config["save_call_count"]() == 1
 
     def test_update_rejects_zero_max_agentic_loops(self, mock_proxy_config, monkeypatch):
-        monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", True)
-        self._override_auth(LitellmUserRoles.PROXY_ADMIN)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.store_model_in_db", True)
+        self._override_auth(EmbrouterUserRoles.PROXY_ADMIN)
         try:
             resp = client.patch(
                 "/update/websearch_interception_settings",
@@ -3451,14 +3451,14 @@ class TestWebSearchInterceptionSettingsEndpoints:
 
 def test_upload_logo_requires_proxy_admin(monkeypatch):
     """Any authenticated key could previously write a file to the server's disk here."""
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
 
     async def _internal_user_auth():
         return UserAPIKeyAuth(
             user_id="internal-user-1",
             api_key="hashed-internal-key",
-            user_role=LitellmUserRoles.INTERNAL_USER,
+            user_role=EmbrouterUserRoles.INTERNAL_USER,
         )
 
     app.dependency_overrides[user_api_key_auth] = _internal_user_auth
@@ -3474,14 +3474,14 @@ def test_upload_logo_requires_proxy_admin(monkeypatch):
 
 
 def test_upload_logo_allows_proxy_admin(monkeypatch, tmp_path):
-    from litellm.proxy._types import UserAPIKeyAuth
-    from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+    from embrouter.proxy._types import UserAPIKeyAuth
+    from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
 
     async def _admin_auth():
         return UserAPIKeyAuth(
             user_id="admin-1",
             api_key="hashed-admin-key",
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=EmbrouterUserRoles.PROXY_ADMIN,
         )
 
     app.dependency_overrides[user_api_key_auth] = _admin_auth
@@ -3515,13 +3515,13 @@ class TestPtuCostAttributionUISetting:
         if stored is not None:
             mock_record = MagicMock()
             mock_record.ui_settings = stored
-        mock_prisma.db.litellm_uisettings.find_unique = AsyncMock(return_value=mock_record)
-        mock_prisma.db.litellm_uisettings.upsert = AsyncMock()
-        monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma)
+        mock_prisma.db.embrouter_uisettings.find_unique = AsyncMock(return_value=mock_record)
+        mock_prisma.db.embrouter_uisettings.upsert = AsyncMock()
+        monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", mock_prisma)
         return mock_prisma
 
     def test_reported_false_when_the_env_var_is_unset(self, mock_auth, monkeypatch):
-        from litellm.proxy.spend_tracking.ptu_feature_flag import PTU_COST_ATTRIBUTION_ENV_VAR
+        from embrouter.proxy.spend_tracking.ptu_feature_flag import PTU_COST_ATTRIBUTION_ENV_VAR
 
         monkeypatch.delenv(PTU_COST_ATTRIBUTION_ENV_VAR, raising=False)
         self._mock_prisma(monkeypatch)
@@ -3533,7 +3533,7 @@ class TestPtuCostAttributionUISetting:
         assert response.json()["source"]["enable_ptu_cost_attribution"] == "default"
 
     def test_reported_true_once_the_env_var_is_set(self, mock_auth, monkeypatch):
-        from litellm.proxy.spend_tracking.ptu_feature_flag import PTU_COST_ATTRIBUTION_ENV_VAR
+        from embrouter.proxy.spend_tracking.ptu_feature_flag import PTU_COST_ATTRIBUTION_ENV_VAR
 
         monkeypatch.setenv(PTU_COST_ATTRIBUTION_ENV_VAR, "true")
         self._mock_prisma(monkeypatch)
@@ -3547,11 +3547,11 @@ class TestPtuCostAttributionUISetting:
     def test_reported_config_when_secret_manager_enables_the_flag(
         self, mock_auth: None, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        from litellm.proxy.spend_tracking.ptu_feature_flag import PTU_COST_ATTRIBUTION_ENV_VAR
+        from embrouter.proxy.spend_tracking.ptu_feature_flag import PTU_COST_ATTRIBUTION_ENV_VAR
 
         monkeypatch.delenv(PTU_COST_ATTRIBUTION_ENV_VAR, raising=False)
         monkeypatch.setattr(
-            "litellm.proxy.ui_crud_endpoints.proxy_setting_endpoints.is_ptu_cost_attribution_enabled",
+            "embrouter.proxy.ui_crud_endpoints.proxy_setting_endpoints.is_ptu_cost_attribution_enabled",
             lambda: True,
         )
         self._mock_prisma(monkeypatch)
@@ -3565,15 +3565,15 @@ class TestPtuCostAttributionUISetting:
     def test_reported_config_when_secret_manager_disables_the_flag(
         self, mock_auth: None, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        from litellm.proxy.spend_tracking.ptu_feature_flag import PTU_COST_ATTRIBUTION_ENV_VAR
+        from embrouter.proxy.spend_tracking.ptu_feature_flag import PTU_COST_ATTRIBUTION_ENV_VAR
 
         monkeypatch.delenv(PTU_COST_ATTRIBUTION_ENV_VAR, raising=False)
         monkeypatch.setattr(
-            "litellm.proxy.ui_crud_endpoints.proxy_setting_endpoints.is_ptu_cost_attribution_enabled",
+            "embrouter.proxy.ui_crud_endpoints.proxy_setting_endpoints.is_ptu_cost_attribution_enabled",
             lambda: False,
         )
         monkeypatch.setattr(
-            "litellm.proxy.ui_crud_endpoints.proxy_setting_endpoints.get_secret",
+            "embrouter.proxy.ui_crud_endpoints.proxy_setting_endpoints.get_secret",
             lambda *_args: False,
         )
         self._mock_prisma(monkeypatch)
@@ -3586,7 +3586,7 @@ class TestPtuCostAttributionUISetting:
 
     def test_a_persisted_true_cannot_forge_the_derived_value(self, mock_auth, monkeypatch):
         """A row written before the allowlist existed must not be able to turn the feature on."""
-        from litellm.proxy.spend_tracking.ptu_feature_flag import PTU_COST_ATTRIBUTION_ENV_VAR
+        from embrouter.proxy.spend_tracking.ptu_feature_flag import PTU_COST_ATTRIBUTION_ENV_VAR
 
         monkeypatch.delenv(PTU_COST_ATTRIBUTION_ENV_VAR, raising=False)
         self._mock_prisma(monkeypatch, stored={"enable_ptu_cost_attribution": True})
@@ -3597,7 +3597,7 @@ class TestPtuCostAttributionUISetting:
         assert response.json()["values"]["enable_ptu_cost_attribution"] is False
 
     def test_is_not_an_allowlisted_persisted_setting(self):
-        from litellm.proxy.ui_crud_endpoints.proxy_setting_endpoints import (
+        from embrouter.proxy.ui_crud_endpoints.proxy_setting_endpoints import (
             ALLOWED_UI_SETTINGS_FIELDS,
         )
 
@@ -3607,15 +3607,15 @@ class TestPtuCostAttributionUISetting:
         """Read-modify-write is how a client edits one setting. GET injects the derived key,
         so rejecting it on presence made GET's own output an invalid PATCH body: the caller
         got a 400 and silently lost the edit it actually wanted."""
-        from litellm.proxy._types import UserAPIKeyAuth
-        from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-        from litellm.proxy.spend_tracking.ptu_feature_flag import PTU_COST_ATTRIBUTION_ENV_VAR
+        from embrouter.proxy._types import UserAPIKeyAuth
+        from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+        from embrouter.proxy.spend_tracking.ptu_feature_flag import PTU_COST_ATTRIBUTION_ENV_VAR
 
         app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(
             user_id="test-user-123",
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=EmbrouterUserRoles.PROXY_ADMIN,
         )
-        monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", True)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.store_model_in_db", True)
         monkeypatch.delenv(PTU_COST_ATTRIBUTION_ENV_VAR, raising=False)
         mock_prisma = self._mock_prisma(monkeypatch)
 
@@ -3627,19 +3627,19 @@ class TestPtuCostAttributionUISetting:
             app.dependency_overrides.clear()
 
         assert response.status_code == 200
-        assert mock_prisma.db.litellm_uisettings.upsert.called
+        assert mock_prisma.db.embrouter_uisettings.upsert.called
 
     def test_a_co_submitted_setting_still_applies_alongside_the_derived_key(self, mock_auth, monkeypatch):
         """The derived key riding along must not discard the caller's real edit."""
-        from litellm.proxy._types import UserAPIKeyAuth
-        from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
-        from litellm.proxy.spend_tracking.ptu_feature_flag import PTU_COST_ATTRIBUTION_ENV_VAR
+        from embrouter.proxy._types import UserAPIKeyAuth
+        from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
+        from embrouter.proxy.spend_tracking.ptu_feature_flag import PTU_COST_ATTRIBUTION_ENV_VAR
 
         app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(
             user_id="test-user-123",
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=EmbrouterUserRoles.PROXY_ADMIN,
         )
-        monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", True)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.store_model_in_db", True)
         monkeypatch.delenv(PTU_COST_ATTRIBUTION_ENV_VAR, raising=False)
         mock_prisma = self._mock_prisma(monkeypatch)
 
@@ -3652,20 +3652,20 @@ class TestPtuCostAttributionUISetting:
             app.dependency_overrides.clear()
 
         assert response.status_code == 200
-        upsert_data = mock_prisma.db.litellm_uisettings.upsert.call_args.kwargs["data"]
+        upsert_data = mock_prisma.db.embrouter_uisettings.upsert.call_args.kwargs["data"]
         persisted = json.loads(upsert_data["create"]["ui_settings"])
         assert persisted["enable_chat_ui"] is True
         assert "enable_ptu_cost_attribution" not in persisted
 
     def test_patch_rejects_the_derived_setting(self, mock_auth, monkeypatch):
-        from litellm.proxy._types import UserAPIKeyAuth
-        from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+        from embrouter.proxy._types import UserAPIKeyAuth
+        from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
 
         app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(
             user_id="test-user-123",
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=EmbrouterUserRoles.PROXY_ADMIN,
         )
-        monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", True)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.store_model_in_db", True)
         mock_prisma = self._mock_prisma(monkeypatch)
 
         try:
@@ -3678,7 +3678,7 @@ class TestPtuCostAttributionUISetting:
 
         assert response.status_code == 400
         assert "enable_ptu_cost_attribution" in str(response.json()["detail"])
-        assert not mock_prisma.db.litellm_uisettings.upsert.called
+        assert not mock_prisma.db.embrouter_uisettings.upsert.called
 
 
 class TestApplyUserBudgetToTeamKeysUISetting:
@@ -3699,13 +3699,13 @@ class TestApplyUserBudgetToTeamKeysUISetting:
         if stored is not None:
             mock_record = MagicMock()
             mock_record.ui_settings = stored
-        mock_prisma.db.litellm_uisettings.find_unique = AsyncMock(return_value=mock_record)
-        mock_prisma.db.litellm_uisettings.upsert = AsyncMock()
-        monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma)
+        mock_prisma.db.embrouter_uisettings.find_unique = AsyncMock(return_value=mock_record)
+        mock_prisma.db.embrouter_uisettings.upsert = AsyncMock()
+        monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", mock_prisma)
         return mock_prisma
 
     def test_reported_false_when_general_settings_lacks_the_flag(self, mock_auth, monkeypatch):
-        monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
+        monkeypatch.setattr("embrouter.proxy.proxy_server.general_settings", {})
         self._mock_prisma(monkeypatch)
 
         response = client.get("/get/ui_settings")
@@ -3715,7 +3715,7 @@ class TestApplyUserBudgetToTeamKeysUISetting:
 
     def test_reported_true_when_general_settings_enables_the_flag(self, mock_auth, monkeypatch):
         monkeypatch.setattr(
-            "litellm.proxy.proxy_server.general_settings",
+            "embrouter.proxy.proxy_server.general_settings",
             {"apply_user_budget_to_team_keys": True},
         )
         self._mock_prisma(monkeypatch)
@@ -3729,7 +3729,7 @@ class TestApplyUserBudgetToTeamKeysUISetting:
         """general_settings holds non-JSON values at runtime (e.g. RoleBasedPermissions
         instances under "role_permissions"); only the flag itself may be inspected."""
         monkeypatch.setattr(
-            "litellm.proxy.proxy_server.general_settings",
+            "embrouter.proxy.proxy_server.general_settings",
             {"role_permissions": [object()], "apply_user_budget_to_team_keys": True},
         )
         self._mock_prisma(monkeypatch)
@@ -3740,7 +3740,7 @@ class TestApplyUserBudgetToTeamKeysUISetting:
         assert response.json()["values"]["apply_user_budget_to_team_keys"] is True
 
     def test_reads_only_the_flag_key(self):
-        from litellm.proxy.ui_crud_endpoints.proxy_setting_endpoints import (
+        from embrouter.proxy.ui_crud_endpoints.proxy_setting_endpoints import (
             _apply_user_budget_to_team_keys_enabled,
         )
 
@@ -3750,7 +3750,7 @@ class TestApplyUserBudgetToTeamKeysUISetting:
 
     def test_a_persisted_true_cannot_forge_the_derived_value(self, mock_auth, monkeypatch):
         """A row written before the allowlist existed must not be able to turn the feature on."""
-        monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
+        monkeypatch.setattr("embrouter.proxy.proxy_server.general_settings", {})
         self._mock_prisma(monkeypatch, stored={"apply_user_budget_to_team_keys": True})
 
         response = client.get("/get/ui_settings")
@@ -3759,7 +3759,7 @@ class TestApplyUserBudgetToTeamKeysUISetting:
         assert response.json()["values"]["apply_user_budget_to_team_keys"] is False
 
     def test_is_not_an_allowlisted_persisted_setting(self):
-        from litellm.proxy.ui_crud_endpoints.proxy_setting_endpoints import (
+        from embrouter.proxy.ui_crud_endpoints.proxy_setting_endpoints import (
             ALLOWED_UI_SETTINGS_FIELDS,
         )
 
@@ -3772,24 +3772,24 @@ class TestTeamAdminEditableTeamFieldsSetting:
     def _as_proxy_admin(self, monkeypatch):
         from unittest.mock import AsyncMock, MagicMock
 
-        from litellm.proxy._types import UserAPIKeyAuth
-        from litellm.proxy.auth.user_api_key_auth import user_api_key_auth
+        from embrouter.proxy._types import UserAPIKeyAuth
+        from embrouter.proxy.auth.user_api_key_auth import user_api_key_auth
 
         app.dependency_overrides[user_api_key_auth] = lambda: UserAPIKeyAuth(
             user_id="test-user-123",
-            user_role=LitellmUserRoles.PROXY_ADMIN,
+            user_role=EmbrouterUserRoles.PROXY_ADMIN,
         )
-        monkeypatch.setattr("litellm.proxy.proxy_server.store_model_in_db", True)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.store_model_in_db", True)
         mock_prisma = MagicMock()
-        mock_prisma.db.litellm_uisettings.upsert = AsyncMock()
-        mock_prisma.db.litellm_uisettings.find_unique = AsyncMock(return_value=None)
-        monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma)
+        mock_prisma.db.embrouter_uisettings.upsert = AsyncMock()
+        mock_prisma.db.embrouter_uisettings.find_unique = AsyncMock(return_value=None)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", mock_prisma)
         return mock_prisma
 
     def test_patch_rejects_field_names_the_proxy_does_not_support(self, monkeypatch):
         mock_prisma = self._as_proxy_admin(monkeypatch)
         monkeypatch.setattr(
-            "litellm.proxy.ui_crud_endpoints.proxy_setting_endpoints.SUPPORTED_TEAM_ADMIN_PERMISSIONS",
+            "embrouter.proxy.ui_crud_endpoints.proxy_setting_endpoints.SUPPORTED_TEAM_ADMIN_PERMISSIONS",
             frozenset({"tpm_limit"}),
         )
 
@@ -3805,7 +3805,7 @@ class TestTeamAdminEditableTeamFieldsSetting:
         detail = response.json()["detail"]["error"]
         assert "['blocked', 'organization_id']" in detail
         assert "['tpm_limit']" in detail
-        assert not mock_prisma.db.litellm_uisettings.upsert.called
+        assert not mock_prisma.db.embrouter_uisettings.upsert.called
 
     def test_patch_rejects_a_non_list_value(self, monkeypatch):
         self._as_proxy_admin(monkeypatch)
@@ -3836,7 +3836,7 @@ class TestTeamAdminEditableTeamFieldsSetting:
     def test_patch_persists_and_syncs_the_list_to_general_settings(self, monkeypatch):
         mock_prisma = self._as_proxy_admin(monkeypatch)
         general_settings: dict = {"team_admin_editable_team_fields": []}
-        monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", general_settings)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.general_settings", general_settings)
 
         enabled = ["tpm_limit", "rpm_limit", "max_budget"]
 
@@ -3846,18 +3846,18 @@ class TestTeamAdminEditableTeamFieldsSetting:
             app.dependency_overrides.clear()
 
         assert response.status_code == 200
-        stored = json.loads(mock_prisma.db.litellm_uisettings.upsert.call_args.kwargs["data"]["create"]["ui_settings"])
+        stored = json.loads(mock_prisma.db.embrouter_uisettings.upsert.call_args.kwargs["data"]["create"]["ui_settings"])
         assert stored["team_admin_editable_team_fields"] == enabled
         assert general_settings["team_admin_editable_team_fields"] == enabled
 
     def test_patch_accepts_the_projects_permission_and_project_endpoints_see_it(self, monkeypatch):
-        from litellm.proxy.management_endpoints.team_admin_field_permissions import (
+        from embrouter.proxy.management_endpoints.team_admin_field_permissions import (
             team_admin_may_manage_projects,
         )
 
         mock_prisma = self._as_proxy_admin(monkeypatch)
         general_settings: dict = {}
-        monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", general_settings)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.general_settings", general_settings)
         assert team_admin_may_manage_projects(general_settings) is False
 
         try:
@@ -3866,18 +3866,18 @@ class TestTeamAdminEditableTeamFieldsSetting:
             app.dependency_overrides.clear()
 
         assert response.status_code == 200
-        stored = json.loads(mock_prisma.db.litellm_uisettings.upsert.call_args.kwargs["data"]["create"]["ui_settings"])
+        stored = json.loads(mock_prisma.db.embrouter_uisettings.upsert.call_args.kwargs["data"]["create"]["ui_settings"])
         assert stored["team_admin_editable_team_fields"] == ["projects"]
         assert team_admin_may_manage_projects(general_settings) is True
 
     def test_patch_accepts_the_member_key_budgets_permission(self, monkeypatch):
-        from litellm.proxy.management_endpoints.team_admin_field_permissions import (
+        from embrouter.proxy.management_endpoints.team_admin_field_permissions import (
             team_admin_may_edit_member_key_budgets,
         )
 
         mock_prisma = self._as_proxy_admin(monkeypatch)
         general_settings: dict = {}
-        monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", general_settings)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.general_settings", general_settings)
         assert team_admin_may_edit_member_key_budgets(general_settings) is False
 
         try:
@@ -3888,14 +3888,14 @@ class TestTeamAdminEditableTeamFieldsSetting:
             app.dependency_overrides.clear()
 
         assert response.status_code == 200
-        stored = json.loads(mock_prisma.db.litellm_uisettings.upsert.call_args.kwargs["data"]["create"]["ui_settings"])
+        stored = json.loads(mock_prisma.db.embrouter_uisettings.upsert.call_args.kwargs["data"]["create"]["ui_settings"])
         assert stored["team_admin_editable_team_fields"] == ["member_key_budgets"]
         assert team_admin_may_edit_member_key_budgets(general_settings) is True
 
     def test_patch_with_an_empty_list_turns_team_admin_editing_off_again(self, monkeypatch):
         mock_prisma = self._as_proxy_admin(monkeypatch)
         general_settings: dict = {"team_admin_editable_team_fields": ["tpm_limit"]}
-        monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", general_settings)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.general_settings", general_settings)
 
         try:
             response = client.patch("/update/ui_settings", json={"team_admin_editable_team_fields": []})
@@ -3903,7 +3903,7 @@ class TestTeamAdminEditableTeamFieldsSetting:
             app.dependency_overrides.clear()
 
         assert response.status_code == 200
-        stored = json.loads(mock_prisma.db.litellm_uisettings.upsert.call_args.kwargs["data"]["create"]["ui_settings"])
+        stored = json.loads(mock_prisma.db.embrouter_uisettings.upsert.call_args.kwargs["data"]["create"]["ui_settings"])
         assert stored["team_admin_editable_team_fields"] == []
         assert general_settings["team_admin_editable_team_fields"] == []
 
@@ -3913,10 +3913,10 @@ class TestTeamAdminEditableTeamFieldsSetting:
         mock_prisma = MagicMock()
         mock_db_record = MagicMock()
         mock_db_record.ui_settings = {"team_admin_editable_team_fields": ["tpm_limit"]}
-        mock_prisma.db.litellm_uisettings.find_unique = AsyncMock(return_value=mock_db_record)
-        monkeypatch.setattr("litellm.proxy.proxy_server.prisma_client", mock_prisma)
+        mock_prisma.db.embrouter_uisettings.find_unique = AsyncMock(return_value=mock_db_record)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.prisma_client", mock_prisma)
         general_settings: dict = {}
-        monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", general_settings)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.general_settings", general_settings)
 
         response = client.get("/get/ui_settings")
 
@@ -3936,13 +3936,13 @@ class TestTeamAdminEditableTeamFieldsSetting:
         that store, so whichever case ran second used to read the other's list instead of its own DB row."""
         from unittest.mock import AsyncMock, MagicMock
 
-        from litellm.proxy import proxy_server
+        from embrouter.proxy import proxy_server
 
         mock_prisma = self._as_proxy_admin(monkeypatch)
         mock_db_record = MagicMock()
         mock_db_record.ui_settings = {"team_admin_editable_team_fields": stored}
-        mock_prisma.db.litellm_uisettings.find_unique = AsyncMock(return_value=mock_db_record)
-        monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", {})
+        mock_prisma.db.embrouter_uisettings.find_unique = AsyncMock(return_value=mock_db_record)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.general_settings", {})
 
         try:
             fetched = client.get("/get/ui_settings")
@@ -3960,7 +3960,7 @@ class TestSyncUiSettingsToGeneralSettings:
     """The DB re-read each pod runs on startup and on every config reload."""
 
     def _sync(self):
-        from litellm.proxy.ui_crud_endpoints.proxy_setting_endpoints import (
+        from embrouter.proxy.ui_crud_endpoints.proxy_setting_endpoints import (
             sync_ui_settings_to_general_settings,
         )
 
@@ -3971,7 +3971,7 @@ class TestSyncUiSettingsToGeneralSettings:
         from unittest.mock import AsyncMock, MagicMock
 
         general_settings: dict = {"allow_agents_for_team_admins": False}
-        monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", general_settings)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.general_settings", general_settings)
         mock_prisma = MagicMock()
         record = MagicMock()
         record.ui_settings = json.dumps(
@@ -3981,7 +3981,7 @@ class TestSyncUiSettingsToGeneralSettings:
                 "enable_chat_ui": False,
             }
         )
-        mock_prisma.db.litellm_uisettings.find_unique = AsyncMock(return_value=record)
+        mock_prisma.db.embrouter_uisettings.find_unique = AsyncMock(return_value=record)
 
         applied = await self._sync()(mock_prisma)
 
@@ -3998,11 +3998,11 @@ class TestSyncUiSettingsToGeneralSettings:
         from unittest.mock import AsyncMock, MagicMock
 
         general_settings: dict = {}
-        monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", general_settings)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.general_settings", general_settings)
         mock_prisma = MagicMock()
         record = MagicMock()
         record.ui_settings = {"team_admin_editable_team_fields": ["rpm_limit"]}
-        mock_prisma.db.litellm_uisettings.find_unique = AsyncMock(return_value=record)
+        mock_prisma.db.embrouter_uisettings.find_unique = AsyncMock(return_value=record)
 
         await self._sync()(mock_prisma)
 
@@ -4013,9 +4013,9 @@ class TestSyncUiSettingsToGeneralSettings:
         from unittest.mock import AsyncMock, MagicMock
 
         general_settings: dict = {"allow_agents_for_team_admins": True}
-        monkeypatch.setattr("litellm.proxy.proxy_server.general_settings", general_settings)
+        monkeypatch.setattr("embrouter.proxy.proxy_server.general_settings", general_settings)
         mock_prisma = MagicMock()
-        mock_prisma.db.litellm_uisettings.find_unique = AsyncMock(return_value=None)
+        mock_prisma.db.embrouter_uisettings.find_unique = AsyncMock(return_value=None)
 
         applied = await self._sync()(mock_prisma)
 
@@ -4023,9 +4023,9 @@ class TestSyncUiSettingsToGeneralSettings:
         assert general_settings == {"allow_agents_for_team_admins": True}
 
     def test_applied_runtime_flags_keep_the_ui_row_as_the_source(self, monkeypatch):
-        from litellm.proxy import proxy_server
-        from litellm.proxy.config_resolvers import SettingsStore
-        from litellm.proxy.ui_crud_endpoints.proxy_setting_endpoints import apply_runtime_general_settings_flags
+        from embrouter.proxy import proxy_server
+        from embrouter.proxy.config_resolvers import SettingsStore
+        from embrouter.proxy.ui_crud_endpoints.proxy_setting_endpoints import apply_runtime_general_settings_flags
 
         general_settings = SettingsStore("general_settings")
         general_settings.load_yaml({})
@@ -4038,9 +4038,9 @@ class TestSyncUiSettingsToGeneralSettings:
 
     def test_every_runtime_flag_reaches_a_reader_once_applied(self, monkeypatch):
         """A flag the settings rules do not route to the ui_settings row is stored but never read back."""
-        from litellm.proxy import proxy_server
-        from litellm.proxy.config_resolvers import SettingsStore
-        from litellm.proxy.ui_crud_endpoints.proxy_setting_endpoints import (
+        from embrouter.proxy import proxy_server
+        from embrouter.proxy.config_resolvers import SettingsStore
+        from embrouter.proxy.ui_crud_endpoints.proxy_setting_endpoints import (
             TEAM_ADMIN_EDITABLE_TEAM_FIELDS_SETTING,
             _RUNTIME_GENERAL_SETTINGS_FLAGS,
             apply_runtime_general_settings_flags,
@@ -4063,9 +4063,9 @@ class TestSyncUiSettingsToGeneralSettings:
         assert read_back == stored
 
     def test_applied_runtime_flags_cannot_override_the_config_file(self, monkeypatch):
-        from litellm.proxy import proxy_server
-        from litellm.proxy.config_resolvers import SettingsStore
-        from litellm.proxy.ui_crud_endpoints.proxy_setting_endpoints import apply_runtime_general_settings_flags
+        from embrouter.proxy import proxy_server
+        from embrouter.proxy.config_resolvers import SettingsStore
+        from embrouter.proxy.ui_crud_endpoints.proxy_setting_endpoints import apply_runtime_general_settings_flags
 
         general_settings = SettingsStore("general_settings")
         general_settings.load_yaml({"forward_client_headers_to_llm_api": False})

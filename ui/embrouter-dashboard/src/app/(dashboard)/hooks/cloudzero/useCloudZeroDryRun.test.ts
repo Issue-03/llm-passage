@@ -4,26 +4,26 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import React, { ReactNode } from "react";
 import { useCloudZeroDryRun } from "./useCloudZeroDryRun";
 
-const { mockProxyBaseUrl, mockAccessToken, mockHeaderName, mockGetProxyBaseUrl, mockGetGlobalLitellmHeaderName } =
+const { mockProxyBaseUrl, mockAccessToken, mockHeaderName, mockGetProxyBaseUrl, mockGetGlobalEmbrouterHeaderName } =
   vi.hoisted(() => {
     const mockProxyBaseUrl = "https://proxy.example.com";
     const mockAccessToken = "test-access-token";
-    const mockHeaderName = "X-LiteLLM-API-Key";
+    const mockHeaderName = "X-EmbRouter-API-Key";
     const mockGetProxyBaseUrl = vi.fn(() => mockProxyBaseUrl);
-    const mockGetGlobalLitellmHeaderName = vi.fn(() => mockHeaderName);
+    const mockGetGlobalEmbrouterHeaderName = vi.fn(() => mockHeaderName);
 
     return {
       mockProxyBaseUrl,
       mockAccessToken,
       mockHeaderName,
       mockGetProxyBaseUrl,
-      mockGetGlobalLitellmHeaderName,
+      mockGetGlobalEmbrouterHeaderName,
     };
   });
 
 vi.mock("@/components/networking", () => ({
   getProxyBaseUrl: mockGetProxyBaseUrl,
-  getGlobalLitellmHeaderName: mockGetGlobalLitellmHeaderName,
+  getGlobalEmbrouterHeaderName: mockGetGlobalEmbrouterHeaderName,
 }));
 
 describe("useCloudZeroDryRun", () => {

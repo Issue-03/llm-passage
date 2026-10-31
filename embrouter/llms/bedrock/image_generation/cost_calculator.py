@@ -1,7 +1,7 @@
 from typing import Final
 
-from litellm.llms.bedrock.image_generation.image_handler import BedrockImageGeneration
-from litellm.types.utils import ImageResponse
+from embrouter.llms.bedrock.image_generation.image_handler import BedrockImageGeneration
+from embrouter.types.utils import ImageResponse
 
 
 def cost_calculator(

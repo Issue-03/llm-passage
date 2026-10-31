@@ -13,16 +13,16 @@ from typing import Final
 
 import httpx
 
-from litellm._logging import verbose_logger
-from litellm.caching.caching import InMemoryCache
-from litellm.llms.base_llm.chat.transformation import BaseLLMException
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter._logging import verbose_logger
+from embrouter.caching.caching import InMemoryCache
+from embrouter.llms.base_llm.chat.transformation import BaseLLMException
+from embrouter.llms.custom_httpx.http_handler import (
     HTTPHandler,
     _get_httpx_client,  # pyright: ignore[reportPrivateUsage]  # house cached-client factory has no public alias
     get_async_httpx_client,
 )
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.utils import LlmProviders
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.utils import LlmProviders
 
 # GigaChat OAuth endpoint
 GIGACHAT_AUTH_URL: Final = "https://ngw.devices.sberbank.ru:9443/api/v2/oauth"
@@ -34,7 +34,7 @@ GIGACHAT_SCOPE: Final = "GIGACHAT_API_PERS"
 TOKEN_EXPIRY_BUFFER_MS: Final = 60000
 
 _token_cache: Final = InMemoryCache()
-_NO_LITELLM_PARAMS: Final[Mapping[str, object]] = MappingProxyType({})
+_NO_EMBROUTER_PARAMS: Final[Mapping[str, object]] = MappingProxyType({})
 
 
 class GigaChatAuthError(BaseLLMException):
@@ -65,7 +65,7 @@ def get_access_token(
     credentials: str | None = None,
     scope: str | None = None,
     auth_url: str | None = None,
-    litellm_params: Mapping[str, object] | None = None,
+    embrouter_params: Mapping[str, object] | None = None,
 ) -> str:
     """
     Get valid access token, using cache if available.
@@ -81,7 +81,7 @@ def get_access_token(
     Raises:
         GigaChatAuthError: If authentication fails
     """
-    params: Final = litellm_params or _NO_LITELLM_PARAMS
+    params: Final = embrouter_params or _NO_EMBROUTER_PARAMS
 
     access_token: Final = params.get("gigachat_access_token") or get_secret_str("GIGACHAT_ACCESS_TOKEN")
     if access_token:
@@ -119,10 +119,10 @@ async def get_access_token_async(
     credentials: str | None = None,
     scope: str | None = None,
     auth_url: str | None = None,
-    litellm_params: Mapping[str, object] | None = None,
+    embrouter_params: Mapping[str, object] | None = None,
 ) -> str:
     """Async version of get_access_token."""
-    params: Final = litellm_params or _NO_LITELLM_PARAMS
+    params: Final = embrouter_params or _NO_EMBROUTER_PARAMS
 
     access_token: Final = params.get("gigachat_access_token") or get_secret_str("GIGACHAT_ACCESS_TOKEN")
     if access_token:

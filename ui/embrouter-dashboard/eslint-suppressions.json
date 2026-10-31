@@ -1449,7 +1449,7 @@
       "count": 1
     }
   },
-  "src/components/add_model/litellm_model_name.tsx": {
+  "src/components/add_model/embrouter_model_name.tsx": {
     "local/filename-pascal-case": {
       "count": 1
     },

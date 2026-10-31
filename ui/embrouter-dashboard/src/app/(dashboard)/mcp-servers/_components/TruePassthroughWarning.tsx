@@ -6,7 +6,7 @@ import { AUTH_TYPE } from "@/components/mcp_tools/types";
 /**
  * Warning shown in the create/edit MCP server forms when auth_type
  * true_passthrough is selected: the gateway performs no admission auth for
- * that server, so callers reach the upstream without a LiteLLM identity.
+ * that server, so callers reach the upstream without a EmbRouter identity.
  */
 export default function TruePassthroughWarning({ authType }: { authType?: string | null }) {
   if (authType !== AUTH_TYPE.TRUE_PASSTHROUGH) return null;

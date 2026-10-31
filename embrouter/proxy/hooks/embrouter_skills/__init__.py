@@ -1,35 +1,35 @@
 """
-LiteLLM Skills Hook - Proxy integration for skills
+EmbRouter Skills Hook - Proxy integration for skills
 
 This module provides the CustomLogger hook for skills processing.
-The actual skill logic is in litellm/llms/litellm_proxy/skills/.
+The actual skill logic is in embrouter/llms/embrouter_proxy/skills/.
 
 Usage:
-    from litellm.proxy.hooks.litellm_skills import SkillsInjectionHook
+    from embrouter.proxy.hooks.embrouter_skills import SkillsInjectionHook
 
     # Register hook in proxy
-    litellm.callbacks.append(SkillsInjectionHook())
+    embrouter.callbacks.append(SkillsInjectionHook())
 """
 
 # Re-export from the SDK location for convenience
-from litellm.llms.litellm_proxy.skills import (
-    LITELLM_CODE_EXECUTION_TOOL,
+from embrouter.llms.embrouter_proxy.skills import (
+    EMBROUTER_CODE_EXECUTION_TOOL,
     CodeExecutionHandler,
-    LiteLLMInternalTools,
+    EmbRouterInternalTools,
     SkillPromptInjectionHandler,
     SkillsSandboxExecutor,
     code_execution_handler,
-    get_litellm_code_execution_tool,
+    get_embrouter_code_execution_tool,
 )
-from litellm.proxy.hooks.litellm_skills.main import SkillsInjectionHook
+from embrouter.proxy.hooks.embrouter_skills.main import SkillsInjectionHook
 
 __all__ = [
-    "LITELLM_CODE_EXECUTION_TOOL",
+    "EMBROUTER_CODE_EXECUTION_TOOL",
     "CodeExecutionHandler",
-    "LiteLLMInternalTools",
+    "EmbRouterInternalTools",
     "SkillPromptInjectionHandler",
     "SkillsInjectionHook",
     "SkillsSandboxExecutor",
     "code_execution_handler",
-    "get_litellm_code_execution_tool",
+    "get_embrouter_code_execution_tool",
 ]

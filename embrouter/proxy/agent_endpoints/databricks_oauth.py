@@ -4,7 +4,7 @@ App endpoints.
 
 Databricks Apps reject static bearer tokens; they require a short-lived OAuth
 access token minted from the workspace OIDC token endpoint. When an agent is
-registered with a ``databricks_oauth`` block in its ``litellm_params``, LiteLLM
+registered with a ``databricks_oauth`` block in its ``embrouter_params``, EmbRouter
 fetches that token via the client_credentials grant, caches it until shortly
 before expiry, and attaches it as the outbound ``Authorization`` header on every
 call the proxy makes to the agent.
@@ -15,7 +15,7 @@ Config example::
       - agent_name: my-databricks-app
         agent_card_params:
           url: https://my-app-1234.aws.databricksapps.com
-        litellm_params:
+        embrouter_params:
           databricks_oauth:
             client_id: os.environ/DATABRICKS_CLIENT_ID
             client_secret: os.environ/DATABRICKS_CLIENT_SECRET
@@ -31,11 +31,11 @@ from typing import Final
 
 import httpx
 
-from litellm._logging import verbose_logger
-from litellm.caching.in_memory_cache import InMemoryCache
-from litellm.llms.custom_httpx.http_handler import get_async_httpx_client
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.llms.custom_http import httpxSpecialProvider
+from embrouter._logging import verbose_logger
+from embrouter.caching.in_memory_cache import InMemoryCache
+from embrouter.llms.custom_httpx.http_handler import get_async_httpx_client
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.llms.custom_http import httpxSpecialProvider
 
 DATABRICKS_OAUTH_PARAM: Final = "databricks_oauth"
 
@@ -76,18 +76,18 @@ class DatabricksAppOAuthConfig:
 
 
 def parse_databricks_oauth_config(
-    litellm_params: Mapping[str, object] | None,
+    embrouter_params: Mapping[str, object] | None,
 ) -> DatabricksAppOAuthConfig | None:
-    """Build a Databricks App OAuth config from an agent's ``litellm_params``.
+    """Build a Databricks App OAuth config from an agent's ``embrouter_params``.
 
     Returns ``None`` when the agent has no ``databricks_oauth`` block. Raises
     ``ValueError`` when the block is present but incomplete, so misconfiguration
     surfaces loudly instead of silently sending an unauthenticated request.
     """
-    if not litellm_params:
+    if not embrouter_params:
         return None
 
-    raw: Final = litellm_params.get(DATABRICKS_OAUTH_PARAM)
+    raw: Final = embrouter_params.get(DATABRICKS_OAUTH_PARAM)
     if raw is None:
         return None
     if not isinstance(raw, dict):
@@ -216,13 +216,13 @@ databricks_app_oauth_token_cache: Final = DatabricksAppOAuthTokenCache()
 
 
 async def resolve_databricks_app_auth_header(
-    litellm_params: Mapping[str, object] | None,
+    embrouter_params: Mapping[str, object] | None,
 ) -> dict[str, str] | None:
     """Return ``{"Authorization": "Bearer <token>"}`` for a Databricks App agent.
 
     Returns ``None`` when the agent is not configured for Databricks App OAuth.
     """
-    config: Final = parse_databricks_oauth_config(litellm_params)
+    config: Final = parse_databricks_oauth_config(embrouter_params)
     if config is None:
         return None
 

@@ -1,7 +1,7 @@
 """
 MCP gateway support for the Anthropic `/v1/messages` API.
 
-Mirrors ``litellm.responses.mcp.chat_completions_handler`` but speaks the
+Mirrors ``embrouter.responses.mcp.chat_completions_handler`` but speaks the
 Anthropic Messages shapes: tools carry an ``input_schema``, the model asks for a
 tool through a ``tool_use`` content block, and results are fed back as
 ``tool_result`` blocks in a user message.
@@ -11,14 +11,14 @@ from collections.abc import AsyncIterator, Awaitable, Callable, Iterator, Mappin
 from types import MappingProxyType
 from typing import Any, Final, NamedTuple
 
-from litellm._logging import verbose_logger
-from litellm.responses.mcp.request_context import MCPRequestContext
-from litellm.types.llms.anthropic import (
+from embrouter._logging import verbose_logger
+from embrouter.responses.mcp.request_context import MCPRequestContext
+from embrouter.types.llms.anthropic import (
     AnthropicMessagesTool,
     AnthropicMessagesToolResultParam,
     AnthropicMessagesUserMessageParam,
 )
-from litellm.types.llms.anthropic_messages.anthropic_response import (
+from embrouter.types.llms.anthropic_messages.anthropic_response import (
     AnthropicMessagesResponse,
 )
 
@@ -66,27 +66,27 @@ async def anthropic_messages_with_mcp(
     messages: Sequence[Mapping[str, object]],
     model: str,
     tools: Sequence[Mapping[str, object]] | None = None,
-    **kwargs: Any,  # kwargs-ok: forwarded verbatim to litellm.anthropic_messages, which owns the param contract
+    **kwargs: Any,  # kwargs-ok: forwarded verbatim to embrouter.anthropic_messages, which owns the param contract
 ) -> AnthropicMessagesResponse | Iterator[bytes] | AsyncIterator[object]:
     """
-    Expand litellm_proxy MCP references for `/v1/messages` and run the tool loop.
+    Expand embrouter_proxy MCP references for `/v1/messages` and run the tool loop.
 
     The MCP gateway owns the expansion so the reference resolves against the
     caller's own credentials and access control, rather than being handed to the
     upstream provider as a url it cannot reach.
     """
-    import litellm
-    from litellm.experimental_mcp_client.tools import (
+    import embrouter
+    from embrouter.experimental_mcp_client.tools import (
         transform_mcp_tool_to_anthropic_tool,
     )
-    from litellm.responses.mcp.litellm_proxy_mcp_handler import (
-        LiteLLM_Proxy_MCP_Handler,
+    from embrouter.responses.mcp.embrouter_proxy_mcp_handler import (
+        EmbRouter_Proxy_MCP_Handler,
     )
 
-    mcp_references, other_tools = await LiteLLM_Proxy_MCP_Handler._split_mcp_tools(tools)
+    mcp_references, other_tools = await EmbRouter_Proxy_MCP_Handler._split_mcp_tools(tools)
 
     if not mcp_references:
-        return await _AnthropicMessagesCall(fn=litellm.anthropic_messages).fn(
+        return await _AnthropicMessagesCall(fn=embrouter.anthropic_messages).fn(
             max_tokens=max_tokens,
             messages=list(messages),
             model=model,
@@ -100,10 +100,10 @@ async def anthropic_messages_with_mcp(
     (
         deduplicated_mcp_tools,
         tool_server_map,
-    ) = await LiteLLM_Proxy_MCP_Handler._process_mcp_tools_without_openai_transform(
+    ) = await EmbRouter_Proxy_MCP_Handler._process_mcp_tools_without_openai_transform(
         context.user_api_key_auth,
         mcp_references,
-        litellm_trace_id=context.litellm_trace_id,
+        embrouter_trace_id=context.embrouter_trace_id,
         mcp_auth_header=context.mcp_auth_header,
         mcp_server_auth_headers=context.mcp_server_auth_headers,
         request_tags=list(context.request_tags) if context.request_tags else None,
@@ -114,8 +114,8 @@ async def anthropic_messages_with_mcp(
     )
     all_tools: Final = [*anthropic_tools, *(other_tools or ())]
 
-    should_auto_execute: Final = LiteLLM_Proxy_MCP_Handler._should_auto_execute_tools(
-        mcp_tools_with_litellm_proxy=mcp_references
+    should_auto_execute: Final = EmbRouter_Proxy_MCP_Handler._should_auto_execute_tools(
+        mcp_tools_with_embrouter_proxy=mcp_references
     )
     stream: Final = bool(kwargs.pop("stream", False))
 
@@ -128,12 +128,12 @@ async def anthropic_messages_with_mcp(
     }
 
     if not should_auto_execute:
-        return await _AnthropicMessagesCall(fn=litellm.anthropic_messages).fn(
+        return await _AnthropicMessagesCall(fn=embrouter.anthropic_messages).fn(
             messages=list(messages), stream=stream, **base_call_args
         )
 
     working_messages: Sequence[Mapping[str, object]] = tuple(messages)
-    response: AnthropicMessagesResponse = await _AnthropicMessagesCall(fn=litellm.anthropic_messages).fn(
+    response: AnthropicMessagesResponse = await _AnthropicMessagesCall(fn=embrouter.anthropic_messages).fn(
         messages=list(working_messages), stream=False, **base_call_args
     )
 
@@ -145,7 +145,7 @@ async def anthropic_messages_with_mcp(
         if not tool_use_blocks:
             break
 
-        tool_results = await LiteLLM_Proxy_MCP_Handler._execute_tool_calls(
+        tool_results = await EmbRouter_Proxy_MCP_Handler._execute_tool_calls(
             tool_server_map=tool_server_map,
             tool_calls=list(tool_use_blocks),
             user_api_key_auth=context.user_api_key_auth,
@@ -153,8 +153,8 @@ async def anthropic_messages_with_mcp(
             mcp_server_auth_headers=context.mcp_server_auth_headers,
             oauth2_headers=context.oauth2_headers,
             raw_headers=context.raw_headers,
-            litellm_call_id=context.litellm_call_id,
-            litellm_trace_id=context.litellm_trace_id,
+            embrouter_call_id=context.embrouter_call_id,
+            embrouter_trace_id=context.embrouter_trace_id,
             request_tags=list(context.request_tags) if context.request_tags else None,
             guardrail_context=context.guardrail_context,
         )
@@ -169,7 +169,7 @@ async def anthropic_messages_with_mcp(
             {"role": "assistant", "content": list(_get_response_content(response))},
             _build_tool_result_message(tool_results),
         )
-        response = await _AnthropicMessagesCall(fn=litellm.anthropic_messages).fn(
+        response = await _AnthropicMessagesCall(fn=embrouter.anthropic_messages).fn(
             messages=list(working_messages), stream=False, **base_call_args
         )
     else:
@@ -180,7 +180,7 @@ async def anthropic_messages_with_mcp(
         )
 
     if stream:
-        from litellm.llms.anthropic.pass_through.messages.fake_stream_iterator import (
+        from embrouter.llms.anthropic.pass_through.messages.fake_stream_iterator import (
             FakeAnthropicMessagesStreamIterator,
         )
 

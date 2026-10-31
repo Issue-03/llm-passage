@@ -7,14 +7,14 @@ The handler processes the 'prompt' parameter for guardrails.
 
 from typing import TYPE_CHECKING, Any, Final
 
-from litellm._logging import verbose_proxy_logger
-from litellm.llms.base_llm.guardrail_translation.base_translation import BaseTranslation
-from litellm.types.utils import GenericGuardrailAPIInputs
+from embrouter._logging import verbose_proxy_logger
+from embrouter.llms.base_llm.guardrail_translation.base_translation import BaseTranslation
+from embrouter.types.utils import GenericGuardrailAPIInputs
 
 if TYPE_CHECKING:
-    from litellm.integrations.custom_guardrail import CustomGuardrail
-    from litellm.litellm_core_utils.litellm_logging import Logging as LiteLLMLoggingObj
-    from litellm.utils import ImageResponse
+    from embrouter.integrations.custom_guardrail import CustomGuardrail
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as EmbRouterLoggingObj
+    from embrouter.utils import ImageResponse
 
 
 class OpenAIImageGenerationHandler(BaseTranslation):
@@ -33,7 +33,7 @@ class OpenAIImageGenerationHandler(BaseTranslation):
         self,
         data: dict,
         guardrail_to_apply: "CustomGuardrail",
-        litellm_logging_obj: "LiteLLMLoggingObj | None" = None,
+        embrouter_logging_obj: "EmbRouterLoggingObj | None" = None,
     ) -> Any:
         """
         Process input prompt by applying guardrails to text content.
@@ -61,7 +61,7 @@ class OpenAIImageGenerationHandler(BaseTranslation):
                 inputs=inputs,
                 request_data=data,
                 input_type="request",
-                logging_obj=litellm_logging_obj,
+                logging_obj=embrouter_logging_obj,
             )
             guardrailed_texts: Final = guardrailed_inputs.get("texts", [])
             data["prompt"] = guardrailed_texts[0] if guardrailed_texts else prompt
@@ -83,7 +83,7 @@ class OpenAIImageGenerationHandler(BaseTranslation):
         self,
         response: "ImageResponse",
         guardrail_to_apply: "CustomGuardrail",
-        litellm_logging_obj: "LiteLLMLoggingObj | None" = None,
+        embrouter_logging_obj: "EmbRouterLoggingObj | None" = None,
         user_api_key_dict: Any | None = None,
         request_data: dict | None = None,
     ) -> Any:
@@ -97,7 +97,7 @@ class OpenAIImageGenerationHandler(BaseTranslation):
         Args:
             response: Image generation response object
             guardrail_to_apply: The guardrail instance to apply
-            litellm_logging_obj: Optional logging object (unused)
+            embrouter_logging_obj: Optional logging object (unused)
             user_api_key_dict: User API key metadata (unused)
 
         Returns:

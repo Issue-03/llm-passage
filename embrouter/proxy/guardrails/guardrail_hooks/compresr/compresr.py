@@ -29,45 +29,45 @@ import httpx
 from fastapi import HTTPException
 from httpx import Response as HttpxResponse
 
-import litellm
-from litellm._logging import verbose_proxy_logger
-from litellm.constants import PRE_CALL_EXECUTED_GUARDRAILS_KEY
-from litellm.integrations.custom_guardrail import (
+import embrouter
+from embrouter._logging import verbose_proxy_logger
+from embrouter.constants import PRE_CALL_EXECUTED_GUARDRAILS_KEY
+from embrouter.integrations.custom_guardrail import (
     CustomGuardrail,
     log_guardrail_information,
 )
-from litellm.litellm_core_utils.prompt_templates.factory import (
+from embrouter.embrouter_core_utils.prompt_templates.factory import (
     get_attribute_or_key,
     get_tool_calls_from_response,
     has_tool_with_name,
 )
-from litellm.llms.custom_httpx.http_handler import (
+from embrouter.llms.custom_httpx.http_handler import (
     get_async_httpx_client,  # pyright: ignore[reportUnknownVariableType]  # helper is untyped in http_handler
     httpxSpecialProvider,
 )
-from litellm.proxy._types import UserAPIKeyAuth
-from litellm.proxy.guardrails.guardrail_hooks.content_text import (
+from embrouter.proxy._types import UserAPIKeyAuth
+from embrouter.proxy.guardrails.guardrail_hooks.content_text import (
     assistant_text_from_response,
     content_to_text,
     is_all_text_parts,
     merge_rewritten_text_parts,
 )
-from litellm.secret_managers.main import get_secret_str
-from litellm.types.guardrails import GuardrailEventHooks, Mode
-from litellm.types.integrations.custom_logger import (
+from embrouter.secret_managers.main import get_secret_str
+from embrouter.types.guardrails import GuardrailEventHooks, Mode
+from embrouter.types.integrations.custom_logger import (
     AgenticLoopPlan,
     AgenticLoopRequestPatch,
 )
-from litellm.types.utils import GenericGuardrailAPIInputs
+from embrouter.types.utils import GenericGuardrailAPIInputs
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import (
-        Logging as LiteLLMLoggingObj,
+    from embrouter.embrouter_core_utils.embrouter_logging import (
+        Logging as EmbRouterLoggingObj,
     )
-    from litellm.llms.base_llm.anthropic_messages.transformation import (
+    from embrouter.llms.base_llm.anthropic_messages.transformation import (
         BaseAnthropicMessagesConfig,
     )
-    from litellm.types.proxy.guardrails.guardrail_hooks.base import (
+    from embrouter.types.proxy.guardrails.guardrail_hooks.base import (
         GuardrailConfigModel,
     )
 
@@ -89,7 +89,7 @@ _MAX_RETRIEVALS_PER_LOOP: Final = 8
 # The shared client's 600s read timeout is far too long for an on-request
 # guardrail; bound the compress call so a stall hits the fail policy quickly.
 _COMPRESS_TIMEOUT_SECONDS: Final = 60.0
-_SOURCE_TAG: Final = "integration:litellm"
+_SOURCE_TAG: Final = "integration:embrouter"
 # Request-content fields the compression_params passthrough must never
 # override — they carry the actual message content/queries being compressed.
 _RESERVED_COMPRESSION_PARAM_KEYS: Final = frozenset({"context", "query", "inputs"})
@@ -328,13 +328,13 @@ def _extract_compresr_tool_calls(response: object) -> list[dict[str, object]]:
 def _resolve_call_id(logging_obj: object) -> str | None:
     """The call id from the framework logging object.
 
-    This value ultimately derives from the client-settable ``x-litellm-call-id``
+    This value ultimately derives from the client-settable ``x-embrouter-call-id``
     header and is echoed back in responses, so it is NOT a trust boundary on its
     own — ``_scoped_store_key`` prefixes it with the caller's virtual-key hash to
     partition the recovery store per tenant. Request-body/kwargs call ids are
     deliberately not consulted here.
     """
-    logging_call_id: Final = getattr(logging_obj, "litellm_call_id", None)
+    logging_call_id: Final = getattr(logging_obj, "embrouter_call_id", None)
     if isinstance(logging_call_id, str) and logging_call_id:
         return logging_call_id
     return None
@@ -344,10 +344,10 @@ def _caller_scope(logging_obj: object) -> str:
     """The caller's virtual-key hash, used to partition the recovery store.
 
     Trust is anchored on the ``UserAPIKeyAuth`` object the proxy sets
-    server-side (``metadata.user_api_key_auth``, litellm_pre_call_utils). Its
+    server-side (``metadata.user_api_key_auth``, embrouter_pre_call_utils). Its
     ``api_key`` is the hash of the authenticated key. Both metadata spellings
     are scanned (``/v1/messages`` and ``/v1/responses`` carry it under
-    ``litellm_metadata``), but the bare ``user_api_key`` *string* is never
+    ``embrouter_metadata``), but the bare ``user_api_key`` *string* is never
     trusted on its own: a JSON request body can place one in the client-supplied
     ``metadata`` field, which is only sanitized on the route's canonical
     container. Returns "" when the proxy runs without per-key auth, in which case
@@ -356,11 +356,11 @@ def _caller_scope(logging_obj: object) -> str:
     details: Final = getattr(logging_obj, "model_call_details", None)
     if not _is_str_object_dict(details):
         return ""
-    litellm_params: Final = details.get("litellm_params")
-    for container in (litellm_params, details):
+    embrouter_params: Final = details.get("embrouter_params")
+    for container in (embrouter_params, details):
         if not _is_str_object_dict(container):
             continue
-        for meta_key in ("metadata", "litellm_metadata"):
+        for meta_key in ("metadata", "embrouter_metadata"):
             metadata = container.get(meta_key)
             if not _is_str_object_dict(metadata):
                 continue
@@ -374,7 +374,7 @@ def _scoped_store_key(logging_obj: object) -> str | None:
     """Key for the recovery store: caller identity plus framework call id.
 
     Keying on the call id alone is unsafe: it comes from the client-settable
-    ``x-litellm-call-id`` header and is echoed back in responses, so one caller
+    ``x-embrouter-call-id`` header and is echoed back in responses, so one caller
     could read or evict another's originals by reusing the id. Prefixing the
     unforgeable virtual-key hash binds each entry to the tenant that created it.
     Returns None when there is no call id, which disables recovery for the call.
@@ -772,7 +772,7 @@ class CompresrGuardrail(CustomGuardrail):
                 },
             )
             return None
-        except (httpx.RequestError, litellm.Timeout) as e:
+        except (httpx.RequestError, embrouter.Timeout) as e:
             # Every request-side httpx failure is a RequestError; route the whole
             # class through the fail policy so none escapes as a 500 under fail_open.
             # (HTTPStatusError is handled above and is not a RequestError.)
@@ -946,7 +946,7 @@ class CompresrGuardrail(CustomGuardrail):
         inputs: GenericGuardrailAPIInputs,
         request_data: dict,
         input_type: Literal["request", "response"],
-        logging_obj: LiteLLMLoggingObj | None = None,
+        logging_obj: EmbRouterLoggingObj | None = None,
     ) -> GenericGuardrailAPIInputs:
         if input_type != "request":
             return inputs
@@ -1075,7 +1075,7 @@ class CompresrGuardrail(CustomGuardrail):
         response: object,
         anthropic_messages_provider_config: BaseAnthropicMessagesConfig | None,
         anthropic_messages_optional_request_params: dict,
-        logging_obj: LiteLLMLoggingObj | None,
+        logging_obj: EmbRouterLoggingObj | None,
         stream: bool,
         kwargs: dict,
     ) -> AgenticLoopPlan:
@@ -1130,10 +1130,10 @@ class CompresrGuardrail(CustomGuardrail):
         re-inspect the restored originals; only this guardrail's own marker is
         kept, to avoid recompressing what it just retrieved."""
         out: Final[dict[str, object]] = {
-            k: v for k, v in kwargs.items() if not k.startswith("_compresr") and k != "litellm_logging_obj"
+            k: v for k, v in kwargs.items() if not k.startswith("_compresr") and k != "embrouter_logging_obj"
         }
         own_marker: Final = self._pre_call_marker()
-        for meta_key in ("metadata", "litellm_metadata"):
+        for meta_key in ("metadata", "embrouter_metadata"):
             meta = out.get(meta_key)
             if not isinstance(meta, dict):
                 continue
@@ -1150,7 +1150,7 @@ class CompresrGuardrail(CustomGuardrail):
 
     @staticmethod
     def get_config_model() -> type[GuardrailConfigModel[object]] | None:
-        from litellm.types.proxy.guardrails.guardrail_hooks.compresr import (
+        from embrouter.types.proxy.guardrails.guardrail_hooks.compresr import (
             CompresrGuardrailConfigModel,
         )
 

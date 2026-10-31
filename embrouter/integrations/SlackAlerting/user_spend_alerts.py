@@ -6,11 +6,11 @@ from typing import TYPE_CHECKING, Final, Literal
 
 from pydantic import TypeAdapter
 
-from litellm.constants import HOURS_IN_A_DAY
-from litellm.types.integrations.slack_alerting import AlertType, SlackAlertingArgs
+from embrouter.constants import HOURS_IN_A_DAY
+from embrouter.types.integrations.slack_alerting import AlertType, SlackAlertingArgs
 
 if TYPE_CHECKING:
-    from litellm.proxy.utils import PrismaClient
+    from embrouter.proxy.utils import PrismaClient
 
 DAY_SECONDS: Final = HOURS_IN_A_DAY * 60 * 60
 MONTHLY_ALERT_TTL_SECONDS: Final = 32 * DAY_SECONDS
@@ -21,7 +21,7 @@ SELECT
     COALESCE(SUM(spend) FILTER (WHERE date = $1), 0)::float AS daily_spend,
     COALESCE(SUM(spend) FILTER (WHERE date >= $2), 0)::float AS monthly_spend,
     COALESCE(SUM(spend) FILTER (WHERE date >= $3 AND date < $1), 0)::float AS baseline_spend
-FROM "LiteLLM_DailyUserSpend"
+FROM "EmbRouter_DailyUserSpend"
 WHERE date >= LEAST($2, $3) AND user_id IS NOT NULL
 GROUP BY user_id
 HAVING COALESCE(SUM(spend) FILTER (WHERE date >= $2), 0) > 0

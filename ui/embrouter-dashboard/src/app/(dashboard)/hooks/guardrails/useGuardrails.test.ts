@@ -275,9 +275,9 @@ describe("useGuardrails", () => {
   it("should partition guardrails into global and optional sets based on default_on", async () => {
     const mockMixedResponse = {
       guardrails: [
-        { guardrail_name: "global-guard-a", litellm_params: { default_on: true } },
-        { guardrail_name: "global-guard-b", litellm_params: { default_on: true } },
-        { guardrail_name: "optional-guard-a", litellm_params: { default_on: false } },
+        { guardrail_name: "global-guard-a", embrouter_params: { default_on: true } },
+        { guardrail_name: "global-guard-b", embrouter_params: { default_on: true } },
+        { guardrail_name: "optional-guard-a", embrouter_params: { default_on: false } },
         { guardrail_name: "optional-guard-b" },
       ],
     };

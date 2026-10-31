@@ -1,6 +1,6 @@
 """Naming contract for strategy-router (auto-router) pseudo-models.
 
-A deployment whose ``litellm_params.model`` starts with ``auto_router/`` does not
+A deployment whose ``embrouter_params.model`` starts with ``auto_router/`` does not
 name a provider model; the string is the discriminator that selects which
 pre-routing strategy owns the deployment. This module is the single source of
 truth for classifying that string (``Router._is_*_router_deployment`` delegates
@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Final, Literal, TypeAlias
 
-from litellm.router_strategy.complexity_router.config import (
+from embrouter.router_strategy.complexity_router.config import (
     COMPLEXITY_ROUTER_CONFIG_KEYS,
     DEFAULT_JEV_INSTRUCTIONS,
     LLM_CLASSIFIER_TYPES,
@@ -66,7 +66,7 @@ _REQUIRED_FIELD_GROUPS: Final[Mapping[StrategyRouterKind, tuple[tuple[str, ...],
 
 
 def classify_strategy_router_model(model: str) -> StrategyRouterKind | None:
-    """Classify a ``litellm_params.model`` string the way the Router does.
+    """Classify a ``embrouter_params.model`` string the way the Router does.
 
     Returns None for regular provider models. Mirrors Router registration
     exactly: reserved names are matched by prefix, everything else under
@@ -111,7 +111,7 @@ def _mapping(value: object) -> Mapping[str, object]:
 
 
 def strategy_router_dependencies(
-    litellm_params: Mapping[str, object],
+    embrouter_params: Mapping[str, object],
 ) -> tuple[StrategyRouterDependency, ...]:
     """The model names a strategy-router deployment must reach, in no particular order.
 
@@ -122,7 +122,7 @@ def strategy_router_dependencies(
     The two default-model spellings are not symmetric. A quality router falls back to its
     config's `default_model`, so both are read. A complexity router ignores that field and
     derives its default from the tiers instead (`fallback_tier`, then MEDIUM, then SIMPLE),
-    overwriting the config value at init, so only the `litellm_params` spelling is a
+    overwriting the config value at init, so only the `embrouter_params` spelling is a
     dependency here; the derived one is already covered as a tier.
 
     Returns empty for a regular deployment, and for any name this module cannot reach from
@@ -131,32 +131,32 @@ def strategy_router_dependencies(
     models are enumerable here. Every field is read defensively, since a caller may hold a
     config the router itself would refuse, and a health check must not raise on one.
     """
-    kind: Final = classify_strategy_router_model(str(litellm_params.get("model", "")))
+    kind: Final = classify_strategy_router_model(str(embrouter_params.get("model", "")))
     if kind is None:
         return ()
     if kind == "semantic":
-        return _named(litellm_params.get("auto_router_default_model"), "default") + _named(
-            litellm_params.get("auto_router_embedding_model"), "embedding"
+        return _named(embrouter_params.get("auto_router_default_model"), "default") + _named(
+            embrouter_params.get("auto_router_embedding_model"), "embedding"
         )
     if kind == "adaptive":
-        return _pool(_mapping(litellm_params.get("adaptive_router_config")).get("available_models"), "tier")
+        return _pool(_mapping(embrouter_params.get("adaptive_router_config")).get("available_models"), "tier")
     if kind == "quality":
-        quality: Final = _mapping(litellm_params.get("quality_router_config"))
+        quality: Final = _mapping(embrouter_params.get("quality_router_config"))
         return tuple(
             dict.fromkeys(
                 _pool(quality.get("available_models"), "tier")
                 + _named(
-                    litellm_params.get("quality_router_default_model") or quality.get("default_model"),
+                    embrouter_params.get("quality_router_default_model") or quality.get("default_model"),
                     "default",
                 )
             )
         )
-    complexity: Final = _mapping(litellm_params.get("complexity_router_config"))
+    complexity: Final = _mapping(embrouter_params.get("complexity_router_config"))
     classifier: Final = _mapping(complexity.get("classifier_llm_config"))
     return tuple(
         dict.fromkeys(
             tuple(dep for tier in _mapping(complexity.get("tiers")).values() for dep in _pool(tier, "tier"))
-            + _named(litellm_params.get("complexity_router_default_model"), "default")
+            + _named(embrouter_params.get("complexity_router_default_model"), "default")
             + _named(_mapping(complexity.get("context_compaction")).get("model"), "compactor")
             + (
                 _named(classifier.get("model"), "classifier")
@@ -230,7 +230,7 @@ class GatedAutoRouterCapability:
     """A complexity-router capability the license meters, in every spelling an enforcement point needs.
 
     ``uses`` and ``sql_config_predicate`` answer the same question, in process and in a DB count over
-    stored ``litellm_params`` (``{config}`` is the caller's expression for the normalized
+    stored ``embrouter_params`` (``{config}`` is the caller's expression for the normalized
     ``complexity_router_config`` jsonb, substituted as many times as the predicate needs); they live
     on one record so they cannot drift apart. ``subject`` and ``remedy`` build the shared refusal
     message. A validated config claims at most one capability: gated classifier types cannot be
@@ -308,12 +308,12 @@ def claimed_capability(complexity_router_config: object) -> GatedAutoRouterCapab
     )
 
 
-def gated_capability_of(litellm_params: Mapping[str, object]) -> GatedAutoRouterCapability | None:
+def gated_capability_of(embrouter_params: Mapping[str, object]) -> GatedAutoRouterCapability | None:
     """The licensed capability this deployment claims, or None unless it is a complexity router."""
-    model: Final = litellm_params.get("model")
+    model: Final = embrouter_params.get("model")
     if not is_complexity_router_model(model if isinstance(model, str) else None):
         return None
-    return claimed_capability(litellm_params.get("complexity_router_config"))
+    return claimed_capability(embrouter_params.get("complexity_router_config"))
 
 
 def count_capability_routers(
@@ -321,7 +321,7 @@ def count_capability_routers(
 ) -> int:
     """How many of ``deployments`` (router model_list entries or config.yaml rows) claim ``capability``."""
     return sum(
-        1 for deployment in deployments if gated_capability_of(_mapping(deployment.get("litellm_params"))) is capability
+        1 for deployment in deployments if gated_capability_of(_mapping(deployment.get("embrouter_params"))) is capability
     )
 
 
@@ -352,7 +352,7 @@ def validate_complexity_router_config_write(complexity_router_config: Mapping[st
     """
     from pydantic import ValidationError
 
-    from litellm.router_strategy.complexity_router.config import ComplexityRouterConfig
+    from embrouter.router_strategy.complexity_router.config import ComplexityRouterConfig
 
     if complexity_router_config is None:
         return None
@@ -385,22 +385,22 @@ def carries_complexity_router_settings(model: str | None, present_fields: frozen
     return is_complexity_router_model(model) or bool(present_fields & _COMPLEXITY_ROUTER_FIELDS)
 
 
-def validate_complexity_router_config_placement(litellm_params: Mapping[str, object] | None) -> str | None:
+def validate_complexity_router_config_placement(embrouter_params: Mapping[str, object] | None) -> str | None:
     """Reject a complexity-router setting written beside ``complexity_router_config``.
 
-    The router reads its settings only from ``litellm_params.complexity_router_config``, so a
+    The router reads its settings only from ``embrouter_params.complexity_router_config``, so a
     key one level too high configures nothing. It does not stay inert: the alias-marker
-    forwarding carries every unrecognized ``litellm_params`` key onto the outbound request,
+    forwarding carries every unrecognized ``embrouter_params`` key onto the outbound request,
     where the provider rejects it as an unknown body field, and the deployment then fails
     every call with an error naming an internal config key. Caller scopes; this judges.
     """
-    if litellm_params is None:
+    if embrouter_params is None:
         return None
-    misplaced: Final = tuple(sorted(frozenset(litellm_params) & COMPLEXITY_ROUTER_CONFIG_KEYS))
+    misplaced: Final = tuple(sorted(frozenset(embrouter_params) & COMPLEXITY_ROUTER_CONFIG_KEYS))
     if not misplaced:
         return None
     return (
-        f"litellm_params sets complexity_router_config settings directly: {', '.join(misplaced)}. "
+        f"embrouter_params sets complexity_router_config settings directly: {', '.join(misplaced)}. "
         "The router reads these only from complexity_router_config, so there they configure nothing "
         "and are forwarded to the provider as unknown request params, which rejects the call. "
         "Move them under complexity_router_config."
@@ -421,7 +421,7 @@ def validate_strategy_router_model_write(model: str, present_fields: frozenset[s
         offending: Final = sorted(present_fields & STRATEGY_ROUTER_PARAM_FIELDS)
         if offending:
             return (
-                f"litellm_params.model='{model}' does not start with '{AUTO_ROUTER_MODEL_PREFIX}' but the "
+                f"embrouter_params.model='{model}' does not start with '{AUTO_ROUTER_MODEL_PREFIX}' but the "
                 f"deployment carries auto-router settings ({', '.join(offending)}), so the router could not "
                 f"load it. Keep the '{AUTO_ROUTER_MODEL_PREFIX}' prefix; to change the name clients call, "
                 "edit the public model_name instead."
@@ -430,20 +430,20 @@ def validate_strategy_router_model_write(model: str, present_fields: frozenset[s
     remainder: Final = model[len(AUTO_ROUTER_MODEL_PREFIX) :]
     if remainder.startswith(AUTO_ROUTER_MODEL_PREFIX):
         return (
-            f"litellm_params.model='{model}' repeats the '{AUTO_ROUTER_MODEL_PREFIX}' prefix, so the router "
+            f"embrouter_params.model='{model}' repeats the '{AUTO_ROUTER_MODEL_PREFIX}' prefix, so the router "
             f"could not load it. Use '{remainder}'; to change the name clients call, edit the public "
             "model_name instead."
         )
     if not remainder:
         return (
-            f"litellm_params.model='{model}' is missing the router name after the '{AUTO_ROUTER_MODEL_PREFIX}' prefix."
+            f"embrouter_params.model='{model}' is missing the router name after the '{AUTO_ROUTER_MODEL_PREFIX}' prefix."
         )
     missing: Final = tuple(
         " or ".join(group) for group in _REQUIRED_FIELD_GROUPS[kind] if not any(f in present_fields for f in group)
     )
     if missing:
         return (
-            f"litellm_params.model='{model}' selects the {kind} router, which requires "
-            f"{'; '.join(missing)} in litellm_params."
+            f"embrouter_params.model='{model}' selects the {kind} router, which requires "
+            f"{'; '.join(missing)} in embrouter_params."
         )
     return None

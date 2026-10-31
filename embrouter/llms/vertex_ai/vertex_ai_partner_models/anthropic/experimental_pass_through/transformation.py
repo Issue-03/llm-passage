@@ -1,17 +1,17 @@
 from typing import Any, Final
 
-from litellm.llms.anthropic.common_utils import AnthropicModelInfo
-from litellm.llms.anthropic.pass_through.messages.transformation import (
+from embrouter.llms.anthropic.common_utils import AnthropicModelInfo
+from embrouter.llms.anthropic.pass_through.messages.transformation import (
     AnthropicMessagesConfig,
     _messages_carry_output_config,
 )
-from litellm.types.llms.anthropic import (
+from embrouter.types.llms.anthropic import (
     ANTHROPIC_BETA_HEADER_VALUES,
     ANTHROPIC_HOSTED_TOOLS,
 )
-from litellm.types.llms.anthropic_tool_search import get_tool_search_beta_header
-from litellm.types.llms.vertex_ai import VertexPartnerProvider
-from litellm.types.router import GenericLiteLLMParams
+from embrouter.types.llms.anthropic_tool_search import get_tool_search_beta_header
+from embrouter.types.llms.vertex_ai import VertexPartnerProvider
+from embrouter.types.router import GenericEmbRouterParams
 
 from ....vertex_llm_base import VertexBase
 from ..output_params_utils import sanitize_vertex_anthropic_output_params
@@ -31,7 +31,7 @@ class VertexAIPartnerModelsAnthropicMessagesConfig(AnthropicMessagesConfig, Vert
         model: str,
         messages: list[Any],
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         api_key: str | None = None,
         api_base: str | None = None,
     ) -> tuple[dict, str | None]:
@@ -40,13 +40,13 @@ class VertexAIPartnerModelsAnthropicMessagesConfig(AnthropicMessagesConfig, Vert
 
         Validate the environment for the request
         """
-        # Work on a local copy — router shallow-copies litellm_params so the caller's
+        # Work on a local copy — router shallow-copies embrouter_params so the caller's
         # headers dict may be the shared deployment extra_headers object.
         headers = dict(headers)
-        vertex_ai_project: Final = VertexBase.safe_get_vertex_ai_project(litellm_params)
-        vertex_ai_location: Final = VertexBase.safe_get_vertex_ai_location(litellm_params)
+        vertex_ai_project: Final = VertexBase.safe_get_vertex_ai_project(embrouter_params)
+        vertex_ai_location: Final = VertexBase.safe_get_vertex_ai_location(embrouter_params)
 
-        vertex_credentials: Final = VertexBase.safe_get_vertex_ai_credentials(litellm_params)
+        vertex_credentials: Final = VertexBase.safe_get_vertex_ai_credentials(embrouter_params)
         access_token, project_id = self._ensure_access_token(
             credentials=vertex_credentials,
             project_id=vertex_ai_project,
@@ -126,7 +126,7 @@ class VertexAIPartnerModelsAnthropicMessagesConfig(AnthropicMessagesConfig, Vert
         api_key: str | None,
         model: str,
         optional_params: dict,
-        litellm_params: dict,
+        embrouter_params: dict,
         stream: bool | None = None,
     ) -> str:
         if api_base is None:
@@ -138,14 +138,14 @@ class VertexAIPartnerModelsAnthropicMessagesConfig(AnthropicMessagesConfig, Vert
         model: str,
         messages: list[dict],
         anthropic_messages_optional_request_params: dict,
-        litellm_params: GenericLiteLLMParams,
+        embrouter_params: GenericEmbRouterParams,
         headers: dict,
     ) -> dict:
         anthropic_messages_request: Final = super().transform_anthropic_messages_request(
             model=model,
             messages=messages,
             anthropic_messages_optional_request_params=anthropic_messages_optional_request_params,
-            litellm_params=litellm_params,
+            embrouter_params=embrouter_params,
             headers=headers,
         )
 

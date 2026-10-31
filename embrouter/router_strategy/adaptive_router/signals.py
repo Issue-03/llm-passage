@@ -17,7 +17,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Final
 
-from litellm.router_strategy.adaptive_router.config import (
+from embrouter.router_strategy.adaptive_router.config import (
     LOOP_REPEAT_THRESHOLD,
     MIN_TURNS_FOR_CLEAN_CREDIT,
     MISALIGNMENT_JACCARD_THRESHOLD,
@@ -58,7 +58,7 @@ class SignalDelta:
 class SessionState:
     """In-memory rolling state for one session.
 
-    Mirrors the LiteLLM_AdaptiveRouterSession DB row (Wave 0 schema). The flusher
+    Mirrors the EmbRouter_AdaptiveRouterSession DB row (Wave 0 schema). The flusher
     later persists this. We keep this as a plain dataclass — no DB coupling.
     """
 

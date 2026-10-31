@@ -4,8 +4,8 @@ from typing import TYPE_CHECKING, Any
 
 import httpx
 
-from litellm.types.router import GenericLiteLLMParams
-from litellm.types.vector_store_files import (
+from embrouter.types.router import GenericEmbRouterParams
+from embrouter.types.vector_store_files import (
     VectorStoreFileAuthCredentials,
     VectorStoreFileChunkingStrategy,
     VectorStoreFileContentResponse,
@@ -18,14 +18,14 @@ from litellm.types.vector_store_files import (
 )
 
 if TYPE_CHECKING:
-    from litellm.litellm_core_utils.litellm_logging import Logging as _LiteLLMLoggingObj
+    from embrouter.embrouter_core_utils.embrouter_logging import Logging as _EmbRouterLoggingObj
 
     from ..chat.transformation import BaseLLMException as _BaseLLMException
 
-    LiteLLMLoggingObj = _LiteLLMLoggingObj
+    EmbRouterLoggingObj = _EmbRouterLoggingObj
     BaseLLMException = _BaseLLMException
 else:
-    LiteLLMLoggingObj = Any
+    EmbRouterLoggingObj = Any
     BaseLLMException = Any
 
 
@@ -53,7 +53,7 @@ class BaseVectorStoreFilesConfig(ABC):
         return optional_params
 
     @abstractmethod
-    def get_auth_credentials(self, litellm_params: dict[str, Any]) -> VectorStoreFileAuthCredentials: ...
+    def get_auth_credentials(self, embrouter_params: dict[str, Any]) -> VectorStoreFileAuthCredentials: ...
 
     @abstractmethod
     def get_vector_store_file_endpoints_by_type(
@@ -65,7 +65,7 @@ class BaseVectorStoreFilesConfig(ABC):
         self,
         *,
         headers: dict[str, str],
-        litellm_params: GenericLiteLLMParams | None,
+        embrouter_params: GenericEmbRouterParams | None,
     ) -> dict[str, str]:
         return {}
 
@@ -75,7 +75,7 @@ class BaseVectorStoreFilesConfig(ABC):
         *,
         api_base: str | None,
         vector_store_id: str,
-        litellm_params: dict[str, Any],
+        embrouter_params: dict[str, Any],
     ) -> str:
         if api_base is None:
             raise ValueError("api_base is required")

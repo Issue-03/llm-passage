@@ -1,8 +1,8 @@
-"""Cisco AI Defense Guardrail Integration for LiteLLM."""
+"""Cisco AI Defense Guardrail Integration for EmbRouter."""
 
 from typing import TYPE_CHECKING, Final
 
-from litellm.types.guardrails import SupportedGuardrailIntegrations
+from embrouter.types.guardrails import SupportedGuardrailIntegrations
 
 from .cisco_ai_defense import (
     CiscoAIDefenseGuardrail,
@@ -11,44 +11,44 @@ from .cisco_ai_defense import (
 )
 
 if TYPE_CHECKING:
-    from litellm.types.guardrails import Guardrail, LitellmParams
+    from embrouter.types.guardrails import Guardrail, EmbrouterParams
 
 
-def initialize_guardrail(litellm_params: "LitellmParams", guardrail: "Guardrail"):
-    import litellm
+def initialize_guardrail(embrouter_params: "EmbrouterParams", guardrail: "Guardrail"):
+    import embrouter
 
     guardrail_name: Final = guardrail.get("guardrail_name")
     if not guardrail_name:
         raise ValueError("Cisco AI Defense: guardrail_name is required")
 
-    optional_params: Final = getattr(litellm_params, "optional_params", None)
+    optional_params: Final = getattr(embrouter_params, "optional_params", None)
 
     _callback: Final = CiscoAIDefenseGuardrail(
         guardrail_name=guardrail_name,
-        api_key=litellm_params.api_key,
-        api_base=litellm_params.api_base,
-        inspection_type=_get_optional_value(litellm_params, optional_params, "inspection_type"),
-        inspect_path=_get_optional_value(litellm_params, optional_params, "inspect_path"),
-        enabled_rules=_get_optional_value(litellm_params, optional_params, "enabled_rules"),
-        integration_profile_id=_get_optional_value(litellm_params, optional_params, "integration_profile_id"),
-        integration_profile_version=_get_optional_value(litellm_params, optional_params, "integration_profile_version"),
-        integration_tenant_id=_get_optional_value(litellm_params, optional_params, "integration_tenant_id"),
-        integration_type=_get_optional_value(litellm_params, optional_params, "integration_type"),
-        on_flagged_action=_get_optional_value(litellm_params, optional_params, "on_flagged_action"),
-        fallback_on_error=_get_optional_value(litellm_params, optional_params, "fallback_on_error"),
-        timeout=_get_optional_value(litellm_params, optional_params, "timeout"),
-        event_hook=litellm_params.mode,
-        default_on=litellm_params.default_on or False,
+        api_key=embrouter_params.api_key,
+        api_base=embrouter_params.api_base,
+        inspection_type=_get_optional_value(embrouter_params, optional_params, "inspection_type"),
+        inspect_path=_get_optional_value(embrouter_params, optional_params, "inspect_path"),
+        enabled_rules=_get_optional_value(embrouter_params, optional_params, "enabled_rules"),
+        integration_profile_id=_get_optional_value(embrouter_params, optional_params, "integration_profile_id"),
+        integration_profile_version=_get_optional_value(embrouter_params, optional_params, "integration_profile_version"),
+        integration_tenant_id=_get_optional_value(embrouter_params, optional_params, "integration_tenant_id"),
+        integration_type=_get_optional_value(embrouter_params, optional_params, "integration_type"),
+        on_flagged_action=_get_optional_value(embrouter_params, optional_params, "on_flagged_action"),
+        fallback_on_error=_get_optional_value(embrouter_params, optional_params, "fallback_on_error"),
+        timeout=_get_optional_value(embrouter_params, optional_params, "timeout"),
+        event_hook=embrouter_params.mode,
+        default_on=embrouter_params.default_on or False,
     )
-    litellm.logging_callback_manager.add_litellm_callback(_callback)
+    embrouter.logging_callback_manager.add_embrouter_callback(_callback)
 
     # MCP post-tool-call hooks are dispatched through success callbacks.
-    litellm.logging_callback_manager.add_litellm_success_callback(_callback)
+    embrouter.logging_callback_manager.add_embrouter_success_callback(_callback)
 
     return _callback
 
 
-def _get_optional_value(litellm_params, optional_params, attribute_name):
+def _get_optional_value(embrouter_params, optional_params, attribute_name):
     """Resolve Cisco optional params without inheriting sibling defaults."""
     if optional_params is not None:
         if isinstance(optional_params, dict):
@@ -61,13 +61,13 @@ def _get_optional_value(litellm_params, optional_params, attribute_name):
                 if value is not None:
                     return value
 
-    if litellm_params is None:
+    if embrouter_params is None:
         return None
     # Only accept flattened values the caller explicitly set.
-    fields_set: Final = getattr(litellm_params, "model_fields_set", None)
+    fields_set: Final = getattr(embrouter_params, "model_fields_set", None)
     if fields_set is None or attribute_name not in fields_set:
         return None
-    return getattr(litellm_params, attribute_name, None)
+    return getattr(embrouter_params, attribute_name, None)
 
 
 guardrail_initializer_registry: Final = {
